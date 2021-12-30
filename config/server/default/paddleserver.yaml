@@ -1,0 +1,73 @@
+database:
+  driver: sqlite
+  host: 127.0.0.1
+  port: 3306
+  user: root
+  password: $2a$10$1qdSQN5wMl3FtXoxw7mKpuxBqIuP0eYXTBM9CBn5H4KubM/g5Hrb6%
+  database: paddleflow
+
+log:
+  dir: ./
+  filePrefix: log
+  level: INFO
+  maxKeepDays: 7
+  maxFileNum: 7
+  maxFileSizeInMB: 100
+  isCompress: true
+
+apiServer:
+  host: 0.0.0.0
+  port: 8083
+  printVersionAndExit: false
+  tokenExpirationHour: -1
+
+fs:
+  defaultPVPath: "./config/fs/default_pv.yaml"
+  defaultPVCPath: "./config/fs/default_pvc.yaml"
+  k8sServiceName: "paddleflow-server"
+  K8sServicePort: 8083
+
+namespaceList:
+  - "default"
+
+job:
+  reclaim:
+    isCleanJob: true
+    isSkipCleanFailedJob: false
+    jobTTLSeconds: 600
+  schedulerName: volcano
+  scalarResourceArray:
+    - "nvidia.com/gpu"
+    - "baidu.com/v100_cgpu"
+    - "baidu.com/v100_cgpu_core"
+    - "baidu.com/v100_cgpu_memory"
+  defaultJobYamlDir: "./config/server/default/job"
+
+kubeConfig:
+  configPath: ~/.kube/config
+  clientQps: 1000
+  clientBurst: 1000
+  clientTimeout: 0
+
+pipeline: pipeline
+
+imageRepository:
+  server: ""
+  namespace: "" 
+  username: ""
+  password: ""
+  concurrency: 10
+  removeLocalImage: true
+
+flavour:
+  - name: flavour1
+    cpu: 1
+    mem: 1Gi
+  - name: flavour2
+    cpu: 1
+    mem: 8Gi
+  - name: flavour3
+    cpu: 1
+    mem: 8Gi
+    scalarResources:
+      "nvidia.com/gpu": "1"

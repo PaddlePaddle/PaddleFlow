@@ -1,0 +1,27 @@
+apiVersion: sparkoperator.k8s.io/v1beta2
+kind: SparkApplication
+metadata:
+  name: sparkName
+  namespace: default
+spec:
+  driver:
+    serviceAccount: spark
+  executor:
+  image: iregistry.baidu-int.com/bmlc/image-packges/spark:pyml-2.8.0
+  imagePullPolicy: IfNotPresent
+  mainApplicationFile: local:///opt/spark/examples/jars/spark-examples_2.11-2.4.0.jar
+  mainClass: org.apache.spark.examples.SparkPi
+  mode: cluster
+  restartPolicy:
+    onSubmissionFailureRetries: 3
+    onSubmissionFailureRetryInterval: 5
+    type: Never
+  sparkConf:
+    spark.driver.extraJavaOptions: -Dsun.zip.disableMemoryMapping=true
+    spark.executor.extraJavaOptions: -Dsun.zip.disableMemoryMapping=true
+    spark.hadoop.mapreduce.fileoutputcommitter.algorithm.version: "2"
+  sparkVersion: 3.0.0
+  type: Scala
+  batchSchedulerOptions:
+    queue: default
+    priorityClass: normal

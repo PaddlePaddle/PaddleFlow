@@ -1,0 +1,13 @@
+kind: PersistentVolumeClaim
+metadata:
+  name: pfs-$(pfs.fs.id)-pvc
+  namespace: $(namespace)
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 400Gi
+  storageClassName: paddleflowstorage
+  volumeMode: Filesystem
+  volumeName: pfs-$(pfs.fs.id)-$(namespace)-pv

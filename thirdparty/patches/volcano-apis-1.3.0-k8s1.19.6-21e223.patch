@@ -1,0 +1,1318 @@
+diff --git a/pkg/apis/scheduling/types_equota.go b/pkg/apis/scheduling/types_equota.go
+new file mode 100644
+index 0000000..2536f21
+--- /dev/null
++++ b/pkg/apis/scheduling/types_equota.go
+@@ -0,0 +1,69 @@
++/**
++ * Copyright (c) 2021 Baidu.com, Inc. All Rights Reserved
++ * Author: dongzezhao@baidu.com
++ * File: types_equota.go
++ * Date: 2021/11/24 14:28
++ **/
++
++package scheduling
++
++import (
++	v1 "k8s.io/api/core/v1"
++	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
++)
++
++// +genclient
++// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
++
++// Elastic Resource Quota
++type ElasticResourceQuota struct {
++	metav1.TypeMeta `json:",inline"`
++	// +optional
++	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
++	// Specification of the desired behavior of the ElasticResourceQuota.
++	// More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#spec-and-status
++	// +optional
++	Spec ElasticResourceQuotaSpec `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
++	// The status of ElasticResourceQuota.
++	// +optional
++	Status ElasticResourceQuotaStatus `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
++}
++
++// ElasticResourceQuotaSpec represents the template of Elastic Resource Quota.
++type ElasticResourceQuotaSpec struct {
++	// Max is the upper bound of elastic resource quota
++	Max v1.ResourceList `json:"max,omitempty" protobuf:"bytes,1,opt,name=max"`
++	// Min is the lower bound of elastic resource quota
++	Min v1.ResourceList `json:"min,omitempty" protobuf:"bytes,2,opt,name=min"`
++	// Reclaimable indicate whether the elastic quota can be reclaimed by other elastic resource quota
++	Reclaimable bool `json:"reclaimable,omitempty" protobuf:"bytes,3,opt,name=reclaimable"`
++	// HardwareTypes defines hardware types of elastic resource quota
++	HardwareTypes []string `json:"hardwareTypes,omitempty" protobuf:"bytes,4,opt,name=hardwareTypes"`
++	// namespace defines elastic resource quota belongs to one namespace
++	Namespace string `json:"namespace,omitempty" protobuf:"bytes,5,opt,name=namespace"`
++}
++
++// ElasticResourceQuotaStatus represents the status of Elastic Resource Quota.
++type ElasticResourceQuotaStatus struct {
++	// IsLeaf defines whether elastic resource quota is leaf or not
++	IsLeaf bool `json:"isLeaf,omitempty" protobuf:"bytes,1,opt,name=isLeaf"`
++	// Used resource of elastic resource quota
++	Used v1.ResourceList `json:"used,omitempty" protobuf:"bytes,2,opt,name=used"`
++	// QueueName indicate bound queue
++	QueueName string `json:"queueName,omitempty" protobuf:"bytes,3,opt,name=queueName"`
++}
++
++// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
++// +kubebuilder:object:root=true
++
++// ElasticResourceQuotaList is a collection of ElasticResourceQuota.
++type ElasticResourceQuotaList struct {
++	metav1.TypeMeta `json:",inline"`
++	// Standard list metadata
++	// More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata
++	// +optional
++	metav1.ListMeta `json:"metadata,omitempty"`
++
++	// items is the list of PodGroup
++	Items []ElasticResourceQuota `json:"items"`
++}
+\ No newline at end of file
+diff --git a/pkg/apis/scheduling/v1beta1/labels_elastic_quota.go b/pkg/apis/scheduling/v1beta1/labels_elastic_quota.go
+new file mode 100644
+index 0000000..bcb53b2
+--- /dev/null
++++ b/pkg/apis/scheduling/v1beta1/labels_elastic_quota.go
+@@ -0,0 +1,91 @@
++/**
++ * Copyright (c) 2021 Baidu.com, Inc. All Rights Reserved
++ * Author: dongzezhao@baidu.com
++ * File: labels_elastic_quota.go
++ * Date: 2021/12/2 15:20
++ **/
++
++package v1beta1
++
++import (
++	"os"
++	"strings"
++
++	"k8s.io/klog"
++)
++
++// QuotaTypeKey identify the type of quota in labels
++// which can be 'logical' or 'physical'.
++// soft means share the same nodes set with other quotas
++// hard specified a node set
++const QuotaTypeKey = "paddleflow.baidu.com/resource-isolation-type"
++const QuotaTypePhysical = "physical"
++const QuotaTypeLogical = "logical"
++
++// QueueBindingElasticQuotaKey is a label key, which identify the name of elasticResourceQuota which binding current queue
++const QueueBindingElasticQuotaKey = "paddleflow.baidu.com/binding-elastic-resource-quota-name"
++
++// ElasticQuotaParentKey is a label key, which indicate the parent Name for current elasticResourceQuota
++const ElasticQuotaParentKey = "paddleflow.baidu.com/elastic-resource-quota-parent"
++
++var (
++	// GlobalNodeManageEnabled
++	GlobalNodeManageEnabled = true
++	// QuotaManagedNodeKey indicate label of node, which is managed by quota
++	QuotaManagedNodeKey string = "paddleflow.baidu.com/cluster-role"
++	// QuotaLabelKey indicate node label key of quota
++	QuotaLabelKey string = "paddleflow.baidu.com/quota"
++	// QuotaHardwareTypeLabelKey label key of hardware type
++	QuotaHardwareTypeLabelKey string = "paddleflow.baidu.com/hardware-type"
++	// NodeScaleDown idle node state, which is one of type in labels[ResourceQuotaLabel]
++	NodeScaleDown = "scale-down"
++	// DefaultResourceQuota the name of default resourcequota
++	DefaultResourceQuota = "default"
++	// DefaultNamespace the key of default resourcequota in default namespace
++	DefaultNamespace = "default"
++	// resourceFieldFilter
++	ResourceFieldFilter = map[string]bool{"hugepages-1Gi": true, "hugepages-2Mi": true, "ephemeral-storage": true, "pods": true}
++)
++
++const (
++	GlobalNodeManageEnabledEnv           = "GLOBAL_NODE_MANAGE_ENABLE"
++	ResourceQuotaNodeManageLabelKeyEnv   = "RESOURCE_QUOTA_NODE_MANAGE_LABEL_KEY"
++	ResourceQuotaLabelKeyEnv             = "RESOURCE_QUOTA_LABEL_KEY"
++	ResourceQuotaHardwareTypeLabelKeyEnv = "RESOURCE_QUOTA_HARDWARE_TYPE_LABEL_KEY"
++	ResourceFieldFilterEnv               = "RESOURCE_FIELD_FILTER"
++)
++
++func ResourceQuotaConfigInit() {
++	value := os.Getenv(GlobalNodeManageEnabledEnv)
++	if value == "false" {
++		GlobalNodeManageEnabled = false
++	}
++	rpnm := os.Getenv(ResourceQuotaNodeManageLabelKeyEnv)
++	if len(rpnm) != 0 {
++		QuotaManagedNodeKey = rpnm
++	}
++	rpLabelKey := os.Getenv(ResourceQuotaLabelKeyEnv)
++	if len(rpLabelKey) != 0 {
++		QuotaLabelKey = rpLabelKey
++	}
++	hardwareTypeLabelKey := os.Getenv(ResourceQuotaHardwareTypeLabelKeyEnv)
++	if len(hardwareTypeLabelKey) != 0 {
++		QuotaHardwareTypeLabelKey = hardwareTypeLabelKey
++	}
++	resourceFieldFilter := os.Getenv(ResourceFieldFilterEnv)
++	if len(resourceFieldFilter) != 0 {
++		fieldFilterList := strings.Split(resourceFieldFilter, ",")
++		ResourceFieldFilter = map[string]bool{}
++		for _, fieldFilter := range fieldFilterList {
++			ResourceFieldFilter[fieldFilter] = true
++		}
++	}
++
++	// It is recommended to code according to the line-format when printing new variables
++	klog.Infof("resourcequota config: GlobalNodeManageEnabled[%v], QuotaManagedNodeKey[%v], "+
++		"QuotaLabelKey[%v], QuotaHardwareTypeLabelKey[%v], NodeScaleDown[%v], DefaultResourceQuota[%v], "+
++		"ResourceFieldFilter[%v]",
++		GlobalNodeManageEnabled, QuotaManagedNodeKey,
++		QuotaLabelKey, QuotaHardwareTypeLabelKey, NodeScaleDown, DefaultResourceQuota,
++		ResourceFieldFilter)
++}
+diff --git a/pkg/apis/scheduling/v1beta1/register.go b/pkg/apis/scheduling/v1beta1/register.go
+index 43b6a43..eccd7df 100644
+--- a/pkg/apis/scheduling/v1beta1/register.go
++++ b/pkg/apis/scheduling/v1beta1/register.go
+@@ -51,6 +51,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
+ 		&PodGroupList{},
+ 		&Queue{},
+ 		&QueueList{},
++		&ElasticResourceQuota{},
++		&ElasticResourceQuotaList{},
+ 	)
+ 
+ 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
+diff --git a/pkg/apis/scheduling/v1beta1/types_equota.go b/pkg/apis/scheduling/v1beta1/types_equota.go
+new file mode 100644
+index 0000000..12829e6
+--- /dev/null
++++ b/pkg/apis/scheduling/v1beta1/types_equota.go
+@@ -0,0 +1,73 @@
++/**
++ * Copyright (c) 2021 Baidu.com, Inc. All Rights Reserved
++ * Author: dongzezhao@baidu.com
++ * File: types_equota.go
++ * Date: 2021/11/24 14:24
++ **/
++
++package v1beta1
++
++import (
++	v1 "k8s.io/api/core/v1"
++	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
++)
++
++// +genclient
++// +genclient:nonNamespaced
++// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
++// +kubebuilder:object:root=true
++// +kubebuilder:resource:path=elasticresourcequotas,scope=Cluster,shortName=equota;equota-v1beta1
++// +kubebuilder:subresource:status
++
++// Elastic Resource Quota
++type ElasticResourceQuota struct {
++	metav1.TypeMeta `json:",inline"`
++	// +optional
++	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
++	// Specification of the desired behavior of the ElasticResourceQuota.
++	// More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#spec-and-status
++	// +optional
++	Spec ElasticResourceQuotaSpec `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
++	// The status of ElasticResourceQuota.
++	// +optional
++	Status ElasticResourceQuotaStatus `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
++}
++
++// ElasticResourceQuotaSpec represents the template of Elastic Resource Quota.
++type ElasticResourceQuotaSpec struct {
++	// Max is the upper bound of elastic resource quota
++	Max v1.ResourceList `json:"max,omitempty" protobuf:"bytes,1,opt,name=max"`
++	// Min is the lower bound of elastic resource quota
++	Min v1.ResourceList `json:"min,omitempty" protobuf:"bytes,2,opt,name=min"`
++	// Reclaimable indicate whether the elastic quota can be reclaimed by other elastic resource quota
++	Reclaimable bool `json:"reclaimable,omitempty" protobuf:"bytes,3,opt,name=reclaimable"`
++	// HardwareTypes defines hardware types of elastic resource quota
++	HardwareTypes []string `json:"hardwareTypes,omitempty" protobuf:"bytes,4,opt,name=hardwareTypes"`
++	// namespace defines elastic resource quota belongs to one namespace
++	Namespace string `json:"namespace,omitempty" protobuf:"bytes,5,opt,name=namespace"`
++}
++
++// ElasticResourceQuotaStatus represents the status of Elastic Resource Quota.
++type ElasticResourceQuotaStatus struct {
++	// IsLeaf defines whether elastic resource quota is leaf or not
++	IsLeaf bool `json:"isLeaf,omitempty" protobuf:"bytes,1,opt,name=isLeaf"`
++	// Used resource of elastic resource quota
++	Used v1.ResourceList `json:"used,omitempty" protobuf:"bytes,2,opt,name=used"`
++	// QueueName indicate bound queue
++	QueueName string `json:"queueName,omitempty" protobuf:"bytes,3,opt,name=queueName"`
++}
++
++// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
++// +kubebuilder:object:root=true
++
++// ElasticResourceQuotaList is a collection of ElasticResourceQuota.
++type ElasticResourceQuotaList struct {
++	metav1.TypeMeta `json:",inline"`
++	// Standard list metadata
++	// More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata
++	// +optional
++	metav1.ListMeta `json:"metadata,omitempty"`
++
++	// items is the list of PodGroup
++	Items []ElasticResourceQuota `json:"items"`
++}
+\ No newline at end of file
+diff --git a/pkg/apis/scheduling/v1beta1/zz_generated.conversion.go b/pkg/apis/scheduling/v1beta1/zz_generated.conversion.go
+index 6541c0d..4c7a35b 100644
+--- a/pkg/apis/scheduling/v1beta1/zz_generated.conversion.go
++++ b/pkg/apis/scheduling/v1beta1/zz_generated.conversion.go
+@@ -35,6 +35,46 @@ func init() {
+ // RegisterConversions adds conversion functions to the given scheme.
+ // Public to allow building arbitrary schemes.
+ func RegisterConversions(s *runtime.Scheme) error {
++	if err := s.AddGeneratedConversionFunc((*ElasticResourceQuota)(nil), (*scheduling.ElasticResourceQuota)(nil), func(a, b interface{}, scope conversion.Scope) error {
++		return Convert_v1beta1_ElasticResourceQuota_To_scheduling_ElasticResourceQuota(a.(*ElasticResourceQuota), b.(*scheduling.ElasticResourceQuota), scope)
++	}); err != nil {
++		return err
++	}
++	if err := s.AddGeneratedConversionFunc((*scheduling.ElasticResourceQuota)(nil), (*ElasticResourceQuota)(nil), func(a, b interface{}, scope conversion.Scope) error {
++		return Convert_scheduling_ElasticResourceQuota_To_v1beta1_ElasticResourceQuota(a.(*scheduling.ElasticResourceQuota), b.(*ElasticResourceQuota), scope)
++	}); err != nil {
++		return err
++	}
++	if err := s.AddGeneratedConversionFunc((*ElasticResourceQuotaList)(nil), (*scheduling.ElasticResourceQuotaList)(nil), func(a, b interface{}, scope conversion.Scope) error {
++		return Convert_v1beta1_ElasticResourceQuotaList_To_scheduling_ElasticResourceQuotaList(a.(*ElasticResourceQuotaList), b.(*scheduling.ElasticResourceQuotaList), scope)
++	}); err != nil {
++		return err
++	}
++	if err := s.AddGeneratedConversionFunc((*scheduling.ElasticResourceQuotaList)(nil), (*ElasticResourceQuotaList)(nil), func(a, b interface{}, scope conversion.Scope) error {
++		return Convert_scheduling_ElasticResourceQuotaList_To_v1beta1_ElasticResourceQuotaList(a.(*scheduling.ElasticResourceQuotaList), b.(*ElasticResourceQuotaList), scope)
++	}); err != nil {
++		return err
++	}
++	if err := s.AddGeneratedConversionFunc((*ElasticResourceQuotaSpec)(nil), (*scheduling.ElasticResourceQuotaSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
++		return Convert_v1beta1_ElasticResourceQuotaSpec_To_scheduling_ElasticResourceQuotaSpec(a.(*ElasticResourceQuotaSpec), b.(*scheduling.ElasticResourceQuotaSpec), scope)
++	}); err != nil {
++		return err
++	}
++	if err := s.AddGeneratedConversionFunc((*scheduling.ElasticResourceQuotaSpec)(nil), (*ElasticResourceQuotaSpec)(nil), func(a, b interface{}, scope conversion.Scope) error {
++		return Convert_scheduling_ElasticResourceQuotaSpec_To_v1beta1_ElasticResourceQuotaSpec(a.(*scheduling.ElasticResourceQuotaSpec), b.(*ElasticResourceQuotaSpec), scope)
++	}); err != nil {
++		return err
++	}
++	if err := s.AddGeneratedConversionFunc((*ElasticResourceQuotaStatus)(nil), (*scheduling.ElasticResourceQuotaStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
++		return Convert_v1beta1_ElasticResourceQuotaStatus_To_scheduling_ElasticResourceQuotaStatus(a.(*ElasticResourceQuotaStatus), b.(*scheduling.ElasticResourceQuotaStatus), scope)
++	}); err != nil {
++		return err
++	}
++	if err := s.AddGeneratedConversionFunc((*scheduling.ElasticResourceQuotaStatus)(nil), (*ElasticResourceQuotaStatus)(nil), func(a, b interface{}, scope conversion.Scope) error {
++		return Convert_scheduling_ElasticResourceQuotaStatus_To_v1beta1_ElasticResourceQuotaStatus(a.(*scheduling.ElasticResourceQuotaStatus), b.(*ElasticResourceQuotaStatus), scope)
++	}); err != nil {
++		return err
++	}
+ 	if err := s.AddGeneratedConversionFunc((*PodGroup)(nil), (*scheduling.PodGroup)(nil), func(a, b interface{}, scope conversion.Scope) error {
+ 		return Convert_v1beta1_PodGroup_To_scheduling_PodGroup(a.(*PodGroup), b.(*scheduling.PodGroup), scope)
+ 	}); err != nil {
+@@ -128,6 +168,112 @@ func RegisterConversions(s *runtime.Scheme) error {
+ 	return nil
+ }
+ 
++func autoConvert_v1beta1_ElasticResourceQuota_To_scheduling_ElasticResourceQuota(in *ElasticResourceQuota, out *scheduling.ElasticResourceQuota, s conversion.Scope) error {
++	out.ObjectMeta = in.ObjectMeta
++	if err := Convert_v1beta1_ElasticResourceQuotaSpec_To_scheduling_ElasticResourceQuotaSpec(&in.Spec, &out.Spec, s); err != nil {
++		return err
++	}
++	if err := Convert_v1beta1_ElasticResourceQuotaStatus_To_scheduling_ElasticResourceQuotaStatus(&in.Status, &out.Status, s); err != nil {
++		return err
++	}
++	return nil
++}
++
++// Convert_v1beta1_ElasticResourceQuota_To_scheduling_ElasticResourceQuota is an autogenerated conversion function.
++func Convert_v1beta1_ElasticResourceQuota_To_scheduling_ElasticResourceQuota(in *ElasticResourceQuota, out *scheduling.ElasticResourceQuota, s conversion.Scope) error {
++	return autoConvert_v1beta1_ElasticResourceQuota_To_scheduling_ElasticResourceQuota(in, out, s)
++}
++
++func autoConvert_scheduling_ElasticResourceQuota_To_v1beta1_ElasticResourceQuota(in *scheduling.ElasticResourceQuota, out *ElasticResourceQuota, s conversion.Scope) error {
++	out.ObjectMeta = in.ObjectMeta
++	if err := Convert_scheduling_ElasticResourceQuotaSpec_To_v1beta1_ElasticResourceQuotaSpec(&in.Spec, &out.Spec, s); err != nil {
++		return err
++	}
++	if err := Convert_scheduling_ElasticResourceQuotaStatus_To_v1beta1_ElasticResourceQuotaStatus(&in.Status, &out.Status, s); err != nil {
++		return err
++	}
++	return nil
++}
++
++// Convert_scheduling_ElasticResourceQuota_To_v1beta1_ElasticResourceQuota is an autogenerated conversion function.
++func Convert_scheduling_ElasticResourceQuota_To_v1beta1_ElasticResourceQuota(in *scheduling.ElasticResourceQuota, out *ElasticResourceQuota, s conversion.Scope) error {
++	return autoConvert_scheduling_ElasticResourceQuota_To_v1beta1_ElasticResourceQuota(in, out, s)
++}
++
++func autoConvert_v1beta1_ElasticResourceQuotaList_To_scheduling_ElasticResourceQuotaList(in *ElasticResourceQuotaList, out *scheduling.ElasticResourceQuotaList, s conversion.Scope) error {
++	out.ListMeta = in.ListMeta
++	out.Items = *(*[]scheduling.ElasticResourceQuota)(unsafe.Pointer(&in.Items))
++	return nil
++}
++
++// Convert_v1beta1_ElasticResourceQuotaList_To_scheduling_ElasticResourceQuotaList is an autogenerated conversion function.
++func Convert_v1beta1_ElasticResourceQuotaList_To_scheduling_ElasticResourceQuotaList(in *ElasticResourceQuotaList, out *scheduling.ElasticResourceQuotaList, s conversion.Scope) error {
++	return autoConvert_v1beta1_ElasticResourceQuotaList_To_scheduling_ElasticResourceQuotaList(in, out, s)
++}
++
++func autoConvert_scheduling_ElasticResourceQuotaList_To_v1beta1_ElasticResourceQuotaList(in *scheduling.ElasticResourceQuotaList, out *ElasticResourceQuotaList, s conversion.Scope) error {
++	out.ListMeta = in.ListMeta
++	out.Items = *(*[]ElasticResourceQuota)(unsafe.Pointer(&in.Items))
++	return nil
++}
++
++// Convert_scheduling_ElasticResourceQuotaList_To_v1beta1_ElasticResourceQuotaList is an autogenerated conversion function.
++func Convert_scheduling_ElasticResourceQuotaList_To_v1beta1_ElasticResourceQuotaList(in *scheduling.ElasticResourceQuotaList, out *ElasticResourceQuotaList, s conversion.Scope) error {
++	return autoConvert_scheduling_ElasticResourceQuotaList_To_v1beta1_ElasticResourceQuotaList(in, out, s)
++}
++
++func autoConvert_v1beta1_ElasticResourceQuotaSpec_To_scheduling_ElasticResourceQuotaSpec(in *ElasticResourceQuotaSpec, out *scheduling.ElasticResourceQuotaSpec, s conversion.Scope) error {
++	out.Max = *(*v1.ResourceList)(unsafe.Pointer(&in.Max))
++	out.Min = *(*v1.ResourceList)(unsafe.Pointer(&in.Min))
++	out.Reclaimable = in.Reclaimable
++	out.HardwareTypes = *(*[]string)(unsafe.Pointer(&in.HardwareTypes))
++	out.Namespace = in.Namespace
++	return nil
++}
++
++// Convert_v1beta1_ElasticResourceQuotaSpec_To_scheduling_ElasticResourceQuotaSpec is an autogenerated conversion function.
++func Convert_v1beta1_ElasticResourceQuotaSpec_To_scheduling_ElasticResourceQuotaSpec(in *ElasticResourceQuotaSpec, out *scheduling.ElasticResourceQuotaSpec, s conversion.Scope) error {
++	return autoConvert_v1beta1_ElasticResourceQuotaSpec_To_scheduling_ElasticResourceQuotaSpec(in, out, s)
++}
++
++func autoConvert_scheduling_ElasticResourceQuotaSpec_To_v1beta1_ElasticResourceQuotaSpec(in *scheduling.ElasticResourceQuotaSpec, out *ElasticResourceQuotaSpec, s conversion.Scope) error {
++	out.Max = *(*v1.ResourceList)(unsafe.Pointer(&in.Max))
++	out.Min = *(*v1.ResourceList)(unsafe.Pointer(&in.Min))
++	out.Reclaimable = in.Reclaimable
++	out.HardwareTypes = *(*[]string)(unsafe.Pointer(&in.HardwareTypes))
++	out.Namespace = in.Namespace
++	return nil
++}
++
++// Convert_scheduling_ElasticResourceQuotaSpec_To_v1beta1_ElasticResourceQuotaSpec is an autogenerated conversion function.
++func Convert_scheduling_ElasticResourceQuotaSpec_To_v1beta1_ElasticResourceQuotaSpec(in *scheduling.ElasticResourceQuotaSpec, out *ElasticResourceQuotaSpec, s conversion.Scope) error {
++	return autoConvert_scheduling_ElasticResourceQuotaSpec_To_v1beta1_ElasticResourceQuotaSpec(in, out, s)
++}
++
++func autoConvert_v1beta1_ElasticResourceQuotaStatus_To_scheduling_ElasticResourceQuotaStatus(in *ElasticResourceQuotaStatus, out *scheduling.ElasticResourceQuotaStatus, s conversion.Scope) error {
++	out.IsLeaf = in.IsLeaf
++	out.Used = *(*v1.ResourceList)(unsafe.Pointer(&in.Used))
++	out.QueueName = in.QueueName
++	return nil
++}
++
++// Convert_v1beta1_ElasticResourceQuotaStatus_To_scheduling_ElasticResourceQuotaStatus is an autogenerated conversion function.
++func Convert_v1beta1_ElasticResourceQuotaStatus_To_scheduling_ElasticResourceQuotaStatus(in *ElasticResourceQuotaStatus, out *scheduling.ElasticResourceQuotaStatus, s conversion.Scope) error {
++	return autoConvert_v1beta1_ElasticResourceQuotaStatus_To_scheduling_ElasticResourceQuotaStatus(in, out, s)
++}
++
++func autoConvert_scheduling_ElasticResourceQuotaStatus_To_v1beta1_ElasticResourceQuotaStatus(in *scheduling.ElasticResourceQuotaStatus, out *ElasticResourceQuotaStatus, s conversion.Scope) error {
++	out.IsLeaf = in.IsLeaf
++	out.Used = *(*v1.ResourceList)(unsafe.Pointer(&in.Used))
++	out.QueueName = in.QueueName
++	return nil
++}
++
++// Convert_scheduling_ElasticResourceQuotaStatus_To_v1beta1_ElasticResourceQuotaStatus is an autogenerated conversion function.
++func Convert_scheduling_ElasticResourceQuotaStatus_To_v1beta1_ElasticResourceQuotaStatus(in *scheduling.ElasticResourceQuotaStatus, out *ElasticResourceQuotaStatus, s conversion.Scope) error {
++	return autoConvert_scheduling_ElasticResourceQuotaStatus_To_v1beta1_ElasticResourceQuotaStatus(in, out, s)
++}
++
+ func autoConvert_v1beta1_PodGroup_To_scheduling_PodGroup(in *PodGroup, out *scheduling.PodGroup, s conversion.Scope) error {
+ 	out.ObjectMeta = in.ObjectMeta
+ 	if err := Convert_v1beta1_PodGroupSpec_To_scheduling_PodGroupSpec(&in.Spec, &out.Spec, s); err != nil {
+@@ -214,6 +360,7 @@ func Convert_scheduling_PodGroupList_To_v1beta1_PodGroupList(in *scheduling.PodG
+ 
+ func autoConvert_v1beta1_PodGroupSpec_To_scheduling_PodGroupSpec(in *PodGroupSpec, out *scheduling.PodGroupSpec, s conversion.Scope) error {
+ 	out.MinMember = in.MinMember
++	out.MinTaskMember = *(*map[string]int32)(unsafe.Pointer(&in.MinTaskMember))
+ 	out.Queue = in.Queue
+ 	out.PriorityClassName = in.PriorityClassName
+ 	out.MinResources = (*v1.ResourceList)(unsafe.Pointer(in.MinResources))
+@@ -227,6 +374,7 @@ func Convert_v1beta1_PodGroupSpec_To_scheduling_PodGroupSpec(in *PodGroupSpec, o
+ 
+ func autoConvert_scheduling_PodGroupSpec_To_v1beta1_PodGroupSpec(in *scheduling.PodGroupSpec, out *PodGroupSpec, s conversion.Scope) error {
+ 	out.MinMember = in.MinMember
++	out.MinTaskMember = *(*map[string]int32)(unsafe.Pointer(&in.MinTaskMember))
+ 	out.Queue = in.Queue
+ 	out.PriorityClassName = in.PriorityClassName
+ 	out.MinResources = (*v1.ResourceList)(unsafe.Pointer(in.MinResources))
+diff --git a/pkg/apis/scheduling/v1beta1/zz_generated.deepcopy.go b/pkg/apis/scheduling/v1beta1/zz_generated.deepcopy.go
+index eeb8fa6..83d37a5 100644
+--- a/pkg/apis/scheduling/v1beta1/zz_generated.deepcopy.go
++++ b/pkg/apis/scheduling/v1beta1/zz_generated.deepcopy.go
+@@ -25,6 +25,125 @@ import (
+ 	runtime "k8s.io/apimachinery/pkg/runtime"
+ )
+ 
++// DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
++func (in *ElasticResourceQuota) DeepCopyInto(out *ElasticResourceQuota) {
++	*out = *in
++	out.TypeMeta = in.TypeMeta
++	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
++	in.Spec.DeepCopyInto(&out.Spec)
++	in.Status.DeepCopyInto(&out.Status)
++	return
++}
++
++// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new ElasticResourceQuota.
++func (in *ElasticResourceQuota) DeepCopy() *ElasticResourceQuota {
++	if in == nil {
++		return nil
++	}
++	out := new(ElasticResourceQuota)
++	in.DeepCopyInto(out)
++	return out
++}
++
++// DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
++func (in *ElasticResourceQuota) DeepCopyObject() runtime.Object {
++	if c := in.DeepCopy(); c != nil {
++		return c
++	}
++	return nil
++}
++
++// DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
++func (in *ElasticResourceQuotaList) DeepCopyInto(out *ElasticResourceQuotaList) {
++	*out = *in
++	out.TypeMeta = in.TypeMeta
++	in.ListMeta.DeepCopyInto(&out.ListMeta)
++	if in.Items != nil {
++		in, out := &in.Items, &out.Items
++		*out = make([]ElasticResourceQuota, len(*in))
++		for i := range *in {
++			(*in)[i].DeepCopyInto(&(*out)[i])
++		}
++	}
++	return
++}
++
++// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new ElasticResourceQuotaList.
++func (in *ElasticResourceQuotaList) DeepCopy() *ElasticResourceQuotaList {
++	if in == nil {
++		return nil
++	}
++	out := new(ElasticResourceQuotaList)
++	in.DeepCopyInto(out)
++	return out
++}
++
++// DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
++func (in *ElasticResourceQuotaList) DeepCopyObject() runtime.Object {
++	if c := in.DeepCopy(); c != nil {
++		return c
++	}
++	return nil
++}
++
++// DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
++func (in *ElasticResourceQuotaSpec) DeepCopyInto(out *ElasticResourceQuotaSpec) {
++	*out = *in
++	if in.Max != nil {
++		in, out := &in.Max, &out.Max
++		*out = make(v1.ResourceList, len(*in))
++		for key, val := range *in {
++			(*out)[key] = val.DeepCopy()
++		}
++	}
++	if in.Min != nil {
++		in, out := &in.Min, &out.Min
++		*out = make(v1.ResourceList, len(*in))
++		for key, val := range *in {
++			(*out)[key] = val.DeepCopy()
++		}
++	}
++	if in.HardwareTypes != nil {
++		in, out := &in.HardwareTypes, &out.HardwareTypes
++		*out = make([]string, len(*in))
++		copy(*out, *in)
++	}
++	return
++}
++
++// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new ElasticResourceQuotaSpec.
++func (in *ElasticResourceQuotaSpec) DeepCopy() *ElasticResourceQuotaSpec {
++	if in == nil {
++		return nil
++	}
++	out := new(ElasticResourceQuotaSpec)
++	in.DeepCopyInto(out)
++	return out
++}
++
++// DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
++func (in *ElasticResourceQuotaStatus) DeepCopyInto(out *ElasticResourceQuotaStatus) {
++	*out = *in
++	if in.Used != nil {
++		in, out := &in.Used, &out.Used
++		*out = make(v1.ResourceList, len(*in))
++		for key, val := range *in {
++			(*out)[key] = val.DeepCopy()
++		}
++	}
++	return
++}
++
++// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new ElasticResourceQuotaStatus.
++func (in *ElasticResourceQuotaStatus) DeepCopy() *ElasticResourceQuotaStatus {
++	if in == nil {
++		return nil
++	}
++	out := new(ElasticResourceQuotaStatus)
++	in.DeepCopyInto(out)
++	return out
++}
++
+ // DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
+ func (in *PodGroup) DeepCopyInto(out *PodGroup) {
+ 	*out = *in
+diff --git a/pkg/apis/scheduling/zz_generated.deepcopy.go b/pkg/apis/scheduling/zz_generated.deepcopy.go
+index 62e3a68..a568e8c 100644
+--- a/pkg/apis/scheduling/zz_generated.deepcopy.go
++++ b/pkg/apis/scheduling/zz_generated.deepcopy.go
+@@ -25,6 +25,125 @@ import (
+ 	runtime "k8s.io/apimachinery/pkg/runtime"
+ )
+ 
++// DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
++func (in *ElasticResourceQuota) DeepCopyInto(out *ElasticResourceQuota) {
++	*out = *in
++	out.TypeMeta = in.TypeMeta
++	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
++	in.Spec.DeepCopyInto(&out.Spec)
++	in.Status.DeepCopyInto(&out.Status)
++	return
++}
++
++// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new ElasticResourceQuota.
++func (in *ElasticResourceQuota) DeepCopy() *ElasticResourceQuota {
++	if in == nil {
++		return nil
++	}
++	out := new(ElasticResourceQuota)
++	in.DeepCopyInto(out)
++	return out
++}
++
++// DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
++func (in *ElasticResourceQuota) DeepCopyObject() runtime.Object {
++	if c := in.DeepCopy(); c != nil {
++		return c
++	}
++	return nil
++}
++
++// DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
++func (in *ElasticResourceQuotaList) DeepCopyInto(out *ElasticResourceQuotaList) {
++	*out = *in
++	out.TypeMeta = in.TypeMeta
++	in.ListMeta.DeepCopyInto(&out.ListMeta)
++	if in.Items != nil {
++		in, out := &in.Items, &out.Items
++		*out = make([]ElasticResourceQuota, len(*in))
++		for i := range *in {
++			(*in)[i].DeepCopyInto(&(*out)[i])
++		}
++	}
++	return
++}
++
++// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new ElasticResourceQuotaList.
++func (in *ElasticResourceQuotaList) DeepCopy() *ElasticResourceQuotaList {
++	if in == nil {
++		return nil
++	}
++	out := new(ElasticResourceQuotaList)
++	in.DeepCopyInto(out)
++	return out
++}
++
++// DeepCopyObject is an autogenerated deepcopy function, copying the receiver, creating a new runtime.Object.
++func (in *ElasticResourceQuotaList) DeepCopyObject() runtime.Object {
++	if c := in.DeepCopy(); c != nil {
++		return c
++	}
++	return nil
++}
++
++// DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
++func (in *ElasticResourceQuotaSpec) DeepCopyInto(out *ElasticResourceQuotaSpec) {
++	*out = *in
++	if in.Max != nil {
++		in, out := &in.Max, &out.Max
++		*out = make(v1.ResourceList, len(*in))
++		for key, val := range *in {
++			(*out)[key] = val.DeepCopy()
++		}
++	}
++	if in.Min != nil {
++		in, out := &in.Min, &out.Min
++		*out = make(v1.ResourceList, len(*in))
++		for key, val := range *in {
++			(*out)[key] = val.DeepCopy()
++		}
++	}
++	if in.HardwareTypes != nil {
++		in, out := &in.HardwareTypes, &out.HardwareTypes
++		*out = make([]string, len(*in))
++		copy(*out, *in)
++	}
++	return
++}
++
++// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new ElasticResourceQuotaSpec.
++func (in *ElasticResourceQuotaSpec) DeepCopy() *ElasticResourceQuotaSpec {
++	if in == nil {
++		return nil
++	}
++	out := new(ElasticResourceQuotaSpec)
++	in.DeepCopyInto(out)
++	return out
++}
++
++// DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
++func (in *ElasticResourceQuotaStatus) DeepCopyInto(out *ElasticResourceQuotaStatus) {
++	*out = *in
++	if in.Used != nil {
++		in, out := &in.Used, &out.Used
++		*out = make(v1.ResourceList, len(*in))
++		for key, val := range *in {
++			(*out)[key] = val.DeepCopy()
++		}
++	}
++	return
++}
++
++// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new ElasticResourceQuotaStatus.
++func (in *ElasticResourceQuotaStatus) DeepCopy() *ElasticResourceQuotaStatus {
++	if in == nil {
++		return nil
++	}
++	out := new(ElasticResourceQuotaStatus)
++	in.DeepCopyInto(out)
++	return out
++}
++
+ // DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
+ func (in *PodGroup) DeepCopyInto(out *PodGroup) {
+ 	*out = *in
+@@ -106,6 +225,13 @@ func (in *PodGroupList) DeepCopyObject() runtime.Object {
+ // DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
+ func (in *PodGroupSpec) DeepCopyInto(out *PodGroupSpec) {
+ 	*out = *in
++	if in.MinTaskMember != nil {
++		in, out := &in.MinTaskMember, &out.MinTaskMember
++		*out = make(map[string]int32, len(*in))
++		for key, val := range *in {
++			(*out)[key] = val
++		}
++	}
+ 	if in.MinResources != nil {
+ 		in, out := &in.MinResources, &out.MinResources
+ 		*out = new(v1.ResourceList)
+diff --git a/pkg/client/clientset/versioned/typed/scheduling/v1beta1/elasticresourcequota.go b/pkg/client/clientset/versioned/typed/scheduling/v1beta1/elasticresourcequota.go
+new file mode 100644
+index 0000000..c711a10
+--- /dev/null
++++ b/pkg/client/clientset/versioned/typed/scheduling/v1beta1/elasticresourcequota.go
+@@ -0,0 +1,183 @@
++/*
++Copyright 2021 The Volcano Authors.
++
++Licensed under the Apache License, Version 2.0 (the "License");
++you may not use this file except in compliance with the License.
++You may obtain a copy of the License at
++
++    http://www.apache.org/licenses/LICENSE-2.0
++
++Unless required by applicable law or agreed to in writing, software
++distributed under the License is distributed on an "AS IS" BASIS,
++WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++See the License for the specific language governing permissions and
++limitations under the License.
++*/
++// Code generated by client-gen. DO NOT EDIT.
++
++package v1beta1
++
++import (
++	"context"
++	"time"
++
++	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
++	types "k8s.io/apimachinery/pkg/types"
++	watch "k8s.io/apimachinery/pkg/watch"
++	rest "k8s.io/client-go/rest"
++	v1beta1 "volcano.sh/apis/pkg/apis/scheduling/v1beta1"
++	scheme "volcano.sh/apis/pkg/client/clientset/versioned/scheme"
++)
++
++// ElasticResourceQuotasGetter has a method to return a ElasticResourceQuotaInterface.
++// A group's client should implement this interface.
++type ElasticResourceQuotasGetter interface {
++	ElasticResourceQuotas() ElasticResourceQuotaInterface
++}
++
++// ElasticResourceQuotaInterface has methods to work with ElasticResourceQuota resources.
++type ElasticResourceQuotaInterface interface {
++	Create(ctx context.Context, elasticResourceQuota *v1beta1.ElasticResourceQuota, opts v1.CreateOptions) (*v1beta1.ElasticResourceQuota, error)
++	Update(ctx context.Context, elasticResourceQuota *v1beta1.ElasticResourceQuota, opts v1.UpdateOptions) (*v1beta1.ElasticResourceQuota, error)
++	UpdateStatus(ctx context.Context, elasticResourceQuota *v1beta1.ElasticResourceQuota, opts v1.UpdateOptions) (*v1beta1.ElasticResourceQuota, error)
++	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
++	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
++	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1beta1.ElasticResourceQuota, error)
++	List(ctx context.Context, opts v1.ListOptions) (*v1beta1.ElasticResourceQuotaList, error)
++	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
++	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1beta1.ElasticResourceQuota, err error)
++	ElasticResourceQuotaExpansion
++}
++
++// elasticResourceQuotas implements ElasticResourceQuotaInterface
++type elasticResourceQuotas struct {
++	client rest.Interface
++}
++
++// newElasticResourceQuotas returns a ElasticResourceQuotas
++func newElasticResourceQuotas(c *SchedulingV1beta1Client) *elasticResourceQuotas {
++	return &elasticResourceQuotas{
++		client: c.RESTClient(),
++	}
++}
++
++// Get takes name of the elasticResourceQuota, and returns the corresponding elasticResourceQuota object, and an error if there is any.
++func (c *elasticResourceQuotas) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1beta1.ElasticResourceQuota, err error) {
++	result = &v1beta1.ElasticResourceQuota{}
++	err = c.client.Get().
++		Resource("elasticresourcequotas").
++		Name(name).
++		VersionedParams(&options, scheme.ParameterCodec).
++		Do(ctx).
++		Into(result)
++	return
++}
++
++// List takes label and field selectors, and returns the list of ElasticResourceQuotas that match those selectors.
++func (c *elasticResourceQuotas) List(ctx context.Context, opts v1.ListOptions) (result *v1beta1.ElasticResourceQuotaList, err error) {
++	var timeout time.Duration
++	if opts.TimeoutSeconds != nil {
++		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
++	}
++	result = &v1beta1.ElasticResourceQuotaList{}
++	err = c.client.Get().
++		Resource("elasticresourcequotas").
++		VersionedParams(&opts, scheme.ParameterCodec).
++		Timeout(timeout).
++		Do(ctx).
++		Into(result)
++	return
++}
++
++// Watch returns a watch.Interface that watches the requested elasticResourceQuotas.
++func (c *elasticResourceQuotas) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
++	var timeout time.Duration
++	if opts.TimeoutSeconds != nil {
++		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
++	}
++	opts.Watch = true
++	return c.client.Get().
++		Resource("elasticresourcequotas").
++		VersionedParams(&opts, scheme.ParameterCodec).
++		Timeout(timeout).
++		Watch(ctx)
++}
++
++// Create takes the representation of a elasticResourceQuota and creates it.  Returns the server's representation of the elasticResourceQuota, and an error, if there is any.
++func (c *elasticResourceQuotas) Create(ctx context.Context, elasticResourceQuota *v1beta1.ElasticResourceQuota, opts v1.CreateOptions) (result *v1beta1.ElasticResourceQuota, err error) {
++	result = &v1beta1.ElasticResourceQuota{}
++	err = c.client.Post().
++		Resource("elasticresourcequotas").
++		VersionedParams(&opts, scheme.ParameterCodec).
++		Body(elasticResourceQuota).
++		Do(ctx).
++		Into(result)
++	return
++}
++
++// Update takes the representation of a elasticResourceQuota and updates it. Returns the server's representation of the elasticResourceQuota, and an error, if there is any.
++func (c *elasticResourceQuotas) Update(ctx context.Context, elasticResourceQuota *v1beta1.ElasticResourceQuota, opts v1.UpdateOptions) (result *v1beta1.ElasticResourceQuota, err error) {
++	result = &v1beta1.ElasticResourceQuota{}
++	err = c.client.Put().
++		Resource("elasticresourcequotas").
++		Name(elasticResourceQuota.Name).
++		VersionedParams(&opts, scheme.ParameterCodec).
++		Body(elasticResourceQuota).
++		Do(ctx).
++		Into(result)
++	return
++}
++
++// UpdateStatus was generated because the type contains a Status member.
++// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
++func (c *elasticResourceQuotas) UpdateStatus(ctx context.Context, elasticResourceQuota *v1beta1.ElasticResourceQuota, opts v1.UpdateOptions) (result *v1beta1.ElasticResourceQuota, err error) {
++	result = &v1beta1.ElasticResourceQuota{}
++	err = c.client.Put().
++		Resource("elasticresourcequotas").
++		Name(elasticResourceQuota.Name).
++		SubResource("status").
++		VersionedParams(&opts, scheme.ParameterCodec).
++		Body(elasticResourceQuota).
++		Do(ctx).
++		Into(result)
++	return
++}
++
++// Delete takes name of the elasticResourceQuota and deletes it. Returns an error if one occurs.
++func (c *elasticResourceQuotas) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
++	return c.client.Delete().
++		Resource("elasticresourcequotas").
++		Name(name).
++		Body(&opts).
++		Do(ctx).
++		Error()
++}
++
++// DeleteCollection deletes a collection of objects.
++func (c *elasticResourceQuotas) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
++	var timeout time.Duration
++	if listOpts.TimeoutSeconds != nil {
++		timeout = time.Duration(*listOpts.TimeoutSeconds) * time.Second
++	}
++	return c.client.Delete().
++		Resource("elasticresourcequotas").
++		VersionedParams(&listOpts, scheme.ParameterCodec).
++		Timeout(timeout).
++		Body(&opts).
++		Do(ctx).
++		Error()
++}
++
++// Patch applies the patch and returns the patched elasticResourceQuota.
++func (c *elasticResourceQuotas) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1beta1.ElasticResourceQuota, err error) {
++	result = &v1beta1.ElasticResourceQuota{}
++	err = c.client.Patch(pt).
++		Resource("elasticresourcequotas").
++		Name(name).
++		SubResource(subresources...).
++		VersionedParams(&opts, scheme.ParameterCodec).
++		Body(data).
++		Do(ctx).
++		Into(result)
++	return
++}
+diff --git a/pkg/client/clientset/versioned/typed/scheduling/v1beta1/fake/fake_elasticresourcequota.go b/pkg/client/clientset/versioned/typed/scheduling/v1beta1/fake/fake_elasticresourcequota.go
+new file mode 100644
+index 0000000..0227ca9
+--- /dev/null
++++ b/pkg/client/clientset/versioned/typed/scheduling/v1beta1/fake/fake_elasticresourcequota.go
+@@ -0,0 +1,132 @@
++/*
++Copyright 2021 The Volcano Authors.
++
++Licensed under the Apache License, Version 2.0 (the "License");
++you may not use this file except in compliance with the License.
++You may obtain a copy of the License at
++
++    http://www.apache.org/licenses/LICENSE-2.0
++
++Unless required by applicable law or agreed to in writing, software
++distributed under the License is distributed on an "AS IS" BASIS,
++WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++See the License for the specific language governing permissions and
++limitations under the License.
++*/
++// Code generated by client-gen. DO NOT EDIT.
++
++package fake
++
++import (
++	"context"
++
++	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
++	labels "k8s.io/apimachinery/pkg/labels"
++	schema "k8s.io/apimachinery/pkg/runtime/schema"
++	types "k8s.io/apimachinery/pkg/types"
++	watch "k8s.io/apimachinery/pkg/watch"
++	testing "k8s.io/client-go/testing"
++	v1beta1 "volcano.sh/apis/pkg/apis/scheduling/v1beta1"
++)
++
++// FakeElasticResourceQuotas implements ElasticResourceQuotaInterface
++type FakeElasticResourceQuotas struct {
++	Fake *FakeSchedulingV1beta1
++}
++
++var elasticresourcequotasResource = schema.GroupVersionResource{Group: "scheduling.volcano.sh", Version: "v1beta1", Resource: "elasticresourcequotas"}
++
++var elasticresourcequotasKind = schema.GroupVersionKind{Group: "scheduling.volcano.sh", Version: "v1beta1", Kind: "ElasticResourceQuota"}
++
++// Get takes name of the elasticResourceQuota, and returns the corresponding elasticResourceQuota object, and an error if there is any.
++func (c *FakeElasticResourceQuotas) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1beta1.ElasticResourceQuota, err error) {
++	obj, err := c.Fake.
++		Invokes(testing.NewRootGetAction(elasticresourcequotasResource, name), &v1beta1.ElasticResourceQuota{})
++	if obj == nil {
++		return nil, err
++	}
++	return obj.(*v1beta1.ElasticResourceQuota), err
++}
++
++// List takes label and field selectors, and returns the list of ElasticResourceQuotas that match those selectors.
++func (c *FakeElasticResourceQuotas) List(ctx context.Context, opts v1.ListOptions) (result *v1beta1.ElasticResourceQuotaList, err error) {
++	obj, err := c.Fake.
++		Invokes(testing.NewRootListAction(elasticresourcequotasResource, elasticresourcequotasKind, opts), &v1beta1.ElasticResourceQuotaList{})
++	if obj == nil {
++		return nil, err
++	}
++
++	label, _, _ := testing.ExtractFromListOptions(opts)
++	if label == nil {
++		label = labels.Everything()
++	}
++	list := &v1beta1.ElasticResourceQuotaList{ListMeta: obj.(*v1beta1.ElasticResourceQuotaList).ListMeta}
++	for _, item := range obj.(*v1beta1.ElasticResourceQuotaList).Items {
++		if label.Matches(labels.Set(item.Labels)) {
++			list.Items = append(list.Items, item)
++		}
++	}
++	return list, err
++}
++
++// Watch returns a watch.Interface that watches the requested elasticResourceQuotas.
++func (c *FakeElasticResourceQuotas) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
++	return c.Fake.
++		InvokesWatch(testing.NewRootWatchAction(elasticresourcequotasResource, opts))
++}
++
++// Create takes the representation of a elasticResourceQuota and creates it.  Returns the server's representation of the elasticResourceQuota, and an error, if there is any.
++func (c *FakeElasticResourceQuotas) Create(ctx context.Context, elasticResourceQuota *v1beta1.ElasticResourceQuota, opts v1.CreateOptions) (result *v1beta1.ElasticResourceQuota, err error) {
++	obj, err := c.Fake.
++		Invokes(testing.NewRootCreateAction(elasticresourcequotasResource, elasticResourceQuota), &v1beta1.ElasticResourceQuota{})
++	if obj == nil {
++		return nil, err
++	}
++	return obj.(*v1beta1.ElasticResourceQuota), err
++}
++
++// Update takes the representation of a elasticResourceQuota and updates it. Returns the server's representation of the elasticResourceQuota, and an error, if there is any.
++func (c *FakeElasticResourceQuotas) Update(ctx context.Context, elasticResourceQuota *v1beta1.ElasticResourceQuota, opts v1.UpdateOptions) (result *v1beta1.ElasticResourceQuota, err error) {
++	obj, err := c.Fake.
++		Invokes(testing.NewRootUpdateAction(elasticresourcequotasResource, elasticResourceQuota), &v1beta1.ElasticResourceQuota{})
++	if obj == nil {
++		return nil, err
++	}
++	return obj.(*v1beta1.ElasticResourceQuota), err
++}
++
++// UpdateStatus was generated because the type contains a Status member.
++// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
++func (c *FakeElasticResourceQuotas) UpdateStatus(ctx context.Context, elasticResourceQuota *v1beta1.ElasticResourceQuota, opts v1.UpdateOptions) (*v1beta1.ElasticResourceQuota, error) {
++	obj, err := c.Fake.
++		Invokes(testing.NewRootUpdateSubresourceAction(elasticresourcequotasResource, "status", elasticResourceQuota), &v1beta1.ElasticResourceQuota{})
++	if obj == nil {
++		return nil, err
++	}
++	return obj.(*v1beta1.ElasticResourceQuota), err
++}
++
++// Delete takes name of the elasticResourceQuota and deletes it. Returns an error if one occurs.
++func (c *FakeElasticResourceQuotas) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
++	_, err := c.Fake.
++		Invokes(testing.NewRootDeleteAction(elasticresourcequotasResource, name), &v1beta1.ElasticResourceQuota{})
++	return err
++}
++
++// DeleteCollection deletes a collection of objects.
++func (c *FakeElasticResourceQuotas) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
++	action := testing.NewRootDeleteCollectionAction(elasticresourcequotasResource, listOpts)
++
++	_, err := c.Fake.Invokes(action, &v1beta1.ElasticResourceQuotaList{})
++	return err
++}
++
++// Patch applies the patch and returns the patched elasticResourceQuota.
++func (c *FakeElasticResourceQuotas) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1beta1.ElasticResourceQuota, err error) {
++	obj, err := c.Fake.
++		Invokes(testing.NewRootPatchSubresourceAction(elasticresourcequotasResource, name, pt, data, subresources...), &v1beta1.ElasticResourceQuota{})
++	if obj == nil {
++		return nil, err
++	}
++	return obj.(*v1beta1.ElasticResourceQuota), err
++}
+diff --git a/pkg/client/clientset/versioned/typed/scheduling/v1beta1/fake/fake_scheduling_client.go b/pkg/client/clientset/versioned/typed/scheduling/v1beta1/fake/fake_scheduling_client.go
+index b653aa8..6fbbf6d 100644
+--- a/pkg/client/clientset/versioned/typed/scheduling/v1beta1/fake/fake_scheduling_client.go
++++ b/pkg/client/clientset/versioned/typed/scheduling/v1beta1/fake/fake_scheduling_client.go
+@@ -27,6 +27,10 @@ type FakeSchedulingV1beta1 struct {
+ 	*testing.Fake
+ }
+ 
++func (c *FakeSchedulingV1beta1) ElasticResourceQuotas() v1beta1.ElasticResourceQuotaInterface {
++	return &FakeElasticResourceQuotas{c}
++}
++
+ func (c *FakeSchedulingV1beta1) PodGroups(namespace string) v1beta1.PodGroupInterface {
+ 	return &FakePodGroups{c, namespace}
+ }
+diff --git a/pkg/client/clientset/versioned/typed/scheduling/v1beta1/generated_expansion.go b/pkg/client/clientset/versioned/typed/scheduling/v1beta1/generated_expansion.go
+index b5e7e74..7be1721 100644
+--- a/pkg/client/clientset/versioned/typed/scheduling/v1beta1/generated_expansion.go
++++ b/pkg/client/clientset/versioned/typed/scheduling/v1beta1/generated_expansion.go
+@@ -17,6 +17,8 @@ limitations under the License.
+ 
+ package v1beta1
+ 
++type ElasticResourceQuotaExpansion interface{}
++
+ type PodGroupExpansion interface{}
+ 
+ type QueueExpansion interface{}
+diff --git a/pkg/client/clientset/versioned/typed/scheduling/v1beta1/scheduling_client.go b/pkg/client/clientset/versioned/typed/scheduling/v1beta1/scheduling_client.go
+index 67a271a..8a32b09 100644
+--- a/pkg/client/clientset/versioned/typed/scheduling/v1beta1/scheduling_client.go
++++ b/pkg/client/clientset/versioned/typed/scheduling/v1beta1/scheduling_client.go
+@@ -25,6 +25,7 @@ import (
+ 
+ type SchedulingV1beta1Interface interface {
+ 	RESTClient() rest.Interface
++	ElasticResourceQuotasGetter
+ 	PodGroupsGetter
+ 	QueuesGetter
+ }
+@@ -34,6 +35,10 @@ type SchedulingV1beta1Client struct {
+ 	restClient rest.Interface
+ }
+ 
++func (c *SchedulingV1beta1Client) ElasticResourceQuotas() ElasticResourceQuotaInterface {
++	return newElasticResourceQuotas(c)
++}
++
+ func (c *SchedulingV1beta1Client) PodGroups(namespace string) PodGroupInterface {
+ 	return newPodGroups(c, namespace)
+ }
+diff --git a/pkg/client/informers/externalversions/generic.go b/pkg/client/informers/externalversions/generic.go
+index 2b06549..0ee3eb5 100644
+--- a/pkg/client/informers/externalversions/generic.go
++++ b/pkg/client/informers/externalversions/generic.go
+@@ -67,6 +67,8 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
+ 		return &genericInformer{resource: resource.GroupResource(), informer: f.Nodeinfo().V1alpha1().Numatopologies().Informer()}, nil
+ 
+ 		// Group=scheduling.volcano.sh, Version=v1beta1
++	case v1beta1.SchemeGroupVersion.WithResource("elasticresourcequotas"):
++		return &genericInformer{resource: resource.GroupResource(), informer: f.Scheduling().V1beta1().ElasticResourceQuotas().Informer()}, nil
+ 	case v1beta1.SchemeGroupVersion.WithResource("podgroups"):
+ 		return &genericInformer{resource: resource.GroupResource(), informer: f.Scheduling().V1beta1().PodGroups().Informer()}, nil
+ 	case v1beta1.SchemeGroupVersion.WithResource("queues"):
+diff --git a/pkg/client/informers/externalversions/scheduling/v1beta1/elasticresourcequota.go b/pkg/client/informers/externalversions/scheduling/v1beta1/elasticresourcequota.go
+new file mode 100644
+index 0000000..9eb8003
+--- /dev/null
++++ b/pkg/client/informers/externalversions/scheduling/v1beta1/elasticresourcequota.go
+@@ -0,0 +1,88 @@
++/*
++Copyright 2021 The Volcano Authors.
++
++Licensed under the Apache License, Version 2.0 (the "License");
++you may not use this file except in compliance with the License.
++You may obtain a copy of the License at
++
++    http://www.apache.org/licenses/LICENSE-2.0
++
++Unless required by applicable law or agreed to in writing, software
++distributed under the License is distributed on an "AS IS" BASIS,
++WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++See the License for the specific language governing permissions and
++limitations under the License.
++*/
++// Code generated by informer-gen. DO NOT EDIT.
++
++package v1beta1
++
++import (
++	"context"
++	time "time"
++
++	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
++	runtime "k8s.io/apimachinery/pkg/runtime"
++	watch "k8s.io/apimachinery/pkg/watch"
++	cache "k8s.io/client-go/tools/cache"
++	schedulingv1beta1 "volcano.sh/apis/pkg/apis/scheduling/v1beta1"
++	versioned "volcano.sh/apis/pkg/client/clientset/versioned"
++	internalinterfaces "volcano.sh/apis/pkg/client/informers/externalversions/internalinterfaces"
++	v1beta1 "volcano.sh/apis/pkg/client/listers/scheduling/v1beta1"
++)
++
++// ElasticResourceQuotaInformer provides access to a shared informer and lister for
++// ElasticResourceQuotas.
++type ElasticResourceQuotaInformer interface {
++	Informer() cache.SharedIndexInformer
++	Lister() v1beta1.ElasticResourceQuotaLister
++}
++
++type elasticResourceQuotaInformer struct {
++	factory          internalinterfaces.SharedInformerFactory
++	tweakListOptions internalinterfaces.TweakListOptionsFunc
++}
++
++// NewElasticResourceQuotaInformer constructs a new informer for ElasticResourceQuota type.
++// Always prefer using an informer factory to get a shared informer instead of getting an independent
++// one. This reduces memory footprint and number of connections to the server.
++func NewElasticResourceQuotaInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
++	return NewFilteredElasticResourceQuotaInformer(client, resyncPeriod, indexers, nil)
++}
++
++// NewFilteredElasticResourceQuotaInformer constructs a new informer for ElasticResourceQuota type.
++// Always prefer using an informer factory to get a shared informer instead of getting an independent
++// one. This reduces memory footprint and number of connections to the server.
++func NewFilteredElasticResourceQuotaInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
++	return cache.NewSharedIndexInformer(
++		&cache.ListWatch{
++			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
++				if tweakListOptions != nil {
++					tweakListOptions(&options)
++				}
++				return client.SchedulingV1beta1().ElasticResourceQuotas().List(context.TODO(), options)
++			},
++			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
++				if tweakListOptions != nil {
++					tweakListOptions(&options)
++				}
++				return client.SchedulingV1beta1().ElasticResourceQuotas().Watch(context.TODO(), options)
++			},
++		},
++		&schedulingv1beta1.ElasticResourceQuota{},
++		resyncPeriod,
++		indexers,
++	)
++}
++
++func (f *elasticResourceQuotaInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
++	return NewFilteredElasticResourceQuotaInformer(client, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
++}
++
++func (f *elasticResourceQuotaInformer) Informer() cache.SharedIndexInformer {
++	return f.factory.InformerFor(&schedulingv1beta1.ElasticResourceQuota{}, f.defaultInformer)
++}
++
++func (f *elasticResourceQuotaInformer) Lister() v1beta1.ElasticResourceQuotaLister {
++	return v1beta1.NewElasticResourceQuotaLister(f.Informer().GetIndexer())
++}
+diff --git a/pkg/client/informers/externalversions/scheduling/v1beta1/interface.go b/pkg/client/informers/externalversions/scheduling/v1beta1/interface.go
+index b42dea4..0327bb9 100644
+--- a/pkg/client/informers/externalversions/scheduling/v1beta1/interface.go
++++ b/pkg/client/informers/externalversions/scheduling/v1beta1/interface.go
+@@ -23,6 +23,8 @@ import (
+ 
+ // Interface provides access to all the informers in this group version.
+ type Interface interface {
++	// ElasticResourceQuotas returns a ElasticResourceQuotaInformer.
++	ElasticResourceQuotas() ElasticResourceQuotaInformer
+ 	// PodGroups returns a PodGroupInformer.
+ 	PodGroups() PodGroupInformer
+ 	// Queues returns a QueueInformer.
+@@ -40,6 +42,11 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
+ 	return &version{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
+ }
+ 
++// ElasticResourceQuotas returns a ElasticResourceQuotaInformer.
++func (v *version) ElasticResourceQuotas() ElasticResourceQuotaInformer {
++	return &elasticResourceQuotaInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
++}
++
+ // PodGroups returns a PodGroupInformer.
+ func (v *version) PodGroups() PodGroupInformer {
+ 	return &podGroupInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+diff --git a/pkg/client/listers/scheduling/v1beta1/elasticresourcequota.go b/pkg/client/listers/scheduling/v1beta1/elasticresourcequota.go
+new file mode 100644
+index 0000000..a34e35a
+--- /dev/null
++++ b/pkg/client/listers/scheduling/v1beta1/elasticresourcequota.go
+@@ -0,0 +1,67 @@
++/*
++Copyright 2021 The Volcano Authors.
++
++Licensed under the Apache License, Version 2.0 (the "License");
++you may not use this file except in compliance with the License.
++You may obtain a copy of the License at
++
++    http://www.apache.org/licenses/LICENSE-2.0
++
++Unless required by applicable law or agreed to in writing, software
++distributed under the License is distributed on an "AS IS" BASIS,
++WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++See the License for the specific language governing permissions and
++limitations under the License.
++*/
++// Code generated by lister-gen. DO NOT EDIT.
++
++package v1beta1
++
++import (
++	"k8s.io/apimachinery/pkg/api/errors"
++	"k8s.io/apimachinery/pkg/labels"
++	"k8s.io/client-go/tools/cache"
++	v1beta1 "volcano.sh/apis/pkg/apis/scheduling/v1beta1"
++)
++
++// ElasticResourceQuotaLister helps list ElasticResourceQuotas.
++// All objects returned here must be treated as read-only.
++type ElasticResourceQuotaLister interface {
++	// List lists all ElasticResourceQuotas in the indexer.
++	// Objects returned here must be treated as read-only.
++	List(selector labels.Selector) (ret []*v1beta1.ElasticResourceQuota, err error)
++	// Get retrieves the ElasticResourceQuota from the index for a given name.
++	// Objects returned here must be treated as read-only.
++	Get(name string) (*v1beta1.ElasticResourceQuota, error)
++	ElasticResourceQuotaListerExpansion
++}
++
++// elasticResourceQuotaLister implements the ElasticResourceQuotaLister interface.
++type elasticResourceQuotaLister struct {
++	indexer cache.Indexer
++}
++
++// NewElasticResourceQuotaLister returns a new ElasticResourceQuotaLister.
++func NewElasticResourceQuotaLister(indexer cache.Indexer) ElasticResourceQuotaLister {
++	return &elasticResourceQuotaLister{indexer: indexer}
++}
++
++// List lists all ElasticResourceQuotas in the indexer.
++func (s *elasticResourceQuotaLister) List(selector labels.Selector) (ret []*v1beta1.ElasticResourceQuota, err error) {
++	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
++		ret = append(ret, m.(*v1beta1.ElasticResourceQuota))
++	})
++	return ret, err
++}
++
++// Get retrieves the ElasticResourceQuota from the index for a given name.
++func (s *elasticResourceQuotaLister) Get(name string) (*v1beta1.ElasticResourceQuota, error) {
++	obj, exists, err := s.indexer.GetByKey(name)
++	if err != nil {
++		return nil, err
++	}
++	if !exists {
++		return nil, errors.NewNotFound(v1beta1.Resource("elasticresourcequota"), name)
++	}
++	return obj.(*v1beta1.ElasticResourceQuota), nil
++}
+diff --git a/pkg/client/listers/scheduling/v1beta1/expansion_generated.go b/pkg/client/listers/scheduling/v1beta1/expansion_generated.go
+index 9894d48..71609be 100644
+--- a/pkg/client/listers/scheduling/v1beta1/expansion_generated.go
++++ b/pkg/client/listers/scheduling/v1beta1/expansion_generated.go
+@@ -17,6 +17,10 @@ limitations under the License.
+ 
+ package v1beta1
+ 
++// ElasticResourceQuotaListerExpansion allows custom methods to be added to
++// ElasticResourceQuotaLister.
++type ElasticResourceQuotaListerExpansion interface{}
++
+ // PodGroupListerExpansion allows custom methods to be added to
+ // PodGroupLister.
+ type PodGroupListerExpansion interface{}

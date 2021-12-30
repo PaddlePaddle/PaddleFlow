@@ -1,0 +1,20 @@
+kind: PersistentVolume
+metadata:
+  name: pfs-$(pfs.fs.id)-$(namespace)-pv
+  annotations:
+    pv.kubernetes.io/provisioned-by: paddleflowstorage
+spec:
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Delete
+  storageClassName: paddleflowstorage
+  capacity:
+    storage: 400Gi
+  csi:
+    driver: paddleflowstorage
+    fsType: ext4
+    volumeAttributes:
+      pfs.fs.id: $(pfs.fs.id)
+      pfs.user.name: $(pfs.user.name)
+      pfs.server: $(pfs.server)
+    volumeHandle: pfs-$(pfs.fs.id)-$(namespace)-pv
