@@ -33,6 +33,13 @@ import (
 	"paddleflow/pkg/common/config"
 )
 
+// data init for sqllite
+const (
+	dsn              = "file:paddleflow.db?cache=shared&mode=rwc"
+	rootUserName     = "root"
+	rootUserPassword = "$2a$10$1qdSQN5wMl3FtXoxw7mKpuxBqIuP0eYXTBM9CBn5H4KubM/g5Hrb6%"
+)
+
 func InitDatabase(dbConf *config.DatabaseConfig, gormConf *gorm.Config, logLevel string) (*gorm.DB, error) {
 	if gormConf == nil {
 		gormConf = &gorm.Config{
@@ -53,6 +60,7 @@ func InitDatabase(dbConf *config.DatabaseConfig, gormConf *gorm.Config, logLevel
 	if strings.EqualFold(dbConf.Driver, "mysql") {
 		db = initMysqlDB(dbConf, gormConf)
 	} else {
+		// 若配置文件没有设置，则默认使用SQLLite
 		db = initSQLiteDB(dbConf, gormConf)
 	}
 
@@ -88,7 +96,6 @@ func InitDatabase(dbConf *config.DatabaseConfig, gormConf *gorm.Config, logLevel
 }
 
 func initSQLiteDB(dbConf *config.DatabaseConfig, gormConf *gorm.Config) *gorm.DB {
-	dsn := fmt.Sprintf("file:%s.db?cache=shared&mode=rwc", dbConf.Database)
 	db, err := gorm.Open(sqlite.Open(dsn), gormConf)
 	if err != nil {
 		log.Fatalf("initSQLiteDB error[%s]", err.Error())
@@ -110,10 +117,11 @@ func initSQLiteDB(dbConf *config.DatabaseConfig, gormConf *gorm.Config) *gorm.DB
 		&models.FileSystem{},
 		&models.Link{},
 	)
+	// init root user to db, can not be modified by config file currently
 	rootUser := models.User{
 		UserInfo: models.UserInfo{
-			Name:     dbConf.User,
-			Password: dbConf.Password,
+			Name:     rootUserName,
+			Password: rootUserPassword,
 		},
 	}
 
