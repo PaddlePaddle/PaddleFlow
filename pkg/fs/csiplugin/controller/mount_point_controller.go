@@ -326,7 +326,6 @@ func isRunning(pod v1.Pod) bool {
 		return false
 	}
 
-	// http://wiki.baidu.com/pages/viewpage.action?pageId=1316705915
 	// 考虑container重启的情况，对于Running状态的Pod，仅在Terminating状态不需要恢复
 	if pod.DeletionTimestamp != nil {
 		return false

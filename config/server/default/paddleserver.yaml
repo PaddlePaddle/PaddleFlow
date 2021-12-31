@@ -1,11 +1,3 @@
-database:
-  driver: sqlite
-  host: 127.0.0.1
-  port: 3306
-  user: root
-  password: $2a$10$1qdSQN5wMl3FtXoxw7mKpuxBqIuP0eYXTBM9CBn5H4KubM/g5Hrb6%
-  database: paddleflow
-
 log:
   dir: ./
   filePrefix: log
@@ -38,9 +30,6 @@ job:
   schedulerName: volcano
   scalarResourceArray:
     - "nvidia.com/gpu"
-    - "baidu.com/v100_cgpu"
-    - "baidu.com/v100_cgpu_core"
-    - "baidu.com/v100_cgpu_memory"
   defaultJobYamlDir: "./config/server/default/job"
 
 kubeConfig:
@@ -53,7 +42,7 @@ pipeline: pipeline
 
 imageRepository:
   server: ""
-  namespace: "" 
+  namespace: ""
   username: ""
   password: ""
   concurrency: 10
@@ -65,9 +54,6 @@ flavour:
     mem: 1Gi
   - name: flavour2
     cpu: 1
-    mem: 8Gi
-  - name: flavour3
-    cpu: 1
-    mem: 8Gi
+    mem: 1Gi
     scalarResources:
       "nvidia.com/gpu": "1"
