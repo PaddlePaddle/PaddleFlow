@@ -22,11 +22,11 @@ import (
 
 	"github.com/agiledragon/gomonkey/v2"
 
+	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/fs/client/base"
 	"paddleflow/pkg/fs/server/api/request"
 	"paddleflow/pkg/fs/server/api/response"
-	"paddleflow/pkg/fs/server/model"
 	"paddleflow/pkg/fs/server/utils/fs"
 )
 
@@ -36,8 +36,8 @@ func Test_validateCreateFileSystem(t *testing.T) {
 		req *request.CreateFileSystemRequest
 	}
 
-	var p1 = gomonkey.ApplyFunc(model.GetSimilarityAddressList, func(fsType string, ips []string) ([]model.FileSystem, error) {
-		return []model.FileSystem{}, nil
+	var p1 = gomonkey.ApplyFunc(models.GetSimilarityAddressList, func(fsType string, ips []string) ([]models.FileSystem, error) {
+		return []models.FileSystem{}, nil
 	})
 	defer p1.Reset()
 	var p2 = gomonkey.ApplyFunc(checkStorageConnectivity, func(fsMeta base.FSMeta) error {
@@ -271,8 +271,8 @@ func Test_checkFsDir(t *testing.T) {
 		url        string
 		properties map[string]string
 	}
-	var p1 = gomonkey.ApplyFunc(model.GetSimilarityAddressList, func(fsType string, ips []string) ([]model.FileSystem, error) {
-		return []model.FileSystem{
+	var p1 = gomonkey.ApplyFunc(models.GetSimilarityAddressList, func(fsType string, ips []string) ([]models.FileSystem, error) {
+		return []models.FileSystem{
 			{SubPath: "/data"},
 			{SubPath: "/data/mypath"},
 		}, nil
@@ -346,7 +346,7 @@ func Test_checkFsDir(t *testing.T) {
 
 func Test_getListResult(t *testing.T) {
 	type args struct {
-		fsModel    []model.FileSystem
+		fsModel    []models.FileSystem
 		marker     string
 		nextMarker string
 	}
@@ -358,7 +358,7 @@ func Test_getListResult(t *testing.T) {
 		{
 			name: "Truncated true",
 			args: args{
-				fsModel:    []model.FileSystem{{Name: "fsName"}},
+				fsModel:    []models.FileSystem{{Name: "fsName"}},
 				nextMarker: "2019-5-19 00:00:00",
 				marker:     "2016-5-19 00:00:00",
 			},
@@ -376,7 +376,7 @@ func Test_getListResult(t *testing.T) {
 		{
 			name: "Truncated false",
 			args: args{
-				fsModel: []model.FileSystem{{Name: "fsName"}},
+				fsModel: []models.FileSystem{{Name: "fsName"}},
 				marker:  "",
 			},
 			want: &response.ListFileSystemResponse{

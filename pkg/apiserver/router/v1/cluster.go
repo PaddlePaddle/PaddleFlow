@@ -168,9 +168,7 @@ func (cr *ClusterRouter) updateCluster(w http.ResponseWriter, r *http.Request) {
         "memory": "64422.83Mi",
         "storage": "445762.49Mi",
         "scalarResources": {
-          "baidu.com/v100_cgpu": "62",
-          "baidu.com/v100_cgpu_memory": "62",
-          "nvidia.com/gpu": "0"
+          "nvidia.com/gpu": "8"
         }
       },
       "idle": {
@@ -178,24 +176,20 @@ func (cr *ClusterRouter) updateCluster(w http.ResponseWriter, r *http.Request) {
         "memory": "53832.83Mi",
         "storage": "445762.49Mi",
         "scalarResources": {
-          "baidu.com/v100_cgpu": "60",
-          "baidu.com/v100_cgpu_memory": "62",
-          "nvidia.com/gpu": "0"
+          "nvidia.com/gpu": "8"
         }
       }
     },
     "nodeList": [
       {
-        "nodeName": "bmlc-test-v100.bcc-bjdd.baidu.com",
+        "nodeName": "nodeName",
         "schedulable": true,
         "total": {
           "cpu": 16,
           "memory": "64422.83Mi",
           "storage": "445762.49Mi",
           "scalarResources": {
-            "baidu.com/v100_cgpu": "62",
-            "baidu.com/v100_cgpu_memory": "62",
-            "nvidia.com/gpu": "0"
+            "nvidia.com/gpu": "8"
           }
         },
         "idle": {
@@ -203,9 +197,7 @@ func (cr *ClusterRouter) updateCluster(w http.ResponseWriter, r *http.Request) {
           "memory": "53832.83Mi",
           "storage": "445762.49Mi",
           "scalarResources": {
-            "baidu.com/v100_cgpu": "60",
-            "baidu.com/v100_cgpu_memory": "62",
-            "nvidia.com/gpu": "0"
+            "nvidia.com/gpu": "8"
           }
         }
       }
