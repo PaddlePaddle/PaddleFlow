@@ -38,30 +38,6 @@ index c379d7d..2e30903 100644
  
  vcctl: init
  	go build -ldflags ${LD_FLAGS} -o=${BIN_DIR}/vcctl ./cmd/cli
-diff --git a/ci.yml b/ci.yml
-new file mode 100644
-index 0000000..3e2eb72
---- /dev/null
-+++ b/ci.yml
-@@ -0,0 +1,18 @@
-+Global:
-+    version: 2.0
-+Default:
-+    profile : [build]
-+Profiles:
-+    - profile:
-+      name : build
-+      mode: AGENT
-+      environment:
-+        image: DECK_CENTOS7U5_K3
-+        resourceType: SMALL
-+      build:
-+        command: make -f Makefile all
-+      check:
-+        - reuse: TASK
-+          enable: true
-+      artifacts:
-+        release: true
 diff --git a/cmd/controller-manager/app/options/options.go b/cmd/controller-manager/app/options/options.go
 index 558f6b0..b044146 100644
 --- a/cmd/controller-manager/app/options/options.go
@@ -418,18 +394,8 @@ index 0000000..0bdc824
 +    plural: ""
 +  conditions: []
 +  storedVersions: []
-diff --git a/go.mod b/go.mod
-index faceed6..4c7411a 100644
---- a/go.mod
-+++ b/go.mod
-@@ -51,4 +51,5 @@ replace (
- 	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.19.6
- 	k8s.io/sample-cli-plugin => k8s.io/sample-cli-plugin v0.19.6
- 	k8s.io/sample-controller => k8s.io/sample-controller v0.19.6
-+	volcano.sh/apis => icode.baidu.com/baidu/third-party/volcano-apis v0.0.0-20211202072405-63e749b045a0
- )
 diff --git a/go.sum b/go.sum
-index d8349fd..af9ce4f 100644
+index d8349fd..b5345cc 100644
 --- a/go.sum
 +++ b/go.sum
 @@ -1,7 +1,6 @@
@@ -689,16 +655,7 @@ index d8349fd..af9ce4f 100644
  gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
  gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 h1:YR8cESwS4TdDjEe65xsg0ogRM/Nc3DYOhEAlW+xobZo=
  gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
-@@ -820,6 +782,8 @@ honnef.co/go/tools v0.0.0-20190106161140-3f1c8253044a/go.mod h1:rf3lG4BRIbNafJWh
- honnef.co/go/tools v0.0.0-20190418001031-e561f6794a2a/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
- honnef.co/go/tools v0.0.0-20190523083050-ea95bdfd59fc/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
- honnef.co/go/tools v0.0.1-2019.2.3/go.mod h1:a3bituU0lyd329TUQxRnasdCoJDkEUEAqEt0JzvZhAg=
-+icode.baidu.com/baidu/third-party/volcano-apis v0.0.0-20211202072405-63e749b045a0 h1:+4h/0HSXCfTtYqXk+B4j01WoZhsW+/tK16sRmeyUYJ0=
-+icode.baidu.com/baidu/third-party/volcano-apis v0.0.0-20211202072405-63e749b045a0/go.mod h1:UaeJ/s5Hyd+ZhFLc+Kw9YlgM8gRZ/5OzXqHa0yKOoXY=
- k8s.io/api v0.19.6 h1:F3lfwgpKcKms6F1mMqkQXFzXmme8QqHTJBtBkev3TOg=
- k8s.io/api v0.19.6/go.mod h1:Plxx44Nh4zVblkJrIgxVPgPre1mvng6tXf1Sj3bs0fU=
- k8s.io/apiextensions-apiserver v0.19.6/go.mod h1:9s8ceL67UJAD1ewbsn07tkQ7/EGjiKOedKyiUCVXJgQ=
-@@ -877,10 +841,7 @@ sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.0.9/go.mod h1:dzAXnQb
+@@ -877,10 +839,7 @@ sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.0.9/go.mod h1:dzAXnQb
  sigs.k8s.io/kustomize v2.0.3+incompatible/go.mod h1:MkjgH3RdOWrievjo6c9T245dYlB5QeXV4WCbnt/PEpU=
  sigs.k8s.io/structured-merge-diff/v4 v4.0.1 h1:YXTMot5Qz/X1iBRJhAt+vI+HVttY0WkSqqhKxQ0xVbA=
  sigs.k8s.io/structured-merge-diff/v4 v4.0.1/go.mod h1:bJZC9H9iH24zzfZ/41RGcq60oK1F7G282QMXDPYydCw=
@@ -755,23 +712,31 @@ index 38e2e2d..ba48d3c 100644
  ENTRYPOINT ["/vc-webhook-manager"]
 diff --git a/pkg/common/action.go b/pkg/common/action.go
 new file mode 100644
-index 0000000..e3cac20
+index 0000000..5c72254
 --- /dev/null
 +++ b/pkg/common/action.go
-@@ -0,0 +1,24 @@
-+/**
-+ * Copyright (c) 2021 Baidu.com, Inc. All Rights Reserved
-+ * Author: dongzezhao@baidu.com
-+ * File: action.go
-+ * Date: 2021/12/1 11:06
-+ **/
+@@ -0,0 +1,32 @@
++/*
++Copyright 2021 The Kubernetes Authors.
++
++Licensed under the Apache License, Version 2.0 (the "License");
++you may not use this file except in compliance with the License.
++You may obtain a copy of the License at
++
++    http://www.apache.org/licenses/LICENSE-2.0
++
++Unless required by applicable law or agreed to in writing, software
++distributed under the License is distributed on an "AS IS" BASIS,
++WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++See the License for the specific language governing permissions and
++limitations under the License.
++*/
 +
 +package common
 +
 +import (
 +	busv1alpha1 "volcano.sh/apis/pkg/apis/bus/v1alpha1"
 +)
-+
 +
 +const (
 +	// SyncEQuotaAction is the action to sync ElasticResourceQuota.
@@ -2981,30 +2946,47 @@ index cb72906..11122e3 100644
  						(v.Annotations == nil || v.Annotations[scheduling.KubeGroupNameAnnotationKey] == "") {
  						return true
 diff --git a/pkg/controllers/podgroup/pg_controller_handler.go b/pkg/controllers/podgroup/pg_controller_handler.go
-index 76fdf32..98bf2dd 100644
+index 76fdf32..1b15003 100644
 --- a/pkg/controllers/podgroup/pg_controller_handler.go
 +++ b/pkg/controllers/podgroup/pg_controller_handler.go
-@@ -27,6 +27,7 @@ import (
+@@ -25,8 +25,10 @@ import (
+ 	"k8s.io/apimachinery/pkg/runtime/schema"
+ 	"k8s.io/klog"
  
++	batch "volcano.sh/apis/pkg/apis/batch/v1alpha1"
  	"volcano.sh/apis/pkg/apis/helpers"
  	scheduling "volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 +	"volcano.sh/volcano/pkg/common"
  )
  
  type podRequest struct {
-@@ -92,6 +93,7 @@ func (pg *pgcontroller) createNormalPodPGIfNotExist(pod *v1.Pod) error {
+@@ -92,9 +94,10 @@ func (pg *pgcontroller) createNormalPodPGIfNotExist(pod *v1.Pod) error {
  			Spec: scheduling.PodGroupSpec{
  				MinMember:         1,
  				PriorityClassName: pod.Spec.PriorityClassName,
 +				MinResources:      common.CalcPodResources(pod),
  			},
  		}
- 		if queueName, ok := pod.Annotations[scheduling.QueueNameAnnotationKey]; ok {
+-		if queueName, ok := pod.Annotations[scheduling.QueueNameAnnotationKey]; ok {
++		if queueName, ok := pod.Annotations[batch.QueueNameKey]; ok {
+ 			obj.Spec.Queue = queueName
+ 		}
+ 
 diff --git a/pkg/scheduler/actions/allocate/allocate.go b/pkg/scheduler/actions/allocate/allocate.go
-index 2720c98..37d1159 100644
+index 2720c98..7d8f7e9 100644
 --- a/pkg/scheduler/actions/allocate/allocate.go
 +++ b/pkg/scheduler/actions/allocate/allocate.go
-@@ -182,7 +182,9 @@ func (alloc *Action) Execute(ssn *framework.Session) {
+@@ -58,7 +58,8 @@ func (alloc *Action) Execute(ssn *framework.Session) {
+ 	jobsMap := map[api.NamespaceName]map[api.QueueID]*util.PriorityQueue{}
+ 
+ 	for _, job := range ssn.Jobs {
+-		if job.PodGroup.Status.Phase == scheduling.PodGroupPending {
++		klog.V(4).Infof("PodGroup <%s/%s> Status %+v", job.PodGroup.Namespace, job.PodGroup.Name, job.PodGroup.Status)
++		if job.PodGroup.Status.Phase == scheduling.PodGroupPending || job.PodGroup.Status.Phase == "" {
+ 			continue
+ 		}
+ 		if vr := ssn.JobValid(job); vr != nil && !vr.Pass {
+@@ -182,7 +183,9 @@ func (alloc *Action) Execute(ssn *framework.Session) {
  						task.Namespace, task.Name)
  					continue
  				}
@@ -3015,6 +2997,31 @@ index 2720c98..37d1159 100644
  				tasks.Push(task)
  			}
  			pendingTasks[job.UID] = tasks
+diff --git a/pkg/scheduler/actions/backfill/backfill.go b/pkg/scheduler/actions/backfill/backfill.go
+index 0add143..d225a2b 100644
+--- a/pkg/scheduler/actions/backfill/backfill.go
++++ b/pkg/scheduler/actions/backfill/backfill.go
+@@ -43,7 +43,7 @@ func (alloc *Action) Execute(ssn *framework.Session) {
+ 
+ 	// TODO (k82cn): When backfill, it's also need to balance between Queues.
+ 	for _, job := range ssn.Jobs {
+-		if job.PodGroup.Status.Phase == scheduling.PodGroupPending {
++		if job.PodGroup.Status.Phase == scheduling.PodGroupPending || job.PodGroup.Status.Phase == "" {
+ 			continue
+ 		}
+ 		if vr := ssn.JobValid(job); vr != nil && !vr.Pass {
+diff --git a/pkg/scheduler/actions/enqueue/enqueue.go b/pkg/scheduler/actions/enqueue/enqueue.go
+index 980813f..4f9b003 100644
+--- a/pkg/scheduler/actions/enqueue/enqueue.go
++++ b/pkg/scheduler/actions/enqueue/enqueue.go
+@@ -94,6 +94,7 @@ func (enqueue *Action) Execute(ssn *framework.Session) {
+ 		if job.PodGroup.Spec.MinResources == nil || ssn.JobEnqueueable(job) {
+ 			job.PodGroup.Status.Phase = scheduling.PodGroupInqueue
+ 			ssn.Jobs[job.UID] = job
++			klog.V(3).Infof("Enqueue PodGroup<%s/%s>.", job.PodGroup.Namespace, job.PodGroup.Name)
+ 		}
+ 
+ 		// Added Queue back until no job in Queue.
 diff --git a/pkg/scheduler/actions/factory.go b/pkg/scheduler/actions/factory.go
 index 6f8de96..531c3f7 100644
 --- a/pkg/scheduler/actions/factory.go
@@ -3035,16 +3042,25 @@ index 6f8de96..531c3f7 100644
  }
 diff --git a/pkg/scheduler/actions/preempt-pf/candidate.go b/pkg/scheduler/actions/preempt-pf/candidate.go
 new file mode 100644
-index 0000000..001ef7d
+index 0000000..15a5de9
 --- /dev/null
 +++ b/pkg/scheduler/actions/preempt-pf/candidate.go
-@@ -0,0 +1,64 @@
-+/**
-+ * Copyright (c) 2021 Baidu.com, Inc. All Rights Reserved
-+ * Author: dongzezhao@baidu.com
-+ * File: candidate.go
-+ * Date: 2021/9/30 16:18
-+ **/
+@@ -0,0 +1,73 @@
++/*
++Copyright 2021 The Kubernetes Authors.
++
++Licensed under the Apache License, Version 2.0 (the "License");
++you may not use this file except in compliance with the License.
++You may obtain a copy of the License at
++
++    http://www.apache.org/licenses/LICENSE-2.0
++
++Unless required by applicable law or agreed to in writing, software
++distributed under the License is distributed on an "AS IS" BASIS,
++WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++See the License for the specific language governing permissions and
++limitations under the License.
++*/
 +
 +package preemptpf
 +
@@ -3105,16 +3121,25 @@ index 0000000..001ef7d
 +}
 diff --git a/pkg/scheduler/actions/preempt-pf/cross_node_preemption.go b/pkg/scheduler/actions/preempt-pf/cross_node_preemption.go
 new file mode 100644
-index 0000000..582db74
+index 0000000..5731c02
 --- /dev/null
 +++ b/pkg/scheduler/actions/preempt-pf/cross_node_preemption.go
-@@ -0,0 +1,234 @@
-+/**
-+ * Copyright (c) 2021 Baidu.com, Inc. All Rights Reserved
-+ * Author: dongzezhao@baidu.com
-+ * File: cross_node_preemption.go
-+ * Date: 2021/11/4 17:01
-+ **/
+@@ -0,0 +1,243 @@
++/*
++Copyright 2021 The Kubernetes Authors.
++
++Licensed under the Apache License, Version 2.0 (the "License");
++you may not use this file except in compliance with the License.
++You may obtain a copy of the License at
++
++    http://www.apache.org/licenses/LICENSE-2.0
++
++Unless required by applicable law or agreed to in writing, software
++distributed under the License is distributed on an "AS IS" BASIS,
++WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++See the License for the specific language governing permissions and
++limitations under the License.
++*/
 +
 +package preemptpf
 +
@@ -3345,7 +3370,7 @@ index 0000000..582db74
 +}
 diff --git a/pkg/scheduler/actions/preempt-pf/preempt_pf.go b/pkg/scheduler/actions/preempt-pf/preempt_pf.go
 new file mode 100644
-index 0000000..35e9978
+index 0000000..1d671fd
 --- /dev/null
 +++ b/pkg/scheduler/actions/preempt-pf/preempt_pf.go
 @@ -0,0 +1,317 @@
@@ -3406,7 +3431,7 @@ index 0000000..35e9978
 +	// victim Jobs from overused queue
 +	victimJobsMap := map[api.QueueID]*util.PriorityQueue{}
 +	for _, job := range ssn.Jobs {
-+		if job.PodGroup.Status.Phase == scheduling.PodGroupPending {
++		if job.PodGroup.Status.Phase == scheduling.PodGroupPending || job.PodGroup.Status.Phase == "" {
 +			continue
 +		}
 +		if vr := ssn.JobValid(job); vr != nil && !vr.Pass {
@@ -3668,12 +3693,12 @@ index 0000000..35e9978
 +}
 diff --git a/pkg/scheduler/actions/preempt-pf/preempt_pf_test.go b/pkg/scheduler/actions/preempt-pf/preempt_pf_test.go
 new file mode 100644
-index 0000000..a06f219
+index 0000000..a747c99
 --- /dev/null
 +++ b/pkg/scheduler/actions/preempt-pf/preempt_pf_test.go
 @@ -0,0 +1,321 @@
 +/*
-+Copyright 2018 The Kubernetes Authors.
++Copyright 2021 The Kubernetes Authors.
 +
 +Licensed under the Apache License, Version 2.0 (the "License");
 +you may not use this file except in compliance with the License.
@@ -3699,8 +3724,8 @@ index 0000000..a06f219
 +	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 +	"k8s.io/client-go/tools/record"
 +
-+	"volcano.sh/volcano/cmd/scheduler/app/options"
 +	schedulingv1 "volcano.sh/apis/pkg/apis/scheduling/v1beta1"
++	"volcano.sh/volcano/cmd/scheduler/app/options"
 +	"volcano.sh/volcano/pkg/scheduler/api"
 +	"volcano.sh/volcano/pkg/scheduler/cache"
 +	"volcano.sh/volcano/pkg/scheduler/conf"
@@ -3995,16 +4020,25 @@ index 0000000..a06f219
 +}
 diff --git a/pkg/scheduler/actions/preempt-pf/victim_jobs.go b/pkg/scheduler/actions/preempt-pf/victim_jobs.go
 new file mode 100644
-index 0000000..c07565f
+index 0000000..49b4d93
 --- /dev/null
 +++ b/pkg/scheduler/actions/preempt-pf/victim_jobs.go
-@@ -0,0 +1,196 @@
-+/**
-+ * Copyright (c) 2021 Baidu.com, Inc. All Rights Reserved
-+ * Author: dongzezhao@baidu.com
-+ * File: victim_jobs.go
-+ * Date: 2021/11/11 14:21
-+ **/
+@@ -0,0 +1,205 @@
++/*
++Copyright 2021 The Kubernetes Authors.
++
++Licensed under the Apache License, Version 2.0 (the "License");
++you may not use this file except in compliance with the License.
++You may obtain a copy of the License at
++
++    http://www.apache.org/licenses/LICENSE-2.0
++
++Unless required by applicable law or agreed to in writing, software
++distributed under the License is distributed on an "AS IS" BASIS,
++WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++See the License for the specific language governing permissions and
++limitations under the License.
++*/
 +
 +package preemptpf
 +
@@ -4195,6 +4229,19 @@ index 0000000..c07565f
 +	}
 +	return gpuPodNum, gpuResource, gpuNum
 +}
+diff --git a/pkg/scheduler/actions/preempt/preempt.go b/pkg/scheduler/actions/preempt/preempt.go
+index ca9f820..053dee2 100644
+--- a/pkg/scheduler/actions/preempt/preempt.go
++++ b/pkg/scheduler/actions/preempt/preempt.go
+@@ -49,7 +49,7 @@ func (alloc *Action) Execute(ssn *framework.Session) {
+ 	queues := map[api.QueueID]*api.QueueInfo{}
+ 
+ 	for _, job := range ssn.Jobs {
+-		if job.PodGroup.Status.Phase == scheduling.PodGroupPending {
++		if job.PodGroup.Status.Phase == scheduling.PodGroupPending || job.PodGroup.Status.Phase == "" {
+ 			continue
+ 		}
+ 		if vr := ssn.JobValid(job); vr != nil && !vr.Pass {
 diff --git a/pkg/scheduler/api/const.go b/pkg/scheduler/api/const.go
 new file mode 100644
 index 0000000..d716095
@@ -9130,36 +9177,47 @@ index e4492fe..1c24e4a 100644
 +
 +	return &elasticresourcequotas, nil
 +}
-diff --git a/vendor/modules.txt b/vendor/modules.txt
-index 584f40c..00249d6 100644
---- a/vendor/modules.txt
-+++ b/vendor/modules.txt
-@@ -745,7 +745,7 @@ sigs.k8s.io/structured-merge-diff/v4/value
- # sigs.k8s.io/yaml v1.2.0
- ## explicit
- sigs.k8s.io/yaml
--# volcano.sh/apis v0.0.0-20210518032656-21e2239e42bc
-+# volcano.sh/apis v0.0.0-20210518032656-21e2239e42bc => icode.baidu.com/baidu/third-party/volcano-apis v0.0.0-20211202072405-63e749b045a0
- ## explicit
- volcano.sh/apis/pkg/apis/batch/v1alpha1
- volcano.sh/apis/pkg/apis/bus/v1alpha1
-@@ -805,3 +805,4 @@ volcano.sh/apis/pkg/client/listers/scheduling/v1beta1
- # k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.19.6
- # k8s.io/sample-cli-plugin => k8s.io/sample-cli-plugin v0.19.6
- # k8s.io/sample-controller => k8s.io/sample-controller v0.19.6
-+# volcano.sh/apis => icode.baidu.com/baidu/third-party/volcano-apis v0.0.0-20211202072405-63e749b045a0
+diff --git a/vendor/volcano.sh/apis/pkg/apis/helpers/helpers.go b/vendor/volcano.sh/apis/pkg/apis/helpers/helpers.go
+index 32e37c5..3044b9a 100644
+--- a/vendor/volcano.sh/apis/pkg/apis/helpers/helpers.go
++++ b/vendor/volcano.sh/apis/pkg/apis/helpers/helpers.go
+@@ -178,15 +178,6 @@ func DeleteSecret(job *vcbatch.Job, kubeClients kubernetes.Interface, secretName
+ func GeneratePodgroupName(pod *v1.Pod) string {
+ 	pgName := vcbatch.PodgroupNamePrefix
+ 
+-	if len(pod.OwnerReferences) != 0 {
+-		for _, ownerReference := range pod.OwnerReferences {
+-			if ownerReference.Controller != nil && *ownerReference.Controller {
+-				pgName += string(ownerReference.UID)
+-				return pgName
+-			}
+-		}
+-	}
+-
+ 	pgName += string(pod.UID)
+ 
+ 	return pgName
 diff --git a/vendor/volcano.sh/apis/pkg/apis/scheduling/types_equota.go b/vendor/volcano.sh/apis/pkg/apis/scheduling/types_equota.go
 new file mode 100644
-index 0000000..2536f21
+index 0000000..0c3099c
 --- /dev/null
 +++ b/vendor/volcano.sh/apis/pkg/apis/scheduling/types_equota.go
-@@ -0,0 +1,69 @@
-+/**
-+ * Copyright (c) 2021 Baidu.com, Inc. All Rights Reserved
-+ * Author: dongzezhao@baidu.com
-+ * File: types_equota.go
-+ * Date: 2021/11/24 14:28
-+ **/
+@@ -0,0 +1,78 @@
++/*
++Copyright 2021 The Volcano Authors.
++
++Licensed under the Apache License, Version 2.0 (the "License");
++you may not use this file except in compliance with the License.
++You may obtain a copy of the License at
++
++    http://www.apache.org/licenses/LICENSE-2.0
++
++Unless required by applicable law or agreed to in writing, software
++distributed under the License is distributed on an "AS IS" BASIS,
++WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++See the License for the specific language governing permissions and
++limitations under the License.
++*/
 +
 +package scheduling
 +
@@ -9226,16 +9284,25 @@ index 0000000..2536f21
 \ No newline at end of file
 diff --git a/vendor/volcano.sh/apis/pkg/apis/scheduling/v1beta1/labels_elastic_quota.go b/vendor/volcano.sh/apis/pkg/apis/scheduling/v1beta1/labels_elastic_quota.go
 new file mode 100644
-index 0000000..bcb53b2
+index 0000000..d15dce3
 --- /dev/null
 +++ b/vendor/volcano.sh/apis/pkg/apis/scheduling/v1beta1/labels_elastic_quota.go
-@@ -0,0 +1,91 @@
-+/**
-+ * Copyright (c) 2021 Baidu.com, Inc. All Rights Reserved
-+ * Author: dongzezhao@baidu.com
-+ * File: labels_elastic_quota.go
-+ * Date: 2021/12/2 15:20
-+ **/
+@@ -0,0 +1,100 @@
++/*
++Copyright 2021 The Volcano Authors.
++
++Licensed under the Apache License, Version 2.0 (the "License");
++you may not use this file except in compliance with the License.
++You may obtain a copy of the License at
++
++    http://www.apache.org/licenses/LICENSE-2.0
++
++Unless required by applicable law or agreed to in writing, software
++distributed under the License is distributed on an "AS IS" BASIS,
++WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++See the License for the specific language governing permissions and
++limitations under the License.
++*/
 +
 +package v1beta1
 +
@@ -9336,16 +9403,25 @@ index 43b6a43..eccd7df 100644
  	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 diff --git a/vendor/volcano.sh/apis/pkg/apis/scheduling/v1beta1/types_equota.go b/vendor/volcano.sh/apis/pkg/apis/scheduling/v1beta1/types_equota.go
 new file mode 100644
-index 0000000..12829e6
+index 0000000..47e08e5
 --- /dev/null
 +++ b/vendor/volcano.sh/apis/pkg/apis/scheduling/v1beta1/types_equota.go
-@@ -0,0 +1,73 @@
-+/**
-+ * Copyright (c) 2021 Baidu.com, Inc. All Rights Reserved
-+ * Author: dongzezhao@baidu.com
-+ * File: types_equota.go
-+ * Date: 2021/11/24 14:24
-+ **/
+@@ -0,0 +1,82 @@
++/*
++Copyright 2021 The Volcano Authors.
++
++Licensed under the Apache License, Version 2.0 (the "License");
++you may not use this file except in compliance with the License.
++You may obtain a copy of the License at
++
++    http://www.apache.org/licenses/LICENSE-2.0
++
++Unless required by applicable law or agreed to in writing, software
++distributed under the License is distributed on an "AS IS" BASIS,
++WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++See the License for the specific language governing permissions and
++limitations under the License.
++*/
 +
 +package v1beta1
 +
