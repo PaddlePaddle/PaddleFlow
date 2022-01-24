@@ -18,9 +18,11 @@ package database
 
 import (
 	"encoding/json"
+
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	"gorm.io/gorm"
+
 	"paddleflow/pkg/common/config"
 )
 
@@ -35,7 +37,6 @@ func AddFlagSet(fs *pflag.FlagSet, databaseConfig *config.DatabaseConfig) {
 	if fs == nil {
 		fs = pflag.CommandLine
 	}
-
 	fs.StringVar(&databaseConfig.Driver, "db-configPath", databaseConfig.Driver, "Driver")
 	fs.StringVar(&databaseConfig.Host, "db-host", databaseConfig.Host, "Host")
 	fs.StringVar(&databaseConfig.Port, "db-port", databaseConfig.Port, "Port")
