@@ -152,7 +152,7 @@ func (cr *ClusterRouter) updateCluster(w http.ResponseWriter, r *http.Request) {
 	response, err := cluster.UpdateCluster(&ctx, clusterName, &request)
 	if err != nil {
 		ctx.Logging().Errorf("update cluster failed. clusterName:%s, error:%s", clusterName, err.Error())
-		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, ctx.ErrorMessage)
 		return
 	}
 	common.Render(w, http.StatusOK, response)
@@ -221,7 +221,7 @@ func (cr *ClusterRouter) listClusterQuota(w http.ResponseWriter, r *http.Request
 
 	quotaList, err := cluster.ListClusterQuota(&ctx, clusterNameList)
 	if err != nil {
-		ctx.Logging().Errorf("get cluster failed, error:%s", err.Error())
+		ctx.Logging().Errorf("list cluster quota failed, error:%s", err.Error())
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}

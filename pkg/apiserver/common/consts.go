@@ -23,6 +23,7 @@ const (
 	PrefixPipeline = "ppl-"
 	PrefixCache    = "cch-"
 	PrefixGrant    = "grant"
+	PrefixQueue    = "queue"
 	PrefixCluster  = "cluster"
 
 	ResourceTypeRun           = "run"
@@ -42,4 +43,16 @@ const (
 	ResponseCode      = "code"
 	ResponseMessage   = "message"
 	ResponseRequestID = "requestID"
+
+	CFSSuccessMessage     = "create file system success"
+	ClaimsSuccessMessage  = "create pv and pvc success"
+	RegisterClientMessage = "register client success"
+	HeartBeatMessage      = "heat beat client success"
+
+	BeginFilePosition = "begin"
+	EndFilePosition = "end"
+
+	LogPageSizeMax = 100
+	LogPageSizeDefault = 100
+	LogPageNoDefault = 1
 )

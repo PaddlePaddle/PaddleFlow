@@ -20,9 +20,9 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"gorm.io/gorm"
 
 	"gopkg.in/yaml.v2"
+	"gorm.io/gorm"
 
 	"paddleflow/pkg/apiserver/common"
 	"paddleflow/pkg/apiserver/handler"
@@ -31,8 +31,8 @@ import (
 	"paddleflow/pkg/common/database"
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/common/schema"
-	"paddleflow/pkg/fs/server/utils/fs"
 	"paddleflow/pkg/pipeline"
+	pplcommon "paddleflow/pkg/pipeline/common"
 )
 
 var wfMap = make(map[string]*pipeline.Workflow, 0)
@@ -51,6 +51,10 @@ type CreateRunRequest struct {
 	RunYamlRaw  string `json:"runYamlRaw,omitempty"`  // optional. one of 3 sources of run. high priority
 	PipelineID  string `json:"pipelineID,omitempty"`  // optional. one of 3 sources of run. medium priority
 	RunYamlPath string `json:"runYamlPath,omitempty"` // optional. one of 3 sources of run. low priority
+}
+
+type DeleteRunRequest struct {
+	CheckCache bool `json:"checkCache"`
 }
 
 type CreateRunResponse struct {
@@ -144,6 +148,7 @@ func runYamlAndReqToWfs(ctx *logger.RequestContext, runYaml string, req CreateRu
 		ctx.Logging().Errorf("Unmarshal runYaml failed. yaml: %s \n, err:%v", runYaml, err)
 		return schema.WorkflowSource{}, err
 	}
+	wfs.ValidateArtifacts()
 	// replace name & dockerEnv by request
 	if req.Name != "" {
 		wfs.Name = req.Name
@@ -159,9 +164,9 @@ func CreateRun(ctx *logger.RequestContext, request *CreateRunRequest) (CreateRun
 	var fsID string
 	if common.IsRootUser(ctx.UserName) && request.UserName != "" {
 		// root user can select fs under other users
-		fsID = fs.ID(request.UserName, request.FsName)
+		fsID = common.ID(request.UserName, request.FsName)
 	} else {
-		fsID = fs.ID(ctx.UserName, request.FsName)
+		fsID = common.ID(ctx.UserName, request.FsName)
 	}
 	// todo://增加root用户判断fs是否存在
 	// TODO:// validate flavour
@@ -350,7 +355,7 @@ func StopRun(ctx *logger.RequestContext, runID string) error {
 }
 
 func RetryRun(ctx *logger.RequestContext, runID string) error {
-	ctx.Logging().Debugf("begin stop run. runID:%s\n", runID)
+	ctx.Logging().Debugf("begin retry run. runID:%s\n", runID)
 	// check run exist
 	run, err := GetRunByID(ctx, runID)
 	if err != nil {
@@ -360,7 +365,7 @@ func RetryRun(ctx *logger.RequestContext, runID string) error {
 	// check user access right
 	if !common.IsRootUser(ctx.UserName) && ctx.UserName != run.UserName {
 		ctx.ErrorCode = common.AccessDenied
-		ctx.Logging().Errorf("non-admin user[%s] has no access to stop run[%s]\n", ctx.UserName, runID)
+		ctx.Logging().Errorf("non-admin user[%s] has no access to retry run[%s]\n", ctx.UserName, runID)
 		return err
 	}
 	// check run current status. If already succeeded or running/pending, no need to retry this run.
@@ -386,7 +391,7 @@ func RetryRun(ctx *logger.RequestContext, runID string) error {
 	return nil
 }
 
-func DeleteRun(ctx *logger.RequestContext, id string) error {
+func DeleteRun(ctx *logger.RequestContext, id string, request *DeleteRunRequest) error {
 	ctx.Logging().Debugf("begin delete run: %s", id)
 	run, err := models.GetRunByID(ctx.Logging(), id)
 	if err != nil {
@@ -415,6 +420,37 @@ func DeleteRun(ctx *logger.RequestContext, id string) error {
 		ctx.Logging().Errorln(err.Error())
 		return err
 	}
+	// check cache
+	runCacheIDList := run.GetRunCacheIDList()
+	if request.CheckCache && len(runCacheIDList) > 0 {
+		// 由于cache当前正要删除的Run的其他Run可能已经被删除了，所以需要检查实际存在的Run有哪些
+		if runCachedList, _ := models.ListRun(ctx.Logging(), 0, 0, nil, nil, runCacheIDList, nil); len(runCachedList) > 0 {
+			// 为了错误信息更友好，把实际还存在的Run的ID打印出来
+			runExistIDList := make([]string, 0, len(runCachedList))
+			for _, runCached := range runCachedList {
+				runExistIDList = append(runExistIDList, runCached.ID)
+			}
+
+			err := fmt.Errorf("delete run[%s] failed. run deleting is cached by other Runs[%v].", id, runExistIDList)
+			ctx.Logging().Errorf(err.Error())
+			ctx.ErrorCode = common.InternalError
+			return err
+		}
+	}
+
+	// delete artifact
+	resourceHandler, err := pipeline.NewResourceHandler(id, run.FsID, ctx.Logging())
+	if err != nil {
+		ctx.Logging().Errorf("delete run[%s] failed. Init handler failed. err: %v", id, err.Error())
+		ctx.ErrorCode = common.InternalError
+		return err
+	}
+	if err := resourceHandler.ClearResource(); err != nil {
+		ctx.Logging().Errorf("delete run[%s] failed. Delete artifact failed. err: %v", id, err.Error())
+		ctx.ErrorCode = common.InternalError
+		return err
+	}
+
 	// delete
 	if err := models.DeleteRun(ctx.Logging(), id); err != nil {
 		ctx.ErrorCode = common.InternalError
@@ -463,6 +499,7 @@ func resumeRun(run models.Run) error {
 		logger.LoggerForRun(run.ID).Errorf("Unmarshal runYaml failed. err:%v\n", err)
 		return err
 	}
+	wfs.ValidateArtifacts()
 	if run.ImageUrl != "" {
 		wfs.DockerEnv = run.ImageUrl
 	}
@@ -518,10 +555,10 @@ func handleImageAndStartWf(run models.Run, isResume bool) error {
 
 func newWorkflowByRun(run models.Run) (*pipeline.Workflow, error) {
 	extraInfo := map[string]string{
-		pipeline.WfExtraInfoKeySource:   run.Source,
-		pipeline.WfExtraInfoKeyFsID:     run.FsID,
-		pipeline.WfExtraInfoKeyUserName: run.UserName,
-		pipeline.WfExtraInfoKeyFsName:   run.FsName,
+		pplcommon.WfExtraInfoKeySource:   run.Source,
+		pplcommon.WfExtraInfoKeyFsID:     run.FsID,
+		pplcommon.WfExtraInfoKeyUserName: run.UserName,
+		pplcommon.WfExtraInfoKeyFsName:   run.FsName,
 	}
 	wfPtr, err := pipeline.NewWorkflow(run.WorkflowSource, run.ID, run.Entry, run.Param, extraInfo, workflowCallbacks)
 	if err != nil {

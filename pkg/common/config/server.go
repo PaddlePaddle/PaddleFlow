@@ -47,6 +47,10 @@ type JobConfig struct {
 	Reclaim             ReclaimConfig `yaml:"reclaim"`
 	SchedulerName       string        `yaml:"schedulerName"`
 	ScalarResourceArray []string      `yaml:"scalarResourceArray"`
+	// period second for job manager
+	ClusterSyncPeriod int `yaml:"clusterSyncPeriod"`
+	QueueSyncPeriod   int `yaml:"queueSyncPeriod"`
+	JobLoopPeriod     int `yaml:"jobLoopPeriod"`
 	// DefaultJobYamlDir is directory that stores default template yaml files for job
 	DefaultJobYamlDir string `yaml:"defaultJobYamlDir"`
 }

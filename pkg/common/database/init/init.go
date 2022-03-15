@@ -51,8 +51,10 @@ func InitDatabase(dbConf *config.DatabaseConfig, gormConf *gorm.Config, logLevel
 	}
 
 	gormLogger := logger.Default
-	if strings.EqualFold(logLevel, "debug") {
-		gormLogger = gormLogger.LogMode(logger.Error)
+	if level, err := log.ParseLevel(logLevel); err != nil {
+		log.Warningf("Parse log level error[%s], using logger.Default as gormLogger.", err.Error())
+	} else if level == log.DebugLevel {
+		gormLogger = gormLogger.LogMode(logger.Info)
 	}
 	gormConf.Logger = gormLogger
 

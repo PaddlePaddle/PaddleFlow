@@ -40,8 +40,6 @@ func TestCreatePipeline(t *testing.T) {
 	db_fake.InitFakeDB()
 	ctx := &logger.RequestContext{UserName: MockRootUser}
 
-	fmt.Println("------------elsie----------------")
-
 	pwd, err := os.Getwd()
 	if err != nil {
 		fmt.Println(err)
@@ -49,16 +47,14 @@ func TestCreatePipeline(t *testing.T) {
 	}
 	fmt.Println(pwd)
 
-	fmt.Println("------------elsie----------------")
-
 	createPplReq := CreatePipelineRequest{
 		FsName:   MockFsName,
 		UserName: "",
 		YamlPath: "../../../../example/wide_and_deep/run.yaml",
 		Name:     "mockPplName",
 	}
-	ValidateWorkflowForPipeline = func(ppl models.Pipeline) error {return nil}
-	handler.ReadFileFromFs = func(fsID, runYamlPath string, logEntry *log.Entry) ([]byte, error) {return os.ReadFile(runYamlPath)}
+	ValidateWorkflowForPipeline = func(ppl models.Pipeline) error { return nil }
+	handler.ReadFileFromFs = func(fsID, runYamlPath string, logEntry *log.Entry) ([]byte, error) { return os.ReadFile(runYamlPath) }
 
 	// test create
 	resp, err := CreatePipeline(ctx, createPplReq)

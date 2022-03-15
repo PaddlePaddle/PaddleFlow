@@ -22,32 +22,41 @@ import (
 	"strings"
 
 	log "github.com/sirupsen/logrus"
-	v1 "k8s.io/api/core/v1"
-	vcclientset "volcano.sh/apis/pkg/client/clientset/versioned"
-
 	"paddleflow/pkg/apiserver/common"
 	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/common/config"
 	"paddleflow/pkg/common/database"
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/common/schema"
+	"paddleflow/pkg/common/uuid"
+	"paddleflow/pkg/job/runtime"
 )
 
 const defaultQueueName = "default"
+
+type CreateQueueRequest struct {
+	Name            string                     `json:"name"`
+	Namespace       string                     `json:"namespace"`
+	ClusterName     string                     `json:"clusterName"`
+	Cpu             string                     `json:"cpu"`
+	Mem             string                     `json:"mem"`
+	ScalarResources schema.ScalarResourcesType `json:"scalarResources,omitempty"`
+	// 任务调度策略
+	SchedulingPolicy []string `json:"schedulingPolicy,omitempty"`
+	Status           string   `json:"status"`
+}
 
 type CreateQueueResponse struct {
 	QueueName string `json:"name"`
 }
 
+type GetQueueResponse struct {
+	models.Queue
+}
+
 type ListQueueResponse struct {
 	common.MarkerInfo
 	QueueList []models.Queue `json:"queueList"`
-}
-
-var GlobalVCQueue *VCQueue
-
-func Init(client *vcclientset.Clientset) {
-	GlobalVCQueue = NewVCQueue(client)
 }
 
 func ListQueue(ctx *logger.RequestContext, marker string, maxKeys int, name string) (ListQueueResponse, error) {
@@ -108,65 +117,101 @@ func IsLastQueuePk(ctx *logger.RequestContext, pk int64) bool {
 	return false
 }
 
-func CreateQueue(ctx *logger.RequestContext, queueInfo *models.QueueInfo) (CreateQueueResponse, error) {
-	ctx.Logging().Debugf("begin create queue. queueInfo:%s", config.PrettyFormat(queueInfo))
+func CreateQueue(ctx *logger.RequestContext, request *CreateQueueRequest) (CreateQueueResponse, error) {
+	ctx.Logging().Debugf("begin create request. request:%s", config.PrettyFormat(request))
 	if !common.IsRootUser(ctx.UserName) {
 		ctx.ErrorCode = common.OnlyRootAllowed
-		ctx.Logging().Errorln("create queue failed. error: admin is needed.")
-		return CreateQueueResponse{}, errors.New("create queue failed")
+		ctx.Logging().Errorln("create request failed. error: admin is needed.")
+		return CreateQueueResponse{}, errors.New("create request failed")
 	}
 
-	if queueInfo.Name == "" {
+	if request.Name == "" {
 		ctx.ErrorCode = common.QueueNameNotFound
-		ctx.Logging().Errorln("create queue failed. error: queueName is not found.")
+		ctx.Logging().Errorln("create request failed. error: queueName is not found.")
 		return CreateQueueResponse{}, errors.New("queueName is not found.")
 	}
 
-	// TODO(liuxiaopeng04)：这里的逻辑先注释掉，后续这块儿需要再改下
-	// if queueInfo.ClusterName == "" {
-	// 	ctx.ErrorCode = common.ClusterNameNotFound
-	// 	ctx.Logging().Errorln("create queue failed. error: clusterName not found.")
-	// 	return CreateQueueResponse{}, errors.New("clusterName is not found")
-	// }
-
-	if queueInfo.Namespace == "" {
+	if request.ClusterName == "" {
+		ctx.ErrorCode = common.ClusterNameNotFound
+		ctx.Logging().Errorln("create request failed. error: clusterName not found.")
+		return CreateQueueResponse{}, errors.New("clusterName not found")
+	}
+	clusterInfo, err := models.GetClusterByName(ctx, request.ClusterName)
+	if err != nil {
+		ctx.ErrorCode = common.ClusterNotFound
+		ctx.Logging().Errorln("create request failed. error: cluster not found by Name.")
+		return CreateQueueResponse{}, errors.New("cluster not found  by Name")
+	}
+	if clusterInfo.Status != models.ClusterStatusOnLine {
+		ctx.ErrorCode = common.InvalidClusterStatus
+		errMsg := fmt.Sprintf("cluster[%s] not in online status, operator not permit", clusterInfo.Name)
+		ctx.Logging().Errorln(errMsg)
+		return CreateQueueResponse{}, errors.New(errMsg)
+	}
+	// validate namespace
+	if request.Namespace == "" {
 		ctx.ErrorCode = common.NamespaceNotFound
-		ctx.Logging().Errorln("create queue failed. error: namespace is not found.")
+		ctx.Logging().Errorln("create request failed. error: namespace is not found.")
 		return CreateQueueResponse{}, errors.New("namespace is not found")
+	} else if len(clusterInfo.NamespaceList) != 0 {
+		isExist := false
+		for _, ns := range clusterInfo.NamespaceList {
+			if request.Namespace == ns {
+				isExist = true
+				break
+			}
+		}
+		if !isExist {
+			return CreateQueueResponse{}, fmt.Errorf(
+				"namespace[%s] of queue not in the specified values [%s] by cluster[%s]",
+				request.Namespace, clusterInfo.RawNamespaceList, clusterInfo.Name)
+		}
 	}
 
-	if !schema.CheckReg(queueInfo.Name, common.RegPatternQueueName) {
+	if !schema.CheckReg(request.Name, common.RegPatternQueueName) {
 		ctx.ErrorCode = common.InvalidNamePattern
-		err := common.InvalidNamePatternError(queueInfo.Name, common.ResourceTypeQueue, common.RegPatternQueueName)
+		err := common.InvalidNamePatternError(request.Name, common.ResourceTypeQueue, common.RegPatternQueueName)
 		log.Errorf("CreateQueue failed. err: %v.", err)
 		return CreateQueueResponse{}, err
 	}
 
-	exist := strings.EqualFold(queueInfo.Name, defaultQueueName) || models.IsQueueExist(ctx, queueInfo.Name)
+	exist := strings.EqualFold(request.Name, defaultQueueName) || models.IsQueueExist(ctx, request.Name)
 	if exist {
-		ctx.Logging().Errorf("GlobalVCQueue create queue failed. queueName[%s] exist.", queueInfo.Name)
+		ctx.Logging().Errorf("GlobalVCQueue create request failed. queueName[%s] exist.", request.Name)
 		ctx.ErrorCode = common.QueueNameDuplicated
-		return CreateQueueResponse{}, errors.New("queue name duplicated")
+		return CreateQueueResponse{}, errors.New("request name duplicated")
 	}
 
-	// check queue resource
+	// check request resource
 	resourceInfo := schema.ResourceInfo{
-		Cpu:             queueInfo.Cpu,
-		Mem:             queueInfo.Mem,
-		ScalarResources: make(map[v1.ResourceName]string),
+		Cpu:             request.Cpu,
+		Mem:             request.Mem,
+		ScalarResources: make(schema.ScalarResourcesType),
 	}
-	for k, v := range queueInfo.ScalarResources {
+	for k, v := range request.ScalarResources {
 		resourceInfo.ScalarResources[k] = v
 	}
 	if err := schema.ValidateResourceInfo(resourceInfo, config.GlobalServerConfig.Job.ScalarResourceArray); err != nil {
-		ctx.Logging().Errorf("create queue failed. error: %s", err.Error())
+		ctx.Logging().Errorf("create request failed. error: %s", err.Error())
 		return CreateQueueResponse{}, err
 	}
-
-	queue := models.Queue{QueueInfo: *queueInfo, Status: common.StatusQueueCreating}
-	err := models.CreateQueue(ctx, &queue)
+	request.Status = schema.StatusQueueCreating
+	queueInfo := models.Queue{
+		Model: models.Model{
+			ID: uuid.GenerateID(common.PrefixQueue),
+		},
+		Name:             request.Name,
+		Namespace:        request.Namespace,
+		ClusterId:        clusterInfo.ID,
+		Cpu:              request.Cpu,
+		Mem:              request.Mem,
+		ScalarResources:  request.ScalarResources,
+		SchedulingPolicy: request.SchedulingPolicy,
+		Status:           schema.StatusQueueCreating,
+	}
+	err = models.CreateQueue(ctx, &queueInfo)
 	if err != nil {
-		ctx.Logging().Errorf("create queue failed. error:%s", err.Error())
+		ctx.Logging().Errorf("create request failed. error:%s", err.Error())
 		if database.GetErrorCode(err) == database.ErrorKeyIsDuplicated {
 			ctx.ErrorCode = common.QueueNameDuplicated
 		} else {
@@ -175,45 +220,62 @@ func CreateQueue(ctx *logger.RequestContext, queueInfo *models.QueueInfo) (Creat
 		return CreateQueueResponse{}, err
 	}
 
-	err = GlobalVCQueue.CreateQueue(&queue)
+	runtimeSvc, err := runtime.GetOrCreateRuntime(clusterInfo)
 	if err != nil {
-		ctx.Logging().Errorf("GlobalVCQueue create queue failed. error:%s", err.Error())
+		ctx.Logging().Errorf("GlobalVCQueue create request failed. error:%s", err.Error())
 		ctx.ErrorCode = common.QueueResourceNotMatch
 		ctx.ErrorMessage = err.Error()
-		deleteErr := models.DeleteQueue(ctx, queue.Name)
+		deleteErr := models.DeleteQueue(ctx, request.Name)
 		if deleteErr != nil {
-			ctx.Logging().Errorf("delete queue roll back db failed. error:%s", deleteErr.Error())
+			ctx.Logging().Errorf("delete request roll back db failed. error:%s", deleteErr.Error())
 		}
 		return CreateQueueResponse{}, err
 	}
 
-	err = models.UpdateQueueStatus(queue.Name, common.StatusQueueOpen)
+	err = runtimeSvc.CreateQueue(&queueInfo)
 	if err != nil {
-		fmt.Errorf("update queue status to open failed")
+		ctx.Logging().Errorf("GlobalVCQueue create request failed. error:%s", err.Error())
+		ctx.ErrorCode = common.QueueResourceNotMatch
+		ctx.ErrorMessage = err.Error()
+		deleteErr := models.DeleteQueue(ctx, request.Name)
+		if deleteErr != nil {
+			ctx.Logging().Errorf("delete request roll back db failed. error:%s", deleteErr.Error())
+		}
+		return CreateQueueResponse{}, err
 	}
 
-	ctx.Logging().Debugf("create queue success. queueName:%s", queueInfo.Name)
+	err = models.UpdateQueueStatus(request.Name, schema.StatusQueueOpen)
+	if err != nil {
+		fmt.Errorf("update request status to open failed")
+	}
+
+	ctx.Logging().Debugf("create request success. queueName:%s", request.Name)
 	response := CreateQueueResponse{
-		QueueName: queueInfo.Name,
+		QueueName: request.Name,
 	}
 	return response, nil
 }
 
-func GetQueueByName(ctx *logger.RequestContext, queueName string) (models.Queue, error) {
+func GetQueueByName(ctx *logger.RequestContext, queueName string) (GetQueueResponse, error) {
 	ctx.Logging().Debugf("begin get queue by name. queueName:%s", queueName)
 
 	if !models.HasAccessToResource(ctx, common.ResourceTypeQueue, queueName) {
 		ctx.ErrorCode = common.ActionNotAllowed
 		ctx.Logging().Errorf("get queueName[%s] failed. error: access denied.", queueName)
-		return models.Queue{}, fmt.Errorf("get queueName[%s] failed.\n", queueName)
+		return GetQueueResponse{}, fmt.Errorf("get queueName[%s] failed.\n", queueName)
 	}
 
 	queue, err := models.GetQueueByName(ctx, queueName)
 	if err != nil {
 		ctx.ErrorCode = common.QueueNameNotFound
-		return models.Queue{}, fmt.Errorf("queueName[%s] is not found.\n", queueName)
+		return GetQueueResponse{}, fmt.Errorf("queueName[%s] is not found.\n", queueName)
 	}
-	return queue, nil
+
+	getQueueResponse := GetQueueResponse{
+		Queue:       queue,
+	}
+
+	return getQueueResponse, nil
 }
 
 func CloseQueue(ctx *logger.RequestContext, queueName string) error {
@@ -230,17 +292,29 @@ func CloseQueue(ctx *logger.RequestContext, queueName string) error {
 		return fmt.Errorf("queueName[%s] is not found.\n", queueName)
 	}
 
-	err = GlobalVCQueue.CloseQueue(&queue)
+	clusterInfo, err := models.GetClusterById(ctx, queue.ClusterId)
+	if err != nil {
+		ctx.Logging().Errorf("get clusterInfo by ClusterId %s failed. error: %s", queue.ClusterId, err.Error())
+		return err
+	}
+
+	runtimeSvc, err := runtime.GetOrCreateRuntime(clusterInfo)
 	if err != nil {
 		ctx.ErrorCode = common.InternalError
-		log.Errorf("close queue failed. queueName:[%s] error:[%s]", queueName, err.Error())
+		ctx.Logging().Errorf("close queue failed. queueName:[%s] error:[%s]", queueName, err.Error())
+		return errors.New("close queue failed")
+	}
+	err = runtimeSvc.CloseQueue(&queue)
+	if err != nil {
+		ctx.ErrorCode = common.InternalError
+		ctx.Logging().Errorf("close queue failed. queueName:[%s] error:[%s]", queueName, err.Error())
 		return errors.New("close queue failed")
 	}
 
 	err = models.CloseQueue(ctx, queueName)
 	if err != nil {
 		ctx.ErrorCode = common.InternalError
-		log.Errorf("close queue update db failed. queueName:[%s] error:[%s]", queueName, err.Error())
+		ctx.Logging().Errorf("close queue update db failed. queueName:[%s] error:[%s]", queueName, err.Error())
 		return errors.New("close queue failed")
 	}
 	ctx.Logging().Debugf("close queue succeed. queueName:%s", queueName)
@@ -261,15 +335,29 @@ func DeleteQueue(ctx *logger.RequestContext, queueName string) error {
 		return fmt.Errorf("queueName[%s] is not found.\n", queueName)
 	}
 
-	if queue.Status != common.StatusQueueClosed {
-		ctx.ErrorCode = common.QueueIsNotClosed
-		return fmt.Errorf("queueName[%s] is not closed.\n", queueName)
+	isInUse, jobsInfo := models.IsQueueInUse(queue.ID)
+	if isInUse {
+		ctx.ErrorCode = common.QueueIsInUse
+		ctx.ErrorMessage = fmt.Sprintf("queue[%s] is inuse, and jobs on queue: %v", queueName, jobsInfo)
+		ctx.Logging().Errorf(ctx.ErrorMessage)
+		return fmt.Errorf(ctx.ErrorMessage)
 	}
-
-	err = GlobalVCQueue.DeleteQueue(&queue)
+	clusterInfo, err := models.GetClusterById(ctx, queue.ClusterId)
+	if err != nil {
+		ctx.Logging().Errorf("get clusterInfo by ClusterId %s failed. error: %s",
+			queue.ClusterId, err.Error())
+		return err
+	}
+	runtimeSvc, err := runtime.GetOrCreateRuntime(clusterInfo)
 	if err != nil {
 		ctx.ErrorCode = common.InternalError
-		log.Errorf("delete queue failed. queueName:[%s] error:[%s]", queueName, err.Error())
+		ctx.Logging().Errorf("delete queue failed. queueName:[%s] error:[%s]", queueName, err.Error())
+		return errors.New("delete queue failed")
+	}
+	err = runtimeSvc.DeleteQueue(&queue)
+	if err != nil {
+		ctx.ErrorCode = common.InternalError
+		ctx.Logging().Errorf("delete queue failed. queueName:[%s] error:[%s]", queueName, err.Error())
 		return errors.New("delete queue failed")
 	}
 	err = models.DeleteQueue(ctx, queueName)

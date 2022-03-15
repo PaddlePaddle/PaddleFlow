@@ -17,89 +17,119 @@ limitations under the License.
 package models
 
 import (
-	"database/sql/driver"
 	"encoding/json"
 	"fmt"
 	"strings"
-	"time"
 
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
-	v1 "k8s.io/api/core/v1"
 
 	"paddleflow/pkg/apiserver/common"
 	"paddleflow/pkg/common/database"
 	"paddleflow/pkg/common/logger"
+	"paddleflow/pkg/common/schema"
+	"paddleflow/pkg/common/uuid"
 )
 
-type ScalarResourcesType map[v1.ResourceName]string
-
-type QueueInfo struct {
-	Namespace       string              `json:"namespace"`
-	ClusterName     string              `json:"clusterName,omitempty" gorm:"cluster_name"`
-	Name            string              `json:"name" gorm:"uniqueIndex"`
-	Cpu             string              `json:"cpu"`
-	Mem             string              `json:"mem"`
-	ScalarResources ScalarResourcesType `json:"scalarResources,omitempty" gorm:"type:text"`
-}
+const (
+	queueJoinCluster  = "join `cluster_info` on `cluster_info`.id = queue.cluster_id"
+	queueSelectColumn = `queue.pk as pk, queue.id as id, queue.name as name, queue.namespace as namespace, queue.cluster_id as cluster_id,
+cluster_info.name as cluster_name, queue.cpu as cpu, queue.mem as mem, queue.scalar_resources as scalar_resources, 
+queue.status as status, queue.created_at as created_at, queue.updated_at as updated_at, queue.deleted_at as deleted_at`
+)
 
 type Queue struct {
-	QueueInfo `gorm:"embedded"`
-	Pk        int64          `json:"-" gorm:"primaryKey;autoIncrement"`
-	Status    string         `json:"status"`
-	CreatedAt time.Time      `json:"createTime"`
-	UpdatedAt time.Time      `json:"updateTime,omitempty"`
-	DeletedAt gorm.DeletedAt `json:"-" gorm:"index"`
+	Model              `gorm:"embedded"`
+	Pk                 int64                      `json:"-"           gorm:"primaryKey;autoIncrement"`
+	Name               string                     `json:"name"        gorm:"uniqueIndex"`
+	Namespace          string                     `json:"namespace"   gorm:"column:"`
+	ClusterId          string                     `json:"-"   gorm:"column:cluster_id"`
+	ClusterName        string                     `json:"clusterName" gorm:"column:cluster_name;->"`
+	Cpu                string                     `json:"cpu"         gorm:"column:cpu"`
+	Mem                string                     `json:"mem"         gorm:"column:mem"`
+	RawScalarResources string                     `json:"-"           gorm:"column:scalar_resources;type:text;default:'{}'"`
+	ScalarResources    schema.ScalarResourcesType `json:"scalarResources,omitempty" gorm:"-"`
+	// 任务调度策略
+	RawSchedulingPolicy string         `json:"-" gorm:"column:scheduling_policy"`
+	SchedulingPolicy    []string       `json:"schedulingPolicy,omitempty" gorm:"-"`
+	Status              string         `json:"status"`
+	DeletedAt           gorm.DeletedAt `json:"-" gorm:"index"`
 }
 
 func (Queue) TableName() string {
 	return "queue"
 }
 
-func (s *ScalarResourcesType) Scan(value interface{}) error {
-	if value == nil {
-		log.Debugln("Scan ScalarResourcesType value is nil")
-		return nil
+func (queue Queue) MarshalJSON() ([]byte, error) {
+	type Alias Queue
+	return json.Marshal(&struct {
+		*Alias
+		CreatedAt string `json:"createTime"`
+		UpdatedAt string `json:"updateTime"`
+	}{
+		CreatedAt: queue.CreatedAt.Format(TimeFormat),
+		UpdatedAt: queue.UpdatedAt.Format(TimeFormat),
+		Alias:     (*Alias)(&queue),
+	})
+}
+
+func (queue *Queue) AfterFind(*gorm.DB) error {
+	if queue.RawScalarResources != "" {
+		queue.ScalarResources = make(schema.ScalarResourcesType)
+		if err := json.Unmarshal([]byte(queue.RawScalarResources), &queue.ScalarResources); err != nil {
+			log.Errorf("json Unmarshal ScalarResources[%s] failed: %v", queue.RawScalarResources, err)
+			return err
+		}
 	}
-	b, ok := value.([]byte)
-	if !ok {
-		log.Errorf("ScalarResourcesType value is not []byte, value:%v", value)
-		return fmt.Errorf("ScalarResourcesType scan failed")
+	if queue.RawSchedulingPolicy != "" {
+		queue.SchedulingPolicy = make([]string, 0)
+		if err := json.Unmarshal([]byte(queue.RawSchedulingPolicy), &queue.SchedulingPolicy); err != nil {
+			log.Errorf("json Unmarshal SchedulingPolicy[%s] failed: %v", queue.RawSchedulingPolicy, err)
+			return err
+		}
 	}
-	err := json.Unmarshal(b, s)
-	if err != nil {
-		log.Errorf("Scan ScalarResourcesType failed. err:[%s]", err.Error())
-		return err
+	if queue.ClusterName == "" {
+		// only single query is necessary, function of list query by join table cluster_info
+		log.Debugf("queue[%s] ClusterName is nil", queue.Name)
+		var cluster ClusterInfo
+		db := database.DB.Table("cluster_info").Where("id = ?", queue.ClusterId).Where("deleted_at = '' ")
+		if err := db.First(&cluster).Error; err != nil {
+			log.Errorf("queue[%s] query cluster by clusterId[%s] failed: %v", queue.Name, queue.ClusterId, err)
+			return err
+		}
+		queue.ClusterName = cluster.Name
 	}
-	log.Debugf("Scan ScalarResourcesType s:%v", s)
 	return nil
 }
 
-func (s ScalarResourcesType) Value() (driver.Value, error) {
-	if s == nil {
-		log.Debugln("Value ScalarResourcesType s is nil")
-		return nil, nil
+// BeforeSave is the callback methods for saving file system
+func (queue *Queue) BeforeSave(*gorm.DB) error {
+	if len(queue.ScalarResources) != 0 {
+		scalarResourcesJson, err := json.Marshal(&queue.ScalarResources)
+		if err != nil {
+			log.Errorf("json Marshal scalarResources[%v] failed: %v", queue.ScalarResources, err)
+			return err
+		}
+		queue.RawScalarResources = string(scalarResourcesJson)
 	}
-	log.Debugf("marshal s:%v", s)
-	value, err := json.Marshal(s)
-	if err != nil {
-		log.Errorf("Value ScalarResourcesType s:%v failed.err:[%s]", s, err.Error())
-		return nil, err
+
+	if len(queue.SchedulingPolicy) != 0 {
+		schedulingPolicyJson, err := json.Marshal(&queue.SchedulingPolicy)
+		log.Debugf("queue.SchedulingPolicy=%+v", queue.SchedulingPolicy)
+		if err != nil {
+			log.Errorf("json Marshal schedulingPolicy[%v] failed: %v", queue.SchedulingPolicy, err)
+			return err
+		}
+		queue.RawSchedulingPolicy = string(schedulingPolicyJson)
 	}
-	return value, nil
+	return nil
 }
 
 func CreateQueue(ctx *logger.RequestContext, queue *Queue) error {
-	ctx.Logging().Debugf("begin create queue. queueID:%s", queue.Name)
+	ctx.Logging().Debugf("begin create queue. queueName: %s", queue.Name)
 
-	// 如果ClusterName不空，检查clusterName是否存在
-	if queue.ClusterName != "" {
-		_, err := GetClusterByName(ctx, queue.ClusterName)
-		if err != nil {
-			ctx.Logging().Errorf("GetClusterByName failed, clusterName: %s, queueName: %s, errorMsg: %s",
-				queue.ClusterName, queue.Name, err.Error())
-			return err
-		}
+	if queue.ID != "" {
+		queue.ID = uuid.GenerateID(common.PrefixQueue)
 	}
 
 	tx := database.DB.Table("queue").Create(queue)
@@ -128,7 +158,7 @@ func UpdateQueueStatus(queueName string, queueStatus string) error {
 
 func CloseQueue(ctx *logger.RequestContext, queueName string) error {
 	ctx.Logging().Debugf("begin close queue. queueName:%s", queueName)
-	tx := database.DB.Table("queue").Where("name = ?", queueName).Update("status", common.StatusQueueClosed)
+	tx := database.DB.Table("queue").Where("name = ?", queueName).Update("status", schema.StatusQueueClosed)
 	if tx.Error != nil {
 		ctx.Logging().Errorf("close queue failed. queueName:%s, error:%s",
 			queueName, tx.Error.Error())
@@ -188,25 +218,30 @@ func GetQueueByName(ctx *logger.RequestContext, queueName string) (Queue, error)
 	return queue, nil
 }
 
+func GetQueueByID(ctx *logger.RequestContext, queueID string) (Queue, error) {
+	ctx.Logging().Debugf("begin get queue. queueID:%s", queueID)
+
+	var queue Queue
+	tx := database.DB.Table("queue").Where("id = ?", queueID)
+	tx = tx.First(&queue)
+	if tx.Error != nil {
+		ctx.Logging().Errorf("get queue failed. queueID:%s, error:%s",
+			queueID, tx.Error.Error())
+		return Queue{}, tx.Error
+	}
+	return queue, nil
+}
+
 func ListQueue(ctx *logger.RequestContext, pk int64, maxKeys int, queueName string) ([]Queue, error) {
 	ctx.Logging().Debugf("begin list queue. ")
-
 	var tx *gorm.DB
+	tx = database.DB.Table("queue").Select(queueSelectColumn).Joins(queueJoinCluster).Where("queue.pk > ?", pk)
 	if !common.IsRootUser(ctx.UserName) {
-		tx = database.DB.Table("queue").Select("queue.pk as pk, queue.name as name, "+
-			"queue.namespace as namespace, queue.cluster_name as cluster_name, queue.cpu as cpu, queue.mem as mem, "+
-			"queue.scalar_resources as scalar_resources, queue.status as status, "+
-			"queue.created_at as created_at, queue.updated_at as updated_at, "+
-			"queue.deleted_at as deleted_at").Joins("join `grant` on `grant`.resource_id = queue.name").Where(
-			"`grant`.user_name = ?", ctx.UserName).Where("queue.pk > ?", pk)
-		if !strings.EqualFold(queueName, "") {
-			tx = tx.Where("queue.name = ?", queueName)
-		}
-	} else {
-		tx = database.DB.Table("queue").Where("pk > ?", pk)
-		if !strings.EqualFold(queueName, "") {
-			tx = tx.Where("name = ?", queueName)
-		}
+		tx = tx.Joins("join `grant` on `grant`.resource_id = queue.name").Where(
+			"`grant`.user_name = ?", ctx.UserName)
+	}
+	if !strings.EqualFold(queueName, "") {
+		tx = tx.Where("queue.name = ?", queueName)
 	}
 
 	if maxKeys > 0 {
@@ -231,4 +266,44 @@ func GetLastQueue(ctx *logger.RequestContext) (Queue, error) {
 		return Queue{}, tx.Error
 	}
 	return queue, nil
+}
+
+func ActiveQueues() []Queue {
+	db := database.DB.Table("queue").Where("status = ?", schema.StatusQueueOpen)
+
+	var queues []Queue
+	err := db.Find(&queues).Error
+	if err != nil {
+		return []Queue{}
+	}
+	return queues
+}
+
+func ListQueuesByCluster(clusterID string) []Queue {
+	db := database.DB.Table("queue").Where("cluster_id = ?", clusterID)
+
+	var queues []Queue
+	err := db.Find(&queues).Error
+	if err != nil {
+		return []Queue{}
+	}
+	return queues
+}
+
+func IsQueueInUse(queueID string) (bool, map[string]schema.JobStatus) {
+	queueInUseJobStatus := []schema.JobStatus{
+		schema.StatusJobInit,
+		schema.StatusJobPending,
+		schema.StatusJobTerminating,
+		schema.StatusJobRunning,
+	}
+	jobsInfo := make(map[string]schema.JobStatus)
+	jobs := ListQueueJob(queueID, queueInUseJobStatus)
+	if len(jobs) == 0 {
+		return false, jobsInfo
+	}
+	for _, job := range jobs {
+		jobsInfo[job.ID] = job.Status
+	}
+	return true, jobsInfo
 }

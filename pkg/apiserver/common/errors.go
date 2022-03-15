@@ -17,6 +17,7 @@ limitations under the License.
 package common
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -51,6 +52,7 @@ const (
 	AuthWithoutToken = "AuthWithoutToken" // 请求没有携带token
 	AuthInvalidToken = "AuthInvalidToken" // 无效token
 	AuthFailed       = "AuthFailed"       // 用户名或者密码错误
+	AuthIllegalUser  = "AuthIllegalUser"  // 非法用户
 
 	UserNameDuplicated = "UserNameDuplicated"
 	UserNotExist       = "UserNotExist"
@@ -61,6 +63,7 @@ const (
 	QueueNameNotFound         = "QueueNameNotFound"
 	QueueResourceNotMatch     = "QueueResourceNotMatch"
 	QueueIsNotClosed          = "QueueIsNotClosed"
+	QueueIsInUse              = "QueueIsInUse"
 
 	GrantResourceTypeNotFound = "GrantResourceTypeNotFound"
 	GrantNotFound             = "GrantNotFound"
@@ -75,7 +78,38 @@ const (
 
 	FlavourNotFound = "FlavourNotFound"
 
-	ClusterNameNotFound = "ClusterNameNotFound"
+	ClusterNameNotFound      = "ClusterNameNotFound"
+	ClusterIdNotFound        = "ClusterIdNotFound"
+	ClusterNotFound          = "ClusterNotFound"
+	InvalidClusterProperties = "InvalidClusterProperties"
+	InvalidCredential        = "InvalidClusterCredential"
+	InvalidClusterStatus     = "InvalidClusterStatus"
+
+	InvalidFileSystemURL        = "InvalidFileSystemParamsURL"
+	InvalidFileSystemProperties = "InvalidFileSystemParamsProperties"
+	InvalidFileSystemMaxKeys    = "InvalidFileSystemMaxKeys"
+	InvalidFileSystemFsName     = "InvalidFileSystemFsName"
+	InvalidLinkURL              = "InvalidLinkURL"
+	InvalidLinkProperties       = "InvalidLinkProperties"
+	InvalidLinkMaxKeys          = "InvalidFileSystemMaxKeys"
+	FileSystemDataBaseError     = "FileSystemDataBaseError"
+	LinkModelError              = "LinkModelError"
+	LinkPathExist               = "LinkPathExist"
+	FileSystemClientBusy        = "FileSystemClientBusy"
+	K8sOperatorError            = "K8sOperatorError"
+	InvalidState                = "InvalidState"
+	GrantUserNameAndFsID        = "GrantUserNameAndFsID"
+	FileSystemNotExist          = "FileSystemNotExist"
+	FileSystemNameFormatError   = "FileSystemNameFormatError"
+	LinkFileSystemNotExist      = "LinkFileSystemNotExist"
+	FuseClientError             = "FuseClientError"
+	LinkFileSystemPathNotExist  = "LinkFileSystemPathNotExist"
+	LinkNotExist                = "LinkNotExist"
+	LinkPathMustBeEmpty         = "LinkPathMustBeEmpty"
+	ConnectivityFailed          = "ConnectivityFailed"
+	InvalidPVClaimsParams       = "InvalidPVClaimsParams"
+	GetNamespaceFail            = "GetNamespaceFail"
+	LinkMetaPersistError        = "LinkMetaPersistError"
 )
 
 var errorHTTPStatus = map[string]int{
@@ -110,12 +144,14 @@ var errorHTTPStatus = map[string]int{
 	AuthWithoutToken: http.StatusBadRequest,
 	AuthInvalidToken: http.StatusBadRequest,
 	AuthFailed:       http.StatusBadRequest,
+	AuthIllegalUser:  http.StatusBadRequest,
 
 	QueueNameDuplicated:       http.StatusForbidden,
 	QueueActionIsNotSupported: http.StatusBadRequest,
 	QueueNameNotFound:         http.StatusBadRequest,
 	QueueResourceNotMatch:     http.StatusBadRequest,
 	QueueIsNotClosed:          http.StatusBadRequest,
+	QueueIsInUse:              http.StatusBadRequest,
 
 	RunNameDuplicated:     http.StatusBadRequest,
 	RunNotFound:           http.StatusNotFound,
@@ -130,7 +166,37 @@ var errorHTTPStatus = map[string]int{
 
 	FlavourNotFound: http.StatusBadRequest,
 
-	ClusterNameNotFound: http.StatusBadRequest,
+	ClusterNameNotFound:      http.StatusBadRequest,
+	ClusterIdNotFound:        http.StatusBadRequest,
+	ClusterNotFound:          http.StatusBadRequest,
+	InvalidClusterProperties: http.StatusBadRequest,
+	InvalidCredential:        http.StatusBadRequest,
+	InvalidClusterStatus:     http.StatusBadRequest,
+
+	InvalidFileSystemURL:        http.StatusBadRequest,
+	InvalidFileSystemProperties: http.StatusBadRequest,
+	FileSystemDataBaseError:     http.StatusInternalServerError,
+	FileSystemClientBusy:        http.StatusForbidden,
+	FileSystemNotExist:          http.StatusForbidden,
+	K8sOperatorError:            http.StatusInternalServerError,
+	InvalidState:                http.StatusBadRequest,
+	InvalidFileSystemMaxKeys:    http.StatusBadRequest,
+	InvalidFileSystemFsName:     http.StatusBadRequest,
+	InvalidLinkURL:              http.StatusBadRequest,
+	InvalidLinkProperties:       http.StatusBadRequest,
+	GrantUserNameAndFsID:        http.StatusInternalServerError,
+	LinkModelError:              http.StatusInternalServerError,
+	FileSystemNameFormatError:   http.StatusBadRequest,
+	LinkPathExist:               http.StatusBadRequest,
+	LinkFileSystemNotExist:      http.StatusBadRequest,
+	FuseClientError:             http.StatusInternalServerError,
+	LinkFileSystemPathNotExist:  http.StatusBadRequest,
+	LinkNotExist:                http.StatusBadRequest,
+	LinkPathMustBeEmpty:         http.StatusBadRequest,
+	ConnectivityFailed:          http.StatusBadRequest,
+	InvalidPVClaimsParams:       http.StatusBadRequest,
+	GetNamespaceFail:            http.StatusInternalServerError,
+	LinkMetaPersistError:        http.StatusBadRequest,
 }
 
 var errorMessage = map[string]string{
@@ -163,6 +229,7 @@ var errorMessage = map[string]string{
 	AuthWithoutToken: "Request should login first",
 	AuthInvalidToken: "Invalid token. Please re-login",
 	AuthFailed:       "Username or password not correct",
+	AuthIllegalUser:  "The user does not have permission to operate other users",
 
 	QueueNameDuplicated:       "The queue name already exists",
 	QueueActionIsNotSupported: "Queue action not supported",
@@ -181,7 +248,37 @@ var errorMessage = map[string]string{
 	GrantAlreadyExist:         "This user already have the grant of the resource",
 	GrantRootActionNotSupport: "Can not delete or create root's grant",
 
-	ClusterNameNotFound: "ClusterName does not exist",
+	ClusterNameNotFound:      "ClusterName does not exist",
+	ClusterIdNotFound:        "ClusterId does not exist",
+	ClusterNotFound:          "Cluster not found",
+	InvalidClusterProperties: "Cluster properties wrong",
+	InvalidCredential:        "Cluster credential wrong",
+	InvalidClusterStatus:     "Cluster not in online status, operator not permit",
+
+	InvalidFileSystemURL:        "File system url wrong.",
+	InvalidFileSystemProperties: "File system properties wrong.",
+	InvalidFileSystemFsName:     "File system fsName wrong.",
+	InvalidLinkURL:              "Link url wrong.",
+	InvalidLinkProperties:       "Link properties wrong.",
+	InvalidFileSystemMaxKeys:    "MaxKeys wrong",
+	FileSystemDataBaseError:     "FileSystem DB is wrong.",
+	LinkModelError:              "Link db is wrong.",
+	FileSystemClientBusy:        "File system is busy",
+	K8sOperatorError:            "K8s operator err",
+
+	GrantUserNameAndFsID:       "Grant fsID and userName err",
+	InvalidState:               "Heart state must active or inactive",
+	FileSystemNotExist:         "File system not exist",
+	FileSystemNameFormatError:  "File system name must be letters and numbers and name length limit 8",
+	LinkPathExist:              "Link path has exist",
+	LinkFileSystemNotExist:     "Link file system not exist",
+	FuseClientError:            "Fuse client Error",
+	LinkFileSystemPathNotExist: "Link File system path not exist",
+	LinkNotExist:               "Link is not exist",
+	LinkPathMustBeEmpty:        "Link path must be empty",
+	ConnectivityFailed:         "Connectivity failed",
+	InvalidPVClaimsParams:      "Invalid persistent volume claims params",
+	GetNamespaceFail:           "Get namespace fail",
 }
 
 type ErrorResponse struct {
@@ -254,4 +351,36 @@ func InvalidNamePatternError(name, resourceType, reg string) error {
 
 func FileTypeNotSupportedError(fileType, resourceType string) error {
 	return fmt.Errorf("fileType[%s] for [%s] is not supported", fileType, resourceType)
+}
+
+func New(text string) error {
+	return errors.New(text)
+}
+
+func InvalidField(field string, info string) error {
+	return fmt.Errorf("Field[%s] is invalid, %s", field, info)
+}
+
+func SubPathError(subPath string) error {
+	return fmt.Errorf("Can not use subpath[%s], subpath used or conflict", subPath)
+}
+
+func LinkPathError(fsPath string) error {
+	return fmt.Errorf("Can not use fsPath[%s], fsPath used or conflict by other link path", fsPath)
+}
+
+func DbDataNotExitError(errMsg string) error {
+	return errors.New(errMsg)
+}
+
+func PVCNotFountError(pvc, namespace string) error {
+	return fmt.Errorf("The pvc[%s] in the namespace[%s] does not exist", pvc, namespace)
+}
+
+func LogPageSizeOverMaxError() error {
+	return fmt.Errorf("LogPageSize over max value")
+}
+
+func LogFilePositionInvalidValueError() error {
+	return fmt.Errorf("LogFilePosition has wrong value")
 }

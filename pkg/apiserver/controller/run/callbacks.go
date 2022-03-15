@@ -19,8 +19,11 @@ package run
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
+	"strings"
 	"time"
 
+	mapset "github.com/deckarep/golang-set"
 	"gopkg.in/yaml.v2"
 
 	"paddleflow/pkg/apiserver/common"
@@ -33,6 +36,7 @@ import (
 )
 
 var workflowCallbacks = pipeline.WorkflowCallbacks{
+	GetJobCb:      GetJobFunc,
 	UpdateRunCb:   UpdateRunFunc,
 	LogCacheCb:    LogCacheFunc,
 	ListCacheCb:   ListCacheFunc,
@@ -40,11 +44,31 @@ var workflowCallbacks = pipeline.WorkflowCallbacks{
 }
 
 var (
+	GetJobFunc      func(runID string, stepName string) (schema.JobView, error)         = GetJobByRun
 	UpdateRunFunc   func(id string, event interface{}) bool                             = UpdateRunByWfEvent
 	LogCacheFunc    func(req schema.LogRunCacheRequest) (string, error)                 = LogCache
 	ListCacheFunc   func(firstFp, fsID, step, source string) ([]models.RunCache, error) = ListCacheByFirstFp
 	LogArtifactFunc func(req schema.LogRunArtifactRequest) error                        = LogArtifactEvent
 )
+
+func GetJobByRun(runID string, stepName string) (schema.JobView, error) {
+	logging := logger.LoggerForRun(runID)
+	var jobView schema.JobView
+
+	run, err := models.GetRunByID(logging, runID)
+	if err != nil {
+		logging.Errorf("get Run by runID[%s] failed. Error: %v", runID, err)
+		return jobView, err
+	}
+
+	jobView, ok := run.Runtime[stepName]
+	if !ok {
+		logging.Errorf("get jobView from Run with stepName[%s] failed.", stepName)
+		return jobView, fmt.Errorf("get jobView from Run with stepName[%s] failed.", stepName)
+	}
+
+	return jobView, nil
+}
 
 func UpdateRunByWfEvent(id string, event interface{}) bool {
 	logging := logger.LoggerForRun(id)
@@ -72,6 +96,48 @@ func UpdateRunByWfEvent(id string, event interface{}) bool {
 		logging.Errorf("run[%s] malformat runtime", id)
 		return false
 	}
+
+	// 检查每个job的cache情况
+	// 多个job很可能cache同一个Run，所以用set来去重
+	cacheIdSet := mapset.NewSet()
+	for _, jobView := range runtime {
+		if jobView.CacheRunID != "" {
+			cacheIdSet.Add(jobView.CacheRunID)
+		}
+	}
+
+	// 一次性读取全部 Run，避免多次调用GetRunByID
+	cacheIdList := make([]string, 0, cacheIdSet.Cardinality())
+	for cacheId := range cacheIdSet.Iter() {
+		cacheIdList = append(cacheIdList, cacheId.(string))
+	}
+	runCachedList := make([]models.Run, 0)
+	if len(cacheIdList) > 0 {
+		var err error
+		runCachedList, err = models.ListRun(logging, 0, 0, nil, nil, cacheIdList, nil)
+		if err != nil {
+			logging.Errorf("update cacheIDs failed. Get runs[%v] failed. error: %v", cacheIdList, err)
+			return false
+		}
+	}
+	logging.Debugf("number of run cached by updating run is [%v]", len(runCachedList))
+	for _, runCached := range runCachedList {
+		// 检查这个当前run要cache的run，之前有哪些run已经cache了
+		runCacheIDList := runCached.GetRunCacheIDList()
+		newRun := true
+		for _, runCacheID := range runCacheIDList {
+			if runCacheID == id {
+				// 如果之前cache过的Run已经包含了当前run，就不用添加当前run的id了
+				newRun = false
+			}
+		}
+		if newRun {
+			runCacheIDList = append(runCacheIDList, id)
+			newRunCacheIDs := strings.Join(runCacheIDList, common.SeparatorComma)
+			models.UpdateRun(logging, runCached.ID, models.Run{RunCacheIDs: newRunCacheIDs})
+		}
+	}
+
 	runtimeRaw, err := json.Marshal(runtime)
 	if err != nil {
 		logging.Errorf("run[%s] json marshal runtime failed. error: %v", id, err)
@@ -190,6 +256,7 @@ func startWfWithImageUrl(runID, imageUrl string) error {
 		logger.LoggerForRun(run.ID).Errorf("Unmarshal runYaml failed. err:%v\n", err)
 		return updateRunStatusAndMsg(runID, common.StatusRunFailed, err.Error())
 	}
+	wfs.ValidateArtifacts()
 	// replace DockerEnv
 	wfs.DockerEnv = imageUrl
 	run.WorkflowSource = wfs

@@ -30,7 +30,6 @@ import (
 	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/apiserver/router/util"
 	"paddleflow/pkg/common/logger"
-	"paddleflow/pkg/fs/server/utils/fs"
 )
 
 type PipelineRouter struct{}
@@ -79,7 +78,7 @@ func (pr *PipelineRouter) createPipeline(w http.ResponseWriter, r *http.Request)
 	}
 	// check grant
 	if !common.IsRootUser(ctx.UserName) {
-		fsID := fs.ID(ctx.UserName, createPplReq.FsName)
+		fsID := common.ID(ctx.UserName, createPplReq.FsName)
 		if !models.HasAccessToResource(&ctx, common.ResourceTypeFs, fsID) {
 			ctx.ErrorCode = common.AccessDenied
 			err := common.NoAccessError(ctx.UserName, common.ResourceTypeFs, fsID)

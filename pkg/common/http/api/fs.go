@@ -23,7 +23,6 @@ import (
 	"paddleflow/pkg/apiserver/router/util"
 	"paddleflow/pkg/common/http/core"
 	"paddleflow/pkg/common/http/util/http"
-	"paddleflow/pkg/fs/server/api/response"
 )
 
 const (
@@ -56,9 +55,32 @@ type LinksParams struct {
 	Token    string
 }
 
-type FsResponse response.FileSystemResponse
+type FsResponse struct {
+	Id            string            `json:"id"`
+	Name          string            `json:"name"`
+	ServerAddress string            `json:"serverAddress"`
+	Type          string            `json:"type"`
+	SubPath       string            `json:"subPath"`
+	Username      string            `json:"username"`
+	Properties    map[string]string `json:"properties"`
+}
 
-type LinksResponse response.GetLinkResponse
+type LinkResponse struct {
+	FsName        string            `json:"fsName"`
+	FsPath        string            `json:"fsPath"`
+	ServerAddress string            `json:"serverAddress"`
+	Type          string            `json:"type"`
+	Username      string            `json:"username"`
+	SubPath       string            `json:"subPath"`
+	Properties    map[string]string `json:"properties"`
+}
+
+type LinksResponse struct {
+	Marker     string          `json:"marker"`
+	Truncated  bool            `json:"truncated"`
+	NextMarker string          `json:"nextMarker"`
+	LinkList   []*LinkResponse `json:"linkList"`
+}
 
 func LoginRequest(params LoginParams, c *core.PFClient) (*LoginResponse, error) {
 	var err error

@@ -19,11 +19,6 @@ package common
 import "strings"
 
 const (
-	StatusQueueCreating = "creating"
-	StatusQueueOpen     = "open"
-	StatusQueueClosing  = "closing"
-	StatusQueueClosed   = "closed"
-
 	StatusRunInitiating  = "initiating"
 	StatusRunPending     = "pending"
 	StatusRunRunning     = "running"

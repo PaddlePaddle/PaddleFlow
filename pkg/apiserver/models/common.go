@@ -54,12 +54,14 @@ const (
 
 	FsPrefix  = "fs-"
 	FsNameNum = 8
+
+	TimeFormat = "2006-01-02 15:04:05"
 )
 
 type Model struct {
 	ID        string    `json:"id"`
-	CreatedAt time.Time `json:"createTime"`
-	UpdatedAt time.Time `json:"updateTime"`
+	CreatedAt time.Time `json:"-"`
+	UpdatedAt time.Time `json:"-"`
 }
 
 // BeforeCreate the function do the operation before creating file system or link
