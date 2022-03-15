@@ -36,7 +36,6 @@ type Job interface {
 	Watch(chan WorkflowEvent) error
 	Started() bool
 	Succeeded() bool
-	Cached() bool
 	Failed() bool
 	Terminated() bool
 	NotEnded() bool
@@ -104,7 +103,7 @@ func (pfj *PaddleFlowJob) Validate() error {
 	var err error
 
 	// 调用job子系统接口进行校验
-	conf := models.Conf{
+	conf := schema.Conf{
 		Name:    pfj.Name,
 		Env:     pfj.Env,
 		Command: pfj.Command,
@@ -125,7 +124,7 @@ func (pfj *PaddleFlowJob) Start() (string, error) {
 	var err error
 
 	// 调用job子系统接口发起运行
-	conf := models.Conf{
+	conf := schema.Conf{
 		Name:    pfj.Name,
 		Env:     pfj.Env,
 		Command: pfj.Command,
@@ -158,7 +157,7 @@ func (pfj *PaddleFlowJob) Check() (schema.JobStatus, error) {
 		err := errors.New(errMsg)
 		return "", err
 	}
-	status, err := job.GetJobStatusByID(pfj.Id)
+	status, err := models.GetJobStatusByID(pfj.Id)
 	if err != nil {
 		return "", err
 	}
@@ -180,7 +179,7 @@ func (pfj *PaddleFlowJob) Watch(ch chan WorkflowEvent) error {
 		}
 
 		// 在连续查询job子系统出错的情况下，把错误信息返回给run，但不会停止轮询
-		jobInstance, err := job.GetJobByID(pfj.Id)
+		jobInstance, err := models.GetJobByID(pfj.Id)
 		if err != nil {
 			if tryCount < TryMax {
 				tryCount += 1
@@ -224,10 +223,6 @@ func (pfj *PaddleFlowJob) Watch(ch chan WorkflowEvent) error {
 
 func (pfj *PaddleFlowJob) Succeeded() bool {
 	return pfj.Status == schema.StatusJobSucceeded
-}
-
-func (pfj *PaddleFlowJob) Cached() bool {
-	return pfj.Status == schema.StatusJobCached
 }
 
 func (pfj *PaddleFlowJob) Failed() bool {

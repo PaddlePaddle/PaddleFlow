@@ -29,6 +29,7 @@ import (
 	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/common/database/db_fake"
 	"paddleflow/pkg/common/schema"
+	. "paddleflow/pkg/pipeline/common"
 )
 
 var mockCbs = WorkflowCallbacks{
@@ -46,18 +47,22 @@ var mockCbs = WorkflowCallbacks{
 
 // 测试NewBaseWorkflow, 只传yaml内容
 func TestNewBaseWorkflowByOnlyRunYaml(t *testing.T) {
-	testCase := loadcase("./testcase/run.yaml")
-	wfs := parseWorkflowSource(testCase)
+	testCase := loadcase(runYamlPath)
+	wfs, err := parseWorkflowSource([]byte(testCase))
+	assert.Nil(t, err)
+
 	bwf := NewBaseWorkflow(wfs, "", "", nil, nil)
 	if err := bwf.validate(); err != nil {
-		t.Errorf("aha %s", bwf.Name)
+		t.Errorf("validate failed. error: %v", err)
 	}
 }
 
 // 测试 BaseWorkflow
 func TestNewBaseWorkflow(t *testing.T) {
-	testCase := loadcase("./testcase/run.yaml")
-	wfs := parseWorkflowSource(testCase)
+	testCase := loadcase(runYamlPath)
+	wfs, err := parseWorkflowSource([]byte(testCase))
+	assert.Nil(t, err)
+
 	fmt.Println(wfs)
 	bwf := BaseWorkflow{
 		Name:   "test_workflow",
@@ -72,17 +77,19 @@ func TestNewBaseWorkflow(t *testing.T) {
 
 // 测试带环流程
 func TestNewBaseWorkflowWithCircle(t *testing.T) {
-	testCase := loadcase("./testcase/run.circle.yaml")
-	wfs := parseWorkflowSource(testCase)
+	wfs, err := parseWorkflowSource([]byte(runCircle))
+	assert.Nil(t, err)
+
 	bwf := NewBaseWorkflow(wfs, "", "", nil, nil)
-	_, err := bwf.topologicalSort(bwf.Source.EntryPoints)
+	_, err = bwf.topologicalSort(bwf.Source.EntryPoints)
 	assert.NotNil(t, err)
 }
 
 // 测试带环流程
 func TestTopologicalSort_noCircle(t *testing.T) {
-	testCase := loadcase("./testcase/run.yaml")
-	wfs := parseWorkflowSource(testCase)
+	testCase := loadcase(runYamlPath)
+	wfs, err := parseWorkflowSource([]byte(testCase))
+	assert.Nil(t, err)
 
 	bwf := NewBaseWorkflow(wfs, "", "", nil, nil)
 	fmt.Println(bwf.Source.EntryPoints)
@@ -103,8 +110,6 @@ func TestTopologicalSort_noCircle(t *testing.T) {
 
 // 测试运行 Workflow 成功
 func TestCreateNewWorkflowRun_success(t *testing.T) {
-	testCase := loadcase("./testcase/run.yaml")
-
 	controller := gomock.NewController(t)
 	mockJob := NewMockJob(controller)
 	NewStep = func(name string, wfr *WorkflowRuntime, info *schema.WorkflowSourceStep) (*Step, error) {
@@ -116,7 +121,10 @@ func TestCreateNewWorkflowRun_success(t *testing.T) {
 	mockJob.EXPECT().Job().Return(BaseJob{Id: "mockJobID"}).AnyTimes()
 	mockJob.EXPECT().Succeeded().Return(true).AnyTimes()
 
-	wfs := parseWorkflowSource(testCase)
+	testCase := loadcase(runYamlPath)
+	wfs, err := parseWorkflowSource([]byte(testCase))
+	assert.Nil(t, err)
+
 	fmt.Printf("\n %+v \n", wfs)
 	wf, err := NewWorkflow(wfs, "", "", nil, nil, mockCbs)
 	if err != nil {
@@ -140,8 +148,10 @@ func TestCreateNewWorkflowRun_success(t *testing.T) {
 
 // 测试运行 Workflow 失败
 func TestCreateNewWorkflowRun_failed(t *testing.T) {
-	testCase := loadcase("./testcase/run.yaml")
-	wfs := parseWorkflowSource(testCase)
+	testCase := loadcase(runYamlPath)
+	wfs, err := parseWorkflowSource([]byte(testCase))
+	assert.Nil(t, err)
+
 	controller := gomock.NewController(t)
 	mockJob := NewMockJob(controller)
 	NewStep = func(name string, wfr *WorkflowRuntime, info *schema.WorkflowSourceStep) (*Step, error) {
@@ -177,15 +187,16 @@ func TestCreateNewWorkflowRun_failed(t *testing.T) {
 
 // 测试停止 Workflow
 func TestStopWorkflowRun(t *testing.T) {
-	testCase := loadcase("../../example/pipeline/run.yaml")
-	wfs := parseWorkflowSource(testCase)
+	testCase := loadcase(runYamlPath)
+	wfs, err := parseWorkflowSource([]byte(testCase))
+	assert.Nil(t, err)
+
 	extraInfo := map[string]string{
 		WfExtraInfoKeySource:   "./testcase/run.yaml",
 		WfExtraInfoKeyFsID:     "mockFsID",
 		WfExtraInfoKeyUserName: "mockUser",
 		WfExtraInfoKeyFsName:   "mockFsname",
 	}
-
 
 	controller := gomock.NewController(t)
 	mockJob := NewMockJob(controller)
@@ -214,10 +225,10 @@ func TestStopWorkflowRun(t *testing.T) {
 	}
 
 	time.Sleep(time.Millisecond * 10)
-	wf.runtime.steps["preprocess"].done = true
-	wf.runtime.steps["preprocess"].job = mockJob
-	wf.runtime.steps["train"].done = true
-	wf.runtime.steps["train"].job = mockJob
+	wf.runtime.steps["data_preprocess"].done = true
+	wf.runtime.steps["data_preprocess"].job = mockJob
+	wf.runtime.steps["main"].done = true
+	wf.runtime.steps["main"].job = mockJob
 	wf.runtime.steps["validate"].done = true
 	wf.runtime.steps["validate"].job = mockJobTerminated
 
@@ -236,15 +247,27 @@ func TestStopWorkflowRun(t *testing.T) {
 
 // 测试Workflow
 func TestNewWorkflowFromEntry(t *testing.T) {
-	testCase := loadcase("./testcase/run.yaml")
-	wfs := parseWorkflowSource(testCase)
+	controller := gomock.NewController(t)
+	mockJob := NewMockJob(controller)
+	mockJob.EXPECT().Validate().Return(nil).AnyTimes()
+	NewStep = func(name string, wfr *WorkflowRuntime, info *schema.WorkflowSourceStep) (*Step, error) {
+		return &Step{
+			job:       mockJob,
+			info:      info,
+			submitted: true,
+		}, nil
+	}
+	testCase := loadcase(runYamlPath)
+	wfs, err := parseWorkflowSource([]byte(testCase))
+	assert.Nil(t, err)
+
 	baseWorkflow := NewBaseWorkflow(wfs, "", "main", nil, nil)
 	wf := &Workflow{
 		BaseWorkflow: baseWorkflow,
 		callbacks:    mockCbs,
 	}
-	wf.newWorkflowRuntime()
-
+	err = wf.newWorkflowRuntime()
+	assert.Nil(t, err)
 	assert.Equal(t, 2, len(wf.runtime.steps))
 	_, ok := wf.runtime.steps["main"]
 	assert.True(t, ok)
@@ -256,12 +279,14 @@ func TestNewWorkflowFromEntry(t *testing.T) {
 
 func TestValidateWorkflow_WrongParam(t *testing.T) {
 	source := schema.WorkflowSource{}
-	testCase := loadcase("./testcase/run.wrongparam.yaml")
-	err := yaml.Unmarshal(testCase, &source)
+	err := yaml.Unmarshal([]byte(runWrongParam), &source)
 	if err != nil {
 		t.Errorf("%s", err)
 	}
-	wfs := parseWorkflowSource(testCase)
+
+	wfs, err := parseWorkflowSource([]byte(runWrongParam))
+	assert.Nil(t, err)
+
 	bwf := NewBaseWorkflow(wfs, "", "", nil, nil)
 	err = bwf.validate()
 	assert.NotNil(t, err)
@@ -272,11 +297,50 @@ func TestValidateWorkflow_WrongParam(t *testing.T) {
 	assert.Nil(t, err)
 }
 
-func TestValidateWorkflow(t *testing.T) {
-	testCase := loadcase("./testcase/run.yaml")
-	wfs := parseWorkflowSource(testCase)
+func TestWorkflowParamDuplicate(t *testing.T) {
+	testCase := loadcase(runYamlPath)
+	wfs, err := parseWorkflowSource([]byte(testCase))
+	assert.Nil(t, err)
+
 	bwf := NewBaseWorkflow(wfs, "", "", nil, nil)
-	err := bwf.validate()
+	err = bwf.validate()
+	assert.Nil(t, err)
+
+	bwf.Source.EntryPoints["main"].Parameters["train_data"] = "whatever"
+	err = bwf.validate()
+	assert.NotNil(t, err)
+	assert.Equal(t, "inputAtf name[train_data] has already existed in params/artifacts of step[main]", err.Error())
+	
+	delete(bwf.Source.EntryPoints["main"].Parameters, "train_data") // 把上面的添加的删掉，再校验一遍
+	err = bwf.validate()
+	assert.Nil(t, err)
+
+	bwf.Source.EntryPoints["main"].Parameters["train_model"] = "whatever"
+	err = bwf.validate()
+	assert.NotNil(t, err)
+	assert.Equal(t, "outputAtf name[train_model] has already existed in params/artifacts of step[main]", err.Error())
+	
+	delete(bwf.Source.EntryPoints["main"].Parameters, "train_model") // 把上面的添加的删掉，再校验一遍
+	err = bwf.validate()
+	assert.Nil(t, err)
+
+	bwf.Source.EntryPoints["main"].Artifacts.Input["train_model"] = "whatever"
+	err = bwf.validate()
+	assert.NotNil(t, err)
+	assert.Equal(t, "outputAtf name[train_model] has already existed in params/artifacts of step[main]", err.Error())
+	
+	delete(bwf.Source.EntryPoints["main"].Artifacts.Input, "train_model") // 把上面的添加的删掉，再校验一遍
+	err = bwf.validate()
+	assert.Nil(t, err)
+}
+
+func TestValidateWorkflow(t *testing.T) {
+	testCase := loadcase(runYamlPath)
+	wfs, err := parseWorkflowSource([]byte(testCase))
+	assert.Nil(t, err)
+
+	bwf := NewBaseWorkflow(wfs, "", "", nil, nil)
+	err = bwf.validate()
 	assert.Nil(t, err)
 	assert.Equal(t, bwf.Source.EntryPoints["validate"].Parameters["refSystem"].(string), "{{ PF_RUN_ID }}")
 
@@ -292,39 +356,42 @@ func TestValidateWorkflow(t *testing.T) {
 	bwf.Source.EntryPoints["main"].Parameters["invalidRef"] = "{{ validate.refSystem }}"
 	err = bwf.validate()
 	assert.NotNil(t, err)
-	assert.Equal(t, err.Error(), "invalid parameters reference {{ validate.refSystem }} in step main")
+	assert.Equal(t, err.Error(), "invalid reference param {{ validate.refSystem }} in step [main]: step [validate] not in deps")
 
 	// ref from downstream
 	bwf.Source.EntryPoints["main"].Parameters["invalidRef"] = "{{ .refSystem }}"
 	err = bwf.validate()
 	assert.NotNil(t, err)
-	assert.Equal(t, err.Error(), "unsupported SysParamName[refSystem] for param[{{ .refSystem }}]")
+	assert.Equal(t, err.Error(), "unsupported SysParamName[refSystem] for param[{{ .refSystem }}] of filedType[parameters]")
 
 	// validate param name
 	bwf.Source.EntryPoints["main"].Parameters["invalidRef"] = "111" // 把上面的，改成正确的
 	bwf.Source.EntryPoints["main"].Parameters["invalid-name"] = "xxx"
 	err = bwf.validate()
 	assert.NotNil(t, err)
-	assert.Equal(t, err.Error(), "format of parameters[invalid-name] in step[main] incorrect, should be in [a-zA-z0-9_]")
+	errMsg := "check parameters[invalid-name] in step[main] failed: format of variable name[invalid-name] invalid, should be in ^[a-zA-Z_$][a-zA-Z_$0-9]*$"
+	assert.Equal(t, err.Error(), errMsg)
 
 	// validate param name
-	delete(bwf.Source.EntryPoints["main"].Parameters, "invalid-name") // 把上面的，改成正确的
+	delete(bwf.Source.EntryPoints["main"].Parameters, "invalid-name") // 把上面的添加的删掉
 	bwf.Source.EntryPoints["main"].Env["invalid-name"] = "xxx"
 	err = bwf.validate()
 	assert.NotNil(t, err)
-	assert.Equal(t, err.Error(), "format of env[invalid-name] in step[main] incorrect, should be in [a-zA-z0-9_]")
+	errMsg = "check env[invalid-name] in step[main] failed: format of variable name[invalid-name] invalid, should be in ^[a-zA-Z_$][a-zA-Z_$0-9]*$"
+	assert.Equal(t, err.Error(), errMsg)
 }
 
 func TestValidateWorkflow__DictParam(t *testing.T) {
-	testCase := loadcase("./testcase/run.yaml")
-	wfs := parseWorkflowSource(testCase)
-	bwf := NewBaseWorkflow(wfs, "", "", nil, nil)
-
-	err := bwf.validate()
+	testCase := loadcase(runYamlPath)
+	wfs, err := parseWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
-	assert.Equal(t, "dictparam", bwf.Source.EntryPoints["main"].Parameters["p3"])
-	assert.Equal(t, 0.66, bwf.Source.EntryPoints["main"].Parameters["p4"])
-	assert.Equal(t, "/path/to/anywhere", bwf.Source.EntryPoints["main"].Parameters["p5"])
+
+	bwf := NewBaseWorkflow(wfs, "", "", nil, nil)
+	err = bwf.validate()
+	assert.Nil(t, err)
+	//assert.Equal(t, "dictparam", bwf.Source.EntryPoints["main"].Parameters["p3"])
+	//assert.Equal(t, 0.66, bwf.Source.EntryPoints["main"].Parameters["p4"])
+	//assert.Equal(t, "/path/to/anywhere", bwf.Source.EntryPoints["main"].Parameters["p5"])
 
 	// 缺 default 值
 	bwf.Source.EntryPoints["main"].Parameters["dict"] = map[interface{}]interface{}{"type": "path", "default": ""}
@@ -361,20 +428,22 @@ func TestValidateWorkflow__DictParam(t *testing.T) {
 	bwf.Source.EntryPoints["main"].Parameters["dict"] = map[interface{}]interface{}{"type": "float", "default": 111}
 	err = bwf.validate()
 	assert.Nil(t, err)
-	assert.Equal(t, 111, bwf.Source.EntryPoints["main"].Parameters["dict"])
+	//assert.Equal(t, 111, bwf.Source.EntryPoints["main"].Parameters["dict"])
 
 	bwf.Source.EntryPoints["main"].Parameters["dict"] = map[interface{}]interface{}{"type": "string", "default": "111"}
 	err = bwf.validate()
 	assert.Nil(t, err)
+	//assert.Equal(t, "111", bwf.Source.EntryPoints["main"].Parameters["dict"])
 
 	bwf.Source.EntryPoints["main"].Parameters["dict"] = map[interface{}]interface{}{"type": "path", "default": "111"}
 	err = bwf.validate()
 	assert.Nil(t, err)
+	//assert.Equal(t, "111", bwf.Source.EntryPoints["main"].Parameters["dict"])
 
 	bwf.Source.EntryPoints["main"].Parameters["dict"] = map[interface{}]interface{}{"type": "path", "default": "/111"}
 	err = bwf.validate()
 	assert.Nil(t, err)
-	assert.Equal(t, "/111", bwf.Source.EntryPoints["main"].Parameters["dict"])
+	//assert.Equal(t, "/111", bwf.Source.EntryPoints["main"].Parameters["dict"])
 
 	bwf.Source.EntryPoints["main"].Parameters["dict"] = map[interface{}]interface{}{"type": "path", "default": "/111 / "}
 	err = bwf.validate()
@@ -384,15 +453,13 @@ func TestValidateWorkflow__DictParam(t *testing.T) {
 	bwf.Source.EntryPoints["main"].Parameters["dict"] = map[interface{}]interface{}{"type": "path", "default": "/111-1/111_2"}
 	err = bwf.validate()
 	assert.Nil(t, err)
-	assert.Equal(t, "/111-1/111_2", bwf.Source.EntryPoints["main"].Parameters["dict"])
-	assert.Equal(t, "dictparam", bwf.Source.EntryPoints["main"].Parameters["p3"])
-	assert.Equal(t, 0.66, bwf.Source.EntryPoints["main"].Parameters["p4"])
-	assert.Equal(t, "/path/to/anywhere", bwf.Source.EntryPoints["main"].Parameters["p5"])
+	//assert.Equal(t, "/111-1/111_2", bwf.Source.EntryPoints["main"].Parameters["dict"])
+
 
 	bwf.Source.EntryPoints["main"].Parameters["dict"] = map[interface{}]interface{}{"type": "float", "default": 111}
 	err = bwf.validate()
 	assert.Nil(t, err)
-	assert.Equal(t, 111, bwf.Source.EntryPoints["main"].Parameters["dict"])
+	//assert.Equal(t, 111, bwf.Source.EntryPoints["main"].Parameters["dict"])
 
 	// invalid actual interface type
 	mapParam := map[string]string{"ffff": "2"}
@@ -418,49 +485,41 @@ func TestValidateWorkflow__DictParam(t *testing.T) {
 }
 
 func TestValidateWorkflowArtifacts(t *testing.T) {
-	testCase := loadcase("./testcase/run.yaml")
-	wfs := parseWorkflowSource(testCase)
-	bwf := NewBaseWorkflow(wfs, "", "", nil, nil)
+	// 当前只会校验input artifact的值，output artifact的只不会校验，因为替换的时候，会直接用系统生成的路径覆盖原来的值
+	testCase := loadcase(runYamlPath)
+	wfs, err := parseWorkflowSource([]byte(testCase))
+	assert.Nil(t, err)
 
-	err := bwf.validate()
+	bwf := NewBaseWorkflow(wfs, "", "", nil, nil)
+	err = bwf.validate()
 	assert.Nil(t, err)
 	assert.Equal(t, "{{ data_preprocess.train_data }}", bwf.Source.EntryPoints["main"].Artifacts.Input["train_data"])
 
-	// 上游 output artifact 不存在
+	// input artifact 只能引用上游 output artifact
 	bwf.Source.EntryPoints["main"].Artifacts.Input["wrongdata"] = "{{ xxxx }}"
 	err = bwf.validate()
 	assert.NotNil(t, err)
-	assert.Equal(t, "unsupported RefParamName[xxxx] for param[{{ xxxx }}]", err.Error())
+	assert.Equal(t, "check input artifact [wrongdata] in step[main] failed: format of value[{{ xxxx }}] invalid, should be like {{XXX.XXX}}", err.Error())
 
 	// 上游 output artifact 不存在
 	bwf.Source.EntryPoints["main"].Artifacts.Input["wrongdata"] = "{{ data_preprocess.moexist_data }}"
 	err = bwf.validate()
 	assert.NotNil(t, err)
-	assert.Equal(t, "invalid inputArtifacts reference {{ data_preprocess.moexist_data }} in step main", err.Error())
-	bwf.Source.EntryPoints["main"].Artifacts.Input["wrongdata"] = "/path/to/xxx"
-
-	// 上游 output artifact 不存在
-	bwf.Source.EntryPoints["main"].Artifacts.Output["wrongdata"] = "{{ xxxx }}"
-	err = bwf.validate()
-	assert.NotNil(t, err)
-	assert.Equal(t, "unsupported RefParamName[xxxx] for param[{{ xxxx }}]", err.Error())
-
-	// 上游 output artifact 不存在
-	bwf.Source.EntryPoints["main"].Artifacts.Output["wrongdata"] = "{{ data_preprocess.train_data }}"
-	err = bwf.validate()
-	assert.NotNil(t, err)
-	assert.Equal(t, "output artifact[{{ data_preprocess.train_data }}] cannot refer upstream artifact", err.Error())
+	assert.Equal(t, "invalid reference param {{ data_preprocess.moexist_data }} in step [main]: output artifact [moexist_data] not exist", err.Error())
+	delete(bwf.Source.EntryPoints["main"].Artifacts.Input, "wrongdata")
 }
 
 func TestValidateWorkflowParam_success(t *testing.T) {
-	testCase := loadcase("./testcase/run.yaml")
-	wfs := parseWorkflowSource(testCase)
+	testCase := loadcase(runYamlPath)
+	wfs, err := parseWorkflowSource([]byte(testCase))
+	assert.Nil(t, err)
+
 	// not exist in source yaml
 	bwf := NewBaseWorkflow(wfs, "", "", nil, nil)
 	bwf.Params = map[string]interface{}{
 		"p1": "correct",
 	}
-	err := bwf.validate()
+	err = bwf.validate()
 	assert.NotNil(t, err)
 
 	bwf.Params = map[string]interface{}{
@@ -488,18 +547,20 @@ func TestValidateWorkflowParam_success(t *testing.T) {
 		"model": "{{ xxx }}",
 	}
 	err = bwf.validate()
-	assert.Equal(t, "unsupported SysParamName[xxx] for param[{{ xxx }}]", err.Error())
+	assert.Equal(t, "unsupported SysParamName[xxx] for param[{{ xxx }}] of filedType[parameters]", err.Error())
 
 	bwf.Params = map[string]interface{}{
 		"model": "{{ step1.param }}",
 	}
 	err = bwf.validate()
-	assert.Equal(t, "invalid parameters reference {{ step1.param }} in step main", err.Error())
+	assert.Equal(t, "invalid reference param {{ step1.param }} in step [main]: step [step1] not in deps", err.Error())
 }
 
 func TestRestartWorkflow(t *testing.T) {
-	testCase := loadcase("./testcase/run.yaml")
-	wfs := parseWorkflowSource(testCase)
+	testCase := loadcase(runYamlPath)
+	wfs, err := parseWorkflowSource([]byte(testCase))
+	assert.Nil(t, err)
+	
 	controller := gomock.NewController(t)
 	mockJob := NewMockJob(controller)
 	NewStep = func(name string, wfr *WorkflowRuntime, info *schema.WorkflowSourceStep) (*Step, error) {
@@ -540,8 +601,10 @@ func TestRestartWorkflow(t *testing.T) {
 
 func TestRestartWorkflow_from1completed(t *testing.T) {
 	db_fake.InitFakeDB()
-	testCase := loadcase("./testcase/run.yaml")
-	wfs := parseWorkflowSource(testCase)
+	testCase := loadcase(runYamlPath)
+	wfs, err := parseWorkflowSource([]byte(testCase))
+	assert.Nil(t, err)
+	
 	controller := gomock.NewController(t)
 	mockJob := NewMockJob(controller)
 	NewStep = func(name string, wfr *WorkflowRuntime, info *schema.WorkflowSourceStep) (*Step, error) {
@@ -577,3 +640,12 @@ func TestRestartWorkflow_from1completed(t *testing.T) {
 	assert.Equal(t, false, wf.runtime.steps["validate"].done)
 	assert.Equal(t, false, wf.runtime.steps["validate"].submitted)
 }
+
+const (
+	runYamlPath	string = "./testcase/run.step.yaml"
+)
+
+const (
+	runWrongParam string = "name: myproject\n\ndocker_env: images/training.tgz\n\nentry_points:\n\n  data_preprocess:\n    parameters:\n      data_path: \"./LINK/mybos_dir/data\"\n      process_data_file: \"./data/pre\"\n    command: \"python data_preprocess.py --input {{data_path}} --output {{process_data_file}}\"\n    env:\n      PF_JOB_QUEUE: CPU-32G\n      PF_JOB_PRIORITY: high\n\n  main:\n    deps: data_preprocess\n    parameters:\n      data_file: \"{{ data_preprocess.xxxinvalid }}\"\n      regularization:  0.1\n      model: \"./data/model\"\n    command: \"python train.py -r {{regularization}} -d {{data_file}} --output {{model}}\"\n    env:\n      PF_JOB_QUEUE: v100-16G\n      PF_JOB_PRIORITY: high\n      PF_JOB_FLAVOUR: v100-10\n      PF_PS_NUM: 1\n      PF_WORKER_NUM: 4\nparallelism: 5"
+	runCircle     string = "name: myproject\n\ndocker_env: images/training.tgz\n\n\nentry_points:\n\n  data_preprocess:\n    deps: main\n    parameters:\n      data_path: {type: path, default: ./LINK/mybos_dir/data}\n      process_data_file: \"./data/pre\"\n    command: \"python data_preprocess.py --input {{data_path}} --output {{process_data_file}}\"\n    env:\n      PF_JOB_QUEUE: CPU-32G\n      PF_JOB_PRIORITY: high\n\n  main:\n    deps: data_preprocess\n    parameters:\n      data_file: \"{{ data_preprocess.process_data_file }}\"\n      regularization: {type: float, default: 0.1}\n      model: \"./data/model\"\n    command: \"python train.py -r {{regularization}} -d {{data_file}} --output {{model}}\"\n    env:\n      PF_JOB_QUEUE: v100-16G\n      PF_JOB_PRIORITY: high\n      PF_JOB_FLAVOUR: v100-10\n      PF_PS_NUM: 1\n      PF_WORKER_NUM: 4"
+)

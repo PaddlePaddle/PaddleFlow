@@ -26,6 +26,7 @@ import (
 	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/common/schema"
+	. "paddleflow/pkg/pipeline/common"
 )
 
 // ----------------------------------------------------------------------------
@@ -62,6 +63,35 @@ func (bwf *BaseWorkflow) log() *logrus.Entry {
 	return logger.LoggerForRun(bwf.RunID)
 }
 
+func (bwf *BaseWorkflow) getRunSteps() map[string]*schema.WorkflowSourceStep {
+	/*
+		根据传入的entry，获取此次run需要运行的step集合
+		注意：此处返回的map中，每个schema.WorkflowSourceStep元素都是以指针形式返回（与BaseWorkflow中Source参数中的step指向相同的类对象），后续对与元素内容的修改，会直接同步到BaseWorkflow中Source参数
+	*/
+	entry := bwf.Entry
+	if entry == "" {
+		return bwf.Source.EntryPoints
+	}
+
+	runSteps := map[string]*schema.WorkflowSourceStep{}
+	bwf.recursiveGetRunSteps(entry, runSteps)
+	return runSteps
+}
+
+func (bwf *BaseWorkflow) recursiveGetRunSteps(entry string, steps map[string]*schema.WorkflowSourceStep) {
+	// duplicated in result map
+	if _, ok := steps[entry]; ok {
+		return
+	}
+
+	if step, ok := bwf.Source.EntryPoints[entry]; ok {
+		steps[entry] = step
+		for _, dep := range step.GetDeps() {
+			bwf.recursiveGetRunSteps(dep, steps)
+		}
+	}
+}
+
 // validate BaseWorkflow 校验合法性
 func (bwf *BaseWorkflow) validate() error {
 	// 校验 entry 是否存在
@@ -71,28 +101,44 @@ func (bwf *BaseWorkflow) validate() error {
 		return err
 	}
 
-	// 2. RunYaml 中schema结构、流程是否合法，是否有环等；
+	// 2. RunYaml 中pipeline name, 各step name是否合法; 可运行节点(runSteps)的结构是否有环等；
 	if err := bwf.checkRunYaml(); err != nil {
 		bwf.log().Errorf("check run yaml failed. err:%s", err.Error())
 		return err
 	}
-	// 3. Params 传参是否合法，是否有key不匹配的情况；
+
+	// 3. 校验通过接口传入的Parameter参数(参数是否存在，以及参数值是否合法), 
 	if err := bwf.checkParams(); err != nil {
 		bwf.log().Errorf("check run param err:%s", err.Error())
 		return err
 	}
-	// 4. steps 中的 parameter artifact env 是否合法
+
+	// 4. steps 中的 parameter artifact env command 是否合法
 	if err := bwf.checkSteps(); err != nil {
 		bwf.log().Errorf("check run param err:%s", err.Error())
 		return err
 	}
+
+	// 5. cache配置是否合法
+	if err := bwf.checkCache(); err != nil {
+		bwf.log().Errorf("check cache failed. err:%s", err.Error())
+		return err
+	}
+
 	return nil
 }
 
 func (bwf *BaseWorkflow) checkRunYaml() error {
+	variableChecker := VariableChecker{}
+
+	if err := variableChecker.CheckVarName(bwf.Source.Name); err != nil {
+		return fmt.Errorf("format of pipeline name[%s] in run[%s] invalid", bwf.Source.Name, bwf.RunID)
+	}
+
 	for stepName := range bwf.Source.EntryPoints {
-		if stepName == "" {
-			return fmt.Errorf("stepName is not allowed to be empty in run[%s]", bwf.RunID)
+		err := variableChecker.CheckVarName(stepName)
+		if err != nil {
+			return fmt.Errorf("format of stepName[%s] in run[%s] invalid", stepName, bwf.RunID)
 		}
 	}
 
@@ -100,15 +146,69 @@ func (bwf *BaseWorkflow) checkRunYaml() error {
 		return err
 	}
 
-	if err := bwf.checkCache(); err != nil {
-		return err
-	}
-
 	return nil
 }
 
+// topologicalSort step 拓扑排序
+// todo: use map as return value type?
+func (bwf *BaseWorkflow) topologicalSort(entrypoints map[string]*schema.WorkflowSourceStep) ([]string, error) {
+	// unsorted: unsorted graph
+	// if we have dag:
+	//     1 -> 2 -> 3
+	// then unsorted as follow will be get:
+	//     1 -> [2]
+	//     2 -> [3]
+	sortedSteps := make([]string, 0)
+	unsorted := map[string][]string{}
+	for name, step := range entrypoints {
+		depsList := step.GetDeps()
+
+		if len(depsList) == 0 {
+			unsorted[name] = nil
+			continue
+		}
+		for _, dep := range depsList {
+			if _, ok := unsorted[name]; ok {
+				unsorted[name] = append(unsorted[name], dep)
+			} else {
+				unsorted[name] = []string{dep}
+			}
+		}
+	}
+
+	// 通过判断入度，每一轮寻找入度为0（没有parent节点）的节点，从unsorted中移除，并添加到sortedSteps中
+	// 如果unsorted长度被减少到0，说明无环。如果有一轮没有出现入度为0的节点，说明每个节点都有父节点，即有环。
+	for len(unsorted) != 0 {
+		acyclic := false
+		for name, parents := range unsorted {
+			parentExist := false
+			for _, parent := range parents {
+				if _, ok := unsorted[parent]; ok {
+					parentExist = true
+					break
+				}
+			}
+			// if all the source nodes of this node has been removed,
+			// consider it as sorted and remove this node from the unsorted graph
+			if !parentExist {
+				acyclic = true
+				delete(unsorted, name)
+				sortedSteps = append(sortedSteps, name)
+			}
+		}
+		if !acyclic {
+			// we have go through all the nodes and weren't able to resolve any of them
+			// there must be cyclic edges
+			return nil, fmt.Errorf("workflow is not acyclic")
+		}
+	}
+	return sortedSteps, nil
+}
+
 func (bwf *BaseWorkflow) checkCache() error {
-	// 校验yaml中cache各相关字段
+	/* 
+		校验yaml中cache各相关字段
+	*/
 
 	// 校验MaxExpiredTime，必须能够转换成数字。如果没传，默认为-1
 	if bwf.Source.Cache.MaxExpiredTime == "" {
@@ -138,60 +238,14 @@ func (bwf *BaseWorkflow) checkParams() error {
 	return nil
 }
 
-// topologicalSort step 拓扑排序
-// todo: use map as return value type?
-func (bwf *BaseWorkflow) topologicalSort(entrypoints map[string]*schema.WorkflowSourceStep) ([]string, error) {
-	// unsorted: unsorted graph
-	// if we have dag:
-	//     1 -> 2 -> 3
-	// then unsorted as follow will be get:
-	//     1 -> [2]
-	//     2 -> [3]
-	sortedSteps := make([]string, 0)
-	unsorted := map[string][]string{}
-	for name, step := range entrypoints {
-		if len(step.Deps) == 0 {
-			unsorted[name] = nil
-			continue
-		}
-		for _, dep := range step.GetDeps() {
-			if _, ok := unsorted[name]; ok {
-				unsorted[name] = append(unsorted[name], dep)
-			} else {
-				unsorted[name] = []string{dep}
-			}
-		}
-	}
-	for len(unsorted) != 0 {
-		acyclic := false
-		for name, parents := range unsorted {
-			sorted := true
-			for _, parent := range parents {
-				if _, ok := unsorted[parent]; ok {
-					sorted = false
-					break
-				}
-			}
-			// if all the source nodes of this node has been removed,
-			// consider it as sorted and remove this node from the unsorted graph
-			if sorted {
-				acyclic = true
-				delete(unsorted, name)
-				sortedSteps = append(sortedSteps, name)
-			}
-		}
-		if !acyclic {
-			// we have go through all the nodes and weren't able to resolve any of them
-			// there must be cyclic edges
-			return nil, fmt.Errorf("workflow is not acyclic")
-		}
-	}
-	return sortedSteps, nil
-}
-
-// replaceRunParam 用命令行参数替换启动的默认参数
-// 只检验命令行参数是否存在在 yaml 定义中，不校验是否必须是本次运行的 step
 func (bwf *BaseWorkflow) replaceRunParam(param string, val interface{}) error {
+	/*
+		replaceRunParam 用传入的parameter参数值，替换yaml中的parameter默认参数值
+		同时检查：参数是否存在，以及参数值是否合法。
+		- stepName.param形式: 寻找对应step的对应parameter进行替换。如果step中没有该parameter，报错。
+		- param: 寻找所有step内的parameter，并进行替换，没有则不替换。
+		只检验命令行参数是否存在在 yaml 定义中，不校验是否必须是本次运行的 step
+	*/
 	stepName, paramName := parseParamName(param)
 
 	if len(stepName) != 0 {
@@ -230,8 +284,12 @@ func (bwf *BaseWorkflow) replaceRunParam(param string, val interface{}) error {
 	return fmt.Errorf("param[%s] not exist", param)
 }
 
-// checkSteps check env, command, parameters and artifacts in every step
 func (bwf *BaseWorkflow) checkSteps() error {
+	/*
+		checkSteps check env, command, parameters and artifacts in every step
+		- 只检查此次运行中，可运行的节点集合(runSteps), 而不是yaml中定义的所有节点集合(Source)
+		- 只校验，不替换任何参数
+	*/
 	var sysParamNameMap = map[string]string{
 		SysParamNamePFRunID:    "",
 		SysParamNamePFFsID:     "",
@@ -239,9 +297,12 @@ func (bwf *BaseWorkflow) checkSteps() error {
 		SysParamNamePFFsName:   "",
 		SysParamNamePFUserName: "",
 	}
-	paramSolver := StepParamSolver{steps: bwf.runSteps, sysParams: sysParamNameMap}
+	paramChecker := StepParamChecker{steps: bwf.runSteps, sysParams: sysParamNameMap}
+	for _, step := range bwf.runSteps {
+		bwf.log().Errorln(step)
+	}
 	for stepName, _ := range bwf.runSteps {
-		if err := paramSolver.Solve(stepName); err != nil {
+		if err := paramChecker.Check(stepName); err != nil {
 			bwf.log().Errorln(err.Error())
 			return err
 		}
@@ -250,30 +311,6 @@ func (bwf *BaseWorkflow) checkSteps() error {
 	return nil
 }
 
-func (bwf *BaseWorkflow) getRunSteps() map[string]*schema.WorkflowSourceStep {
-	entry := bwf.Entry
-	if entry == "" {
-		return bwf.Source.EntryPoints
-	}
-
-	runSteps := map[string]*schema.WorkflowSourceStep{}
-	bwf.recursiveGetRunSteps(entry, runSteps)
-	return runSteps
-}
-
-func (bwf *BaseWorkflow) recursiveGetRunSteps(entry string, steps map[string]*schema.WorkflowSourceStep) {
-	if _, ok := steps[entry]; ok {
-		// duplicated in result map
-		return
-	}
-
-	if step, ok := bwf.Source.EntryPoints[entry]; ok {
-		steps[entry] = step
-		for _, dep := range step.GetDeps() {
-			bwf.recursiveGetRunSteps(dep, steps)
-		}
-	}
-}
 
 // ----------------------------------------------------------------------------
 // Workflow 工作流结构
@@ -286,6 +323,7 @@ type Workflow struct {
 }
 
 type WorkflowCallbacks struct {
+	GetJobCb      func(runID string, stepName string) (schema.JobView, error)
 	UpdateRunCb   func(string, interface{}) bool
 	LogCacheCb    func(req schema.LogRunCacheRequest) (string, error)
 	ListCacheCb   func(firstFp, fsID, step, yamlPath string) ([]models.RunCache, error)
@@ -323,6 +361,7 @@ func (wf *Workflow) newWorkflowRuntime() error {
 	logger.LoggerForRun(wf.RunID).Debugf("initializing [%d] parallelism jobs", parallelism)
 	wf.runtime = NewWorkflowRuntime(wf, parallelism)
 
+	// 此处topologicalSort不为了校验，而是为了排序，NewStep中会进行参数替换，必须保证上游节点已经替换完毕
 	sortedSteps, err := wf.topologicalSort(wf.runSteps)
 	if err != nil {
 		return err
