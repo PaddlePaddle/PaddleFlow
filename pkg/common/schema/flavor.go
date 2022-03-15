@@ -20,8 +20,6 @@ import (
 	"regexp"
 	"strings"
 
-	v1 "k8s.io/api/core/v1"
-
 	"paddleflow/pkg/common/errors"
 )
 
@@ -29,7 +27,7 @@ const (
 	RegPatternResource = "^[1-9][0-9]*([numkMGTPE]|Ki|Mi|Gi|Ti|Pi|Ei)?$"
 )
 
-type ScalarResourcesType map[v1.ResourceName]string
+type ScalarResourcesType map[ResourceName]string
 
 type ResourceInfo struct {
 	Cpu             string              `json:"cpu" yaml:"cpu"`

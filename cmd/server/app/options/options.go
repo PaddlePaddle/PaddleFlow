@@ -35,6 +35,9 @@ func (s *ServerOption) AddFlagSet(fs *pflag.FlagSet) {
 	fs.BoolVarP(&apiServerConf.PrintVersionAndExit, "version", "v", apiServerConf.PrintVersionAndExit, "Version of PaddleFlow server")
 
 	jobConf := &s.serverConf.Job
+	fs.IntVar(&jobConf.ClusterSyncPeriod, "cluster-sync-period", jobConf.ClusterSyncPeriod, "The period of job manager get cluster information from database")
+	fs.IntVar(&jobConf.QueueSyncPeriod, "queue-sync-period", jobConf.QueueSyncPeriod, "The period of job manager get queue information from database")
+	fs.IntVar(&jobConf.JobLoopPeriod, "job-loop-period", jobConf.JobLoopPeriod, "The loop period for job manager processing job")
 	fs.BoolVar(&jobConf.Reclaim.CleanJob, "is-clean-job", jobConf.Reclaim.CleanJob, "CleanJob")
 	fs.BoolVar(&jobConf.Reclaim.SkipCleanFailedJob, "is-skip-clean-failed-job", jobConf.Reclaim.SkipCleanFailedJob, "SkipCleanFailedJob")
 	fs.IntVar(&jobConf.Reclaim.JobTTLSeconds, "job-ttl-seconds", jobConf.Reclaim.JobTTLSeconds, "JobTTLSeconds")

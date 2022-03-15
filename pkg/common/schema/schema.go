@@ -30,6 +30,7 @@ type JobView struct {
 	Image      string            `json:"image"`
 	Artifacts  Artifacts         `json:"artifacts"`
 	JobMessage string            `json:"jobMessage"`
+	CacheRunID string            `json:"cacheRunID"`
 }
 
 // RuntimeView is view of run responded to user, while workflowRuntime is for pipeline engine to process

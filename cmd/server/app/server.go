@@ -12,12 +12,10 @@ import (
 	"github.com/go-chi/chi"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
-	"k8s.io/client-go/rest"
-	vcclientset "volcano.sh/apis/pkg/client/clientset/versioned"
 
 	"paddleflow/cmd/server/app/options"
-	"paddleflow/pkg/apiserver/controller/queue"
 	"paddleflow/pkg/apiserver/controller/run"
+	"paddleflow/pkg/apiserver/models"
 	v1 "paddleflow/pkg/apiserver/router/v1"
 	"paddleflow/pkg/common/config"
 	"paddleflow/pkg/common/database"
@@ -25,20 +23,17 @@ import (
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/common/schema"
 	"paddleflow/pkg/fs/utils/k8s"
-	"paddleflow/pkg/job/controller"
-	"paddleflow/pkg/job/submitter"
+	"paddleflow/pkg/job"
 	"paddleflow/pkg/version"
 )
 
 type Server struct {
-	Router        *chi.Mux
-	HttpSvr       *http.Server
-	ServerConf    *config.ServerConfig
-	kubeConf      *rest.Config
-	serverOption  *options.ServerOption
-	VolcanoClient *vcclientset.Clientset
-	ServerCtx     context.Context
-	ServerCancel  context.CancelFunc
+	Router       *chi.Mux
+	HttpSvr      *http.Server
+	ServerConf   *config.ServerConfig
+	serverOption *options.ServerOption
+	ServerCtx    context.Context
+	ServerCancel context.CancelFunc
 }
 
 func (s *Server) initConfig() {
@@ -74,10 +69,6 @@ func (s *Server) initConfig() {
 }
 
 func (s *Server) Run() error {
-	stopCh := s.ServerCtx.Done()
-	go queue.GlobalVCQueue.Run(stopCh)
-	go controller.Run(s.kubeConf, stopCh)
-
 	if err := k8s.New(s.ServerConf.KubeConfig.ConfigPath, s.ServerConf.KubeConfig.ClientQPS,
 		s.ServerConf.KubeConfig.ClientBurst, s.ServerConf.KubeConfig.ClientTimeout); err != nil {
 		log.Errorf("new k8s client failed: %s", err.Error())
@@ -139,11 +130,9 @@ func (s *Server) Init() {
 		panic("init database failed.")
 	}
 
-	s.kubeConf = config.InitKubeConfig(s.ServerConf.KubeConfig)
-
-	if err = submitter.Init(s.kubeConf); err != nil {
-		log.Errorf("create job executor failed, err %v", err)
-		return
+	if err = NewAndStartJobManager(); err != nil {
+		log.Errorf("create pfjob manager failed, err %v", err)
+		panic("create pfjob manager failed")
 	}
 
 	if err = config.InitDefaultPV(s.ServerConf.Fs.DefaultPVPath); err != nil {
@@ -153,9 +142,6 @@ func (s *Server) Init() {
 		panic(err)
 	}
 
-	s.VolcanoClient = vcclientset.NewForConfigOrDie(s.kubeConf)
-	queue.Init(s.VolcanoClient)
-
 	s.Router = chi.NewRouter()
 	v1.RegisterRouters(s.Router, false)
 	log.Infof("server addr:%s", fmt.Sprintf(":%d", s.ServerConf.ApiServer.Port))
@@ -164,4 +150,14 @@ func (s *Server) Init() {
 		Handler: s.Router,
 	}
 	s.ServerCtx, s.ServerCancel = context.WithCancel(context.Background())
+}
+
+func NewAndStartJobManager() error {
+	runtimeMgr, err := job.NewJobManagerImpl()
+	if err != nil {
+		log.Errorf("new job manager failed, error: %v", err)
+		return err
+	}
+	go runtimeMgr.Start(models.ActiveClusters, models.ActiveQueues, models.ListQueueJob)
+	return nil
 }
