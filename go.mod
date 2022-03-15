@@ -81,5 +81,4 @@ replace (
 	k8s.io/client-go => k8s.io/client-go v0.19.6
 	k8s.io/code-generator => k8s.io/code-generator v0.19.6
 	k8s.io/klog => k8s.io/klog v1.0.0
-	volcano.sh/apis => icode.baidu.com/baidu/third-party/volcano-apis v0.0.0-20211202072405-63e749b045a0
 )
