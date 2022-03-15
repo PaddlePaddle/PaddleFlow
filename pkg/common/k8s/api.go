@@ -20,48 +20,97 @@ import (
 	"sync"
 
 	log "github.com/sirupsen/logrus"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 
-	"paddleflow/pkg/common/config"
+	commomschema "paddleflow/pkg/common/schema"
 )
 
 var (
-	PodGVK      = schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"}
-	VCJobGVK    = schema.GroupVersionKind{Group: "batch.volcano.sh", Version: "v1alpha1", Kind: "Job"}
-	SparkAppGVK = schema.GroupVersionKind{Group: "sparkoperator.k8s.io", Version: "v1beta2", Kind: "SparkApplication"}
+	PodGVK       = schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"}
+	VCJobGVK     = schema.GroupVersionKind{Group: "batch.volcano.sh", Version: "v1alpha1", Kind: "Job"}
+	VCQueueGVK   = schema.GroupVersionKind{Group: "scheduling.volcano.sh", Version: "v1beta1", Kind: "Queue"}
+	SparkAppGVK  = schema.GroupVersionKind{Group: "sparkoperator.k8s.io", Version: "v1beta2", Kind: "SparkApplication"}
+	PaddleJobGVK = schema.GroupVersionKind{Group: "batch.paddlepaddle.org", Version: "v1", Kind: "PaddleJob"}
 
-	GVKToGVR sync.Map
+	// GVKToJobType maps GroupVersionKind to PaddleFlow JobType
+	GVKToJobType = map[schema.GroupVersionKind]commomschema.JobType{
+		VCJobGVK:     commomschema.TypeVcJob,
+		SparkAppGVK:  commomschema.TypeSparkJob,
+		PaddleJobGVK: commomschema.TypePaddleJob,
+	}
+	// GVKJobStatusMap contains GroupVersionKind and get status
+	GVKJobStatusMap = map[schema.GroupVersionKind]GetStatusFunc{
+		VCJobGVK:     VCJobStatus,
+		SparkAppGVK:  SparkAppStatus,
+		PaddleJobGVK: PaddleJobStatus,
+	}
 )
 
-func GetGVRByGVK(gvk schema.GroupVersionKind) (schema.GroupVersionResource, error) {
-	gvr, ok := GVKToGVR.Load(gvk.String())
-	if ok {
-		return gvr.(schema.GroupVersionResource), nil
-	}
-	cfg := config.InitKubeConfig(config.GlobalServerConfig.KubeConfig)
-	return findGVR(&gvk, cfg)
+type StatusInfo struct {
+	OriginStatus string
+	Status       commomschema.JobStatus
+	Message      string
 }
 
-func findGVR(gvk *schema.GroupVersionKind, cfg *rest.Config) (schema.GroupVersionResource, error) {
-	// DiscoveryClient queries API server about the resources
-	dc, err := discovery.NewDiscoveryClientForConfig(cfg)
+type StatusIsUpdatedFunc func(interface{}, interface{}) (bool, string)
+type GetStatusFunc func(interface{}) (StatusInfo, error)
+
+// DynamicClientOption for kubernetes dynamic client
+type DynamicClientOption struct {
+	DynamicClient   dynamic.Interface
+	DynamicFactory  dynamicinformer.DynamicSharedInformerFactory
+	DiscoveryClient discovery.DiscoveryInterface
+	Config          *rest.Config
+	// GVKToGVR contains GroupVersionKind map to GroupVersionResource
+	GVKToGVR sync.Map
+}
+
+func CreateDynamicClientOpt(config *rest.Config) (*DynamicClientOption, error) {
+	dynamicClient, err := dynamic.NewForConfig(config)
+	if err != nil {
+		log.Errorf("init dynamic client failed. error:%s", err)
+		return nil, err
+	}
+	factory := dynamicinformer.NewDynamicSharedInformerFactory(dynamicClient, 0)
+	discoveryClient, err := discovery.NewDiscoveryClientForConfig(config)
 	if err != nil {
 		log.Errorf("create discovery client failed: %v", err)
-		return schema.GroupVersionResource{}, err
+		return nil, err
 	}
-	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(dc))
+	return &DynamicClientOption{
+		DynamicClient:   dynamicClient,
+		DynamicFactory:  factory,
+		DiscoveryClient: discoveryClient,
+		Config:          config,
+	}, nil
+}
+
+func (dc *DynamicClientOption) GetGVR(gvk schema.GroupVersionKind) (meta.RESTMapping, error) {
+	gvr, ok := dc.GVKToGVR.Load(gvk.String())
+	if ok {
+		return gvr.(meta.RESTMapping), nil
+	}
+	return dc.findGVR(&gvk)
+}
+
+func (dc *DynamicClientOption) findGVR(gvk *schema.GroupVersionKind) (meta.RESTMapping, error) {
+	// DiscoveryClient queries API server about the resources
+	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(dc.DiscoveryClient))
 	// Find GVR
 	mapping, err := mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 	if err != nil {
 		log.Errorf("find GVR with restMapping failed: %v", err)
-		return schema.GroupVersionResource{}, err
+		return meta.RESTMapping{}, err
 	}
 	// Store GVR
 	log.Debugf("The GVR of GVK[%s] is [%s]", gvk.String(), mapping.Resource.String())
-	GVKToGVR.Store(gvk.String(), mapping.Resource)
-	return mapping.Resource, nil
+	dc.GVKToGVR.Store(gvk.String(), *mapping)
+	return *mapping, nil
 }

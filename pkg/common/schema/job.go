@@ -17,10 +17,9 @@ limitations under the License.
 package schema
 
 import (
+	"database/sql/driver"
+	"encoding/json"
 	"fmt"
-	batchv1alpha1 "volcano.sh/apis/pkg/apis/batch/v1alpha1"
-
-	sparkoperatorv1beta2 "paddleflow/pkg/apis/spark-operator/sparkoperator.k8s.io/v1beta2"
 )
 
 type JobType string
@@ -28,14 +27,17 @@ type ActionOnJob string
 type JobStatus string
 
 const (
-	EnvJobType      = "PF_JOB_TYPE"
-	EnvJobQueueName = "PF_JOB_QUEUE_NAME"
-	EnvJobNamespace = "PF_JOB_NAMESPACE"
-	EnvJobUserName  = "PF_USER_NAME"
-	EnvJobFsID      = "PF_FS_ID"
-	EnvJobPVCName   = "PF_JOB_PVC_NAME"
-	EnvJobPriority  = "PF_JOB_PRIORITY"
-	EnvJobMode      = "PF_JOB_MODE"
+	EnvJobType        = "PF_JOB_TYPE"
+	EnvJobQueueName   = "PF_JOB_QUEUE_NAME"
+	EnvJobQueueID     = "PF_JOB_QUEUE_ID"
+	EnvJobClusterName = "PF_JOB_CLUSTER_NAME"
+	EnvJobClusterID   = "PF_JOB_CLUSTER_ID"
+	EnvJobNamespace   = "PF_JOB_NAMESPACE"
+	EnvJobUserName    = "PF_USER_NAME"
+	EnvJobFsID        = "PF_FS_ID"
+	EnvJobPVCName     = "PF_JOB_PVC_NAME"
+	EnvJobPriority    = "PF_JOB_PRIORITY"
+	EnvJobMode        = "PF_JOB_MODE"
 	// EnvJobYamlPath Additional configuration for a specific job
 	EnvJobYamlPath = "PF_JOB_YAML_PATH"
 
@@ -65,9 +67,12 @@ const (
 	EnvJobExecutorReplicas = "PF_JOB_EXECUTOR_REPLICAS"
 	EnvJobExecutorFlavour  = "PF_JOB_EXECUTOR_FLAVOUR"
 
-	TypeVcJob    JobType = "vcjob"
-	TypeSparkJob JobType = "spark"
+	TypeVcJob     JobType = "vcjob"
+	TypeSparkJob  JobType = "spark"
+	TypePaddleJob JobType = "paddlejob"
+	TypePodJob    JobType = "pod"
 
+	StatusJobInit        JobStatus = "init"
 	StatusJobPending     JobStatus = "pending"
 	StatusJobRunning     JobStatus = "running"
 	StatusJobFailed      JobStatus = "failed"
@@ -75,7 +80,6 @@ const (
 	StatusJobTerminating JobStatus = "terminating"
 	StatusJobTerminated  JobStatus = "terminated"
 	StatusJobCancelled   JobStatus = "cancelled"
-	StatusJobCached      JobStatus = "cached" // 表示这个步骤使用cache，跳过运行
 
 	// job priority
 	EnvJobVeryLowPriority  = "VERY_LOW"
@@ -95,7 +99,8 @@ const (
 	JobOwnerValue = "paddleflow"
 	JobIDLabel    = "paddleflow-job-id"
 
-	VolcanoJobNameLabel = "volcano.sh/job-name"
+	VolcanoJobNameLabel  = "volcano.sh/job-name"
+	SparkAPPJobNameLabel = "sparkoperator.k8s.io/app-name"
 
 	JobPrefix            = "job"
 	DefaultSchedulerName = "volcano"
@@ -108,45 +113,198 @@ const (
 	Terminate ActionOnJob = "terminate"
 )
 
-func GetSparkJobStatus(state sparkoperatorv1beta2.ApplicationStateType) (JobStatus, error) {
-	status := JobStatus("")
-	switch state {
-	case sparkoperatorv1beta2.NewState, sparkoperatorv1beta2.SubmittedState:
-		status = StatusJobPending
-	case sparkoperatorv1beta2.RunningState, sparkoperatorv1beta2.SucceedingState, sparkoperatorv1beta2.FailingState,
-		sparkoperatorv1beta2.InvalidatingState, sparkoperatorv1beta2.PendingRerunState:
-		status = StatusJobRunning
-	case sparkoperatorv1beta2.CompletedState:
-		status = StatusJobSucceeded
-	case sparkoperatorv1beta2.FailedState, sparkoperatorv1beta2.FailedSubmissionState, sparkoperatorv1beta2.UnknownState:
-		status = StatusJobFailed
+func IsImmutableJobStatus(status JobStatus) bool {
+	switch status {
+	case StatusJobSucceeded, StatusJobFailed, StatusJobTerminated:
+		return true
+	default:
+		return false
 	}
-
-	if status == "" {
-		return status, fmt.Errorf("unexpected spark application status [%s]\n", state)
-	}
-	return status, nil
 }
 
-func GetVCJobStatus(phase batchv1alpha1.JobPhase) (JobStatus, error) {
-	status := JobStatus("")
-	switch phase {
-	case batchv1alpha1.Pending:
-		status = StatusJobPending
-	case batchv1alpha1.Running, batchv1alpha1.Restarting, batchv1alpha1.Completing:
-		status = StatusJobRunning
-	case batchv1alpha1.Terminating, batchv1alpha1.Aborting:
-		status = StatusJobTerminating
-	case batchv1alpha1.Completed:
-		status = StatusJobSucceeded
-	case batchv1alpha1.Aborted:
-		status = StatusJobTerminated
-	case batchv1alpha1.Failed, batchv1alpha1.Terminated:
-		status = StatusJobFailed
-	}
+type PFJobConf interface {
+	GetName() string
+	GetEnv() map[string]string
+	GetCommand() string
+	GetImage() string
 
-	if status == "" {
-		return status, fmt.Errorf("unexpected vcjob status [%s]\n", phase)
+	GetPriority() string
+	SetPriority(string)
+
+	GetQueueName() string
+	GetQueueID() string
+	GetClusterName() string
+	GetClusterID() string
+	GetUserName() string
+	GetFS() string
+	GetYamlPath() string
+	GetNamespace() string
+	GetJobMode() string
+
+	GetFlavour() string
+	GetPSFlavour() string
+	GetWorkerFlavour() string
+
+	SetQueueID(string)
+	SetClusterID(string)
+	SetNamespace(string)
+	SetEnv(string, string)
+	Type() JobType
+}
+
+type Conf struct {
+	Name    string            `json:"name"`
+	Env     map[string]string `json:"env"`
+	Command string            `json:"command"`
+	Image   string            `json:"image"`
+}
+
+func (c *Conf) GetName() string {
+	return c.Name
+}
+
+func (c *Conf) GetEnv() map[string]string {
+	return c.Env
+}
+
+func (c *Conf) GetCommand() string {
+	return c.Command
+}
+
+func (c *Conf) GetWorkerCommand() string {
+	return c.Env[EnvJobWorkerCommand]
+}
+
+func (c *Conf) GetPSCommand() string {
+	return c.Env[EnvJobPServerCommand]
+}
+
+func (c *Conf) GetImage() string {
+	return c.Image
+}
+
+func (c *Conf) GetPriority() string {
+	return c.Env[EnvJobPriority]
+}
+
+func (c *Conf) SetPriority(pc string) {
+	c.Env[EnvJobPriority] = pc
+}
+
+func (c *Conf) GetQueueName() string {
+	return c.Env[EnvJobQueueName]
+}
+
+func (c *Conf) GetClusterName() string {
+	return c.Env[EnvJobClusterName]
+}
+
+func (c *Conf) GetUserName() string {
+	return c.Env[EnvJobUserName]
+}
+
+func (c *Conf) GetFS() string {
+	return c.Env[EnvJobFsID]
+}
+
+func (c *Conf) GetYamlPath() string {
+	return c.Env[EnvJobYamlPath]
+}
+
+func (c *Conf) GetNamespace() string {
+	return c.Env[EnvJobNamespace]
+}
+
+func (c *Conf) SetNamespace(ns string) {
+	c.Env[EnvJobNamespace] = ns
+}
+
+func (c *Conf) Type() JobType {
+	return JobType(c.Env[EnvJobType])
+}
+
+func (c *Conf) GetJobMode() string {
+	return c.Env[EnvJobMode]
+}
+
+func (c *Conf) GetJobReplicas() string {
+	return c.Env[EnvJobReplicas]
+}
+
+func (c *Conf) GetWorkerReplicas() string {
+	return c.Env[EnvJobWorkerReplicas]
+}
+
+func (c *Conf) GetPSReplicas() string {
+	return c.Env[EnvJobPServerReplicas]
+}
+
+func (c *Conf) GetJobExecutorReplicas() string {
+	return c.Env[EnvJobExecutorReplicas]
+}
+
+func (c *Conf) GetFlavour() string {
+	return c.Env[EnvJobFlavour]
+}
+
+func (c *Conf) GetPSFlavour() string {
+	return c.Env[EnvJobPServerFlavour]
+}
+
+func (c *Conf) GetWorkerFlavour() string {
+	return c.Env[EnvJobWorkerFlavour]
+}
+
+func (c *Conf) SetFlavour(flavourKey string) {
+	c.Env[EnvJobFlavour] = flavourKey
+}
+
+func (c *Conf) SetPSFlavour(flavourKey string) {
+	c.Env[EnvJobPServerFlavour] = flavourKey
+}
+
+func (c *Conf) SetWorkerFlavour(flavourKey string) {
+	c.Env[EnvJobWorkerFlavour] = flavourKey
+}
+
+func (c *Conf) SetEnv(name, value string) {
+	c.Env[name] = value
+}
+
+func (c *Conf) GetQueueID() string {
+	return c.Env[EnvJobQueueID]
+}
+
+func (c *Conf) SetQueueID(id string) {
+	c.Env[EnvJobQueueID] = id
+}
+
+func (c *Conf) GetClusterID() string {
+	return c.Env[EnvJobClusterID]
+}
+
+func (c *Conf) SetClusterID(id string) {
+	c.Env[EnvJobClusterID] = id
+}
+
+// Scan for gorm
+func (s *Conf) Scan(value interface{}) error {
+	b, ok := value.([]byte)
+	if !ok {
+		return fmt.Errorf("Conf scan failed")
 	}
-	return status, nil
+	err := json.Unmarshal(b, s)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// Value for gorm
+func (s Conf) Value() (driver.Value, error) {
+	value, err := json.Marshal(s)
+	if err != nil {
+		return nil, err
+	}
+	return value, nil
 }
