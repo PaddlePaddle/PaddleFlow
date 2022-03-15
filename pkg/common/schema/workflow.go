@@ -17,6 +17,7 @@ limitations under the License.
 package schema
 
 import (
+	"fmt"
 	"strings"
 )
 
@@ -24,6 +25,22 @@ const (
 	ArtifactTypeInput  = "input"
 	ArtifactTypeOutput = "output"
 )
+
+type Artifacts struct {
+	Input      map[string]string `yaml:"input"`
+	Output     map[string]string `yaml:"-"`
+	OutputList []string          `yaml:"output"`
+}
+
+func (atf *Artifacts) ValidateOutputMapByList() error {
+	if atf.Output == nil {
+		atf.Output = make(map[string]string)
+	}
+	for _, outputName := range atf.OutputList {
+		atf.Output[outputName] = ""
+	}
+	return nil
+}
 
 type WorkflowSourceStep struct {
 	Parameters map[string]interface{} `yaml:"parameters"`
@@ -34,12 +51,8 @@ type WorkflowSourceStep struct {
 	Image      string                 `yaml:"image"` // 这个字段暂时不对用户暴露
 }
 
-type Artifacts struct {
-	Input  map[string]string `yaml:"input"`
-	Output map[string]string `yaml:"output"`
-}
-
 func (s *WorkflowSourceStep) GetDeps() []string {
+    // 获取依赖节点列表。添加前删除每个步骤名称前后的空格，只有空格的步骤名直接略过不添加
 	deps := make([]string, 0)
 	for _, dep := range strings.Split(s.Deps, ",") {
 		dryDep := strings.TrimSpace(dep)
@@ -63,4 +76,26 @@ type WorkflowSource struct {
 	EntryPoints map[string]*WorkflowSourceStep `yaml:"entry_points"`
 	Cache       Cache                          `yaml:"cache"`
 	Parallelism int                            `yaml:"parallelism"`
+}
+
+// ValidateArtifacts - 该函数的作用是将WorkflowSource中的Slice类型的输出Artifact改为Map类型
+//                     这样做的原因是：之前的run.yaml中（ver.1.3.2之前），输出Artifact为Map类型，而现在为了支持Cache的优化，改为Slice类型
+//
+// PARAMS:
+//   无
+// RETURNS:
+//   nil: 正常执行则返回nil
+//   error: 执行异常则返回错误信息
+func (wfs *WorkflowSource) ValidateArtifacts() error {
+	if wfs.EntryPoints == nil {
+		wfs.EntryPoints = make(map[string]*WorkflowSourceStep)
+	}
+
+	for stepName, step := range wfs.EntryPoints {
+		if err := step.Artifacts.ValidateOutputMapByList(); err != nil {
+			return fmt.Errorf("validate artifacts failed")
+		}
+		wfs.EntryPoints[stepName] = step
+	}
+	return nil
 }
