@@ -25,6 +25,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"paddleflow/pkg/common/schema"
+	. "paddleflow/pkg/pipeline/common"
 )
 
 type Step struct {
@@ -37,37 +38,27 @@ type Step struct {
 	job               Job
 	firstFingerprint  string
 	secondFingerprint string
+	CacheRunID        string
 }
 
 var NewStep = func(name string, wfr *WorkflowRuntime, info *schema.WorkflowSourceStep) (*Step, error) {
-	// 该函数初始化job时，只传入image，并没有替换parameter，command，env中的参数
+	// 该函数初始化job时，只传入image, deps等，并没有替换parameter，command，env中的参数
 	// 因为初始化job的操作是在所有step初始化的时候做的，此时step可能被启动一个协程，但并没有真正运行任意一个step的运行逻辑
 	// 因此没法知道上游节点的参数值，没法做替换
+	jobName := fmt.Sprintf("%s-%s", wfr.wf.RunID, name)
+	job := NewPaddleFlowJob(jobName, info.Image, info.Deps)
+	
 	st := &Step{
 		name:  name,
 		wfr:   wfr,
 		info:  info,
 		ready: make(chan bool, 1),
 		done:  false,
+		submitted: false,
+		job: job,
 	}
 
-	jobName := fmt.Sprintf("%s-%s", st.wfr.wf.RunID, name)
-	st.job = NewPaddleFlowJob(jobName, st.info.Image, st.info.Deps)
-
-	st.getLogger().Debugf("before updating job: param[%s], env[%s], command[%s], deps[%s]", st.info.Parameters, st.info.Env, st.info.Command, st.info.Deps)
-	err := st.updateJob()
-	if err != nil {
-		st.getLogger().Error(err.Error())
-		return nil, err
-	}
-	st.getLogger().Debugf("step[%s] of runid[%s] starting job, param[%s], env[%s], command[%s]", st.name, st.wfr.wf.RunID, st.job.(*PaddleFlowJob).Parameters, st.job.(*PaddleFlowJob).Env, st.job.(*PaddleFlowJob).Command)
-
-	err = st.job.Validate()
-	if err != nil {
-		st.getLogger().Error(err.Error())
-		return nil, err
-	}
-
+	st.getLogger().Debugf("step[%s] of runid[%s] before starting job: param[%s], env[%s], command[%s], artifacts[%s], deps[%s]", st.name, st.wfr.wf.RunID, st.info.Parameters, st.info.Env, st.info.Command, st.info.Artifacts, st.info.Deps)
 	return st, nil
 }
 
@@ -81,13 +72,14 @@ func (st *Step) getLogger() *logrus.Entry {
 	return st.wfr.wf.log()
 }
 
-func (st *Step) updateJob() error {
-	// 替换parameters， command， envs
-	// 这个为啥要在这里替换，而不是在runtime初始化的时候呢？因为后续可能支持上游动态模板值。
-	steps := map[string]*schema.WorkflowSourceStep{st.name: st.info}
-	for i, step := range st.wfr.steps {
-		steps[step.name] = st.wfr.steps[i].info
+func (st *Step) generateStepParamSolver(forCacheFingerprint bool) StepParamSolver {
+	steps := make(map[string]*schema.WorkflowSourceStep)
+	jobs := make(map[string]Job)
+	for _, step := range st.wfr.steps {
+		steps[step.name] = st.wfr.steps[step.name].info
+		jobs[step.name] = st.wfr.steps[step.name].job
 	}
+
 	var sysParams = map[string]string{
 		SysParamNamePFRunID:    st.wfr.wf.RunID,
 		SysParamNamePFStepName: st.name,
@@ -95,8 +87,16 @@ func (st *Step) updateJob() error {
 		SysParamNamePFFsName:   st.wfr.wf.Extra[WfExtraInfoKeyFsName],
 		SysParamNamePFUserName: st.wfr.wf.Extra[WfExtraInfoKeyUserName],
 	}
-	paramSolver := StepParamSolver{steps: steps, sysParams: sysParams, needReplace: true}
-	if err := paramSolver.Solve(st.name); err != nil {
+
+	paramSolver := NewStepParamSolver(steps, sysParams, jobs, forCacheFingerprint, st.wfr.wf.Source.Name, st.wfr.wf.RunID, st.wfr.wf.Extra[WfExtraInfoKeyFsID], st.getLogger())
+	return paramSolver
+}
+
+func (st *Step) updateJob(forCacheFingerprint bool, cacheOutputArtifacts map[string]string) error {
+	// 替换parameters， command， envs
+	// 这个为啥要在这里替换，而不是在runtime初始化的时候呢？因为后续可能支持上游动态模板值。
+	paramSolver := st.generateStepParamSolver(forCacheFingerprint)
+	if err := paramSolver.Solve(st.name, cacheOutputArtifacts); err != nil {
 		return err
 	}
 
@@ -118,6 +118,7 @@ func (st *Step) updateJob() error {
 	for envName, envVal := range st.info.Env {
 		newEnvs[envName] = envVal
 	}
+	sysParams := paramSolver.getSysParams()
 	for integratedParam, integratedParamVal := range sysParams {
 		newEnvs[integratedParam] = integratedParamVal
 	}
@@ -130,19 +131,9 @@ func (st *Step) updateJob() error {
 	}
 
 	st.job.Update(st.info.Command, params, newEnvs, &artifacts)
-	st.getLogger().Debugf("step[%s] of runid[%s]: param[%s], command[%s], env[%s]",
-		st.name, st.wfr.wf.RunID, params, st.info.Command, newEnvs)
+	st.getLogger().Debugf("step[%s] of runid[%s]: param[%s], artifacts[%s], command[%s], env[%s]",
+		st.name, st.wfr.wf.RunID, params, st.info.Artifacts, st.info.Command, newEnvs)
 	return nil
-}
-
-func (st *Step) getJobExtra(status schema.JobStatus) map[string]interface{} {
-	extra := map[string]interface{}{
-		"status":    status,
-		"preStatus": st.job.(*PaddleFlowJob).Status,
-		"jobid":     st.job.(*PaddleFlowJob).Id,
-	}
-
-	return extra
 }
 
 func (st *Step) logInputArtifact() {
@@ -191,8 +182,23 @@ func (st *Step) logOutputArtifact() {
 	}
 }
 
-func (st *Step) checkCached() (bool, error) {
-	// 运行前先判断是否使用，以及匹配cache
+func (st *Step) checkCached() (cacheFound bool, err error) {
+	/*
+		计算cache key，并查看是否存在可用的cache
+	*/
+
+	// check Cache前，先替换参数（参数替换逻辑与运行前的参数替换逻辑不一样）
+	forCacheFingerprint := true
+	err = st.updateJob(forCacheFingerprint, nil)
+	if err != nil {
+		return false, err
+	}
+
+	err = st.job.Validate()
+	if err != nil {
+		return false, err
+	}
+
 	cacheCaculator, err := NewCacheCalculator(*st, st.wfr.wf.Source.Cache)
 	if err != nil {
 		return false, err
@@ -208,6 +214,7 @@ func (st *Step) checkCached() (bool, error) {
 		return false, err
 	}
 	if len(runCacheList) == 0 {
+		// 这里不能直接返回，因为还要计算secondFingerprint，用来在节点运行成功时，记录到数据库
 		logMsg := fmt.Sprintf("cache list empty for step[%s] in runid[%s], with first fingerprint[%s]", st.name, st.wfr.wf.RunID, st.firstFingerprint)
 		st.getLogger().Infof(logMsg)
 	} else {
@@ -220,8 +227,8 @@ func (st *Step) checkCached() (bool, error) {
 		return false, err
 	}
 
-	cacheFound := false
-	cacheRunID := ""
+	cacheFound = false
+	var cacheRunID string
 	for _, runCache := range runCacheList {
 		if st.secondFingerprint == runCache.SecondFp {
 			if runCache.ExpiredTime == CacheExpiredTimeNever {
@@ -247,15 +254,76 @@ func (st *Step) checkCached() (bool, error) {
 		}
 	}
 
-	var logMsg string
 	if cacheFound {
-		logMsg = fmt.Sprintf("cache found in former runid[%s] for step[%s] of runid[%s], with fingerprint[%s] and [%s]", cacheRunID, st.name, st.wfr.wf.RunID, st.firstFingerprint, st.secondFingerprint)
+		jobView, err := st.wfr.wf.callbacks.GetJobCb(cacheRunID, st.name)
+		if err != nil {
+			return false, err
+		}
+
+		forCacheFingerprint := false
+		err = st.updateJob(forCacheFingerprint, jobView.Artifacts.Output)
+		if err != nil {
+			return false, err
+		}
+
+		st.CacheRunID = cacheRunID
+		logMsg := fmt.Sprintf("cache found in former runid[%s] for step[%s] of runid[%s], with fingerprint[%s] and [%s]", cacheRunID, st.name, st.wfr.wf.RunID, st.firstFingerprint, st.secondFingerprint)
+		st.getLogger().Infof(logMsg)
 	} else {
-		logMsg = fmt.Sprintf("NO cache found for step[%s] in runid[%s], with fingerprint[%s] and [%s]", st.name, st.wfr.wf.RunID, st.firstFingerprint, st.secondFingerprint)
+		logMsg := fmt.Sprintf("NO cache found for step[%s] in runid[%s], with fingerprint[%s] and [%s]", st.name, st.wfr.wf.RunID, st.firstFingerprint, st.secondFingerprint)
+		st.getLogger().Infof(logMsg)
+	}
+	return cacheFound, nil
+}
+
+func (st *Step) logCache() error {
+	// 写cache记录到数据库
+	req := schema.LogRunCacheRequest{
+		FirstFp:     st.firstFingerprint,
+		SecondFp:    st.secondFingerprint,
+		Source:      st.wfr.wf.Extra[WfExtraInfoKeySource],
+		RunID:       st.wfr.wf.RunID,
+		Step:        st.name,
+		FsID:        st.wfr.wf.Extra[WfExtraInfoKeyFsID],
+		FsName:      st.wfr.wf.Extra[WfExtraInfoKeyFsName],
+		UserName:    st.wfr.wf.Extra[WfExtraInfoKeyUserName],
+		ExpiredTime: st.wfr.wf.Source.Cache.MaxExpiredTime,
+		Strategy:    CacheStrategyConservative,
 	}
 
-	st.getLogger().Infof(logMsg)
-	return cacheFound, nil
+	// logcache失败，不影响job正常结束，但是把cache失败添加日志
+	_, err := st.wfr.wf.callbacks.LogCacheCb(req)
+	if err != nil {
+		return fmt.Errorf("log cache for job[%s], step[%s] with runid[%s] failed: %s", st.job.(*PaddleFlowJob).Id, st.name, st.wfr.wf.RunID, err.Error())
+	} else {
+		InfoMsg := fmt.Sprintf("log cache for job[%s], step[%s] with runid[%s] success", st.job.(*PaddleFlowJob).Id, st.name, st.wfr.wf.RunID)
+		st.getLogger().Infof(InfoMsg)
+		return nil
+	}
+
+}
+
+func (st *Step) updateJobStatus(eventValue WfEventValue, jobStatus schema.JobStatus, logMsg string) {
+	if jobStatus == schema.StatusJobFailed {
+		st.getLogger().Errorf(logMsg)
+	} else {
+		st.getLogger().Infof(logMsg)
+	}
+
+	extra := map[string]interface{}{
+		"preStatus": st.job.(*PaddleFlowJob).Status,
+		"status":    jobStatus,
+		"jobid":     st.job.(*PaddleFlowJob).Id,
+	}
+	
+	st.job.(*PaddleFlowJob).Message = logMsg
+	st.job.(*PaddleFlowJob).Status = jobStatus
+	if jobStatus == schema.StatusJobCancelled || jobStatus == schema.StatusJobFailed || jobStatus == schema.StatusJobSucceeded {
+		st.done = true
+	}
+	
+	wfe := NewWorkflowEvent(eventValue, logMsg, extra)
+	st.wfr.event <- *wfe
 }
 
 // 步骤执行
@@ -272,76 +340,87 @@ func (st *Step) Execute() {
 		select {
 		case <-st.wfr.ctx.Done():
 			logMsg := fmt.Sprintf("context of step[%s] with runid[%s] has stopped with msg:[%s], no need to execute", st.name, st.wfr.wf.RunID, st.wfr.ctx.Err())
-			st.getLogger().Infof(logMsg)
-
-			extra := st.getJobExtra(schema.StatusJobCancelled)
-			st.job.(*PaddleFlowJob).Status = schema.StatusJobCancelled
-			st.done = true
-			wfe := NewWorkflowEvent(WfEventJobUpdate, "", extra)
-			st.wfr.event <- *wfe
+			st.updateJobStatus(WfEventJobUpdate, schema.StatusJobCancelled, logMsg)
 		case <-st.ready:
 			logMsg := fmt.Sprintf("start execute step[%s] with runid[%s]", st.name, st.wfr.wf.RunID)
 			st.getLogger().Infof(logMsg)
 
-			st.wfr.IncConcurrentJobs(1) // 如果达到并行Job上限，将会Block
-
-			// 有可能在这一步的时候，run已经结束了，此时直接退出，不发起
-			if st.wfr.ctx.Err() != nil {
-				logMsg := fmt.Sprintf("context of step[%s] with runid[%s] has stopped with msg:[%s], no need to execute", st.name, st.wfr.wf.RunID, st.wfr.ctx.Err())
-				st.getLogger().Infof(logMsg)
-
-				st.wfr.DecConcurrentJobs(1)
-
-				extra := st.getJobExtra(schema.StatusJobCancelled)
-				st.job.(*PaddleFlowJob).Status = schema.StatusJobCancelled
-				st.done = true
-				wfe := NewWorkflowEvent(WfEventJobUpdate, "", extra)
-				st.wfr.event <- *wfe
-				return
-			}
-
-			cache := st.wfr.wf.Source.Cache
-			if cache.Enable {
+			if st.wfr.wf.Source.Cache.Enable {
 				cachedFound, err := st.checkCached()
 				if err != nil {
-					ErrMsg := fmt.Sprintf("check cache for step[%s] with runid[%s] failed: [%s]", st.name, st.wfr.wf.RunID, err.Error())
-					st.getLogger().Errorf(ErrMsg)
-
-					st.wfr.DecConcurrentJobs(1)
-					extra := st.getJobExtra(schema.StatusJobFailed)
-					st.job.(*PaddleFlowJob).Status = schema.StatusJobFailed
-					st.done = true
-					wfe := NewWorkflowEvent(WfEventJobSubmitErr, ErrMsg, extra)
-					st.wfr.event <- *wfe
+					logMsg = fmt.Sprintf("check cache for step[%s] with runid[%s] failed: [%s]", st.name, st.wfr.wf.RunID, err.Error())
+					st.updateJobStatus(WfEventJobUpdate, schema.StatusJobFailed, logMsg)
 					return
 				}
 
 				if cachedFound {
-					InfoMsg := fmt.Sprintf("skip job for step[%s] with runid[%s], use cache", st.name, st.wfr.wf.RunID)
-					st.getLogger().Infof(InfoMsg)
+					for {
+						jobView, err := st.wfr.wf.callbacks.GetJobCb(st.CacheRunID, st.name)
+						if err != nil {
+							st.updateJobStatus(WfEventJobUpdate, schema.StatusJobFailed, err.Error())
+						}
 
-					st.wfr.DecConcurrentJobs(1)
-					extra := st.getJobExtra(schema.StatusJobCached)
-					st.job.(*PaddleFlowJob).Status = schema.StatusJobCached
-					st.done = true
-					wfe := NewWorkflowEvent(WfEventJobUpdate, InfoMsg, extra)
-					st.wfr.event <- *wfe
+						cacheStatus := jobView.Status
+						if cacheStatus == schema.StatusJobFailed || cacheStatus == schema.StatusJobSucceeded {
+							// 通过讲workflow event传回去，就能够在runtime中callback，将job更新后的参数存到数据库中
+							logMsg = fmt.Sprintf("skip job for step[%s] in runid[%s], use cache of runid[%s]", st.name, st.wfr.wf.RunID, st.CacheRunID)
+							
+							// todo: 需要把cacheRunID也保存到job里面，方便run中callback记录jobView使能够获取cacheRunID
+							st.updateJobStatus(WfEventJobUpdate, cacheStatus, logMsg)
+							return
+						} else if cacheStatus == schema.StatusJobInit || cacheStatus == schema.StatusJobPending || cacheStatus == schema.StatusJobRunning || cacheStatus == schema.StatusJobTerminating {
+							time.Sleep(time.Second * 3)
+						} else {
+							// 如果过往job的状态属于其他状态，如 StatusJobTerminated StatusJobCancelled，则无视该cache，继续运行当前job
+							// 不过按照正常逻辑，不存在处于Cancelled，但是有cache的job，这里单纯用于兜底
+
+							// 命中cachekey的时候，已经将cacheRunID添加了，但是此时不会利用cache记录，所以要删掉该字段
+							st.CacheRunID = ""
+							break
+						}
+					}
+				}
+
+				err = st.logCache()
+				if err != nil {
+					st.updateJobStatus(WfEventJobUpdate, schema.StatusJobFailed, err.Error())
 					return
 				}
 			}
 
-			_, err := st.job.Start()
+			// 节点运行前，先替换参数（参数替换逻辑与check Cache的参数替换逻辑不一样，多了一步替换output artifact，并利用output artifact参数替换command以及添加到env）
+			forCacheFingerprint := false
+			err := st.updateJob(forCacheFingerprint, nil)
+			if err != nil {
+				logMsg = fmt.Sprintf("update output artifacts value for step[%s] with runid[%s] failed: [%s]", st.name, st.wfr.wf.RunID, err.Error())
+				st.updateJobStatus(WfEventJobUpdate, schema.StatusJobFailed, logMsg)
+				return
+			}
+
+			err = st.job.Validate()
+			if err != nil {
+				logMsg = fmt.Sprintf("validating step[%s] with runid[%s] failed: [%s]", st.name, st.wfr.wf.RunID, err.Error())
+				st.updateJobStatus(WfEventJobUpdate, schema.StatusJobFailed, logMsg)
+				return
+			}
+
+			st.wfr.IncConcurrentJobs(1) // 如果达到并行Job上限，将会Block
+
+			// 有可能在跳出block的时候，run已经结束了，此时直接退出，不发起
+			if st.wfr.ctx.Err() != nil {
+				st.wfr.DecConcurrentJobs(1)
+				logMsg = fmt.Sprintf("context of step[%s] with runid[%s] has stopped with msg:[%s], no need to execute", st.name, st.wfr.wf.RunID, st.wfr.ctx.Err())
+				st.updateJobStatus(WfEventJobUpdate, schema.StatusJobCancelled, logMsg)
+				return
+			}
+
+			// todo: 正式运行前，需要将更新后的参数更新到数据库中（通过传递workflow event到runtime即可）
+			_, err = st.job.Start()
 			if err != nil {
 				// 异常处理，塞event，不返回error是因为统一通过channel与run沟通
 				// todo：要不要改成WfEventJobUpdate的event？
-				ErrMsg := fmt.Sprintf("start job for step[%s] with runid[%s] failed: [%s]", st.name, st.wfr.wf.RunID, err.Error())
-				st.getLogger().Errorf(ErrMsg)
-
-				extra := st.getJobExtra(schema.StatusJobFailed)
-				st.job.(*PaddleFlowJob).Status = schema.StatusJobFailed
-				st.done = true
-				wfe := NewWorkflowEvent(WfEventJobSubmitErr, ErrMsg, extra)
-				st.wfr.event <- *wfe
+				logMsg= fmt.Sprintf("start job for step[%s] with runid[%s] failed: [%s]", st.name, st.wfr.wf.RunID, err.Error())
+				st.updateJobStatus(WfEventJobSubmitErr, schema.StatusJobFailed, logMsg)
 				return
 			}
 			st.getLogger().Debugf("step[%s] of runid[%s]: jobID[%s]", st.name, st.wfr.wf.RunID, st.job.(*PaddleFlowJob).Id)
@@ -363,6 +442,7 @@ func (st *Step) stopJob() {
 		if st.done {
 			logMsg = fmt.Sprintf("job[%s] step[%s] with runid[%s] has finished, no need to stop", st.job.(*PaddleFlowJob).Id, st.name, st.wfr.wf.RunID)
 			st.getLogger().Infof(logMsg)
+			return
 		}
 		// 异常处理, 塞event，不返回error是因为统一通过channel与run沟通
 		err := st.job.Stop()
@@ -407,31 +487,6 @@ func (st *Step) Watch() {
 				logMsg = fmt.Sprintf("receive watch update of job[%s] step[%s] with runid[%s], with errmsg:[%s], extra[%s]", st.job.(*PaddleFlowJob).Id, st.name, st.wfr.wf.RunID, event.Message, event.Extra)
 				st.getLogger().Infof(logMsg)
 				if extra["status"] == schema.StatusJobSucceeded || extra["status"] == schema.StatusJobFailed || extra["status"] == schema.StatusJobTerminated {
-					if st.wfr.wf.Source.Cache.Enable && extra["status"] == schema.StatusJobSucceeded {
-						// 写cache记录到数据库
-						req := schema.LogRunCacheRequest{
-							FirstFp:     st.firstFingerprint,
-							SecondFp:    st.secondFingerprint,
-							Source:      st.wfr.wf.Extra[WfExtraInfoKeySource],
-							RunID:       st.wfr.wf.RunID,
-							Step:        st.name,
-							FsID:        st.wfr.wf.Extra[WfExtraInfoKeyFsID],
-							FsName:      st.wfr.wf.Extra[WfExtraInfoKeyFsName],
-							UserName:    st.wfr.wf.Extra[WfExtraInfoKeyUserName],
-							ExpiredTime: st.wfr.wf.Source.Cache.MaxExpiredTime,
-							Strategy:    CacheStrategyConservative,
-						}
-
-						// logcache失败，不影响job正常结束，但是把cache失败添加日志
-						_, err := st.wfr.wf.callbacks.LogCacheCb(req)
-						if err != nil {
-							ErrMsg := fmt.Sprintf("log cache for job[%s], step[%s] with runid[%s] failed: %s", st.job.(*PaddleFlowJob).Id, st.name, st.wfr.wf.RunID, err.Error())
-							st.getLogger().Errorf(ErrMsg)
-						} else {
-							InfoMsg := fmt.Sprintf("log cache for job[%s], step[%s] with runid[%s] success", st.job.(*PaddleFlowJob).Id, st.name, st.wfr.wf.RunID)
-							st.getLogger().Infof(InfoMsg)
-						}
-					}
 					st.done = true
 					st.wfr.DecConcurrentJobs(1)
 				}

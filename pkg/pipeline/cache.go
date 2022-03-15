@@ -27,6 +27,7 @@ import (
 	"paddleflow/pkg/apiserver/handler"
 	"paddleflow/pkg/common/config"
 	"paddleflow/pkg/common/schema"
+	. "paddleflow/pkg/pipeline/common"
 )
 
 // 为了序列化，所有字段名均需大写开头

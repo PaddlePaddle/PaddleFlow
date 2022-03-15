@@ -26,8 +26,9 @@ import (
 	"paddleflow/pkg/apiserver/handler"
 	"paddleflow/pkg/common/config"
 	"paddleflow/pkg/common/schema"
-	"paddleflow/pkg/fs/client/base"
 	"paddleflow/pkg/fs/client/fs"
+	"paddleflow/pkg/fs/common"
+	. "paddleflow/pkg/pipeline/common"
 )
 
 func TestcalculateFingerprint(t *testing.T) {
@@ -232,8 +233,8 @@ func TestCalculateFirstFingerprint(t *testing.T) {
 }
 
 func CreatefileByFsClient(path string, isDir bool) error {
-	testFsMeta := base.FSMeta{
-		UfsType: base.LocalType,
+	testFsMeta := common.FSMeta{
+		UfsType: common.LocalType,
 		SubPath: "./mock_fs_handler",
 	}
 	fsClient, err := fs.NewFSClientForTest(testFsMeta)
