@@ -27,7 +27,7 @@ import (
 	krbconf "github.com/jcmturner/gokrb5/v8/config"
 	"github.com/jcmturner/gokrb5/v8/keytab"
 
-	"paddleflow/pkg/fs/client/base"
+	"paddleflow/pkg/fs/common"
 )
 
 type KerberosConf struct {
@@ -60,12 +60,12 @@ clockskew = 120
 
 func buildKerberosConf(properties map[string]interface{}) (*KerberosConf, error) {
 	return &KerberosConf{
-		Realm:                  properties[base.Realm].(string),
-		Kdc:                    properties[base.Kdc].(string),
-		Principal:              properties[base.Principal].(string),
-		NameNodePrincipal:      properties[base.NameNodePrincipal].(string),
-		DataTransferProtection: properties[base.DataTransferProtection].(string),
-		KeyTabData:             properties[base.KeyTabData].(string),
+		Realm:                  properties[common.Realm].(string),
+		Kdc:                    properties[common.Kdc].(string),
+		Principal:              properties[common.Principal].(string),
+		NameNodePrincipal:      properties[common.NameNodePrincipal].(string),
+		DataTransferProtection: properties[common.DataTransferProtection].(string),
+		KeyTabData:             properties[common.KeyTabData].(string),
 	}, nil
 }
 
@@ -119,7 +119,7 @@ func NewKerberosClientWithKeyTab(kerberosConf *KerberosConf) (*krb.Client, error
 }
 
 func NewHdfsWithKerberosFileSystem(properties map[string]interface{}) (UnderFileStorage, error) {
-	nameNodeAddress := properties[base.NameNodeAddress].(string)
+	nameNodeAddress := properties[common.NameNodeAddress].(string)
 	options := hdfs.ClientOptions{
 		Addresses: strings.Split(nameNodeAddress, ","),
 	}
@@ -140,7 +140,7 @@ func NewHdfsWithKerberosFileSystem(properties map[string]interface{}) (UnderFile
 		return nil, err
 	}
 
-	subpath, ok := properties[base.SubPath]
+	subpath, ok := properties[common.SubPath]
 	if !ok {
 		subpath = "/"
 	} else {
@@ -150,11 +150,11 @@ func NewHdfsWithKerberosFileSystem(properties map[string]interface{}) (UnderFile
 		}
 	}
 
-	blockSize, ok := properties[base.BlockSizeKey].(int64)
+	blockSize, ok := properties[common.BlockSizeKey].(int64)
 	if !ok {
 		blockSize = DefaultBlockSize
 	}
-	replication, ok := properties[base.ReplicationKey].(int)
+	replication, ok := properties[common.ReplicationKey].(int)
 	if !ok {
 		replication = DefaultReplication
 	}
@@ -173,5 +173,5 @@ func NewHdfsWithKerberosFileSystem(properties map[string]interface{}) (UnderFile
 
 // HDFS with Kerberos
 func init() {
-	RegisterUFS(base.HDFSWithKerberosType, NewHdfsWithKerberosFileSystem)
+	RegisterUFS(common.HDFSWithKerberosType, NewHdfsWithKerberosFileSystem)
 }

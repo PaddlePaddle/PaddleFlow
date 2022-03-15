@@ -158,9 +158,12 @@ func (n *Inode) RmChild(name string) (child Ino) {
 	ino := n.child[name]
 	n.RUnlock()
 	if ino != 0 {
-		inode := n.inodeHandle.toInode(ino)
+		n.Lock()
 		delete(n.child, name)
-		inode.parent = nil
+		n.Unlock()
+		n.inodeHandle.Lock()
+		delete(n.inodeHandle.handles, ino)
+		n.inodeHandle.Unlock()
 	}
 	return ino
 }

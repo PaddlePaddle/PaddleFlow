@@ -24,7 +24,8 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"paddleflow/pkg/fs/client/base"
+	"paddleflow/pkg/fs/client/meta"
+	"paddleflow/pkg/fs/common"
 )
 
 var defaultPfsServer string
@@ -39,14 +40,28 @@ func SetLinkMetaDirPrefix(dirPrefix string) {
 	linkMetaDirPrefix = dirPrefix
 }
 
+// fs server not use cache
 var (
-	MemCacheSize    = 1 << 26 // 64M
-	MemCacheExpire  = 60 * time.Second
-	DiskCacheSize   = 1 << 29 // 512M
-	DiskCacheExpire = 5 * time.Minute
-	BlockSize       = 1 << 22 // 4M
-	DiskCachePath   = "./cache_dir"
+	// 0 means not use data cache
+	BlockSize = 0
+
+	MemCacheSize    = 0
+	MemCacheExpire  = 0 * time.Second
+	DiskCacheExpire = 0 * time.Second
+	DiskCachePath   = "/var/cache/pfs_data_cache"
+
+	Driver           = meta.DefaultName
+	MetaCacheExpire  = 0 * time.Second
+	EntryCacheExpire = 0 * time.Second
+	MetaCachePath    = "/var/cache/pfs_meta_cache"
 )
+
+func SetMetaCache(config meta.Config) {
+	Driver = config.Driver
+	MetaCacheExpire = config.AttrCacheExpire
+	EntryCacheExpire = config.EntryCacheExpire
+	MetaCachePath = config.CachePath
+}
 
 func SetMemCache(size int, expire time.Duration) {
 	MemCacheSize = size
@@ -92,7 +107,7 @@ func NewFSClientWithFsID(fsID string) (FSClient, error) {
 	return newFSClient(defaultPfsServer, fsID)
 }
 
-func NewFSClient(fsMeta base.FSMeta, links map[string]base.FSMeta) (FSClient, error) {
+func NewFSClient(fsMeta common.FSMeta, links map[string]common.FSMeta) (FSClient, error) {
 	return newFSClientWithFsMeta(fsMeta, links, "")
 }
 
@@ -105,8 +120,8 @@ func newFSClient(server, fsID string) (FSClient, error) {
 	return newFSClientWithFsMeta(fsMeta, links, server)
 }
 
-func newFSClientWithFsMeta(fsMeta base.FSMeta, links map[string]base.FSMeta, server string) (FSClient, error) {
-	if fsMeta.UfsType == base.MockType {
+func newFSClientWithFsMeta(fsMeta common.FSMeta, links map[string]common.FSMeta, server string) (FSClient, error) {
+	if fsMeta.UfsType == common.MockType {
 		return &MockClient{pathPrefix: fsMeta.SubPath}, nil
 	}
 	client, err := NewPFSClient(fsMeta, links)

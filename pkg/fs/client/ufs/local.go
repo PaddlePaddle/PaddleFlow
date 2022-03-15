@@ -27,6 +27,7 @@ import (
 	"github.com/hanwen/go-fuse/v2/fuse/nodefs"
 
 	"paddleflow/pkg/fs/client/base"
+	"paddleflow/pkg/fs/common"
 )
 
 type localFileSystem struct {
@@ -37,7 +38,7 @@ var _ UnderFileStorage = &localFileSystem{}
 
 // Used for pretty printing.
 func (fs *localFileSystem) String() string {
-	return base.LocalType
+	return common.LocalType
 }
 
 func (fs *localFileSystem) GetPath(relPath string) string {
@@ -82,6 +83,30 @@ func (fs *localFileSystem) Rmdir(name string) error {
 
 func (fs *localFileSystem) Unlink(name string) error {
 	return syscall.Unlink(fs.GetPath(name))
+}
+
+func (fs *localFileSystem) Get(name string, flags uint32, off, limit int64) (io.ReadCloser, error) {
+	// filter out append. The kernel layer will translate the
+	// offsets for us appropriately.
+	flags = flags &^ syscall.O_APPEND
+	reader, err := os.OpenFile(fs.GetPath(name), int(flags), 0)
+	if err != nil {
+		return nil, err
+	}
+	if off > 0 {
+		if _, err := reader.Seek(off, io.SeekStart); err != nil {
+			reader.Close()
+			return nil, err
+		}
+	}
+	if limit > 0 {
+		return withCloser{io.LimitReader(reader, limit), reader}, nil
+	}
+	return reader, nil
+}
+
+func (fs *localFileSystem) Put(name string, reader io.Reader) error {
+	return nil
 }
 
 // File handling.  If opening for writing, the file's mtime
@@ -171,7 +196,7 @@ func (fs *localFileSystem) StatFs(name string) *base.StatfsOut {
 func NewLocalFileSystem(properties map[string]interface{}) (UnderFileStorage, error) {
 	// Make sure the Root path is absolute to avoid problems when the
 	// application changes working directory.
-	subpath := properties[base.SubPath].(string)
+	subpath := properties[common.SubPath].(string)
 	subpath, err := filepath.Abs(subpath)
 	if err != nil {
 		return nil, err
@@ -187,5 +212,5 @@ func NewLocalFileSystem(properties map[string]interface{}) (UnderFileStorage, er
 }
 
 func init() {
-	RegisterUFS(base.LocalType, NewLocalFileSystem)
+	RegisterUFS(common.LocalType, NewLocalFileSystem)
 }

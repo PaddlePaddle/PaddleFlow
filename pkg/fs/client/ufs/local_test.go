@@ -18,12 +18,13 @@ package ufs
 
 import (
 	"os"
+	"runtime"
 	"testing"
 
 	"github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/stretchr/testify/assert"
 
-	"paddleflow/pkg/fs/client/base"
+	"paddleflow/pkg/fs/common"
 )
 
 func TestFile(t *testing.T) {
@@ -35,7 +36,7 @@ func TestFile(t *testing.T) {
 	}
 	os.MkdirAll(root, 0755)
 
-	properties[base.SubPath] = root
+	properties[common.SubPath] = root
 	fs, err := NewLocalFileSystem(properties)
 	assert.NoError(t, err)
 	assert.NotNil(t, fs)
@@ -43,7 +44,12 @@ func TestFile(t *testing.T) {
 
 	finfo, err := fs.GetAttr("test")
 	assert.NoError(t, err)
-	assert.Equal(t, int64(4096), finfo.Size)
+	sysType := runtime.GOOS
+	if sysType == "darwin" {
+		assert.Equal(t, int64(64), finfo.Size)
+	} else if sysType == "linux" {
+		assert.Equal(t, int64(4096), finfo.Size)
+	}
 	assert.Equal(t, true, finfo.IsDir)
 
 	fh, err := fs.Create("hello", uint32(os.O_WRONLY|os.O_CREATE), 0755)

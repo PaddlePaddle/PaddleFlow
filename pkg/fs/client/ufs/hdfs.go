@@ -35,6 +35,7 @@ import (
 
 	"paddleflow/pkg/fs/client/base"
 	"paddleflow/pkg/fs/client/utils"
+	"paddleflow/pkg/fs/common"
 )
 
 var superuser = "hdfs"
@@ -55,7 +56,7 @@ type hdfsFileSystem struct {
 
 // Used for pretty printing.
 func (fs *hdfsFileSystem) String() string {
-	return base.HDFSType
+	return common.HDFSType
 }
 
 func (fs *hdfsFileSystem) GetPath(relPath string) string {
@@ -76,6 +77,7 @@ func IsSuccessOrBenignError(err error) bool {
 
 // Converts os.FileInfo + underlying proto-buf data into Attrs structure
 func (fs *hdfsFileSystem) statFromFileInfo(fileInfo os.FileInfo) *syscall.Stat_t {
+	log.Tracef("hdfs statFromFileInfo: fileInfo[%+v]", fileInfo)
 	protoBufData, ok := fileInfo.Sys().(*hdfs.FileStatus)
 	if !ok {
 		return nil
@@ -121,6 +123,7 @@ func (fs *hdfsFileSystem) statFromFileInfo(fileInfo os.FileInfo) *syscall.Stat_t
 // return consistent non-zero FileInfo.Ino data.  Using
 // hardlinks incurs a performance hit.
 func (fs *hdfsFileSystem) GetAttr(name string) (*base.FileInfo, error) {
+	log.Tracef("hdfs getattr: name[%s]", name)
 	fs.Lock()
 	defer fs.Unlock()
 	info, err := fs.client.Stat(fs.GetPath(name))
@@ -168,12 +171,14 @@ func (fs *hdfsFileSystem) GetAttr(name string) (*base.FileInfo, error) {
 
 // These should update the file's ctime too.
 func (fs *hdfsFileSystem) Chmod(name string, mode uint32) error {
+	log.Tracef("hdfs chmod: name[%s], mode[%d]", name, mode)
 	fs.Lock()
 	defer fs.Unlock()
 	return fs.client.Chmod(fs.GetPath(name), os.FileMode(mode))
 }
 
 func (fs *hdfsFileSystem) Chown(name string, uid uint32, gid uint32) error {
+	log.Tracef("hdfs chown: name[%s]", name)
 	fs.Lock()
 	defer fs.Unlock()
 	u, err := user.Current()
@@ -194,13 +199,15 @@ func (fs *hdfsFileSystem) Chown(name string, uid uint32, gid uint32) error {
 	return fs.client.Chown(fs.GetPath(name), owner, group)
 }
 
-func (fs *hdfsFileSystem) Utimens(name string, atime *time.Time, mtime *time.Time) error {
+func (fs *hdfsFileSystem) Utimens(name string, atime, mtime *time.Time) error {
+	log.Tracef("hdfs utimens: name[%s], atime[%v] mtime[%v]", name, atime, mtime)
 	fs.Lock()
 	defer fs.Unlock()
 	return fs.client.Chtimes(fs.GetPath(name), *atime, *mtime)
 }
 
 func (fs *hdfsFileSystem) Truncate(name string, size uint64) error {
+	log.Tracef("hdfs truncate: name[%s], size[%d]", name, size)
 	if size == 0 {
 		if err := fs.Unlink(name); err != nil {
 			return err
@@ -228,6 +235,7 @@ func (fs *hdfsFileSystem) Link(oldName string, newName string) error {
 }
 
 func (fs *hdfsFileSystem) Mkdir(name string, mode uint32) error {
+	log.Tracef("hdfs mkdir: name[%s], mode[%d]", name, mode)
 	fs.Lock()
 	defer fs.Unlock()
 	err := fs.client.Mkdir(fs.GetPath(name), os.FileMode(mode))
@@ -243,7 +251,8 @@ func (fs *hdfsFileSystem) Mknod(name string, mode uint32, dev uint32) error {
 	return syscall.ENOSYS
 }
 
-func (fs *hdfsFileSystem) Rename(oldName string, newName string) error {
+func (fs *hdfsFileSystem) Rename(oldName, newName string) error {
+	log.Tracef("hdfs rename: oldName[%s], newName[%s]", oldName, newName)
 	fs.Lock()
 	defer fs.Unlock()
 	oldPath := fs.GetPath(oldName)
@@ -252,6 +261,7 @@ func (fs *hdfsFileSystem) Rename(oldName string, newName string) error {
 }
 
 func (fs *hdfsFileSystem) Rmdir(name string) error {
+	log.Tracef("hdfs rmdir: name[%s]", name)
 	fs.Lock()
 	defer fs.Unlock()
 	return fs.client.Remove(fs.GetPath(name))
@@ -313,9 +323,33 @@ func (fs *hdfsFileSystem) getOpenFlags(name string, flags uint32) int {
 	return -1
 }
 
+func (fs *hdfsFileSystem) Get(name string, flags uint32, off, limit int64) (io.ReadCloser, error) {
+	reader, err := fs.client.Open(fs.GetPath(name))
+	if err != nil {
+		log.Debugf("hdfs client open err: %v", err)
+		return nil, err
+	}
+	if off > 0 {
+		if _, err := reader.Seek(off, io.SeekStart); err != nil {
+			reader.Close()
+			return nil, err
+		}
+	}
+	if limit > 0 {
+		return withCloser{io.LimitReader(reader, limit), reader}, nil
+	}
+
+	return reader, nil
+}
+
+func (fs *hdfsFileSystem) Put(name string, reader io.Reader) error {
+	return nil
+}
+
 // File handling.  If opening for writing, the file's mtime
 // should be updated too.
 func (fs *hdfsFileSystem) Open(name string, flags uint32) (fd base.FileHandle, err error) {
+	log.Tracef("hdfs open: name[%s], flags[%d]", name, flags)
 	flag := fs.getOpenFlags(name, flags)
 
 	if flag < 0 {
@@ -360,10 +394,10 @@ func (fs *hdfsFileSystem) Open(name string, flags uint32) (fd base.FileHandle, e
 	return nil, syscall.ENOSYS
 }
 
-func (fs *hdfsFileSystem) Create(name string, flags uint32, mode uint32) (fd base.FileHandle, err error) {
+func (fs *hdfsFileSystem) Create(name string, flags, mode uint32) (fd base.FileHandle, err error) {
 	fs.Lock()
 	defer fs.Unlock()
-
+	log.Tracef("hdfs create: name[%s], flags[%d], mode[%d]", name, flags, mode)
 	writer, err := fs.client.CreateFile(fs.GetPath(name),
 		fs.replication, fs.blockSize, os.FileMode(mode))
 	if err != nil {
@@ -381,6 +415,7 @@ func (fs *hdfsFileSystem) Create(name string, flags uint32, mode uint32) (fd bas
 func (fs *hdfsFileSystem) ReadDir(name string) (stream []base.DirEntry, err error) {
 	fs.Lock()
 	defer fs.Unlock()
+	log.Tracef("hdfs readdir: name[%s]", name)
 	files, err := fs.client.ReadDir(fs.GetPath(name))
 	if err != nil {
 		return nil, err
@@ -448,10 +483,10 @@ func (fh *hdfsFileHandle) InnerFile() nodefs.File {
 }
 
 func (fh *hdfsFileHandle) Read(buf []byte, off int64) (res fuse.ReadResult, code fuse.Status) {
+	log.Tracef("hdfs read: fh.name[%s], offset[%d]", fh.name, off)
 	if fh.reader == nil {
 		return nil, fuse.EBADF
 	}
-	log.Debugf("hdfsRead: off[%d]", off)
 	n, err := fh.reader.ReadAt(buf, off)
 	if err != nil && err != io.EOF {
 		log.Debugf("hdfsRead: the err is %+v", err)
@@ -469,16 +504,22 @@ func (fh *hdfsFileHandle) Read(buf []byte, off int64) (res fuse.ReadResult, code
 }
 
 func (fh *hdfsFileHandle) Write(data []byte, off int64) (uint32, fuse.Status) {
+	log.Tracef("hdfs write: fh.name[%s], dataLength[%d], offset[%d], fh[%+v]", fh.name, len(data), off, fh)
 	if fh.writer == nil {
+		log.Errorf("hdfs write: fh.name[%s], writer nil", fh.name)
 		return 0, fuse.EBADF
 	}
 
 	n, err := fh.writer.Write(data)
-	return uint32(n), fuse.ToStatus(err)
+	if err != nil {
+		log.Tracef("hdfs write: fh.name[%s] fh.writer.Write err:%v", fh.name, err)
+		return 0, fuse.ToStatus(err)
+	}
+	return uint32(n), fuse.OK
 }
 
 func (fh *hdfsFileHandle) Release() {
-
+	log.Tracef("hdfs release: fh.name[%s]", fh.name)
 	if fh.writer != nil {
 		fh.writer.Close()
 		fh.writer = nil
@@ -491,6 +532,7 @@ func (fh *hdfsFileHandle) Release() {
 }
 
 func (fh *hdfsFileHandle) Flush() fuse.Status {
+	log.Tracef("hdfs flush: fh.name[%s]", fh.name)
 	if fh.writer == nil {
 		return fuse.OK
 	}
@@ -523,6 +565,7 @@ func (fh *hdfsFileHandle) setLock(owner uint64, lk *fuse.FileLock, flags uint32,
 }
 
 func (fh *hdfsFileHandle) Truncate(size uint64) fuse.Status {
+	log.Tracef("hdfs truncate: fh.name[%s], size[%d]", fh.name, size)
 	var err error
 	if fh.writer != nil && size == 0 {
 		fh.writer.Close()
@@ -573,17 +616,17 @@ func (fh *hdfsFileHandle) Allocate(off uint64, size uint64, mode uint32) (code f
 }
 
 func NewHdfsFileSystem(properties map[string]interface{}) (UnderFileStorage, error) {
-	nameNodeAddress := properties[base.NameNodeAddress].(string)
+	nameNodeAddress := properties[common.NameNodeAddress].(string)
 	options := hdfs.ClientOptions{
 		Addresses: strings.Split(nameNodeAddress, ","),
 	}
-	options.User = properties[base.UserKey].(string)
+	options.User = properties[common.UserKey].(string)
 	cli, err := hdfs.NewClient(options)
 	if err != nil {
 		return nil, err
 	}
 
-	subpath, ok := properties[base.SubPath]
+	subpath, ok := properties[common.SubPath]
 	if !ok {
 		subpath = "/"
 	} else {
@@ -594,11 +637,11 @@ func NewHdfsFileSystem(properties map[string]interface{}) (UnderFileStorage, err
 		}
 	}
 
-	blockSize, ok := properties[base.BlockSizeKey].(int64)
+	blockSize, ok := properties[common.BlockSizeKey].(int64)
 	if !ok {
 		blockSize = DefaultBlockSize
 	}
-	replication, ok := properties[base.ReplicationKey].(int)
+	replication, ok := properties[common.ReplicationKey].(int)
 	if !ok {
 		replication = DefaultReplication
 	}
@@ -616,5 +659,5 @@ func NewHdfsFileSystem(properties map[string]interface{}) (UnderFileStorage, err
 }
 
 func init() {
-	RegisterUFS(base.HDFSType, NewHdfsFileSystem)
+	RegisterUFS(common.HDFSType, NewHdfsFileSystem)
 }

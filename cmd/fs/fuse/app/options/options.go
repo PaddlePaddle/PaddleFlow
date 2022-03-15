@@ -41,6 +41,7 @@ func (f *FuseOption) AddFlagSet(fs *pflag.FlagSet) {
 	fs.StringVar(&fuseConf.MountOptions, "mount-options", fuseConf.MountOptions, "The mount options")
 	fs.StringVar(&fuseConf.Server, "server", fuseConf.Server, "The pfs server for grpc")
 	fs.StringVar(&fuseConf.FsID, "fs-id", fuseConf.FsID, "The filesystem ID")
+	fs.StringVar(&fuseConf.FsInfoPath, "fs-info-path", fuseConf.FsInfoPath, "The filesystem info path")
 	fs.BoolVar(&fuseConf.Local, "local", fuseConf.Local, "Local mode for test")
 	fs.StringVar(&fuseConf.LocalRoot, "local-root", fuseConf.LocalRoot, "The local root for fs")
 	fs.StringVar(&fuseConf.LinkRoot, "link-root", fuseConf.LinkRoot, "The local root for mock link")
@@ -63,11 +64,16 @@ func (f *FuseOption) AddFlagSet(fs *pflag.FlagSet) {
 	fs.IntVar(&fuseConf.LinkUpdateInterval, "link-update-interval", fuseConf.LinkUpdateInterval, "The link update interval")
 	fs.StringVar(&fuseConf.LinkMetaDirPrefix, "link-meta-dir-prefix", fuseConf.LinkMetaDirPrefix, "The link meta dir prefix")
 	fs.BoolVar(&fuseConf.SkipCheckLinks, "skip-check-links", fuseConf.SkipCheckLinks, "Skip check links")
-	fs.DurationVar(&fuseConf.MemoryExpire, "mem-cache-expire", fuseConf.MemoryExpire, "The fuse memory data cache expire")
-	fs.IntVar(&fuseConf.MemorySize, "mem-size", fuseConf.MemorySize, "the number of cache item in mem cache")
-	fs.DurationVar(&fuseConf.DiskExpire, "disk-cache-expire", fuseConf.DiskExpire, "The fuse disk data cache expire")
+	fs.DurationVar(&fuseConf.MemoryExpire, "data-mem-cache-expire", fuseConf.MemoryExpire, "The fuse memory data cache expire")
+	fs.IntVar(&fuseConf.MemorySize, "data-mem-size", fuseConf.MemorySize, "The number of data cache item in mem cache")
+	fs.DurationVar(&fuseConf.DiskExpire, "data-disk-cache-expire", fuseConf.DiskExpire, "The fuse disk data cache expire")
 	fs.IntVar(&fuseConf.BlockSize, "block-size", fuseConf.BlockSize, "The fuse block size")
-	fs.StringVar(&fuseConf.DiskCachePath, "disk-cache-path", fuseConf.DiskCachePath, "The disk cache path")
+	fs.StringVar(&fuseConf.DiskCachePath, "data-disk-cache-path", fuseConf.DiskCachePath, "The disk cache path")
+	fs.StringVar(&fuseConf.MetaDriver, "meta-driver", fuseConf.MetaDriver, "The fuse meta driver")
+	fs.StringVar(&fuseConf.MetaCachePath, "meta-path", fuseConf.MetaCachePath, "The meta cache local path")
+	fs.DurationVar(&fuseConf.MetaCacheExpire, "meta-cache-expire", fuseConf.MetaCacheExpire, "The fuse meta cache expire")
+	fs.DurationVar(&fuseConf.EntryCacheExpire, "entry-cache-expire", fuseConf.EntryCacheExpire, "The fuse entry cache expire")
+	fs.IntVar(&fuseConf.MetricsPort, "metrics-port", fuseConf.MetricsPort, "metrics server port")
 }
 
 func (f *FuseOption) InitFlag(fs *pflag.FlagSet) {
