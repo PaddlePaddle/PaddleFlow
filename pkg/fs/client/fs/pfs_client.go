@@ -29,8 +29,10 @@ import (
 	"paddleflow/pkg/client"
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/fs/client/base"
+	"paddleflow/pkg/fs/client/meta"
 	"paddleflow/pkg/fs/client/utils"
 	"paddleflow/pkg/fs/client/vfs"
+	fsCommon "paddleflow/pkg/fs/common"
 	"paddleflow/pkg/fs/utils/common"
 )
 
@@ -40,21 +42,26 @@ type PFSClient struct {
 	pfs    *FileSystem
 }
 
-func NewPFSClient(fsMeta base.FSMeta, links map[string]base.FSMeta) (*PFSClient, error) {
+func NewPFSClient(fsMeta fsCommon.FSMeta, links map[string]fsCommon.FSMeta) (*PFSClient, error) {
 	client := &PFSClient{}
 	err := client.initPFS(fsMeta, links)
 	return client, err
 }
 
-func NewFSClientForTest(fsMeta base.FSMeta) (*PFSClient, error) {
+func NewFSClientForTest(fsMeta fsCommon.FSMeta) (*PFSClient, error) {
 	vfsConfig := vfs.InitConfig(
 		vfs.WithMemorySize(MemCacheSize),
 		vfs.WithMemoryExpire(MemCacheExpire),
 		vfs.WithDiskExpire(DiskCacheExpire),
 		vfs.WithBlockSize(BlockSize),
 		vfs.WithDiskCachePath(DiskCachePath),
+		vfs.WithMetaConfig(meta.Config{
+			AttrCacheExpire:  MetaCacheExpire,
+			EntryCacheExpire: EntryCacheExpire,
+			Driver:           meta.MemMetaName,
+		}),
 	)
-	pfs, err := NewFileSystem(fsMeta, nil, true, true, "", vfsConfig)
+	pfs, err := NewFileSystem(fsMeta, nil, true, false, "", vfsConfig)
 	if err != nil {
 		log.Errorf("new a fileSystem with fsMeta [%+v] failed: %v", fsMeta, err)
 		return nil, err
@@ -65,15 +72,15 @@ func NewFSClientForTest(fsMeta base.FSMeta) (*PFSClient, error) {
 	return &client, nil
 }
 
-func getMetaAndLinks(server string, fsID string) (base.FSMeta, map[string]base.FSMeta, error) {
-	fsMeta := base.FSMeta{}
+func getMetaAndLinks(server string, fsID string) (fsCommon.FSMeta, map[string]fsCommon.FSMeta, error) {
+	fsMeta := fsCommon.FSMeta{}
 	httpClient := client.NewHttpClient(server, client.DefaultTimeOut)
 	token, err := common.GetRootToken(&logger.RequestContext{})
 	if err != nil {
 		log.Errorf("get root token failed: %v", err)
 		return fsMeta, nil, err
 	}
-	client, err := base.NewClient(fsID, httpClient, base.RootKey, token)
+	client, err := base.NewClient(fsID, httpClient, fsCommon.RootKey, token)
 	if err != nil {
 		log.Errorf("init client with fs[%s] and server[%s] failed: %v", fsID, server, err)
 		return fsMeta, nil, err
@@ -83,7 +90,7 @@ func getMetaAndLinks(server string, fsID string) (base.FSMeta, map[string]base.F
 		log.Errorf("get fsMeta from pfs server failed: %v", err)
 		return fsMeta, nil, err
 	}
-	if fsMeta.Type == base.MockType {
+	if fsMeta.Type == fsCommon.MockType {
 		return fsMeta, nil, nil
 	}
 	client.FsName = fsMeta.Name
@@ -95,11 +102,12 @@ func getMetaAndLinks(server string, fsID string) (base.FSMeta, map[string]base.F
 	return fsMeta, links, nil
 }
 
-func (c *PFSClient) initPFS(fsMeta base.FSMeta, links map[string]base.FSMeta) error {
+func (c *PFSClient) initPFS(fsMeta fsCommon.FSMeta, links map[string]fsCommon.FSMeta) error {
 	vfsConfig := vfs.InitConfig(
-		vfs.WithMemorySize(0),
+		vfs.WithMemorySize(200),
 		vfs.WithMemoryExpire(MemCacheExpire),
-		vfs.WithBlockSize(0),
+		vfs.WithDiskExpire(DiskCacheExpire),
+		vfs.WithBlockSize(BlockSize),
 	)
 	pfs, err := NewFileSystem(fsMeta, links, false, true, linkMetaDirPrefix, vfsConfig)
 	if err != nil {

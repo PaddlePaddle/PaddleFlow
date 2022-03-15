@@ -25,6 +25,8 @@ import (
 	"syscall"
 	"time"
 
+	log "github.com/sirupsen/logrus"
+
 	"paddleflow/pkg/fs/client/base"
 	"paddleflow/pkg/fs/client/meta"
 	"paddleflow/pkg/fs/client/utils"
@@ -38,13 +40,12 @@ const (
 )
 
 type FileInfo struct {
-	fullPath string
-	path     string
-	size     int64
-	mtime    uint64
-	isDir    bool
-	mode     os.FileMode
-	sys      interface{}
+	path  string
+	size  int64
+	mtime uint64
+	isDir bool
+	mode  os.FileMode
+	sys   interface{}
 }
 
 func NewFileInfo(attr *base.FileInfo) FileInfo {
@@ -52,23 +53,21 @@ func NewFileInfo(attr *base.FileInfo) FileInfo {
 		return FileInfo{}
 	}
 	return FileInfo{
-		fullPath: attr.Path,
-		path:     attr.Name,
-		size:     attr.Size,
-		mtime:    attr.Mtime,
-		isDir:    attr.IsDir,
-		mode:     attr.Mode,
-		sys:      attr.Sys,
+		path:  attr.Name,
+		size:  attr.Size,
+		mtime: attr.Mtime,
+		isDir: attr.IsDir,
+		mode:  attr.Mode,
+		sys:   attr.Sys,
 	}
 }
 
 func NewFileInfoForCreate(path string, mode os.FileMode) FileInfo {
 	return FileInfo{
-		fullPath: "",
-		path:     path,
-		isDir:    false,
-		mode:     mode,
-		mtime:    uint64(time.Now().Second()),
+		path:  path,
+		isDir: false,
+		mode:  mode,
+		mtime: uint64(time.Now().Second()),
 	}
 }
 
@@ -197,6 +196,11 @@ func (f *File) Close() error {
 		return nil
 	}
 	ctx := meta.NewEmptyContext()
+	err := f.fs.vfs.Flush(ctx, f.inode, f.fh, uint64(0))
+	if utils.IsError(err) {
+		log.Errorf("file close: [%s] vfs.Flush err: %v", f.attr.path, err)
+		return err
+	}
 	f.fs.vfs.Release(ctx, f.inode, f.fh)
 
 	if f.fs.cache != nil {
@@ -257,14 +261,13 @@ func (f *File) ReadDir(n int) ([]os.DirEntry, error) {
 			Name: info.Name,
 			Ino:  uint64(info.Ino),
 		}
+		path_ := f.fs.vfs.Meta.InoToPath(f.inode)
 		fileInfo := FileInfo{
-			fullPath: info.Attr.Path,
-			path:     info.Attr.Name,
-			size:     int64(info.Attr.Size),
-			mtime:    uint64(info.Attr.Mtimensec),
-			isDir:    info.Attr.IsDir(),
-			mode:     utils.StatModeToFileMode(int(info.Attr.Mode)),
-			sys:      info.Attr.Sys,
+			path:  path_,
+			size:  int64(info.Attr.Size),
+			mtime: uint64(info.Attr.Mtimensec),
+			isDir: info.Attr.IsDir(),
+			mode:  utils.StatModeToFileMode(int(info.Attr.Mode)),
 		}
 		dirEntry := NewDirEntry(entry, fileInfo)
 		osDirs[i] = &dirEntry
@@ -285,14 +288,13 @@ func (f *File) Readdir(n int) ([]os.FileInfo, error) {
 	}
 	dirInfos := make([]os.FileInfo, len(entries))
 	for i, info := range entries {
+		path_ := f.fs.vfs.Meta.InoToPath(f.inode)
 		fileInfo := FileInfo{
-			fullPath: info.Attr.Path,
-			path:     info.Attr.Name,
-			size:     int64(info.Attr.Size),
-			mtime:    uint64(info.Attr.Mtimensec),
-			isDir:    info.Attr.IsDir(),
-			mode:     utils.StatModeToFileMode(int(info.Attr.Mode)),
-			sys:      info.Attr.Sys,
+			path:  path_,
+			size:  int64(info.Attr.Size),
+			mtime: uint64(info.Attr.Mtimensec),
+			isDir: info.Attr.IsDir(),
+			mode:  utils.StatModeToFileMode(int(info.Attr.Mode)),
 		}
 		dirInfos[i] = &fileInfo
 	}
@@ -347,7 +349,7 @@ func (f *File) SyscallConn() (syscall.RawConn, error) {
 
 func (f *File) Truncate(size int64) error {
 	ctx := meta.NewEmptyContext()
-	err := f.fs.vfs.Truncate(ctx, f.inode, uint64(size))
+	err := f.fs.vfs.Truncate(ctx, f.inode, uint64(size), f.fh)
 	if utils.IsError(err) {
 		return err
 	}

@@ -21,16 +21,97 @@ import (
 	"io"
 	"path"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/google/uuid"
+	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/sync/errgroup"
 
 	"paddleflow/pkg/fs/client/ufs"
 	"paddleflow/pkg/fs/client/utils"
+	"paddleflow/pkg/metric"
 )
 
 const (
-	readAheadNum = 2
+	maxReadAheadNum = 16
+)
+
+var (
+	cacheHits = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "blockcache_hits",
+		Help: "read from cached block",
+	})
+	cacheMiss = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "blockcache_miss",
+		Help: "missed read from cached block",
+	})
+	cacheMissRate = prometheus.NewGaugeFunc(prometheus.GaugeOpts{
+		Name: "blockcache_hit_rate",
+		Help: "cache hit rate out of all read",
+	}, func() float64 {
+		hitCnt := metric.GetMetricValue(cacheHits)
+		missCnt := metric.GetMetricValue(cacheMiss)
+		return hitCnt / (hitCnt + missCnt)
+	})
+	cacheWrites = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "blockcache_writes",
+		Help: "written cached block",
+	})
+	cacheDrops = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "blockcache_drops",
+		Help: "dropped block",
+	})
+	cacheEvicts = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "blockcache_evicts",
+		Help: "evicted cache blocks",
+	})
+	cacheHitBytes = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "blockcache_hit_bytes",
+		Help: "read bytes from cached block",
+	})
+	cacheMissBytes = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "blockcache_miss_bytes",
+		Help: "missed bytes from cached block",
+	})
+	cacheWriteBytes = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "blockcache_write_bytes",
+		Help: "write bytes of cached block",
+	})
+	cacheReadHist = prometheus.NewHistogram(prometheus.HistogramOpts{
+		Name:    "blockcache_read_hist_seconds",
+		Help:    "read cached block latency distribution",
+		Buckets: prometheus.ExponentialBuckets(0.00001, 2, 20),
+	})
+	cacheWriteHist = prometheus.NewHistogram(prometheus.HistogramOpts{
+		Name:    "blockcache_write_hist_seconds",
+		Help:    "write cached block latency distribution",
+		Buckets: prometheus.ExponentialBuckets(0.00001, 2, 20),
+	})
+
+	objectReqsHistogram = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "object_request_durations_histogram_seconds",
+		Help:    "Object requests latency distributions.",
+		Buckets: prometheus.ExponentialBuckets(0.01, 1.5, 25),
+	}, []string{"method"})
+	objectReqErrors = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "object_request_errors",
+		Help: "failed requests to object store",
+	})
+	objectDataBytes = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "object_request_data_bytes",
+		Help: "Object requests size in bytes.",
+	}, []string{"method"})
+
+	stageBlocks = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "staging_blocks",
+		Help: "Number of blocks in the staging path.",
+	})
+	stageBlockBytes = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "staging_block_bytes",
+		Help: "Total bytes of blocks in the staging path.",
+	})
 )
 
 type store struct {
@@ -48,9 +129,11 @@ type Config struct {
 }
 
 type rCache struct {
-	id    string
-	store *store
-	ufsFh ufs.FileHandle
+	id     string
+	flags  uint32
+	length int
+	store  *store
+	ufs    ufs.UnderFileStorage
 }
 
 func NewCacheStore(config *Config) Store {
@@ -67,12 +150,27 @@ func NewCacheStore(config *Config) Store {
 	if config.Disk != nil {
 		cacheStore.disk = NewDiskCache(config.Disk)
 	}
-
+	log.Debugf("metrics register NewCacheStore")
+	registerMetrics()
 	return cacheStore
 }
 
-func (store *store) NewReader(name string, fh ufs.FileHandle) Reader {
-	return &rCache{id: path.Clean(name), store: store, ufsFh: fh}
+func registerMetrics() {
+	prometheus.Register(cacheHits)
+	prometheus.Register(cacheHitBytes)
+	prometheus.Register(cacheMiss)
+	prometheus.Register(cacheMissBytes)
+	prometheus.Register(cacheMissRate)
+	prometheus.Register(cacheWrites)
+	prometheus.Register(cacheWriteBytes)
+	prometheus.Register(cacheDrops)
+	prometheus.Register(cacheEvicts)
+	prometheus.Register(cacheReadHist)
+	prometheus.Register(cacheWriteHist)
+}
+
+func (store *store) NewReader(name string, length int, flags uint32, ufs ufs.UnderFileStorage) Reader {
+	return &rCache{id: path.Clean(name), length: length, store: store, flags: flags, ufs: ufs}
 }
 
 func (store *store) NewWriter(name string, length int, fh ufs.FileHandle) Writer {
@@ -127,30 +225,79 @@ func (r *rCache) ReadAt(buf []byte, off int64) (int, error) {
 	blockOff := r.off(int(off))
 	blockSize := r.store.conf.BlockSize
 	bufSize := len(buf)
-
-	n, ok := r.readCache(buf, key, blockOff)
+	start := time.Now()
+	nReadFromCache, ok := r.readCache(buf, key, blockOff)
 	if ok {
-		// 最后一个block大小未填满
-		return n, nil
+		// metrics
+		log.Debugf("metrics cacheHits++:%d", nReadFromCache)
+		cacheHits.Inc()
+		cacheHitBytes.Add(float64(nReadFromCache))
+		cacheReadHist.Observe(time.Since(start).Seconds())
+		return nReadFromCache, nil
 	}
 
-	// todo:: readAheadNum改成可配的
-	ufsBuf := make([]byte, readAheadNum*blockSize)
-	n, err := r.ufsFh.ReadAt(ufsBuf, int64(index*blockSize))
-	if err != nil {
+	readAheadNum := (r.length-1)/blockSize + 1
+	readAheadNum = utils.Min(maxReadAheadNum, readAheadNum-index)
+
+	nread := int64(0)
+	group := new(errgroup.Group)
+	for i := 0; i < readAheadNum; i++ {
+		readAhead := i
+		group.Go(func() error {
+			uoff := (index + readAhead) * blockSize
+			reader, err := r.ufs.Get(r.id, r.flags, int64(uoff), int64(utils.Min(blockSize, r.length-uoff)))
+			if err != nil {
+				return err
+			}
+			defer reader.Close()
+
+			ufsBuf := make([]byte, blockSize)
+			n, err := io.ReadFull(reader, ufsBuf)
+
+			/*
+				io.ReadFull 断言读，必须读 len(buf) 才视为成功
+				当读取的内容字节数 n == 0 时，err = io.EOF
+				当 0 < n < len(buf) 时，err = io.ErrUnexpectedEOF
+				当 n == len(buf) 时，err = nil
+				兼容两种情况
+			*/
+			if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
+				return err
+			}
+			if n == 0 {
+				return nil
+			}
+			r.setCache(uoff, ufsBuf, n)
+			// 读取的数据为0或者预读的部分大于buf数组的长度，进行过滤
+			if readAhead*blockSize-blockOff >= bufSize {
+				return nil
+			}
+			/**
+			1. ufsBuf是固定一块区域的预读，对于第一块，需要偏移blockOff获取真实数据
+			2. 对于后面的块，每次读的是一整块预读区
+			*/
+			var m int
+			if readAhead == 0 {
+				// 预读区blockOff后的数据才是需要真正读的数据
+				m = copy(buf, ufsBuf[blockOff:n])
+			} else {
+				m = copy(buf[(readAhead*blockSize-blockOff):], ufsBuf[:n])
+			}
+			atomic.AddInt64(&nread, int64(m))
+
+			return nil
+		})
+	}
+	if err := group.Wait(); err != nil {
+		log.Errorf("read from ufs err: %v", err)
 		return 0, err
 	}
+	// metrics
+	log.Debugf("metrics cacheMiss++:%d", nread)
+	cacheMiss.Inc()
+	cacheMissBytes.Add(float64(nread))
 
-	go r.setCache(int(off), ufsBuf, n)
-
-	/**
-	1. 当buf小于等于blockSize，会填充前len(buf)大小的block数据，多余部分舍弃
-	2. buf的大小不会大于blockSize，上层已经处理
-	3. ufsBUf对s3类型的操作已经做了填充处理
-	*/
-	copy(buf, ufsBuf[blockOff:bufSize+blockOff])
-
-	return utils.Min(bufSize, n-blockOff), nil
+	return int(nread), nil
 }
 
 func (r *rCache) index(off int) int {
@@ -175,8 +322,8 @@ func (r *rCache) key(index int) string {
 }
 
 func (r *rCache) readCache(buf []byte, key string, off int) (int, bool) {
-	// memory cache
 	log.Debugf("read cache key is %s", key)
+	// memory cache
 	if r.store.mem != nil {
 		mem, ok := r.store.mem.load(key)
 		if ok {

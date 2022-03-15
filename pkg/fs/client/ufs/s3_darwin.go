@@ -14,20 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package tools
+package ufs
 
 import (
-	"encoding/hex"
-	"math/rand"
-	"time"
+	"github.com/hanwen/go-fuse/v2/fuse"
+	log "github.com/sirupsen/logrus"
 )
 
-func init() {
-	rand.Seed(time.Now().UnixNano())
-}
-
-func GetRandID(randNum int) string {
-	b := make([]byte, randNum/2)
-	rand.Read(b)
-	return hex.EncodeToString(b)
+func (fh *s3FileHandle) Allocate(off uint64, sz uint64, mode uint32) (code fuse.Status) {
+	log.Debugf("S3 Allocate not supported on mac. fh.name[%s]", fh.name)
+	return fuse.ENOSYS
 }

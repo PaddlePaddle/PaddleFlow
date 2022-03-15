@@ -18,6 +18,7 @@ package ufs
 
 import (
 	"fmt"
+	"io"
 	"time"
 
 	"paddleflow/pkg/fs/client/base"
@@ -74,6 +75,15 @@ type UnderFileStorage interface {
 	Readlink(name string) (string, error)
 
 	StatFs(name string) *base.StatfsOut
+
+	Get(name string, flags uint32, off, limit int64) (io.ReadCloser, error)
+
+	Put(name string, reader io.Reader) error
+}
+
+type withCloser struct {
+	io.Reader
+	io.Closer
 }
 
 type Creator func(properties map[string]interface{}) (UnderFileStorage, error)

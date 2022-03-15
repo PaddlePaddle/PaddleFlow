@@ -38,7 +38,7 @@ func NewMemCache(config *MemConfig) *memCache {
 	}
 	cacheBuilder := gcache.New(config.CacheSize).LRU()
 	if config.Expire > 0 {
-		cacheBuilder.Expiration(config.Expire * time.Second)
+		cacheBuilder.Expiration(config.Expire)
 	}
 	return &memCache{m: cacheBuilder.Build()}
 }

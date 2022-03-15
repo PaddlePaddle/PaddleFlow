@@ -118,7 +118,7 @@ func (h *handle) Close() {
 		h.reader = nil
 	}
 	if h.writer != nil {
-		_ = h.writer.Close()
+		h.writer.Close()
 		h.writer = nil
 	}
 }

@@ -16,7 +16,9 @@ limitations under the License.
 
 package utils
 
-import "os"
+import (
+	"os"
+)
 
 func EndsWithDot(path string) bool {
 	if path == "." {

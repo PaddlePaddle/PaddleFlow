@@ -26,15 +26,15 @@ import (
 	"paddleflow/pkg/fs/client/cache"
 	"paddleflow/pkg/fs/client/meta"
 	ufslib "paddleflow/pkg/fs/client/ufs"
-	"paddleflow/pkg/fs/client/utils"
 )
 
 type FileWriter interface {
 	Write(data []byte, offset uint64) syscall.Errno
 	Flush() syscall.Errno
 	Fsync(fd int) syscall.Errno
-	Close() syscall.Errno
+	Close()
 	Truncate(size uint64) syscall.Errno
+	Fallocate(size int64, off int64, mode uint32) syscall.Errno
 	// GetSize() uint64
 }
 
@@ -68,12 +68,20 @@ type fileWriter struct {
 	fd base.FileHandle
 }
 
+func (f *fileWriter) Fallocate(size int64, off int64, mode uint32) syscall.Errno {
+	f.Lock()
+	defer f.Unlock()
+	return syscall.Errno(f.fd.Allocate(uint64(off), uint64(size), mode))
+}
+
 func (f *fileWriter) Write(data []byte, offset uint64) syscall.Errno {
 	ufsHandle := ufslib.NewFileHandle(f.fd)
+	f.Lock()
+	defer f.Unlock()
 	var err error
 	if f.writer.store != nil {
 		// todo:: length可能会有遗漏
-		log.Debugf("write is here name[%s] lenght[%d]", f.name, f.length)
+		log.Debugf("fileWriter write: InvalidateCache name[%s] cache lenght[%d]", f.name, f.length)
 		err = f.writer.store.InvalidateCache(f.name, int(f.length))
 		if err != nil {
 			log.Errorf("ufs delete cache err: %v", err)
@@ -112,13 +120,8 @@ func (f *fileWriter) Fsync(fd int) syscall.Errno {
 	return syscall.Errno(err)
 }
 
-func (f *fileWriter) Close() syscall.Errno {
-	err := f.Flush()
-	if utils.IsError(err) {
-		return err
-	}
+func (f *fileWriter) Close() {
 	f.release()
-	return 0
 }
 
 func (f *fileWriter) release() {

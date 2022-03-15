@@ -43,6 +43,4 @@ func (a *Attr) FromFileInfo(info *base.FileInfo) {
 	a.Size = uint64(st.Size)
 	a.Blksize = st.Blksize
 	a.Block = st.Blocks
-	a.Name = info.Name
-	a.Path = info.Path
 }

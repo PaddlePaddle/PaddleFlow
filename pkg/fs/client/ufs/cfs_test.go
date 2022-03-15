@@ -21,49 +21,29 @@ import (
 	"testing"
 
 	"github.com/hanwen/go-fuse/v2/fuse"
-	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
-
-	"paddleflow/pkg/fs/common"
 )
 
-func TestSFTP(t *testing.T) {
-	properties := make(map[string]interface{})
-	if os.Getenv("SFTP_ADDRESS") == "" {
-		log.Errorf("SFTP Client Init Fail")
-		return
+func TestCFS(t *testing.T) {
+	os.MkdirAll("./mock",0755)
+	fs := &cfsFileSystem{
+		localPath: "./mock",
 	}
-	properties[common.Address] = os.Getenv("SFTP_ADDRESS")
-	properties[common.SubPath] = os.Getenv("SFTP_ROOT")
-	properties[common.UserKey] = os.Getenv("SFTP_USER")
-	properties[common.Password] = os.Getenv("SFTP_PASSWORD")
+	fs.Mkdir("data1", 0755)
+	fs.Mkdir("data1/data2", 0755)
 
-	fs, err := NewSftpFileSystem(properties)
-
+	finfo, err := fs.GetAttr("data1/data2")
 	assert.NoError(t, err)
-	assert.NotNil(t, fs)
+	assert.Equal(t, true, finfo.IsDir)
 
-	if _, err := fs.GetAttr("test"); err == nil {
-		fs.Rmdir("test")
-	}
-	assert.NoError(t, fs.Mkdir("test", 0755))
-
-	finfo, err := fs.GetAttr("test")
-	assert.NoError(t, err)
-	assert.Equal(t, int64(4096), finfo.Size)
-
-	if _, err := fs.GetAttr("hello"); err == nil {
-		assert.NoError(t, fs.Unlink("hello"))
-	}
-
-	fh, err := fs.Create("hello", uint32(os.O_WRONLY|os.O_CREATE), 0755)
+	fh, err := fs.Create("data1/hello", uint32(os.O_WRONLY|os.O_CREATE), 0755)
 	assert.NoError(t, err)
 	content := []byte("hello world")
 	fh.Write(content, 0)
 	fh.Flush()
 	fh.Release()
 
-	fh, err = fs.Open("hello", uint32(os.O_RDONLY))
+	fh, err = fs.Open("data1/hello", uint32(os.O_RDONLY))
 	assert.NoError(t, err)
 	buf := make([]byte, 20)
 	r, e := fh.Read(buf, 0)
@@ -73,8 +53,15 @@ func TestSFTP(t *testing.T) {
 	assert.Equal(t, len(content), len(data))
 	fh.Release()
 
-	entries, err := fs.ReadDir("/")
+	entries, err := fs.ReadDir("data1")
 	assert.NoError(t, err)
 	assert.LessOrEqual(t, 1, len(entries))
 
+	out := fs.StatFs("data1/hello")
+	assert.NotNil(t, out)
+
+	err = fs.Rmdir("data1/data2")
+	assert.NoError(t, err)
+
+	os.RemoveAll("./mock")
 }

@@ -29,11 +29,12 @@ import (
 	"paddleflow/pkg/fs/client/meta"
 	ufslib "paddleflow/pkg/fs/client/ufs"
 	"paddleflow/pkg/fs/client/utils"
+	"paddleflow/pkg/fs/common"
 )
 
 type VFS struct {
-	fsMeta     base.FSMeta
-	links      []base.FSMeta
+	fsMeta     common.FSMeta
+	links      []common.FSMeta
 	reader     DataReader
 	writer     DataWriter
 	handleMap  map[Ino][]*handle
@@ -45,6 +46,13 @@ type VFS struct {
 
 type Config struct {
 	Cache *cache.Config
+	owner *Owner
+	Meta  *meta.Config
+}
+
+type Owner struct {
+	uid uint32
+	gid uint32
 }
 
 type Ino = meta.Ino
@@ -102,22 +110,43 @@ func WithDiskCachePath(path string) Option {
 	}
 }
 
-func InitVFS(fsMeta base.FSMeta, links map[string]base.FSMeta, global bool, config *Config) (*VFS, error) {
+func WithOwner(uid, gid uint32) Option {
+	return func(config *Config) {
+		config.owner = &Owner{
+			uid: uid,
+			gid: gid,
+		}
+	}
+}
+
+func WithMetaConfig(m meta.Config) Option {
+	return func(config *Config) {
+		config.Meta = &m
+	}
+}
+
+func InitVFS(fsMeta common.FSMeta, links map[string]common.FSMeta, global bool, config *Config) (*VFS, error) {
 	vfs := &VFS{
 		fsMeta: fsMeta,
 	}
 	inodeHandle := meta.NewInodeHandle()
 	inodeHandle.InitRootNode()
+	if config == nil {
+		config = &Config{}
+	}
+	vfsMeta, err := meta.NewMeta(fsMeta, links, inodeHandle, config.Meta)
 
-	vfsMeta, err := meta.NewDefaultMeta(fsMeta, links, inodeHandle)
 	if err != nil {
 		log.Errorf("new default meta failed: %v", err)
 		return nil, err
 	}
+	if config.owner != nil {
+		vfsMeta.SetOwner(config.owner.uid, config.owner.gid)
+	}
 	vfs.Meta = vfsMeta
 	var store cache.Store
 	var blockSize int
-	if config != nil && config.Cache != nil {
+	if config.Cache != nil {
 		store = cache.NewCacheStore(config.Cache)
 		blockSize = config.Cache.BlockSize
 	}
@@ -174,7 +203,8 @@ func (v *VFS) GetAttr(ctx *meta.Context, ino Ino) (entry *meta.Entry, err syscal
 	return entry, err
 }
 
-func (v *VFS) SetAttr(ctx *meta.Context, ino Ino, set uint32, mode, uid, gid uint32, atime, mtime int64, atimensec, mtimensec uint32, size uint64) (entry *meta.Entry, err syscall.Errno) {
+func (v *VFS) SetAttr(ctx *meta.Context, ino Ino, set, mode, uid, gid uint32, atime, mtime int64, atimensec, mtimensec uint32, size uint64) (entry *meta.Entry, err syscall.Errno) {
+	log.Tracef("vfs setAttr: ino[%d], set[%d], mode[%d], uid[%d], gid[%d], size[%d]", ino, set, mode, uid, gid, size)
 	attr := &Attr{
 		Mode:      mode,
 		Uid:       uid,
@@ -190,19 +220,29 @@ func (v *VFS) SetAttr(ctx *meta.Context, ino Ino, set uint32, mode, uid, gid uin
 		return entry, err
 	}
 
-	entry = &meta.Entry{Ino: ino, Attr: attr}
-
-	// echo "XXX" > file 操作会先打开文件，然后setAttr文件将size设置为0，因此需要检查下是否有文件已打开。
+	// only truncate opened files
 	if set&meta.FATTR_SIZE != 0 {
 		fhs := v.findAllHandle(ino)
 		if fhs != nil {
 			for _, h := range fhs {
 				if h.writer != nil {
-					h.writer.Truncate(attr.Size)
+					err = h.writer.Truncate(size)
+					if utils.IsError(err) {
+						return entry, err
+					}
+					if v.Store != nil {
+						delCacheErr := v.Store.InvalidateCache(v.Meta.InoToPath(ino), int(attr.Size))
+						if delCacheErr != nil {
+							// todo:: 先忽略删除缓存的错误，需要保证一致性
+							log.Errorf("vfs setAttr: truncate delete cache error %v:", delCacheErr)
+						}
+					}
 				}
 			}
 		}
 	}
+	attr.Size = size
+	entry = &meta.Entry{Ino: ino, Attr: attr}
 	return
 }
 
@@ -233,6 +273,14 @@ func (v *VFS) Rmdir(ctx *meta.Context, parent Ino, name string) (err syscall.Err
 	return err
 }
 
+// semantic of rename:
+// rename("any", "not_exists") = ok
+// rename("file1", "file2") = ok
+// rename("empty_dir1", "empty_dir2") = ok
+// rename("nonempty_dir1", "empty_dir2") = ok
+// rename("nonempty_dir1", "nonempty_dir2") = ENOTEMPTY
+// rename("file", "dir") = EISDIR
+// rename("dir", "file") = ENOTDIR
 func (v *VFS) Rename(ctx *meta.Context, parent Ino, name string, newparent Ino, newname string, flags uint32) (err syscall.Errno) {
 	var ino Ino
 	attr := &Attr{}
@@ -268,8 +316,7 @@ func (v *VFS) Readlink(ctx *meta.Context, ino Ino) (path []byte, err syscall.Err
 }
 
 func (v *VFS) Access(ctx *meta.Context, ino Ino, mask uint32) (err syscall.Errno) {
-	attr := &Attr{}
-	err = v.Meta.Access(ctx, ino, mask, attr)
+	err = v.Meta.Access(ctx, ino, mask, nil)
 	return err
 }
 
@@ -397,6 +444,10 @@ func (v *VFS) Write(ctx *meta.Context, ino Ino, buf []byte, off, fh uint64) (err
 	// todo:: 对写入的文件大小加上限制
 	// todo:: 限制并发写的情况
 	err = h.writer.Write(buf, off)
+	if utils.IsError(err) {
+		return err
+	}
+	err = v.Meta.Write(ctx, ino, uint32(off), len(buf))
 	return err
 }
 
@@ -429,7 +480,16 @@ func (v *VFS) Fsync(ctx *meta.Context, ino Ino, datasync int, fh uint64) (err sy
 }
 
 func (v *VFS) Fallocate(ctx *meta.Context, ino Ino, mode uint8, off, length int64, fh uint64) (err syscall.Errno) {
-	return syscall.ENOSYS
+	h := v.findHandle(ino, fh)
+	if h == nil {
+		err = syscall.EBADF
+		return
+	}
+	if h.writer != nil {
+		err = h.writer.Fallocate(length, off, uint32(mode))
+	}
+	err = v.Meta.Write(ctx, ino, uint32(off), int(length))
+	return err
 }
 
 // Directory handling
@@ -479,6 +539,24 @@ func (v *VFS) StatFs(ctx *meta.Context) (*base.StatfsOut, syscall.Errno) {
 	return statFs, syscall.F_OK
 }
 
-func (v *VFS) Truncate(ctx *meta.Context, ino Ino, size uint64) syscall.Errno {
+func (v *VFS) Truncate(ctx *meta.Context, ino Ino, size, fh uint64) (err syscall.Errno) {
+	log.Tracef("vfs truncate: ino[%d], size[%d], fh[%d]", ino, size, fh)
+	h := v.findHandle(ino, fh)
+	if h == nil {
+		err = syscall.EBADF
+		log.Errorf("vfs truncate: no file handle")
+		return
+	}
+	if h.writer == nil {
+		err = syscall.EACCES
+		log.Errorf("vfs truncate: no file writer")
+		return
+	}
+
+	err = h.writer.Truncate(size)
+	if utils.IsError(err) {
+		log.Debugf("vfs truncate: h.writer.Truncate err")
+		return err
+	}
 	return v.Meta.Truncate(ctx, ino, size)
 }

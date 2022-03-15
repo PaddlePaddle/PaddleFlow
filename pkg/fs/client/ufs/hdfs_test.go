@@ -22,9 +22,10 @@ import (
 	"testing"
 
 	"github.com/hanwen/go-fuse/v2/fuse"
+	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 
-	"paddleflow/pkg/fs/client/base"
+	"paddleflow/pkg/fs/common"
 )
 
 func testFsOp(t *testing.T, fs UnderFileStorage) {
@@ -59,29 +60,37 @@ func testFsOp(t *testing.T, fs UnderFileStorage) {
 	assert.LessOrEqual(t, 1, len(entries))
 }
 func TestHdfs(t *testing.T) {
+	if os.Getenv("HDFS_USER") == "" {
+		log.Errorf("HDFS Client Init Fail")
+		return
+	}
 	properties := make(map[string]interface{})
-	properties[base.NameNodeAddress] = os.Getenv("HDFS_ADDR")
-	properties[base.UserKey] = os.Getenv("HDFS_USER")
+	properties[common.NameNodeAddress] = os.Getenv("HDFS_ADDR")
+	properties[common.UserKey] = os.Getenv("HDFS_USER")
 	root := "/ufs/hdfs"
-	properties[base.SubPath] = root
+	properties[common.SubPath] = root
 	fs, err := NewHdfsFileSystem(properties)
 	assert.NoError(t, err)
 	testFsOp(t, fs)
 }
 
 func TestHdfsWithKerberos(t *testing.T) {
+	if os.Getenv("KRB5_USER") == "" {
+		log.Errorf("HDFS Client Init Fail")
+		return
+	}
 	properties := make(map[string]interface{})
-	properties[base.NameNodeAddress] = os.Getenv("KRB5_ADDR")
-	properties[base.UserKey] = os.Getenv("KRB5_USER")
+	properties[common.NameNodeAddress] = os.Getenv("KRB5_ADDR")
+	properties[common.UserKey] = os.Getenv("KRB5_USER")
 	keyTabPath := os.Getenv("KRB5_KEYTABPATH")
 	keyTabData, err := os.ReadFile(keyTabPath)
-	properties[base.KeyTabData] = base64.StdEncoding.EncodeToString(keyTabData)
-	properties[base.Kdc] = os.Getenv("KRB5_KDC")
-	properties[base.Realm] = os.Getenv("KRB_REALM")
-	properties[base.Principal] = os.Getenv("KRB5_PRINCIPAL")
-	properties[base.NameNodePrincipal] = os.Getenv("KRB5_NAMENODEPRINCIPAL")
-	properties[base.DataTransferProtection] = os.Getenv("KRB5_DATATRANSFERPROTECTION")
-	properties[base.SubPath] = "/ufs/hdfs"
+	properties[common.KeyTabData] = base64.StdEncoding.EncodeToString(keyTabData)
+	properties[common.Kdc] = os.Getenv("KRB5_KDC")
+	properties[common.Realm] = os.Getenv("KRB_REALM")
+	properties[common.Principal] = os.Getenv("KRB5_PRINCIPAL")
+	properties[common.NameNodePrincipal] = os.Getenv("KRB5_NAMENODEPRINCIPAL")
+	properties[common.DataTransferProtection] = os.Getenv("KRB5_DATATRANSFERPROTECTION")
+	properties[common.SubPath] = "/ufs/hdfs"
 	fs, err := NewHdfsWithKerberosFileSystem(properties)
 	assert.NoError(t, err)
 	testFsOp(t, fs)
