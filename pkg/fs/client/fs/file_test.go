@@ -23,17 +23,18 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"paddleflow/pkg/fs/client/base"
+	"paddleflow/pkg/fs/client/meta"
 	"paddleflow/pkg/fs/client/vfs"
+	"paddleflow/pkg/fs/common"
 )
 
 func newPfsTest() (*FileSystem, error) {
 	os.MkdirAll("./mock", 0755)
 	DiskCachePath = "./mock-cache"
-	testFsMeta := base.FSMeta{
-		UfsType: base.LocalType,
+	testFsMeta := common.FSMeta{
+		UfsType: common.LocalType,
 		Properties: map[string]string{
-			base.RootKey: "./mock",
+			common.RootKey: "./mock",
 		},
 		SubPath: "./mock",
 	}
@@ -43,12 +44,60 @@ func newPfsTest() (*FileSystem, error) {
 		vfs.WithBlockSize(BlockSize),
 		vfs.WithDiskExpire(DiskCacheExpire),
 		vfs.WithDiskCachePath(DiskCachePath),
+		vfs.WithMetaConfig(meta.Config{
+			AttrCacheExpire: 0,
+			Driver:          meta.DefaultName,
+		}),
 	)
 	pfs, err := NewFileSystem(testFsMeta, nil, true, true, "", vfsConfig)
 	if err != nil {
 		return nil, err
 	}
 	return pfs, nil
+}
+
+func TestFSClient_readAt_BigOff(t *testing.T) {
+	// 测试off越界的情况
+	os.RemoveAll("./mock")
+	os.RemoveAll("./mock-cache")
+	defer func() {
+		os.RemoveAll("./mock")
+		os.RemoveAll("./mock-cache")
+	}()
+	SetBlockSize(1)
+	SetMemCache(100, 1*time.Minute)
+	client, err := newPfsTest()
+	assert.Equal(t, err, nil)
+
+	path := "testRead"
+	flags := os.O_RDWR | os.O_CREATE | os.O_TRUNC
+	mode := 0666
+	writer, err := client.Create(path, uint32(flags), uint32(mode))
+	assert.Equal(t, err, nil)
+
+	writeString := "12345678"
+	_, err = writer.Write([]byte(writeString))
+	assert.Equal(t, err, nil)
+
+	var reader *File
+	var buf []byte
+	var n int
+
+	n = 10
+	reader, err = client.Open(path)
+	assert.Equal(t, err, nil)
+	buf = make([]byte, n)
+	n, err = reader.ReadAt(buf, 11)
+	assert.Equal(t, 0, n)
+	reader.Close()
+
+	n = 10
+	reader, err = client.Open(path)
+	assert.Equal(t, err, nil)
+	buf = make([]byte, n)
+	n, err = reader.ReadAt(buf, 8)
+	assert.Equal(t, 0, n)
+	reader.Close()
 }
 
 func TestFSClient_readAt(t *testing.T) {
@@ -103,7 +152,7 @@ func TestFSClient_readAtwithsmallBlock_2(t *testing.T) {
 	os.RemoveAll("./mock")
 	os.RemoveAll("./mock-cache")
 
-	SetBlockSize(2)
+	SetBlockSize(3)
 	client, err := newPfsTest()
 	assert.Equal(t, err, nil)
 

@@ -14,24 +14,26 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package vfs
+package ufs
 
 import (
-	"testing"
+	"syscall"
 
-	"github.com/stretchr/testify/assert"
-
-	"paddleflow/pkg/fs/client/base"
+	"github.com/hanwen/go-fuse/v2/fuse"
+	log "github.com/sirupsen/logrus"
 )
 
-func TestInitVFS(t *testing.T) {
-	fsMeta := base.FSMeta{
-		UfsType: base.LocalType,
-		Properties: map[string]string{
-			base.RootKey: "./test/",
-		},
-		SubPath: "./test/",
+func (fh *s3FileHandle) Allocate(off uint64, size uint64, mode uint32) (code fuse.Status) {
+	log.Debugf("S3 Allocate: fh.name[%s]", fh.name)
+	if fh.writeTmpfile != nil {
+		if fh.canWrite != nil {
+			select {
+			case <-fh.canWrite:
+				break
+			}
+		}
+		err := syscall.Fallocate(int(fh.writeTmpfile.Fd()), mode, int64(off), int64(size))
+		return fuse.ToStatus(err)
 	}
-	InitOldVFS(fsMeta, nil, true)
-	assert.NotNil(t, GetOldVFS())
+	return fuse.EBADF
 }

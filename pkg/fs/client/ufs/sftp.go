@@ -36,6 +36,7 @@ import (
 	"paddleflow/pkg/apiserver/common"
 	"paddleflow/pkg/fs/client/base"
 	"paddleflow/pkg/fs/client/utils"
+	fsCommon "paddleflow/pkg/fs/common"
 )
 
 const (
@@ -230,6 +231,27 @@ func (fs *sftpFileSystem) SetXAttr(name string, attr string, data []byte, flags 
 	return syscall.ENOSYS
 }
 
+func (fs *sftpFileSystem) Get(name string, flags uint32, off, limit int64) (io.ReadCloser, error) {
+	reader, err := fs.sc.sftpClient.OpenFile(fs.GetPath(name), int(flags))
+	if err != nil {
+		return nil, err
+	}
+	if off > 0 {
+		if _, err := reader.Seek(off, io.SeekStart); err != nil {
+			reader.Close()
+			return nil, err
+		}
+	}
+	if limit > 0 {
+		return withCloser{io.LimitReader(reader, limit), reader}, nil
+	}
+	return reader, err
+}
+
+func (fs *sftpFileSystem) Put(name string, reader io.Reader) error {
+	return nil
+}
+
 // File handling.  If opening for writing, the file's mtime
 // should be updated too.
 func (fs *sftpFileSystem) Open(name string, flags uint32) (fd base.FileHandle, err error) {
@@ -389,10 +411,10 @@ func (fh *sftpFileHandle) Allocate(off uint64, size uint64, mode uint32) (code f
 }
 
 func NewSftpFileSystem(properties map[string]interface{}) (UnderFileStorage, error) {
-	addr := properties[base.Address].(string)
-	subpath := properties[base.SubPath].(string)
-	user := properties[base.UserKey].(string)
-	password := properties[base.Password].(string)
+	addr := properties[fsCommon.Address].(string)
+	subpath := properties[fsCommon.SubPath].(string)
+	user := properties[fsCommon.UserKey].(string)
+	password := properties[fsCommon.Password].(string)
 
 	if runtime.GOOS == "windows" {
 		subpath = strings.Replace(subpath, "\\", "/", -1)
@@ -438,5 +460,5 @@ func NewSftpFileSystem(properties map[string]interface{}) (UnderFileStorage, err
 }
 
 func init() {
-	RegisterUFS(base.SFTPType, NewSftpFileSystem)
+	RegisterUFS(fsCommon.SFTPType, NewSftpFileSystem)
 }

@@ -57,7 +57,6 @@ type fileReader struct {
 	ufs    ufslib.UnderFileStorage
 	reader *dataReader
 	sync.Mutex
-
 	// TODO: 先用base.FileHandle跑通流程，后续修改ufs接口
 	fd base.FileHandle
 }
@@ -72,17 +71,27 @@ type dataReader struct {
 }
 
 func (f *fileReader) Read(buf []byte, off uint64) (int, syscall.Errno) {
-	ufsHandle := ufslib.NewFileHandle(f.fd)
+	f.Lock()
+	defer f.Unlock()
+	log.Debugf("len[%d] off[%d] blockName[%s] length[%d]", len(buf), off, f.name, f.length)
+	if off >= f.length || len(buf) == 0 {
+		return 0, syscall.F_OK
+	}
 	var n int
 	var err error
 	if f.reader.store != nil {
-		log.Debugf("len[%d] off[%d] blockName[%s]", len(buf), off, f.name)
-		n, err = f.reader.Read(f.name, buf, int(off), ufsHandle)
+		n, err = f.reader.Read(f.path, buf, int(off), f.length, f.flags, f.ufs)
 		if err != nil {
 			log.Errorf("fileReader read err: %v", err)
 			return 0, syscall.EBADF
 		}
 	} else {
+		if f.fd == nil {
+			log.Debug("fd is empty")
+			return 0, syscall.EBADF
+		}
+		// todo:: 不走缓存部分需要保持原来open-read模式，保证这部分性能
+		ufsHandle := ufslib.NewFileHandle(f.fd)
 		n, err = ufsHandle.ReadAt(buf, int64(off))
 		if err != nil {
 			log.Errorf("ufs read err: %v", err)
@@ -101,16 +110,16 @@ func (f *fileReader) Close() {
 
 func (f *fileReader) release() {
 	// todo:: 硬链接的情况下，需要增加refer判断，不能直接删除
+	f.reader.Lock()
 	delete(f.reader.files, f.inode)
-	f.fd.Release()
+	f.reader.Unlock()
+	if f.fd != nil {
+		f.fd.Release()
+	}
 }
 
 func (d *dataReader) Open(inode Ino, length uint64, ufs ufslib.UnderFileStorage, path string) (FileReader, error) {
 	name := d.m.InoToPath(inode)
-	fd, err := ufs.Open(path, syscall.O_RDONLY)
-	if err != nil {
-		return nil, err
-	}
 	f := &fileReader{
 		reader: d,
 		inode:  inode,
@@ -118,7 +127,13 @@ func (d *dataReader) Open(inode Ino, length uint64, ufs ufslib.UnderFileStorage,
 		path:   path,
 		length: length,
 		ufs:    ufs,
-		fd:     fd,
+	}
+	if d.store == nil {
+		fd, err := ufs.Open(path, syscall.O_RDONLY)
+		if err != nil {
+			return nil, err
+		}
+		f.fd = fd
 	}
 	d.Lock()
 	d.files[inode] = f
@@ -126,20 +141,21 @@ func (d *dataReader) Open(inode Ino, length uint64, ufs ufslib.UnderFileStorage,
 	return f, nil
 }
 
-func (d *dataReader) Read(name string, buf []byte, off int, ufs ufslib.FileHandle) (int, error) {
+func (d *dataReader) Read(name string, buf []byte, off int, length uint64, flags uint32, ufs ufslib.UnderFileStorage) (int, error) {
 	read := 0
 	bufSize := len(buf)
-	reader := d.store.NewReader(name, ufs)
+	reader := d.store.NewReader(name, int(length), flags, ufs)
 	var err error
 	var n int
-	for read < len(buf) {
-		// 保证从cache读只需要读其中一块cache
-		cacheSize := d.blockSize - off%d.blockSize
-		end := read + cacheSize
-		if end > bufSize {
-			end = bufSize
-		}
-		n, err = reader.ReadAt(buf[read:end], int64(off))
+	for read < bufSize {
+		/*
+			n的值会有三种情况
+			没有命中缓存的情况下，n的值会返回多个预读区合并在一起的值
+			命中缓存的情况下，n会返回blockSize或者length-off大小
+			越界的情况，返回0，如off>=length||len(buf)==0
+		*/
+		// todo:: readerAt返回的都是从off开始，读取bufSize或者到文件结束的内容，返回的n为读取的大小，目前底层cache只返回了部分内容
+		n, err = reader.ReadAt(buf[read:], int64(off))
 		if err != nil {
 			log.Errorf("reader readat failed: %v", err)
 			return 0, err

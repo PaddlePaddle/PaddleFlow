@@ -31,7 +31,9 @@ import (
 	"paddleflow/pkg/fs/utils/mount"
 )
 
-const CacheDir = "datacache"
+const (
+	CacheDir = "datacache"
+)
 
 type cacheItem struct {
 	size    int64
@@ -44,7 +46,7 @@ type diskCache struct {
 	capacity int64
 	used     int64
 	expire   time.Duration
-	keys     map[string]*cacheItem
+	keys     sync.Map
 }
 
 type DiskConfig struct {
@@ -61,7 +63,6 @@ func NewDiskCache(config *DiskConfig) *diskCache {
 	if config != nil {
 		d := &diskCache{
 			dir:    config.Dir,
-			keys:   make(map[string]*cacheItem),
 			expire: config.Expire,
 		}
 		// TODO: 报错往上抛
@@ -109,6 +110,8 @@ func (c *diskCache) load(key string) (ReadCloser, bool) {
 }
 
 func (c *diskCache) save(key string, buf []byte) {
+	c.Lock()
+	defer c.Unlock()
 	if c.dir == "" {
 		return
 	}
@@ -150,23 +153,19 @@ func (c *diskCache) save(key string, buf []byte) {
 		return
 	}
 
-	c.Lock()
-	c.keys[key] = &cacheItem{
+	c.keys.Store(key, &cacheItem{
 		expTime: time.Now().Add(c.expire),
 		size:    cacheSize,
-	}
-	c.Unlock()
-	log.Debugf("diskCache save[%s] succeed", key)
+	})
 	return
 }
 
 func (c *diskCache) delete(key string) {
 	path := c.cachePath(key)
-	c.Lock()
-	if c.keys[key] != nil {
-		delete(c.keys, key)
+	_, ok := c.load(key)
+	if ok {
+		c.keys.Delete(key)
 	}
-	c.Unlock()
 	if path != "" {
 		go os.Remove(path)
 	}
@@ -174,13 +173,14 @@ func (c *diskCache) delete(key string) {
 
 func (c *diskCache) clean() {
 	// 1. 首先清理掉已过期文件
-	for key, cache := range c.keys {
+	c.keys.Range(func(key, value interface{}) bool {
+		cache := value.(*cacheItem)
 		if time.Now().Sub(cache.expTime) >= 0 {
-			c.delete(key)
+			c.delete(key.(string))
 		}
-	}
+		return true
+	})
 
-	log.Debugf("the c.dir is [%s]", c.dir)
 	if c.dir == "/" || c.dir == "" {
 		return
 	}
@@ -194,8 +194,11 @@ func (c *diskCache) clean() {
 		}
 
 		key := c.getKeyFromCachePath(path)
-		log.Debugf("clean dis cache key is %s and path is %s", key, path)
-		if c.keys[key] != nil {
+		_, ok := c.keys.Load(key)
+		if ok {
+			return nil
+		}
+		if strings.HasSuffix(path, "tmp") {
 			return nil
 		}
 		err = os.Remove(path)
@@ -217,13 +220,14 @@ func (c *diskCache) createDir(dir string) {
 }
 
 func (c *diskCache) exist(key string) bool {
-	c.RLock()
-	defer c.RUnlock()
-	if value, ok := c.keys[key]; !ok {
+	value, ok := c.keys.Load(key)
+	if !ok {
 		return false
-	} else if value.expTime.Sub(time.Now()) <= 0 {
-		log.Debugf("expire key %s", key)
-		return false
+	} else {
+		cache := value.(*cacheItem)
+		if cache.expTime.Sub(time.Now()) <= 0 {
+			return false
+		}
 	}
 	return true
 }

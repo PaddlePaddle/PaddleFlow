@@ -17,12 +17,15 @@ limitations under the License.
 package meta
 
 import (
+	"fmt"
 	"io"
 	"syscall"
+	"time"
 
 	"paddleflow/pkg/fs/client/base"
 	ufslib "paddleflow/pkg/fs/client/ufs"
 	"paddleflow/pkg/fs/client/utils"
+	"paddleflow/pkg/fs/common"
 )
 
 const (
@@ -64,9 +67,6 @@ type Attr struct {
 	Size      uint64 // size of regular file
 	Blksize   int64  // 目录默认4096 文件为0
 	Block     int64  // 文件size的大小/512
-	Name      string // relative path of file
-	Path      string // full path of size
-	Sys       interface{}
 }
 
 // Entry is an entry inside a directory.
@@ -76,6 +76,15 @@ type Entry struct {
 	Name string
 	// Ino is the inode number.
 	Ino Ino
+}
+
+type Config struct {
+	AttrCacheExpire    time.Duration
+	EntryCacheExpire   time.Duration
+	Driver             string
+	CachePath          string
+	AttrCacheSize      uint64
+	EntryAttrCacheSize uint64
 }
 
 // Meta is a interface for a meta service for file system.
@@ -88,6 +97,7 @@ type Meta interface {
 
 	InoToPath(inode Ino) string
 	PathToIno(path string) Ino
+	SetOwner(uid, gid uint32)
 
 	// StatFS returns summary statistics of a volume.
 	StatFS(ctx *Context) (*base.StatfsOut, syscall.Errno)
@@ -136,7 +146,7 @@ type Meta interface {
 	// Read returns the list of blocks
 	Read(ctx *Context, inode Ino, indx uint32, buf []byte) syscall.Errno
 	// Write put a slice of data on top of the given chunk.
-	Write(ctx *Context, inode Ino, indx uint32, off uint32, data []byte) syscall.Errno
+	Write(ctx *Context, inode Ino, off uint32, length int) syscall.Errno
 
 	// CopyFileRange copies part of a file to another one.
 	CopyFileRange(ctx *Context, fin Ino, offIn uint64, fout Ino, offOut uint64, size uint64, flags uint32, copied *uint64) syscall.Errno
@@ -164,4 +174,35 @@ type Meta interface {
 
 func (a *Attr) IsDir() bool {
 	return utils.StatModeToFileMode(int(a.Mode)).IsDir()
+}
+
+type Creator func(meta Meta, config Config) (Meta, error)
+
+var metaDrivers = make(map[string]Creator)
+
+func Register(_type string, creator Creator) {
+	metaDrivers[_type] = creator
+}
+
+func NewMeta(fsMeta common.FSMeta, links map[string]common.FSMeta, inodeHandle *InodeHandle, config *Config) (Meta, error) {
+	if config == nil {
+		config = &Config{
+			AttrCacheExpire:  0,
+			EntryCacheExpire: 0,
+			Driver:           DefaultName,
+		}
+	}
+	m, err := InitMeta(fsMeta, links, inodeHandle)
+	if err != nil {
+		return nil, err
+	}
+	fs, ok := metaDrivers[config.Driver]
+	if ok {
+		m, err = fs(m, *config)
+		if err != nil {
+			return nil, err
+		}
+		return m, err
+	}
+	return nil, fmt.Errorf("unknow meta %s", config.Driver)
 }

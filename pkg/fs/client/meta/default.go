@@ -33,9 +33,10 @@ import (
 	"paddleflow/pkg/fs/client/base"
 	ufslib "paddleflow/pkg/fs/client/ufs"
 	"paddleflow/pkg/fs/client/utils"
+	"paddleflow/pkg/fs/common"
 )
 
-const DefaultName = "Mem"
+const DefaultName = "default"
 const DefaultRootPath = "/"
 const DefaultLinkUpdateInterval = 15
 
@@ -46,9 +47,24 @@ type DefaultMeta struct {
 	ufsMapLock  sync.RWMutex
 	ufsMapUT    int64
 	inodeHandle *InodeHandle
+	setOwner    bool
+	uid         uint32
+	gid         uint32
 }
 
-func NewDefaultMeta(fsMeta base.FSMeta, links map[string]base.FSMeta, inodeHandle *InodeHandle) (Meta, error) {
+var _ Meta = &DefaultMeta{}
+
+func init() {
+	Register(DefaultName, NewDefaultMeta)
+	Register(MemMetaName, NewMemMeta)
+	Register(LevelDB, newKvMeta)
+}
+
+func NewDefaultMeta(meta Meta, config Config) (Meta, error) {
+	return meta, nil
+}
+
+func InitMeta(fsMeta common.FSMeta, links map[string]common.FSMeta, inodeHandle *InodeHandle) (Meta, error) {
 	meta := &DefaultMeta{
 		name:        DefaultName,
 		inodeHandle: inodeHandle,
@@ -63,6 +79,12 @@ func NewDefaultMeta(fsMeta base.FSMeta, links map[string]base.FSMeta, inodeHandl
 		return nil, err
 	}
 	return meta, nil
+}
+
+func (m *DefaultMeta) SetOwner(uid, gid uint32) {
+	m.setOwner = true
+	m.uid = uid
+	m.gid = gid
 }
 
 // TODO: 可以将link对应路径的Ino缓存下来，通过Ino可以直接判断是否为link
@@ -138,7 +160,13 @@ func (m *DefaultMeta) Access(ctx *Context, inode Ino, mask uint32, attr *Attr) s
 		}
 	}
 
-	if !utils.HasAccess(ctx.Uid, ctx.Gid, attr.Uid, attr.Gid, attr.Mode, mask) {
+	uid := attr.Uid
+	gid := attr.Gid
+	if m.setOwner {
+		uid = m.uid
+		gid = m.gid
+	}
+	if !utils.HasAccess(ctx.Uid, ctx.Gid, uid, gid, attr.Mode, mask) {
 		return syscall.Errno(fuse.EACCES)
 	}
 	return syscall.F_OK
@@ -165,11 +193,14 @@ func (m *DefaultMeta) Lookup(ctx *Context, parent Ino, name string) (Ino, *Attr,
 	}
 	attr.FromFileInfo(info)
 	var inode Ino
+	parentInode.RLock()
 	if parentInode.child[name] == 0 {
+		parentInode.RUnlock()
 		newNode := parentInode.NewChild(name, info.IsDir)
 		inode = newNode.inode
 		parentInode.AddChild(name, newNode)
 	} else {
+		parentInode.RUnlock()
 		inode = m.inodeHandle.toInode(parentInode.child[name]).inode
 	}
 	return inode, attr, syscall.F_OK
@@ -207,7 +238,7 @@ func (m *DefaultMeta) getAttr(name string, attr *Attr) syscall.Errno {
 func (m *DefaultMeta) SetAttr(ctx *Context, inode Ino, set uint32, attr *Attr) syscall.Errno {
 	name := m.inodeHandle.InoToPath(inode)
 	ufs, _, _, path := m.GetUFS(name)
-
+	log.Tracef("DefaultMeta SetAttr: name[%s] set[%d] attr:%+v", name, set, attr)
 	if set&FATTR_UID != 0 || set&FATTR_GID != 0 {
 		if err := ufs.Chown(path, attr.Uid, attr.Gid); err != nil {
 			return utils.ToSyscallErrno(err)
@@ -217,12 +248,6 @@ func (m *DefaultMeta) SetAttr(ctx *Context, inode Ino, set uint32, attr *Attr) s
 	if set&FATTR_MODE != 0 {
 		if err := ufs.Chmod(path, attr.Mode); err != nil {
 			return utils.ToSyscallErrno(err)
-		}
-	}
-
-	if set&FATTR_SIZE != 0 {
-		if err := m.truncate(name, attr.Size); utils.IsError(err) {
-			return err
 		}
 	}
 
@@ -242,15 +267,6 @@ func (m *DefaultMeta) SetAttr(ctx *Context, inode Ino, set uint32, attr *Attr) s
 
 // Truncate changes the length for given file.
 func (m *DefaultMeta) Truncate(ctx *Context, inode Ino, size uint64) syscall.Errno {
-	name := m.inodeHandle.InoToPath(inode)
-	return m.truncate(name, size)
-}
-
-func (m *DefaultMeta) truncate(name string, size uint64) syscall.Errno {
-	ufs, _, _, path := m.GetUFS(name)
-	if err := ufs.Truncate(path, size); err != nil {
-		return utils.ToSyscallErrno(err)
-	}
 	return syscall.F_OK
 }
 
@@ -409,9 +425,10 @@ func (m *DefaultMeta) Readdir(ctx *Context, inode Ino, entries *[]*Entry) syscal
 			return true
 		})
 	}
-	log.Debugf("dirs is [%v]", dirs)
+	log.Debugf("dirs is [%+v]", dirs)
 	for _, dir := range dirs {
 		entry := &Entry{
+			Ino:  m.PathToIno(dir.Name),
 			Name: dir.Name,
 			Attr: &Attr{Mode: dir.Mode},
 		}
@@ -464,8 +481,8 @@ func (m *DefaultMeta) Read(ctx *Context, inode Ino, indx uint32, buf []byte) sys
 }
 
 // Write put a slice of data on top of the given chunk.
-func (m *DefaultMeta) Write(ctx *Context, inode Ino, indx uint32, off uint32, data []byte) syscall.Errno {
-	return syscall.ENOSYS
+func (m *DefaultMeta) Write(ctx *Context, inode Ino, off uint32, length int) syscall.Errno {
+	return syscall.F_OK
 }
 
 // CopyFileRange copies part of a file to another one.
@@ -558,7 +575,7 @@ func (m *DefaultMeta) LinksMetaUpdateHandler(stopChan chan struct{}, interval in
 }
 
 func (m *DefaultMeta) linksMetaUpdate(linkMetaDirPrefix string) error {
-	filePath := pathlib.Join(linkMetaDirPrefix, base.LinkMetaDir, base.LinkMetaFile)
+	filePath := pathlib.Join(linkMetaDirPrefix, common.LinkMetaDir, common.LinkMetaFile)
 	attr := &Attr{}
 	errno := m.getAttr(filePath, attr)
 	if utils.IsError(errno) {
@@ -588,7 +605,7 @@ func (m *DefaultMeta) linksMetaUpdate(linkMetaDirPrefix string) error {
 		return syscall.Errno(status)
 	}
 
-	var result map[string]base.FSMeta
+	var result map[string]common.FSMeta
 	if len(content) != 0 {
 		decodedLinksMeta, err := apicommon.AesDecrypt(string(content), apicommon.AESEncryptKey)
 		if err != nil {
@@ -610,7 +627,7 @@ func (m *DefaultMeta) linksMetaUpdate(linkMetaDirPrefix string) error {
 	return nil
 }
 
-func (m *DefaultMeta) UpdateUFSMap(fsMetas map[string]base.FSMeta) error {
+func (m *DefaultMeta) UpdateUFSMap(fsMetas map[string]common.FSMeta) error {
 	var ufsMap sync.Map
 	for key, value := range fsMetas {
 		linkUfs, err := newUFS(value)
@@ -626,21 +643,21 @@ func (m *DefaultMeta) UpdateUFSMap(fsMetas map[string]base.FSMeta) error {
 	return nil
 }
 
-func newUFS(fsMeta base.FSMeta) (ufslib.UnderFileStorage, error) {
+func newUFS(fsMeta common.FSMeta) (ufslib.UnderFileStorage, error) {
 	log.Debugf("begin to new UFS: fsMeta[%+v]", fsMeta)
 	properties := make(map[string]interface{})
 	for k, v := range fsMeta.Properties {
 		properties[k] = v
 	}
-	properties[base.SubPath] = fsMeta.SubPath
+	properties[common.SubPath] = fsMeta.SubPath
 
 	switch fsMeta.UfsType {
-	case base.HDFSType:
-		properties[base.NameNodeAddress] = fsMeta.ServerAddress
-	case base.HDFSWithKerberosType:
-		properties[base.NameNodeAddress] = fsMeta.ServerAddress
-	case base.SFTPType:
-		properties[base.Address] = fsMeta.ServerAddress
+	case common.HDFSType:
+		properties[common.NameNodeAddress] = fsMeta.ServerAddress
+	case common.HDFSWithKerberosType:
+		properties[common.NameNodeAddress] = fsMeta.ServerAddress
+	case common.SFTPType, common.CFSType:
+		properties[common.Address] = fsMeta.ServerAddress
 	}
 	return ufslib.NewUFS(fsMeta.UfsType, properties)
 }

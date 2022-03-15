@@ -167,3 +167,9 @@ func ExecMountBind(sourcePath, targetPath string, ReadOnly bool) ([]byte, error)
 	args = append(args, sourcePath, targetPath)
 	return ExecCmdWithTimeout(cmdName, args)
 }
+
+func ExecMount(sourcePath, targetPath string, args []string) ([]byte, error) {
+	cmdName := MountCmdName
+	args = append(args, sourcePath, targetPath)
+	return ExecCmdWithTimeout(cmdName, args)
+}
