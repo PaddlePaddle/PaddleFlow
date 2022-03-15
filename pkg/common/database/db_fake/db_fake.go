@@ -20,13 +20,18 @@ import (
 	log "github.com/sirupsen/logrus"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
+
 	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/common/database"
 )
 
 func InitFakeDB() {
 	// github.com/mattn/go-sqlite3
-	db, err := gorm.Open(sqlite.Open("file::memory:"), &gorm.Config{})
+	db, err := gorm.Open(sqlite.Open("file::memory:"), &gorm.Config{
+		// print sql
+		Logger:logger.Default.LogMode(logger.Info),
+	})
 	if err != nil {
 		log.Fatalf("The fake DB doesn't create successfully. Fail fast. error: %v", err)
 	}
@@ -40,6 +45,7 @@ func InitFakeDB() {
 		&models.Queue{},
 		&models.Grant{},
 		&models.Job{},
+		&models.ClusterInfo{},
 	)
 	database.DB = db
 }

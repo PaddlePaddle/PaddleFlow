@@ -17,7 +17,10 @@ limitations under the License.
 package middleware
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
+	"io/ioutil"
 	"net/http"
 	"strings"
 	"time"
@@ -36,6 +39,7 @@ type JWT struct {
 }
 
 const SECERTKEY = "its my precious"
+const UserNameParam = "userName"
 
 var jwtObj *JWT
 
@@ -122,6 +126,12 @@ func BaseAuth(next http.Handler) http.Handler {
 			common.RenderErr(res, requestID, common.AuthInvalidToken)
 			return
 		}
+		if !checkUserPermission(req, claims.UserName) {
+			ctx.Logging().Errorf(
+				"BaseAuth user verify error. UserName:[%s] has no permission to operate other user", claims.UserName)
+			common.RenderErr(res, requestID, common.AuthIllegalUser)
+			return
+		}
 		_, err = user.Login(&ctx, claims.UserName, claims.Password, true)
 		if err != nil {
 			ctx.Logging().Errorf(
@@ -134,4 +144,41 @@ func BaseAuth(next http.Handler) http.Handler {
 		req.Header.Set(common.HeaderKeyUserName, claims.UserName)
 		next.ServeHTTP(res, req)
 	})
+}
+
+type request struct {
+	UserName string `json:"userName"`
+}
+
+// checkUserPermission 检查用户是否有操作其他用户的权限
+func checkUserPermission(r *http.Request, userName string) bool {
+	requestUserName := ""
+	req := &request{}
+	if r.Method == http.MethodPost || r.Method == http.MethodPut {
+		bodyBytes, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			log.Errorf("get body err: %v", err)
+			return false
+		}
+		// 保证body下一次能够读取
+		r.Body = ioutil.NopCloser(bytes.NewBuffer(bodyBytes))
+		log.Debugf("post body %s", string(bodyBytes))
+		if len(bodyBytes) == 0 {
+			return true
+		}
+		err = json.Unmarshal(bodyBytes, req)
+		if err != nil {
+			log.Errorf("unmarshal body err: %v", err)
+			return true
+		}
+		requestUserName = req.UserName
+	} else {
+		values := r.URL.Query()
+		requestUserName = values.Get(UserNameParam)
+	}
+	log.Debugf("requestUserName: %s", requestUserName)
+	if requestUserName != "" && requestUserName != userName && userName != common.UserRoot {
+		return false
+	}
+	return true
 }

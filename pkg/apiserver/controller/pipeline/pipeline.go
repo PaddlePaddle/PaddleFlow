@@ -29,8 +29,8 @@ import (
 	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/common/schema"
-	"paddleflow/pkg/fs/server/utils/fs"
 	"paddleflow/pkg/pipeline"
+	pplcommon "paddleflow/pkg/pipeline/common"
 )
 
 type CreatePipelineRequest struct {
@@ -55,9 +55,9 @@ func CreatePipeline(ctx *logger.RequestContext, request CreatePipelineRequest) (
 	var fsID string
 	if common.IsRootUser(ctx.UserName) && request.UserName != "" {
 		// root user can select fs under other users
-		fsID = fs.ID(request.UserName, request.FsName)
+		fsID = common.ID(request.UserName, request.FsName)
 	} else {
-		fsID = fs.ID(ctx.UserName, request.FsName)
+		fsID = common.ID(ctx.UserName, request.FsName)
 	}
 	// read run.yaml
 	pipelineYaml, err := handler.ReadFileFromFs(fsID, request.YamlPath, ctx.Logging())
@@ -74,6 +74,7 @@ func CreatePipeline(ctx *logger.RequestContext, request CreatePipelineRequest) (
 		ctx.Logging().Errorf("Unmarshal pipelineYaml failed. err:%v", err)
 		return CreatePipelineResponse{}, err
 	}
+	wfs.ValidateArtifacts()
 	// request name > yaml name
 	if request.Name != "" {
 		wfs.Name = request.Name
@@ -115,19 +116,20 @@ func CreatePipeline(ctx *logger.RequestContext, request CreatePipelineRequest) (
 	return response, nil
 }
 
-var ValidateWorkflowForPipeline = func (ppl models.Pipeline) error {
+var ValidateWorkflowForPipeline = func(ppl models.Pipeline) error {
 	// parse yaml -> WorkflowSource
 	wfs := schema.WorkflowSource{}
 	if err := yaml.Unmarshal([]byte(ppl.PipelineYaml), &wfs); err != nil {
 		logger.Logger().Errorf("Unmarshal yamlByte failed. err:%v", err)
 		return err
 	}
+	wfs.ValidateArtifacts()
 	// fill extra info
 	param := map[string]interface{}{}
 	extra := map[string]string{
-		pipeline.WfExtraInfoKeyUserName: ppl.UserName,
-		pipeline.WfExtraInfoKeyFsName:   ppl.FsName,
-		pipeline.WfExtraInfoKeyFsID:     ppl.FsID,
+		pplcommon.WfExtraInfoKeyUserName: ppl.UserName,
+		pplcommon.WfExtraInfoKeyFsName:   ppl.FsName,
+		pplcommon.WfExtraInfoKeyFsID:     ppl.FsID,
 	}
 	// validate
 	wfCbs := pipeline.WorkflowCallbacks{
@@ -188,6 +190,7 @@ func GetPipelineByID(ctx *logger.RequestContext, pipelineID string) (models.Pipe
 		ctx.Logging().Errorln(err.Error())
 		return models.Pipeline{}, err
 	}
+	ppl.Decode()
 	return ppl, nil
 }
 

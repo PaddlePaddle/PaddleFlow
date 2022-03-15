@@ -18,12 +18,10 @@ package v1
 
 import (
 	"github.com/go-chi/chi"
-	"github.com/go-chi/chi/middleware"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 
-	pm "paddleflow/pkg/apiserver/middleware"
+	"paddleflow/pkg/apiserver/middleware"
 	"paddleflow/pkg/apiserver/router/util"
-	fs "paddleflow/pkg/fs/server/api/handler"
 )
 
 type IRouter interface {
@@ -46,15 +44,15 @@ type IRouter interface {
 // @BasePath /v1
 
 func RegisterRouters(r *chi.Mux, debugMode bool) {
-	r.Use(pm.CheckRequestID)
-	r.NotFound(pm.NotFound)
-	r.MethodNotAllowed(pm.MethodNotAllowed)
+	r.Use(middleware.CheckRequestID)
+	r.NotFound(middleware.NotFound)
+	r.MethodNotAllowed(middleware.MethodNotAllowed)
 	r.Use(middleware.Recoverer)
 	// route group
 	pathPrefix := util.PaddleflowRouterPrefix + util.PaddleflowRouterVersionV1
 	r.Route(pathPrefix, func(apiV1Router chi.Router) {
 		if !debugMode {
-			apiV1Router.Use(pm.BaseAuth)
+			apiV1Router.Use(middleware.BaseAuth)
 		}
 		AddRouter(apiV1Router, &GrantRouter{})
 		AddRouter(apiV1Router, &QueueRouter{})
@@ -62,14 +60,15 @@ func RegisterRouters(r *chi.Mux, debugMode bool) {
 		AddRouter(apiV1Router, &RunRouter{})
 		AddRouter(apiV1Router, &PipelineRouter{})
 		AddRouter(apiV1Router, &UserRouter{})
-		AddRouter(apiV1Router, &fs.LinkRouter{})
-		AddRouter(apiV1Router, &fs.PFSRouter{})
+		AddRouter(apiV1Router, &LinkRouter{})
+		AddRouter(apiV1Router, &PFSRouter{})
 		AddRouter(apiV1Router, &ClusterRouter{})
 		AddRouter(apiV1Router, &TrackRouter{})
+		AddRouter(apiV1Router, &LogRouter{})
 	})
 }
 
 func AddRouter(r chi.Router, router IRouter) {
-	log.Infof("Add router[%s]", router.Name())
+	logrus.Infof("Add router[%s]", router.Name())
 	router.AddRouter(r)
 }

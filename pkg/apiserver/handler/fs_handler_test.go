@@ -21,19 +21,19 @@ import (
 	"os"
 	"testing"
 
-	"paddleflow/pkg/common/logger"
-	"paddleflow/pkg/fs/client/base"
-	"paddleflow/pkg/fs/client/fs"
-
 	"github.com/stretchr/testify/assert"
+
+	"paddleflow/pkg/common/logger"
+	"paddleflow/pkg/fs/client/fs"
+	"paddleflow/pkg/fs/common"
 )
 
 func prepareTestEnv() (fs.FSClient, *logger.RequestContext, error) {
 	os.RemoveAll("./mock_fs_handler")
 	os.MkdirAll("./mock_fs_handler", 0755)
 
-	testFsMeta := base.FSMeta{
-		UfsType: base.LocalType,
+	testFsMeta := common.FSMeta{
+		UfsType: common.LocalType,
 		SubPath: "./mock_fs_handler",
 	}
 

@@ -20,6 +20,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -50,6 +51,7 @@ type Run struct {
 	Entry          string                 `gorm:"type:varchar(256)"                 json:"entry"`
 	Message        string                 `gorm:"type:text;size:65535"              json:"runMsg"`
 	Status         string                 `gorm:"type:varchar(32)"                  json:"status"` // StatusRun%%%
+	RunCacheIDs    string                 `gorm:"type:text;size:65535"              json:"runCacheIDs"`
 	CreateTime     string                 `gorm:"-"                                 json:"createTime"`
 	ActivateTime   string                 `gorm:"-"                                 json:"activateTime"`
 	UpdateTime     string                 `gorm:"-"                                 json:"updateTime,omitempty"`
@@ -61,6 +63,18 @@ type Run struct {
 
 func (Run) TableName() string {
 	return "run"
+}
+
+func (r *Run) GetRunCacheIDList() []string {
+	res := strings.Split(r.RunCacheIDs, common.SeparatorComma)
+	// 去掉空字符串
+	for i := 0; i < len(res); i++ {
+		if res[i] == "" {
+			res = append(res[:i], res[i+1:]...)
+			i--
+		}
+	}
+	return res
 }
 
 func (r *Run) Encode() error {

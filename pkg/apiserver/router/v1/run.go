@@ -17,7 +17,9 @@ limitations under the License.
 package v1
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"strconv"
 	"strings"
@@ -30,7 +32,6 @@ import (
 	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/apiserver/router/util"
 	"paddleflow/pkg/common/logger"
-	"paddleflow/pkg/fs/server/utils/fs"
 )
 
 type RunRouter struct{}
@@ -77,7 +78,7 @@ func (rr *RunRouter) createRun(w http.ResponseWriter, r *http.Request) {
 	}
 	// check grant
 	if !common.IsRootUser(ctx.UserName) {
-		fsID := fs.ID(ctx.UserName, createRunInfo.FsName)
+		fsID := common.ID(ctx.UserName, createRunInfo.FsName)
 		if !models.HasAccessToResource(&ctx, common.ResourceTypeFs, fsID) {
 			ctx.ErrorCode = common.AccessDenied
 			err := common.NoAccessError(ctx.UserName, common.ResourceTypeFs, fsID)
@@ -231,7 +232,28 @@ func (rr *RunRouter) updateRun(w http.ResponseWriter, r *http.Request) {
 func (rr *RunRouter) deleteRun(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
 	runID := chi.URLParam(r, util.ParamKeyRunID)
-	err := run.DeleteRun(&ctx, runID)
+	request := run.DeleteRunRequest{
+		CheckCache: true, // 默认为true
+	}
+	// 不能多次读取r.body，因此没法验证完body长度后再调用BindJson
+	bodyByte, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		logger.LoggerForRequest(&ctx).Errorf(
+			"delete run failed to read request body:%+v. error:%s", r.Body, err.Error())
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+	if len(string(bodyByte)) > 0 {
+		err = json.Unmarshal(bodyByte, &request)
+		if err != nil {
+			logger.LoggerForRequest(&ctx).Errorf(
+				"delete run failed to unmarshal body, error:%s", err.Error())
+			common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+			return
+		}
+	}
+
+	err = run.DeleteRun(&ctx, runID, &request)
 	if err != nil {
 		ctx.Logging().Errorf("delete run: %s failed. error:%s", runID, err.Error())
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())

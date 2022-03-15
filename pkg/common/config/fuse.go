@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"paddleflow/pkg/common/logger"
+	"paddleflow/pkg/fs/client/meta"
 )
 
 var defaultFuseConfig = FuseConfig{
@@ -58,12 +59,17 @@ var defaultFuseConfig = FuseConfig{
 		LinkUpdateInterval:   15,
 		LinkMetaDirPrefix:    "",
 		SkipCheckLinks:       false,
+		MetaDriver:           meta.DefaultName,
+		MetricsPort:          8993,
 		Cache: Cache{
-			MemoryExpire:  100 * time.Second,
-			MemorySize:    0, // memorySize * BlockSize才是实际的内存cache大小
-			BlockSize:     0, // BlockSize == 0 表示关闭cache
-			DiskCachePath: "./cache_dir",
-			DiskExpire:    15 * 60 * time.Second,
+			MemoryExpire:     100 * time.Second,
+			MemorySize:       0, // memorySize * BlockSize才是实际的内存cache大小
+			BlockSize:        0, // BlockSize == 0 表示关闭cache
+			DiskCachePath:    "/var/cache/pfs_cache_dir",
+			DiskExpire:       15 * 60 * time.Second,
+			MetaCacheExpire:  10 * time.Second,
+			EntryCacheExpire: 10 * time.Second,
+			MetaCachePath:    "/var/cache/pfs_cache_dir/meta-driver",
 		},
 	},
 }
@@ -79,6 +85,7 @@ type Fuse struct {
 	MountOptions         string `yaml:"mountOptions"`
 	Server               string `yaml:"server"`
 	FsID                 string `yaml:"fsID"`
+	FsInfoPath           string `yaml:"fsInfoPath"`
 	Local                bool   `yaml:"local"`
 	LocalRoot            string `yaml:"localRoot"`
 	LinkRoot             string `yaml:"linkRoot"`
@@ -100,14 +107,19 @@ type Fuse struct {
 	SkipCheckLinks       bool   `yaml:"skipCheckLinks"`
 	Cache                `yaml:"cache"`
 	Password             string `yaml:"password"`
+	MetaDriver           string `yaml:"metaDriver"`
+	MetricsPort          int    `yaml:"metricsPort"`
 }
 
 type Cache struct {
-	BlockSize     int
-	MemorySize    int
-	MemoryExpire  time.Duration
-	DiskExpire    time.Duration
-	DiskCachePath string
+	BlockSize        int
+	MemorySize       int
+	MemoryExpire     time.Duration
+	DiskExpire       time.Duration
+	DiskCachePath    string
+	MetaCacheExpire  time.Duration
+	EntryCacheExpire time.Duration
+	MetaCachePath    string
 }
 
 var (

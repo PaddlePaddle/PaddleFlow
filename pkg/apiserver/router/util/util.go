@@ -34,6 +34,7 @@ const (
 
 	ParamKeyQueueName  = "queueName"
 	ParamKeyRunID      = "runID"
+	ParamKeyCheckCache = "checkCache"
 	ParamKeyRunCacheID = "runCacheID"
 	ParamKeyPipelineID = "pipelineID"
 
@@ -68,6 +69,11 @@ const (
 
 	// cluster name最大长度
 	ClusterNameMaxLength = 255
+
+	ParamKeyJobID           = "jobID"
+	ParamKeyPageNo          = "pageNo"
+	ParamKeyPageSize        = "pageSize"
+	ParamKeyLogFilePosition = "logFilePosition"
 )
 
 func GetQueryMaxKeys(ctx *logger.RequestContext, r *http.Request) (int, error) {

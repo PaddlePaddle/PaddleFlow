@@ -19,10 +19,15 @@ package models
 import (
 	"encoding/json"
 	"fmt"
+	"time"
+
+	log "github.com/sirupsen/logrus"
+	"gorm.io/gorm"
+
+	"paddleflow/pkg/apiserver/common"
 	"paddleflow/pkg/common/database"
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/common/uuid"
-	"time"
 )
 
 const (
@@ -33,35 +38,55 @@ const (
 )
 
 type ClusterInfo struct {
-	Pk               int64     `gorm:"column:pk" json:"-"`                            // 自增主键
-	ID               string    `gorm:"column:id" json:"clusterId"`                    // 集群id
-	Name             string    `gorm:"column:name" json:"clusterName"`                // 集群名字
-	Description      string    `gorm:"column:description" json:"description"`         // 集群描述
-	Endpoint         string    `gorm:"column:endpoint" json:"endpoint"`               // 集群endpoint, 比如 http://10.11.11.47:8080
-	Source           string    `gorm:"column:source" json:"source"`                   // 来源, 比如 OnPremise （内部部署）、AWS、CCE
-	ClusterType      string    `gorm:"column:cluster_type" json:"clusterType"`        // 集群类型，比如kubernetes-v1.16
-	Status           string    `gorm:"column:status" json:"status"`                   // 集群状态，可选值为online, offline
-	Credential       string    `gorm:"column:credential" json:"credential"`           // 用于存储集群的凭证信息，比如k8s的kube_config配置
-	Setting          string    `gorm:"column:setting" json:"setting"`                 // 存储额外配置信息
-	RawNamespaceList string    `gorm:"column:namespace_list" json:"-"`                // 命名空间列表，json类型，如["ns1", "ns2"]
-	NamespaceList    []string  `gorm:"-", json:"namespaceList"`                       // 命名空间列表，json类型，如["ns1", "ns2"]
-	CreatedAt        time.Time `gorm:"column:created_at" json:"createTime"`           // 创建时间
-	UpdatedAt        time.Time `gorm:"column:updated_at" json:"updateTime,omitempty"` // 更新时间
-	DeletedAt        string    `gorm:"column:deleted_at" json:"-"`                    // 删除标识，非空表示软删除
+	Model                     `gorm:"embedded"  json:",inline"`
+	Pk               int64    `gorm:"primaryKey;autoIncrement" json:"-"`                     // 自增主键
+	Name             string   `gorm:"column:name" json:"clusterName"`         // 集群名字
+	Description      string   `gorm:"column:description" json:"description"`  // 集群描述
+	Endpoint         string   `gorm:"column:endpoint" json:"endpoint"`        // 集群endpoint, 比如 http://10.11.11.47:8080
+	Source           string   `gorm:"column:source" json:"source"`            // 来源, 比如 OnPremise （内部部署）、AWS、CCE
+	ClusterType      string   `gorm:"column:cluster_type" json:"clusterType"` // 集群类型，比如Kubernetes/Local
+	Version          string   `gorm:"column:version" json:"version"`          // 集群版本，比如v1.16
+	Status           string   `gorm:"column:status" json:"status"`            // 集群状态，可选值为online, offline
+	Credential       string   `gorm:"column:credential" json:"credential"`    // 用于存储集群的凭证信息，比如k8s的kube_config配置
+	Setting          string   `gorm:"column:setting" json:"setting"`          // 存储额外配置信息
+	RawNamespaceList string   `gorm:"column:namespace_list" json:"-"`         // 命名空间列表，json类型，如["ns1", "ns2"]
+	NamespaceList    []string `gorm:"-" json:"namespaceList"`                // 命名空间列表，json类型，如["ns1", "ns2"]
+	DeletedAt        string   `gorm:"column:deleted_at" json:"-"`             // 删除标识，非空表示软删除
 }
 
 func (ClusterInfo) TableName() string {
 	return "cluster_info"
 }
 
-func (clusterInfo *ClusterInfo) Encode() {
-	namespaceList, _ := json.Marshal(clusterInfo.NamespaceList)
-	clusterInfo.RawNamespaceList = string(namespaceList)
+func (clusterInfo ClusterInfo) MarshalJSON() ([]byte, error) {
+	type Alias ClusterInfo
+	return json.Marshal(&struct {
+		*Alias
+		CreatedAt string `json:"createTime"`
+		UpdatedAt string `json:"updateTime"`
+	}{
+		CreatedAt: clusterInfo.CreatedAt.Format(TimeFormat),
+		UpdatedAt: clusterInfo.UpdatedAt.Format(TimeFormat),
+		Alias:     (*Alias)(&clusterInfo),
+	})
 }
 
-func (clusterInfo *ClusterInfo) Decode() error {
+func (clusterInfo *ClusterInfo) BeforeSave(*gorm.DB) error {
+	if len(clusterInfo.NamespaceList) != 0 {
+		namespaceList, err := json.Marshal(clusterInfo.NamespaceList)
+		if err != nil {
+			log.Errorf("json Marshal clusterInfo.NamespaceList[%v] failed: %v", clusterInfo.NamespaceList, err)
+			return err
+		}
+		clusterInfo.RawNamespaceList = string(namespaceList)
+	}
+	return nil
+}
+
+func (clusterInfo *ClusterInfo) AfterFind(*gorm.DB) error {
 	if clusterInfo.RawNamespaceList != "" {
 		if err := json.Unmarshal([]byte(clusterInfo.RawNamespaceList), &clusterInfo.NamespaceList); err != nil {
+			log.Errorf("json Unmarshal RawNamespaceList[%s] failed: %v", clusterInfo.RawNamespaceList, err)
 			return err
 		}
 	}
@@ -73,8 +98,6 @@ func generateDeletedUuidStr() string {
 }
 
 func CreateCluster(ctx *logger.RequestContext, clusterInfo *ClusterInfo) error {
-	clusterInfo.Encode()
-
 	ctx.Logging().Debugf("begin create cluster, cluster name:%s", clusterInfo.Name)
 	tx := database.DB.Table("cluster_info").Create(clusterInfo)
 	if tx.Error != nil {
@@ -83,9 +106,6 @@ func CreateCluster(ctx *logger.RequestContext, clusterInfo *ClusterInfo) error {
 		return tx.Error
 	}
 
-	if err := clusterInfo.Decode(); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -137,10 +157,8 @@ func GetClusterByName(ctx *logger.RequestContext, clusterName string) (ClusterIn
 	if tx.Error != nil {
 		ctx.Logging().Errorf("get cluster failed. clusterName: %s, error:%s",
 			clusterName, tx.Error.Error())
+		ctx.ErrorCode = common.ClusterNameNotFound
 		return ClusterInfo{}, fmt.Errorf("get cluster by clusterName[%s] failed", clusterName)
-	}
-	if err := clusterInfo.Decode(); err != nil {
-		return ClusterInfo{}, err
 	}
 
 	return clusterInfo, nil
@@ -156,11 +174,10 @@ func GetClusterById(ctx *logger.RequestContext, clusterId string) (ClusterInfo, 
 	if tx.Error != nil {
 		ctx.Logging().Errorf("get cluster failed. clusterId: %s, error:%s",
 			clusterId, tx.Error.Error())
+		ctx.ErrorCode = common.ClusterIdNotFound
 		return ClusterInfo{}, tx.Error
 	}
-	if err := clusterInfo.Decode(); err != nil {
-		return ClusterInfo{}, nil
-	}
+
 	return clusterInfo, nil
 }
 
@@ -172,12 +189,10 @@ func DeleteCluster(ctx *logger.RequestContext, clusterName string) error {
 	if err != nil {
 		return err
 	}
-
 	// 更新 DeletedAt 字段为uuid字符串，表示逻辑删除
 	clusterInfo.DeletedAt = generateDeletedUuidStr()
 	clusterInfo.UpdatedAt = time.Now()
 	err = UpdateCluster(ctx, clusterInfo.ID, &clusterInfo)
-
 	if err != nil {
 		ctx.Logging().Errorf("delete cluster failed. clusterName:%s, error:%s",
 			clusterName, err.Error())
@@ -188,10 +203,22 @@ func DeleteCluster(ctx *logger.RequestContext, clusterName string) error {
 
 func UpdateCluster(ctx *logger.RequestContext, clusterId string, clusterInfo *ClusterInfo) error {
 	ctx.Logging().Debugf("start to update cluster. clusterId:%s", clusterId)
-	clusterInfo.Encode()
-	err := database.DB.Table("cluster_info").Where("id = ?", clusterId).Updates(*clusterInfo).Error
-	if err == nil {
-		err = clusterInfo.Decode()
+	err := database.DB.Table("cluster_info").Where("id = ?", clusterId).Updates(clusterInfo).Error
+	if err != nil {
+		ctx.Logging().Errorf("update cluster failed. clusterId:%s, error:%s",
+			clusterId, err.Error())
+		return err
 	}
-	return err
+	return nil
+}
+
+func ActiveClusters() []ClusterInfo {
+	db := database.DB.Table("cluster_info").Where("deleted_at = '' ")
+
+	var clusterList []ClusterInfo
+	err := db.Find(&clusterList).Error
+	if err != nil {
+		return clusterList
+	}
+	return clusterList
 }
