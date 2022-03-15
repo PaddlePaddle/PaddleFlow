@@ -127,7 +127,7 @@ func (wfr *WorkflowRuntime) Listen() {
 		select {
 		case event := <-wfr.event:
 			if err := wfr.processEvent(event); err != nil {
-				// how to readd event?
+				// how to read event?
 				wfr.wf.log().Debugf("process event failed %s", err.Error())
 			}
 			if wfr.IsCompleted() {
@@ -245,7 +245,7 @@ func (wfr *WorkflowRuntime) isDepsReady(step *Step) bool {
 		if len(ds) <= 0 {
 			continue
 		}
-		if !wfr.steps[ds].job.Succeeded() && !wfr.steps[ds].job.Cached() {
+		if !wfr.steps[ds].job.Succeeded() {
 			depsReady = false
 		}
 	}
@@ -269,6 +269,7 @@ func (wfr *WorkflowRuntime) callback(event WorkflowEvent) {
 			Image:      st.info.Image,
 			Artifacts:  job.Artifacts,
 			JobMessage: job.Message,
+			CacheRunID: st.CacheRunID,
 		}
 		runtimeView[name] = jobView
 	}
