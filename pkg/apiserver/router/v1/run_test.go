@@ -30,7 +30,6 @@ import (
 	"paddleflow/pkg/common/config"
 	"paddleflow/pkg/common/database/db_fake"
 	"paddleflow/pkg/common/logger"
-	"paddleflow/pkg/fs/server/utils/fs"
 )
 
 func getMockRun1() models.Run {
@@ -39,7 +38,7 @@ func getMockRun1() models.Run {
 		Name:     MockRunName1,
 		UserName: MockRootUser,
 		FsName:   MockFsName1,
-		FsID:     fs.ID(MockRootUser, MockFsName1),
+		FsID:     common.ID(MockRootUser, MockFsName1),
 		Status:   common.StatusRunPending,
 	}
 	return run1
@@ -51,7 +50,7 @@ func getMockRun1_3() models.Run {
 		Name:     "",
 		UserName: MockRootUser,
 		FsName:   MockFsName1,
-		FsID:     fs.ID(MockRootUser, MockFsName1),
+		FsID:     common.ID(MockRootUser, MockFsName1),
 		Status:   common.StatusRunPending,
 	}
 	return run1
@@ -63,7 +62,7 @@ func getMockRun2() models.Run {
 		Name:     MockRunName2,
 		UserName: MockNormalUser,
 		FsName:   MockFsName2,
-		FsID:     fs.ID(MockNormalUser, MockFsName2),
+		FsID:     common.ID(MockNormalUser, MockFsName2),
 		Status:   common.StatusRunPending,
 	}
 	return run2

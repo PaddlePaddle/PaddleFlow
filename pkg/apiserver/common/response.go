@@ -50,6 +50,10 @@ func RenderErrWithMessage(w http.ResponseWriter, requestID string, code string, 
 		ErrorCode:    code,
 		ErrorMessage: message,
 	}
+	// code没有设置对应的http状态码
+	if httpCode == 0 {
+		httpCode = http.StatusInternalServerError
+	}
 	Render(w, httpCode, errorResponse)
 }
 

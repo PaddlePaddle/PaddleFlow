@@ -18,12 +18,13 @@ package models
 
 import (
 	"fmt"
-	log "github.com/sirupsen/logrus"
-	"gorm.io/gorm"
 	"paddleflow/pkg/apiserver/common"
 	"paddleflow/pkg/common/database"
 	"paddleflow/pkg/common/logger"
 	"time"
+
+	log "github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 )
 
 type Pipeline struct {
@@ -35,7 +36,7 @@ type Pipeline struct {
 	UserName     string         `json:"username"             gorm:"type:varchar(60);not null"`
 	PipelineYaml string         `json:"pipelineYaml"         gorm:"type:text;size:65535"`
 	PipelineMd5  string         `json:"pipelineMd5"          gorm:"type:varchar(32);not null;uniqueIndex:idx_fs_md5"`
-	CreateTime   string         `json:"createTime"           gorm:"-"`
+	CreateTime   string         `json:"createTime,omitempty" gorm:"-"`
 	UpdateTime   string         `json:"updateTime,omitempty" gorm:"-"`
 	CreatedAt    time.Time      `json:"-"`
 	UpdatedAt    time.Time      `json:"-"`

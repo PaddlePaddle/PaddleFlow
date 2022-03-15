@@ -18,6 +18,7 @@ package middleware
 
 import (
 	"net/http"
+	"runtime/debug"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -58,4 +59,19 @@ func NotFound(w http.ResponseWriter, req *http.Request) {
 }
 func MethodNotAllowed(w http.ResponseWriter, req *http.Request) {
 	common.RenderErr(w, req.Header.Get(common.HeaderKeyRequestID), common.MethodNotAllowed)
+}
+
+func Recoverer(next http.Handler) http.Handler {
+	fn := func(w http.ResponseWriter, r *http.Request) {
+		defer func() {
+			if rvr := recover(); rvr != nil && rvr != http.ErrAbortHandler {
+				panicInfo := string(debug.Stack())
+				common.RenderErrWithMessage(w, w.Header().Get(common.HeaderKeyRequestID),
+					common.InternalError, "server panic. recovered.")
+				log.Panic(rvr, panicInfo)
+			}
+		}()
+		next.ServeHTTP(w, r)
+	}
+	return http.HandlerFunc(fn)
 }

@@ -25,7 +25,6 @@ import (
 
 	"paddleflow/pkg/apiserver/common"
 	"paddleflow/pkg/apiserver/controller/queue"
-	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/apiserver/router/util"
 	"paddleflow/pkg/common/config"
 )
@@ -52,7 +51,7 @@ func (qr *QueueRouter) AddRouter(r chi.Router) {
 // @tags Queue
 // @Accept  json
 // @Produce json
-// @Param request body models.QueueInfo true "创建队列请求"
+// @Param request body models.Queue true "创建队列请求"
 // @Success 200 {object} queue.CreateQueueResponse "创建队列响应"
 // @Failure 400 {object} common.ErrorResponse "400"
 // @Failure 500 {object} common.ErrorResponse "500"
@@ -60,7 +59,7 @@ func (qr *QueueRouter) AddRouter(r chi.Router) {
 func (qr *QueueRouter) createQueue(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
 
-	var queueInfo models.QueueInfo
+	var queueInfo queue.CreateQueueRequest
 	err := common.BindJSON(r, &queueInfo)
 	if err != nil {
 		log.Errorf("CreateQueue bindjson failed. err:%s", err.Error())
@@ -123,7 +122,7 @@ func (qr *QueueRouter) listQueue(w http.ResponseWriter, r *http.Request) {
 // @Accept  json
 // @Produce json
 // @Param queueName path string true "队列名称"
-// @Success 200 {object} models.Queue "队列结构体"
+// @Success 200 {object} queue.GetQueueResponse "队列结构体"
 // @Failure 400 {object} common.ErrorResponse "400"
 // @Failure 500 {object} common.ErrorResponse "500"
 // @Router /queue/{queueName} [GET]

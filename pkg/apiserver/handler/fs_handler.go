@@ -24,11 +24,10 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
+	api "paddleflow/pkg/apiserver/controller/fs"
 	"paddleflow/pkg/common/config"
-	"paddleflow/pkg/fs/client/base"
 	"paddleflow/pkg/fs/client/fs"
-	"paddleflow/pkg/fs/server/api/request"
-	"paddleflow/pkg/fs/server/service"
+	"paddleflow/pkg/fs/common"
 )
 
 const (
@@ -48,7 +47,7 @@ func (e FsServerEmptyError) Error() string {
 	return fmt.Sprint("the server of fs is empty, please set the value of it")
 }
 
-var ReadFileFromFs = func (fsID, filePath string, logEntry *log.Entry) ([]byte, error) {
+var ReadFileFromFs = func(fsID, filePath string, logEntry *log.Entry) ([]byte, error) {
 	fsHandle, err := NewFsHandlerWithServer(fsID, config.GlobalServerConfig.ApiServer.Host, config.GlobalServerConfig.ApiServer.Port, logEntry)
 	if err != nil {
 		logEntry.Errorf("NewFsHandler failed. err: %v", err)
@@ -118,8 +117,8 @@ var NewFsHandlerWithServer = func(fsID, fsHost string, fsPort int, logEntry *log
 func MockerNewFsHandlerWithServer(fsID, fsHost string, fsRpcPort int, logEntry *log.Entry) (*FsHandler, error) {
 	os.MkdirAll("./mock_fs_handler", 0755)
 
-	testFsMeta := base.FSMeta{
-		UfsType: base.LocalType,
+	testFsMeta := common.FSMeta{
+		UfsType: common.LocalType,
 		SubPath: "./mock_fs_handler",
 	}
 
@@ -172,6 +171,18 @@ func (fh *FsHandler) Stat(path string) (os.FileInfo, error) {
 	return fileInfo, err
 }
 
+func (fh *FsHandler) Exist(path string) (bool, error) {
+	return fh.fsClient.Exist(path)
+}
+
+func (fh *FsHandler) RemoveAll(path string) error {
+	return fh.fsClient.RemoveAll(path)
+}
+
+func (fh *FsHandler) MkdirAll(path string, perm os.FileMode) error {
+	return fh.fsClient.MkdirAll(path, perm)
+}
+
 func (fh *FsHandler) ModTime(path string) (time.Time, error) {
 	fh.log.Debugf("begin to get the modtime of file[%s] with fsId[%s]",
 		path, fh.fsID)
@@ -188,38 +199,38 @@ func (fh *FsHandler) ModTime(path string) (time.Time, error) {
 }
 
 func (fh *FsHandler) getFSClient() (fs.FSClient, error) {
-	fsService := service.GetFileSystemService()
-	fsModel, err := fsService.GetFileSystem(&request.GetFileSystemRequest{}, fh.fsID)
+	fsService := api.GetFileSystemService()
+	fsModel, err := fsService.GetFileSystem(&api.GetFileSystemRequest{}, fh.fsID)
 	if err != nil {
 		log.Errorf("get file system with fsID[%s] error[%v]", fh.fsID, err)
 		return nil, err
 	}
 
-	linkService := service.GetLinkService()
-	listLinks, _, err := linkService.GetLink(&request.GetLinkRequest{FsID: fh.fsID})
+	linkService := api.GetLinkService()
+	listLinks, _, err := linkService.GetLink(&api.GetLinkRequest{FsID: fh.fsID})
 	if err != nil {
 		log.Errorf("get file system links with fsID[%s] error[%v]", fh.fsID, err)
 		return nil, err
 	}
 
-	fsMeta := base.FSMeta{
+	fsMeta := common.FSMeta{
 		ID:            fsModel.ID,
 		Name:          fsModel.Name,
 		UfsType:       fsModel.Type,
 		ServerAddress: fsModel.ServerAddress,
 		SubPath:       fsModel.SubPath,
 		Properties:    fsModel.PropertiesMap,
-		Type:          base.FSType,
+		Type:          common.FSType,
 	}
-	links := make(map[string]base.FSMeta)
+	links := make(map[string]common.FSMeta)
 	for _, link := range listLinks {
-		links[link.FsPath] = base.FSMeta{
+		links[link.FsPath] = common.FSMeta{
 			ID:            link.ID,
 			UfsType:       link.Type,
 			ServerAddress: link.ServerAddress,
 			SubPath:       link.SubPath,
 			Properties:    link.PropertiesMap,
-			Type:          base.LinkType,
+			Type:          common.LinkType,
 		}
 	}
 	return fs.NewFSClient(fsMeta, links)

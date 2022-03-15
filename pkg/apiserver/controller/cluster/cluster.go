@@ -17,22 +17,21 @@ limitations under the License.
 package cluster
 
 import (
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	log "github.com/sirupsen/logrus"
-	"k8s.io/client-go/kubernetes"
 
 	"paddleflow/pkg/apiserver/common"
+	"paddleflow/pkg/apiserver/controller/queue"
 	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/apiserver/router/util"
-	"paddleflow/pkg/common/config"
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/common/schema"
 	"paddleflow/pkg/common/uuid"
+	"paddleflow/pkg/job/runtime"
 )
 
 type ClusterCommonInfo struct {
@@ -40,7 +39,8 @@ type ClusterCommonInfo struct {
 	Description   string   `json:"description"`   // 集群描述
 	Endpoint      string   `json:"endpoint"`      // 集群endpoint, 比如 http://10.11.11.47:8080
 	Source        string   `json:"source"`        // 来源, 比如 OnPremise （内部部署）、AWS、CCE
-	ClusterType   string   `json:"clusterType"`   // 集群类型，比如kubernetes-v1.16
+	ClusterType   string   `json:"clusterType"`   // 集群类型，比如kubernetes/local/yarn
+	Version       string   `json:"version"`       // 集群版本v1.16
 	Status        string   `json:"status"`        // 集群状态，可选值为online, offline
 	Credential    string   `json:"credential"`    // 用于存储集群的凭证信息，比如k8s的kube_config配置
 	Setting       string   `json:"setting"`       // 存储额外配置信息
@@ -73,54 +73,9 @@ type UpdateClusterReponse struct {
 }
 
 type ClusterQuotaReponse struct {
-	NodeQuotaInfoList []NodeQuotaInfo     `json:"nodeList"`
-	Summary           ClusterQuotaSummary `json:"summary"`
-	ErrMessage        string              `json:"errMsg"`
-}
-
-var (
-	K8sClientMap           = map[string]*kubernetes.Clientset{}
-	ClusterName2Credential = map[string]string{}
-)
-
-func GetK8sClientFromKubeConfigBytes(kubeConfigBytes []byte) (*kubernetes.Clientset, error) {
-	c, err := config.InitKubeConfigFromBytes(kubeConfigBytes)
-	if err != nil {
-		return nil, err
-	}
-	clientSet, err := kubernetes.NewForConfig(c)
-
-	if err != nil {
-		log.Errorf("init config from kubeConfigBytes failed, error: %s", err.Error())
-		return nil, err
-	}
-	return clientSet, nil
-}
-
-func GetK8sClient(clusterName, credential string) (*kubernetes.Clientset, error) {
-	clientSet, clientSetFound := K8sClientMap[clusterName]
-	c, credentialFound := ClusterName2Credential[clusterName]
-	// 如果缓存里的credential和db中的credential一致，说明credential未改变，则直接返回缓存中的k8s client
-	if clientSetFound && credentialFound && c == credential {
-		return clientSet, nil
-	}
-
-	// credential base64 string 解码成 []byte
-	credentialBytes, decodeErr := base64.StdEncoding.DecodeString(credential)
-	if decodeErr != nil {
-		errMsg := fmt.Sprintf("decode cluster[%s] credential base64 string error! msg: %s",
-			clusterName, decodeErr.Error())
-		return nil, errors.New(errMsg)
-	}
-
-	clientSet, err := GetK8sClientFromKubeConfigBytes(credentialBytes)
-	if err != nil {
-		return nil, err
-	}
-	K8sClientMap[clusterName] = clientSet
-	// 更新缓存中的credential
-	ClusterName2Credential[clusterName] = credential
-	return clientSet, nil
+	NodeQuotaInfoList []schema.NodeQuotaInfo `json:"nodeList"`
+	Summary           schema.QuotaSummary    `json:"summary"`
+	ErrMessage        string                 `json:"errMsg"`
 }
 
 func validateClusterStatus(clusterStatus string) error {
@@ -135,12 +90,7 @@ func validateClusterStatus(clusterStatus string) error {
 	return nil
 }
 
-func validateCreateClusterRequest(request *CreateClusterRequest) error {
-	request.ID = strings.TrimSpace(request.ID)
-	if request.ID == "" {
-		request.ID = uuid.GenerateIDWithLength(common.PrefixCluster, 24)
-	}
-
+func validateCreateClusterRequest(ctx *logger.RequestContext, request *CreateClusterRequest) error {
 	request.Name = strings.TrimSpace(request.Name)
 	if request.Name == "" {
 		return errors.New("ClusterName should not be empty")
@@ -155,8 +105,17 @@ func validateCreateClusterRequest(request *CreateClusterRequest) error {
 	}
 
 	request.ClusterType = strings.TrimSpace(request.ClusterType)
-	if request.ClusterType == "" {
-		return errors.New("ClusterType should not be empty")
+	switch request.ClusterType {
+	case schema.KubernetesType, schema.LocalType:
+	case "":
+		return fmt.Errorf("ClusterType should not be empty")
+	default:
+		return fmt.Errorf("ClusterType [%s] is invalid", request.ClusterType)
+	}
+
+	request.Version = strings.TrimSpace(request.Version)
+	if request.ClusterType == schema.KubernetesType && request.Version == "" {
+		return fmt.Errorf("version of cluster %s should not be empty", request.ClusterType)
 	}
 
 	request.Status = strings.TrimSpace(request.Status)
@@ -180,6 +139,93 @@ func validateCreateClusterRequest(request *CreateClusterRequest) error {
 	return nil
 }
 
+func validateUpdateClusterRequest(ctx *logger.RequestContext, request *UpdateClusterRequest, clusterInfo *models.ClusterInfo) error {
+	request.Endpoint = strings.TrimSpace(request.Endpoint)
+	if request.Endpoint != "" {
+		clusterInfo.Endpoint = request.Endpoint
+	}
+
+	request.ClusterType = strings.TrimSpace(request.ClusterType)
+	switch request.ClusterType {
+	case schema.KubernetesType, schema.LocalType:
+		clusterInfo.ClusterType = strings.TrimSpace(request.ClusterType)
+	case "":
+	default:
+		return fmt.Errorf("ClusterType [%s] is invalid", request.ClusterType)
+	}
+
+	request.Version = strings.TrimSpace(request.Version)
+	if request.Version != "" {
+		clusterInfo.Version = request.Version
+	} else if request.ClusterType == schema.KubernetesType {
+		return fmt.Errorf("version of cluster %s should not be empty", request.ClusterType)
+	}
+
+	request.Status = strings.TrimSpace(request.Status)
+	if request.Status != "" {
+		if err := validateClusterStatus(request.Status); err != nil {
+			return err
+		}
+		clusterInfo.Status = request.Status
+	}
+
+	request.Source = strings.TrimSpace(request.Source)
+	if request.Source != "" {
+		clusterInfo.Source = strings.TrimSpace(request.Source)
+	}
+	request.Credential = strings.TrimSpace(request.Credential)
+	if request.Description != "" {
+		clusterInfo.Description = strings.TrimSpace(request.Description)
+	}
+	request.Setting = strings.TrimSpace(request.Setting)
+	if request.Setting != "" {
+		clusterInfo.Setting = strings.TrimSpace(request.Setting)
+	}
+	if len(request.NamespaceList) > 0 {
+		if err := validateNamespace(request.NamespaceList, clusterInfo.NamespaceList, clusterInfo.ID); err != nil {
+			ctx.Logging().Errorf("update namespace for cluster[%s] failed. errorMsg:[%s]", clusterInfo.Name, err.Error())
+			return err
+		}
+		clusterInfo.NamespaceList = request.NamespaceList
+	}
+	if request.Credential != "" {
+		clusterInfo.Credential = strings.TrimSpace(request.Credential)
+		if err := validateConnectivity(*clusterInfo); err != nil {
+			ctx.Logging().Errorf("update runtime failed, cluster[%s]. errorMsg:[%s]", clusterInfo.Name, err.Error())
+			ctx.ErrorCode = common.InvalidCredential
+			return err
+		}
+	}
+
+	return nil
+}
+
+// validateNamespace if any namespace bound queue, it must not be deleted
+func validateNamespace(new, old []string, clusterID string) error {
+	// if deleted any, must check queue unbound
+	errNs := make([]string, 0)
+	newSet := make(map[string]bool)
+	for _, ns := range new {
+		newSet[ns] = true
+	}
+	// get queues
+	queues := models.ListQueuesByCluster(clusterID)
+	relatedSet := make(map[string]bool)
+	for _, queue := range queues {
+		relatedSet[queue.Namespace] = true
+	}
+	for _, ns := range old {
+		if !newSet[ns] && relatedSet[ns] {
+			errNs = append(errNs, ns)
+		}
+	}
+
+	if len(errNs) != 0 {
+		return fmt.Errorf("cluster still bound to queue by namespace%v", errNs)
+	}
+	return nil
+}
+
 func CreateCluster(ctx *logger.RequestContext, request *CreateClusterRequest) (*CreateClusterResponse, error) {
 	clusterName := strings.TrimSpace(request.Name)
 
@@ -196,30 +242,49 @@ func CreateCluster(ctx *logger.RequestContext, request *CreateClusterRequest) (*
 		return nil, errors.New("create cluster failed")
 	}
 
-	if err := validateCreateClusterRequest(request); err != nil {
-		ctx.Logging().Errorf("validateCreateClusterRequest failed, ClusterId: %s, ClusterName: %s",
-			request.ID, clusterName)
+	if err := validateCreateClusterRequest(ctx, request); err != nil {
+		ctx.Logging().Errorf("validateCreateClusterRequest failed, ClusterName: %s", clusterName)
 		ctx.ErrorCode = common.InternalError
 		return nil, err
 	}
 
-	clusterInfo := &models.ClusterInfo{
-		ID:            request.ID,
+	clusterId := uuid.GenerateID(common.PrefixCluster)
+	clusterInfo := models.ClusterInfo{
+		Model: models.Model{
+			ID: clusterId,
+			CreatedAt:     time.Now(),
+			UpdatedAt:     time.Now(),
+		},
 		Name:          clusterName,
 		Description:   request.Description,
 		Endpoint:      request.Endpoint,
 		Source:        request.Source,
 		ClusterType:   request.ClusterType,
+		Version:       request.Version,
 		Status:        request.Status,
 		Credential:    request.Credential,
 		Setting:       request.Setting,
 		NamespaceList: request.NamespaceList,
-		CreatedAt:     time.Now(),
-		UpdatedAt:     time.Now(),
 	}
-	err := models.CreateCluster(ctx, clusterInfo)
-	response := CreateClusterResponse{*clusterInfo}
+
+	if err := validateConnectivity(clusterInfo); err != nil {
+		ctx.Logging().Errorf("get cluster [%s] client failed. %s", clusterInfo.Name, err.Error())
+		ctx.ErrorCode = common.InvalidCredential
+		return nil, err
+	}
+
+	err := models.CreateCluster(ctx, &clusterInfo)
+	response := CreateClusterResponse{clusterInfo}
 	return &response, err
+}
+
+// validateConnectivity validate connectivity of cluster
+func validateConnectivity(clusterInfo models.ClusterInfo) error {
+	if _, err := runtime.CreateRuntime(clusterInfo); err != nil {
+		log.Errorf("create cluster failed. clusterName not allowed. clusterName:%v", clusterInfo.Name)
+		return err
+	}
+	return nil
 }
 
 func IsLastClusterPk(ctx *logger.RequestContext, pk int64) bool {
@@ -295,7 +360,6 @@ func GetCluster(ctx *logger.RequestContext, clusterName string) (*GetClusterResp
 
 	clusterInfo, err := models.GetClusterByName(ctx, clusterName)
 	if err != nil {
-		ctx.ErrorCode = common.InternalError
 		ctx.ErrorMessage = err.Error()
 		ctx.Logging().Errorf("get cluster failed. clusterName:[%s]", clusterName)
 		return nil, err
@@ -309,7 +373,36 @@ func DeleteCluster(ctx *logger.RequestContext, clusterName string) error {
 		ctx.Logging().Errorln("delete cluster failed. error: admin is needed.")
 		return errors.New("delete cluster failed")
 	}
-
+	// 检查clusterName是否存在
+	clusterInfo, err := models.GetClusterByName(ctx, clusterName)
+	if err != nil {
+		ctx.ErrorCode = common.ClusterNotFound
+		ctx.Logging().Errorln("delete cluster failed. error: cluster not found.")
+		return err
+	}
+	queues := models.ListQueuesByCluster(clusterInfo.ID)
+	var inUsedQueue []string
+	for _, q := range queues {
+		isInUse, _ := models.IsQueueInUse(q.ID)
+		if isInUse {
+			inUsedQueue = append(inUsedQueue, q.Name)
+		}
+	}
+	if len(inUsedQueue) > 0 {
+		ctx.ErrorCode = common.QueueIsInUse
+		ctx.ErrorMessage = fmt.Sprintf("cluster %s has inuse queues: %s", clusterName, inUsedQueue)
+		ctx.Logging().Errorf(ctx.ErrorMessage)
+		return fmt.Errorf(ctx.ErrorMessage)
+	}
+	// delete queues
+	for _, q := range queues {
+		if err = queue.DeleteQueue(ctx, q.Name); err != nil {
+			ctx.ErrorCode = common.InternalError
+			ctx.ErrorMessage = err.Error()
+			ctx.Logging().Errorf("delete cluster failed. clusterName:[%s]", clusterName)
+			return err
+		}
+	}
 	if err := models.DeleteCluster(ctx, clusterName); err != nil {
 		ctx.ErrorCode = common.InternalError
 		ctx.ErrorMessage = err.Error()
@@ -335,42 +428,14 @@ func UpdateCluster(ctx *logger.RequestContext,
 		return nil, err
 	}
 
-	clusterId := clusterInfo.ID
-	if request.ID != "" {
-		clusterInfo.ID = strings.TrimSpace(request.ID)
-	}
-	if request.Endpoint != "" {
-		clusterInfo.Endpoint = strings.TrimSpace(request.Endpoint)
-	}
-	if request.ClusterType != "" {
-		clusterInfo.ClusterType = strings.TrimSpace(request.ClusterType)
-	}
-	if request.Credential != "" {
-		clusterInfo.Credential = strings.TrimSpace(request.Credential)
-	}
-	if request.Description != "" {
-		clusterInfo.Description = strings.TrimSpace(request.Description)
-	}
-	if request.Source != "" {
-		clusterInfo.Source = strings.TrimSpace(request.Source)
-	}
-	if request.Setting != "" {
-		clusterInfo.Setting = strings.TrimSpace(request.Setting)
-	}
-	if request.Status != "" {
-		request.Status = strings.TrimSpace(request.Status)
-		if err := validateClusterStatus(request.Status); err != nil {
-			return nil, err
-		}
-		clusterInfo.Status = request.Status
+
+	if err := validateUpdateClusterRequest(ctx, request, &clusterInfo); err != nil {
+		ctx.Logging().Errorf("validateCreateClusterRequest failed, ClusterName: %s", clusterName)
+		ctx.ErrorCode = common.InvalidClusterProperties
+		return nil, err
 	}
 
-	if len(request.NamespaceList) > 0 {
-		clusterInfo.NamespaceList = request.NamespaceList
-	}
-
-	if err := models.UpdateCluster(ctx, clusterId, &clusterInfo); err != nil {
-		ctx.ErrorCode = common.InternalError
+	if err := models.UpdateCluster(ctx, clusterInfo.ID, &clusterInfo); err != nil {
 		ctx.ErrorMessage = err.Error()
 		ctx.Logging().Errorf("delete cluster failed. clusterName:[%s]", clusterName)
 		return nil, err
@@ -405,27 +470,33 @@ func ListClusterQuota(ctx *logger.RequestContext, clusterNameList []string) (map
 
 	failedClusterErrorMsgList := []string{}
 	for _, c := range clusterList {
-		clientSet, err := GetK8sClient(c.Name, c.Credential)
+		runtimeSvc, err := runtime.GetOrCreateRuntime(c)
+
 		if err != nil {
 			errMsg := fmt.Sprintf("clusterName: %s, errorMsg: %s", c.Name, err.Error())
 			ctx.Logging().Errorf("get k8s client failed. %s", errMsg)
 			response[c.Name] = ClusterQuotaReponse{
 				ErrMessage:        errMsg,
-				NodeQuotaInfoList: []NodeQuotaInfo{},
+				NodeQuotaInfoList: []schema.NodeQuotaInfo{},
 			}
 			failedClusterErrorMsgList = append(failedClusterErrorMsgList, errMsg)
 		} else {
-			summary, nodeQuotaList := GetNodeQuotaList(clientSet)
-			response[c.Name] = ClusterQuotaReponse{
-				Summary:           summary,
-				NodeQuotaInfoList: nodeQuotaList,
-				ErrMessage:        "",
+			summary, nodeQuotaList, err := runtimeSvc.ListNodeQuota()
+			if err != nil {
+				errMsg := fmt.Sprintf("clusterName: %s, errorMsg: %s", c.Name, err.Error())
+				ctx.Logging().Errorf("get cluster resource quota failed. %s", errMsg)
+				failedClusterErrorMsgList = append(failedClusterErrorMsgList, errMsg)
+			} else {
+				response[c.Name] = ClusterQuotaReponse{
+					Summary:           summary,
+					NodeQuotaInfoList: nodeQuotaList,
+					ErrMessage:        "",
+				}
 			}
-
 		}
 	}
 	// 如果所有的集群都报错，则报错
-	if len(failedClusterErrorMsgList) == len(clusterList) {
+	if len(failedClusterErrorMsgList) > 0 && len(failedClusterErrorMsgList) == len(clusterList) {
 		return response, fmt.Errorf("%s", strings.Join(failedClusterErrorMsgList, "\n"))
 	}
 	return response, nil

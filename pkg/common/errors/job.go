@@ -71,6 +71,10 @@ func EmptyQueueNameError() error {
 	return fmt.Errorf("empty queue name")
 }
 
+func EmptyClusterNameError() error {
+	return fmt.Errorf("empty cluster name")
+}
+
 func EmptyFSIDError() error {
 	return fmt.Errorf("empty fs id")
 }

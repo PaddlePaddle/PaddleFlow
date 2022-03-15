@@ -18,32 +18,25 @@ package models
 
 import (
 	"database/sql"
-	"database/sql/driver"
 	"encoding/json"
-	"fmt"
-	"paddleflow/pkg/common/schema"
 	"time"
 
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
-	batchv1alpha1 "volcano.sh/apis/pkg/apis/batch/v1alpha1"
 
-	sparkoperatorv1beta2 "paddleflow/pkg/apis/spark-operator/sparkoperator.k8s.io/v1beta2"
+	"paddleflow/pkg/common/database"
+	"paddleflow/pkg/common/errors"
+	"paddleflow/pkg/common/logger"
+	"paddleflow/pkg/common/schema"
 )
-
-type Conf struct {
-	Name    string            `json:"name"`
-	Env     map[string]string `json:"env"`
-	Command string            `json:"command"`
-	Image   string            `json:"image"`
-}
 
 type Job struct {
 	Pk              int64            `json:"-" gorm:"primaryKey;autoIncrement"`
 	ID              string           `json:"jobID" gorm:"uniqueIndex"`
 	UserName        string           `json:"userName"`
+	QueueID         string           `json:"queueID"`
 	Type            string           `json:"type"`
-	Config          Conf             `json:"config"`
+	Config          schema.Conf      `json:"config"`
 	RuntimeInfoJson string           `json:"-" gorm:"column:runtime_info;default:'{}'"`
 	RuntimeInfo     interface{}      `json:"runtimeInfo" gorm:"-"`
 	Status          schema.JobStatus `json:"status"`
@@ -58,27 +51,6 @@ func (Job) TableName() string {
 	return "job"
 }
 
-func (job *Job) AfterFind(tx *gorm.DB) error {
-	switch job.Type {
-	case string(schema.TypeVcJob):
-		vcJob := batchv1alpha1.Job{}
-		if err := json.Unmarshal([]byte(job.RuntimeInfoJson), &vcJob); err != nil {
-			return err
-		}
-		job.RuntimeInfo = vcJob
-	case string(schema.TypeSparkJob):
-		sparkApp := sparkoperatorv1beta2.SparkApplication{}
-		if err := json.Unmarshal([]byte(job.RuntimeInfoJson), &sparkApp); err != nil {
-			return err
-		}
-		job.RuntimeInfo = sparkApp
-	default:
-		log.Debugf("unknown job type %s, skip unmarshall runtime info for job %s", job.Type, job.ID)
-		return nil
-	}
-	return nil
-}
-
 func (job *Job) BeforeSave(tx *gorm.DB) error {
 	if job.RuntimeInfo != nil {
 		infoJson, err := json.Marshal(job.RuntimeInfo)
@@ -90,25 +62,96 @@ func (job *Job) BeforeSave(tx *gorm.DB) error {
 	return nil
 }
 
-func (s *Conf) Scan(value interface{}) error {
-	b, ok := value.([]byte)
-	if !ok {
-		log.Errorf("Conf value is not []byte, value:%v", value)
-		return fmt.Errorf("Conf scan failed")
+// CreateJob creates a new job
+func CreateJob(job *Job) error {
+	db := database.DB
+	return db.Create(job).Error
+}
+
+func GetJobByID(jobID string) (Job, error) {
+	var job Job
+	tx := database.DB.Table("job").Where("id = ?", jobID).First(&job)
+	if tx.Error != nil {
+		logger.LoggerForJob(jobID).Errorf("get job failed, err %v", tx.Error.Error())
+		return Job{}, tx.Error
 	}
-	err := json.Unmarshal(b, s)
+	return job, nil
+}
+
+func GetJobStatusByID(jobID string) (schema.JobStatus, error) {
+	job, err := GetJobByID(jobID)
 	if err != nil {
-		log.Errorf("Scan Conf failed. err:[%s]", err.Error())
-		return err
+		return "", errors.JobIDNotFoundError(jobID)
+	}
+	return job.Status, nil
+}
+
+func UpdateJobStatus(jobId, errMessage string, jobStatus schema.JobStatus) error {
+	job, err := GetJobByID(jobId)
+	if err != nil {
+		return errors.JobIDNotFoundError(jobId)
+	}
+	if jobStatus != "" && !schema.IsImmutableJobStatus(job.Status) {
+		job.Status = jobStatus
+	}
+	if errMessage != "" {
+		job.Message = errMessage
+	}
+	log.Infof("update job [%+v]", job)
+	tx := database.DB.Model(&Job{}).Where("id = ?", jobId).Updates(job)
+	if tx.Error != nil {
+		return tx.Error
 	}
 	return nil
 }
 
-func (s Conf) Value() (driver.Value, error) {
-	value, err := json.Marshal(s)
+func UpdateJob(jobID string, status schema.JobStatus, info interface{}, message string) (schema.JobStatus, error) {
+	job, err := GetJobByID(jobID)
 	if err != nil {
-		log.Errorf("Value Conf s:%v failed.err:[%s]", s, err.Error())
+		return "", errors.JobIDNotFoundError(jobID)
+	}
+	if status != "" && !schema.IsImmutableJobStatus(job.Status) {
+		job.Status = status
+	}
+	if info != nil {
+		job.RuntimeInfo = info
+	}
+	if message != "" {
+		job.Message = message
+	}
+	if status == schema.StatusJobRunning {
+		job.ActivatedAt.Time = time.Now()
+		job.ActivatedAt.Valid = true
+	}
+	tx := database.DB.Table("job").Where("id = ?", jobID).Save(&job)
+	if tx.Error != nil {
+		logger.LoggerForJob(jobID).Errorf("update job failed, err %v", err)
+		return "", err
+	}
+	return job.Status, nil
+}
+
+func ListQueueJob(queueID string, status []schema.JobStatus) []Job {
+	db := database.DB.Table("job").Where("status in ?", status).Where("queue_id = ?", queueID)
+
+	var jobs []Job
+	err := db.Find(&jobs).Error
+	if err != nil {
+		return []Job{}
+	}
+	return jobs
+}
+
+func GetJobsByRunID(ctx *logger.RequestContext, runID string, jobID string) ([]Job, error) {
+	var jobList []Job
+	query := database.DB.Table("job").Where("id like ?", "job-"+runID+"-%")
+	if jobID != "" {
+		query = query.Where("id = ?", jobID)
+	}
+	err := query.Find(&jobList).Error
+	if err != nil {
+		ctx.Logging().Errorf("get jobs by run[%s] failed. error : %s ", runID, err.Error())
 		return nil, err
 	}
-	return value, nil
+	return jobList, nil
 }
