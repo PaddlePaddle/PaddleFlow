@@ -13,7 +13,7 @@
 | luoyuedong     | YueDong Luo       |
 | mikemoto       | Xianyuan Mo       |
 | mkavim         | Xiaoping Xu       |
-| qiaoshuangshaung      | Shuangshuang Qiao |
+| qiaoshuangshuang      | Shuangshuang Qiao |
 | stonekim       | Kuan Shi          |
 | tornado404     | Zichao Zhong      |
 | xiangyuelin    | xiangyuelin       |
