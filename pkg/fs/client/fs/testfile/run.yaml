@@ -1,6 +1,6 @@
 name: myproject
 
-docker_env: iregistry.baidu-int.com/bmlc/nginx:1.7.9
+docker_env: baidu/nginx:1.7.9
 
 entry_points:
 
