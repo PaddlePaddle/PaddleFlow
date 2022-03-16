@@ -258,7 +258,7 @@ func TestS3Client_read_with_small_block(t *testing.T) {
 		os.RemoveAll("./tmp")
 	}()
 
-	pathReal := "../../../../example/hoursing_price/run.yaml"
+	pathReal := "./testfile/run.yaml"
 	bufLen := 1000
 	bufExpect := make([]byte, bufLen)
 	nExpect, err := readFile(pathReal, bufExpect)
@@ -325,7 +325,7 @@ func TestS3Client_readMemAndDisk(t *testing.T) {
 	err := client.Mkdir("./mock", 0755)
 	assert.Equal(t, nil, err)
 
-	pathReal := "../../../../example/hoursing_price/run.yaml"
+	pathReal := "./testfile/run.yaml"
 	bufLen := 1000
 	bufExpect := make([]byte, bufLen)
 	nExpect, err := readFile(pathReal, bufExpect)

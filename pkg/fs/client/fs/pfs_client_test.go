@@ -354,7 +354,7 @@ func TestFSClient_read_with_small_block_1(t *testing.T) {
 	defer os.RemoveAll("./mock")
 	defer os.RemoveAll("./mock-cache")
 
-	pathReal := "../../../../example/hoursing_price/run.yaml"
+	pathReal := "./testfile/run.yaml"
 	bufLen := 1000
 	bufExpect := make([]byte, bufLen)
 	nExpect, err := readFile(pathReal, bufExpect)
@@ -403,7 +403,7 @@ func TestFSClient_read_with_small_block_2(t *testing.T) {
 	defer os.RemoveAll("./mock")
 	defer os.RemoveAll("./mock-cache")
 
-	pathReal := "../../../../example/hoursing_price/run.yaml"
+	pathReal := "./testfile/run.yaml"
 	bufLen := 1000
 	bufExpect := make([]byte, bufLen)
 	nExpect, err := readFile(pathReal, bufExpect)
