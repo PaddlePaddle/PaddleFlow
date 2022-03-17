@@ -205,6 +205,28 @@ func (v *VFS) GetAttr(ctx *meta.Context, ino Ino) (entry *meta.Entry, err syscal
 
 func (v *VFS) SetAttr(ctx *meta.Context, ino Ino, set, mode, uid, gid uint32, atime, mtime int64, atimensec, mtimensec uint32, size uint64) (entry *meta.Entry, err syscall.Errno) {
 	log.Tracef("vfs setAttr: ino[%d], set[%d], mode[%d], uid[%d], gid[%d], size[%d]", ino, set, mode, uid, gid, size)
+
+	// only truncate opened files
+	if set&meta.FATTR_SIZE != 0 {
+		fhs := v.findAllHandle(ino)
+		if fhs != nil {
+			for _, h := range fhs {
+				if h.writer != nil {
+					err = h.writer.Truncate(size)
+					if utils.IsError(err) {
+						return entry, err
+					}
+					if v.Store != nil {
+						delCacheErr := v.Store.InvalidateCache(v.Meta.InoToPath(ino), int(size))
+						if delCacheErr != nil {
+							// todo:: 先忽略删除缓存的错误，需要保证一致性
+							log.Errorf("vfs setAttr: truncate delete cache error %v:", delCacheErr)
+						}
+					}
+				}
+			}
+		}
+	}
 	attr := &Attr{
 		Mode:      mode,
 		Uid:       uid,
@@ -219,29 +241,6 @@ func (v *VFS) SetAttr(ctx *meta.Context, ino Ino, set, mode, uid, gid uint32, at
 	if utils.IsError(err) {
 		return entry, err
 	}
-
-	// only truncate opened files
-	if set&meta.FATTR_SIZE != 0 {
-		fhs := v.findAllHandle(ino)
-		if fhs != nil {
-			for _, h := range fhs {
-				if h.writer != nil {
-					err = h.writer.Truncate(size)
-					if utils.IsError(err) {
-						return entry, err
-					}
-					if v.Store != nil {
-						delCacheErr := v.Store.InvalidateCache(v.Meta.InoToPath(ino), int(attr.Size))
-						if delCacheErr != nil {
-							// todo:: 先忽略删除缓存的错误，需要保证一致性
-							log.Errorf("vfs setAttr: truncate delete cache error %v:", delCacheErr)
-						}
-					}
-				}
-			}
-		}
-	}
-	attr.Size = size
 	entry = &meta.Entry{Ino: ino, Attr: attr}
 	return
 }
