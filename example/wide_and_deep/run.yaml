@@ -1,0 +1,19 @@
+name: distribute_wide_and_deep
+
+docker_env: paddlepaddle/paddle:2.2.2-gpu-cuda10.2-cudnn7
+
+entry_points:
+  main:
+    command: ""
+    env:
+      PF_JOB_TYPE: vcjob
+      PF_JOB_MODE: PS
+      PF_JOB_PSERVER_FLAVOUR: flavour-cpu
+      PF_JOB_PSERVER_REPLICAS: 1
+      PF_JOB_PSERVER_COMMAND: "bash ps_with_one_worker_volcano/ps_with_one_worker.sh"
+      PF_JOB_WORKER_FLAVOUR: flavour-cpu
+      PF_JOB_WORKER_REPLICAS: 1
+      PF_JOB_WORKER_COMMAND: "bash ps_with_one_worker_volcano/worker.sh"
+      PF_JOB_PRIORITY: NORMAL
+      PF_JOB_QUEUE_NAME: qdh
+

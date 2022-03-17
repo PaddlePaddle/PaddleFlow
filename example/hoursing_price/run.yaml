@@ -1,0 +1,12 @@
+name: hoursing_price
+
+docker_env: paddlepaddle/paddle:2.2.2-gpu-cuda10.2-cudnn7
+
+entry_points:
+  main:
+    command: "python3.7 hoursing_price_train.py"
+    env:
+      PF_JOB_TYPE: vcjob
+      PF_JOB_QUEUE_NAME: queue-aa693e3f
+      PF_JOB_MODE: Pod
+      PF_JOB_FLAVOUR: flavour-cpu
