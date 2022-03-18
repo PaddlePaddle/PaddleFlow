@@ -27,10 +27,9 @@ import (
 
 const (
 	MockRootUser = "root"
-	MockUser1 = "u1-23"
-	MockWrongPassword1 = "u1"
-	MockPassword1 = "usda2sda1"
-	MockPassword2 = "usda2sda2"
+	MockUser1    = "u1-23"
+	MockWrongPW  = "u1"
+	MockPW       = "mock709394"
 )
 
 func TestCreateUser(t *testing.T) {
@@ -38,11 +37,10 @@ func TestCreateUser(t *testing.T) {
 	ctx := &logger.RequestContext{UserName: MockRootUser}
 
 	// bad case
-	resp, err := CreateUser(ctx, MockUser1, MockWrongPassword1)
+	resp, err := CreateUser(ctx, MockUser1, MockWrongPW)
 	assert.NotNil(t, err)
 
-
-	resp, err = CreateUser(ctx, MockUser1, MockPassword1)
+	resp, err = CreateUser(ctx, MockUser1, MockPW)
 	assert.Nil(t, err)
 	t.Logf("response=%+v", resp)
 }
@@ -51,7 +49,7 @@ func TestUpdateUser(t *testing.T) {
 	db_fake.InitFakeDB()
 	ctx := &logger.RequestContext{UserName: MockRootUser}
 
-	resp, err := CreateUser(ctx, MockUser1, MockPassword2)
+	resp, err := CreateUser(ctx, MockUser1, MockPW)
 	assert.Nil(t, err)
 	t.Logf("response=%+v", resp)
 }
@@ -79,7 +77,7 @@ func TestGetUserByName(t *testing.T) {
 func TestLogin(t *testing.T) {
 	TestCreateUser(t)
 	ctx := &logger.RequestContext{}
-	user, err := Login(ctx, MockUser1, MockPassword1, false)
+	user, err := Login(ctx, MockUser1, MockPW, false)
 	assert.Nil(t, err)
 	assert.Equal(t, MockUser1, user.Name)
 }
