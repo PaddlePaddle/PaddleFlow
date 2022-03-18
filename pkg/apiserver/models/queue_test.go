@@ -77,10 +77,13 @@ func TestCreateQueue(t *testing.T) {
 		Name:             "queue1",
 		Namespace:        "paddleflow",
 		ClusterId:        cluster1.ID,
-		Cpu:              "10",
-		Mem:              "100G",
-		ScalarResources:  schema.ScalarResourcesType{
-			"nvidia.com/gpu": "500",
+		Type: schema.TypeQueueSimple,
+		MaxResources: schema.ResourceInfo{
+			Cpu:              "10",
+			Mem:              "100G",
+			ScalarResources:  schema.ScalarResourcesType{
+				"nvidia.com/gpu": "500",
+			},
 		},
 		SchedulingPolicy: []string{"s1", "s2"},
 		Status:           schema.StatusQueueCreating,
@@ -90,10 +93,13 @@ func TestCreateQueue(t *testing.T) {
 		Name:             "queue2",
 		Namespace:        "paddleflow",
 		ClusterId:        "cluster1.ID",
-		Cpu:              "20",
-		Mem:              "200G",
-		ScalarResources:  schema.ScalarResourcesType{
-			"nvidia.com/gpu": "200",
+		Type: schema.TypeQueueSimple,
+		MaxResources: schema.ResourceInfo{
+			Cpu:              "20",
+			Mem:              "200G",
+			ScalarResources:  schema.ScalarResourcesType{
+				"nvidia.com/gpu": "200",
+			},
 		},
 		SchedulingPolicy: []string{"s1", "s2"},
 		Status:           schema.StatusQueueCreating,

@@ -34,21 +34,24 @@ import (
 const (
 	queueJoinCluster  = "join `cluster_info` on `cluster_info`.id = queue.cluster_id"
 	queueSelectColumn = `queue.pk as pk, queue.id as id, queue.name as name, queue.namespace as namespace, queue.cluster_id as cluster_id,
-cluster_info.name as cluster_name, queue.cpu as cpu, queue.mem as mem, queue.scalar_resources as scalar_resources, 
+cluster_info.name as cluster_name, queue.type as type, queue.max_resources as max_resources, queue.min_resources as min_resources, queue.affinity as affinity,
 queue.status as status, queue.created_at as created_at, queue.updated_at as updated_at, queue.deleted_at as deleted_at`
 )
 
 type Queue struct {
-	Model              `gorm:"embedded"`
-	Pk                 int64                      `json:"-"           gorm:"primaryKey;autoIncrement"`
-	Name               string                     `json:"name"        gorm:"uniqueIndex"`
-	Namespace          string                     `json:"namespace"   gorm:"column:"`
-	ClusterId          string                     `json:"-"   gorm:"column:cluster_id"`
-	ClusterName        string                     `json:"clusterName" gorm:"column:cluster_name;->"`
-	Cpu                string                     `json:"cpu"         gorm:"column:cpu"`
-	Mem                string                     `json:"mem"         gorm:"column:mem"`
-	RawScalarResources string                     `json:"-"           gorm:"column:scalar_resources;type:text;default:'{}'"`
-	ScalarResources    schema.ScalarResourcesType `json:"scalarResources,omitempty" gorm:"-"`
+	Model           `gorm:"embedded"`
+	Pk              int64               `json:"-" gorm:"primaryKey;autoIncrement"`
+	Name            string              `json:"name" gorm:"uniqueIndex"`
+	Namespace       string              `json:"namespace" gorm:"column:"`
+	ClusterId       string              `json:"-" gorm:"column:cluster_id"`
+	ClusterName     string              `json:"clusterName" gorm:"column:cluster_name;->"`
+	Type            string              `json:"type"`
+	RawMinResources string              `json:"-" gorm:"column:min_resources;type:text;default:'{}'"`
+	MinResources    schema.ResourceInfo `json:"minResources" gorm:"-"`
+	RawMaxResources string              `json:"-" gorm:"column:max_resources;type:text;default:'{}'"`
+	MaxResources    schema.ResourceInfo `json:"maxResources" gorm:"-"`
+	RawAffinity     string              `json:"-" gorm:"column:affinity;type:text;default:'{}'"`
+	Affinity        map[string]string   `json:"affinity" gorm:"-"`
 	// 任务调度策略
 	RawSchedulingPolicy string         `json:"-" gorm:"column:scheduling_policy"`
 	SchedulingPolicy    []string       `json:"schedulingPolicy,omitempty" gorm:"-"`
@@ -74,13 +77,34 @@ func (queue Queue) MarshalJSON() ([]byte, error) {
 }
 
 func (queue *Queue) AfterFind(*gorm.DB) error {
-	if queue.RawScalarResources != "" {
-		queue.ScalarResources = make(schema.ScalarResourcesType)
-		if err := json.Unmarshal([]byte(queue.RawScalarResources), &queue.ScalarResources); err != nil {
-			log.Errorf("json Unmarshal ScalarResources[%s] failed: %v", queue.RawScalarResources, err)
+	if queue.RawMinResources != "" {
+		queue.MinResources = schema.ResourceInfo{
+			ScalarResources: make(schema.ScalarResourcesType),
+		}
+		if err := json.Unmarshal([]byte(queue.RawMinResources), &queue.MinResources); err != nil {
+			log.Errorf("json Unmarshal MinResources[%s] failed: %v", queue.RawMinResources, err)
 			return err
 		}
 	}
+
+	if queue.RawMaxResources != "" {
+		queue.MaxResources = schema.ResourceInfo{
+			ScalarResources: make(schema.ScalarResourcesType),
+		}
+		if err := json.Unmarshal([]byte(queue.RawMaxResources), &queue.MaxResources); err != nil {
+			log.Errorf("json Unmarshal MinResources[%s] failed: %v", queue.RawMaxResources, err)
+			return err
+		}
+	}
+
+	if queue.RawAffinity != "" {
+		queue.Affinity = make(map[string]string)
+		if err := json.Unmarshal([]byte(queue.RawAffinity), &queue.Affinity); err != nil {
+			log.Errorf("json Unmarshal Affinity[%s] failed: %v", queue.RawAffinity, err)
+			return err
+		}
+	}
+
 	if queue.RawSchedulingPolicy != "" {
 		queue.SchedulingPolicy = make([]string, 0)
 		if err := json.Unmarshal([]byte(queue.RawSchedulingPolicy), &queue.SchedulingPolicy); err != nil {
@@ -104,13 +128,27 @@ func (queue *Queue) AfterFind(*gorm.DB) error {
 
 // BeforeSave is the callback methods for saving file system
 func (queue *Queue) BeforeSave(*gorm.DB) error {
-	if len(queue.ScalarResources) != 0 {
-		scalarResourcesJson, err := json.Marshal(&queue.ScalarResources)
+	minResourcesJson, err := json.Marshal(queue.MinResources)
+	if err != nil {
+		log.Errorf("json Marshal MinResources[%v] failed: %v", queue.MinResources, err)
+		return err
+	}
+	queue.RawMinResources = string(minResourcesJson)
+
+	maxResourcesJson, err := json.Marshal(queue.MaxResources)
+	if err != nil {
+		log.Errorf("json Marshal MaxResources[%v] failed: %v", queue.MaxResources, err)
+		return err
+	}
+	queue.RawMaxResources = string(maxResourcesJson)
+
+	if len(queue.Affinity) != 0 {
+		affinityJson, err := json.Marshal(queue.Affinity)
 		if err != nil {
-			log.Errorf("json Marshal scalarResources[%v] failed: %v", queue.ScalarResources, err)
+			log.Errorf("json Marshal Affinity[%s] failed: %v", queue.Affinity, err)
 			return err
 		}
-		queue.RawScalarResources = string(scalarResourcesJson)
+		queue.RawAffinity = string(affinityJson)
 	}
 
 	if len(queue.SchedulingPolicy) != 0 {
@@ -249,7 +287,6 @@ func ListQueue(ctx *logger.RequestContext, pk int64, maxKeys int, queueName stri
 	}
 	var queueList []Queue
 	tx = tx.Find(&queueList)
-	fmt.Println(queueList)
 	if tx.Error != nil {
 		ctx.Logging().Errorf("list queue failed. error:%s", tx.Error.Error())
 		return []Queue{}, tx.Error

@@ -198,8 +198,11 @@ func TestKubeRuntimeVCQueue(t *testing.T) {
 		},
 		Name:      "test_queue_name",
 		Namespace: "default",
-		Cpu:       "20",
-		Mem:       "20Gi",
+		Type:      schema.TypeQueueSimple,
+		MaxResources: schema.ResourceInfo{
+			Cpu: "20",
+			Mem: "20Gi",
+		},
 	}
 	// create vc queue
 	err := kubeRuntime.CreateQueue(q)

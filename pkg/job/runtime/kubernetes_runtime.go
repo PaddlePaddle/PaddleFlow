@@ -185,10 +185,21 @@ func (kr *KubeRuntime) SyncQueue(stopCh <-chan struct{}) {
 }
 
 func (kr *KubeRuntime) CreateQueue(q *models.Queue) error {
+	switch q.Type {
+	case schema.TypeQueueSimple:
+		return kr.createVCQueue(q)
+	case schema.TypeQueueElastic:
+		return kr.createElasticResourceQuota(q)
+	default:
+		return fmt.Errorf("queue type %s is not supported", q.Type)
+	}
+}
+
+func (kr *KubeRuntime) createVCQueue(q *models.Queue) error {
 	resourceList := apiv1.ResourceList{}
-	resourceList[apiv1.ResourceCPU] = resource.MustParse(q.Cpu)
-	resourceList[apiv1.ResourceMemory] = resource.MustParse(q.Mem)
-	for k, v := range q.ScalarResources {
+	resourceList[apiv1.ResourceCPU] = resource.MustParse(q.MaxResources.Cpu)
+	resourceList[apiv1.ResourceMemory] = resource.MustParse(q.MaxResources.Mem)
+	for k, v := range q.MaxResources.ScalarResources {
 		resourceList[apiv1.ResourceName(k)] = resource.MustParse(v)
 	}
 	log.Debugf("CreateQueue resourceList[%v]", resourceList)
@@ -213,8 +224,22 @@ func (kr *KubeRuntime) CreateQueue(q *models.Queue) error {
 	return nil
 }
 
+func (kr *KubeRuntime) createElasticResourceQuota(q *models.Queue) error {
+	return nil
+}
+
 func (kr *KubeRuntime) DeleteQueue(q *models.Queue) error {
-	err := executor.Delete("", q.Name, k8s.VCQueueGVK, kr.dynamicClientOpt)
+	gvk := k8s.VCQueueGVK
+	switch q.Type {
+	case schema.TypeQueueSimple:
+		gvk = k8s.VCQueueGVK
+	case schema.TypeQueueElastic:
+		gvk = k8s.EQuotaGVK
+	default:
+		return fmt.Errorf("queue type %s is not supported", q.Type)
+	}
+
+	err := executor.Delete("", q.Name, gvk, kr.dynamicClientOpt)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		log.Errorf("DeleteQueue error. queueName:[%s], error:[%s]", q.Name, err.Error())
 		return err
@@ -223,10 +248,10 @@ func (kr *KubeRuntime) DeleteQueue(q *models.Queue) error {
 }
 
 func (kr *KubeRuntime) CloseQueue(q *models.Queue) error {
-	return kr.executeQueueAction(q, busv1alpha1.CloseQueueAction)
+	return kr.executeVCQueueAction(q, busv1alpha1.CloseQueueAction)
 }
 
-func (kr *KubeRuntime) executeQueueAction(q *models.Queue, action busv1alpha1.Action) error {
+func (kr *KubeRuntime) executeVCQueueAction(q *models.Queue, action busv1alpha1.Action) error {
 	obj, err := executor.Get("", q.Name, k8s.VCQueueGVK, kr.dynamicClientOpt)
 	if err != nil {
 		log.Errorf("execute queue action get queue failed. queueName:[%s]", q.Name)

@@ -35,12 +35,13 @@ import (
 const defaultQueueName = "default"
 
 type CreateQueueRequest struct {
-	Name            string                     `json:"name"`
-	Namespace       string                     `json:"namespace"`
-	ClusterName     string                     `json:"clusterName"`
-	Cpu             string                     `json:"cpu"`
-	Mem             string                     `json:"mem"`
-	ScalarResources schema.ScalarResourcesType `json:"scalarResources,omitempty"`
+	Name         string              `json:"name"`
+	Namespace    string              `json:"namespace"`
+	ClusterName  string              `json:"clusterName"`
+	Type         string              `json:"type"`
+	MaxResources schema.ResourceInfo `json:"maxResources"`
+	MinResources schema.ResourceInfo `json:"minResources"`
+	Affinity     map[string]string   `json:"affinity"`
 	// 任务调度策略
 	SchedulingPolicy []string `json:"schedulingPolicy,omitempty"`
 	Status           string   `json:"status"`
@@ -177,24 +178,33 @@ func CreateQueue(ctx *logger.RequestContext, request *CreateQueueRequest) (Creat
 
 	exist := strings.EqualFold(request.Name, defaultQueueName) || models.IsQueueExist(ctx, request.Name)
 	if exist {
-		ctx.Logging().Errorf("GlobalVCQueue create request failed. queueName[%s] exist.", request.Name)
+		ctx.Logging().Errorf("create queue failed. queueName[%s] exist.", request.Name)
 		ctx.ErrorCode = common.QueueNameDuplicated
 		return CreateQueueResponse{}, errors.New("request name duplicated")
 	}
 
-	// check request resource
-	resourceInfo := schema.ResourceInfo{
-		Cpu:             request.Cpu,
-		Mem:             request.Mem,
-		ScalarResources: make(schema.ScalarResourcesType),
+	// check queue type
+	if request.Type != schema.TypeQueueElastic && request.Type != schema.TypeQueueSimple {
+		ctx.Logging().Errorf("create queue failed. the type %s of queue is not supported.", request.Type)
+		ctx.ErrorCode = common.QueueTypeIsNotSupported
+		return CreateQueueResponse{}, errors.New("queue type is not supported")
 	}
-	for k, v := range request.ScalarResources {
-		resourceInfo.ScalarResources[k] = v
-	}
-	if err := schema.ValidateResourceInfo(resourceInfo, config.GlobalServerConfig.Job.ScalarResourceArray); err != nil {
-		ctx.Logging().Errorf("create request failed. error: %s", err.Error())
+
+	// check request max resources and min resources
+	if err = schema.ValidateResourceInfo(request.MaxResources, config.GlobalServerConfig.Job.ScalarResourceArray); err != nil {
+		ctx.Logging().Errorf("create queue failed. error: %s", err.Error())
+		ctx.ErrorCode = common.InvalidScaleResource
 		return CreateQueueResponse{}, err
 	}
+	if request.Type == schema.TypeQueueElastic {
+		// check min resources for elastic queue
+		if err = schema.ValidateResourceInfo(request.MinResources, config.GlobalServerConfig.Job.ScalarResourceArray); err != nil {
+			ctx.Logging().Errorf("create queue failed. error: %s", err.Error())
+			ctx.ErrorCode = common.InvalidScaleResource
+			return CreateQueueResponse{}, err
+		}
+	}
+
 	request.Status = schema.StatusQueueCreating
 	queueInfo := models.Queue{
 		Model: models.Model{
@@ -202,10 +212,11 @@ func CreateQueue(ctx *logger.RequestContext, request *CreateQueueRequest) (Creat
 		},
 		Name:             request.Name,
 		Namespace:        request.Namespace,
+		Type:             request.Type,
 		ClusterId:        clusterInfo.ID,
-		Cpu:              request.Cpu,
-		Mem:              request.Mem,
-		ScalarResources:  request.ScalarResources,
+		MaxResources:     request.MaxResources,
+		MinResources:     request.MinResources,
+		Affinity:         request.Affinity,
 		SchedulingPolicy: request.SchedulingPolicy,
 		Status:           schema.StatusQueueCreating,
 	}
@@ -272,7 +283,7 @@ func GetQueueByName(ctx *logger.RequestContext, queueName string) (GetQueueRespo
 	}
 
 	getQueueResponse := GetQueueResponse{
-		Queue:       queue,
+		Queue: queue,
 	}
 
 	return getQueueResponse, nil

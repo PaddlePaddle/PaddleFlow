@@ -38,14 +38,14 @@ import (
 )
 
 const (
-	MockRootUser = "root"
+	MockRootUser    = "root"
 	MockClusterName = "testCn"
-	MockNamespace  = "paddle"
-	MockQueueName = "mock-q-001"
+	MockNamespace   = "paddle"
+	MockQueueName   = "mock-q-001"
 )
 
 var clusterInfo = models.ClusterInfo{
-	Name:         MockClusterName,
+	Name:          MockClusterName,
 	Description:   "Description",
 	Endpoint:      "Endpoint",
 	Source:        "Source",
@@ -73,17 +73,19 @@ func TestCreateQueue(t *testing.T) {
 	})
 	defer p2.Reset()
 
-
 	var p3 = gomonkey.ApplyFunc(executor.Create, func(resource interface{}, gvk kschema.GroupVersionKind, clientOpt *k8s.DynamicClientOption) error {
 		return nil
 	})
 	defer p3.Reset()
 
 	createQueueReq := CreateQueueRequest{
-		Name:             "mockQueueName",
-		Namespace:        MockNamespace,
-		Cpu:              "1",
-		Mem:              "1G",
+		Name:      "mockQueueName",
+		Namespace: MockNamespace,
+		Type:      schema.TypeQueueSimple,
+		MaxResources: schema.ResourceInfo{
+			Cpu: "1",
+			Mem: "1G",
+		},
 		SchedulingPolicy: []string{"s1", "s2"},
 		ClusterName:      MockClusterName,
 	}
@@ -160,7 +162,7 @@ func TestMarshalJSONForTime(t *testing.T) {
 	ctx := &logger.RequestContext{UserName: MockRootUser}
 	db_fake.InitFakeDB()
 	queue := models.Queue{
-		Name:             "mockQueueName",
+		Name: "mockQueueName",
 	}
 	err := models.CreateQueue(ctx, &queue)
 	if err != nil {

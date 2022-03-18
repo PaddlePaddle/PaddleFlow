@@ -62,6 +62,7 @@ const (
 	QueueActionIsNotSupported = "QueueActionIsNotSupported"
 	QueueNameNotFound         = "QueueNameNotFound"
 	QueueResourceNotMatch     = "QueueResourceNotMatch"
+	QueueTypeIsNotSupported   = "QueueTypeIsNotSupported"
 	QueueIsNotClosed          = "QueueIsNotClosed"
 	QueueIsInUse              = "QueueIsInUse"
 
@@ -148,6 +149,7 @@ var errorHTTPStatus = map[string]int{
 
 	QueueNameDuplicated:       http.StatusForbidden,
 	QueueActionIsNotSupported: http.StatusBadRequest,
+	QueueTypeIsNotSupported:   http.StatusBadRequest,
 	QueueNameNotFound:         http.StatusBadRequest,
 	QueueResourceNotMatch:     http.StatusBadRequest,
 	QueueIsNotClosed:          http.StatusBadRequest,
@@ -233,6 +235,7 @@ var errorMessage = map[string]string{
 
 	QueueNameDuplicated:       "The queue name already exists",
 	QueueActionIsNotSupported: "Queue action not supported",
+	QueueTypeIsNotSupported:   "Queue type not supported",
 	QueueNameNotFound:         "QueueName does not exist",
 	QueueResourceNotMatch:     "Queue resource is not match",
 	QueueIsNotClosed:          "Queue should be closed before delete",
