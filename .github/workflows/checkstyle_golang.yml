@@ -1,4 +1,4 @@
-name:CheckGoCodeStyle
+name: CheckGoCodeStyle
 on: [push, pull_request]
 jobs:
   checkstyle:
