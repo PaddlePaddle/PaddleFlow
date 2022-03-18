@@ -32,9 +32,11 @@ import (
 )
 
 const (
-	AttrKey        = "A"
-	EntryKey       = "P"
-	attrCacheSize  = 97
+	AttrKey  = "A"
+	EntryKey = "P"
+	// attrCacheSize struct size
+	attrCacheSize = 97
+	// entryCacheSize struct size
 	entryCacheSize = 21
 	entryDone      = 1
 )
@@ -160,11 +162,11 @@ func (m *kvMeta) putEntry(parentPath string, entry entryCacheItem, expire int64)
 	entry.expire = expire
 	value := m.marshalEntry(&entry)
 	entryPath := m.InoToPath(entry.ino)
-	x := m.entryKey(parentPath, entryPath)
-	err := m.client.set(x, value)
+	entryKey := m.entryKey(parentPath, entryPath)
+	err := m.client.set(entryKey, value)
 
 	if err != nil {
-		m.client.dels(m.entryKey(parentPath, entryPath))
+		m.client.dels(entryKey)
 		log.Errorf("putEntry cache err %v", err)
 		return
 	}
