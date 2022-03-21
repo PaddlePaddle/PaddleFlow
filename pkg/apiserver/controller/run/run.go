@@ -494,6 +494,13 @@ func resumeActiveRuns() error {
 }
 
 func resumeRun(run models.Run) error {
+	if run.RunCacheIDs != "" {
+		// Since Run not succeed can also be cached and the action RetryRun will update Run in DB,
+		// Run cached should not retry.
+		err := fmt.Errorf("can not retry run cached.")
+		logger.LoggerForRun(run.ID).Errorf(err.Error())
+		return err
+	}
 	wfs := schema.WorkflowSource{}
 	if err := yaml.Unmarshal([]byte(run.RunYaml), &wfs); err != nil {
 		logger.LoggerForRun(run.ID).Errorf("Unmarshal runYaml failed. err:%v\n", err)
