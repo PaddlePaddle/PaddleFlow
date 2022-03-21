@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 
-	"gopkg.in/yaml.v2"
 	"gorm.io/gorm"
 
 	"paddleflow/pkg/apiserver/common"
@@ -142,13 +141,13 @@ func buildWorkflowSource(ctx *logger.RequestContext, req CreateRunRequest, fsID 
 
 func runYamlAndReqToWfs(ctx *logger.RequestContext, runYaml string, req CreateRunRequest) (schema.WorkflowSource, error) {
 	// parse yaml -> WorkflowSource
-	wfs := schema.WorkflowSource{}
-	if err := yaml.Unmarshal([]byte(runYaml), &wfs); err != nil {
+	wfs, err := schema.ParseWorkflowSource([]byte(runYaml))
+	if err != nil {
 		ctx.ErrorCode = common.MalformedYaml
-		ctx.Logging().Errorf("Unmarshal runYaml failed. yaml: %s \n, err:%v", runYaml, err)
+		ctx.Logging().Errorf("get WorkflowSource by yaml failed. yaml: %s \n, err:%v", runYaml, err)
 		return schema.WorkflowSource{}, err
 	}
-	wfs.ValidateArtifacts()
+
 	// replace name & dockerEnv by request
 	if req.Name != "" {
 		wfs.Name = req.Name
@@ -363,6 +362,7 @@ func RetryRun(ctx *logger.RequestContext, runID string) error {
 		return err
 	}
 	// check user access right
+
 	if !common.IsRootUser(ctx.UserName) && ctx.UserName != run.UserName {
 		ctx.ErrorCode = common.AccessDenied
 		ctx.Logging().Errorf("non-admin user[%s] has no access to retry run[%s]\n", ctx.UserName, runID)
@@ -495,18 +495,20 @@ func resumeActiveRuns() error {
 
 func resumeRun(run models.Run) error {
 	if run.RunCacheIDs != "" {
-		// Since Run not succeed can also be cached and the action RetryRun will update Run in DB,
-		// Run cached should not retry.
+		// 由于非成功完成的Run也会被Cache，且重跑会直接对原始的Run记录进行修改，
+		// 因此被Cache的Run不能重跑
+		// TODO: 考虑将重跑逻辑又“直接修改Run记录”改为“根据该Run的设置，重新发起Run”
 		err := fmt.Errorf("can not retry run cached.")
 		logger.LoggerForRun(run.ID).Errorf(err.Error())
 		return err
 	}
-	wfs := schema.WorkflowSource{}
-	if err := yaml.Unmarshal([]byte(run.RunYaml), &wfs); err != nil {
-		logger.LoggerForRun(run.ID).Errorf("Unmarshal runYaml failed. err:%v\n", err)
+
+	wfs, err := schema.ParseWorkflowSource([]byte(run.RunYaml))
+	if err != nil {
+		logger.LoggerForRun(run.ID).Errorf("get WorkflowSource by yaml failed. yaml: %s \n, err:%v", run.RunYaml, err)
 		return err
 	}
-	wfs.ValidateArtifacts()
+
 	if run.ImageUrl != "" {
 		wfs.DockerEnv = run.ImageUrl
 	}

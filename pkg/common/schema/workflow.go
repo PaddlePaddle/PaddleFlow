@@ -18,7 +18,12 @@ package schema
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
+
+	"gopkg.in/yaml.v2"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 )
 
 const (
@@ -49,10 +54,11 @@ type WorkflowSourceStep struct {
 	Artifacts  Artifacts              `yaml:"artifacts"`
 	Env        map[string]string      `yaml:"env"`
 	Image      string                 `yaml:"image"` // 这个字段暂时不对用户暴露
+	Cache      Cache                  `yaml:"cache"`
 }
 
 func (s *WorkflowSourceStep) GetDeps() []string {
-    // 获取依赖节点列表。添加前删除每个步骤名称前后的空格，只有空格的步骤名直接略过不添加
+	// 获取依赖节点列表。添加前删除每个步骤名称前后的空格，只有空格的步骤名直接略过不添加
 	deps := make([]string, 0)
 	for _, dep := range strings.Split(s.Deps, ",") {
 		dryDep := strings.TrimSpace(dep)
@@ -86,7 +92,7 @@ type WorkflowSource struct {
 // RETURNS:
 //   nil: 正常执行则返回nil
 //   error: 执行异常则返回错误信息
-func (wfs *WorkflowSource) ValidateArtifacts() error {
+func (wfs *WorkflowSource) validateArtifacts() error {
 	if wfs.EntryPoints == nil {
 		wfs.EntryPoints = make(map[string]*WorkflowSourceStep)
 	}
@@ -98,4 +104,66 @@ func (wfs *WorkflowSource) ValidateArtifacts() error {
 		wfs.EntryPoints[stepName] = step
 	}
 	return nil
+}
+
+// 将yaml解析为map
+func runYaml2Map(runYaml []byte) (map[string]interface{}, error) {
+	// Unstructured没有解析Yaml的方法，且无法使用官方yaml库Unmarshal后的结果，因此需要先转成Json
+	jsonByte, err := k8syaml.ToJSON(runYaml)
+	if err != nil {
+		return nil, err
+	}
+	// 将Json转化成Map
+	yamlUnstructured := unstructured.Unstructured{}
+	yamlUnstructured.UnmarshalJSON(jsonByte)
+
+	yamlMap := yamlUnstructured.UnstructuredContent()
+	return yamlMap, nil
+}
+
+func (wfs *WorkflowSource) validateStepCacheByMap(yamlMap map[string]interface{}) error {
+	for name, point := range wfs.EntryPoints {
+		// 先将全局的Cache设置赋值给该节点的Cache，下面再根据Map进行替换
+		point.Cache = wfs.Cache
+
+		// 检查用户是否有设置节点级别的Cache
+		cache, ok, err := unstructured.NestedFieldCopy(yamlMap, "entry_points", name, "cache")
+		if err != nil {
+			return err
+		}
+		if ok {
+			cacheMap := cache.(map[string]interface{})
+			// 给Cache的每个字段赋值，覆盖掉全局的Cache设置
+			for i := 0; i < reflect.TypeOf(point.Cache).NumField(); i++ {
+				attrName := reflect.TypeOf(point.Cache).Field(i).Tag.Get("yaml")
+				if attrValue, ok := cacheMap[attrName]; ok {
+					reflect.ValueOf(&point.Cache).Elem().Field(i).Set(reflect.ValueOf(attrValue))
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func ParseWorkflowSource(runYaml []byte) (WorkflowSource, error) {
+	var wfs WorkflowSource
+	if err := yaml.Unmarshal(runYaml, &wfs); err != nil {
+		return WorkflowSource{}, err
+	}
+	// 将List格式的OutputArtifact，转换为Map格式
+	if err := wfs.validateArtifacts(); err != nil {
+		return WorkflowSource{}, err
+	}
+
+	// 为了判断用户是否设定节点级别的Cache，需要第二次Unmarshal
+	yamlMap, err := runYaml2Map([]byte(runYaml))
+	if err != nil {
+		return WorkflowSource{}, err
+	}
+
+	// 检查节点级别的Cache设置，根据需要用Run级别的Cache进行覆盖
+	if err := wfs.validateStepCacheByMap(yamlMap); err != nil {
+		return WorkflowSource{}, err
+	}
+	return wfs, nil
 }
