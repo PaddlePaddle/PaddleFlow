@@ -31,7 +31,7 @@ type Writer interface {
 }
 
 type Store interface {
-	NewReader(name string, length int, flags uint32, ufs ufs.UnderFileStorage) Reader
+	NewReader(name string, length int, flags uint32, ufs ufs.UnderFileStorage, buffers ReadBufferMap, readAMount uint64) Reader
 	NewWriter(name string, length int, ufsFh ufs.FileHandle) Writer
 	InvalidateCache(name string, length int) error
 }

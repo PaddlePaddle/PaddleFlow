@@ -21,13 +21,11 @@ import (
 	"io"
 	"path"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
-	"golang.org/x/sync/errgroup"
 
 	"paddleflow/pkg/fs/client/ufs"
 	"paddleflow/pkg/fs/client/utils"
@@ -35,7 +33,7 @@ import (
 )
 
 const (
-	maxReadAheadNum = 16
+	maxReadAheadSize = 200 * 1024 * 1024
 )
 
 var (
@@ -123,17 +121,21 @@ type store struct {
 }
 
 type Config struct {
-	Mem       *MemConfig
-	Disk      *DiskConfig
-	BlockSize int
+	Mem          *MemConfig
+	Disk         *DiskConfig
+	BlockSize    int
+	MaxReadAhead int
 }
 
 type rCache struct {
-	id     string
-	flags  uint32
-	length int
-	store  *store
-	ufs    ufs.UnderFileStorage
+	id         string
+	flags      uint32
+	length     int
+	store      *store
+	ufs        ufs.UnderFileStorage
+	buffers    ReadBufferMap
+	lock       sync.RWMutex
+	readAMount uint64
 }
 
 func NewCacheStore(config *Config) Store {
@@ -169,8 +171,8 @@ func registerMetrics() {
 	prometheus.Register(cacheWriteHist)
 }
 
-func (store *store) NewReader(name string, length int, flags uint32, ufs ufs.UnderFileStorage) Reader {
-	return &rCache{id: path.Clean(name), length: length, store: store, flags: flags, ufs: ufs}
+func (store *store) NewReader(name string, length int, flags uint32, ufs ufs.UnderFileStorage, buffers ReadBufferMap, readAMount uint64) Reader {
+	return &rCache{id: path.Clean(name), length: length, store: store, flags: flags, ufs: ufs, buffers: buffers, readAMount: readAMount}
 }
 
 func (store *store) NewWriter(name string, length int, fh ufs.FileHandle) Writer {
@@ -212,22 +214,64 @@ func (store *store) key(keyID string, index int) string {
 	return path.Clean(fmt.Sprintf("blocks/%d/%v_%v", hash%256, keyID, index))
 }
 
-func (r *rCache) ReadAt(buf []byte, off int64) (int, error) {
-	log.Debugf("rCache read len byte %d off %d", len(buf), off)
-	if len(buf) == 0 {
+func (r *rCache) readFromReadAhead(off int64, buf []byte) (bytesRead int, err error) {
+	blockOff := r.off(int(off))
+	index := r.index(int(off))
+	blockSize := r.store.conf.BlockSize
+
+	var nread int
+	var indexOff uint64
+	for bytesRead < len(buf) {
+		indexOff = uint64(index * blockSize)
+		if int(indexOff) >= r.length {
+			return
+		}
+		r.lock.RLock()
+		readAheadBuf, ok := r.buffers[indexOff]
+		r.lock.RUnlock()
+		if !ok {
+			return
+		}
+		if blockOff != 0 {
+			nread, err = readAheadBuf.Read(uint64(blockOff), buf[bytesRead:])
+			blockOff = 0
+		} else {
+			nread, err = readAheadBuf.Read(uint64(blockOff), buf[bytesRead:])
+		}
+		if readAheadBuf.size == 0 {
+			r.lock.Lock()
+			delete(r.buffers, indexOff)
+			r.lock.Unlock()
+		}
+		bytesRead += nread
+		if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
+			break
+		}
+		if nread == 0 {
+			break
+		}
+		index += 1
+	}
+	return bytesRead, nil
+}
+
+func (r *rCache) ReadAt(buf []byte, off int64) (n int, err error) {
+	log.Debugf("rCache read len byte %d off %d length %v", len(buf), off, r.length)
+	if len(buf) == 0 || int(off) >= r.length {
 		return 0, nil
 	}
 	var index int
 	var key string
+	var uoff uint64
+	var readAhead int
 
 	index = r.index(int(off))
 	key = r.key(index)
 	blockOff := r.off(int(off))
 	blockSize := r.store.conf.BlockSize
-	bufSize := len(buf)
 	start := time.Now()
-	nReadFromCache, ok := r.readCache(buf, key, blockOff)
-	if ok {
+	nReadFromCache, hitCache := r.readCache(buf, key, blockOff)
+	if hitCache {
 		// metrics
 		log.Debugf("metrics cacheHits++:%d", nReadFromCache)
 		cacheHits.Inc()
@@ -236,68 +280,40 @@ func (r *rCache) ReadAt(buf []byte, off int64) (int, error) {
 		return nReadFromCache, nil
 	}
 
-	readAheadNum := (r.length-1)/blockSize + 1
-	readAheadNum = utils.Min(maxReadAheadNum, readAheadNum-index)
-
-	nread := int64(0)
-	group := new(errgroup.Group)
-	for i := 0; i < readAheadNum; i++ {
-		readAhead := i
-		group.Go(func() error {
-			uoff := (index + readAhead) * blockSize
-			reader, err := r.ufs.Get(r.id, r.flags, int64(uoff), int64(utils.Min(blockSize, r.length-uoff)))
-			if err != nil {
-				return err
-			}
-			defer reader.Close()
-
-			ufsBuf := make([]byte, blockSize)
-			n, err := io.ReadFull(reader, ufsBuf)
-
-			/*
-				io.ReadFull 断言读，必须读 len(buf) 才视为成功
-				当读取的内容字节数 n == 0 时，err = io.EOF
-				当 0 < n < len(buf) 时，err = io.ErrUnexpectedEOF
-				当 n == len(buf) 时，err = nil
-				兼容两种情况
-			*/
-			if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
-				return err
-			}
-			if n == 0 {
-				return nil
-			}
-			r.setCache(uoff, ufsBuf, n)
-			// 读取的数据为0或者预读的部分大于buf数组的长度，进行过滤
-			if readAhead*blockSize-blockOff >= bufSize {
-				return nil
-			}
-			/**
-			1. ufsBuf是固定一块区域的预读，对于第一块，需要偏移blockOff获取真实数据
-			2. 对于后面的块，每次读的是一整块预读区
-			*/
-			var m int
-			if readAhead == 0 {
-				// 预读区blockOff后的数据才是需要真正读的数据
-				m = copy(buf, ufsBuf[blockOff:n])
-			} else {
-				m = copy(buf[(readAhead*blockSize-blockOff):], ufsBuf[:n])
-			}
-			atomic.AddInt64(&nread, int64(m))
-
-			return nil
-		})
+	readAheadAmount := r.store.conf.MaxReadAhead
+	if readAheadAmount == 0 {
+		readAheadAmount = maxReadAheadSize
 	}
-	if err := group.Wait(); err != nil {
-		log.Errorf("read from ufs err: %v", err)
-		return 0, err
+	existingReadAhead := 0
+	for readAheadAmount-existingReadAhead > 0 {
+		uoff = uint64((index + readAhead) * blockSize)
+		if int(uoff) >= r.length {
+			break
+		}
+		readAhead += 1
+		r.lock.RLock()
+		_, ok := r.buffers[uoff]
+		r.lock.RUnlock()
+		if ok {
+			continue
+		}
+		size := utils.Min(blockSize, r.length-int(uoff))
+		if size == 0 {
+			break
+		}
+		readBuf := &ReadBuffer{
+			r:      r,
+			offset: uoff,
+			size:   uint32(size),
+		}
+		r.lock.Lock()
+		r.buffers[uoff] = readBuf.Init(uoff, uint32(size), r.ufs, r.id, r.flags)
+		existingReadAhead += size
+		r.lock.Unlock()
 	}
-	// metrics
-	log.Debugf("metrics cacheMiss++:%d", nread)
-	cacheMiss.Inc()
-	cacheMissBytes.Add(float64(nread))
 
-	return int(nread), nil
+	n, err = r.readFromReadAhead(off, buf)
+	return
 }
 
 func (r *rCache) index(off int) int {

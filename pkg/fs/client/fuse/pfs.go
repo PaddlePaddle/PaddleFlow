@@ -394,6 +394,7 @@ func (fs *PFS) replyEntry(entry *meta.Entry, out *fuse.EntryOut) {
 	out.NodeId = uint64(entry.Ino)
 	// todo:: Generation这个配置是干啥的，得在看看
 	out.Generation = 1
+
 	out.SetAttrTimeout(time.Duration(config.FuseConf.Fuse.AttrTimeout))
 	// todo:: 增加dirEntry配置，目录和目录项超时分开设置
 	out.SetEntryTimeout(time.Duration(config.FuseConf.Fuse.EntryTimeout))

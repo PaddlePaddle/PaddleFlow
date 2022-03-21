@@ -23,6 +23,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"paddleflow/pkg/fs/client/cache"
 	"paddleflow/pkg/fs/client/meta"
 	"paddleflow/pkg/fs/client/vfs"
 	"paddleflow/pkg/fs/common"
@@ -39,11 +40,13 @@ func newPfsTest() (*FileSystem, error) {
 		SubPath: "./mock",
 	}
 	vfsConfig := vfs.InitConfig(
-		vfs.WithMemorySize(MemCacheSize),
-		vfs.WithMemoryExpire(MemCacheExpire),
-		vfs.WithBlockSize(BlockSize),
-		vfs.WithDiskExpire(DiskCacheExpire),
-		vfs.WithDiskCachePath(DiskCachePath),
+		vfs.WithDataCacheConfig(
+			cache.Config{
+				BlockSize:    0,
+				MaxReadAhead: 0,
+				Mem:          &cache.MemConfig{},
+				Disk:         &cache.DiskConfig{},
+			}),
 		vfs.WithMetaConfig(meta.Config{
 			AttrCacheExpire: 0,
 			Driver:          meta.DefaultName,
@@ -64,8 +67,13 @@ func TestFSClient_readAt_BigOff(t *testing.T) {
 		os.RemoveAll("./mock")
 		os.RemoveAll("./mock-cache")
 	}()
-	SetBlockSize(1)
-	SetMemCache(100, 1*time.Minute)
+	d := cache.Config{
+		BlockSize:    1,
+		MaxReadAhead: 100,
+		Mem:          &cache.MemConfig{CacheSize: 100, Expire: 1 * time.Minute},
+		Disk:         &cache.DiskConfig{},
+	}
+	SetDataCache(d)
 	client, err := newPfsTest()
 	assert.Equal(t, err, nil)
 
@@ -98,6 +106,86 @@ func TestFSClient_readAt_BigOff(t *testing.T) {
 	n, err = reader.ReadAt(buf, 8)
 	assert.Equal(t, 0, n)
 	reader.Close()
+}
+
+func TestFS_read_readAt(t *testing.T) {
+	d := cache.Config{
+		BlockSize:    1,
+		MaxReadAhead: 10,
+		Mem:          &cache.MemConfig{CacheSize: 0, Expire: 0},
+		Disk:         &cache.DiskConfig{Dir: "./mock-cache", Expire: 10 * time.Second},
+	}
+	SetDataCache(d)
+
+	// new client
+	client, err := newPfsTest()
+	assert.Equal(t, err, nil)
+
+	// 创建文件
+	path := "test1"
+	flags := os.O_RDWR | os.O_CREATE | os.O_TRUNC
+	mode := 0644
+	writer, err := client.Create(path, uint32(flags), uint32(mode))
+	assert.Equal(t, nil, err)
+	writeNum := 5500
+	n, err := writer.Write([]byte(getRandomString(writeNum)))
+	assert.Equal(t, nil, err)
+	assert.Equal(t, writeNum, n)
+	err = writer.Close()
+	assert.Equal(t, nil, err)
+
+	path = "test"
+	writer, err = client.Create(path, uint32(flags), uint32(mode))
+	assert.Equal(t, nil, err)
+
+	writeString := "123456789abcdefghijklmn123456789abcedfegijklmn111222333444555666777"
+	_, err = writer.Write([]byte(writeString))
+	assert.Equal(t, err, nil)
+	var reader *File
+	var buf []byte
+
+	n = 10
+	reader, err = client.Open(path)
+	assert.Equal(t, err, nil)
+	buf = make([]byte, n)
+	n, err = reader.Read(buf)
+	assert.Equal(t, len(buf), n)
+	assert.Equal(t, string(buf), "123456789a")
+
+	n2 := 2
+	buf = make([]byte, n2)
+	n, err = reader.ReadAt(buf, 3)
+	assert.Equal(t, n2, n)
+	assert.Equal(t, "45", string(buf))
+
+	n3 := 10
+	buf = make([]byte, n3)
+	n, err = reader.Read(buf)
+	assert.Equal(t, n3, n)
+	assert.Equal(t, "bcdefghijk", string(buf))
+
+	reader.Close()
+
+	// next read cache
+	n = 10
+	reader, err = client.Open(path)
+	assert.Equal(t, err, nil)
+	buf = make([]byte, n)
+	n, err = reader.Read(buf)
+	assert.Equal(t, len(buf), n)
+	assert.Equal(t, string(buf), "123456789a")
+
+	n2 = 2
+	buf = make([]byte, n2)
+	n, err = reader.ReadAt(buf, 3)
+	assert.Equal(t, n2, n)
+	assert.Equal(t, "45", string(buf))
+
+	n3 = 10
+	buf = make([]byte, n3)
+	n, err = reader.Read(buf)
+	assert.Equal(t, n3, n)
+	assert.Equal(t, "bcdefghijk", string(buf))
 }
 
 func TestFSClient_readAt(t *testing.T) {
@@ -152,7 +240,13 @@ func TestFSClient_readAtwithsmallBlock_2(t *testing.T) {
 	os.RemoveAll("./mock")
 	os.RemoveAll("./mock-cache")
 
-	SetBlockSize(3)
+	d := cache.Config{
+		BlockSize:    3,
+		MaxReadAhead: 100,
+		Mem:          &cache.MemConfig{CacheSize: 100, Expire: 1 * time.Minute},
+		Disk:         &cache.DiskConfig{},
+	}
+	SetDataCache(d)
 	client, err := newPfsTest()
 	assert.Equal(t, err, nil)
 
@@ -212,8 +306,13 @@ func TestFSClient_readAtwithsmallBlock_1(t *testing.T) {
 	os.RemoveAll("./mock")
 	os.RemoveAll("./mock-cache")
 
-	SetBlockSize(1)
-	SetDiskCache("./mock-cache", 10)
+	d := cache.Config{
+		BlockSize:    1,
+		MaxReadAhead: 100,
+		Mem:          &cache.MemConfig{CacheSize: 0, Expire: 0},
+		Disk:         &cache.DiskConfig{Dir: "./mock-cache", Expire: 10 * time.Second},
+	}
+	SetDataCache(d)
 
 	// new client
 	client, err := newPfsTest()
