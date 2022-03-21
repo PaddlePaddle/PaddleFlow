@@ -58,12 +58,13 @@ const (
 	UserNotExist       = "UserNotExist"
 	UserPasswordWeak   = "UserPasswordWeak"
 
-	QueueNameDuplicated       = "QueueNameDuplicated"
-	QueueActionIsNotSupported = "QueueActionIsNotSupported"
-	QueueNameNotFound         = "QueueNameNotFound"
-	QueueResourceNotMatch     = "QueueResourceNotMatch"
-	QueueIsNotClosed          = "QueueIsNotClosed"
-	QueueIsInUse              = "QueueIsInUse"
+	QueueNameDuplicated          = "QueueNameDuplicated"
+	QueueActionIsNotSupported    = "QueueActionIsNotSupported"
+	QueueNameNotFound            = "QueueNameNotFound"
+	QueueResourceNotMatch        = "QueueResourceNotMatch"
+	QueueQuotaTypeIsNotSupported = "QueueQuotaTypeIsNotSupported"
+	QueueIsNotClosed             = "QueueIsNotClosed"
+	QueueIsInUse                 = "QueueIsInUse"
 
 	GrantResourceTypeNotFound = "GrantResourceTypeNotFound"
 	GrantNotFound             = "GrantNotFound"
@@ -146,12 +147,13 @@ var errorHTTPStatus = map[string]int{
 	AuthFailed:       http.StatusBadRequest,
 	AuthIllegalUser:  http.StatusBadRequest,
 
-	QueueNameDuplicated:       http.StatusForbidden,
-	QueueActionIsNotSupported: http.StatusBadRequest,
-	QueueNameNotFound:         http.StatusBadRequest,
-	QueueResourceNotMatch:     http.StatusBadRequest,
-	QueueIsNotClosed:          http.StatusBadRequest,
-	QueueIsInUse:              http.StatusBadRequest,
+	QueueNameDuplicated:          http.StatusForbidden,
+	QueueActionIsNotSupported:    http.StatusBadRequest,
+	QueueQuotaTypeIsNotSupported: http.StatusBadRequest,
+	QueueNameNotFound:            http.StatusBadRequest,
+	QueueResourceNotMatch:        http.StatusBadRequest,
+	QueueIsNotClosed:             http.StatusBadRequest,
+	QueueIsInUse:                 http.StatusBadRequest,
 
 	RunNameDuplicated:     http.StatusBadRequest,
 	RunNotFound:           http.StatusNotFound,
@@ -231,11 +233,12 @@ var errorMessage = map[string]string{
 	AuthFailed:       "Username or password not correct",
 	AuthIllegalUser:  "The user does not have permission to operate other users",
 
-	QueueNameDuplicated:       "The queue name already exists",
-	QueueActionIsNotSupported: "Queue action not supported",
-	QueueNameNotFound:         "QueueName does not exist",
-	QueueResourceNotMatch:     "Queue resource is not match",
-	QueueIsNotClosed:          "Queue should be closed before delete",
+	QueueNameDuplicated:          "The queue name already exists",
+	QueueActionIsNotSupported:    "Queue action not supported",
+	QueueQuotaTypeIsNotSupported: "Queue quota type not supported",
+	QueueNameNotFound:            "QueueName does not exist",
+	QueueResourceNotMatch:        "Queue resource is not match",
+	QueueIsNotClosed:             "Queue should be closed before delete",
 
 	RunNameDuplicated:     "Run name already exists",
 	RunNotFound:           "RunID not found",
