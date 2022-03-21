@@ -198,7 +198,7 @@ func TestKubeRuntimeVCQueue(t *testing.T) {
 		},
 		Name:      "test_queue_name",
 		Namespace: "default",
-		Type:      schema.TypeQueueSimple,
+		QuotaType: schema.TypeVolcanoCapabilityQuota,
 		MaxResources: schema.ResourceInfo{
 			Cpu: "20",
 			Mem: "20Gi",

@@ -34,7 +34,7 @@ import (
 const (
 	queueJoinCluster  = "join `cluster_info` on `cluster_info`.id = queue.cluster_id"
 	queueSelectColumn = `queue.pk as pk, queue.id as id, queue.name as name, queue.namespace as namespace, queue.cluster_id as cluster_id,
-cluster_info.name as cluster_name, queue.type as type, queue.max_resources as max_resources, queue.min_resources as min_resources, queue.affinity as affinity,
+cluster_info.name as cluster_name, queue.type as type, queue.max_resources as max_resources, queue.min_resources as min_resources, queue.location as location,
 queue.status as status, queue.created_at as created_at, queue.updated_at as updated_at, queue.deleted_at as deleted_at`
 )
 
@@ -45,13 +45,13 @@ type Queue struct {
 	Namespace       string              `json:"namespace" gorm:"column:"`
 	ClusterId       string              `json:"-" gorm:"column:cluster_id"`
 	ClusterName     string              `json:"clusterName" gorm:"column:cluster_name;->"`
-	Type            string              `json:"type"`
+	QuotaType       string              `json:"quotaType"`
 	RawMinResources string              `json:"-" gorm:"column:min_resources;type:text;default:'{}'"`
 	MinResources    schema.ResourceInfo `json:"minResources" gorm:"-"`
 	RawMaxResources string              `json:"-" gorm:"column:max_resources;type:text;default:'{}'"`
 	MaxResources    schema.ResourceInfo `json:"maxResources" gorm:"-"`
-	RawAffinity     string              `json:"-" gorm:"column:affinity;type:text;default:'{}'"`
-	Affinity        map[string]string   `json:"affinity" gorm:"-"`
+	RawLocation     string              `json:"-" gorm:"column:location;type:text;default:'{}'"`
+	Location        map[string]string   `json:"location" gorm:"-"`
 	// 任务调度策略
 	RawSchedulingPolicy string         `json:"-" gorm:"column:scheduling_policy"`
 	SchedulingPolicy    []string       `json:"schedulingPolicy,omitempty" gorm:"-"`
@@ -97,10 +97,10 @@ func (queue *Queue) AfterFind(*gorm.DB) error {
 		}
 	}
 
-	if queue.RawAffinity != "" {
-		queue.Affinity = make(map[string]string)
-		if err := json.Unmarshal([]byte(queue.RawAffinity), &queue.Affinity); err != nil {
-			log.Errorf("json Unmarshal Affinity[%s] failed: %v", queue.RawAffinity, err)
+	if queue.RawLocation != "" {
+		queue.Location = make(map[string]string)
+		if err := json.Unmarshal([]byte(queue.RawLocation), &queue.Location); err != nil {
+			log.Errorf("json Unmarshal Location[%s] failed: %v", queue.RawLocation, err)
 			return err
 		}
 	}
@@ -142,13 +142,13 @@ func (queue *Queue) BeforeSave(*gorm.DB) error {
 	}
 	queue.RawMaxResources = string(maxResourcesJson)
 
-	if len(queue.Affinity) != 0 {
-		affinityJson, err := json.Marshal(queue.Affinity)
+	if len(queue.Location) != 0 {
+		locationJson, err := json.Marshal(queue.Location)
 		if err != nil {
-			log.Errorf("json Marshal Affinity[%s] failed: %v", queue.Affinity, err)
+			log.Errorf("json Marshal Location[%s] failed: %v", queue.Location, err)
 			return err
 		}
-		queue.RawAffinity = string(affinityJson)
+		queue.RawLocation = string(locationJson)
 	}
 
 	if len(queue.SchedulingPolicy) != 0 {

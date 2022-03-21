@@ -185,13 +185,13 @@ func (kr *KubeRuntime) SyncQueue(stopCh <-chan struct{}) {
 }
 
 func (kr *KubeRuntime) CreateQueue(q *models.Queue) error {
-	switch q.Type {
-	case schema.TypeQueueSimple:
+	switch q.QuotaType {
+	case schema.TypeVolcanoCapabilityQuota:
 		return kr.createVCQueue(q)
-	case schema.TypeQueueElastic:
+	case schema.TypeElasticQuota:
 		return kr.createElasticResourceQuota(q)
 	default:
-		return fmt.Errorf("queue type %s is not supported", q.Type)
+		return fmt.Errorf("quota type %s is not supported", q.QuotaType)
 	}
 }
 
@@ -230,13 +230,13 @@ func (kr *KubeRuntime) createElasticResourceQuota(q *models.Queue) error {
 
 func (kr *KubeRuntime) DeleteQueue(q *models.Queue) error {
 	gvk := k8s.VCQueueGVK
-	switch q.Type {
-	case schema.TypeQueueSimple:
+	switch q.QuotaType {
+	case schema.TypeVolcanoCapabilityQuota:
 		gvk = k8s.VCQueueGVK
-	case schema.TypeQueueElastic:
+	case schema.TypeElasticQuota:
 		gvk = k8s.EQuotaGVK
 	default:
-		return fmt.Errorf("queue type %s is not supported", q.Type)
+		return fmt.Errorf("quota type %s is not supported", q.QuotaType)
 	}
 
 	err := executor.Delete("", q.Name, gvk, kr.dynamicClientOpt)

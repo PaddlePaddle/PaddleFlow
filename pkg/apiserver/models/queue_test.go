@@ -32,13 +32,13 @@ import (
 )
 
 var (
-	MockUserName = "user1"
+	MockUserName     = "user1"
 	MockRootUserName = "root"
 )
 
 func InitFakeDB() {
 	db, err := gorm.Open(sqlite.Open("file::memory:"), &gorm.Config{
-		Logger:glogger.Default.LogMode(glogger.Info),
+		Logger: glogger.Default.LogMode(glogger.Info),
 	})
 	if err != nil {
 		log.Fatalf("The fake DB doesn't create successfully. Fail fast. error: %v", err)
@@ -57,7 +57,7 @@ func TestCreateQueue(t *testing.T) {
 	ctx := &logger.RequestContext{UserName: MockUserName}
 
 	cluster1 := ClusterInfo{
-		Name:         "cluster1",
+		Name:          "cluster1",
 		Description:   "Description",
 		Endpoint:      "127.0.0.1:6655",
 		Source:        "Source",
@@ -74,14 +74,14 @@ func TestCreateQueue(t *testing.T) {
 	assert.NotEmpty(t, cluster1.ID)
 
 	queue1 := Queue{
-		Name:             "queue1",
-		Namespace:        "paddleflow",
-		ClusterId:        cluster1.ID,
-		Type: schema.TypeQueueSimple,
+		Name:      "queue1",
+		Namespace: "paddleflow",
+		ClusterId: cluster1.ID,
+		QuotaType: schema.TypeVolcanoCapabilityQuota,
 		MaxResources: schema.ResourceInfo{
-			Cpu:              "10",
-			Mem:              "100G",
-			ScalarResources:  schema.ScalarResourcesType{
+			Cpu: "10",
+			Mem: "100G",
+			ScalarResources: schema.ScalarResourcesType{
 				"nvidia.com/gpu": "500",
 			},
 		},
@@ -90,14 +90,14 @@ func TestCreateQueue(t *testing.T) {
 	}
 
 	queue2 := Queue{
-		Name:             "queue2",
-		Namespace:        "paddleflow",
-		ClusterId:        "cluster1.ID",
-		Type: schema.TypeQueueSimple,
+		Name:      "queue2",
+		Namespace: "paddleflow",
+		ClusterId: "cluster1.ID",
+		QuotaType: schema.TypeVolcanoCapabilityQuota,
 		MaxResources: schema.ResourceInfo{
-			Cpu:              "20",
-			Mem:              "200G",
-			ScalarResources:  schema.ScalarResourcesType{
+			Cpu: "20",
+			Mem: "200G",
+			ScalarResources: schema.ScalarResourcesType{
 				"nvidia.com/gpu": "200",
 			},
 		},

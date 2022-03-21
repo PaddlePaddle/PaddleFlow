@@ -38,10 +38,10 @@ type CreateQueueRequest struct {
 	Name         string              `json:"name"`
 	Namespace    string              `json:"namespace"`
 	ClusterName  string              `json:"clusterName"`
-	Type         string              `json:"type"`
+	QuotaType    string              `json:"quotaType"`
 	MaxResources schema.ResourceInfo `json:"maxResources"`
 	MinResources schema.ResourceInfo `json:"minResources"`
-	Affinity     map[string]string   `json:"affinity"`
+	Location     map[string]string   `json:"location"`
 	// 任务调度策略
 	SchedulingPolicy []string `json:"schedulingPolicy,omitempty"`
 	Status           string   `json:"status"`
@@ -184,8 +184,12 @@ func CreateQueue(ctx *logger.RequestContext, request *CreateQueueRequest) (Creat
 	}
 
 	// check queue type
-	if request.Type != schema.TypeQueueElastic && request.Type != schema.TypeQueueSimple {
-		ctx.Logging().Errorf("create queue failed. the type %s of queue is not supported.", request.Type)
+	if len(request.QuotaType) == 0 {
+		// TODO: get quota type from cluster info
+		request.QuotaType = schema.TypeElasticQuota
+	}
+	if request.QuotaType != schema.TypeElasticQuota && request.QuotaType != schema.TypeVolcanoCapabilityQuota {
+		ctx.Logging().Errorf("create queue failed. the type %s of queue is not supported.", request.QuotaType)
 		ctx.ErrorCode = common.QueueTypeIsNotSupported
 		return CreateQueueResponse{}, errors.New("queue type is not supported")
 	}
@@ -196,7 +200,7 @@ func CreateQueue(ctx *logger.RequestContext, request *CreateQueueRequest) (Creat
 		ctx.ErrorCode = common.InvalidScaleResource
 		return CreateQueueResponse{}, err
 	}
-	if request.Type == schema.TypeQueueElastic {
+	if request.QuotaType == schema.TypeElasticQuota {
 		// check min resources for elastic queue
 		if err = schema.ValidateResourceInfo(request.MinResources, config.GlobalServerConfig.Job.ScalarResourceArray); err != nil {
 			ctx.Logging().Errorf("create queue failed. error: %s", err.Error())
@@ -212,11 +216,11 @@ func CreateQueue(ctx *logger.RequestContext, request *CreateQueueRequest) (Creat
 		},
 		Name:             request.Name,
 		Namespace:        request.Namespace,
-		Type:             request.Type,
+		QuotaType:        request.QuotaType,
 		ClusterId:        clusterInfo.ID,
 		MaxResources:     request.MaxResources,
 		MinResources:     request.MinResources,
-		Affinity:         request.Affinity,
+		Location:         request.Location,
 		SchedulingPolicy: request.SchedulingPolicy,
 		Status:           schema.StatusQueueCreating,
 	}

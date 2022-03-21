@@ -23,6 +23,6 @@ const (
 	StatusQueueClosed      = "closed"
 	StatusQueueUnavailable = "unavailable"
 
-	TypeQueueSimple  = "simple"
-	TypeQueueElastic = "elastic"
+	TypeElasticQuota           = "elasticQuota"
+	TypeVolcanoCapabilityQuota = "volcanoCapabilityQuota"
 )

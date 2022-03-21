@@ -81,7 +81,7 @@ func TestCreateQueue(t *testing.T) {
 	createQueueReq := CreateQueueRequest{
 		Name:      "mockQueueName",
 		Namespace: MockNamespace,
-		Type:      schema.TypeQueueSimple,
+		QuotaType: schema.TypeVolcanoCapabilityQuota,
 		MaxResources: schema.ResourceInfo{
 			Cpu: "1",
 			Mem: "1G",
