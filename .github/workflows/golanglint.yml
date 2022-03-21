@@ -8,6 +8,7 @@ jobs:
       - name: Check out code into the Go module directory
         uses: actions/checkout@v3
       - name: golangci-lint
-        uses: reviewdog/action-golangci-lint@v2
+        uses: reviewdog/action-golangci-lint@v2.1.0
         with:
           golangci_lint_flags: "--enable-all --exclude-use-default=false"
+
