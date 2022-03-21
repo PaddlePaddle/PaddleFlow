@@ -81,6 +81,7 @@ type WorkflowSource struct {
 	DockerEnv   string                         `yaml:"docker_env"`
 	EntryPoints map[string]*WorkflowSourceStep `yaml:"entry_points"`
 	Cache       Cache                          `yaml:"cache"`
+	Disabled    string                         `yaml:"disabled"`
 	Parallelism int                            `yaml:"parallelism"`
 }
 

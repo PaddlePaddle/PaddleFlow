@@ -44,6 +44,7 @@ type CreateRunRequest struct {
 	Entry       string                 `json:"entry,omitempty"`      // optional
 	Parameters  map[string]interface{} `json:"parameters,omitempty"` // optional
 	DockerEnv   string                 `json:"dockerEnv,omitempty"`  // optional
+	Disabled    string                 `json:"disabled,omitempty"`   // optional
 	// run workflow source. priority: RunYamlRaw > PipelineID > RunYamlPath
 	// 为了防止字符串或者不同的http客户端对run.yaml
 	// 格式中的特殊字符串做特殊过滤处理导致yaml文件不正确，因此采用runYamlRaw采用base64编码传输
