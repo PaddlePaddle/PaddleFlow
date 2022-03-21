@@ -3,16 +3,15 @@ package pipeline
 import (
 	"fmt"
 	"io/ioutil"
-	"testing"
 	"reflect"
+	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
 	gomonkey "github.com/agiledragon/gomonkey/v2"
-	"gopkg.in/yaml.v2"
+	"github.com/stretchr/testify/assert"
 
-	"paddleflow/pkg/common/schema"
 	"paddleflow/pkg/apiserver/models"
+	"paddleflow/pkg/common/schema"
 )
 
 func loadcase(casePath string) []byte {
@@ -24,28 +23,12 @@ func loadcase(casePath string) []byte {
 	return data
 }
 
-func parseWorkflowSource(runYaml []byte) (schema.WorkflowSource, error) {
-	// parse yaml -> WorkflowSource
-	wfs := schema.WorkflowSource{}
-	if err := yaml.Unmarshal(runYaml, &wfs); err != nil {
-		errMsg := fmt.Sprintf("Unmarshal runYaml failed. err:%v\n", err)
-		return schema.WorkflowSource{}, fmt.Errorf(errMsg)
-	}
-
-	err := wfs.ValidateArtifacts()
-	if err != nil {
-		errMsg := fmt.Sprintf("Unmarshal runYaml failed. err:%v\n", err)
-		return schema.WorkflowSource{}, fmt.Errorf(errMsg)
-	}
-	return wfs, nil
-}
-
 var runID string = "stepTestRunID"
 
 // 测试updateJob接口（用于计算fingerprint）
 func TestUpdateJobForFingerPrint(t *testing.T) {
 	testCase := loadcase("./testcase/run.step.yaml")
-	wfs, err := parseWorkflowSource([]byte(testCase))
+	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
 	wf, err := NewWorkflow(wfs, runID, "", nil, nil, mockCbs)
@@ -137,7 +120,7 @@ func TestUpdateJobForFingerPrint(t *testing.T) {
 // // 测试updateJob接口（cache命中失败后，替换用于节点运行）
 func TestUpdateJob(t *testing.T) {
 	testCase := loadcase("./testcase/run.step.yaml")
-	wfs, err := parseWorkflowSource([]byte(testCase))
+	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
 	wf, err := NewWorkflow(wfs, "stepTestRunID", "", nil, nil, mockCbs)
@@ -233,7 +216,7 @@ func TestUpdateJob(t *testing.T) {
 // 测试updateJob接口（根据cache命中后的artifact路径）
 func TestUpdateJobWithCache(t *testing.T) {
 	testCase := loadcase("./testcase/run.step.yaml")
-	wfs, err := parseWorkflowSource([]byte(testCase))
+	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
 	wf, err := NewWorkflow(wfs, "stepTestRunID", "", nil, nil, mockCbs)
@@ -260,7 +243,7 @@ func TestUpdateJobWithCache(t *testing.T) {
 			err := st.updateJob(forCacheFingerprint, nil)
 			assert.Nil(t, err)
 		}
-		
+
 		OutatfTrainModel := "./.pipeline/stepTestRunID/myproject/main/train_model"
 		if stepName == "data_preprocess" {
 			assert.Equal(t, 2, len(st.job.Job().Parameters))
@@ -336,12 +319,12 @@ func TestUpdateJobWithCache(t *testing.T) {
 // 测试updateJob接口（用于计算fingerprint）
 func TestCheckCached(t *testing.T) {
 	testCase := loadcase("./testcase/run.step.yaml")
-	wfs, err := parseWorkflowSource([]byte(testCase))
+	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
 	mockCbs.GetJobCb = func(runID string, stepName string) (schema.JobView, error) {
 		outAtfs := map[string]string{
-			"train_data": "way/to/train_data",
+			"train_data":    "way/to/train_data",
 			"validate_data": "way/to/validate_data",
 		}
 		return schema.JobView{Artifacts: schema.Artifacts{Output: outAtfs}}, nil
@@ -379,10 +362,10 @@ func TestCheckCached(t *testing.T) {
 	assert.Equal(t, false, cacheFound)
 
 	// first fingerprint 查询返回非空，但是second fingerprint不一致
-	updateTime := time.Now().Add(time.Second * time.Duration(-1 * 100))
+	updateTime := time.Now().Add(time.Second * time.Duration(-1*100))
 	mockCbs.ListCacheCb = func(firstFp, fsID, step, yamlPath string) ([]models.RunCache, error) {
 		return []models.RunCache{
-			models.RunCache{FirstFp:"1111", SecondFp:"3333", RunID: "run-000027", UpdatedAt: updateTime, ExpiredTime: "-1"},
+			models.RunCache{FirstFp: "1111", SecondFp: "3333", RunID: "run-000027", UpdatedAt: updateTime, ExpiredTime: "-1"},
 		}, nil
 	}
 
@@ -397,10 +380,10 @@ func TestCheckCached(t *testing.T) {
 	assert.Equal(t, false, cacheFound)
 
 	// first fingerprint 查询返回非空，但是cache已经过时
-	updateTime = time.Now().Add(time.Second * time.Duration(-1 * 500))
+	updateTime = time.Now().Add(time.Second * time.Duration(-1*500))
 	mockCbs.ListCacheCb = func(firstFp, fsID, step, yamlPath string) ([]models.RunCache, error) {
 		return []models.RunCache{
-			models.RunCache{FirstFp:"1111", SecondFp:"2222", RunID: "run-000027", UpdatedAt: updateTime, ExpiredTime: "300"},
+			models.RunCache{FirstFp: "1111", SecondFp: "2222", RunID: "run-000027", UpdatedAt: updateTime, ExpiredTime: "300"},
 		}, nil
 	}
 
@@ -415,10 +398,10 @@ func TestCheckCached(t *testing.T) {
 	assert.Equal(t, false, cacheFound)
 
 	// first fingerprint 查询返回非空，且命中expired time为-1的cache记录
-	updateTime = time.Now().Add(time.Second * time.Duration(-1 * 100))
+	updateTime = time.Now().Add(time.Second * time.Duration(-1*100))
 	mockCbs.ListCacheCb = func(firstFp, fsID, step, yamlPath string) ([]models.RunCache, error) {
 		return []models.RunCache{
-			models.RunCache{FirstFp:"1111", SecondFp:"2222", RunID: "run-000027", UpdatedAt: updateTime, ExpiredTime: "-1"},
+			models.RunCache{FirstFp: "1111", SecondFp: "2222", RunID: "run-000027", UpdatedAt: updateTime, ExpiredTime: "-1"},
 		}, nil
 	}
 
@@ -433,10 +416,10 @@ func TestCheckCached(t *testing.T) {
 	assert.Equal(t, true, cacheFound)
 
 	// first fingerprint 查询返回非空，且命中expired time不为-1，但依然有效的cache记录
-	updateTime = time.Now().Add(time.Second * time.Duration(-1 * 100))
+	updateTime = time.Now().Add(time.Second * time.Duration(-1*100))
 	mockCbs.ListCacheCb = func(firstFp, fsID, step, yamlPath string) ([]models.RunCache, error) {
 		return []models.RunCache{
-			models.RunCache{FirstFp:"1111", SecondFp:"2222", RunID: "run-000027", UpdatedAt: updateTime, ExpiredTime: "300"},
+			models.RunCache{FirstFp: "1111", SecondFp: "2222", RunID: "run-000027", UpdatedAt: updateTime, ExpiredTime: "300"},
 		}, nil
 	}
 
