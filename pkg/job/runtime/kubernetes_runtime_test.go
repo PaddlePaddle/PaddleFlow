@@ -83,6 +83,7 @@ var discoveryHandlerFunc = http.HandlerFunc(func(w http.ResponseWriter, req *htt
 			GroupVersion: "scheduling.volcano.sh/v1beta1",
 			APIResources: []metav1.APIResource{
 				{Name: "queues", Namespaced: false, Kind: "Queue"},
+				{Name: "elasticresourcequotas", Namespaced: false, Kind: "ElasticResourceQuota"},
 			},
 		}
 	case "/apis":
@@ -198,8 +199,11 @@ func TestKubeRuntimeVCQueue(t *testing.T) {
 		},
 		Name:      "test_queue_name",
 		Namespace: "default",
-		Cpu:       "20",
-		Mem:       "20Gi",
+		QuotaType: schema.TypeVolcanoCapabilityQuota,
+		MaxResources: schema.ResourceInfo{
+			Cpu: "20",
+			Mem: "20Gi",
+		},
 	}
 	// create vc queue
 	err := kubeRuntime.CreateQueue(q)
@@ -208,6 +212,41 @@ func TestKubeRuntimeVCQueue(t *testing.T) {
 	err = kubeRuntime.CloseQueue(q)
 	assert.Equal(t, nil, err)
 	// delete vc queue
+	err = kubeRuntime.DeleteQueue(q)
+	assert.Equal(t, nil, err)
+}
+
+func TestKubeRuntimeElasticQuota(t *testing.T) {
+	var server = httptest.NewServer(discoveryHandlerFunc)
+	defer server.Close()
+	dynamicClient := newFakeDynamicClient(server)
+	kubeRuntime := &KubeRuntime{
+		dynamicClientOpt: dynamicClient,
+	}
+
+	q := &models.Queue{
+		Model: models.Model{
+			ID: "test_queue_id",
+		},
+		Name:      "test_queue_name",
+		Namespace: "default",
+		QuotaType: schema.TypeElasticQuota,
+		MaxResources: schema.ResourceInfo{
+			Cpu: "20",
+			Mem: "20Gi",
+		},
+		MinResources: schema.ResourceInfo{
+			Cpu: "10",
+			Mem: "10Gi",
+		},
+	}
+	// create elastic quota
+	err := kubeRuntime.CreateQueue(q)
+	assert.Equal(t, nil, err)
+	// close elastic quota
+	err = kubeRuntime.CloseQueue(q)
+	assert.Equal(t, nil, err)
+	// delete elastic quota
 	err = kubeRuntime.DeleteQueue(q)
 	assert.Equal(t, nil, err)
 }

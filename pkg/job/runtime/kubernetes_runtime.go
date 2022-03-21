@@ -27,7 +27,6 @@ import (
 	apiv1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -185,20 +184,26 @@ func (kr *KubeRuntime) SyncQueue(stopCh <-chan struct{}) {
 }
 
 func (kr *KubeRuntime) CreateQueue(q *models.Queue) error {
-	resourceList := apiv1.ResourceList{}
-	resourceList[apiv1.ResourceCPU] = resource.MustParse(q.Cpu)
-	resourceList[apiv1.ResourceMemory] = resource.MustParse(q.Mem)
-	for k, v := range q.ScalarResources {
-		resourceList[apiv1.ResourceName(k)] = resource.MustParse(v)
+	switch q.QuotaType {
+	case schema.TypeVolcanoCapabilityQuota:
+		return kr.createVCQueue(q)
+	case schema.TypeElasticQuota:
+		return kr.createElasticResourceQuota(q)
+	default:
+		return fmt.Errorf("quota type %s is not supported", q.QuotaType)
 	}
-	log.Debugf("CreateQueue resourceList[%v]", resourceList)
+}
+
+func (kr *KubeRuntime) createVCQueue(q *models.Queue) error {
+	capability := k8s.NewKubeResourceList(&q.MaxResources)
+	log.Debugf("CreateQueue resourceList[%v]", capability)
 
 	queue := &schedulingv1beta1.Queue{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: q.Name,
 		},
 		Spec: schedulingv1beta1.QueueSpec{
-			Capability: resourceList,
+			Capability: capability,
 		},
 		Status: schedulingv1beta1.QueueStatus{
 			State: schedulingv1beta1.QueueStateOpen,
@@ -208,13 +213,46 @@ func (kr *KubeRuntime) CreateQueue(q *models.Queue) error {
 	if err := executor.Create(queue, k8s.VCQueueGVK, kr.dynamicClientOpt); err != nil {
 		log.Errorf("CreateQueue error. queueName:[%s], error:[%s]", q.Name, err.Error())
 		return err
+	}
+	return nil
+}
 
+func (kr *KubeRuntime) createElasticResourceQuota(q *models.Queue) error {
+	maxResources := k8s.NewKubeResourceList(&q.MaxResources)
+	minResources := k8s.NewKubeResourceList(&q.MinResources)
+	log.Debugf("Elastic resource quota max resources:%v,  min resources %v", maxResources, minResources)
+
+	equota := &schedulingv1beta1.ElasticResourceQuota{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: q.Name,
+		},
+		Spec: schedulingv1beta1.ElasticResourceQuotaSpec{
+			Max:         maxResources,
+			Min:         minResources,
+			Namespace:   q.Namespace,
+			Reclaimable: true,
+		},
+	}
+	log.Debugf("Create elastic resource quota info:%#v", equota)
+	if err := executor.Create(equota, k8s.EQuotaGVK, kr.dynamicClientOpt); err != nil {
+		log.Errorf("CreateQueue on cluster falied. queueName:[%s], error:[%s]", q.Name, err.Error())
+		return err
 	}
 	return nil
 }
 
 func (kr *KubeRuntime) DeleteQueue(q *models.Queue) error {
-	err := executor.Delete("", q.Name, k8s.VCQueueGVK, kr.dynamicClientOpt)
+	var gvk = k8s.VCQueueGVK
+	switch q.QuotaType {
+	case schema.TypeVolcanoCapabilityQuota:
+		gvk = k8s.VCQueueGVK
+	case schema.TypeElasticQuota:
+		gvk = k8s.EQuotaGVK
+	default:
+		return fmt.Errorf("quota type %s is not supported", q.QuotaType)
+	}
+
+	err := executor.Delete("", q.Name, gvk, kr.dynamicClientOpt)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		log.Errorf("DeleteQueue error. queueName:[%s], error:[%s]", q.Name, err.Error())
 		return err
@@ -223,10 +261,17 @@ func (kr *KubeRuntime) DeleteQueue(q *models.Queue) error {
 }
 
 func (kr *KubeRuntime) CloseQueue(q *models.Queue) error {
-	return kr.executeQueueAction(q, busv1alpha1.CloseQueueAction)
+	switch q.QuotaType {
+	case schema.TypeVolcanoCapabilityQuota:
+		return kr.executeVCQueueAction(q, busv1alpha1.CloseQueueAction)
+	case schema.TypeElasticQuota:
+		return nil
+	default:
+		return fmt.Errorf("quota type %s is not supported", q.QuotaType)
+	}
 }
 
-func (kr *KubeRuntime) executeQueueAction(q *models.Queue, action busv1alpha1.Action) error {
+func (kr *KubeRuntime) executeVCQueueAction(q *models.Queue, action busv1alpha1.Action) error {
 	obj, err := executor.Get("", q.Name, k8s.VCQueueGVK, kr.dynamicClientOpt)
 	if err != nil {
 		log.Errorf("execute queue action get queue failed. queueName:[%s]", q.Name)
