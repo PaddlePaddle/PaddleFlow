@@ -32,13 +32,13 @@ import (
 )
 
 var (
-	MockUserName = "user1"
-	MockRootUserName = "root"
+	mockUserName     = "user1"
+	mockRootUserName = "root"
 )
 
 func InitFakeDB() {
 	db, err := gorm.Open(sqlite.Open("file::memory:"), &gorm.Config{
-		Logger:glogger.Default.LogMode(glogger.Info),
+		Logger: glogger.Default.LogMode(glogger.Info),
 	})
 	if err != nil {
 		log.Fatalf("The fake DB doesn't create successfully. Fail fast. error: %v", err)
@@ -54,10 +54,10 @@ func InitFakeDB() {
 
 func TestCreateQueue(t *testing.T) {
 	InitFakeDB()
-	ctx := &logger.RequestContext{UserName: MockUserName}
+	ctx := &logger.RequestContext{UserName: mockUserName}
 
 	cluster1 := ClusterInfo{
-		Name:         "cluster1",
+		Name:          "cluster1",
 		Description:   "Description",
 		Endpoint:      "127.0.0.1:6655",
 		Source:        "Source",
@@ -74,26 +74,32 @@ func TestCreateQueue(t *testing.T) {
 	assert.NotEmpty(t, cluster1.ID)
 
 	queue1 := Queue{
-		Name:             "queue1",
-		Namespace:        "paddleflow",
-		ClusterId:        cluster1.ID,
-		Cpu:              "10",
-		Mem:              "100G",
-		ScalarResources:  schema.ScalarResourcesType{
-			"nvidia.com/gpu": "500",
+		Name:      "queue1",
+		Namespace: "paddleflow",
+		ClusterId: cluster1.ID,
+		QuotaType: schema.TypeVolcanoCapabilityQuota,
+		MaxResources: schema.ResourceInfo{
+			Cpu: "10",
+			Mem: "100G",
+			ScalarResources: schema.ScalarResourcesType{
+				"nvidia.com/gpu": "500",
+			},
 		},
 		SchedulingPolicy: []string{"s1", "s2"},
 		Status:           schema.StatusQueueCreating,
 	}
 
 	queue2 := Queue{
-		Name:             "queue2",
-		Namespace:        "paddleflow",
-		ClusterId:        "cluster1.ID",
-		Cpu:              "20",
-		Mem:              "200G",
-		ScalarResources:  schema.ScalarResourcesType{
-			"nvidia.com/gpu": "200",
+		Name:      "queue2",
+		Namespace: "paddleflow",
+		ClusterId: "cluster1.ID",
+		QuotaType: schema.TypeVolcanoCapabilityQuota,
+		MaxResources: schema.ResourceInfo{
+			Cpu: "20",
+			Mem: "200G",
+			ScalarResources: schema.ScalarResourcesType{
+				"nvidia.com/gpu": "200",
+			},
 		},
 		SchedulingPolicy: []string{"s1", "s2"},
 		Status:           schema.StatusQueueCreating,
@@ -106,14 +112,14 @@ func TestCreateQueue(t *testing.T) {
 
 func TestListQueue(t *testing.T) {
 	TestCreateQueue(t)
-	ctx := &logger.RequestContext{UserName: MockUserName}
+	ctx := &logger.RequestContext{UserName: mockUserName}
 
 	// init grant
-	grantModel := &Grant{ID: "fakeID", UserName: MockUserName, ResourceID: "queue1", ResourceType: GrantFsType}
+	grantModel := &Grant{ID: "fakeID", UserName: mockUserName, ResourceID: "queue1", ResourceType: GrantFsType}
 	if err := CreateGrant(ctx, grantModel); err != nil {
 		t.Error(err)
 	}
-	grants, err := ListGrant(ctx, 0, 0, MockUserName)
+	grants, err := ListGrant(ctx, 0, 0, mockUserName)
 	if err != nil {
 		t.Error(err)
 	}
@@ -131,7 +137,7 @@ func TestListQueue(t *testing.T) {
 	t.Logf("%+v", queueList)
 
 	// case2 for root
-	ctx = &logger.RequestContext{UserName: MockRootUserName}
+	ctx = &logger.RequestContext{UserName: mockRootUserName}
 	queueList, err = ListQueue(ctx, 0, 0, "")
 	if err != nil {
 		ctx.Logging().Errorf("models list queue failed. err:[%s]", err.Error())
@@ -145,7 +151,7 @@ func TestListQueue(t *testing.T) {
 
 func TestGetQueueByName(t *testing.T) {
 	TestCreateQueue(t)
-	ctx := &logger.RequestContext{UserName: MockUserName}
+	ctx := &logger.RequestContext{UserName: mockUserName}
 
 	queue, err := GetQueueByName(ctx, "queue1")
 	if err != nil {
