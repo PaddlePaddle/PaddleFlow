@@ -1,0 +1,10 @@
+#!/usr/bin/bash
+set -x
+
+export PADDLE_PSERVERS_IP_PORT_LIST=127.0.0.1:8001
+export PADDLE_TRAINER_ENDPOINTS=127.0.0.1:8002,127.0.0.1:8003
+export PADDLE_TRAINERS_NUM=2
+export TRAINING_ROLE=PSERVER
+export POD_IP=127.0.0.1
+export PADDLE_PORT=8001
+python3.7 ../train.py

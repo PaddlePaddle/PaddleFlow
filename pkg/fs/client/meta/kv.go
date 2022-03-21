@@ -22,7 +22,6 @@ import (
 	"path/filepath"
 	"syscall"
 	"time"
-	"unsafe"
 
 	"github.com/hanwen/go-fuse/v2/fuse"
 	log "github.com/sirupsen/logrus"
@@ -35,6 +34,11 @@ import (
 const (
 	AttrKey  = "A"
 	EntryKey = "P"
+	// attrCacheSize struct size
+	attrCacheSize = 97
+	// entryCacheSize struct size
+	entryCacheSize = 21
+	entryDone      = 1
 )
 
 var _ Meta = &kvMeta{}
@@ -62,7 +66,7 @@ type entryCacheItem struct {
 	mode   uint32
 	expire int64
 	// if done is true, means the parent entry for readdir cache is effective.
-	done bool
+	done uint8
 }
 
 type attrCacheItem struct {
@@ -114,42 +118,6 @@ func (m *kvMeta) FullPath(parent Ino, name string) string {
 	return filepath.Join(m.InoToPath(parent), name)
 }
 
-func (m *kvMeta) attrToByte(t attrCacheItem) []byte {
-	Len := unsafe.Sizeof(t)
-	sliceByte := &SliceByte{
-		addr: uintptr(unsafe.Pointer(&t)),
-		cap:  int(Len),
-		len:  int(Len),
-	}
-	data := *(*[]byte)(unsafe.Pointer(sliceByte))
-	return data
-}
-
-func (m *kvMeta) entryToByte(t entryCacheItem) []byte {
-	Len := unsafe.Sizeof(t)
-	sliceByte := &SliceByte{
-		addr: uintptr(unsafe.Pointer(&t)),
-		cap:  int(Len),
-		len:  int(Len),
-	}
-	data := *(*[]byte)(unsafe.Pointer(sliceByte))
-	return data
-}
-
-func (m *kvMeta) byteToEntry(buf []byte, t *entryCacheItem) {
-	var tmp = *(**entryCacheItem)(unsafe.Pointer(&buf))
-	t.expire = tmp.expire
-	t.mode = tmp.mode
-	t.ino = tmp.ino
-	t.done = tmp.done
-}
-
-func (m *kvMeta) byteToAttr(buf []byte, t *attrCacheItem) {
-	var tmp = *(**attrCacheItem)(unsafe.Pointer(&buf))
-	t.attr = tmp.attr
-	t.expire = tmp.expire
-}
-
 func (m *kvMeta) findEntry(parentPath, fullPath string) ([]byte, bool) {
 	data, has := m.client.get(m.entryKey(parentPath, fullPath))
 	return data, has
@@ -161,14 +129,6 @@ func (m *kvMeta) entryKey(parentPath, fullPath string) []byte {
 
 func (m *kvMeta) attrKey(fullPath string) []byte {
 	return m.ContactKey(AttrKey, fullPath)
-}
-
-func (m *kvMeta) parseEntry(buf []byte, entry *entryCacheItem) {
-	m.byteToEntry(buf, entry)
-}
-
-func (m *kvMeta) parseAttr(buf []byte, attr *attrCacheItem) {
-	m.byteToAttr(buf, attr)
 }
 
 func (m *kvMeta) tryGetAttr(ino Ino, attr *attrCacheItem) bool {
@@ -190,7 +150,7 @@ func (m *kvMeta) tryGetAttr(ino Ino, attr *attrCacheItem) bool {
 // Put inode to cache, if ino already in cache, update
 func (m *kvMeta) putAttr(fullPath string, attr attrCacheItem, expire int64) {
 	attr.expire = expire
-	value := m.attrToByte(attr)
+	value := m.marshalAttr(&attr)
 	err := m.client.set(m.attrKey(fullPath), value)
 	if err != nil {
 		log.Errorf("putAttr cache err %v", err)
@@ -200,11 +160,13 @@ func (m *kvMeta) putAttr(fullPath string, attr attrCacheItem, expire int64) {
 
 func (m *kvMeta) putEntry(parentPath string, entry entryCacheItem, expire int64) {
 	entry.expire = expire
-	value := m.entryToByte(entry)
+	value := m.marshalEntry(&entry)
 	entryPath := m.InoToPath(entry.ino)
-	err := m.client.set(m.entryKey(parentPath, entryPath), value)
+	entryKey := m.entryKey(parentPath, entryPath)
+	err := m.client.set(entryKey, value)
+
 	if err != nil {
-		m.client.dels(m.entryKey(parentPath, entryPath))
+		m.client.dels(entryKey)
 		log.Errorf("putEntry cache err %v", err)
 		return
 	}
@@ -216,8 +178,8 @@ func (m *kvMeta) putEntries(parentEntry entryCacheItem, entries []entryCacheItem
 		m.putEntry(parentPath, entry, expire)
 	}
 	parentEntry.expire = expire
-	parentEntry.done = true
-	value := m.entryToByte(parentEntry)
+	parentEntry.done = entryDone
+	value := m.marshalEntry(&parentEntry)
 
 	err := m.client.set(m.entryKey(parentPath, parentPath), value)
 	if err != nil {
@@ -233,9 +195,9 @@ func (m *kvMeta) getEntries(entryPath string) (map[string][]byte, bool) {
 		return nil, false
 	}
 	entryCacheItem_ := &entryCacheItem{}
-	m.byteToEntry(value, entryCacheItem_)
+	m.parseEntry(value, entryCacheItem_)
 
-	if entryCacheItem_.done == false || entryCacheItem_.expire < time.Now().Unix() {
+	if entryCacheItem_.done != entryDone || entryCacheItem_.expire < time.Now().Unix() {
 		return nil, false
 	}
 	key := m.entryKey(entryPath, entryPath)
@@ -715,4 +677,68 @@ func (m *kvMeta) LoadMeta(r io.Reader) error {
 
 func (m *kvMeta) LinksMetaUpdateHandler(stopChan chan struct{}, interval int, linkMetaDirPrefix string) error {
 	return m.defaultMeta.LinksMetaUpdateHandler(stopChan, interval, linkMetaDirPrefix)
+}
+
+func (m *kvMeta) parseAttr(buf []byte, attr *attrCacheItem) {
+	if attr == nil {
+		return
+	}
+	rb := utils.FromBuffer(buf)
+	attr.attr.Type = rb.Get8()
+	attr.attr.Mode = rb.Get32()
+	attr.attr.Uid = rb.Get32()
+	attr.attr.Gid = rb.Get32()
+	attr.attr.Rdev = rb.Get64()
+	attr.attr.Atime = int64(rb.Get64())
+	attr.attr.Mtime = int64(rb.Get64())
+	attr.attr.Ctime = int64(rb.Get64())
+	attr.attr.Atimensec = rb.Get32()
+	attr.attr.Mtimensec = rb.Get32()
+	attr.attr.Ctimensec = rb.Get32()
+	attr.attr.Nlink = rb.Get64()
+	attr.attr.Size = rb.Get64()
+	attr.attr.Blksize = int64(rb.Get64())
+	attr.attr.Block = int64(rb.Get64())
+	attr.expire = int64(rb.Get64())
+}
+
+func (m *kvMeta) marshalAttr(attr *attrCacheItem) []byte {
+	w := utils.NewBuffer(attrCacheSize)
+	w.Put8(attr.attr.Type)
+	w.Put32(attr.attr.Mode)
+	w.Put32(attr.attr.Uid)
+	w.Put32(attr.attr.Gid)
+	w.Put64(attr.attr.Rdev)
+	w.Put64(uint64(attr.attr.Atime))
+	w.Put64(uint64(attr.attr.Mtime))
+	w.Put64(uint64(attr.attr.Ctime))
+	w.Put32(attr.attr.Atimensec)
+	w.Put32(attr.attr.Mtimensec)
+	w.Put32(attr.attr.Ctimensec)
+	w.Put64(attr.attr.Nlink)
+	w.Put64(attr.attr.Size)
+	w.Put64(uint64(attr.attr.Blksize))
+	w.Put64(uint64(attr.attr.Block))
+	w.Put64(uint64(attr.expire))
+	return w.Bytes()
+}
+
+func (m *kvMeta) parseEntry(buf []byte, entry *entryCacheItem) {
+	if entry == nil {
+		return
+	}
+	rb := utils.FromBuffer(buf)
+	entry.ino = Ino(rb.Get64())
+	entry.mode = rb.Get32()
+	entry.expire = int64(rb.Get64())
+	entry.done = rb.Get8()
+}
+
+func (m *kvMeta) marshalEntry(attr *entryCacheItem) []byte {
+	w := utils.NewBuffer(entryCacheSize)
+	w.Put64(uint64(attr.ino))
+	w.Put32(attr.mode)
+	w.Put64(uint64(attr.expire))
+	w.Put8(attr.done)
+	return w.Bytes()
 }
