@@ -183,15 +183,15 @@ func CreateQueue(ctx *logger.RequestContext, request *CreateQueueRequest) (Creat
 		return CreateQueueResponse{}, errors.New("request name duplicated")
 	}
 
-	// check queue type
+	// check quota type of queue
 	if len(request.QuotaType) == 0 {
 		// TODO: get quota type from cluster info
 		request.QuotaType = schema.TypeElasticQuota
 	}
 	if request.QuotaType != schema.TypeElasticQuota && request.QuotaType != schema.TypeVolcanoCapabilityQuota {
-		ctx.Logging().Errorf("create queue failed. the type %s of queue is not supported.", request.QuotaType)
-		ctx.ErrorCode = common.QueueTypeIsNotSupported
-		return CreateQueueResponse{}, errors.New("queue type is not supported")
+		ctx.Logging().Errorf("create queue failed. the type %s of quota is not supported.", request.QuotaType)
+		ctx.ErrorCode = common.QueueQuotaTypeIsNotSupported
+		return CreateQueueResponse{}, errors.New("quota type is not supported")
 	}
 
 	// check request max resources and min resources
