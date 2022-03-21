@@ -92,7 +92,6 @@ func (fh *fileReader) Read(buf []byte, off uint64) (int, syscall.Errno) {
 				命中缓存的情况下，n会返回blockSize或者length-off大小
 				越界的情况，返回0，如off>=length||len(buf)==0
 			*/
-			// todo:: readerAt返回的都是从off开始，读取bufSize或者到文件结束的内容，返回的n为读取的大小，目前底层cache只返回了部分内容
 			nread, err = reader.ReadAt(buf[bytesRead:], int64(off))
 			if err != nil {
 				log.Errorf("reader readat failed: %v", err)

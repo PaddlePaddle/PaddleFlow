@@ -171,8 +171,10 @@ func registerMetrics() {
 	prometheus.Register(cacheWriteHist)
 }
 
-func (store *store) NewReader(name string, length int, flags uint32, ufs ufs.UnderFileStorage, buffers ReadBufferMap, readAMount uint64) Reader {
-	return &rCache{id: path.Clean(name), length: length, store: store, flags: flags, ufs: ufs, buffers: buffers, readAMount: readAMount}
+func (store *store) NewReader(name string, length int, flags uint32,
+	ufs ufs.UnderFileStorage, buffers ReadBufferMap, readAMount uint64) Reader {
+	return &rCache{id: path.Clean(name), length: length,
+		store: store, flags: flags, ufs: ufs, buffers: buffers, readAMount: readAMount}
 }
 
 func (store *store) NewWriter(name string, length int, fh ufs.FileHandle) Writer {
@@ -232,11 +234,9 @@ func (r *rCache) readFromReadAhead(off int64, buf []byte) (bytesRead int, err er
 		if !ok {
 			return
 		}
+		nread, err = readAheadBuf.Read(uint64(blockOff), buf[bytesRead:])
 		if blockOff != 0 {
-			nread, err = readAheadBuf.Read(uint64(blockOff), buf[bytesRead:])
 			blockOff = 0
-		} else {
-			nread, err = readAheadBuf.Read(uint64(blockOff), buf[bytesRead:])
 		}
 		if readAheadBuf.size == 0 {
 			r.lock.Lock()
@@ -255,32 +255,12 @@ func (r *rCache) readFromReadAhead(off int64, buf []byte) (bytesRead int, err er
 	return bytesRead, nil
 }
 
-func (r *rCache) ReadAt(buf []byte, off int64) (n int, err error) {
-	log.Debugf("rCache read len byte %d off %d length %v", len(buf), off, r.length)
-	if len(buf) == 0 || int(off) >= r.length {
-		return 0, nil
-	}
-	var index int
-	var key string
+func (r *rCache) readAhead(index int) {
 	var uoff uint64
 	var readAhead int
-
-	index = r.index(int(off))
-	key = r.key(index)
-	blockOff := r.off(int(off))
 	blockSize := r.store.conf.BlockSize
-	start := time.Now()
-	nReadFromCache, hitCache := r.readCache(buf, key, blockOff)
-	if hitCache {
-		// metrics
-		log.Debugf("metrics cacheHits++:%d", nReadFromCache)
-		cacheHits.Inc()
-		cacheHitBytes.Add(float64(nReadFromCache))
-		cacheReadHist.Observe(time.Since(start).Seconds())
-		return nReadFromCache, nil
-	}
-
 	readAheadAmount := r.store.conf.MaxReadAhead
+
 	if readAheadAmount == 0 {
 		readAheadAmount = maxReadAheadSize
 	}
@@ -311,6 +291,31 @@ func (r *rCache) ReadAt(buf []byte, off int64) (n int, err error) {
 		existingReadAhead += size
 		r.lock.Unlock()
 	}
+}
+
+func (r *rCache) ReadAt(buf []byte, off int64) (n int, err error) {
+	log.Debugf("rCache read len byte %d off %d "+
+		"length %v conf %+v buffers %v", len(buf), off, r.length, r.store.conf, len(r.buffers))
+	if len(buf) == 0 || int(off) >= r.length {
+		return 0, nil
+	}
+	var index int
+	var key string
+
+	index = r.index(int(off))
+	key = r.key(index)
+	blockOff := r.off(int(off))
+	start := time.Now()
+	nReadFromCache, hitCache := r.readCache(buf, key, blockOff)
+	if hitCache {
+		// metrics
+		log.Debugf("metrics cacheHits++:%d", nReadFromCache)
+		cacheHits.Inc()
+		cacheHitBytes.Add(float64(nReadFromCache))
+		cacheReadHist.Observe(time.Since(start).Seconds())
+		return nReadFromCache, nil
+	}
+	r.readAhead(index)
 
 	n, err = r.readFromReadAhead(off, buf)
 	return

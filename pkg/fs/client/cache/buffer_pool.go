@@ -39,6 +39,7 @@ func (B *Buf) WriteFrom(reader io.Reader) (n int, err error) {
 }
 
 func (B Buf) Init(size uint64) *Buf {
+	// todo:: limit memory
 	B.buffer = make([]byte, size)
 	return &B
 }
@@ -91,6 +92,7 @@ func (b *Buffer) readLoop(r ReaderProvider) {
 			b.mu.Unlock()
 			break
 		}
+
 		go func() {
 			b.r.setCache(int(b.offset), b.buf.buffer, nread)
 		}()
