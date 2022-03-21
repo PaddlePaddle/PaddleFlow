@@ -32,8 +32,8 @@ import (
 )
 
 var (
-	MockUserName     = "user1"
-	MockRootUserName = "root"
+	mockUserName     = "user1"
+	mockRootUserName = "root"
 )
 
 func InitFakeDB() {
@@ -54,7 +54,7 @@ func InitFakeDB() {
 
 func TestCreateQueue(t *testing.T) {
 	InitFakeDB()
-	ctx := &logger.RequestContext{UserName: MockUserName}
+	ctx := &logger.RequestContext{UserName: mockUserName}
 
 	cluster1 := ClusterInfo{
 		Name:          "cluster1",
@@ -112,14 +112,14 @@ func TestCreateQueue(t *testing.T) {
 
 func TestListQueue(t *testing.T) {
 	TestCreateQueue(t)
-	ctx := &logger.RequestContext{UserName: MockUserName}
+	ctx := &logger.RequestContext{UserName: mockUserName}
 
 	// init grant
-	grantModel := &Grant{ID: "fakeID", UserName: MockUserName, ResourceID: "queue1", ResourceType: GrantFsType}
+	grantModel := &Grant{ID: "fakeID", UserName: mockUserName, ResourceID: "queue1", ResourceType: GrantFsType}
 	if err := CreateGrant(ctx, grantModel); err != nil {
 		t.Error(err)
 	}
-	grants, err := ListGrant(ctx, 0, 0, MockUserName)
+	grants, err := ListGrant(ctx, 0, 0, mockUserName)
 	if err != nil {
 		t.Error(err)
 	}
@@ -137,7 +137,7 @@ func TestListQueue(t *testing.T) {
 	t.Logf("%+v", queueList)
 
 	// case2 for root
-	ctx = &logger.RequestContext{UserName: MockRootUserName}
+	ctx = &logger.RequestContext{UserName: mockRootUserName}
 	queueList, err = ListQueue(ctx, 0, 0, "")
 	if err != nil {
 		ctx.Logging().Errorf("models list queue failed. err:[%s]", err.Error())
@@ -151,7 +151,7 @@ func TestListQueue(t *testing.T) {
 
 func TestGetQueueByName(t *testing.T) {
 	TestCreateQueue(t)
-	ctx := &logger.RequestContext{UserName: MockUserName}
+	ctx := &logger.RequestContext{UserName: mockUserName}
 
 	queue, err := GetQueueByName(ctx, "queue1")
 	if err != nil {

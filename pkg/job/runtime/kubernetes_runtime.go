@@ -229,7 +229,7 @@ func (kr *KubeRuntime) createElasticResourceQuota(q *models.Queue) error {
 }
 
 func (kr *KubeRuntime) DeleteQueue(q *models.Queue) error {
-	gvk := k8s.VCQueueGVK
+	var gvk = k8s.VCQueueGVK
 	switch q.QuotaType {
 	case schema.TypeVolcanoCapabilityQuota:
 		gvk = k8s.VCQueueGVK
