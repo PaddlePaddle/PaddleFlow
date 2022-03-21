@@ -25,23 +25,22 @@ type Buf struct {
 	buffer []byte
 }
 
-func (B *Buf) ReadAt(p []byte, offset uint64) (n int, err error) {
-	n = copy(p, B.buffer[offset:])
+func (b *Buf) ReadAt(p []byte, offset uint64) (n int, err error) {
+	n = copy(p, b.buffer[offset:])
 	return
 }
 
-func (B *Buf) WriteFrom(reader io.Reader) (n int, err error) {
-	n, err = io.ReadFull(reader, B.buffer)
+func (b *Buf) WriteFrom(reader io.Reader) (n int, err error) {
+	n, err = io.ReadFull(reader, b.buffer)
 	go func() {
 
 	}()
 	return
 }
 
-func (B Buf) Init(size uint64) *Buf {
-	// todo:: limit memory
-	B.buffer = make([]byte, size)
-	return &B
+func (b Buf) Init(size uint64) *Buf {
+	b.buffer = make([]byte, size)
+	return &b
 }
 
 type Buffer struct {
