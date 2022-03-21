@@ -61,6 +61,16 @@ func NewResource(rl v1.ResourceList) *schema.Resource {
 	return r
 }
 
+func NewKubeResourceList(r *schema.ResourceInfo) v1.ResourceList {
+	resourceList := v1.ResourceList{}
+	resourceList[v1.ResourceCPU] = resource.MustParse(r.Cpu)
+	resourceList[v1.ResourceMemory] = resource.MustParse(r.Mem)
+	for k, v := range r.ScalarResources {
+		resourceList[v1.ResourceName(k)] = resource.MustParse(v)
+	}
+	return resourceList
+}
+
 // NewResourceList create a new resource object from resource list
 func NewResourceList(r *schema.Resource) v1.ResourceList {
 	resourceList := v1.ResourceList{}
