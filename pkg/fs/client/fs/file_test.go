@@ -116,11 +116,9 @@ func TestFS_read_readAt(t *testing.T) {
 		Disk:         &cache.DiskConfig{Dir: "./mock-cache", Expire: 10 * time.Second},
 	}
 	SetDataCache(d)
-
 	// new client
 	client, err := newPfsTest()
 	assert.Equal(t, err, nil)
-
 	// 创建文件
 	path := "test1"
 	flags := os.O_RDWR | os.O_CREATE | os.O_TRUNC
@@ -133,11 +131,9 @@ func TestFS_read_readAt(t *testing.T) {
 	assert.Equal(t, writeNum, n)
 	err = writer.Close()
 	assert.Equal(t, nil, err)
-
 	path = "test"
 	writer, err = client.Create(path, uint32(flags), uint32(mode))
 	assert.Equal(t, nil, err)
-
 	writeString := "123456789abcdefghijklmn123456789abcedfegijklmn111222333444555666777"
 	_, err = writer.Write([]byte(writeString))
 	assert.Equal(t, err, nil)
@@ -151,13 +147,11 @@ func TestFS_read_readAt(t *testing.T) {
 	n, err = reader.Read(buf)
 	assert.Equal(t, len(buf), n)
 	assert.Equal(t, string(buf), "123456789a")
-
 	n2 := 2
 	buf = make([]byte, n2)
 	n, err = reader.ReadAt(buf, 3)
 	assert.Equal(t, n2, n)
 	assert.Equal(t, "45", string(buf))
-
 	n3 := 10
 	buf = make([]byte, n3)
 	n, err = reader.Read(buf)

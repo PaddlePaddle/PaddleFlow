@@ -15,6 +15,7 @@
 package cache
 
 import (
+	"errors"
 	"io"
 	"runtime"
 	"sync"
@@ -87,7 +88,7 @@ func (b *Buffer) readLoop(r ReaderProvider) {
 		}
 
 		if nread == 0 {
-			b.reader.Close()
+			_ = b.reader.Close()
 			b.mu.Unlock()
 			break
 		}
@@ -106,14 +107,13 @@ func (b *Buffer) readLoop(r ReaderProvider) {
 func (b *Buffer) readFromStream(p []byte) (n int, err error) {
 
 	n, err = b.reader.Read(p)
-	if n != 0 && err == io.ErrUnexpectedEOF {
+	if n != 0 && errors.Is(err, io.ErrUnexpectedEOF) {
 		err = nil
 	}
 	return
 }
 
 func (b *Buffer) Read(p []byte) (n int, err error) {
-
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -148,7 +148,7 @@ func (b *Buffer) ReInit(r ReaderProvider) *Buffer {
 	defer b.mu.Unlock()
 
 	if b.reader != nil {
-		b.reader.Close()
+		_ = b.reader.Close()
 		b.reader = nil
 	}
 

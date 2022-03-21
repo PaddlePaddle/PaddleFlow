@@ -45,7 +45,8 @@ func (b ReadBuffer) Init(offset uint64, size uint32, ufs ufslib.UnderFileStorage
 	b.path = path
 	b.flags = flags
 
-	b.buf = Buf{}.Init(uint64(size))
+	buf := Buf{}
+	b.buf = buf.Init(uint64(size))
 
 	b.initBuffer(offset, size)
 	return &b
