@@ -12,4 +12,5 @@ jobs:
       with:
         go-version: ${{ matrix.go-version }}
     - uses: actions/checkout@v3
+    - run: mockgen -destination=pkg/pipeline/mock_job.go -source=pkg/pipeline/job.go -package=pipeline
     - run: go test ./...
