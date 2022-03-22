@@ -35,7 +35,7 @@ prepare: gomod
 
 gomod:
 	$(GO) env -w GO111MODULE=on
-	$(GO) env -w GOPROXY=https://goproxy.io,direct
+	$(GO) env -w GOPROXY=https://goproxy.cn,direct
 	$(GO) env -w CGO_ENABLED=0
 	$(GOMOD) download
 
@@ -76,5 +76,5 @@ clean:
 	$(GO) clean
 	rm -rf $(OUTDIR)
 
-# avoid filename conflict and speed up build 
+# avoid filename conflict and speed up build
 .PHONY: all prepare compile test package clean build
