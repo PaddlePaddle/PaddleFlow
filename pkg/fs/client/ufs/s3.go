@@ -1423,13 +1423,6 @@ func (fh *s3FileHandle) multipartCreate() error {
 	return nil
 }
 
-func (fh *s3FileHandle) multipartUploadAsync(partNum int64, data []byte, errChan chan error) {
-	err := fh.multipartUpload(partNum, data)
-	if err != nil {
-		errChan <- err
-	}
-}
-
 func (fh *s3FileHandle) multipartUpload(partNum int64, data []byte) error {
 	mpu := s3.UploadPartInput{
 		Bucket:     &fh.bucket,
