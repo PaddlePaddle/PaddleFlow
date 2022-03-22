@@ -1,0 +1,10 @@
+run:
+  skip-files:
+    - "_test.go$"
+linters-settings:
+  errcheck:
+    check-type-assertions: true
+linters:
+  enable:
+    - gofmt
+    - bodyclose
