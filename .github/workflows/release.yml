@@ -1,0 +1,29 @@
+on: [push, pull_request]
+name: Build
+jobs:
+  docker:
+    strategy:
+      matrix:
+        go-version: [1.16.x]
+        goos: [linux]
+        goarch: [amd64]
+    runs-on: ubuntu-latest
+    steps:
+    - name: Install go
+      uses: actions/setup-go@v3
+      with:
+        go-version: ${{ matrix.go-version }}
+    - name: Checkout code
+      uses: actions/checkout@v3
+    - name: Run build
+      run: make all
+      env:
+        GOOS: ${{ matrix.goos }}
+        GOARCH: ${{ matrix.goarch }}
+    - name: Packaging
+      run: tar -zcvf paddleflow-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz output/
+    - name: Uploading assets
+      uses: actions/upload-artifact@v3
+      with:
+        name: paddleflow-${{ matrix.goos }}-${{ matrix.goarch }}
+        path: paddleflow-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz
