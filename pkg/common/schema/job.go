@@ -80,6 +80,7 @@ const (
 	StatusJobTerminating JobStatus = "terminating"
 	StatusJobTerminated  JobStatus = "terminated"
 	StatusJobCancelled   JobStatus = "cancelled"
+	StatusJobSkipped   JobStatus = "skipped"
 
 	// job priority
 	EnvJobVeryLowPriority  = "VERY_LOW"
