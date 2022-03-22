@@ -138,7 +138,7 @@ func (fh *fileReader) release() {
 	fh.reader.Lock()
 	delete(fh.reader.files, fh.inode)
 	for _, buffer := range fh.buffersCache {
-		buffer.Buf.Close()
+		buffer.Buffer.Close()
 	}
 	fh.reader.Unlock()
 	if fh.fd != nil {

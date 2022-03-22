@@ -25,14 +25,14 @@ import (
 type ReadBuffer struct {
 	ufs      ufslib.UnderFileStorage
 	nRetries uint8
-	buf      *Buf
+	page      *Page
 	r        *rCache
 
 	path   string
 	flags  uint32
 	offset uint64
 	size   uint32
-	Buf    *Buffer
+	Buffer *Buffer
 }
 
 type ReadBufferMap map[uint64]*ReadBuffer
@@ -45,8 +45,7 @@ func (b ReadBuffer) Init(offset uint64, size uint32, ufs ufslib.UnderFileStorage
 	b.path = path
 	b.flags = flags
 
-	buf := Buf{}
-	b.buf = buf.Init(uint64(size))
+	b.page = Page{}.Init(uint64(size))
 
 	b.initBuffer(offset, size)
 	return &b
@@ -62,16 +61,16 @@ func (b *ReadBuffer) initBuffer(offset uint64, size uint32) {
 		return resp, nil
 	}
 
-	if b.Buf == nil {
-		b.Buf = Buffer{r: b.r, offset: offset}.Init(b.buf, getFunc)
+	if b.Buffer == nil {
+		b.Buffer = Buffer{r: b.r, offset: offset}.Init(b.page, getFunc)
 	} else {
-		b.Buf = b.Buf.ReInit(getFunc)
+		b.Buffer = b.Buffer.ReInit(getFunc)
 	}
 }
 
 func (b *ReadBuffer) Read(offset uint64, p []byte) (n int, err error) {
-	b.Buf.buf.offset = offset
-	n, err = io.ReadFull(b.Buf, p)
+	b.Buffer.page.offset = offset
+	n, err = io.ReadFull(b.Buffer, p)
 	if n != 0 && err == io.ErrUnexpectedEOF {
 		err = nil
 	}

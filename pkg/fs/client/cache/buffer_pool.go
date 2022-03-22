@@ -21,27 +21,27 @@ import (
 	"sync"
 )
 
-type Buf struct {
+type Page struct {
 	offset uint64
 	buffer []byte
 }
 
-func (b *Buf) ReadAt(p []byte, offset uint64) (n int, err error) {
-	n = copy(p, b.buffer[offset:])
+func (p *Page) ReadAt(buf []byte, offset uint64) (n int, err error) {
+	n = copy(buf, p.buffer[offset:])
 	return
 }
 
-func (b *Buf) WriteFrom(reader io.Reader) (n int, err error) {
-	n, err = io.ReadFull(reader, b.buffer)
+func (p *Page) WriteFrom(reader io.Reader) (n int, err error) {
+	n, err = io.ReadFull(reader, p.buffer)
 	go func() {
 
 	}()
 	return
 }
 
-func (b Buf) Init(size uint64) *Buf {
-	b.buffer = make([]byte, size)
-	return &b
+func (p Page) Init(size uint64) *Page {
+	p.buffer = make([]byte, size)
+	return &p
 }
 
 type Buffer struct {
@@ -49,7 +49,7 @@ type Buffer struct {
 	cond *sync.Cond
 
 	offset uint64
-	buf    *Buf
+	page    *Page
 	reader io.ReadCloser
 	err    error
 	r      *rCache
@@ -57,9 +57,9 @@ type Buffer struct {
 
 type ReaderProvider func() (io.ReadCloser, error)
 
-func (b Buffer) Init(buf *Buf, r ReaderProvider) *Buffer {
+func (b Buffer) Init(page *Page, r ReaderProvider) *Buffer {
 	b.cond = sync.NewCond(&b.mu)
-	b.buf = buf
+	b.page = page
 
 	go func() {
 		b.readLoop(r)
@@ -80,7 +80,7 @@ func (b *Buffer) readLoop(r ReaderProvider) {
 			}
 		}
 
-		nread, err := b.buf.WriteFrom(b.reader)
+		nread, err := b.page.WriteFrom(b.reader)
 		if err != nil {
 			b.err = err
 			b.mu.Unlock()
@@ -94,7 +94,7 @@ func (b *Buffer) readLoop(r ReaderProvider) {
 		}
 
 		go func() {
-			b.r.setCache(int(b.offset), b.buf.buffer, nread)
+			b.r.setCache(int(b.offset), b.page.buffer, nread)
 		}()
 
 		b.mu.Unlock()
@@ -130,14 +130,14 @@ func (b *Buffer) Read(p []byte) (n int, err error) {
 		return
 	}
 
-	if b.buf != nil {
-		n, err = b.buf.ReadAt(p, b.buf.offset)
-		b.buf.offset += uint64(n)
+	if b.page != nil {
+		n, err = b.page.ReadAt(p, b.page.offset)
+		b.page.offset += uint64(n)
 		if n == 0 {
 			return n, io.EOF
 		}
 	} else {
-		panic("buf is empty")
+		panic("page is empty")
 	}
 
 	return
