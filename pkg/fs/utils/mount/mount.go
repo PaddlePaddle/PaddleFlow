@@ -138,7 +138,7 @@ func ExecCmdWithTimeout(name string, args []string) ([]byte, error) {
 
 	output, err := newCmd.CombinedOutput()
 	if err != nil {
-		log.Errorf("exec Command[%s] failed: %s", newCmd.String(), string(output))
+		log.Debugf("exec Command[%s] output:%s", newCmd.String(), string(output))
 		return output, err
 	}
 	return output, nil
