@@ -18,6 +18,7 @@ package controller
 
 import (
 	"context"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"testing"
 	"time"
 
@@ -57,14 +58,25 @@ func newFakeQueueSyncController() *QueueSync {
 
 func TestQueueSync(t *testing.T) {
 	tests := []struct {
-		name   string
-		oldObj *unstructured.Unstructured
-		newObj *unstructured.Unstructured
+		name      string
+		queueName string
+		gvr       schema.GroupVersionResource
+		oldObj    *unstructured.Unstructured
+		newObj    *unstructured.Unstructured
 	}{
 		{
-			name:   "queue create",
-			oldObj: NewUnstructured(k8s.VCQueueGVK, "", "q1"),
-			newObj: NewUnstructured(k8s.VCQueueGVK, "", "q1"),
+			name:      "volcano queue capability quota",
+			queueName: "q1",
+			gvr:       VCQueueGVR,
+			oldObj:    NewUnstructured(k8s.VCQueueGVK, "", "q1"),
+			newObj:    NewUnstructured(k8s.VCQueueGVK, "", "q1"),
+		},
+		{
+			name:      "elastic resource quota",
+			queueName: "elasticQuota1",
+			gvr:       EQuotaGVR,
+			oldObj:    NewUnstructured(k8s.EQuotaGVK, "", "elasticQuota1"),
+			newObj:    NewUnstructured(k8s.EQuotaGVK, "", "elasticQuota1"),
 		},
 	}
 
@@ -73,12 +85,12 @@ func TestQueueSync(t *testing.T) {
 			ctx := &logger.RequestContext{UserName: "test"}
 			db_fake.InitFakeDB()
 			err := models.CreateQueue(ctx, &models.Queue{
-				Name: "q1",
+				Name: test.queueName,
 			})
 			assert.Equal(t, nil, err)
 
 			c := newFakeQueueSyncController()
-			_, err = c.opt.DynamicClient.Resource(VCQueueGVR).Create(context.TODO(), test.newObj, metav1.CreateOptions{})
+			_, err = c.opt.DynamicClient.Resource(test.gvr).Create(context.TODO(), test.newObj, metav1.CreateOptions{})
 			assert.Equal(t, nil, err)
 			c.updateQueue(test.oldObj, test.newObj)
 			c.deleteQueue(test.newObj)

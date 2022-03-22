@@ -23,15 +23,13 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
-	vcqueue "volcano.sh/apis/pkg/apis/scheduling/v1beta1"
-
 	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/common/k8s"
-	"paddleflow/pkg/common/schema"
+	queueschema "paddleflow/pkg/common/schema"
 )
 
 const (
@@ -47,9 +45,10 @@ type QueueSyncInfo struct {
 
 type QueueSync struct {
 	sync.Mutex
-	opt             *k8s.DynamicClientOption
-	jobQueue        workqueue.RateLimitingInterface
-	vcQueueInformer cache.SharedIndexInformer
+	opt      *k8s.DynamicClientOption
+	jobQueue workqueue.RateLimitingInterface
+	// informerMap contains GroupVersionKind and informer for queue, and ElasticResourceQuota
+	informerMap map[schema.GroupVersionKind]cache.SharedIndexInformer
 }
 
 func NewQueueSync() Controller {
@@ -64,29 +63,32 @@ func (qs *QueueSync) Initialize(opt *k8s.DynamicClientOption) error {
 	log.Infof("Initialize %s controller!", qs.Name())
 	qs.opt = opt
 	qs.jobQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+	qs.informerMap = make(map[schema.GroupVersionKind]cache.SharedIndexInformer)
 
-	vcQueueGVRMap, err := qs.opt.GetGVR(k8s.VCQueueGVK)
-	if err != nil {
-		log.Warnf("cann't find GroupVersionKind [%s]", k8s.VCQueueGVK)
-	} else {
-		qs.vcQueueInformer = qs.opt.DynamicFactory.ForResource(vcQueueGVRMap.Resource).Informer()
-		qs.vcQueueInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-			UpdateFunc: qs.updateQueue,
-			DeleteFunc: qs.deleteQueue,
-		})
+	for _, gvk := range k8s.GVKToQuotaType {
+		gvrMap, err := qs.opt.GetGVR(gvk)
+		if err != nil {
+			log.Warnf("cann't find GroupVersionKind [%s]", gvk)
+		} else {
+			qs.informerMap[gvk] = qs.opt.DynamicFactory.ForResource(gvrMap.Resource).Informer()
+			qs.informerMap[gvk].AddEventHandler(cache.ResourceEventHandlerFuncs{
+				UpdateFunc: qs.updateQueue,
+				DeleteFunc: qs.deleteQueue,
+			})
+		}
 	}
 	return nil
 }
 
 func (qs *QueueSync) Run(stopCh <-chan struct{}) {
-	if qs.vcQueueInformer == nil {
-		log.Infof("Cluster hasn't vc queue, skip %s controller!", qs.Name())
+	if len(qs.informerMap) == 0 {
+		log.Infof("Cluster hasn't needed GroupVersionKind, skip %s controller!", qs.Name())
 		return
 	}
 	go qs.opt.DynamicFactory.Start(stopCh)
 
-	if qs.vcQueueInformer != nil {
-		if !cache.WaitForCacheSync(stopCh, qs.vcQueueInformer.HasSynced) {
+	for _, informer := range qs.informerMap {
+		if !cache.WaitForCacheSync(stopCh, informer.HasSynced) {
 			log.Errorf("timed out waiting for caches to %s", qs.Name())
 			return
 		}
@@ -124,51 +126,57 @@ func (qs *QueueSync) processWorkItem() bool {
 
 // updateQueue for queue update event
 func (qs *QueueSync) updateQueue(oldObj, newObj interface{}) {
-	oldQueue, err := unstructuredToVCQueue(oldObj)
-	if err != nil {
+	oldQueue := oldObj.(*unstructured.Unstructured)
+	queue := newObj.(*unstructured.Unstructured)
+
+	oldSpec, err := getResourceSpec(oldQueue)
+	if err != nil || oldSpec == nil {
+		log.Errorf("get spec from old resource object %s failed", oldQueue.GetName())
 		return
 	}
-	queue, err := unstructuredToVCQueue(newObj)
-	if err != nil {
+	spec, err := getResourceSpec(queue)
+	if err != nil || spec == nil {
+		log.Errorf("get spec from new resource object %s failed", queue.GetName())
 		return
 	}
-	log.Debugf("vcQueueInformer update begin. oldQueue:%v newQueue:%v", oldQueue, queue)
-	if reflect.DeepEqual(oldQueue.Spec, queue.Spec) && oldQueue.Status == queue.Status {
+
+	log.Debugf("%s queue resource is updated. old:%v new:%v", queue.GroupVersionKind(), oldQueue, queue)
+	if reflect.DeepEqual(oldSpec, spec) {
 		return
 	}
-	status := string(queue.Status.State)
-	if !reflect.DeepEqual(oldQueue.Spec, queue.Spec) {
-		status = schema.StatusQueueUnavailable
-	}
+
+	log.Infof("watch %s resource is updated, name is %s", queue.GroupVersionKind(), queue.GetName())
+	var status = queueschema.StatusQueueUnavailable
 	queueInfo := &QueueSyncInfo{
-		Name:    queue.Name,
+		Name:    queue.GetName(),
 		Status:  status,
-		Message: fmt.Sprintf("queue[%s] is update from cluster", queue.Name),
+		Message: fmt.Sprintf("queue[%s] is update from cluster", queue.GetName()),
 	}
 	qs.jobQueue.Add(queueInfo)
 }
 
-// deleteQueue for queue delete event
+// deleteQueue for queue resource delete event
 func (qs *QueueSync) deleteQueue(obj interface{}) {
-	queue, err := unstructuredToVCQueue(obj)
-	if err != nil {
-		return
-	}
-	log.Debugf("vcQueueInformer DeleteFunc. queueName:%s", queue.Name)
+	queueObj := obj.(*unstructured.Unstructured)
+	log.Infof("watch %s resource is deleted, name is %s", queueObj.GroupVersionKind(), queueObj.GetName())
+
 	queueInfo := &QueueSyncInfo{
-		Name:    queue.Name,
-		Status:  schema.StatusQueueUnavailable,
-		Message: fmt.Sprintf("queue[%s] is deleted from cluster", queue.Name),
+		Name:    queueObj.GetName(),
+		Status:  queueschema.StatusQueueUnavailable,
+		Message: fmt.Sprintf("queue resource[%s] is deleted from cluster", queueObj.GetName()),
 	}
 	qs.jobQueue.Add(queueInfo)
 }
 
-func unstructuredToVCQueue(obj interface{}) (*vcqueue.Queue, error) {
-	queueObj := obj.(*unstructured.Unstructured)
-	queue := &vcqueue.Queue{}
-	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(queueObj.Object, queue); err != nil {
-		log.Errorf("convert unstructured object[%+v] to sparkApp failed: %v", obj, err)
-		return nil, err
+func getResourceSpec(queueObj *unstructured.Unstructured) (interface{}, error) {
+	spec, ok, unerr := unstructured.NestedFieldCopy(queueObj.Object, "spec")
+	if !ok {
+		if unerr != nil {
+			log.Error(unerr, "NestedFieldCopy unstructured to spec error")
+			return nil, unerr
+		}
+		log.Info("NestedFieldCopy unstructured to spec error: Spec is not found in resource")
+		return nil, fmt.Errorf("get spec from unstructured object failed")
 	}
-	return queue, nil
+	return spec, nil
 }
