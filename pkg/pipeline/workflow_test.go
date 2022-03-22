@@ -48,7 +48,7 @@ var mockCbs = WorkflowCallbacks{
 // 测试NewBaseWorkflow, 只传yaml内容
 func TestNewBaseWorkflowByOnlyRunYaml(t *testing.T) {
 	testCase := loadcase(runYamlPath)
-	wfs, err := parseWorkflowSource([]byte(testCase))
+	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
 	bwf := NewBaseWorkflow(wfs, "", "", nil, nil)
@@ -60,7 +60,7 @@ func TestNewBaseWorkflowByOnlyRunYaml(t *testing.T) {
 // 测试 BaseWorkflow
 func TestNewBaseWorkflow(t *testing.T) {
 	testCase := loadcase(runYamlPath)
-	wfs, err := parseWorkflowSource([]byte(testCase))
+	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
 	fmt.Println(wfs)
@@ -77,7 +77,7 @@ func TestNewBaseWorkflow(t *testing.T) {
 
 // 测试带环流程
 func TestNewBaseWorkflowWithCircle(t *testing.T) {
-	wfs, err := parseWorkflowSource([]byte(runCircle))
+	wfs, err := schema.ParseWorkflowSource([]byte(runCircle))
 	assert.Nil(t, err)
 
 	bwf := NewBaseWorkflow(wfs, "", "", nil, nil)
@@ -88,7 +88,7 @@ func TestNewBaseWorkflowWithCircle(t *testing.T) {
 // 测试带环流程
 func TestTopologicalSort_noCircle(t *testing.T) {
 	testCase := loadcase(runYamlPath)
-	wfs, err := parseWorkflowSource([]byte(testCase))
+	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
 	bwf := NewBaseWorkflow(wfs, "", "", nil, nil)
@@ -122,7 +122,7 @@ func TestCreateNewWorkflowRun_success(t *testing.T) {
 	mockJob.EXPECT().Succeeded().Return(true).AnyTimes()
 
 	testCase := loadcase(runYamlPath)
-	wfs, err := parseWorkflowSource([]byte(testCase))
+	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
 	fmt.Printf("\n %+v \n", wfs)
@@ -149,7 +149,7 @@ func TestCreateNewWorkflowRun_success(t *testing.T) {
 // 测试运行 Workflow 失败
 func TestCreateNewWorkflowRun_failed(t *testing.T) {
 	testCase := loadcase(runYamlPath)
-	wfs, err := parseWorkflowSource([]byte(testCase))
+	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
 	controller := gomock.NewController(t)
@@ -188,7 +188,7 @@ func TestCreateNewWorkflowRun_failed(t *testing.T) {
 // 测试停止 Workflow
 func TestStopWorkflowRun(t *testing.T) {
 	testCase := loadcase(runYamlPath)
-	wfs, err := parseWorkflowSource([]byte(testCase))
+	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
 	extraInfo := map[string]string{
@@ -258,7 +258,7 @@ func TestNewWorkflowFromEntry(t *testing.T) {
 		}, nil
 	}
 	testCase := loadcase(runYamlPath)
-	wfs, err := parseWorkflowSource([]byte(testCase))
+	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
 	baseWorkflow := NewBaseWorkflow(wfs, "", "main", nil, nil)
@@ -284,7 +284,7 @@ func TestValidateWorkflow_WrongParam(t *testing.T) {
 		t.Errorf("%s", err)
 	}
 
-	wfs, err := parseWorkflowSource([]byte(runWrongParam))
+	wfs, err := schema.ParseWorkflowSource([]byte(runWrongParam))
 	assert.Nil(t, err)
 
 	bwf := NewBaseWorkflow(wfs, "", "", nil, nil)
@@ -299,7 +299,7 @@ func TestValidateWorkflow_WrongParam(t *testing.T) {
 
 func TestWorkflowParamDuplicate(t *testing.T) {
 	testCase := loadcase(runYamlPath)
-	wfs, err := parseWorkflowSource([]byte(testCase))
+	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
 	bwf := NewBaseWorkflow(wfs, "", "", nil, nil)
@@ -310,7 +310,7 @@ func TestWorkflowParamDuplicate(t *testing.T) {
 	err = bwf.validate()
 	assert.NotNil(t, err)
 	assert.Equal(t, "inputAtf name[train_data] has already existed in params/artifacts of step[main]", err.Error())
-	
+
 	delete(bwf.Source.EntryPoints["main"].Parameters, "train_data") // 把上面的添加的删掉，再校验一遍
 	err = bwf.validate()
 	assert.Nil(t, err)
@@ -319,7 +319,7 @@ func TestWorkflowParamDuplicate(t *testing.T) {
 	err = bwf.validate()
 	assert.NotNil(t, err)
 	assert.Equal(t, "outputAtf name[train_model] has already existed in params/artifacts of step[main]", err.Error())
-	
+
 	delete(bwf.Source.EntryPoints["main"].Parameters, "train_model") // 把上面的添加的删掉，再校验一遍
 	err = bwf.validate()
 	assert.Nil(t, err)
@@ -328,7 +328,7 @@ func TestWorkflowParamDuplicate(t *testing.T) {
 	err = bwf.validate()
 	assert.NotNil(t, err)
 	assert.Equal(t, "outputAtf name[train_model] has already existed in params/artifacts of step[main]", err.Error())
-	
+
 	delete(bwf.Source.EntryPoints["main"].Artifacts.Input, "train_model") // 把上面的添加的删掉，再校验一遍
 	err = bwf.validate()
 	assert.Nil(t, err)
@@ -336,7 +336,7 @@ func TestWorkflowParamDuplicate(t *testing.T) {
 
 func TestValidateWorkflow(t *testing.T) {
 	testCase := loadcase(runYamlPath)
-	wfs, err := parseWorkflowSource([]byte(testCase))
+	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
 	bwf := NewBaseWorkflow(wfs, "", "", nil, nil)
@@ -383,7 +383,7 @@ func TestValidateWorkflow(t *testing.T) {
 
 func TestValidateWorkflow__DictParam(t *testing.T) {
 	testCase := loadcase(runYamlPath)
-	wfs, err := parseWorkflowSource([]byte(testCase))
+	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
 	bwf := NewBaseWorkflow(wfs, "", "", nil, nil)
@@ -455,7 +455,6 @@ func TestValidateWorkflow__DictParam(t *testing.T) {
 	assert.Nil(t, err)
 	//assert.Equal(t, "/111-1/111_2", bwf.Source.EntryPoints["main"].Parameters["dict"])
 
-
 	bwf.Source.EntryPoints["main"].Parameters["dict"] = map[interface{}]interface{}{"type": "float", "default": 111}
 	err = bwf.validate()
 	assert.Nil(t, err)
@@ -487,7 +486,7 @@ func TestValidateWorkflow__DictParam(t *testing.T) {
 func TestValidateWorkflowArtifacts(t *testing.T) {
 	// 当前只会校验input artifact的值，output artifact的只不会校验，因为替换的时候，会直接用系统生成的路径覆盖原来的值
 	testCase := loadcase(runYamlPath)
-	wfs, err := parseWorkflowSource([]byte(testCase))
+	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
 	bwf := NewBaseWorkflow(wfs, "", "", nil, nil)
@@ -511,7 +510,7 @@ func TestValidateWorkflowArtifacts(t *testing.T) {
 
 func TestValidateWorkflowParam_success(t *testing.T) {
 	testCase := loadcase(runYamlPath)
-	wfs, err := parseWorkflowSource([]byte(testCase))
+	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
 	// not exist in source yaml
@@ -558,9 +557,9 @@ func TestValidateWorkflowParam_success(t *testing.T) {
 
 func TestRestartWorkflow(t *testing.T) {
 	testCase := loadcase(runYamlPath)
-	wfs, err := parseWorkflowSource([]byte(testCase))
+	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
-	
+
 	controller := gomock.NewController(t)
 	mockJob := NewMockJob(controller)
 	NewStep = func(name string, wfr *WorkflowRuntime, info *schema.WorkflowSourceStep) (*Step, error) {
@@ -602,9 +601,9 @@ func TestRestartWorkflow(t *testing.T) {
 func TestRestartWorkflow_from1completed(t *testing.T) {
 	db_fake.InitFakeDB()
 	testCase := loadcase(runYamlPath)
-	wfs, err := parseWorkflowSource([]byte(testCase))
+	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
-	
+
 	controller := gomock.NewController(t)
 	mockJob := NewMockJob(controller)
 	NewStep = func(name string, wfr *WorkflowRuntime, info *schema.WorkflowSourceStep) (*Step, error) {
@@ -642,7 +641,7 @@ func TestRestartWorkflow_from1completed(t *testing.T) {
 }
 
 const (
-	runYamlPath	string = "./testcase/run.step.yaml"
+	runYamlPath string = "./testcase/run.step.yaml"
 )
 
 const (
