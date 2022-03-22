@@ -1,0 +1,4 @@
+requests
+click==7.1.2
+tabulate==0.8.9
+setuptools >= 21.0.0
