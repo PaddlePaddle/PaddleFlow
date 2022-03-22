@@ -81,4 +81,5 @@ replace (
 	k8s.io/client-go => k8s.io/client-go v0.19.6
 	k8s.io/code-generator => k8s.io/code-generator v0.19.6
 	k8s.io/klog => k8s.io/klog v1.0.0
+	volcano.sh/apis => github.com/D0m021ng/apis v1.3.0-k8s1.19.6-21e223
 )
