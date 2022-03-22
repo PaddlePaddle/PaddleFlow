@@ -20,7 +20,6 @@ import (
 	"errors"
 	"fmt"
 
-	"gopkg.in/yaml.v2"
 	"gorm.io/gorm"
 
 	"paddleflow/pkg/apiserver/common"
@@ -68,13 +67,13 @@ func CreatePipeline(ctx *logger.RequestContext, request CreatePipelineRequest) (
 	}
 	// parse yaml -> WorkflowSource
 	// TODO validate pipeline containing multiple ws's
-	wfs := schema.WorkflowSource{}
-	if err := yaml.Unmarshal(pipelineYaml, &wfs); err != nil {
+	wfs, err := schema.ParseWorkflowSource(pipelineYaml)
+	if err != nil {
 		ctx.ErrorCode = common.MalformedYaml
-		ctx.Logging().Errorf("Unmarshal pipelineYaml failed. err:%v", err)
+		ctx.Logging().Errorf("get WorkflowSource by yaml failed. yaml: %s \n, err:%v", string(pipelineYaml), err)
 		return CreatePipelineResponse{}, err
 	}
-	wfs.ValidateArtifacts()
+
 	// request name > yaml name
 	if request.Name != "" {
 		wfs.Name = request.Name
@@ -118,12 +117,12 @@ func CreatePipeline(ctx *logger.RequestContext, request CreatePipelineRequest) (
 
 var ValidateWorkflowForPipeline = func(ppl models.Pipeline) error {
 	// parse yaml -> WorkflowSource
-	wfs := schema.WorkflowSource{}
-	if err := yaml.Unmarshal([]byte(ppl.PipelineYaml), &wfs); err != nil {
-		logger.Logger().Errorf("Unmarshal yamlByte failed. err:%v", err)
+	wfs, err := schema.ParseWorkflowSource([]byte(ppl.PipelineYaml))
+	if err != nil {
+		logger.Logger().Errorf("get WorkflowSource by yaml failed. yaml: %s \n, err:%v", ppl.PipelineYaml, err)
 		return err
 	}
-	wfs.ValidateArtifacts()
+
 	// fill extra info
 	param := map[string]interface{}{}
 	extra := map[string]string{
