@@ -72,34 +72,6 @@ type dataReader struct {
 	blockSize int
 }
 
-func (fh *fileReader) read(buf []byte, off uint64) (int, syscall.Errno) {
-	var bytesRead int
-	bufSize := len(buf)
-	var nread int
-	var err error
-	reader := fh.reader.store.NewReader(fh.path, int(fh.length), fh.flags, fh.ufs, fh.buffersCache, fh.seqReadAmount)
-	for bytesRead < bufSize {
-		/*
-			n的值会有三种情况
-			没有命中缓存的情况下，n的值会返回多个预读区合并在一起的值
-			命中缓存的情况下，n会返回blockSize或者length-off大小
-			越界的情况，返回0，如off>=length||len(buf)==0
-		*/
-		nread, err = reader.ReadAt(buf[bytesRead:], int64(off))
-		if err != nil {
-			log.Errorf("reader readat failed: %v", err)
-			return 0, syscall.EBADF
-		}
-		if nread == 0 {
-			break
-		}
-		bytesRead += nread
-		fh.seqReadAmount += uint64(nread)
-		off += uint64(nread)
-	}
-	return bytesRead, syscall.F_OK
-}
-
 func (fh *fileReader) Read(buf []byte, off uint64) (int, syscall.Errno) {
 	fh.Lock()
 	defer fh.Unlock()
@@ -109,8 +81,29 @@ func (fh *fileReader) Read(buf []byte, off uint64) (int, syscall.Errno) {
 	}
 	var bytesRead int
 	var err error
+	var nread int
+	bufSize := len(buf)
 	if fh.reader.store != nil {
-		bytesRead, err = fh.read(buf, off)
+		reader := fh.reader.store.NewReader(fh.path, int(fh.length), fh.flags, fh.ufs, fh.buffersCache, fh.seqReadAmount)
+		for bytesRead < bufSize {
+			/*
+				n的值会有三种情况
+				没有命中缓存的情况下，n的值会返回多个预读区合并在一起的值
+				命中缓存的情况下，n会返回blockSize或者length-off大小
+				越界的情况，返回0，如off>=length||len(buf)==0
+			*/
+			nread, err = reader.ReadAt(buf[bytesRead:], int64(off))
+			if err != nil {
+				log.Errorf("reader readat failed: %v", err)
+				return 0, syscall.EBADF
+			}
+			if nread == 0 {
+				break
+			}
+			bytesRead += nread
+			fh.seqReadAmount += uint64(nread)
+			off += uint64(nread)
+		}
 	} else {
 		if fh.fd == nil {
 			log.Debug("fd is empty")

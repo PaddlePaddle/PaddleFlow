@@ -159,26 +159,22 @@ func TestFS_read_readAt(t *testing.T) {
 	assert.Equal(t, "bcdefghijk", string(buf))
 
 	reader.Close()
-	readAndReadAt(client, t, path)
-}
-
-func readAndReadAt(client *FileSystem, t *testing.T, path string) {
 	// next read cache
-	n := 10
-	reader, err := client.Open(path)
+	n = 10
+	reader, err = client.Open(path)
 	assert.Equal(t, err, nil)
-	buf := make([]byte, n)
+	buf = make([]byte, n)
 	n, err = reader.Read(buf)
 	assert.Equal(t, len(buf), n)
 	assert.Equal(t, string(buf), "123456789a")
 
-	n2 := 2
+	n2 = 2
 	buf = make([]byte, n2)
 	n, err = reader.ReadAt(buf, 3)
 	assert.Equal(t, n2, n)
 	assert.Equal(t, "45", string(buf))
 
-	n3 := 10
+	n3 = 10
 	buf = make([]byte, n3)
 	n, err = reader.Read(buf)
 	assert.Equal(t, n3, n)

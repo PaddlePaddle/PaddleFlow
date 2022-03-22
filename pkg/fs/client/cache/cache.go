@@ -285,9 +285,12 @@ func (r *rCache) readAhead(index int) {
 			r:      r,
 			offset: uoff,
 			size:   uint32(size),
+			ufs:    r.ufs,
+			path:   r.id,
+			flags:  r.flags,
 		}
 		r.lock.Lock()
-		r.buffers[uoff] = readBuf.Init(uoff, uint32(size), r.ufs, r.id, r.flags)
+		r.buffers[uoff] = readBuf.Init()
 		existingReadAhead += size
 		r.lock.Unlock()
 	}

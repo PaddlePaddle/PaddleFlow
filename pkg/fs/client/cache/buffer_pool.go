@@ -15,7 +15,6 @@
 package cache
 
 import (
-	"errors"
 	"io"
 	"runtime"
 	"sync"
@@ -45,11 +44,10 @@ func (p Page) Init(size uint64) *Page {
 }
 
 type Buffer struct {
-	mu   sync.Mutex
-	cond *sync.Cond
-
+	mu     sync.Mutex
+	cond   *sync.Cond
 	offset uint64
-	page    *Page
+	page   *Page
 	reader io.ReadCloser
 	err    error
 	r      *rCache
@@ -57,7 +55,7 @@ type Buffer struct {
 
 type ReaderProvider func() (io.ReadCloser, error)
 
-func (b Buffer) Init(page *Page, r ReaderProvider) *Buffer {
+func (b *Buffer) Init(page *Page, r ReaderProvider) *Buffer {
 	b.cond = sync.NewCond(&b.mu)
 	b.page = page
 
@@ -65,7 +63,7 @@ func (b Buffer) Init(page *Page, r ReaderProvider) *Buffer {
 		b.readLoop(r)
 	}()
 
-	return &b
+	return b
 }
 
 func (b *Buffer) readLoop(r ReaderProvider) {
@@ -102,15 +100,6 @@ func (b *Buffer) readLoop(r ReaderProvider) {
 		// to allow another one to read
 		runtime.Gosched()
 	}
-}
-
-func (b *Buffer) readFromStream(p []byte) (n int, err error) {
-
-	n, err = b.reader.Read(p)
-	if n != 0 && errors.Is(err, io.ErrUnexpectedEOF) {
-		err = nil
-	}
-	return
 }
 
 func (b *Buffer) Read(p []byte) (n int, err error) {
