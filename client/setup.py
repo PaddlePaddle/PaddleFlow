@@ -32,7 +32,7 @@ setup(
     version=VERSION,
     description='PaddleFlow SDK',
     author='The PaddleFlow Authors',
-    url="https://console.cloud.baidu-int.com/devops/icode/repos/baidu/bmlc/paddleflow/tree/master:client",
+    url="https://github.com/PaddlePaddle/PaddleFlow:client",
     packages=find_packages(
         include=("paddleflow_python_sdk*")),
     install_requires=REQUIRES,
