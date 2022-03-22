@@ -24,6 +24,7 @@ import (
 	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 const (
@@ -115,7 +116,10 @@ func runYaml2Map(runYaml []byte) (map[string]interface{}, error) {
 	}
 	// 将Json转化成Map
 	yamlUnstructured := unstructured.Unstructured{}
-	yamlUnstructured.UnmarshalJSON(jsonByte)
+	if err := yamlUnstructured.UnmarshalJSON(jsonByte); err != nil && !runtime.IsMissingKind(err) {
+		// MissingKindErr不影响Json的解析
+		return nil, err
+	}
 
 	yamlMap := yamlUnstructured.UnstructuredContent()
 	return yamlMap, nil
@@ -156,7 +160,7 @@ func ParseWorkflowSource(runYaml []byte) (WorkflowSource, error) {
 	}
 
 	// 为了判断用户是否设定节点级别的Cache，需要第二次Unmarshal
-	yamlMap, err := runYaml2Map([]byte(runYaml))
+	yamlMap, err := runYaml2Map(runYaml)
 	if err != nil {
 		return WorkflowSource{}, err
 	}
