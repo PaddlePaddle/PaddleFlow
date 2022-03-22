@@ -44,6 +44,7 @@ import (
 var (
 	VCJobGVR   = schema.GroupVersionResource{Group: "batch.volcano.sh", Version: "v1alpha1", Resource: "jobs"}
 	VCQueueGVR = schema.GroupVersionResource{Group: "scheduling.volcano.sh", Version: "v1beta1", Resource: "queues"}
+	EQuotaGVR  = schema.GroupVersionResource{Group: "scheduling.volcano.sh", Version: "v1beta1", Resource: "elasticresourcequotas"}
 	PodGVR     = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}
 )
 
@@ -81,6 +82,7 @@ var DiscoveryHandlerFunc = http.HandlerFunc(func(w http.ResponseWriter, req *htt
 			GroupVersion: "scheduling.volcano.sh/v1beta1",
 			APIResources: []metav1.APIResource{
 				{Name: "queues", Namespaced: false, Kind: "Queue"},
+				{Name: "elasticresourcequotas", Namespaced: false, Kind: "ElasticResourceQuota"},
 			},
 		}
 	case "/apis/sparkoperator.k8s.io/v1beta2":
