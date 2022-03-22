@@ -35,15 +35,15 @@ prepare: gomod
 
 gomod:
 	$(GO) env -w GO111MODULE=on
-	$(GO) env -w GOPROXY=https://goproxy.io,direct
-	$(GO) env -w CGO_ENABLED=0
+	$(GO) env -w GOPROXY=https://goproxy.cn,direct
+	$(GO) env -w CGO_ENABLED=1
 	$(GOMOD) download
 
 # make compile
 compile: build
 
 build:
-	CGO_ENABLED=1 $(GOBUILD) -ldflags ${LD_FLAGS} -trimpath -o $(HOMEDIR)/paddleflow $(HOMEDIR)/cmd/server/main.go
+	$(GOBUILD) -ldflags ${LD_FLAGS} -trimpath -o $(HOMEDIR)/paddleflow $(HOMEDIR)/cmd/server/main.go
 	$(GOBUILD) -ldflags ${LD_FLAGS} -trimpath -o $(HOMEDIR)/pfs-fuse   $(HOMEDIR)/cmd/fs/fuse/main.go
 	$(GOBUILD) -ldflags ${LD_FLAGS} -trimpath -o $(HOMEDIR)/csi-plugin $(HOMEDIR)/cmd/fs/csi-plugin/main.go
 
@@ -76,5 +76,5 @@ clean:
 	$(GO) clean
 	rm -rf $(OUTDIR)
 
-# avoid filename conflict and speed up build 
+# avoid filename conflict and speed up build
 .PHONY: all prepare compile test package clean build
