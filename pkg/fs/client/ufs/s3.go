@@ -915,6 +915,7 @@ type mpuInfo struct {
 	partsETag      []*string
 	lastWriteError error
 	writeEG        *errgroup.Group
+	flushCnt       int
 }
 
 type s3FileHandle struct {
@@ -1085,10 +1086,8 @@ func (fh *s3FileHandle) readFileMPUAsync(partNum, startPos, endPos int64) error 
 }
 
 func (fh *s3FileHandle) Release() {
-	log.Tracef("s3 release: fh.name[%s], tmpSize[%d]", fh.name, fh.mpuInfo.fileEndPos)
-	if err := fh.uploadWriteTmpFile(true); err != nil {
-		log.Errorf("s3 release: fh.name[%s] uploadWriteTmpFile err: %v", fh.name, err)
-	}
+	log.Tracef("s3 release: fh.name[%s], tmpSize[%d], flushCnt[%d]",
+		fh.name, fh.mpuInfo.fileEndPos, fh.mpuInfo.flushCnt)
 
 	if fh.writeTmpfile != nil {
 		if err := fh.writeTmpfile.Close(); err != nil {
@@ -1099,8 +1098,10 @@ func (fh *s3FileHandle) Release() {
 }
 
 func (fh *s3FileHandle) Flush() fuse.Status {
-	log.Tracef("s3 flush: fh.name[%s], tmpSize[%d]", fh.name, fh.mpuInfo.fileEndPos)
-	return fuse.ToStatus(fh.uploadWriteTmpFile(false))
+	fh.mpuInfo.flushCnt++
+	log.Tracef("s3 flush: fh.name[%s], tmpSize[%d], flushCnt[%d]",
+		fh.name, fh.mpuInfo.fileEndPos, fh.mpuInfo.flushCnt)
+	return fuse.ToStatus(fh.uploadWriteTmpFile(true))
 }
 
 func (fh *s3FileHandle) uploadWriteTmpFile(commit bool) error {
@@ -1148,6 +1149,7 @@ func (fh *s3FileHandle) uploadWriteTmpFile(commit bool) error {
 				}
 			}
 			fh.writeDirty = false
+			log.Tracef("s3 uploadWriteTmpFile: fh.name[%s] commit finished", fh.name)
 			return nil
 		} else {
 			return nil

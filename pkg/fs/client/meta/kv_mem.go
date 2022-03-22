@@ -301,13 +301,8 @@ func (mc *memCache) Open(ino Ino, ufs *ufslib.UnderFileStorage, path string, att
 // Close reduce refs
 func (mc *memCache) Close(ino Ino) {
 	mc.attrLock.RLock()
-	a, ok := mc.attrs[ino]
+	delete(mc.attrs, ino)
 	mc.attrLock.RUnlock()
-	if ok {
-		a.Lock()
-		a.refs--
-		a.Unlock()
-	}
 }
 
 func (mc *memCache) RemoveAttr(ino Ino) {

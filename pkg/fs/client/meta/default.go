@@ -472,7 +472,7 @@ func (m *DefaultMeta) Open(ctx *Context, inode Ino, flags uint32, attr *Attr) (u
 
 // Close a file.
 func (m *DefaultMeta) Close(ctx *Context, inode Ino) syscall.Errno {
-	return syscall.ENOSYS
+	return syscall.F_OK
 }
 
 // Read returns the list of blocks
