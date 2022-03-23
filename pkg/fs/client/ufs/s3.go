@@ -1188,17 +1188,15 @@ func (fh *s3FileHandle) uploadWriteTmpFile(commit bool) error {
 
 func (fh *s3FileHandle) putFile(fileSize int64) error {
 	log.Tracef("s3 put: fh.name[%s],size[%d]", fh.name, fileSize)
-	data := make([]byte, fileSize)
-	_, err := fh.writeTmpfile.ReadAt(data, 0)
+	_, err := fh.writeTmpfile.Seek(0, 0)
 	if err != nil {
-		log.Errorf("s3 put: fh.name[%s], failed reading temp file. err:%v", fh.name, err)
+		log.Errorf("s3 put: fh.name[%s], fh.writeTmpfile.Seek(0, 0) err:%v", fh.name, err)
 		return err
 	}
-	body := bytes.NewReader(data)
 	request := &s3.PutObjectInput{
 		Bucket: &fh.bucket,
 		Key:    aws.String(fh.path),
-		Body:   body,
+		Body:   fh.writeTmpfile,
 	}
 	_, err = fh.fs.s3.PutObject(request)
 	if err != nil {
