@@ -37,12 +37,13 @@ flavour.created_at as created_at, flavour.updated_at as updated_at, flavour.dele
 	flavourJoinCluster = "left join `cluster_info` on `cluster_info`.id = `flavour`.cluster_id"
 )
 
+// Flavour records request resource info for each job
 type Flavour struct {
 	Pk                 int64                      `json:"-"           gorm:"primaryKey;autoIncrement"`
 	Name               string                     `json:"name"        gorm:"uniqueIndex"`
 	ClusterID          string                     `json:"-"   gorm:"column:cluster_id"`
 	ClusterName        string                     `json:"clusterName" gorm:"column:cluster_name;->"`
-	Cpu                string                     `json:"cpu"         gorm:"column:cpu"`
+	CPU                string                     `json:"cpu"         gorm:"column:cpu"`
 	Mem                string                     `json:"mem"         gorm:"column:mem"`
 	RawScalarResources string                     `json:"-"           gorm:"column:scalar_resources;type:text;default:'{}'"`
 	ScalarResources    schema.ScalarResourcesType `json:"scalarResources,omitempty" gorm:"-"`
@@ -52,10 +53,12 @@ type Flavour struct {
 	DeletedAt          gorm.DeletedAt             `json:"-" gorm:"index"`
 }
 
+// TableName indicate table name of Flavour
 func (Flavour) TableName() string {
 	return tableName
 }
 
+// MarshalJSON decorate format of time
 func (flavour Flavour) MarshalJSON() ([]byte, error) {
 	type Alias Flavour
 	return json.Marshal(&struct {
@@ -69,6 +72,7 @@ func (flavour Flavour) MarshalJSON() ([]byte, error) {
 	})
 }
 
+// AfterFind triggered when query sql
 func (flavour *Flavour) AfterFind(*gorm.DB) error {
 	if flavour.RawScalarResources != "" {
 		flavour.ScalarResources = make(schema.ScalarResourcesType)
@@ -105,6 +109,7 @@ func (flavour *Flavour) BeforeSave(*gorm.DB) error {
 	return nil
 }
 
+// CreateFlavour create flavour
 func CreateFlavour(flavour *Flavour) error {
 	log.Debugf("begin create flavour, flavour name:%s", flavour.Name)
 	flavour.CreatedAt = time.Now()
@@ -117,19 +122,18 @@ func CreateFlavour(flavour *Flavour) error {
 	return nil
 }
 
+// DeleteFlavour delete flavour
 func DeleteFlavour(flavourName string) error {
 	log.Debugf("begin delete flavour, flavour name:%s", flavourName)
-	database.DB.Transaction(func(tx *gorm.DB) error {
-		t := tx.Table(tableName).Unscoped().Where("name = ?", flavourName).Delete(&Flavour{})
-		if t.Error != nil {
-			log.Errorf("delete flavour failed. flavour name:%s, error:%s", flavourName, tx.Error.Error())
-			return t.Error
-		}
-		return nil
-	})
+	t := database.DB.Table(tableName).Unscoped().Where("name = ?", flavourName).Delete(&Flavour{})
+	if t.Error != nil {
+		log.Errorf("delete flavour failed. flavour name:%s, error:%v", flavourName, t.Error)
+		return t.Error
+	}
 	return nil
 }
 
+// GetFlavour get flavour
 func GetFlavour(flavourName string) (Flavour, error) {
 	log.Debugf("begin get flavour, flavour name:%s", flavourName)
 	var flavour Flavour
@@ -172,12 +176,14 @@ func ListFlavour(pk int64, maxKeys int, clusterID, queryKey string) ([]Flavour, 
 	return flavours, nil
 }
 
+// UpdateFlavour update flavour
 func UpdateFlavour(flavour *Flavour) error {
 	flavour.UpdatedAt = time.Now()
 	tx := database.DB.Model(flavour).Updates(flavour)
 	return tx.Error
 }
 
+// GetLastFlavour get last flavour that usually be used for indicating last page
 func GetLastFlavour() (Flavour, error) {
 	log.Debugf("get last flavour.")
 	flavour := Flavour{}
