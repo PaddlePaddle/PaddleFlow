@@ -54,7 +54,7 @@ type WorkflowSourceStep struct {
 	Deps       string                 `yaml:"deps"`
 	Artifacts  Artifacts              `yaml:"artifacts"`
 	Env        map[string]string      `yaml:"env"`
-	Image      string                 `yaml:"image"`
+	DockerEnv  string                 `yaml:"dockerEnv"`
 	Cache	   Cache				  `yaml:"cache"`
 }
 

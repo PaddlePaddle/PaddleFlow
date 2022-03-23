@@ -57,8 +57,8 @@ func NewBaseWorkflow(wfSource schema.WorkflowSource, runID, entry string, params
 	}
 
 	for _, wfsStep := range bwf.Source.EntryPoints {
-		if wfsStep.Image == "" {
-			wfsStep.Image = bwf.Source.DockerEnv
+		if wfsStep.DockerEnv == "" {
+			wfsStep.DockerEnv = bwf.Source.DockerEnv
 		}
 	}
 

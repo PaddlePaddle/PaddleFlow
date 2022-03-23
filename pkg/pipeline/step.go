@@ -47,7 +47,7 @@ var NewStep = func(name string, wfr *WorkflowRuntime, info *schema.WorkflowSourc
 	// 因为初始化job的操作是在所有step初始化的时候做的，此时step可能被启动一个协程，但并没有真正运行任意一个step的运行逻辑
 	// 因此没法知道上游节点的参数值，没法做替换
 	jobName := fmt.Sprintf("%s-%s", wfr.wf.RunID, name)
-	job := NewPaddleFlowJob(jobName, info.Image, info.Deps)
+	job := NewPaddleFlowJob(jobName, info.DockerEnv, info.Deps)
 	
 	st := &Step{
 		name:  name,
