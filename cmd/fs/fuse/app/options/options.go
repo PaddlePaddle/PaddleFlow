@@ -64,6 +64,7 @@ func (f *FuseOption) AddFlagSet(fs *pflag.FlagSet) {
 	fs.IntVar(&fuseConf.LinkUpdateInterval, "link-update-interval", fuseConf.LinkUpdateInterval, "The link update interval")
 	fs.StringVar(&fuseConf.LinkMetaDirPrefix, "link-meta-dir-prefix", fuseConf.LinkMetaDirPrefix, "The link meta dir prefix")
 	fs.BoolVar(&fuseConf.SkipCheckLinks, "skip-check-links", fuseConf.SkipCheckLinks, "Skip check links")
+	fs.IntVar(&fuseConf.MaxReadAheadSize, "data-read-ahead-size", fuseConf.MaxReadAheadSize, "The size of read-ahead data")
 	fs.DurationVar(&fuseConf.MemoryExpire, "data-mem-cache-expire", fuseConf.MemoryExpire, "The fuse memory data cache expire")
 	fs.IntVar(&fuseConf.MemorySize, "data-mem-size", fuseConf.MemorySize, "The number of data cache item in mem cache")
 	fs.DurationVar(&fuseConf.DiskExpire, "data-disk-cache-expire", fuseConf.DiskExpire, "The fuse disk data cache expire")

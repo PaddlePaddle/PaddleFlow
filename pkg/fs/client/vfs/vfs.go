@@ -80,36 +80,6 @@ func InitConfig(options ...Option) *Config {
 	return config
 }
 
-func WithMemorySize(cacheSize int) Option {
-	return func(config *Config) {
-		config.Cache.Mem.CacheSize = cacheSize
-	}
-}
-
-func WithMemoryExpire(expire time.Duration) Option {
-	return func(config *Config) {
-		config.Cache.Mem.Expire = expire
-	}
-}
-
-func WithDiskExpire(expire time.Duration) Option {
-	return func(config *Config) {
-		config.Cache.Disk.Expire = expire
-	}
-}
-
-func WithBlockSize(size int) Option {
-	return func(config *Config) {
-		config.Cache.BlockSize = size
-	}
-}
-
-func WithDiskCachePath(path string) Option {
-	return func(config *Config) {
-		config.Cache.Disk.Dir = path
-	}
-}
-
 func WithOwner(uid, gid uint32) Option {
 	return func(config *Config) {
 		config.owner = &Owner{
@@ -122,6 +92,12 @@ func WithOwner(uid, gid uint32) Option {
 func WithMetaConfig(m meta.Config) Option {
 	return func(config *Config) {
 		config.Meta = &m
+	}
+}
+
+func WithDataCacheConfig(data cache.Config) Option {
+	return func(config *Config) {
+		config.Cache = &data
 	}
 }
 
