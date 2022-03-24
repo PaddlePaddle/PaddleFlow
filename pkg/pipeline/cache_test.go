@@ -124,7 +124,7 @@ func mockWorkflowSourceStep() schema.WorkflowSourceStep {
 		Deps:       "dataProcess",
 		Env:        map[string]string{"num": "1200"},
 		Artifacts:  art,
-		Image:      "test.tar",
+		DockerEnv:  "test.tar",
 	}
 }
 

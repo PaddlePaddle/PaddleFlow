@@ -49,6 +49,7 @@ type Run struct {
 	Runtime        schema.RuntimeView     `gorm:"-"                                 json:"runtime"` // RuntimeRaw's struct
 	ImageUrl       string                 `gorm:"type:varchar(128)"                 json:"imageUrl"`
 	Entry          string                 `gorm:"type:varchar(256)"                 json:"entry"`
+	Disabled       string                 `gorm:"type:text;size:65535"              json:"disabled"`
 	Message        string                 `gorm:"type:text;size:65535"              json:"runMsg"`
 	Status         string                 `gorm:"type:varchar(32)"                  json:"status"` // StatusRun%%%
 	RunCacheIDs    string                 `gorm:"type:text;size:65535"              json:"runCacheIDs"`
