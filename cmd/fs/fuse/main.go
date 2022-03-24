@@ -22,7 +22,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 
-	"paddleflow/cmd/fs/fuse/flag"
 	"paddleflow/cmd/fs/fuse/service"
 	"paddleflow/pkg/common/config"
 )
@@ -31,6 +30,7 @@ func main() {
 	err := Main(os.Args)
 	if err != nil {
 		log.Fatal(err)
+
 	}
 }
 
@@ -40,12 +40,6 @@ func Main(args []string) error {
 		Usage: "print only the version",
 	}
 	config.InitFuseConfig()
-	compoundFlags := [][]cli.Flag{
-		flag.GlobalFlags(&config.FuseConf.Fuse),
-		flag.UserFlags(&config.FuseConf.Fuse),
-		flag.MetricsFlags(&config.FuseConf.Fuse),
-		flag.LogFlags(&config.FuseConf.Log),
-	}
 
 	app := &cli.App{
 		Name:                 "paddleflow-fuse",
@@ -54,7 +48,6 @@ func Main(args []string) error {
 		Copyright:            "Apache License 2.0",
 		HideHelpCommand:      true,
 		EnableBashCompletion: true,
-		Flags:                flag.ExpandFlags(compoundFlags),
 		Commands: []*cli.Command{
 			service.CmdMount(),
 			//cmdUmount(),
