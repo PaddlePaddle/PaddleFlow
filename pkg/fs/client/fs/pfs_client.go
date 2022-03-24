@@ -29,6 +29,7 @@ import (
 	"paddleflow/pkg/client"
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/fs/client/base"
+	"paddleflow/pkg/fs/client/cache"
 	"paddleflow/pkg/fs/client/meta"
 	"paddleflow/pkg/fs/client/utils"
 	"paddleflow/pkg/fs/client/vfs"
@@ -50,11 +51,12 @@ func NewPFSClient(fsMeta fsCommon.FSMeta, links map[string]fsCommon.FSMeta) (*PF
 
 func NewFSClientForTest(fsMeta fsCommon.FSMeta) (*PFSClient, error) {
 	vfsConfig := vfs.InitConfig(
-		vfs.WithMemorySize(MemCacheSize),
-		vfs.WithMemoryExpire(MemCacheExpire),
-		vfs.WithDiskExpire(DiskCacheExpire),
-		vfs.WithBlockSize(BlockSize),
-		vfs.WithDiskCachePath(DiskCachePath),
+		vfs.WithDataCacheConfig(cache.Config{
+			BlockSize:    BlockSize,
+			MaxReadAhead: MaxReadAheadNum,
+			Mem:          &cache.MemConfig{},
+			Disk:         &cache.DiskConfig{},
+		}),
 		vfs.WithMetaConfig(meta.Config{
 			AttrCacheExpire:  MetaCacheExpire,
 			EntryCacheExpire: EntryCacheExpire,
@@ -104,10 +106,17 @@ func getMetaAndLinks(server string, fsID string) (fsCommon.FSMeta, map[string]fs
 
 func (c *PFSClient) initPFS(fsMeta fsCommon.FSMeta, links map[string]fsCommon.FSMeta) error {
 	vfsConfig := vfs.InitConfig(
-		vfs.WithMemorySize(200),
-		vfs.WithMemoryExpire(MemCacheExpire),
-		vfs.WithDiskExpire(DiskCacheExpire),
-		vfs.WithBlockSize(BlockSize),
+		vfs.WithDataCacheConfig(cache.Config{
+			BlockSize:    BlockSize,
+			MaxReadAhead: MaxReadAheadNum,
+			Mem:          &cache.MemConfig{CacheSize: MemCacheSize, Expire: MemCacheExpire},
+			Disk:         &cache.DiskConfig{Dir: DiskCachePath, Expire: DiskCacheExpire},
+		}),
+		vfs.WithMetaConfig(meta.Config{
+			AttrCacheExpire:  MetaCacheExpire,
+			EntryCacheExpire: EntryCacheExpire,
+			Driver:           meta.MemMetaName,
+		}),
 	)
 	pfs, err := NewFileSystem(fsMeta, links, false, true, linkMetaDirPrefix, vfsConfig)
 	if err != nil {
