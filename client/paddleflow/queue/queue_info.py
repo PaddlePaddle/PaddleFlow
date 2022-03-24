@@ -19,14 +19,18 @@ limitations under the License.
 class QueueInfo(object):
     """the class of queue info"""   
 
-    def __init__(self, name, status, namespace, mem, cpu, clustername, createTime, updateTime):
+    def __init__(self, name, status, namespace, clusterName, quotaType,
+                    maxResources, minResources, location, schedulingPolicy, createTime, updateTime):
         """init """
         self.name = name
-        self.status = status
         self.namespace = namespace
-        self.mem = mem
-        self.cpu = cpu
-        self.clustername = clustername
+        self.status = status
+        self.clusterName = clusterName
+        self.quotaType = quotaType
+        self.maxResources = maxResources
+        self.minResources = minResources
+        self.location = location
+        self.schedulingPolicy = schedulingPolicy
         self.createTime = createTime
         self.updateTime = updateTime
 
