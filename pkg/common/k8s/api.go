@@ -52,6 +52,11 @@ var (
 		SparkAppGVK:  SparkAppStatus,
 		PaddleJobGVK: PaddleJobStatus,
 	}
+	// GVKToQuotaType GroupVersionKind lists for PaddleFlow QuotaType
+	GVKToQuotaType = []schema.GroupVersionKind{
+		VCQueueGVK,
+		EQuotaGVK,
+	}
 )
 
 type StatusInfo struct {
