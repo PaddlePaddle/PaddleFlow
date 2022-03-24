@@ -31,7 +31,8 @@ class QueueServiceApi(object):
         """
 
     @classmethod
-    def add_queue(self, host, name, namespace, cpu, mem, clustername, header=None):
+    def add_queue(self, host, name, namespace, clusterName, maxResources, minResources=None,
+                    schedulingPolicy=None, location=None, quotaType=None, header=None):
         """
         add queue 
         """
@@ -40,10 +41,17 @@ class QueueServiceApi(object):
         body = {
             "namespace": namespace,
             "name": name,
-            'mem':mem,
-            "cpu": cpu,
-            "clusterName": clustername
+            "clusterName": clusterName,
+            "maxResources": maxResources,
         }
+        if minResources:
+            body['minResources'] = minResources
+        if schedulingPolicy:
+            body['schedulingPolicy'] = schedulingPolicy
+        if location:
+            body['location'] = location
+        if quotaType:
+            body['quotaType'] = quotaType
         response = api_client.call_api(method="POST", url=parse.urljoin(host, api.PADDLE_FLOW_QUEUE), headers=header,
                                        json=body)
         if not response:
@@ -165,7 +173,8 @@ class QueueServiceApi(object):
         queueList = []        
         if len(data['queueList']):
             for queue in data['queueList']:
-                queueinfo = QueueInfo(queue['name'], queue['status'], None, None, None, None,
+                queueinfo = QueueInfo(queue['name'], queue['status'], queue['namespace'], queue['clusterName'], None,
+                                      queue['maxResources'], queue['minResources'], None, None,
                                       queue['createTime'], queue['updateTime'])
                 queueList.append(queueinfo)
         return True, queueList, data.get('nextMarker', None)
@@ -184,8 +193,9 @@ class QueueServiceApi(object):
         data = json.loads(response.text)
         if 'message' in data:
             return False, data['message']
-        queueInfo = QueueInfo(data['name'], data['status'], data['namespace'], data['mem'],
-                              data['cpu'], data.get('clusterName'), data['createTime'], data['updateTime'])
+        queueInfo = QueueInfo(data['name'], data['status'], data['namespace'], data['clusterName'], None,
+                              data['maxResources'], data.get('minResources'), data.get('location'),
+                              data.get('schedulingPolicy'), data['createTime'], data['updateTime'])
         return True, queueInfo
         
     @classmethod

@@ -133,20 +133,21 @@ class Client(object):
             raise PaddleFlowSDKException("InvalidPassWord", "password should not be none or empty")
         return UserServiceApi.update_password(self.paddleflow_server, name, password, self.header)
 
-    def add_queue(self, name, namespace, cpu, mem, clustername):
+    def add_queue(self, name, namespace, clusterName, maxResources, minResources=None,
+                  schedulingPolicy=None, location=None, quotaType=None):
         """ add queue"""
         self.pre_check()
         if namespace is None or namespace.strip() == "":
             raise PaddleFlowSDKException("InvalidNameSpace", "namesapce should not be none or empty")   
         if name is None or name.strip() == "":
-            raise PaddleFlowSDKException("InvalidQueueName", "queuename should not be none or empty") 
-        if mem is None or mem.strip() == "":
-            raise PaddleFlowSDKException("InvalidQueueMem", "queuemem should not be none or empty") 
-        if cpu is None or cpu.strip() == "":
-            raise PaddleFlowSDKException("InvalidQueueCpu", "queuecpu should not be none or empty") 
-        if clustername is None or clustername.strip() == "":
-            raise PaddleFlowSDKException("InvalidQueueClusterName", "clustername should not be none or empty") 
-        return QueueServiceApi.add_queue(self.paddleflow_server, name, namespace, cpu, mem, clustername, self.header)   
+            raise PaddleFlowSDKException("InvalidQueueName", "queuename should not be none or empty")
+        if clusterName is None or clusterName.strip() == "":
+            raise PaddleFlowSDKException("InvalidQueueClusterName", "clustername should not be none or empty")
+        if maxResources is None or maxResources['cpu'] is None or maxResources['mem'] is None:
+            raise PaddleFlowSDKException("InvalidQueueMaxResources", "queue maxResources cpu or mem should not be none or empty")
+
+        return QueueServiceApi.add_queue(self.paddleflow_server, name, namespace, clusterName, maxResources,
+               minResources, schedulingPolicy, location, quotaType, self.header)
 
     def grant_queue(self, username, queuename):
         """ grant queue"""
