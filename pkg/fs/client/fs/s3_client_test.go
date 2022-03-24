@@ -27,6 +27,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 
+	"paddleflow/pkg/fs/client/cache"
 	"paddleflow/pkg/fs/common"
 )
 
@@ -175,8 +176,13 @@ func TestS3lient_base_1(t *testing.T) {
 }
 
 func TestS3Client_read(t *testing.T) {
-	SetBlockSize(5)
-	SetMemCache(100, 2*time.Second)
+	d := cache.Config{
+		BlockSize:    200,
+		MaxReadAhead: 4,
+		Mem:          &cache.MemConfig{},
+		Disk:         &cache.DiskConfig{Dir: "./mock-cache", Expire: 600 * time.Second},
+	}
+	SetDataCache(d)
 
 	client := getS3TestFsClient(t)
 	if client == nil {
@@ -241,8 +247,13 @@ func TestS3Client_read(t *testing.T) {
 }
 
 func TestS3Client_read_with_small_block(t *testing.T) {
-	SetBlockSize(1)
-	SetDiskCache("./mock-cache", 10)
+	d := cache.Config{
+		BlockSize:    1,
+		MaxReadAhead: 40,
+		Mem:          &cache.MemConfig{},
+		Disk:         &cache.DiskConfig{Dir: "./mock-cache", Expire: 600 * time.Second},
+	}
+	SetDataCache(d)
 
 	client := getS3TestFsClient(t)
 	if client == nil {
@@ -304,9 +315,12 @@ func TestS3Client_read_with_small_block(t *testing.T) {
 }
 
 func TestS3Client_readMemAndDisk(t *testing.T) {
-	SetBlockSize(3)
-	SetMemCache(85, 60*time.Second)
-	SetDiskCache("./mock-cache", 5*time.Minute)
+	d := cache.Config{
+		BlockSize:    3,
+		MaxReadAhead: 4000,
+		Mem:          &cache.MemConfig{CacheSize: 80, Expire: 10 * time.Second},
+	}
+	SetDataCache(d)
 
 	client := getS3TestFsClient(t)
 	if client == nil {
