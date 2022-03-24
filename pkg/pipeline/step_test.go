@@ -316,7 +316,7 @@ func TestUpdateJobWithCache(t *testing.T) {
 	}
 }
 
-// 测试updateJob接口（用于计算fingerprint）
+// 测试checkCached接口（用于计算fingerprint）
 func TestCheckCached(t *testing.T) {
 	testCase := loadcase("./testcase/run.step.yaml")
 	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
