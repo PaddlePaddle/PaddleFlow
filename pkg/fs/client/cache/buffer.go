@@ -19,6 +19,8 @@ import (
 	"fmt"
 	"io"
 
+	log "github.com/sirupsen/logrus"
+
 	ufslib "paddleflow/pkg/fs/client/ufs"
 )
 
@@ -70,7 +72,8 @@ func (b *ReadBuffer) Read(offset uint64, p []byte) (n int, err error) {
 	}
 	if n > 0 {
 		if uint32(n) > b.size {
-			panic(fmt.Sprintf("read more than available %v %v", n, b.size))
+			log.Errorf("read more than available %v %v", n, b.size)
+			return 0, fmt.Errorf("read more than available %v %v", n, b.size)
 		}
 
 		b.offset += uint64(n)

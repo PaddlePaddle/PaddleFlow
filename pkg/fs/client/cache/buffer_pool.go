@@ -1,20 +1,23 @@
-// Copyright 2015 - 2017 Ka-Hing Cheung
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
 
 package cache
 
 import (
+	"errors"
 	"io"
 	"runtime"
 	"sync"
@@ -32,9 +35,6 @@ func (p *Page) ReadAt(buf []byte, offset uint64) (n int, err error) {
 
 func (p *Page) WriteFrom(reader io.Reader) (n int, err error) {
 	n, err = io.ReadFull(reader, p.buffer)
-	go func() {
-
-	}()
 	return
 }
 
@@ -67,39 +67,37 @@ func (b *Buffer) Init(page *Page, r ReaderProvider) *Buffer {
 }
 
 func (b *Buffer) readLoop(r ReaderProvider) {
-	for {
-		b.mu.Lock()
-		if b.reader == nil {
-			b.reader, b.err = r()
-			b.cond.Broadcast()
-			if b.err != nil {
-				b.mu.Unlock()
-				break
-			}
-		}
-
-		nread, err := b.page.WriteFrom(b.reader)
-		if err != nil {
-			b.err = err
+	b.mu.Lock()
+	if b.reader == nil {
+		b.reader, b.err = r()
+		b.cond.Broadcast()
+		if b.err != nil {
 			b.mu.Unlock()
-			break
+			return
 		}
-
-		if nread == 0 {
-			_ = b.reader.Close()
-			b.mu.Unlock()
-			break
-		}
-
-		go func() {
-			b.r.setCache(int(b.offset), b.page.buffer, nread)
-		}()
-
-		b.mu.Unlock()
-		// if we get here we've read _something_, bounce this goroutine
-		// to allow another one to read
-		runtime.Gosched()
 	}
+
+	nread, err := b.page.WriteFrom(b.reader)
+	if err != nil {
+		b.err = err
+		b.mu.Unlock()
+		return
+	}
+
+	if nread == 0 {
+		_ = b.reader.Close()
+		b.mu.Unlock()
+		return
+	}
+
+	go func() {
+		b.r.setCache(int(b.offset), b.page.buffer, nread)
+	}()
+
+	b.mu.Unlock()
+	// if we get here we've read _something_, bounce this goroutine
+	// to allow another one to read
+	runtime.Gosched()
 }
 
 func (b *Buffer) Read(p []byte) (n int, err error) {
@@ -113,7 +111,7 @@ func (b *Buffer) Read(p []byte) (n int, err error) {
 	// we could have received the err before Read was called
 	if b.reader == nil {
 		if b.err == nil {
-			panic("reader and err are both nil")
+			return 0, errors.New("reader and err are both nil")
 		}
 		err = b.err
 		return
@@ -126,7 +124,7 @@ func (b *Buffer) Read(p []byte) (n int, err error) {
 			return n, io.EOF
 		}
 	} else {
-		panic("page is empty")
+		return 0, errors.New("page is empty, maybe oom")
 	}
 
 	return

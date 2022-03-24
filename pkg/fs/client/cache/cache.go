@@ -321,6 +321,10 @@ func (r *rCache) ReadAt(buf []byte, off int64) (n int, err error) {
 	r.readAhead(index)
 
 	n, err = r.readFromReadAhead(off, buf)
+	if err != nil {
+		log.Errorf("readFromReadAhead err %v", err)
+		return 0, err
+	}
 	return
 }
 
