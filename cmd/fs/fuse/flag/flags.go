@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@ func GlobalFlags(fuseConf *config.Fuse) []cli.Flag {
 		},
 		&cli.StringFlag{
 			Name:        "server",
-			Value:       "10.21.195.71:8082",
+			Value:       "127.0.0.1:8082",
 			Usage:       "pfs server for REST request",
 			Destination: &fuseConf.Server,
 		},
