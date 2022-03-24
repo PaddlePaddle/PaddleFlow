@@ -80,13 +80,13 @@ def show(ctx, queuename):
 @click.argument('clustername')
 @click.argument('maxcpu')
 @click.argument('maxmem')
-@click.option('--maxscalar', help='the max scalar resource of queue, --maxscalar a=b,c=d')
-@click.option('--mincpu', help='the min cpu resource of queue')
-@click.option('--minmem', help='the min memory resource of queue')
-@click.option('--minscalar', help='the min scalar resource of queue, --minscalar a=b,c=d')
-@click.option('--policy', help='the scheduling policy for job on queue')
-@click.option('-l', '--location', help='the location of queue')
-@click.option('--quota', help='the quota type of queue, such as elasticQuota, volcanoCapabilityQuota.')
+@click.option('--maxscalar', help='the max scalar resource of queue, e.g. --maxscalar a=b,c=d')
+@click.option('--mincpu', help='the min cpu resource of queue, e.g. --mincpu 10')
+@click.option('--minmem', help='the min memory resource of queue, e.g. --minmem 10Gi')
+@click.option('--minscalar', help='the min scalar resource of queue, e.g. --minscalar a=b,c=d')
+@click.option('--policy', help='the scheduling policy for job on queue, e.g. --policy priority,weight')
+@click.option('--location', help='the node location of queue, such as Kubernetes is node labels, e.g. --location label1=value1,label2=value2')
+@click.option('--quota', help='the quota type of queue, such as elasticQuota, volcanoCapabilityQuota, default is elasticQuota')
 @click.pass_context
 def create(ctx, name, namespace, clustername, maxcpu, maxmem, maxscalar=None, mincpu=None, minmem=None, minscalar=None,
             policy=None, location=None, quota=None):
@@ -129,9 +129,18 @@ def create(ctx, name, namespace, clustername, maxcpu, maxmem, maxscalar=None, mi
     if minscalar:
         args = minscalar.split(',')
         minresources['scalarResources'] = dict([item.split('=') for item in args])
+    # get scheduling policy from optional argument
+    schedulingPolicy = None
+    if policy:
+        schedulingPolicy = policy.split(',')
+    # get queue location from optional argument
+    locationDict = None
+    if location:
+        args = location.split(',')
+        locationDict = dict([item.split("=") for item in args])
 
     valid, response = client.add_queue(name, namespace, clustername, maxresources, minresources,
-                                       policy, location, quota)
+                                       schedulingPolicy, locationDict, quota)
     if valid:
         click.echo("queue[%s] create success " % name)
     else:
