@@ -18,11 +18,11 @@ package models
 
 import (
 	"encoding/json"
-	"gorm.io/gorm"
 	"strings"
 	"time"
 
 	log "github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 
 	"paddleflow/pkg/common/database"
 	"paddleflow/pkg/common/schema"
@@ -124,7 +124,7 @@ func CreateFlavour(flavour *Flavour) error {
 
 // DeleteFlavour delete flavour
 func DeleteFlavour(flavourName string) error {
-	log.Debugf("begin delete flavour, flavour name:%s", flavourName)
+	log.Infof("begin delete flavour, flavour name:%s", flavourName)
 	t := database.DB.Table(tableName).Unscoped().Where("name = ?", flavourName).Delete(&Flavour{})
 	if t.Error != nil {
 		log.Errorf("delete flavour failed. flavour name:%s, error:%v", flavourName, t.Error)
