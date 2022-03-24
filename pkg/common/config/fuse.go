@@ -70,6 +70,7 @@ var defaultFuseConfig = FuseConfig{
 			MetaCacheExpire:  10 * time.Second,
 			EntryCacheExpire: 10 * time.Second,
 			MetaCachePath:    "/var/cache/pfs_cache_dir/meta-driver",
+			MaxReadAheadSize: 200 * 1024 * 1024,
 		},
 	},
 }
@@ -120,6 +121,7 @@ type Cache struct {
 	MetaCacheExpire  time.Duration
 	EntryCacheExpire time.Duration
 	MetaCachePath    string
+	MaxReadAheadSize int
 }
 
 var (
