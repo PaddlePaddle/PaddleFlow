@@ -142,6 +142,12 @@ func CacheFlags(fuseConf *config.Fuse) []cli.Flag {
 			Usage:       "Entry cache TTL",
 			Destination: &fuseConf.EntryTimeout,
 		},
+		&cli.IntFlag{
+			Name:        "data-read-ahead-size",
+			Value:       200 * 1024 * 1024,
+			Usage:       "size of read-ahead data",
+			Destination: &fuseConf.MaxReadAheadSize,
+		},
 	}
 }
 

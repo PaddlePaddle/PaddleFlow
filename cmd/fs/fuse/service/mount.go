@@ -39,6 +39,7 @@ import (
 	"paddleflow/pkg/common/config"
 	"paddleflow/pkg/common/http/api"
 	"paddleflow/pkg/fs/client/base"
+	"paddleflow/pkg/fs/client/cache"
 	"paddleflow/pkg/fs/client/fuse"
 	"paddleflow/pkg/fs/client/meta"
 	"paddleflow/pkg/fs/client/vfs"
@@ -287,26 +288,34 @@ func InitVFS() error {
 			return err
 		}
 	}
-	options := []vfs.Option{
-		vfs.WithMemorySize(config.FuseConf.Fuse.MemorySize),
-		vfs.WithMemoryExpire(config.FuseConf.Fuse.MemoryExpire),
-		vfs.WithBlockSize(config.FuseConf.Fuse.BlockSize),
-		vfs.WithDiskCachePath(config.FuseConf.Fuse.DiskCachePath),
-		vfs.WithDiskExpire(config.FuseConf.Fuse.DiskExpire),
-	}
-	if !config.FuseConf.Fuse.RawOwner {
-		options = append(options, vfs.WithOwner(
-			uint32(config.FuseConf.Fuse.Uid),
-			uint32(config.FuseConf.Fuse.Gid),
-		))
-	}
-	options = append(options, vfs.WithMetaConfig(meta.Config{
+	m := meta.Config{
 		AttrCacheExpire:  config.FuseConf.Fuse.MetaCacheExpire,
 		EntryCacheExpire: config.FuseConf.Fuse.EntryCacheExpire,
 		Driver:           config.FuseConf.Fuse.MetaDriver,
 		CachePath:        config.FuseConf.Fuse.MetaCachePath,
-	}))
-	vfsConfig := vfs.InitConfig(options...)
+	}
+	d := cache.Config{
+		BlockSize:    config.FuseConf.Fuse.BlockSize,
+		MaxReadAhead: config.FuseConf.Fuse.MaxReadAheadSize,
+		Mem: &cache.MemConfig{
+			CacheSize: config.FuseConf.Fuse.MemorySize,
+			Expire:    config.FuseConf.Fuse.MemoryExpire,
+		},
+		Disk: &cache.DiskConfig{
+			Dir:    config.FuseConf.Fuse.DiskCachePath,
+			Expire: config.FuseConf.Fuse.DiskExpire,
+		},
+	}
+	vfsOptions := []vfs.Option{
+		vfs.WithDataCacheConfig(d),
+		vfs.WithMetaConfig(m),
+	}
+	if !config.FuseConf.Fuse.RawOwner {
+		vfsOptions = append(vfsOptions, vfs.WithOwner(
+			uint32(config.FuseConf.Fuse.Uid),
+			uint32(config.FuseConf.Fuse.Gid)))
+	}
+	vfsConfig := vfs.InitConfig(vfsOptions...)
 
 	if _, err := vfs.InitVFS(fsMeta, links, true, vfsConfig); err != nil {
 		log.Errorf("init vfs failed: %v", err)

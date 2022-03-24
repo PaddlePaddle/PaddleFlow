@@ -31,6 +31,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"paddleflow/pkg/fs/client/cache"
 	"paddleflow/pkg/fs/client/meta"
 	"paddleflow/pkg/fs/client/vfs"
 	"paddleflow/pkg/fs/common"
@@ -184,8 +185,13 @@ func TestFSClient_read(t *testing.T) {
 	os.RemoveAll("./mock-cache")
 	defer os.RemoveAll("./mock-cache")
 	defer os.RemoveAll("./mock")
-	SetBlockSize(500)
-
+	d := cache.Config{
+		BlockSize:    400,
+		MaxReadAhead: 4,
+		Mem:          &cache.MemConfig{},
+		Disk:         &cache.DiskConfig{Dir: "./mock-cache", Expire: 600 * time.Second},
+	}
+	SetDataCache(d)
 	client := getTestFSClient(t)
 	path := "testRead"
 	writer, err := client.Create(path)
@@ -237,8 +243,15 @@ func BenchmarkMemCachedRead(b *testing.B) {
 		},
 		SubPath: "./mock",
 	}
-	SetBlockSize(1 << 23)
-	SetMemCache(100, 60*time.Second)
+
+	d := cache.Config{
+		BlockSize:    1 << 23,
+		MaxReadAhead: 100,
+		Mem:          &cache.MemConfig{CacheSize: 100, Expire: 60 * time.Second},
+		Disk:         &cache.DiskConfig{},
+	}
+	SetDataCache(d)
+
 	DiskCachePath = "./mock-cache"
 	client, err := NewFSClientForTest(testFsMeta)
 	if err != nil {
@@ -284,8 +297,13 @@ func BenchmarkUnCachedRead(b *testing.B) {
 		},
 		SubPath: "./mock",
 	}
-	SetBlockSize(0)
-
+	d := cache.Config{
+		BlockSize:    0,
+		MaxReadAhead: 0,
+		Mem:          &cache.MemConfig{CacheSize: 100, Expire: 60 * time.Second},
+		Disk:         &cache.DiskConfig{},
+	}
+	SetDataCache(d)
 	DiskCachePath = "./mock-cache"
 	client, err := NewFSClientForTest(testFsMeta)
 	if err != nil {
@@ -347,8 +365,13 @@ func openAndRead(client FSClient, path string, buf []byte) (int, error) {
 }
 
 func TestFSClient_read_with_small_block_1(t *testing.T) {
-	SetBlockSize(1)
-	SetDiskCache("./mock-cache", 10)
+	d := cache.Config{
+		BlockSize:    1,
+		MaxReadAhead: 2,
+		Mem:          &cache.MemConfig{},
+		Disk:         &cache.DiskConfig{Dir: "./mock-cache", Expire: 10 * time.Second},
+	}
+	SetDataCache(d)
 	os.MkdirAll("./mock", 0755)
 	os.MkdirAll("./mock-cache", 0755)
 	defer os.RemoveAll("./mock")
@@ -398,8 +421,13 @@ func TestFSClient_read_with_small_block_1(t *testing.T) {
 }
 
 func TestFSClient_read_with_small_block_2(t *testing.T) {
-	SetBlockSize(2)
-
+	d := cache.Config{
+		BlockSize:    2,
+		MaxReadAhead: 4,
+		Mem:          &cache.MemConfig{},
+		Disk:         &cache.DiskConfig{Dir: "./mock-cache", Expire: 10 * time.Second},
+	}
+	SetDataCache(d)
 	defer os.RemoveAll("./mock")
 	defer os.RemoveAll("./mock-cache")
 
@@ -458,8 +486,13 @@ func readFile(path string, buf []byte) (int, error) {
 func TestFSClient_diskCache_Read(t *testing.T) {
 	os.RemoveAll("./mock")
 	os.RemoveAll("./mock-cache")
-	SetBlockSize(1 << 23)
-	SetMemCache(0, 0)
+	d := cache.Config{
+		BlockSize:    200,
+		MaxReadAhead: 4,
+		Mem:          &cache.MemConfig{},
+		Disk:         &cache.DiskConfig{Dir: "./mock-cache", Expire: 10 * time.Second},
+	}
+	SetDataCache(d)
 
 	DiskCachePath = "./mock-cache"
 	client := getTestFSClient(t)
@@ -492,8 +525,13 @@ func TestFSClient_diskCache_Read(t *testing.T) {
 	// diskBlocksize = 1
 	os.RemoveAll("./mock")
 	os.RemoveAll("./mock-cache")
-	SetBlockSize(1)
-	SetMemCache(0, 0)
+	d = cache.Config{
+		BlockSize:    1,
+		MaxReadAhead: 4,
+		Mem:          &cache.MemConfig{},
+		Disk:         &cache.DiskConfig{Dir: "./mock-cache", Expire: 10 * time.Second},
+	}
+	SetDataCache(d)
 	client = getTestFSClient(t)
 	path = "testRead"
 	writer, err = client.Create(path)
@@ -526,9 +564,13 @@ func TestFSClient_diskCache_Read_Expire(t *testing.T) {
 	os.RemoveAll("./mock-cache")
 	defer os.RemoveAll("./mock")
 	defer os.RemoveAll("./datacache")
-	SetBlockSize(1 << 23)
-	SetMemCache(0, 0)
-	SetDiskCache("./mock-cache", 6*time.Second)
+	d := cache.Config{
+		BlockSize:    1,
+		MaxReadAhead: 4,
+		Mem:          &cache.MemConfig{},
+		Disk:         &cache.DiskConfig{Dir: "./mock-cache", Expire: 6 * time.Second},
+	}
+	SetDataCache(d)
 	client := getTestFSClient(t)
 	path := "testRead"
 	writer, err := client.Create(path)
@@ -555,9 +597,13 @@ func TestFSClient_diskCache_Read_Full(t *testing.T) {
 	os.RemoveAll("./mock-cache")
 	defer os.RemoveAll("./mock")
 	defer os.RemoveAll("./datacache")
-	SetBlockSize(1 << 23)
-	SetMemCache(0, 0)
-	SetDiskCache("./mock-cache", DiskCacheExpire)
+	d := cache.Config{
+		BlockSize:    1 << 23,
+		MaxReadAhead: 4,
+		Mem:          &cache.MemConfig{},
+		Disk:         &cache.DiskConfig{Dir: "./mock-cache", Expire: 600 * time.Second},
+	}
+	SetDataCache(d)
 	client := getTestFSClient(t)
 	path := "testRead"
 	writer, err := client.Create(path)
@@ -591,8 +637,13 @@ func TestFSClient_cache_read(t *testing.T) {
 	os.RemoveAll("./mock-cache")
 	defer os.RemoveAll("./mock")
 	defer os.RemoveAll("./datacache")
-	SetBlockSize(5)
-	SetDiskCache("./mock-cache", DiskCacheExpire)
+	d := cache.Config{
+		BlockSize:    5,
+		MaxReadAhead: 4,
+		Mem:          &cache.MemConfig{},
+		Disk:         &cache.DiskConfig{Dir: "./mock-cache", Expire: 600 * time.Second},
+	}
+	SetDataCache(d)
 	client := getTestFSClient(t)
 	path := "testRead"
 	writer, err := client.Create(path)
@@ -643,8 +694,13 @@ func TestFSClient_Concurrent_Read(t *testing.T) {
 	os.RemoveAll("./mock-cache")
 	defer os.RemoveAll("./mock")
 	defer os.RemoveAll("./datacache")
-	SetBlockSize(5)
-	SetDiskCache("./mock-cache", DiskCacheExpire)
+	d := cache.Config{
+		BlockSize:    5,
+		MaxReadAhead: 4,
+		Mem:          &cache.MemConfig{},
+		Disk:         &cache.DiskConfig{Dir: "./mock-cache", Expire: 600 * time.Second},
+	}
+	SetDataCache(d)
 	client := getTestFSClient(t)
 	path := "testRead"
 	writer, err := client.Create(path)
@@ -768,11 +824,12 @@ func TestMetaAttrCache(t *testing.T) {
 
 func NewFSClientForTestWithNoClientCache(fsMeta common.FSMeta) (*PFSClient, error) {
 	vfsConfig := vfs.InitConfig(
-		vfs.WithMemorySize(MemCacheSize),
-		vfs.WithMemoryExpire(MemCacheExpire),
-		vfs.WithDiskExpire(DiskCacheExpire),
-		vfs.WithBlockSize(BlockSize),
-		vfs.WithDiskCachePath(DiskCachePath),
+		vfs.WithDataCacheConfig(cache.Config{
+			BlockSize:    BlockSize,
+			MaxReadAhead: MaxReadAheadNum,
+			Mem:          &cache.MemConfig{},
+			Disk:         &cache.DiskConfig{},
+		}),
 		vfs.WithMetaConfig(meta.Config{
 			AttrCacheExpire:  MetaCacheExpire,
 			EntryCacheExpire: EntryCacheExpire,
