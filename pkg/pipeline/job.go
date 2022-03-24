@@ -38,6 +38,7 @@ type Job interface {
 	Succeeded() bool
 	Failed() bool
 	Terminated() bool
+	Skipped() bool
 	NotEnded() bool
 }
 
@@ -232,6 +233,11 @@ func (pfj *PaddleFlowJob) Failed() bool {
 func (pfj *PaddleFlowJob) Terminated() bool {
 	return pfj.Status == schema.StatusJobTerminated
 }
+
+func (pfj *PaddleFlowJob) Skipped() bool {
+	return pfj.Status == schema.StatusJobSkipped
+}
+
 
 func (pfj *PaddleFlowJob) NotEnded() bool {
 	return pfj.Status == "" || pfj.Status == schema.StatusJobTerminating || pfj.Status == schema.StatusJobRunning || pfj.Status == schema.StatusJobPending

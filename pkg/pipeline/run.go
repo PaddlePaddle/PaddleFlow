@@ -200,7 +200,9 @@ func (wfr *WorkflowRuntime) updateStatus() {
 			wfr.wf.log().Infof("has terminated step: %s", st_name)
 			continue
 		} else if st.done {
-			// job has not submitted, but has stopped by ctxCancel
+			// 两种情况：cancellled，skipped
+			// - cancellled：job has not submitted, but has stopped by ctxCancel
+			// - skipped：job disabled
 			stepDone++
 			wfr.wf.log().Infof("has done step: %s", st_name)
 			continue
@@ -213,6 +215,12 @@ func (wfr *WorkflowRuntime) updateStatus() {
 		}
 	}
 
+	// 只有所有step运行结束后会，才更新run为终止状态
+	// 有failed step，run 状态为failed
+	// terminated step，run 状态为terminated
+	// 其余情况都为succeeded，因为：
+	// - 有step为 cancelled 状态，那就肯定有有step为terminated
+	// - 另外skipped 状态的节点也视作运行成功（目前运行所有step都skip，此时run也是为succeeded）
 	if stepDone == len(wfr.steps) {
 		if hasFailedStep {
 			wfr.status = common.StatusRunFailed
@@ -230,8 +238,8 @@ func (wfr *WorkflowRuntime) updateStatus() {
 		return
 	}
 
+	// 如果有step运行未结束 + 有失败的 step + run未发起停止操作，就得发起停止run操作
 	if (hasFailedStep || hasTerminatedStep) && wfr.ctx.Err() == nil {
-		// 未完成 + 有失败的 step + 未发起 cancel
 		wfr.wf.log().Infof("workflow %s has failed or terminated step, begin to cancel it ", wfr.wf.Name)
 		wfr.ctxCancel()
 	}
@@ -245,7 +253,7 @@ func (wfr *WorkflowRuntime) isDepsReady(step *Step) bool {
 		if len(ds) <= 0 {
 			continue
 		}
-		if !wfr.steps[ds].job.Succeeded() {
+		if !wfr.steps[ds].job.Succeeded() && !wfr.steps[ds].job.Skipped() {
 			depsReady = false
 		}
 	}
@@ -266,8 +274,9 @@ func (wfr *WorkflowRuntime) callback(event WorkflowEvent) {
 			EndTime:    job.EndTime,
 			Status:     job.Status,
 			Deps:       job.Deps,
-			Image:      st.info.Image,
+			DockerEnv:  st.info.DockerEnv,
 			Artifacts:  job.Artifacts,
+			Cache:		st.info.Cache,
 			JobMessage: job.Message,
 			CacheRunID: st.CacheRunID,
 		}

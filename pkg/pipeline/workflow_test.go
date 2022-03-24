@@ -108,11 +108,40 @@ func TestTopologicalSort_noCircle(t *testing.T) {
 	assert.Equal(t, "main", result[1])
 }
 
+// 测试运行 Workflow，节点disable成功
+func TestCreateNewWorkflowRunDisabled_success(t *testing.T) {
+	testCase := loadcase(runYamlPath)
+	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
+	assert.Nil(t, err)
+
+	fmt.Printf("\n %+v \n", wfs)
+	wf, err := NewWorkflow(wfs, "", "", nil, nil, mockCbs)
+	if err != nil {
+		t.Errorf("aha %s", err.Error())
+	}
+
+	time.Sleep(time.Millisecond * 10)
+	wf.runtime.steps["data_preprocess"].disabled = true
+	wf.runtime.steps["main"].disabled = true
+	wf.runtime.steps["validate"].disabled = true
+
+	go wf.Start()
+
+	time.Sleep(time.Millisecond * 100)
+	fmt.Printf("%+v\n", *wf.runtime.steps["data_preprocess"])
+	fmt.Printf("%+v\n", *wf.runtime.steps["main"])
+	fmt.Printf("%+v\n", *wf.runtime.steps["validate"])
+	assert.Equal(t, common.StatusRunSucceeded, wf.runtime.status)
+	assert.Equal(t, schema.StatusJobSkipped, wf.runtime.steps["data_preprocess"].job.(*PaddleFlowJob).Status)
+	assert.Equal(t, schema.StatusJobSkipped, wf.runtime.steps["main"].job.(*PaddleFlowJob).Status)
+	assert.Equal(t, schema.StatusJobSkipped, wf.runtime.steps["validate"].job.(*PaddleFlowJob).Status)
+}
+
 // 测试运行 Workflow 成功
 func TestCreateNewWorkflowRun_success(t *testing.T) {
 	controller := gomock.NewController(t)
 	mockJob := NewMockJob(controller)
-	NewStep = func(name string, wfr *WorkflowRuntime, info *schema.WorkflowSourceStep) (*Step, error) {
+	NewStep = func(name string, wfr *WorkflowRuntime, info *schema.WorkflowSourceStep, disabled bool) (*Step, error) {
 		return &Step{
 			job:  mockJob,
 			info: info,
@@ -154,7 +183,7 @@ func TestCreateNewWorkflowRun_failed(t *testing.T) {
 
 	controller := gomock.NewController(t)
 	mockJob := NewMockJob(controller)
-	NewStep = func(name string, wfr *WorkflowRuntime, info *schema.WorkflowSourceStep) (*Step, error) {
+	NewStep = func(name string, wfr *WorkflowRuntime, info *schema.WorkflowSourceStep, disabled bool) (*Step, error) {
 		return &Step{
 			job:       mockJob,
 			info:      info,
@@ -166,7 +195,7 @@ func TestCreateNewWorkflowRun_failed(t *testing.T) {
 	mockJob.EXPECT().NotEnded().Return(false).AnyTimes()
 	mockJob.EXPECT().Failed().Return(true).AnyTimes()
 	mockJob.EXPECT().Succeeded().Return(false).AnyTimes()
-	mockJob.EXPECT().Cached().Return(false).AnyTimes()
+	mockJob.EXPECT().Skipped().Return(false).AnyTimes()
 
 	wf, err := NewWorkflow(wfs, "", "", nil, nil, mockCbs)
 	if err != nil {
@@ -204,7 +233,7 @@ func TestStopWorkflowRun(t *testing.T) {
 	mockJob.EXPECT().Succeeded().Return(true).AnyTimes()
 	mockJob.EXPECT().Validate().Return(nil).AnyTimes()
 
-	NewStep = func(name string, wfr *WorkflowRuntime, info *schema.WorkflowSourceStep) (*Step, error) {
+	NewStep = func(name string, wfr *WorkflowRuntime, info *schema.WorkflowSourceStep, disabled bool) (*Step, error) {
 		return &Step{
 			job:  mockJob,
 			info: info,
@@ -250,7 +279,7 @@ func TestNewWorkflowFromEntry(t *testing.T) {
 	controller := gomock.NewController(t)
 	mockJob := NewMockJob(controller)
 	mockJob.EXPECT().Validate().Return(nil).AnyTimes()
-	NewStep = func(name string, wfr *WorkflowRuntime, info *schema.WorkflowSourceStep) (*Step, error) {
+	NewStep = func(name string, wfr *WorkflowRuntime, info *schema.WorkflowSourceStep, disabled bool) (*Step, error) {
 		return &Step{
 			job:       mockJob,
 			info:      info,
@@ -356,7 +385,7 @@ func TestValidateWorkflow(t *testing.T) {
 	bwf.Source.EntryPoints["main"].Parameters["invalidRef"] = "{{ validate.refSystem }}"
 	err = bwf.validate()
 	assert.NotNil(t, err)
-	assert.Equal(t, err.Error(), "invalid reference param {{ validate.refSystem }} in step [main]: step [validate] not in deps")
+	assert.Equal(t, err.Error(), "invalid reference param {{ validate.refSystem }} in step[main]: step[validate] not in deps")
 
 	// ref from downstream
 	bwf.Source.EntryPoints["main"].Parameters["invalidRef"] = "{{ .refSystem }}"
@@ -501,11 +530,79 @@ func TestValidateWorkflowArtifacts(t *testing.T) {
 	assert.Equal(t, "check input artifact [wrongdata] in step[main] failed: format of value[{{ xxxx }}] invalid, should be like {{XXX.XXX}}", err.Error())
 
 	// 上游 output artifact 不存在
-	bwf.Source.EntryPoints["main"].Artifacts.Input["wrongdata"] = "{{ data_preprocess.moexist_data }}"
+	bwf.Source.EntryPoints["main"].Artifacts.Input["wrongdata"] = "{{ data_preprocess.noexist_data }}"
 	err = bwf.validate()
 	assert.NotNil(t, err)
-	assert.Equal(t, "invalid reference param {{ data_preprocess.moexist_data }} in step [main]: output artifact [moexist_data] not exist", err.Error())
+	assert.Equal(t, "invalid reference param {{ data_preprocess.noexist_data }} in step[main]: output artifact[noexist_data] not exist", err.Error())
 	delete(bwf.Source.EntryPoints["main"].Artifacts.Input, "wrongdata")
+}
+
+func TestValidateWorkflowDisabled(t *testing.T) {
+	// 校验workflow disable设置
+	testCase := loadcase(runYamlPath)
+	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
+	assert.Nil(t, err)
+
+	bwf := NewBaseWorkflow(wfs, "", "", nil, nil)
+	err = bwf.validate()
+	assert.Nil(t, err)
+	assert.Equal(t, "", bwf.Source.Disabled)
+
+	bwf.Source.Disabled = "notExistStepName"
+	err = bwf.validate()
+	assert.NotNil(t, err)
+	assert.Equal(t, "disabled step[notExistStepName] not existed!", err.Error())
+	
+	// disabled 设置成功
+	bwf.Source.Disabled = "validate"
+	err = bwf.validate()
+	assert.Nil(t, err)
+
+	// disabled 设置失败，步骤输出artifact被下游节点依赖
+	bwf.Source.Disabled = "main"
+	err = bwf.validate()
+	assert.NotNil(t, err)
+	assert.Equal(t, "invalid reference param {{ main.train_model }} in step[validate]: step[main] is disabled", err.Error())
+	delete(bwf.Source.EntryPoints["main"].Artifacts.Input, "wrongdata")
+}
+
+func TestValidateWorkflowCache(t *testing.T) {
+	testCase := loadcase(runYamlPath)
+	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
+	assert.Nil(t, err)
+
+	// 校验节点cache配置为空时，能够使用全局配置替换
+	bwf := NewBaseWorkflow(wfs, "", "", nil, nil)
+	err = bwf.validate()
+	assert.Nil(t, err)
+	assert.Equal(t, bwf.Source.Cache.Enable, false)
+	assert.Equal(t, bwf.Source.Cache.MaxExpiredTime, "400")
+	assert.Equal(t, bwf.Source.Cache.FsScope, "/path/to/run,/path/to/run2")
+
+	assert.Equal(t, bwf.Source.EntryPoints["data_preprocess"].Cache.Enable, bwf.Source.Cache.Enable)
+	assert.Equal(t, bwf.Source.EntryPoints["data_preprocess"].Cache.MaxExpiredTime, bwf.Source.Cache.MaxExpiredTime)
+	assert.Equal(t, bwf.Source.EntryPoints["data_preprocess"].Cache.FsScope, bwf.Source.Cache.FsScope)
+
+	// 全局 + 节点的cache MaxExpiredTime 设置失败
+	bwf.Source.Cache.MaxExpiredTime = ""
+	bwf.Source.EntryPoints["data_preprocess"].Cache.MaxExpiredTime = ""
+	err = bwf.validate()
+	assert.Nil(t, err)
+	assert.Equal(t, "-1", bwf.Source.Cache.MaxExpiredTime)
+	assert.Equal(t, "-1", bwf.Source.EntryPoints["data_preprocess"].Cache.MaxExpiredTime)
+	
+	// 全局cache MaxExpiredTime 设置失败
+	bwf.Source.Cache.MaxExpiredTime = "notInt"
+	err = bwf.validate()
+	assert.NotNil(t, err)
+	assert.Equal(t, "MaxExpiredTime[notInt] of cache not correct", err.Error())
+
+	// 节点cache MaxExpiredTime 设置失败
+	bwf.Source.Cache.MaxExpiredTime = ""
+	bwf.Source.EntryPoints["data_preprocess"].Cache.MaxExpiredTime = "notInt"
+	err = bwf.validate()
+	assert.NotNil(t, err)
+	assert.Equal(t, "MaxExpiredTime[notInt] of cache in step[data_preprocess] not correct", err.Error())
 }
 
 func TestValidateWorkflowParam_success(t *testing.T) {
@@ -552,7 +649,7 @@ func TestValidateWorkflowParam_success(t *testing.T) {
 		"model": "{{ step1.param }}",
 	}
 	err = bwf.validate()
-	assert.Equal(t, "invalid reference param {{ step1.param }} in step [main]: step [step1] not in deps", err.Error())
+	assert.Equal(t, "invalid reference param {{ step1.param }} in step[main]: step[step1] not in deps", err.Error())
 }
 
 func TestRestartWorkflow(t *testing.T) {
@@ -562,7 +659,7 @@ func TestRestartWorkflow(t *testing.T) {
 
 	controller := gomock.NewController(t)
 	mockJob := NewMockJob(controller)
-	NewStep = func(name string, wfr *WorkflowRuntime, info *schema.WorkflowSourceStep) (*Step, error) {
+	NewStep = func(name string, wfr *WorkflowRuntime, info *schema.WorkflowSourceStep, disabled bool) (*Step, error) {
 		return &Step{
 			job:       mockJob,
 			info:      info,
@@ -606,7 +703,7 @@ func TestRestartWorkflow_from1completed(t *testing.T) {
 
 	controller := gomock.NewController(t)
 	mockJob := NewMockJob(controller)
-	NewStep = func(name string, wfr *WorkflowRuntime, info *schema.WorkflowSourceStep) (*Step, error) {
+	NewStep = func(name string, wfr *WorkflowRuntime, info *schema.WorkflowSourceStep, disabled bool) (*Step, error) {
 		return &Step{
 			job:       mockJob,
 			info:      info,
