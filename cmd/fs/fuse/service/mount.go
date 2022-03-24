@@ -171,22 +171,18 @@ func wrapRegister(mountPoint string) {
 	prometheus.MustRegister(prometheus.NewGoCollector())
 }
 
-func Mount() (*libfuse.Server, error) {
-	if err := setup(); err != nil {
-		log.Errorf("mount setup() err: %v", err)
-		return nil, err
-	}
-	metricsAddr := exposeMetrics(config.FuseConf.Fuse)
-	log.Debugf("mount opts: %+v, metricsAddr: %s", opts, metricsAddr)
-	return fuse.Server(config.FuseConf.Fuse.MountPoint, *opts)
-}
-
 func mount(c *cli.Context) error {
+	log.Tracef("mount setup VFS")
 	if err := setup(); err != nil {
 		log.Errorf("mount setup() err: %v", err)
 		return err
 	}
-	log.Infof("start mount()")
+
+	fuseConf := config.FuseConf.Fuse
+	metricsAddr := exposeMetrics(fuseConf)
+	log.Debugf("mount opts: %+v, metricsAddr: %s", opts, metricsAddr)
+
+	log.Debugf("start mount service")
 	server, err := fuse.Server(config.FuseConf.Fuse.MountPoint, *opts)
 	if err != nil {
 		log.Fatalf("mount fail: %v", err)

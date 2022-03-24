@@ -17,9 +17,10 @@ limitations under the License.
 package config
 
 import (
-	"fmt"
 	"os"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/fs/client/meta"
@@ -129,7 +130,7 @@ var (
 )
 
 func InitFuseConfig() {
-	fmt.Println("Init Config")
+	log.Tracef("init fuse config")
 	FuseConf = &defaultFuseConfig
 	// Fuse暂时不需要配置文件
 	if err := InitConfigFromUserYaml(FuseConf, ""); err != nil {

@@ -30,7 +30,6 @@ func main() {
 	err := Main(os.Args)
 	if err != nil {
 		log.Fatal(err)
-
 	}
 }
 
@@ -40,7 +39,6 @@ func Main(args []string) error {
 		Usage: "print only the version",
 	}
 	config.InitFuseConfig()
-
 	app := &cli.App{
 		Name:                 "paddleflow-fuse",
 		Usage:                "A POSIX file system built on kv DB and object storage.",
@@ -50,10 +48,7 @@ func Main(args []string) error {
 		EnableBashCompletion: true,
 		Commands: []*cli.Command{
 			service.CmdMount(),
-			//cmdUmount(),
-			//cmdStats(),
-			//cmdProfile(),
-			//cmdBench(),
+			service.CmdUmount(),
 		},
 	}
 	return app.Run(args)
