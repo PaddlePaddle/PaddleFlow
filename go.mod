@@ -46,6 +46,8 @@ require (
 	github.com/stretchr/testify v1.7.0
 	github.com/syndtr/goleveldb v1.0.0
 	github.com/ugorji/go v1.2.6 // indirect
+	github.com/urfave/cli v1.20.0
+	github.com/urfave/cli/v2 v2.4.0
 	go.uber.org/automaxprocs v1.4.0
 	golang.org/x/crypto v0.0.0-20210711020723-a769d52b0f97
 	golang.org/x/net v0.0.0-20211216030914-fe4d6282115f

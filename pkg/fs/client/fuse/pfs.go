@@ -400,7 +400,7 @@ func (fs *PFS) replyEntry(entry *meta.Entry, out *fuse.EntryOut) {
 	out.SetEntryTimeout(time.Duration(config.FuseConf.Fuse.EntryTimeout))
 	attrToStat(entry.Ino, entry.Attr, &out.Attr)
 	if !config.FuseConf.Fuse.RawOwner {
-		out.Uid = config.FuseConf.Fuse.Uid
-		out.Gid = config.FuseConf.Fuse.Gid
+		out.Uid = uint32(config.FuseConf.Fuse.Uid)
+		out.Gid = uint32(config.FuseConf.Fuse.Gid)
 	}
 }
