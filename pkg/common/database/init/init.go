@@ -112,6 +112,7 @@ func initSQLiteDB(dbConf *config.DatabaseConfig, gormConf *gorm.Config) *gorm.DB
 		&models.User{},
 		&models.Run{},
 		&models.Queue{},
+		&models.Flavour{},
 		&models.Grant{},
 		&models.Job{},
 		&models.ClusterInfo{},

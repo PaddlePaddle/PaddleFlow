@@ -30,7 +30,7 @@ func InitFakeDB() {
 	// github.com/mattn/go-sqlite3
 	db, err := gorm.Open(sqlite.Open("file::memory:"), &gorm.Config{
 		// print sql
-		Logger:logger.Default.LogMode(logger.Info),
+		Logger: logger.Default.LogMode(logger.Info),
 	})
 	if err != nil {
 		log.Fatalf("The fake DB doesn't create successfully. Fail fast. error: %v", err)
@@ -43,6 +43,7 @@ func InitFakeDB() {
 		&models.User{},
 		&models.Run{},
 		&models.Queue{},
+		&models.Flavour{},
 		&models.Grant{},
 		&models.Job{},
 		&models.ClusterInfo{},
