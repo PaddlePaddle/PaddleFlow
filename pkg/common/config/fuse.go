@@ -17,7 +17,6 @@ limitations under the License.
 package config
 
 import (
-	"fmt"
 	"os"
 	"time"
 
@@ -48,8 +47,8 @@ var defaultFuseConfig = FuseConfig{
 		UserName:             "root",
 		EntryTimeout:         1,
 		AttrTimeout:          1,
-		Uid:                  uint32(os.Getuid()),
-		Gid:                  uint32(os.Getgid()),
+		Uid:                  os.Getuid(),
+		Gid:                  os.Getgid(),
 		IgnoreSecurityLabels: true,
 		DisableXAttrs:        true,
 		AllowOther:           true,
@@ -95,8 +94,8 @@ type Fuse struct {
 	UserName             string `yaml:"userName"`
 	EntryTimeout         int    `yaml:"entryTimeout"`
 	AttrTimeout          int    `yaml:"attrTimeout"`
-	Uid                  uint32 `yaml:"uid"`
-	Gid                  uint32 `yaml:"gid"`
+	Uid                  int    `yaml:"uid"`
+	Gid                  int    `yaml:"gid"`
 	IgnoreSecurityLabels bool   `yaml:"ignoreSecurityLabels"`
 	DisableXAttrs        bool   `yaml:"disableXAttrs"`
 	AllowOther           bool   `yaml:"allowOther"`
@@ -129,7 +128,6 @@ var (
 )
 
 func InitFuseConfig() {
-	fmt.Println("Init Config")
 	FuseConf = &defaultFuseConfig
 	// Fuse暂时不需要配置文件
 	if err := InitConfigFromUserYaml(FuseConf, ""); err != nil {
