@@ -30,7 +30,7 @@ fi
 
 echo $array
 time=$(date "+%Y%m%d-%H%M%S")
-nohup ./pfs-fuse --attr-timeout=$attrValid --entry-timeout=$entryValid --user-name=$fuseRoot --password=$fusePassword $args > $logpath/pfs-fuse-$time.log 2>&1 &
+nohup ./pfs-fuse mount --attr-timeout=$attrValid --entry-timeout=$entryValid --user-name=$fuseRoot --password=$fusePassword $args > $logpath/pfs-fuse-$time.log 2>&1 &
 
 exitCode=-1
 for (( i = 0; i < 5; i++ )); do
