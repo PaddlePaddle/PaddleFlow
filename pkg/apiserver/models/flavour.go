@@ -148,7 +148,7 @@ func GetFlavour(flavourName string) (Flavour, error) {
 
 // ListFlavour all params is nullable, and support fuzzy query of flavour's name by queryKey
 func ListFlavour(pk int64, maxKeys int, clusterID, queryKey string) ([]Flavour, error) {
-	log.Debugf("list flavour, pk: %d, maxKeys: %d, clusterID= %s", pk, maxKeys, clusterID)
+	log.Debugf("list flavour, pk: %d, maxKeys: %d, clusterID: %s", pk, maxKeys, clusterID)
 
 	var flavours []Flavour
 	query := database.DB.Table(flavourTableName).Where("flavour.pk > ?", pk).Select(flavourSelectColumn).Joins(flavourJoinCluster)
