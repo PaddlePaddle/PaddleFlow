@@ -18,16 +18,22 @@ package job
 
 import (
 	"fmt"
-	"sync"
 	"time"
 
+	"github.com/bluele/gcache"
 	log "github.com/sirupsen/logrus"
 
 	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/common/config"
+	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/common/schema"
 	"paddleflow/pkg/job/api"
 	"paddleflow/pkg/job/runtime"
+)
+
+const (
+	defaultCacheSize  = 100
+	defaultExpireTime = 30
 )
 
 type ActiveClustersFunc func() []models.ClusterInfo
@@ -37,13 +43,10 @@ type QueueJobsFunc func(string, []schema.JobStatus) []models.Job
 type JobManagerImpl struct {
 	// activeClusters is a method for listing active clusters from db
 	activeClusters ActiveClustersFunc
-	// activeQueues is a method for listing active queues from db
-	activeQueues ActiveQueuesFunc
 	// activeQueueJobs is a method for listing jobs on active queue
 	activeQueueJobs QueueJobsFunc
-	queueSyncPeriod time.Duration
-	queueMaps       map[api.QueueID]*api.QueueInfo
-	queueRWMutex    sync.RWMutex
+	queueExpireTime time.Duration
+	queueCache      gcache.Cache
 
 	// clusterStatus contains cluster status
 	clusterStatus map[api.ClusterID]chan struct{}
@@ -51,23 +54,28 @@ type JobManagerImpl struct {
 
 func NewJobManagerImpl() (*JobManagerImpl, error) {
 	manager := &JobManagerImpl{
-		queueMaps:     make(map[api.QueueID]*api.QueueInfo),
 		clusterStatus: make(map[api.ClusterID]chan struct{}),
 	}
 	return manager, nil
 
 }
 
-func (m *JobManagerImpl) Start(activeClusters ActiveClustersFunc,
-	activeQueues ActiveQueuesFunc, activeQueueJobs QueueJobsFunc) error {
+func (m *JobManagerImpl) Start(activeClusters ActiveClustersFunc, activeQueueJobs QueueJobsFunc) {
 	log.Infof("Start job manager!")
 	m.activeClusters = activeClusters
-	m.activeQueues = activeQueues
 	m.activeQueueJobs = activeQueueJobs
-	m.queueSyncPeriod = time.Duration(config.GlobalServerConfig.Job.QueueSyncPeriod) * time.Second
+	// init queue cache
+	cacheSize := config.GlobalServerConfig.Job.QueueCacheSize
+	if cacheSize < defaultCacheSize {
+		cacheSize = defaultCacheSize
+	}
+	expireTime := config.GlobalServerConfig.Job.QueueExpireTime
+	if expireTime < defaultExpireTime {
+		expireTime = defaultExpireTime
+	}
+	m.queueCache = gcache.New(cacheSize).LRU().Build()
+	m.queueExpireTime = time.Duration(expireTime) * time.Second
 
-	// sync queue info
-	go m.SyncQueues()
 	for {
 		// get active clusters
 		clusters := m.activeClusters()
@@ -96,7 +104,6 @@ func (m *JobManagerImpl) Start(activeClusters ActiveClustersFunc,
 		}
 		time.Sleep(time.Duration(config.GlobalServerConfig.Job.ClusterSyncPeriod) * time.Second)
 	}
-	return nil
 }
 
 func (m *JobManagerImpl) stopClusterRuntime(clusterID api.ClusterID) {
@@ -108,23 +115,6 @@ func (m *JobManagerImpl) stopClusterRuntime(clusterID api.ClusterID) {
 	}
 	delete(m.clusterStatus, clusterID)
 	runtime.PFRuntimeMap.Delete(clusterID)
-}
-
-func (m *JobManagerImpl) SyncQueues() error {
-	for {
-		// TODO: sync queues with watching
-		log.Infof("list active queues!")
-		queues := m.activeQueues()
-		for _, queue := range queues {
-			log.Debugf("queue info <%v>", queue)
-			queueID := api.QueueID(queue.ID)
-			m.queueRWMutex.Lock()
-			m.queueMaps[queueID] = api.NewQueueInfo(queue)
-			m.queueRWMutex.Unlock()
-		}
-		time.Sleep(m.queueSyncPeriod)
-	}
-	return nil
 }
 
 func (m *JobManagerImpl) syncClusterJobs(clusterID api.ClusterID, submitJobs *api.QueueJob, stopCh <-chan struct{}) {
@@ -156,9 +146,7 @@ func (m *JobManagerImpl) listQueueJobs(queueID api.QueueID, status schema.JobSta
 		return nil
 	}
 	// check whether queue is exist or not
-	m.queueRWMutex.RLock()
-	defer m.queueRWMutex.RUnlock()
-	queue, find := m.queueMaps[queueID]
+	queue, find := m.GetQueue(queueID)
 	if !find {
 		log.Errorf("queue %s does not found", queueID)
 		return fmt.Errorf("queue %s does not found", queueID)
@@ -227,12 +215,23 @@ func (m *JobManagerImpl) JobProcessLoop(jobSubmit func(*api.PFJob) error, stopCh
 
 func (m *JobManagerImpl) GetQueue(queueID api.QueueID) (*api.QueueInfo, bool) {
 	// check whether queue is exist or not
-	m.queueRWMutex.RLock()
-	defer m.queueRWMutex.RUnlock()
-	queue, find := m.queueMaps[queueID]
-	if !find {
-		log.Errorf("queue %s does not found", queueID)
+	var err error
+	value, err := m.queueCache.GetIFPresent(queueID)
+	if err == nil {
+		return value.(*api.QueueInfo), true
+	}
+	// get queue from db
+	q, err := models.GetQueueByID(&logger.RequestContext{}, string(queueID))
+	if err != nil {
+		log.Errorf("get queue from database failed, err: %s", err)
 		return nil, false
 	}
-	return queue, find
+	log.Debugf("get queue from database, and queue info: %v", q)
+	queueInfo := api.NewQueueInfo(q)
+	// set key
+	err = m.queueCache.SetWithExpire(queueID, queueInfo, m.queueExpireTime)
+	if err != nil {
+		log.Warningf("set cache for queue %s failed, err: %s", queueID, err)
+	}
+	return queueInfo, true
 }
