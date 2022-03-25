@@ -133,13 +133,13 @@ func CacheFlags(fuseConf *config.Fuse) []cli.Flag {
 		&cli.IntFlag{
 			Name:        "attr-timeout",
 			Value:       1,
-			Usage:       "Attribute cache TTL",
+			Usage:       "attribute cache TTL",
 			Destination: &fuseConf.AttrTimeout,
 		},
 		&cli.IntFlag{
 			Name:        "entry-timeout",
 			Value:       1,
-			Usage:       "Entry cache TTL",
+			Usage:       "entry cache TTL",
 			Destination: &fuseConf.EntryTimeout,
 		},
 		&cli.IntFlag{
@@ -221,19 +221,19 @@ func UserFlags(fuseConf *config.Fuse) []cli.Flag {
 		},
 		&cli.StringFlag{
 			Name:        "password",
-			Usage:       "fs server password for fsusername",
+			Usage:       "fs server password for fs username",
 			Destination: &fuseConf.Password,
 		},
 		&cli.IntFlag{
 			Name:        "uid",
 			Value:       os.Getuid(),
-			Usage:       "The given UID to replace default uid",
+			Usage:       "uid given to replace default uid",
 			Destination: &fuseConf.Uid,
 		},
 		&cli.IntFlag{
 			Name:        "gid",
 			Value:       os.Getgid(),
-			Usage:       "The given GID to replace default uid",
+			Usage:       "gid given to replace default gid",
 			Destination: &fuseConf.Gid,
 		},
 		&cli.BoolFlag{
@@ -262,13 +262,13 @@ func MetricsFlags(fuseConf *config.Fuse) []cli.Flag {
 		&cli.IntFlag{
 			Name:        "pprof-port",
 			Value:       6060,
-			Usage:       "pprof-port",
+			Usage:       "pprof port",
 			Destination: &fuseConf.PprofPort,
 		},
 		&cli.IntFlag{
 			Name:        "metrics-port",
 			Value:       8993,
-			Usage:       "metrics server port",
+			Usage:       "metrics service port",
 			Destination: &fuseConf.MetricsPort,
 		},
 	}
@@ -284,7 +284,7 @@ func LogFlags(logConf *logger.LogConfig) []cli.Flag {
 		},
 		&cli.StringFlag{
 			Name:        "log-file-prefix",
-			Value:       "./paddleflow-fuse",
+			Value:       "./pfs-fuse",
 			Usage:       "prefix of log file",
 			Destination: &logConf.FilePrefix,
 		},
@@ -309,19 +309,19 @@ func LogFlags(logConf *logger.LogConfig) []cli.Flag {
 		&cli.IntFlag{
 			Name:        "log-max-keep-days",
 			Value:       90,
-			Usage:       "pprof-port",
+			Usage:       "log max keep days",
 			Destination: &logConf.MaxKeepDays,
 		},
 		&cli.IntFlag{
 			Name:        "log-max-file-num",
 			Value:       100,
-			Usage:       "metrics server port",
+			Usage:       "log max file number",
 			Destination: &logConf.MaxFileNum,
 		},
 		&cli.IntFlag{
 			Name:        "log-max-file-size-in-mb",
 			Value:       200 * 1024 * 1024,
-			Usage:       "metrics server port",
+			Usage:       "log max file size in MiB",
 			Destination: &logConf.MaxFileSizeInMB,
 		},
 	}

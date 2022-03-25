@@ -40,9 +40,9 @@ func Main(args []string) error {
 	}
 	config.InitFuseConfig()
 	app := &cli.App{
-		Name:                 "paddleflow-fuse",
+		Name:                 "pfs-fuse",
 		Usage:                "A POSIX file system built on kv DB and object storage.",
-		Version:              "1.4.1",
+		Version:              "1.4",
 		Copyright:            "Apache License 2.0",
 		HideHelpCommand:      true,
 		EnableBashCompletion: true,
