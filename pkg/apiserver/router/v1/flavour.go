@@ -109,9 +109,8 @@ func (fr *FlavourRouter) getFlavour(w http.ResponseWriter, r *http.Request) {
 	flavourName := strings.TrimSpace(chi.URLParam(r, util.ParamFlavourName))
 	if flavourName == "" {
 		ctx.ErrorCode = common.FlavourNameEmpty
-		msg := fmt.Sprintf("flavour name should not be empty")
-		ctx.Logging().Error(msg)
-		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, msg)
+		ctx.Logging().Error("flavour name should not be empty")
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, "")
 	}
 	flavour, err := flavour.GetFlavour(flavourName)
 	if err != nil {
@@ -165,7 +164,7 @@ func (fr *FlavourRouter) updateFlavour(w http.ResponseWriter, r *http.Request) {
 func validateUpdateFlavour(ctx *logger.RequestContext, request *flavour.UpdateFlavourRequest) error {
 	if request.Name == "" {
 		ctx.ErrorCode = common.FlavourNameEmpty
-		msg := fmt.Sprintf("flavour name should not be empty")
+		msg := "flavour name should not be empty"
 		ctx.Logging().Error(msg)
 		return fmt.Errorf(msg)
 	}
@@ -259,9 +258,8 @@ func (fr *FlavourRouter) deleteFlavour(w http.ResponseWriter, r *http.Request) {
 	flavourName := strings.TrimSpace(chi.URLParam(r, util.ParamFlavourName))
 	if flavourName == "" {
 		ctx.ErrorCode = common.FlavourNameEmpty
-		msg := fmt.Sprintf("flavour name should not be empty")
-		ctx.Logging().Error(msg)
-		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, msg)
+		ctx.Logging().Error("flavour name should not be empty")
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, "")
 		return
 	}
 

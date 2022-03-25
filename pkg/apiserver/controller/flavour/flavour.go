@@ -174,9 +174,7 @@ func ListFlavour(maxKeys int, marker, clusterName, queryKey string) (*ListFlavou
 		}
 	}
 	response.MaxKeys = maxKeys
-	for _, cluster := range flavours {
-		response.FlavourList = append(response.FlavourList, cluster)
-	}
+	response.FlavourList = append(response.FlavourList, flavours...)
 
 	return &response, nil
 }
