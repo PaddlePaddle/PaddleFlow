@@ -77,7 +77,9 @@ const (
 	RunCacheNotFound      = "RunCacheNotFound"
 	ArtifactEventNotFound = "ArtifactEventNotFound"
 
-	FlavourNotFound = "FlavourNotFound"
+	FlavourNotFound     = "FlavourNotFound"     // 未找到对应的资源套餐
+	FlavourNameEmpty    = "FlavourNameEmpty"    // 资源套餐名称为空
+	FlavourInvalidField = "FlavourInvalidField" // 资源套餐名称为空
 
 	ClusterNameNotFound      = "ClusterNameNotFound"
 	ClusterIdNotFound        = "ClusterIdNotFound"
@@ -166,7 +168,9 @@ var errorHTTPStatus = map[string]int{
 	GrantAlreadyExist:         http.StatusBadRequest,
 	GrantRootActionNotSupport: http.StatusBadRequest,
 
-	FlavourNotFound: http.StatusBadRequest,
+	FlavourNotFound:     http.StatusNotFound,
+	FlavourNameEmpty:    http.StatusBadRequest,
+	FlavourInvalidField: http.StatusBadRequest,
 
 	ClusterNameNotFound:      http.StatusBadRequest,
 	ClusterIdNotFound:        http.StatusBadRequest,
@@ -239,6 +243,8 @@ var errorMessage = map[string]string{
 	QueueNameNotFound:            "QueueName does not exist",
 	QueueResourceNotMatch:        "Queue resource is not match",
 	QueueIsNotClosed:             "Queue should be closed before delete",
+
+	FlavourNameEmpty: "flavour name should not be empty",
 
 	RunNameDuplicated:     "Run name already exists",
 	RunNotFound:           "RunID not found",
