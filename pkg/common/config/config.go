@@ -17,16 +17,19 @@ limitations under the License.
 package config
 
 import (
+	"sync"
+
 	apiv1 "k8s.io/api/core/v1"
+
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/common/schema"
 )
 
 var (
-	GlobalServerConfig *ServerConfig                // the global ServerConfig
-	DefaultPV          *apiv1.PersistentVolume      // the global default pv instance
-	DefaultPVC         *apiv1.PersistentVolumeClaim // the global default pvc instance
-
+	GlobalServerConfig    *ServerConfig                // the global ServerConfig
+	FlavourRWMutex        = &sync.RWMutex{}            // the global ServerConfig RWMutex
+	DefaultPV             *apiv1.PersistentVolume      // the global default pv instance
+	DefaultPVC            *apiv1.PersistentVolumeClaim // the global default pvc instance
 	DefaultRunYamlPath    = "./run.yaml"
 	serverDefaultConfPath = "./config/server/default/paddleserver.yaml"
 )
@@ -38,7 +41,6 @@ type ServerConfig struct {
 	Job           JobConfig                 `yaml:"job"`
 	Fs            FsServerConf              `yaml:"fs"`
 	NamespaceList []string                  `yaml:"namespaceList"`
-	Flavour       []schema.Flavour          `yaml:"flavour"`
 	FlavourMap    map[string]schema.Flavour `yaml:"-"`
 	ImageConf     ImageConfig               `yaml:"imageRepository"`
 }

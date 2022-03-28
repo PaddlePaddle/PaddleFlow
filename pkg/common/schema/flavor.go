@@ -38,6 +38,8 @@ type ResourceInfo struct {
 type Flavour struct {
 	ResourceInfo `yaml:",inline"`
 	Name         string `json:"name" yaml:"name"`
+	// todo(zhongzichao) classified by clusterID
+	ClusterID string `json:"-" yaml:"-"`
 }
 
 func isValidScalarResource(r string, scalarResourcesType []string) bool {
