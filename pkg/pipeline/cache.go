@@ -196,11 +196,6 @@ func (cc *conservativeCacheCalculator) getFsScopeModTime() (map[string]string, e
 	fsScopeMtimeMap := map[string]string{}
 
 	FsScope := strings.TrimSpace(cc.cacheConfig.FsScope)
-	// 如果FsScope 为空字符串，则默认设置为 更目录
-	if FsScope == "" {
-		FsScope = "/"
-	}
-
 	for _, path := range strings.Split(FsScope, ",") {
 		path = strings.TrimSpace(path)
 		if path == "" {

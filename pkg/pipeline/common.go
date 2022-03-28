@@ -167,6 +167,7 @@ type StepParamSolver struct {
 	runID               string
 	fsID                string
 	logger              *log.Entry
+	useFs               bool
 }
 
 func NewStepParamSolver(
@@ -178,9 +179,16 @@ func NewStepParamSolver(
 	runID string,
 	fsID string,
 	logger *log.Entry) StepParamSolver {
+
+	useFs := true
+	if sysParams[SysParamNamePFFsID] == "" {
+		useFs = false
+	}
+
 	stepParamChecker := StepParamChecker{
 		steps:     steps,
 		sysParams: sysParams,
+		useFs:     useFs,
 	}
 
 	stepParamSolver := StepParamSolver{
@@ -230,6 +238,10 @@ func (s *StepParamSolver) Solve(currentStep string, cacheOutputArtifacts map[str
 	}
 
 	// 3. output artifacts 由平台生成路径，所以在校验时，不会对其值进行校验（即使非空迟早也会被替换）
+	if s.useFs && len(step.Artifacts.Output) > 0 {
+		return fmt.Errorf("cannot define output artifact if no Fs is used")
+	}
+
 	for outAtfName, _ := range step.Artifacts.Output {
 		realVal, err := s.solveOutputArtifactValue(currentStep, outAtfName, cacheOutputArtifacts)
 		if err != nil {
@@ -403,9 +415,10 @@ func (s *StepParamSolver) refParamExist(currentStep, refStep, refParamName, fiel
 }
 
 type StepParamChecker struct {
-	steps     map[string]*schema.WorkflowSourceStep // 需要传入相关的所有 step，以判断依赖是否合法
-	sysParams map[string]string                     // sysParams 的值和 step 相关，需要传入
-	disabledSteps []string							// 被disabled的节点列表
+	steps         map[string]*schema.WorkflowSourceStep // 需要传入相关的所有 step，以判断依赖是否合法
+	sysParams     map[string]string                     // sysParams 的值和 step 相关，需要传入
+	disabledSteps []string                              // 被disabled的节点列表
+	useFs         bool                                  // 表示是否挂载Fs
 }
 
 func (s *StepParamChecker) getWorkflowSourceStep(currentStep string) (*schema.WorkflowSourceStep, bool) {
@@ -466,14 +479,15 @@ func (s *StepParamChecker) checkDuplication(currentStep string) error {
 
 func (s *StepParamChecker) Check(currentStep string) error {
 	/*
-		1. 先检查参数名是否有重复（parameter，artifact）
-		2. 然后校验当前步骤参数引用是否合法。引用规则有：
+		1. 如果没有用到Fs，不能用Fs相关系统参数，以及inputAtf，outputAtf机制
+		2. 先检查参数名是否有重复（parameter，artifact）
+		3. 然后校验当前步骤参数引用是否合法。引用规则有：
 		- parameters 字段中变量可引用系统参数、及上游节点parameter
 		- input artifacts 只能引用上游 outputArtifact
 		- output artifact不会引用任何参数，值由平台自动生成
 		- env 支持平台内置参数替换，上游step的parameter依赖替换，当前step的parameter替换
 		- command 支持平台内置参数替换，上游step的parameter依赖替换，当前step的parameter替换，当前step内input artifact、当前step内output artifact替换
-		3. 引用上游参数时，必须保证上游节点不在disabled列表中。
+		4. 引用上游参数时，必须保证上游节点不在disabled列表中。
 	*/
 	err := s.checkDuplication(currentStep)
 	if err != nil {
@@ -517,6 +531,9 @@ func (s *StepParamChecker) Check(currentStep string) error {
 	}
 
 	// 3. output artifacts 由平台生成路径，所以在校验时，不会对其值进行校验（即使非空迟早也会被替换）
+	if !s.useFs && len(step.Artifacts.Output) > 0 {
+		return fmt.Errorf("cannot define artifact in step[%s] with no Fs mounted", currentStep)
+	}
 	for outAtfName, _ := range step.Artifacts.Output {
 		if err = s.checkName(currentStep, FieldOutputArtifacts, outAtfName); err != nil {
 			return err
@@ -589,8 +606,7 @@ func (s *StepParamChecker) resolveRefParam(step, param, fieldType string) error 
 	pattern := `\{\{(\s)*([a-zA-Z0-9_]*\.?[a-zA-Z0-9_]+)?(\s)*\}\}`
 	reg := regexp.MustCompile(pattern)
 	matches := reg.FindAllStringSubmatch(param, -1)
-	for index := range matches {
-		row := matches[index]
+	for _, row := range matches {
 		if len(row) != 4 {
 			return MismatchRegexError(param, pattern)
 		}
@@ -599,6 +615,10 @@ func (s *StepParamChecker) resolveRefParam(step, param, fieldType string) error 
 		if len(refStep) == 0 {
 			// 分别替换系统参数，如{{PF_RUN_ID}}；当前step parameter；当前step的input artifact；当前step的output artifact
 			// 只有param，env，command三类变量需要处理
+			if !s.useFs && (refParamName == SysParamNamePFFsID || refParamName == SysParamNamePFFsName) {
+				return fmt.Errorf("cannot use sysParam[%s] template in step[%s] for pipeline run with no Fs mounted", refParamName, step)
+			}
+
 			var ok bool
 			_, ok = s.sysParams[refParamName]
 			if !ok {
@@ -622,7 +642,10 @@ func (s *StepParamChecker) resolveRefParam(step, param, fieldType string) error 
 				}
 			}
 		} else {
-			return s.refParamExist(step, refStep, refParamName, fieldType)
+			err := s.refParamExist(step, refStep, refParamName, fieldType)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
