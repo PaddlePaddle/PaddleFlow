@@ -176,11 +176,17 @@ func (wfs *WorkflowSource) validateStepCacheByMap(yamlMap map[string]interface{}
 		}
 		if ok {
 			cacheMap := cache.(map[string]interface{})
+			// Cache类型的reflect.Type
+			cacheType := reflect.TypeOf(point.Cache)
 			// 给Cache的每个字段赋值，覆盖掉全局的Cache设置
-			for i := 0; i < reflect.TypeOf(point.Cache).NumField(); i++ {
-				attrName := reflect.TypeOf(point.Cache).Field(i).Tag.Get("yaml")
+			for i := 0; i < cacheType.NumField(); i++ {
+				attrName := cacheType.Field(i).Tag.Get("yaml")
 				if attrValue, ok := cacheMap[attrName]; ok {
-					reflect.ValueOf(&point.Cache).Elem().Field(i).Set(reflect.ValueOf(attrValue))
+					attrType := cacheType.Field(i).Type
+					if !reflect.TypeOf(attrValue).ConvertibleTo(attrType) {
+						return fmt.Errorf("cannot convert value of Cache attribute [%s] to string", attrName)
+					}
+					reflect.ValueOf(&point.Cache).Elem().Field(i).Set(reflect.ValueOf(attrValue).Convert(attrType))
 				}
 			}
 		}
