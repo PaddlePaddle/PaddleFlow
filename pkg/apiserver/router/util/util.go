@@ -67,6 +67,8 @@ const (
 	QueryFsname = "fsname"
 	QueryPath   = "path"
 
+	ParamFlavourName = "flavourName"
+
 	// cluster name最大长度
 	ClusterNameMaxLength = 255
 

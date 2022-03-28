@@ -209,7 +209,7 @@ class FSServiceApi(object):
         mount_op = "--fs-id={} --mount-point={} --server={} --user-name={} --password={} "
         mount_op += self.getMountOptions(mountoptins)
 
-        cmd_prefix = "nohup {} " + mount_op + ">{} 2>&1 &"
+        cmd_prefix = "nohup {} mount " + mount_op + ">{} 2>&1 &"
         fsid = 'fs-' + fsinfo[0].owner + '-' + fsinfo[0].name
         cmd_mount = cmd_prefix.format(fuse_env, fsid, path, host.lstrip('http://'),
                                       userid, password, log)
