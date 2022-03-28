@@ -172,13 +172,13 @@ func validateUpdateFlavour(ctx *logger.RequestContext, request *flavour.UpdateFl
 		return fmt.Errorf(msg)
 	}
 	if request.CPU != "" && !schema.CheckReg(request.CPU, schema.RegPatternResource) {
-		errMsg := fmt.Sprintf("cpu not found")
+		errMsg := "cpu not found"
 		ctx.Logging().Errorf("create flavour failed. error: %s", errMsg)
 		ctx.ErrorCode = common.FlavourInvalidField
 		return errors.New(errMsg)
 	}
 	if request.Mem != "" && !schema.CheckReg(request.Mem, schema.RegPatternResource) {
-		errMsg := fmt.Sprintf("mem not found")
+		errMsg := "mem not found"
 		ctx.Logging().Errorf("create flavour failed. error: %s", errMsg)
 		ctx.ErrorCode = common.FlavourInvalidField
 		return errors.New(errMsg)
