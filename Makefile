@@ -37,6 +37,8 @@ gomod:
 	$(GO) env -w GO111MODULE=on
 	$(GO) env -w GOPROXY=direct
 	$(GO) env -w CGO_ENABLED=0
+	$(GO) clean -modcache
+	$(GOMOD) tidy
 	$(GOMOD) download
 
 # make compile
