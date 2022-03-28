@@ -70,7 +70,11 @@ func ValidateResourceInfo(resourceInfo ResourceInfo, scalarResourcesType []strin
 	if !CheckReg(resourceInfo.Cpu, RegPatternResource) || !CheckReg(resourceInfo.Mem, RegPatternResource) {
 		return errors.QueueResourceNotMatchError(resourceInfo.Cpu, resourceInfo.Mem)
 	}
-	for k := range resourceInfo.ScalarResources {
+	return ValidateScalarResourceInfo(resourceInfo.ScalarResources, scalarResourcesType)
+}
+
+func ValidateScalarResourceInfo(scalarResources ScalarResourcesType, scalarResourcesType []string) error {
+	for k := range scalarResources {
 		resourceName := string(k)
 		if !isValidScalarResource(resourceName, scalarResourcesType) {
 			return errors.InvalidScaleResourceError(resourceName)

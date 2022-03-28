@@ -33,6 +33,7 @@ import (
 	"paddleflow/pkg/apiserver/router/util"
 	"paddleflow/pkg/common/config"
 	"paddleflow/pkg/common/logger"
+	"paddleflow/pkg/common/schema"
 )
 
 // FlavourRouter is flavour api router
@@ -111,12 +112,14 @@ func (fr *FlavourRouter) getFlavour(w http.ResponseWriter, r *http.Request) {
 		ctx.ErrorCode = common.FlavourNameEmpty
 		ctx.Logging().Error("flavour name should not be empty")
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, "")
+		return
 	}
 	flavour, err := flavour.GetFlavour(flavourName)
 	if err != nil {
 		ctx.ErrorCode = common.FlavourNotFound
 		ctx.Logging().Errorf("get flavour %s failed, err=%v", flavourName, err.Error())
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
 	}
 
 	common.Render(w, http.StatusOK, flavour)
@@ -168,6 +171,27 @@ func validateUpdateFlavour(ctx *logger.RequestContext, request *flavour.UpdateFl
 		ctx.Logging().Error(msg)
 		return fmt.Errorf(msg)
 	}
+	if request.CPU != "" && !schema.CheckReg(request.CPU, schema.RegPatternResource) {
+		errMsg := fmt.Sprintf("cpu not found")
+		ctx.Logging().Errorf("create flavour failed. error: %s", errMsg)
+		ctx.ErrorCode = common.FlavourInvalidField
+		return errors.New(errMsg)
+	}
+	if request.Mem != "" && !schema.CheckReg(request.Mem, schema.RegPatternResource) {
+		errMsg := fmt.Sprintf("mem not found")
+		ctx.Logging().Errorf("create flavour failed. error: %s", errMsg)
+		ctx.ErrorCode = common.FlavourInvalidField
+		return errors.New(errMsg)
+	}
+	if request.ScalarResources != nil {
+		err := schema.ValidateScalarResourceInfo(request.ScalarResources, config.GlobalServerConfig.Job.ScalarResourceArray)
+		if err != nil {
+			ctx.Logging().Errorf("create flavour failed. error: %v", err)
+			ctx.ErrorCode = common.FlavourInvalidField
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -202,6 +226,7 @@ func (fr *FlavourRouter) createFlavour(w http.ResponseWriter, r *http.Request) {
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		ctx.Logging().Errorf("get flavour failed. flavour request:%v error:%s", request, err.Error())
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
 	} else if f.Name != "" {
 		ctx.ErrorCode = common.DuplicatedName
 		ctx.Logging().Infof("flavour %s has exist.", request.Name)
@@ -232,12 +257,16 @@ func validateCreateFlavour(ctx *logger.RequestContext, request *flavour.CreateFl
 		}
 		request.ClusterID = clusterInfo.ID
 	}
-	if request.CPU == "" {
+	resourceInfo := schema.ResourceInfo{
+		Cpu:             request.CPU,
+		Mem:             request.Mem,
+		ScalarResources: request.ScalarResources,
+	}
+	if err := schema.ValidateResourceInfo(resourceInfo, config.GlobalServerConfig.Job.ScalarResourceArray); err != nil {
+		ctx.Logging().Errorf("create flavour failed. error: %s", err.Error())
 		ctx.ErrorCode = common.FlavourInvalidField
-		err := common.InvalidField("cpu", "not permitted.")
 		return err
 	}
-	// todo
 	return nil
 }
 

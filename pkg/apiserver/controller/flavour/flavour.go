@@ -17,6 +17,8 @@ limitations under the License.
 package flavour
 
 import (
+	"errors"
+	"fmt"
 	"reflect"
 
 	log "github.com/sirupsen/logrus"
@@ -51,7 +53,7 @@ type UpdateFlavourRequest struct {
 
 // CreateFlavourResponse convey response for create flavour
 type CreateFlavourResponse struct {
-	models.Flavour
+	FlavourName string `json:"name"`
 }
 
 // UpdateFlavourResponse convey response for update flavour
@@ -81,7 +83,7 @@ func CreateFlavour(request *CreateFlavourRequest) (*CreateFlavourResponse, error
 	}
 
 	response := &CreateFlavourResponse{
-		Flavour: flavour,
+		FlavourName: flavour.Name,
 	}
 	return response, nil
 }
@@ -93,6 +95,13 @@ func UpdateFlavour(request *UpdateFlavourRequest) (*UpdateFlavourResponse, error
 		log.Errorf("get flavour %s failed when update", request.Name)
 		return nil, err
 	}
+
+	if request.ClusterName != flavour.ClusterName {
+		errMsg := fmt.Sprintf("not support operate to update flavour[%s]'s cluster", request.Name)
+		log.Error(errMsg)
+		return nil, errors.New(errMsg)
+	}
+
 	isChanged := false
 	if request.CPU != flavour.CPU {
 		isChanged = true
@@ -105,11 +114,6 @@ func UpdateFlavour(request *UpdateFlavourRequest) (*UpdateFlavourResponse, error
 	if !reflect.DeepEqual(request.ScalarResources, flavour.ScalarResources) {
 		isChanged = true
 		flavour.ScalarResources = request.ScalarResources
-	}
-
-	if request.ClusterName != flavour.ClusterName {
-		isChanged = true
-		flavour.ClusterName = request.ClusterName
 	}
 
 	if isChanged {
@@ -182,6 +186,7 @@ func ListFlavour(maxKeys int, marker, clusterName, queryKey string) (*ListFlavou
 // DeleteFlavour handler for deleting flavour
 func DeleteFlavour(flavourName string, userID int64) error {
 	if err := models.DeleteFlavour(flavourName); err != nil {
+		log.Errorf("delete flavour %s failed, err: %v", flavourName, err)
 		return err
 	}
 
@@ -190,11 +195,11 @@ func DeleteFlavour(flavourName string, userID int64) error {
 
 // IsLastFlavourPk get last flavour that usually be used for indicating last page
 func IsLastFlavourPk(pk int64) bool {
-	lastQueue, err := models.GetLastFlavour()
+	lastFlavour, err := models.GetLastFlavour()
 	if err != nil {
 		log.Errorf("get last flavour failed. error:[%s]", err.Error())
 	}
-	if lastQueue.Pk == pk {
+	if lastFlavour.Pk == pk {
 		return true
 	}
 	return false

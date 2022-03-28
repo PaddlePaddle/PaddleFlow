@@ -113,7 +113,7 @@ func TestCreateFlavour(t *testing.T) {
 	resp, err := CreateFlavour(&createFlavourReq)
 
 	assert.NoError(t, err)
-	assert.Equal(t, createFlavourReq.Name, resp.Name)
+	assert.Equal(t, createFlavourReq.Name, resp.FlavourName)
 	t.Logf("resp=%v", resp)
 }
 
