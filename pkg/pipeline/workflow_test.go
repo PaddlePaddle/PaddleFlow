@@ -710,7 +710,6 @@ func TestValidateWorkflowWithoutFs(t *testing.T) {
 	assert.NotNil(t, err)
 	pattern := regexp.MustCompile("fs_scope of cache in step[[a-zA-Z_]+] should be empty if Fs is not used!")
 	assert.Regexp(t, pattern, err.Error())
-	assert.Equal(t, "fs_scope of cache in step[data_preprocess] should be empty if Fs is not used!", err.Error())
 
 	bwf.Source.EntryPoints["data_preprocess"].Cache.FsScope = ""
 	bwf.Source.EntryPoints["main"].Cache.FsScope = ""
