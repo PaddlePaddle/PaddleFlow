@@ -20,11 +20,15 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
+
+	v1 "k8s.io/api/core/v1"
 )
 
 type JobType string
 type ActionOnJob string
 type JobStatus string
+type PFJobType string
+type Framework string
 
 const (
 	EnvJobType        = "PF_JOB_TYPE"
@@ -81,6 +85,16 @@ const (
 	StatusJobTerminated  JobStatus = "terminated"
 	StatusJobCancelled   JobStatus = "cancelled"
 	StatusJobSkipped   JobStatus = "skipped"
+
+	TypeSingle      PFJobType = "single"
+	TypeDistributed PFJobType = "distributed"
+	TypeWorkflow    PFJobType = "workflow"
+
+	FrameworkSpark   Framework = "spark"
+	FrameworkMPI     Framework = "mpi"
+	FrameworkTF      Framework = "tensorflow"
+	FrameworkPytorch Framework = "pytorch"
+	FrameworkPaddle  Framework = "paddle"
 
 	// job priority
 	EnvJobVeryLowPriority  = "VERY_LOW"
@@ -154,10 +168,60 @@ type PFJobConf interface {
 }
 
 type Conf struct {
-	Name    string            `json:"name"`
-	Env     map[string]string `json:"env"`
-	Command string            `json:"command"`
+	Name            string            `json:"name"`
+	FileSystem      FileSystem        `json:"fileSystem,omitempty"`
+	ExtraFileSystem []FileSystem      `json:"extraFileSystem,omitempty"`
+	Flavour         JobFlavour        `json:"flavour,omitempty"`
+	Priority        string            `json:"priority"`
+	Labels          map[string]string `json:"labels,omitempty"`
+	Annotations     map[string]string `json:"annotations,omitempty"`
+	RuntimeEnv
+}
+
+type RuntimeEnv struct {
+	Env     map[string]string `json:"env,omitempty"`
+	Command string            `json:"command,omitempty"`
 	Image   string            `json:"image"`
+	Port    int               `json:"port,omitempty"`
+	Args    []string          `json:"args,omitempty"`
+}
+
+type FileSystem struct {
+	Name      string `json:"name"`
+	MountPath string `json:"mountPath,omitempty"`
+	SubPath   string `json:"subPath,omitempty"`
+	ReadOnly  bool   `json:"readOnly,omitempty"`
+}
+
+type JobFlavour struct {
+	Name string `json:"name"`
+	FlavourInfo
+}
+
+type FlavourInfo struct {
+	Cpu            string              `json:"cpu,omitempty"`
+	Memory         string              `json:"memory,omitempty"`
+	ScalarResource ScalarResourcesType `json:"scalarResource,omitempty"`
+}
+
+type Member struct {
+	ID       string `json:"id"`
+	Replicas int    `json:"replicas"`
+	Role     string `json:"role"`
+	Conf
+}
+
+type StatusInfo struct {
+	Name       string            `json:"name"`
+	ID         string            `json:"id"`
+	Status     v1.PodStatus      `json:"status"`
+	Containers []ContainerStatus `json:"containers"`
+}
+
+type ContainerStatus struct {
+	Name   string             `json:"name"`
+	ID     string             `json:"id"`
+	Status v1.ContainerStatus `json:"status"`
 }
 
 func (c *Conf) GetName() string {
