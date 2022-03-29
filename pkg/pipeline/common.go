@@ -167,7 +167,6 @@ type StepParamSolver struct {
 	runID               string
 	fsID                string
 	logger              *log.Entry
-	useFs               bool
 }
 
 func NewStepParamSolver(
