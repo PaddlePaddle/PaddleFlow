@@ -18,6 +18,8 @@ package metric
 
 import (
 	"bytes"
+	"fmt"
+	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"strconv"
 	"syscall"
@@ -84,6 +86,42 @@ func GetMetricValue(col prometheus.Collector) float64 {
 	m := dto.Metric{}
 	_ = (<-c).Write(&m) // read metric value from the channel
 	return *m.Counter.Value
+}
+
+func CollectMetrics() []byte {
+	if prometheus.DefaultGatherer == nil {
+		return []byte("")
+	}
+	mfs, err := prometheus.DefaultGatherer.Gather()
+	if err != nil {
+		log.Errorf("gather prometheus metrics err: %s", err)
+		return nil
+	}
+	w := bytes.NewBuffer(nil)
+	format := func(v float64) string {
+		return strconv.FormatFloat(v, 'f', -1, 64)
+	}
+	for _, mf := range mfs {
+		for _, m := range mf.Metric {
+			var name string = *mf.Name
+			for _, l := range m.Label {
+				if *l.Name != "mp" && *l.Name != "vol_name" {
+					name += "_" + *l.Value
+				}
+			}
+			switch *mf.Type {
+			case dto.MetricType_GAUGE:
+				_, _ = fmt.Fprintf(w, "%s %s\n", name, format(*m.Gauge.Value))
+			case dto.MetricType_COUNTER:
+				_, _ = fmt.Fprintf(w, "%s %s\n", name, format(*m.Counter.Value))
+			case dto.MetricType_HISTOGRAM:
+				_, _ = fmt.Fprintf(w, "%s_total %d\n", name, *m.Histogram.SampleCount)
+				_, _ = fmt.Fprintf(w, "%s_sum %s\n", name, format(*m.Histogram.SampleSum))
+			case dto.MetricType_SUMMARY:
+			}
+		}
+	}
+	return w.Bytes()
 }
 
 //------------ util funcs ------------//

@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 
 	"paddleflow/pkg/fs/client/base"
@@ -31,6 +32,10 @@ import (
 	"paddleflow/pkg/fs/client/utils"
 	"paddleflow/pkg/fs/common"
 )
+
+const rootID = 1
+
+var StatsSize = 1000
 
 type VFS struct {
 	fsMeta     common.FSMeta
@@ -42,6 +47,7 @@ type VFS struct {
 	nextfh     uint64
 	Meta       meta.Meta
 	Store      cache.Store
+	registry   *prometheus.Registry
 }
 
 type Config struct {
@@ -101,9 +107,11 @@ func WithDataCacheConfig(data cache.Config) Option {
 	}
 }
 
-func InitVFS(fsMeta common.FSMeta, links map[string]common.FSMeta, global bool, config *Config) (*VFS, error) {
+func InitVFS(fsMeta common.FSMeta, links map[string]common.FSMeta, global bool,
+	config *Config, registry *prometheus.Registry) (*VFS, error) {
 	vfs := &VFS{
-		fsMeta: fsMeta,
+		fsMeta:   fsMeta,
+		registry: registry,
 	}
 	inodeHandle := meta.NewInodeHandle()
 	inodeHandle.InitRootNode()
@@ -135,6 +143,7 @@ func InitVFS(fsMeta common.FSMeta, links map[string]common.FSMeta, global bool, 
 	if global {
 		vfsop = vfs
 	}
+	initInternalNodes()
 	log.Debugf("Init VFS: %+v", vfs)
 	return vfs, nil
 }
@@ -156,25 +165,40 @@ func (v *VFS) getUFS(name string) (ufslib.UnderFileStorage, bool, string, string
 // occur in parallel, but only one call happens for each (dir,
 // name) pair.
 func (v *VFS) Lookup(ctx *meta.Context, parent Ino, name string) (entry *meta.Entry, err syscall.Errno) {
-	var attr = &Attr{}
+	log.Tracef("vfs lookup: parent[%x], name[%s]", parent, name)
+	if parent == rootID {
+		n := getInternalNodeByName(name)
+		if n != nil {
+			entry = &meta.Entry{Ino: n.inode, Attr: n.attr}
+			log.Debugf("vfs lookup special node[%x] attr: %+v", entry.Ino, *entry.Attr)
+			return
+		}
+	}
 	var inode Ino
+	var attr = &Attr{}
 	inode, attr, err = v.Meta.Lookup(ctx, parent, name)
-	log.Debugf("Lookup from meta %+v inode %v", attr, inode)
 	if utils.IsError(err) {
 		return nil, err
 	}
+	log.Debugf("vfs lookup inode[%x] from meta: attr[%+v] ", inode, *attr)
 	entry = &meta.Entry{Ino: inode, Attr: attr}
 	return entry, err
 }
 
 // Attributes.
 func (v *VFS) GetAttr(ctx *meta.Context, ino Ino) (entry *meta.Entry, err syscall.Errno) {
+	log.Tracef("vfs getattr: ino[%d]", ino)
+	if IsSpecialNode(ino) && getInternalNode(ino) != nil {
+		n := getInternalNode(ino)
+		entry = &meta.Entry{Ino: n.inode, Attr: n.attr}
+		return
+	}
 	var attr = &Attr{}
 	err = v.Meta.GetAttr(ctx, ino, attr)
-	log.Debugf("GetAttr attr %+v", *attr)
 	if utils.IsError(err) {
 		return nil, err
 	}
+	log.Debugf("vfs getattr: %+v", *attr)
 	entry = &meta.Entry{Ino: ino, Attr: attr}
 	return entry, err
 }
@@ -279,6 +303,10 @@ func (v *VFS) Rename(ctx *meta.Context, parent Ino, name string, newparent Ino, 
 }
 
 func (v *VFS) Link(ctx *meta.Context, ino Ino, newparent Ino, newname string) (entry *meta.Entry, err syscall.Errno) {
+	if IsSpecialNode(ino) {
+		err = syscall.EPERM
+		return
+	}
 	return nil, syscall.ENOSYS
 }
 
@@ -301,6 +329,10 @@ func (v *VFS) Access(ctx *meta.Context, ino Ino, mask uint32) (err syscall.Errno
 // number of bytes. If the buffer is too small, return ERANGE,
 // with the required buffer size.
 func (v *VFS) GetXAttr(ctx *meta.Context, ino Ino, name string, size uint32) (data []byte, err syscall.Errno) {
+	if IsSpecialNode(ino) {
+		err = syscall.ENODATA
+		return
+	}
 	err = v.Meta.GetXattr(ctx, ino, name, &data)
 	if size > 0 && len(data) > int(size) {
 		err = syscall.ERANGE
@@ -312,6 +344,10 @@ func (v *VFS) GetXAttr(ctx *meta.Context, ino Ino, name string, size uint32) (da
 // slice, and return the number of bytes. If the buffer is too
 // small, return ERANGE, with the required buffer size.
 func (v *VFS) ListXAttr(ctx *meta.Context, ino Ino, size uint32) (data []byte, err syscall.Errno) {
+	if IsSpecialNode(ino) {
+		err = syscall.ENODATA
+		return
+	}
 	var attrs []string
 	err = v.Meta.ListXattr(ctx, ino, &attrs)
 	for _, value := range attrs {
@@ -327,12 +363,20 @@ func (v *VFS) ListXAttr(ctx *meta.Context, ino Ino, size uint32) (data []byte, e
 
 // SetAttr writes an extended attribute.
 func (v *VFS) SetXAttr(ctx *meta.Context, ino Ino, name string, value []byte, flags uint32) (err syscall.Errno) {
+	if IsSpecialNode(ino) {
+		err = syscall.EPERM
+		return
+	}
 	err = v.Meta.SetXattr(ctx, ino, name, value, flags)
 	return
 }
 
 // RemoveXAttr removes an extended attribute.
 func (v *VFS) RemoveXAttr(ctx *meta.Context, ino Ino, name string) (err syscall.Errno) {
+	if IsSpecialNode(ino) {
+		err = syscall.EPERM
+		return
+	}
 	err = v.Meta.RemoveXattr(ctx, ino, name)
 	return
 }
@@ -362,7 +406,28 @@ func (v *VFS) Create(ctx *meta.Context, parent Ino, name string, mode uint32, cu
 }
 
 func (v *VFS) Open(ctx *meta.Context, ino Ino, flags uint32) (entry *meta.Entry, fh uint64, err syscall.Errno) {
+	log.Tracef("vfs open node[%x], flags[%d]", ino, flags)
 	var attr = &Attr{}
+	if IsSpecialNode(ino) {
+		log.Tracef("vfs open special node[%x]", ino)
+		if ino != controlInode && (flags&syscall.O_ACCMODE) != syscall.O_RDONLY {
+			err = syscall.EACCES
+			return
+		}
+		h := v.newHandle(ino)
+		fh = h.fh
+		switch ino {
+		case statsInode:
+			log.Tracef("vfs open statsInode")
+			h.data = collectMetrics(v.registry)
+			StatsSize = len(h.data)
+		}
+		n := getInternalNode(ino)
+		if n != nil {
+			entry = &meta.Entry{Ino: ino, Attr: n.attr}
+			return
+		}
+	}
 	ufs, path, err := v.Meta.Open(ctx, ino, flags, attr)
 	if utils.IsError(err) {
 		return
@@ -376,6 +441,34 @@ func (v *VFS) Open(ctx *meta.Context, ino Ino, flags uint32) (entry *meta.Entry,
 }
 
 func (v *VFS) Read(ctx *meta.Context, ino Ino, buf []byte, off uint64, fh uint64) (n int, err syscall.Errno) {
+	size := uint32(len(buf))
+	log.Tracef("vfs read node[%x], off[%d], size[%d]", ino, off, size)
+	if IsSpecialNode(ino) {
+		h := v.findHandle(ino, fh)
+		if h == nil {
+			err = syscall.EBADF
+			return
+		}
+		data := h.data
+		if off < h.off {
+			data = nil
+		} else {
+			off -= h.off
+		}
+		if int(off) < len(data) {
+			data = data[off:]
+			if int(size) < len(data) {
+				data = data[:size]
+			}
+			n = copy(buf, data)
+		}
+		if len(h.data) > 2<<20 {
+			// drop first part to avoid OOM
+			h.off += 1 << 20
+			h.data = h.data[1<<20:]
+		}
+		return
+	}
 	h := v.findHandle(ino, fh)
 	if h == nil {
 		err = syscall.EBADF
@@ -427,10 +520,21 @@ func (v *VFS) Write(ctx *meta.Context, ino Ino, buf []byte, off, fh uint64) (err
 }
 
 func (v *VFS) CopyFileRange(ctx *meta.Context, nodeIn Ino, fhIn, offIn uint64, nodeOut Ino, fhOut, offOut, size uint64, flags uint32) (copied uint64, err syscall.Errno) {
+	if IsSpecialNode(nodeIn) {
+		err = syscall.ENOTSUP
+		return
+	}
+	if IsSpecialNode(nodeOut) {
+		err = syscall.EPERM
+		return
+	}
 	return 0, syscall.ENOSYS
 }
 
 func (v *VFS) Flush(ctx *meta.Context, ino Ino, fh uint64, lockOwner uint64) (err syscall.Errno) {
+	if IsSpecialNode(ino) {
+		return
+	}
 	h := v.findHandle(ino, fh)
 	if h == nil {
 		err = syscall.EBADF
@@ -443,6 +547,9 @@ func (v *VFS) Flush(ctx *meta.Context, ino Ino, fh uint64, lockOwner uint64) (er
 }
 
 func (v *VFS) Fsync(ctx *meta.Context, ino Ino, datasync int, fh uint64) (err syscall.Errno) {
+	if IsSpecialNode(ino) {
+		return
+	}
 	h := v.findHandle(ino, fh)
 	if h == nil {
 		err = syscall.EBADF
@@ -455,6 +562,10 @@ func (v *VFS) Fsync(ctx *meta.Context, ino Ino, datasync int, fh uint64) (err sy
 }
 
 func (v *VFS) Fallocate(ctx *meta.Context, ino Ino, mode uint8, off, length int64, fh uint64) (err syscall.Errno) {
+	if IsSpecialNode(ino) {
+		err = syscall.EPERM
+		return
+	}
 	h := v.findHandle(ino, fh)
 	if h == nil {
 		err = syscall.EBADF
@@ -484,6 +595,16 @@ func (v *VFS) ReadDir(ctx *meta.Context, ino Ino, fh uint64, offset uint64) (ent
 			return nil, err
 		}
 		h.children = entries
+		if ino == rootID {
+			// add internal nodes
+			for _, node := range internalNodes {
+				h.children = append(h.children, &meta.Entry{
+					Ino:  node.inode,
+					Name: node.name,
+					Attr: node.attr,
+				})
+			}
+		}
 	}
 	if int(offset) < len(h.children) {
 		entries = h.children[offset:]
@@ -499,6 +620,10 @@ func (v *VFS) ReleaseDir(ctx *meta.Context, ino Ino, fh uint64) {
 }
 
 func (v *VFS) Release(ctx *meta.Context, ino Ino, fh uint64) {
+	if IsSpecialNode(ino) {
+		v.releaseHandle(ino, fh)
+		return
+	}
 	if fh > 0 {
 		v.releaseFileHandle(ino, fh)
 		log.Debugf("release inode %v", ino)
@@ -516,6 +641,10 @@ func (v *VFS) StatFs(ctx *meta.Context) (*base.StatfsOut, syscall.Errno) {
 
 func (v *VFS) Truncate(ctx *meta.Context, ino Ino, size, fh uint64) (err syscall.Errno) {
 	log.Tracef("vfs truncate: ino[%d], size[%d], fh[%d]", ino, size, fh)
+	if IsSpecialNode(ino) {
+		err = syscall.EPERM
+		return
+	}
 	h := v.findHandle(ino, fh)
 	if h == nil {
 		err = syscall.EBADF

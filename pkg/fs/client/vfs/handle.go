@@ -31,6 +31,11 @@ type handle struct {
 	reader   FileReader
 	writer   FileWriter
 	children []*meta.Entry
+
+	// internal files
+	off     uint64
+	data    []byte
+	pending []byte
 }
 
 func (v *VFS) newHandle(inode Ino) *handle {

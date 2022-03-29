@@ -75,6 +75,10 @@ func (fs *PFS) GetAttr(cancel <-chan struct{}, input *fuse.GetAttrIn, out *fuse.
 		return fuse.Status(code)
 	}
 	attrToStat(entry.Ino, entry.Attr, &out.Attr)
+	out.AttrValid = uint64(config.FuseConf.Fuse.AttrTimeout)
+	if vfs.IsSpecialNode(meta.Ino(input.NodeId)) {
+		out.AttrValid = 3600
+	}
 	return fuse.OK
 }
 
@@ -224,6 +228,9 @@ func (fs *PFS) Open(cancel <-chan struct{}, input *fuse.OpenIn, out *fuse.OpenOu
 		return fuse.Status(code)
 	}
 	out.Fh = fh
+	if vfs.IsSpecialNode(meta.Ino(input.NodeId)) {
+		out.OpenFlags |= fuse.FOPEN_DIRECT_IO
+	}
 	log.Debugf("pfs POSIX Open out %+v", *out)
 	return fuse.Status(code)
 }
@@ -391,14 +398,20 @@ func Server(moutpoint string, opt fuse.MountOptions) (*fuse.Server, error) {
 }
 
 func (fs *PFS) replyEntry(entry *meta.Entry, out *fuse.EntryOut) {
-	log.Debugf("pfs POSIX replyEntry: input [%+v]", *entry)
+	log.Debugf("pfs POSIX replyEntry: name[%s] ino[%x] attr: %+v", entry.Name, entry.Ino, *entry.Attr)
 	out.NodeId = uint64(entry.Ino)
 	// todo:: Generation这个配置是干啥的，得在看看
 	out.Generation = 1
-
 	out.SetAttrTimeout(time.Duration(config.FuseConf.Fuse.AttrTimeout))
-	// todo:: 增加dirEntry配置，目录和目录项超时分开设置
-	out.SetEntryTimeout(time.Duration(config.FuseConf.Fuse.EntryTimeout))
+	if entry.Attr.Type == meta.TypeDirectory {
+		// todo:: 增加dirEntry配置，目录和目录项超时分开设置
+		out.SetEntryTimeout(time.Duration(config.FuseConf.Fuse.EntryTimeout))
+	} else {
+		out.SetEntryTimeout(time.Duration(config.FuseConf.Fuse.EntryTimeout))
+	}
+	if vfs.IsSpecialNode(entry.Ino) {
+		out.SetAttrTimeout(time.Hour)
+	}
 	attrToStat(entry.Ino, entry.Attr, &out.Attr)
 	if !config.FuseConf.Fuse.RawOwner {
 		out.Uid = uint32(config.FuseConf.Fuse.Uid)
