@@ -35,7 +35,7 @@ prepare: gomod
 
 gomod:
 	$(GO) env -w GO111MODULE=on
-	$(GO) env -w GOPROXY=direct,https://mirrors.aliyun.com/goproxy/,https://goproxy.io,https://goproxy.cn
+	$(GO) env -w GOPROXY=https://goproxy.io,direct,https://mirrors.aliyun.com/goproxy/,https://goproxy.cn
 	$(GO) env -w CGO_ENABLED=0
 	$(GOMOD) download
 
