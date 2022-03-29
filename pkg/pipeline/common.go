@@ -238,10 +238,6 @@ func (s *StepParamSolver) Solve(currentStep string, cacheOutputArtifacts map[str
 	}
 
 	// 3. output artifacts 由平台生成路径，所以在校验时，不会对其值进行校验（即使非空迟早也会被替换）
-	if s.useFs && len(step.Artifacts.Output) > 0 {
-		return fmt.Errorf("cannot define output artifact if no Fs is used")
-	}
-
 	for outAtfName, _ := range step.Artifacts.Output {
 		realVal, err := s.solveOutputArtifactValue(currentStep, outAtfName, cacheOutputArtifacts)
 		if err != nil {
@@ -512,7 +508,7 @@ func (s *StepParamChecker) Check(currentStep string) error {
 		}
 	}
 
-	// 2. artifact 校验
+	// 2. input artifact 校验
 	for inputAtfName, inputAtfVal := range step.Artifacts.Input {
 		if err = s.checkName(currentStep, FieldInputArtifacts, inputAtfName); err != nil {
 			return err
@@ -531,6 +527,7 @@ func (s *StepParamChecker) Check(currentStep string) error {
 	}
 
 	// 3. output artifacts 由平台生成路径，所以在校验时，不会对其值进行校验（即使非空迟早也会被替换）
+	// 如果不使用Fs，不能定义outputAtf。因为inputAtf只能引用上游output Atf，所以只需要校验outputAtf即可。
 	if !s.useFs && len(step.Artifacts.Output) > 0 {
 		return fmt.Errorf("cannot define artifact in step[%s] with no Fs mounted", currentStep)
 	}
