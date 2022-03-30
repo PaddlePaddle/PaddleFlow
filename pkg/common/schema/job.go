@@ -167,10 +167,13 @@ type PFJobConf interface {
 
 type Conf struct {
 	Name            string            `json:"name"`
+	// 存储资源
 	FileSystem      FileSystem        `json:"fileSystem,omitempty"`
 	ExtraFileSystem []FileSystem      `json:"extraFileSystem,omitempty"`
+	// 计算资源
 	Flavour         Flavour           `json:"flavour,omitempty"`
 	Priority        string            `json:"priority"`
+	// 运行时需要的参数
 	Labels          map[string]string `json:"labels,omitempty"`
 	Annotations     map[string]string `json:"annotations,omitempty"`
 	Env             map[string]string `json:"env,omitempty"`
