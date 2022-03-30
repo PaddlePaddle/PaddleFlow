@@ -32,10 +32,12 @@ type WorkflowRuntime struct {
 	ctx              context.Context
 	ctxCancel        context.CancelFunc
 	steps            map[string]*Step
+	postProcess      map[string]*Step
 	event            chan WorkflowEvent // 用来从 job 传递事件
 	concurrentJobs   chan struct{}
 	concurrentJobsMx sync.Mutex
 	status           string
+	runtimeView      schema.RuntimeView
 }
 
 func NewWorkflowRuntime(wf *Workflow, parallelism int) *WorkflowRuntime {
@@ -47,6 +49,7 @@ func NewWorkflowRuntime(wf *Workflow, parallelism int) *WorkflowRuntime {
 		steps:          map[string]*Step{},
 		event:          make(chan WorkflowEvent, parallelism),
 		concurrentJobs: make(chan struct{}, parallelism),
+		runtimeView:    schema.RuntimeView{},
 	}
 	return wfr
 }
@@ -174,8 +177,6 @@ func (wfr *WorkflowRuntime) processEvent(event WorkflowEvent) error {
 	}
 	wfr.wf.log().Infof("process event: [%+v]", event)
 
-	wfr.updateStatus()
-
 	// 判断是节点处于异常状态： Failed 和 Terminated，是的话， 则开始执行 FailureOptions 相关的逻辑
 	// 当前有 WfEventJobSubmitErr 和 WfEventJobUpdate 会两种类型的 event 中可能会包含的 Failed 或者 Terminated 状态
 	if event.isJobSubmitErr() || event.isJobUpdate() {
@@ -187,6 +188,8 @@ func (wfr *WorkflowRuntime) processEvent(event WorkflowEvent) error {
 			wfr.ProcessFailureOptions(event)
 		}
 	}
+
+	wfr.updateStatus()
 
 	wfr.callback(event)
 
@@ -221,6 +224,7 @@ func (wfr *WorkflowRuntime) updateStatus() {
 			continue
 		}
 
+		// 思考： 为什么这里还需要向 st.ready 发送数据
 		if wfr.isDepsReady(st) && !st.submitted {
 			wfr.wf.log().Infof("Step %s has ready to start job", st_name)
 			st.update(st.done, true, st.job)
@@ -330,7 +334,7 @@ func (wfr *WorkflowRuntime) ProcessFailureOptions(event WorkflowEvent) {
 		wfr.ctxCancel()
 	}
 
-	if wfr.wf.FailureOptions.strategy == "continue" {
+	if wfr.wf.Source.FailureOptions.Strategy == "continue" {
 		wfr.ProcessFailureOptionsWithContinue(step)
 	} else {
 		wfr.ProcessFailureOptionsWithFailFast(step)
@@ -353,7 +357,6 @@ func (wfr *WorkflowRuntime) isDepsReady(step *Step) bool {
 }
 
 func (wfr *WorkflowRuntime) callback(event WorkflowEvent) {
-	runtimeView := make(schema.RuntimeView, 0)
 	for name, st := range wfr.steps {
 		job := st.job.Job()
 		jobView := schema.JobView{
@@ -372,12 +375,12 @@ func (wfr *WorkflowRuntime) callback(event WorkflowEvent) {
 			JobMessage: job.Message,
 			CacheRunID: st.CacheRunID,
 		}
-		runtimeView[name] = jobView
+		wfr.runtimeView[name] = jobView
 	}
 	extra := map[string]interface{}{
 		common.WfEventKeyRunID:   wfr.wf.RunID,
 		common.WfEventKeyStatus:  wfr.status,
-		common.WfEventKeyRuntime: runtimeView,
+		common.WfEventKeyRuntime: wfr.runtimeView,
 	}
 
 	message := ""

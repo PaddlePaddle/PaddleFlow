@@ -78,17 +78,17 @@ type Cache struct {
 }
 
 type WorkflowSource struct {
-	Name          string                         `yaml:"name"`
-	DockerEnv     string                         `yaml:"docker_env"`
-	EntryPoints   map[string]*WorkflowSourceStep `yaml:"entry_points"`
-	Cache         Cache                          `yaml:"cache"`
-	Parallelism   int                            `yaml:"parallelism"`
-	Disabled      string                         `yaml:"disabled"`
-	FailureOption FailureOption                  `yaml:"failure_option"`
-	PostProcess   map[string]*WorkflowSourceStep `yaml:"post_process"`
+	Name           string                         `yaml:"name"`
+	DockerEnv      string                         `yaml:"docker_env"`
+	EntryPoints    map[string]*WorkflowSourceStep `yaml:"entry_points"`
+	Cache          Cache                          `yaml:"cache"`
+	Parallelism    int                            `yaml:"parallelism"`
+	Disabled       string                         `yaml:"disabled"`
+	FailureOptions FailureOptions                 `yaml:"failure_option"`
+	PostProcess    map[string]*WorkflowSourceStep `yaml:"post_process"`
 }
 
-type FailureOption struct {
+type FailureOptions struct {
 	Strategy string `yaml:"strategy"`
 }
 
