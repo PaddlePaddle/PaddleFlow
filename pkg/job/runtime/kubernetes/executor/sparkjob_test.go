@@ -37,21 +37,21 @@ func initConfigsForTest(confEnv map[string]string) {
 		"ss": {
 			Name: "ss",
 			ResourceInfo: schema.ResourceInfo{
-				Cpu: "1",
+				CPU: "1",
 				Mem: "100M",
 			},
 		},
 		"cpu": {
 			Name: "cpu",
 			ResourceInfo: schema.ResourceInfo{
-				Cpu: "1",
+				CPU: "1",
 				Mem: "100M",
 			},
 		},
 		"gpu": {
 			Name: "gpu",
 			ResourceInfo: schema.ResourceInfo{
-				Cpu: "1",
+				CPU: "1",
 				Mem: "100M",
 				ScalarResources: schema.ScalarResourcesType{
 					"nvidia.com/gpu": "500M",

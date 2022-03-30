@@ -42,7 +42,7 @@ const (
 	InvalidScaleResource = "InvalidScaleResource" // 扩展资源类型不支持
 	IOOperationFailure   = "IOOperationFailure"   // I/O操作失败
 	NamespaceNotFound    = "NamespaceNotFound"
-	CpuNotFound          = "CpuNotFound"
+	CPUNotFound          = "CPUNotFound"
 	MemoryNotFound       = "MemoryNotFound"
 	PathNotFound         = "PathNotFound"
 	MethodNotAllowed     = "MethodNotAllowed"
@@ -133,7 +133,7 @@ var errorHTTPStatus = map[string]int{
 	InvalidScaleResource: http.StatusBadRequest,
 	IOOperationFailure:   http.StatusInternalServerError,
 	NamespaceNotFound:    http.StatusBadRequest,
-	CpuNotFound:          http.StatusBadRequest,
+	CPUNotFound:          http.StatusBadRequest,
 	MemoryNotFound:       http.StatusBadRequest,
 	PathNotFound:         http.StatusNotFound,
 	MethodNotAllowed:     http.StatusMethodNotAllowed,
@@ -223,7 +223,7 @@ var errorMessage = map[string]string{
 	InvalidScaleResource: "The scale resource is invalid",
 	IOOperationFailure:   "I/O operation failed",
 	NamespaceNotFound:    "Namespace is not set",
-	CpuNotFound:          "CPU is not set",
+	CPUNotFound:          "CPU is not set",
 	MemoryNotFound:       "Memory is not set",
 	DuplicatedName:       "Name has existed. Duplicated name is not allowed",
 	DuplicatedContent:    "content(md5) has existed. Please use existing one",
