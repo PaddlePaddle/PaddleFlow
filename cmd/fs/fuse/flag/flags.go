@@ -255,7 +255,7 @@ func MetricsFlags(fuseConf *config.Fuse) []cli.Flag {
 	return []cli.Flag{
 		&cli.StringFlag{
 			Name:  "schema",
-			Value: "ufmco",
+			Value: "umc",
 			Usage: "schema string that controls the output sections (u: usage, f: fuse, m: meta, c: blockcache, o: object, g: go)",
 		},
 		&cli.UintFlag{

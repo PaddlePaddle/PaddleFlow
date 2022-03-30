@@ -128,7 +128,7 @@ func (w *statsWatcher) buildSchema(schema string, verbosity uint) {
 			s.name = "usage"
 			s.items = append(s.items, &item{"cpu", "pfs_cpu_usage", metricCPU | metricCounter})
 			s.items = append(s.items, &item{"mem", "pfs_memory", metricGauge})
-			s.items = append(s.items, &item{"buf", "pfs_used_buffer_size_bytes", metricGauge})
+			//s.items = append(s.items, &item{"buf", "pfs_used_buffer_size_bytes", metricGauge})
 			if verbosity > 0 {
 				s.items = append(s.items, &item{"cache", "pfs_store_cache_size_bytes", metricGauge})
 			}
@@ -330,6 +330,10 @@ func (w *statsWatcher) printDiff(left, right map[string]float64, dark bool) {
 
 func readStats(path string) map[string]float64 {
 	d, err := os.ReadFile(path)
+	if err != nil {
+		log.Warnf("read %s: %s", path, err)
+		return nil
+	}
 	stats := make(map[string]float64)
 	lines := strings.Split(string(d), "\n")
 	for _, line := range lines {
