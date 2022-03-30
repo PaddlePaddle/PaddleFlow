@@ -405,6 +405,7 @@ func (s *StepParamSolver) refParamExist(currentStep, refStep, refParamName, fiel
 type StepParamChecker struct {
 	steps     map[string]*schema.WorkflowSourceStep // 需要传入相关的所有 step，以判断依赖是否合法
 	sysParams map[string]string                     // sysParams 的值和 step 相关，需要传入
+	disabledSteps []string							// 被disabled的节点列表
 }
 
 func (s *StepParamChecker) getWorkflowSourceStep(currentStep string) (*schema.WorkflowSourceStep, bool) {
@@ -472,6 +473,7 @@ func (s *StepParamChecker) Check(currentStep string) error {
 		- output artifact不会引用任何参数，值由平台自动生成
 		- env 支持平台内置参数替换，上游step的parameter依赖替换，当前step的parameter替换
 		- command 支持平台内置参数替换，上游step的parameter依赖替换，当前step的parameter替换，当前step内input artifact、当前step内output artifact替换
+		3. 引用上游参数时，必须保证上游节点不在disabled列表中。
 	*/
 	err := s.checkDuplication(currentStep)
 	if err != nil {
@@ -550,8 +552,8 @@ func (s *StepParamChecker) checkName(step, fieldType, name string) error {
 	return nil
 }
 
-// 该函数主要处理parameter, command, env三类参数
-// command都只能是字符串, schema中已经限制了comand, env只能为string，此处再判断类型用于兜底
+// 该函数主要处理parameter, command, env，input artifact四类参数
+// schema中已经限制了input artifact，command, env只能为string，此处再判断类型用于兜底
 func (s *StepParamChecker) checkParamValue(step string, paramName string, param interface{}, fieldType string) error {
 	if fieldType == FieldCommand || fieldType == FieldEnv || fieldType == FieldInputArtifacts {
 		_, ok := param.(string)
@@ -643,22 +645,28 @@ func (s *StepParamChecker) refParamExist(currentStepName, refStepName, refParamN
 	*/
 	step := s.steps[currentStepName]
 	if !StringsContain(step.GetDeps(), refStepName) {
-		return fmt.Errorf("invalid reference param {{ %s.%s }} in step [%s]: step [%s] not in deps", refStepName, refParamName, currentStepName, refStepName)
+		return fmt.Errorf("invalid reference param {{ %s.%s }} in step[%s]: step[%s] not in deps", refStepName, refParamName, currentStepName, refStepName)
+	}
+
+	for _, disableStepName := range s.disabledSteps {
+		if refStepName == disableStepName {
+			return fmt.Errorf("invalid reference param {{ %s.%s }} in step[%s]: step[%s] is disabled", refStepName, refParamName, currentStepName, refStepName)
+		}
 	}
 
 	refStep, ok := s.steps[refStepName]
 	if !ok {
-		return fmt.Errorf("invalid reference param {{ %s.%s }} in step [%s]: step [%s] not exist", refStepName, refParamName, currentStepName, refStepName)
+		return fmt.Errorf("invalid reference param {{ %s.%s }} in step[%s]: step[%s] not exist", refStepName, refParamName, currentStepName, refStepName)
 	}
 
 	switch fieldType {
 	case FieldInputArtifacts:
 		if _, ok := refStep.Artifacts.Output[refParamName]; !ok {
-			return fmt.Errorf("invalid reference param {{ %s.%s }} in step [%s]: output artifact [%s] not exist", refStepName, refParamName, currentStepName, refParamName)
+			return fmt.Errorf("invalid reference param {{ %s.%s }} in step[%s]: output artifact[%s] not exist", refStepName, refParamName, currentStepName, refParamName)
 		}
 	default:
 		if _, ok := refStep.Parameters[refParamName]; !ok {
-			return fmt.Errorf("invalid reference param {{ %s.%s }} in step [%s]: parameter [%s] not exist", refStepName, refParamName, currentStepName, refParamName)
+			return fmt.Errorf("invalid reference param {{ %s.%s }} in step[%s]: parameter[%s] not exist", refStepName, refParamName, currentStepName, refParamName)
 		}
 	}
 

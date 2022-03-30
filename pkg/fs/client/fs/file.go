@@ -240,7 +240,6 @@ func (f *File) ReadAt(b []byte, off int64) (int, error) {
 	if utils.IsError(err) || err == io.EOF {
 		return 0, err
 	}
-	f.readOffset += int64(n)
 	if n == 0 {
 		return 0, io.EOF
 	}

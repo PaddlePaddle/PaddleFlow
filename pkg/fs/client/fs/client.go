@@ -24,6 +24,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
+	"paddleflow/pkg/fs/client/cache"
 	"paddleflow/pkg/fs/client/meta"
 	"paddleflow/pkg/fs/common"
 )
@@ -43,7 +44,8 @@ func SetLinkMetaDirPrefix(dirPrefix string) {
 // fs server not use cache
 var (
 	// 0 means not use data cache
-	BlockSize = 0
+	BlockSize       = 0
+	MaxReadAheadNum = 0
 
 	MemCacheSize    = 0
 	MemCacheExpire  = 0 * time.Second
@@ -63,18 +65,17 @@ func SetMetaCache(config meta.Config) {
 	MetaCachePath = config.CachePath
 }
 
-func SetMemCache(size int, expire time.Duration) {
-	MemCacheSize = size
-	MemCacheExpire = expire
-}
-
-func SetDiskCache(path string, expire time.Duration) {
-	DiskCacheExpire = expire
-	DiskCachePath = path
-}
-
-func SetBlockSize(size int) {
-	BlockSize = size
+func SetDataCache(config cache.Config) {
+	BlockSize = config.BlockSize
+	MaxReadAheadNum = config.MaxReadAhead
+	if config.Mem != nil {
+		MemCacheSize = config.Mem.CacheSize
+		MemCacheExpire = config.Mem.Expire
+	}
+	if config.Disk != nil {
+		DiskCacheExpire = config.Disk.Expire
+		DiskCachePath = config.Disk.Dir
+	}
 }
 
 type FSClient interface {

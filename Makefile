@@ -76,5 +76,5 @@ clean:
 	$(GO) clean
 	rm -rf $(OUTDIR)
 
-# avoid filename conflict and speed up build 
+# avoid filename conflict and speed up build
 .PHONY: all prepare compile test package clean build

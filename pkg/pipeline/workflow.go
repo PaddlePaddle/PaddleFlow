@@ -55,6 +55,13 @@ func NewBaseWorkflow(wfSource schema.WorkflowSource, runID, entry string, params
 		Source: wfSource,
 		Entry:  entry,
 	}
+
+	for _, wfsStep := range bwf.Source.EntryPoints {
+		if wfsStep.DockerEnv == "" {
+			wfsStep.DockerEnv = bwf.Source.DockerEnv
+		}
+	}
+
 	bwf.runSteps = bwf.getRunSteps()
 	return bwf
 }
@@ -225,6 +232,21 @@ func (bwf *BaseWorkflow) checkCache() error {
 		bwf.Source.Cache.FsScope = "/"
 	}
 
+	for stepName, wfsStep := range bwf.Source.EntryPoints {
+		if wfsStep.Cache.MaxExpiredTime == "" {
+			wfsStep.Cache.MaxExpiredTime = CacheExpiredTimeNever
+		}
+
+		_, err := strconv.Atoi(wfsStep.Cache.MaxExpiredTime)
+		if err != nil {
+			return fmt.Errorf("MaxExpiredTime[%s] of cache in step[%s] not correct", wfsStep.Cache.MaxExpiredTime, stepName)
+		}
+
+		if wfsStep.Cache.FsScope == "" {
+			wfsStep.Cache.FsScope = "/"
+		}
+	}
+
 	return nil
 }
 
@@ -286,10 +308,21 @@ func (bwf *BaseWorkflow) replaceRunParam(param string, val interface{}) error {
 
 func (bwf *BaseWorkflow) checkSteps() error {
 	/*
-		checkSteps check env, command, parameters and artifacts in every step
-		- 只检查此次运行中，可运行的节点集合(runSteps), 而不是yaml中定义的所有节点集合(Source)
-		- 只校验，不替换任何参数
+		1. 检查disabled参数是否合法。
+			- disabled节点以逗号分隔。
+			- 所有disabled节点应该在entrypoints中，但是不要求必须在runSteps内
+
+		2. 检查每个节点 env, command, parameters and artifacts 是否合法（包括模板引用，参数值）
+			- 只检查此次运行中，可运行的节点集合(runSteps), 而不是yaml中定义的所有节点集合(Source)
+			- 只校验，不替换任何参数
 	*/
+
+	disabledSteps, err := bwf.checkDisabled()
+	if err != nil {
+		bwf.log().Errorf("check disabled failed. err:%s", err.Error())
+		return err
+	}
+
 	var sysParamNameMap = map[string]string{
 		SysParamNamePFRunID:    "",
 		SysParamNamePFFsID:     "",
@@ -297,9 +330,13 @@ func (bwf *BaseWorkflow) checkSteps() error {
 		SysParamNamePFFsName:   "",
 		SysParamNamePFUserName: "",
 	}
-	paramChecker := StepParamChecker{steps: bwf.runSteps, sysParams: sysParamNameMap}
+	paramChecker := StepParamChecker{
+		steps: bwf.runSteps,
+		sysParams: sysParamNameMap,
+		disabledSteps: disabledSteps,
+	}
 	for _, step := range bwf.runSteps {
-		bwf.log().Errorln(step)
+		bwf.log().Debugln(step)
 	}
 	for stepName, _ := range bwf.runSteps {
 		if err := paramChecker.Check(stepName); err != nil {
@@ -311,6 +348,22 @@ func (bwf *BaseWorkflow) checkSteps() error {
 	return nil
 }
 
+func (bwf *BaseWorkflow) checkDisabled() ([]string, error) {
+	/* 
+		校验yaml中disabled字段是否合法
+		- disabled节点以逗号分隔。
+		- 所有disabled节点应该在entrypoints中，但是不要求必须在runSteps内。
+		- 目前支持pipeline中所有节点都disabled
+	*/
+	disabledSteps := bwf.Source.GetDisabled()
+	for _, stepName := range disabledSteps {
+		if !bwf.Source.HasStep(stepName) {
+			return nil, fmt.Errorf("disabled step[%s] not existed!", stepName)
+		}
+	}
+
+	return disabledSteps, nil
+}
 
 // ----------------------------------------------------------------------------
 // Workflow 工作流结构
@@ -368,11 +421,13 @@ func (wf *Workflow) newWorkflowRuntime() error {
 	}
 	wf.log().Debugf("get sorted run[%s] steps:[%+v]", wf.RunID, wf.runSteps)
 	for _, stepName := range sortedSteps {
-		stepInfo := wf.runSteps[stepName]
-		if stepInfo.Image == "" {
-			stepInfo.Image = wf.Source.DockerEnv
+		disabled, err := wf.Source.IsDisabled(stepName)
+		if err != nil {
+			return err
 		}
-		wf.runtime.steps[stepName], err = NewStep(stepName, wf.runtime, stepInfo)
+
+		stepInfo := wf.runSteps[stepName]
+		wf.runtime.steps[stepName], err = NewStep(stepName, wf.runtime, stepInfo, disabled)
 		if err != nil {
 			return err
 		}

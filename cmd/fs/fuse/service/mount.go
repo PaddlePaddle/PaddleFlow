@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package app
+package service
 
 import (
 	"encoding/json"
@@ -26,18 +26,20 @@ import (
 	"path"
 	"strings"
 
+	"github.com/gin-contrib/pprof"
+	"github.com/gin-gonic/gin"
 	libfuse "github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
-	"github.com/spf13/pflag"
+	"github.com/urfave/cli/v2"
 
-	"paddleflow/cmd/fs/fuse/app/options"
+	"paddleflow/cmd/fs/fuse/flag"
 	"paddleflow/pkg/client"
 	"paddleflow/pkg/common/config"
 	"paddleflow/pkg/common/http/api"
-	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/fs/client/base"
+	"paddleflow/pkg/fs/client/cache"
 	"paddleflow/pkg/fs/client/fuse"
 	"paddleflow/pkg/fs/client/meta"
 	"paddleflow/pkg/fs/client/vfs"
@@ -48,17 +50,29 @@ import (
 
 var opts *libfuse.MountOptions
 
-func initConfig() {
-	// init from yaml config
-	config.InitFuseConfig()
-	f := options.NewFuseOption()
-	f.InitFlag(pflag.CommandLine)
-	logger.Init(&config.FuseConf.Log)
-	fmt.Printf("The final fuse config is:\n %s \n", config.PrettyFormat(config.FuseConf))
+func CmdMount() *cli.Command {
+	compoundFlags := [][]cli.Flag{
+		flag.MountFlags(&config.FuseConf.Fuse),
+		flag.CacheFlags(&config.FuseConf.Fuse),
+		flag.LinkFlags(&config.FuseConf.Fuse),
+		flag.GlobalFlags(&config.FuseConf.Fuse),
+		flag.LogFlags(&config.FuseConf.Log),
+		flag.UserFlags(&config.FuseConf.Fuse),
+		flag.MetricsFlags(&config.FuseConf.Fuse),
+	}
+	return &cli.Command{
+		Name:      "mount",
+		Action:    mount,
+		Category:  "SERVICE",
+		Usage:     "Mount a volume",
+		ArgsUsage: "META-URL MOUNTPOINT",
+		Description: `
+Usage please refer to docs`,
+		Flags: flag.ExpandFlags(compoundFlags),
+	}
 }
 
-func Init() error {
-	initConfig()
+func setup() error {
 	opts = &libfuse.MountOptions{}
 	fuseConf := config.FuseConf.Fuse
 	if len(fuseConf.MountPoint) == 0 || fuseConf.MountPoint == "/" {
@@ -94,6 +108,32 @@ func Init() error {
 	if err := InitVFS(); err != nil {
 		log.Errorf("init vfs failed: %v", err)
 		return err
+	}
+
+	if !config.FuseConf.Fuse.Local {
+		stopChan := make(chan struct{})
+		defer close(stopChan)
+		fuseConf := config.FuseConf.Fuse
+		if !config.FuseConf.Fuse.SkipCheckLinks {
+			f := func() {
+				if err := vfs.GetVFS().Meta.LinksMetaUpdateHandler(stopChan, fuseConf.LinkUpdateInterval, fuseConf.LinkMetaDirPrefix); err != nil {
+					log.Errorf("mount setup() vfs.GetVFS().Meta.LinksMetaUpdateHandler err: %v", err)
+				}
+			}
+			go f()
+		}
+	}
+
+	if config.FuseConf.Fuse.PprofEnable {
+		go func() {
+			router := gin.Default()
+			pprof.Register(router, "debug/pprof")
+			if err := router.Run(fmt.Sprintf(":%d", config.FuseConf.Fuse.PprofPort)); err != nil {
+				log.Errorf("run pprof failed: %s, skip this error", err.Error())
+			} else {
+				log.Infof("pprof started")
+			}
+		}()
 	}
 	return nil
 }
@@ -136,20 +176,25 @@ func wrapRegister(mountPoint string) {
 	prometheus.MustRegister(prometheus.NewGoCollector())
 }
 
-func Mount() (*libfuse.Server, error) {
+func mount(c *cli.Context) error {
+	log.Tracef("mount setup VFS")
+	if err := setup(); err != nil {
+		log.Errorf("mount setup() err: %v", err)
+		return err
+	}
+
 	fuseConf := config.FuseConf.Fuse
 	metricsAddr := exposeMetrics(fuseConf)
 	log.Debugf("mount opts: %+v, metricsAddr: %s", opts, metricsAddr)
-	return mount(fuseConf.MountPoint, opts)
-}
 
-func mount(dir string, mops *libfuse.MountOptions) (*libfuse.Server, error) {
-	fuseConfig := config.FuseConf.Fuse
-	mops.AllowOther = fuseConfig.AllowOther
-	mops.DisableXAttrs = fuseConfig.DisableXAttrs
-	server, err := fuse.Server(dir, *mops)
-
-	return server, err
+	log.Debugf("start mount service")
+	server, err := fuse.Server(config.FuseConf.Fuse.MountPoint, *opts)
+	if err != nil {
+		log.Fatalf("mount fail: %v", err)
+		os.Exit(-1)
+	}
+	server.Wait()
+	return err
 }
 
 func InitVFS() error {
@@ -244,24 +289,34 @@ func InitVFS() error {
 			return err
 		}
 	}
-	options := []vfs.Option{
-		vfs.WithMemorySize(config.FuseConf.Fuse.MemorySize),
-		vfs.WithMemoryExpire(config.FuseConf.Fuse.MemoryExpire),
-		vfs.WithBlockSize(config.FuseConf.Fuse.BlockSize),
-		vfs.WithDiskCachePath(config.FuseConf.Fuse.DiskCachePath),
-		vfs.WithDiskExpire(config.FuseConf.Fuse.DiskExpire),
-	}
-	if !config.FuseConf.Fuse.RawOwner {
-		options = append(options, vfs.WithOwner(config.FuseConf.Fuse.Uid,
-			config.FuseConf.Fuse.Gid))
-	}
-	options = append(options, vfs.WithMetaConfig(meta.Config{
+	m := meta.Config{
 		AttrCacheExpire:  config.FuseConf.Fuse.MetaCacheExpire,
 		EntryCacheExpire: config.FuseConf.Fuse.EntryCacheExpire,
 		Driver:           config.FuseConf.Fuse.MetaDriver,
 		CachePath:        config.FuseConf.Fuse.MetaCachePath,
-	}))
-	vfsConfig := vfs.InitConfig(options...)
+	}
+	d := cache.Config{
+		BlockSize:    config.FuseConf.Fuse.BlockSize,
+		MaxReadAhead: config.FuseConf.Fuse.MaxReadAheadSize,
+		Mem: &cache.MemConfig{
+			CacheSize: config.FuseConf.Fuse.MemorySize,
+			Expire:    config.FuseConf.Fuse.MemoryExpire,
+		},
+		Disk: &cache.DiskConfig{
+			Dir:    config.FuseConf.Fuse.DiskCachePath,
+			Expire: config.FuseConf.Fuse.DiskExpire,
+		},
+	}
+	vfsOptions := []vfs.Option{
+		vfs.WithDataCacheConfig(d),
+		vfs.WithMetaConfig(m),
+	}
+	if !config.FuseConf.Fuse.RawOwner {
+		vfsOptions = append(vfsOptions, vfs.WithOwner(
+			uint32(config.FuseConf.Fuse.Uid),
+			uint32(config.FuseConf.Fuse.Gid)))
+	}
+	vfsConfig := vfs.InitConfig(vfsOptions...)
 
 	if _, err := vfs.InitVFS(fsMeta, links, true, vfsConfig); err != nil {
 		log.Errorf("init vfs failed: %v", err)

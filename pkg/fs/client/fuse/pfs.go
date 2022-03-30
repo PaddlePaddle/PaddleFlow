@@ -376,6 +376,7 @@ func (fs *PFS) StatFs(cancel <-chan struct{}, input *fuse.InHeader, out *fuse.St
 
 func Server(moutpoint string, opt fuse.MountOptions) (*fuse.Server, error) {
 	pfs := NewPaddleFlowFileSystem(false)
+	opt.SingleThreaded = true
 	fssrv, err := fuse.NewServer(pfs, moutpoint, &opt)
 	if err != nil {
 		return nil, err
@@ -394,12 +395,13 @@ func (fs *PFS) replyEntry(entry *meta.Entry, out *fuse.EntryOut) {
 	out.NodeId = uint64(entry.Ino)
 	// todo:: Generation这个配置是干啥的，得在看看
 	out.Generation = 1
+
 	out.SetAttrTimeout(time.Duration(config.FuseConf.Fuse.AttrTimeout))
 	// todo:: 增加dirEntry配置，目录和目录项超时分开设置
 	out.SetEntryTimeout(time.Duration(config.FuseConf.Fuse.EntryTimeout))
 	attrToStat(entry.Ino, entry.Attr, &out.Attr)
 	if !config.FuseConf.Fuse.RawOwner {
-		out.Uid = config.FuseConf.Fuse.Uid
-		out.Gid = config.FuseConf.Fuse.Gid
+		out.Uid = uint32(config.FuseConf.Fuse.Uid)
+		out.Gid = uint32(config.FuseConf.Fuse.Gid)
 	}
 }
