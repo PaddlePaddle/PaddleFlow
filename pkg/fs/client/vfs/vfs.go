@@ -175,7 +175,7 @@ func (v *VFS) Lookup(ctx *meta.Context, parent Ino, name string) (entry *meta.En
 		}
 	}
 	var inode Ino
-	var attr = &Attr{}
+	var attr *Attr
 	inode, attr, err = v.Meta.Lookup(ctx, parent, name)
 	if utils.IsError(err) {
 		return nil, err
@@ -410,7 +410,7 @@ func (v *VFS) Open(ctx *meta.Context, ino Ino, flags uint32) (entry *meta.Entry,
 	var attr = &Attr{}
 	if IsSpecialNode(ino) {
 		log.Tracef("vfs open special node[%x]", ino)
-		if ino != controlInode && (flags&syscall.O_ACCMODE) != syscall.O_RDONLY {
+		if (flags & syscall.O_ACCMODE) != syscall.O_RDONLY {
 			err = syscall.EACCES
 			return
 		}

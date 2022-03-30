@@ -17,13 +17,14 @@ limitations under the License.
 package fs
 
 import (
-	"github.com/prometheus/client_golang/prometheus"
 	"os"
 	"path"
 	"path/filepath"
 	"runtime"
 	"syscall"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
 	log "github.com/sirupsen/logrus"
 
 	"paddleflow/pkg/fs/client/meta"
@@ -45,8 +46,8 @@ func wrapRegister(fsMeta common.FSMeta) *prometheus.Registry {
 	metricLabels := prometheus.Labels{"fsname": fsMeta.Name, "fsID": fsMeta.ID}
 	prometheus.DefaultRegisterer = prometheus.WrapRegistererWithPrefix("pfs_",
 		prometheus.WrapRegistererWith(metricLabels, registry))
-	prometheus.MustRegister(prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}))
-	prometheus.MustRegister(prometheus.NewGoCollector())
+	prometheus.MustRegister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
+	prometheus.MustRegister(collectors.NewGoCollector())
 	return registry
 }
 

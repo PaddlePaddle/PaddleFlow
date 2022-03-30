@@ -31,10 +31,7 @@ import (
 
 const (
 	minInternalNode = 0x7FFFFFFF00000000
-	logInode        = minInternalNode + 1
-	controlInode    = minInternalNode + 2
-	statsInode      = minInternalNode + 3
-	configInode     = minInternalNode + 4
+	statsInode      = minInternalNode + 1
 )
 
 type internalNode struct {
@@ -45,9 +42,6 @@ type internalNode struct {
 
 var internalNodes = []*internalNode{
 	{statsInode, ".stats", &Attr{Mode: 33206}},
-	//{logInode, ".accesslog", &Attr{Mode: 0400}},
-	//{controlInode, ".control", &Attr{Mode: 0666}},
-	//{configInode, ".config", &Attr{Mode: 0400}},
 }
 
 func initInternalNodes() {

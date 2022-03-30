@@ -284,7 +284,6 @@ func (w *statsWatcher) printDiff(left, right map[string]float64, dark bool) {
 	if !w.tty && dark {
 		return
 	}
-	fmt.Printf("cmd stats printDiff")
 	values := make([]string, len(w.sections))
 	for i, s := range w.sections {
 		vals := make([]string, 0, len(s.items))
@@ -331,17 +330,6 @@ func (w *statsWatcher) printDiff(left, right map[string]float64, dark bool) {
 
 func readStats(path string) map[string]float64 {
 	d, err := os.ReadFile(path)
-	//if err != nil {
-	//	log.Warnf("readStats open %s: %s", path, err)
-	//	return nil
-	//}
-	//defer f.Close()
-	//d, err := ioutil.ReadAll(f)
-	//if err != nil {
-	//	log.Warnf("read %s: %s", path, err)
-	//	return nil
-	//}
-	fmt.Printf("readStats: %s\n", string(d))
 	stats := make(map[string]float64)
 	lines := strings.Split(string(d), "\n")
 	for _, line := range lines {

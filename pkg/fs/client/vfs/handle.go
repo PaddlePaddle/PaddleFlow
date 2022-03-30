@@ -33,9 +33,8 @@ type handle struct {
 	children []*meta.Entry
 
 	// internal files
-	off     uint64
-	data    []byte
-	pending []byte
+	off  uint64
+	data []byte
 }
 
 func (v *VFS) newHandle(inode Ino) *handle {
