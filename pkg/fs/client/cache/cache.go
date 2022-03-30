@@ -21,6 +21,7 @@ import (
 	"io"
 	"path"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/google/uuid"
@@ -34,6 +35,7 @@ import (
 
 const (
 	maxReadAheadSize = 200 * 1024 * 1024
+	READAHEAD_CHUNK  = uint64(32 * 1024 * 1024)
 )
 
 var (
@@ -128,14 +130,16 @@ type Config struct {
 }
 
 type rCache struct {
-	id         string
-	flags      uint32
-	length     int
-	store      *store
-	ufs        ufs.UnderFileStorage
-	buffers    ReadBufferMap
-	lock       sync.RWMutex
-	readAMount uint64
+	id            string
+	flags         uint32
+	length        int
+	store         *store
+	ufs           ufs.UnderFileStorage
+	buffers       ReadBufferMap
+	bufferPool    *BufferPool
+	lock          sync.RWMutex
+	reader        io.ReadCloser
+	seqReadAmount uint64
 }
 
 func NewCacheStore(config *Config) Store {
@@ -171,10 +175,10 @@ func registerMetrics() {
 	prometheus.Register(cacheWriteHist)
 }
 
-func (store *store) NewReader(name string, length int, flags uint32,
-	ufs ufs.UnderFileStorage, buffers ReadBufferMap, readAMount uint64) Reader {
-	return &rCache{id: path.Clean(name), length: length,
-		store: store, flags: flags, ufs: ufs, buffers: buffers, readAMount: readAMount}
+func (store *store) NewReader(name string, length int, flags uint32, ufs ufs.UnderFileStorage, buffers ReadBufferMap,
+	bufferPool *BufferPool, seqReadAmount uint64) Reader {
+	return &rCache{id: path.Clean(name), length: length, store: store, flags: flags, ufs: ufs,
+		buffers: buffers, bufferPool: bufferPool, seqReadAmount: seqReadAmount}
 }
 
 func (store *store) NewWriter(name string, length int, fh ufs.FileHandle) Writer {
@@ -234,28 +238,37 @@ func (r *rCache) readFromReadAhead(off int64, buf []byte) (bytesRead int, err er
 		if !ok {
 			return
 		}
-		nread, err = readAheadBuf.Read(uint64(blockOff), buf[bytesRead:])
-		if blockOff != 0 {
-			blockOff = 0
-		}
-		if readAheadBuf.size == 0 {
-			r.lock.Lock()
-			delete(r.buffers, indexOff)
-			r.lock.Unlock()
-		}
-		bytesRead += nread
+		nread, err = readAheadBuf.ReadAt(uint64(blockOff), buf[bytesRead:])
+
 		if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
 			break
 		}
-		if nread == 0 {
-			break
+		bytesRead += nread
+		if readAheadBuf.size == 0 {
+			log.Debugf("index %v read length %v and len %v", index,
+				readAheadBuf.page.length, len(readAheadBuf.page.buffer))
+			page := readAheadBuf.Buffer.page
+			m := index
+			go func() {
+				page.lock.Lock()
+				defer page.lock.Unlock()
+				r.setCache(m, page.buffer, page.length)
+				page.Free()
+			}()
+			readAheadBuf.Buffer.Close()
+			r.lock.Lock()
+			delete(r.buffers, indexOff)
+			r.lock.Unlock()
+			index += 1
 		}
-		index += 1
+		if blockOff != 0 {
+			blockOff = 0
+		}
 	}
 	return bytesRead, nil
 }
 
-func (r *rCache) readAhead(index int) {
+func (r *rCache) readAhead(index int) (err error) {
 	var uoff uint64
 	var readAhead int
 	blockSize := r.store.conf.BlockSize
@@ -263,6 +276,10 @@ func (r *rCache) readAhead(index int) {
 
 	if readAheadAmount == 0 {
 		readAheadAmount = maxReadAheadSize
+	}
+	// first we get small readAhead size
+	if r.seqReadAmount <= READAHEAD_CHUNK {
+		readAheadAmount = utils.Max(int(READAHEAD_CHUNK), blockSize)
 	}
 	existingReadAhead := 0
 	for readAheadAmount-existingReadAhead > 0 {
@@ -282,18 +299,27 @@ func (r *rCache) readAhead(index int) {
 			break
 		}
 		readBuf := &ReadBuffer{
-			r:      r,
 			offset: uoff,
 			size:   uint32(size),
 			ufs:    r.ufs,
 			path:   r.id,
 			flags:  r.flags,
 		}
-		r.lock.Lock()
-		r.buffers[uoff] = readBuf.Init()
-		existingReadAhead += size
-		r.lock.Unlock()
+		readAheadBuf := readBuf.Init(r.bufferPool, blockSize)
+		if readAheadBuf != nil {
+			r.lock.Lock()
+			r.buffers[uoff] = readAheadBuf
+			existingReadAhead += size
+			r.lock.Unlock()
+		} else {
+			if existingReadAhead != 0 {
+				return nil
+			} else {
+				return syscall.ENOMEM
+			}
+		}
 	}
+	return nil
 }
 
 func (r *rCache) ReadAt(buf []byte, off int64) (n int, err error) {
@@ -312,18 +338,17 @@ func (r *rCache) ReadAt(buf []byte, off int64) (n int, err error) {
 	nReadFromCache, hitCache := r.readCache(buf, key, blockOff)
 	if hitCache {
 		// metrics
-		log.Debugf("metrics cacheHits++:%d", nReadFromCache)
 		cacheHits.Inc()
 		cacheHitBytes.Add(float64(nReadFromCache))
 		cacheReadHist.Observe(time.Since(start).Seconds())
+		log.Debugf("metrics cacheHits++:%d and index %v blockOff %v and nread %v", nReadFromCache, index, blockOff, nReadFromCache)
 		return nReadFromCache, nil
 	}
-	r.readAhead(index)
-
-	n, err = r.readFromReadAhead(off, buf)
-	if err != nil {
-		log.Errorf("readFromReadAhead err %v", err)
-		return 0, err
+	err = r.readAhead(index)
+	log.Debugf("read buffers map %v", len(r.buffers))
+	if err == nil {
+		n, err = r.readFromReadAhead(off, buf)
+		return
 	}
 	return
 }
@@ -338,11 +363,12 @@ func (r *rCache) off(off int) int {
 
 func (r *rCache) key(index int) string {
 	r.store.RLock()
-	keyID := r.store.meta[r.id]
+	keyID, ok := r.store.meta[r.id]
 	r.store.RUnlock()
-	if keyID == "" {
+	if !ok {
 		r.store.Lock()
-		r.store.meta[r.id] = uuid.NewString()
+		keyID = uuid.NewString()
+		r.store.meta[r.id] = keyID
 		r.store.Unlock()
 	}
 	hash := utils.KeyHash(keyID)
@@ -380,31 +406,17 @@ func (r *rCache) readCache(buf []byte, key string, off int) (int, bool) {
 	return 0, false
 }
 
-func (r *rCache) setCache(off int, p []byte, n int) {
-	blockNum := 1
-	if n > 0 {
-		blockNum = (n-1)/r.store.conf.BlockSize + 1
+func (r *rCache) setCache(index int, p []byte, n int) {
+	key := r.key(index)
+	log.Debugf("cache set key is %s name %s", key, r.id)
+	right := r.store.conf.BlockSize
+	if right > n {
+		right = n
 	}
-
-	var index int
-	var key string
-
-	left := 0
-	index = r.index(off)
-
-	for i := 0; i < int(blockNum); i++ {
-		key = r.key(index + i)
-		log.Debugf("cache set key is %s name %s", key, r.id)
-		right := left + r.store.conf.BlockSize
-		if right > n {
-			right = n
-		}
-		if r.store.mem != nil && r.store.conf.Mem.CacheSize > 0 {
-			r.store.mem.save(key, p[left:right])
-		}
-		if r.store.disk != nil {
-			r.store.disk.save(key, p[left:right])
-		}
-		left += right - left
+	if r.store.mem != nil && r.store.conf.Mem.CacheSize > 0 {
+		r.store.mem.save(key, p[:right])
+	}
+	if r.store.disk != nil {
+		r.store.disk.save(key, p[:right])
 	}
 }

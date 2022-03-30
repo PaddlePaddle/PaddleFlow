@@ -17,6 +17,7 @@ limitations under the License.
 package vfs
 
 import (
+	"io"
 	"sync"
 	"syscall"
 
@@ -28,6 +29,8 @@ import (
 	ufslib "paddleflow/pkg/fs/client/ufs"
 )
 
+const READAHEAD_CHUNK = uint32(20 * 1024 * 1024)
+
 type FileReader interface {
 	Read(buf []byte, off uint64) (int, syscall.Errno)
 	Close()
@@ -38,11 +41,13 @@ type DataReader interface {
 }
 
 func NewDataReader(m meta.Meta, blockSize int, store cache.Store) DataReader {
+	bufferPool := cache.BufferPool{}
 	r := &dataReader{
-		m:         m,
-		files:     make(map[Ino]*fileReader),
-		store:     store,
-		blockSize: blockSize,
+		m:          m,
+		files:      make(map[Ino]*fileReader),
+		store:      store,
+		blockSize:  blockSize,
+		bufferPool: bufferPool.Init(blockSize),
 	}
 	return r
 }
@@ -60,16 +65,18 @@ type fileReader struct {
 	// TODO: 先用base.FileHandle跑通流程，后续修改ufs接口
 	fd            base.FileHandle
 	buffersCache  cache.ReadBufferMap
+	streamReader  io.ReadCloser
 	seqReadAmount uint64
 }
 
 type dataReader struct {
 	sync.Mutex
-	m         meta.Meta
-	files     map[Ino]*fileReader
-	ufsMap    *ufsMap
-	store     cache.Store
-	blockSize int
+	m          meta.Meta
+	files      map[Ino]*fileReader
+	ufsMap     *ufsMap
+	store      cache.Store
+	bufferPool *cache.BufferPool
+	blockSize  int
 }
 
 func (fh *fileReader) Read(buf []byte, off uint64) (int, syscall.Errno) {
@@ -84,7 +91,8 @@ func (fh *fileReader) Read(buf []byte, off uint64) (int, syscall.Errno) {
 	var nread int
 	bufSize := len(buf)
 	if fh.reader.store != nil {
-		reader := fh.reader.store.NewReader(fh.path, int(fh.length), fh.flags, fh.ufs, fh.buffersCache, fh.seqReadAmount)
+		reader := fh.reader.store.NewReader(fh.path, int(fh.length),
+			fh.flags, fh.ufs, fh.buffersCache, fh.reader.bufferPool, fh.seqReadAmount)
 		for bytesRead < bufSize {
 			/*
 				n的值会有三种情况
@@ -93,15 +101,22 @@ func (fh *fileReader) Read(buf []byte, off uint64) (int, syscall.Errno) {
 				越界的情况，返回0，如off>=length||len(buf)==0
 			*/
 			nread, err = reader.ReadAt(buf[bytesRead:], int64(off))
-			if err != nil {
+			if err != nil && err != syscall.ENOMEM {
 				log.Errorf("reader readat failed: %v", err)
 				return 0, syscall.EBADF
 			}
-			if nread == 0 {
-				break
+			if err == syscall.ENOMEM {
+				nread, err = fh.readFromStream(int64(off), buf[bytesRead:])
+			}
+			if err != nil {
+				log.Errorf("read from stream failed: %v", err)
+				return 0, syscall.EBADF
 			}
 			bytesRead += nread
 			fh.seqReadAmount += uint64(nread)
+			if nread == 0 || off+uint64(nread) >= fh.length {
+				break
+			}
 			off += uint64(nread)
 		}
 	} else {
@@ -120,6 +135,34 @@ func (fh *fileReader) Read(buf []byte, off uint64) (int, syscall.Errno) {
 	return bytesRead, syscall.F_OK
 }
 
+func (fh *fileReader) readFromStream(off int64, buf []byte) (bytesRead int, err error) {
+	if fh.seqReadAmount != uint64(off) {
+		if fh.streamReader != nil {
+			_ = fh.streamReader.Close()
+			fh.streamReader = nil
+		}
+	}
+	if fh.streamReader == nil {
+		resp, err := fh.ufs.Get(fh.path, fh.flags, off, 0)
+		if err != nil {
+			return 0, err
+		}
+		fh.streamReader = resp
+	}
+
+	bytesRead, err = fh.streamReader.Read(buf)
+	if err != nil {
+		if err != io.EOF {
+			log.Errorf("readFromStream err %v", err)
+		}
+		// always retry
+		_ = fh.streamReader.Close()
+		fh.streamReader = nil
+		err = nil
+	}
+	return
+}
+
 func (fh *fileReader) Close() {
 	fh.Lock()
 	fh.release()
@@ -136,6 +179,10 @@ func (fh *fileReader) release() {
 	fh.reader.Unlock()
 	if fh.fd != nil {
 		fh.fd.Release()
+	}
+	if fh.streamReader != nil {
+		_ = fh.streamReader.Close()
+		fh.streamReader = nil
 	}
 }
 

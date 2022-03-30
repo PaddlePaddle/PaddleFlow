@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,26 +20,147 @@ import (
 	"errors"
 	"io"
 	"runtime"
+	"runtime/debug"
 	"sync"
+
+	"github.com/shirou/gopsutil/v3/mem"
+	log "github.com/sirupsen/logrus"
 )
 
 type Page struct {
-	offset uint64
-	buffer []byte
+	bufferPool *BufferPool
+	offset     uint64
+	length     int
+	readLength int
+	lock       sync.RWMutex
+	buffer     []byte
+	end        bool
+}
+
+type BufferPool struct {
+	mu   sync.Mutex
+	cond *sync.Cond
+
+	bufSize            uint64
+	totalBuffers       uint64
+	computedMaxBuffers uint64
+
+	pool *sync.Pool
+}
+
+func maxBuffers(bufSize uint64) uint64 {
+	m, err := mem.VirtualMemory()
+	if err != nil {
+		panic(err)
+	}
+
+	availableMem := m.Available
+
+	log.Debugf("amount of available memory: %v", availableMem/1024/1024)
+
+	var ms runtime.MemStats
+	runtime.ReadMemStats(&ms)
+
+	log.Debugf("amount of allocated memory: %v %v", ms.Sys/1024/1024, ms.Alloc/1024/1024)
+
+	max := (availableMem + ms.Sys) / 2
+	maxBuffers_ := max / bufSize
+	log.Debugf("using up to %vMB buffers, now is %v", max, maxBuffers_)
+	return maxBuffers_
+}
+
+func (pool *BufferPool) Init(size int) *BufferPool {
+	pool.cond = sync.NewCond(&pool.mu)
+
+	pool.pool = &sync.Pool{New: func() interface{} {
+		return make([]byte, size)
+	}}
+
+	return pool
+}
+
+func (pool *BufferPool) recomputeBufferLimit() {
+	pool.computedMaxBuffers = maxBuffers(pool.bufSize)
+}
+
+func (pool *BufferPool) RequestMBuf(size uint64, block bool, blockSize int) (buf []byte) {
+	buf = make([]byte, 0, size)
+	return
+	pool.bufSize = size
+	pool.mu.Lock()
+	defer pool.mu.Unlock()
+
+	if pool.totalBuffers%10 == 0 {
+		pool.recomputeBufferLimit()
+	}
+
+	log.Debugf("requesting %v", size)
+
+	for pool.computedMaxBuffers < 1 {
+		if block {
+			pool.MaybeGC()
+			pool.recomputeBufferLimit()
+			pool.cond.Wait()
+		} else {
+			return
+		}
+	}
+
+	pool.totalBuffers++
+	if blockSize != int(size) {
+		buf = make([]byte, size)
+	} else {
+		buf = pool.pool.Get().([]byte)
+	}
+	return
+}
+
+func (pool *BufferPool) MaybeGC() {
+	debug.FreeOSMemory()
 }
 
 func (p *Page) ReadAt(buf []byte, offset uint64) (n int, err error) {
-	n = copy(buf, p.buffer[offset:])
+	n = copy(buf, p.buffer[p.readLength:])
+	p.lock.Lock()
+	p.readLength += n
+	p.lock.Unlock()
+	if n == 0 && p.end == true {
+		return n, io.EOF
+	}
 	return
 }
 
 func (p *Page) WriteFrom(reader io.Reader) (n int, err error) {
-	n, err = io.ReadFull(reader, p.buffer)
+	n, err = reader.Read(p.buffer[p.length:cap(p.buffer)])
+	p.lock.Lock()
+	p.length += n
+	p.lock.Unlock()
+	p.buffer = p.buffer[:p.length]
+	if err != nil {
+		return n, err
+	}
+	log.Debugf("write from len %v and n %v", len(p.buffer), n)
 	return
 }
 
-func (p Page) Init(size uint64) *Page {
-	p.buffer = make([]byte, size)
+func (p *Page) Free() {
+	p.bufferPool.mu.Lock()
+	defer p.bufferPool.mu.Unlock()
+	if p.buffer != nil {
+		p.bufferPool.pool.Put(p.buffer)
+		p.bufferPool.cond.Signal()
+	}
+}
+
+func (p Page) Init(pool *BufferPool, size uint64, block bool, blockSize int) *Page {
+	p.bufferPool = pool
+	if size != 0 {
+		p.buffer = p.bufferPool.RequestMBuf(size, block, blockSize)
+		log.Debugf("init page %v blocksize %v and len %v", size, blockSize, len(p.buffer))
+		if p.buffer == nil {
+			return nil
+		}
+	}
 	return &p
 }
 
@@ -50,7 +171,6 @@ type Buffer struct {
 	page   *Page
 	reader io.ReadCloser
 	err    error
-	r      *rCache
 }
 
 type ReaderProvider func() (io.ReadCloser, error)
@@ -67,37 +187,43 @@ func (b *Buffer) Init(page *Page, r ReaderProvider) *Buffer {
 }
 
 func (b *Buffer) readLoop(r ReaderProvider) {
-	b.mu.Lock()
-	if b.reader == nil {
-		b.reader, b.err = r()
-		b.cond.Broadcast()
-		if b.err != nil {
-			b.mu.Unlock()
-			return
+	for {
+		b.mu.Lock()
+		if b.reader == nil {
+			b.reader, b.err = r()
+			b.cond.Broadcast()
+			if b.err != nil {
+				b.mu.Unlock()
+				break
+			}
 		}
-	}
+		if b.page == nil {
+			b.mu.Unlock()
+			break
+		}
 
-	nread, err := b.page.WriteFrom(b.reader)
-	if err != nil {
-		b.err = err
+		nread, err := b.page.WriteFrom(b.reader)
+		if err != nil {
+			if err == io.EOF {
+				b.page.end = true
+			}
+			b.err = err
+			b.mu.Unlock()
+			break
+		}
+
+		if nread == 0 {
+			b.page.end = true
+			_ = b.reader.Close()
+			b.mu.Unlock()
+			break
+		}
+
 		b.mu.Unlock()
-		return
+		// if we get here we've read _something_, bounce this goroutine
+		// to allow another one to read
+		runtime.Gosched()
 	}
-
-	if nread == 0 {
-		_ = b.reader.Close()
-		b.mu.Unlock()
-		return
-	}
-
-	go func() {
-		b.r.setCache(int(b.offset), b.page.buffer, nread)
-	}()
-
-	b.mu.Unlock()
-	// if we get here we've read _something_, bounce this goroutine
-	// to allow another one to read
-	runtime.Gosched()
 }
 
 func (b *Buffer) Read(p []byte) (n int, err error) {
@@ -120,9 +246,7 @@ func (b *Buffer) Read(p []byte) (n int, err error) {
 	if b.page != nil {
 		n, err = b.page.ReadAt(p, b.page.offset)
 		b.page.offset += uint64(n)
-		if n == 0 {
-			return n, io.EOF
-		}
+		return n, err
 	} else {
 		return 0, errors.New("page is empty, maybe oom")
 	}
@@ -147,13 +271,17 @@ func (b *Buffer) ReInit(r ReaderProvider) *Buffer {
 }
 
 func (b *Buffer) Close() (err error) {
-
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
 	if b.reader != nil {
 		err = b.reader.Close()
 	}
+
+	if b.page != nil {
+		b.page.Free()
+	}
+	b.page = nil
 
 	return
 }

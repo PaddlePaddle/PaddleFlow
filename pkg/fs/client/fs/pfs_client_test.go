@@ -453,6 +453,7 @@ func TestFSClient_read_with_small_block_2(t *testing.T) {
 	assert.Equal(t, nil, err)
 	assert.Equal(t, nExpect, n)
 	assert.Equal(t, string(bufExpect), string(buf))
+	time.Sleep(3 * time.Second)
 
 	buf = make([]byte, bufLen)
 	n, err = openAndRead(client, path, buf)
@@ -827,8 +828,15 @@ func NewFSClientForTestWithNoClientCache(fsMeta common.FSMeta) (*PFSClient, erro
 		vfs.WithDataCacheConfig(cache.Config{
 			BlockSize:    BlockSize,
 			MaxReadAhead: MaxReadAheadNum,
-			Mem:          &cache.MemConfig{},
-			Disk:         &cache.DiskConfig{},
+			Mem: &cache.MemConfig{
+				CacheSize: MemCacheSize,
+				Expire:    MemCacheExpire,
+			},
+			Disk: &cache.DiskConfig{
+				Dir:    DiskCachePath,
+				Expire: DiskCacheExpire,
+				Mode:   DiskDirMode,
+			},
 		}),
 		vfs.WithMetaConfig(meta.Config{
 			AttrCacheExpire:  MetaCacheExpire,
