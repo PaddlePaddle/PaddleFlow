@@ -1,4 +1,4 @@
-CREATE DATABASE IF NOT EXISTS paddleflow;
+CREATE DATABASE IF NOT EXISTS paddleflow_db;
 
 CREATE TABLE IF NOT EXISTS `queue` (
     `pk` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -6,9 +6,6 @@ CREATE TABLE IF NOT EXISTS `queue` (
     `name` varchar(60) NOT NULL UNIQUE,
     `namespace` varchar(50) NOT NULL,
     `cluster_id` varchar(255) NOT NULL DEFAULT '',
-    `cpu` varchar(20) NOT NULL,
-    `mem` varchar(20) NOT NULL,
-    `scalar_resources` varchar(255) DEFAULT NULL,
     `min_resources` varchar(255) DEFAULT NULL,
     `max_resources` varchar(255) DEFAULT NULL,
     `location` text DEFAULT '',
