@@ -32,7 +32,7 @@ import (
 )
 
 const (
-	psPort                    int32 = 8001
+	psPort int32 = 8001
 )
 
 type VCJob struct {
@@ -229,6 +229,15 @@ func (vj *VCJob) fillTaskInPodMode(taskSpec *vcjob.TaskSpec, jobName string) err
 
 	// patch taskSpec.Template.Spec.Containers
 	vj.fillContainerInTask(&taskSpec.Template.Spec.Containers[0], vj.JobFlavour, vj.Command)
+
+	// get Antman env
+	_, find := vj.Env[schema.EnvAntManJob]
+	if find {
+		if err := vj.patchAntManParameters(&taskSpec.Template, jobName); err != nil {
+			log.Errorf("patch parameters for antman job failed, err: %v", err)
+			return err
+		}
+	}
 
 	// patch taskSpec.Template.Spec.Volumes
 	taskSpec.Template.Spec.Volumes = vj.appendVolumeIfAbsent(taskSpec.Template.Spec.Volumes,

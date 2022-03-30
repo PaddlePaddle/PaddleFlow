@@ -278,29 +278,95 @@ func (j *KubeJob) GetID() string {
 	return j.ID
 }
 
+// patchAntManParameters patch some parameters for Antman job
+func (j *KubeJob) patchAntManParameters(podTemplate *corev1.PodTemplateSpec, jobName string) error {
+	// get parameters from job config
+	antManPriority := "1"
+	p := j.Env[schema.EnvAntManPriority]
+	switch strings.ToLower(p) {
+	case schema.PriorityClassHigh:
+		antManPriority = "0"
+	case schema.PriorityClassLow, "":
+		antManPriority = "1"
+	default:
+		return fmt.Errorf("priority %s for AntMan job is invalid", p)
+	}
+	antManConfigFile := schema.AntManGPUConfigFilePath
+	value, find := j.Env[schema.EnvAntManConfigFile]
+	if find {
+		antManConfigFile = value
+	}
+	antManConfigHostPath := schema.AntManGPUConfigFilePath
+	value, find = j.Env[schema.EnvAntManConfigHostPath]
+	if find {
+		antManConfigHostPath = value
+	}
+
+	// 1. patch jobName and priority in Annotations
+	if podTemplate.ObjectMeta.Annotations == nil {
+		podTemplate.ObjectMeta.Annotations = make(map[string]string)
+	}
+	podTemplate.ObjectMeta.Annotations[schema.AntManAnnotationKeyJobName] = jobName
+	podTemplate.ObjectMeta.Annotations[schema.AntManAnnotationKeyPriority] = antManPriority
+	// 2. patch env
+	env := podTemplate.Spec.Containers[0].Env
+	podTemplate.Spec.Containers[0].Env = append([]corev1.EnvVar{
+		{
+			Name:  schema.AntManEnvJobName,
+			Value: jobName,
+		},
+		{
+			Name:  schema.AntManEnvGPUConfigFile,
+			Value: antManConfigFile,
+		},
+	}, env...)
+	// 3. patch volumes and volumeMounts
+	fileType := corev1.HostPathFile
+	volumes := podTemplate.Spec.Volumes
+	podTemplate.Spec.Volumes = append([]corev1.Volume{
+		{
+			Name: schema.AntManVolumeName,
+			VolumeSource: corev1.VolumeSource{
+				HostPath: &corev1.HostPathVolumeSource{
+					Path: antManConfigHostPath,
+					Type: &fileType,
+				},
+			},
+		},
+	}, volumes...)
+	volumeMounts := podTemplate.Spec.Containers[0].VolumeMounts
+	podTemplate.Spec.Containers[0].VolumeMounts = append([]corev1.VolumeMount{
+		{
+			Name:      schema.AntManVolumeName,
+			MountPath: antManConfigFile,
+		},
+	}, volumeMounts...)
+	return nil
+}
+
 // JobModeParams records the parameters related to job mode
 type JobModeParams struct {
-	JobFlavour            string // flavour of job in pod or collective mode
+	JobFlavour string // flavour of job in pod or collective mode
 
 	CollectiveJobReplicas string // parameters for Collective job
 
-	PServerReplicas       string // server.replicas or driver.replicas of job
-	PServerFlavour        string // server.flavour or driver.flavour of job
-	PServerCommand        string // server.command or driver.command of job
-	WorkerReplicas        string // worker.replicas or executor.replicas of job
-	WorkerFlavour         string // worker.flavour or executor.flavour of job
-	WorkerCommand         string // worker.command or executor.command of job
+	PServerReplicas string // server.replicas or driver.replicas of job
+	PServerFlavour  string // server.flavour or driver.flavour of job
+	PServerCommand  string // server.command or driver.command of job
+	WorkerReplicas  string // worker.replicas or executor.replicas of job
+	WorkerFlavour   string // worker.flavour or executor.flavour of job
+	WorkerCommand   string // worker.command or executor.command of job
 }
 
 // newJobModeParams create a JobModeParams for job with jobMode
 func newJobModeParams(conf schema.Conf) JobModeParams {
 	return JobModeParams{
-		PServerReplicas: conf.GetPSReplicas(),
-		PServerFlavour:  conf.GetPSFlavour(),
-		PServerCommand:  conf.GetPSCommand(),
-		WorkerReplicas:  conf.GetWorkerReplicas(),
-		WorkerFlavour:   conf.GetWorkerFlavour(),
-		WorkerCommand:   conf.GetWorkerCommand(),
+		PServerReplicas:       conf.GetPSReplicas(),
+		PServerFlavour:        conf.GetPSFlavour(),
+		PServerCommand:        conf.GetPSCommand(),
+		WorkerReplicas:        conf.GetWorkerReplicas(),
+		WorkerFlavour:         conf.GetWorkerFlavour(),
+		WorkerCommand:         conf.GetWorkerCommand(),
 		CollectiveJobReplicas: conf.GetJobReplicas(),
 		JobFlavour:            conf.GetFlavour(),
 	}
@@ -315,7 +381,7 @@ func (j *JobModeParams) validatePodMode() error {
 
 // validatePSMode validate PServerCommand, WorkerCommand
 func (j *JobModeParams) validatePSMode() error {
-	if len(j.WorkerFlavour) == 0 || len(j.WorkerCommand) ==0 || len(j.PServerFlavour) == 0 || len(j.PServerCommand) == 0 {
+	if len(j.WorkerFlavour) == 0 || len(j.WorkerCommand) == 0 || len(j.PServerFlavour) == 0 || len(j.PServerCommand) == 0 {
 		return errors.EmptyFlavourError()
 	}
 
@@ -323,7 +389,7 @@ func (j *JobModeParams) validatePSMode() error {
 }
 
 func (j *JobModeParams) validateCollectiveMode() error {
-	if len(j.WorkerFlavour) == 0 || len(j.WorkerCommand) ==0 {
+	if len(j.WorkerFlavour) == 0 || len(j.WorkerCommand) == 0 {
 		return errors.EmptyFlavourError()
 	}
 	return nil

@@ -62,8 +62,12 @@ func TestPatchVCJobVariable(t *testing.T) {
 			expectValue: "ps",
 		},
 		{
-			caseName:    "podMode",
-			vcJobMode:   schema.EnvJobModePod,
+			caseName:  "podMode",
+			vcJobMode: schema.EnvJobModePod,
+			additionalEnv: map[string]string{
+				schema.EnvJobNamespace: "N2",
+				schema.EnvAntManJob:    "true",
+			},
 			actualValue: &vcjob.Job{},
 			expectValue: "container",
 		},
@@ -113,7 +117,7 @@ func TestPatchVCJobVariable(t *testing.T) {
 			YamlTemplateContent: extRuntimeConf,
 		}
 		jobModeParams := JobModeParams{
-			JobFlavour: pfjob.Conf.GetFlavour(),
+			JobFlavour:      pfjob.Conf.GetFlavour(),
 			PServerReplicas: pfjob.Conf.GetPSReplicas(),
 			PServerFlavour:  pfjob.Conf.GetFlavour(),
 			PServerCommand:  pfjob.Conf.GetPSCommand(),

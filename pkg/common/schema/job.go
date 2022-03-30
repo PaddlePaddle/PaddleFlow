@@ -80,7 +80,7 @@ const (
 	StatusJobTerminating JobStatus = "terminating"
 	StatusJobTerminated  JobStatus = "terminated"
 	StatusJobCancelled   JobStatus = "cancelled"
-	StatusJobSkipped   JobStatus = "skipped"
+	StatusJobSkipped     JobStatus = "skipped"
 
 	// job priority
 	EnvJobVeryLowPriority  = "VERY_LOW"
@@ -106,6 +106,19 @@ const (
 	JobPrefix            = "job"
 	DefaultSchedulerName = "volcano"
 	DefaultFSMountPath   = "/home/paddleflow/storage/mnt"
+
+	// EnvAntManJob defines env for Antman Job
+	EnvAntManJob            = "PF_ANTMAN_JOB"
+	EnvAntManPriority       = "PF_ANTMAN_PRIORITY"
+	EnvAntManConfigFile     = "PF_ANTMAN_CONFIG_FILE"
+	EnvAntManConfigHostPath = "PF_ANTMAN_CONFIG_HOST_PATH"
+	// AntManVolumeName defines config for ant man Pod
+	AntManVolumeName            = "antman-conf-volume"
+	AntManAnnotationKeyJobName  = "antman/job-name"
+	AntManAnnotationKeyPriority = "antman/priority"
+	AntManEnvJobName            = "FLAGS_job_name"
+	AntManEnvGPUConfigFile      = "GPU_CONFIG_FILE"
+	AntManGPUConfigFilePath     = "/opt/antman/gpu_config.json"
 )
 
 const (
