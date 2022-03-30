@@ -158,6 +158,6 @@ func NewAndStartJobManager() error {
 		log.Errorf("new job manager failed, error: %v", err)
 		return err
 	}
-	go runtimeMgr.Start(models.ActiveClusters, models.ActiveQueues, models.ListQueueJob)
+	go runtimeMgr.Start(models.ActiveClusters, models.ListQueueJob)
 	return nil
 }

@@ -249,11 +249,11 @@ func (j *KubeJob) generateResourceRequirements(flavour schema.Flavour) corev1.Re
 	log.Infof("generateResourceRequirements by flavour:[%+v]", flavour)
 	resources := corev1.ResourceRequirements{
 		Requests: map[corev1.ResourceName]resource.Quantity{
-			corev1.ResourceCPU:    resource.MustParse(flavour.Cpu),
+			corev1.ResourceCPU:    resource.MustParse(flavour.CPU),
 			corev1.ResourceMemory: resource.MustParse(flavour.Mem),
 		},
 		Limits: map[corev1.ResourceName]resource.Quantity{
-			corev1.ResourceCPU:    resource.MustParse(flavour.Cpu),
+			corev1.ResourceCPU:    resource.MustParse(flavour.CPU),
 			corev1.ResourceMemory: resource.MustParse(flavour.Mem),
 		},
 	}
@@ -280,27 +280,27 @@ func (j *KubeJob) GetID() string {
 
 // JobModeParams records the parameters related to job mode
 type JobModeParams struct {
-	JobFlavour            string // flavour of job in pod or collective mode
+	JobFlavour string // flavour of job in pod or collective mode
 
 	CollectiveJobReplicas string // parameters for Collective job
 
-	PServerReplicas       string // server.replicas or driver.replicas of job
-	PServerFlavour        string // server.flavour or driver.flavour of job
-	PServerCommand        string // server.command or driver.command of job
-	WorkerReplicas        string // worker.replicas or executor.replicas of job
-	WorkerFlavour         string // worker.flavour or executor.flavour of job
-	WorkerCommand         string // worker.command or executor.command of job
+	PServerReplicas string // server.replicas or driver.replicas of job
+	PServerFlavour  string // server.flavour or driver.flavour of job
+	PServerCommand  string // server.command or driver.command of job
+	WorkerReplicas  string // worker.replicas or executor.replicas of job
+	WorkerFlavour   string // worker.flavour or executor.flavour of job
+	WorkerCommand   string // worker.command or executor.command of job
 }
 
 // newJobModeParams create a JobModeParams for job with jobMode
 func newJobModeParams(conf schema.Conf) JobModeParams {
 	return JobModeParams{
-		PServerReplicas: conf.GetPSReplicas(),
-		PServerFlavour:  conf.GetPSFlavour(),
-		PServerCommand:  conf.GetPSCommand(),
-		WorkerReplicas:  conf.GetWorkerReplicas(),
-		WorkerFlavour:   conf.GetWorkerFlavour(),
-		WorkerCommand:   conf.GetWorkerCommand(),
+		PServerReplicas:       conf.GetPSReplicas(),
+		PServerFlavour:        conf.GetPSFlavour(),
+		PServerCommand:        conf.GetPSCommand(),
+		WorkerReplicas:        conf.GetWorkerReplicas(),
+		WorkerFlavour:         conf.GetWorkerFlavour(),
+		WorkerCommand:         conf.GetWorkerCommand(),
 		CollectiveJobReplicas: conf.GetJobReplicas(),
 		JobFlavour:            conf.GetFlavour(),
 	}
@@ -315,7 +315,7 @@ func (j *JobModeParams) validatePodMode() error {
 
 // validatePSMode validate PServerCommand, WorkerCommand
 func (j *JobModeParams) validatePSMode() error {
-	if len(j.WorkerFlavour) == 0 || len(j.WorkerCommand) ==0 || len(j.PServerFlavour) == 0 || len(j.PServerCommand) == 0 {
+	if len(j.WorkerFlavour) == 0 || len(j.WorkerCommand) == 0 || len(j.PServerFlavour) == 0 || len(j.PServerCommand) == 0 {
 		return errors.EmptyFlavourError()
 	}
 
@@ -323,7 +323,7 @@ func (j *JobModeParams) validatePSMode() error {
 }
 
 func (j *JobModeParams) validateCollectiveMode() error {
-	if len(j.WorkerFlavour) == 0 || len(j.WorkerCommand) ==0 {
+	if len(j.WorkerFlavour) == 0 || len(j.WorkerCommand) == 0 {
 		return errors.EmptyFlavourError()
 	}
 	return nil
