@@ -281,7 +281,7 @@ func (j *KubeJob) GetID() string {
 // patchAntManParameters patch some parameters for Antman job
 func (j *KubeJob) patchAntManParameters(podTemplate *corev1.PodTemplateSpec, jobName string) error {
 	// get parameters from job config
-	antManPriority := "1"
+	var antManPriority = "1"
 	p := j.Env[schema.EnvAntManPriority]
 	switch strings.ToLower(p) {
 	case schema.PriorityClassHigh:
