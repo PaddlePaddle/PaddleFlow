@@ -27,8 +27,9 @@ type JobView struct {
 	EndTime    string            `json:"endTime"`
 	Status     JobStatus         `json:"status"`
 	Deps       string            `json:"deps"`
-	Image      string            `json:"image"`
+	DockerEnv  string            `json:"dockerEnv"`
 	Artifacts  Artifacts         `json:"artifacts"`
+	Cache	   Cache			 `json:"cache"`
 	JobMessage string            `json:"jobMessage"`
 	CacheRunID string            `json:"cacheRunID"`
 }

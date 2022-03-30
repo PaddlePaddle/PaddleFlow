@@ -305,17 +305,6 @@ func GetLastQueue(ctx *logger.RequestContext) (Queue, error) {
 	return queue, nil
 }
 
-func ActiveQueues() []Queue {
-	db := database.DB.Table("queue").Where("status = ?", schema.StatusQueueOpen)
-
-	var queues []Queue
-	err := db.Find(&queues).Error
-	if err != nil {
-		return []Queue{}
-	}
-	return queues
-}
-
 func ListQueuesByCluster(clusterID string) []Queue {
 	db := database.DB.Table("queue").Where("cluster_id = ?", clusterID)
 

@@ -58,7 +58,9 @@ type fileReader struct {
 	reader *dataReader
 	sync.Mutex
 	// TODO: 先用base.FileHandle跑通流程，后续修改ufs接口
-	fd base.FileHandle
+	fd            base.FileHandle
+	buffersCache  cache.ReadBufferMap
+	seqReadAmount uint64
 }
 
 type dataReader struct {
@@ -70,63 +72,83 @@ type dataReader struct {
 	blockSize int
 }
 
-func (f *fileReader) Read(buf []byte, off uint64) (int, syscall.Errno) {
-	f.Lock()
-	defer f.Unlock()
-	log.Debugf("len[%d] off[%d] blockName[%s] length[%d]", len(buf), off, f.name, f.length)
-	if off >= f.length || len(buf) == 0 {
+func (fh *fileReader) Read(buf []byte, off uint64) (int, syscall.Errno) {
+	fh.Lock()
+	defer fh.Unlock()
+	log.Debugf("len[%d] off[%d] blockName[%s] length[%d]", len(buf), off, fh.name, fh.length)
+	if off >= fh.length || len(buf) == 0 {
 		return 0, syscall.F_OK
 	}
-	var n int
+	var bytesRead int
 	var err error
-	if f.reader.store != nil {
-		n, err = f.reader.Read(f.path, buf, int(off), f.length, f.flags, f.ufs)
-		if err != nil {
-			log.Errorf("fileReader read err: %v", err)
-			return 0, syscall.EBADF
+	var nread int
+	bufSize := len(buf)
+	if fh.reader.store != nil {
+		reader := fh.reader.store.NewReader(fh.path, int(fh.length), fh.flags, fh.ufs, fh.buffersCache, fh.seqReadAmount)
+		for bytesRead < bufSize {
+			/*
+				n的值会有三种情况
+				没有命中缓存的情况下，n的值会返回多个预读区合并在一起的值
+				命中缓存的情况下，n会返回blockSize或者length-off大小
+				越界的情况，返回0，如off>=length||len(buf)==0
+			*/
+			nread, err = reader.ReadAt(buf[bytesRead:], int64(off))
+			if err != nil {
+				log.Errorf("reader readat failed: %v", err)
+				return 0, syscall.EBADF
+			}
+			if nread == 0 {
+				break
+			}
+			bytesRead += nread
+			fh.seqReadAmount += uint64(nread)
+			off += uint64(nread)
 		}
 	} else {
-		if f.fd == nil {
+		if fh.fd == nil {
 			log.Debug("fd is empty")
 			return 0, syscall.EBADF
 		}
 		// todo:: 不走缓存部分需要保持原来open-read模式，保证这部分性能
-		ufsHandle := ufslib.NewFileHandle(f.fd)
-		n, err = ufsHandle.ReadAt(buf, int64(off))
+		ufsHandle := ufslib.NewFileHandle(fh.fd)
+		bytesRead, err = ufsHandle.ReadAt(buf, int64(off))
 		if err != nil {
 			log.Errorf("ufs read err: %v", err)
 			return 0, syscall.EBADF
 		}
 	}
-
-	return n, syscall.F_OK
+	return bytesRead, syscall.F_OK
 }
 
-func (f *fileReader) Close() {
-	f.Lock()
-	f.release()
-	f.Unlock()
+func (fh *fileReader) Close() {
+	fh.Lock()
+	fh.release()
+	fh.Unlock()
 }
 
-func (f *fileReader) release() {
+func (fh *fileReader) release() {
 	// todo:: 硬链接的情况下，需要增加refer判断，不能直接删除
-	f.reader.Lock()
-	delete(f.reader.files, f.inode)
-	f.reader.Unlock()
-	if f.fd != nil {
-		f.fd.Release()
+	fh.reader.Lock()
+	delete(fh.reader.files, fh.inode)
+	for _, buffer := range fh.buffersCache {
+		buffer.Buffer.Close()
+	}
+	fh.reader.Unlock()
+	if fh.fd != nil {
+		fh.fd.Release()
 	}
 }
 
 func (d *dataReader) Open(inode Ino, length uint64, ufs ufslib.UnderFileStorage, path string) (FileReader, error) {
 	name := d.m.InoToPath(inode)
 	f := &fileReader{
-		reader: d,
-		inode:  inode,
-		name:   name,
-		path:   path,
-		length: length,
-		ufs:    ufs,
+		reader:       d,
+		inode:        inode,
+		name:         name,
+		path:         path,
+		length:       length,
+		ufs:          ufs,
+		buffersCache: make(cache.ReadBufferMap),
 	}
 	if d.store == nil {
 		fd, err := ufs.Open(path, syscall.O_RDONLY)
@@ -139,32 +161,4 @@ func (d *dataReader) Open(inode Ino, length uint64, ufs ufslib.UnderFileStorage,
 	d.files[inode] = f
 	d.Unlock()
 	return f, nil
-}
-
-func (d *dataReader) Read(name string, buf []byte, off int, length uint64, flags uint32, ufs ufslib.UnderFileStorage) (int, error) {
-	read := 0
-	bufSize := len(buf)
-	reader := d.store.NewReader(name, int(length), flags, ufs)
-	var err error
-	var n int
-	for read < bufSize {
-		/*
-			n的值会有三种情况
-			没有命中缓存的情况下，n的值会返回多个预读区合并在一起的值
-			命中缓存的情况下，n会返回blockSize或者length-off大小
-			越界的情况，返回0，如off>=length||len(buf)==0
-		*/
-		// todo:: readerAt返回的都是从off开始，读取bufSize或者到文件结束的内容，返回的n为读取的大小，目前底层cache只返回了部分内容
-		n, err = reader.ReadAt(buf[read:], int64(off))
-		if err != nil {
-			log.Errorf("reader readat failed: %v", err)
-			return 0, err
-		}
-		if n == 0 {
-			break
-		}
-		read += n
-		off += n
-	}
-	return read, nil
 }

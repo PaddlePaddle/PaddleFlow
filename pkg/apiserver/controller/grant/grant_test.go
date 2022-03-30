@@ -27,19 +27,18 @@ import (
 	"paddleflow/pkg/common/database/db_fake"
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/common/schema"
-
 )
 
 const (
-	MockRootUser = "root"
-	MockUserName = "user1"
-	MockResourceID = "fakeID"
+	MockRootUser    = "root"
+	MockUserName    = "user1"
+	MockResourceID  = "fakeID"
 	MockClusterName = "fakeCluster"
-	MockNamespace  = "paddle"
+	MockNamespace   = "paddle"
 )
 
 var clusterInfo = models.ClusterInfo{
-	Name:         MockClusterName,
+	Name:          MockClusterName,
 	Description:   "Description",
 	Endpoint:      "Endpoint",
 	Source:        "Source",
@@ -50,7 +49,7 @@ var clusterInfo = models.ClusterInfo{
 	Setting:       "Setting",
 	NamespaceList: []string{"n1", "n2", MockNamespace},
 }
-//CGO_ENABLED=1
+
 func TestCreateGrant(t *testing.T) {
 	db_fake.InitFakeDB()
 	ctx := &logger.RequestContext{UserName: MockRootUser}
@@ -59,7 +58,7 @@ func TestCreateGrant(t *testing.T) {
 	cluser, _ := models.GetClusterByName(ctx, MockClusterName)
 
 	err := models.CreateQueue(ctx, &models.Queue{
-		Name: MockResourceID,
+		Name:      MockResourceID,
 		Namespace: "fake",
 		ClusterId: cluser.ID,
 	})
@@ -74,9 +73,9 @@ func TestCreateGrant(t *testing.T) {
 
 	// case start
 	grant := &models.Grant{
-		UserName: MockUserName,
+		UserName:     MockUserName,
 		ResourceType: common.ResourceTypeQueue,
-		ResourceID: MockResourceID,
+		ResourceID:   MockResourceID,
 	}
 
 	resp, err := CreateGrant(ctx, grant)
@@ -105,7 +104,3 @@ func TestDeleteGrant(t *testing.T) {
 	err := DeleteGrant(ctx, MockUserName, MockResourceID, common.ResourceTypeQueue)
 	assert.Nil(t, err)
 }
-
-
-
-

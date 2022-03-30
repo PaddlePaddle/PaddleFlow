@@ -54,7 +54,7 @@ type WorkflowSourceStep struct {
 	Deps       string                 `yaml:"deps"`
 	Artifacts  Artifacts              `yaml:"artifacts"`
 	Env        map[string]string      `yaml:"env"`
-	Image      string                 `yaml:"image"` // 这个字段暂时不对用户暴露
+	DockerEnv  string                 `yaml:"dockerEnv"`
 	Cache      Cache                  `yaml:"cache"`
 }
 
@@ -83,6 +83,45 @@ type WorkflowSource struct {
 	EntryPoints map[string]*WorkflowSourceStep `yaml:"entry_points"`
 	Cache       Cache                          `yaml:"cache"`
 	Parallelism int                            `yaml:"parallelism"`
+	Disabled    string                         `yaml:"disabled"`
+}
+
+func (wfs *WorkflowSource) GetDisabled() []string {
+	// 获取disabled节点列表。每个节点名称前后的空格会被删除，只有空格的步骤名直接略过不添加
+	disabledSteps := make([]string, 0)
+	for _, step := range strings.Split(wfs.Disabled, ",") {
+		step := strings.TrimSpace(step)
+		if len(step) <= 0 {
+			continue
+		}
+		disabledSteps = append(disabledSteps, step)
+	}
+	return disabledSteps
+}
+
+func (wfs *WorkflowSource) IsDisabled(stepName string) (bool, error) {
+	// 表示该节点是否disabled
+	disabledSteps := wfs.GetDisabled()
+
+	if !wfs.HasStep(stepName) {
+		return false, fmt.Errorf("check disabled for step[%s] failed, step not existed!", stepName)
+	}
+
+	for _, disableStepName := range disabledSteps {
+		if stepName == disableStepName {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (wfs *WorkflowSource) HasStep(step string) bool {
+	_, ok := wfs.EntryPoints[step]
+	if ok {
+		return true
+	} else {
+		return false
+	}
 }
 
 // ValidateArtifacts - 该函数的作用是将WorkflowSource中的Slice类型的输出Artifact改为Map类型
@@ -137,11 +176,17 @@ func (wfs *WorkflowSource) validateStepCacheByMap(yamlMap map[string]interface{}
 		}
 		if ok {
 			cacheMap := cache.(map[string]interface{})
+			// Cache类型的reflect.Type
+			cacheType := reflect.TypeOf(point.Cache)
 			// 给Cache的每个字段赋值，覆盖掉全局的Cache设置
-			for i := 0; i < reflect.TypeOf(point.Cache).NumField(); i++ {
-				attrName := reflect.TypeOf(point.Cache).Field(i).Tag.Get("yaml")
+			for i := 0; i < cacheType.NumField(); i++ {
+				attrName := cacheType.Field(i).Tag.Get("yaml")
 				if attrValue, ok := cacheMap[attrName]; ok {
-					reflect.ValueOf(&point.Cache).Elem().Field(i).Set(reflect.ValueOf(attrValue))
+					attrType := cacheType.Field(i).Type
+					if !reflect.TypeOf(attrValue).ConvertibleTo(attrType) {
+						return fmt.Errorf("cannot convert value of Cache attribute [%s] to string", attrName)
+					}
+					reflect.ValueOf(&point.Cache).Elem().Field(i).Set(reflect.ValueOf(attrValue).Convert(attrType))
 				}
 			}
 		}

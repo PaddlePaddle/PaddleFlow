@@ -32,6 +32,7 @@ type Step struct {
 	name              string
 	wfr               *WorkflowRuntime
 	info              *schema.WorkflowSourceStep
+	disabled		  bool
 	ready             chan bool // 由 run 来决定是否开始执行该步骤
 	done              bool      // 表示是否已经运行结束，done==true，则跳过该step
 	submitted         bool      // 表示是否从run中发过ready信号过来。如果pipeline服务宕机重启，run会从该字段判断是否需要再次发ready信号，触发运行
@@ -41,17 +42,18 @@ type Step struct {
 	CacheRunID        string
 }
 
-var NewStep = func(name string, wfr *WorkflowRuntime, info *schema.WorkflowSourceStep) (*Step, error) {
+var NewStep = func(name string, wfr *WorkflowRuntime, info *schema.WorkflowSourceStep, disabled bool) (*Step, error) {
 	// 该函数初始化job时，只传入image, deps等，并没有替换parameter，command，env中的参数
 	// 因为初始化job的操作是在所有step初始化的时候做的，此时step可能被启动一个协程，但并没有真正运行任意一个step的运行逻辑
 	// 因此没法知道上游节点的参数值，没法做替换
 	jobName := fmt.Sprintf("%s-%s", wfr.wf.RunID, name)
-	job := NewPaddleFlowJob(jobName, info.Image, info.Deps)
+	job := NewPaddleFlowJob(jobName, info.DockerEnv, info.Deps)
 	
 	st := &Step{
 		name:  name,
 		wfr:   wfr,
 		info:  info,
+		disabled: disabled,
 		ready: make(chan bool, 1),
 		done:  false,
 		submitted: false,
@@ -199,7 +201,7 @@ func (st *Step) checkCached() (cacheFound bool, err error) {
 		return false, err
 	}
 
-	cacheCaculator, err := NewCacheCalculator(*st, st.wfr.wf.Source.Cache)
+	cacheCaculator, err := NewCacheCalculator(*st, st.info.Cache)
 	if err != nil {
 		return false, err
 	}
@@ -287,7 +289,7 @@ func (st *Step) logCache() error {
 		FsID:        st.wfr.wf.Extra[WfExtraInfoKeyFsID],
 		FsName:      st.wfr.wf.Extra[WfExtraInfoKeyFsName],
 		UserName:    st.wfr.wf.Extra[WfExtraInfoKeyUserName],
-		ExpiredTime: st.wfr.wf.Source.Cache.MaxExpiredTime,
+		ExpiredTime: st.info.Cache.MaxExpiredTime,
 		Strategy:    CacheStrategyConservative,
 	}
 
@@ -318,7 +320,7 @@ func (st *Step) updateJobStatus(eventValue WfEventValue, jobStatus schema.JobSta
 	
 	st.job.(*PaddleFlowJob).Message = logMsg
 	st.job.(*PaddleFlowJob).Status = jobStatus
-	if jobStatus == schema.StatusJobCancelled || jobStatus == schema.StatusJobFailed || jobStatus == schema.StatusJobSucceeded {
+	if jobStatus == schema.StatusJobCancelled || jobStatus == schema.StatusJobFailed || jobStatus == schema.StatusJobSucceeded || jobStatus == schema.StatusJobSkipped {
 		st.done = true
 	}
 	
@@ -345,7 +347,13 @@ func (st *Step) Execute() {
 			logMsg := fmt.Sprintf("start execute step[%s] with runid[%s]", st.name, st.wfr.wf.RunID)
 			st.getLogger().Infof(logMsg)
 
-			if st.wfr.wf.Source.Cache.Enable {
+			if st.disabled {
+				logMsg = fmt.Sprintf("step[%s] with runid[%s] is disabled, skip running", st.name, st.wfr.wf.RunID)
+				st.updateJobStatus(WfEventJobUpdate, schema.StatusJobSkipped, logMsg)
+				return
+			}
+
+			if st.info.Cache.Enable {
 				cachedFound, err := st.checkCached()
 				if err != nil {
 					logMsg = fmt.Sprintf("check cache for step[%s] with runid[%s] failed: [%s]", st.name, st.wfr.wf.RunID, err.Error())
