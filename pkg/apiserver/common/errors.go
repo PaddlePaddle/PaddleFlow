@@ -42,7 +42,7 @@ const (
 	InvalidScaleResource = "InvalidScaleResource" // 扩展资源类型不支持
 	IOOperationFailure   = "IOOperationFailure"   // I/O操作失败
 	NamespaceNotFound    = "NamespaceNotFound"
-	CpuNotFound          = "CpuNotFound"
+	CPUNotFound          = "CPUNotFound"
 	MemoryNotFound       = "MemoryNotFound"
 	PathNotFound         = "PathNotFound"
 	MethodNotAllowed     = "MethodNotAllowed"
@@ -77,7 +77,9 @@ const (
 	RunCacheNotFound      = "RunCacheNotFound"
 	ArtifactEventNotFound = "ArtifactEventNotFound"
 
-	FlavourNotFound = "FlavourNotFound"
+	FlavourNotFound     = "FlavourNotFound"     // 未找到对应的资源套餐
+	FlavourNameEmpty    = "FlavourNameEmpty"    // 资源套餐名称为空
+	FlavourInvalidField = "FlavourInvalidField" // 资源套餐名称为空
 
 	ClusterNameNotFound      = "ClusterNameNotFound"
 	ClusterIdNotFound        = "ClusterIdNotFound"
@@ -131,7 +133,7 @@ var errorHTTPStatus = map[string]int{
 	InvalidScaleResource: http.StatusBadRequest,
 	IOOperationFailure:   http.StatusInternalServerError,
 	NamespaceNotFound:    http.StatusBadRequest,
-	CpuNotFound:          http.StatusBadRequest,
+	CPUNotFound:          http.StatusBadRequest,
 	MemoryNotFound:       http.StatusBadRequest,
 	PathNotFound:         http.StatusNotFound,
 	MethodNotAllowed:     http.StatusMethodNotAllowed,
@@ -166,7 +168,9 @@ var errorHTTPStatus = map[string]int{
 	GrantAlreadyExist:         http.StatusBadRequest,
 	GrantRootActionNotSupport: http.StatusBadRequest,
 
-	FlavourNotFound: http.StatusBadRequest,
+	FlavourNotFound:     http.StatusNotFound,
+	FlavourNameEmpty:    http.StatusBadRequest,
+	FlavourInvalidField: http.StatusBadRequest,
 
 	ClusterNameNotFound:      http.StatusBadRequest,
 	ClusterIdNotFound:        http.StatusBadRequest,
@@ -219,7 +223,7 @@ var errorMessage = map[string]string{
 	InvalidScaleResource: "The scale resource is invalid",
 	IOOperationFailure:   "I/O operation failed",
 	NamespaceNotFound:    "Namespace is not set",
-	CpuNotFound:          "CPU is not set",
+	CPUNotFound:          "CPU is not set",
 	MemoryNotFound:       "Memory is not set",
 	DuplicatedName:       "Name has existed. Duplicated name is not allowed",
 	DuplicatedContent:    "content(md5) has existed. Please use existing one",
@@ -239,6 +243,8 @@ var errorMessage = map[string]string{
 	QueueNameNotFound:            "QueueName does not exist",
 	QueueResourceNotMatch:        "Queue resource is not match",
 	QueueIsNotClosed:             "Queue should be closed before delete",
+
+	FlavourNameEmpty: "flavour name should not be empty",
 
 	RunNameDuplicated:     "Run name already exists",
 	RunNotFound:           "RunID not found",
