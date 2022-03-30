@@ -30,7 +30,7 @@ type ResourceName string
 type Resource struct {
 	MilliCPU float64 `json:"cpu"`
 	Memory   float64 `json:"memory"`
-	Storage  float64
+	Storage  float64 `json:"-"`
 
 	// ScalarResources
 	ScalarResources map[ResourceName]float64 `json:"scalarResources"`
