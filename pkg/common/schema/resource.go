@@ -28,12 +28,12 @@ type ResourceName string
 
 // Resource struct defines all the resource type
 type Resource struct {
-	MilliCPU float64
-	Memory   float64
+	MilliCPU float64 `json:"cpu"`
+	Memory   float64 `json:"memory"`
 	Storage  float64
 
 	// ScalarResources
-	ScalarResources map[ResourceName]float64
+	ScalarResources map[ResourceName]float64 `json:"scalarResources"`
 }
 
 type NodeQuotaInfo struct {

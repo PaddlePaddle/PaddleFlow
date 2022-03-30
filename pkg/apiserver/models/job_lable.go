@@ -7,12 +7,11 @@ import (
 )
 
 type JobLabel struct {
-	Pk        int64          `json:"-" gorm:"primaryKey;autoIncrement"`
-	Label     string         `json:"label" gorm:"type:varchar(255);NOT NULL"`
-	JobID     string         `json:"jobID" gorm:"type:varchar(60);NOT NULL"`
-	CreatedAt time.Time      `json:"createTime"`
-	UpdatedAt time.Time      `json:"updateTime,omitempty"`
-	DeletedAt gorm.DeletedAt `json:"-" gorm:"index"`
+	Pk        int64          `gorm:"primaryKey;autoIncrement"`
+	Label     string         `gorm:"type:varchar(255);NOT NULL"`
+	JobID     string         `gorm:"type:varchar(60);NOT NULL"`
+	CreatedAt time.Time
+	DeletedAt gorm.DeletedAt `gorm:"index"`
 }
 
 func (JobLabel) TableName() string {

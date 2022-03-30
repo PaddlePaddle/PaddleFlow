@@ -23,7 +23,6 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
-
 	"paddleflow/pkg/common/database"
 	"paddleflow/pkg/common/errors"
 	"paddleflow/pkg/common/logger"
@@ -31,25 +30,32 @@ import (
 )
 
 type Job struct {
-	Pk                int64              `json:"-" gorm:"primaryKey;autoIncrement"`
-	ID                string             `json:"jobID" gorm:"type:varchar(60);uniqueIndex"`
-	UserName          string             `json:"userName" gorm:"type:varchar(255);NOT NULL"`
-	QueueID           string             `json:"queueID" gorm:"type:varchar(36);NOT NULL"`
-	Type              schema.PFJobType   `json:"type" gorm:"type:varchar(20);NOT NULL"`
-	Config            schema.Conf        `json:"config" gorm:"type:text"`
-	RuntimeInfoJson   string             `json:"-" gorm:"column:runtime_info;default:'{}'"`
-	RuntimeInfo       interface{}        `json:"runtimeInfo" gorm:"-"`
-	Status            schema.JobStatus   `json:"status"`
-	Message           string             `json:"message"`
-	Resource          schema.FlavourInfo `json:"resource" gorm:"type:text;default:'{}'"`
-	StatusInfo        []schema.StatusInfo  `json:"statusInfo" gorm:"type:text;default:'{}'"`
-	Framework         schema.Framework   `json:"framework" gorm:"type:varchar(30)"`
-	Members           []schema.Member    `json:"members" gorm:"type:text"`
-	ExtensionTemplate string             `json:"extensionTemplate" gorm:"type:text"`
-	CreatedAt         time.Time          `json:"createTime"`
-	ActivatedAt       sql.NullTime       `json:"activateTime"`
-	UpdatedAt         time.Time          `json:"updateTime,omitempty"`
-	DeletedAt         gorm.DeletedAt     `json:"-" gorm:"index"`
+	Pk                int64            `json:"-" gorm:"primaryKey;autoIncrement"`
+	ID                string           `json:"jobID" gorm:"type:varchar(60);uniqueIndex"`
+	UserName          string           `json:"userName" gorm:"type:varchar(255);NOT NULL"`
+	QueueID           string           `json:"queueID" gorm:"type:varchar(36);NOT NULL"`
+	Type              schema.JobType   `json:"type" gorm:"type:varchar(20);NOT NULL"`
+	Config            schema.Conf      `json:"config" gorm:"type:text"`
+	RuntimeInfoJson   string           `json:"-" gorm:"column:runtime_info;default:'{}'"`
+	RuntimeInfo       interface{}      `json:"runtimeInfo" gorm:"-"`
+	Status            schema.JobStatus `json:"status"`
+	Message           string           `json:"message"`
+	Resource          schema.Resource  `json:"resource" gorm:"type:text;default:'{}'"`
+	Framework         schema.Framework `json:"framework" gorm:"type:varchar(30)"`
+	Members           []Member         `json:"members" gorm:"type:text"`
+	ExtensionTemplate string           `json:"extensionTemplate" gorm:"type:text"`
+	ParentJob         string           `json:"-" gorm:"type:varchar(60)"`
+	CreatedAt         time.Time        `json:"createTime"`
+	ActivatedAt       sql.NullTime     `json:"activateTime"`
+	UpdatedAt         time.Time        `json:"updateTime,omitempty"`
+	DeletedAt         gorm.DeletedAt   `json:"-" gorm:"index"`
+}
+
+type Member struct {
+	ID          string `json:"id"`
+	Replicas    int    `json:"replicas"`
+	Role        string `json:"role"`
+	schema.Conf `json:",inline"`
 }
 
 func (Job) TableName() string {
