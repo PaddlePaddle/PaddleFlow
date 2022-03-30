@@ -55,7 +55,7 @@ type WorkflowSourceStep struct {
 	Artifacts  Artifacts              `yaml:"artifacts"`
 	Env        map[string]string      `yaml:"env"`
 	DockerEnv  string                 `yaml:"dockerEnv"`
-	Cache	   Cache				  `yaml:"cache"`
+	Cache      Cache                  `yaml:"cache"`
 }
 
 func (s *WorkflowSourceStep) GetDeps() []string {
@@ -78,16 +78,22 @@ type Cache struct {
 }
 
 type WorkflowSource struct {
-	Name        string                         `yaml:"name"`
-	DockerEnv   string                         `yaml:"docker_env"`
-	EntryPoints map[string]*WorkflowSourceStep `yaml:"entry_points"`
-	Cache       Cache                          `yaml:"cache"`
-	Parallelism int                            `yaml:"parallelism"`
-	Disabled 	string                         `yaml:"disabled"`
+	Name          string                         `yaml:"name"`
+	DockerEnv     string                         `yaml:"docker_env"`
+	EntryPoints   map[string]*WorkflowSourceStep `yaml:"entry_points"`
+	Cache         Cache                          `yaml:"cache"`
+	Parallelism   int                            `yaml:"parallelism"`
+	Disabled      string                         `yaml:"disabled"`
+	FailureOption FailureOption                  `yaml:"failure_option"`
+	PostProcess   map[string]*WorkflowSourceStep `yaml:"post_process"`
+}
+
+type FailureOption struct {
+	Strategy string `yaml:"strategy"`
 }
 
 func (wfs *WorkflowSource) GetDisabled() []string {
-    // 获取disabled节点列表。每个节点名称前后的空格会被删除，只有空格的步骤名直接略过不添加
+	// 获取disabled节点列表。每个节点名称前后的空格会被删除，只有空格的步骤名直接略过不添加
 	disabledSteps := make([]string, 0)
 	for _, step := range strings.Split(wfs.Disabled, ",") {
 		step := strings.TrimSpace(step)
@@ -100,7 +106,7 @@ func (wfs *WorkflowSource) GetDisabled() []string {
 }
 
 func (wfs *WorkflowSource) IsDisabled(stepName string) (bool, error) {
-    // 表示该节点是否disabled
+	// 表示该节点是否disabled
 	disabledSteps := wfs.GetDisabled()
 
 	if !wfs.HasStep(stepName) {
