@@ -50,7 +50,7 @@ type QuotaSummary struct {
 
 // Resource类的json schema
 type resourceQuota struct {
-	Cpu             float64             `json:"cpu"`
+	CPU             float64             `json:"cpu"`
 	Memory          string              `json:"memory"`
 	Storage         string              `json:"storage"`
 	ScalarResources ScalarResourcesType `json:"scalarResources,omitempty"`
@@ -61,7 +61,7 @@ func (r Resource) MarshalJSON() ([]byte, error) {
 	result := resourceQuota{}
 	result.ScalarResources = ScalarResourcesType{}
 
-	result.Cpu, _ = strconv.ParseFloat(fmt.Sprintf("%.1f", r.MilliCPU/1000), 64)
+	result.CPU, _ = strconv.ParseFloat(fmt.Sprintf("%.1f", r.MilliCPU/1000), 64)
 	memory := float64(r.Memory) / 1024.0 / 1024.0
 	result.Memory = fmt.Sprintf("%.2fMi", memory)
 	storage := float64(r.Storage) / 1024.0 / 1024.0

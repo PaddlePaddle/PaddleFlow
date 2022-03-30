@@ -83,7 +83,7 @@ func TestCreateQueue(t *testing.T) {
 		Namespace: MockNamespace,
 		QuotaType: schema.TypeVolcanoCapabilityQuota,
 		MaxResources: schema.ResourceInfo{
-			Cpu: "1",
+			CPU: "1",
 			Mem: "1G",
 		},
 		SchedulingPolicy: []string{"s1", "s2"},

@@ -126,7 +126,7 @@ func ValidateJob(conf schema.PFJobConf) error {
 
 // validateFlavours checks flavour/psflavour/workflavour if exist
 func validateFlavours(conf schema.PFJobConf, queue *models.Queue) error {
-	queueResource, err := schema.NewResource(queue.MaxResources.Cpu, queue.MaxResources.Mem, queue.MaxResources.ScalarResources)
+	queueResource, err := schema.NewResource(queue.MaxResources.CPU, queue.MaxResources.Mem, queue.MaxResources.ScalarResources)
 	if err != nil {
 		log.Errorf("queue[%s]:[%+v] convert to Resource type failed, err=%v", queue.Name, queue, err)
 		return err
@@ -155,7 +155,7 @@ func isEnoughQueueCapacity(flavourKey string, queueResource *schema.Resource) er
 		return errors.InvalidFlavourError(flavourKey)
 	}
 	fr := flavourValue.ResourceInfo
-	flavourRes, err := schema.NewResource(fr.Cpu, fr.Mem, fr.ScalarResources)
+	flavourRes, err := schema.NewResource(fr.CPU, fr.Mem, fr.ScalarResources)
 	if err != nil {
 		log.Errorf("flavour[%s]:[%+v] convert to Resource type failed, err=%v", flavourKey, fr, err)
 		return err

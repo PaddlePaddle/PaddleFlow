@@ -95,10 +95,10 @@ func (sj *SparkJob) patchSparkSpec(jobApp *sparkapp.SparkApplication, jobID stri
 
 	// resource of driver and executor
 	driverFlavour := config.GlobalServerConfig.FlavourMap[sj.DriverFlavour]
-	driverCoresInt, _ := strconv.Atoi(driverFlavour.Cpu)
+	driverCoresInt, _ := strconv.Atoi(driverFlavour.CPU)
 	driverCores := int32(driverCoresInt)
 	executorFlavour := config.GlobalServerConfig.FlavourMap[sj.ExecutorFlavour]
-	executorCoresInt, _ := strconv.Atoi(executorFlavour.Cpu)
+	executorCoresInt, _ := strconv.Atoi(executorFlavour.CPU)
 	executorCores := int32(executorCoresInt)
 	// driver
 	sj.patchSparkSpecDriver(jobApp, driverCores, driverFlavour)
@@ -111,7 +111,7 @@ func (sj *SparkJob) patchSparkSpec(jobApp *sparkapp.SparkApplication, jobID stri
 
 func (sj *SparkJob) patchSparkSpecDriver(jobApp *sparkapp.SparkApplication, cores int32, flavour schema.Flavour) {
 	jobApp.Spec.Driver.Cores = &cores
-	jobApp.Spec.Driver.CoreLimit = &flavour.Cpu
+	jobApp.Spec.Driver.CoreLimit = &flavour.CPU
 	jobApp.Spec.Driver.Memory = &flavour.Mem
 	if len(jobApp.Spec.Driver.Env) == 0 {
 		jobApp.Spec.Driver.Env = make([]corev1.EnvVar, 0)
@@ -141,7 +141,7 @@ func (sj *SparkJob) patchSparkSpecExecutor(jobApp *sparkapp.SparkApplication, co
 	}
 
 	jobApp.Spec.Executor.Cores = &cores
-	jobApp.Spec.Executor.CoreLimit = &flavour.Cpu
+	jobApp.Spec.Executor.CoreLimit = &flavour.CPU
 	jobApp.Spec.Executor.Memory = &flavour.Mem
 	if len(jobApp.Spec.Executor.Env) == 0 {
 		jobApp.Spec.Executor.Env = make([]corev1.EnvVar, 0)
