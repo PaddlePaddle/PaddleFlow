@@ -84,10 +84,48 @@ func TestFsClient_ListDir(t *testing.T) {
 	client.Create("adff")
 }
 
+func TestFSClient_bigBuf(t *testing.T) {
+	os.RemoveAll("./mock")
+	os.RemoveAll("./mock-cache")
+	defer os.RemoveAll("./mock-cache")
+	defer os.RemoveAll("./mock")
+	d := cache.Config{
+		BlockSize:    1,
+		MaxReadAhead: 4,
+		Mem:          &cache.MemConfig{},
+		Disk:         &cache.DiskConfig{Dir: "./mock-cache", Expire: 600 * time.Second},
+	}
+	SetDataCache(d)
+	client := getTestFSClient(t)
+
+	path := "testRead"
+	writer, err := client.Create(path)
+	assert.Equal(t, nil, err)
+	writeString := "test String for Client"
+	_, err = writer.Write([]byte(writeString))
+	assert.Equal(t, nil, err)
+	writer.Close()
+
+	var buf []byte
+
+	buf = make([]byte, 500)
+	n, err := openAndRead(client, path, buf)
+	assert.Equal(t, nil, err)
+	assert.Equal(t, n, 22)
+}
+
 func TestFSClient_case1(t *testing.T) {
 	os.RemoveAll("./mock")
-	os.RemoveAll("./mock1")
-	os.RemoveAll("./mock")
+	os.RemoveAll("./mock-cache")
+	defer os.RemoveAll("./mock-cache")
+	defer os.RemoveAll("./mock")
+	d := cache.Config{
+		BlockSize:    1,
+		MaxReadAhead: 4,
+		Mem:          &cache.MemConfig{},
+		Disk:         &cache.DiskConfig{Dir: "./mock-cache", Expire: 600 * time.Second},
+	}
+	SetDataCache(d)
 	client := getTestFSClient(t)
 	newPath := "/mock/test1"
 	newDir1 := "/mock/Dir1"

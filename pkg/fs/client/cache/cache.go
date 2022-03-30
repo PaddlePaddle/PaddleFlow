@@ -138,7 +138,6 @@ type rCache struct {
 	buffers       ReadBufferMap
 	bufferPool    *BufferPool
 	lock          sync.RWMutex
-	reader        io.ReadCloser
 	seqReadAmount uint64
 }
 
@@ -239,20 +238,23 @@ func (r *rCache) readFromReadAhead(off int64, buf []byte) (bytesRead int, err er
 			return
 		}
 		nread, err = readAheadBuf.ReadAt(uint64(blockOff), buf[bytesRead:])
-
 		if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
 			break
 		}
+		if nread == 0 {
+			break
+		}
 		bytesRead += nread
-		if readAheadBuf.size == 0 {
+		blockOff += nread
+		if readAheadBuf.size == 0 || err == io.EOF || err == io.ErrUnexpectedEOF {
 			log.Debugf("index %v read length %v and len %v", index,
-				readAheadBuf.page.length, len(readAheadBuf.page.buffer))
+				readAheadBuf.page.writeLength, len(readAheadBuf.page.buffer))
 			page := readAheadBuf.Buffer.page
 			m := index
 			go func() {
 				page.lock.Lock()
 				defer page.lock.Unlock()
-				r.setCache(m, page.buffer, page.length)
+				r.setCache(m, page.buffer, page.writeLength)
 				page.Free()
 			}()
 			readAheadBuf.Buffer.Close()
@@ -260,9 +262,9 @@ func (r *rCache) readFromReadAhead(off int64, buf []byte) (bytesRead int, err er
 			delete(r.buffers, indexOff)
 			r.lock.Unlock()
 			index += 1
-		}
-		if blockOff != 0 {
-			blockOff = 0
+			if blockOff != 0 {
+				blockOff = 0
+			}
 		}
 	}
 	return bytesRead, nil
@@ -270,7 +272,6 @@ func (r *rCache) readFromReadAhead(off int64, buf []byte) (bytesRead int, err er
 
 func (r *rCache) readAhead(index int) (err error) {
 	var uoff uint64
-	var readAhead int
 	blockSize := r.store.conf.BlockSize
 	readAheadAmount := r.store.conf.MaxReadAhead
 
@@ -283,15 +284,16 @@ func (r *rCache) readAhead(index int) (err error) {
 	}
 	existingReadAhead := 0
 	for readAheadAmount-existingReadAhead > 0 {
-		uoff = uint64((index + readAhead) * blockSize)
+		uoff = uint64((index) * blockSize)
 		if int(uoff) >= r.length {
 			break
 		}
-		readAhead += 1
 		r.lock.RLock()
 		_, ok := r.buffers[uoff]
 		r.lock.RUnlock()
 		if ok {
+			index += 1
+			existingReadAhead += blockSize
 			continue
 		}
 		size := utils.Min(blockSize, r.length-int(uoff))
@@ -304,12 +306,15 @@ func (r *rCache) readAhead(index int) (err error) {
 			ufs:    r.ufs,
 			path:   r.id,
 			flags:  r.flags,
+			r:      r,
+			index:  index,
 		}
 		readAheadBuf := readBuf.Init(r.bufferPool, blockSize)
 		if readAheadBuf != nil {
 			r.lock.Lock()
 			r.buffers[uoff] = readAheadBuf
 			existingReadAhead += size
+			index += 1
 			r.lock.Unlock()
 		} else {
 			if existingReadAhead != 0 {

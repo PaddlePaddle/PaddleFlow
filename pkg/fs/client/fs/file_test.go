@@ -40,16 +40,24 @@ func newPfsTest() (*FileSystem, error) {
 		SubPath: "./mock",
 	}
 	vfsConfig := vfs.InitConfig(
-		vfs.WithDataCacheConfig(
-			cache.Config{
-				BlockSize:    0,
-				MaxReadAhead: 0,
-				Mem:          &cache.MemConfig{},
-				Disk:         &cache.DiskConfig{},
-			}),
+		vfs.WithDataCacheConfig(cache.Config{
+			BlockSize:    BlockSize,
+			MaxReadAhead: MaxReadAheadNum,
+			Mem: &cache.MemConfig{
+				CacheSize: MemCacheSize,
+				Expire:    MemCacheExpire,
+			},
+			Disk: &cache.DiskConfig{
+				Dir:    DiskCachePath,
+				Expire: DiskCacheExpire,
+				Mode:   DiskDirMode,
+			},
+		}),
 		vfs.WithMetaConfig(meta.Config{
-			AttrCacheExpire: 0,
-			Driver:          meta.DefaultName,
+			AttrCacheExpire:  MetaCacheExpire,
+			EntryCacheExpire: EntryCacheExpire,
+			Driver:           Driver,
+			CachePath:        MetaCachePath,
 		}),
 	)
 	pfs, err := NewFileSystem(testFsMeta, nil, true, true, "", vfsConfig)
@@ -68,7 +76,7 @@ func TestFSClient_readAt_BigOff(t *testing.T) {
 		os.RemoveAll("./mock-cache")
 	}()
 	d := cache.Config{
-		BlockSize:    1,
+		BlockSize:    2,
 		MaxReadAhead: 100,
 		Mem:          &cache.MemConfig{CacheSize: 100, Expire: 1 * time.Minute},
 		Disk:         &cache.DiskConfig{},
@@ -86,6 +94,7 @@ func TestFSClient_readAt_BigOff(t *testing.T) {
 	writeString := "12345678"
 	_, err = writer.Write([]byte(writeString))
 	assert.Equal(t, err, nil)
+	writer.Close()
 
 	var reader *File
 	var buf []byte
@@ -98,6 +107,11 @@ func TestFSClient_readAt_BigOff(t *testing.T) {
 	n, err = reader.ReadAt(buf, 11)
 	assert.Equal(t, 0, n)
 	reader.Close()
+
+	reader, err = client.Open(path)
+	assert.Equal(t, err, nil)
+	buf = make([]byte, 3)
+	n, err = reader.ReadAt(buf, 1)
 
 	n = 10
 	reader, err = client.Open(path)

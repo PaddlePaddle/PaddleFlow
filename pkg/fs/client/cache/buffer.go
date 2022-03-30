@@ -32,6 +32,8 @@ type ReadBuffer struct {
 	flags    uint32
 	offset   uint64
 	size     uint32
+	index    int
+	r        *rCache
 	Buffer   *Buffer
 }
 
@@ -39,7 +41,8 @@ type ReadBufferMap map[uint64]*ReadBuffer
 
 func (b ReadBuffer) Init(pool *BufferPool, blocksize int) *ReadBuffer {
 	b.nRetries = 3
-	b.page = Page{}.Init(pool, uint64(b.size), false, blocksize)
+	p := &Page{r: b.r, index: b.index}
+	b.page = p.Init(pool, uint64(b.size), false, blocksize)
 	if b.page == nil {
 		return nil
 	}
@@ -67,28 +70,13 @@ func (b *ReadBuffer) initBuffer(offset uint64, size uint32) {
 }
 
 func (b *ReadBuffer) ReadAt(offset uint64, p []byte) (n int, err error) {
-	b.Buffer.page.offset = offset
-	n, err = io.ReadFull(b.Buffer, p)
-	if n != 0 && err == io.ErrUnexpectedEOF {
-		err = nil
-	}
+	n, err = b.Buffer.ReadAt(p, offset)
 	if n > 0 {
 		if uint32(n) > b.size {
 			log.Errorf("read more than available %v %v", n, b.size)
 			return 0, fmt.Errorf("read more than available %v %v", n, b.size)
 		}
 		b.size -= uint32(n)
-	}
-	if b.size == 0 && err != nil {
-		// we've read everything, sometimes we may
-		// request for more bytes then there's left in
-		// this chunk so we could get an error back,
-		// ex: http2: response body closed this
-		// doesn't tend to happen because our chunks
-		// are aligned to 4K and also 128K (except for
-		// the last chunk, but seems kernel requests
-		// for a smaller buffer for the last chunk)
-		err = nil
 	}
 	return
 }

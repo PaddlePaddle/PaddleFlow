@@ -28,13 +28,13 @@ import (
 )
 
 type Page struct {
-	bufferPool *BufferPool
-	offset     uint64
-	length     int
-	readLength int
-	lock       sync.RWMutex
-	buffer     []byte
-	end        bool
+	bufferPool  *BufferPool
+	writeLength int
+	lock        sync.RWMutex
+	buffer      []byte
+	end         bool
+	index       int
+	r           *rCache
 }
 
 type BufferPool struct {
@@ -73,7 +73,7 @@ func (pool *BufferPool) Init(size int) *BufferPool {
 	pool.cond = sync.NewCond(&pool.mu)
 
 	pool.pool = &sync.Pool{New: func() interface{} {
-		return make([]byte, size)
+		return make([]byte, 0, size)
 	}}
 
 	return pool
@@ -84,8 +84,6 @@ func (pool *BufferPool) recomputeBufferLimit() {
 }
 
 func (pool *BufferPool) RequestMBuf(size uint64, block bool, blockSize int) (buf []byte) {
-	buf = make([]byte, 0, size)
-	return
 	pool.bufSize = size
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
@@ -107,11 +105,7 @@ func (pool *BufferPool) RequestMBuf(size uint64, block bool, blockSize int) (buf
 	}
 
 	pool.totalBuffers++
-	if blockSize != int(size) {
-		buf = make([]byte, size)
-	} else {
-		buf = pool.pool.Get().([]byte)
-	}
+	buf = make([]byte, 0, size)
 	return
 }
 
@@ -119,11 +113,22 @@ func (pool *BufferPool) MaybeGC() {
 	debug.FreeOSMemory()
 }
 
+func (p *Page) SetCache() {
+	tmp := p
+	go func() {
+		tmp.r.setCache(tmp.index, tmp.buffer, len(tmp.buffer))
+		tmp.Free()
+	}()
+}
+
 func (p *Page) ReadAt(buf []byte, offset uint64) (n int, err error) {
-	n = copy(buf, p.buffer[p.readLength:])
-	p.lock.Lock()
-	p.readLength += n
-	p.lock.Unlock()
+	if int(offset) > cap(p.buffer) {
+		return 0, io.EOF
+	}
+	if int(offset) > len(p.buffer) {
+		return 0, err
+	}
+	n = copy(buf, p.buffer[int(offset):])
 	if n == 0 && p.end == true {
 		return n, io.EOF
 	}
@@ -131,11 +136,11 @@ func (p *Page) ReadAt(buf []byte, offset uint64) (n int, err error) {
 }
 
 func (p *Page) WriteFrom(reader io.Reader) (n int, err error) {
-	n, err = reader.Read(p.buffer[p.length:cap(p.buffer)])
+	n, err = reader.Read(p.buffer[p.writeLength:cap(p.buffer)])
 	p.lock.Lock()
-	p.length += n
+	p.writeLength += n
 	p.lock.Unlock()
-	p.buffer = p.buffer[:p.length]
+	p.buffer = p.buffer[:p.writeLength]
 	if err != nil {
 		return n, err
 	}
@@ -147,12 +152,13 @@ func (p *Page) Free() {
 	p.bufferPool.mu.Lock()
 	defer p.bufferPool.mu.Unlock()
 	if p.buffer != nil {
+		p.buffer = p.buffer[:0]
 		p.bufferPool.pool.Put(p.buffer)
 		p.bufferPool.cond.Signal()
 	}
 }
 
-func (p Page) Init(pool *BufferPool, size uint64, block bool, blockSize int) *Page {
+func (p *Page) Init(pool *BufferPool, size uint64, block bool, blockSize int) *Page {
 	p.bufferPool = pool
 	if size != 0 {
 		p.buffer = p.bufferPool.RequestMBuf(size, block, blockSize)
@@ -161,7 +167,7 @@ func (p Page) Init(pool *BufferPool, size uint64, block bool, blockSize int) *Pa
 			return nil
 		}
 	}
-	return &p
+	return p
 }
 
 type Buffer struct {
@@ -206,6 +212,8 @@ func (b *Buffer) readLoop(r ReaderProvider) {
 		if err != nil {
 			if err == io.EOF {
 				b.page.end = true
+				_ = b.reader.Close()
+				b.page.SetCache()
 			}
 			b.err = err
 			b.mu.Unlock()
@@ -215,6 +223,7 @@ func (b *Buffer) readLoop(r ReaderProvider) {
 		if nread == 0 {
 			b.page.end = true
 			_ = b.reader.Close()
+			b.page.SetCache()
 			b.mu.Unlock()
 			break
 		}
@@ -226,7 +235,7 @@ func (b *Buffer) readLoop(r ReaderProvider) {
 	}
 }
 
-func (b *Buffer) Read(p []byte) (n int, err error) {
+func (b *Buffer) ReadAt(p []byte, offset uint64) (n int, err error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -244,8 +253,7 @@ func (b *Buffer) Read(p []byte) (n int, err error) {
 	}
 
 	if b.page != nil {
-		n, err = b.page.ReadAt(p, b.page.offset)
-		b.page.offset += uint64(n)
+		n, err = b.page.ReadAt(p, offset)
 		return n, err
 	} else {
 		return 0, errors.New("page is empty, maybe oom")

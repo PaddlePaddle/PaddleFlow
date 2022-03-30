@@ -114,7 +114,7 @@ func (fh *fileReader) Read(buf []byte, off uint64) (int, syscall.Errno) {
 			}
 			bytesRead += nread
 			fh.seqReadAmount += uint64(nread)
-			if nread == 0 || off+uint64(nread) >= fh.length {
+			if off+uint64(nread) >= fh.length {
 				break
 			}
 			off += uint64(nread)
