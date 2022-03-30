@@ -26,9 +26,6 @@ import (
 	"paddleflow/pkg/common/schema"
 )
 
-type StepToStatus struct {
-}
-
 // 工作流运行时
 type WorkflowRuntime struct {
 	wf               *Workflow
