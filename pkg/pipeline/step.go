@@ -32,8 +32,9 @@ type Step struct {
 	name              string
 	wfr               *WorkflowRuntime
 	info              *schema.WorkflowSourceStep
-	disabled		  bool
+	disabled          bool
 	ready             chan bool // 由 run 来决定是否开始执行该步骤
+	cancel            chan bool // 如果上游节点运行失败，本节点将不会运行
 	done              bool      // 表示是否已经运行结束，done==true，则跳过该step
 	submitted         bool      // 表示是否从run中发过ready信号过来。如果pipeline服务宕机重启，run会从该字段判断是否需要再次发ready信号，触发运行
 	job               Job
@@ -48,16 +49,17 @@ var NewStep = func(name string, wfr *WorkflowRuntime, info *schema.WorkflowSourc
 	// 因此没法知道上游节点的参数值，没法做替换
 	jobName := fmt.Sprintf("%s-%s", wfr.wf.RunID, name)
 	job := NewPaddleFlowJob(jobName, info.DockerEnv, info.Deps)
-	
+
 	st := &Step{
-		name:  name,
-		wfr:   wfr,
-		info:  info,
-		disabled: disabled,
-		ready: make(chan bool, 1),
-		done:  false,
+		name:      name,
+		wfr:       wfr,
+		info:      info,
+		disabled:  disabled,
+		ready:     make(chan bool, 1),
+		cancel:    make(chan bool, 1),
+		done:      false,
 		submitted: false,
-		job: job,
+		job:       job,
 	}
 
 	st.getLogger().Debugf("step[%s] of runid[%s] before starting job: param[%s], env[%s], command[%s], artifacts[%s], deps[%s]", st.name, st.wfr.wf.RunID, st.info.Parameters, st.info.Env, st.info.Command, st.info.Artifacts, st.info.Deps)
@@ -316,14 +318,15 @@ func (st *Step) updateJobStatus(eventValue WfEventValue, jobStatus schema.JobSta
 		"preStatus": st.job.(*PaddleFlowJob).Status,
 		"status":    jobStatus,
 		"jobid":     st.job.(*PaddleFlowJob).Id,
+		"step":      st,
 	}
-	
+
 	st.job.(*PaddleFlowJob).Message = logMsg
 	st.job.(*PaddleFlowJob).Status = jobStatus
 	if jobStatus == schema.StatusJobCancelled || jobStatus == schema.StatusJobFailed || jobStatus == schema.StatusJobSucceeded || jobStatus == schema.StatusJobSkipped {
 		st.done = true
 	}
-	
+
 	wfe := NewWorkflowEvent(eventValue, logMsg, extra)
 	st.wfr.event <- *wfe
 }
@@ -342,6 +345,9 @@ func (st *Step) Execute() {
 		select {
 		case <-st.wfr.ctx.Done():
 			logMsg := fmt.Sprintf("context of step[%s] with runid[%s] has stopped with msg:[%s], no need to execute", st.name, st.wfr.wf.RunID, st.wfr.ctx.Err())
+			st.updateJobStatus(WfEventJobUpdate, schema.StatusJobCancelled, logMsg)
+		case <-st.cancel:
+			logMsg := fmt.Sprintf("step[%s] with runid[%s] has cancelled due to due to receiving cancellation signal, maybe upstream step failed", st.name, st.wfr.wf.RunID, st.wfr.ctx.Err())
 			st.updateJobStatus(WfEventJobUpdate, schema.StatusJobCancelled, logMsg)
 		case <-st.ready:
 			logMsg := fmt.Sprintf("start execute step[%s] with runid[%s]", st.name, st.wfr.wf.RunID)
@@ -366,13 +372,14 @@ func (st *Step) Execute() {
 						jobView, err := st.wfr.wf.callbacks.GetJobCb(st.CacheRunID, st.name)
 						if err != nil {
 							st.updateJobStatus(WfEventJobUpdate, schema.StatusJobFailed, err.Error())
+							break
 						}
 
 						cacheStatus := jobView.Status
 						if cacheStatus == schema.StatusJobFailed || cacheStatus == schema.StatusJobSucceeded {
 							// 通过讲workflow event传回去，就能够在runtime中callback，将job更新后的参数存到数据库中
 							logMsg = fmt.Sprintf("skip job for step[%s] in runid[%s], use cache of runid[%s]", st.name, st.wfr.wf.RunID, st.CacheRunID)
-							
+
 							// todo: 需要把cacheRunID也保存到job里面，方便run中callback记录jobView使能够获取cacheRunID
 							st.updateJobStatus(WfEventJobUpdate, cacheStatus, logMsg)
 							return
@@ -415,6 +422,7 @@ func (st *Step) Execute() {
 			st.wfr.IncConcurrentJobs(1) // 如果达到并行Job上限，将会Block
 
 			// 有可能在跳出block的时候，run已经结束了，此时直接退出，不发起
+			// 思考：在有节点未处于终态时， run 不应该置为终态
 			if st.wfr.ctx.Err() != nil {
 				st.wfr.DecConcurrentJobs(1)
 				logMsg = fmt.Sprintf("context of step[%s] with runid[%s] has stopped with msg:[%s], no need to execute", st.name, st.wfr.wf.RunID, st.wfr.ctx.Err())
@@ -427,7 +435,7 @@ func (st *Step) Execute() {
 			if err != nil {
 				// 异常处理，塞event，不返回error是因为统一通过channel与run沟通
 				// todo：要不要改成WfEventJobUpdate的event？
-				logMsg= fmt.Sprintf("start job for step[%s] with runid[%s] failed: [%s]", st.name, st.wfr.wf.RunID, err.Error())
+				logMsg = fmt.Sprintf("start job for step[%s] with runid[%s] failed: [%s]", st.name, st.wfr.wf.RunID, err.Error())
 				st.updateJobStatus(WfEventJobSubmitErr, schema.StatusJobFailed, logMsg)
 				return
 			}
@@ -457,6 +465,7 @@ func (st *Step) stopJob() {
 		if err != nil {
 			ErrMsg := fmt.Sprintf("stop job[%s] for step[%s] with runid[%s] failed [%d] times: [%s]", st.job.(*PaddleFlowJob).Id, st.name, st.wfr.wf.RunID, tryCount, err.Error())
 			st.getLogger().Errorf(ErrMsg)
+
 			wfe := NewWorkflowEvent(WfEventJobStopErr, ErrMsg, nil)
 			st.wfr.event <- *wfe
 

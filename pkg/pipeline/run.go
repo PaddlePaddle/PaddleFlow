@@ -26,6 +26,9 @@ import (
 	"paddleflow/pkg/common/schema"
 )
 
+type StepToStatus struct {
+}
+
 // 工作流运行时
 type WorkflowRuntime struct {
 	wf               *Workflow
@@ -175,6 +178,18 @@ func (wfr *WorkflowRuntime) processEvent(event WorkflowEvent) error {
 
 	wfr.updateStatus()
 
+	// 判断是节点处于异常状态： Failed 和 Terminated，是的话， 则开始执行 FailureOptions 相关的逻辑
+	// 当前有 WfEventJobSubmitErr 和 WfEventJobUpdate 会两种类型的 event 中可能会包含的 Failed 或者 Terminated 状态
+	if event.isJobSubmitErr() || event.isJobUpdate() {
+		status, ok := event.Extra["status"]
+		jobStatus := status.(schema.JobStatus)
+		if ok && jobStatus == schema.StatusJobFailed {
+			wfr.ProcessFailureOptions(event)
+		} else if ok && jobStatus == schema.StatusJobTerminated && wfr.status != common.StatusRunTerminating {
+			wfr.ProcessFailureOptions(event)
+		}
+	}
+
 	wfr.callback(event)
 
 	return nil
@@ -237,11 +252,90 @@ func (wfr *WorkflowRuntime) updateStatus() {
 		wfr.wf.log().Debugf("workflow %s finished", wfr.wf.Name)
 		return
 	}
+}
 
-	// 如果有step运行未结束 + 有失败的 step + run未发起停止操作，就得发起停止run操作
-	if (hasFailedStep || hasTerminatedStep) && wfr.ctx.Err() == nil {
-		wfr.wf.log().Infof("workflow %s has failed or terminated step, begin to cancel it ", wfr.wf.Name)
+func (wfr *WorkflowRuntime) getDirectDownstreamStep(upstreamStep *Step) (steps map[*Step]string) {
+	// 因为golang 没有 set，所以使用 map 模拟一个 set，steps 的value 并没有实际意义
+	for _, step := range wfr.steps {
+		deps := strings.Split(step.info.Deps, ",")
+		for _, ds := range deps {
+			ds = strings.Trim(ds, " ")
+			if ds == upstreamStep.name {
+				steps[step] = step.name
+			}
+		}
+	}
+	return steps
+}
+
+func (wfr *WorkflowRuntime) getAllDownstreamSteps(upstreamStep *Step) (steps map[*Step]string) {
+	// 深度优先遍历或者广度优先遍历？
+	toVisiteStep := wfr.getDirectDownstreamStep(upstreamStep)
+
+	// 循环获取下游节点的下游下游节点，直至叶子节点
+	for {
+		downstreamSteps := map[*Step]string{}
+		for step, _ := range toVisiteStep {
+			downstreamStep := wfr.getDirectDownstreamStep(step)
+			steps[step] = step.name
+
+			for downStep, _ := range downstreamStep {
+				// 判断 downStep 是否已经解析过其下游节点
+				_, ok := steps[downStep]
+				if !ok {
+					downstreamSteps[downStep] = downStep.name
+				}
+			}
+		}
+
+		if len(downstreamSteps) == 0 {
+			break
+		} else {
+			toVisiteStep = downstreamSteps
+		}
+	}
+	return steps
+}
+
+func (wfr *WorkflowRuntime) ProcessFailureOptionsWithContinue(step *Step) {
+	// 失败节点的所有下游节点都将会置为failed
+
+	needCancelSteps := wfr.getAllDownstreamSteps(step)
+
+	for needCancelStep, _ := range needCancelSteps {
+		if !needCancelStep.done {
+			needCancelStep.cancel <- true
+		}
+	}
+}
+
+func (wfr *WorkflowRuntime) ProcessFailureOptionsWithFailFast(step *Step) {
+	// 1. 终止所有运行的 Job
+	// 2. 将所有为调度的 Job 设置为 cancelled 状态
+	wfr.ctxCancel()
+}
+
+func (wfr *WorkflowRuntime) ProcessFailureOptions(event WorkflowEvent) {
+	st, ok := event.Extra["step"]
+	if !ok {
+		wfr.wf.log().Errorf("cannot get the step info of envent for run[%s], begin to stop run: %V", wfr.wf.RunID, event)
+
+		// 防止下游节点无法调度，导致 run 被 hang 住，终止所有任务
 		wfr.ctxCancel()
+	}
+
+	step, ok := st.(*Step)
+	if !ok {
+		wfr.wf.log().Errorf("cannot get the step info of envent for run[%s], begin to stop run: %V", wfr.wf.RunID, event)
+
+		// 防止下游节点无法调度，导致 run 被 hang 住，终止所有任务
+		wfr.ctxCancel()
+	}
+
+	if wfr.wf.FailureOptions.strategy == "continue" {
+		wfr.ProcessFailureOptionsWithContinue(step)
+	} else {
+		wfr.ProcessFailureOptionsWithFailFast(step)
 	}
 }
 
@@ -276,7 +370,7 @@ func (wfr *WorkflowRuntime) callback(event WorkflowEvent) {
 			Deps:       job.Deps,
 			DockerEnv:  st.info.DockerEnv,
 			Artifacts:  job.Artifacts,
-			Cache:		st.info.Cache,
+			Cache:      st.info.Cache,
 			JobMessage: job.Message,
 			CacheRunID: st.CacheRunID,
 		}
