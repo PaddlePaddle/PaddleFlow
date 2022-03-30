@@ -169,6 +169,7 @@ func (wfr *WorkflowRuntime) IsCompleted() bool {
 // 1. 提交失败，job id\status 都为空，视为 job 失败，更新 run message 字段
 // 2. watch 失败，状态不更新，更新 run message 字段；等 job 恢复服务之后，job watch 恢复，run 自动恢复调度
 // 3. stop 失败，状态不更新，run message 字段；需要用户根据提示再次调用 stop
+// 4. 如果有 job 的状态异常，将会走 FailureOptions 的处理逻辑
 func (wfr *WorkflowRuntime) processEvent(event WorkflowEvent) error {
 	if wfr.IsCompleted() {
 		wfr.wf.log().Debugf("workflow has completed. skip event")
