@@ -79,7 +79,7 @@ func TestCreateQueue(t *testing.T) {
 		ClusterId: cluster1.ID,
 		QuotaType: schema.TypeVolcanoCapabilityQuota,
 		MaxResources: schema.ResourceInfo{
-			Cpu: "10",
+			CPU: "10",
 			Mem: "100G",
 			ScalarResources: schema.ScalarResourcesType{
 				"nvidia.com/gpu": "500",
@@ -95,7 +95,7 @@ func TestCreateQueue(t *testing.T) {
 		ClusterId: "cluster1.ID",
 		QuotaType: schema.TypeVolcanoCapabilityQuota,
 		MaxResources: schema.ResourceInfo{
-			Cpu: "20",
+			CPU: "20",
 			Mem: "200G",
 			ScalarResources: schema.ScalarResourcesType{
 				"nvidia.com/gpu": "200",

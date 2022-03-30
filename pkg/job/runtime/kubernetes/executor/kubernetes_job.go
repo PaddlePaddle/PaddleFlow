@@ -249,11 +249,11 @@ func (j *KubeJob) generateResourceRequirements(flavour schema.Flavour) corev1.Re
 	log.Infof("generateResourceRequirements by flavour:[%+v]", flavour)
 	resources := corev1.ResourceRequirements{
 		Requests: map[corev1.ResourceName]resource.Quantity{
-			corev1.ResourceCPU:    resource.MustParse(flavour.Cpu),
+			corev1.ResourceCPU:    resource.MustParse(flavour.CPU),
 			corev1.ResourceMemory: resource.MustParse(flavour.Mem),
 		},
 		Limits: map[corev1.ResourceName]resource.Quantity{
-			corev1.ResourceCPU:    resource.MustParse(flavour.Cpu),
+			corev1.ResourceCPU:    resource.MustParse(flavour.CPU),
 			corev1.ResourceMemory: resource.MustParse(flavour.Mem),
 		},
 	}
