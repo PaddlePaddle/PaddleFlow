@@ -19,7 +19,7 @@ package errors
 import "fmt"
 
 const (
-	CpuNotFound           = "CpuNotFound"
+	CPUNotFound           = "CPUNotFound"
 	MemoryNotFound        = "MemoryNotFound"
 	QueueResourceNotMatch = "QueueResourceNotMatch"
 	InvalidScaleResource  = "InvalidScaleResource" // 扩展资源类型不支持
@@ -35,9 +35,9 @@ func (e *PFError) Error() string {
 	return fmt.Sprintf("code %s, reason %s", e.Code, e.Message)
 }
 
-func CpuNotFoundError() error {
+func CPUNotFoundError() error {
 	return &PFError{
-		Code:    CpuNotFound,
+		Code:    CPUNotFound,
 		Message: "cpu is not found",
 	}
 }

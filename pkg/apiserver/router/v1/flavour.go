@@ -258,7 +258,7 @@ func validateCreateFlavour(ctx *logger.RequestContext, request *flavour.CreateFl
 		request.ClusterID = clusterInfo.ID
 	}
 	resourceInfo := schema.ResourceInfo{
-		Cpu:             request.CPU,
+		CPU:             request.CPU,
 		Mem:             request.Mem,
 		ScalarResources: request.ScalarResources,
 	}
