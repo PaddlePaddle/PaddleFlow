@@ -76,7 +76,6 @@ func (b *ReadBuffer) ReadAt(offset uint64, p []byte) (n int, err error) {
 			log.Errorf("read more than available %v %v", n, b.size)
 			return 0, fmt.Errorf("read more than available %v %v", n, b.size)
 		}
-		b.size -= uint32(n)
 	}
 	return
 }

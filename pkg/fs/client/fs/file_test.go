@@ -18,6 +18,7 @@ package fs
 
 import (
 	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -195,10 +196,94 @@ func TestFS_read_readAt(t *testing.T) {
 	assert.Equal(t, "bcdefghijk", string(buf))
 }
 
+func TestReadAtCocurrent(t *testing.T) {
+	// 使用单个block的情况
+	os.RemoveAll("./mock")
+	os.RemoveAll("./mock-cache")
+	d := cache.Config{
+		BlockSize:    3,
+		MaxReadAhead: 10,
+		Mem:          &cache.MemConfig{CacheSize: 0, Expire: 0},
+		Disk:         &cache.DiskConfig{Dir: "./mock-cache", Expire: 10 * time.Second},
+	}
+	SetDataCache(d)
+	client, err := newPfsTest()
+	assert.Equal(t, err, nil)
+
+	path := "testRead"
+	flags := os.O_RDWR | os.O_CREATE | os.O_TRUNC
+	mode := 0666
+	writer, err := client.Create(path, uint32(flags), uint32(mode))
+	assert.Equal(t, err, nil)
+
+	writeString := "123456789"
+	_, err = writer.Write([]byte(writeString))
+	assert.Equal(t, err, nil)
+	writer.Close()
+
+	var reader *File
+	var n int
+
+	reader, err = client.Open(path)
+	assert.Equal(t, err, nil)
+	var wg sync.WaitGroup
+	g := 10
+	wg.Add(g)
+	for i := 0; i < g; i++ {
+		go func() {
+			n = 3
+			buf := make([]byte, n)
+			n, err = reader.ReadAt(buf, 2)
+			assert.Equal(t, nil, err)
+			assert.Equal(t, len(buf), n)
+			assert.Equal(t, "345", string(buf))
+
+			n2 := 4
+			buf2 := make([]byte, n2)
+			n, err = reader.ReadAt(buf2, 3)
+			assert.Equal(t, nil, err)
+			assert.Equal(t, len(buf2), n2)
+			assert.Equal(t, "4567", string(buf2))
+			wg.Done()
+		}()
+	}
+	wg.Wait()
+
+	g = 10
+	wg.Add(g)
+	for i := 0; i < g; i++ {
+		go func() {
+			n = 3
+			buf := make([]byte, n)
+			n, err = reader.ReadAt(buf, 2)
+			assert.Equal(t, nil, err)
+			assert.Equal(t, len(buf), n)
+			assert.Equal(t, "345", string(buf))
+
+			n2 := 4
+			buf2 := make([]byte, n2)
+			n, err = reader.ReadAt(buf2, 3)
+			assert.Equal(t, nil, err)
+			assert.Equal(t, len(buf2), n2)
+			assert.Equal(t, "4567", string(buf2))
+			wg.Done()
+		}()
+	}
+	wg.Wait()
+	reader.Close()
+}
+
 func TestFSClient_readAt(t *testing.T) {
 	// 使用单个block的情况
 	os.RemoveAll("./mock")
 	os.RemoveAll("./mock-cache")
+	d := cache.Config{
+		BlockSize:    2,
+		MaxReadAhead: 10,
+		Mem:          &cache.MemConfig{CacheSize: 0, Expire: 0},
+		Disk:         &cache.DiskConfig{Dir: "./mock-cache", Expire: 10 * time.Second},
+	}
+	SetDataCache(d)
 	client, err := newPfsTest()
 	assert.Equal(t, err, nil)
 
@@ -211,6 +296,7 @@ func TestFSClient_readAt(t *testing.T) {
 	writeString := "test String for Client"
 	_, err = writer.Write([]byte(writeString))
 	assert.Equal(t, err, nil)
+	writer.Close()
 
 	var reader *File
 	var buf []byte

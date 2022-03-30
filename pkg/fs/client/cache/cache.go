@@ -246,25 +246,13 @@ func (r *rCache) readFromReadAhead(off int64, buf []byte) (bytesRead int, err er
 		}
 		bytesRead += nread
 		blockOff += nread
-		if readAheadBuf.size == 0 || err == io.EOF || err == io.ErrUnexpectedEOF {
-			log.Debugf("index %v read length %v and len %v", index,
-				readAheadBuf.page.writeLength, len(readAheadBuf.page.buffer))
-			page := readAheadBuf.Buffer.page
-			m := index
-			go func() {
-				page.lock.Lock()
-				defer page.lock.Unlock()
-				r.setCache(m, page.buffer, page.writeLength)
-				page.Free()
-			}()
+		if err == io.EOF || err == io.ErrUnexpectedEOF {
 			readAheadBuf.Buffer.Close()
 			r.lock.Lock()
 			delete(r.buffers, indexOff)
 			r.lock.Unlock()
 			index += 1
-			if blockOff != 0 {
-				blockOff = 0
-			}
+			blockOff = 0
 		}
 	}
 	return bytesRead, nil
@@ -412,6 +400,9 @@ func (r *rCache) readCache(buf []byte, key string, off int) (int, bool) {
 }
 
 func (r *rCache) setCache(index int, p []byte, n int) {
+	if n <= 0 {
+		return
+	}
 	key := r.key(index)
 	log.Debugf("cache set key is %s name %s", key, r.id)
 	right := r.store.conf.BlockSize
