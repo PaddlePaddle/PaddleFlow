@@ -36,7 +36,7 @@ func init() {
 	go func() {
 		for page := range cacheChan {
 			page_ := page
-			cacheGoPool.Submit(func() {
+			_ = cacheGoPool.Submit(func() {
 				page_.r.setCache(page_.index, page_.buffer, len(page_.buffer))
 			})
 		}
@@ -89,7 +89,8 @@ func (pool *BufferPool) Init(size int) *BufferPool {
 	pool.cond = sync.NewCond(&pool.mu)
 
 	pool.pool = &sync.Pool{New: func() interface{} {
-		return make([]byte, 0, size)
+		out := make([]byte, 0, size)
+		return &out
 	}}
 
 	return pool
@@ -121,7 +122,7 @@ func (pool *BufferPool) RequestMBuf(size uint64, block bool, blockSize int) (buf
 	}
 
 	pool.totalBuffers++
-	buf = pool.pool.Get().([]byte)
+	buf = *(pool.pool.Get().(*[]byte))
 	return
 }
 
@@ -176,7 +177,7 @@ func (p *Page) Free() {
 	defer p.bufferPool.mu.Unlock()
 	if p.buffer != nil {
 		p.buffer = p.buffer[:0]
-		p.bufferPool.pool.Put(p.buffer)
+		p.bufferPool.pool.Put(&p.buffer)
 		p.bufferPool.cond.Signal()
 	}
 }
