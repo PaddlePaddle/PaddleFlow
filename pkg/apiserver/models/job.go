@@ -41,7 +41,8 @@ type Job struct {
 	RuntimeInfo       interface{}      `json:"runtimeInfo" gorm:"-"`
 	Status            schema.JobStatus `json:"status"`
 	Message           string           `json:"message"`
-	Resource          schema.Resource  `json:"resource" gorm:"type:text;default:'{}'"`
+	ResourceJson      string           `json:"-" gorm:"type:text;default:'{}'""`
+	Resource          *schema.Resource `json:"resource" gorm:"-"`
 	Framework         schema.Framework `json:"framework" gorm:"type:varchar(30)"`
 	Members           []Member         `json:"members" gorm:"type:text"`
 	ExtensionTemplate string           `json:"extensionTemplate" gorm:"type:text"`
@@ -70,6 +71,13 @@ func (job *Job) BeforeSave(tx *gorm.DB) error {
 			return err
 		}
 		job.RuntimeInfoJson = string(infoJson)
+	}
+	if job.Resource != nil {
+		infoJson, err := json.Marshal(&job.ResourceJson)
+		if err != nil {
+			return err
+		}
+		job.ResourceJson = string(infoJson)
 	}
 	return nil
 }
