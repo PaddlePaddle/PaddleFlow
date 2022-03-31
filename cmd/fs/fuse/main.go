@@ -49,6 +49,7 @@ func Main(args []string) error {
 		Commands: []*cli.Command{
 			service.CmdMount(),
 			service.CmdUmount(),
+			service.CmdStats(),
 		},
 	}
 	return app.Run(args)
