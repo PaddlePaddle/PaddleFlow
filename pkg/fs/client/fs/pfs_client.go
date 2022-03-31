@@ -54,13 +54,21 @@ func NewFSClientForTest(fsMeta fsCommon.FSMeta) (*PFSClient, error) {
 		vfs.WithDataCacheConfig(cache.Config{
 			BlockSize:    BlockSize,
 			MaxReadAhead: MaxReadAheadNum,
-			Mem:          &cache.MemConfig{},
-			Disk:         &cache.DiskConfig{},
+			Mem: &cache.MemConfig{
+				CacheSize: MemCacheSize,
+				Expire:    MemCacheExpire,
+			},
+			Disk: &cache.DiskConfig{
+				Dir:    DiskCachePath,
+				Expire: DiskCacheExpire,
+				Mode:   DiskDirMode,
+			},
 		}),
 		vfs.WithMetaConfig(meta.Config{
 			AttrCacheExpire:  MetaCacheExpire,
 			EntryCacheExpire: EntryCacheExpire,
-			Driver:           meta.MemMetaName,
+			Driver:           Driver,
+			CachePath:        MetaCachePath,
 		}),
 	)
 	pfs, err := NewFileSystem(fsMeta, nil, true, false, "", vfsConfig)

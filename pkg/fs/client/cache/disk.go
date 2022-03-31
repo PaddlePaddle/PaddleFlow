@@ -110,8 +110,6 @@ func (c *diskCache) load(key string) (ReadCloser, bool) {
 }
 
 func (c *diskCache) save(key string, buf []byte) {
-	c.Lock()
-	defer c.Unlock()
 	if c.dir == "" {
 		return
 	}
