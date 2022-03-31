@@ -276,7 +276,7 @@ func (wfr *WorkflowRuntime) callback(event WorkflowEvent) {
 			Deps:       job.Deps,
 			DockerEnv:  st.info.DockerEnv,
 			Artifacts:  job.Artifacts,
-			Cache:		st.info.Cache,
+			Cache:      st.info.Cache,
 			JobMessage: job.Message,
 			CacheRunID: st.CacheRunID,
 		}

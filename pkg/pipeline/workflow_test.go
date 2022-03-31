@@ -18,18 +18,26 @@ package pipeline
 
 import (
 	"fmt"
+	"reflect"
+	"regexp"
 	"testing"
 	"time"
 
-	"github.com/golang/mock/gomock"
+	gomonkey "github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
-	"gopkg.in/yaml.v2"
 
 	"paddleflow/pkg/apiserver/common"
 	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/common/database/db_fake"
 	"paddleflow/pkg/common/schema"
-	. "paddleflow/pkg/pipeline/common"
+	pplcommon "paddleflow/pkg/pipeline/common"
+)
+
+const (
+	runYamlPath           string = "./testcase/run.yaml"
+	noAtfYamlPath         string = "./testcase/runNoAtf.yaml"
+	runWrongParamYamlPath string = "./testcase/runWrongParam.yaml"
+	runCircleYamlPath     string = "./testcase/runCircle.yaml"
 )
 
 var mockCbs = WorkflowCallbacks{
@@ -45,13 +53,27 @@ var mockCbs = WorkflowCallbacks{
 	},
 }
 
+// extra map里面的value可能会被修改，从而影响后面的case
+// 为了避免上面的问题，封装成函数，不同case分别调用函数，获取全新的extra map
+func GetExtra() map[string]string {
+	var extra = map[string]string{
+		pplcommon.WfExtraInfoKeySource:   "./testcase/run.yaml",
+		pplcommon.WfExtraInfoKeyFsID:     "mockFsID",
+		pplcommon.WfExtraInfoKeyFsName:   "mockFsname",
+		pplcommon.WfExtraInfoKeyUserName: "mockUser",
+	}
+
+	return extra
+}
+
 // 测试NewBaseWorkflow, 只传yaml内容
 func TestNewBaseWorkflowByOnlyRunYaml(t *testing.T) {
 	testCase := loadcase(runYamlPath)
 	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
-	bwf := NewBaseWorkflow(wfs, "", "", nil, nil)
+	extra := GetExtra()
+	bwf := NewBaseWorkflow(wfs, "", "", nil, extra)
 	if err := bwf.validate(); err != nil {
 		t.Errorf("validate failed. error: %v", err)
 	}
@@ -63,12 +85,13 @@ func TestNewBaseWorkflow(t *testing.T) {
 	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
-	fmt.Println(wfs)
+	extra := GetExtra()
 	bwf := BaseWorkflow{
 		Name:   "test_workflow",
 		Desc:   "test base workflow",
 		Entry:  "main",
 		Source: wfs,
+		Extra:  extra,
 	}
 	if err := bwf.validate(); err != nil {
 		t.Errorf("test validate failed: Name[%s]", bwf.Name)
@@ -77,10 +100,12 @@ func TestNewBaseWorkflow(t *testing.T) {
 
 // 测试带环流程
 func TestNewBaseWorkflowWithCircle(t *testing.T) {
-	wfs, err := schema.ParseWorkflowSource([]byte(runCircle))
+	testCase := loadcase(runCircleYamlPath)
+	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
-	bwf := NewBaseWorkflow(wfs, "", "", nil, nil)
+	extra := GetExtra()
+	bwf := NewBaseWorkflow(wfs, "", "", nil, extra)
 	_, err = bwf.topologicalSort(bwf.Source.EntryPoints)
 	assert.NotNil(t, err)
 }
@@ -91,7 +116,8 @@ func TestTopologicalSort_noCircle(t *testing.T) {
 	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
-	bwf := NewBaseWorkflow(wfs, "", "", nil, nil)
+	extra := GetExtra()
+	bwf := NewBaseWorkflow(wfs, "", "", nil, extra)
 	fmt.Println(bwf.Source.EntryPoints)
 	result, err := bwf.topologicalSort(bwf.Source.EntryPoints)
 	assert.Nil(t, err)
@@ -99,7 +125,7 @@ func TestTopologicalSort_noCircle(t *testing.T) {
 	assert.Equal(t, "main", result[1])
 	assert.Equal(t, "validate", result[2])
 
-	bwf = NewBaseWorkflow(wfs, "", "main", nil, nil)
+	bwf = NewBaseWorkflow(wfs, "", "main", nil, extra)
 	runSteps := bwf.getRunSteps()
 	assert.Equal(t, 2, len(runSteps))
 	result, err = bwf.topologicalSort(bwf.Source.EntryPoints)
@@ -115,10 +141,9 @@ func TestCreateNewWorkflowRunDisabled_success(t *testing.T) {
 	assert.Nil(t, err)
 
 	fmt.Printf("\n %+v \n", wfs)
-	wf, err := NewWorkflow(wfs, "", "", nil, nil, mockCbs)
-	if err != nil {
-		t.Errorf("aha %s", err.Error())
-	}
+	extra := GetExtra()
+	wf, err := NewWorkflow(wfs, "", "", nil, extra, mockCbs)
+	assert.Nil(t, err)
 
 	time.Sleep(time.Millisecond * 10)
 	wf.runtime.steps["data_preprocess"].disabled = true
@@ -139,26 +164,22 @@ func TestCreateNewWorkflowRunDisabled_success(t *testing.T) {
 
 // 测试运行 Workflow 成功
 func TestCreateNewWorkflowRun_success(t *testing.T) {
-	controller := gomock.NewController(t)
-	mockJob := NewMockJob(controller)
-	NewStep = func(name string, wfr *WorkflowRuntime, info *schema.WorkflowSourceStep, disabled bool) (*Step, error) {
-		return &Step{
-			job:  mockJob,
-			info: info,
-		}, nil
-	}
-	mockJob.EXPECT().Job().Return(BaseJob{Id: "mockJobID"}).AnyTimes()
-	mockJob.EXPECT().Succeeded().Return(true).AnyTimes()
-
 	testCase := loadcase(runYamlPath)
 	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
 	fmt.Printf("\n %+v \n", wfs)
-	wf, err := NewWorkflow(wfs, "", "", nil, nil, mockCbs)
-	if err != nil {
-		t.Errorf("aha %s", err.Error())
-	}
+	extra := GetExtra()
+	wf, err := NewWorkflow(wfs, "", "", nil, extra, mockCbs)
+	assert.Nil(t, err)
+
+	// 先是mock data_preprocess节点返回true
+	// 再设置所有节点done = true
+	// 保证data_preprocess能够成功结束，然后runtime再寻找下一个能运行的节点时，能够跳过后面的节点
+	patches := gomonkey.ApplyMethod(reflect.TypeOf(wf.runtime.steps["data_preprocess"].job), "Succeeded", func(_ *PaddleFlowJob) bool {
+		return true
+	})
+	defer patches.Reset()
 
 	time.Sleep(time.Millisecond * 10)
 	wf.runtime.steps["data_preprocess"].done = true
@@ -181,29 +202,32 @@ func TestCreateNewWorkflowRun_failed(t *testing.T) {
 	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
-	controller := gomock.NewController(t)
-	mockJob := NewMockJob(controller)
-	NewStep = func(name string, wfr *WorkflowRuntime, info *schema.WorkflowSourceStep, disabled bool) (*Step, error) {
-		return &Step{
-			job:       mockJob,
-			info:      info,
-			submitted: true,
-		}, nil
-	}
-	mockJob.EXPECT().Job().Return(BaseJob{Id: "mockJobID"}).AnyTimes()
-	mockJob.EXPECT().Started().Return(true).AnyTimes()
-	mockJob.EXPECT().NotEnded().Return(false).AnyTimes()
-	mockJob.EXPECT().Failed().Return(true).AnyTimes()
-	mockJob.EXPECT().Succeeded().Return(false).AnyTimes()
-	mockJob.EXPECT().Skipped().Return(false).AnyTimes()
+	extra := GetExtra()
+	wf, err := NewWorkflow(wfs, "", "", nil, extra, mockCbs)
+	assert.Nil(t, err)
 
-	wf, err := NewWorkflow(wfs, "", "", nil, nil, mockCbs)
-	if err != nil {
-		t.Errorf("aha %s", wf.Name)
-	}
+	patch1 := gomonkey.ApplyMethod(reflect.TypeOf(wf.runtime.steps["data_preprocess"].job), "Started", func(_ *PaddleFlowJob) bool {
+		return true
+	})
+	patch2 := gomonkey.ApplyMethod(reflect.TypeOf(wf.runtime.steps["data_preprocess"].job), "NotEnded", func(_ *PaddleFlowJob) bool {
+		return false
+	})
+	patch3 := gomonkey.ApplyMethod(reflect.TypeOf(wf.runtime.steps["data_preprocess"].job), "Failed", func(_ *PaddleFlowJob) bool {
+		return true
+	})
+	patch4 := gomonkey.ApplyMethod(reflect.TypeOf(wf.runtime.steps["data_preprocess"].job), "Succeeded", func(_ *PaddleFlowJob) bool {
+		return false
+	})
+	patch5 := gomonkey.ApplyMethod(reflect.TypeOf(wf.runtime.steps["data_preprocess"].job), "Skipped", func(_ *PaddleFlowJob) bool {
+		return false
+	})
+	defer patch1.Reset()
+	defer patch2.Reset()
+	defer patch3.Reset()
+	defer patch4.Reset()
+	defer patch5.Reset()
 
 	go wf.Start()
-
 	time.Sleep(time.Millisecond * 10)
 
 	// todo: remove event, receive event from job
@@ -220,46 +244,37 @@ func TestStopWorkflowRun(t *testing.T) {
 	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
-	extraInfo := map[string]string{
-		WfExtraInfoKeySource:   "./testcase/run.yaml",
-		WfExtraInfoKeyFsID:     "mockFsID",
-		WfExtraInfoKeyUserName: "mockUser",
-		WfExtraInfoKeyFsName:   "mockFsname",
-	}
-
-	controller := gomock.NewController(t)
-	mockJob := NewMockJob(controller)
-	mockJob.EXPECT().Job().Return(BaseJob{Id: "mockJobID"}).AnyTimes()
-	mockJob.EXPECT().Succeeded().Return(true).AnyTimes()
-	mockJob.EXPECT().Validate().Return(nil).AnyTimes()
-
-	NewStep = func(name string, wfr *WorkflowRuntime, info *schema.WorkflowSourceStep, disabled bool) (*Step, error) {
-		return &Step{
-			job:  mockJob,
-			info: info,
-		}, nil
-	}
-
-	mockJobTerminated := NewMockJob(controller)
-	mockJobTerminated.EXPECT().Job().Return(BaseJob{Id: "mockJobTerminatedID"}).AnyTimes()
-	mockJobTerminated.EXPECT().Succeeded().Return(false).AnyTimes()
-	mockJobTerminated.EXPECT().Failed().Return(false).AnyTimes()
-	mockJobTerminated.EXPECT().Terminated().Return(true).AnyTimes()
-	mockJobTerminated.EXPECT().Validate().Return(nil).AnyTimes()
-
-	wf, err := NewWorkflow(wfs, "", "", nil, extraInfo, mockCbs)
+	extra := GetExtra()
+	wf, err := NewWorkflow(wfs, "", "", nil, extra, mockCbs)
 	assert.Nil(t, err)
-	if err != nil {
-		println(err)
-	}
+
+	patch1 := gomonkey.ApplyMethod(reflect.TypeOf(wf.runtime.steps["data_preprocess"].job), "Succeeded", func(_ *PaddleFlowJob) bool {
+		return true
+	})
+	defer patch1.Reset()
+
+	patch2 := gomonkey.ApplyMethod(reflect.TypeOf(wf.runtime.steps["main"].job), "Succeeded", func(_ *PaddleFlowJob) bool {
+		return true
+	})
+	defer patch2.Reset()
+
+	patch3 := gomonkey.ApplyMethod(reflect.TypeOf(wf.runtime.steps["validate"].job), "Succeeded", func(_ *PaddleFlowJob) bool {
+		return false
+	})
+	patch4 := gomonkey.ApplyMethod(reflect.TypeOf(wf.runtime.steps["validate"].job), "Failed", func(_ *PaddleFlowJob) bool {
+		return false
+	})
+	patch5 := gomonkey.ApplyMethod(reflect.TypeOf(wf.runtime.steps["validate"].job), "Terminated", func(_ *PaddleFlowJob) bool {
+		return true
+	})
+	defer patch3.Reset()
+	defer patch4.Reset()
+	defer patch5.Reset()
 
 	time.Sleep(time.Millisecond * 10)
 	wf.runtime.steps["data_preprocess"].done = true
-	wf.runtime.steps["data_preprocess"].job = mockJob
 	wf.runtime.steps["main"].done = true
-	wf.runtime.steps["main"].job = mockJob
 	wf.runtime.steps["validate"].done = true
-	wf.runtime.steps["validate"].job = mockJobTerminated
 
 	go wf.Start()
 	time.Sleep(time.Millisecond * 10)
@@ -274,27 +289,19 @@ func TestStopWorkflowRun(t *testing.T) {
 	assert.Equal(t, common.StatusRunTerminated, wf.runtime.status)
 }
 
-// 测试Workflow
+// 测试baseWorkflow带entry初始化
 func TestNewWorkflowFromEntry(t *testing.T) {
-	controller := gomock.NewController(t)
-	mockJob := NewMockJob(controller)
-	mockJob.EXPECT().Validate().Return(nil).AnyTimes()
-	NewStep = func(name string, wfr *WorkflowRuntime, info *schema.WorkflowSourceStep, disabled bool) (*Step, error) {
-		return &Step{
-			job:       mockJob,
-			info:      info,
-			submitted: true,
-		}, nil
-	}
 	testCase := loadcase(runYamlPath)
 	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
-	baseWorkflow := NewBaseWorkflow(wfs, "", "main", nil, nil)
+	extra := GetExtra()
+	baseWorkflow := NewBaseWorkflow(wfs, "", "main", nil, extra)
 	wf := &Workflow{
 		BaseWorkflow: baseWorkflow,
 		callbacks:    mockCbs,
 	}
+
 	err = wf.newWorkflowRuntime()
 	assert.Nil(t, err)
 	assert.Equal(t, 2, len(wf.runtime.steps))
@@ -307,21 +314,18 @@ func TestNewWorkflowFromEntry(t *testing.T) {
 }
 
 func TestValidateWorkflow_WrongParam(t *testing.T) {
-	source := schema.WorkflowSource{}
-	err := yaml.Unmarshal([]byte(runWrongParam), &source)
-	if err != nil {
-		t.Errorf("%s", err)
-	}
-
-	wfs, err := schema.ParseWorkflowSource([]byte(runWrongParam))
+	testCase := loadcase(runWrongParamYamlPath)
+	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
-	bwf := NewBaseWorkflow(wfs, "", "", nil, nil)
+	extra := GetExtra()
+	bwf := NewBaseWorkflow(wfs, "", "", nil, extra)
 	err = bwf.validate()
 	assert.NotNil(t, err)
+	assert.Equal(t, "invalid reference param {{ data_preprocess.xxxinvalid }} in step[main]: parameter[xxxinvalid] not exist", err.Error())
 
 	// parameter 在 step [main] 中有错误，然而在将 entry 设置成 [data_preprocess] 后， validate 仍然返回成功
-	bwf = NewBaseWorkflow(wfs, "", "data_preprocess", nil, nil)
+	bwf = NewBaseWorkflow(wfs, "", "data_preprocess", nil, extra)
 	err = bwf.validate()
 	assert.Nil(t, err)
 }
@@ -331,7 +335,8 @@ func TestWorkflowParamDuplicate(t *testing.T) {
 	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
-	bwf := NewBaseWorkflow(wfs, "", "", nil, nil)
+	extra := GetExtra()
+	bwf := NewBaseWorkflow(wfs, "", "", nil, extra)
 	err = bwf.validate()
 	assert.Nil(t, err)
 
@@ -363,12 +368,13 @@ func TestWorkflowParamDuplicate(t *testing.T) {
 	assert.Nil(t, err)
 }
 
-func TestValidateWorkflow(t *testing.T) {
+func TestValidateWorkflowParam(t *testing.T) {
 	testCase := loadcase(runYamlPath)
 	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
-	bwf := NewBaseWorkflow(wfs, "", "", nil, nil)
+	extra := GetExtra()
+	bwf := NewBaseWorkflow(wfs, "", "", nil, extra)
 	err = bwf.validate()
 	assert.Nil(t, err)
 	assert.Equal(t, bwf.Source.EntryPoints["validate"].Parameters["refSystem"].(string), "{{ PF_RUN_ID }}")
@@ -376,6 +382,7 @@ func TestValidateWorkflow(t *testing.T) {
 	bwf.Source.EntryPoints["validate"].Parameters["refSystem"] = "{{ xxx }}"
 	err = bwf.validate()
 	assert.NotNil(t, err)
+	assert.Equal(t, err.Error(), "unsupported SysParamName[xxx] for param[{{ xxx }}] of filedType[parameters]")
 
 	bwf.Source.EntryPoints["validate"].Parameters["refSystem"] = "{{ PF_RUN_ID }}"
 	err = bwf.validate()
@@ -415,7 +422,8 @@ func TestValidateWorkflow__DictParam(t *testing.T) {
 	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
-	bwf := NewBaseWorkflow(wfs, "", "", nil, nil)
+	extra := GetExtra()
+	bwf := NewBaseWorkflow(wfs, "", "", nil, extra)
 	err = bwf.validate()
 	assert.Nil(t, err)
 	//assert.Equal(t, "dictparam", bwf.Source.EntryPoints["main"].Parameters["p3"])
@@ -512,111 +520,21 @@ func TestValidateWorkflow__DictParam(t *testing.T) {
 	assert.Equal(t, UnsupportedDictParamTypeError("unsupportedType", "dict", dictParam).Error(), err.Error())
 }
 
-func TestValidateWorkflowArtifacts(t *testing.T) {
-	// 当前只会校验input artifact的值，output artifact的只不会校验，因为替换的时候，会直接用系统生成的路径覆盖原来的值
-	testCase := loadcase(runYamlPath)
-	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
-	assert.Nil(t, err)
-
-	bwf := NewBaseWorkflow(wfs, "", "", nil, nil)
-	err = bwf.validate()
-	assert.Nil(t, err)
-	assert.Equal(t, "{{ data_preprocess.train_data }}", bwf.Source.EntryPoints["main"].Artifacts.Input["train_data"])
-
-	// input artifact 只能引用上游 output artifact
-	bwf.Source.EntryPoints["main"].Artifacts.Input["wrongdata"] = "{{ xxxx }}"
-	err = bwf.validate()
-	assert.NotNil(t, err)
-	assert.Equal(t, "check input artifact [wrongdata] in step[main] failed: format of value[{{ xxxx }}] invalid, should be like {{XXX.XXX}}", err.Error())
-
-	// 上游 output artifact 不存在
-	bwf.Source.EntryPoints["main"].Artifacts.Input["wrongdata"] = "{{ data_preprocess.noexist_data }}"
-	err = bwf.validate()
-	assert.NotNil(t, err)
-	assert.Equal(t, "invalid reference param {{ data_preprocess.noexist_data }} in step[main]: output artifact[noexist_data] not exist", err.Error())
-	delete(bwf.Source.EntryPoints["main"].Artifacts.Input, "wrongdata")
-}
-
-func TestValidateWorkflowDisabled(t *testing.T) {
-	// 校验workflow disable设置
-	testCase := loadcase(runYamlPath)
-	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
-	assert.Nil(t, err)
-
-	bwf := NewBaseWorkflow(wfs, "", "", nil, nil)
-	err = bwf.validate()
-	assert.Nil(t, err)
-	assert.Equal(t, "", bwf.Source.Disabled)
-
-	bwf.Source.Disabled = "notExistStepName"
-	err = bwf.validate()
-	assert.NotNil(t, err)
-	assert.Equal(t, "disabled step[notExistStepName] not existed!", err.Error())
-	
-	// disabled 设置成功
-	bwf.Source.Disabled = "validate"
-	err = bwf.validate()
-	assert.Nil(t, err)
-
-	// disabled 设置失败，步骤输出artifact被下游节点依赖
-	bwf.Source.Disabled = "main"
-	err = bwf.validate()
-	assert.NotNil(t, err)
-	assert.Equal(t, "invalid reference param {{ main.train_model }} in step[validate]: step[main] is disabled", err.Error())
-	delete(bwf.Source.EntryPoints["main"].Artifacts.Input, "wrongdata")
-}
-
-func TestValidateWorkflowCache(t *testing.T) {
-	testCase := loadcase(runYamlPath)
-	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
-	assert.Nil(t, err)
-
-	// 校验节点cache配置为空时，能够使用全局配置替换
-	bwf := NewBaseWorkflow(wfs, "", "", nil, nil)
-	err = bwf.validate()
-	assert.Nil(t, err)
-	assert.Equal(t, bwf.Source.Cache.Enable, false)
-	assert.Equal(t, bwf.Source.Cache.MaxExpiredTime, "400")
-	assert.Equal(t, bwf.Source.Cache.FsScope, "/path/to/run,/path/to/run2")
-
-	assert.Equal(t, bwf.Source.EntryPoints["data_preprocess"].Cache.Enable, bwf.Source.Cache.Enable)
-	assert.Equal(t, bwf.Source.EntryPoints["data_preprocess"].Cache.MaxExpiredTime, bwf.Source.Cache.MaxExpiredTime)
-	assert.Equal(t, bwf.Source.EntryPoints["data_preprocess"].Cache.FsScope, bwf.Source.Cache.FsScope)
-
-	// 全局 + 节点的cache MaxExpiredTime 设置失败
-	bwf.Source.Cache.MaxExpiredTime = ""
-	bwf.Source.EntryPoints["data_preprocess"].Cache.MaxExpiredTime = ""
-	err = bwf.validate()
-	assert.Nil(t, err)
-	assert.Equal(t, "-1", bwf.Source.Cache.MaxExpiredTime)
-	assert.Equal(t, "-1", bwf.Source.EntryPoints["data_preprocess"].Cache.MaxExpiredTime)
-	
-	// 全局cache MaxExpiredTime 设置失败
-	bwf.Source.Cache.MaxExpiredTime = "notInt"
-	err = bwf.validate()
-	assert.NotNil(t, err)
-	assert.Equal(t, "MaxExpiredTime[notInt] of cache not correct", err.Error())
-
-	// 节点cache MaxExpiredTime 设置失败
-	bwf.Source.Cache.MaxExpiredTime = ""
-	bwf.Source.EntryPoints["data_preprocess"].Cache.MaxExpiredTime = "notInt"
-	err = bwf.validate()
-	assert.NotNil(t, err)
-	assert.Equal(t, "MaxExpiredTime[notInt] of cache in step[data_preprocess] not correct", err.Error())
-}
-
-func TestValidateWorkflowParam_success(t *testing.T) {
+// 校验初始化workflow时，传递param参数
+func TestValidateWorkflowPassingParam(t *testing.T) {
 	testCase := loadcase(runYamlPath)
 	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
 	// not exist in source yaml
-	bwf := NewBaseWorkflow(wfs, "", "", nil, nil)
+	extra := GetExtra()
+	bwf := NewBaseWorkflow(wfs, "", "", nil, extra)
 	bwf.Params = map[string]interface{}{
 		"p1": "correct",
 	}
 	err = bwf.validate()
 	assert.NotNil(t, err)
+	assert.Equal(t, "param[p1] not exist", err.Error())
 
 	bwf.Params = map[string]interface{}{
 		"model": "correct",
@@ -652,24 +570,172 @@ func TestValidateWorkflowParam_success(t *testing.T) {
 	assert.Equal(t, "invalid reference param {{ step1.param }} in step[main]: step[step1] not in deps", err.Error())
 }
 
+func TestValidateWorkflowArtifacts(t *testing.T) {
+	// 当前只会校验input artifact的值，output artifact的只不会校验，因为替换的时候，会直接用系统生成的路径覆盖原来的值
+	testCase := loadcase(runYamlPath)
+	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
+	assert.Nil(t, err)
+
+	extra := GetExtra()
+	bwf := NewBaseWorkflow(wfs, "", "", nil, extra)
+	err = bwf.validate()
+	assert.Nil(t, err)
+	assert.Equal(t, "{{ data_preprocess.train_data }}", bwf.Source.EntryPoints["main"].Artifacts.Input["train_data"])
+
+	// input artifact 只能引用上游 output artifact
+	bwf.Source.EntryPoints["main"].Artifacts.Input["wrongdata"] = "{{ xxxx }}"
+	err = bwf.validate()
+	assert.NotNil(t, err)
+	assert.Equal(t, "check input artifact [wrongdata] in step[main] failed: format of value[{{ xxxx }}] invalid, should be like {{XXX.XXX}}", err.Error())
+
+	// 上游 output artifact 不存在
+	bwf.Source.EntryPoints["main"].Artifacts.Input["wrongdata"] = "{{ data_preprocess.noexist_data }}"
+	err = bwf.validate()
+	assert.NotNil(t, err)
+	assert.Equal(t, "invalid reference param {{ data_preprocess.noexist_data }} in step[main]: output artifact[noexist_data] not exist", err.Error())
+	delete(bwf.Source.EntryPoints["main"].Artifacts.Input, "wrongdata")
+}
+
+func TestValidateWorkflowDisabled(t *testing.T) {
+	// 校验workflow disable设置
+	testCase := loadcase(runYamlPath)
+	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
+	assert.Nil(t, err)
+
+	extra := GetExtra()
+	bwf := NewBaseWorkflow(wfs, "", "", nil, extra)
+	err = bwf.validate()
+	assert.Nil(t, err)
+	assert.Equal(t, "", bwf.Source.Disabled)
+
+	bwf.Source.Disabled = "notExistStepName"
+	err = bwf.validate()
+	assert.NotNil(t, err)
+	assert.Equal(t, "disabled step[notExistStepName] not existed!", err.Error())
+
+	// disabled 设置成功
+	bwf.Source.Disabled = "validate"
+	err = bwf.validate()
+	assert.Nil(t, err)
+
+	// disabled 设置失败，步骤输出artifact被下游节点依赖
+	bwf.Source.Disabled = "main"
+	err = bwf.validate()
+	assert.NotNil(t, err)
+	assert.Equal(t, "invalid reference param {{ main.train_model }} in step[validate]: step[main] is disabled", err.Error())
+	delete(bwf.Source.EntryPoints["main"].Artifacts.Input, "wrongdata")
+}
+
+func TestValidateWorkflowCache(t *testing.T) {
+	testCase := loadcase(runYamlPath)
+	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
+	assert.Nil(t, err)
+
+	// 校验节点cache配置为空时，能够使用全局配置替换
+	extra := GetExtra()
+	bwf := NewBaseWorkflow(wfs, "", "", nil, extra)
+	err = bwf.validate()
+	assert.Nil(t, err)
+	assert.Equal(t, bwf.Source.Cache.Enable, false)
+	assert.Equal(t, bwf.Source.Cache.MaxExpiredTime, "400")
+	assert.Equal(t, bwf.Source.Cache.FsScope, "/path/to/run,/path/to/run2")
+
+	assert.Equal(t, bwf.Source.EntryPoints["data_preprocess"].Cache.Enable, bwf.Source.Cache.Enable)
+	assert.Equal(t, bwf.Source.EntryPoints["data_preprocess"].Cache.MaxExpiredTime, bwf.Source.Cache.MaxExpiredTime)
+	assert.Equal(t, bwf.Source.EntryPoints["data_preprocess"].Cache.FsScope, bwf.Source.Cache.FsScope)
+
+	// 全局 + 节点的cache MaxExpiredTime 设置失败
+	bwf.Source.Cache.MaxExpiredTime = ""
+	bwf.Source.EntryPoints["data_preprocess"].Cache.MaxExpiredTime = ""
+	err = bwf.validate()
+	assert.Nil(t, err)
+	assert.Equal(t, "-1", bwf.Source.Cache.MaxExpiredTime)
+	assert.Equal(t, "-1", bwf.Source.EntryPoints["data_preprocess"].Cache.MaxExpiredTime)
+
+	// 全局cache MaxExpiredTime 设置失败
+	bwf.Source.Cache.MaxExpiredTime = "notInt"
+	err = bwf.validate()
+	assert.NotNil(t, err)
+	assert.Equal(t, "MaxExpiredTime[notInt] of cache not correct", err.Error())
+
+	// 节点cache MaxExpiredTime 设置失败
+	bwf.Source.Cache.MaxExpiredTime = ""
+	bwf.Source.EntryPoints["data_preprocess"].Cache.MaxExpiredTime = "notInt"
+	err = bwf.validate()
+	assert.NotNil(t, err)
+	assert.Equal(t, "MaxExpiredTime[notInt] of cache in step[data_preprocess] not correct", err.Error())
+}
+
+// 测试不使用Fs时，workflow校验逻辑
+func TestValidateWorkflowWithoutFs(t *testing.T) {
+	testCase := loadcase(noAtfYamlPath)
+	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
+	assert.Nil(t, err)
+
+	// 校验 WfExtraInfoKeyFsID 和 WfExtraInfoKeyFsName，不能同时为空字符串
+	extra := GetExtra()
+	extra[pplcommon.WfExtraInfoKeyFsID] = ""
+	bwf := NewBaseWorkflow(wfs, "", "", nil, extra)
+	err = bwf.validate()
+	assert.NotNil(t, err)
+	assert.Equal(t, "check extra failed: FsID[] and FsName[mockFsname] can only both be empty or unempty", err.Error())
+
+	// 校验不使用Fs时，不能使用fs相关的系统参数
+	extra[pplcommon.WfExtraInfoKeyFsName] = ""
+	wfs.EntryPoints["data_preprocess"].Parameters["wrongParam"] = "{{ PF_FS_ID }}"
+	bwf = NewBaseWorkflow(wfs, "", "", nil, extra)
+	err = bwf.validate()
+	assert.NotNil(t, err)
+	assert.Equal(t, "cannot use sysParam[PF_FS_ID] template in step[data_preprocess] for pipeline run with no Fs mounted", err.Error())
+
+	wfs.EntryPoints["data_preprocess"].Parameters["wrongParam"] = "{{ PF_FS_NAME }}"
+	bwf = NewBaseWorkflow(wfs, "", "", nil, extra)
+	err = bwf.validate()
+	assert.NotNil(t, err)
+	assert.Equal(t, "cannot use sysParam[PF_FS_NAME] template in step[data_preprocess] for pipeline run with no Fs mounted", err.Error())
+
+	// 校验不使用Fs时，全局cache中的fs_scope字段一定为空
+	delete(wfs.EntryPoints["data_preprocess"].Parameters, "wrongParam")
+	bwf = NewBaseWorkflow(wfs, "", "", nil, extra)
+	err = bwf.validate()
+	assert.NotNil(t, err)
+	assert.Equal(t, "fs_scope of global cache should be empty if Fs is not used!", err.Error())
+
+	// 校验不使用Fs时，节点cache中的fs_scope字段一定为空
+	// 下面case会报错，是因为parse workflow的时候，会将global cache配置，作为每个节点的cache默认配置
+	// 所以只修改global cache配置的fs_scope并不够
+	bwf = NewBaseWorkflow(wfs, "", "", nil, extra)
+	bwf.Source.Cache.FsScope = ""
+	err = bwf.validate()
+	assert.NotNil(t, err)
+	pattern := regexp.MustCompile("fs_scope of cache in step[[a-zA-Z_]+] should be empty if Fs is not used!")
+	assert.Regexp(t, pattern, err.Error())
+
+	bwf.Source.EntryPoints["data_preprocess"].Cache.FsScope = ""
+	bwf.Source.EntryPoints["main"].Cache.FsScope = ""
+	bwf.Source.EntryPoints["data_preprocess"].Cache.FsScope = ""
+	bwf.Source.EntryPoints["validate"].Cache.FsScope = ""
+	err = bwf.validate()
+	assert.Nil(t, err)
+
+	// 校验不使用Fs时，不能定义artifact
+	// 因为input artifact一定引用上游的outputAtf，所以只需要测试没法定义outputAtf即可
+	wfs.EntryPoints["data_preprocess"].Artifacts.Output["Atf1"] = ""
+	bwf = NewBaseWorkflow(wfs, "", "", nil, extra)
+	err = bwf.validate()
+	assert.NotNil(t, err)
+	pattern = regexp.MustCompile("cannot define artifact in step[[a-zA-Z_]+] with no Fs mounted")
+	assert.Regexp(t, pattern, err.Error())
+}
+
 func TestRestartWorkflow(t *testing.T) {
 	testCase := loadcase(runYamlPath)
 	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
-	controller := gomock.NewController(t)
-	mockJob := NewMockJob(controller)
-	NewStep = func(name string, wfr *WorkflowRuntime, info *schema.WorkflowSourceStep, disabled bool) (*Step, error) {
-		return &Step{
-			job:       mockJob,
-			info:      info,
-			submitted: true,
-		}, nil
-	}
-	wf, err := NewWorkflow(wfs, "", "", nil, nil, mockCbs)
-	if err != nil {
-		t.Errorf("aha %s", wf.Name)
-	}
+	extra := GetExtra()
+	wf, err := NewWorkflow(wfs, "", "", nil, extra, mockCbs)
+	assert.Nil(t, err)
 
 	runtimeView := schema.RuntimeView{
 		"data_preprocess": schema.JobView{
@@ -701,19 +767,9 @@ func TestRestartWorkflow_from1completed(t *testing.T) {
 	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
-	controller := gomock.NewController(t)
-	mockJob := NewMockJob(controller)
-	NewStep = func(name string, wfr *WorkflowRuntime, info *schema.WorkflowSourceStep, disabled bool) (*Step, error) {
-		return &Step{
-			job:       mockJob,
-			info:      info,
-			submitted: true,
-		}, nil
-	}
-	wf, err := NewWorkflow(wfs, "", "", nil, nil, mockCbs)
-	if err != nil {
-		t.Errorf("aha %s", err.Error())
-	}
+	extra := GetExtra()
+	wf, err := NewWorkflow(wfs, "", "", nil, extra, mockCbs)
+	assert.Nil(t, err)
 
 	runtimeView := schema.RuntimeView{
 		"data_preprocess": schema.JobView{
@@ -736,12 +792,3 @@ func TestRestartWorkflow_from1completed(t *testing.T) {
 	assert.Equal(t, false, wf.runtime.steps["validate"].done)
 	assert.Equal(t, false, wf.runtime.steps["validate"].submitted)
 }
-
-const (
-	runYamlPath string = "./testcase/run.step.yaml"
-)
-
-const (
-	runWrongParam string = "name: myproject\n\ndocker_env: images/training.tgz\n\nentry_points:\n\n  data_preprocess:\n    parameters:\n      data_path: \"./LINK/mybos_dir/data\"\n      process_data_file: \"./data/pre\"\n    command: \"python data_preprocess.py --input {{data_path}} --output {{process_data_file}}\"\n    env:\n      PF_JOB_QUEUE: CPU-32G\n      PF_JOB_PRIORITY: high\n\n  main:\n    deps: data_preprocess\n    parameters:\n      data_file: \"{{ data_preprocess.xxxinvalid }}\"\n      regularization:  0.1\n      model: \"./data/model\"\n    command: \"python train.py -r {{regularization}} -d {{data_file}} --output {{model}}\"\n    env:\n      PF_JOB_QUEUE: v100-16G\n      PF_JOB_PRIORITY: high\n      PF_JOB_FLAVOUR: v100-10\n      PF_PS_NUM: 1\n      PF_WORKER_NUM: 4\nparallelism: 5"
-	runCircle     string = "name: myproject\n\ndocker_env: images/training.tgz\n\n\nentry_points:\n\n  data_preprocess:\n    deps: main\n    parameters:\n      data_path: {type: path, default: ./LINK/mybos_dir/data}\n      process_data_file: \"./data/pre\"\n    command: \"python data_preprocess.py --input {{data_path}} --output {{process_data_file}}\"\n    env:\n      PF_JOB_QUEUE: CPU-32G\n      PF_JOB_PRIORITY: high\n\n  main:\n    deps: data_preprocess\n    parameters:\n      data_file: \"{{ data_preprocess.process_data_file }}\"\n      regularization: {type: float, default: 0.1}\n      model: \"./data/model\"\n    command: \"python train.py -r {{regularization}} -d {{data_file}} --output {{model}}\"\n    env:\n      PF_JOB_QUEUE: v100-16G\n      PF_JOB_PRIORITY: high\n      PF_JOB_FLAVOUR: v100-10\n      PF_PS_NUM: 1\n      PF_WORKER_NUM: 4"
-)
