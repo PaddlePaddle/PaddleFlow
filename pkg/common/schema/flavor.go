@@ -30,7 +30,7 @@ const (
 type ScalarResourcesType map[ResourceName]string
 
 type ResourceInfo struct {
-	Cpu             string              `json:"cpu" yaml:"cpu"`
+	CPU             string              `json:"cpu" yaml:"cpu"`
 	Mem             string              `json:"mem" yaml:"mem"`
 	ScalarResources ScalarResourcesType `json:"scalarResources,omitempty" yaml:"scalarResources,omitempty"`
 }
@@ -59,16 +59,16 @@ func CheckReg(str, pattern string) bool {
 }
 
 func ValidateResourceInfo(resourceInfo ResourceInfo, scalarResourcesType []string) error {
-	if resourceInfo.Cpu == "" {
-		return errors.CpuNotFoundError()
+	if resourceInfo.CPU == "" {
+		return errors.CPUNotFoundError()
 	}
 
 	if resourceInfo.Mem == "" {
 		return errors.MemoryNotFoundError()
 	}
 
-	if !CheckReg(resourceInfo.Cpu, RegPatternResource) || !CheckReg(resourceInfo.Mem, RegPatternResource) {
-		return errors.QueueResourceNotMatchError(resourceInfo.Cpu, resourceInfo.Mem)
+	if !CheckReg(resourceInfo.CPU, RegPatternResource) || !CheckReg(resourceInfo.Mem, RegPatternResource) {
+		return errors.QueueResourceNotMatchError(resourceInfo.CPU, resourceInfo.Mem)
 	}
 	return ValidateScalarResourceInfo(resourceInfo.ScalarResources, scalarResourcesType)
 }

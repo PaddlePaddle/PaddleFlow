@@ -157,7 +157,7 @@ func TestKubeRuntimeJob(t *testing.T) {
 			"flavour1": {
 				Name: "flavour1",
 				ResourceInfo: schema.ResourceInfo{
-					Cpu: "20",
+					CPU: "20",
 					Mem: "20G",
 					ScalarResources: map[schema.ResourceName]string{
 						"com/gpu": "1",
@@ -201,7 +201,7 @@ func TestKubeRuntimeVCQueue(t *testing.T) {
 		Namespace: "default",
 		QuotaType: schema.TypeVolcanoCapabilityQuota,
 		MaxResources: schema.ResourceInfo{
-			Cpu: "20",
+			CPU: "20",
 			Mem: "20Gi",
 		},
 	}
@@ -232,11 +232,11 @@ func TestKubeRuntimeElasticQuota(t *testing.T) {
 		Namespace: "default",
 		QuotaType: schema.TypeElasticQuota,
 		MaxResources: schema.ResourceInfo{
-			Cpu: "20",
+			CPU: "20",
 			Mem: "20Gi",
 		},
 		MinResources: schema.ResourceInfo{
-			Cpu: "10",
+			CPU: "10",
 			Mem: "10Gi",
 		},
 	}
