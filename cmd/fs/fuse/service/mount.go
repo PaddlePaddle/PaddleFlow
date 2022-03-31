@@ -38,6 +38,7 @@ import (
 	"paddleflow/pkg/client"
 	"paddleflow/pkg/common/config"
 	"paddleflow/pkg/common/http/api"
+	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/fs/client/base"
 	"paddleflow/pkg/fs/client/cache"
 	"paddleflow/pkg/fs/client/fuse"
@@ -73,6 +74,10 @@ Usage please refer to docs`,
 }
 
 func setup() error {
+	if err := logger.Init(&config.FuseConf.Log); err != nil {
+		log.Errorf("cmd mount setup() logger.Init err:%v", err)
+		return err
+	}
 	opts = &libfuse.MountOptions{}
 	fuseConf := config.FuseConf.Fuse
 	if len(fuseConf.MountPoint) == 0 || fuseConf.MountPoint == "/" {
@@ -104,8 +109,8 @@ func setup() error {
 
 	// Wrap the default registry, all prometheus.MustRegister() calls should be afterwards
 	// InitVFS() has many registers, should be after wrapRegister()
-	wrapRegister(fuseConf.MountPoint)
-	if err := InitVFS(); err != nil {
+	registry := wrapRegister(fuseConf.MountPoint)
+	if err := InitVFS(registry); err != nil {
 		log.Errorf("init vfs failed: %v", err)
 		return err
 	}
@@ -166,7 +171,7 @@ func exposeMetrics(conf config.Fuse) string {
 	return metricsAddr
 }
 
-func wrapRegister(mountPoint string) {
+func wrapRegister(mountPoint string) *prometheus.Registry {
 	registry := prometheus.NewRegistry() // replace default so only pfs-fuse metrics are exposed
 	prometheus.DefaultGatherer = registry
 	metricLabels := prometheus.Labels{"mp": mountPoint}
@@ -174,6 +179,7 @@ func wrapRegister(mountPoint string) {
 		prometheus.WrapRegistererWith(metricLabels, registry))
 	prometheus.MustRegister(prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}))
 	prometheus.MustRegister(prometheus.NewGoCollector())
+	return registry
 }
 
 func mount(c *cli.Context) error {
@@ -197,7 +203,7 @@ func mount(c *cli.Context) error {
 	return err
 }
 
-func InitVFS() error {
+func InitVFS(registry *prometheus.Registry) error {
 	var fsMeta common.FSMeta
 	var links map[string]common.FSMeta
 	fuseConf := config.FuseConf.Fuse
@@ -318,7 +324,7 @@ func InitVFS() error {
 	}
 	vfsConfig := vfs.InitConfig(vfsOptions...)
 
-	if _, err := vfs.InitVFS(fsMeta, links, true, vfsConfig); err != nil {
+	if _, err := vfs.InitVFS(fsMeta, links, true, vfsConfig, registry); err != nil {
 		log.Errorf("init vfs failed: %v", err)
 		return err
 	}
