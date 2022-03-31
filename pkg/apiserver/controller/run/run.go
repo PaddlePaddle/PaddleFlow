@@ -47,6 +47,7 @@ type CreateRunRequest struct {
 	// run workflow source. priority: RunYamlRaw > PipelineID > RunYamlPath
 	// 为了防止字符串或者不同的http客户端对run.yaml
 	// 格式中的特殊字符串做特殊过滤处理导致yaml文件不正确，因此采用runYamlRaw采用base64编码传输
+	Disabled    string `json:"disabled,omitempty"`    // optional
 	RunYamlRaw  string `json:"runYamlRaw,omitempty"`  // optional. one of 3 sources of run. high priority
 	PipelineID  string `json:"pipelineID,omitempty"`  // optional. one of 3 sources of run. medium priority
 	RunYamlPath string `json:"runYamlPath,omitempty"` // optional. one of 3 sources of run. low priority
@@ -148,12 +149,15 @@ func runYamlAndReqToWfs(ctx *logger.RequestContext, runYaml string, req CreateRu
 		return schema.WorkflowSource{}, err
 	}
 
-	// replace name & dockerEnv by request
+	// replace name & dockerEnv & disabled by request
 	if req.Name != "" {
 		wfs.Name = req.Name
 	}
 	if req.DockerEnv != "" {
 		wfs.DockerEnv = req.DockerEnv
+	}
+	if req.Disabled != "" {
+		wfs.Disabled = req.Disabled
 	}
 	return wfs, nil
 }
@@ -197,6 +201,7 @@ func CreateRun(ctx *logger.RequestContext, request *CreateRunRequest) (CreateRun
 		RunYaml:        runYaml,
 		WorkflowSource: wfs, // DockerEnv has not been replaced. done in func handleImageAndStartWf
 		Entry:          request.Entry,
+		Disabled:       request.Disabled,
 		Status:         common.StatusRunInitiating,
 	}
 	if err := run.Encode(); err != nil {
@@ -438,17 +443,19 @@ func DeleteRun(ctx *logger.RequestContext, id string, request *DeleteRunRequest)
 		}
 	}
 
-	// delete artifact
-	resourceHandler, err := pipeline.NewResourceHandler(id, run.FsID, ctx.Logging())
-	if err != nil {
-		ctx.Logging().Errorf("delete run[%s] failed. Init handler failed. err: %v", id, err.Error())
-		ctx.ErrorCode = common.InternalError
-		return err
-	}
-	if err := resourceHandler.ClearResource(); err != nil {
-		ctx.Logging().Errorf("delete run[%s] failed. Delete artifact failed. err: %v", id, err.Error())
-		ctx.ErrorCode = common.InternalError
-		return err
+	// 删除pipeline run outputAtf (只有Fs不为空，才需要清理artifact。因为不使用Fs时，不允许定义outputAtf)
+	if run.FsID != "" {
+		resourceHandler, err := pipeline.NewResourceHandler(id, run.FsID, ctx.Logging())
+		if err != nil {
+			ctx.Logging().Errorf("delete run[%s] failed. Init handler failed. err: %v", id, err.Error())
+			ctx.ErrorCode = common.InternalError
+			return err
+		}
+		if err := resourceHandler.ClearResource(); err != nil {
+			ctx.Logging().Errorf("delete run[%s] failed. Delete artifact failed. err: %v", id, err.Error())
+			ctx.ErrorCode = common.InternalError
+			return err
+		}
 	}
 
 	// delete
@@ -509,8 +516,12 @@ func resumeRun(run models.Run) error {
 		return err
 	}
 
+	wfs.Name = run.Name
 	if run.ImageUrl != "" {
 		wfs.DockerEnv = run.ImageUrl
+	}
+	if run.Disabled != "" {
+		wfs.Disabled = run.Disabled
 	}
 	// patch run.WorkflowSource to invoke func handleImageAndStartWf
 	run.WorkflowSource = wfs

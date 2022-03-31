@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,51 +17,40 @@ limitations under the License.
 package main
 
 import (
-	"fmt"
 	"os"
 
-	"github.com/gin-contrib/pprof"
-	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
+	"github.com/urfave/cli/v2"
 
-	"paddleflow/cmd/fs/fuse/app"
+	"paddleflow/cmd/fs/fuse/service"
 	"paddleflow/pkg/common/config"
-	"paddleflow/pkg/fs/client/vfs"
 )
 
 func main() {
-
-	if err := app.Init(); err != nil {
-		log.Errorf("init fuse failed: %v", err)
-		os.Exit(-1)
-	}
-
-	if !config.FuseConf.Fuse.Local {
-		stopChan := make(chan struct{})
-		defer close(stopChan)
-		fuseConf := config.FuseConf.Fuse
-		if !config.FuseConf.Fuse.SkipCheckLinks {
-			go vfs.GetVFS().Meta.LinksMetaUpdateHandler(stopChan, fuseConf.LinkUpdateInterval, fuseConf.LinkMetaDirPrefix)
-		}
-	}
-
-	if config.FuseConf.Fuse.PprofEnable {
-		go func() {
-			router := gin.Default()
-			pprof.Register(router, "debug/pprof")
-			if err := router.Run(fmt.Sprintf(":%d", config.FuseConf.Fuse.PprofPort)); err != nil {
-				log.Errorf("run pprof failed: %s, skip this error", err.Error())
-			} else {
-				log.Infof("pprof started")
-			}
-		}()
-	}
-
-	log.Infof("start to init pfs fuse")
-	server, err := app.Mount()
+	err := Main(os.Args)
 	if err != nil {
-		log.Fatalf("Mount fail: %v", err)
-		os.Exit(-1)
+		log.Fatal(err)
 	}
-	server.Wait()
+}
+
+func Main(args []string) error {
+	cli.VersionFlag = &cli.BoolFlag{
+		Name: "version", Aliases: []string{"V"},
+		Usage: "print only the version",
+	}
+	config.InitFuseConfig()
+	app := &cli.App{
+		Name:                 "pfs-fuse",
+		Usage:                "A POSIX file system built on kv DB and object storage.",
+		Version:              "1.4",
+		Copyright:            "Apache License 2.0",
+		HideHelpCommand:      true,
+		EnableBashCompletion: true,
+		Commands: []*cli.Command{
+			service.CmdMount(),
+			service.CmdUmount(),
+			service.CmdStats(),
+		},
+	}
+	return app.Run(args)
 }

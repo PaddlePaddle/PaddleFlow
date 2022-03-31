@@ -63,7 +63,7 @@ func NewResource(rl v1.ResourceList) *schema.Resource {
 
 func NewKubeResourceList(r *schema.ResourceInfo) v1.ResourceList {
 	resourceList := v1.ResourceList{}
-	resourceList[v1.ResourceCPU] = resource.MustParse(r.Cpu)
+	resourceList[v1.ResourceCPU] = resource.MustParse(r.CPU)
 	resourceList[v1.ResourceMemory] = resource.MustParse(r.Mem)
 	for k, v := range r.ScalarResources {
 		resourceList[v1.ResourceName(k)] = resource.MustParse(v)

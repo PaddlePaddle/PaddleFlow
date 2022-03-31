@@ -27,17 +27,17 @@ func TestResource_LessEqual(t *testing.T) {
 	queue2, _ := NewResource("1", "100M", ScalarResourcesType{"nvidia.com/gpu": "500"})
 
 	flavours := []struct {
-		Cpu string
-		Mem string
+		CPU             string
+		Mem             string
 		ScalarResources ScalarResourcesType
 	}{
 		{
-			Cpu: "1",
-			Mem: "100M",
+			CPU:             "1",
+			Mem:             "100M",
 			ScalarResources: ScalarResourcesType{},
 		},
 		{
-			Cpu: "1",
+			CPU: "1",
 			Mem: "100M",
 			ScalarResources: ScalarResourcesType{
 				"nvidia.com/gpu": "500",
@@ -46,10 +46,10 @@ func TestResource_LessEqual(t *testing.T) {
 	}
 
 	cpuRes := flavours[0]
-	cpuFlavour, _ := NewResource(cpuRes.Cpu, cpuRes.Mem, cpuRes.ScalarResources)
+	cpuFlavour, _ := NewResource(cpuRes.CPU, cpuRes.Mem, cpuRes.ScalarResources)
 
 	gpuRes := flavours[1]
-	gpuFlavour, _ := NewResource(gpuRes.Cpu, gpuRes.Mem, gpuRes.ScalarResources)
+	gpuFlavour, _ := NewResource(gpuRes.CPU, gpuRes.Mem, gpuRes.ScalarResources)
 
 	// case1
 	assert.True(t, cpuFlavour.LessEqual(queue1))
