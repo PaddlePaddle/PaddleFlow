@@ -31,20 +31,33 @@ import (
 )
 
 type Job struct {
-	Pk              int64            `json:"-" gorm:"primaryKey;autoIncrement"`
-	ID              string           `json:"jobID" gorm:"uniqueIndex"`
-	UserName        string           `json:"userName"`
-	QueueID         string           `json:"queueID"`
-	Type            string           `json:"type"`
-	Config          schema.Conf      `json:"config"`
-	RuntimeInfoJson string           `json:"-" gorm:"column:runtime_info;default:'{}'"`
-	RuntimeInfo     interface{}      `json:"runtimeInfo" gorm:"-"`
-	Status          schema.JobStatus `json:"status"`
-	Message         string           `json:"message"`
-	CreatedAt       time.Time        `json:"createTime"`
-	ActivatedAt     sql.NullTime     `json:"activateTime"`
-	UpdatedAt       time.Time        `json:"updateTime,omitempty"`
-	DeletedAt       gorm.DeletedAt   `json:"-" gorm:"index"`
+	Pk                int64            `json:"-" gorm:"primaryKey;autoIncrement"`
+	ID                string           `json:"jobID" gorm:"type:varchar(60);uniqueIndex"`
+	UserName          string           `json:"userName" gorm:"type:varchar(255);NOT NULL"`
+	QueueID           string           `json:"queueID" gorm:"type:varchar(36);NOT NULL"`
+	Type              string           `json:"type" gorm:"type:varchar(20);NOT NULL"`
+	Config            schema.Conf      `json:"config" gorm:"type:text"`
+	RuntimeInfoJson   string           `json:"-" gorm:"column:runtime_info;default:'{}'"`
+	RuntimeInfo       interface{}      `json:"runtimeInfo" gorm:"-"`
+	Status            schema.JobStatus `json:"status"`
+	Message           string           `json:"message"`
+	ResourceJson      string           `json:"-" gorm:"column:resource;type:text;default:'{}'"`
+	Resource          *schema.Resource `json:"resource" gorm:"-"`
+	Framework         schema.Framework `json:"framework" gorm:"type:varchar(30)"`
+	Members           []Member         `json:"members" gorm:"type:text"`
+	ExtensionTemplate string           `json:"extensionTemplate" gorm:"type:text"`
+	ParentJob         string           `json:"-" gorm:"type:varchar(60)"`
+	CreatedAt         time.Time        `json:"createTime"`
+	ActivatedAt       sql.NullTime     `json:"activateTime"`
+	UpdatedAt         time.Time        `json:"updateTime,omitempty"`
+	DeletedAt         gorm.DeletedAt   `json:"-" gorm:"index"`
+}
+
+type Member struct {
+	ID          string            `json:"id"`
+	Replicas    int               `json:"replicas"`
+	Role        schema.RoleMember `json:"role"`
+	schema.Conf `json:",inline"`
 }
 
 func (Job) TableName() string {
@@ -58,6 +71,13 @@ func (job *Job) BeforeSave(tx *gorm.DB) error {
 			return err
 		}
 		job.RuntimeInfoJson = string(infoJson)
+	}
+	if job.Resource != nil {
+		infoJson, err := json.Marshal(&job.ResourceJson)
+		if err != nil {
+			return err
+		}
+		job.ResourceJson = string(infoJson)
 	}
 	return nil
 }

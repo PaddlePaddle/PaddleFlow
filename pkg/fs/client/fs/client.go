@@ -50,6 +50,7 @@ var (
 	MemCacheSize    = 0
 	MemCacheExpire  = 0 * time.Second
 	DiskCacheExpire = 0 * time.Second
+	DiskDirMode     = os.FileMode(0666)
 	DiskCachePath   = "/var/cache/pfs_data_cache"
 
 	Driver           = meta.DefaultName

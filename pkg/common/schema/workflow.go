@@ -19,6 +19,7 @@ package schema
 import (
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 
 	"gopkg.in/yaml.v2"
@@ -30,6 +31,10 @@ import (
 const (
 	ArtifactTypeInput  = "input"
 	ArtifactTypeOutput = "output"
+
+	CacheAttributeEnable         = "enable"
+	CacheAttributeMaxExpiredTime = "max_expired_time"
+	CacheAttributeFsScope        = "fs_scope"
 )
 
 type Artifacts struct {
@@ -55,7 +60,7 @@ type WorkflowSourceStep struct {
 	Artifacts  Artifacts              `yaml:"artifacts"`
 	Env        map[string]string      `yaml:"env"`
 	DockerEnv  string                 `yaml:"dockerEnv"`
-	Cache	   Cache				  `yaml:"cache"`
+	Cache      Cache                  `yaml:"cache"`
 }
 
 func (s *WorkflowSourceStep) GetDeps() []string {
@@ -83,11 +88,11 @@ type WorkflowSource struct {
 	EntryPoints map[string]*WorkflowSourceStep `yaml:"entry_points"`
 	Cache       Cache                          `yaml:"cache"`
 	Parallelism int                            `yaml:"parallelism"`
-	Disabled 	string                         `yaml:"disabled"`
+	Disabled    string                         `yaml:"disabled"`
 }
 
 func (wfs *WorkflowSource) GetDisabled() []string {
-    // 获取disabled节点列表。每个节点名称前后的空格会被删除，只有空格的步骤名直接略过不添加
+	// 获取disabled节点列表。每个节点名称前后的空格会被删除，只有空格的步骤名直接略过不添加
 	disabledSteps := make([]string, 0)
 	for _, step := range strings.Split(wfs.Disabled, ",") {
 		step := strings.TrimSpace(step)
@@ -100,7 +105,7 @@ func (wfs *WorkflowSource) GetDisabled() []string {
 }
 
 func (wfs *WorkflowSource) IsDisabled(stepName string) (bool, error) {
-    // 表示该节点是否disabled
+	// 表示该节点是否disabled
 	disabledSteps := wfs.GetDisabled()
 
 	if !wfs.HasStep(stepName) {
@@ -176,11 +181,34 @@ func (wfs *WorkflowSource) validateStepCacheByMap(yamlMap map[string]interface{}
 		}
 		if ok {
 			cacheMap := cache.(map[string]interface{})
-			// 给Cache的每个字段赋值，覆盖掉全局的Cache设置
-			for i := 0; i < reflect.TypeOf(point.Cache).NumField(); i++ {
-				attrName := reflect.TypeOf(point.Cache).Field(i).Tag.Get("yaml")
-				if attrValue, ok := cacheMap[attrName]; ok {
-					reflect.ValueOf(&point.Cache).Elem().Field(i).Set(reflect.ValueOf(attrValue))
+			// Enable字段赋值
+			if value, ok := cacheMap[CacheAttributeEnable]; ok {
+				switch value := value.(type) {
+				case bool:
+					point.Cache.Enable = value
+				default:
+					return fmt.Errorf("cannot assign cache attribute [%s] by value[%v] with type [%s]",
+						CacheAttributeEnable, value, reflect.TypeOf(value).Name())
+				}
+			}
+			// MaxExpiredTime字段赋值
+			if value, ok := cacheMap[CacheAttributeMaxExpiredTime]; ok {
+				switch value := value.(type) {
+				case int64:
+					point.Cache.MaxExpiredTime = strconv.FormatInt(value, 10)
+				default:
+					return fmt.Errorf("cannot assign cache attribute [%s] by value[%v] with type [%s]",
+						CacheAttributeMaxExpiredTime, value, reflect.TypeOf(value).Name())
+				}
+			}
+			// FsScope字段赋值
+			if value, ok := cacheMap[CacheAttributeFsScope]; ok {
+				switch value := value.(type) {
+				case string:
+					point.Cache.FsScope = value
+				default:
+					return fmt.Errorf("cannot assign cache attribute [%s] by value[%v] with type [%s]",
+						CacheAttributeFsScope, value, reflect.TypeOf(value).Name())
 				}
 			}
 		}

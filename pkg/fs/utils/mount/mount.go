@@ -173,3 +173,14 @@ func ExecMount(sourcePath, targetPath string, args []string) ([]byte, error) {
 	args = append(args, sourcePath, targetPath)
 	return ExecCmdWithTimeout(cmdName, args)
 }
+
+func GetFileInode(path string) (uint64, error) {
+	fi, err := os.Stat(path)
+	if err != nil {
+		return 0, err
+	}
+	if sst, ok := fi.Sys().(*syscall.Stat_t); ok {
+		return sst.Ino, nil
+	}
+	return 0, nil
+}
