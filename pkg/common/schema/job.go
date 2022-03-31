@@ -85,10 +85,12 @@ const (
 	StatusJobCancelled   JobStatus = "cancelled"
 	StatusJobSkipped     JobStatus = "skipped"
 
-	RoleMaster  RoleMember = "master"
-	RoleWorker  RoleMember = "worker"
-	RolePServer RoleMember = "pserver"
-	RolePWorker RoleMember = "pworker"
+	RoleMaster   RoleMember = "master"
+	RoleWorker   RoleMember = "worker"
+	RoleDriver   RoleMember = "driver"
+	RoleExecutor RoleMember = "executor"
+	RolePServer  RoleMember = "pserver"
+	RolePWorker  RoleMember = "pworker"
 
 	TypeSingle      JobType = "single"
 	TypeDistributed JobType = "distributed"
