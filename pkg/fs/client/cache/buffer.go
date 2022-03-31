@@ -28,19 +28,24 @@ type ReadBuffer struct {
 	ufs      ufslib.UnderFileStorage
 	nRetries uint8
 	page     *Page
-	r        *rCache
 	path     string
 	flags    uint32
 	offset   uint64
 	size     uint32
+	index    int
+	r        *rCache
 	Buffer   *Buffer
 }
 
 type ReadBufferMap map[uint64]*ReadBuffer
 
-func (b ReadBuffer) Init() *ReadBuffer {
+func (b ReadBuffer) Init(pool *BufferPool, blocksize int) *ReadBuffer {
 	b.nRetries = 3
-	b.page = Page{}.Init(uint64(b.size))
+	p := &Page{r: b.r, index: b.index}
+	b.page = p.Init(pool, uint64(b.size), false, blocksize)
+	if b.page == nil {
+		return nil
+	}
 
 	b.initBuffer(b.offset, b.size)
 	return &b
@@ -57,38 +62,20 @@ func (b *ReadBuffer) initBuffer(offset uint64, size uint32) {
 	}
 
 	if b.Buffer == nil {
-		buf := &Buffer{r: b.r, offset: offset}
+		buf := &Buffer{offset: offset}
 		b.Buffer = buf.Init(b.page, getFunc)
 	} else {
 		b.Buffer = b.Buffer.ReInit(getFunc)
 	}
 }
 
-func (b *ReadBuffer) Read(offset uint64, p []byte) (n int, err error) {
-	b.Buffer.page.offset = offset
-	n, err = io.ReadFull(b.Buffer, p)
-	if n != 0 && err == io.ErrUnexpectedEOF {
-		err = nil
-	}
+func (b *ReadBuffer) ReadAt(offset uint64, p []byte) (n int, err error) {
+	n, err = b.Buffer.ReadAt(p, offset)
 	if n > 0 {
 		if uint32(n) > b.size {
 			log.Errorf("read more than available %v %v", n, b.size)
 			return 0, fmt.Errorf("read more than available %v %v", n, b.size)
 		}
-
-		b.offset += uint64(n)
-		b.size -= uint32(n)
-	}
-	if b.size == 0 && err != nil {
-		// we've read everything, sometimes we may
-		// request for more bytes then there's left in
-		// this chunk so we could get an error back,
-		// ex: http2: response body closed this
-		// doesn't tend to happen because our chunks
-		// are aligned to 4K and also 128K (except for
-		// the last chunk, but seems kernel requests
-		// for a smaller buffer for the last chunk)
-		err = nil
 	}
 	return
 }
