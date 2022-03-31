@@ -19,14 +19,15 @@ package vfs
 import (
 	"bytes"
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"os"
-	"paddleflow/pkg/fs/client/meta"
 	"strconv"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
+	log "github.com/sirupsen/logrus"
+
+	"paddleflow/pkg/fs/client/meta"
 )
 
 const (

@@ -19,7 +19,6 @@ package metric
 import (
 	"bytes"
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"strconv"
 	"syscall"
@@ -27,6 +26,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
+	log "github.com/sirupsen/logrus"
 )
 
 var (
