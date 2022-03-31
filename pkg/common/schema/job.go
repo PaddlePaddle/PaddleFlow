@@ -26,6 +26,7 @@ type JobType string
 type ActionOnJob string
 type JobStatus string
 type Framework string
+type RoleMember string
 
 const (
 	EnvJobType        = "PF_JOB_TYPE"
@@ -83,6 +84,11 @@ const (
 	StatusJobTerminated  JobStatus = "terminated"
 	StatusJobCancelled   JobStatus = "cancelled"
 	StatusJobSkipped     JobStatus = "skipped"
+
+	RoleMaster  RoleMember = "master"
+	RoleWorker  RoleMember = "worker"
+	RolePServer RoleMember = "pserver"
+	RolePWorker RoleMember = "pworker"
 
 	TypeSingle      JobType = "single"
 	TypeDistributed JobType = "distributed"
@@ -166,21 +172,21 @@ type PFJobConf interface {
 }
 
 type Conf struct {
-	Name            string            `json:"name"`
+	Name string `json:"name"`
 	// 存储资源
-	FileSystem      FileSystem        `json:"fileSystem,omitempty"`
-	ExtraFileSystem []FileSystem      `json:"extraFileSystem,omitempty"`
+	FileSystem      FileSystem   `json:"fileSystem,omitempty"`
+	ExtraFileSystem []FileSystem `json:"extraFileSystem,omitempty"`
 	// 计算资源
-	Flavour         Flavour           `json:"flavour,omitempty"`
-	Priority        string            `json:"priority"`
+	Flavour  Flavour `json:"flavour,omitempty"`
+	Priority string  `json:"priority"`
 	// 运行时需要的参数
-	Labels          map[string]string `json:"labels,omitempty"`
-	Annotations     map[string]string `json:"annotations,omitempty"`
-	Env             map[string]string `json:"env,omitempty"`
-	Command         string            `json:"command,omitempty"`
-	Image           string            `json:"image"`
-	Port            int               `json:"port,omitempty"`
-	Args            []string          `json:"args,omitempty"`
+	Labels      map[string]string `json:"labels,omitempty"`
+	Annotations map[string]string `json:"annotations,omitempty"`
+	Env         map[string]string `json:"env,omitempty"`
+	Command     string            `json:"command,omitempty"`
+	Image       string            `json:"image"`
+	Port        int               `json:"port,omitempty"`
+	Args        []string          `json:"args,omitempty"`
 }
 
 type FileSystem struct {

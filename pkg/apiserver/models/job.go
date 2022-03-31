@@ -41,7 +41,7 @@ type Job struct {
 	RuntimeInfo       interface{}      `json:"runtimeInfo" gorm:"-"`
 	Status            schema.JobStatus `json:"status"`
 	Message           string           `json:"message"`
-	ResourceJson      string           `json:"-" gorm:"type:text;default:'{}'""`
+	ResourceJson      string           `json:"-" gorm:"column:resource;type:text;default:'{}'"`
 	Resource          *schema.Resource `json:"resource" gorm:"-"`
 	Framework         schema.Framework `json:"framework" gorm:"type:varchar(30)"`
 	Members           []Member         `json:"members" gorm:"type:text"`
@@ -54,9 +54,9 @@ type Job struct {
 }
 
 type Member struct {
-	ID          string `json:"id"`
-	Replicas    int    `json:"replicas"`
-	Role        string `json:"role"`
+	ID          string            `json:"id"`
+	Replicas    int               `json:"replicas"`
+	Role        schema.RoleMember `json:"role"`
 	schema.Conf `json:",inline"`
 }
 
