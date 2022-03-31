@@ -186,12 +186,6 @@ func (wfs *WorkflowSource) validateStepCacheByMap(yamlMap map[string]interface{}
 				switch value := value.(type) {
 				case bool:
 					point.Cache.Enable = value
-				case string:
-					res, err := strconv.ParseBool(value)
-					if err != nil {
-						return fmt.Errorf("parse cache attribute [%s] from string to bool failed", CacheAttributeEnable)
-					}
-					point.Cache.Enable = res
 				default:
 					return fmt.Errorf("cannot assign cache attribute [%s] by value[%v] with type [%s]",
 						CacheAttributeEnable, value, reflect.TypeOf(value).Name())
@@ -200,10 +194,6 @@ func (wfs *WorkflowSource) validateStepCacheByMap(yamlMap map[string]interface{}
 			// MaxExpiredTime字段赋值
 			if value, ok := cacheMap[CacheAttributeMaxExpiredTime]; ok {
 				switch value := value.(type) {
-				case string:
-					point.Cache.MaxExpiredTime = value
-				case int:
-					point.Cache.MaxExpiredTime = strconv.Itoa(value)
 				case int64:
 					point.Cache.MaxExpiredTime = strconv.FormatInt(value, 10)
 				default:
