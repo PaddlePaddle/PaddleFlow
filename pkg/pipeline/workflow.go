@@ -427,7 +427,7 @@ func (wf *Workflow) newWorkflowRuntime() error {
 		}
 
 		stepInfo := wf.runSteps[stepName]
-		wf.runtime.steps[stepName], err = NewStep(stepName, wf.runtime, stepInfo, disabled)
+		wf.runtime.entrypoints[stepName], err = NewStep(stepName, wf.runtime, stepInfo, disabled)
 		if err != nil {
 			return err
 		}
@@ -437,7 +437,7 @@ func (wf *Workflow) newWorkflowRuntime() error {
 
 // set workflow runtime when server resuming
 func (wf *Workflow) SetWorkflowRuntime(runtime schema.RuntimeView) error {
-	for name, step := range wf.runtime.steps {
+	for name, step := range wf.runtime.entrypoints {
 		jobView, ok := runtime[name]
 		if !ok {
 			continue

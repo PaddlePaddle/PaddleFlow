@@ -16,7 +16,10 @@ limitations under the License.
 
 package common
 
+type NodeType string
+
 const (
+	// 如果有增加新的系统变量，记得需要同步更新 SysParamNameList
 	SysParamNamePFRunID    = "PF_RUN_ID"
 	SysParamNamePFFsID     = "PF_FS_ID"
 	SysParamNamePFJobID    = "PF_JOB_ID"
@@ -24,6 +27,7 @@ const (
 	SysParamNamePFFsName   = "PF_FS_NAME"
 	SysParamNamePFUserID   = "PF_USER_ID"
 	SysParamNamePFUserName = "PF_USER_NAME"
+	SysParamNamePFRUNTIME  = "PF_RUN_TIME"
 
 	WfExtraInfoKeySource   = "Source" // pipelineID or yamlPath
 	WfExtraInfoKeyUserName = "UserName"
@@ -37,13 +41,27 @@ const (
 	WfParallelismDefault = 10
 	WfParallelismMaximum = 20
 
-	FieldParameters       = "parameters"
-	FieldCommand          = "command"
-	FieldEnv              = "env"
-	FieldInputArtifacts   = "inputArtifacts"
-	FieldOutputArtifacts  = "outputArtifacts"
+	FieldParameters      = "parameters"
+	FieldCommand         = "command"
+	FieldEnv             = "env"
+	FieldInputArtifacts  = "inputArtifacts"
+	FieldOutputArtifacts = "outputArtifacts"
 
 	CacheStrategyConservative = "conservative"
 	CacheStrategyAggressive   = "aggressive"
 	CacheExpiredTimeNever     = "-1"
+
+	EntryPointNode  NodeType = "entrypoints"
+	PostProcessNode NodeType = "postProcess"
 )
+
+var SysParamNameList []string = []string{
+	SysParamNamePFRunID,
+	SysParamNamePFFsID,
+	SysParamNamePFJobID,
+	SysParamNamePFStepName,
+	SysParamNamePFFsName,
+	SysParamNamePFUserID,
+	SysParamNamePFUserName,
+	SysParamNamePFRUNTIME,
+}
