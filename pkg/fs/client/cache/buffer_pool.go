@@ -122,7 +122,7 @@ func (pool *BufferPool) RequestMBuf(size uint64, block bool, blockSize int) (buf
 	}
 
 	pool.totalBuffers++
-	buf = make([]byte, 0, size)
+	buf = make([]byte, 0, size)	
 	return
 }
 
