@@ -183,13 +183,13 @@ func (wfs *WorkflowSource) validateStepCacheByMap(yamlMap map[string]interface{}
 			cacheMap := cache.(map[string]interface{})
 			// Enable字段赋值
 			if value, ok := cacheMap[CacheAttributeEnable]; ok {
-				switch value.(type) {
+				switch value := value.(type) {
 				case bool:
-					point.Cache.Enable = value.(bool)
+					point.Cache.Enable = value
 				case string:
-					res, err := strconv.ParseBool(value.(string))
+					res, err := strconv.ParseBool(value)
 					if err != nil {
-						return fmt.Errorf("parse cache attribute [%s] from string to bool failed.", CacheAttributeEnable)
+						return fmt.Errorf("parse cache attribute [%s] from string to bool failed", CacheAttributeEnable)
 					}
 					point.Cache.Enable = res
 				default:
@@ -199,13 +199,13 @@ func (wfs *WorkflowSource) validateStepCacheByMap(yamlMap map[string]interface{}
 			}
 			// MaxExpiredTime字段赋值
 			if value, ok := cacheMap[CacheAttributeMaxExpiredTime]; ok {
-				switch value.(type) {
+				switch value := value.(type) {
 				case string:
-					point.Cache.MaxExpiredTime = value.(string)
+					point.Cache.MaxExpiredTime = value
 				case int:
-					point.Cache.MaxExpiredTime = strconv.Itoa(value.(int))
+					point.Cache.MaxExpiredTime = strconv.Itoa(value)
 				case int64:
-					point.Cache.MaxExpiredTime = strconv.FormatInt(value.(int64), 10)
+					point.Cache.MaxExpiredTime = strconv.FormatInt(value, 10)
 				default:
 					return fmt.Errorf("cannot assign cache attribute [%s] by value[%v] with type [%s]",
 						CacheAttributeMaxExpiredTime, value, reflect.TypeOf(value).Name())
@@ -213,9 +213,9 @@ func (wfs *WorkflowSource) validateStepCacheByMap(yamlMap map[string]interface{}
 			}
 			// FsScope字段赋值
 			if value, ok := cacheMap[CacheAttributeFsScope]; ok {
-				switch value.(type) {
+				switch value := value.(type) {
 				case string:
-					point.Cache.FsScope = value.(string)
+					point.Cache.FsScope = value
 				default:
 					return fmt.Errorf("cannot assign cache attribute [%s] by value[%v] with type [%s]",
 						CacheAttributeFsScope, value, reflect.TypeOf(value).Name())
