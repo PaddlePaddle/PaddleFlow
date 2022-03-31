@@ -281,6 +281,13 @@ func TestGetFsScopeModTime(t *testing.T) {
 		_, ok := fsScopeMap[path]
 		assert.Equal(t, ok, true)
 	}
+
+	// 校验Fs_scope为空字符串时，不会添加默认的路径
+	fs_scope_bak := calculator.(*conservativeCacheCalculator).cacheConfig.FsScope
+	calculator.(*conservativeCacheCalculator).cacheConfig.FsScope = ""
+	fsScopeMap, _ = calculator.(*conservativeCacheCalculator).getFsScopeModTime()
+	assert.Equal(t, 0, len(fsScopeMap))
+	calculator.(*conservativeCacheCalculator).cacheConfig.FsScope = fs_scope_bak
 }
 
 func TestGetInputArtifactModTime(t *testing.T) {

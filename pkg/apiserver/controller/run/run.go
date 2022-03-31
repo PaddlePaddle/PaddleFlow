@@ -443,17 +443,19 @@ func DeleteRun(ctx *logger.RequestContext, id string, request *DeleteRunRequest)
 		}
 	}
 
-	// delete artifact
-	resourceHandler, err := pipeline.NewResourceHandler(id, run.FsID, ctx.Logging())
-	if err != nil {
-		ctx.Logging().Errorf("delete run[%s] failed. Init handler failed. err: %v", id, err.Error())
-		ctx.ErrorCode = common.InternalError
-		return err
-	}
-	if err := resourceHandler.ClearResource(); err != nil {
-		ctx.Logging().Errorf("delete run[%s] failed. Delete artifact failed. err: %v", id, err.Error())
-		ctx.ErrorCode = common.InternalError
-		return err
+	// 删除pipeline run outputAtf (只有Fs不为空，才需要清理artifact。因为不使用Fs时，不允许定义outputAtf)
+	if run.FsID != "" {
+		resourceHandler, err := pipeline.NewResourceHandler(id, run.FsID, ctx.Logging())
+		if err != nil {
+			ctx.Logging().Errorf("delete run[%s] failed. Init handler failed. err: %v", id, err.Error())
+			ctx.ErrorCode = common.InternalError
+			return err
+		}
+		if err := resourceHandler.ClearResource(); err != nil {
+			ctx.Logging().Errorf("delete run[%s] failed. Delete artifact failed. err: %v", id, err.Error())
+			ctx.ErrorCode = common.InternalError
+			return err
+		}
 	}
 
 	// delete
