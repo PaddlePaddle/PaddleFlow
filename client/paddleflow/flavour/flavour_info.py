@@ -13,8 +13,20 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-#!/usr/bin/env python3
+
+# !/usr/bin/env python3
 # -*- coding:utf8 -*-
 
-from .flavour_api import FlavouriceApi
-from .flavour_info import FlavourInfo
+
+class FlavourInfo(object):
+    """the class of flavour info"""
+
+    def __init__(self, name, cpu, mem, scalar_resources, cluster_name, createtime, updatetime):
+        """init """
+        self.name = name
+        self.cpu = cpu
+        self.mem = mem
+        self.scalar_resources = scalar_resources
+        self.cluster_name = cluster_name
+        self.createtime = createtime
+        self.updatetime = updatetime
