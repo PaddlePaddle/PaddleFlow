@@ -35,7 +35,7 @@ def flavour():
 @flavour.command()
 @click.option('-m', '--maxkeys', help="Max size of the listed cluster.", default=100)
 @click.option('--marker', help="Next page.")
-@click.option('-cn', '--clustername', help="List the flavours by cluster")
+@click.option('-cn', '--clustername', help="List the flavours by cluster name")
 @click.pass_context
 def list(ctx, maxkeys, marker=None, clustername="", key=""):
     """ list flavour."""
@@ -73,10 +73,10 @@ def show(ctx, flavourname):
 
 @flavour.command()
 @click.option('-n',"--flavourname", required=True)
-@click.option('-c', '--cpu', help="CPU")
+@click.option('-c', '--cpu', help="CPU, e.g. --cpu 4")
 @click.option('-m', '--memory', help="Memory, e.g. --memroy 10G")
-@click.option('-s','--scalar', help='the scalar resource of flavour, e.g. --scalar a=b,c=d')
-@click.option('-cn', '--clusterName', help="Cluster name.")
+@click.option('-s','--scalar', help='The scalar resource of flavour, e.g. --scalar a=b,c=d')
+@click.option('-cn', '--clusterName', help="Cluster name that flavour belongs to.")
 @click.pass_context
 def update(ctx, flavourname, cpu=None, memory=None, scalar=None, clustername=None):
     """ update info from flavourname.\n
@@ -100,10 +100,10 @@ def update(ctx, flavourname, cpu=None, memory=None, scalar=None, clustername=Non
 
 @flavour.command()
 @click.option('-n', "--flavourname", required=True)
-@click.option('-c', '--cpu', help="CPU", required=True)
-@click.option('-m', '--memory', help="Memory.", required=True)
-@click.option('-s', '--scalar', help='the scalar resource of flavour, e.g. --scalar a=b,c=d')
-@click.option('-cn', '--clustername', help='the name of cluster')
+@click.option('-c', '--cpu', help="CPU, e.g. --cpu 4", required=True)
+@click.option('-m', '--memory', help="Memory, e.g. --memroy 10G", required=True)
+@click.option('-s', '--scalar', help='The scalar resource of flavour, e.g. --scalar a=b,c=d')
+@click.option('-cn', '--clustername', help='Cluster name that flavour belongs to.')
 @click.pass_context
 def create(ctx, flavourname, cpu, memory, scalar=None, clustername=None):
     """ create flavour.\n
