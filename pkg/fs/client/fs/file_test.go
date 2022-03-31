@@ -113,6 +113,8 @@ func TestFSClient_readAt_BigOff(t *testing.T) {
 	assert.Equal(t, err, nil)
 	buf = make([]byte, 3)
 	n, err = reader.ReadAt(buf, 1)
+	assert.Equal(t, 3, n)
+	assert.Equal(t, nil, err)
 
 	n = 10
 	reader, err = client.Open(path)
@@ -253,8 +255,8 @@ func TestReadAtCocurrent(t *testing.T) {
 	wg.Add(g)
 	for i := 0; i < g; i++ {
 		go func() {
-			n = 3
-			buf := make([]byte, n)
+			n1 := 3
+			buf := make([]byte, n1)
 			n, err = reader.ReadAt(buf, 2)
 			assert.Equal(t, nil, err)
 			assert.Equal(t, len(buf), n)

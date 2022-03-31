@@ -73,7 +73,6 @@ type dataReader struct {
 	sync.Mutex
 	m          meta.Meta
 	files      map[Ino]*fileReader
-	ufsMap     *ufsMap
 	store      cache.Store
 	bufferPool *cache.BufferPool
 	blockSize  int

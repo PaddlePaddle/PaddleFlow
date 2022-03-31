@@ -23,16 +23,32 @@ import (
 	"runtime/debug"
 	"sync"
 
+	"github.com/panjf2000/ants/v2"
 	"github.com/shirou/gopsutil/v3/mem"
 	log "github.com/sirupsen/logrus"
 )
+
+// todo:: cacheBuf may be block, can use ringbuf
+var cacheChan = make(chan *Page, 2000)
+var cacheGoPool, _ = ants.NewPool(5)
+
+func init() {
+	go func() {
+		for page := range cacheChan {
+			page_ := page
+			cacheGoPool.Submit(func() {
+				page_.r.setCache(page_.index, page_.buffer, len(page_.buffer))
+			})
+		}
+	}()
+}
 
 type Page struct {
 	bufferPool  *BufferPool
 	writeLength int
 	lock        sync.RWMutex
 	buffer      []byte
-	end         bool
+	ready       bool
 	index       int
 	r           *rCache
 }
@@ -105,7 +121,7 @@ func (pool *BufferPool) RequestMBuf(size uint64, block bool, blockSize int) (buf
 	}
 
 	pool.totalBuffers++
-	buf = make([]byte, 0, size)
+	buf = pool.pool.Get().([]byte)
 	return
 }
 
@@ -113,11 +129,15 @@ func (pool *BufferPool) MaybeGC() {
 	debug.FreeOSMemory()
 }
 
-func (p *Page) SetCache() {
-	tmp := p
+func (p *Page) setCache() {
+	page := &Page{
+		index:      p.index,
+		buffer:     p.buffer,
+		r:          p.r,
+		bufferPool: p.bufferPool,
+	}
 	go func() {
-		tmp.r.setCache(tmp.index, tmp.buffer, len(tmp.buffer))
-		tmp.Free()
+		cacheChan <- page
 	}()
 }
 
@@ -125,17 +145,20 @@ func (p *Page) ReadAt(buf []byte, offset uint64) (n int, err error) {
 	if int(offset) > cap(p.buffer) {
 		return 0, io.EOF
 	}
-	if int(offset) > len(p.buffer) {
+	if int(offset) > len(p.buffer) || int(offset) >= p.writeLength {
 		return 0, err
 	}
-	n = copy(buf, p.buffer[int(offset):])
-	if n == 0 && p.end == true {
+	n = copy(buf, p.buffer[int(offset):p.writeLength])
+	if n == 0 && p.ready {
 		return n, io.EOF
 	}
 	return
 }
 
 func (p *Page) WriteFrom(reader io.Reader) (n int, err error) {
+	if p.writeLength >= cap(p.buffer) {
+		return 0, err
+	}
 	n, err = reader.Read(p.buffer[p.writeLength:cap(p.buffer)])
 	p.lock.Lock()
 	p.writeLength += n
@@ -211,9 +234,9 @@ func (b *Buffer) readLoop(r ReaderProvider) {
 		nread, err := b.page.WriteFrom(b.reader)
 		if err != nil {
 			if err == io.EOF {
-				b.page.end = true
+				b.page.ready = true
 				_ = b.reader.Close()
-				b.page.SetCache()
+				b.page.setCache()
 			}
 			b.err = err
 			b.mu.Unlock()
@@ -221,9 +244,9 @@ func (b *Buffer) readLoop(r ReaderProvider) {
 		}
 
 		if nread == 0 {
-			b.page.end = true
+			b.page.ready = true
 			_ = b.reader.Close()
-			b.page.SetCache()
+			b.page.setCache()
 			b.mu.Unlock()
 			break
 		}

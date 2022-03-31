@@ -106,9 +106,7 @@ func TestFSClient_bigBuf(t *testing.T) {
 	assert.Equal(t, nil, err)
 	writer.Close()
 
-	var buf []byte
-
-	buf = make([]byte, 500)
+	buf := make([]byte, 500)
 	n, err := openAndRead(client, path, buf)
 	assert.Equal(t, nil, err)
 	assert.Equal(t, n, 22)
@@ -400,6 +398,43 @@ func openAndRead(client FSClient, path string, buf []byte) (int, error) {
 		return 0, err
 	}
 	return n, nil
+}
+
+func TestPoolOK(t *testing.T) {
+	os.RemoveAll("./mock")
+	os.RemoveAll("./mock-cache")
+	defer os.RemoveAll("./mock-cache")
+	defer os.RemoveAll("./mock")
+	d := cache.Config{
+		BlockSize:    3,
+		MaxReadAhead: 20 * 1024 * 1024,
+		Mem:          &cache.MemConfig{},
+		Disk:         &cache.DiskConfig{Dir: "./mock-cache", Expire: 600 * time.Second},
+	}
+	SetDataCache(d)
+	client := getTestFSClient(t)
+	path := "testRead"
+	writer, err := client.Create(path)
+	assert.Equal(t, nil, err)
+	writeString := "123456789"
+	_, err = writer.Write([]byte(writeString))
+	assert.Equal(t, nil, err)
+	writer.Close()
+
+	var buf []byte
+	var n int
+
+	buf = make([]byte, len([]byte(writeString)))
+	n, err = openAndRead(client, path, buf)
+	assert.Equal(t, nil, err)
+	assert.Equal(t, n, len(buf))
+	assert.Equal(t, string(buf), writeString)
+
+	buf2 := make([]byte, len([]byte(writeString)))
+	n, err = openAndRead(client, path, buf2)
+	assert.Equal(t, nil, err)
+	assert.Equal(t, n, len(buf2))
+	assert.Equal(t, string(buf2), writeString)
 }
 
 func TestFSClient_read_with_small_block_1(t *testing.T) {
