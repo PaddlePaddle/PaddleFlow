@@ -154,7 +154,7 @@ func (m *JobManagerImpl) listQueueJobs(queueID api.QueueID, status schema.JobSta
 
 	pfJobs := m.activeQueueJobs(string(queueID), []schema.JobStatus{status})
 	for _, pfJob := range pfJobs {
-		job, err := api.NewJobInfo(&pfJob.Config, pfJob.ID)
+		job, err := api.NewJobInfo(&pfJob.Config, pfJob.ID, pfJob.Name)
 		if err != nil {
 			log.Errorf("new job failed, err: %v", err)
 			continue
