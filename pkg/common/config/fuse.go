@@ -29,11 +29,11 @@ var defaultFuseConfig = FuseConfig{
 }
 
 type FuseConfig struct {
-	Uid          int  `yaml:"uid"`
-	Gid          int  `yaml:"gid"`
-	RawOwner     bool `yaml:"rawOwner"`
-	EntryTimeout int  `yaml:"entryTimeout"`
-	AttrTimeout  int  `yaml:"attrTimeout"`
+	Uid          int
+	Gid          int
+	RawOwner     bool
+	EntryTimeout int
+	AttrTimeout  int
 }
 
 var FuseConf *FuseConfig

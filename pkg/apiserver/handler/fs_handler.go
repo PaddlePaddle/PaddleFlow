@@ -25,7 +25,6 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	api "paddleflow/pkg/apiserver/controller/fs"
-	"paddleflow/pkg/common/config"
 	"paddleflow/pkg/fs/client/fs"
 	"paddleflow/pkg/fs/common"
 )
@@ -48,7 +47,7 @@ func (e FsServerEmptyError) Error() string {
 }
 
 var ReadFileFromFs = func(fsID, filePath string, logEntry *log.Entry) ([]byte, error) {
-	fsHandle, err := NewFsHandlerWithServer(fsID, config.GlobalServerConfig.ApiServer.Host, config.GlobalServerConfig.ApiServer.Port, logEntry)
+	fsHandle, err := NewFsHandlerWithServer(fsID, logEntry)
 	if err != nil {
 		logEntry.Errorf("NewFsHandler failed. err: %v", err)
 		return nil, err
@@ -81,13 +80,12 @@ func NewFsHandler(fsID string, logEntry *log.Entry) (*FsHandler, error) {
 		err := FsServerEmptyError{}
 		return nil, err
 	}
-	return NewFsHandlerWithServer(fsID, defaultFsHost, defaultFsPort, logEntry)
+	return NewFsHandlerWithServer(fsID, logEntry)
 }
 
 // 方便单测
-var NewFsHandlerWithServer = func(fsID, fsHost string, fsPort int, logEntry *log.Entry) (*FsHandler, error) {
-	logEntry.Debugf("begin to new a FsHandler with fsID[%s] and server host[%s], rpcPort[%d]",
-		fsID, fsHost, fsPort)
+var NewFsHandlerWithServer = func(fsID string, logEntry *log.Entry) (*FsHandler, error) {
+	logEntry.Debugf("begin to new a FsHandler with fsID[%s]", fsID)
 	var fsClientError error = nil
 	var fsHandler FsHandler
 	var fsClient fs.FSClient
@@ -114,7 +112,7 @@ var NewFsHandlerWithServer = func(fsID, fsHost string, fsPort int, logEntry *log
 }
 
 // 方便其余模块调用 fsHandler单测
-func MockerNewFsHandlerWithServer(fsID, fsHost string, fsRpcPort int, logEntry *log.Entry) (*FsHandler, error) {
+func MockerNewFsHandlerWithServer(fsID string, logEntry *log.Entry) (*FsHandler, error) {
 	os.MkdirAll("./mock_fs_handler", 0755)
 
 	testFsMeta := common.FSMeta{

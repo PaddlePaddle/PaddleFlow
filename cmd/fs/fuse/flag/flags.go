@@ -23,7 +23,6 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"paddleflow/pkg/common/config"
-	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/fs/client/meta"
 )
 
@@ -209,59 +208,6 @@ func UserFlags(fuseConf *config.FuseConfig) []cli.Flag {
 			Value:       false,
 			Usage:       "show the same uid and gid to ufs",
 			Destination: &fuseConf.RawOwner,
-		},
-	}
-}
-
-func LogFlags(logConf *logger.LogConfig) []cli.Flag {
-	return []cli.Flag{
-		&cli.StringFlag{
-			Name:        "log-dir",
-			Value:       "./log",
-			Usage:       "directory of log",
-			Destination: &logConf.Dir,
-		},
-		&cli.StringFlag{
-			Name:        "log-file-prefix",
-			Value:       "./pfs-fuse",
-			Usage:       "prefix of log file",
-			Destination: &logConf.FilePrefix,
-		},
-		&cli.StringFlag{
-			Name:        "log-level",
-			Value:       "INFO",
-			Usage:       "log level",
-			Destination: &logConf.Level,
-		},
-		&cli.StringFlag{
-			Name:        "log-formatter",
-			Value:       "",
-			Usage:       "log formatter",
-			Destination: &logConf.Formatter,
-		},
-		&cli.BoolFlag{
-			Name:        "log-is-compress",
-			Value:       true,
-			Usage:       "log compress",
-			Destination: &logConf.IsCompress,
-		},
-		&cli.IntFlag{
-			Name:        "log-max-keep-days",
-			Value:       90,
-			Usage:       "log max keep days",
-			Destination: &logConf.MaxKeepDays,
-		},
-		&cli.IntFlag{
-			Name:        "log-max-file-num",
-			Value:       100,
-			Usage:       "log max file number",
-			Destination: &logConf.MaxFileNum,
-		},
-		&cli.IntFlag{
-			Name:        "log-max-file-size-in-mb",
-			Value:       200 * 1024 * 1024,
-			Usage:       "log max file size in MiB",
-			Destination: &logConf.MaxFileSizeInMB,
 		},
 	}
 }

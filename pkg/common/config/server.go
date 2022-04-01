@@ -21,6 +21,7 @@ import (
 	"paddleflow/pkg/common/schema"
 )
 
+var DefaultRunYamlPath string = "./run.yaml"
 var serverDefaultConfPath = "./config/server/default/paddleserver.yaml"
 
 type ServerConfig struct {

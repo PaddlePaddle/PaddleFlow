@@ -67,8 +67,8 @@ func CmdMount() *cli.Command {
 		flag.LinkFlags(),
 		flag.BasicFlags(),
 		flag.CacheFlags(config.FuseConf),
-		flag.LogFlags(&logConf),
 		flag.UserFlags(config.FuseConf),
+		logger.LogFlags(&logConf),
 		metric.MetricsFlags(),
 	}
 	return &cli.Command{
@@ -151,6 +151,12 @@ func setup(c *cli.Context) error {
 			}
 		}()
 	}
+
+	if c.Bool("metrics-service-on") {
+		metricsAddr := exposeMetrics(c.String("server"), c.Int("metrics-service-port"))
+		log.Debugf("mount opts: %+v, metricsAddr: %s", opts, metricsAddr)
+	}
+
 	return nil
 }
 
@@ -197,11 +203,6 @@ func mount(c *cli.Context) error {
 	if err := setup(c); err != nil {
 		log.Errorf("mount setup() err: %v", err)
 		return err
-	}
-
-	if c.Bool("metrics-service-on") {
-		metricsAddr := exposeMetrics(c.String("server"), c.Int("metrics-service-port"))
-		log.Debugf("mount opts: %+v, metricsAddr: %s", opts, metricsAddr)
 	}
 
 	log.Debugf("start mount service")
