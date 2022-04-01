@@ -58,86 +58,20 @@ func AddFlagSet(fs *pflag.FlagSet, logConf *LogConfig) {
 	fs.StringVar(&logConf.Formatter, "log-formatter", logConf.Formatter, "Use log compress")
 }
 
-func Init(logConf *LogConfig) error {
-	fmt.Printf("begin init log. log conf:%v\n", logConf)
-	return InitFileLogger(logConf)
-}
-
 /*
- * NewStdoutLogger - New a logger for stdout
- * PARAMS:
- * RETURNS:
- * 	*log.Logger, error
- */
-func NewStdoutLogger() (*log.Logger, error) {
-	logger := log.New()
-	err := initStdoutLogger(logger)
-	if err != nil {
-		fmt.Errorf("NewStdoutLogger error：%s\n", err.Error())
-		return nil, err
-	}
-	return logger, nil
-}
-
-/*
- * InitStdoutLogger - initialize standard logger for stdout
- * PARAMS:
- * RETURNS:
- * 	nil, if succeed
- *  error, if fail
- */
-func InitStdoutLogger() error {
-	return initStdoutLogger(log.StandardLogger())
-}
-
-/*
- * initStdoutLogger - initialize standard logger for stdout
- * PARAMS:
- *   - logger: *log.Logger
- * RETURNS:
- * 	nil, if succeed
- *  error, if fail
- */
-func initStdoutLogger(logger *log.Logger) error {
-	logger.SetLevel(log.InfoLevel)
-	logger.SetReportCaller(true)
-	logger.SetFormatter(&Formatter{
-		TimestampFormat: time.RFC3339,
-	})
-	return nil
-}
-
-/*
- * InitFileLogger - initialize standard logger for file record
+ * InitStandardFileLogger - initialize standard logger for file record
  * PARAMS:
  *   - logConf: config of log
  * RETURNS:
  * 	nil, if succeed
  *  error, if fail
  */
-func InitFileLogger(logConf *LogConfig) error {
-	return initFileLogger(log.StandardLogger(), logConf)
+func InitStandardFileLogger(logConf *LogConfig) error {
+	return InitFileLogger(log.StandardLogger(), logConf)
 }
 
 /*
- * NewFileLogger - new a file logger
- * PARAMS:
- *   - logConf: config of log
- * RETURNS:
- * 	*log.Logger, error
- */
-func NewFileLogger(logConf *LogConfig) (*log.Logger, error) {
-	logger := log.New()
-	err := initFileLogger(logger, logConf)
-	if err != nil {
-		fmt.Errorf("NewFileLogger init error：%s\n", err.Error())
-		return nil, err
-	}
-	return logger, nil
-}
-
-/*
- * initFileLogger - initialize file logger
+ * InitFileLogger - initialize file logger
  * PARAMS:
  *   - logger: *log.Logger
  *   - logConf: config of log
@@ -145,7 +79,7 @@ func NewFileLogger(logConf *LogConfig) (*log.Logger, error) {
  * 	nil, if succeed
  *  error, if fail
  */
-func initFileLogger(logger *log.Logger, logConf *LogConfig) error {
+func InitFileLogger(logger *log.Logger, logConf *LogConfig) error {
 	hostname, err := os.Hostname()
 	if err != nil {
 		fmt.Println(fmt.Sprintf("failed to get hostname: %v", err))
