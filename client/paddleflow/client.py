@@ -206,12 +206,52 @@ class Client(object):
             raise PaddleFlowSDKException("InvalidQueueName", "queuename should not be none or empty")
         return QueueServiceApi.stop_queue(self.paddleflow_server, queuename, action, self.header)
     
-    def flavour(self):
+    def list_flavour(self, maxsize=100, marker=None, clustername="", key=""):
         """
         list flavour
         """
         self.pre_check()
-        return FlavouriceApi.flavour(self.paddleflow_server, self.header)
+        return FlavouriceApi.list_flavour(host=self.paddleflow_server, header=self.header,
+                                          maxsize=maxsize, marker=marker, clustername=clustername, key=key)
+
+    def show_flavour(self, name):
+        """
+        show flavour
+        """
+        self.pre_check()
+        if name is None or name.strip() == "":
+            raise PaddleFlowSDKException("InvalidFlavourName", "name should not be none or empty")
+        return FlavouriceApi.show_flavour(self.paddleflow_server, name, self.header)
+
+    def add_flavour(self, name, cpu, memory, scalar_resources=None, cluster_name=None):
+        """ add flavour"""
+        self.pre_check()
+        if name is None or name.strip() == "":
+            raise PaddleFlowSDKException("InvalidFlavourName", "name should not be none or empty")
+        if cpu is None or cpu.strip() == "":
+            raise PaddleFlowSDKException("InvalidFlavourName", "cpu should not be none or empty")
+        if memory is None or memory.strip() == "":
+            raise PaddleFlowSDKException("InvalidFlavourName", "memory should not be none or empty")
+
+        return FlavouriceApi.add_flavour(self.paddleflow_server, name, cpu=cpu, mem=memory, scalar_resources=scalar_resources,
+                                         cluster_name=cluster_name, header=self.header)
+
+    def del_flavour(self, flavourname):
+        """ delete flavour"""
+        self.pre_check()
+        if flavourname is None or flavourname.strip() == "":
+            raise PaddleFlowSDKException("InvalidFlavourName", "flavourname should not be none or empty")
+        return FlavouriceApi.del_flavour(self.paddleflow_server, flavourname, self.header)
+
+    def update_flavour(self, name, cpu=None, memory=None, scalar_resources=None, cluster_name=None):
+        """
+        update cluster
+        """
+        self.pre_check()
+        if name is None or name.strip() == "":
+            raise PaddleFlowSDKException("InvalidFlavourName", "name should not be none or empty")
+        return FlavouriceApi.update_flavour(self.paddleflow_server, name, cpu=cpu, mem=memory, scalar_resources=scalar_resources,
+                                         cluster_name=cluster_name, header=self.header)
 
     def add_fs(self, fsname, url, username=None, properties=None):
         """
