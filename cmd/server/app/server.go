@@ -109,7 +109,7 @@ func (s *Server) Init() {
 		version.PrintVersionAndExit()
 	}
 
-	err := logger.Init(&s.ServerConf.Log)
+	err := logger.InitStandardFileLogger(&s.ServerConf.Log)
 	if err != nil {
 		panic("init logger failed.")
 	}
