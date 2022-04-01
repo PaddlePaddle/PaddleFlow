@@ -29,14 +29,13 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"paddleflow/cmd/fs/fuse/flag"
-	"paddleflow/pkg/common/config"
 	mountutil "paddleflow/pkg/fs/utils/mount"
+	"paddleflow/pkg/metric"
 )
 
 func CmdStats() *cli.Command {
 	compoundFlags := [][]cli.Flag{
-		flag.LogFlags(&config.FuseConf.Log),
-		flag.MetricsFlags(&config.FuseConf.Fuse),
+		metric.MetricsFlags(),
 	}
 	return &cli.Command{
 		Name:      "stats",
