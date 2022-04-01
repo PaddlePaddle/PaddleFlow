@@ -18,6 +18,7 @@ package models
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 	"time"
 
@@ -160,7 +161,7 @@ func ListFlavour(pk int64, maxKeys int, clusterID, queryKey string) ([]Flavour, 
 	}
 
 	if !strings.EqualFold(queryKey, "") {
-		query = query.Where("flavour.name like '%?%'", queryKey)
+		query = query.Where("flavour.name like ?", fmt.Sprintf("%%%s%%", queryKey))
 	}
 	if maxKeys > 0 {
 		query = query.Limit(int(maxKeys))
