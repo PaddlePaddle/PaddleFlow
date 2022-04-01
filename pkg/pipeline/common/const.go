@@ -17,6 +17,7 @@ limitations under the License.
 package common
 
 type NodeType string
+type ViewType string
 
 const (
 	// 如果有增加新的系统变量，记得需要同步更新 SysParamNameList
@@ -51,8 +52,11 @@ const (
 	CacheStrategyAggressive   = "aggressive"
 	CacheExpiredTimeNever     = "-1"
 
-	EntryPointNode  NodeType = "entrypoints"
-	PostProcessNode NodeType = "postProcess"
+	NodeTypeEntrypoint  NodeType = "entrypoints"
+	NodeTypePostProcess NodeType = "postProcess"
+
+	ViewTypeEntrypoint  ViewType = "entrypoints"
+	ViewTypePostProcess ViewType = "postProcess"
 )
 
 var SysParamNameList []string = []string{

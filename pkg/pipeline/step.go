@@ -361,7 +361,7 @@ func (st *Step) Execute() {
 		select {
 		case <-st.wfr.ctx.Done():
 			// 当前 PostProcess 的step无论什么情况下都会继续运行， 不会被终止
-			if st.NodeType != PostProcessNode {
+			if st.NodeType == NodeTypePostProcess {
 				return
 			}
 			logMsg := fmt.Sprintf("context of step[%s] with runid[%s] has stopped with msg:[%s], no need to execute", st.name, st.wfr.wf.RunID, st.wfr.ctx.Err())
@@ -445,7 +445,7 @@ func (st *Step) Execute() {
 			// 思考：在有节点未处于终态时， run 不应该置为终态
 			if st.wfr.ctx.Err() != nil {
 				// 当前 PostProcess 的step无论什么情况下都会继续运行， 不会被终止
-				if st.NodeType != PostProcessNode {
+				if st.NodeType == NodeTypePostProcess {
 					return
 				}
 				st.wfr.DecConcurrentJobs(1)
@@ -476,7 +476,7 @@ func (st *Step) stopJob() {
 	<-st.wfr.ctx.Done()
 
 	// 当前 PostProcess 的step无论什么情况下都会继续运行， 不会被终止
-	if st.NodeType != PostProcessNode {
+	if st.NodeType == NodeTypePostProcess {
 		return
 	}
 
