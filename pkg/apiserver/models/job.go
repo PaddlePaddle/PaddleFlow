@@ -33,7 +33,7 @@ import (
 type Job struct {
 	Pk                int64            `json:"-" gorm:"primaryKey;autoIncrement"`
 	ID                string           `json:"jobID" gorm:"type:varchar(60);uniqueIndex"`
-	Name              string           `json:"jobName" gorm:"type:varchar(255);default:''"`
+	Name              string           `json:"jobName" gorm:"type:varchar(512);default:''"`
 	UserName          string           `json:"userName" gorm:"type:varchar(255);NOT NULL"`
 	QueueID           string           `json:"queueID" gorm:"type:varchar(36);NOT NULL"`
 	Type              string           `json:"type" gorm:"type:varchar(20);NOT NULL"`

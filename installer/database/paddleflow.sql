@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS `queue` (
 CREATE TABLE IF NOT EXISTS `job` (
     `pk` bigint(20) NOT NULL AUTO_INCREMENT,
     `id` varchar(60) NOT NULL UNIQUE,
-    `name` varchar(255) DEFAULT '';
+    `name` varchar(512) DEFAULT '';
     `user_name` varchar(60) NOT NULL,
     `type` varchar(20) NOT NULL,
     `config` mediumtext NOT NULL,
