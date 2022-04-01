@@ -25,6 +25,8 @@ import (
 type JobType string
 type ActionOnJob string
 type JobStatus string
+type Framework string
+type RoleMember string
 
 const (
 	EnvJobType        = "PF_JOB_TYPE"
@@ -67,6 +69,7 @@ const (
 	EnvJobExecutorReplicas = "PF_JOB_EXECUTOR_REPLICAS"
 	EnvJobExecutorFlavour  = "PF_JOB_EXECUTOR_FLAVOUR"
 
+	// TODO move to framework
 	TypeVcJob     JobType = "vcjob"
 	TypeSparkJob  JobType = "spark"
 	TypePaddleJob JobType = "paddlejob"
@@ -80,7 +83,24 @@ const (
 	StatusJobTerminating JobStatus = "terminating"
 	StatusJobTerminated  JobStatus = "terminated"
 	StatusJobCancelled   JobStatus = "cancelled"
-	StatusJobSkipped   JobStatus = "skipped"
+	StatusJobSkipped     JobStatus = "skipped"
+
+	RoleMaster   RoleMember = "master"
+	RoleWorker   RoleMember = "worker"
+	RoleDriver   RoleMember = "driver"
+	RoleExecutor RoleMember = "executor"
+	RolePServer  RoleMember = "pserver"
+	RolePWorker  RoleMember = "pworker"
+
+	TypeSingle      JobType = "single"
+	TypeDistributed JobType = "distributed"
+	TypeWorkflow    JobType = "workflow"
+
+	FrameworkSpark   Framework = "spark"
+	FrameworkMPI     Framework = "mpi"
+	FrameworkTF      Framework = "tensorflow"
+	FrameworkPytorch Framework = "pytorch"
+	FrameworkPaddle  Framework = "paddle"
 
 	// job priority
 	EnvJobVeryLowPriority  = "VERY_LOW"
@@ -154,10 +174,28 @@ type PFJobConf interface {
 }
 
 type Conf struct {
-	Name    string            `json:"name"`
-	Env     map[string]string `json:"env"`
-	Command string            `json:"command"`
-	Image   string            `json:"image"`
+	Name string `json:"name"`
+	// 存储资源
+	FileSystem      FileSystem   `json:"fileSystem,omitempty"`
+	ExtraFileSystem []FileSystem `json:"extraFileSystem,omitempty"`
+	// 计算资源
+	Flavour  Flavour `json:"flavour,omitempty"`
+	Priority string  `json:"priority"`
+	// 运行时需要的参数
+	Labels      map[string]string `json:"labels,omitempty"`
+	Annotations map[string]string `json:"annotations,omitempty"`
+	Env         map[string]string `json:"env,omitempty"`
+	Command     string            `json:"command,omitempty"`
+	Image       string            `json:"image"`
+	Port        int               `json:"port,omitempty"`
+	Args        []string          `json:"args,omitempty"`
+}
+
+type FileSystem struct {
+	Name      string `json:"name"`
+	MountPath string `json:"mountPath,omitempty"`
+	SubPath   string `json:"subPath,omitempty"`
+	ReadOnly  bool   `json:"readOnly,omitempty"`
 }
 
 func (c *Conf) GetName() string {
