@@ -77,9 +77,9 @@ func (st *Step) getLogger() *logrus.Entry {
 func (st *Step) generateStepParamSolver(forCacheFingerprint bool) StepParamSolver {
 	steps := make(map[string]*schema.WorkflowSourceStep)
 	jobs := make(map[string]Job)
-	for _, step := range st.wfr.steps {
-		steps[step.name] = st.wfr.steps[step.name].info
-		jobs[step.name] = st.wfr.steps[step.name].job
+	for _, step := range st.wfr.entryPoints {
+		steps[step.name] = st.wfr.entryPoints[step.name].info
+		jobs[step.name] = st.wfr.entryPoints[step.name].job
 	}
 
 	var sysParams = map[string]string{

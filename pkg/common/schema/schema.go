@@ -29,13 +29,15 @@ type JobView struct {
 	Deps       string            `json:"deps"`
 	DockerEnv  string            `json:"dockerEnv"`
 	Artifacts  Artifacts         `json:"artifacts"`
-	Cache	   Cache			 `json:"cache"`
+	Cache      Cache             `json:"cache"`
 	JobMessage string            `json:"jobMessage"`
 	CacheRunID string            `json:"cacheRunID"`
 }
 
 // RuntimeView is view of run responded to user, while workflowRuntime is for pipeline engine to process
 type RuntimeView map[string]JobView
+
+type PostProcessView RuntimeView
 
 type LogRunCacheRequest struct {
 	FirstFp     string `json:"firstFp"`

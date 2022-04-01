@@ -37,11 +37,11 @@ func TestUpdateJobForFingerPrint(t *testing.T) {
 		t.Errorf("new workflow failed: %s", err.Error())
 	}
 
-	sortedSteps, err := wf.topologicalSort(wf.runSteps)
+	sortedSteps, err := wf.topologicalSort(wf.entryPoints)
 	assert.Nil(t, err)
 
 	for _, stepName := range sortedSteps {
-		st := wf.runtime.steps[stepName]
+		st := wf.runtime.entryPoints[stepName]
 
 		forCacheFingerprint := true
 		err := st.updateJob(forCacheFingerprint, nil)
@@ -130,11 +130,11 @@ func TestUpdateJob(t *testing.T) {
 		t.Errorf("new workflow failed: %s", err.Error())
 	}
 
-	sortedSteps, err := wf.topologicalSort(wf.runSteps)
+	sortedSteps, err := wf.topologicalSort(wf.entryPoints)
 	assert.Nil(t, err)
 
 	for _, stepName := range sortedSteps {
-		st := wf.runtime.steps[stepName]
+		st := wf.runtime.entryPoints[stepName]
 
 		forCacheFingerprint := false
 		err := st.updateJob(forCacheFingerprint, nil)
@@ -227,7 +227,7 @@ func TestUpdateJobWithCache(t *testing.T) {
 		t.Errorf("new workflow failed: %s", err.Error())
 	}
 
-	sortedSteps, err := wf.topologicalSort(wf.runSteps)
+	sortedSteps, err := wf.topologicalSort(wf.entryPoints)
 	assert.Nil(t, err)
 
 	cacheOutputArtifacts := make(map[string]string)
@@ -236,7 +236,7 @@ func TestUpdateJobWithCache(t *testing.T) {
 	cacheOutputArtifacts["train_data"] = cacheOutatfTrainData
 	cacheOutputArtifacts["validate_data"] = cacheOutatfValidateData
 	for _, stepName := range sortedSteps {
-		st := wf.runtime.steps[stepName]
+		st := wf.runtime.entryPoints[stepName]
 
 		forCacheFingerprint := false
 		if stepName == "data_preprocess" {
@@ -344,7 +344,7 @@ func TestCheckCached(t *testing.T) {
 		t.Errorf("new workflow failed: %s", err.Error())
 	}
 
-	st := wf.runtime.steps["data_preprocess"]
+	st := wf.runtime.entryPoints["data_preprocess"]
 	patches := gomonkey.ApplyMethod(reflect.TypeOf(st.job), "Validate", func(_ *PaddleFlowJob) error {
 		return nil
 	})
@@ -378,7 +378,7 @@ func TestCheckCached(t *testing.T) {
 		t.Errorf("new workflow failed: %s", err.Error())
 	}
 
-	st = wf.runtime.steps["data_preprocess"]
+	st = wf.runtime.entryPoints["data_preprocess"]
 	cacheFound, err = st.checkCached()
 	assert.Nil(t, err)
 	assert.Equal(t, false, cacheFound)
@@ -396,7 +396,7 @@ func TestCheckCached(t *testing.T) {
 		t.Errorf("new workflow failed: %s", err.Error())
 	}
 
-	st = wf.runtime.steps["data_preprocess"]
+	st = wf.runtime.entryPoints["data_preprocess"]
 	cacheFound, err = st.checkCached()
 	assert.Nil(t, err)
 	assert.Equal(t, false, cacheFound)
@@ -414,7 +414,7 @@ func TestCheckCached(t *testing.T) {
 		t.Errorf("new workflow failed: %s", err.Error())
 	}
 
-	st = wf.runtime.steps["data_preprocess"]
+	st = wf.runtime.entryPoints["data_preprocess"]
 	cacheFound, err = st.checkCached()
 	assert.Nil(t, err)
 	assert.Equal(t, true, cacheFound)
@@ -432,7 +432,7 @@ func TestCheckCached(t *testing.T) {
 		t.Errorf("new workflow failed: %s", err.Error())
 	}
 
-	st = wf.runtime.steps["data_preprocess"]
+	st = wf.runtime.entryPoints["data_preprocess"]
 	cacheFound, err = st.checkCached()
 	assert.Nil(t, err)
 	assert.Equal(t, true, cacheFound)

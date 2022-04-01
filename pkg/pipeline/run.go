@@ -31,11 +31,14 @@ type WorkflowRuntime struct {
 	wf               *Workflow
 	ctx              context.Context
 	ctxCancel        context.CancelFunc
-	steps            map[string]*Step
+	entryPoints      map[string]*Step
+	postProcess      map[string]*Step
 	event            chan WorkflowEvent // 用来从 job 传递事件
 	concurrentJobs   chan struct{}
 	concurrentJobsMx sync.Mutex
 	status           string
+	runtimeView      schema.RuntimeView
+	postProcessView  schema.PostProcessView
 }
 
 func NewWorkflowRuntime(wf *Workflow, parallelism int) *WorkflowRuntime {
@@ -44,7 +47,7 @@ func NewWorkflowRuntime(wf *Workflow, parallelism int) *WorkflowRuntime {
 		wf:             wf,
 		ctx:            ctx,
 		ctxCancel:      ctxCancel,
-		steps:          map[string]*Step{},
+		entryPoints:    map[string]*Step{},
 		event:          make(chan WorkflowEvent, parallelism),
 		concurrentJobs: make(chan struct{}, parallelism),
 	}
@@ -55,7 +58,7 @@ func NewWorkflowRuntime(wf *Workflow, parallelism int) *WorkflowRuntime {
 func (wfr *WorkflowRuntime) Start() error {
 	wfr.status = common.StatusRunRunning
 
-	for st_name, st := range wfr.steps {
+	for st_name, st := range wfr.entryPoints {
 		if st.done {
 			wfr.wf.log().Debugf("Skip step: %s", st_name)
 			continue
@@ -78,7 +81,7 @@ func (wfr *WorkflowRuntime) Start() error {
 // Restart 从 DB 中恢复重启
 func (wfr *WorkflowRuntime) Restart() error {
 	wfr.status = common.StatusRunRunning
-	for _, step := range wfr.steps {
+	for _, step := range wfr.entryPoints {
 		if step.done {
 			continue
 		}
@@ -87,7 +90,7 @@ func (wfr *WorkflowRuntime) Restart() error {
 
 	// 如果在服务异常过程中，刚好 step 中的任务已经完成，而新的任务还没有开始，此时会导致调度逻辑永远不会 watch 到新的 event
 	// 不在上面直接判断 step.depsReady 的原因：wfr.steps 是 map，遍历顺序无法确定，必须保证已提交的任务先占到槽位，才能保证并发数控制正确
-	for stepName, step := range wfr.steps {
+	for stepName, step := range wfr.entryPoints {
 		if step.done || step.submitted {
 			continue
 		}
@@ -184,7 +187,7 @@ func (wfr *WorkflowRuntime) updateStatus() {
 	stepDone := 0
 	hasFailedStep := false
 	hasTerminatedStep := false
-	for st_name, st := range wfr.steps {
+	for st_name, st := range wfr.entryPoints {
 		if st.job.Succeeded() {
 			stepDone++
 			wfr.wf.log().Infof("has succeeded step: %s", st_name)
@@ -221,7 +224,7 @@ func (wfr *WorkflowRuntime) updateStatus() {
 	// 其余情况都为succeeded，因为：
 	// - 有step为 cancelled 状态，那就肯定有有step为terminated
 	// - 另外skipped 状态的节点也视作运行成功（目前运行所有step都skip，此时run也是为succeeded）
-	if stepDone == len(wfr.steps) {
+	if stepDone == len(wfr.entryPoints) {
 		if hasFailedStep {
 			wfr.status = common.StatusRunFailed
 		} else if hasTerminatedStep {
@@ -253,7 +256,7 @@ func (wfr *WorkflowRuntime) isDepsReady(step *Step) bool {
 		if len(ds) <= 0 {
 			continue
 		}
-		if !wfr.steps[ds].job.Succeeded() && !wfr.steps[ds].job.Skipped() {
+		if !wfr.entryPoints[ds].job.Succeeded() && !wfr.entryPoints[ds].job.Skipped() {
 			depsReady = false
 		}
 	}
@@ -262,7 +265,7 @@ func (wfr *WorkflowRuntime) isDepsReady(step *Step) bool {
 
 func (wfr *WorkflowRuntime) callback(event WorkflowEvent) {
 	runtimeView := make(schema.RuntimeView, 0)
-	for name, st := range wfr.steps {
+	for name, st := range wfr.entryPoints {
 		job := st.job.Job()
 		jobView := schema.JobView{
 			JobID:      job.Id,
