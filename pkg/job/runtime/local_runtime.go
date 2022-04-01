@@ -52,6 +52,16 @@ func (l *LocRuntime) StopJob(job *api.PFJob) error {
 	return nil
 }
 
+func (l *LocRuntime) UpdateJob(job *api.PFJob) error {
+	// TODO: update local job
+	return nil
+}
+
+func (l *LocRuntime) DeleteJob(job *api.PFJob) error {
+	// TODO: kill local job
+	return nil
+}
+
 func (l *LocRuntime) SyncJob(stopCh <-chan struct{}) {
 	// TODO: add local job sync
 }
