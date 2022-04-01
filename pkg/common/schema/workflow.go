@@ -82,13 +82,19 @@ type Cache struct {
 	FsScope        string `yaml:"fs_scope"`         // seperated by ","
 }
 
+type FailureOptions struct {
+	Strategy string `yaml:"strategy"`
+}
+
 type WorkflowSource struct {
-	Name        string                         `yaml:"name"`
-	DockerEnv   string                         `yaml:"docker_env"`
-	EntryPoints map[string]*WorkflowSourceStep `yaml:"entry_points"`
-	Cache       Cache                          `yaml:"cache"`
-	Parallelism int                            `yaml:"parallelism"`
-	Disabled    string                         `yaml:"disabled"`
+	Name           string                         `yaml:"name"`
+	DockerEnv      string                         `yaml:"docker_env"`
+	EntryPoints    map[string]*WorkflowSourceStep `yaml:"entry_points"`
+	Cache          Cache                          `yaml:"cache"`
+	Parallelism    int                            `yaml:"parallelism"`
+	Disabled       string                         `yaml:"disabled"`
+	FailureOptions FailureOptions                 `yaml:"failure_options"`
+	PostProcess    map[string]*WorkflowSourceStep `yaml:"post_process"`
 }
 
 func (wfs *WorkflowSource) GetDisabled() []string {
@@ -129,14 +135,8 @@ func (wfs *WorkflowSource) HasStep(step string) bool {
 	}
 }
 
-// ValidateArtifacts - 该函数的作用是将WorkflowSource中的Slice类型的输出Artifact改为Map类型
-//                     这样做的原因是：之前的run.yaml中（ver.1.3.2之前），输出Artifact为Map类型，而现在为了支持Cache的优化，改为Slice类型
-//
-// PARAMS:
-//   无
-// RETURNS:
-//   nil: 正常执行则返回nil
-//   error: 执行异常则返回错误信息
+// 该函数的作用是将WorkflowSource中的Slice类型的输出Artifact改为Map类型。
+// 这样做的原因是：之前的run.yaml中（ver.1.3.2之前），输出Artifact为Map类型，而现在为了支持Cache的优化，改为Slice类型
 func (wfs *WorkflowSource) validateArtifacts() error {
 	if wfs.EntryPoints == nil {
 		wfs.EntryPoints = make(map[string]*WorkflowSourceStep)
@@ -217,7 +217,9 @@ func (wfs *WorkflowSource) validateStepCacheByMap(yamlMap map[string]interface{}
 }
 
 func ParseWorkflowSource(runYaml []byte) (WorkflowSource, error) {
-	var wfs WorkflowSource
+	wfs := WorkflowSource{
+		FailureOptions: FailureOptions{Strategy: "fail_fast"},
+	}
 	if err := yaml.Unmarshal(runYaml, &wfs); err != nil {
 		return WorkflowSource{}, err
 	}
