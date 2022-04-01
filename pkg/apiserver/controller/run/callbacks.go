@@ -60,13 +60,15 @@ func GetJobByRun(runID string, stepName string) (schema.JobView, error) {
 		return jobView, err
 	}
 
-	jobView, ok := run.Runtime[stepName]
-	if !ok {
-		logging.Errorf("get jobView from Run with stepName[%s] failed.", stepName)
-		return jobView, fmt.Errorf("get jobView from Run with stepName[%s] failed.", stepName)
+	if jobViewRuntime, ok := run.Runtime[stepName]; ok {
+		return jobViewRuntime, nil
+	}
+	if jobViewPostProcess, ok := run.PostProcess[stepName]; ok {
+		return jobViewPostProcess, nil
 	}
 
-	return jobView, nil
+	logging.Errorf("get jobView from Run with stepName[%s] failed.", stepName)
+	return jobView, fmt.Errorf("get jobView from Run with stepName[%s] failed.", stepName)
 }
 
 func UpdateRunByWfEvent(id string, event interface{}) bool {

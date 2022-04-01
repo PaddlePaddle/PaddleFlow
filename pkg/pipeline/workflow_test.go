@@ -750,8 +750,9 @@ func TestRestartWorkflow(t *testing.T) {
 			JobID: "",
 		},
 	}
+	postProcessView := map[string]schema.JobView{}
 
-	err = wf.SetWorkflowRuntime(runtimeView)
+	err = wf.SetWorkflowRuntime(runtimeView, postProcessView)
 	assert.Nil(t, err)
 	assert.Equal(t, true, wf.runtime.entryPoints["data_preprocess"].done)
 	assert.Equal(t, true, wf.runtime.entryPoints["data_preprocess"].submitted)
@@ -783,7 +784,9 @@ func TestRestartWorkflow_from1completed(t *testing.T) {
 			JobID: "",
 		},
 	}
-	err = wf.SetWorkflowRuntime(runtimeView)
+	postProcessView := map[string]schema.JobView{}
+
+	err = wf.SetWorkflowRuntime(runtimeView, postProcessView)
 	assert.Nil(t, err)
 	assert.Equal(t, true, wf.runtime.entryPoints["data_preprocess"].done)
 	assert.Equal(t, true, wf.runtime.entryPoints["data_preprocess"].submitted)
