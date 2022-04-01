@@ -549,7 +549,7 @@ func handleImageAndStartWf(run models.Run, isResume bool) error {
 			logEntry.Debugf("workflow started, run:%+v", run)
 		} else {
 			// set runtime and restart
-			if err := wfPtr.SetWorkflowRuntime(run.Runtime); err != nil {
+			if err := wfPtr.SetWorkflowRuntime(run.Runtime, run.PostProcess); err != nil {
 				logEntry.Errorf("SetWorkflowRuntime for run[%s] failed. error:%v\n", run.ID, err)
 				return err
 			}
@@ -597,7 +597,27 @@ func newWorkflowByRun(run models.Run) (*pipeline.Workflow, error) {
 }
 
 func resetRunSteps(run *models.Run) error {
-	for stepName, jobView := range run.Runtime {
+	if err := resetRuntimeSteps(run.Runtime); err != nil {
+		err = fmt.Errorf("failed to retry run[%s], error: %v", run.ID, err)
+		logger.LoggerForRun(run.ID).Errorf(err.Error())
+		return err
+	}
+
+	if err := resetRuntimeSteps(run.PostProcess); err != nil {
+		err = fmt.Errorf("failed to retry run[%s], error: %v", run.ID, err)
+		logger.LoggerForRun(run.ID).Errorf(err.Error())
+		return err
+	}
+
+	if err := run.Encode(); err != nil {
+		logger.LoggerForRun(run.ID).Errorf("reset run steps encode failure. err: %v", err)
+		return err
+	}
+	return models.UpdateRun(logger.LoggerForRun(run.ID), run.ID, *run)
+}
+
+func resetRuntimeSteps(runtime map[string]schema.JobView) error {
+	for stepName, jobView := range runtime {
 		if jobView.Status == schema.StatusJobCancelled ||
 			jobView.Status == schema.StatusJobFailed ||
 			jobView.Status == schema.StatusJobTerminated {
@@ -606,18 +626,13 @@ func resetRunSteps(run *models.Run) error {
 			jobView.StartTime = ""
 			jobView.EndTime = ""
 
-			run.Runtime[stepName] = jobView
+			runtime[stepName] = jobView
 		}
 		if jobView.Status == schema.StatusJobRunning ||
 			jobView.Status == schema.StatusJobTerminating {
-			err := fmt.Errorf("step[%s] has invalid status[%s]. failed to retry run[%s]", stepName, jobView.Status, run.ID)
-			logger.LoggerForRun(run.ID).Errorf(err.Error())
+			err := fmt.Errorf("step[%s] has invalid status[%s]", stepName, jobView.Status)
 			return err
 		}
 	}
-	if err := run.Encode(); err != nil {
-		logger.LoggerForRun(run.ID).Errorf("reset run steps encode failure. err: %v", err)
-		return err
-	}
-	return models.UpdateRun(logger.LoggerForRun(run.ID), run.ID, *run)
+	return nil
 }

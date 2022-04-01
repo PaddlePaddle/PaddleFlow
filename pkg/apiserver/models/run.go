@@ -47,6 +47,7 @@ type Run struct {
 	WorkflowSource schema.WorkflowSource  `gorm:"-"                                 json:"-"` // RunYaml's dynamic struct
 	RuntimeRaw     string                 `gorm:"type:text;size:65535"              json:"-"`
 	Runtime        schema.RuntimeView     `gorm:"-"                                 json:"runtime"` // RuntimeRaw's struct
+	PostProcess    schema.PostProcessView `gorm:"-"                                 json:"postProcess"`
 	ImageUrl       string                 `gorm:"type:varchar(128)"                 json:"imageUrl"`
 	Entry          string                 `gorm:"type:varchar(256)"                 json:"entry"`
 	Disabled       string                 `gorm:"type:text;size:65535"              json:"disabled"`

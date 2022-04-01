@@ -567,8 +567,14 @@ func (wf *Workflow) validateRuntimeSteps(runtimeSteps map[string]*Step, steps ma
 }
 
 // set workflow runtime when server resuming
-func (wf *Workflow) SetWorkflowRuntime(runtime schema.RuntimeView) error {
-	for name, step := range wf.runtime.entryPoints {
+func (wf *Workflow) SetWorkflowRuntime(runtime schema.RuntimeView, postProcess schema.PostProcessView) error {
+	wf.setRuntimeSteps(runtime, wf.runtime.entryPoints)
+	wf.setRuntimeSteps(postProcess, wf.runtime.postProcess)
+	return nil
+}
+
+func (wf *Workflow) setRuntimeSteps(runtime map[string]schema.JobView, steps map[string]*Step) {
+	for name, step := range steps {
 		jobView, ok := runtime[name]
 		if !ok {
 			continue
@@ -597,7 +603,6 @@ func (wf *Workflow) SetWorkflowRuntime(runtime schema.RuntimeView) error {
 		}
 		step.update(stepDone, submitted, &paddleflowJob)
 	}
-	return nil
 }
 
 // Start to run a workflow
