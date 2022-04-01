@@ -81,7 +81,7 @@ func NewWorkflowRuntime(wf *Workflow, parallelism int) *WorkflowRuntime {
 func (wfr *WorkflowRuntime) Start() error {
 	wfr.status = common.StatusRunRunning
 
-	wfr.triggerSteps(wfr.entrypoints, EntryPointNode)
+	wfr.triggerSteps(wfr.entrypoints, NodeTypeEntrypoint)
 
 	go wfr.Listen()
 	return nil
@@ -108,11 +108,10 @@ func (wfr *WorkflowRuntime) triggerSteps(steps map[string]*Step, nodeType NodeTy
 	return nil
 }
 
-// Restart 从 DB 中恢复重启
-// TODO 升级处理 PostProcess 的逻辑
-func (wfr *WorkflowRuntime) Restart() error {
-	wfr.status = common.StatusRunRunning
-	for _, step := range wfr.entrypoints {
+// restartSteps
+// 不能直接复用 triggerSteps 的原因是，重启时需要考虑step 已经 submitted，但是对应的job 还没有运行结束的情况，需要给这些步骤优先占到卡槽
+func (wfr *WorkflowRuntime) restartSteps(steps map[string]*Step) error {
+	for _, step := range steps {
 		if step.done {
 			continue
 		}
@@ -121,15 +120,41 @@ func (wfr *WorkflowRuntime) Restart() error {
 
 	// 如果在服务异常过程中，刚好 step 中的任务已经完成，而新的任务还没有开始，此时会导致调度逻辑永远不会 watch 到新的 event
 	// 不在上面直接判断 step.depsReady 的原因：wfr.steps 是 map，遍历顺序无法确定，必须保证已提交的任务先占到槽位，才能保证并发数控制正确
-	for stepName, step := range wfr.entrypoints {
+	for stepName, step := range steps {
 		if step.done || step.submitted {
 			continue
 		}
-		if wfr.isDepsReady(step, wfr.entrypoints) {
+		if wfr.isDepsReady(step, steps) {
 			wfr.wf.log().Debugf("Step %s has ready to start run", stepName)
 			step.update(step.done, true, step.job)
 			step.ready <- true
 		}
+	}
+
+	return nil
+}
+
+// Restart 从 DB 中恢复重启
+func (wfr *WorkflowRuntime) Restart() error {
+	wfr.status = common.StatusRunRunning
+
+	statusToEntrySteps := wfr.statStepStatus(wfr.entrypoints)
+	statusToPostSteps := wfr.statStepStatus(wfr.postProcess)
+
+	// 1. 如果 entryPoints 中的有节点尚未处于终态，则需要处理 entrypoints 中的节点，此时 PostProcess 中的节点会在 processEvent 中进行调度
+	// 2. 如果 entryPoints 中所有节点都处于终态，且 PostProcess 中有节点未处于终态，此时直接 处理 PostProcess 中的 节点
+	// 3. 如果 entryPoints 和 PostProcess 所有节点均处于终态，则直接更新 run 的状态即可, 并调用回调函数，传给 Server 入库
+	// PS：第3种发生的概率很少，用于兜底
+	if statusToEntrySteps.countFinshedSteps() != len(wfr.entrypoints) {
+		wfr.restartSteps(wfr.entrypoints)
+	} else if statusToPostSteps.countFinshedSteps() != len(wfr.postProcess) {
+		wfr.restartSteps(wfr.postProcess)
+	} else {
+		wfr.updateStatus(statusToEntrySteps, statusToPostSteps)
+
+		message := "run has been finished"
+		wfEvent := NewWorkflowEvent(WfEventRunUpdate, message, nil)
+		wfr.callback(*wfEvent)
 	}
 
 	go wfr.Listen()
@@ -139,6 +164,7 @@ func (wfr *WorkflowRuntime) Restart() error {
 
 // Stop 停止 Workflow
 // do not call ctx_cancel(), which will be called when all steps has terminated eventually.
+// 注意: stop 时暂时不会stop PostProcess 中的节点
 func (wfr *WorkflowRuntime) Stop() error {
 	if wfr.IsCompleted() {
 		wfr.wf.log().Debugf("workflow has finished.")
@@ -197,7 +223,7 @@ func (wfr *WorkflowRuntime) IsCompleted() bool {
 
 // 触发 post_process 中的步骤
 func (wfr *WorkflowRuntime) triggerPostPorcess() error {
-	return wfr.triggerSteps(wfr.postProcess, PostProcessNode)
+	return wfr.triggerSteps(wfr.postProcess, NodeTypePostProcess)
 }
 
 // processEvent 处理 job 推送到 run 的事件
@@ -218,11 +244,14 @@ func (wfr *WorkflowRuntime) processEvent(event WorkflowEvent) error {
 	// TODO: 考虑处理 PostProcess 中节点的情况, 还有需要考虑并发性
 	if event.isJobSubmitErr() || event.isJobUpdate() {
 		status, ok := event.Extra["status"]
-		jobStatus := status.(schema.JobStatus)
-		if ok && jobStatus == schema.StatusJobFailed {
-			wfr.ProcessFailureOptions(event)
-		} else if ok && jobStatus == schema.StatusJobTerminated && wfr.status != common.StatusRunTerminating {
-			wfr.ProcessFailureOptions(event)
+		if ok {
+			jobStatus := status.(schema.JobStatus)
+			jobFaield := jobStatus == schema.StatusJobFailed
+			jobUnexpectedTerinated := jobStatus == schema.StatusJobTerminated && wfr.status != common.StatusRunTerminating
+
+			if jobFaield || jobUnexpectedTerinated {
+				wfr.ProcessFailureOptions(event)
+			}
 		}
 	}
 
@@ -233,7 +262,7 @@ func (wfr *WorkflowRuntime) processEvent(event WorkflowEvent) error {
 	statusToPostSteps := wfr.statStepStatus(wfr.postProcess)
 
 	if len(statusToEntrySteps.PengdingSteps) != 0 {
-		wfr.triggerSteps(wfr.entrypoints, EntryPointNode)
+		wfr.triggerSteps(wfr.entrypoints, NodeTypeEntrypoint)
 	} else if statusToEntrySteps.countFinshedSteps() == len(wfr.entrypoints) && len(statusToPostSteps.PengdingSteps) != 0 {
 		wfr.triggerPostPorcess()
 	} else if statusToEntrySteps.countFinshedSteps() == len(wfr.entrypoints) && statusToPostSteps.countFinshedSteps() == len(wfr.postProcess) {
@@ -371,6 +400,11 @@ func (wfr *WorkflowRuntime) ProcessFailureOptions(event WorkflowEvent) {
 		wfr.ctxCancel()
 	}
 
+	// FailureOptions 不处理 PostProcess 中的节点
+	if step.NodeType == NodeTypePostProcess {
+		return
+	}
+
 	if wfr.wf.Source.FailureOptions.Strategy == "continue" {
 		wfr.ProcessFailureOptionsWithContinue(step)
 	} else {
@@ -393,30 +427,16 @@ func (wfr *WorkflowRuntime) isDepsReady(step *Step, steps map[string]*Step) bool
 	return depsReady
 }
 
-//TODO: 升级处理 PostProcess 的逻辑
-func (wfr *WorkflowRuntime) callback(event WorkflowEvent) {
-	for name, st := range wfr.entrypoints {
-		job := st.job.Job()
-		jobView := schema.JobView{
-			JobID:      job.Id,
-			JobName:    job.Name,
-			Command:    job.Command,
-			Parameters: job.Parameters,
-			Env:        job.Env,
-			StartTime:  job.StartTime,
-			EndTime:    job.EndTime,
-			Status:     job.Status,
-			Deps:       job.Deps,
-			DockerEnv:  st.info.DockerEnv,
-			Artifacts:  job.Artifacts,
-			Cache:      st.info.Cache,
-			JobMessage: job.Message,
-			CacheRunID: st.CacheRunID,
-		}
-		wfr.runtimeView[name] = jobView
+// update RuntimeView or PostProcessView
+func (wfr *WorkflowRuntime) updateView(viewType ViewType) {
+	var steps map[string]*Step
+	if viewType == ViewTypeEntrypoint {
+		steps = wfr.entrypoints
+	} else if viewType == ViewTypePostProcess {
+		steps = wfr.postProcess
 	}
 
-	for name, st := range wfr.postProcess {
+	for name, st := range steps {
 		job := st.job.Job()
 		jobView := schema.JobView{
 			JobID:      job.Id,
@@ -434,8 +454,20 @@ func (wfr *WorkflowRuntime) callback(event WorkflowEvent) {
 			JobMessage: job.Message,
 			CacheRunID: st.CacheRunID,
 		}
-		wfr.postprocessView[name] = jobView
+		if viewType == ViewTypeEntrypoint {
+			wfr.runtimeView[name] = jobView
+		} else if viewType == ViewTypePostProcess {
+			wfr.postprocessView[name] = jobView
+		}
 	}
+}
+
+func (wfr *WorkflowRuntime) callback(event WorkflowEvent) {
+	// 1. 更新 runtimeview
+	wfr.updateView(ViewTypeEntrypoint)
+
+	// 2. 更新 postProcessView
+	wfr.updateView(ViewTypePostProcess)
 
 	extra := map[string]interface{}{
 		common.WfEventKeyRunID:       wfr.wf.RunID,
