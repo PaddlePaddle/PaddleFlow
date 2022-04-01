@@ -111,12 +111,12 @@ type PFJob struct {
 	EndTIme     time.Time
 }
 
-func NewJobInfo(conf schema.PFJobConf, jobID string) (*PFJob, error) {
+func NewJobInfo(conf schema.PFJobConf, jobID, jobName string) (*PFJob, error) {
 	jobConf := conf.(*schema.Conf)
 
 	pfjob := &PFJob{
 		ID:        jobID,
-		Name:      conf.GetName(),
+		Name:      jobName,
 		Namespace: conf.GetNamespace(),
 		JobType:   conf.Type(),
 		JobMode:   conf.GetJobMode(),
