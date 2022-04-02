@@ -87,8 +87,9 @@ type PFJob struct {
 	// JobType of job, such as TypeSingle, TypeDistributed, and TypeWorkflow
 	JobType   schema.JobType
 	Framework schema.Framework
-	JobMode   string
-	Status    string
+	// TODO: use Framework and Tasks.Role instead of JobMode
+	JobMode string
+	Status  string
 	// compute resource request resource for job
 	// ClusterID and QueueID of job
 	ClusterID    ClusterID
