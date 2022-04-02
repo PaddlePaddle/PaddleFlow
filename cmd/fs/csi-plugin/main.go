@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -24,18 +24,50 @@ import (
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
+	"github.com/urfave/cli/v2"
 
-	"paddleflow/cmd/fs/csi-plugin/app"
-	"paddleflow/pkg/common/config"
+	"paddleflow/cmd/fs/csi-plugin/flag"
+	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/fs/csiplugin/controller"
 	"paddleflow/pkg/fs/csiplugin/csidriver"
+	"paddleflow/pkg/metric"
 )
 
-func exitWithError() {
-	exit(true)
+var logConf = logger.LogConfig{
+	Dir:             "./log",
+	FilePrefix:      "./pfs-csi-plugin",
+	Level:           "INFO",
+	MaxKeepDays:     90,
+	MaxFileNum:      100,
+	MaxFileSizeInMB: 200 * 1024 * 1024,
+	IsCompress:      true,
 }
 
-func exitNormal() {
+func main() {
+	cli.VersionFlag = &cli.BoolFlag{
+		Name: "version", Aliases: []string{"V"},
+		Usage: "print only the version",
+	}
+
+	compoundFlags := [][]cli.Flag{
+		logger.LogFlags(&logConf),
+		flag.CsiPluginFlags(),
+		metric.MetricsFlags(),
+	}
+
+	app := &cli.App{
+		Name:                 "paddleflow-csi-plugin",
+		Usage:                "csi-plugin for paddleflow",
+		Version:              "1.4",
+		Copyright:            "Apache License 2.0",
+		HideHelpCommand:      true,
+		EnableBashCompletion: true,
+		Flags:                flag.ExpandFlags(compoundFlags),
+		Action:               act,
+	}
+	if err := app.Run(os.Args); err != nil {
+		exit(true)
+	}
 	exit(false)
 }
 
@@ -50,18 +82,18 @@ func exit(hasError bool) {
 	os.Exit(0)
 }
 
-// main the function where execution of the program begins
-func main() {
-	if err := app.Init(); err != nil {
-		log.Errorf("init csi plugin failed: %v", err)
-		exitWithError()
+func act(c *cli.Context) error {
+	log.Tracef("csi-plugin main act")
+	if err := logger.InitStandardFileLogger(&logConf); err != nil {
+		log.Errorf("csi-plugin logger.InitStandardFileLogger err: %v", err)
+		return err
 	}
 
-	if config.CSIPluginConf.CSIPlugin.PprofEnable {
+	if c.Bool("pprof-enable") {
 		go func() {
 			router := gin.Default()
 			pprof.Register(router, "debug/pprof")
-			if err := router.Run(fmt.Sprintf(":%d", config.CSIPluginConf.CSIPlugin.PprofPort)); err != nil {
+			if err := router.Run(fmt.Sprintf(":%d", c.Int("pprof-port"))); err != nil {
 				log.Errorf("run pprof failed: %s, skip this error", err.Error())
 			} else {
 				log.Infof("pprof started")
@@ -71,12 +103,12 @@ func main() {
 
 	stopChan := make(chan struct{})
 	defer close(stopChan)
-	controller := controller.GetMountPointController(config.CSIPluginConf.CSIPlugin.NodeID)
-	go controller.Start(stopChan)
-	defer controller.Stop()
+	ctrl := controller.GetMountPointController(c.String("node-id"))
+	go ctrl.Start(stopChan)
+	defer ctrl.Stop()
 
-	d := csidriver.NewDriver(config.CSIPluginConf.CSIPlugin.NodeID, config.CSIPluginConf.CSIPlugin.UnixEndpoint)
+	d := csidriver.NewDriver(c.String("node-id"), c.String("unix-endpoint"))
 	d.Run()
 
-	exitNormal()
+	return nil
 }
