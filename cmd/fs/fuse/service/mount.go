@@ -36,7 +36,6 @@ import (
 
 	"paddleflow/cmd/fs/fuse/flag"
 	"paddleflow/pkg/client"
-	"paddleflow/pkg/common/config"
 	"paddleflow/pkg/common/http/api"
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/fs/client/base"
@@ -66,8 +65,8 @@ func CmdMount() *cli.Command {
 		flag.MountFlags(),
 		flag.LinkFlags(),
 		flag.BasicFlags(),
-		flag.CacheFlags(config.FuseConf),
-		flag.UserFlags(config.FuseConf),
+		flag.CacheFlags(fuse.FuseConf),
+		flag.UserFlags(fuse.FuseConf),
 		logger.LogFlags(&logConf),
 		metric.MetricsFlags(),
 	}
@@ -332,10 +331,10 @@ func InitVFS(c *cli.Context, registry *prometheus.Registry) error {
 		vfs.WithDataCacheConfig(d),
 		vfs.WithMetaConfig(m),
 	}
-	if !config.FuseConf.RawOwner {
+	if !fuse.FuseConf.RawOwner {
 		vfsOptions = append(vfsOptions, vfs.WithOwner(
-			uint32(config.FuseConf.Uid),
-			uint32(config.FuseConf.Gid)))
+			uint32(fuse.FuseConf.Uid),
+			uint32(fuse.FuseConf.Gid)))
 	}
 	vfsConfig := vfs.InitConfig(vfsOptions...)
 

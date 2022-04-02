@@ -22,7 +22,7 @@ import (
 
 	"github.com/urfave/cli/v2"
 
-	"paddleflow/pkg/common/config"
+	"paddleflow/pkg/fs/client/fuse"
 	"paddleflow/pkg/fs/client/meta"
 )
 
@@ -61,7 +61,7 @@ func BasicFlags() []cli.Flag {
 	}
 }
 
-func CacheFlags(fuseConf *config.FuseConfig) []cli.Flag {
+func CacheFlags(fuseConf *fuse.FuseConfig) []cli.Flag {
 	return []cli.Flag{
 		&cli.StringFlag{
 			Name:  "data-disk-cache-path",
@@ -175,7 +175,7 @@ func LinkFlags() []cli.Flag {
 	}
 }
 
-func UserFlags(fuseConf *config.FuseConfig) []cli.Flag {
+func UserFlags(fuseConf *fuse.FuseConfig) []cli.Flag {
 	return []cli.Flag{
 		&cli.StringFlag{
 			Name:  "user-name",
