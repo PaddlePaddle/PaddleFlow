@@ -24,6 +24,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	kubeschema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -272,6 +273,16 @@ func (j *KubeJob) generateResourceRequirements(flavour schema.Flavour) corev1.Re
 	return resources
 }
 
+func (j *KubeJob) patchMetadata(metadata *metav1.ObjectMeta) {
+	metadata.Name = j.Name
+	metadata.Namespace = j.Namespace
+	if metadata.Labels == nil {
+		metadata.Labels = map[string]string{}
+	}
+	metadata.Labels[schema.JobOwnerLabel] = schema.JobOwnerValue
+	metadata.Labels[schema.JobIDLabel] = j.ID
+}
+
 func (j *KubeJob) CreateJob() (string, error) {
 	return "", nil
 }
@@ -287,7 +298,7 @@ func (j *KubeJob) UpdateJob() error {
 func (j *KubeJob) DeleteJob() error {
 	log.Infof("delete %s job %s/%s from cluster", j.JobType, j.Namespace, j.Name)
 	if err := Delete(j.Namespace, j.Name, j.GroupVersionKind, j.DynamicClientOption); err != nil {
-		log.Errorf("delete %s job %s/%s failed, err %v", j.JobType, j.Namespace, j.Name, err)
+		log.Errorf("delete %s job %s/%s from cluster failed, err %v", j.JobType, j.Namespace, j.Name, err)
 		return err
 	}
 	return nil
