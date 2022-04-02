@@ -17,11 +17,14 @@ limitations under the License.
 package executor
 
 import (
+	"net/http/httptest"
 	"testing"
 
 	pdv1 "github.com/paddleflow/paddle-operator/api/v1"
 	"github.com/stretchr/testify/assert"
+	"k8s.io/apimachinery/pkg/runtime"
 
+	"paddleflow/pkg/common/k8s"
 	"paddleflow/pkg/common/schema"
 	"paddleflow/pkg/job/api"
 )
@@ -52,6 +55,8 @@ func TestPatchPaddleJobVariable(t *testing.T) {
 
 	tests := []struct {
 		caseName      string
+		ID            string
+		Name          string
 		jobMode       string
 		additionalEnv map[string]string
 		actualValue   *pdv1.PaddleJob
@@ -60,18 +65,24 @@ func TestPatchPaddleJobVariable(t *testing.T) {
 	}{
 		{
 			caseName:    "psMode",
+			ID:          "job-1",
+			Name:        "job-1",
 			jobMode:     schema.EnvJobModePS,
 			actualValue: &pdv1.PaddleJob{},
 			expectValue: "paddle",
 		},
 		{
 			caseName:    "collectiveMode",
+			ID:          "job-2",
+			Name:        "job-2",
 			jobMode:     schema.EnvJobModeCollective,
 			actualValue: &pdv1.PaddleJob{},
 			expectValue: "paddle",
 		},
 		{
 			caseName: "fromUserPath",
+			ID:       "job-3",
+			Name:     "job-3",
 			jobMode:  schema.EnvJobModePS,
 			additionalEnv: map[string]string{
 				schema.EnvJobNamespace: "N2",
@@ -81,72 +92,57 @@ func TestPatchPaddleJobVariable(t *testing.T) {
 		},
 	}
 
+	var server = httptest.NewServer(DiscoveryHandlerFunc)
+	defer server.Close()
+	dynamicClient := newFakeDynamicClient(server)
+
 	for _, test := range tests {
-		if len(test.additionalEnv) != 0 {
-			for k, v := range test.additionalEnv {
-				pfjob.Conf.SetEnv(k, v)
+		t.Run(test.caseName, func(t *testing.T) {
+			if len(test.additionalEnv) != 0 {
+				for k, v := range test.additionalEnv {
+					pfjob.Conf.SetEnv(k, v)
+				}
 			}
-		}
-		pfjob.Conf.SetEnv(schema.EnvJobMode, test.caseName)
-		pfjob.JobMode = test.jobMode
-		// yaml content
-		extRuntimeConf, err := pfjob.GetExtRuntimeConf(pfjob.Conf.GetFS(), pfjob.Conf.GetYamlPath())
-		if err != nil {
-			t.Errorf(err.Error())
-		}
-		kubeJob := KubeJob{
-			ID:                  "randomID",
-			Name:                "randomName",
-			Namespace:           "namespace",
-			JobType:             schema.TypePaddleJob,
-			JobMode:             pfjob.JobMode,
-			Image:               pfjob.Conf.GetImage(),
-			Command:             pfjob.Conf.GetCommand(),
-			Env:                 pfjob.Conf.GetEnv(),
-			VolumeName:          pfjob.Conf.GetFS(),
-			PVCName:             "PVCName",
-			Priority:            pfjob.Conf.GetPriority(),
-			QueueName:           pfjob.Conf.GetQueueName(),
-			YamlTemplateContent: extRuntimeConf,
-		}
-		jobModeParams := JobModeParams{
-			JobFlavour:      pfjob.Conf.GetFlavour(),
-			PServerReplicas: pfjob.Conf.GetPSReplicas(),
-			PServerFlavour:  pfjob.Conf.GetFlavour(),
-			PServerCommand:  pfjob.Conf.GetPSCommand(),
-			WorkerReplicas:  pfjob.Conf.GetWorkerReplicas(),
-			WorkerFlavour:   pfjob.Conf.GetWorkerFlavour(),
-			WorkerCommand:   pfjob.Conf.GetWorkerCommand(),
-		}
-		paddleJob := PaddleJob{
-			KubeJob:       kubeJob,
-			JobModeParams: jobModeParams,
-		}
-		pdj := test.actualValue
-		if err := paddleJob.createJobFromYaml(pdj); err != nil {
-			t.Errorf("create job failed, err %v", err)
-		}
-		err = paddleJob.patchPaddleJobVariable(pdj, test.caseName)
-		if err != nil {
-			t.Errorf(err.Error())
-		}
+			pfjob.Conf.SetEnv(schema.EnvJobMode, test.caseName)
+			pfjob.JobMode = test.jobMode
+			pfjob.ID = test.ID
+			pfjob.Name = test.Name
+			pfjob.Namespace = "default"
+			// yaml content
+			extRuntimeConf, err := pfjob.GetExtRuntimeConf(pfjob.Conf.GetFS(), pfjob.Conf.GetYamlPath())
+			if err != nil {
+				t.Errorf(err.Error())
+			}
+			pfjob.ExtRuntimeConf = extRuntimeConf
+			paddleJob, err := NewKubeJob(pfjob, dynamicClient)
+			assert.Equal(t, nil, err)
 
-		t.Logf("case[%s]\n pdj=%+v \n pdj.Spec.SchedulingPolicy=%+v \n pdj.Spec.Worker=%+v", test.caseName, pdj, pdj.Spec.SchedulingPolicy, pdj.Spec.Worker)
+			pdj := test.actualValue
+			_, err = paddleJob.CreateJob()
+			assert.Equal(t, nil, err)
 
-		assert.NotEmpty(t, pdj.Spec.Worker)
-		assert.NotEmpty(t, pdj.Spec.Worker.Template.Spec.Containers)
-		assert.NotEmpty(t, pdj.Spec.Worker.Template.Spec.Containers[0].Name)
-		if test.jobMode == schema.EnvJobModePS {
-			assert.NotEmpty(t, pdj.Spec.PS)
-			assert.NotEmpty(t, pdj.Spec.PS.Template.Spec.Containers)
-			assert.NotEmpty(t, pdj.Spec.PS.Template.Spec.Containers[0].Name)
-		}
-		assert.NotEmpty(t, pdj.Spec.SchedulingPolicy)
-		t.Logf("len(pdj.Spec.SchedulingPolicy.MinResources)=%d", len(pdj.Spec.SchedulingPolicy.MinResources))
-		assert.NotZero(t, len(pdj.Spec.SchedulingPolicy.MinResources))
-		t.Logf("case[%s] SchedulingPolicy=%+v MinAvailable=%+v MinResources=%+v ", test.caseName, pdj.Spec.SchedulingPolicy,
-			*pdj.Spec.SchedulingPolicy.MinAvailable, pdj.Spec.SchedulingPolicy.MinResources)
-		assert.NotEmpty(t, pdj.Spec.Worker.Template.Spec.Containers[0].VolumeMounts)
+			jobObj, err := Get(pfjob.Namespace, pfjob.Name, k8s.PaddleJobGVK, dynamicClient)
+			assert.Equal(t, nil, err)
+
+			err = runtime.DefaultUnstructuredConverter.FromUnstructured(jobObj.Object, pdj)
+			assert.Equal(t, nil, err)
+
+			t.Logf("case[%s]\n pdj=%+v \n pdj.Spec.SchedulingPolicy=%+v \n pdj.Spec.Worker=%+v", test.caseName, pdj, pdj.Spec.SchedulingPolicy, pdj.Spec.Worker)
+
+			assert.NotEmpty(t, pdj.Spec.Worker)
+			assert.NotEmpty(t, pdj.Spec.Worker.Template.Spec.Containers)
+			assert.NotEmpty(t, pdj.Spec.Worker.Template.Spec.Containers[0].Name)
+			if test.jobMode == schema.EnvJobModePS {
+				assert.NotEmpty(t, pdj.Spec.PS)
+				assert.NotEmpty(t, pdj.Spec.PS.Template.Spec.Containers)
+				assert.NotEmpty(t, pdj.Spec.PS.Template.Spec.Containers[0].Name)
+			}
+			assert.NotEmpty(t, pdj.Spec.SchedulingPolicy)
+			t.Logf("len(pdj.Spec.SchedulingPolicy.MinResources)=%d", len(pdj.Spec.SchedulingPolicy.MinResources))
+			assert.NotZero(t, len(pdj.Spec.SchedulingPolicy.MinResources))
+			t.Logf("case[%s] SchedulingPolicy=%+v MinAvailable=%+v MinResources=%+v ", test.caseName, pdj.Spec.SchedulingPolicy,
+				*pdj.Spec.SchedulingPolicy.MinAvailable, pdj.Spec.SchedulingPolicy.MinResources)
+			assert.NotEmpty(t, pdj.Spec.Worker.Template.Spec.Containers[0].VolumeMounts)
+		})
 	}
-
 }

@@ -35,6 +35,67 @@ import (
 	"paddleflow/pkg/common/k8s"
 )
 
+var DiscoveryHandlerFunc = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+	var obj interface{}
+	switch req.URL.Path {
+	case "/apis/batch.volcano.sh/v1alpha1":
+		obj = &metav1.APIResourceList{
+			GroupVersion: "batch.volcano.sh/v1alpha1",
+			APIResources: []metav1.APIResource{
+				{Name: "jobs", Namespaced: true, Kind: "Job"},
+			},
+		}
+	case "/apis/scheduling.volcano.sh/v1beta1":
+		obj = &metav1.APIResourceList{
+			GroupVersion: "scheduling.volcano.sh/v1beta1",
+			APIResources: []metav1.APIResource{
+				{Name: "queues", Namespaced: false, Kind: "Queue"},
+			},
+		}
+	case "/apis/batch.paddlepaddle.org/v1":
+		obj = &metav1.APIResourceList{
+			GroupVersion: "batch.paddlepaddle.org/v1",
+			APIResources: []metav1.APIResource{
+				{Name: "paddlejobs", Namespaced: true, Kind: "PaddleJob"},
+			},
+		}
+	case "/apis":
+		obj = &metav1.APIGroupList{
+			Groups: []metav1.APIGroup{
+				{
+					Name: "batch.volcano.sh",
+					Versions: []metav1.GroupVersionForDiscovery{
+						{GroupVersion: "batch.volcano.sh/v1alpha1", Version: "v1alpha1"},
+					},
+				},
+				{
+					Name: "scheduling.volcano.sh",
+					Versions: []metav1.GroupVersionForDiscovery{
+						{GroupVersion: "scheduling.volcano.sh/v1beta1", Version: "v1beta1"},
+					},
+				},
+				{
+					Name: "batch.paddlepaddle.org",
+					Versions: []metav1.GroupVersionForDiscovery{
+						{GroupVersion: "batch.paddlepaddle.org/v1", Version: "v1"},
+					},
+				},
+			},
+		}
+	default:
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	output, err := json.Marshal(obj)
+	if err != nil {
+		fmt.Printf("unexpected encoding error: %v", err)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(output)
+})
+
 func newFakeDynamicClient(server *httptest.Server) *k8s.DynamicClientOption {
 	scheme := runtime.NewScheme()
 	dynamicClient := fakedynamicclient.NewSimpleDynamicClient(scheme)
@@ -50,53 +111,7 @@ func newFakeDynamicClient(server *httptest.Server) *k8s.DynamicClientOption {
 }
 
 func TestExecutor(t *testing.T) {
-	var server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		var obj interface{}
-		switch req.URL.Path {
-		case "/apis/batch.volcano.sh/v1alpha1":
-			obj = &metav1.APIResourceList{
-				GroupVersion: "batch.volcano.sh/v1alpha1",
-				APIResources: []metav1.APIResource{
-					{Name: "jobs", Namespaced: true, Kind: "Job"},
-				},
-			}
-		case "/apis/scheduling.volcano.sh/v1beta1":
-			obj = &metav1.APIResourceList{
-				GroupVersion: "scheduling.volcano.sh/v1beta1",
-				APIResources: []metav1.APIResource{
-					{Name: "queues", Namespaced: false, Kind: "Queue"},
-				},
-			}
-		case "/apis":
-			obj = &metav1.APIGroupList{
-				Groups: []metav1.APIGroup{
-					{
-						Name: "batch.volcano.sh",
-						Versions: []metav1.GroupVersionForDiscovery{
-							{GroupVersion: "batch.volcano.sh/v1alpha1", Version: "v1alpha1"},
-						},
-					},
-					{
-						Name: "scheduling.volcano.sh",
-						Versions: []metav1.GroupVersionForDiscovery{
-							{GroupVersion: "scheduling.volcano.sh/v1beta1", Version: "v1beta1"},
-						},
-					},
-				},
-			}
-		default:
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		output, err := json.Marshal(obj)
-		if err != nil {
-			fmt.Printf("unexpected encoding error: %v", err)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		w.Write(output)
-	}))
+	var server = httptest.NewServer(DiscoveryHandlerFunc)
 	defer server.Close()
 	dynamicClient := newFakeDynamicClient(server)
 
