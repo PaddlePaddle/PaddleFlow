@@ -28,7 +28,6 @@ type ServerConfig struct {
 	Database      DatabaseConfig            `yaml:"database"`
 	Log           logger.LogConfig          `yaml:"log"`
 	ApiServer     ApiServerConfig           `yaml:"apiServer"`
-	KubeConfig    KubeConfig                `yaml:"kubeConfig"`
 	Job           JobConfig                 `yaml:"job"`
 	Fs            FsServerConf              `yaml:"fs"`
 	NamespaceList []string                  `yaml:"namespaceList"`
