@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -24,6 +24,13 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )
+
+type KubeConfig struct {
+	ConfigPath    string `yaml:"configPath"`
+	ClientQPS     int    `yaml:"clientQps"`
+	ClientBurst   int    `yaml:"clientBurst"`
+	ClientTimeout int    `yaml:"clientTimeout"`
+}
 
 func AddKubeConfigFlagSet(fs *pflag.FlagSet, kubeConf *KubeConfig) {
 	if fs == nil {

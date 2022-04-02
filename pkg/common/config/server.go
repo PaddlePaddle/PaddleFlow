@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -35,6 +35,21 @@ type ServerConfig struct {
 	Flavour       []schema.Flavour          `yaml:"flavour"`
 	FlavourMap    map[string]schema.Flavour `yaml:"-"`
 	ImageConf     ImageConfig               `yaml:"imageRepository"`
+}
+
+type DatabaseConfig struct {
+	Driver                               string `yaml:"driver"`
+	Host                                 string `yaml:"host"`
+	Port                                 string `yaml:"port"`
+	User                                 string `yaml:"user"`
+	Password                             string `yaml:"password"`
+	Database                             string `yaml:"database"`
+	ConnectTimeoutInSeconds              int    `yaml:"connectTimeoutInSeconds,omitempty"`
+	LockTimeoutInMilliseconds            int    `yaml:"lockTimeoutInMilliseconds,omitempty"`
+	IdleTransactionTimeoutInMilliseconds int    `yaml:"idleTransactionTimeoutInMilliseconds,omitempty"`
+	MaxIdleConns                         *int   `yaml:"maxIdleConns,omitempty"`
+	MaxOpenConns                         *int   `yaml:"maxOpenConns,omitempty"`
+	ConnMaxLifetimeInHours               *int   `yaml:"connMaxLifetimeInHours,omitempty"`
 }
 
 type ApiServerConfig struct {
