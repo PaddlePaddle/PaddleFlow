@@ -23,7 +23,6 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"paddleflow/cmd/fs/fuse/service"
-	"paddleflow/pkg/common/config"
 )
 
 func main() {
@@ -38,7 +37,6 @@ func Main(args []string) error {
 		Name: "version", Aliases: []string{"V"},
 		Usage: "print only the version",
 	}
-	config.InitFuseConfig()
 	app := &cli.App{
 		Name:                 "pfs-fuse",
 		Usage:                "A POSIX file system built on kv DB and object storage.",
