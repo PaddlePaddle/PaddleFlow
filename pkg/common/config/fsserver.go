@@ -18,7 +18,6 @@ package config
 
 import (
 	"os"
-	"time"
 
 	apiv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/yaml"
@@ -29,23 +28,6 @@ var DefaultPV *apiv1.PersistentVolume
 
 // DefaultPVC the global default pvc instance
 var DefaultPVC *apiv1.PersistentVolumeClaim
-
-// FsServerConfig defines configurations of server
-type FsServerConfig struct {
-	StateInspectionIntervalTime time.Duration `yaml:"stateInspectionIntervalTime"`
-	StateExpireTime             time.Duration `yaml:"stateExpireTime"`
-	DefaultPVPath               string        `yaml:"defaultPVPath"`
-	DefaultPVCPath              string        `yaml:"defaultPVCPath"`
-	LinkMetaDirPrefix           string        `yaml:"linkMetaDirPrefix"`
-	// K8sServiceName K8sServicePort used to create pv/pvc with volumeAttributes point pfs-server pod
-	K8sServiceName   string `yaml:"k8sServiceName"`
-	K8sServicePort   int    `yaml:"k8sServicePort"`
-	ServerConfigPath string `yaml:"serverConfigPath"`
-}
-
-type FsConfig struct {
-	Server FsServerConfig `yaml:"server"`
-}
 
 // InitDefaultPV initialize the default pv instance
 func InitDefaultPV(path string) error {
