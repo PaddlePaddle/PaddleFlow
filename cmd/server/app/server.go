@@ -22,7 +22,6 @@ import (
 	dbinit "paddleflow/pkg/common/database/init"
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/common/schema"
-	"paddleflow/pkg/fs/utils/k8s"
 	"paddleflow/pkg/job"
 	"paddleflow/pkg/version"
 )
@@ -69,12 +68,6 @@ func (s *Server) initConfig() {
 }
 
 func (s *Server) Run() error {
-	if err := k8s.New(s.ServerConf.KubeConfig.ConfigPath, s.ServerConf.KubeConfig.ClientQPS,
-		s.ServerConf.KubeConfig.ClientBurst, s.ServerConf.KubeConfig.ClientTimeout); err != nil {
-		log.Errorf("new k8s client failed: %s", err.Error())
-		return err
-	}
-
 	imageHandler, err := run.InitAndResumeRuns()
 	if err != nil {
 		log.Errorf("InitAndResumePipeline failed. error: %v", err)
