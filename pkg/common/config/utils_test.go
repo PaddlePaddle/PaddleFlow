@@ -37,7 +37,7 @@ func TestInitConfigFromYaml(t *testing.T) {
 	for i, test := range tests {
 		ServerConf := &ServerConfig{}
 		serverDefaultConfPath = test.confPath
-		err := InitConfigFromDefaultYaml(ServerConf)
+		err := InitConfigFromYaml(ServerConf, "")
 		if (err != nil && err.Error() != test.msg) || (err == nil && ServerConf.Log.Level == "") {
 			t.Errorf("testcase[%d] New ServerConfig[%+v] init failed, err: %v", i, ServerConf, err)
 		}

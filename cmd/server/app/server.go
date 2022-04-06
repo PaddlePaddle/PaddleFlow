@@ -37,13 +37,9 @@ type Server struct {
 
 func (s *Server) initConfig() {
 	s.ServerConf = &config.ServerConfig{}
-	if err := config.InitConfigFromDefaultYaml(s.ServerConf); err != nil {
-		fmt.Printf("InitConfigFromDefaultYaml failed. serverConf:[%v] error:[%s]\n", s.ServerConf, err.Error())
-		panic(err)
-	}
-	if err := config.InitConfigFromUserYaml(s.ServerConf, ""); err != nil {
-		fmt.Printf("InitConfigFromUserYaml failed. serverConf:[%v] error:[%s]\n", s.ServerConf, err.Error())
-		panic(err)
+	if err := config.InitConfigFromYaml(s.ServerConf, ""); err != nil {
+		fmt.Printf("InitConfigFromYaml failed. serverConf:[%+v], configPath:[%s] error:[%s]\n", s.ServerConf, "", err.Error())
+		os.Exit(22)
 	}
 
 	s.ServerConf.FlavourMap = make(map[string]schema.Flavour)

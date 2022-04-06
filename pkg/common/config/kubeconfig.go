@@ -14,6 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+/*
+This file is deprecated.
+Multi-cluster case (with multiple kubeconfigs) is supported by DB
+*/
+
 package config
 
 import (
@@ -24,11 +29,6 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )
-
-/*
-This file is deprecated.
-Multi-cluster case (with multiple kubeconfigs) is supported by DB
-*/
 
 type KubeConfig struct {
 	ConfigPath    string `yaml:"configPath"`
