@@ -16,10 +16,8 @@ limitations under the License.
 package cache
 
 import (
-	"fmt"
 	"io"
-
-	log "github.com/sirupsen/logrus"
+	"sync"
 
 	ufslib "paddleflow/pkg/fs/client/ufs"
 )
@@ -33,6 +31,7 @@ type ReadBuffer struct {
 	offset   uint64
 	size     uint32
 	index    int
+	lock     sync.RWMutex
 	r        *rCache
 	Buffer   *Buffer
 }
@@ -71,11 +70,8 @@ func (b *ReadBuffer) initBuffer(offset uint64, size uint32) {
 
 func (b *ReadBuffer) ReadAt(offset uint64, p []byte) (n int, err error) {
 	n, err = b.Buffer.ReadAt(p, offset)
-	if n > 0 {
-		if uint32(n) > b.size {
-			log.Errorf("read more than available %v %v", n, b.size)
-			return 0, fmt.Errorf("read more than available %v %v", n, b.size)
-		}
-	}
+	b.lock.Lock()
+	b.size -= uint32(n)
+	b.lock.Unlock()
 	return
 }

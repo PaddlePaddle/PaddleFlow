@@ -241,19 +241,22 @@ func (r *rCache) readFromReadAhead(off int64, buf []byte) (bytesRead int, err er
 		if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
 			break
 		}
-		if nread == 0 {
-			break
-		}
-		bytesRead += nread
-		blockOff += nread
-		if err == io.EOF || err == io.ErrUnexpectedEOF {
+		if readAheadBuf.size <= 0 && readAheadBuf.Buffer.page.ready {
 			readAheadBuf.Buffer.Close()
 			r.lock.Lock()
 			delete(r.buffers, indexOff)
 			r.lock.Unlock()
 			index += 1
 			blockOff = 0
+			bytesRead += nread
+			blockOff += nread
+			break
 		}
+		if nread == 0 {
+			break
+		}
+		bytesRead += nread
+		blockOff += nread
 	}
 	return bytesRead, nil
 }
@@ -271,7 +274,7 @@ func (r *rCache) readAhead(index int) (err error) {
 		readAheadAmount = utils.Max(int(READAHEAD_CHUNK), blockSize)
 	}
 	existingReadAhead := 0
-	for readAheadAmount-existingReadAhead > 0 {
+	for readAheadAmount-existingReadAhead >= blockSize {
 		uoff = uint64((index) * blockSize)
 		if int(uoff) >= r.length {
 			break
