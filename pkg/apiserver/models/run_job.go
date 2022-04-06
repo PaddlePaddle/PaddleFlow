@@ -94,7 +94,7 @@ func GetRunJobsOfRun(logEntry *log.Entry, runID string) ([]RunJob, error) {
 	var runJobs []RunJob
 	tx := database.DB.Model(&RunJob{}).Where("run_id = ?", runID).Find(&runJobs)
 	if tx.Error != nil {
-		logEntry.Errorf("get run_jobs of run with runID[%s] failed. error:%s", tx.Error.Error())
+		logEntry.Errorf("get run_jobs of run with runID[%s] failed. error:%s", runID, tx.Error.Error())
 		return []RunJob{}, tx.Error
 	}
 
