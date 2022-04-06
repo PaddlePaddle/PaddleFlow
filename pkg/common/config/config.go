@@ -17,23 +17,19 @@ limitations under the License.
 package config
 
 import (
-	"os"
-
 	apiv1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/yaml"
-
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/common/schema"
 )
 
-var DefaultRunYamlPath string = "./run.yaml"
-var serverDefaultConfPath = "./config/server/default/paddleserver.yaml"
+var (
+	GlobalServerConfig *ServerConfig                // the global ServerConfig
+	DefaultPV          *apiv1.PersistentVolume      // the global default pv instance
+	DefaultPVC         *apiv1.PersistentVolumeClaim // the global default pvc instance
 
-// DefaultPV the global default pv instance
-var DefaultPV *apiv1.PersistentVolume
-
-// DefaultPVC the global default pvc instance
-var DefaultPVC *apiv1.PersistentVolumeClaim
+	DefaultRunYamlPath    = "./run.yaml"
+	serverDefaultConfPath = "./config/server/default/paddleserver.yaml"
+)
 
 type ServerConfig struct {
 	Database      DatabaseConfig            `yaml:"database"`
@@ -105,32 +101,4 @@ type ImageConfig struct {
 	Password         string `yaml:"password"`
 	Concurrency      int    `yaml:"concurrency"`
 	RemoveLocalImage bool   `yaml:"removeLocalImage"`
-}
-
-var (
-	GlobalServerConfig *ServerConfig
-)
-
-func InitConfigFromDefaultYaml(conf interface{}) error {
-	return InitConfigFromYaml(conf, serverDefaultConfPath)
-}
-
-// InitDefaultPV initialize the default pv instance
-func InitDefaultPV(path string) error {
-	reader, err := os.Open(path)
-	if err != nil {
-		return err
-	}
-	defer reader.Close()
-	return yaml.NewYAMLOrJSONDecoder(reader, 1024).Decode(&DefaultPV)
-}
-
-// InitDefaultPVC initialize the default pvc instance
-func InitDefaultPVC(path string) error {
-	reader, err := os.Open(path)
-	if err != nil {
-		return err
-	}
-	defer reader.Close()
-	return yaml.NewYAMLOrJSONDecoder(reader, 1024).Decode(&DefaultPVC)
 }

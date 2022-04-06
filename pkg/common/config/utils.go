@@ -22,28 +22,48 @@ import (
 	"io/ioutil"
 	"os"
 
-	"gopkg.in/yaml.v2"
+	log "github.com/sirupsen/logrus"
+	yaml2 "gopkg.in/yaml.v2"
+	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
+// InitDefaultPV initialize the default pv instance
+func InitDefaultPV(path string) error {
+	reader, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer reader.Close()
+	return yaml.NewYAMLOrJSONDecoder(reader, 1024).Decode(&DefaultPV)
+}
+
+// InitDefaultPVC initialize the default pvc instance
+func InitDefaultPVC(path string) error {
+	reader, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer reader.Close()
+	return yaml.NewYAMLOrJSONDecoder(reader, 1024).Decode(&DefaultPVC)
+}
+
 func InitConfigFromYaml(conf interface{}, configPath string) error {
+	// if not set by user, use default
+	if configPath == "" {
+		log.Infoln("config yaml path not specified. use default config")
+		configPath = serverDefaultConfPath
+	}
 	// readConfig
 	yamlFile, err := ioutil.ReadFile(configPath)
 	if err != nil {
 		fmt.Printf("read file yaml[%s] failed! err:[%v]\n", configPath, err)
 		return err
 	}
-	if err = yaml.Unmarshal(yamlFile, conf); err != nil {
+	if err = yaml2.Unmarshal(yamlFile, conf); err != nil {
 		fmt.Printf("decodes yaml[%s] failed! err:[%v]", configPath, err)
 		return err
 	}
 	return nil
-}
-
-func InitConfigFromUserYaml(conf interface{}, confPath string) error {
-	if confPath == "" {
-		return nil
-	}
-	return InitConfigFromYaml(conf, confPath)
 }
 
 func PrettyFormat(data interface{}) []byte {
