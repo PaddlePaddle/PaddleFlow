@@ -68,10 +68,6 @@ var NewStep = func(name string, wfr *WorkflowRuntime, info *schema.WorkflowSourc
 	return st, nil
 }
 
-func (st *Step) set_node_type(nodeType NodeType) {
-	st.NodeType = nodeType
-}
-
 func (st *Step) update(done bool, submitted bool, job Job) {
 	st.done = done
 	st.submitted = submitted
@@ -83,17 +79,24 @@ func (st *Step) getLogger() *logrus.Entry {
 }
 
 func (st *Step) generateStepParamSolver(forCacheFingerprint bool) (StepParamSolver, error) {
-	steps := make(map[string]*schema.WorkflowSourceStep)
+	SourceSteps := make(map[string]*schema.WorkflowSourceStep)
 	jobs := make(map[string]Job)
-	for _, step := range st.wfr.entrypoints {
-		steps[step.name] = st.wfr.entrypoints[step.name].info
-		jobs[step.name] = st.wfr.entrypoints[step.name].job
+
+	var steps map[string]*Step
+	if st.NodeType == NodeTypeEntrypoint {
+		steps = st.wfr.entrypoints
+	} else {
+		steps = st.wfr.postProcess
+	}
+	for _, step := range steps {
+		SourceSteps[step.name] = steps[step.name].info
+		jobs[step.name] = steps[step.name].job
 	}
 
 	runtimeView, err := json.Marshal(st.wfr.runtimeView)
 	if err != nil {
 		st.getLogger().Errorf("marshal runtimeView of run[%s] for step[%s] failed: %v", st.wfr.wf.RunID, st.name, runtimeView)
-		return NewStepParamSolver(steps, make(map[string]string), jobs, forCacheFingerprint, st.wfr.wf.Source.Name, st.wfr.wf.RunID, st.wfr.wf.Extra[WfExtraInfoKeyFsID], st.getLogger()), err
+		return NewStepParamSolver(SourceSteps, make(map[string]string), jobs, forCacheFingerprint, st.wfr.wf.Source.Name, st.wfr.wf.RunID, st.wfr.wf.Extra[WfExtraInfoKeyFsID], st.getLogger()), err
 	}
 	var sysParams = map[string]string{
 		SysParamNamePFRunID:    st.wfr.wf.RunID,
@@ -104,7 +107,7 @@ func (st *Step) generateStepParamSolver(forCacheFingerprint bool) (StepParamSolv
 		SysParamNamePFRUNTIME:  string(runtimeView),
 	}
 
-	paramSolver := NewStepParamSolver(steps, sysParams, jobs, forCacheFingerprint, st.wfr.wf.Source.Name, st.wfr.wf.RunID, st.wfr.wf.Extra[WfExtraInfoKeyFsID], st.getLogger())
+	paramSolver := NewStepParamSolver(SourceSteps, sysParams, jobs, forCacheFingerprint, st.wfr.wf.Source.Name, st.wfr.wf.RunID, st.wfr.wf.Extra[WfExtraInfoKeyFsID], st.getLogger())
 	return paramSolver, nil
 }
 
