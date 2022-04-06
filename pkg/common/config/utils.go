@@ -19,10 +19,10 @@ package config
 import (
 	"encoding/json"
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"os"
 
+	log "github.com/sirupsen/logrus"
 	yaml2 "gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/util/yaml"
 )
