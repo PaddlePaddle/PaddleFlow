@@ -18,7 +18,6 @@ package run
 
 import (
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -97,6 +96,11 @@ func UpdateRunByWfEvent(id string, event interface{}) bool {
 		logging.Errorf("run[%s] malformat runtime", id)
 		return false
 	}
+	postProcess, ok := wfEvent.Extra[common.WfEventKeyPostProcess].(schema.PostProcessView)
+	if !ok {
+		logging.Errorf("run[%s] malformat post process", id)
+		return false
+	}
 
 	// 检查每个job的cache情况
 	// 多个job很可能cache同一个Run，所以用set来去重
@@ -123,12 +127,12 @@ func UpdateRunByWfEvent(id string, event interface{}) bool {
 	}
 	logging.Debugf("number of run cached by updating run is [%v]", len(runCachedList))
 	for _, runCached := range runCachedList {
-		// 检查这个当前run要cache的run，之前有哪些run已经cache了
+		// 检查这个当前run要cache的某个run，之前被哪些run已经cache了
 		runCacheIDList := runCached.GetRunCacheIDList()
 		newRun := true
 		for _, runCacheID := range runCacheIDList {
 			if runCacheID == id {
-				// 如果之前cache过的Run已经包含了当前run，就不用添加当前run的id了
+				// 如果之前被cache过的run已经包含了当前run，就不用添加当前run的id了
 				newRun = false
 			}
 		}
@@ -139,13 +143,8 @@ func UpdateRunByWfEvent(id string, event interface{}) bool {
 		}
 	}
 
-	runtimeRaw, err := json.Marshal(runtime)
-	if err != nil {
-		logging.Errorf("run[%s] json marshal runtime failed. error: %v", id, err)
-		return false
-	}
-	logging.Debugf("workflow event update run[%s] status:%s message:%s, runtime:%s",
-		id, status, wfEvent.Message, runtimeRaw)
+	logging.Debugf("workflow event update run[%s] status:%s message:%s, runtime:%v, post_porcess:%v",
+		id, status, wfEvent.Message, runtime, postProcess)
 	prevRun, err := models.GetRunByID(logging, runID)
 	if err != nil {
 		logging.Errorf("get run[%s] in db failed. error: %v", id, err)
@@ -156,14 +155,31 @@ func UpdateRunByWfEvent(id string, event interface{}) bool {
 		logging.Infof("skip run message:[%s], only keep the first message for run", message)
 		message = ""
 	}
+	runtimeJobs := map[string]schema.JobView{}
+	for name, job := range runtime {
+		runtimeJobs[name] = job
+	}
+	for name, job := range postProcess {
+		runtimeJobs[name] = job
+	}
 	activatedAt := sql.NullTime{}
 	if prevRun.Status == common.StatusRunPending {
 		activatedAt.Time = time.Now()
 		activatedAt.Valid = true
+
+		// 创建run_job记录
+		if err := models.CreateRunJobs(logging, runtimeJobs, id); err != nil {
+			return false
+		}
 	}
+
+	if err := updateRunJobs(runtimeJobs); err != nil {
+		logging.Errorf("run[%s] update run_job failed. error: %v", id, err)
+		return false
+	}
+
 	updateRun := models.Run{
 		Status:      status,
-		RuntimeRaw:  string(runtimeRaw),
 		Message:     message,
 		ActivatedAt: activatedAt,
 	}
@@ -172,6 +188,17 @@ func UpdateRunByWfEvent(id string, event interface{}) bool {
 		return false
 	}
 	return true
+}
+
+func updateRunJobs(jobs map[string]schema.JobView) error {
+	logging := logger.Logger()
+	for _, job := range jobs {
+		runJob := models.ParseRunJob(&job)
+		if err := models.UpdateRunJob(logging, job.JobID, runJob); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func handleImageCallbackFunc(imageInfo handler.ImageInfo, err error) error {
