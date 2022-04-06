@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,24 +14,29 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package app
+package flag
 
-import (
-	"github.com/spf13/pflag"
+import "github.com/urfave/cli/v2"
 
-	"paddleflow/cmd/fs/csi-plugin/app/options"
-	"paddleflow/pkg/common/config"
-	"paddleflow/pkg/common/logger"
-)
-
-func initConfig() {
-	// init from yaml config
-	config.InitCSIPluginConfig()
-	f := options.NewCSIPluginOption()
-	f.InitFlag(pflag.CommandLine)
+func CsiPluginFlags() []cli.Flag {
+	return []cli.Flag{
+		&cli.StringFlag{
+			Name:  "unix-endpoint",
+			Value: "unix://tmp/csi.sock",
+			Usage: "CSI endpoint",
+		},
+		&cli.StringFlag{
+			Name:  "node-id",
+			Value: "nodeId",
+			Usage: "node id",
+		},
+	}
 }
 
-func Init() error {
-	initConfig()
-	return logger.Init(&config.CSIPluginConf.Log)
+func ExpandFlags(compoundFlags [][]cli.Flag) []cli.Flag {
+	var flags []cli.Flag
+	for _, flag := range compoundFlags {
+		flags = append(flags, flag...)
+	}
+	return flags
 }

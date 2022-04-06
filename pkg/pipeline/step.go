@@ -402,8 +402,6 @@ func (st *Step) Execute() {
 						if cacheStatus == schema.StatusJobFailed || cacheStatus == schema.StatusJobSucceeded {
 							// 通过讲workflow event传回去，就能够在runtime中callback，将job更新后的参数存到数据库中
 							logMsg = fmt.Sprintf("skip job for step[%s] in runid[%s], use cache of runid[%s]", st.name, st.wfr.wf.RunID, st.CacheRunID)
-
-							// todo: 需要把cacheRunID也保存到job里面，方便run中callback记录jobView使能够获取cacheRunID
 							st.updateJobStatus(WfEventJobUpdate, cacheStatus, logMsg)
 							return
 						} else if cacheStatus == schema.StatusJobInit || cacheStatus == schema.StatusJobPending || cacheStatus == schema.StatusJobRunning || cacheStatus == schema.StatusJobTerminating {
