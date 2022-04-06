@@ -25,38 +25,10 @@ import (
 
 	"github.com/rifflock/lfshook"
 	log "github.com/sirupsen/logrus"
-	"github.com/spf13/pflag"
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
-const (
-	hostNameHolder = "{HOSTNAME}"
-)
-
-type LogConfig struct {
-	Dir             string `yaml:"dir"`
-	FilePrefix      string `yaml:"filePrefix"`
-	Level           string `yaml:"level"`
-	MaxKeepDays     int    `yaml:"maxKeepDays"`
-	MaxFileNum      int    `yaml:"maxFileNum"`
-	MaxFileSizeInMB int    `yaml:"maxFileSizeInMB"`
-	IsCompress      bool   `yaml:"isCompress"`
-	Formatter       string `yaml:"formatter"`
-}
-
-func AddFlagSet(fs *pflag.FlagSet, logConf *LogConfig) {
-	if fs == nil {
-		fs = pflag.CommandLine
-	}
-	fs.StringVar(&logConf.Dir, "log-dir", logConf.Dir, "Directory of log")
-	fs.StringVar(&logConf.FilePrefix, "log-file-prefix", logConf.FilePrefix, "Prefix of log file")
-	fs.StringVar(&logConf.Level, "log-level", logConf.Level, "Log level")
-	fs.IntVar(&logConf.MaxKeepDays, "log-max-keep-days", logConf.MaxKeepDays, "Log max keep days")
-	fs.IntVar(&logConf.MaxFileNum, "log-max-file-num", logConf.MaxFileNum, "Log max file number")
-	fs.IntVar(&logConf.MaxFileSizeInMB, "log-max-file-size-in-mb", logConf.MaxFileSizeInMB, "Log max file size(M)")
-	fs.BoolVar(&logConf.IsCompress, "log-is-compress", logConf.IsCompress, "Use log compress")
-	fs.StringVar(&logConf.Formatter, "log-formatter", logConf.Formatter, "Use log compress")
-}
+const hostNameHolder = "{HOSTNAME}"
 
 /*
  * InitStandardFileLogger - initialize standard logger for file record
