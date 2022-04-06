@@ -35,12 +35,6 @@ job:
     - "nvidia.com/gpu"
   defaultJobYamlDir: "./config/server/default/job"
 
-kubeConfig:
-  configPath: ~/.kube/config
-  clientQps: 1000
-  clientBurst: 1000
-  clientTimeout: 0
-
 pipeline: pipeline
 
 imageRepository:

@@ -34,6 +34,10 @@ type RuntimeService interface {
 	SubmitJob(job *api.PFJob) error
 	// StopJob stop job on cluster
 	StopJob(job *api.PFJob) error
+	// UpdateJob update job on cluster
+	UpdateJob(job *api.PFJob) error
+	// DeleteJob delete job from cluster
+	DeleteJob(job *api.PFJob) error
 	// SyncJob sync job status from cluster
 	SyncJob(stopCh <-chan struct{})
 	// GCJob garbage collect
@@ -103,4 +107,3 @@ func CreateRuntime(clusterInfo models.ClusterInfo) (RuntimeService, error) {
 	PFRuntimeMap.Store(clusterInfo.ID, runtimeSvc)
 	return runtimeSvc, nil
 }
-

@@ -22,113 +22,91 @@ import (
 
 	"github.com/urfave/cli/v2"
 
-	"paddleflow/pkg/common/config"
-	"paddleflow/pkg/common/logger"
+	"paddleflow/pkg/fs/client/fuse"
 	"paddleflow/pkg/fs/client/meta"
 )
 
-func GlobalFlags(fuseConf *config.Fuse) []cli.Flag {
+func BasicFlags() []cli.Flag {
 	return []cli.Flag{
 		&cli.BoolFlag{
-			Name:        "local",
-			Value:       false,
-			Usage:       "local mode for test",
-			Destination: &fuseConf.Local,
+			Name:  "local",
+			Value: false,
+			Usage: "local mode for test",
 		},
 		&cli.StringFlag{
-			Name:        "server",
-			Value:       "127.0.0.1:8082",
-			Usage:       "pfs server for REST request",
-			Destination: &fuseConf.Server,
+			Name:  "server",
+			Value: "127.0.0.1:8082",
+			Usage: "pfs server for REST request",
 		},
 		&cli.StringFlag{
-			Name:        "fs-id",
-			Value:       "",
-			Usage:       "filesystem ID",
-			Destination: &fuseConf.FsID,
+			Name:  "fs-id",
+			Value: "",
+			Usage: "filesystem ID",
 		},
 		&cli.StringFlag{
-			Name:        "fs-info-path",
-			Value:       "",
-			Usage:       "filesystem info path",
-			Destination: &fuseConf.FsInfoPath,
+			Name:  "fs-info-path",
+			Value: "",
+			Usage: "filesystem info path",
 		},
 		&cli.StringFlag{
-			Name:        "local-root",
-			Value:       "",
-			Usage:       "local root for fs",
-			Destination: &fuseConf.LocalRoot,
-		},
-		&cli.StringFlag{
-			Name:        "dep-path",
-			Value:       "./dep",
-			Usage:       "dependency path",
-			Destination: &fuseConf.DepPath,
+			Name:  "local-root",
+			Value: "",
+			Usage: "local root for fs",
 		},
 		&cli.BoolFlag{
-			Name:        "ignore-security-labels",
-			Value:       true,
-			Usage:       "ignore security labels",
-			Destination: &fuseConf.IgnoreSecurityLabels,
+			Name:  "ignore-security-labels",
+			Value: true,
+			Usage: "ignore security labels",
 		},
 	}
 }
 
-func CacheFlags(fuseConf *config.Fuse) []cli.Flag {
+func CacheFlags(fuseConf *fuse.FuseConfig) []cli.Flag {
 	return []cli.Flag{
 		&cli.StringFlag{
-			Name:        "data-disk-cache-path",
-			Value:       "/var/cache/pfs_cache_dir",
-			Usage:       "data-disk-cache-path",
-			Destination: &fuseConf.DiskCachePath,
+			Name:  "data-disk-cache-path",
+			Value: "/var/cache/pfs_cache_dir",
+			Usage: "data-disk-cache-path",
 		},
 		&cli.StringFlag{
-			Name:        "meta-driver",
-			Value:       meta.DefaultName,
-			Usage:       "fuse meta driver: mem, leveldb",
-			Destination: &fuseConf.MetaDriver,
+			Name:  "meta-driver",
+			Value: meta.DefaultName,
+			Usage: "fuse meta driver: mem, leveldb",
 		},
 		&cli.StringFlag{
-			Name:        "meta-path",
-			Value:       "/var/cache/pfs_cache_dir/meta-driver",
-			Usage:       "meta cache local path",
-			Destination: &fuseConf.MetaCachePath,
+			Name:  "meta-path",
+			Value: "/var/cache/pfs_cache_dir/meta-driver",
+			Usage: "meta cache local path",
 		},
 		&cli.DurationFlag{
-			Name:        "data-mem-cache-expire",
-			Value:       100 * time.Second,
-			Usage:       "fuse memory data cache expire",
-			Destination: &fuseConf.MemoryExpire,
+			Name:  "data-mem-cache-expire",
+			Value: 100 * time.Second,
+			Usage: "fuse memory data cache expire",
 		},
 		&cli.DurationFlag{
-			Name:        "data-disk-cache-expire",
-			Value:       15 * 60 * time.Second,
-			Usage:       "fuse disk data cache expire",
-			Destination: &fuseConf.DiskExpire,
+			Name:  "data-disk-cache-expire",
+			Value: 15 * 60 * time.Second,
+			Usage: "fuse disk data cache expire",
 		},
 		&cli.DurationFlag{
-			Name:        "meta-cache-expire",
-			Value:       10 * time.Second,
-			Usage:       "fuse meta cache expire",
-			Destination: &fuseConf.MetaCacheExpire,
+			Name:  "meta-cache-expire",
+			Value: 10 * time.Second,
+			Usage: "fuse meta cache expire",
 		},
 		&cli.DurationFlag{
-			Name:        "entry-cache-expire",
-			Value:       10 * time.Second,
-			Usage:       "fuse entry cache expire",
-			Destination: &fuseConf.EntryCacheExpire,
+			Name:  "entry-cache-expire",
+			Value: 10 * time.Second,
+			Usage: "fuse entry cache expire",
 		},
 		&cli.IntFlag{
-			Name:        "data-mem-size",
-			Value:       0,
-			Usage:       "number of data cache item in mem cache",
-			Destination: &fuseConf.MemorySize,
+			Name:  "data-mem-size",
+			Value: 0,
+			Usage: "number of data cache item in mem cache",
 		},
 		&cli.IntFlag{
-			Name:        "block-size",
-			Value:       0,
-			Usage:       "fuse block size",
-			Destination: &fuseConf.BlockSize,
+			Name:  "block-size",
+			Value: 0,
+			Usage: "fuse block size",
 		},
 		&cli.IntFlag{
 			Name:        "attr-timeout",
@@ -143,86 +121,75 @@ func CacheFlags(fuseConf *config.Fuse) []cli.Flag {
 			Destination: &fuseConf.EntryTimeout,
 		},
 		&cli.IntFlag{
-			Name:        "data-read-ahead-size",
-			Value:       200 * 1024 * 1024,
-			Usage:       "size of read-ahead data",
-			Destination: &fuseConf.MaxReadAheadSize,
+			Name:  "data-read-ahead-size",
+			Value: 200 * 1024 * 1024,
+			Usage: "size of read-ahead data",
 		},
 	}
 }
 
-func MountFlags(fuseConf *config.Fuse) []cli.Flag {
+func MountFlags() []cli.Flag {
 	return []cli.Flag{
 		&cli.StringFlag{
-			Name:        "mount-point",
-			Aliases:     []string{"mp"},
-			Value:       "./mock",
-			Usage:       "an empty path to mount",
-			Destination: &fuseConf.MountPoint,
+			Name:    "mount-point",
+			Aliases: []string{"mp"},
+			Value:   "./mock",
+			Usage:   "an empty path to mount",
 		},
 		&cli.StringFlag{
-			Name:        "mount-options",
-			Aliases:     []string{"mo"},
-			Value:       "",
-			Usage:       "mount options",
-			Destination: &fuseConf.MountOptions,
+			Name:    "mount-options",
+			Aliases: []string{"mo"},
+			Value:   "",
+			Usage:   "mount options",
 		},
 		&cli.BoolFlag{
-			Name:        "disable-xattrs",
-			Value:       true,
-			Usage:       "kernel does not issue anyXAttr operations at all",
-			Destination: &fuseConf.DisableXAttrs,
+			Name:  "disable-xattrs",
+			Value: true,
+			Usage: "kernel does not issue anyXAttr operations at all",
 		},
 	}
 }
 
-func LinkFlags(fuseConf *config.Fuse) []cli.Flag {
+func LinkFlags() []cli.Flag {
 	return []cli.Flag{
 		&cli.StringFlag{
-			Name:        "link-root",
-			Value:       "",
-			Usage:       "local root for mock link",
-			Destination: &fuseConf.LinkRoot,
+			Name:  "link-root",
+			Value: "",
+			Usage: "local root for mock link",
 		},
 		&cli.StringFlag{
-			Name:        "link-path",
-			Value:       "",
-			Usage:       "fs path for link",
-			Destination: &fuseConf.LinkPath,
+			Name:  "link-path",
+			Value: "",
+			Usage: "fs path for link",
 		},
 		&cli.IntFlag{
-			Name:        "link-update-interval",
-			Value:       15,
-			Usage:       "link update interval",
-			Destination: &fuseConf.LinkUpdateInterval,
+			Name:  "link-update-interval",
+			Value: 15,
+			Usage: "link update interval",
 		},
 		&cli.StringFlag{
-			Name:        "link-meta-dir-prefix",
-			Value:       "",
-			Usage:       "link meta dir prefix",
-			Destination: &fuseConf.LinkMetaDirPrefix,
-		},
-		&cli.BoolFlag{
-			Name:        "skip-check-links",
-			Value:       false,
-			Usage:       "skip check links",
-			Destination: &fuseConf.SkipCheckLinks,
+			Name:  "link-meta-dir-prefix",
+			Value: "",
+			Usage: "link meta dir prefix",
 		},
 	}
 }
 
-func UserFlags(fuseConf *config.Fuse) []cli.Flag {
+func UserFlags(fuseConf *fuse.FuseConfig) []cli.Flag {
 	return []cli.Flag{
 		&cli.StringFlag{
-			Name:        "user-name",
-			Value:       "root",
-			Usage:       "username",
-			Destination: &fuseConf.UserName,
+			Name:  "user-name",
+			Value: "root",
+			Usage: "username",
 		},
 		&cli.StringFlag{
-			Name:        "password",
-			Usage:       "fs server password for fs username",
-			Destination: &fuseConf.Password,
+			Name:  "password",
+			Usage: "fs server password for fs username",
+		},
+		&cli.BoolFlag{
+			Name:  "allow-other",
+			Value: true,
+			Usage: "allow other user to access fs",
 		},
 		&cli.IntFlag{
 			Name:        "uid",
@@ -237,107 +204,10 @@ func UserFlags(fuseConf *config.Fuse) []cli.Flag {
 			Destination: &fuseConf.Gid,
 		},
 		&cli.BoolFlag{
-			Name:        "allow-other",
-			Value:       true,
-			Usage:       "allow other user to access fs",
-			Destination: &fuseConf.AllowOther,
-		},
-		&cli.BoolFlag{
 			Name:        "raw-owner",
 			Value:       false,
 			Usage:       "show the same uid and gid to ufs",
 			Destination: &fuseConf.RawOwner,
-		},
-	}
-}
-
-func MetricsFlags(fuseConf *config.Fuse) []cli.Flag {
-	return []cli.Flag{
-		&cli.StringFlag{
-			Name:  "schema",
-			Value: "umc",
-			Usage: "schema string that controls the output sections (u: usage, f: fuse, m: meta, c: blockcache, o: object, g: go)",
-		},
-		&cli.UintFlag{
-			Name:  "interval",
-			Value: 1,
-			Usage: "interval in seconds between each update",
-		},
-		&cli.UintFlag{
-			Name:    "verbosity",
-			Aliases: []string{"l"},
-			Usage:   "verbosity level, 0 or 1 is enough for most cases",
-		},
-		&cli.BoolFlag{
-			Name:        "pprof-enable",
-			Value:       false,
-			Usage:       "enable go pprof",
-			Destination: &fuseConf.PprofEnable,
-		},
-		&cli.IntFlag{
-			Name:        "pprof-port",
-			Value:       6060,
-			Usage:       "pprof port",
-			Destination: &fuseConf.PprofPort,
-		},
-		&cli.IntFlag{
-			Name:        "metrics-port",
-			Value:       8993,
-			Usage:       "metrics service port",
-			Destination: &fuseConf.MetricsPort,
-		},
-	}
-}
-
-func LogFlags(logConf *logger.LogConfig) []cli.Flag {
-	return []cli.Flag{
-		&cli.StringFlag{
-			Name:        "log-dir",
-			Value:       "./log",
-			Usage:       "directory of log",
-			Destination: &logConf.Dir,
-		},
-		&cli.StringFlag{
-			Name:        "log-file-prefix",
-			Value:       "./pfs-fuse",
-			Usage:       "prefix of log file",
-			Destination: &logConf.FilePrefix,
-		},
-		&cli.StringFlag{
-			Name:        "log-level",
-			Value:       "INFO",
-			Usage:       "log level",
-			Destination: &logConf.Level,
-		},
-		&cli.StringFlag{
-			Name:        "log-formatter",
-			Value:       "",
-			Usage:       "log formatter",
-			Destination: &logConf.Formatter,
-		},
-		&cli.BoolFlag{
-			Name:        "log-is-compress",
-			Value:       true,
-			Usage:       "log compress",
-			Destination: &logConf.IsCompress,
-		},
-		&cli.IntFlag{
-			Name:        "log-max-keep-days",
-			Value:       90,
-			Usage:       "log max keep days",
-			Destination: &logConf.MaxKeepDays,
-		},
-		&cli.IntFlag{
-			Name:        "log-max-file-num",
-			Value:       100,
-			Usage:       "log max file number",
-			Destination: &logConf.MaxFileNum,
-		},
-		&cli.IntFlag{
-			Name:        "log-max-file-size-in-mb",
-			Value:       200 * 1024 * 1024,
-			Usage:       "log max file size in MiB",
-			Destination: &logConf.MaxFileSizeInMB,
 		},
 	}
 }
