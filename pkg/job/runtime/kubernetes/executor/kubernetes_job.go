@@ -24,8 +24,10 @@ import (
 	log "github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	kubeschema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 
 	"paddleflow/pkg/common/config"
@@ -58,7 +60,8 @@ type KubeJobInterface interface {
 }
 
 type KubeJob struct {
-	ID         string
+	ID string
+	// Name the name of job on kubernetes
 	Name       string
 	Namespace  string
 	JobType    schema.JobType
@@ -72,6 +75,7 @@ type KubeJob struct {
 	QueueName  string
 	// YamlTemplateContent indicate template content of job
 	YamlTemplateContent []byte
+	GroupVersionKind    kubeschema.GroupVersionKind
 
 	DynamicClientOption *k8s.DynamicClientOption
 }
@@ -97,6 +101,7 @@ func NewKubeJob(job *api.PFJob, dynamicClientOpt *k8s.DynamicClientOption) (api.
 
 	switch job.JobType {
 	case schema.TypeSparkJob:
+		kubeJob.GroupVersionKind = k8s.SparkAppGVK
 		return &SparkJob{
 			KubeJob:          kubeJob,
 			SparkMainFile:    job.Conf.Env[schema.EnvJobSparkMainFile],
@@ -107,11 +112,13 @@ func NewKubeJob(job *api.PFJob, dynamicClientOpt *k8s.DynamicClientOption) (api.
 			ExecutorReplicas: job.Conf.Env[schema.EnvJobExecutorReplicas],
 		}, nil
 	case schema.TypeVcJob:
+		kubeJob.GroupVersionKind = k8s.VCJobGVK
 		return &VCJob{
 			KubeJob:       kubeJob,
 			JobModeParams: newJobModeParams(job.Conf),
 		}, nil
 	case schema.TypePaddleJob:
+		kubeJob.GroupVersionKind = k8s.PaddleJobGVK
 		return &PaddleJob{
 			KubeJob:       kubeJob,
 			JobModeParams: newJobModeParams(job.Conf),
@@ -266,11 +273,34 @@ func (j *KubeJob) generateResourceRequirements(flavour schema.Flavour) corev1.Re
 	return resources
 }
 
+func (j *KubeJob) patchMetadata(metadata *metav1.ObjectMeta) {
+	metadata.Name = j.Name
+	metadata.Namespace = j.Namespace
+	if metadata.Labels == nil {
+		metadata.Labels = map[string]string{}
+	}
+	metadata.Labels[schema.JobOwnerLabel] = schema.JobOwnerValue
+	metadata.Labels[schema.JobIDLabel] = j.ID
+}
+
 func (j *KubeJob) CreateJob() (string, error) {
 	return "", nil
 }
 
 func (j *KubeJob) StopJobByID(id string) error {
+	return nil
+}
+
+func (j *KubeJob) UpdateJob() error {
+	return nil
+}
+
+func (j *KubeJob) DeleteJob() error {
+	log.Infof("delete %s job %s/%s from cluster", j.JobType, j.Namespace, j.Name)
+	if err := Delete(j.Namespace, j.Name, j.GroupVersionKind, j.DynamicClientOption); err != nil {
+		log.Errorf("delete %s job %s/%s from cluster failed, err %v", j.JobType, j.Namespace, j.Name, err)
+		return err
+	}
 	return nil
 }
 

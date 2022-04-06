@@ -17,3 +17,4 @@ limitations under the License.
 # -*- coding:utf8 -*-
 
 from .flavour_api import FlavouriceApi
+from .flavour_info import FlavourInfo
