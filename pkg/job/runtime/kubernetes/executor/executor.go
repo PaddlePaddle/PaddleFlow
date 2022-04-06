@@ -46,7 +46,7 @@ func Get(namespace string, name string, gvk schema.GroupVersionKind, clientOpt *
 		obj, err = clientOpt.DynamicClient.Resource(gvrMap.Resource).Get(context.TODO(), name, v1.GetOptions{})
 	}
 	if err != nil {
-		log.Errorf("delete kubernetes  resource[%s] failed. error:[%s]", gvk.String(), err.Error())
+		log.Errorf("get kubernetes %s resource[%s/%s] failed. error:[%s]", gvk.String(), namespace, name, err.Error())
 	}
 	return obj, err
 }

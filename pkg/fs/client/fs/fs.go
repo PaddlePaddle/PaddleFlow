@@ -23,6 +23,8 @@ import (
 	"runtime"
 	"syscall"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
 	log "github.com/sirupsen/logrus"
 
 	"paddleflow/pkg/fs/client/meta"
@@ -38,6 +40,17 @@ type FileSystem struct {
 	cache  *metaCache
 }
 
+func wrapRegister(fsMeta common.FSMeta) *prometheus.Registry {
+	registry := prometheus.NewRegistry() // replace default so only pfs-fuse metrics are exposed
+	prometheus.DefaultGatherer = registry
+	metricLabels := prometheus.Labels{"fsname": fsMeta.Name, "fsID": fsMeta.ID}
+	prometheus.DefaultRegisterer = prometheus.WrapRegistererWithPrefix("pfs_",
+		prometheus.WrapRegistererWith(metricLabels, registry))
+	prometheus.MustRegister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
+	prometheus.MustRegister(collectors.NewGoCollector())
+	return registry
+}
+
 // entryExpire 记录path对应的ino信息，一般不会修改，因此可以不设置过期时间（entryExpire = 0）。
 // attrExpire 记录ino对应节点的attr属性，包括mode、uid、gid和mtime等信息，文件修改时会改变。
 func NewFileSystem(fsMeta common.FSMeta, links map[string]common.FSMeta, skipSub bool, hasCache bool,
@@ -45,7 +58,8 @@ func NewFileSystem(fsMeta common.FSMeta, links map[string]common.FSMeta, skipSub
 	fs := FileSystem{fsMeta: fsMeta, stop: make(chan struct{})}
 	// todo:: 客户端增加配置，填充到这里
 	// config := &vfs.Config{Cache: cache}
-	vfs, err := vfs.InitVFS(fsMeta, links, false, config)
+	registry := wrapRegister(fsMeta)
+	vfs, err := vfs.InitVFS(fsMeta, links, false, config, registry)
 	if err != nil {
 		log.Errorf("init vfs failed: %v", err)
 		return nil, err

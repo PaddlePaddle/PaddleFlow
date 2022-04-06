@@ -108,28 +108,46 @@ func (bwf *BaseWorkflow) validate() error {
 		return err
 	}
 
-	// 2. RunYaml 中pipeline name, 各step name是否合法; 可运行节点(runSteps)的结构是否有环等；
+	// 2. 检验extra，保证FsID和FsName，要么都传，要么都不传
+	if err := bwf.checkExtra(); err != nil {
+		bwf.log().Errorf("check extra failed. err:%s", err.Error())
+		return err
+	}
+
+	// 3. RunYaml 中pipeline name, 各step name是否合法; 可运行节点(runSteps)的结构是否有环等；
 	if err := bwf.checkRunYaml(); err != nil {
 		bwf.log().Errorf("check run yaml failed. err:%s", err.Error())
 		return err
 	}
 
-	// 3. 校验通过接口传入的Parameter参数(参数是否存在，以及参数值是否合法),
+	// 4. 校验通过接口传入的Parameter参数(参数是否存在，以及参数值是否合法),
 	if err := bwf.checkParams(); err != nil {
 		bwf.log().Errorf("check run param err:%s", err.Error())
 		return err
 	}
 
-	// 4. steps 中的 parameter artifact env command 是否合法
+	// 5. steps 中的 parameter artifact env command 是否合法
 	if err := bwf.checkSteps(); err != nil {
-		bwf.log().Errorf("check run param err:%s", err.Error())
+		bwf.log().Errorf("check steps err:%s", err.Error())
 		return err
 	}
 
-	// 5. cache配置是否合法
+	// 6. cache配置是否合法
 	if err := bwf.checkCache(); err != nil {
 		bwf.log().Errorf("check cache failed. err:%s", err.Error())
 		return err
+	}
+
+	return nil
+}
+
+// 校验extra字典
+// 保证FsID和FsName，要么同时传（pipeline run需要挂载fs），要么都不传（pipeline run不需要挂载fs）
+func (bwf *BaseWorkflow) checkExtra() error {
+	FsId := bwf.Extra[WfExtraInfoKeyFsID]
+	FsName := bwf.Extra[WfExtraInfoKeyFsName]
+	if (FsId == "" && FsName != "") || (FsId != "" && FsName == "") {
+		return fmt.Errorf("check extra failed: FsID[%s] and FsName[%s] can only both be empty or unempty", FsId, FsName)
 	}
 
 	return nil
@@ -228,8 +246,14 @@ func (bwf *BaseWorkflow) checkCache() error {
 
 	// 校验FsScope。计算目录通过逗号分隔。如果没传，默认更新为"/"。
 	// 此处不校验path格式是否valid，以及path是否存在（如果不valid或者不存在，在计算cache，查询FsScope更新时间时，会获取失败）
-	if bwf.Source.Cache.FsScope == "" {
-		bwf.Source.Cache.FsScope = "/"
+	if bwf.Extra[WfExtraInfoKeyFsID] == "" {
+		if bwf.Source.Cache.FsScope != "" {
+			return fmt.Errorf("fs_scope of global cache should be empty if Fs is not used!")
+		}
+	} else {
+		if bwf.Source.Cache.FsScope == "" {
+			bwf.Source.Cache.FsScope = "/"
+		}
 	}
 
 	for stepName, wfsStep := range bwf.Source.EntryPoints {
@@ -242,8 +266,14 @@ func (bwf *BaseWorkflow) checkCache() error {
 			return fmt.Errorf("MaxExpiredTime[%s] of cache in step[%s] not correct", wfsStep.Cache.MaxExpiredTime, stepName)
 		}
 
-		if wfsStep.Cache.FsScope == "" {
-			wfsStep.Cache.FsScope = "/"
+		if bwf.Extra[WfExtraInfoKeyFsID] == "" {
+			if wfsStep.Cache.FsScope != "" {
+				return fmt.Errorf("fs_scope of cache in step[%s] should be empty if Fs is not used!", stepName)
+			}
+		} else {
+			if wfsStep.Cache.FsScope == "" {
+				wfsStep.Cache.FsScope = "/"
+			}
 		}
 	}
 
@@ -323,6 +353,12 @@ func (bwf *BaseWorkflow) checkSteps() error {
 		return err
 	}
 
+	useFs := true
+	if bwf.Extra[WfExtraInfoKeyFsID] == "" {
+		useFs = false
+	}
+
+	// 这里独立构建一个sysParamNameMap，因为有可能bwf.Extra传递的系统变量，数量或者名称有误
 	var sysParamNameMap = map[string]string{
 		SysParamNamePFRunID:    "",
 		SysParamNamePFFsID:     "",
@@ -334,6 +370,7 @@ func (bwf *BaseWorkflow) checkSteps() error {
 		steps:         bwf.runSteps,
 		sysParams:     sysParamNameMap,
 		disabledSteps: disabledSteps,
+		useFs:         useFs,
 	}
 	for _, step := range bwf.runSteps {
 		bwf.log().Debugln(step)

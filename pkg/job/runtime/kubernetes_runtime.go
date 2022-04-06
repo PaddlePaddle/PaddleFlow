@@ -149,6 +149,16 @@ func (kr *KubeRuntime) StopJob(jobInfo *api.PFJob) error {
 	return nil
 }
 
+func (kr *KubeRuntime) UpdateJob(jobInfo *api.PFJob) error {
+	// TODO: update job on cluster
+	return nil
+}
+
+func (kr *KubeRuntime) DeleteJob(jobInfo *api.PFJob) error {
+	// TODO: delete job from cluster
+	return nil
+}
+
 func (kr *KubeRuntime) SyncJob(stopCh <-chan struct{}) {
 	log.Infof("start job sync loop for cluster[%s]", kr.Cluster.ID)
 
