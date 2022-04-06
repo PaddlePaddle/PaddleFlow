@@ -26,10 +26,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
-func InitConfigFromDefaultYaml(conf interface{}) error {
-	return InitConfigFromYaml(conf, serverDefaultConfPath)
-}
-
 // InitDefaultPV initialize the default pv instance
 func InitDefaultPV(path string) error {
 	reader, err := os.Open(path)
@@ -51,6 +47,10 @@ func InitDefaultPVC(path string) error {
 }
 
 func InitConfigFromYaml(conf interface{}, configPath string) error {
+	// if not set by user, use default
+	if configPath == "" {
+		configPath = serverDefaultConfPath
+	}
 	// readConfig
 	yamlFile, err := ioutil.ReadFile(configPath)
 	if err != nil {

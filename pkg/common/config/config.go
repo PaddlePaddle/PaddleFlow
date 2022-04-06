@@ -27,8 +27,8 @@ var (
 	DefaultPV          *apiv1.PersistentVolume      // the global default pv instance
 	DefaultPVC         *apiv1.PersistentVolumeClaim // the global default pvc instance
 
-	DefaultRunYamlPath    string = "./run.yaml"
-	serverDefaultConfPath        = "./config/server/default/paddleserver.yaml"
+	DefaultRunYamlPath    = "./run.yaml"
+	serverDefaultConfPath = "./config/server/default/paddleserver.yaml"
 )
 
 type ServerConfig struct {
