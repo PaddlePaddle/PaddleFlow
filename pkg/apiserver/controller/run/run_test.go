@@ -55,12 +55,11 @@ func getMockRun1() models.Run {
 
 func getMockRun1_3() models.Run {
 	run1 := models.Run{
-		ID:         MockRunID3,
-		Name:       "run_with_runtime",
-		UserName:   MockRootUser,
-		FsID:       MockFsID1,
-		Status:     common.StatusRunRunning,
-		RuntimeRaw: "{\"main\":{\"Id\":\"job-48167450\",\"StepName\":\"run-1862d0fe-main\",\"Command\":\"echo 123; sleep 10\",\"Parameters\":{\"p1\":\"123\"},\"Env\":{\"PF_FS_ID\":\"fs-f899dc604904a17c\",\"PF_JOB_FLAVOUR\":\"flavour-cpu\",\"PF_JOB_MODE\":\"Pod\",\"PF_JOB_NAMESPACE\":\"default\",\"PF_JOB_PVC_NAME\":\"pfs-fs-f899dc604904a17c-pvc\",\"PF_JOB_QUEUE_NAME\":\"queue-3cd24f00\",\"PF_JOB_TYPE\":\"vcjob\",\"PF_RUN_ID\":\"run-1862d0fe\",\"PF_STEP_NAME\":\"main\",\"PF_USER_ID\":\"admin\"},\"StartTime\":\"2021-08-27 17:48:33\",\"EndTime\":\"\",\"Status\":\"running\"}}",
+		ID:       MockRunID3,
+		Name:     "run_without_runtime",
+		UserName: MockRootUser,
+		FsID:     MockFsID1,
+		Status:   common.StatusRunRunning,
 	}
 	return run1
 }
@@ -119,16 +118,6 @@ func TestGetRunSuccess(t *testing.T) {
 	assert.Equal(t, run1.ID, runRsp.ID)
 	assert.Equal(t, run1.Name, runRsp.Name)
 	assert.Equal(t, run1.Status, runRsp.Status)
-
-	// test has runtime
-	run3 := getMockRun1_3()
-	run3.ID, err = models.CreateRun(ctx.Logging(), &run3)
-	assert.Nil(t, err)
-	runRsp, err = GetRunByID(ctx, run3.ID)
-	assert.Nil(t, err)
-	assert.Equal(t, run3.ID, runRsp.ID)
-	assert.Equal(t, run3.Name, runRsp.Name)
-	assert.Equal(t, run3.Status, runRsp.Status)
 }
 
 func TestGetRunFail(t *testing.T) {

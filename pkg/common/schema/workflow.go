@@ -38,9 +38,9 @@ const (
 )
 
 type Artifacts struct {
-	Input      map[string]string `yaml:"input"`
-	Output     map[string]string `yaml:"-"`
-	OutputList []string          `yaml:"output"`
+	Input      map[string]string `yaml:"input"       json:"input"`
+	Output     map[string]string `yaml:"-"           json:"output"`
+	OutputList []string          `yaml:"output"      json:"-"`
 }
 
 func (atf *Artifacts) ValidateOutputMapByList() error {
