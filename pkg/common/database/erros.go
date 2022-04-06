@@ -23,6 +23,10 @@ import (
 )
 
 const (
+	// mysql errr number reference: https://mariadb.com/kb/en/mariadb-error-codes/
+	ErrNoDuplicateEntry = 1062
+	ErrNoKeyNotFound    = 1032
+
 	ErrorKeyIsDuplicated = "DBKeyIsDuplicated" // 数据库key重复
 	ErrorUnknown         = "UnknownError"      // 数据库错误
 	ErrorRecordNotFound  = "RecordNotFound"    //记录不存在
@@ -38,10 +42,10 @@ func GetErrorCode(err error) string {
 	var gormErr GormErr
 	json.Unmarshal(byteErr, &gormErr)
 	switch gormErr.Number {
-	case 1062:
+	case ErrNoDuplicateEntry:
 		log.Errorf("database key is duplicated. err:%s", gormErr.Message)
 		return ErrorKeyIsDuplicated
-	case 1032:
+	case ErrNoKeyNotFound:
 		log.Errorf("database record not found. err:%s", gormErr.Message)
 		return ErrorRecordNotFound
 	}
