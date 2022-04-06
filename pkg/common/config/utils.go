@@ -19,6 +19,7 @@ package config
 import (
 	"encoding/json"
 	"fmt"
+	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"os"
 
@@ -49,6 +50,7 @@ func InitDefaultPVC(path string) error {
 func InitConfigFromYaml(conf interface{}, configPath string) error {
 	// if not set by user, use default
 	if configPath == "" {
+		log.Infoln("config yaml path not specified. use default config")
 		configPath = serverDefaultConfPath
 	}
 	// readConfig
