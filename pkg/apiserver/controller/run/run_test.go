@@ -150,22 +150,15 @@ func TestCallback(t *testing.T) {
 	run1 := getMockRun1()
 	run1.ID, err = models.CreateRun(ctx.Logging(), &run1)
 	assert.Nil(t, err)
-	runtimeView := schema.RuntimeView{
-		"data_preprocess": schema.JobView{
-			JobID:  "data_preprocess",
-			Status: schema.StatusJobSucceeded,
-		},
-		"main": {
-			JobID:  "data_preprocess",
-			Status: schema.StatusJobRunning,
-		},
-	}
+	runtimeView := schema.RuntimeView{}
+	postProcessView := schema.PostProcessView{}
 	event1 := pipeline.WorkflowEvent{
 		Event: pipeline.WfEventRunUpdate,
 		Extra: map[string]interface{}{
-			common.WfEventKeyRunID:   run1.ID,
-			common.WfEventKeyStatus:  common.StatusRunRunning,
-			common.WfEventKeyRuntime: runtimeView,
+			common.WfEventKeyRunID:       run1.ID,
+			common.WfEventKeyStatus:      common.StatusRunRunning,
+			common.WfEventKeyRuntime:     runtimeView,
+			common.WfEventKeyPostProcess: postProcessView,
 		},
 	}
 	f := UpdateRunFunc
