@@ -421,32 +421,32 @@ func (bwf *BaseWorkflow) checkPostProcess() error {
 		return fmt.Errorf("post_process can only has 1 step at most")
 	}
 
-	for name, postPoint := range bwf.Source.PostProcess {
+	for name, postStep := range bwf.Source.PostProcess {
 		// 检查是否与EntryPoints中的step有重名
 		if _, ok := bwf.Source.EntryPoints[name]; ok {
 			return fmt.Errorf("a step in post_process has name [%s], which is same to name of a step in entry_points", name)
 		}
 
 		// 检查parameters、env、command中是否有引用上游parameters
-		for _, param := range postPoint.Parameters {
+		for _, param := range postStep.Parameters {
 			if err := checkPostProcessParam(param); err != nil {
 				return err
 			}
 		}
-		for _, param := range postPoint.Env {
+		for _, param := range postStep.Env {
 			if err := checkPostProcessParam(param); err != nil {
 				return err
 			}
 		}
-		if err := checkPostProcessParam(postPoint.Command); err != nil {
+		if err := checkPostProcessParam(postStep.Command); err != nil {
 			return err
 		}
 
-		if len(postPoint.Artifacts.Input) > 0 {
+		if len(postStep.Artifacts.Input) > 0 {
 			return fmt.Errorf("step [%s] in post_process has input artifacts", name)
 		}
 
-		if len(postPoint.Deps) > 0 {
+		if len(postStep.Deps) > 0 {
 			return fmt.Errorf("step [%s] in post_process has deps", name)
 		}
 	}

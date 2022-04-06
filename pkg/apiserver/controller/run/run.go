@@ -387,6 +387,13 @@ func RetryRun(ctx *logger.RequestContext, runID string) error {
 		ctx.Logging().Errorf("resetRunSteps failed. err:%v\n", err)
 		return err
 	}
+	if len(run.Runtime) > 0 {
+		// 确保在run_job表有对应的记录时，run记录中的status字段不是pending，进而防止多次创建run_job记录
+		if err := models.UpdateRunStatus(ctx.Logging(), run.ID, common.StatusRunRunning); err != nil {
+			ctx.Logging().Errorf("update run status to running failed")
+			return err
+		}
+	}
 	// resume
 	if err := resumeRun(run); err != nil {
 		ctx.Logging().Errorf("retry run[%s] failed resumeRun. run:%+v. error:%s\n",
