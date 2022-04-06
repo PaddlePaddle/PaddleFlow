@@ -19,13 +19,13 @@ package models
 import (
 	"encoding/json"
 	"fmt"
+	"paddleflow/pkg/common/database/dbflag"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 
 	"paddleflow/pkg/apiserver/common"
-	"paddleflow/pkg/common/database"
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/common/schema"
 	"paddleflow/pkg/common/uuid"
@@ -116,7 +116,7 @@ func (queue *Queue) AfterFind(*gorm.DB) error {
 		// only single query is necessary, function of list query by join table cluster_info
 		log.Debugf("queue[%s] ClusterName is nil", queue.Name)
 		var cluster ClusterInfo
-		db := database.DB.Table("cluster_info").Where("id = ?", queue.ClusterId).Where("deleted_at = '' ")
+		db := dbflag.DB.Table("cluster_info").Where("id = ?", queue.ClusterId).Where("deleted_at = '' ")
 		if err := db.First(&cluster).Error; err != nil {
 			log.Errorf("queue[%s] query cluster by clusterId[%s] failed: %v", queue.Name, queue.ClusterId, err)
 			return err
@@ -170,7 +170,7 @@ func CreateQueue(ctx *logger.RequestContext, queue *Queue) error {
 		queue.ID = uuid.GenerateID(common.PrefixQueue)
 	}
 
-	tx := database.DB.Table("queue").Create(queue)
+	tx := dbflag.DB.Table("queue").Create(queue)
 	if tx.Error != nil {
 		ctx.Logging().Errorf("create queue failed. queue:%v, error:%s",
 			queue, tx.Error.Error())
@@ -185,7 +185,7 @@ func UpdateQueueStatus(queueName string, queueStatus string) error {
 		log.Errorf("Invalid queue status. queueName:[%s] queueStatus:[%s]", queueName, queueStatus)
 		return fmt.Errorf("Invalid queue status. queueName:[%s] queueStatus:[%s]\n", queueName, queueStatus)
 	}
-	tx := database.DB.Table("queue").Where("name = ?", queueName).Update("status", strings.ToLower(queueStatus))
+	tx := dbflag.DB.Table("queue").Where("name = ?", queueName).Update("status", strings.ToLower(queueStatus))
 	if tx.Error != nil {
 		log.Errorf("update queue status failed. queueName:[%s], queueStatus:[%s] error:[%s]",
 			queueName, queueStatus, tx.Error.Error())
@@ -196,7 +196,7 @@ func UpdateQueueStatus(queueName string, queueStatus string) error {
 
 func CloseQueue(ctx *logger.RequestContext, queueName string) error {
 	ctx.Logging().Debugf("begin close queue. queueName:%s", queueName)
-	tx := database.DB.Table("queue").Where("name = ?", queueName).Update("status", schema.StatusQueueClosed)
+	tx := dbflag.DB.Table("queue").Where("name = ?", queueName).Update("status", schema.StatusQueueClosed)
 	if tx.Error != nil {
 		ctx.Logging().Errorf("close queue failed. queueName:%s, error:%s",
 			queueName, tx.Error.Error())
@@ -207,7 +207,7 @@ func CloseQueue(ctx *logger.RequestContext, queueName string) error {
 
 func DeleteQueue(ctx *logger.RequestContext, queueName string) error {
 	ctx.Logging().Debugf("begin delete queue. queueName:%s", queueName)
-	database.DB.Transaction(func(tx *gorm.DB) error {
+	dbflag.DB.Transaction(func(tx *gorm.DB) error {
 		t := tx.Table("queue").Unscoped().Where("name = ?", queueName).Delete(&Queue{})
 		if t.Error != nil {
 			ctx.Logging().Errorf("delete queue failed. queueName:%s, error:%s",
@@ -230,7 +230,7 @@ func DeleteQueue(ctx *logger.RequestContext, queueName string) error {
 func IsQueueExist(ctx *logger.RequestContext, queueName string) bool {
 	ctx.Logging().Debugf("begin check queue exist. queueName:%s", queueName)
 	var queueCount int64
-	tx := database.DB.Table("queue").Where("name = ?", queueName).Count(&queueCount)
+	tx := dbflag.DB.Table("queue").Where("name = ?", queueName).Count(&queueCount)
 	if tx.Error != nil {
 		ctx.Logging().Errorf("count queue failed. queueName:%s, error:%s",
 			queueName, tx.Error.Error())
@@ -246,7 +246,7 @@ func GetQueueByName(ctx *logger.RequestContext, queueName string) (Queue, error)
 	ctx.Logging().Debugf("begin get queue. queueName:%s", queueName)
 
 	var queue Queue
-	tx := database.DB.Table("queue").Where("name = ?", queueName)
+	tx := dbflag.DB.Table("queue").Where("name = ?", queueName)
 	tx = tx.First(&queue)
 	if tx.Error != nil {
 		ctx.Logging().Errorf("get queue failed. queueName:%s, error:%s",
@@ -260,7 +260,7 @@ func GetQueueByID(ctx *logger.RequestContext, queueID string) (Queue, error) {
 	ctx.Logging().Debugf("begin get queue. queueID:%s", queueID)
 
 	var queue Queue
-	tx := database.DB.Table("queue").Where("id = ?", queueID)
+	tx := dbflag.DB.Table("queue").Where("id = ?", queueID)
 	tx = tx.First(&queue)
 	if tx.Error != nil {
 		ctx.Logging().Errorf("get queue failed. queueID:%s, error:%s",
@@ -273,7 +273,7 @@ func GetQueueByID(ctx *logger.RequestContext, queueID string) (Queue, error) {
 func ListQueue(ctx *logger.RequestContext, pk int64, maxKeys int, queueName string) ([]Queue, error) {
 	ctx.Logging().Debugf("begin list queue. ")
 	var tx *gorm.DB
-	tx = database.DB.Table("queue").Select(queueSelectColumn).Joins(queueJoinCluster).Where("queue.pk > ?", pk)
+	tx = dbflag.DB.Table("queue").Select(queueSelectColumn).Joins(queueJoinCluster).Where("queue.pk > ?", pk)
 	if !common.IsRootUser(ctx.UserName) {
 		tx = tx.Joins("join `grant` on `grant`.resource_id = queue.name").Where(
 			"`grant`.user_name = ?", ctx.UserName)
@@ -297,7 +297,7 @@ func ListQueue(ctx *logger.RequestContext, pk int64, maxKeys int, queueName stri
 func GetLastQueue(ctx *logger.RequestContext) (Queue, error) {
 	ctx.Logging().Debugf("get last queue.")
 	queue := Queue{}
-	tx := database.DB.Table("queue").Last(&queue)
+	tx := dbflag.DB.Table("queue").Last(&queue)
 	if tx.Error != nil {
 		ctx.Logging().Errorf("get last queue failed. error:%s", tx.Error.Error())
 		return Queue{}, tx.Error
@@ -306,7 +306,7 @@ func GetLastQueue(ctx *logger.RequestContext) (Queue, error) {
 }
 
 func ListQueuesByCluster(clusterID string) []Queue {
-	db := database.DB.Table("queue").Where("cluster_id = ?", clusterID)
+	db := dbflag.DB.Table("queue").Where("cluster_id = ?", clusterID)
 
 	var queues []Queue
 	err := db.Find(&queues).Error

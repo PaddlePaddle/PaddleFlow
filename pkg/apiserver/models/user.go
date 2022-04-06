@@ -17,11 +17,11 @@ limitations under the License.
 package models
 
 import (
+	"paddleflow/pkg/common/database/dbflag"
 	"time"
 
 	"gorm.io/gorm"
 
-	"paddleflow/pkg/common/database"
 	"paddleflow/pkg/common/logger"
 )
 
@@ -48,7 +48,7 @@ func (User) TableName() string {
 
 func CreateUser(ctx *logger.RequestContext, user *User) error {
 	ctx.Logging().Debugf("model begin create user. username:%s ", user.Name)
-	tx := database.DB.Table("user").Create(user)
+	tx := dbflag.DB.Table("user").Create(user)
 	if tx.Error != nil {
 		ctx.Logging().Errorf("model create user failed. user:%v, error:%s ",
 			&user, tx.Error.Error())
@@ -59,7 +59,7 @@ func CreateUser(ctx *logger.RequestContext, user *User) error {
 
 func UpdateUser(ctx *logger.RequestContext, userName, password string) error {
 	ctx.Logging().Debugf("model update user's password, userName:%v.", userName)
-	err := database.DB.Table("user").Where("name = ?", userName).UpdateColumn("password", password).Error
+	err := dbflag.DB.Table("user").Where("name = ?", userName).UpdateColumn("password", password).Error
 	if err != nil {
 		ctx.Logging().Errorf("model update password failed . userName:%v, error:%s ",
 			userName, err)
@@ -70,7 +70,7 @@ func UpdateUser(ctx *logger.RequestContext, userName, password string) error {
 func ListUser(ctx *logger.RequestContext, pk int64, maxKey int) ([]User, error) {
 	ctx.Logging().Debugf("model begin list user.")
 	var userList []User
-	query := database.DB.Where(&User{})
+	query := dbflag.DB.Where(&User{})
 	query.Where("name != ?", ROOT)
 	query.Where("pk > ?", pk)
 	if maxKey > 0 {
@@ -86,7 +86,7 @@ func ListUser(ctx *logger.RequestContext, pk int64, maxKey int) ([]User, error) 
 
 func DeleteUser(ctx *logger.RequestContext, userName string) error {
 	ctx.Logging().Debugf("model begin delete user. userName:%s", userName)
-	tx := database.DB.Table("user").Unscoped().Where("name = ?", userName).Delete(&User{})
+	tx := dbflag.DB.Table("user").Unscoped().Where("name = ?", userName).Delete(&User{})
 	if tx.Error != nil {
 		ctx.Logging().Errorf("model delete user failed. userName:%s, error:%s",
 			userName, tx.Error.Error())
@@ -98,7 +98,7 @@ func DeleteUser(ctx *logger.RequestContext, userName string) error {
 func GetUserByName(ctx *logger.RequestContext, userName string) (User, error) {
 	ctx.Logging().Debugf("model begin get user by name. userName:%s", userName)
 	var user User
-	tx := database.DB.Table("user").Where("name = ?", userName).First(&user)
+	tx := dbflag.DB.Table("user").Where("name = ?", userName).First(&user)
 	if tx.Error != nil {
 		ctx.Logging().Errorf("get user failed. userName:%s, error:%s", userName, tx.Error.Error())
 		return User{}, tx.Error
@@ -109,7 +109,7 @@ func GetUserByName(ctx *logger.RequestContext, userName string) (User, error) {
 func GetLastUser(ctx *logger.RequestContext) (User, error) {
 	ctx.Logging().Debugf("model get last user. ")
 	queue := User{}
-	tx := database.DB.Table("user").Last(&queue)
+	tx := dbflag.DB.Table("user").Last(&queue)
 	if tx.Error != nil {
 		ctx.Logging().Errorf("get last user failed. error:%s", tx.Error.Error())
 		return User{}, tx.Error

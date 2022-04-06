@@ -17,6 +17,7 @@ limitations under the License.
 package models
 
 import (
+	"paddleflow/pkg/common/database/dbflag"
 	"testing"
 
 	log "github.com/sirupsen/logrus"
@@ -26,7 +27,6 @@ import (
 	glogger "gorm.io/gorm/logger"
 
 	"paddleflow/pkg/apiserver/common"
-	"paddleflow/pkg/common/database"
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/common/schema"
 )
@@ -49,7 +49,7 @@ func InitFakeDB() {
 		&Queue{},
 		&ClusterInfo{},
 	)
-	database.DB = db
+	dbflag.DB = db
 }
 
 func TestCreateQueue(t *testing.T) {

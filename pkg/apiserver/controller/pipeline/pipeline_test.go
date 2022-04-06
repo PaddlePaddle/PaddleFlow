@@ -27,7 +27,7 @@ import (
 
 	"paddleflow/pkg/apiserver/handler"
 	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/common/database/db_fake"
+	"paddleflow/pkg/common/database"
 	"paddleflow/pkg/common/logger"
 )
 
@@ -37,7 +37,7 @@ const (
 )
 
 func TestCreatePipeline(t *testing.T) {
-	db_fake.InitFakeDB()
+	database.InitMockDB()
 	ctx := &logger.RequestContext{UserName: MockRootUser}
 
 	pwd, err := os.Getwd()
@@ -76,7 +76,7 @@ func TestCreatePipeline(t *testing.T) {
 }
 
 func TestListPipeline(t *testing.T) {
-	db_fake.InitFakeDB()
+	database.InitMockDB()
 	ctx := &logger.RequestContext{UserName: MockRootUser}
 
 	ppl1 := models.Pipeline{

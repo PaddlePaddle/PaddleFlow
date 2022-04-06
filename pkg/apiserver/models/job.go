@@ -19,12 +19,12 @@ package models
 import (
 	"database/sql"
 	"encoding/json"
+	"paddleflow/pkg/common/database/dbflag"
 	"time"
 
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 
-	"paddleflow/pkg/common/database"
 	"paddleflow/pkg/common/errors"
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/common/schema"
@@ -85,13 +85,13 @@ func (job *Job) BeforeSave(tx *gorm.DB) error {
 
 // CreateJob creates a new job
 func CreateJob(job *Job) error {
-	db := database.DB
+	db := dbflag.DB
 	return db.Create(job).Error
 }
 
 func GetJobByID(jobID string) (Job, error) {
 	var job Job
-	tx := database.DB.Table("job").Where("id = ?", jobID).First(&job)
+	tx := dbflag.DB.Table("job").Where("id = ?", jobID).First(&job)
 	if tx.Error != nil {
 		logger.LoggerForJob(jobID).Errorf("get job failed, err %v", tx.Error.Error())
 		return Job{}, tx.Error
@@ -119,7 +119,7 @@ func UpdateJobStatus(jobId, errMessage string, jobStatus schema.JobStatus) error
 		job.Message = errMessage
 	}
 	log.Infof("update job [%+v]", job)
-	tx := database.DB.Model(&Job{}).Where("id = ?", jobId).Updates(job)
+	tx := dbflag.DB.Model(&Job{}).Where("id = ?", jobId).Updates(job)
 	if tx.Error != nil {
 		return tx.Error
 	}
@@ -144,7 +144,7 @@ func UpdateJob(jobID string, status schema.JobStatus, info interface{}, message 
 		job.ActivatedAt.Time = time.Now()
 		job.ActivatedAt.Valid = true
 	}
-	tx := database.DB.Table("job").Where("id = ?", jobID).Save(&job)
+	tx := dbflag.DB.Table("job").Where("id = ?", jobID).Save(&job)
 	if tx.Error != nil {
 		logger.LoggerForJob(jobID).Errorf("update job failed, err %v", err)
 		return "", err
@@ -153,7 +153,7 @@ func UpdateJob(jobID string, status schema.JobStatus, info interface{}, message 
 }
 
 func ListQueueJob(queueID string, status []schema.JobStatus) []Job {
-	db := database.DB.Table("job").Where("status in ?", status).Where("queue_id = ?", queueID)
+	db := dbflag.DB.Table("job").Where("status in ?", status).Where("queue_id = ?", queueID)
 
 	var jobs []Job
 	err := db.Find(&jobs).Error
@@ -165,7 +165,7 @@ func ListQueueJob(queueID string, status []schema.JobStatus) []Job {
 
 func GetJobsByRunID(ctx *logger.RequestContext, runID string, jobID string) ([]Job, error) {
 	var jobList []Job
-	query := database.DB.Table("job").Where("id like ?", "job-"+runID+"-%")
+	query := dbflag.DB.Table("job").Where("id like ?", "job-"+runID+"-%")
 	if jobID != "" {
 		query = query.Where("id = ?", jobID)
 	}

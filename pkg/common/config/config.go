@@ -18,6 +18,8 @@ package config
 
 import (
 	apiv1 "k8s.io/api/core/v1"
+
+	"paddleflow/pkg/common/database/dbflag"
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/common/schema"
 )
@@ -32,7 +34,7 @@ var (
 )
 
 type ServerConfig struct {
-	Database      DatabaseConfig            `yaml:"database"`
+	Database      dbflag.DatabaseConfig     `yaml:"database"`
 	Log           logger.LogConfig          `yaml:"log"`
 	ApiServer     ApiServerConfig           `yaml:"apiServer"`
 	Job           JobConfig                 `yaml:"job"`
@@ -41,21 +43,6 @@ type ServerConfig struct {
 	Flavour       []schema.Flavour          `yaml:"flavour"`
 	FlavourMap    map[string]schema.Flavour `yaml:"-"`
 	ImageConf     ImageConfig               `yaml:"imageRepository"`
-}
-
-type DatabaseConfig struct {
-	Driver                               string `yaml:"driver"`
-	Host                                 string `yaml:"host"`
-	Port                                 string `yaml:"port"`
-	User                                 string `yaml:"user"`
-	Password                             string `yaml:"password"`
-	Database                             string `yaml:"database"`
-	ConnectTimeoutInSeconds              int    `yaml:"connectTimeoutInSeconds,omitempty"`
-	LockTimeoutInMilliseconds            int    `yaml:"lockTimeoutInMilliseconds,omitempty"`
-	IdleTransactionTimeoutInMilliseconds int    `yaml:"idleTransactionTimeoutInMilliseconds,omitempty"`
-	MaxIdleConns                         *int   `yaml:"maxIdleConns,omitempty"`
-	MaxOpenConns                         *int   `yaml:"maxOpenConns,omitempty"`
-	ConnMaxLifetimeInHours               *int   `yaml:"connMaxLifetimeInHours,omitempty"`
 }
 
 type ApiServerConfig struct {

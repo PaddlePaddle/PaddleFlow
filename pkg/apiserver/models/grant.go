@@ -17,12 +17,12 @@ limitations under the License.
 package models
 
 import (
+	"paddleflow/pkg/common/database/dbflag"
 	"time"
 
 	"gorm.io/gorm"
 
 	"paddleflow/pkg/apiserver/common"
-	"paddleflow/pkg/common/database"
 	"paddleflow/pkg/common/logger"
 )
 
@@ -43,7 +43,7 @@ func (Grant) TableName() string {
 
 func CreateGrant(ctx *logger.RequestContext, grant *Grant) error {
 	ctx.Logging().Debugf("model begin create grant. grantID:%v", grant.ID)
-	tx := database.DB.Table("grant").Create(grant)
+	tx := dbflag.DB.Table("grant").Create(grant)
 	if tx.Error != nil {
 		ctx.Logging().Errorf("create grant failed. grant:%v, error:%s",
 			grant, tx.Error.Error())
@@ -54,7 +54,7 @@ func CreateGrant(ctx *logger.RequestContext, grant *Grant) error {
 
 func DeleteGrant(ctx *logger.RequestContext, userName, resourceType, resourceID string) error {
 	ctx.Logging().Debugf("model begin delete grant. userName:%s, resourceID:%s ", userName, resourceID)
-	tx := database.DB.Unscoped().Table("grant").Where("user_name = ? and resource_type = ? and resource_id = ?", userName, resourceType, resourceID).Delete(&Grant{})
+	tx := dbflag.DB.Unscoped().Table("grant").Where("user_name = ? and resource_type = ? and resource_id = ?", userName, resourceType, resourceID).Delete(&Grant{})
 	if tx.Error != nil {
 		ctx.Logging().Errorf("delete grant failed. userName:%v, resourceID:%s. error:%s",
 			userName, resourceID, tx.Error.Error())
@@ -66,7 +66,7 @@ func DeleteGrant(ctx *logger.RequestContext, userName, resourceType, resourceID 
 func GetGrant(ctx *logger.RequestContext, userName, resourceType, resourceID string) (*Grant, error) {
 	ctx.Logging().Debugf("model begin get grant. userName:%s, resourceID:%s ", userName, resourceID)
 	var grant Grant
-	tx := database.DB.Table("grant").Where("user_name = ? and resource_id = ? and resource_type = ?", userName, resourceID, resourceType).First(&grant)
+	tx := dbflag.DB.Table("grant").Where("user_name = ? and resource_id = ? and resource_type = ?", userName, resourceID, resourceType).First(&grant)
 	if tx.Error != nil {
 		ctx.Logging().Errorf("model get grant failed. userName:%v, resourceID:%s. error:%s.",
 			userName, resourceID, tx.Error.Error())
@@ -81,7 +81,7 @@ func HasAccessToResource(ctx *logger.RequestContext, resourceType string, resour
 	}
 
 	var num int64
-	tx := database.DB.Table("grant").Where("user_name = ? and resource_type = ? and resource_id = ?",
+	tx := dbflag.DB.Table("grant").Where("user_name = ? and resource_type = ? and resource_id = ?",
 		ctx.UserName, resourceType, resourceID).Count(&num)
 	if tx.Error != nil {
 		ctx.Logging().Errorf("deny access to resourceID[%s] resourceType[%s].", resourceID, resourceType)
@@ -95,7 +95,7 @@ func HasAccessToResource(ctx *logger.RequestContext, resourceType string, resour
 
 func DeleteGrantByUserName(ctx *logger.RequestContext, userName string) error {
 	ctx.Logging().Debugf("model begin delete grant by userName. userName:%s. ", userName)
-	err := database.DB.Unscoped().Table("grant").Where("user_name = ?", userName).Delete(&Grant{}).Error
+	err := dbflag.DB.Unscoped().Table("grant").Where("user_name = ?", userName).Delete(&Grant{}).Error
 	if err != nil {
 		ctx.Logging().Debugf("model delete grant by userName failed. userName:%s, error: %s. ", userName, err.Error())
 		return err
@@ -105,7 +105,7 @@ func DeleteGrantByUserName(ctx *logger.RequestContext, userName string) error {
 
 func DeleteGrantByResourceID(ctx *logger.RequestContext, resourceID string) error {
 	ctx.Logging().Debugf("model begin delete grant by resourceID. resourceID:%s. ", resourceID)
-	err := database.DB.Table("grant").Unscoped().Where("resource_id = ?", resourceID).Delete(&Grant{}).Error
+	err := dbflag.DB.Table("grant").Unscoped().Where("resource_id = ?", resourceID).Delete(&Grant{}).Error
 	if err != nil {
 		ctx.Logging().Debugf("model delete grant by resourceID failed. resourceID:%s, error: %s. ", resourceID, err.Error())
 		return err
@@ -115,7 +115,7 @@ func DeleteGrantByResourceID(ctx *logger.RequestContext, resourceID string) erro
 
 func ListGrant(ctx *logger.RequestContext, pk int64, maxKeys int, userName string) ([]Grant, error) {
 	ctx.Logging().Debugf("model begin list grants by userName. userName:%s. ", userName)
-	query := database.DB.Table("grant")
+	query := dbflag.DB.Table("grant")
 	query.Where("pk > ?", pk)
 	if maxKeys > 0 {
 		query.Limit(maxKeys)
@@ -136,7 +136,7 @@ func ListGrant(ctx *logger.RequestContext, pk int64, maxKeys int, userName strin
 func GetLastGrant(ctx *logger.RequestContext) (Grant, error) {
 	ctx.Logging().Debugf("get last grant.")
 	grant := Grant{}
-	tx := database.DB.Table("grant").Last(&grant)
+	tx := dbflag.DB.Table("grant").Last(&grant)
 	if tx.Error != nil {
 		ctx.Logging().Errorf("get last grant failed. error:%s", tx.Error.Error())
 		return Grant{}, tx.Error

@@ -29,7 +29,7 @@ import (
 	"paddleflow/pkg/apiserver/common"
 	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/common/config"
-	"paddleflow/pkg/common/database/db_fake"
+	"paddleflow/pkg/common/database"
 	"paddleflow/pkg/common/k8s"
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/common/schema"
@@ -62,7 +62,7 @@ func TestCreateQueue(t *testing.T) {
 	err := config.InitConfigFromYaml(ServerConf, "../../../../config/server/default/paddleserver.yaml")
 	config.GlobalServerConfig = ServerConf
 
-	db_fake.InitFakeDB()
+	database.InitMockDB()
 	ctx := &logger.RequestContext{UserName: MockRootUser}
 
 	assert.Nil(t, models.CreateCluster(ctx, &clusterInfo))
@@ -160,7 +160,7 @@ func TestCloseAndDeleteQueue(t *testing.T) {
 // TestMarshalJSONForTime test for time format
 func TestMarshalJSONForTime(t *testing.T) {
 	ctx := &logger.RequestContext{UserName: MockRootUser}
-	db_fake.InitFakeDB()
+	database.InitMockDB()
 	queue := models.Queue{
 		Name: "mockQueueName",
 	}

@@ -37,7 +37,7 @@ import (
 
 	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/common/config"
-	"paddleflow/pkg/common/database/db_fake"
+	"paddleflow/pkg/common/database"
 	"paddleflow/pkg/common/k8s"
 	"paddleflow/pkg/common/schema"
 	"paddleflow/pkg/job/api"
@@ -151,7 +151,7 @@ func TestKubeRuntimeJob(t *testing.T) {
 			},
 		},
 	}
-	db_fake.InitFakeDB()
+	database.InitMockDB()
 	config.GlobalServerConfig = &config.ServerConfig{
 		FlavourMap: map[string]schema.Flavour{
 			"flavour1": {

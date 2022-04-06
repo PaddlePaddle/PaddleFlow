@@ -18,7 +18,7 @@ package controller
 
 import (
 	"context"
-	"k8s.io/apimachinery/pkg/runtime/schema"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -26,14 +26,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	fakedynamicclient "k8s.io/client-go/dynamic/fake"
 	restclient "k8s.io/client-go/rest"
-	"net/http/httptest"
 
 	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/common/database/db_fake"
+	"paddleflow/pkg/common/database"
 	"paddleflow/pkg/common/k8s"
 	"paddleflow/pkg/common/logger"
 )
@@ -83,7 +83,7 @@ func TestQueueSync(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := &logger.RequestContext{UserName: "test"}
-			db_fake.InitFakeDB()
+			database.InitMockDB()
 			err := models.CreateQueue(ctx, &models.Queue{
 				Name: test.queueName,
 			})

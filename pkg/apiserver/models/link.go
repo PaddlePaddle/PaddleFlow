@@ -19,11 +19,10 @@ package models
 import (
 	"encoding/json"
 	"fmt"
+	"paddleflow/pkg/common/database/dbflag"
 
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
-
-	"paddleflow/pkg/common/database"
 )
 
 const (
@@ -49,7 +48,7 @@ func (Link) TableName() string {
 
 // CreateLink creates a new link
 func CreateLink(link *Link) error {
-	db := database.DB
+	db := dbflag.DB
 	return db.Create(link).Error
 }
 
@@ -78,7 +77,7 @@ func (s *Link) BeforeSave(*gorm.DB) error {
 
 func FsNameLinks(fsID string) ([]Link, error) {
 	var links []Link
-	db := database.DB
+	db := dbflag.DB
 	result := &gorm.DB{}
 	result = db.Where(&Link{FsID: fsID}).Find(&links)
 	return links, result.Error
@@ -86,7 +85,7 @@ func FsNameLinks(fsID string) ([]Link, error) {
 
 func LinkWithFsIDAndFsPath(fsID, fsPath string) (Link, error) {
 	var link Link
-	db := database.DB
+	db := dbflag.DB
 	result := &gorm.DB{}
 	result = db.Where(&Link{FsID: fsID, FsPath: fsPath}).Find(&link)
 	return link, result.Error
@@ -94,7 +93,7 @@ func LinkWithFsIDAndFsPath(fsID, fsPath string) (Link, error) {
 
 // DeleteLinkWithFsIDAndFsPath delete a file system link
 func DeleteLinkWithFsIDAndFsPath(fsID, fsPath string) error {
-	db := database.DB
+	db := dbflag.DB
 	result := db.Where(fmt.Sprintf(QueryEqualWithParam, FsID), fsID).Where(fmt.Sprintf(QueryEqualWithParam, FsPath), fsPath).Delete(&Link{})
 	return result.Error
 }
@@ -102,7 +101,7 @@ func DeleteLinkWithFsIDAndFsPath(fsID, fsPath string) error {
 // ListLink get links with marker and limit sort by create_at desc
 func ListLink(limit int, marker, fsID string) ([]Link, error) {
 	var links []Link
-	db := database.DB
+	db := dbflag.DB
 	result := &gorm.DB{}
 	result = db.Where(&Link{FsID: fsID}).Where(fmt.Sprintf(QueryLess, CreatedAt, "'"+marker+"'")).
 		Order(fmt.Sprintf(" %s %s ", CreatedAt, DESC)).Limit(limit).Find(&links)
@@ -111,7 +110,7 @@ func ListLink(limit int, marker, fsID string) ([]Link, error) {
 
 func GetLinkWithFsIDFsPathAndUserName(fsID, fsPath, userName string) ([]Link, error) {
 	var links []Link
-	db := database.DB
+	db := dbflag.DB
 	result := db.Where(&Link{UserName: userName, FsID: fsID, FsPath: fsPath}).Find(&links)
 	return links, result.Error
 }

@@ -19,7 +19,7 @@ package models
 import (
 	"fmt"
 	"paddleflow/pkg/apiserver/common"
-	"paddleflow/pkg/common/database"
+	"paddleflow/pkg/common/database/dbflag"
 	"paddleflow/pkg/common/logger"
 	"time"
 
@@ -56,7 +56,7 @@ func (p *Pipeline) Decode() error {
 
 func CreatePipeline(logEntry *log.Entry, ppl *Pipeline) (string, error) {
 	logEntry.Debugf("begin create pipeline: %+v", ppl)
-	err := withTransaction(database.DB, func(tx *gorm.DB) error {
+	err := withTransaction(dbflag.DB, func(tx *gorm.DB) error {
 		result := tx.Model(&Pipeline{}).Create(ppl)
 		if result.Error != nil {
 			logEntry.Errorf("create pipeline failed. pipeline:%+v, error:%v", ppl, result.Error)
@@ -77,37 +77,37 @@ func CreatePipeline(logEntry *log.Entry, ppl *Pipeline) (string, error) {
 
 func CountPipelineByNameInFs(name, fsID string) (int64, error) {
 	var count int64
-	result := database.DB.Model(&Pipeline{}).Where(&Pipeline{Name: name, FsID: fsID}).Count(&count)
+	result := dbflag.DB.Model(&Pipeline{}).Where(&Pipeline{Name: name, FsID: fsID}).Count(&count)
 	return count, result.Error
 }
 
 func CountPipelineByMd5InFs(md5, fsID string) (int64, error) {
 	var count int64
-	result := database.DB.Model(&Pipeline{}).Where(&Pipeline{PipelineMd5: md5, FsID: fsID}).Count(&count)
+	result := dbflag.DB.Model(&Pipeline{}).Where(&Pipeline{PipelineMd5: md5, FsID: fsID}).Count(&count)
 	return count, result.Error
 }
 
 func GetPipelineByMd5AndFs(md5, fsID string) (Pipeline, error) {
 	var ppl Pipeline
-	result := database.DB.Model(&Pipeline{}).Where(&Pipeline{FsID: fsID, PipelineMd5: md5}).Last(&ppl)
+	result := dbflag.DB.Model(&Pipeline{}).Where(&Pipeline{FsID: fsID, PipelineMd5: md5}).Last(&ppl)
 	return ppl, result.Error
 }
 
 func GetPipelineByID(id string) (Pipeline, error) {
 	var ppl Pipeline
-	result := database.DB.Model(&Pipeline{}).Where(&Pipeline{ID: id}).Last(&ppl)
+	result := dbflag.DB.Model(&Pipeline{}).Where(&Pipeline{ID: id}).Last(&ppl)
 	return ppl, result.Error
 }
 
 func GetPipelineByNameAndFs(fsID, name string) (Pipeline, error) {
 	var ppl Pipeline
-	result := database.DB.Model(&Pipeline{}).Where(&Pipeline{FsID: fsID, Name: name}).Last(&ppl)
+	result := dbflag.DB.Model(&Pipeline{}).Where(&Pipeline{FsID: fsID, Name: name}).Last(&ppl)
 	return ppl, result.Error
 }
 
 func ListPipeline(pk int64, maxKeys int, userFilter, fsFilter, nameFilter []string) ([]Pipeline, error) {
 	logger.Logger().Debugf("begin list run. ")
-	tx := database.DB.Model(&Pipeline{}).Where("pk > ?", pk)
+	tx := dbflag.DB.Model(&Pipeline{}).Where("pk > ?", pk)
 	if len(userFilter) > 0 {
 		tx = tx.Where("user_name IN (?)", userFilter)
 	}
@@ -133,7 +133,7 @@ func ListPipeline(pk int64, maxKeys int, userFilter, fsFilter, nameFilter []stri
 func GetLastPipeline(logEntry *log.Entry) (Pipeline, error) {
 	logEntry.Debugf("get last ppl. ")
 	ppl := Pipeline{}
-	tx := database.DB.Model(&Pipeline{}).Last(&ppl)
+	tx := dbflag.DB.Model(&Pipeline{}).Last(&ppl)
 	if tx.Error != nil {
 		logEntry.Errorf("get last ppl failed. error:%s", tx.Error.Error())
 		return Pipeline{}, tx.Error
@@ -143,5 +143,5 @@ func GetLastPipeline(logEntry *log.Entry) (Pipeline, error) {
 
 func HardDeletePipeline(logEntry *log.Entry, id string) error {
 	logEntry.Debugf("delete ppl: %s", id)
-	return database.DB.Unscoped().Where("id = ?", id).Delete(&Pipeline{}).Error
+	return dbflag.DB.Unscoped().Where("id = ?", id).Delete(&Pipeline{}).Error
 }

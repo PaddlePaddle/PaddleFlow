@@ -2,11 +2,11 @@ package options
 
 import (
 	goflag "flag"
+	"paddleflow/pkg/common/database/dbflag"
 
 	"github.com/spf13/pflag"
 
 	"paddleflow/pkg/common/config"
-	"paddleflow/pkg/common/database"
 	"paddleflow/pkg/common/logger"
 )
 
@@ -52,7 +52,7 @@ func (s *ServerOption) InitFlag(fs *pflag.FlagSet) {
 	}
 	s.AddFlagSet(fs)
 	logger.AddFlagSet(fs, &s.serverConf.Log)
-	database.AddFlagSet(fs, &s.serverConf.Database)
+	dbflag.AddFlagSet(fs, &s.serverConf.Database)
 	pflag.CommandLine.AddGoFlagSet(goflag.CommandLine)
 	pflag.Parse()
 }

@@ -19,7 +19,7 @@ import (
 	v1 "paddleflow/pkg/apiserver/router/v1"
 	"paddleflow/pkg/common/config"
 	"paddleflow/pkg/common/database"
-	dbinit "paddleflow/pkg/common/database/init"
+	"paddleflow/pkg/common/database/dbflag"
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/common/schema"
 	"paddleflow/pkg/job"
@@ -107,7 +107,7 @@ func (s *Server) Init() {
 
 	dbConf := &s.ServerConf.Database
 
-	database.DB, err = dbinit.InitDatabase(&config.DatabaseConfig{
+	dbflag.DB, err = database.InitDatabase(&dbflag.DatabaseConfig{
 		Driver:   dbConf.Driver,
 		Host:     dbConf.Host,
 		Port:     dbConf.Port,

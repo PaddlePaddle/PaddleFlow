@@ -23,7 +23,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/common/database/db_fake"
+	"paddleflow/pkg/common/database"
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/common/schema"
 )
@@ -57,7 +57,7 @@ func initCluster(t *testing.T) {
 }
 
 func TestListFlavour(t *testing.T) {
-	db_fake.InitFakeDB()
+	database.InitMockDB()
 
 	initCluster(t)
 	// insert flavour
@@ -99,7 +99,7 @@ func TestListFlavour(t *testing.T) {
 }
 
 func TestCreateFlavour(t *testing.T) {
-	db_fake.InitFakeDB()
+	database.InitMockDB()
 	initCluster(t)
 	createFlavourReq := CreateFlavourRequest{
 		Name: MockFlavourName,

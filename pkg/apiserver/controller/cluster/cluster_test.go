@@ -24,24 +24,24 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/common/database/db_fake"
+	"paddleflow/pkg/common/database"
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/common/schema"
 	"paddleflow/pkg/job/runtime"
 )
 
 const (
-	MockRootUser = "root"
-	MockClusterName = "testCn"
+	MockRootUser     = "root"
+	MockClusterName  = "testCn"
 	MockClusterName2 = "testCn2"
 )
 
 func TestCreateCluster(t *testing.T) {
-	db_fake.InitFakeDB()
+	database.InitMockDB()
 	ctx := &logger.RequestContext{UserName: MockRootUser}
 
 	createClusterReq := CreateClusterRequest{
-		Name:             MockClusterName,
+		Name: MockClusterName,
 	}
 
 	createClusterReq.ID = ""
