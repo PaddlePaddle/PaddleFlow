@@ -24,7 +24,6 @@ import (
 type VariableChecker struct {
 }
 
-
 func (variableChecker *VariableChecker) CheckVarName(varName string) error {
 	// 校验字符串是一个合格变量名，只能由字母数字下划线组成，且以字母下划线开头
 	pattern := `^[a-zA-Z_][a-zA-Z_0-9]*$`

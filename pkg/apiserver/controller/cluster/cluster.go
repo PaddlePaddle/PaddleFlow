@@ -251,9 +251,9 @@ func CreateCluster(ctx *logger.RequestContext, request *CreateClusterRequest) (*
 	clusterId := uuid.GenerateID(common.PrefixCluster)
 	clusterInfo := models.ClusterInfo{
 		Model: models.Model{
-			ID: clusterId,
-			CreatedAt:     time.Now(),
-			UpdatedAt:     time.Now(),
+			ID:        clusterId,
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
 		},
 		Name:          clusterName,
 		Description:   request.Description,
@@ -427,7 +427,6 @@ func UpdateCluster(ctx *logger.RequestContext,
 		ctx.Logging().Errorf("get cluster failed. clusterName:[%s]", clusterName)
 		return nil, err
 	}
-
 
 	if err := validateUpdateClusterRequest(ctx, request, &clusterInfo); err != nil {
 		ctx.Logging().Errorf("validateCreateClusterRequest failed, ClusterName: %s", clusterName)

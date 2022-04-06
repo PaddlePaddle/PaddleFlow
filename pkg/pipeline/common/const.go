@@ -37,11 +37,11 @@ const (
 	WfParallelismDefault = 10
 	WfParallelismMaximum = 20
 
-	FieldParameters       = "parameters"
-	FieldCommand          = "command"
-	FieldEnv              = "env"
-	FieldInputArtifacts   = "inputArtifacts"
-	FieldOutputArtifacts  = "outputArtifacts"
+	FieldParameters      = "parameters"
+	FieldCommand         = "command"
+	FieldEnv             = "env"
+	FieldInputArtifacts  = "inputArtifacts"
+	FieldOutputArtifacts = "outputArtifacts"
 
 	CacheStrategyConservative = "conservative"
 	CacheStrategyAggressive   = "aggressive"
