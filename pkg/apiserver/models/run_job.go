@@ -66,7 +66,7 @@ func CreateRunJobs(logEntry *log.Entry, jobs map[string]schema.JobView, runID st
 				Name:     job.JobName,
 				StepName: name,
 			}
-			result := tx.Model(&RunJob{}).Create(runJob)
+			result := tx.Model(&RunJob{}).Create(&runJob)
 			if result.Error != nil {
 				logEntry.Errorf("create run_job failed. run_job: %v, error: %s",
 					runJob, result.Error.Error())
@@ -80,7 +80,7 @@ func CreateRunJobs(logEntry *log.Entry, jobs map[string]schema.JobView, runID st
 
 func UpdateRunJob(logEntry *log.Entry, runJobID string, runJob RunJob) error {
 	logEntry.Debugf("begin update run_job. run_job ID: %s", runJobID)
-	tx := database.DB.Model(&Run{}).Where("id = ?", runJobID).Updates(runJob)
+	tx := database.DB.Model(&RunJob{}).Where("id = ?", runJobID).Updates(runJob)
 	if tx.Error != nil {
 		logEntry.Errorf("update run_job failed. runJobID: %s, error: %s",
 			runJobID, tx.Error.Error())
@@ -173,7 +173,7 @@ func (rj *RunJob) ParseJobView(step *schema.WorkflowSourceStep) schema.JobView {
 	}
 	newEnv := map[string]string{}
 	for k, v := range step.Env {
-		newParameters[k] = v
+		newEnv[k] = v
 	}
 	newEndTime := ""
 	if rj.Status == schema.StatusJobCancelled || rj.Status == schema.StatusJobFailed || rj.Status == schema.StatusJobSucceeded || rj.Status == schema.StatusJobSkipped {

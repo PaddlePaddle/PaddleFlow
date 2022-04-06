@@ -29,7 +29,89 @@ import (
 	"paddleflow/pkg/common/schema"
 )
 
-const runtimeRaw = `{"preprocess":{"jobID":"job-run-000361-preprocess-1220449a","name":"run-000361-preprocess","command":"mkdir data \u0026\u0026 cd ./data/ \u0026\u0026 mkdir train \u0026\u0026 mkdir validata","parameters":{"data_path":"./data/"},"env":{"PF_FS_ID":"fs-root-cyang14","PF_FS_NAME":"cyang14","PF_INPUT_ARTIFACT_DATA1":"./data/","PF_JOB_FLAVOUR":"flavour1","PF_JOB_MODE":"Pod","PF_JOB_NAMESPACE":"default","PF_JOB_PRIORITY":"NORMAL","PF_JOB_PVC_NAME":"pfs-fs-root-cyang14-pvc","PF_JOB_QUEUE_NAME":"qdh","PF_JOB_TYPE":"vcjob","PF_OUTPUT_ARTIFACT_TRAIN_DATA":"","PF_OUTPUT_ARTIFACT_VALIDATE_DATA":"","PF_RUN_ID":"run-000361","PF_STEP_NAME":"preprocess","PF_USER_NAME":"root"},"startTime":"2022-02-09 17:07:41","endTime":"2022-02-09 17:07:46","status":"succeeded","deps":"","image":"paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7","artifacts":{"Input":{"data1":"./data/"},"Output":{"train_data":"","validate_data":""},"OutputList":null},"jobMessage":"ContainerCreating:"}}`
+const runtimeRaw = `
+{
+	"main": {
+		"jobID": "job-run-000059-main-b7a9a264",
+		"name": "run-000059-main",
+		"command": "echo hahaha",
+		"parameters": {
+			"test": "hahaha"
+		},
+		"env": {
+			"PF_FS_ID": "fs-root-cyang14",
+			"PF_FS_NAME": "cyang14",
+			"PF_JOB_CLUSTER_ID": "cluster-05f3854d",
+			"PF_JOB_FLAVOUR": "flavour1",
+			"PF_JOB_MODE": "Pod",
+			"PF_JOB_NAMESPACE": "default",
+			"PF_JOB_PRIORITY": "HIGH",
+			"PF_JOB_QUEUE_ID": "queue-48ec41bd",
+			"PF_JOB_QUEUE_NAME": "abc-q1",
+			"PF_JOB_TYPE": "vcjob",
+			"PF_RUN_ID": "run-000059",
+			"PF_STEP_NAME": "main",
+			"PF_USER_NAME": "root"
+		},
+		"startTime": "2022-04-06 14:59:18",
+		"endTime": "",
+		"status": "init",
+		"deps": "",
+		"dockerEnv": "iregistry.baidu-int.com/bmlc/framework/paddle:2.0.2-gpu-cuda10.1-cudnn7",
+		"artifacts": {
+			"Input": {},
+			"Output": {},
+			"OutputList": null
+		},
+		"cache": {
+			"Enable": false,
+			"MaxExpiredTime": "600",
+			"FsScope": "./lalal"
+		},
+		"jobMessage": "",
+		"cacheRunID": ""
+	},
+	"nomain": {
+		"jobID": "job-run-000059-nomain-465e402b",
+		"name": "run-000059-nomain",
+		"command": "echo 222",
+		"parameters": {
+			"test": "222"
+		},
+		"env": {
+			"PF_FS_ID": "fs-root-cyang14",
+			"PF_FS_NAME": "cyang14",
+			"PF_JOB_CLUSTER_ID": "cluster-05f3854d",
+			"PF_JOB_FLAVOUR": "flavour1",
+			"PF_JOB_MODE": "Pod",
+			"PF_JOB_NAMESPACE": "default",
+			"PF_JOB_PRIORITY": "HIGH",
+			"PF_JOB_QUEUE_ID": "queue-48ec41bd",
+			"PF_JOB_QUEUE_NAME": "abc-q1",
+			"PF_JOB_TYPE": "vcjob",
+			"PF_RUN_ID": "run-000059",
+			"PF_STEP_NAME": "nomain",
+			"PF_USER_NAME": "root"
+		},
+		"startTime": "2022-04-06 14:59:18",
+		"endTime": "",
+		"status": "init",
+		"deps": "",
+		"dockerEnv": "iregistry.baidu-int.com/bmlc/framework/paddle:2.0.2-gpu-cuda10.1-cudnn7",
+		"artifacts": {
+			"Input": {},
+			"Output": {},
+			"OutputList": null
+		},
+		"cache": {
+			"Enable": false,
+			"MaxExpiredTime": "600",
+			"FsScope": "./lalal"
+		},
+		"jobMessage": "",
+		"cacheRunID": ""
+	}
+}`
 
 func getMockRunWithRuntime() models.Run {
 	run1 := models.Run{
@@ -38,6 +120,7 @@ func getMockRunWithRuntime() models.Run {
 		UserName: MockRootUser,
 		FsID:     MockFsID1,
 		Status:   common.StatusRunRunning,
+		RunYaml:  "name: myproject\n\ndocker_env: iregistry.baidu-int.com/bmlc/framework/paddle:2.0.2-gpu-cuda10.1-cudnn7\n\nentry_points:\n  main:\n    parameters:\n      test: \"111\"\n    command: \"echo {{test}}\"\n    env:\n      PF_JOB_QUEUE_NAME: abc-q1\n      PF_JOB_TYPE: vcjob\n      PF_JOB_MODE: Pod\n      PF_JOB_FLAVOUR: flavour1\n      PF_JOB_PRIORITY: HIGH\n    cache:\n      enable: false\n      max_expired_time: 600\n      fs_scope: \"./lalal\"\n  nomain:\n    parameters:\n      test: \"222\"\n    command: \"echo {{test}}\"\n    env:\n      PF_JOB_QUEUE_NAME: abc-q1\n      PF_JOB_TYPE: vcjob\n      PF_JOB_MODE: Pod\n      PF_JOB_FLAVOUR: flavour1\n      PF_JOB_PRIORITY: HIGH\n    cache:\n      enable: false\n      max_expired_time: 600\n      fs_scope: \"./lalal\"\ncache:\n  enable: true\n  max_expired_time: 300\n  fs_scope: \"./for_fsscope\"\n",
 	}
 	return run1
 }
@@ -59,7 +142,7 @@ func TestGetJobByRun(t *testing.T) {
 		models.UpdateRunJob(ctx.Logging(), run.ID, runJob)
 	}
 
-	jobView, err := GetJobByRun(runID, "preprocess")
+	jobView, err := GetJobByRun(runID, "main")
 	assert.Nil(t, err)
-	assert.Equal(t, "job-run-000361-preprocess-1220449a", jobView.JobID)
+	assert.Equal(t, "job-run-000059-main-b7a9a264", jobView.JobID)
 }
