@@ -230,7 +230,7 @@ func (fr *FlavourRouter) createFlavour(w http.ResponseWriter, r *http.Request) {
 	} else if f.Name != "" {
 		ctx.ErrorCode = common.DuplicatedName
 		ctx.Logging().Infof("flavour %s has exist.", request.Name)
-		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, "")
 		return
 	}
 

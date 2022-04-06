@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS `queue` (
 CREATE TABLE IF NOT EXISTS `job` (
     `pk` bigint(20) NOT NULL AUTO_INCREMENT,
     `id` varchar(60) NOT NULL UNIQUE,
+    `name` varchar(512) DEFAULT '';
     `user_name` varchar(60) NOT NULL,
     `type` varchar(20) NOT NULL,
     `config` mediumtext NOT NULL,
@@ -29,12 +30,42 @@ CREATE TABLE IF NOT EXISTS `job` (
     `runtime_info` mediumtext DEFAULT NULL,
     `status` varchar(32) DEFAULT NULL,
     `message` text DEFAULT NULL,
+    `resource` mediumtext DEFAULT NULL,
+    `framework` varchar(30) DEFAULT NULL,
+    `members` mediumtext DEFAULT NULL,
+    `extension_template` text DEFAULT NULL,
+    `parent_job` varchar(60) DEFAULT NULL,
     `created_at` datetime(3) DEFAULT NULL,
     `activated_at` datetime(3) DEFAULT NULL,
     `updated_at` datetime(3) DEFAULT NULL,
     `deleted_at` datetime(3) DEFAULT NULL,
     PRIMARY KEY (`pk`),
     UNIQUE KEY `job_id` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+CREATE TABLE IF NOT EXISTS `job_label` (
+    `pk` bigint(20) NOT NULL AUTO_INCREMENT,
+    `id` varchar(36) NOT NULL UNIQUE,
+    `label` varchar(255) NOT NULL,
+    `jobid` varchar(60) NOT NULL,
+    `created_at` datetime(3) DEFAULT NULL,
+    `deleted_at` datetime(3) DEFAULT NULL,
+    PRIMARY KEY (`pk`),
+    UNIQUE KEY `id` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+CREATE TABLE IF NOT EXISTS `job_task_status` (
+    `pk` bigint(20) NOT NULL AUTO_INCREMENT,
+    `id` varchar(64) NOT NULL UNIQUE,
+    `jobid` varchar(60) NOT NULL,
+    `namespace` varchar(64) NOT NULL,
+    `name` varchar(512) NOT NULL,
+    `status` text DEFAULT NULL,
+    `created_at` datetime(3) DEFAULT NULL,
+    `updated_at` datetime(3) DEFAULT NULL,
+    `deleted_at` datetime(3) DEFAULT NULL,
+    PRIMARY KEY (`pk`),
+    UNIQUE KEY `id` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 CREATE TABLE IF NOT EXISTS `user` (

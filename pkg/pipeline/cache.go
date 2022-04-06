@@ -25,7 +25,6 @@ import (
 	"strings"
 
 	"paddleflow/pkg/apiserver/handler"
-	"paddleflow/pkg/common/config"
 	"paddleflow/pkg/common/schema"
 	. "paddleflow/pkg/pipeline/common"
 )
@@ -118,8 +117,7 @@ type conservativeCacheCalculator struct {
 
 // 调用方应该保证在启用了 cache 功能的情况下才会调用NewConservativeCacheCalculator
 func NewConservativeCacheCalculator(step Step, cacheConfig schema.Cache) (CacheCalculator, error) {
-	fsHandler, err := handler.NewFsHandlerWithServer(step.wfr.wf.Extra[WfExtraInfoKeyFsID], config.GlobalServerConfig.ApiServer.Host,
-		config.GlobalServerConfig.ApiServer.Port, step.getLogger())
+	fsHandler, err := handler.NewFsHandlerWithServer(step.wfr.wf.Extra[WfExtraInfoKeyFsID], step.getLogger())
 
 	if err != nil {
 		errMsg := fmt.Errorf("init fsHandler failed: %s", err.Error())
@@ -194,11 +192,6 @@ func (cc *conservativeCacheCalculator) getFsScopeModTime() (map[string]string, e
 	fsScopeMtimeMap := map[string]string{}
 
 	FsScope := strings.TrimSpace(cc.cacheConfig.FsScope)
-	// 如果FsScope 为空字符串，则默认设置为 更目录
-	if FsScope == "" {
-		FsScope = "/"
-	}
-
 	for _, path := range strings.Split(FsScope, ",") {
 		path = strings.TrimSpace(path)
 		if path == "" {

@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,23 +17,49 @@ limitations under the License.
 package config
 
 import (
+	"os"
+
+	apiv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/yaml"
+
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/common/schema"
 )
 
+var DefaultRunYamlPath string = "./run.yaml"
 var serverDefaultConfPath = "./config/server/default/paddleserver.yaml"
+
+// DefaultPV the global default pv instance
+var DefaultPV *apiv1.PersistentVolume
+
+// DefaultPVC the global default pvc instance
+var DefaultPVC *apiv1.PersistentVolumeClaim
 
 type ServerConfig struct {
 	Database      DatabaseConfig            `yaml:"database"`
 	Log           logger.LogConfig          `yaml:"log"`
 	ApiServer     ApiServerConfig           `yaml:"apiServer"`
-	KubeConfig    KubeConfig                `yaml:"kubeConfig"`
 	Job           JobConfig                 `yaml:"job"`
 	Fs            FsServerConf              `yaml:"fs"`
 	NamespaceList []string                  `yaml:"namespaceList"`
 	Flavour       []schema.Flavour          `yaml:"flavour"`
 	FlavourMap    map[string]schema.Flavour `yaml:"-"`
 	ImageConf     ImageConfig               `yaml:"imageRepository"`
+}
+
+type DatabaseConfig struct {
+	Driver                               string `yaml:"driver"`
+	Host                                 string `yaml:"host"`
+	Port                                 string `yaml:"port"`
+	User                                 string `yaml:"user"`
+	Password                             string `yaml:"password"`
+	Database                             string `yaml:"database"`
+	ConnectTimeoutInSeconds              int    `yaml:"connectTimeoutInSeconds,omitempty"`
+	LockTimeoutInMilliseconds            int    `yaml:"lockTimeoutInMilliseconds,omitempty"`
+	IdleTransactionTimeoutInMilliseconds int    `yaml:"idleTransactionTimeoutInMilliseconds,omitempty"`
+	MaxIdleConns                         *int   `yaml:"maxIdleConns,omitempty"`
+	MaxOpenConns                         *int   `yaml:"maxOpenConns,omitempty"`
+	ConnMaxLifetimeInHours               *int   `yaml:"connMaxLifetimeInHours,omitempty"`
 }
 
 type ApiServerConfig struct {
@@ -87,4 +113,24 @@ var (
 
 func InitConfigFromDefaultYaml(conf interface{}) error {
 	return InitConfigFromYaml(conf, serverDefaultConfPath)
+}
+
+// InitDefaultPV initialize the default pv instance
+func InitDefaultPV(path string) error {
+	reader, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer reader.Close()
+	return yaml.NewYAMLOrJSONDecoder(reader, 1024).Decode(&DefaultPV)
+}
+
+// InitDefaultPVC initialize the default pvc instance
+func InitDefaultPVC(path string) error {
+	reader, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer reader.Close()
+	return yaml.NewYAMLOrJSONDecoder(reader, 1024).Decode(&DefaultPVC)
 }

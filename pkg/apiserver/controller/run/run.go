@@ -47,7 +47,7 @@ type CreateRunRequest struct {
 	// run workflow source. priority: RunYamlRaw > PipelineID > RunYamlPath
 	// 为了防止字符串或者不同的http客户端对run.yaml
 	// 格式中的特殊字符串做特殊过滤处理导致yaml文件不正确，因此采用runYamlRaw采用base64编码传输
-	Disabled   string                 `json:"disabled,omitempty"`  // optional
+	Disabled    string `json:"disabled,omitempty"`    // optional
 	RunYamlRaw  string `json:"runYamlRaw,omitempty"`  // optional. one of 3 sources of run. high priority
 	PipelineID  string `json:"pipelineID,omitempty"`  // optional. one of 3 sources of run. medium priority
 	RunYamlPath string `json:"runYamlPath,omitempty"` // optional. one of 3 sources of run. low priority
@@ -443,17 +443,19 @@ func DeleteRun(ctx *logger.RequestContext, id string, request *DeleteRunRequest)
 		}
 	}
 
-	// delete artifact
-	resourceHandler, err := pipeline.NewResourceHandler(id, run.FsID, ctx.Logging())
-	if err != nil {
-		ctx.Logging().Errorf("delete run[%s] failed. Init handler failed. err: %v", id, err.Error())
-		ctx.ErrorCode = common.InternalError
-		return err
-	}
-	if err := resourceHandler.ClearResource(); err != nil {
-		ctx.Logging().Errorf("delete run[%s] failed. Delete artifact failed. err: %v", id, err.Error())
-		ctx.ErrorCode = common.InternalError
-		return err
+	// 删除pipeline run outputAtf (只有Fs不为空，才需要清理artifact。因为不使用Fs时，不允许定义outputAtf)
+	if run.FsID != "" {
+		resourceHandler, err := pipeline.NewResourceHandler(id, run.FsID, ctx.Logging())
+		if err != nil {
+			ctx.Logging().Errorf("delete run[%s] failed. Init handler failed. err: %v", id, err.Error())
+			ctx.ErrorCode = common.InternalError
+			return err
+		}
+		if err := resourceHandler.ClearResource(); err != nil {
+			ctx.Logging().Errorf("delete run[%s] failed. Delete artifact failed. err: %v", id, err.Error())
+			ctx.ErrorCode = common.InternalError
+			return err
+		}
 	}
 
 	// delete
@@ -562,7 +564,7 @@ func handleImageAndStartWf(run models.Run, isResume bool) error {
 			logEntry.Errorf("create run failed ListImageIDsByFsID[%s]. error:%s\n", run.FsID, err.Error())
 			return updateRunStatusAndMsg(run.ID, common.StatusRunFailed, err.Error())
 		}
-		if err := handler.PFImageHandler.HandleImage(run.WorkflowSource.DockerEnv, run.ID, run.FsID, config.FsServerHost, config.FsServerPort,
+		if err := handler.PFImageHandler.HandleImage(run.WorkflowSource.DockerEnv, run.ID, run.FsID,
 			imageIDs, logEntry, handleImageCallbackFunc); err != nil {
 			logEntry.Errorf("handle image failed. error:%s\n", err.Error())
 			return updateRunStatusAndMsg(run.ID, common.StatusRunFailed, err.Error())

@@ -27,11 +27,12 @@ var runID string = "stepTestRunID"
 
 // 测试updateJob接口（用于计算fingerprint）
 func TestUpdateJobForFingerPrint(t *testing.T) {
-	testCase := loadcase("./testcase/run.step.yaml")
+	testCase := loadcase(runYamlPath)
 	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
-	wf, err := NewWorkflow(wfs, runID, "", nil, nil, mockCbs)
+	extra := GetExtra()
+	wf, err := NewWorkflow(wfs, runID, "", nil, extra, mockCbs)
 	if err != nil {
 		t.Errorf("new workflow failed: %s", err.Error())
 	}
@@ -119,11 +120,12 @@ func TestUpdateJobForFingerPrint(t *testing.T) {
 
 // // 测试updateJob接口（cache命中失败后，替换用于节点运行）
 func TestUpdateJob(t *testing.T) {
-	testCase := loadcase("./testcase/run.step.yaml")
+	testCase := loadcase(runYamlPath)
 	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
-	wf, err := NewWorkflow(wfs, "stepTestRunID", "", nil, nil, mockCbs)
+	extra := GetExtra()
+	wf, err := NewWorkflow(wfs, "stepTestRunID", "", nil, extra, mockCbs)
 	if err != nil {
 		t.Errorf("new workflow failed: %s", err.Error())
 	}
@@ -215,11 +217,12 @@ func TestUpdateJob(t *testing.T) {
 
 // 测试updateJob接口（根据cache命中后的artifact路径）
 func TestUpdateJobWithCache(t *testing.T) {
-	testCase := loadcase("./testcase/run.step.yaml")
+	testCase := loadcase(runYamlPath)
 	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
-	wf, err := NewWorkflow(wfs, "stepTestRunID", "", nil, nil, mockCbs)
+	extra := GetExtra()
+	wf, err := NewWorkflow(wfs, "stepTestRunID", "", nil, extra, mockCbs)
 	if err != nil {
 		t.Errorf("new workflow failed: %s", err.Error())
 	}
@@ -318,7 +321,7 @@ func TestUpdateJobWithCache(t *testing.T) {
 
 // 测试checkCached接口（用于计算fingerprint）
 func TestCheckCached(t *testing.T) {
-	testCase := loadcase("./testcase/run.step.yaml")
+	testCase := loadcase(runYamlPath)
 	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
@@ -335,7 +338,8 @@ func TestCheckCached(t *testing.T) {
 		return []models.RunCache{}, nil
 	}
 
-	wf, err := NewWorkflow(wfs, runID, "", nil, nil, mockCbs)
+	extra := GetExtra()
+	wf, err := NewWorkflow(wfs, runID, "", nil, extra, mockCbs)
 	if err != nil {
 		t.Errorf("new workflow failed: %s", err.Error())
 	}
@@ -369,7 +373,7 @@ func TestCheckCached(t *testing.T) {
 		}, nil
 	}
 
-	wf, err = NewWorkflow(wfs, runID, "", nil, nil, mockCbs)
+	wf, err = NewWorkflow(wfs, runID, "", nil, extra, mockCbs)
 	if err != nil {
 		t.Errorf("new workflow failed: %s", err.Error())
 	}
@@ -387,7 +391,7 @@ func TestCheckCached(t *testing.T) {
 		}, nil
 	}
 
-	wf, err = NewWorkflow(wfs, runID, "", nil, nil, mockCbs)
+	wf, err = NewWorkflow(wfs, runID, "", nil, extra, mockCbs)
 	if err != nil {
 		t.Errorf("new workflow failed: %s", err.Error())
 	}
@@ -405,7 +409,7 @@ func TestCheckCached(t *testing.T) {
 		}, nil
 	}
 
-	wf, err = NewWorkflow(wfs, runID, "", nil, nil, mockCbs)
+	wf, err = NewWorkflow(wfs, runID, "", nil, extra, mockCbs)
 	if err != nil {
 		t.Errorf("new workflow failed: %s", err.Error())
 	}
@@ -423,7 +427,7 @@ func TestCheckCached(t *testing.T) {
 		}, nil
 	}
 
-	wf, err = NewWorkflow(wfs, runID, "", nil, nil, mockCbs)
+	wf, err = NewWorkflow(wfs, runID, "", nil, extra, mockCbs)
 	if err != nil {
 		t.Errorf("new workflow failed: %s", err.Error())
 	}
