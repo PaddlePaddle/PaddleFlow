@@ -121,20 +121,20 @@ func TestCreateNewWorkflowRunDisabled_success(t *testing.T) {
 	}
 
 	time.Sleep(time.Millisecond * 10)
-	wf.runtime.steps["data_preprocess"].disabled = true
-	wf.runtime.steps["main"].disabled = true
-	wf.runtime.steps["validate"].disabled = true
+	wf.runtime.entrypoints["data_preprocess"].disabled = true
+	wf.runtime.entrypoints["main"].disabled = true
+	wf.runtime.entrypoints["validate"].disabled = true
 
 	go wf.Start()
 
 	time.Sleep(time.Millisecond * 100)
-	fmt.Printf("%+v\n", *wf.runtime.steps["data_preprocess"])
-	fmt.Printf("%+v\n", *wf.runtime.steps["main"])
-	fmt.Printf("%+v\n", *wf.runtime.steps["validate"])
+	fmt.Printf("%+v\n", *wf.runtime.entrypoints["data_preprocess"])
+	fmt.Printf("%+v\n", *wf.runtime.entrypoints["main"])
+	fmt.Printf("%+v\n", *wf.runtime.entrypoints["validate"])
 	assert.Equal(t, common.StatusRunSucceeded, wf.runtime.status)
-	assert.Equal(t, schema.StatusJobSkipped, wf.runtime.steps["data_preprocess"].job.(*PaddleFlowJob).Status)
-	assert.Equal(t, schema.StatusJobSkipped, wf.runtime.steps["main"].job.(*PaddleFlowJob).Status)
-	assert.Equal(t, schema.StatusJobSkipped, wf.runtime.steps["validate"].job.(*PaddleFlowJob).Status)
+	assert.Equal(t, schema.StatusJobSkipped, wf.runtime.entrypoints["data_preprocess"].job.(*PaddleFlowJob).Status)
+	assert.Equal(t, schema.StatusJobSkipped, wf.runtime.entrypoints["main"].job.(*PaddleFlowJob).Status)
+	assert.Equal(t, schema.StatusJobSkipped, wf.runtime.entrypoints["validate"].job.(*PaddleFlowJob).Status)
 }
 
 // 测试运行 Workflow 成功
@@ -161,9 +161,9 @@ func TestCreateNewWorkflowRun_success(t *testing.T) {
 	}
 
 	time.Sleep(time.Millisecond * 10)
-	wf.runtime.steps["data_preprocess"].done = true
-	wf.runtime.steps["main"].done = true
-	wf.runtime.steps["validate"].done = true
+	wf.runtime.entrypoints["data_preprocess"].done = true
+	wf.runtime.entrypoints["main"].done = true
+	wf.runtime.entrypoints["validate"].done = true
 
 	go wf.Start()
 
@@ -254,12 +254,12 @@ func TestStopWorkflowRun(t *testing.T) {
 	}
 
 	time.Sleep(time.Millisecond * 10)
-	wf.runtime.steps["data_preprocess"].done = true
-	wf.runtime.steps["data_preprocess"].job = mockJob
-	wf.runtime.steps["main"].done = true
-	wf.runtime.steps["main"].job = mockJob
-	wf.runtime.steps["validate"].done = true
-	wf.runtime.steps["validate"].job = mockJobTerminated
+	wf.runtime.entrypoints["data_preprocess"].done = true
+	wf.runtime.entrypoints["data_preprocess"].job = mockJob
+	wf.runtime.entrypoints["main"].done = true
+	wf.runtime.entrypoints["main"].job = mockJob
+	wf.runtime.entrypoints["validate"].done = true
+	wf.runtime.entrypoints["validate"].job = mockJobTerminated
 
 	go wf.Start()
 	time.Sleep(time.Millisecond * 10)
@@ -297,12 +297,12 @@ func TestNewWorkflowFromEntry(t *testing.T) {
 	}
 	err = wf.newWorkflowRuntime()
 	assert.Nil(t, err)
-	assert.Equal(t, 2, len(wf.runtime.steps))
-	_, ok := wf.runtime.steps["main"]
+	assert.Equal(t, 2, len(wf.runtime.entrypoints))
+	_, ok := wf.runtime.entrypoints["main"]
 	assert.True(t, ok)
-	_, ok1 := wf.runtime.steps["data_preprocess"]
+	_, ok1 := wf.runtime.entrypoints["data_preprocess"]
 	assert.True(t, ok1)
-	_, ok2 := wf.runtime.steps["validate"]
+	_, ok2 := wf.runtime.entrypoints["validate"]
 	assert.False(t, ok2)
 }
 
@@ -552,7 +552,7 @@ func TestValidateWorkflowDisabled(t *testing.T) {
 	err = bwf.validate()
 	assert.NotNil(t, err)
 	assert.Equal(t, "disabled step[notExistStepName] not existed!", err.Error())
-	
+
 	// disabled 设置成功
 	bwf.Source.Disabled = "validate"
 	err = bwf.validate()
@@ -590,7 +590,7 @@ func TestValidateWorkflowCache(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, "-1", bwf.Source.Cache.MaxExpiredTime)
 	assert.Equal(t, "-1", bwf.Source.EntryPoints["data_preprocess"].Cache.MaxExpiredTime)
-	
+
 	// 全局cache MaxExpiredTime 设置失败
 	bwf.Source.Cache.MaxExpiredTime = "notInt"
 	err = bwf.validate()
@@ -687,12 +687,12 @@ func TestRestartWorkflow(t *testing.T) {
 
 	err = wf.SetWorkflowRuntime(runtimeView)
 	assert.Nil(t, err)
-	assert.Equal(t, true, wf.runtime.steps["data_preprocess"].done)
-	assert.Equal(t, true, wf.runtime.steps["data_preprocess"].submitted)
-	assert.Equal(t, false, wf.runtime.steps["main"].done)
-	assert.Equal(t, true, wf.runtime.steps["main"].submitted)
-	assert.Equal(t, false, wf.runtime.steps["validate"].done)
-	assert.Equal(t, false, wf.runtime.steps["validate"].submitted)
+	assert.Equal(t, true, wf.runtime.entrypoints["data_preprocess"].done)
+	assert.Equal(t, true, wf.runtime.entrypoints["data_preprocess"].submitted)
+	assert.Equal(t, false, wf.runtime.entrypoints["main"].done)
+	assert.Equal(t, true, wf.runtime.entrypoints["main"].submitted)
+	assert.Equal(t, false, wf.runtime.entrypoints["validate"].done)
+	assert.Equal(t, false, wf.runtime.entrypoints["validate"].submitted)
 }
 
 func TestRestartWorkflow_from1completed(t *testing.T) {
@@ -729,12 +729,12 @@ func TestRestartWorkflow_from1completed(t *testing.T) {
 	}
 	err = wf.SetWorkflowRuntime(runtimeView)
 	assert.Nil(t, err)
-	assert.Equal(t, true, wf.runtime.steps["data_preprocess"].done)
-	assert.Equal(t, true, wf.runtime.steps["data_preprocess"].submitted)
-	assert.Equal(t, false, wf.runtime.steps["main"].done)
-	assert.Equal(t, false, wf.runtime.steps["main"].submitted)
-	assert.Equal(t, false, wf.runtime.steps["validate"].done)
-	assert.Equal(t, false, wf.runtime.steps["validate"].submitted)
+	assert.Equal(t, true, wf.runtime.entrypoints["data_preprocess"].done)
+	assert.Equal(t, true, wf.runtime.entrypoints["data_preprocess"].submitted)
+	assert.Equal(t, false, wf.runtime.entrypoints["main"].done)
+	assert.Equal(t, false, wf.runtime.entrypoints["main"].submitted)
+	assert.Equal(t, false, wf.runtime.entrypoints["validate"].done)
+	assert.Equal(t, false, wf.runtime.entrypoints["validate"].submitted)
 }
 
 const (

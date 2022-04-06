@@ -114,7 +114,7 @@ func (bwf *BaseWorkflow) validate() error {
 		return err
 	}
 
-	// 3. 校验通过接口传入的Parameter参数(参数是否存在，以及参数值是否合法), 
+	// 3. 校验通过接口传入的Parameter参数(参数是否存在，以及参数值是否合法),
 	if err := bwf.checkParams(); err != nil {
 		bwf.log().Errorf("check run param err:%s", err.Error())
 		return err
@@ -213,7 +213,7 @@ func (bwf *BaseWorkflow) topologicalSort(entrypoints map[string]*schema.Workflow
 }
 
 func (bwf *BaseWorkflow) checkCache() error {
-	/* 
+	/*
 		校验yaml中cache各相关字段
 	*/
 
@@ -331,8 +331,8 @@ func (bwf *BaseWorkflow) checkSteps() error {
 		SysParamNamePFUserName: "",
 	}
 	paramChecker := StepParamChecker{
-		steps: bwf.runSteps,
-		sysParams: sysParamNameMap,
+		steps:         bwf.runSteps,
+		sysParams:     sysParamNameMap,
 		disabledSteps: disabledSteps,
 	}
 	for _, step := range bwf.runSteps {
@@ -349,7 +349,7 @@ func (bwf *BaseWorkflow) checkSteps() error {
 }
 
 func (bwf *BaseWorkflow) checkDisabled() ([]string, error) {
-	/* 
+	/*
 		校验yaml中disabled字段是否合法
 		- disabled节点以逗号分隔。
 		- 所有disabled节点应该在entrypoints中，但是不要求必须在runSteps内。
@@ -427,7 +427,7 @@ func (wf *Workflow) newWorkflowRuntime() error {
 		}
 
 		stepInfo := wf.runSteps[stepName]
-		wf.runtime.steps[stepName], err = NewStep(stepName, wf.runtime, stepInfo, disabled)
+		wf.runtime.entrypoints[stepName], err = NewStep(stepName, wf.runtime, stepInfo, disabled)
 		if err != nil {
 			return err
 		}
@@ -437,7 +437,7 @@ func (wf *Workflow) newWorkflowRuntime() error {
 
 // set workflow runtime when server resuming
 func (wf *Workflow) SetWorkflowRuntime(runtime schema.RuntimeView) error {
-	for name, step := range wf.runtime.steps {
+	for name, step := range wf.runtime.entrypoints {
 		jobView, ok := runtime[name]
 		if !ok {
 			continue
