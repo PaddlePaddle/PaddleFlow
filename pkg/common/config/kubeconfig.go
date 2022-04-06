@@ -25,6 +25,11 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
+/*
+This file is deprecated.
+Multi-cluster case (with multiple kubeconfigs) is supported by DB
+*/
+
 type KubeConfig struct {
 	ConfigPath    string `yaml:"configPath"`
 	ClientQPS     int    `yaml:"clientQps"`
