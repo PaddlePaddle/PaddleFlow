@@ -93,6 +93,13 @@ func (r *Run) Encode() error {
 }
 
 func (r *Run) decode() error {
+	// decode WorkflowSource
+	workflowSource, err := schema.ParseWorkflowSource([]byte(r.RunYaml))
+	if err != nil {
+		return err
+	}
+	r.WorkflowSource = workflowSource
+
 	// 由于在所有获取Run的函数中，都需要进行decode，因此Runtime和PostProcess的赋值也在decode中进行
 	if err := r.validateRuntimeAndPostProcess(); err != nil {
 		return err
