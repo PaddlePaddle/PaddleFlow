@@ -22,8 +22,33 @@ import (
 	"io/ioutil"
 	"os"
 
-	"gopkg.in/yaml.v2"
+	yaml2 "gopkg.in/yaml.v2"
+	"k8s.io/apimachinery/pkg/util/yaml"
 )
+
+func InitConfigFromDefaultYaml(conf interface{}) error {
+	return InitConfigFromYaml(conf, serverDefaultConfPath)
+}
+
+// InitDefaultPV initialize the default pv instance
+func InitDefaultPV(path string) error {
+	reader, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer reader.Close()
+	return yaml.NewYAMLOrJSONDecoder(reader, 1024).Decode(&DefaultPV)
+}
+
+// InitDefaultPVC initialize the default pvc instance
+func InitDefaultPVC(path string) error {
+	reader, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer reader.Close()
+	return yaml.NewYAMLOrJSONDecoder(reader, 1024).Decode(&DefaultPVC)
+}
 
 func InitConfigFromYaml(conf interface{}, configPath string) error {
 	// readConfig
@@ -32,18 +57,11 @@ func InitConfigFromYaml(conf interface{}, configPath string) error {
 		fmt.Printf("read file yaml[%s] failed! err:[%v]\n", configPath, err)
 		return err
 	}
-	if err = yaml.Unmarshal(yamlFile, conf); err != nil {
+	if err = yaml2.Unmarshal(yamlFile, conf); err != nil {
 		fmt.Printf("decodes yaml[%s] failed! err:[%v]", configPath, err)
 		return err
 	}
 	return nil
-}
-
-func InitConfigFromUserYaml(conf interface{}, confPath string) error {
-	if confPath == "" {
-		return nil
-	}
-	return InitConfigFromYaml(conf, confPath)
 }
 
 func PrettyFormat(data interface{}) []byte {

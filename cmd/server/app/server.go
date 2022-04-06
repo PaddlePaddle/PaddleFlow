@@ -41,10 +41,6 @@ func (s *Server) initConfig() {
 		fmt.Printf("InitConfigFromDefaultYaml failed. serverConf:[%v] error:[%s]\n", s.ServerConf, err.Error())
 		panic(err)
 	}
-	if err := config.InitConfigFromUserYaml(s.ServerConf, ""); err != nil {
-		fmt.Printf("InitConfigFromUserYaml failed. serverConf:[%v] error:[%s]\n", s.ServerConf, err.Error())
-		panic(err)
-	}
 
 	s.ServerConf.FlavourMap = make(map[string]schema.Flavour)
 	for _, f := range s.ServerConf.Flavour {
