@@ -16,7 +16,39 @@ limitations under the License.
 
 package logger
 
-import "github.com/urfave/cli/v2"
+import (
+	"github.com/spf13/pflag"
+	"github.com/urfave/cli/v2"
+)
+
+/**
+Currently supports two flag frameworks: fs uses urfave/cli/v2; apiserver uses spf13/pflag
+*/
+
+type LogConfig struct {
+	Dir             string `yaml:"dir"`
+	FilePrefix      string `yaml:"filePrefix"`
+	Level           string `yaml:"level"`
+	MaxKeepDays     int    `yaml:"maxKeepDays"`
+	MaxFileNum      int    `yaml:"maxFileNum"`
+	MaxFileSizeInMB int    `yaml:"maxFileSizeInMB"`
+	IsCompress      bool   `yaml:"isCompress"`
+	Formatter       string `yaml:"formatter"`
+}
+
+func AddFlagSet(fs *pflag.FlagSet, logConf *LogConfig) {
+	if fs == nil {
+		fs = pflag.CommandLine
+	}
+	fs.StringVar(&logConf.Dir, "log-dir", logConf.Dir, "Directory of log")
+	fs.StringVar(&logConf.FilePrefix, "log-file-prefix", logConf.FilePrefix, "Prefix of log file")
+	fs.StringVar(&logConf.Level, "log-level", logConf.Level, "Log level")
+	fs.IntVar(&logConf.MaxKeepDays, "log-max-keep-days", logConf.MaxKeepDays, "Log max keep days")
+	fs.IntVar(&logConf.MaxFileNum, "log-max-file-num", logConf.MaxFileNum, "Log max file number")
+	fs.IntVar(&logConf.MaxFileSizeInMB, "log-max-file-size-in-mb", logConf.MaxFileSizeInMB, "Log max file size(M)")
+	fs.BoolVar(&logConf.IsCompress, "log-is-compress", logConf.IsCompress, "Use log compress")
+	fs.StringVar(&logConf.Formatter, "log-formatter", logConf.Formatter, "Use log compress")
+}
 
 func LogFlags(logConf *LogConfig) []cli.Flag {
 	return []cli.Flag{
