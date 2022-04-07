@@ -67,9 +67,9 @@ func act(c *cli.Context) error {
 	setup()
 	err := start()
 	if err != nil {
-		log.Fatalf("server run failed. error:%s", err.Error())
+		log.Errorf("start server failed. error:%s", err.Error())
 	}
-	return nil
+	return err
 }
 
 func start() error {
