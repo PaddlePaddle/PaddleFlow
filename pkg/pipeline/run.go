@@ -70,7 +70,8 @@ type WorkflowRuntime struct {
 	concurrentJobsMx sync.Mutex
 	status           string
 	runtimeView      schema.RuntimeView
-	postprocessView  schema.PostProcessView
+	postProcessView  schema.PostProcessView
+
 }
 
 func NewWorkflowRuntime(wf *Workflow, parallelism int) *WorkflowRuntime {
@@ -437,12 +438,14 @@ func (wfr *WorkflowRuntime) isDepsReady(step *Step, steps map[string]*Step) bool
 		if len(ds) <= 0 {
 			continue
 		}
+
 		if !steps[ds].job.Succeeded() && !steps[ds].job.Skipped() {
 			depsReady = false
 		}
 	}
 	return depsReady
 }
+
 
 // update RuntimeView or PostProcessView
 func (wfr *WorkflowRuntime) updateView(viewType ViewType) {
