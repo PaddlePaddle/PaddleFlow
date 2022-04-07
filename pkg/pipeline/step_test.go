@@ -1,9 +1,11 @@
 package pipeline
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -12,6 +14,7 @@ import (
 
 	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/common/schema"
+	"paddleflow/pkg/pipeline/common"
 )
 
 func loadcase(casePath string) []byte {
@@ -42,7 +45,7 @@ func TestUpdateJobForFingerPrint(t *testing.T) {
 
 	for _, stepName := range sortedSteps {
 		st := wf.runtime.entryPoints[stepName]
-
+		st.NodeType = common.NodeTypeEntrypoint
 		forCacheFingerprint := true
 		err := st.updateJob(forCacheFingerprint, nil)
 		assert.Nil(t, err)
@@ -51,7 +54,7 @@ func TestUpdateJobForFingerPrint(t *testing.T) {
 			assert.Equal(t, 2, len(st.job.Job().Parameters))
 
 			fmt.Println(st.job.Job().Env)
-			assert.Equal(t, 2+5+2, len(st.job.Job().Env)) // 2 env + 5 sys param + 2 artifact
+			assert.Equal(t, 2+6+2, len(st.job.Job().Env)) // 2 env + 6 sys param + 2 artifact
 
 			assert.Contains(t, st.job.Job().Artifacts.Output, "train_data")
 			assert.Contains(t, st.job.Job().Artifacts.Output, "validate_data")
@@ -73,7 +76,7 @@ func TestUpdateJobForFingerPrint(t *testing.T) {
 			assert.Equal(t, "0.66", st.job.Job().Parameters["p4"])
 			assert.Equal(t, "/path/to/anywhere", st.job.Job().Parameters["p5"])
 
-			assert.Equal(t, 5+5+2, len(st.job.Job().Env)) // 5 env + 5 sys param + 2 artifact
+			assert.Equal(t, 5+6+2, len(st.job.Job().Env)) // 5 env + 6 sys param + 2 artifact
 
 			// input artifact 替换为上游节点的output artifact
 			// 实际运行中上游节点的output artifact一定是非空的（因为已经运行了），但是在这个测试case里，上游节点没有生成output artifact，所以是空字符串
@@ -96,7 +99,7 @@ func TestUpdateJobForFingerPrint(t *testing.T) {
 			assert.Contains(t, st.job.Job().Parameters, "refSystem")
 			assert.Equal(t, runID, st.job.Job().Parameters["refSystem"])
 
-			assert.Equal(t, 9+2, len(st.job.Job().Env)) // 4 env + 5 sys param + 2 artifact
+			assert.Equal(t, 4+6+2, len(st.job.Job().Env)) // 4 env + 6 sys param + 2 artifact
 			assert.Contains(t, st.job.Job().Env, "PF_JOB_QUEUE")
 			assert.Contains(t, st.job.Job().Env, "PF_JOB_PRIORITY")
 			assert.Contains(t, st.job.Job().Env, "test_env_1")
@@ -136,6 +139,9 @@ func TestUpdateJob(t *testing.T) {
 	for _, stepName := range sortedSteps {
 		st := wf.runtime.entryPoints[stepName]
 
+		st.NodeType = common.NodeTypeEntrypoint
+
+
 		forCacheFingerprint := false
 		err := st.updateJob(forCacheFingerprint, nil)
 		assert.Nil(t, err)
@@ -147,7 +153,7 @@ func TestUpdateJob(t *testing.T) {
 			assert.Equal(t, 2, len(st.job.Job().Parameters))
 
 			fmt.Println(st.job.Job().Env)
-			assert.Equal(t, 2+5+2, len(st.job.Job().Env)) // 4 env + 5 sys param + 2 artifact
+			assert.Equal(t, 2+6+2, len(st.job.Job().Env)) // 4 env + 6 sys param + 2 artifact
 
 			assert.Contains(t, st.job.Job().Artifacts.Output, "train_data")
 			assert.Contains(t, st.job.Job().Artifacts.Output, "validate_data")
@@ -170,7 +176,7 @@ func TestUpdateJob(t *testing.T) {
 			assert.Equal(t, "0.66", st.job.Job().Parameters["p4"])
 			assert.Equal(t, "/path/to/anywhere", st.job.Job().Parameters["p5"])
 
-			assert.Equal(t, 5+5+2, len(st.job.Job().Env)) // 5 env + 5 sys param + 2 artifact
+			assert.Equal(t, 5+6+2, len(st.job.Job().Env)) // 5 env + 6 sys param + 2 artifact
 
 			// input artifact 替换为上游节点的output artifact
 			// 实际运行中上游节点的output artifact一定是非空的（因为已经运行了），但是在这个测试case里，上游节点没有生成output artifact，所以是空字符串
@@ -193,7 +199,7 @@ func TestUpdateJob(t *testing.T) {
 			assert.Contains(t, st.job.Job().Parameters, "refSystem")
 			assert.Equal(t, runID, st.job.Job().Parameters["refSystem"])
 
-			assert.Equal(t, 9+2, len(st.job.Job().Env)) // 4 env + 5 sys param + 2 artifact
+			assert.Equal(t, 4+6+2, len(st.job.Job().Env)) // 4 env + 6 sys param + 2 artifact
 			assert.Contains(t, st.job.Job().Env, "PF_JOB_QUEUE")
 			assert.Contains(t, st.job.Job().Env, "PF_JOB_PRIORITY")
 			assert.Contains(t, st.job.Job().Env, "test_env_1")
@@ -238,6 +244,9 @@ func TestUpdateJobWithCache(t *testing.T) {
 	for _, stepName := range sortedSteps {
 		st := wf.runtime.entryPoints[stepName]
 
+		st.NodeType = common.NodeTypeEntrypoint
+
+
 		forCacheFingerprint := false
 		if stepName == "data_preprocess" {
 			err := st.updateJob(forCacheFingerprint, cacheOutputArtifacts)
@@ -252,7 +261,7 @@ func TestUpdateJobWithCache(t *testing.T) {
 			assert.Equal(t, 2, len(st.job.Job().Parameters))
 
 			fmt.Println(st.job.Job().Env)
-			assert.Equal(t, 2+5+2, len(st.job.Job().Env)) // 4 env + 5 sys param + 2 artifact
+			assert.Equal(t, 2+6+2, len(st.job.Job().Env)) // 4 env + 6 sys param + 2 artifact
 
 			assert.Contains(t, st.job.Job().Artifacts.Output, "train_data")
 			assert.Contains(t, st.job.Job().Artifacts.Output, "validate_data")
@@ -274,7 +283,7 @@ func TestUpdateJobWithCache(t *testing.T) {
 			assert.Equal(t, "0.66", st.job.Job().Parameters["p4"])
 			assert.Equal(t, "/path/to/anywhere", st.job.Job().Parameters["p5"])
 
-			assert.Equal(t, 5+5+2, len(st.job.Job().Env)) // 5 env + 5 sys param + 2 artifact
+			assert.Equal(t, 5+6+2, len(st.job.Job().Env)) // 5 env + 6 sys param + 2 artifact
 
 			// input artifact 替换为上游节点的output artifact
 			// 实际运行中上游节点的output artifact一定是非空的（因为已经运行了），但是在这个测试case里，上游节点没有生成output artifact，所以是空字符串
@@ -297,7 +306,7 @@ func TestUpdateJobWithCache(t *testing.T) {
 			assert.Contains(t, st.job.Job().Parameters, "refSystem")
 			assert.Equal(t, runID, st.job.Job().Parameters["refSystem"])
 
-			assert.Equal(t, 9+2, len(st.job.Job().Env)) // 4 env + 5 sys param + 2 artifact
+			assert.Equal(t, 4+6+2, len(st.job.Job().Env)) // 4 env + 5 sys param + 2 artifact
 			assert.Contains(t, st.job.Job().Env, "PF_JOB_QUEUE")
 			assert.Contains(t, st.job.Job().Env, "PF_JOB_PRIORITY")
 			assert.Contains(t, st.job.Job().Env, "test_env_1")
@@ -345,6 +354,8 @@ func TestCheckCached(t *testing.T) {
 	}
 
 	st := wf.runtime.entryPoints["data_preprocess"]
+
+	st.NodeType = common.NodeTypeEntrypoint
 	patches := gomonkey.ApplyMethod(reflect.TypeOf(st.job), "Validate", func(_ *PaddleFlowJob) error {
 		return nil
 	})
@@ -379,6 +390,8 @@ func TestCheckCached(t *testing.T) {
 	}
 
 	st = wf.runtime.entryPoints["data_preprocess"]
+	st.NodeType = common.NodeTypeEntrypoint
+
 	cacheFound, err = st.checkCached()
 	assert.Nil(t, err)
 	assert.Equal(t, false, cacheFound)
@@ -397,6 +410,8 @@ func TestCheckCached(t *testing.T) {
 	}
 
 	st = wf.runtime.entryPoints["data_preprocess"]
+
+	st.NodeType = common.NodeTypeEntrypoint
 	cacheFound, err = st.checkCached()
 	assert.Nil(t, err)
 	assert.Equal(t, false, cacheFound)
@@ -415,6 +430,9 @@ func TestCheckCached(t *testing.T) {
 	}
 
 	st = wf.runtime.entryPoints["data_preprocess"]
+
+	st.NodeType = common.NodeTypeEntrypoint
+
 	cacheFound, err = st.checkCached()
 	assert.Nil(t, err)
 	assert.Equal(t, true, cacheFound)
@@ -433,7 +451,43 @@ func TestCheckCached(t *testing.T) {
 	}
 
 	st = wf.runtime.entryPoints["data_preprocess"]
+
+	st.NodeType = common.NodeTypeEntrypoint
+
 	cacheFound, err = st.checkCached()
 	assert.Nil(t, err)
 	assert.Equal(t, true, cacheFound)
+}
+
+func TestPFRUNTIME(t *testing.T) {
+	testCase := loadcase("./testcase/run_process.yaml")
+	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
+	assert.Nil(t, err)
+
+	extra := GetExtra()
+	wf, err := NewWorkflow(wfs, "stepTestRunID", "", nil, extra, mockCbs)
+	if err != nil {
+		t.Errorf("new workflow failed: %s", err.Error())
+	}
+
+	wf.runtime.runtimeView = schema.RuntimeView{
+		"data_process": schema.JobView{
+			JobID: "123",
+		},
+	}
+
+	assert.Equal(t, 1, len(wf.Source.PostProcess))
+	for name, st := range wf.runtime.postProcess {
+		st.NodeType = common.NodeTypeEntrypoint
+		assert.Equal(t, name, "mail")
+		st.updateJob(false, nil)
+
+		assert.Equal(t, true, strings.Contains(st.job.Job().Command, "hahaha"))
+		runtime := schema.RuntimeView{}
+		err := json.Unmarshal([]byte(st.job.Job().Parameters["runtime"]), &runtime)
+		if err != nil {
+			t.Errorf("unmarshal runtime failed: %s", err.Error())
+		}
+		assert.Equal(t, runtime, wf.runtime.runtimeView)
+	}
 }

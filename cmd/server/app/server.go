@@ -22,7 +22,6 @@ import (
 	dbinit "paddleflow/pkg/common/database/init"
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/common/schema"
-	"paddleflow/pkg/fs/utils/k8s"
 	"paddleflow/pkg/job"
 	"paddleflow/pkg/version"
 )
@@ -38,13 +37,9 @@ type Server struct {
 
 func (s *Server) initConfig() {
 	s.ServerConf = &config.ServerConfig{}
-	if err := config.InitConfigFromDefaultYaml(s.ServerConf); err != nil {
-		fmt.Printf("InitConfigFromDefaultYaml failed. serverConf:[%v] error:[%s]\n", s.ServerConf, err.Error())
-		panic(err)
-	}
-	if err := config.InitConfigFromUserYaml(s.ServerConf, ""); err != nil {
-		fmt.Printf("InitConfigFromUserYaml failed. serverConf:[%v] error:[%s]\n", s.ServerConf, err.Error())
-		panic(err)
+	if err := config.InitConfigFromYaml(s.ServerConf, ""); err != nil {
+		fmt.Printf("InitConfigFromYaml failed. serverConf:[%+v], configPath:[%s] error:[%s]\n", s.ServerConf, "", err.Error())
+		os.Exit(22)
 	}
 
 	s.ServerConf.FlavourMap = make(map[string]schema.Flavour)
@@ -69,12 +64,6 @@ func (s *Server) initConfig() {
 }
 
 func (s *Server) Run() error {
-	if err := k8s.New(s.ServerConf.KubeConfig.ConfigPath, s.ServerConf.KubeConfig.ClientQPS,
-		s.ServerConf.KubeConfig.ClientBurst, s.ServerConf.KubeConfig.ClientTimeout); err != nil {
-		log.Errorf("new k8s client failed: %s", err.Error())
-		return err
-	}
-
 	imageHandler, err := run.InitAndResumeRuns()
 	if err != nil {
 		log.Errorf("InitAndResumePipeline failed. error: %v", err)
@@ -109,7 +98,7 @@ func (s *Server) Init() {
 		version.PrintVersionAndExit()
 	}
 
-	err := logger.Init(&s.ServerConf.Log)
+	err := logger.InitStandardFileLogger(&s.ServerConf.Log)
 	if err != nil {
 		panic("init logger failed.")
 	}

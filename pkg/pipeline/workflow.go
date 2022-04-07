@@ -578,6 +578,7 @@ func (wf *Workflow) validateRuntimeSteps(runtimeSteps map[string]*Step, steps ma
 			return err
 		}
 
+
 		stepInfo := steps[stepName]
 		runtimeSteps[stepName], err = NewStep(stepName, wf.runtime, stepInfo, disabled)
 		if err != nil {

@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,13 +17,31 @@ limitations under the License.
 package config
 
 import (
-	"encoding/json"
-	"fmt"
-	"io/ioutil"
-	"os"
-
-	"gopkg.in/yaml.v2"
+	apiv1 "k8s.io/api/core/v1"
+	"paddleflow/pkg/common/logger"
+	"paddleflow/pkg/common/schema"
 )
+
+var (
+	GlobalServerConfig *ServerConfig                // the global ServerConfig
+	DefaultPV          *apiv1.PersistentVolume      // the global default pv instance
+	DefaultPVC         *apiv1.PersistentVolumeClaim // the global default pvc instance
+
+	DefaultRunYamlPath    = "./run.yaml"
+	serverDefaultConfPath = "./config/server/default/paddleserver.yaml"
+)
+
+type ServerConfig struct {
+	Database      DatabaseConfig            `yaml:"database"`
+	Log           logger.LogConfig          `yaml:"log"`
+	ApiServer     ApiServerConfig           `yaml:"apiServer"`
+	Job           JobConfig                 `yaml:"job"`
+	Fs            FsServerConf              `yaml:"fs"`
+	NamespaceList []string                  `yaml:"namespaceList"`
+	Flavour       []schema.Flavour          `yaml:"flavour"`
+	FlavourMap    map[string]schema.Flavour `yaml:"-"`
+	ImageConf     ImageConfig               `yaml:"imageRepository"`
+}
 
 type DatabaseConfig struct {
 	Driver                               string `yaml:"driver"`
@@ -40,62 +58,47 @@ type DatabaseConfig struct {
 	ConnMaxLifetimeInHours               *int   `yaml:"connMaxLifetimeInHours,omitempty"`
 }
 
-type KubeConfig struct {
-	ConfigPath    string `yaml:"configPath"`
-	ClientQPS     int    `yaml:"clientQps"`
-	ClientBurst   int    `yaml:"clientBurst"`
-	ClientTimeout int    `yaml:"clientTimeout"`
+type ApiServerConfig struct {
+	Host                string `yaml:"host"`
+	Port                int    `yaml:"port"`
+	PrintVersionAndExit bool   `yaml:"printVersionAndExit"`
+	TokenExpirationHour int    `yaml:"tokenExpirationHour"`
 }
 
-func InitConfigFromYaml(conf interface{}, configPath string) error {
-	// readConfig
-	yamlFile, err := ioutil.ReadFile(configPath)
-	if err != nil {
-		fmt.Printf("read file yaml[%s] failed! err:[%v]\n", configPath, err)
-		return err
-	}
-	if err = yaml.Unmarshal(yamlFile, conf); err != nil {
-		fmt.Printf("decodes yaml[%s] failed! err:[%v]", configPath, err)
-		return err
-	}
-	return nil
+type JobConfig struct {
+	Reclaim             ReclaimConfig `yaml:"reclaim"`
+	SchedulerName       string        `yaml:"schedulerName"`
+	ScalarResourceArray []string      `yaml:"scalarResourceArray"`
+	// period second for job manager
+	ClusterSyncPeriod int `yaml:"clusterSyncPeriod"`
+	QueueExpireTime   int `yaml:"queueExpireTime"`
+	QueueCacheSize    int `yaml:"queueCacheSize"`
+	JobLoopPeriod     int `yaml:"jobLoopPeriod"`
+	// DefaultJobYamlDir is directory that stores default template yaml files for job
+	DefaultJobYamlDir string `yaml:"defaultJobYamlDir"`
 }
 
-func InitConfigFromUserYaml(conf interface{}, confPath string) error {
-	if confPath == "" {
-		return nil
-	}
-	return InitConfigFromYaml(conf, confPath)
+type FsServerConf struct {
+	DefaultPVPath     string `yaml:"defaultPVPath"`
+	DefaultPVCPath    string `yaml:"defaultPVCPath"`
+	LinkMetaDirPrefix string `yaml:"linkMetaDirPrefix"`
+	// K8sServiceName K8sServicePort used to create pv/pvc with volumeAttributes point pfs-server pod
+	K8sServiceName string `yaml:"k8sServiceName"`
+	K8sServicePort int    `yaml:"k8sServicePort"`
 }
 
-func PrettyFormat(data interface{}) []byte {
-	p, err := json.MarshalIndent(data, "", "\t")
-	if err != nil {
-		panic(err)
-	}
-	return p
+type ReclaimConfig struct {
+	CleanJob             bool `yaml:"isCleanJob"`
+	SkipCleanFailedJob   bool `yaml:"isSkipCleanFailedJob"`
+	JobTTLSeconds        int  `yaml:"jobTTLSeconds"`
+	JobPendingTTLSeconds int  `yaml:"JobPendingTTLSeconds,omitempty"`
 }
 
-// PathExists indicate path exist or not
-// 1. path exist: return true, nil
-// 2. path not exist: return false, nil
-// 3. unknown error: return false, err
-func PathExists(path string) (bool, error) {
-	_, err := os.Stat(path)
-	if err == nil {
-		return true, nil
-	}
-	if os.IsNotExist(err) {
-		return false, nil
-	}
-	return false, err
-}
-
-// FileNumsInDir caculate files number in path, include dir type
-func FileNumsInDir(path string) (int, error) {
-	if exist, err := PathExists(path); !exist {
-		return 0, err
-	}
-	files, _ := ioutil.ReadDir(path)
-	return len(files), nil
+type ImageConfig struct {
+	Server           string `yaml:"server"`
+	Namespace        string `yaml:"namespace"`
+	Username         string `yaml:"username"`
+	Password         string `yaml:"password"`
+	Concurrency      int    `yaml:"concurrency"`
+	RemoveLocalImage bool   `yaml:"removeLocalImage"`
 }

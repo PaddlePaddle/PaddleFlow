@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -72,11 +72,6 @@ func TestReadFsFile(t *testing.T) {
 	assert.Equal(t, err, nil)
 
 	assert.NotEqual(t, len(content), 0)
-}
-
-func TestSetFsServer(t *testing.T) {
-	SetFsServer("mockFsHost", 8888)
-	assert.Equal(t, defaultFsServer, "mockFsHost:8888")
 }
 
 func TestStat(t *testing.T) {

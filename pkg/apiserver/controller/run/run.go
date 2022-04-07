@@ -571,7 +571,7 @@ func handleImageAndStartWf(run models.Run, isResume bool) error {
 			logEntry.Errorf("create run failed ListImageIDsByFsID[%s]. error:%s\n", run.FsID, err.Error())
 			return updateRunStatusAndMsg(run.ID, common.StatusRunFailed, err.Error())
 		}
-		if err := handler.PFImageHandler.HandleImage(run.WorkflowSource.DockerEnv, run.ID, run.FsID, config.FsServerHost, config.FsServerPort,
+		if err := handler.PFImageHandler.HandleImage(run.WorkflowSource.DockerEnv, run.ID, run.FsID,
 			imageIDs, logEntry, handleImageCallbackFunc); err != nil {
 			logEntry.Errorf("handle image failed. error:%s\n", err.Error())
 			return updateRunStatusAndMsg(run.ID, common.StatusRunFailed, err.Error())

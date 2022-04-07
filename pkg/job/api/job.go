@@ -25,6 +25,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"paddleflow/pkg/apiserver/handler"
+	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/common/config"
 	"paddleflow/pkg/common/errors"
 	"paddleflow/pkg/common/logger"
@@ -82,19 +83,24 @@ type PFJob struct {
 	ID        string
 	Name      string
 	Namespace string
-	// JobType of job
-	JobType schema.JobType
+	UserName  string
+	// JobType of job, such as TypeSingle, TypeDistributed, and TypeWorkflow
+	JobType   schema.JobType
+	Framework schema.Framework
+	// TODO: use Framework and Tasks.Role instead of JobMode
 	JobMode string
 	Status  string
+	// compute resource request resource for job
 	// ClusterID and QueueID of job
-	ClusterID ClusterID
-	QueueID   QueueID
-	FSID      string
-	UserName  string
-	// resource request resource for job
+	ClusterID    ClusterID
+	QueueID      QueueID
 	Resource     *schema.Resource
 	Priority     int32
 	MinAvailable int32
+	// storage resource for job
+	FSID string
+	// Tasks for TypeDistributed job
+	Tasks []models.Member
 	// ExtRuntimeConf define extra runtime conf
 	ExtRuntimeConf []byte
 
@@ -111,25 +117,35 @@ type PFJob struct {
 	EndTIme     time.Time
 }
 
-func NewJobInfo(conf schema.PFJobConf, jobID, jobName string) (*PFJob, error) {
-	jobConf := conf.(*schema.Conf)
-
+func NewJobInfo(job *models.Job) (*PFJob, error) {
+	if job == nil {
+		return nil, fmt.Errorf("job is nil")
+	}
 	pfjob := &PFJob{
-		ID:        jobID,
-		Name:      jobName,
-		Namespace: conf.GetNamespace(),
-		JobType:   conf.Type(),
-		JobMode:   conf.GetJobMode(),
-		ClusterID: ClusterID(conf.GetClusterID()),
-		QueueID:   QueueID(conf.GetQueueID()),
-		FSID:      conf.GetFS(),
-		UserName:  conf.GetUserName(),
-		Conf:      *jobConf,
+		ID:        job.ID,
+		Name:      job.Name,
+		Namespace: job.Config.GetNamespace(),
+		JobType:   job.Config.Type(),
+		JobMode:   job.Config.GetJobMode(),
+		Framework: job.Framework,
+		ClusterID: ClusterID(job.Config.GetClusterID()),
+		QueueID:   QueueID(job.Config.GetQueueID()),
+		FSID:      job.Config.GetFS(),
+		UserName:  job.Config.GetUserName(),
+		Conf:      job.Config,
+		Resource:  job.Resource,
+		Tasks:     job.Members,
 	}
-	var err error
-	pfjob.ExtRuntimeConf, err = pfjob.GetExtRuntimeConf(conf.GetFS(), conf.GetYamlPath())
-	if err != nil {
-		return nil, fmt.Errorf("get extra runtime config failed, err: %v", err)
+	if len(job.ExtensionTemplate) == 0 {
+		var err error
+		pfjob.ExtRuntimeConf, err = pfjob.GetExtRuntimeConf(job.Config.GetFS(), job.Config.GetYamlPath())
+		if err != nil {
+			return nil, fmt.Errorf("get extra runtime config failed, err: %v", err)
+		}
+	} else {
+		// get runtime conf from user
+		pfjob.ExtRuntimeConf = []byte(job.ExtensionTemplate)
 	}
+
 	return pfjob, nil
 }
