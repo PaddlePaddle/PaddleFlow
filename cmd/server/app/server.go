@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/spf13/pflag"
 	"net/http"
 	"os"
 	"os/signal"
@@ -11,8 +12,6 @@ import (
 
 	"github.com/go-chi/chi"
 	log "github.com/sirupsen/logrus"
-	"github.com/spf13/pflag"
-
 	"paddleflow/cmd/server/app/options"
 	"paddleflow/pkg/apiserver/controller/run"
 	"paddleflow/pkg/apiserver/models"

@@ -36,7 +36,7 @@ func (s *ServerOption) AddFlagSet(fs *pflag.FlagSet) {
 	fs.IntVar(&jobConf.QueueCacheSize, "queue-cache-size", jobConf.QueueCacheSize, "The number of queue in job manager cache")
 	fs.IntVar(&jobConf.JobLoopPeriod, "job-loop-period", jobConf.JobLoopPeriod, "The loop period for job manager processing job")
 	fs.BoolVar(&jobConf.Reclaim.CleanJob, "is-clean-job", jobConf.Reclaim.CleanJob, "CleanJob")
-	fs.BoolVar(&jobConf.Reclaim.SkipCleanFailedJob, "is-skip-clean-failed-job", jobConf.Reclaim.SkipCleanFailedJob, "SkipCleanFailedJob")
+	fs.BoolVar(&jobConf.Reclaim.SkipCleanFailedJob, "is-clean-job", jobConf.Reclaim.SkipCleanFailedJob, "SkipCleanFailedJob")
 	fs.IntVar(&jobConf.Reclaim.JobTTLSeconds, "job-ttl-seconds", jobConf.Reclaim.JobTTLSeconds, "JobTTLSeconds")
 
 	fsConf := &s.serverConf.Fs
