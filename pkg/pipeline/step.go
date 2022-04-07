@@ -42,7 +42,7 @@ type Step struct {
 	firstFingerprint  string
 	secondFingerprint string
 	CacheRunID        string
-	NodeType          NodeType //用于表示step 是在 entrypoints 中定义还是在 post_process 中定义
+	NodeType          NodeType //用于表示step 是在 entryPoints 中定义还是在 post_process 中定义
 }
 
 var NewStep = func(name string, wfr *WorkflowRuntime, info *schema.WorkflowSourceStep, disabled bool) (*Step, error) {
@@ -84,10 +84,11 @@ func (st *Step) generateStepParamSolver(forCacheFingerprint bool) (StepParamSolv
 
 	var steps map[string]*Step
 	if st.NodeType == NodeTypeEntrypoint {
-		steps = st.wfr.entrypoints
+		steps = st.wfr.entryPoints
 	} else {
 		steps = st.wfr.postProcess
 	}
+
 	for _, step := range steps {
 		SourceSteps[step.name] = steps[step.name].info
 		jobs[step.name] = steps[step.name].job
