@@ -70,7 +70,7 @@ type WorkflowRuntime struct {
 	concurrentJobsMx sync.Mutex
 	status           string
 	runtimeView      schema.RuntimeView
-	postprocessView  schema.PostProcessView
+	postProcessView  schema.PostProcessView
 }
 
 func NewWorkflowRuntime(wf *Workflow, parallelism int) *WorkflowRuntime {
@@ -84,7 +84,7 @@ func NewWorkflowRuntime(wf *Workflow, parallelism int) *WorkflowRuntime {
 		event:           make(chan WorkflowEvent, parallelism),
 		concurrentJobs:  make(chan struct{}, parallelism),
 		runtimeView:     schema.RuntimeView{},
-		postprocessView: schema.PostProcessView{},
+		postProcessView: schema.PostProcessView{},
 	}
 	return wfr
 }
@@ -437,6 +437,7 @@ func (wfr *WorkflowRuntime) isDepsReady(step *Step, steps map[string]*Step) bool
 		if len(ds) <= 0 {
 			continue
 		}
+
 		if !steps[ds].job.Succeeded() && !steps[ds].job.Skipped() {
 			depsReady = false
 		}
@@ -474,7 +475,7 @@ func (wfr *WorkflowRuntime) updateView(viewType ViewType) {
 		if viewType == ViewTypeEntrypoint {
 			wfr.runtimeView[name] = jobView
 		} else if viewType == ViewTypePostProcess {
-			wfr.postprocessView[name] = jobView
+			wfr.postProcessView[name] = jobView
 		}
 	}
 }
@@ -490,7 +491,7 @@ func (wfr *WorkflowRuntime) callback(event WorkflowEvent) {
 		common.WfEventKeyRunID:       wfr.wf.RunID,
 		common.WfEventKeyStatus:      wfr.status,
 		common.WfEventKeyRuntime:     wfr.runtimeView,
-		common.WfEventKeyPostProcess: wfr.postprocessView,
+		common.WfEventKeyPostProcess: wfr.postProcessView,
 	}
 
 	message := ""

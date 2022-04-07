@@ -50,9 +50,9 @@ const (
 	HeartBeatMessage      = "heat beat client success"
 
 	BeginFilePosition = "begin"
-	EndFilePosition = "end"
+	EndFilePosition   = "end"
 
-	LogPageSizeMax = 100
+	LogPageSizeMax     = 100
 	LogPageSizeDefault = 100
-	LogPageNoDefault = 1
+	LogPageNoDefault   = 1
 )

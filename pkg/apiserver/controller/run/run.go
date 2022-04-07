@@ -197,7 +197,7 @@ func CreateRun(ctx *logger.RequestContext, request *CreateRunRequest) (CreateRun
 		FsName:         request.FsName,
 		FsID:           fsID,
 		Description:    request.Description,
-		Param:          request.Parameters,
+		Parameters:     request.Parameters,
 		RunYaml:        runYaml,
 		WorkflowSource: wfs, // DockerEnv has not been replaced. done in func handleImageAndStartWf
 		Entry:          request.Entry,
@@ -387,6 +387,13 @@ func RetryRun(ctx *logger.RequestContext, runID string) error {
 		ctx.Logging().Errorf("resetRunSteps failed. err:%v\n", err)
 		return err
 	}
+	if len(run.Runtime) > 0 {
+		// 确保在run_job表有对应的记录时，run记录中的status字段不是pending，进而防止多次创建run_job记录
+		if err := models.UpdateRunStatus(ctx.Logging(), run.ID, common.StatusRunRunning); err != nil {
+			ctx.Logging().Errorf("update run status to running failed")
+			return err
+		}
+	}
 	// resume
 	if err := resumeRun(run); err != nil {
 		ctx.Logging().Errorf("retry run[%s] failed resumeRun. run:%+v. error:%s\n",
@@ -501,7 +508,7 @@ func resumeActiveRuns() error {
 }
 
 func resumeRun(run models.Run) error {
-	if run.RunCacheIDs != "" {
+	if run.RunCachedIDs != "" {
 		// 由于非成功完成的Run也会被Cache，且重跑会直接对原始的Run记录进行修改，
 		// 因此被Cache的Run不能重跑
 		// TODO: 考虑将重跑逻辑又“直接修改Run记录”改为“根据该Run的设置，重新发起Run”
@@ -549,7 +556,7 @@ func handleImageAndStartWf(run models.Run, isResume bool) error {
 			logEntry.Debugf("workflow started, run:%+v", run)
 		} else {
 			// set runtime and restart
-			if err := wfPtr.SetWorkflowRuntime(run.Runtime); err != nil {
+			if err := wfPtr.SetWorkflowRuntime(run.Runtime, run.PostProcess); err != nil {
 				logEntry.Errorf("SetWorkflowRuntime for run[%s] failed. error:%v\n", run.ID, err)
 				return err
 			}
@@ -580,7 +587,7 @@ func newWorkflowByRun(run models.Run) (*pipeline.Workflow, error) {
 		pplcommon.WfExtraInfoKeyUserName: run.UserName,
 		pplcommon.WfExtraInfoKeyFsName:   run.FsName,
 	}
-	wfPtr, err := pipeline.NewWorkflow(run.WorkflowSource, run.ID, run.Entry, run.Param, extraInfo, workflowCallbacks)
+	wfPtr, err := pipeline.NewWorkflow(run.WorkflowSource, run.ID, run.Entry, run.Parameters, extraInfo, workflowCallbacks)
 	if err != nil {
 		logger.LoggerForRun(run.ID).Warnf("NewWorkflow by run[%s] failed. error:%v\n", run.ID, err)
 		return nil, err
@@ -597,7 +604,27 @@ func newWorkflowByRun(run models.Run) (*pipeline.Workflow, error) {
 }
 
 func resetRunSteps(run *models.Run) error {
-	for stepName, jobView := range run.Runtime {
+	if err := resetRuntimeSteps(run.Runtime); err != nil {
+		err = fmt.Errorf("failed to retry run[%s], error: %v", run.ID, err)
+		logger.LoggerForRun(run.ID).Errorf(err.Error())
+		return err
+	}
+
+	if err := resetRuntimeSteps(run.PostProcess); err != nil {
+		err = fmt.Errorf("failed to retry run[%s], error: %v", run.ID, err)
+		logger.LoggerForRun(run.ID).Errorf(err.Error())
+		return err
+	}
+
+	if err := run.Encode(); err != nil {
+		logger.LoggerForRun(run.ID).Errorf("reset run steps encode failure. err: %v", err)
+		return err
+	}
+	return models.UpdateRun(logger.LoggerForRun(run.ID), run.ID, *run)
+}
+
+func resetRuntimeSteps(runtime map[string]schema.JobView) error {
+	for stepName, jobView := range runtime {
 		if jobView.Status == schema.StatusJobCancelled ||
 			jobView.Status == schema.StatusJobFailed ||
 			jobView.Status == schema.StatusJobTerminated {
@@ -606,18 +633,13 @@ func resetRunSteps(run *models.Run) error {
 			jobView.StartTime = ""
 			jobView.EndTime = ""
 
-			run.Runtime[stepName] = jobView
+			runtime[stepName] = jobView
 		}
 		if jobView.Status == schema.StatusJobRunning ||
 			jobView.Status == schema.StatusJobTerminating {
-			err := fmt.Errorf("step[%s] has invalid status[%s]. failed to retry run[%s]", stepName, jobView.Status, run.ID)
-			logger.LoggerForRun(run.ID).Errorf(err.Error())
+			err := fmt.Errorf("step[%s] has invalid status[%s]", stepName, jobView.Status)
 			return err
 		}
 	}
-	if err := run.Encode(); err != nil {
-		logger.LoggerForRun(run.ID).Errorf("reset run steps encode failure. err: %v", err)
-		return err
-	}
-	return models.UpdateRun(logger.LoggerForRun(run.ID), run.ID, *run)
+	return nil
 }
