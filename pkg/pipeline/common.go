@@ -344,7 +344,7 @@ func (s *StepParamSolver) resolveRefParam(stepName, param, fieldType string) (in
 
 			currentStep, ok := s.stepParamChecker.getWorkflowSourceStep(stepName)
 			if !ok {
-				return nil, fmt.Errorf("check param reference failed: %s no exists", stepName)
+				return nil, fmt.Errorf("check param reference[%s] failed: %s no exists", param, stepName)
 			}
 
 			tmpVal, ok = s.stepParamChecker.getSysParam(refParamName)
