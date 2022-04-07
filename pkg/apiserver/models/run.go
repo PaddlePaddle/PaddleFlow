@@ -42,7 +42,7 @@ type Run struct {
 	FsName         string                 `gorm:"type:varchar(60);not null"         json:"fsname"`
 	Description    string                 `gorm:"type:text;size:65535;not null"     json:"description"`
 	ParamJson      string                 `gorm:"type:text;size:65535"              json:"-"`
-	Param          map[string]interface{} `gorm:"-"                                 json:"param"`
+	Parameters     map[string]interface{} `gorm:"-"                                 json:"parameters"`
 	RunYaml        string                 `gorm:"type:text;size:65535"              json:"runYaml"`
 	WorkflowSource schema.WorkflowSource  `gorm:"-"                                 json:"-"` // RunYaml's dynamic struct
 	Runtime        schema.RuntimeView     `gorm:"-"                                 json:"runtime"`
@@ -53,7 +53,7 @@ type Run struct {
 	Disabled       string                 `gorm:"type:text;size:65535"              json:"disabled"`
 	Message        string                 `gorm:"type:text;size:65535"              json:"runMsg"`
 	Status         string                 `gorm:"type:varchar(32)"                  json:"status"` // StatusRun%%%
-	RunCacheIDs    string                 `gorm:"type:text;size:65535"              json:"runCacheIDs"`
+	RunCachedIDs   string                 `gorm:"type:text;size:65535"              json:"runCachedIDs"`
 	CreateTime     string                 `gorm:"-"                                 json:"createTime"`
 	ActivateTime   string                 `gorm:"-"                                 json:"activateTime"`
 	UpdateTime     string                 `gorm:"-"                                 json:"updateTime,omitempty"`
@@ -68,7 +68,7 @@ func (Run) TableName() string {
 }
 
 func (r *Run) GetRunCacheIDList() []string {
-	res := strings.Split(r.RunCacheIDs, common.SeparatorComma)
+	res := strings.Split(r.RunCachedIDs, common.SeparatorComma)
 	// 去掉空字符串
 	for i := 0; i < len(res); i++ {
 		if res[i] == "" {
@@ -81,8 +81,8 @@ func (r *Run) GetRunCacheIDList() []string {
 
 func (r *Run) Encode() error {
 	// encode param
-	if r.Param != nil {
-		paramRaw, err := json.Marshal(r.Param)
+	if r.Parameters != nil {
+		paramRaw, err := json.Marshal(r.Parameters)
 		if err != nil {
 			logger.LoggerForRun(r.ID).Errorf("encode run param failed. error:%v", err)
 			return err
@@ -112,7 +112,7 @@ func (r *Run) decode() error {
 			logger.LoggerForRun(r.ID).Errorf("decode run param failed. error:%v", err)
 			return err
 		}
-		r.Param = param
+		r.Parameters = param
 	}
 	// format time
 	r.CreateTime = r.CreatedAt.Format("2006-01-02 15:04:05")
