@@ -8,13 +8,6 @@ import (
 
 func ApiServerFlags(apiConf *config.ApiServerConfig) []cli.Flag {
 	return []cli.Flag{
-		&cli.BoolFlag{
-			Name:        "version",
-			Aliases:     []string{"v"},
-			Value:       apiConf.PrintVersionAndExit,
-			Usage:       "version of PaddleFlow server",
-			Destination: &apiConf.PrintVersionAndExit,
-		},
 		&cli.StringFlag{
 			Name:        "host",
 			Value:       apiConf.Host,

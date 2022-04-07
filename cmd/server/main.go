@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"paddleflow/pkg/version"
 	"syscall"
 
 	"github.com/go-chi/chi"
@@ -24,7 +25,6 @@ import (
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/common/schema"
 	"paddleflow/pkg/job"
-	"paddleflow/pkg/version"
 )
 
 var ServerConf *config.ServerConfig
@@ -37,6 +37,12 @@ func main() {
 }
 
 func Main(args []string) error {
+	cli.VersionFlag = &cli.BoolFlag{
+		Name: "version", Aliases: []string{"V"},
+		Usage: "version of PaddleFlow server",
+		Value: false,
+	}
+
 	if err := initConfig(); err != nil {
 		fmt.Println(err)
 		os.Exit(22)
@@ -64,6 +70,9 @@ func Main(args []string) error {
 }
 
 func act(c *cli.Context) error {
+	if c.Bool("version") {
+		version.PrintVersionAndExit()
+	}
 	setup()
 	err := start()
 	if err != nil {
@@ -137,10 +146,6 @@ func initConfig() error {
 }
 
 func setup() {
-	if ServerConf.ApiServer.PrintVersionAndExit {
-		version.PrintVersionAndExit()
-	}
-
 	err := logger.InitStandardFileLogger(&ServerConf.Log)
 	if err != nil {
 		log.Errorf("InitStandardFileLogger err: %v", err)
