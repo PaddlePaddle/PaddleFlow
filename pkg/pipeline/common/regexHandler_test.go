@@ -36,7 +36,7 @@ func TestCheckVarName(t *testing.T) {
 	varName = "ValidName1_"
 	err = vc.CheckVarName(varName)
 	assert.Nil(t, err)
-	
+
 	varName = "1validName1_"
 	err = vc.CheckVarName(varName)
 	assert.NotNil(t, err)
@@ -47,7 +47,6 @@ func TestCheckVarName(t *testing.T) {
 	assert.NotNil(t, err)
 	assert.Equal(t, "format of variable name[validName.1_] invalid, should be in ^[a-zA-Z_$][a-zA-Z_$0-9]*$", err.Error())
 }
-
 
 func TestCheckRefUpstreamStep(t *testing.T) {
 	vc := VariableChecker{}
@@ -81,7 +80,7 @@ func TestCheckRefUpstreamStep(t *testing.T) {
 	err = vc.CheckRefUpstreamStep(refPattern)
 	assert.NotNil(t, err)
 	assert.Equal(t, "format of value[{{wrongPattern}}] invalid, should be like {{XXX.XXX}}", err.Error())
-	
+
 	refPattern = "prefix{{step1.varName2}}"
 	err = vc.CheckRefUpstreamStep(refPattern)
 	assert.NotNil(t, err)

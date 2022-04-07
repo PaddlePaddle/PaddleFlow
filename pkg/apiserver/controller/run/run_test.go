@@ -23,7 +23,7 @@ import (
 
 	"paddleflow/pkg/apiserver/common"
 	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/common/database/db_fake"
+	"paddleflow/pkg/common/database/dbinit"
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/common/schema"
 	"paddleflow/pkg/pipeline"
@@ -77,7 +77,7 @@ func getMockRun2() models.Run {
 }
 
 func TestListRunSuccess(t *testing.T) {
-	db_fake.InitFakeDB()
+	dbinit.InitMockDB()
 	ctx1 := &logger.RequestContext{UserName: MockRootUser}
 	ctx2 := &logger.RequestContext{UserName: MockUserID2}
 	var err error
@@ -106,7 +106,7 @@ func TestListRunSuccess(t *testing.T) {
 }
 
 func TestGetRunSuccess(t *testing.T) {
-	db_fake.InitFakeDB()
+	dbinit.InitMockDB()
 	ctx := &logger.RequestContext{UserName: MockRootUser}
 	var err error
 	// test no runtime
@@ -132,7 +132,7 @@ func TestGetRunSuccess(t *testing.T) {
 }
 
 func TestGetRunFail(t *testing.T) {
-	db_fake.InitFakeDB()
+	dbinit.InitMockDB()
 	var err error
 	ctx := &logger.RequestContext{UserName: MockRootUser}
 	run1 := getMockRun1()
@@ -153,7 +153,7 @@ func TestGetRunFail(t *testing.T) {
 }
 
 func TestCallback(t *testing.T) {
-	db_fake.InitFakeDB()
+	dbinit.InitMockDB()
 	var err error
 	ctx := &logger.RequestContext{UserName: MockRootUser}
 
