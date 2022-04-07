@@ -42,11 +42,6 @@ func Main(args []string) error {
 		os.Exit(22)
 	}
 
-	cli.VersionFlag = &cli.BoolFlag{
-		Name: "version", Aliases: []string{"V"},
-		Usage: "print only the version",
-	}
-
 	compoundFlags := [][]cli.Flag{
 		flag.ApiServerFlags(&ServerConf.ApiServer),
 		flag.JobFlags(&ServerConf.Job),
