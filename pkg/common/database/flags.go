@@ -1,30 +1,10 @@
 package database
 
 import (
-	"github.com/spf13/pflag"
 	"github.com/urfave/cli/v2"
 
 	"paddleflow/pkg/common/config"
 )
-
-func AddFlagSet(fs *pflag.FlagSet, databaseConfig *config.DatabaseConfig) {
-	if fs == nil {
-		fs = pflag.CommandLine
-	}
-	fs.StringVar(&databaseConfig.Driver, "db-configPath", databaseConfig.Driver, "Driver")
-	fs.StringVar(&databaseConfig.Host, "db-host", databaseConfig.Host, "Host")
-	fs.StringVar(&databaseConfig.Port, "db-port", databaseConfig.Port, "Port")
-	fs.StringVar(&databaseConfig.User, "db-user", databaseConfig.User, "User")
-	fs.StringVar(&databaseConfig.Password, "db-password", databaseConfig.Password, "Password")
-	fs.StringVar(&databaseConfig.Database, "db-database", databaseConfig.Database, "database")
-	fs.IntVar(&databaseConfig.ConnectTimeoutInSeconds, "db-connect-timeout-in-seconds",
-		databaseConfig.ConnectTimeoutInSeconds, "ConnectTimeoutInSeconds")
-	fs.IntVar(&databaseConfig.LockTimeoutInMilliseconds, "db-lock-timeout-in-milliseconds",
-		databaseConfig.LockTimeoutInMilliseconds, "LockTimeoutInMilliseconds")
-	fs.IntVar(&databaseConfig.IdleTransactionTimeoutInMilliseconds,
-		"db-idle-transaction-timeout-in-milliseconds", databaseConfig.IdleTransactionTimeoutInMilliseconds,
-		"IdleTransactionTimeoutInMilliseconds")
-}
 
 func DatabaseFlags(dbConf *config.DatabaseConfig) []cli.Flag {
 	return []cli.Flag{

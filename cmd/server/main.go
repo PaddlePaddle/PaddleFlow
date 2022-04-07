@@ -83,7 +83,8 @@ func start() error {
 		Handler: Router,
 	}
 	ServerCtx, ServerCancel := context.WithCancel(context.Background())
-
+	defer ServerCancel()
+	
 	imageHandler, err := run.InitAndResumeRuns()
 	if err != nil {
 		log.Errorf("InitAndResumePipeline failed. error: %v", err)
@@ -101,7 +102,6 @@ func start() error {
 	signal.Notify(stopSig, syscall.SIGTERM, syscall.SIGINT)
 	<-stopSig
 
-	ServerCancel()
 	if err := HttpSvr.Shutdown(ServerCtx); err != nil {
 		log.Infof("Server forced to shutdown:%s", err.Error())
 	}
@@ -121,7 +121,7 @@ func initConfig() {
 		err := schema.ValidateResourceInfo(f.ResourceInfo, ServerConf.Job.ScalarResourceArray)
 		if err != nil {
 			fmt.Printf("validate resource of flavor[%v] failed. error: %s\n", f, err)
-			panic(err)
+			os.Exit(22)
 		}
 		ServerConf.FlavourMap[f.Name] = f
 	}
@@ -130,10 +130,10 @@ func initConfig() {
 	// make sure template job yaml file exist
 	if filesNum, err := config.FileNumsInDir(ServerConf.Job.DefaultJobYamlDir); err != nil {
 		fmt.Printf("validate default job yaml dir[%s] failed. error: %s\n", ServerConf.Job.DefaultJobYamlDir, err)
-		panic(err)
+		os.Exit(22)
 	} else if filesNum == 0 {
 		fmt.Printf("validate default job yaml dir[%s] failed. error: yaml files not found", ServerConf.Job.DefaultJobYamlDir)
-		panic(err)
+		os.Exit(22)
 	}
 }
 
@@ -144,7 +144,8 @@ func setup() {
 
 	err := logger.InitStandardFileLogger(&ServerConf.Log)
 	if err != nil {
-		panic("init logger failed.")
+		log.Errorf("InitStandardFileLogger err: %v", err)
+		os.Exit(22)
 	}
 
 	log.Infof("The final server config is: %s ", config.PrettyFormat(ServerConf))
@@ -160,19 +161,22 @@ func setup() {
 		Database: dbConf.Database,
 	}, nil, ServerConf.Log.Level)
 	if err != nil {
-		panic("init database failed.")
+		log.Errorf("init database err: %v", err)
+		os.Exit(22)
 	}
 
 	if err = NewAndStartJobManager(); err != nil {
 		log.Errorf("create pfjob manager failed, err %v", err)
-		panic("create pfjob manager failed")
+		os.Exit(22)
 	}
 
 	if err = config.InitDefaultPV(ServerConf.Fs.DefaultPVPath); err != nil {
-		panic(err)
+		log.Errorf("InitDefaultPV err %v", err)
+		os.Exit(22)
 	}
 	if err = config.InitDefaultPVC(ServerConf.Fs.DefaultPVCPath); err != nil {
-		panic(err)
+		log.Errorf("InitDefaultPVC err %v", err)
+		os.Exit(22)
 	}
 }
 
@@ -185,4 +189,3 @@ func NewAndStartJobManager() error {
 	go runtimeMgr.Start(models.ActiveClusters, models.ListQueueJob)
 	return nil
 }
-
