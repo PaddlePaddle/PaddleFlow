@@ -19,7 +19,7 @@ import (
 	v1 "paddleflow/pkg/apiserver/router/v1"
 	"paddleflow/pkg/common/config"
 	"paddleflow/pkg/common/database"
-	dbinit "paddleflow/pkg/common/database/init"
+	"paddleflow/pkg/common/database/dbinit"
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/common/schema"
 	"paddleflow/pkg/job"

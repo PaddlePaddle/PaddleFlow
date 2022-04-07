@@ -23,12 +23,12 @@ import (
 	"testing"
 	"time"
 
-	gomonkey "github.com/agiledragon/gomonkey/v2"
+	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
 
 	"paddleflow/pkg/apiserver/common"
 	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/common/database/db_fake"
+	"paddleflow/pkg/common/database/dbinit"
 	"paddleflow/pkg/common/schema"
 	pplcommon "paddleflow/pkg/pipeline/common"
 )
@@ -762,7 +762,7 @@ func TestRestartWorkflow(t *testing.T) {
 }
 
 func TestRestartWorkflow_from1completed(t *testing.T) {
-	db_fake.InitFakeDB()
+	dbinit.InitMockDB()
 	testCase := loadcase(runYamlPath)
 	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
