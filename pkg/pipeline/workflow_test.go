@@ -146,20 +146,20 @@ func TestCreateNewWorkflowRunDisabled_success(t *testing.T) {
 	assert.Nil(t, err)
 
 	time.Sleep(time.Millisecond * 10)
-	wf.runtime.entrypoints["data_preprocess"].disabled = true
-	wf.runtime.entrypoints["main"].disabled = true
-	wf.runtime.entrypoints["validate"].disabled = true
+	wf.runtime.entryPoints["data_preprocess"].disabled = true
+	wf.runtime.entryPoints["main"].disabled = true
+	wf.runtime.entryPoints["validate"].disabled = true
 
 	go wf.Start()
 
 	time.Sleep(time.Millisecond * 100)
-	fmt.Printf("%+v\n", *wf.runtime.entrypoints["data_preprocess"])
-	fmt.Printf("%+v\n", *wf.runtime.entrypoints["main"])
-	fmt.Printf("%+v\n", *wf.runtime.entrypoints["validate"])
+	fmt.Printf("%+v\n", *wf.runtime.entryPoints["data_preprocess"])
+	fmt.Printf("%+v\n", *wf.runtime.entryPoints["main"])
+	fmt.Printf("%+v\n", *wf.runtime.entryPoints["validate"])
 	assert.Equal(t, common.StatusRunSucceeded, wf.runtime.status)
-	assert.Equal(t, schema.StatusJobSkipped, wf.runtime.entrypoints["data_preprocess"].job.(*PaddleFlowJob).Status)
-	assert.Equal(t, schema.StatusJobSkipped, wf.runtime.entrypoints["main"].job.(*PaddleFlowJob).Status)
-	assert.Equal(t, schema.StatusJobSkipped, wf.runtime.entrypoints["validate"].job.(*PaddleFlowJob).Status)
+	assert.Equal(t, schema.StatusJobSkipped, wf.runtime.entryPoints["data_preprocess"].job.(*PaddleFlowJob).Status)
+	assert.Equal(t, schema.StatusJobSkipped, wf.runtime.entryPoints["main"].job.(*PaddleFlowJob).Status)
+	assert.Equal(t, schema.StatusJobSkipped, wf.runtime.entryPoints["validate"].job.(*PaddleFlowJob).Status)
 }
 
 // 测试运行 Workflow 成功
@@ -176,15 +176,18 @@ func TestCreateNewWorkflowRun_success(t *testing.T) {
 	// 先是mock data_preprocess节点返回true
 	// 再设置所有节点done = true
 	// 保证data_preprocess能够成功结束，然后runtime再寻找下一个能运行的节点时，能够跳过后面的节点
-	patches := gomonkey.ApplyMethod(reflect.TypeOf(wf.runtime.entrypoints["data_preprocess"].job), "Succeeded", func(_ *PaddleFlowJob) bool {
+	patches := gomonkey.ApplyMethod(reflect.TypeOf(wf.runtime.entryPoints["data_preprocess"].job), "Succeeded", func(_ *PaddleFlowJob) bool {
 		return true
 	})
 	defer patches.Reset()
 
 	time.Sleep(time.Millisecond * 10)
-	wf.runtime.entrypoints["data_preprocess"].done = true
-	wf.runtime.entrypoints["main"].done = true
-	wf.runtime.entrypoints["validate"].done = true
+	wf.runtime.entryPoints["data_preprocess"].job.(*PaddleFlowJob).Status = schema.StatusJobSucceeded
+	wf.runtime.entryPoints["data_preprocess"].done = true
+	wf.runtime.entryPoints["main"].job.(*PaddleFlowJob).Status = schema.StatusJobSucceeded
+	wf.runtime.entryPoints["main"].done = true
+	wf.runtime.entryPoints["validate"].job.(*PaddleFlowJob).Status = schema.StatusJobSucceeded
+	wf.runtime.entryPoints["validate"].done = true
 
 	go wf.Start()
 
@@ -206,19 +209,19 @@ func TestCreateNewWorkflowRun_failed(t *testing.T) {
 	wf, err := NewWorkflow(wfs, "", "", nil, extra, mockCbs)
 	assert.Nil(t, err)
 
-	patch1 := gomonkey.ApplyMethod(reflect.TypeOf(wf.runtime.entrypoints["data_preprocess"].job), "Started", func(_ *PaddleFlowJob) bool {
+	patch1 := gomonkey.ApplyMethod(reflect.TypeOf(wf.runtime.entryPoints["data_preprocess"].job), "Started", func(_ *PaddleFlowJob) bool {
 		return true
 	})
-	patch2 := gomonkey.ApplyMethod(reflect.TypeOf(wf.runtime.entrypoints["data_preprocess"].job), "NotEnded", func(_ *PaddleFlowJob) bool {
+	patch2 := gomonkey.ApplyMethod(reflect.TypeOf(wf.runtime.entryPoints["data_preprocess"].job), "NotEnded", func(_ *PaddleFlowJob) bool {
 		return false
 	})
-	patch3 := gomonkey.ApplyMethod(reflect.TypeOf(wf.runtime.entrypoints["data_preprocess"].job), "Failed", func(_ *PaddleFlowJob) bool {
+	patch3 := gomonkey.ApplyMethod(reflect.TypeOf(wf.runtime.entryPoints["data_preprocess"].job), "Failed", func(_ *PaddleFlowJob) bool {
 		return true
 	})
-	patch4 := gomonkey.ApplyMethod(reflect.TypeOf(wf.runtime.entrypoints["data_preprocess"].job), "Succeeded", func(_ *PaddleFlowJob) bool {
+	patch4 := gomonkey.ApplyMethod(reflect.TypeOf(wf.runtime.entryPoints["data_preprocess"].job), "Succeeded", func(_ *PaddleFlowJob) bool {
 		return false
 	})
-	patch5 := gomonkey.ApplyMethod(reflect.TypeOf(wf.runtime.entrypoints["data_preprocess"].job), "Skipped", func(_ *PaddleFlowJob) bool {
+	patch5 := gomonkey.ApplyMethod(reflect.TypeOf(wf.runtime.entryPoints["data_preprocess"].job), "Skipped", func(_ *PaddleFlowJob) bool {
 		return false
 	})
 	defer patch1.Reset()
@@ -226,6 +229,10 @@ func TestCreateNewWorkflowRun_failed(t *testing.T) {
 	defer patch3.Reset()
 	defer patch4.Reset()
 	defer patch5.Reset()
+
+	wf.runtime.entryPoints["data_preprocess"].job.(*PaddleFlowJob).Status = schema.StatusJobFailed
+	wf.runtime.entryPoints["main"].job.(*PaddleFlowJob).Status = schema.StatusJobCancelled
+	wf.runtime.entryPoints["validate"].job.(*PaddleFlowJob).Status = schema.StatusJobCancelled
 
 	go wf.Start()
 	time.Sleep(time.Millisecond * 10)
@@ -248,23 +255,23 @@ func TestStopWorkflowRun(t *testing.T) {
 	wf, err := NewWorkflow(wfs, "", "", nil, extra, mockCbs)
 	assert.Nil(t, err)
 
-	patch1 := gomonkey.ApplyMethod(reflect.TypeOf(wf.runtime.entrypoints["data_preprocess"].job), "Succeeded", func(_ *PaddleFlowJob) bool {
+	patch1 := gomonkey.ApplyMethod(reflect.TypeOf(wf.runtime.entryPoints["data_preprocess"].job), "Succeeded", func(_ *PaddleFlowJob) bool {
 		return true
 	})
 	defer patch1.Reset()
 
-	patch2 := gomonkey.ApplyMethod(reflect.TypeOf(wf.runtime.entrypoints["main"].job), "Succeeded", func(_ *PaddleFlowJob) bool {
+	patch2 := gomonkey.ApplyMethod(reflect.TypeOf(wf.runtime.entryPoints["main"].job), "Succeeded", func(_ *PaddleFlowJob) bool {
 		return true
 	})
 	defer patch2.Reset()
 
-	patch3 := gomonkey.ApplyMethod(reflect.TypeOf(wf.runtime.entrypoints["validate"].job), "Succeeded", func(_ *PaddleFlowJob) bool {
+	patch3 := gomonkey.ApplyMethod(reflect.TypeOf(wf.runtime.entryPoints["validate"].job), "Succeeded", func(_ *PaddleFlowJob) bool {
 		return false
 	})
-	patch4 := gomonkey.ApplyMethod(reflect.TypeOf(wf.runtime.entrypoints["validate"].job), "Failed", func(_ *PaddleFlowJob) bool {
+	patch4 := gomonkey.ApplyMethod(reflect.TypeOf(wf.runtime.entryPoints["validate"].job), "Failed", func(_ *PaddleFlowJob) bool {
 		return false
 	})
-	patch5 := gomonkey.ApplyMethod(reflect.TypeOf(wf.runtime.entrypoints["validate"].job), "Terminated", func(_ *PaddleFlowJob) bool {
+	patch5 := gomonkey.ApplyMethod(reflect.TypeOf(wf.runtime.entryPoints["validate"].job), "Terminated", func(_ *PaddleFlowJob) bool {
 		return true
 	})
 	defer patch3.Reset()
@@ -273,9 +280,13 @@ func TestStopWorkflowRun(t *testing.T) {
 
 	time.Sleep(time.Millisecond * 10)
 
-	wf.runtime.entrypoints["data_preprocess"].done = true
-	wf.runtime.entrypoints["main"].done = true
-	wf.runtime.entrypoints["validate"].done = true
+	wf.runtime.entryPoints["data_preprocess"].done = true
+	wf.runtime.entryPoints["main"].done = true
+	wf.runtime.entryPoints["validate"].done = true
+
+	wf.runtime.entryPoints["data_preprocess"].job.(*PaddleFlowJob).Status = schema.StatusJobSucceeded
+	wf.runtime.entryPoints["main"].job.(*PaddleFlowJob).Status = schema.StatusJobSucceeded
+	wf.runtime.entryPoints["validate"].job.(*PaddleFlowJob).Status = schema.StatusJobTerminated
 
 	go wf.Start()
 	time.Sleep(time.Millisecond * 10)
@@ -305,12 +316,12 @@ func TestNewWorkflowFromEntry(t *testing.T) {
 
 	err = wf.newWorkflowRuntime()
 	assert.Nil(t, err)
-	assert.Equal(t, 2, len(wf.runtime.entrypoints))
-	_, ok := wf.runtime.entrypoints["main"]
+	assert.Equal(t, 2, len(wf.runtime.entryPoints))
+	_, ok := wf.runtime.entryPoints["main"]
 	assert.True(t, ok)
-	_, ok1 := wf.runtime.entrypoints["data_preprocess"]
+	_, ok1 := wf.runtime.entryPoints["data_preprocess"]
 	assert.True(t, ok1)
-	_, ok2 := wf.runtime.entrypoints["validate"]
+	_, ok2 := wf.runtime.entryPoints["validate"]
 	assert.False(t, ok2)
 }
 
@@ -752,14 +763,14 @@ func TestRestartWorkflow(t *testing.T) {
 		},
 	}
 
-	err = wf.SetWorkflowRuntime(runtimeView)
+	err = wf.SetWorkflowRuntime(runtimeView, schema.PostProcessView{})
 	assert.Nil(t, err)
-	assert.Equal(t, true, wf.runtime.entrypoints["data_preprocess"].done)
-	assert.Equal(t, true, wf.runtime.entrypoints["data_preprocess"].submitted)
-	assert.Equal(t, false, wf.runtime.entrypoints["main"].done)
-	assert.Equal(t, true, wf.runtime.entrypoints["main"].submitted)
-	assert.Equal(t, false, wf.runtime.entrypoints["validate"].done)
-	assert.Equal(t, false, wf.runtime.entrypoints["validate"].submitted)
+	assert.Equal(t, true, wf.runtime.entryPoints["data_preprocess"].done)
+	assert.Equal(t, true, wf.runtime.entryPoints["data_preprocess"].submitted)
+	assert.Equal(t, false, wf.runtime.entryPoints["main"].done)
+	assert.Equal(t, true, wf.runtime.entryPoints["main"].submitted)
+	assert.Equal(t, false, wf.runtime.entryPoints["validate"].done)
+	assert.Equal(t, false, wf.runtime.entryPoints["validate"].submitted)
 }
 
 func TestRestartWorkflow_from1completed(t *testing.T) {
@@ -784,12 +795,12 @@ func TestRestartWorkflow_from1completed(t *testing.T) {
 			JobID: "",
 		},
 	}
-	err = wf.SetWorkflowRuntime(runtimeView)
+	err = wf.SetWorkflowRuntime(runtimeView, schema.PostProcessView{})
 	assert.Nil(t, err)
-	assert.Equal(t, true, wf.runtime.entrypoints["data_preprocess"].done)
-	assert.Equal(t, true, wf.runtime.entrypoints["data_preprocess"].submitted)
-	assert.Equal(t, false, wf.runtime.entrypoints["main"].done)
-	assert.Equal(t, false, wf.runtime.entrypoints["main"].submitted)
-	assert.Equal(t, false, wf.runtime.entrypoints["validate"].done)
-	assert.Equal(t, false, wf.runtime.entrypoints["validate"].submitted)
+	assert.Equal(t, true, wf.runtime.entryPoints["data_preprocess"].done)
+	assert.Equal(t, true, wf.runtime.entryPoints["data_preprocess"].submitted)
+	assert.Equal(t, false, wf.runtime.entryPoints["main"].done)
+	assert.Equal(t, false, wf.runtime.entryPoints["main"].submitted)
+	assert.Equal(t, false, wf.runtime.entryPoints["validate"].done)
+	assert.Equal(t, false, wf.runtime.entryPoints["validate"].submitted)
 }
