@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	v1 "paddleflow/pkg/apiserver/router/v1"
 	"syscall"
 
 	"github.com/go-chi/chi"
@@ -18,6 +17,7 @@ import (
 	"paddleflow/cmd/server/flag"
 	"paddleflow/pkg/apiserver/controller/run"
 	"paddleflow/pkg/apiserver/models"
+	v1 "paddleflow/pkg/apiserver/router/v1"
 	"paddleflow/pkg/common/config"
 	"paddleflow/pkg/common/database"
 	"paddleflow/pkg/common/database/dbinit"
@@ -30,14 +30,17 @@ import (
 var ServerConf *config.ServerConfig
 
 func main() {
-	err := Main(os.Args)
-	if err != nil {
-		log.Fatal(err)
+	if err := Main(os.Args); err != nil {
+		fmt.Println(err)
+		os.Exit(22)
 	}
 }
 
 func Main(args []string) error {
-	initConfig()
+	if err := initConfig(); err != nil {
+		fmt.Println(err)
+		os.Exit(22)
+	}
 
 	cli.VersionFlag = &cli.BoolFlag{
 		Name: "version", Aliases: []string{"V"},
@@ -84,7 +87,7 @@ func start() error {
 	}
 	ServerCtx, ServerCancel := context.WithCancel(context.Background())
 	defer ServerCancel()
-	
+
 	imageHandler, err := run.InitAndResumeRuns()
 	if err != nil {
 		log.Errorf("InitAndResumePipeline failed. error: %v", err)
@@ -98,7 +101,7 @@ func start() error {
 		}
 	}()
 
-	stopSig := make(chan os.Signal)
+	stopSig := make(chan os.Signal, 1)
 	signal.Notify(stopSig, syscall.SIGTERM, syscall.SIGINT)
 	<-stopSig
 
@@ -109,19 +112,19 @@ func start() error {
 	return nil
 }
 
-func initConfig() {
+func initConfig() error {
 	ServerConf = &config.ServerConfig{}
 	if err := config.InitConfigFromYaml(ServerConf, ""); err != nil {
-		fmt.Printf("InitConfigFromYaml failed. serverConf:[%+v], configPath:[%s] error:[%s]\n", ServerConf, "", err.Error())
-		os.Exit(22)
+		log.Errorf("InitConfigFromYaml failed. serverConf:[%+v], configPath:[%s] error:[%s]\n", ServerConf, "", err.Error())
+		return err
 	}
 
 	ServerConf.FlavourMap = make(map[string]schema.Flavour)
 	for _, f := range ServerConf.Flavour {
 		err := schema.ValidateResourceInfo(f.ResourceInfo, ServerConf.Job.ScalarResourceArray)
 		if err != nil {
-			fmt.Printf("validate resource of flavor[%v] failed. error: %s\n", f, err)
-			os.Exit(22)
+			log.Errorf("validate resource of flavor[%v] failed. error: %s\n", f, err)
+			return err
 		}
 		ServerConf.FlavourMap[f.Name] = f
 	}
@@ -129,12 +132,13 @@ func initConfig() {
 
 	// make sure template job yaml file exist
 	if filesNum, err := config.FileNumsInDir(ServerConf.Job.DefaultJobYamlDir); err != nil {
-		fmt.Printf("validate default job yaml dir[%s] failed. error: %s\n", ServerConf.Job.DefaultJobYamlDir, err)
-		os.Exit(22)
+		log.Errorf("validate default job yaml dir[%s] failed. error: %s\n", ServerConf.Job.DefaultJobYamlDir, err)
+		return err
 	} else if filesNum == 0 {
-		fmt.Printf("validate default job yaml dir[%s] failed. error: yaml files not found", ServerConf.Job.DefaultJobYamlDir)
-		os.Exit(22)
+		log.Errorf("validate default job yaml dir[%s] failed. error: yaml files not found", ServerConf.Job.DefaultJobYamlDir)
+		return errors.New("yaml files not found")
 	}
+	return nil
 }
 
 func setup() {
@@ -165,7 +169,7 @@ func setup() {
 		os.Exit(22)
 	}
 
-	if err = NewAndStartJobManager(); err != nil {
+	if err = newAndStartJobManager(); err != nil {
 		log.Errorf("create pfjob manager failed, err %v", err)
 		os.Exit(22)
 	}
@@ -180,7 +184,7 @@ func setup() {
 	}
 }
 
-func NewAndStartJobManager() error {
+func newAndStartJobManager() error {
 	runtimeMgr, err := job.NewJobManagerImpl()
 	if err != nil {
 		log.Errorf("new job manager failed, error: %v", err)
