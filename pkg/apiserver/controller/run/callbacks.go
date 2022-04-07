@@ -67,7 +67,7 @@ func GetJobByRun(runID string, stepName string) (schema.JobView, error) {
 	}
 
 	logging.Errorf("get jobView from Run with stepName[%s] failed.", stepName)
-	return jobView, fmt.Errorf("get jobView from Run with stepName[%s] failed.", stepName)
+	return jobView, fmt.Errorf("get jobView from Run with stepName[%s] failed", stepName)
 }
 
 func UpdateRunByWfEvent(id string, event interface{}) bool {
