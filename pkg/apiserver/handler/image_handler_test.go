@@ -51,13 +51,9 @@ func TestNewImageHandler(t *testing.T) {
 }
 
 var runid string
-var url string
-var dockerEnv string
 
 func callback(info ImageInfo, err error) error {
 	runid = info.RunID
-	url = info.Url
-	dockerEnv = info.Source
 	fmt.Println("hahah")
 	return nil
 }
@@ -91,11 +87,11 @@ func TestHandleImage(t *testing.T) {
 		UserName:  "xiaodu",
 		ErrorCode: "0",
 	}
-	handler.HandleImage("abcd", "123", "456", "haha", 9081, []string{"12345"}, ctx.Logging(), callback)
+	handler.HandleImage("abcd", "123", "456", []string{"12345"}, ctx.Logging(), callback)
 	time.Sleep(1 * time.Second)
 	assert.Equal(t, runid, "123")
 
-	handler.HandleImage("abcd.tar", "1234", "456", "haha", 9081, []string{"12345"}, ctx.Logging(), callback)
+	handler.HandleImage("abcd.tar", "1234", "456", []string{"12345"}, ctx.Logging(), callback)
 }
 
 func copyFile(src, dst string) error {
@@ -127,8 +123,6 @@ func TestGenerateImageUrl(t *testing.T) {
 	info := imageHandleInfo{
 		runID:     "1224",
 		fsID:      "fs-root-sftpahz1",
-		fsHost:    "10.21.195.71",
-		fsRpcPort: 8082,
 		dockerEnv: "./k8s_pause.tar",
 		logEntry:  requestContext.Logging(),
 	}

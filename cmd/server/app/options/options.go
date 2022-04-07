@@ -10,10 +10,6 @@ import (
 	"paddleflow/pkg/common/logger"
 )
 
-const (
-	defaultPort = 8080
-)
-
 // ServerOption is the main context object for the controllers.
 type ServerOption struct {
 	serverConf *config.ServerConfig
@@ -56,7 +52,6 @@ func (s *ServerOption) InitFlag(fs *pflag.FlagSet) {
 	}
 	s.AddFlagSet(fs)
 	logger.AddFlagSet(fs, &s.serverConf.Log)
-	config.AddKubeConfigFlagSet(fs, &s.serverConf.KubeConfig)
 	database.AddFlagSet(fs, &s.serverConf.Database)
 	pflag.CommandLine.AddGoFlagSet(goflag.CommandLine)
 	pflag.Parse()

@@ -36,7 +36,6 @@ import (
 
 	"paddleflow/cmd/fs/fuse/flag"
 	"paddleflow/pkg/client"
-	"paddleflow/pkg/common/config"
 	"paddleflow/pkg/common/http/api"
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/fs/client/base"
@@ -51,15 +50,25 @@ import (
 
 var opts *libfuse.MountOptions
 
+var logConf = logger.LogConfig{
+	Dir:             "./log",
+	FilePrefix:      "./pfs-fuse",
+	Level:           "INFO",
+	MaxKeepDays:     90,
+	MaxFileNum:      100,
+	MaxFileSizeInMB: 200 * 1024 * 1024,
+	IsCompress:      true,
+}
+
 func CmdMount() *cli.Command {
 	compoundFlags := [][]cli.Flag{
-		flag.MountFlags(&config.FuseConf.Fuse),
-		flag.CacheFlags(&config.FuseConf.Fuse),
-		flag.LinkFlags(&config.FuseConf.Fuse),
-		flag.GlobalFlags(&config.FuseConf.Fuse),
-		flag.LogFlags(&config.FuseConf.Log),
-		flag.UserFlags(&config.FuseConf.Fuse),
-		flag.MetricsFlags(&config.FuseConf.Fuse),
+		flag.MountFlags(),
+		flag.LinkFlags(),
+		flag.BasicFlags(),
+		flag.CacheFlags(fuse.FuseConf),
+		flag.UserFlags(fuse.FuseConf),
+		logger.LogFlags(&logConf),
+		metric.MetricsFlags(),
 	}
 	return &cli.Command{
 		Name:      "mount",
@@ -73,55 +82,56 @@ Usage please refer to docs`,
 	}
 }
 
-func setup() error {
-	if err := logger.Init(&config.FuseConf.Log); err != nil {
+func setup(c *cli.Context) error {
+	if err := logger.InitStandardFileLogger(&logConf); err != nil {
 		log.Errorf("cmd mount setup() logger.Init err:%v", err)
 		return err
 	}
 	opts = &libfuse.MountOptions{}
-	fuseConf := config.FuseConf.Fuse
-	if len(fuseConf.MountPoint) == 0 || fuseConf.MountPoint == "/" {
-		log.Errorf("invalid mount point: [%s]", fuseConf.MountPoint)
-		return fmt.Errorf("invalid mountpoint: %s", fuseConf.MountPoint)
+	mountPoint := c.String("mount-point")
+	if len(mountPoint) == 0 || mountPoint == "/" {
+		log.Errorf("invalid mount point: [%s]", mountPoint)
+		return fmt.Errorf("invalid mountpoint: %s", mountPoint)
 	}
 
-	isMounted, err := mountUtil.IsMountPoint(fuseConf.MountPoint)
+	isMounted, err := mountUtil.IsMountPoint(mountPoint)
 	if err != nil {
 		log.Errorf("check mount point failed: %v", err)
 		return fmt.Errorf("check mountpoint failed: %v", err)
 	}
 	if isMounted {
-		return fmt.Errorf("%s is already the mountpoint", fuseConf.MountPoint)
+		return fmt.Errorf("%s is already the mountpoint", mountPoint)
 	}
 
-	if len(fuseConf.MountOptions) != 0 {
-		mopts := strings.Split(fuseConf.MountOptions, ",")
+	mountOps := c.String("mount-options")
+	if len(mountOps) != 0 {
+		mopts := strings.Split(mountOps, ",")
 		opts.Options = append(opts.Options, mopts...)
 	}
 
-	if config.FuseConf.Log.Level == "DEBUG" {
+	if logConf.Level == "DEBUG" || logConf.Level == "TRACE" {
 		opts.Debug = true
 	}
 
-	opts.IgnoreSecurityLabels = fuseConf.IgnoreSecurityLabels
-	opts.DisableXAttrs = fuseConf.DisableXAttrs
-	opts.AllowOther = fuseConf.AllowOther
+	opts.IgnoreSecurityLabels = c.Bool("ignore-security-labels")
+	opts.DisableXAttrs = c.Bool("disable-xattrs")
+	opts.AllowOther = c.Bool("allow-other")
 
 	// Wrap the default registry, all prometheus.MustRegister() calls should be afterwards
 	// InitVFS() has many registers, should be after wrapRegister()
-	registry := wrapRegister(fuseConf.MountPoint)
-	if err := InitVFS(registry); err != nil {
+	registry := wrapRegister(mountPoint)
+	if err := InitVFS(c, registry); err != nil {
 		log.Errorf("init vfs failed: %v", err)
 		return err
 	}
 
-	if !config.FuseConf.Fuse.Local {
+	if !c.Bool("local") {
 		stopChan := make(chan struct{})
 		defer close(stopChan)
-		fuseConf := config.FuseConf.Fuse
-		if !config.FuseConf.Fuse.SkipCheckLinks {
+		if !c.Bool("skip-check-links") {
 			f := func() {
-				if err := vfs.GetVFS().Meta.LinksMetaUpdateHandler(stopChan, fuseConf.LinkUpdateInterval, fuseConf.LinkMetaDirPrefix); err != nil {
+				if err := vfs.GetVFS().Meta.LinksMetaUpdateHandler(stopChan,
+					c.Int("link-update-interval"), c.String("link-meta-dir-prefix")); err != nil {
 					log.Errorf("mount setup() vfs.GetVFS().Meta.LinksMetaUpdateHandler err: %v", err)
 				}
 			}
@@ -129,27 +139,32 @@ func setup() error {
 		}
 	}
 
-	if config.FuseConf.Fuse.PprofEnable {
+	if c.Bool("pprof-enable") {
 		go func() {
 			router := gin.Default()
 			pprof.Register(router, "debug/pprof")
-			if err := router.Run(fmt.Sprintf(":%d", config.FuseConf.Fuse.PprofPort)); err != nil {
+			if err := router.Run(fmt.Sprintf(":%d", c.Int("pprof-port"))); err != nil {
 				log.Errorf("run pprof failed: %s, skip this error", err.Error())
 			} else {
 				log.Infof("pprof started")
 			}
 		}()
 	}
+
+	if c.Bool("metrics-service-on") {
+		metricsAddr := exposeMetrics(c.String("server"), c.Int("metrics-service-port"))
+		log.Debugf("mount opts: %+v, metricsAddr: %s", opts, metricsAddr)
+	}
+
 	return nil
 }
 
-func exposeMetrics(conf config.Fuse) string {
+func exposeMetrics(hostServer string, port int) string {
 	// default set
-	ip, _, err := net.SplitHostPort(conf.Server)
+	ip, _, err := net.SplitHostPort(hostServer)
 	if err != nil {
 		log.Fatalf("metrics format error: %v", err)
 	}
-	port := conf.MetricsPort
 	log.Debugf("metrics server - ip:%s, port:%d", ip, port)
 	go metric.UpdateMetrics()
 	http.Handle("/metrics", promhttp.HandlerFor(
@@ -184,17 +199,13 @@ func wrapRegister(mountPoint string) *prometheus.Registry {
 
 func mount(c *cli.Context) error {
 	log.Tracef("mount setup VFS")
-	if err := setup(); err != nil {
+	if err := setup(c); err != nil {
 		log.Errorf("mount setup() err: %v", err)
 		return err
 	}
 
-	fuseConf := config.FuseConf.Fuse
-	metricsAddr := exposeMetrics(fuseConf)
-	log.Debugf("mount opts: %+v, metricsAddr: %s", opts, metricsAddr)
-
 	log.Debugf("start mount service")
-	server, err := fuse.Server(config.FuseConf.Fuse.MountPoint, *opts)
+	server, err := fuse.Server(c.String("mount-point"), *opts)
 	if err != nil {
 		log.Fatalf("mount fail: %v", err)
 		os.Exit(-1)
@@ -203,29 +214,31 @@ func mount(c *cli.Context) error {
 	return err
 }
 
-func InitVFS(registry *prometheus.Registry) error {
+func InitVFS(c *cli.Context, registry *prometheus.Registry) error {
 	var fsMeta common.FSMeta
 	var links map[string]common.FSMeta
-	fuseConf := config.FuseConf.Fuse
-	if fuseConf.Local == true {
-		if fuseConf.LocalRoot == "" || fuseConf.LocalRoot == "/" {
-			log.Errorf("invalid localRoot: [%s]", fuseConf.LocalRoot)
-			return fmt.Errorf("invalid localRoot: [%s]", fuseConf.LocalRoot)
+	server := c.String("server")
+	if c.Bool("local") == true {
+		localRoot := c.String("local-root")
+		if localRoot == "" || localRoot == "/" {
+			log.Errorf("invalid localRoot: [%s]", localRoot)
+			return fmt.Errorf("invalid localRoot: [%s]", localRoot)
 		}
 		fsMeta = common.FSMeta{
 			UfsType: common.LocalType,
-			SubPath: fuseConf.LocalRoot,
+			SubPath: localRoot,
 		}
-		if fuseConf.LinkPath != "" && fuseConf.LinkRoot != "" {
+		linkPath, linkRoot := c.String("link-path"), c.String("link-root")
+		if linkPath != "" && linkRoot != "" {
 			links = map[string]common.FSMeta{
-				path.Clean(fuseConf.LinkPath): common.FSMeta{
+				path.Clean(linkPath): common.FSMeta{
 					UfsType: common.LocalType,
-					SubPath: fuseConf.LinkRoot,
+					SubPath: linkRoot,
 				},
 			}
 		}
-	} else if fuseConf.FsInfoPath != "" {
-		reader, err := os.Open(fuseConf.FsInfoPath)
+	} else if c.String("fs-info-path") != "" {
+		reader, err := os.Open(c.String("fs-info-path"))
 		if err != nil {
 			return err
 		}
@@ -243,32 +256,33 @@ func InitVFS(registry *prometheus.Registry) error {
 		log.Infof("fuse meta is %+v", fsMeta)
 		links = map[string]common.FSMeta{}
 	} else {
-		if fuseConf.FsID == "" {
-			log.Errorf("invalid fsID: [%s]", fuseConf.FsID)
-			return fmt.Errorf("invalid fsID: [%s]", fuseConf.FsID)
+		fsID := c.String("fs-id")
+		if fsID == "" {
+			log.Errorf("invalid fsID: [%s]", fsID)
+			return fmt.Errorf("invalid fsID: [%s]", fsID)
 		}
 
-		if fuseConf.Server == "" {
-			log.Errorf("invalid server: [%s]", fuseConf.Server)
-			return fmt.Errorf("invalid server: [%s]", fuseConf.Server)
+		if server == "" {
+			log.Errorf("invalid server: [%s]", server)
+			return fmt.Errorf("invalid server: [%s]", server)
+		}
+		username := c.String("user-name")
+		if username == "" {
+			log.Errorf("invalid username: [%s]", username)
+			return fmt.Errorf("invalid username: [%s]", username)
+		}
+		password := c.String("password")
+		if password == "" {
+			log.Errorf("invalid password: [%s]", password)
+			return fmt.Errorf("invalid password: [%s]", password)
 		}
 
-		if fuseConf.UserName == "" {
-			log.Errorf("invalid username: [%s]", fuseConf.UserName)
-			return fmt.Errorf("invalid username: [%s]", fuseConf.UserName)
-		}
-
-		if fuseConf.Password == "" {
-			log.Errorf("invalid password: [%s]", fuseConf.Password)
-			return fmt.Errorf("invalid password: [%s]", fuseConf.Password)
-		}
-
-		httpClient := client.NewHttpClient(fuseConf.Server, client.DefaultTimeOut)
+		httpClient := client.NewHttpClient(server, client.DefaultTimeOut)
 
 		// 获取token
 		login := api.LoginParams{
-			UserName: fuseConf.UserName,
-			Password: fuseConf.Password,
+			UserName: username,
+			Password: password,
 		}
 		loginResponse, err := api.LoginRequest(login, httpClient)
 		if err != nil {
@@ -276,51 +290,51 @@ func InitVFS(registry *prometheus.Registry) error {
 			return err
 		}
 
-		fuseClient, err := base.NewClient(fuseConf.FsID, httpClient, fuseConf.UserName, loginResponse.Authorization)
+		fuseClient, err := base.NewClient(fsID, httpClient, username, loginResponse.Authorization)
 		if err != nil {
-			log.Errorf("init client with fs[%s] and server[%s] failed: %v", fuseConf.FsID, fuseConf.Server, err)
+			log.Errorf("init client with fs[%s] and server[%s] failed: %v", fsID, server, err)
 			return err
 		}
 		fsMeta, err = fuseClient.GetFSMeta()
 		if err != nil {
 			log.Errorf("get fs[%s] meta from pfs server[%s] failed: %v",
-				fuseConf.FsID, fuseConf.Server, err)
+				fsID, server, err)
 			return err
 		}
 		fuseClient.FsName = fsMeta.Name
 		links, err = fuseClient.GetLinks()
 		if err != nil {
 			log.Errorf("get fs[%s] links from pfs server[%s] failed: %v",
-				fuseConf.FsID, fuseConf.Server, err)
+				fsID, server, err)
 			return err
 		}
 	}
 	m := meta.Config{
-		AttrCacheExpire:  config.FuseConf.Fuse.MetaCacheExpire,
-		EntryCacheExpire: config.FuseConf.Fuse.EntryCacheExpire,
-		Driver:           config.FuseConf.Fuse.MetaDriver,
-		CachePath:        config.FuseConf.Fuse.MetaCachePath,
+		AttrCacheExpire:  c.Duration("meta-cache-expire"),
+		EntryCacheExpire: c.Duration("entry-cache-expire"),
+		Driver:           c.String("meta-driver"),
+		CachePath:        c.String("meta-path"),
 	}
 	d := cache.Config{
-		BlockSize:    config.FuseConf.Fuse.BlockSize,
-		MaxReadAhead: config.FuseConf.Fuse.MaxReadAheadSize,
+		BlockSize:    c.Int("block-size"),
+		MaxReadAhead: c.Int("data-read-ahead-size"),
 		Mem: &cache.MemConfig{
-			CacheSize: config.FuseConf.Fuse.MemorySize,
-			Expire:    config.FuseConf.Fuse.MemoryExpire,
+			CacheSize: c.Int("data-mem-size"),
+			Expire:    c.Duration("data-mem-cache-expire"),
 		},
 		Disk: &cache.DiskConfig{
-			Dir:    config.FuseConf.Fuse.DiskCachePath,
-			Expire: config.FuseConf.Fuse.DiskExpire,
+			Dir:    c.String("data-disk-cache-path"),
+			Expire: c.Duration("data-disk-cache-expire"),
 		},
 	}
 	vfsOptions := []vfs.Option{
 		vfs.WithDataCacheConfig(d),
 		vfs.WithMetaConfig(m),
 	}
-	if !config.FuseConf.Fuse.RawOwner {
+	if !fuse.FuseConf.RawOwner {
 		vfsOptions = append(vfsOptions, vfs.WithOwner(
-			uint32(config.FuseConf.Fuse.Uid),
-			uint32(config.FuseConf.Fuse.Gid)))
+			uint32(fuse.FuseConf.Uid),
+			uint32(fuse.FuseConf.Gid)))
 	}
 	vfsConfig := vfs.InitConfig(vfsOptions...)
 

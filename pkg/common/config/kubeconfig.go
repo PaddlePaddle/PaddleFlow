@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,6 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+/*
+This file is deprecated.
+Multi-cluster case (with multiple kubeconfigs) is supported by DB
+*/
+
 package config
 
 import (
@@ -24,6 +29,13 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )
+
+type KubeConfig struct {
+	ConfigPath    string `yaml:"configPath"`
+	ClientQPS     int    `yaml:"clientQps"`
+	ClientBurst   int    `yaml:"clientBurst"`
+	ClientTimeout int    `yaml:"clientTimeout"`
+}
 
 func AddKubeConfigFlagSet(fs *pflag.FlagSet, kubeConf *KubeConfig) {
 	if fs == nil {

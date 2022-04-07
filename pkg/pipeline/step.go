@@ -17,6 +17,7 @@ limitations under the License.
 package pipeline
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -34,12 +35,14 @@ type Step struct {
 	info              *schema.WorkflowSourceStep
 	disabled          bool
 	ready             chan bool // 由 run 来决定是否开始执行该步骤
+	cancel            chan bool // 如果上游节点运行失败，本节点将不会运行
 	done              bool      // 表示是否已经运行结束，done==true，则跳过该step
 	submitted         bool      // 表示是否从run中发过ready信号过来。如果pipeline服务宕机重启，run会从该字段判断是否需要再次发ready信号，触发运行
 	job               Job
 	firstFingerprint  string
 	secondFingerprint string
 	CacheRunID        string
+	NodeType          NodeType //用于表示step 是在 entryPoints 中定义还是在 post_process 中定义
 }
 
 var NewStep = func(name string, wfr *WorkflowRuntime, info *schema.WorkflowSourceStep, disabled bool) (*Step, error) {
@@ -55,6 +58,7 @@ var NewStep = func(name string, wfr *WorkflowRuntime, info *schema.WorkflowSourc
 		info:      info,
 		disabled:  disabled,
 		ready:     make(chan bool, 1),
+		cancel:    make(chan bool, 1),
 		done:      false,
 		submitted: false,
 		job:       job,
@@ -74,30 +78,49 @@ func (st *Step) getLogger() *logrus.Entry {
 	return st.wfr.wf.log()
 }
 
-func (st *Step) generateStepParamSolver(forCacheFingerprint bool) StepParamSolver {
-	steps := make(map[string]*schema.WorkflowSourceStep)
+func (st *Step) generateStepParamSolver(forCacheFingerprint bool) (StepParamSolver, error) {
+	SourceSteps := make(map[string]*schema.WorkflowSourceStep)
 	jobs := make(map[string]Job)
-	for _, step := range st.wfr.entryPoints {
-		steps[step.name] = st.wfr.entryPoints[step.name].info
-		jobs[step.name] = st.wfr.entryPoints[step.name].job
+
+
+	var steps map[string]*Step
+	if st.NodeType == NodeTypeEntrypoint {
+		steps = st.wfr.entryPoints
+	} else {
+		steps = st.wfr.postProcess
 	}
 
+	for _, step := range steps {
+		SourceSteps[step.name] = steps[step.name].info
+		jobs[step.name] = steps[step.name].job
+	}
+
+	runtimeView, err := json.Marshal(st.wfr.runtimeView)
+	if err != nil {
+		st.getLogger().Errorf("marshal runtimeView of run[%s] for step[%s] failed: %v", st.wfr.wf.RunID, st.name, runtimeView)
+		return NewStepParamSolver(SourceSteps, make(map[string]string), jobs, forCacheFingerprint, st.wfr.wf.Source.Name, st.wfr.wf.RunID, st.wfr.wf.Extra[WfExtraInfoKeyFsID], st.getLogger()), err
+	}
 	var sysParams = map[string]string{
 		SysParamNamePFRunID:    st.wfr.wf.RunID,
 		SysParamNamePFStepName: st.name,
 		SysParamNamePFFsID:     st.wfr.wf.Extra[WfExtraInfoKeyFsID],
 		SysParamNamePFFsName:   st.wfr.wf.Extra[WfExtraInfoKeyFsName],
 		SysParamNamePFUserName: st.wfr.wf.Extra[WfExtraInfoKeyUserName],
+		SysParamNamePFRUNTIME:  string(runtimeView),
 	}
 
-	paramSolver := NewStepParamSolver(steps, sysParams, jobs, forCacheFingerprint, st.wfr.wf.Source.Name, st.wfr.wf.RunID, st.wfr.wf.Extra[WfExtraInfoKeyFsID], st.getLogger())
-	return paramSolver
+	paramSolver := NewStepParamSolver(SourceSteps, sysParams, jobs, forCacheFingerprint, st.wfr.wf.Source.Name, st.wfr.wf.RunID, st.wfr.wf.Extra[WfExtraInfoKeyFsID], st.getLogger())
+	return paramSolver, nil
 }
 
 func (st *Step) updateJob(forCacheFingerprint bool, cacheOutputArtifacts map[string]string) error {
 	// 替换parameters， command， envs
 	// 这个为啥要在这里替换，而不是在runtime初始化的时候呢？因为后续可能支持上游动态模板值。
-	paramSolver := st.generateStepParamSolver(forCacheFingerprint)
+	paramSolver, err := st.generateStepParamSolver(forCacheFingerprint)
+	if err != nil {
+		return err
+	}
+
 	if err := paramSolver.Solve(st.name, cacheOutputArtifacts); err != nil {
 		return err
 	}
@@ -316,6 +339,7 @@ func (st *Step) updateJobStatus(eventValue WfEventValue, jobStatus schema.JobSta
 		"preStatus": st.job.(*PaddleFlowJob).Status,
 		"status":    jobStatus,
 		"jobid":     st.job.(*PaddleFlowJob).Id,
+		"step":      st,
 	}
 
 	st.job.(*PaddleFlowJob).Message = logMsg
@@ -341,7 +365,14 @@ func (st *Step) Execute() {
 	} else {
 		select {
 		case <-st.wfr.ctx.Done():
+			// 当前 PostProcess 的step无论什么情况下都会继续运行， 不会被终止
+			if st.NodeType == NodeTypePostProcess {
+				return
+			}
 			logMsg := fmt.Sprintf("context of step[%s] with runid[%s] has stopped with msg:[%s], no need to execute", st.name, st.wfr.wf.RunID, st.wfr.ctx.Err())
+			st.updateJobStatus(WfEventJobUpdate, schema.StatusJobCancelled, logMsg)
+		case <-st.cancel:
+			logMsg := fmt.Sprintf("step[%s] with runid[%s] has cancelled due to due to receiving cancellation signal, maybe upstream step failed", st.name, st.wfr.wf.RunID)
 			st.updateJobStatus(WfEventJobUpdate, schema.StatusJobCancelled, logMsg)
 		case <-st.ready:
 			logMsg := fmt.Sprintf("start execute step[%s] with runid[%s]", st.name, st.wfr.wf.RunID)
@@ -366,6 +397,7 @@ func (st *Step) Execute() {
 						jobView, err := st.wfr.wf.callbacks.GetJobCb(st.CacheRunID, st.name)
 						if err != nil {
 							st.updateJobStatus(WfEventJobUpdate, schema.StatusJobFailed, err.Error())
+							break
 						}
 
 						cacheStatus := jobView.Status
@@ -413,7 +445,12 @@ func (st *Step) Execute() {
 			st.wfr.IncConcurrentJobs(1) // 如果达到并行Job上限，将会Block
 
 			// 有可能在跳出block的时候，run已经结束了，此时直接退出，不发起
+			// 思考：在有节点未处于终态时， run 不应该置为终态
 			if st.wfr.ctx.Err() != nil {
+				// 当前 PostProcess 的step无论什么情况下都会继续运行， 不会被终止
+				if st.NodeType == NodeTypePostProcess {
+					return
+				}
 				st.wfr.DecConcurrentJobs(1)
 				logMsg = fmt.Sprintf("context of step[%s] with runid[%s] has stopped with msg:[%s], no need to execute", st.name, st.wfr.wf.RunID, st.wfr.ctx.Err())
 				st.updateJobStatus(WfEventJobUpdate, schema.StatusJobCancelled, logMsg)
@@ -440,6 +477,12 @@ func (st *Step) Execute() {
 
 func (st *Step) stopJob() {
 	<-st.wfr.ctx.Done()
+
+	// 当前 PostProcess 的step无论什么情况下都会继续运行， 不会被终止
+	if st.NodeType == NodeTypePostProcess {
+		return
+	}
+
 	logMsg := fmt.Sprintf("context of job[%s] step[%s] with runid[%s] has stopped in step watch, with msg:[%s]", st.job.(*PaddleFlowJob).Id, st.name, st.wfr.wf.RunID, st.wfr.ctx.Err())
 	st.getLogger().Infof(logMsg)
 
@@ -455,6 +498,7 @@ func (st *Step) stopJob() {
 		if err != nil {
 			ErrMsg := fmt.Sprintf("stop job[%s] for step[%s] with runid[%s] failed [%d] times: [%s]", st.job.(*PaddleFlowJob).Id, st.name, st.wfr.wf.RunID, tryCount, err.Error())
 			st.getLogger().Errorf(ErrMsg)
+
 			wfe := NewWorkflowEvent(WfEventJobStopErr, ErrMsg, nil)
 			st.wfr.event <- *wfe
 

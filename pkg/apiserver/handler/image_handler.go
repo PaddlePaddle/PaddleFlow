@@ -44,10 +44,8 @@ var PFImageHandler *ImageHandler
 type ImageHandlerCallBackFunc func(imageInfo ImageInfo, err error) error
 
 type imageHandleInfo struct {
-	runID     string
-	fsID      string
-	fsHost    string
-	fsRpcPort int
+	runID string
+	fsID  string
 
 	// docker_env in run.yaml
 	dockerEnv string
@@ -203,12 +201,12 @@ func InitPFImageHandler() (*ImageHandler, error) {
 	return PFImageHandler, nil
 }
 
-func (handler *ImageHandler) HandleImage(dockerEnv, runID, fsID, fsHost string, fsRpcPort int, imageIDs []string, logEntry *log.Entry, cb ImageHandlerCallBackFunc) error {
+func (handler *ImageHandler) HandleImage(dockerEnv, runID, fsID string, imageIDs []string, logEntry *log.Entry, cb ImageHandlerCallBackFunc) error {
 	logEntry.Infof("handle image[%s] with run[%s].", dockerEnv, runID)
 	envType := classifyEnvType(dockerEnv)
 	switch envType {
 	case TarFile:
-		return handler.HandleTarImage(dockerEnv, runID, fsID, fsHost, fsRpcPort, imageIDs, logEntry, cb)
+		return handler.HandleTarImage(dockerEnv, runID, fsID, imageIDs, logEntry, cb)
 	case RegistryUrl:
 		return handler.HandleUrlImage(dockerEnv, runID, fsID, logEntry, cb)
 	default:
@@ -240,7 +238,7 @@ func (handler *ImageHandler) HandleUrlImage(dockerEnv, runID, fsID string, logEn
 	return nil
 }
 
-func (handler *ImageHandler) HandleTarImage(dockerEnv, runID, fsID, fsHost string, fsRpcPort int, imageIDs []string,
+func (handler *ImageHandler) HandleTarImage(dockerEnv, runID, fsID string, imageIDs []string,
 	logEntry *log.Entry, cb ImageHandlerCallBackFunc) (err error) {
 	logEntry.Infof("handle image[%s] as tar pkg for run[%s]", dockerEnv, runID)
 	err = nil
@@ -248,8 +246,6 @@ func (handler *ImageHandler) HandleTarImage(dockerEnv, runID, fsID, fsHost strin
 	handleInfo := imageHandleInfo{
 		runID:     runID,
 		fsID:      fsID,
-		fsHost:    fsHost,
-		fsRpcPort: fsRpcPort,
 		dockerEnv: dockerEnv,
 		imageIDs:  imageIDs,
 		logEntry:  logEntry,
@@ -309,8 +305,7 @@ func (handler *ImageHandler) process(wg *sync.WaitGroup) {
 }
 
 func (handler *ImageHandler) handleImageConfig(handleInfo imageHandleInfo) (ImageConfig, error) {
-	fsHandler, err := NewFsHandlerWithServer(handleInfo.fsID, handleInfo.fsHost, handleInfo.fsRpcPort,
-		handleInfo.logEntry)
+	fsHandler, err := NewFsHandlerWithServer(handleInfo.fsID, handleInfo.logEntry)
 	if err != nil {
 		handleInfo.logEntry.Errorf("NewFsHandlerWithServer failed. err: %v", err)
 		return ImageConfig{}, err
@@ -621,8 +616,7 @@ func (handler *ImageHandler) loadAndTagImage(handleInfo imageHandleInfo, imageID
 	}
 
 	handleInfo.logEntry.Infof("begin to loading image with imageID[%s]", imageID)
-	fsHandler, err := NewFsHandlerWithServer(handleInfo.fsID, handleInfo.fsHost, handleInfo.fsRpcPort,
-		handleInfo.logEntry)
+	fsHandler, err := NewFsHandlerWithServer(handleInfo.fsID, handleInfo.logEntry)
 	if err != nil {
 		return "", err
 	}

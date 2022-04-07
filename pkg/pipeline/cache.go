@@ -25,7 +25,6 @@ import (
 	"strings"
 
 	"paddleflow/pkg/apiserver/handler"
-	"paddleflow/pkg/common/config"
 	"paddleflow/pkg/common/schema"
 	. "paddleflow/pkg/pipeline/common"
 )
@@ -118,8 +117,7 @@ type conservativeCacheCalculator struct {
 
 // 调用方应该保证在启用了 cache 功能的情况下才会调用NewConservativeCacheCalculator
 func NewConservativeCacheCalculator(step Step, cacheConfig schema.Cache) (CacheCalculator, error) {
-	fsHandler, err := handler.NewFsHandlerWithServer(step.wfr.wf.Extra[WfExtraInfoKeyFsID], config.GlobalServerConfig.ApiServer.Host,
-		config.GlobalServerConfig.ApiServer.Port, step.getLogger())
+	fsHandler, err := handler.NewFsHandlerWithServer(step.wfr.wf.Extra[WfExtraInfoKeyFsID], step.getLogger())
 
 	if err != nil {
 		errMsg := fmt.Errorf("init fsHandler failed: %s", err.Error())
@@ -137,8 +135,6 @@ func NewConservativeCacheCalculator(step Step, cacheConfig schema.Cache) (CacheC
 
 func (cc *conservativeCacheCalculator) generateFirstCacheKey() error {
 	// 提取cacheKey 时需要剔除系统变量
-	SysParamNameList := []string{SysParamNamePFRunID, SysParamNamePFFsID, SysParamNamePFJobID, SysParamNamePFStepName, SysParamNamePFFsName, SysParamNamePFUserID, SysParamNamePFUserName}
-
 	job := cc.step.job.Job()
 
 	// 去除系统环境变量
