@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"paddleflow/pkg/version"
 	"syscall"
 
 	"github.com/go-chi/chi"
@@ -25,6 +24,7 @@ import (
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/common/schema"
 	"paddleflow/pkg/job"
+	"paddleflow/pkg/version"
 )
 
 var ServerConf *config.ServerConfig
