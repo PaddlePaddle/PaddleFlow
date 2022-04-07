@@ -197,7 +197,7 @@ func CreateRun(ctx *logger.RequestContext, request *CreateRunRequest) (CreateRun
 		FsName:         request.FsName,
 		FsID:           fsID,
 		Description:    request.Description,
-		Param:          request.Parameters,
+		Parameters:     request.Parameters,
 		RunYaml:        runYaml,
 		WorkflowSource: wfs, // DockerEnv has not been replaced. done in func handleImageAndStartWf
 		Entry:          request.Entry,
@@ -508,7 +508,7 @@ func resumeActiveRuns() error {
 }
 
 func resumeRun(run models.Run) error {
-	if run.RunCacheIDs != "" {
+	if run.RunCachedIDs != "" {
 		// 由于非成功完成的Run也会被Cache，且重跑会直接对原始的Run记录进行修改，
 		// 因此被Cache的Run不能重跑
 		// TODO: 考虑将重跑逻辑又“直接修改Run记录”改为“根据该Run的设置，重新发起Run”
@@ -587,7 +587,7 @@ func newWorkflowByRun(run models.Run) (*pipeline.Workflow, error) {
 		pplcommon.WfExtraInfoKeyUserName: run.UserName,
 		pplcommon.WfExtraInfoKeyFsName:   run.FsName,
 	}
-	wfPtr, err := pipeline.NewWorkflow(run.WorkflowSource, run.ID, run.Entry, run.Param, extraInfo, workflowCallbacks)
+	wfPtr, err := pipeline.NewWorkflow(run.WorkflowSource, run.ID, run.Entry, run.Parameters, extraInfo, workflowCallbacks)
 	if err != nil {
 		logger.LoggerForRun(run.ID).Warnf("NewWorkflow by run[%s] failed. error:%v\n", run.ID, err)
 		return nil, err

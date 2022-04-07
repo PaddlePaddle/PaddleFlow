@@ -139,7 +139,7 @@ func UpdateRunByWfEvent(id string, event interface{}) bool {
 		if newRun {
 			runCacheIDList = append(runCacheIDList, id)
 			newRunCacheIDs := strings.Join(runCacheIDList, common.SeparatorComma)
-			models.UpdateRun(logging, runCached.ID, models.Run{RunCacheIDs: newRunCacheIDs})
+			models.UpdateRun(logging, runCached.ID, models.Run{RunCachedIDs: newRunCacheIDs})
 		}
 	}
 

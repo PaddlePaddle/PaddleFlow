@@ -449,6 +449,10 @@ func (bwf *BaseWorkflow) checkPostProcess() error {
 		if len(postStep.Deps) > 0 {
 			return fmt.Errorf("step [%s] in post_process has deps", name)
 		}
+
+		if postStep.Cache.Enable == true {
+			return fmt.Errorf("step [%s] in post_process should not use cache", name)
+		}
 	}
 
 	return nil
