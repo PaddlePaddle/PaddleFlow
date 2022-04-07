@@ -38,6 +38,8 @@ const (
 	noAtfYamlPath         string = "./testcase/runNoAtf.yaml"
 	runWrongParamYamlPath string = "./testcase/runWrongParam.yaml"
 	runCircleYamlPath     string = "./testcase/runCircle.yaml"
+
+	runTwoPostPath string = "./testcase/runTwoPost.yaml"
 )
 
 var mockCbs = WorkflowCallbacks{
@@ -182,11 +184,13 @@ func TestCreateNewWorkflowRun_success(t *testing.T) {
 	defer patches.Reset()
 
 	time.Sleep(time.Millisecond * 10)
+
 	wf.runtime.entryPoints["data_preprocess"].job.(*PaddleFlowJob).Status = schema.StatusJobSucceeded
 	wf.runtime.entryPoints["data_preprocess"].done = true
 	wf.runtime.entryPoints["main"].job.(*PaddleFlowJob).Status = schema.StatusJobSucceeded
 	wf.runtime.entryPoints["main"].done = true
 	wf.runtime.entryPoints["validate"].job.(*PaddleFlowJob).Status = schema.StatusJobSucceeded
+
 	wf.runtime.entryPoints["validate"].done = true
 
 	go wf.Start()
@@ -762,8 +766,10 @@ func TestRestartWorkflow(t *testing.T) {
 			JobID: "",
 		},
 	}
+	postProcessView := map[string]schema.JobView{}
 
-	err = wf.SetWorkflowRuntime(runtimeView, schema.PostProcessView{})
+	err = wf.SetWorkflowRuntime(runtimeView, postProcessView)
+
 	assert.Nil(t, err)
 	assert.Equal(t, true, wf.runtime.entryPoints["data_preprocess"].done)
 	assert.Equal(t, true, wf.runtime.entryPoints["data_preprocess"].submitted)
@@ -795,7 +801,11 @@ func TestRestartWorkflow_from1completed(t *testing.T) {
 			JobID: "",
 		},
 	}
-	err = wf.SetWorkflowRuntime(runtimeView, schema.PostProcessView{})
+
+	postProcessView := map[string]schema.JobView{}
+
+	err = wf.SetWorkflowRuntime(runtimeView, postProcessView)
+
 	assert.Nil(t, err)
 	assert.Equal(t, true, wf.runtime.entryPoints["data_preprocess"].done)
 	assert.Equal(t, true, wf.runtime.entryPoints["data_preprocess"].submitted)
@@ -803,4 +813,17 @@ func TestRestartWorkflow_from1completed(t *testing.T) {
 	assert.Equal(t, false, wf.runtime.entryPoints["main"].submitted)
 	assert.Equal(t, false, wf.runtime.entryPoints["validate"].done)
 	assert.Equal(t, false, wf.runtime.entryPoints["validate"].submitted)
+}
+
+func TestCheckPostProcess(t *testing.T) {
+	db_fake.InitFakeDB()
+	testCase := loadcase(runTwoPostPath)
+	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
+	assert.Nil(t, err)
+
+	extra := GetExtra()
+	bwf := NewBaseWorkflow(wfs, "", "", nil, extra)
+	err = bwf.validate()
+	assert.NotNil(t, err)
+	assert.Equal(t, "post_process can only has 1 step at most", err.Error())
 }
