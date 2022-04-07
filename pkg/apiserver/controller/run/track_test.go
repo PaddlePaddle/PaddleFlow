@@ -18,12 +18,12 @@ package run
 
 import (
 	"fmt"
+	"paddleflow/pkg/common/database"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
-	"paddleflow/pkg/common/database/dbinit"
 	"paddleflow/pkg/common/schema"
 )
 
@@ -48,7 +48,7 @@ func TestFuncVarPassByValue(t *testing.T) {
 }
 
 func TestLogCache(t *testing.T) {
-	dbinit.InitMockDB()
+	database.InitMockDB()
 	req := schema.LogRunCacheRequest{
 		FirstFp:     "ddddd",
 		SecondFp:    "ddddd",

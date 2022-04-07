@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ import (
 	sparkapp "paddleflow/pkg/apis/spark-operator/sparkoperator.k8s.io/v1beta2"
 	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/common/config"
+	"paddleflow/pkg/common/database"
 	"paddleflow/pkg/common/k8s"
 	"paddleflow/pkg/common/schema"
 )
@@ -177,7 +178,7 @@ func (sj *SparkJob) CreateJob() (string, error) {
 }
 
 func (sj *SparkJob) StopJobByID(jobID string) error {
-	job, err := models.GetJobByID(jobID)
+	job, err := models.GetJobByID(database.DB, jobID)
 	if err != nil {
 		return err
 	}

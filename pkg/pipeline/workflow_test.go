@@ -18,6 +18,7 @@ package pipeline
 
 import (
 	"fmt"
+	"paddleflow/pkg/common/database"
 	"reflect"
 	"regexp"
 	"testing"
@@ -28,7 +29,6 @@ import (
 
 	"paddleflow/pkg/apiserver/common"
 	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/common/database/dbinit"
 	"paddleflow/pkg/common/schema"
 	pplcommon "paddleflow/pkg/pipeline/common"
 )
@@ -762,7 +762,7 @@ func TestRestartWorkflow(t *testing.T) {
 }
 
 func TestRestartWorkflow_from1completed(t *testing.T) {
-	dbinit.InitMockDB()
+	database.InitMockDB()
 	testCase := loadcase(runYamlPath)
 	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)

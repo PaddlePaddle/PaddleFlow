@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"paddleflow/pkg/common/database"
 	"testing"
 
 	log "github.com/sirupsen/logrus"
@@ -27,7 +28,6 @@ import (
 
 	"paddleflow/pkg/apiserver/handler"
 	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/common/database/dbinit"
 	"paddleflow/pkg/common/logger"
 )
 
@@ -37,7 +37,7 @@ const (
 )
 
 func TestCreatePipeline(t *testing.T) {
-	dbinit.InitMockDB()
+	database.InitMockDB()
 	ctx := &logger.RequestContext{UserName: MockRootUser}
 
 	pwd, err := os.Getwd()
@@ -76,7 +76,7 @@ func TestCreatePipeline(t *testing.T) {
 }
 
 func TestListPipeline(t *testing.T) {
-	dbinit.InitMockDB()
+	db := database.InitMockDB()
 	ctx := &logger.RequestContext{UserName: MockRootUser}
 
 	ppl1 := models.Pipeline{
@@ -99,11 +99,11 @@ func TestListPipeline(t *testing.T) {
 		PipelineYaml: "ddddd",
 		PipelineMd5:  "md5_2",
 	}
-	ID1, err := models.CreatePipeline(ctx.Logging(), &ppl1)
+	ID1, err := models.CreatePipeline(db, ctx.Logging(), &ppl1)
 	assert.Nil(t, err)
 	assert.Equal(t, ppl1.ID, ID1)
 
-	ID2, err := models.CreatePipeline(ctx.Logging(), &ppl2)
+	ID2, err := models.CreatePipeline(db, ctx.Logging(), &ppl2)
 	assert.Nil(t, err)
 	assert.Equal(t, ppl2.ID, ID2)
 

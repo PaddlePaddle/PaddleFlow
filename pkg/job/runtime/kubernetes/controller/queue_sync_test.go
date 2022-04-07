@@ -19,6 +19,7 @@ package controller
 import (
 	"context"
 	"net/http/httptest"
+	"paddleflow/pkg/common/database"
 	"testing"
 	"time"
 
@@ -33,7 +34,6 @@ import (
 	restclient "k8s.io/client-go/rest"
 
 	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/common/database/dbinit"
 	"paddleflow/pkg/common/k8s"
 	"paddleflow/pkg/common/logger"
 )
@@ -83,7 +83,7 @@ func TestQueueSync(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := &logger.RequestContext{UserName: "test"}
-			dbinit.InitMockDB()
+			database.InitMockDB()
 			err := models.CreateQueue(ctx, &models.Queue{
 				Name: test.queueName,
 			})

@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -24,7 +24,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 
-	"paddleflow/pkg/common/database"
 	"paddleflow/pkg/common/errors"
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/common/schema"
@@ -84,14 +83,13 @@ func (job *Job) BeforeSave(tx *gorm.DB) error {
 }
 
 // CreateJob creates a new job
-func CreateJob(job *Job) error {
-	db := database.DB
+func CreateJob(db *gorm.DB, job *Job) error {
 	return db.Create(job).Error
 }
 
-func GetJobByID(jobID string) (Job, error) {
+func GetJobByID(db *gorm.DB, jobID string) (Job, error) {
 	var job Job
-	tx := database.DB.Table("job").Where("id = ?", jobID).First(&job)
+	tx := db.Table("job").Where("id = ?", jobID).First(&job)
 	if tx.Error != nil {
 		logger.LoggerForJob(jobID).Errorf("get job failed, err %v", tx.Error.Error())
 		return Job{}, tx.Error
@@ -99,16 +97,16 @@ func GetJobByID(jobID string) (Job, error) {
 	return job, nil
 }
 
-func GetJobStatusByID(jobID string) (schema.JobStatus, error) {
-	job, err := GetJobByID(jobID)
+func GetJobStatusByID(db *gorm.DB, jobID string) (schema.JobStatus, error) {
+	job, err := GetJobByID(db, jobID)
 	if err != nil {
 		return "", errors.JobIDNotFoundError(jobID)
 	}
 	return job.Status, nil
 }
 
-func UpdateJobStatus(jobId, errMessage string, jobStatus schema.JobStatus) error {
-	job, err := GetJobByID(jobId)
+func UpdateJobStatus(db *gorm.DB, jobId, errMessage string, jobStatus schema.JobStatus) error {
+	job, err := GetJobByID(db, jobId)
 	if err != nil {
 		return errors.JobIDNotFoundError(jobId)
 	}
@@ -119,15 +117,15 @@ func UpdateJobStatus(jobId, errMessage string, jobStatus schema.JobStatus) error
 		job.Message = errMessage
 	}
 	log.Infof("update job [%+v]", job)
-	tx := database.DB.Model(&Job{}).Where("id = ?", jobId).Updates(job)
+	tx := db.Model(&Job{}).Where("id = ?", jobId).Updates(job)
 	if tx.Error != nil {
 		return tx.Error
 	}
 	return nil
 }
 
-func UpdateJob(jobID string, status schema.JobStatus, info interface{}, message string) (schema.JobStatus, error) {
-	job, err := GetJobByID(jobID)
+func UpdateJob(db *gorm.DB, jobID string, status schema.JobStatus, info interface{}, message string) (schema.JobStatus, error) {
+	job, err := GetJobByID(db, jobID)
 	if err != nil {
 		return "", errors.JobIDNotFoundError(jobID)
 	}
@@ -144,7 +142,7 @@ func UpdateJob(jobID string, status schema.JobStatus, info interface{}, message 
 		job.ActivatedAt.Time = time.Now()
 		job.ActivatedAt.Valid = true
 	}
-	tx := database.DB.Table("job").Where("id = ?", jobID).Save(&job)
+	tx := db.Table("job").Where("id = ?", jobID).Save(&job)
 	if tx.Error != nil {
 		logger.LoggerForJob(jobID).Errorf("update job failed, err %v", err)
 		return "", err
@@ -152,20 +150,20 @@ func UpdateJob(jobID string, status schema.JobStatus, info interface{}, message 
 	return job.Status, nil
 }
 
-func ListQueueJob(queueID string, status []schema.JobStatus) []Job {
-	db := database.DB.Table("job").Where("status in ?", status).Where("queue_id = ?", queueID)
+func ListQueueJob(db *gorm.DB, queueID string, status []schema.JobStatus) []Job {
+	query := db.Table("job").Where("status in ?", status).Where("queue_id = ?", queueID)
 
 	var jobs []Job
-	err := db.Find(&jobs).Error
+	err := query.Find(&jobs).Error
 	if err != nil {
 		return []Job{}
 	}
 	return jobs
 }
 
-func GetJobsByRunID(ctx *logger.RequestContext, runID string, jobID string) ([]Job, error) {
+func GetJobsByRunID(db *gorm.DB, ctx *logger.RequestContext, runID string, jobID string) ([]Job, error) {
 	var jobList []Job
-	query := database.DB.Table("job").Where("id like ?", "job-"+runID+"-%")
+	query := db.Table("job").Where("id like ?", "job-"+runID+"-%")
 	if jobID != "" {
 		query = query.Where("id = ?", jobID)
 	}

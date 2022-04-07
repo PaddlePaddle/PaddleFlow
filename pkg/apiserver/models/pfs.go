@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -23,8 +23,6 @@ import (
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
-
-	"paddleflow/pkg/common/database"
 )
 
 const (
@@ -70,8 +68,7 @@ func (s *FileSystem) BeforeSave(*gorm.DB) error {
 	return nil
 }
 
-func CreatFileSystem(fs *FileSystem) error {
-	db := database.DB
+func CreatFileSystem(db *gorm.DB, fs *FileSystem) error {
 	return db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(fs).Error; err != nil {
 			return err
@@ -85,22 +82,19 @@ func CreatFileSystem(fs *FileSystem) error {
 		return nil
 	})
 }
-func GetFileSystemWithFsID(fsID string) (FileSystem, error) {
+func GetFileSystemWithFsID(db *gorm.DB, fsID string) (FileSystem, error) {
 	var fileSystem FileSystem
-	db := database.DB
 	result := db.Where(&FileSystem{Model: Model{ID: fsID}}).Find(&fileSystem)
 	return fileSystem, result.Error
 }
 
-func GetFileSystemWithFsIDAndUserName(fsID, userName string) (FileSystem, error) {
+func GetFileSystemWithFsIDAndUserName(db *gorm.DB, fsID, userName string) (FileSystem, error) {
 	var fileSystem FileSystem
-	db := database.DB
 	result := db.Where(&FileSystem{Model: Model{ID: fsID}, UserName: userName}).Find(&fileSystem)
 	return fileSystem, result.Error
 }
 
-func DeleteFileSystem(id string) error {
-	db := database.DB
+func DeleteFileSystem(db *gorm.DB, id string) error {
 	return db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Delete(&FileSystem{Model: Model{ID: id}}).Error; err != nil {
 			return err
@@ -114,9 +108,8 @@ func DeleteFileSystem(id string) error {
 }
 
 // ListFileSystem get file systems with marker and limit sort by create_at desc
-func ListFileSystem(limit int, userName, marker, fsName string) ([]FileSystem, error) {
+func ListFileSystem(db *gorm.DB, limit int, userName, marker, fsName string) ([]FileSystem, error) {
 	var fileSystems []FileSystem
-	db := database.DB
 	result := &gorm.DB{}
 	if fsName == "" {
 		result = db.Where(&FileSystem{UserName: userName}).Where(fmt.Sprintf(QueryLess, CreatedAt, "'"+marker+"'")).
@@ -129,33 +122,29 @@ func ListFileSystem(limit int, userName, marker, fsName string) ([]FileSystem, e
 }
 
 // GetFsWithID get file system detail from id
-func GetFsWithID(fsID string) (FileSystem, error) {
+func GetFsWithID(db *gorm.DB, fsID string) (FileSystem, error) {
 	var fileSystem FileSystem
-	db := database.DB
 	result := db.Where(&FileSystem{Model: Model{ID: fsID}}).Find(&fileSystem)
 	return fileSystem, result.Error
 }
 
 // GetFsWithIDs get file system detail from ids
-func GetFsWithIDs(fsID []string) ([]FileSystem, error) {
+func GetFsWithIDs(db *gorm.DB, fsID []string) ([]FileSystem, error) {
 	var fileSystems []FileSystem
-	db := database.DB
 	result := db.Where(fmt.Sprintf(QueryInWithParam, ID), fsID).Find(&fileSystems)
 	return fileSystems, result.Error
 }
 
 // GetFsWithNameAndUserName get file system detail from name and userID
-func GetFsWithNameAndUserName(fsName, userName string) (FileSystem, error) {
+func GetFsWithNameAndUserName(db *gorm.DB, fsName, userName string) (FileSystem, error) {
 	var fileSystem FileSystem
-	db := database.DB
 	result := db.Where(&FileSystem{UserName: userName, Name: fsName}).Find(&fileSystem)
 	return fileSystem, result.Error
 }
 
 // GetSimilarityAddressList find fs where have same type and serverAddress
-func GetSimilarityAddressList(fsType string, ips []string) ([]FileSystem, error) {
+func GetSimilarityAddressList(db *gorm.DB, fsType string, ips []string) ([]FileSystem, error) {
 	var fileSystems []FileSystem
-	db := database.DB
 	result := &gorm.DB{}
 
 	// local has no ip

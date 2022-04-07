@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,13 +17,13 @@ limitations under the License.
 package run
 
 import (
+	"paddleflow/pkg/common/database"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
 	"paddleflow/pkg/apiserver/common"
 	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/common/database/dbinit"
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/common/schema"
 	"paddleflow/pkg/pipeline"
@@ -77,18 +77,18 @@ func getMockRun2() models.Run {
 }
 
 func TestListRunSuccess(t *testing.T) {
-	dbinit.InitMockDB()
+	db := database.InitMockDB()
 	ctx1 := &logger.RequestContext{UserName: MockRootUser}
 	ctx2 := &logger.RequestContext{UserName: MockUserID2}
 	var err error
 	run1 := getMockRun1()
-	run1.ID, err = models.CreateRun(ctx1.Logging(), &run1)
+	run1.ID, err = models.CreateRun(db, ctx1.Logging(), &run1)
 	assert.Nil(t, err)
 	run2 := getMockRun2()
-	run2.ID, err = models.CreateRun(ctx2.Logging(), &run2)
+	run2.ID, err = models.CreateRun(db, ctx2.Logging(), &run2)
 	assert.Nil(t, err)
 	run3UnderUser1 := getMockRun1_3()
-	run3UnderUser1.ID, err = models.CreateRun(ctx1.Logging(), &run3UnderUser1)
+	run3UnderUser1.ID, err = models.CreateRun(db, ctx1.Logging(), &run3UnderUser1)
 	assert.Nil(t, err)
 
 	emptyFilter := make([]string, 0)
@@ -106,12 +106,12 @@ func TestListRunSuccess(t *testing.T) {
 }
 
 func TestGetRunSuccess(t *testing.T) {
-	dbinit.InitMockDB()
+	db := database.InitMockDB()
 	ctx := &logger.RequestContext{UserName: MockRootUser}
 	var err error
 	// test no runtime
 	run1 := getMockRun1()
-	run1.ID, err = models.CreateRun(ctx.Logging(), &run1)
+	run1.ID, err = models.CreateRun(db, ctx.Logging(), &run1)
 	assert.Nil(t, err)
 
 	runRsp, err := GetRunByID(ctx, run1.ID)
@@ -122,7 +122,7 @@ func TestGetRunSuccess(t *testing.T) {
 
 	// test has runtime
 	run3 := getMockRun1_3()
-	run3.ID, err = models.CreateRun(ctx.Logging(), &run3)
+	run3.ID, err = models.CreateRun(db, ctx.Logging(), &run3)
 	assert.Nil(t, err)
 	runRsp, err = GetRunByID(ctx, run3.ID)
 	assert.Nil(t, err)
@@ -132,11 +132,11 @@ func TestGetRunSuccess(t *testing.T) {
 }
 
 func TestGetRunFail(t *testing.T) {
-	dbinit.InitMockDB()
+	db := database.InitMockDB()
 	var err error
 	ctx := &logger.RequestContext{UserName: MockRootUser}
 	run1 := getMockRun1()
-	run1.ID, err = models.CreateRun(ctx.Logging(), &run1)
+	run1.ID, err = models.CreateRun(db, ctx.Logging(), &run1)
 
 	// test non-admin user no access to other users' run
 	ctxOtherNonAdmin := &logger.RequestContext{UserName: "non-admin"}
@@ -153,13 +153,13 @@ func TestGetRunFail(t *testing.T) {
 }
 
 func TestCallback(t *testing.T) {
-	dbinit.InitMockDB()
+	db := database.InitMockDB()
 	var err error
 	ctx := &logger.RequestContext{UserName: MockRootUser}
 
 	// test update activated_at
 	run1 := getMockRun1()
-	run1.ID, err = models.CreateRun(ctx.Logging(), &run1)
+	run1.ID, err = models.CreateRun(db, ctx.Logging(), &run1)
 	assert.Nil(t, err)
 	runtimeView := schema.RuntimeView{
 		"data_preprocess": schema.JobView{
@@ -181,17 +181,17 @@ func TestCallback(t *testing.T) {
 	}
 	f := UpdateRunFunc
 	f(run1.ID, &event1)
-	updatedRun, err := models.GetRunByID(ctx.Logging(), run1.ID)
+	updatedRun, err := models.GetRunByID(db, ctx.Logging(), run1.ID)
 	assert.Nil(t, err)
 	assert.NotEmpty(t, updatedRun.UpdateTime)
 	assert.Equal(t, common.StatusRunRunning, updatedRun.Status)
 
 	// test not update activated_at
 	run3 := getMockRun1_3()
-	run3.ID, err = models.CreateRun(ctx.Logging(), &run3)
+	run3.ID, err = models.CreateRun(db, ctx.Logging(), &run3)
 	assert.Nil(t, err)
 	f(run3.ID, &event1)
-	updatedRun, err = models.GetRunByID(ctx.Logging(), run3.ID)
+	updatedRun, err = models.GetRunByID(db, ctx.Logging(), run3.ID)
 	assert.Nil(t, err)
 	assert.False(t, updatedRun.ActivatedAt.Valid)
 	assert.Empty(t, updatedRun.ActivateTime)

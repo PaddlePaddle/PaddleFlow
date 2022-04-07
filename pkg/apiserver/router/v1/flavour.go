@@ -32,6 +32,7 @@ import (
 	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/apiserver/router/util"
 	"paddleflow/pkg/common/config"
+	"paddleflow/pkg/common/database"
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/common/schema"
 )
@@ -250,7 +251,7 @@ func validateCreateFlavour(ctx *logger.RequestContext, request *flavour.CreateFl
 		return errors.New("field not be empty")
 	}
 	if request.ClusterName != "" {
-		clusterInfo, err := models.GetClusterByName(ctx, request.ClusterName)
+		clusterInfo, err := models.GetClusterByName(database.DB, ctx, request.ClusterName)
 		if err != nil {
 			ctx.ErrorCode = common.ClusterNameNotFound
 			return err

@@ -22,9 +22,11 @@ import (
 
 	"github.com/bluele/gcache"
 	log "github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 
 	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/common/config"
+	"paddleflow/pkg/common/database"
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/common/schema"
 	"paddleflow/pkg/job/api"
@@ -36,9 +38,9 @@ const (
 	defaultExpireTime = 30
 )
 
-type ActiveClustersFunc func() []models.ClusterInfo
-type ActiveQueuesFunc func() []models.Queue
-type QueueJobsFunc func(string, []schema.JobStatus) []models.Job
+type ActiveClustersFunc func(*gorm.DB) []models.ClusterInfo
+type ActiveQueuesFunc func(*gorm.DB) []models.Queue
+type QueueJobsFunc func(*gorm.DB, string, []schema.JobStatus) []models.Job
 
 type JobManagerImpl struct {
 	// activeClusters is a method for listing active clusters from db
@@ -78,7 +80,7 @@ func (m *JobManagerImpl) Start(activeClusters ActiveClustersFunc, activeQueueJob
 
 	for {
 		// get active clusters
-		clusters := m.activeClusters()
+		clusters := m.activeClusters(database.DB)
 
 		for _, cluster := range clusters {
 			clusterID := api.ClusterID(cluster.ID)
@@ -124,7 +126,7 @@ func (m *JobManagerImpl) syncClusterJobs(clusterID api.ClusterID, submitJobs *ap
 			log.Infof("exit sync job cache for cluster[%s] loop...", clusterID)
 			return
 		default:
-			clusterQueues := models.ListQueuesByCluster(string(clusterID))
+			clusterQueues := models.ListQueuesByCluster(database.DB, string(clusterID))
 			for _, queue := range clusterQueues {
 				if queue.Status != schema.StatusQueueOpen {
 					log.Infof("skip queue %s when status is not open", queue.Name)
@@ -152,7 +154,7 @@ func (m *JobManagerImpl) listQueueJobs(queueID api.QueueID, status schema.JobSta
 		return fmt.Errorf("queue %s does not found", queueID)
 	}
 
-	pfJobs := m.activeQueueJobs(string(queueID), []schema.JobStatus{status})
+	pfJobs := m.activeQueueJobs(database.DB, string(queueID), []schema.JobStatus{status})
 	for idx := range pfJobs {
 		job, err := api.NewJobInfo(&pfJobs[idx])
 		if err != nil {
@@ -202,7 +204,7 @@ func (m *JobManagerImpl) JobProcessLoop(jobSubmit func(*api.PFJob) error, stopCh
 					jobStatus = schema.StatusJobPending
 				}
 				// new job failed, update db and skip this job
-				if dbErr := models.UpdateJobStatus(jobInfo.ID, msg, jobStatus); dbErr != nil {
+				if dbErr := models.UpdateJobStatus(database.DB, jobInfo.ID, msg, jobStatus); dbErr != nil {
 					log.Errorf("update job[%s] status to [%s] failed, err: %v", jobInfo.ID, schema.StatusJobFailed, dbErr)
 				}
 				queueJobs.DeleteMark(jobInfo.ID)
@@ -221,7 +223,7 @@ func (m *JobManagerImpl) GetQueue(queueID api.QueueID) (*api.QueueInfo, bool) {
 		return value.(*api.QueueInfo), true
 	}
 	// get queue from db
-	q, err := models.GetQueueByID(&logger.RequestContext{}, string(queueID))
+	q, err := models.GetQueueByID(database.DB, &logger.RequestContext{}, string(queueID))
 	if err != nil {
 		log.Errorf("get queue from database failed, err: %s", err)
 		return nil, false

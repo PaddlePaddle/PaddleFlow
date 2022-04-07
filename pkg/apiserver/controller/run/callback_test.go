@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,13 +17,13 @@ limitations under the License.
 package run
 
 import (
+	"paddleflow/pkg/common/database"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
 	"paddleflow/pkg/apiserver/common"
 	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/common/database/dbinit"
 	"paddleflow/pkg/common/logger"
 )
 
@@ -42,10 +42,10 @@ func getMockRunWithRuntime() models.Run {
 }
 
 func TestGetJobByRun(t *testing.T) {
-	dbinit.InitMockDB()
+	db := database.InitMockDB()
 	ctx := &logger.RequestContext{UserName: MockRootUser}
 	run := getMockRunWithRuntime()
-	runID, err := models.CreateRun(ctx.Logging(), &run)
+	runID, err := models.CreateRun(db, ctx.Logging(), &run)
 	assert.Nil(t, err)
 
 	jobView, err := GetJobByRun(runID, "preprocess")

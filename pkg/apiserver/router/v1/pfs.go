@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -33,6 +33,7 @@ import (
 	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/apiserver/router/util"
 	"paddleflow/pkg/common/config"
+	"paddleflow/pkg/common/database"
 	"paddleflow/pkg/common/logger"
 	fuse "paddleflow/pkg/fs/client/fs"
 	fsCommon "paddleflow/pkg/fs/common"
@@ -342,7 +343,7 @@ func checkFsDir(fsType, url string, properties map[string]string) error {
 		inputIPs = strings.Split(properties[fsCommon.Endpoint], ",")
 		subPath = "/" + strings.SplitAfterN(url, "/", 4)[3]
 	}
-	fsList, err := models.GetSimilarityAddressList(fsType, inputIPs)
+	fsList, err := models.GetSimilarityAddressList(database.DB, fsType, inputIPs)
 	if err != nil {
 		return err
 	}
@@ -573,7 +574,7 @@ func validateDeleteFs(ctx *logger.RequestContext, req *api.DeleteFileSystemReque
 	}
 	ctx.Logging().Debugf("delete fs id is %s", *fsID)
 
-	fsModel, err := models.GetFileSystemWithFsID(*fsID)
+	fsModel, err := models.GetFileSystemWithFsID(database.DB, *fsID)
 	if err != nil {
 		ctx.Logging().Errorf("delete failed by getting file system error[%v]", err)
 		ctx.ErrorCode = common.FileSystemDataBaseError

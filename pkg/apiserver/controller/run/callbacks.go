@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -54,7 +54,7 @@ func GetJobByRun(runID string, stepName string) (schema.JobView, error) {
 	logging := logger.LoggerForRun(runID)
 	var jobView schema.JobView
 
-	run, err := models.GetRunByID(logging, runID)
+	run, err := models.GetRunByID(database.DB, logging, runID)
 	if err != nil {
 		logging.Errorf("get Run by runID[%s] failed. Error: %v", runID, err)
 		return jobView, err
@@ -113,7 +113,7 @@ func UpdateRunByWfEvent(id string, event interface{}) bool {
 	runCachedList := make([]models.Run, 0)
 	if len(cacheIdList) > 0 {
 		var err error
-		runCachedList, err = models.ListRun(logging, 0, 0, nil, nil, cacheIdList, nil)
+		runCachedList, err = models.ListRun(database.DB, logging, 0, 0, nil, nil, cacheIdList, nil)
 		if err != nil {
 			logging.Errorf("update cacheIDs failed. Get runs[%v] failed. error: %v", cacheIdList, err)
 			return false
@@ -133,7 +133,7 @@ func UpdateRunByWfEvent(id string, event interface{}) bool {
 		if newRun {
 			runCacheIDList = append(runCacheIDList, id)
 			newRunCacheIDs := strings.Join(runCacheIDList, common.SeparatorComma)
-			models.UpdateRun(logging, runCached.ID, models.Run{RunCacheIDs: newRunCacheIDs})
+			models.UpdateRun(database.DB, logging, runCached.ID, models.Run{RunCacheIDs: newRunCacheIDs})
 		}
 	}
 
@@ -144,7 +144,7 @@ func UpdateRunByWfEvent(id string, event interface{}) bool {
 	}
 	logging.Debugf("workflow event update run[%s] status:%s message:%s, runtime:%s",
 		id, status, wfEvent.Message, runtimeRaw)
-	prevRun, err := models.GetRunByID(logging, runID)
+	prevRun, err := models.GetRunByID(database.DB, logging, runID)
 	if err != nil {
 		logging.Errorf("get run[%s] in db failed. error: %v", id, err)
 		return false
@@ -165,7 +165,7 @@ func UpdateRunByWfEvent(id string, event interface{}) bool {
 		Message:     message,
 		ActivatedAt: activatedAt,
 	}
-	if err := models.UpdateRun(logging, runID, updateRun); err != nil {
+	if err := models.UpdateRun(database.DB, logging, runID, updateRun); err != nil {
 		logging.Errorf("update run[%s] in db failed. error: %v", id, err)
 		return false
 	}
@@ -186,7 +186,7 @@ func handleImageCallbackFunc(imageInfo handler.ImageInfo, err error) error {
 	imageUrl := imageInfo.Url
 	if imageUrl == "" {
 		logEntry.Debugf("image handler cb - retrieving image[%s] url from db", imageInfo.PFImageID)
-		imageUrl, err = models.GetUrlByPFImageID(logEntry, imageInfo.PFImageID)
+		imageUrl, err = models.GetUrlByPFImageID(database.DB, logEntry, imageInfo.PFImageID)
 		if err != nil {
 			logEntry.Errorf("GetUrlByImageID[%s] in db failed. error: %v",
 				imageInfo.PFImageID, err)
@@ -204,12 +204,12 @@ func handleImageCallbackFunc(imageInfo handler.ImageInfo, err error) error {
 			Source:  imageInfo.Source,
 			Url:     imageUrl,
 		}
-		_, err := models.GetImage(logEntry, imageInfo.PFImageID)
+		_, err := models.GetImage(database.DB, logEntry, imageInfo.PFImageID)
 		if err != nil {
 			if database.GetErrorCode(err) == database.ErrorRecordNotFound {
 				// image not in db. save image info to db
 				logEntry.Debugf("image handler cb store new image[%s] with url[%s]\n", imageInfo.PFImageID, imageUrl)
-				if err := models.CreateImage(logEntry, &image); err != nil {
+				if err := models.CreateImage(database.DB, logEntry, &image); err != nil {
 					logEntry.Errorf("CreateImage[%s] with url[%s] in db failed. error: %v",
 						imageInfo.PFImageID, imageUrl, err)
 				}
@@ -219,7 +219,7 @@ func handleImageCallbackFunc(imageInfo handler.ImageInfo, err error) error {
 		} else {
 			// image in db, update it
 			logEntry.Debugf("image handler cb update image[%s] url[%s]\n", imageInfo.PFImageID, imageUrl)
-			if err := models.UpdateImage(logEntry, imageInfo.PFImageID, image); err != nil {
+			if err := models.UpdateImage(database.DB, logEntry, imageInfo.PFImageID, image); err != nil {
 				logEntry.Errorf("updateImage[%s] with url[%s] in db failed. error: %v",
 					imageInfo.PFImageID, imageUrl, err)
 			}
@@ -233,7 +233,7 @@ func updateRunStatusAndMsg(id, status, msg string) error {
 		Status:  status,
 		Message: msg,
 	}
-	if err := models.UpdateRun(logger.LoggerForRun(id), id, updateRun); err != nil {
+	if err := models.UpdateRun(database.DB, logger.LoggerForRun(id), id, updateRun); err != nil {
 		logger.LoggerForRun(id).Errorf("update with status[%s] in db failed. error: %v", status, err)
 		return err
 	}
@@ -244,7 +244,7 @@ func startWfWithImageUrl(runID, imageUrl string) error {
 	logEntry := logger.LoggerForRun(runID)
 	logEntry.Debugf("start workflow with image url[%s]\n", imageUrl)
 	// retrieve run
-	run, err := models.GetRunByID(logEntry, runID)
+	run, err := models.GetRunByID(database.DB, logEntry, runID)
 	if err != nil {
 		logEntry.Debugf("startWfWithImageUrl failed retrieving run. err:%v\n", err)
 		return updateRunStatusAndMsg(runID, common.StatusRunFailed, err.Error())
@@ -268,6 +268,6 @@ func startWfWithImageUrl(runID, imageUrl string) error {
 	wfPtr.Start()
 	logEntry.Debugf("workflow started after image handling. run: %+v", run)
 	// update run's imageUrl
-	return models.UpdateRun(logger.LoggerForRun(run.ID), run.ID,
+	return models.UpdateRun(database.DB, logger.LoggerForRun(run.ID), run.ID,
 		models.Run{ImageUrl: run.WorkflowSource.DockerEnv, Status: common.StatusRunPending})
 }

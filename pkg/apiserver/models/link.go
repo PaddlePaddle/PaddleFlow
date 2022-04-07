@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,8 +22,6 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
-
-	"paddleflow/pkg/common/database"
 )
 
 const (
@@ -48,8 +46,7 @@ func (Link) TableName() string {
 }
 
 // CreateLink creates a new link
-func CreateLink(link *Link) error {
-	db := database.DB
+func CreateLink(db *gorm.DB, link *Link) error {
 	return db.Create(link).Error
 }
 
@@ -76,42 +73,37 @@ func (s *Link) BeforeSave(*gorm.DB) error {
 	return nil
 }
 
-func FsNameLinks(fsID string) ([]Link, error) {
+func FsNameLinks(db *gorm.DB, fsID string) ([]Link, error) {
 	var links []Link
-	db := database.DB
 	result := &gorm.DB{}
 	result = db.Where(&Link{FsID: fsID}).Find(&links)
 	return links, result.Error
 }
 
-func LinkWithFsIDAndFsPath(fsID, fsPath string) (Link, error) {
+func LinkWithFsIDAndFsPath(db *gorm.DB, fsID, fsPath string) (Link, error) {
 	var link Link
-	db := database.DB
 	result := &gorm.DB{}
 	result = db.Where(&Link{FsID: fsID, FsPath: fsPath}).Find(&link)
 	return link, result.Error
 }
 
 // DeleteLinkWithFsIDAndFsPath delete a file system link
-func DeleteLinkWithFsIDAndFsPath(fsID, fsPath string) error {
-	db := database.DB
+func DeleteLinkWithFsIDAndFsPath(db *gorm.DB, fsID, fsPath string) error {
 	result := db.Where(fmt.Sprintf(QueryEqualWithParam, FsID), fsID).Where(fmt.Sprintf(QueryEqualWithParam, FsPath), fsPath).Delete(&Link{})
 	return result.Error
 }
 
 // ListLink get links with marker and limit sort by create_at desc
-func ListLink(limit int, marker, fsID string) ([]Link, error) {
+func ListLink(db *gorm.DB, limit int, marker, fsID string) ([]Link, error) {
 	var links []Link
-	db := database.DB
 	result := &gorm.DB{}
 	result = db.Where(&Link{FsID: fsID}).Where(fmt.Sprintf(QueryLess, CreatedAt, "'"+marker+"'")).
 		Order(fmt.Sprintf(" %s %s ", CreatedAt, DESC)).Limit(limit).Find(&links)
 	return links, result.Error
 }
 
-func GetLinkWithFsIDFsPathAndUserName(fsID, fsPath, userName string) ([]Link, error) {
+func GetLinkWithFsIDFsPathAndUserName(db *gorm.DB, fsID, fsPath, userName string) ([]Link, error) {
 	var links []Link
-	db := database.DB
 	result := db.Where(&Link{UserName: userName, FsID: fsID, FsPath: fsPath}).Find(&links)
 	return links, result.Error
 }

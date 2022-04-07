@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -31,6 +31,7 @@ import (
 	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/apiserver/router/util"
 	"paddleflow/pkg/common/config"
+	"paddleflow/pkg/common/database"
 	"paddleflow/pkg/common/logger"
 	fuse "paddleflow/pkg/fs/client/fs"
 	fsCommon "paddleflow/pkg/fs/common"
@@ -104,7 +105,7 @@ func (lr *LinkRouter) CreateLink(w http.ResponseWriter, r *http.Request) {
 	if errPersist := linkService.PersistLinksMeta(linkModel.FsID); errPersist != nil {
 		ctx.Logging().Errorf("persist links meta with err[%v]", errPersist)
 		ctx.ErrorCode = common.LinkMetaPersistError
-		err := models.DeleteLinkWithFsIDAndFsPath(common.ID(linkRequest.Username, linkRequest.FsName), linkRequest.FsPath)
+		err := models.DeleteLinkWithFsIDAndFsPath(database.DB, common.ID(linkRequest.Username, linkRequest.FsName), linkRequest.FsPath)
 		if err != nil {
 			ctx.Logging().Errorf("delete link err with fsID[%s] and fsPath[%s]", common.ID(linkRequest.Username, linkRequest.FsName), linkRequest.FsPath)
 			ctx.ErrorCode = common.LinkModelError
@@ -162,7 +163,7 @@ func validateCreateLink(ctx *logger.RequestContext, req *api.CreateLinkRequest) 
 		return err
 	}
 
-	fileSystemModel, err := models.GetFileSystemWithFsID(fsID)
+	fileSystemModel, err := models.GetFileSystemWithFsID(database.DB, fsID)
 	if err != nil {
 		ctx.Logging().Errorf("GetFileSystemWithFsID error[%v]", err)
 		ctx.ErrorCode = common.LinkModelError
@@ -181,7 +182,7 @@ func validateCreateLink(ctx *logger.RequestContext, req *api.CreateLinkRequest) 
 	}
 
 	// check fsName with fsPath is exist
-	linkModel, err := models.LinkWithFsIDAndFsPath(fsID, req.FsPath)
+	linkModel, err := models.LinkWithFsIDAndFsPath(database.DB, fsID, req.FsPath)
 	if err != nil {
 		ctx.Logging().Errorf("create link failed error[%v]", err)
 		ctx.ErrorCode = common.FileSystemDataBaseError
@@ -369,7 +370,7 @@ func checkLinkProperties(fsType string, req *api.CreateLinkRequest) error {
 
 // checkLinkPath duplicate and nesting of the same storage link directory is not supported
 func checkLinkPath(fsPath, fsID string) error {
-	linkList, err := models.FsNameLinks(fsID)
+	linkList, err := models.FsNameLinks(database.DB, fsID)
 	if err != nil {
 		return err
 	}
@@ -437,7 +438,7 @@ func validateDeleteLink(ctx *logger.RequestContext, req *api.DeleteLinkRequest) 
 	}
 
 	fsID := common.ID(req.Username, req.FsName)
-	link, err := models.LinkWithFsIDAndFsPath(fsID, req.FsPath)
+	link, err := models.LinkWithFsIDAndFsPath(database.DB, fsID, req.FsPath)
 	if err != nil {
 		ctx.Logging().Errorf("link with fsID and fsPath error: %v", err)
 		ctx.ErrorCode = common.LinkModelError

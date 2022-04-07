@@ -19,6 +19,7 @@ package controller
 import (
 	"context"
 	"net/http/httptest"
+	"paddleflow/pkg/common/database"
 	"testing"
 	"time"
 
@@ -35,7 +36,6 @@ import (
 
 	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/common/config"
-	"paddleflow/pkg/common/database/dbinit"
 	"paddleflow/pkg/common/k8s"
 	"paddleflow/pkg/common/schema"
 )
@@ -119,7 +119,7 @@ func TestJobSyncVCJob(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			dbinit.InitMockDB()
+			database.InitMockDB()
 			err := models.CreateJob(&models.Job{ID: test.newObj.GetName()})
 			assert.Equal(t, nil, err)
 
@@ -194,7 +194,7 @@ func TestJobSyncPod(t *testing.T) {
 		},
 	}
 
-	dbinit.InitMockDB()
+	database.InitMockDB()
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			c := newFakeJobSyncController()

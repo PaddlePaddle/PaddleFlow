@@ -26,6 +26,7 @@ import (
 
 	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/common/config"
+	"paddleflow/pkg/common/database"
 	"paddleflow/pkg/common/errors"
 	"paddleflow/pkg/common/k8s"
 	"paddleflow/pkg/common/schema"
@@ -133,7 +134,7 @@ func (pj *PaddleJob) patchPaddleJobSpec(pdjSpec *paddlev1.PaddleJobSpec) error {
 }
 
 func (pj *PaddleJob) StopJobByID(jobID string) error {
-	job, err := models.GetJobByID(jobID)
+	job, err := models.GetJobByID(database.DB, jobID)
 	if err != nil {
 		return err
 	}

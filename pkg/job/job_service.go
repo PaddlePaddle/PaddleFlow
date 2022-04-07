@@ -24,6 +24,7 @@ import (
 	"paddleflow/pkg/apiserver/common"
 	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/common/config"
+	"paddleflow/pkg/common/database"
 	"paddleflow/pkg/common/errors"
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/common/schema"
@@ -49,7 +50,7 @@ func CreateJob(conf schema.PFJobConf) (string, error) {
 		Status:   schema.StatusJobInit,
 		Config:   *jobConf,
 	}
-	if err := models.CreateJob(jobInfo); err != nil {
+	if err := models.CreateJob(database.DB, jobInfo); err != nil {
 		log.Errorf("create job[%s] in database faield, err: %v", conf.GetName(), err)
 		return "", fmt.Errorf("create job[%s] in database faield, err: %v", conf.GetName(), err)
 	}
@@ -85,7 +86,7 @@ func ValidateJob(conf schema.PFJobConf) error {
 		UserName: userName,
 	}
 	// check whether queue is exist or not
-	queue, err := models.GetQueueByName(ctx, queueName)
+	queue, err := models.GetQueueByName(database.DB, ctx, queueName)
 	if err != nil {
 		log.Errorf("get queue %s failed, err %v", queueName, err)
 		return fmt.Errorf("queueName[%s] is not exist\n", queueName)
@@ -103,7 +104,7 @@ func ValidateJob(conf schema.PFJobConf) error {
 	}
 
 	// check whether cluster is exist or not
-	cluster, err := models.GetClusterById(ctx, queue.ClusterId)
+	cluster, err := models.GetClusterById(database.DB, ctx, queue.ClusterId)
 	if err != nil {
 		log.Errorf("get cluster[%s] failed, err: %s", queue.ClusterId, err)
 		return err
@@ -118,7 +119,7 @@ func ValidateJob(conf schema.PFJobConf) error {
 	conf.SetNamespace(queue.Namespace)
 	conf.SetClusterID(cluster.ID)
 	// check whether user has access to queue or not
-	if !models.HasAccessToResource(ctx, common.ResourceTypeQueue, queueName) {
+	if !models.HasAccessToResource(database.DB, ctx, common.ResourceTypeQueue, queueName) {
 		return common.NoAccessError(userName, common.ResourceTypeQueue, queueName)
 	}
 	return nil
@@ -184,7 +185,7 @@ func checkResource(conf schema.PFJobConf) error {
 }
 
 func StopJobByID(jobID string) error {
-	job, err := models.GetJobByID(jobID)
+	job, err := models.GetJobByID(database.DB, jobID)
 	if err != nil {
 		return errors.JobIDNotFoundError(jobID)
 	}
@@ -199,7 +200,7 @@ func StopJobByID(jobID string) error {
 	ctx := &logger.RequestContext{
 		UserName: job.UserName,
 	}
-	clusterInfo, err := models.GetClusterById(ctx, job.Config.GetClusterID())
+	clusterInfo, err := models.GetClusterById(database.DB, ctx, job.Config.GetClusterID())
 	if err != nil {
 		return fmt.Errorf("stop job %s failed. cluster %s not found", jobID, clusterInfo.Name)
 	}
@@ -214,7 +215,7 @@ func StopJobByID(jobID string) error {
 		log.Errorf("delete job %s from cluster %s failed, err: %v.", jobID, clusterInfo.Name, err)
 		return err
 	}
-	if err = models.UpdateJobStatus(jobID, "job is terminated.", schema.StatusJobTerminated); err != nil {
+	if err = models.UpdateJobStatus(database.DB, jobID, "job is terminated.", schema.StatusJobTerminated); err != nil {
 		log.Errorf("update job[%s] status to [%s] failed, err: %v", jobID, schema.StatusJobTerminated, err)
 		return err
 	}

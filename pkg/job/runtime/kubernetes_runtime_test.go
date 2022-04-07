@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"paddleflow/pkg/common/database"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -37,7 +38,6 @@ import (
 
 	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/common/config"
-	"paddleflow/pkg/common/database/dbinit"
 	"paddleflow/pkg/common/k8s"
 	"paddleflow/pkg/common/schema"
 	"paddleflow/pkg/job/api"
@@ -151,7 +151,7 @@ func TestKubeRuntimeJob(t *testing.T) {
 			},
 		},
 	}
-	dbinit.InitMockDB()
+	database.InitMockDB()
 	config.GlobalServerConfig = &config.ServerConfig{
 		FlavourMap: map[string]schema.Flavour{
 			"flavour1": {

@@ -19,6 +19,7 @@ package queue
 import (
 	"encoding/json"
 	"fmt"
+	"paddleflow/pkg/common/database"
 	"reflect"
 	"testing"
 
@@ -29,7 +30,6 @@ import (
 	"paddleflow/pkg/apiserver/common"
 	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/common/config"
-	"paddleflow/pkg/common/database/dbinit"
 	"paddleflow/pkg/common/k8s"
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/common/schema"
@@ -62,10 +62,10 @@ func TestCreateQueue(t *testing.T) {
 	err := config.InitConfigFromYaml(ServerConf, "../../../../config/server/default/paddleserver.yaml")
 	config.GlobalServerConfig = ServerConf
 
-	dbinit.InitMockDB()
+	db := database.InitMockDB()
 	ctx := &logger.RequestContext{UserName: MockRootUser}
 
-	assert.Nil(t, models.CreateCluster(ctx, &clusterInfo))
+	assert.Nil(t, models.CreateCluster(db, ctx, &clusterInfo))
 
 	rts := &runtime.KubeRuntime{}
 	var p2 = gomonkey.ApplyPrivateMethod(reflect.TypeOf(rts), "Init", func() error {
@@ -160,11 +160,11 @@ func TestCloseAndDeleteQueue(t *testing.T) {
 // TestMarshalJSONForTime test for time format
 func TestMarshalJSONForTime(t *testing.T) {
 	ctx := &logger.RequestContext{UserName: MockRootUser}
-	dbinit.InitMockDB()
+	db := database.InitMockDB()
 	queue := models.Queue{
 		Name: "mockQueueName",
 	}
-	err := models.CreateQueue(ctx, &queue)
+	err := models.CreateQueue(db, ctx, &queue)
 	if err != nil {
 		t.Errorf(err.Error())
 	}

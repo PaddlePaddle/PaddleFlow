@@ -24,7 +24,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 
-	"paddleflow/pkg/common/database"
 	"paddleflow/pkg/common/schema"
 )
 
@@ -72,7 +71,7 @@ func (flavour Flavour) MarshalJSON() ([]byte, error) {
 }
 
 // AfterFind triggered when query sql
-func (flavour *Flavour) AfterFind(*gorm.DB) error {
+func (flavour *Flavour) AfterFind(db *gorm.DB) error {
 	if flavour.RawScalarResources != "" {
 		flavour.ScalarResources = make(schema.ScalarResourcesType)
 		if err := json.Unmarshal([]byte(flavour.RawScalarResources), &flavour.ScalarResources); err != nil {
@@ -85,7 +84,7 @@ func (flavour *Flavour) AfterFind(*gorm.DB) error {
 		// only single query is necessary, function of list query by join table cluster_info
 		log.Debugf("query flavour[%s] in db, fill clusterName by clusterID[%s]", flavour.Name, flavour.ClusterID)
 		var cluster ClusterInfo
-		result := database.DB.Where(&ClusterInfo{Model: Model{ID: flavour.ClusterID}}).First(&cluster)
+		result := db.Where(&ClusterInfo{Model: Model{ID: flavour.ClusterID}}).First(&cluster)
 		if result.Error != nil {
 			log.Errorf("flavour[%s] query cluster by clusterId[%s] failed: %v", flavour.Name, flavour.ClusterID, result.Error)
 			return result.Error
@@ -109,10 +108,10 @@ func (flavour *Flavour) BeforeSave(*gorm.DB) error {
 }
 
 // CreateFlavour create flavour
-func CreateFlavour(flavour *Flavour) error {
+func CreateFlavour(db *gorm.DB, flavour *Flavour) error {
 	log.Infof("begin create flavour, flavour name:%v", flavour)
 	flavour.CreatedAt = time.Now()
-	tx := database.DB.Table(flavourTableName).Create(flavour)
+	tx := db.Table(flavourTableName).Create(flavour)
 	if tx.Error != nil {
 		log.Errorf("create flavour failed. flavour:%v, error:%s", flavour, tx.Error.Error())
 		return tx.Error
@@ -122,9 +121,9 @@ func CreateFlavour(flavour *Flavour) error {
 }
 
 // DeleteFlavour delete flavour
-func DeleteFlavour(flavourName string) error {
+func DeleteFlavour(db *gorm.DB, flavourName string) error {
 	log.Infof("begin delete flavour, flavour name:%s", flavourName)
-	t := database.DB.Table(flavourTableName).Unscoped().Where("name = ?", flavourName).Delete(&Flavour{})
+	t := db.Table(flavourTableName).Unscoped().Where("name = ?", flavourName).Delete(&Flavour{})
 	if t.Error != nil {
 		log.Errorf("delete flavour failed. flavour name:%s, error:%v", flavourName, t.Error)
 		return t.Error
@@ -133,10 +132,10 @@ func DeleteFlavour(flavourName string) error {
 }
 
 // GetFlavour get flavour
-func GetFlavour(flavourName string) (Flavour, error) {
+func GetFlavour(db *gorm.DB, flavourName string) (Flavour, error) {
 	log.Debugf("begin get flavour, flavour name:%s", flavourName)
 	var flavour Flavour
-	tx := database.DB.Table(flavourTableName)
+	tx := db.Table(flavourTableName)
 	result := tx.Where("name = ?", flavourName).First(&flavour)
 	if result.Error != nil {
 		log.Errorf("get flavour failed. flavour name:%s, error:%s", flavourName, result.Error.Error())
@@ -147,11 +146,11 @@ func GetFlavour(flavourName string) (Flavour, error) {
 }
 
 // ListFlavour all params is nullable, and support fuzzy query of flavour's name by queryKey
-func ListFlavour(pk int64, maxKeys int, clusterID, queryKey string) ([]Flavour, error) {
+func ListFlavour(db *gorm.DB, pk int64, maxKeys int, clusterID, queryKey string) ([]Flavour, error) {
 	log.Debugf("list flavour, pk: %d, maxKeys: %d, clusterID: %s", pk, maxKeys, clusterID)
 
 	var flavours []Flavour
-	query := database.DB.Table(flavourTableName).Where("flavour.pk > ?", pk).Select(flavourSelectColumn).Joins(flavourJoinCluster)
+	query := db.Table(flavourTableName).Where("flavour.pk > ?", pk).Select(flavourSelectColumn).Joins(flavourJoinCluster)
 
 	if clusterID != "" {
 		query.Where("`flavour`.`cluster_id` = ? or `flavour`.`cluster_id` = ''", clusterID)
@@ -176,17 +175,17 @@ func ListFlavour(pk int64, maxKeys int, clusterID, queryKey string) ([]Flavour, 
 }
 
 // UpdateFlavour update flavour
-func UpdateFlavour(flavour *Flavour) error {
+func UpdateFlavour(db *gorm.DB, flavour *Flavour) error {
 	flavour.UpdatedAt = time.Now()
-	tx := database.DB.Model(flavour).Updates(flavour)
+	tx := db.Model(flavour).Updates(flavour)
 	return tx.Error
 }
 
 // GetLastFlavour get last flavour that usually be used for indicating last page
-func GetLastFlavour() (Flavour, error) {
+func GetLastFlavour(db *gorm.DB) (Flavour, error) {
 	log.Debugf("get last flavour.")
 	flavour := Flavour{}
-	tx := database.DB.Table(flavourTableName).Last(&flavour)
+	tx := db.Table(flavourTableName).Last(&flavour)
 	if tx.Error != nil {
 		log.Errorf("get last flavour failed. error:%s", tx.Error.Error())
 		return Flavour{}, tx.Error

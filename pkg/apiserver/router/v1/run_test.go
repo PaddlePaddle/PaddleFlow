@@ -18,6 +18,7 @@ package v1
 
 import (
 	"net/http"
+	"paddleflow/pkg/common/database"
 	"testing"
 
 	"github.com/go-chi/chi"
@@ -28,7 +29,6 @@ import (
 	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/apiserver/router/util"
 	"paddleflow/pkg/common/config"
-	"paddleflow/pkg/common/database/dbinit"
 	"paddleflow/pkg/common/logger"
 )
 
@@ -78,7 +78,7 @@ func prepareDBAndAPI(t *testing.T) (*chi.Mux, string) {
 		},
 	}
 
-	dbinit.InitMockDB()
+	database.InitMockDB()
 	rootCtx := &logger.RequestContext{UserName: MockRootUser}
 
 	token, err := CreateTestUser(rootCtx, MockRootUser, MockPassword)

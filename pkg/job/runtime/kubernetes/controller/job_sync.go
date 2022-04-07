@@ -25,7 +25,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
+
 	"paddleflow/pkg/apiserver/models"
+	"paddleflow/pkg/common/database"
 	"paddleflow/pkg/common/k8s"
 	commonschema "paddleflow/pkg/common/schema"
 	"paddleflow/pkg/job/api"
@@ -166,7 +168,7 @@ func (j *JobSync) syncJobStatus(jobSyncInfo *JobSyncInfo) error {
 
 func (j *JobSync) doDeleteAction(jobSyncInfo *JobSyncInfo) error {
 	log.Infof("sync job status job. action:[%s] jobID:[%s]", jobSyncInfo.Action, jobSyncInfo.ID)
-	if _, err := models.UpdateJob(jobSyncInfo.ID, commonschema.StatusJobTerminated,
+	if _, err := models.UpdateJob(database.DB, jobSyncInfo.ID, commonschema.StatusJobTerminated,
 		jobSyncInfo.Runtime, ""); err != nil {
 		log.Errorf("sync job status failed. jobID:[%s] err:[%s]", jobSyncInfo.ID, err.Error())
 		return err
@@ -178,7 +180,7 @@ func (j *JobSync) doUpdateAction(jobSyncInfo *JobSyncInfo) error {
 	log.Infof("do update action. jobID:[%s] action:[%s] status:[%s] message:[%s]",
 		jobSyncInfo.ID, jobSyncInfo.Action, jobSyncInfo.Status, jobSyncInfo.Message)
 
-	if _, err := models.UpdateJob(jobSyncInfo.ID, jobSyncInfo.Status, jobSyncInfo.Runtime, jobSyncInfo.Message); err != nil {
+	if _, err := models.UpdateJob(database.DB, jobSyncInfo.ID, jobSyncInfo.Status, jobSyncInfo.Runtime, jobSyncInfo.Message); err != nil {
 		log.Errorf("update job failed. jobID:[%s] err:[%s]", jobSyncInfo.ID, err.Error())
 		return err
 	}
@@ -188,7 +190,7 @@ func (j *JobSync) doUpdateAction(jobSyncInfo *JobSyncInfo) error {
 func (j *JobSync) doTerminateAction(jobSyncInfo *JobSyncInfo) error {
 	log.Infof("do terminate action. jobID:[%s] action:[%s] status:[%s] message:[%s]",
 		jobSyncInfo.ID, jobSyncInfo.Action, jobSyncInfo.Status, jobSyncInfo.Message)
-	job, err := models.GetJobByID(jobSyncInfo.ID)
+	job, err := models.GetJobByID(database.DB, jobSyncInfo.ID)
 	if err != nil {
 		log.Infof("do terminate action. jobID[%s] not found", jobSyncInfo.ID)
 		return nil

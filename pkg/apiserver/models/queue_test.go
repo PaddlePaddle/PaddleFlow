@@ -17,16 +17,13 @@ limitations under the License.
 package models
 
 import (
+	"gorm.io/gorm"
+	"paddleflow/pkg/common/database"
 	"testing"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
-	glogger "gorm.io/gorm/logger"
 
 	"paddleflow/pkg/apiserver/common"
-	"paddleflow/pkg/common/database"
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/common/schema"
 )
@@ -36,24 +33,8 @@ var (
 	mockRootUserName = "root"
 )
 
-func InitFakeDB() {
-	db, err := gorm.Open(sqlite.Open("file::memory:"), &gorm.Config{
-		Logger: glogger.Default.LogMode(glogger.Info),
-	})
-	if err != nil {
-		log.Fatalf("The fake DB doesn't create successfully. Fail fast. error: %v", err)
-	}
-	// Create tables
-	db.AutoMigrate(
-		&Grant{},
-		&Queue{},
-		&ClusterInfo{},
-	)
-	database.DB = db
-}
-
-func TestCreateQueue(t *testing.T) {
-	InitFakeDB()
+func createQueue(t *testing.T) *gorm.DB {
+	db := database.InitMockDB()
 	ctx := &logger.RequestContext{UserName: mockUserName}
 
 	cluster1 := ClusterInfo{
@@ -68,7 +49,7 @@ func TestCreateQueue(t *testing.T) {
 		Setting:       "Setting",
 		NamespaceList: []string{"n1", "n2"},
 	}
-	if err := CreateCluster(ctx, &cluster1); err != nil {
+	if err := CreateCluster(db, ctx, &cluster1); err != nil {
 		t.Error(err)
 	}
 	assert.NotEmpty(t, cluster1.ID)
@@ -105,28 +86,33 @@ func TestCreateQueue(t *testing.T) {
 		Status:           schema.StatusQueueCreating,
 	}
 
-	CreateQueue(ctx, &queue1)
+	CreateQueue(db, ctx, &queue1)
 
-	CreateQueue(ctx, &queue2)
+	CreateQueue(db, ctx, &queue2)
+	return db
+}
+
+func TestCreateQueue(t *testing.T) {
+	createQueue(t)
 }
 
 func TestListQueue(t *testing.T) {
-	TestCreateQueue(t)
+	db := createQueue(t)
 	ctx := &logger.RequestContext{UserName: mockUserName}
 
 	// init grant
 	grantModel := &Grant{ID: "fakeID", UserName: mockUserName, ResourceID: "queue1", ResourceType: GrantFsType}
-	if err := CreateGrant(ctx, grantModel); err != nil {
+	if err := CreateGrant(db, ctx, grantModel); err != nil {
 		t.Error(err)
 	}
-	grants, err := ListGrant(ctx, 0, 0, mockUserName)
+	grants, err := ListGrant(db, ctx, 0, 0, mockUserName)
 	if err != nil {
 		t.Error(err)
 	}
 	t.Logf("grants=%+v", grants)
 
 	// case1 list queue
-	queueList, err := ListQueue(ctx, 0, 0, "")
+	queueList, err := ListQueue(db, ctx, 0, 0, "")
 	if err != nil {
 		ctx.Logging().Errorf("models list queue failed. err:[%s]", err.Error())
 		ctx.ErrorCode = common.InternalError
@@ -138,7 +124,7 @@ func TestListQueue(t *testing.T) {
 
 	// case2 for root
 	ctx = &logger.RequestContext{UserName: mockRootUserName}
-	queueList, err = ListQueue(ctx, 0, 0, "")
+	queueList, err = ListQueue(db, ctx, 0, 0, "")
 	if err != nil {
 		ctx.Logging().Errorf("models list queue failed. err:[%s]", err.Error())
 		ctx.ErrorCode = common.InternalError
@@ -150,10 +136,10 @@ func TestListQueue(t *testing.T) {
 }
 
 func TestGetQueueByName(t *testing.T) {
-	TestCreateQueue(t)
+	db := createQueue(t)
 	ctx := &logger.RequestContext{UserName: mockUserName}
 
-	queue, err := GetQueueByName(ctx, "queue1")
+	queue, err := GetQueueByName(db, ctx, "queue1")
 	if err != nil {
 		t.Error(err)
 	}

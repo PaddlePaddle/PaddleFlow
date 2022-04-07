@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,6 +20,8 @@ import (
 	"errors"
 	"fmt"
 
+	"gorm.io/gorm"
+
 	"paddleflow/pkg/apiserver/common"
 	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/common/database"
@@ -35,7 +37,7 @@ type ListGrantResponse struct {
 }
 
 func checkQueue(ctx *logger.RequestContext, queueName string) error {
-	_, err := models.GetQueueByName(ctx, queueName)
+	_, err := models.GetQueueByName(database.DB, ctx, queueName)
 	if err != nil {
 		ctx.ErrorCode = common.QueueNameNotFound
 		return fmt.Errorf("queueName:%s not found", queueName)
@@ -44,7 +46,7 @@ func checkQueue(ctx *logger.RequestContext, queueName string) error {
 }
 
 func checkUser(ctx *logger.RequestContext, userName string) error {
-	_, err := models.GetUserByName(ctx, userName)
+	_, err := models.GetUserByName(database.DB, ctx, userName)
 	if err != nil {
 		ctx.ErrorCode = common.UserNotExist
 		return fmt.Errorf("userName:%s not found", userName)
@@ -96,13 +98,13 @@ func CreateGrant(ctx *logger.RequestContext, grant *models.Grant) (*CreateGrantR
 
 	//can't grant repeatedlly
 
-	if existgrant, _ := models.GetGrant(ctx, grant.UserName, grant.ResourceType, grant.ResourceID); existgrant != nil {
+	if existgrant, _ := models.GetGrant(database.DB, ctx, grant.UserName, grant.ResourceType, grant.ResourceID); existgrant != nil {
 		ctx.ErrorCode = common.GrantAlreadyExist
 		ctx.Logging().Errorf("create grant failed.user:[%s] already has the grant of resource[%s].", grant.UserName, grant.ResourceID)
 		return nil, errors.New("create grant failed")
 	}
 	grant.ID = uuid.GenerateID(common.PrefixGrant)
-	err := models.CreateGrant(ctx, grant)
+	err := models.CreateGrant(database.DB, ctx, grant)
 	if err != nil {
 		ctx.Logging().Errorf("create grant failed. error:%s", err.Error())
 		if database.GetErrorCode(err) == database.ErrorKeyIsDuplicated {
@@ -148,13 +150,13 @@ func DeleteGrant(ctx *logger.RequestContext, userName, resourceID, resourceType 
 		return err
 	}
 	//check if grant exist
-	if _, err := models.GetGrant(ctx, userName, resourceType, resourceID); err != nil {
+	if _, err := models.GetGrant(database.DB, ctx, userName, resourceType, resourceID); err != nil {
 		ctx.ErrorCode = common.GrantNotFound
 		ctx.Logging().Errorf("delete grant failed. grant with userName:%v and resourceID:%v not exist.", userName, resourceID)
 		return err
 	}
 
-	if err := models.DeleteGrant(ctx, userName, resourceType, resourceID); err != nil {
+	if err := models.DeleteGrant(database.DB, ctx, userName, resourceType, resourceID); err != nil {
 		ctx.ErrorCode = common.GrantNotFound
 		ctx.Logging().Errorf("delete grant failed. userName:%v, resourceID:%v",
 			userName, resourceID)
@@ -188,7 +190,7 @@ func ListGrant(ctx *logger.RequestContext, marker string, maxKeys int, userName 
 		}
 	}
 
-	grantList, err := models.ListGrant(ctx, pk, maxKeys, userName)
+	grantList, err := models.ListGrant(database.DB, ctx, pk, maxKeys, userName)
 	if err != nil {
 		ctx.Logging().Errorf("models list grant failed. err:[%s]", err.Error())
 		ctx.ErrorCode = common.InternalError
@@ -197,7 +199,7 @@ func ListGrant(ctx *logger.RequestContext, marker string, maxKeys int, userName 
 	// get next marker
 	if len(grantList) > 0 {
 		grant := grantList[len(grantList)-1]
-		if !IsLastGrantPk(ctx, grant.Pk) {
+		if !IsLastGrantPk(database.DB, ctx, grant.Pk) {
 			nextMarker, err := common.EncryptPk(grant.Pk)
 			if err != nil {
 				ctx.Logging().Errorf("EncryptPk error. pk:[%d] error:[%s]",
@@ -216,8 +218,8 @@ func ListGrant(ctx *logger.RequestContext, marker string, maxKeys int, userName 
 	return listGrantResponse, nil
 }
 
-func IsLastGrantPk(ctx *logger.RequestContext, pk int64) bool {
-	lastGrant, err := models.GetLastGrant(ctx)
+func IsLastGrantPk(db *gorm.DB, ctx *logger.RequestContext, pk int64) bool {
+	lastGrant, err := models.GetLastGrant(db, ctx)
 	if err != nil {
 		ctx.Logging().Errorf("get last grant failed. error:[%s]", err.Error())
 	}

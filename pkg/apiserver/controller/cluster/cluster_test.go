@@ -17,6 +17,7 @@ limitations under the License.
 package cluster
 
 import (
+	"paddleflow/pkg/common/database"
 	"reflect"
 	"testing"
 
@@ -24,7 +25,6 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/common/database/dbinit"
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/common/schema"
 	"paddleflow/pkg/job/runtime"
@@ -36,7 +36,7 @@ const (
 )
 
 func TestCreateCluster(t *testing.T) {
-	dbinit.InitMockDB()
+	database.InitMockDB()
 	ctx := &logger.RequestContext{UserName: MockRootUser}
 
 	createClusterReq := CreateClusterRequest{

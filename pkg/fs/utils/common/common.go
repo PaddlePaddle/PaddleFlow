@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ import (
 
 	"paddleflow/pkg/apiserver/middleware"
 	"paddleflow/pkg/apiserver/models"
+	"paddleflow/pkg/common/database"
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/fs/common"
 )
@@ -183,7 +184,7 @@ func GetMountPointCheckIntervalTime() int {
 }
 
 func GetRootToken(ctx *logger.RequestContext) (string, error) {
-	u, err := models.GetUserByName(ctx, common.RootKey)
+	u, err := models.GetUserByName(database.DB, ctx, common.RootKey)
 	if err != nil {
 		return "", err
 	}

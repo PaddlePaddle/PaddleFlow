@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@ import (
 	"paddleflow/pkg/apiserver/controller/queue"
 	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/apiserver/router/util"
+	"paddleflow/pkg/common/database"
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/common/schema"
 	"paddleflow/pkg/common/uuid"
@@ -209,7 +210,7 @@ func validateNamespace(new, old []string, clusterID string) error {
 		newSet[ns] = true
 	}
 	// get queues
-	queues := models.ListQueuesByCluster(clusterID)
+	queues := models.ListQueuesByCluster(database.DB, clusterID)
 	relatedSet := make(map[string]bool)
 	for _, queue := range queues {
 		relatedSet[queue.Namespace] = true
@@ -273,7 +274,7 @@ func CreateCluster(ctx *logger.RequestContext, request *CreateClusterRequest) (*
 		return nil, err
 	}
 
-	err := models.CreateCluster(ctx, &clusterInfo)
+	err := models.CreateCluster(database.DB, ctx, &clusterInfo)
 	response := CreateClusterResponse{clusterInfo}
 	return &response, err
 }
@@ -288,7 +289,7 @@ func validateConnectivity(clusterInfo models.ClusterInfo) error {
 }
 
 func IsLastClusterPk(ctx *logger.RequestContext, pk int64) bool {
-	lastCluster, err := models.GetLastCluster(ctx)
+	lastCluster, err := models.GetLastCluster(database.DB, ctx)
 	if err != nil {
 		ctx.Logging().Errorf("get last cluster failed. error:[%s]", err.Error())
 	}
@@ -322,7 +323,7 @@ func ListCluster(ctx *logger.RequestContext, marker string, maxKeys int64,
 		}
 	}
 
-	clusterList, err := models.ListCluster(ctx, pk, maxKeys, clusterNameList, clusterStatus)
+	clusterList, err := models.ListCluster(database.DB, ctx, pk, maxKeys, clusterNameList, clusterStatus)
 	if err != nil {
 		ctx.Logging().Errorf("models list cluster failed. err:[%s]", err.Error())
 		ctx.ErrorCode = common.InternalError
@@ -358,7 +359,7 @@ func GetCluster(ctx *logger.RequestContext, clusterName string) (*GetClusterResp
 		return nil, errors.New("get cluster failed")
 	}
 
-	clusterInfo, err := models.GetClusterByName(ctx, clusterName)
+	clusterInfo, err := models.GetClusterByName(database.DB, ctx, clusterName)
 	if err != nil {
 		ctx.ErrorMessage = err.Error()
 		ctx.Logging().Errorf("get cluster failed. clusterName:[%s]", clusterName)
@@ -374,16 +375,16 @@ func DeleteCluster(ctx *logger.RequestContext, clusterName string) error {
 		return errors.New("delete cluster failed")
 	}
 	// 检查clusterName是否存在
-	clusterInfo, err := models.GetClusterByName(ctx, clusterName)
+	clusterInfo, err := models.GetClusterByName(database.DB, ctx, clusterName)
 	if err != nil {
 		ctx.ErrorCode = common.ClusterNotFound
 		ctx.Logging().Errorln("delete cluster failed. error: cluster not found.")
 		return err
 	}
-	queues := models.ListQueuesByCluster(clusterInfo.ID)
+	queues := models.ListQueuesByCluster(database.DB, clusterInfo.ID)
 	var inUsedQueue []string
 	for _, q := range queues {
-		isInUse, _ := models.IsQueueInUse(q.ID)
+		isInUse, _ := models.IsQueueInUse(database.DB, q.ID)
 		if isInUse {
 			inUsedQueue = append(inUsedQueue, q.Name)
 		}
@@ -403,7 +404,7 @@ func DeleteCluster(ctx *logger.RequestContext, clusterName string) error {
 			return err
 		}
 	}
-	if err := models.DeleteCluster(ctx, clusterName); err != nil {
+	if err := models.DeleteCluster(database.DB, ctx, clusterName); err != nil {
 		ctx.ErrorCode = common.InternalError
 		ctx.ErrorMessage = err.Error()
 		ctx.Logging().Errorf("delete cluster failed. clusterName:[%s]", clusterName)
@@ -421,7 +422,7 @@ func UpdateCluster(ctx *logger.RequestContext,
 		return nil, errors.New("update cluster failed")
 	}
 
-	clusterInfo, err := models.GetClusterByName(ctx, clusterName)
+	clusterInfo, err := models.GetClusterByName(database.DB, ctx, clusterName)
 	if err != nil {
 		ctx.ErrorCode = common.ClusterNameNotFound
 		ctx.Logging().Errorf("get cluster failed. clusterName:[%s]", clusterName)
@@ -434,7 +435,7 @@ func UpdateCluster(ctx *logger.RequestContext,
 		return nil, err
 	}
 
-	if err := models.UpdateCluster(ctx, clusterInfo.ID, &clusterInfo); err != nil {
+	if err := models.UpdateCluster(database.DB, ctx, clusterInfo.ID, &clusterInfo); err != nil {
 		ctx.ErrorMessage = err.Error()
 		ctx.Logging().Errorf("delete cluster failed. clusterName:[%s]", clusterName)
 		return nil, err
@@ -455,7 +456,7 @@ func ListClusterQuota(ctx *logger.RequestContext, clusterNameList []string) (map
 	}
 
 	// 获取状态为online的集群列表
-	clusterList, err := models.ListCluster(ctx, 0, -1, clusterNameList, models.ClusterStatusOnLine)
+	clusterList, err := models.ListCluster(database.DB, ctx, 0, -1, clusterNameList, models.ClusterStatusOnLine)
 	if err != nil {
 		ctx.Logging().Errorf("listCluster failed. error: %s", err.Error())
 		return response, err

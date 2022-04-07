@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -24,7 +24,6 @@ import (
 	"gorm.io/gorm"
 
 	"paddleflow/pkg/apiserver/common"
-	"paddleflow/pkg/common/database"
 )
 
 type RunCache struct {
@@ -58,9 +57,9 @@ func (c *RunCache) decode() {
 	c.UpdateTime = c.UpdatedAt.Format("2006-01-02 15:04:05")
 }
 
-func CreateRunCache(logEntry *log.Entry, cache *RunCache) (string, error) {
+func CreateRunCache(db *gorm.DB, logEntry *log.Entry, cache *RunCache) (string, error) {
 	logEntry.Debugf("begin create cache:%+v", cache)
-	err := withTransaction(database.DB, func(tx *gorm.DB) error {
+	err := withTransaction(db, func(tx *gorm.DB) error {
 		result := tx.Model(&RunCache{}).Create(cache)
 		if result.Error != nil {
 			logEntry.Errorf("create cache failed. cache:%v, error:%v", cache, result.Error)
@@ -79,9 +78,9 @@ func CreateRunCache(logEntry *log.Entry, cache *RunCache) (string, error) {
 	return cache.ID, err
 }
 
-func ListRunCacheByFirstFp(logEntry *log.Entry, firstFp, fsID, step, source string) ([]RunCache, error) {
+func ListRunCacheByFirstFp(db *gorm.DB, logEntry *log.Entry, firstFp, fsID, step, source string) ([]RunCache, error) {
 	var cacheList []RunCache
-	tx := database.DB.Model(&RunCache{}).Where(
+	tx := db.Model(&RunCache{}).Where(
 		"first_fp = ? and fs_id = ? and step = ? and source = ?",
 		firstFp, fsID, step, source).Order("created_at DESC").Find(&cacheList)
 	if tx.Error != nil {
@@ -92,9 +91,9 @@ func ListRunCacheByFirstFp(logEntry *log.Entry, firstFp, fsID, step, source stri
 	return cacheList, nil
 }
 
-func UpdateCache(logEntry *log.Entry, cacheID string, cache RunCache) error {
+func UpdateCache(db *gorm.DB, logEntry *log.Entry, cacheID string, cache RunCache) error {
 	logEntry.Debugf("begin update cache. cacheID:%s, new cache:%v", cache.ID, cache)
-	tx := database.DB.Model(&RunCache{}).Where("id = ?", cacheID).Updates(cache)
+	tx := db.Model(&RunCache{}).Where("id = ?", cacheID).Updates(cache)
 	if tx.Error != nil {
 		logEntry.Errorf("update cache status failed. cacheID:%s, error:%v", cacheID, tx.Error)
 		return tx.Error
@@ -102,10 +101,10 @@ func UpdateCache(logEntry *log.Entry, cacheID string, cache RunCache) error {
 	return nil
 }
 
-func GetRunCache(logEntry *log.Entry, cacheID string) (RunCache, error) {
+func GetRunCache(db *gorm.DB, logEntry *log.Entry, cacheID string) (RunCache, error) {
 	logEntry.Debugf("begin get cache. cacheID:%s", cacheID)
 	var cache RunCache
-	tx := database.DB.Model(&RunCache{}).Where("id = ?", cacheID).First(&cache)
+	tx := db.Model(&RunCache{}).Where("id = ?", cacheID).First(&cache)
 	if tx.Error != nil {
 		logEntry.Errorf("get cache failed. cacheID:%s, error:%v", cacheID, tx.Error)
 		return RunCache{}, tx.Error
@@ -114,9 +113,9 @@ func GetRunCache(logEntry *log.Entry, cacheID string) (RunCache, error) {
 	return cache, nil
 }
 
-func DeleteRunCache(logEntry *log.Entry, cacheID string) error {
+func DeleteRunCache(db *gorm.DB, logEntry *log.Entry, cacheID string) error {
 	logEntry.Debugf("begin delete cache. cacheID:%s", cacheID)
-	tx := database.DB.Model(&RunCache{}).Unscoped().Where("id = ?", cacheID).Delete(&RunCache{})
+	tx := db.Model(&RunCache{}).Unscoped().Where("id = ?", cacheID).Delete(&RunCache{})
 	if tx.Error != nil {
 		logEntry.Errorf("delete cache failed. cacheID:%s, error:%v", cacheID, tx.Error)
 		return tx.Error
@@ -124,9 +123,9 @@ func DeleteRunCache(logEntry *log.Entry, cacheID string) error {
 	return nil
 }
 
-func ListRunCache(logEntry *log.Entry, pk int64, maxKeys int, userFilter, fsFilter, runFilter []string) ([]RunCache, error) {
+func ListRunCache(db *gorm.DB, logEntry *log.Entry, pk int64, maxKeys int, userFilter, fsFilter, runFilter []string) ([]RunCache, error) {
 	logEntry.Debugf("begin list cache")
-	tx := database.DB.Model(&RunCache{}).Where("pk > ?", pk)
+	tx := db.Model(&RunCache{}).Where("pk > ?", pk)
 	if len(userFilter) > 0 {
 		tx = tx.Where("user_name IN (?)", userFilter)
 	}
@@ -152,10 +151,10 @@ func ListRunCache(logEntry *log.Entry, pk int64, maxKeys int, userFilter, fsFilt
 	return cacheList, nil
 }
 
-func GetLastCacheForRun(logEntry *log.Entry, runID string) (RunCache, error) {
+func GetLastCacheForRun(db *gorm.DB, logEntry *log.Entry, runID string) (RunCache, error) {
 	logEntry.Debugf("get last cache for run:%s", runID)
 	cache := RunCache{}
-	tx := database.DB.Model(&RunCache{}).Where(&RunCache{RunID: runID}).Last(&cache)
+	tx := db.Model(&RunCache{}).Where(&RunCache{RunID: runID}).Last(&cache)
 	if tx.Error != nil {
 		logEntry.Errorf("get last cache for run:%s failed. error:%v", runID, tx.Error)
 		return RunCache{}, tx.Error
@@ -163,10 +162,10 @@ func GetLastCacheForRun(logEntry *log.Entry, runID string) (RunCache, error) {
 	return cache, nil
 }
 
-func GetLastRunCache(logEntry *log.Entry) (RunCache, error) {
+func GetLastRunCache(db *gorm.DB, logEntry *log.Entry) (RunCache, error) {
 	logEntry.Debugf("get last runCache")
 	runCache := RunCache{}
-	tx := database.DB.Model(&RunCache{}).Last(&runCache)
+	tx := db.Model(&RunCache{}).Last(&runCache)
 	if tx.Error != nil {
 		logEntry.Errorf("get last runCache failed. error:%s", tx.Error.Error())
 		return RunCache{}, tx.Error
@@ -174,10 +173,10 @@ func GetLastRunCache(logEntry *log.Entry) (RunCache, error) {
 	return runCache, nil
 }
 
-func GetCacheCount(logEntry *log.Entry, runID string) (int64, error) {
+func GetCacheCount(db *gorm.DB, logEntry *log.Entry, runID string) (int64, error) {
 	logEntry.Debugf("get cache count. runID: %s", runID)
 	var count int64
-	query := database.DB.Model(&RunCache{})
+	query := db.Model(&RunCache{})
 	if runID != "" {
 		query = query.Where(&RunCache{RunID: runID})
 	}

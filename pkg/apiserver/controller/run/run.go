@@ -104,7 +104,7 @@ func buildWorkflowSource(ctx *logger.RequestContext, req CreateRunRequest, fsID 
 		runYaml = string(sDec)
 		source = common.GetMD5Hash(sDec)
 	} else if req.PipelineID != "" { // medium priority: wfs in pipeline
-		ppl, err := models.GetPipelineByID(req.PipelineID)
+		ppl, err := models.GetPipelineByID(database.DB, req.PipelineID)
 		if err != nil {
 			ctx.Logging().Errorf("GetPipelineByID[%s] failed. err:%v", req.PipelineID, err)
 			return schema.WorkflowSource{}, "", "", err
@@ -216,7 +216,7 @@ func CreateRun(ctx *logger.RequestContext, request *CreateRunRequest) (CreateRun
 		return CreateRunResponse{}, err
 	}
 	// create run in db and update run's ID by pk
-	runID, err := models.CreateRun(ctx.Logging(), &run)
+	runID, err := models.CreateRun(database.DB, ctx.Logging(), &run)
 	if err != nil {
 		ctx.Logging().Errorf("create run failed inserting db. error:%s", err.Error())
 		ctx.ErrorCode = common.InternalError
@@ -258,7 +258,7 @@ func ListRun(ctx *logger.RequestContext, marker string, maxKeys int, userFilter,
 		userFilter = []string{ctx.UserName}
 	}
 	// model list
-	runList, err := models.ListRun(ctx.Logging(), pk, maxKeys, userFilter, fsFilter, runFilter, nameFilter)
+	runList, err := models.ListRun(database.DB, ctx.Logging(), pk, maxKeys, userFilter, fsFilter, runFilter, nameFilter)
 	if err != nil {
 		ctx.Logging().Errorf("models list run failed. err:[%s]", err.Error())
 		ctx.ErrorCode = common.InternalError
@@ -292,7 +292,7 @@ func ListRun(ctx *logger.RequestContext, marker string, maxKeys int, userFilter,
 }
 
 func isLastRunPk(ctx *logger.RequestContext, pk int64) bool {
-	lastRun, err := models.GetLastRun(ctx.Logging())
+	lastRun, err := models.GetLastRun(database.DB, ctx.Logging())
 	if err != nil {
 		ctx.Logging().Errorf("get last run failed. error:[%s]", err.Error())
 	}
@@ -304,7 +304,7 @@ func isLastRunPk(ctx *logger.RequestContext, pk int64) bool {
 
 func GetRunByID(ctx *logger.RequestContext, runID string) (models.Run, error) {
 	ctx.Logging().Debugf("begin get run by id. runID:%s", runID)
-	run, err := models.GetRunByID(ctx.Logging(), runID)
+	run, err := models.GetRunByID(database.DB, ctx.Logging(), runID)
 	if err != nil {
 		ctx.ErrorCode = common.RunNotFound
 		ctx.Logging().Errorln(err.Error())
@@ -349,7 +349,7 @@ func StopRun(ctx *logger.RequestContext, runID string) error {
 		ctx.Logging().Errorln(err.Error())
 		return err
 	}
-	if err := models.UpdateRunStatus(ctx.Logging(), runID, common.StatusRunTerminating); err != nil {
+	if err := models.UpdateRunStatus(database.DB, ctx.Logging(), runID, common.StatusRunTerminating); err != nil {
 		ctx.ErrorCode = common.InternalError
 		return errors.New("stop run failed updating db")
 	}
@@ -398,7 +398,7 @@ func RetryRun(ctx *logger.RequestContext, runID string) error {
 
 func DeleteRun(ctx *logger.RequestContext, id string, request *DeleteRunRequest) error {
 	ctx.Logging().Debugf("begin delete run: %s", id)
-	run, err := models.GetRunByID(ctx.Logging(), id)
+	run, err := models.GetRunByID(database.DB, ctx.Logging(), id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			ctx.ErrorCode = common.RunNotFound
@@ -429,7 +429,7 @@ func DeleteRun(ctx *logger.RequestContext, id string, request *DeleteRunRequest)
 	runCacheIDList := run.GetRunCacheIDList()
 	if request.CheckCache && len(runCacheIDList) > 0 {
 		// 由于cache当前正要删除的Run的其他Run可能已经被删除了，所以需要检查实际存在的Run有哪些
-		if runCachedList, _ := models.ListRun(ctx.Logging(), 0, 0, nil, nil, runCacheIDList, nil); len(runCachedList) > 0 {
+		if runCachedList, _ := models.ListRun(database.DB, ctx.Logging(), 0, 0, nil, nil, runCacheIDList, nil); len(runCachedList) > 0 {
 			// 为了错误信息更友好，把实际还存在的Run的ID打印出来
 			runExistIDList := make([]string, 0, len(runCachedList))
 			for _, runCached := range runCachedList {
@@ -459,7 +459,7 @@ func DeleteRun(ctx *logger.RequestContext, id string, request *DeleteRunRequest)
 	}
 
 	// delete
-	if err := models.DeleteRun(ctx.Logging(), id); err != nil {
+	if err := models.DeleteRun(database.DB, ctx.Logging(), id); err != nil {
 		ctx.ErrorCode = common.InternalError
 		ctx.Logging().Errorf("models delete run[%s] failed. error:%s", id, err.Error())
 		return err
@@ -479,7 +479,7 @@ func InitAndResumeRuns() (*handler.ImageHandler, error) {
 
 // --------- internal funcs ---------//
 func resumeActiveRuns() error {
-	runList, err := models.ListRunsByStatus(logger.Logger(), common.RunActiveStatus)
+	runList, err := models.ListRunsByStatus(database.DB, logger.Logger(), common.RunActiveStatus)
 	if err != nil {
 		if database.GetErrorCode(err) == database.ErrorRecordNotFound {
 			logger.LoggerForRun("").Infof("ResumeActiveRuns: no active runs to resume")
@@ -556,10 +556,10 @@ func handleImageAndStartWf(run models.Run, isResume bool) error {
 			wfPtr.Restart()
 			logEntry.Debugf("workflow restarted, run:%+v", run)
 		}
-		return models.UpdateRun(logEntry, run.ID,
+		return models.UpdateRun(database.DB, logEntry, run.ID,
 			models.Run{ImageUrl: run.WorkflowSource.DockerEnv, Status: common.StatusRunPending})
 	} else {
-		imageIDs, err := models.ListImageIDsByFsID(logEntry, run.FsID)
+		imageIDs, err := models.ListImageIDsByFsID(database.DB, logEntry, run.FsID)
 		if err != nil {
 			logEntry.Errorf("create run failed ListImageIDsByFsID[%s]. error:%s\n", run.FsID, err.Error())
 			return updateRunStatusAndMsg(run.ID, common.StatusRunFailed, err.Error())
@@ -619,5 +619,5 @@ func resetRunSteps(run *models.Run) error {
 		logger.LoggerForRun(run.ID).Errorf("reset run steps encode failure. err: %v", err)
 		return err
 	}
-	return models.UpdateRun(logger.LoggerForRun(run.ID), run.ID, *run)
+	return models.UpdateRun(database.DB, logger.LoggerForRun(run.ID), run.ID, *run)
 }

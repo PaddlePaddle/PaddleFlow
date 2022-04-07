@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -30,15 +30,14 @@ import (
 	"paddleflow/pkg/apiserver/common"
 	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/common/config"
+	"paddleflow/pkg/common/database"
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/common/schema"
 	fsCommon "paddleflow/pkg/fs/common"
 	"paddleflow/pkg/fs/utils/k8s"
 )
 
-const (
-	TimeFormat = "2006-01-02 15:04:05"
-)
+const TimeFormat = "2006-01-02 15:04:05"
 
 // FileSystemService the service which contains the operation of file system
 type FileSystemService struct{}
@@ -120,7 +119,7 @@ func (s *FileSystemService) CreateFileSystem(ctx *logger.RequestContext, req *Cr
 	}
 	fs.ID = common.ID(req.Username, req.Name)
 
-	err := models.CreatFileSystem(&fs)
+	err := models.CreatFileSystem(database.DB, &fs)
 	if err != nil {
 		log.Errorf("create file system[%v] in db failed: %v", fs, err)
 		ctx.ErrorCode = common.FileSystemDataBaseError
@@ -134,7 +133,7 @@ func (s *FileSystemService) GetFileSystem(req *GetFileSystemRequest, fsID string
 	if req.Username == common.UserRoot {
 		req.Username = ""
 	}
-	modelsFs, err := models.GetFileSystemWithFsIDAndUserName(fsID, req.Username)
+	modelsFs, err := models.GetFileSystemWithFsIDAndUserName(database.DB, fsID, req.Username)
 	if err != nil {
 		log.Errorf("get file system err[%v]", err)
 		return models.FileSystem{}, err
@@ -154,7 +153,7 @@ func (s *FileSystemService) DeleteFileSystem(ctx *logger.RequestContext, fsID st
 		ctx.ErrorCode = common.K8sOperatorError
 		return err
 	}
-	err = models.DeleteFileSystem(fsID)
+	err = models.DeleteFileSystem(database.DB, fsID)
 	if err != nil {
 		ctx.Logging().Errorf("delete failed error[%v]", err)
 		ctx.ErrorCode = common.FileSystemDataBaseError
@@ -174,7 +173,7 @@ func (s *FileSystemService) ListFileSystem(ctx *logger.RequestContext, req *List
 		req.Username = ""
 	}
 
-	items, err := models.ListFileSystem(int(limit), req.Username, marker, req.FsName)
+	items, err := models.ListFileSystem(database.DB, int(limit), req.Username, marker, req.FsName)
 	if err != nil {
 		ctx.Logging().Errorf("list file systems err[%v]", err)
 		ctx.ErrorCode = common.FileSystemDataBaseError
@@ -197,7 +196,7 @@ func (s *FileSystemService) CreateFileSystemClaims(ctx *logger.RequestContext, r
 	if len(req.Namespaces) == 0 || len(req.FsIDs) == 0 {
 		return nil
 	}
-	fsModel, err := models.GetFsWithIDs(req.FsIDs)
+	fsModel, err := models.GetFsWithIDs(database.DB, req.FsIDs)
 	if err != nil {
 		ctx.Logging().Errorf("get fs modelss failed: %v", err)
 		ctx.ErrorCode = common.FileSystemDataBaseError

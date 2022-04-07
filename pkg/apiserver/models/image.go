@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,8 +21,6 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
-
-	"paddleflow/pkg/common/database"
 )
 
 type Image struct {
@@ -41,9 +39,9 @@ func (Image) TableName() string {
 	return "image"
 }
 
-func CreateImage(logEntry *log.Entry, image *Image) error {
+func CreateImage(db *gorm.DB, logEntry *log.Entry, image *Image) error {
 	logEntry.Debugf("begin create image.")
-	tx := database.DB.Model(&Image{}).Create(image)
+	tx := db.Model(&Image{}).Create(image)
 	if tx.Error != nil {
 		logEntry.Errorf("create image failed. ID:%s, error:%s",
 			image.ID, tx.Error.Error())
@@ -52,10 +50,10 @@ func CreateImage(logEntry *log.Entry, image *Image) error {
 	return nil
 }
 
-func ListImageIDsByFsID(logEntry *log.Entry, fsID string) ([]string, error) {
+func ListImageIDsByFsID(db *gorm.DB, logEntry *log.Entry, fsID string) ([]string, error) {
 	logEntry.Debugf("begin list image by fs[%s].", fsID)
 	var imageIDs []string
-	tx := database.DB.Model(&Image{}).Select("image_id").Where("fs_id = ?", fsID).Find(&imageIDs)
+	tx := db.Model(&Image{}).Select("image_id").Where("fs_id = ?", fsID).Find(&imageIDs)
 	if tx.Error != nil {
 		logEntry.Errorf("list imageIDs by fs[%s] failed. error:%s",
 			fsID, tx.Error.Error())
@@ -64,10 +62,10 @@ func ListImageIDsByFsID(logEntry *log.Entry, fsID string) ([]string, error) {
 	return imageIDs, nil
 }
 
-func GetImage(logEntry *log.Entry, PFImageID string) (Image, error) {
+func GetImage(db *gorm.DB, logEntry *log.Entry, PFImageID string) (Image, error) {
 	logEntry.Debugf("begin GetImage")
 	var image Image
-	tx := database.DB.Model(&Image{}).Where("id = ?", PFImageID).Find(&image)
+	tx := db.Model(&Image{}).Where("id = ?", PFImageID).Find(&image)
 	if tx.Error != nil {
 		logEntry.Errorf("GetImage[%s] failed. error:%s",
 			PFImageID, tx.Error.Error())
@@ -76,10 +74,10 @@ func GetImage(logEntry *log.Entry, PFImageID string) (Image, error) {
 	return image, nil
 }
 
-func GetUrlByPFImageID(logEntry *log.Entry, PFImageID string) (string, error) {
+func GetUrlByPFImageID(db *gorm.DB, logEntry *log.Entry, PFImageID string) (string, error) {
 	logEntry.Debugf("begin GetUrlByPFImageID[%s].", PFImageID)
 	var url string
-	tx := database.DB.Model(&Image{}).Select("url").Where("id =", PFImageID).Find(&url)
+	tx := db.Model(&Image{}).Select("url").Where("id =", PFImageID).Find(&url)
 	if tx.Error != nil {
 		logEntry.Errorf("GetUrlByPFImageID[%s] failed. error:%s",
 			PFImageID, tx.Error.Error())
@@ -88,9 +86,9 @@ func GetUrlByPFImageID(logEntry *log.Entry, PFImageID string) (string, error) {
 	return url, nil
 }
 
-func UpdateImage(logEntry *log.Entry, PFImageID string, image Image) error {
+func UpdateImage(db *gorm.DB, logEntry *log.Entry, PFImageID string, image Image) error {
 	logEntry.Debugf("begin UpdateImage[%s]", PFImageID)
-	tx := database.DB.Model(&Image{}).Where("id = ?", PFImageID).Updates(image)
+	tx := db.Model(&Image{}).Where("id = ?", PFImageID).Updates(image)
 	if tx.Error != nil {
 		logEntry.Errorf("UpdateImage[%s] failed. error:%s",
 			PFImageID, tx.Error.Error())

@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ import (
 
 	"paddleflow/pkg/apiserver/common"
 	"paddleflow/pkg/apiserver/models"
+	"paddleflow/pkg/common/database"
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/common/schema"
 	"paddleflow/pkg/job/runtime"
@@ -42,7 +43,7 @@ type GetRunLogResponse struct {
 }
 
 func GetRunLog(ctx *logger.RequestContext, runID string, request GetRunLogRequest) (*GetRunLogResponse, error) {
-	run, err := models.GetRunByID(ctx.Logging(), runID)
+	run, err := models.GetRunByID(database.DB, ctx.Logging(), runID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			ctx.ErrorCode = common.RunNotFound
@@ -104,7 +105,7 @@ func GetRunLog(ctx *logger.RequestContext, runID string, request GetRunLogReques
 }
 
 func getJobListByRunID(ctx *logger.RequestContext, runID string, jobID string) ([]models.Job, error) {
-	jobList, err := models.GetJobsByRunID(ctx, runID, jobID)
+	jobList, err := models.GetJobsByRunID(database.DB, ctx, runID, jobID)
 	if err != nil {
 		return nil, err
 	}
@@ -112,11 +113,11 @@ func getJobListByRunID(ctx *logger.RequestContext, runID string, jobID string) (
 }
 
 func getClusterQueueByQueueID(ctx *logger.RequestContext, queueID string) (*models.ClusterInfo, *models.Queue, error) {
-	queue, err := models.GetQueueByID(ctx, queueID)
+	queue, err := models.GetQueueByID(database.DB, ctx, queueID)
 	if err != nil {
 		return nil, nil, err
 	}
-	clusterInfo, err := models.GetClusterById(ctx, queue.ClusterId)
+	clusterInfo, err := models.GetClusterById(database.DB, ctx, queue.ClusterId)
 	if err != nil {
 		return nil, nil, err
 	}

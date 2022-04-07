@@ -27,7 +27,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
+
 	"paddleflow/pkg/apiserver/models"
+	"paddleflow/pkg/common/database"
 	"paddleflow/pkg/common/k8s"
 	queueschema "paddleflow/pkg/common/schema"
 )
@@ -112,7 +114,7 @@ func (qs *QueueSync) processWorkItem() bool {
 	defer qs.jobQueue.Done(queueSyncInfo)
 
 	// update queue status to unavailable
-	err := models.UpdateQueueStatus(queueSyncInfo.Name, queueSyncInfo.Status)
+	err := models.UpdateQueueStatus(database.DB, queueSyncInfo.Name, queueSyncInfo.Status)
 	if err != nil {
 		log.Errorf("queueInformer update queue status failed. queueName:[%s] error:[%s]", queueSyncInfo.Name, err.Error())
 		if queueSyncInfo.RetryTimes < DefaultSyncRetryTimes {

@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@ import (
 	"paddleflow/pkg/apiserver/common"
 	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/common/config"
+	"paddleflow/pkg/common/database"
 	"paddleflow/pkg/common/logger"
 	fuse "paddleflow/pkg/fs/client/fs"
 	fsCommon "paddleflow/pkg/fs/common"
@@ -103,7 +104,7 @@ func (s *LinkService) CreateLink(ctx *logger.RequestContext, req *CreateLinkRequ
 		UserName:      req.Username,
 	}
 
-	err := models.CreateLink(&link)
+	err := models.CreateLink(database.DB, &link)
 	if err != nil {
 		ctx.Logging().Errorf("create link[%v] in db failed: %v", link, err)
 		ctx.ErrorCode = common.LinkModelError
@@ -114,7 +115,7 @@ func (s *LinkService) CreateLink(ctx *logger.RequestContext, req *CreateLinkRequ
 
 // DeleteLink the function which performs the operation of delete file system link
 func (s *LinkService) DeleteLink(ctx *logger.RequestContext, req *DeleteLinkRequest) error {
-	err := models.DeleteLinkWithFsIDAndFsPath(common.ID(req.Username, req.FsName), req.FsPath)
+	err := models.DeleteLinkWithFsIDAndFsPath(database.DB, common.ID(req.Username, req.FsName), req.FsPath)
 	if err != nil {
 		ctx.Logging().Errorf("delete link failed error[%v]", err)
 		ctx.ErrorCode = common.FileSystemDataBaseError
@@ -134,7 +135,7 @@ func (s *LinkService) GetLink(req *GetLinkRequest) ([]models.Link, string, error
 	var items []models.Link
 	var err error
 	if req.FsPath == "" {
-		items, err = models.ListLink(int(limit), marker, req.FsID)
+		items, err = models.ListLink(database.DB, int(limit), marker, req.FsID)
 		if err != nil {
 			log.Errorf("list links models err[%v]", err)
 			return nil, "", err
@@ -143,7 +144,7 @@ func (s *LinkService) GetLink(req *GetLinkRequest) ([]models.Link, string, error
 		if req.Username == common.UserRoot {
 			req.Username = ""
 		}
-		items, err = models.GetLinkWithFsIDFsPathAndUserName(req.FsID, req.FsPath, req.Username)
+		items, err = models.GetLinkWithFsIDFsPathAndUserName(database.DB, req.FsID, req.FsPath, req.Username)
 		if err != nil {
 			log.Errorf("get link models err[%v]", err)
 			return nil, "", err
@@ -167,7 +168,7 @@ func (s *LinkService) PersistLinksMeta(fsID string) error {
 	unlock := s.FsLock(fsID)
 	defer unlock()
 
-	links, err := models.FsNameLinks(fsID)
+	links, err := models.FsNameLinks(database.DB, fsID)
 	if err != nil {
 		log.Errorf("get links err[%v] with fsID[%s]", err, fsID)
 		return err
@@ -206,7 +207,7 @@ func (s *LinkService) PersistLinksMeta(fsID string) error {
 }
 
 func writeLinksMeta(encodedLinksMeta string, fsID string) error {
-	fs, err := models.GetFileSystemWithFsID(fsID)
+	fs, err := models.GetFileSystemWithFsID(database.DB, fsID)
 	if err != nil {
 		log.Errorf("GetFileSystemWithFsID error[%v]", err)
 		return err

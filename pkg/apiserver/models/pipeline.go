@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,13 +18,13 @@ package models
 
 import (
 	"fmt"
-	"paddleflow/pkg/apiserver/common"
-	"paddleflow/pkg/common/database"
-	"paddleflow/pkg/common/logger"
 	"time"
 
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
+
+	"paddleflow/pkg/apiserver/common"
+	"paddleflow/pkg/common/logger"
 )
 
 type Pipeline struct {
@@ -54,9 +54,9 @@ func (p *Pipeline) Decode() error {
 	return nil
 }
 
-func CreatePipeline(logEntry *log.Entry, ppl *Pipeline) (string, error) {
+func CreatePipeline(db *gorm.DB, logEntry *log.Entry, ppl *Pipeline) (string, error) {
 	logEntry.Debugf("begin create pipeline: %+v", ppl)
-	err := withTransaction(database.DB, func(tx *gorm.DB) error {
+	err := withTransaction(db, func(tx *gorm.DB) error {
 		result := tx.Model(&Pipeline{}).Create(ppl)
 		if result.Error != nil {
 			logEntry.Errorf("create pipeline failed. pipeline:%+v, error:%v", ppl, result.Error)
@@ -75,39 +75,39 @@ func CreatePipeline(logEntry *log.Entry, ppl *Pipeline) (string, error) {
 	return ppl.ID, err
 }
 
-func CountPipelineByNameInFs(name, fsID string) (int64, error) {
+func CountPipelineByNameInFs(db *gorm.DB, name, fsID string) (int64, error) {
 	var count int64
-	result := database.DB.Model(&Pipeline{}).Where(&Pipeline{Name: name, FsID: fsID}).Count(&count)
+	result := db.Model(&Pipeline{}).Where(&Pipeline{Name: name, FsID: fsID}).Count(&count)
 	return count, result.Error
 }
 
-func CountPipelineByMd5InFs(md5, fsID string) (int64, error) {
+func CountPipelineByMd5InFs(db *gorm.DB, md5, fsID string) (int64, error) {
 	var count int64
-	result := database.DB.Model(&Pipeline{}).Where(&Pipeline{PipelineMd5: md5, FsID: fsID}).Count(&count)
+	result := db.Model(&Pipeline{}).Where(&Pipeline{PipelineMd5: md5, FsID: fsID}).Count(&count)
 	return count, result.Error
 }
 
-func GetPipelineByMd5AndFs(md5, fsID string) (Pipeline, error) {
+func GetPipelineByMd5AndFs(db *gorm.DB, md5, fsID string) (Pipeline, error) {
 	var ppl Pipeline
-	result := database.DB.Model(&Pipeline{}).Where(&Pipeline{FsID: fsID, PipelineMd5: md5}).Last(&ppl)
+	result := db.Model(&Pipeline{}).Where(&Pipeline{FsID: fsID, PipelineMd5: md5}).Last(&ppl)
 	return ppl, result.Error
 }
 
-func GetPipelineByID(id string) (Pipeline, error) {
+func GetPipelineByID(db *gorm.DB, id string) (Pipeline, error) {
 	var ppl Pipeline
-	result := database.DB.Model(&Pipeline{}).Where(&Pipeline{ID: id}).Last(&ppl)
+	result := db.Model(&Pipeline{}).Where(&Pipeline{ID: id}).Last(&ppl)
 	return ppl, result.Error
 }
 
-func GetPipelineByNameAndFs(fsID, name string) (Pipeline, error) {
+func GetPipelineByNameAndFs(db *gorm.DB, fsID, name string) (Pipeline, error) {
 	var ppl Pipeline
-	result := database.DB.Model(&Pipeline{}).Where(&Pipeline{FsID: fsID, Name: name}).Last(&ppl)
+	result := db.Model(&Pipeline{}).Where(&Pipeline{FsID: fsID, Name: name}).Last(&ppl)
 	return ppl, result.Error
 }
 
-func ListPipeline(pk int64, maxKeys int, userFilter, fsFilter, nameFilter []string) ([]Pipeline, error) {
+func ListPipeline(db *gorm.DB, pk int64, maxKeys int, userFilter, fsFilter, nameFilter []string) ([]Pipeline, error) {
 	logger.Logger().Debugf("begin list run. ")
-	tx := database.DB.Model(&Pipeline{}).Where("pk > ?", pk)
+	tx := db.Model(&Pipeline{}).Where("pk > ?", pk)
 	if len(userFilter) > 0 {
 		tx = tx.Where("user_name IN (?)", userFilter)
 	}
@@ -130,10 +130,10 @@ func ListPipeline(pk int64, maxKeys int, userFilter, fsFilter, nameFilter []stri
 	return pplList, nil
 }
 
-func GetLastPipeline(logEntry *log.Entry) (Pipeline, error) {
+func GetLastPipeline(db *gorm.DB, logEntry *log.Entry) (Pipeline, error) {
 	logEntry.Debugf("get last ppl. ")
 	ppl := Pipeline{}
-	tx := database.DB.Model(&Pipeline{}).Last(&ppl)
+	tx := db.Model(&Pipeline{}).Last(&ppl)
 	if tx.Error != nil {
 		logEntry.Errorf("get last ppl failed. error:%s", tx.Error.Error())
 		return Pipeline{}, tx.Error
@@ -141,7 +141,7 @@ func GetLastPipeline(logEntry *log.Entry) (Pipeline, error) {
 	return ppl, nil
 }
 
-func HardDeletePipeline(logEntry *log.Entry, id string) error {
+func HardDeletePipeline(db *gorm.DB, logEntry *log.Entry, id string) error {
 	logEntry.Debugf("delete ppl: %s", id)
-	return database.DB.Unscoped().Where("id = ?", id).Delete(&Pipeline{}).Error
+	return db.Unscoped().Where("id = ?", id).Delete(&Pipeline{}).Error
 }

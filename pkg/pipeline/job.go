@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"paddleflow/pkg/apiserver/models"
+	"paddleflow/pkg/common/database"
 	"paddleflow/pkg/common/schema"
 	"paddleflow/pkg/job"
 )
@@ -158,7 +159,7 @@ func (pfj *PaddleFlowJob) Check() (schema.JobStatus, error) {
 		err := errors.New(errMsg)
 		return "", err
 	}
-	status, err := models.GetJobStatusByID(pfj.Id)
+	status, err := models.GetJobStatusByID(database.DB, pfj.Id)
 	if err != nil {
 		return "", err
 	}
@@ -180,7 +181,7 @@ func (pfj *PaddleFlowJob) Watch(ch chan WorkflowEvent) error {
 		}
 
 		// 在连续查询job子系统出错的情况下，把错误信息返回给run，但不会停止轮询
-		jobInstance, err := models.GetJobByID(pfj.Id)
+		jobInstance, err := models.GetJobByID(database.DB, pfj.Id)
 		if err != nil {
 			if tryCount < TryMax {
 				tryCount += 1

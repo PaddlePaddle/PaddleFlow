@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -27,7 +27,6 @@ import (
 	"gorm.io/gorm"
 
 	"paddleflow/pkg/apiserver/common"
-	"paddleflow/pkg/common/database"
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/common/schema"
 )
@@ -130,9 +129,9 @@ func (r *Run) decode() error {
 	return nil
 }
 
-func CreateRun(logEntry *log.Entry, run *Run) (string, error) {
+func CreateRun(db *gorm.DB, logEntry *log.Entry, run *Run) (string, error) {
 	logEntry.Debugf("begin create run:%+v", run)
-	err := withTransaction(database.DB, func(tx *gorm.DB) error {
+	err := withTransaction(db, func(tx *gorm.DB) error {
 		result := tx.Model(&Run{}).Create(run)
 		if result.Error != nil {
 			logEntry.Errorf("create run failed. run:%v, error:%s",
@@ -153,9 +152,9 @@ func CreateRun(logEntry *log.Entry, run *Run) (string, error) {
 	return run.ID, err
 }
 
-func UpdateRunStatus(logEntry *log.Entry, runID, status string) error {
+func UpdateRunStatus(db *gorm.DB, logEntry *log.Entry, runID, status string) error {
 	logEntry.Debugf("begin update run status. runID:%s, status:%s", runID, status)
-	tx := database.DB.Model(&Run{}).Where("id = ?", runID).Update("status", status)
+	tx := db.Model(&Run{}).Where("id = ?", runID).Update("status", status)
 	if tx.Error != nil {
 		logEntry.Errorf("update run status failed. runID:%s, error:%s",
 			runID, tx.Error.Error())
@@ -164,9 +163,9 @@ func UpdateRunStatus(logEntry *log.Entry, runID, status string) error {
 	return nil
 }
 
-func UpdateRun(logEntry *log.Entry, runID string, run Run) error {
+func UpdateRun(db *gorm.DB, logEntry *log.Entry, runID string, run Run) error {
 	logEntry.Debugf("begin update run run. runID:%s", runID)
-	tx := database.DB.Model(&Run{}).Where("id = ?", runID).Updates(run)
+	tx := db.Model(&Run{}).Where("id = ?", runID).Updates(run)
 	if tx.Error != nil {
 		logEntry.Errorf("update run failed. runID:%s, error:%s",
 			runID, tx.Error.Error())
@@ -175,9 +174,9 @@ func UpdateRun(logEntry *log.Entry, runID string, run Run) error {
 	return nil
 }
 
-func DeleteRun(logEntry *log.Entry, runID string) error {
+func DeleteRun(db *gorm.DB, logEntry *log.Entry, runID string) error {
 	logEntry.Debugf("begin delete run. runID:%s", runID)
-	tx := database.DB.Model(&Run{}).Unscoped().Where("id = ?", runID).Delete(&Run{})
+	tx := db.Model(&Run{}).Unscoped().Where("id = ?", runID).Delete(&Run{})
 	if tx.Error != nil {
 		logEntry.Errorf("delete run failed. runID:%s, error:%s",
 			runID, tx.Error.Error())
@@ -186,10 +185,10 @@ func DeleteRun(logEntry *log.Entry, runID string) error {
 	return nil
 }
 
-func GetRunByID(logEntry *log.Entry, runID string) (Run, error) {
+func GetRunByID(db *gorm.DB, logEntry *log.Entry, runID string) (Run, error) {
 	logEntry.Debugf("begin get run. runID:%s", runID)
 	var run Run
-	tx := database.DB.Model(&Run{}).Where("id = ?", runID).First(&run)
+	tx := db.Model(&Run{}).Where("id = ?", runID).First(&run)
 	if tx.Error != nil {
 		logEntry.Errorf("get run failed. runID:%s, error:%s",
 			runID, tx.Error.Error())
@@ -201,9 +200,9 @@ func GetRunByID(logEntry *log.Entry, runID string) (Run, error) {
 	return run, nil
 }
 
-func ListRun(logEntry *log.Entry, pk int64, maxKeys int, userFilter, fsFilter, runFilter, nameFilter []string) ([]Run, error) {
+func ListRun(db *gorm.DB, logEntry *log.Entry, pk int64, maxKeys int, userFilter, fsFilter, runFilter, nameFilter []string) ([]Run, error) {
 	logEntry.Debugf("begin list run. ")
-	tx := database.DB.Model(&Run{}).Where("pk > ?", pk)
+	tx := db.Model(&Run{}).Where("pk > ?", pk)
 	if len(userFilter) > 0 {
 		tx = tx.Where("user_name IN (?)", userFilter)
 	}
@@ -234,10 +233,10 @@ func ListRun(logEntry *log.Entry, pk int64, maxKeys int, userFilter, fsFilter, r
 	return runList, nil
 }
 
-func GetLastRun(logEntry *log.Entry) (Run, error) {
+func GetLastRun(db *gorm.DB, logEntry *log.Entry) (Run, error) {
 	logEntry.Debugf("get last run. ")
 	run := Run{}
-	tx := database.DB.Model(&Run{}).Last(&run)
+	tx := db.Model(&Run{}).Last(&run)
 	if tx.Error != nil {
 		logEntry.Errorf("get last run failed. error:%s", tx.Error.Error())
 		return Run{}, tx.Error
@@ -248,10 +247,10 @@ func GetLastRun(logEntry *log.Entry) (Run, error) {
 	return run, nil
 }
 
-func GetRunCount(logEntry *log.Entry) (int64, error) {
+func GetRunCount(db *gorm.DB, logEntry *log.Entry) (int64, error) {
 	logEntry.Debugf("get run count")
 	var count int64
-	tx := database.DB.Model(&Run{}).Count(&count)
+	tx := db.Model(&Run{}).Count(&count)
 	if tx.Error != nil {
 		logEntry.Errorf("get run count failed. error:%s", tx.Error.Error())
 		return 0, tx.Error
@@ -259,10 +258,10 @@ func GetRunCount(logEntry *log.Entry) (int64, error) {
 	return count, nil
 }
 
-func ListRunsByStatus(logEntry *log.Entry, statusList []string) ([]Run, error) {
+func ListRunsByStatus(db *gorm.DB, logEntry *log.Entry, statusList []string) ([]Run, error) {
 	logEntry.Debugf("begin list runs by status [%v]", statusList)
 	runList := make([]Run, 0)
-	tx := database.DB.Model(&Run{}).Where("status IN (?)", statusList).Find(&runList)
+	tx := db.Model(&Run{}).Where("status IN (?)", statusList).Find(&runList)
 	if tx.Error != nil {
 		logEntry.Errorf("list runs by status [%v] failed. error:%s", statusList, tx.Error.Error())
 		return runList, tx.Error

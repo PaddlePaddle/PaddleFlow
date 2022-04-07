@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -25,7 +25,6 @@ import (
 	"gorm.io/gorm"
 
 	"paddleflow/pkg/apiserver/common"
-	"paddleflow/pkg/common/database"
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/common/schema"
 	"paddleflow/pkg/common/uuid"
@@ -76,7 +75,7 @@ func (queue Queue) MarshalJSON() ([]byte, error) {
 	})
 }
 
-func (queue *Queue) AfterFind(*gorm.DB) error {
+func (queue *Queue) AfterFind(db *gorm.DB) error {
 	if queue.RawMinResources != "" {
 		queue.MinResources = schema.ResourceInfo{
 			ScalarResources: make(schema.ScalarResourcesType),
@@ -116,8 +115,8 @@ func (queue *Queue) AfterFind(*gorm.DB) error {
 		// only single query is necessary, function of list query by join table cluster_info
 		log.Debugf("queue[%s] ClusterName is nil", queue.Name)
 		var cluster ClusterInfo
-		db := database.DB.Table("cluster_info").Where("id = ?", queue.ClusterId).Where("deleted_at = '' ")
-		if err := db.First(&cluster).Error; err != nil {
+		query := db.Table("cluster_info").Where("id = ?", queue.ClusterId).Where("deleted_at = '' ")
+		if err := query.First(&cluster).Error; err != nil {
 			log.Errorf("queue[%s] query cluster by clusterId[%s] failed: %v", queue.Name, queue.ClusterId, err)
 			return err
 		}
@@ -163,14 +162,14 @@ func (queue *Queue) BeforeSave(*gorm.DB) error {
 	return nil
 }
 
-func CreateQueue(ctx *logger.RequestContext, queue *Queue) error {
+func CreateQueue(db *gorm.DB, ctx *logger.RequestContext, queue *Queue) error {
 	ctx.Logging().Debugf("begin create queue. queueName: %s", queue.Name)
 
 	if queue.ID != "" {
 		queue.ID = uuid.GenerateID(common.PrefixQueue)
 	}
 
-	tx := database.DB.Table("queue").Create(queue)
+	tx := db.Table("queue").Create(queue)
 	if tx.Error != nil {
 		ctx.Logging().Errorf("create queue failed. queue:%v, error:%s",
 			queue, tx.Error.Error())
@@ -179,13 +178,13 @@ func CreateQueue(ctx *logger.RequestContext, queue *Queue) error {
 	return nil
 }
 
-func UpdateQueueStatus(queueName string, queueStatus string) error {
+func UpdateQueueStatus(db *gorm.DB, queueName string, queueStatus string) error {
 	log.Debugf("update queue status. queueName:[%s] newStatus:[%s]", queueName, queueStatus)
 	if !common.IsValidQueueStatus(queueStatus) {
 		log.Errorf("Invalid queue status. queueName:[%s] queueStatus:[%s]", queueName, queueStatus)
 		return fmt.Errorf("Invalid queue status. queueName:[%s] queueStatus:[%s]\n", queueName, queueStatus)
 	}
-	tx := database.DB.Table("queue").Where("name = ?", queueName).Update("status", strings.ToLower(queueStatus))
+	tx := db.Table("queue").Where("name = ?", queueName).Update("status", strings.ToLower(queueStatus))
 	if tx.Error != nil {
 		log.Errorf("update queue status failed. queueName:[%s], queueStatus:[%s] error:[%s]",
 			queueName, queueStatus, tx.Error.Error())
@@ -194,9 +193,9 @@ func UpdateQueueStatus(queueName string, queueStatus string) error {
 	return nil
 }
 
-func CloseQueue(ctx *logger.RequestContext, queueName string) error {
+func CloseQueue(db *gorm.DB, ctx *logger.RequestContext, queueName string) error {
 	ctx.Logging().Debugf("begin close queue. queueName:%s", queueName)
-	tx := database.DB.Table("queue").Where("name = ?", queueName).Update("status", schema.StatusQueueClosed)
+	tx := db.Table("queue").Where("name = ?", queueName).Update("status", schema.StatusQueueClosed)
 	if tx.Error != nil {
 		ctx.Logging().Errorf("close queue failed. queueName:%s, error:%s",
 			queueName, tx.Error.Error())
@@ -205,9 +204,9 @@ func CloseQueue(ctx *logger.RequestContext, queueName string) error {
 	return nil
 }
 
-func DeleteQueue(ctx *logger.RequestContext, queueName string) error {
+func DeleteQueue(db *gorm.DB, ctx *logger.RequestContext, queueName string) error {
 	ctx.Logging().Debugf("begin delete queue. queueName:%s", queueName)
-	database.DB.Transaction(func(tx *gorm.DB) error {
+	db.Transaction(func(tx *gorm.DB) error {
 		t := tx.Table("queue").Unscoped().Where("name = ?", queueName).Delete(&Queue{})
 		if t.Error != nil {
 			ctx.Logging().Errorf("delete queue failed. queueName:%s, error:%s",
@@ -227,10 +226,10 @@ func DeleteQueue(ctx *logger.RequestContext, queueName string) error {
 	return nil
 }
 
-func IsQueueExist(ctx *logger.RequestContext, queueName string) bool {
+func IsQueueExist(db *gorm.DB, ctx *logger.RequestContext, queueName string) bool {
 	ctx.Logging().Debugf("begin check queue exist. queueName:%s", queueName)
 	var queueCount int64
-	tx := database.DB.Table("queue").Where("name = ?", queueName).Count(&queueCount)
+	tx := db.Table("queue").Where("name = ?", queueName).Count(&queueCount)
 	if tx.Error != nil {
 		ctx.Logging().Errorf("count queue failed. queueName:%s, error:%s",
 			queueName, tx.Error.Error())
@@ -242,11 +241,11 @@ func IsQueueExist(ctx *logger.RequestContext, queueName string) bool {
 	return false
 }
 
-func GetQueueByName(ctx *logger.RequestContext, queueName string) (Queue, error) {
+func GetQueueByName(db *gorm.DB, ctx *logger.RequestContext, queueName string) (Queue, error) {
 	ctx.Logging().Debugf("begin get queue. queueName:%s", queueName)
 
 	var queue Queue
-	tx := database.DB.Table("queue").Where("name = ?", queueName)
+	tx := db.Table("queue").Where("name = ?", queueName)
 	tx = tx.First(&queue)
 	if tx.Error != nil {
 		ctx.Logging().Errorf("get queue failed. queueName:%s, error:%s",
@@ -256,11 +255,11 @@ func GetQueueByName(ctx *logger.RequestContext, queueName string) (Queue, error)
 	return queue, nil
 }
 
-func GetQueueByID(ctx *logger.RequestContext, queueID string) (Queue, error) {
+func GetQueueByID(db *gorm.DB, ctx *logger.RequestContext, queueID string) (Queue, error) {
 	ctx.Logging().Debugf("begin get queue. queueID:%s", queueID)
 
 	var queue Queue
-	tx := database.DB.Table("queue").Where("id = ?", queueID)
+	tx := db.Table("queue").Where("id = ?", queueID)
 	tx = tx.First(&queue)
 	if tx.Error != nil {
 		ctx.Logging().Errorf("get queue failed. queueID:%s, error:%s",
@@ -270,10 +269,10 @@ func GetQueueByID(ctx *logger.RequestContext, queueID string) (Queue, error) {
 	return queue, nil
 }
 
-func ListQueue(ctx *logger.RequestContext, pk int64, maxKeys int, queueName string) ([]Queue, error) {
+func ListQueue(db *gorm.DB, ctx *logger.RequestContext, pk int64, maxKeys int, queueName string) ([]Queue, error) {
 	ctx.Logging().Debugf("begin list queue. ")
 	var tx *gorm.DB
-	tx = database.DB.Table("queue").Select(queueSelectColumn).Joins(queueJoinCluster).Where("queue.pk > ?", pk)
+	tx = db.Table("queue").Select(queueSelectColumn).Joins(queueJoinCluster).Where("queue.pk > ?", pk)
 	if !common.IsRootUser(ctx.UserName) {
 		tx = tx.Joins("join `grant` on `grant`.resource_id = queue.name").Where(
 			"`grant`.user_name = ?", ctx.UserName)
@@ -294,10 +293,10 @@ func ListQueue(ctx *logger.RequestContext, pk int64, maxKeys int, queueName stri
 	return queueList, nil
 }
 
-func GetLastQueue(ctx *logger.RequestContext) (Queue, error) {
+func GetLastQueue(db *gorm.DB, ctx *logger.RequestContext) (Queue, error) {
 	ctx.Logging().Debugf("get last queue.")
 	queue := Queue{}
-	tx := database.DB.Table("queue").Last(&queue)
+	tx := db.Table("queue").Last(&queue)
 	if tx.Error != nil {
 		ctx.Logging().Errorf("get last queue failed. error:%s", tx.Error.Error())
 		return Queue{}, tx.Error
@@ -305,18 +304,16 @@ func GetLastQueue(ctx *logger.RequestContext) (Queue, error) {
 	return queue, nil
 }
 
-func ListQueuesByCluster(clusterID string) []Queue {
-	db := database.DB.Table("queue").Where("cluster_id = ?", clusterID)
-
+func ListQueuesByCluster(db *gorm.DB, clusterID string) []Queue {
 	var queues []Queue
-	err := db.Find(&queues).Error
+	err := db.Table("queue").Where("cluster_id = ?", clusterID).Find(&queues).Error
 	if err != nil {
 		return []Queue{}
 	}
 	return queues
 }
 
-func IsQueueInUse(queueID string) (bool, map[string]schema.JobStatus) {
+func IsQueueInUse(db *gorm.DB, queueID string) (bool, map[string]schema.JobStatus) {
 	queueInUseJobStatus := []schema.JobStatus{
 		schema.StatusJobInit,
 		schema.StatusJobPending,
@@ -324,7 +321,7 @@ func IsQueueInUse(queueID string) (bool, map[string]schema.JobStatus) {
 		schema.StatusJobRunning,
 	}
 	jobsInfo := make(map[string]schema.JobStatus)
-	jobs := ListQueueJob(queueID, queueInUseJobStatus)
+	jobs := ListQueueJob(db, queueID, queueInUseJobStatus)
 	if len(jobs) == 0 {
 		return false, jobsInfo
 	}

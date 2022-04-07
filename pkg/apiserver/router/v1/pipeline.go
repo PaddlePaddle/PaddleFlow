@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -29,6 +29,7 @@ import (
 	"paddleflow/pkg/apiserver/controller/pipeline"
 	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/apiserver/router/util"
+	"paddleflow/pkg/common/database"
 	"paddleflow/pkg/common/logger"
 )
 
@@ -79,7 +80,7 @@ func (pr *PipelineRouter) createPipeline(w http.ResponseWriter, r *http.Request)
 	// check grant
 	if !common.IsRootUser(ctx.UserName) {
 		fsID := common.ID(ctx.UserName, createPplReq.FsName)
-		if !models.HasAccessToResource(&ctx, common.ResourceTypeFs, fsID) {
+		if !models.HasAccessToResource(database.DB, &ctx, common.ResourceTypeFs, fsID) {
 			ctx.ErrorCode = common.AccessDenied
 			err := common.NoAccessError(ctx.UserName, common.ResourceTypeFs, fsID)
 			ctx.Logging().Errorf("access denied creating pipeline. error: %v", err)

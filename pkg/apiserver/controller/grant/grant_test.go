@@ -17,6 +17,7 @@ limitations under the License.
 package grant
 
 import (
+	"paddleflow/pkg/common/database"
 	"testing"
 
 	"github.com/agiledragon/gomonkey/v2"
@@ -24,7 +25,6 @@ import (
 
 	"paddleflow/pkg/apiserver/common"
 	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/common/database/dbinit"
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/common/schema"
 )
@@ -51,7 +51,7 @@ var clusterInfo = models.ClusterInfo{
 }
 
 func TestCreateGrant(t *testing.T) {
-	dbinit.InitMockDB()
+	database.InitMockDB()
 	ctx := &logger.RequestContext{UserName: MockRootUser}
 	// mock queue & cluster
 	assert.Nil(t, models.CreateCluster(ctx, &clusterInfo))
