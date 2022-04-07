@@ -35,6 +35,9 @@ const (
 	CacheAttributeEnable         = "enable"
 	CacheAttributeMaxExpiredTime = "max_expired_time"
 	CacheAttributeFsScope        = "fs_scope"
+
+	FailureStrategyFailFast = "fail_fast"
+	FailureStrategyContinue = "continue"
 )
 
 type Artifacts struct {
@@ -218,7 +221,7 @@ func (wfs *WorkflowSource) validateStepCacheByMap(yamlMap map[string]interface{}
 
 func ParseWorkflowSource(runYaml []byte) (WorkflowSource, error) {
 	wfs := WorkflowSource{
-		FailureOptions: FailureOptions{Strategy: "fail_fast"},
+		FailureOptions: FailureOptions{Strategy: FailureStrategyFailFast},
 	}
 	if err := yaml.Unmarshal(runYaml, &wfs); err != nil {
 		return WorkflowSource{}, err

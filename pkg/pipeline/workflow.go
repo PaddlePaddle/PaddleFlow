@@ -129,18 +129,19 @@ func (bwf *BaseWorkflow) validate() error {
 		return err
 	}
 
+	// 4. 校验PostProcess的设定是否合法
 	if err := bwf.checkPostProcess(); err != nil {
 		bwf.log().Errorf("check post process err: %s", err.Error())
 		return err
 	}
 
-	// 4. 校验通过接口传入的Parameter参数(参数是否存在，以及参数值是否合法),
+	// 5. 校验通过接口传入的Parameter参数(参数是否存在，以及参数值是否合法),
 	if err := bwf.checkParams(); err != nil {
 		bwf.log().Errorf("check run param err:%s", err.Error())
 		return err
 	}
 
-	// 5. steps 中的 parameter artifact env command 是否合法
+	// 6. steps 中的 parameter artifact env command 是否合法
 	if err := bwf.checkSteps(); err != nil {
 		bwf.log().Errorf("check steps err:%s", err.Error())
 		return err
@@ -152,7 +153,23 @@ func (bwf *BaseWorkflow) validate() error {
 		return err
 	}
 
+	// 8. 检查FailureOption
+	if err := bwf.checkFailureOption(); err != nil {
+		bwf.log().Errorf("check failue_option failed. err: %s", err.Error())
+		return err
+	}
 	return nil
+}
+
+func (bwf *BaseWorkflow) checkFailureOption() error {
+	switch bwf.Source.FailureOptions.Strategy {
+	case schema.FailureStrategyFailFast:
+		return nil
+	case schema.FailureStrategyContinue:
+		return nil
+	default:
+		return fmt.Errorf("failure strategy should be [fail_fast] or [continue]")
+	}
 }
 
 // 校验extra字典
