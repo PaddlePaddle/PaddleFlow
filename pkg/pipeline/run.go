@@ -109,12 +109,10 @@ func (wfr *WorkflowRuntime) triggerSteps(steps map[string]*Step, nodeType NodeTy
 			continue
 		}
 
-		fmt.Printf("Start Execute step: %s", st_name)
 		wfr.wf.log().Debugf("Start Execute step: %s", st_name)
 		go st.Execute()
 
 		if wfr.isDepsReady(st, steps) && !st.submitted {
-			fmt.Printf("Step %s has ready to start job", st_name)
 			wfr.wf.log().Debugf("Step %s has ready to start job", st_name)
 			st.update(st.done, true, st.job)
 			st.ready <- true
@@ -401,7 +399,6 @@ func (wfr *WorkflowRuntime) ProcessFailureOptionsWithContinue(step *Step) {
 func (wfr *WorkflowRuntime) ProcessFailureOptionsWithFailFast(step *Step) {
 	// 1. 终止所有运行的 Job
 	// 2. 将所有为调度的 Job 设置为 cancelled 状态
-	fmt.Println("ProcessFailureOptionsWithFailFast")
 	wfr.ctxCancel()
 }
 
@@ -439,7 +436,6 @@ func (wfr *WorkflowRuntime) ProcessFailureOptions(event WorkflowEvent) {
 func (wfr *WorkflowRuntime) isDepsReady(step *Step, steps map[string]*Step) bool {
 	depsReady := true
 	deps := strings.Split(step.info.Deps, ",")
-	fmt.Println("isDepsReady", step.name, deps)
 	for _, ds := range deps {
 		ds = strings.Trim(ds, " ")
 		if len(ds) <= 0 {
