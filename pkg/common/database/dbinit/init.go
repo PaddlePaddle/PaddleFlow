@@ -100,7 +100,7 @@ func InitDatabase(dbConf *config.DatabaseConfig, gormConf *gorm.Config, logLevel
 
 func InitMockDB() {
 	// github.com/mattn/go-sqlite3
-	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{
+	db, err := gorm.Open(sqlite.Open("file::memory:"), &gorm.Config{
 		// print sql
 		Logger: logger.Default.LogMode(logger.Info),
 	})
