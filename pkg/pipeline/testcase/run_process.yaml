@@ -57,9 +57,11 @@ entry_points:
         model: "{{ main.train_model }}"
 post_process:
   mail:
-    command: "echo haha"
-  mail2:
-    command: "echo hahahaha"
+    command: '"echo  {{msg}} | mail -s " title" xiaodu@baidu.com"'
+    parameters:
+      msg: "hahaha"
+      runtime: "{{ PF_RUN_TIME }}"
+
 cache:
   enable: false
   max_expired_time: 400
