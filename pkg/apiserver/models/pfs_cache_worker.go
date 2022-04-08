@@ -21,6 +21,7 @@ type CacheWorker struct {
 	IP             string `json:"ip"`
 	NodeName       string `json:"nodename"`
 	TotalSize      int    `json:"totalSize" gorm:"column:totalsize"`
+	VolumePath     string `json:"volumePath" gorm:"column:volume_path"`
 	AllocatedQuota int    `json:"allocatedQuota" gorm:"column:allocated_quota"`
 }
 
