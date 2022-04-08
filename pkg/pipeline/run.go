@@ -71,7 +71,6 @@ type WorkflowRuntime struct {
 	status           string
 	runtimeView      schema.RuntimeView
 	postProcessView  schema.PostProcessView
-
 }
 
 func NewWorkflowRuntime(wf *Workflow, parallelism int) *WorkflowRuntime {
@@ -85,7 +84,7 @@ func NewWorkflowRuntime(wf *Workflow, parallelism int) *WorkflowRuntime {
 		event:           make(chan WorkflowEvent, parallelism),
 		concurrentJobs:  make(chan struct{}, parallelism),
 		runtimeView:     schema.RuntimeView{},
-		postprocessView: schema.PostProcessView{},
+		postProcessView: schema.PostProcessView{},
 	}
 	return wfr
 }
@@ -103,16 +102,19 @@ func (wfr *WorkflowRuntime) Start() error {
 // 触发step运行
 func (wfr *WorkflowRuntime) triggerSteps(steps map[string]*Step, nodeType NodeType) error {
 	for st_name, st := range steps {
-		st.NodeType = nodeType
+		st.nodeType = nodeType
+
 		if st.done {
 			wfr.wf.log().Debugf("Skip step: %s", st_name)
 			continue
 		}
 
+		fmt.Printf("Start Execute step: %s", st_name)
 		wfr.wf.log().Debugf("Start Execute step: %s", st_name)
 		go st.Execute()
 
 		if wfr.isDepsReady(st, steps) && !st.submitted {
+			fmt.Printf("Step %s has ready to start job", st_name)
 			wfr.wf.log().Debugf("Step %s has ready to start job", st_name)
 			st.update(st.done, true, st.job)
 			st.ready <- true
@@ -123,8 +125,9 @@ func (wfr *WorkflowRuntime) triggerSteps(steps map[string]*Step, nodeType NodeTy
 
 // restartSteps
 // 不能直接复用 triggerSteps 的原因是，重启时需要考虑step 已经 submitted，但是对应的job 还没有运行结束的情况，需要给这些步骤优先占到卡槽
-func (wfr *WorkflowRuntime) restartSteps(steps map[string]*Step) error {
+func (wfr *WorkflowRuntime) restartSteps(steps map[string]*Step, nodeType NodeType) error {
 	for _, step := range steps {
+		step.nodeType = nodeType
 		if step.done {
 			continue
 		}
@@ -134,6 +137,7 @@ func (wfr *WorkflowRuntime) restartSteps(steps map[string]*Step) error {
 	// 如果在服务异常过程中，刚好 step 中的任务已经完成，而新的任务还没有开始，此时会导致调度逻辑永远不会 watch 到新的 event
 	// 不在上面直接判断 step.depsReady 的原因：wfr.steps 是 map，遍历顺序无法确定，必须保证已提交的任务先占到槽位，才能保证并发数控制正确
 	for stepName, step := range steps {
+		step.nodeType = nodeType
 		if step.done || step.submitted {
 			continue
 		}
@@ -159,9 +163,9 @@ func (wfr *WorkflowRuntime) Restart() error {
 	// 3. 如果 entryPoints 和 PostProcess 所有节点均处于终态，则直接更新 run 的状态即可, 并调用回调函数，传给 Server 入库
 	// PS：第3种发生的概率很少，用于兜底
 	if statusToEntrySteps.statFinshedSteps() != len(wfr.entryPoints) {
-		wfr.restartSteps(wfr.entryPoints)
+		wfr.restartSteps(wfr.entryPoints, NodeTypeEntrypoint)
 	} else if statusToPostSteps.statFinshedSteps() != len(wfr.postProcess) {
-		wfr.restartSteps(wfr.postProcess)
+		wfr.restartSteps(wfr.postProcess, NodeTypePostProcess)
 	} else {
 		wfr.updateStatus(statusToEntrySteps, statusToPostSteps)
 
@@ -397,6 +401,7 @@ func (wfr *WorkflowRuntime) ProcessFailureOptionsWithContinue(step *Step) {
 func (wfr *WorkflowRuntime) ProcessFailureOptionsWithFailFast(step *Step) {
 	// 1. 终止所有运行的 Job
 	// 2. 将所有为调度的 Job 设置为 cancelled 状态
+	fmt.Println("ProcessFailureOptionsWithFailFast")
 	wfr.ctxCancel()
 }
 
@@ -418,10 +423,11 @@ func (wfr *WorkflowRuntime) ProcessFailureOptions(event WorkflowEvent) {
 	}
 
 	// FailureOptions 不处理 PostProcess 中的节点
-	if step.NodeType == NodeTypePostProcess {
+	if step.nodeType == NodeTypePostProcess {
 		return
 	}
 
+	wfr.wf.log().Infof("begin to process failure options. trigger event is: %v", event)
 	// 策略的合法性由 workflow 保证
 	if wfr.wf.Source.FailureOptions.Strategy == schema.FailureStrategyContinue {
 		wfr.ProcessFailureOptionsWithContinue(step)
@@ -433,6 +439,7 @@ func (wfr *WorkflowRuntime) ProcessFailureOptions(event WorkflowEvent) {
 func (wfr *WorkflowRuntime) isDepsReady(step *Step, steps map[string]*Step) bool {
 	depsReady := true
 	deps := strings.Split(step.info.Deps, ",")
+	fmt.Println("isDepsReady", step.name, deps)
 	for _, ds := range deps {
 		ds = strings.Trim(ds, " ")
 		if len(ds) <= 0 {
@@ -445,7 +452,6 @@ func (wfr *WorkflowRuntime) isDepsReady(step *Step, steps map[string]*Step) bool
 	}
 	return depsReady
 }
-
 
 // update RuntimeView or PostProcessView
 func (wfr *WorkflowRuntime) updateView(viewType ViewType) {
@@ -477,7 +483,7 @@ func (wfr *WorkflowRuntime) updateView(viewType ViewType) {
 		if viewType == ViewTypeEntrypoint {
 			wfr.runtimeView[name] = jobView
 		} else if viewType == ViewTypePostProcess {
-			wfr.postprocessView[name] = jobView
+			wfr.postProcessView[name] = jobView
 		}
 	}
 }
@@ -493,7 +499,7 @@ func (wfr *WorkflowRuntime) callback(event WorkflowEvent) {
 		common.WfEventKeyRunID:       wfr.wf.RunID,
 		common.WfEventKeyStatus:      wfr.status,
 		common.WfEventKeyRuntime:     wfr.runtimeView,
-		common.WfEventKeyPostProcess: wfr.postprocessView,
+		common.WfEventKeyPostProcess: wfr.postProcessView,
 	}
 
 	message := ""
