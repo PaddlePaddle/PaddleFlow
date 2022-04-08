@@ -41,7 +41,7 @@ type Run struct {
 	FsID           string                 `gorm:"type:varchar(60);not null"         json:"-"`
 	FsName         string                 `gorm:"type:varchar(60);not null"         json:"fsname"`
 	Description    string                 `gorm:"type:text;size:65535;not null"     json:"description"`
-	ParamJson      string                 `gorm:"type:text;size:65535"              json:"-"`
+	ParametersJson string                 `gorm:"type:text;size:65535"              json:"-"`
 	Parameters     map[string]interface{} `gorm:"-"                                 json:"parameters"`
 	RunYaml        string                 `gorm:"type:text;size:65535"              json:"runYaml"`
 	WorkflowSource schema.WorkflowSource  `gorm:"-"                                 json:"-"` // RunYaml's dynamic struct
@@ -87,7 +87,7 @@ func (r *Run) Encode() error {
 			logger.LoggerForRun(r.ID).Errorf("encode run param failed. error:%v", err)
 			return err
 		}
-		r.ParamJson = string(paramRaw)
+		r.ParametersJson = string(paramRaw)
 	}
 	return nil
 }
@@ -106,9 +106,9 @@ func (r *Run) decode() error {
 	}
 
 	// decode param
-	if len(r.ParamJson) > 0 {
+	if len(r.ParametersJson) > 0 {
 		param := map[string]interface{}{}
-		if err := json.Unmarshal([]byte(r.ParamJson), &param); err != nil {
+		if err := json.Unmarshal([]byte(r.ParametersJson), &param); err != nil {
 			logger.LoggerForRun(r.ID).Errorf("decode run param failed. error:%v", err)
 			return err
 		}

@@ -139,6 +139,7 @@ func TestUpdateJob(t *testing.T) {
 	for _, stepName := range sortedSteps {
 		st := wf.runtime.entryPoints[stepName]
 
+
 		st.nodeType = common.NodeTypeEntrypoint
 
 		forCacheFingerprint := false
@@ -242,6 +243,7 @@ func TestUpdateJobWithCache(t *testing.T) {
 	cacheOutputArtifacts["validate_data"] = cacheOutatfValidateData
 	for _, stepName := range sortedSteps {
 		st := wf.runtime.entryPoints[stepName]
+
 
 		st.nodeType = common.NodeTypeEntrypoint
 
@@ -456,6 +458,7 @@ func TestCheckCached(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, true, cacheFound)
 }
+
 
 func TestPFRUNTIME(t *testing.T) {
 	testCase := loadcase("./testcase/runPostProcess.yaml")
