@@ -21,6 +21,7 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -255,27 +256,31 @@ func (j *JobSync) processTaskWorkItem() bool {
 }
 
 func (j *JobSync) syncTaskStatus(taskSyncInfo *TaskSyncInfo) error {
+	name := taskSyncInfo.Name
+	namespace := taskSyncInfo.Namespace
 	_, err := models.GetJobByID(taskSyncInfo.JobID)
 	if err != nil {
-		log.Infof("update task status failed, job %s for task not found", taskSyncInfo.JobID)
+		log.Infof("update task %s/%s status failed, job %s for task not found", namespace, name, taskSyncInfo.JobID)
 		return err
 	}
 
-	taskStatus := &models.JobTaskStatus{
+	// TODO: get role, state, message, logURL from pod resources
+	podStatus := taskSyncInfo.Status.(*v1.PodStatus)
+	taskStatus := &models.JobTask{
 		ID:        taskSyncInfo.ID,
 		JobID:     taskSyncInfo.JobID,
 		Name:      taskSyncInfo.Name,
 		Namespace: taskSyncInfo.Namespace,
-		Status:    taskSyncInfo.Status,
+		PodStatus: podStatus,
 	}
 	if taskSyncInfo.Action == commonschema.Delete {
 		taskStatus.DeletedAt = time.Now()
 	}
-	log.Debugf("update job task status: %v", taskStatus)
+	log.Debugf("update job task %s/%s status: %v", namespace, name, taskStatus)
 	err = models.UpdateTask(taskStatus)
 	if err != nil {
 		log.Errorf("update task %s/%s status in database failed, err %v",
-			taskStatus.Namespace, taskStatus.Name, err)
+			namespace, name, err)
 		return err
 	}
 	return nil
