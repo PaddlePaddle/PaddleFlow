@@ -32,7 +32,7 @@ var ServerConf *config.ServerConfig
 func main() {
 	if err := Main(os.Args); err != nil {
 		fmt.Println(err)
-		os.Exit(22)
+		gracefullyExit(err)
 	}
 }
 
@@ -45,7 +45,7 @@ func Main(args []string) error {
 
 	if err := initConfig(); err != nil {
 		fmt.Println(err)
-		os.Exit(22)
+		gracefullyExit(err)
 	}
 
 	compoundFlags := [][]cli.Flag{
@@ -149,7 +149,7 @@ func setup() {
 	err := logger.InitStandardFileLogger(&ServerConf.Log)
 	if err != nil {
 		log.Errorf("InitStandardFileLogger err: %v", err)
-		os.Exit(22)
+		gracefullyExit(err)
 	}
 
 	log.Infof("The final server config is: %s ", config.PrettyFormat(ServerConf))
@@ -166,21 +166,21 @@ func setup() {
 	}, nil, ServerConf.Log.Level)
 	if err != nil {
 		log.Errorf("init database err: %v", err)
-		os.Exit(22)
+		gracefullyExit(err)
 	}
 
 	if err = newAndStartJobManager(); err != nil {
 		log.Errorf("create pfjob manager failed, err %v", err)
-		os.Exit(22)
+		gracefullyExit(err)
 	}
 
 	if err = config.InitDefaultPV(ServerConf.Fs.DefaultPVPath); err != nil {
 		log.Errorf("InitDefaultPV err %v", err)
-		os.Exit(22)
+		gracefullyExit(err)
 	}
 	if err = config.InitDefaultPVC(ServerConf.Fs.DefaultPVCPath); err != nil {
 		log.Errorf("InitDefaultPVC err %v", err)
-		os.Exit(22)
+		gracefullyExit(err)
 	}
 }
 
@@ -192,4 +192,9 @@ func newAndStartJobManager() error {
 	}
 	go runtimeMgr.Start(models.ActiveClusters, models.ListQueueJob)
 	return nil
+}
+
+func gracefullyExit(err error) {
+	fmt.Println(err)
+	os.Exit(22)
 }
