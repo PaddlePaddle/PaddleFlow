@@ -23,6 +23,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	k8sschema "k8s.io/apimachinery/pkg/runtime/schema"
 
 	"paddleflow/pkg/common/config"
 	"paddleflow/pkg/common/k8s"
@@ -49,7 +50,7 @@ func (j *JobSync) add(obj interface{}) {
 		return
 	}
 	jobStatus := statusInfo.Status
-	log.Infof("add %s job. jobName:[%s] namespace:[%s] jobID:[%s] status:[%s]",
+	log.Infof("add %s job. jobName: %s, namespace: %s, jobID: %s, status: %s",
 		jobType, jobObj.GetName(), jobObj.GetNamespace(), jobID, jobStatus)
 	if jobStatus == "" {
 		jobStatus = schema.StatusJobPending
@@ -72,7 +73,7 @@ func (j *JobSync) update(old, new interface{}) {
 	jobType := k8s.GVKToJobType[newObj.GroupVersionKind()]
 	labels := newObj.GetLabels()
 	jobID := labels[schema.JobIDLabel]
-	log.Infof("update %s job, jobName:[%s], namespace:[%s], jobID:[%s]",
+	log.Infof("update %s job, jobName: %s, namespace: %s, jobID: %s",
 		jobType, newObj.GetName(), newObj.GetNamespace(), jobID)
 
 	// get job status
@@ -87,7 +88,7 @@ func (j *JobSync) update(old, new interface{}) {
 	}
 	if oldObj.GetResourceVersion() == newObj.GetResourceVersion() &&
 		oldStatusInfo.OriginStatus == newStatusInfo.OriginStatus {
-		log.Debugf("skip update spark job. jobID:[%s] resourceVersion:[%s] state:[%s]",
+		log.Debugf("skip update spark job. jobID: %s, resourceVersion: %s, state: %s",
 			newObj.GetName(), newObj.GetResourceVersion(), newStatusInfo.Status)
 		return
 	}
@@ -105,7 +106,7 @@ func (j *JobSync) update(old, new interface{}) {
 		Action:  schema.Update,
 	}
 	j.jobQueue.Add(jobInfo)
-	log.Infof("update %s job enqueue. jobID:[%s] status:[%s] message:[%s]", jobInfo.Type,
+	log.Infof("update %s job enqueue. jobID: %s, status: %s, message: %s", jobInfo.Type,
 		jobInfo.ID, jobInfo.Status, jobInfo.Message)
 }
 
@@ -115,12 +116,12 @@ func (j *JobSync) delete(obj interface{}) {
 	jobType := k8s.GVKToJobType[jobObj.GroupVersionKind()]
 	labels := jobObj.GetLabels()
 	jobID := labels[schema.JobIDLabel]
-	log.Infof("delete %s job. jobName:[%s] namespace:[%s] jobID:[%s]", jobType, jobObj.GetName(), jobObj.GetNamespace(), jobID)
+	log.Infof("delete %s job. jobName: %s, namespace: %s, jobID: %s", jobType, jobObj.GetName(), jobObj.GetNamespace(), jobID)
 	// get job status
 	getStatusFunc := k8s.GVKJobStatusMap[jobObj.GroupVersionKind()]
 	statusInfo, err := getStatusFunc(obj)
 	if err != nil {
-		log.Errorf("get job status failed. jobID:[%s] error:[%s]", jobID, err)
+		log.Errorf("get job status failed, and jobID: %s, error: %s", jobID, err)
 		return
 	}
 	jobInfo := &JobSyncInfo{
@@ -132,17 +133,20 @@ func (j *JobSync) delete(obj interface{}) {
 		Action:  schema.Delete,
 	}
 	j.jobQueue.Add(jobInfo)
-	log.Infof("delete %s job enqueue. jobID:[%s]", jobInfo.Type, jobInfo.ID)
+	log.Infof("delete %s job enqueue, jobID: %s", jobInfo.Type, jobInfo.ID)
 }
 
-func (j *JobSync) isValidWaitingState(s *v1.ContainerStateWaiting) bool {
-	if s != nil && (s.Reason == PodInitializing || s.Reason == ContainerCreating) {
-		return true
-	}
-	return false
+// addPod watch add pod event
+func (j *JobSync) addPod(obj interface{}) {
+	j.updatePodStatus(obj, schema.Create)
 }
 
-// updatePod list-watch pod status
+// deletePod watch delete pod event
+func (j *JobSync) deletePod(obj interface{}) {
+	j.updatePodStatus(obj, schema.Delete)
+}
+
+// updatePod watch update pod event
 func (j *JobSync) updatePod(oldObj, newObj interface{}) {
 	oldPodObj := oldObj.(*unstructured.Unstructured)
 	newPodObj := newObj.(*unstructured.Unstructured)
@@ -157,26 +161,71 @@ func (j *JobSync) updatePod(oldObj, newObj interface{}) {
 		return
 	}
 
+	oldStatus, err := k8s.ConvertToStatus(oldObj, schema.TypePodJob)
+	if err != nil {
+		return
+	}
+	oldPodStatus := oldStatus.(*v1.PodStatus)
+
 	newStatus, err := k8s.ConvertToStatus(newObj, schema.TypePodJob)
 	if err != nil {
 		return
 	}
 	newPodStatus := newStatus.(*v1.PodStatus)
 
-	if newPodStatus.Phase != v1.PodPending {
-		return
+	if oldPodStatus.Phase != newPodStatus.Phase {
+		// update pod status when pod phase is changed
+		j.updatePodStatus(newObj, schema.Update)
+	} else {
+		oldFingerprint := podStatusFingerprint(oldPodStatus)
+		newFingerprint := podStatusFingerprint(newPodStatus)
+		log.Infof("status fingerprint for pod %s/%s, old [%s], new: [%s]", newPodObj.GetNamespace(),
+			newPodObj.GetName(), oldFingerprint, newFingerprint)
+		if oldFingerprint != newFingerprint {
+			j.updatePodStatus(newObj, schema.Update)
+		}
+		if newPodStatus.Phase == v1.PodPending {
+			j.handlePendingPod(newPodStatus, jobName, newPodObj)
+		}
 	}
+}
 
+func podStatusFingerprint(podStatus *v1.PodStatus) string {
+	if podStatus == nil {
+		return ""
+	}
+	fingerprint := string(podStatus.Phase)
+	for _, containerStatus := range podStatus.InitContainerStatuses {
+		if containerStatus.State.Waiting != nil {
+			fingerprint += fmt.Sprintf(";%s:%s:%s", containerStatus.ContainerID, containerStatus.Name, containerStatus.State.Waiting.Reason)
+		}
+	}
+	for _, containerStatus := range podStatus.ContainerStatuses {
+		if containerStatus.State.Waiting != nil {
+			fingerprint += fmt.Sprintf(";%s:%s:%s", containerStatus.ContainerID, containerStatus.Name, containerStatus.State.Waiting.Reason)
+		}
+	}
+	return fingerprint
+}
+
+func (j *JobSync) isValidWaitingState(s *v1.ContainerStateWaiting) bool {
+	if s != nil && (s.Reason == PodInitializing || s.Reason == ContainerCreating) {
+		return true
+	}
+	return false
+}
+
+func (j *JobSync) handlePendingPod(podStatus *v1.PodStatus, jobName string, newPodObj *unstructured.Unstructured) {
 	message := ""
 	isValidWaitingState := false
-	for _, containerStatus := range newPodStatus.InitContainerStatuses {
+	for _, containerStatus := range podStatus.InitContainerStatuses {
 		isValidWaitingState = j.isValidWaitingState(containerStatus.State.Waiting)
 		if containerStatus.State.Waiting != nil {
 			message = fmt.Sprintf("%s:%s", containerStatus.State.Waiting.Reason, containerStatus.State.Waiting.Message)
 			break
 		}
 	}
-	for _, containerStatus := range newPodStatus.ContainerStatuses {
+	for _, containerStatus := range podStatus.ContainerStatuses {
 		isValidWaitingState = j.isValidWaitingState(containerStatus.State.Waiting)
 		if containerStatus.State.Waiting != nil {
 			message = fmt.Sprintf("%s:%s", containerStatus.State.Waiting.Reason, containerStatus.State.Waiting.Message)
@@ -186,7 +235,7 @@ func (j *JobSync) updatePod(oldObj, newObj interface{}) {
 	if message == "" {
 		return
 	}
-	log.Infof("update pod. newPodName:[%s] namespace:[%s] jobName:[%s] message:[%s]",
+	log.Infof("update pod. newPodName: %s, namespace: %s, jobName: %s, message: %s",
 		newPodObj.GetName(), newPodObj.GetNamespace(), jobName, message)
 	jobInfo := &JobSyncInfo{
 		ID:      jobName,
@@ -206,6 +255,47 @@ func (j *JobSync) updatePod(oldObj, newObj interface{}) {
 	if config.GlobalServerConfig.Job.Reclaim.JobPendingTTLSeconds > 0 {
 		terminateDuration = config.GlobalServerConfig.Job.Reclaim.JobPendingTTLSeconds
 	}
-	log.Infof("terminate job. namespace:[%s] jobName:[%s]", newPodObj.GetNamespace(), jobName)
+	log.Infof("terminate job. namespace: %s, jobName: %s", newPodObj.GetNamespace(), jobName)
 	j.jobQueue.AddAfter(terminateJobInfo, time.Duration(terminateDuration)*time.Second)
+}
+
+// updatePodStatus sync status of pod to database
+func (j *JobSync) updatePodStatus(obj interface{}, action schema.ActionType) {
+	podObj := obj.(*unstructured.Unstructured)
+	uid := podObj.GetUID()
+	name := podObj.GetName()
+	namespace := podObj.GetNamespace()
+	ownerReferences := podObj.GetOwnerReferences()
+
+	if len(ownerReferences) == 0 {
+		log.Warnf("pod %s/%s does not has owner references, skip it.", namespace, name)
+		return
+	}
+	ownerReference := ownerReferences[0]
+	gvk := k8sschema.FromAPIVersionAndKind(ownerReference.APIVersion, ownerReference.Kind)
+	_, find := k8s.GVKToJobType[gvk]
+	if !find {
+		// skip
+		log.Debugf("pod %s/%s not belong to distributed job, skip it.", namespace, name)
+		return
+	}
+
+	ownerName := ownerReference.Name
+	log.Debugf("pod %s/%s owner reference type: %s, name: %s", namespace, name, gvk.String(), ownerName)
+	status, err := k8s.ConvertToStatus(obj, schema.TypePodJob)
+	if err != nil {
+		log.Errorf("get status from pod %s/%s failed, err: %v", namespace, name, err)
+		return
+	}
+	taskInfo := &TaskSyncInfo{
+		ID:        string(uid),
+		Name:      name,
+		Namespace: namespace,
+		JobID:     ownerName,
+		Status:    status,
+		Action:    action,
+	}
+	j.taskQueue.Add(taskInfo)
+	log.Infof("%s event for task %s/%s enqueue, job: %s", action, namespace, name, ownerName)
+	log.Debugf("task status: %s", taskInfo.Status)
 }

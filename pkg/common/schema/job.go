@@ -23,7 +23,7 @@ import (
 )
 
 type JobType string
-type ActionOnJob string
+type ActionType string
 type JobStatus string
 type Framework string
 type RoleMember string
@@ -129,9 +129,10 @@ const (
 )
 
 const (
-	Update    ActionOnJob = "update"
-	Delete    ActionOnJob = "delete"
-	Terminate ActionOnJob = "terminate"
+	Create    ActionType = "create"
+	Update    ActionType = "update"
+	Delete    ActionType = "delete"
+	Terminate ActionType = "terminate"
 )
 
 func IsImmutableJobStatus(status JobStatus) bool {

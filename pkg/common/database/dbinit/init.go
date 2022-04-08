@@ -100,7 +100,7 @@ func InitDatabase(dbConf *config.DatabaseConfig, gormConf *gorm.Config, logLevel
 
 func InitMockDB() {
 	// github.com/mattn/go-sqlite3
-	db, err := gorm.Open(sqlite.Open("file::memory:"), &gorm.Config{
+	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{
 		// print sql
 		Logger: logger.Default.LogMode(logger.Info),
 	})
@@ -118,6 +118,8 @@ func InitMockDB() {
 		&models.Flavour{},
 		&models.Grant{},
 		&models.Job{},
+		&models.JobTaskStatus{},
+		&models.JobLabel{},
 		&models.ClusterInfo{},
 	)
 	database.DB = db
@@ -141,6 +143,8 @@ func initSQLiteDB(dbConf *config.DatabaseConfig, gormConf *gorm.Config) *gorm.DB
 		&models.Flavour{},
 		&models.Grant{},
 		&models.Job{},
+		&models.JobTaskStatus{},
+		&models.JobLabel{},
 		&models.ClusterInfo{},
 		&models.Image{},
 		&models.FileSystem{},
