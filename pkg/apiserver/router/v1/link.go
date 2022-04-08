@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"net/http"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi"
@@ -467,12 +466,12 @@ func validateDeleteLink(ctx *logger.RequestContext, req *api.DeleteLinkRequest) 
 func (lr *LinkRouter) GetLink(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
 
-	var maxKeys int
-	if r.URL.Query().Get(util.QueryKeyMaxKeys) == "" {
-		maxKeys = util.DefaultMaxKeys
-	} else {
-		maxKeys, _ = strconv.Atoi(r.URL.Query().Get(util.QueryKeyMaxKeys))
+	maxKeys, err := util.GetQueryMaxKeys(&ctx, r)
+	if err != nil {
+		common.RenderErrWithMessage(w, ctx.RequestID, common.InvalidURI, err.Error())
+		return
 	}
+
 	getRequest := &api.GetLinkRequest{
 		FsID:     chi.URLParam(r, util.QueryFsName),
 		Marker:   r.URL.Query().Get(util.QueryKeyMarker),
@@ -494,14 +493,6 @@ func (lr *LinkRouter) GetLink(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if getRequest.MaxKeys == 0 {
-		getRequest.MaxKeys = DefaultMaxKeys
-	}
-	if getRequest.MaxKeys > MaxAllowKeys {
-		ctx.Logging().Error("too many max keys")
-		common.RenderErrWithMessage(w, ctx.RequestID, common.InvalidFileSystemMaxKeys, fmt.Sprintf("maxKeys limit %d", MaxAllowKeys))
-		return
-	}
 	// trans fsName to real fsID, for user they only use fsName，grpc client may be use fsID
 	getRequest.FsID = common.NameToFsID(getRequest.FsID, getRequest.Username)
 

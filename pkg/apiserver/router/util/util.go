@@ -17,7 +17,6 @@ limitations under the License.
 package util
 
 import (
-	"fmt"
 	"net/http"
 	"strconv"
 
@@ -79,19 +78,15 @@ const (
 )
 
 func GetQueryMaxKeys(ctx *logger.RequestContext, r *http.Request) (int, error) {
-	var maxKeys int
+	maxKeys := DefaultMaxKeys
 	queryMaxKeys := r.URL.Query().Get(QueryKeyMaxKeys)
-	if queryMaxKeys == "" {
-		maxKeys = DefaultMaxKeys
-	} else {
-		mk, err := strconv.Atoi(queryMaxKeys)
-		if err != nil {
-			ctx.Logging().Errorf("query maxKeys[%s] is invalid.", queryMaxKeys)
-			ctx.ErrorMessage = fmt.Sprintf("query maxKeys[%s] is invalid.", queryMaxKeys)
+	if queryMaxKeys != "" {
+		var err error
+		maxKeys, err = strconv.Atoi(queryMaxKeys)
+		if err != nil || maxKeys <= 0 || maxKeys > ListPageMax {
 			ctx.ErrorCode = common.InvalidURI
 			return 0, common.InvalidMaxKeysError(queryMaxKeys)
 		}
-		maxKeys = mk
 	}
 	return maxKeys, nil
 }
