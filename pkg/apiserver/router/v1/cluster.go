@@ -90,7 +90,7 @@ func (cr *ClusterRouter) listCluster(w http.ResponseWriter, r *http.Request) {
 	ctx.Logging().Infof("listCluster marker: %s, maxKeys: %d, clusterNames: %s, clusterStatus: %s",
 		marker, maxKeys, clusterNames, clusterStatus)
 
-	response, err := cluster.ListCluster(&ctx, marker, int64(maxKeys), clusterNameList, clusterStatus)
+	response, err := cluster.ListCluster(&ctx, marker, maxKeys, clusterNameList, clusterStatus)
 	if err != nil {
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, ctx.ErrorMessage)
 		return
