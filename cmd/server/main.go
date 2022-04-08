@@ -70,11 +70,6 @@ func Main(args []string) error {
 }
 
 func act(c *cli.Context) error {
-	fmt.Println("elsie act")
-	if c.Bool("version") {
-		fmt.Println("elsie version true")
-		version.PrintVersionAndExit()
-	}
 	setup()
 	err := start()
 	if err != nil {
