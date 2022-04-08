@@ -59,7 +59,7 @@ func Main(args []string) error {
 	app := &cli.App{
 		Name:                 "PaddleFlow",
 		Usage:                "pipeline/filesystem/job orchestration services for machine learning",
-		Version:              "1.4",
+		Version:              version.InfoStr(),
 		Copyright:            "Apache License 2.0",
 		HideHelpCommand:      true,
 		EnableBashCompletion: true,
@@ -70,7 +70,9 @@ func Main(args []string) error {
 }
 
 func act(c *cli.Context) error {
+	fmt.Println("elsie act")
 	if c.Bool("version") {
+		fmt.Println("elsie version true")
 		version.PrintVersionAndExit()
 	}
 	setup()

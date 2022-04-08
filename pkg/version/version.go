@@ -45,3 +45,11 @@ func Info() []string {
 		fmt.Sprintf("Platform: %s/%s", runtime.GOOS, runtime.GOARCH),
 	}
 }
+
+func InfoStr() string {
+	var str string
+	for _, i := range Info() {
+		str = fmt.Sprintf("%v\n", i)
+	}
+	return str
+}
