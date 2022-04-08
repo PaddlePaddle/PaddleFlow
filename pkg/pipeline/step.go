@@ -42,7 +42,7 @@ type Step struct {
 	firstFingerprint  string
 	secondFingerprint string
 	CacheRunID        string
-	NodeType          NodeType //用于表示step 是在 entryPoints 中定义还是在 post_process 中定义
+	nodeType          NodeType //用于表示step 是在 entryPoints 中定义还是在 post_process 中定义
 }
 
 var NewStep = func(name string, wfr *WorkflowRuntime, info *schema.WorkflowSourceStep, disabled bool) (*Step, error) {
@@ -82,9 +82,8 @@ func (st *Step) generateStepParamSolver(forCacheFingerprint bool) (StepParamSolv
 	SourceSteps := make(map[string]*schema.WorkflowSourceStep)
 	jobs := make(map[string]Job)
 
-
 	var steps map[string]*Step
-	if st.NodeType == NodeTypeEntrypoint {
+	if st.nodeType == NodeTypeEntrypoint {
 		steps = st.wfr.entryPoints
 	} else {
 		steps = st.wfr.postProcess
@@ -362,126 +361,134 @@ func (st *Step) Execute() {
 			st.wfr.IncConcurrentJobs(1)
 			st.Watch()
 		}
-	} else {
+	} else if st.nodeType == NodeTypeEntrypoint {
 		select {
 		case <-st.wfr.ctx.Done():
-			// 当前 PostProcess 的step无论什么情况下都会继续运行， 不会被终止
-			if st.NodeType == NodeTypePostProcess {
-				return
-			}
 			logMsg := fmt.Sprintf("context of step[%s] with runid[%s] has stopped with msg:[%s], no need to execute", st.name, st.wfr.wf.RunID, st.wfr.ctx.Err())
 			st.updateJobStatus(WfEventJobUpdate, schema.StatusJobCancelled, logMsg)
 		case <-st.cancel:
 			logMsg := fmt.Sprintf("step[%s] with runid[%s] has cancelled due to due to receiving cancellation signal, maybe upstream step failed", st.name, st.wfr.wf.RunID)
 			st.updateJobStatus(WfEventJobUpdate, schema.StatusJobCancelled, logMsg)
 		case <-st.ready:
-			logMsg := fmt.Sprintf("start execute step[%s] with runid[%s]", st.name, st.wfr.wf.RunID)
-			st.getLogger().Infof(logMsg)
-
-			if st.disabled {
-				logMsg = fmt.Sprintf("step[%s] with runid[%s] is disabled, skip running", st.name, st.wfr.wf.RunID)
-				st.updateJobStatus(WfEventJobUpdate, schema.StatusJobSkipped, logMsg)
-				return
-			}
-
-			if st.info.Cache.Enable {
-				cachedFound, err := st.checkCached()
-				if err != nil {
-					logMsg = fmt.Sprintf("check cache for step[%s] with runid[%s] failed: [%s]", st.name, st.wfr.wf.RunID, err.Error())
-					st.updateJobStatus(WfEventJobUpdate, schema.StatusJobFailed, logMsg)
-					return
-				}
-
-				if cachedFound {
-					for {
-						jobView, err := st.wfr.wf.callbacks.GetJobCb(st.CacheRunID, st.name)
-						if err != nil {
-							st.updateJobStatus(WfEventJobUpdate, schema.StatusJobFailed, err.Error())
-							break
-						}
-
-						cacheStatus := jobView.Status
-						if cacheStatus == schema.StatusJobFailed || cacheStatus == schema.StatusJobSucceeded {
-							// 通过讲workflow event传回去，就能够在runtime中callback，将job更新后的参数存到数据库中
-							logMsg = fmt.Sprintf("skip job for step[%s] in runid[%s], use cache of runid[%s]", st.name, st.wfr.wf.RunID, st.CacheRunID)
-							st.updateJobStatus(WfEventJobUpdate, cacheStatus, logMsg)
-							return
-						} else if cacheStatus == schema.StatusJobInit || cacheStatus == schema.StatusJobPending || cacheStatus == schema.StatusJobRunning || cacheStatus == schema.StatusJobTerminating {
-							time.Sleep(time.Second * 3)
-						} else {
-							// 如果过往job的状态属于其他状态，如 StatusJobTerminated StatusJobCancelled，则无视该cache，继续运行当前job
-							// 不过按照正常逻辑，不存在处于Cancelled，但是有cache的job，这里单纯用于兜底
-
-							// 命中cachekey的时候，已经将cacheRunID添加了，但是此时不会利用cache记录，所以要删掉该字段
-							st.CacheRunID = ""
-							break
-						}
-					}
-				}
-
-				err = st.logCache()
-				if err != nil {
-					st.updateJobStatus(WfEventJobUpdate, schema.StatusJobFailed, err.Error())
-					return
-				}
-			}
-
-			// 节点运行前，先替换参数（参数替换逻辑与check Cache的参数替换逻辑不一样，多了一步替换output artifact，并利用output artifact参数替换command以及添加到env）
-			forCacheFingerprint := false
-			err := st.updateJob(forCacheFingerprint, nil)
-			if err != nil {
-				logMsg = fmt.Sprintf("update output artifacts value for step[%s] with runid[%s] failed: [%s]", st.name, st.wfr.wf.RunID, err.Error())
-				st.updateJobStatus(WfEventJobUpdate, schema.StatusJobFailed, logMsg)
-				return
-			}
-
-			err = st.job.Validate()
-			if err != nil {
-				logMsg = fmt.Sprintf("validating step[%s] with runid[%s] failed: [%s]", st.name, st.wfr.wf.RunID, err.Error())
-				st.updateJobStatus(WfEventJobUpdate, schema.StatusJobFailed, logMsg)
-				return
-			}
-
-			st.wfr.IncConcurrentJobs(1) // 如果达到并行Job上限，将会Block
-
-			// 有可能在跳出block的时候，run已经结束了，此时直接退出，不发起
-			// 思考：在有节点未处于终态时， run 不应该置为终态
-			if st.wfr.ctx.Err() != nil {
-				// 当前 PostProcess 的step无论什么情况下都会继续运行， 不会被终止
-				if st.NodeType == NodeTypePostProcess {
-					return
-				}
-				st.wfr.DecConcurrentJobs(1)
-				logMsg = fmt.Sprintf("context of step[%s] with runid[%s] has stopped with msg:[%s], no need to execute", st.name, st.wfr.wf.RunID, st.wfr.ctx.Err())
-				st.updateJobStatus(WfEventJobUpdate, schema.StatusJobCancelled, logMsg)
-				return
-			}
-
-			// todo: 正式运行前，需要将更新后的参数更新到数据库中（通过传递workflow event到runtime即可）
-			_, err = st.job.Start()
-			if err != nil {
-				// 异常处理，塞event，不返回error是因为统一通过channel与run沟通
-				// todo：要不要改成WfEventJobUpdate的event？
-				logMsg = fmt.Sprintf("start job for step[%s] with runid[%s] failed: [%s]", st.name, st.wfr.wf.RunID, err.Error())
-				st.updateJobStatus(WfEventJobSubmitErr, schema.StatusJobFailed, logMsg)
-				return
-			}
-			st.getLogger().Debugf("step[%s] of runid[%s]: jobID[%s]", st.name, st.wfr.wf.RunID, st.job.(*PaddleFlowJob).Id)
-
-			st.logInputArtifact()
-			// watch不需要做异常处理，因为在watch函数里面已经做了
-			st.Watch()
+			st.processReady()
 		}
+	} else if st.nodeType == NodeTypePostProcess {
+		// postProcess 中的节点不会被终止
+		select {
+		case <-st.cancel:
+			logMsg := fmt.Sprintf("step[%s] with runid[%s] has cancelled due to due to receiving cancellation signal, maybe upstream step failed", st.name, st.wfr.wf.RunID)
+			st.updateJobStatus(WfEventJobUpdate, schema.StatusJobCancelled, logMsg)
+		case <-st.ready:
+			st.processReady()
+		}
+	} else {
+		logMsg := fmt.Sprintf("inner error: cannot get NodeType of  step[%s] with runid[%s]", st.name, st.wfr.wf.RunID)
+		st.updateJobStatus(WfEventJobUpdate, schema.StatusJobFailed, logMsg)
 	}
 }
 
-func (st *Step) stopJob() {
-	<-st.wfr.ctx.Done()
+func (st *Step) processReady() {
+	logMsg := fmt.Sprintf("start execute step[%s] with runid[%s]", st.name, st.wfr.wf.RunID)
+	st.getLogger().Infof(logMsg)
 
-	// 当前 PostProcess 的step无论什么情况下都会继续运行， 不会被终止
-	if st.NodeType == NodeTypePostProcess {
+	if st.disabled {
+		logMsg = fmt.Sprintf("step[%s] with runid[%s] is disabled, skip running", st.name, st.wfr.wf.RunID)
+		st.updateJobStatus(WfEventJobUpdate, schema.StatusJobSkipped, logMsg)
 		return
 	}
+
+	if st.info.Cache.Enable {
+		cachedFound, err := st.checkCached()
+		if err != nil {
+			logMsg = fmt.Sprintf("check cache for step[%s] with runid[%s] failed: [%s]", st.name, st.wfr.wf.RunID, err.Error())
+			st.updateJobStatus(WfEventJobUpdate, schema.StatusJobFailed, logMsg)
+			return
+		}
+
+		if cachedFound {
+			for {
+				jobView, err := st.wfr.wf.callbacks.GetJobCb(st.CacheRunID, st.name)
+				if err != nil {
+					st.updateJobStatus(WfEventJobUpdate, schema.StatusJobFailed, err.Error())
+					break
+				}
+
+				cacheStatus := jobView.Status
+				if cacheStatus == schema.StatusJobFailed || cacheStatus == schema.StatusJobSucceeded {
+					// 通过讲workflow event传回去，就能够在runtime中callback，将job更新后的参数存到数据库中
+					logMsg = fmt.Sprintf("skip job for step[%s] in runid[%s], use cache of runid[%s]", st.name, st.wfr.wf.RunID, st.CacheRunID)
+					st.updateJobStatus(WfEventJobUpdate, cacheStatus, logMsg)
+					return
+				} else if cacheStatus == schema.StatusJobInit || cacheStatus == schema.StatusJobPending || cacheStatus == schema.StatusJobRunning || cacheStatus == schema.StatusJobTerminating {
+					time.Sleep(time.Second * 3)
+				} else {
+					// 如果过往job的状态属于其他状态，如 StatusJobTerminated StatusJobCancelled，则无视该cache，继续运行当前job
+					// 不过按照正常逻辑，不存在处于Cancelled，但是有cache的job，这里单纯用于兜底
+
+					// 命中cachekey的时候，已经将cacheRunID添加了，但是此时不会利用cache记录，所以要删掉该字段
+					st.CacheRunID = ""
+					break
+				}
+			}
+		}
+
+		err = st.logCache()
+		if err != nil {
+			st.updateJobStatus(WfEventJobUpdate, schema.StatusJobFailed, err.Error())
+			return
+		}
+	}
+
+	// 节点运行前，先替换参数（参数替换逻辑与check Cache的参数替换逻辑不一样，多了一步替换output artifact，并利用output artifact参数替换command以及添加到env）
+	forCacheFingerprint := false
+	err := st.updateJob(forCacheFingerprint, nil)
+	if err != nil {
+		logMsg = fmt.Sprintf("update output artifacts value for step[%s] with runid[%s] failed: [%s]", st.name, st.wfr.wf.RunID, err.Error())
+		st.updateJobStatus(WfEventJobUpdate, schema.StatusJobFailed, logMsg)
+		return
+	}
+
+	err = st.job.Validate()
+	if err != nil {
+		logMsg = fmt.Sprintf("validating step[%s] with runid[%s] failed: [%s]", st.name, st.wfr.wf.RunID, err.Error())
+		st.updateJobStatus(WfEventJobUpdate, schema.StatusJobFailed, logMsg)
+		return
+	}
+
+	st.wfr.IncConcurrentJobs(1) // 如果达到并行Job上限，将会Block
+
+	// 有可能在跳出block的时候，run已经结束了，此时直接退出，不发起
+	// 当前 PostProcess 的step无论什么情况下都会继续运行， 不会被终止
+	if st.nodeType != NodeTypePostProcess && st.wfr.ctx.Err() != nil {
+		st.wfr.DecConcurrentJobs(1)
+		logMsg = fmt.Sprintf("context of step[%s] with runid[%s] has stopped with msg:[%s], no need to execute", st.name, st.wfr.wf.RunID, st.wfr.ctx.Err())
+		st.updateJobStatus(WfEventJobUpdate, schema.StatusJobCancelled, logMsg)
+		return
+	}
+
+	// todo: 正式运行前，需要将更新后的参数更新到数据库中（通过传递workflow event到runtime即可）
+	_, err = st.job.Start()
+	if err != nil {
+		// 异常处理，塞event，不返回error是因为统一通过channel与run沟通
+		// todo：要不要改成WfEventJobUpdate的event？
+		logMsg = fmt.Sprintf("start job for step[%s] with runid[%s] failed: [%s]", st.name, st.wfr.wf.RunID, err.Error())
+		st.updateJobStatus(WfEventJobSubmitErr, schema.StatusJobFailed, logMsg)
+		return
+	}
+	st.getLogger().Debugf("step[%s] of runid[%s]: jobID[%s]", st.name, st.wfr.wf.RunID, st.job.(*PaddleFlowJob).Id)
+
+	st.logInputArtifact()
+	// watch不需要做异常处理，因为在watch函数里面已经做了
+	st.Watch()
+}
+
+func (st *Step) stopJob() {
+	// 当前 PostProcess 的step无论什么情况下都会继续运行， 不会被终止
+	if st.nodeType == NodeTypePostProcess {
+		return
+	}
+
+	<-st.wfr.ctx.Done()
 
 	logMsg := fmt.Sprintf("context of job[%s] step[%s] with runid[%s] has stopped in step watch, with msg:[%s]", st.job.(*PaddleFlowJob).Id, st.name, st.wfr.wf.RunID, st.wfr.ctx.Err())
 	st.getLogger().Infof(logMsg)

@@ -38,6 +38,9 @@ const (
 	noAtfYamlPath         string = "./testcase/runNoAtf.yaml"
 	runWrongParamYamlPath string = "./testcase/runWrongParam.yaml"
 	runCircleYamlPath     string = "./testcase/runCircle.yaml"
+
+	runTwoPostPath     string = "./testcase/runTwoPost.yaml"
+	runPostProcessPath string = "./testcase/runPostProcess.yaml"
 )
 
 var mockCbs = WorkflowCallbacks{
@@ -110,7 +113,7 @@ func TestNewBaseWorkflowWithCircle(t *testing.T) {
 	assert.NotNil(t, err)
 }
 
-// 测试带环流程
+// 测试无环流程
 func TestTopologicalSort_noCircle(t *testing.T) {
 	testCase := loadcase(runYamlPath)
 	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
@@ -281,7 +284,6 @@ func TestStopWorkflowRun(t *testing.T) {
 	defer patch5.Reset()
 
 	time.Sleep(time.Millisecond * 10)
-
 
 	wf.runtime.entryPoints["data_preprocess"].done = true
 	wf.runtime.entryPoints["main"].done = true
@@ -767,7 +769,6 @@ func TestRestartWorkflow(t *testing.T) {
 	}
 	postProcessView := map[string]schema.JobView{}
 
-
 	err = wf.SetWorkflowRuntime(runtimeView, postProcessView)
 
 	assert.Nil(t, err)
@@ -813,4 +814,25 @@ func TestRestartWorkflow_from1completed(t *testing.T) {
 	assert.Equal(t, false, wf.runtime.entryPoints["main"].submitted)
 	assert.Equal(t, false, wf.runtime.entryPoints["validate"].done)
 	assert.Equal(t, false, wf.runtime.entryPoints["validate"].submitted)
+}
+
+func TestCheckPostProcess(t *testing.T) {
+	testCase := loadcase(runTwoPostPath)
+	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
+	assert.Nil(t, err)
+
+	extra := GetExtra()
+	bwf := NewBaseWorkflow(wfs, "", "", nil, extra)
+	err = bwf.validate()
+	assert.NotNil(t, err)
+	assert.Equal(t, "post_process can only has 1 step at most", err.Error())
+
+	testCase = loadcase(runPostProcessPath)
+	wfs, err = schema.ParseWorkflowSource([]byte(testCase))
+	assert.Nil(t, err)
+
+	extra = GetExtra()
+	bwf = NewBaseWorkflow(wfs, "", "", nil, extra)
+	err = bwf.validate()
+	assert.Nil(t, err)
 }
