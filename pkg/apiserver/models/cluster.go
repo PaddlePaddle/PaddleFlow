@@ -109,7 +109,7 @@ func CreateCluster(ctx *logger.RequestContext, clusterInfo *ClusterInfo) error {
 	return nil
 }
 
-func ListCluster(ctx *logger.RequestContext, pk, maxKeys int64,
+func ListCluster(ctx *logger.RequestContext, pk int64, maxKeys int,
 	clusterNameList []string, clusterStatus string) ([]ClusterInfo, error) {
 	ctx.Logging().Debugf("list cluster, pk: %d, maxKeys: %d", pk, maxKeys)
 
@@ -123,7 +123,7 @@ func ListCluster(ctx *logger.RequestContext, pk, maxKeys int64,
 		query = query.Where(" status = ?", clusterStatus)
 	}
 	if maxKeys > 0 {
-		query = query.Limit(int(maxKeys))
+		query = query.Limit(maxKeys)
 	}
 
 	err := query.Find(&clusterList).Error
