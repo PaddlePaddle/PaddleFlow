@@ -298,7 +298,7 @@ func IsLastClusterPk(ctx *logger.RequestContext, pk int64) bool {
 	return false
 }
 
-func ListCluster(ctx *logger.RequestContext, marker string, maxKeys int64,
+func ListCluster(ctx *logger.RequestContext, marker string, maxKeys int,
 	clusterNameList []string, clusterStatus string) (*ListClusterResponse, error) {
 	ctx.Logging().Debug("begin list cluster.")
 	response := ListClusterResponse{}

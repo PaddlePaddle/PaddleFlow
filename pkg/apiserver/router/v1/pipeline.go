@@ -17,9 +17,7 @@ limitations under the License.
 package v1
 
 import (
-	"fmt"
 	"net/http"
-	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi"
@@ -141,20 +139,13 @@ func (pr *PipelineRouter) getPipeline(w http.ResponseWriter, r *http.Request) {
 // @Router /pipeline [GET]
 func (pr *PipelineRouter) listPipeline(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
-	maxKeys := util.DefaultMaxKeys
 	marker := r.URL.Query().Get(util.QueryKeyMarker)
-	limitCustom := r.URL.Query().Get(util.QueryKeyMaxKeys)
-	if limitCustom != "" {
-		var err error
-		maxKeys, err = strconv.Atoi(limitCustom)
-		if err != nil || maxKeys <= 0 || maxKeys > util.ListPageMax {
-			err := fmt.Errorf("invalid query pageLimit[%s]. should be an integer between 1~1000",
-				limitCustom)
-			ctx.ErrorCode = common.InvalidURI
-			common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
-			return
-		}
+	maxKeys, err := util.GetQueryMaxKeys(&ctx, r)
+	if err != nil {
+		common.RenderErrWithMessage(w, ctx.RequestID, common.InvalidURI, err.Error())
+		return
 	}
+
 	userNames, fsNames, pipelineNames := r.URL.Query().Get(util.QueryKeyUserFilter), r.URL.Query().Get(util.QueryKeyFsFilter), r.URL.Query().Get(util.QueryKeyNameFilter)
 	userFilter, fsFilter, nameFilter := make([]string, 0), make([]string, 0), make([]string, 0)
 	if userNames != "" {
