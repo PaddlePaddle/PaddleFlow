@@ -64,6 +64,7 @@ func NewBaseWorkflow(wfSource schema.WorkflowSource, runID, entry string, params
 		}
 	}
 
+	bwf.postProcess = map[string]*schema.WorkflowSourceStep{}
 	for name, processPoint := range bwf.Source.PostProcess {
 		if processPoint.DockerEnv == "" {
 			processPoint.DockerEnv = bwf.Source.DockerEnv
@@ -577,7 +578,6 @@ func (wf *Workflow) validateRuntimeSteps(runtimeSteps map[string]*Step, steps ma
 		if err != nil {
 			return err
 		}
-
 
 		stepInfo := steps[stepName]
 		runtimeSteps[stepName], err = NewStep(stepName, wf.runtime, stepInfo, disabled)

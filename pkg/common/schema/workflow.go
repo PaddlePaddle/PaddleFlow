@@ -130,7 +130,9 @@ func (wfs *WorkflowSource) IsDisabled(stepName string) (bool, error) {
 }
 
 func (wfs *WorkflowSource) HasStep(step string) bool {
-	_, ok := wfs.EntryPoints[step]
+	_, ok1 := wfs.EntryPoints[step]
+	_, ok2 := wfs.PostProcess[step]
+	ok := ok1 || ok2
 	if ok {
 		return true
 	} else {

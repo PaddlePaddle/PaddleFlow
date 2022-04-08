@@ -832,7 +832,6 @@ func TestCheckPostProcess(t *testing.T) {
 	assert.Nil(t, err)
 
 	extra = GetExtra()
-	bwf = NewBaseWorkflow(wfs, "", "", nil, extra)
-	err = bwf.validate()
+	_, err = NewWorkflow(wfs, "", "", nil, extra, mockCbs)
 	assert.Nil(t, err)
 }
