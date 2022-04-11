@@ -119,6 +119,7 @@ func InitMockDB() {
 		&models.Grant{},
 		&models.Job{},
 		&models.ClusterInfo{},
+		&models.RunJob{},
 	)
 	database.DB = db
 }
