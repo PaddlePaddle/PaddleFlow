@@ -553,10 +553,9 @@ func (st *Step) Watch() {
 				if extra["status"] == schema.StatusJobSucceeded {
 					st.logOutputArtifact()
 				}
+				event.Extra["step"] = st
 			}
-			event.Extra["step"] = st
 		}
-
 		st.wfr.event <- event
 		if st.done {
 			return
