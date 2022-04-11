@@ -52,6 +52,7 @@ func (pr *PFSRouter) AddRouter(r chi.Router) {
 	r.Get("/fs/{fsName}", pr.GetFileSystem)
 	r.Delete("/fs/{fsName}", pr.DeleteFileSystem)
 	r.Post("/fs/claims", pr.CreateFileSystemClaims)
+	r.Post("/fs/cache", pr.CreateFileSystemCache)
 }
 
 var URLPrefix = map[string]bool{
@@ -664,5 +665,51 @@ func validateCreateFileSystemClaims(ctx *logger.RequestContext, req *api.CreateF
 		ctx.ErrorCode = common.NamespaceNotFound
 		return common.InvalidField("namespaces", fmt.Sprintf("namespaces %v not found", notExistNamespaces))
 	}
+	return nil
+}
+
+// CreateFileSystemCache the function that handle the create file system cache request
+// @Summary CreateFileSystemCache
+// @Description
+// @tag fs
+// @Accept   json
+// @Produce  json
+// @Param request body request.CreateFileSystemCacheRequest true "request body"
+// @Success 200 {object} response.CreateFileSystemCacheResponse
+// @Failure 400 {object} common.ErrorResponse
+// @Failure 404 {object} common.ErrorResponse
+// @Failure 500 {object} common.ErrorResponse
+// @Router /api/paddleflow/v1/fs/cache [post]
+func (pr *PFSRouter) CreateFileSystemCache(w http.ResponseWriter, r *http.Request) {
+	ctx := common.GetRequestContext(r)
+	var createRequest api.CreateFileSystemCache
+	err := common.BindJSON(r, &createRequest)
+	if err != nil {
+		ctx.Logging().Errorf("CreateFileSystemCache bindjson failed. err:%s", err.Error())
+		common.RenderErr(w, ctx.RequestID, common.MalformedJSON)
+		return
+	}
+	ctx.Logging().Debugf("create file system cache with req[%v]", createRequest)
+
+	fileSystemService := api.GetFileSystemService()
+
+	err = validateCreateFileSystemCache(&ctx, &createRequest)
+	if err != nil {
+		ctx.Logging().Errorf("validateDeleteFs error[%v]", err)
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+
+	err = fileSystemService.CreateFileSystemCache(&ctx, &createRequest)
+	if err != nil {
+		ctx.Logging().Errorf("create file system cache with service error[%v]", err)
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+
+	common.RenderStatus(w, http.StatusOK)
+}
+
+func validateCreateFileSystemCache(ctx *logger.RequestContext, req *api.CreateFileSystemCache) error {
 	return nil
 }

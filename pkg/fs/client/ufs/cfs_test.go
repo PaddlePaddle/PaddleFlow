@@ -25,7 +25,7 @@ import (
 )
 
 func TestCFS(t *testing.T) {
-	os.MkdirAll("./mock",0755)
+	os.MkdirAll("./mock", 0755)
 	fs := &cfsFileSystem{
 		localPath: "./mock",
 	}
