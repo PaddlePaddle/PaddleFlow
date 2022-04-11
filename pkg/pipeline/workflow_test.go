@@ -816,7 +816,7 @@ func TestRestartWorkflow_from1completed(t *testing.T) {
 }
 
 func TestCheckPostProcess(t *testing.T) {
-	db_fake.InitFakeDB()
+	dbinit.InitMockDB()
 	testCase := loadcase(runTwoPostPath)
 	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
