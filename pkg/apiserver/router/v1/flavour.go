@@ -66,21 +66,14 @@ func (fr *FlavourRouter) AddRouter(r chi.Router) {
 // @Router /flavour [GET]
 func (fr *FlavourRouter) listFlavour(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
-	maxKeys := util.DefaultMaxKeys
 	marker := r.URL.Query().Get(util.QueryKeyMarker)
-	limitCustom := r.URL.Query().Get(util.QueryKeyMaxKeys)
 	clusterName := r.URL.Query().Get(util.ParamKeyClusterName)
 	queryKey := r.URL.Query().Get(util.QueryKeyName)
-	if limitCustom != "" {
-		var err error
-		maxKeys, err = strconv.Atoi(limitCustom)
-		if err != nil || maxKeys <= 0 || maxKeys > util.ListPageMax {
-			err := fmt.Errorf("invalid query pageLimit[%s]. should be an integer between 1~1000",
-				limitCustom)
-			ctx.ErrorCode = common.InvalidURI
-			common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
-			return
-		}
+
+	maxKeys, err := util.GetQueryMaxKeys(&ctx, r)
+	if err != nil {
+		common.RenderErrWithMessage(w, ctx.RequestID, common.InvalidURI, err.Error())
+		return
 	}
 
 	logger.LoggerForRequest(&ctx).Debugf(

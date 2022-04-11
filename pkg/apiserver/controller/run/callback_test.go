@@ -26,7 +26,7 @@ import (
 
 	"paddleflow/pkg/apiserver/common"
 	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/common/database/db_fake"
+	"paddleflow/pkg/common/database/dbinit"
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/common/schema"
 )
@@ -56,7 +56,7 @@ func loadCase(casePath string) []byte {
 }
 
 func TestGetJobByRun(t *testing.T) {
-	db_fake.InitFakeDB()
+	dbinit.InitMockDB()
 	ctx := &logger.RequestContext{UserName: MockRootUser}
 	run := getMockRunWithRuntime()
 	runID, err := models.CreateRun(ctx.Logging(), &run)

@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
-	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi"
@@ -371,11 +370,10 @@ func checkFsDir(fsType, url string, properties map[string]string) error {
 func (pr *PFSRouter) ListFileSystem(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
 
-	var maxKeys int
-	if r.URL.Query().Get(util.QueryKeyMaxKeys) == "" {
-		maxKeys = util.DefaultMaxKeys
-	} else {
-		maxKeys, _ = strconv.Atoi(r.URL.Query().Get(util.QueryKeyMaxKeys))
+	maxKeys, err := util.GetQueryMaxKeys(&ctx, r)
+	if err != nil {
+		common.RenderErrWithMessage(w, ctx.RequestID, common.InvalidURI, err.Error())
+		return
 	}
 	listRequest := &api.ListFileSystemRequest{
 		FsName:   r.URL.Query().Get(util.QueryFsName),
@@ -396,15 +394,6 @@ func (pr *PFSRouter) ListFileSystem(w http.ResponseWriter, r *http.Request) {
 	if listRequest.Username == "" {
 		ctx.Logging().Error("userName is empty")
 		common.RenderErrWithMessage(w, ctx.RequestID, common.AuthFailed, "userName is empty")
-		return
-	}
-
-	if listRequest.MaxKeys == 0 {
-		listRequest.MaxKeys = DefaultMaxKeys
-	}
-	if listRequest.MaxKeys > MaxAllowKeys {
-		ctx.Logging().Error("too many max keys")
-		common.RenderErrWithMessage(w, ctx.RequestID, common.InvalidFileSystemMaxKeys, fmt.Sprintf("maxKeys limit %d", MaxAllowKeys))
 		return
 	}
 

@@ -113,7 +113,7 @@ func TestPatchVCJobVariable(t *testing.T) {
 			YamlTemplateContent: extRuntimeConf,
 		}
 		jobModeParams := JobModeParams{
-			JobFlavour: pfjob.Conf.GetFlavour(),
+			JobFlavour:      pfjob.Conf.GetFlavour(),
 			PServerReplicas: pfjob.Conf.GetPSReplicas(),
 			PServerFlavour:  pfjob.Conf.GetFlavour(),
 			PServerCommand:  pfjob.Conf.GetPSCommand(),
