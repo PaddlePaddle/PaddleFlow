@@ -28,7 +28,7 @@ import (
 	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/apiserver/router/util"
 	"paddleflow/pkg/common/config"
-	"paddleflow/pkg/common/database/db_fake"
+	"paddleflow/pkg/common/database/dbinit"
 	"paddleflow/pkg/common/logger"
 )
 
@@ -78,7 +78,7 @@ func prepareDBAndAPI(t *testing.T) (*chi.Mux, string) {
 		},
 	}
 
-	db_fake.InitFakeDB()
+	dbinit.InitMockDB()
 	rootCtx := &logger.RequestContext{UserName: MockRootUser}
 
 	token, err := CreateTestUser(rootCtx, MockRootUser, MockPassword)

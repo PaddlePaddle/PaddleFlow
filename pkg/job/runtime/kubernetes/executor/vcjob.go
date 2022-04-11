@@ -32,7 +32,7 @@ import (
 )
 
 const (
-	psPort                    int32 = 8001
+	psPort int32 = 8001
 )
 
 type VCJob struct {
