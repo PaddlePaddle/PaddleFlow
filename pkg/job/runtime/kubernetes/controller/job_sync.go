@@ -18,6 +18,7 @@ package controller
 
 import (
 	"sync"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -43,7 +44,20 @@ type JobSyncInfo struct {
 	Runtime    interface{}
 	Message    string
 	Type       commonschema.JobType
-	Action     commonschema.ActionOnJob
+	Action     commonschema.ActionType
+	RetryTimes int
+}
+
+type TaskSyncInfo struct {
+	ID         string
+	Name       string
+	Namespace  string
+	JobID      string
+	MemberRole commonschema.MemberRole
+	Status     commonschema.TaskStatus
+	Message    string
+	PodStatus  interface{}
+	Action     commonschema.ActionType
 	RetryTimes int
 }
 
@@ -53,8 +67,9 @@ func NewJobSync() Controller {
 
 type JobSync struct {
 	sync.Mutex
-	opt      *k8s.DynamicClientOption
-	jobQueue workqueue.RateLimitingInterface
+	opt       *k8s.DynamicClientOption
+	jobQueue  workqueue.RateLimitingInterface
+	taskQueue workqueue.RateLimitingInterface
 
 	// informerMap contains GroupVersionKind and informer for different kubernetes job
 	informerMap map[schema.GroupVersionKind]cache.SharedIndexInformer
@@ -71,6 +86,7 @@ func (j *JobSync) Initialize(opt *k8s.DynamicClientOption) error {
 	log.Infof("Initialize %s controller!", j.Name())
 	j.opt = opt
 	j.jobQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+	j.taskQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	j.informerMap = make(map[schema.GroupVersionKind]cache.SharedIndexInformer)
 
 	for gvk, _ := range k8s.GVKJobStatusMap {
@@ -96,7 +112,9 @@ func (j *JobSync) Initialize(opt *k8s.DynamicClientOption) error {
 	}
 	j.podInformer = j.opt.DynamicFactory.ForResource(podGVRMap.Resource).Informer()
 	j.podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    j.addPod,
 		UpdateFunc: j.updatePod,
+		DeleteFunc: j.deletePod,
 	})
 	j.podLister = j.opt.DynamicFactory.ForResource(podGVRMap.Resource).Lister()
 	return nil
@@ -121,6 +139,7 @@ func (j *JobSync) Run(stopCh <-chan struct{}) {
 	}
 	log.Infof("Start %s controller successfully!", j.Name())
 	go wait.Until(j.runWorker, 0, stopCh)
+	go wait.Until(j.runTaskWorker, 0, stopCh)
 }
 
 func (j *JobSync) runWorker() {
@@ -138,7 +157,7 @@ func (j *JobSync) processWorkItem() bool {
 	defer j.jobQueue.Done(jobSyncInfo)
 
 	if err := j.syncJobStatus(jobSyncInfo); err != nil {
-		log.Errorf("sync job status failed. jobID:[%s] err:[%s]", jobSyncInfo.ID, err.Error())
+		log.Errorf("sync job status failed. jobID: %s err: %s", jobSyncInfo.ID, err.Error())
 		if jobSyncInfo.RetryTimes < DefaultSyncRetryTimes {
 			jobSyncInfo.RetryTimes += 1
 			j.jobQueue.AddRateLimited(jobSyncInfo)
@@ -208,6 +227,67 @@ func (j *JobSync) doTerminateAction(jobSyncInfo *JobSyncInfo) error {
 		log.Errorf("do terminate action failed. jobID[%s] error:[%s]", jobSyncInfo.ID, err.Error())
 	}
 	return err
+}
+
+func (j *JobSync) runTaskWorker() {
+	for j.processTaskWorkItem() {
+	}
+}
+
+func (j *JobSync) processTaskWorkItem() bool {
+	obj, shutdown := j.taskQueue.Get()
+	if shutdown {
+		return false
+	}
+	taskSyncInfo := obj.(*TaskSyncInfo)
+	log.Debugf("process task sync. task name: %s/%s, id: %s", taskSyncInfo.Namespace, taskSyncInfo.Name, taskSyncInfo.ID)
+	defer j.taskQueue.Done(taskSyncInfo)
+
+	if err := j.syncTaskStatus(taskSyncInfo); err != nil {
+		log.Errorf("sync task status failed. taskID: %s, err: %s", taskSyncInfo.ID, err.Error())
+		if taskSyncInfo.RetryTimes < DefaultSyncRetryTimes {
+			taskSyncInfo.RetryTimes += 1
+			j.taskQueue.AddRateLimited(taskSyncInfo)
+		}
+		j.taskQueue.Forget(taskSyncInfo)
+		return true
+	}
+
+	j.taskQueue.Forget(taskSyncInfo)
+	return true
+}
+
+func (j *JobSync) syncTaskStatus(taskSyncInfo *TaskSyncInfo) error {
+	name := taskSyncInfo.Name
+	namespace := taskSyncInfo.Namespace
+	_, err := models.GetJobByID(taskSyncInfo.JobID)
+	if err != nil {
+		log.Infof("update task %s/%s status failed, job %s for task not found", namespace, name, taskSyncInfo.JobID)
+		return err
+	}
+
+	// TODO: get logURL from pod resources
+	taskStatus := &models.JobTask{
+		ID:               taskSyncInfo.ID,
+		JobID:            taskSyncInfo.JobID,
+		Name:             taskSyncInfo.Name,
+		Namespace:        taskSyncInfo.Namespace,
+		MemberRole:       taskSyncInfo.MemberRole,
+		Status:           taskSyncInfo.Status,
+		Message:          taskSyncInfo.Message,
+		ExtRuntimeStatus: taskSyncInfo.PodStatus,
+	}
+	if taskSyncInfo.Action == commonschema.Delete {
+		taskStatus.DeletedAt = time.Now()
+	}
+	log.Debugf("update job task %s/%s status: %v", namespace, name, taskStatus)
+	err = models.UpdateTask(taskStatus)
+	if err != nil {
+		log.Errorf("update task %s/%s status in database failed, err %v",
+			namespace, name, err)
+		return err
+	}
+	return nil
 }
 
 func responsibleForJob(obj interface{}) bool {
