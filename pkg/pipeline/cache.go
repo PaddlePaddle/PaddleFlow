@@ -135,8 +135,6 @@ func NewConservativeCacheCalculator(step Step, cacheConfig schema.Cache) (CacheC
 
 func (cc *conservativeCacheCalculator) generateFirstCacheKey() error {
 	// 提取cacheKey 时需要剔除系统变量
-	SysParamNameList := []string{SysParamNamePFRunID, SysParamNamePFFsID, SysParamNamePFJobID, SysParamNamePFStepName, SysParamNamePFFsName, SysParamNamePFUserID, SysParamNamePFUserName}
-
 	job := cc.step.job.Job()
 
 	// 去除系统环境变量

@@ -238,6 +238,13 @@ func (pfj *PaddleFlowJob) Skipped() bool {
 	return pfj.Status == schema.StatusJobSkipped
 }
 
+<<<<<<< HEAD
+=======
+func (pfj *PaddleFlowJob) Cancelled() bool {
+	return pfj.Status == schema.StatusJobCancelled
+}
+
+>>>>>>> 786f75580b2b2000275463df7482ae85c5f7e9a2
 func (pfj *PaddleFlowJob) NotEnded() bool {
 	return pfj.Status == "" || pfj.Status == schema.StatusJobTerminating || pfj.Status == schema.StatusJobRunning || pfj.Status == schema.StatusJobPending
 }

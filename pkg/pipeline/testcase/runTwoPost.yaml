@@ -1,0 +1,67 @@
+name: myproject
+
+docker_env: images/training.tgz
+
+entry_points:
+
+  data_preprocess:
+    parameters:
+      data_path: "./LINK/mybos_dir/data"
+      process_data_file: "./data/pre"
+    command: "python data_preprocess.py --input {{data_path}} --output {{process_data_file}} --validate {{ validate_data }} --stepname {{ PF_STEP_NAME }}"
+    env:
+      PF_JOB_QUEUE: CPU-32G
+      PF_JOB_PRIORITY: high
+    artifacts:
+      output:
+        - train_data
+        - validate_data
+
+  main:
+    deps: data_preprocess
+    parameters:
+      p3: {"type": "string", "default":"dictparam"}
+      p4: {"type": "float", "default": 0.66}
+      p5: {"type": "path", "default": "/path/to/anywhere"}
+      data_file: "{{ data_preprocess.process_data_file }}"
+      regularization:  0.1
+      model: "./data/model"
+      iteration: 100
+    command: "python train.py -r {{regularization}} -d {{data_file}} --output {{model}}"
+    env:
+      PF_JOB_QUEUE: v100-16G
+      PF_JOB_PRIORITY: high
+      PF_JOB_FLAVOUR: v100-10
+      PF_PS_NUM: 1
+      PF_WORKER_NUM: 4
+    artifacts:
+      input:
+        train_data: "{{ data_preprocess.train_data }}"
+      output:
+        - train_model
+
+  validate:
+    deps: main,data_preprocess
+    parameters:
+      report: "./data/report"
+      refSystem: "{{ PF_RUN_ID }}"
+    command: "python validate.py --model {{ main.model }} --report {{report}}"
+    env:
+      PF_JOB_QUEUE: CPU-32G
+      PF_JOB_PRIORITY: low
+      test_env_1: "{{report}}"
+      test_env_2: "{{ main.data_file}}_{{ PF_STEP_NAME }}"
+    artifacts:
+      input:
+        data: "{{ data_preprocess.validate_data }}"
+        model: "{{ main.train_model }}"
+post_process:
+  mail:
+    command: "echo haha"
+  mail2:
+    command: "echo hahahaha"
+cache:
+  enable: false
+  max_expired_time: 400
+  fs_scope: "/path/to/run,/path/to/run2"
+parallelism: 5
