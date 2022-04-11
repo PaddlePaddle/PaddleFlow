@@ -37,7 +37,6 @@ type JobView struct {
 // RuntimeView is view of run responded to user, while workflowRuntime is for pipeline engine to process
 type RuntimeView map[string]JobView
 
-// the runtime of post_process
 type PostProcessView RuntimeView
 
 type LogRunCacheRequest struct {

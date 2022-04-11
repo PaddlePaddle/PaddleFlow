@@ -437,6 +437,7 @@ func (wfr *WorkflowRuntime) isDepsReady(step *Step, steps map[string]*Step) bool
 		if len(ds) <= 0 {
 			continue
 		}
+
 		if !steps[ds].job.Succeeded() && !steps[ds].job.Skipped() {
 			depsReady = false
 		}

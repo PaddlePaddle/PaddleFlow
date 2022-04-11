@@ -138,6 +138,7 @@ func TestUpdateJob(t *testing.T) {
 
 	for _, stepName := range sortedSteps {
 		st := wf.runtime.entryPoints[stepName]
+
 		st.NodeType = common.NodeTypeEntrypoint
 
 		forCacheFingerprint := false
@@ -241,6 +242,7 @@ func TestUpdateJobWithCache(t *testing.T) {
 	cacheOutputArtifacts["validate_data"] = cacheOutatfValidateData
 	for _, stepName := range sortedSteps {
 		st := wf.runtime.entryPoints[stepName]
+
 		st.NodeType = common.NodeTypeEntrypoint
 
 		forCacheFingerprint := false
@@ -350,6 +352,7 @@ func TestCheckCached(t *testing.T) {
 	}
 
 	st := wf.runtime.entryPoints["data_preprocess"]
+
 	st.NodeType = common.NodeTypeEntrypoint
 	patches := gomonkey.ApplyMethod(reflect.TypeOf(st.job), "Validate", func(_ *PaddleFlowJob) error {
 		return nil
@@ -386,6 +389,7 @@ func TestCheckCached(t *testing.T) {
 
 	st = wf.runtime.entryPoints["data_preprocess"]
 	st.NodeType = common.NodeTypeEntrypoint
+
 	cacheFound, err = st.checkCached()
 	assert.Nil(t, err)
 	assert.Equal(t, false, cacheFound)
@@ -404,6 +408,7 @@ func TestCheckCached(t *testing.T) {
 	}
 
 	st = wf.runtime.entryPoints["data_preprocess"]
+
 	st.NodeType = common.NodeTypeEntrypoint
 	cacheFound, err = st.checkCached()
 	assert.Nil(t, err)
@@ -423,7 +428,9 @@ func TestCheckCached(t *testing.T) {
 	}
 
 	st = wf.runtime.entryPoints["data_preprocess"]
+
 	st.NodeType = common.NodeTypeEntrypoint
+
 	cacheFound, err = st.checkCached()
 	assert.Nil(t, err)
 	assert.Equal(t, true, cacheFound)
@@ -442,7 +449,9 @@ func TestCheckCached(t *testing.T) {
 	}
 
 	st = wf.runtime.entryPoints["data_preprocess"]
+
 	st.NodeType = common.NodeTypeEntrypoint
+
 	cacheFound, err = st.checkCached()
 	assert.Nil(t, err)
 	assert.Equal(t, true, cacheFound)
