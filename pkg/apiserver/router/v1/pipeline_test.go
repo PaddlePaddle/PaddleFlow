@@ -42,8 +42,8 @@ func TestCreatePipeline(t *testing.T) {
 		Name:     "mockPplName",
 	}
 
-	pipeline.ValidateWorkflowForPipeline = func(ppl models.Pipeline) error {return nil}
-	handler.ReadFileFromFs = func(fsID, runYamlPath string, logEntry *log.Entry) ([]byte, error) {return os.ReadFile(runYamlPath)}
+	pipeline.ValidateWorkflowForPipeline = func(ppl models.Pipeline) error { return nil }
+	handler.ReadFileFromFs = func(fsID, runYamlPath string, logEntry *log.Entry) ([]byte, error) { return os.ReadFile(runYamlPath) }
 
 	result, err := PerformPostRequest(router, pplUrl, createPplReq)
 	assert.Nil(t, err)

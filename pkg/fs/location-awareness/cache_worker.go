@@ -13,9 +13,4 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-
-package database
-
-import "gorm.io/gorm"
-
-var DB *gorm.DB
+package location_awareness
