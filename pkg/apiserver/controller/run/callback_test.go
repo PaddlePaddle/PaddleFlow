@@ -67,10 +67,7 @@ func TestGetJobByRun(t *testing.T) {
 	json.Unmarshal([]byte(runtimeJson), &runtimeView)
 
 	models.CreateRunJobs(ctx.Logging(), runtimeView, runID)
-	for _, job := range runtimeView {
-		runJob := models.ParseRunJob(&job)
-		models.UpdateRunJob(ctx.Logging(), run.ID, runJob)
-	}
+	updateRunJobs(runID, runtimeView)
 
 	jobView, err := GetJobByRun(runID, "main")
 	assert.Nil(t, err)
