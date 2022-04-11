@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi"
@@ -117,20 +116,13 @@ func (rr *RunRouter) createRun(w http.ResponseWriter, r *http.Request) {
 // @Router /run [GET]
 func (rr *RunRouter) listRun(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
-	maxKeys := util.DefaultMaxKeys
 	marker := r.URL.Query().Get(util.QueryKeyMarker)
-	limitCustom := r.URL.Query().Get(util.QueryKeyMaxKeys)
-	if limitCustom != "" {
-		var err error
-		maxKeys, err = strconv.Atoi(limitCustom)
-		if err != nil || maxKeys <= 0 || maxKeys > util.ListPageMax {
-			err := fmt.Errorf("invalid query pageLimit[%s]. should be an integer between 1~1000",
-				limitCustom)
-			ctx.ErrorCode = common.InvalidURI
-			common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
-			return
-		}
+	maxKeys, err := util.GetQueryMaxKeys(&ctx, r)
+	if err != nil {
+		common.RenderErrWithMessage(w, ctx.RequestID, common.InvalidURI, err.Error())
+		return
 	}
+
 	userNames, fsNames := r.URL.Query().Get(util.QueryKeyUserFilter), r.URL.Query().Get(util.QueryKeyFsFilter)
 	runIDs, names := r.URL.Query().Get(util.QueryKeyRunFilter), r.URL.Query().Get(util.QueryKeyNameFilter)
 	userFilter, fsFilter, runFilter, nameFilter := make([]string, 0), make([]string, 0), make([]string, 0), make([]string, 0)

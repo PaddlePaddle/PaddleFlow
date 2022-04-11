@@ -61,7 +61,6 @@ type DatabaseConfig struct {
 type ApiServerConfig struct {
 	Host                string `yaml:"host"`
 	Port                int    `yaml:"port"`
-	PrintVersionAndExit bool   `yaml:"printVersionAndExit"`
 	TokenExpirationHour int    `yaml:"tokenExpirationHour"`
 }
 

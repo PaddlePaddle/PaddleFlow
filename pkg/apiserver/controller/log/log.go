@@ -38,9 +38,8 @@ type GetRunLogRequest struct {
 type GetRunLogResponse struct {
 	SubmitLog schema.LogInfo      `json:"submitLog"`
 	RunLog    []schema.JobLogInfo `json:"runLog"`
-	RunID     string           `json:"runID"`
+	RunID     string              `json:"runID"`
 }
-
 
 func GetRunLog(ctx *logger.RequestContext, runID string, request GetRunLogRequest) (*GetRunLogResponse, error) {
 	run, err := models.GetRunByID(ctx.Logging(), runID)
@@ -63,12 +62,12 @@ func GetRunLog(ctx *logger.RequestContext, runID string, request GetRunLogReques
 	}
 	jobList, err := getJobListByRunID(ctx, runID, request.JobID)
 	if err != nil {
-		ctx.Logging().Errorf("runID[%s] get job list failed. error:%s.",runID, err.Error())
+		ctx.Logging().Errorf("runID[%s] get job list failed. error:%s.", runID, err.Error())
 		return nil, err
 	}
 
 	response := &GetRunLogResponse{
-		RunID: runID,
+		RunID:  runID,
 		RunLog: make([]schema.JobLogInfo, 0),
 	}
 	if len(jobList) == 0 {
@@ -96,7 +95,7 @@ func GetRunLog(ctx *logger.RequestContext, runID string, request GetRunLogReques
 		}
 		jobLogInfo, err := runtimeSvc.GetJobLog(jobLogRequest)
 		if err != nil {
-			ctx.Logging().Errorf("jobID[%s] get queue[%s] failed. error:%s.",job.ID, job.QueueID, err.Error())
+			ctx.Logging().Errorf("jobID[%s] get queue[%s] failed. error:%s.", job.ID, job.QueueID, err.Error())
 			return nil, err
 		}
 		response.RunLog = append(response.RunLog, jobLogInfo)

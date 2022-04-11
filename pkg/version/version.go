@@ -18,7 +18,6 @@ package version
 
 import (
 	"fmt"
-	"os"
 	"runtime"
 )
 
@@ -27,13 +26,6 @@ var (
 	GitCommit  = "unknown"
 	BuildDate  = "unknown"
 )
-
-func PrintVersionAndExit() {
-	for _, i := range Info() {
-		fmt.Printf("%v\n", i)
-	}
-	os.Exit(0)
-}
 
 func Info() []string {
 	return []string{
@@ -44,4 +36,12 @@ func Info() []string {
 		fmt.Sprintf("Compiler: %v", runtime.Compiler),
 		fmt.Sprintf("Platform: %s/%s", runtime.GOOS, runtime.GOARCH),
 	}
+}
+
+func InfoStr() string {
+	var str string
+	for _, i := range Info() {
+		str += fmt.Sprintf("\n%v", i)
+	}
+	return str
 }
