@@ -19,9 +19,8 @@ type CacheWorker struct {
 	Model
 	Dir        string `json:"dir"`
 	NodeName   string `json:"nodename"`
-	TotalSize  int    `json:"totalSize" gorm:"column:total_size"`
 	MountPoint string `json:"mountPoint" gorm:"column:mount_point"`
-	UsedQuota  int    `json:"usedQuota" gorm:"column:used_quota"`
+	UsedSize   int    `json:"usedSize" gorm:"column:used_size"`
 }
 
 func (s *CacheWorker) TableName() string {
