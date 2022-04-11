@@ -506,7 +506,10 @@ func (st *Step) stopJob() {
 			ErrMsg := fmt.Sprintf("stop job[%s] for step[%s] with runid[%s] failed [%d] times: [%s]", st.job.(*PaddleFlowJob).Id, st.name, st.wfr.wf.RunID, tryCount, err.Error())
 			st.getLogger().Errorf(ErrMsg)
 
-			wfe := NewWorkflowEvent(WfEventJobStopErr, ErrMsg, nil)
+			extra := map[string]interface{}{
+				"st": st,
+			}
+			wfe := NewWorkflowEvent(WfEventJobStopErr, ErrMsg, extra)
 			st.wfr.event <- *wfe
 
 			tryCount += 1
@@ -551,6 +554,7 @@ func (st *Step) Watch() {
 					st.logOutputArtifact()
 				}
 			}
+			event.Extra["st"] = st
 		}
 		st.wfr.event <- event
 		if st.done {
