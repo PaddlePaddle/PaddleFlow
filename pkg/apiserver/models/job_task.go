@@ -23,12 +23,12 @@ type JobTask struct {
 	JobID                string            `json:"jobID" gorm:"type:varchar(60)"`
 	Namespace            string            `json:"namespace" gorm:"type:varchar(64)"`
 	Name                 string            `json:"name" gorm:"type:varchar(512)"`
-	Role                 schema.RoleMember `json:"role"`
+	MemberRole           schema.MemberRole `json:"memberRole"`
 	Status               schema.TaskStatus `json:"status"`
 	Message              string            `json:"message"`
 	LogURL               string            `json:"logURL"`
-	ExtRuntimeStatusJSON string            `json:"-" gorm:"column:ext_runtime_status;default:'{}'"`
-	ExtRuntimeStatus     interface{}       `json:"extRuntimeStatus" gorm:"-"` //k8s:v1.PodStatus
+	ExtRuntimeStatusJSON string            `json:"extRuntimeStatus" gorm:"column:ext_runtime_status;default:'{}'"`
+	ExtRuntimeStatus     interface{}       `json:"-" gorm:"-"` //k8s:v1.PodStatus
 	CreatedAt            time.Time         `json:"-"`
 	StartedAt            time.Time         `json:"-"`
 	UpdatedAt            time.Time         `json:"-"`
@@ -51,12 +51,6 @@ func (task *JobTask) BeforeSave(*gorm.DB) error {
 }
 
 func (task *JobTask) AfterFind(*gorm.DB) error {
-	if len(task.ExtRuntimeStatusJSON) != 0 {
-		err := json.Unmarshal([]byte(task.ExtRuntimeStatusJSON), task.ExtRuntimeStatus)
-		if err != nil {
-			return err
-		}
-	}
 	return nil
 }
 

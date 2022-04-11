@@ -53,7 +53,7 @@ type TaskSyncInfo struct {
 	Name       string
 	Namespace  string
 	JobID      string
-	Role       commonschema.RoleMember
+	MemberRole commonschema.MemberRole
 	Status     commonschema.TaskStatus
 	Message    string
 	PodStatus  interface{}
@@ -272,7 +272,7 @@ func (j *JobSync) syncTaskStatus(taskSyncInfo *TaskSyncInfo) error {
 		JobID:            taskSyncInfo.JobID,
 		Name:             taskSyncInfo.Name,
 		Namespace:        taskSyncInfo.Namespace,
-		Role:             taskSyncInfo.Role,
+		MemberRole:       taskSyncInfo.MemberRole,
 		Status:           taskSyncInfo.Status,
 		Message:          taskSyncInfo.Message,
 		ExtRuntimeStatus: taskSyncInfo.PodStatus,

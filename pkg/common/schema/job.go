@@ -27,7 +27,7 @@ type ActionType string
 type JobStatus string
 type TaskStatus string
 type Framework string
-type RoleMember string
+type MemberRole string
 
 const (
 	EnvJobType        = "PF_JOB_TYPE"
@@ -91,12 +91,12 @@ const (
 	StatusTaskSucceeded TaskStatus = "succeeded"
 	StatusTaskFailed    TaskStatus = "failed"
 
-	RoleMaster   RoleMember = "master"
-	RoleWorker   RoleMember = "worker"
-	RoleDriver   RoleMember = "driver"
-	RoleExecutor RoleMember = "executor"
-	RolePServer  RoleMember = "pserver"
-	RolePWorker  RoleMember = "pworker"
+	RoleMaster   MemberRole = "master"
+	RoleWorker   MemberRole = "worker"
+	RoleDriver   MemberRole = "driver"
+	RoleExecutor MemberRole = "executor"
+	RolePServer  MemberRole = "pserver"
+	RolePWorker  MemberRole = "pworker"
 
 	TypeSingle      JobType = "single"
 	TypeDistributed JobType = "distributed"
