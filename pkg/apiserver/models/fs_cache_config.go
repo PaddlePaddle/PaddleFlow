@@ -35,7 +35,7 @@ type CacheConfig struct {
 }
 
 func (s *CacheConfig) TableName() string {
-	return "cache_config"
+	return "fs_cache_config"
 }
 
 func (s *CacheConfig) AfterFind(*gorm.DB) error {

@@ -24,5 +24,5 @@ type CacheWorker struct {
 }
 
 func (s *CacheWorker) TableName() string {
-	return "cache_worker"
+	return "fs_cache_worker"
 }

@@ -273,30 +273,32 @@ CREATE TABLE IF NOT EXISTS `link` (
     UNIQUE KEY (`id`)
     )ENGINE=InnoDB DEFAULT CHARSET=utf8 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMMENT='file system';
 
-CREATE TABLE IF NOT EXISTS `cache_config` (
+CREATE TABLE IF NOT EXISTS `fs_cache_config` (
     `pk` bigint(20) unsigned NOT NULL AUTO_INCREMENT COMMENT 'pk',
-    `id` varchar(36) NOT NULL COMMENT 'id',
-    `dir` varchar(4096) NOT NULL,
-    `quota` bigint(20) NOT NULL,
-    `blocksize` int(5) NOT NULL,
-    `cache_type` varchar(32) NOT NULL COMMENT 'file system cache type',
-    `extra_config` text,
-    `node_affinity` text,
-    `created_at` datetime NOT NULL,
-    `updated_at` datetime NOT NULL,
+    `id` varchar(36) NOT NULL COMMENT 'file system id',
+    `dir` varchar(4096) NOT NULL COMMENT 'cache dir, e.g. /var/pfs_cache',
+    `quota` bigint(20) NOT NULL COMMENT 'cache quota',
+    `blocksize` int(5) NOT NULL COMMENT 'cache blocksize',
+    `cache_type` varchar(32) NOT NULL COMMENT 'cache type，e.g. disk/memory',
+    `extra_config` text  COMMENT 'extra cache config',
+    `node_affinity` text  COMMENT 'node affinity，e.g. node affinity in k8s',
+    `created_at` datetime NOT NULL COMMENT 'create time',
+    `updated_at` datetime NOT NULL COMMENT 'update time',
+    `deleted_at` datetime(3) DEFAULT NULL COMMENT 'delete time',
     PRIMARY KEY (`pk`),
     UNIQUE KEY (`id`)
-    )ENGINE=InnoDB DEFAULT CHARSET=utf8 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMMENT='cache config';
+    )ENGINE=InnoDB DEFAULT CHARSET=utf8 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMMENT='file system cache config';
 
-CREATE TABLE IF NOT EXISTS `cache_worker` (
+CREATE TABLE IF NOT EXISTS `fs_cache_worker` (
     `pk` bigint(20) unsigned NOT NULL AUTO_INCREMENT COMMENT 'pk',
-    `id` varchar(36) NOT NULL COMMENT 'id',
-    `dir` varchar(4096) NOT NULL,
-    `mount_point` varchar(4096) NOT NULL,
-    `nodename` varchar(4096) NOT NULL,
-    `used_size` bigint(20) NOT NULL,
-    `created_at` datetime NOT NULL,
-    `updated_at` datetime NOT NULL,
+    `id` varchar(36) NOT NULL COMMENT 'file system id',
+    `dir` varchar(4096) NOT NULL COMMENT 'cache dir, e.g. /var/pfs_cache',
+    `mount_point` varchar(1024) NOT NULL COMMENT 'mount point of file system on node',
+    `nodename` varchar(1024) NOT NULL COMMENT 'nodename',
+    `used_size` bigint(20) NOT NULL COMMENT 'cache used size on cache dir',
+    `created_at` datetime NOT NULL COMMENT 'create time',
+    `updated_at` datetime NOT NULL COMMENT 'update time',
+    `deleted_at` datetime(3) DEFAULT NULL  COMMENT 'delete time',
     PRIMARY KEY (`pk`),
     UNIQUE KEY (`id`)
-    )ENGINE=InnoDB DEFAULT CHARSET=utf8 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMMENT='cache worker';
+    )ENGINE=InnoDB DEFAULT CHARSET=utf8 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMMENT='file system cache worker';
