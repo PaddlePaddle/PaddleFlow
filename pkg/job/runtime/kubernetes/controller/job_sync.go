@@ -21,7 +21,6 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -54,7 +53,10 @@ type TaskSyncInfo struct {
 	Name       string
 	Namespace  string
 	JobID      string
-	Status     interface{}
+	Role       commonschema.RoleMember
+	Status     commonschema.TaskStatus
+	Message    string
+	PodStatus  interface{}
 	Action     commonschema.ActionType
 	RetryTimes int
 }
@@ -264,14 +266,16 @@ func (j *JobSync) syncTaskStatus(taskSyncInfo *TaskSyncInfo) error {
 		return err
 	}
 
-	// TODO: get role, state, message, logURL from pod resources
-	podStatus := taskSyncInfo.Status.(*v1.PodStatus)
+	// TODO: get logURL from pod resources
 	taskStatus := &models.JobTask{
-		ID:        taskSyncInfo.ID,
-		JobID:     taskSyncInfo.JobID,
-		Name:      taskSyncInfo.Name,
-		Namespace: taskSyncInfo.Namespace,
-		PodStatus: podStatus,
+		ID:               taskSyncInfo.ID,
+		JobID:            taskSyncInfo.JobID,
+		Name:             taskSyncInfo.Name,
+		Namespace:        taskSyncInfo.Namespace,
+		Role:             taskSyncInfo.Role,
+		Status:           taskSyncInfo.Status,
+		Message:          taskSyncInfo.Message,
+		ExtRuntimeStatus: taskSyncInfo.PodStatus,
 	}
 	if taskSyncInfo.Action == commonschema.Delete {
 		taskStatus.DeletedAt = time.Now()

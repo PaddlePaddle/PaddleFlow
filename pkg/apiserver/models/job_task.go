@@ -18,21 +18,21 @@ const (
 )
 
 type JobTask struct {
-	Pk            int64             `json:"-" gorm:"primaryKey;autoIncrement"`
-	ID            string            `json:"id" gorm:"type:varchar(64);uniqueIndex"` // k8s:podID
-	JobID         string            `json:"jobID" gorm:"type:varchar(60)"`
-	Namespace     string            `json:"namespace" gorm:"type:varchar(64)"`
-	Name          string            `json:"name" gorm:"type:varchar(512)"`
-	Role          schema.RoleMember `json:"role"`
-	State         string            `json:"state"`
-	Message       string            `json:"message"`
-	LogURL        string            `json:"logURL"`
-	PodStatusJSON string            `json:"-" gorm:"column:status;default:'{}'"`
-	PodStatus     interface{}       `json:"status" gorm:"-"` //k8s:v1.PodStatus
-	CreatedAt     time.Time         `json:"-"`
-	StartedAt     time.Time         `json:"-"`
-	UpdatedAt     time.Time         `json:"-"`
-	DeletedAt     time.Time         `json:"-"`
+	Pk                   int64             `json:"-" gorm:"primaryKey;autoIncrement"`
+	ID                   string            `json:"id" gorm:"type:varchar(64);uniqueIndex"` // k8s:podID
+	JobID                string            `json:"jobID" gorm:"type:varchar(60)"`
+	Namespace            string            `json:"namespace" gorm:"type:varchar(64)"`
+	Name                 string            `json:"name" gorm:"type:varchar(512)"`
+	Role                 schema.RoleMember `json:"role"`
+	Status               schema.TaskStatus `json:"status"`
+	Message              string            `json:"message"`
+	LogURL               string            `json:"logURL"`
+	ExtRuntimeStatusJSON string            `json:"-" gorm:"column:ext_runtime_status;default:'{}'"`
+	ExtRuntimeStatus     interface{}       `json:"extRuntimeStatus" gorm:"-"` //k8s:v1.PodStatus
+	CreatedAt            time.Time         `json:"-"`
+	StartedAt            time.Time         `json:"-"`
+	UpdatedAt            time.Time         `json:"-"`
+	DeletedAt            time.Time         `json:"-"`
 }
 
 func (JobTask) TableName() string {
@@ -40,19 +40,19 @@ func (JobTask) TableName() string {
 }
 
 func (task *JobTask) BeforeSave(*gorm.DB) error {
-	if task.PodStatus != nil {
-		statusJSON, err := json.Marshal(task.PodStatus)
+	if task.ExtRuntimeStatus != nil {
+		statusJSON, err := json.Marshal(task.ExtRuntimeStatus)
 		if err != nil {
 			return err
 		}
-		task.PodStatusJSON = string(statusJSON)
+		task.ExtRuntimeStatusJSON = string(statusJSON)
 	}
 	return nil
 }
 
 func (task *JobTask) AfterFind(*gorm.DB) error {
-	if len(task.PodStatusJSON) != 0 {
-		err := json.Unmarshal([]byte(task.PodStatusJSON), task.PodStatus)
+	if len(task.ExtRuntimeStatusJSON) != 0 {
+		err := json.Unmarshal([]byte(task.ExtRuntimeStatusJSON), task.ExtRuntimeStatus)
 		if err != nil {
 			return err
 		}

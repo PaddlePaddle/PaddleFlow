@@ -276,7 +276,7 @@ func (j *JobSync) updatePodStatus(obj interface{}, action schema.ActionType) {
 	_, find := k8s.GVKToJobType[gvk]
 	if !find {
 		// skip
-		log.Debugf("pod %s/%s not belong to distributed job, skip it.", namespace, name)
+		log.Debugf("pod %s/%s not belong to paddlefow job, skip it.", namespace, name)
 		return
 	}
 
@@ -287,12 +287,25 @@ func (j *JobSync) updatePodStatus(obj interface{}, action schema.ActionType) {
 		log.Errorf("get status from pod %s/%s failed, err: %v", namespace, name, err)
 		return
 	}
+	// TODO: get role name from pod
+
+	// convert to task status
+	podStatus := status.(*v1.PodStatus)
+	taskStatus, err := k8s.GetTaskStatus(podStatus)
+	if err != nil {
+		log.Errorf("convert to task status for pod %s/%s failed, err: %v", namespace, name, err)
+		return
+	}
+	message := k8s.GetTaskMessage(podStatus)
+
 	taskInfo := &TaskSyncInfo{
 		ID:        string(uid),
 		Name:      name,
 		Namespace: namespace,
 		JobID:     ownerName,
-		Status:    status,
+		Status:    taskStatus,
+		Message:   message,
+		PodStatus: status,
 		Action:    action,
 	}
 	j.taskQueue.Add(taskInfo)

@@ -25,6 +25,7 @@ import (
 type JobType string
 type ActionType string
 type JobStatus string
+type TaskStatus string
 type Framework string
 type RoleMember string
 
@@ -84,6 +85,11 @@ const (
 	StatusJobTerminated  JobStatus = "terminated"
 	StatusJobCancelled   JobStatus = "cancelled"
 	StatusJobSkipped     JobStatus = "skipped"
+
+	StatusTaskPending   TaskStatus = "pending"
+	StatusTaskRunning   TaskStatus = "running"
+	StatusTaskSucceeded TaskStatus = "succeeded"
+	StatusTaskFailed    TaskStatus = "failed"
 
 	RoleMaster   RoleMember = "master"
 	RoleWorker   RoleMember = "worker"
