@@ -448,7 +448,7 @@ func TestCheckCached(t *testing.T) {
 	}
 
 	st = wf.runtime.entryPoints["data_preprocess"]
-
+	st.nodeType = common.NodeTypeEntrypoint
 	cacheFound, err = st.checkCached()
 	assert.Nil(t, err)
 	assert.Equal(t, true, cacheFound)
