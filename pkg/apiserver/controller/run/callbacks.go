@@ -173,7 +173,7 @@ func UpdateRunByWfEvent(id string, event interface{}) bool {
 		}
 	}
 
-	if err := updateRunJobs(runtimeJobs); err != nil {
+	if err := updateRunJobs(id, runtimeJobs); err != nil {
 		logging.Errorf("run[%s] update run_job failed. error: %v", id, err)
 		return false
 	}
@@ -190,11 +190,12 @@ func UpdateRunByWfEvent(id string, event interface{}) bool {
 	return true
 }
 
-func updateRunJobs(jobs map[string]schema.JobView) error {
+func updateRunJobs(runID string, jobs map[string]schema.JobView) error {
 	logging := logger.Logger()
-	for _, job := range jobs {
+	for name, job := range jobs {
 		runJob := models.ParseRunJob(&job)
-		if err := models.UpdateRunJob(logging, job.JobID, runJob); err != nil {
+		runJob.Encode()
+		if err := models.UpdateRunJob(logging, runID, name, runJob); err != nil {
 			return err
 		}
 	}
@@ -298,5 +299,5 @@ func startWfWithImageUrl(runID, imageUrl string) error {
 	logEntry.Debugf("workflow started after image handling. run: %+v", run)
 	// update run's imageUrl
 	return models.UpdateRun(logger.LoggerForRun(run.ID), run.ID,
-		models.Run{ImageUrl: run.WorkflowSource.DockerEnv, Status: common.StatusRunPending})
+		models.Run{DockerEnv: run.WorkflowSource.DockerEnv, Status: common.StatusRunPending})
 }

@@ -119,6 +119,7 @@ func initSQLiteDB(dbConf *config.DatabaseConfig, gormConf *gorm.Config) *gorm.DB
 		&models.Image{},
 		&models.FileSystem{},
 		&models.Link{},
+		&models.RunJob{},
 	)
 	// init root user to db, can not be modified by config file currently
 	rootUser := models.User{

@@ -48,7 +48,7 @@ type Run struct {
 	Runtime        schema.RuntimeView     `gorm:"-"                                 json:"runtime"`
 	PostProcess    schema.PostProcessView `gorm:"-"                                 json:"postProcess"`
 	FailureOptions schema.FailureOptions  `gorm:"-"                                 json:"failureOptions"`
-	ImageUrl       string                 `gorm:"type:varchar(128)"                 json:"imageUrl"`
+	DockerEnv      string                 `gorm:"type:varchar(128)"                 json:"dockerEnv"`
 	Entry          string                 `gorm:"type:varchar(256)"                 json:"entry"`
 	Disabled       string                 `gorm:"type:text;size:65535"              json:"disabled"`
 	Message        string                 `gorm:"type:text;size:65535"              json:"runMsg"`
@@ -100,6 +100,8 @@ func (r *Run) decode() error {
 	}
 	r.WorkflowSource = workflowSource
 
+	r.validateFailureOptions()
+
 	// 由于在所有获取Run的函数中，都需要进行decode，因此Runtime和PostProcess的赋值也在decode中进行
 	if err := r.validateRuntimeAndPostProcess(); err != nil {
 		return err
@@ -123,6 +125,12 @@ func (r *Run) decode() error {
 	return nil
 }
 
+func (r *Run) validateFailureOptions() {
+	if r.WorkflowSource.FailureOptions.Strategy == "" && r.FailureOptions.Strategy == "" {
+		r.FailureOptions.Strategy = schema.FailureStrategyFailFast
+	}
+}
+
 // validate runtime and postProcess
 func (r *Run) validateRuntimeAndPostProcess() error {
 	if r.Runtime == nil {
@@ -136,25 +144,16 @@ func (r *Run) validateRuntimeAndPostProcess() error {
 	if err != nil {
 		return err
 	}
-	postStepNameList := []string{}
-	for name := range r.WorkflowSource.PostProcess {
-		postStepNameList = append(postStepNameList, name)
-	}
 	// 将所有run_job转换成JobView之后，赋值给Runtime和PostProcess
 	for _, job := range runJobs {
-		isPost := false
-		for _, name := range postStepNameList {
-			if name == job.Name {
-				isPost = true
-				break
-			}
-		}
-		if isPost {
-			jobView := job.ParseJobView(r.WorkflowSource.PostProcess[job.StepName])
+		if step, ok := r.WorkflowSource.PostProcess[job.StepName]; ok {
+			jobView := job.ParseJobView(step)
 			r.PostProcess[job.StepName] = jobView
-		} else {
-			jobView := job.ParseJobView(r.WorkflowSource.EntryPoints[job.StepName])
+		} else if step, ok := r.WorkflowSource.EntryPoints[job.StepName]; ok {
+			jobView := job.ParseJobView(step)
 			r.Runtime[job.StepName] = jobView
+		} else {
+			return fmt.Errorf("cannot find step[%s] in either entry_points or post_process", job.StepName)
 		}
 	}
 	return nil

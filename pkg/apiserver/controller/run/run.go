@@ -524,8 +524,8 @@ func resumeRun(run models.Run) error {
 	}
 
 	wfs.Name = run.Name
-	if run.ImageUrl != "" {
-		wfs.DockerEnv = run.ImageUrl
+	if run.DockerEnv != "" {
+		wfs.DockerEnv = run.DockerEnv
 	}
 	if run.Disabled != "" {
 		wfs.Disabled = run.Disabled
@@ -564,7 +564,7 @@ func handleImageAndStartWf(run models.Run, isResume bool) error {
 			logEntry.Debugf("workflow restarted, run:%+v", run)
 		}
 		return models.UpdateRun(logEntry, run.ID,
-			models.Run{ImageUrl: run.WorkflowSource.DockerEnv, Status: common.StatusRunPending})
+			models.Run{DockerEnv: run.WorkflowSource.DockerEnv, Status: common.StatusRunPending})
 	} else {
 		imageIDs, err := models.ListImageIDsByFsID(logEntry, run.FsID)
 		if err != nil {
