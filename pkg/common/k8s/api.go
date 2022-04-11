@@ -53,6 +53,7 @@ var (
 		VCJobGVK:     VCJobStatus,
 		SparkAppGVK:  SparkAppStatus,
 		PaddleJobGVK: PaddleJobStatus,
+		PodGVK:       SingleJobStatus,
 	}
 	// GVKToQuotaType GroupVersionKind lists for PaddleFlow QuotaType
 	GVKToQuotaType = []schema.GroupVersionKind{

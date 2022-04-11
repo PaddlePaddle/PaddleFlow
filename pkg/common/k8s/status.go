@@ -39,7 +39,7 @@ func ConvertToStatus(obj interface{}, jobType schema.JobType) (interface{}, erro
 		realStatus = &batchv1alpha1.JobStatus{}
 	case schema.TypePaddleJob:
 		realStatus = &paddlejobv1.PaddleJobStatus{}
-	case schema.TypePodJob:
+	case schema.TypePodJob, schema.TypeSingle:
 		realStatus = &v1.PodStatus{}
 	default:
 		return nil, fmt.Errorf("job type %s is not supported", jobType)
@@ -59,7 +59,7 @@ func ConvertToStatus(obj interface{}, jobType schema.JobType) (interface{}, erro
 		return realStatus, fmt.Errorf("get status from unstructured object failed")
 	}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(status.(map[string]interface{}), realStatus); err != nil {
-		log.Errorf("convert unstructured object[%#v] to [%s] status failed. error:[%s]", obj, jobType, err.Error())
+		log.Errorf("convert unstructured object [%+v] to %s status failed. error: %s", obj, jobType, err.Error())
 		return nil, err
 	}
 	return realStatus, nil
@@ -94,10 +94,10 @@ func SparkAppStatus(obj interface{}) (StatusInfo, error) {
 	jobStatus := status.(*sparkoperatorv1beta2.SparkApplicationStatus)
 	state, err := getSparkJobStatus(jobStatus.AppState.State)
 	if err != nil {
-		log.Errorf("convert VCJob status to JobStatus failed, err[%v]", err)
+		log.Errorf("convert VCJob status to JobStatus failed, err: %v", err)
 		return StatusInfo{}, err
 	}
-	log.Infof("Spark application status[%s]", state)
+	log.Infof("Spark application status: %s", state)
 	return StatusInfo{
 		OriginStatus: string(jobStatus.AppState.State),
 		Status:       state,
@@ -127,16 +127,16 @@ func getSparkJobStatus(state sparkoperatorv1beta2.ApplicationStateType) (schema.
 func VCJobStatus(obj interface{}) (StatusInfo, error) {
 	status, err := ConvertToStatus(obj, schema.TypeVcJob)
 	if err != nil {
-		log.Errorf("convert VCJob status failed, err[%v]", err)
+		log.Errorf("convert VCJob status failed, err: %v", err)
 		return StatusInfo{}, err
 	}
 	jobStatus := status.(*batchv1alpha1.JobStatus)
 	state, err := getVCJobStatus(jobStatus.State.Phase)
 	if err != nil {
-		log.Errorf("convert VCJob status to JobStatus failed, err[%v]", err)
+		log.Errorf("convert VCJob status to JobStatus failed, err: %v", err)
 		return StatusInfo{}, err
 	}
-	log.Infof("VCJob status[%s]", state)
+	log.Infof("VCJob status: %s", state)
 
 	return StatusInfo{
 		OriginStatus: string(jobStatus.State.Phase),
@@ -170,16 +170,16 @@ func getVCJobStatus(phase batchv1alpha1.JobPhase) (schema.JobStatus, error) {
 func PaddleJobStatus(obj interface{}) (StatusInfo, error) {
 	status, err := ConvertToStatus(obj, schema.TypePaddleJob)
 	if err != nil {
-		log.Errorf("convert PaddleJob status failed, err[%v]", err)
+		log.Errorf("convert PaddleJob status failed, err: %v", err)
 		return StatusInfo{}, err
 	}
 	jobStatus := status.(*paddlejobv1.PaddleJobStatus)
 	state, err := getPaddleJobStatus(jobStatus.Phase)
 	if err != nil {
-		log.Errorf("get PaddleJob status failed, err[%v]", err)
+		log.Errorf("get PaddleJob status failed, err: %v", err)
 		return StatusInfo{}, err
 	}
-	log.Infof("Paddle job status[%s]", state)
+	log.Infof("Paddle job status: %s", state)
 	return StatusInfo{
 		OriginStatus: string(jobStatus.Phase),
 		Status:       state,
@@ -204,6 +204,44 @@ func getPaddleJobStatus(phase paddlejobv1.PaddleJobPhase) (schema.JobStatus, err
 		status = schema.StatusJobFailed
 	default:
 		return status, fmt.Errorf("unexpected paddlejob status: %s", phase)
+	}
+	return status, nil
+}
+
+// SingleJobStatus get single job status, message from interface{}, and covert to JobStatus
+func SingleJobStatus(obj interface{}) (StatusInfo, error) {
+	status, err := ConvertToStatus(obj, schema.TypeSingle)
+	if err != nil {
+		log.Errorf("convert SingleJob status failed, err: %v", err)
+		return StatusInfo{}, err
+	}
+	jobStatus := status.(*v1.PodStatus)
+	state, err := getSingleJobStatus(jobStatus.Phase)
+	if err != nil {
+		log.Errorf("get SingleJob status failed, err: %v", err)
+		return StatusInfo{}, err
+	}
+	log.Infof("Single job status: %s", state)
+	return StatusInfo{
+		OriginStatus: string(jobStatus.Phase),
+		Status:       state,
+		Message:      "",
+	}, nil
+}
+
+func getSingleJobStatus(phase v1.PodPhase) (schema.JobStatus, error) {
+	status := schema.JobStatus("")
+	switch phase {
+	case v1.PodPending:
+		status = schema.StatusJobPending
+	case v1.PodRunning:
+		status = schema.StatusJobRunning
+	case v1.PodSucceeded:
+		status = schema.StatusJobSucceeded
+	case v1.PodFailed, v1.PodUnknown:
+		status = schema.StatusJobFailed
+	default:
+		return status, fmt.Errorf("unexpected single job status: %s", phase)
 	}
 	return status, nil
 }
