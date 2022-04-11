@@ -17,12 +17,11 @@ package models
 
 type CacheWorker struct {
 	Model
-	Dir            string `json:"dir"`
-	IP             string `json:"ip"`
-	NodeName       string `json:"nodename"`
-	TotalSize      int    `json:"totalSize" gorm:"column:totalsize"`
-	VolumePath     string `json:"volumePath" gorm:"column:volume_path"`
-	AllocatedQuota int    `json:"allocatedQuota" gorm:"column:allocated_quota"`
+	Dir        string `json:"dir"`
+	NodeName   string `json:"nodename"`
+	TotalSize  int    `json:"totalSize" gorm:"column:total_size"`
+	MountPoint string `json:"mountPoint" gorm:"column:mount_point"`
+	UsedQuota  int    `json:"usedQuota" gorm:"column:used_quota"`
 }
 
 func (s *CacheWorker) TableName() string {

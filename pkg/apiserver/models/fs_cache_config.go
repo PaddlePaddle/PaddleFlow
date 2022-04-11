@@ -26,7 +26,7 @@ type CacheConfig struct {
 	Model
 	Dir              string                 `json:"dir"`
 	Quota            int                    `json:"quota"`
-	Type             string                 `json:"type"`
+	CacheType        string                 `json:"cacheType" gorm:"column:cache_type"`
 	BlockSize        int                    `json:"blocksize"`
 	NodeAffinityJson string                 `json:"-" gorm:"column:node_affinity;type:text;default:'{}'"`
 	NodeAffinityMap  map[string]interface{} `json:"nodeAffinity" gorm:"-"`
