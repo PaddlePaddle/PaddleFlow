@@ -403,7 +403,9 @@ func (wfr *WorkflowRuntime) ProcessFailureOptionsWithFailFast(step *Step) {
 }
 
 func (wfr *WorkflowRuntime) ProcessFailureOptions(event WorkflowEvent) {
+	wfr.wf.log().Infof("begin to process failure options. trigger event is: %v", event)
 	st, ok := event.Extra["step"]
+
 	if !ok {
 		wfr.wf.log().Errorf("cannot get the step info of envent for run[%s], begin to stop run: %v", wfr.wf.RunID, event)
 
