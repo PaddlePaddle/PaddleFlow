@@ -45,10 +45,15 @@ var (
 		Source:        "Source",
 		ClusterType:   schema.KubernetesType,
 		Version:       "1.16",
-		Status:        "Status",
+		Status:        models.ClusterStatusOnLine,
 		Credential:    "credential",
 		Setting:       "Setting",
 		NamespaceList: []string{"n1", "n2", MockNamespace},
+	}
+	mockFlavour = models.Flavour{
+		Name: mockFlavourName,
+		CPU:  "1",
+		Mem:  "1",
 	}
 )
 
@@ -58,8 +63,14 @@ func initCluster(t *testing.T) {
 	assert.Nil(t, err)
 }
 
+func initFlavour(t *testing.T) string {
+	err := models.CreateFlavour(&mockFlavour)
+	assert.Nil(t, err)
+	return mockFlavour.Name
+}
+
 func TestListFlavour(t *testing.T) {
-	router, baseURL := prepareDBAndAPI(t)
+	router, baseURL := prepareDBAndAPIForUser(t, "")
 
 	initCluster(t)
 
@@ -104,7 +115,7 @@ func TestListFlavour(t *testing.T) {
 }
 
 func TestCreateFlavour(t *testing.T) {
-	router, baseURL := prepareDBAndAPI(t)
+	router, baseURL := prepareDBAndAPIForUser(t, "")
 
 	f := flavour.CreateFlavourRequest{
 		Name: mockFlavourName,
@@ -119,7 +130,7 @@ func TestCreateFlavour(t *testing.T) {
 }
 
 func TestUpdateFlavour(t *testing.T) {
-	router, baseURL := prepareDBAndAPI(t)
+	router, baseURL := prepareDBAndAPIForUser(t, "")
 
 	// create flavour
 	TestCreateFlavour(t)
@@ -140,7 +151,7 @@ func TestUpdateFlavour(t *testing.T) {
 }
 
 func TestGetFlavour(t *testing.T) {
-	router, baseURL := prepareDBAndAPI(t)
+	router, baseURL := prepareDBAndAPIForUser(t, "")
 	res, err := PerformGetRequest(router, baseURL+"/flavour/"+mockFlavourName)
 	assert.NoError(t, err)
 	assert.Equal(t, 404, res.Code)
@@ -159,7 +170,7 @@ func TestGetFlavour(t *testing.T) {
 }
 
 func TestDeleteFlavour(t *testing.T) {
-	router, baseURL := prepareDBAndAPI(t)
+	router, baseURL := prepareDBAndAPIForUser(t, "")
 
 	res, err := PerformDeleteRequest(router, baseURL+"/flavour/"+mockFlavourName)
 	assert.NoError(t, err)

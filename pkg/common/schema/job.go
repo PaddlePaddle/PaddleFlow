@@ -30,6 +30,7 @@ type Framework string
 type MemberRole string
 
 const (
+	EnvJobID          = "PF_JOB_ID"
 	EnvJobType        = "PF_JOB_TYPE"
 	EnvJobQueueName   = "PF_JOB_QUEUE_NAME"
 	EnvJobQueueID     = "PF_JOB_QUEUE_ID"
@@ -151,6 +152,9 @@ func IsImmutableJobStatus(status JobStatus) bool {
 }
 
 type PFJobConf interface {
+	GetJobID() string
+	SetJobID(string)
+
 	GetName() string
 	GetEnv() map[string]string
 	GetCommand() string
@@ -164,7 +168,10 @@ type PFJobConf interface {
 	GetClusterName() string
 	GetClusterID() string
 	GetUserName() string
+
 	GetFS() string
+	SetFS(string)
+
 	GetYamlPath() string
 	GetNamespace() string
 	GetJobMode() string
@@ -205,6 +212,17 @@ type FileSystem struct {
 	ReadOnly  bool   `json:"readOnly,omitempty"`
 }
 
+func (c *Conf) GetJobID() string {
+	return c.Env[EnvJobID]
+}
+
+func (c *Conf) SetJobID(jobID string) {
+	if c.Env == nil {
+		c.Env = make(map[string]string)
+	}
+	c.Env[EnvJobID] = jobID
+}
+
 func (c *Conf) GetName() string {
 	return c.Name
 }
@@ -234,6 +252,9 @@ func (c *Conf) GetPriority() string {
 }
 
 func (c *Conf) SetPriority(pc string) {
+	if c.Env == nil {
+		c.Env = make(map[string]string)
+	}
 	c.Env[EnvJobPriority] = pc
 }
 
@@ -249,8 +270,23 @@ func (c *Conf) GetUserName() string {
 	return c.Env[EnvJobUserName]
 }
 
+func (c *Conf) SetUserName(userName string) {
+	if c.Env == nil {
+		c.Env = make(map[string]string)
+	}
+	c.Env[EnvJobUserName] = userName
+}
+
 func (c *Conf) GetFS() string {
 	return c.Env[EnvJobFsID]
+}
+
+// SetFS params can be fsID or fsName
+func (c *Conf) SetFS(fsID string) {
+	if c.Env == nil {
+		c.Env = make(map[string]string)
+	}
+	c.Env[EnvJobFsID] = fsID
 }
 
 func (c *Conf) GetYamlPath() string {
@@ -262,6 +298,9 @@ func (c *Conf) GetNamespace() string {
 }
 
 func (c *Conf) SetNamespace(ns string) {
+	if c.Env == nil {
+		c.Env = make(map[string]string)
+	}
 	c.Env[EnvJobNamespace] = ns
 }
 
@@ -302,18 +341,30 @@ func (c *Conf) GetWorkerFlavour() string {
 }
 
 func (c *Conf) SetFlavour(flavourKey string) {
+	if c.Env == nil {
+		c.Env = make(map[string]string)
+	}
 	c.Env[EnvJobFlavour] = flavourKey
 }
 
 func (c *Conf) SetPSFlavour(flavourKey string) {
+	if c.Env == nil {
+		c.Env = make(map[string]string)
+	}
 	c.Env[EnvJobPServerFlavour] = flavourKey
 }
 
 func (c *Conf) SetWorkerFlavour(flavourKey string) {
+	if c.Env == nil {
+		c.Env = make(map[string]string)
+	}
 	c.Env[EnvJobWorkerFlavour] = flavourKey
 }
 
 func (c *Conf) SetEnv(name, value string) {
+	if c.Env == nil {
+		c.Env = make(map[string]string)
+	}
 	c.Env[name] = value
 }
 
@@ -322,6 +373,9 @@ func (c *Conf) GetQueueID() string {
 }
 
 func (c *Conf) SetQueueID(id string) {
+	if c.Env == nil {
+		c.Env = make(map[string]string)
+	}
 	c.Env[EnvJobQueueID] = id
 }
 
@@ -330,6 +384,9 @@ func (c *Conf) GetClusterID() string {
 }
 
 func (c *Conf) SetClusterID(id string) {
+	if c.Env == nil {
+		c.Env = make(map[string]string)
+	}
 	c.Env[EnvJobClusterID] = id
 }
 
