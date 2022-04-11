@@ -102,7 +102,8 @@ func (wfr *WorkflowRuntime) Start() error {
 // 触发step运行
 func (wfr *WorkflowRuntime) triggerSteps(steps map[string]*Step, nodeType NodeType) error {
 	for st_name, st := range steps {
-		st.NodeType = nodeType
+		st.nodeType = nodeType
+
 		if st.done {
 			wfr.wf.log().Debugf("Skip step: %s", st_name)
 			continue
@@ -122,8 +123,9 @@ func (wfr *WorkflowRuntime) triggerSteps(steps map[string]*Step, nodeType NodeTy
 
 // restartSteps
 // 不能直接复用 triggerSteps 的原因是，重启时需要考虑step 已经 submitted，但是对应的job 还没有运行结束的情况，需要给这些步骤优先占到卡槽
-func (wfr *WorkflowRuntime) restartSteps(steps map[string]*Step) error {
+func (wfr *WorkflowRuntime) restartSteps(steps map[string]*Step, nodeType NodeType) error {
 	for _, step := range steps {
+		step.nodeType = nodeType
 		if step.done {
 			continue
 		}
@@ -133,6 +135,7 @@ func (wfr *WorkflowRuntime) restartSteps(steps map[string]*Step) error {
 	// 如果在服务异常过程中，刚好 step 中的任务已经完成，而新的任务还没有开始，此时会导致调度逻辑永远不会 watch 到新的 event
 	// 不在上面直接判断 step.depsReady 的原因：wfr.steps 是 map，遍历顺序无法确定，必须保证已提交的任务先占到槽位，才能保证并发数控制正确
 	for stepName, step := range steps {
+		step.nodeType = nodeType
 		if step.done || step.submitted {
 			continue
 		}
@@ -158,9 +161,9 @@ func (wfr *WorkflowRuntime) Restart() error {
 	// 3. 如果 entryPoints 和 PostProcess 所有节点均处于终态，则直接更新 run 的状态即可, 并调用回调函数，传给 Server 入库
 	// PS：第3种发生的概率很少，用于兜底
 	if statusToEntrySteps.statFinshedSteps() != len(wfr.entryPoints) {
-		wfr.restartSteps(wfr.entryPoints)
+		wfr.restartSteps(wfr.entryPoints, NodeTypeEntrypoint)
 	} else if statusToPostSteps.statFinshedSteps() != len(wfr.postProcess) {
-		wfr.restartSteps(wfr.postProcess)
+		wfr.restartSteps(wfr.postProcess, NodeTypePostProcess)
 	} else {
 		wfr.updateStatus(statusToEntrySteps, statusToPostSteps)
 
@@ -400,7 +403,9 @@ func (wfr *WorkflowRuntime) ProcessFailureOptionsWithFailFast(step *Step) {
 }
 
 func (wfr *WorkflowRuntime) ProcessFailureOptions(event WorkflowEvent) {
+	wfr.wf.log().Infof("begin to process failure options. trigger event is: %v", event)
 	st, ok := event.Extra["step"]
+
 	if !ok {
 		wfr.wf.log().Errorf("cannot get the step info of envent for run[%s], begin to stop run: %v", wfr.wf.RunID, event)
 
@@ -417,10 +422,11 @@ func (wfr *WorkflowRuntime) ProcessFailureOptions(event WorkflowEvent) {
 	}
 
 	// FailureOptions 不处理 PostProcess 中的节点
-	if step.NodeType == NodeTypePostProcess {
+	if step.nodeType == NodeTypePostProcess {
 		return
 	}
 
+	wfr.wf.log().Infof("begin to process failure options. trigger event is: %v", event)
 	// 策略的合法性由 workflow 保证
 	if wfr.wf.Source.FailureOptions.Strategy == schema.FailureStrategyContinue {
 		wfr.ProcessFailureOptionsWithContinue(step)

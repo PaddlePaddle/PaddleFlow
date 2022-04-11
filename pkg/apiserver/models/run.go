@@ -41,14 +41,14 @@ type Run struct {
 	FsID           string                 `gorm:"type:varchar(60);not null"         json:"-"`
 	FsName         string                 `gorm:"type:varchar(60);not null"         json:"fsname"`
 	Description    string                 `gorm:"type:text;size:65535;not null"     json:"description"`
-	ParamJson      string                 `gorm:"type:text;size:65535"              json:"-"`
+	ParametersJson string                 `gorm:"type:text;size:65535"              json:"-"`
 	Parameters     map[string]interface{} `gorm:"-"                                 json:"parameters"`
 	RunYaml        string                 `gorm:"type:text;size:65535"              json:"runYaml"`
 	WorkflowSource schema.WorkflowSource  `gorm:"-"                                 json:"-"` // RunYaml's dynamic struct
 	Runtime        schema.RuntimeView     `gorm:"-"                                 json:"runtime"`
 	PostProcess    schema.PostProcessView `gorm:"-"                                 json:"postProcess"`
 	FailureOptions schema.FailureOptions  `gorm:"-"                                 json:"failureOptions"`
-	ImageUrl       string                 `gorm:"type:varchar(128)"                 json:"imageUrl"`
+	DockerEnv      string                 `gorm:"type:varchar(128)"                 json:"dockerEnv"`
 	Entry          string                 `gorm:"type:varchar(256)"                 json:"entry"`
 	Disabled       string                 `gorm:"type:text;size:65535"              json:"disabled"`
 	Message        string                 `gorm:"type:text;size:65535"              json:"runMsg"`
@@ -87,7 +87,7 @@ func (r *Run) Encode() error {
 			logger.LoggerForRun(r.ID).Errorf("encode run param failed. error:%v", err)
 			return err
 		}
-		r.ParamJson = string(paramRaw)
+		r.ParametersJson = string(paramRaw)
 	}
 	return nil
 }
@@ -100,15 +100,17 @@ func (r *Run) decode() error {
 	}
 	r.WorkflowSource = workflowSource
 
+	r.validateFailureOptions()
+
 	// 由于在所有获取Run的函数中，都需要进行decode，因此Runtime和PostProcess的赋值也在decode中进行
 	if err := r.validateRuntimeAndPostProcess(); err != nil {
 		return err
 	}
 
 	// decode param
-	if len(r.ParamJson) > 0 {
+	if len(r.ParametersJson) > 0 {
 		param := map[string]interface{}{}
-		if err := json.Unmarshal([]byte(r.ParamJson), &param); err != nil {
+		if err := json.Unmarshal([]byte(r.ParametersJson), &param); err != nil {
 			logger.LoggerForRun(r.ID).Errorf("decode run param failed. error:%v", err)
 			return err
 		}
@@ -121,6 +123,12 @@ func (r *Run) decode() error {
 		r.ActivateTime = r.ActivatedAt.Time.Format("2006-01-02 15:04:05")
 	}
 	return nil
+}
+
+func (r *Run) validateFailureOptions() {
+	if r.WorkflowSource.FailureOptions.Strategy == "" && r.FailureOptions.Strategy == "" {
+		r.FailureOptions.Strategy = schema.FailureStrategyFailFast
+	}
 }
 
 // validate runtime and postProcess
@@ -136,25 +144,16 @@ func (r *Run) validateRuntimeAndPostProcess() error {
 	if err != nil {
 		return err
 	}
-	postStepNameList := []string{}
-	for name := range r.WorkflowSource.PostProcess {
-		postStepNameList = append(postStepNameList, name)
-	}
 	// 将所有run_job转换成JobView之后，赋值给Runtime和PostProcess
 	for _, job := range runJobs {
-		isPost := false
-		for _, name := range postStepNameList {
-			if name == job.Name {
-				isPost = true
-				break
-			}
-		}
-		if isPost {
-			jobView := job.ParseJobView(r.WorkflowSource.PostProcess[job.StepName])
+		if step, ok := r.WorkflowSource.PostProcess[job.StepName]; ok {
+			jobView := job.ParseJobView(step)
 			r.PostProcess[job.StepName] = jobView
-		} else {
-			jobView := job.ParseJobView(r.WorkflowSource.EntryPoints[job.StepName])
+		} else if step, ok := r.WorkflowSource.EntryPoints[job.StepName]; ok {
+			jobView := job.ParseJobView(step)
 			r.Runtime[job.StepName] = jobView
+		} else {
+			return fmt.Errorf("cannot find step[%s] in either entry_points or post_process", job.StepName)
 		}
 	}
 	return nil

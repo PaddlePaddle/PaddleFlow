@@ -39,7 +39,8 @@ const (
 	runWrongParamYamlPath string = "./testcase/runWrongParam.yaml"
 	runCircleYamlPath     string = "./testcase/runCircle.yaml"
 
-	runTwoPostPath string = "./testcase/runTwoPost.yaml"
+	runTwoPostPath     string = "./testcase/runTwoPost.yaml"
+	runPostProcessPath string = "./testcase/runPostProcess.yaml"
 )
 
 var mockCbs = WorkflowCallbacks{
@@ -112,7 +113,7 @@ func TestNewBaseWorkflowWithCircle(t *testing.T) {
 	assert.NotNil(t, err)
 }
 
-// 测试带环流程
+// 测试无环流程
 func TestTopologicalSort_noCircle(t *testing.T) {
 	testCase := loadcase(runYamlPath)
 	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
@@ -826,4 +827,12 @@ func TestCheckPostProcess(t *testing.T) {
 	err = bwf.validate()
 	assert.NotNil(t, err)
 	assert.Equal(t, "post_process can only has 1 step at most", err.Error())
+
+	testCase = loadcase(runPostProcessPath)
+	wfs, err = schema.ParseWorkflowSource([]byte(testCase))
+	assert.Nil(t, err)
+
+	extra = GetExtra()
+	_, err = NewWorkflow(wfs, "", "", nil, extra, mockCbs)
+	assert.Nil(t, err)
 }
