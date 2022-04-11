@@ -507,7 +507,7 @@ func (st *Step) stopJob() {
 			st.getLogger().Errorf(ErrMsg)
 
 			extra := map[string]interface{}{
-				"st": st,
+				"step": st,
 			}
 			wfe := NewWorkflowEvent(WfEventJobStopErr, ErrMsg, extra)
 			st.wfr.event <- *wfe
@@ -554,7 +554,7 @@ func (st *Step) Watch() {
 					st.logOutputArtifact()
 				}
 			}
-			event.Extra["st"] = st
+			event.Extra["step"] = st
 		}
 		st.wfr.event <- event
 		if st.done {
