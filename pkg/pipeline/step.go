@@ -82,7 +82,6 @@ func (st *Step) generateStepParamSolver(forCacheFingerprint bool) (StepParamSolv
 	SourceSteps := make(map[string]*schema.WorkflowSourceStep)
 	jobs := make(map[string]Job)
 
-
 	var steps map[string]*Step
 	if st.nodeType == NodeTypeEntrypoint {
 		steps = st.wfr.entryPoints
@@ -557,6 +556,7 @@ func (st *Step) Watch() {
 			}
 			event.Extra["step"] = st
 		}
+
 		st.wfr.event <- event
 		if st.done {
 			return
