@@ -118,6 +118,8 @@ func InitMockDB() {
 		&models.Flavour{},
 		&models.Grant{},
 		&models.Job{},
+		&models.JobTask{},
+		&models.JobLabel{},
 		&models.ClusterInfo{},
 	)
 	database.DB = db
@@ -141,6 +143,8 @@ func initSQLiteDB(dbConf *config.DatabaseConfig, gormConf *gorm.Config) *gorm.DB
 		&models.Flavour{},
 		&models.Grant{},
 		&models.Job{},
+		&models.JobTask{},
+		&models.JobLabel{},
 		&models.ClusterInfo{},
 		&models.Image{},
 		&models.FileSystem{},

@@ -23,10 +23,11 @@ import (
 )
 
 type JobType string
-type ActionOnJob string
+type ActionType string
 type JobStatus string
+type TaskStatus string
 type Framework string
-type RoleMember string
+type MemberRole string
 
 const (
 	EnvJobType        = "PF_JOB_TYPE"
@@ -85,12 +86,17 @@ const (
 	StatusJobCancelled   JobStatus = "cancelled"
 	StatusJobSkipped     JobStatus = "skipped"
 
-	RoleMaster   RoleMember = "master"
-	RoleWorker   RoleMember = "worker"
-	RoleDriver   RoleMember = "driver"
-	RoleExecutor RoleMember = "executor"
-	RolePServer  RoleMember = "pserver"
-	RolePWorker  RoleMember = "pworker"
+	StatusTaskPending   TaskStatus = "pending"
+	StatusTaskRunning   TaskStatus = "running"
+	StatusTaskSucceeded TaskStatus = "succeeded"
+	StatusTaskFailed    TaskStatus = "failed"
+
+	RoleMaster   MemberRole = "master"
+	RoleWorker   MemberRole = "worker"
+	RoleDriver   MemberRole = "driver"
+	RoleExecutor MemberRole = "executor"
+	RolePServer  MemberRole = "pserver"
+	RolePWorker  MemberRole = "pworker"
 
 	TypeSingle      JobType = "single"
 	TypeDistributed JobType = "distributed"
@@ -129,9 +135,10 @@ const (
 )
 
 const (
-	Update    ActionOnJob = "update"
-	Delete    ActionOnJob = "delete"
-	Terminate ActionOnJob = "terminate"
+	Create    ActionType = "create"
+	Update    ActionType = "update"
+	Delete    ActionType = "delete"
+	Terminate ActionType = "terminate"
 )
 
 func IsImmutableJobStatus(status JobStatus) bool {
