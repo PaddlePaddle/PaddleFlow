@@ -45,7 +45,7 @@ func TestUpdateJobForFingerPrint(t *testing.T) {
 
 	for _, stepName := range sortedSteps {
 		st := wf.runtime.entryPoints[stepName]
-		st.NodeType = common.NodeTypeEntrypoint
+		st.nodeType = common.NodeTypeEntrypoint
 		forCacheFingerprint := true
 		err := st.updateJob(forCacheFingerprint, nil)
 		assert.Nil(t, err)
@@ -139,7 +139,7 @@ func TestUpdateJob(t *testing.T) {
 	for _, stepName := range sortedSteps {
 		st := wf.runtime.entryPoints[stepName]
 
-		st.NodeType = common.NodeTypeEntrypoint
+		st.nodeType = common.NodeTypeEntrypoint
 
 		forCacheFingerprint := false
 		err := st.updateJob(forCacheFingerprint, nil)
@@ -243,7 +243,7 @@ func TestUpdateJobWithCache(t *testing.T) {
 	for _, stepName := range sortedSteps {
 		st := wf.runtime.entryPoints[stepName]
 
-		st.NodeType = common.NodeTypeEntrypoint
+		st.nodeType = common.NodeTypeEntrypoint
 
 		forCacheFingerprint := false
 		if stepName == "data_preprocess" {
@@ -353,7 +353,7 @@ func TestCheckCached(t *testing.T) {
 
 	st := wf.runtime.entryPoints["data_preprocess"]
 
-	st.NodeType = common.NodeTypeEntrypoint
+	st.nodeType = common.NodeTypeEntrypoint
 	patches := gomonkey.ApplyMethod(reflect.TypeOf(st.job), "Validate", func(_ *PaddleFlowJob) error {
 		return nil
 	})
@@ -388,7 +388,7 @@ func TestCheckCached(t *testing.T) {
 	}
 
 	st = wf.runtime.entryPoints["data_preprocess"]
-	st.NodeType = common.NodeTypeEntrypoint
+	st.nodeType = common.NodeTypeEntrypoint
 
 	cacheFound, err = st.checkCached()
 	assert.Nil(t, err)
@@ -409,7 +409,7 @@ func TestCheckCached(t *testing.T) {
 
 	st = wf.runtime.entryPoints["data_preprocess"]
 
-	st.NodeType = common.NodeTypeEntrypoint
+	st.nodeType = common.NodeTypeEntrypoint
 	cacheFound, err = st.checkCached()
 	assert.Nil(t, err)
 	assert.Equal(t, false, cacheFound)
@@ -429,8 +429,7 @@ func TestCheckCached(t *testing.T) {
 
 	st = wf.runtime.entryPoints["data_preprocess"]
 
-	st.NodeType = common.NodeTypeEntrypoint
-
+	st.nodeType = common.NodeTypeEntrypoint
 	cacheFound, err = st.checkCached()
 	assert.Nil(t, err)
 	assert.Equal(t, true, cacheFound)
@@ -450,15 +449,13 @@ func TestCheckCached(t *testing.T) {
 
 	st = wf.runtime.entryPoints["data_preprocess"]
 
-	st.NodeType = common.NodeTypeEntrypoint
-
 	cacheFound, err = st.checkCached()
 	assert.Nil(t, err)
 	assert.Equal(t, true, cacheFound)
 }
 
 func TestPFRUNTIME(t *testing.T) {
-	testCase := loadcase("./testcase/run_process.yaml")
+	testCase := loadcase("./testcase/runPostProcess.yaml")
 	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
@@ -476,11 +473,13 @@ func TestPFRUNTIME(t *testing.T) {
 
 	assert.Equal(t, 1, len(wf.Source.PostProcess))
 	for name, st := range wf.runtime.postProcess {
-		st.NodeType = common.NodeTypeEntrypoint
-		assert.Equal(t, name, "mail")
-		st.updateJob(false, nil)
+		st.nodeType = common.NodeTypePostProcess
 
+		assert.Equal(t, name, "mail")
+
+		st.updateJob(false, nil)
 		assert.Equal(t, true, strings.Contains(st.job.Job().Command, "hahaha"))
+
 		runtime := schema.RuntimeView{}
 		err := json.Unmarshal([]byte(st.job.Job().Parameters["runtime"]), &runtime)
 		if err != nil {
