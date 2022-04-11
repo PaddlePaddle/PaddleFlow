@@ -15,7 +15,7 @@ limitations under the License.
 */
 package models
 
-type CacheWorker struct {
+type FSCacheWorker struct {
 	Model
 	Dir        string `json:"dir"`
 	NodeName   string `json:"nodename"`
@@ -23,6 +23,6 @@ type CacheWorker struct {
 	UsedSize   int    `json:"usedSize" gorm:"column:used_size"`
 }
 
-func (s *CacheWorker) TableName() string {
+func (s *FSCacheWorker) TableName() string {
 	return "fs_cache_worker"
 }

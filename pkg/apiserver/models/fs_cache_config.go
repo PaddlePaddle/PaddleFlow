@@ -22,7 +22,7 @@ import (
 	"gorm.io/gorm"
 )
 
-type CacheConfig struct {
+type FSCacheConfig struct {
 	Model
 	Dir              string                 `json:"dir"`
 	Quota            int                    `json:"quota"`
@@ -34,11 +34,11 @@ type CacheConfig struct {
 	ExtraConfigMap   map[string]string      `json:"extraConfig" gorm:"-"`
 }
 
-func (s *CacheConfig) TableName() string {
+func (s *FSCacheConfig) TableName() string {
 	return "fs_cache_config"
 }
 
-func (s *CacheConfig) AfterFind(*gorm.DB) error {
+func (s *FSCacheConfig) AfterFind(*gorm.DB) error {
 	if s.NodeAffinityJson != "" {
 		s.NodeAffinityMap = make(map[string]interface{})
 		if err := json.Unmarshal([]byte(s.NodeAffinityJson), &s.NodeAffinityMap); err != nil {
@@ -56,7 +56,7 @@ func (s *CacheConfig) AfterFind(*gorm.DB) error {
 	return nil
 }
 
-func (s *CacheConfig) BeforeSave(*gorm.DB) error {
+func (s *FSCacheConfig) BeforeSave(*gorm.DB) error {
 	nodeAffinityMap, err := json.Marshal(&s.NodeAffinityMap)
 	if err != nil {
 		log.Errorf("json Marshal nodeAffinityMap[%v] failed: %v", s.NodeAffinityMap, err)
