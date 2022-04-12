@@ -53,7 +53,6 @@ func (j *JobGarbageCollector) update(old, new interface{}) {
 			j.finishedJobDelayEnqueue(finishedJob)
 		}
 	}
-	return
 }
 
 func (j *JobGarbageCollector) isCleanJob(jobStatus schema.JobStatus) bool {

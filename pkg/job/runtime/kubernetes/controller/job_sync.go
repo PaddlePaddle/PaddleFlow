@@ -89,7 +89,7 @@ func (j *JobSync) Initialize(opt *k8s.DynamicClientOption) error {
 	j.taskQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	j.informerMap = make(map[schema.GroupVersionKind]cache.SharedIndexInformer)
 
-	for gvk, _ := range k8s.GVKJobStatusMap {
+	for gvk := range k8s.GVKJobStatusMap {
 		gvrMap, err := j.opt.GetGVR(gvk)
 		if err != nil {
 			log.Warnf("cann't find GroupVersionKind [%s], err: %v", gvk, err)
