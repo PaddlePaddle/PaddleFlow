@@ -13,25 +13,33 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 package models
 
 import (
 	"encoding/json"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 )
 
 type FSCacheConfig struct {
-	Model
-	Dir              string                 `json:"dir"`
-	Quota            int                    `json:"quota"`
-	CacheType        string                 `json:"cacheType" gorm:"column:cache_type"`
-	BlockSize        int                    `json:"blocksize"`
-	NodeAffinityJson string                 `json:"-" gorm:"column:node_affinity;type:text;default:'{}'"`
-	NodeAffinityMap  map[string]interface{} `json:"nodeAffinity" gorm:"-"`
-	ExtraConfigJson  string                 `json:"-" gorm:"column:extra_config;type:text;default:'{}'"`
-	ExtraConfigMap   map[string]string      `json:"extraConfig" gorm:"-"`
+	Pk                      int64                  `json:"-" gorm:"primaryKey;autoIncrement"`
+	FSID                    string                 `json:"-" gorm:"type:varchar(36);column:fs_id"`
+	CacheDir                string                 `json:"cacheDir"`
+	Quota                   int                    `json:"quota"`
+	CacheType               string                 `json:"cacheType" gorm:"column:cache_type"`
+	BlockSize               int                    `json:"blockSize"`
+	NodeAffinityJson        string                 `json:"-" gorm:"column:node_affinity;type:text;default:'{}'"`
+	NodeAffinityMap         map[string]interface{} `json:"nodeAffinity" gorm:"-"`
+	NodeTaintTolerationJson string                 `json:"-" gorm:"column:node_tainttoleration;type:text;default:'{}'"`
+	NodeTaintTolerationMap  map[string]interface{} `json:"nodeTaintToleration" gorm:"-"`
+	ExtraConfigJson         string                 `json:"-" gorm:"column:extra_config;type:text;default:'{}'"`
+	ExtraConfigMap          map[string]string      `json:"extraConfig" gorm:"-"`
+	CreatedAt               time.Time              `json:"createTime"`
+	UpdatedAt               time.Time              `json:"updateTime,omitempty"`
+	DeletedAt               gorm.DeletedAt         `json:"deleteTime,omitempty"`
 }
 
 func (s *FSCacheConfig) TableName() string {
