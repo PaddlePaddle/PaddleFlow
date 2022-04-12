@@ -42,17 +42,16 @@ type LoginResponse struct {
 }
 
 type FsParams struct {
-	FsID  string
-	Token string
+	FsName   string `json:"fsName"`
+	UserName string `json:"username"`
+	Token    string
 }
 
 type LinksParams struct {
-	Marker   string `json:"marker"`
-	MaxKeys  int32  `json:"maxKeys"`
-	Username string `json:"username"`
-	FsID     string `json:"fsID"`
-	FsPath   string `json:"fsPath"`
-	Token    string
+	Marker  string `json:"marker"`
+	MaxKeys int32  `json:"maxKeys"`
+	FsPath  string `json:"fsPath"`
+	FsParams
 }
 
 type FsResponse struct {
@@ -102,7 +101,8 @@ func FsRequest(params FsParams, c *core.PFClient) (*FsResponse, error) {
 	resp := &FsResponse{}
 	err := core.NewRequestBuilder(c).
 		WithHeader(common.HeaderKeyAuthorization, params.Token).
-		WithURL(GetFsApi + "/" + params.FsID).
+		WithURL(GetFsApi+"/"+params.FsName).
+		WithQueryParam("username", params.UserName).
 		WithMethod(http.GET).
 		WithResult(resp).
 		Do()
@@ -116,8 +116,8 @@ func LinksRequest(params LinksParams, c *core.PFClient) (*LinksResponse, error) 
 	resp := &LinksResponse{}
 	err := core.NewRequestBuilder(c).
 		WithHeader(common.HeaderKeyAuthorization, params.Token).
-		WithURL(GetLinksApis + "/" + params.FsID).
-		WithMethod(http.GET).
+		WithURL(GetLinksApis+"/"+params.FsName).
+		WithQueryParam("username", params.UserName).WithMethod(http.GET).
 		WithResult(resp).
 		Do()
 	if err != nil {
