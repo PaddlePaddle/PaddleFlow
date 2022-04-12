@@ -80,7 +80,7 @@ func (st *Step) getLogger() *logrus.Entry {
 	return st.wfr.wf.log()
 }
 
-func (st *Step) generateStepParamSolver(forCacheFingerprint bool) (StepParamSolver, error) {
+func (st *Step) generateStepParamSolver(forCacheFingerprint bool) (*StepParamSolver, error) {
 	SourceSteps := make(map[string]*schema.WorkflowSourceStep)
 	jobs := make(map[string]Job)
 
@@ -99,7 +99,7 @@ func (st *Step) generateStepParamSolver(forCacheFingerprint bool) (StepParamSolv
 	runtimeView, err := json.Marshal(st.wfr.runtimeView)
 	if err != nil {
 		st.getLogger().Errorf("marshal runtimeView of run[%s] for step[%s] failed: %v", st.wfr.wf.RunID, st.name, runtimeView)
-		return NewStepParamSolver(SourceSteps, make(map[string]string), jobs, forCacheFingerprint, st.wfr.wf.Source.Name, st.wfr.wf.RunID, st.wfr.wf.Extra[WfExtraInfoKeyFsID], st.getLogger()), err
+		return nil, err
 	}
 	var sysParams = map[string]string{
 		SysParamNamePFRunID:    st.wfr.wf.RunID,
@@ -111,7 +111,7 @@ func (st *Step) generateStepParamSolver(forCacheFingerprint bool) (StepParamSolv
 	}
 
 	paramSolver := NewStepParamSolver(SourceSteps, sysParams, jobs, forCacheFingerprint, st.wfr.wf.Source.Name, st.wfr.wf.RunID, st.wfr.wf.Extra[WfExtraInfoKeyFsID], st.getLogger())
-	return paramSolver, nil
+	return &paramSolver, nil
 }
 
 func (st *Step) updateJob(forCacheFingerprint bool, cacheOutputArtifacts map[string]string) error {
