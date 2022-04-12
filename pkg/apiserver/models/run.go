@@ -126,8 +126,11 @@ func (r *Run) decode() error {
 }
 
 func (r *Run) validateFailureOptions() {
-	if r.WorkflowSource.FailureOptions.Strategy == "" && r.FailureOptions.Strategy == "" {
+	logger.Logger().Infof("Strategy is %v", r.WorkflowSource.FailureOptions.Strategy)
+	if r.WorkflowSource.FailureOptions.Strategy == "" {
 		r.FailureOptions.Strategy = schema.FailureStrategyFailFast
+	} else {
+		r.FailureOptions.Strategy = r.WorkflowSource.FailureOptions.Strategy
 	}
 }
 
