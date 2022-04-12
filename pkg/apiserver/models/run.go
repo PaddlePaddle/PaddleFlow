@@ -211,13 +211,13 @@ func UpdateRun(logEntry *log.Entry, runID string, run Run) error {
 func DeleteRun(logEntry *log.Entry, runID string) error {
 	logEntry.Debugf("begin delete run. runID:%s", runID)
 	err := withTransaction(database.DB, func(tx *gorm.DB) error {
-		result := database.DB.Model(&RunJob{}).Unscoped().Where("run_id = ?", runID).Delete(&RunJob{})
+		result := database.DB.Model(&RunJob{}).Where("run_id = ?", runID).Delete(&RunJob{})
 		if result.Error != nil {
 			logEntry.Errorf("delete run_job before deleting run failed. runID:%s, error:%s",
 				runID, result.Error.Error())
 			return result.Error
 		}
-		result = database.DB.Model(&Run{}).Unscoped().Where("id = ?", runID).Delete(&Run{})
+		result = database.DB.Model(&Run{}).Where("id = ?", runID).Delete(&Run{})
 		if result.Error != nil {
 			logEntry.Errorf("delete run failed. runID:%s, error:%s",
 				runID, result.Error.Error())
