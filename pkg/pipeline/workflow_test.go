@@ -725,7 +725,7 @@ func TestValidateWorkflowWithoutFs(t *testing.T) {
 	bwf.Source.Cache.FsScope = ""
 	err = bwf.validate()
 	assert.NotNil(t, err)
-	pattern := regexp.MustCompile("fs_scope of cache in step[[a-zA-Z_]+] should be empty if Fs is not used!")
+	pattern := regexp.MustCompile("fs_scope of cache in step[[a-zA-Z-]+] should be empty if Fs is not used!")
 	assert.Regexp(t, pattern, err.Error())
 
 	bwf.Source.EntryPoints["data-preprocess"].Cache.FsScope = ""
@@ -741,7 +741,7 @@ func TestValidateWorkflowWithoutFs(t *testing.T) {
 	bwf = NewBaseWorkflow(wfs, "", "", nil, extra)
 	err = bwf.validate()
 	assert.NotNil(t, err)
-	pattern = regexp.MustCompile("cannot define artifact in step[[a-zA-Z_]+] with no Fs mounted")
+	pattern = regexp.MustCompile("cannot define artifact in step[[a-zA-Z-]+] with no Fs mounted")
 	assert.Regexp(t, pattern, err.Error())
 }
 
