@@ -353,6 +353,8 @@ func (wfr *WorkflowRuntime) getDirectDownstreamStep(upstreamStep *Step) (steps m
 			ds = strings.Trim(ds, " ")
 			if ds == upstreamStep.name {
 				steps[step] = step.name
+				wfr.wf.log().Infof("step[%s] is the downstream of step[%s] ", step.name, upstreamStep.name)
+
 			}
 		}
 	}
@@ -361,7 +363,6 @@ func (wfr *WorkflowRuntime) getDirectDownstreamStep(upstreamStep *Step) (steps m
 
 func (wfr *WorkflowRuntime) getAllDownstreamSteps(upstreamStep *Step) (steps map[*Step]string) {
 	steps = map[*Step]string{}
-	// 深度优先遍历或者广度优先遍历？
 	toVisiteStep := wfr.getDirectDownstreamStep(upstreamStep)
 
 	// 循环获取下游节点的下游下游节点，直至叶子节点
@@ -393,9 +394,9 @@ func (wfr *WorkflowRuntime) ProcessFailureOptionsWithContinue(step *Step) {
 	// 失败节点的所有下游节点都将会置为failed
 
 	needCancelSteps := wfr.getAllDownstreamSteps(step)
-
 	for needCancelStep, _ := range needCancelSteps {
 		if !needCancelStep.done {
+			wfr.wf.log().Infof("step[%s] would be cancelled, because it upstream step[%s] failed", needCancelStep.name, step.name)
 			needCancelStep.cancel <- true
 		}
 	}
@@ -431,7 +432,6 @@ func (wfr *WorkflowRuntime) ProcessFailureOptions(event WorkflowEvent) {
 		return
 	}
 
-	wfr.wf.log().Infof("begin to process failure options. trigger event is: %v", event)
 	// 策略的合法性由 workflow 保证
 	if wfr.wf.Source.FailureOptions.Strategy == schema.FailureStrategyContinue {
 		wfr.ProcessFailureOptionsWithContinue(step)
