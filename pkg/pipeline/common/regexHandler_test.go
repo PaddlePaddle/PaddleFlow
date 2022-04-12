@@ -55,7 +55,7 @@ func TestCheckRefUpstreamStep(t *testing.T) {
 	err := vc.CheckRefUpstreamStep(refPattern)
 	assert.Nil(t, err)
 
-	refPattern = "{{-step1.-varName2}}"
+	refPattern = "{{-step1._varName2}}"
 	err = vc.CheckRefUpstreamStep(refPattern)
 	assert.Nil(t, err)
 
