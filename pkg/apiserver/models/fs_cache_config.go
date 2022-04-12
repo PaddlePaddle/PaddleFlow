@@ -26,7 +26,7 @@ import (
 
 type FSCacheConfig struct {
 	PK                      int64                  `json:"-" gorm:"primaryKey;autoIncrement"`
-	FSID                    string                 `json:"-" gorm:"type:varchar(36);column:fs_id"`
+	FSID                    string                 `json:"fsID" gorm:"type:varchar(36);column:fs_id"`
 	CacheDir                string                 `json:"cacheDir"`
 	Quota                   int                    `json:"quota"`
 	CacheType               string                 `json:"cacheType" gorm:"column:cache_type"`
@@ -54,6 +54,13 @@ func (s *FSCacheConfig) AfterFind(*gorm.DB) error {
 			return err
 		}
 	}
+	if s.NodeTaintTolerationJson != "" {
+		s.NodeTaintTolerationMap = make(map[string]interface{})
+		if err := json.Unmarshal([]byte(s.NodeTaintTolerationJson), &s.NodeTaintTolerationMap); err != nil {
+			log.Errorf("json Unmarshal nodeTainttolerationJson[%s] failed: %v", s.ExtraConfigJson, err)
+			return err
+		}
+	}
 	if s.ExtraConfigJson != "" {
 		s.ExtraConfigMap = make(map[string]string)
 		if err := json.Unmarshal([]byte(s.ExtraConfigJson), &s.ExtraConfigMap); err != nil {
@@ -61,6 +68,7 @@ func (s *FSCacheConfig) AfterFind(*gorm.DB) error {
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -71,6 +79,13 @@ func (s *FSCacheConfig) BeforeSave(*gorm.DB) error {
 		return err
 	}
 	s.NodeAffinityJson = string(nodeAffinityMap)
+
+	nodeTaintMap, err := json.Marshal(&s.NodeTaintTolerationMap)
+	if err != nil {
+		log.Errorf("json Marshal nodeTaintMap[%v] failed: %v", s.NodeTaintTolerationMap, err)
+		return err
+	}
+	s.NodeTaintTolerationJson = string(nodeTaintMap)
 
 	extraConfigMap, err := json.Marshal(&s.ExtraConfigMap)
 	if err != nil {
