@@ -19,7 +19,6 @@ package v1
 import (
 	"fmt"
 	"net/http"
-	"paddleflow/pkg/apiserver/models"
 	"strings"
 
 	"github.com/go-chi/chi"
@@ -27,6 +26,7 @@ import (
 
 	"paddleflow/pkg/apiserver/common"
 	"paddleflow/pkg/apiserver/controller/job"
+	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/common/config"
 	"paddleflow/pkg/common/logger"
 )
