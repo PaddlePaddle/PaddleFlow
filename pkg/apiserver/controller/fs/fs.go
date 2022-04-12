@@ -97,15 +97,6 @@ type CreateFileSystemClaimsResponse struct {
 	Message string `json:"message"`
 }
 
-type CreateFileSystemCache struct {
-	Dir            string                 `json:"dir"`
-	Quota          int                    `json:"quota"`
-	CacheType      string                 `json:"cacheType"`
-	BlockSize      int                    `json:"blocksize"`
-	NodeAffinity   map[string]interface{} `json:"nodeAffinity"`
-	ExtraConfigMap map[string]string      `json:"extraConfig"`
-}
-
 var fileSystemService *FileSystemService
 
 // GetFileSystemService returns the instance of file system service
@@ -347,9 +338,5 @@ func createPVC(namespace, fsId, pv string) error {
 	if _, err := k8sOperator.CreatePersistentVolumeClaim(namespace, newPVC); err != nil {
 		return err
 	}
-	return nil
-}
-
-func (s *FileSystemService) CreateFileSystemCache(ctx *logger.RequestContext, req *CreateFileSystemCache) error {
 	return nil
 }

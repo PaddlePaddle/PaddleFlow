@@ -13,10 +13,12 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 package models
 
 import (
 	"encoding/json"
+	"paddleflow/pkg/common/database"
 
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
@@ -26,12 +28,12 @@ type FSCacheConfig struct {
 	Model
 	Dir              string                 `json:"dir"`
 	Quota            int                    `json:"quota"`
-	CacheType        string                 `json:"cacheType" gorm:"column:cache_type"`
+	CacheType        string                 `json:"cacheType"`
 	BlockSize        int                    `json:"blocksize"`
-	NodeAffinityJson string                 `json:"-" gorm:"column:node_affinity;type:text;default:'{}'"`
+	NodeAffinityJson string                 `json:"-"            gorm:"column:node_affinity;type:text;default:'{}'"`
 	NodeAffinityMap  map[string]interface{} `json:"nodeAffinity" gorm:"-"`
-	ExtraConfigJson  string                 `json:"-" gorm:"column:extra_config;type:text;default:'{}'"`
-	ExtraConfigMap   map[string]string      `json:"extraConfig" gorm:"-"`
+	ExtraConfigJson  string                 `json:"-"            gorm:"column:extra_config;type:text;default:'{}'"`
+	ExtraConfigMap   map[string]string      `json:"extraConfig"  gorm:"-"`
 }
 
 func (s *FSCacheConfig) TableName() string {
@@ -71,4 +73,49 @@ func (s *FSCacheConfig) BeforeSave(*gorm.DB) error {
 	}
 	s.ExtraConfigJson = string(extraConfigMap)
 	return nil
+}
+
+func CreateFSCacheConfig(logEntry *log.Entry, fsCacheConfig *FSCacheConfig) error {
+	logEntry.Debugf("begin create fsCacheConfig:%+v", fsCacheConfig)
+	err := database.DB.Model(&FSCacheConfig{}).Create(fsCacheConfig).Error
+	if err != nil {
+		logEntry.Errorf("create fsCacheConfig failed. fsCacheConfig:%v, error:%s",
+			fsCacheConfig, err.Error())
+		return err
+	}
+	return nil
+}
+
+func UpdateFSCacheConfig(logEntry *log.Entry, fsCacheConfig FSCacheConfig) error {
+	logEntry.Debugf("begin update fsCacheConfig fsCacheConfig. fsCacheConfigID:%s", fsCacheConfig.ID)
+	tx := database.DB.Model(&FSCacheConfig{}).Where("id = ?", fsCacheConfig.ID).Updates(fsCacheConfig)
+	if tx.Error != nil {
+		logEntry.Errorf("update fsCacheConfig failed. fsCacheConfig.ID:%s, error:%s",
+			fsCacheConfig.ID, tx.Error.Error())
+		return tx.Error
+	}
+	return nil
+}
+
+func DeleteFSCacheConfig(logEntry *log.Entry, fsCacheConfigID string) error {
+	logEntry.Debugf("begin delete fsCacheConfig. fsCacheConfigID:%s", fsCacheConfigID)
+	tx := database.DB.Model(&FSCacheConfig{}).Unscoped().Where("id = ?", fsCacheConfigID).Delete(&FSCacheConfig{})
+	if tx.Error != nil {
+		logEntry.Errorf("delete fsCacheConfig failed. fsCacheConfigID:%s, error:%s",
+			fsCacheConfigID, tx.Error.Error())
+		return tx.Error
+	}
+	return nil
+}
+
+func GetFSCacheConfig(logEntry *log.Entry, fsCacheConfigID string) (FSCacheConfig, error) {
+	logEntry.Debugf("begin get fsCacheConfig. fsCacheConfigID:%s", fsCacheConfigID)
+	var fsCacheConfig FSCacheConfig
+	tx := database.DB.Model(&FSCacheConfig{}).Where("id = ?", fsCacheConfigID).First(&fsCacheConfig)
+	if tx.Error != nil {
+		logEntry.Errorf("get fsCacheConfig failed. fsCacheConfigID:%s, error:%s",
+			fsCacheConfigID, tx.Error.Error())
+		return FSCacheConfig{}, tx.Error
+	}
+	return fsCacheConfig, nil
 }
