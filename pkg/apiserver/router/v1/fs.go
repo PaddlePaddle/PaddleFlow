@@ -52,8 +52,8 @@ func (pr *PFSRouter) AddRouter(r chi.Router) {
 	r.Delete("/fs/{fsName}", pr.DeleteFileSystem)
 	r.Post("/fs/claims", pr.CreateFileSystemClaims)
 	r.Post("/fs/cache", pr.createFSCacheConfig)
-	r.Post("/fs/cache/{fsID}", pr.updateFSCacheConfig)
-	r.Get("/fs/cache/{fsID}", pr.getFSCacheConfig)
+	r.Put("/fs/cache/{fsName}", pr.updateFSCacheConfig)
+	r.Get("/fs/cache/{fsName}", pr.getFSCacheConfig)
 }
 
 var URLPrefix = map[string]bool{
@@ -457,17 +457,13 @@ func (pr *PFSRouter) GetFileSystem(w http.ResponseWriter, r *http.Request) {
 	log.Debugf("get file system with req[%v] and fileSystemID[%s]", getRequest, fsName)
 
 	fileSystemService := api.GetFileSystemService()
-
-	if getRequest.Username == "" {
-		getRequest.Username = ctx.UserName
-	}
-	err := validateGetFs(&ctx, &getRequest, &fsName)
+	fsID, err := getFsIDAndCheckPermission(&ctx, getRequest.Username, fsName)
 	if err != nil {
-		ctx.Logging().Errorf("validateGetFs error[%v]", err)
+		ctx.Logging().Errorf("getFsIDAndCheckPermission error[%v]", err)
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
-	fsModel, err := fileSystemService.GetFileSystem(&getRequest, fsName)
+	fsModel, err := fileSystemService.GetFileSystem(fsID)
 	if err != nil {
 		ctx.Logging().Errorf("get file system with error[%v]", err)
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
@@ -489,27 +485,6 @@ func fsResponseFromModel(fsModel models.FileSystem) *api.FileSystemResponse {
 		Username:      fsModel.UserName,
 		Properties:    fsModel.PropertiesMap,
 	}
-}
-
-func validateGetFs(ctx *logger.RequestContext, req *api.GetFileSystemRequest, fsID *string) error {
-	if req.Username == "" {
-		req.Username = ctx.UserName
-	}
-
-	if req.Username == "" {
-		ctx.Logging().Error("UserName is empty")
-		ctx.ErrorCode = common.AuthFailed
-		return common.InvalidField("userName", "userName is empty")
-	}
-	if *fsID == "" {
-		ctx.Logging().Error("FsID or FsName is empty")
-		// response to user use fsName not fsID
-		return common.InvalidField("fsName", "fsName is empty")
-	}
-	// trans fsName to real fsID, for user they only use fsName，grpc client may be use fsID
-	*fsID = common.NameToFsID(*fsID, req.Username)
-
-	return nil
 }
 
 // DeleteFileSystem the function that handle the delete file system request
@@ -666,4 +641,27 @@ func validateCreateFileSystemClaims(ctx *logger.RequestContext, req *api.CreateF
 		return common.InvalidField("namespaces", fmt.Sprintf("namespaces %v not found", notExistNamespaces))
 	}
 	return nil
+}
+
+func getFsIDAndCheckPermission(ctx *logger.RequestContext,
+	username, fsName string) (string, error) {
+	var fsID string
+	// check grant for non-root user
+	if !common.IsRootUser(ctx.UserName) {
+		fsID = common.ID(ctx.UserName, fsName)
+		if !models.HasAccessToResource(ctx, common.ResourceTypeFs, fsID) {
+			ctx.ErrorCode = common.AccessDenied
+			err := common.NoAccessError(ctx.UserName, common.ResourceTypeFs, fsName)
+			ctx.Logging().Errorf("user has no access to fs[%s]", fsName)
+			return "", err
+		}
+	}
+	// concatenate fsID
+	if common.IsRootUser(ctx.UserName) && username != "" {
+		// root user can select fs under other users
+		fsID = common.ID(username, fsName)
+	} else {
+		fsID = common.ID(ctx.UserName, fsName)
+	}
+	return fsID, nil
 }

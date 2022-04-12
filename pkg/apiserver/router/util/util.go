@@ -64,7 +64,6 @@ const (
 	QueryFsPath = "fsPath"
 	QueryFsName = "fsName"
 	QueryFsname = "fsname"
-	QueryFsID   = "fsID"
 	QueryPath   = "path"
 
 	ParamFlavourName = "flavourName"

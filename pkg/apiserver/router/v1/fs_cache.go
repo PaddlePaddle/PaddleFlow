@@ -37,6 +37,7 @@ import (
 // @tag fs
 // @Accept   json
 // @Produce  json
+// @Param username query string false "用户名"
 // @Param request body fs.CreateOrUpdateFSCacheRequest true "request body"
 // @Success 201 {string} string Created
 // @Failure 400 {object} common.ErrorResponse
@@ -52,6 +53,15 @@ func (pr *PFSRouter) createFSCacheConfig(w http.ResponseWriter, r *http.Request)
 		common.RenderErr(w, ctx.RequestID, common.MalformedJSON)
 		return
 	}
+
+	username := r.URL.Query().Get(util.QueryKeyUserName)
+	fsID, err := getFsIDAndCheckPermission(&ctx, username, createRequest.FsName)
+	if err != nil {
+		ctx.Logging().Errorf("getFSCacheConfig check fs permission failed: [%v]", err)
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+	createRequest.ID = fsID
 	ctx.Logging().Debugf("create file system cache with req[%v]", createRequest)
 
 	err = validateCreateFSCacheConfig(&ctx, &createRequest)
@@ -105,14 +115,24 @@ func validateCreateFSCacheConfig(ctx *logger.RequestContext, req *fsCtrl.CreateO
 // @tags FSCacheConfig
 // @Accept  json
 // @Produce json
-// @Param pipelineID path string true "存储ID"
+// @Param fsName path string true "存储名称"
+// @Param username query string false "用户名"
 // @Success 200 {object} models.FSCacheConfig "缓存配置结构体"
 // @Failure 400 {object} common.ErrorResponse "400"
 // @Failure 500 {object} common.ErrorResponse "500"
-// @Router /fs/cache/{fsID} [GET]
+// @Router /fs/cache/{fsName} [GET]
 func (pr *PFSRouter) getFSCacheConfig(w http.ResponseWriter, r *http.Request) {
-	fsID := chi.URLParam(r, util.QueryFsID)
+	fsName := chi.URLParam(r, util.QueryFsName)
+	username := r.URL.Query().Get(util.QueryKeyUserName)
 	ctx := common.GetRequestContext(r)
+
+	fsID, err := getFsIDAndCheckPermission(&ctx, username, fsName)
+	if err != nil {
+		ctx.Logging().Errorf("getFSCacheConfig check fs permission failed: [%v]", err)
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+
 	fsCacheConfig, err := fsCtrl.GetFileSystemCacheConfig(&ctx, fsID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -134,37 +154,40 @@ func (pr *PFSRouter) getFSCacheConfig(w http.ResponseWriter, r *http.Request) {
 // @tags FSCacheConfig
 // @Accept  json
 // @Produce json
-// @Param pipelineID path string true "存储ID"
+// @Param fsName path string true "存储名称"
+// @Param username query string false "用户名"
 // @Success 200 {object} models.FSCacheConfig "缓存配置结构体"
 // @Failure 400 {object} common.ErrorResponse "400"
 // @Failure 500 {object} common.ErrorResponse "500"
-// @Router /fs/cache/{fsID} [POST]
+// @Router /fs/cache/{fsName} [PUT]
 func (pr *PFSRouter) updateFSCacheConfig(w http.ResponseWriter, r *http.Request) {
-	fsID := chi.URLParam(r, util.QueryFsID)
+	fsName := chi.URLParam(r, util.QueryFsName)
+	username := r.URL.Query().Get(util.QueryKeyUserName)
 	ctx := common.GetRequestContext(r)
+
+	fsID, err := getFsIDAndCheckPermission(&ctx, username, fsName)
+	if err != nil {
+		ctx.Logging().Errorf("getFSCacheConfig check fs permission failed: [%v]", err)
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+
 	var req fsCtrl.CreateOrUpdateFSCacheRequest
-	err := common.BindJSON(r, &req)
+	err = common.BindJSON(r, &req)
 	if err != nil {
 		ctx.Logging().Errorf("UpdateFSCacheConfig[%s] bindjson failed. err:%s", fsID, err.Error())
 		common.RenderErr(w, ctx.RequestID, common.MalformedJSON)
 		return
 	}
-	req.ID = fsID
 
-	// validate fs_cache_config existence
-	_, err = models.GetFSCacheConfig(ctx.Logging(), req.ID)
+	req.ID = fsID
+	err = fsCtrl.UpdateFileSystemCacheConfig(&ctx, req)
 	if err != nil {
-		ctx.Logging().Errorf("validateUpdateFileSystemCache err:%v", err)
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			common.RenderErr(w, ctx.RequestID, common.RecordNotFound)
 		} else {
 			common.RenderErr(w, ctx.RequestID, common.InternalError)
 		}
-		return
-	}
-
-	err = fsCtrl.UpdateFileSystemCacheConfig(&ctx, req)
-	if err != nil {
 		logger.LoggerForRequest(&ctx).Errorf(
 			"GetFSCacheConfig[%s] failed. error:%v", fsID, err)
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())

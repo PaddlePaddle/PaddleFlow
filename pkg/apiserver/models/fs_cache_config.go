@@ -26,6 +26,7 @@ import (
 
 type FSCacheConfig struct {
 	Model
+	FsName           string                 `json:"fsName"`
 	Dir              string                 `json:"dir"`
 	Quota            int                    `json:"quota"`
 	CacheType        string                 `json:"cacheType"`
