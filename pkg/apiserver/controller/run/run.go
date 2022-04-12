@@ -54,7 +54,7 @@ type CreateRunRequest struct {
 }
 
 type UpdateRunRequest struct {
-	StopPost bool `json:"stopPost"`
+	StopForce bool `json:"stopForce"`
 }
 
 type DeleteRunRequest struct {
@@ -338,8 +338,8 @@ func StopRun(ctx *logger.RequestContext, runID string, request UpdateRunRequest)
 		return err
 	}
 	// check run current status
-	if (run.Status == common.StatusRunTerminating ||
-		common.IsRunFinalStatus(run.Status)) && !request.StopPost {
+	if run.Status == common.StatusRunTerminating && !request.StopForce ||
+		common.IsRunFinalStatus(run.Status) {
 		err := fmt.Errorf("cannot stop run[%s] as run is already in status[%s]", runID, run.Status)
 		ctx.ErrorCode = common.ActionNotAllowed
 		ctx.Logging().Errorln(err.Error())
@@ -357,7 +357,7 @@ func StopRun(ctx *logger.RequestContext, runID string, request UpdateRunRequest)
 		ctx.ErrorCode = common.InternalError
 		return errors.New("stop run failed updating db")
 	}
-	wf.Stop(request.StopPost)
+	wf.Stop(request.StopForce)
 	ctx.Logging().Debugf("close run succeed. runID:%s", runID)
 	return nil
 }
