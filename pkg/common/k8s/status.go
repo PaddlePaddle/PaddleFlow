@@ -24,25 +24,26 @@ import (
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	k8sschema "k8s.io/apimachinery/pkg/runtime/schema"
 	sparkoperatorv1beta2 "paddleflow/pkg/apis/spark-operator/sparkoperator.k8s.io/v1beta2"
 	batchv1alpha1 "volcano.sh/apis/pkg/apis/batch/v1alpha1"
 
 	"paddleflow/pkg/common/schema"
 )
 
-func ConvertToStatus(obj interface{}, jobType schema.JobType) (interface{}, error) {
+func ConvertToStatus(obj interface{}, gvk k8sschema.GroupVersionKind) (interface{}, error) {
 	var realStatus interface{}
-	switch jobType {
-	case schema.TypeSparkJob:
+	switch gvk {
+	case SparkAppGVK:
 		realStatus = &sparkoperatorv1beta2.SparkApplicationStatus{}
-	case schema.TypeVcJob:
+	case VCJobGVK:
 		realStatus = &batchv1alpha1.JobStatus{}
-	case schema.TypePaddleJob:
+	case PaddleJobGVK:
 		realStatus = &paddlejobv1.PaddleJobStatus{}
-	case schema.TypePodJob, schema.TypeSingle:
+	case PodGVK:
 		realStatus = &v1.PodStatus{}
 	default:
-		return nil, fmt.Errorf("job type %s is not supported", jobType)
+		return nil, fmt.Errorf("the group version kind %s is not supported", gvk.String())
 	}
 	if obj == nil {
 		return realStatus, nil
@@ -59,7 +60,7 @@ func ConvertToStatus(obj interface{}, jobType schema.JobType) (interface{}, erro
 		return realStatus, fmt.Errorf("get status from unstructured object failed")
 	}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(status.(map[string]interface{}), realStatus); err != nil {
-		log.Errorf("convert unstructured object [%+v] to %s status failed. error: %s", obj, jobType, err.Error())
+		log.Errorf("convert unstructured object [%+v] to %s status failed. error: %s", obj, gvk.String(), err.Error())
 		return nil, err
 	}
 	return realStatus, nil
@@ -87,7 +88,7 @@ func GetTaskStatus(podStatus *v1.PodStatus) (schema.TaskStatus, error) {
 
 // SparkAppStatus get spark application status, message from interface{}, and covert to JobStatus
 func SparkAppStatus(obj interface{}) (StatusInfo, error) {
-	status, err := ConvertToStatus(obj, schema.TypeSparkJob)
+	status, err := ConvertToStatus(obj, SparkAppGVK)
 	if err != nil {
 		return StatusInfo{}, err
 	}
@@ -125,7 +126,7 @@ func getSparkJobStatus(state sparkoperatorv1beta2.ApplicationStateType) (schema.
 
 // VCJobStatus get vc job status, message from interface{}, and covert to JobStatus
 func VCJobStatus(obj interface{}) (StatusInfo, error) {
-	status, err := ConvertToStatus(obj, schema.TypeVcJob)
+	status, err := ConvertToStatus(obj, VCJobGVK)
 	if err != nil {
 		log.Errorf("convert VCJob status failed, err: %v", err)
 		return StatusInfo{}, err
@@ -168,7 +169,7 @@ func getVCJobStatus(phase batchv1alpha1.JobPhase) (schema.JobStatus, error) {
 
 // PaddleJobStatus get paddle job status, message from interface{}, and covert to JobStatus
 func PaddleJobStatus(obj interface{}) (StatusInfo, error) {
-	status, err := ConvertToStatus(obj, schema.TypePaddleJob)
+	status, err := ConvertToStatus(obj, PaddleJobGVK)
 	if err != nil {
 		log.Errorf("convert PaddleJob status failed, err: %v", err)
 		return StatusInfo{}, err
@@ -210,7 +211,7 @@ func getPaddleJobStatus(phase paddlejobv1.PaddleJobPhase) (schema.JobStatus, err
 
 // SingleJobStatus get single job status, message from interface{}, and covert to JobStatus
 func SingleJobStatus(obj interface{}) (StatusInfo, error) {
-	status, err := ConvertToStatus(obj, schema.TypeSingle)
+	status, err := ConvertToStatus(obj, PodGVK)
 	if err != nil {
 		log.Errorf("convert SingleJob status failed, err: %v", err)
 		return StatusInfo{}, err

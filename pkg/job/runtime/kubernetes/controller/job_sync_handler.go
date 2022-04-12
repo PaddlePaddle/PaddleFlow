@@ -161,13 +161,13 @@ func (j *JobSync) updatePod(oldObj, newObj interface{}) {
 		return
 	}
 
-	oldStatus, err := k8s.ConvertToStatus(oldObj, schema.TypePodJob)
+	oldStatus, err := k8s.ConvertToStatus(oldObj, k8s.PodGVK)
 	if err != nil {
 		return
 	}
 	oldPodStatus := oldStatus.(*v1.PodStatus)
 
-	newStatus, err := k8s.ConvertToStatus(newObj, schema.TypePodJob)
+	newStatus, err := k8s.ConvertToStatus(newObj, k8s.PodGVK)
 	if err != nil {
 		return
 	}
@@ -272,7 +272,7 @@ func (j *JobSync) updatePodStatus(obj interface{}, action schema.ActionType) {
 		return
 	}
 	log.Debugf("pod %s/%s belongs to job %s", namespace, name, jobName)
-	status, err := k8s.ConvertToStatus(obj, schema.TypePodJob)
+	status, err := k8s.ConvertToStatus(obj, k8s.PodGVK)
 	if err != nil {
 		log.Errorf("get status from pod %s/%s failed, err: %v", namespace, name, err)
 		return

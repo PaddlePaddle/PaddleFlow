@@ -18,10 +18,10 @@ package k8s
 
 import (
 	"fmt"
-	v1 "k8s.io/api/core/v1"
 	"sync"
 
 	log "github.com/sirupsen/logrus"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
