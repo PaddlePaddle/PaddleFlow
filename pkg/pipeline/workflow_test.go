@@ -296,7 +296,7 @@ func TestStopWorkflowRun(t *testing.T) {
 	go wf.Start()
 	time.Sleep(time.Millisecond * 10)
 
-	wf.Stop()
+	wf.Stop(false)
 	assert.Equal(t, common.StatusRunTerminating, wf.runtime.status)
 	// todo: remove event, receive event from job
 	event1 := WorkflowEvent{Event: WfEventJobUpdate, Extra: map[string]interface{}{"event1": "step 1 data_process finished"}}
