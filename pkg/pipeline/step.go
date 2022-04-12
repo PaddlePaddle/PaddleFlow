@@ -39,6 +39,7 @@ type Step struct {
 	cancel            chan bool // 如果上游节点运行失败，本节点将不会运行
 	done              bool      // 表示是否已经运行结束，done==true，则跳过该step
 	submitted         bool      // 表示是否从run中发过ready信号过来。如果pipeline服务宕机重启，run会从该字段判断是否需要再次发ready信号，触发运行
+	executed          bool      // 表示是否已经被调用了 Excuted 函数
 	job               Job
 	firstFingerprint  string
 	secondFingerprint string
@@ -62,6 +63,7 @@ var NewStep = func(name string, wfr *WorkflowRuntime, info *schema.WorkflowSourc
 		ready:     make(chan bool, 1),
 		cancel:    make(chan bool, 1),
 		done:      false,
+		executed:  false,
 		submitted: false,
 		job:       job,
 		nodeType:  nodeType,
@@ -357,6 +359,12 @@ func (st *Step) updateJobStatus(eventValue WfEventValue, jobStatus schema.JobSta
 
 // 步骤执行
 func (st *Step) Execute() {
+	if st.executed {
+		return
+	} else {
+		st.executed = true
+	}
+
 	if st.job.Started() {
 		if st.job.NotEnded() {
 			logMsg := fmt.Sprintf("start to recover job[%s] of step[%s] with runid[%s]", st.job.(*PaddleFlowJob).Id, st.name, st.wfr.wf.RunID)
