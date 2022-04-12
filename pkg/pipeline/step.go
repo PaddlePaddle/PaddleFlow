@@ -45,7 +45,8 @@ type Step struct {
 	nodeType          NodeType //用于表示step 是在 entryPoints 中定义还是在 post_process 中定义
 }
 
-var NewStep = func(name string, wfr *WorkflowRuntime, info *schema.WorkflowSourceStep, disabled bool) (*Step, error) {
+var NewStep = func(name string, wfr *WorkflowRuntime, info *schema.WorkflowSourceStep,
+	disabled bool, nodeType NodeType) (*Step, error) {
 	// 该函数初始化job时，只传入image, deps等，并没有替换parameter，command，env中的参数
 	// 因为初始化job的操作是在所有step初始化的时候做的，此时step可能被启动一个协程，但并没有真正运行任意一个step的运行逻辑
 	// 因此没法知道上游节点的参数值，没法做替换
@@ -62,6 +63,7 @@ var NewStep = func(name string, wfr *WorkflowRuntime, info *schema.WorkflowSourc
 		done:      false,
 		submitted: false,
 		job:       job,
+		nodeType:  nodeType,
 	}
 
 	st.getLogger().Debugf("step[%s] of runid[%s] before starting job: param[%s], env[%s], command[%s], artifacts[%s], deps[%s]", st.name, st.wfr.wf.RunID, st.info.Parameters, st.info.Env, st.info.Command, st.info.Artifacts, st.info.Deps)
@@ -78,7 +80,7 @@ func (st *Step) getLogger() *logrus.Entry {
 	return st.wfr.wf.log()
 }
 
-func (st *Step) generateStepParamSolver(forCacheFingerprint bool) (StepParamSolver, error) {
+func (st *Step) generateStepParamSolver(forCacheFingerprint bool) (*StepParamSolver, error) {
 	SourceSteps := make(map[string]*schema.WorkflowSourceStep)
 	jobs := make(map[string]Job)
 
@@ -97,7 +99,7 @@ func (st *Step) generateStepParamSolver(forCacheFingerprint bool) (StepParamSolv
 	runtimeView, err := json.Marshal(st.wfr.runtimeView)
 	if err != nil {
 		st.getLogger().Errorf("marshal runtimeView of run[%s] for step[%s] failed: %v", st.wfr.wf.RunID, st.name, runtimeView)
-		return NewStepParamSolver(SourceSteps, make(map[string]string), jobs, forCacheFingerprint, st.wfr.wf.Source.Name, st.wfr.wf.RunID, st.wfr.wf.Extra[WfExtraInfoKeyFsID], st.getLogger()), err
+		return nil, err
 	}
 	var sysParams = map[string]string{
 		SysParamNamePFRunID:    st.wfr.wf.RunID,
@@ -109,7 +111,7 @@ func (st *Step) generateStepParamSolver(forCacheFingerprint bool) (StepParamSolv
 	}
 
 	paramSolver := NewStepParamSolver(SourceSteps, sysParams, jobs, forCacheFingerprint, st.wfr.wf.Source.Name, st.wfr.wf.RunID, st.wfr.wf.Extra[WfExtraInfoKeyFsID], st.getLogger())
-	return paramSolver, nil
+	return &paramSolver, nil
 }
 
 func (st *Step) updateJob(forCacheFingerprint bool, cacheOutputArtifacts map[string]string) error {
