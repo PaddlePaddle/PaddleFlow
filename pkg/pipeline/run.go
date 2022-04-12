@@ -60,31 +60,38 @@ func (sts *StatusToSteps) countFinshedSteps() int {
 
 // 工作流运行时
 type WorkflowRuntime struct {
-	wf               *Workflow
-	ctx              context.Context
-	ctxCancel        context.CancelFunc
-	entryPoints      map[string]*Step
-	postProcess      map[string]*Step
-	event            chan WorkflowEvent // 用来从 job 传递事件
-	concurrentJobs   chan struct{}
-	concurrentJobsMx sync.Mutex
-	status           string
-	runtimeView      schema.RuntimeView
-	postProcessView  schema.PostProcessView
+	wf                   *Workflow
+	entryPointsCtx       context.Context
+	entryPointsctxCancel context.CancelFunc
+	postProcessPointsCtx context.Context
+	postProcessctxCancel context.CancelFunc
+	entryPoints          map[string]*Step
+	postProcess          map[string]*Step
+	event                chan WorkflowEvent // 用来从 job 传递事件
+	concurrentJobs       chan struct{}
+	concurrentJobsMx     sync.Mutex
+	status               string
+	runtimeView          schema.RuntimeView
+	postProcessView      schema.PostProcessView
 }
 
+// TODO: 将创建 Step 的逻辑迁移至此处，以合理的设置 step 的ctx，和 nodeType 等属性
 func NewWorkflowRuntime(wf *Workflow, parallelism int) *WorkflowRuntime {
-	ctx, ctxCancel := context.WithCancel(context.Background())
+	entryCtx, entryCtxCancel := context.WithCancel(context.Background())
+	postCtx, postCtxCancel := context.WithCancel(context.Background())
+
 	wfr := &WorkflowRuntime{
-		wf:              wf,
-		ctx:             ctx,
-		ctxCancel:       ctxCancel,
-		entryPoints:     map[string]*Step{},
-		postProcess:     map[string]*Step{},
-		event:           make(chan WorkflowEvent, parallelism),
-		concurrentJobs:  make(chan struct{}, parallelism),
-		runtimeView:     schema.RuntimeView{},
-		postProcessView: schema.PostProcessView{},
+		wf:                   wf,
+		entryPointsCtx:       entryCtx,
+		entryPointsctxCancel: entryCtxCancel,
+		postProcessPointsCtx: postCtx,
+		postProcessctxCancel: postCtxCancel,
+		entryPoints:          map[string]*Step{},
+		postProcess:          map[string]*Step{},
+		event:                make(chan WorkflowEvent, parallelism),
+		concurrentJobs:       make(chan struct{}, parallelism),
+		runtimeView:          schema.RuntimeView{},
+		postProcessView:      schema.PostProcessView{},
 	}
 	return wfr
 }
@@ -176,14 +183,18 @@ func (wfr *WorkflowRuntime) Restart() error {
 
 // Stop 停止 Workflow
 // do not call ctx_cancel(), which will be called when all steps has terminated eventually.
-// 注意: stop 时暂时不会stop PostProcess 中的节点
-func (wfr *WorkflowRuntime) Stop(stopPost bool) error {
+// 这里不通过 cancel channel 去取消 Step 的原因是防止有多个地方向通过一个 channel 传递东西，防止runtime hang 住
+func (wfr *WorkflowRuntime) Stop(force bool) error {
 	if wfr.IsCompleted() {
 		wfr.wf.log().Debugf("workflow has finished.")
 		return nil
 	}
 
-	wfr.ctxCancel()
+	wfr.entryPointsctxCancel()
+
+	if force {
+		wfr.postProcessctxCancel()
+	}
 
 	wfr.status = common.StatusRunTerminating
 
@@ -392,7 +403,7 @@ func (wfr *WorkflowRuntime) ProcessFailureOptionsWithContinue(step *Step) {
 func (wfr *WorkflowRuntime) ProcessFailureOptionsWithFailFast(step *Step) {
 	// 1. 终止所有运行的 Job
 	// 2. 将所有为调度的 Job 设置为 cancelled 状态
-	wfr.ctxCancel()
+	wfr.entryPointsctxCancel()
 }
 
 func (wfr *WorkflowRuntime) ProcessFailureOptions(event WorkflowEvent) {
@@ -403,7 +414,7 @@ func (wfr *WorkflowRuntime) ProcessFailureOptions(event WorkflowEvent) {
 		wfr.wf.log().Errorf("cannot get the step info of event for run[%s], begin to stop run: %v", wfr.wf.RunID, event)
 
 		// 防止下游节点无法调度，导致 run 被 hang 住，终止所有任务
-		wfr.ctxCancel()
+		wfr.entryPointsctxCancel()
 	}
 
 	step, ok := st.(*Step)
@@ -411,7 +422,7 @@ func (wfr *WorkflowRuntime) ProcessFailureOptions(event WorkflowEvent) {
 		wfr.wf.log().Errorf("cannot get the step info of envent for run[%s], begin to stop run: %v", wfr.wf.RunID, event)
 
 		// 防止下游节点无法调度，导致 run 被 hang 住，终止所有任务
-		wfr.ctxCancel()
+		wfr.entryPointsctxCancel()
 	}
 
 	// FailureOptions 不处理 PostProcess 中的节点
