@@ -161,13 +161,13 @@ func (j *JobSync) updatePod(oldObj, newObj interface{}) {
 		return
 	}
 
-	oldStatus, err := k8s.ConvertToStatus(oldObj, schema.TypePodJob)
+	oldStatus, err := k8s.ConvertToStatus(oldObj, k8s.PodGVK)
 	if err != nil {
 		return
 	}
 	oldPodStatus := oldStatus.(*v1.PodStatus)
 
-	newStatus, err := k8s.ConvertToStatus(newObj, schema.TypePodJob)
+	newStatus, err := k8s.ConvertToStatus(newObj, k8s.PodGVK)
 	if err != nil {
 		return
 	}
@@ -265,24 +265,14 @@ func (j *JobSync) updatePodStatus(obj interface{}, action schema.ActionType) {
 	uid := podObj.GetUID()
 	name := podObj.GetName()
 	namespace := podObj.GetNamespace()
-	ownerReferences := podObj.GetOwnerReferences()
 
-	if len(ownerReferences) == 0 {
-		log.Warnf("pod %s/%s does not has owner references, skip it.", namespace, name)
-		return
-	}
-	ownerReference := ownerReferences[0]
-	gvk := k8sschema.FromAPIVersionAndKind(ownerReference.APIVersion, ownerReference.Kind)
-	_, find := k8s.GVKToJobType[gvk]
-	if !find {
-		// skip
+	jobName := getJobByTask(podObj)
+	if len(jobName) == 0 {
 		log.Debugf("pod %s/%s not belong to paddlefow job, skip it.", namespace, name)
 		return
 	}
-
-	ownerName := ownerReference.Name
-	log.Debugf("pod %s/%s owner reference type: %s, name: %s", namespace, name, gvk.String(), ownerName)
-	status, err := k8s.ConvertToStatus(obj, schema.TypePodJob)
+	log.Debugf("pod %s/%s belongs to job %s", namespace, name, jobName)
+	status, err := k8s.ConvertToStatus(obj, k8s.PodGVK)
 	if err != nil {
 		log.Errorf("get status from pod %s/%s failed, err: %v", namespace, name, err)
 		return
@@ -302,13 +292,41 @@ func (j *JobSync) updatePodStatus(obj interface{}, action schema.ActionType) {
 		ID:        string(uid),
 		Name:      name,
 		Namespace: namespace,
-		JobID:     ownerName,
+		JobID:     jobName,
 		Status:    taskStatus,
 		Message:   message,
 		PodStatus: status,
 		Action:    action,
 	}
 	j.taskQueue.Add(taskInfo)
-	log.Infof("%s event for task %s/%s enqueue, job: %s", action, namespace, name, ownerName)
+	log.Infof("%s event for task %s/%s enqueue, job: %s", action, namespace, name, jobName)
 	log.Debugf("task status: %s", taskInfo.Status)
+}
+
+func getJobByTask(obj *unstructured.Unstructured) string {
+	if obj == nil {
+		log.Errorf("get job by task failed, obj is nil")
+		return ""
+	}
+	name := obj.GetName()
+	namespace := obj.GetNamespace()
+	labels := obj.GetLabels()
+	// get job name for single job
+	if labels != nil && labels[schema.JobOwnerLabel] == schema.JobOwnerValue {
+		return name
+	}
+	// get job name for distributed job
+	jobName := ""
+	ownerReferences := obj.GetOwnerReferences()
+	if len(ownerReferences) == 0 {
+		log.Warnf("pod %s/%s does not has owner references, skip it.", namespace, name)
+		return jobName
+	}
+	ownerReference := ownerReferences[0]
+	gvk := k8sschema.FromAPIVersionAndKind(ownerReference.APIVersion, ownerReference.Kind)
+	_, find := k8s.GVKToJobType[gvk]
+	if !find {
+		return jobName
+	}
+	return jobName
 }
