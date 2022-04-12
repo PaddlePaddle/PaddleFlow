@@ -105,7 +105,7 @@ func TestCreateJob(t *testing.T) {
 		responseCode int
 	}{
 		{
-			name: "empty",
+			name: "empty request",
 			args: args{
 				ctx: ctx,
 				req: &job.CreateSingleJobRequest{},
