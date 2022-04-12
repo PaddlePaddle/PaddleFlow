@@ -17,6 +17,7 @@ limitations under the License.
 package v1
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -191,9 +192,29 @@ func (rr *RunRouter) updateRun(w http.ResponseWriter, r *http.Request) {
 	action := r.URL.Query().Get(util.QueryKeyAction)
 	logger.LoggerForRequest(&ctx).Debugf("StopRun id:%v", runID)
 	var err error
+	request := run.UpdateRunRequest{}
+	bodyBytes, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		err = fmt.Errorf("get body err: %v", err)
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+	// 保证body下一次能够读取
+	r.Body = ioutil.NopCloser(bytes.NewBuffer(bodyBytes))
+	if len(bodyBytes) > 0 {
+		// body为空的话，解析会报错
+		err = json.Unmarshal(bodyBytes, &request)
+		if err != nil {
+			logger.LoggerForRequest(&ctx).Errorf(
+				"stop run failed to unmarshal body, error:%s", err.Error())
+			common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+			return
+		}
+	}
+
 	switch action {
 	case util.QueryActionStop:
-		err = run.StopRun(&ctx, runID)
+		err = run.StopRun(&ctx, runID, run.UpdateRunRequest{})
 	case util.QueryActionRetry:
 		err = run.RetryRun(&ctx, runID)
 	default:
