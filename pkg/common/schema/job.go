@@ -237,9 +237,7 @@ func (c *Conf) GetPriority() string {
 }
 
 func (c *Conf) SetPriority(pc string) {
-	if c.Env == nil {
-		c.Env = make(map[string]string)
-	}
+	c.preCheckEnv()
 	c.Env[EnvJobPriority] = pc
 }
 
@@ -256,9 +254,7 @@ func (c *Conf) GetUserName() string {
 }
 
 func (c *Conf) SetUserName(userName string) {
-	if c.Env == nil {
-		c.Env = make(map[string]string)
-	}
+	c.preCheckEnv()
 	c.Env[EnvJobUserName] = userName
 }
 
@@ -268,9 +264,7 @@ func (c *Conf) GetFS() string {
 
 // SetFS sets the filesystem id
 func (c *Conf) SetFS(fsID string) {
-	if c.Env == nil {
-		c.Env = make(map[string]string)
-	}
+	c.preCheckEnv()
 	c.Env[EnvJobFsID] = fsID
 }
 
@@ -283,9 +277,7 @@ func (c *Conf) GetNamespace() string {
 }
 
 func (c *Conf) SetNamespace(ns string) {
-	if c.Env == nil {
-		c.Env = make(map[string]string)
-	}
+	c.preCheckEnv()
 	c.Env[EnvJobNamespace] = ns
 }
 
@@ -326,30 +318,22 @@ func (c *Conf) GetWorkerFlavour() string {
 }
 
 func (c *Conf) SetFlavour(flavourKey string) {
-	if c.Env == nil {
-		c.Env = make(map[string]string)
-	}
+	c.preCheckEnv()
 	c.Env[EnvJobFlavour] = flavourKey
 }
 
 func (c *Conf) SetPSFlavour(flavourKey string) {
-	if c.Env == nil {
-		c.Env = make(map[string]string)
-	}
+	c.preCheckEnv()
 	c.Env[EnvJobPServerFlavour] = flavourKey
 }
 
 func (c *Conf) SetWorkerFlavour(flavourKey string) {
-	if c.Env == nil {
-		c.Env = make(map[string]string)
-	}
+	c.preCheckEnv()
 	c.Env[EnvJobWorkerFlavour] = flavourKey
 }
 
 func (c *Conf) SetEnv(name, value string) {
-	if c.Env == nil {
-		c.Env = make(map[string]string)
-	}
+	c.preCheckEnv()
 	c.Env[name] = value
 }
 
@@ -358,9 +342,7 @@ func (c *Conf) GetQueueID() string {
 }
 
 func (c *Conf) SetQueueID(id string) {
-	if c.Env == nil {
-		c.Env = make(map[string]string)
-	}
+	c.preCheckEnv()
 	c.Env[EnvJobQueueID] = id
 }
 
@@ -369,10 +351,14 @@ func (c *Conf) GetClusterID() string {
 }
 
 func (c *Conf) SetClusterID(id string) {
+	c.preCheckEnv()
+	c.Env[EnvJobClusterID] = id
+}
+
+func (c *Conf) preCheckEnv() {
 	if c.Env == nil {
 		c.Env = make(map[string]string)
 	}
-	c.Env[EnvJobClusterID] = id
 }
 
 // Scan for gorm
