@@ -58,8 +58,9 @@ func NewClient(fsID string, c *core.PFClient, userName string, token string) (*_
 func (c *_Client) GetFSMeta() (common.FSMeta, error) {
 	log.Debugf("Http CLient is %v", *c)
 	params := api.FsParams{
-		FsID:  c.FsID,
-		Token: c.Token,
+		FsName:   c.FsName,
+		UserName: c.UserName,
+		Token:    c.Token,
 	}
 	fsResponseMeta, err := api.FsRequest(params, c.httpClient)
 	if err != nil {
@@ -81,8 +82,11 @@ func (c *_Client) GetFSMeta() (common.FSMeta, error) {
 func (c *_Client) GetLinks() (map[string]common.FSMeta, error) {
 	log.Debugf("http CLient is %v", *c)
 	params := api.LinksParams{
-		FsID:  c.FsID,
-		Token: c.Token,
+		FsParams: api.FsParams{
+			Token:    c.Token,
+			FsName:   c.FsName,
+			UserName: c.UserName,
+		},
 	}
 	result := make(map[string]common.FSMeta)
 
