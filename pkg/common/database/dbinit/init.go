@@ -124,7 +124,6 @@ func initSQLiteDB(dbConf *config.DatabaseConfig, gormConf *gorm.Config) *gorm.DB
 		log.Fatalf("initSQLiteDB createDatabaseTables error[%s]", err.Error())
 		return nil
 	}
-
 	// init root user to db, can not be modified by config file currently
 	rootUser := models.User{
 		UserInfo: models.UserInfo{

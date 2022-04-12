@@ -18,6 +18,7 @@ package controller
 
 import (
 	"context"
+	"k8s.io/apimachinery/pkg/types"
 	"net/http/httptest"
 	"testing"
 	"time"
@@ -141,45 +142,130 @@ func TestJobSyncVCJob(t *testing.T) {
 }
 
 func TestJobSyncPod(t *testing.T) {
+	jobName := "job-test"
+	containerStatusMap := map[string]v1.ContainerStatus{
+		"Running": {
+			Name: "container",
+			State: v1.ContainerState{
+				Running: &v1.ContainerStateRunning{},
+			},
+		},
+		"ImagePullBackOff": {
+			Name: "container",
+			State: v1.ContainerState{
+				Waiting: &v1.ContainerStateWaiting{
+					Reason:  "ImagePullBackOff",
+					Message: `Back-off pulling image "xxx"`,
+				},
+			},
+		},
+		"ErrImagePull": {
+			Name: "container",
+			State: v1.ContainerState{
+				Waiting: &v1.ContainerStateWaiting{
+					Reason:  "ErrImagePull",
+					Message: `rpc error: code = Unknown desc = Error response from daemon: manifest for xx not found`,
+				},
+			},
+		},
+		"CrashLoopBackOff": {
+			Name: "container",
+			State: v1.ContainerState{
+				Waiting: &v1.ContainerStateWaiting{
+					Reason:  "CrashLoopBackOff",
+					Message: `back-off 5m0s restarting failed container=xxx pod=xxx`,
+				},
+			},
+		},
+	}
+	objectMeta := metav1.ObjectMeta{
+		Name:      "pod",
+		Namespace: "default",
+		Labels: map[string]string{
+			schema.VolcanoJobNameLabel: jobName,
+			schema.JobIDLabel:          jobName,
+		},
+		OwnerReferences: []metav1.OwnerReference{
+			{
+				APIVersion: "batch.volcano.sh/v1alpha1",
+				Kind:       "Job",
+				Name:       jobName,
+			},
+		},
+	}
+
 	tests := []struct {
 		name      string
 		namespace string
-		oldObj    *unstructured.Unstructured
-		newObj    *unstructured.Unstructured
-		oldStatus *v1.PodStatus
-		newStatus *v1.PodStatus
+		UID       types.UID
+		oldPod    *v1.Pod
+		newPod    *v1.Pod
 	}{
 		{
 			name:      "pod pull image failed",
 			namespace: "default",
-			oldObj:    NewUnstructured(k8s.PodGVK, "default", "pod1"),
-			oldStatus: &v1.PodStatus{
-				Phase:                 v1.PodPending,
-				InitContainerStatuses: []v1.ContainerStatus{},
-			},
-			newObj: NewUnstructured(k8s.PodGVK, "default", "pod1"),
-			newStatus: &v1.PodStatus{
-				Phase: v1.PodPending,
-				InitContainerStatuses: []v1.ContainerStatus{
-					{
-						Name: "container",
-						State: v1.ContainerState{
-							Waiting: &v1.ContainerStateWaiting{
-								Reason:  "ErrImagePull",
-								Message: `rpc error: code = Unknown desc = Error response from daemon: manifest for xx not found`,
-							},
-						},
+			UID:       "test-uid-1",
+			oldPod: &v1.Pod{
+				ObjectMeta: objectMeta,
+				Status: v1.PodStatus{
+					Phase: v1.PodPending,
+					ContainerStatuses: []v1.ContainerStatus{
+						containerStatusMap["ImagePullBackOff"],
 					},
 				},
-				ContainerStatuses: []v1.ContainerStatus{
-					{
-						Name: "container2",
-						State: v1.ContainerState{
-							Waiting: &v1.ContainerStateWaiting{
-								Reason:  "ErrImagePull",
-								Message: `rpc error: code = Unknown desc = Error response from daemon: manifest for xx not found`,
-							},
-						},
+			},
+			newPod: &v1.Pod{
+				ObjectMeta: objectMeta,
+				Status: v1.PodStatus{
+					Phase: v1.PodPending,
+					ContainerStatuses: []v1.ContainerStatus{
+						containerStatusMap["ErrImagePull"],
+					},
+				},
+			},
+		},
+		{
+			name:      "pod CrashLoopBackOff",
+			namespace: "default",
+			UID:       "test-uid-2",
+			oldPod: &v1.Pod{
+				ObjectMeta: objectMeta,
+				Status: v1.PodStatus{
+					Phase: v1.PodRunning,
+					ContainerStatuses: []v1.ContainerStatus{
+						containerStatusMap["Running"],
+					},
+				},
+			},
+			newPod: &v1.Pod{
+				ObjectMeta: objectMeta,
+				Status: v1.PodStatus{
+					Phase: v1.PodRunning,
+					ContainerStatuses: []v1.ContainerStatus{
+						containerStatusMap["CrashLoopBackOff"],
+					},
+				},
+			},
+		},
+		{
+			name:      "pod CrashLoopBackOff 2",
+			namespace: "default",
+			UID:       "test-uid-3",
+			oldPod: &v1.Pod{
+				ObjectMeta: objectMeta,
+				Status: v1.PodStatus{
+					Phase: v1.PodRunning,
+					ContainerStatuses: []v1.ContainerStatus{
+						containerStatusMap["CrashLoopBackOff"],
+					},
+				},
+			},
+			newPod: &v1.Pod{
+				ObjectMeta: objectMeta,
+				Status: v1.PodStatus{
+					Phase: v1.PodRunning,
+					ContainerStatuses: []v1.ContainerStatus{
+						containerStatusMap["CrashLoopBackOff"],
 					},
 				},
 			},
@@ -195,36 +281,44 @@ func TestJobSyncPod(t *testing.T) {
 	}
 
 	dbinit.InitMockDB()
+	err := models.CreateJob(&models.Job{
+		ID:     jobName,
+		Name:   jobName,
+		Status: schema.StatusJobPending,
+		Type:   string(schema.TypeVcJob),
+		Config: schema.Conf{
+			Env: map[string]string{
+				schema.EnvJobNamespace: "default",
+			},
+		},
+	})
+	assert.Equal(t, nil, err)
+
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			c := newFakeJobSyncController()
-			err := models.CreateJob(&models.Job{
-				ID:     test.newObj.GetName(),
-				Status: schema.StatusJobPending,
-				Type:   string(schema.TypeVcJob),
-				Config: schema.Conf{
-					Env: map[string]string{
-						schema.EnvJobNamespace: test.newObj.GetNamespace(),
-					},
-				},
-			})
+
+			test.oldPod.UID = test.UID
+			test.newPod.UID = test.UID
+			oldObject, err := runtime.DefaultUnstructuredConverter.ToUnstructured(test.oldPod)
+			assert.Equal(t, nil, err)
+			newObject, err := runtime.DefaultUnstructuredConverter.ToUnstructured(test.newPod)
 			assert.Equal(t, nil, err)
 
-			test.oldObj.Object["status"], err = runtime.DefaultUnstructuredConverter.ToUnstructured(test.oldStatus)
-			assert.Equal(t, nil, err)
-
-			test.newObj.Object["status"], err = runtime.DefaultUnstructuredConverter.ToUnstructured(test.newStatus)
-			assert.Equal(t, nil, err)
+			oldObj := &unstructured.Unstructured{Object: oldObject}
+			newObj := &unstructured.Unstructured{Object: newObject}
 
 			stopCh := make(chan struct{})
 			defer close(stopCh)
+			c.Run(stopCh)
 			// create volcano job
-			vcjob := NewUnstructured(k8s.VCJobGVK, test.newObj.GetNamespace(), test.newObj.GetName())
+			vcjob := NewUnstructured(k8s.VCJobGVK, test.newPod.GetNamespace(), test.newPod.GetName())
 			_, err = c.opt.DynamicClient.Resource(VCJobGVR).Namespace(vcjob.GetNamespace()).Create(context.TODO(), vcjob, metav1.CreateOptions{})
 			assert.Equal(t, nil, err)
 
-			c.updatePod(test.oldObj, test.newObj)
-			c.Run(stopCh)
+			c.addPod(oldObj)
+			c.updatePod(oldObj, newObj)
+			c.deletePod(newObj)
 			time.Sleep(3 * time.Second)
 		})
 	}
