@@ -40,7 +40,7 @@ func TestUpdateJobForFingerPrint(t *testing.T) {
 		t.Errorf("new workflow failed: %s", err.Error())
 	}
 
-	sortedSteps, err := wf.topologicalSort(wf.entryPoints)
+	sortedSteps, err := wf.topologicalSort(wf.runtimeSteps)
 	assert.Nil(t, err)
 
 	for _, stepName := range sortedSteps {
@@ -133,7 +133,7 @@ func TestUpdateJob(t *testing.T) {
 		t.Errorf("new workflow failed: %s", err.Error())
 	}
 
-	sortedSteps, err := wf.topologicalSort(wf.entryPoints)
+	sortedSteps, err := wf.topologicalSort(wf.runtimeSteps)
 	assert.Nil(t, err)
 
 	for _, stepName := range sortedSteps {
@@ -232,7 +232,7 @@ func TestUpdateJobWithCache(t *testing.T) {
 		t.Errorf("new workflow failed: %s", err.Error())
 	}
 
-	sortedSteps, err := wf.topologicalSort(wf.entryPoints)
+	sortedSteps, err := wf.topologicalSort(wf.runtimeSteps)
 	assert.Nil(t, err)
 
 	cacheOutputArtifacts := make(map[string]string)
