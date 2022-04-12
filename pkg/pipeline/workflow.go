@@ -193,7 +193,7 @@ func (bwf *BaseWorkflow) checkRunYaml() error {
 	}
 
 	for stepName := range bwf.Source.EntryPoints {
-		err := variableChecker.CheckVarName(stepName)
+		err := variableChecker.CheckStepName(stepName)
 		if err != nil {
 			return fmt.Errorf("format of stepName[%s] in run[%s] invalid", stepName, bwf.RunID)
 		}
