@@ -25,7 +25,7 @@ import (
 )
 
 type FSCacheConfig struct {
-	Pk                      int64                  `json:"-" gorm:"primaryKey;autoIncrement"`
+	PK                      int64                  `json:"-" gorm:"primaryKey;autoIncrement"`
 	FSID                    string                 `json:"-" gorm:"type:varchar(36);column:fs_id"`
 	CacheDir                string                 `json:"cacheDir"`
 	Quota                   int                    `json:"quota"`
