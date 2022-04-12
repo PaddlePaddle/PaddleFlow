@@ -18,10 +18,11 @@ package models
 
 import (
 	"encoding/json"
-	"paddleflow/pkg/common/database"
 
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
+
+	"paddleflow/pkg/common/database"
 )
 
 type FSCacheConfig struct {
