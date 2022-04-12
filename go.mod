@@ -5,7 +5,7 @@ go 1.16
 require (
 	github.com/BurntSushi/toml v0.4.1 // indirect
 	github.com/Microsoft/go-winio v0.5.0 // indirect
-	github.com/agiledragon/gomonkey/v2 v2.3.1
+	github.com/agiledragon/gomonkey/v2 v2.7.0
 	github.com/aws/aws-sdk-go v1.40.25
 	github.com/bluele/gcache v0.0.2
 	github.com/colinmarc/hdfs/v2 v2.2.0
@@ -15,6 +15,7 @@ require (
 	github.com/docker/distribution v2.7.1+incompatible // indirect
 	github.com/docker/docker v17.12.1-ce+incompatible
 	github.com/docker/go-connections v0.4.0 // indirect
+	github.com/ghodss/yaml v1.0.0 // indirect
 	github.com/gin-contrib/pprof v1.3.0
 	github.com/gin-gonic/gin v1.7.3
 	github.com/go-chi/chi v1.5.4
