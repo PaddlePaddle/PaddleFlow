@@ -36,8 +36,8 @@ func buildMockFS() models.FileSystem {
 
 func buildMockFSCacheConfig() models.FSCacheConfig {
 	return models.FSCacheConfig{
-		Model:     models.Model{ID: mockFsID},
-		Dir:       "path",
+		FsID:      mockFsID,
+		CacheDir:  "path",
 		Quota:     444,
 		CacheType: "disk",
 		BlockSize: 666,
@@ -81,7 +81,7 @@ func TestFSCacheConfigRouter(t *testing.T) {
 	err = ParseBody(result.Body, &cacheRsp)
 	assert.Nil(t, err)
 	assert.Equal(t, cacheConf.CacheType, cacheRsp.CacheType)
-	assert.Equal(t, cacheConf.Dir, cacheRsp.Dir)
+	assert.Equal(t, cacheConf.CacheDir, cacheRsp.CacheDir)
 	assert.Equal(t, cacheConf.BlockSize, cacheRsp.BlockSize)
 	assert.Equal(t, cacheConf.Quota, cacheRsp.Quota)
 
@@ -93,7 +93,7 @@ func TestFSCacheConfigRouter(t *testing.T) {
 
 	// test update success
 	req.Quota = 333
-	req.Dir = "newPath"
+	req.CacheDir = "newPath"
 	result, err = PerformPutRequest(router, urlWithFsID, req)
 	assert.Nil(t, err)
 	assert.Equal(t, http.StatusOK, result.Code)
@@ -104,7 +104,7 @@ func TestFSCacheConfigRouter(t *testing.T) {
 	err = ParseBody(result.Body, &cacheRsp)
 	assert.Nil(t, err)
 	assert.Equal(t, req.Quota, cacheRsp.Quota)
-	assert.Equal(t, req.Dir, cacheRsp.Dir)
+	assert.Equal(t, req.CacheDir, cacheRsp.CacheDir)
 
 	// test update failure
 	result, err = PerformPutRequest(router, urlWrong, req)

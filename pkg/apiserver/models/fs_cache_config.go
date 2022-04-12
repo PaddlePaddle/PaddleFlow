@@ -18,6 +18,7 @@ package models
 
 import (
 	"encoding/json"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
@@ -26,15 +27,21 @@ import (
 )
 
 type FSCacheConfig struct {
-	Model
-	Dir              string                 `json:"dir"`
-	Quota            int                    `json:"quota"`
-	CacheType        string                 `json:"cacheType"`
-	BlockSize        int                    `json:"blocksize"`
-	NodeAffinityJson string                 `json:"-"            gorm:"column:node_affinity;type:text;default:'{}'"`
-	NodeAffinityMap  map[string]interface{} `json:"nodeAffinity" gorm:"-"`
-	ExtraConfigJson  string                 `json:"-"            gorm:"column:extra_config;type:text;default:'{}'"`
-	ExtraConfigMap   map[string]string      `json:"extraConfig"  gorm:"-"`
+	PK                      int64                  `json:"-"                   gorm:"primaryKey;autoIncrement"`
+	FsID                    string                 `json:"fsID"                gorm:"type:varchar(36);column:fs_id"`
+	CacheDir                string                 `json:"cacheDir"`
+	Quota                   int                    `json:"quota"`
+	CacheType               string                 `json:"cacheType"`
+	BlockSize               int                    `json:"blockSize"`
+	NodeAffinityJson        string                 `json:"-"                   gorm:"column:node_affinity;type:text;default:'{}'"`
+	NodeAffinityMap         map[string]interface{} `json:"nodeAffinity"        gorm:"-"`
+	NodeTaintTolerationJson string                 `json:"-"                   gorm:"column:node_tainttoleration;type:text;default:'{}'"`
+	NodeTaintTolerationMap  map[string]interface{} `json:"nodeTaintToleration" gorm:"-"`
+	ExtraConfigJson         string                 `json:"-"                   gorm:"column:extra_config;type:text;default:'{}'"`
+	ExtraConfigMap          map[string]string      `json:"extraConfig"         gorm:"-"`
+	CreatedAt               time.Time              `json:"createTime"`
+	UpdatedAt               time.Time              `json:"updateTime,omitempty"`
+	DeletedAt               gorm.DeletedAt         `json:"deleteTime,omitempty"`
 }
 
 func (s *FSCacheConfig) TableName() string {
@@ -49,6 +56,13 @@ func (s *FSCacheConfig) AfterFind(*gorm.DB) error {
 			return err
 		}
 	}
+	if s.NodeTaintTolerationJson != "" {
+		s.NodeTaintTolerationMap = make(map[string]interface{})
+		if err := json.Unmarshal([]byte(s.NodeTaintTolerationJson), &s.NodeTaintTolerationMap); err != nil {
+			log.Errorf("json Unmarshal nodeTainttolerationJson[%s] failed: %v", s.ExtraConfigJson, err)
+			return err
+		}
+	}
 	if s.ExtraConfigJson != "" {
 		s.ExtraConfigMap = make(map[string]string)
 		if err := json.Unmarshal([]byte(s.ExtraConfigJson), &s.ExtraConfigMap); err != nil {
@@ -56,6 +70,7 @@ func (s *FSCacheConfig) AfterFind(*gorm.DB) error {
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -66,6 +81,13 @@ func (s *FSCacheConfig) BeforeSave(*gorm.DB) error {
 		return err
 	}
 	s.NodeAffinityJson = string(nodeAffinityMap)
+
+	nodeTaintMap, err := json.Marshal(&s.NodeTaintTolerationMap)
+	if err != nil {
+		log.Errorf("json Marshal nodeTaintMap[%v] failed: %v", s.NodeTaintTolerationMap, err)
+		return err
+	}
+	s.NodeTaintTolerationJson = string(nodeTaintMap)
 
 	extraConfigMap, err := json.Marshal(&s.ExtraConfigMap)
 	if err != nil {
@@ -88,34 +110,34 @@ func CreateFSCacheConfig(logEntry *log.Entry, fsCacheConfig *FSCacheConfig) erro
 }
 
 func UpdateFSCacheConfig(logEntry *log.Entry, fsCacheConfig FSCacheConfig) error {
-	logEntry.Debugf("begin update fsCacheConfig fsCacheConfig. fsCacheConfigID:%s", fsCacheConfig.ID)
-	tx := database.DB.Model(&FSCacheConfig{}).Where("id = ?", fsCacheConfig.ID).Updates(fsCacheConfig)
+	logEntry.Debugf("begin update fsCacheConfig fsCacheConfig. fsID:%s", fsCacheConfig.FsID)
+	tx := database.DB.Model(&FSCacheConfig{}).Where(&FSCacheConfig{FsID: fsCacheConfig.FsID}).Updates(fsCacheConfig)
 	if tx.Error != nil {
 		logEntry.Errorf("update fsCacheConfig failed. fsCacheConfig.ID:%s, error:%s",
-			fsCacheConfig.ID, tx.Error.Error())
+			fsCacheConfig.FsID, tx.Error.Error())
 		return tx.Error
 	}
 	return nil
 }
 
-func DeleteFSCacheConfig(logEntry *log.Entry, fsCacheConfigID string) error {
-	logEntry.Debugf("begin delete fsCacheConfig. fsCacheConfigID:%s", fsCacheConfigID)
-	tx := database.DB.Model(&FSCacheConfig{}).Unscoped().Where("id = ?", fsCacheConfigID).Delete(&FSCacheConfig{})
+func DeleteFSCacheConfig(logEntry *log.Entry, fsID string) error {
+	logEntry.Debugf("begin delete fsCacheConfig. fsID:%s", fsID)
+	tx := database.DB.Model(&FSCacheConfig{}).Unscoped().Where(&FSCacheConfig{FsID: fsID}).Delete(&FSCacheConfig{})
 	if tx.Error != nil {
-		logEntry.Errorf("delete fsCacheConfig failed. fsCacheConfigID:%s, error:%s",
-			fsCacheConfigID, tx.Error.Error())
+		logEntry.Errorf("delete fsCacheConfig failed. fsID:%s, error:%s",
+			fsID, tx.Error.Error())
 		return tx.Error
 	}
 	return nil
 }
 
-func GetFSCacheConfig(logEntry *log.Entry, fsCacheConfigID string) (FSCacheConfig, error) {
-	logEntry.Debugf("begin get fsCacheConfig. fsCacheConfigID:%s", fsCacheConfigID)
+func GetFSCacheConfig(logEntry *log.Entry, fsID string) (FSCacheConfig, error) {
+	logEntry.Debugf("begin get fsCacheConfig. fsID:%s", fsID)
 	var fsCacheConfig FSCacheConfig
-	tx := database.DB.Model(&FSCacheConfig{}).Where("id = ?", fsCacheConfigID).First(&fsCacheConfig)
+	tx := database.DB.Model(&FSCacheConfig{}).Where(&FSCacheConfig{FsID: fsID}).First(&fsCacheConfig)
 	if tx.Error != nil {
-		logEntry.Errorf("get fsCacheConfig failed. fsCacheConfigID:%s, error:%s",
-			fsCacheConfigID, tx.Error.Error())
+		logEntry.Errorf("get fsCacheConfig failed. fsID:%s, error:%s",
+			fsID, tx.Error.Error())
 		return FSCacheConfig{}, tx.Error
 	}
 	return fsCacheConfig, nil

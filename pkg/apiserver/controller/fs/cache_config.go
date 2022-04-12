@@ -28,34 +28,24 @@ type CreateOrUpdateFSCacheRequest struct {
 }
 
 func (req *CreateOrUpdateFSCacheRequest) toModel() models.FSCacheConfig {
-	return models.FSCacheConfig{
-		Dir:             req.Dir,
-		Quota:           req.Quota,
-		CacheType:       req.CacheType,
-		BlockSize:       req.BlockSize,
-		NodeAffinityMap: req.NodeAffinityMap,
-		ExtraConfigMap:  req.ExtraConfigMap,
-		Model: models.Model{
-			ID: req.ID,
-		},
-	}
+	return req.FSCacheConfig
 }
 
 func CreateFileSystemCacheConfig(ctx *logger.RequestContext, req CreateOrUpdateFSCacheRequest) error {
-	fs := req.toModel()
-	err := models.CreateFSCacheConfig(ctx.Logging(), &fs)
+	cacheConfig := req.toModel()
+	err := models.CreateFSCacheConfig(ctx.Logging(), &cacheConfig)
 	if err != nil {
-		ctx.Logging().Errorf("CreateFSCacheConfig fs[%s] err:%v", fs.ID, err)
+		ctx.Logging().Errorf("CreateFSCacheConfig fs[%s] err:%v", cacheConfig.FsID, err)
 		return err
 	}
 	return nil
 }
 
 func UpdateFileSystemCacheConfig(ctx *logger.RequestContext, req CreateOrUpdateFSCacheRequest) error {
-	fs := req.toModel()
-	err := models.UpdateFSCacheConfig(ctx.Logging(), fs)
+	cacheConfig := req.toModel()
+	err := models.UpdateFSCacheConfig(ctx.Logging(), cacheConfig)
 	if err != nil {
-		ctx.Logging().Errorf("UpdateFSCacheConfig fs[%s] err:%v", fs.ID, err)
+		ctx.Logging().Errorf("UpdateFSCacheConfig fs[%s] err:%v", cacheConfig.FsID, err)
 		return err
 	}
 	return nil

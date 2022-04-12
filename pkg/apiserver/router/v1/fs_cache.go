@@ -52,13 +52,12 @@ func (pr *PFSRouter) createFSCacheConfig(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	fsID, err := getFsIDAndCheckPermission(&ctx, createRequest.Username, createRequest.FsName)
+	createRequest.FsID, err = getFsIDAndCheckPermission(&ctx, createRequest.Username, createRequest.FsName)
 	if err != nil {
 		ctx.Logging().Errorf("getFSCacheConfig check fs permission failed: [%v]", err)
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
-	createRequest.ID = fsID
 	ctx.Logging().Debugf("create file system cache with req[%v]", createRequest)
 
 	err = validateCreateFSCacheConfig(&ctx, &createRequest)
@@ -79,13 +78,13 @@ func (pr *PFSRouter) createFSCacheConfig(w http.ResponseWriter, r *http.Request)
 
 func validateCreateFSCacheConfig(ctx *logger.RequestContext, req *fsCtrl.CreateOrUpdateFSCacheRequest) error {
 	// fs exists?
-	_, err := models.GetFileSystemWithFsID(req.ID)
+	_, err := models.GetFileSystemWithFsID(req.FsID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			ctx.ErrorCode = common.FileSystemNotExist
-			ctx.Logging().Errorf("validateCreateFileSystemCache fsID[%s] not exist", req.ID)
+			ctx.Logging().Errorf("validateCreateFileSystemCache fsID[%s] not exist", req.FsID)
 		} else {
-			ctx.Logging().Errorf("validateCreateFileSystemCache fsID[%s] err:%v", req.ID, err)
+			ctx.Logging().Errorf("validateCreateFileSystemCache fsID[%s] err:%v", req.FsID, err)
 		}
 		return err
 	}
@@ -157,17 +156,15 @@ func (pr *PFSRouter) updateFSCacheConfig(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	fsID, err := getFsIDAndCheckPermission(&ctx, req.Username, fsName)
+	req.FsID, err = getFsIDAndCheckPermission(&ctx, req.Username, fsName)
 	if err != nil {
 		ctx.Logging().Errorf("getFSCacheConfig check fs permission failed: [%v]", err)
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
 
-	req.ID = fsID
-
 	// validate fs_cache_config existence
-	_, err = models.GetFSCacheConfig(ctx.Logging(), req.ID)
+	_, err = models.GetFSCacheConfig(ctx.Logging(), req.FsID)
 	if err != nil {
 		ctx.Logging().Errorf("validateUpdateFileSystemCache err:%v", err)
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -186,7 +183,7 @@ func (pr *PFSRouter) updateFSCacheConfig(w http.ResponseWriter, r *http.Request)
 			common.RenderErr(w, ctx.RequestID, common.InternalError)
 		}
 		logger.LoggerForRequest(&ctx).Errorf(
-			"GetFSCacheConfig[%s] failed. error:%v", fsID, err)
+			"GetFSCacheConfig[%s] failed. error:%v", req.FsID, err)
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
