@@ -102,6 +102,7 @@ func (st *Step) generateStepParamSolver(forCacheFingerprint bool) (*StepParamSol
 		st.getLogger().Errorf("marshal runtimeView of run[%s] for step[%s] failed: %v", st.wfr.wf.RunID, st.name, runtimeView)
 		return nil, err
 	}
+	st.getLogger().Infof("PF_RUN_TIME is: %v", string(runtimeView))
 	var sysParams = map[string]string{
 		SysParamNamePFRunID:    st.wfr.wf.RunID,
 		SysParamNamePFStepName: st.name,
