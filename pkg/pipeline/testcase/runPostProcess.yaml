@@ -4,7 +4,7 @@ docker_env: images/training.tgz
 
 entry_points:
 
-  data_preprocess:
+  data-preprocess:
     parameters:
       data_path: "./LINK/mybos_dir/data"
       process_data_file: "./data/pre"
