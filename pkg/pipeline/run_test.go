@@ -95,7 +95,7 @@ func TestStopWithPostProcess(t *testing.T) {
 
 	time.Sleep(time.Millisecond * 10)
 
-	wf.runtime.Stop()
+	wf.runtime.Stop(false)
 	time.Sleep(time.Millisecond * 10)
 
 	// 当前 Stop 不会终止 PostProcess 中节点
@@ -147,7 +147,7 @@ func TestStopEntry(t *testing.T) {
 	assert.Equal(t, common.StatusRunRunning, wf.runtime.status)
 	assert.Equal(t, schema.JobStatus(""), wf.runtime.entryPoints["validate"].job.(*PaddleFlowJob).Status)
 
-	wf.runtime.Stop()
+	wf.runtime.Stop(false)
 	time.Sleep(time.Millisecond * 10)
 
 	assert.Equal(t, schema.StatusJobCancelled, wf.runtime.entryPoints["main"].job.(*PaddleFlowJob).Status)

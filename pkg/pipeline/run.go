@@ -177,7 +177,7 @@ func (wfr *WorkflowRuntime) Restart() error {
 // Stop 停止 Workflow
 // do not call ctx_cancel(), which will be called when all steps has terminated eventually.
 // 注意: stop 时暂时不会stop PostProcess 中的节点
-func (wfr *WorkflowRuntime) Stop() error {
+func (wfr *WorkflowRuntime) Stop(stopPost bool) error {
 	if wfr.IsCompleted() {
 		wfr.wf.log().Debugf("workflow has finished.")
 		return nil

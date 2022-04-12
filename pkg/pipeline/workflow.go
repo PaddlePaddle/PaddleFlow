@@ -641,8 +641,8 @@ func (wf *Workflow) Restart() {
 }
 
 // Stop a workflow
-func (wf *Workflow) Stop() {
-	wf.runtime.Stop()
+func (wf *Workflow) Stop(stopPost bool) {
+	wf.runtime.Stop(stopPost)
 }
 
 func (wf *Workflow) Status() string {
