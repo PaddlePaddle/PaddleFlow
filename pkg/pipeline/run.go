@@ -347,6 +347,7 @@ func (wfr *WorkflowRuntime) updateStatus(entryPointsStatus, postProcessStatus St
 
 func (wfr *WorkflowRuntime) getDirectDownstreamStep(upstreamStep *Step) (steps map[*Step]string) {
 	// 因为golang 没有 set，所以使用 map 模拟一个 set，steps 的value 并没有实际意义
+	steps = map[*Step]string{}
 	for _, step := range wfr.entryPoints {
 		deps := strings.Split(step.info.Deps, ",")
 		for _, ds := range deps {
@@ -360,6 +361,7 @@ func (wfr *WorkflowRuntime) getDirectDownstreamStep(upstreamStep *Step) (steps m
 }
 
 func (wfr *WorkflowRuntime) getAllDownstreamSteps(upstreamStep *Step) (steps map[*Step]string) {
+	steps = map[*Step]string{}
 	// 深度优先遍历或者广度优先遍历？
 	toVisiteStep := wfr.getDirectDownstreamStep(upstreamStep)
 

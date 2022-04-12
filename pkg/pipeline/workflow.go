@@ -470,7 +470,7 @@ func (bwf *BaseWorkflow) checkPostProcess() error {
 			return fmt.Errorf("step [%s] in post_process has deps", name)
 		}
 
-		if postStep.Cache.Enable == true {
+		if postStep.Cache.Enable {
 			return fmt.Errorf("step [%s] in post_process should not use cache", name)
 		}
 	}
@@ -641,8 +641,8 @@ func (wf *Workflow) Restart() {
 }
 
 // Stop a workflow
-func (wf *Workflow) Stop(stopPost bool) {
-	wf.runtime.Stop(stopPost)
+func (wf *Workflow) Stop(force bool) {
+	wf.runtime.Stop(force)
 }
 
 func (wf *Workflow) Status() string {
