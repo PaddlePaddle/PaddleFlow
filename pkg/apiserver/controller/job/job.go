@@ -21,6 +21,7 @@ import (
 
 	"github.com/ghodss/yaml"
 	log "github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 
 	"paddleflow/pkg/apiserver/common"
 	"paddleflow/pkg/apiserver/models"
@@ -61,7 +62,7 @@ type CommonJobInfo struct {
 	Name             string            `json:"name"`
 	Labels           map[string]string `json:"labels"`
 	Annotations      map[string]string `json:"annotations"`
-	SchedulingPolicy SchedulingPolicy  `json:"SchedulingPolicy"`
+	SchedulingPolicy SchedulingPolicy  `json:"schedulingPolicy"`
 	UserName         string            `json:",omitempty"`
 }
 
@@ -129,6 +130,9 @@ func patchEnvs(conf *schema.Conf, commonJobInfo *CommonJobInfo) error {
 	queue, err := models.GetQueueByID(&logger.RequestContext{}, queueID)
 	if err != nil {
 		log.Errorf("Get queue by id failed when creating job %s failed, err=%v", commonJobInfo.Name, err)
+		if err == gorm.ErrRecordNotFound {
+			return fmt.Errorf("queue not found by id %s", queueID)
+		}
 		return err
 	}
 	conf.SetQueueID(queueID)

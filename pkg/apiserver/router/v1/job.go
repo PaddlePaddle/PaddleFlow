@@ -67,7 +67,7 @@ func (jr *JobRouter) CreateSingleJob(w http.ResponseWriter, r *http.Request) {
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
-	log.Debugf("create single job request:%+v", request)
+	log.Debugf("create single job request:%#v", request)
 
 	request.CommonJobInfo.UserName = ctx.UserName
 
