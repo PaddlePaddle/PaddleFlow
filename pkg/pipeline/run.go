@@ -115,8 +115,12 @@ func (wfr *WorkflowRuntime) triggerSteps(steps map[string]*Step) error {
 			continue
 		}
 
-		if wfr.isDepsReady(st, steps) && !st.submitted {
+		if !st.executed {
+			wfr.wf.log().Debugf("Start Execute step: %s", st_name)
 			go st.Execute()
+		}
+
+		if wfr.isDepsReady(st, steps) && !st.submitted {
 			wfr.wf.log().Debugf("Step %s has ready to start job", st_name)
 			st.update(st.done, true, st.job)
 			st.ready <- true
@@ -131,7 +135,7 @@ func (wfr *WorkflowRuntime) restartSteps(steps map[string]*Step) error {
 	for _, step := range steps {
 		if step.done {
 			continue
-		} else if step.submitted {
+		} else {
 			go step.Execute()
 		}
 	}
@@ -354,7 +358,6 @@ func (wfr *WorkflowRuntime) getDirectDownstreamStep(upstreamStep *Step) (steps m
 			if ds == upstreamStep.name {
 				steps[step] = step.name
 				wfr.wf.log().Infof("step[%s] is the downstream of step[%s] ", step.name, upstreamStep.name)
-
 			}
 		}
 	}
