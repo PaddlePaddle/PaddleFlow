@@ -407,12 +407,14 @@ func (bwf *BaseWorkflow) checkSteps() error {
 	}
 
 	// 这里独立构建一个sysParamNameMap，因为有可能bwf.Extra传递的系统变量，数量或者名称有误
+	// 这里只用于做校验，所以其值没有含义
 	var sysParamNameMap = map[string]string{
 		SysParamNamePFRunID:    "",
 		SysParamNamePFFsID:     "",
 		SysParamNamePFStepName: "",
 		SysParamNamePFFsName:   "",
 		SysParamNamePFUserName: "",
+		SysParamNamePFRUNTIME:  "",
 	}
 	paramChecker := StepParamChecker{
 		steps:         bwf.entryPoints,
