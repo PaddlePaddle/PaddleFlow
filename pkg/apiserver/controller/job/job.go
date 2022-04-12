@@ -33,7 +33,7 @@ import (
 
 // CreateSingleJobRequest convey request for create job
 type CreateSingleJobRequest struct {
-	CommonJobInfo     CommonJobInfo       `json:",inline"`
+	CommonJobInfo
 	Flavour           schema.Flavour      `json:"flavour"`
 	FileSystem        schema.FileSystem   `json:"fileSystem"`
 	ExtraFileSystems  []schema.FileSystem `json:"extraFileSystems"`
@@ -47,10 +47,7 @@ type CreateSingleJobRequest struct {
 
 // CreateDisJobRequest convey request for create distributed job
 type CreateDisJobRequest struct {
-	CommonSpec        CommonJobInfo   `json:",inline"`
-	Framework         string          `json:"framework"`
-	Members           []models.Member `json:"members"`
-	ExtensionTemplate string          `json:"extensionTemplate"`
+	// todo(zhongzichao)
 }
 
 // CreateWfJobRequest convey request for create workflow job
