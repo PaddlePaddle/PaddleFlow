@@ -17,6 +17,7 @@ limitations under the License.
 package pipeline
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strconv"
@@ -363,29 +364,26 @@ func (st *Step) Execute() {
 			st.wfr.IncConcurrentJobs(1)
 			st.Watch()
 		}
-	} else if st.nodeType == NodeTypeEntrypoint {
-		select {
-		case <-st.wfr.ctx.Done():
-			logMsg := fmt.Sprintf("context of step[%s] with runid[%s] has stopped with msg:[%s], no need to execute", st.name, st.wfr.wf.RunID, st.wfr.ctx.Err())
-			st.updateJobStatus(WfEventJobUpdate, schema.StatusJobCancelled, logMsg)
-		case <-st.cancel:
-			logMsg := fmt.Sprintf("step[%s] with runid[%s] has cancelled due to due to receiving cancellation signal, maybe upstream step failed", st.name, st.wfr.wf.RunID)
-			st.updateJobStatus(WfEventJobUpdate, schema.StatusJobCancelled, logMsg)
-		case <-st.ready:
-			st.processReady()
-		}
-	} else if st.nodeType == NodeTypePostProcess {
-		// postProcess 中的节点不会被终止
-		select {
-		case <-st.cancel:
-			logMsg := fmt.Sprintf("step[%s] with runid[%s] has cancelled due to due to receiving cancellation signal, maybe upstream step failed", st.name, st.wfr.wf.RunID)
-			st.updateJobStatus(WfEventJobUpdate, schema.StatusJobCancelled, logMsg)
-		case <-st.ready:
-			st.processReady()
-		}
 	} else {
-		logMsg := fmt.Sprintf("inner error: cannot get NodeType of  step[%s] with runid[%s]", st.name, st.wfr.wf.RunID)
-		st.updateJobStatus(WfEventJobUpdate, schema.StatusJobFailed, logMsg)
+		var ctx context.Context
+		if st.nodeType == NodeTypeEntrypoint {
+			ctx = st.wfr.entryPointsCtx
+		} else if st.nodeType == NodeTypePostProcess {
+			ctx = st.wfr.postProcessPointsCtx
+		} else {
+			logMsg := fmt.Sprintf("inner error: cannot get NodeType of  step[%s] with runid[%s]", st.name, st.wfr.wf.RunID)
+			st.updateJobStatus(WfEventJobUpdate, schema.StatusJobFailed, logMsg)
+		}
+		select {
+		case <-ctx.Done():
+			logMsg := fmt.Sprintf("context of step[%s] with runid[%s] has stopped with msg:[%s], no need to execute", st.name, st.wfr.wf.RunID, ctx.Err())
+			st.updateJobStatus(WfEventJobUpdate, schema.StatusJobCancelled, logMsg)
+		case <-st.cancel:
+			logMsg := fmt.Sprintf("step[%s] with runid[%s] has cancelled due to due to receiving cancellation signal, maybe upstream step failed", st.name, st.wfr.wf.RunID)
+			st.updateJobStatus(WfEventJobUpdate, schema.StatusJobCancelled, logMsg)
+		case <-st.ready:
+			st.processReady()
+		}
 	}
 }
 
@@ -460,10 +458,16 @@ func (st *Step) processReady() {
 	st.wfr.IncConcurrentJobs(1) // 如果达到并行Job上限，将会Block
 
 	// 有可能在跳出block的时候，run已经结束了，此时直接退出，不发起
-	// 当前 PostProcess 的step无论什么情况下都会继续运行， 不会被终止
-	if st.nodeType != NodeTypePostProcess && st.wfr.ctx.Err() != nil {
+	var ctx context.Context
+	if st.nodeType == NodeTypeEntrypoint {
+		ctx = st.wfr.entryPointsCtx
+	} else if st.nodeType == NodeTypePostProcess {
+		ctx = st.wfr.postProcessPointsCtx
+	}
+
+	if ctx.Err() != nil {
 		st.wfr.DecConcurrentJobs(1)
-		logMsg = fmt.Sprintf("context of step[%s] with runid[%s] has stopped with msg:[%s], no need to execute", st.name, st.wfr.wf.RunID, st.wfr.ctx.Err())
+		logMsg = fmt.Sprintf("context of step[%s] with runid[%s] has stopped with msg:[%s], no need to execute", st.name, st.wfr.wf.RunID, ctx.Err())
 		st.updateJobStatus(WfEventJobUpdate, schema.StatusJobCancelled, logMsg)
 		return
 	}
@@ -485,14 +489,16 @@ func (st *Step) processReady() {
 }
 
 func (st *Step) stopJob() {
-	// 当前 PostProcess 的step无论什么情况下都会继续运行， 不会被终止
-	if st.nodeType == NodeTypePostProcess {
-		return
+	var ctx context.Context
+	if st.nodeType == NodeTypeEntrypoint {
+		ctx = st.wfr.entryPointsCtx
+	} else if st.nodeType == NodeTypePostProcess {
+		ctx = st.wfr.postProcessPointsCtx
 	}
 
-	<-st.wfr.ctx.Done()
+	<-ctx.Done()
 
-	logMsg := fmt.Sprintf("context of job[%s] step[%s] with runid[%s] has stopped in step watch, with msg:[%s]", st.job.(*PaddleFlowJob).Id, st.name, st.wfr.wf.RunID, st.wfr.ctx.Err())
+	logMsg := fmt.Sprintf("context of job[%s] step[%s] with runid[%s] has stopped in step watch, with msg:[%s]", st.job.(*PaddleFlowJob).Id, st.name, st.wfr.wf.RunID, ctx.Err())
 	st.getLogger().Infof(logMsg)
 
 	tryCount := 1
