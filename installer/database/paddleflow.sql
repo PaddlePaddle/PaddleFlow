@@ -282,7 +282,7 @@ CREATE TABLE IF NOT EXISTS `fs_cache_config` (
     `cache_type` varchar(32) NOT NULL COMMENT 'cache type，e.g. disk/memory',
     `extra_config` text  COMMENT 'extra cache config',
     `node_affinity` text  COMMENT 'node affinity，e.g. node affinity in k8s',
-    `node_tainttoleration` text COMMENT 'node taints'
+    `node_tainttoleration` text COMMENT 'node taints',
     `created_at` datetime NOT NULL COMMENT 'create time',
     `updated_at` datetime NOT NULL COMMENT 'update time',
     `deleted_at` datetime(3) DEFAULT NULL COMMENT 'delete time',
