@@ -26,6 +26,7 @@ job:
     isCleanJob: true
     isSkipCleanFailedJob: false
     jobTTLSeconds: 600
+    failedJobTTLSeconds: 3600
   schedulerName: volcano
   clusterSyncPeriod: 30
   queueSyncPeriod: 30

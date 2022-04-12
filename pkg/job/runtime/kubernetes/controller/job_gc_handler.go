@@ -17,6 +17,7 @@ limitations under the License.
 package controller
 
 import (
+	"strconv"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -25,6 +26,10 @@ import (
 	"paddleflow/pkg/common/config"
 	"paddleflow/pkg/common/k8s"
 	"paddleflow/pkg/common/schema"
+)
+
+const (
+	DefaultJobTTLSeconds = 600
 )
 
 func (j *JobGarbageCollector) update(old, new interface{}) {
@@ -47,12 +52,40 @@ func (j *JobGarbageCollector) update(old, new interface{}) {
 			finishedJob := FinishedJobInfo{
 				Name:            newObj.GetName(),
 				Namespace:       newObj.GetNamespace(),
+				Duration:        getJobTTLSeconds(newObj.GetAnnotations(), jobStatus),
 				GVK:             newObj.GroupVersionKind(),
 				OwnerReferences: newObj.GetOwnerReferences(),
 			}
 			j.finishedJobDelayEnqueue(finishedJob)
 		}
 	}
+}
+
+func getJobTTLSeconds(annotation map[string]string, status schema.JobStatus) time.Duration {
+	// get job TTL seconds from annotation first
+	if annotation != nil && len(annotation[schema.JobTTLSeconds]) != 0 {
+		ttlStr := annotation[schema.JobTTLSeconds]
+		ttl, err := strconv.Atoi(ttlStr)
+		if err == nil {
+			return time.Duration(ttl) * time.Second
+		}
+		log.Warnf("convert ttl second string %s to int failed, err: %v", ttlStr, err)
+	}
+	// get job TTL seconds from config
+	ttlSeconds := DefaultJobTTLSeconds
+	switch status {
+	case schema.StatusJobSucceeded:
+		if config.GlobalServerConfig.Job.Reclaim.JobTTLSeconds != 0 {
+			ttlSeconds = config.GlobalServerConfig.Job.Reclaim.JobTTLSeconds
+		}
+	case schema.StatusJobTerminated, schema.StatusJobFailed:
+		if config.GlobalServerConfig.Job.Reclaim.FailedJobTTLSeconds != 0 {
+			ttlSeconds = config.GlobalServerConfig.Job.Reclaim.FailedJobTTLSeconds
+		}
+	default:
+		log.Warnf("job status %s is not supported", status)
+	}
+	return time.Duration(ttlSeconds) * time.Second
 }
 
 func (j *JobGarbageCollector) isCleanJob(jobStatus schema.JobStatus) bool {
@@ -66,7 +99,7 @@ func (j *JobGarbageCollector) isCleanJob(jobStatus schema.JobStatus) bool {
 }
 
 func (j *JobGarbageCollector) finishedJobDelayEnqueue(job FinishedJobInfo) {
-	duration := time.Duration(config.GlobalServerConfig.Job.Reclaim.JobTTLSeconds) * time.Second
+	duration := job.Duration
 	if !job.LastTransitionTime.IsZero() && time.Now().After(job.LastTransitionTime.Add(duration)) {
 		duration = 0
 	}

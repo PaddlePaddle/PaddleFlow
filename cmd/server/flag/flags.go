@@ -56,6 +56,12 @@ func JobFlags(jobConf *config.JobConfig) []cli.Flag {
 			Destination: &jobConf.JobLoopPeriod,
 		},
 		&cli.IntFlag{
+			Name:        "failed-job-ttl-seconds",
+			Value:       jobConf.Reclaim.FailedJobTTLSeconds,
+			Usage:       "failed job TTL Seconds",
+			Destination: &jobConf.Reclaim.FailedJobTTLSeconds,
+		},
+		&cli.IntFlag{
 			Name:        "job-ttl-seconds",
 			Value:       jobConf.Reclaim.JobTTLSeconds,
 			Usage:       "job TTL Seconds",
