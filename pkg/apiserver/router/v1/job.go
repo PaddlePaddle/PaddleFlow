@@ -109,7 +109,6 @@ func (jr *JobRouter) CreateDistributedJob(w http.ResponseWriter, r *http.Request
 		return
 	}
 	log.Debugf("create distributed job request:%+v", request)
-	request.CommonSpec.UserName = ctx.UserName
 
 	// validate Job
 	if err := validateDistributedJob(&ctx, &request); err != nil {
