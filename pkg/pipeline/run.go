@@ -115,10 +115,8 @@ func (wfr *WorkflowRuntime) triggerSteps(steps map[string]*Step) error {
 			continue
 		}
 
-		wfr.wf.log().Debugf("Start Execute step: %s", st_name)
-		go st.Execute()
-
 		if wfr.isDepsReady(st, steps) && !st.submitted {
+			go st.Execute()
 			wfr.wf.log().Debugf("Step %s has ready to start job", st_name)
 			st.update(st.done, true, st.job)
 			st.ready <- true
@@ -134,7 +132,10 @@ func (wfr *WorkflowRuntime) restartSteps(steps map[string]*Step) error {
 		if step.done {
 			continue
 		}
-		go step.Execute()
+
+		if step.submitted {
+			go step.Execute()
+		}
 	}
 
 	// 如果在服务异常过程中，刚好 step 中的任务已经完成，而新的任务还没有开始，此时会导致调度逻辑永远不会 watch 到新的 event
