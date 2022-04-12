@@ -23,6 +23,8 @@ import (
 
 type CreateOrUpdateFSCacheRequest struct {
 	models.FSCacheConfig
+	Username string `json:"username"`
+	FsName   string `json:"fsName"`
 }
 
 func (req *CreateOrUpdateFSCacheRequest) toModel() models.FSCacheConfig {

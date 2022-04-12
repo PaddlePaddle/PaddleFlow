@@ -26,12 +26,11 @@ import (
 	"paddleflow/pkg/apiserver/models"
 )
 
-const mockFsID = "fs-root-s3"
-
 func buildMockFS() models.FileSystem {
 	return models.FileSystem{
 		Model:    models.Model{ID: mockFsID},
-		UserName: "root",
+		UserName: MockRootUser,
+		Name:     mockFsName,
 	}
 }
 
@@ -45,14 +44,22 @@ func buildMockFSCacheConfig() models.FSCacheConfig {
 	}
 }
 
+func buildRequest(model models.FSCacheConfig) fs.CreateOrUpdateFSCacheRequest {
+	return fs.CreateOrUpdateFSCacheRequest{
+		FSCacheConfig: model,
+		Username:      MockRootUser,
+		FsName:        mockFsName,
+	}
+}
+
 func TestFSCacheConfigRouter(t *testing.T) {
 	router, baseUrl := prepareDBAndAPI(t)
-	cacheConf := buildMockFSCacheConfig()
 	mockFs := buildMockFS()
+	cacheConf := buildMockFSCacheConfig()
+	req := buildRequest(cacheConf)
 
 	// test create failure - no fs
 	url := baseUrl + "/fs/cache"
-	req := fs.CreateOrUpdateFSCacheRequest{FSCacheConfig: cacheConf}
 	result, err := PerformPostRequest(router, url, req)
 	assert.Nil(t, err)
 	assert.Equal(t, http.StatusForbidden, result.Code)
@@ -61,13 +68,12 @@ func TestFSCacheConfigRouter(t *testing.T) {
 	err = models.CreatFileSystem(&mockFs)
 	assert.Nil(t, err)
 
-	req = fs.CreateOrUpdateFSCacheRequest{FSCacheConfig: cacheConf}
 	result, err = PerformPostRequest(router, url, req)
 	assert.Nil(t, err)
 	assert.Equal(t, http.StatusCreated, result.Code)
 
 	// test get success
-	urlWithFsID := url + "/" + mockFsID
+	urlWithFsID := url + "/" + mockFsName
 	result, err = PerformGetRequest(router, urlWithFsID)
 	assert.Nil(t, err)
 	assert.Equal(t, http.StatusOK, result.Code)
@@ -88,7 +94,7 @@ func TestFSCacheConfigRouter(t *testing.T) {
 	// test update success
 	req.Quota = 333
 	req.Dir = "newPath"
-	result, err = PerformPostRequest(router, urlWithFsID, req)
+	result, err = PerformPutRequest(router, urlWithFsID, req)
 	assert.Nil(t, err)
 	assert.Equal(t, http.StatusOK, result.Code)
 
@@ -101,7 +107,7 @@ func TestFSCacheConfigRouter(t *testing.T) {
 	assert.Equal(t, req.Dir, cacheRsp.Dir)
 
 	// test update failure
-	result, err = PerformPostRequest(router, urlWrong, req)
+	result, err = PerformPutRequest(router, urlWrong, req)
 	assert.Nil(t, err)
 	assert.Equal(t, http.StatusNotFound, result.Code)
 }

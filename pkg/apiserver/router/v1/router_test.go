@@ -52,6 +52,8 @@ const (
 	MockRootUser   = "root"
 	MockPassword   = "mockPassword123456"
 	MockNormalUser = "user-normal"
+	mockFsName     = "mockfs"
+	mockFsID       = "fs-root-mockfs"
 )
 
 var auth string
