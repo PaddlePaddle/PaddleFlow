@@ -53,6 +53,10 @@ type CreateRunRequest struct {
 	RunYamlPath string `json:"runYamlPath,omitempty"` // optional. one of 3 sources of run. low priority
 }
 
+type UpdateRunRequest struct {
+	StopPost bool `json:"stopPost"`
+}
+
 type DeleteRunRequest struct {
 	CheckCache bool `json:"checkCache"`
 }
@@ -319,7 +323,7 @@ func GetRunByID(ctx *logger.RequestContext, runID string) (models.Run, error) {
 	return run, nil
 }
 
-func StopRun(ctx *logger.RequestContext, runID string) error {
+func StopRun(ctx *logger.RequestContext, runID string, request UpdateRunRequest) error {
 	ctx.Logging().Debugf("begin stop run. runID:%s", runID)
 	// check run exist
 	run, err := GetRunByID(ctx, runID)
@@ -334,8 +338,8 @@ func StopRun(ctx *logger.RequestContext, runID string) error {
 		return err
 	}
 	// check run current status
-	if run.Status == common.StatusRunTerminating ||
-		common.IsRunFinalStatus(run.Status) {
+	if (run.Status == common.StatusRunTerminating ||
+		common.IsRunFinalStatus(run.Status)) && !request.StopPost {
 		err := fmt.Errorf("cannot stop run[%s] as run is already in status[%s]", runID, run.Status)
 		ctx.ErrorCode = common.ActionNotAllowed
 		ctx.Logging().Errorln(err.Error())
@@ -353,7 +357,7 @@ func StopRun(ctx *logger.RequestContext, runID string) error {
 		ctx.ErrorCode = common.InternalError
 		return errors.New("stop run failed updating db")
 	}
-	wf.Stop()
+	wf.Stop(request.StopPost)
 	ctx.Logging().Debugf("close run succeed. runID:%s", runID)
 	return nil
 }
