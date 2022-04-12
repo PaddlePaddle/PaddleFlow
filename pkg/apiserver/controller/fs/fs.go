@@ -98,12 +98,13 @@ type CreateFileSystemClaimsResponse struct {
 }
 
 type CreateFileSystemCache struct {
-	Dir            string                 `json:"dir"`
-	Quota          int                    `json:"quota"`
-	CacheType      string                 `json:"cacheType"`
-	BlockSize      int                    `json:"blocksize"`
-	NodeAffinity   map[string]interface{} `json:"nodeAffinity"`
-	ExtraConfigMap map[string]string      `json:"extraConfig"`
+	CacheDir            string                 `json:"cacheDir"`
+	Quota               int                    `json:"quota"`
+	CacheType           string                 `json:"cacheType"`
+	BlockSize           int                    `json:"blockSize"`
+	NodeAffinity        map[string]interface{} `json:"nodeAffinity"`
+	NodeTaintToleration map[string]interface{} `json:"nodeTaintToleration"`
+	ExtraConfigMap      map[string]string      `json:"extraConfig"`
 }
 
 var fileSystemService *FileSystemService

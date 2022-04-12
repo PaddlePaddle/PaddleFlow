@@ -13,25 +13,33 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 package models
 
 import (
 	"encoding/json"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 )
 
 type FSCacheConfig struct {
-	Model
-	Dir              string                 `json:"dir"`
-	Quota            int                    `json:"quota"`
-	CacheType        string                 `json:"cacheType" gorm:"column:cache_type"`
-	BlockSize        int                    `json:"blocksize"`
-	NodeAffinityJson string                 `json:"-" gorm:"column:node_affinity;type:text;default:'{}'"`
-	NodeAffinityMap  map[string]interface{} `json:"nodeAffinity" gorm:"-"`
-	ExtraConfigJson  string                 `json:"-" gorm:"column:extra_config;type:text;default:'{}'"`
-	ExtraConfigMap   map[string]string      `json:"extraConfig" gorm:"-"`
+	PK                      int64                  `json:"-" gorm:"primaryKey;autoIncrement"`
+	FSID                    string                 `json:"fsID" gorm:"type:varchar(36);column:fs_id"`
+	CacheDir                string                 `json:"cacheDir"`
+	Quota                   int                    `json:"quota"`
+	CacheType               string                 `json:"cacheType" gorm:"column:cache_type"`
+	BlockSize               int                    `json:"blockSize"`
+	NodeAffinityJson        string                 `json:"-" gorm:"column:node_affinity;type:text;default:'{}'"`
+	NodeAffinityMap         map[string]interface{} `json:"nodeAffinity" gorm:"-"`
+	NodeTaintTolerationJson string                 `json:"-" gorm:"column:node_tainttoleration;type:text;default:'{}'"`
+	NodeTaintTolerationMap  map[string]interface{} `json:"nodeTaintToleration" gorm:"-"`
+	ExtraConfigJson         string                 `json:"-" gorm:"column:extra_config;type:text;default:'{}'"`
+	ExtraConfigMap          map[string]string      `json:"extraConfig" gorm:"-"`
+	CreatedAt               time.Time              `json:"createTime"`
+	UpdatedAt               time.Time              `json:"updateTime,omitempty"`
+	DeletedAt               gorm.DeletedAt         `json:"deleteTime,omitempty"`
 }
 
 func (s *FSCacheConfig) TableName() string {
@@ -46,6 +54,13 @@ func (s *FSCacheConfig) AfterFind(*gorm.DB) error {
 			return err
 		}
 	}
+	if s.NodeTaintTolerationJson != "" {
+		s.NodeTaintTolerationMap = make(map[string]interface{})
+		if err := json.Unmarshal([]byte(s.NodeTaintTolerationJson), &s.NodeTaintTolerationMap); err != nil {
+			log.Errorf("json Unmarshal nodeTainttolerationJson[%s] failed: %v", s.ExtraConfigJson, err)
+			return err
+		}
+	}
 	if s.ExtraConfigJson != "" {
 		s.ExtraConfigMap = make(map[string]string)
 		if err := json.Unmarshal([]byte(s.ExtraConfigJson), &s.ExtraConfigMap); err != nil {
@@ -53,6 +68,7 @@ func (s *FSCacheConfig) AfterFind(*gorm.DB) error {
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -63,6 +79,13 @@ func (s *FSCacheConfig) BeforeSave(*gorm.DB) error {
 		return err
 	}
 	s.NodeAffinityJson = string(nodeAffinityMap)
+
+	nodeTaintMap, err := json.Marshal(&s.NodeTaintTolerationMap)
+	if err != nil {
+		log.Errorf("json Marshal nodeTaintMap[%v] failed: %v", s.NodeTaintTolerationMap, err)
+		return err
+	}
+	s.NodeTaintTolerationJson = string(nodeTaintMap)
 
 	extraConfigMap, err := json.Marshal(&s.ExtraConfigMap)
 	if err != nil {
