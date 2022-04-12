@@ -131,9 +131,7 @@ func (wfr *WorkflowRuntime) restartSteps(steps map[string]*Step) error {
 	for _, step := range steps {
 		if step.done {
 			continue
-		}
-
-		if step.submitted {
+		} else if step.submitted {
 			go step.Execute()
 		}
 	}
