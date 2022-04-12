@@ -557,18 +557,18 @@ func (wf *Workflow) newWorkflowRuntime() error {
 	logger.LoggerForRun(wf.RunID).Debugf("initializing [%d] parallelism jobs", parallelism)
 	wf.runtime = NewWorkflowRuntime(wf, parallelism)
 
-	if err := wf.validateRuntimeSteps(wf.runtime.entryPoints, wf.entryPoints); err != nil {
+	if err := wf.validateRuntimeSteps(wf.runtime.entryPoints, wf.entryPoints, NodeTypeEntrypoint); err != nil {
 		return err
 	}
 
-	if err := wf.validateRuntimeSteps(wf.runtime.postProcess, wf.postProcess); err != nil {
+	if err := wf.validateRuntimeSteps(wf.runtime.postProcess, wf.postProcess, NodeTypePostProcess); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (wf *Workflow) validateRuntimeSteps(runtimeSteps map[string]*Step, steps map[string]*schema.WorkflowSourceStep) error {
+func (wf *Workflow) validateRuntimeSteps(runtimeSteps map[string]*Step, steps map[string]*schema.WorkflowSourceStep, nodeType NodeType) error {
 	// 此处topologicalSort不为了校验，而是为了排序，NewStep中会进行参数替换，必须保证上游节点已经替换完毕
 	sortedSteps, err := wf.topologicalSort(steps)
 	if err != nil {
@@ -582,7 +582,7 @@ func (wf *Workflow) validateRuntimeSteps(runtimeSteps map[string]*Step, steps ma
 		}
 
 		stepInfo := steps[stepName]
-		runtimeSteps[stepName], err = NewStep(stepName, wf.runtime, stepInfo, disabled)
+		runtimeSteps[stepName], err = NewStep(stepName, wf.runtime, stepInfo, disabled, nodeType)
 		if err != nil {
 			return err
 		}
