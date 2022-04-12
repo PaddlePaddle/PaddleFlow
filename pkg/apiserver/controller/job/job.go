@@ -18,14 +18,16 @@ package job
 
 import (
 	"fmt"
+
 	"github.com/ghodss/yaml"
 	log "github.com/sirupsen/logrus"
-	"paddleflow/pkg/common/errors"
-	"paddleflow/pkg/common/uuid"
 
+	"paddleflow/pkg/apiserver/common"
 	"paddleflow/pkg/apiserver/models"
+	"paddleflow/pkg/common/errors"
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/common/schema"
+	"paddleflow/pkg/common/uuid"
 	"paddleflow/pkg/job"
 )
 
@@ -107,7 +109,7 @@ func CreateSingleJob(request *CreateSingleJobRequest) (*CreateJobResponse, error
 	}
 
 	// execute in runtime
-	id, err := CreateJob(&conf, extensionTemplate)
+	id, err := CreateJob(&conf, request.CommonJobInfo.ID, extensionTemplate)
 	if err != nil {
 		log.Errorf("failed to create job %s, err=%v", request.CommonJobInfo.Name, err)
 		return nil, err
@@ -123,7 +125,6 @@ func patchEnvs(conf *schema.Conf, commonJobInfo *CommonJobInfo) error {
 	// basic fields required
 	conf.Labels = commonJobInfo.Labels
 	conf.Annotations = commonJobInfo.Annotations
-	conf.SetJobID(commonJobInfo.ID)
 	conf.SetEnv(schema.EnvJobType, string(schema.TypePodJob))
 	conf.SetUserName(commonJobInfo.UserName)
 	// info in SchedulingPolicy: queueID,Priority,ClusterId,Namespace
@@ -165,10 +166,10 @@ func patchSingleEnvs(conf *schema.Conf, request *CreateSingleJobRequest) error {
 		return err
 	}
 	conf.SetFlavour(flavour.Name)
-
-	// optional fields
-	conf.SetFS(request.FileSystem.Name)
 	// todo others in FileSystem
+	fsID := common.ID(request.CommonJobInfo.UserName, request.FileSystem.Name)
+	conf.SetFS(fsID)
+
 	return nil
 }
 
@@ -184,22 +185,28 @@ func CreateWorkflowJob(request *CreateWfJobRequest) (*CreateJobResponse, error) 
 	return &CreateJobResponse{}, nil
 }
 
-func CreateJob(conf schema.PFJobConf, extensionTemplate string) (string, error) {
+// CreateJob handler for creating job, and the job_service.CreateJob will be deprecated
+func CreateJob(conf schema.PFJobConf, jobID, jobTemplate string) (string, error) {
 	if err := job.ValidateJob(conf); err != nil {
 		return "", err
 	}
 	if err := checkPriority(conf); err != nil {
 		return "", err
 	}
+
 	jobConf := conf.(*schema.Conf)
+	if jobID == "" {
+		jobID = uuid.GenerateID(schema.JobPrefix)
+	}
+
 	jobInfo := &models.Job{
-		ID:                generateJobID(conf.GetJobID(), conf.GetName()),
+		ID:                jobID,
 		Type:              string(conf.Type()),
 		UserName:          conf.GetUserName(),
 		QueueID:           conf.GetQueueID(),
 		Status:            schema.StatusJobInit,
 		Config:            *jobConf,
-		ExtensionTemplate: extensionTemplate,
+		ExtensionTemplate: jobTemplate,
 	}
 
 	if err := models.CreateJob(jobInfo); err != nil {
@@ -208,13 +215,6 @@ func CreateJob(conf schema.PFJobConf, extensionTemplate string) (string, error) 
 	}
 	log.Infof("create job[%s] successful.", jobInfo.ID)
 	return jobInfo.ID, nil
-}
-
-func generateJobID(jobID, param string) string {
-	if jobID != "" {
-		return jobID
-	}
-	return uuid.GenerateID(fmt.Sprintf("%s-%s", schema.JobPrefix, param))
 }
 
 func checkPriority(conf schema.PFJobConf) error {

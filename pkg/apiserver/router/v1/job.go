@@ -19,6 +19,7 @@ package v1
 import (
 	"fmt"
 	"net/http"
+	"paddleflow/pkg/apiserver/models"
 	"strings"
 
 	"github.com/go-chi/chi"
@@ -66,6 +67,7 @@ func (jr *JobRouter) CreateSingleJob(w http.ResponseWriter, r *http.Request) {
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
+	log.Debugf("create single job request:%+v", request)
 
 	request.CommonJobInfo.UserName = ctx.UserName
 
@@ -93,7 +95,7 @@ func (jr *JobRouter) CreateSingleJob(w http.ResponseWriter, r *http.Request) {
 // @tags User
 // @Accept  json
 // @Produce json
-// @Success 200 {object} job.CreateJobResponse "创建single类型作业的响应"
+// @Success 200 {object} job.CreateJobResponse "创建distributed类型作业的响应"
 // @Failure 400 {object} common.ErrorResponse "400"
 // @Router /job/distributed [POST]
 func (jr *JobRouter) CreateDistributedJob(w http.ResponseWriter, r *http.Request) {
@@ -106,7 +108,7 @@ func (jr *JobRouter) CreateDistributedJob(w http.ResponseWriter, r *http.Request
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
-
+	log.Debugf("create distributed job request:%+v", request)
 	request.CommonSpec.UserName = ctx.UserName
 
 	// validate Job
@@ -133,7 +135,7 @@ func (jr *JobRouter) CreateDistributedJob(w http.ResponseWriter, r *http.Request
 // @tags User
 // @Accept  json
 // @Produce json
-// @Success 200 {object} job.CreateJobResponse "创建single类型作业的响应"
+// @Success 200 {object} job.CreateJobResponse "创建Workflow类型作业的响应"
 // @Failure 400 {object} common.ErrorResponse "400"
 // @Router /job/workflow [POST]
 func (jr *JobRouter) CreateWorkflowJob(w http.ResponseWriter, r *http.Request) {
@@ -146,7 +148,7 @@ func (jr *JobRouter) CreateWorkflowJob(w http.ResponseWriter, r *http.Request) {
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
-
+	log.Debugf("create workflow job request:%+v", request)
 	if err := validateWorkflowJob(&ctx, &request); err != nil {
 		ctx.Logging().Errorf("validate job request failed. request:%v error:%s", request, err.Error())
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
@@ -172,6 +174,17 @@ func validateSingleJob(ctx *logger.RequestContext, request *job.CreateSingleJobR
 		ctx.Logging().Errorf("create single job failed. error: %s", err.Error())
 		ctx.ErrorCode = common.RequiredFieldEmpty
 		return err
+	}
+	if request.FileSystem.Name != "" && !common.IsRootUser(ctx.UserName) {
+		// check grant
+		fsID := common.ID(ctx.UserName, request.FileSystem.Name)
+		// todo(zhongzichao) router will call controller function instead of models function
+		if !models.HasAccessToResource(ctx, common.ResourceTypeFs, fsID) {
+			ctx.ErrorCode = common.AccessDenied
+			err := common.NoAccessError(ctx.UserName, common.ResourceTypeFs, fsID)
+			ctx.Logging().Errorf("create run failed. error: %v", err)
+			return err
+		}
 	}
 	return nil
 }

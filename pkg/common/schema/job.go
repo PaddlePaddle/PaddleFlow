@@ -30,7 +30,6 @@ type Framework string
 type MemberRole string
 
 const (
-	EnvJobID          = "PF_JOB_ID"
 	EnvJobType        = "PF_JOB_TYPE"
 	EnvJobQueueName   = "PF_JOB_QUEUE_NAME"
 	EnvJobQueueID     = "PF_JOB_QUEUE_ID"
@@ -152,9 +151,6 @@ func IsImmutableJobStatus(status JobStatus) bool {
 }
 
 type PFJobConf interface {
-	GetJobID() string
-	SetJobID(string)
-
 	GetName() string
 	GetEnv() map[string]string
 	GetCommand() string
@@ -210,17 +206,6 @@ type FileSystem struct {
 	MountPath string `json:"mountPath,omitempty"`
 	SubPath   string `json:"subPath,omitempty"`
 	ReadOnly  bool   `json:"readOnly,omitempty"`
-}
-
-func (c *Conf) GetJobID() string {
-	return c.Env[EnvJobID]
-}
-
-func (c *Conf) SetJobID(jobID string) {
-	if c.Env == nil {
-		c.Env = make(map[string]string)
-	}
-	c.Env[EnvJobID] = jobID
 }
 
 func (c *Conf) GetName() string {
@@ -281,7 +266,7 @@ func (c *Conf) GetFS() string {
 	return c.Env[EnvJobFsID]
 }
 
-// SetFS params can be fsID or fsName
+// SetFS sets the filesystem id
 func (c *Conf) SetFS(fsID string) {
 	if c.Env == nil {
 		c.Env = make(map[string]string)
