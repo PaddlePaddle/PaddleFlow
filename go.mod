@@ -5,7 +5,7 @@ go 1.16
 require (
 	github.com/BurntSushi/toml v0.4.1 // indirect
 	github.com/Microsoft/go-winio v0.5.0 // indirect
-	github.com/agiledragon/gomonkey/v2 v2.3.1
+	github.com/agiledragon/gomonkey/v2 v2.7.0
 	github.com/aws/aws-sdk-go v1.40.25
 	github.com/bluele/gcache v0.0.2
 	github.com/colinmarc/hdfs/v2 v2.2.0
