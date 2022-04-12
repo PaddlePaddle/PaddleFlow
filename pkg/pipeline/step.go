@@ -380,7 +380,7 @@ func (st *Step) Execute() {
 			logMsg := fmt.Sprintf("context of step[%s] with runid[%s] has stopped with msg:[%s], no need to execute", st.name, st.wfr.wf.RunID, ctx.Err())
 			st.updateJobStatus(WfEventJobUpdate, schema.StatusJobCancelled, logMsg)
 		case <-st.cancel:
-			logMsg := fmt.Sprintf("step[%s] with runid[%s] has cancelled due to due to receiving cancellation signal, maybe upstream step failed", st.name, st.wfr.wf.RunID)
+			logMsg := fmt.Sprintf("step[%s] with runid[%s] has cancelled due to receiving cancellation signal, maybe upstream step failed", st.name, st.wfr.wf.RunID)
 			st.updateJobStatus(WfEventJobUpdate, schema.StatusJobCancelled, logMsg)
 		case <-st.ready:
 			st.processReady()
