@@ -38,23 +38,23 @@ type StatusToSteps struct {
 	SubmittedSteps map[string]*Step
 
 	// runtime 还未向 step 的 ready channel 发送数据， 同时 Step 也未处于终态
-	PengdingSteps map[string]*Step
+	UnsubmittedSteps map[string]*Step
 }
 
 func NewStatusToSteps() StatusToSteps {
 	return StatusToSteps{
-		SucceededSteps:  map[string]*Step{},
-		FailedSteps:     map[string]*Step{},
-		TerminatedSteps: map[string]*Step{},
-		CanelledSteps:   map[string]*Step{},
-		SkippedSteps:    map[string]*Step{},
-		SubmittedSteps:  map[string]*Step{},
-		PengdingSteps:   map[string]*Step{},
+		SucceededSteps:   map[string]*Step{},
+		FailedSteps:      map[string]*Step{},
+		TerminatedSteps:  map[string]*Step{},
+		CanelledSteps:    map[string]*Step{},
+		SkippedSteps:     map[string]*Step{},
+		SubmittedSteps:   map[string]*Step{},
+		UnsubmittedSteps: map[string]*Step{},
 	}
 }
 
 // 统计已经处于终态的 Step
-func (sts *StatusToSteps) statFinshedSteps() int {
+func (sts *StatusToSteps) countFinshedSteps() int {
 	return len(sts.SucceededSteps) + len(sts.FailedSteps) + len(sts.TerminatedSteps) + len(sts.CanelledSteps) + len(sts.SkippedSteps)
 }
 
@@ -93,16 +93,15 @@ func NewWorkflowRuntime(wf *Workflow, parallelism int) *WorkflowRuntime {
 func (wfr *WorkflowRuntime) Start() error {
 	wfr.status = common.StatusRunRunning
 
-	wfr.triggerSteps(wfr.entryPoints, NodeTypeEntrypoint)
+	wfr.triggerSteps(wfr.entryPoints)
 
 	go wfr.Listen()
 	return nil
 }
 
 // 触发step运行
-func (wfr *WorkflowRuntime) triggerSteps(steps map[string]*Step, nodeType NodeType) error {
+func (wfr *WorkflowRuntime) triggerSteps(steps map[string]*Step) error {
 	for st_name, st := range steps {
-		st.nodeType = nodeType
 
 		if st.done {
 			wfr.wf.log().Debugf("Skip step: %s", st_name)
@@ -123,9 +122,8 @@ func (wfr *WorkflowRuntime) triggerSteps(steps map[string]*Step, nodeType NodeTy
 
 // restartSteps
 // 不能直接复用 triggerSteps 的原因是，重启时需要考虑step 已经 submitted，但是对应的job 还没有运行结束的情况，需要给这些步骤优先占到卡槽
-func (wfr *WorkflowRuntime) restartSteps(steps map[string]*Step, nodeType NodeType) error {
+func (wfr *WorkflowRuntime) restartSteps(steps map[string]*Step) error {
 	for _, step := range steps {
-		step.nodeType = nodeType
 		if step.done {
 			continue
 		}
@@ -135,7 +133,6 @@ func (wfr *WorkflowRuntime) restartSteps(steps map[string]*Step, nodeType NodeTy
 	// 如果在服务异常过程中，刚好 step 中的任务已经完成，而新的任务还没有开始，此时会导致调度逻辑永远不会 watch 到新的 event
 	// 不在上面直接判断 step.depsReady 的原因：wfr.steps 是 map，遍历顺序无法确定，必须保证已提交的任务先占到槽位，才能保证并发数控制正确
 	for stepName, step := range steps {
-		step.nodeType = nodeType
 		if step.done || step.submitted {
 			continue
 		}
@@ -160,10 +157,10 @@ func (wfr *WorkflowRuntime) Restart() error {
 	// 2. 如果 entryPoints 中所有节点都处于终态，且 PostProcess 中有节点未处于终态，此时直接 处理 PostProcess 中的 节点
 	// 3. 如果 entryPoints 和 PostProcess 所有节点均处于终态，则直接更新 run 的状态即可, 并调用回调函数，传给 Server 入库
 	// PS：第3种发生的概率很少，用于兜底
-	if statusToEntrySteps.statFinshedSteps() != len(wfr.entryPoints) {
-		wfr.restartSteps(wfr.entryPoints, NodeTypeEntrypoint)
-	} else if statusToPostSteps.statFinshedSteps() != len(wfr.postProcess) {
-		wfr.restartSteps(wfr.postProcess, NodeTypePostProcess)
+	if statusToEntrySteps.countFinshedSteps() != len(wfr.entryPoints) {
+		wfr.restartSteps(wfr.entryPoints)
+	} else if statusToPostSteps.countFinshedSteps() != len(wfr.postProcess) {
+		wfr.restartSteps(wfr.postProcess)
 	} else {
 		wfr.updateStatus(statusToEntrySteps, statusToPostSteps)
 
@@ -238,11 +235,7 @@ func (wfr *WorkflowRuntime) IsCompleted() bool {
 
 // 触发 post_process 中的步骤
 func (wfr *WorkflowRuntime) triggerPostPorcess() error {
-	for _, step := range wfr.postProcess {
-		// postProcess 中的节点不支持 cache 操作
-		step.info.Cache.Enable = false
-	}
-	return wfr.triggerSteps(wfr.postProcess, NodeTypePostProcess)
+	return wfr.triggerSteps(wfr.postProcess)
 }
 
 // processEvent 处理 job 推送到 run 的事件
@@ -265,10 +258,10 @@ func (wfr *WorkflowRuntime) processEvent(event WorkflowEvent) error {
 		status, ok := event.Extra["status"]
 		if ok {
 			jobStatus := status.(schema.JobStatus)
-			jobFaield := jobStatus == schema.StatusJobFailed
-			jobUnexpectedTerinated := jobStatus == schema.StatusJobTerminated && wfr.status != common.StatusRunTerminating
+			jobFailed := jobStatus == schema.StatusJobFailed
+			jobUnexpectedTerminated := jobStatus == schema.StatusJobTerminated && wfr.status != common.StatusRunTerminating
 
-			if jobFaield || jobUnexpectedTerinated {
+			if jobFailed || jobUnexpectedTerminated {
 				wfr.ProcessFailureOptions(event)
 			}
 		}
@@ -280,11 +273,11 @@ func (wfr *WorkflowRuntime) processEvent(event WorkflowEvent) error {
 	statusToEntrySteps := wfr.statStepStatus(wfr.entryPoints)
 	statusToPostSteps := wfr.statStepStatus(wfr.postProcess)
 
-	if len(statusToEntrySteps.PengdingSteps) != 0 {
-		wfr.triggerSteps(wfr.entryPoints, NodeTypeEntrypoint)
-	} else if statusToEntrySteps.statFinshedSteps() == len(wfr.entryPoints) && len(statusToPostSteps.PengdingSteps) != 0 {
+	if len(statusToEntrySteps.UnsubmittedSteps) != 0 {
+		wfr.triggerSteps(wfr.entryPoints)
+	} else if statusToEntrySteps.countFinshedSteps() == len(wfr.entryPoints) && len(statusToPostSteps.UnsubmittedSteps) != 0 {
 		wfr.triggerPostPorcess()
-	} else if statusToEntrySteps.statFinshedSteps() == len(wfr.entryPoints) && statusToPostSteps.statFinshedSteps() == len(wfr.postProcess) {
+	} else if statusToEntrySteps.countFinshedSteps() == len(wfr.entryPoints) && statusToPostSteps.countFinshedSteps() == len(wfr.postProcess) {
 		wfr.updateStatus(statusToEntrySteps, statusToPostSteps)
 	}
 
@@ -311,7 +304,7 @@ func (wfr *WorkflowRuntime) statStepStatus(steps map[string]*Step) StatusToSteps
 			if st.submitted {
 				status.SubmittedSteps[st_name] = st
 			} else {
-				status.PengdingSteps[st_name] = st
+				status.UnsubmittedSteps[st_name] = st
 			}
 		}
 	}
@@ -407,7 +400,7 @@ func (wfr *WorkflowRuntime) ProcessFailureOptions(event WorkflowEvent) {
 	st, ok := event.Extra["step"]
 
 	if !ok {
-		wfr.wf.log().Errorf("cannot get the step info of envent for run[%s], begin to stop run: %v", wfr.wf.RunID, event)
+		wfr.wf.log().Errorf("cannot get the step info of event for run[%s], begin to stop run: %v", wfr.wf.RunID, event)
 
 		// 防止下游节点无法调度，导致 run 被 hang 住，终止所有任务
 		wfr.ctxCancel()
