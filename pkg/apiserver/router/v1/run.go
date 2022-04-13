@@ -214,7 +214,7 @@ func (rr *RunRouter) updateRun(w http.ResponseWriter, r *http.Request) {
 
 	switch action {
 	case util.QueryActionStop:
-		err = run.StopRun(&ctx, runID, run.UpdateRunRequest{})
+		err = run.StopRun(&ctx, runID, request)
 	case util.QueryActionRetry:
 		err = run.RetryRun(&ctx, runID)
 	default:
