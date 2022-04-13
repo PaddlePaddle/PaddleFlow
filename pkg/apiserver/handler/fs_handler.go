@@ -177,7 +177,7 @@ func (fh *FsHandler) ModTime(path string) (time.Time, error) {
 
 func (fh *FsHandler) getFSClient() (fs.FSClient, error) {
 	fsService := api.GetFileSystemService()
-	fsModel, err := fsService.GetFileSystem(&api.GetFileSystemRequest{}, fh.fsID)
+	fsModel, err := fsService.GetFileSystem(fh.fsID)
 	if err != nil {
 		log.Errorf("get file system with fsID[%s] error[%v]", fh.fsID, err)
 		return nil, err

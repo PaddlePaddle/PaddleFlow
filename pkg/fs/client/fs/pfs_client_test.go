@@ -445,8 +445,8 @@ func TestFSClient_read_with_small_block_1(t *testing.T) {
 		Disk:         &cache.DiskConfig{Dir: "./mock-cache", Expire: 10 * time.Second},
 	}
 	SetDataCache(d)
-	os.MkdirAll("./mock", 0755)
-	os.MkdirAll("./mock-cache", 0755)
+	os.RemoveAll("./mock")
+	os.RemoveAll("./mock-cache")
 	defer os.RemoveAll("./mock")
 	defer os.RemoveAll("./mock-cache")
 
@@ -501,6 +501,8 @@ func TestFSClient_read_with_small_block_2(t *testing.T) {
 		Disk:         &cache.DiskConfig{Dir: "./mock-cache", Expire: 10 * time.Second},
 	}
 	SetDataCache(d)
+	os.RemoveAll("./mock")
+	os.RemoveAll("./mock-cache")
 	defer os.RemoveAll("./mock")
 	defer os.RemoveAll("./mock-cache")
 
@@ -560,6 +562,8 @@ func readFile(path string, buf []byte) (int, error) {
 func TestFSClient_diskCache_Read(t *testing.T) {
 	os.RemoveAll("./mock")
 	os.RemoveAll("./mock-cache")
+	defer os.RemoveAll("./mock")
+	defer os.RemoveAll("./mock-cache")
 	d := cache.Config{
 		BlockSize:    200,
 		MaxReadAhead: 4,
@@ -628,16 +632,13 @@ func TestFSClient_diskCache_Read(t *testing.T) {
 	assert.Equal(t, n, len(buf))
 	assert.Equal(t, string(buf), writeString)
 	time.Sleep(3 * time.Second)
-
-	os.RemoveAll("./mock-cache")
-	os.RemoveAll("./mock")
 }
 
 func TestFSClient_diskCache_Read_Expire(t *testing.T) {
 	os.RemoveAll("./mock")
 	os.RemoveAll("./mock-cache")
 	defer os.RemoveAll("./mock")
-	defer os.RemoveAll("./datacache")
+	defer os.RemoveAll("./mock-cache")
 	d := cache.Config{
 		BlockSize:    1,
 		MaxReadAhead: 4,
@@ -670,7 +671,7 @@ func TestFSClient_diskCache_Read_Full(t *testing.T) {
 	os.RemoveAll("./mock")
 	os.RemoveAll("./mock-cache")
 	defer os.RemoveAll("./mock")
-	defer os.RemoveAll("./datacache")
+	defer os.RemoveAll("./mock-cache")
 	d := cache.Config{
 		BlockSize:    1 << 23,
 		MaxReadAhead: 4,
@@ -710,7 +711,7 @@ func TestFSClient_cache_read(t *testing.T) {
 	os.RemoveAll("./mock")
 	os.RemoveAll("./mock-cache")
 	defer os.RemoveAll("./mock")
-	defer os.RemoveAll("./datacache")
+	defer os.RemoveAll("./mock-cache")
 	d := cache.Config{
 		BlockSize:    5,
 		MaxReadAhead: 4,
@@ -767,7 +768,7 @@ func TestFSClient_Concurrent_Read(t *testing.T) {
 	os.RemoveAll("./mock")
 	os.RemoveAll("./mock-cache")
 	defer os.RemoveAll("./mock")
-	defer os.RemoveAll("./datacache")
+	defer os.RemoveAll("./mock-cache")
 	d := cache.Config{
 		BlockSize:    5,
 		MaxReadAhead: 4,
@@ -802,7 +803,6 @@ func TestMetaEntryCache(t *testing.T) {
 	os.RemoveAll("./mock")
 	os.RemoveAll("./mock-cache")
 	defer os.RemoveAll("./mock")
-	defer os.RemoveAll("./datacache")
 	defer os.RemoveAll("./mock-cache")
 	client := getTestFSClient2(t)
 	newDir := "/Dir/dir1"
@@ -866,7 +866,6 @@ func TestMetaAttrCache(t *testing.T) {
 	os.RemoveAll("./mock")
 	os.RemoveAll("./mock-cache")
 	defer os.RemoveAll("./mock")
-	defer os.RemoveAll("./datacache")
 	defer os.RemoveAll("./mock-cache")
 	client := getTestFSClient2(t)
 	newDir := "/Dir"
@@ -946,9 +945,7 @@ func getTestFSClient2(t *testing.T) FSClient {
 func TestLevelDBMeta(t *testing.T) {
 	os.RemoveAll("./mock")
 	os.RemoveAll("./mock-cache")
-
 	defer os.RemoveAll("./mock")
-	defer os.RemoveAll("./datacache")
 	defer os.RemoveAll("./mock-cache")
 	db := "./level.db"
 	os.RemoveAll(db)
@@ -1054,9 +1051,7 @@ func TestLevelDBMeta(t *testing.T) {
 func TestMetaAttrCacheByLevelDB(t *testing.T) {
 	os.RemoveAll("./mock")
 	os.RemoveAll("./mock-cache")
-
 	defer os.RemoveAll("./mock")
-	defer os.RemoveAll("./datacache")
 	defer os.RemoveAll("./mock-cache")
 	db := "./level.db"
 	os.RemoveAll(db)
