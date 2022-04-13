@@ -109,9 +109,9 @@ func ListLink(limit int, marker, fsID string) ([]Link, error) {
 	return links, result.Error
 }
 
-func GetLinkWithFsIDFsPathAndUserName(fsID, fsPath, userName string) ([]Link, error) {
+func GetLinkWithFsIDAndPath(fsID, fsPath string) ([]Link, error) {
 	var links []Link
 	db := database.DB
-	result := db.Where(&Link{UserName: userName, FsID: fsID, FsPath: fsPath}).Find(&links)
+	result := db.Where(&Link{FsID: fsID, FsPath: fsPath}).First(&links)
 	return links, result.Error
 }

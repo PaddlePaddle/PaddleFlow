@@ -29,7 +29,6 @@ import (
 
 	"paddleflow/pkg/apiserver/common"
 	"paddleflow/pkg/apiserver/controller/run"
-	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/apiserver/router/util"
 	"paddleflow/pkg/common/logger"
 )
@@ -77,15 +76,10 @@ func (rr *RunRouter) createRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// check grant
-	if !common.IsRootUser(ctx.UserName) {
-		fsID := common.ID(ctx.UserName, createRunInfo.FsName)
-		if !models.HasAccessToResource(&ctx, common.ResourceTypeFs, fsID) {
-			ctx.ErrorCode = common.AccessDenied
-			err := common.NoAccessError(ctx.UserName, common.ResourceTypeFs, fsID)
-			ctx.Logging().Errorf("create run failed. error: %v", err)
-			common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
-			return
-		}
+	_, err := getFsIDAndCheckPermission(&ctx, createRunInfo.UserName, createRunInfo.FsName)
+	if err != nil {
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
 	}
 	// create run
 	response, err := run.CreateRun(&ctx, &createRunInfo)

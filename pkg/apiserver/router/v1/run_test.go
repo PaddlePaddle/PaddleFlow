@@ -20,15 +20,12 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/go-chi/chi"
 	"github.com/stretchr/testify/assert"
 
 	"paddleflow/pkg/apiserver/common"
 	"paddleflow/pkg/apiserver/controller/run"
 	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/apiserver/router/util"
-	"paddleflow/pkg/common/config"
-	"paddleflow/pkg/common/database/dbinit"
 	"paddleflow/pkg/common/logger"
 )
 
@@ -66,26 +63,6 @@ func getMockRun2() models.Run {
 		Status:   common.StatusRunPending,
 	}
 	return run2
-}
-
-func prepareDBAndAPI(t *testing.T) (*chi.Mux, string) {
-	chiRouter := NewApiTest()
-	baseUrl := util.PaddleflowRouterPrefix + util.PaddleflowRouterVersionV1
-
-	config.GlobalServerConfig = &config.ServerConfig{
-		ApiServer: config.ApiServerConfig{
-			TokenExpirationHour: -1,
-		},
-	}
-
-	dbinit.InitMockDB()
-	rootCtx := &logger.RequestContext{UserName: MockRootUser}
-
-	token, err := CreateTestUser(rootCtx, MockRootUser, MockPassword)
-	assert.Nil(t, err)
-	setToken(token)
-
-	return chiRouter, baseUrl
 }
 
 func TestGetRunRouter(t *testing.T) {
