@@ -64,8 +64,8 @@ func TestStartWithPostProcess(t *testing.T) {
 	assert.Equal(t, NodeTypePostProcess, wf.runtime.postProcess["mail"].nodeType)
 
 	wf.runtime.postProcess["mail"].job.(*PaddleFlowJob).Status = schema.StatusJobSucceeded
-	statusToEntry := wf.runtime.statStepStatus(wf.runtime.entryPoints)
-	statusToPost := wf.runtime.statStepStatus(wf.runtime.postProcess)
+	statusToEntry := wf.runtime.countStepStatus(wf.runtime.entryPoints)
+	statusToPost := wf.runtime.countStepStatus(wf.runtime.postProcess)
 
 	wf.runtime.updateStatus(statusToEntry, statusToPost)
 	assert.Equal(t, common.StatusRunSucceeded, wf.runtime.status)
