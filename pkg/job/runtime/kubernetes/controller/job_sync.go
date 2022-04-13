@@ -293,7 +293,7 @@ func (j *JobSync) syncTaskStatus(taskSyncInfo *TaskSyncInfo) error {
 func responsibleForJob(obj interface{}) bool {
 	job := obj.(*unstructured.Unstructured)
 	labels := job.GetLabels()
-	if labels[commonschema.JobOwnerLabel] == commonschema.JobOwnerValue {
+	if labels != nil && labels[commonschema.JobOwnerLabel] == commonschema.JobOwnerValue {
 		log.Debugf("responsible for handle job. jobName:[%s]", job.GetName())
 		return true
 	}

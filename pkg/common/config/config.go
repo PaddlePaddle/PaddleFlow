@@ -87,11 +87,11 @@ type FsServerConf struct {
 }
 
 type ReclaimConfig struct {
-	CleanJob             bool `yaml:"isCleanJob"`
-	SkipCleanFailedJob   bool `yaml:"isSkipCleanFailedJob"`
-	FailedJobTTLSeconds  int  `yaml:"failedJobTTLSeconds,omitempty"`
-	JobTTLSeconds        int  `yaml:"jobTTLSeconds"`
-	JobPendingTTLSeconds int  `yaml:"jobPendingTTLSeconds,omitempty"`
+	CleanJob               bool `yaml:"isCleanJob"`
+	SkipCleanFailedJob     bool `yaml:"isSkipCleanFailedJob"`
+	FailedJobTTLSeconds    int  `yaml:"failedJobTTLSeconds,omitempty"`
+	SucceededJobTTLSeconds int  `yaml:"succeededJobTTLSeconds,omitempty"`
+	PendingJobTTLSeconds   int  `yaml:"pendingJobTTLSeconds,omitempty"`
 }
 
 type ImageConfig struct {
