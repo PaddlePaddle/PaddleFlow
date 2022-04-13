@@ -126,6 +126,12 @@ func TestFSClient_readAt_BigOff(t *testing.T) {
 }
 
 func TestFS_read_readAt(t *testing.T) {
+	os.RemoveAll("./mock")
+	os.RemoveAll("./mock-cache")
+	defer func() {
+		os.RemoveAll("./mock")
+		os.RemoveAll("./mock-cache")
+	}()
 	d := cache.Config{
 		BlockSize:    1,
 		MaxReadAhead: 10,
@@ -202,6 +208,10 @@ func TestReadAtCocurrent(t *testing.T) {
 	// 使用单个block的情况
 	os.RemoveAll("./mock")
 	os.RemoveAll("./mock-cache")
+	defer func() {
+		os.RemoveAll("./mock")
+		os.RemoveAll("./mock-cache")
+	}()
 	d := cache.Config{
 		BlockSize:    3,
 		MaxReadAhead: 10,
@@ -279,6 +289,10 @@ func TestFSClient_readAt(t *testing.T) {
 	// 使用单个block的情况
 	os.RemoveAll("./mock")
 	os.RemoveAll("./mock-cache")
+	defer func() {
+		os.RemoveAll("./mock")
+		os.RemoveAll("./mock-cache")
+	}()
 	d := cache.Config{
 		BlockSize:    2,
 		MaxReadAhead: 10,
@@ -325,16 +339,15 @@ func TestFSClient_readAt(t *testing.T) {
 	assert.Equal(t, len(buf), n)
 	assert.Equal(t, string(buf), "te")
 	reader.Close()
-
-	os.RemoveAll("./mock")
-	os.RemoveAll("./mock-cache")
 }
 
 func TestFSClient_readAtwithsmallBlock_2(t *testing.T) {
-	// 使用多个block的情况
 	os.RemoveAll("./mock")
 	os.RemoveAll("./mock-cache")
-
+	defer func() {
+		os.RemoveAll("./mock")
+		os.RemoveAll("./mock-cache")
+	}()
 	d := cache.Config{
 		BlockSize:    3,
 		MaxReadAhead: 100,
