@@ -17,7 +17,6 @@ limitations under the License.
 package v1
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -193,8 +192,6 @@ func (rr *RunRouter) updateRun(w http.ResponseWriter, r *http.Request) {
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
-	// 保证body下一次能够读取
-	r.Body = ioutil.NopCloser(bytes.NewBuffer(bodyBytes))
 	if len(bodyBytes) > 0 {
 		// body为空的话，解析会报错
 		err = json.Unmarshal(bodyBytes, &request)
