@@ -17,6 +17,8 @@ limitations under the License.
 package base
 
 import (
+	"strings"
+
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 
@@ -44,12 +46,14 @@ type _Client struct {
 }
 
 func NewClient(fsID string, c *core.PFClient, userName string, token string) (*_Client, error) {
+	fsArray := strings.Split(fsID, "-")
 	_client := _Client{
 		Uuid:       uuid.NewString(),
 		FsID:       fsID,
 		UserName:   userName,
 		httpClient: c,
 		Token:      token,
+		FsName:     fsArray[len(fsArray)-1],
 	}
 	Client = &_client
 	return Client, nil
