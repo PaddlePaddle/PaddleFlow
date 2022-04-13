@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding:utf8 -*-
 """
 Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
 
@@ -15,15 +13,20 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-from .pipeline_api import PipelineServiceApi
-from .pipeline_info import PipelineInfo
+# THE parameters which set by Paddleflow Server
 
-from .dsl import CacheOptions
-from .dsl import FailureOptions
-from .dsl import Artifact
-from .dsl import Parameter
-from .dsl import ContainerStep
-from .dsl import Pipeline
-from .dsl import FAIL_CONTINUE
-from .dsl import FAIL_FAST
-from .dsl.sys_params import *
+PF_RUN_ID = "{{PF_RUN_ID}}"
+
+PF_FS_ID = "{{PF_FS_ID}}"
+
+PF_JOB_ID = "{{PF_JOB_ID}}"
+
+PF_STEP_NAME = "{{PF_STEP_NAME}}"
+
+PF_FS_NAME = "{{PF_FS_NAME}"
+
+PF_USER_ID = "{{PF_USER_ID}}"
+
+PF_USER_NAME = "{{PF_USER_NAME}}"
+
+PF_RUN_TIME = "{{PF_RUN_TIME}}"
