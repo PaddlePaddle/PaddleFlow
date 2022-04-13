@@ -62,15 +62,18 @@ func (j *JobGarbageCollector) Initialize(opt *k8s.DynamicClientOption) error {
 	j.informerMap = make(map[schema.GroupVersionKind]cache.SharedIndexInformer)
 	j.listerMap = make(map[schema.GroupVersionKind]cache.GenericLister)
 
-	for gvk, _ := range k8s.GVKJobStatusMap {
+	for gvk := range k8s.GVKJobStatusMap {
 		gvrMap, err := j.opt.GetGVR(gvk)
 		if err != nil {
 			log.Warnf("cann't find GroupVersionKind [%s], err: %v", gvk, err)
 		} else {
 			j.informerMap[gvk] = j.GetDynamicInformer(gvrMap.Resource)
 			j.listerMap[gvk] = j.GetDynamicLister(gvrMap.Resource)
-			j.informerMap[gvk].AddEventHandler(cache.ResourceEventHandlerFuncs{
-				UpdateFunc: j.update,
+			j.informerMap[gvk].AddEventHandler(cache.FilteringResourceEventHandler{
+				FilterFunc: responsibleForJob,
+				Handler: cache.ResourceEventHandlerFuncs{
+					UpdateFunc: j.update,
+				},
 			})
 		}
 	}

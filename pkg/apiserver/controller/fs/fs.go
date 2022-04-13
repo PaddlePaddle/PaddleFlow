@@ -98,12 +98,13 @@ type CreateFileSystemClaimsResponse struct {
 }
 
 type CreateFileSystemCache struct {
-	Dir            string                 `json:"dir"`
-	Quota          int                    `json:"quota"`
-	CacheType      string                 `json:"cacheType"`
-	BlockSize      int                    `json:"blocksize"`
-	NodeAffinity   map[string]interface{} `json:"nodeAffinity"`
-	ExtraConfigMap map[string]string      `json:"extraConfig"`
+	CacheDir            string                 `json:"cacheDir"`
+	Quota               int                    `json:"quota"`
+	CacheType           string                 `json:"cacheType"`
+	BlockSize           int                    `json:"blockSize"`
+	NodeAffinity        map[string]interface{} `json:"nodeAffinity"`
+	NodeTaintToleration map[string]interface{} `json:"nodeTaintToleration"`
+	ExtraConfigMap      map[string]string      `json:"extraConfig"`
 }
 
 var fileSystemService *FileSystemService
@@ -157,13 +158,7 @@ func (s *FileSystemService) GetFileSystem(req *GetFileSystemRequest, fsID string
 
 // DeleteFileSystem the function which performs the operation of delete file system
 func (s *FileSystemService) DeleteFileSystem(ctx *logger.RequestContext, fsID string) error {
-	err := deletePVC(fsID)
-	if err != nil {
-		ctx.Logging().Errorf("delete pvc error[%v]", err)
-		ctx.ErrorCode = common.K8sOperatorError
-		return err
-	}
-	err = models.DeleteFileSystem(fsID)
+	err := models.DeleteFileSystem(fsID)
 	if err != nil {
 		ctx.Logging().Errorf("delete failed error[%v]", err)
 		ctx.ErrorCode = common.FileSystemDataBaseError
