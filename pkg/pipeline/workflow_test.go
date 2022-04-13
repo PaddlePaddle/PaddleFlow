@@ -38,9 +38,6 @@ const (
 	noAtfYamlPath         string = "./testcase/runNoAtf.yaml"
 	runWrongParamYamlPath string = "./testcase/runWrongParam.yaml"
 	runCircleYamlPath     string = "./testcase/runCircle.yaml"
-
-	runTwoPostPath     string = "./testcase/runTwoPost.yaml"
-	runPostProcessPath string = "./testcase/runPostProcess.yaml"
 )
 
 var mockCbs = WorkflowCallbacks{
