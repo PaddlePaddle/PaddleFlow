@@ -616,6 +616,7 @@ func (wf *Workflow) setRuntimeSteps(runtime map[string]schema.JobView, steps map
 				Name:       jobView.JobName,
 				Command:    jobView.Command,
 				Parameters: jobView.Parameters,
+				Artifacts:  jobView.Artifacts,
 				Env:        jobView.Env,
 				StartTime:  jobView.StartTime,
 				EndTime:    jobView.EndTime,
