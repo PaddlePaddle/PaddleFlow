@@ -141,13 +141,7 @@ func (s *FileSystemService) GetFileSystem(fsID string) (models.FileSystem, error
 
 // DeleteFileSystem the function which performs the operation of delete file system
 func (s *FileSystemService) DeleteFileSystem(ctx *logger.RequestContext, fsID string) error {
-	err := deletePVC(fsID)
-	if err != nil {
-		ctx.Logging().Errorf("delete pvc error[%v]", err)
-		ctx.ErrorCode = common.K8sOperatorError
-		return err
-	}
-	err = models.DeleteFileSystem(fsID)
+	err := models.DeleteFileSystem(fsID)
 	if err != nil {
 		ctx.Logging().Errorf("delete failed error[%v]", err)
 		ctx.ErrorCode = common.FileSystemDataBaseError
