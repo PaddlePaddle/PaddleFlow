@@ -24,7 +24,6 @@ import (
 type VariableChecker struct {
 }
 
-
 func (variableChecker *VariableChecker) CheckVarName(varName string) error {
 	// 校验字符串是一个合格变量名，只能由字母数字下划线组成，且以字母下划线开头
 	pattern := `^[a-zA-Z_][a-zA-Z_0-9]*$`
@@ -36,9 +35,20 @@ func (variableChecker *VariableChecker) CheckVarName(varName string) error {
 	return nil
 }
 
+func (VariableChecker *VariableChecker) CheckStepName(stepName string) error {
+	// 和CheckVarName的区别在于
+	pattern := `^[a-zA-Z][a-zA-Z0-9-]*$`
+	reg := regexp.MustCompile(pattern)
+	if !reg.MatchString(stepName) {
+		err := fmt.Errorf("format of variable name[%s] invalid, should be in ^[a-zA-Z][a-zA-Z0-9-]*$", stepName)
+		return err
+	}
+	return nil
+}
+
 func (variableChecker *VariableChecker) CheckRefUpstreamStep(varValue string) error {
 	// 匹配引用上游节点参数的字符串
-	pattern := `^\{\{(\s)*[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+(\s)*\}\}$`
+	pattern := `^\{\{(\s)*[a-zA-Z0-9-]+\.[a-zA-Z0-9_]+(\s)*\}\}$`
 	reg := regexp.MustCompile(pattern)
 	if !reg.MatchString(varValue) {
 		err := fmt.Errorf("format of value[%s] invalid, should be like {{XXX.XXX}}", varValue)

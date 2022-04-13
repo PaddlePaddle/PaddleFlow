@@ -35,15 +35,15 @@ import (
 // ----------------------------------------------------------------------------
 
 type BaseWorkflow struct {
-	Name        string                                `json:"name,omitempty"`
-	RunID       string                                `json:"runId,omitempty"`
-	Desc        string                                `json:"desc,omitempty"`
-	Entry       string                                `json:"entry,omitempty"`
-	Params      map[string]interface{}                `json:"params,omitempty"`
-	Extra       map[string]string                     `json:"extra,omitempty"` // 可以存放一些ID，fsId，userId等
-	Source      schema.WorkflowSource                 `json:"-"`               // Yaml string
-	entryPoints map[string]*schema.WorkflowSourceStep `json:"-"`
-	postProcess map[string]*schema.WorkflowSourceStep `json:"-"`
+	Name         string                                `json:"name,omitempty"`
+	RunID        string                                `json:"runId,omitempty"`
+	Desc         string                                `json:"desc,omitempty"`
+	Entry        string                                `json:"entry,omitempty"`
+	Params       map[string]interface{}                `json:"params,omitempty"`
+	Extra        map[string]string                     `json:"extra,omitempty"` // 可以存放一些ID，fsId，userId等
+	Source       schema.WorkflowSource                 `json:"-"`               // Yaml string
+	runtimeSteps map[string]*schema.WorkflowSourceStep `json:"-"`
+	postProcess  map[string]*schema.WorkflowSourceStep `json:"-"`
 }
 
 func NewBaseWorkflow(wfSource schema.WorkflowSource, runID, entry string, params map[string]interface{}, extra map[string]string) BaseWorkflow {
@@ -72,7 +72,7 @@ func NewBaseWorkflow(wfSource schema.WorkflowSource, runID, entry string, params
 		bwf.postProcess[name] = processPoint
 	}
 
-	bwf.entryPoints = bwf.getRunSteps()
+	bwf.runtimeSteps = bwf.getRunSteps()
 	return bwf
 }
 
@@ -142,7 +142,7 @@ func (bwf *BaseWorkflow) validate() error {
 		return err
 	}
 
-	// 6. steps 中的 parameter artifact env command 是否合法
+	// 6. runtimeSteps和postProcess 中的 parameter artifact env command 是否合法
 	if err := bwf.checkSteps(); err != nil {
 		bwf.log().Errorf("check steps err:%s", err.Error())
 		return err
@@ -193,13 +193,13 @@ func (bwf *BaseWorkflow) checkRunYaml() error {
 	}
 
 	for stepName := range bwf.Source.EntryPoints {
-		err := variableChecker.CheckVarName(stepName)
+		err := variableChecker.CheckStepName(stepName)
 		if err != nil {
 			return fmt.Errorf("format of stepName[%s] in run[%s] invalid", stepName, bwf.RunID)
 		}
 	}
 
-	if _, err := bwf.topologicalSort(bwf.entryPoints); err != nil {
+	if _, err := bwf.topologicalSort(bwf.runtimeSteps); err != nil {
 		return err
 	}
 
@@ -407,23 +407,32 @@ func (bwf *BaseWorkflow) checkSteps() error {
 	}
 
 	// 这里独立构建一个sysParamNameMap，因为有可能bwf.Extra传递的系统变量，数量或者名称有误
+	// 这里只用于做校验，所以其值没有含义
 	var sysParamNameMap = map[string]string{
 		SysParamNamePFRunID:    "",
 		SysParamNamePFFsID:     "",
 		SysParamNamePFStepName: "",
 		SysParamNamePFFsName:   "",
 		SysParamNamePFUserName: "",
+		SysParamNamePFRUNTIME:  "",
+	}
+	steps := map[string]*schema.WorkflowSourceStep{}
+	for name, step := range bwf.runtimeSteps {
+		steps[name] = step
+	}
+	for name, step := range bwf.postProcess {
+		steps[name] = step
 	}
 	paramChecker := StepParamChecker{
-		steps:         bwf.entryPoints,
+		steps:         steps,
 		sysParams:     sysParamNameMap,
 		disabledSteps: disabledSteps,
 		useFs:         useFs,
 	}
-	for _, step := range bwf.entryPoints {
+	for _, step := range steps {
 		bwf.log().Debugln(step)
 	}
-	for stepName, _ := range bwf.entryPoints {
+	for stepName, _ := range steps {
 		if err := paramChecker.Check(stepName); err != nil {
 			bwf.log().Errorln(err.Error())
 			return err
@@ -468,7 +477,7 @@ func (bwf *BaseWorkflow) checkPostProcess() error {
 			return fmt.Errorf("step [%s] in post_process has deps", name)
 		}
 
-		if postStep.Cache.Enable == true {
+		if postStep.Cache.Enable {
 			return fmt.Errorf("step [%s] in post_process should not use cache", name)
 		}
 	}
@@ -480,7 +489,7 @@ func (bwf *BaseWorkflow) checkPostProcess() error {
 func checkPostProcessParam(param interface{}) error {
 	switch param := param.(type) {
 	case string:
-		pattern := `\{\{(\s)*([a-zA-Z0-9_]*\.[a-zA-Z0-9_]+)?(\s)*\}\}`
+		pattern := `\{\{(\s)*([a-zA-Z0-9-]*\.[a-zA-Z0-9_]+)?(\s)*\}\}`
 		reg := regexp.MustCompile(pattern)
 		matches := reg.FindStringSubmatch(param)
 		if len(matches) > 0 {
@@ -555,18 +564,18 @@ func (wf *Workflow) newWorkflowRuntime() error {
 	logger.LoggerForRun(wf.RunID).Debugf("initializing [%d] parallelism jobs", parallelism)
 	wf.runtime = NewWorkflowRuntime(wf, parallelism)
 
-	if err := wf.validateRuntimeSteps(wf.runtime.entryPoints, wf.entryPoints); err != nil {
+	if err := wf.initRuntimeSteps(wf.runtime.entryPoints, wf.runtimeSteps, NodeTypeEntrypoint); err != nil {
 		return err
 	}
 
-	if err := wf.validateRuntimeSteps(wf.runtime.postProcess, wf.postProcess); err != nil {
+	if err := wf.initRuntimeSteps(wf.runtime.postProcess, wf.postProcess, NodeTypePostProcess); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (wf *Workflow) validateRuntimeSteps(runtimeSteps map[string]*Step, steps map[string]*schema.WorkflowSourceStep) error {
+func (wf *Workflow) initRuntimeSteps(runtimeSteps map[string]*Step, steps map[string]*schema.WorkflowSourceStep, nodeType NodeType) error {
 	// 此处topologicalSort不为了校验，而是为了排序，NewStep中会进行参数替换，必须保证上游节点已经替换完毕
 	sortedSteps, err := wf.topologicalSort(steps)
 	if err != nil {
@@ -580,7 +589,7 @@ func (wf *Workflow) validateRuntimeSteps(runtimeSteps map[string]*Step, steps ma
 		}
 
 		stepInfo := steps[stepName]
-		runtimeSteps[stepName], err = NewStep(stepName, wf.runtime, stepInfo, disabled)
+		runtimeSteps[stepName], err = NewStep(stepName, wf.runtime, stepInfo, disabled, nodeType)
 		if err != nil {
 			return err
 		}
@@ -639,8 +648,8 @@ func (wf *Workflow) Restart() {
 }
 
 // Stop a workflow
-func (wf *Workflow) Stop() {
-	wf.runtime.Stop()
+func (wf *Workflow) Stop(force bool) {
+	wf.runtime.Stop(force)
 }
 
 func (wf *Workflow) Status() string {

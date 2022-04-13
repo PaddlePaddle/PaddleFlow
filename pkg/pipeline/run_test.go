@@ -39,8 +39,8 @@ func TestStartWithPostProcess(t *testing.T) {
 	wf, err := NewWorkflow(wfs, "", "", nil, extra, mockCbs)
 	assert.Nil(t, err)
 
-	wf.runtime.entryPoints["data_preprocess"].job.(*PaddleFlowJob).Status = schema.StatusJobSucceeded
-	wf.runtime.entryPoints["data_preprocess"].done = true
+	wf.runtime.entryPoints["data-preprocess"].job.(*PaddleFlowJob).Status = schema.StatusJobSucceeded
+	wf.runtime.entryPoints["data-preprocess"].done = true
 	wf.runtime.entryPoints["main"].job.(*PaddleFlowJob).Status = schema.StatusJobSucceeded
 	wf.runtime.entryPoints["main"].done = true
 	wf.runtime.entryPoints["validate"].job.(*PaddleFlowJob).Status = schema.StatusJobSucceeded
@@ -54,7 +54,7 @@ func TestStartWithPostProcess(t *testing.T) {
 	assert.Equal(t, common.StatusRunRunning, wf.runtime.status)
 	assert.Equal(t, schema.JobStatus(""), wf.runtime.postProcess["mail"].job.(*PaddleFlowJob).Status)
 
-	event1 := WorkflowEvent{Event: WfEventJobUpdate, Extra: map[string]interface{}{"event1": "step 1 data_process finished"}}
+	event1 := WorkflowEvent{Event: WfEventJobUpdate, Extra: map[string]interface{}{"event1": "step 1 data-process finished"}}
 
 	wf.runtime.event <- event1
 	time.Sleep(time.Millisecond * 10)
@@ -83,8 +83,8 @@ func TestStopWithPostProcess(t *testing.T) {
 
 	time.Sleep(time.Millisecond * 10)
 
-	wf.runtime.entryPoints["data_preprocess"].job.(*PaddleFlowJob).Status = schema.StatusJobSucceeded
-	wf.runtime.entryPoints["data_preprocess"].done = true
+	wf.runtime.entryPoints["data-preprocess"].job.(*PaddleFlowJob).Status = schema.StatusJobSucceeded
+	wf.runtime.entryPoints["data-preprocess"].done = true
 	wf.runtime.entryPoints["main"].job.(*PaddleFlowJob).Status = schema.StatusJobSucceeded
 	wf.runtime.entryPoints["main"].done = true
 	wf.runtime.entryPoints["validate"].job.(*PaddleFlowJob).Status = schema.StatusJobSucceeded
@@ -95,14 +95,14 @@ func TestStopWithPostProcess(t *testing.T) {
 
 	time.Sleep(time.Millisecond * 10)
 
-	wf.runtime.Stop()
+	wf.runtime.Stop(false)
 	time.Sleep(time.Millisecond * 10)
 
 	// 当前 Stop 不会终止 PostProcess 中节点
 	assert.Equal(t, common.StatusRunTerminating, wf.runtime.status)
 	assert.Equal(t, schema.JobStatus(""), wf.runtime.postProcess["mail"].job.(*PaddleFlowJob).Status)
 
-	event1 := WorkflowEvent{Event: WfEventJobUpdate, Extra: map[string]interface{}{"event1": "step 1 data_process finished"}}
+	event1 := WorkflowEvent{Event: WfEventJobUpdate, Extra: map[string]interface{}{"event1": "step 1 data-process finished"}}
 	wf.runtime.event <- event1
 	time.Sleep(time.Millisecond * 100)
 
@@ -124,8 +124,8 @@ func TestStopEntry(t *testing.T) {
 
 	time.Sleep(time.Millisecond * 10)
 
-	wf.runtime.entryPoints["data_preprocess"].job.(*PaddleFlowJob).Status = schema.StatusJobSucceeded
-	wf.runtime.entryPoints["data_preprocess"].done = true
+	wf.runtime.entryPoints["data-preprocess"].job.(*PaddleFlowJob).Status = schema.StatusJobSucceeded
+	wf.runtime.entryPoints["data-preprocess"].done = true
 	wf.runtime.entryPoints["main"].job.(*PaddleFlowJob).Status = schema.StatusJobSucceeded
 	wf.runtime.entryPoints["main"].done = true
 	wf.runtime.entryPoints["validate"].job.(*PaddleFlowJob).Status = schema.StatusJobSucceeded
@@ -147,7 +147,7 @@ func TestStopEntry(t *testing.T) {
 	assert.Equal(t, common.StatusRunRunning, wf.runtime.status)
 	assert.Equal(t, schema.JobStatus(""), wf.runtime.entryPoints["validate"].job.(*PaddleFlowJob).Status)
 
-	wf.runtime.Stop()
+	wf.runtime.Stop(false)
 	time.Sleep(time.Millisecond * 10)
 
 	assert.Equal(t, schema.StatusJobCancelled, wf.runtime.entryPoints["main"].job.(*PaddleFlowJob).Status)
@@ -167,8 +167,8 @@ func TestRestartEntry(t *testing.T) {
 	extra := GetExtra()
 	wf, err := NewWorkflow(wfs, "", "", nil, extra, mockCbs)
 	assert.Nil(t, err)
-	wf.runtime.entryPoints["data_preprocess"].job.(*PaddleFlowJob).Status = schema.StatusJobSucceeded
-	wf.runtime.entryPoints["data_preprocess"].done = true
+	wf.runtime.entryPoints["data-preprocess"].job.(*PaddleFlowJob).Status = schema.StatusJobSucceeded
+	wf.runtime.entryPoints["data-preprocess"].done = true
 
 	assert.Equal(t, schema.JobStatus(""), wf.runtime.entryPoints["main"].job.(*PaddleFlowJob).Status)
 	assert.Equal(t, schema.JobStatus(""), wf.runtime.entryPoints["validate"].job.(*PaddleFlowJob).Status)
@@ -193,8 +193,8 @@ func TestRestartPost(t *testing.T) {
 	wf, err := NewWorkflow(wfs, "", "", nil, extra, mockCbs)
 	assert.Nil(t, err)
 
-	wf.runtime.entryPoints["data_preprocess"].job.(*PaddleFlowJob).Status = schema.StatusJobSucceeded
-	wf.runtime.entryPoints["data_preprocess"].done = true
+	wf.runtime.entryPoints["data-preprocess"].job.(*PaddleFlowJob).Status = schema.StatusJobSucceeded
+	wf.runtime.entryPoints["data-preprocess"].done = true
 	wf.runtime.entryPoints["main"].job.(*PaddleFlowJob).Status = schema.StatusJobSucceeded
 	wf.runtime.entryPoints["main"].done = true
 	wf.runtime.entryPoints["validate"].job.(*PaddleFlowJob).Status = schema.StatusJobSucceeded
@@ -220,7 +220,7 @@ func TestFailFast(t *testing.T) {
 	go wf.runtime.Start()
 	time.Sleep(time.Millisecond * 10)
 
-	assert.Equal(t, schema.StatusJobFailed, wf.runtime.entryPoints["data_preprocess"].job.(*PaddleFlowJob).Status)
+	assert.Equal(t, schema.StatusJobFailed, wf.runtime.entryPoints["data-preprocess"].job.(*PaddleFlowJob).Status)
 	assert.Equal(t, schema.StatusJobCancelled, wf.runtime.entryPoints["main"].job.(*PaddleFlowJob).Status)
 	assert.Equal(t, schema.StatusJobCancelled, wf.runtime.entryPoints["validate"].job.(*PaddleFlowJob).Status)
 	assert.Equal(t, schema.StatusJobFailed, wf.runtime.postProcess["mail"].job.(*PaddleFlowJob).Status)

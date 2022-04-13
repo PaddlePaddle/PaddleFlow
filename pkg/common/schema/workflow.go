@@ -146,12 +146,20 @@ func (wfs *WorkflowSource) validateArtifacts() error {
 	if wfs.EntryPoints == nil {
 		wfs.EntryPoints = make(map[string]*WorkflowSourceStep)
 	}
-
+	if wfs.PostProcess == nil {
+		wfs.PostProcess = make(map[string]*WorkflowSourceStep)
+	}
 	for stepName, step := range wfs.EntryPoints {
 		if err := step.Artifacts.ValidateOutputMapByList(); err != nil {
 			return fmt.Errorf("validate artifacts failed")
 		}
 		wfs.EntryPoints[stepName] = step
+	}
+	for stepName, step := range wfs.PostProcess {
+		if err := step.Artifacts.ValidateOutputMapByList(); err != nil {
+			return fmt.Errorf("validate Artifact of postProcess failed")
+		}
+		wfs.PostProcess[stepName] = step
 	}
 	return nil
 }

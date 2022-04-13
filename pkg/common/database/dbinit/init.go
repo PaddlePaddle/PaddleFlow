@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package init
+package dbinit
 
 import (
 	"fmt"
@@ -31,6 +31,7 @@ import (
 
 	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/common/config"
+	"paddleflow/pkg/common/database"
 )
 
 // data init for sqllite
@@ -97,6 +98,34 @@ func InitDatabase(dbConf *config.DatabaseConfig, gormConf *gorm.Config, logLevel
 	return db, nil
 }
 
+func InitMockDB() {
+	// github.com/mattn/go-sqlite3
+	db, err := gorm.Open(sqlite.Open("file::memory:"), &gorm.Config{
+		// print sql
+		Logger: logger.Default.LogMode(logger.Info),
+	})
+	if err != nil {
+		log.Fatalf("The fake DB doesn't create successfully. Fail fast. error: %v", err)
+	}
+	// Create tables
+	db.AutoMigrate(
+		&models.Pipeline{},
+		&models.RunCache{},
+		&models.ArtifactEvent{},
+		&models.User{},
+		&models.Run{},
+		&models.Queue{},
+		&models.Flavour{},
+		&models.Grant{},
+		&models.Job{},
+		&models.JobTask{},
+		&models.JobLabel{},
+		&models.ClusterInfo{},
+		&models.RunJob{},
+	)
+	database.DB = db
+}
+
 func initSQLiteDB(dbConf *config.DatabaseConfig, gormConf *gorm.Config) *gorm.DB {
 	db, err := gorm.Open(sqlite.Open(dsn), gormConf)
 	if err != nil {
@@ -115,10 +144,13 @@ func initSQLiteDB(dbConf *config.DatabaseConfig, gormConf *gorm.Config) *gorm.DB
 		&models.Flavour{},
 		&models.Grant{},
 		&models.Job{},
+		&models.JobTask{},
+		&models.JobLabel{},
 		&models.ClusterInfo{},
 		&models.Image{},
 		&models.FileSystem{},
 		&models.Link{},
+		&models.RunJob{},
 	)
 	// init root user to db, can not be modified by config file currently
 	rootUser := models.User{

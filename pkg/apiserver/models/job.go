@@ -57,7 +57,7 @@ type Job struct {
 type Member struct {
 	ID          string            `json:"id"`
 	Replicas    int               `json:"replicas"`
-	Role        schema.RoleMember `json:"role"`
+	Role        schema.MemberRole `json:"role"`
 	schema.Conf `json:",inline"`
 }
 

@@ -13,9 +13,16 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+package models
 
-package database
+type FSCacheWorker struct {
+	Model
+	Dir        string `json:"dir"`
+	NodeName   string `json:"nodename"`
+	MountPoint string `json:"mountPoint" gorm:"column:mount_point"`
+	UsedSize   int    `json:"usedSize" gorm:"column:used_size"`
+}
 
-import "gorm.io/gorm"
-
-var DB *gorm.DB
+func (s *FSCacheWorker) TableName() string {
+	return "fs_cache_worker"
+}
