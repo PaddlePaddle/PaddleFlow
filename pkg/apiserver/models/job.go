@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 
@@ -32,7 +33,7 @@ import (
 
 type Job struct {
 	Pk                int64            `json:"-" gorm:"primaryKey;autoIncrement"`
-	ID                string           `json:"jobID" gorm:"type:varchar(60);uniqueIndex"`
+	ID                string           `json:"jobID" gorm:"type:varchar(60);uniqueIndex;NOT NULL"`
 	Name              string           `json:"jobName" gorm:"type:varchar(512);default:''"`
 	UserName          string           `json:"userName" gorm:"type:varchar(255);NOT NULL"`
 	QueueID           string           `json:"queueID" gorm:"type:varchar(36);NOT NULL"`
@@ -66,6 +67,9 @@ func (Job) TableName() string {
 }
 
 func (job *Job) BeforeSave(tx *gorm.DB) error {
+	if job.ID == "" {
+		job.ID = uuid.NewString()
+	}
 	if job.RuntimeInfo != nil {
 		infoJson, err := json.Marshal(job.RuntimeInfo)
 		if err != nil {

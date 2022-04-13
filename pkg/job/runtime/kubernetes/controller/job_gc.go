@@ -18,7 +18,9 @@ package controller
 
 import (
 	"context"
+	"fmt"
 	"sync"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,11 +32,29 @@ import (
 
 	"paddleflow/pkg/common/config"
 	"paddleflow/pkg/common/k8s"
+	commonschema "paddleflow/pkg/common/schema"
 )
 
 const (
 	JobGCControllerName = "JobGarbageCollector"
 )
+
+type FinishedJobInfo struct {
+	Namespace          string
+	Name               string
+	OwnerName          string
+	OwnerReferences    []metav1.OwnerReference
+	Duration           time.Duration
+	LastTransitionTime metav1.Time
+	GVK                schema.GroupVersionKind
+}
+
+func FindOwnerReferenceName(ownerReferences []metav1.OwnerReference) string {
+	if len(ownerReferences) == 0 {
+		return ""
+	}
+	return ownerReferences[0].Name
+}
 
 func NewJobGC() Controller {
 	return &JobGarbageCollector{}
@@ -151,8 +171,14 @@ func (j *JobGarbageCollector) processWorkItem() bool {
 
 // preCleanFinishedJob is applied to clean job when server start
 func (j *JobGarbageCollector) preCleanFinishedJob() {
+	labelStr := fmt.Sprintf("%s=%s", commonschema.JobOwnerLabel, commonschema.JobOwnerValue)
+	labelSelector, err := labels.Parse(labelStr)
+	if err != nil {
+		log.Errorf("parse label selector[%s] failed, err: %v", labelStr, err)
+		return
+	}
 	for _, list := range j.listerMap {
-		jobs, err := list.List(labels.NewSelector())
+		jobs, err := list.List(labelSelector)
 		if err != nil {
 			log.Errorf("list VC job with dynamic client failed: [%+v].", err)
 			continue

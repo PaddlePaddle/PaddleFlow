@@ -252,8 +252,8 @@ func (j *JobSync) handlePendingPod(podStatus *v1.PodStatus, jobName string, newP
 		Action: schema.Terminate,
 	}
 	terminateDuration := DefaultJobPendingTTLSeconds
-	if config.GlobalServerConfig.Job.Reclaim.JobPendingTTLSeconds > 0 {
-		terminateDuration = config.GlobalServerConfig.Job.Reclaim.JobPendingTTLSeconds
+	if config.GlobalServerConfig.Job.Reclaim.PendingJobTTLSeconds > 0 {
+		terminateDuration = config.GlobalServerConfig.Job.Reclaim.PendingJobTTLSeconds
 	}
 	log.Infof("terminate job. namespace: %s, jobName: %s", newPodObj.GetNamespace(), jobName)
 	j.jobQueue.AddAfter(terminateJobInfo, time.Duration(terminateDuration)*time.Second)
@@ -316,17 +316,16 @@ func getJobByTask(obj *unstructured.Unstructured) string {
 		return name
 	}
 	// get job name for distributed job
-	jobName := ""
 	ownerReferences := obj.GetOwnerReferences()
 	if len(ownerReferences) == 0 {
-		log.Warnf("pod %s/%s does not has owner references, skip it.", namespace, name)
-		return jobName
+		log.Debugf("pod %s/%s not belong to paddlefow job, skip it.", namespace, name)
+		return ""
 	}
 	ownerReference := ownerReferences[0]
 	gvk := k8sschema.FromAPIVersionAndKind(ownerReference.APIVersion, ownerReference.Kind)
 	_, find := k8s.GVKToJobType[gvk]
 	if !find {
-		return jobName
+		return ""
 	}
-	return jobName
+	return ownerReference.Name
 }
