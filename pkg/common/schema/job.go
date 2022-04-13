@@ -125,6 +125,7 @@ const (
 	JobOwnerLabel = "owner"
 	JobOwnerValue = "paddleflow"
 	JobIDLabel    = "paddleflow-job-id"
+	JobTTLSeconds = "padleflow/job-ttl-seconds"
 
 	VolcanoJobNameLabel  = "volcano.sh/job-name"
 	SparkAPPJobNameLabel = "sparkoperator.k8s.io/app-name"
