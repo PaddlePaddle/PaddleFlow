@@ -6,7 +6,7 @@ require (
 	github.com/BurntSushi/toml v0.4.1 // indirect
 	github.com/Microsoft/go-winio v0.5.0 // indirect
 	github.com/agiledragon/gomonkey/v2 v2.7.0
-	github.com/argoproj/argo v2.12.6+incompatible
+	github.com/argoproj/argo v0.0.0-20210119221932-53f022c3f740
 	github.com/aws/aws-sdk-go v1.40.25
 	github.com/bluele/gcache v0.0.2
 	github.com/colinmarc/hdfs/v2 v2.2.0
