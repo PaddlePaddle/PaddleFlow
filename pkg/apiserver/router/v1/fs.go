@@ -646,16 +646,6 @@ func validateCreateFileSystemClaims(ctx *logger.RequestContext, req *api.CreateF
 func getFsIDAndCheckPermission(ctx *logger.RequestContext,
 	username, fsName string) (string, error) {
 	var fsID string
-	// check grant for non-root user
-	if !common.IsRootUser(ctx.UserName) {
-		fsID = common.ID(ctx.UserName, fsName)
-		if !models.HasAccessToResource(ctx, common.ResourceTypeFs, fsID) {
-			ctx.ErrorCode = common.AccessDenied
-			err := common.NoAccessError(ctx.UserName, common.ResourceTypeFs, fsName)
-			ctx.Logging().Errorf("user has no access to fs[%s]", fsName)
-			return "", err
-		}
-	}
 	// concatenate fsID
 	if common.IsRootUser(ctx.UserName) && username != "" {
 		// root user can select fs under other users
