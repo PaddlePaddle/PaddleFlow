@@ -30,6 +30,21 @@ import (
 
 const baseRunYamlPath string = "./testcase/run.yaml"
 
+func loadFailureOptionsCaseSource() (schema.WorkflowSource, error) {
+	testCase := loadcase(baseRunYamlPath)
+	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
+	if err != nil {
+		return schema.WorkflowSource{}, err
+	}
+	wfs.PostProcess = map[string]*schema.WorkflowSourceStep{}
+	postStep := schema.WorkflowSourceStep{
+		Command: "echo test",
+	}
+	wfs.PostProcess["mail"] = &postStep
+	wfs.FailureOptions.Strategy = schema.FailureStrategyFailFast
+	return wfs, nil
+}
+
 func loadPostProcessCaseSource() (schema.WorkflowSource, error) {
 	testCase := loadcase(baseRunYamlPath)
 	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
@@ -223,8 +238,7 @@ func TestRestartPost(t *testing.T) {
 
 // 测试 FailureOptions 为快速失败的情况
 func TestFailFast(t *testing.T) {
-	testCase := loadcase("./testcase/runFailureOptions.yaml")
-	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
+	wfs, err := loadFailureOptionsCaseSource()
 	assert.Nil(t, err)
 
 	fmt.Printf("\n %+v \n", wfs)
