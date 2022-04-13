@@ -59,7 +59,6 @@ func loadTwoPostCaseSource() (schema.WorkflowSource, error) {
 	if err != nil {
 		return schema.WorkflowSource{}, err
 	}
-	wfs.PostProcess = map[string]*schema.WorkflowSourceStep{}
 	postStep := schema.WorkflowSourceStep{
 		Command: "echo test",
 	}
