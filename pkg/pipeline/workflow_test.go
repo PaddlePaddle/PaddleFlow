@@ -162,6 +162,7 @@ func TestCreateNewWorkflowRunDisabled_success(t *testing.T) {
 	wf.runtime.entryPoints["data-preprocess"].disabled = true
 	wf.runtime.entryPoints["main"].disabled = true
 	wf.runtime.entryPoints["validate"].disabled = true
+	wf.runtime.postProcess["mail"].disabled = true
 
 	go wf.Start()
 
