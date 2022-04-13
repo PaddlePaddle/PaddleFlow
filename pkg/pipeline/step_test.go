@@ -455,7 +455,8 @@ func TestCheckCached(t *testing.T) {
 }
 
 func TestPFRUNTIME(t *testing.T) {
-	wfs, err := loadPostProcessCaseSource()
+	yamlByte := loadcase(runYamlPath)
+	wfs, err := schema.ParseWorkflowSource(yamlByte)
 	assert.Nil(t, err)
 
 	extra := GetExtra()

@@ -54,7 +54,7 @@ var mockCbs = WorkflowCallbacks{
 }
 
 func loadTwoPostCaseSource() (schema.WorkflowSource, error) {
-	testCase := loadcase(baseRunYamlPath)
+	testCase := loadcase(runYamlPath)
 	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
 	if err != nil {
 		return schema.WorkflowSource{}, err
@@ -63,11 +63,7 @@ func loadTwoPostCaseSource() (schema.WorkflowSource, error) {
 	postStep := schema.WorkflowSourceStep{
 		Command: "echo test",
 	}
-	postStep2 := schema.WorkflowSourceStep{
-		Command: "echo test",
-	}
-	wfs.PostProcess["mail"] = &postStep
-	wfs.PostProcess["mail2"] = &postStep2
+	wfs.PostProcess["mail2"] = &postStep
 	return wfs, nil
 }
 
@@ -842,7 +838,8 @@ func TestCheckPostProcess(t *testing.T) {
 	assert.NotNil(t, err)
 	assert.Equal(t, "post_process can only has 1 step at most", err.Error())
 
-	wfs, err = loadPostProcessCaseSource()
+	yamlByte := loadcase(runYamlPath)
+	wfs, err = schema.ParseWorkflowSource(yamlByte)
 	assert.Nil(t, err)
 
 	extra = GetExtra()
