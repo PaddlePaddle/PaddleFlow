@@ -44,23 +44,35 @@ func buildMockFSCacheConfig() models.FSCacheConfig {
 	}
 }
 
-func buildRequest(model models.FSCacheConfig) fs.CreateOrUpdateFSCacheRequest {
-	return fs.CreateOrUpdateFSCacheRequest{
-		FSCacheConfig: model,
-		Username:      MockRootUser,
-		FsName:        mockFsName,
+func buildUpdateRequest(model models.FSCacheConfig) fs.UpdateFileSystemCacheRequest {
+	return fs.UpdateFileSystemCacheRequest{
+		FsID:      model.FsID,
+		CacheDir:  model.CacheDir,
+		Quota:     model.Quota,
+		CacheType: model.CacheType,
+		BlockSize: model.BlockSize,
 	}
+}
+
+func buildCreateRequest(model models.FSCacheConfig) fs.CreateFileSystemCacheRequest {
+	req := fs.CreateFileSystemCacheRequest{
+		Username:                     MockRootUser,
+		FsName:                       mockFsName,
+		UpdateFileSystemCacheRequest: buildUpdateRequest(model),
+	}
+	return req
 }
 
 func TestFSCacheConfigRouter(t *testing.T) {
 	router, baseUrl := prepareDBAndAPI(t)
 	mockFs := buildMockFS()
 	cacheConf := buildMockFSCacheConfig()
-	req := buildRequest(cacheConf)
+	updateReq := buildUpdateRequest(cacheConf)
+	createRep := buildCreateRequest(cacheConf)
 
 	// test create failure - no fs
 	url := baseUrl + "/fs/cache"
-	result, err := PerformPostRequest(router, url, req)
+	result, err := PerformPostRequest(router, url, createRep)
 	assert.Nil(t, err)
 	assert.Equal(t, http.StatusForbidden, result.Code)
 
@@ -68,7 +80,7 @@ func TestFSCacheConfigRouter(t *testing.T) {
 	err = models.CreatFileSystem(&mockFs)
 	assert.Nil(t, err)
 
-	result, err = PerformPostRequest(router, url, req)
+	result, err = PerformPostRequest(router, url, createRep)
 	assert.Nil(t, err)
 	assert.Equal(t, http.StatusCreated, result.Code)
 
@@ -77,7 +89,7 @@ func TestFSCacheConfigRouter(t *testing.T) {
 	result, err = PerformGetRequest(router, urlWithFsID)
 	assert.Nil(t, err)
 	assert.Equal(t, http.StatusOK, result.Code)
-	cacheRsp := models.FSCacheConfig{}
+	cacheRsp := fs.FileSystemCacheResponse{}
 	err = ParseBody(result.Body, &cacheRsp)
 	assert.Nil(t, err)
 	assert.Equal(t, cacheConf.CacheType, cacheRsp.CacheType)
@@ -92,9 +104,9 @@ func TestFSCacheConfigRouter(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, result.Code)
 
 	// test update success
-	req.Quota = 333
-	req.CacheDir = "newPath"
-	result, err = PerformPutRequest(router, urlWithFsID, req)
+	updateReq.Quota = 333
+	updateReq.CacheDir = "newPath"
+	result, err = PerformPutRequest(router, urlWithFsID, updateReq)
 	assert.Nil(t, err)
 	assert.Equal(t, http.StatusOK, result.Code)
 
@@ -103,11 +115,11 @@ func TestFSCacheConfigRouter(t *testing.T) {
 	assert.Equal(t, http.StatusOK, result.Code)
 	err = ParseBody(result.Body, &cacheRsp)
 	assert.Nil(t, err)
-	assert.Equal(t, req.Quota, cacheRsp.Quota)
-	assert.Equal(t, req.CacheDir, cacheRsp.CacheDir)
+	assert.Equal(t, updateReq.Quota, cacheRsp.Quota)
+	assert.Equal(t, updateReq.CacheDir, cacheRsp.CacheDir)
 
 	// test update failure
-	result, err = PerformPutRequest(router, urlWrong, req)
+	result, err = PerformPutRequest(router, urlWrong, updateReq)
 	assert.Nil(t, err)
 	assert.Equal(t, http.StatusNotFound, result.Code)
 }

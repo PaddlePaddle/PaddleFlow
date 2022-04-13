@@ -36,7 +36,7 @@ import (
 // @tag fs
 // @Accept   json
 // @Produce  json
-// @Param request body fs.CreateOrUpdateFSCacheRequest true "request body"
+// @Param request body fs.CreateFileSystemCacheRequest true "request body"
 // @Success 201 {string} string Created
 // @Failure 400 {object} common.ErrorResponse
 // @Failure 404 {object} common.ErrorResponse
@@ -44,7 +44,7 @@ import (
 // @Router /fs/cache [post]
 func (pr *PFSRouter) createFSCacheConfig(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
-	var createRequest fsCtrl.CreateOrUpdateFSCacheRequest
+	var createRequest fsCtrl.CreateFileSystemCacheRequest
 	err := common.BindJSON(r, &createRequest)
 	if err != nil {
 		ctx.Logging().Errorf("CreateFSCacheConfig bindjson failed. err:%s", err.Error())
@@ -76,7 +76,7 @@ func (pr *PFSRouter) createFSCacheConfig(w http.ResponseWriter, r *http.Request)
 	common.RenderStatus(w, http.StatusCreated)
 }
 
-func validateCreateFSCacheConfig(ctx *logger.RequestContext, req *fsCtrl.CreateOrUpdateFSCacheRequest) error {
+func validateCreateFSCacheConfig(ctx *logger.RequestContext, req *fsCtrl.CreateFileSystemCacheRequest) error {
 	// fs exists?
 	_, err := models.GetFileSystemWithFsID(req.FsID)
 	if err != nil {
@@ -118,7 +118,7 @@ func (pr *PFSRouter) getFSCacheConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fsCacheConfig, err := fsCtrl.GetFileSystemCacheConfig(&ctx, fsID)
+	fsCacheConfigResp, err := fsCtrl.GetFileSystemCacheConfig(&ctx, fsID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			ctx.ErrorCode = common.RecordNotFound
@@ -129,7 +129,7 @@ func (pr *PFSRouter) getFSCacheConfig(w http.ResponseWriter, r *http.Request) {
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
-	common.Render(w, http.StatusOK, fsCacheConfig)
+	common.Render(w, http.StatusOK, fsCacheConfigResp)
 }
 
 // updateFSCacheConfig
@@ -140,15 +140,18 @@ func (pr *PFSRouter) getFSCacheConfig(w http.ResponseWriter, r *http.Request) {
 // @Accept  json
 // @Produce json
 // @Param fsName path string true "存储名称"
+// @Param username query string false "用户名"
+// @Param request body fs.UpdateFileSystemCacheRequest true "request body"
 // @Success 200 {object} models.FSCacheConfig "缓存配置结构体"
 // @Failure 400 {object} common.ErrorResponse "400"
 // @Failure 500 {object} common.ErrorResponse "500"
 // @Router /fs/cache/{fsName} [PUT]
 func (pr *PFSRouter) updateFSCacheConfig(w http.ResponseWriter, r *http.Request) {
 	fsName := chi.URLParam(r, util.QueryFsName)
+	username := r.URL.Query().Get(util.QueryKeyUserName)
 	ctx := common.GetRequestContext(r)
 
-	var req fsCtrl.CreateOrUpdateFSCacheRequest
+	var req fsCtrl.UpdateFileSystemCacheRequest
 	err := common.BindJSON(r, &req)
 	if err != nil {
 		ctx.Logging().Errorf("UpdateFSCacheConfig[%s] bindjson failed. err:%s", fsName, err.Error())
@@ -156,7 +159,7 @@ func (pr *PFSRouter) updateFSCacheConfig(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	req.FsID, err = getFsIDAndCheckPermission(&ctx, req.Username, fsName)
+	req.FsID, err = getFsIDAndCheckPermission(&ctx, username, fsName)
 	if err != nil {
 		ctx.Logging().Errorf("getFSCacheConfig check fs permission failed: [%v]", err)
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
