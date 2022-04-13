@@ -66,6 +66,7 @@ type FileSystemCacheResponse struct {
 	NodeTaintToleration map[string]interface{} `json:"nodeTaintToleration"`
 	ExtraConfig         map[string]string      `json:"extraConfig"`
 	FsName              string                 `json:"fsName"`
+	Username            string                 `json:"username"`
 	CreateTime          string                 `json:"createTime"`
 	UpdateTime          string                 `json:"updateTime,omitempty"`
 }
@@ -78,15 +79,20 @@ func (resp *FileSystemCacheResponse) fromModel(config models.FSCacheConfig) {
 	resp.NodeAffinity = config.NodeAffinityMap
 	resp.NodeTaintToleration = config.NodeTaintTolerationMap
 	resp.ExtraConfig = config.ExtraConfigMap
-	resp.FsName, _ = fsIDToName(config.FsID)
+	resp.FsName, resp.Username = fsIDToName(config.FsID)
 	// format time
 	resp.CreateTime = config.CreatedAt.Format("2006-01-02 15:04:05")
 	resp.UpdateTime = config.UpdatedAt.Format("2006-01-02 15:04:05")
 }
 
-func fsIDToName(fsID string) (fsname, username string) {
+func fsIDToName(fsID string) (fsName, username string) {
 	fsArr := strings.Split(fsID, "-")
-	return fsArr[len(fsArr)-1], fsArr[len(fsArr)-2]
+	if len(fsArr) < 3 {
+		return "", ""
+	}
+	fsName = fsArr[len(fsArr)-1]
+	username = strings.Join(fsArr[1:len(fsArr)-1], "")
+	return
 }
 
 func CreateFileSystemCacheConfig(ctx *logger.RequestContext, req CreateFileSystemCacheRequest) error {
