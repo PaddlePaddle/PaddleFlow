@@ -20,25 +20,10 @@ import (
 	"fmt"
 
 	log "github.com/sirupsen/logrus"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/rest"
 
 	"paddleflow/pkg/common/k8s"
 )
-
-type FinishedJobInfo struct {
-	Namespace          string
-	Name               string
-	OwnerName          string
-	OwnerReferences    []v1.OwnerReference
-	LastTransitionTime v1.Time
-	GVK                schema.GroupVersionKind
-}
-
-func FindOwnerReferenceName(ownerReference []v1.OwnerReference) string {
-	return ""
-}
 
 // Controller interface for kubernetes job sync, job gc, and queue sync
 type Controller interface {
