@@ -13,14 +13,25 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 package models
 
+import (
+	"time"
+
+	"gorm.io/gorm"
+)
+
 type FSCacheWorker struct {
-	Model
-	Dir        string `json:"dir"`
-	NodeName   string `json:"nodename"`
-	MountPoint string `json:"mountPoint" gorm:"column:mount_point"`
-	UsedSize   int    `json:"usedSize" gorm:"column:used_size"`
+	PK         int64          `json:"-" gorm:"primaryKey;autoIncrement"`
+	FSID       string         `json:"fsID" gorm:"type:varchar(36);column:fs_id"`
+	CacheDir   string         `json:"cacheDir" gorm:"type:varchar(4096);column:cache_dir"`
+	NodeName   string         `json:"nodename" gorm:"type:varchar(256);column:nodename"`
+	MountPoint string         `json:"mountpoint" gorm:"type:varchar(1024);column:mountpoint"`
+	UsedSize   int            `json:"usedSize" gorm:"type:bigint(20);column:usedsize"`
+	CreatedAt  time.Time      `json:"-"`
+	UpdatedAt  time.Time      `json:"-"`
+	DeletedAt  gorm.DeletedAt `json:"-"`
 }
 
 func (s *FSCacheWorker) TableName() string {
