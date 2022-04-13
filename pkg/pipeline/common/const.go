@@ -58,9 +58,9 @@ const (
 	ViewTypeEntrypoint  ViewType = "entrypoints"
 	ViewTypePostProcess ViewType = "postProcess"
 
-	RegularExpresionUpstreamTemplate          = `^\{\{(\s)*[a-zA-Z0-9-]+\.[a-zA-Z0-9_]+(\s)*\}\}$`  // {{xx-xx.xx_xx}}
-	RegularExpresionIncludingUpstreamTemplate = `\{\{(\s)*[a-zA-Z0-9-]+\.[a-zA-Z0-9_]+(\s)*\}\}`    // 包含 {{xx-xx.xx_xx}}
-	RegularExpresionIncludingTemplate         = `\{\{(\s)*([a-zA-Z0-9-]*\.[a-zA-Z0-9_]+)?(\s)*\}\}` // 包含 {{xx-xx.xx_xx}} 或 {{xx_xx}}
+	RegularExpresionUpstreamTemplate          = `^\{\{(\s)*[a-zA-Z0-9-]+\.[a-zA-Z0-9_]+(\s)*\}\}$`   // {{xx-xx.xx_xx}}
+	RegularExpresionIncludingUpstreamTemplate = `\{\{(\s)*[a-zA-Z0-9-]+\.[a-zA-Z0-9_]+(\s)*\}\}`     // 包含 {{xx-xx.xx_xx}}
+	RegularExpresionIncludingTemplate         = `\{\{(\s)*([a-zA-Z0-9-]*\.?[a-zA-Z0-9_]+)?(\s)*\}\}` // 包含 {{xx-xx.xx_xx}} 或 {{xx_xx}}
 
 )
 
