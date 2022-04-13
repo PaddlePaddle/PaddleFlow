@@ -38,9 +38,6 @@ const (
 	noAtfYamlPath         string = "./testcase/runNoAtf.yaml"
 	runWrongParamYamlPath string = "./testcase/runWrongParam.yaml"
 	runCircleYamlPath     string = "./testcase/runCircle.yaml"
-
-	runTwoPostPath     string = "./testcase/runTwoPost.yaml"
-	runPostProcessPath string = "./testcase/runPostProcess.yaml"
 )
 
 var mockCbs = WorkflowCallbacks{
@@ -54,6 +51,24 @@ var mockCbs = WorkflowCallbacks{
 	ListCacheCb: func(firstFp, fsID, step, yamlPath string) ([]models.RunCache, error) {
 		return []models.RunCache{models.RunCache{RunID: "run-000027"}, models.RunCache{RunID: "run-000028"}}, nil
 	},
+}
+
+func loadTwoPostCaseSource() (schema.WorkflowSource, error) {
+	testCase := loadcase(baseRunYamlPath)
+	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
+	if err != nil {
+		return schema.WorkflowSource{}, err
+	}
+	wfs.PostProcess = map[string]*schema.WorkflowSourceStep{}
+	postStep := schema.WorkflowSourceStep{
+		Command: "echo test",
+	}
+	postStep2 := schema.WorkflowSourceStep{
+		Command: "echo test",
+	}
+	wfs.PostProcess["mail"] = &postStep
+	wfs.PostProcess["mail2"] = &postStep2
+	return wfs, nil
 }
 
 // extra map里面的value可能会被修改，从而影响后面的case
@@ -818,8 +833,7 @@ func TestRestartWorkflow_from1completed(t *testing.T) {
 
 func TestCheckPostProcess(t *testing.T) {
 	dbinit.InitMockDB()
-	testCase := loadcase(runTwoPostPath)
-	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
+	wfs, err := loadTwoPostCaseSource()
 	assert.Nil(t, err)
 
 	extra := GetExtra()
@@ -828,8 +842,7 @@ func TestCheckPostProcess(t *testing.T) {
 	assert.NotNil(t, err)
 	assert.Equal(t, "post_process can only has 1 step at most", err.Error())
 
-	testCase = loadcase(runPostProcessPath)
-	wfs, err = schema.ParseWorkflowSource([]byte(testCase))
+	wfs, err = loadPostProcessCaseSource()
 	assert.Nil(t, err)
 
 	extra = GetExtra()

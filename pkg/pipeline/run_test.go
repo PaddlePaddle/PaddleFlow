@@ -28,10 +28,44 @@ import (
 	. "paddleflow/pkg/pipeline/common"
 )
 
+const baseRunYamlPath string = "./testcase/run.yaml"
+
+func loadFailureOptionsCaseSource() (schema.WorkflowSource, error) {
+	testCase := loadcase(baseRunYamlPath)
+	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
+	if err != nil {
+		return schema.WorkflowSource{}, err
+	}
+	wfs.PostProcess = map[string]*schema.WorkflowSourceStep{}
+	postStep := schema.WorkflowSourceStep{
+		Command: "echo test",
+	}
+	wfs.PostProcess["mail"] = &postStep
+	wfs.FailureOptions.Strategy = schema.FailureStrategyFailFast
+	return wfs, nil
+}
+
+func loadPostProcessCaseSource() (schema.WorkflowSource, error) {
+	testCase := loadcase(baseRunYamlPath)
+	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
+	if err != nil {
+		return schema.WorkflowSource{}, err
+	}
+	wfs.PostProcess = map[string]*schema.WorkflowSourceStep{}
+	postStep := schema.WorkflowSourceStep{
+		Command: "echo {{msg}}",
+		Parameters: map[string]interface{}{
+			"msg":     "hahaha",
+			"runtime": "{{PF_RUN_TIME}}",
+		},
+	}
+	wfs.PostProcess["mail"] = &postStep
+	return wfs, nil
+}
+
 // 测试运行 Workflow 成功
 func TestStartWithPostProcess(t *testing.T) {
-	testCase := loadcase("./testcase/runPostProcess.yaml")
-	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
+	wfs, err := loadPostProcessCaseSource()
 	assert.Nil(t, err)
 
 	// fmt.Printf("\n %+v \n", wfs)
@@ -72,8 +106,7 @@ func TestStartWithPostProcess(t *testing.T) {
 }
 
 func TestStopWithPostProcess(t *testing.T) {
-	testCase := loadcase("./testcase/runPostProcess.yaml")
-	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
+	wfs, err := loadPostProcessCaseSource()
 	assert.Nil(t, err)
 
 	// fmt.Printf("\n %+v \n", wfs)
@@ -113,8 +146,7 @@ func TestStopWithPostProcess(t *testing.T) {
 
 func TestStopEntry(t *testing.T) {
 	fmt.Println("TestStopEntry Begin")
-	testCase := loadcase("./testcase/runPostProcess.yaml")
-	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
+	wfs, err := loadPostProcessCaseSource()
 	assert.Nil(t, err)
 
 	// fmt.Printf("\n %+v \n", wfs)
@@ -159,8 +191,7 @@ func TestStopEntry(t *testing.T) {
 }
 
 func TestRestartEntry(t *testing.T) {
-	testCase := loadcase("./testcase/runPostProcess.yaml")
-	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
+	wfs, err := loadPostProcessCaseSource()
 	assert.Nil(t, err)
 
 	// fmt.Printf("\n %+v \n", wfs)
@@ -184,8 +215,7 @@ func TestRestartEntry(t *testing.T) {
 }
 
 func TestRestartPost(t *testing.T) {
-	testCase := loadcase("./testcase/runPostProcess.yaml")
-	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
+	wfs, err := loadPostProcessCaseSource()
 	assert.Nil(t, err)
 
 	// fmt.Printf("\n %+v \n", wfs)
@@ -208,8 +238,7 @@ func TestRestartPost(t *testing.T) {
 
 // 测试 FailureOptions 为快速失败的情况
 func TestFailFast(t *testing.T) {
-	testCase := loadcase("./testcase/runFailureOptions.yaml")
-	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
+	wfs, err := loadFailureOptionsCaseSource()
 	assert.Nil(t, err)
 
 	fmt.Printf("\n %+v \n", wfs)

@@ -109,7 +109,6 @@ CREATE TABLE IF NOT EXISTS `run` (
     `description` text,
     `param_raw` text,
     `run_yaml` text,
-    `runtime_raw` text,
     `entry` varchar(256),
     `message` text,
     `status` varchar(32) DEFAULT NULL,
@@ -121,6 +120,31 @@ CREATE TABLE IF NOT EXISTS `run` (
     PRIMARY KEY (`pk`),
     UNIQUE KEY (`id`),
     INDEX (`fs_id`),
+    INDEX (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+CREATE TABLE IF NOT EXISTS `run_job` (
+    `pk` bigint(20) NOT NULL AUTO_INCREMENT,
+    `id` varchar(60) NOT NULL,
+    `run_id` varchar(60) NOT NULL,
+    `name` varchar(60) NOT NULL,
+    `step_name` varchar(60) NOT NULL,
+    `command` text,
+    `paramters_json` text,
+    `artifacts_json` text,
+    `env_json` text,
+    `docker_env` varchar(128),
+    `status` varchar(32) DEFAULT NULL,
+    `message` text,
+    `cache_json` text,
+    `cache_run_id` varchar(60),
+    `created_at` datetime(3) DEFAULT NULL,
+    `activated_at` datetime(3) DEFAULT NULL,
+    `updated_at` datetime(3) DEFAULT NULL,
+    `deleted_at` datetime(3) DEFAULT NULL,
+    PRIMARY KEY (`pk`),
+    UNIQUE KEY (`id`),
+    INDEX (`run_id`),
     INDEX (`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
@@ -275,13 +299,14 @@ CREATE TABLE IF NOT EXISTS `link` (
 
 CREATE TABLE IF NOT EXISTS `fs_cache_config` (
     `pk` bigint(20) unsigned NOT NULL AUTO_INCREMENT COMMENT 'pk',
-    `id` varchar(36) NOT NULL COMMENT 'file system id',
-    `dir` varchar(4096) NOT NULL COMMENT 'cache dir, e.g. /var/pfs_cache',
+    `fs_id` varchar(36) NOT NULL COMMENT 'file system id',
+    `cache_dir` varchar(4096) NOT NULL COMMENT 'cache dir, e.g. /var/pfs_cache',
     `quota` bigint(20) NOT NULL COMMENT 'cache quota',
     `blocksize` int(5) NOT NULL COMMENT 'cache blocksize',
     `cache_type` varchar(32) NOT NULL COMMENT 'cache type，e.g. disk/memory',
     `extra_config` text  COMMENT 'extra cache config',
     `node_affinity` text  COMMENT 'node affinity，e.g. node affinity in k8s',
+    `node_tainttoleration` text COMMENT 'node taints',
     `created_at` datetime NOT NULL COMMENT 'create time',
     `updated_at` datetime NOT NULL COMMENT 'update time',
     `deleted_at` datetime(3) DEFAULT NULL COMMENT 'delete time',
@@ -291,14 +316,28 @@ CREATE TABLE IF NOT EXISTS `fs_cache_config` (
 
 CREATE TABLE IF NOT EXISTS `fs_cache_worker` (
     `pk` bigint(20) unsigned NOT NULL AUTO_INCREMENT COMMENT 'pk',
-    `id` varchar(36) NOT NULL COMMENT 'file system id',
-    `dir` varchar(4096) NOT NULL COMMENT 'cache dir, e.g. /var/pfs_cache',
-    `mount_point` varchar(1024) NOT NULL COMMENT 'mount point of file system on node',
-    `nodename` varchar(1024) NOT NULL COMMENT 'nodename',
-    `used_size` bigint(20) NOT NULL COMMENT 'cache used size on cache dir',
+    `fs_id` varchar(36) NOT NULL COMMENT 'file system id',
+    `cache_dir` varchar(4096) NOT NULL COMMENT 'cache dir, e.g. /var/pfs_cache',
+    `mountpoint` varchar(1024) NOT NULL COMMENT 'mount point of file system on node，reserved field',
+    `nodename` varchar(255) NOT NULL COMMENT 'node name',
+    `usedsize` bigint(20) NOT NULL COMMENT 'cache used size on cache dir',
     `created_at` datetime NOT NULL COMMENT 'create time',
     `updated_at` datetime NOT NULL COMMENT 'update time',
     `deleted_at` datetime(3) DEFAULT NULL  COMMENT 'delete time',
     PRIMARY KEY (`pk`),
     UNIQUE KEY (`id`)
     )ENGINE=InnoDB DEFAULT CHARSET=utf8 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMMENT='file system cache worker';
+
+CREATE TABLE IF NOT EXISTS `paddleflow_node_info` (
+    `pk` bigint(20) unsigned NOT NULL AUTO_INCREMENT COMMENT 'pk',
+    `cluster_id` varchar(255) NOT NULL DEFAULT '',
+    `nodename` varchar(255) NOT NULL COMMENT 'node name',
+    `total_disk_size` bigint(20) NOT NULL COMMENT 'the total disk size can be used for cache of the node ',
+    `disk_io_ratio` bigint(20) NOT NULL COMMENT 'the disk io ratio of the node',
+    `net_io_ratio` bigint(20) NOT NULL COMMENT 'the net io ratio of the node',
+    `created_at` datetime NOT NULL COMMENT 'create time',
+    `updated_at` datetime NOT NULL COMMENT 'update time',
+    `deleted_at` datetime(3) DEFAULT NULL  COMMENT 'delete time',
+    PRIMARY KEY (`pk`),
+    UNIQUE INDEX idx_cluster_node (`cluster_id`,`nodename`)
+    )ENGINE=InnoDB DEFAULT CHARSET=utf8 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMMENT='all node info for compute node score for schedule or location awareness in the future';

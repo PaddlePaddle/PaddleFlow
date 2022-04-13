@@ -48,6 +48,9 @@ const (
 	MethodNotAllowed     = "MethodNotAllowed"
 	DuplicatedName       = "DuplicatedName"
 	DuplicatedContent    = "DuplicatedContent"
+	InvalidArguments     = "InvalidArguments"
+	RecordNotFound       = "RecordNotFound"
+	RequiredFieldEmpty   = "RequiredFieldEmpty"
 
 	AuthWithoutToken = "AuthWithoutToken" // 请求没有携带token
 	AuthInvalidToken = "AuthInvalidToken" // 无效token
@@ -139,6 +142,9 @@ var errorHTTPStatus = map[string]int{
 	MethodNotAllowed:     http.StatusMethodNotAllowed,
 	DuplicatedName:       http.StatusBadRequest,
 	DuplicatedContent:    http.StatusBadRequest,
+	InvalidArguments:     http.StatusBadRequest,
+	RecordNotFound:       http.StatusNotFound,
+	RequiredFieldEmpty:   http.StatusBadRequest,
 
 	UserNameDuplicated: http.StatusForbidden,
 	UserNotExist:       http.StatusBadRequest,
@@ -227,6 +233,9 @@ var errorMessage = map[string]string{
 	MemoryNotFound:       "Memory is not set",
 	DuplicatedName:       "Name has existed. Duplicated name is not allowed",
 	DuplicatedContent:    "content(md5) has existed. Please use existing one",
+	InvalidArguments:     "invalid arguments",
+	RecordNotFound:       "record not found",
+	RequiredFieldEmpty:   "Field is not set",
 
 	UserNameDuplicated: "The user name already exists",
 	UserNotExist:       "User not exist",
