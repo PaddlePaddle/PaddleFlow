@@ -36,7 +36,7 @@ func (variableChecker *VariableChecker) CheckVarName(varName string) error {
 }
 
 func (VariableChecker *VariableChecker) CheckStepName(stepName string) error {
-	// 和CheckVarName的区别在于
+	// 和CheckVarName的区别在于，step的名称不可以包含下划线(_)，而可以包含中划线(-)
 	pattern := `^[a-zA-Z][a-zA-Z0-9-]*$`
 	reg := regexp.MustCompile(pattern)
 	if !reg.MatchString(stepName) {
@@ -48,7 +48,7 @@ func (VariableChecker *VariableChecker) CheckStepName(stepName string) error {
 
 func (variableChecker *VariableChecker) CheckRefUpstreamStep(varValue string) error {
 	// 匹配引用上游节点参数的字符串
-	pattern := `^\{\{(\s)*[a-zA-Z0-9-]+\.[a-zA-Z0-9_]+(\s)*\}\}$`
+	pattern := RegularExpresionUpstreamTemplate
 	reg := regexp.MustCompile(pattern)
 	if !reg.MatchString(varValue) {
 		err := fmt.Errorf("format of value[%s] invalid, should be like {{XXX.XXX}}", varValue)
