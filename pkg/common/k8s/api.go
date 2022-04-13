@@ -50,6 +50,7 @@ var (
 		VCJobGVK:     commomschema.TypeVcJob,
 		SparkAppGVK:  commomschema.TypeSparkJob,
 		PaddleJobGVK: commomschema.TypePaddleJob,
+		PodGVK:       commomschema.TypePodJob,
 	}
 	// GVKJobStatusMap contains GroupVersionKind and convertStatus function to sync job status
 	GVKJobStatusMap = map[schema.GroupVersionKind]GetStatusFunc{
