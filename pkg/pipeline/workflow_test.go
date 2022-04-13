@@ -201,8 +201,9 @@ func TestCreateNewWorkflowRun_success(t *testing.T) {
 	wf.runtime.entryPoints["main"].job.(*PaddleFlowJob).Status = schema.StatusJobSucceeded
 	wf.runtime.entryPoints["main"].done = true
 	wf.runtime.entryPoints["validate"].job.(*PaddleFlowJob).Status = schema.StatusJobSucceeded
-
 	wf.runtime.entryPoints["validate"].done = true
+	wf.runtime.postProcess["mail"].done = true
+	wf.runtime.postProcess["mail"].job.(*PaddleFlowJob).Status = schema.StatusJobSucceeded
 
 	go wf.Start()
 
@@ -248,6 +249,7 @@ func TestCreateNewWorkflowRun_failed(t *testing.T) {
 	wf.runtime.entryPoints["data-preprocess"].job.(*PaddleFlowJob).Status = schema.StatusJobFailed
 	wf.runtime.entryPoints["main"].job.(*PaddleFlowJob).Status = schema.StatusJobCancelled
 	wf.runtime.entryPoints["validate"].job.(*PaddleFlowJob).Status = schema.StatusJobCancelled
+	wf.runtime.postProcess["mail"].job.(*PaddleFlowJob).Status = schema.StatusJobFailed
 
 	go wf.Start()
 	time.Sleep(time.Millisecond * 10)
@@ -298,10 +300,12 @@ func TestStopWorkflowRun(t *testing.T) {
 	wf.runtime.entryPoints["data-preprocess"].done = true
 	wf.runtime.entryPoints["main"].done = true
 	wf.runtime.entryPoints["validate"].done = true
+	wf.runtime.postProcess["mail"].done = true
 
 	wf.runtime.entryPoints["data-preprocess"].job.(*PaddleFlowJob).Status = schema.StatusJobSucceeded
 	wf.runtime.entryPoints["main"].job.(*PaddleFlowJob).Status = schema.StatusJobSucceeded
 	wf.runtime.entryPoints["validate"].job.(*PaddleFlowJob).Status = schema.StatusJobTerminated
+	wf.runtime.postProcess["mail"].job.(*PaddleFlowJob).Status = schema.StatusJobSucceeded
 
 	go wf.Start()
 	time.Sleep(time.Millisecond * 10)
