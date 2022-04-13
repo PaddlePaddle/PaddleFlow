@@ -75,11 +75,11 @@ func getJobTTLSeconds(annotation map[string]string, status schema.JobStatus) tim
 	ttlSeconds := DefaultJobTTLSeconds
 	switch status {
 	case schema.StatusJobSucceeded:
-		if config.GlobalServerConfig.Job.Reclaim.SucceededJobTTLSeconds != 0 {
+		if config.GlobalServerConfig.Job.Reclaim.SucceededJobTTLSeconds > 0 {
 			ttlSeconds = config.GlobalServerConfig.Job.Reclaim.SucceededJobTTLSeconds
 		}
 	case schema.StatusJobTerminated, schema.StatusJobFailed:
-		if config.GlobalServerConfig.Job.Reclaim.FailedJobTTLSeconds != 0 {
+		if config.GlobalServerConfig.Job.Reclaim.FailedJobTTLSeconds > 0 {
 			ttlSeconds = config.GlobalServerConfig.Job.Reclaim.FailedJobTTLSeconds
 		}
 	default:
