@@ -232,18 +232,6 @@ func CheckFsNested(path1, path2 string) bool {
 	return true
 }
 
-// NameToFsID if user use fsName as fsID (ex. fsName=fs-root-abc), then return fsName(fs-root-abc) direct
-func NameToFsID(fsName, userName string) string {
-	fsTemp := strings.Split(fsName, "-")
-	fsUserName := strings.TrimPrefix(fsName, fsTemp[0]+"-")
-	fsUserName = strings.TrimSuffix(fsUserName, "-"+fsTemp[len(fsTemp)-1])
-	log.Debugf("fsUserName %s", fsUserName)
-	if len(fsTemp) < IDSliceLen || fsTemp[0] != "fs" || (fsUserName != userName && userName != UserRoot) {
-		fsName = ID(userName, fsName)
-	}
-	return fsName
-}
-
 func FSIDToName(fsID string) string {
 	fsArr := strings.Split(fsID, "-")
 	return fsArr[len(fsArr)-1]
