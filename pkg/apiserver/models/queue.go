@@ -166,7 +166,7 @@ func (queue *Queue) BeforeSave(*gorm.DB) error {
 func CreateQueue(ctx *logger.RequestContext, queue *Queue) error {
 	ctx.Logging().Debugf("begin create queue. queueName: %s", queue.Name)
 
-	if queue.ID != "" {
+	if queue.ID == "" {
 		queue.ID = uuid.GenerateID(common.PrefixQueue)
 	}
 

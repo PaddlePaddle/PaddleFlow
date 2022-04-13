@@ -56,10 +56,22 @@ func JobFlags(jobConf *config.JobConfig) []cli.Flag {
 			Destination: &jobConf.JobLoopPeriod,
 		},
 		&cli.IntFlag{
-			Name:        "job-ttl-seconds",
-			Value:       jobConf.Reclaim.JobTTLSeconds,
-			Usage:       "job TTL Seconds",
-			Destination: &jobConf.Reclaim.JobTTLSeconds,
+			Name:        "failed-job-ttl-seconds",
+			Value:       jobConf.Reclaim.FailedJobTTLSeconds,
+			Usage:       "failed job TTL Seconds",
+			Destination: &jobConf.Reclaim.FailedJobTTLSeconds,
+		},
+		&cli.IntFlag{
+			Name:        "succeeded-job-ttl-seconds",
+			Value:       jobConf.Reclaim.SucceededJobTTLSeconds,
+			Usage:       "succeeded job TTL Seconds",
+			Destination: &jobConf.Reclaim.SucceededJobTTLSeconds,
+		},
+		&cli.IntFlag{
+			Name:        "pending-job-ttl-seconds",
+			Value:       jobConf.Reclaim.PendingJobTTLSeconds,
+			Usage:       "pending job TTL Seconds, when job pull image failed",
+			Destination: &jobConf.Reclaim.PendingJobTTLSeconds,
 		},
 		&cli.BoolFlag{
 			Name:        "is-clean-job",
