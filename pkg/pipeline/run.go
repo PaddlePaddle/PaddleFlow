@@ -160,8 +160,8 @@ func (wfr *WorkflowRuntime) restartSteps(steps map[string]*Step) error {
 func (wfr *WorkflowRuntime) Restart() error {
 	wfr.status = common.StatusRunRunning
 
-	statusToEntrySteps := wfr.statStepStatus(wfr.entryPoints)
-	statusToPostSteps := wfr.statStepStatus(wfr.postProcess)
+	statusToEntrySteps := wfr.countStepStatus(wfr.entryPoints)
+	statusToPostSteps := wfr.countStepStatus(wfr.postProcess)
 
 	// 1. 如果 entryPoints 中的有节点尚未处于终态，则需要处理 entryPoints 中的节点，此时 PostProcess 中的节点会在 processEvent 中进行调度
 	// 2. 如果 entryPoints 中所有节点都处于终态，且 PostProcess 中有节点未处于终态，此时直接 处理 PostProcess 中的 节点
@@ -284,8 +284,8 @@ func (wfr *WorkflowRuntime) processEvent(event WorkflowEvent) error {
 	// 1. 如果有entryPoints 中的 step 处于 pending 状态，则尝试触发 step
 	// 2. 如果 entryPoints 中所有 steps 都处于 终态，但是有 postProcess 处于 Pending 状态，则触发 PostProcesss 中的 steps
 	// 3. 如果 entryPoints 和 postProcess 中所有的 steps 均处于终态，则会更新 Run 的状态
-	statusToEntrySteps := wfr.statStepStatus(wfr.entryPoints)
-	statusToPostSteps := wfr.statStepStatus(wfr.postProcess)
+	statusToEntrySteps := wfr.countStepStatus(wfr.entryPoints)
+	statusToPostSteps := wfr.countStepStatus(wfr.postProcess)
 
 	if len(statusToEntrySteps.UnsubmittedSteps) != 0 {
 		wfr.triggerSteps(wfr.entryPoints)
@@ -300,7 +300,7 @@ func (wfr *WorkflowRuntime) processEvent(event WorkflowEvent) error {
 	return nil
 }
 
-func (wfr *WorkflowRuntime) statStepStatus(steps map[string]*Step) StatusToSteps {
+func (wfr *WorkflowRuntime) countStepStatus(steps map[string]*Step) StatusToSteps {
 	status := NewStatusToSteps()
 	for st_name, st := range steps {
 		switch st.job.(*PaddleFlowJob).Status {
