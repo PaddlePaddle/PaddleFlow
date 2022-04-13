@@ -95,5 +95,8 @@ var DiscoveryHandlerFunc = http.HandlerFunc(func(w http.ResponseWriter, req *htt
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	w.Write(output)
+	if _, err := w.Write(output); err != nil {
+		fmt.Printf("unexpected w.Write error: %v", err)
+		return
+	}
 })
