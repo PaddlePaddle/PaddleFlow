@@ -65,7 +65,7 @@ func (lr *LogRouter) getRunLog(writer http.ResponseWriter, request *http.Request
 		if request.URL.Query().Get(util.ParamKeyPageNo) == "" {
 			logPageNo = common.LogPageNoDefault
 		} else {
-			ctx.Logging().Errorf("runID[%s] request param logPageNo parse int failed. error:%s.",runID, err.Error())
+			ctx.Logging().Errorf("runID[%s] request param logPageNo parse int failed. error:%s.", runID, err.Error())
 			common.RenderErrWithMessage(writer, ctx.RequestID, common.InvalidURI, err.Error())
 			return
 		}
@@ -75,7 +75,7 @@ func (lr *LogRouter) getRunLog(writer http.ResponseWriter, request *http.Request
 		if request.URL.Query().Get(util.ParamKeyPageSize) == "" {
 			logPageSize = common.LogPageSizeDefault
 		} else {
-			ctx.Logging().Errorf("runID[%s] request param logPageSize parse int failed. error:%s.",runID, err.Error())
+			ctx.Logging().Errorf("runID[%s] request param logPageSize parse int failed. error:%s.", runID, err.Error())
 			common.RenderErrWithMessage(writer, ctx.RequestID, common.InvalidURI, err.Error())
 			return
 		}
@@ -87,7 +87,7 @@ func (lr *LogRouter) getRunLog(writer http.ResponseWriter, request *http.Request
 		logPageSize = common.LogPageSizeDefault
 	} else if logPageSize > common.LogPageSizeMax {
 		err := common.LogPageSizeOverMaxError()
-		ctx.Logging().Errorf("runID[%s] request param logPageSize value over maxsize. error:%s.",runID, err.Error())
+		ctx.Logging().Errorf("runID[%s] request param logPageSize value over maxsize. error:%s.", runID, err.Error())
 		common.RenderErrWithMessage(writer, ctx.RequestID, common.InvalidURI, err.Error())
 		return
 	}
@@ -97,14 +97,14 @@ func (lr *LogRouter) getRunLog(writer http.ResponseWriter, request *http.Request
 	}
 	if logFilePosition != common.BeginFilePosition && logFilePosition != common.EndFilePosition {
 		err := common.LogFilePositionInvalidValueError()
-		ctx.Logging().Errorf("runID[%s] request param logFilePosition has wrong value. error:%s.",runID, err.Error())
+		ctx.Logging().Errorf("runID[%s] request param logFilePosition has wrong value. error:%s.", runID, err.Error())
 		common.RenderErrWithMessage(writer, ctx.RequestID, common.InvalidURI, err.Error())
 		return
 	}
 	runLogRequest := runLog.GetRunLogRequest{
-		JobID: jobID,
-		PageNo: logPageNo,
-		PageSize: logPageSize,
+		JobID:           jobID,
+		PageNo:          logPageNo,
+		PageSize:        logPageSize,
 		LogFilePosition: logFilePosition,
 	}
 	response, err := runLog.GetRunLog(&ctx, runID, runLogRequest)

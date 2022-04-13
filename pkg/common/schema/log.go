@@ -17,14 +17,14 @@ limitations under the License.
 package schema
 
 type LogInfo struct {
-	LogContent    string  `json:"logContent"`
-	HasNextPage   bool    `json:"hasNextPage"`
-	Truncated     bool    `json:"truncated"`
+	LogContent  string `json:"logContent"`
+	HasNextPage bool   `json:"hasNextPage"`
+	Truncated   bool   `json:"truncated"`
 }
 
 type JobLogInfo struct {
-	JobID         string        `json:"jobID"`
-	TaskList      []TaskLogInfo `json:"taskList"`
+	JobID    string        `json:"jobID"`
+	TaskList []TaskLogInfo `json:"taskList"`
 }
 
 type TaskLogInfo struct {

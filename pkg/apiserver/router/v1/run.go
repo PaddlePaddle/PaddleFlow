@@ -17,11 +17,11 @@ limitations under the License.
 package v1
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi"
@@ -117,20 +117,13 @@ func (rr *RunRouter) createRun(w http.ResponseWriter, r *http.Request) {
 // @Router /run [GET]
 func (rr *RunRouter) listRun(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
-	maxKeys := util.DefaultMaxKeys
 	marker := r.URL.Query().Get(util.QueryKeyMarker)
-	limitCustom := r.URL.Query().Get(util.QueryKeyMaxKeys)
-	if limitCustom != "" {
-		var err error
-		maxKeys, err = strconv.Atoi(limitCustom)
-		if err != nil || maxKeys <= 0 || maxKeys > util.ListPageMax {
-			err := fmt.Errorf("invalid query pageLimit[%s]. should be an integer between 1~1000",
-				limitCustom)
-			ctx.ErrorCode = common.InvalidURI
-			common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
-			return
-		}
+	maxKeys, err := util.GetQueryMaxKeys(&ctx, r)
+	if err != nil {
+		common.RenderErrWithMessage(w, ctx.RequestID, common.InvalidURI, err.Error())
+		return
 	}
+
 	userNames, fsNames := r.URL.Query().Get(util.QueryKeyUserFilter), r.URL.Query().Get(util.QueryKeyFsFilter)
 	runIDs, names := r.URL.Query().Get(util.QueryKeyRunFilter), r.URL.Query().Get(util.QueryKeyNameFilter)
 	userFilter, fsFilter, runFilter, nameFilter := make([]string, 0), make([]string, 0), make([]string, 0), make([]string, 0)
@@ -199,9 +192,29 @@ func (rr *RunRouter) updateRun(w http.ResponseWriter, r *http.Request) {
 	action := r.URL.Query().Get(util.QueryKeyAction)
 	logger.LoggerForRequest(&ctx).Debugf("StopRun id:%v", runID)
 	var err error
+	request := run.UpdateRunRequest{}
+	bodyBytes, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		err = fmt.Errorf("get body err: %v", err)
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+	// 保证body下一次能够读取
+	r.Body = ioutil.NopCloser(bytes.NewBuffer(bodyBytes))
+	if len(bodyBytes) > 0 {
+		// body为空的话，解析会报错
+		err = json.Unmarshal(bodyBytes, &request)
+		if err != nil {
+			logger.LoggerForRequest(&ctx).Errorf(
+				"stop run failed to unmarshal body, error:%s", err.Error())
+			common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+			return
+		}
+	}
+
 	switch action {
 	case util.QueryActionStop:
-		err = run.StopRun(&ctx, runID)
+		err = run.StopRun(&ctx, runID, run.UpdateRunRequest{})
 	case util.QueryActionRetry:
 		err = run.RetryRun(&ctx, runID)
 	default:

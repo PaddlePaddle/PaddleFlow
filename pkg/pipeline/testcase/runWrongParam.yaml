@@ -4,7 +4,7 @@ docker_env: images/training.tgz
 
 entry_points:
 
-  data_preprocess:
+  data-preprocess:
     parameters:
       data_path: "./LINK/mybos_dir/data"
       process_data_file: "./data/pre"
@@ -14,9 +14,9 @@ entry_points:
       PF_JOB_PRIORITY: high
 
   main:
-    deps: data_preprocess
+    deps: data-preprocess
     parameters:
-      data_file: "{{ data_preprocess.xxxinvalid }}"
+      data_file: "{{ data-preprocess.xxxinvalid }}"
       regularization:  0.1
       model: "./data/model"
     command: "python train.py -r {{regularization}} -d {{data_file}} --output {{model}}"

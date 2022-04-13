@@ -40,7 +40,7 @@ func TestUpdateJobForFingerPrint(t *testing.T) {
 		t.Errorf("new workflow failed: %s", err.Error())
 	}
 
-	sortedSteps, err := wf.topologicalSort(wf.entryPoints)
+	sortedSteps, err := wf.topologicalSort(wf.runtimeSteps)
 	assert.Nil(t, err)
 
 	for _, stepName := range sortedSteps {
@@ -50,7 +50,7 @@ func TestUpdateJobForFingerPrint(t *testing.T) {
 		err := st.updateJob(forCacheFingerprint, nil)
 		assert.Nil(t, err)
 
-		if stepName == "data_preprocess" {
+		if stepName == "data-preprocess" {
 			assert.Equal(t, 2, len(st.job.Job().Parameters))
 
 			fmt.Println(st.job.Job().Env)
@@ -66,7 +66,7 @@ func TestUpdateJobForFingerPrint(t *testing.T) {
 			assert.Equal(t, "", st.job.Job().Env["PF_OUTPUT_ARTIFACT_TRAIN_DATA"])
 			assert.Equal(t, "", st.job.Job().Env["PF_OUTPUT_ARTIFACT_VALIDATE_DATA"])
 
-			expectedCommand := "python data_preprocess.py --input ./LINK/mybos_dir/data --output ./data/pre --validate {{ validate_data }} --stepname data_preprocess"
+			expectedCommand := "python data_preprocess.py --input ./LINK/mybos_dir/data --output ./data/pre --validate {{ validate_data }} --stepname data-preprocess"
 			assert.Equal(t, expectedCommand, st.job.Job().Command)
 		}
 		if stepName == "main" {
@@ -133,12 +133,11 @@ func TestUpdateJob(t *testing.T) {
 		t.Errorf("new workflow failed: %s", err.Error())
 	}
 
-	sortedSteps, err := wf.topologicalSort(wf.entryPoints)
+	sortedSteps, err := wf.topologicalSort(wf.runtimeSteps)
 	assert.Nil(t, err)
 
 	for _, stepName := range sortedSteps {
 		st := wf.runtime.entryPoints[stepName]
-
 
 		st.nodeType = common.NodeTypeEntrypoint
 
@@ -146,10 +145,10 @@ func TestUpdateJob(t *testing.T) {
 		err := st.updateJob(forCacheFingerprint, nil)
 		assert.Nil(t, err)
 
-		OutatfTrainData := "./.pipeline/stepTestRunID/myproject/data_preprocess/train_data"
-		OutatfValidateData := "./.pipeline/stepTestRunID/myproject/data_preprocess/validate_data"
+		OutatfTrainData := "./.pipeline/stepTestRunID/myproject/data-preprocess/train_data"
+		OutatfValidateData := "./.pipeline/stepTestRunID/myproject/data-preprocess/validate_data"
 		OutatfTrainModel := "./.pipeline/stepTestRunID/myproject/main/train_model"
-		if stepName == "data_preprocess" {
+		if stepName == "data-preprocess" {
 			assert.Equal(t, 2, len(st.job.Job().Parameters))
 
 			fmt.Println(st.job.Job().Env)
@@ -165,7 +164,7 @@ func TestUpdateJob(t *testing.T) {
 			assert.Equal(t, OutatfTrainData, st.job.Job().Env["PF_OUTPUT_ARTIFACT_TRAIN_DATA"])
 			assert.Equal(t, OutatfValidateData, st.job.Job().Env["PF_OUTPUT_ARTIFACT_VALIDATE_DATA"])
 
-			expectedCommand := fmt.Sprintf("python data_preprocess.py --input ./LINK/mybos_dir/data --output ./data/pre --validate %s --stepname data_preprocess", OutatfValidateData)
+			expectedCommand := fmt.Sprintf("python data_preprocess.py --input ./LINK/mybos_dir/data --output ./data/pre --validate %s --stepname data-preprocess", OutatfValidateData)
 			assert.Equal(t, expectedCommand, st.job.Job().Command)
 		}
 		if stepName == "main" {
@@ -233,7 +232,7 @@ func TestUpdateJobWithCache(t *testing.T) {
 		t.Errorf("new workflow failed: %s", err.Error())
 	}
 
-	sortedSteps, err := wf.topologicalSort(wf.entryPoints)
+	sortedSteps, err := wf.topologicalSort(wf.runtimeSteps)
 	assert.Nil(t, err)
 
 	cacheOutputArtifacts := make(map[string]string)
@@ -244,11 +243,10 @@ func TestUpdateJobWithCache(t *testing.T) {
 	for _, stepName := range sortedSteps {
 		st := wf.runtime.entryPoints[stepName]
 
-
 		st.nodeType = common.NodeTypeEntrypoint
 
 		forCacheFingerprint := false
-		if stepName == "data_preprocess" {
+		if stepName == "data-preprocess" {
 			err := st.updateJob(forCacheFingerprint, cacheOutputArtifacts)
 			assert.Nil(t, err)
 		} else {
@@ -257,7 +255,7 @@ func TestUpdateJobWithCache(t *testing.T) {
 		}
 
 		OutatfTrainModel := "./.pipeline/stepTestRunID/myproject/main/train_model"
-		if stepName == "data_preprocess" {
+		if stepName == "data-preprocess" {
 			assert.Equal(t, 2, len(st.job.Job().Parameters))
 
 			fmt.Println(st.job.Job().Env)
@@ -273,7 +271,7 @@ func TestUpdateJobWithCache(t *testing.T) {
 			assert.Equal(t, cacheOutatfTrainData, st.job.Job().Env["PF_OUTPUT_ARTIFACT_TRAIN_DATA"])
 			assert.Equal(t, cacheOutatfValidateData, st.job.Job().Env["PF_OUTPUT_ARTIFACT_VALIDATE_DATA"])
 
-			expectedCommand := fmt.Sprintf("python data_preprocess.py --input ./LINK/mybos_dir/data --output ./data/pre --validate %s --stepname data_preprocess", cacheOutatfValidateData)
+			expectedCommand := fmt.Sprintf("python data_preprocess.py --input ./LINK/mybos_dir/data --output ./data/pre --validate %s --stepname data-preprocess", cacheOutatfValidateData)
 			assert.Equal(t, expectedCommand, st.job.Job().Command)
 		}
 		if stepName == "main" {
@@ -353,7 +351,7 @@ func TestCheckCached(t *testing.T) {
 		t.Errorf("new workflow failed: %s", err.Error())
 	}
 
-	st := wf.runtime.entryPoints["data_preprocess"]
+	st := wf.runtime.entryPoints["data-preprocess"]
 
 	st.nodeType = common.NodeTypeEntrypoint
 	patches := gomonkey.ApplyMethod(reflect.TypeOf(st.job), "Validate", func(_ *PaddleFlowJob) error {
@@ -389,7 +387,7 @@ func TestCheckCached(t *testing.T) {
 		t.Errorf("new workflow failed: %s", err.Error())
 	}
 
-	st = wf.runtime.entryPoints["data_preprocess"]
+	st = wf.runtime.entryPoints["data-preprocess"]
 	st.nodeType = common.NodeTypeEntrypoint
 
 	cacheFound, err = st.checkCached()
@@ -409,7 +407,7 @@ func TestCheckCached(t *testing.T) {
 		t.Errorf("new workflow failed: %s", err.Error())
 	}
 
-	st = wf.runtime.entryPoints["data_preprocess"]
+	st = wf.runtime.entryPoints["data-preprocess"]
 
 	st.nodeType = common.NodeTypeEntrypoint
 	cacheFound, err = st.checkCached()
@@ -429,10 +427,9 @@ func TestCheckCached(t *testing.T) {
 		t.Errorf("new workflow failed: %s", err.Error())
 	}
 
-	st = wf.runtime.entryPoints["data_preprocess"]
+	st = wf.runtime.entryPoints["data-preprocess"]
 
 	st.nodeType = common.NodeTypeEntrypoint
-
 	cacheFound, err = st.checkCached()
 	assert.Nil(t, err)
 	assert.Equal(t, true, cacheFound)
@@ -450,15 +447,12 @@ func TestCheckCached(t *testing.T) {
 		t.Errorf("new workflow failed: %s", err.Error())
 	}
 
-	st = wf.runtime.entryPoints["data_preprocess"]
-
+	st = wf.runtime.entryPoints["data-preprocess"]
 	st.nodeType = common.NodeTypeEntrypoint
-
 	cacheFound, err = st.checkCached()
 	assert.Nil(t, err)
 	assert.Equal(t, true, cacheFound)
 }
-
 
 func TestPFRUNTIME(t *testing.T) {
 	testCase := loadcase("./testcase/runPostProcess.yaml")
@@ -472,7 +466,7 @@ func TestPFRUNTIME(t *testing.T) {
 	}
 
 	wf.runtime.runtimeView = schema.RuntimeView{
-		"data_process": schema.JobView{
+		"data-process": schema.JobView{
 			JobID: "123",
 		},
 	}

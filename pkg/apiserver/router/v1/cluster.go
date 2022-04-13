@@ -18,7 +18,6 @@ package v1
 
 import (
 	"net/http"
-	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi"
@@ -75,22 +74,13 @@ func (cr *ClusterRouter) createCluster(w http.ResponseWriter, r *http.Request) {
 func (cr *ClusterRouter) listCluster(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
 	marker := r.URL.Query().Get(util.QueryKeyMarker)
-
-	var maxKeys int64
-	var err error
-	var clusterNameList []string
-
-	queryMaxKeys := r.URL.Query().Get(util.QueryKeyMaxKeys)
-	if queryMaxKeys == "" {
-		maxKeys = util.DefaultMaxKeys
-	} else {
-		maxKeys, err = strconv.ParseInt(queryMaxKeys, 10, 64)
-		if err != nil {
-			common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, ctx.ErrorMessage)
-			return
-		}
+	maxKeys, err := util.GetQueryMaxKeys(&ctx, r)
+	if err != nil {
+		common.RenderErrWithMessage(w, ctx.RequestID, common.InvalidURI, err.Error())
+		return
 	}
 
+	var clusterNameList []string
 	clusterNames := strings.TrimSpace(r.URL.Query().Get(util.ParamKeyClusterNames))
 	if clusterNames != "" {
 		clusterNameList = common.SplitString(clusterNames, ",")

@@ -38,53 +38,60 @@ type StatusToSteps struct {
 	SubmittedSteps map[string]*Step
 
 	// runtime 还未向 step 的 ready channel 发送数据， 同时 Step 也未处于终态
-	PengdingSteps map[string]*Step
+	UnsubmittedSteps map[string]*Step
 }
 
 func NewStatusToSteps() StatusToSteps {
 	return StatusToSteps{
-		SucceededSteps:  map[string]*Step{},
-		FailedSteps:     map[string]*Step{},
-		TerminatedSteps: map[string]*Step{},
-		CanelledSteps:   map[string]*Step{},
-		SkippedSteps:    map[string]*Step{},
-		SubmittedSteps:  map[string]*Step{},
-		PengdingSteps:   map[string]*Step{},
+		SucceededSteps:   map[string]*Step{},
+		FailedSteps:      map[string]*Step{},
+		TerminatedSteps:  map[string]*Step{},
+		CanelledSteps:    map[string]*Step{},
+		SkippedSteps:     map[string]*Step{},
+		SubmittedSteps:   map[string]*Step{},
+		UnsubmittedSteps: map[string]*Step{},
 	}
 }
 
 // 统计已经处于终态的 Step
-func (sts *StatusToSteps) statFinshedSteps() int {
+func (sts *StatusToSteps) countFinshedSteps() int {
 	return len(sts.SucceededSteps) + len(sts.FailedSteps) + len(sts.TerminatedSteps) + len(sts.CanelledSteps) + len(sts.SkippedSteps)
 }
 
 // 工作流运行时
 type WorkflowRuntime struct {
-	wf               *Workflow
-	ctx              context.Context
-	ctxCancel        context.CancelFunc
-	entryPoints      map[string]*Step
-	postProcess      map[string]*Step
-	event            chan WorkflowEvent // 用来从 job 传递事件
-	concurrentJobs   chan struct{}
-	concurrentJobsMx sync.Mutex
-	status           string
-	runtimeView      schema.RuntimeView
-	postProcessView  schema.PostProcessView
+	wf                   *Workflow
+	entryPointsCtx       context.Context
+	entryPointsctxCancel context.CancelFunc
+	postProcessPointsCtx context.Context
+	postProcessctxCancel context.CancelFunc
+	entryPoints          map[string]*Step
+	postProcess          map[string]*Step
+	event                chan WorkflowEvent // 用来从 job 传递事件
+	concurrentJobs       chan struct{}
+	concurrentJobsMx     sync.Mutex
+	status               string
+	runtimeView          schema.RuntimeView
+	postProcessView      schema.PostProcessView
 }
 
+// TODO: 将创建 Step 的逻辑迁移至此处，以合理的设置 step 的ctx，和 nodeType 等属性
 func NewWorkflowRuntime(wf *Workflow, parallelism int) *WorkflowRuntime {
-	ctx, ctxCancel := context.WithCancel(context.Background())
+	entryCtx, entryCtxCancel := context.WithCancel(context.Background())
+	postCtx, postCtxCancel := context.WithCancel(context.Background())
+
 	wfr := &WorkflowRuntime{
-		wf:              wf,
-		ctx:             ctx,
-		ctxCancel:       ctxCancel,
-		entryPoints:     map[string]*Step{},
-		postProcess:     map[string]*Step{},
-		event:           make(chan WorkflowEvent, parallelism),
-		concurrentJobs:  make(chan struct{}, parallelism),
-		runtimeView:     schema.RuntimeView{},
-		postProcessView: schema.PostProcessView{},
+		wf:                   wf,
+		entryPointsCtx:       entryCtx,
+		entryPointsctxCancel: entryCtxCancel,
+		postProcessPointsCtx: postCtx,
+		postProcessctxCancel: postCtxCancel,
+		entryPoints:          map[string]*Step{},
+		postProcess:          map[string]*Step{},
+		event:                make(chan WorkflowEvent, parallelism),
+		concurrentJobs:       make(chan struct{}, parallelism),
+		runtimeView:          schema.RuntimeView{},
+		postProcessView:      schema.PostProcessView{},
 	}
 	return wfr
 }
@@ -93,24 +100,25 @@ func NewWorkflowRuntime(wf *Workflow, parallelism int) *WorkflowRuntime {
 func (wfr *WorkflowRuntime) Start() error {
 	wfr.status = common.StatusRunRunning
 
-	wfr.triggerSteps(wfr.entryPoints, NodeTypeEntrypoint)
+	wfr.triggerSteps(wfr.entryPoints)
 
 	go wfr.Listen()
 	return nil
 }
 
 // 触发step运行
-func (wfr *WorkflowRuntime) triggerSteps(steps map[string]*Step, nodeType NodeType) error {
+func (wfr *WorkflowRuntime) triggerSteps(steps map[string]*Step) error {
 	for st_name, st := range steps {
-		st.nodeType = nodeType
 
 		if st.done {
 			wfr.wf.log().Debugf("Skip step: %s", st_name)
 			continue
 		}
 
-		wfr.wf.log().Debugf("Start Execute step: %s", st_name)
-		go st.Execute()
+		if !st.executed {
+			wfr.wf.log().Debugf("Start Execute step: %s", st_name)
+			go st.Execute()
+		}
 
 		if wfr.isDepsReady(st, steps) && !st.submitted {
 			wfr.wf.log().Debugf("Step %s has ready to start job", st_name)
@@ -123,19 +131,18 @@ func (wfr *WorkflowRuntime) triggerSteps(steps map[string]*Step, nodeType NodeTy
 
 // restartSteps
 // 不能直接复用 triggerSteps 的原因是，重启时需要考虑step 已经 submitted，但是对应的job 还没有运行结束的情况，需要给这些步骤优先占到卡槽
-func (wfr *WorkflowRuntime) restartSteps(steps map[string]*Step, nodeType NodeType) error {
+func (wfr *WorkflowRuntime) restartSteps(steps map[string]*Step) error {
 	for _, step := range steps {
-		step.nodeType = nodeType
 		if step.done {
 			continue
+		} else {
+			go step.Execute()
 		}
-		go step.Execute()
 	}
 
 	// 如果在服务异常过程中，刚好 step 中的任务已经完成，而新的任务还没有开始，此时会导致调度逻辑永远不会 watch 到新的 event
 	// 不在上面直接判断 step.depsReady 的原因：wfr.steps 是 map，遍历顺序无法确定，必须保证已提交的任务先占到槽位，才能保证并发数控制正确
 	for stepName, step := range steps {
-		step.nodeType = nodeType
 		if step.done || step.submitted {
 			continue
 		}
@@ -160,10 +167,10 @@ func (wfr *WorkflowRuntime) Restart() error {
 	// 2. 如果 entryPoints 中所有节点都处于终态，且 PostProcess 中有节点未处于终态，此时直接 处理 PostProcess 中的 节点
 	// 3. 如果 entryPoints 和 PostProcess 所有节点均处于终态，则直接更新 run 的状态即可, 并调用回调函数，传给 Server 入库
 	// PS：第3种发生的概率很少，用于兜底
-	if statusToEntrySteps.statFinshedSteps() != len(wfr.entryPoints) {
-		wfr.restartSteps(wfr.entryPoints, NodeTypeEntrypoint)
-	} else if statusToPostSteps.statFinshedSteps() != len(wfr.postProcess) {
-		wfr.restartSteps(wfr.postProcess, NodeTypePostProcess)
+	if statusToEntrySteps.countFinshedSteps() != len(wfr.entryPoints) {
+		wfr.restartSteps(wfr.entryPoints)
+	} else if statusToPostSteps.countFinshedSteps() != len(wfr.postProcess) {
+		wfr.restartSteps(wfr.postProcess)
 	} else {
 		wfr.updateStatus(statusToEntrySteps, statusToPostSteps)
 
@@ -179,14 +186,18 @@ func (wfr *WorkflowRuntime) Restart() error {
 
 // Stop 停止 Workflow
 // do not call ctx_cancel(), which will be called when all steps has terminated eventually.
-// 注意: stop 时暂时不会stop PostProcess 中的节点
-func (wfr *WorkflowRuntime) Stop() error {
+// 这里不通过 cancel channel 去取消 Step 的原因是防止有多个地方向通过一个 channel 传递东西，防止runtime hang 住
+func (wfr *WorkflowRuntime) Stop(force bool) error {
 	if wfr.IsCompleted() {
 		wfr.wf.log().Debugf("workflow has finished.")
 		return nil
 	}
 
-	wfr.ctxCancel()
+	wfr.entryPointsctxCancel()
+
+	if force {
+		wfr.postProcessctxCancel()
+	}
 
 	wfr.status = common.StatusRunTerminating
 
@@ -238,11 +249,7 @@ func (wfr *WorkflowRuntime) IsCompleted() bool {
 
 // 触发 post_process 中的步骤
 func (wfr *WorkflowRuntime) triggerPostPorcess() error {
-	for _, step := range wfr.postProcess {
-		// postProcess 中的节点不支持 cache 操作
-		step.info.Cache.Enable = false
-	}
-	return wfr.triggerSteps(wfr.postProcess, NodeTypePostProcess)
+	return wfr.triggerSteps(wfr.postProcess)
 }
 
 // processEvent 处理 job 推送到 run 的事件
@@ -265,10 +272,10 @@ func (wfr *WorkflowRuntime) processEvent(event WorkflowEvent) error {
 		status, ok := event.Extra["status"]
 		if ok {
 			jobStatus := status.(schema.JobStatus)
-			jobFaield := jobStatus == schema.StatusJobFailed
-			jobUnexpectedTerinated := jobStatus == schema.StatusJobTerminated && wfr.status != common.StatusRunTerminating
+			jobFailed := jobStatus == schema.StatusJobFailed
+			jobUnexpectedTerminated := jobStatus == schema.StatusJobTerminated && wfr.status != common.StatusRunTerminating
 
-			if jobFaield || jobUnexpectedTerinated {
+			if jobFailed || jobUnexpectedTerminated {
 				wfr.ProcessFailureOptions(event)
 			}
 		}
@@ -280,11 +287,11 @@ func (wfr *WorkflowRuntime) processEvent(event WorkflowEvent) error {
 	statusToEntrySteps := wfr.statStepStatus(wfr.entryPoints)
 	statusToPostSteps := wfr.statStepStatus(wfr.postProcess)
 
-	if len(statusToEntrySteps.PengdingSteps) != 0 {
-		wfr.triggerSteps(wfr.entryPoints, NodeTypeEntrypoint)
-	} else if statusToEntrySteps.statFinshedSteps() == len(wfr.entryPoints) && len(statusToPostSteps.PengdingSteps) != 0 {
+	if len(statusToEntrySteps.UnsubmittedSteps) != 0 {
+		wfr.triggerSteps(wfr.entryPoints)
+	} else if statusToEntrySteps.countFinshedSteps() == len(wfr.entryPoints) && len(statusToPostSteps.UnsubmittedSteps) != 0 {
 		wfr.triggerPostPorcess()
-	} else if statusToEntrySteps.statFinshedSteps() == len(wfr.entryPoints) && statusToPostSteps.statFinshedSteps() == len(wfr.postProcess) {
+	} else if statusToEntrySteps.countFinshedSteps() == len(wfr.entryPoints) && statusToPostSteps.countFinshedSteps() == len(wfr.postProcess) {
 		wfr.updateStatus(statusToEntrySteps, statusToPostSteps)
 	}
 
@@ -311,7 +318,7 @@ func (wfr *WorkflowRuntime) statStepStatus(steps map[string]*Step) StatusToSteps
 			if st.submitted {
 				status.SubmittedSteps[st_name] = st
 			} else {
-				status.PengdingSteps[st_name] = st
+				status.UnsubmittedSteps[st_name] = st
 			}
 		}
 	}
@@ -343,12 +350,14 @@ func (wfr *WorkflowRuntime) updateStatus(entryPointsStatus, postProcessStatus St
 
 func (wfr *WorkflowRuntime) getDirectDownstreamStep(upstreamStep *Step) (steps map[*Step]string) {
 	// 因为golang 没有 set，所以使用 map 模拟一个 set，steps 的value 并没有实际意义
+	steps = map[*Step]string{}
 	for _, step := range wfr.entryPoints {
 		deps := strings.Split(step.info.Deps, ",")
 		for _, ds := range deps {
 			ds = strings.Trim(ds, " ")
 			if ds == upstreamStep.name {
 				steps[step] = step.name
+				wfr.wf.log().Infof("step[%s] is the downstream of step[%s] ", step.name, upstreamStep.name)
 			}
 		}
 	}
@@ -356,7 +365,7 @@ func (wfr *WorkflowRuntime) getDirectDownstreamStep(upstreamStep *Step) (steps m
 }
 
 func (wfr *WorkflowRuntime) getAllDownstreamSteps(upstreamStep *Step) (steps map[*Step]string) {
-	// 深度优先遍历或者广度优先遍历？
+	steps = map[*Step]string{}
 	toVisiteStep := wfr.getDirectDownstreamStep(upstreamStep)
 
 	// 循环获取下游节点的下游下游节点，直至叶子节点
@@ -388,9 +397,9 @@ func (wfr *WorkflowRuntime) ProcessFailureOptionsWithContinue(step *Step) {
 	// 失败节点的所有下游节点都将会置为failed
 
 	needCancelSteps := wfr.getAllDownstreamSteps(step)
-
 	for needCancelStep, _ := range needCancelSteps {
 		if !needCancelStep.done {
+			wfr.wf.log().Infof("step[%s] would be cancelled, because it upstream step[%s] failed", needCancelStep.name, step.name)
 			needCancelStep.cancel <- true
 		}
 	}
@@ -399,16 +408,18 @@ func (wfr *WorkflowRuntime) ProcessFailureOptionsWithContinue(step *Step) {
 func (wfr *WorkflowRuntime) ProcessFailureOptionsWithFailFast(step *Step) {
 	// 1. 终止所有运行的 Job
 	// 2. 将所有为调度的 Job 设置为 cancelled 状态
-	wfr.ctxCancel()
+	wfr.entryPointsctxCancel()
 }
 
 func (wfr *WorkflowRuntime) ProcessFailureOptions(event WorkflowEvent) {
+	wfr.wf.log().Infof("begin to process failure options. trigger event is: %v", event)
 	st, ok := event.Extra["step"]
+
 	if !ok {
-		wfr.wf.log().Errorf("cannot get the step info of envent for run[%s], begin to stop run: %v", wfr.wf.RunID, event)
+		wfr.wf.log().Errorf("cannot get the step info of event for run[%s], begin to stop run: %v", wfr.wf.RunID, event)
 
 		// 防止下游节点无法调度，导致 run 被 hang 住，终止所有任务
-		wfr.ctxCancel()
+		wfr.entryPointsctxCancel()
 	}
 
 	step, ok := st.(*Step)
@@ -416,7 +427,7 @@ func (wfr *WorkflowRuntime) ProcessFailureOptions(event WorkflowEvent) {
 		wfr.wf.log().Errorf("cannot get the step info of envent for run[%s], begin to stop run: %v", wfr.wf.RunID, event)
 
 		// 防止下游节点无法调度，导致 run 被 hang 住，终止所有任务
-		wfr.ctxCancel()
+		wfr.entryPointsctxCancel()
 	}
 
 	// FailureOptions 不处理 PostProcess 中的节点
@@ -424,7 +435,6 @@ func (wfr *WorkflowRuntime) ProcessFailureOptions(event WorkflowEvent) {
 		return
 	}
 
-	wfr.wf.log().Infof("begin to process failure options. trigger event is: %v", event)
 	// 策略的合法性由 workflow 保证
 	if wfr.wf.Source.FailureOptions.Strategy == schema.FailureStrategyContinue {
 		wfr.ProcessFailureOptionsWithContinue(step)

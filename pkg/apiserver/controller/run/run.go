@@ -53,6 +53,10 @@ type CreateRunRequest struct {
 	RunYamlPath string `json:"runYamlPath,omitempty"` // optional. one of 3 sources of run. low priority
 }
 
+type UpdateRunRequest struct {
+	StopForce bool `json:"stopForce"`
+}
+
 type DeleteRunRequest struct {
 	CheckCache bool `json:"checkCache"`
 }
@@ -319,7 +323,7 @@ func GetRunByID(ctx *logger.RequestContext, runID string) (models.Run, error) {
 	return run, nil
 }
 
-func StopRun(ctx *logger.RequestContext, runID string) error {
+func StopRun(ctx *logger.RequestContext, runID string, request UpdateRunRequest) error {
 	ctx.Logging().Debugf("begin stop run. runID:%s", runID)
 	// check run exist
 	run, err := GetRunByID(ctx, runID)
@@ -334,7 +338,7 @@ func StopRun(ctx *logger.RequestContext, runID string) error {
 		return err
 	}
 	// check run current status
-	if run.Status == common.StatusRunTerminating ||
+	if run.Status == common.StatusRunTerminating && !request.StopForce ||
 		common.IsRunFinalStatus(run.Status) {
 		err := fmt.Errorf("cannot stop run[%s] as run is already in status[%s]", runID, run.Status)
 		ctx.ErrorCode = common.ActionNotAllowed
@@ -353,7 +357,7 @@ func StopRun(ctx *logger.RequestContext, runID string) error {
 		ctx.ErrorCode = common.InternalError
 		return errors.New("stop run failed updating db")
 	}
-	wf.Stop()
+	wf.Stop(request.StopForce)
 	ctx.Logging().Debugf("close run succeed. runID:%s", runID)
 	return nil
 }
@@ -524,8 +528,8 @@ func resumeRun(run models.Run) error {
 	}
 
 	wfs.Name = run.Name
-	if run.ImageUrl != "" {
-		wfs.DockerEnv = run.ImageUrl
+	if run.DockerEnv != "" {
+		wfs.DockerEnv = run.DockerEnv
 	}
 	if run.Disabled != "" {
 		wfs.Disabled = run.Disabled
@@ -564,7 +568,7 @@ func handleImageAndStartWf(run models.Run, isResume bool) error {
 			logEntry.Debugf("workflow restarted, run:%+v", run)
 		}
 		return models.UpdateRun(logEntry, run.ID,
-			models.Run{ImageUrl: run.WorkflowSource.DockerEnv, Status: common.StatusRunPending})
+			models.Run{DockerEnv: run.WorkflowSource.DockerEnv, Status: common.StatusRunPending})
 	} else {
 		imageIDs, err := models.ListImageIDsByFsID(logEntry, run.FsID)
 		if err != nil {
