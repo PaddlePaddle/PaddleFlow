@@ -96,6 +96,8 @@ func TestFSCacheConfigRouter(t *testing.T) {
 	assert.Equal(t, cacheConf.CacheDir, cacheRsp.CacheDir)
 	assert.Equal(t, cacheConf.BlockSize, cacheRsp.BlockSize)
 	assert.Equal(t, cacheConf.Quota, cacheRsp.Quota)
+	// test fsToName()
+	assert.Equal(t, createRep.Username, cacheRsp.Username)
 
 	// test get failure
 	urlWrong := url + "/666"
