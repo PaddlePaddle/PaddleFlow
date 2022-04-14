@@ -173,6 +173,6 @@ func createDatabaseTables(db *gorm.DB) error {
 		&models.FileSystem{},
 		&models.Link{},
 		&models.FSCacheConfig{},
-		&models.FSCacheWorker{},
+		&models.FSCache{},
 	)
 }
