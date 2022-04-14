@@ -48,7 +48,7 @@ func (VariableChecker *VariableChecker) CheckStepName(stepName string) error {
 
 func (variableChecker *VariableChecker) CheckRefUpstreamStep(varValue string) error {
 	// 匹配引用上游节点参数的字符串
-	pattern := RegularExpresionUpstreamTemplate
+	pattern := RegExpUpstreamTpl
 	reg := regexp.MustCompile(pattern)
 	if !reg.MatchString(varValue) {
 		err := fmt.Errorf("format of value[%s] invalid, should be like {{XXX.XXX}}", varValue)
