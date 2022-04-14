@@ -185,7 +185,6 @@ CREATE TABLE IF NOT EXISTS `run_job` (
     `updated_at` datetime(3) DEFAULT NULL,
     `deleted_at` datetime(3) DEFAULT NULL,
     PRIMARY KEY (`pk`),
-    UNIQUE KEY (`id`),
     INDEX (`run_id`),
     INDEX (`status`)
 )ENGINE=InnoDB DEFAULT CHARSET=utf8;
