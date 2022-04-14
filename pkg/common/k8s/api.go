@@ -41,20 +41,24 @@ var (
 	EQuotaGVK    = schema.GroupVersionKind{Group: "scheduling.volcano.sh", Version: "v1beta1", Kind: "ElasticResourceQuota"}
 	SparkAppGVK  = schema.GroupVersionKind{Group: "sparkoperator.k8s.io", Version: "v1beta2", Kind: "SparkApplication"}
 	PaddleJobGVK = schema.GroupVersionKind{Group: "batch.paddlepaddle.org", Version: "v1", Kind: "PaddleJob"}
+	// ArgoWorkflowGVK defines GVK for argo Workflow
+	ArgoWorkflowGVK = schema.GroupVersionKind{Group: "argoproj.io", Version: "v1alpha1", Kind: "Workflow"}
 
 	// GVKToJobType maps GroupVersionKind to PaddleFlow JobType
 	GVKToJobType = map[schema.GroupVersionKind]commomschema.JobType{
+		// TODO remove this
 		VCJobGVK:     commomschema.TypeVcJob,
 		SparkAppGVK:  commomschema.TypeSparkJob,
 		PaddleJobGVK: commomschema.TypePaddleJob,
 		PodGVK:       commomschema.TypePodJob,
 	}
-	// GVKJobStatusMap contains GroupVersionKind and get status
+	// GVKJobStatusMap contains GroupVersionKind and convertStatus function to sync job status
 	GVKJobStatusMap = map[schema.GroupVersionKind]GetStatusFunc{
-		VCJobGVK:     VCJobStatus,
-		SparkAppGVK:  SparkAppStatus,
-		PaddleJobGVK: PaddleJobStatus,
-		PodGVK:       SingleJobStatus,
+		VCJobGVK:        VCJobStatus,
+		SparkAppGVK:     SparkAppStatus,
+		PaddleJobGVK:    PaddleJobStatus,
+		PodGVK:          SingleJobStatus,
+		ArgoWorkflowGVK: ArgoWorkflowStatus,
 	}
 	// GVKToQuotaType GroupVersionKind lists for PaddleFlow QuotaType
 	GVKToQuotaType = []schema.GroupVersionKind{
@@ -69,7 +73,6 @@ type StatusInfo struct {
 	Message      string
 }
 
-type StatusIsUpdatedFunc func(interface{}, interface{}) (bool, string)
 type GetStatusFunc func(interface{}) (StatusInfo, error)
 
 // DynamicClientOption for kubernetes dynamic client
@@ -116,7 +119,7 @@ func (dc *DynamicClientOption) findGVR(gvk *schema.GroupVersionKind) (meta.RESTM
 	// Find GVR
 	mapping, err := mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 	if err != nil {
-		log.Errorf("find GVR with restMapping failed: %v", err)
+		log.Warningf("find GVR with restMapping failed: %v", err)
 		return meta.RESTMapping{}, err
 	}
 	// Store GVR

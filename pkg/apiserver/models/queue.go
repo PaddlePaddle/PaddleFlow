@@ -46,9 +46,9 @@ type Queue struct {
 	ClusterId       string              `json:"-" gorm:"column:cluster_id"`
 	ClusterName     string              `json:"clusterName" gorm:"column:cluster_name;->"`
 	QuotaType       string              `json:"quotaType"`
-	RawMinResources string              `json:"-" gorm:"column:min_resources;type:text;default:'{}'"`
+	RawMinResources string              `json:"-" gorm:"column:min_resources;default:'{}'"`
 	MinResources    schema.ResourceInfo `json:"minResources" gorm:"-"`
-	RawMaxResources string              `json:"-" gorm:"column:max_resources;type:text;default:'{}'"`
+	RawMaxResources string              `json:"-" gorm:"column:max_resources;default:'{}'"`
 	MaxResources    schema.ResourceInfo `json:"maxResources" gorm:"-"`
 	RawLocation     string              `json:"-" gorm:"column:location;type:text;default:'{}'"`
 	Location        map[string]string   `json:"location" gorm:"-"`

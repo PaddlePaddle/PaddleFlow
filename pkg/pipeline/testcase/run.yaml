@@ -4,7 +4,7 @@ docker_env: images/training.tgz
 
 entry_points:
 
-  data_preprocess:
+  data-preprocess:
     parameters:
       data_path: "./LINK/mybos_dir/data"
       process_data_file: "./data/pre"
@@ -18,12 +18,12 @@ entry_points:
         - validate_data
 
   main:
-    deps: data_preprocess
+    deps: data-preprocess
     parameters:
       p3: {"type": "string", "default":"dictparam"}
       p4: {"type": "float", "default": 0.66}
       p5: {"type": "path", "default": "/path/to/anywhere"}
-      data_file: "{{ data_preprocess.process_data_file }}"
+      data_file: "{{ data-preprocess.process_data_file }}"
       regularization:  0.1
       model: "./data/model"
       iteration: 100
@@ -36,12 +36,12 @@ entry_points:
       PF_WORKER_NUM: 4
     artifacts:
       input:
-        train_data: "{{ data_preprocess.train_data }}"
+        train_data: "{{ data-preprocess.train_data }}"
       output:
         - train_model
 
   validate:
-    deps: main,data_preprocess
+    deps: main,data-preprocess
     parameters:
       report: "./data/report"
       refSystem: "{{ PF_RUN_ID }}"
@@ -53,10 +53,20 @@ entry_points:
       test_env_2: "{{ main.data_file}}_{{ PF_STEP_NAME }}"
     artifacts:
       input:
-        data: "{{ data_preprocess.validate_data }}"
+        data: "{{ data-preprocess.validate_data }}"
         model: "{{ main.train_model }}"
+post_process:
+  mail:
+    command: "echo {{msg}}"
+    parameters:
+      msg: "hahaha"
+      runtime: "{{PF_RUN_TIME}}"
+
 cache:
   enable: false
   max_expired_time: 400
   fs_scope: "/path/to/run,/path/to/run2"
 parallelism: 5
+
+failure_options:
+  strategy: "fail_fast"

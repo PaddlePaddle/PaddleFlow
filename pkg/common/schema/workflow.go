@@ -35,12 +35,15 @@ const (
 	CacheAttributeEnable         = "enable"
 	CacheAttributeMaxExpiredTime = "max_expired_time"
 	CacheAttributeFsScope        = "fs_scope"
+
+	FailureStrategyFailFast = "fail_fast"
+	FailureStrategyContinue = "continue"
 )
 
 type Artifacts struct {
-	Input      map[string]string `yaml:"input"`
-	Output     map[string]string `yaml:"-"`
-	OutputList []string          `yaml:"output"`
+	Input      map[string]string `yaml:"input"       json:"input"`
+	Output     map[string]string `yaml:"-"           json:"output"`
+	OutputList []string          `yaml:"output"      json:"-"`
 }
 
 func (atf *Artifacts) ValidateOutputMapByList() error {
@@ -59,7 +62,7 @@ type WorkflowSourceStep struct {
 	Deps       string                 `yaml:"deps"`
 	Artifacts  Artifacts              `yaml:"artifacts"`
 	Env        map[string]string      `yaml:"env"`
-	DockerEnv  string                 `yaml:"dockerEnv"`
+	DockerEnv  string                 `yaml:"docker_env"`
 	Cache      Cache                  `yaml:"cache"`
 }
 
@@ -82,13 +85,19 @@ type Cache struct {
 	FsScope        string `yaml:"fs_scope"`         // seperated by ","
 }
 
+type FailureOptions struct {
+	Strategy string `yaml:"strategy"`
+}
+
 type WorkflowSource struct {
-	Name        string                         `yaml:"name"`
-	DockerEnv   string                         `yaml:"docker_env"`
-	EntryPoints map[string]*WorkflowSourceStep `yaml:"entry_points"`
-	Cache       Cache                          `yaml:"cache"`
-	Parallelism int                            `yaml:"parallelism"`
-	Disabled    string                         `yaml:"disabled"`
+	Name           string                         `yaml:"name"`
+	DockerEnv      string                         `yaml:"docker_env"`
+	EntryPoints    map[string]*WorkflowSourceStep `yaml:"entry_points"`
+	Cache          Cache                          `yaml:"cache"`
+	Parallelism    int                            `yaml:"parallelism"`
+	Disabled       string                         `yaml:"disabled"`
+	FailureOptions FailureOptions                 `yaml:"failure_options"`
+	PostProcess    map[string]*WorkflowSourceStep `yaml:"post_process"`
 }
 
 func (wfs *WorkflowSource) GetDisabled() []string {
@@ -121,7 +130,9 @@ func (wfs *WorkflowSource) IsDisabled(stepName string) (bool, error) {
 }
 
 func (wfs *WorkflowSource) HasStep(step string) bool {
-	_, ok := wfs.EntryPoints[step]
+	_, ok1 := wfs.EntryPoints[step]
+	_, ok2 := wfs.PostProcess[step]
+	ok := ok1 || ok2
 	if ok {
 		return true
 	} else {
@@ -129,26 +140,32 @@ func (wfs *WorkflowSource) HasStep(step string) bool {
 	}
 }
 
-// ValidateArtifacts - 该函数的作用是将WorkflowSource中的Slice类型的输出Artifact改为Map类型
-//                     这样做的原因是：之前的run.yaml中（ver.1.3.2之前），输出Artifact为Map类型，而现在为了支持Cache的优化，改为Slice类型
-//
-// PARAMS:
-//   无
-// RETURNS:
-//   nil: 正常执行则返回nil
-//   error: 执行异常则返回错误信息
+// 该函数的作用是将WorkflowSource中的Slice类型的输出Artifact改为Map类型。
+// 这样做的原因是：之前的run.yaml中（ver.1.3.2之前），输出Artifact为Map类型，而现在为了支持Cache的优化，改为Slice类型
 func (wfs *WorkflowSource) validateArtifacts() error {
-	if wfs.EntryPoints == nil {
-		wfs.EntryPoints = make(map[string]*WorkflowSourceStep)
+	steps, err := parseArtifactsOfSteps(wfs.EntryPoints)
+	if err != nil {
+		return err
 	}
+	wfs.EntryPoints = steps
 
-	for stepName, step := range wfs.EntryPoints {
-		if err := step.Artifacts.ValidateOutputMapByList(); err != nil {
-			return fmt.Errorf("validate artifacts failed")
-		}
-		wfs.EntryPoints[stepName] = step
+	steps, err = parseArtifactsOfSteps(wfs.PostProcess)
+	if err != nil {
+		return err
 	}
+	wfs.PostProcess = steps
 	return nil
+}
+
+func parseArtifactsOfSteps(steps map[string]*WorkflowSourceStep) (map[string]*WorkflowSourceStep, error) {
+	res := map[string]*WorkflowSourceStep{}
+	for stepName, step := range steps {
+		if err := step.Artifacts.ValidateOutputMapByList(); err != nil {
+			return map[string]*WorkflowSourceStep{}, fmt.Errorf("validate artifacts failed")
+		}
+		res[stepName] = step
+	}
+	return res, nil
 }
 
 // 将yaml解析为map
@@ -217,7 +234,9 @@ func (wfs *WorkflowSource) validateStepCacheByMap(yamlMap map[string]interface{}
 }
 
 func ParseWorkflowSource(runYaml []byte) (WorkflowSource, error) {
-	var wfs WorkflowSource
+	wfs := WorkflowSource{
+		FailureOptions: FailureOptions{Strategy: FailureStrategyFailFast},
+	}
 	if err := yaml.Unmarshal(runYaml, &wfs); err != nil {
 		return WorkflowSource{}, err
 	}

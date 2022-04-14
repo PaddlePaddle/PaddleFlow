@@ -41,18 +41,19 @@ type Run struct {
 	FsID           string                 `gorm:"type:varchar(60);not null"         json:"-"`
 	FsName         string                 `gorm:"type:varchar(60);not null"         json:"fsname"`
 	Description    string                 `gorm:"type:text;size:65535;not null"     json:"description"`
-	ParamRaw       string                 `gorm:"type:text;size:65535"              json:"-"`
-	Param          map[string]interface{} `gorm:"-"                                 json:"param"`
+	ParametersJson string                 `gorm:"type:text;size:65535"              json:"-"`
+	Parameters     map[string]interface{} `gorm:"-"                                 json:"parameters"`
 	RunYaml        string                 `gorm:"type:text;size:65535"              json:"runYaml"`
 	WorkflowSource schema.WorkflowSource  `gorm:"-"                                 json:"-"` // RunYaml's dynamic struct
-	RuntimeRaw     string                 `gorm:"type:text;size:65535"              json:"-"`
-	Runtime        schema.RuntimeView     `gorm:"-"                                 json:"runtime"` // RuntimeRaw's struct
-	ImageUrl       string                 `gorm:"type:varchar(128)"                 json:"imageUrl"`
+	Runtime        schema.RuntimeView     `gorm:"-"                                 json:"runtime"`
+	PostProcess    schema.PostProcessView `gorm:"-"                                 json:"postProcess"`
+	FailureOptions schema.FailureOptions  `gorm:"-"                                 json:"failureOptions"`
+	DockerEnv      string                 `gorm:"type:varchar(128)"                 json:"dockerEnv"`
 	Entry          string                 `gorm:"type:varchar(256)"                 json:"entry"`
 	Disabled       string                 `gorm:"type:text;size:65535"              json:"disabled"`
 	Message        string                 `gorm:"type:text;size:65535"              json:"runMsg"`
 	Status         string                 `gorm:"type:varchar(32)"                  json:"status"` // StatusRun%%%
-	RunCacheIDs    string                 `gorm:"type:text;size:65535"              json:"runCacheIDs"`
+	RunCachedIDs   string                 `gorm:"type:text;size:65535"              json:"runCachedIDs"`
 	CreateTime     string                 `gorm:"-"                                 json:"createTime"`
 	ActivateTime   string                 `gorm:"-"                                 json:"activateTime"`
 	UpdateTime     string                 `gorm:"-"                                 json:"updateTime,omitempty"`
@@ -67,7 +68,7 @@ func (Run) TableName() string {
 }
 
 func (r *Run) GetRunCacheIDList() []string {
-	res := strings.Split(r.RunCacheIDs, common.SeparatorComma)
+	res := strings.Split(r.RunCachedIDs, common.SeparatorComma)
 	// 去掉空字符串
 	for i := 0; i < len(res); i++ {
 		if res[i] == "" {
@@ -79,53 +80,84 @@ func (r *Run) GetRunCacheIDList() []string {
 }
 
 func (r *Run) Encode() error {
-	// encode runtime
-	if r.Runtime != nil {
-		runtimeRaw, err := json.Marshal(r.Runtime)
-		if err != nil {
-			logger.LoggerForRun(r.ID).Errorf("encode run runtime failed. error:%v", err)
-			return err
-		}
-		r.RuntimeRaw = string(runtimeRaw)
-	}
-
 	// encode param
-	if r.Param != nil {
-		paramRaw, err := json.Marshal(r.Param)
+	if r.Parameters != nil {
+		paramRaw, err := json.Marshal(r.Parameters)
 		if err != nil {
 			logger.LoggerForRun(r.ID).Errorf("encode run param failed. error:%v", err)
 			return err
 		}
-		r.ParamRaw = string(paramRaw)
+		r.ParametersJson = string(paramRaw)
 	}
 	return nil
 }
 
 func (r *Run) decode() error {
-	// decode runtime
-	if len(r.RuntimeRaw) > 0 {
-		runtime := make(schema.RuntimeView, 0)
-		if err := json.Unmarshal([]byte(r.RuntimeRaw), &runtime); err != nil {
-			logger.LoggerForRun(r.ID).Errorf("decode run runtime failed. error:%v", err)
-			return err
-		}
-		r.Runtime = runtime
+	// decode WorkflowSource
+	workflowSource, err := schema.ParseWorkflowSource([]byte(r.RunYaml))
+	if err != nil {
+		return err
+	}
+	r.WorkflowSource = workflowSource
+
+	r.validateFailureOptions()
+
+	// 由于在所有获取Run的函数中，都需要进行decode，因此Runtime和PostProcess的赋值也在decode中进行
+	if err := r.validateRuntimeAndPostProcess(); err != nil {
+		return err
 	}
 
 	// decode param
-	if len(r.ParamRaw) > 0 {
+	if len(r.ParametersJson) > 0 {
 		param := map[string]interface{}{}
-		if err := json.Unmarshal([]byte(r.ParamRaw), &param); err != nil {
+		if err := json.Unmarshal([]byte(r.ParametersJson), &param); err != nil {
 			logger.LoggerForRun(r.ID).Errorf("decode run param failed. error:%v", err)
 			return err
 		}
-		r.Param = param
+		r.Parameters = param
 	}
 	// format time
 	r.CreateTime = r.CreatedAt.Format("2006-01-02 15:04:05")
 	r.UpdateTime = r.UpdatedAt.Format("2006-01-02 15:04:05")
 	if r.ActivatedAt.Valid {
 		r.ActivateTime = r.ActivatedAt.Time.Format("2006-01-02 15:04:05")
+	}
+	return nil
+}
+
+func (r *Run) validateFailureOptions() {
+	logger.Logger().Infof("Strategy is %v", r.WorkflowSource.FailureOptions.Strategy)
+	if r.WorkflowSource.FailureOptions.Strategy == "" {
+		r.FailureOptions.Strategy = schema.FailureStrategyFailFast
+	} else {
+		r.FailureOptions.Strategy = r.WorkflowSource.FailureOptions.Strategy
+	}
+}
+
+// validate runtime and postProcess
+func (r *Run) validateRuntimeAndPostProcess() error {
+	if r.Runtime == nil {
+		r.Runtime = schema.RuntimeView{}
+	}
+	if r.PostProcess == nil {
+		r.PostProcess = schema.PostProcessView{}
+	}
+	// 从数据库中获取该Run的所有Step发起的Job
+	runJobs, err := GetRunJobsOfRun(logger.LoggerForRun(r.ID), r.ID)
+	if err != nil {
+		return err
+	}
+	// 将所有run_job转换成JobView之后，赋值给Runtime和PostProcess
+	for _, job := range runJobs {
+		if step, ok := r.WorkflowSource.PostProcess[job.StepName]; ok {
+			jobView := job.ParseJobView(step)
+			r.PostProcess[job.StepName] = jobView
+		} else if step, ok := r.WorkflowSource.EntryPoints[job.StepName]; ok {
+			jobView := job.ParseJobView(step)
+			r.Runtime[job.StepName] = jobView
+		} else {
+			return fmt.Errorf("cannot find step[%s] in either entry_points or post_process", job.StepName)
+		}
 	}
 	return nil
 }
@@ -150,6 +182,7 @@ func CreateRun(logEntry *log.Entry, run *Run) (string, error) {
 		}
 		return nil
 	})
+
 	return run.ID, err
 }
 
@@ -177,13 +210,22 @@ func UpdateRun(logEntry *log.Entry, runID string, run Run) error {
 
 func DeleteRun(logEntry *log.Entry, runID string) error {
 	logEntry.Debugf("begin delete run. runID:%s", runID)
-	tx := database.DB.Model(&Run{}).Unscoped().Where("id = ?", runID).Delete(&Run{})
-	if tx.Error != nil {
-		logEntry.Errorf("delete run failed. runID:%s, error:%s",
-			runID, tx.Error.Error())
-		return tx.Error
-	}
-	return nil
+	err := withTransaction(database.DB, func(tx *gorm.DB) error {
+		result := database.DB.Model(&RunJob{}).Where("run_id = ?", runID).Delete(&RunJob{})
+		if result.Error != nil {
+			logEntry.Errorf("delete run_job before deleting run failed. runID:%s, error:%s",
+				runID, result.Error.Error())
+			return result.Error
+		}
+		result = database.DB.Model(&Run{}).Where("id = ?", runID).Delete(&Run{})
+		if result.Error != nil {
+			logEntry.Errorf("delete run failed. runID:%s, error:%s",
+				runID, result.Error.Error())
+			return result.Error
+		}
+		return nil
+	})
+	return err
 }
 
 func GetRunByID(logEntry *log.Entry, runID string) (Run, error) {
