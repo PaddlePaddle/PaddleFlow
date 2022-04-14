@@ -19,6 +19,7 @@ package k8s
 import (
 	"fmt"
 
+	wfv1 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
 	paddlejobv1 "github.com/paddleflow/paddle-operator/api/v1"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
@@ -40,6 +41,8 @@ func ConvertToStatus(obj interface{}, gvk k8sschema.GroupVersionKind) (interface
 		realStatus = &batchv1alpha1.JobStatus{}
 	case PaddleJobGVK:
 		realStatus = &paddlejobv1.PaddleJobStatus{}
+	case ArgoWorkflowGVK:
+		realStatus = &wfv1.WorkflowStatus{}
 	case PodGVK:
 		realStatus = &v1.PodStatus{}
 	default:
@@ -243,6 +246,44 @@ func getSingleJobStatus(phase v1.PodPhase) (schema.JobStatus, error) {
 		status = schema.StatusJobFailed
 	default:
 		return status, fmt.Errorf("unexpected single job status: %s", phase)
+	}
+	return status, nil
+}
+
+// ArgoWorkflowStatus get argo workflow status, message from interface{}, and covert to JobStatus
+func ArgoWorkflowStatus(obj interface{}) (StatusInfo, error) {
+	status, err := ConvertToStatus(obj, ArgoWorkflowGVK)
+	if err != nil {
+		log.Errorf("convert ArgoWorkflow status failed, err: %v", err)
+		return StatusInfo{}, err
+	}
+	wfStatus := status.(*wfv1.WorkflowStatus)
+	state, err := getArgoWorkflowStatus(wfStatus.Phase)
+	if err != nil {
+		log.Errorf("get ArgoWorkflow status failed, err: %v", err)
+		return StatusInfo{}, err
+	}
+	log.Infof("ArgoWorkflow status: %s", state)
+	return StatusInfo{
+		OriginStatus: string(wfStatus.Phase),
+		Status:       state,
+		Message:      "",
+	}, nil
+}
+
+func getArgoWorkflowStatus(phase wfv1.NodePhase) (schema.JobStatus, error) {
+	status := schema.JobStatus("")
+	switch phase {
+	case wfv1.NodePending, wfv1.NodeOmitted, wfv1.NodeSkipped:
+		status = schema.StatusJobPending
+	case wfv1.NodeRunning:
+		status = schema.StatusJobRunning
+	case wfv1.NodeSucceeded:
+		status = schema.StatusJobSucceeded
+	case wfv1.NodeFailed, wfv1.NodeError:
+		status = schema.StatusJobFailed
+	default:
+		return status, fmt.Errorf("unexpected ArgoWorkflow status: %s", phase)
 	}
 	return status, nil
 }

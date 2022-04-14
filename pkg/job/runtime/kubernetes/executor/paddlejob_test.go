@@ -92,7 +92,7 @@ func TestPatchPaddleJobVariable(t *testing.T) {
 		},
 	}
 
-	var server = httptest.NewServer(DiscoveryHandlerFunc)
+	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
 	defer server.Close()
 	dynamicClient := newFakeDynamicClient(server)
 
