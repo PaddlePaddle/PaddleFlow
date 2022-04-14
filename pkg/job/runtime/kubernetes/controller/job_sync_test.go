@@ -18,16 +18,18 @@ package controller
 
 import (
 	"context"
-	"k8s.io/apimachinery/pkg/types"
 	"net/http/httptest"
 	"testing"
 	"time"
 
+	wfv1 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
+	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	fakedynamicclient "k8s.io/client-go/dynamic/fake"
@@ -45,7 +47,7 @@ func newFakeJobSyncController() *JobSync {
 	scheme := runtime.NewScheme()
 	dynamicClient := fakedynamicclient.NewSimpleDynamicClient(scheme)
 
-	var server = httptest.NewServer(DiscoveryHandlerFunc)
+	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
 	defer server.Close()
 	fakeDiscovery := discovery.NewDiscoveryClientForConfigOrDie(&restclient.Config{Host: server.URL})
 
@@ -55,7 +57,10 @@ func newFakeJobSyncController() *JobSync {
 		DynamicFactory:  dynamicinformer.NewDynamicSharedInformerFactory(dynamicClient, 0),
 		DiscoveryClient: fakeDiscovery,
 	}
-	ctrl.Initialize(opt)
+	err := ctrl.Initialize(opt)
+	if err != nil {
+		log.Errorf("initialize controller failed: %v", err)
+	}
 	return ctrl
 }
 
@@ -65,8 +70,8 @@ func TestJobSyncVCJob(t *testing.T) {
 		namespace string
 		oldObj    *unstructured.Unstructured
 		newObj    *unstructured.Unstructured
-		oldStatus *batchv1alpha1.JobStatus
-		newStatus *batchv1alpha1.JobStatus
+		oldStatus interface{}
+		newStatus interface{}
 	}{
 		{
 			name:      "vcjob status from pending turn to running",
@@ -106,6 +111,30 @@ func TestJobSyncVCJob(t *testing.T) {
 				},
 				Pending: 1,
 				Running: 1,
+			},
+		},
+		{
+			name:      "ArgoWorkflow status from pending turn to running",
+			namespace: "default",
+			oldObj:    NewUnstructured(k8s.ArgoWorkflowGVK, "default", "argowf1"),
+			oldStatus: &wfv1.WorkflowStatus{
+				Phase: wfv1.NodePending,
+			},
+			newObj: NewUnstructured(k8s.ArgoWorkflowGVK, "default", "argowf1"),
+			newStatus: &wfv1.WorkflowStatus{
+				Phase: wfv1.NodeRunning,
+			},
+		},
+		{
+			name:      "ArgoWorkflow status from running turn to failed",
+			namespace: "default",
+			oldObj:    NewUnstructured(k8s.ArgoWorkflowGVK, "default", "argowf2"),
+			oldStatus: &wfv1.WorkflowStatus{
+				Phase: wfv1.NodeRunning,
+			},
+			newObj: NewUnstructured(k8s.ArgoWorkflowGVK, "default", "argowf2"),
+			newStatus: &wfv1.WorkflowStatus{
+				Phase: wfv1.NodePending,
 			},
 		},
 	}

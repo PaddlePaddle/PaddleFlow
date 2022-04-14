@@ -323,7 +323,7 @@ func getJobByTask(obj *unstructured.Unstructured) string {
 	}
 	ownerReference := ownerReferences[0]
 	gvk := k8sschema.FromAPIVersionAndKind(ownerReference.APIVersion, ownerReference.Kind)
-	_, find := k8s.GVKToJobType[gvk]
+	_, find := k8s.GVKJobStatusMap[gvk]
 	if !find {
 		return ""
 	}
