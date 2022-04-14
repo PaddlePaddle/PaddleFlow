@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-MyConfigParserCopyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -15,19 +15,7 @@ limitations under the License.
 """
 
 import re
-from configparser import ConfigParser
 from typing import Union
-
-class CaseSensitiveConfigParser(ConfigParser):
-    """ All options are changed into lower case in default ConfigParser.
-        Hence, configParser are overwrited.
-    """
-    def __init__(self, **kwargs):
-        ConfigParser.__init__(self, **kwargs)
-
-    # just for case sensitive
-    def optionxform(self, optionstr):
-        return optionstr
 
 
 def validate_string_by_regex(string: str, regex: str):

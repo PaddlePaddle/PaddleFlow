@@ -96,3 +96,35 @@ class OutputArtifactDict(dict):
 
         value.set_base_info(step=self.__step, name=key)
         super().__setitem__(key, value)
+
+
+class EnvDict(dict):
+    """ To manager envrionment varible of step or pipeline
+    """
+    def __init__(self, obj: Any):
+        """ create an new EnvDict instance
+
+        Args:
+            obj (Any): the step which owner this OutputArtifactDict instance
+        """
+        self.__obj = obj
+    
+    def __setitem__(self, key:str, value: str):
+        """ magic function __setitem__
+        """
+        
+        if not isinstance(key, str):
+            err_msg = f"the name of envrionment varible of obj[{self.__obj.name}] should be an instance of string," + \
+                f" but it is{type(key)}"
+            raise PaddleFlowSDKException(PipelineDSLError, err_msg)
+        
+        if not isinstance(value, str):
+            err_msg = f"the value of env[{key}] of obj[{self.__obj.name}] should be an instances of string"
+            raise PaddleFlowSDKException(PipelineDSLError, err_msg)
+
+        if not validate_string_by_regex(key, VARIBLE_NAME_REGEX):
+                err_msg =  f"the name of env[{key}] of obj[{self.__obj.name}] is illegal, the regex used for validation" + \
+                    f" is {VARIBLE_NAME_REGEX}"
+                raise PaddleFlowSDKException(PipelineDSLError, err_msg)
+        
+        super().__setitem__(key, value)

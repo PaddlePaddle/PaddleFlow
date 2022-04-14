@@ -38,7 +38,7 @@ class StepCompiler(object):
         self._step = step
         self._step_dict = {}
 
-        # 1. compiler base info such as command, image, env and so on
+        # 1. compiler base info such as command, docker_env, env and so on
         self._compile_base_info() 
 
         # 2. compiler artifact
@@ -56,17 +56,19 @@ class StepCompiler(object):
         return self._step_dict
    
     def _compile_base_info(self):
-        """ compiler base info such as command, image, env
+        """ compiler base info such as command, docker_env, env
         """
         attr_to_filed = {
                 "command": "command",
-                "image": "image", 
-                "env": "env",
+                "docker_env": "docker_env", 
                 }
 
         for attr, filed in attr_to_filed.items():
             if getattr(self._step, attr, None):
                 self._step_dict[filed] = getattr(self._step, attr, None)
+
+        if self._step.env: 
+            self._step_dict["env"] = dict(self._step.env)
 
     def _compile_artifact(self):
         """ compiler artifact
@@ -114,9 +116,9 @@ class StepCompiler(object):
     def _compile_params(self):
         """ compile paramter
         """
-        if self._step.params:
+        if self._step.parameters:
             self._step_dict["parameters"] = {}
-            for name, param in self._step.params.items():
+            for name, param in self._step.parameters.items():
                 self._step_dict["parameters"][name] = param.compile()
 
     def _compile_dependences(self):
