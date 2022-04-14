@@ -74,9 +74,8 @@ func (f *DBFSCache) ListFSCaches(fsID, cacheID string) ([]FSCache, error) {
 	err := f.db.Table("fs_cache").Find(&fsCaches).Error
 	if err != nil {
 		return nil, err
-	} else {
-		return fsCaches, nil
 	}
+	return fsCaches, nil
 }
 
 func (f *DBFSCache) UpdateFSCache() error {
