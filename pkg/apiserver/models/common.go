@@ -42,6 +42,7 @@ const (
 	ID            = "id"
 	FsID          = "fs_id"
 	FsPath        = "fs_path"
+	FSCacheID     = "cache_id"
 	Address       = "address"
 	UserName      = "user_name"
 	FsName        = "name"
