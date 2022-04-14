@@ -31,7 +31,6 @@ import (
 
 	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/common/config"
-	"paddleflow/pkg/common/database"
 )
 
 // data init for sqllite
@@ -99,18 +98,7 @@ func InitDatabase(dbConf *config.DatabaseConfig, gormConf *gorm.Config, logLevel
 }
 
 func InitMockDB() {
-	// github.com/mattn/go-sqlite3
-	db, err := gorm.Open(sqlite.Open("file::memory:"), &gorm.Config{
-		// print sql
-		Logger: logger.Default.LogMode(logger.Info),
-	})
-	if err != nil {
-		log.Fatalf("InitMockDB open db error: %v", err)
-	}
-	if err := createDatabaseTables(db); err != nil {
-		log.Fatalf("InitMockDB createDatabaseTables error[%s]", err.Error())
-	}
-	database.DB = db
+	models.InitMockDB()
 }
 
 func initSQLiteDB(dbConf *config.DatabaseConfig, gormConf *gorm.Config) *gorm.DB {
@@ -172,6 +160,6 @@ func createDatabaseTables(db *gorm.DB) error {
 		&models.FileSystem{},
 		&models.Link{},
 		&models.FSCacheConfig{},
-		&models.FSCacheWorker{},
+		&models.FSCache{},
 	)
 }

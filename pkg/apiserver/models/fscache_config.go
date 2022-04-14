@@ -22,23 +22,21 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
-
-	"paddleflow/pkg/common/database"
 )
 
 type FSCacheConfig struct {
-	PK                      int64                  `json:"-"                   gorm:"primaryKey;autoIncrement"`
-	FsID                    string                 `json:"fsID"                gorm:"type:varchar(36);unique_index"`
+	PK                      int64                  `json:"-" gorm:"primaryKey;autoIncrement"`
+	FSID                    string                 `json:"fsID" gorm:"type:varchar(36);column:fs_id"`
 	CacheDir                string                 `json:"cacheDir"`
 	Quota                   int                    `json:"quota"`
-	CacheType               string                 `json:"cacheType"`
+	CacheType               string                 `json:"cacheType" gorm:"column:cache_type"`
 	BlockSize               int                    `json:"blockSize"`
-	NodeAffinityJson        string                 `json:"-"                   gorm:"column:node_affinity;type:text;default:'{}'"`
-	NodeAffinityMap         map[string]interface{} `json:"nodeAffinity"        gorm:"-"`
-	NodeTaintTolerationJson string                 `json:"-"                   gorm:"column:node_tainttoleration;type:text;default:'{}'"`
+	NodeAffinityJson        string                 `json:"-" gorm:"column:node_affinity;type:text;default:'{}'"`
+	NodeAffinityMap         map[string]interface{} `json:"nodeAffinity" gorm:"-"`
+	NodeTaintTolerationJson string                 `json:"-" gorm:"column:node_tainttoleration;type:text;default:'{}'"`
 	NodeTaintTolerationMap  map[string]interface{} `json:"nodeTaintToleration" gorm:"-"`
-	ExtraConfigJson         string                 `json:"-"                   gorm:"column:extra_config;type:text;default:'{}'"`
-	ExtraConfigMap          map[string]string      `json:"extraConfig"         gorm:"-"`
+	ExtraConfigJson         string                 `json:"-" gorm:"column:extra_config;type:text;default:'{}'"`
+	ExtraConfigMap          map[string]string      `json:"extraConfig" gorm:"-"`
 	CreatedAt               time.Time              `json:"createTime"`
 	UpdatedAt               time.Time              `json:"updateTime,omitempty"`
 	DeletedAt               gorm.DeletedAt         `json:"deleteTime,omitempty"`
@@ -96,49 +94,4 @@ func (s *FSCacheConfig) BeforeSave(*gorm.DB) error {
 	}
 	s.ExtraConfigJson = string(extraConfigMap)
 	return nil
-}
-
-func CreateFSCacheConfig(logEntry *log.Entry, fsCacheConfig *FSCacheConfig) error {
-	logEntry.Debugf("begin create fsCacheConfig:%+v", fsCacheConfig)
-	err := database.DB.Model(&FSCacheConfig{}).Create(fsCacheConfig).Error
-	if err != nil {
-		logEntry.Errorf("create fsCacheConfig failed. fsCacheConfig:%v, error:%s",
-			fsCacheConfig, err.Error())
-		return err
-	}
-	return nil
-}
-
-func UpdateFSCacheConfig(logEntry *log.Entry, fsCacheConfig FSCacheConfig) error {
-	logEntry.Debugf("begin update fsCacheConfig fsCacheConfig. fsID:%s", fsCacheConfig.FsID)
-	tx := database.DB.Model(&FSCacheConfig{}).Where(&FSCacheConfig{FsID: fsCacheConfig.FsID}).Updates(fsCacheConfig)
-	if tx.Error != nil {
-		logEntry.Errorf("update fsCacheConfig failed. fsCacheConfig.ID:%s, error:%s",
-			fsCacheConfig.FsID, tx.Error.Error())
-		return tx.Error
-	}
-	return nil
-}
-
-func DeleteFSCacheConfig(logEntry *log.Entry, fsID string) error {
-	logEntry.Debugf("begin delete fsCacheConfig. fsID:%s", fsID)
-	tx := database.DB.Model(&FSCacheConfig{}).Unscoped().Where(&FSCacheConfig{FsID: fsID}).Delete(&FSCacheConfig{})
-	if tx.Error != nil {
-		logEntry.Errorf("delete fsCacheConfig failed. fsID:%s, error:%s",
-			fsID, tx.Error.Error())
-		return tx.Error
-	}
-	return nil
-}
-
-func GetFSCacheConfig(logEntry *log.Entry, fsID string) (FSCacheConfig, error) {
-	logEntry.Debugf("begin get fsCacheConfig. fsID:%s", fsID)
-	var fsCacheConfig FSCacheConfig
-	tx := database.DB.Model(&FSCacheConfig{}).Where(&FSCacheConfig{FsID: fsID}).First(&fsCacheConfig)
-	if tx.Error != nil {
-		logEntry.Errorf("get fsCacheConfig failed. fsID:%s, error:%s",
-			fsID, tx.Error.Error())
-		return FSCacheConfig{}, tx.Error
-	}
-	return fsCacheConfig, nil
 }
