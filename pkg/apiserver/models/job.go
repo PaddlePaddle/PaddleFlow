@@ -33,7 +33,7 @@ import (
 
 type Job struct {
 	Pk                int64            `json:"-" gorm:"primaryKey;autoIncrement"`
-	ID                string           `json:"jobID" gorm:"type:varchar(60);uniqueIndex;NOT NULL"`
+	ID                string           `json:"jobID" gorm:"type:varchar(60);index:idx_id,unique;NOT NULL"`
 	Name              string           `json:"jobName" gorm:"type:varchar(512);default:''"`
 	UserName          string           `json:"userName" gorm:"NOT NULL"`
 	QueueID           string           `json:"queueID" gorm:"NOT NULL"`
@@ -52,7 +52,7 @@ type Job struct {
 	CreatedAt         time.Time        `json:"createTime"`
 	ActivatedAt       sql.NullTime     `json:"activateTime"`
 	UpdatedAt         time.Time        `json:"updateTime,omitempty"`
-	DeletedAt         gorm.DeletedAt   `json:"-" gorm:"index"`
+	DeletedAt         gorm.DeletedAt   `json:"-" gorm:"index:idx_id"`
 }
 
 type Member struct {
