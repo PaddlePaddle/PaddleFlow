@@ -85,7 +85,7 @@ const (
 	FlavourInvalidField = "FlavourInvalidField" // 资源套餐名称为空
 
 	JobInvalidField = "JobInvalidField" // job field invalid
-	JobSubmitFailed = "JobSubmitFailed" // job submit failed
+	JobCreateFailed = "JobCreateFailed" // job create failed
 
 	ClusterNameNotFound      = "ClusterNameNotFound"
 	ClusterIdNotFound        = "ClusterIdNotFound"
@@ -182,7 +182,7 @@ var errorHTTPStatus = map[string]int{
 	FlavourInvalidField: http.StatusBadRequest,
 
 	JobInvalidField: http.StatusBadRequest,
-	JobSubmitFailed: http.StatusBadRequest,
+	JobCreateFailed: http.StatusBadRequest,
 
 	ClusterNameNotFound:      http.StatusBadRequest,
 	ClusterIdNotFound:        http.StatusBadRequest,
@@ -262,7 +262,7 @@ var errorMessage = map[string]string{
 	FlavourNameEmpty: "flavour name should not be empty",
 
 	JobInvalidField: "job field invalid",
-	JobSubmitFailed: "job submit failed",
+	JobCreateFailed: "job create failed",
 
 	RunNameDuplicated:     "Run name already exists",
 	RunNotFound:           "RunID not found",

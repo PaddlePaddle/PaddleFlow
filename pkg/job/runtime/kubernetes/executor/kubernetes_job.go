@@ -104,26 +104,9 @@ func NewKubeJob(job *api.PFJob, dynamicClientOpt *k8s.DynamicClientOption) (api.
 	}
 
 	switch job.JobType {
-	case schema.TypeSparkJob:
-		kubeJob.GroupVersionKind = k8s.SparkAppGVK
-		return &SparkJob{
-			KubeJob:          kubeJob,
-			SparkMainFile:    job.Conf.Env[schema.EnvJobSparkMainFile],
-			SparkMainClass:   job.Conf.Env[schema.EnvJobSparkMainClass],
-			SparkArguments:   job.Conf.Env[schema.EnvJobSparkArguments],
-			DriverFlavour:    job.Conf.Env[schema.EnvJobDriverFlavour],
-			ExecutorFlavour:  job.Conf.Env[schema.EnvJobExecutorFlavour],
-			ExecutorReplicas: job.Conf.Env[schema.EnvJobExecutorReplicas],
-		}, nil
 	case schema.TypeVcJob:
 		kubeJob.GroupVersionKind = k8s.VCJobGVK
 		return &VCJob{
-			KubeJob:       kubeJob,
-			JobModeParams: newJobModeParams(job.Conf),
-		}, nil
-	case schema.TypePaddleJob:
-		kubeJob.GroupVersionKind = k8s.PaddleJobGVK
-		return &PaddleJob{
 			KubeJob:       kubeJob,
 			JobModeParams: newJobModeParams(job.Conf),
 		}, nil
@@ -136,7 +119,34 @@ func NewKubeJob(job *api.PFJob, dynamicClientOpt *k8s.DynamicClientOption) (api.
 			KubeJob: kubeJob,
 			Flavour: job.Conf.Flavour,
 		}, nil
+	case schema.TypeDistributed:
+		return newFrameJob(kubeJob, job)
+	case schema.TypeWorkflow:
+		return nil, fmt.Errorf("workflow job to be support in future")
+	default:
+		return nil, fmt.Errorf("kubernetes job type[%s] is not supported", job.Conf.Type())
+	}
+}
 
+func newFrameJob(kubeJob KubeJob, job *api.PFJob) (api.PFJobInterface, error) {
+	switch job.Framework {
+	case schema.FrameworkSpark:
+		kubeJob.GroupVersionKind = k8s.SparkAppGVK
+		return &SparkJob{
+			KubeJob:          kubeJob,
+			SparkMainFile:    job.Conf.Env[schema.EnvJobSparkMainFile],
+			SparkMainClass:   job.Conf.Env[schema.EnvJobSparkMainClass],
+			SparkArguments:   job.Conf.Env[schema.EnvJobSparkArguments],
+			DriverFlavour:    job.Conf.Env[schema.EnvJobDriverFlavour],
+			ExecutorFlavour:  job.Conf.Env[schema.EnvJobExecutorFlavour],
+			ExecutorReplicas: job.Conf.Env[schema.EnvJobExecutorReplicas],
+		}, nil
+	case schema.FrameworkPaddle:
+		kubeJob.GroupVersionKind = k8s.PaddleJobGVK
+		return &PaddleJob{
+			KubeJob:       kubeJob,
+			JobModeParams: newJobModeParams(job.Conf),
+		}, nil
 	default:
 		return nil, fmt.Errorf("kubernetes job type[%s] is not supported", job.Conf.Type())
 	}
