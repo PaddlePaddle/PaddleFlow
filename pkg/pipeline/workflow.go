@@ -489,7 +489,7 @@ func (bwf *BaseWorkflow) checkPostProcess() error {
 func checkPostProcessParam(param interface{}) error {
 	switch param := param.(type) {
 	case string:
-		pattern := RegExpIncludingTpl
+		pattern := RegExpIncludingUpstreamTpl
 		reg := regexp.MustCompile(pattern)
 		matches := reg.FindStringSubmatch(param)
 		if len(matches) > 0 {
