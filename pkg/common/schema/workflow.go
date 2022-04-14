@@ -143,26 +143,29 @@ func (wfs *WorkflowSource) HasStep(step string) bool {
 // 该函数的作用是将WorkflowSource中的Slice类型的输出Artifact改为Map类型。
 // 这样做的原因是：之前的run.yaml中（ver.1.3.2之前），输出Artifact为Map类型，而现在为了支持Cache的优化，改为Slice类型
 func (wfs *WorkflowSource) validateArtifacts() error {
-	if err := validateArtifactsOfSteps(wfs.EntryPoints); err != nil {
+	steps, err := parseArtifactsOfSteps(wfs.EntryPoints)
+	if err != nil {
 		return err
 	}
-	if err := validateArtifactsOfSteps(wfs.PostProcess); err != nil {
+	wfs.EntryPoints = steps
+
+	steps, err = parseArtifactsOfSteps(wfs.PostProcess)
+	if err != nil {
 		return err
 	}
+	wfs.PostProcess = steps
 	return nil
 }
 
-func validateArtifactsOfSteps(steps map[string]*WorkflowSourceStep) error {
-	if steps == nil {
-		steps = make(map[string]*WorkflowSourceStep)
-	}
+func parseArtifactsOfSteps(steps map[string]*WorkflowSourceStep) (map[string]*WorkflowSourceStep, error) {
+	res := map[string]*WorkflowSourceStep{}
 	for stepName, step := range steps {
 		if err := step.Artifacts.ValidateOutputMapByList(); err != nil {
-			return fmt.Errorf("validate artifacts failed")
+			return map[string]*WorkflowSourceStep{}, fmt.Errorf("validate artifacts failed")
 		}
-		steps[stepName] = step
+		res[stepName] = step
 	}
-	return nil
+	return res, nil
 }
 
 // 将yaml解析为map
