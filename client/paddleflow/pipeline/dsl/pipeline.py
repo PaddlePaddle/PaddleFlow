@@ -152,7 +152,7 @@ class Pipeline(object):
         names = list(self._steps.keys()) + list(self._post_process.keys())
         if name in names:
             raise PaddleFlowSDKException(PipelineDSLError, self.__error_msg_prefix + \
-                f"there are multiple steps with the same name[name]")
+                f"there are multiple steps with the same name[{name}]")
     
     def run(
             self,
