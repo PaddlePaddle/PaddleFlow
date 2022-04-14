@@ -55,8 +55,18 @@ entry_points:
       input:
         data: "{{ data-preprocess.validate_data }}"
         model: "{{ main.train_model }}"
+post_process:
+  mail:
+    command: "echo {{msg}}"
+    parameters:
+      msg: "hahaha"
+      runtime: "{{PF_RUN_TIME}}"
+
 cache:
   enable: false
   max_expired_time: 400
   fs_scope: "/path/to/run,/path/to/run2"
 parallelism: 5
+
+failure_options:
+  strategy: "fail_fast"

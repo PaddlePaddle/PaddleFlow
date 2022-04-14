@@ -38,9 +38,6 @@ const (
 	noAtfYamlPath         string = "./testcase/runNoAtf.yaml"
 	runWrongParamYamlPath string = "./testcase/runWrongParam.yaml"
 	runCircleYamlPath     string = "./testcase/runCircle.yaml"
-
-	runTwoPostPath     string = "./testcase/runTwoPost.yaml"
-	runPostProcessPath string = "./testcase/runPostProcess.yaml"
 )
 
 var mockCbs = WorkflowCallbacks{
@@ -54,6 +51,19 @@ var mockCbs = WorkflowCallbacks{
 	ListCacheCb: func(firstFp, fsID, step, yamlPath string) ([]models.RunCache, error) {
 		return []models.RunCache{models.RunCache{RunID: "run-000027"}, models.RunCache{RunID: "run-000028"}}, nil
 	},
+}
+
+func loadTwoPostCaseSource() (schema.WorkflowSource, error) {
+	testCase := loadcase(runYamlPath)
+	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
+	if err != nil {
+		return schema.WorkflowSource{}, err
+	}
+	postStep := schema.WorkflowSourceStep{
+		Command: "echo test",
+	}
+	wfs.PostProcess["mail2"] = &postStep
+	return wfs, nil
 }
 
 // extra map里面的value可能会被修改，从而影响后面的case
@@ -152,6 +162,7 @@ func TestCreateNewWorkflowRunDisabled_success(t *testing.T) {
 	wf.runtime.entryPoints["data-preprocess"].disabled = true
 	wf.runtime.entryPoints["main"].disabled = true
 	wf.runtime.entryPoints["validate"].disabled = true
+	wf.runtime.postProcess["mail"].disabled = true
 
 	go wf.Start()
 
@@ -191,8 +202,9 @@ func TestCreateNewWorkflowRun_success(t *testing.T) {
 	wf.runtime.entryPoints["main"].job.(*PaddleFlowJob).Status = schema.StatusJobSucceeded
 	wf.runtime.entryPoints["main"].done = true
 	wf.runtime.entryPoints["validate"].job.(*PaddleFlowJob).Status = schema.StatusJobSucceeded
-
 	wf.runtime.entryPoints["validate"].done = true
+	wf.runtime.postProcess["mail"].done = true
+	wf.runtime.postProcess["mail"].job.(*PaddleFlowJob).Status = schema.StatusJobSucceeded
 
 	go wf.Start()
 
@@ -238,6 +250,7 @@ func TestCreateNewWorkflowRun_failed(t *testing.T) {
 	wf.runtime.entryPoints["data-preprocess"].job.(*PaddleFlowJob).Status = schema.StatusJobFailed
 	wf.runtime.entryPoints["main"].job.(*PaddleFlowJob).Status = schema.StatusJobCancelled
 	wf.runtime.entryPoints["validate"].job.(*PaddleFlowJob).Status = schema.StatusJobCancelled
+	wf.runtime.postProcess["mail"].job.(*PaddleFlowJob).Status = schema.StatusJobFailed
 
 	go wf.Start()
 	time.Sleep(time.Millisecond * 10)
@@ -288,10 +301,12 @@ func TestStopWorkflowRun(t *testing.T) {
 	wf.runtime.entryPoints["data-preprocess"].done = true
 	wf.runtime.entryPoints["main"].done = true
 	wf.runtime.entryPoints["validate"].done = true
+	wf.runtime.postProcess["mail"].done = true
 
 	wf.runtime.entryPoints["data-preprocess"].job.(*PaddleFlowJob).Status = schema.StatusJobSucceeded
 	wf.runtime.entryPoints["main"].job.(*PaddleFlowJob).Status = schema.StatusJobSucceeded
 	wf.runtime.entryPoints["validate"].job.(*PaddleFlowJob).Status = schema.StatusJobTerminated
+	wf.runtime.postProcess["mail"].job.(*PaddleFlowJob).Status = schema.StatusJobSucceeded
 
 	go wf.Start()
 	time.Sleep(time.Millisecond * 10)
@@ -818,8 +833,7 @@ func TestRestartWorkflow_from1completed(t *testing.T) {
 
 func TestCheckPostProcess(t *testing.T) {
 	dbinit.InitMockDB()
-	testCase := loadcase(runTwoPostPath)
-	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
+	wfs, err := loadTwoPostCaseSource()
 	assert.Nil(t, err)
 
 	extra := GetExtra()
@@ -828,8 +842,8 @@ func TestCheckPostProcess(t *testing.T) {
 	assert.NotNil(t, err)
 	assert.Equal(t, "post_process can only has 1 step at most", err.Error())
 
-	testCase = loadcase(runPostProcessPath)
-	wfs, err = schema.ParseWorkflowSource([]byte(testCase))
+	yamlByte := loadcase(runYamlPath)
+	wfs, err = schema.ParseWorkflowSource(yamlByte)
 	assert.Nil(t, err)
 
 	extra = GetExtra()
