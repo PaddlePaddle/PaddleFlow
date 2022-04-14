@@ -256,7 +256,7 @@ class Step(object):
             dup_names = (inputs_names & outputs_names) | (inputs_names & params_names) | (outputs_names & params_names)
             
             err_msg = self._generate_error_msg(f"the input/output aritacts and parameters of one " + \
-                    f"Step shoulehave different names, duplicate name is [{dup_names}]")
+                    f"Step should have different names, duplicate name is [{dup_names}]")
             raise PaddleFlowSDKException(PipelineDSLError, err_msg) 
 
 
