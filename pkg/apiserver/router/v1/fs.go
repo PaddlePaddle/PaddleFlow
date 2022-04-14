@@ -51,7 +51,9 @@ func (pr *PFSRouter) AddRouter(r chi.Router) {
 	r.Get("/fs/{fsName}", pr.GetFileSystem)
 	r.Delete("/fs/{fsName}", pr.DeleteFileSystem)
 	r.Post("/fs/claims", pr.CreateFileSystemClaims)
-	r.Post("/fs/cache", pr.CreateFileSystemCache)
+	r.Post("/fs/cache", pr.createFSCacheConfig)
+	r.Put("/fs/cache/{fsName}", pr.updateFSCacheConfig)
+	r.Get("/fs/cache/{fsName}", pr.getFSCacheConfig)
 }
 
 var URLPrefix = map[string]bool{
@@ -455,17 +457,13 @@ func (pr *PFSRouter) GetFileSystem(w http.ResponseWriter, r *http.Request) {
 	log.Debugf("get file system with req[%v] and fileSystemID[%s]", getRequest, fsName)
 
 	fileSystemService := api.GetFileSystemService()
-
-	if getRequest.Username == "" {
-		getRequest.Username = ctx.UserName
-	}
-	err := validateGetFs(&ctx, &getRequest, &fsName)
+	fsID, err := getFsIDAndCheckPermission(&ctx, getRequest.Username, fsName)
 	if err != nil {
-		ctx.Logging().Errorf("validateGetFs error[%v]", err)
+		ctx.Logging().Errorf("getFsIDAndCheckPermission error[%v]", err)
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
-	fsModel, err := fileSystemService.GetFileSystem(&getRequest, fsName)
+	fsModel, err := fileSystemService.GetFileSystem(fsID)
 	if err != nil {
 		ctx.Logging().Errorf("get file system with error[%v]", err)
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
@@ -487,27 +485,6 @@ func fsResponseFromModel(fsModel models.FileSystem) *api.FileSystemResponse {
 		Username:      fsModel.UserName,
 		Properties:    fsModel.PropertiesMap,
 	}
-}
-
-func validateGetFs(ctx *logger.RequestContext, req *api.GetFileSystemRequest, fsID *string) error {
-	if req.Username == "" {
-		req.Username = ctx.UserName
-	}
-
-	if req.Username == "" {
-		ctx.Logging().Error("UserName is empty")
-		ctx.ErrorCode = common.AuthFailed
-		return common.InvalidField("userName", "userName is empty")
-	}
-	if *fsID == "" {
-		ctx.Logging().Error("FsID or FsName is empty")
-		// response to user use fsName not fsID
-		return common.InvalidField("fsName", "fsName is empty")
-	}
-	// trans fsName to real fsID, for user they only use fsName，grpc client may be use fsID
-	*fsID = common.NameToFsID(*fsID, req.Username)
-
-	return nil
 }
 
 // DeleteFileSystem the function that handle the delete file system request
@@ -666,48 +643,15 @@ func validateCreateFileSystemClaims(ctx *logger.RequestContext, req *api.CreateF
 	return nil
 }
 
-// CreateFileSystemCache the function that handle the create file system cache request
-// @Summary CreateFileSystemCache
-// @Description
-// @tag fs
-// @Accept   json
-// @Produce  json
-// @Param request body request.CreateFileSystemCacheRequest true "request body"
-// @Success 200 {object} response.CreateFileSystemCacheResponse
-// @Failure 400 {object} common.ErrorResponse
-// @Failure 404 {object} common.ErrorResponse
-// @Failure 500 {object} common.ErrorResponse
-// @Router /api/paddleflow/v1/fs/cache [post]
-func (pr *PFSRouter) CreateFileSystemCache(w http.ResponseWriter, r *http.Request) {
-	ctx := common.GetRequestContext(r)
-	var createRequest api.CreateFileSystemCache
-	err := common.BindJSON(r, &createRequest)
-	if err != nil {
-		ctx.Logging().Errorf("CreateFileSystemCache bindjson failed. err:%s", err.Error())
-		common.RenderErr(w, ctx.RequestID, common.MalformedJSON)
-		return
+func getFsIDAndCheckPermission(ctx *logger.RequestContext,
+	username, fsName string) (string, error) {
+	var fsID string
+	// concatenate fsID
+	if common.IsRootUser(ctx.UserName) && username != "" {
+		// root user can select fs under other users
+		fsID = common.ID(username, fsName)
+	} else {
+		fsID = common.ID(ctx.UserName, fsName)
 	}
-	ctx.Logging().Debugf("create file system cache with req[%v]", createRequest)
-
-	fileSystemService := api.GetFileSystemService()
-
-	err = validateCreateFileSystemCache(&ctx, &createRequest)
-	if err != nil {
-		ctx.Logging().Errorf("validateDeleteFs error[%v]", err)
-		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
-		return
-	}
-
-	err = fileSystemService.CreateFileSystemCache(&ctx, &createRequest)
-	if err != nil {
-		ctx.Logging().Errorf("create file system cache with service error[%v]", err)
-		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
-		return
-	}
-
-	common.RenderStatus(w, http.StatusOK)
-}
-
-func validateCreateFileSystemCache(ctx *logger.RequestContext, req *api.CreateFileSystemCache) error {
-	return nil
+	return fsID, nil
 }

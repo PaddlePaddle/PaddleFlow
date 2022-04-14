@@ -55,11 +55,10 @@ type DeleteLinkRequest struct {
 }
 
 type GetLinkRequest struct {
-	Marker   string `json:"marker"`
-	MaxKeys  int32  `json:"maxKeys"`
-	Username string `json:"username"`
-	FsID     string `json:"fsID"`
-	FsPath   string `json:"fsPath"`
+	Marker  string `json:"marker"`
+	MaxKeys int32  `json:"maxKeys"`
+	FsID    string `json:"fsID"`
+	FsPath  string `json:"fsPath"`
 }
 
 type GetLinkResponse struct {
@@ -140,10 +139,7 @@ func (s *LinkService) GetLink(req *GetLinkRequest) ([]models.Link, string, error
 			return nil, "", err
 		}
 	} else {
-		if req.Username == common.UserRoot {
-			req.Username = ""
-		}
-		items, err = models.GetLinkWithFsIDFsPathAndUserName(req.FsID, req.FsPath, req.Username)
+		items, err = models.GetLinkWithFsIDAndPath(req.FsID, req.FsPath)
 		if err != nil {
 			log.Errorf("get link models err[%v]", err)
 			return nil, "", err
@@ -152,7 +148,7 @@ func (s *LinkService) GetLink(req *GetLinkRequest) ([]models.Link, string, error
 
 	itemsLen := len(items)
 	if itemsLen == 0 && req.FsPath != "" {
-		log.Errorf("get link with username[%s] fsID[%s] fsPath[%s] failed", req.Username, req.FsID, req.FsPath)
+		log.Errorf("get link with fsID[%s] fsPath[%s] failed", req.FsID, req.FsPath)
 		return []models.Link{}, "", common.New("Link not exist")
 	}
 

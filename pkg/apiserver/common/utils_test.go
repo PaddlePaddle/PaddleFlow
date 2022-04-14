@@ -269,39 +269,3 @@ func TestFSIDToName(t *testing.T) {
 		})
 	}
 }
-
-func TestNameToFsID(t *testing.T) {
-	type args struct {
-		fsName   string
-		userName string
-	}
-	tests := []struct {
-		name string
-		args args
-		want string
-	}{
-		{
-			name: "fsname",
-			args: args{
-				fsName:   "fs-root-sftplll",
-				userName: "root",
-			},
-			want: "fs-root-sftplll",
-		},
-		{
-			name: "fsid",
-			args: args{
-				fsName:   "sftplll",
-				userName: "root",
-			},
-			want: "fs-root-sftplll",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := NameToFsID(tt.args.fsName, tt.args.userName); got != tt.want {
-				t.Errorf("NameToFsID() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
