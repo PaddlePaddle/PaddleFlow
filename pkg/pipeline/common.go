@@ -324,8 +324,8 @@ func (s *StepParamSolver) resolveParamValue(step string, paramName string, param
 // env 支持平台内置参数替换，上游step的parameter依赖替换，当前step的parameter替换
 // command 支持平台内置参数替换，上游step的parameter依赖替换，当前step的parameter替换，当前step内input artifact、当前step内output artifact替换
 func (s *StepParamSolver) resolveRefParam(stepName, param, fieldType string) (interface{}, error) {
-	// regular expression must match case {{ xxx }} like {{ <step_name>.<param_name> }} or {{ PS_RUN_ID }}
-	pattern := `\{\{(\s)*([a-zA-Z0-9-]*\.?[a-zA-Z0-9_]+)?(\s)*\}\}`
+	// regular expression must match case {{ xxx }} like {{ <step-name>.<param_name> }} or {{ PS_RUN_ID }}
+	pattern := RegExpIncludingTpl
 	reg := regexp.MustCompile(pattern)
 
 	matches := reg.FindAllStringSubmatch(param, -1)
@@ -597,7 +597,7 @@ func (s *StepParamChecker) checkParamValue(step string, paramName string, param 
 // command 支持平台内置参数替换，上游step的parameter依赖替换，当前step的parameter替换，当前step内input artifact、当前step内output artifact替换
 func (s *StepParamChecker) resolveRefParam(step, param, fieldType string) error {
 	// regular expression must match case {{ xxx }} like {{ <step-name>.<param_name> }} or {{ PS_RUN_ID }}
-	pattern := `\{\{(\s)*([a-zA-Z0-9-]*\.?[a-zA-Z0-9_]+)?(\s)*\}\}`
+	pattern := RegExpIncludingTpl
 	reg := regexp.MustCompile(pattern)
 	matches := reg.FindAllStringSubmatch(param, -1)
 	for _, row := range matches {

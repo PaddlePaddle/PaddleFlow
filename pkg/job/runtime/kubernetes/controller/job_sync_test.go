@@ -275,7 +275,7 @@ func TestJobSyncPod(t *testing.T) {
 	config.GlobalServerConfig = &config.ServerConfig{
 		Job: config.JobConfig{
 			Reclaim: config.ReclaimConfig{
-				JobPendingTTLSeconds: 1,
+				PendingJobTTLSeconds: 1,
 			},
 		},
 	}

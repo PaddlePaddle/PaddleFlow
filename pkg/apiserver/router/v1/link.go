@@ -472,30 +472,24 @@ func (lr *LinkRouter) GetLink(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	username, fsName := r.URL.Query().Get(util.QueryKeyUserName), chi.URLParam(r, util.QueryFsName)
+	fsID, err := getFsIDAndCheckPermission(&ctx, username, fsName)
+	if err != nil {
+		ctx.Logging().Errorf("GetLink check fs permission failed: [%v]", err)
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+
 	getRequest := &api.GetLinkRequest{
-		FsID:     chi.URLParam(r, util.QueryFsName),
-		Marker:   r.URL.Query().Get(util.QueryKeyMarker),
-		MaxKeys:  int32(maxKeys),
-		Username: r.URL.Query().Get(util.QueryKeyUserName),
-		FsPath:   r.URL.Query().Get(util.QueryFsPath),
+		FsID:    fsID,
+		Marker:  r.URL.Query().Get(util.QueryKeyMarker),
+		MaxKeys: int32(maxKeys),
+		FsPath:  r.URL.Query().Get(util.QueryFsPath),
 	}
 
 	log.Debugf("list file system link with req[%v]", getRequest)
 
 	linkService := api.GetLinkService()
-
-	if getRequest.Username == "" {
-		getRequest.Username = ctx.UserName
-	}
-	if getRequest.Username == "" {
-		ctx.Logging().Error("userName is empty")
-		common.RenderErrWithMessage(w, ctx.RequestID, common.AuthFailed, "userName is empty")
-		return
-	}
-
-	// trans fsName to real fsID, for user they only use fsName，grpc client may be use fsID
-	getRequest.FsID = common.NameToFsID(getRequest.FsID, getRequest.Username)
-
 	listLinks, nextMarker, err := linkService.GetLink(getRequest)
 	if err != nil {
 		ctx.Logging().Errorf("list link with error[%v]", err)
