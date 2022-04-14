@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding:utf8 -*-
 """
 Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
 
@@ -15,15 +13,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-from .pipeline_api import PipelineServiceApi
-from .pipeline_info import PipelineInfo
+VARIBLE_NAME_REGEX = "^[a-zA-Z][a-zA-Z0-9_]*$"
 
-from .dsl import CacheOptions
-from .dsl import FailureOptions
-from .dsl import Artifact
-from .dsl import Parameter
-from .dsl import ContainerStep
-from .dsl import Pipeline
-from .dsl import FAIL_CONTINUE
-from .dsl import FAIL_FAST
-from .dsl.sys_params import *
+PIPELINE_NAME_REGEX = "^[A-Za-z_][A-Za-z0-9-_]{1,49}[A-Za-z0-9_]$"
+
+STEP_NAME_REGEX = "^[A-Za-z][A-Za-z0-9-]{1,250}[A-Za-z0-9-]$"
+
+## DSL ERROR CODE
+PipelineDSLError = "PipelineDSLError"
