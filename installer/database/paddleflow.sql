@@ -77,7 +77,7 @@ CREATE TABLE IF NOT EXISTS `job` (
     `updated_at` datetime(3) DEFAULT NULL,
     `deleted_at` datetime(3) DEFAULT NULL,
     PRIMARY KEY (`pk`),
-    UNIQUE KEY `job_id` (`id`)
+    UNIQUE KEY `job_id` (`id`, `deleted_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 CREATE TABLE IF NOT EXISTS `job_label` (
