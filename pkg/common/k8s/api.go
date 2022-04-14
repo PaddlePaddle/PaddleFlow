@@ -43,8 +43,6 @@ var (
 	PaddleJobGVK = schema.GroupVersionKind{Group: "batch.paddlepaddle.org", Version: "v1", Kind: "PaddleJob"}
 	// ArgoWorkflowGVK defines GVK for argo Workflow
 	ArgoWorkflowGVK = schema.GroupVersionKind{Group: "argoproj.io", Version: "v1alpha1", Kind: "Workflow"}
-	// ScheduledWorkflowGVK defines GVK for kubeflow ScheduledWorkflow
-	ScheduledWorkflowGVK = schema.GroupVersionKind{Group: "kubeflow.org", Version: "v1beta1", Kind: "ScheduledWorkflow"}
 
 	// GVKToJobType maps GroupVersionKind to PaddleFlow JobType
 	GVKToJobType = map[schema.GroupVersionKind]commomschema.JobType{
