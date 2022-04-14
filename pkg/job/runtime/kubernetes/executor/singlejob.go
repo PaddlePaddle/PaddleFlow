@@ -29,17 +29,13 @@ import (
 	"paddleflow/pkg/common/schema"
 )
 
-const (
-	queueLabelKey = "volcano.sh/queue-name"
-)
-
-// SinglePod is a executor struct that runs a single pod
-type SinglePod struct {
+// SingleJob is a executor struct that runs a single pod
+type SingleJob struct {
 	KubeJob
 	Flavour schema.Flavour
 }
 
-func (sp *SinglePod) validateJob() error {
+func (sp *SingleJob) validateJob() error {
 	if err := sp.KubeJob.validateJob(); err != nil {
 		return err
 	}
@@ -60,19 +56,16 @@ func (sp *SinglePod) validateJob() error {
 }
 
 // patchSinglePodVariable patch env variable to vcJob, the order of patches following vcJob crd
-func (sp *SinglePod) patchSinglePodVariable(pod *v1.Pod, jobID string) error {
-	if pod.Name == "" && sp.Name != "" {
-		pod.Name = sp.Name
+func (sp *SingleJob) patchSinglePodVariable(pod *v1.Pod, jobID string) error {
+	// if pod's name exist, sp.Name should be overwritten
+	if pod.Name != "" {
+		sp.Name = pod.Name
 	}
 	// metadata
-	pod.Namespace = sp.Namespace
-	pod.Annotations = sp.appendAnnotationsIfAbsent(pod.Annotations, sp.Annotations)
-	pod.Labels = sp.appendLabelsIfAbsent(pod.Labels, sp.Labels)
-	pod.Labels[schema.JobOwnerLabel] = schema.JobOwnerValue
-	pod.Labels[schema.JobIDLabel] = jobID
+	sp.patchMetadata(&pod.ObjectMeta)
 
 	if len(sp.QueueName) > 0 {
-		pod.Labels[queueLabelKey] = sp.QueueName
+		pod.Labels[schema.QueueLabelKey] = sp.QueueName
 		priorityClass := sp.getPriorityClass()
 		pod.Spec.PriorityClassName = priorityClass
 	}
@@ -89,7 +82,7 @@ func (sp *SinglePod) patchSinglePodVariable(pod *v1.Pod, jobID string) error {
 }
 
 // CreateJob creates a job
-func (sp *SinglePod) CreateJob() (string, error) {
+func (sp *SingleJob) CreateJob() (string, error) {
 	if err := sp.validateJob(); err != nil {
 		log.Errorf("validate job failed, err: %v", err)
 		return "", err
@@ -120,7 +113,7 @@ func (sp *SinglePod) CreateJob() (string, error) {
 }
 
 // StopJobByID stops a job by jobID
-func (sp *SinglePod) StopJobByID(jobID string) error {
+func (sp *SingleJob) StopJobByID(jobID string) error {
 	job, err := models.GetJobByID(jobID)
 	if err != nil {
 		return err
@@ -134,7 +127,7 @@ func (sp *SinglePod) StopJobByID(jobID string) error {
 }
 
 //fillContainersInPod fill containers in pod
-func (sp *SinglePod) fillContainersInPod(pod *v1.Pod) error {
+func (sp *SingleJob) fillContainersInPod(pod *v1.Pod) error {
 	log.Debugf("fillContainersInPod for job[%s]", pod.Name)
 	if pod.Spec.Containers == nil || len(pod.Spec.Containers) == 0 {
 		pod.Spec.Containers = []v1.Container{{}}
@@ -150,7 +143,7 @@ func (sp *SinglePod) fillContainersInPod(pod *v1.Pod) error {
 }
 
 //fill container for pod, and return err if exist error
-func (sp *SinglePod) fillContainer(container *v1.Container, podName string) error {
+func (sp *SingleJob) fillContainer(container *v1.Container, podName string) error {
 	log.Debugf("fillContainer for job[%s]", podName)
 	// fill name
 	if container.Name == "" {
@@ -182,7 +175,7 @@ func (sp *SinglePod) fillContainer(container *v1.Container, podName string) erro
 }
 
 // getFlavour get flavour by name or create a new one
-func (sp *SinglePod) getFlavour() (schema.Flavour, error) {
+func (sp *SingleJob) getFlavour() (schema.Flavour, error) {
 	res := schema.Flavour{}
 	// get flavour by name
 	log.Debugf("pod[%s].conf.Flavour=%v", sp.Name, sp.Flavour)
