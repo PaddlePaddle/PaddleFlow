@@ -42,7 +42,7 @@ func newFakeQueueSyncController() *QueueSync {
 	scheme := runtime.NewScheme()
 	dynamicClient := fakedynamicclient.NewSimpleDynamicClient(scheme)
 
-	var server = httptest.NewServer(DiscoveryHandlerFunc)
+	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
 	defer server.Close()
 	fakeDiscovery := discovery.NewDiscoveryClientForConfigOrDie(&restclient.Config{Host: server.URL})
 
