@@ -53,6 +53,19 @@ var mockCbs = WorkflowCallbacks{
 	},
 }
 
+func loadTwoPostCaseSource() (schema.WorkflowSource, error) {
+	testCase := loadcase(runYamlPath)
+	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
+	if err != nil {
+		return schema.WorkflowSource{}, err
+	}
+	postStep := schema.WorkflowSourceStep{
+		Command: "echo test",
+	}
+	wfs.PostProcess["mail2"] = &postStep
+	return wfs, nil
+}
+
 // extra map里面的value可能会被修改，从而影响后面的case
 // 为了避免上面的问题，封装成函数，不同case分别调用函数，获取全新的extra map
 func GetExtra() map[string]string {
@@ -110,7 +123,7 @@ func TestNewBaseWorkflowWithCircle(t *testing.T) {
 	assert.NotNil(t, err)
 }
 
-// 测试带环流程
+// 测试无环流程
 func TestTopologicalSort_noCircle(t *testing.T) {
 	testCase := loadcase(runYamlPath)
 	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
@@ -121,7 +134,7 @@ func TestTopologicalSort_noCircle(t *testing.T) {
 	fmt.Println(bwf.Source.EntryPoints)
 	result, err := bwf.topologicalSort(bwf.Source.EntryPoints)
 	assert.Nil(t, err)
-	assert.Equal(t, "data_preprocess", result[0])
+	assert.Equal(t, "data-preprocess", result[0])
 	assert.Equal(t, "main", result[1])
 	assert.Equal(t, "validate", result[2])
 
@@ -130,7 +143,7 @@ func TestTopologicalSort_noCircle(t *testing.T) {
 	assert.Equal(t, 2, len(runSteps))
 	result, err = bwf.topologicalSort(bwf.Source.EntryPoints)
 	assert.Nil(t, err)
-	assert.Equal(t, "data_preprocess", result[0])
+	assert.Equal(t, "data-preprocess", result[0])
 	assert.Equal(t, "main", result[1])
 }
 
@@ -146,20 +159,21 @@ func TestCreateNewWorkflowRunDisabled_success(t *testing.T) {
 	assert.Nil(t, err)
 
 	time.Sleep(time.Millisecond * 10)
-	wf.runtime.steps["data_preprocess"].disabled = true
-	wf.runtime.steps["main"].disabled = true
-	wf.runtime.steps["validate"].disabled = true
+	wf.runtime.entryPoints["data-preprocess"].disabled = true
+	wf.runtime.entryPoints["main"].disabled = true
+	wf.runtime.entryPoints["validate"].disabled = true
+	wf.runtime.postProcess["mail"].disabled = true
 
 	go wf.Start()
 
 	time.Sleep(time.Millisecond * 100)
-	fmt.Printf("%+v\n", *wf.runtime.steps["data_preprocess"])
-	fmt.Printf("%+v\n", *wf.runtime.steps["main"])
-	fmt.Printf("%+v\n", *wf.runtime.steps["validate"])
+	fmt.Printf("%+v\n", *wf.runtime.entryPoints["data-preprocess"])
+	fmt.Printf("%+v\n", *wf.runtime.entryPoints["main"])
+	fmt.Printf("%+v\n", *wf.runtime.entryPoints["validate"])
 	assert.Equal(t, common.StatusRunSucceeded, wf.runtime.status)
-	assert.Equal(t, schema.StatusJobSkipped, wf.runtime.steps["data_preprocess"].job.(*PaddleFlowJob).Status)
-	assert.Equal(t, schema.StatusJobSkipped, wf.runtime.steps["main"].job.(*PaddleFlowJob).Status)
-	assert.Equal(t, schema.StatusJobSkipped, wf.runtime.steps["validate"].job.(*PaddleFlowJob).Status)
+	assert.Equal(t, schema.StatusJobSkipped, wf.runtime.entryPoints["data-preprocess"].job.(*PaddleFlowJob).Status)
+	assert.Equal(t, schema.StatusJobSkipped, wf.runtime.entryPoints["main"].job.(*PaddleFlowJob).Status)
+	assert.Equal(t, schema.StatusJobSkipped, wf.runtime.entryPoints["validate"].job.(*PaddleFlowJob).Status)
 }
 
 // 测试运行 Workflow 成功
@@ -173,23 +187,29 @@ func TestCreateNewWorkflowRun_success(t *testing.T) {
 	wf, err := NewWorkflow(wfs, "", "", nil, extra, mockCbs)
 	assert.Nil(t, err)
 
-	// 先是mock data_preprocess节点返回true
+	// 先是mock data-preprocess节点返回true
 	// 再设置所有节点done = true
-	// 保证data_preprocess能够成功结束，然后runtime再寻找下一个能运行的节点时，能够跳过后面的节点
-	patches := gomonkey.ApplyMethod(reflect.TypeOf(wf.runtime.steps["data_preprocess"].job), "Succeeded", func(_ *PaddleFlowJob) bool {
+	// 保证data-preprocess能够成功结束，然后runtime再寻找下一个能运行的节点时，能够跳过后面的节点
+	patches := gomonkey.ApplyMethod(reflect.TypeOf(wf.runtime.entryPoints["data-preprocess"].job), "Succeeded", func(_ *PaddleFlowJob) bool {
 		return true
 	})
 	defer patches.Reset()
 
 	time.Sleep(time.Millisecond * 10)
-	wf.runtime.steps["data_preprocess"].done = true
-	wf.runtime.steps["main"].done = true
-	wf.runtime.steps["validate"].done = true
+
+	wf.runtime.entryPoints["data-preprocess"].job.(*PaddleFlowJob).Status = schema.StatusJobSucceeded
+	wf.runtime.entryPoints["data-preprocess"].done = true
+	wf.runtime.entryPoints["main"].job.(*PaddleFlowJob).Status = schema.StatusJobSucceeded
+	wf.runtime.entryPoints["main"].done = true
+	wf.runtime.entryPoints["validate"].job.(*PaddleFlowJob).Status = schema.StatusJobSucceeded
+	wf.runtime.entryPoints["validate"].done = true
+	wf.runtime.postProcess["mail"].done = true
+	wf.runtime.postProcess["mail"].job.(*PaddleFlowJob).Status = schema.StatusJobSucceeded
 
 	go wf.Start()
 
 	// todo: remove event, receive event from job
-	event1 := WorkflowEvent{Event: WfEventJobUpdate, Extra: map[string]interface{}{"event1": "step 1 data_process finished"}}
+	event1 := WorkflowEvent{Event: WfEventJobUpdate, Extra: map[string]interface{}{"event1": "step 1 data-process finished"}}
 	wf.runtime.event <- event1
 	time.Sleep(time.Millisecond * 10)
 
@@ -206,19 +226,19 @@ func TestCreateNewWorkflowRun_failed(t *testing.T) {
 	wf, err := NewWorkflow(wfs, "", "", nil, extra, mockCbs)
 	assert.Nil(t, err)
 
-	patch1 := gomonkey.ApplyMethod(reflect.TypeOf(wf.runtime.steps["data_preprocess"].job), "Started", func(_ *PaddleFlowJob) bool {
+	patch1 := gomonkey.ApplyMethod(reflect.TypeOf(wf.runtime.entryPoints["data-preprocess"].job), "Started", func(_ *PaddleFlowJob) bool {
 		return true
 	})
-	patch2 := gomonkey.ApplyMethod(reflect.TypeOf(wf.runtime.steps["data_preprocess"].job), "NotEnded", func(_ *PaddleFlowJob) bool {
+	patch2 := gomonkey.ApplyMethod(reflect.TypeOf(wf.runtime.entryPoints["data-preprocess"].job), "NotEnded", func(_ *PaddleFlowJob) bool {
 		return false
 	})
-	patch3 := gomonkey.ApplyMethod(reflect.TypeOf(wf.runtime.steps["data_preprocess"].job), "Failed", func(_ *PaddleFlowJob) bool {
+	patch3 := gomonkey.ApplyMethod(reflect.TypeOf(wf.runtime.entryPoints["data-preprocess"].job), "Failed", func(_ *PaddleFlowJob) bool {
 		return true
 	})
-	patch4 := gomonkey.ApplyMethod(reflect.TypeOf(wf.runtime.steps["data_preprocess"].job), "Succeeded", func(_ *PaddleFlowJob) bool {
+	patch4 := gomonkey.ApplyMethod(reflect.TypeOf(wf.runtime.entryPoints["data-preprocess"].job), "Succeeded", func(_ *PaddleFlowJob) bool {
 		return false
 	})
-	patch5 := gomonkey.ApplyMethod(reflect.TypeOf(wf.runtime.steps["data_preprocess"].job), "Skipped", func(_ *PaddleFlowJob) bool {
+	patch5 := gomonkey.ApplyMethod(reflect.TypeOf(wf.runtime.entryPoints["data-preprocess"].job), "Skipped", func(_ *PaddleFlowJob) bool {
 		return false
 	})
 	defer patch1.Reset()
@@ -227,11 +247,16 @@ func TestCreateNewWorkflowRun_failed(t *testing.T) {
 	defer patch4.Reset()
 	defer patch5.Reset()
 
+	wf.runtime.entryPoints["data-preprocess"].job.(*PaddleFlowJob).Status = schema.StatusJobFailed
+	wf.runtime.entryPoints["main"].job.(*PaddleFlowJob).Status = schema.StatusJobCancelled
+	wf.runtime.entryPoints["validate"].job.(*PaddleFlowJob).Status = schema.StatusJobCancelled
+	wf.runtime.postProcess["mail"].job.(*PaddleFlowJob).Status = schema.StatusJobFailed
+
 	go wf.Start()
 	time.Sleep(time.Millisecond * 10)
 
 	// todo: remove event, receive event from job
-	event1 := WorkflowEvent{Event: WfEventJobUpdate, Extra: map[string]interface{}{"event1": "step 1 data_process finished"}}
+	event1 := WorkflowEvent{Event: WfEventJobUpdate, Extra: map[string]interface{}{"event1": "step 1 data-process finished"}}
 	wf.runtime.event <- event1
 	time.Sleep(time.Millisecond * 100)
 
@@ -248,23 +273,23 @@ func TestStopWorkflowRun(t *testing.T) {
 	wf, err := NewWorkflow(wfs, "", "", nil, extra, mockCbs)
 	assert.Nil(t, err)
 
-	patch1 := gomonkey.ApplyMethod(reflect.TypeOf(wf.runtime.steps["data_preprocess"].job), "Succeeded", func(_ *PaddleFlowJob) bool {
+	patch1 := gomonkey.ApplyMethod(reflect.TypeOf(wf.runtime.entryPoints["data-preprocess"].job), "Succeeded", func(_ *PaddleFlowJob) bool {
 		return true
 	})
 	defer patch1.Reset()
 
-	patch2 := gomonkey.ApplyMethod(reflect.TypeOf(wf.runtime.steps["main"].job), "Succeeded", func(_ *PaddleFlowJob) bool {
+	patch2 := gomonkey.ApplyMethod(reflect.TypeOf(wf.runtime.entryPoints["main"].job), "Succeeded", func(_ *PaddleFlowJob) bool {
 		return true
 	})
 	defer patch2.Reset()
 
-	patch3 := gomonkey.ApplyMethod(reflect.TypeOf(wf.runtime.steps["validate"].job), "Succeeded", func(_ *PaddleFlowJob) bool {
+	patch3 := gomonkey.ApplyMethod(reflect.TypeOf(wf.runtime.entryPoints["validate"].job), "Succeeded", func(_ *PaddleFlowJob) bool {
 		return false
 	})
-	patch4 := gomonkey.ApplyMethod(reflect.TypeOf(wf.runtime.steps["validate"].job), "Failed", func(_ *PaddleFlowJob) bool {
+	patch4 := gomonkey.ApplyMethod(reflect.TypeOf(wf.runtime.entryPoints["validate"].job), "Failed", func(_ *PaddleFlowJob) bool {
 		return false
 	})
-	patch5 := gomonkey.ApplyMethod(reflect.TypeOf(wf.runtime.steps["validate"].job), "Terminated", func(_ *PaddleFlowJob) bool {
+	patch5 := gomonkey.ApplyMethod(reflect.TypeOf(wf.runtime.entryPoints["validate"].job), "Terminated", func(_ *PaddleFlowJob) bool {
 		return true
 	})
 	defer patch3.Reset()
@@ -272,17 +297,24 @@ func TestStopWorkflowRun(t *testing.T) {
 	defer patch5.Reset()
 
 	time.Sleep(time.Millisecond * 10)
-	wf.runtime.steps["data_preprocess"].done = true
-	wf.runtime.steps["main"].done = true
-	wf.runtime.steps["validate"].done = true
+
+	wf.runtime.entryPoints["data-preprocess"].done = true
+	wf.runtime.entryPoints["main"].done = true
+	wf.runtime.entryPoints["validate"].done = true
+	wf.runtime.postProcess["mail"].done = true
+
+	wf.runtime.entryPoints["data-preprocess"].job.(*PaddleFlowJob).Status = schema.StatusJobSucceeded
+	wf.runtime.entryPoints["main"].job.(*PaddleFlowJob).Status = schema.StatusJobSucceeded
+	wf.runtime.entryPoints["validate"].job.(*PaddleFlowJob).Status = schema.StatusJobTerminated
+	wf.runtime.postProcess["mail"].job.(*PaddleFlowJob).Status = schema.StatusJobSucceeded
 
 	go wf.Start()
 	time.Sleep(time.Millisecond * 10)
 
-	wf.Stop()
+	wf.Stop(false)
 	assert.Equal(t, common.StatusRunTerminating, wf.runtime.status)
 	// todo: remove event, receive event from job
-	event1 := WorkflowEvent{Event: WfEventJobUpdate, Extra: map[string]interface{}{"event1": "step 1 data_process finished"}}
+	event1 := WorkflowEvent{Event: WfEventJobUpdate, Extra: map[string]interface{}{"event1": "step 1 data-process finished"}}
 	wf.runtime.event <- event1
 	time.Sleep(time.Millisecond * 30)
 
@@ -304,12 +336,12 @@ func TestNewWorkflowFromEntry(t *testing.T) {
 
 	err = wf.newWorkflowRuntime()
 	assert.Nil(t, err)
-	assert.Equal(t, 2, len(wf.runtime.steps))
-	_, ok := wf.runtime.steps["main"]
+	assert.Equal(t, 2, len(wf.runtime.entryPoints))
+	_, ok := wf.runtime.entryPoints["main"]
 	assert.True(t, ok)
-	_, ok1 := wf.runtime.steps["data_preprocess"]
+	_, ok1 := wf.runtime.entryPoints["data-preprocess"]
 	assert.True(t, ok1)
-	_, ok2 := wf.runtime.steps["validate"]
+	_, ok2 := wf.runtime.entryPoints["validate"]
 	assert.False(t, ok2)
 }
 
@@ -322,10 +354,10 @@ func TestValidateWorkflow_WrongParam(t *testing.T) {
 	bwf := NewBaseWorkflow(wfs, "", "", nil, extra)
 	err = bwf.validate()
 	assert.NotNil(t, err)
-	assert.Equal(t, "invalid reference param {{ data_preprocess.xxxinvalid }} in step[main]: parameter[xxxinvalid] not exist", err.Error())
+	assert.Equal(t, "invalid reference param {{ data-preprocess.xxxinvalid }} in step[main]: parameter[xxxinvalid] not exist", err.Error())
 
-	// parameter 在 step [main] 中有错误，然而在将 entry 设置成 [data_preprocess] 后， validate 仍然返回成功
-	bwf = NewBaseWorkflow(wfs, "", "data_preprocess", nil, extra)
+	// parameter 在 step [main] 中有错误，然而在将 entry 设置成 [data-preprocess] 后， validate 仍然返回成功
+	bwf = NewBaseWorkflow(wfs, "", "data-preprocess", nil, extra)
 	err = bwf.validate()
 	assert.Nil(t, err)
 }
@@ -580,7 +612,7 @@ func TestValidateWorkflowArtifacts(t *testing.T) {
 	bwf := NewBaseWorkflow(wfs, "", "", nil, extra)
 	err = bwf.validate()
 	assert.Nil(t, err)
-	assert.Equal(t, "{{ data_preprocess.train_data }}", bwf.Source.EntryPoints["main"].Artifacts.Input["train_data"])
+	assert.Equal(t, "{{ data-preprocess.train_data }}", bwf.Source.EntryPoints["main"].Artifacts.Input["train_data"])
 
 	// input artifact 只能引用上游 output artifact
 	bwf.Source.EntryPoints["main"].Artifacts.Input["wrongdata"] = "{{ xxxx }}"
@@ -589,10 +621,10 @@ func TestValidateWorkflowArtifacts(t *testing.T) {
 	assert.Equal(t, "check input artifact [wrongdata] in step[main] failed: format of value[{{ xxxx }}] invalid, should be like {{XXX.XXX}}", err.Error())
 
 	// 上游 output artifact 不存在
-	bwf.Source.EntryPoints["main"].Artifacts.Input["wrongdata"] = "{{ data_preprocess.noexist_data }}"
+	bwf.Source.EntryPoints["main"].Artifacts.Input["wrongdata"] = "{{ data-preprocess.noexist_data }}"
 	err = bwf.validate()
 	assert.NotNil(t, err)
-	assert.Equal(t, "invalid reference param {{ data_preprocess.noexist_data }} in step[main]: output artifact[noexist_data] not exist", err.Error())
+	assert.Equal(t, "invalid reference param {{ data-preprocess.noexist_data }} in step[main]: output artifact[noexist_data] not exist", err.Error())
 	delete(bwf.Source.EntryPoints["main"].Artifacts.Input, "wrongdata")
 }
 
@@ -640,17 +672,17 @@ func TestValidateWorkflowCache(t *testing.T) {
 	assert.Equal(t, bwf.Source.Cache.MaxExpiredTime, "400")
 	assert.Equal(t, bwf.Source.Cache.FsScope, "/path/to/run,/path/to/run2")
 
-	assert.Equal(t, bwf.Source.EntryPoints["data_preprocess"].Cache.Enable, bwf.Source.Cache.Enable)
-	assert.Equal(t, bwf.Source.EntryPoints["data_preprocess"].Cache.MaxExpiredTime, bwf.Source.Cache.MaxExpiredTime)
-	assert.Equal(t, bwf.Source.EntryPoints["data_preprocess"].Cache.FsScope, bwf.Source.Cache.FsScope)
+	assert.Equal(t, bwf.Source.EntryPoints["data-preprocess"].Cache.Enable, bwf.Source.Cache.Enable)
+	assert.Equal(t, bwf.Source.EntryPoints["data-preprocess"].Cache.MaxExpiredTime, bwf.Source.Cache.MaxExpiredTime)
+	assert.Equal(t, bwf.Source.EntryPoints["data-preprocess"].Cache.FsScope, bwf.Source.Cache.FsScope)
 
 	// 全局 + 节点的cache MaxExpiredTime 设置失败
 	bwf.Source.Cache.MaxExpiredTime = ""
-	bwf.Source.EntryPoints["data_preprocess"].Cache.MaxExpiredTime = ""
+	bwf.Source.EntryPoints["data-preprocess"].Cache.MaxExpiredTime = ""
 	err = bwf.validate()
 	assert.Nil(t, err)
 	assert.Equal(t, "-1", bwf.Source.Cache.MaxExpiredTime)
-	assert.Equal(t, "-1", bwf.Source.EntryPoints["data_preprocess"].Cache.MaxExpiredTime)
+	assert.Equal(t, "-1", bwf.Source.EntryPoints["data-preprocess"].Cache.MaxExpiredTime)
 
 	// 全局cache MaxExpiredTime 设置失败
 	bwf.Source.Cache.MaxExpiredTime = "notInt"
@@ -660,10 +692,10 @@ func TestValidateWorkflowCache(t *testing.T) {
 
 	// 节点cache MaxExpiredTime 设置失败
 	bwf.Source.Cache.MaxExpiredTime = ""
-	bwf.Source.EntryPoints["data_preprocess"].Cache.MaxExpiredTime = "notInt"
+	bwf.Source.EntryPoints["data-preprocess"].Cache.MaxExpiredTime = "notInt"
 	err = bwf.validate()
 	assert.NotNil(t, err)
-	assert.Equal(t, "MaxExpiredTime[notInt] of cache in step[data_preprocess] not correct", err.Error())
+	assert.Equal(t, "MaxExpiredTime[notInt] of cache in step[data-preprocess] not correct", err.Error())
 }
 
 // 测试不使用Fs时，workflow校验逻辑
@@ -682,20 +714,20 @@ func TestValidateWorkflowWithoutFs(t *testing.T) {
 
 	// 校验不使用Fs时，不能使用fs相关的系统参数
 	extra[pplcommon.WfExtraInfoKeyFsName] = ""
-	wfs.EntryPoints["data_preprocess"].Parameters["wrongParam"] = "{{ PF_FS_ID }}"
+	wfs.EntryPoints["data-preprocess"].Parameters["wrongParam"] = "{{ PF_FS_ID }}"
 	bwf = NewBaseWorkflow(wfs, "", "", nil, extra)
 	err = bwf.validate()
 	assert.NotNil(t, err)
-	assert.Equal(t, "cannot use sysParam[PF_FS_ID] template in step[data_preprocess] for pipeline run with no Fs mounted", err.Error())
+	assert.Equal(t, "cannot use sysParam[PF_FS_ID] template in step[data-preprocess] for pipeline run with no Fs mounted", err.Error())
 
-	wfs.EntryPoints["data_preprocess"].Parameters["wrongParam"] = "{{ PF_FS_NAME }}"
+	wfs.EntryPoints["data-preprocess"].Parameters["wrongParam"] = "{{ PF_FS_NAME }}"
 	bwf = NewBaseWorkflow(wfs, "", "", nil, extra)
 	err = bwf.validate()
 	assert.NotNil(t, err)
-	assert.Equal(t, "cannot use sysParam[PF_FS_NAME] template in step[data_preprocess] for pipeline run with no Fs mounted", err.Error())
+	assert.Equal(t, "cannot use sysParam[PF_FS_NAME] template in step[data-preprocess] for pipeline run with no Fs mounted", err.Error())
 
 	// 校验不使用Fs时，全局cache中的fs_scope字段一定为空
-	delete(wfs.EntryPoints["data_preprocess"].Parameters, "wrongParam")
+	delete(wfs.EntryPoints["data-preprocess"].Parameters, "wrongParam")
 	bwf = NewBaseWorkflow(wfs, "", "", nil, extra)
 	err = bwf.validate()
 	assert.NotNil(t, err)
@@ -708,23 +740,23 @@ func TestValidateWorkflowWithoutFs(t *testing.T) {
 	bwf.Source.Cache.FsScope = ""
 	err = bwf.validate()
 	assert.NotNil(t, err)
-	pattern := regexp.MustCompile("fs_scope of cache in step[[a-zA-Z_]+] should be empty if Fs is not used!")
+	pattern := regexp.MustCompile("fs_scope of cache in step[[a-zA-Z-]+] should be empty if Fs is not used!")
 	assert.Regexp(t, pattern, err.Error())
 
-	bwf.Source.EntryPoints["data_preprocess"].Cache.FsScope = ""
+	bwf.Source.EntryPoints["data-preprocess"].Cache.FsScope = ""
 	bwf.Source.EntryPoints["main"].Cache.FsScope = ""
-	bwf.Source.EntryPoints["data_preprocess"].Cache.FsScope = ""
+	bwf.Source.EntryPoints["data-preprocess"].Cache.FsScope = ""
 	bwf.Source.EntryPoints["validate"].Cache.FsScope = ""
 	err = bwf.validate()
 	assert.Nil(t, err)
 
 	// 校验不使用Fs时，不能定义artifact
 	// 因为input artifact一定引用上游的outputAtf，所以只需要测试没法定义outputAtf即可
-	wfs.EntryPoints["data_preprocess"].Artifacts.Output["Atf1"] = ""
+	wfs.EntryPoints["data-preprocess"].Artifacts.Output["Atf1"] = ""
 	bwf = NewBaseWorkflow(wfs, "", "", nil, extra)
 	err = bwf.validate()
 	assert.NotNil(t, err)
-	pattern = regexp.MustCompile("cannot define artifact in step[[a-zA-Z_]+] with no Fs mounted")
+	pattern = regexp.MustCompile("cannot define artifact in step[[a-zA-Z-]+] with no Fs mounted")
 	assert.Regexp(t, pattern, err.Error())
 }
 
@@ -738,27 +770,29 @@ func TestRestartWorkflow(t *testing.T) {
 	assert.Nil(t, err)
 
 	runtimeView := schema.RuntimeView{
-		"data_preprocess": schema.JobView{
-			JobID:  "data_preprocess",
+		"data-preprocess": schema.JobView{
+			JobID:  "data-preprocess",
 			Status: schema.StatusJobSucceeded,
 		},
 		"main": {
-			JobID:  "data_preprocess",
+			JobID:  "data-preprocess",
 			Status: schema.StatusJobRunning,
 		},
 		"validate": {
 			JobID: "",
 		},
 	}
+	postProcessView := map[string]schema.JobView{}
 
-	err = wf.SetWorkflowRuntime(runtimeView)
+	err = wf.SetWorkflowRuntime(runtimeView, postProcessView)
+
 	assert.Nil(t, err)
-	assert.Equal(t, true, wf.runtime.steps["data_preprocess"].done)
-	assert.Equal(t, true, wf.runtime.steps["data_preprocess"].submitted)
-	assert.Equal(t, false, wf.runtime.steps["main"].done)
-	assert.Equal(t, true, wf.runtime.steps["main"].submitted)
-	assert.Equal(t, false, wf.runtime.steps["validate"].done)
-	assert.Equal(t, false, wf.runtime.steps["validate"].submitted)
+	assert.Equal(t, true, wf.runtime.entryPoints["data-preprocess"].done)
+	assert.Equal(t, true, wf.runtime.entryPoints["data-preprocess"].submitted)
+	assert.Equal(t, false, wf.runtime.entryPoints["main"].done)
+	assert.Equal(t, true, wf.runtime.entryPoints["main"].submitted)
+	assert.Equal(t, false, wf.runtime.entryPoints["validate"].done)
+	assert.Equal(t, false, wf.runtime.entryPoints["validate"].submitted)
 }
 
 func TestRestartWorkflow_from1completed(t *testing.T) {
@@ -772,8 +806,8 @@ func TestRestartWorkflow_from1completed(t *testing.T) {
 	assert.Nil(t, err)
 
 	runtimeView := schema.RuntimeView{
-		"data_preprocess": schema.JobView{
-			JobID:  "data_preprocess",
+		"data-preprocess": schema.JobView{
+			JobID:  "data-preprocess",
 			Status: schema.StatusJobSucceeded,
 		},
 		"main": {
@@ -783,12 +817,36 @@ func TestRestartWorkflow_from1completed(t *testing.T) {
 			JobID: "",
 		},
 	}
-	err = wf.SetWorkflowRuntime(runtimeView)
+
+	postProcessView := map[string]schema.JobView{}
+
+	err = wf.SetWorkflowRuntime(runtimeView, postProcessView)
+
 	assert.Nil(t, err)
-	assert.Equal(t, true, wf.runtime.steps["data_preprocess"].done)
-	assert.Equal(t, true, wf.runtime.steps["data_preprocess"].submitted)
-	assert.Equal(t, false, wf.runtime.steps["main"].done)
-	assert.Equal(t, false, wf.runtime.steps["main"].submitted)
-	assert.Equal(t, false, wf.runtime.steps["validate"].done)
-	assert.Equal(t, false, wf.runtime.steps["validate"].submitted)
+	assert.Equal(t, true, wf.runtime.entryPoints["data-preprocess"].done)
+	assert.Equal(t, true, wf.runtime.entryPoints["data-preprocess"].submitted)
+	assert.Equal(t, false, wf.runtime.entryPoints["main"].done)
+	assert.Equal(t, false, wf.runtime.entryPoints["main"].submitted)
+	assert.Equal(t, false, wf.runtime.entryPoints["validate"].done)
+	assert.Equal(t, false, wf.runtime.entryPoints["validate"].submitted)
+}
+
+func TestCheckPostProcess(t *testing.T) {
+	dbinit.InitMockDB()
+	wfs, err := loadTwoPostCaseSource()
+	assert.Nil(t, err)
+
+	extra := GetExtra()
+	bwf := NewBaseWorkflow(wfs, "", "", nil, extra)
+	err = bwf.validate()
+	assert.NotNil(t, err)
+	assert.Equal(t, "post_process can only has 1 step at most", err.Error())
+
+	yamlByte := loadcase(runYamlPath)
+	wfs, err = schema.ParseWorkflowSource(yamlByte)
+	assert.Nil(t, err)
+
+	extra = GetExtra()
+	_, err = NewWorkflow(wfs, "", "", nil, extra, mockCbs)
+	assert.Nil(t, err)
 }

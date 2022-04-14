@@ -4,7 +4,7 @@ docker_env: images/training.tgz
 
 entry_points:
 
-  data_preprocess:
+  data-preprocess:
     parameters:
       data_path: "./LINK/mybos_dir/data"
       process_data_file: "./data/pre"
@@ -14,12 +14,12 @@ entry_points:
       PF_JOB_PRIORITY: high
 
   main:
-    deps: data_preprocess
+    deps: data-preprocess
     parameters:
       p3: {"type": "string", "default":"dictparam"}
       p4: {"type": "float", "default": 0.66}
       p5: {"type": "path", "default": "/path/to/anywhere"}
-      data_file: "{{ data_preprocess.process_data_file }}"
+      data_file: "{{ data-preprocess.process_data_file }}"
       regularization:  0.1
       model: "./data/model"
       iteration: 100
@@ -32,7 +32,7 @@ entry_points:
       PF_WORKER_NUM: 4
 
   validate:
-    deps: main,data_preprocess
+    deps: main,data-preprocess
     parameters:
       report: "./data/report"
       refSystem: "{{ PF_RUN_ID }}"

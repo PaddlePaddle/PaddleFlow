@@ -163,6 +163,7 @@ func createDatabaseTables(db *gorm.DB) error {
 		&models.ArtifactEvent{},
 		&models.User{},
 		&models.Run{},
+		&models.RunJob{},
 		&models.Queue{},
 		&models.Flavour{},
 		&models.Grant{},
