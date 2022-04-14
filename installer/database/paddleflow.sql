@@ -109,6 +109,7 @@ CREATE TABLE IF NOT EXISTS `run` (
     `description` text,
     `param_raw` text,
     `run_yaml` text,
+    `runtime_raw` text,
     `entry` varchar(256),
     `message` text,
     `status` varchar(32) DEFAULT NULL,
@@ -120,31 +121,6 @@ CREATE TABLE IF NOT EXISTS `run` (
     PRIMARY KEY (`pk`),
     UNIQUE KEY (`id`),
     INDEX (`fs_id`),
-    INDEX (`status`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-
-CREATE TABLE IF NOT EXISTS `run_job` (
-    `pk` bigint(20) NOT NULL AUTO_INCREMENT,
-    `id` varchar(60) NOT NULL,
-    `run_id` varchar(60) NOT NULL,
-    `name` varchar(60) NOT NULL,
-    `step_name` varchar(60) NOT NULL,
-    `command` text,
-    `paramters_json` text,
-    `artifacts_json` text,
-    `env_json` text,
-    `docker_env` varchar(128),
-    `status` varchar(32) DEFAULT NULL,
-    `message` text,
-    `cache_json` text,
-    `cache_run_id` varchar(60),
-    `created_at` datetime(3) DEFAULT NULL,
-    `activated_at` datetime(3) DEFAULT NULL,
-    `updated_at` datetime(3) DEFAULT NULL,
-    `deleted_at` datetime(3) DEFAULT NULL,
-    PRIMARY KEY (`pk`),
-    UNIQUE KEY (`id`),
-    INDEX (`run_id`),
     INDEX (`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
@@ -314,8 +290,10 @@ CREATE TABLE IF NOT EXISTS `fs_cache_config` (
     UNIQUE KEY (`id`)
     )ENGINE=InnoDB DEFAULT CHARSET=utf8 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMMENT='file system cache config';
 
-CREATE TABLE IF NOT EXISTS `fs_cache_worker` (
+CREATE TABLE IF NOT EXISTS `fs_cache` (
     `pk` bigint(20) unsigned NOT NULL AUTO_INCREMENT COMMENT 'pk',
+    `cache_id` varchar(36) NOT NULL COMMENT 'unique fs cache id',
+    `cache_hash_id` varchar(36) NOT NULL COMMENT 'fs cache unique hashid for judging the same fscache or not',
     `fs_id` varchar(36) NOT NULL COMMENT 'file system id',
     `cache_dir` varchar(4096) NOT NULL COMMENT 'cache dir, e.g. /var/pfs_cache',
     `mountpoint` varchar(1024) NOT NULL COMMENT 'mount point of file system on node，reserved field',
@@ -325,8 +303,10 @@ CREATE TABLE IF NOT EXISTS `fs_cache_worker` (
     `updated_at` datetime NOT NULL COMMENT 'update time',
     `deleted_at` datetime(3) DEFAULT NULL  COMMENT 'delete time',
     PRIMARY KEY (`pk`),
-    UNIQUE KEY (`id`)
-    )ENGINE=InnoDB DEFAULT CHARSET=utf8 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMMENT='file system cache worker';
+    UNIQUE KEY (`cache_id`),
+    INDEX idx_fs_id (`fs_id`),
+    INDEX idx_fs_id_nodename (`fs_id`,`nodename`)
+    )ENGINE=InnoDB DEFAULT CHARSET=utf8 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMMENT='manage file system cache ';
 
 CREATE TABLE IF NOT EXISTS `paddleflow_node_info` (
     `pk` bigint(20) unsigned NOT NULL AUTO_INCREMENT COMMENT 'pk',
