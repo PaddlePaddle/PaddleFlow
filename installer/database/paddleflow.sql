@@ -109,7 +109,6 @@ CREATE TABLE IF NOT EXISTS `run` (
     `description` text,
     `param_raw` text,
     `run_yaml` text,
-    `runtime_raw` text,
     `entry` varchar(256),
     `message` text,
     `status` varchar(32) DEFAULT NULL,
