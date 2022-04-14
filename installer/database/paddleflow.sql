@@ -1,15 +1,52 @@
 CREATE DATABASE IF NOT EXISTS paddleflow_db;
 
+CREATE TABLE IF NOT EXISTS `cluster_info` (
+    `pk` bigint(20) NOT NULL AUTO_INCREMENT,
+    `id` varchar(60) NOT NULL UNIQUE COMMENT 'cluster id',
+    `name` varchar(255) NOT NULL COMMENT 'cluster name',
+    `description` varchar(2048) NOT NULL DEFAULT '' COMMENT 'cluster description',
+    `endpoint` varchar(255) NOT NULL DEFAULT '' COMMENT 'cluster endpoint, e.g. http://10.11.11.47:8080',
+    `source` varchar(64) NOT NULL DEFAULT 'OnPremise' COMMENT 'cluter source, e.g. OnPremise/AWS/CCE',
+    `cluster_type` varchar(32) NOT NULL DEFAULT '' COMMENT 'cluster type, e.g. Kubernetes/Local',
+    `version` varchar(32) DEFAULT NULL COMMENT 'cluster version, e.g. v1.16',
+    `status` varchar(32) NOT NULL DEFAULT 'online' COMMENT 'status in {online, offline}',
+    `credential` text DEFAULT NULL COMMENT 'cluster credential, e.g. kube config in k8s',
+    `setting` text DEFAULT NULL COMMENT 'extra settings',
+    `namespace_list` text DEFAULT NULL COMMENT 'json type，e.g. ["ns1", "ns2"]',
+    `created_at` datetime DEFAULT NULL COMMENT 'create time',
+    `updated_at` datetime DEFAULT NULL COMMENT 'update time',
+    `deleted_at` char(32) NOT NULL DEFAULT '' COMMENT 'deleted flag, not null means deleted',
+    PRIMARY KEY (`pk`),
+    UNIQUE (`name`, `deleted_at`),
+    UNIQUE (`id`, `deleted_at`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+CREATE TABLE IF NOT EXISTS `flavour` (
+    `pk` bigint(20) NOT NULL AUTO_INCREMENT,
+    `id` varchar(60) NOT NULL UNIQUE COMMENT 'id',
+    `name` varchar(60) NOT NULL UNIQUE COMMENT 'unique flavour name',
+    `cluster_id` varchar(60) DEFAULT '' COMMENT 'cluster id',
+    `cpu` varchar(20) NOT NULL COMMENT 'cpu',
+    `mem` varchar(20) NOT NULL COMMENT 'memory',
+    `scalar_resources` varchar(255) DEFAULT NULL COMMENT 'scalar resource e.g. GPU',
+    `user_name` varchar(60) DEFAULT NULL COMMENT 'creator name',
+    `created_at` datetime(3) DEFAULT NULL,
+    `updated_at` datetime(3) DEFAULT NULL,
+    `deleted_at` datetime(3) DEFAULT NULL,
+    PRIMARY KEY (`pk`)
+    UNIQUE KEY `name` (`name`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
 CREATE TABLE IF NOT EXISTS `queue` (
     `pk` bigint(20) NOT NULL AUTO_INCREMENT,
     `id` varchar(60) NOT NULL UNIQUE,
-    `name` varchar(60) NOT NULL UNIQUE,
-    `namespace` varchar(50) NOT NULL,
-    `cluster_id` varchar(255) NOT NULL DEFAULT '',
-    `min_resources` varchar(255) DEFAULT NULL,
-    `max_resources` varchar(255) DEFAULT NULL,
-    `location` text DEFAULT '',
+    `name` varchar(255) NOT NULL UNIQUE,
+    `namespace` varchar(64) NOT NULL,
+    `cluster_id` varchar(60) NOT NULL DEFAULT '',
     `quota_type` varchar(20) DEFAULT NULL,
+    `min_resources` text DEFAULT NULL,
+    `max_resources` text DEFAULT NOT NULL,
+    `location` text DEFAULT '',
     `status` varchar(20) DEFAULT NULL,
     `scheduling_policy` varchar(2048) DEFAULT NULL,
     `created_at` datetime(3) DEFAULT NULL,
@@ -22,15 +59,15 @@ CREATE TABLE IF NOT EXISTS `queue` (
 CREATE TABLE IF NOT EXISTS `job` (
     `pk` bigint(20) NOT NULL AUTO_INCREMENT,
     `id` varchar(60) NOT NULL UNIQUE,
-    `name` varchar(512) DEFAULT '';
+    `name` varchar(512) DEFAULT '',
     `user_name` varchar(60) NOT NULL,
+    `queue_id` varchar(60) NOT NULL,
     `type` varchar(20) NOT NULL,
     `config` mediumtext NOT NULL,
-    `queue_id` varchar(36) NOT NULL,
     `runtime_info` mediumtext DEFAULT NULL,
     `status` varchar(32) DEFAULT NULL,
     `message` text DEFAULT NULL,
-    `resource` mediumtext DEFAULT NULL,
+    `resource` text DEFAULT NULL,
     `framework` varchar(30) DEFAULT NULL,
     `members` mediumtext DEFAULT NULL,
     `extension_template` text DEFAULT NULL,
@@ -40,28 +77,33 @@ CREATE TABLE IF NOT EXISTS `job` (
     `updated_at` datetime(3) DEFAULT NULL,
     `deleted_at` datetime(3) DEFAULT NULL,
     PRIMARY KEY (`pk`),
-    UNIQUE KEY `job_id` (`id`)
+    UNIQUE KEY `job_id` (`id`, `deleted_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 CREATE TABLE IF NOT EXISTS `job_label` (
     `pk` bigint(20) NOT NULL AUTO_INCREMENT,
     `id` varchar(36) NOT NULL UNIQUE,
     `label` varchar(255) NOT NULL,
-    `jobid` varchar(60) NOT NULL,
+    `job_id` varchar(60) NOT NULL,
     `created_at` datetime(3) DEFAULT NULL,
     `deleted_at` datetime(3) DEFAULT NULL,
     PRIMARY KEY (`pk`),
     UNIQUE KEY `id` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
-CREATE TABLE IF NOT EXISTS `job_task_status` (
+CREATE TABLE IF NOT EXISTS `job_task` (
     `pk` bigint(20) NOT NULL AUTO_INCREMENT,
     `id` varchar(64) NOT NULL UNIQUE,
-    `jobid` varchar(60) NOT NULL,
+    `job_id` varchar(60) NOT NULL,
     `namespace` varchar(64) NOT NULL,
     `name` varchar(512) NOT NULL,
-    `status` text DEFAULT NULL,
+    `member_role` varchar(64) DEFAULT NULL,
+    `status` varchar(32) DEFAULT NULL,
+    `message` text DEFAULT NULL,
+    `log_url` varchar(4096) DEFAULT NULL,
+    `ext_runtime_status` mediumtext DEFAULT '{}' NULL,
     `created_at` datetime(3) DEFAULT NULL,
+    `started_at` datetime(3) DEFAULT NULL,
     `updated_at` datetime(3) DEFAULT NULL,
     `deleted_at` datetime(3) DEFAULT NULL,
     PRIMARY KEY (`pk`),
@@ -227,43 +269,6 @@ CREATE TABLE IF NOT EXISTS `artifact_event` (
     INDEX (`fs_id`),
     INDEX (`type`),
     INDEX (`run_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-
-CREATE TABLE IF NOT EXISTS `cluster_info` (
-    `pk` bigint(20) NOT NULL AUTO_INCREMENT,
-    `id` varchar(60) NOT NULL UNIQUE COMMENT 'cluster id',
-    `name` varchar(255) NOT NULL COMMENT 'cluster name',
-    `description` varchar(255) NOT NULL DEFAULT '' COMMENT 'cluster description',
-    `endpoint` varchar(255) NOT NULL DEFAULT '' COMMENT 'cluster endpoint, e.g. http://10.11.11.47:8080',
-    `source` varchar(64) NOT NULL DEFAULT 'OnPremise' COMMENT 'cluter source, e.g. OnPremise/AWS/CCE',
-    `cluster_type` varchar(32) NOT NULL DEFAULT '' COMMENT 'cluster type, e.g. Kubernetes/Local',
-    `version` varchar(32) DEFAULT NULL COMMENT 'cluster version, e.g. v1.16',
-    `status` varchar(32) NOT NULL DEFAULT 'online' COMMENT 'status in {online, offline}',
-    `credential` text DEFAULT NULL COMMENT 'cluster credential, e.g. kube config in k8s',
-    `setting` text DEFAULT NULL COMMENT 'extra settings',
-    `namespace_list` text DEFAULT NULL COMMENT 'json type，e.g. ["ns1", "ns2"]',
-    `created_at` datetime DEFAULT NULL COMMENT 'create time',
-    `updated_at` datetime DEFAULT NULL COMMENT 'update time',
-    `deleted_at` char(32) NOT NULL DEFAULT '' COMMENT 'deleted flag, not null means deleted',
-    PRIMARY KEY (`pk`),
-    UNIQUE (`name`, `deleted_at`),
-    UNIQUE (`id`, `deleted_at`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-
-CREATE TABLE IF NOT EXISTS `flavour` (
-    `pk` bigint(20) NOT NULL AUTO_INCREMENT,
-    `id` varchar(60) NOT NULL UNIQUE COMMENT 'id',
-    `name` varchar(60) NOT NULL UNIQUE COMMENT 'unique flavour name',
-    `cluster_id` varchar(68) DEFAULT '' COMMENT 'cluster id',
-    `cpu` varchar(20) NOT NULL COMMENT 'cpu',
-    `mem` varchar(20) NOT NULL COMMENT 'memory',
-    `scalar_resources` varchar(255) DEFAULT NULL COMMENT 'scalar resource e.g. GPU',
-    `user_name` varchar(60) DEFAULT NULL COMMENT 'creator name',
-    `created_at` datetime(3) DEFAULT NULL,
-    `updated_at` datetime(3) DEFAULT NULL,
-    `deleted_at` datetime(3) DEFAULT NULL,
-    PRIMARY KEY (`pk`)
-    UNIQUE KEY `name` (`name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 CREATE TABLE IF NOT EXISTS `filesystem` (
