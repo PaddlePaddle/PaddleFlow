@@ -40,8 +40,10 @@ def run():
 @click.option('-p', '--param', multiple=True, help="Run pipeline params, example: -p regularization=xxx .")
 @click.option('-yp', '--runyamlpath', help='Run yaml file path, example ./run.yaml .')
 @click.option('-yr', '--runyamlraw', help='Run yaml file raw, local absolute path .')
+@click.option('--disabled', multiple=True, help="the name of step which need to be disabled.")
 @click.pass_context
-def create(ctx, fsname, name=None, desc=None, username=None, runyamlpath=None, runyamlraw=None, param=""):
+def create(ctx, fsname, name=None, desc=None, username=None, runyamlpath=None, runyamlraw=None,
+        param="", disabled=None):
     """create a new run.\n
     FSNAME: the name of the fs.
     """
@@ -61,7 +63,13 @@ def create(ctx, fsname, name=None, desc=None, username=None, runyamlpath=None, r
     if runyamlraw:
         with open(runyamlraw, 'rb') as f:
             runyamlraw = f.read()
-    valid, response = client.create_run(fsname, username, name, desc, entry, runyamlpath, runyamlraw, param_dict)
+    
+    if disabled is not None:
+        disabled = ",".join(disabled)
+
+    valid, response = client.create_run(fsname, username, name, desc, entry, runyamlpath, runyamlraw, param_dict, 
+                            disabled=disabled)
+
     if valid:
         click.echo("run[%s] create success with runid[%s]" % (fsname, response))
     else:

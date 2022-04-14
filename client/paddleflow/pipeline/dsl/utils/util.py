@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding:utf8 -*-
 """
 Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
 
@@ -15,15 +14,21 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-from .pipeline_api import PipelineServiceApi
-from .pipeline_info import PipelineInfo
+import re
+from typing import Union
 
-from .dsl import CacheOptions
-from .dsl import FailureOptions
-from .dsl import Artifact
-from .dsl import Parameter
-from .dsl import ContainerStep
-from .dsl import Pipeline
-from .dsl import FAIL_CONTINUE
-from .dsl import FAIL_FAST
-from .dsl.sys_params import *
+
+def validate_string_by_regex(string: str, regex: str):
+    """ Check if the string is legal or not
+
+    Args:
+        string {str}: the string which needed to validate
+        regex {raw str}: the regex used for validation.
+
+    Returns:
+        flag {bool}: return a flag which indicate the name is legal or not
+    """
+    if not re.match(regex, string):
+        return False
+    else:
+        return True
