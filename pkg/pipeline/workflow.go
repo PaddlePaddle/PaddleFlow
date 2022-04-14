@@ -489,7 +489,7 @@ func (bwf *BaseWorkflow) checkPostProcess() error {
 func checkPostProcessParam(param interface{}) error {
 	switch param := param.(type) {
 	case string:
-		pattern := `\{\{(\s)*([a-zA-Z0-9-]*\.[a-zA-Z0-9_]+)?(\s)*\}\}`
+		pattern := RegExpIncludingUpstreamTpl
 		reg := regexp.MustCompile(pattern)
 		matches := reg.FindStringSubmatch(param)
 		if len(matches) > 0 {
@@ -616,6 +616,7 @@ func (wf *Workflow) setRuntimeSteps(runtime map[string]schema.JobView, steps map
 				Name:       jobView.JobName,
 				Command:    jobView.Command,
 				Parameters: jobView.Parameters,
+				Artifacts:  jobView.Artifacts,
 				Env:        jobView.Env,
 				StartTime:  jobView.StartTime,
 				EndTime:    jobView.EndTime,

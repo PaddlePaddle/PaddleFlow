@@ -105,24 +105,11 @@ func InitMockDB() {
 		Logger: logger.Default.LogMode(logger.Info),
 	})
 	if err != nil {
-		log.Fatalf("The fake DB doesn't create successfully. Fail fast. error: %v", err)
+		log.Fatalf("InitMockDB open db error: %v", err)
 	}
-	// Create tables
-	db.AutoMigrate(
-		&models.Pipeline{},
-		&models.RunCache{},
-		&models.ArtifactEvent{},
-		&models.User{},
-		&models.Run{},
-		&models.Queue{},
-		&models.Flavour{},
-		&models.Grant{},
-		&models.Job{},
-		&models.JobTask{},
-		&models.JobLabel{},
-		&models.ClusterInfo{},
-		&models.RunJob{},
-	)
+	if err := createDatabaseTables(db); err != nil {
+		log.Fatalf("InitMockDB createDatabaseTables error[%s]", err.Error())
+	}
 	database.DB = db
 }
 
@@ -133,25 +120,10 @@ func initSQLiteDB(dbConf *config.DatabaseConfig, gormConf *gorm.Config) *gorm.DB
 		return nil
 	}
 
-	// Create tables
-	db.AutoMigrate(
-		&models.Pipeline{},
-		&models.RunCache{},
-		&models.ArtifactEvent{},
-		&models.User{},
-		&models.Run{},
-		&models.Queue{},
-		&models.Flavour{},
-		&models.Grant{},
-		&models.Job{},
-		&models.JobTask{},
-		&models.JobLabel{},
-		&models.ClusterInfo{},
-		&models.Image{},
-		&models.FileSystem{},
-		&models.Link{},
-		&models.RunJob{},
-	)
+	if err := createDatabaseTables(db); err != nil {
+		log.Fatalf("initSQLiteDB createDatabaseTables error[%s]", err.Error())
+		return nil
+	}
 	// init root user to db, can not be modified by config file currently
 	rootUser := models.User{
 		UserInfo: models.UserInfo{
@@ -182,4 +154,25 @@ func initMysqlDB(dbConf *config.DatabaseConfig, gormConf *gorm.Config) *gorm.DB 
 	}
 	log.Debugf("init mysql DB success")
 	return db
+}
+
+func createDatabaseTables(db *gorm.DB) error {
+	return db.AutoMigrate(
+		&models.Pipeline{},
+		&models.RunCache{},
+		&models.ArtifactEvent{},
+		&models.User{},
+		&models.Run{},
+		&models.RunJob{},
+		&models.Queue{},
+		&models.Flavour{},
+		&models.Grant{},
+		&models.Job{},
+		&models.ClusterInfo{},
+		&models.Image{},
+		&models.FileSystem{},
+		&models.Link{},
+		&models.FSCacheConfig{},
+		&models.FSCacheWorker{},
+	)
 }
