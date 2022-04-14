@@ -81,7 +81,7 @@ func (jr *JobRouter) CreateSingleJob(w http.ResponseWriter, r *http.Request) {
 
 	response, err := job.CreateSingleJob(&request)
 	if err != nil {
-		ctx.ErrorCode = common.JobSubmitFailed
+		ctx.ErrorCode = common.JobCreateFailed
 		ctx.Logging().Errorf("create job failed. job request:%v error:%s", request, err.Error())
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
