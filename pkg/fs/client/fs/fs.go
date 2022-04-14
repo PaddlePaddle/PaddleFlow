@@ -21,6 +21,7 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
+	"sync"
 	"syscall"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -40,14 +41,20 @@ type FileSystem struct {
 	cache  *metaCache
 }
 
+var collectorOnce sync.Once
+
+func collectorRegister() {
+	prometheus.MustRegister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
+	prometheus.MustRegister(collectors.NewGoCollector())
+}
+
 func wrapRegister(fsMeta common.FSMeta) *prometheus.Registry {
 	registry := prometheus.NewRegistry() // replace default so only pfs-fuse metrics are exposed
 	prometheus.DefaultGatherer = registry
 	metricLabels := prometheus.Labels{"fsname": fsMeta.Name, "fsID": fsMeta.ID}
 	prometheus.DefaultRegisterer = prometheus.WrapRegistererWithPrefix("pfs_",
 		prometheus.WrapRegistererWith(metricLabels, registry))
-	prometheus.MustRegister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
-	prometheus.MustRegister(collectors.NewGoCollector())
+	collectorOnce.Do(collectorRegister)
 	return registry
 }
 
