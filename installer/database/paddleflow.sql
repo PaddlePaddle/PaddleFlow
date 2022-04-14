@@ -124,6 +124,31 @@ CREATE TABLE IF NOT EXISTS `run` (
     INDEX (`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
+CREATE TABLE IF NOT EXISTS `run_job` (
+    `pk` bigint(20) NOT NULL AUTO_INCREMENT,
+    `id` varchar(60) NOT NULL,
+    `run_id` varchar(60) NOT NULL,
+    `name` varchar(60) NOT NULL,
+    `step_name` varchar(60) NOT NULL,
+    `command` text,
+    `paramters_json` text,
+    `artifacts_json` text,
+    `env_json` text,
+    `docker_env` varchar(128),
+    `status` varchar(32) DEFAULT NULL,
+    `message` text,
+    `cache_json` text,
+    `cache_run_id` varchar(60),
+    `created_at` datetime(3) DEFAULT NULL,
+    `activated_at` datetime(3) DEFAULT NULL,
+    `updated_at` datetime(3) DEFAULT NULL,
+    `deleted_at` datetime(3) DEFAULT NULL,
+    PRIMARY KEY (`pk`),
+    UNIQUE KEY (`id`),
+    INDEX (`run_id`),
+    INDEX (`status`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
 CREATE TABLE IF NOT EXISTS `image` (
     `pk` bigint(20) NOT NULL AUTO_INCREMENT,
     `id` varchar(128) NOT NULL UNIQUE,
