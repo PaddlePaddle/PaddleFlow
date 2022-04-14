@@ -172,7 +172,7 @@ CREATE TABLE IF NOT EXISTS `run_job` (
     `name` varchar(60) NOT NULL,
     `step_name` varchar(60) NOT NULL,
     `command` text,
-    `paramters_json` text,
+    `parameters_json` text,
     `artifacts_json` text,
     `env_json` text,
     `docker_env` varchar(128),
