@@ -31,13 +31,13 @@ func TestMemFSCache(t *testing.T) {
 	fsCache1.NodeName = "nodename"
 	fsCache1.MountPoint = "mp"
 	fsCache1.UsedSize = 111
-	mm.AddFSCache(fsCache1)
+	_ = mm.AddFSCache(fsCache1)
 	retV, _ := mm.GetFSCache("fsid", "cacheID1")
 	assert.Equal(t, fsCache1.CacheDir, retV.CacheDir)
 	assert.Equal(t, fsCache1.FSID, retV.FSID)
 	retValues, _ := mm.ListFSCaches("fsid", "")
 	assert.Equal(t, len(retValues), 1)
-	mm.DeleteFSCache("fsid", "")
+	_ = mm.DeleteFSCache("fsid", "")
 	retValues, _ = mm.ListFSCaches("fsid", "")
 	assert.Equal(t, len(retValues), 0)
 }

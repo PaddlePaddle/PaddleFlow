@@ -35,7 +35,7 @@ func InitMockDB() {
 		log.Fatalf("The fake DB doesn't create successfully. Fail fast. error: %v", err)
 	}
 	// Create tables
-	db.AutoMigrate(
+	_ = db.AutoMigrate(
 		&Pipeline{},
 		&RunCache{},
 		&ArtifactEvent{},
