@@ -35,13 +35,13 @@ type Job struct {
 	Pk                int64            `json:"-" gorm:"primaryKey;autoIncrement"`
 	ID                string           `json:"jobID" gorm:"type:varchar(60);uniqueIndex;NOT NULL"`
 	Name              string           `json:"jobName" gorm:"type:varchar(512);default:''"`
-	UserName          string           `json:"userName" gorm:"type:varchar(255);NOT NULL"`
-	QueueID           string           `json:"queueID" gorm:"type:varchar(36);NOT NULL"`
+	UserName          string           `json:"userName" gorm:"NOT NULL"`
+	QueueID           string           `json:"queueID" gorm:"NOT NULL"`
 	Type              string           `json:"type" gorm:"type:varchar(20);NOT NULL"`
 	Config            schema.Conf      `json:"config" gorm:"type:text"`
 	RuntimeInfoJson   string           `json:"-" gorm:"column:runtime_info;default:'{}'"`
 	RuntimeInfo       interface{}      `json:"runtimeInfo" gorm:"-"`
-	Status            schema.JobStatus `json:"status"`
+	Status            schema.JobStatus `json:"status" gorm:"type:varchar(32);"`
 	Message           string           `json:"message"`
 	ResourceJson      string           `json:"-" gorm:"column:resource;type:text;default:'{}'"`
 	Resource          *schema.Resource `json:"resource" gorm:"-"`
