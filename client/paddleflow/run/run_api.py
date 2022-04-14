@@ -34,8 +34,7 @@ class RunServiceApi(object):
 
     @classmethod
     def add_run(self, host, fsname, name=None, desc=None, entry=None,
-                param=None, username=None, runyamlpath=None, 
-                runyamlrawb64=None, header=None, disabled=None):
+                param=None, username=None, runyamlpath=None, runyamlrawb64=None, header=None):
         """ add run 
         """
         if not header:
@@ -60,8 +59,6 @@ class RunServiceApi(object):
             body['parameters'] = param
         if username:
             body['username'] = username
-        if disabled:
-            body["disabled"] = disabled
         response = api_client.call_api(method="POST", url=parse.urljoin(host, api.PADDLE_FLOW_RUN),
                                        headers=header, json=body)
         if not response:

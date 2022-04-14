@@ -31,7 +31,6 @@ from paddleflow.cli.run import run
 from paddleflow.cli.pipeline import pipeline
 from paddleflow.cli.cluster import cluster
 from paddleflow.cli.flavour import flavour
-from paddleflow.common.util import get_default_config_path
 
 DEFAULT_PADDLEFLOW_PORT = 8080
 DEFAULT_FS_HTTP_PORT = 8081
@@ -50,7 +49,8 @@ def cli(ctx, pf_config=None, output=OutputFormat.table.name):
     if pf_config:
         config_file = pf_config
     else:
-        config_file = get_default_config_path()
+        home_path = os.getenv('HOME')
+        config_file = os.path.join(home_path, '.paddleflow/config')
     if not os.access(config_file, os.R_OK):
         click.echo("no config file in %s" % config_file, err=True)
         sys.exit(1)
