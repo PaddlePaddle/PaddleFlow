@@ -26,7 +26,6 @@ from paddleflow.pipeline.dsl.io_types.dicts import OutputArtifactDict
 from paddleflow.pipeline.dsl.io_types.dicts import ParameterDict
 from paddleflow.pipeline.dsl.options import CacheOptions
 from paddleflow.pipeline.dsl.utils.util import validate_string_by_regex
-from paddleflow.pipeline.dsl.utils.util import CaseSensitiveConfigParser 
 from paddleflow.pipeline.dsl.utils.consts import STEP_NAME_REGEX
 from paddleflow.pipeline.dsl.utils.consts import PipelineDSLError 
 from paddleflow.pipeline.dsl.utils.consts import VARIBLE_NAME_REGEX
@@ -40,7 +39,7 @@ class Step(object):
             name: str, 
             inputs: Dict[str, Artifact]=None,
             outputs: Dict[str, Artifact]=None,
-            params: Dict[str, Any]=None,
+            parameters: Dict[str, Any]=None,
             cache_options: CacheOptions=None,
             ):
         """ create an new instance of Step
@@ -49,7 +48,7 @@ class Step(object):
             name (str): the name of Step
             inputs (Dict[str, Artifact]): input artifact, the key is the name of artifact, and the value should be upstream Step's output artifact. 
             outputs (Dict[str, Artifact]): output artifact, the key is the name of artifact, and the value should be an instance of Artifact
-            params (str, Any): Parameter of step, the key is the name of this parameter, and the value could be int, string, Paramter, or upstream Step's artifact
+            parameters (str, Any): Parameter of step, the key is the name of this parameter, and the value could be int, string, Paramter, or upstream Step's artifact
             cache_options (cache_options): the cache options of step
         Raises:
             PaddleFlowSDKException: if some args is illegal
@@ -57,19 +56,39 @@ class Step(object):
         if not validate_string_by_regex(name, STEP_NAME_REGEX):
             raise PaddleFlowSDKException(PipelineDSLError, f"the name of Step[{name}] is is illegal" + \
                     f"the regex used for validation is {STEP_NAME_REGEX}")
-        
+
         self.name = name
         register_step_handler(self)
 
         self.__error_msg_prefix = f"error occurred in step[{self.name}]: "
-
         self.cache_options = cache_options
 
         self._dependences = []
 
         self._set_inputs(inputs)
         self._set_outputs(outputs)
-        self._set_params(params)
+        self._set_params(parameters)
+        
+    @property
+    def name(self):
+        """ get the name of step
+        """
+        return self._name
+
+    @name.setter
+    def name(self, name: str):
+        """ set the name of step
+
+        Args:
+            name (str): the name of step
+        Raises:
+            PaddleFlowPaddleFlowSDKExceptionSDKException: if name is illegal
+        """
+        if not validate_string_by_regex(name, STEP_NAME_REGEX):
+            raise PaddleFlowSDKException(PipelineDSLError, f"the name of Step[{name}] is is illegal" + \
+                    f"the regex used for validation is {STEP_NAME_REGEX}")
+            
+        self._name = name
         
     def _generate_error_msg(self, msg: str):
         """ generate error msg
@@ -141,14 +160,14 @@ class Step(object):
         if outputs and not isinstance(outputs, Dict):
             err_msg = self._generate_error_msg("outputs of Step should be an instance of Dict")
             raise PaddleFlowSDKException(PipelineDSLError, err_msg)
-
-        # to avoid changing the value of outputs
+        
+        # OutputArtifactDict would change the value of outputs, so we need deepcopy it to support reuse
         outputs = copy.deepcopy(outputs)
         for name, art in outputs.items():
             self._outputs[name] = art
 
     @property
-    def params(self):
+    def parameters(self):
         """ get params
 
         Returns:
@@ -156,14 +175,14 @@ class Step(object):
         """
         return self._params 
 
-    def _set_params(self, params: Dict[str, Artifact]):
-        """ set outputs artifact
+    def _set_params(self, params: Dict[str, Any]):
+        """ set parameters
 
         Args:
-            outputs (Dict[str, Artifact]): output artifacts which need to set
+            outputs (Dict[str, Any]): parameters which need to set
 
         Raises:
-            PaddleFlowSDKException: if the value of outputs is not equal to Artifact() or the key is illegal
+            PaddleFlowSDKException: if the value or the key is illegal
         """
         # same reason as input 
         self._params = ParameterDict(self)
@@ -215,7 +234,7 @@ class Step(object):
             deps.add(art.step)
 
         # 3. parse deps from parameter
-        for param in self.params.values():
+        for param in self.parameters.values():
             if param.ref and isinstance(param.ref, Parameter):
                 deps.add(param.ref.step)
 
@@ -230,7 +249,7 @@ class Step(object):
         """
         inputs_names = set(self.inputs.keys())
         outputs_names = set(self.outputs.keys())
-        params_names = set(self.params.keys())
+        params_names = set(self.parameters.keys())
 
         if len(inputs_names | outputs_names | params_names) != \
                 len(inputs_names) + len(outputs_names) + len(params_names):

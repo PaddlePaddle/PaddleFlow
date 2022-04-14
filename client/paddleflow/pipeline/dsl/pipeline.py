@@ -25,14 +25,15 @@ from .steps import step
 from .steps import Step
 from .options import CacheOptions
 from .options import FailureOptions
+from .io_types import EnvDict
 from .utils.util import validate_string_by_regex
-from .utils.util import CaseSensitiveConfigParser
 from .utils.consts import PIPELINE_NAME_REGEX
 from .utils.consts import PipelineDSLError
 from .utils.consts import VARIBLE_NAME_REGEX
 from .compiler import Compiler
 
 from paddleflow.common.exception.paddleflow_sdk_exception import PaddleFlowSDKException
+from paddleflow.common.util import  get_default_config_path
 
 class Pipeline(object):
     """ Pipeline is a workflow which is composed of Step  
@@ -41,7 +42,7 @@ class Pipeline(object):
             self,
             name: str,
             parallelism: int=None,
-            image: str=None,
+            docker_env: str=None,
             env: Dict[str, str]=None,
             cache_options: CacheOptions=None,
             failure_options: FailureOptions=None
@@ -51,7 +52,7 @@ class Pipeline(object):
         Args:
             name (str): the name of Pipeline 
             parallelism (str): the max number of total parallel pods that can execute at the same time in this Pipeline.
-            image (str): the docker image address of this Pipeline, if Step of this Pipeline has their own image, then the image of Step has higher priority
+            docker_env (str): the docker image address of this Pipeline, if Step of this Pipeline has their own docker_env, then the docker_env of Step has higher priority
             env (Dict[str, str]): the environment variable of Step runtime, which is shared by all steps. If the environment variable with the same name is set to step, the priority of step is higher
             cache_options (cache_options): the cache options of Pipeline which is shared by all steps, if Step of this Pipeline has their own cache_options, then the priority of step is higher
             failure_options (FailureOptions): the failure options of Pipeline, Specify how to handle the rest of the steps when there is a step failure
@@ -63,30 +64,26 @@ class Pipeline(object):
 
         Example: ::
             
-            @Pipeline(image="images/training.tgz", env=Env, parallelism=5, name="myproject", cache_options=cache_options)
+            @Pipeline(docker_env="images/training.tgz", env=Env, parallelism=5, name="myproject", cache_options=cache_options)
             def myproject(data_path, iteration):
                 step1 = data_process(data_path)
-                step2 = main(step1.params["data_file"], iteration, step1.outputs["train_data"])
-                step3 = validate(step2.params["data_file"], step1.outputs["validate_data"], step2.outputs["train_model"])
+                step2 = main(step1.parameters["data_file"], iteration, step1.outputs["train_data"])
+                step3 = validate(step2.parameters["data_file"], step1.outputs["validate_data"], step2.outputs["train_model"])
         """
         if parallelism and parallelism <1:
             raise PaddleFlowSDKException(PipelineDSLError, "parallelism should >= 1")
-
-        if not validate_string_by_regex(name, PIPELINE_NAME_REGEX):
-            raise PaddleFlowSDKException(PipelineDSLError, f"the name of Step[{name}] is is illegal" + \
-                    f"the regex used for validation is {PIPELINE_NAME_REGEX}")
         
         self.name = name
         
         self.__error_msg_prefix = f"error occurred in Pipeline[{self.name}]: "
-        self.image = image
+        self.docker_env = docker_env
         self.parallelism = parallelism
         self.cache_options = cache_options
         self.failure_options = failure_options
 
-        self._env = env or {}
+        self._env = EnvDict(self)
     
-        self.add_env(self._env)
+        self.add_env(env)
 
         # the name of step to step 
         self._steps = {}
@@ -140,10 +137,10 @@ class Pipeline(object):
             step (Step):  the step which need to register to this Pipeline 
         """
         # 1. to avoid mutiple steps have the same name
-        step.name = self._make_step_name_unique_by_adding_index(step.name)
+        self._valide_step_is_unique(step.name)
         self._steps[step.name] = step
 
-    def _make_step_name_unique_by_adding_index(
+    def _valide_step_is_unique(
             self,
             name: str
             ):
@@ -153,14 +150,9 @@ class Pipeline(object):
             name (str): the name of steps:
         """
         names = list(self._steps.keys()) + list(self._post_process.keys())
-        index = 1 
-        
-        unique_name = name
-        while unique_name in names:
-            unique_name = f"{name}-{index}"
-            index += 1
-
-        return unique_name
+        if name in names:
+            raise PaddleFlowSDKException(PipelineDSLError, self.__error_msg_prefix + \
+                f"there are multiple steps with the same name[name]")
     
     def run(
             self,
@@ -192,8 +184,7 @@ class Pipeline(object):
         if config:
             config_file = config
         else:
-            home_path = os.getenv('HOME')
-            config_file = os.path.join(home_path, '.paddleflow/config')
+            config_file = get_default_config_path()
 
         if not os.access(config_file, os.R_OK):
             raise PaddleFlowSDKException(PipelineDSLError, self.__error_msg_prefix + \
@@ -265,7 +256,7 @@ class Pipeline(object):
         # 1. Synchronize environment variables of pipeline and step
         for name, step in steps.items():
             # 1. Synchronize environment variables of pipeline and step
-            env = copy.deepcopy(self.env)
+            env = dict(self.env)
             env.update(step.env)
             step.add_env(env)
 
@@ -279,10 +270,10 @@ class Pipeline(object):
                             f"the upstream step[{dep.name}] for step[{step.name}] is not in Pipeline[{self.name}].\n" + \
                                 "Attentions: step in postProcess cannot depend on any other step")
             
-            # 4. validate image
-            if not self.image and not step.image:
+            # 4. validate docker_env
+            if not self.docker_env and not step.docker_env:
                 raise PaddleFlowSDKException(PipelineDSLError, 
-                    self.__error_msg_prefix + f"cannot set the image of step[step.name]")  
+                    self.__error_msg_prefix + f"cannot set the docker_env of step[step.name]")  
 
     def compile(
             self,
@@ -366,10 +357,9 @@ class Pipeline(object):
                     "step2": {"param_a": 2},
                 }
         """
-
         params = {}
         for step in self._steps.values():
-            params[step] = step.params
+            params[step] = step.parameters
 
         return params
 
@@ -401,7 +391,7 @@ class Pipeline(object):
             name (str): new name of Pipeline
 
         Raises:
-            PaddleFlowPaddleFlowSDKExceptionSDKException: if name is illegal 
+            PaddleFlowSDKException: if name is illegal 
         """
         if not validate_string_by_regex(name, PIPELINE_NAME_REGEX):
             raise PaddleFlowSDKException(PipelineDSLError, self.__error_msg_prefix + \
@@ -418,7 +408,7 @@ class Pipeline(object):
             a dict while the key is the name of env and the value is the value of env
         """
         return self._env
-
+    
     def add_env(
             self, 
             env: Dict[str, str]
@@ -431,51 +421,11 @@ class Pipeline(object):
         Raises:
             PaddleFlowSDKException: if some enviroment is illegal
         """
+        if not env:
+            return 
+
         for name, value in env.items():
-            if not validate_string_by_regex(name, VARIBLE_NAME_REGEX):
-                err_msg = self.__error_msg_prefix + \
-                    f"the name of env[{name}] is illegal, the regex used for validation is {VARIBLE_NAME_REGEX}"
-                raise PaddleFlowSDKException(PipelineDSLError, err_msg)
-
-            try:
-                value = str(value)
-            except Exception as e:
-                err_msg = self.__error_msg_prefix + f"the value of env[{name}] should be an instances of string"
-                raise PaddleFlowSDKException(PipelineDSLError, err_msg)
-
             self._env[name] = value
-
-    def add_env_from_file(
-            self,
-            file: str
-            ):
-        """ add env from file
-
-        Args:
-            file (str): the path of file in ini format which has env section
-
-        Raises:
-            PaddleFlowSDKException: if the file is not exists or the format of the file is error
-        """
-        if not Path(file).is_file():
-            err_msg = self.__error_msg_prefix + f"the file[{file}] is not exists or it's not a file"
-            raise PaddleFlowSDKException(PipelineDSLError, err_msg)
-
-        config = CaseSensitiveConfigParser()
-        env = {}
-
-        try:
-            config.read(file)
-            for key, value in config.items("env"):
-                env[key] = value
-
-            self.add_env(env)
-        except PaddleFlowSDKException as e:
-            raise e
-        except Exception as e:
-            err_msg = self.__error_msg_prefix + \
-                f"The file[{file}] needs to be in ini format and have [env] section: {repr(e)}"
-            raise PaddleFlowSDKException(PipelineDSLError, err_msg)
 
     def set_post_process(self, step: Step):
         """ set the post_process step
@@ -483,13 +433,18 @@ class Pipeline(object):
         Args:
             step: the step of Pipeline's post_process, would be execute after other steps finished
         """
+        # TODO：增加校验逻辑
         if not isinstance(step, Step):
             raise PaddleFlowSDKException(PipelineDSLError, 
                 self.__error_msg_prefix + "the step of post_process should be an instance of Step")
         
+        if step.cache_options:
+            raise PaddleFlowSDKException(PipelineDSLError,
+                self.__error_msg_prefix + "cannot set cache_options for step which in post_process")
+
         # There can only be one step at most in post_process right now
         self._post_process = {}
-        step.name = self._make_step_name_unique_by_adding_index(step.name)
+        self._valide_step_is_unique(step.name)
         self._post_process[step.name] = step
 
     def get_post_process(self):

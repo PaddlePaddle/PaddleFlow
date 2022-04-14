@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+# -*- coding:utf8 -*-
 """
 Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
 
@@ -13,16 +15,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-# THE parameters which set by Paddleflow Server
+import os 
 
-PF_RUN_ID = "{{PF_RUN_ID}}"
 
-PF_FS_ID = "{{PF_FS_ID}}"
-
-PF_STEP_NAME = "{{PF_STEP_NAME}}"
-
-PF_FS_NAME = "{{PF_FS_NAME}"
-
-PF_USER_NAME = "{{PF_USER_NAME}}"
-
-PF_RUN_TIME = "{{PF_RUN_TIME}}"
+def get_default_config_path():
+    """ get the default config file path of paddleflow
+    """
+    home_path = os.getenv('HOME')
+    config_file = os.path.join(home_path, '.paddleflow/config')
+    return config_file

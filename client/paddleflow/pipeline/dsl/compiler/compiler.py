@@ -59,8 +59,8 @@ class Compiler(object):
             self._pipeline_dict["post_process"][post_process.name] = StepCompiler().compile(post_process)
 
         # 4、trans pipeline conf
-        if pipeline.image:
-            self._pipeline_dict["docker_env"] = pipeline.image
+        if pipeline.docker_env:
+            self._pipeline_dict["docker_env"] = pipeline.docker_env
         
         self._pipeline_dict["name"] = pipeline.name
         
@@ -72,8 +72,6 @@ class Compiler(object):
 
         if pipeline.parallelism:
             self._pipeline_dict["parallelism"] = pipeline.parallelism
-
-
 
         #4、write to file
         if save_path:

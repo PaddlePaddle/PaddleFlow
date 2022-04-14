@@ -17,3 +17,7 @@ limitations under the License.
 
 from .artifact import Artifact
 from .parameter import Parameter
+from .dicts import EnvDict
+from .dicts import InputArtifactDict
+from .dicts import OutputArtifactDict
+from .dicts import ParameterDict
