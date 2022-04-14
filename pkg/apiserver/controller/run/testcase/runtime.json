@@ -1,0 +1,82 @@
+{
+	"main": {
+		"jobID": "job-run-000059-main-b7a9a264",
+		"name": "run-000059-main",
+		"command": "echo hahaha",
+		"parameters": {
+			"test": "hahaha"
+		},
+		"env": {
+			"PF_FS_ID": "fs-root-cyang14",
+			"PF_FS_NAME": "cyang14",
+			"PF_JOB_CLUSTER_ID": "cluster-05f3854d",
+			"PF_JOB_FLAVOUR": "flavour1",
+			"PF_JOB_MODE": "Pod",
+			"PF_JOB_NAMESPACE": "default",
+			"PF_JOB_PRIORITY": "HIGH",
+			"PF_JOB_QUEUE_ID": "queue-48ec41bd",
+			"PF_JOB_QUEUE_NAME": "abc-q1",
+			"PF_JOB_TYPE": "vcjob",
+			"PF_RUN_ID": "run-000059",
+			"PF_STEP_NAME": "main",
+			"PF_USER_NAME": "root"
+		},
+		"startTime": "2022-04-06 14:59:18",
+		"endTime": "",
+		"status": "init",
+		"deps": "",
+		"dockerEnv": "iregistry.baidu-int.com/bmlc/framework/paddle:2.0.2-gpu-cuda10.1-cudnn7",
+		"artifacts": {
+			"Input": {},
+			"Output": {},
+			"OutputList": null
+		},
+		"cache": {
+			"Enable": false,
+			"MaxExpiredTime": "600",
+			"FsScope": "./lalal"
+		},
+		"jobMessage": "",
+		"cacheRunID": ""
+	},
+	"nomain": {
+		"jobID": "job-run-000059-nomain-465e402b",
+		"name": "run-000059-nomain",
+		"command": "echo 222",
+		"parameters": {
+			"test": "222"
+		},
+		"env": {
+			"PF_FS_ID": "fs-root-cyang14",
+			"PF_FS_NAME": "cyang14",
+			"PF_JOB_CLUSTER_ID": "cluster-05f3854d",
+			"PF_JOB_FLAVOUR": "flavour1",
+			"PF_JOB_MODE": "Pod",
+			"PF_JOB_NAMESPACE": "default",
+			"PF_JOB_PRIORITY": "HIGH",
+			"PF_JOB_QUEUE_ID": "queue-48ec41bd",
+			"PF_JOB_QUEUE_NAME": "abc-q1",
+			"PF_JOB_TYPE": "vcjob",
+			"PF_RUN_ID": "run-000059",
+			"PF_STEP_NAME": "nomain",
+			"PF_USER_NAME": "root"
+		},
+		"startTime": "2022-04-06 14:59:18",
+		"endTime": "",
+		"status": "init",
+		"deps": "",
+		"dockerEnv": "iregistry.baidu-int.com/bmlc/framework/paddle:2.0.2-gpu-cuda10.1-cudnn7",
+		"artifacts": {
+			"Input": {},
+			"Output": {},
+			"OutputList": null
+		},
+		"cache": {
+			"Enable": false,
+			"MaxExpiredTime": "600",
+			"FsScope": "./lalal"
+		},
+		"jobMessage": "",
+		"cacheRunID": ""
+	}
+}

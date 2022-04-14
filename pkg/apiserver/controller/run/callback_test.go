@@ -17,6 +17,9 @@ limitations under the License.
 package run
 
 import (
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -25,20 +28,31 @@ import (
 	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/common/database/dbinit"
 	"paddleflow/pkg/common/logger"
+	"paddleflow/pkg/common/schema"
 )
 
-const runtimeRaw = `{"preprocess":{"jobID":"job-run-000361-preprocess-1220449a","name":"run-000361-preprocess","command":"mkdir data \u0026\u0026 cd ./data/ \u0026\u0026 mkdir train \u0026\u0026 mkdir validata","parameters":{"data_path":"./data/"},"env":{"PF_FS_ID":"fs-root-cyang14","PF_FS_NAME":"cyang14","PF_INPUT_ARTIFACT_DATA1":"./data/","PF_JOB_FLAVOUR":"flavour1","PF_JOB_MODE":"Pod","PF_JOB_NAMESPACE":"default","PF_JOB_PRIORITY":"NORMAL","PF_JOB_PVC_NAME":"pfs-fs-root-cyang14-pvc","PF_JOB_QUEUE_NAME":"qdh","PF_JOB_TYPE":"vcjob","PF_OUTPUT_ARTIFACT_TRAIN_DATA":"","PF_OUTPUT_ARTIFACT_VALIDATE_DATA":"","PF_RUN_ID":"run-000361","PF_STEP_NAME":"preprocess","PF_USER_NAME":"root"},"startTime":"2022-02-09 17:07:41","endTime":"2022-02-09 17:07:46","status":"succeeded","deps":"","image":"paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7","artifacts":{"Input":{"data1":"./data/"},"Output":{"train_data":"","validate_data":""},"OutputList":null},"jobMessage":"ContainerCreating:"}}`
+const runtimePath = "./testcase/runtime.json"
+const runYaml = "name: myproject\n\ndocker_env: iregistry.baidu-int.com/bmlc/framework/paddle:2.0.2-gpu-cuda10.1-cudnn7\n\nentry_points:\n  main:\n    parameters:\n      test: \"111\"\n    command: \"echo {{test}}\"\n    env:\n      PF_JOB_QUEUE_NAME: abc-q1\n      PF_JOB_TYPE: vcjob\n      PF_JOB_MODE: Pod\n      PF_JOB_FLAVOUR: flavour1\n      PF_JOB_PRIORITY: HIGH\n    cache:\n      enable: false\n      max_expired_time: 600\n      fs_scope: \"./lalal\"\n  nomain:\n    parameters:\n      test: \"222\"\n    command: \"echo {{test}}\"\n    env:\n      PF_JOB_QUEUE_NAME: abc-q1\n      PF_JOB_TYPE: vcjob\n      PF_JOB_MODE: Pod\n      PF_JOB_FLAVOUR: flavour1\n      PF_JOB_PRIORITY: HIGH\n    cache:\n      enable: false\n      max_expired_time: 600\n      fs_scope: \"./lalal\"\ncache:\n  enable: true\n  max_expired_time: 300\n  fs_scope: \"./for_fsscope\"\n"
 
 func getMockRunWithRuntime() models.Run {
 	run1 := models.Run{
-		ID:         MockRunID1,
-		Name:       "run_with_runtime",
-		UserName:   MockRootUser,
-		FsID:       MockFsID1,
-		Status:     common.StatusRunRunning,
-		RuntimeRaw: runtimeRaw,
+		ID:       MockRunID1,
+		Name:     "run_without_runtime",
+		UserName: MockRootUser,
+		FsID:     MockFsID1,
+		Status:   common.StatusRunRunning,
+		RunYaml:  runYaml,
 	}
 	return run1
+}
+
+func loadCase(casePath string) []byte {
+	data, err := ioutil.ReadFile(casePath)
+	if err != nil {
+		fmt.Println("File reading error", err)
+		return []byte{}
+	}
+	return data
 }
 
 func TestGetJobByRun(t *testing.T) {
@@ -48,7 +62,14 @@ func TestGetJobByRun(t *testing.T) {
 	runID, err := models.CreateRun(ctx.Logging(), &run)
 	assert.Nil(t, err)
 
-	jobView, err := GetJobByRun(runID, "preprocess")
+	runtimeView := schema.RuntimeView{}
+	runtimeJson := loadCase(runtimePath)
+	json.Unmarshal([]byte(runtimeJson), &runtimeView)
+
+	models.CreateRunJobs(ctx.Logging(), runtimeView, runID)
+	updateRunJobs(runID, runtimeView)
+
+	jobView, err := GetJobByRun(runID, "main")
 	assert.Nil(t, err)
-	assert.Equal(t, "job-run-000361-preprocess-1220449a", jobView.JobID)
+	assert.Equal(t, "job-run-000059-main-b7a9a264", jobView.JobID)
 }

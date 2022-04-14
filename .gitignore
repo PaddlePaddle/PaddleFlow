@@ -1,0 +1,19 @@
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+.tox/
+.coverage
+.cache
+.pytest_cache
+nosetests.xml
+coverage.xml
+
+# Virtualenv
+/.venv/
+/venv/
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
