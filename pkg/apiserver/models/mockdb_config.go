@@ -41,15 +41,17 @@ func InitMockDB() {
 		&ArtifactEvent{},
 		&User{},
 		&Run{},
+		&RunJob{},
 		&Queue{},
 		&Flavour{},
 		&Grant{},
 		&Job{},
-		&JobTask{},
-		&JobLabel{},
 		&ClusterInfo{},
-		&FSCache{},
+		&Image{},
+		&FileSystem{},
+		&Link{},
 		&FSCacheConfig{},
+		&FSCache{},
 	)
 	database.DB = db
 }
