@@ -757,8 +757,9 @@ func deleteSystemParamEnv(sysParamEnv map[string]string) map[string]string {
 }
 
 func deleteSystemParamEnvForPFRuntime(runtimeView schema.RuntimeView) {
-	for _, jobView := range runtimeView {
+	for name, jobView := range runtimeView {
 		jobView.Env = deleteSystemParamEnv(jobView.Env)
+		runtimeView[name] = jobView
 	}
 }
 
