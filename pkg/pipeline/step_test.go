@@ -513,10 +513,10 @@ func TestPFRUNTIME(t *testing.T) {
 	assert.Equal(t, 2, len(runtime))
 
 	_, ok = runtime["data-process"]
-	assert.Equal(t, ok, false)
+	assert.Equal(t, ok, true)
 
 	_, ok = runtime["main"]
-	assert.Equal(t, ok, false)
+	assert.Equal(t, ok, true)
 
 	// postProcess
 	assert.Equal(t, 1, len(wf.Source.PostProcess))
@@ -533,16 +533,16 @@ func TestPFRUNTIME(t *testing.T) {
 		if err != nil {
 			t.Errorf("unmarshal runtime failed: %s", err.Error())
 		}
-		assert.Equal(t, 2, len(runtime))
+		assert.Equal(t, 3, len(runtime))
 
 		_, ok = runtime["data-process"]
-		assert.Equal(t, ok, false)
+		assert.Equal(t, ok, true)
 
 		_, ok = runtime["main"]
-		assert.Equal(t, ok, false)
+		assert.Equal(t, ok, true)
 
 		_, ok = runtime["validate"]
-		assert.Equal(t, ok, false)
+		assert.Equal(t, ok, true)
 	}
 
 }
