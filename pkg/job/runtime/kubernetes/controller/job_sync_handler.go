@@ -55,12 +55,15 @@ func (j *JobSync) add(obj interface{}) {
 	if jobStatus == "" {
 		jobStatus = schema.StatusJobPending
 	}
+	parentJobID := j.getParentJobID(jobObj)
 	jobInfo := &JobSyncInfo{
-		ID:      jobID,
-		Status:  jobStatus,
-		Runtime: obj,
-		Message: statusInfo.Message,
-		Action:  schema.Update,
+		ID:          jobID,
+		ParentJobID: parentJobID,
+		GVK:         jobObj.GroupVersionKind(),
+		Status:      jobStatus,
+		Runtime:     obj,
+		Message:     statusInfo.Message,
+		Action:      schema.Create,
 	}
 	j.jobQueue.Add(jobInfo)
 }
@@ -97,11 +100,13 @@ func (j *JobSync) update(old, new interface{}) {
 		jobStatus = schema.StatusJobPending
 	}
 	jobInfo := &JobSyncInfo{
-		ID:      jobID,
-		Status:  jobStatus,
-		Runtime: new,
-		Message: newStatusInfo.Message,
-		Action:  schema.Update,
+		ID:          jobID,
+		ParentJobID: j.getParentJobID(newObj),
+		GVK:         newObj.GroupVersionKind(),
+		Status:      jobStatus,
+		Runtime:     new,
+		Message:     newStatusInfo.Message,
+		Action:      schema.Update,
 	}
 	j.jobQueue.Add(jobInfo)
 	log.Infof("update %s job enqueue. jobID: %s, status: %s, message: %s", gvk.String(),
@@ -123,14 +128,34 @@ func (j *JobSync) delete(obj interface{}) {
 		return
 	}
 	jobInfo := &JobSyncInfo{
-		ID:      jobID,
-		Status:  statusInfo.Status,
-		Runtime: obj,
-		Message: statusInfo.Message,
-		Action:  schema.Delete,
+		ID:          jobID,
+		ParentJobID: j.getParentJobID(jobObj),
+		GVK:         jobObj.GroupVersionKind(),
+		Status:      statusInfo.Status,
+		Runtime:     obj,
+		Message:     statusInfo.Message,
+		Action:      schema.Delete,
 	}
 	j.jobQueue.Add(jobInfo)
 	log.Infof("delete %s job enqueue, jobID: %s", gvk.String(), jobInfo.ID)
+}
+
+// subJob handle node for ArgoWorkflow
+func (j *JobSync) getParentJobID(obj *unstructured.Unstructured) string {
+	name := obj.GetName()
+	namespace := obj.GetNamespace()
+	ownerReferences := obj.GetOwnerReferences()
+	if len(ownerReferences) == 0 {
+		return ""
+	}
+	owner := ownerReferences[0]
+	gvk := k8sschema.FromAPIVersionAndKind(owner.APIVersion, owner.Kind)
+	if gvk != k8s.ArgoWorkflowGVK {
+		log.Warnf("job %s/%s is not belong to ArgoWorkflow, skip it", namespace, name)
+		return ""
+	}
+	// parent job
+	return owner.Name
 }
 
 // addPod watch add pod event
