@@ -73,6 +73,7 @@ func (jr *JobRouter) CreateSingleJob(w http.ResponseWriter, r *http.Request) {
 
 	// validate Job
 	if err := validateSingleJob(&ctx, &request); err != nil {
+		ctx.ErrorCode = common.JobInvalidField
 		ctx.Logging().Errorf("validate job request failed. request:%v error:%s", request, err.Error())
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
@@ -80,6 +81,7 @@ func (jr *JobRouter) CreateSingleJob(w http.ResponseWriter, r *http.Request) {
 
 	response, err := job.CreateSingleJob(&request)
 	if err != nil {
+		ctx.ErrorCode = common.JobCreateFailed
 		ctx.Logging().Errorf("create job failed. job request:%v error:%s", request, err.Error())
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return

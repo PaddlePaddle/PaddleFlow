@@ -25,6 +25,7 @@ const (
 	PrefixGrant    = "grant"
 	PrefixQueue    = "queue"
 	PrefixCluster  = "cluster"
+	PrefixFlavour  = "flavour"
 
 	ResourceTypeRun           = "run"
 	ResourceTypeRunCache      = "run_cache"
