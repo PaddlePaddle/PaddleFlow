@@ -111,7 +111,7 @@ func (st *Step) generateStepParamSolver(forCacheFingerprint bool) (*StepParamSol
 		SysParamNamePFFsID:     st.wfr.wf.Extra[WfExtraInfoKeyFsID],
 		SysParamNamePFFsName:   st.wfr.wf.Extra[WfExtraInfoKeyFsName],
 		SysParamNamePFUserName: st.wfr.wf.Extra[WfExtraInfoKeyUserName],
-		SysParamNamePFRUNTIME:  string(runtimeView),
+		SysParamNamePFRuntime:  string(runtimeView),
 	}
 
 	paramSolver := NewStepParamSolver(SourceSteps, sysParams, jobs, forCacheFingerprint, st.wfr.wf.Source.Name, st.wfr.wf.RunID, st.wfr.wf.Extra[WfExtraInfoKeyFsID], st.getLogger())

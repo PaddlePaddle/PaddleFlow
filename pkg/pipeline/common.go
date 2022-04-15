@@ -17,6 +17,7 @@ limitations under the License.
 package pipeline
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"regexp"
@@ -734,4 +735,68 @@ func checkDictParam(dict DictParam, paramName string, realVal interface{}) (inte
 	default:
 		return nil, UnsupportedDictParamTypeError(dict.Type, paramName, dict)
 	}
+}
+
+// 删除系统变量
+func deleteSystemParamEnv(sysParamEnv map[string]string) map[string]string {
+	envWithoutSystmeEnv := map[string]string{}
+	for name, value := range sysParamEnv {
+		isSysParam := false
+		for _, sysParam := range SysParamNameList {
+			if sysParam == name {
+				isSysParam = true
+			}
+		}
+
+		if !isSysParam {
+			envWithoutSystmeEnv[name] = value
+		}
+	}
+
+	return envWithoutSystmeEnv
+}
+
+func deleteSystemParamEnvForPFRuntime(runtimeView schema.RuntimeView) {
+	for _, jobView := range runtimeView {
+		jobView.Env = deleteSystemParamEnv(jobView.Env)
+	}
+}
+
+func recursiveGetJobView(stepName string, pfRuntime, SrcRunTime schema.RuntimeView, workflowSource schema.WorkflowSource) error {
+	_, ok := workflowSource.EntryPoints[stepName]
+	if !ok {
+		return fmt.Errorf("cannot find step[%s] in workflowSource.entrypoints", stepName)
+	}
+
+	for _, step := range workflowSource.EntryPoints[stepName].GetDeps() {
+		pfRuntime[step] = SrcRunTime[step]
+		return recursiveGetJobView(step, pfRuntime, SrcRunTime, workflowSource)
+	}
+
+	return nil
+}
+
+func GetPFRuntime(stepName string, runTimeView schema.RuntimeView, workflowSource schema.WorkflowSource) (string, error) {
+	pfRuntime := schema.RuntimeView{}
+
+	_, ok := workflowSource.EntryPoints[stepName]
+	if ok {
+		err := recursiveGetJobView(stepName, pfRuntime, runTimeView, workflowSource)
+		if err != nil {
+			return "", err
+		}
+	} else {
+		for name, jobView := range runTimeView {
+			pfRuntime[name] = jobView
+		}
+	}
+
+	deleteSystemParamEnvForPFRuntime(pfRuntime)
+	pfRuntimeJson, err := json.Marshal(pfRuntime)
+
+	if err != nil {
+		return "", err
+	}
+
+	return string(pfRuntimeJson), nil
 }

@@ -414,7 +414,7 @@ func (bwf *BaseWorkflow) checkSteps() error {
 		SysParamNamePFStepName: "",
 		SysParamNamePFFsName:   "",
 		SysParamNamePFUserName: "",
-		SysParamNamePFRUNTIME:  "",
+		SysParamNamePFRuntime:  "",
 	}
 	steps := map[string]*schema.WorkflowSourceStep{}
 	for name, step := range bwf.runtimeSteps {
