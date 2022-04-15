@@ -3,8 +3,10 @@ package models
 import (
 	"encoding/json"
 	"fmt"
-	"paddleflow/pkg/common/schema"
 	"time"
+
+	v1 "k8s.io/api/core/v1"
+	"paddleflow/pkg/common/schema"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -73,4 +75,30 @@ func UpdateTask(task *JobTask) error {
 		DoUpdates: clause.AssignmentColumns([]string{"status", "message", "ext_runtime_status", "deleted_at"}),
 	}).Create(task)
 	return tx.Error
+}
+
+func (j *JobTask) decode() error {
+	if len(j.ExtRuntimeStatusJSON) > 0 {
+		var podStatus v1.PodStatus
+		if err := json.Unmarshal([]byte(j.ExtRuntimeStatusJSON), &podStatus); err != nil {
+			return err
+		}
+		j.ExtRuntimeStatus = podStatus
+	}
+	return nil
+}
+
+func ListByJobID(jobID string) ([]JobTask, error) {
+	var jobList []JobTask
+	err := database.DB.Table(JobTaskTableName).Where("job_id = ?", jobID).Find(&jobList).Error
+	if err != nil {
+		return nil, err
+	}
+	for _, v := range jobList {
+		err := v.decode()
+		if err != nil {
+			return nil, err
+		}
+	}
+	return jobList, nil
 }

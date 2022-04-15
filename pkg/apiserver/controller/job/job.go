@@ -17,11 +17,15 @@ limitations under the License.
 package job
 
 import (
+	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/ghodss/yaml"
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"paddleflow/pkg/apiserver/common"
 	"paddleflow/pkg/apiserver/models"
@@ -31,6 +35,88 @@ import (
 	"paddleflow/pkg/common/uuid"
 	"paddleflow/pkg/job"
 )
+
+var (
+	WSManager = WebsocketManager{
+		Connections:   make(map[string]*Connection),
+		BroadcastChan: make(chan GetJobResponse, 1000),
+	}
+	UpdateTime = time.Now()
+)
+
+type JobSpec struct {
+	ExtraFileSystem   []schema.FileSystem `json:"extraFileSystem,omitempty"`
+	Image             string              `json:"image"`
+	Env               map[string]string   `json:"env,omitempty"`
+	Command           string              `json:"command,omitempty"`
+	Args              []string            `json:"args,omitempty"`
+	Port              int                 `json:"port,omitempty"`
+	schema.Flavour    `json:"flavour,omitempty"`
+	schema.FileSystem `json:"fileSystem,omitempty"`
+}
+
+type DistributedJobSpec struct {
+	Framework schema.Framework `json:"framework,omitempty"`
+	Members   []models.Member  `json:"members,omitempty"`
+}
+
+type CommonSpec struct {
+	ID                string            `json:"id,omitempty"`
+	Name              string            `json:"name,omitempty"`
+	Labels            map[string]string `json:"labels,omitempty"`
+	Annotations       map[string]string `json:"annotations,omitempty"`
+	ExtensionTemplate string            `json:"extensionTemplate,omitempty"`
+	SchedulingPolicy  `json:"schedulingPolicy"`
+}
+
+type ListJobRequest struct {
+	Status  string `json:"status"`
+	Marker  string `json:"marker"`
+	MaxKeys int    `json:"maxKeys"`
+}
+
+type ListJobResponse struct {
+	common.MarkerInfo
+	JobList []*GetJobResponse `json:"jobList"`
+}
+
+type GetJobResponse struct {
+	CommonSpec         `json:",inline"`
+	JobSpec            `json:",inline"`
+	DistributedJobSpec `json:",inline"`
+	Status             string                 `json:"status"`
+	AcceptTime         string                 `json:"acceptTime"`
+	StartTime          string                 `json:"startTime"`
+	FinishTime         string                 `json:"finishTime"`
+	User               string                 `json:"userName"`
+	Runtime            RuntimeInfo            `json:"runtime,omitempty"`
+	DistributedRuntime DistributedRuntimeInfo `json:"distributedRuntime,omitempty"`
+	WorkflowRuntime    WorkflowRuntimeInfo    `json:"workflowRuntime,omitempty"`
+	UpdateTime         time.Time              `json:"-"`
+}
+
+type RuntimeInfo struct {
+	Name      string `json:"name,omitempty"`
+	Namespace string `json:"namespace,omitempty"`
+	ID        string `json:"id,omitempty"`
+	Status    string `json:"status,omitempty"`
+}
+
+type DistributedRuntimeInfo struct {
+	Name      string        `json:"name,omitempty"`
+	Namespace string        `json:"namespace,omitempty"`
+	ID        string        `json:"id,omitempty"`
+	Status    string        `json:"status,omitempty"`
+	Runtimes  []RuntimeInfo `json:"runtimes,omitempty"`
+}
+
+type WorkflowRuntimeInfo struct {
+	Name      string                   `json:"name,omitempty"`
+	Namespace string                   `json:"namespace,omitempty"`
+	ID        string                   `json:"id,omitempty"`
+	Status    string                   `json:"status,omitempty"`
+	Nodes     []DistributedRuntimeInfo `json:"nodes,omitempty"`
+}
 
 // CreateSingleJobRequest convey request for create job
 type CreateSingleJobRequest struct {
@@ -230,4 +316,214 @@ func checkPriority(conf schema.PFJobConf) error {
 		}
 	}
 	return nil
+}
+
+
+
+
+func ListJob(ctx *logger.RequestContext, request ListJobRequest) (*ListJobResponse, error) {
+	// TODO
+	return nil, nil
+}
+
+func GetJob(ctx *logger.RequestContext, jobID string) (*GetJobResponse, error) {
+	job, err := models.GetJobByID(jobID)
+	if err != nil {
+		ctx.ErrorCode = common.JobNotFound
+		ctx.Logging().Errorln(err.Error())
+		return nil, common.NotFoundError(common.ResourceTypeJob, jobID)
+	}
+	if !common.IsRootUser(ctx.UserName) && ctx.UserName != job.UserName {
+		err := common.NoAccessError(ctx.UserName, common.ResourceTypeJob, jobID)
+		ctx.ErrorCode = common.AccessDenied
+		ctx.Logging().Errorln(err.Error())
+		return nil, err
+	}
+	response, err := convertJobToResponse(job)
+	if err != nil {
+		return nil, err
+	}
+	return &response, nil
+}
+
+func DeleteJob(ctx *logger.RequestContext, jobID string) error {
+	// TODO
+	return nil
+}
+
+func convertJobToResponse(job models.Job) (GetJobResponse, error) {
+	response := GetJobResponse{}
+	b, err := json.Marshal(job)
+	if err != nil {
+		return response, err
+	}
+	err = json.Unmarshal(b, &response)
+	if err != nil {
+		return response, err
+	}
+
+	response.AcceptTime = job.CreatedAt.Format(timeLayoutStr)
+	if job.ActivatedAt.Valid {
+		response.StartTime = job.ActivatedAt.Time.Format(timeLayoutStr)
+	}
+	if schema.IsImmutableJobStatus(job.Status) {
+		response.FinishTime = job.UpdatedAt.Format(timeLayoutStr)
+	}
+	response.ID = job.ID
+	response.Name = job.Name
+	response.SchedulingPolicy = SchedulingPolicy{
+		QueueID:    job.QueueID,
+		Priority: job.Config.Priority,
+	}
+	// process runtime info && member
+	switch job.Type {
+	case string(schema.TypeSingle):
+		if job.RuntimeInfo != nil {
+			statusByte, err := json.Marshal(job.RuntimeInfo.(v1.Pod).Status)
+			if err != nil {
+				log.Errorf("parse single job[%s] status failed, error:[%s]", job.ID, err.Error())
+				return response, err
+			}
+			response.Runtime = RuntimeInfo{
+				ID:        string(job.RuntimeInfo.(v1.Pod).UID),
+				Name:      job.RuntimeInfo.(v1.Pod).Name,
+				Namespace: job.RuntimeInfo.(v1.Pod).Namespace,
+				Status:    string(statusByte),
+			}
+		}
+		var jobSpec JobSpec
+		if err := json.Unmarshal([]byte(job.ConfigJson), &jobSpec); err != nil {
+			log.Errorf("parse job[%s] config failed, error:[%s]", job.ID, err.Error())
+			return response, err
+		}
+		response.JobSpec = jobSpec
+	case string(schema.TypeDistributed):
+		if job.RuntimeInfo != nil {
+			k8sMeta, err := parseK8sMeta(job.RuntimeInfo)
+			if err != nil {
+				log.Errorf("parse distributed job[%s] runtimeinfo job meta failed, error:[%s]", job.ID, err.Error())
+				return response, err
+			}
+			statusByte, err := json.Marshal(job.RuntimeInfo.(map[string]interface{})["status"])
+			if err != nil {
+				log.Errorf("parse distributed job[%s] status failed, error:[%s]", job.ID, err.Error())
+				return response, err
+			}
+			runtimes, err := getTaskRuntime(job.ID)
+			if err != nil {
+				return response, err
+			}
+			response.DistributedRuntime = DistributedRuntimeInfo{
+				ID:        string(k8sMeta.UID),
+				Name:      k8sMeta.Name,
+				Namespace: k8sMeta.Namespace,
+				Status:    string(statusByte),
+				Runtimes:  runtimes,
+			}
+		}
+		members := make([]models.Member, 0)
+		if job.Members != nil {
+			if err := json.Unmarshal([]byte(job.MembersJson), &members); err != nil {
+				log.Errorf("parse job[%s] member failed, error:[%s]", job.ID, err.Error())
+				return response, err
+			}
+		}
+		response.DistributedJobSpec = DistributedJobSpec{
+			Framework: job.Framework,
+			Members:   members,
+		}
+	case string(schema.TypeWorkflow):
+		if job.RuntimeInfo != nil {
+			k8sMeta, err := parseK8sMeta(job.RuntimeInfo)
+			if err != nil {
+				log.Errorf("parse workflow job[%s] runtimeinfo job meta failed, error:[%s]", job.ID, err.Error())
+				return response, err
+			}
+			statusByte, err := json.Marshal(job.RuntimeInfo.(map[string]interface{})["status"])
+			if err != nil {
+				log.Errorf("parse workflow job[%s] status failed, error:[%s]", job.ID, err.Error())
+				return response, err
+			}
+			nodeRuntimes, err := getNodeRuntime(job.ID)
+			if err != nil {
+				return response, err
+			}
+			response.WorkflowRuntime = WorkflowRuntimeInfo{
+				Name:      k8sMeta.Name,
+				Namespace: k8sMeta.Namespace,
+				ID:        k8sMeta.Namespace,
+				Status:    string(statusByte),
+				Nodes:     nodeRuntimes,
+			}
+		}
+	}
+	return response, nil
+}
+
+func parseK8sMeta(runtimeInfo interface{}) (metav1.ObjectMeta, error) {
+	var k8sMeta metav1.ObjectMeta
+	metaData := runtimeInfo.(map[string]interface{})["metadata"]
+	metaDataByte, err := json.Marshal(metaData)
+	if err != nil {
+		log.Errorf(err.Error())
+		return k8sMeta, err
+	}
+	err = json.Unmarshal(metaDataByte, &k8sMeta)
+	if err != nil {
+		log.Errorf(err.Error())
+		return k8sMeta, err
+	}
+	return k8sMeta, nil
+}
+
+func getTaskRuntime(jobID string) ([]RuntimeInfo, error) {
+	tasks, err := models.ListByJobID(jobID)
+	if err != nil {
+		log.Errorf("list job[%s] tasks failed, error:[%s]", jobID, err.Error())
+		return nil, err
+	}
+	runtimes := make([]RuntimeInfo, 0)
+	for _, task := range tasks {
+		runtime := RuntimeInfo{
+			ID:        task.ID,
+			Name:      task.Name,
+			Namespace: task.Namespace,
+			Status:    task.ExtRuntimeStatusJSON,
+		}
+		runtimes = append(runtimes, runtime)
+	}
+	return runtimes, nil
+}
+
+func getNodeRuntime(jobID string) ([]DistributedRuntimeInfo, error) {
+	nodeRuntimes := make([]DistributedRuntimeInfo, 0)
+	nodeList, err := models.ListJobByParentID(jobID)
+	if err != nil {
+		log.Errorf("list job[%s] nodes failed, error:[%s]", jobID, err.Error())
+		return nil, err
+	}
+	for _, node := range nodeList {
+		k8sNodeMeta, err := parseK8sMeta(node.RuntimeInfo)
+		if err != nil {
+			log.Errorf("parse workflow node[%s] runtimeinfo job meta failed, error:[%s]", node.ID, err.Error())
+		}
+		nodeStatusByte, err := json.Marshal(node.RuntimeInfo.(map[string]interface{})["status"])
+		if err != nil {
+			log.Errorf("parse workflow node[%s] status failed, error:[%s]", node.ID, err.Error())
+			return nil, err
+		}
+		taskRuntime, err := getTaskRuntime(node.ID)
+		if err != nil {
+			return nil, err
+		}
+		nodeRuntime := DistributedRuntimeInfo{
+			Name:      k8sNodeMeta.Name,
+			Namespace: k8sNodeMeta.Namespace,
+			ID:        string(k8sNodeMeta.UID),
+			Status:    string(nodeStatusByte),
+			Runtimes:  taskRuntime,
+		}
+		nodeRuntimes = append(nodeRuntimes, nodeRuntime)
+	}
+	return nodeRuntimes, nil
 }

@@ -35,10 +35,12 @@ const (
 	ResourceTypeImage         = "image"
 	ResourceTypePipeline      = "pipeline"
 	ResourceTypeCluster       = "cluster"
+	ResourceTypeJob           = "job"
 
 	HeaderKeyRequestID     = "x-pf-request-id"
 	HeaderKeyUserName      = "x-pf-user-name"
 	HeaderKeyAuthorization = "x-pf-authorization"
+	HeaderClientIDKey      = "x-pf-client-id"
 
 	ResponseCode      = "code"
 	ResponseMessage   = "message"

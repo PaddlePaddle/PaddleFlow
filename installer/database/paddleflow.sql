@@ -72,9 +72,9 @@ CREATE TABLE IF NOT EXISTS `job` (
     `members` mediumtext DEFAULT NULL,
     `extension_template` text DEFAULT NULL,
     `parent_job` varchar(60) DEFAULT NULL,
-    `created_at` datetime(3) DEFAULT NULL,
+    `created_at` datetime(3) NULL DEFAULT CURRENT_TIMESTAMP,
     `activated_at` datetime(3) DEFAULT NULL,
-    `updated_at` datetime(3) DEFAULT NULL,
+    `updated_at` datetime(3) NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     `deleted_at` datetime(3) DEFAULT NULL,
     PRIMARY KEY (`pk`),
     UNIQUE KEY `job_id` (`id`, `deleted_at`)

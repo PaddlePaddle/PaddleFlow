@@ -22,7 +22,9 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi"
+	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
+	"paddleflow/pkg/apiserver/router/util"
 
 	"paddleflow/pkg/apiserver/common"
 	"paddleflow/pkg/apiserver/controller/job"
@@ -35,9 +37,21 @@ import (
 type JobRouter struct{}
 
 // Name indicate name of job router
+
+
+var (
+	upgrader = websocket.Upgrader{
+		CheckOrigin: func(r *http.Request) bool {
+			return true
+		},
+	}
+)
+
+
 func (jr *JobRouter) Name() string {
 	return "JobRouter"
 }
+
 
 // AddRouter add job router to root router
 func (jr *JobRouter) AddRouter(r chi.Router) {
@@ -45,6 +59,9 @@ func (jr *JobRouter) AddRouter(r chi.Router) {
 	r.Post("/job/single", jr.CreateSingleJob)
 	r.Post("/job/distributed", jr.CreateDistributedJob)
 	r.Post("/job/workflow", jr.CreateWorkflowJob)
+	r.Get("/job/{jobID}", jr.GetJob)
+	r.Delete("/job/{jobID}", jr.DeleteJob)
+	r.Get("/wsjob", jr.GetJobByWebsocket)
 }
 
 // CreateSingleJob create single job
@@ -213,4 +230,117 @@ func validateDistributedJob(ctx *logger.RequestContext, request *job.CreateDisJo
 func validateWorkflowJob(ctx *logger.RequestContext, request *job.CreateWfJobRequest) error {
 	// todo(zhongzichao)
 	return nil
+}
+
+// listJob
+// @Summary 获取作业列表
+// @Description 获取作业列表
+// @Id listJob
+// @tags Job
+// @Accept  json
+// @Produce json
+// @Param status query string false "作业状态过滤"
+// @Param maxKeys query int false "每页包含的最大数量，缺省值为50"
+// @Param marker query string false "批量获取列表的查询的起始位置，是一个由系统生成的字符串"
+// @Success 200 {object} job.ListJobResponse "获取作业列表的响应"
+// @Failure 400 {object} common.ErrorResponse "400"
+// @Failure 500 {object} common.ErrorResponse "500"
+// @Router /job [GET]
+func (jr *JobRouter) listJob(writer http.ResponseWriter, request *http.Request) {
+	ctx := common.GetRequestContext(request)
+	status := request.URL.Query().Get(util.QueryKeyStatus)
+	marker := request.URL.Query().Get(util.QueryKeyMarker)
+	maxKeys, err := util.GetQueryMaxKeys(&ctx, request)
+	if err != nil {
+		common.RenderErrWithMessage(writer, ctx.RequestID, common.InvalidURI, err.Error())
+		return
+	}
+	listJobRequest := job.ListJobRequest{
+		Status:  status,
+		Marker:  marker,
+		MaxKeys: maxKeys,
+	}
+	response, err := job.ListJob(&ctx, listJobRequest)
+	if err != nil {
+		ctx.Logging().Errorf("list job failed, error:%s", err.Error())
+		common.RenderErrWithMessage(writer, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+	common.Render(writer, http.StatusOK, response)
+}
+
+// GetJob
+// @Summary 获取作业详情
+// @Description 获取作业详情
+// @Id getJob
+// @tags Job
+// @Accept  json
+// @Produce json
+// @Param jobID path string true "作业ID"
+// @Success 200 {object} job.GetJobResponse "作业详情"
+// @Failure 400 {object} common.ErrorResponse "400"
+// @Failure 500 {object} common.ErrorResponse "500"
+// @Router /job/{jobID} [GET]
+func (jr *JobRouter) GetJob(writer http.ResponseWriter, request *http.Request) {
+	ctx := common.GetRequestContext(request)
+	jobID := chi.URLParam(request, util.ParamKeyJobID)
+	response, err := job.GetJob(&ctx, jobID)
+	if err != nil {
+		ctx.Logging().Errorf("jobID[%s] get failed. error:%s.", jobID, err.Error())
+		common.RenderErrWithMessage(writer, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+	common.Render(writer, http.StatusOK, response)
+}
+
+// DeleteJob
+// @Summary 删除作业
+// @Description 删除作业
+// @Id deleteJob
+// @tags Job
+// @Accept  json
+// @Produce json
+// @Param jobID path string true "作业ID"
+// @Success 200 {string} string "删除作业的响应码"
+// @Failure 400 {object} common.ErrorResponse "400"
+// @Failure 500 {object} common.ErrorResponse "500"
+// @Router /job/{jobID} [DELETE]
+func (jr *JobRouter) DeleteJob(writer http.ResponseWriter, request *http.Request) {
+	ctx := common.GetRequestContext(request)
+	jobID := chi.URLParam(request, util.ParamKeyJobID)
+	err := job.DeleteJob(&ctx, jobID)
+	if err != nil {
+		ctx.Logging().Errorf("jobID[%s] delete failed. error:%s.", jobID, err.Error())
+		common.RenderErrWithMessage(writer, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+	common.RenderStatus(writer, http.StatusOK)
+}
+
+func (jr *JobRouter) GetJobByWebsocket(writer http.ResponseWriter, request *http.Request) {
+	ctx := common.GetRequestContext(request)
+	clientID := request.Header.Get(common.HeaderClientIDKey)
+	wsConn, err := upgrader.Upgrade(writer, request, nil)
+	if err != nil {
+		return
+	}
+	conn, err := job.InitConnection(wsConn, &ctx)
+	if err != nil {
+		return
+	}
+	defer conn.Close()
+	job.WSManager.Register(conn, clientID)
+
+	// heartbeat response
+	for {
+		_, data, err := conn.WsConnect.ReadMessage()
+		if err != nil {
+			return
+		}
+		err = conn.WriteMessage(string(data), job.HeartbeatMsg)
+		if err != nil {
+			return
+		}
+	}
+
 }

@@ -80,6 +80,8 @@ const (
 	RunCacheNotFound      = "RunCacheNotFound"
 	ArtifactEventNotFound = "ArtifactEventNotFound"
 
+	JobNotFound = "JobNotFound"
+
 	FlavourNotFound     = "FlavourNotFound"     // 未找到对应的资源套餐
 	FlavourNameEmpty    = "FlavourNameEmpty"    // 资源套餐名称为空
 	FlavourInvalidField = "FlavourInvalidField" // 资源套餐名称为空
@@ -299,6 +301,8 @@ var errorMessage = map[string]string{
 	GetNamespaceFail:           "Get namespace fail",
 }
 
+var WsParseDataError = errors.New("parse read data err")
+
 type ErrorResponse struct {
 	RequestID    string `json:"requestID"`
 	ErrorCode    string `json:"code"`
@@ -401,4 +405,8 @@ func LogPageSizeOverMaxError() error {
 
 func LogFilePositionInvalidValueError() error {
 	return fmt.Errorf("LogFilePosition has wrong value")
+}
+
+func ConnectionClosedError() error {
+	return errors.New("Connection closed")
 }
