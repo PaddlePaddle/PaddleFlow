@@ -34,7 +34,7 @@ import (
 const (
 	queueJoinCluster  = "join `cluster_info` on `cluster_info`.id = queue.cluster_id"
 	queueSelectColumn = `queue.pk as pk, queue.id as id, queue.name as name, queue.namespace as namespace, queue.cluster_id as cluster_id,
-cluster_info.name as cluster_name, queue.type as type, queue.max_resources as max_resources, queue.min_resources as min_resources, queue.location as location,
+cluster_info.name as cluster_name, queue.quota_type as quota_type, queue.max_resources as max_resources, queue.min_resources as min_resources, queue.location as location,
 queue.status as status, queue.created_at as created_at, queue.updated_at as updated_at, queue.deleted_at as deleted_at`
 )
 
