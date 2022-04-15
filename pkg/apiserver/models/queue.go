@@ -34,7 +34,7 @@ import (
 const (
 	queueJoinCluster  = "join `cluster_info` on `cluster_info`.id = queue.cluster_id"
 	queueSelectColumn = `queue.pk as pk, queue.id as id, queue.name as name, queue.namespace as namespace, queue.cluster_id as cluster_id,
-cluster_info.name as cluster_name, queue.type as type, queue.max_resources as max_resources, queue.min_resources as min_resources, queue.location as location,
+cluster_info.name as cluster_name, queue.quota_type as quota_type, queue.max_resources as max_resources, queue.min_resources as min_resources, queue.location as location,
 queue.status as status, queue.created_at as created_at, queue.updated_at as updated_at, queue.deleted_at as deleted_at`
 )
 
@@ -46,9 +46,9 @@ type Queue struct {
 	ClusterId       string              `json:"-" gorm:"column:cluster_id"`
 	ClusterName     string              `json:"clusterName" gorm:"column:cluster_name;->"`
 	QuotaType       string              `json:"quotaType"`
-	RawMinResources string              `json:"-" gorm:"column:min_resources;type:text;default:'{}'"`
+	RawMinResources string              `json:"-" gorm:"column:min_resources;default:'{}'"`
 	MinResources    schema.ResourceInfo `json:"minResources" gorm:"-"`
-	RawMaxResources string              `json:"-" gorm:"column:max_resources;type:text;default:'{}'"`
+	RawMaxResources string              `json:"-" gorm:"column:max_resources;default:'{}'"`
 	MaxResources    schema.ResourceInfo `json:"maxResources" gorm:"-"`
 	RawLocation     string              `json:"-" gorm:"column:location;type:text;default:'{}'"`
 	Location        map[string]string   `json:"location" gorm:"-"`

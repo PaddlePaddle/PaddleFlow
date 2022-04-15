@@ -44,7 +44,6 @@ type JobSyncInfo struct {
 	Status     commonschema.JobStatus
 	Runtime    interface{}
 	Message    string
-	Type       commonschema.JobType
 	Action     commonschema.ActionType
 	RetryTimes int
 }
