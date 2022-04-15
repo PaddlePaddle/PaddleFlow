@@ -53,6 +53,13 @@ func (task *JobTask) BeforeSave(*gorm.DB) error {
 }
 
 func (task *JobTask) AfterFind(*gorm.DB) error {
+	if len(task.ExtRuntimeStatusJSON) > 0 {
+		var podStatus v1.PodStatus
+		if err := json.Unmarshal([]byte(task.ExtRuntimeStatusJSON), &podStatus); err != nil {
+			return err
+		}
+		task.ExtRuntimeStatus = podStatus
+	}
 	return nil
 }
 
@@ -77,28 +84,11 @@ func UpdateTask(task *JobTask) error {
 	return tx.Error
 }
 
-func (j *JobTask) decode() error {
-	if len(j.ExtRuntimeStatusJSON) > 0 {
-		var podStatus v1.PodStatus
-		if err := json.Unmarshal([]byte(j.ExtRuntimeStatusJSON), &podStatus); err != nil {
-			return err
-		}
-		j.ExtRuntimeStatus = podStatus
-	}
-	return nil
-}
-
 func ListByJobID(jobID string) ([]JobTask, error) {
 	var jobList []JobTask
 	err := database.DB.Table(JobTaskTableName).Where("job_id = ?", jobID).Find(&jobList).Error
 	if err != nil {
 		return nil, err
-	}
-	for _, v := range jobList {
-		err := v.decode()
-		if err != nil {
-			return nil, err
-		}
 	}
 	return jobList, nil
 }

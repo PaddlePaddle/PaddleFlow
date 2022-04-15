@@ -44,29 +44,9 @@ var (
 	UpdateTime = time.Now()
 )
 
-type JobSpec struct {
-	ExtraFileSystem   []schema.FileSystem `json:"extraFileSystem,omitempty"`
-	Image             string              `json:"image"`
-	Env               map[string]string   `json:"env,omitempty"`
-	Command           string              `json:"command,omitempty"`
-	Args              []string            `json:"args,omitempty"`
-	Port              int                 `json:"port,omitempty"`
-	schema.Flavour    `json:"flavour,omitempty"`
-	schema.FileSystem `json:"fileSystem,omitempty"`
-}
-
 type DistributedJobSpec struct {
 	Framework schema.Framework `json:"framework,omitempty"`
 	Members   []models.Member  `json:"members,omitempty"`
-}
-
-type CommonSpec struct {
-	ID                string            `json:"id,omitempty"`
-	Name              string            `json:"name,omitempty"`
-	Labels            map[string]string `json:"labels,omitempty"`
-	Annotations       map[string]string `json:"annotations,omitempty"`
-	ExtensionTemplate string            `json:"extensionTemplate,omitempty"`
-	SchedulingPolicy  `json:"schedulingPolicy"`
 }
 
 type ListJobRequest struct {
@@ -81,18 +61,16 @@ type ListJobResponse struct {
 }
 
 type GetJobResponse struct {
-	CommonSpec         `json:",inline"`
-	JobSpec            `json:",inline"`
-	DistributedJobSpec `json:",inline"`
-	Status             string                 `json:"status"`
-	AcceptTime         string                 `json:"acceptTime"`
-	StartTime          string                 `json:"startTime"`
-	FinishTime         string                 `json:"finishTime"`
-	User               string                 `json:"userName"`
-	Runtime            RuntimeInfo            `json:"runtime,omitempty"`
-	DistributedRuntime DistributedRuntimeInfo `json:"distributedRuntime,omitempty"`
-	WorkflowRuntime    WorkflowRuntimeInfo    `json:"workflowRuntime,omitempty"`
-	UpdateTime         time.Time              `json:"-"`
+	CreateSingleJobRequest `json:",inline"`
+	DistributedJobSpec     `json:",inline"`
+	Status                 string                 `json:"status"`
+	AcceptTime             string                 `json:"acceptTime"`
+	StartTime              string                 `json:"startTime"`
+	FinishTime             string                 `json:"finishTime"`
+	Runtime                RuntimeInfo            `json:"runtime,omitempty"`
+	DistributedRuntime     DistributedRuntimeInfo `json:"distributedRuntime,omitempty"`
+	WorkflowRuntime        WorkflowRuntimeInfo    `json:"workflowRuntime,omitempty"`
+	UpdateTime             time.Time              `json:"-"`
 }
 
 type RuntimeInfo struct {
@@ -120,16 +98,19 @@ type WorkflowRuntimeInfo struct {
 
 // CreateSingleJobRequest convey request for create job
 type CreateSingleJobRequest struct {
-	CommonJobInfo
-	Flavour           schema.Flavour      `json:"flavour"`
-	FileSystem        schema.FileSystem   `json:"fileSystem"`
-	ExtraFileSystems  []schema.FileSystem `json:"extraFileSystems"`
-	Image             string              `json:"image"`
-	Env               map[string]string   `json:"env"`
-	Command           string              `json:"command"`
-	Args              []string            `json:"args"`
-	Port              int                 `json:"port"`
-	ExtensionTemplate string              `json:"extensionTemplate"`
+	CommonJobInfo `json:",inline"`
+	JobSpec       `json:",inline"`
+}
+
+type JobSpec struct {
+	Flavour          schema.Flavour      `json:"flavour"`
+	FileSystem       schema.FileSystem   `json:"fileSystem"`
+	ExtraFileSystems []schema.FileSystem `json:"extraFileSystem"`
+	Image            string              `json:"image"`
+	Env              map[string]string   `json:"env"`
+	Command          string              `json:"command"`
+	Args             []string            `json:"args"`
+	Port             int                 `json:"port"`
 }
 
 // CreateDisJobRequest convey request for create distributed job
@@ -144,12 +125,13 @@ type CreateWfJobRequest struct {
 
 // CommonJobInfo the common fields for jobs
 type CommonJobInfo struct {
-	ID               string            `json:"id"`
-	Name             string            `json:"name"`
-	Labels           map[string]string `json:"labels"`
-	Annotations      map[string]string `json:"annotations"`
-	SchedulingPolicy SchedulingPolicy  `json:"schedulingPolicy"`
-	UserName         string            `json:",omitempty"`
+	ID                string            `json:"id"`
+	Name              string            `json:"name"`
+	Labels            map[string]string `json:"labels"`
+	Annotations       map[string]string `json:"annotations"`
+	SchedulingPolicy  SchedulingPolicy  `json:"schedulingPolicy"`
+	UserName          string            `json:"userName,omitempty"`
+	ExtensionTemplate string            `json:"extensionTemplate"`
 }
 
 // SchedulingPolicy indicate queueID/priority
@@ -318,9 +300,6 @@ func checkPriority(conf schema.PFJobConf) error {
 	return nil
 }
 
-
-
-
 func ListJob(ctx *logger.RequestContext, request ListJobRequest) (*ListJobResponse, error) {
 	// TODO
 	return nil, nil
@@ -362,17 +341,17 @@ func convertJobToResponse(job models.Job) (GetJobResponse, error) {
 		return response, err
 	}
 
-	response.AcceptTime = job.CreatedAt.Format(timeLayoutStr)
+	response.AcceptTime = job.CreatedAt.Format(models.TimeFormat)
 	if job.ActivatedAt.Valid {
-		response.StartTime = job.ActivatedAt.Time.Format(timeLayoutStr)
+		response.StartTime = job.ActivatedAt.Time.Format(models.TimeFormat)
 	}
 	if schema.IsImmutableJobStatus(job.Status) {
-		response.FinishTime = job.UpdatedAt.Format(timeLayoutStr)
+		response.FinishTime = job.UpdatedAt.Format(models.TimeFormat)
 	}
 	response.ID = job.ID
 	response.Name = job.Name
 	response.SchedulingPolicy = SchedulingPolicy{
-		QueueID:    job.QueueID,
+		QueueID:  job.QueueID,
 		Priority: job.Config.Priority,
 	}
 	// process runtime info && member
@@ -396,7 +375,7 @@ func convertJobToResponse(job models.Job) (GetJobResponse, error) {
 			log.Errorf("parse job[%s] config failed, error:[%s]", job.ID, err.Error())
 			return response, err
 		}
-		response.JobSpec = jobSpec
+		response.CreateSingleJobRequest.JobSpec = jobSpec
 	case string(schema.TypeDistributed):
 		if job.RuntimeInfo != nil {
 			k8sMeta, err := parseK8sMeta(job.RuntimeInfo)

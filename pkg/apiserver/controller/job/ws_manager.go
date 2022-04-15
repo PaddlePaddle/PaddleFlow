@@ -5,11 +5,11 @@ import (
 	"errors"
 	"time"
 
-	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 
 	"paddleflow/pkg/apiserver/common"
 	"paddleflow/pkg/apiserver/models"
+	"paddleflow/pkg/common/uuid"
 )
 
 type WebsocketManager struct {
@@ -19,7 +19,7 @@ type WebsocketManager struct {
 
 func (manager *WebsocketManager) Register(connection *Connection, clientID string) {
 	if clientID == "" {
-		connection.ID = uuid.New().String()
+		connection.ID = uuid.GenerateID(common.PrefixConnection)
 	} else {
 		connection.ID = clientID
 	}
@@ -65,7 +65,7 @@ func (manager *WebsocketManager) GetGroupData() {
 		}
 		nextTime := time.Now()
 		log.Infof("start get data")
-		jobList, err := models.ListJobByUpdateTime(UpdateTime.Format(timeLayoutStr))
+		jobList, err := models.ListJobByUpdateTime(UpdateTime.Format(models.TimeFormat))
 		if err != nil {
 			log.Errorf("list job failed for websocket to send job")
 			continue

@@ -6,8 +6,6 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/google/uuid"
-
 	c "paddleflow-go-sdk/client"
 	"paddleflow-go-sdk/util"
 )
@@ -58,7 +56,7 @@ func Login(client *c.PFClient, username, password string) error {
 	}
 	client.AuthHeader = http.Header{}
 	client.AuthHeader.Add(c.HeaderAuthKey, data.Authorization)
-	client.AuthHeader.Add(c.HeaderClientIDKey, uuid.New().String())
+	client.AuthHeader.Add(c.HeaderClientIDKey, util.GenerateID(c.PrefixConnection))
 	if err := c.BuildWSConnection(client); err != nil {
 		return err
 	}

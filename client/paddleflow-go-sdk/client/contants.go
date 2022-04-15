@@ -12,5 +12,7 @@ const (
 
 	DefaultConnectionTimeout = 10
 
-	HeartBeatSingal = "heartbeat"
+	HeartBeatSignal = "heartbeat"
+
+	PrefixConnection = "conn"
 )

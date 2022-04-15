@@ -193,7 +193,7 @@ func BuildWSConnection(c *PFClient) error {
 	go func() {
 		defer c.Close()
 		for {
-			err := ws.WriteMessage(websocket.TextMessage, []byte(HeartBeatSingal))
+			err := ws.WriteMessage(websocket.TextMessage, []byte(HeartBeatSignal))
 			if err != nil {
 				c.HealthCheck = false
 				return
@@ -231,7 +231,7 @@ func (c *PFClient) readLoop() {
 			return
 		}
 		switch string(data) {
-		case HeartBeatSingal:
+		case HeartBeatSignal:
 			select {
 			case c.HeartbeatChan <- dataType:
 				continue

@@ -3,6 +3,14 @@ package util
 import (
 	"bytes"
 	"fmt"
+	"strings"
+
+	"github.com/google/uuid"
+)
+
+const (
+	uuidMaxLength   = 32
+	defaultIDLength = 8
 )
 
 func UriEncode(uri string, encodeSlash bool) string {
@@ -16,4 +24,16 @@ func UriEncode(uri string, encodeSlash bool) string {
 		}
 	}
 	return byteBuf.String()
+}
+
+func GenerateID(Prefix string) string {
+	return GenerateIDWithLength(Prefix, defaultIDLength)
+}
+
+func GenerateIDWithLength(Prefix string, Len int) string {
+	if Len > uuidMaxLength {
+		Len = uuidMaxLength
+	}
+	uuidStr := strings.ToLower(Prefix) + "-" + strings.ReplaceAll(uuid.NewString(), "-", "")[:Len]
+	return uuidStr
 }

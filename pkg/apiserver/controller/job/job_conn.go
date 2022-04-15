@@ -17,10 +17,6 @@ const (
 	DataMsg      MsgType = "DataMsg"
 )
 
-var (
-	timeLayoutStr = "2006-01-02 15:04:05"
-)
-
 type Connection struct {
 	ID            string
 	WsConnect     *websocket.Conn

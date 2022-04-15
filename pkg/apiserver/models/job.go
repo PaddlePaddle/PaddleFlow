@@ -89,7 +89,7 @@ func (job *Job) BeforeSave(tx *gorm.DB) error {
 	return nil
 }
 
-func (job *Job) decode() error {
+func (job *Job) AfterFind(tx *gorm.DB) error {
 	if len(job.RuntimeInfoJson) > 0 {
 		var runtime interface{}
 		err := json.Unmarshal([]byte(job.RuntimeInfoJson), &runtime)
@@ -109,13 +109,13 @@ func (job *Job) decode() error {
 		job.Members = members
 	}
 	if len(job.ResourceJson) > 0 {
-		var resource *schema.Resource
-		err := json.Unmarshal([]byte(job.ResourceJson), resource)
+		resource := schema.Resource{}
+		err := json.Unmarshal([]byte(job.ResourceJson), &resource)
 		if err != nil {
 			log.Errorf("job[%s] decode resource failed, error:[%s]", job.ID, err.Error())
 			return err
 		}
-		job.Resource = resource
+		job.Resource = &resource
 	}
 	return nil
 }
@@ -131,11 +131,6 @@ func GetJobByID(jobID string) (Job, error) {
 	tx := database.DB.Table("job").Where("id = ?", jobID).First(&job)
 	if tx.Error != nil {
 		logger.LoggerForJob(jobID).Errorf("get job failed, err %v", tx.Error.Error())
-		return Job{}, tx.Error
-	}
-	err := job.decode()
-	if err != nil {
-		logger.LoggerForJob(jobID).Errorf("decode job failed, err %v", tx.Error.Error())
 		return Job{}, tx.Error
 	}
 	return job, nil
@@ -226,12 +221,6 @@ func ListJobByUpdateTime(updateTime string) ([]Job, error) {
 		log.Errorf("list job by updateTime[%s] failed, error:[%s]", updateTime, err.Error())
 		return nil, err
 	}
-	for _, job := range jobList {
-		err := job.decode()
-		if err != nil {
-			return nil, err
-		}
-	}
 	return jobList, nil
 }
 
@@ -241,12 +230,6 @@ func ListJobByParentID(parentID string) ([]Job, error) {
 	if err != nil {
 		log.Errorf("list job by parentID[%s] failed, error:[%s]", parentID, err.Error())
 		return nil, err
-	}
-	for _, job := range jobList {
-		err := job.decode()
-		if err != nil {
-			return nil, err
-		}
 	}
 	return jobList, nil
 }
