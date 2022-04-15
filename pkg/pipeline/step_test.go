@@ -468,9 +468,57 @@ func TestPFRUNTIME(t *testing.T) {
 	wf.runtime.runtimeView = schema.RuntimeView{
 		"data-process": schema.JobView{
 			JobID: "123",
+			Env: map[string]string{
+				"PF_RUN_ID": "00001",
+				"name1":     "name1",
+			},
+		},
+		"main": schema.JobView{
+			JobID: "3456",
+		},
+		"validate": schema.JobView{
+			JobID: "9087",
 		},
 	}
 
+	// entryPoints
+	st := wf.runtime.entryPoints["data-process"]
+	st.nodeType = common.NodeTypeEntrypoint
+	st.updateJob(false, nil)
+
+	assert.Equal(t, "{}", st.job.Job().Parameters["runtime"])
+
+	st = wf.runtime.entryPoints["main"]
+	st.nodeType = common.NodeTypeEntrypoint
+	st.updateJob(false, nil)
+	runtime := schema.RuntimeView{}
+	err = json.Unmarshal([]byte(st.job.Job().Parameters["runtime"]), &runtime)
+	if err != nil {
+		t.Errorf("unmarshal runtime failed: %s", err.Error())
+	}
+	assert.Equal(t, 1, len(runtime))
+	assert.Equal(t, runtime["data-process"].Env["name1"], "123")
+
+	_, ok := runtime["data-process"].Env["PF_RUN_ID"]
+	assert.Equal(t, ok, false)
+
+	st = wf.runtime.entryPoints["validate"]
+	st.nodeType = common.NodeTypeEntrypoint
+	st.updateJob(false, nil)
+	runtime = schema.RuntimeView{}
+	err = json.Unmarshal([]byte(st.job.Job().Parameters["runtime"]), &runtime)
+	if err != nil {
+		t.Errorf("unmarshal runtime failed: %s", err.Error())
+	}
+	assert.Equal(t, 2, len(runtime))
+
+	_, ok = runtime["data-process"]
+	assert.Equal(t, ok, false)
+
+	_, ok = runtime["main"]
+	assert.Equal(t, ok, false)
+
+	// postProcess
 	assert.Equal(t, 1, len(wf.Source.PostProcess))
 	for name, st := range wf.runtime.postProcess {
 		st.nodeType = common.NodeTypePostProcess
@@ -485,6 +533,16 @@ func TestPFRUNTIME(t *testing.T) {
 		if err != nil {
 			t.Errorf("unmarshal runtime failed: %s", err.Error())
 		}
-		assert.Equal(t, runtime, wf.runtime.runtimeView)
+		assert.Equal(t, 2, len(runtime))
+
+		_, ok = runtime["data-process"]
+		assert.Equal(t, ok, false)
+
+		_, ok = runtime["main"]
+		assert.Equal(t, ok, false)
+
+		_, ok = runtime["validate"]
+		assert.Equal(t, ok, false)
 	}
+
 }

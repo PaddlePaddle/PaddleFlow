@@ -776,17 +776,17 @@ func recursiveGetJobView(stepName string, pfRuntime, SrcRunTime schema.RuntimeVi
 	return nil
 }
 
-func GetPFRuntime(stepName string, runTimeView schema.RuntimeView, workflowSource schema.WorkflowSource) (string, error) {
+func GetPFRuntime(stepName string, runtimeView schema.RuntimeView, workflowSource schema.WorkflowSource) (string, error) {
 	pfRuntime := schema.RuntimeView{}
 
 	_, ok := workflowSource.EntryPoints[stepName]
 	if ok {
-		err := recursiveGetJobView(stepName, pfRuntime, runTimeView, workflowSource)
+		err := recursiveGetJobView(stepName, pfRuntime, runtimeView, workflowSource)
 		if err != nil {
 			return "", err
 		}
 	} else {
-		for name, jobView := range runTimeView {
+		for name, jobView := range runtimeView {
 			pfRuntime[name] = jobView
 		}
 	}
