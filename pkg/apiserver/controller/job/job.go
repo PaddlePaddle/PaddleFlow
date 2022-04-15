@@ -87,6 +87,8 @@ func CreateSingleJob(request *CreateSingleJobRequest) (*CreateJobResponse, error
 			return nil, err
 		}
 		extensionTemplate = string(bytes)
+	} else {
+		extensionTemplate = ""
 	}
 	conf := schema.Conf{
 		Name:            request.CommonJobInfo.Name,
@@ -120,6 +122,7 @@ func CreateSingleJob(request *CreateSingleJobRequest) (*CreateJobResponse, error
 }
 
 func patchEnvs(conf *schema.Conf, commonJobInfo *CommonJobInfo) error {
+	log.Debugf("patch envs for job %s", commonJobInfo.Name)
 	// basic fields required
 	conf.Labels = commonJobInfo.Labels
 	conf.Annotations = commonJobInfo.Annotations
@@ -147,6 +150,7 @@ func patchEnvs(conf *schema.Conf, commonJobInfo *CommonJobInfo) error {
 }
 
 func patchSingleEnvs(conf *schema.Conf, request *CreateSingleJobRequest) error {
+	log.Debugf("patchSingleEnvs conf=%#v, request=%#v", conf, request)
 	// fields in request.CommonJobInfo
 	if err := patchEnvs(conf, &request.CommonJobInfo); err != nil {
 		log.Errorf("patch commonInfo of single job failed, err=%v", err)
@@ -192,6 +196,7 @@ func CreateJob(conf schema.PFJobConf, jobID, jobTemplate string) (string, error)
 		return "", err
 	}
 	if err := checkPriority(conf); err != nil {
+		log.Errorf("check priority failed, err=%v", err)
 		return "", err
 	}
 

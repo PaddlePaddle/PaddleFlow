@@ -128,6 +128,7 @@ const (
 	JobTTLSeconds = "padleflow/job-ttl-seconds"
 
 	VolcanoJobNameLabel  = "volcano.sh/job-name"
+	QueueLabelKey        = "volcano.sh/queue-name"
 	SparkAPPJobNameLabel = "sparkoperator.k8s.io/app-name"
 
 	JobPrefix            = "job"

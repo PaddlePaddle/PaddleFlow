@@ -250,6 +250,9 @@ func validateCreateFlavour(ctx *logger.RequestContext, request *flavour.CreateFl
 		}
 		request.ClusterID = clusterInfo.ID
 	}
+	if request.ScalarResources == nil {
+		request.ScalarResources = make(schema.ScalarResourcesType)
+	}
 	resourceInfo := schema.ResourceInfo{
 		CPU:             request.CPU,
 		Mem:             request.Mem,
