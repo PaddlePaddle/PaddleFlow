@@ -121,7 +121,7 @@ func (kr *KubeRuntime) SubmitJob(jobInfo *api.PFJob) error {
 	// submit job
 	job, err := executor.NewKubeJob(jobInfo, kr.dynamicClientOpt)
 	if err != nil {
-		log.Warnf("new kubernetes job[%s] failed, err: %v", jobInfo.Name, err)
+		log.Warnf("new kubernetes job[%s] failed, err: %v", jobInfo.ID, err)
 		return err
 	}
 	jobID, err := job.CreateJob()
