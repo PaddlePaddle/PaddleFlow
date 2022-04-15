@@ -31,7 +31,7 @@ import (
 const flavourTableName = "flavour"
 
 var (
-	flavourSelectColumn = `flavour.pk as pk, flavour.name as name, flavour.cpu as cpu, flavour.mem as mem, 
+	flavourSelectColumn = `flavour.pk as pk, flavour.id as id, flavour.name as name, flavour.cpu as cpu, flavour.mem as mem, 
 flavour.scalar_resources as scalar_resources, flavour.cluster_id as cluster_id, cluster_info.name as cluster_name,
 flavour.created_at as created_at, flavour.updated_at as updated_at, flavour.deleted_at as deleted_at`
 	flavourJoinCluster = "left join `cluster_info` on `cluster_info`.id = `flavour`.cluster_id"
@@ -43,7 +43,7 @@ type Flavour struct {
 	Pk                 int64                      `json:"-"           gorm:"primaryKey;autoIncrement"`
 	Name               string                     `json:"name"        gorm:"uniqueIndex"`
 	ClusterID          string                     `json:"-"   gorm:"column:cluster_id;default:''"`
-	ClusterName        string                     `json:"clusterName" gorm:"column:cluster_name;->"`
+	ClusterName        string                     `json:"-" gorm:"column:cluster_name;->"`
 	CPU                string                     `json:"cpu"         gorm:"column:cpu"`
 	Mem                string                     `json:"mem"         gorm:"column:mem"`
 	RawScalarResources string                     `json:"-"           gorm:"column:scalar_resources;type:text;default:'{}'"`
