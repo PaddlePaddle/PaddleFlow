@@ -17,8 +17,8 @@ CREATE TABLE IF NOT EXISTS `cluster_info` (
     `updated_at` datetime DEFAULT NULL COMMENT 'update time',
     `deleted_at` char(32) NOT NULL DEFAULT '' COMMENT 'deleted flag, not null means deleted',
     PRIMARY KEY (`pk`),
-    UNIQUE (`name`, `deleted_at`),
-    UNIQUE (`id`, `deleted_at`)
+    UNIQUE KEY idx_name (`name`, `deleted_at`),
+    UNIQUE KEY idx_id (`id`, `deleted_at`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 CREATE TABLE IF NOT EXISTS `flavour` (
@@ -33,8 +33,8 @@ CREATE TABLE IF NOT EXISTS `flavour` (
     `created_at` datetime(3) DEFAULT NULL,
     `updated_at` datetime(3) DEFAULT NULL,
     `deleted_at` datetime(3) DEFAULT NULL,
-    PRIMARY KEY (`pk`)
-    UNIQUE KEY `name` (`name`)
+    PRIMARY KEY (`pk`),
+    UNIQUE KEY idx_name (`name`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 CREATE TABLE IF NOT EXISTS `queue` (
@@ -43,10 +43,10 @@ CREATE TABLE IF NOT EXISTS `queue` (
     `name` varchar(255) NOT NULL UNIQUE,
     `namespace` varchar(64) NOT NULL,
     `cluster_id` varchar(60) NOT NULL DEFAULT '',
-    `quota_type` varchar(20) DEFAULT NULL,
+    `quota_type` varchar(255) DEFAULT NULL,
     `min_resources` text DEFAULT NULL,
-    `max_resources` text DEFAULT NOT NULL,
-    `location` text DEFAULT '',
+    `max_resources` text DEFAULT NULL,
+    `location` text DEFAULT NULL,
     `status` varchar(20) DEFAULT NULL,
     `scheduling_policy` varchar(2048) DEFAULT NULL,
     `created_at` datetime(3) DEFAULT NULL,
@@ -88,7 +88,7 @@ CREATE TABLE IF NOT EXISTS `job_label` (
     `created_at` datetime(3) DEFAULT NULL,
     `deleted_at` datetime(3) DEFAULT NULL,
     PRIMARY KEY (`pk`),
-    UNIQUE KEY `id` (`id`)
+    UNIQUE KEY `idx_id` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 CREATE TABLE IF NOT EXISTS `job_task` (
@@ -101,13 +101,13 @@ CREATE TABLE IF NOT EXISTS `job_task` (
     `status` varchar(32) DEFAULT NULL,
     `message` text DEFAULT NULL,
     `log_url` varchar(4096) DEFAULT NULL,
-    `ext_runtime_status` mediumtext DEFAULT '{}' NULL,
+    `ext_runtime_status` mediumtext DEFAULT NULL,
     `created_at` datetime(3) DEFAULT NULL,
     `started_at` datetime(3) DEFAULT NULL,
     `updated_at` datetime(3) DEFAULT NULL,
     `deleted_at` datetime(3) DEFAULT NULL,
     PRIMARY KEY (`pk`),
-    UNIQUE KEY `id` (`id`)
+    UNIQUE KEY `idx_id` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 CREATE TABLE IF NOT EXISTS `user` (
@@ -118,9 +118,8 @@ CREATE TABLE IF NOT EXISTS `user` (
     `updated_at` datetime DEFAULT NULL COMMENT 'update time',
     `deleted_at` datetime DEFAULT NULL COMMENT 'delete time',
     PRIMARY KEY (`pk`),
-    UNIQUE KEY (`name`),
-    INDEX user_name (`name`)
-)ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='user info table';
+    UNIQUE KEY (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='user info table';
 
 -- root user with initial password 'paddleflow'
 TRUNCATE `paddleflow`.`user`;
@@ -189,7 +188,7 @@ CREATE TABLE IF NOT EXISTS `run_job` (
     UNIQUE KEY (`id`),
     INDEX (`run_id`),
     INDEX (`status`)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+)ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 CREATE TABLE IF NOT EXISTS `image` (
     `pk` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -305,7 +304,7 @@ CREATE TABLE IF NOT EXISTS `link` (
 
 CREATE TABLE IF NOT EXISTS `fs_cache_config` (
     `pk` bigint(20) unsigned NOT NULL AUTO_INCREMENT COMMENT 'pk',
-    `fs_id` varchar(36) NOT NULL COMMENT 'file system id',
+    `id` varchar(36) NOT NULL COMMENT 'file system id',
     `cache_dir` varchar(4096) NOT NULL COMMENT 'cache dir, e.g. /var/pfs_cache',
     `quota` bigint(20) NOT NULL COMMENT 'cache quota',
     `blocksize` int(5) NOT NULL COMMENT 'cache blocksize',
@@ -351,3 +350,4 @@ CREATE TABLE IF NOT EXISTS `paddleflow_node_info` (
     PRIMARY KEY (`pk`),
     UNIQUE INDEX idx_cluster_node (`cluster_id`,`nodename`)
     )ENGINE=InnoDB DEFAULT CHARSET=utf8 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMMENT='all node info for compute node score for schedule or location awareness in the future';
+
