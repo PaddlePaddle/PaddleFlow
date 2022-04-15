@@ -24,8 +24,10 @@ import (
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 
+	"paddleflow/pkg/apiserver/common"
 	"paddleflow/pkg/common/database"
 	"paddleflow/pkg/common/schema"
+	"paddleflow/pkg/common/uuid"
 )
 
 const flavourTableName = "flavour"
@@ -47,7 +49,7 @@ type Flavour struct {
 	CPU                string                     `json:"cpu"         gorm:"column:cpu"`
 	Mem                string                     `json:"mem"         gorm:"column:mem"`
 	RawScalarResources string                     `json:"-"           gorm:"column:scalar_resources;type:text;default:'{}'"`
-	ScalarResources    schema.ScalarResourcesType `json:"scalarResources,omitempty" gorm:"-"`
+	ScalarResources    schema.ScalarResourcesType `json:"scalarResources" gorm:"-"`
 	UserName           string                     `json:"-" gorm:"column:user_name"`
 	DeletedAt          gorm.DeletedAt             `json:"-" gorm:"index"`
 }
@@ -111,6 +113,9 @@ func (flavour *Flavour) BeforeSave(*gorm.DB) error {
 // CreateFlavour create flavour
 func CreateFlavour(flavour *Flavour) error {
 	log.Infof("begin create flavour, flavour name:%v", flavour)
+	if flavour.ID == "" {
+		flavour.ID = uuid.GenerateID(common.PrefixFlavour)
+	}
 	flavour.CreatedAt = time.Now()
 	tx := database.DB.Table(flavourTableName).Create(flavour)
 	if tx.Error != nil {
