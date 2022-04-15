@@ -124,6 +124,7 @@ func setup(c *cli.Context) error {
 		log.Errorf("init vfs failed: %v", err)
 		return err
 	}
+	go metric.UpdateMetrics()
 
 	if !c.Bool("local") {
 		stopChan := make(chan struct{})
@@ -166,7 +167,6 @@ func exposeMetrics(hostServer string, port int) string {
 		log.Fatalf("metrics format error: %v", err)
 	}
 	log.Debugf("metrics server - ip:%s, port:%d", ip, port)
-	go metric.UpdateMetrics()
 	http.Handle("/metrics", promhttp.HandlerFor(
 		prometheus.DefaultGatherer,
 		promhttp.HandlerOpts{
