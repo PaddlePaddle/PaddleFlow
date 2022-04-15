@@ -22,21 +22,6 @@ import (
 
 func MetricsFlags() []cli.Flag {
 	return []cli.Flag{
-		&cli.StringFlag{
-			Name:  "schema",
-			Value: "umc",
-			Usage: "schema string that controls the output sections (u: usage, f: fuse, m: meta, c: blockcache, o: object, g: go)",
-		},
-		&cli.UintFlag{
-			Name:  "interval",
-			Value: 1,
-			Usage: "interval in seconds between each update",
-		},
-		&cli.UintFlag{
-			Name:    "verbosity",
-			Aliases: []string{"l"},
-			Usage:   "verbosity level, 0 or 1 is enough for most cases",
-		},
 		&cli.BoolFlag{
 			Name:  "pprof-enable",
 			Value: false,
