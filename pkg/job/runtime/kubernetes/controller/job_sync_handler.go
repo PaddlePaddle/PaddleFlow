@@ -57,7 +57,7 @@ func (j *JobSync) add(obj interface{}) {
 	}
 	parentJobID := j.getParentJobID(jobObj)
 	jobInfo := &JobSyncInfo{
-		ID:          jobID,
+		ID:          jobObj.GetName(),
 		ParentJobID: parentJobID,
 		GVK:         jobObj.GroupVersionKind(),
 		Status:      jobStatus,
@@ -100,7 +100,7 @@ func (j *JobSync) update(old, new interface{}) {
 		jobStatus = schema.StatusJobPending
 	}
 	jobInfo := &JobSyncInfo{
-		ID:          jobID,
+		ID:          newObj.GetName(),
 		ParentJobID: j.getParentJobID(newObj),
 		GVK:         newObj.GroupVersionKind(),
 		Status:      jobStatus,
@@ -128,7 +128,7 @@ func (j *JobSync) delete(obj interface{}) {
 		return
 	}
 	jobInfo := &JobSyncInfo{
-		ID:          jobID,
+		ID:          jobObj.GetName(),
 		ParentJobID: j.getParentJobID(jobObj),
 		GVK:         jobObj.GroupVersionKind(),
 		Status:      statusInfo.Status,
