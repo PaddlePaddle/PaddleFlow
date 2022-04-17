@@ -166,24 +166,11 @@ func patchSingleEnvs(conf *schema.Conf, request *CreateSingleJobRequest) error {
 	conf.Port = request.Port
 	conf.Args = request.Args
 	// flavour
-	var flavour schema.Flavour
-	if request.Flavour.Name != schema.CustomFlavour {
-		f, err := models.GetFlavour(request.Flavour.Name)
-		if err != nil {
-			log.Errorf("Get flavour by name %s failed when creating job %s failed, err=%v",
-				request.Flavour.Name, request.CommonJobInfo.Name, err)
-			return err
-		}
-		flavour = toSchemaFlavour(f)
-	} else {
-		flavour = schema.Flavour{
-			Name: request.Flavour.Name,
-			ResourceInfo: schema.ResourceInfo{
-				CPU:             request.Flavour.ResourceInfo.CPU,
-				Mem:             request.Flavour.Mem,
-				ScalarResources: request.Flavour.ScalarResources,
-			},
-		}
+	flavour, err := models.GetFlavourSchema(request.Flavour)
+	if err != nil {
+		log.Errorf("Get flavour schema failed when creating job %s failed, err=%v",
+			request.CommonJobInfo.Name, err)
+		return err
 	}
 	conf.SetFlavour(flavour)
 	// todo others in FileSystem
@@ -342,17 +329,4 @@ func getRuntimeByQueue(ctx *logger.RequestContext, queueID string) (runtime.Runt
 		return nil, fmt.Errorf("delete queue failed")
 	}
 	return runtimeSvc, nil
-}
-
-func toSchemaFlavour(flavour models.Flavour) schema.Flavour {
-	res := schema.Flavour{
-		ResourceInfo: schema.ResourceInfo{
-			CPU:             flavour.CPU,
-			Mem:             flavour.Mem,
-			ScalarResources: flavour.ScalarResources,
-		},
-		Name: flavour.Name,
-	}
-	log.Debugf("convert models.flavour: %v to schema.flavour: %v", flavour, res)
-	return res
 }

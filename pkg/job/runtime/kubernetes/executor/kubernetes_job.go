@@ -390,17 +390,13 @@ func newJobModeParams(conf schema.Conf) JobModeParams {
 }
 
 func (j *JobModeParams) validatePodMode() error {
-	if len(j.JobFlavour) == 0 {
-		return errors.EmptyFlavourError()
-	}
+	// todo(zhongzichao) validate by schema.Flavour
 	return nil
 }
 
 // validatePSMode validate PServerCommand, WorkerCommand
 func (j *JobModeParams) validatePSMode() error {
-	if len(j.WorkerFlavour) == 0 || len(j.WorkerCommand) == 0 || len(j.PServerFlavour) == 0 || len(j.PServerCommand) == 0 {
-		return errors.EmptyFlavourError()
-	}
+	// todo(zhongzichao) validate by schema.Flavour
 
 	return nil
 }

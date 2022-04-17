@@ -151,6 +151,28 @@ func GetFlavour(flavourName string) (Flavour, error) {
 	return flavour, nil
 }
 
+// GetFlavourSchema get schema.flavour
+func GetFlavourSchema(flavour schema.Flavour) (schema.Flavour, error) {
+	if flavour.Name != schema.CustomFlavour && flavour.Name != "" {
+		f, err := GetFlavour(flavour.Name)
+		if err != nil {
+			log.Errorf("Get flavour by name %s failed, err=%v", flavour.Name, err)
+			return schema.Flavour{}, err
+		}
+		flavour = toSchemaFlavour(f)
+	} else {
+		flavour = schema.Flavour{
+			Name: flavour.Name,
+			ResourceInfo: schema.ResourceInfo{
+				CPU:             flavour.ResourceInfo.CPU,
+				Mem:             flavour.Mem,
+				ScalarResources: flavour.ScalarResources,
+			},
+		}
+	}
+	return flavour, nil
+}
+
 // ListFlavour all params is nullable, and support fuzzy query of flavour's name by queryKey
 func ListFlavour(pk int64, maxKeys int, clusterID, queryKey string) ([]Flavour, error) {
 	log.Debugf("list flavour, pk: %d, maxKeys: %d, clusterID: %s", pk, maxKeys, clusterID)
@@ -197,4 +219,17 @@ func GetLastFlavour() (Flavour, error) {
 		return Flavour{}, tx.Error
 	}
 	return flavour, nil
+}
+
+func toSchemaFlavour(flavour Flavour) schema.Flavour {
+	res := schema.Flavour{
+		ResourceInfo: schema.ResourceInfo{
+			CPU:             flavour.CPU,
+			Mem:             flavour.Mem,
+			ScalarResources: flavour.ScalarResources,
+		},
+		Name: flavour.Name,
+	}
+	log.Debugf("convert models.flavour: %v to schema.flavour: %v", flavour, res)
+	return res
 }

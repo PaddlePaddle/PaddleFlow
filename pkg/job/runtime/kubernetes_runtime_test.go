@@ -86,7 +86,8 @@ func TestKubeRuntimeJob(t *testing.T) {
 		clientset:        client,
 		dynamicClientOpt: dynamicClient,
 	}
-
+	config.GlobalServerConfig = &config.ServerConfig{}
+	config.GlobalServerConfig.Job.SchedulerName = "volcano"
 	pfJob := &api.PFJob{
 		ID:             testJobID,
 		Namespace:      "default",
@@ -96,6 +97,14 @@ func TestKubeRuntimeJob(t *testing.T) {
 		Conf: schema.Conf{
 			Env: map[string]string{
 				schema.EnvJobQueueName: "default",
+				schema.EnvJobFlavour:   "default",
+			},
+			Flavour: schema.Flavour{
+				Name: schema.CustomFlavour,
+				ResourceInfo: schema.ResourceInfo{
+					CPU: "1",
+					Mem: "1",
+				},
 			},
 		},
 	}
@@ -106,6 +115,13 @@ func TestKubeRuntimeJob(t *testing.T) {
 		Config: schema.Conf{
 			Env: map[string]string{
 				schema.EnvJobNamespace: "default",
+			},
+			Flavour: schema.Flavour{
+				Name: schema.CustomFlavour,
+				ResourceInfo: schema.ResourceInfo{
+					CPU: "1",
+					Mem: "1",
+				},
 			},
 		},
 	})

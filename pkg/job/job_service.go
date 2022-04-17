@@ -17,11 +17,9 @@ limitations under the License.
 package job
 
 import (
-	"errors"
 	"fmt"
 
 	log "github.com/sirupsen/logrus"
-	"gorm.io/gorm"
 
 	"paddleflow/pkg/apiserver/common"
 	"paddleflow/pkg/apiserver/models"
@@ -133,22 +131,8 @@ func validateFlavours(conf schema.PFJobConf, queue *models.Queue) error {
 		return err
 	}
 
-	flavour := conf.GetFlavour()
-	flavourInDB, err := models.GetFlavour(flavour.Name)
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			// update conf.Flavour
-			flavour.Name = flavourInDB.Name
-			flavour.CPU = flavourInDB.CPU
-			flavour.Mem = flavourInDB.Mem
-			flavour.ScalarResources = flavourInDB.ScalarResources
-			conf.SetFlavour(flavour)
-		} else {
-			log.Errorf("get flavour[%v] failed, err=%v", flavourInDB, err)
-			return err
-		}
-	}
-
+	flavour, err := models.GetFlavourSchema(conf.GetFlavour())
+	conf.SetFlavour(flavour)
 	if err := isEnoughQueueCapacity(flavour, queueResource); err != nil {
 		errMsg := fmt.Sprintf("queue %s has no enough resource:%s", conf.GetQueueName(), err.Error())
 		log.Errorf(errMsg)
