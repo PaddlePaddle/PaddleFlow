@@ -103,12 +103,30 @@ func GetJobByID(jobID string) (Job, error) {
 	return job, nil
 }
 
+func GetUnscopedJobByID(jobID string) (Job, error) {
+	var job Job
+	tx := database.DB.Table("job").Where("id = ?", jobID).First(&job)
+	if tx.Error != nil {
+		logger.LoggerForJob(jobID).Errorf("get job failed, err %v", tx.Error.Error())
+		return Job{}, tx.Error
+	}
+	return job, nil
+}
+
 func GetJobStatusByID(jobID string) (schema.JobStatus, error) {
 	job, err := GetJobByID(jobID)
 	if err != nil {
 		return "", errors.JobIDNotFoundError(jobID)
 	}
 	return job.Status, nil
+}
+
+func DeleteJob(jobID string) error {
+	t := database.DB.Table("job").Where("id = ?", jobID).Delete(&Job{})
+	if t.Error != nil {
+		return t.Error
+	}
+	return nil
 }
 
 func UpdateJobStatus(jobId, errMessage string, jobStatus schema.JobStatus) error {
@@ -131,7 +149,7 @@ func UpdateJobStatus(jobId, errMessage string, jobStatus schema.JobStatus) error
 }
 
 func UpdateJob(jobID string, status schema.JobStatus, info interface{}, message string) (schema.JobStatus, error) {
-	job, err := GetJobByID(jobID)
+	job, err := GetUnscopedJobByID(jobID)
 	if err != nil {
 		return "", errors.JobIDNotFoundError(jobID)
 	}
@@ -150,8 +168,8 @@ func UpdateJob(jobID string, status schema.JobStatus, info interface{}, message 
 	}
 	tx := database.DB.Table("job").Where("id = ?", jobID).Save(&job)
 	if tx.Error != nil {
-		logger.LoggerForJob(jobID).Errorf("update job failed, err %v", err)
-		return "", err
+		logger.LoggerForJob(jobID).Errorf("update job failed, err %v", tx.Error)
+		return "", tx.Error
 	}
 	return job.Status, nil
 }
