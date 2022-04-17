@@ -111,11 +111,17 @@ func TestPatchVCJobVariable(t *testing.T) {
 			Priority:            pfjob.Conf.GetPriority(),
 			QueueName:           pfjob.Conf.GetQueueName(),
 			YamlTemplateContent: extRuntimeConf,
+			Flavour: schema.Flavour{
+				Name: schema.CustomFlavour,
+				ResourceInfo: schema.ResourceInfo{
+					CPU: "1",
+					Mem: "1",
+				},
+			},
 		}
 		jobModeParams := JobModeParams{
-			JobFlavour:      pfjob.Conf.GetFlavour(),
 			PServerReplicas: pfjob.Conf.GetPSReplicas(),
-			PServerFlavour:  pfjob.Conf.GetFlavour(),
+			PServerFlavour:  "",
 			PServerCommand:  pfjob.Conf.GetPSCommand(),
 			WorkerReplicas:  pfjob.Conf.GetWorkerReplicas(),
 			WorkerFlavour:   pfjob.Conf.GetWorkerFlavour(),

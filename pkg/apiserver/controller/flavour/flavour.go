@@ -137,19 +137,6 @@ func GetFlavour(name string) (models.Flavour, error) {
 	return models.GetFlavour(name)
 }
 
-func toSchemaFlavour(flavour models.Flavour) schema.Flavour {
-	res := schema.Flavour{
-		ResourceInfo: schema.ResourceInfo{
-			CPU:             flavour.CPU,
-			Mem:             flavour.Mem,
-			ScalarResources: flavour.ScalarResources,
-		},
-		Name: flavour.Name,
-	}
-	log.Debugf("convert models.flavour: %v to schema.flavour: %v", flavour, res)
-	return res
-}
-
 // ListFlavour handler for listing flavour
 func ListFlavour(maxKeys int, marker, clusterName, queryKey string) (*ListFlavourResponse, error) {
 	log.Debug("begin list flavour.")

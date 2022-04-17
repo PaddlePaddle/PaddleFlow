@@ -144,7 +144,7 @@ func validateFlavours(conf schema.PFJobConf, queue *models.Queue) error {
 			flavour.ScalarResources = flavourInDB.ScalarResources
 			conf.SetFlavour(flavour)
 		} else {
-			log.Errorf("get flavour[%s] failed, err=%v", flavourInDB, err)
+			log.Errorf("get flavour[%v] failed, err=%v", flavourInDB, err)
 			return err
 		}
 	}
