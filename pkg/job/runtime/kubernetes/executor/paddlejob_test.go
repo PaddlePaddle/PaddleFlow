@@ -49,6 +49,13 @@ func TestPatchPaddleJobVariable(t *testing.T) {
 			Env:     confEnv,
 			Command: "sleep 3600",
 			Image:   "nginx",
+			Flavour: schema.Flavour{
+				Name: schema.CustomFlavour,
+				ResourceInfo: schema.ResourceInfo{
+					CPU: "1",
+					Mem: "1",
+				},
+			},
 		},
 		JobType: schema.TypePaddleJob,
 	}
