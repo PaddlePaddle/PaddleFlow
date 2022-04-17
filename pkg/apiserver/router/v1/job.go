@@ -19,7 +19,6 @@ package v1
 import (
 	"fmt"
 	"net/http"
-	"paddleflow/pkg/common/errors"
 	"strings"
 
 	"github.com/go-chi/chi"
@@ -30,6 +29,7 @@ import (
 	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/apiserver/router/util"
 	"paddleflow/pkg/common/config"
+	"paddleflow/pkg/common/errors"
 	"paddleflow/pkg/common/logger"
 )
 
