@@ -17,14 +17,15 @@ limitations under the License.
 package job
 
 import (
+	"errors"
 	"fmt"
 
 	log "github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 
 	"paddleflow/pkg/apiserver/common"
 	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/common/config"
-	"paddleflow/pkg/common/errors"
+	errs "paddleflow/pkg/common/errors"
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/common/schema"
 	"paddleflow/pkg/common/uuid"
@@ -64,22 +65,22 @@ func generateJobID(param string) string {
 func ValidateJob(conf schema.PFJobConf) error {
 	// check common config for job
 	if len(conf.GetName()) == 0 {
-		return errors.EmptyJobNameError()
+		return errs.EmptyJobNameError()
 	}
 	if len(conf.GetImage()) == 0 {
-		return errors.EmptyJobImageError()
+		return errs.EmptyJobImageError()
 	}
 	if len(conf.Type()) == 0 {
-		return errors.EmptyJobTypeError()
+		return errs.EmptyJobTypeError()
 	}
 
 	var userName string
 	var queueName string
 	if userName = conf.GetUserName(); len(userName) == 0 {
-		return errors.EmptyUserNameError()
+		return errs.EmptyUserNameError()
 	}
 	if queueName = conf.GetQueueName(); len(queueName) == 0 {
-		return errors.EmptyQueueNameError()
+		return errs.EmptyQueueNameError()
 	}
 	ctx := &logger.RequestContext{
 		UserName: userName,
@@ -132,37 +133,40 @@ func validateFlavours(conf schema.PFJobConf, queue *models.Queue) error {
 		return err
 	}
 
-	flavors := []string{
-		conf.GetFlavour(), conf.GetPSFlavour(), conf.GetWorkerFlavour(),
+	flavour := conf.GetFlavour()
+	flavourInDB, err := models.GetFlavour(flavour.Name)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			// update conf.Flavour
+			flavour.Name = flavourInDB.Name
+			flavour.CPU = flavourInDB.CPU
+			flavour.Mem = flavourInDB.Mem
+			flavour.ScalarResources = flavourInDB.ScalarResources
+			conf.SetFlavour(flavour)
+		} else {
+			log.Errorf("get flavour[%s] failed, err=%v", flavourInDB, err)
+			return err
+		}
 	}
-	for _, flavor := range flavors {
-		if len(flavor) == 0 {
-			continue
-		}
-		if err := isEnoughQueueCapacity(flavor, queueResource); err != nil {
-			errMsg := fmt.Sprintf("queue %s has no enough resource:%s", conf.GetQueueName(), err.Error())
-			log.Errorf(errMsg)
-			return fmt.Errorf(errMsg)
-		}
+
+	if err := isEnoughQueueCapacity(flavour, queueResource); err != nil {
+		errMsg := fmt.Sprintf("queue %s has no enough resource:%s", conf.GetQueueName(), err.Error())
+		log.Errorf(errMsg)
+		return fmt.Errorf(errMsg)
 	}
 	return nil
 }
 
 // isEnoughQueueCapacity validate queue matching flavor
-func isEnoughQueueCapacity(flavourKey string, queueResource *schema.Resource) error {
-	flavourValue, exist := config.GlobalServerConfig.FlavourMap[flavourKey]
-	if !exist {
-		return errors.InvalidFlavourError(flavourKey)
-	}
-	fr := flavourValue.ResourceInfo
-	flavourRes, err := schema.NewResource(fr.CPU, fr.Mem, fr.ScalarResources)
+func isEnoughQueueCapacity(flavour schema.Flavour, queueResource *schema.Resource) error {
+	flavourRes, err := schema.NewResource(flavour.CPU, flavour.Mem, flavour.ScalarResources)
 	if err != nil {
-		log.Errorf("flavour[%s]:[%+v] convert to Resource type failed, err=%v", flavourKey, fr, err)
+		log.Errorf("flavour[%+v] convert to Resource type failed, err=%v", flavour, err)
 		return err
 	}
 	// all field in flavour must be less equal than queue's
 	if !flavourRes.LessEqual(queueResource) {
-		errMsg := fmt.Sprintf("the request flavour[%s] is larger than queue's", flavourKey)
+		errMsg := fmt.Sprintf("the request flavour[%v] is larger than queue's", flavour)
 		log.Errorf(errMsg)
 		return fmt.Errorf(errMsg)
 	}
@@ -177,7 +181,7 @@ func checkResource(conf schema.PFJobConf) error {
 	} else {
 		if priority != schema.EnvJobLowPriority &&
 			priority != schema.EnvJobNormalPriority && priority != schema.EnvJobHighPriority {
-			return errors.InvalidJobPriorityError(priority)
+			return errs.InvalidJobPriorityError(priority)
 		}
 	}
 	return nil
@@ -186,7 +190,7 @@ func checkResource(conf schema.PFJobConf) error {
 func StopJobByID(jobID string) error {
 	job, err := models.GetJobByID(jobID)
 	if err != nil {
-		return errors.JobIDNotFoundError(jobID)
+		return errs.JobIDNotFoundError(jobID)
 	}
 	pfJob := &api.PFJob{
 		ID:        jobID,

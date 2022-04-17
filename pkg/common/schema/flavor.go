@@ -25,6 +25,7 @@ import (
 
 const (
 	RegPatternResource = "^[1-9][0-9]*([numkMGTPE]|Ki|Mi|Gi|Ti|Pi|Ei)?$"
+	CustomFlavour      = "customFlavour"
 )
 
 type ScalarResourcesType map[ResourceName]string
@@ -38,8 +39,6 @@ type ResourceInfo struct {
 type Flavour struct {
 	ResourceInfo `yaml:",inline"`
 	Name         string `json:"name" yaml:"name"`
-	// todo(zhongzichao) classified by clusterID
-	ClusterID string `json:"-" yaml:"-"`
 }
 
 func isValidScalarResource(r string, scalarResourcesType []string) bool {

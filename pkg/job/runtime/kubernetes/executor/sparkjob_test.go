@@ -33,33 +33,7 @@ func initConfigsForTest(confEnv map[string]string) {
 	config.GlobalServerConfig.Job.SchedulerName = "testSchedulerName"
 	confEnv[schema.EnvJobType] = string(schema.TypeVcJob)
 	confEnv[schema.EnvJobNamespace] = "N1"
-	config.GlobalServerConfig.FlavourMap = map[string]schema.Flavour{
-		"ss": {
-			Name: "ss",
-			ResourceInfo: schema.ResourceInfo{
-				CPU: "1",
-				Mem: "100M",
-			},
-		},
-		"cpu": {
-			Name: "cpu",
-			ResourceInfo: schema.ResourceInfo{
-				CPU: "1",
-				Mem: "100M",
-			},
-		},
-		"gpu": {
-			Name: "gpu",
-			ResourceInfo: schema.ResourceInfo{
-				CPU: "1",
-				Mem: "100M",
-				ScalarResources: schema.ScalarResourcesType{
-					"nvidia.com/gpu": "500M",
-				},
-			},
-		},
-	}
-	confEnv[schema.EnvJobFlavour] = "ss"
+
 	confEnv[schema.EnvJobPServerReplicas] = "3"
 	confEnv[schema.EnvJobFsID] = "fs-root-test"
 	confEnv[schema.EnvJobPVCName] = "test-pvc-name"

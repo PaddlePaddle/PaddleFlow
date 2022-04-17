@@ -23,7 +23,6 @@ import (
 
 	"paddleflow/pkg/apiserver/controller/job"
 	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/common/config"
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/common/schema"
 )
@@ -65,38 +64,25 @@ func initQueue(t *testing.T, userName string) {
 	assert.Nil(t, err)
 }
 
+func initGPUFlavour(t *testing.T) {
+	gpuFlavour := models.Flavour{
+		Name: "gpu",
+		CPU:  "1",
+		Mem:  "100M",
+		ScalarResources: schema.ScalarResourcesType{
+			"nvidia.com/gpu": "50",
+		},
+	}
+	err := models.CreateFlavour(&gpuFlavour)
+	assert.Nil(t, err)
+}
+
 func TestCreateJob(t *testing.T) {
 	router, baseURL := prepareDBAndAPIForUser(t, MockRootUser)
 	initCluster(t)
 	initQueue(t, mockUserName)
+	initGPUFlavour(t)
 
-	flavourName := initFlavour(t)
-	config.GlobalServerConfig.FlavourMap = map[string]schema.Flavour{
-		flavourName: {
-			Name: flavourName,
-			ResourceInfo: schema.ResourceInfo{
-				CPU: "1",
-				Mem: "100M",
-			},
-		},
-		"cpu": {
-			Name: "cpu",
-			ResourceInfo: schema.ResourceInfo{
-				CPU: "1",
-				Mem: "100M",
-			},
-		},
-		"gpu": {
-			Name: "gpu",
-			ResourceInfo: schema.ResourceInfo{
-				CPU: "1",
-				Mem: "100M",
-				ScalarResources: schema.ScalarResourcesType{
-					"nvidia.com/gpu": "500M",
-				},
-			},
-		},
-	}
 	ctx := &logger.RequestContext{UserName: "testusername"}
 	tests := []struct {
 		name         string
@@ -128,7 +114,7 @@ func TestCreateJob(t *testing.T) {
 					},
 					Image: "mockImage",
 					Flavour: schema.Flavour{
-						Name: flavourName,
+						Name: "gpu",
 					},
 					FileSystem: schema.FileSystem{
 						Name: MockFsName1,

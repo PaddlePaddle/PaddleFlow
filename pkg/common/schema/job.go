@@ -174,7 +174,9 @@ type PFJobConf interface {
 	GetNamespace() string
 	GetJobMode() string
 
-	GetFlavour() string
+	GetFlavour() Flavour
+	SetFlavour(Flavour)
+
 	GetPSFlavour() string
 	GetWorkerFlavour() string
 
@@ -307,8 +309,12 @@ func (c *Conf) GetJobExecutorReplicas() string {
 	return c.Env[EnvJobExecutorReplicas]
 }
 
-func (c *Conf) GetFlavour() string {
-	return c.Env[EnvJobFlavour]
+func (c *Conf) GetFlavour() Flavour {
+	return c.Flavour
+}
+
+func (c *Conf) SetFlavour(flavour Flavour) {
+	c.Flavour = flavour
 }
 
 func (c *Conf) GetPSFlavour() string {
@@ -317,11 +323,6 @@ func (c *Conf) GetPSFlavour() string {
 
 func (c *Conf) GetWorkerFlavour() string {
 	return c.Env[EnvJobWorkerFlavour]
-}
-
-func (c *Conf) SetFlavour(flavourKey string) {
-	c.preCheckEnv()
-	c.Env[EnvJobFlavour] = flavourKey
 }
 
 func (c *Conf) SetPSFlavour(flavourKey string) {

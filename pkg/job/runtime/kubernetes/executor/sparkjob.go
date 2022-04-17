@@ -94,19 +94,16 @@ func (sj *SparkJob) patchSparkSpec(jobApp *sparkapp.SparkApplication, jobID stri
 	}
 
 	// resource of driver and executor
-	driverFlavour := config.GlobalServerConfig.FlavourMap[sj.DriverFlavour]
-	driverCoresInt, _ := strconv.Atoi(driverFlavour.CPU)
+	driverCoresInt, _ := strconv.Atoi(sj.Flavour.CPU)
 	driverCores := int32(driverCoresInt)
-	executorFlavour := config.GlobalServerConfig.FlavourMap[sj.ExecutorFlavour]
-	executorCoresInt, _ := strconv.Atoi(executorFlavour.CPU)
+	executorCoresInt, _ := strconv.Atoi(sj.Flavour.CPU)
 	executorCores := int32(executorCoresInt)
 	// driver
-	sj.patchSparkSpecDriver(jobApp, driverCores, driverFlavour)
+	sj.patchSparkSpecDriver(jobApp, driverCores, sj.Flavour)
 	// executor
-	sj.patchSparkSpecExecutor(jobApp, executorCores, executorFlavour)
+	sj.patchSparkSpecExecutor(jobApp, executorCores, sj.Flavour)
 
-	fillGPUSpec(driverFlavour, executorFlavour, jobApp)
-
+	fillGPUSpec(sj.Flavour, sj.Flavour, jobApp)
 }
 
 func (sj *SparkJob) patchSparkSpecDriver(jobApp *sparkapp.SparkApplication, cores int32, flavour schema.Flavour) {

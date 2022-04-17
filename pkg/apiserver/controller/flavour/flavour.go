@@ -23,7 +23,6 @@ import (
 
 	"paddleflow/pkg/apiserver/common"
 	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/common/config"
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/common/schema"
 )
@@ -80,9 +79,6 @@ func CreateFlavour(request *CreateFlavourRequest) (*CreateFlavourResponse, error
 	if err := models.CreateFlavour(&flavour); err != nil {
 		return nil, err
 	}
-	// add to cache
-	flavourSchema := toSchemaFlavour(flavour)
-	addFlavourCache(flavourSchema)
 
 	response := &CreateFlavourResponse{
 		FlavourName: flavour.Name,
@@ -131,9 +127,6 @@ func UpdateFlavour(request *UpdateFlavourRequest) (*UpdateFlavourResponse, error
 			log.Errorf("update flavour in db failed, err=%v", err)
 			return nil, err
 		}
-		// update cache
-		flavourSchema := toSchemaFlavour(flavour)
-		addFlavourCache(flavourSchema)
 	}
 
 	return &UpdateFlavourResponse{flavour}, nil
@@ -151,26 +144,10 @@ func toSchemaFlavour(flavour models.Flavour) schema.Flavour {
 			Mem:             flavour.Mem,
 			ScalarResources: flavour.ScalarResources,
 		},
-		Name:      flavour.Name,
-		ClusterID: flavour.ClusterID,
+		Name: flavour.Name,
 	}
 	log.Debugf("convert models.flavour: %v to schema.flavour: %v", flavour, res)
 	return res
-}
-
-// LoadFlavoursMap handler for loading all flavours
-func LoadFlavoursMap() (map[string]schema.Flavour, error) {
-	// list flavours and to schema flavour
-	flavours, err := ListFlavour(0, "", "", "")
-	if err != nil {
-		log.Errorf("list flavour failed, err=%v", err)
-		return nil, err
-	}
-	flavoursSchema := make(map[string]schema.Flavour)
-	for _, flavour := range flavours.FlavourList {
-		flavoursSchema[flavour.Name] = toSchemaFlavour(flavour)
-	}
-	return flavoursSchema, nil
 }
 
 // ListFlavour handler for listing flavour
@@ -230,7 +207,6 @@ func DeleteFlavour(flavourName string, userID int64) error {
 		log.Errorf("delete flavour %s failed, err: %v", flavourName, err)
 		return err
 	}
-	delFlavourCache(flavourName)
 	return nil
 }
 
@@ -244,18 +220,4 @@ func IsLastFlavourPk(pk int64) bool {
 		return true
 	}
 	return false
-}
-
-// addFlavourCache update flavour cache
-func addFlavourCache(flavour schema.Flavour) {
-	config.FlavourRWMutex.Lock()
-	defer config.FlavourRWMutex.Unlock()
-	config.GlobalServerConfig.FlavourMap[flavour.Name] = flavour
-}
-
-// delFlavourCache delete flavour cache
-func delFlavourCache(flavourName string) {
-	config.FlavourRWMutex.Lock()
-	defer config.FlavourRWMutex.Unlock()
-	delete(config.GlobalServerConfig.FlavourMap, flavourName)
 }

@@ -30,7 +30,6 @@ import (
 	kubeschema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 
-	"paddleflow/pkg/common/config"
 	"paddleflow/pkg/common/errors"
 	"paddleflow/pkg/common/k8s"
 	"paddleflow/pkg/common/schema"
@@ -75,6 +74,7 @@ type KubeJob struct {
 	QueueName   string
 	Labels      map[string]string
 	Annotations map[string]string
+	Flavour     schema.Flavour
 	// YamlTemplateContent indicate template content of job
 	YamlTemplateContent []byte
 	GroupVersionKind    kubeschema.GroupVersionKind
@@ -101,6 +101,7 @@ func NewKubeJob(job *api.PFJob, dynamicClientOpt *k8s.DynamicClientOption) (api.
 		Priority:            job.Conf.GetPriority(),
 		QueueName:           job.Conf.GetQueueName(),
 		DynamicClientOption: dynamicClientOpt,
+		Flavour:             job.Conf.Flavour,
 	}
 
 	switch job.JobType {
@@ -138,7 +139,7 @@ func NewKubeJob(job *api.PFJob, dynamicClientOpt *k8s.DynamicClientOption) (api.
 		}, nil
 
 	default:
-		return nil, fmt.Errorf("kubernetes job type[%s] is not supported", job.Conf.Type())
+		return nil, fmt.Errorf("kubernetes job type[%s] is not supported", job.JobType)
 	}
 }
 
@@ -225,8 +226,7 @@ func (j *KubeJob) createJobFromYaml(jobEntity interface{}) error {
 func (j *KubeJob) fillContainerInTask(container *corev1.Container, flavourKey, command string) {
 	container.Image = j.Image
 	container.Command = []string{"bash", "-c", j.fixContainerCommand(command)}
-	flavourValue := config.GlobalServerConfig.FlavourMap[flavourKey]
-	container.Resources = j.generateResourceRequirements(flavourValue)
+	container.Resources = j.generateResourceRequirements()
 	container.VolumeMounts = j.appendMountIfAbsent(container.VolumeMounts, j.generateVolumeMount())
 	container.Env = j.generateEnvVars()
 }
@@ -305,20 +305,20 @@ func (j *KubeJob) fixContainerCommand(command string) string {
 	return command
 }
 
-func (j *KubeJob) generateResourceRequirements(flavour schema.Flavour) corev1.ResourceRequirements {
-	log.Infof("generateResourceRequirements by flavour:[%+v]", flavour)
+func (j *KubeJob) generateResourceRequirements() corev1.ResourceRequirements {
+	log.Infof("generateResourceRequirements by flavour:[%+v]", j.Flavour)
 	resources := corev1.ResourceRequirements{
 		Requests: map[corev1.ResourceName]resource.Quantity{
-			corev1.ResourceCPU:    resource.MustParse(flavour.CPU),
-			corev1.ResourceMemory: resource.MustParse(flavour.Mem),
+			corev1.ResourceCPU:    resource.MustParse(j.Flavour.CPU),
+			corev1.ResourceMemory: resource.MustParse(j.Flavour.Mem),
 		},
 		Limits: map[corev1.ResourceName]resource.Quantity{
-			corev1.ResourceCPU:    resource.MustParse(flavour.CPU),
-			corev1.ResourceMemory: resource.MustParse(flavour.Mem),
+			corev1.ResourceCPU:    resource.MustParse(j.Flavour.CPU),
+			corev1.ResourceMemory: resource.MustParse(j.Flavour.Mem),
 		},
 	}
 
-	for key, value := range flavour.ScalarResources {
+	for key, value := range j.Flavour.ScalarResources {
 		resources.Requests[corev1.ResourceName(key)] = resource.MustParse(value)
 		resources.Limits[corev1.ResourceName(key)] = resource.MustParse(value)
 	}
@@ -384,7 +384,8 @@ func newJobModeParams(conf schema.Conf) JobModeParams {
 		WorkerFlavour:         conf.GetWorkerFlavour(),
 		WorkerCommand:         conf.GetWorkerCommand(),
 		CollectiveJobReplicas: conf.GetJobReplicas(),
-		JobFlavour:            conf.GetFlavour(),
+		// todo(zhongzichao) remove this after the distributeJob is ready
+		JobFlavour: "",
 	}
 }
 

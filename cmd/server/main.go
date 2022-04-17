@@ -15,7 +15,6 @@ import (
 	_ "go.uber.org/automaxprocs"
 
 	"paddleflow/cmd/server/flag"
-	"paddleflow/pkg/apiserver/controller/flavour"
 	"paddleflow/pkg/apiserver/controller/run"
 	"paddleflow/pkg/apiserver/models"
 	v1 "paddleflow/pkg/apiserver/router/v1"
@@ -156,13 +155,6 @@ func setup() {
 		log.Errorf("init database err: %v", err)
 		gracefullyExit(err)
 	}
-
-	flavours, err := flavour.LoadFlavoursMap()
-	if err != nil {
-		log.Errorf("LoadFlavours failed. error:[%s]", err.Error())
-		gracefullyExit(err)
-	}
-	config.GlobalServerConfig.FlavourMap = flavours
 
 	if err = newAndStartJobManager(); err != nil {
 		log.Errorf("create pfjob manager failed, err %v", err)

@@ -96,25 +96,11 @@ func TestKubeRuntimeJob(t *testing.T) {
 		Conf: schema.Conf{
 			Env: map[string]string{
 				schema.EnvJobQueueName: "default",
-				schema.EnvJobFlavour:   "flavour1",
 			},
 		},
 	}
 	dbinit.InitMockDB()
-	config.GlobalServerConfig = &config.ServerConfig{
-		FlavourMap: map[string]schema.Flavour{
-			"flavour1": {
-				Name: "flavour1",
-				ResourceInfo: schema.ResourceInfo{
-					CPU: "20",
-					Mem: "20G",
-					ScalarResources: map[schema.ResourceName]string{
-						"com/gpu": "1",
-					},
-				},
-			},
-		},
-	}
+
 	err := models.CreateJob(&models.Job{
 		ID: testJobID,
 		Config: schema.Conf{
