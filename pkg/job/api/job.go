@@ -125,7 +125,7 @@ func NewJobInfo(job *models.Job) (*PFJob, error) {
 		ID:        job.ID,
 		Name:      job.Name,
 		Namespace: job.Config.GetNamespace(),
-		JobType:   job.Config.Type(),
+		JobType:   schema.JobType(job.Type),
 		JobMode:   job.Config.GetJobMode(),
 		Framework: job.Framework,
 		ClusterID: ClusterID(job.Config.GetClusterID()),
