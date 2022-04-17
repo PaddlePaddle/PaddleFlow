@@ -168,7 +168,7 @@ func patchSingleEnvs(conf *schema.Conf, request *CreateSingleJobRequest) error {
 	// flavour
 	flavour, err := models.GetFlavourSchema(request.Flavour)
 	if err != nil {
-		log.Errorf("Get flavour schema failed when creating job %s failed, err=%v",
+		log.Errorf("Get flavour failed when creating job %s failed, err=%v",
 			request.CommonJobInfo.Name, err)
 		return err
 	}

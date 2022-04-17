@@ -132,6 +132,10 @@ func validateFlavours(conf schema.PFJobConf, queue *models.Queue) error {
 	}
 
 	flavour, err := models.GetFlavourSchema(conf.GetFlavour())
+	if err != nil {
+		log.Errorf("get flavour[%v] failed, err=%v", conf.GetFlavour(), err)
+		return err
+	}
 	conf.SetFlavour(flavour)
 	if err := isEnoughQueueCapacity(flavour, queueResource); err != nil {
 		errMsg := fmt.Sprintf("queue %s has no enough resource:%s", conf.GetQueueName(), err.Error())
