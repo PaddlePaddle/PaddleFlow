@@ -35,7 +35,7 @@ func TestPatchPaddleJobVariable(t *testing.T) {
 	initConfigsForTest(confEnv)
 	// mock db
 	dbinit.InitMockDB()
-	dbinit.CreateMockData()
+
 	confEnv[schema.EnvJobType] = string(schema.TypePaddleJob)
 	confEnv[schema.EnvJobFlavour] = "mock_flavour1"
 	// init for paddle's ps mode

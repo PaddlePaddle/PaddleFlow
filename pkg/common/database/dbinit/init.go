@@ -111,11 +111,11 @@ func InitMockDB() {
 		log.Fatalf("InitMockDB createDatabaseTables error[%s]", err.Error())
 	}
 	database.DB = db
-
+	createMockData()
 }
 
-// CreateMockData create mock data for test
-func CreateMockData() {
+// createMockData create mock data for test
+func createMockData() {
 	// init flavour
 	flavours := []models.Flavour{
 		{

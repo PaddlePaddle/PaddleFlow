@@ -109,7 +109,6 @@ func TestKubeRuntimeJob(t *testing.T) {
 		},
 	}
 	dbinit.InitMockDB()
-	dbinit.CreateMockData()
 
 	err := models.CreateJob(&models.Job{
 		ID: testJobID,
