@@ -3,14 +3,15 @@ package models
 import (
 	"encoding/json"
 	"fmt"
-	"paddleflow/pkg/common/schema"
 	"time"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+	v1 "k8s.io/api/core/v1"
 
 	"paddleflow/pkg/common/database"
 	"paddleflow/pkg/common/logger"
+	"paddleflow/pkg/common/schema"
 )
 
 const (
@@ -51,6 +52,13 @@ func (task *JobTask) BeforeSave(*gorm.DB) error {
 }
 
 func (task *JobTask) AfterFind(*gorm.DB) error {
+	if len(task.ExtRuntimeStatusJSON) > 0 {
+		var podStatus v1.PodStatus
+		if err := json.Unmarshal([]byte(task.ExtRuntimeStatusJSON), &podStatus); err != nil {
+			return err
+		}
+		task.ExtRuntimeStatus = podStatus
+	}
 	return nil
 }
 
@@ -73,4 +81,13 @@ func UpdateTask(task *JobTask) error {
 		DoUpdates: clause.AssignmentColumns([]string{"status", "message", "ext_runtime_status", "deleted_at"}),
 	}).Create(task)
 	return tx.Error
+}
+
+func ListByJobID(jobID string) ([]JobTask, error) {
+	var jobList []JobTask
+	err := database.DB.Table(JobTaskTableName).Where("job_id = ?", jobID).Find(&jobList).Error
+	if err != nil {
+		return nil, err
+	}
+	return jobList, nil
 }

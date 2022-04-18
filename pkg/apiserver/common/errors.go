@@ -412,3 +412,7 @@ func LogPageSizeOverMaxError() error {
 func LogFilePositionInvalidValueError() error {
 	return fmt.Errorf("LogFilePosition has wrong value")
 }
+
+func ConnectionClosedError() error {
+	return fmt.Errorf("Connection closed")
+}

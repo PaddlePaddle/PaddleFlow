@@ -38,7 +38,8 @@ type Job struct {
 	UserName          string           `json:"userName" gorm:"NOT NULL"`
 	QueueID           string           `json:"queueID" gorm:"NOT NULL"`
 	Type              string           `json:"type" gorm:"type:varchar(20);NOT NULL"`
-	Config            schema.Conf      `json:"config" gorm:"type:text"`
+	ConfigJson        string           `json:"-" gorm:"column:config;type:text"`
+	Config            schema.Conf      `json:"config" gorm:"-"`
 	RuntimeInfoJson   string           `json:"-" gorm:"column:runtime_info;default:'{}'"`
 	RuntimeInfo       interface{}      `json:"runtimeInfo" gorm:"-"`
 	Status            schema.JobStatus `json:"status" gorm:"type:varchar(32);"`
@@ -46,7 +47,8 @@ type Job struct {
 	ResourceJson      string           `json:"-" gorm:"column:resource;type:text;default:'{}'"`
 	Resource          *schema.Resource `json:"resource" gorm:"-"`
 	Framework         schema.Framework `json:"framework" gorm:"type:varchar(30)"`
-	Members           []Member         `json:"members" gorm:"type:text"`
+	MembersJson       string           `json:"-" gorm:"column:members;type:text"`
+	Members           []Member         `json:"members" gorm:"-"`
 	ExtensionTemplate string           `json:"extensionTemplate" gorm:"type:text"`
 	ParentJob         string           `json:"-" gorm:"type:varchar(60)"`
 	CreatedAt         time.Time        `json:"createTime"`
@@ -83,6 +85,37 @@ func (job *Job) BeforeSave(tx *gorm.DB) error {
 			return err
 		}
 		job.ResourceJson = string(infoJson)
+	}
+	return nil
+}
+
+func (job *Job) AfterFind(tx *gorm.DB) error {
+	if len(job.RuntimeInfoJson) > 0 {
+		var runtime interface{}
+		err := json.Unmarshal([]byte(job.RuntimeInfoJson), &runtime)
+		if err != nil {
+			log.Errorf("job[%s] decode runtime failed, error:[%s]", job.ID, err.Error())
+			return err
+		}
+		job.RuntimeInfo = runtime
+	}
+	if len(job.MembersJson) > 0 {
+		var members []Member
+		err := json.Unmarshal([]byte(job.MembersJson), &members)
+		if err != nil {
+			log.Errorf("job[%s] decode member failed, error:[%s]", job.ID, err.Error())
+			return err
+		}
+		job.Members = members
+	}
+	if len(job.ResourceJson) > 0 {
+		resource := schema.Resource{}
+		err := json.Unmarshal([]byte(job.ResourceJson), &resource)
+		if err != nil {
+			log.Errorf("job[%s] decode resource failed, error:[%s]", job.ID, err.Error())
+			return err
+		}
+		job.Resource = &resource
 	}
 	return nil
 }
@@ -196,5 +229,71 @@ func GetJobsByRunID(ctx *logger.RequestContext, runID string, jobID string) ([]J
 		ctx.Logging().Errorf("get jobs by run[%s] failed. error : %s ", runID, err.Error())
 		return nil, err
 	}
+	return jobList, nil
+}
+
+func ListJobByUpdateTime(updateTime string) ([]Job, error) {
+	var jobList []Job
+	err := database.DB.Table("job").Where("updated_at >= ?", updateTime).Find(&jobList).Error
+	if err != nil {
+		log.Errorf("list job by updateTime[%s] failed, error:[%s]", updateTime, err.Error())
+		return nil, err
+	}
+	return jobList, nil
+}
+
+func ListJobByParentID(parentID string) ([]Job, error) {
+	var jobList []Job
+	err := database.DB.Table("job").Where("parent_job = ?", parentID).Find(&jobList).Error
+	if err != nil {
+		log.Errorf("list job by parentID[%s] failed, error:[%s]", parentID, err.Error())
+		return nil, err
+	}
+	return jobList, nil
+}
+
+func GetLastJob() (Job, error) {
+	job := Job{}
+	tx := database.DB.Table("job").Last(&job)
+	if tx.Error != nil {
+		log.Errorf("get last job failed. error:%s", tx.Error.Error())
+		return Job{}, tx.Error
+	}
+	return job, nil
+}
+
+func ListJob(pk int64, maxKeys int, queue, status, startTime, timestamp, userFilter string, labels map[string]string) ([]Job, error) {
+	tx := database.DB.Table("job").Where("pk > ?", pk)
+	if userFilter != "root" {
+		tx = tx.Where("user_name = ?", userFilter)
+	}
+	if queue != "" {
+		tx = tx.Where("queue_id = ?", queue)
+	}
+	if status != "" {
+		tx = tx.Where("status = ?", status)
+	}
+	if startTime != "" {
+		tx = tx.Where("activated_at > ?", startTime)
+	}
+	if len(labels) > 0 {
+		jobIDs, err := ListJobIDByLabels(labels)
+		if err != nil {
+			return []Job{}, err
+		}
+		tx = tx.Where("id IN (?)", jobIDs)
+	}
+	if timestamp != "" {
+		tx = tx.Where("updated_at > ?", timestamp)
+	}
+	if maxKeys > 0 {
+		tx = tx.Limit(maxKeys)
+	}
+	var jobList []Job
+	tx = tx.Find(&jobList)
+	if tx.Error != nil {
+		return []Job{}, tx.Error
+	}
+
 	return jobList, nil
 }
