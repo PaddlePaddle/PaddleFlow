@@ -42,9 +42,9 @@ class Parameter(object):
         
         Args:
             type (str): the type of Parameter, type check before execution 
-            default (Any): the default or Paramter
+            default (Any): the default value of Parameter
 
-        Raise:
+        Raises:
             PaddleFlowSDKException: if all of "type" and "default" are None or "type" is not supported or "type" and "default" are not match
         """
         if type and not isinstance(type, str):
@@ -150,19 +150,25 @@ class Parameter(object):
         """ get the step step that this paramter instances was belong to
 
         Returns:
-            A Step that it was belong to
+            a Step that it was belong to
         """
         return self.__step
 
     @property
     def name(self):
         """ get the name of it
+
+        Returns:
+            a string indicate the name of it
         """
         return self.__name
     
     @property
     def type(self):
         """ get the type of it
+
+        Returns:
+            a string indicate the type of it
         """
         return self._type
     

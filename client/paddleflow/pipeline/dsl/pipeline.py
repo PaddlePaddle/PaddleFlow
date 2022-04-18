@@ -47,17 +47,16 @@ class Pipeline(object):
             cache_options: CacheOptions=None,
             failure_options: FailureOptions=None
             ):
-        """ create an new instance of Pipeline
+        """ create a new instance of Pipeline
 
         Args:
             name (str): the name of Pipeline 
-            parallelism (str): the max number of total parallel pods that can execute at the same time in this Pipeline.
+            parallelism (str): the max number of total parallel step that can execute at the same time in this Pipeline.
             docker_env (str): the docker image address of this Pipeline, if Step of this Pipeline has their own docker_env, then the docker_env of Step has higher priority
             env (Dict[str, str]): the environment variable of Step runtime, which is shared by all steps. If the environment variable with the same name is set to step, the priority of step is higher
-            cache_options (cache_options): the cache options of Pipeline which is shared by all steps, if Step of this Pipeline has their own cache_options, then the priority of step is higher
-            failure_options (FailureOptions): the failure options of Pipeline, Specify how to handle the rest of the steps when there is a step failure
+            cache_options (CacheOptions): the cache options of Pipeline which is shared by all steps, if Step of this Pipeline has their own cache_options, then the priority of step is higher
+            failure_options (FailureOptions): the failure options of Pipeline, Specify how to handle the rest steps of the pipeline when there is a step failure
 
-        .. note:: This is not used directly by the users but auto generated when the Pipeline decoration exists
 
         Raises:
             PaddleFlowSDKException: if some params has error value
@@ -69,6 +68,8 @@ class Pipeline(object):
                 step1 = data_process(data_path)
                 step2 = main(step1.parameters["data_file"], iteration, step1.outputs["train_data"])
                 step3 = validate(step2.parameters["data_file"], step1.outputs["validate_data"], step2.outputs["train_model"])
+        
+        .. note:: This is not used directly by the users but auto generated when the Pipeline decoration exists
         """
         if parallelism and parallelism <1:
             raise PaddleFlowSDKException(PipelineDSLError, "parallelism should >= 1")
@@ -164,16 +165,16 @@ class Pipeline(object):
             entry: str=None,
             disabled: List[str]=None,
             ):
-        """ create a run
+        """ create a pipelint run
 
         Args:
-            username (str): Run the specified run by username, only useful for root.
-            config (str): the path of configf file
+            username (str): create the specified run by username, only useful for root.
+            config (str): the path of config file
             fsname (str): the fsname of paddleflow
             runname (str): the name of this run 
             desc (str): description of run 
             entry (str): the entry of run, should be one of step's name in pipeline
-            disable (List[str]): a list of step's name which need to disable in this run
+            disabled (List[str]): a list of step's name which need to disable in this run
 
         Raises:
             PaddleFlowSDKException: if cannot create run  
@@ -285,9 +286,9 @@ class Pipeline(object):
             save_path: the path of file which to save the content of Pipeline after compile
 
         Returns:
-            a json string which description this Pipeline instance
+            a dict which description this Pipeline instance
 
-        Raises：
+        Raises:
            PaddleFlowSDKException: if compile failed 
         """
         if not self._steps:
@@ -306,8 +307,8 @@ class Pipeline(object):
         self.topological_sort()
         
         # 5、Compile
-        pipeline_json = Compiler().compile(self, save_path)
-        return pipeline_json
+        pipeline_dict = Compiler().compile(self, save_path)
+        return pipeline_dict
 
     def topological_sort(self):
         """ List Steps in topological order.
@@ -365,7 +366,7 @@ class Pipeline(object):
 
     @property
     def steps(self):
-        """ get all steps that this Pipelines instance include
+        """ get all steps except post_process that this Pipelines instance include
 
         Returns:
             a dict which key is the name of step and value is Step instances
@@ -374,7 +375,7 @@ class Pipeline(object):
 
     @property
     def name(self):
-        """ get the name this Pipelines instance
+        """ get the name of this Pipelines instance
 
         Returns:
             the name of this Pipelines instance

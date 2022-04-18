@@ -21,10 +21,10 @@ from paddleflow.pipeline.dsl.utils.consts import PipelineDSLError
 from paddleflow.common.exception.paddleflow_sdk_exception import PaddleFlowSDKException
 
 class Artifact(object):
-    """ Artifact: the input/output file of step
+    """ Artifact: the input/output file/directory of step
     """
     def __init__(self):
-        """ create an new instance of Artifact
+        """ create a new instance of Artifact
         """
         self.__step = None
         self.__name = None
@@ -70,7 +70,7 @@ class Artifact(object):
         """ get the step of it
 
         Returns:
-            A Step that it was belong to
+            A step instance whicht it was belong to
         """
         return self.__step
 
