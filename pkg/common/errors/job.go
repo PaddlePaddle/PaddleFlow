@@ -107,6 +107,10 @@ func EmptyJobNameError() error {
 	return fmt.Errorf("empty job name")
 }
 
+func EmptyJobIDError() error {
+	return fmt.Errorf("empty job id")
+}
+
 func EmptyJobImageError() error {
 	return fmt.Errorf("empty job image")
 }

@@ -86,6 +86,7 @@ const (
 
 	JobInvalidField = "JobInvalidField" // job field invalid
 	JobCreateFailed = "JobCreateFailed" // job create failed
+	JobNotFound     = "JobNotFound"
 
 	ClusterNameNotFound      = "ClusterNameNotFound"
 	ClusterIdNotFound        = "ClusterIdNotFound"
