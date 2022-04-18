@@ -108,7 +108,7 @@ const (
 	FileSystemClientBusy        = "FileSystemClientBusy"
 	K8sOperatorError            = "K8sOperatorError"
 	InvalidState                = "InvalidState"
-	GrantUserNameAndFsID        = "GrantUserNameAndFsID"
+	GrantUserNameAndFs          = "GrantUserNameAndFs"
 	FileSystemNotExist          = "FileSystemNotExist"
 	FileSystemNameFormatError   = "FileSystemNameFormatError"
 	LinkFileSystemNotExist      = "LinkFileSystemNotExist"
@@ -203,7 +203,7 @@ var errorHTTPStatus = map[string]int{
 	InvalidFileSystemFsName:     http.StatusBadRequest,
 	InvalidLinkURL:              http.StatusBadRequest,
 	InvalidLinkProperties:       http.StatusBadRequest,
-	GrantUserNameAndFsID:        http.StatusInternalServerError,
+	GrantUserNameAndFs:          http.StatusInternalServerError,
 	LinkModelError:              http.StatusInternalServerError,
 	FileSystemNameFormatError:   http.StatusBadRequest,
 	LinkPathExist:               http.StatusBadRequest,
@@ -294,7 +294,7 @@ var errorMessage = map[string]string{
 	FileSystemClientBusy:        "File system is busy",
 	K8sOperatorError:            "K8s operator err",
 
-	GrantUserNameAndFsID:       "Grant fsID and userName err",
+	GrantUserNameAndFs:         "Grant fs and userName err",
 	InvalidState:               "Heart state must active or inactive",
 	FileSystemNotExist:         "File system not exist",
 	FileSystemNameFormatError:  "File system name must be letters and numbers and name length limit 8",
