@@ -81,6 +81,10 @@ func ValidateJob(conf schema.PFJobConf) error {
 	if queueName = conf.GetQueueName(); len(queueName) == 0 {
 		return errors.EmptyQueueNameError()
 	}
+	return ValidateQueue(conf, userName, queueName)
+}
+
+func ValidateQueue(conf schema.PFJobConf, userName, queueName string) error {
 	ctx := &logger.RequestContext{
 		UserName: userName,
 	}

@@ -123,7 +123,7 @@ func TestCreateJob(t *testing.T) {
 						Labels:      map[string]string{},
 						Annotations: map[string]string{},
 						SchedulingPolicy: job.SchedulingPolicy{
-							QueueID: MockQueueID,
+							Queue: MockQueueName,
 						},
 					},
 					JobSpec: job.JobSpec{
