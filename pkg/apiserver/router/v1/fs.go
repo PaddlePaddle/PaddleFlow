@@ -48,11 +48,13 @@ func (pr *PFSRouter) Name() string {
 
 func (pr *PFSRouter) AddRouter(r chi.Router) {
 	log.Info("add PFS router")
-	r.Post("/fs", pr.CreateFileSystem)
-	r.Get("/fs", pr.ListFileSystem)
-	r.Get("/fs/{fsName}", pr.GetFileSystem)
-	r.Delete("/fs/{fsName}", pr.DeleteFileSystem)
-	r.Post("/fs/claims", pr.CreateFileSystemClaims)
+	// fs
+	r.Post("/fs", pr.createFileSystem)
+	r.Get("/fs", pr.listFileSystem)
+	r.Get("/fs/{fsName}", pr.getFileSystem)
+	r.Delete("/fs/{fsName}", pr.deleteFileSystem)
+	r.Post("/fs/claims", pr.createFileSystemClaims)
+	// fs cache config
 	r.Post("/fs/cache", pr.createFSCacheConfig)
 	r.Put("/fs/cache/{fsName}", pr.updateFSCacheConfig)
 	r.Get("/fs/cache/{fsName}", pr.getFSCacheConfig)
@@ -67,29 +69,21 @@ var URLPrefix = map[string]bool{
 	common.CFS:   true,
 }
 
-const (
-	userGroupField = "userGroup"
-	userNameField  = "userName"
-	Password       = "password"
-	DefaultMaxKeys = 50
-	MaxAllowKeys   = 1000
-	FsNameMaxLen   = 8
-	retryNum       = 3
-)
+const FsNameMaxLen = 8
 
-// CreateFileSystem the function that handle the create file system request
-// @Summary CreateFileSystem
+// createFileSystem the function that handle the create file system request
+// @Summary createFileSystem
 // @Description 创建文件系统
 // @tag fs
 // @Accept   json
 // @Produce  json
-// @Param request body request.CreateFileSystemRequest true "request body"
-// @Success 200 {object} response.CreateFileSystemResponse
+// @Param request body fs.CreateFileSystemRequest true "request body"
+// @Success 201 {object} fs.CreateFileSystemResponse
 // @Failure 400 {object} common.ErrorResponse
 // @Failure 404 {object} common.ErrorResponse
 // @Failure 500 {object} common.ErrorResponse
 // @Router /fs [post]
-func (pr *PFSRouter) CreateFileSystem(w http.ResponseWriter, r *http.Request) {
+func (pr *PFSRouter) createFileSystem(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
 	var createRequest api.CreateFileSystemRequest
 	err := common.BindJSON(r, &createRequest)
@@ -113,16 +107,16 @@ func (pr *PFSRouter) CreateFileSystem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = fileSystemService.CreateFileSystem(&ctx, &createRequest)
+	fs, err := fileSystemService.CreateFileSystem(&ctx, &createRequest)
 	if err != nil {
 		ctx.Logging().Errorf("create file system with error[%v]", err)
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
-	response := api.CreateFileSystemResponse{FsName: createRequest.Name, FsID: common.ID(createRequest.Username, createRequest.Name)}
+	response := api.CreateFileSystemResponse{FsName: fs.Name, FsID: fs.ID}
 
 	ctx.Logging().Debugf("CreateFileSystem Fs:%v", string(config.PrettyFormat(response)))
-	common.Render(w, http.StatusOK, response)
+	common.Render(w, http.StatusCreated, response)
 }
 
 func validateCreateFileSystem(ctx *logger.RequestContext, req *api.CreateFileSystemRequest) error {
@@ -360,19 +354,19 @@ func checkFsDir(fsType, url string, properties map[string]string) error {
 	return nil
 }
 
-// ListFileSystem the function that handle the list file systems request
-// @Summary ListFileSystem
+// listFileSystem the function that handle the list file systems request
+// @Summary listFileSystem
 // @Description 批量获取文件系统
 // @tag fs
 // @Accept   json
 // @Produce  json
-// @Param request body request.ListFileSystemRequest true "request body"
-// @Success 200 {object} response.ListFileSystemResponse
+// @Param request body fs.ListFileSystemRequest true "request body"
+// @Success 200 {object} fs.ListFileSystemResponse
 // @Failure 400 {object} common.ErrorResponse
 // @Failure 404 {object} common.ErrorResponse
 // @Failure 500 {object} common.ErrorResponse
 // @Router /fs [get]
-func (pr *PFSRouter) ListFileSystem(w http.ResponseWriter, r *http.Request) {
+func (pr *PFSRouter) listFileSystem(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
 
 	maxKeys, err := util.GetQueryMaxKeys(&ctx, r)
@@ -403,11 +397,11 @@ func (pr *PFSRouter) ListFileSystem(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if listRequest.MaxKeys == 0 {
-		listRequest.MaxKeys = DefaultMaxKeys
+		listRequest.MaxKeys = util.DefaultMaxKeys
 	}
-	if listRequest.MaxKeys > MaxAllowKeys {
+	if listRequest.MaxKeys > util.ListPageMax {
 		ctx.Logging().Error("too many max keys")
-		common.RenderErrWithMessage(w, ctx.RequestID, common.InvalidFileSystemMaxKeys, fmt.Sprintf("maxKeys limit %d", MaxAllowKeys))
+		common.RenderErrWithMessage(w, ctx.RequestID, common.InvalidFileSystemMaxKeys, fmt.Sprintf("maxKeys limit %d", util.ListPageMax))
 		return
 	}
 
@@ -440,8 +434,8 @@ func getListResult(fsModel []models.FileSystem, nextMarker, marker string) *api.
 	return ListFsResponse
 }
 
-// GetFileSystem the function that handle the get file system request
-// @Summary GetFileSystem
+// getFileSystem the function that handle the get file system request
+// @Summary getFileSystem
 // @Description 获取指定文件系统
 // @tag fs
 // @Accept   json
@@ -449,7 +443,7 @@ func getListResult(fsModel []models.FileSystem, nextMarker, marker string) *api.
 // @Param id path string true "文件系统ID"
 // @Success 200 {object} models.FileSystem
 // @Router /fs/{fsName} [get]
-func (pr *PFSRouter) GetFileSystem(w http.ResponseWriter, r *http.Request) {
+func (pr *PFSRouter) getFileSystem(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
 
 	fsName := chi.URLParam(r, util.QueryFsName)
@@ -468,6 +462,11 @@ func (pr *PFSRouter) GetFileSystem(w http.ResponseWriter, r *http.Request) {
 	fsModel, err := fileSystemService.GetFileSystem(fsID)
 	if err != nil {
 		ctx.Logging().Errorf("get file system with error[%v]", err)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			ctx.ErrorCode = common.RecordNotFound
+		} else {
+			ctx.ErrorCode = common.FileSystemDataBaseError
+		}
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
@@ -489,8 +488,8 @@ func fsResponseFromModel(fsModel models.FileSystem) *api.FileSystemResponse {
 	}
 }
 
-// DeleteFileSystem the function that handle the delete file system request
-// @Summary DeleteFileSystem
+// deleteFileSystem the function that handle the delete file system request
+// @Summary deleteFileSystem
 // @Description 删除指定文件系统
 // @tag fs
 // @Accept   json
@@ -499,7 +498,7 @@ func fsResponseFromModel(fsModel models.FileSystem) *api.FileSystemResponse {
 // @Param username query string false "用户名"
 // @Success 200
 // @Router /fs/{fsName} [delete]
-func (pr *PFSRouter) DeleteFileSystem(w http.ResponseWriter, r *http.Request) {
+func (pr *PFSRouter) deleteFileSystem(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
 
 	fsName := chi.URLParam(r, util.QueryFsName)
@@ -537,8 +536,8 @@ func (pr *PFSRouter) DeleteFileSystem(w http.ResponseWriter, r *http.Request) {
 	common.RenderStatus(w, http.StatusOK)
 }
 
-// CreateFileSystemClaims the function that handle the create file system claims request
-// @Summary CreateFileSystemClaims
+// createFileSystemClaims the function that handle the create file system claims request
+// @Summary createFileSystemClaims
 // @Description
 // @tag fs
 // @Accept   json
@@ -549,7 +548,7 @@ func (pr *PFSRouter) DeleteFileSystem(w http.ResponseWriter, r *http.Request) {
 // @Failure 404 {object} common.ErrorResponse
 // @Failure 500 {object} common.ErrorResponse
 // @Router /fs/claims [post]
-func (pr *PFSRouter) CreateFileSystemClaims(w http.ResponseWriter, r *http.Request) {
+func (pr *PFSRouter) createFileSystemClaims(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
 
 	var createRequest api.CreateFileSystemClaimsRequest
