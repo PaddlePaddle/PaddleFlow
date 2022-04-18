@@ -506,8 +506,14 @@ func (bwf *BaseWorkflow) checkDisabled() ([]string, error) {
 		- 所有disabled节点应该在entrypoints中，但是不要求必须在runSteps内。
 		- 目前支持pipeline中所有节点都disabled
 	*/
+	tempMap := make(map[string]int)
 	disabledSteps := bwf.Source.GetDisabled()
 	for _, stepName := range disabledSteps {
+		_, ok := tempMap[stepName]
+		if ok {
+			return nil, fmt.Errorf("disabled step[%s] is set repeatedly!", stepName)
+		}
+		tempMap[stepName] = 1
 		if !bwf.Source.HasStep(stepName) {
 			return nil, fmt.Errorf("disabled step[%s] not existed!", stepName)
 		}
