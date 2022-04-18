@@ -208,7 +208,7 @@ func convertJobToResponse(job models.Job, runtimeFlag bool) (GetJobResponse, err
 	response.ID = job.ID
 	response.Name = job.Name
 	response.SchedulingPolicy = SchedulingPolicy{
-		QueueID:  job.QueueID,
+		Queue:    job.Config.GetQueueName(),
 		Priority: job.Config.Priority,
 	}
 	// process runtime info && member
