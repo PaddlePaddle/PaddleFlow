@@ -58,19 +58,18 @@ type CreateRunByJsonRequest struct {
 	FsName         string                     `json:"fsName,omitempty"`      // optional
 	UserName       string                     `json:"userName,omitempty"`    // optional, only for root user
 	Description    string                     `json:"desc,omitempty"`        // optional
-	Entry          string                     `json:"entry,omitempty"`       // optional
 	Disabled       string                     `json:"disabled,omitempty"`    // optional
 	Name           string                     `json:"name,omitempty"`        // optional, "" is ok
 	DockerEnv      string                     `json:"dockerEnv,omitempty"`   // optional
 	Parallelism    int                        `json:"parallelism,omitempty"` // optional
 	EntryPoints    map[string]*schema.RunStep `json:"entryPoints"`
-	PostProcess    map[string]*schema.RunStep `json:"postProcess"`
+	PostProcess    map[string]*schema.RunStep `json:"postProcess,omitempty"`    // optional
 	Cache          schema.Cache               `json:"cache,omitempty"`          // optional
 	Queue          string                     `json:"queue,omitempty"`          // optional
 	Flavour        string                     `json:"flavour,omitempty"`        // optional
 	JobType        string                     `json:"jobType,omitempty"`        // optional
 	FailureOptions schema.FailureOptions      `json:"failureOptions,omitempty"` // optional
-	Env            map[string]string          `json:"env"`
+	Env            map[string]string          `json:"env,omitempty"`            // optional
 }
 
 type UpdateRunRequest struct {
@@ -362,7 +361,6 @@ func CreateRunByJson(ctx *logger.RequestContext, request *CreateRunByJsonRequest
 		Description:    request.Description,
 		RunYaml:        runYaml,
 		WorkflowSource: wfs, // DockerEnv has not been replaced. done in func handleImageAndStartWf
-		Entry:          request.Entry,
 		Disabled:       request.Disabled,
 		Status:         common.StatusRunInitiating,
 	}
