@@ -28,7 +28,6 @@ import (
 	"paddleflow/pkg/common/errors"
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/common/schema"
-	"paddleflow/pkg/common/uuid"
 	"paddleflow/pkg/job"
 	"paddleflow/pkg/job/api"
 	"paddleflow/pkg/job/runtime"
@@ -206,8 +205,44 @@ func CreateDistributedJob(request *CreateDisJobRequest) (*CreateJobResponse, err
 
 // CreateWorkflowJob handler for creating job
 func CreateWorkflowJob(request *CreateWfJobRequest) (*CreateJobResponse, error) {
-	// todo(zhongzichao)
-	return &CreateJobResponse{}, nil
+	extensionTemplate := request.ExtensionTemplate
+	if request.ExtensionTemplate != "" {
+		bytes, err := yaml.JSONToYAML([]byte(request.ExtensionTemplate))
+		if err != nil {
+			log.Errorf("Failed to parse extension template to yaml: %v", err)
+			return nil, err
+		}
+		extensionTemplate = string(bytes)
+	} else {
+		return nil, fmt.Errorf("ExtensionTemplate for workflow job is needed")
+	}
+
+	// TODO: get workflow job conf
+	conf := schema.Conf{
+		Name:        request.Name,
+		Labels:      request.Labels,
+		Annotations: request.Annotations,
+		Priority:    request.SchedulingPolicy.Priority,
+	}
+
+	// TODO: add more fields
+	// create workflow job
+	jobInfo := &models.Job{
+		ID:                request.ID,
+		Type:              string(schema.TypeWorkflow),
+		UserName:          conf.GetUserName(),
+		QueueID:           conf.GetQueueID(),
+		Status:            schema.StatusJobInit,
+		Config:            conf,
+		ExtensionTemplate: extensionTemplate,
+	}
+
+	if err := models.CreateJob(jobInfo); err != nil {
+		log.Errorf("create job[%s] in database faield, err: %v", conf.GetName(), err)
+		return nil, fmt.Errorf("create job[%s] in database faield, err: %v", conf.GetName(), err)
+	}
+	log.Infof("create job[%s] successful.", jobInfo.ID)
+	return &CreateJobResponse{ID: jobInfo.ID}, nil
 }
 
 // CreateJob handler for creating job, and the job_service.CreateJob will be deprecated
@@ -221,10 +256,6 @@ func CreateJob(conf schema.PFJobConf, jobID, jobTemplate string) (string, error)
 	}
 
 	jobConf := conf.(*schema.Conf)
-	if jobID == "" {
-		jobID = uuid.GenerateID(schema.JobPrefix)
-	}
-
 	jobInfo := &models.Job{
 		ID:                jobID,
 		Type:              string(conf.Type()),

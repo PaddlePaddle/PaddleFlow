@@ -244,6 +244,12 @@ func validateDistributedJob(ctx *logger.RequestContext, request *job.CreateDisJo
 }
 
 func validateWorkflowJob(ctx *logger.RequestContext, request *job.CreateWfJobRequest) error {
+	if request.ExtensionTemplate == "" {
+		ctx.ErrorCode = common.RequiredFieldEmpty
+		err := fmt.Errorf("ExtensionTemplate for workflow job is needed, and now is empty")
+		ctx.Logging().Errorf("create workflow job failed. error: %s", err.Error())
+		return err
+	}
 	// todo(zhongzichao)
 	return nil
 }
