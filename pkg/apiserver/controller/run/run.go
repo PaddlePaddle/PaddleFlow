@@ -181,6 +181,10 @@ func getWorkFlowSourceByReq(ctx *logger.RequestContext, request *CreateRunByJson
 		return schema.WorkflowSource{}, err
 	}
 
+	if request.Env == nil {
+		request.Env = map[string]string{}
+	}
+
 	request.Env[schema.EnvJobType] = request.JobType
 	request.Env[schema.EnvJobQueueName] = request.Queue
 	request.Env[schema.EnvJobFlavour] = request.Flavour
