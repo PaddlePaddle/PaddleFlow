@@ -72,7 +72,7 @@ func TestCreateGrant(t *testing.T) {
 	assert.Nil(t, err)
 
 	// case start
-	grant := &models.Grant{
+	grant := CreateGrantRequest{
 		UserName:     MockUserName,
 		ResourceType: common.ResourceTypeQueue,
 		ResourceID:   MockResourceID,

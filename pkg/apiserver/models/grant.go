@@ -17,6 +17,7 @@ limitations under the License.
 package models
 
 import (
+	"paddleflow/pkg/common/uuid"
 	"time"
 
 	"gorm.io/gorm"
@@ -42,7 +43,8 @@ func (Grant) TableName() string {
 }
 
 func CreateGrant(ctx *logger.RequestContext, grant *Grant) error {
-	ctx.Logging().Debugf("model begin create grant. grantID:%v", grant.ID)
+	ctx.Logging().Debugf("model begin create grant: %v", grant)
+	grant.ID = uuid.GenerateID(common.PrefixGrant)
 	tx := database.DB.Table("grant").Create(grant)
 	if tx.Error != nil {
 		ctx.Logging().Errorf("create grant failed. grant:%v, error:%s",

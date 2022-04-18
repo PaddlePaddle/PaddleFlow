@@ -17,7 +17,9 @@ limitations under the License.
 package v1
 
 import (
+	"errors"
 	"fmt"
+	"gorm.io/gorm"
 	"net/http"
 	"regexp"
 	"strings"
@@ -493,80 +495,46 @@ func fsResponseFromModel(fsModel models.FileSystem) *api.FileSystemResponse {
 // @tag fs
 // @Accept   json
 // @Produce  json
-// @Param id path string true "文件系统ID"
+// @Param fsName path string true "文件系统名称"
+// @Param username query string false "用户名"
 // @Success 200
-// @Router /api/paddleflow/v1/fs/{fsName} [delete]
+// @Router /fs/{fsName} [delete]
 func (pr *PFSRouter) DeleteFileSystem(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
 
 	fsName := chi.URLParam(r, util.QueryFsName)
-	deleteRequest := &api.DeleteFileSystemRequest{
-		FsName:   fsName,
-		Username: r.URL.Query().Get(util.QueryKeyUserName),
-	}
-	log.Debugf("delete file system with req[%v] and FileSystemID[%s]", deleteRequest, fsName)
+	username := r.URL.Query().Get(util.QueryKeyUserName)
+
+	log.Debugf("delete file system with fsName[%s] username[%s]", fsName, username)
 
 	fileSystemService := api.GetFileSystemService()
 
-	err := validateDeleteFs(&ctx, deleteRequest, &fsName)
+	// validate
+	fsID, err := getFsIDAndCheckPermission(&ctx, username, fsName)
 	if err != nil {
-		ctx.Logging().Errorf("validateDeleteFs error[%v]", err)
+		ctx.Logging().Errorf("delete fs failed by check permission error[%v]", err)
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
 
-	err = fileSystemService.DeleteFileSystem(&ctx, fsName)
+	_, err = models.GetFileSystemWithFsID(fsID)
+	if err != nil {
+		ctx.Logging().Errorf("delete failed by getting file system error[%v]", err)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			common.RenderErrWithMessage(w, ctx.RequestID, common.RecordNotFound, err.Error())
+		} else {
+			common.RenderErrWithMessage(w, ctx.RequestID, common.FileSystemDataBaseError, err.Error())
+		}
+		return
+	}
+
+	err = fileSystemService.DeleteFileSystem(&ctx, fsID)
 	if err != nil {
 		ctx.Logging().Errorf("delete file system with error[%v]", err)
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
-
 	common.RenderStatus(w, http.StatusOK)
-}
-
-func validateDeleteFs(ctx *logger.RequestContext, req *api.DeleteFileSystemRequest, fsID *string) error {
-	if req.Username == "" {
-		req.Username = ctx.UserName
-	}
-
-	if req.Username == "" {
-		ctx.Logging().Error("UserName is empty")
-		ctx.ErrorCode = common.AuthFailed
-		return common.InvalidField("userName", "userName is empty")
-	}
-
-	if *fsID == "" {
-		ctx.Logging().Error("FsID or FsName is empty")
-		// response to user use fsName not fsID
-		return common.InvalidField("fsName", "fsName is empty")
-	}
-	req.FsName = *fsID
-	// trans fsName to real fsID, for user they only use fsName，grpc client may be use fsID
-	fsTemp := strings.Split(*fsID, "-")
-	if len(fsTemp) < common.IDSliceLen || fsTemp[0] != "fs" || (fsTemp[1] != req.Username && req.Username != common.UserRoot) {
-		*fsID = common.ID(req.Username, *fsID)
-	}
-	ctx.Logging().Debugf("delete fs id is %s", *fsID)
-
-	fsModel, err := models.GetFileSystemWithFsID(*fsID)
-	if err != nil {
-		ctx.Logging().Errorf("delete failed by getting file system error[%v]", err)
-		ctx.ErrorCode = common.FileSystemDataBaseError
-		return err
-	}
-
-	if fsModel.Name == "" {
-		ctx.Logging().Errorf("file system not exit %s", *fsID)
-		ctx.ErrorCode = common.FileSystemNotExist
-		return common.DbDataNotExitError(fmt.Sprintf("userName[%s] not created file system[%s]", req.Username, req.FsName))
-	}
-
-	if req.Username != common.UserRoot && req.Username != fsModel.UserName {
-		ctx.ErrorCode = common.AuthFailed
-		return fmt.Errorf("user[%s] is not admin user, can not delete fs[%s]", req.Username, req.FsName)
-	}
-	return nil
 }
 
 // CreateFileSystemClaims the function that handle the create file system claims request
@@ -645,6 +613,16 @@ func validateCreateFileSystemClaims(ctx *logger.RequestContext, req *api.CreateF
 
 func getFsIDAndCheckPermission(ctx *logger.RequestContext,
 	username, fsName string) (string, error) {
+	// check permission
+	if !common.IsRootUser(ctx.UserName) {
+		fsID := common.ID(ctx.UserName, fsName)
+		if !models.HasAccessToResource(ctx, common.ResourceTypeFs, fsID) {
+			ctx.ErrorCode = common.AccessDenied
+			err := common.NoAccessError(ctx.UserName, common.ResourceTypeFs, fsID)
+			ctx.Logging().Errorf("create run failed. error: %v", err)
+			return "", err
+		}
+	}
 	var fsID string
 	// concatenate fsID
 	if common.IsRootUser(ctx.UserName) && username != "" {

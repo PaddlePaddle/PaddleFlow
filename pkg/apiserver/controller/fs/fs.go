@@ -18,6 +18,7 @@ package fs
 
 import (
 	"fmt"
+	"paddleflow/pkg/apiserver/controller/grant"
 	"strings"
 	"time"
 
@@ -59,11 +60,6 @@ type ListFileSystemRequest struct {
 
 type GetFileSystemRequest struct {
 	Username string `json:"username"`
-}
-
-type DeleteFileSystemRequest struct {
-	Username string `json:"username"`
-	FsName   string `json:"fsName"`
 }
 
 type CreateFileSystemClaimsRequest struct {
@@ -126,6 +122,13 @@ func (s *FileSystemService) CreateFileSystem(ctx *logger.RequestContext, req *Cr
 		ctx.ErrorCode = common.FileSystemDataBaseError
 		return models.FileSystem{}, err
 	}
+	// create grant
+	grantInfo := grant.CreateGrantRequest{
+		UserName:     req.Username,
+		ResourceID:   fs.ID,
+		ResourceType: common.ResourceTypeFs,
+	}
+	_, err = grant.CreateGrant(ctx, grantInfo)
 	return fs, nil
 }
 
