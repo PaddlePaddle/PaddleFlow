@@ -38,6 +38,8 @@ const (
 
 	FailureStrategyFailFast = "fail_fast"
 	FailureStrategyContinue = "continue"
+
+	EnvDockerEnv = "dockerEnv"
 )
 
 type Artifacts struct {
@@ -54,6 +56,19 @@ func (atf *Artifacts) ValidateOutputMapByList() error {
 		atf.Output[outputName] = ""
 	}
 	return nil
+}
+
+type RunStep struct {
+	Parameters map[string]interface{} `yaml:"parameters"`
+	Command    string                 `yaml:"command"`
+	Deps       string                 `yaml:"deps"`
+	Artifacts  Artifacts              `yaml:"artifacts"`
+	Env        map[string]string      `yaml:"Env"`
+	Queue      string                 `yaml:"queue"`
+	Flavour    string                 `yaml:"flavour"`
+	JobType    string                 `yaml:"jobType"`
+	Cache      Cache                  `yaml:"cache"`
+	DockerEnv  string                 `yaml:"dockerEnv"`
 }
 
 type WorkflowSourceStep struct {
