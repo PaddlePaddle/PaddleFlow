@@ -24,7 +24,6 @@ import (
 
 	"paddleflow/pkg/apiserver/common"
 	"paddleflow/pkg/apiserver/controller/grant"
-	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/apiserver/router/util"
 )
 
@@ -49,21 +48,21 @@ func (gr *GrantRouter) AddRouter(r chi.Router) {
 // @tags Grant
 // @Accept  json
 // @Produce json
-// @Param request body models.Grant true "创建授权请求"
+// @Param request body grant.CreateGrantRequest true "创建授权请求"
 // @Success 200 {object} grant.CreateGrantResponse "创建队列响应"
 // @Failure 400 {object} common.ErrorResponse "400"
 // @Failure 500 {object} common.ErrorResponse "500"
 // @Router /grant [POST]
 func (gr *GrantRouter) createGrant(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
-	var grantInfo models.Grant
+	var grantInfo grant.CreateGrantRequest
 	err := common.BindJSON(r, &grantInfo)
 	if err != nil {
 		ctx.Logging().Errorf("createGrant bindjson failed. error:%s", err.Error())
 		common.RenderErr(w, ctx.RequestID, common.MalformedJSON)
 		return
 	}
-	response, err := grant.CreateGrant(&ctx, &grantInfo)
+	response, err := grant.CreateGrant(&ctx, grantInfo)
 	if err != nil {
 		ctx.Logging().Errorf(
 			"create grant failed. grantInfo:%v error:%s", grantInfo, err.Error())
