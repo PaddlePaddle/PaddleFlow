@@ -128,7 +128,7 @@ func CreateSingleJob(request *CreateSingleJobRequest) (*CreateJobResponse, error
 	}
 
 	// execute in runtime
-	id, err := CreateJob(&conf, request.CommonJobInfo.ID, extensionTemplate)
+	id, err := createJob(&conf, request.CommonJobInfo.ID, extensionTemplate)
 	if err != nil {
 		log.Errorf("failed to create job %s, err=%v", request.CommonJobInfo.Name, err)
 		return nil, err
@@ -205,7 +205,7 @@ func CreateDistributedJob(request *CreateDisJobRequest) (*CreateJobResponse, err
 
 // CreateWorkflowJob handler for creating job
 func CreateWorkflowJob(request *CreateWfJobRequest) (*CreateJobResponse, error) {
-	extensionTemplate := request.ExtensionTemplate
+	var extensionTemplate string
 	if request.ExtensionTemplate != "" {
 		bytes, err := yaml.JSONToYAML([]byte(request.ExtensionTemplate))
 		if err != nil {
@@ -245,8 +245,8 @@ func CreateWorkflowJob(request *CreateWfJobRequest) (*CreateJobResponse, error) 
 	return &CreateJobResponse{ID: jobInfo.ID}, nil
 }
 
-// CreateJob handler for creating job, and the job_service.CreateJob will be deprecated
-func CreateJob(conf schema.PFJobConf, jobID, jobTemplate string) (string, error) {
+// createJob handler for creating job, and the job_service.CreateJob will be deprecated
+func createJob(conf schema.PFJobConf, jobID, jobTemplate string) (string, error) {
 	if err := job.ValidateJob(conf); err != nil {
 		return "", err
 	}
