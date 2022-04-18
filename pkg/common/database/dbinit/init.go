@@ -133,7 +133,7 @@ func createMockData() {
 	for _, flavour := range flavours {
 		err := models.CreateFlavour(&flavour)
 		if err != nil {
-			log.Fatalf("create mock %s error[%s]", flavour, err.Error())
+			log.Fatalf("create mock %v error[%s]", flavour, err.Error())
 		}
 	}
 	// todo init cluster and queue
