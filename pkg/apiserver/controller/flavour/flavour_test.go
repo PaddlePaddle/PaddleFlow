@@ -83,8 +83,7 @@ func TestListFlavour(t *testing.T) {
 	// base query
 	flavours, err := ListFlavour(0, "", "", "")
 	assert.Nil(t, err)
-	assert.NotZero(t, len(flavours.FlavourList))
-
+	assert.True(t, len(flavours.FlavourList) >= num)
 }
 
 func TestCreateFlavour(t *testing.T) {
