@@ -41,7 +41,7 @@ type IRouter interface {
 // @license.url http://www.apache.org/licenses/LICENSE-2.0.html
 
 // @host paddlepaddle.org.cn
-// @BasePath /v1
+// @BasePath /api/paddleflow/v1
 
 func RegisterRouters(r *chi.Mux, debugMode bool) {
 	r.Use(middleware.CheckRequestID)
