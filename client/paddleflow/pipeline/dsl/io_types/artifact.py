@@ -46,7 +46,7 @@ class Artifact(object):
         if not validate_string_by_regex(name, VARIBLE_NAME_REGEX):
             raise PaddleFlowSDKException(PipelineDSLError,
                     f"the name of Artifact[{name}] for step[{step.name}]is illegal, " + \
-                            "the regex used for validation is {VARIBLE_NAME_REGEX}")
+                            f"the regex used for validation is {VARIBLE_NAME_REGEX}")
             
         self.__name = name 
 

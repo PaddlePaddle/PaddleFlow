@@ -85,7 +85,7 @@ class Step(object):
             PaddleFlowPaddleFlowSDKExceptionSDKException: if name is illegal
         """
         if not validate_string_by_regex(name, STEP_NAME_REGEX):
-            raise PaddleFlowSDKException(PipelineDSLError, f"the name of Step[{name}] is is illegal" + \
+            raise PaddleFlowSDKException(PipelineDSLError, f"the name of Step[{name}] is is illegal " + \
                     f"the regex used for validation is {STEP_NAME_REGEX}")
             
         self._name = name
@@ -125,7 +125,7 @@ class Step(object):
             return 
 
         if inputs and not isinstance(inputs, Dict):
-            err_msg = self._generate_error_msg("inputs of Step should be an instance of Dict, " + \
+            err_msg = self._generate_error_msg("the inputs of step should be an instance of Dict, " + \
                     "and the value should be the output artifact of upstream Step")
             raise PaddleFlowSDKException(PipelineDSLError, err_msg) 
 
@@ -190,7 +190,7 @@ class Step(object):
             return 
 
         if params and not isinstance(params, Dict):
-            err_msg = self._generate_error_msg("params of Step  should be an instance of Dict")
+            err_msg = self._generate_error_msg("the params of step should be an instance of Dict")
             raise PaddleFlowSDKException(PipelineDSLError, err_msg)
         
         # to avoid changing the value of params

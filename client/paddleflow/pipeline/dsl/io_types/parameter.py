@@ -72,7 +72,7 @@ class Parameter(object):
             PaddleFlowSDKException: if t is not supported
         """
         if t not in TYPE_TO_STRING:
-            raise PaddleFlowSDKException(PipelineDSLError, "the type of Parameter only support {SUPPORT_TYPE}")    
+            raise PaddleFlowSDKException(PipelineDSLError, f"the type of Parameter only support {SUPPORT_TYPE}")    
 
         return TYPE_TO_STRING[t]
 
@@ -117,7 +117,7 @@ class Parameter(object):
             PaddleFlowSDKException: if the ref attribute and the [default, type] attribute exist at the same time
         """
         if self.__ref and any([self.default, self.type]):
-            raise PaddleFlowSDKException(PipelineDSLError, "the  parameter[{self._name}] for step[{step.name}]" + \
+            raise PaddleFlowSDKException(PipelineDSLError, f"the  parameter[{self._name}] for step[{step.name}]" + \
                     "have both [ref] attribute and [default | type] attribute, please contact manager")
         
         if isinstance(self.__ref, Parameter):

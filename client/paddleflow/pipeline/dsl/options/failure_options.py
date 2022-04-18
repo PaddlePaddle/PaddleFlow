@@ -43,5 +43,5 @@ class FailureOptions(Options):
             
         """
         if strategy not in [FAIL_CONTINUE, FAIL_FAST]:
-            raise PaddleFlowSDKException(PipelineDSLError, "only support [FAIL_CONTINUE, FAIL_FAST] strategy")
+            raise PaddleFlowSDKException(PipelineDSLError, f"only support [{FAIL_CONTINUE}, {FAIL_FAST}] strategy")
         self.strategy = strategy
