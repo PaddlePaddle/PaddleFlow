@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 
@@ -29,6 +28,7 @@ import (
 	"paddleflow/pkg/common/errors"
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/common/schema"
+	"paddleflow/pkg/common/uuid"
 )
 
 type Job struct {
@@ -70,7 +70,7 @@ func (Job) TableName() string {
 
 func (job *Job) BeforeSave(tx *gorm.DB) error {
 	if job.ID == "" {
-		job.ID = uuid.NewString()
+		job.ID = uuid.GenerateIDWithLength(schema.JobPrefix, uuid.JobIDLength)
 	}
 	if job.RuntimeInfo != nil {
 		infoJson, err := json.Marshal(job.RuntimeInfo)
