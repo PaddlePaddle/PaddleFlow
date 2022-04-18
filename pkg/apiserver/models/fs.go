@@ -123,13 +123,6 @@ func ListFileSystem(limit int, userName, marker, fsName string) ([]FileSystem, e
 	return fileSystems, tx.Error
 }
 
-// GetFsWithID get file system detail from id
-func GetFsWithID(fsID string) (FileSystem, error) {
-	var fileSystem FileSystem
-	result := database.DB.Where(&FileSystem{Model: Model{ID: fsID}}).Find(&fileSystem)
-	return fileSystem, result.Error
-}
-
 // GetFsWithIDs get file system detail from ids
 func GetFsWithIDs(fsID []string) ([]FileSystem, error) {
 	var fileSystems []FileSystem
