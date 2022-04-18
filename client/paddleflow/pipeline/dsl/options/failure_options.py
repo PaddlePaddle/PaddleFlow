@@ -25,7 +25,7 @@ FAIL_FAST = "fail_fast"
 FAIL_CONTINUE = "continue"
 
 class FailureOptions(Options):
-    """ The FailureOptions of Pipeline: Specify how to handle the rest of the steps when there is a step failure
+    """ The FailureOptions of Pipeline: Specify how to handle the rest steps of the pipeline  when there is any step failed
     """
     COMPILE_ATTR_MAP = {"strategy": "strategy"}
 
@@ -36,7 +36,7 @@ class FailureOptions(Options):
         """ create a new instance of CacheOptions
 
         Args:
-            strategy (bool): support two kinds of strategy, default is "fail_fast"::
+            strategy (str): support two kinds of strategy, default is "fail_fast"::
             
                 * "fail_fast": All job would be killed or cancelled
                 * "continue": the steps of other branch would be scheduled normally 

@@ -42,14 +42,14 @@ class Step(object):
             parameters: Dict[str, Any]=None,
             cache_options: CacheOptions=None,
             ):
-        """ create an new instance of Step
+        """ create a new instance of Step
 
         Args:
             name (str): the name of Step
             inputs (Dict[str, Artifact]): input artifact, the key is the name of artifact, and the value should be upstream Step's output artifact. 
             outputs (Dict[str, Artifact]): output artifact, the key is the name of artifact, and the value should be an instance of Artifact
-            parameters (str, Any): Parameter of step, the key is the name of this parameter, and the value could be int, string, Paramter, or upstream Step's artifact
-            cache_options (cache_options): the cache options of step
+            parameters (str, Any): Parameter of step, the key is the name of this parameter, and the value could be int, string, Paramter, or upstream Step's Parameter
+            cache_options (CacheOptions): the cache options of step
         Raises:
             PaddleFlowSDKException: if some args is illegal
         """
@@ -72,6 +72,9 @@ class Step(object):
     @property
     def name(self):
         """ get the name of step
+
+        Returns:
+            a string which indicate the name of this step
         """
         return self._name
 
@@ -104,7 +107,7 @@ class Step(object):
         """ get inputs arifacts
         
         Returns:
-            an instance of InputArtifactDict
+            an instance of InputArtifactDict which manager the input artifacts of this step
         """
         return self._inputs
 
@@ -137,7 +140,7 @@ class Step(object):
         """ get output artifact 
         
         Returns:
-            an instance of OutputArtifact
+            an instance of OutputArtifact which manager the output aritfacts of this step
         """
         return self._outputs
 
@@ -171,7 +174,7 @@ class Step(object):
         """ get params
 
         Returns:
-            an instance of ParameterDict
+            an instance of ParameterDict which manager the parameters of this step
         """
         return self._params 
 
