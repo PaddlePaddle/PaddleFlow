@@ -45,9 +45,9 @@ func (lr *LinkRouter) Name() string {
 
 func (lr *LinkRouter) AddRouter(r chi.Router) {
 	log.Info("add fsLink router")
-	r.Post("/link", lr.CreateLink)
-	r.Delete("/link/{fsName}", lr.DeleteLink)
-	r.Get("/link/{fsName}", lr.GetLink)
+	r.Post("/link", lr.createLink)
+	r.Delete("/link/{fsName}", lr.deleteLink)
+	r.Get("/link/{fsName}", lr.getLink)
 
 }
 
@@ -59,8 +59,8 @@ var SupportLinkURLPrefix = map[string]bool{
 	common.CFS:   true,
 }
 
-// CreateLink the function that handle the create Link request
-// @Summary CreateLink
+// createLink the function that handle the create Link request
+// @Summary createLink
 // @Description 创建文件系统的link
 // @tag fs
 // @Accept   json
@@ -71,7 +71,7 @@ var SupportLinkURLPrefix = map[string]bool{
 // @Failure 404 {object} common.ErrorResponse
 // @Failure 500 {object} common.ErrorResponse
 // @Router /link/ [post]
-func (lr *LinkRouter) CreateLink(w http.ResponseWriter, r *http.Request) {
+func (lr *LinkRouter) createLink(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
 
 	var linkRequest api.CreateLinkRequest
@@ -383,8 +383,8 @@ func checkLinkPath(fsPath, fsID string) error {
 	return nil
 }
 
-// DeleteLink the function that handle the delete file system link request
-// @Summary DeleteLink
+// deleteLink the function that handle the delete file system link request
+// @Summary deleteLink
 // @Description 删除指定文件系统的link
 // @tag fs
 // @Accept   json
@@ -393,7 +393,7 @@ func checkLinkPath(fsPath, fsID string) error {
 // @Param fsPath path string true "文件系统link的目录"
 // @Success 200
 // @Router /link/{fsName} [delete]
-func (lr *LinkRouter) DeleteLink(w http.ResponseWriter, r *http.Request) {
+func (lr *LinkRouter) deleteLink(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
 	fsName := chi.URLParam(r, util.QueryFsName)
 	deleteRequest := &api.DeleteLinkRequest{
@@ -453,8 +453,8 @@ func validateDeleteLink(ctx *logger.RequestContext, req *api.DeleteLinkRequest) 
 	return nil
 }
 
-// GetLink the function that handle the list file system links request
-// @Summary GetLink
+// getLink the function that handle the list file system links request
+// @Summary getLink
 // @Description 批量获取某个文件系统的link，root用户可以获取所有的link
 // @tag fs
 // @Accept   json
@@ -465,7 +465,7 @@ func validateDeleteLink(ctx *logger.RequestContext, req *api.DeleteLinkRequest) 
 // @Failure 404 {object} common.ErrorResponse
 // @Failure 500 {object} common.ErrorResponse
 // @Router /link/{fsName} [get]
-func (lr *LinkRouter) GetLink(w http.ResponseWriter, r *http.Request) {
+func (lr *LinkRouter) getLink(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
 
 	maxKeys, err := util.GetQueryMaxKeys(&ctx, r)
