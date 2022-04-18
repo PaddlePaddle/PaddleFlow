@@ -123,17 +123,19 @@ func (s *FileSystemService) CreateFileSystem(ctx *logger.RequestContext, req *Cr
 		return models.FileSystem{}, err
 	}
 
-	// create grant
-	grantInfo := grant.CreateGrantRequest{
-		UserName:     req.Username,
-		ResourceID:   fs.ID,
-		ResourceType: common.ResourceTypeFs,
-	}
-	_, err = grant.CreateGrant(ctx, grantInfo)
-	if err != nil {
-		log.Errorf("create grant for filesystem[%s] to user[%s] failed: %v", fs.Name, req.Username, err)
-		ctx.ErrorCode = common.GrantUserNameAndFs
-		return models.FileSystem{}, err
+	// create grant for non-root user
+	if !common.IsRootUser(req.Username) {
+		grantInfo := grant.CreateGrantRequest{
+			UserName:     req.Username,
+			ResourceID:   fs.ID,
+			ResourceType: common.ResourceTypeFs,
+		}
+		_, err = grant.CreateGrant(ctx, grantInfo)
+		if err != nil {
+			log.Errorf("create grant for filesystem[%s] to user[%s] failed: %v", fs.Name, req.Username, err)
+			ctx.ErrorCode = common.GrantUserNameAndFs
+			return models.FileSystem{}, err
+		}
 	}
 	return fs, nil
 }

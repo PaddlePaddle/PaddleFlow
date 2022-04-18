@@ -83,8 +83,8 @@ const (
 // @tag fs
 // @Accept   json
 // @Produce  json
-// @Param request body request.CreateFileSystemRequest true "request body"
-// @Success 200 {object} response.CreateFileSystemResponse
+// @Param request body fs.CreateFileSystemRequest true "request body"
+// @Success 201 {object} fs.CreateFileSystemResponse
 // @Failure 400 {object} common.ErrorResponse
 // @Failure 404 {object} common.ErrorResponse
 // @Failure 500 {object} common.ErrorResponse
@@ -113,16 +113,16 @@ func (pr *PFSRouter) CreateFileSystem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = fileSystemService.CreateFileSystem(&ctx, &createRequest)
+	fs, err := fileSystemService.CreateFileSystem(&ctx, &createRequest)
 	if err != nil {
 		ctx.Logging().Errorf("create file system with error[%v]", err)
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
-	response := api.CreateFileSystemResponse{FsName: createRequest.Name, FsID: common.ID(createRequest.Username, createRequest.Name)}
+	response := api.CreateFileSystemResponse{FsName: fs.Name, FsID: fs.ID}
 
 	ctx.Logging().Debugf("CreateFileSystem Fs:%v", string(config.PrettyFormat(response)))
-	common.Render(w, http.StatusOK, response)
+	common.Render(w, http.StatusCreated, response)
 }
 
 func validateCreateFileSystem(ctx *logger.RequestContext, req *api.CreateFileSystemRequest) error {
@@ -366,8 +366,8 @@ func checkFsDir(fsType, url string, properties map[string]string) error {
 // @tag fs
 // @Accept   json
 // @Produce  json
-// @Param request body request.ListFileSystemRequest true "request body"
-// @Success 200 {object} response.ListFileSystemResponse
+// @Param request body fs.ListFileSystemRequest true "request body"
+// @Success 200 {object} fs.ListFileSystemResponse
 // @Failure 400 {object} common.ErrorResponse
 // @Failure 404 {object} common.ErrorResponse
 // @Failure 500 {object} common.ErrorResponse
@@ -468,6 +468,11 @@ func (pr *PFSRouter) GetFileSystem(w http.ResponseWriter, r *http.Request) {
 	fsModel, err := fileSystemService.GetFileSystem(fsID)
 	if err != nil {
 		ctx.Logging().Errorf("get file system with error[%v]", err)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			ctx.ErrorCode = common.RecordNotFound
+		} else {
+			ctx.ErrorCode = common.FileSystemDataBaseError
+		}
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
