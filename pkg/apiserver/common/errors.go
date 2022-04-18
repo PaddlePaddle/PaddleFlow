@@ -414,5 +414,5 @@ func LogFilePositionInvalidValueError() error {
 }
 
 func ConnectionClosedError() error {
-	return errors.New("Connection closed")
+	return fmt.Errorf("Connection closed")
 }
