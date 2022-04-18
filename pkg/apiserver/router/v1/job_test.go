@@ -112,12 +112,14 @@ func TestCreateJob(t *testing.T) {
 							QueueID: MockQueueID,
 						},
 					},
-					Image: "mockImage",
-					Flavour: schema.Flavour{
-						Name: "gpu",
-					},
-					FileSystem: schema.FileSystem{
-						Name: MockFsName1,
+					JobSpec: job.JobSpec{
+						Image: "mockImage",
+						Flavour: schema.Flavour{
+							Name: "gpu",
+						},
+						FileSystem: schema.FileSystem{
+							Name: MockFsName1,
+						},
 					},
 				},
 			},

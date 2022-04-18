@@ -67,7 +67,7 @@ func (jr *JobRouter) AddRouter(r chi.Router) {
 // @Summary 创建single类型作业
 // @Description 创建single类型作业
 // @Id createSingleJob
-// @tags User
+// @tags Job
 // @Accept  json
 // @Produce json
 // @Success 200 {object} job.CreateJobResponse "创建single类型作业的响应"
@@ -110,7 +110,7 @@ func (jr *JobRouter) CreateSingleJob(w http.ResponseWriter, r *http.Request) {
 // @Summary 创建Distributed类型作业
 // @Description 创建Distributed类型作业
 // @Id createDistributedJob
-// @tags User
+// @tags Job
 // @Accept  json
 // @Produce json
 // @Success 200 {object} job.CreateJobResponse "创建distributed类型作业的响应"
@@ -149,7 +149,7 @@ func (jr *JobRouter) CreateDistributedJob(w http.ResponseWriter, r *http.Request
 // @Summary 创建Workflow类型作业
 // @Description 创建Workflow类型作业
 // @Id createWorkflowJob
-// @tags User
+// @tags Job
 // @Accept  json
 // @Produce json
 // @Success 200 {object} job.CreateJobResponse "创建Workflow类型作业的响应"
