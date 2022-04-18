@@ -13,13 +13,10 @@
 - Complex command abstraction, and custom templates can be executed multiple times
 # Architecture
 PaddleFlow consists of four parts: </br>
-1.**PaddleFlow client (built-in PaddleFlow fuse)**: PaddleFlow command line tool, it's convenient for users. Built-in PaddleFlow fuse lib is mainly used for cache data and snapshot, it can be accelerated the speed of reading and writing.Moreover,it supports multiple data sources,eg.bos,hdfs,local filesystem.</br>
-
-2.**PaddleFlow server**: The PaddleFlow core server, it mainly includes queue, storage and pipeline.</br>
-
-3.**Volcano(reform based on volcano from huawei)**: Add elastic quota feature,compute resource can manage more flexibly. We will commit the features to volcano community soon.</br>
-
-4.**PadddeFlow-csi-plugin**: Provides Kubernetes CSI driver to use PaddleFlow on Kubernetes.</br>
+- **1.PaddleFlow client (built-in PaddleFlow fuse)**: PaddleFlow command line tool, it's convenient for users. Built-in PaddleFlow fuse lib is mainly used for cache data and snapshot, it can be accelerated the speed of reading and writing.Moreover,it supports multiple data sources,eg.bos,hdfs,local filesystem.</br>
+- **2.PaddleFlow server**: The PaddleFlow core server, it mainly includes queue, storage and pipeline.</br>
+- **3.Volcano(reform based on volcano from huawei)**: Add elastic quota feature,compute resource can manage more flexibly. We will commit the features to volcano community soon.</br>
+- **4.PadddeFlow-csi-plugin**: Provides Kubernetes CSI driver to use PaddleFlow on Kubernetes.</br>
 
 ![PaddleFlow Feature Architecture](docs/zh_cn/images/pf-arch.png) 
 
