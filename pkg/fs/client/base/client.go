@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -27,13 +27,6 @@ import (
 	"paddleflow/pkg/fs/common"
 )
 
-const (
-	defaultInterval = 120
-	defaultUserName = "root"
-	MaxLinks        = 1000
-	defaultTimeOut  = 200
-)
-
 var Client *_Client
 
 type _Client struct {
@@ -47,10 +40,11 @@ type _Client struct {
 
 func NewClient(fsID string, c *core.PFClient, userName string, token string) (*_Client, error) {
 	fsArray := strings.Split(fsID, "-")
+	realUsername := strings.Join(fsArray[1:len(fsArray)-1], "")
 	_client := _Client{
 		Uuid:       uuid.NewString(),
 		FsID:       fsID,
-		UserName:   userName,
+		UserName:   realUsername,
 		httpClient: c,
 		Token:      token,
 		FsName:     fsArray[len(fsArray)-1],
