@@ -228,6 +228,8 @@ func (wfs *WorkflowSource) validateStepCacheByMap(yamlMap map[string]interface{}
 				switch value := value.(type) {
 				case int64:
 					point.Cache.MaxExpiredTime = strconv.FormatInt(value, 10)
+				case string:
+					point.Cache.MaxExpiredTime = value
 				default:
 					return fmt.Errorf("cannot assign cache attribute [%s] by value[%v] with type [%s]",
 						CacheAttributeMaxExpiredTime, value, reflect.TypeOf(value).Name())

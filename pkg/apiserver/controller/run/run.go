@@ -192,9 +192,9 @@ func getWorkFlowSourceByReq(ctx *logger.RequestContext, request *CreateRunByJson
 
 	entryPoints := parseRunSteps(request.EntryPoints, request)
 	postProcess := parseRunSteps(request.PostProcess, request)
-	falureOptions := schema.FailureOptions{Strategy: schema.FailureStrategyFailFast}
+	failureOptions := schema.FailureOptions{Strategy: schema.FailureStrategyFailFast}
 	if request.FailureOptions.Strategy != "" {
-		falureOptions.Strategy = request.FailureOptions.Strategy
+		failureOptions.Strategy = request.FailureOptions.Strategy
 	}
 	wfs := schema.WorkflowSource{
 		Name:           request.Name,
@@ -204,7 +204,7 @@ func getWorkFlowSourceByReq(ctx *logger.RequestContext, request *CreateRunByJson
 		EntryPoints:    entryPoints,
 		PostProcess:    postProcess,
 		Disabled:       request.Disabled,
-		FailureOptions: request.FailureOptions,
+		FailureOptions: failureOptions,
 	}
 	return wfs, nil
 }
