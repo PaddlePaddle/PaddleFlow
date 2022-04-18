@@ -640,10 +640,17 @@ func TestValidateWorkflowDisabled(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, "", bwf.Source.Disabled)
 
+	// disabled 步骤不存在，校验失败
 	bwf.Source.Disabled = "notExistStepName"
 	err = bwf.validate()
 	assert.NotNil(t, err)
 	assert.Equal(t, "disabled step[notExistStepName] not existed!", err.Error())
+
+	// disabled 步骤重复设定
+	bwf.Source.Disabled = "validate,validate"
+	err = bwf.validate()
+	assert.NotNil(t, err)
+	assert.Equal(t, "disabled step[validate] is set repeatedly!", err.Error())
 
 	// disabled 设置成功
 	bwf.Source.Disabled = "validate"
