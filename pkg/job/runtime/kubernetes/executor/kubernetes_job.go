@@ -127,6 +127,11 @@ func NewKubeJob(job *api.PFJob, dynamicClientOpt *k8s.DynamicClientOption) (api.
 			KubeJob:       kubeJob,
 			JobModeParams: newJobModeParams(job.Conf),
 		}, nil
+	case schema.TypeWorkflow:
+		kubeJob.GroupVersionKind = k8s.ArgoWorkflowGVK
+		return &WorkflowJob{
+			KubeJob: kubeJob,
+		}, nil
 	case schema.TypeSingle:
 		kubeJob.GroupVersionKind = k8s.PodGVK
 		if kubeJob.Name == "" {
@@ -327,7 +332,7 @@ func (j *KubeJob) generateResourceRequirements(flavour schema.Flavour) corev1.Re
 }
 
 func (j *KubeJob) patchMetadata(metadata *metav1.ObjectMeta) {
-	metadata.Name = j.Name
+	metadata.Name = j.ID
 	metadata.Namespace = j.Namespace
 	metadata.Annotations = j.appendAnnotationsIfAbsent(metadata.Annotations, j.Annotations)
 	metadata.Labels = j.appendLabelsIfAbsent(metadata.Labels, j.Labels)
