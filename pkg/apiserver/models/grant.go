@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@ limitations under the License.
 package models
 
 import (
-	"paddleflow/pkg/common/uuid"
 	"time"
 
 	"gorm.io/gorm"
@@ -25,6 +24,7 @@ import (
 	"paddleflow/pkg/apiserver/common"
 	"paddleflow/pkg/common/database"
 	"paddleflow/pkg/common/logger"
+	"paddleflow/pkg/common/uuid"
 )
 
 type Grant struct {

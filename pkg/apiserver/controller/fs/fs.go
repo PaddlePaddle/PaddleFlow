@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@ package fs
 
 import (
 	"fmt"
-	"paddleflow/pkg/apiserver/controller/grant"
 	"strings"
 	"time"
 
@@ -29,6 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"paddleflow/pkg/apiserver/common"
+	"paddleflow/pkg/apiserver/controller/grant"
 	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/common/config"
 	"paddleflow/pkg/common/logger"
@@ -103,7 +103,7 @@ func GetFileSystemService() *FileSystemService {
 	return fileSystemService
 }
 
-// CreateStorage the function which performs the operation of creating FileSystem
+// CreateFileSystem the function which performs the operation of creating FileSystem
 func (s *FileSystemService) CreateFileSystem(ctx *logger.RequestContext, req *CreateFileSystemRequest) (models.FileSystem, error) {
 	fsType, serverAddress, subPath := common.InformationFromURL(req.Url, req.Properties)
 	fs := models.FileSystem{
@@ -122,6 +122,7 @@ func (s *FileSystemService) CreateFileSystem(ctx *logger.RequestContext, req *Cr
 		ctx.ErrorCode = common.FileSystemDataBaseError
 		return models.FileSystem{}, err
 	}
+
 	// create grant
 	grantInfo := grant.CreateGrantRequest{
 		UserName:     req.Username,
@@ -129,6 +130,11 @@ func (s *FileSystemService) CreateFileSystem(ctx *logger.RequestContext, req *Cr
 		ResourceType: common.ResourceTypeFs,
 	}
 	_, err = grant.CreateGrant(ctx, grantInfo)
+	if err != nil {
+		log.Errorf("create grant for filesystem[%s] to user[%s] failed: %v", fs.Name, req.Username, err)
+		ctx.ErrorCode = common.GrantUserNameAndFs
+		return models.FileSystem{}, err
+	}
 	return fs, nil
 }
 

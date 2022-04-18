@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,13 +19,13 @@ package v1
 import (
 	"errors"
 	"fmt"
-	"gorm.io/gorm"
 	"net/http"
 	"regexp"
 	"strings"
 
 	"github.com/go-chi/chi"
 	log "github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -88,7 +88,7 @@ const (
 // @Failure 400 {object} common.ErrorResponse
 // @Failure 404 {object} common.ErrorResponse
 // @Failure 500 {object} common.ErrorResponse
-// @Router /api/paddleflow/v1/fs [post]
+// @Router /fs [post]
 func (pr *PFSRouter) CreateFileSystem(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
 	var createRequest api.CreateFileSystemRequest
@@ -371,7 +371,7 @@ func checkFsDir(fsType, url string, properties map[string]string) error {
 // @Failure 400 {object} common.ErrorResponse
 // @Failure 404 {object} common.ErrorResponse
 // @Failure 500 {object} common.ErrorResponse
-// @Router /api/paddleflow/v1/fs [get]
+// @Router /fs [get]
 func (pr *PFSRouter) ListFileSystem(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
 
@@ -448,7 +448,7 @@ func getListResult(fsModel []models.FileSystem, nextMarker, marker string) *api.
 // @Produce  json
 // @Param id path string true "文件系统ID"
 // @Success 200 {object} models.FileSystem
-// @Router /api/paddleflow/v1/fs/{fsName} [get]
+// @Router /fs/{fsName} [get]
 func (pr *PFSRouter) GetFileSystem(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
 
@@ -548,7 +548,7 @@ func (pr *PFSRouter) DeleteFileSystem(w http.ResponseWriter, r *http.Request) {
 // @Failure 400 {object} common.ErrorResponse
 // @Failure 404 {object} common.ErrorResponse
 // @Failure 500 {object} common.ErrorResponse
-// @Router /api/paddleflow/v1/fs/claims [post]
+// @Router /fs/claims [post]
 func (pr *PFSRouter) CreateFileSystemClaims(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
 
@@ -618,8 +618,8 @@ func getFsIDAndCheckPermission(ctx *logger.RequestContext,
 		fsID := common.ID(ctx.UserName, fsName)
 		if !models.HasAccessToResource(ctx, common.ResourceTypeFs, fsID) {
 			ctx.ErrorCode = common.AccessDenied
-			err := common.NoAccessError(ctx.UserName, common.ResourceTypeFs, fsID)
-			ctx.Logging().Errorf("create run failed. error: %v", err)
+			err := common.NoAccessError(ctx.UserName, common.ResourceTypeFs, fsName)
+			ctx.Logging().Errorf("filesystem CheckPermission error: %v", err)
 			return "", err
 		}
 	}
