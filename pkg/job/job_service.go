@@ -130,18 +130,39 @@ func validateFlavours(conf schema.PFJobConf, queue *models.Queue) error {
 		log.Errorf("queue[%s]:[%+v] convert to Resource type failed, err=%v", queue.Name, queue, err)
 		return err
 	}
+	flavors := []string{
+		conf.GetFlavour(), conf.GetPSFlavour(), conf.GetWorkerFlavour(),
+	}
+	for _, flavourName := range flavors {
+		if len(flavourName) == 0 {
+			continue
+		}
+		flavour, err := models.GetFlavourSchema(schema.Flavour{
+			Name: flavourName,
+		})
+		if err != nil {
+			log.Errorf("validate flavour[%s] failed, err=%v", flavourName, err)
+			return err
+		}
+		if err := isEnoughQueueCapacity(flavour, queueResource); err != nil {
+			errMsg := fmt.Sprintf("queue %s has no enough resource:%s", conf.GetQueueName(), err.Error())
+			log.Errorf(errMsg)
+			return fmt.Errorf(errMsg)
+		}
+	}
 
-	flavour, err := models.GetFlavourSchema(conf.GetFlavour())
-	if err != nil {
-		log.Errorf("get flavour[%v] failed, err=%v", conf.GetFlavour(), err)
-		return err
-	}
-	conf.SetFlavour(flavour)
-	if err := isEnoughQueueCapacity(flavour, queueResource); err != nil {
-		errMsg := fmt.Sprintf("queue %s has no enough resource:%s", conf.GetQueueName(), err.Error())
-		log.Errorf(errMsg)
-		return fmt.Errorf(errMsg)
-	}
+	//conf.GetFlavourInfo()
+	//flavour, err := models.GetFlavourSchema(conf.GetFlavourInfo())
+	//if err != nil {
+	//	log.Errorf("get flavour[%v] failed, err=%v", conf.GetFlavour(), err)
+	//	return err
+	//}
+	//conf.SetFlavourInfo(flavour)
+	//if err := isEnoughQueueCapacity(flavour, queueResource); err != nil {
+	//	errMsg := fmt.Sprintf("queue %s has no enough resource:%s", conf.GetQueueName(), err.Error())
+	//	log.Errorf(errMsg)
+	//	return fmt.Errorf(errMsg)
+	//}
 	return nil
 }
 

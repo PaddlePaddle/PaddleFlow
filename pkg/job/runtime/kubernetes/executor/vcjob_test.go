@@ -22,6 +22,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	vcjob "volcano.sh/apis/pkg/apis/batch/v1alpha1"
 
+	"paddleflow/pkg/common/database/dbinit"
 	"paddleflow/pkg/common/schema"
 	"paddleflow/pkg/job/api"
 )
@@ -29,13 +30,16 @@ import (
 func TestPatchVCJobVariable(t *testing.T) {
 	confEnv := make(map[string]string)
 	initConfigsForTest(confEnv)
+	// mock db
+	dbinit.InitMockDB()
 	// init for vcJob's ps mode
 	confEnv[schema.EnvJobPServerCommand] = "sleep 30"
 	confEnv[schema.EnvJobWorkerCommand] = "sleep 30"
 	confEnv[schema.EnvJobPServerReplicas] = "2"
 	confEnv[schema.EnvJobWorkerReplicas] = "2"
-	confEnv[schema.EnvJobPServerFlavour] = "ss"
-	confEnv[schema.EnvJobWorkerFlavour] = "ss"
+	confEnv[schema.EnvJobFlavour] = "mock_flavour1"
+	confEnv[schema.EnvJobPServerFlavour] = "mock_flavour1"
+	confEnv[schema.EnvJobWorkerFlavour] = "mock_flavour1"
 
 	pfjob := &api.PFJob{
 		Conf: schema.Conf{
@@ -111,17 +115,11 @@ func TestPatchVCJobVariable(t *testing.T) {
 			Priority:            pfjob.Conf.GetPriority(),
 			QueueName:           pfjob.Conf.GetQueueName(),
 			YamlTemplateContent: extRuntimeConf,
-			Flavour: schema.Flavour{
-				Name: schema.CustomFlavour,
-				ResourceInfo: schema.ResourceInfo{
-					CPU: "1",
-					Mem: "1",
-				},
-			},
 		}
 		jobModeParams := JobModeParams{
+			JobFlavour:      pfjob.Conf.GetFlavour(),
 			PServerReplicas: pfjob.Conf.GetPSReplicas(),
-			PServerFlavour:  "",
+			PServerFlavour:  pfjob.Conf.GetFlavour(),
 			PServerCommand:  pfjob.Conf.GetPSCommand(),
 			WorkerReplicas:  pfjob.Conf.GetWorkerReplicas(),
 			WorkerFlavour:   pfjob.Conf.GetWorkerFlavour(),

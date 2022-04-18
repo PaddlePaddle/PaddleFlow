@@ -97,7 +97,7 @@ func TestKubeRuntimeJob(t *testing.T) {
 		Conf: schema.Conf{
 			Env: map[string]string{
 				schema.EnvJobQueueName: "default",
-				schema.EnvJobFlavour:   "default",
+				schema.EnvJobFlavour:   "cpu",
 			},
 			Flavour: schema.Flavour{
 				Name: schema.CustomFlavour,

@@ -111,6 +111,32 @@ func InitMockDB() {
 		log.Fatalf("InitMockDB createDatabaseTables error[%s]", err.Error())
 	}
 	database.DB = db
+
+	// create mock data
+	createMockData()
+}
+
+func createMockData() {
+	// init flavour
+	flavours := []models.Flavour{
+		{
+			Name: "mock_flavour1",
+			CPU:  "1",
+			Mem:  "10",
+		},
+		{
+			Name: "cpu",
+			CPU:  "1",
+			Mem:  "2G",
+		},
+	}
+	for _, flavour := range flavours {
+		err := models.CreateFlavour(&flavour)
+		if err != nil {
+			log.Fatalf("create mock %s error[%s]", flavour, err.Error())
+		}
+	}
+	// todo init cluster and queue
 }
 
 func initSQLiteDB(dbConf *config.DatabaseConfig, gormConf *gorm.Config) *gorm.DB {

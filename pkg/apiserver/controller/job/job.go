@@ -172,7 +172,7 @@ func patchSingleEnvs(conf *schema.Conf, request *CreateSingleJobRequest) error {
 			request.CommonJobInfo.Name, err)
 		return err
 	}
-	conf.SetFlavour(flavour)
+	conf.SetFlavourInfo(flavour)
 	// todo others in FileSystem
 	fsID := common.ID(request.CommonJobInfo.UserName, request.FileSystem.Name)
 	conf.SetFS(fsID)

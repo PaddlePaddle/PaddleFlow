@@ -24,6 +24,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/runtime"
 
+	"paddleflow/pkg/common/database/dbinit"
 	"paddleflow/pkg/common/k8s"
 	"paddleflow/pkg/common/schema"
 	"paddleflow/pkg/job/api"
@@ -32,15 +33,17 @@ import (
 func TestPatchPaddleJobVariable(t *testing.T) {
 	confEnv := make(map[string]string)
 	initConfigsForTest(confEnv)
+	// mock db
+	dbinit.InitMockDB()
 	confEnv[schema.EnvJobType] = string(schema.TypePaddleJob)
-	confEnv[schema.EnvJobFlavour] = "gpu"
+	confEnv[schema.EnvJobFlavour] = "mock_flavour1"
 	// init for paddle's ps mode
 	confEnv[schema.EnvJobPServerCommand] = "sleep 30"
 	confEnv[schema.EnvJobWorkerCommand] = "sleep 30"
 	confEnv[schema.EnvJobPServerReplicas] = "2"
 	confEnv[schema.EnvJobWorkerReplicas] = "2"
-	confEnv[schema.EnvJobPServerFlavour] = "cpu"
-	confEnv[schema.EnvJobWorkerFlavour] = "gpu"
+	confEnv[schema.EnvJobPServerFlavour] = "mock_flavour1"
+	confEnv[schema.EnvJobWorkerFlavour] = "mock_flavour1"
 	confEnv[schema.EnvJobFsID] = "fs1"
 
 	pfjob := &api.PFJob{

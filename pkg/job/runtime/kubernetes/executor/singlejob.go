@@ -159,7 +159,7 @@ func (sp *SingleJob) fillContainer(container *v1.Container, podName string) erro
 	}
 	// container.Args would be passed
 	// fill resource
-	container.Resources = sp.generateResourceRequirements()
+	container.Resources = sp.generateResourceRequirements(sp.Flavour)
 
 	// fill env
 	container.Env = sp.appendEnvIfAbsent(container.Env, sp.generateEnvVars())
