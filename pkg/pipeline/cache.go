@@ -138,7 +138,7 @@ func (cc *conservativeCacheCalculator) generateFirstCacheKey() error {
 	job := cc.step.job.Job()
 
 	// 去除系统环境变量
-	envWithoutSystmeEnv := deleteSystemParamEnv(job.Env)
+	envWithoutSystmeEnv := DeleteSystemParamEnv(job.Env)
 
 	cacheKey := conservativeFirstCacheKey{
 		DockerEnv:       cc.step.job.(*PaddleFlowJob).Image,
