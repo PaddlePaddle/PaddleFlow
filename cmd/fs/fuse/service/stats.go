@@ -28,15 +28,10 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 
-	"paddleflow/cmd/fs/fuse/flag"
 	mountutil "paddleflow/pkg/fs/utils/mount"
-	"paddleflow/pkg/metric"
 )
 
 func CmdStats() *cli.Command {
-	compoundFlags := [][]cli.Flag{
-		metric.MetricsFlags(),
-	}
 	return &cli.Command{
 		Name:      "stats",
 		Action:    stats,
@@ -51,7 +46,23 @@ $ pfs-fuse stats /mnt/mount_point
 
 # More metrics
 $ pfs-fuse stats /mnt/mount_point -l 1`,
-		Flags: flag.ExpandFlags(compoundFlags),
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:  "schema",
+				Value: "uc",
+				Usage: "schema string that controls the output sections (u: usage, f: fuse, m: meta, c: blockcache, o: object, g: go)",
+			},
+			&cli.UintFlag{
+				Name:  "interval",
+				Value: 1,
+				Usage: "interval in seconds between each update",
+			},
+			&cli.UintFlag{
+				Name:    "verbosity",
+				Aliases: []string{"l"},
+				Usage:   "verbosity level, 0 or 1 is enough for most cases",
+			},
+		},
 	}
 }
 

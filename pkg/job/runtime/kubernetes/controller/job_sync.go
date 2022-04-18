@@ -17,6 +17,7 @@ limitations under the License.
 package controller
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -40,13 +41,19 @@ const (
 )
 
 type JobSyncInfo struct {
-	ID         string
-	Status     commonschema.JobStatus
-	Runtime    interface{}
-	Message    string
-	Type       commonschema.JobType
-	Action     commonschema.ActionType
-	RetryTimes int
+	ID          string
+	ParentJobID string
+	GVK         schema.GroupVersionKind
+	Status      commonschema.JobStatus
+	Runtime     interface{}
+	Message     string
+	Action      commonschema.ActionType
+	RetryTimes  int
+}
+
+func (js *JobSyncInfo) String() string {
+	return fmt.Sprintf("job id: %s, parentJobID: %s, gvk: %s, status: %s, message: %s",
+		js.ID, js.ParentJobID, js.GVK, js.Status, js.Message)
 }
 
 type TaskSyncInfo struct {
@@ -174,6 +181,8 @@ func (j *JobSync) processWorkItem() bool {
 func (j *JobSync) syncJobStatus(jobSyncInfo *JobSyncInfo) error {
 	log.Infof("begin syncJobStatus jobID:[%s] action:[%s]", jobSyncInfo.ID, jobSyncInfo.Action)
 	switch jobSyncInfo.Action {
+	case commonschema.Create:
+		return j.doCreateAction(jobSyncInfo)
 	case commonschema.Delete:
 		return j.doDeleteAction(jobSyncInfo)
 	case commonschema.Update:
@@ -184,8 +193,41 @@ func (j *JobSync) syncJobStatus(jobSyncInfo *JobSyncInfo) error {
 	return nil
 }
 
+func (j *JobSync) doCreateAction(jobSyncInfo *JobSyncInfo) error {
+	log.Infof("do create action, job sync info are as follows. %s", jobSyncInfo.String())
+	_, err := models.GetJobByID(jobSyncInfo.ID)
+	if err == nil {
+		return j.doUpdateAction(jobSyncInfo)
+	}
+	// only create job for subtask
+	if jobSyncInfo.ParentJobID != "" {
+		// check weather parent job is exist or not
+		parentJob, err := models.GetJobByID(jobSyncInfo.ParentJobID)
+		if err != nil {
+			log.Errorf("get parent job %s failed, err: %v", jobSyncInfo.ParentJobID, err)
+			return err
+		}
+		jobType, framework := k8s.GetJobTypeAndFramework(jobSyncInfo.GVK)
+		job := &models.Job{
+			ID:          jobSyncInfo.ID,
+			Type:        string(jobType),
+			Framework:   framework,
+			QueueID:     parentJob.QueueID,
+			Status:      jobSyncInfo.Status,
+			Message:     jobSyncInfo.Message,
+			RuntimeInfo: jobSyncInfo.Runtime,
+			ParentJob:   jobSyncInfo.ParentJobID,
+		}
+		if err = models.CreateJob(job); err != nil {
+			log.Errorf("craete job %v failed, err: %v", job, err)
+			return err
+		}
+	}
+	return nil
+}
+
 func (j *JobSync) doDeleteAction(jobSyncInfo *JobSyncInfo) error {
-	log.Infof("sync job status job. action:[%s] jobID:[%s]", jobSyncInfo.Action, jobSyncInfo.ID)
+	log.Infof("do update action, job sync info are as follows. %s", jobSyncInfo.String())
 	if _, err := models.UpdateJob(jobSyncInfo.ID, commonschema.StatusJobTerminated,
 		jobSyncInfo.Runtime, ""); err != nil {
 		log.Errorf("sync job status failed. jobID:[%s] err:[%s]", jobSyncInfo.ID, err.Error())

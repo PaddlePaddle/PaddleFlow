@@ -84,6 +84,10 @@ const (
 	FlavourNameEmpty    = "FlavourNameEmpty"    // 资源套餐名称为空
 	FlavourInvalidField = "FlavourInvalidField" // 资源套餐名称为空
 
+	JobInvalidField = "JobInvalidField" // job field invalid
+	JobCreateFailed = "JobCreateFailed" // job create failed
+	JobNotFound     = "JobNotFound"
+
 	ClusterNameNotFound      = "ClusterNameNotFound"
 	ClusterIdNotFound        = "ClusterIdNotFound"
 	ClusterNotFound          = "ClusterNotFound"
@@ -178,6 +182,9 @@ var errorHTTPStatus = map[string]int{
 	FlavourNameEmpty:    http.StatusBadRequest,
 	FlavourInvalidField: http.StatusBadRequest,
 
+	JobInvalidField: http.StatusBadRequest,
+	JobCreateFailed: http.StatusBadRequest,
+
 	ClusterNameNotFound:      http.StatusBadRequest,
 	ClusterIdNotFound:        http.StatusBadRequest,
 	ClusterNotFound:          http.StatusBadRequest,
@@ -254,6 +261,9 @@ var errorMessage = map[string]string{
 	QueueIsNotClosed:             "Queue should be closed before delete",
 
 	FlavourNameEmpty: "flavour name should not be empty",
+
+	JobInvalidField: "job field invalid",
+	JobCreateFailed: "job create failed",
 
 	RunNameDuplicated:     "Run name already exists",
 	RunNotFound:           "RunID not found",

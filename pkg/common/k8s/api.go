@@ -44,13 +44,6 @@ var (
 	// ArgoWorkflowGVK defines GVK for argo Workflow
 	ArgoWorkflowGVK = schema.GroupVersionKind{Group: "argoproj.io", Version: "v1alpha1", Kind: "Workflow"}
 
-	// GVKToJobType maps GroupVersionKind to PaddleFlow JobType
-	GVKToJobType = map[schema.GroupVersionKind]commomschema.JobType{
-		// TODO remove this
-		VCJobGVK:     commomschema.TypeVcJob,
-		SparkAppGVK:  commomschema.TypeSparkJob,
-		PaddleJobGVK: commomschema.TypePaddleJob,
-	}
 	// GVKJobStatusMap contains GroupVersionKind and convertStatus function to sync job status
 	GVKJobStatusMap = map[schema.GroupVersionKind]GetStatusFunc{
 		VCJobGVK:        VCJobStatus,
@@ -65,6 +58,20 @@ var (
 		EQuotaGVK,
 	}
 )
+
+func GetJobTypeAndFramework(gvk schema.GroupVersionKind) (commomschema.JobType, commomschema.Framework) {
+	switch gvk {
+	case PodGVK:
+		return commomschema.TypeSingle, commomschema.FrameworkStandalone
+	case SparkAppGVK:
+		return commomschema.TypeDistributed, commomschema.FrameworkSpark
+	case PaddleJobGVK:
+		return commomschema.TypeDistributed, commomschema.FrameworkPaddle
+	default:
+		log.Errorf("GroupVersionKind %s is not support", gvk)
+		return "", ""
+	}
+}
 
 type StatusInfo struct {
 	OriginStatus string

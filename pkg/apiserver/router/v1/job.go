@@ -27,7 +27,9 @@ import (
 	"paddleflow/pkg/apiserver/common"
 	"paddleflow/pkg/apiserver/controller/job"
 	"paddleflow/pkg/apiserver/models"
+	"paddleflow/pkg/apiserver/router/util"
 	"paddleflow/pkg/common/config"
+	"paddleflow/pkg/common/errors"
 	"paddleflow/pkg/common/logger"
 )
 
@@ -45,6 +47,20 @@ func (jr *JobRouter) AddRouter(r chi.Router) {
 	r.Post("/job/single", jr.CreateSingleJob)
 	r.Post("/job/distributed", jr.CreateDistributedJob)
 	r.Post("/job/workflow", jr.CreateWorkflowJob)
+
+	r.Delete("/job/{jobID}", jr.DeleteJob)
+	r.Put("/job/{jobID}", func(w http.ResponseWriter, r *http.Request) {
+		ctx := common.GetRequestContext(r)
+		action := r.URL.Query().Get(util.QueryKeyAction)
+		switch action {
+		case util.QueryActionStop:
+			jr.StopJob(w, r)
+		case util.QueryActionModify:
+			jr.UpdateJob(w, r)
+		default:
+			common.RenderErr(w, ctx.RequestID, common.ActionNotAllowed)
+		}
+	})
 }
 
 // CreateSingleJob create single job
@@ -73,6 +89,7 @@ func (jr *JobRouter) CreateSingleJob(w http.ResponseWriter, r *http.Request) {
 
 	// validate Job
 	if err := validateSingleJob(&ctx, &request); err != nil {
+		ctx.ErrorCode = common.JobInvalidField
 		ctx.Logging().Errorf("validate job request failed. request:%v error:%s", request, err.Error())
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
@@ -80,6 +97,7 @@ func (jr *JobRouter) CreateSingleJob(w http.ResponseWriter, r *http.Request) {
 
 	response, err := job.CreateSingleJob(&request)
 	if err != nil {
+		ctx.ErrorCode = common.JobCreateFailed
 		ctx.Logging().Errorf("create job failed. job request:%v error:%s", request, err.Error())
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
@@ -213,4 +231,82 @@ func validateDistributedJob(ctx *logger.RequestContext, request *job.CreateDisJo
 func validateWorkflowJob(ctx *logger.RequestContext, request *job.CreateWfJobRequest) error {
 	// todo(zhongzichao)
 	return nil
+}
+
+// DeleteJob delete job
+// @Summary 删除作业
+// @Description 删除作业
+// @Id DeleteJob
+// @tags Job
+// @Accept  json
+// @Produce json
+// @Param jobID path string true "作业ID"
+// @Success 200 {string} "删除作业的响应"
+// @Failure 400 {object} common.ErrorResponse "400"
+// @Router /job/{jobID} [DELETE]
+func (jr *JobRouter) DeleteJob(w http.ResponseWriter, r *http.Request) {
+	ctx := common.GetRequestContext(r)
+	jobID := chi.URLParam(r, util.ParamKeyJobID)
+	if err := validateJob(&ctx, jobID); err != nil {
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, ctx.ErrorMessage)
+		return
+	}
+	err := job.DeleteJob(&ctx, jobID)
+	if err != nil {
+		ctx.ErrorMessage = fmt.Sprintf("delete job failed, err: %v", err)
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, ctx.ErrorMessage)
+		return
+	}
+	common.RenderStatus(w, http.StatusOK)
+}
+
+func validateJob(ctx *logger.RequestContext, jobID string) error {
+	if len(jobID) == 0 {
+		ctx.ErrorCode = common.JobInvalidField
+		ctx.Logging().Errorf("job id is empty")
+		return errors.EmptyJobIDError()
+	}
+	return nil
+}
+
+// StopJob stop job
+// @Summary 停止作业
+// @Description 停止作业
+// @Id StopJob
+// @tags Job
+// @Accept  json
+// @Produce json
+// @Param jobID path string true "作业ID"
+// @Success 200 {string} "停止作业的响应"
+// @Failure 400 {object} common.ErrorResponse "400"
+// @Router /job/{jobID}?action=stop [PUT]
+func (jr *JobRouter) StopJob(w http.ResponseWriter, r *http.Request) {
+	ctx := common.GetRequestContext(r)
+	jobID := chi.URLParam(r, util.ParamKeyJobID)
+	if err := validateJob(&ctx, jobID); err != nil {
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, ctx.ErrorMessage)
+		return
+	}
+	err := job.StopJob(&ctx, jobID)
+	if err != nil {
+		ctx.ErrorMessage = fmt.Sprintf("stop job failed, err: %v", err)
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, ctx.ErrorMessage)
+		return
+	}
+	common.RenderStatus(w, http.StatusOK)
+}
+
+// UpdateJob update job
+// @Summary 更新作业
+// @Description 更新作业
+// @Id UpdateJob
+// @tags Job
+// @Accept  json
+// @Produce json
+// @Param jobID path string true "作业ID"
+// @Success 200 {string} "更新作业的响应"
+// @Failure 400 {object} common.ErrorResponse "400"
+// @Router /job/{jobID}?action=modify [PUT]
+func (jr *JobRouter) UpdateJob(w http.ResponseWriter, r *http.Request) {
+	// TODO: add update job
 }

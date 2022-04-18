@@ -70,7 +70,7 @@ func UpdateTask(task *JobTask) error {
 	}
 	tx := database.DB.Table(JobTaskTableName).Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "id"}},
-		DoUpdates: clause.AssignmentColumns([]string{"status", "deleted_at"}),
+		DoUpdates: clause.AssignmentColumns([]string{"status", "message", "ext_runtime_status", "deleted_at"}),
 	}).Create(task)
 	return tx.Error
 }

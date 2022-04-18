@@ -125,7 +125,7 @@ func NewJobInfo(job *models.Job) (*PFJob, error) {
 		ID:        job.ID,
 		Name:      job.Name,
 		Namespace: job.Config.GetNamespace(),
-		JobType:   job.Config.Type(),
+		JobType:   schema.JobType(job.Type),
 		JobMode:   job.Config.GetJobMode(),
 		Framework: job.Framework,
 		ClusterID: ClusterID(job.Config.GetClusterID()),
@@ -137,6 +137,9 @@ func NewJobInfo(job *models.Job) (*PFJob, error) {
 		Tasks:     job.Members,
 	}
 	if len(job.ExtensionTemplate) == 0 {
+		if job.Config.GetFS() == "" || job.Config.GetYamlPath() == "" {
+			return pfjob, nil
+		}
 		var err error
 		pfjob.ExtRuntimeConf, err = pfjob.GetExtRuntimeConf(job.Config.GetFS(), job.Config.GetYamlPath())
 		if err != nil {

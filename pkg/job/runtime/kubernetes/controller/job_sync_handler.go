@@ -40,28 +40,30 @@ const (
 func (j *JobSync) add(obj interface{}) {
 	jobObj := obj.(*unstructured.Unstructured)
 	// get job id
-	jobType := k8s.GVKToJobType[jobObj.GroupVersionKind()]
 	labels := jobObj.GetLabels()
 	jobID := labels[schema.JobIDLabel]
 	// get job status
-	getStatusFunc := k8s.GVKJobStatusMap[jobObj.GroupVersionKind()]
+	gvk := jobObj.GroupVersionKind()
+	getStatusFunc := k8s.GVKJobStatusMap[gvk]
 	statusInfo, err := getStatusFunc(obj)
 	if err != nil {
 		return
 	}
 	jobStatus := statusInfo.Status
 	log.Infof("add %s job. jobName: %s, namespace: %s, jobID: %s, status: %s",
-		jobType, jobObj.GetName(), jobObj.GetNamespace(), jobID, jobStatus)
+		gvk.String(), jobObj.GetName(), jobObj.GetNamespace(), jobID, jobStatus)
 	if jobStatus == "" {
 		jobStatus = schema.StatusJobPending
 	}
+	parentJobID := j.getParentJobID(jobObj)
 	jobInfo := &JobSyncInfo{
-		ID:      jobID,
-		Status:  jobStatus,
-		Runtime: obj,
-		Message: statusInfo.Message,
-		Type:    jobType,
-		Action:  schema.Update,
+		ID:          jobObj.GetName(),
+		ParentJobID: parentJobID,
+		GVK:         jobObj.GroupVersionKind(),
+		Status:      jobStatus,
+		Runtime:     obj,
+		Message:     statusInfo.Message,
+		Action:      schema.Create,
 	}
 	j.jobQueue.Add(jobInfo)
 }
@@ -69,15 +71,15 @@ func (j *JobSync) add(obj interface{}) {
 func (j *JobSync) update(old, new interface{}) {
 	oldObj := old.(*unstructured.Unstructured)
 	newObj := new.(*unstructured.Unstructured)
-	// get job id and job type
-	jobType := k8s.GVKToJobType[newObj.GroupVersionKind()]
+	// get job id
+	gvk := newObj.GroupVersionKind()
 	labels := newObj.GetLabels()
 	jobID := labels[schema.JobIDLabel]
 	log.Infof("update %s job, jobName: %s, namespace: %s, jobID: %s",
-		jobType, newObj.GetName(), newObj.GetNamespace(), jobID)
+		gvk.String(), newObj.GetName(), newObj.GetNamespace(), jobID)
 
 	// get job status
-	getStatusFunc := k8s.GVKJobStatusMap[newObj.GroupVersionKind()]
+	getStatusFunc := k8s.GVKJobStatusMap[gvk]
 	oldStatusInfo, err := getStatusFunc(old)
 	if err != nil {
 		return
@@ -88,7 +90,7 @@ func (j *JobSync) update(old, new interface{}) {
 	}
 	if oldObj.GetResourceVersion() == newObj.GetResourceVersion() &&
 		oldStatusInfo.OriginStatus == newStatusInfo.OriginStatus {
-		log.Debugf("skip update spark job. jobID: %s, resourceVersion: %s, state: %s",
+		log.Debugf("skip update %s job. jobID: %s, resourceVersion: %s, state: %s", gvk.String(),
 			newObj.GetName(), newObj.GetResourceVersion(), newStatusInfo.Status)
 		return
 	}
@@ -98,42 +100,62 @@ func (j *JobSync) update(old, new interface{}) {
 		jobStatus = schema.StatusJobPending
 	}
 	jobInfo := &JobSyncInfo{
-		ID:      jobID,
-		Status:  jobStatus,
-		Runtime: new,
-		Message: newStatusInfo.Message,
-		Type:    jobType,
-		Action:  schema.Update,
+		ID:          newObj.GetName(),
+		ParentJobID: j.getParentJobID(newObj),
+		GVK:         newObj.GroupVersionKind(),
+		Status:      jobStatus,
+		Runtime:     new,
+		Message:     newStatusInfo.Message,
+		Action:      schema.Update,
 	}
 	j.jobQueue.Add(jobInfo)
-	log.Infof("update %s job enqueue. jobID: %s, status: %s, message: %s", jobInfo.Type,
+	log.Infof("update %s job enqueue. jobID: %s, status: %s, message: %s", gvk.String(),
 		jobInfo.ID, jobInfo.Status, jobInfo.Message)
 }
 
 func (j *JobSync) delete(obj interface{}) {
 	jobObj := obj.(*unstructured.Unstructured)
-	// get job id and job Type
-	jobType := k8s.GVKToJobType[jobObj.GroupVersionKind()]
+	// get job id and GroupVersionKind
+	gvk := jobObj.GroupVersionKind()
 	labels := jobObj.GetLabels()
 	jobID := labels[schema.JobIDLabel]
-	log.Infof("delete %s job. jobName: %s, namespace: %s, jobID: %s", jobType, jobObj.GetName(), jobObj.GetNamespace(), jobID)
+	log.Infof("delete %s job. jobName: %s, namespace: %s, jobID: %s", gvk.String(), jobObj.GetName(), jobObj.GetNamespace(), jobID)
 	// get job status
-	getStatusFunc := k8s.GVKJobStatusMap[jobObj.GroupVersionKind()]
+	getStatusFunc := k8s.GVKJobStatusMap[gvk]
 	statusInfo, err := getStatusFunc(obj)
 	if err != nil {
 		log.Errorf("get job status failed, and jobID: %s, error: %s", jobID, err)
 		return
 	}
 	jobInfo := &JobSyncInfo{
-		ID:      jobID,
-		Status:  statusInfo.Status,
-		Runtime: obj,
-		Message: statusInfo.Message,
-		Type:    jobType,
-		Action:  schema.Delete,
+		ID:          jobObj.GetName(),
+		ParentJobID: j.getParentJobID(jobObj),
+		GVK:         jobObj.GroupVersionKind(),
+		Status:      statusInfo.Status,
+		Runtime:     obj,
+		Message:     statusInfo.Message,
+		Action:      schema.Delete,
 	}
 	j.jobQueue.Add(jobInfo)
-	log.Infof("delete %s job enqueue, jobID: %s", jobInfo.Type, jobInfo.ID)
+	log.Infof("delete %s job enqueue, jobID: %s", gvk.String(), jobInfo.ID)
+}
+
+// subJob handle node for ArgoWorkflow
+func (j *JobSync) getParentJobID(obj *unstructured.Unstructured) string {
+	name := obj.GetName()
+	namespace := obj.GetNamespace()
+	ownerReferences := obj.GetOwnerReferences()
+	if len(ownerReferences) == 0 {
+		return ""
+	}
+	owner := ownerReferences[0]
+	gvk := k8sschema.FromAPIVersionAndKind(owner.APIVersion, owner.Kind)
+	if gvk != k8s.ArgoWorkflowGVK {
+		log.Warnf("job %s/%s is not belong to ArgoWorkflow, skip it", namespace, name)
+		return ""
+	}
+	// parent job
+	return owner.Name
 }
 
 // addPod watch add pod event
