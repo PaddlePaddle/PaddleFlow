@@ -57,6 +57,11 @@ const (
 	QueryKeyUserName   = "username"
 	QueryResourceType  = "resourceType"
 	QueryResourceID    = "resourceID"
+	QueryKeyStatus     = "status"
+	QueryKeyTimestamp  = "timestamp"
+	QueryKeyStartTime  = "startTime"
+	QueryKeyQueue      = "queue"
+	QueryKeyLabels     = "labels"
 
 	ParamKeyClusterName   = "clusterName"
 	ParamKeyClusterNames  = "clusterNames"
