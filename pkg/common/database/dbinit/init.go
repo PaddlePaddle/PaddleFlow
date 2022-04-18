@@ -112,11 +112,10 @@ func InitMockDB() {
 	}
 	database.DB = db
 
-	// create mock data
-	createMockData()
 }
 
-func createMockData() {
+// CreateMockData create mock data for test
+func CreateMockData() {
 	// init flavour
 	flavours := []models.Flavour{
 		{

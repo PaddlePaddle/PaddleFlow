@@ -108,6 +108,7 @@ func TestSinglePod_CreateJob(t *testing.T) {
 	dynamicClient := newFakeDynamicClient(server)
 	// mock db
 	dbinit.InitMockDB()
+	dbinit.CreateMockData()
 	// create kubernetes resource with dynamic client
 	tests := []struct {
 		caseName string

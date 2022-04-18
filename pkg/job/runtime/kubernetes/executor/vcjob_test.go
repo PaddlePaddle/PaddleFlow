@@ -32,6 +32,7 @@ func TestPatchVCJobVariable(t *testing.T) {
 	initConfigsForTest(confEnv)
 	// mock db
 	dbinit.InitMockDB()
+	dbinit.CreateMockData()
 	// init for vcJob's ps mode
 	confEnv[schema.EnvJobPServerCommand] = "sleep 30"
 	confEnv[schema.EnvJobWorkerCommand] = "sleep 30"
