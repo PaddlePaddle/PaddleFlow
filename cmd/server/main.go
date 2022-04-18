@@ -15,6 +15,7 @@ import (
 	_ "go.uber.org/automaxprocs"
 
 	"paddleflow/cmd/server/flag"
+	job2 "paddleflow/pkg/apiserver/controller/job"
 	"paddleflow/pkg/apiserver/controller/run"
 	"paddleflow/pkg/apiserver/models"
 	v1 "paddleflow/pkg/apiserver/router/v1"
@@ -95,6 +96,9 @@ func start() error {
 		return err
 	}
 	go imageHandler.Run()
+
+	go job2.WSManager.SendGroupData()
+	go job2.WSManager.GetGroupData()
 
 	go func() {
 		if err := HttpSvr.ListenAndServe(); err != nil && errors.Is(err, http.ErrServerClosed) {

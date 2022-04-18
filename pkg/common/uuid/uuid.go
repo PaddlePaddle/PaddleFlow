@@ -24,6 +24,7 @@ import (
 const (
 	uuidMaxLength   = 32
 	defaultIDLength = 8
+	JobIDLength     = 16
 )
 
 func GenerateID(Prefix string) string {
