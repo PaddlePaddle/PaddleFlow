@@ -1,3 +1,19 @@
+/*
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package job
 
 import (
@@ -101,10 +117,11 @@ func ListJob(ctx *logger.RequestContext, request ListJobRequest) (*ListJobRespon
 		timestampStr = time.Unix(request.Timestamp, 0).Format(models.TimeFormat)
 	}
 	// model list
-	jobList, err := models.ListJob(ctx, pk, request.MaxKeys, request.Queue, request.Status, request.StartTime, timestampStr, userFilter, request.Labels)
+	jobList, err := models.ListJob(pk, request.MaxKeys, request.Queue, request.Status, request.StartTime, timestampStr, userFilter, request.Labels)
 	if err != nil {
 		ctx.Logging().Errorf("models list job failed. err:[%s]", err.Error())
 		ctx.ErrorCode = common.InternalError
+		return nil, err
 	}
 	listJobResponse := ListJobResponse{JobList: []*GetJobResponse{}}
 
@@ -158,7 +175,7 @@ func GetJob(ctx *logger.RequestContext, jobID string) (*GetJobResponse, error) {
 }
 
 func isLastJobPk(ctx *logger.RequestContext, pk int64) bool {
-	lastJob, err := models.GetLastJob(ctx)
+	lastJob, err := models.GetLastJob()
 	if err != nil {
 		ctx.Logging().Errorf("get last job failed. error:[%s]", err.Error())
 	}
@@ -172,10 +189,12 @@ func convertJobToResponse(job models.Job, runtimeFlag bool) (GetJobResponse, err
 	response := GetJobResponse{}
 	b, err := json.Marshal(job)
 	if err != nil {
+		log.Errorf("model job[%s] convert to json string failed, error:[%s]", job.ID, err.Error())
 		return response, err
 	}
 	err = json.Unmarshal(b, &response)
 	if err != nil {
+		log.Errorf("json string convert to job[%s] response failed, error:[%s]", job.ID, err.Error())
 		return response, err
 	}
 
@@ -282,12 +301,12 @@ func parseK8sMeta(runtimeInfo interface{}) (metav1.ObjectMeta, error) {
 	metaData := runtimeInfo.(map[string]interface{})["metadata"]
 	metaDataByte, err := json.Marshal(metaData)
 	if err != nil {
-		log.Errorf(err.Error())
+		log.Errorf("k8s object meta convert to json string failed, error:[%s]", err.Error())
 		return k8sMeta, err
 	}
 	err = json.Unmarshal(metaDataByte, &k8sMeta)
 	if err != nil {
-		log.Errorf(err.Error())
+		log.Errorf("json string convert to k8s object meta failed, error:[%s]", err.Error())
 		return k8sMeta, err
 	}
 	return k8sMeta, nil
@@ -331,6 +350,7 @@ func getNodeRuntime(jobID string) ([]DistributedRuntimeInfo, error) {
 		}
 		taskRuntime, err := getTaskRuntime(node.ID)
 		if err != nil {
+			log.Errorf("get node[%s] task runtime failed, error:[%s]", node.ID, err.Error())
 			return nil, err
 		}
 		nodeRuntime := DistributedRuntimeInfo{

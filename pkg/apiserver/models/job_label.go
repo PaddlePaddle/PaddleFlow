@@ -1,12 +1,28 @@
+/*
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package models
 
 import (
 	"time"
 
+	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 
 	"paddleflow/pkg/common/database"
-	"paddleflow/pkg/common/logger"
 )
 
 type JobLabel struct {
@@ -23,7 +39,7 @@ func (JobLabel) TableName() string {
 }
 
 // list job process multi label get and result
-func ListJobIDByLabels(ctx *logger.RequestContext, labels map[string]string) ([]string, error) {
+func ListJobIDByLabels(labels map[string]string) ([]string, error) {
 	jobIDs := make([]string, 0)
 	var jobLabels []JobLabel
 	labelsListStr := make([]string, 0)
@@ -33,7 +49,7 @@ func ListJobIDByLabels(ctx *logger.RequestContext, labels map[string]string) ([]
 	}
 	err := database.DB.Table("job_label").Where("label IN (?)", labelsListStr).Find(&jobLabels).Error
 	if err != nil {
-		ctx.Logging().Errorf("list jobID by labels failed, error:[%s]", err.Error())
+		log.Errorf("list jobID by labels failed, error:[%s]", err.Error())
 		return nil, err
 	}
 	jobLabelsMap := make(map[string]map[string]interface{}, 0)

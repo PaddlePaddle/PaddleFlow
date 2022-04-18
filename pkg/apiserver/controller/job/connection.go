@@ -1,3 +1,19 @@
+/*
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package job
 
 import (
@@ -5,6 +21,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	log "github.com/sirupsen/logrus"
 
 	"paddleflow/pkg/apiserver/common"
 	"paddleflow/pkg/common/logger"
@@ -75,6 +92,7 @@ func (conn *Connection) writeHeartbeatLoop() {
 		case data := <-conn.HeartbeatChan:
 			conn.MuxWrite.Lock()
 			if err := conn.WsConnect.WriteMessage(websocket.TextMessage, data); err != nil {
+				log.Errorf("write heartbeat msg failed, error:[%s]", err.Error())
 				return
 			}
 			conn.MuxWrite.Unlock()
@@ -90,6 +108,7 @@ func (conn *Connection) writeDataLoop() {
 		case data := <-conn.InformChan:
 			conn.MuxWrite.Lock()
 			if err := conn.WsConnect.WriteMessage(websocket.TextMessage, data); err != nil {
+				log.Errorf("write job data msg failed, error:[%s]", err.Error())
 				return
 			}
 			conn.MuxWrite.Unlock()
@@ -105,6 +124,7 @@ func (conn *Connection) Close() {
 	// 防止ClosChan被多次关闭
 	conn.MuxClose.Lock()
 	if !conn.IsClosed {
+		log.Infof("ws connectiion closed")
 		close(conn.CloseChan)
 		conn.IsClosed = true
 		WSManager.Exit(conn.ID)

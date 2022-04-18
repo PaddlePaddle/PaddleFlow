@@ -252,19 +252,17 @@ func ListJobByParentID(parentID string) ([]Job, error) {
 	return jobList, nil
 }
 
-func GetLastJob(ctx *logger.RequestContext) (Job, error) {
-	ctx.Logging().Debugf("get last job.")
+func GetLastJob() (Job, error) {
 	job := Job{}
 	tx := database.DB.Table("job").Last(&job)
 	if tx.Error != nil {
-		ctx.Logging().Errorf("get last job failed. error:%s", tx.Error.Error())
+		log.Errorf("get last job failed. error:%s", tx.Error.Error())
 		return Job{}, tx.Error
 	}
 	return job, nil
 }
 
-func ListJob(ctx *logger.RequestContext, pk int64, maxKeys int, queue, status, startTime, timestamp, userFilter string, labels map[string]string) ([]Job, error) {
-	ctx.Logging().Debugf("begin list job. ")
+func ListJob(pk int64, maxKeys int, queue, status, startTime, timestamp, userFilter string, labels map[string]string) ([]Job, error) {
 	tx := database.DB.Table("job").Where("pk > ?", pk)
 	if userFilter != "root" {
 		tx = tx.Where("user_name = ?", userFilter)
@@ -279,7 +277,7 @@ func ListJob(ctx *logger.RequestContext, pk int64, maxKeys int, queue, status, s
 		tx = tx.Where("activated_at > ?", startTime)
 	}
 	if len(labels) > 0 {
-		jobIDs, err := ListJobIDByLabels(ctx, labels)
+		jobIDs, err := ListJobIDByLabels(labels)
 		if err != nil {
 			return []Job{}, err
 		}
