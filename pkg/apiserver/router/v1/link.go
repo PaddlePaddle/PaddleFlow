@@ -65,12 +65,12 @@ var SupportLinkURLPrefix = map[string]bool{
 // @tag fs
 // @Accept   json
 // @Produce  json
-// @Param request body request.CreateLinkRequest true "request body"
-// @Success 200 {object} models.Link
+// @Param request body fs.CreateLinkRequest true "request body"
+// @Success 201 {string} string "Created"
 // @Failure 400 {object} common.ErrorResponse
 // @Failure 404 {object} common.ErrorResponse
 // @Failure 500 {object} common.ErrorResponse
-// @Router /api/paddleflow/v1/link/ [post]
+// @Router /link/ [post]
 func (lr *LinkRouter) CreateLink(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
 
@@ -116,7 +116,7 @@ func (lr *LinkRouter) CreateLink(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	common.Render(w, http.StatusOK, nil)
+	common.RenderStatus(w, http.StatusCreated)
 }
 
 func validateCreateLink(ctx *logger.RequestContext, req *api.CreateLinkRequest) error {
@@ -392,7 +392,7 @@ func checkLinkPath(fsPath, fsID string) error {
 // @Param fsName path string true "文件系统名称"
 // @Param fsPath path string true "文件系统link的目录"
 // @Success 200
-// @Router /api/paddleflow/v1/link/{fsName} [delete]
+// @Router /link/{fsName} [delete]
 func (lr *LinkRouter) DeleteLink(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
 	fsName := chi.URLParam(r, util.QueryFsName)
@@ -459,12 +459,12 @@ func validateDeleteLink(ctx *logger.RequestContext, req *api.DeleteLinkRequest) 
 // @tag fs
 // @Accept   json
 // @Produce  json
-// @Param request body request.GetLinkRequest true "request body"
-// @Success 200 {object} response.GetLinkResponse
+// @Param request body fs.GetLinkRequest true "request body"
+// @Success 200 {object} fs.GetLinkResponse
 // @Failure 400 {object} common.ErrorResponse
 // @Failure 404 {object} common.ErrorResponse
 // @Failure 500 {object} common.ErrorResponse
-// @Router /api/paddleflow/v1/link/{fsName} [get]
+// @Router /link/{fsName} [get]
 func (lr *LinkRouter) GetLink(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
 
@@ -482,7 +482,7 @@ func (lr *LinkRouter) GetLink(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = models.GetFsWithID(fsID)
+	_, err = models.GetFileSystemWithFsID(fsID)
 	if err != nil {
 		ctx.Logging().Errorf("GetLink check fs existence failed: [%v]", err)
 		if errors.Is(err, gorm.ErrRecordNotFound) {
