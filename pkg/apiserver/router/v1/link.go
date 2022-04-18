@@ -17,7 +17,9 @@ limitations under the License.
 package v1
 
 import (
+	"errors"
 	"fmt"
+	"gorm.io/gorm"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -477,6 +479,17 @@ func (lr *LinkRouter) GetLink(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		ctx.Logging().Errorf("GetLink check fs permission failed: [%v]", err)
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+
+	_, err = models.GetFsWithID(fsID)
+	if err != nil {
+		ctx.Logging().Errorf("GetLink check fs existence failed: [%v]", err)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			common.RenderErrWithMessage(w, ctx.RequestID, common.RecordNotFound, err.Error())
+		} else {
+			common.RenderErrWithMessage(w, ctx.RequestID, common.FileSystemDataBaseError, err.Error())
+		}
 		return
 	}
 
