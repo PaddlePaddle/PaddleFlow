@@ -102,11 +102,12 @@ const (
 	TypeDistributed JobType = "distributed"
 	TypeWorkflow    JobType = "workflow"
 
-	FrameworkSpark   Framework = "spark"
-	FrameworkMPI     Framework = "mpi"
-	FrameworkTF      Framework = "tensorflow"
-	FrameworkPytorch Framework = "pytorch"
-	FrameworkPaddle  Framework = "paddle"
+	FrameworkSpark      Framework = "spark"
+	FrameworkMPI        Framework = "mpi"
+	FrameworkTF         Framework = "tensorflow"
+	FrameworkPytorch    Framework = "pytorch"
+	FrameworkPaddle     Framework = "paddle"
+	FrameworkStandalone Framework = "standalone"
 
 	// job priority
 	EnvJobVeryLowPriority  = "VERY_LOW"
@@ -128,6 +129,7 @@ const (
 	JobTTLSeconds = "padleflow/job-ttl-seconds"
 
 	VolcanoJobNameLabel  = "volcano.sh/job-name"
+	QueueLabelKey        = "volcano.sh/queue-name"
 	SparkAPPJobNameLabel = "sparkoperator.k8s.io/app-name"
 
 	JobPrefix            = "job"

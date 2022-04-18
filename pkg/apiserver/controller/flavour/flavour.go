@@ -19,8 +19,6 @@ package flavour
 import (
 	"errors"
 	"fmt"
-	"reflect"
-
 	log "github.com/sirupsen/logrus"
 
 	"paddleflow/pkg/apiserver/common"
@@ -32,7 +30,7 @@ import (
 // CreateFlavourRequest convey request for create flavour
 type CreateFlavourRequest struct {
 	Name            string                     `json:"name"`
-	ClusterName     string                     `json:"clusterName"`
+	ClusterName     string                     `json:"clusterName,omitempty"`
 	ClusterID       string                     `json:"-"`
 	CPU             string                     `json:"cpu"`
 	Mem             string                     `json:"mem"`
@@ -103,17 +101,24 @@ func UpdateFlavour(request *UpdateFlavourRequest) (*UpdateFlavourResponse, error
 	}
 
 	isChanged := false
-	if request.CPU != flavour.CPU {
+	if request.CPU != "" && request.CPU != flavour.CPU {
 		isChanged = true
 		flavour.CPU = request.CPU
 	}
-	if request.Mem != flavour.Mem {
+	if request.Mem != "" && request.Mem != flavour.Mem {
 		isChanged = true
 		flavour.Mem = request.Mem
 	}
-	if !reflect.DeepEqual(request.ScalarResources, flavour.ScalarResources) {
-		isChanged = true
-		flavour.ScalarResources = request.ScalarResources
+	if flavour.ScalarResources == nil {
+		flavour.ScalarResources = make(schema.ScalarResourcesType)
+	}
+	if len(request.ScalarResources) != 0 || request.ScalarResources == nil {
+		for resourceName, resource := range request.ScalarResources {
+			isChanged = true
+			flavour.ScalarResources[resourceName] = resource
+		}
+	} else {
+		log.Debugf("flavour %s scalarResources is set nil", flavour.Name)
 	}
 
 	if isChanged {

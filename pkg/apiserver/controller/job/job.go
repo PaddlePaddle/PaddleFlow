@@ -30,6 +30,8 @@ import (
 	"paddleflow/pkg/common/schema"
 	"paddleflow/pkg/common/uuid"
 	"paddleflow/pkg/job"
+	"paddleflow/pkg/job/api"
+	"paddleflow/pkg/job/runtime"
 )
 
 // CreateSingleJobRequest convey request for create job
@@ -87,6 +89,8 @@ func CreateSingleJob(request *CreateSingleJobRequest) (*CreateJobResponse, error
 			return nil, err
 		}
 		extensionTemplate = string(bytes)
+	} else {
+		extensionTemplate = ""
 	}
 	conf := schema.Conf{
 		Name:            request.CommonJobInfo.Name,
@@ -120,6 +124,7 @@ func CreateSingleJob(request *CreateSingleJobRequest) (*CreateJobResponse, error
 }
 
 func patchEnvs(conf *schema.Conf, commonJobInfo *CommonJobInfo) error {
+	log.Debugf("patch envs for job %s", commonJobInfo.Name)
 	// basic fields required
 	conf.Labels = commonJobInfo.Labels
 	conf.Annotations = commonJobInfo.Annotations
@@ -147,6 +152,7 @@ func patchEnvs(conf *schema.Conf, commonJobInfo *CommonJobInfo) error {
 }
 
 func patchSingleEnvs(conf *schema.Conf, request *CreateSingleJobRequest) error {
+	log.Debugf("patchSingleEnvs conf=%#v, request=%#v", conf, request)
 	// fields in request.CommonJobInfo
 	if err := patchEnvs(conf, &request.CommonJobInfo); err != nil {
 		log.Errorf("patch commonInfo of single job failed, err=%v", err)
@@ -192,6 +198,7 @@ func CreateJob(conf schema.PFJobConf, jobID, jobTemplate string) (string, error)
 		return "", err
 	}
 	if err := checkPriority(conf); err != nil {
+		log.Errorf("check priority failed, err=%v", err)
 		return "", err
 	}
 
@@ -230,4 +237,96 @@ func checkPriority(conf schema.PFJobConf) error {
 		}
 	}
 	return nil
+}
+
+func CheckPermission(ctx *logger.RequestContext) error {
+	// TODO: check permission
+	return nil
+}
+
+func DeleteJob(ctx *logger.RequestContext, jobID string) error {
+	if err := CheckPermission(ctx); err != nil {
+		return err
+	}
+	job, err := models.GetJobByID(jobID)
+	if err != nil {
+		ctx.ErrorCode = common.JobNotFound
+		log.Errorf("get job from database failed, err: %v", err)
+		return err
+	}
+	runtimeSvc, err := getRuntimeByQueue(ctx, job.QueueID)
+	if err != nil {
+		log.Errorf("get runtime by queue failed, err: %v", err)
+		return err
+	}
+	pfjob, err := api.NewJobInfo(&job)
+	if err != nil {
+		return err
+	}
+	err = runtimeSvc.DeleteJob(pfjob)
+	if err != nil {
+		log.Errorf("delete job %s from cluster failed, err: %v", jobID, err)
+		return err
+	}
+	err = models.DeleteJob(jobID)
+	if err != nil {
+		log.Errorf("delete job %s from cluster failed, err: %v", jobID, err)
+		return err
+	}
+	return nil
+}
+
+func StopJob(ctx *logger.RequestContext, jobID string) error {
+	if err := CheckPermission(ctx); err != nil {
+		return err
+	}
+	job, err := models.GetJobByID(jobID)
+	if err != nil {
+		ctx.ErrorCode = common.JobNotFound
+		log.Errorf("get job %s from database failed, err: %v", jobID, err)
+		return err
+	}
+	// check job status
+	if schema.IsImmutableJobStatus(job.Status) {
+		msg := fmt.Sprintf("job %s status is already %s, and job cannot be stopped", jobID, job.Status)
+		log.Errorf(msg)
+		return fmt.Errorf(msg)
+	}
+	runtimeSvc, err := getRuntimeByQueue(ctx, job.QueueID)
+	if err != nil {
+		log.Errorf("get runtime by queue failed, err: %v", err)
+		return err
+	}
+	pfjob, err := api.NewJobInfo(&job)
+	if err != nil {
+		return err
+	}
+	err = runtimeSvc.StopJob(pfjob)
+	if err != nil {
+		log.Errorf("delete job %s from cluster failed, err: %v", job.ID, err)
+		return err
+	}
+	return nil
+}
+
+func getRuntimeByQueue(ctx *logger.RequestContext, queueID string) (runtime.RuntimeService, error) {
+	queue, err := models.GetQueueByID(ctx, queueID)
+	if err != nil {
+		log.Errorf("get queue for job failed, err: %v", err)
+		return nil, err
+	}
+	// TODO: GetOrCreateRuntime by cluster id
+	clusterInfo, err := models.GetClusterById(ctx, queue.ClusterId)
+	if err != nil {
+		ctx.Logging().Errorf("get clusterInfo by id %s failed. error: %s",
+			queue.ClusterId, err.Error())
+		return nil, err
+	}
+	runtimeSvc, err := runtime.GetOrCreateRuntime(clusterInfo)
+	if err != nil {
+		ctx.ErrorCode = common.InternalError
+		ctx.Logging().Errorf("get or create runtime failed, err: %v", err)
+		return nil, fmt.Errorf("delete queue failed")
+	}
+	return runtimeSvc, nil
 }

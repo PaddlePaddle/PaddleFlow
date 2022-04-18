@@ -62,17 +62,19 @@ type KubeJobInterface interface {
 type KubeJob struct {
 	ID string
 	// Name the name of job on kubernetes
-	Name       string
-	Namespace  string
-	JobType    schema.JobType
-	JobMode    string
-	Image      string
-	Command    string
-	Env        map[string]string
-	VolumeName string
-	PVCName    string
-	Priority   string
-	QueueName  string
+	Name        string
+	Namespace   string
+	JobType     schema.JobType
+	JobMode     string
+	Image       string
+	Command     string
+	Env         map[string]string
+	VolumeName  string
+	PVCName     string
+	Priority    string
+	QueueName   string
+	Labels      map[string]string
+	Annotations map[string]string
 	// YamlTemplateContent indicate template content of job
 	YamlTemplateContent []byte
 	GroupVersionKind    kubeschema.GroupVersionKind
@@ -93,6 +95,8 @@ func NewKubeJob(job *api.PFJob, dynamicClientOpt *k8s.DynamicClientOption) (api.
 		Env:                 job.Conf.GetEnv(),
 		VolumeName:          job.Conf.GetFS(),
 		PVCName:             pvcName,
+		Labels:              job.Conf.Labels,
+		Annotations:         job.Conf.Annotations,
 		YamlTemplateContent: job.ExtRuntimeConf,
 		Priority:            job.Conf.GetPriority(),
 		QueueName:           job.Conf.GetQueueName(),
@@ -122,6 +126,15 @@ func NewKubeJob(job *api.PFJob, dynamicClientOpt *k8s.DynamicClientOption) (api.
 		return &PaddleJob{
 			KubeJob:       kubeJob,
 			JobModeParams: newJobModeParams(job.Conf),
+		}, nil
+	case schema.TypeSingle:
+		kubeJob.GroupVersionKind = k8s.PodGVK
+		if kubeJob.Name == "" {
+			kubeJob.Name = kubeJob.ID
+		}
+		return &SingleJob{
+			KubeJob: kubeJob,
+			Flavour: job.Conf.Flavour,
 		}, nil
 
 	default:
@@ -192,7 +205,7 @@ func (j *KubeJob) createJobFromYaml(jobEntity interface{}) error {
 	unstructuredObj := &unstructured.Unstructured{}
 
 	if _, _, err := dec.Decode(j.YamlTemplateContent, nil, unstructuredObj); err != nil {
-		log.Errorf("Decode from yamlFIle[%s] failed! err:[%v]\n", j.YamlTemplateContent, err)
+		log.Errorf("Decode from yamlFile[%s] failed! err:[%v]\n", string(j.YamlTemplateContent), err)
 		return err
 	}
 
@@ -216,6 +229,46 @@ func (j *KubeJob) fillContainerInTask(container *corev1.Container, flavourKey, c
 	container.Resources = j.generateResourceRequirements(flavourValue)
 	container.VolumeMounts = j.appendMountIfAbsent(container.VolumeMounts, j.generateVolumeMount())
 	container.Env = j.generateEnvVars()
+}
+
+//appendLabelsIfAbsent append labels if absent
+func (j *KubeJob) appendLabelsIfAbsent(labels map[string]string, addLabels map[string]string) map[string]string {
+	return appendMapsIfAbsent(labels, addLabels)
+}
+
+//appendAnnotationsIfAbsent append Annotations if absent
+func (j *KubeJob) appendAnnotationsIfAbsent(Annotations map[string]string, addAnnotations map[string]string) map[string]string {
+	return appendMapsIfAbsent(Annotations, addAnnotations)
+}
+
+//appendMapsIfAbsent append Maps if absent, only support string type
+func appendMapsIfAbsent(Maps map[string]string, addMaps map[string]string) map[string]string {
+	if Maps == nil {
+		Maps = make(map[string]string)
+	}
+	for key, value := range addMaps {
+		if _, ok := Maps[key]; !ok {
+			Maps[key] = value
+		}
+	}
+	return Maps
+}
+
+// appendEnvIfAbsent append new env if not exist in baseEnvs
+func (j *KubeJob) appendEnvIfAbsent(baseEnvs []corev1.EnvVar, addEnvs []corev1.EnvVar) []corev1.EnvVar {
+	if baseEnvs == nil {
+		return addEnvs
+	}
+	keySet := make(map[string]bool)
+	for _, cur := range baseEnvs {
+		keySet[cur.Name] = true
+	}
+	for _, cur := range addEnvs {
+		if _, ok := keySet[cur.Name]; !ok {
+			baseEnvs = append(baseEnvs, cur)
+		}
+	}
+	return baseEnvs
 }
 
 // appendMountIfAbsent append volumeMount if not exist in volumeMounts
@@ -276,9 +329,8 @@ func (j *KubeJob) generateResourceRequirements(flavour schema.Flavour) corev1.Re
 func (j *KubeJob) patchMetadata(metadata *metav1.ObjectMeta) {
 	metadata.Name = j.Name
 	metadata.Namespace = j.Namespace
-	if metadata.Labels == nil {
-		metadata.Labels = map[string]string{}
-	}
+	metadata.Annotations = j.appendAnnotationsIfAbsent(metadata.Annotations, j.Annotations)
+	metadata.Labels = j.appendLabelsIfAbsent(metadata.Labels, j.Labels)
 	metadata.Labels[schema.JobOwnerLabel] = schema.JobOwnerValue
 	metadata.Labels[schema.JobIDLabel] = j.ID
 }
