@@ -36,26 +36,24 @@ import (
 
 // CreateSingleJobRequest convey request for create job
 type CreateSingleJobRequest struct {
-	CommonJobInfo
-	Flavour           schema.Flavour      `json:"flavour"`
-	FileSystem        schema.FileSystem   `json:"fileSystem"`
-	ExtraFileSystems  []schema.FileSystem `json:"extraFileSystems"`
-	Image             string              `json:"image"`
-	Env               map[string]string   `json:"env"`
-	Command           string              `json:"command"`
-	Args              []string            `json:"args"`
-	Port              int                 `json:"port"`
-	ExtensionTemplate string              `json:"extensionTemplate"`
+	CommonJobInfo `json:",inline"`
+	JobSpec       `json:",inline"`
 }
 
 // CreateDisJobRequest convey request for create distributed job
 type CreateDisJobRequest struct {
-	// todo(zhongzichao)
+	CommonJobInfo     `json:",inline"`
+	Framework         schema.Framework `json:"framework"`
+	Members           []MemberSpec     `json:"members"`
+	ExtensionTemplate string           `json:"extensionTemplate"`
 }
 
 // CreateWfJobRequest convey request for create workflow job
 type CreateWfJobRequest struct {
-	CommonSpec CommonJobInfo `json:",inline"`
+	CommonJobInfo     `json:",inline"`
+	Framework         schema.Framework `json:"framework"`
+	Members           []MemberSpec     `json:"members"`
+	ExtensionTemplate string           `json:"extensionTemplate"`
 }
 
 // CommonJobInfo the common fields for jobs
@@ -72,6 +70,26 @@ type CommonJobInfo struct {
 type SchedulingPolicy struct {
 	QueueID  string `json:"queue"`
 	Priority string `json:"priority,omitempty"`
+}
+
+// JobSpec the spec fields for jobs
+type JobSpec struct {
+	Flavour           schema.Flavour      `json:"flavour"`
+	FileSystem        schema.FileSystem   `json:"fileSystem"`
+	ExtraFileSystems  []schema.FileSystem `json:"extraFileSystems"`
+	Image             string              `json:"image"`
+	Env               map[string]string   `json:"env"`
+	Command           string              `json:"command"`
+	Args              []string            `json:"args"`
+	Port              int                 `json:"port"`
+	ExtensionTemplate string              `json:"extensionTemplate"`
+}
+
+type MemberSpec struct {
+	CommonJobInfo `json:",inline"`
+	JobSpec       `json:",inline"`
+	Role          string `json:"role"`
+	Replicas      int    `json:"replicas"`
 }
 
 // CreateJobResponse convey response for create job
