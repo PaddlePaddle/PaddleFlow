@@ -16,12 +16,6 @@ limitations under the License.
 
 package schema
 
-import (
-	"database/sql/driver"
-	"encoding/json"
-	"fmt"
-)
-
 type JobType string
 type ActionType string
 type JobStatus string
@@ -194,6 +188,7 @@ type Conf struct {
 	// 计算资源
 	Flavour  Flavour `json:"flavour,omitempty"`
 	Priority string  `json:"priority"`
+	QueueID  string  `json:"queueID"`
 	// 运行时需要的参数
 	Labels      map[string]string `json:"labels,omitempty"`
 	Annotations map[string]string `json:"annotations,omitempty"`
@@ -341,12 +336,11 @@ func (c *Conf) SetEnv(name, value string) {
 }
 
 func (c *Conf) GetQueueID() string {
-	return c.Env[EnvJobQueueID]
+	return c.QueueID
 }
 
 func (c *Conf) SetQueueID(id string) {
-	c.preCheckEnv()
-	c.Env[EnvJobQueueID] = id
+	c.QueueID = id
 }
 
 func (c *Conf) GetClusterID() string {
@@ -364,6 +358,7 @@ func (c *Conf) preCheckEnv() {
 	}
 }
 
+/**
 // Scan for gorm
 func (s *Conf) Scan(value interface{}) error {
 	b, ok := value.([]byte)
@@ -384,4 +379,4 @@ func (s Conf) Value() (driver.Value, error) {
 		return nil, err
 	}
 	return value, nil
-}
+}*/

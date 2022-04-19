@@ -47,7 +47,7 @@ func CreateJob(conf schema.PFJobConf) (string, error) {
 		UserName: conf.GetUserName(),
 		QueueID:  conf.GetQueueID(),
 		Status:   schema.StatusJobInit,
-		Config:   *jobConf,
+		Config:   jobConf,
 	}
 	if err := models.CreateJob(jobInfo); err != nil {
 		log.Errorf("create job[%s] in database faield, err: %v", conf.GetName(), err)
@@ -81,6 +81,10 @@ func ValidateJob(conf schema.PFJobConf) error {
 	if queueName = conf.GetQueueName(); len(queueName) == 0 {
 		return errors.EmptyQueueNameError()
 	}
+	return ValidateQueue(conf, userName, queueName)
+}
+
+func ValidateQueue(conf schema.PFJobConf, userName, queueName string) error {
 	ctx := &logger.RequestContext{
 		UserName: userName,
 	}
