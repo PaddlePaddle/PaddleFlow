@@ -150,7 +150,7 @@ func (kr *KubeRuntime) StopJob(jobInfo *api.PFJob) error {
 	return nil
 }
 
-func (kr *KubeRuntime) UpdateJob(jobInfo *api.PFJob, data interface{}) error {
+func (kr *KubeRuntime) UpdateJob(jobInfo *api.PFJob) error {
 	log.Infof("update job[%s] on cluster[%s] queue[%s]", jobInfo.ID, kr.Cluster.ID, jobInfo.QueueID)
 	job, err := executor.NewKubeJob(jobInfo, kr.dynamicClientOpt)
 	if err != nil {
@@ -158,7 +158,16 @@ func (kr *KubeRuntime) UpdateJob(jobInfo *api.PFJob, data interface{}) error {
 		return err
 	}
 
-	updateData, err := json.Marshal(data)
+	// update labels and annotations
+	patchJSON := struct {
+		metav1.ObjectMeta `json:"metadata,omitempty"`
+	}{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels:      jobInfo.NewLabels,
+			Annotations: jobInfo.NewAnnotations,
+		},
+	}
+	updateData, err := json.Marshal(patchJSON)
 	if err != nil {
 		log.Errorf("update kubernetes job[%s] failed, err: %v", jobInfo.ID, err)
 		return err

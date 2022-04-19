@@ -22,8 +22,6 @@ import (
 	"github.com/ghodss/yaml"
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"paddleflow/pkg/apiserver/common"
 	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/common/errors"
@@ -413,21 +411,7 @@ func UpdateJob(ctx *logger.RequestContext, request *UpdateJobRequest) error {
 }
 
 func updateRuntimeJob(ctx *logger.RequestContext, job *models.Job, request *UpdateJobRequest) error {
-	// TODO: update job priority
-
 	// update labels and annotations
-	patchJSON := struct {
-		metav1.ObjectMeta `json:"metadata,omitempty"`
-	}{
-		ObjectMeta: metav1.ObjectMeta{},
-	}
-	if len(request.Labels) != 0 {
-		patchJSON.Labels = request.Labels
-	}
-	if len(request.Annotations) != 0 {
-		patchJSON.Annotations = request.Annotations
-	}
-	log.Infof("update job %s on cluster, update info: %v", job.ID, patchJSON)
 	runtimeSvc, err := getRuntimeByQueue(ctx, job.QueueID)
 	if err != nil {
 		log.Errorf("get cluster runtime failed, err: %v", err)
@@ -438,7 +422,10 @@ func updateRuntimeJob(ctx *logger.RequestContext, job *models.Job, request *Upda
 		log.Errorf("new paddleflow job failed, err: %v", err)
 		return err
 	}
-	return runtimeSvc.UpdateJob(pfjob, &patchJSON)
+	pfjob.UpdateLabels(request.Labels)
+	pfjob.UpdateAnnotations(request.Annotations)
+	// TODO: update job priority
+	return runtimeSvc.UpdateJob(pfjob)
 }
 
 func getRuntimeByQueue(ctx *logger.RequestContext, queueID string) (runtime.RuntimeService, error) {
