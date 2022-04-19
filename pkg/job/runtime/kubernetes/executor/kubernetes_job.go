@@ -348,7 +348,12 @@ func (j *KubeJob) StopJobByID(id string) error {
 	return nil
 }
 
-func (j *KubeJob) UpdateJob() error {
+func (j *KubeJob) UpdateJob(data []byte) error {
+	log.Infof("update %s job %s/%s on cluster, data: %s", j.JobType, j.Namespace, j.Name, string(data))
+	if err := Patch(j.Namespace, j.Name, j.GroupVersionKind, data, j.DynamicClientOption); err != nil {
+		log.Errorf("update %s job %s/%s on cluster failed, err %v", j.JobType, j.Namespace, j.Name, err)
+		return err
+	}
 	return nil
 }
 
