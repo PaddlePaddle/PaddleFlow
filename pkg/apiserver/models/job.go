@@ -122,15 +122,17 @@ func (job *Job) AfterFind(tx *gorm.DB) error {
 		}
 		job.Members = members
 	}
-	if len(job.ResourceJson) > 0 {
-		resource := schema.Resource{}
-		err := json.Unmarshal([]byte(job.ResourceJson), &resource)
-		if err != nil {
-			log.Errorf("job[%s] json unmarshal resource failed, error:[%s]", job.ID, err.Error())
-			return err
+	/*
+		if len(job.ResourceJson) > 0 {
+			resource := schema.Resource{}
+			err := json.Unmarshal([]byte(job.ResourceJson), &resource)
+			if err != nil {
+				log.Errorf("job[%s] json unmarshal resource failed, error:[%s]", job.ID, err.Error())
+				return err
+			}
+			job.Resource = &resource
 		}
-		job.Resource = &resource
-	}
+	*/
 	if len(job.ConfigJson) > 0 {
 		conf := schema.Conf{}
 		err := json.Unmarshal([]byte(job.ConfigJson), &conf)
