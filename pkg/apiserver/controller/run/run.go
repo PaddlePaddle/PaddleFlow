@@ -176,8 +176,8 @@ func buildWorkflowSource(ctx *logger.RequestContext, req CreateRunRequest, fsID 
 
 func getWorkFlowSourceByReq(ctx *logger.RequestContext, request *CreateRunByJsonRequest, bodyMap map[string]interface{}) (schema.WorkflowSource, error) {
 	if len(request.EntryPoints) == 0 {
-		ctx.Logging().Errorf("missing entryPoints")
 		err := fmt.Errorf("missing entryPoints")
+		ctx.Logging().Errorf(err.Error())
 		return schema.WorkflowSource{}, err
 	}
 
@@ -205,7 +205,7 @@ func getWorkFlowSourceByReq(ctx *logger.RequestContext, request *CreateRunByJson
 		Disabled:       request.Disabled,
 		FailureOptions: failureOptions,
 	}
-	wfs.ValidateStepCacheByMap(bodyMap)
+	wfs.ValidateStepCacheByMap(bodyMap, "json")
 	return wfs, nil
 }
 

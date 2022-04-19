@@ -32,9 +32,14 @@ const (
 	ArtifactTypeInput  = "input"
 	ArtifactTypeOutput = "output"
 
-	CacheAttributeEnable         = "enable"
-	CacheAttributeMaxExpiredTime = "max_expired_time"
-	CacheAttributeFsScope        = "fs_scope"
+	EntryPointsTypeJson = "entryPoints"
+	EntryPointsTypeYaml = "entry_points"
+
+	CacheAttributeEnable             = "enable"
+	CacheAttributeMaxExpiredTimeJson = "maxExpiredTime"
+	CacheAttributeMaxExpiredTimeYaml = "max_expired_time"
+	CacheAttributeFsScopeJson        = "fsScope"
+	CacheAttributeFsScopeYaml        = "fs_scope"
 
 	FailureStrategyFailFast = "fail_fast"
 	FailureStrategyContinue = "continue"
@@ -206,30 +211,47 @@ func runYaml2Map(runYaml []byte) (map[string]interface{}, error) {
 	return yamlMap, nil
 }
 
-func (wfs *WorkflowSource) ValidateStepCacheByMap(yamlMap map[string]interface{}) error {
+func (wfs *WorkflowSource) ValidateStepCacheByMap(runMap map[string]interface{}, mapType string) error {
+	entryPointStr := ""
+	enableStr := ""
+	maxExpiredTimeStr := ""
+	fsScopeStr := ""
+	switch mapType {
+	case "yaml":
+		entryPointStr = EntryPointsTypeYaml
+		enableStr = CacheAttributeEnable
+		maxExpiredTimeStr = CacheAttributeMaxExpiredTimeYaml
+		fsScopeStr = CacheAttributeFsScopeYaml
+	case "json":
+		entryPointStr = EntryPointsTypeJson
+		enableStr = CacheAttributeEnable
+		maxExpiredTimeStr = CacheAttributeMaxExpiredTimeJson
+		fsScopeStr = CacheAttributeFsScopeJson
+	}
+
 	for name, point := range wfs.EntryPoints {
 		// 先将全局的Cache设置赋值给该节点的Cache，下面再根据Map进行替换
 		point.Cache = wfs.Cache
 
 		// 检查用户是否有设置节点级别的Cache
-		cache, ok, err := getCacheFromMap(yamlMap, name)
+		cache, ok, err := unstructured.NestedFieldCopy(runMap, entryPointStr, name, "cache")
 		if err != nil {
 			return err
 		}
 		if ok {
 			cacheMap := cache.(map[string]interface{})
 			// Enable字段赋值
-			if value, ok := cacheMap[CacheAttributeEnable]; ok {
+			if value, ok := cacheMap[enableStr]; ok {
 				switch value := value.(type) {
 				case bool:
 					point.Cache.Enable = value
 				default:
 					return fmt.Errorf("cannot assign cache attribute [%s] by value[%v] with type [%s]",
-						CacheAttributeEnable, value, reflect.TypeOf(value).Name())
+						enableStr, value, reflect.TypeOf(value).Name())
 				}
 			}
 			// MaxExpiredTime字段赋值
-			if value, ok := cacheMap[CacheAttributeMaxExpiredTime]; ok {
+			if value, ok := cacheMap[maxExpiredTimeStr]; ok {
 				switch value := value.(type) {
 				case int64:
 					point.Cache.MaxExpiredTime = strconv.FormatInt(value, 10)
@@ -237,40 +259,22 @@ func (wfs *WorkflowSource) ValidateStepCacheByMap(yamlMap map[string]interface{}
 					point.Cache.MaxExpiredTime = value
 				default:
 					return fmt.Errorf("cannot assign cache attribute [%s] by value[%v] with type [%s]",
-						CacheAttributeMaxExpiredTime, value, reflect.TypeOf(value).Name())
+						maxExpiredTimeStr, value, reflect.TypeOf(value).Name())
 				}
 			}
 			// FsScope字段赋值
-			if value, ok := cacheMap[CacheAttributeFsScope]; ok {
+			if value, ok := cacheMap[fsScopeStr]; ok {
 				switch value := value.(type) {
 				case string:
 					point.Cache.FsScope = value
 				default:
 					return fmt.Errorf("cannot assign cache attribute [%s] by value[%v] with type [%s]",
-						CacheAttributeFsScope, value, reflect.TypeOf(value).Name())
+						fsScopeStr, value, reflect.TypeOf(value).Name())
 				}
 			}
 		}
 	}
 	return nil
-}
-
-func getCacheFromMap(m map[string]interface{}, stepName string) (interface{}, bool, error) {
-	cache1, ok1, err := unstructured.NestedFieldCopy(m, "entry_points", stepName, "cache")
-	if err != nil {
-		return nil, false, err
-	}
-	cache2, ok2, err := unstructured.NestedFieldCopy(m, "entryPoints", stepName, "cache")
-	if err != nil {
-		return nil, false, err
-	}
-	if ok1 {
-		return cache1, true, nil
-	} else if ok2 {
-		return cache2, true, nil
-	} else {
-		return nil, false, nil
-	}
 }
 
 func ParseWorkflowSource(runYaml []byte) (WorkflowSource, error) {
@@ -292,7 +296,7 @@ func ParseWorkflowSource(runYaml []byte) (WorkflowSource, error) {
 	}
 
 	// 检查节点级别的Cache设置，根据需要用Run级别的Cache进行覆盖
-	if err := wfs.ValidateStepCacheByMap(yamlMap); err != nil {
+	if err := wfs.ValidateStepCacheByMap(yamlMap, "yaml"); err != nil {
 		return WorkflowSource{}, err
 	}
 	return wfs, nil
