@@ -117,6 +117,15 @@ func (job *Job) AfterFind(tx *gorm.DB) error {
 		}
 		job.Resource = &resource
 	}
+	if len(job.ConfigJson) > 0 {
+		conf := schema.Conf{}
+		err := json.Unmarshal([]byte(job.ConfigJson), &conf)
+		if err != nil {
+			log.Errorf("job[%s] decode config failed, error:[%s]", job.ID, err.Error())
+			return err
+		}
+		job.Config = conf
+	}
 	return nil
 }
 
