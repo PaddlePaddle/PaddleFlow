@@ -42,14 +42,14 @@ class Step(object):
             parameters: Dict[str, Any]=None,
             cache_options: CacheOptions=None,
             ):
-        """ create an new instance of Step
+        """ create a new instance of Step
 
         Args:
             name (str): the name of Step
             inputs (Dict[str, Artifact]): input artifact, the key is the name of artifact, and the value should be upstream Step's output artifact. 
             outputs (Dict[str, Artifact]): output artifact, the key is the name of artifact, and the value should be an instance of Artifact
-            parameters (str, Any): Parameter of step, the key is the name of this parameter, and the value could be int, string, Paramter, or upstream Step's artifact
-            cache_options (cache_options): the cache options of step
+            parameters (str, Any): Parameter of step, the key is the name of this parameter, and the value could be int, string, Paramter, or upstream Step's Parameter
+            cache_options (CacheOptions): the cache options of step
         Raises:
             PaddleFlowSDKException: if some args is illegal
         """
@@ -72,6 +72,9 @@ class Step(object):
     @property
     def name(self):
         """ get the name of step
+
+        Returns:
+            a string which indicate the name of this step
         """
         return self._name
 
@@ -85,7 +88,7 @@ class Step(object):
             PaddleFlowPaddleFlowSDKExceptionSDKException: if name is illegal
         """
         if not validate_string_by_regex(name, STEP_NAME_REGEX):
-            raise PaddleFlowSDKException(PipelineDSLError, f"the name of Step[{name}] is is illegal" + \
+            raise PaddleFlowSDKException(PipelineDSLError, f"the name of Step[{name}] is is illegal " + \
                     f"the regex used for validation is {STEP_NAME_REGEX}")
             
         self._name = name
@@ -104,7 +107,7 @@ class Step(object):
         """ get inputs arifacts
         
         Returns:
-            an instance of InputArtifactDict
+            an instance of InputArtifactDict which manager the input artifacts of this step
         """
         return self._inputs
 
@@ -125,7 +128,7 @@ class Step(object):
             return 
 
         if inputs and not isinstance(inputs, Dict):
-            err_msg = self._generate_error_msg("inputs of Step should be an instance of Dict, " + \
+            err_msg = self._generate_error_msg("the inputs of step should be an instance of Dict, " + \
                     "and the value should be the output artifact of upstream Step")
             raise PaddleFlowSDKException(PipelineDSLError, err_msg) 
 
@@ -137,7 +140,7 @@ class Step(object):
         """ get output artifact 
         
         Returns:
-            an instance of OutputArtifact
+            an instance of OutputArtifact which manager the output aritfacts of this step
         """
         return self._outputs
 
@@ -171,7 +174,7 @@ class Step(object):
         """ get params
 
         Returns:
-            an instance of ParameterDict
+            an instance of ParameterDict which manager the parameters of this step
         """
         return self._params 
 
@@ -190,7 +193,7 @@ class Step(object):
             return 
 
         if params and not isinstance(params, Dict):
-            err_msg = self._generate_error_msg("params of Step  should be an instance of Dict")
+            err_msg = self._generate_error_msg("the params of step should be an instance of Dict")
             raise PaddleFlowSDKException(PipelineDSLError, err_msg)
         
         # to avoid changing the value of params
@@ -256,7 +259,7 @@ class Step(object):
             dup_names = (inputs_names & outputs_names) | (inputs_names & params_names) | (outputs_names & params_names)
             
             err_msg = self._generate_error_msg(f"the input/output aritacts and parameters of one " + \
-                    f"Step shoulehave different names, duplicate name is [{dup_names}]")
+                    f"Step should have different names, duplicate name is [{dup_names}]")
             raise PaddleFlowSDKException(PipelineDSLError, err_msg) 
 
 

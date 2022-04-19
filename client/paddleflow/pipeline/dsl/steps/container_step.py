@@ -46,7 +46,7 @@ class ContainerStep(Step):
             env: Dict[str, str]=None,
             cache_options: CacheOptions=None,
             ):
-        """ create an new instance of ContainerStep
+        """ create a new instance of ContainerStep
 
         Args:
             name (str): the name of ContainerStep
@@ -54,9 +54,9 @@ class ContainerStep(Step):
             command (str): the command of step to execute
             inputs (Dict[str, Artifact]): input artifact, the key is the name of artifact, and the value should be upstream Step's output artifact. 
             outputs (Dict[str, Artifact]): output artifact, the key is the name of artifact, and the value should be an instance of Artifact
-            parameters (str, Any): Parameter of step, the key is the name of this parameter, and the value could be int, string, Paramter, or upstream Step's artifact
+            parameters (str, Any): Parameter of step, the key is the name of this parameter, and the value could be int, string, Paramter, or upstream Step's Parameter
             env (Dict[str, str]): enviroment varible for Step runtime
-            cache_options (cache_options): the cache options of step
+            cache_options (CacheOptions): the cache options of step
 
         Raises:
             PaddleFlowSDKException: if some args is illegal
@@ -85,7 +85,7 @@ class ContainerStep(Step):
         """ add enviroment varible
 
         Args:
-            env (Dict[str, str]): enviroment varible need to be set when executing Step.
+            env (Dict[str, str]): enviroment varible need to be added when executing Step.
 
         Raises:
             PaddleFlowSDKException: if some enviroment is illegal

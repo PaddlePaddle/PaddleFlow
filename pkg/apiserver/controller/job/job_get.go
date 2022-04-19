@@ -116,8 +116,18 @@ func ListJob(ctx *logger.RequestContext, request ListJobRequest) (*ListJobRespon
 	if request.Timestamp != 0 {
 		timestampStr = time.Unix(request.Timestamp, 0).Format(models.TimeFormat)
 	}
+	queueID := ""
+	if request.Queue != "" {
+		var queue models.Queue
+		queue, err = models.GetQueueByName(ctx, request.Queue)
+		if err != nil {
+			ctx.Logging().Errorf("get queue by queueName[%s] failed, error:[%s]", request.Queue, err.Error())
+			return nil, err
+		}
+		queueID = queue.ID
+	}
 	// model list
-	jobList, err := models.ListJob(pk, request.MaxKeys, request.Queue, request.Status, request.StartTime, timestampStr, userFilter, request.Labels)
+	jobList, err := models.ListJob(pk, request.MaxKeys, queueID, request.Status, request.StartTime, timestampStr, userFilter, request.Labels)
 	if err != nil {
 		ctx.Logging().Errorf("models list job failed. err:[%s]", err.Error())
 		ctx.ErrorCode = common.InternalError
