@@ -169,7 +169,7 @@ func (bwf *BaseWorkflow) checkFailureOption() error {
 	case schema.FailureStrategyContinue:
 		return nil
 	default:
-		return fmt.Errorf("failure strategy should be [fail_fast] or [continue]")
+		return fmt.Errorf("failure strategy should be [fail_fast] or [continue], setted by [%s]", bwf.Source.FailureOptions.Strategy)
 	}
 }
 
