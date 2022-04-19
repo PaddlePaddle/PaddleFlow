@@ -188,7 +188,6 @@ func getWorkFlowSourceByReq(ctx *logger.RequestContext, request *CreateRunByJson
 	request.Env[schema.EnvJobType] = request.JobType
 	request.Env[schema.EnvJobQueueName] = request.Queue
 	request.Env[schema.EnvJobFlavour] = request.Flavour
-	request.Env[schema.EnvDockerEnv] = request.DockerEnv
 
 	entryPoints := parseRunSteps(request.EntryPoints, request)
 	postProcess := parseRunSteps(request.PostProcess, request)
