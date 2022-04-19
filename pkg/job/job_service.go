@@ -67,8 +67,6 @@ func CreateJob(conf schema.PFJobConf) (string, error) {
 func patchTasksFromEnv(conf *schema.Conf, jobInfo *models.Job) error {
 	log.Debugf("patch tasks from env: %v", conf)
 	switch conf.Type() {
-	case schema.TypeSparkJob:
-		return patchSparkTask(conf, jobInfo)
 	case schema.TypePaddleJob:
 		jobInfo.Framework = schema.FrameworkSpark
 		jobInfo.Type = string(schema.TypeDistributed)
@@ -87,28 +85,6 @@ func patchTasksFromEnv(conf *schema.Conf, jobInfo *models.Job) error {
 	}
 	// patchFlavourFromEnv
 	jobInfo.Config.Flavour = config.GlobalServerConfig.FlavourMap[conf.GetFlavour()]
-	return nil
-}
-
-func patchSparkTask(conf *schema.Conf, jobInfo *models.Job) error {
-	jobInfo.Members = make([]models.Member, 2)
-	driverTask := models.Member{
-		ID:   "driver",
-		Role: schema.RoleDriver,
-		Conf: *conf,
-	}
-	if conf.GetPSFlavour() != "" {
-		driverTask.Flavour = config.GlobalServerConfig.FlavourMap[conf.GetPSFlavour()]
-	}
-	executorTask := models.Member{
-		ID:   "executor",
-		Role: schema.RoleExecutor,
-		Conf: *conf,
-	}
-	if conf.GetWorkerFlavour() != "" {
-		executorTask.Flavour = config.GlobalServerConfig.FlavourMap[conf.GetWorkerFlavour()]
-	}
-	jobInfo.Members = append(jobInfo.Members, driverTask, executorTask)
 	return nil
 }
 

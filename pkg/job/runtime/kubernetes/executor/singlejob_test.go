@@ -98,34 +98,6 @@ status: {}
 		},
 		ExtRuntimeConf: []byte(extensionTemplateYaml),
 	}
-	mockSinglePod2 = api.PFJob{
-		ID:        "job-normal-0001",
-		Name:      "",
-		Namespace: "default",
-		JobType:   schema.TypeSingle,
-		UserName:  "root",
-		QueueID:   "mockQueueID",
-		Framework: schema.FrameworkPaddle,
-		Conf: schema.Conf{
-			Name:    "normal",
-			Command: "sleep 200",
-			Image:   "mockImage",
-			Env: map[string]string{
-				"PF_FS_ID":          "fs-name_1",
-				"PF_JOB_CLUSTER_ID": "testClusterID",
-				"PF_JOB_FLAVOUR":    "mockFlavourName",
-				"PF_JOB_ID":         "",
-				"PF_JOB_NAMESPACE":  "paddleflow",
-				"PF_JOB_PRIORITY":   "NORMAL",
-				"PF_JOB_QUEUE_ID":   "mockQueueID",
-				"PF_JOB_QUEUE_NAME": "mockQueueName",
-				schema.EnvJobType:   string(schema.TypePodJob),
-				"PF_USER_NAME":      "root",
-			},
-			Flavour: schema.Flavour{Name: "mockFlavourName", ResourceInfo: schema.ResourceInfo{CPU: "1", Mem: "1"}},
-		},
-		ExtRuntimeConf: []byte(extensionTemplateYaml),
-	}
 )
 
 func TestSinglePod_CreateJob(t *testing.T) {
