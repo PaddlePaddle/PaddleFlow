@@ -48,6 +48,11 @@ type Artifacts struct {
 	OutputList []string          `yaml:"output"      json:"-"`
 }
 
+type ArtifactsJson struct {
+	Input  map[string]string `json:"input"`
+	Output []string          `json:"output"`
+}
+
 func (atf *Artifacts) ValidateOutputMapByList() error {
 	if atf.Output == nil {
 		atf.Output = make(map[string]string)
@@ -62,7 +67,7 @@ type RunStep struct {
 	Parameters map[string]interface{} `yaml:"parameters"`
 	Command    string                 `yaml:"command"`
 	Deps       string                 `yaml:"deps"`
-	Artifacts  Artifacts              `yaml:"artifacts"`
+	Artifacts  ArtifactsJson          `yaml:"artifacts"`
 	Env        map[string]string      `yaml:"Env"`
 	Queue      string                 `yaml:"queue"`
 	Flavour    string                 `yaml:"flavour"`

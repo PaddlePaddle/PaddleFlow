@@ -55,11 +55,11 @@ type CreateRunRequest struct {
 }
 
 type CreateRunByJsonRequest struct {
-	FsName         string                     `json:"fsName,omitempty"`      // optional
-	UserName       string                     `json:"userName,omitempty"`    // optional, only for root user
-	Description    string                     `json:"desc,omitempty"`        // optional
-	Disabled       string                     `json:"disabled,omitempty"`    // optional
-	Name           string                     `json:"name,omitempty"`        // optional, "" is ok
+	FsName         string                     `json:"fsName,omitempty"`   // optional
+	UserName       string                     `json:"userName,omitempty"` // optional, only for root user
+	Description    string                     `json:"desc,omitempty"`     // optional
+	Disabled       string                     `json:"disabled,omitempty"` // optional
+	Name           string                     `json:"name"`
 	DockerEnv      string                     `json:"dockerEnv,omitempty"`   // optional
 	Parallelism    int                        `json:"parallelism,omitempty"` // optional
 	EntryPoints    map[string]*schema.RunStep `json:"entryPoints"`
@@ -218,7 +218,6 @@ func parseRunSteps(steps map[string]*schema.RunStep, request *CreateRunByJsonReq
 		step.Env[schema.EnvJobType] = step.JobType
 		step.Env[schema.EnvJobQueueName] = step.Queue
 		step.Env[schema.EnvJobFlavour] = step.Flavour
-		step.Env[schema.EnvDockerEnv] = step.DockerEnv
 
 		// 对于每一个全局环境变量，检查节点是否有设置对应环境变量，如果没有则使用全局的
 		for globalKey, globalValue := range request.Env {
@@ -232,17 +231,31 @@ func parseRunSteps(steps map[string]*schema.RunStep, request *CreateRunByJsonReq
 			step.DockerEnv = request.DockerEnv
 		}
 
+		artifacts := parseArtifacts(step.Artifacts)
+
 		workFlowSourceStep := schema.WorkflowSourceStep{
 			Command:   step.Command,
 			Deps:      step.Deps,
 			Env:       step.Env,
-			Artifacts: step.Artifacts,
+			Artifacts: artifacts,
 			Cache:     step.Cache,
 			DockerEnv: step.DockerEnv,
 		}
 		workFlowSourceSteps[pointName] = &workFlowSourceStep
 	}
 	return workFlowSourceSteps
+}
+
+func parseArtifacts(atf schema.ArtifactsJson) schema.Artifacts {
+	outputAritfacts := map[string]string{}
+	for _, output := range atf.Output {
+		outputAritfacts[output] = ""
+	}
+	res := schema.Artifacts{
+		Input:  atf.Input,
+		Output: outputAritfacts,
+	}
+	return res
 }
 
 func getSourceAndYaml(ctx *logger.RequestContext, wfs schema.WorkflowSource) (string, string, error) {
@@ -338,7 +351,6 @@ func CreateRun(ctx *logger.RequestContext, request *CreateRunRequest) (CreateRun
 		Disabled:       request.Disabled,
 		Status:         common.StatusRunInitiating,
 	}
-	logger.Logger().Warnf("wfs.FailureOpiton.Strategy is [%s]", wfs.FailureOptions.Strategy)
 	response, err := ValidateAndStartRun(ctx, run, *request)
 	return response, err
 }
@@ -397,7 +409,6 @@ func ValidateAndStartRun(ctx *logger.RequestContext, run models.Run, req interfa
 		ctx.ErrorCode = common.MalformedJSON
 		return CreateRunResponse{}, err
 	}
-	logger.Logger().Warnf("wfs.FailureOpiton.Strategy is [%s]", run.WorkflowSource.FailureOptions.Strategy)
 	// validate workflow in func NewWorkflow
 	if _, err := newWorkflowByRun(run); err != nil {
 		ctx.ErrorCode = common.MalformedYaml
@@ -777,7 +788,6 @@ func newWorkflowByRun(run models.Run) (*pipeline.Workflow, error) {
 		pplcommon.WfExtraInfoKeyUserName: run.UserName,
 		pplcommon.WfExtraInfoKeyFsName:   run.FsName,
 	}
-	logger.Logger().Warnf("wfs.FailureOpiton.Strategy is [%s]", run.WorkflowSource.FailureOptions.Strategy)
 	wfPtr, err := pipeline.NewWorkflow(run.WorkflowSource, run.ID, run.Entry, run.Parameters, extraInfo, workflowCallbacks)
 	if err != nil {
 		logger.LoggerForRun(run.ID).Warnf("NewWorkflow by run[%s] failed. error:%v\n", run.ID, err)
