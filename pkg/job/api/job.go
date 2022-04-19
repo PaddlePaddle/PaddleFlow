@@ -132,7 +132,7 @@ func NewJobInfo(job *models.Job) (*PFJob, error) {
 		QueueID:   QueueID(job.Config.GetQueueID()),
 		FSID:      job.Config.GetFS(),
 		UserName:  job.Config.GetUserName(),
-		Conf:      job.Config,
+		Conf:      *job.Config,
 		Resource:  job.Resource,
 		Tasks:     job.Members,
 	}
