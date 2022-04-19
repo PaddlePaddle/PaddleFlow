@@ -286,7 +286,7 @@ func GetLastJob() (Job, error) {
 }
 
 func ListJob(pk int64, maxKeys int, queue, status, startTime, timestamp, userFilter string, labels map[string]string) ([]Job, error) {
-	tx := database.DB.Table("job").Where("pk > ?", pk)
+	tx := database.DB.Table("job").Where("pk > ?", pk).Where("parent_job = ''")
 	if userFilter != "root" {
 		tx = tx.Where("user_name = ?", userFilter)
 	}
