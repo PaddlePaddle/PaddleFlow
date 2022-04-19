@@ -206,7 +206,7 @@ func runYaml2Map(runYaml []byte) (map[string]interface{}, error) {
 	return yamlMap, nil
 }
 
-func (wfs *WorkflowSource) validateStepCacheByMap(yamlMap map[string]interface{}) error {
+func (wfs *WorkflowSource) ValidateStepCacheByMap(yamlMap map[string]interface{}) error {
 	for name, point := range wfs.EntryPoints {
 		// 先将全局的Cache设置赋值给该节点的Cache，下面再根据Map进行替换
 		point.Cache = wfs.Cache
@@ -274,7 +274,7 @@ func ParseWorkflowSource(runYaml []byte) (WorkflowSource, error) {
 	}
 
 	// 检查节点级别的Cache设置，根据需要用Run级别的Cache进行覆盖
-	if err := wfs.validateStepCacheByMap(yamlMap); err != nil {
+	if err := wfs.ValidateStepCacheByMap(yamlMap); err != nil {
 		return WorkflowSource{}, err
 	}
 	return wfs, nil

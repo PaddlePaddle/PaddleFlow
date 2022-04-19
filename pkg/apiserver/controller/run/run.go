@@ -174,7 +174,7 @@ func buildWorkflowSource(ctx *logger.RequestContext, req CreateRunRequest, fsID 
 	return wfs, source, runYaml, nil
 }
 
-func getWorkFlowSourceByReq(ctx *logger.RequestContext, request *CreateRunByJsonRequest) (schema.WorkflowSource, error) {
+func getWorkFlowSourceByReq(ctx *logger.RequestContext, request *CreateRunByJsonRequest, bodyMap map[string]interface{}) (schema.WorkflowSource, error) {
 	if len(request.EntryPoints) == 0 {
 		ctx.Logging().Errorf("missing entryPoints")
 		err := fmt.Errorf("missing entryPoints")
@@ -205,6 +205,7 @@ func getWorkFlowSourceByReq(ctx *logger.RequestContext, request *CreateRunByJson
 		Disabled:       request.Disabled,
 		FailureOptions: failureOptions,
 	}
+	wfs.ValidateStepCacheByMap(bodyMap)
 	return wfs, nil
 }
 
@@ -225,7 +226,7 @@ func parseRunSteps(steps map[string]*schema.RunStep, request *CreateRunByJsonReq
 				step.Env[globalKey] = globalValue
 			}
 		}
-		// DockerEnv字段单独进行替换检查
+		// DockerEnv字段替换检查
 		if step.DockerEnv == "" {
 			step.DockerEnv = request.DockerEnv
 		}
@@ -358,7 +359,7 @@ func CreateRun(ctx *logger.RequestContext, request *CreateRunRequest) (CreateRun
 	return response, err
 }
 
-func CreateRunByJson(ctx *logger.RequestContext, request *CreateRunByJsonRequest) (CreateRunResponse, error) {
+func CreateRunByJson(ctx *logger.RequestContext, request *CreateRunByJsonRequest, bodyMap map[string]interface{}) (CreateRunResponse, error) {
 	var fsID string
 	if request.FsName != "" {
 		if common.IsRootUser(ctx.UserName) && request.UserName != "" {
@@ -369,7 +370,7 @@ func CreateRunByJson(ctx *logger.RequestContext, request *CreateRunByJsonRequest
 		}
 	}
 
-	wfs, err := getWorkFlowSourceByReq(ctx, request)
+	wfs, err := getWorkFlowSourceByReq(ctx, request, bodyMap)
 	if err != nil {
 		ctx.Logging().Errorf("get WorkFlowSource by request failed. error:%v", err)
 		return CreateRunResponse{}, err

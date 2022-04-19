@@ -17,6 +17,7 @@ limitations under the License.
 package v1
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -25,6 +26,8 @@ import (
 
 	"github.com/go-chi/chi"
 	log "github.com/sirupsen/logrus"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	"paddleflow/pkg/apiserver/common"
 	"paddleflow/pkg/apiserver/controller/run"
@@ -106,6 +109,26 @@ func (rr *RunRouter) createRun(w http.ResponseWriter, r *http.Request) {
 // @Router /run/json [POST]
 func (rr *RunRouter) createRunByJson(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
+
+	bodyBytes, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		logger.LoggerForRequest(&ctx).Errorf(
+			"read body failed. error:%s", err.Error())
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+	bodyUnstructured := unstructured.Unstructured{}
+	if err := bodyUnstructured.UnmarshalJSON(bodyBytes); err != nil && !runtime.IsMissingKind(err) {
+		// MissingKindErr不影响Json的解析
+		logger.LoggerForRequest(&ctx).Errorf(
+			"unmarshal body failed. error:%s", err.Error())
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+	bodyMap := bodyUnstructured.UnstructuredContent()
+	// 保证body下一次能够读取
+	r.Body = ioutil.NopCloser(bytes.NewBuffer(bodyBytes))
+
 	createRunByJsonInfo := run.CreateRunByJsonRequest{}
 	if err := common.BindJSON(r, &createRunByJsonInfo); err != nil {
 		logger.LoggerForRequest(&ctx).Errorf(
@@ -113,14 +136,14 @@ func (rr *RunRouter) createRunByJson(w http.ResponseWriter, r *http.Request) {
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
-	_, err := getFsIDAndCheckPermission(&ctx, createRunByJsonInfo.UserName, createRunByJsonInfo.FsName)
+	_, err = getFsIDAndCheckPermission(&ctx, createRunByJsonInfo.UserName, createRunByJsonInfo.FsName)
 	if err != nil {
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
 
 	// create run
-	response, err := run.CreateRunByJson(&ctx, &createRunByJsonInfo)
+	response, err := run.CreateRunByJson(&ctx, &createRunByJsonInfo, bodyMap)
 	if err != nil {
 		logger.LoggerForRequest(&ctx).Errorf(
 			"create run by json failed. createRunByJsonInfo:%v error:%s", createRunByJsonInfo, err.Error())
