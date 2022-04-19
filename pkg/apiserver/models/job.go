@@ -87,7 +87,7 @@ func (job *Job) BeforeSave(tx *gorm.DB) error {
 		job.MembersJson = string(infoJson)
 	}
 	if job.Resource != nil {
-		infoJson, err := json.Marshal(&job.ResourceJson)
+		infoJson, err := json.Marshal(job.Resource)
 		if err != nil {
 			return err
 		}
