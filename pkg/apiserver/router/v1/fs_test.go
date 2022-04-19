@@ -460,7 +460,7 @@ func TestFSCacheConfigRouter(t *testing.T) {
 	createRep := buildCreateRequest(cacheConf)
 
 	// test create failure - no fs
-	url := baseUrl + "/fs/cache"
+	url := baseUrl + "/fsCache"
 	result, err := PerformPostRequest(router, url, createRep)
 	assert.Nil(t, err)
 	assert.Equal(t, http.StatusForbidden, result.Code)
