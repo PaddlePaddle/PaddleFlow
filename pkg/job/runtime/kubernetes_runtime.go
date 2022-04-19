@@ -19,6 +19,7 @@ package runtime
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -134,15 +135,15 @@ func (kr *KubeRuntime) SubmitJob(jobInfo *api.PFJob) error {
 }
 
 func (kr *KubeRuntime) StopJob(jobInfo *api.PFJob) error {
-	log.Infof("stop job[%v] on cluster[%s] queue[%s]", jobInfo.ID, kr.Cluster.ID, jobInfo.QueueID)
+	log.Infof("stop job[%s] on cluster[%s] queue[%s]", jobInfo.ID, kr.Cluster.ID, jobInfo.QueueID)
 	job, err := executor.NewKubeJob(jobInfo, kr.dynamicClientOpt)
 	if err != nil {
-		log.Warnf("stop kubernetes job[%s] failed, err: %v", jobInfo.Name, err)
+		log.Warnf("stop kubernetes job[%s] failed, err: %v", jobInfo.ID, err)
 		return err
 	}
 	err = job.StopJobByID(jobInfo.ID)
 	if err != nil && !k8serrors.IsNotFound(err) {
-		log.Warnf("stop kubernetes job[%s] failed, err: %v", jobInfo.Name, err)
+		log.Warnf("stop kubernetes job[%s] failed, err: %v", jobInfo.ID, err)
 		return err
 	}
 	log.Debugf("stop job[%s] successful", jobInfo.ID)
@@ -150,7 +151,32 @@ func (kr *KubeRuntime) StopJob(jobInfo *api.PFJob) error {
 }
 
 func (kr *KubeRuntime) UpdateJob(jobInfo *api.PFJob) error {
-	// TODO: update job on cluster
+	log.Infof("update job[%s] on cluster[%s] queue[%s]", jobInfo.ID, kr.Cluster.ID, jobInfo.QueueID)
+	job, err := executor.NewKubeJob(jobInfo, kr.dynamicClientOpt)
+	if err != nil {
+		log.Warnf("update kubernetes job[%s] failed, err: %v", jobInfo.ID, err)
+		return err
+	}
+
+	// update labels and annotations
+	patchJSON := struct {
+		metav1.ObjectMeta `json:"metadata,omitempty"`
+	}{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels:      jobInfo.Labels,
+			Annotations: jobInfo.Annotations,
+		},
+	}
+	updateData, err := json.Marshal(patchJSON)
+	if err != nil {
+		log.Errorf("update kubernetes job[%s] failed, err: %v", jobInfo.ID, err)
+		return err
+	}
+	err = job.UpdateJob(updateData)
+	if err != nil && !k8serrors.IsNotFound(err) {
+		log.Warnf("update kubernetes job[%s] failed, err: %v", jobInfo.ID, err)
+		return err
+	}
 	return nil
 }
 
