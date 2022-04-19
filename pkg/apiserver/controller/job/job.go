@@ -91,6 +91,13 @@ type MemberSpec struct {
 	Replicas      int    `json:"replicas"`
 }
 
+type UpdateJobRequest struct {
+	JobID       string            `json:"-"`
+	Priority    string            `json:"priority"`
+	Labels      map[string]string `json:"labels"`
+	Annotations map[string]string `json:"annotations"`
+}
+
 // CreateJobResponse convey response for create job
 type CreateJobResponse struct {
 	ID string `json:"id"`
@@ -240,7 +247,7 @@ func CreateWorkflowJob(ctx *logger.RequestContext, request *CreateWfJobRequest) 
 		UserName:          conf.GetUserName(),
 		QueueID:           conf.GetQueueID(),
 		Status:            schema.StatusJobInit,
-		Config:            conf,
+		Config:            &conf,
 		ExtensionTemplate: extensionTemplate,
 	}
 
@@ -269,7 +276,7 @@ func createJob(conf schema.PFJobConf, jobID, jobTemplate string) (string, error)
 		UserName:          conf.GetUserName(),
 		QueueID:           conf.GetQueueID(),
 		Status:            schema.StatusJobInit,
-		Config:            *jobConf,
+		Config:            jobConf,
 		ExtensionTemplate: jobTemplate,
 	}
 
@@ -362,6 +369,17 @@ func StopJob(ctx *logger.RequestContext, jobID string) error {
 		log.Errorf("delete job %s from cluster failed, err: %v", job.ID, err)
 		return err
 	}
+	return nil
+}
+
+func UpdateJob(ctx *logger.RequestContext, request *UpdateJobRequest) error {
+	if err := CheckPermission(ctx); err != nil {
+		return err
+	}
+	// update priority
+
+	// update labels and annotations
+
 	return nil
 }
 

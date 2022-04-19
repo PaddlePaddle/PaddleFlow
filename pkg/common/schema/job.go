@@ -16,12 +16,6 @@ limitations under the License.
 
 package schema
 
-import (
-	"database/sql/driver"
-	"encoding/json"
-	"fmt"
-)
-
 type JobType string
 type ActionType string
 type JobStatus string
@@ -364,6 +358,7 @@ func (c *Conf) preCheckEnv() {
 	}
 }
 
+/**
 // Scan for gorm
 func (s *Conf) Scan(value interface{}) error {
 	b, ok := value.([]byte)
@@ -384,4 +379,4 @@ func (s Conf) Value() (driver.Value, error) {
 		return nil, err
 	}
 	return value, nil
-}
+}*/
