@@ -120,8 +120,8 @@ class RunServiceApi(object):
         if 'message' in data:
             return False, data['message']
         runInfo = RunInfo(data['runID'], data['fsname'], data['username'], data['status'], data['name'],
-                               data['description'], data['entry'], data['param'], data['runYaml'], None,
-                               data['imageUrl'], data.get('updateTime', " "), data['source'],
+                               data['description'], data['entry'], data['parameters'], data['runYaml'], None,
+                               data['dockerEnv'], data.get('updateTime', " "), data['source'],
                                data['runMsg'], data.get('createTime', " "), data.get('activateTime', ' '))
         jobList = []
         runtime = data['runtime']

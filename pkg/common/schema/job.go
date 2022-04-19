@@ -177,6 +177,9 @@ type PFJobConf interface {
 	SetClusterID(string)
 	SetNamespace(string)
 	SetEnv(string, string)
+	SetLabels(string, string)
+	SetAnnotations(string, string)
+
 	Type() JobType
 }
 
@@ -190,8 +193,8 @@ type Conf struct {
 	Priority string  `json:"priority"`
 	QueueID  string  `json:"queueID"`
 	// 运行时需要的参数
-	Labels      map[string]string `json:"labels,omitempty"`
-	Annotations map[string]string `json:"annotations,omitempty"`
+	Labels      map[string]string `json:"labels"`
+	Annotations map[string]string `json:"annotations"`
 	Env         map[string]string `json:"env,omitempty"`
 	Command     string            `json:"command,omitempty"`
 	Image       string            `json:"image"`
@@ -350,6 +353,25 @@ func (c *Conf) GetClusterID() string {
 func (c *Conf) SetClusterID(id string) {
 	c.preCheckEnv()
 	c.Env[EnvJobClusterID] = id
+}
+
+func (c *Conf) SetLabels(k, v string) {
+	c.preCheck()
+	c.Labels[k] = v
+}
+
+func (c *Conf) SetAnnotations(k, v string) {
+	c.preCheck()
+	c.Annotations[k] = v
+}
+
+func (c *Conf) preCheck() {
+	if c.Labels == nil {
+		c.Labels = make(map[string]string)
+	}
+	if c.Annotations == nil {
+		c.Annotations = make(map[string]string)
+	}
 }
 
 func (c *Conf) preCheckEnv() {
