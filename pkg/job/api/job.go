@@ -58,7 +58,6 @@ func (j *PFJob) getDefaultPath() string {
 		// todo(zhongzichao) remove vcjob type
 		return fmt.Sprintf("%s/vcjob%s", baseDir, suffix)
 	}
-	return ""
 }
 
 // GetExtRuntimeConf get extra runtime conf from file
