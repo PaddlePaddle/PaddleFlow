@@ -144,30 +144,31 @@ func (vj *VCJob) fillPSJobSpec(jobSpec *vcjob.Job) error {
 	if len(jobSpec.Spec.Tasks) != 2 {
 		return fmt.Errorf("vcjob[%s] must be contain two Tasks, actually [%d]", jobSpec.Name, len(jobSpec.Spec.Tasks))
 	}
-	// ps master
-	psTask := jobSpec.Spec.Tasks[0]
-	if err := vj.fillTaskInPSMode(&psTask, true, jobSpec.Name); err != nil {
-		log.Errorf("fill Task[%s] in PS-Mode failed, err=[%v]", psTask.Name, err)
-		return err
+	for _, task := range vj.Tasks {
+		if task.Role == schema.RolePServer {
+			// ps master
+			if err := vj.fillTaskInPSMode(&jobSpec.Spec.Tasks[0], task, jobSpec.Name); err != nil {
+				log.Errorf("fill Task[%s] in PS-Mode failed, err=[%v]", jobSpec.Spec.Tasks[0].Name, err)
+				return err
+			}
+		} else {
+			// worker
+			if err := vj.fillTaskInPSMode(&jobSpec.Spec.Tasks[1], task, jobSpec.Name); err != nil {
+				log.Errorf("fill Task[%s] in PS-Mode failed, err=[%v]", jobSpec.Spec.Tasks[1].Name, err)
+				return err
+			}
+		}
 	}
-	// worker
-	workerTask := jobSpec.Spec.Tasks[1]
-	if err := vj.fillTaskInPSMode(&workerTask, false, jobSpec.Name); err != nil {
-		log.Errorf("fill Task[%s] in PS-Mode failed, err=[%v]", psTask.Name, err)
-		return err
-	}
-	jobSpec.Spec.MinAvailable = psTask.Replicas + workerTask.Replicas
+
+	jobSpec.Spec.MinAvailable = jobSpec.Spec.Tasks[0].Replicas + jobSpec.Spec.Tasks[1].Replicas
 
 	return nil
 }
 
-func (vj *VCJob) fillTaskInPSMode(vcTask *vcjob.TaskSpec, isMaster bool, jobName string) error {
-	replicaStr, commandEnv, flavourStr := vj.patchTaskParams(isMaster)
+func (vj *VCJob) fillTaskInPSMode(vcTask *vcjob.TaskSpec, task models.Member, jobName string) error {
+	log.Infof("fill Task[%s] in PS-Mode", vcTask.Name)
+	vcTask.Replicas = int32(task.Replicas)
 
-	if replicaStr != "" {
-		replicasInt, _ := strconv.Atoi(replicaStr)
-		vcTask.Replicas = int32(replicasInt)
-	}
 	if vcTask.Replicas <= 0 {
 		vcTask.Replicas = defaultPSReplicas
 	}
@@ -182,7 +183,7 @@ func (vj *VCJob) fillTaskInPSMode(vcTask *vcjob.TaskSpec, isMaster bool, jobName
 	if len(vcTask.Template.Spec.Containers) != 1 {
 		vcTask.Template.Spec.Containers = []v1.Container{{}}
 	}
-	vj.fillContainerInTask(&vcTask.Template.Spec.Containers[0], flavourStr, commandEnv)
+	vj.fillContainerInTasks(&vcTask.Template.Spec.Containers[0], task.Flavour, task.Command)
 
 	// patch vcTask.Template.Spec.Volumes
 	vcTask.Template.Spec.Volumes = vj.appendVolumeIfAbsent(vcTask.Template.Spec.Volumes, vj.generateVolume(vj.PVCName))
@@ -228,7 +229,7 @@ func (vj *VCJob) fillTaskInPodMode(taskSpec *vcjob.TaskSpec, jobName string) err
 	taskSpec.Template.Labels[schema.JobIDLabel] = jobName
 
 	// patch taskSpec.Template.Spec.Containers
-	vj.fillContainerInTask(&taskSpec.Template.Spec.Containers[0], vj.JobFlavour, vj.Command)
+	vj.fillContainerInVcJob(&taskSpec.Template.Spec.Containers[0], vj.JobFlavour, vj.Command)
 
 	// patch taskSpec.Template.Spec.Volumes
 	taskSpec.Template.Spec.Volumes = vj.appendVolumeIfAbsent(taskSpec.Template.Spec.Volumes,
@@ -279,8 +280,11 @@ func (vj *VCJob) fillTaskInCollectiveMode(tasks []vcjob.TaskSpec, jobName string
 	}
 	task.Template.Labels[schema.JobIDLabel] = jobName
 
+	if len(vj.Tasks) != 1 {
+		return nil, fmt.Errorf("the num of job[%s]-task must be 1, current is [%d]", jobName, len(vj.Tasks))
+	}
 	// todo : add affinity
-	vj.fillContainerInTask(&task.Template.Spec.Containers[0], vj.JobFlavour, vj.Command)
+	vj.fillContainerInTasks(&task.Template.Spec.Containers[0], vj.Tasks[0].Flavour, vj.Command)
 
 	// patch task.Template.Spec.Volumes
 	jobVolume := vj.generateVolume(vj.PVCName)

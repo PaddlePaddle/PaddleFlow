@@ -18,6 +18,7 @@ package job
 
 import (
 	"fmt"
+	"strconv"
 
 	log "github.com/sirupsen/logrus"
 
@@ -34,6 +35,7 @@ import (
 )
 
 func CreateJob(conf schema.PFJobConf) (string, error) {
+	log.Debugf("create job: %v", conf)
 	if err := ValidateJob(conf); err != nil {
 		return "", err
 	}
@@ -49,12 +51,166 @@ func CreateJob(conf schema.PFJobConf) (string, error) {
 		Status:   schema.StatusJobInit,
 		Config:   jobConf,
 	}
+	if err := patchTasksFromEnv(jobConf, jobInfo); err != nil {
+		log.Errorf("patch tasks from env failed, err: %v", err)
+		return "", err
+	}
+
 	if err := models.CreateJob(jobInfo); err != nil {
 		log.Errorf("create job[%s] in database faield, err: %v", conf.GetName(), err)
 		return "", fmt.Errorf("create job[%s] in database faield, err: %v", conf.GetName(), err)
 	}
 	log.Infof("create job[%s] successful.", jobInfo.ID)
 	return jobInfo.ID, nil
+}
+
+func patchTasksFromEnv(conf *schema.Conf, jobInfo *models.Job) error {
+	log.Debugf("patch tasks from env: %v", conf)
+	switch conf.Type() {
+	case schema.TypeSparkJob:
+		return patchSparkTask(conf, jobInfo)
+	case schema.TypePaddleJob:
+		jobInfo.Framework = schema.FrameworkSpark
+		jobInfo.Type = string(schema.TypeDistributed)
+	}
+
+	switch conf.GetJobMode() {
+	case schema.EnvJobModePS:
+		patchPSTasks(conf, jobInfo)
+	case schema.EnvJobModeCollective:
+		patchCollectiveTask(conf, jobInfo)
+	case schema.EnvJobModePod:
+		patchPodTask(conf, jobInfo)
+	default:
+		log.Errorf("unsupport job mode")
+		return errors.InvalidJobModeError(conf.GetJobMode())
+	}
+	// patchFlavourFromEnv
+	jobInfo.Config.Flavour = config.GlobalServerConfig.FlavourMap[conf.GetFlavour()]
+	return nil
+}
+
+func patchSparkTask(conf *schema.Conf, jobInfo *models.Job) error {
+	jobInfo.Members = make([]models.Member, 2)
+	driverTask := models.Member{
+		ID:   "driver",
+		Role: schema.RoleDriver,
+		Conf: *conf,
+	}
+	if conf.GetPSFlavour() != "" {
+		driverTask.Flavour = config.GlobalServerConfig.FlavourMap[conf.GetPSFlavour()]
+	}
+	executorTask := models.Member{
+		ID:   "executor",
+		Role: schema.RoleExecutor,
+		Conf: *conf,
+	}
+	if conf.GetWorkerFlavour() != "" {
+		executorTask.Flavour = config.GlobalServerConfig.FlavourMap[conf.GetWorkerFlavour()]
+	}
+	jobInfo.Members = append(jobInfo.Members, driverTask, executorTask)
+	return nil
+}
+
+func patchPSTasks(conf *schema.Conf, jobInfo *models.Job) error {
+	jobInfo.Members = make([]models.Member, 2)
+	// ps server task
+	psTask, err := newPSServerTask(conf)
+	if err != nil {
+		log.Errorf("patch ps server task failed, err: %v", err)
+		return err
+	}
+	// worker task
+	workerTask, err := newPSWorkerTask(conf)
+	if err != nil {
+		log.Errorf("patch ps worker task failed, err: %v", err)
+		return err
+	}
+	jobInfo.Members = append(jobInfo.Members, psTask, workerTask)
+	return nil
+}
+
+func newPSServerTask(conf *schema.Conf) (models.Member, error) {
+	psTask := models.Member{
+		ID:   "ps",
+		Role: schema.RolePServer,
+		Conf: *conf,
+	}
+	if conf.GetPSFlavour() != "" {
+		psTask.Flavour = config.GlobalServerConfig.FlavourMap[conf.GetPSFlavour()]
+	} else {
+		return psTask, errors.InvalidFlavourError(conf.GetPSFlavour())
+	}
+	if conf.GetPSCommand() != "" {
+		psTask.Command = conf.GetPSCommand()
+	} else {
+		return psTask, fmt.Errorf("ps command is empty")
+	}
+	if conf.GetPSReplicas() != "" {
+		psTask.Replicas, _ = strconv.Atoi(conf.GetPSReplicas())
+	} else {
+		return psTask, fmt.Errorf("ps replicas is empty")
+	}
+	return psTask, nil
+}
+
+func newPSWorkerTask(conf *schema.Conf) (models.Member, error) {
+	workerTask := models.Member{
+		ID:   "worker",
+		Role: schema.RolePSWorker,
+		Conf: *conf,
+	}
+	if conf.GetWorkerFlavour() != "" {
+		workerTask.Flavour = config.GlobalServerConfig.FlavourMap[conf.GetWorkerFlavour()]
+	} else {
+		return workerTask, errors.InvalidFlavourError(conf.GetWorkerFlavour())
+	}
+	if conf.GetWorkerCommand() != "" {
+		workerTask.Command = conf.GetWorkerCommand()
+	} else {
+		return workerTask, fmt.Errorf("worker command is empty")
+	}
+	if conf.GetWorkerReplicas() != "" {
+		replicasInt, _ := strconv.Atoi(conf.GetWorkerReplicas())
+		workerTask.Replicas = replicasInt
+	} else {
+		return workerTask, fmt.Errorf("worker replicas is empty")
+	}
+	return workerTask, nil
+}
+
+func patchCollectiveTask(conf *schema.Conf, jobInfo *models.Job) error {
+	jobInfo.Members = make([]models.Member, 1)
+	// executor/worker
+	workerTask := models.Member{
+		ID:   "worker",
+		Role: schema.RoleWorker,
+		Conf: *conf,
+	}
+	if conf.GetWorkerFlavour() != "" {
+		workerTask.Flavour = config.GlobalServerConfig.FlavourMap[conf.GetWorkerFlavour()]
+	} else {
+		return errors.InvalidFlavourError(conf.GetWorkerFlavour())
+	}
+	// commad
+	if conf.GetWorkerCommand() != "" {
+		workerTask.Command = conf.GetWorkerCommand()
+	} else {
+		return fmt.Errorf("worker command is empty")
+	}
+	// Replicase
+	if conf.GetWorkerReplicas() != "" {
+		replicasInt, _ := strconv.Atoi(conf.GetWorkerReplicas())
+		workerTask.Replicas = replicasInt
+	} else {
+		return fmt.Errorf("worker replicas is empty")
+	}
+	jobInfo.Members = append(jobInfo.Members, workerTask)
+	return nil
+}
+
+func patchPodTask(conf *schema.Conf, jobInfo *models.Job) {
+	jobInfo.Config.Flavour = config.GlobalServerConfig.FlavourMap[conf.GetFlavour()]
 }
 
 func generateJobID(param string) string {
