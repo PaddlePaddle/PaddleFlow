@@ -24,6 +24,8 @@ import (
 	"paddleflow/pkg/common/database"
 )
 
+const FsCacheTableName = "fs_cache"
+
 type DBFSCache struct {
 	db *gorm.DB
 }
@@ -35,23 +37,23 @@ func newDBFSCache() FSCacheStore {
 }
 
 func (s *FSCache) TableName() string {
-	return "fs_cache"
+	return FsCacheTableName
 }
 
-func (f *DBFSCache) AddFSCache(value *FSCache) error {
+func (f *DBFSCache) Add(value *FSCache) error {
 	return f.db.Create(value).Error
 }
 
-func (f *DBFSCache) GetFSCache(fsID string, cacheID string) (*FSCache, error) {
+func (f *DBFSCache) Get(fsID string, cacheID string) (*FSCache, error) {
 	var fsCache FSCache
-	tx := database.DB.Table("fs_cache").Where("fs_id = ?", fsID).Where("cache_id = ?", cacheID).First(&fsCache)
+	tx := database.DB.Where(&FSCache{FsID: fsID, CacheID: cacheID}).First(&fsCache)
 	if tx.Error != nil {
 		return nil, tx.Error
 	}
 	return &fsCache, nil
 }
 
-func (f *DBFSCache) DeleteFSCache(fsID, cacheID string) error {
+func (f *DBFSCache) Delete(fsID, cacheID string) error {
 	result := f.db
 	if fsID != "" {
 		result.Where(fmt.Sprintf(QueryEqualWithParam, FsID), fsID)
@@ -63,7 +65,7 @@ func (f *DBFSCache) DeleteFSCache(fsID, cacheID string) error {
 	return result.Delete(&FSCache{}).Error
 }
 
-func (f *DBFSCache) ListFSCaches(fsID, cacheID string) ([]FSCache, error) {
+func (f *DBFSCache) List(fsID, cacheID string) ([]FSCache, error) {
 	if fsID != "" {
 		f.db.Where(fmt.Sprintf(QueryEqualWithParam, FsID), fsID)
 	}
@@ -71,13 +73,14 @@ func (f *DBFSCache) ListFSCaches(fsID, cacheID string) ([]FSCache, error) {
 		f.db.Where(fmt.Sprintf(QueryEqualWithParam, FsCacheID), cacheID)
 	}
 	var fsCaches []FSCache
-	err := f.db.Table("fs_cache").Find(&fsCaches).Error
+	err := f.db.Find(&fsCaches).Error
 	if err != nil {
 		return nil, err
 	}
 	return fsCaches, nil
 }
 
-func (f *DBFSCache) UpdateFSCache() error {
-	return nil
+func (f *DBFSCache) Update(value *FSCache) (int64, error) {
+	result := f.db.Where(&FSCache{FsID: value.FsID, CacheID: value.CacheID}).Updates(value)
+	return result.RowsAffected, result.Error
 }

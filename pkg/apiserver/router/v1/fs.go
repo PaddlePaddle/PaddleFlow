@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi"
+	"github.com/go-playground/validator/v10"
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -55,9 +56,10 @@ func (pr *PFSRouter) AddRouter(r chi.Router) {
 	r.Delete("/fs/{fsName}", pr.deleteFileSystem)
 	r.Post("/fs/claims", pr.createFileSystemClaims)
 	// fs cache config
-	r.Post("/fs/cache", pr.createFSCacheConfig)
-	r.Put("/fs/cache/{fsName}", pr.updateFSCacheConfig)
-	r.Get("/fs/cache/{fsName}", pr.getFSCacheConfig)
+	r.Post("/fsCache", pr.createFSCacheConfig)
+	r.Put("/fsCache/{fsName}", pr.updateFSCacheConfig)
+	r.Get("/fsCache/{fsName}", pr.getFSCacheConfig)
+	r.Post("/fsCache/report", pr.fsCacheReport)
 }
 
 var URLPrefix = map[string]bool{
@@ -631,4 +633,228 @@ func getFsIDAndCheckPermission(ctx *logger.RequestContext,
 		fsID = common.ID(ctx.UserName, fsName)
 	}
 	return fsID, nil
+}
+
+// createFSCacheConfig handles requests of creating filesystem cache config
+// @Summary createFSCacheConfig
+// @Description
+// @tag fs
+// @Accept   json
+// @Produce  json
+// @Param request body fs.CreateFileSystemCacheRequest true "request body"
+// @Success 201 {string} string Created
+// @Failure 400 {object} common.ErrorResponse
+// @Failure 404 {object} common.ErrorResponse
+// @Failure 500 {object} common.ErrorResponse
+// @Router /fsCache [post]
+func (pr *PFSRouter) createFSCacheConfig(w http.ResponseWriter, r *http.Request) {
+	ctx := common.GetRequestContext(r)
+	var createRequest api.CreateFileSystemCacheRequest
+	err := common.BindJSON(r, &createRequest)
+	if err != nil {
+		ctx.Logging().Errorf("CreateFSCacheConfig bindjson failed. err:%s", err.Error())
+		common.RenderErr(w, ctx.RequestID, common.MalformedJSON)
+		return
+	}
+
+	createRequest.FsID, err = getFsIDAndCheckPermission(&ctx, createRequest.Username, createRequest.FsName)
+	if err != nil {
+		ctx.Logging().Errorf("getFSCacheConfig check fs permission failed: [%v]", err)
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+	ctx.Logging().Debugf("create file system cache with req[%v]", createRequest)
+
+	err = validateCreateFSCacheConfig(&ctx, &createRequest)
+	if err != nil {
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+
+	err = api.CreateFileSystemCacheConfig(&ctx, createRequest)
+	if err != nil {
+		ctx.Logging().Errorf("create file system cache with service error[%v]", err)
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+
+	common.RenderStatus(w, http.StatusCreated)
+}
+
+func validateCreateFSCacheConfig(ctx *logger.RequestContext, req *api.CreateFileSystemCacheRequest) error {
+	// fs exists?
+	_, err := models.GetFileSystemWithFsID(req.FsID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			ctx.ErrorCode = common.FileSystemNotExist
+			ctx.Logging().Errorf("validateCreateFileSystemCache fsID[%s] not exist", req.FsID)
+		} else {
+			ctx.Logging().Errorf("validateCreateFileSystemCache fsID[%s] err:%v", req.FsID, err)
+		}
+		return err
+	}
+	// TODO param check rule
+
+	return nil
+}
+
+// getFSCacheConfig
+// @Summary 通过FsID获取缓存配置
+// @Description  通过FsID获取缓存配置
+// @Id getFSCacheConfig
+// @tags FSCacheConfig
+// @Accept  json
+// @Produce json
+// @Param fsName path string true "存储名称"
+// @Param username query string false "用户名"
+// @Success 200 {object} models.FSCacheConfig "缓存配置结构体"
+// @Failure 400 {object} common.ErrorResponse "400"
+// @Failure 500 {object} common.ErrorResponse "500"
+// @Router /fsCache/{fsName} [GET]
+func (pr *PFSRouter) getFSCacheConfig(w http.ResponseWriter, r *http.Request) {
+	fsName := chi.URLParam(r, util.QueryFsName)
+	username := r.URL.Query().Get(util.QueryKeyUserName)
+	ctx := common.GetRequestContext(r)
+
+	fsID, err := getFsIDAndCheckPermission(&ctx, username, fsName)
+	if err != nil {
+		ctx.Logging().Errorf("getFSCacheConfig check fs permission failed: [%v]", err)
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+
+	fsCacheConfigResp, err := api.GetFileSystemCacheConfig(&ctx, fsID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			ctx.ErrorCode = common.RecordNotFound
+		} else {
+			ctx.ErrorCode = common.InternalError
+		}
+		logger.LoggerForRequest(&ctx).Errorf("GetFSCacheConfig[%s] failed. error:%v", fsID, err)
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+	common.Render(w, http.StatusOK, fsCacheConfigResp)
+}
+
+// updateFSCacheConfig
+// @Summary 更新FsID的缓存配置
+// @Description  更新FsID的缓存配置
+// @Id updateFSCacheConfig
+// @tags FSCacheConfig
+// @Accept  json
+// @Produce json
+// @Param fsName path string true "存储名称"
+// @Param username query string false "用户名"
+// @Param request body fs.UpdateFileSystemCacheRequest true "request body"
+// @Success 200 {object} models.FSCacheConfig "缓存配置结构体"
+// @Failure 400 {object} common.ErrorResponse "400"
+// @Failure 500 {object} common.ErrorResponse "500"
+// @Router /fsCache/{fsName} [PUT]
+func (pr *PFSRouter) updateFSCacheConfig(w http.ResponseWriter, r *http.Request) {
+	fsName := chi.URLParam(r, util.QueryFsName)
+	username := r.URL.Query().Get(util.QueryKeyUserName)
+	ctx := common.GetRequestContext(r)
+
+	var req api.UpdateFileSystemCacheRequest
+	err := common.BindJSON(r, &req)
+	if err != nil {
+		ctx.Logging().Errorf("UpdateFSCacheConfig[%s] bindjson failed. err:%s", fsName, err.Error())
+		common.RenderErr(w, ctx.RequestID, common.MalformedJSON)
+		return
+	}
+
+	req.FsID, err = getFsIDAndCheckPermission(&ctx, username, fsName)
+	if err != nil {
+		ctx.Logging().Errorf("getFSCacheConfig check fs permission failed: [%v]", err)
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+
+	// validate fs_cache_config existence
+	_, err = models.GetFSCacheConfig(ctx.Logging(), req.FsID)
+	if err != nil {
+		ctx.Logging().Errorf("validateUpdateFileSystemCache err:%v", err)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			common.RenderErr(w, ctx.RequestID, common.RecordNotFound)
+		} else {
+			common.RenderErr(w, ctx.RequestID, common.InternalError)
+		}
+		return
+	}
+
+	err = api.UpdateFileSystemCacheConfig(&ctx, req)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			common.RenderErr(w, ctx.RequestID, common.RecordNotFound)
+		} else {
+			common.RenderErr(w, ctx.RequestID, common.InternalError)
+		}
+		logger.LoggerForRequest(&ctx).Errorf(
+			"GetFSCacheConfig[%s] failed. error:%v", req.FsID, err)
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+	common.RenderStatus(w, http.StatusOK)
+}
+
+// FSCacheReport
+// @Summary 上报FsID的缓存信息
+// @Description  上报FsID的缓存信息
+// @Id FSCacheReport
+// @tags FSCacheConfig
+// @Accept  json
+// @Produce json
+// @Param fsName path string true "存储名称"
+// @Param username query string false "用户名"
+// @Param request body fs.CacheReportRequest true "request body"
+// @Success 200 {object}
+// @Failure 400 {object} common.ErrorResponse "400"
+// @Failure 500 {object} common.ErrorResponse "500"
+// @Router /fsCache/report [POST]
+func (pr *PFSRouter) fsCacheReport(w http.ResponseWriter, r *http.Request) {
+	ctx := common.GetRequestContext(r)
+	var request api.CacheReportRequest
+	err := common.BindJSON(r, &request)
+	if err != nil {
+		ctx.Logging().Errorf("FSCachReport bindjson failed. err:%s", err.Error())
+		common.RenderErr(w, ctx.RequestID, common.MalformedJSON)
+		return
+	}
+
+	_, err = getFsIDAndCheckPermission(&ctx, request.Username, request.FsName)
+	if err != nil {
+		ctx.Logging().Errorf("getFSCacheConfig check fs permission failed: [%v]", err)
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+	err = validateFsCacheReport(&ctx, &request)
+	if err != nil {
+		ctx.Logging().Errorf("gvalidateFsCacheReport request[%v] failed: [%v]", request, err)
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+
+	ctx.Logging().Debugf("report cache with req[%v]", request)
+
+	err = api.ReportCache(&ctx, request)
+	if err != nil {
+		ctx.Logging().Errorf("report cache with service error[%v]", err)
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+
+	common.RenderStatus(w, http.StatusOK)
+}
+
+func validateFsCacheReport(ctx *logger.RequestContext, req *api.CacheReportRequest) error {
+	validate := validator.New()
+	err := validate.Struct(req)
+	if err != nil {
+		for _, err = range err.(validator.ValidationErrors) {
+			ctx.ErrorCode = common.InappropriateJSON
+			return err
+		}
+	}
+	return nil
 }

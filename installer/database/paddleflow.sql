@@ -321,10 +321,10 @@ CREATE TABLE IF NOT EXISTS `fs_cache_config` (
 CREATE TABLE IF NOT EXISTS `fs_cache` (
     `pk` bigint(20) unsigned NOT NULL AUTO_INCREMENT COMMENT 'pk',
     `cache_id` varchar(36) NOT NULL COMMENT 'unique fs cache id',
-    `cache_hash_id` varchar(36) NOT NULL COMMENT 'fs cache unique hashid for judging the same fscache or not',
+    `cache_hash_id` varchar(36) COMMENT 'fs cache unique hashid for judging the same fscache or not',
     `fs_id` varchar(36) NOT NULL COMMENT 'file system id',
+    `cluster_id` varchar(60) DEFAULT '' COMMENT 'cluster id',
     `cache_dir` varchar(4096) NOT NULL COMMENT 'cache dir, e.g. /var/pfs_cache',
-    `mountpoint` varchar(1024) NOT NULL COMMENT 'mount point of file system on node，reserved field',
     `nodename` varchar(255) NOT NULL COMMENT 'node name',
     `usedsize` bigint(20) NOT NULL COMMENT 'cache used size on cache dir',
     `created_at` datetime NOT NULL COMMENT 'create time',
