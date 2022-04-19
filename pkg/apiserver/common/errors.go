@@ -57,6 +57,8 @@ const (
 	AuthFailed       = "AuthFailed"       // 用户名或者密码错误
 	AuthIllegalUser  = "AuthIllegalUser"  // 非法用户
 
+	DBUpdateFailed = "UpdateDatabaseFailed"
+
 	UserNameDuplicated = "UserNameDuplicated"
 	UserNotExist       = "UserNotExist"
 	UserPasswordWeak   = "UserPasswordWeak"

@@ -19,6 +19,7 @@ package models
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -87,7 +88,7 @@ func (job *Job) BeforeSave(tx *gorm.DB) error {
 		job.MembersJson = string(infoJson)
 	}
 	if job.Resource != nil {
-		infoJson, err := json.Marshal(&job.ResourceJson)
+		infoJson, err := json.Marshal(job.Resource)
 		if err != nil {
 			return err
 		}
@@ -121,15 +122,6 @@ func (job *Job) AfterFind(tx *gorm.DB) error {
 			return err
 		}
 		job.Members = members
-	}
-	if len(job.ResourceJson) > 0 {
-		resource := schema.Resource{}
-		err := json.Unmarshal([]byte(job.ResourceJson), &resource)
-		if err != nil {
-			log.Errorf("job[%s] json unmarshal resource failed, error:[%s]", job.ID, err.Error())
-			return err
-		}
-		job.Resource = &resource
 	}
 	if len(job.ConfigJson) > 0 {
 		conf := schema.Conf{}
@@ -198,6 +190,22 @@ func UpdateJobStatus(jobId, errMessage string, jobStatus schema.JobStatus) error
 	}
 	log.Infof("update job [%+v]", job)
 	tx := database.DB.Model(&Job{}).Where("id = ?", jobId).Updates(job)
+	if tx.Error != nil {
+		return tx.Error
+	}
+	return nil
+}
+
+func UpdateJobConfig(jobId string, conf *schema.Conf) error {
+	if conf == nil {
+		return fmt.Errorf("job config is nil")
+	}
+	confJSON, err := json.Marshal(conf)
+	if err != nil {
+		return err
+	}
+	log.Infof("update job config [%v]", conf)
+	tx := database.DB.Model(&Job{}).Where("id = ?", jobId).UpdateColumn("config", confJSON)
 	if tx.Error != nil {
 		return tx.Error
 	}

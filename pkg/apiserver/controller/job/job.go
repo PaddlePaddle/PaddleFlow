@@ -22,7 +22,6 @@ import (
 	"github.com/ghodss/yaml"
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
-
 	"paddleflow/pkg/apiserver/common"
 	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/common/errors"
@@ -152,7 +151,7 @@ func patchEnvs(conf *schema.Conf, commonJobInfo *CommonJobInfo) error {
 	// basic fields required
 	conf.Labels = commonJobInfo.Labels
 	conf.Annotations = commonJobInfo.Annotations
-	conf.SetEnv(schema.EnvJobType, string(schema.TypePodJob))
+	conf.SetEnv(schema.EnvJobType, string(schema.TypeSingle))
 	conf.SetUserName(commonJobInfo.UserName)
 	// info in SchedulingPolicy: queue,Priority,ClusterId,Namespace
 	queueName := commonJobInfo.SchedulingPolicy.Queue
@@ -376,11 +375,57 @@ func UpdateJob(ctx *logger.RequestContext, request *UpdateJobRequest) error {
 	if err := CheckPermission(ctx); err != nil {
 		return err
 	}
-	// update priority
+	job, err := models.GetJobByID(request.JobID)
+	if err != nil {
+		ctx.ErrorCode = common.JobNotFound
+		log.Errorf("get job %s from database failed, err: %v", job.ID, err)
+		return err
+	}
+	// check job status
+	if !schema.IsImmutableJobStatus(job.Status) && job.Status != schema.StatusJobInit {
+		// update job on cluster
+		err = updateRuntimeJob(ctx, &job, request)
+		if err != nil {
+			ctx.ErrorCode = common.InternalError
+			log.Errorf("update job %s on cluster failed, err: %v", job.ID, err)
+			return err
+		}
+	}
 
+	if request.Priority != "" {
+		job.Config.Priority = request.Priority
+	}
+	for label, value := range request.Labels {
+		job.Config.SetLabels(label, value)
+	}
+	for key, value := range request.Annotations {
+		job.Config.SetAnnotations(key, value)
+	}
+
+	err = models.UpdateJobConfig(job.ID, job.Config)
+	if err != nil {
+		log.Errorf("update job %s on database failed, err: %v", job.ID, err)
+		ctx.ErrorCode = common.DBUpdateFailed
+	}
+	return err
+}
+
+func updateRuntimeJob(ctx *logger.RequestContext, job *models.Job, request *UpdateJobRequest) error {
 	// update labels and annotations
-
-	return nil
+	runtimeSvc, err := getRuntimeByQueue(ctx, job.QueueID)
+	if err != nil {
+		log.Errorf("get cluster runtime failed, err: %v", err)
+		return err
+	}
+	pfjob, err := api.NewJobInfo(job)
+	if err != nil {
+		log.Errorf("new paddleflow job failed, err: %v", err)
+		return err
+	}
+	pfjob.UpdateLabels(request.Labels)
+	pfjob.UpdateAnnotations(request.Annotations)
+	// TODO: update job priority
+	return runtimeSvc.UpdateJob(pfjob)
 }
 
 func getRuntimeByQueue(ctx *logger.RequestContext, queueID string) (runtime.RuntimeService, error) {
