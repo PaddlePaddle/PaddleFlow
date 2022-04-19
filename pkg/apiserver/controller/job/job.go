@@ -22,6 +22,7 @@ import (
 	"github.com/ghodss/yaml"
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"paddleflow/pkg/apiserver/common"
 	"paddleflow/pkg/apiserver/models"
@@ -152,7 +153,7 @@ func patchEnvs(conf *schema.Conf, commonJobInfo *CommonJobInfo) error {
 	// basic fields required
 	conf.Labels = commonJobInfo.Labels
 	conf.Annotations = commonJobInfo.Annotations
-	conf.SetEnv(schema.EnvJobType, string(schema.TypePodJob))
+	conf.SetEnv(schema.EnvJobType, string(schema.TypeSingle))
 	conf.SetUserName(commonJobInfo.UserName)
 	// info in SchedulingPolicy: queue,Priority,ClusterId,Namespace
 	queueName := commonJobInfo.SchedulingPolicy.Queue
@@ -376,11 +377,68 @@ func UpdateJob(ctx *logger.RequestContext, request *UpdateJobRequest) error {
 	if err := CheckPermission(ctx); err != nil {
 		return err
 	}
-	// update priority
+	job, err := models.GetJobByID(request.JobID)
+	if err != nil {
+		ctx.ErrorCode = common.JobNotFound
+		log.Errorf("get job %s from database failed, err: %v", job.ID, err)
+		return err
+	}
+	// check job status
+	if !schema.IsImmutableJobStatus(job.Status) && job.Status != schema.StatusJobInit {
+		// update job on cluster
+		err = updateRuntimeJob(ctx, &job, request)
+		if err != nil {
+			ctx.ErrorCode = common.InternalError
+			log.Errorf("update job %s on cluster failed, err: %v", job.ID, err)
+			return err
+		}
+	}
+
+	if request.Priority != "" {
+		job.Config.Priority = request.Priority
+	}
+	for label, value := range request.Labels {
+		job.Config.SetLabels(label, value)
+	}
+	for key, value := range request.Annotations {
+		job.Config.SetAnnotations(key, value)
+	}
+
+	err = models.UpdateJobConfig(job.ID, job.Config)
+	if err != nil {
+		log.Errorf("update job %s on database failed, err: %v", job.ID, err)
+		ctx.ErrorCode = common.DBUpdateFailed
+	}
+	return err
+}
+
+func updateRuntimeJob(ctx *logger.RequestContext, job *models.Job, request *UpdateJobRequest) error {
+	// TODO: update job priority
 
 	// update labels and annotations
-
-	return nil
+	patchJSON := struct {
+		metav1.ObjectMeta `json:"metadata,omitempty"`
+	}{
+		ObjectMeta: metav1.ObjectMeta{},
+	}
+	if len(request.Labels) != 0 {
+		patchJSON.Labels = request.Labels
+	}
+	if len(request.Annotations) != 0 {
+		patchJSON.Annotations = request.Annotations
+	}
+	log.Infof("update job %s on cluster, update info: %v", job.ID, patchJSON)
+	runtimeSvc, err := getRuntimeByQueue(ctx, job.QueueID)
+	if err != nil {
+		log.Errorf("get cluster runtime failed, err: %v", err)
+		return err
+	}
+	pfjob, err := api.NewJobInfo(job)
+	if err != nil {
+		log.Errorf("new paddleflow job failed, err: %v", err)
+		return err
+	}
+	return runtimeSvc.UpdateJob(pfjob, &patchJSON)
 }
 
 func getRuntimeByQueue(ctx *logger.RequestContext, queueID string) (runtime.RuntimeService, error) {
