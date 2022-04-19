@@ -104,7 +104,7 @@ func GetRunLog(ctx *logger.RequestContext, runID string, request GetRunLogReques
 }
 
 func getJobListByRunID(ctx *logger.RequestContext, runID string, jobID string) ([]models.Job, error) {
-	jobList, err := models.GetJobsByRunID(ctx, runID, jobID)
+	jobList, err := models.GetJobsByRunID(runID, jobID)
 	if err != nil {
 		return nil, err
 	}

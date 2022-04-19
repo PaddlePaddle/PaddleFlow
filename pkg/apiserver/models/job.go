@@ -39,7 +39,7 @@ type Job struct {
 	QueueID           string           `json:"queueID" gorm:"NOT NULL"`
 	Type              string           `json:"type" gorm:"type:varchar(20);NOT NULL"`
 	ConfigJson        string           `json:"-" gorm:"column:config;type:text"`
-	Config            schema.Conf      `json:"config" gorm:"-"`
+	Config            *schema.Conf     `json:"config" gorm:"-"`
 	RuntimeInfoJson   string           `json:"-" gorm:"column:runtime_info;default:'{}'"`
 	RuntimeInfo       interface{}      `json:"runtimeInfo" gorm:"-"`
 	Status            schema.JobStatus `json:"status" gorm:"type:varchar(32);"`
@@ -79,12 +79,26 @@ func (job *Job) BeforeSave(tx *gorm.DB) error {
 		}
 		job.RuntimeInfoJson = string(infoJson)
 	}
+	if len(job.Members) != 0 {
+		infoJson, err := json.Marshal(job.Members)
+		if err != nil {
+			return err
+		}
+		job.MembersJson = string(infoJson)
+	}
 	if job.Resource != nil {
 		infoJson, err := json.Marshal(&job.ResourceJson)
 		if err != nil {
 			return err
 		}
 		job.ResourceJson = string(infoJson)
+	}
+	if job.Config != nil {
+		infoJson, err := json.Marshal(job.Config)
+		if err != nil {
+			return err
+		}
+		job.ConfigJson = string(infoJson)
 	}
 	return nil
 }
@@ -94,7 +108,7 @@ func (job *Job) AfterFind(tx *gorm.DB) error {
 		var runtime interface{}
 		err := json.Unmarshal([]byte(job.RuntimeInfoJson), &runtime)
 		if err != nil {
-			log.Errorf("job[%s] decode runtime failed, error:[%s]", job.ID, err.Error())
+			log.Errorf("job[%s] json unmarshal runtime failed, error:[%s]", job.ID, err.Error())
 			return err
 		}
 		job.RuntimeInfo = runtime
@@ -103,7 +117,7 @@ func (job *Job) AfterFind(tx *gorm.DB) error {
 		var members []Member
 		err := json.Unmarshal([]byte(job.MembersJson), &members)
 		if err != nil {
-			log.Errorf("job[%s] decode member failed, error:[%s]", job.ID, err.Error())
+			log.Errorf("job[%s] json unmarshal member failed, error:[%s]", job.ID, err.Error())
 			return err
 		}
 		job.Members = members
@@ -112,7 +126,7 @@ func (job *Job) AfterFind(tx *gorm.DB) error {
 		resource := schema.Resource{}
 		err := json.Unmarshal([]byte(job.ResourceJson), &resource)
 		if err != nil {
-			log.Errorf("job[%s] decode resource failed, error:[%s]", job.ID, err.Error())
+			log.Errorf("job[%s] json unmarshal resource failed, error:[%s]", job.ID, err.Error())
 			return err
 		}
 		job.Resource = &resource
@@ -121,10 +135,10 @@ func (job *Job) AfterFind(tx *gorm.DB) error {
 		conf := schema.Conf{}
 		err := json.Unmarshal([]byte(job.ConfigJson), &conf)
 		if err != nil {
-			log.Errorf("job[%s] decode config failed, error:[%s]", job.ID, err.Error())
+			log.Errorf("job[%s] json unmarshal config failed, error:[%s]", job.ID, err.Error())
 			return err
 		}
-		job.Config = conf
+		job.Config = &conf
 	}
 	return nil
 }
@@ -227,7 +241,7 @@ func ListQueueJob(queueID string, status []schema.JobStatus) []Job {
 	return jobs
 }
 
-func GetJobsByRunID(ctx *logger.RequestContext, runID string, jobID string) ([]Job, error) {
+func GetJobsByRunID(runID string, jobID string) ([]Job, error) {
 	var jobList []Job
 	query := database.DB.Table("job").Where("id like ?", "job-"+runID+"-%")
 	if jobID != "" {
@@ -235,7 +249,7 @@ func GetJobsByRunID(ctx *logger.RequestContext, runID string, jobID string) ([]J
 	}
 	err := query.Find(&jobList).Error
 	if err != nil {
-		ctx.Logging().Errorf("get jobs by run[%s] failed. error : %s ", runID, err.Error())
+		log.Errorf("get jobs by run[%s] failed. error : %s ", runID, err.Error())
 		return nil, err
 	}
 	return jobList, nil
