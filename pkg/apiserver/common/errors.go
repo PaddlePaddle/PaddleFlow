@@ -186,6 +186,7 @@ var errorHTTPStatus = map[string]int{
 
 	JobInvalidField: http.StatusBadRequest,
 	JobCreateFailed: http.StatusBadRequest,
+	JobNotFound:     http.StatusNotFound,
 
 	ClusterNameNotFound:      http.StatusBadRequest,
 	ClusterIdNotFound:        http.StatusBadRequest,
