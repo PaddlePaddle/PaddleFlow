@@ -55,7 +55,7 @@ type CreateRunRequest struct {
 }
 
 type CreateRunByJsonRequest struct {
-	FsName         string                     `json:"fsName,omitempty"`   // optional
+	FsName         string                     `json:"fsName"`
 	UserName       string                     `json:"userName,omitempty"` // optional, only for root user
 	Description    string                     `json:"desc,omitempty"`     // optional
 	Disabled       string                     `json:"disabled,omitempty"` // optional
@@ -248,12 +248,15 @@ func parseRunSteps(steps map[string]*schema.RunStep, request *CreateRunByJsonReq
 
 func parseArtifacts(atf schema.ArtifactsJson) schema.Artifacts {
 	outputAritfacts := map[string]string{}
-	for _, output := range atf.Output {
-		outputAritfacts[output] = ""
+	outputList := []string{}
+	for _, outputName := range atf.Output {
+		outputAritfacts[outputName] = ""
+		outputList = append(outputList, outputName)
 	}
 	res := schema.Artifacts{
-		Input:  atf.Input,
-		Output: outputAritfacts,
+		Input:      atf.Input,
+		Output:     outputAritfacts,
+		OutputList: outputList,
 	}
 	return res
 }

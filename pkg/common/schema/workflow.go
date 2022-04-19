@@ -68,7 +68,7 @@ type RunStep struct {
 	Command    string                 `yaml:"command"`
 	Deps       string                 `yaml:"deps"`
 	Artifacts  ArtifactsJson          `yaml:"artifacts"`
-	Env        map[string]string      `yaml:"Env"`
+	Env        map[string]string      `yaml:"env"`
 	Queue      string                 `yaml:"queue"`
 	Flavour    string                 `yaml:"flavour"`
 	JobType    string                 `yaml:"jobType"`
