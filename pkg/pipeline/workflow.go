@@ -549,7 +549,7 @@ func NewWorkflow(wfSource schema.WorkflowSource, runID, entry string, params map
 		BaseWorkflow: baseWorkflow,
 		callbacks:    callbacks,
 	}
-
+	logger.Logger().Warnf("wfs.FailureOpiton.Strategy is [%s]", wf.Source.FailureOptions.Strategy)
 	if err := wf.validate(); err != nil {
 		return nil, err
 	}

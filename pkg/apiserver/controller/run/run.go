@@ -320,6 +320,7 @@ func CreateRun(ctx *logger.RequestContext, request *CreateRunRequest) (CreateRun
 		Disabled:       request.Disabled,
 		Status:         common.StatusRunInitiating,
 	}
+	logger.Logger().Warnf("wfs.FailureOpiton.Strategy is [%s]", wfs.FailureOptions.Strategy)
 	response, err := ValidateAndStartRun(ctx, run)
 	return response, err
 }
@@ -378,6 +379,7 @@ func ValidateAndStartRun(ctx *logger.RequestContext, run models.Run) (CreateRunR
 		ctx.ErrorCode = common.MalformedJSON
 		return CreateRunResponse{}, err
 	}
+	logger.Logger().Warnf("wfs.FailureOpiton.Strategy is [%s]", run.WorkflowSource.FailureOptions.Strategy)
 	// validate workflow in func NewWorkflow
 	if _, err := newWorkflowByRun(run); err != nil {
 		ctx.ErrorCode = common.MalformedYaml
@@ -758,6 +760,7 @@ func newWorkflowByRun(run models.Run) (*pipeline.Workflow, error) {
 		pplcommon.WfExtraInfoKeyUserName: run.UserName,
 		pplcommon.WfExtraInfoKeyFsName:   run.FsName,
 	}
+	logger.Logger().Warnf("wfs.FailureOpiton.Strategy is [%s]", run.WorkflowSource.FailureOptions.Strategy)
 	wfPtr, err := pipeline.NewWorkflow(run.WorkflowSource, run.ID, run.Entry, run.Parameters, extraInfo, workflowCallbacks)
 	if err != nil {
 		logger.LoggerForRun(run.ID).Warnf("NewWorkflow by run[%s] failed. error:%v\n", run.ID, err)
