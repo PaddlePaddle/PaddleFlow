@@ -234,12 +234,13 @@ func parseRunSteps(steps map[string]*schema.RunStep, request *CreateRunByJsonReq
 		artifacts := parseArtifacts(step.Artifacts)
 
 		workFlowSourceStep := schema.WorkflowSourceStep{
-			Command:   step.Command,
-			Deps:      step.Deps,
-			Env:       step.Env,
-			Artifacts: artifacts,
-			Cache:     step.Cache,
-			DockerEnv: step.DockerEnv,
+			Command:    step.Command,
+			Deps:       step.Deps,
+			Env:        step.Env,
+			Artifacts:  artifacts,
+			Cache:      step.Cache,
+			DockerEnv:  step.DockerEnv,
+			Parameters: step.Parameters,
 		}
 		workFlowSourceSteps[pointName] = &workFlowSourceStep
 	}
