@@ -339,7 +339,7 @@ func CreateRun(ctx *logger.RequestContext, request *CreateRunRequest) (CreateRun
 		Status:         common.StatusRunInitiating,
 	}
 	logger.Logger().Warnf("wfs.FailureOpiton.Strategy is [%s]", wfs.FailureOptions.Strategy)
-	response, err := ValidateAndStartRun(ctx, run, request)
+	response, err := ValidateAndStartRun(ctx, run, *request)
 	return response, err
 }
 
@@ -387,7 +387,7 @@ func CreateRunByJson(ctx *logger.RequestContext, request *CreateRunByJsonRequest
 		Disabled:       request.Disabled,
 		Status:         common.StatusRunInitiating,
 	}
-	response, err := ValidateAndStartRun(ctx, run, request)
+	response, err := ValidateAndStartRun(ctx, run, *request)
 	return response, err
 }
 
