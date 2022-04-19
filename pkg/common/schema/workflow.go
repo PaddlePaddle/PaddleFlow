@@ -212,7 +212,7 @@ func (wfs *WorkflowSource) ValidateStepCacheByMap(yamlMap map[string]interface{}
 		point.Cache = wfs.Cache
 
 		// 检查用户是否有设置节点级别的Cache
-		cache, ok, err := unstructured.NestedFieldCopy(yamlMap, "entry_points", name, "cache")
+		cache, ok, err := getCacheFromMap(yamlMap, name)
 		if err != nil {
 			return err
 		}
@@ -253,6 +253,24 @@ func (wfs *WorkflowSource) ValidateStepCacheByMap(yamlMap map[string]interface{}
 		}
 	}
 	return nil
+}
+
+func getCacheFromMap(m map[string]interface{}, stepName string) (interface{}, bool, error) {
+	cache1, ok1, err := unstructured.NestedFieldCopy(m, "entry_points", stepName, "cache")
+	if err != nil {
+		return nil, false, err
+	}
+	cache2, ok2, err := unstructured.NestedFieldCopy(m, "entryPoints", stepName, "cache")
+	if err != nil {
+		return nil, false, err
+	}
+	if ok1 {
+		return cache1, true, nil
+	} else if ok2 {
+		return cache2, true, nil
+	} else {
+		return nil, false, nil
+	}
 }
 
 func ParseWorkflowSource(runYaml []byte) (WorkflowSource, error) {
