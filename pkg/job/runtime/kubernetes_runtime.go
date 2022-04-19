@@ -163,8 +163,8 @@ func (kr *KubeRuntime) UpdateJob(jobInfo *api.PFJob) error {
 		metav1.ObjectMeta `json:"metadata,omitempty"`
 	}{
 		ObjectMeta: metav1.ObjectMeta{
-			Labels:      jobInfo.NewLabels,
-			Annotations: jobInfo.NewAnnotations,
+			Labels:      jobInfo.Labels,
+			Annotations: jobInfo.Annotations,
 		},
 	}
 	updateData, err := json.Marshal(patchJSON)
