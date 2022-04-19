@@ -157,7 +157,7 @@ func newPSServerTask(conf *schema.Conf) (models.Member, error) {
 func newPSWorkerTask(conf *schema.Conf) (models.Member, error) {
 	workerTask := models.Member{
 		ID:   "worker",
-		Role: schema.RolePSWorker,
+		Role: schema.RolePWorker,
 		Conf: *conf,
 	}
 	if conf.GetWorkerFlavour() != "" {

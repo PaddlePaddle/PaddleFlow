@@ -127,7 +127,7 @@ spec:
 			{
 				ID:       "task-normal-0001",
 				Replicas: 3,
-				Role:     schema.RolePSWorker,
+				Role:     schema.RolePWorker,
 				Conf: schema.Conf{
 					Name:    "normal",
 					Command: "sleep 200",
@@ -139,7 +139,7 @@ spec:
 			{
 				ID:       "task-normal-0002",
 				Replicas: 3,
-				Role:     schema.RolePSWorker,
+				Role:     schema.RolePWorker,
 				Conf: schema.Conf{
 					Name:    "normal",
 					Command: "sleep 200",
