@@ -17,6 +17,7 @@ limitations under the License.
 package executor
 
 import (
+	"paddleflow/pkg/apiserver/models"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -24,6 +25,49 @@ import (
 
 	"paddleflow/pkg/common/schema"
 	"paddleflow/pkg/job/api"
+)
+
+var (
+	psTasks = []models.Member{
+		{
+			ID:       "task-normal-0001",
+			Replicas: 3,
+			Role:     schema.RolePServer,
+			Conf: schema.Conf{
+				Name:    "normal",
+				Command: "sleep 200",
+				Image:   "mockImage",
+				Env:     nil,
+				Flavour: schema.Flavour{Name: "cpu", ResourceInfo: schema.ResourceInfo{CPU: "2", Mem: "2"}},
+			},
+		},
+		{
+			ID:       "task-normal-0001",
+			Replicas: 3,
+			Role:     schema.RolePWorker,
+			Conf: schema.Conf{
+				Name:    "normal",
+				Command: "sleep 200",
+				Image:   "mockImage",
+				Env:     nil,
+				Flavour: schema.Flavour{Name: "cpu", ResourceInfo: schema.ResourceInfo{CPU: "2", Mem: "2"}},
+			},
+		},
+	}
+	collectiveTask = []models.Member{
+		{
+			ID:       "task-normal-0001",
+			Replicas: 3,
+			Role:     schema.RoleWorker,
+			Conf: schema.Conf{
+				Name:    "normal",
+				Command: "sleep 200",
+				Image:   "mockImage",
+				Env:     nil,
+				Flavour: schema.Flavour{Name: "cpu", ResourceInfo: schema.ResourceInfo{CPU: "2", Mem: "2"}},
+			},
+		},
+	}
 )
 
 func TestPatchVCJobVariable(t *testing.T) {
@@ -111,6 +155,11 @@ func TestPatchVCJobVariable(t *testing.T) {
 			Priority:            pfjob.Conf.GetPriority(),
 			QueueName:           pfjob.Conf.GetQueueName(),
 			YamlTemplateContent: extRuntimeConf,
+		}
+		if test.vcJobMode == schema.EnvJobModePS {
+			kubeJob.Tasks = psTasks
+		} else if test.vcJobMode == schema.EnvJobModeCollective {
+			kubeJob.Tasks = collectiveTask
 		}
 		jobModeParams := JobModeParams{
 			JobFlavour:      pfjob.Conf.GetFlavour(),
