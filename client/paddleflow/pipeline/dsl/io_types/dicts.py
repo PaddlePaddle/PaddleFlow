@@ -65,7 +65,7 @@ class InputArtifactDict(dict):
         """ magic function __setitem__
         """
         if not isinstance(value, Artifact) or value.step is None:
-            err_msg = f"the value of inputs for Step[{{self.__step.name}}] should be an output artifact of other Step"
+            err_msg = f"the value of inputs for Step[{self.__step.name}] should be an output artifact of other Step"
             raise PaddleFlowSDKException(PipelineDSLError, err_msg)
 
         if not validate_string_by_regex(key, VARIBLE_NAME_REGEX):
