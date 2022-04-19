@@ -47,7 +47,7 @@ func CreateJob(conf schema.PFJobConf) (string, error) {
 		UserName: conf.GetUserName(),
 		QueueID:  conf.GetQueueID(),
 		Status:   schema.StatusJobInit,
-		Config:   *jobConf,
+		Config:   jobConf,
 	}
 	if err := models.CreateJob(jobInfo); err != nil {
 		log.Errorf("create job[%s] in database faield, err: %v", conf.GetName(), err)

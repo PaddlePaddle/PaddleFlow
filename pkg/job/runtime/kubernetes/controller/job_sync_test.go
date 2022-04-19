@@ -315,7 +315,7 @@ func TestJobSyncPod(t *testing.T) {
 		Name:   jobName,
 		Status: schema.StatusJobPending,
 		Type:   string(schema.TypeVcJob),
-		Config: schema.Conf{
+		Config: &schema.Conf{
 			Env: map[string]string{
 				schema.EnvJobNamespace: "default",
 			},
