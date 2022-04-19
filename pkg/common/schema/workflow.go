@@ -64,16 +64,16 @@ func (atf *Artifacts) ValidateOutputMapByList() error {
 }
 
 type RunStep struct {
-	Parameters map[string]interface{} `yaml:"parameters"`
-	Command    string                 `yaml:"command"`
-	Deps       string                 `yaml:"deps"`
-	Artifacts  ArtifactsJson          `yaml:"artifacts"`
-	Env        map[string]string      `yaml:"env"`
-	Queue      string                 `yaml:"queue"`
-	Flavour    string                 `yaml:"flavour"`
-	JobType    string                 `yaml:"jobType"`
-	Cache      Cache                  `yaml:"cache"`
-	DockerEnv  string                 `yaml:"dockerEnv"`
+	Parameters map[string]interface{} `json:"parameters"`
+	Command    string                 `json:"command"`
+	Deps       string                 `json:"deps"`
+	Artifacts  ArtifactsJson          `json:"artifacts"`
+	Env        map[string]string      `json:"env"`
+	Queue      string                 `json:"queue"`
+	Flavour    string                 `json:"flavour"`
+	JobType    string                 `json:"jobType"`
+	Cache      Cache                  `json:"cache"`
+	DockerEnv  string                 `json:"dockerEnv"`
 }
 
 type WorkflowSourceStep struct {
