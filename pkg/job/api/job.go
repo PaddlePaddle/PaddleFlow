@@ -34,7 +34,8 @@ import (
 
 type PFJobInterface interface {
 	CreateJob() (string, error)
-	StopJobByID(id string) error
+	StopJobByID(string) error
+	UpdateJob([]byte) error
 	GetID() string
 }
 
@@ -107,6 +108,10 @@ type PFJob struct {
 	// Conf for job
 	Conf schema.Conf
 
+	// Labels for job to update
+	Labels      map[string]string
+	Annotations map[string]string
+
 	// extend field
 	Tags   []string
 	LogUrl string
@@ -122,19 +127,21 @@ func NewJobInfo(job *models.Job) (*PFJob, error) {
 		return nil, fmt.Errorf("job is nil")
 	}
 	pfjob := &PFJob{
-		ID:        job.ID,
-		Name:      job.Name,
-		Namespace: job.Config.GetNamespace(),
-		JobType:   schema.JobType(job.Type),
-		JobMode:   job.Config.GetJobMode(),
-		Framework: job.Framework,
-		ClusterID: ClusterID(job.Config.GetClusterID()),
-		QueueID:   QueueID(job.Config.GetQueueID()),
-		FSID:      job.Config.GetFS(),
-		UserName:  job.Config.GetUserName(),
-		Conf:      job.Config,
-		Resource:  job.Resource,
-		Tasks:     job.Members,
+		ID:          job.ID,
+		Name:        job.Name,
+		Namespace:   job.Config.GetNamespace(),
+		JobType:     schema.JobType(job.Type),
+		JobMode:     job.Config.GetJobMode(),
+		Framework:   job.Framework,
+		ClusterID:   ClusterID(job.Config.GetClusterID()),
+		QueueID:     QueueID(job.Config.GetQueueID()),
+		FSID:        job.Config.GetFS(),
+		UserName:    job.Config.GetUserName(),
+		Conf:        *job.Config,
+		Labels:      make(map[string]string),
+		Annotations: make(map[string]string),
+		Resource:    job.Resource,
+		Tasks:       job.Members,
 	}
 	if len(job.ExtensionTemplate) == 0 {
 		var err error
@@ -148,4 +155,18 @@ func NewJobInfo(job *models.Job) (*PFJob, error) {
 	}
 
 	return pfjob, nil
+}
+
+func (pfj *PFJob) UpdateLabels(labels map[string]string) {
+	if labels == nil {
+		return
+	}
+	pfj.Labels = labels
+}
+
+func (pfj *PFJob) UpdateAnnotations(annotations map[string]string) {
+	if annotations == nil {
+		return
+	}
+	pfj.Annotations = annotations
 }

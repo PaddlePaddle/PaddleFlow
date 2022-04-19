@@ -16,12 +16,6 @@ limitations under the License.
 
 package schema
 
-import (
-	"database/sql/driver"
-	"encoding/json"
-	"fmt"
-)
-
 type JobType string
 type ActionType string
 type JobStatus string
@@ -183,6 +177,9 @@ type PFJobConf interface {
 	SetClusterID(string)
 	SetNamespace(string)
 	SetEnv(string, string)
+	SetLabels(string, string)
+	SetAnnotations(string, string)
+
 	Type() JobType
 }
 
@@ -194,9 +191,10 @@ type Conf struct {
 	// 计算资源
 	Flavour  Flavour `json:"flavour,omitempty"`
 	Priority string  `json:"priority"`
+	QueueID  string  `json:"queueID"`
 	// 运行时需要的参数
-	Labels      map[string]string `json:"labels,omitempty"`
-	Annotations map[string]string `json:"annotations,omitempty"`
+	Labels      map[string]string `json:"labels"`
+	Annotations map[string]string `json:"annotations"`
 	Env         map[string]string `json:"env,omitempty"`
 	Command     string            `json:"command,omitempty"`
 	Image       string            `json:"image"`
@@ -341,12 +339,11 @@ func (c *Conf) SetEnv(name, value string) {
 }
 
 func (c *Conf) GetQueueID() string {
-	return c.Env[EnvJobQueueID]
+	return c.QueueID
 }
 
 func (c *Conf) SetQueueID(id string) {
-	c.preCheckEnv()
-	c.Env[EnvJobQueueID] = id
+	c.QueueID = id
 }
 
 func (c *Conf) GetClusterID() string {
@@ -358,12 +355,32 @@ func (c *Conf) SetClusterID(id string) {
 	c.Env[EnvJobClusterID] = id
 }
 
+func (c *Conf) SetLabels(k, v string) {
+	c.preCheck()
+	c.Labels[k] = v
+}
+
+func (c *Conf) SetAnnotations(k, v string) {
+	c.preCheck()
+	c.Annotations[k] = v
+}
+
+func (c *Conf) preCheck() {
+	if c.Labels == nil {
+		c.Labels = make(map[string]string)
+	}
+	if c.Annotations == nil {
+		c.Annotations = make(map[string]string)
+	}
+}
+
 func (c *Conf) preCheckEnv() {
 	if c.Env == nil {
 		c.Env = make(map[string]string)
 	}
 }
 
+/**
 // Scan for gorm
 func (s *Conf) Scan(value interface{}) error {
 	b, ok := value.([]byte)
@@ -384,4 +401,4 @@ func (s Conf) Value() (driver.Value, error) {
 		return nil, err
 	}
 	return value, nil
-}
+}*/

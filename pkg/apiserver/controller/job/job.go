@@ -22,7 +22,6 @@ import (
 	"github.com/ghodss/yaml"
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
-
 	"paddleflow/pkg/apiserver/common"
 	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/common/errors"
@@ -67,7 +66,7 @@ type CommonJobInfo struct {
 
 // SchedulingPolicy indicate queueID/priority
 type SchedulingPolicy struct {
-	QueueID  string `json:"queue"`
+	Queue    string `json:"queue"`
 	Priority string `json:"priority,omitempty"`
 }
 
@@ -91,13 +90,20 @@ type MemberSpec struct {
 	Replicas      int    `json:"replicas"`
 }
 
+type UpdateJobRequest struct {
+	JobID       string            `json:"-"`
+	Priority    string            `json:"priority"`
+	Labels      map[string]string `json:"labels"`
+	Annotations map[string]string `json:"annotations"`
+}
+
 // CreateJobResponse convey response for create job
 type CreateJobResponse struct {
 	ID string `json:"id"`
 }
 
 // CreateSingleJob handler for creating job
-func CreateSingleJob(request *CreateSingleJobRequest) (*CreateJobResponse, error) {
+func CreateSingleJob(ctx *logger.RequestContext, request *CreateSingleJobRequest) (*CreateJobResponse, error) {
 	extensionTemplate := request.ExtensionTemplate
 	if extensionTemplate != "" {
 		bytes, err := yaml.JSONToYAML([]byte(request.ExtensionTemplate))
@@ -145,19 +151,19 @@ func patchEnvs(conf *schema.Conf, commonJobInfo *CommonJobInfo) error {
 	// basic fields required
 	conf.Labels = commonJobInfo.Labels
 	conf.Annotations = commonJobInfo.Annotations
-	conf.SetEnv(schema.EnvJobType, string(schema.TypePodJob))
+	conf.SetEnv(schema.EnvJobType, string(schema.TypeSingle))
 	conf.SetUserName(commonJobInfo.UserName)
-	// info in SchedulingPolicy: queueID,Priority,ClusterId,Namespace
-	queueID := commonJobInfo.SchedulingPolicy.QueueID
-	queue, err := models.GetQueueByID(&logger.RequestContext{}, queueID)
+	// info in SchedulingPolicy: queue,Priority,ClusterId,Namespace
+	queueName := commonJobInfo.SchedulingPolicy.Queue
+	queue, err := models.GetQueueByName(&logger.RequestContext{}, queueName)
 	if err != nil {
 		log.Errorf("Get queue by id failed when creating job %s failed, err=%v", commonJobInfo.Name, err)
 		if err == gorm.ErrRecordNotFound {
-			return fmt.Errorf("queue not found by id %s", queueID)
+			return fmt.Errorf("queue not found by id %s", queueName)
 		}
 		return err
 	}
-	conf.SetQueueID(queueID)
+	conf.SetQueueID(queue.ID)
 	conf.SetEnv(schema.EnvJobQueueName, queue.Name)
 	if commonJobInfo.SchedulingPolicy.Priority != "" {
 		conf.Priority = commonJobInfo.SchedulingPolicy.Priority
@@ -198,13 +204,13 @@ func patchSingleEnvs(conf *schema.Conf, request *CreateSingleJobRequest) error {
 }
 
 // CreateDistributedJob handler for creating job
-func CreateDistributedJob(request *CreateDisJobRequest) (*CreateJobResponse, error) {
+func CreateDistributedJob(ctx *logger.RequestContext, request *CreateDisJobRequest) (*CreateJobResponse, error) {
 	// todo(zhongzichao)
 	return &CreateJobResponse{}, nil
 }
 
 // CreateWorkflowJob handler for creating job
-func CreateWorkflowJob(request *CreateWfJobRequest) (*CreateJobResponse, error) {
+func CreateWorkflowJob(ctx *logger.RequestContext, request *CreateWfJobRequest) (*CreateJobResponse, error) {
 	var extensionTemplate string
 	if request.ExtensionTemplate != "" {
 		bytes, err := yaml.JSONToYAML([]byte(request.ExtensionTemplate))
@@ -224,6 +230,13 @@ func CreateWorkflowJob(request *CreateWfJobRequest) (*CreateJobResponse, error) 
 		Annotations: request.Annotations,
 		Priority:    request.SchedulingPolicy.Priority,
 	}
+	// validate queue
+	if err := job.ValidateQueue(&conf, ctx.UserName, request.SchedulingPolicy.Queue); err != nil {
+		msg := fmt.Sprintf("valiate queue for workflow job failed, err: %v", err)
+		log.Errorf(msg)
+		return nil, fmt.Errorf(msg)
+	}
+	conf.SetEnv(schema.EnvJobQueueName, request.SchedulingPolicy.Queue)
 
 	// TODO: add more fields
 	// create workflow job
@@ -233,7 +246,7 @@ func CreateWorkflowJob(request *CreateWfJobRequest) (*CreateJobResponse, error) 
 		UserName:          conf.GetUserName(),
 		QueueID:           conf.GetQueueID(),
 		Status:            schema.StatusJobInit,
-		Config:            conf,
+		Config:            &conf,
 		ExtensionTemplate: extensionTemplate,
 	}
 
@@ -262,7 +275,7 @@ func createJob(conf schema.PFJobConf, jobID, jobTemplate string) (string, error)
 		UserName:          conf.GetUserName(),
 		QueueID:           conf.GetQueueID(),
 		Status:            schema.StatusJobInit,
-		Config:            *jobConf,
+		Config:            jobConf,
 		ExtensionTemplate: jobTemplate,
 	}
 
@@ -356,6 +369,63 @@ func StopJob(ctx *logger.RequestContext, jobID string) error {
 		return err
 	}
 	return nil
+}
+
+func UpdateJob(ctx *logger.RequestContext, request *UpdateJobRequest) error {
+	if err := CheckPermission(ctx); err != nil {
+		return err
+	}
+	job, err := models.GetJobByID(request.JobID)
+	if err != nil {
+		ctx.ErrorCode = common.JobNotFound
+		log.Errorf("get job %s from database failed, err: %v", job.ID, err)
+		return err
+	}
+	// check job status
+	if !schema.IsImmutableJobStatus(job.Status) && job.Status != schema.StatusJobInit {
+		// update job on cluster
+		err = updateRuntimeJob(ctx, &job, request)
+		if err != nil {
+			ctx.ErrorCode = common.InternalError
+			log.Errorf("update job %s on cluster failed, err: %v", job.ID, err)
+			return err
+		}
+	}
+
+	if request.Priority != "" {
+		job.Config.Priority = request.Priority
+	}
+	for label, value := range request.Labels {
+		job.Config.SetLabels(label, value)
+	}
+	for key, value := range request.Annotations {
+		job.Config.SetAnnotations(key, value)
+	}
+
+	err = models.UpdateJobConfig(job.ID, job.Config)
+	if err != nil {
+		log.Errorf("update job %s on database failed, err: %v", job.ID, err)
+		ctx.ErrorCode = common.DBUpdateFailed
+	}
+	return err
+}
+
+func updateRuntimeJob(ctx *logger.RequestContext, job *models.Job, request *UpdateJobRequest) error {
+	// update labels and annotations
+	runtimeSvc, err := getRuntimeByQueue(ctx, job.QueueID)
+	if err != nil {
+		log.Errorf("get cluster runtime failed, err: %v", err)
+		return err
+	}
+	pfjob, err := api.NewJobInfo(job)
+	if err != nil {
+		log.Errorf("new paddleflow job failed, err: %v", err)
+		return err
+	}
+	pfjob.UpdateLabels(request.Labels)
+	pfjob.UpdateAnnotations(request.Annotations)
+	// TODO: update job priority
+	return runtimeSvc.UpdateJob(pfjob)
 }
 
 func getRuntimeByQueue(ctx *logger.RequestContext, queueID string) (runtime.RuntimeService, error) {
