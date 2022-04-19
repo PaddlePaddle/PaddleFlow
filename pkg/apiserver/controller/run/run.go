@@ -256,7 +256,7 @@ func getSourceAndYaml(ctx *logger.RequestContext, wfs schema.WorkflowSource) (st
 	return source, runYaml, nil
 }
 
-func runYamlAndReqToWfs(ctx *logger.RequestContext, runYaml string, req CreateRunRequest) (schema.WorkflowSource, error) {
+func runYamlAndReqToWfs(ctx *logger.RequestContext, runYaml string, req interface{}) (schema.WorkflowSource, error) {
 	// parse yaml -> WorkflowSource
 	wfs, err := schema.ParseWorkflowSource([]byte(runYaml))
 	if err != nil {
@@ -266,16 +266,34 @@ func runYamlAndReqToWfs(ctx *logger.RequestContext, runYaml string, req CreateRu
 	}
 
 	// replace name & dockerEnv & disabled by request
-	if req.Name != "" {
-		wfs.Name = req.Name
+	switch req := req.(type) {
+	case CreateRunRequest:
+		if req.Name != "" {
+			wfs.Name = req.Name
+		}
+		if req.DockerEnv != "" {
+			wfs.DockerEnv = req.DockerEnv
+		}
+		if req.Disabled != "" {
+			wfs.Disabled = req.Disabled
+		}
+		return wfs, nil
+	case CreateRunByJsonRequest:
+		if req.Name != "" {
+			wfs.Name = req.Name
+		}
+		if req.DockerEnv != "" {
+			wfs.DockerEnv = req.DockerEnv
+		}
+		if req.Disabled != "" {
+			wfs.Disabled = req.Disabled
+		}
+		return wfs, nil
+	default:
+		err := fmt.Errorf("can't handle request type [%v]", req)
+		return schema.WorkflowSource{}, err
 	}
-	if req.DockerEnv != "" {
-		wfs.DockerEnv = req.DockerEnv
-	}
-	if req.Disabled != "" {
-		wfs.Disabled = req.Disabled
-	}
-	return wfs, nil
+
 }
 
 func CreateRun(ctx *logger.RequestContext, request *CreateRunRequest) (CreateRunResponse, error) {
@@ -321,7 +339,7 @@ func CreateRun(ctx *logger.RequestContext, request *CreateRunRequest) (CreateRun
 		Status:         common.StatusRunInitiating,
 	}
 	logger.Logger().Warnf("wfs.FailureOpiton.Strategy is [%s]", wfs.FailureOptions.Strategy)
-	response, err := ValidateAndStartRun(ctx, run)
+	response, err := ValidateAndStartRun(ctx, run, request)
 	return response, err
 }
 
@@ -369,11 +387,11 @@ func CreateRunByJson(ctx *logger.RequestContext, request *CreateRunByJsonRequest
 		Disabled:       request.Disabled,
 		Status:         common.StatusRunInitiating,
 	}
-	response, err := ValidateAndStartRun(ctx, run)
+	response, err := ValidateAndStartRun(ctx, run, request)
 	return response, err
 }
 
-func ValidateAndStartRun(ctx *logger.RequestContext, run models.Run) (CreateRunResponse, error) {
+func ValidateAndStartRun(ctx *logger.RequestContext, run models.Run, req interface{}) (CreateRunResponse, error) {
 	if err := run.Encode(); err != nil {
 		ctx.Logging().Errorf("encode run failed. error:%s", err.Error())
 		ctx.ErrorCode = common.MalformedJSON
@@ -394,10 +412,9 @@ func ValidateAndStartRun(ctx *logger.RequestContext, run models.Run) (CreateRunR
 		return CreateRunResponse{}, err
 	}
 	// to wfs again to revise previous wf replacement
-	wfs := schema.WorkflowSource{}
-	if err := yaml.Unmarshal([]byte(run.RunYaml), &wfs); err != nil {
-		ctx.ErrorCode = common.MalformedYaml
-		ctx.Logging().Errorf("Unmarshal runYaml failed. yaml: %s \n, err:%v", run.RunYaml, err)
+	wfs, err := runYamlAndReqToWfs(ctx, run.RunYaml, req)
+	if err != nil {
+		ctx.Logging().Errorf("runYamlAndReqToWfs failed. err:%v", err)
 		return CreateRunResponse{}, err
 	}
 
