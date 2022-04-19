@@ -34,7 +34,8 @@ import (
 
 type PFJobInterface interface {
 	CreateJob() (string, error)
-	StopJobByID(id string) error
+	StopJobByID(string) error
+	UpdateJob([]byte) error
 	GetID() string
 }
 

@@ -35,7 +35,7 @@ type RuntimeService interface {
 	// StopJob stop job on cluster
 	StopJob(job *api.PFJob) error
 	// UpdateJob update job on cluster
-	UpdateJob(job *api.PFJob) error
+	UpdateJob(job *api.PFJob, data interface{}) error
 	// DeleteJob delete job from cluster
 	DeleteJob(job *api.PFJob) error
 	// SyncJob sync job status from cluster

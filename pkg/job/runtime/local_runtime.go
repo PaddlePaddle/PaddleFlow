@@ -52,7 +52,7 @@ func (l *LocRuntime) StopJob(job *api.PFJob) error {
 	return nil
 }
 
-func (l *LocRuntime) UpdateJob(job *api.PFJob) error {
+func (l *LocRuntime) UpdateJob(job *api.PFJob, data interface{}) error {
 	// TODO: update local job
 	return nil
 }
