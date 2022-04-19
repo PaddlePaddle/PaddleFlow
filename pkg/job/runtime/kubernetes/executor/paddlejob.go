@@ -152,7 +152,7 @@ func (pj *PaddleJob) patchPdjPsSpec(pdjSpec *paddlev1.PaddleJobSpec) error {
 		return fmt.Errorf("paddlejob[%s] must be contain ps and worker, actually exist null", pj.Name)
 	}
 	for _, task := range pj.Tasks {
-		if task.Role != schema.RoleWorker && task.Role != schema.RolePSWorker {
+		if task.Role != schema.RoleWorker && task.Role != schema.RolePWorker {
 			// ps master
 			pdjSpec.PS.Template.Spec.SchedulerName = config.GlobalServerConfig.Job.SchedulerName
 			if err := pj.patchPdjTask(pdjSpec.PS, task); err != nil {
@@ -185,7 +185,7 @@ func (pj *PaddleJob) patchPdjCollectiveSpec(pdjSpec *paddlev1.PaddleJobSpec) err
 
 	worker := pdjSpec.Worker
 	for _, task := range pj.Tasks {
-		if task.Role != schema.RoleWorker && task.Role != schema.RolePSWorker {
+		if task.Role != schema.RoleWorker && task.Role != schema.RolePWorker {
 			return fmt.Errorf("paddlejob[%s] must be contain worker, actually exist %s", pj.Name, task.Role)
 		}
 		// patch collective worker
