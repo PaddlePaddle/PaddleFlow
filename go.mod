@@ -25,6 +25,7 @@ require (
 	github.com/golang/glog v1.0.0 // indirect
 	github.com/google/go-cmp v0.5.6 // indirect
 	github.com/google/uuid v1.3.0
+	github.com/gorilla/websocket v1.4.2
 	github.com/hanwen/go-fuse/v2 v2.1.0
 	github.com/jcmturner/gokrb5/v8 v8.4.2
 	github.com/jinzhu/copier v0.3.2
