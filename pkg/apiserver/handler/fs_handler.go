@@ -60,7 +60,9 @@ func (pm *PathTimeMap) LatesTime() (path string, latestTime time.Time) {
 	latestTime = time.Time{}
 
 	for p, t := range pm.PTMap {
-		if t.After(latestTime) {
+		// 这里没有直接 使用 if t.After(latestTime) 的原因是： filepath.Walk 是按照字母序进行遍历，因此，采用当前这种写法，
+		// 可以保证获取到的 path 是最内层路径
+		if !latestTime.After(t) {
 			latestTime = t
 			path = p
 		}
