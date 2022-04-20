@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 
 	"paddleflow/pkg/common/k8s"
 )
@@ -103,6 +104,29 @@ func Delete(namespace string, name string, gvk schema.GroupVersionKind, clientOp
 	}
 	if err != nil {
 		log.Errorf("delete kubernetes  resource[%s] failed. error:[%s]", gvk.String(), err.Error())
+	}
+	return err
+}
+
+func Patch(namespace, name string, gvk schema.GroupVersionKind, data []byte, clientOpt *k8s.DynamicClientOption) error {
+	log.Debugf("executor begin to patch kubernetes resource[%s]. ns:[%s] name:[%s]", gvk.String(), namespace, name)
+	if clientOpt == nil {
+		return fmt.Errorf("dynamic client is nil")
+	}
+
+	patchType := types.StrategicMergePatchType
+	patchOptions := v1.PatchOptions{}
+	gvrMap, err := clientOpt.GetGVR(gvk)
+	if err != nil {
+		return err
+	}
+	if gvrMap.Scope.Name() == meta.RESTScopeNameNamespace {
+		_, err = clientOpt.DynamicClient.Resource(gvrMap.Resource).Namespace(namespace).Patch(context.TODO(), name, patchType, data, patchOptions)
+	} else {
+		_, err = clientOpt.DynamicClient.Resource(gvrMap.Resource).Patch(context.TODO(), name, patchType, data, patchOptions)
+	}
+	if err != nil {
+		log.Errorf("patch kubernetes resource: %s failed. error: %s", gvk.String(), err.Error())
 	}
 	return err
 }
