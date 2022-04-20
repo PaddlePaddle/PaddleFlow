@@ -30,6 +30,7 @@ import (
 	kubeschema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 
+	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/common/config"
 	"paddleflow/pkg/common/errors"
 	"paddleflow/pkg/common/k8s"
@@ -77,12 +78,14 @@ type KubeJob struct {
 	Annotations map[string]string
 	// YamlTemplateContent indicate template content of job
 	YamlTemplateContent []byte
+	Tasks               []models.Member
 	GroupVersionKind    kubeschema.GroupVersionKind
-
+	Framework           schema.Framework
 	DynamicClientOption *k8s.DynamicClientOption
 }
 
 func NewKubeJob(job *api.PFJob, dynamicClientOpt *k8s.DynamicClientOption) (api.PFJobInterface, error) {
+	log.Debugf("create kubernetes job: %#v", job)
 	pvcName := fmt.Sprintf("pfs-%s-pvc", job.Conf.GetFS())
 	kubeJob := KubeJob{
 		ID:                  job.ID,
@@ -98,6 +101,7 @@ func NewKubeJob(job *api.PFJob, dynamicClientOpt *k8s.DynamicClientOption) (api.
 		Labels:              job.Conf.Labels,
 		Annotations:         job.Conf.Annotations,
 		YamlTemplateContent: job.ExtRuntimeConf,
+		Tasks:               job.Tasks,
 		Priority:            job.Conf.GetPriority(),
 		QueueName:           job.Conf.GetQueueName(),
 		DynamicClientOption: dynamicClientOpt,
@@ -105,6 +109,7 @@ func NewKubeJob(job *api.PFJob, dynamicClientOpt *k8s.DynamicClientOption) (api.
 
 	switch job.JobType {
 	case schema.TypeSparkJob:
+		// todo(zhongzichao): to be removed
 		kubeJob.GroupVersionKind = k8s.SparkAppGVK
 		return &SparkJob{
 			KubeJob:          kubeJob,
@@ -116,14 +121,9 @@ func NewKubeJob(job *api.PFJob, dynamicClientOpt *k8s.DynamicClientOption) (api.
 			ExecutorReplicas: job.Conf.Env[schema.EnvJobExecutorReplicas],
 		}, nil
 	case schema.TypeVcJob:
+		// todo(zhongzichao): to be removed
 		kubeJob.GroupVersionKind = k8s.VCJobGVK
 		return &VCJob{
-			KubeJob:       kubeJob,
-			JobModeParams: newJobModeParams(job.Conf),
-		}, nil
-	case schema.TypePaddleJob:
-		kubeJob.GroupVersionKind = k8s.PaddleJobGVK
-		return &PaddleJob{
 			KubeJob:       kubeJob,
 			JobModeParams: newJobModeParams(job.Conf),
 		}, nil
@@ -141,9 +141,39 @@ func NewKubeJob(job *api.PFJob, dynamicClientOpt *k8s.DynamicClientOption) (api.
 			KubeJob: kubeJob,
 			Flavour: job.Conf.Flavour,
 		}, nil
-
+	case schema.TypeDistributed:
+		return newFrameWorkJob(kubeJob, job)
 	default:
 		return nil, fmt.Errorf("kubernetes job type[%s] is not supported", job.Conf.Type())
+	}
+}
+
+func newFrameWorkJob(kubeJob KubeJob, job *api.PFJob) (api.PFJobInterface, error) {
+	kubeJob.Framework = job.Framework
+	switch job.Framework {
+	case schema.FrameworkSpark:
+		kubeJob.GroupVersionKind = k8s.SparkAppGVK
+		sparkJob := &SparkJob{
+			KubeJob:        kubeJob,
+			SparkMainFile:  job.Conf.Env[schema.EnvJobSparkMainFile],
+			SparkMainClass: job.Conf.Env[schema.EnvJobSparkMainClass],
+			SparkArguments: job.Conf.Env[schema.EnvJobSparkArguments],
+		}
+		return sparkJob, nil
+	case schema.FrameworkMPI:
+		kubeJob.GroupVersionKind = k8s.VCJobGVK
+		return &VCJob{
+			KubeJob:       kubeJob,
+			JobModeParams: newJobModeParams(job.Conf),
+		}, nil
+	case schema.FrameworkPaddle:
+		kubeJob.GroupVersionKind = k8s.PaddleJobGVK
+		return &PaddleJob{
+			KubeJob:       kubeJob,
+			JobModeParams: newJobModeParams(job.Conf),
+		}, nil
+	default:
+		return nil, fmt.Errorf("kubernetes job framework[%s] is not supported", job.Framework)
 	}
 }
 
@@ -224,14 +254,22 @@ func (j *KubeJob) createJobFromYaml(jobEntity interface{}) error {
 	return nil
 }
 
-// fillContainerInTask fill container in job task
-// flavourKey can be {schema.EnvJobFlavour, schema.EnvJobWorkerFlavour, schema.EnvJobPServerFlavour} of Env value
-// comm and in conf.Command or {schema.EnvJobPServerCommand, schema.EnvJobWorkerCommand} in Env
-func (j *KubeJob) fillContainerInTask(container *corev1.Container, flavourKey, command string) {
+// todo: to be removed
+// fillContainerInVcJob fill container in job task, only called by vcjob
+func (j *KubeJob) fillContainerInVcJob(container *corev1.Container, flavourKey, command string) {
 	container.Image = j.Image
 	container.Command = []string{"bash", "-c", j.fixContainerCommand(command)}
 	flavourValue := config.GlobalServerConfig.FlavourMap[flavourKey]
 	container.Resources = j.generateResourceRequirements(flavourValue)
+	container.VolumeMounts = j.appendMountIfAbsent(container.VolumeMounts, j.generateVolumeMount())
+	container.Env = j.generateEnvVars()
+}
+
+// fillContainerInTasks fill container in job task
+func (j *KubeJob) fillContainerInTasks(container *corev1.Container, flavour schema.Flavour, command string) {
+	container.Image = j.Image
+	container.Command = []string{"bash", "-c", j.fixContainerCommand(command)}
+	container.Resources = j.generateResourceRequirements(flavour)
 	container.VolumeMounts = j.appendMountIfAbsent(container.VolumeMounts, j.generateVolumeMount())
 	container.Env = j.generateEnvVars()
 }
@@ -348,7 +386,12 @@ func (j *KubeJob) StopJobByID(id string) error {
 	return nil
 }
 
-func (j *KubeJob) UpdateJob() error {
+func (j *KubeJob) UpdateJob(data []byte) error {
+	log.Infof("update %s job %s/%s on cluster, data: %s", j.JobType, j.Namespace, j.Name, string(data))
+	if err := Patch(j.Namespace, j.Name, j.GroupVersionKind, data, j.DynamicClientOption); err != nil {
+		log.Errorf("update %s job %s/%s on cluster failed, err %v", j.JobType, j.Namespace, j.Name, err)
+		return err
+	}
 	return nil
 }
 
@@ -410,9 +453,7 @@ func (j *JobModeParams) validatePSMode() error {
 }
 
 func (j *JobModeParams) validateCollectiveMode() error {
-	if len(j.WorkerFlavour) == 0 || len(j.WorkerCommand) == 0 {
-		return errors.EmptyFlavourError()
-	}
+	// todo(zhongzichao) validate JobFlavour
 	return nil
 }
 

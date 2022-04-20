@@ -48,7 +48,7 @@ func (req *CreateGrantRequest) toModel() models.Grant {
 }
 
 func checkQueue(ctx *logger.RequestContext, queueName string) error {
-	_, err := models.GetQueueByName(ctx, queueName)
+	_, err := models.GetQueueByName(queueName)
 	if err != nil {
 		ctx.ErrorCode = common.QueueNameNotFound
 		return fmt.Errorf("queueName:%s not found", queueName)

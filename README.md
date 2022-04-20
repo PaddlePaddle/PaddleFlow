@@ -13,10 +13,10 @@
 - Complex command abstraction, and custom templates can be executed multiple times
 # Architecture
 PaddleFlow consists of four parts: </br>
-- **1.PaddleFlow client (built-in PaddleFlow fuse)**: PaddleFlow command line tool, it's convenient for users. Built-in PaddleFlow fuse lib is mainly used for cache data and snapshot, it can be accelerated the speed of reading and writing.Moreover,it supports multiple data sources,eg.bos,hdfs,local filesystem.</br>
-- **2.PaddleFlow server**: The PaddleFlow core server, it mainly includes queue, storage and pipeline.</br>
-- **3.Volcano(reform based on volcano from huawei)**: Add elastic quota feature,compute resource can manage more flexibly. We will commit the features to volcano community soon.</br>
-- **4.PadddeFlow-csi-plugin**: Provides Kubernetes CSI driver to use PaddleFlow on Kubernetes.</br>
+- **PaddleFlow client (built-in PaddleFlow fuse)**: PaddleFlow command line tool, it's convenient for users. Built-in PaddleFlow fuse lib is mainly used for cache data and snapshot, it can be accelerated the speed of reading and writing.Moreover,it supports multiple data sources,eg.bos,hdfs,local filesystem.</br>
+- **PaddleFlow server**: The PaddleFlow core server, it mainly includes queue, storage and pipeline.</br>
+- **Volcano(reform based on volcano from huawei)**: Add elastic quota feature,compute resource can manage more flexibly. We will commit the features to volcano community soon.</br>
+- **PadddeFlow-csi-plugin**: Provides Kubernetes CSI driver to use PaddleFlow on Kubernetes.</br>
 
 ![PaddleFlow Feature Architecture](docs/zh_cn/images/pf-arch.png) 
 
@@ -26,8 +26,8 @@ Both the client, server or runtime depends on a shared filesystem, it enables us
 ![PaddleFlow Deploy Architecture](docs/zh_cn/images/pf-deploy-arch.png)
 # Getting Started
 You need to make preparations before using PaddleFlow:
-1.Prepare kubernetes environment</br>
-2.Download and install the PaddleFlow client</br>
+- Prepare kubernetes environment</br>
+- Download and install the PaddleFlow client</br>
 Please refer to the quick start guide and start using PaddleFlow now
 ## 1.Command inference
 see [client command inference](docs/zh_cn/reference/client_command_reference.md) get all commands and examples.
