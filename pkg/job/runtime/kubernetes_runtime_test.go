@@ -18,9 +18,7 @@ package runtime
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"net/http"
 	"net/http/httptest"
 	"testing"
 
@@ -68,55 +66,6 @@ spec:
 `
 )
 
-var discoveryHandlerFunc = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-	var obj interface{}
-	switch req.URL.Path {
-	case "/apis/batch.volcano.sh/v1alpha1":
-		obj = &metav1.APIResourceList{
-			GroupVersion: "batch.volcano.sh/v1alpha1",
-			APIResources: []metav1.APIResource{
-				{Name: "jobs", Namespaced: true, Kind: "Job"},
-			},
-		}
-	case "/apis/scheduling.volcano.sh/v1beta1":
-		obj = &metav1.APIResourceList{
-			GroupVersion: "scheduling.volcano.sh/v1beta1",
-			APIResources: []metav1.APIResource{
-				{Name: "queues", Namespaced: false, Kind: "Queue"},
-				{Name: "elasticresourcequotas", Namespaced: false, Kind: "ElasticResourceQuota"},
-			},
-		}
-	case "/apis":
-		obj = &metav1.APIGroupList{
-			Groups: []metav1.APIGroup{
-				{
-					Name: "batch.volcano.sh",
-					Versions: []metav1.GroupVersionForDiscovery{
-						{GroupVersion: "batch.volcano.sh/v1alpha1", Version: "v1alpha1"},
-					},
-				},
-				{
-					Name: "scheduling.volcano.sh",
-					Versions: []metav1.GroupVersionForDiscovery{
-						{GroupVersion: "scheduling.volcano.sh/v1beta1", Version: "v1beta1"},
-					},
-				},
-			},
-		}
-	default:
-		w.WriteHeader(http.StatusNotFound)
-		return
-	}
-	output, err := json.Marshal(obj)
-	if err != nil {
-		fmt.Printf("unexpected encoding error: %v", err)
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	w.Write(output)
-})
-
 func newFakeDynamicClient(server *httptest.Server) *k8s.DynamicClientOption {
 	scheme := runtime.NewScheme()
 	dynamicClient := fakedynamicclient.NewSimpleDynamicClient(scheme)
@@ -129,7 +78,7 @@ func newFakeDynamicClient(server *httptest.Server) *k8s.DynamicClientOption {
 }
 
 func TestKubeRuntimeJob(t *testing.T) {
-	var server = httptest.NewServer(discoveryHandlerFunc)
+	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
 	defer server.Close()
 	dynamicClient := newFakeDynamicClient(server)
 	client := fakedclient.NewSimpleClientset()
@@ -168,7 +117,7 @@ func TestKubeRuntimeJob(t *testing.T) {
 	}
 	err := models.CreateJob(&models.Job{
 		ID: testJobID,
-		Config: schema.Conf{
+		Config: &schema.Conf{
 			Env: map[string]string{
 				schema.EnvJobNamespace: "default",
 			},
@@ -186,7 +135,7 @@ func TestKubeRuntimeJob(t *testing.T) {
 }
 
 func TestKubeRuntimeVCQueue(t *testing.T) {
-	var server = httptest.NewServer(discoveryHandlerFunc)
+	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
 	defer server.Close()
 	dynamicClient := newFakeDynamicClient(server)
 	kubeRuntime := &KubeRuntime{
@@ -217,7 +166,7 @@ func TestKubeRuntimeVCQueue(t *testing.T) {
 }
 
 func TestKubeRuntimeElasticQuota(t *testing.T) {
-	var server = httptest.NewServer(discoveryHandlerFunc)
+	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
 	defer server.Close()
 	dynamicClient := newFakeDynamicClient(server)
 	kubeRuntime := &KubeRuntime{

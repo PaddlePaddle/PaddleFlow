@@ -24,7 +24,6 @@ import (
 	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/common/database"
 	"paddleflow/pkg/common/logger"
-	"paddleflow/pkg/common/uuid"
 )
 
 var checkFuncs map[string]func(ctx *logger.RequestContext, ID string) error
@@ -34,8 +33,22 @@ type ListGrantResponse struct {
 	GrantList []models.Grant `json:"grantList"`
 }
 
+type CreateGrantRequest struct {
+	UserName     string `json:"userName"`
+	ResourceType string `json:"resourceType"`
+	ResourceID   string `json:"resourceID"`
+}
+
+func (req *CreateGrantRequest) toModel() models.Grant {
+	return models.Grant{
+		UserName:     req.UserName,
+		ResourceType: req.ResourceType,
+		ResourceID:   req.ResourceID,
+	}
+}
+
 func checkQueue(ctx *logger.RequestContext, queueName string) error {
-	_, err := models.GetQueueByName(ctx, queueName)
+	_, err := models.GetQueueByName(queueName)
 	if err != nil {
 		ctx.ErrorCode = common.QueueNameNotFound
 		return fmt.Errorf("queueName:%s not found", queueName)
@@ -62,47 +75,47 @@ type CreateGrantResponse struct {
 	GrantID string `json:"grantID"`
 }
 
-func CreateGrant(ctx *logger.RequestContext, grant *models.Grant) (*CreateGrantResponse, error) {
-	ctx.Logging().Debugf("begin create grant. grantInfo: %v.", &grant)
+func CreateGrant(ctx *logger.RequestContext, grantInfo CreateGrantRequest) (*CreateGrantResponse, error) {
+	ctx.Logging().Debugf("begin create grant. grantInfo: %v.", grantInfo)
 	if !common.IsRootUser(ctx.UserName) {
 		ctx.ErrorCode = common.OnlyRootAllowed
 		ctx.Logging().Errorln("create grant failed. root is needed.")
 		return nil, errors.New("create grant failed")
 	}
 	//grant to root is not allowed
-	if common.IsRootUser(grant.UserName) {
+	if common.IsRootUser(grantInfo.UserName) {
 		ctx.ErrorCode = common.GrantRootActionNotSupport
 		ctx.Logging().Errorln("can't grant to admin, root has garnts of all resource.")
 		return nil, errors.New("create grant failed")
 	}
 
 	//check resouce type
-	checkResourceFunc, ok := checkFuncs[grant.ResourceType]
+	checkResourceFunc, ok := checkFuncs[grantInfo.ResourceType]
 	if !ok {
 		ctx.ErrorCode = common.GrantResourceTypeNotFound
 		ctx.Logging().Errorln("create grant failed. reourceType not exist.")
 		return nil, errors.New("create grant failed")
 	}
 	//check resource
-	if err := checkResourceFunc(ctx, grant.ResourceID); err != nil {
-		ctx.Logging().Errorf("create grant failed.%v:%s not exist.", grant.ResourceType, grant.ResourceID)
+	if err := checkResourceFunc(ctx, grantInfo.ResourceID); err != nil {
+		ctx.Logging().Errorf("create grant failed.%v:%s not exist.", grantInfo.ResourceType, grantInfo.ResourceID)
 		return nil, err
 	}
 	//check user
-	if err := checkFuncs[common.ResourceTypeUser](ctx, grant.UserName); err != nil {
-		ctx.Logging().Errorf("create grant failed.user:%v not exist.", grant.UserName)
+	if err := checkFuncs[common.ResourceTypeUser](ctx, grantInfo.UserName); err != nil {
+		ctx.Logging().Errorf("create grant failed.user:%v not exist.", grantInfo.UserName)
 		return nil, err
 	}
 
-	//can't grant repeatedlly
-
-	if existgrant, _ := models.GetGrant(ctx, grant.UserName, grant.ResourceType, grant.ResourceID); existgrant != nil {
+	//can't grant repeatedly
+	if existgrant, _ := models.GetGrant(ctx, grantInfo.UserName, grantInfo.ResourceType, grantInfo.ResourceID); existgrant != nil {
 		ctx.ErrorCode = common.GrantAlreadyExist
-		ctx.Logging().Errorf("create grant failed.user:[%s] already has the grant of resource[%s].", grant.UserName, grant.ResourceID)
+		ctx.Logging().Errorf("create grant failed.user:[%s] already has the grant of resource[%s].", grantInfo.UserName, grantInfo.ResourceID)
 		return nil, errors.New("create grant failed")
 	}
-	grant.ID = uuid.GenerateID(common.PrefixGrant)
-	err := models.CreateGrant(ctx, grant)
+
+	grant := grantInfo.toModel()
+	err := models.CreateGrant(ctx, &grant)
 	if err != nil {
 		ctx.Logging().Errorf("create grant failed. error:%s", err.Error())
 		if database.GetErrorCode(err) == database.ErrorKeyIsDuplicated {

@@ -60,8 +60,7 @@ type args struct {
 }
 
 func initQueue(t *testing.T, userName string) {
-	ctx := &logger.RequestContext{UserName: userName}
-	err := models.CreateQueue(ctx, &queue1)
+	err := models.CreateQueue(&queue1)
 	assert.Nil(t, err)
 }
 
@@ -123,15 +122,17 @@ func TestCreateJob(t *testing.T) {
 						Labels:      map[string]string{},
 						Annotations: map[string]string{},
 						SchedulingPolicy: job.SchedulingPolicy{
-							QueueID: MockQueueID,
+							Queue: MockQueueName,
 						},
 					},
-					Image: "mockImage",
-					Flavour: schema.Flavour{
-						Name: flavourName,
-					},
-					FileSystem: schema.FileSystem{
-						Name: MockFsName1,
+					JobSpec: job.JobSpec{
+						Image: "mockImage",
+						Flavour: schema.Flavour{
+							Name: flavourName,
+						},
+						FileSystem: schema.FileSystem{
+							Name: MockFsName1,
+						},
 					},
 				},
 			},

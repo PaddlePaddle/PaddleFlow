@@ -48,12 +48,16 @@ const (
 	MethodNotAllowed     = "MethodNotAllowed"
 	DuplicatedName       = "DuplicatedName"
 	DuplicatedContent    = "DuplicatedContent"
+	InvalidArguments     = "InvalidArguments"
+	RecordNotFound       = "RecordNotFound"
 	RequiredFieldEmpty   = "RequiredFieldEmpty"
 
 	AuthWithoutToken = "AuthWithoutToken" // 请求没有携带token
 	AuthInvalidToken = "AuthInvalidToken" // 无效token
 	AuthFailed       = "AuthFailed"       // 用户名或者密码错误
 	AuthIllegalUser  = "AuthIllegalUser"  // 非法用户
+
+	DBUpdateFailed = "UpdateDatabaseFailed"
 
 	UserNameDuplicated = "UserNameDuplicated"
 	UserNotExist       = "UserNotExist"
@@ -82,6 +86,10 @@ const (
 	FlavourNameEmpty    = "FlavourNameEmpty"    // 资源套餐名称为空
 	FlavourInvalidField = "FlavourInvalidField" // 资源套餐名称为空
 
+	JobInvalidField = "JobInvalidField" // job field invalid
+	JobCreateFailed = "JobCreateFailed" // job create failed
+	JobNotFound     = "JobNotFound"
+
 	ClusterNameNotFound      = "ClusterNameNotFound"
 	ClusterIdNotFound        = "ClusterIdNotFound"
 	ClusterNotFound          = "ClusterNotFound"
@@ -102,7 +110,7 @@ const (
 	FileSystemClientBusy        = "FileSystemClientBusy"
 	K8sOperatorError            = "K8sOperatorError"
 	InvalidState                = "InvalidState"
-	GrantUserNameAndFsID        = "GrantUserNameAndFsID"
+	GrantUserNameAndFs          = "GrantUserNameAndFs"
 	FileSystemNotExist          = "FileSystemNotExist"
 	FileSystemNameFormatError   = "FileSystemNameFormatError"
 	LinkFileSystemNotExist      = "LinkFileSystemNotExist"
@@ -140,6 +148,8 @@ var errorHTTPStatus = map[string]int{
 	MethodNotAllowed:     http.StatusMethodNotAllowed,
 	DuplicatedName:       http.StatusBadRequest,
 	DuplicatedContent:    http.StatusBadRequest,
+	InvalidArguments:     http.StatusBadRequest,
+	RecordNotFound:       http.StatusNotFound,
 	RequiredFieldEmpty:   http.StatusBadRequest,
 
 	UserNameDuplicated: http.StatusForbidden,
@@ -174,6 +184,10 @@ var errorHTTPStatus = map[string]int{
 	FlavourNameEmpty:    http.StatusBadRequest,
 	FlavourInvalidField: http.StatusBadRequest,
 
+	JobInvalidField: http.StatusBadRequest,
+	JobCreateFailed: http.StatusBadRequest,
+	JobNotFound:     http.StatusNotFound,
+
 	ClusterNameNotFound:      http.StatusBadRequest,
 	ClusterIdNotFound:        http.StatusBadRequest,
 	ClusterNotFound:          http.StatusBadRequest,
@@ -192,7 +206,7 @@ var errorHTTPStatus = map[string]int{
 	InvalidFileSystemFsName:     http.StatusBadRequest,
 	InvalidLinkURL:              http.StatusBadRequest,
 	InvalidLinkProperties:       http.StatusBadRequest,
-	GrantUserNameAndFsID:        http.StatusInternalServerError,
+	GrantUserNameAndFs:          http.StatusInternalServerError,
 	LinkModelError:              http.StatusInternalServerError,
 	FileSystemNameFormatError:   http.StatusBadRequest,
 	LinkPathExist:               http.StatusBadRequest,
@@ -229,6 +243,8 @@ var errorMessage = map[string]string{
 	MemoryNotFound:       "Memory is not set",
 	DuplicatedName:       "Name has existed. Duplicated name is not allowed",
 	DuplicatedContent:    "content(md5) has existed. Please use existing one",
+	InvalidArguments:     "invalid arguments",
+	RecordNotFound:       "record not found",
 	RequiredFieldEmpty:   "Field is not set",
 
 	UserNameDuplicated: "The user name already exists",
@@ -248,6 +264,9 @@ var errorMessage = map[string]string{
 	QueueIsNotClosed:             "Queue should be closed before delete",
 
 	FlavourNameEmpty: "flavour name should not be empty",
+
+	JobInvalidField: "job field invalid",
+	JobCreateFailed: "job create failed",
 
 	RunNameDuplicated:     "Run name already exists",
 	RunNotFound:           "RunID not found",
@@ -278,7 +297,7 @@ var errorMessage = map[string]string{
 	FileSystemClientBusy:        "File system is busy",
 	K8sOperatorError:            "K8s operator err",
 
-	GrantUserNameAndFsID:       "Grant fsID and userName err",
+	GrantUserNameAndFs:         "Grant fs and userName err",
 	InvalidState:               "Heart state must active or inactive",
 	FileSystemNotExist:         "File system not exist",
 	FileSystemNameFormatError:  "File system name must be letters and numbers and name length limit 8",
@@ -395,4 +414,8 @@ func LogPageSizeOverMaxError() error {
 
 func LogFilePositionInvalidValueError() error {
 	return fmt.Errorf("LogFilePosition has wrong value")
+}
+
+func ConnectionClosedError() error {
+	return fmt.Errorf("Connection closed")
 }

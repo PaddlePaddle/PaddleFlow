@@ -37,10 +37,11 @@ const (
 	ParamKeyRunCacheID = "runCacheID"
 	ParamKeyPipelineID = "pipelineID"
 
-	QueryKeyAction   = "action"
-	QueryActionStop  = "stop"
-	QueryActionRetry = "retry"
-	QueryActionClose = "close"
+	QueryKeyAction    = "action"
+	QueryActionStop   = "stop"
+	QueryActionRetry  = "retry"
+	QueryActionClose  = "close"
+	QueryActionModify = "modify"
 
 	QueryKeyMarker  = "marker"
 	QueryKeyMaxKeys = "maxKeys"
@@ -56,6 +57,11 @@ const (
 	QueryKeyUserName   = "username"
 	QueryResourceType  = "resourceType"
 	QueryResourceID    = "resourceID"
+	QueryKeyStatus     = "status"
+	QueryKeyTimestamp  = "timestamp"
+	QueryKeyStartTime  = "startTime"
+	QueryKeyQueue      = "queue"
+	QueryKeyLabels     = "labels"
 
 	ParamKeyClusterName   = "clusterName"
 	ParamKeyClusterNames  = "clusterNames"

@@ -24,6 +24,8 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"paddleflow/pkg/common/config"
+	"paddleflow/pkg/common/database/dbinit"
 	"testing"
 
 	"github.com/go-chi/chi"
@@ -50,6 +52,8 @@ const (
 	MockRootUser   = "root"
 	MockPassword   = "mockPassword123456"
 	MockNormalUser = "user-normal"
+	mockFsName     = "mockfs"
+	mockFsID       = "fs-root-mockfs"
 )
 
 var auth string
@@ -66,6 +70,26 @@ func mockAuth2(next http.Handler) http.Handler {
 		r.Header.Set(common.HeaderKeyAuthorization, auth)
 		next.ServeHTTP(w, r)
 	})
+}
+
+func prepareDBAndAPI(t *testing.T) (*chi.Mux, string) {
+	chiRouter := NewApiTest()
+	baseUrl := util.PaddleflowRouterPrefix + util.PaddleflowRouterVersionV1
+
+	config.GlobalServerConfig = &config.ServerConfig{
+		ApiServer: config.ApiServerConfig{
+			TokenExpirationHour: -1,
+		},
+	}
+
+	dbinit.InitMockDB()
+	rootCtx := &logger.RequestContext{UserName: MockRootUser}
+
+	token, err := CreateTestUser(rootCtx, MockRootUser, MockPassword)
+	assert.Nil(t, err)
+	setToken(token)
+
+	return chiRouter, baseUrl
 }
 
 // NewApiTest func create router of chi for test

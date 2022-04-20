@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"paddleflow/pkg/apiserver/common"
+	"paddleflow/pkg/apiserver/controller/grant"
 	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/common/config"
 	"paddleflow/pkg/common/logger"
@@ -61,11 +62,6 @@ type GetFileSystemRequest struct {
 	Username string `json:"username"`
 }
 
-type DeleteFileSystemRequest struct {
-	Username string `json:"username"`
-	FsName   string `json:"fsName"`
-}
-
 type CreateFileSystemClaimsRequest struct {
 	Namespaces []string `json:"namespaces"`
 	FsIDs      []string `json:"fsIDs"`
@@ -97,16 +93,6 @@ type CreateFileSystemClaimsResponse struct {
 	Message string `json:"message"`
 }
 
-type CreateFileSystemCache struct {
-	CacheDir            string                 `json:"cacheDir"`
-	Quota               int                    `json:"quota"`
-	CacheType           string                 `json:"cacheType"`
-	BlockSize           int                    `json:"blockSize"`
-	NodeAffinity        map[string]interface{} `json:"nodeAffinity"`
-	NodeTaintToleration map[string]interface{} `json:"nodeTaintToleration"`
-	ExtraConfigMap      map[string]string      `json:"extraConfig"`
-}
-
 var fileSystemService *FileSystemService
 
 // GetFileSystemService returns the instance of file system service
@@ -117,7 +103,7 @@ func GetFileSystemService() *FileSystemService {
 	return fileSystemService
 }
 
-// CreateStorage the function which performs the operation of creating FileSystem
+// CreateFileSystem the function which performs the operation of creating FileSystem
 func (s *FileSystemService) CreateFileSystem(ctx *logger.RequestContext, req *CreateFileSystemRequest) (models.FileSystem, error) {
 	fsType, serverAddress, subPath := common.InformationFromURL(req.Url, req.Properties)
 	fs := models.FileSystem{
@@ -136,22 +122,30 @@ func (s *FileSystemService) CreateFileSystem(ctx *logger.RequestContext, req *Cr
 		ctx.ErrorCode = common.FileSystemDataBaseError
 		return models.FileSystem{}, err
 	}
+
+	// create grant for non-root user
+	if !common.IsRootUser(req.Username) {
+		grantInfo := grant.CreateGrantRequest{
+			UserName:     req.Username,
+			ResourceID:   fs.ID,
+			ResourceType: common.ResourceTypeFs,
+		}
+		_, err = grant.CreateGrant(ctx, grantInfo)
+		if err != nil {
+			log.Errorf("create grant for filesystem[%s] to user[%s] failed: %v", fs.Name, req.Username, err)
+			ctx.ErrorCode = common.GrantUserNameAndFs
+			return models.FileSystem{}, err
+		}
+	}
 	return fs, nil
 }
 
 // GetFileSystem the function which performs the operation of getting file system detail
-func (s *FileSystemService) GetFileSystem(req *GetFileSystemRequest, fsID string) (models.FileSystem, error) {
-	if req.Username == common.UserRoot {
-		req.Username = ""
-	}
-	modelsFs, err := models.GetFileSystemWithFsIDAndUserName(fsID, req.Username)
+func (s *FileSystemService) GetFileSystem(fsID string) (models.FileSystem, error) {
+	modelsFs, err := models.GetFileSystemWithFsID(fsID)
 	if err != nil {
 		log.Errorf("get file system err[%v]", err)
 		return models.FileSystem{}, err
-	}
-	if modelsFs.ID == "" {
-		log.Errorf("get file system empty with username[%s] fsid[%s]", req.Username, fsID)
-		return models.FileSystem{}, common.New("Get file system is empty")
 	}
 	return modelsFs, err
 }
@@ -342,9 +336,5 @@ func createPVC(namespace, fsId, pv string) error {
 	if _, err := k8sOperator.CreatePersistentVolumeClaim(namespace, newPVC); err != nil {
 		return err
 	}
-	return nil
-}
-
-func (s *FileSystemService) CreateFileSystemCache(ctx *logger.RequestContext, req *CreateFileSystemCache) error {
 	return nil
 }

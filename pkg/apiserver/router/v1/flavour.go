@@ -243,12 +243,15 @@ func validateCreateFlavour(ctx *logger.RequestContext, request *flavour.CreateFl
 		return errors.New("field not be empty")
 	}
 	if request.ClusterName != "" {
-		clusterInfo, err := models.GetClusterByName(ctx, request.ClusterName)
+		clusterInfo, err := models.GetClusterByName(request.ClusterName)
 		if err != nil {
 			ctx.ErrorCode = common.ClusterNameNotFound
 			return err
 		}
 		request.ClusterID = clusterInfo.ID
+	}
+	if request.ScalarResources == nil {
+		request.ScalarResources = make(schema.ScalarResourcesType)
 	}
 	resourceInfo := schema.ResourceInfo{
 		CPU:             request.CPU,

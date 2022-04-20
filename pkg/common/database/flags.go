@@ -34,6 +34,7 @@ func DatabaseFlags(dbConf *config.DatabaseConfig) []cli.Flag {
 		},
 		&cli.StringFlag{
 			Name:        "db-password",
+			Value:       dbConf.Password,
 			Usage:       "password",
 			Destination: &dbConf.Password,
 		},

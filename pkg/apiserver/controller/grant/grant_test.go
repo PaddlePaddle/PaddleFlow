@@ -19,7 +19,6 @@ package grant
 import (
 	"testing"
 
-	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
 
 	"paddleflow/pkg/apiserver/common"
@@ -54,10 +53,10 @@ func TestCreateGrant(t *testing.T) {
 	dbinit.InitMockDB()
 	ctx := &logger.RequestContext{UserName: MockRootUser}
 	// mock queue & cluster
-	assert.Nil(t, models.CreateCluster(ctx, &clusterInfo))
-	cluser, _ := models.GetClusterByName(ctx, MockClusterName)
+	assert.Nil(t, models.CreateCluster(&clusterInfo))
+	cluser, _ := models.GetClusterByName(MockClusterName)
 
-	err := models.CreateQueue(ctx, &models.Queue{
+	err := models.CreateQueue(&models.Queue{
 		Name:      MockResourceID,
 		Namespace: "fake",
 		ClusterId: cluser.ID,
@@ -72,7 +71,7 @@ func TestCreateGrant(t *testing.T) {
 	assert.Nil(t, err)
 
 	// case start
-	grant := &models.Grant{
+	grant := CreateGrantRequest{
 		UserName:     MockUserName,
 		ResourceType: common.ResourceTypeQueue,
 		ResourceID:   MockResourceID,
@@ -94,13 +93,6 @@ func TestListGrant(t *testing.T) {
 func TestDeleteGrant(t *testing.T) {
 	TestCreateGrant(t)
 	ctx := &logger.RequestContext{UserName: MockRootUser}
-
-	// mock queue
-	var p1 = gomonkey.ApplyFunc(models.GetQueueByName, func(ctx *logger.RequestContext, queueName string) (models.Queue, error) {
-		return models.Queue{}, nil
-	})
-	defer p1.Reset()
-
 	err := DeleteGrant(ctx, MockUserName, MockResourceID, common.ResourceTypeQueue)
 	assert.Nil(t, err)
 }

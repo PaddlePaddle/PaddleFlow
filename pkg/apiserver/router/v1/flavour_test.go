@@ -24,7 +24,6 @@ import (
 
 	"paddleflow/pkg/apiserver/controller/flavour"
 	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/common/schema"
 )
 
@@ -58,8 +57,7 @@ var (
 )
 
 func initCluster(t *testing.T) {
-	ctx := &logger.RequestContext{UserName: MockRootUser}
-	err := models.CreateCluster(ctx, &clusterInfo)
+	err := models.CreateCluster(&clusterInfo)
 	assert.Nil(t, err)
 }
 

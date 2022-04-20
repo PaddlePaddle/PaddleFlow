@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@ limitations under the License.
 package v1
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"regexp"
@@ -24,6 +25,7 @@ import (
 
 	"github.com/go-chi/chi"
 	log "github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -46,12 +48,16 @@ func (pr *PFSRouter) Name() string {
 
 func (pr *PFSRouter) AddRouter(r chi.Router) {
 	log.Info("add PFS router")
-	r.Post("/fs", pr.CreateFileSystem)
-	r.Get("/fs", pr.ListFileSystem)
-	r.Get("/fs/{fsName}", pr.GetFileSystem)
-	r.Delete("/fs/{fsName}", pr.DeleteFileSystem)
-	r.Post("/fs/claims", pr.CreateFileSystemClaims)
-	r.Post("/fs/cache", pr.CreateFileSystemCache)
+	// fs
+	r.Post("/fs", pr.createFileSystem)
+	r.Get("/fs", pr.listFileSystem)
+	r.Get("/fs/{fsName}", pr.getFileSystem)
+	r.Delete("/fs/{fsName}", pr.deleteFileSystem)
+	r.Post("/fs/claims", pr.createFileSystemClaims)
+	// fs cache config
+	r.Post("/fs/cache", pr.createFSCacheConfig)
+	r.Put("/fs/cache/{fsName}", pr.updateFSCacheConfig)
+	r.Get("/fs/cache/{fsName}", pr.getFSCacheConfig)
 }
 
 var URLPrefix = map[string]bool{
@@ -63,29 +69,21 @@ var URLPrefix = map[string]bool{
 	common.CFS:   true,
 }
 
-const (
-	userGroupField = "userGroup"
-	userNameField  = "userName"
-	Password       = "password"
-	DefaultMaxKeys = 50
-	MaxAllowKeys   = 1000
-	FsNameMaxLen   = 8
-	retryNum       = 3
-)
+const FsNameMaxLen = 8
 
-// CreateFileSystem the function that handle the create file system request
-// @Summary CreateFileSystem
+// createFileSystem the function that handle the create file system request
+// @Summary createFileSystem
 // @Description 创建文件系统
 // @tag fs
 // @Accept   json
 // @Produce  json
-// @Param request body request.CreateFileSystemRequest true "request body"
-// @Success 200 {object} response.CreateFileSystemResponse
+// @Param request body fs.CreateFileSystemRequest true "request body"
+// @Success 201 {object} fs.CreateFileSystemResponse
 // @Failure 400 {object} common.ErrorResponse
 // @Failure 404 {object} common.ErrorResponse
 // @Failure 500 {object} common.ErrorResponse
-// @Router /api/paddleflow/v1/fs [post]
-func (pr *PFSRouter) CreateFileSystem(w http.ResponseWriter, r *http.Request) {
+// @Router /fs [post]
+func (pr *PFSRouter) createFileSystem(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
 	var createRequest api.CreateFileSystemRequest
 	err := common.BindJSON(r, &createRequest)
@@ -109,16 +107,16 @@ func (pr *PFSRouter) CreateFileSystem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = fileSystemService.CreateFileSystem(&ctx, &createRequest)
+	fs, err := fileSystemService.CreateFileSystem(&ctx, &createRequest)
 	if err != nil {
 		ctx.Logging().Errorf("create file system with error[%v]", err)
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
-	response := api.CreateFileSystemResponse{FsName: createRequest.Name, FsID: common.ID(createRequest.Username, createRequest.Name)}
+	response := api.CreateFileSystemResponse{FsName: fs.Name, FsID: fs.ID}
 
 	ctx.Logging().Debugf("CreateFileSystem Fs:%v", string(config.PrettyFormat(response)))
-	common.Render(w, http.StatusOK, response)
+	common.Render(w, http.StatusCreated, response)
 }
 
 func validateCreateFileSystem(ctx *logger.RequestContext, req *api.CreateFileSystemRequest) error {
@@ -356,19 +354,19 @@ func checkFsDir(fsType, url string, properties map[string]string) error {
 	return nil
 }
 
-// ListFileSystem the function that handle the list file systems request
-// @Summary ListFileSystem
+// listFileSystem the function that handle the list file systems request
+// @Summary listFileSystem
 // @Description 批量获取文件系统
 // @tag fs
 // @Accept   json
 // @Produce  json
-// @Param request body request.ListFileSystemRequest true "request body"
-// @Success 200 {object} response.ListFileSystemResponse
+// @Param request body fs.ListFileSystemRequest true "request body"
+// @Success 200 {object} fs.ListFileSystemResponse
 // @Failure 400 {object} common.ErrorResponse
 // @Failure 404 {object} common.ErrorResponse
 // @Failure 500 {object} common.ErrorResponse
-// @Router /api/paddleflow/v1/fs [get]
-func (pr *PFSRouter) ListFileSystem(w http.ResponseWriter, r *http.Request) {
+// @Router /fs [get]
+func (pr *PFSRouter) listFileSystem(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
 
 	maxKeys, err := util.GetQueryMaxKeys(&ctx, r)
@@ -399,11 +397,11 @@ func (pr *PFSRouter) ListFileSystem(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if listRequest.MaxKeys == 0 {
-		listRequest.MaxKeys = DefaultMaxKeys
+		listRequest.MaxKeys = util.DefaultMaxKeys
 	}
-	if listRequest.MaxKeys > MaxAllowKeys {
+	if listRequest.MaxKeys > util.ListPageMax {
 		ctx.Logging().Error("too many max keys")
-		common.RenderErrWithMessage(w, ctx.RequestID, common.InvalidFileSystemMaxKeys, fmt.Sprintf("maxKeys limit %d", MaxAllowKeys))
+		common.RenderErrWithMessage(w, ctx.RequestID, common.InvalidFileSystemMaxKeys, fmt.Sprintf("maxKeys limit %d", util.ListPageMax))
 		return
 	}
 
@@ -436,16 +434,16 @@ func getListResult(fsModel []models.FileSystem, nextMarker, marker string) *api.
 	return ListFsResponse
 }
 
-// GetFileSystem the function that handle the get file system request
-// @Summary GetFileSystem
+// getFileSystem the function that handle the get file system request
+// @Summary getFileSystem
 // @Description 获取指定文件系统
 // @tag fs
 // @Accept   json
 // @Produce  json
 // @Param id path string true "文件系统ID"
 // @Success 200 {object} models.FileSystem
-// @Router /api/paddleflow/v1/fs/{fsName} [get]
-func (pr *PFSRouter) GetFileSystem(w http.ResponseWriter, r *http.Request) {
+// @Router /fs/{fsName} [get]
+func (pr *PFSRouter) getFileSystem(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
 
 	fsName := chi.URLParam(r, util.QueryFsName)
@@ -455,19 +453,20 @@ func (pr *PFSRouter) GetFileSystem(w http.ResponseWriter, r *http.Request) {
 	log.Debugf("get file system with req[%v] and fileSystemID[%s]", getRequest, fsName)
 
 	fileSystemService := api.GetFileSystemService()
-
-	if getRequest.Username == "" {
-		getRequest.Username = ctx.UserName
-	}
-	err := validateGetFs(&ctx, &getRequest, &fsName)
+	fsID, err := getFsIDAndCheckPermission(&ctx, getRequest.Username, fsName)
 	if err != nil {
-		ctx.Logging().Errorf("validateGetFs error[%v]", err)
+		ctx.Logging().Errorf("getFsIDAndCheckPermission error[%v]", err)
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
-	fsModel, err := fileSystemService.GetFileSystem(&getRequest, fsName)
+	fsModel, err := fileSystemService.GetFileSystem(fsID)
 	if err != nil {
 		ctx.Logging().Errorf("get file system with error[%v]", err)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			ctx.ErrorCode = common.RecordNotFound
+		} else {
+			ctx.ErrorCode = common.FileSystemDataBaseError
+		}
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
@@ -489,111 +488,56 @@ func fsResponseFromModel(fsModel models.FileSystem) *api.FileSystemResponse {
 	}
 }
 
-func validateGetFs(ctx *logger.RequestContext, req *api.GetFileSystemRequest, fsID *string) error {
-	if req.Username == "" {
-		req.Username = ctx.UserName
-	}
-
-	if req.Username == "" {
-		ctx.Logging().Error("UserName is empty")
-		ctx.ErrorCode = common.AuthFailed
-		return common.InvalidField("userName", "userName is empty")
-	}
-	if *fsID == "" {
-		ctx.Logging().Error("FsID or FsName is empty")
-		// response to user use fsName not fsID
-		return common.InvalidField("fsName", "fsName is empty")
-	}
-	// trans fsName to real fsID, for user they only use fsName，grpc client may be use fsID
-	*fsID = common.NameToFsID(*fsID, req.Username)
-
-	return nil
-}
-
-// DeleteFileSystem the function that handle the delete file system request
-// @Summary DeleteFileSystem
+// deleteFileSystem the function that handle the delete file system request
+// @Summary deleteFileSystem
 // @Description 删除指定文件系统
 // @tag fs
 // @Accept   json
 // @Produce  json
-// @Param id path string true "文件系统ID"
+// @Param fsName path string true "文件系统名称"
+// @Param username query string false "用户名"
 // @Success 200
-// @Router /api/paddleflow/v1/fs/{fsName} [delete]
-func (pr *PFSRouter) DeleteFileSystem(w http.ResponseWriter, r *http.Request) {
+// @Router /fs/{fsName} [delete]
+func (pr *PFSRouter) deleteFileSystem(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
 
 	fsName := chi.URLParam(r, util.QueryFsName)
-	deleteRequest := &api.DeleteFileSystemRequest{
-		FsName:   fsName,
-		Username: r.URL.Query().Get(util.QueryKeyUserName),
-	}
-	log.Debugf("delete file system with req[%v] and FileSystemID[%s]", deleteRequest, fsName)
+	username := r.URL.Query().Get(util.QueryKeyUserName)
+
+	log.Debugf("delete file system with fsName[%s] username[%s]", fsName, username)
 
 	fileSystemService := api.GetFileSystemService()
 
-	err := validateDeleteFs(&ctx, deleteRequest, &fsName)
+	// validate
+	fsID, err := getFsIDAndCheckPermission(&ctx, username, fsName)
 	if err != nil {
-		ctx.Logging().Errorf("validateDeleteFs error[%v]", err)
+		ctx.Logging().Errorf("delete fs failed by check permission error[%v]", err)
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
 
-	err = fileSystemService.DeleteFileSystem(&ctx, fsName)
+	_, err = models.GetFileSystemWithFsID(fsID)
+	if err != nil {
+		ctx.Logging().Errorf("delete failed by getting file system error[%v]", err)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			common.RenderErrWithMessage(w, ctx.RequestID, common.RecordNotFound, err.Error())
+		} else {
+			common.RenderErrWithMessage(w, ctx.RequestID, common.FileSystemDataBaseError, err.Error())
+		}
+		return
+	}
+
+	err = fileSystemService.DeleteFileSystem(&ctx, fsID)
 	if err != nil {
 		ctx.Logging().Errorf("delete file system with error[%v]", err)
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
-
 	common.RenderStatus(w, http.StatusOK)
 }
 
-func validateDeleteFs(ctx *logger.RequestContext, req *api.DeleteFileSystemRequest, fsID *string) error {
-	if req.Username == "" {
-		req.Username = ctx.UserName
-	}
-
-	if req.Username == "" {
-		ctx.Logging().Error("UserName is empty")
-		ctx.ErrorCode = common.AuthFailed
-		return common.InvalidField("userName", "userName is empty")
-	}
-
-	if *fsID == "" {
-		ctx.Logging().Error("FsID or FsName is empty")
-		// response to user use fsName not fsID
-		return common.InvalidField("fsName", "fsName is empty")
-	}
-	req.FsName = *fsID
-	// trans fsName to real fsID, for user they only use fsName，grpc client may be use fsID
-	fsTemp := strings.Split(*fsID, "-")
-	if len(fsTemp) < common.IDSliceLen || fsTemp[0] != "fs" || (fsTemp[1] != req.Username && req.Username != common.UserRoot) {
-		*fsID = common.ID(req.Username, *fsID)
-	}
-	ctx.Logging().Debugf("delete fs id is %s", *fsID)
-
-	fsModel, err := models.GetFileSystemWithFsID(*fsID)
-	if err != nil {
-		ctx.Logging().Errorf("delete failed by getting file system error[%v]", err)
-		ctx.ErrorCode = common.FileSystemDataBaseError
-		return err
-	}
-
-	if fsModel.Name == "" {
-		ctx.Logging().Errorf("file system not exit %s", *fsID)
-		ctx.ErrorCode = common.FileSystemNotExist
-		return common.DbDataNotExitError(fmt.Sprintf("userName[%s] not created file system[%s]", req.Username, req.FsName))
-	}
-
-	if req.Username != common.UserRoot && req.Username != fsModel.UserName {
-		ctx.ErrorCode = common.AuthFailed
-		return fmt.Errorf("user[%s] is not admin user, can not delete fs[%s]", req.Username, req.FsName)
-	}
-	return nil
-}
-
-// CreateFileSystemClaims the function that handle the create file system claims request
-// @Summary CreateFileSystemClaims
+// createFileSystemClaims the function that handle the create file system claims request
+// @Summary createFileSystemClaims
 // @Description
 // @tag fs
 // @Accept   json
@@ -603,8 +547,8 @@ func validateDeleteFs(ctx *logger.RequestContext, req *api.DeleteFileSystemReque
 // @Failure 400 {object} common.ErrorResponse
 // @Failure 404 {object} common.ErrorResponse
 // @Failure 500 {object} common.ErrorResponse
-// @Router /api/paddleflow/v1/fs/claims [post]
-func (pr *PFSRouter) CreateFileSystemClaims(w http.ResponseWriter, r *http.Request) {
+// @Router /fs/claims [post]
+func (pr *PFSRouter) createFileSystemClaims(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
 
 	var createRequest api.CreateFileSystemClaimsRequest
@@ -666,48 +610,25 @@ func validateCreateFileSystemClaims(ctx *logger.RequestContext, req *api.CreateF
 	return nil
 }
 
-// CreateFileSystemCache the function that handle the create file system cache request
-// @Summary CreateFileSystemCache
-// @Description
-// @tag fs
-// @Accept   json
-// @Produce  json
-// @Param request body request.CreateFileSystemCacheRequest true "request body"
-// @Success 200 {object} response.CreateFileSystemCacheResponse
-// @Failure 400 {object} common.ErrorResponse
-// @Failure 404 {object} common.ErrorResponse
-// @Failure 500 {object} common.ErrorResponse
-// @Router /api/paddleflow/v1/fs/cache [post]
-func (pr *PFSRouter) CreateFileSystemCache(w http.ResponseWriter, r *http.Request) {
-	ctx := common.GetRequestContext(r)
-	var createRequest api.CreateFileSystemCache
-	err := common.BindJSON(r, &createRequest)
-	if err != nil {
-		ctx.Logging().Errorf("CreateFileSystemCache bindjson failed. err:%s", err.Error())
-		common.RenderErr(w, ctx.RequestID, common.MalformedJSON)
-		return
+func getFsIDAndCheckPermission(ctx *logger.RequestContext,
+	username, fsName string) (string, error) {
+	// check permission
+	if !common.IsRootUser(ctx.UserName) {
+		fsID := common.ID(ctx.UserName, fsName)
+		if !models.HasAccessToResource(ctx, common.ResourceTypeFs, fsID) {
+			ctx.ErrorCode = common.AccessDenied
+			err := common.NoAccessError(ctx.UserName, common.ResourceTypeFs, fsName)
+			ctx.Logging().Errorf("filesystem CheckPermission error: %v", err)
+			return "", err
+		}
 	}
-	ctx.Logging().Debugf("create file system cache with req[%v]", createRequest)
-
-	fileSystemService := api.GetFileSystemService()
-
-	err = validateCreateFileSystemCache(&ctx, &createRequest)
-	if err != nil {
-		ctx.Logging().Errorf("validateDeleteFs error[%v]", err)
-		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
-		return
+	var fsID string
+	// concatenate fsID
+	if common.IsRootUser(ctx.UserName) && username != "" {
+		// root user can select fs under other users
+		fsID = common.ID(username, fsName)
+	} else {
+		fsID = common.ID(ctx.UserName, fsName)
 	}
-
-	err = fileSystemService.CreateFileSystemCache(&ctx, &createRequest)
-	if err != nil {
-		ctx.Logging().Errorf("create file system cache with service error[%v]", err)
-		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
-		return
-	}
-
-	common.RenderStatus(w, http.StatusOK)
-}
-
-func validateCreateFileSystemCache(ctx *logger.RequestContext, req *api.CreateFileSystemCache) error {
-	return nil
+	return fsID, nil
 }
