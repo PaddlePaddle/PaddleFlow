@@ -18,7 +18,6 @@ package csidriver
 
 import (
 	"os"
-	"paddleflow/pkg/fs/csiplugin/mount"
 	"path/filepath"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
@@ -133,17 +132,17 @@ func mountVolume(mountPathPrefix string, mountInfo pfs.MountInfo, readOnly bool)
 
 	cmdName, args := mountInfo.GetMountCmd()
 	log.Infof("mountInfo GetMountCmd[%s %v] filesystem ID[%v] in pfs server[%v]", cmdName, args, mountInfo.FSID, mountInfo.Server)
-	//output, err := mountUtil.ExecCmdWithTimeout(cmdName, args)
-	//if err != nil {
-	//	log.Errorf("exec mount failed: [%v], output[%v]", err, string(output))
-	//	return err
-	//}
-
-	err := mount.MountThroughPod(mountPathPrefix, mountInfo)
+	output, err := mountUtil.ExecCmdWithTimeout(cmdName, args)
 	if err != nil {
-		log.Errorf("exec mount failed: [%v]", err)
+		log.Errorf("exec mount failed: [%v], output[%v]", err, string(output))
 		return err
 	}
+
+	//err := mount.MountThroughPod(mountPathPrefix, mountInfo)
+	//if err != nil {
+	//	log.Errorf("exec mount failed: [%v]", err)
+	//	return err
+	//}
 
 	volumeBindMountPath := common.GetVolumeMountPath(mountPathPrefix)
 	return bindMountVolume(volumeSourceMountPath, volumeBindMountPath, readOnly)

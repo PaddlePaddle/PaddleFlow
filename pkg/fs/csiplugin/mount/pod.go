@@ -18,7 +18,6 @@ package mount
 
 import (
 	"fmt"
-	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/fs/csiplugin/client/pfs"
 	"paddleflow/pkg/fs/csiplugin/csiconfig"
 	"strings"
@@ -36,22 +35,6 @@ import (
 
 type PodMount struct {
 	K8sClient *k8s.K8SInterface
-}
-
-func TestGenPod() {
-	client, err := k8s.GetK8sClient()
-	if err != nil {
-		log.Errorf("get k8s client failed: %v", err)
-		return
-	}
-	log.Info("create test pod")
-	pod := GenPodForTest()
-
-	p, err := client.CreatePod(pod)
-	if err != nil {
-		log.Errorf("create pod ,err %v", err)
-	}
-	log.Infof("p is %v", p)
 }
 
 func MountThroughPod(targetPath string, mountInfo pfs.MountInfo) error {
@@ -80,7 +63,7 @@ func createOrAddRef(targetPath string, mountInfo pfs.MountInfo) error {
 			if k8serrors.IsNotFound(err) {
 				// pod not exist, create
 				log.Infof("createOrAddRef: Need to create pod %s.", podName)
-				return createMount(k8sClient, podName, targetPath, mountInfo)
+				return createMount(k8sClient, targetPath, mountInfo)
 			}
 			// unexpect error
 			log.Errorf("createOrAddRef: Get pod %s err: %v", podName, err)
@@ -91,13 +74,12 @@ func createOrAddRef(targetPath string, mountInfo pfs.MountInfo) error {
 	return status.Errorf(codes.Internal, "Mount %v failed: mount pod %s has been deleting for 1 min", mountInfo.FSID, podName)
 }
 
-func createMount(k8sClient k8s.K8SInterface, podName, targetPath string, mountInfo pfs.MountInfo) error {
+func createMount(k8sClient k8s.K8SInterface, targetPath string, mountInfo pfs.MountInfo) error {
 	// create pod
-	newPod := GenPodForTest()
-	newPod.Name = podName
+	newPod := GenPodForTest(targetPath, mountInfo)
 	_, err := k8sClient.CreatePod(newPod)
 	if err != nil {
-		log.Errorf("createMount: Create pod %s err: %v", podName, err)
+		log.Errorf("createMount: Create pod for fsID %s err: %v", mountInfo.FSID, err)
 		return err
 	}
 	// create entry in apiserver
@@ -109,17 +91,17 @@ func createMount(k8sClient k8s.K8SInterface, podName, targetPath string, mountIn
 }
 
 func addRefOfMount(targetPath string, mountInfo pfs.MountInfo) error {
-	cacheStore := models.GetFSCacheStore()
-	cache := models.FSCache{
-		FSID:       mountInfo.FSID,
-		NodeName:   csiconfig.NodeName,
-		MountPoint: targetPath,
-		//CacheDir: ?
-	}
-	if err := cacheStore.AddFSCache(&cache); err != nil {
-		log.Errorf("AddRefOfMount: cacheStore.AddFSCache %+v err: %v", cache, err)
-		return err
-	}
+	//cacheStore := models.GetFSCacheStore()
+	//cache := models.FSCache{
+	//	FSID:       mountInfo.FSID,
+	//	NodeName:   csiconfig.NodeName,
+	//	MountPoint: targetPath,
+	//	//CacheDir: ?
+	//}
+	//if err := cacheStore.AddFSCache(&cache); err != nil {
+	//	log.Errorf("AddRefOfMount: cacheStore.AddFSCache %+v err: %v", cache, err)
+	//	return err
+	//}
 	return nil
 }
 
@@ -182,10 +164,12 @@ func getErrContainerLog(K8sClient k8s.K8SInterface, podName string) (log string,
 	return
 }
 
-func GenPodForTest() *v1.Pod {
+func GenPodForTest(targetPath string, mountInfo pfs.MountInfo) *v1.Pod {
 	pod := csiconfig.GeneratePodTemplate()
-	pod.Name = "test_mount_pod"
-	pod.Spec.Containers[0].Command = []string{"sh", "-c", getcmd()}
+	pod.Name = GeneratePodNameByFsID(mountInfo.FSID)
+	cmd := getcmd(mountInfo)
+	pod.Spec.Containers[0].Command = []string{"sh", "-c", cmd}
+
 	dir := corev1.HostPathDirectoryOrCreate
 	volumes := []corev1.Volume{
 		{
@@ -223,19 +207,20 @@ func GenPodForTest() *v1.Pod {
 	return pod
 }
 
-func getcmd() string {
-	b := "mkdir -p /home/paddleflow/testmount;"
+func getcmd(mountInfo pfs.MountInfo) string {
+	mp := "/home/paddleflow/mnt/" + mountInfo.FSID
+	mkdir := "mkdir -p " + mp + ";"
 	pfsMountPath := "/home/paddleflow/pfs-fuse mount "
-	mountPath := "--mount-point=/home/paddleflow/testmount "
+	mountPath := "--mount-point=" + mp + " "
 	options := []string{
 		"--server=paddleflow-server:8083",
 		"--user-name=root",
 		"--password=paddleflow",
 		"--block-size=104576",
 		"--data-mem-size=5000",
-		"--fs-id=fs-root-elsies3;",
+		"--fs-id=" + mountInfo.FSID,
 	}
-	e := "sleep 10h"
-	cmd := b + pfsMountPath + mountPath + strings.Join(options, " ") + e
+	e := ";sleep 10h"
+	cmd := mkdir + pfsMountPath + mountPath + strings.Join(options, " ") + e
 	return cmd
 }
