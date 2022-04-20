@@ -150,9 +150,10 @@ func TestLatestTime(t *testing.T) {
 	}
 
 	filepath.Walk("mock_fs_handler", pt.WalkFunc)
+	fmt.Println("PathToMtime: ", pt.PTMap)
 
 	p, lt := pt.LatesTime()
-	// fmt.Println("latest:", p, lt)
+	fmt.Println("latest:", p, lt)
 	assert.Equal(t, "mock_fs_handler/test_path_time/path_time/time/a.txt", p)
 
 	fsHandler := FsHandler{
@@ -179,7 +180,7 @@ func TestLastModTime(t *testing.T) {
 	}
 
 	modTime, err := fsHandler.LastModTime("test_path_time")
-	assert.NotEqual(t, nil, err)
+	assert.Equal(t, nil, err)
 
 	fi, err := os.Lstat("mock_fs_handler/test_path_time/path_time/time/a.txt")
 	assert.Equal(t, modTime.UnixNano(), fi.ModTime().UnixNano())
