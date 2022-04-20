@@ -41,11 +41,22 @@ type PFJobInterface interface {
 
 // getDefaultPath get extra runtime conf default path
 func (j *PFJob) getDefaultPath() string {
+	log.Debugf("get default path, jobType=%s, jobMode=%s", j.JobType, j.JobMode)
 	baseDir := config.GlobalServerConfig.Job.DefaultJobYamlDir
+	suffix := ".yaml"
 	if len(j.JobMode) != 0 {
-		return fmt.Sprintf("%s/%s_%s.yaml", baseDir, j.JobType, strings.ToLower(j.JobMode))
-	} else {
-		return fmt.Sprintf("%s/%s.yaml", baseDir, j.JobType)
+		suffix = fmt.Sprintf("_%s.yaml", strings.ToLower(j.JobMode))
+	}
+
+	switch j.JobType {
+	case schema.TypeSingle:
+		return fmt.Sprintf("%s/%s%s", baseDir, j.JobType, suffix)
+	case schema.TypeDistributed:
+		// e.g. basedir/spark.yaml, basedir/paddle_ps.yaml
+		return fmt.Sprintf("%s/%s%s", baseDir, j.Framework, suffix)
+	default:
+		// todo(zhongzichao) remove vcjob type
+		return fmt.Sprintf("%s/vcjob%s", baseDir, suffix)
 	}
 }
 
