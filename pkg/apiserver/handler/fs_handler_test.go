@@ -19,7 +19,9 @@ package handler
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 
@@ -31,6 +33,8 @@ import (
 func prepareTestEnv() (fs.FSClient, *logger.RequestContext, error) {
 	os.RemoveAll("./mock_fs_handler")
 	os.MkdirAll("./mock_fs_handler", 0755)
+	os.MkdirAll("./mock_fs_handler/test_path_time/path_time/time", 0755)
+	os.MkdirAll("./mock_fs_handler/test_path_time2", 0755)
 
 	testFsMeta := common.FSMeta{
 		UfsType: common.LocalType,
@@ -51,7 +55,19 @@ func prepareTestEnv() (fs.FSClient, *logger.RequestContext, error) {
 
 	defer writerCloser.Close()
 
-	_, err = writerCloser.Write([]byte("test paddleflow pipelin"))
+	_, err = writerCloser.Write([]byte("test paddleflow pipeline"))
+	if err != nil {
+		return nil, nil, err
+	}
+
+	writerCloser2, err := fsClient.Create("./test_path_time/path_time/time/a.txt")
+	if err != nil {
+		return nil, nil, err
+	}
+
+	defer writerCloser2.Close()
+
+	_, err = writerCloser2.Write([]byte("test paddleflow pipeline"))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -100,4 +116,71 @@ func TestModTime(t *testing.T) {
 	modTime, err := fsHandler.ModTime("/run.yaml")
 	assert.Equal(t, err, nil)
 	fmt.Println("modTime by testModTime", modTime)
+}
+
+func TestWalkFunc(t *testing.T) {
+	_, _, err := prepareTestEnv()
+	assert.Equal(t, err, nil)
+
+	pt := PathTimeMap{
+		PTMap: map[string]time.Time{},
+	}
+
+	filepath.Walk("mock_fs_handler", pt.WalkFunc)
+	// fmt.Println(pt.PTMap)
+
+	assert.Equal(t, 7, len(pt.PTMap))
+
+	_, ok := pt.PTMap["mock_fs_handler"]
+	assert.Equal(t, true, ok)
+
+	_, ok = pt.PTMap["mock_fs_handler/test_path_time/path_time/time"]
+	assert.Equal(t, true, ok)
+
+	_, ok = pt.PTMap["mock_fs_handler/test_path_time/path_time/time"]
+	assert.Equal(t, true, ok)
+}
+
+func TestLatestTime(t *testing.T) {
+	fsClient, requestContext, err := prepareTestEnv()
+	assert.Equal(t, err, nil)
+
+	pt := PathTimeMap{
+		PTMap: map[string]time.Time{},
+	}
+
+	filepath.Walk("mock_fs_handler", pt.WalkFunc)
+
+	p, lt := pt.LatesTime()
+	// fmt.Println("latest:", p, lt)
+	assert.Equal(t, "mock_fs_handler/test_path_time/path_time/time/a.txt", p)
+
+	fsHandler := FsHandler{
+		fsClient: fsClient,
+		log:      logger.LoggerForRequest(requestContext),
+	}
+
+	modTime, err := fsHandler.ModTime("test_path_time/path_time/time/a.txt")
+
+	fi, err := os.Lstat("mock_fs_handler/test_path_time/path_time/time/a.txt")
+	assert.Equal(t, lt, fi.ModTime())
+
+	fmt.Println(fi.ModTime())
+	fmt.Println(modTime)
+}
+
+func TestLastModTime(t *testing.T) {
+	fsClient, requestContext, err := prepareTestEnv()
+	assert.Equal(t, err, nil)
+
+	fsHandler := FsHandler{
+		fsClient: fsClient,
+		log:      logger.LoggerForRequest(requestContext),
+	}
+
+	modTime, err := fsHandler.LastModTime("test_path_time")
+	assert.NotEqual(t, nil, err)
+
+	fi, err := os.Lstat("mock_fs_handler/test_path_time/path_time/time/a.txt")
+	assert.Equal(t, modTime.UnixNano(), fi.ModTime().UnixNano())
 }
