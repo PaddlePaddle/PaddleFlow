@@ -227,7 +227,6 @@ func (fh *FsHandler) LastModTime(path string) (time.Time, error) {
 			return t, nil
 		}
 	}
-	return time.Time{}, nil
 }
 
 func (fh *FsHandler) getFSClient() (fs.FSClient, error) {
