@@ -104,9 +104,11 @@ func TestCreateQueue(t *testing.T) {
 		Status:           schema.StatusQueueCreating,
 	}
 
-	CreateQueue(&queue1)
+	err := CreateQueue(&queue1)
+	assert.Equal(t, nil, err)
 
-	CreateQueue(&queue2)
+	err = CreateQueue(&queue2)
+	assert.Equal(t, nil, err)
 }
 
 func TestListQueue(t *testing.T) {
