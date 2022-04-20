@@ -21,7 +21,6 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"paddleflow/pkg/apiserver/common"
@@ -61,14 +60,14 @@ type ListJobResponse struct {
 type GetJobResponse struct {
 	CreateSingleJobRequest `json:",inline"`
 	DistributedJobSpec     `json:",inline"`
-	Status                 string                 `json:"status"`
-	AcceptTime             string                 `json:"acceptTime"`
-	StartTime              string                 `json:"startTime"`
-	FinishTime             string                 `json:"finishTime"`
-	Runtime                RuntimeInfo            `json:"runtime,omitempty"`
-	DistributedRuntime     DistributedRuntimeInfo `json:"distributedRuntime,omitempty"`
-	WorkflowRuntime        WorkflowRuntimeInfo    `json:"workflowRuntime,omitempty"`
-	UpdateTime             time.Time              `json:"-"`
+	Status                 string                  `json:"status"`
+	AcceptTime             string                  `json:"acceptTime"`
+	StartTime              string                  `json:"startTime"`
+	FinishTime             string                  `json:"finishTime"`
+	Runtime                *RuntimeInfo            `json:"runtime,omitempty"`
+	DistributedRuntime     *DistributedRuntimeInfo `json:"distributedRuntime,omitempty"`
+	WorkflowRuntime        *WorkflowRuntimeInfo    `json:"workflowRuntime,omitempty"`
+	UpdateTime             time.Time               `json:"-"`
 }
 
 type RuntimeInfo struct {
@@ -119,9 +118,10 @@ func ListJob(ctx *logger.RequestContext, request ListJobRequest) (*ListJobRespon
 	queueID := ""
 	if request.Queue != "" {
 		var queue models.Queue
-		queue, err = models.GetQueueByName(ctx, request.Queue)
+		queue, err = models.GetQueueByName(request.Queue)
 		if err != nil {
 			ctx.Logging().Errorf("get queue by queueName[%s] failed, error:[%s]", request.Queue, err.Error())
+			ctx.ErrorCode = common.QueueNameNotFound
 			return nil, err
 		}
 		queueID = queue.ID
@@ -225,15 +225,20 @@ func convertJobToResponse(job models.Job, runtimeFlag bool) (GetJobResponse, err
 	switch job.Type {
 	case string(schema.TypeSingle):
 		if runtimeFlag && job.RuntimeInfo != nil {
-			statusByte, err := json.Marshal(job.RuntimeInfo.(v1.Pod).Status)
+			k8sMeta, err := parseK8sMeta(job.RuntimeInfo)
+			if err != nil {
+				log.Errorf("parse single job[%s] runtimeinfo job meta failed, error:[%s]", job.ID, err.Error())
+				return response, err
+			}
+			statusByte, err := json.Marshal(job.RuntimeInfo.(map[string]interface{})["status"])
 			if err != nil {
 				log.Errorf("parse single job[%s] status failed, error:[%s]", job.ID, err.Error())
 				return response, err
 			}
-			response.Runtime = RuntimeInfo{
-				ID:        string(job.RuntimeInfo.(v1.Pod).UID),
-				Name:      job.RuntimeInfo.(v1.Pod).Name,
-				Namespace: job.RuntimeInfo.(v1.Pod).Namespace,
+			response.Runtime = &RuntimeInfo{
+				ID:        string(k8sMeta.UID),
+				Name:      k8sMeta.Name,
+				Namespace: k8sMeta.Namespace,
 				Status:    string(statusByte),
 			}
 		}
@@ -259,7 +264,7 @@ func convertJobToResponse(job models.Job, runtimeFlag bool) (GetJobResponse, err
 			if err != nil {
 				return response, err
 			}
-			response.DistributedRuntime = DistributedRuntimeInfo{
+			response.DistributedRuntime = &DistributedRuntimeInfo{
 				ID:        string(k8sMeta.UID),
 				Name:      k8sMeta.Name,
 				Namespace: k8sMeta.Namespace,
@@ -294,10 +299,10 @@ func convertJobToResponse(job models.Job, runtimeFlag bool) (GetJobResponse, err
 			if err != nil {
 				return response, err
 			}
-			response.WorkflowRuntime = WorkflowRuntimeInfo{
+			response.WorkflowRuntime = &WorkflowRuntimeInfo{
 				Name:      k8sMeta.Name,
 				Namespace: k8sMeta.Namespace,
-				ID:        k8sMeta.Namespace,
+				ID:        string(k8sMeta.UID),
 				Status:    string(statusByte),
 				Nodes:     nodeRuntimes,
 			}

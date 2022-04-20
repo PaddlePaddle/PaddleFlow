@@ -17,6 +17,7 @@ limitations under the License.
 package fs
 
 import (
+	"fmt"
 	"os"
 	"sync"
 	"testing"
@@ -123,6 +124,39 @@ func TestFSClient_readAt_BigOff(t *testing.T) {
 	n, err = reader.ReadAt(buf, 8)
 	assert.Equal(t, 0, n)
 	reader.Close()
+}
+
+func TestFsStat(t *testing.T) {
+	os.RemoveAll("./mock")
+	os.RemoveAll("./mock-cache")
+	defer func() {
+		os.RemoveAll("./mock")
+		os.RemoveAll("./mock-cache")
+	}()
+	d := cache.Config{
+		BlockSize:    4,
+		MaxReadAhead: 10,
+		Mem:          &cache.MemConfig{CacheSize: 0, Expire: 0},
+		Disk:         &cache.DiskConfig{Dir: "./mock-cache", Expire: 10 * time.Second},
+	}
+	SetDataCache(d)
+	client, err := newPfsTest()
+	assert.Equal(t, err, nil)
+
+	path := "test1"
+	flags := os.O_RDWR | os.O_CREATE | os.O_TRUNC
+	mode := 0644
+	writer, err := client.Create(path, uint32(flags), uint32(mode))
+	assert.Equal(t, nil, err)
+	writeNum := 5500
+	n, err := writer.Write([]byte(getRandomString(writeNum)))
+	assert.Equal(t, nil, err)
+	assert.Equal(t, writeNum, n)
+	err = writer.Close()
+	assert.Equal(t, nil, err)
+	info, err := client.Stat(path)
+	assert.Equal(t, nil, err)
+	fmt.Println(info.ModTime())
 }
 
 func TestFS_read_readAt(t *testing.T) {

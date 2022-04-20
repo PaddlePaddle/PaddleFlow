@@ -25,7 +25,7 @@ import (
 func TestGetFSCacheStore(t *testing.T) {
 	InitMockDB()
 	dbStore := GetFSCacheStore()
-	fsCache, err := dbStore.GetFSCache("", "")
+	fsCache, err := dbStore.Get("", "")
 	assert.NotNil(t, err)
 	assert.Nil(t, fsCache)
 }
