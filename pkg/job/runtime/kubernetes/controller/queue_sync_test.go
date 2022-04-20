@@ -35,7 +35,6 @@ import (
 	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/common/database/dbinit"
 	"paddleflow/pkg/common/k8s"
-	"paddleflow/pkg/common/logger"
 )
 
 func newFakeQueueSyncController() *QueueSync {
@@ -82,9 +81,8 @@ func TestQueueSync(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			ctx := &logger.RequestContext{UserName: "test"}
 			dbinit.InitMockDB()
-			err := models.CreateQueue(ctx, &models.Queue{
+			err := models.CreateQueue(&models.Queue{
 				Name: test.queueName,
 			})
 			assert.Equal(t, nil, err)
