@@ -17,7 +17,6 @@ limitations under the License.
 package fs
 
 import (
-	"fmt"
 	"os"
 	"sync"
 	"testing"
@@ -156,7 +155,9 @@ func TestFsStat(t *testing.T) {
 	assert.Equal(t, nil, err)
 	info, err := client.Stat(path)
 	assert.Equal(t, nil, err)
-	fmt.Println(info.ModTime())
+	info2, err := client.Stat(path)
+	assert.Equal(t, nil, err)
+	assert.Equal(t, info2.ModTime(), info.ModTime())
 }
 
 func TestFS_read_readAt(t *testing.T) {
