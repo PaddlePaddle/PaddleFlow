@@ -329,7 +329,31 @@ func (jr *JobRouter) StopJob(w http.ResponseWriter, r *http.Request) {
 // @Failure 400 {object} common.ErrorResponse "400"
 // @Router /job/{jobID}?action=modify [PUT]
 func (jr *JobRouter) UpdateJob(w http.ResponseWriter, r *http.Request) {
-	// TODO: add update job
+	ctx := common.GetRequestContext(r)
+	jobID := chi.URLParam(r, util.ParamKeyJobID)
+
+	var request job.UpdateJobRequest
+	if err := common.BindJSON(r, &request); err != nil {
+		ctx.ErrorCode = common.MalformedJSON
+		logger.LoggerForRequest(&ctx).Errorf("parsing request body failed: %v. err: %s", r.Body, err.Error())
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+	request.JobID = jobID
+	log.Debugf("update job request: %v", request)
+
+	// TODO: check update job request
+	if err := validateJob(&ctx, jobID); err != nil {
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, ctx.ErrorMessage)
+		return
+	}
+	err := job.UpdateJob(&ctx, &request)
+	if err != nil {
+		ctx.ErrorMessage = fmt.Sprintf("update job failed, err: %v", err)
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, ctx.ErrorMessage)
+		return
+	}
+	common.RenderStatus(w, http.StatusOK)
 }
 
 // ListJob

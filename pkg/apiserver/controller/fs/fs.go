@@ -89,6 +89,21 @@ type FileSystemResponse struct {
 	Properties    map[string]string `json:"properties"`
 }
 
+type ListMountResponse struct {
+	Marker     string           `json:"marker"`
+	Truncated  bool             `json:"truncated"`
+	NextMarker string           `json:"nextMarker"`
+	FsList     []*MountResponse `json:"mountList"`
+}
+
+type MountResponse struct {
+	MountID    string `json:"mountID"`
+	FsID       string `json:"fsID"`
+	MountPoint string `json:"mountpoint"`
+	NodeName   string `json:"nodename"`
+	ClusterID  string `json:"clusterID"`
+}
+
 type CreateFileSystemClaimsResponse struct {
 	Message string `json:"message"`
 }

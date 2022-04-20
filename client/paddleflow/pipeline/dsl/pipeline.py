@@ -225,7 +225,7 @@ class Pipeline(object):
         ## 1.1 validate disabled
         if disabled is not None:
             for name in disabled:
-                if name not in self._steps or name not in self._post_process:
+                if name not in self._steps and name not in self._post_process:
                     raise PaddleFlowSDKException(PipelineDSLError, self.__error_msg_prefix + \
                         f"cannot find the step who's name is [{name}]")
  
