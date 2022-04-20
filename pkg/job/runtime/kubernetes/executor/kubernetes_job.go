@@ -80,7 +80,6 @@ type KubeJob struct {
 	YamlTemplateContent []byte
 	Tasks               []models.Member
 	GroupVersionKind    kubeschema.GroupVersionKind
-	Framework           schema.Framework
 	DynamicClientOption *k8s.DynamicClientOption
 }
 
@@ -153,7 +152,6 @@ func NewKubeJob(job *api.PFJob, dynamicClientOpt *k8s.DynamicClientOption) (api.
 }
 
 func newFrameWorkJob(kubeJob KubeJob, job *api.PFJob) (api.PFJobInterface, error) {
-	kubeJob.Framework = job.Framework
 	switch job.Framework {
 	case schema.FrameworkSpark:
 		kubeJob.GroupVersionKind = k8s.SparkAppGVK

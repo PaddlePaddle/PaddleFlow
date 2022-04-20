@@ -257,6 +257,9 @@ func validateDistributedJob(ctx *logger.RequestContext, request *job.CreateDisJo
 			return err
 		}
 	}
+	if request.SchedulingPolicy.Priority == "" {
+		request.SchedulingPolicy.Priority = schema.PriorityClassNormal
+	}
 	// todo(zhongzichao) more
 	return nil
 }

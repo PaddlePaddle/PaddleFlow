@@ -218,16 +218,6 @@ func CreateDistributedJob(request *CreateDisJobRequest) (*CreateJobResponse, err
 			}
 		}
 	}
-	priority := request.SchedulingPolicy.Priority
-	if priority == "" {
-		// try to find priority from members
-		for _, member := range request.Members {
-			if member.SchedulingPolicy.Priority != "" {
-				priority = member.SchedulingPolicy.Priority
-				break
-			}
-		}
-	}
 	queue, err := models.GetQueueByName(queueName)
 	if err != nil {
 		log.Errorf("Get queue by id failed when creating job %s failed, err=%v", queueName, err)
@@ -275,14 +265,19 @@ func CreateDistributedJob(request *CreateDisJobRequest) (*CreateJobResponse, err
 		log.Errorf("create members failed, err=%v", err)
 		return nil, err
 	}
+	// fix members.SchedulePolicy.Queue
+	for _, member := range jobInfo.Members {
+		member.Conf.QueueID = queue.ID
+	}
 	jobInfo.Config = &conf
+
 	log.Debugf("create distributed job %#v", jobInfo)
 	if err := models.CreateJob(jobInfo); err != nil {
 		log.Errorf("create job[%s] in database faield, err: %v", conf.GetName(), err)
 		return nil, fmt.Errorf("create job[%s] in database faield, err: %v", conf.GetName(), err)
 	}
-	log.Infof("create job[%s] successful.", jobInfo.ID)
 
+	log.Infof("create job[%s] successful.", jobInfo.ID)
 	response := &CreateJobResponse{
 		ID: jobInfo.ID,
 	}

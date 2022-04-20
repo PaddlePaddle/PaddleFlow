@@ -182,7 +182,6 @@ type PFJobConf interface {
 	SetAnnotations(string, string)
 
 	Type() JobType
-	Framework() Framework
 }
 
 type Conf struct {
@@ -286,10 +285,6 @@ func (c *Conf) SetNamespace(ns string) {
 
 func (c *Conf) Type() JobType {
 	return JobType(c.Env[EnvJobType])
-}
-
-func (c *Conf) Framework() Framework {
-	return Framework(c.Env[EnvJobFramework])
 }
 
 func (c *Conf) GetJobMode() string {
