@@ -316,6 +316,13 @@ func DeleteJob(ctx *logger.RequestContext, jobID string) error {
 		log.Errorf("get job from database failed, err: %v", err)
 		return err
 	}
+	// check job status
+	if !schema.IsImmutableJobStatus(job.Status) {
+		ctx.ErrorCode = common.ActionNotAllowed
+		msg := fmt.Sprintf("job %s status is %s, please stop it first.", jobID, job.Status)
+		log.Errorf(msg)
+		return fmt.Errorf(msg)
+	}
 	runtimeSvc, err := getRuntimeByQueue(ctx, job.QueueID)
 	if err != nil {
 		log.Errorf("get runtime by queue failed, err: %v", err)
@@ -366,6 +373,10 @@ func StopJob(ctx *logger.RequestContext, jobID string) error {
 	err = runtimeSvc.StopJob(pfjob)
 	if err != nil {
 		log.Errorf("delete job %s from cluster failed, err: %v", job.ID, err)
+		return err
+	}
+	if err = models.UpdateJobStatus(jobID, "job is terminated.", schema.StatusJobTerminated); err != nil {
+		log.Errorf("update job[%s] status to [%s] failed, err: %v", jobID, schema.StatusJobTerminated, err)
 		return err
 	}
 	return nil
