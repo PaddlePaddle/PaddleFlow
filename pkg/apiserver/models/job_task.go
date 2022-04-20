@@ -1,6 +1,7 @@
 package models
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -31,9 +32,9 @@ type JobTask struct {
 	ExtRuntimeStatusJSON string            `json:"extRuntimeStatus" gorm:"column:ext_runtime_status;default:'{}'"`
 	ExtRuntimeStatus     interface{}       `json:"-" gorm:"-"` //k8s:v1.PodStatus
 	CreatedAt            time.Time         `json:"-"`
-	StartedAt            time.Time         `json:"-"`
+	StartedAt            sql.NullTime      `json:"-"`
 	UpdatedAt            time.Time         `json:"-"`
-	DeletedAt            time.Time         `json:"-"`
+	DeletedAt            gorm.DeletedAt    `json:"-"`
 }
 
 func (JobTask) TableName() string {
