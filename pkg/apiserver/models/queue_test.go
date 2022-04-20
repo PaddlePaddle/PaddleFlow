@@ -127,7 +127,7 @@ func TestListQueue(t *testing.T) {
 	t.Logf("grants=%+v", grants)
 
 	// case1 list queue
-	queueList, err := ListQueue(ctx, 0, 0, "")
+	queueList, err := ListQueue(0, 0, "", "")
 	if err != nil {
 		ctx.Logging().Errorf("models list queue failed. err:[%s]", err.Error())
 		ctx.ErrorCode = common.InternalError
@@ -139,7 +139,7 @@ func TestListQueue(t *testing.T) {
 
 	// case2 for root
 	ctx = &logger.RequestContext{UserName: mockRootUserName}
-	queueList, err = ListQueue(ctx, 0, 0, "")
+	queueList, err = ListQueue(0, 0, "", "")
 	if err != nil {
 		ctx.Logging().Errorf("models list queue failed. err:[%s]", err.Error())
 		ctx.ErrorCode = common.InternalError

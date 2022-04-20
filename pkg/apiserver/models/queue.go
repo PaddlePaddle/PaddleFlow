@@ -26,7 +26,6 @@ import (
 
 	"paddleflow/pkg/apiserver/common"
 	"paddleflow/pkg/common/database"
-	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/common/schema"
 	"paddleflow/pkg/common/uuid"
 )
@@ -270,13 +269,13 @@ func GetQueueByID(queueID string) (Queue, error) {
 	return queue, nil
 }
 
-func ListQueue(ctx *logger.RequestContext, pk int64, maxKeys int, queueName string) ([]Queue, error) {
-	ctx.Logging().Debugf("begin list queue. ")
+func ListQueue(pk int64, maxKeys int, queueName string, userName string) ([]Queue, error) {
+	log.Debugf("begin list queue. ")
 	var tx *gorm.DB
 	tx = database.DB.Table("queue").Select(queueSelectColumn).Joins(queueJoinCluster).Where("queue.pk > ?", pk)
-	if !common.IsRootUser(ctx.UserName) {
+	if !common.IsRootUser(userName) {
 		tx = tx.Joins("join `grant` on `grant`.resource_id = queue.name").Where(
-			"`grant`.user_name = ?", ctx.UserName)
+			"`grant`.user_name = ?", userName)
 	}
 	if !strings.EqualFold(queueName, "") {
 		tx = tx.Where("queue.name = ?", queueName)
@@ -288,7 +287,7 @@ func ListQueue(ctx *logger.RequestContext, pk int64, maxKeys int, queueName stri
 	var queueList []Queue
 	tx = tx.Find(&queueList)
 	if tx.Error != nil {
-		ctx.Logging().Errorf("list queue failed. error:%s", tx.Error.Error())
+		log.Errorf("list queue failed. error:%s", tx.Error.Error())
 		return []Queue{}, tx.Error
 	}
 	return queueList, nil

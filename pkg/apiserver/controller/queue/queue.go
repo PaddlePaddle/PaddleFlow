@@ -78,7 +78,7 @@ func ListQueue(ctx *logger.RequestContext, marker string, maxKeys int, name stri
 		}
 	}
 
-	queueList, err := models.ListQueue(ctx, pk, maxKeys, name)
+	queueList, err := models.ListQueue(pk, maxKeys, name, ctx.UserName)
 	if err != nil {
 		ctx.Logging().Errorf("models list queue failed. err:[%s]", err.Error())
 		ctx.ErrorCode = common.InternalError
