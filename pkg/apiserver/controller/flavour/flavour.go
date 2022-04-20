@@ -23,7 +23,6 @@ import (
 
 	"paddleflow/pkg/apiserver/common"
 	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/common/schema"
 )
 
@@ -155,8 +154,7 @@ func ListFlavour(maxKeys int, marker, clusterName, queryKey string) (*ListFlavou
 	}
 	var clusterID string
 	if clusterName != "" {
-		ctx := &logger.RequestContext{}
-		cluster, err := models.GetClusterByName(ctx, clusterName)
+		cluster, err := models.GetClusterByName(clusterName)
 		if err != nil {
 			log.Errorf("cluster %s not found, err=%v", clusterName, err)
 			return nil, err

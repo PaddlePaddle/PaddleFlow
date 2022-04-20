@@ -65,7 +65,7 @@ func TestCreateQueue(t *testing.T) {
 	dbinit.InitMockDB()
 	ctx := &logger.RequestContext{UserName: MockRootUser}
 
-	assert.Nil(t, models.CreateCluster(ctx, &clusterInfo))
+	assert.Nil(t, models.CreateCluster(&clusterInfo))
 
 	rts := &runtime.KubeRuntime{}
 	var p2 = gomonkey.ApplyPrivateMethod(reflect.TypeOf(rts), "Init", func() error {
@@ -159,7 +159,6 @@ func TestCloseAndDeleteQueue(t *testing.T) {
 
 // TestMarshalJSONForTime test for time format
 func TestMarshalJSONForTime(t *testing.T) {
-	ctx := &logger.RequestContext{UserName: MockRootUser}
 	dbinit.InitMockDB()
 	queue := models.Queue{
 		Name: "mockQueueName",

@@ -239,7 +239,7 @@ func ValidateQueue(conf schema.PFJobConf, userName, queueName string) error {
 	}
 
 	// check whether cluster is exist or not
-	cluster, err := models.GetClusterById(ctx, queue.ClusterId)
+	cluster, err := models.GetClusterById(queue.ClusterId)
 	if err != nil {
 		log.Errorf("get cluster[%s] failed, err: %s", queue.ClusterId, err)
 		return err
@@ -332,10 +332,7 @@ func StopJobByID(jobID string) error {
 		JobMode:   job.Config.GetJobMode(),
 	}
 	// create runtime for cluster
-	ctx := &logger.RequestContext{
-		UserName: job.UserName,
-	}
-	clusterInfo, err := models.GetClusterById(ctx, job.Config.GetClusterID())
+	clusterInfo, err := models.GetClusterById(job.Config.GetClusterID())
 	if err != nil {
 		return fmt.Errorf("stop job %s failed. cluster %s not found", jobID, clusterInfo.Name)
 	}

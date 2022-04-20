@@ -54,7 +54,6 @@ func InitFakeDB() {
 
 func TestCreateQueue(t *testing.T) {
 	InitFakeDB()
-	ctx := &logger.RequestContext{UserName: mockUserName}
 
 	cluster1 := ClusterInfo{
 		Name:          "cluster1",
@@ -68,7 +67,7 @@ func TestCreateQueue(t *testing.T) {
 		Setting:       "Setting",
 		NamespaceList: []string{"n1", "n2"},
 	}
-	if err := CreateCluster(ctx, &cluster1); err != nil {
+	if err := CreateCluster(&cluster1); err != nil {
 		t.Error(err)
 	}
 	assert.NotEmpty(t, cluster1.ID)
@@ -151,7 +150,6 @@ func TestListQueue(t *testing.T) {
 
 func TestGetQueueByName(t *testing.T) {
 	TestCreateQueue(t)
-	ctx := &logger.RequestContext{UserName: mockUserName}
 
 	queue, err := GetQueueByName("queue1")
 	if err != nil {

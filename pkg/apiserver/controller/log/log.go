@@ -116,7 +116,7 @@ func getClusterQueueByQueueID(ctx *logger.RequestContext, queueID string) (*mode
 	if err != nil {
 		return nil, nil, err
 	}
-	clusterInfo, err := models.GetClusterById(ctx, queue.ClusterId)
+	clusterInfo, err := models.GetClusterById(queue.ClusterId)
 	if err != nil {
 		return nil, nil, err
 	}
