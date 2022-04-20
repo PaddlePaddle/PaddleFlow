@@ -25,10 +25,6 @@ import (
 )
 
 var (
-	//ByProcess     = false // csi driver runs juicefs in process or not
-	//EnableManager = false // enable manager or not (only in k8s)
-	//FormatInPod   = false // put format/auth in pod (only in k8s)
-
 	NodeName   = ""
 	Namespace  = "paddleflow"
 	PodName    = ""

@@ -49,11 +49,8 @@ func init() {
 	csiconfig.NodeName = os.Getenv("KUBE_NODE_NAME")
 	//csiconfig.Namespace = os.Getenv("PFS_MOUNT_NAMESPACE")
 	csiconfig.PodName = os.Getenv("KUBE_POD_NAME")
-	csiconfig.MountPointPath = os.Getenv("PFS_MOUNT_PATH")
-	//config.JFSConfigPath = os.Getenv("PFS_CONFIG_PATH")
-	//config.MountLabels = os.Getenv("PFS_MOUNT_LABELS")
 
-	if csiconfig.PodName == "" || csiconfig.Namespace == "" {
+	if csiconfig.PodName == "" {
 		log.Fatalf("Pod name[%s] & namespace[%s] can't be null\n", csiconfig.PodName, csiconfig.Namespace)
 		os.Exit(0)
 	}
@@ -72,7 +69,7 @@ func init() {
 	for i := range pod.Spec.Containers {
 		if pod.Spec.Containers[i].Name == "csi-storage-driver" {
 			csiconfig.MountImage = pod.Spec.Containers[i].Image
-			csiconfig.ContainerResource = pod.Spec.Containers[i].Resources
+			//csiconfig.ContainerResource = pod.Spec.Containers[i].Resources
 			return
 		}
 	}
