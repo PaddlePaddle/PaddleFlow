@@ -86,7 +86,11 @@ type KubeJob struct {
 
 func NewKubeJob(job *api.PFJob, dynamicClientOpt *k8s.DynamicClientOption) (api.PFJobInterface, error) {
 	log.Debugf("create kubernetes job: %#v", job)
-	pvcName := fmt.Sprintf("pfs-%s-pvc", job.Conf.GetFS())
+	pvcName := ""
+	if job.FSID != "" {
+		pvcName = fmt.Sprintf("pfs-%s-pvc", job.FSID)
+	}
+
 	kubeJob := KubeJob{
 		ID:                  job.ID,
 		Name:                job.Name,
@@ -96,7 +100,7 @@ func NewKubeJob(job *api.PFJob, dynamicClientOpt *k8s.DynamicClientOption) (api.
 		Image:               job.Conf.GetImage(),
 		Command:             job.Conf.GetCommand(),
 		Env:                 job.Conf.GetEnv(),
-		VolumeName:          job.Conf.GetFS(),
+		VolumeName:          job.FSID,
 		PVCName:             pvcName,
 		Labels:              job.Conf.Labels,
 		Annotations:         job.Conf.Annotations,
@@ -177,12 +181,15 @@ func newFrameWorkJob(kubeJob KubeJob, job *api.PFJob) (api.PFJobInterface, error
 	}
 }
 
-func (j *KubeJob) generateVolume(pvcName string) corev1.Volume {
+func (j *KubeJob) generateVolume() corev1.Volume {
+	if j.PVCName == "" || j.VolumeName == "" {
+		return corev1.Volume{}
+	}
 	volume := corev1.Volume{
 		Name: j.VolumeName,
 		VolumeSource: corev1.VolumeSource{
 			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-				ClaimName: pvcName,
+				ClaimName: j.PVCName,
 			},
 		},
 	}
@@ -190,6 +197,9 @@ func (j *KubeJob) generateVolume(pvcName string) corev1.Volume {
 }
 
 func (j *KubeJob) generateVolumeMount() corev1.VolumeMount {
+	if j.VolumeName == "" {
+		return corev1.VolumeMount{}
+	}
 	volumeMount := corev1.VolumeMount{
 		Name:      j.VolumeName,
 		ReadOnly:  false,
@@ -266,10 +276,14 @@ func (j *KubeJob) fillContainerInVcJob(container *corev1.Container, flavourKey, 
 }
 
 // fillContainerInTasks fill container in job task
-func (j *KubeJob) fillContainerInTasks(container *corev1.Container, flavour schema.Flavour, command string) {
-	container.Image = j.Image
-	container.Command = []string{"bash", "-c", j.fixContainerCommand(command)}
-	container.Resources = j.generateResourceRequirements(flavour)
+func (j *KubeJob) fillContainerInTasks(container *corev1.Container, task models.Member) {
+	if task.Image != "" {
+		container.Image = task.Image
+	}
+	if len(task.Command) != 0 {
+		container.Command = []string{"bash", "-c", j.fixContainerCommand(task.Command)}
+	}
+	container.Resources = j.generateResourceRequirements(task.Flavour)
 	container.VolumeMounts = j.appendMountIfAbsent(container.VolumeMounts, j.generateVolumeMount())
 	container.Env = j.generateEnvVars()
 }
@@ -316,6 +330,9 @@ func (j *KubeJob) appendEnvIfAbsent(baseEnvs []corev1.EnvVar, addEnvs []corev1.E
 
 // appendMountIfAbsent append volumeMount if not exist in volumeMounts
 func (j *KubeJob) appendMountIfAbsent(vmSlice []corev1.VolumeMount, element corev1.VolumeMount) []corev1.VolumeMount {
+	if element.Name == "" {
+		return vmSlice
+	}
 	if vmSlice == nil {
 		return []corev1.VolumeMount{element}
 	}
@@ -330,6 +347,9 @@ func (j *KubeJob) appendMountIfAbsent(vmSlice []corev1.VolumeMount, element core
 
 // appendVolumeIfAbsent append volume if not exist in volumes
 func (j *KubeJob) appendVolumeIfAbsent(vSlice []corev1.Volume, element corev1.Volume) []corev1.Volume {
+	if element.Name == "" {
+		return vSlice
+	}
 	if vSlice == nil {
 		return []corev1.Volume{element}
 	}

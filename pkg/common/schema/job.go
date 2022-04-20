@@ -25,6 +25,7 @@ type MemberRole string
 
 const (
 	EnvJobType        = "PF_JOB_TYPE"
+	EnvJobFramework   = "PF_JOB_FRAMEWORK"
 	EnvJobQueueName   = "PF_JOB_QUEUE_NAME"
 	EnvJobQueueID     = "PF_JOB_QUEUE_ID"
 	EnvJobClusterName = "PF_JOB_CLUSTER_NAME"
@@ -181,6 +182,7 @@ type PFJobConf interface {
 	SetAnnotations(string, string)
 
 	Type() JobType
+	Framework() Framework
 }
 
 type Conf struct {
@@ -284,6 +286,10 @@ func (c *Conf) SetNamespace(ns string) {
 
 func (c *Conf) Type() JobType {
 	return JobType(c.Env[EnvJobType])
+}
+
+func (c *Conf) Framework() Framework {
+	return Framework(c.Env[EnvJobFramework])
 }
 
 func (c *Conf) GetJobMode() string {

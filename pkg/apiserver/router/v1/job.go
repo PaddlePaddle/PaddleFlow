@@ -34,6 +34,7 @@ import (
 	"paddleflow/pkg/common/config"
 	"paddleflow/pkg/common/errors"
 	"paddleflow/pkg/common/logger"
+	"paddleflow/pkg/common/schema"
 )
 
 // JobRouter is job api router
@@ -110,7 +111,7 @@ func (jr *JobRouter) CreateSingleJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response, err := job.CreateSingleJob(&ctx, &request)
+	response, err := job.CreateSingleJob(&request)
 	if err != nil {
 		ctx.ErrorCode = common.JobCreateFailed
 		ctx.Logging().Errorf("create job failed. job request:%v error:%s", request, err.Error())
@@ -149,8 +150,8 @@ func (jr *JobRouter) CreateDistributedJob(w http.ResponseWriter, r *http.Request
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
-
-	response, err := job.CreateDistributedJob(&ctx, &request)
+	request.UserName = ctx.UserName
+	response, err := job.CreateDistributedJob(&request)
 	if err != nil {
 		ctx.Logging().Errorf("create job failed. job request:%v error:%s", request, err.Error())
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
@@ -239,7 +240,24 @@ func validateEmptyField(request *job.CreateSingleJobRequest) []string {
 }
 
 func validateDistributedJob(ctx *logger.RequestContext, request *job.CreateDisJobRequest) error {
-	// todo(zhongzichao)
+	// request.SchedulingPolicy and request.Members[x].SchedulingPolicy should be the same
+	if request.Members == nil || len(request.Members) == 0 {
+		err := fmt.Errorf("request.Members is empty")
+		ctx.Logging().Errorf("create distributed job failed. error: %s", err.Error())
+		ctx.ErrorCode = common.RequiredFieldEmpty
+		return err
+	}
+	for _, member := range request.Members {
+		if member.Role != string(schema.RoleWorker) &&
+			member.Role != string(schema.RolePServer) &&
+			member.Role != string(schema.RolePWorker) {
+			err := fmt.Errorf("invalid role:%s", member.Role)
+			ctx.Logging().Errorf("create distributed job failed. error: %s", err.Error())
+			ctx.ErrorCode = common.JobInvalidField
+			return err
+		}
+	}
+	// todo(zhongzichao) more
 	return nil
 }
 

@@ -22,6 +22,7 @@ import (
 	"github.com/ghodss/yaml"
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
+
 	"paddleflow/pkg/apiserver/common"
 	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/common/errors"
@@ -103,7 +104,7 @@ type CreateJobResponse struct {
 }
 
 // CreateSingleJob handler for creating job
-func CreateSingleJob(ctx *logger.RequestContext, request *CreateSingleJobRequest) (*CreateJobResponse, error) {
+func CreateSingleJob(request *CreateSingleJobRequest) (*CreateJobResponse, error) {
 	extensionTemplate := request.ExtensionTemplate
 	if extensionTemplate != "" {
 		bytes, err := yaml.JSONToYAML([]byte(request.ExtensionTemplate))
@@ -151,7 +152,6 @@ func patchEnvs(conf *schema.Conf, commonJobInfo *CommonJobInfo) error {
 	// basic fields required
 	conf.Labels = commonJobInfo.Labels
 	conf.Annotations = commonJobInfo.Annotations
-	conf.SetEnv(schema.EnvJobType, string(schema.TypeSingle))
 	conf.SetUserName(commonJobInfo.UserName)
 	// info in SchedulingPolicy: queue,Priority,ClusterId,Namespace
 	queueName := commonJobInfo.SchedulingPolicy.Queue
@@ -164,6 +164,7 @@ func patchEnvs(conf *schema.Conf, commonJobInfo *CommonJobInfo) error {
 		return err
 	}
 	conf.SetQueueID(queue.ID)
+	conf.SetPriority(commonJobInfo.SchedulingPolicy.Priority)
 	conf.SetEnv(schema.EnvJobQueueName, queue.Name)
 	if commonJobInfo.SchedulingPolicy.Priority != "" {
 		conf.Priority = commonJobInfo.SchedulingPolicy.Priority
@@ -177,6 +178,7 @@ func patchEnvs(conf *schema.Conf, commonJobInfo *CommonJobInfo) error {
 func patchSingleEnvs(conf *schema.Conf, request *CreateSingleJobRequest) error {
 	log.Debugf("patchSingleEnvs conf=%#v, request=%#v", conf, request)
 	// fields in request.CommonJobInfo
+	conf.SetEnv(schema.EnvJobType, string(schema.TypeSingle))
 	if err := patchEnvs(conf, &request.CommonJobInfo); err != nil {
 		log.Errorf("patch commonInfo of single job failed, err=%v", err)
 		return err
@@ -204,9 +206,191 @@ func patchSingleEnvs(conf *schema.Conf, request *CreateSingleJobRequest) error {
 }
 
 // CreateDistributedJob handler for creating job
-func CreateDistributedJob(ctx *logger.RequestContext, request *CreateDisJobRequest) (*CreateJobResponse, error) {
-	// todo(zhongzichao)
-	return &CreateJobResponse{}, nil
+func CreateDistributedJob(request *CreateDisJobRequest) (*CreateJobResponse, error) {
+	log.Debugf("CreateDistributedJob request=%#v", request)
+	queueName := request.SchedulingPolicy.Queue
+	if queueName == "" {
+		// try to find queue from members
+		for _, member := range request.Members {
+			if member.SchedulingPolicy.Queue != "" {
+				queueName = member.SchedulingPolicy.Queue
+				break
+			}
+		}
+	}
+	priority := request.SchedulingPolicy.Priority
+	if priority == "" {
+		// try to find priority from members
+		for _, member := range request.Members {
+			if member.SchedulingPolicy.Priority != "" {
+				priority = member.SchedulingPolicy.Priority
+				break
+			}
+		}
+	}
+	queue, err := models.GetQueueByName(queueName)
+	if err != nil {
+		log.Errorf("Get queue by id failed when creating job %s failed, err=%v", queueName, err)
+		if err == gorm.ErrRecordNotFound {
+			return nil, fmt.Errorf("queue not found by id %s", queueName)
+		}
+		return nil, err
+	}
+
+	jobInfo := &models.Job{
+		ID:        request.ID,
+		Name:      request.Name,
+		UserName:  request.UserName,
+		QueueID:   queue.ID,
+		Type:      string(schema.TypeDistributed),
+		Status:    schema.StatusJobInit,
+		Framework: request.Framework,
+		// todo complete extensionTemplate field
+		ExtensionTemplate: request.ExtensionTemplate,
+	}
+
+	conf := schema.Conf{
+		Name:        request.Name,
+		Labels:      request.Labels,
+		Annotations: request.Annotations,
+		Priority:    request.SchedulingPolicy.Priority,
+	}
+
+	if err := patchDistributedEnvs(&conf, queue, request); err != nil {
+		log.Errorf("patch envs when creating job %s failed, err=%v", request.CommonJobInfo.Name, err)
+		return nil, err
+	}
+	// set roles for members
+	if len(request.Members) == 1 && (request.Members[0].Role == string(schema.RolePWorker) ||
+		request.Members[0].Role == string(schema.RoleWorker)) {
+		log.Debugf("create distributed job %s with collective mode", request.CommonJobInfo.ID)
+		conf.SetEnv(schema.EnvJobMode, schema.EnvJobModeCollective)
+		jobInfo.Members, err = newCollectiveMembers(request)
+	} else {
+		log.Debugf("create distributed job %s with ps mode", request.CommonJobInfo.ID)
+		conf.SetEnv(schema.EnvJobMode, schema.EnvJobModePS)
+		jobInfo.Members, err = newPSMembers(request)
+	}
+	if err != nil {
+		log.Errorf("create members failed, err=%v", err)
+		return nil, err
+	}
+	jobInfo.Config = &conf
+	log.Debugf("create distributed job %#v", jobInfo)
+	if err := models.CreateJob(jobInfo); err != nil {
+		log.Errorf("create job[%s] in database faield, err: %v", conf.GetName(), err)
+		return nil, fmt.Errorf("create job[%s] in database faield, err: %v", conf.GetName(), err)
+	}
+	log.Infof("create job[%s] successful.", jobInfo.ID)
+
+	response := &CreateJobResponse{
+		ID: jobInfo.ID,
+	}
+	return response, nil
+}
+
+func newCollectiveMembers(request *CreateDisJobRequest) ([]models.Member, error) {
+	members := make([]models.Member, 0)
+	for _, reqMem := range request.Members {
+		if reqMem.Role == string(schema.RoleWorker) {
+			member, err := newMember(reqMem, schema.RoleWorker)
+			if err != nil {
+				log.Errorf("create collective members failed, err=%v", err)
+				return nil, err
+			}
+			members = append(members, member)
+		}
+	}
+	return members, nil
+}
+
+func newPSMembers(request *CreateDisJobRequest) ([]models.Member, error) {
+	members := make([]models.Member, 0)
+	for _, reqMember := range request.Members {
+		var member models.Member
+		var err error
+		if reqMember.Role == string(schema.RolePWorker) {
+			member, err = newMember(reqMember, schema.RolePWorker)
+		} else {
+			member, err = newMember(reqMember, schema.RolePServer)
+		}
+		if err != nil {
+			log.Errorf("create ps members failed, err=%v", err)
+			return nil, err
+		}
+		patchEnvs(&member.Conf, &reqMember.CommonJobInfo)
+		if member.Conf.GetPriority() == "" {
+			member.Conf.SetPriority(schema.EnvJobNormalPriority)
+		}
+
+		members = append(members, member)
+	}
+	return members, nil
+}
+
+// newMember create models.member from request.Member
+func newMember(member MemberSpec, role schema.MemberRole) (models.Member, error) {
+	flavour := member.Flavour
+	if flavour.CPU == "" || flavour.Mem == "" {
+		// find from db
+		flavourDB, err := models.GetFlavour(member.Flavour.Name)
+		if err != nil {
+			log.Errorf("get flavour[%s] from database failed, err: %v", member.Flavour.Name, err)
+			return models.Member{}, err
+		}
+		flavour = schema.Flavour{
+			Name: flavourDB.Name,
+			ResourceInfo: schema.ResourceInfo{
+				CPU:             flavourDB.CPU,
+				Mem:             flavourDB.Mem,
+				ScalarResources: flavourDB.ScalarResources,
+			},
+		}
+	}
+
+	return models.Member{
+		ID:       member.ID,
+		Role:     role,
+		Replicas: member.Replicas,
+		Conf: schema.Conf{
+			Name: member.Name,
+			// 存储资源
+			FileSystem:      member.FileSystem,
+			ExtraFileSystem: member.ExtraFileSystems,
+			// 计算资源
+			Flavour:  flavour,
+			Priority: member.SchedulingPolicy.Priority,
+			QueueID:  member.SchedulingPolicy.Queue,
+			// 运行时需要的参数
+			Labels:      member.Labels,
+			Annotations: member.Annotations,
+			Env:         member.Env,
+			Command:     member.Command,
+			Image:       member.Image,
+			Port:        member.Port,
+			Args:        member.Args,
+		},
+	}, nil
+}
+
+func patchDistributedEnvs(conf *schema.Conf, queue models.Queue, request *CreateDisJobRequest) error {
+	log.Debugf("patchSingleEnvs conf=%#v, request=%#v", conf, request)
+	// fields in request.CommonJobInfo
+	conf.SetEnv(schema.EnvJobType, string(schema.TypeDistributed))
+	conf.Labels = request.Labels
+	conf.Annotations = request.Annotations
+	conf.SetUserName(request.UserName)
+	// info in SchedulingPolicy: queue,Priority,ClusterId,Namespace
+	conf.SetQueueID(queue.ID)
+	conf.SetPriority(request.SchedulingPolicy.Priority)
+	conf.SetEnv(schema.EnvJobQueueName, queue.Name)
+	if request.SchedulingPolicy.Priority != "" {
+		conf.Priority = request.SchedulingPolicy.Priority
+	}
+	conf.SetClusterID(queue.ClusterId)
+	conf.SetNamespace(queue.Namespace)
+
+	return nil
 }
 
 // CreateWorkflowJob handler for creating job
