@@ -145,6 +145,7 @@ func (vj *VCJob) fillPSJobSpec(jobSpec *vcjob.Job) error {
 		return fmt.Errorf("vcjob[%s] must be contain two Tasks, actually [%d]", jobSpec.Name, len(jobSpec.Spec.Tasks))
 	}
 	for _, task := range vj.Tasks {
+		log.Warningf("vcjob cannot recognize which task is ps or worker, task[%v]", task)
 		if task.Role == schema.RolePServer {
 			// ps master
 			if err := vj.fillTaskInPSMode(&jobSpec.Spec.Tasks[0], task, jobSpec.Name); err != nil {

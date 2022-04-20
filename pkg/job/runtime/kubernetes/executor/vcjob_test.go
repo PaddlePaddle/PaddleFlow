@@ -17,12 +17,12 @@ limitations under the License.
 package executor
 
 import (
-	"paddleflow/pkg/apiserver/models"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	vcjob "volcano.sh/apis/pkg/apis/batch/v1alpha1"
 
+	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/common/schema"
 	"paddleflow/pkg/job/api"
 )
