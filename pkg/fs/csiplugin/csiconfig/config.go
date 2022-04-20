@@ -32,47 +32,14 @@ var (
 	NodeName   = ""
 	Namespace  = "paddleflow"
 	PodName    = ""
-	MountImage = ""
-	//MountLabels = ""
-	//HostIp      = ""
-	//KubeletPort = ""
+	MountImage = "nginx"
 
-	CSIPod            = corev1.Pod{}
-	ContainerResource = corev1.ResourceRequirements{}
-
-	MountPointPath       = "/var/lib/pfs/volume"
-	JFSConfigPath        = "/var/lib/pfs/config"
-	JFSMountPriorityName = "system-node-critical"
-
-	PodMountBase = "/pfs"
-	MountBase    = "/var/lib/pfs"
-	//FsType       = "juicefs"
-	//CliPath      = "/usr/bin/juicefs"
-	//CeCliPath    = "/usr/local/bin/juicefs"
-	//CeMountPath  = "/bin/mount.juicefs"
-	//JfsMountPath = "/sbin/mount.juicefs"
-	//
-	//ReconcilerInterval = 5
+	CSIPod = corev1.Pod{}
 )
 
 const (
 	PodTypeKey   = "app.kubernetes.io/name"
-	PodTypeValue = "juicefs-mount"
-	Finalizer    = "juicefs.com/finalizer"
-
-	// config in pv
-	mountPodCpuLimitKey    = "juicefs/mount-cpu-limit"
-	mountPodMemLimitKey    = "juicefs/mount-memory-limit"
-	mountPodCpuRequestKey  = "juicefs/mount-cpu-request"
-	mountPodMemRequestKey  = "juicefs/mount-memory-request"
-	mountPodLabelKey       = "juicefs/mount-labels"
-	mountPodAnnotationKey  = "juicefs/mount-annotations"
-	mountPodServiceAccount = "juicefs/mount-service-account"
-	deleteDelay            = "juicefs/mount-delete-delay"
-
-	// DeleteDelayTimeKey mount pod annotation
-	DeleteDelayTimeKey = "juicefs-delete-delay"
-	DeleteDelayAtKey   = "juicefs-delete-at"
+	PodTypeValue = "pfs-mount"
 )
 
 var PodLocks [1024]sync.Mutex

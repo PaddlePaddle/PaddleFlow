@@ -220,7 +220,6 @@ func getcmd(mountInfo pfs.MountInfo) string {
 		"--data-mem-size=5000",
 		"--fs-id=" + mountInfo.FSID,
 	}
-	e := ";sleep 10h"
-	cmd := mkdir + pfsMountPath + mountPath + strings.Join(options, " ") + e
+	cmd := mkdir + pfsMountPath + mountPath + strings.Join(options, " ")
 	return cmd
 }
