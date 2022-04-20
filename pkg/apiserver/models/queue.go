@@ -163,8 +163,8 @@ func (queue *Queue) BeforeSave(*gorm.DB) error {
 	return nil
 }
 
-func CreateQueue(ctx *logger.RequestContext, queue *Queue) error {
-	ctx.Logging().Debugf("begin create queue. queueName: %s", queue.Name)
+func CreateQueue(queue *Queue) error {
+	log.Debugf("begin create queue. queueName: %s", queue.Name)
 
 	if queue.ID == "" {
 		queue.ID = uuid.GenerateID(common.PrefixQueue)
@@ -172,7 +172,7 @@ func CreateQueue(ctx *logger.RequestContext, queue *Queue) error {
 
 	tx := database.DB.Table("queue").Create(queue)
 	if tx.Error != nil {
-		ctx.Logging().Errorf("create queue failed. queue:%v, error:%s",
+		log.Errorf("create queue failed. queue:%v, error:%s",
 			queue, tx.Error.Error())
 		return tx.Error
 	}
@@ -194,30 +194,30 @@ func UpdateQueueStatus(queueName string, queueStatus string) error {
 	return nil
 }
 
-func CloseQueue(ctx *logger.RequestContext, queueName string) error {
-	ctx.Logging().Debugf("begin close queue. queueName:%s", queueName)
+func CloseQueue(queueName string) error {
+	log.Debugf("begin close queue. queueName:%s", queueName)
 	tx := database.DB.Table("queue").Where("name = ?", queueName).Update("status", schema.StatusQueueClosed)
 	if tx.Error != nil {
-		ctx.Logging().Errorf("close queue failed. queueName:%s, error:%s",
+		log.Errorf("close queue failed. queueName:%s, error:%s",
 			queueName, tx.Error.Error())
 		return tx.Error
 	}
 	return nil
 }
 
-func DeleteQueue(ctx *logger.RequestContext, queueName string) error {
-	ctx.Logging().Debugf("begin delete queue. queueName:%s", queueName)
+func DeleteQueue(queueName string) error {
+	log.Infof("begin delete queue. queueName:%s", queueName)
 	database.DB.Transaction(func(tx *gorm.DB) error {
 		t := tx.Table("queue").Unscoped().Where("name = ?", queueName).Delete(&Queue{})
 		if t.Error != nil {
-			ctx.Logging().Errorf("delete queue failed. queueName:%s, error:%s",
+			log.Errorf("delete queue failed. queueName:%s, error:%s",
 				queueName, tx.Error.Error())
 			return t.Error
 		}
 		t = tx.Table("grant").Unscoped().Where("resource_id = ?",
 			queueName).Where("resource_type = ?", common.ResourceTypeQueue).Delete(&Grant{})
 		if t.Error != nil {
-			ctx.Logging().Errorf("delete queue failed. queueName:%s, error:%s",
+			log.Errorf("delete queue failed. queueName:%s, error:%s",
 				queueName, tx.Error.Error())
 			return t.Error
 		}
@@ -227,12 +227,12 @@ func DeleteQueue(ctx *logger.RequestContext, queueName string) error {
 	return nil
 }
 
-func IsQueueExist(ctx *logger.RequestContext, queueName string) bool {
-	ctx.Logging().Debugf("begin check queue exist. queueName:%s", queueName)
+func IsQueueExist(queueName string) bool {
+	log.Debugf("begin check queue exist. queueName:%s", queueName)
 	var queueCount int64
 	tx := database.DB.Table("queue").Where("name = ?", queueName).Count(&queueCount)
 	if tx.Error != nil {
-		ctx.Logging().Errorf("count queue failed. queueName:%s, error:%s",
+		log.Errorf("count queue failed. queueName:%s, error:%s",
 			queueName, tx.Error.Error())
 		return false
 	}
@@ -242,28 +242,28 @@ func IsQueueExist(ctx *logger.RequestContext, queueName string) bool {
 	return false
 }
 
-func GetQueueByName(ctx *logger.RequestContext, queueName string) (Queue, error) {
-	ctx.Logging().Debugf("begin get queue. queueName:%s", queueName)
+func GetQueueByName(queueName string) (Queue, error) {
+	log.Debugf("begin get queue. queueName:%s", queueName)
 
 	var queue Queue
 	tx := database.DB.Table("queue").Where("name = ?", queueName)
 	tx = tx.First(&queue)
 	if tx.Error != nil {
-		ctx.Logging().Errorf("get queue failed. queueName:%s, error:%s",
+		log.Errorf("get queue failed. queueName:%s, error:%s",
 			queueName, tx.Error.Error())
 		return Queue{}, tx.Error
 	}
 	return queue, nil
 }
 
-func GetQueueByID(ctx *logger.RequestContext, queueID string) (Queue, error) {
-	ctx.Logging().Debugf("begin get queue. queueID:%s", queueID)
+func GetQueueByID(queueID string) (Queue, error) {
+	log.Debugf("begin get queue. queueID:%s", queueID)
 
 	var queue Queue
 	tx := database.DB.Table("queue").Where("id = ?", queueID)
 	tx = tx.First(&queue)
 	if tx.Error != nil {
-		ctx.Logging().Errorf("get queue failed. queueID:%s, error:%s",
+		log.Errorf("get queue failed. queueID:%s, error:%s",
 			queueID, tx.Error.Error())
 		return Queue{}, tx.Error
 	}
@@ -294,12 +294,12 @@ func ListQueue(ctx *logger.RequestContext, pk int64, maxKeys int, queueName stri
 	return queueList, nil
 }
 
-func GetLastQueue(ctx *logger.RequestContext) (Queue, error) {
-	ctx.Logging().Debugf("get last queue.")
+func GetLastQueue() (Queue, error) {
+	log.Debugf("get last queue.")
 	queue := Queue{}
 	tx := database.DB.Table("queue").Last(&queue)
 	if tx.Error != nil {
-		ctx.Logging().Errorf("get last queue failed. error:%s", tx.Error.Error())
+		log.Errorf("get last queue failed. error:%s", tx.Error.Error())
 		return Queue{}, tx.Error
 	}
 	return queue, nil

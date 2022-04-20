@@ -61,7 +61,7 @@ type args struct {
 
 func initQueue(t *testing.T, userName string) {
 	ctx := &logger.RequestContext{UserName: userName}
-	err := models.CreateQueue(ctx, &queue1)
+	err := models.CreateQueue(&queue1)
 	assert.Nil(t, err)
 }
 

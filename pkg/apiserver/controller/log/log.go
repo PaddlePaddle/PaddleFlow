@@ -112,7 +112,7 @@ func getJobListByRunID(ctx *logger.RequestContext, runID string, jobID string) (
 }
 
 func getClusterQueueByQueueID(ctx *logger.RequestContext, queueID string) (*models.ClusterInfo, *models.Queue, error) {
-	queue, err := models.GetQueueByID(ctx, queueID)
+	queue, err := models.GetQueueByID(queueID)
 	if err != nil {
 		return nil, nil, err
 	}

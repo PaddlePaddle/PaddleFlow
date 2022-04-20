@@ -84,7 +84,7 @@ func TestQueueSync(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := &logger.RequestContext{UserName: "test"}
 			dbinit.InitMockDB()
-			err := models.CreateQueue(ctx, &models.Queue{
+			err := models.CreateQueue(&models.Queue{
 				Name: test.queueName,
 			})
 			assert.Equal(t, nil, err)

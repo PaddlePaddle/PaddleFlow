@@ -105,9 +105,9 @@ func TestCreateQueue(t *testing.T) {
 		Status:           schema.StatusQueueCreating,
 	}
 
-	CreateQueue(ctx, &queue1)
+	CreateQueue(&queue1)
 
-	CreateQueue(ctx, &queue2)
+	CreateQueue(&queue2)
 }
 
 func TestListQueue(t *testing.T) {
@@ -153,7 +153,7 @@ func TestGetQueueByName(t *testing.T) {
 	TestCreateQueue(t)
 	ctx := &logger.RequestContext{UserName: mockUserName}
 
-	queue, err := GetQueueByName(ctx, "queue1")
+	queue, err := GetQueueByName("queue1")
 	if err != nil {
 		t.Error(err)
 	}

@@ -164,7 +164,7 @@ func TestMarshalJSONForTime(t *testing.T) {
 	queue := models.Queue{
 		Name: "mockQueueName",
 	}
-	err := models.CreateQueue(ctx, &queue)
+	err := models.CreateQueue(&queue)
 	if err != nil {
 		t.Errorf(err.Error())
 	}

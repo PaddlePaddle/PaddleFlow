@@ -155,7 +155,7 @@ func patchEnvs(conf *schema.Conf, commonJobInfo *CommonJobInfo) error {
 	conf.SetUserName(commonJobInfo.UserName)
 	// info in SchedulingPolicy: queue,Priority,ClusterId,Namespace
 	queueName := commonJobInfo.SchedulingPolicy.Queue
-	queue, err := models.GetQueueByName(&logger.RequestContext{}, queueName)
+	queue, err := models.GetQueueByName(queueName)
 	if err != nil {
 		log.Errorf("Get queue by id failed when creating job %s failed, err=%v", commonJobInfo.Name, err)
 		if err == gorm.ErrRecordNotFound {
@@ -429,7 +429,7 @@ func updateRuntimeJob(ctx *logger.RequestContext, job *models.Job, request *Upda
 }
 
 func getRuntimeByQueue(ctx *logger.RequestContext, queueID string) (runtime.RuntimeService, error) {
-	queue, err := models.GetQueueByID(ctx, queueID)
+	queue, err := models.GetQueueByID(queueID)
 	if err != nil {
 		log.Errorf("get queue for job failed, err: %v", err)
 		return nil, err

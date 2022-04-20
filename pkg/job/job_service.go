@@ -221,7 +221,7 @@ func ValidateQueue(conf schema.PFJobConf, userName, queueName string) error {
 		UserName: userName,
 	}
 	// check whether queue is exist or not
-	queue, err := models.GetQueueByName(ctx, queueName)
+	queue, err := models.GetQueueByName(queueName)
 	if err != nil {
 		log.Errorf("get queue %s failed, err %v", queueName, err)
 		return fmt.Errorf("queueName[%s] is not exist\n", queueName)

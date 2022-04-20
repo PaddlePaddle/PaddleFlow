@@ -119,7 +119,7 @@ func ListJob(ctx *logger.RequestContext, request ListJobRequest) (*ListJobRespon
 	queueID := ""
 	if request.Queue != "" {
 		var queue models.Queue
-		queue, err = models.GetQueueByName(ctx, request.Queue)
+		queue, err = models.GetQueueByName(request.Queue)
 		if err != nil {
 			ctx.Logging().Errorf("get queue by queueName[%s] failed, error:[%s]", request.Queue, err.Error())
 			ctx.ErrorCode = common.QueueNameNotFound
