@@ -154,7 +154,6 @@ func TestLatestTime(t *testing.T) {
 
 	p, lt := pt.LatesTime()
 	fmt.Println("latest:", p, lt)
-	assert.Equal(t, "mock_fs_handler/test_path_time/path_time/time/a.txt", p)
 
 	fsHandler := FsHandler{
 		fsClient: fsClient,
