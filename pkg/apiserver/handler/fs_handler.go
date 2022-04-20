@@ -18,6 +18,7 @@ package handler
 
 import (
 	"fmt"
+	iofs "io/fs"
 	"io/ioutil"
 	"os"
 	"time"
@@ -36,6 +37,36 @@ const (
 )
 
 type FsServerEmptyError struct {
+}
+
+// 用于存储文件/目录的 MTime/CTime/ATime
+type PathTimeMap struct {
+	PTMap map[string]time.Time
+}
+
+func (pm *PathTimeMap) WalkFunc(path string, info iofs.FileInfo, err error) error {
+	if err != nil {
+		return err
+	}
+
+	pm.PTMap[path] = info.ModTime()
+
+	return nil
+}
+
+// 获取最近的时间
+func (pm *PathTimeMap) LatesTime() (path string, latestTime time.Time) {
+	path = ""
+	latestTime = time.Time{}
+
+	for p, t := range pm.PTMap {
+		if t.After(latestTime) {
+			latestTime = t
+			path = p
+		}
+	}
+
+	return path, latestTime
 }
 
 func (e FsServerEmptyError) Error() string {
@@ -173,6 +204,30 @@ func (fh *FsHandler) ModTime(path string) (time.Time, error) {
 
 	modTime := fileInfo.ModTime()
 	return modTime, nil
+}
+
+// 获取 path 下所有文件和目录（包括path本身）的最新的 mtime
+func (fh *FsHandler) LastModTime(path string) (time.Time, error) {
+	ok, err := fh.fsClient.IsDir(path)
+	if err != nil {
+		fh.log.Debugf("cannot get the type of path[%s] with fsId[%s]: %s", path, fh.fsID, err.Error())
+		return time.Time{}, err
+	} else if !ok {
+		return fh.ModTime(path)
+	} else {
+		pm := PathTimeMap{
+			PTMap: map[string]time.Time{},
+		}
+		err := fh.fsClient.Walk(path, pm.WalkFunc)
+		if err != nil {
+			fh.log.Debugf("cannot get the latest mtime of path[%s] with fsId[%s]: %s", path, fh.fsID, err.Error())
+			return time.Time{}, err
+		} else {
+			_, t := pm.LatesTime()
+			return t, nil
+		}
+	}
+	return time.Time{}, nil
 }
 
 func (fh *FsHandler) getFSClient() (fs.FSClient, error) {
