@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
@@ -27,6 +28,7 @@ import (
 	"paddleflow/pkg/apiserver/common"
 	"paddleflow/pkg/apiserver/controller/fs"
 	"paddleflow/pkg/apiserver/models"
+	"paddleflow/pkg/apiserver/router/util"
 	"paddleflow/pkg/common/database"
 	"paddleflow/pkg/common/logger"
 	fsCommon "paddleflow/pkg/fs/common"
@@ -562,4 +564,66 @@ func TestFSCacheReportRouter(t *testing.T) {
 	tx = database.DB.Where(&models.FSCache{FsID: common.ID(MockRootUser, mockFsName)}).Find(&cache)
 	assert.Equal(t, int64(1), tx.RowsAffected)
 	assert.Equal(t, 200, cache[0].UsedSize)
+}
+
+func TestFSMount(t *testing.T) {
+	router, baseUrl := prepareDBAndAPI(t)
+	// mockFs := buildMockFS()
+	// cacheConf := buildMockFSCacheConfig()
+	req1 := fs.CreateMountRequest{
+		Username:   MockRootUser,
+		FsName:     mockFsName,
+		ClusterID:  "testcluster",
+		NodeName:   "abc",
+		MountPoint: "/var/1",
+	}
+
+	badReq := fs.CreateMountRequest{
+		Username:  MockRootUser,
+		FsName:    mockFsName,
+		ClusterID: "testcluster",
+		NodeName:  "abc",
+	}
+	// test create failure - no fs
+	url := baseUrl + "/fsMount"
+	result, err := PerformPostRequest(router, url, badReq)
+	assert.Nil(t, err)
+	assert.Equal(t, http.StatusBadRequest, result.Code)
+
+	result, err = PerformPostRequest(router, url, req1)
+	assert.Nil(t, err)
+	assert.Equal(t, http.StatusCreated, result.Code)
+
+	req2 := fs.CreateMountRequest{
+		Username:   MockRootUser,
+		FsName:     mockFsName,
+		ClusterID:  "testcluster",
+		NodeName:   "abc",
+		MountPoint: "/var/2",
+	}
+
+	result, err = PerformPostRequest(router, url, req2)
+	assert.Nil(t, err)
+	assert.Equal(t, http.StatusCreated, result.Code)
+
+	time.Sleep(1 * time.Second)
+	// with filters
+	filters := "?" + util.QueryNodeName + "=abc"
+	result, err = PerformGetRequest(router, url+filters)
+	assert.Nil(t, err)
+	listRsp := fs.ListMountResponse{}
+	err = ParseBody(result.Body, &listRsp)
+	assert.Nil(t, err)
+	assert.Equal(t, 2, len(listRsp.FsList))
+
+	filters2 := "?" + util.QueryMountPoint + "=/var/2&" + util.QueryNodeName + "=abc&" + util.QueryClusterID + "=testcluster"
+	result, err = PerformDeleteRequest(router, url+"/"+mockFsName+filters2)
+	assert.Nil(t, err)
+
+	result, err = PerformGetRequest(router, url+filters)
+	assert.Nil(t, err)
+	listRsp = fs.ListMountResponse{}
+	err = ParseBody(result.Body, &listRsp)
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(listRsp.FsList))
 }

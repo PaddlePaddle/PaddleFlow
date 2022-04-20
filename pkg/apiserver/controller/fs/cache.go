@@ -19,7 +19,6 @@ package fs
 import (
 	"crypto/md5"
 	"encoding/hex"
-	"fmt"
 
 	"paddleflow/pkg/apiserver/common"
 	"paddleflow/pkg/apiserver/models"
@@ -29,7 +28,7 @@ import (
 type CacheReportRequest struct {
 	FsName    string `json:"fsName" validate:"required"`
 	Username  string `json:"userName"`
-	ClusterID string `json:"clusterID" validate:"required"`
+	ClusterID string `json:"clusterID"`
 	CacheDir  string `json:"cacheDir" validate:"required"`
 	NodeName  string `json:"nodename" validate:"required"`
 	UsedSize  int    `json:"usedsize" validate:"required"`
@@ -50,8 +49,8 @@ func ReportCache(ctx *logger.RequestContext, req CacheReportRequest) error {
 	}
 
 	n, err := cacheStore.Update(fsCache)
-	fmt.Println("cache store update", err, n)
 	if err != nil {
+		ctx.ErrorCode = common.InternalError
 		ctx.Logging().Errorf("ReportCache Update[%s] err:%v", fsID, err)
 		return err
 	}
@@ -59,6 +58,7 @@ func ReportCache(ctx *logger.RequestContext, req CacheReportRequest) error {
 		err = cacheStore.Add(fsCache)
 	}
 	if err != nil {
+		ctx.ErrorCode = common.InternalError
 		ctx.Logging().Errorf("ReportCache Create[%s] err:%v", fsID, err)
 		return err
 	}
@@ -67,5 +67,10 @@ func ReportCache(ctx *logger.RequestContext, req CacheReportRequest) error {
 
 func GetCacheID(clusterID, nodeName, CacheDir string) string {
 	hash := md5.Sum([]byte(clusterID + nodeName + CacheDir))
+	return hex.EncodeToString(hash[:])
+}
+
+func GetMountID(clusterID, nodeName, MountPoint string) string {
+	hash := md5.Sum([]byte(clusterID + nodeName + MountPoint))
 	return hex.EncodeToString(hash[:])
 }

@@ -46,7 +46,7 @@ func (f *DBFSCache) Add(value *FSCache) error {
 
 func (f *DBFSCache) Get(fsID string, cacheID string) (*FSCache, error) {
 	var fsCache FSCache
-	tx := database.DB.Where(&FSCache{FsID: fsID, CacheID: cacheID}).First(&fsCache)
+	tx := f.db.Where(&FSCache{FsID: fsID, CacheID: cacheID}).First(&fsCache)
 	if tx.Error != nil {
 		return nil, tx.Error
 	}

@@ -60,6 +60,9 @@ func (pr *PFSRouter) AddRouter(r chi.Router) {
 	r.Put("/fsCache/{fsName}", pr.updateFSCacheConfig)
 	r.Get("/fsCache/{fsName}", pr.getFSCacheConfig)
 	r.Post("/fsCache/report", pr.fsCacheReport)
+	r.Post("/fsMount", pr.createFsMount)
+	r.Delete("/fsMount/{fsName}", pr.deleteFsMount)
+	r.Get("/fsMount", pr.listFsMount)
 }
 
 var URLPrefix = map[string]bool{
@@ -395,15 +398,6 @@ func (pr *PFSRouter) listFileSystem(w http.ResponseWriter, r *http.Request) {
 	if listRequest.Username == "" {
 		ctx.Logging().Error("userName is empty")
 		common.RenderErrWithMessage(w, ctx.RequestID, common.AuthFailed, "userName is empty")
-		return
-	}
-
-	if listRequest.MaxKeys == 0 {
-		listRequest.MaxKeys = util.DefaultMaxKeys
-	}
-	if listRequest.MaxKeys > util.ListPageMax {
-		ctx.Logging().Error("too many max keys")
-		common.RenderErrWithMessage(w, ctx.RequestID, common.InvalidFileSystemMaxKeys, fmt.Sprintf("maxKeys limit %d", util.ListPageMax))
 		return
 	}
 
@@ -821,6 +815,9 @@ func (pr *PFSRouter) fsCacheReport(w http.ResponseWriter, r *http.Request) {
 		common.RenderErr(w, ctx.RequestID, common.MalformedJSON)
 		return
 	}
+	if request.Username == "" {
+		request.Username = ctx.UserName
+	}
 
 	_, err = getFsIDAndCheckPermission(&ctx, request.Username, request.FsName)
 	if err != nil {
@@ -830,7 +827,7 @@ func (pr *PFSRouter) fsCacheReport(w http.ResponseWriter, r *http.Request) {
 	}
 	err = validateFsCacheReport(&ctx, &request)
 	if err != nil {
-		ctx.Logging().Errorf("gvalidateFsCacheReport request[%v] failed: [%v]", request, err)
+		ctx.Logging().Errorf("validateFsCacheReport request[%v] failed: [%v]", request, err)
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
@@ -848,6 +845,219 @@ func (pr *PFSRouter) fsCacheReport(w http.ResponseWriter, r *http.Request) {
 }
 
 func validateFsCacheReport(ctx *logger.RequestContext, req *api.CacheReportRequest) error {
+	validate := validator.New()
+	err := validate.Struct(req)
+	if err != nil {
+		for _, err = range err.(validator.ValidationErrors) {
+			ctx.ErrorCode = common.InappropriateJSON
+			return err
+		}
+	}
+	return nil
+}
+
+// createFsMount handles requests of creating filesystem mount record
+// @Summary createFsMount
+// @Description 创建mount记录
+// @tag fs
+// @Accept   json
+// @Produce  json
+// @Param request body fs.CreateMountRequest true "request body"
+// @Success 201 {string} string Created
+// @Failure 400 {object} common.ErrorResponse
+// @Failure 404 {object} common.ErrorResponse
+// @Failure 500 {object} common.ErrorResponse
+// @Router /fsMount [post]
+func (pr *PFSRouter) createFsMount(w http.ResponseWriter, r *http.Request) {
+	ctx := common.GetRequestContext(r)
+	var req api.CreateMountRequest
+	err := common.BindJSON(r, &req)
+	if err != nil {
+		ctx.Logging().Errorf("createFSMount bindjson failed. err:%s", err.Error())
+		common.RenderErr(w, ctx.RequestID, common.MalformedJSON)
+		return
+	}
+	if req.Username == "" {
+		req.Username = ctx.UserName
+	}
+
+	_, err = getFsIDAndCheckPermission(&ctx, req.Username, req.FsName)
+	if err != nil {
+		ctx.Logging().Errorf("createFSMount check fs permission failed: [%v]", err)
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+	ctx.Logging().Debugf("create file system cache with req[%v]", req)
+
+	err = validateCreateMount(&ctx, &req)
+	if err != nil {
+		ctx.Logging().Errorf("validateCreateMount failed: [%v]", err)
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+
+	err = api.CreateMount(&ctx, req)
+	if err != nil {
+		ctx.Logging().Errorf("create mount with service error[%v]", err)
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+
+	common.RenderStatus(w, http.StatusCreated)
+}
+
+func validateCreateMount(ctx *logger.RequestContext, req *api.CreateMountRequest) error {
+	validate := validator.New()
+	err := validate.Struct(req)
+	if err != nil {
+		for _, err = range err.(validator.ValidationErrors) {
+			ctx.ErrorCode = common.InappropriateJSON
+			return err
+		}
+	}
+	return nil
+}
+
+// listFsMount the function that handle the list mount by fsID and nodename
+// @Summary listFsMount
+// @Description 获取mount列表
+// @tag fs
+// @Accept   json
+// @Produce  json
+// @Param request body fs.ListMountRequest true "request body"
+// @Success 200 {object} fs.ListFileSystemResponse
+// @Failure 400 {object} common.ErrorResponse
+// @Failure 404 {object} common.ErrorResponse
+// @Failure 500 {object} common.ErrorResponse
+// @Router /fsMount [get]
+func (pr *PFSRouter) listFsMount(w http.ResponseWriter, r *http.Request) {
+	ctx := common.GetRequestContext(r)
+
+	maxKeys, err := util.GetQueryMaxKeys(&ctx, r)
+	if err != nil {
+		common.RenderErrWithMessage(w, ctx.RequestID, common.InvalidURI, err.Error())
+		return
+	}
+	req := api.ListMountRequest{
+		FsName:    r.URL.Query().Get(util.QueryFsName),
+		Username:  r.URL.Query().Get(util.QueryKeyUserName),
+		Marker:    r.URL.Query().Get(util.QueryKeyMarker),
+		MaxKeys:   int32(maxKeys),
+		ClusterID: r.URL.Query().Get(util.QueryClusterID),
+		NodeName:  r.URL.Query().Get(util.QueryNodeName),
+	}
+	log.Debugf("list file mount with req[%v]", req)
+	if req.Username == "" {
+		req.Username = ctx.UserName
+	}
+
+	err = validateListMount(&ctx, &req)
+	if err != nil {
+		ctx.Logging().Errorf("validateListMount failed: [%v]", err)
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+
+	listMounts, nextMarker, err := api.ListMount(&ctx, req)
+	if err != nil {
+		ctx.Logging().Errorf("list mount with error[%v]", err)
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+	response := *getListMountResult(listMounts, nextMarker, req.Marker)
+	ctx.Logging().Debugf("List mount:%v", string(config.PrettyFormat(response)))
+	common.Render(w, http.StatusOK, response)
+}
+
+func validateListMount(ctx *logger.RequestContext, req *api.ListMountRequest) error {
+	validate := validator.New()
+	err := validate.Struct(req)
+	if err != nil {
+		for _, err = range err.(validator.ValidationErrors) {
+			ctx.ErrorCode = common.InappropriateJSON
+			return err
+		}
+	}
+	return nil
+}
+
+func getListMountResult(fsMounts []models.FsMount, nextMarker, marker string) *api.ListMountResponse {
+	var fsMountLists []*api.MountResponse
+	for _, fsMount := range fsMounts {
+		FsList := &api.MountResponse{
+			MountID:    fsMount.MountID,
+			FsID:       fsMount.FsID,
+			MountPoint: fsMount.MountPoint,
+			NodeName:   fsMount.NodeName,
+			ClusterID:  fsMount.NodeName,
+		}
+		fsMountLists = append(fsMountLists, FsList)
+	}
+	ListFsResponse := &api.ListMountResponse{
+		Marker:    marker,
+		FsList:    fsMountLists,
+		Truncated: false,
+	}
+	if nextMarker != "" {
+		ListFsResponse.Truncated = true
+		ListFsResponse.NextMarker = nextMarker
+	}
+	return ListFsResponse
+}
+
+// deleteFsMount handles requests of deleting filesystem mount record
+// @Summary deleteFsMount
+// @Description 删除mount记录
+// @tag fs
+// @Accept   json
+// @Produce  json
+// @Param request body fs.DeleteMountRequest true "request body"
+// @Success 200
+// @Failure 400 {object} common.ErrorResponse
+// @Failure 404 {object} common.ErrorResponse
+// @Failure 500 {object} common.ErrorResponse
+// @Router /fsMount/{fsName} [post]
+func (pr *PFSRouter) deleteFsMount(w http.ResponseWriter, r *http.Request) {
+	ctx := common.GetRequestContext(r)
+	fsName := chi.URLParam(r, util.QueryFsName)
+	req := api.DeleteMountRequest{
+		Username:   r.URL.Query().Get(util.QueryKeyUserName),
+		FsName:     fsName,
+		MountPoint: r.URL.Query().Get(util.QueryMountPoint),
+		ClusterID:  r.URL.Query().Get(util.QueryClusterID),
+		NodeName:   r.URL.Query().Get(util.QueryNodeName),
+	}
+
+	if req.Username == "" {
+		req.Username = ctx.UserName
+	}
+
+	_, err := getFsIDAndCheckPermission(&ctx, req.Username, req.FsName)
+	if err != nil {
+		ctx.Logging().Errorf("deleteFsMount check fs permission failed: [%v]", err)
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+	ctx.Logging().Debugf("delete fs mount with req[%v]", req)
+
+	err = validateDeleteMount(&ctx, &req)
+	if err != nil {
+		ctx.Logging().Errorf("validateDeleteMount failed: [%v]", err)
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+
+	err = api.DeleteMount(&ctx, req)
+	if err != nil {
+		ctx.Logging().Errorf("delete fs mount with service error[%v]", err)
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+
+	common.RenderStatus(w, http.StatusOK)
+}
+
+func validateDeleteMount(ctx *logger.RequestContext, req *api.DeleteMountRequest) error {
 	validate := validator.New()
 	err := validate.Struct(req)
 	if err != nil {
