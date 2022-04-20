@@ -617,7 +617,7 @@ func TestFSMount(t *testing.T) {
 	assert.Equal(t, 2, len(listRsp.FsList))
 
 	filters2 := "?" + util.QueryMountPoint + "=/var/2&" + util.QueryNodeName + "=abc&" + util.QueryClusterID + "=testcluster"
-	result, err = PerformDeleteRequest(router, url+"/"+mockFsName+filters2)
+	_, err = PerformDeleteRequest(router, url+"/"+mockFsName+filters2)
 	assert.Nil(t, err)
 
 	result, err = PerformGetRequest(router, url+filters)
