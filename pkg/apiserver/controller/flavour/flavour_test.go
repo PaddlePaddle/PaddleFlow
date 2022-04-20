@@ -24,7 +24,6 @@ import (
 
 	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/common/database/dbinit"
-	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/common/schema"
 )
 
@@ -51,7 +50,6 @@ var clusterInfo = models.ClusterInfo{
 }
 
 func initCluster(t *testing.T) {
-	ctx := &logger.RequestContext{UserName: MockRootUser}
 	err := models.CreateCluster(&clusterInfo)
 	assert.Nil(t, err)
 }
