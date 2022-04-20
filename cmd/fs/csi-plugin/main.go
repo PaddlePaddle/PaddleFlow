@@ -19,6 +19,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"paddleflow/pkg/fs/csiplugin/csiconfig"
 	"time"
 
 	"github.com/gin-contrib/pprof"
@@ -28,6 +29,7 @@ import (
 
 	"paddleflow/cmd/fs/csi-plugin/flag"
 	"paddleflow/pkg/common/logger"
+	"paddleflow/pkg/fs/csiplugin/client/k8s"
 	"paddleflow/pkg/fs/csiplugin/controller"
 	"paddleflow/pkg/fs/csiplugin/csidriver"
 	"paddleflow/pkg/metric"
@@ -41,6 +43,41 @@ var logConf = logger.LogConfig{
 	MaxFileNum:      100,
 	MaxFileSizeInMB: 200 * 1024 * 1024,
 	IsCompress:      true,
+}
+
+func init() {
+	csiconfig.NodeName = os.Getenv("KUBE_NODE_NAME")
+	//csiconfig.Namespace = os.Getenv("PFS_MOUNT_NAMESPACE")
+	csiconfig.PodName = os.Getenv("KUBE_POD_NAME")
+	csiconfig.MountPointPath = os.Getenv("PFS_MOUNT_PATH")
+	//config.JFSConfigPath = os.Getenv("PFS_CONFIG_PATH")
+	//config.MountLabels = os.Getenv("PFS_MOUNT_LABELS")
+
+	if csiconfig.PodName == "" || csiconfig.Namespace == "" {
+		log.Fatalf("Pod name[%s] & namespace[%s] can't be null\n", csiconfig.PodName, csiconfig.Namespace)
+		os.Exit(0)
+	}
+
+	k8sClient, err := k8s.GetK8sClient()
+	if err != nil {
+		log.Errorf("get k8s client failed: %v", err)
+		return
+	}
+	pod, err := k8sClient.GetPod(csiconfig.PodName, csiconfig.Namespace)
+	if err != nil {
+		log.Infof("Can't get pod %s: %v", csiconfig.PodName, err)
+		os.Exit(0)
+	}
+	csiconfig.CSIPod = *pod
+	for i := range pod.Spec.Containers {
+		if pod.Spec.Containers[i].Name == "csi-storage-driver" {
+			csiconfig.MountImage = pod.Spec.Containers[i].Image
+			csiconfig.ContainerResource = pod.Spec.Containers[i].Resources
+			return
+		}
+	}
+	log.Infof("Can't get container csi-storage-driver in pod %s", csiconfig.PodName)
+	os.Exit(0)
 }
 
 func main() {

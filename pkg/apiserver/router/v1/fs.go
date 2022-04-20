@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	config2 "paddleflow/pkg/fs/csiplugin/csiconfig"
 	"regexp"
 	"strings"
 
@@ -266,9 +267,9 @@ func checkProperties(fsType string, req *api.CreateFileSystemRequest) error {
 		if pvc == "" {
 			return common.InvalidField(fsCommon.PVC, "key[pvc] cannot be empty")
 		}
-		namespace := req.Properties[fsCommon.Namespace]
+		namespace := req.Properties[config2.Namespace]
 		if namespace == "" {
-			return common.InvalidField(fsCommon.Namespace, "key[namespace] cannot be empty")
+			return common.InvalidField(config2.Namespace, "key[namespace] cannot be empty")
 		}
 		if checkPVCExist(pvc, namespace) {
 			return nil
