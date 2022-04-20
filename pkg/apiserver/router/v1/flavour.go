@@ -243,7 +243,7 @@ func validateCreateFlavour(ctx *logger.RequestContext, request *flavour.CreateFl
 		return errors.New("field not be empty")
 	}
 	if request.ClusterName != "" {
-		clusterInfo, err := models.GetClusterByName(ctx, request.ClusterName)
+		clusterInfo, err := models.GetClusterByName(request.ClusterName)
 		if err != nil {
 			ctx.ErrorCode = common.ClusterNameNotFound
 			return err

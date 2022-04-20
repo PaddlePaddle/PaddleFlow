@@ -54,7 +54,6 @@ func InitFakeDB() {
 
 func TestCreateQueue(t *testing.T) {
 	InitFakeDB()
-	ctx := &logger.RequestContext{UserName: mockUserName}
 
 	cluster1 := ClusterInfo{
 		Name:          "cluster1",
@@ -68,7 +67,7 @@ func TestCreateQueue(t *testing.T) {
 		Setting:       "Setting",
 		NamespaceList: []string{"n1", "n2"},
 	}
-	if err := CreateCluster(ctx, &cluster1); err != nil {
+	if err := CreateCluster(&cluster1); err != nil {
 		t.Error(err)
 	}
 	assert.NotEmpty(t, cluster1.ID)
@@ -105,9 +104,11 @@ func TestCreateQueue(t *testing.T) {
 		Status:           schema.StatusQueueCreating,
 	}
 
-	CreateQueue(ctx, &queue1)
+	err := CreateQueue(&queue1)
+	assert.Equal(t, nil, err)
 
-	CreateQueue(ctx, &queue2)
+	err = CreateQueue(&queue2)
+	assert.Equal(t, nil, err)
 }
 
 func TestListQueue(t *testing.T) {
@@ -126,7 +127,7 @@ func TestListQueue(t *testing.T) {
 	t.Logf("grants=%+v", grants)
 
 	// case1 list queue
-	queueList, err := ListQueue(ctx, 0, 0, "")
+	queueList, err := ListQueue(0, 0, "", "")
 	if err != nil {
 		ctx.Logging().Errorf("models list queue failed. err:[%s]", err.Error())
 		ctx.ErrorCode = common.InternalError
@@ -138,7 +139,7 @@ func TestListQueue(t *testing.T) {
 
 	// case2 for root
 	ctx = &logger.RequestContext{UserName: mockRootUserName}
-	queueList, err = ListQueue(ctx, 0, 0, "")
+	queueList, err = ListQueue(0, 0, "", "")
 	if err != nil {
 		ctx.Logging().Errorf("models list queue failed. err:[%s]", err.Error())
 		ctx.ErrorCode = common.InternalError
@@ -151,9 +152,8 @@ func TestListQueue(t *testing.T) {
 
 func TestGetQueueByName(t *testing.T) {
 	TestCreateQueue(t)
-	ctx := &logger.RequestContext{UserName: mockUserName}
 
-	queue, err := GetQueueByName(ctx, "queue1")
+	queue, err := GetQueueByName("queue1")
 	if err != nil {
 		t.Error(err)
 	}
