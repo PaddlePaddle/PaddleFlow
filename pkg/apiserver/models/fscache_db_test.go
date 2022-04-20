@@ -28,17 +28,16 @@ func TestDBFSCache(t *testing.T) {
 	fsCache1 := new(FSCache)
 	fsCache1.CacheDir = "cachedir"
 	fsCache1.CacheID = "cacheID1"
-	fsCache1.FSID = "fsid"
+	fsCache1.FsID = "fsid"
 	fsCache1.NodeName = "nodename"
-	fsCache1.MountPoint = "mp"
 	fsCache1.UsedSize = 111
 	// test add
-	err := dbfs.AddFSCache(fsCache1)
+	err := dbfs.Add(fsCache1)
 	assert.Nil(t, err)
-	fsc, err := dbfs.GetFSCache("fsid", "cacheID1")
+	fsc, err := dbfs.Get("fsid", "cacheID1")
 	assert.Nil(t, err)
-	assert.Equal(t, fsc.FSID, "fsid")
-	fscacheList, err := dbfs.ListFSCaches("", "")
+	assert.Equal(t, fsc.FsID, "fsid")
+	fscacheList, err := dbfs.List("", "")
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(fscacheList))
 }

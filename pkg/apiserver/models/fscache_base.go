@@ -27,22 +27,22 @@ type FSCache struct {
 	PK          int64          `json:"-" gorm:"primaryKey;autoIncrement"`
 	CacheID     string         `json:"cacheID" gorm:"type:varchar(36);column:cache_id"`
 	CacheHashID string         `json:"cacheHashID" gorm:"type:varchar(36);column:cache_hash_id"`
-	FSID        string         `json:"fsID" gorm:"type:varchar(36);column:fs_id"`
+	FsID        string         `json:"fsID" gorm:"type:varchar(36);column:fs_id"`
 	CacheDir    string         `json:"cacheDir" gorm:"type:varchar(4096);column:cache_dir"`
 	NodeName    string         `json:"nodename" gorm:"type:varchar(256);column:nodename"`
-	MountPoint  string         `json:"mountpoint" gorm:"type:varchar(1024);column:mountpoint"`
 	UsedSize    int            `json:"usedSize" gorm:"type:bigint(20);column:usedsize"`
+	ClusterID   string         `json:"-"   gorm:"column:cluster_id;default:''"`
 	CreatedAt   time.Time      `json:"-"`
 	UpdatedAt   time.Time      `json:"-"`
 	DeletedAt   gorm.DeletedAt `json:"-"`
 }
 
 type FSCacheStore interface {
-	AddFSCache(value *FSCache) error
-	GetFSCache(fsID string, cacheID string) (*FSCache, error)
-	DeleteFSCache(fsID, cacheID string) error
-	ListFSCaches(fsID, cacheID string) ([]FSCache, error)
-	UpdateFSCache() error
+	Add(value *FSCache) error
+	Get(fsID string, cacheID string) (*FSCache, error)
+	Delete(fsID, cacheID string) error
+	List(fsID, cacheID string) ([]FSCache, error)
+	Update(value *FSCache) (int64, error)
 }
 
 var instance FSCacheStore
