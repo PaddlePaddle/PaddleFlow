@@ -26,10 +26,11 @@ import (
 )
 
 const (
-	Prefix       = util.PaddleflowRouterPrefix + util.PaddleflowRouterVersionV1
-	LoginApi     = Prefix + "/login"
-	GetFsApi     = Prefix + "/fs"
-	GetLinksApis = Prefix + "/link"
+	Prefix           = util.PaddleflowRouterPrefix + util.PaddleflowRouterVersionV1
+	LoginApi         = Prefix + "/login"
+	GetFsApi         = Prefix + "/fs"
+	GetLinksApis     = Prefix + "/link"
+	GetFsCacheConfig = Prefix + "/fs/cache"
 )
 
 type LoginParams struct {
@@ -81,6 +82,20 @@ type LinksResponse struct {
 	LinkList   []*LinkResponse `json:"linkList"`
 }
 
+type FsCacheResponse struct {
+	CacheDir            string                 `json:"cacheDir"`
+	Quota               int                    `json:"quota"`
+	CacheType           string                 `json:"cacheType"`
+	BlockSize           int                    `json:"blockSize"`
+	NodeAffinity        map[string]interface{} `json:"nodeAffinity"`
+	NodeTaintToleration map[string]interface{} `json:"nodeTaintToleration"`
+	ExtraConfig         map[string]string      `json:"extraConfig"`
+	FsName              string                 `json:"fsName"`
+	Username            string                 `json:"username"`
+	CreateTime          string                 `json:"createTime"`
+	UpdateTime          string                 `json:"updateTime,omitempty"`
+}
+
 func LoginRequest(params LoginParams, c *core.PFClient) (*LoginResponse, error) {
 	var err error
 	resp := &LoginResponse{}
@@ -117,6 +132,20 @@ func LinksRequest(params LinksParams, c *core.PFClient) (*LinksResponse, error) 
 	err := core.NewRequestBuilder(c).
 		WithHeader(common.HeaderKeyAuthorization, params.Token).
 		WithURL(GetLinksApis+"/"+params.FsName).
+		WithQueryParam("username", params.UserName).WithMethod(http.GET).
+		WithResult(resp).
+		Do()
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+func FsCacheRequest(params FsParams, c *core.PFClient) (*FsCacheResponse, error) {
+	resp := &FsCacheResponse{}
+	err := core.NewRequestBuilder(c).
+		WithHeader(common.HeaderKeyAuthorization, params.Token).
+		WithURL(GetFsCacheConfig+"/"+params.FsName).
 		WithQueryParam("username", params.UserName).WithMethod(http.GET).
 		WithResult(resp).
 		Do()

@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ import (
 	"paddleflow/pkg/apiserver/common"
 	"paddleflow/pkg/common/database"
 	"paddleflow/pkg/common/logger"
+	"paddleflow/pkg/common/uuid"
 )
 
 type Grant struct {
@@ -42,7 +43,8 @@ func (Grant) TableName() string {
 }
 
 func CreateGrant(ctx *logger.RequestContext, grant *Grant) error {
-	ctx.Logging().Debugf("model begin create grant. grantID:%v", grant.ID)
+	ctx.Logging().Debugf("model begin create grant: %v", grant)
+	grant.ID = uuid.GenerateID(common.PrefixGrant)
 	tx := database.DB.Table("grant").Create(grant)
 	if tx.Error != nil {
 		ctx.Logging().Errorf("create grant failed. grant:%v, error:%s",

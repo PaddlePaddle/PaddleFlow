@@ -6,6 +6,7 @@ require (
 	github.com/BurntSushi/toml v0.4.1 // indirect
 	github.com/Microsoft/go-winio v0.5.0 // indirect
 	github.com/agiledragon/gomonkey/v2 v2.7.0
+	github.com/argoproj/argo v0.0.0-20210119221932-53f022c3f740
 	github.com/aws/aws-sdk-go v1.40.25
 	github.com/bluele/gcache v0.0.2
 	github.com/colinmarc/hdfs/v2 v2.2.0
@@ -15,7 +16,7 @@ require (
 	github.com/docker/distribution v2.7.1+incompatible // indirect
 	github.com/docker/docker v17.12.1-ce+incompatible
 	github.com/docker/go-connections v0.4.0 // indirect
-	github.com/ghodss/yaml v1.0.0 // indirect
+	github.com/ghodss/yaml v1.0.0
 	github.com/gin-contrib/pprof v1.3.0
 	github.com/gin-gonic/gin v1.7.3
 	github.com/go-chi/chi v1.5.4
@@ -24,6 +25,7 @@ require (
 	github.com/golang/glog v1.0.0 // indirect
 	github.com/google/go-cmp v0.5.6 // indirect
 	github.com/google/uuid v1.3.0
+	github.com/gorilla/websocket v1.4.2
 	github.com/hanwen/go-fuse/v2 v2.1.0
 	github.com/jcmturner/gokrb5/v8 v8.4.2
 	github.com/jinzhu/copier v0.3.2

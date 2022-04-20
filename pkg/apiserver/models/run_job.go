@@ -40,6 +40,8 @@ type RunJob struct {
 	ParametersJson string            `gorm:"type:text;size:65535;not null"     json:"-"`
 	Artifacts      schema.Artifacts  `gorm:"-"                                 json:"artifacts"`
 	ArtifactsJson  string            `gorm:"type:text;size:65535;not null"     json:"-"`
+	Env            map[string]string `gorm:"-"                                 json:"env"`
+	EnvJson        string            `gorm:"type:text;size:65535;not null"     json:"-"`
 	DockerEnv      string            `gorm:"type:varchar(128);not null"        json:"docker_env"`
 	Status         schema.JobStatus  `gorm:"type:varchar(32);not null"         json:"status"`
 	Message        string            `gorm:"type:text;size:65535;not null"     json:"message"`
@@ -128,6 +130,13 @@ func (rj *RunJob) Encode() error {
 	}
 	rj.ParametersJson = string(parametersJson)
 
+	envJson, err := json.Marshal(rj.Env)
+	if err != nil {
+		logger.Logger().Errorf("encode run job env failed. error: %v", err)
+		return err
+	}
+	rj.EnvJson = string(envJson)
+
 	if rj.ActivateTime != "" {
 		activatedAt := sql.NullTime{}
 		activatedAt.Time, err = time.ParseInLocation("2006-01-02 15:04:05", rj.ActivateTime, time.Local)
@@ -167,6 +176,14 @@ func (rj *RunJob) decode() error {
 		rj.Parameters = parameters
 	}
 
+	if len(rj.EnvJson) > 0 {
+		env := map[string]string{}
+		if err := json.Unmarshal([]byte(rj.EnvJson), &env); err != nil {
+			logger.Logger().Errorf("decode run job env failed. error: %v", err)
+		}
+		rj.Env = env
+	}
+
 	// format time
 	rj.CreateTime = rj.CreatedAt.Format("2006-01-02 15:04:05")
 	rj.UpdateTime = rj.UpdatedAt.Format("2006-01-02 15:04:05")
@@ -183,7 +200,7 @@ func (rj *RunJob) ParseJobView(step *schema.WorkflowSourceStep) schema.JobView {
 		newParameters[k] = v
 	}
 	newEnv := map[string]string{}
-	for k, v := range step.Env {
+	for k, v := range rj.Env {
 		newEnv[k] = v
 	}
 	newEndTime := ""
@@ -220,6 +237,7 @@ func ParseRunJob(jobView *schema.JobView) RunJob {
 		Command:      jobView.Command,
 		Parameters:   newParameters,
 		Artifacts:    jobView.Artifacts,
+		Env:          jobView.Env,
 		DockerEnv:    jobView.DockerEnv,
 		Status:       jobView.Status,
 		Message:      jobView.JobMessage,

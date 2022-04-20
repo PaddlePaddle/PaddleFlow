@@ -41,6 +41,7 @@ const (
 	State         = "state"
 	ID            = "id"
 	FsID          = "fs_id"
+	FsCacheID     = "cache_id"
 	FsPath        = "fs_path"
 	Address       = "address"
 	UserName      = "user_name"

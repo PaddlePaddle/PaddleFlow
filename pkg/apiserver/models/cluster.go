@@ -24,9 +24,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 
-	"paddleflow/pkg/apiserver/common"
 	"paddleflow/pkg/common/database"
-	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/common/uuid"
 )
 
@@ -97,11 +95,11 @@ func generateDeletedUuidStr() string {
 	return uuid.GenerateIDWithLength("deleted", 24)
 }
 
-func CreateCluster(ctx *logger.RequestContext, clusterInfo *ClusterInfo) error {
-	ctx.Logging().Debugf("begin create cluster, cluster name:%s", clusterInfo.Name)
+func CreateCluster(clusterInfo *ClusterInfo) error {
+	log.Debugf("begin create cluster, cluster name:%s", clusterInfo.Name)
 	tx := database.DB.Table("cluster_info").Create(clusterInfo)
 	if tx.Error != nil {
-		ctx.Logging().Errorf("create cluster failed. queue:%v, error:%s",
+		log.Errorf("create cluster failed. queue:%v, error:%s",
 			clusterInfo.Name, tx.Error.Error())
 		return tx.Error
 	}
@@ -109,9 +107,8 @@ func CreateCluster(ctx *logger.RequestContext, clusterInfo *ClusterInfo) error {
 	return nil
 }
 
-func ListCluster(ctx *logger.RequestContext, pk int64, maxKeys int,
-	clusterNameList []string, clusterStatus string) ([]ClusterInfo, error) {
-	ctx.Logging().Debugf("list cluster, pk: %d, maxKeys: %d", pk, maxKeys)
+func ListCluster(pk int64, maxKeys int, clusterNameList []string, clusterStatus string) ([]ClusterInfo, error) {
+	log.Debugf("list cluster, pk: %d, maxKeys: %d", pk, maxKeys)
 
 	var clusterList []ClusterInfo
 	query := database.DB.Table("cluster_info").Where("deleted_at = '' AND pk > ?", pk)
@@ -128,84 +125,82 @@ func ListCluster(ctx *logger.RequestContext, pk int64, maxKeys int,
 
 	err := query.Find(&clusterList).Error
 	if err != nil {
-		ctx.Logging().Errorf("list cluster failed. error : %s ", err.Error())
+		log.Errorf("list cluster failed. error : %s ", err.Error())
 		return nil, err
 	}
 
 	return clusterList, nil
 }
 
-func GetLastCluster(ctx *logger.RequestContext) (ClusterInfo, error) {
-	ctx.Logging().Debugf("model get last cluster. ")
+func GetLastCluster() (ClusterInfo, error) {
+	log.Debugf("model get last cluster. ")
 
 	clusterInfo := ClusterInfo{}
 	tx := database.DB.Table("cluster_info").Where("deleted_at = ''").Last(&clusterInfo)
 	if tx.Error != nil {
-		ctx.Logging().Errorf("get last cluster failed. error:%s", tx.Error.Error())
+		log.Errorf("get last cluster failed. error:%s", tx.Error.Error())
 		return ClusterInfo{}, tx.Error
 	}
 	return clusterInfo, nil
 }
 
-func GetClusterByName(ctx *logger.RequestContext, clusterName string) (ClusterInfo, error) {
-	ctx.Logging().Debugf("start to get cluster. clusterName: %s", clusterName)
+func GetClusterByName(clusterName string) (ClusterInfo, error) {
+	log.Debugf("start to get cluster. clusterName: %s", clusterName)
 
 	var clusterInfo ClusterInfo
 	tx := database.DB.Table("cluster_info").Where("name = ? AND deleted_at = ''", clusterName)
 	tx = tx.First(&clusterInfo)
 
 	if tx.Error != nil {
-		ctx.Logging().Errorf("get cluster failed. clusterName: %s, error:%s",
+		log.Errorf("get cluster failed. clusterName: %s, error:%s",
 			clusterName, tx.Error.Error())
-		ctx.ErrorCode = common.ClusterNameNotFound
 		return ClusterInfo{}, fmt.Errorf("get cluster by clusterName[%s] failed", clusterName)
 	}
 
 	return clusterInfo, nil
 }
 
-func GetClusterById(ctx *logger.RequestContext, clusterId string) (ClusterInfo, error) {
-	ctx.Logging().Debugf("start to get cluster. clusterId: %s", clusterId)
+func GetClusterById(clusterId string) (ClusterInfo, error) {
+	log.Debugf("start to get cluster. clusterId: %s", clusterId)
 
 	var clusterInfo ClusterInfo
 	tx := database.DB.Table("cluster_info").Where("id = ? AND deleted_at = '' ", clusterId)
 	tx = tx.First(&clusterInfo)
 
 	if tx.Error != nil {
-		ctx.Logging().Errorf("get cluster failed. clusterId: %s, error:%s",
+		log.Errorf("get cluster failed. clusterId: %s, error:%s",
 			clusterId, tx.Error.Error())
-		ctx.ErrorCode = common.ClusterIdNotFound
 		return ClusterInfo{}, tx.Error
 	}
 
 	return clusterInfo, nil
 }
 
-func DeleteCluster(ctx *logger.RequestContext, clusterName string) error {
-	ctx.Logging().Debugf("start to delete cluster. clusterName:%s", clusterName)
+func DeleteCluster(clusterName string) error {
+	log.Infof("start to delete cluster. clusterName:%s", clusterName)
 
 	// 检查clusterName是否存在
-	clusterInfo, err := GetClusterByName(ctx, clusterName)
+	clusterInfo, err := GetClusterByName(clusterName)
 	if err != nil {
 		return err
 	}
 	// 更新 DeletedAt 字段为uuid字符串，表示逻辑删除
 	clusterInfo.DeletedAt = generateDeletedUuidStr()
 	clusterInfo.UpdatedAt = time.Now()
-	err = UpdateCluster(ctx, clusterInfo.ID, &clusterInfo)
+	err = UpdateCluster(clusterInfo.ID, &clusterInfo)
 	if err != nil {
-		ctx.Logging().Errorf("delete cluster failed. clusterName:%s, error:%s",
+		log.Errorf("delete cluster failed. clusterName:%s, error:%s",
 			clusterName, err.Error())
 		return err
 	}
 	return nil
 }
 
-func UpdateCluster(ctx *logger.RequestContext, clusterId string, clusterInfo *ClusterInfo) error {
-	ctx.Logging().Debugf("start to update cluster. clusterId:%s", clusterId)
+func UpdateCluster(clusterId string, clusterInfo *ClusterInfo) error {
+	log.Debugf("start to update cluster. clusterId:%s", clusterId)
 	err := database.DB.Table("cluster_info").Where("id = ?", clusterId).Updates(clusterInfo).Error
 	if err != nil {
-		ctx.Logging().Errorf("update cluster failed. clusterId:%s, error:%s",
+		log.Errorf("update cluster failed. clusterId:%s, error:%s",
 			clusterId, err.Error())
 		return err
 	}

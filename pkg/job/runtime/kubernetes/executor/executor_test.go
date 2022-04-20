@@ -18,8 +18,6 @@ package executor
 
 import (
 	"encoding/json"
-	"fmt"
-	"net/http"
 	"net/http/httptest"
 	"testing"
 
@@ -34,67 +32,6 @@ import (
 
 	"paddleflow/pkg/common/k8s"
 )
-
-var DiscoveryHandlerFunc = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-	var obj interface{}
-	switch req.URL.Path {
-	case "/apis/batch.volcano.sh/v1alpha1":
-		obj = &metav1.APIResourceList{
-			GroupVersion: "batch.volcano.sh/v1alpha1",
-			APIResources: []metav1.APIResource{
-				{Name: "jobs", Namespaced: true, Kind: "Job"},
-			},
-		}
-	case "/apis/scheduling.volcano.sh/v1beta1":
-		obj = &metav1.APIResourceList{
-			GroupVersion: "scheduling.volcano.sh/v1beta1",
-			APIResources: []metav1.APIResource{
-				{Name: "queues", Namespaced: false, Kind: "Queue"},
-			},
-		}
-	case "/apis/batch.paddlepaddle.org/v1":
-		obj = &metav1.APIResourceList{
-			GroupVersion: "batch.paddlepaddle.org/v1",
-			APIResources: []metav1.APIResource{
-				{Name: "paddlejobs", Namespaced: true, Kind: "PaddleJob"},
-			},
-		}
-	case "/apis":
-		obj = &metav1.APIGroupList{
-			Groups: []metav1.APIGroup{
-				{
-					Name: "batch.volcano.sh",
-					Versions: []metav1.GroupVersionForDiscovery{
-						{GroupVersion: "batch.volcano.sh/v1alpha1", Version: "v1alpha1"},
-					},
-				},
-				{
-					Name: "scheduling.volcano.sh",
-					Versions: []metav1.GroupVersionForDiscovery{
-						{GroupVersion: "scheduling.volcano.sh/v1beta1", Version: "v1beta1"},
-					},
-				},
-				{
-					Name: "batch.paddlepaddle.org",
-					Versions: []metav1.GroupVersionForDiscovery{
-						{GroupVersion: "batch.paddlepaddle.org/v1", Version: "v1"},
-					},
-				},
-			},
-		}
-	default:
-		w.WriteHeader(http.StatusNotFound)
-		return
-	}
-	output, err := json.Marshal(obj)
-	if err != nil {
-		fmt.Printf("unexpected encoding error: %v", err)
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	w.Write(output)
-})
 
 func newFakeDynamicClient(server *httptest.Server) *k8s.DynamicClientOption {
 	scheme := runtime.NewScheme()
@@ -111,7 +48,7 @@ func newFakeDynamicClient(server *httptest.Server) *k8s.DynamicClientOption {
 }
 
 func TestExecutor(t *testing.T) {
-	var server = httptest.NewServer(DiscoveryHandlerFunc)
+	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
 	defer server.Close()
 	dynamicClient := newFakeDynamicClient(server)
 
@@ -119,6 +56,7 @@ func TestExecutor(t *testing.T) {
 	gvk := k8s.VCJobGVK
 	name := "vcjob"
 	namespace := "default"
+
 	obj := &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": gvk.GroupVersion().String(),
@@ -128,14 +66,31 @@ func TestExecutor(t *testing.T) {
 				"name":      name,
 			},
 			"status": make(map[string]interface{}),
+		}}
+	patchJSON, err := json.Marshal(struct {
+		metav1.ObjectMeta
+	}{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels: map[string]string{
+				"label1": "value1",
+			},
+			Annotations: map[string]string{
+				"anno1": "value1",
+			},
 		},
-	}
+	})
+	t.Logf("patch resource %s", string(patchJSON))
+	assert.Equal(t, nil, err)
 	// create kubernetes resource with dynamic client
-	err := Create(obj, gvk, dynamicClient)
+	err = Create(obj, gvk, dynamicClient)
+	assert.Equal(t, nil, err)
+	// patch kubernetes resource with dynamic client
+	err = Patch(namespace, name, gvk, patchJSON, dynamicClient)
 	assert.Equal(t, nil, err)
 	// get kubernetes resource with dynamic client
-	_, err = Get(namespace, name, gvk, dynamicClient)
+	obj, err = Get(namespace, name, gvk, dynamicClient)
 	assert.Equal(t, nil, err)
+	t.Logf("get patched resource %v", obj)
 	// delete kubernetes resource with dynamic client
 	err = Delete(namespace, name, gvk, dynamicClient)
 	assert.Equal(t, nil, err)

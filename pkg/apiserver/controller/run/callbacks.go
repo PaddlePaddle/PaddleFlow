@@ -23,6 +23,7 @@ import (
 	"time"
 
 	mapset "github.com/deckarep/golang-set"
+	"github.com/sirupsen/logrus"
 
 	"paddleflow/pkg/apiserver/common"
 	"paddleflow/pkg/apiserver/handler"
@@ -66,8 +67,9 @@ func GetJobByRun(runID string, stepName string) (schema.JobView, error) {
 		return jobViewPostProcess, nil
 	}
 
-	logging.Errorf("get jobView from Run with stepName[%s] failed.", stepName)
-	return jobView, fmt.Errorf("get jobView from Run with stepName[%s] failed", stepName)
+	errMsg := fmt.Sprintf("get jobView from Run with stepName[%s] failed.", stepName)
+	logging.Errorf(errMsg)
+	return jobView, fmt.Errorf(errMsg)
 }
 
 func UpdateRunByWfEvent(id string, event interface{}) bool {
@@ -102,45 +104,8 @@ func UpdateRunByWfEvent(id string, event interface{}) bool {
 		return false
 	}
 
-	// 检查每个job的cache情况
-	// 多个job很可能cache同一个Run，所以用set来去重
-	cacheIdSet := mapset.NewSet()
-	for _, jobView := range runtime {
-		if jobView.CacheRunID != "" {
-			cacheIdSet.Add(jobView.CacheRunID)
-		}
-	}
-
-	// 一次性读取全部 Run，避免多次调用GetRunByID
-	cacheIdList := make([]string, 0, cacheIdSet.Cardinality())
-	for cacheId := range cacheIdSet.Iter() {
-		cacheIdList = append(cacheIdList, cacheId.(string))
-	}
-	runCachedList := make([]models.Run, 0)
-	if len(cacheIdList) > 0 {
-		var err error
-		runCachedList, err = models.ListRun(logging, 0, 0, nil, nil, cacheIdList, nil)
-		if err != nil {
-			logging.Errorf("update cacheIDs failed. Get runs[%v] failed. error: %v", cacheIdList, err)
-			return false
-		}
-	}
-	logging.Debugf("number of run cached by updating run is [%v]", len(runCachedList))
-	for _, runCached := range runCachedList {
-		// 检查这个当前run要cache的某个run，之前被哪些run已经cache了
-		runCacheIDList := runCached.GetRunCacheIDList()
-		newRun := true
-		for _, runCacheID := range runCacheIDList {
-			if runCacheID == id {
-				// 如果之前被cache过的run已经包含了当前run，就不用添加当前run的id了
-				newRun = false
-			}
-		}
-		if newRun {
-			runCacheIDList = append(runCacheIDList, id)
-			newRunCacheIDs := strings.Join(runCacheIDList, common.SeparatorComma)
-			models.UpdateRun(logging, runCached.ID, models.Run{RunCachedIDs: newRunCacheIDs})
-		}
+	if err := updateRunCache(logging, runtime, runID); err != nil {
+		return false
 	}
 
 	logging.Debugf("workflow event update run[%s] status:%s message:%s, runtime:%v, post_porcess:%v",
@@ -166,7 +131,6 @@ func UpdateRunByWfEvent(id string, event interface{}) bool {
 	if prevRun.Status == common.StatusRunPending {
 		activatedAt.Time = time.Now()
 		activatedAt.Valid = true
-
 		// 创建run_job记录
 		if err := models.CreateRunJobs(logging, runtimeJobs, id); err != nil {
 			return false
@@ -188,6 +152,51 @@ func UpdateRunByWfEvent(id string, event interface{}) bool {
 		return false
 	}
 	return true
+}
+
+func updateRunCache(logging *logrus.Entry, runtime schema.RuntimeView, runID string) error {
+	// 检查每个job的cache情况
+	// 多个job很可能cache同一个Run，所以用set来去重
+	cacheIdSet := mapset.NewSet()
+	for _, jobView := range runtime {
+		if jobView.CacheRunID != "" {
+			cacheIdSet.Add(jobView.CacheRunID)
+		}
+	}
+
+	// 一次性读取全部 Run，避免多次调用GetRunByID
+	cacheIdList := make([]string, 0, cacheIdSet.Cardinality())
+	for cacheId := range cacheIdSet.Iter() {
+		cacheIdList = append(cacheIdList, cacheId.(string))
+	}
+	runCachedList := make([]models.Run, 0)
+	if len(cacheIdList) > 0 {
+		var err error
+		runCachedList, err = models.ListRun(logging, 0, 0, nil, nil, cacheIdList, nil)
+		if err != nil {
+			logging.Errorf("update cacheIDs failed. Get runs[%v] failed. error: %v", cacheIdList, err)
+			return err
+		}
+	}
+	logging.Debugf("number of run cached by updating run is [%v]", len(runCachedList))
+	for _, runCached := range runCachedList {
+		// 检查这个当前run要cache的某个run，之前被哪些run已经cache了
+		runCacheIDList := runCached.GetRunCacheIDList()
+		newRun := true
+		for _, runCacheID := range runCacheIDList {
+			if runCacheID == runID {
+				// 如果之前被cache过的run已经包含了当前run，就不用添加当前run的id了
+				newRun = false
+				break
+			}
+		}
+		if newRun {
+			runCacheIDList = append(runCacheIDList, runID)
+			newRunCacheIDs := strings.Join(runCacheIDList, common.SeparatorComma)
+			models.UpdateRun(logging, runCached.ID, models.Run{RunCachedIDs: newRunCacheIDs})
+		}
+	}
+	return nil
 }
 
 func updateRunJobs(runID string, jobs map[string]schema.JobView) error {

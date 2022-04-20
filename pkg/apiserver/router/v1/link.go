@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@ limitations under the License.
 package v1
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"path/filepath"
@@ -24,6 +25,7 @@ import (
 
 	"github.com/go-chi/chi"
 	log "github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 
 	"paddleflow/pkg/apiserver/common"
 	api "paddleflow/pkg/apiserver/controller/fs"
@@ -43,9 +45,9 @@ func (lr *LinkRouter) Name() string {
 
 func (lr *LinkRouter) AddRouter(r chi.Router) {
 	log.Info("add fsLink router")
-	r.Post("/link", lr.CreateLink)
-	r.Delete("/link/{fsName}", lr.DeleteLink)
-	r.Get("/link/{fsName}", lr.GetLink)
+	r.Post("/link", lr.createLink)
+	r.Delete("/link/{fsName}", lr.deleteLink)
+	r.Get("/link/{fsName}", lr.getLink)
 
 }
 
@@ -57,19 +59,19 @@ var SupportLinkURLPrefix = map[string]bool{
 	common.CFS:   true,
 }
 
-// CreateLink the function that handle the create Link request
-// @Summary CreateLink
+// createLink the function that handle the create Link request
+// @Summary createLink
 // @Description 创建文件系统的link
 // @tag fs
 // @Accept   json
 // @Produce  json
-// @Param request body request.CreateLinkRequest true "request body"
-// @Success 200 {object} models.Link
+// @Param request body fs.CreateLinkRequest true "request body"
+// @Success 201 {string} string "Created"
 // @Failure 400 {object} common.ErrorResponse
 // @Failure 404 {object} common.ErrorResponse
 // @Failure 500 {object} common.ErrorResponse
-// @Router /api/paddleflow/v1/link/ [post]
-func (lr *LinkRouter) CreateLink(w http.ResponseWriter, r *http.Request) {
+// @Router /link/ [post]
+func (lr *LinkRouter) createLink(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
 
 	var linkRequest api.CreateLinkRequest
@@ -114,7 +116,7 @@ func (lr *LinkRouter) CreateLink(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	common.Render(w, http.StatusOK, nil)
+	common.RenderStatus(w, http.StatusCreated)
 }
 
 func validateCreateLink(ctx *logger.RequestContext, req *api.CreateLinkRequest) error {
@@ -381,8 +383,8 @@ func checkLinkPath(fsPath, fsID string) error {
 	return nil
 }
 
-// DeleteLink the function that handle the delete file system link request
-// @Summary DeleteLink
+// deleteLink the function that handle the delete file system link request
+// @Summary deleteLink
 // @Description 删除指定文件系统的link
 // @tag fs
 // @Accept   json
@@ -390,8 +392,8 @@ func checkLinkPath(fsPath, fsID string) error {
 // @Param fsName path string true "文件系统名称"
 // @Param fsPath path string true "文件系统link的目录"
 // @Success 200
-// @Router /api/paddleflow/v1/link/{fsName} [delete]
-func (lr *LinkRouter) DeleteLink(w http.ResponseWriter, r *http.Request) {
+// @Router /link/{fsName} [delete]
+func (lr *LinkRouter) deleteLink(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
 	fsName := chi.URLParam(r, util.QueryFsName)
 	deleteRequest := &api.DeleteLinkRequest{
@@ -451,19 +453,19 @@ func validateDeleteLink(ctx *logger.RequestContext, req *api.DeleteLinkRequest) 
 	return nil
 }
 
-// GetLink the function that handle the list file system links request
-// @Summary GetLink
+// getLink the function that handle the list file system links request
+// @Summary getLink
 // @Description 批量获取某个文件系统的link，root用户可以获取所有的link
 // @tag fs
 // @Accept   json
 // @Produce  json
-// @Param request body request.GetLinkRequest true "request body"
-// @Success 200 {object} response.GetLinkResponse
+// @Param request body fs.GetLinkRequest true "request body"
+// @Success 200 {object} fs.GetLinkResponse
 // @Failure 400 {object} common.ErrorResponse
 // @Failure 404 {object} common.ErrorResponse
 // @Failure 500 {object} common.ErrorResponse
-// @Router /api/paddleflow/v1/link/{fsName} [get]
-func (lr *LinkRouter) GetLink(w http.ResponseWriter, r *http.Request) {
+// @Router /link/{fsName} [get]
+func (lr *LinkRouter) getLink(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
 
 	maxKeys, err := util.GetQueryMaxKeys(&ctx, r)
@@ -472,30 +474,35 @@ func (lr *LinkRouter) GetLink(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	username, fsName := r.URL.Query().Get(util.QueryKeyUserName), chi.URLParam(r, util.QueryFsName)
+	fsID, err := getFsIDAndCheckPermission(&ctx, username, fsName)
+	if err != nil {
+		ctx.Logging().Errorf("GetLink check fs permission failed: [%v]", err)
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+
+	_, err = models.GetFileSystemWithFsID(fsID)
+	if err != nil {
+		ctx.Logging().Errorf("GetLink check fs existence failed: [%v]", err)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			common.RenderErrWithMessage(w, ctx.RequestID, common.RecordNotFound, err.Error())
+		} else {
+			common.RenderErrWithMessage(w, ctx.RequestID, common.FileSystemDataBaseError, err.Error())
+		}
+		return
+	}
+
 	getRequest := &api.GetLinkRequest{
-		FsID:     chi.URLParam(r, util.QueryFsName),
-		Marker:   r.URL.Query().Get(util.QueryKeyMarker),
-		MaxKeys:  int32(maxKeys),
-		Username: r.URL.Query().Get(util.QueryKeyUserName),
-		FsPath:   r.URL.Query().Get(util.QueryFsPath),
+		FsID:    fsID,
+		Marker:  r.URL.Query().Get(util.QueryKeyMarker),
+		MaxKeys: int32(maxKeys),
+		FsPath:  r.URL.Query().Get(util.QueryFsPath),
 	}
 
 	log.Debugf("list file system link with req[%v]", getRequest)
 
 	linkService := api.GetLinkService()
-
-	if getRequest.Username == "" {
-		getRequest.Username = ctx.UserName
-	}
-	if getRequest.Username == "" {
-		ctx.Logging().Error("userName is empty")
-		common.RenderErrWithMessage(w, ctx.RequestID, common.AuthFailed, "userName is empty")
-		return
-	}
-
-	// trans fsName to real fsID, for user they only use fsName，grpc client may be use fsID
-	getRequest.FsID = common.NameToFsID(getRequest.FsID, getRequest.Username)
-
 	listLinks, nextMarker, err := linkService.GetLink(getRequest)
 	if err != nil {
 		ctx.Logging().Errorf("list link with error[%v]", err)
