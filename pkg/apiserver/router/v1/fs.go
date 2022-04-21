@@ -609,15 +609,6 @@ func validateCreateFileSystemClaims(ctx *logger.RequestContext, req *api.CreateF
 func getFsIDAndCheckPermission(ctx *logger.RequestContext,
 	username, fsName string) (string, error) {
 	// check permission
-	if !common.IsRootUser(ctx.UserName) {
-		fsID := common.ID(ctx.UserName, fsName)
-		if !models.HasAccessToResource(ctx, common.ResourceTypeFs, fsID) {
-			ctx.ErrorCode = common.AccessDenied
-			err := common.NoAccessError(ctx.UserName, common.ResourceTypeFs, fsName)
-			ctx.Logging().Errorf("filesystem CheckPermission error: %v", err)
-			return "", err
-		}
-	}
 	var fsID string
 	// concatenate fsID
 	if common.IsRootUser(ctx.UserName) && username != "" {
