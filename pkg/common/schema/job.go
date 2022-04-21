@@ -140,7 +140,7 @@ const (
 
 func IsImmutableJobStatus(status JobStatus) bool {
 	switch status {
-	case StatusJobSucceeded, StatusJobFailed, StatusJobTerminated:
+	case StatusJobSucceeded, StatusJobFailed, StatusJobTerminated, StatusJobSkipped, StatusJobCancelled:
 		return true
 	default:
 		return false
