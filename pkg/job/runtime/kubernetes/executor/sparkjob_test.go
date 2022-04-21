@@ -79,7 +79,8 @@ func TestPatchSparkAppVariable(t *testing.T) {
 			Command: "sleep 3600",
 			Image:   "nginx",
 		},
-		JobType: schema.TypeSparkJob,
+		JobType:   schema.TypeDistributed,
+		Framework: schema.FrameworkSpark,
 	}
 
 	tests := []struct {
@@ -122,7 +123,8 @@ func TestPatchSparkAppVariable(t *testing.T) {
 			ID:                  test.caseName,
 			Name:                "randomName",
 			Namespace:           pfjob.Namespace,
-			JobType:             schema.TypeSparkJob,
+			JobType:             schema.TypeDistributed,
+			Framework:           schema.FrameworkSpark,
 			Image:               pfjob.Conf.GetImage(),
 			Command:             pfjob.Conf.GetCommand(),
 			Env:                 pfjob.Conf.GetEnv(),

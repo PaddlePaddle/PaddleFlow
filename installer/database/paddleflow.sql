@@ -72,9 +72,9 @@ CREATE TABLE IF NOT EXISTS `job` (
     `members` mediumtext DEFAULT NULL,
     `extension_template` text DEFAULT NULL,
     `parent_job` varchar(60) DEFAULT NULL,
-    `created_at` datetime(3) DEFAULT NULL,
+    `created_at` datetime(3) NULL DEFAULT CURRENT_TIMESTAMP,
     `activated_at` datetime(3) DEFAULT NULL,
-    `updated_at` datetime(3) DEFAULT NULL,
+    `updated_at` datetime(3) NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     `deleted_at` datetime(3) DEFAULT NULL,
     PRIMARY KEY (`pk`),
     UNIQUE KEY `job_id` (`id`, `deleted_at`)
@@ -321,10 +321,10 @@ CREATE TABLE IF NOT EXISTS `fs_cache_config` (
 CREATE TABLE IF NOT EXISTS `fs_cache` (
     `pk` bigint(20) unsigned NOT NULL AUTO_INCREMENT COMMENT 'pk',
     `cache_id` varchar(36) NOT NULL COMMENT 'unique fs cache id',
-    `cache_hash_id` varchar(36) NOT NULL COMMENT 'fs cache unique hashid for judging the same fscache or not',
+    `cache_hash_id` varchar(36) COMMENT 'fs cache unique hashid for judging the same fscache or not',
     `fs_id` varchar(36) NOT NULL COMMENT 'file system id',
+    `cluster_id` varchar(60) DEFAULT '' COMMENT 'cluster id',
     `cache_dir` varchar(4096) NOT NULL COMMENT 'cache dir, e.g. /var/pfs_cache',
-    `mountpoint` varchar(1024) NOT NULL COMMENT 'mount point of file system on node，reserved field',
     `nodename` varchar(255) NOT NULL COMMENT 'node name',
     `usedsize` bigint(20) NOT NULL COMMENT 'cache used size on cache dir',
     `created_at` datetime NOT NULL COMMENT 'create time',
@@ -350,3 +350,18 @@ CREATE TABLE IF NOT EXISTS `paddleflow_node_info` (
     UNIQUE INDEX idx_cluster_node (`cluster_id`,`nodename`)
     )ENGINE=InnoDB DEFAULT CHARSET=utf8 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMMENT='all node info for compute node score for schedule or location awareness in the future';
 
+CREATE TABLE IF NOT EXISTS `fs_mount` (
+    `pk` bigint(20) unsigned NOT NULL AUTO_INCREMENT COMMENT 'pk',
+    `mount_id` varchar(36) NOT NULL COMMENT 'unique fs mount id',
+    `fs_id` varchar(36) NOT NULL COMMENT 'file system id',
+    `cluster_id` varchar(60) DEFAULT '' COMMENT 'cluster id',
+    `nodename` varchar(255) NOT NULL COMMENT 'node name',
+    `mountpoint` varchar(4096) NOT NULL COMMENT 'mount point',
+    `created_at` datetime NOT NULL COMMENT 'create time',
+    `updated_at` datetime NOT NULL COMMENT 'update time',
+    `deleted_at` datetime(3) DEFAULT NULL  COMMENT 'delete time',
+    PRIMARY KEY (`pk`),
+    UNIQUE KEY (`mount_id`),
+    INDEX idx_fs_id (`fs_id`),
+    INDEX idx_fs_id_nodename (`fs_id`,`nodename`)
+    )ENGINE=InnoDB DEFAULT CHARSET=utf8 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMMENT='manage file system mount';

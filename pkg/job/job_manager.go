@@ -25,7 +25,6 @@ import (
 
 	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/common/config"
-	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/common/schema"
 	"paddleflow/pkg/job/api"
 	"paddleflow/pkg/job/runtime"
@@ -221,7 +220,7 @@ func (m *JobManagerImpl) GetQueue(queueID api.QueueID) (*api.QueueInfo, bool) {
 		return value.(*api.QueueInfo), true
 	}
 	// get queue from db
-	q, err := models.GetQueueByID(&logger.RequestContext{}, string(queueID))
+	q, err := models.GetQueueByID(string(queueID))
 	if err != nil {
 		log.Errorf("get queue from database failed, err: %s", err)
 		return nil, false

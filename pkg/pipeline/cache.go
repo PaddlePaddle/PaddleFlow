@@ -186,7 +186,7 @@ func (cc *conservativeCacheCalculator) getFsScopeModTime() (map[string]string, e
 			continue
 		}
 
-		mtime, err := cc.fsHandler.ModTime(path)
+		mtime, err := cc.fsHandler.LastModTime(path)
 		if err != nil {
 			err = fmt.Errorf("get the mtime of fsScope file[%s] failed: %s", path, err.Error())
 			cc.step.getLogger().Errorln(err.Error())
@@ -213,7 +213,7 @@ func (cc *conservativeCacheCalculator) getInputArtifactModTime() (map[string]str
 			return map[string]string{}, err
 		}
 
-		mtime, err := cc.fsHandler.ModTime(path)
+		mtime, err := cc.fsHandler.LastModTime(path)
 		if err != nil {
 			err = fmt.Errorf("get the mtime of inputArtfact[%s] failed: %s", name, err.Error())
 			return map[string]string{}, err

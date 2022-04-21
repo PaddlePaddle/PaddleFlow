@@ -294,8 +294,8 @@ def _print_run(run, out_format):
     """ print run info"""
     headers = ['run id', 'status', 'name', 'desc', 'entry', 'param', 'source', 'run msg', 
     'create time', 'update time', 'activate time']
-    data = [[run.runId, run.status, run.name, run.desc, run.entry, run.param, run.source, 
-             run.runMsg, run.createTime, run.update_time, run.activateTime]]
+    data = [[run.runId, run.status, run.name, run.description, run.entry, run.parameters, run.source, 
+             run.runMsg, run.createTime, run.updateTime, run.activateTime]]
     print_output(data, headers, out_format, table_format='grid')
     if run.run_yaml:
         headers = ['run yaml detail']

@@ -112,11 +112,12 @@ func (fs *FileSystem) Open(path_ string) (*File, error) {
 	}
 
 	info := FileInfo{
-		path:  path_,
-		size:  int64(attr.Size),
-		mtime: uint64(attr.Mtimensec),
-		isDir: attr.IsDir(),
-		mode:  utils.StatModeToFileMode(int(attr.Mode)),
+		path:      path_,
+		size:      int64(attr.Size),
+		mtime:     uint64(attr.Mtime),
+		mtimensec: uint64(attr.Mtimensec),
+		isDir:     attr.IsDir(),
+		mode:      utils.StatModeToFileMode(int(attr.Mode)),
 	}
 
 	file := NewPFILE(fh, ino, info, fs)
@@ -172,11 +173,12 @@ func (fs *FileSystem) Stat(path_ string) (os.FileInfo, error) {
 	}
 
 	info := FileInfo{
-		path:  path_,
-		size:  int64(attr.Size),
-		mtime: uint64(attr.Mtime),
-		isDir: attr.IsDir(),
-		mode:  utils.StatModeToFileMode(int(attr.Mode)),
+		path:      path_,
+		size:      int64(attr.Size),
+		mtime:     uint64(attr.Mtime),
+		mtimensec: uint64(attr.Mtimensec),
+		isDir:     attr.IsDir(),
+		mode:      utils.StatModeToFileMode(int(attr.Mode)),
 	}
 	return &info, nil
 }
