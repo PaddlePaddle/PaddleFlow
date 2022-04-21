@@ -68,6 +68,7 @@ type CommonJobInfo struct {
 // SchedulingPolicy indicate queueID/priority
 type SchedulingPolicy struct {
 	Queue    string `json:"queue"`
+	QueueID  string `json:"-"`
 	Priority string `json:"priority,omitempty"`
 }
 
@@ -117,15 +118,15 @@ func CreateSingleJob(request *CreateSingleJobRequest) (*CreateJobResponse, error
 		extensionTemplate = ""
 	}
 	conf := schema.Conf{
-		Name:            request.CommonJobInfo.Name,
-		Labels:          request.CommonJobInfo.Labels,
-		Annotations:     request.CommonJobInfo.Annotations,
+		Name:            request.Name,
+		Labels:          request.Labels,
+		Annotations:     request.Annotations,
 		Env:             request.Env,
 		Port:            request.Port,
 		Image:           request.Image,
 		FileSystem:      request.FileSystem,
 		ExtraFileSystem: request.ExtraFileSystems,
-		Priority:        request.CommonJobInfo.SchedulingPolicy.Priority,
+		Priority:        request.SchedulingPolicy.Priority,
 		Flavour:         request.Flavour,
 	}
 
@@ -152,7 +153,6 @@ func patchEnvs(conf *schema.Conf, commonJobInfo *CommonJobInfo) error {
 	// basic fields required
 	conf.Labels = commonJobInfo.Labels
 	conf.Annotations = commonJobInfo.Annotations
-	conf.SetUserName(commonJobInfo.UserName)
 	// info in SchedulingPolicy: queue,Priority,ClusterId,Namespace
 	queueName := commonJobInfo.SchedulingPolicy.Queue
 	queue, err := models.GetQueueByName(queueName)
@@ -163,9 +163,6 @@ func patchEnvs(conf *schema.Conf, commonJobInfo *CommonJobInfo) error {
 		}
 		return err
 	}
-	conf.SetQueueID(queue.ID)
-	conf.SetPriority(commonJobInfo.SchedulingPolicy.Priority)
-	conf.SetEnv(schema.EnvJobQueueName, queue.Name)
 	if commonJobInfo.SchedulingPolicy.Priority != "" {
 		conf.Priority = commonJobInfo.SchedulingPolicy.Priority
 	}
@@ -178,7 +175,6 @@ func patchEnvs(conf *schema.Conf, commonJobInfo *CommonJobInfo) error {
 func patchSingleEnvs(conf *schema.Conf, request *CreateSingleJobRequest) error {
 	log.Debugf("patchSingleEnvs conf=%#v, request=%#v", conf, request)
 	// fields in request.CommonJobInfo
-	conf.SetEnv(schema.EnvJobType, string(schema.TypeSingle))
 	if err := patchEnvs(conf, &request.CommonJobInfo); err != nil {
 		log.Errorf("patch commonInfo of single job failed, err=%v", err)
 		return err
@@ -197,7 +193,14 @@ func patchSingleEnvs(conf *schema.Conf, request *CreateSingleJobRequest) error {
 			request.Flavour.Name, request.CommonJobInfo.Name, err)
 		return err
 	}
-	conf.SetFlavour(flavour.Name)
+	conf.Flavour = schema.Flavour{
+		Name: flavour.Name,
+		ResourceInfo: schema.ResourceInfo{
+			CPU:             flavour.CPU,
+			Mem:             flavour.Mem,
+			ScalarResources: flavour.ScalarResources,
+		},
+	}
 	// todo others in FileSystem
 	if request.FileSystem.Name != "" {
 		fsID := common.ID(request.CommonJobInfo.UserName, request.FileSystem.Name)
@@ -207,10 +210,9 @@ func patchSingleEnvs(conf *schema.Conf, request *CreateSingleJobRequest) error {
 	return nil
 }
 
-// CreateDistributedJob handler for creating job
-func CreateDistributedJob(request *CreateDisJobRequest) (*CreateJobResponse, error) {
-	log.Debugf("CreateDistributedJob request=%#v", request)
-	queueName := request.SchedulingPolicy.Queue
+// getQueueWithCheck check and get queue from SchedulingPolicy in request/request.Members
+func getQueueWithCheck(request *CreateDisJobRequest) (models.Queue, error) {
+	queueName := request.CommonJobInfo.SchedulingPolicy.Queue
 	if queueName == "" {
 		// try to find queue from members
 		for _, member := range request.Members {
@@ -220,12 +222,32 @@ func CreateDistributedJob(request *CreateDisJobRequest) (*CreateJobResponse, err
 			}
 		}
 	}
+	if queueName == "" {
+		return models.Queue{}, fmt.Errorf("queue not found in request")
+	}
 	queue, err := models.GetQueueByName(queueName)
 	if err != nil {
-		log.Errorf("Get queue by id failed when creating job %s failed, err=%v", queueName, err)
+		log.Errorf("Get queue by id failed when creating job %s failed, err=%v", request.CommonJobInfo.Name, err)
 		if err == gorm.ErrRecordNotFound {
-			return nil, fmt.Errorf("queue not found by id %s", queueName)
+			return models.Queue{}, fmt.Errorf("queue not found by id %s", queueName)
 		}
+		return models.Queue{}, err
+	}
+
+	request.SchedulingPolicy.QueueID = queue.ID
+	for _, member := range request.Members {
+		member.SchedulingPolicy.QueueID = queue.ID
+	}
+	return queue, nil
+}
+
+// CreateDistributedJob handler for creating job
+func CreateDistributedJob(ctx *logger.RequestContext, request *CreateDisJobRequest) (*CreateJobResponse, error) {
+	log.Debugf("CreateDistributedJob request=%#v", request)
+	// get queue and fill request.SchedulePolicy.QueueID
+	queue, err := getQueueWithCheck(request)
+	if err != nil {
+		log.Errorf("Get queue failed when creating job %s failed, err=%v", request.CommonJobInfo.Name, err)
 		return nil, err
 	}
 
@@ -248,7 +270,7 @@ func CreateDistributedJob(request *CreateDisJobRequest) (*CreateJobResponse, err
 		Priority:    request.SchedulingPolicy.Priority,
 	}
 
-	if err := patchDistributedEnvs(&conf, queue, request); err != nil {
+	if err := patchDistributedConf(&conf, queue, request); err != nil {
 		log.Errorf("patch envs when creating job %s failed, err=%v", request.CommonJobInfo.Name, err)
 		return nil, err
 	}
@@ -316,9 +338,6 @@ func newPSMembers(request *CreateDisJobRequest) ([]models.Member, error) {
 			return nil, err
 		}
 		patchEnvs(&member.Conf, &reqMember.CommonJobInfo)
-		if member.Conf.GetPriority() == "" {
-			member.Conf.SetPriority(schema.EnvJobNormalPriority)
-		}
 
 		members = append(members, member)
 	}
@@ -357,7 +376,7 @@ func newMember(member MemberSpec, role schema.MemberRole) (models.Member, error)
 			// 计算资源
 			Flavour:  flavour,
 			Priority: member.SchedulingPolicy.Priority,
-			QueueID:  member.SchedulingPolicy.Queue,
+			QueueID:  member.SchedulingPolicy.QueueID,
 			// 运行时需要的参数
 			Labels:      member.Labels,
 			Annotations: member.Annotations,
@@ -370,17 +389,13 @@ func newMember(member MemberSpec, role schema.MemberRole) (models.Member, error)
 	}, nil
 }
 
-func patchDistributedEnvs(conf *schema.Conf, queue models.Queue, request *CreateDisJobRequest) error {
+func patchDistributedConf(conf *schema.Conf, queue models.Queue, request *CreateDisJobRequest) error {
 	log.Debugf("patchSingleEnvs conf=%#v, request=%#v", conf, request)
 	// fields in request.CommonJobInfo
-	conf.SetEnv(schema.EnvJobType, string(schema.TypeDistributed))
 	conf.Labels = request.Labels
 	conf.Annotations = request.Annotations
-	conf.SetUserName(request.UserName)
 	// info in SchedulingPolicy: queue,Priority,ClusterId,Namespace
 	conf.SetQueueID(queue.ID)
-	conf.SetPriority(request.SchedulingPolicy.Priority)
-	conf.SetEnv(schema.EnvJobQueueName, queue.Name)
 	if request.SchedulingPolicy.Priority != "" {
 		conf.Priority = request.SchedulingPolicy.Priority
 	}

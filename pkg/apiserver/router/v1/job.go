@@ -151,7 +151,7 @@ func (jr *JobRouter) CreateDistributedJob(w http.ResponseWriter, r *http.Request
 		return
 	}
 	request.UserName = ctx.UserName
-	response, err := job.CreateDistributedJob(&request)
+	response, err := job.CreateDistributedJob(&ctx, &request)
 	if err != nil {
 		ctx.Logging().Errorf("create job failed. job request:%v error:%s", request, err.Error())
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
@@ -219,6 +219,9 @@ func validateSingleJob(ctx *logger.RequestContext, request *job.CreateSingleJobR
 			return err
 		}
 	}
+	if request.SchedulingPolicy.Priority == "" {
+		request.SchedulingPolicy.Priority = schema.PriorityClassNormal
+	}
 	return nil
 }
 
@@ -232,9 +235,6 @@ func validateEmptyField(request *job.CreateSingleJobRequest) []string {
 	}
 	if request.Flavour.Name == "" {
 		emptyFields = append(emptyFields, "flavour.name")
-	}
-	if request.FileSystem.Name == "" {
-		emptyFields = append(emptyFields, "fileSystem.name")
 	}
 	return emptyFields
 }
@@ -259,14 +259,14 @@ func validateDistributedJob(ctx *logger.RequestContext, request *job.CreateDisJo
 		}
 		// validate queue
 		mQueueName := member.SchedulingPolicy.Queue
-
 		if mQueueName != queueName {
 			if queueName == "" {
 				// set queueName by the first mQueueName which is not nil
 				queueName = mQueueName
+				request.SchedulingPolicy.Queue = mQueueName
 			} else if mQueueName == "" {
 				// set value by default as request.SchedulingPolicy.Queue
-				mQueueName = queueName
+				member.SchedulingPolicy.Queue = queueName
 			} else {
 				err := fmt.Errorf("schedulingPolicy.Queue should be the same, there are %s and %s", queueName, mQueueName)
 				ctx.Logging().Errorf("create distributed job failed. error: %s", err.Error())
@@ -274,11 +274,12 @@ func validateDistributedJob(ctx *logger.RequestContext, request *job.CreateDisJo
 				return err
 			}
 		}
+		// check priority
+		if member.SchedulingPolicy.Priority == "" {
+			member.SchedulingPolicy.Priority = schema.PriorityClassNormal
+		}
 	}
 
-	if request.SchedulingPolicy.Priority == "" {
-		request.SchedulingPolicy.Priority = schema.PriorityClassNormal
-	}
 	// todo(zhongzichao) more
 	return nil
 }
