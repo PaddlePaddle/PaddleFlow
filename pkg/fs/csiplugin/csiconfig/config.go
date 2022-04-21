@@ -17,18 +17,15 @@ limitations under the License.
 package csiconfig
 
 import (
-	"hash/fnv"
-	"sync"
-
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var (
 	NodeName   = ""
-	Namespace  = "paddleflow"
+	Namespace  = ""
 	PodName    = ""
-	MountImage = "nginx"
+	MountImage = ""
 
 	CSIPod = corev1.Pod{}
 )
@@ -37,15 +34,6 @@ const (
 	PodTypeKey   = "app.kubernetes.io/name"
 	PodTypeValue = "pfs-mount"
 )
-
-var PodLocks [1024]sync.Mutex
-
-func GetPodLock(podName string) *sync.Mutex {
-	h := fnv.New32a()
-	h.Write([]byte(podName))
-	index := int(h.Sum32())
-	return &PodLocks[index%1024]
-}
 
 func GeneratePodTemplate() *corev1.Pod {
 	isPrivileged := true

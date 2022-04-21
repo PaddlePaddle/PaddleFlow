@@ -45,12 +45,13 @@ var logConf = logger.LogConfig{
 	IsCompress:      true,
 }
 
+// init obtain csi-plugin pod, to assign same parameters to mount pods in csiconfig
 func init() {
+	csiconfig.Namespace = os.Getenv("CSI_NAMESPACE")
 	csiconfig.NodeName = os.Getenv("KUBE_NODE_NAME")
-	//csiconfig.Namespace = os.Getenv("PFS_MOUNT_NAMESPACE")
-	csiconfig.PodName = os.Getenv("KUBE_POD_NAME")
+	csiconfig.PodName = os.Getenv("CSI_POD_NAME")
 
-	if csiconfig.PodName == "" {
+	if csiconfig.PodName == "" || csiconfig.Namespace == "" {
 		log.Fatalf("Pod name[%s] & namespace[%s] can't be null\n", csiconfig.PodName, csiconfig.Namespace)
 		os.Exit(0)
 	}
