@@ -456,9 +456,7 @@ func CreateWorkflowJob(ctx *logger.RequestContext, request *CreateWfJobRequest) 
 
 // createJob handler for creating job, and the job_service.CreateJob will be deprecated
 func createJob(conf schema.PFJobConf, jobID, jobTemplate string) (string, error) {
-	if err := job.ValidateJob(conf); err != nil {
-		return "", err
-	}
+	// todo validate job
 	if err := checkPriority(conf); err != nil {
 		log.Errorf("check priority failed, err=%v", err)
 		return "", err
