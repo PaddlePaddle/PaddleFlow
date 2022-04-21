@@ -147,6 +147,7 @@ func CreateSingleJob(request *CreateSingleJobRequest) (*CreateJobResponse, error
 
 	jobInfo := &models.Job{
 		ID:                request.ID,
+		Name:              request.Name,
 		Type:              string(schema.TypeSingle),
 		UserName:          request.UserName,
 		QueueID:           request.SchedulingPolicy.QueueID,
@@ -416,6 +417,7 @@ func CreateWorkflowJob(ctx *logger.RequestContext, request *CreateWfJobRequest) 
 	// create workflow job
 	jobInfo := &models.Job{
 		ID:                request.ID,
+		Name:              request.Name,
 		Type:              string(schema.TypeWorkflow),
 		UserName:          conf.GetUserName(),
 		QueueID:           conf.GetQueueID(),
