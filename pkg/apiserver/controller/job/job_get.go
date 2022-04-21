@@ -221,6 +221,10 @@ func convertJobToResponse(job models.Job, runtimeFlag bool) (GetJobResponse, err
 		Queue:    job.Config.GetQueueName(),
 		Priority: job.Config.Priority,
 	}
+	if job.Config != nil {
+		response.Labels = job.Config.Labels
+		response.Annotations = job.Config.Annotations
+	}
 	// process runtime info && member
 	switch job.Type {
 	case string(schema.TypeSingle):
