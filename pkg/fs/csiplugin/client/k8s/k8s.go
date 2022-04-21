@@ -17,7 +17,9 @@ limitations under the License.
 package k8s
 
 import (
+	"bytes"
 	"context"
+	"io"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -37,6 +39,9 @@ type K8SInterface interface {
 	GetPersistentVolumeClaim(namespace, name string,
 		getOptions metav1.GetOptions) (*v1.PersistentVolumeClaim, error)
 	ListPersistentVolume(listOptions metav1.ListOptions) (*v1.PersistentVolumeList, error)
+	CreatePod(pod *v1.Pod) (*v1.Pod, error)
+	GetPod(podName, namespace string) (*v1.Pod, error)
+	GetPodLog(podName, namespace, containerName string) (string, error)
 }
 
 type K8SClient struct {
@@ -72,6 +77,52 @@ func New(k8sConfigPath string, k8sClientTimeout int) (*K8SClient, error) {
 		Clientset: clientset,
 		Config:    config,
 	}, nil
+}
+
+func (c *K8SClient) CreatePod(pod *v1.Pod) (*v1.Pod, error) {
+	if pod == nil {
+		log.Info("Create pod: pod is nil")
+		return nil, nil
+	}
+	log.Infof("Create pod %s", pod.Name)
+	mntPod, err := c.Clientset.CoreV1().Pods(pod.Namespace).Create(context.TODO(), pod, metav1.CreateOptions{})
+	if err != nil {
+		log.Errorf("Can't create pod %s: %v", pod.Name, err)
+		return nil, err
+	}
+	return mntPod, nil
+}
+
+func (c *K8SClient) GetPod(podName, namespace string) (*v1.Pod, error) {
+	log.Infof("Get pod %s", podName)
+	mntPod, err := c.Clientset.CoreV1().Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
+	if err != nil {
+		log.Errorf("Can't get pod %s namespace %s: %v", podName, namespace, err)
+		return nil, err
+	}
+	return mntPod, nil
+}
+
+func (c *K8SClient) GetPodLog(podName, namespace, containerName string) (string, error) {
+	log.Infof("Get pod %s log", podName)
+	tailLines := int64(20)
+	req := c.Clientset.CoreV1().Pods(namespace).GetLogs(podName, &v1.PodLogOptions{
+		Container: containerName,
+		TailLines: &tailLines,
+	})
+	podLogs, err := req.Stream(context.TODO())
+	if err != nil {
+		return "", err
+	}
+	defer podLogs.Close()
+
+	buf := new(bytes.Buffer)
+	_, err = io.Copy(buf, podLogs)
+	if err != nil {
+		return "", err
+	}
+	str := buf.String()
+	return str, nil
 }
 
 // ProxyGetPods returns all pods on the node with nodeName, and the api server will forward this request to
