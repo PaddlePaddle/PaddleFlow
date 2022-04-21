@@ -98,7 +98,9 @@ func (st *Step) generateStepParamSolver(forCacheFingerprint bool) (*StepParamSol
 		jobs[step.name] = steps[step.name].job
 	}
 
-	runtimeView, err := GetPFRuntime(st.name, st.wfr.runtimeView, st.wfr.wf.Source)
+	pfRuntimeGen := NewPFRuntimeGenerator(st.wfr.runtimeView, st.wfr.wf.Source)
+	runtimeView, err := pfRuntimeGen.GetPFRuntime(st.name)
+
 	if err != nil {
 		st.getLogger().Errorf("marshal runtimeView of run[%s] for step[%s] failed: %v", st.wfr.wf.RunID, st.name, runtimeView)
 		return nil, err

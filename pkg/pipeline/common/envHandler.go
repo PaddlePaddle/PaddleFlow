@@ -22,22 +22,34 @@ import (
 	"paddleflow/pkg/common/schema"
 )
 
-func GetPFRuntime(stepName string, runtimeView schema.RuntimeView, workflowSource schema.WorkflowSource) (string, error) {
+type PFRuntimeGenerator struct {
+	runtimeView    schema.RuntimeView
+	workflowSource schema.WorkflowSource
+}
+
+func NewPFRuntimeGenerator(runtimeView schema.RuntimeView, workflowSource schema.WorkflowSource) *PFRuntimeGenerator {
+	return &PFRuntimeGenerator{
+		runtimeView:    runtimeView,
+		workflowSource: workflowSource,
+	}
+}
+
+func (pfg *PFRuntimeGenerator) GetPFRuntime(stepName string) (string, error) {
 	pfRuntime := schema.RuntimeView{}
 
-	_, ok := workflowSource.EntryPoints[stepName]
+	_, ok := pfg.workflowSource.EntryPoints[stepName]
 	if ok {
-		err := recursiveGetJobView(stepName, pfRuntime, runtimeView, workflowSource)
+		err := pfg.recursiveGetJobView(stepName, pfRuntime)
 		if err != nil {
 			return "", err
 		}
 	} else {
-		for name, jobView := range runtimeView {
+		for name, jobView := range pfg.runtimeView {
 			pfRuntime[name] = jobView
 		}
 	}
 
-	DeleteSystemParamEnvForPFRuntime(pfRuntime)
+	pfg.deleteSystemParamEnvForPFRuntime(pfRuntime)
 	pfRuntimeJson, err := json.Marshal(pfRuntime)
 
 	if err != nil {
@@ -47,24 +59,24 @@ func GetPFRuntime(stepName string, runtimeView schema.RuntimeView, workflowSourc
 	return string(pfRuntimeJson), nil
 }
 
-func recursiveGetJobView(stepName string, pfRuntime, SrcRunTime schema.RuntimeView, workflowSource schema.WorkflowSource) error {
-	_, ok := workflowSource.EntryPoints[stepName]
+func (pfg *PFRuntimeGenerator) recursiveGetJobView(stepName string, pfRuntime schema.RuntimeView) error {
+	_, ok := pfg.workflowSource.EntryPoints[stepName]
 	if !ok {
 		return fmt.Errorf("cannot find step[%s] in workflowSource.entrypoints", stepName)
 	}
 	if _, ok := pfRuntime[stepName]; ok {
 		return nil
 	}
-	for _, step := range workflowSource.EntryPoints[stepName].GetDeps() {
-		pfRuntime[step] = SrcRunTime[step]
-		if err := recursiveGetJobView(step, pfRuntime, SrcRunTime, workflowSource); err != nil {
+	for _, step := range pfg.workflowSource.EntryPoints[stepName].GetDeps() {
+		pfRuntime[step] = pfg.runtimeView[step]
+		if err := pfg.recursiveGetJobView(step, pfRuntime); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func DeleteSystemParamEnvForPFRuntime(runtimeView schema.RuntimeView) {
+func (pfg *PFRuntimeGenerator) deleteSystemParamEnvForPFRuntime(runtimeView schema.RuntimeView) {
 	for name, jobView := range runtimeView {
 		jobView.Env = DeleteSystemParamEnv(jobView.Env)
 		runtimeView[name] = jobView
@@ -79,6 +91,7 @@ func DeleteSystemParamEnv(sysParamEnv map[string]string) map[string]string {
 		for _, sysParam := range SysParamNameList {
 			if sysParam == name {
 				isSysParam = true
+				break
 			}
 		}
 
