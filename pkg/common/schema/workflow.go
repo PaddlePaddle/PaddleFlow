@@ -32,14 +32,11 @@ const (
 	ArtifactTypeInput  = "input"
 	ArtifactTypeOutput = "output"
 
-	EntryPointsTypeJson = "entryPoints"
-	EntryPointsTypeYaml = "entry_points"
+	EntryPointsStr = "entry_points"
 
-	CacheAttributeEnable             = "enable"
-	CacheAttributeMaxExpiredTimeJson = "maxExpiredTime"
-	CacheAttributeMaxExpiredTimeYaml = "max_expired_time"
-	CacheAttributeFsScopeJson        = "fsScope"
-	CacheAttributeFsScopeYaml        = "fs_scope"
+	CacheAttributeEnable         = "enable"
+	CacheAttributeMaxExpiredTime = "max_expired_time"
+	CacheAttributeFsScope        = "fs_scope"
 
 	FailureStrategyFailFast = "fail_fast"
 	FailureStrategyContinue = "continue"
@@ -53,11 +50,6 @@ type Artifacts struct {
 	OutputList []string          `yaml:"output"      json:"-"`
 }
 
-type ArtifactsJson struct {
-	Input  map[string]string `json:"input"`
-	Output []string          `json:"output"`
-}
-
 func (atf *Artifacts) ValidateOutputMapByList() error {
 	if atf.Output == nil {
 		atf.Output = make(map[string]string)
@@ -66,19 +58,6 @@ func (atf *Artifacts) ValidateOutputMapByList() error {
 		atf.Output[outputName] = ""
 	}
 	return nil
-}
-
-type RunStep struct {
-	Parameters map[string]interface{} `json:"parameters"`
-	Command    string                 `json:"command"`
-	Deps       string                 `json:"deps"`
-	Artifacts  ArtifactsJson          `json:"artifacts"`
-	Env        map[string]string      `json:"env"`
-	Queue      string                 `json:"queue"`
-	Flavour    string                 `json:"flavour"`
-	JobType    string                 `json:"jobType"`
-	Cache      Cache                  `json:"cache"`
-	DockerEnv  string                 `json:"dockerEnv"`
 }
 
 type WorkflowSourceStep struct {
@@ -211,47 +190,30 @@ func runYaml2Map(runYaml []byte) (map[string]interface{}, error) {
 	return yamlMap, nil
 }
 
-func (wfs *WorkflowSource) ValidateStepCacheByMap(runMap map[string]interface{}, mapType string) error {
-	entryPointStr := ""
-	enableStr := ""
-	maxExpiredTimeStr := ""
-	fsScopeStr := ""
-	switch mapType {
-	case "yaml":
-		entryPointStr = EntryPointsTypeYaml
-		enableStr = CacheAttributeEnable
-		maxExpiredTimeStr = CacheAttributeMaxExpiredTimeYaml
-		fsScopeStr = CacheAttributeFsScopeYaml
-	case "json":
-		entryPointStr = EntryPointsTypeJson
-		enableStr = CacheAttributeEnable
-		maxExpiredTimeStr = CacheAttributeMaxExpiredTimeJson
-		fsScopeStr = CacheAttributeFsScopeJson
-	}
-
+func (wfs *WorkflowSource) ValidateStepCacheByMap(runMap map[string]interface{}) error {
 	for name, point := range wfs.EntryPoints {
 		// 先将全局的Cache设置赋值给该节点的Cache，下面再根据Map进行替换
 		point.Cache = wfs.Cache
 
 		// 检查用户是否有设置节点级别的Cache
-		cache, ok, err := unstructured.NestedFieldCopy(runMap, entryPointStr, name, "cache")
+		cache, ok, err := unstructured.NestedFieldCopy(runMap, "entry_points", name, "cache")
 		if err != nil {
 			return err
 		}
 		if ok {
 			cacheMap := cache.(map[string]interface{})
 			// Enable字段赋值
-			if value, ok := cacheMap[enableStr]; ok {
+			if value, ok := cacheMap[CacheAttributeEnable]; ok {
 				switch value := value.(type) {
 				case bool:
 					point.Cache.Enable = value
 				default:
 					return fmt.Errorf("cannot assign cache attribute [%s] by value[%v] with type [%s]",
-						enableStr, value, reflect.TypeOf(value).Name())
+						CacheAttributeEnable, value, reflect.TypeOf(value).Name())
 				}
 			}
 			// MaxExpiredTime字段赋值
-			if value, ok := cacheMap[maxExpiredTimeStr]; ok {
+			if value, ok := cacheMap[CacheAttributeMaxExpiredTime]; ok {
 				switch value := value.(type) {
 				case int64:
 					point.Cache.MaxExpiredTime = strconv.FormatInt(value, 10)
@@ -259,17 +221,17 @@ func (wfs *WorkflowSource) ValidateStepCacheByMap(runMap map[string]interface{},
 					point.Cache.MaxExpiredTime = value
 				default:
 					return fmt.Errorf("cannot assign cache attribute [%s] by value[%v] with type [%s]",
-						maxExpiredTimeStr, value, reflect.TypeOf(value).Name())
+						CacheAttributeMaxExpiredTime, value, reflect.TypeOf(value).Name())
 				}
 			}
 			// FsScope字段赋值
-			if value, ok := cacheMap[fsScopeStr]; ok {
+			if value, ok := cacheMap[CacheAttributeFsScope]; ok {
 				switch value := value.(type) {
 				case string:
 					point.Cache.FsScope = value
 				default:
 					return fmt.Errorf("cannot assign cache attribute [%s] by value[%v] with type [%s]",
-						fsScopeStr, value, reflect.TypeOf(value).Name())
+						CacheAttributeFsScope, value, reflect.TypeOf(value).Name())
 				}
 			}
 		}
@@ -296,7 +258,7 @@ func ParseWorkflowSource(runYaml []byte) (WorkflowSource, error) {
 	}
 
 	// 检查节点级别的Cache设置，根据需要用Run级别的Cache进行覆盖
-	if err := wfs.ValidateStepCacheByMap(yamlMap, "yaml"); err != nil {
+	if err := wfs.ValidateStepCacheByMap(yamlMap); err != nil {
 		return WorkflowSource{}, err
 	}
 	return wfs, nil
