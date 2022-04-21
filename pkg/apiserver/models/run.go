@@ -180,7 +180,7 @@ func (r *Run) validateRuntimeAndPostProcess() error {
 func (r *Run) initAllPFRuntime() error {
 	for name, step := range r.Runtime {
 		pfRuntimeJson, err := pplcommon.GetPFRuntime(name, r.Runtime, r.WorkflowSource)
-		logger.Logger().Warnf("for debug, PF_RUN_TIME of [%s] is [%s]", name, pfRuntimeJson)
+		logger.Logger().Warnf("for debug, PF_RUN_TIME of [%s] is [%s]\n Runtime is [%v]\nWfs is [%v]", name, pfRuntimeJson, r.Runtime, r.WorkflowSource)
 		if err != nil {
 			return err
 		}
