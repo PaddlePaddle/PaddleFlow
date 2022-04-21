@@ -210,7 +210,7 @@ func validateSingleJob(ctx *logger.RequestContext, request *job.CreateSingleJobR
 		return err
 	}
 	// SchedulingPolicy
-	if err := checkPriority(request.SchedulingPolicy.Priority); err != nil {
+	if err := checkPriority(&request.SchedulingPolicy); err != nil {
 		ctx.Logging().Errorf("Failed to check priority: %v", err)
 		ctx.ErrorCode = common.JobInvalidField
 		return err
@@ -222,10 +222,11 @@ func validateSingleJob(ctx *logger.RequestContext, request *job.CreateSingleJobR
 	return nil
 }
 
-func checkPriority(priority string) error {
+func checkPriority(schedulingPolicy *job.SchedulingPolicy) error {
+	priority := schedulingPolicy.Priority
 	// check job priority
 	if priority == "" {
-		priority = schema.EnvJobNormalPriority
+		schedulingPolicy.Priority = schema.EnvJobNormalPriority
 	} else if priority != schema.EnvJobLowPriority &&
 		priority != schema.EnvJobNormalPriority && priority != schema.EnvJobHighPriority {
 		return errors.InvalidJobPriorityError(priority)
@@ -283,7 +284,7 @@ func validateDistributedJob(ctx *logger.RequestContext, request *job.CreateDisJo
 			}
 		}
 		// check priority
-		if err := checkPriority(request.SchedulingPolicy.Priority); err != nil {
+		if err := checkPriority(&request.SchedulingPolicy); err != nil {
 			ctx.Logging().Errorf("Failed to check priority: %v", err)
 			ctx.ErrorCode = common.JobInvalidField
 			return err
