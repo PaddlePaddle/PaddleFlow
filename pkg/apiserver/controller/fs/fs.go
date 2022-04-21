@@ -28,7 +28,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"paddleflow/pkg/apiserver/common"
-	"paddleflow/pkg/apiserver/controller/grant"
 	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/common/config"
 	"paddleflow/pkg/common/logger"
@@ -136,25 +135,6 @@ func (s *FileSystemService) CreateFileSystem(ctx *logger.RequestContext, req *Cr
 		log.Errorf("create file system[%v] in db failed: %v", fs, err)
 		ctx.ErrorCode = common.FileSystemDataBaseError
 		return models.FileSystem{}, err
-	}
-
-	// create grant for non-root user
-	if !common.IsRootUser(req.Username) {
-		grantInfo := grant.CreateGrantRequest{
-			UserName:     req.Username,
-			ResourceID:   fs.ID,
-			ResourceType: common.ResourceTypeFs,
-		}
-		_, err = grant.CreateGrant(ctx, grantInfo)
-		if err != nil {
-			log.Errorf("create grant for filesystem[%s] to user[%s] failed: %v", fs.Name, req.Username, err)
-			ctx.ErrorCode = common.GrantUserNameAndFs
-			errDelete := models.DeleteFileSystem(fs.ID)
-			if errDelete != nil {
-				log.Errorf("delete filesystem[%s] to user[%s] failed: %v", fs.Name, req.Username, err)
-			}
-			return models.FileSystem{}, err
-		}
 	}
 	return fs, nil
 }
