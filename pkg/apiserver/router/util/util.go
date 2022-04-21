@@ -92,7 +92,7 @@ func GetQueryMaxKeys(ctx *logger.RequestContext, r *http.Request) (int, error) {
 	if queryMaxKeys != "" {
 		var err error
 		maxKeys, err = strconv.Atoi(queryMaxKeys)
-		if err != nil || maxKeys <= 0 || maxKeys > ListPageMax {
+		if err != nil || maxKeys < 0 || maxKeys > ListPageMax {
 			ctx.ErrorCode = common.InvalidURI
 			return 0, common.InvalidMaxKeysError(queryMaxKeys)
 		}
