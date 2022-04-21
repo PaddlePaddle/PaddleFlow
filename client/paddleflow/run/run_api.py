@@ -138,7 +138,7 @@ class RunServiceApi(object):
         return True, runInfo
 
     @classmethod
-    def stop_run(self, host, runid, job_id=None, header=None):
+    def stop_run(self, host, runid, job_id=None, header=None, force=False):
         """stop run
         """
         if not header:
@@ -149,7 +149,10 @@ class RunServiceApi(object):
         params = {
             "action": "stop"
         }
-        response = api_client.call_api(method = "PUT", url =url, params=params, headers=header)
+        
+        body = {"stopForce": force}
+
+        response = api_client.call_api(method = "PUT", url =url, params=params, headers=header, json=body)
         if not response:
             raise PaddleFlowSDKException("Connection Error", "stop run failed due to HTTPError")
         if not response.text:

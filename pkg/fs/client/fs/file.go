@@ -40,12 +40,13 @@ const (
 )
 
 type FileInfo struct {
-	path  string
-	size  int64
-	mtime uint64
-	isDir bool
-	mode  os.FileMode
-	sys   interface{}
+	path      string
+	size      int64
+	mtime     uint64
+	mtimensec uint64
+	isDir     bool
+	mode      os.FileMode
+	sys       interface{}
 }
 
 func NewFileInfo(attr *base.FileInfo) FileInfo {
@@ -84,7 +85,7 @@ func (i *FileInfo) Mode() os.FileMode {
 }
 
 func (i *FileInfo) ModTime() time.Time {
-	return time.Unix(int64(i.mtime), 0)
+	return time.Unix(0, int64(i.mtime)*1e9+int64(i.mtimensec))
 }
 
 func (i *FileInfo) Sys() interface{} {
@@ -262,11 +263,12 @@ func (f *File) ReadDir(n int) ([]os.DirEntry, error) {
 		}
 		path_ := f.fs.vfs.Meta.InoToPath(f.inode)
 		fileInfo := FileInfo{
-			path:  path_,
-			size:  int64(info.Attr.Size),
-			mtime: uint64(info.Attr.Mtimensec),
-			isDir: info.Attr.IsDir(),
-			mode:  utils.StatModeToFileMode(int(info.Attr.Mode)),
+			path:      path_,
+			size:      int64(info.Attr.Size),
+			mtime:     uint64(info.Attr.Mtime),
+			mtimensec: uint64(info.Attr.Mtimensec),
+			isDir:     info.Attr.IsDir(),
+			mode:      utils.StatModeToFileMode(int(info.Attr.Mode)),
 		}
 		dirEntry := NewDirEntry(entry, fileInfo)
 		osDirs[i] = &dirEntry
@@ -289,11 +291,12 @@ func (f *File) Readdir(n int) ([]os.FileInfo, error) {
 	for i, info := range entries {
 		path_ := f.fs.vfs.Meta.InoToPath(f.inode)
 		fileInfo := FileInfo{
-			path:  path_,
-			size:  int64(info.Attr.Size),
-			mtime: uint64(info.Attr.Mtimensec),
-			isDir: info.Attr.IsDir(),
-			mode:  utils.StatModeToFileMode(int(info.Attr.Mode)),
+			path:      path_,
+			size:      int64(info.Attr.Size),
+			mtime:     uint64(info.Attr.Mtime),
+			mtimensec: uint64(info.Attr.Mtimensec),
+			isDir:     info.Attr.IsDir(),
+			mode:      utils.StatModeToFileMode(int(info.Attr.Mode)),
 		}
 		dirInfos[i] = &fileInfo
 	}
