@@ -34,12 +34,13 @@ import (
 )
 
 const (
-	PodVolumesKeyMntDir   = "pfs-mnt"
-	PodVolumesKeyCacheDir = "pfs-cache-dir"
-	HostPathMnt           = "/data/paddleflow-fs/mnt/"
-	InPodPathCache        = "/home/paddleflow/pfs-cache"
-	DataCacheDir          = "/data-cache"
-	MetaCacheDir          = "/meta-cache"
+	VolumesKeyMount = "pfs-mount"
+	VolumesKeyCache = "pfs-cache"
+	HostPathMnt     = "/data/paddleflow-fs/mnt"
+	MountPath       = "/home/paddleflow/mnt"
+	CachePath       = "/home/paddleflow/pfs-cache"
+	DataCacheDir    = "/data-cache"
+	MetaCacheDir    = "/meta-cache"
 )
 
 type PodMount struct {
@@ -167,14 +168,14 @@ func getErrContainerLog(K8sClient k8s.K8SInterface, podName string) (log string,
 func BuildMountPod(mountInfo pfs.MountInfo) *v1.Pod {
 	pod := csiconfig.GeneratePodTemplate()
 	pod.Name = GeneratePodNameByFsID(mountInfo.FSID)
-	inPodMp := "/home/paddleflow/mnt/" + mountInfo.FSID
-	cmd := getcmd(inPodMp, mountInfo)
+	mountPoint := MountPath + "/" + mountInfo.FSID
+	cmd := getcmd(mountPoint, mountInfo)
 	pod.Spec.Containers[0].Command = []string{"sh", "-c", cmd}
 
 	typeDir := corev1.HostPathDirectoryOrCreate
 	volumes := []corev1.Volume{
 		{
-			Name: PodVolumesKeyCacheDir,
+			Name: VolumesKeyCache,
 			VolumeSource: corev1.VolumeSource{
 				HostPath: &corev1.HostPathVolumeSource{
 					// TODO get from server cache config
@@ -184,10 +185,10 @@ func BuildMountPod(mountInfo pfs.MountInfo) *v1.Pod {
 			},
 		},
 		{
-			Name: PodVolumesKeyMntDir,
+			Name: VolumesKeyMount,
 			VolumeSource: corev1.VolumeSource{
 				HostPath: &corev1.HostPathVolumeSource{
-					Path: HostPathMnt + mountInfo.FSID,
+					Path: HostPathMnt + "/" + mountInfo.FSID,
 					Type: &typeDir,
 				},
 			},
@@ -196,13 +197,13 @@ func BuildMountPod(mountInfo pfs.MountInfo) *v1.Pod {
 	mp := corev1.MountPropagationBidirectional
 	volumeMounts := []corev1.VolumeMount{
 		{
-			Name:             PodVolumesKeyCacheDir,
-			MountPath:        InPodPathCache,
+			Name:             VolumesKeyCache,
+			MountPath:        CachePath,
 			MountPropagation: &mp,
 		},
 		{
-			Name:             PodVolumesKeyMntDir,
-			MountPath:        inPodMp,
+			Name:             VolumesKeyMount,
+			MountPath:        mountPoint,
 			MountPropagation: &mp,
 		},
 	}
@@ -211,11 +212,11 @@ func BuildMountPod(mountInfo pfs.MountInfo) *v1.Pod {
 	return pod
 }
 
-func getcmd(inPodMp string, mountInfo pfs.MountInfo) string {
+func getcmd(mountPoint string, mountInfo pfs.MountInfo) string {
 	// TODO obtain args from paddleflow-server
-	mkdir := "mkdir -p " + inPodMp + ";"
+	mkdir := "mkdir -p " + mountPoint + ";"
 	pfsMountPath := "/home/paddleflow/pfs-fuse mount "
-	mountPath := "--mount-point=" + inPodMp + " "
+	mountPath := "--mount-point=" + mountPoint + " "
 	options := []string{
 		"--server=",
 		"--user-name=",
@@ -223,8 +224,8 @@ func getcmd(inPodMp string, mountInfo pfs.MountInfo) string {
 		"--block-size=",
 		"--data-mem-size=",
 		"--fs-id=" + mountInfo.FSID,
-		"--data-disk-cache-path=" + InPodPathCache + DataCacheDir,
-		"--meta-path=" + InPodPathCache + MetaCacheDir,
+		"--data-disk-cache-path=" + CachePath + DataCacheDir,
+		"--meta-path=" + CachePath + MetaCacheDir,
 	}
 	cmd := mkdir + pfsMountPath + mountPath + strings.Join(options, " ")
 	return cmd
