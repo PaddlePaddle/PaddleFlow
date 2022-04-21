@@ -20,7 +20,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 
@@ -75,15 +74,10 @@ func CreatFileSystem(fs *FileSystem) error {
 		if err := tx.Create(fs).Error; err != nil {
 			return err
 		}
-
-		grantID := uuid.NewString()
-		grantModel := &Grant{ID: grantID, UserName: fs.UserName, ResourceID: fs.ID, ResourceType: GrantFsType}
-		if err := tx.Create(grantModel).Error; err != nil {
-			return err
-		}
 		return nil
 	})
 }
+
 func GetFileSystemWithFsID(fsID string) (FileSystem, error) {
 	var fileSystem FileSystem
 	result := database.DB.Where(&FileSystem{Model: Model{ID: fsID}}).First(&fileSystem)
