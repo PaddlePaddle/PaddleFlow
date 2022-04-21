@@ -34,6 +34,9 @@ func NewPFRuntimeGenerator(runtimeView schema.RuntimeView, workflowSource schema
 	}
 }
 
+// 1. 对于 entry_points 中的节点， 其 PF_RUN_TIME 只包含其祖先节点的信息
+// 2. 对于 post_process 中的节点，其 PF_RUN_TIME 包含entrypoint中所有节点的信息
+// 3. 由于所有节点的系统的变量都是一支的，所以 PF_RUN_TIME 中的节点信息中不包含系统环境变量
 func (pfg *PFRuntimeGenerator) GetPFRuntime(stepName string) (string, error) {
 	pfRuntime := schema.RuntimeView{}
 
