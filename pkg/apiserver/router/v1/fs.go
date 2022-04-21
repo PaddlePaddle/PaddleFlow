@@ -457,7 +457,7 @@ func (pr *PFSRouter) getFileSystem(w http.ResponseWriter, r *http.Request) {
 	}
 	fsModel, err := fileSystemService.GetFileSystem(fsID)
 	if err != nil {
-		ctx.Logging().Errorf("get file system with error[%v]", err)
+		ctx.Logging().Errorf("get file system req[%v] with error[%v]", getRequest, err)
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			ctx.ErrorCode = common.RecordNotFound
 		} else {
