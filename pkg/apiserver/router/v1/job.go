@@ -26,6 +26,7 @@ import (
 	"github.com/go-chi/chi"
 	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 
 	"paddleflow/pkg/apiserver/common"
 	"paddleflow/pkg/apiserver/controller/job"
@@ -208,19 +209,26 @@ func validateSingleJob(ctx *logger.RequestContext, request *job.CreateSingleJobR
 		ctx.ErrorCode = common.RequiredFieldEmpty
 		return err
 	}
-	if request.FileSystem.Name != "" && !common.IsRootUser(ctx.UserName) {
-		// check grant
-		fsID := common.ID(ctx.UserName, request.FileSystem.Name)
-		// todo(zhongzichao) router will call controller function instead of models function
-		if !models.HasAccessToResource(ctx, common.ResourceTypeFs, fsID) {
-			ctx.ErrorCode = common.AccessDenied
-			err := common.NoAccessError(ctx.UserName, common.ResourceTypeFs, fsID)
-			ctx.Logging().Errorf("create run failed. error: %v", err)
-			return err
-		}
+	// SchedulingPolicy
+	if err := checkPriority(request.SchedulingPolicy.Priority); err != nil {
+		ctx.Logging().Errorf("Failed to check priority: %v", err)
+		ctx.ErrorCode = common.JobInvalidField
+		return err
 	}
-	if request.SchedulingPolicy.Priority == "" {
-		request.SchedulingPolicy.Priority = schema.PriorityClassNormal
+	if err := validateQueue(ctx, &request.SchedulingPolicy); err != nil {
+		ctx.Logging().Errorf("validate queue failed. error: %s", err.Error())
+		return err
+	}
+	return nil
+}
+
+func checkPriority(priority string) error {
+	// check job priority
+	if priority == "" {
+		priority = schema.EnvJobNormalPriority
+	} else if priority != schema.EnvJobLowPriority &&
+		priority != schema.EnvJobNormalPriority && priority != schema.EnvJobHighPriority {
+		return errors.InvalidJobPriorityError(priority)
 	}
 	return nil
 }
@@ -275,12 +283,42 @@ func validateDistributedJob(ctx *logger.RequestContext, request *job.CreateDisJo
 			}
 		}
 		// check priority
-		if member.SchedulingPolicy.Priority == "" {
-			member.SchedulingPolicy.Priority = schema.PriorityClassNormal
+		if err := checkPriority(request.SchedulingPolicy.Priority); err != nil {
+			ctx.Logging().Errorf("Failed to check priority: %v", err)
+			ctx.ErrorCode = common.JobInvalidField
+			return err
 		}
 	}
-
+	if err := validateQueue(ctx, &request.SchedulingPolicy); err != nil {
+		ctx.Logging().Errorf("validate queue failed. error: %s", err.Error())
+		return err
+	}
+	for _, member := range request.Members {
+		member.SchedulingPolicy.QueueID = request.SchedulingPolicy.QueueID
+	}
 	// todo(zhongzichao) more
+	return nil
+}
+
+// validateQueue validate queue and set queueID in request.SchedulingPolicy
+func validateQueue(ctx *logger.RequestContext, schedulingPolicy *job.SchedulingPolicy) error {
+	queueName := schedulingPolicy.Queue
+	if queueName == "" {
+		return fmt.Errorf("queue not found in request")
+	}
+	queue, err := models.GetQueueByName(queueName)
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			ctx.ErrorCode = common.JobInvalidField
+			log.Errorf("create job failed. error: %s", err.Error())
+			return fmt.Errorf("queue not found")
+		}
+		ctx.ErrorCode = common.InternalError
+		log.Errorf("Get queue failed when creating job, err=%v", err)
+		return err
+	}
+
+	schedulingPolicy.QueueID = queue.ID
 	return nil
 }
 
