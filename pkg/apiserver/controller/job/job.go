@@ -147,7 +147,7 @@ func CreateSingleJob(request *CreateSingleJobRequest) (*CreateJobResponse, error
 
 	jobInfo := &models.Job{
 		ID:                request.ID,
-		Type:              string(conf.Type()),
+		Type:              string(schema.TypeSingle),
 		UserName:          request.UserName,
 		QueueID:           request.SchedulingPolicy.QueueID,
 		Status:            schema.StatusJobInit,
