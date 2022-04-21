@@ -123,8 +123,10 @@ def status(ctx, runid):
 
 @run.command()
 @click.argument('runid')
+@click.option('-f', '--force', is_flag=True,
+    help="Whether to forcibly stop the task. Forcibly stop will also stop step in post_process")
 @click.pass_context
-def stop(ctx, runid):
+def stop(ctx, runid, force):
     """stop the run.\n
     RUNID: the id of the specificed run.
     """
@@ -132,7 +134,7 @@ def stop(ctx, runid):
     if not runid:
         click.echo('run stop must provide runid.', err=True)
         sys.exit(1)
-    valid, response = client.stop_run(runid)
+    valid, response = client.stop_run(runid, force=force)
     if valid:
         click.echo("runid[%s] stop success" % runid)
     else:
