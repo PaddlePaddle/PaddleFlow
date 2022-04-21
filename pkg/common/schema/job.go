@@ -25,7 +25,6 @@ type MemberRole string
 
 const (
 	EnvJobType        = "PF_JOB_TYPE"
-	EnvJobFramework   = "PF_JOB_FRAMEWORK"
 	EnvJobQueueName   = "PF_JOB_QUEUE_NAME"
 	EnvJobQueueID     = "PF_JOB_QUEUE_ID"
 	EnvJobClusterName = "PF_JOB_CLUSTER_NAME"
