@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding:utf8 -*-
 """
 Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
 
@@ -15,15 +13,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-from .pipeline_api import PipelineServiceApi
-from .pipeline_info import PipelineInfo
+# import from options
+from .options import CacheOptions
+from .options import FailureOptions
+from .options import FAIL_CONTINUE
+from .options import FAIL_FAST
 
-from .dsl import CacheOptions
-from .dsl import FailureOptions
-from .dsl import Artifact
-from .dsl import Parameter
-from .dsl import ContainerStep
-from .dsl import Pipeline
-from .dsl import FAIL_CONTINUE
-from .dsl import FAIL_FAST
-from .dsl.sys_params import *
+# import from io_types
+from .io_types import Artifact
+from .io_types import Parameter
+
+# import from steps
+from .steps import ContainerStep
+
+# import from pipeline
+from .pipeline import Pipeline

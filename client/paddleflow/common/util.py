@@ -15,15 +15,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-from .pipeline_api import PipelineServiceApi
-from .pipeline_info import PipelineInfo
+import os 
 
-from .dsl import CacheOptions
-from .dsl import FailureOptions
-from .dsl import Artifact
-from .dsl import Parameter
-from .dsl import ContainerStep
-from .dsl import Pipeline
-from .dsl import FAIL_CONTINUE
-from .dsl import FAIL_FAST
-from .dsl.sys_params import *
+
+def get_default_config_path():
+    """ get the default config file path of paddleflow
+    """
+    home_path = os.getenv('HOME')
+    config_file = os.path.join(home_path, '.paddleflow/config')
+    return config_file
