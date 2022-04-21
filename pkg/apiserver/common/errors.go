@@ -57,6 +57,8 @@ const (
 	AuthFailed       = "AuthFailed"       // 用户名或者密码错误
 	AuthIllegalUser  = "AuthIllegalUser"  // 非法用户
 
+	DBUpdateFailed = "UpdateDatabaseFailed"
+
 	UserNameDuplicated = "UserNameDuplicated"
 	UserNotExist       = "UserNotExist"
 	UserPasswordWeak   = "UserPasswordWeak"
@@ -184,6 +186,7 @@ var errorHTTPStatus = map[string]int{
 
 	JobInvalidField: http.StatusBadRequest,
 	JobCreateFailed: http.StatusBadRequest,
+	JobNotFound:     http.StatusNotFound,
 
 	ClusterNameNotFound:      http.StatusBadRequest,
 	ClusterIdNotFound:        http.StatusBadRequest,
@@ -411,4 +414,8 @@ func LogPageSizeOverMaxError() error {
 
 func LogFilePositionInvalidValueError() error {
 	return fmt.Errorf("LogFilePosition has wrong value")
+}
+
+func ConnectionClosedError() error {
+	return fmt.Errorf("Connection closed")
 }

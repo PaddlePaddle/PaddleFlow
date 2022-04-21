@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 
+	"gopkg.in/yaml.v2"
 	"gorm.io/gorm"
 
 	"paddleflow/pkg/apiserver/common"
@@ -51,6 +52,24 @@ type CreateRunRequest struct {
 	RunYamlRaw  string `json:"runYamlRaw,omitempty"`  // optional. one of 3 sources of run. high priority
 	PipelineID  string `json:"pipelineID,omitempty"`  // optional. one of 3 sources of run. medium priority
 	RunYamlPath string `json:"runYamlPath,omitempty"` // optional. one of 3 sources of run. low priority
+}
+
+type CreateRunByJsonRequest struct {
+	FsName         string                     `json:"fsName"`
+	UserName       string                     `json:"userName,omitempty"` // optional, only for root user
+	Description    string                     `json:"desc,omitempty"`     // optional
+	Disabled       string                     `json:"disabled,omitempty"` // optional
+	Name           string                     `json:"name"`
+	DockerEnv      string                     `json:"dockerEnv,omitempty"`   // optional
+	Parallelism    int                        `json:"parallelism,omitempty"` // optional
+	EntryPoints    map[string]*schema.RunStep `json:"entryPoints"`
+	PostProcess    map[string]*schema.RunStep `json:"postProcess,omitempty"`    // optional
+	Cache          schema.Cache               `json:"cache,omitempty"`          // optional
+	Queue          string                     `json:"queue,omitempty"`          // optional
+	Flavour        string                     `json:"flavour,omitempty"`        // optional
+	JobType        string                     `json:"jobType,omitempty"`        // optional
+	FailureOptions schema.FailureOptions      `json:"failureOptions,omitempty"` // optional
+	Env            map[string]string          `json:"env,omitempty"`            // optional
 }
 
 type UpdateRunRequest struct {
@@ -106,7 +125,18 @@ func buildWorkflowSource(ctx *logger.RequestContext, req CreateRunRequest, fsID 
 			return schema.WorkflowSource{}, "", "", err
 		}
 		runYaml = string(sDec)
-		source = common.GetMD5Hash(sDec)
+		wfs := schema.WorkflowSource{}
+		if err := yaml.Unmarshal([]byte(runYaml), &wfs); err != nil {
+			ctx.ErrorCode = common.MalformedYaml
+			ctx.Logging().Errorf("Unmarshal runYaml to get source failed. yaml: %s \n, err:%v", runYaml, err)
+			return schema.WorkflowSource{}, "", "", err
+		}
+		// 目前只保存用户提交的yaml，因此这里获得的yaml直接舍去
+		source, _, err = getSourceAndYaml(ctx, wfs)
+		if err != nil {
+			ctx.Logging().Errorf("get source and yaml by wrokFlowSource faild. err: %v", err)
+			return schema.WorkflowSource{}, "", "", err
+		}
 	} else if req.PipelineID != "" { // medium priority: wfs in pipeline
 		ppl, err := models.GetPipelineByID(req.PipelineID)
 		if err != nil {
@@ -144,7 +174,106 @@ func buildWorkflowSource(ctx *logger.RequestContext, req CreateRunRequest, fsID 
 	return wfs, source, runYaml, nil
 }
 
-func runYamlAndReqToWfs(ctx *logger.RequestContext, runYaml string, req CreateRunRequest) (schema.WorkflowSource, error) {
+func getWorkFlowSourceByReq(ctx *logger.RequestContext, request *CreateRunByJsonRequest, bodyMap map[string]interface{}) (schema.WorkflowSource, error) {
+	if len(request.EntryPoints) == 0 {
+		err := fmt.Errorf("missing entryPoints")
+		ctx.Logging().Errorf(err.Error())
+		return schema.WorkflowSource{}, err
+	}
+
+	if request.Env == nil {
+		request.Env = map[string]string{}
+	}
+
+	request.Env[schema.EnvJobType] = request.JobType
+	request.Env[schema.EnvJobQueueName] = request.Queue
+	request.Env[schema.EnvJobFlavour] = request.Flavour
+
+	entryPoints := parseRunSteps(request.EntryPoints, request)
+	postProcess := parseRunSteps(request.PostProcess, request)
+	failureOptions := schema.FailureOptions{Strategy: schema.FailureStrategyFailFast}
+	if request.FailureOptions.Strategy != "" {
+		failureOptions.Strategy = request.FailureOptions.Strategy
+	}
+	wfs := schema.WorkflowSource{
+		Name:           request.Name,
+		DockerEnv:      request.DockerEnv,
+		Cache:          request.Cache,
+		Parallelism:    request.Parallelism,
+		EntryPoints:    entryPoints,
+		PostProcess:    postProcess,
+		Disabled:       request.Disabled,
+		FailureOptions: failureOptions,
+	}
+	wfs.ValidateStepCacheByMap(bodyMap, "json")
+	return wfs, nil
+}
+
+func parseRunSteps(steps map[string]*schema.RunStep, request *CreateRunByJsonRequest) map[string]*schema.WorkflowSourceStep {
+	workFlowSourceSteps := make(map[string]*schema.WorkflowSourceStep)
+	for pointName, step := range steps {
+		if step.Env == nil {
+			step.Env = make(map[string]string)
+		}
+		step.Env[schema.EnvJobType] = step.JobType
+		step.Env[schema.EnvJobQueueName] = step.Queue
+		step.Env[schema.EnvJobFlavour] = step.Flavour
+
+		// 对于每一个全局环境变量，检查节点是否有设置对应环境变量，如果没有则使用全局的
+		for globalKey, globalValue := range request.Env {
+			value, ok := step.Env[globalKey]
+			if !ok || value == "" {
+				step.Env[globalKey] = globalValue
+			}
+		}
+		// DockerEnv字段替换检查
+		if step.DockerEnv == "" {
+			step.DockerEnv = request.DockerEnv
+		}
+
+		artifacts := parseArtifacts(step.Artifacts)
+
+		workFlowSourceStep := schema.WorkflowSourceStep{
+			Command:    step.Command,
+			Deps:       step.Deps,
+			Env:        step.Env,
+			Artifacts:  artifacts,
+			Cache:      step.Cache,
+			DockerEnv:  step.DockerEnv,
+			Parameters: step.Parameters,
+		}
+		workFlowSourceSteps[pointName] = &workFlowSourceStep
+	}
+	return workFlowSourceSteps
+}
+
+func parseArtifacts(atf schema.ArtifactsJson) schema.Artifacts {
+	outputAritfacts := map[string]string{}
+	outputList := []string{}
+	for _, outputName := range atf.Output {
+		outputAritfacts[outputName] = ""
+		outputList = append(outputList, outputName)
+	}
+	res := schema.Artifacts{
+		Input:      atf.Input,
+		Output:     outputAritfacts,
+		OutputList: outputList,
+	}
+	return res
+}
+
+func getSourceAndYaml(ctx *logger.RequestContext, wfs schema.WorkflowSource) (string, string, error) {
+	yamlByte, err := yaml.Marshal(wfs)
+	if err != nil {
+		ctx.Logging().Errorf("marshal workFlowSource to yaml faild. err: %v", err)
+		return "", "", err
+	}
+	runYaml := string(yamlByte)
+	source := common.GetMD5Hash(yamlByte)
+	return source, runYaml, nil
+}
+
+func runYamlAndReqToWfs(ctx *logger.RequestContext, runYaml string, req interface{}) (schema.WorkflowSource, error) {
 	// parse yaml -> WorkflowSource
 	wfs, err := schema.ParseWorkflowSource([]byte(runYaml))
 	if err != nil {
@@ -154,16 +283,34 @@ func runYamlAndReqToWfs(ctx *logger.RequestContext, runYaml string, req CreateRu
 	}
 
 	// replace name & dockerEnv & disabled by request
-	if req.Name != "" {
-		wfs.Name = req.Name
+	switch req := req.(type) {
+	case CreateRunRequest:
+		if req.Name != "" {
+			wfs.Name = req.Name
+		}
+		if req.DockerEnv != "" {
+			wfs.DockerEnv = req.DockerEnv
+		}
+		if req.Disabled != "" {
+			wfs.Disabled = req.Disabled
+		}
+		return wfs, nil
+	case CreateRunByJsonRequest:
+		if req.Name != "" {
+			wfs.Name = req.Name
+		}
+		if req.DockerEnv != "" {
+			wfs.DockerEnv = req.DockerEnv
+		}
+		if req.Disabled != "" {
+			wfs.Disabled = req.Disabled
+		}
+		return wfs, nil
+	default:
+		err := fmt.Errorf("can't handle request type [%v]", req)
+		return schema.WorkflowSource{}, err
 	}
-	if req.DockerEnv != "" {
-		wfs.DockerEnv = req.DockerEnv
-	}
-	if req.Disabled != "" {
-		wfs.Disabled = req.Disabled
-	}
-	return wfs, nil
+
 }
 
 func CreateRun(ctx *logger.RequestContext, request *CreateRunRequest) (CreateRunResponse, error) {
@@ -208,6 +355,59 @@ func CreateRun(ctx *logger.RequestContext, request *CreateRunRequest) (CreateRun
 		Disabled:       request.Disabled,
 		Status:         common.StatusRunInitiating,
 	}
+	response, err := ValidateAndStartRun(ctx, run, *request)
+	return response, err
+}
+
+func CreateRunByJson(ctx *logger.RequestContext, request *CreateRunByJsonRequest, bodyMap map[string]interface{}) (CreateRunResponse, error) {
+	var fsID string
+	if request.FsName != "" {
+		if common.IsRootUser(ctx.UserName) && request.UserName != "" {
+			// root user can select fs under other users
+			fsID = common.ID(request.UserName, request.FsName)
+		} else {
+			fsID = common.ID(ctx.UserName, request.FsName)
+		}
+	}
+
+	wfs, err := getWorkFlowSourceByReq(ctx, request, bodyMap)
+	if err != nil {
+		ctx.Logging().Errorf("get WorkFlowSource by request failed. error:%v", err)
+		return CreateRunResponse{}, err
+	}
+
+	source, runYaml, err := getSourceAndYaml(ctx, wfs)
+	if err != nil {
+		ctx.Logging().Errorf("get source and yaml by workflowsource failed. error:%v", err)
+		return CreateRunResponse{}, err
+	}
+
+	// check name pattern
+	if wfs.Name != "" && !schema.CheckReg(wfs.Name, common.RegPatternRunName) {
+		ctx.ErrorCode = common.InvalidNamePattern
+		err := common.InvalidNamePatternError(wfs.Name, common.ResourceTypeRun, common.RegPatternRunName)
+		ctx.Logging().Errorf("create run failed as run name illegal. error:%v", err)
+		return CreateRunResponse{}, err
+	}
+	// create run in db after run.yaml validated
+	run := models.Run{
+		ID:             "", // to be back filled according to db pk
+		Name:           wfs.Name,
+		Source:         source,
+		UserName:       ctx.UserName,
+		FsName:         request.FsName,
+		FsID:           fsID,
+		Description:    request.Description,
+		RunYaml:        runYaml,
+		WorkflowSource: wfs, // DockerEnv has not been replaced. done in func handleImageAndStartWf
+		Disabled:       request.Disabled,
+		Status:         common.StatusRunInitiating,
+	}
+	response, err := ValidateAndStartRun(ctx, run, *request)
+	return response, err
+}
+
+func ValidateAndStartRun(ctx *logger.RequestContext, run models.Run, req interface{}) (CreateRunResponse, error) {
 	if err := run.Encode(); err != nil {
 		ctx.Logging().Errorf("encode run failed. error:%s", err.Error())
 		ctx.ErrorCode = common.MalformedJSON
@@ -227,15 +427,16 @@ func CreateRun(ctx *logger.RequestContext, request *CreateRunRequest) (CreateRun
 		return CreateRunResponse{}, err
 	}
 	// to wfs again to revise previous wf replacement
-	wfs, err = runYamlAndReqToWfs(ctx, run.RunYaml, *request)
+	wfs, err := runYamlAndReqToWfs(ctx, run.RunYaml, req)
 	if err != nil {
 		ctx.Logging().Errorf("runYamlAndReqToWfs failed. err:%v", err)
 		return CreateRunResponse{}, err
 	}
+
 	run.WorkflowSource = wfs
 	// handler image
 	if err := handleImageAndStartWf(run, false); err != nil {
-		ctx.Logging().Errorf("create run[%s] failed handleImageAndStartWf[%s-%s]. error:%s\n", runID, wfs.DockerEnv, fsID, err.Error())
+		ctx.Logging().Errorf("create run[%s] failed handleImageAndStartWf[%s-%s]. error:%s\n", runID, wfs.DockerEnv, run.FsID, err.Error())
 	}
 	ctx.Logging().Debugf("create run successful. runID:%s\n", runID)
 	response := CreateRunResponse{

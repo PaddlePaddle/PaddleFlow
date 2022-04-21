@@ -78,7 +78,7 @@ func ListQueue(ctx *logger.RequestContext, marker string, maxKeys int, name stri
 		}
 	}
 
-	queueList, err := models.ListQueue(ctx, pk, maxKeys, name)
+	queueList, err := models.ListQueue(pk, maxKeys, name, ctx.UserName)
 	if err != nil {
 		ctx.Logging().Errorf("models list queue failed. err:[%s]", err.Error())
 		ctx.ErrorCode = common.InternalError
@@ -108,7 +108,7 @@ func ListQueue(ctx *logger.RequestContext, marker string, maxKeys int, name stri
 }
 
 func IsLastQueuePk(ctx *logger.RequestContext, pk int64) bool {
-	lastQueue, err := models.GetLastQueue(ctx)
+	lastQueue, err := models.GetLastQueue()
 	if err != nil {
 		ctx.Logging().Errorf("get last queue failed. error:[%s]", err.Error())
 	}
@@ -137,7 +137,7 @@ func CreateQueue(ctx *logger.RequestContext, request *CreateQueueRequest) (Creat
 		ctx.Logging().Errorln("create request failed. error: clusterName not found.")
 		return CreateQueueResponse{}, errors.New("clusterName not found")
 	}
-	clusterInfo, err := models.GetClusterByName(ctx, request.ClusterName)
+	clusterInfo, err := models.GetClusterByName(request.ClusterName)
 	if err != nil {
 		ctx.ErrorCode = common.ClusterNotFound
 		ctx.Logging().Errorln("create request failed. error: cluster not found by Name.")
@@ -176,7 +176,7 @@ func CreateQueue(ctx *logger.RequestContext, request *CreateQueueRequest) (Creat
 		return CreateQueueResponse{}, err
 	}
 
-	exist := strings.EqualFold(request.Name, defaultQueueName) || models.IsQueueExist(ctx, request.Name)
+	exist := strings.EqualFold(request.Name, defaultQueueName) || models.IsQueueExist(request.Name)
 	if exist {
 		ctx.Logging().Errorf("create queue failed. queueName[%s] exist.", request.Name)
 		ctx.ErrorCode = common.QueueNameDuplicated
@@ -224,7 +224,7 @@ func CreateQueue(ctx *logger.RequestContext, request *CreateQueueRequest) (Creat
 		SchedulingPolicy: request.SchedulingPolicy,
 		Status:           schema.StatusQueueCreating,
 	}
-	err = models.CreateQueue(ctx, &queueInfo)
+	err = models.CreateQueue(&queueInfo)
 	if err != nil {
 		ctx.Logging().Errorf("create request failed. error:%s", err.Error())
 		if database.GetErrorCode(err) == database.ErrorKeyIsDuplicated {
@@ -240,7 +240,7 @@ func CreateQueue(ctx *logger.RequestContext, request *CreateQueueRequest) (Creat
 		ctx.Logging().Errorf("GlobalVCQueue create request failed. error:%s", err.Error())
 		ctx.ErrorCode = common.QueueResourceNotMatch
 		ctx.ErrorMessage = err.Error()
-		deleteErr := models.DeleteQueue(ctx, request.Name)
+		deleteErr := models.DeleteQueue(request.Name)
 		if deleteErr != nil {
 			ctx.Logging().Errorf("delete request roll back db failed. error:%s", deleteErr.Error())
 		}
@@ -252,7 +252,7 @@ func CreateQueue(ctx *logger.RequestContext, request *CreateQueueRequest) (Creat
 		ctx.Logging().Errorf("GlobalVCQueue create request failed. error:%s", err.Error())
 		ctx.ErrorCode = common.QueueResourceNotMatch
 		ctx.ErrorMessage = err.Error()
-		deleteErr := models.DeleteQueue(ctx, request.Name)
+		deleteErr := models.DeleteQueue(request.Name)
 		if deleteErr != nil {
 			ctx.Logging().Errorf("delete request roll back db failed. error:%s", deleteErr.Error())
 		}
@@ -280,7 +280,7 @@ func GetQueueByName(ctx *logger.RequestContext, queueName string) (GetQueueRespo
 		return GetQueueResponse{}, fmt.Errorf("get queueName[%s] failed.\n", queueName)
 	}
 
-	queue, err := models.GetQueueByName(ctx, queueName)
+	queue, err := models.GetQueueByName(queueName)
 	if err != nil {
 		ctx.ErrorCode = common.QueueNameNotFound
 		return GetQueueResponse{}, fmt.Errorf("queueName[%s] is not found.\n", queueName)
@@ -301,13 +301,13 @@ func CloseQueue(ctx *logger.RequestContext, queueName string) error {
 		return errors.New("close queue failed")
 	}
 
-	queue, err := models.GetQueueByName(ctx, queueName)
+	queue, err := models.GetQueueByName(queueName)
 	if err != nil {
 		ctx.ErrorCode = common.QueueNameNotFound
 		return fmt.Errorf("queueName[%s] is not found.\n", queueName)
 	}
 
-	clusterInfo, err := models.GetClusterById(ctx, queue.ClusterId)
+	clusterInfo, err := models.GetClusterById(queue.ClusterId)
 	if err != nil {
 		ctx.Logging().Errorf("get clusterInfo by ClusterId %s failed. error: %s", queue.ClusterId, err.Error())
 		return err
@@ -326,7 +326,7 @@ func CloseQueue(ctx *logger.RequestContext, queueName string) error {
 		return errors.New("close queue failed")
 	}
 
-	err = models.CloseQueue(ctx, queueName)
+	err = models.CloseQueue(queueName)
 	if err != nil {
 		ctx.ErrorCode = common.InternalError
 		ctx.Logging().Errorf("close queue update db failed. queueName:[%s] error:[%s]", queueName, err.Error())
@@ -344,7 +344,7 @@ func DeleteQueue(ctx *logger.RequestContext, queueName string) error {
 		return errors.New("delete queue failed")
 	}
 
-	queue, err := models.GetQueueByName(ctx, queueName)
+	queue, err := models.GetQueueByName(queueName)
 	if err != nil {
 		ctx.ErrorCode = common.QueueNameNotFound
 		return fmt.Errorf("queueName[%s] is not found.\n", queueName)
@@ -357,7 +357,7 @@ func DeleteQueue(ctx *logger.RequestContext, queueName string) error {
 		ctx.Logging().Errorf(ctx.ErrorMessage)
 		return fmt.Errorf(ctx.ErrorMessage)
 	}
-	clusterInfo, err := models.GetClusterById(ctx, queue.ClusterId)
+	clusterInfo, err := models.GetClusterById(queue.ClusterId)
 	if err != nil {
 		ctx.Logging().Errorf("get clusterInfo by ClusterId %s failed. error: %s",
 			queue.ClusterId, err.Error())
@@ -375,7 +375,7 @@ func DeleteQueue(ctx *logger.RequestContext, queueName string) error {
 		ctx.Logging().Errorf("delete queue failed. queueName:[%s] error:[%s]", queueName, err.Error())
 		return errors.New("delete queue failed")
 	}
-	err = models.DeleteQueue(ctx, queueName)
+	err = models.DeleteQueue(queueName)
 	if err != nil {
 		ctx.ErrorCode = common.InternalError
 		ctx.ErrorMessage = err.Error()

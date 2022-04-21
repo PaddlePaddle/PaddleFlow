@@ -117,8 +117,8 @@ class RunServiceApi(object):
         if 'message' in data:
             return False, data['message']
         runInfo = RunInfo(data['runID'], data['fsname'], data['username'], data['status'], data['name'],
-                               data['description'], data['entry'], data['param'], data['runYaml'], None,
-                               data['imageUrl'], data.get('updateTime', " "), data['source'],
+                               data['description'], data['entry'], data['parameters'], data['runYaml'], None,
+                               data['dockerEnv'], data.get('updateTime', " "), data['source'],
                                data['runMsg'], data.get('createTime', " "), data.get('activateTime', ' '))
         jobList = []
         runtime = data['runtime']
@@ -135,7 +135,7 @@ class RunServiceApi(object):
         return True, runInfo
 
     @classmethod
-    def stop_run(self, host, runid, job_id=None, header=None):
+    def stop_run(self, host, runid, job_id=None, header=None, force=False):
         """stop run
         """
         if not header:
@@ -146,7 +146,10 @@ class RunServiceApi(object):
         params = {
             "action": "stop"
         }
-        response = api_client.call_api(method = "PUT", url =url, params=params, headers=header)
+        
+        body = {"stopForce": force}
+
+        response = api_client.call_api(method = "PUT", url =url, params=params, headers=header, json=body)
         if not response:
             raise PaddleFlowSDKException("Connection Error", "stop run failed due to HTTPError")
         if not response.text:

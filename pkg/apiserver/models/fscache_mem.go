@@ -65,6 +65,7 @@ func (cm *ConcurrentFSCacheMap) Put(key string, value *FSCache) {
 	cm.value[key] = tempV
 	cm.Unlock()
 }
+
 func (cm *ConcurrentFSCacheMap) Delete(key1, key2 string) error {
 	cm.Lock()
 	var err error
@@ -85,6 +86,19 @@ func (cm *ConcurrentFSCacheMap) Delete(key1, key2 string) error {
 	return err
 }
 
+func (cm *ConcurrentFSCacheMap) Update(key, value *FSCache) (has bool, err error) {
+	cm.Lock()
+	defer cm.Unlock()
+	if v1, ok := cm.value[value.FsID]; ok {
+		_, ok = v1[value.CacheID]
+		if ok {
+			has = true
+			v1[value.CacheID] = value
+		}
+	}
+	return has, nil
+}
+
 func newMemFSCache() FSCacheStore {
 	m := new(MemFSCache)
 	m.fsCacheMap = newFSCacheMap()
@@ -95,20 +109,20 @@ type MemFSCache struct {
 	fsCacheMap *ConcurrentFSCacheMap
 }
 
-func (mem *MemFSCache) AddFSCache(value *FSCache) error {
-	mem.fsCacheMap.Put(value.FSID, value)
+func (mem *MemFSCache) Add(value *FSCache) error {
+	mem.fsCacheMap.Put(value.FsID, value)
 	return nil
 }
 
-func (mem *MemFSCache) GetFSCache(fsID string, cacheID string) (*FSCache, error) {
+func (mem *MemFSCache) Get(fsID string, cacheID string) (*FSCache, error) {
 	return mem.fsCacheMap.Get(fsID, cacheID), nil
 }
 
-func (mem *MemFSCache) DeleteFSCache(fsID, cacheID string) error {
+func (mem *MemFSCache) Delete(fsID, cacheID string) error {
 	return mem.fsCacheMap.Delete(fsID, cacheID)
 }
 
-func (mem *MemFSCache) ListFSCaches(fsID, cacheID string) ([]FSCache, error) {
+func (mem *MemFSCache) List(fsID, cacheID string) ([]FSCache, error) {
 	var retMap []FSCache
 	if fsID != "" {
 		if cacheID != "" {
@@ -120,6 +134,6 @@ func (mem *MemFSCache) ListFSCaches(fsID, cacheID string) ([]FSCache, error) {
 	return retMap, nil
 }
 
-func (mem *MemFSCache) UpdateFSCache() error {
-	return nil
+func (mem *MemFSCache) Update(value *FSCache) (int64, error) {
+	return 0, nil
 }

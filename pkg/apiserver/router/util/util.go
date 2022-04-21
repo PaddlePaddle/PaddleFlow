@@ -57,15 +57,23 @@ const (
 	QueryKeyUserName   = "username"
 	QueryResourceType  = "resourceType"
 	QueryResourceID    = "resourceID"
+	QueryKeyStatus     = "status"
+	QueryKeyTimestamp  = "timestamp"
+	QueryKeyStartTime  = "startTime"
+	QueryKeyQueue      = "queue"
+	QueryKeyLabels     = "labels"
 
 	ParamKeyClusterName   = "clusterName"
 	ParamKeyClusterNames  = "clusterNames"
 	ParamKeyClusterStatus = "clusterStatus"
 
-	QueryFsPath = "fsPath"
-	QueryFsName = "fsName"
-	QueryFsname = "fsname"
-	QueryPath   = "path"
+	QueryFsPath     = "fsPath"
+	QueryFsName     = "fsName"
+	QueryFsname     = "fsname"
+	QueryPath       = "path"
+	QueryClusterID  = "clusterID"
+	QueryNodeName   = "nodename"
+	QueryMountPoint = "mountpoint"
 
 	ParamFlavourName = "flavourName"
 

@@ -117,7 +117,7 @@ func TestKubeRuntimeJob(t *testing.T) {
 	}
 	err := models.CreateJob(&models.Job{
 		ID: testJobID,
-		Config: schema.Conf{
+		Config: &schema.Conf{
 			Env: map[string]string{
 				schema.EnvJobNamespace: "default",
 			},
