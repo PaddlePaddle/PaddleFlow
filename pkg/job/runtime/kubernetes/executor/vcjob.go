@@ -184,10 +184,10 @@ func (vj *VCJob) fillTaskInPSMode(vcTask *vcjob.TaskSpec, task models.Member, jo
 	if len(vcTask.Template.Spec.Containers) != 1 {
 		vcTask.Template.Spec.Containers = []v1.Container{{}}
 	}
-	vj.fillContainerInTasks(&vcTask.Template.Spec.Containers[0], task.Flavour, task.Command)
+	vj.fillContainerInTasks(&vcTask.Template.Spec.Containers[0], task)
 
 	// patch vcTask.Template.Spec.Volumes
-	vcTask.Template.Spec.Volumes = vj.appendVolumeIfAbsent(vcTask.Template.Spec.Volumes, vj.generateVolume(vj.PVCName))
+	vcTask.Template.Spec.Volumes = vj.appendVolumeIfAbsent(vcTask.Template.Spec.Volumes, vj.generateVolume())
 
 	return nil
 }
@@ -233,8 +233,7 @@ func (vj *VCJob) fillTaskInPodMode(taskSpec *vcjob.TaskSpec, jobName string) err
 	vj.fillContainerInVcJob(&taskSpec.Template.Spec.Containers[0], vj.JobFlavour, vj.Command)
 
 	// patch taskSpec.Template.Spec.Volumes
-	taskSpec.Template.Spec.Volumes = vj.appendVolumeIfAbsent(taskSpec.Template.Spec.Volumes,
-		vj.generateVolume(vj.PVCName))
+	taskSpec.Template.Spec.Volumes = vj.appendVolumeIfAbsent(taskSpec.Template.Spec.Volumes, vj.generateVolume())
 	log.Debugf("fillTaskInPodMode completed: job[%s]-task[%+v]", jobName, taskSpec)
 	return nil
 }
@@ -285,11 +284,10 @@ func (vj *VCJob) fillTaskInCollectiveMode(tasks []vcjob.TaskSpec, jobName string
 		return nil, fmt.Errorf("the num of job[%s]-task must be 1, current is [%d]", jobName, len(vj.Tasks))
 	}
 	// todo : add affinity
-	vj.fillContainerInTasks(&task.Template.Spec.Containers[0], vj.Tasks[0].Flavour, vj.Command)
+	vj.fillContainerInTasks(&task.Template.Spec.Containers[0], vj.Tasks[0])
 
 	// patch task.Template.Spec.Volumes
-	jobVolume := vj.generateVolume(vj.PVCName)
-	task.Template.Spec.Volumes = vj.appendVolumeIfAbsent(task.Template.Spec.Volumes, jobVolume)
+	task.Template.Spec.Volumes = vj.appendVolumeIfAbsent(task.Template.Spec.Volumes, vj.generateVolume())
 
 	return tasks, nil
 }
