@@ -52,14 +52,15 @@ func recursiveGetJobView(stepName string, pfRuntime, SrcRunTime schema.RuntimeVi
 	if !ok {
 		return fmt.Errorf("cannot find step[%s] in workflowSource.entrypoints", stepName)
 	}
-
+	if _, ok := pfRuntime[stepName]; ok {
+		return nil
+	}
 	for _, step := range workflowSource.EntryPoints[stepName].GetDeps() {
 		pfRuntime[step] = SrcRunTime[step]
 		if err := recursiveGetJobView(step, pfRuntime, SrcRunTime, workflowSource); err != nil {
 			return err
 		}
 	}
-
 	return nil
 }
 
