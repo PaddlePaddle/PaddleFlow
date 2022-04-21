@@ -155,7 +155,7 @@ func patchEnvs(conf *schema.Conf, commonJobInfo *CommonJobInfo) error {
 	conf.SetUserName(commonJobInfo.UserName)
 	// info in SchedulingPolicy: queue,Priority,ClusterId,Namespace
 	queueName := commonJobInfo.SchedulingPolicy.Queue
-	queue, err := models.GetQueueByName(&logger.RequestContext{}, queueName)
+	queue, err := models.GetQueueByName(queueName)
 	if err != nil {
 		log.Errorf("Get queue by id failed when creating job %s failed, err=%v", commonJobInfo.Name, err)
 		if err == gorm.ErrRecordNotFound {
@@ -316,6 +316,13 @@ func DeleteJob(ctx *logger.RequestContext, jobID string) error {
 		log.Errorf("get job from database failed, err: %v", err)
 		return err
 	}
+	// check job status
+	if !schema.IsImmutableJobStatus(job.Status) {
+		ctx.ErrorCode = common.ActionNotAllowed
+		msg := fmt.Sprintf("job %s status is %s, please stop it first.", jobID, job.Status)
+		log.Errorf(msg)
+		return fmt.Errorf(msg)
+	}
 	runtimeSvc, err := getRuntimeByQueue(ctx, job.QueueID)
 	if err != nil {
 		log.Errorf("get runtime by queue failed, err: %v", err)
@@ -366,6 +373,10 @@ func StopJob(ctx *logger.RequestContext, jobID string) error {
 	err = runtimeSvc.StopJob(pfjob)
 	if err != nil {
 		log.Errorf("delete job %s from cluster failed, err: %v", job.ID, err)
+		return err
+	}
+	if err = models.UpdateJobStatus(jobID, "job is terminated.", schema.StatusJobTerminated); err != nil {
+		log.Errorf("update job[%s] status to [%s] failed, err: %v", jobID, schema.StatusJobTerminated, err)
 		return err
 	}
 	return nil
@@ -429,13 +440,13 @@ func updateRuntimeJob(ctx *logger.RequestContext, job *models.Job, request *Upda
 }
 
 func getRuntimeByQueue(ctx *logger.RequestContext, queueID string) (runtime.RuntimeService, error) {
-	queue, err := models.GetQueueByID(ctx, queueID)
+	queue, err := models.GetQueueByID(queueID)
 	if err != nil {
 		log.Errorf("get queue for job failed, err: %v", err)
 		return nil, err
 	}
 	// TODO: GetOrCreateRuntime by cluster id
-	clusterInfo, err := models.GetClusterById(ctx, queue.ClusterId)
+	clusterInfo, err := models.GetClusterById(queue.ClusterId)
 	if err != nil {
 		ctx.Logging().Errorf("get clusterInfo by id %s failed. error: %s",
 			queue.ClusterId, err.Error())

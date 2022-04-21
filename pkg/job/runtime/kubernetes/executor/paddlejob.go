@@ -18,7 +18,6 @@ package executor
 
 import (
 	"fmt"
-	"strconv"
 
 	paddlev1 "github.com/paddleflow/paddle-operator/api/v1"
 	log "github.com/sirupsen/logrus"
@@ -152,21 +151,26 @@ func (pj *PaddleJob) patchPdjPsSpec(pdjSpec *paddlev1.PaddleJobSpec) error {
 	if pdjSpec.PS == nil || pdjSpec.Worker == nil {
 		return fmt.Errorf("paddlejob[%s] must be contain ps and worker, actually exist null", pj.Name)
 	}
-	// ps master
-	ps := pdjSpec.PS
-	if err := pj.patchPdjTask(ps, true); err != nil {
-		log.Errorf("fill Task[%s] in PS-Mode failed, err=[%v]", ps.Template.Name, err)
-		return err
+	for _, task := range pj.Tasks {
+		if task.Role != schema.RoleWorker && task.Role != schema.RolePWorker {
+			// ps master
+			pdjSpec.PS.Template.Spec.SchedulerName = config.GlobalServerConfig.Job.SchedulerName
+			if err := pj.patchPdjTask(pdjSpec.PS, task); err != nil {
+				log.Errorf("fill Task[%s] in PS-Mode failed, err=[%v]", pj.Name, err)
+				return err
+			}
+		} else {
+			// worker
+			if err := pj.patchPdjTask(pdjSpec.Worker, task); err != nil {
+				log.Errorf("fill Task[%s] in PS-Mode failed, err=[%v]", pj.Name, err)
+				return err
+			}
+		}
 	}
-	// worker
-	worker := pdjSpec.Worker
-	if err := pj.patchPdjTask(worker, false); err != nil {
-		log.Errorf("fill Task[%s] in PS-Mode failed, err=[%v]", pj.Name, err)
-		return err
-	}
+
 	// MinAvailable
 	if pdjSpec.SchedulingPolicy.MinAvailable == nil {
-		minAvailable := int32(ps.Replicas + worker.Replicas)
+		minAvailable := int32(pdjSpec.PS.Replicas + pdjSpec.Worker.Replicas)
 		pdjSpec.SchedulingPolicy.MinAvailable = &minAvailable
 	}
 
@@ -180,10 +184,17 @@ func (pj *PaddleJob) patchPdjCollectiveSpec(pdjSpec *paddlev1.PaddleJobSpec) err
 	pdjSpec.PS = nil
 
 	worker := pdjSpec.Worker
-	if err := pj.patchPdjTask(worker, false); err != nil {
-		log.Errorf("fill Task[%s] in collective-Mode failed, err=[%v]", pj.Name, err)
-		return err
+	for _, task := range pj.Tasks {
+		if task.Role != schema.RoleWorker && task.Role != schema.RolePWorker {
+			return fmt.Errorf("paddlejob[%s] must be contain worker, actually exist %s", pj.Name, task.Role)
+		}
+		// patch collective worker
+		if err := pj.patchPdjTask(worker, task); err != nil {
+			log.Errorf("fill Task[%s] in PS-Mode failed, err=[%v]", pj.Name, err)
+			return err
+		}
 	}
+	log.Infof("worker=%#v, pj.Tasks=%#v", worker, pj.Tasks)
 	// MinAvailable
 	//minAvailable := int32(defaultCollectiveReplicas)
 	if pdjSpec.SchedulingPolicy.MinAvailable == nil {
@@ -196,24 +207,12 @@ func (pj *PaddleJob) patchPdjCollectiveSpec(pdjSpec *paddlev1.PaddleJobSpec) err
 }
 
 // patchPdjTask patches info into task of paddleJob
-func (pj *PaddleJob) patchPdjTask(resourceSpec *paddlev1.ResourceSpec, isMaster bool) error {
-	replicaStr, commandEnv, flavourStr := pj.patchTaskParams(isMaster)
-
-	if !isMaster {
-		// pj worker should be specified schedulerName
-		resourceSpec.Template.Spec.SchedulerName = config.GlobalServerConfig.Job.SchedulerName
-	}
-
-	if commandEnv == "" {
-		return fmt.Errorf("the env [command] is required")
-	}
-
-	if replicaStr != "" {
-		replicasInt, _ := strconv.Atoi(replicaStr)
-		resourceSpec.Replicas = replicasInt
-	}
-	if resourceSpec.Replicas <= 0 {
+func (pj *PaddleJob) patchPdjTask(resourceSpec *paddlev1.ResourceSpec, task models.Member) error {
+	log.Infof("patchPdjTask, resourceSpec=%#v, task=%#v", resourceSpec, task)
+	if task.Replicas <= 0 {
 		resourceSpec.Replicas = defaultPSReplicas
+	} else {
+		resourceSpec.Replicas = task.Replicas
 	}
 
 	// patch resourceSpec.Template.Labels
@@ -226,7 +225,7 @@ func (pj *PaddleJob) patchPdjTask(resourceSpec *paddlev1.ResourceSpec, isMaster 
 	if len(resourceSpec.Template.Spec.Containers) != 1 {
 		resourceSpec.Template.Spec.Containers = []v1.Container{{}}
 	}
-	pj.fillContainerInTask(&resourceSpec.Template.Spec.Containers[0], flavourStr, commandEnv)
+	pj.fillContainerInTasks(&resourceSpec.Template.Spec.Containers[0], task.Flavour, task.Command)
 
 	// patch resourceSpec.Template.Spec.Volumes
 	resourceSpec.Template.Spec.Volumes = pj.appendVolumeIfAbsent(resourceSpec.Template.Spec.Volumes, pj.generateVolume(pj.PVCName))
@@ -238,6 +237,7 @@ func (pj *PaddleJob) patchPdjTask(resourceSpec *paddlev1.ResourceSpec, isMaster 
 // - when ps mode for job, calculate resource for both ps and worker
 // - when collective mode for job, calculate resource for worker
 func (pj *PaddleJob) patchMinResource(pdjSpec *paddlev1.PaddleJobSpec) {
+	log.Infof("patchMinResource for paddlejob[%s], pdjSpec=[%v]", pj.Name, pdjSpec)
 	if len(pdjSpec.SchedulingPolicy.MinResources) != 0 {
 		return
 	}

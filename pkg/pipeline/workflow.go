@@ -169,7 +169,7 @@ func (bwf *BaseWorkflow) checkFailureOption() error {
 	case schema.FailureStrategyContinue:
 		return nil
 	default:
-		return fmt.Errorf("failure strategy should be [fail_fast] or [continue]")
+		return fmt.Errorf("failure strategy should be [fail_fast] or [continue], setted by [%s]", bwf.Source.FailureOptions.Strategy)
 	}
 }
 
@@ -549,7 +549,6 @@ func NewWorkflow(wfSource schema.WorkflowSource, runID, entry string, params map
 		BaseWorkflow: baseWorkflow,
 		callbacks:    callbacks,
 	}
-
 	if err := wf.validate(); err != nil {
 		return nil, err
 	}
