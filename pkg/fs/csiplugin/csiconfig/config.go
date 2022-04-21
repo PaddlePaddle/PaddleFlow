@@ -47,7 +47,7 @@ func GeneratePodTemplate() *corev1.Pod {
 		},
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{{
-				Name:  "pfs-mount",
+				Name:  PodTypeValue,
 				Image: MountImage,
 				SecurityContext: &corev1.SecurityContext{
 					Privileged: &isPrivileged,

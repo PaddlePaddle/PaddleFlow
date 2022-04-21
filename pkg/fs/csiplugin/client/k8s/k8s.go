@@ -87,7 +87,7 @@ func (c *K8SClient) CreatePod(pod *v1.Pod) (*v1.Pod, error) {
 	log.Infof("Create pod %s", pod.Name)
 	mntPod, err := c.Clientset.CoreV1().Pods(pod.Namespace).Create(context.TODO(), pod, metav1.CreateOptions{})
 	if err != nil {
-		log.Infof("Can't create pod %s: %v", pod.Name, err)
+		log.Errorf("Can't create pod %s: %v", pod.Name, err)
 		return nil, err
 	}
 	return mntPod, nil
@@ -97,7 +97,7 @@ func (c *K8SClient) GetPod(podName, namespace string) (*v1.Pod, error) {
 	log.Infof("Get pod %s", podName)
 	mntPod, err := c.Clientset.CoreV1().Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
 	if err != nil {
-		log.Infof("Can't get pod %s namespace %s: %v", podName, namespace, err)
+		log.Errorf("Can't get pod %s namespace %s: %v", podName, namespace, err)
 		return nil, err
 	}
 	return mntPod, nil
