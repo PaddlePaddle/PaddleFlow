@@ -466,11 +466,62 @@ func TestPFRUNTIME(t *testing.T) {
 	}
 
 	wf.runtime.runtimeView = schema.RuntimeView{
-		"data-process": schema.JobView{
+		"data-preprocess": schema.JobView{
 			JobID: "123",
+			Env: map[string]string{
+				"PF_RUN_ID": "00001",
+				"name1":     "name1",
+			},
+		},
+		"main": schema.JobView{
+			JobID: "3456",
+		},
+		"validate": schema.JobView{
+			JobID: "9087",
 		},
 	}
 
+	// entryPoints
+	st := wf.runtime.entryPoints["data-preprocess"]
+	st.nodeType = common.NodeTypeEntrypoint
+	st.updateJob(false, nil)
+
+	runtimeString := st.job.(*PaddleFlowJob).Env["PF_RUN_TIME"]
+	fmt.Println("runtimeString", runtimeString)
+	assert.Equal(t, "{}", st.job.Job().Env["PF_RUN_TIME"])
+
+	st = wf.runtime.entryPoints["main"]
+	st.nodeType = common.NodeTypeEntrypoint
+	st.updateJob(false, nil)
+	runtime := schema.RuntimeView{}
+	err = json.Unmarshal([]byte(st.job.Job().Env["PF_RUN_TIME"]), &runtime)
+	if err != nil {
+		t.Errorf("unmarshal runtime failed: %s", err.Error())
+	}
+	assert.Equal(t, 1, len(runtime))
+	assert.Equal(t, runtime["data-preprocess"].Env["name1"], "name1")
+
+	_, ok := runtime["data-preprocess"].Env["PF_RUN_ID"]
+	fmt.Println("PF_RUN_ID_test", runtime["data-preprocess"].Env["PF_RUN_ID"])
+	assert.Equal(t, ok, false)
+
+	st = wf.runtime.entryPoints["validate"]
+	st.nodeType = common.NodeTypeEntrypoint
+	st.updateJob(false, nil)
+	runtime = schema.RuntimeView{}
+	err = json.Unmarshal([]byte(st.job.Job().Env["PF_RUN_TIME"]), &runtime)
+	if err != nil {
+		t.Errorf("unmarshal runtime failed: %s", err.Error())
+	}
+	assert.Equal(t, 2, len(runtime))
+
+	_, ok = runtime["data-preprocess"]
+	assert.Equal(t, ok, true)
+
+	_, ok = runtime["main"]
+	assert.Equal(t, ok, true)
+
+	// postProcess
 	assert.Equal(t, 1, len(wf.Source.PostProcess))
 	for name, st := range wf.runtime.postProcess {
 		st.nodeType = common.NodeTypePostProcess
@@ -481,10 +532,19 @@ func TestPFRUNTIME(t *testing.T) {
 		assert.Equal(t, true, strings.Contains(st.job.Job().Command, "hahaha"))
 
 		runtime := schema.RuntimeView{}
-		err := json.Unmarshal([]byte(st.job.Job().Parameters["runtime"]), &runtime)
+		err := json.Unmarshal([]byte(st.job.Job().Env["PF_RUN_TIME"]), &runtime)
 		if err != nil {
 			t.Errorf("unmarshal runtime failed: %s", err.Error())
 		}
-		assert.Equal(t, runtime, wf.runtime.runtimeView)
+		assert.Equal(t, 3, len(runtime))
+
+		_, ok = runtime["data-preprocess"]
+		assert.Equal(t, ok, true)
+
+		_, ok = runtime["main"]
+		assert.Equal(t, ok, true)
+
+		_, ok = runtime["validate"]
+		assert.Equal(t, ok, true)
 	}
 }
