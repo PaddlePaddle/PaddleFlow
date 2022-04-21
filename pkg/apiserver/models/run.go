@@ -30,6 +30,7 @@ import (
 	"paddleflow/pkg/common/database"
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/common/schema"
+	pplcommon "paddleflow/pkg/pipeline/common"
 )
 
 type Run struct {
@@ -156,8 +157,41 @@ func (r *Run) validateRuntimeAndPostProcess() error {
 			jobView := job.ParseJobView(step)
 			r.Runtime[job.StepName] = jobView
 		} else {
-			return fmt.Errorf("cannot find step[%s] in either entry_points or post_process", job.StepName)
+			entryPointNames := []string{}
+			for name := range r.Runtime {
+				entryPointNames = append(entryPointNames, name)
+			}
+			postProcessNames := []string{}
+			for name := range r.PostProcess {
+				postProcessNames = append(postProcessNames, name)
+			}
+			return fmt.Errorf("cannot find step[%s] in either entry_points[%v]\nor post_process[%v]",
+				job.StepName, entryPointNames, postProcessNames)
 		}
+	}
+	// 初始化env中的PF_RUN_TIME
+	if err := r.initAllPFRuntime(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *Run) initAllPFRuntime() error {
+	for name, step := range r.Runtime {
+		pfRuntimeJson, err := pplcommon.GetPFRuntime(name, r.Runtime, r.WorkflowSource)
+		if err != nil {
+			return err
+		}
+		step.Env[pplcommon.SysParamNamePFRuntime] = pfRuntimeJson
+		r.Runtime[name] = step
+	}
+	for name, step := range r.PostProcess {
+		pfRuntimeJson, err := pplcommon.GetPFRuntime(name, r.Runtime, r.WorkflowSource)
+		if err != nil {
+			return err
+		}
+		step.Env[pplcommon.SysParamNamePFRuntime] = pfRuntimeJson
+		r.PostProcess[name] = step
 	}
 	return nil
 }
