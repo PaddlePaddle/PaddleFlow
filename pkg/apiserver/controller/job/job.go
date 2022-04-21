@@ -154,7 +154,13 @@ func CreateSingleJob(request *CreateSingleJobRequest) (*CreateJobResponse, error
 		Config:            &conf,
 		ExtensionTemplate: extensionTemplate,
 	}
+	log.Debugf("create single job %#v", jobInfo)
+	if err := models.CreateJob(jobInfo); err != nil {
+		log.Errorf("create job[%s] in database faield, err: %v", conf.GetName(), err)
+		return nil, fmt.Errorf("create job[%s] in database faield, err: %v", conf.GetName(), err)
+	}
 
+	log.Infof("create single job[%s] successful.", jobInfo.ID)
 	response := &CreateJobResponse{
 		ID: jobInfo.ID,
 	}
