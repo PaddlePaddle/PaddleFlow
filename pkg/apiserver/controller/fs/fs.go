@@ -149,6 +149,10 @@ func (s *FileSystemService) CreateFileSystem(ctx *logger.RequestContext, req *Cr
 		if err != nil {
 			log.Errorf("create grant for filesystem[%s] to user[%s] failed: %v", fs.Name, req.Username, err)
 			ctx.ErrorCode = common.GrantUserNameAndFs
+			errDelete := models.DeleteFileSystem(fs.ID)
+			if errDelete != nil {
+				log.Errorf("delete filesystem[%s] to user[%s] failed: %v", fs.Name, req.Username, err)
+			}
 			return models.FileSystem{}, err
 		}
 	}
