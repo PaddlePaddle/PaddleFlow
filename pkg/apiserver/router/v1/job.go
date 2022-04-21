@@ -241,6 +241,7 @@ func validateEmptyField(request *job.CreateSingleJobRequest) []string {
 
 func validateDistributedJob(ctx *logger.RequestContext, request *job.CreateDisJobRequest) error {
 	// request.SchedulingPolicy and request.Members[x].SchedulingPolicy should be the same
+	queueName := request.SchedulingPolicy.Queue
 	if request.Members == nil || len(request.Members) == 0 {
 		err := fmt.Errorf("request.Members is empty")
 		ctx.Logging().Errorf("create distributed job failed. error: %s", err.Error())
@@ -256,7 +257,25 @@ func validateDistributedJob(ctx *logger.RequestContext, request *job.CreateDisJo
 			ctx.ErrorCode = common.JobInvalidField
 			return err
 		}
+		// validate queue
+		mQueueName := member.SchedulingPolicy.Queue
+
+		if mQueueName != queueName {
+			if queueName == "" {
+				// set queueName by the first mQueueName which is not nil
+				queueName = mQueueName
+			} else if mQueueName == "" {
+				// set value by default as request.SchedulingPolicy.Queue
+				mQueueName = queueName
+			} else {
+				err := fmt.Errorf("schedulingPolicy.Queue should be the same, there are %s and %s", queueName, mQueueName)
+				ctx.Logging().Errorf("create distributed job failed. error: %s", err.Error())
+				ctx.ErrorCode = common.JobInvalidField
+				return err
+			}
+		}
 	}
+
 	if request.SchedulingPolicy.Priority == "" {
 		request.SchedulingPolicy.Priority = schema.PriorityClassNormal
 	}
