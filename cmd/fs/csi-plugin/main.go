@@ -35,6 +35,8 @@ import (
 	"paddleflow/pkg/metric"
 )
 
+const CsiContainerName = "csi-storage-driver"
+
 var logConf = logger.LogConfig{
 	Dir:             "./log",
 	FilePrefix:      "./pfs-csi-plugin",
@@ -63,18 +65,18 @@ func init() {
 	}
 	pod, err := k8sClient.GetPod(csiconfig.PodName, csiconfig.Namespace)
 	if err != nil {
-		log.Infof("Can't get pod %s: %v", csiconfig.PodName, err)
+		log.Errorf("Can't get pod %s: %v", csiconfig.PodName, err)
 		os.Exit(0)
 	}
 	csiconfig.CSIPod = *pod
 	for i := range pod.Spec.Containers {
-		if pod.Spec.Containers[i].Name == "csi-storage-driver" {
+		if pod.Spec.Containers[i].Name == CsiContainerName {
 			csiconfig.MountImage = pod.Spec.Containers[i].Image
 			//csiconfig.ContainerResource = pod.Spec.Containers[i].Resources
 			return
 		}
 	}
-	log.Infof("Can't get container csi-storage-driver in pod %s", csiconfig.PodName)
+	log.Errorf("Can't get container csi-storage-driver in pod %s", csiconfig.PodName)
 	os.Exit(0)
 }
 
