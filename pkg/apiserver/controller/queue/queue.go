@@ -195,31 +195,31 @@ func CreateQueue(ctx *logger.RequestContext, request *CreateQueueRequest) (Creat
 	// check request max resources and min resources
 	if err = schema.ValidateResourceInfo(request.MaxResources, config.GlobalServerConfig.Job.ScalarResourceArray); err != nil {
 		ctx.Logging().Errorf("create queue failed. error: %s", err.Error())
-		ctx.ErrorCode = common.InvalidScaleResource
+		ctx.ErrorCode = common.InvalidComputeResource
 		return CreateQueueResponse{}, err
 	}
 	if request.QuotaType == schema.TypeElasticQuota {
 		// check min resources for elastic queue
 		if err = schema.ValidateResourceInfo(request.MinResources, config.GlobalServerConfig.Job.ScalarResourceArray); err != nil {
 			ctx.Logging().Errorf("create queue failed. error: %s", err.Error())
-			ctx.ErrorCode = common.InvalidScaleResource
+			ctx.ErrorCode = common.InvalidComputeResource
 			return CreateQueueResponse{}, err
 		}
 		maxResource, err := schema.NewResource(request.MaxResources)
 		if err != nil {
 			ctx.Logging().Errorf("create queue failed. error: %s", err.Error())
-			ctx.ErrorCode = common.InvalidScaleResource
+			ctx.ErrorCode = common.InvalidComputeResource
 			return CreateQueueResponse{}, err
 		}
 		minResource, err := schema.NewResource(request.MinResources)
 		if err != nil {
 			ctx.Logging().Errorf("create queue failed. error: %s", err.Error())
-			ctx.ErrorCode = common.InvalidScaleResource
+			ctx.ErrorCode = common.InvalidComputeResource
 			return CreateQueueResponse{}, err
 		}
 		if !minResource.LessEqual(maxResource) {
 			ctx.Logging().Errorf("create queue failed. error: maxResources less than minResources")
-			ctx.ErrorCode = common.InvalidScaleResource
+			ctx.ErrorCode = common.InvalidComputeResource
 			return CreateQueueResponse{}, fmt.Errorf("maxResources less than minResources")
 		}
 	}
