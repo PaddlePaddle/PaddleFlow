@@ -101,9 +101,7 @@ func ListQueue(ctx *logger.RequestContext, marker string, maxKeys int, name stri
 	}
 
 	listQueueResponse.MaxKeys = maxKeys
-	for _, queue := range queueList {
-		listQueueResponse.QueueList = append(listQueueResponse.QueueList, queue)
-	}
+	listQueueResponse.QueueList = append(listQueueResponse.QueueList, queueList...)
 	return listQueueResponse, nil
 }
 
@@ -207,7 +205,23 @@ func CreateQueue(ctx *logger.RequestContext, request *CreateQueueRequest) (Creat
 			ctx.ErrorCode = common.InvalidScaleResource
 			return CreateQueueResponse{}, err
 		}
-		// TODO: check minResource < MaxResource
+		maxResource, err := schema.NewResource(request.MaxResources)
+		if err != nil {
+			ctx.Logging().Errorf("create queue failed. error: %s", err.Error())
+			ctx.ErrorCode = common.InvalidScaleResource
+			return CreateQueueResponse{}, err
+		}
+		minResource, err := schema.NewResource(request.MinResources)
+		if err != nil {
+			ctx.Logging().Errorf("create queue failed. error: %s", err.Error())
+			ctx.ErrorCode = common.InvalidScaleResource
+			return CreateQueueResponse{}, err
+		}
+		if !minResource.LessEqual(maxResource) {
+			ctx.Logging().Errorf("create queue failed. error: maxResources less than minResources")
+			ctx.ErrorCode = common.InvalidScaleResource
+			return CreateQueueResponse{}, fmt.Errorf("maxResources less than minResources")
+		}
 	}
 
 	request.Status = schema.StatusQueueCreating
