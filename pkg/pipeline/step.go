@@ -18,7 +18,6 @@ package pipeline
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -99,7 +98,9 @@ func (st *Step) generateStepParamSolver(forCacheFingerprint bool) (*StepParamSol
 		jobs[step.name] = steps[step.name].job
 	}
 
-	runtimeView, err := json.Marshal(st.wfr.runtimeView)
+	pfRuntimeGen := NewPFRuntimeGenerator(st.wfr.runtimeView, st.wfr.wf.Source)
+	runtimeView, err := pfRuntimeGen.GetPFRuntime(st.name)
+
 	if err != nil {
 		st.getLogger().Errorf("marshal runtimeView of run[%s] for step[%s] failed: %v", st.wfr.wf.RunID, st.name, runtimeView)
 		return nil, err
@@ -110,7 +111,7 @@ func (st *Step) generateStepParamSolver(forCacheFingerprint bool) (*StepParamSol
 		SysParamNamePFFsID:     st.wfr.wf.Extra[WfExtraInfoKeyFsID],
 		SysParamNamePFFsName:   st.wfr.wf.Extra[WfExtraInfoKeyFsName],
 		SysParamNamePFUserName: st.wfr.wf.Extra[WfExtraInfoKeyUserName],
-		SysParamNamePFRUNTIME:  string(runtimeView),
+		SysParamNamePFRuntime:  runtimeView,
 	}
 
 	paramSolver := NewStepParamSolver(SourceSteps, sysParams, jobs, forCacheFingerprint, st.wfr.wf.Source.Name, st.wfr.wf.RunID, st.wfr.wf.Extra[WfExtraInfoKeyFsID], st.getLogger())
