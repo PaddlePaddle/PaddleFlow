@@ -59,7 +59,7 @@ func init() {
 	k8sClient, err := k8s.GetK8sClient()
 	if err != nil {
 		log.Errorf("get k8s client failed: %v", err)
-		return
+		os.Exit(0)
 	}
 	pod, err := k8sClient.GetPod(csiconfig.PodName, csiconfig.Namespace)
 	if err != nil {
