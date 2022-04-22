@@ -113,7 +113,7 @@ func (queue *Queue) AfterFind(*gorm.DB) error {
 	}
 	if queue.ClusterName == "" {
 		// only single query is necessary, function of list query by join table cluster_info
-		log.Debugf("queue[%s] ClusterName is nil", queue.Name)
+		log.Debugf("queue[%s] ClusterName is nil, query db to get cluster", queue.Name)
 		var cluster ClusterInfo
 		db := database.DB.Table("cluster_info").Where("id = ?", queue.ClusterId).Where("deleted_at = '' ")
 		if err := db.First(&cluster).Error; err != nil {
