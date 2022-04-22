@@ -127,29 +127,6 @@ class QueueServiceApi(object):
         return True, None
 
     @classmethod
-    def stop_queue(self, host, queuename, action=None, header=None):
-        """
-        delete queue
-        """
-        if not header:
-            raise PaddleFlowSDKException("InvalidRequest", "paddleflow should login first")
-        if action:
-            params = {"action":action}
-        else:
-            params = {"action":'close'}
-        response = api_client.call_api(method="PUT", url=parse.urljoin(host, api.PADDLE_FLOW_QUEUE + 
-                                                                       "/%s" % queuename),
-                                       params=params, headers=header)
-        if not response:
-            raise PaddleFlowSDKException("Connection Error", "stop queue failed due to HTTPError")
-        if not response.text:
-            return True, None
-        data = json.loads(response.text)
-        if 'message' in data:
-            return False, data['message']
-        return True, None
-
-    @classmethod
     def list_queue(self, host, header=None, maxsize=100, marker=None):
         """
         list queue
