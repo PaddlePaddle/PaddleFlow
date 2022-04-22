@@ -197,15 +197,6 @@ class Client(object):
             raise PaddleFlowSDKException("InvalidQueueName", "queuename should not be none or empty")
         return QueueServiceApi.show_queue(self.paddleflow_server, queuename, self.header)
     
-    def stop_queue(self, queuename, action=None):
-        """
-        show queue info 
-        """
-        self.pre_check()
-        if queuename is None or queuename.strip() == "":
-            raise PaddleFlowSDKException("InvalidQueueName", "queuename should not be none or empty")
-        return QueueServiceApi.stop_queue(self.paddleflow_server, queuename, action, self.header)
-    
     def list_flavour(self, maxsize=100, marker=None, clustername="", key=""):
         """
         list flavour

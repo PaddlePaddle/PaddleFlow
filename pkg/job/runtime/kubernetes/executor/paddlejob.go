@@ -86,6 +86,7 @@ func (pj *PaddleJob) CreateJob() (string, error) {
 // patchPaddleJobSpec
 //  - schedulerName: volcano will be specified in worker when gan-scheduling is required
 func (pj *PaddleJob) patchPaddleJobSpec(pdjSpec *paddlev1.PaddleJobSpec) error {
+	log.Debugf("patch %s job %s/%s spec:%#v", pj.JobType, pj.Namespace, pj.Name, pdjSpec)
 	// .Spec.SchedulingPolicy
 	if pdjSpec.SchedulingPolicy == nil {
 		pdjSpec.SchedulingPolicy = &paddlev1.SchedulingPolicy{}
@@ -125,7 +126,7 @@ func (pj *PaddleJob) patchPaddleJobSpec(pdjSpec *paddlev1.PaddleJobSpec) error {
 		err = errors.InvalidJobModeError(pj.JobMode)
 	}
 	if err != nil {
-		log.Errorf("patchVCJobVariable failed, err=[%v]", err)
+		log.Errorf("patch paddleJobVariable failed, err=[%v]", err)
 		return err
 	}
 	return nil
@@ -186,11 +187,11 @@ func (pj *PaddleJob) patchPdjCollectiveSpec(pdjSpec *paddlev1.PaddleJobSpec) err
 	worker := pdjSpec.Worker
 	for _, task := range pj.Tasks {
 		if task.Role != schema.RoleWorker && task.Role != schema.RolePWorker {
-			return fmt.Errorf("paddlejob[%s] must be contain worker, actually exist %s", pj.Name, task.Role)
+			return fmt.Errorf("paddlejob[%s] must be contain worker, task: %#v", pj.ID, task)
 		}
 		// patch collective worker
 		if err := pj.patchPdjTask(worker, task); err != nil {
-			log.Errorf("fill Task[%s] in PS-Mode failed, err=[%v]", pj.Name, err)
+			log.Errorf("fill Task[%s] in PS-Mode failed, err=[%v]", pj.ID, err)
 			return err
 		}
 	}
@@ -225,10 +226,10 @@ func (pj *PaddleJob) patchPdjTask(resourceSpec *paddlev1.ResourceSpec, task mode
 	if len(resourceSpec.Template.Spec.Containers) != 1 {
 		resourceSpec.Template.Spec.Containers = []v1.Container{{}}
 	}
-	pj.fillContainerInTasks(&resourceSpec.Template.Spec.Containers[0], task.Flavour, task.Command)
+	pj.fillContainerInTasks(&resourceSpec.Template.Spec.Containers[0], task)
 
 	// patch resourceSpec.Template.Spec.Volumes
-	resourceSpec.Template.Spec.Volumes = pj.appendVolumeIfAbsent(resourceSpec.Template.Spec.Volumes, pj.generateVolume(pj.PVCName))
+	resourceSpec.Template.Spec.Volumes = pj.appendVolumeIfAbsent(resourceSpec.Template.Spec.Volumes, pj.generateVolume())
 	return nil
 }
 

@@ -27,6 +27,7 @@ import (
 	"paddleflow/pkg/common/database"
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/common/schema"
+	"paddleflow/pkg/pipeline/common"
 )
 
 type RunJob struct {
@@ -231,13 +232,22 @@ func ParseRunJob(jobView *schema.JobView) RunJob {
 		newParameters[k] = v
 	}
 
+	newEnv := map[string]string{}
+	for k, v := range jobView.Env {
+		// PF_RUN_TIME 不存数据库，读取Job时动态解析生成
+		if k == common.SysParamNamePFRuntime {
+			continue
+		}
+		newEnv[k] = v
+	}
+
 	return RunJob{
 		ID:           jobView.JobID,
 		Name:         jobView.JobName,
 		Command:      jobView.Command,
 		Parameters:   newParameters,
 		Artifacts:    jobView.Artifacts,
-		Env:          jobView.Env,
+		Env:          newEnv,
 		DockerEnv:    jobView.DockerEnv,
 		Status:       jobView.Status,
 		Message:      jobView.JobMessage,

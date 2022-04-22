@@ -138,6 +138,12 @@ func mountVolume(mountPathPrefix string, mountInfo pfs.MountInfo, readOnly bool)
 		return err
 	}
 
+	//err := mount.MountThroughPod(mountPathPrefix, mountInfo)
+	//if err != nil {
+	//	log.Errorf("exec mount failed: [%v]", err)
+	//	return err
+	//}
+
 	volumeBindMountPath := common.GetVolumeMountPath(mountPathPrefix)
 	return bindMountVolume(volumeSourceMountPath, volumeBindMountPath, readOnly)
 }

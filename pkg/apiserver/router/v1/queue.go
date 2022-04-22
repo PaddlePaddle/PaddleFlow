@@ -18,7 +18,6 @@ package v1
 
 import (
 	"net/http"
-	"strings"
 
 	"github.com/go-chi/chi"
 	log "github.com/sirupsen/logrus"
@@ -40,7 +39,6 @@ func (qr *QueueRouter) AddRouter(r chi.Router) {
 	r.Post("/queue", qr.createQueue)
 	r.Get("/queue", qr.listQueue)
 	r.Get("/queue/{queueName}", qr.getQueueByName)
-	r.Put("/queue/{queueName}", qr.closeQueue)
 	r.Delete("/queue/{queueName}", qr.deleteQueue)
 }
 
@@ -136,45 +134,6 @@ func (qr *QueueRouter) getQueueByName(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx.Logging().Debugf("GetQueueByName queue:%v", string(config.PrettyFormat(queueData)))
 	common.Render(w, http.StatusOK, queueData)
-}
-
-// closeQueue
-// @Summary 关闭队列
-// @Description 关闭队列
-// @Id closeQueue
-// @tags Queue
-// @Accept  json
-// @Produce json
-// @Param queueName path string true "队列名称"
-// @Param action query string true "修改队列"
-// @Success 200 {string} string "成功删除队列的响应码"
-// @Failure 400 {object} common.ErrorResponse "400"
-// @Failure 500 {object} common.ErrorResponse "500"
-// @Router /queue/{queueName} [PUT]
-func (qr *QueueRouter) closeQueue(w http.ResponseWriter, r *http.Request) {
-	ctx := common.GetRequestContext(r)
-	ctx.Logging().Debugf("CloseQueue query:%v", r.URL.Query())
-
-	actionValueSlice, ok := r.URL.Query()[util.QueryKeyAction]
-	if !ok {
-		ctx.Logging().Errorf("query parameter key[action] is missed.")
-		common.RenderErr(w, ctx.RequestID, common.QueueActionIsNotSupported)
-		return
-	}
-
-	if len(actionValueSlice) <= 0 && !strings.EqualFold(actionValueSlice[0], util.QueryActionClose) {
-		ctx.Logging().Errorf("query parameter action should be [close].")
-		common.RenderErr(w, ctx.RequestID, common.QueueActionIsNotSupported)
-		return
-	}
-
-	queueName := chi.URLParam(r, util.ParamKeyQueueName)
-	err := queue.CloseQueue(&ctx, queueName)
-	if err != nil {
-		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, ctx.ErrorMessage)
-		return
-	}
-	common.RenderStatus(w, http.StatusOK)
 }
 
 // deleteQueue
