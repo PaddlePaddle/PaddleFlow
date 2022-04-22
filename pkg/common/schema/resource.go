@@ -80,16 +80,16 @@ func EmptyResource() *Resource {
 	return &r
 }
 
-func NewResource(cpu, memory string, scalarResources ScalarResourcesType) (*Resource, error) {
+func NewResource(resourceInfo ResourceInfo) (*Resource, error) {
 	r := Resource{}
-	cpuInt, _ := strconv.Atoi(cpu)
+	cpuInt, _ := strconv.Atoi(resourceInfo.CPU)
 	r.MilliCPU = float64(cpuInt * 1000)
 
 	// todo current logical unsupport memory with unit
-	memInt, _ := strconv.Atoi(memory)
+	memInt, _ := strconv.Atoi(resourceInfo.Mem)
 	r.Memory = float64(memInt)
 
-	for k, v := range scalarResources {
+	for k, v := range resourceInfo.ScalarResources {
 		vFloat, err := strconv.ParseFloat(v, 64)
 		if err != nil {
 			fmt.Errorf("string[%s] ParseFloat failed, %+v", v, err)
