@@ -53,7 +53,7 @@ type ListMountResponse struct {
 	Marker     string           `json:"marker"`
 	Truncated  bool             `json:"truncated"`
 	NextMarker string           `json:"nextMarker"`
-	FsList     []*MountResponse `json:"mountList"`
+	MountList  []*MountResponse `json:"mountList"`
 }
 
 type MountResponse struct {

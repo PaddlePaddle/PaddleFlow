@@ -38,13 +38,14 @@ import (
 )
 
 const (
-	VolumesKeyMount = "pfs-mount"
-	VolumesKeyCache = "pfs-cache"
-	HostPathMnt     = "/data/paddleflow-fs/mnt"
-	MountPath       = "/home/paddleflow/mnt"
-	CachePath       = "/home/paddleflow/pfs-cache"
-	DataCacheDir    = "/data-cache"
-	MetaCacheDir    = "/meta-cache"
+	VolumesKeyMount     = "pfs-mount"
+	VolumesKeyDataCache = "data-cache"
+	VolumesKeyMetaCache = "meta-cache"
+	HostPathMnt         = "/data/paddleflow-fs/mnt"
+	MountPath           = "/home/paddleflow/mnt"
+	CachePath           = "/home/paddleflow/pfs-cache"
+	DataCacheDir        = "/data-cache"
+	MetaCacheDir        = "/meta-cache"
 )
 
 type PodMount struct {
@@ -199,10 +200,19 @@ func BuildMountPod(mountInfo pfs.MountInfo, cacheConf common.FsCacheConfig) *v1.
 	typeDir := corev1.HostPathDirectoryOrCreate
 	volumes := []corev1.Volume{
 		{
-			Name: VolumesKeyCache,
+			Name: VolumesKeyDataCache,
 			VolumeSource: corev1.VolumeSource{
 				HostPath: &corev1.HostPathVolumeSource{
-					Path: cacheConf.CacheDir,
+					Path: cacheConf.CacheDir + DataCacheDir,
+					Type: &typeDir,
+				},
+			},
+		},
+		{
+			Name: VolumesKeyMetaCache,
+			VolumeSource: corev1.VolumeSource{
+				HostPath: &corev1.HostPathVolumeSource{
+					Path: cacheConf.CacheDir + MetaCacheDir,
 					Type: &typeDir,
 				},
 			},
@@ -220,8 +230,13 @@ func BuildMountPod(mountInfo pfs.MountInfo, cacheConf common.FsCacheConfig) *v1.
 	mp := corev1.MountPropagationBidirectional
 	volumeMounts := []corev1.VolumeMount{
 		{
-			Name:             VolumesKeyCache,
-			MountPath:        CachePath,
+			Name:             VolumesKeyDataCache,
+			MountPath:        CachePath + DataCacheDir,
+			MountPropagation: &mp,
+		},
+		{
+			Name:             VolumesKeyMetaCache,
+			MountPath:        CachePath + MetaCacheDir,
 			MountPropagation: &mp,
 		},
 		{
