@@ -23,12 +23,15 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/agiledragon/gomonkey/v2"
+	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 
 	"paddleflow/pkg/fs/client/cache"
@@ -387,14 +390,17 @@ func getRandomString(l int) string {
 func openAndRead(client FSClient, path string, buf []byte) (int, error) {
 	reader, err := client.Open(path)
 	if err != nil {
+		log.Errorf("openAndRead open err %v", err)
 		return 0, err
 	}
 	n, err := reader.Read(buf)
 	if err != nil {
+		log.Errorf("openAndRead read err %v", err)
 		return 0, err
 	}
 	err = reader.Close()
 	if err != nil {
+		log.Errorf("openAndRead close err %v", err)
 		return 0, err
 	}
 	return n, nil
@@ -1140,4 +1146,132 @@ func TestMetaAttrCacheByLevelDB(t *testing.T) {
 	assert.Equal(t, int64(9), stat.Size())
 	stat, err = client.Stat(file1)
 	assert.Equal(t, nil, stat)
+}
+
+func setPoolNil() *gomonkey.Patches {
+	var p *cache.BufferPool
+	patch := gomonkey.ApplyMethod(reflect.TypeOf(p), "RequestMBuf", func(_ *cache.BufferPool, size uint64, block bool, blockSize int) (buf []byte) {
+		return nil
+	})
+	return patch
+}
+
+func TestReadWithNotEnoughMem(t *testing.T) {
+
+	os.RemoveAll("./mock")
+	os.RemoveAll("./mock-cache")
+	defer os.RemoveAll("./mock")
+	defer os.RemoveAll("./mock-cache")
+	d := cache.Config{
+		BlockSize:    5,
+		MaxReadAhead: 4,
+		Mem:          &cache.MemConfig{},
+		Disk:         &cache.DiskConfig{Dir: "./mock-cache", Expire: 600 * time.Second},
+	}
+	SetDataCache(d)
+	client := getTestFSClient(t)
+	path := "testRead"
+	writer, err := client.Create(path)
+	assert.Equal(t, nil, err)
+	writeString := "test String for Client"
+	_, err = writer.Write([]byte(writeString))
+	assert.Equal(t, nil, err)
+	writer.Close()
+
+	buf := make([]byte, len([]byte(writeString)))
+	n, err := openAndRead(client, path, buf)
+	assert.Equal(t, nil, err)
+	assert.Equal(t, n, len(buf))
+	assert.Equal(t, string(buf), writeString)
+
+	time.Sleep(2 * time.Second)
+	buf = make([]byte, len([]byte(writeString)))
+	n, err = openAndRead(client, path, buf)
+	assert.Equal(t, nil, err)
+	assert.Equal(t, n, len(buf))
+	assert.Equal(t, string(buf), writeString)
+	time.Sleep(2 * time.Second)
+	p := setPoolNil()
+	defer func() {
+		p.Reset()
+	}()
+	path2 := "test2"
+	client.Rename(path, path2)
+	buf = make([]byte, len([]byte(writeString)))
+	n, err = openAndRead(client, path2, buf)
+	assert.Equal(t, nil, err)
+	assert.Equal(t, n, len(buf))
+	assert.Equal(t, string(buf), writeString)
+	time.Sleep(2 * time.Second)
+
+	testMvString := "123456789"
+	client.CreateFile(path, []byte(testMvString))
+	buf = make([]byte, len([]byte(testMvString)))
+	n, err = openAndRead(client, path, buf)
+	assert.Equal(t, nil, err)
+	assert.Equal(t, n, len(buf))
+	assert.Equal(t, string(buf), testMvString)
+
+	os.RemoveAll("./mock")
+	os.RemoveAll("./mock-cache")
+}
+
+func TestFSClient_read_with_small_block_1_not_enough_mem(t *testing.T) {
+	d := cache.Config{
+		BlockSize:    1,
+		MaxReadAhead: 2,
+		Mem:          &cache.MemConfig{},
+		Disk:         &cache.DiskConfig{Dir: "./mock-cache", Expire: 10 * time.Second},
+	}
+	SetDataCache(d)
+	os.RemoveAll("./mock")
+	os.RemoveAll("./mock-cache")
+	defer os.RemoveAll("./mock")
+	defer os.RemoveAll("./mock-cache")
+
+	pathReal := "../../../../example/hoursing_price/run.yaml"
+	bufLen := 1000
+	bufExpect := make([]byte, bufLen)
+	nExpect, err := readFile(pathReal, bufExpect)
+	assert.Equal(t, nil, err)
+
+	DiskCachePath = "./mock-cache"
+	client := getTestFSClient(t)
+
+	path := "testRead_small_1"
+	writer, err := client.Create(path)
+	assert.Equal(t, nil, err)
+
+	_, err = writer.Write(bufExpect[0:nExpect])
+	assert.Equal(t, nil, err)
+	writer.Close()
+
+	buf := make([]byte, bufLen)
+	n, err := openAndRead(client, path, buf)
+	assert.Equal(t, nil, err)
+	assert.Equal(t, nExpect, n)
+	assert.Equal(t, string(bufExpect), string(buf))
+
+	buf = make([]byte, bufLen)
+	n, err = openAndRead(client, path, buf)
+	assert.Equal(t, nil, err)
+	assert.Equal(t, nExpect, n)
+	assert.Equal(t, string(bufExpect), string(buf))
+
+	p := setPoolNil()
+	defer func() {
+		p.Reset()
+	}()
+	reader, err := client.Open(path)
+	assert.Equal(t, nil, err)
+	readn := 5
+	buf1 := make([]byte, readn)
+	buf2 := make([]byte, nExpect-readn)
+	n1, err := reader.Read(buf1)
+	n2, err := reader.Read(buf2)
+	assert.Equal(t, nil, err)
+	assert.Equal(t, nExpect, n1+n2)
+	reader.Close()
+
+	assert.Equal(t, string(bufExpect[0:nExpect]), string(buf1)+string(buf2))
 }
