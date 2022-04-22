@@ -124,7 +124,6 @@ func TestPatchSparkAppVariable(t *testing.T) {
 			Name:                "randomName",
 			Namespace:           pfjob.Namespace,
 			JobType:             schema.TypeDistributed,
-			Framework:           schema.FrameworkSpark,
 			Image:               pfjob.Conf.GetImage(),
 			Command:             pfjob.Conf.GetCommand(),
 			Env:                 pfjob.Conf.GetEnv(),
