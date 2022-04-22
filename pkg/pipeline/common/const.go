@@ -28,7 +28,7 @@ const (
 	SysParamNamePFFsName   = "PF_FS_NAME"
 	SysParamNamePFUserID   = "PF_USER_ID"
 	SysParamNamePFUserName = "PF_USER_NAME"
-	SysParamNamePFRUNTIME  = "PF_RUN_TIME"
+	SysParamNamePFRuntime  = "PF_RUN_TIME"
 
 	WfExtraInfoKeySource   = "Source" // pipelineID or yamlPath
 	WfExtraInfoKeyUserName = "UserName"
@@ -72,5 +72,5 @@ var SysParamNameList []string = []string{
 	SysParamNamePFFsName,
 	SysParamNamePFUserID,
 	SysParamNamePFUserName,
-	SysParamNamePFRUNTIME,
+	SysParamNamePFRuntime,
 }
