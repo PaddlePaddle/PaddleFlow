@@ -196,7 +196,7 @@ func (wfs *WorkflowSource) ValidateStepCacheByMap(runMap map[string]interface{})
 		point.Cache = wfs.Cache
 
 		// 检查用户是否有设置节点级别的Cache
-		cache, ok, err := unstructured.NestedFieldCopy(runMap, "entry_points", name, "cache")
+		cache, ok, err := unstructured.NestedFieldCopy(runMap, EntryPointsStr, name, "cache")
 		if err != nil {
 			return err
 		}
