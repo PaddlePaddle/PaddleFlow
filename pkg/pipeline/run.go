@@ -348,7 +348,7 @@ func (wfr *WorkflowRuntime) updateStatus(entryPointsStatus, postProcessStatus St
 		wfr.status = common.StatusRunSucceeded
 	}
 
-	wfr.wf.log().Debugf("workflow %s finished", wfr.wf.Name)
+	wfr.wf.log().Debugf("workflow %s finished with status[%s]", wfr.wf.Name, wfr.status)
 	return
 }
 
