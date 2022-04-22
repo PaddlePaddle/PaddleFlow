@@ -81,7 +81,7 @@ type dataReader struct {
 func (fh *fileReader) Read(buf []byte, off uint64) (int, syscall.Errno) {
 	fh.Lock()
 	defer fh.Unlock()
-	log.Debugf("len[%d] off[%d] blockName[%s] length[%d]", len(buf), off, fh.name, fh.length)
+	log.Debugf("fileReader len[%d] off[%d] blockName[%s] length[%d]", len(buf), off, fh.name, fh.length)
 	if off >= fh.length || len(buf) == 0 {
 		return 0, syscall.F_OK
 	}
@@ -112,7 +112,6 @@ func (fh *fileReader) Read(buf []byte, off uint64) (int, syscall.Errno) {
 				return 0, syscall.EBADF
 			}
 			bytesRead += nread
-			fh.seqReadAmount += uint64(nread)
 			if off+uint64(nread) >= fh.length {
 				break
 			}
@@ -131,10 +130,12 @@ func (fh *fileReader) Read(buf []byte, off uint64) (int, syscall.Errno) {
 			return 0, syscall.EBADF
 		}
 	}
+	log.Debugf("filereader finish read %d and buf is %s", bytesRead, string(buf[:bytesRead]))
 	return bytesRead, syscall.F_OK
 }
 
 func (fh *fileReader) readFromStream(off int64, buf []byte) (bytesRead int, err error) {
+	log.Debugf("read from stream %v seqReadAmount[%d]", off, fh.seqReadAmount)
 	if fh.seqReadAmount != uint64(off) {
 		if fh.streamReader != nil {
 			_ = fh.streamReader.Close()
@@ -147,9 +148,11 @@ func (fh *fileReader) readFromStream(off int64, buf []byte) (bytesRead int, err 
 			return 0, err
 		}
 		fh.streamReader = resp
+		fh.seqReadAmount = uint64(off)
 	}
 
 	bytesRead, err = fh.streamReader.Read(buf)
+	fh.seqReadAmount += uint64(bytesRead)
 	if err != nil {
 		if err != io.EOF {
 			log.Errorf("readFromStream err %v", err)
