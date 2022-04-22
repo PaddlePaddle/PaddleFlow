@@ -472,15 +472,6 @@ func TestPFRUNTIME(t *testing.T) {
 				"PF_RUN_ID": "00001",
 				"name1":     "name1",
 			},
-<<<<<<< HEAD
-=======
-		},
-		"main": schema.JobView{
-			JobID: "3456",
-		},
-		"validate": schema.JobView{
-			JobID: "9087",
->>>>>>> 62513bea07707d7f284a91a623caf0c5416e2585
 		},
 		"main": schema.JobView{
 			JobID: "3456",
@@ -489,26 +480,6 @@ func TestPFRUNTIME(t *testing.T) {
 			JobID: "9087",
 		},
 	}
-
-	// entryPoints
-	st := wf.runtime.entryPoints["data-preprocess"]
-	st.nodeType = common.NodeTypeEntrypoint
-	st.updateJob(false, nil)
-
-	runtimeString := st.job.(*PaddleFlowJob).Env["PF_RUN_TIME"]
-	fmt.Println("runtimeString", runtimeString)
-	assert.Equal(t, "{}", st.job.Job().Env["PF_RUN_TIME"])
-
-	st = wf.runtime.entryPoints["main"]
-	st.nodeType = common.NodeTypeEntrypoint
-	st.updateJob(false, nil)
-	runtime := schema.RuntimeView{}
-	err = json.Unmarshal([]byte(st.job.Job().Env["PF_RUN_TIME"]), &runtime)
-	if err != nil {
-		t.Errorf("unmarshal runtime failed: %s", err.Error())
-	}
-	assert.Equal(t, 1, len(runtime))
-	assert.Equal(t, runtime["data-preprocess"].Env["name1"], "name1")
 
 	// entryPoints
 	st := wf.runtime.entryPoints["data-preprocess"]
