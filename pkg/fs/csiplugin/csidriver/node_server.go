@@ -18,9 +18,6 @@ package csidriver
 
 import (
 	"os"
-	"paddleflow/pkg/client"
-	"paddleflow/pkg/common/http/api"
-	"paddleflow/pkg/fs/client/base"
 	"path/filepath"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
@@ -30,6 +27,9 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"paddleflow/pkg/client"
+	"paddleflow/pkg/common/http/api"
+	"paddleflow/pkg/fs/client/base"
 	"paddleflow/pkg/fs/csiplugin/client/pfs"
 	"paddleflow/pkg/fs/utils/common"
 	"paddleflow/pkg/fs/utils/io"
