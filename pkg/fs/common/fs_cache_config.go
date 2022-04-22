@@ -1,0 +1,69 @@
+/*
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package common
+
+type FsCacheConfig struct {
+	CacheDir            string
+	Quota               int
+	CacheType           string
+	BlockSize           int
+	NodeAffinity        map[string]interface{}
+	NodeTaintToleration map[string]interface{}
+	ExtraConfig         map[string]string
+	FsName              string
+	Username            string
+}
+
+type CreateMountRequest struct {
+	FsName     string `json:"fsName" validate:"required"`
+	Username   string `json:"userName"`
+	ClusterID  string `json:"clusterID"`
+	MountPoint string `json:"mountPoint" validate:"required"`
+	NodeName   string `json:"nodename" validate:"required"`
+}
+
+type ListMountRequest struct {
+	FsName    string `json:"fsName"`
+	Username  string `json:"userName"`
+	ClusterID string `json:"clusterID"`
+	NodeName  string `json:"nodename" validate:"required"`
+	Marker    string `json:"marker"`
+	MaxKeys   int32  `json:"maxKeys"`
+}
+
+type DeleteMountRequest struct {
+	FsName     string `json:"fsName" validate:"required"`
+	Username   string `json:"userName"`
+	ClusterID  string `json:"clusterID"`
+	MountPoint string `json:"mountPoint" validate:"required"`
+	NodeName   string `json:"nodename" validate:"required"`
+}
+
+type ListMountResponse struct {
+	Marker     string           `json:"marker"`
+	Truncated  bool             `json:"truncated"`
+	NextMarker string           `json:"nextMarker"`
+	FsList     []*MountResponse `json:"mountList"`
+}
+
+type MountResponse struct {
+	MountID    string `json:"mountID"`
+	FsID       string `json:"fsID"`
+	MountPoint string `json:"mountpoint"`
+	NodeName   string `json:"nodename"`
+	ClusterID  string `json:"clusterID"`
+}

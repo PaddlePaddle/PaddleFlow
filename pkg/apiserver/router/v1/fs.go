@@ -915,7 +915,6 @@ func validateCreateMount(ctx *logger.RequestContext, req *api.CreateMountRequest
 // @tag fs
 // @Accept   json
 // @Produce  json
-// @Param request body fs.ListMountRequest true "request body"
 // @Success 200 {object} fs.ListFileSystemResponse
 // @Failure 400 {object} common.ErrorResponse
 // @Failure 404 {object} common.ErrorResponse

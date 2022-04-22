@@ -18,6 +18,10 @@ package mount
 
 import (
 	"fmt"
+	"paddleflow/pkg/common/http/api"
+	"paddleflow/pkg/fs/client/base"
+	"paddleflow/pkg/fs/common"
+	"strconv"
 	"strings"
 	"time"
 
@@ -86,9 +90,16 @@ func createOrAddRef(targetPath string, mountInfo pfs.MountInfo) error {
 }
 
 func createMount(k8sClient k8s.K8SInterface, targetPath string, mountInfo pfs.MountInfo) error {
+	// get config
+	cacheConfig, err := base.Client.GetFSCacheConfig()
+	if err != nil {
+		log.Errorf("get fs[%s] meta from pfs server[%s] failed: %v",
+			mountInfo.FSID, mountInfo.Server, err)
+		return err
+	}
 	// create pod
-	newPod := BuildMountPod(mountInfo)
-	_, err := k8sClient.CreatePod(newPod)
+	newPod := BuildMountPod(mountInfo, cacheConfig)
+	_, err = k8sClient.CreatePod(newPod)
 	if err != nil {
 		log.Errorf("createMount: Create pod for fsID %s err: %v", mountInfo.FSID, err)
 		return err
@@ -102,7 +113,20 @@ func createMount(k8sClient k8s.K8SInterface, targetPath string, mountInfo pfs.Mo
 }
 
 func addRefOfMount(targetPath string, mountInfo pfs.MountInfo) error {
-	// TODO rest api to operate db
+	createMountReq := api.CreateMountRequest{
+		FsParams: api.FsParams{
+			FsName:   base.Client.FsName,
+			UserName: base.Client.UserName,
+			Token:    base.Client.Token,
+		},
+		ClusterID:  "",
+		MountPoint: targetPath,
+		NodeName:   csiconfig.NodeName,
+	}
+	if err := base.Client.CreateFsMount(createMountReq); err != nil {
+		log.Errorf("CreateFsMount[%s] failed: %v", mountInfo.FSID, err)
+		return err
+	}
 	return nil
 }
 
@@ -165,11 +189,11 @@ func getErrContainerLog(K8sClient k8s.K8SInterface, podName string) (log string,
 	return
 }
 
-func BuildMountPod(mountInfo pfs.MountInfo) *v1.Pod {
+func BuildMountPod(mountInfo pfs.MountInfo, cacheConf common.FsCacheConfig) *v1.Pod {
 	pod := csiconfig.GeneratePodTemplate()
 	pod.Name = GeneratePodNameByFsID(mountInfo.FSID)
 	mountPoint := MountPath + "/" + mountInfo.FSID
-	cmd := getcmd(mountPoint, mountInfo)
+	cmd := getcmd(mountPoint, mountInfo, cacheConf)
 	pod.Spec.Containers[0].Command = []string{"sh", "-c", cmd}
 
 	typeDir := corev1.HostPathDirectoryOrCreate
@@ -178,8 +202,7 @@ func BuildMountPod(mountInfo pfs.MountInfo) *v1.Pod {
 			Name: VolumesKeyCache,
 			VolumeSource: corev1.VolumeSource{
 				HostPath: &corev1.HostPathVolumeSource{
-					// TODO get from server cache config
-					Path: "/data/paddleflow-fs/cache",
+					Path: cacheConf.CacheDir,
 					Type: &typeDir,
 				},
 			},
@@ -212,17 +235,15 @@ func BuildMountPod(mountInfo pfs.MountInfo) *v1.Pod {
 	return pod
 }
 
-func getcmd(mountPoint string, mountInfo pfs.MountInfo) string {
-	// TODO obtain args from paddleflow-server
+func getcmd(mountPoint string, mountInfo pfs.MountInfo, cacheConf common.FsCacheConfig) string {
 	mkdir := "mkdir -p " + mountPoint + ";"
 	pfsMountPath := "/home/paddleflow/pfs-fuse mount "
 	mountPath := "--mount-point=" + mountPoint + " "
 	options := []string{
-		"--server=",
-		"--user-name=",
-		"--password=",
-		"--block-size=",
-		"--data-mem-size=",
+		"--server=" + mountInfo.Server,
+		"--user-name=" + mountInfo.UsernameRoot,
+		"--password=" + mountInfo.PasswordRoot,
+		"--block-size=" + strconv.Itoa(cacheConf.BlockSize),
 		"--fs-id=" + mountInfo.FSID,
 		"--data-disk-cache-path=" + CachePath + DataCacheDir,
 		"--meta-path=" + CachePath + MetaCacheDir,

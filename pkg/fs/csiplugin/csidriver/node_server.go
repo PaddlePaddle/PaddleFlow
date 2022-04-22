@@ -18,6 +18,9 @@ package csidriver
 
 import (
 	"os"
+	"paddleflow/pkg/client"
+	"paddleflow/pkg/common/http/api"
+	"paddleflow/pkg/fs/client/base"
 	"path/filepath"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
@@ -34,14 +37,14 @@ import (
 )
 
 const (
-	pfsFSID     = "pfs.fs.id"
-	pfsServer   = "pfs.server"
-	pfsUserName = "pfs.user.name"
+	pfsFSID   = "pfs.fs.id"
+	pfsServer = "pfs.server"
 )
 
 type nodeServer struct {
 	nodeId string
 	*csicommon.DefaultNodeServer
+	credentialInfo credentials
 }
 
 func (ns *nodeServer) NodeGetCapabilities(ctx context.Context, req *csi.NodeGetCapabilitiesRequest) (*csi.NodeGetCapabilitiesResponse, error) {
@@ -72,9 +75,27 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context,
 	volumeContext := req.GetVolumeContext()
 	fsId := volumeContext[pfsFSID]
 	server := volumeContext[pfsServer]
-	userName := volumeContext[pfsUserName]
 
-	mountInfo := pfs.GetMountInfo(fsId, server, userName, req.GetReadonly())
+	// new fuse http client
+	httpClient := client.NewHttpClient(server, client.DefaultTimeOut)
+	// token
+	login := api.LoginParams{
+		UserName: ns.credentialInfo.usernameRoot,
+		Password: ns.credentialInfo.passwordRoot,
+	}
+	loginResponse, err := api.LoginRequest(login, httpClient)
+	if err != nil {
+		log.Errorf("fuse login failed: %v", err)
+		return &csi.NodePublishVolumeResponse{}, err
+	}
+	_, err = base.NewClient(fsId, httpClient, loginResponse.Authorization)
+	if err != nil {
+		log.Errorf("csi addRefOfMount: init client with fs[%s] and server[%s] failed: %v",
+			fsId, server, err)
+		return &csi.NodePublishVolumeResponse{}, err
+	}
+
+	mountInfo := pfs.GetMountInfo(fsId, server, login.UserName, login.Password, req.GetReadonly())
 	pathPrefix := filepath.Dir(targetPath)
 	if err := mountVolume(pathPrefix, mountInfo, req.GetReadonly()); err != nil {
 		log.Errorf("mount filesystem[%s] with server[%s] failed: %v", fsId, server, err)

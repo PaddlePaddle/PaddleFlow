@@ -38,7 +38,7 @@ type _Client struct {
 	httpClient *core.PFClient
 }
 
-func NewClient(fsID string, c *core.PFClient, userName string, token string) (*_Client, error) {
+func NewClient(fsID string, c *core.PFClient, token string) (*_Client, error) {
 	fsArray := strings.Split(fsID, "-")
 	realUsername := strings.Join(fsArray[1:len(fsArray)-1], "")
 	_client := _Client{
@@ -107,4 +107,40 @@ func (c *_Client) GetLinks() (map[string]common.FSMeta, error) {
 		}
 	}
 	return result, nil
+}
+
+func (c *_Client) GetFSCacheConfig() (common.FsCacheConfig, error) {
+	log.Debugf("Http CLient is %v", *c)
+	params := api.FsParams{
+		FsName:   c.FsName,
+		UserName: c.UserName,
+		Token:    c.Token,
+	}
+	cacheResp, err := api.FsCacheRequest(params, c.httpClient)
+	if err != nil {
+		log.Errorf("fs request failed: %v", err)
+		return common.FsCacheConfig{}, err
+	}
+	log.Debugf("the resp is [%+v]", cacheResp)
+	cacheConfig := common.FsCacheConfig{
+		CacheDir:            cacheResp.CacheDir,
+		Quota:               cacheResp.Quota,
+		CacheType:           cacheResp.CacheType,
+		BlockSize:           cacheResp.BlockSize,
+		NodeAffinity:        cacheResp.NodeAffinity,
+		NodeTaintToleration: cacheResp.NodeTaintToleration,
+		ExtraConfig:         cacheResp.ExtraConfig,
+		FsName:              cacheResp.FsName,
+		Username:            cacheResp.Username,
+	}
+	return cacheConfig, nil
+}
+
+func (c *_Client) CreateFsMount(req api.CreateMountRequest) error {
+	log.Debugf("CreateFsMount client: %+v, req: %+v", *c, req)
+	err := api.FsMountCreate(req, c.httpClient)
+	if err != nil {
+		log.Errorf("fs request failed: %v", err)
+	}
+	return err
 }

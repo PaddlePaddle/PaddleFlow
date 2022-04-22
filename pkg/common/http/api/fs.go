@@ -26,11 +26,12 @@ import (
 )
 
 const (
-	Prefix           = util.PaddleflowRouterPrefix + util.PaddleflowRouterVersionV1
-	LoginApi         = Prefix + "/login"
-	GetFsApi         = Prefix + "/fs"
-	GetLinksApis     = Prefix + "/link"
-	GetFsCacheConfig = Prefix + "/fs/cache"
+	Prefix        = util.PaddleflowRouterPrefix + util.PaddleflowRouterVersionV1
+	LoginApi      = Prefix + "/login"
+	GetFsApi      = Prefix + "/fs"
+	GetLinksApis  = Prefix + "/link"
+	FsCacheConfig = Prefix + "/fsCache"
+	FsMount       = Prefix + "/fsMount"
 )
 
 type LoginParams struct {
@@ -96,6 +97,43 @@ type FsCacheResponse struct {
 	UpdateTime          string                 `json:"updateTime,omitempty"`
 }
 
+type CreateMountRequest struct {
+	ClusterID  string `json:"clusterID"`
+	MountPoint string `json:"mountPoint" validate:"required"`
+	NodeName   string `json:"nodename" validate:"required"`
+	FsParams
+}
+
+type ListMountRequest struct {
+	FsParams
+	ClusterID string `json:"clusterID"`
+	NodeName  string `json:"nodename" validate:"required"`
+	Marker    string `json:"marker"`
+	MaxKeys   int32  `json:"maxKeys"`
+}
+
+type DeleteMountRequest struct {
+	FsParams
+	ClusterID  string `json:"clusterID"`
+	MountPoint string `json:"mountPoint" validate:"required"`
+	NodeName   string `json:"nodename" validate:"required"`
+}
+
+type ListMountResponse struct {
+	Marker     string           `json:"marker"`
+	Truncated  bool             `json:"truncated"`
+	NextMarker string           `json:"nextMarker"`
+	FsList     []*MountResponse `json:"mountList"`
+}
+
+type MountResponse struct {
+	MountID    string `json:"mountID"`
+	FsID       string `json:"fsID"`
+	MountPoint string `json:"mountpoint"`
+	NodeName   string `json:"nodename"`
+	ClusterID  string `json:"clusterID"`
+}
+
 func LoginRequest(params LoginParams, c *core.PFClient) (*LoginResponse, error) {
 	var err error
 	resp := &LoginResponse{}
@@ -145,7 +183,7 @@ func FsCacheRequest(params FsParams, c *core.PFClient) (*FsCacheResponse, error)
 	resp := &FsCacheResponse{}
 	err := core.NewRequestBuilder(c).
 		WithHeader(common.HeaderKeyAuthorization, params.Token).
-		WithURL(GetFsCacheConfig+"/"+params.FsName).
+		WithURL(FsCacheConfig+"/"+params.FsName).
 		WithQueryParam("username", params.UserName).WithMethod(http.GET).
 		WithResult(resp).
 		Do()
@@ -153,4 +191,14 @@ func FsCacheRequest(params FsParams, c *core.PFClient) (*FsCacheResponse, error)
 		return nil, err
 	}
 	return resp, nil
+}
+
+func FsMountCreate(req CreateMountRequest, c *core.PFClient) error {
+	err := core.NewRequestBuilder(c).
+		WithHeader(common.HeaderKeyAuthorization, req.Token).
+		WithURL(FsMount).
+		WithQueryParam("username", req.UserName).WithMethod(http.POST).
+		WithBody(req).
+		Do()
+	return err
 }
