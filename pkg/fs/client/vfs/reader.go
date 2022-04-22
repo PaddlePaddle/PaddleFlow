@@ -112,6 +112,7 @@ func (fh *fileReader) Read(buf []byte, off uint64) (int, syscall.Errno) {
 				return 0, syscall.EBADF
 			}
 			bytesRead += nread
+			fh.seqReadAmount += uint64(nread)
 			if off+uint64(nread) >= fh.length {
 				break
 			}
@@ -152,7 +153,6 @@ func (fh *fileReader) readFromStream(off int64, buf []byte) (bytesRead int, err 
 	}
 
 	bytesRead, err = fh.streamReader.Read(buf)
-	fh.seqReadAmount += uint64(bytesRead)
 	if err != nil {
 		if err != io.EOF {
 			log.Errorf("readFromStream err %v", err)
