@@ -332,6 +332,7 @@ func (wfr *WorkflowRuntime) updateStatus(entryPointsStatus, postProcessStatus St
 	// 其余情况都为succeeded，因为：
 	// - 有step为 cancelled 状态，要么是因为有节点失败了，要么是用户终止了 Run
 	// - 另外skipped 状态的节点也视作运行成功（目前运行所有step都skip，此时run也是为succeeded）
+	// - 如果有 Step 的状态为 terminated，但是 run 的状态不为 terminating, 则说明改step 是意外终止，此时 run 的状态应该Failed
 	FailedSteps := len(entryPointsStatus.FailedSteps) + len(postProcessStatus.FailedSteps)
 	terminatedSteps := len(entryPointsStatus.TerminatedSteps) + len(postProcessStatus.TerminatedSteps)
 	cancelledSteps := len(entryPointsStatus.CanelledSteps) + len(postProcessStatus.CanelledSteps)
