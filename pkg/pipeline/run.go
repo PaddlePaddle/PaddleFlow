@@ -328,13 +328,17 @@ func (wfr *WorkflowRuntime) countStepStatus(steps map[string]*Step) StatusToStep
 func (wfr *WorkflowRuntime) updateStatus(entryPointsStatus, postProcessStatus StatusToSteps) {
 	// 只有所有step运行结束后会，才更新run为终止状态
 	// 有failed step，run 状态为failed
-	// terminated step，run 状态为terminated
+	// 如果当前状态为 terminating，存在有 cancelled step 或者 terminated step，run 状态为terminated
 	// 其余情况都为succeeded，因为：
-	// - 有step为 cancelled 状态，那就肯定有有step为terminated
+	// - 有step为 cancelled 状态，要么是因为有节点失败了，要么是用户终止了 Run
 	// - 另外skipped 状态的节点也视作运行成功（目前运行所有step都skip，此时run也是为succeeded）
-	if len(entryPointsStatus.FailedSteps)+len(postProcessStatus.FailedSteps) != 0 {
+	FailedSteps := len(entryPointsStatus.FailedSteps) + len(postProcessStatus.FailedSteps)
+	terminatedSteps := len(entryPointsStatus.TerminatedSteps) + len(postProcessStatus.TerminatedSteps)
+	cancelledSteps := len(entryPointsStatus.CanelledSteps) + len(postProcessStatus.CanelledSteps)
+
+	if FailedSteps != 0 {
 		wfr.status = common.StatusRunFailed
-	} else if len(entryPointsStatus.TerminatedSteps)+len(postProcessStatus.TerminatedSteps) != 0 {
+	} else if terminatedSteps != 0 || cancelledSteps != 0 {
 		if wfr.status == common.StatusRunTerminating {
 			wfr.status = common.StatusRunTerminated
 		} else {
