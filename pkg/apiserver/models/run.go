@@ -177,8 +177,9 @@ func (r *Run) validateRuntimeAndPostProcess() error {
 }
 
 func (r *Run) initAllPFRuntime() error {
+	pfRuntimeGen := pplcommon.NewPFRuntimeGenerator(r.Runtime, r.WorkflowSource)
 	for name, step := range r.Runtime {
-		pfRuntimeJson, err := pplcommon.GetPFRuntime(name, r.Runtime, r.WorkflowSource)
+		pfRuntimeJson, err := pfRuntimeGen.GetPFRuntime(name)
 		if err != nil {
 			return err
 		}
@@ -186,7 +187,7 @@ func (r *Run) initAllPFRuntime() error {
 		r.Runtime[name] = step
 	}
 	for name, step := range r.PostProcess {
-		pfRuntimeJson, err := pplcommon.GetPFRuntime(name, r.Runtime, r.WorkflowSource)
+		pfRuntimeJson, err := pfRuntimeGen.GetPFRuntime(name)
 		if err != nil {
 			return err
 		}

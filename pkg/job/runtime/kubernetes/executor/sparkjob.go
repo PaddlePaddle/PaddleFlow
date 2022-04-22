@@ -53,8 +53,7 @@ func (sj *SparkJob) patchSparkAppVariable(jobApp *sparkapp.SparkApplication, job
 	if jobApp.Spec.Volumes == nil {
 		jobApp.Spec.Volumes = []corev1.Volume{}
 	}
-	jobVolume := sj.generateVolume(sj.PVCName)
-	jobApp.Spec.Volumes = sj.appendVolumeIfAbsent(jobApp.Spec.Volumes, jobVolume)
+	jobApp.Spec.Volumes = sj.appendVolumeIfAbsent(jobApp.Spec.Volumes, sj.generateVolume())
 	return nil
 }
 
