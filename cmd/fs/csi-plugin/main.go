@@ -19,8 +19,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"paddleflow/pkg/fs/csiplugin/client/k8s"
-	"paddleflow/pkg/fs/csiplugin/csiconfig"
 	"time"
 
 	"github.com/gin-contrib/pprof"
@@ -30,7 +28,9 @@ import (
 
 	"paddleflow/cmd/fs/csi-plugin/flag"
 	"paddleflow/pkg/common/logger"
+	"paddleflow/pkg/fs/csiplugin/client/k8s"
 	"paddleflow/pkg/fs/csiplugin/controller"
+	"paddleflow/pkg/fs/csiplugin/csiconfig"
 	"paddleflow/pkg/fs/csiplugin/csidriver"
 	"paddleflow/pkg/metric"
 )
