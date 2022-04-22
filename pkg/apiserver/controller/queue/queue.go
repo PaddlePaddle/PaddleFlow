@@ -44,7 +44,7 @@ type CreateQueueRequest struct {
 	Location     map[string]string   `json:"location"`
 	// 任务调度策略
 	SchedulingPolicy []string `json:"schedulingPolicy,omitempty"`
-	Status           string   `json:"status"`
+	Status           string   `json:"-"`
 }
 
 type CreateQueueResponse struct {
@@ -154,7 +154,7 @@ func CreateQueue(ctx *logger.RequestContext, request *CreateQueueRequest) (Creat
 		ctx.ErrorCode = common.NamespaceNotFound
 		ctx.Logging().Errorln("create request failed. error: namespace is not found.")
 		return CreateQueueResponse{}, errors.New("namespace is not found")
-	} else if len(clusterInfo.NamespaceList) != 0 {
+	} else {
 		isExist := false
 		for _, ns := range clusterInfo.NamespaceList {
 			if request.Namespace == ns {
@@ -207,6 +207,7 @@ func CreateQueue(ctx *logger.RequestContext, request *CreateQueueRequest) (Creat
 			ctx.ErrorCode = common.InvalidScaleResource
 			return CreateQueueResponse{}, err
 		}
+		// TODO: check minResource < MaxResource
 	}
 
 	request.Status = schema.StatusQueueCreating
