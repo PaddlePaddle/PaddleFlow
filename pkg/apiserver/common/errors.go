@@ -63,6 +63,8 @@ const (
 	UserNotExist       = "UserNotExist"
 	UserPasswordWeak   = "UserPasswordWeak"
 
+	InvalidComputeResource = "InvalidComputeResource"
+
 	QueueNameDuplicated          = "QueueNameDuplicated"
 	QueueActionIsNotSupported    = "QueueActionIsNotSupported"
 	QueueNameNotFound            = "QueueNameNotFound"

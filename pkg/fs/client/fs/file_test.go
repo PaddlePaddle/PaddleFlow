@@ -269,7 +269,6 @@ func TestReadAtCocurrent(t *testing.T) {
 	writer.Close()
 
 	var reader *File
-	var n int
 
 	reader, err = client.Open(path)
 	assert.Equal(t, err, nil)
@@ -278,18 +277,18 @@ func TestReadAtCocurrent(t *testing.T) {
 	wg.Add(g)
 	for i := 0; i < g; i++ {
 		go func() {
-			n = 3
-			buf := make([]byte, n)
-			n, err = reader.ReadAt(buf, 2)
+			n1 := 3
+			buf := make([]byte, n1)
+			n2, err := reader.ReadAt(buf, 2)
 			assert.Equal(t, nil, err)
-			assert.Equal(t, len(buf), n)
+			assert.Equal(t, len(buf), n2)
 			assert.Equal(t, "345", string(buf))
 
-			n2 := 4
-			buf2 := make([]byte, n2)
-			n, err = reader.ReadAt(buf2, 3)
+			n3 := 4
+			buf2 := make([]byte, n3)
+			n4, err := reader.ReadAt(buf2, 3)
 			assert.Equal(t, nil, err)
-			assert.Equal(t, len(buf2), n2)
+			assert.Equal(t, len(buf2), n4)
 			assert.Equal(t, "4567", string(buf2))
 			wg.Done()
 		}()
@@ -302,16 +301,16 @@ func TestReadAtCocurrent(t *testing.T) {
 		go func() {
 			n1 := 3
 			buf := make([]byte, n1)
-			n, err = reader.ReadAt(buf, 2)
+			n2, err := reader.ReadAt(buf, 2)
 			assert.Equal(t, nil, err)
-			assert.Equal(t, len(buf), n)
+			assert.Equal(t, len(buf), n2)
 			assert.Equal(t, "345", string(buf))
 
-			n2 := 4
-			buf2 := make([]byte, n2)
-			n, err = reader.ReadAt(buf2, 3)
+			n3 := 4
+			buf2 := make([]byte, n3)
+			n4, err := reader.ReadAt(buf2, 3)
 			assert.Equal(t, nil, err)
-			assert.Equal(t, len(buf2), n2)
+			assert.Equal(t, len(buf2), n4)
 			assert.Equal(t, "4567", string(buf2))
 			wg.Done()
 		}()

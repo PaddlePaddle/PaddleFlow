@@ -365,3 +365,77 @@ func TestS3Client_readMemAndDisk(t *testing.T) {
 	assert.Equal(t, nExpect, n)
 	assert.Equal(t, string(bufExpect), string(buf))
 }
+
+func TestS3Client_read_with_small_block_with_no_no_mem(t *testing.T) {
+	d := cache.Config{
+		BlockSize:    1,
+		MaxReadAhead: 40,
+		Mem:          &cache.MemConfig{},
+		Disk:         &cache.DiskConfig{Dir: "./mock-cache", Expire: 600 * time.Second},
+	}
+	SetDataCache(d)
+
+	client := getS3TestFsClient(t)
+	if client == nil {
+		return
+	}
+	assert.NotNil(t, client)
+
+	client.RemoveAll("./mock")
+	os.RemoveAll("./mock-cache")
+	defer func() {
+		client.RemoveAll("./mock")
+		os.RemoveAll("./mock-cache")
+		os.RemoveAll("./tmp")
+	}()
+
+	pathReal := "../../../../example/hoursing_price/run.yaml"
+	bufLen := 1000
+	bufExpect := make([]byte, bufLen)
+	nExpect, err := readFile(pathReal, bufExpect)
+	assert.Equal(t, nil, err)
+
+	DiskCachePath = "./mock-cache"
+
+	err = client.Mkdir("./mock", 0755)
+	assert.Equal(t, nil, err)
+
+	path := "./mock/testRead_small_1"
+	writer, err := client.Create(path)
+	assert.Equal(t, nil, err)
+
+	_, err = writer.Write(bufExpect[0:nExpect])
+	assert.Equal(t, nil, err)
+	writer.Close()
+
+	buf := make([]byte, bufLen)
+	n, err := openAndRead(client, path, buf)
+	assert.Equal(t, nil, err)
+	assert.Equal(t, nExpect, n)
+	assert.Equal(t, string(bufExpect), string(buf))
+
+	p := setPoolNil()
+	buf = make([]byte, bufLen)
+	n, err = openAndRead(client, path, buf)
+	assert.Equal(t, nil, err)
+	assert.Equal(t, nExpect, n)
+	assert.Equal(t, string(bufExpect), string(buf))
+
+	p.Reset()
+	log.Infof("s3begin read err %v", path)
+
+	reader, err := client.Open(path)
+	assert.Equal(t, err, nil)
+	readn := 5
+	buf1 := make([]byte, readn)
+	buf2 := make([]byte, nExpect-readn)
+	n1, err := reader.Read(buf1)
+	p = setPoolNil()
+	n2, err := reader.Read(buf2)
+	assert.Equal(t, nil, err)
+	assert.Equal(t, nExpect, n1+n2)
+	reader.Close()
+	p.Reset()
+
+	assert.Equal(t, string(bufExpect[0:nExpect]), string(buf1)+string(buf2))
+}

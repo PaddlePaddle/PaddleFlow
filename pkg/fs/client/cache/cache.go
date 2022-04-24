@@ -238,6 +238,7 @@ func (r *rCache) readFromReadAhead(off int64, buf []byte) (bytesRead int, err er
 			return
 		}
 		nread, err = readAheadBuf.ReadAt(uint64(blockOff), buf[bytesRead:])
+		log.Debugf("readAheadBuf off %d nread %d bytesRead %d buf %s \n", off, nread, bytesRead, string(buf[bytesRead:bytesRead+nread]))
 		if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
 			break
 		}
@@ -311,6 +312,7 @@ func (r *rCache) readAhead(index int) (err error) {
 			if existingReadAhead != 0 {
 				return nil
 			} else {
+				log.Errorf("not enough memory")
 				return syscall.ENOMEM
 			}
 		}
@@ -345,6 +347,8 @@ func (r *rCache) ReadAt(buf []byte, off int64) (n int, err error) {
 	if err == nil {
 		n, err = r.readFromReadAhead(off, buf)
 		return
+	} else {
+		log.Errorf("read ahead err is %v", err)
 	}
 	return
 }
