@@ -169,7 +169,6 @@ func (r *Run) validateRuntimeAndPostProcess() error {
 				job.StepName, entryPointNames, postProcessNames)
 		}
 	}
-
 	// 初始化env中的PF_RUN_TIME
 	if err := r.initAllPFRuntime(); err != nil {
 		return err
