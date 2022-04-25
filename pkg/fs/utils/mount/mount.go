@@ -49,6 +49,11 @@ const (
 	readOnly = "ro"
 )
 
+func IsLikelyMountPoint(path string) (bool, error) {
+	notMountPoint, err := mount.New("").IsLikelyNotMountPoint(path)
+	return !notMountPoint, err
+}
+
 func IsMountPoint(path string) (bool, error) {
 	output, err := ExecCmdWithTimeout(MountPointCmdName, []string{path})
 	if err != nil {
@@ -105,6 +110,7 @@ func ExecCmdWithTimeout(name string, args []string) ([]byte, error) {
 	defer cancel()
 	newCmd := exec.CommandContext(ctx, name, args...)
 	newCmd.Env = append(os.Environ())
+	log.Debugf("newCmd is %s", newCmd.String())
 
 	sysProcAttr := &syscall.SysProcAttr{
 		Setpgid: true,
