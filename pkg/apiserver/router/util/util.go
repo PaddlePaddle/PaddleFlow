@@ -67,10 +67,13 @@ const (
 	ParamKeyClusterNames  = "clusterNames"
 	ParamKeyClusterStatus = "clusterStatus"
 
-	QueryFsPath = "fsPath"
-	QueryFsName = "fsName"
-	QueryFsname = "fsname"
-	QueryPath   = "path"
+	QueryFsPath     = "fsPath"
+	QueryFsName     = "fsName"
+	QueryFsname     = "fsname"
+	QueryPath       = "path"
+	QueryClusterID  = "clusterID"
+	QueryNodeName   = "nodename"
+	QueryMountPoint = "mountpoint"
 
 	ParamFlavourName = "flavourName"
 

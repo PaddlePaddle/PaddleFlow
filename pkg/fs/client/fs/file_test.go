@@ -125,6 +125,41 @@ func TestFSClient_readAt_BigOff(t *testing.T) {
 	reader.Close()
 }
 
+func TestFsStat(t *testing.T) {
+	os.RemoveAll("./mock")
+	os.RemoveAll("./mock-cache")
+	defer func() {
+		os.RemoveAll("./mock")
+		os.RemoveAll("./mock-cache")
+	}()
+	d := cache.Config{
+		BlockSize:    4,
+		MaxReadAhead: 10,
+		Mem:          &cache.MemConfig{CacheSize: 0, Expire: 0},
+		Disk:         &cache.DiskConfig{Dir: "./mock-cache", Expire: 10 * time.Second},
+	}
+	SetDataCache(d)
+	client, err := newPfsTest()
+	assert.Equal(t, err, nil)
+
+	path := "test1"
+	flags := os.O_RDWR | os.O_CREATE | os.O_TRUNC
+	mode := 0644
+	writer, err := client.Create(path, uint32(flags), uint32(mode))
+	assert.Equal(t, nil, err)
+	writeNum := 5500
+	n, err := writer.Write([]byte(getRandomString(writeNum)))
+	assert.Equal(t, nil, err)
+	assert.Equal(t, writeNum, n)
+	err = writer.Close()
+	assert.Equal(t, nil, err)
+	info, err := client.Stat(path)
+	assert.Equal(t, nil, err)
+	info2, err := client.Stat(path)
+	assert.Equal(t, nil, err)
+	assert.Equal(t, info2.ModTime(), info.ModTime())
+}
+
 func TestFS_read_readAt(t *testing.T) {
 	os.RemoveAll("./mock")
 	os.RemoveAll("./mock-cache")
@@ -234,7 +269,6 @@ func TestReadAtCocurrent(t *testing.T) {
 	writer.Close()
 
 	var reader *File
-	var n int
 
 	reader, err = client.Open(path)
 	assert.Equal(t, err, nil)
@@ -243,18 +277,18 @@ func TestReadAtCocurrent(t *testing.T) {
 	wg.Add(g)
 	for i := 0; i < g; i++ {
 		go func() {
-			n = 3
-			buf := make([]byte, n)
-			n, err = reader.ReadAt(buf, 2)
+			n1 := 3
+			buf := make([]byte, n1)
+			n2, err := reader.ReadAt(buf, 2)
 			assert.Equal(t, nil, err)
-			assert.Equal(t, len(buf), n)
+			assert.Equal(t, len(buf), n2)
 			assert.Equal(t, "345", string(buf))
 
-			n2 := 4
-			buf2 := make([]byte, n2)
-			n, err = reader.ReadAt(buf2, 3)
+			n3 := 4
+			buf2 := make([]byte, n3)
+			n4, err := reader.ReadAt(buf2, 3)
 			assert.Equal(t, nil, err)
-			assert.Equal(t, len(buf2), n2)
+			assert.Equal(t, len(buf2), n4)
 			assert.Equal(t, "4567", string(buf2))
 			wg.Done()
 		}()
@@ -267,16 +301,16 @@ func TestReadAtCocurrent(t *testing.T) {
 		go func() {
 			n1 := 3
 			buf := make([]byte, n1)
-			n, err = reader.ReadAt(buf, 2)
+			n2, err := reader.ReadAt(buf, 2)
 			assert.Equal(t, nil, err)
-			assert.Equal(t, len(buf), n)
+			assert.Equal(t, len(buf), n2)
 			assert.Equal(t, "345", string(buf))
 
-			n2 := 4
-			buf2 := make([]byte, n2)
-			n, err = reader.ReadAt(buf2, 3)
+			n3 := 4
+			buf2 := make([]byte, n3)
+			n4, err := reader.ReadAt(buf2, 3)
 			assert.Equal(t, nil, err)
-			assert.Equal(t, len(buf2), n2)
+			assert.Equal(t, len(buf2), n4)
 			assert.Equal(t, "4567", string(buf2))
 			wg.Done()
 		}()

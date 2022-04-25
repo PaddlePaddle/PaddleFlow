@@ -321,7 +321,8 @@ func (j *JobSync) syncTaskStatus(taskSyncInfo *TaskSyncInfo) error {
 		ExtRuntimeStatus: taskSyncInfo.PodStatus,
 	}
 	if taskSyncInfo.Action == commonschema.Delete {
-		taskStatus.DeletedAt = time.Now()
+		taskStatus.DeletedAt.Time = time.Now()
+		taskStatus.DeletedAt.Valid = true
 	}
 	log.Debugf("update job task %s/%s status: %v", namespace, name, taskStatus)
 	err = models.UpdateTask(taskStatus)

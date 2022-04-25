@@ -170,16 +170,10 @@ func (j *JobSync) deletePod(obj interface{}) {
 
 // updatePod watch update pod event
 func (j *JobSync) updatePod(oldObj, newObj interface{}) {
-	oldPodObj := oldObj.(*unstructured.Unstructured)
 	newPodObj := newObj.(*unstructured.Unstructured)
-	oldPodLabels := oldPodObj.GetLabels()
-	_, ok := oldPodLabels[schema.VolcanoJobNameLabel]
-	if !ok {
-		return
-	}
-	newPodLabels := newPodObj.GetLabels()
-	jobName, ok := newPodLabels[schema.VolcanoJobNameLabel]
-	if !ok {
+	jobName := getJobByTask(newPodObj)
+	if len(jobName) == 0 {
+		log.Debugf("pod %s/%s not belong to paddlefow job, skip it.", newPodObj.GetNamespace(), newPodObj.GetName())
 		return
 	}
 

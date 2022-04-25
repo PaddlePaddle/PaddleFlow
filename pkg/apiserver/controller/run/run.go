@@ -181,6 +181,7 @@ func getWorkFlowSourceByReq(ctx *logger.RequestContext, request *CreateRunByJson
 		return schema.WorkflowSource{}, err
 	}
 
+<<<<<<< HEAD
 	// 暂时无法与fs解耦，待解耦后取消限制
 	if request.FsName == "" {
 		err := fmt.Errorf("missing fsName")
@@ -188,6 +189,8 @@ func getWorkFlowSourceByReq(ctx *logger.RequestContext, request *CreateRunByJson
 		return schema.WorkflowSource{}, err
 	}
 
+=======
+>>>>>>> 6737d4a2031cc7ff7a8aecaea96f451d35f767c4
 	if request.Env == nil {
 		request.Env = map[string]string{}
 	}

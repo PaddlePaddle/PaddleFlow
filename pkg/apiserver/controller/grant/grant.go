@@ -65,10 +65,20 @@ func checkUser(ctx *logger.RequestContext, userName string) error {
 	return nil
 }
 
+func checkFs(ctx *logger.RequestContext, fsID string) error {
+	_, err := models.GetFileSystemWithFsID(fsID)
+	if err != nil {
+		ctx.ErrorCode = common.UserNotExist
+		return fmt.Errorf("fs:%s not found", fsID)
+	}
+	return nil
+}
+
 func init() {
 	checkFuncs = make(map[string]func(ctx *logger.RequestContext, resourceID string) error)
 	checkFuncs[common.ResourceTypeQueue] = checkQueue
 	checkFuncs[common.ResourceTypeUser] = checkUser
+	checkFuncs[common.ResourceTypeFs] = checkFs
 }
 
 type CreateGrantResponse struct {
@@ -82,32 +92,32 @@ func CreateGrant(ctx *logger.RequestContext, grantInfo CreateGrantRequest) (*Cre
 		ctx.Logging().Errorln("create grant failed. root is needed.")
 		return nil, errors.New("create grant failed")
 	}
-	//grant to root is not allowed
+	// grant to root is not allowed
 	if common.IsRootUser(grantInfo.UserName) {
 		ctx.ErrorCode = common.GrantRootActionNotSupport
 		ctx.Logging().Errorln("can't grant to admin, root has garnts of all resource.")
 		return nil, errors.New("create grant failed")
 	}
 
-	//check resouce type
+	// check resource type
 	checkResourceFunc, ok := checkFuncs[grantInfo.ResourceType]
 	if !ok {
 		ctx.ErrorCode = common.GrantResourceTypeNotFound
-		ctx.Logging().Errorln("create grant failed. reourceType not exist.")
+		ctx.Logging().Errorln("create grant failed. resourceType not exist.")
 		return nil, errors.New("create grant failed")
 	}
-	//check resource
+	// check resource
 	if err := checkResourceFunc(ctx, grantInfo.ResourceID); err != nil {
 		ctx.Logging().Errorf("create grant failed.%v:%s not exist.", grantInfo.ResourceType, grantInfo.ResourceID)
 		return nil, err
 	}
-	//check user
+	// check user
 	if err := checkFuncs[common.ResourceTypeUser](ctx, grantInfo.UserName); err != nil {
 		ctx.Logging().Errorf("create grant failed.user:%v not exist.", grantInfo.UserName)
 		return nil, err
 	}
 
-	//can't grant repeatedly
+	// can't grant repeatedly
 	if existgrant, _ := models.GetGrant(ctx, grantInfo.UserName, grantInfo.ResourceType, grantInfo.ResourceID); existgrant != nil {
 		ctx.ErrorCode = common.GrantAlreadyExist
 		ctx.Logging().Errorf("create grant failed.user:[%s] already has the grant of resource[%s].", grantInfo.UserName, grantInfo.ResourceID)
@@ -138,7 +148,7 @@ func DeleteGrant(ctx *logger.RequestContext, userName, resourceID, resourceType 
 		ctx.Logging().Errorln("delete grant failed. admin is needed.")
 		return errors.New("delete grant failed")
 	}
-	//delete root's grant is not allowed
+	// delete root's grant is not allowed
 	if common.IsRootUser(userName) {
 		ctx.ErrorCode = common.GrantRootActionNotSupport
 		ctx.Logging().Errorln("can's delete root's grants, root has garnts of all resource.")
@@ -150,17 +160,17 @@ func DeleteGrant(ctx *logger.RequestContext, userName, resourceID, resourceType 
 		ctx.Logging().Errorln("delete grant failed. reourceType not exist.")
 		return errors.New("delete grant failed")
 	}
-	//check resource
+	// check resource
 	if err := checkResourceFunc(ctx, resourceID); err != nil {
 		ctx.Logging().Errorf("delete grant failed.%v:%s not exist.", resourceType, resourceID)
 		return err
 	}
-	//check user
+	// check user
 	if err := checkFuncs[common.ResourceTypeUser](ctx, userName); err != nil {
 		ctx.Logging().Errorf("delete grant failed. user:%v not exist.", userName)
 		return err
 	}
-	//check if grant exist
+	// check if grant exist
 	if _, err := models.GetGrant(ctx, userName, resourceType, resourceID); err != nil {
 		ctx.ErrorCode = common.GrantNotFound
 		ctx.Logging().Errorf("delete grant failed. grant with userName:%v and resourceID:%v not exist.", userName, resourceID)
