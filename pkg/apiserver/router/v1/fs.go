@@ -388,20 +388,11 @@ func (pr *PFSRouter) listFileSystem(w http.ResponseWriter, r *http.Request) {
 	log.Debugf("list file system with req[%v]", listRequest)
 
 	fileSystemService := api.GetFileSystemService()
-	isRoot := false
-	if listRequest.Username == "" {
-		listRequest.Username = ctx.UserName
-		if listRequest.Username == common.UserRoot {
-			isRoot = true
-		}
-	}
-	if listRequest.Username == "" {
-		ctx.Logging().Error("userName is empty")
-		common.RenderErrWithMessage(w, ctx.RequestID, common.AuthFailed, "userName is empty")
-		return
-	}
+	realUserName := getRealUserName(&ctx, listRequest.Username)
 
-	listFileSystems, nextMarker, err := fileSystemService.ListFileSystem(&ctx, listRequest, isRoot)
+	listRequest.Username = realUserName
+
+	listFileSystems, nextMarker, err := fileSystemService.ListFileSystem(&ctx, listRequest)
 	if err != nil {
 		ctx.Logging().Errorf("list file system with error[%v]", err)
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
@@ -449,21 +440,19 @@ func (pr *PFSRouter) getFileSystem(w http.ResponseWriter, r *http.Request) {
 	log.Debugf("get file system with req[%v] and fileSystemID[%s]", getRequest, fsName)
 
 	fileSystemService := api.GetFileSystemService()
-	fsID, err := getFsIDAndCheckPermission(&ctx, getRequest.Username, fsName)
-	if err != nil {
-		ctx.Logging().Errorf("getFsIDAndCheckPermission error[%v]", err)
-		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
-		return
-	}
+	realUserName := getRealUserName(&ctx, getRequest.Username)
+	fsID := common.ID(realUserName, fsName)
 	fsModel, err := fileSystemService.GetFileSystem(fsID)
 	if err != nil {
-		ctx.Logging().Errorf("get file system req[%v] with error[%v]", getRequest, err)
+		ctx.Logging().Errorf("get file system username[%s] fsname[%s] with error[%v]", getRequest.Username, fsName, err)
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			ctx.ErrorCode = common.RecordNotFound
+			ctx.ErrorMessage = fmt.Sprintf("username[%s] not create fsName[%s]", realUserName, fsName)
 		} else {
 			ctx.ErrorCode = common.FileSystemDataBaseError
+			ctx.ErrorMessage = err.Error()
 		}
-		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, ctx.ErrorMessage)
 		return
 	}
 
@@ -504,19 +493,15 @@ func (pr *PFSRouter) deleteFileSystem(w http.ResponseWriter, r *http.Request) {
 
 	fileSystemService := api.GetFileSystemService()
 
-	// validate
-	fsID, err := getFsIDAndCheckPermission(&ctx, username, fsName)
-	if err != nil {
-		ctx.Logging().Errorf("delete fs failed by check permission error[%v]", err)
-		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
-		return
-	}
+	realUserName := getRealUserName(&ctx, username)
+	fsID := common.ID(realUserName, fsName)
 
-	_, err = models.GetFileSystemWithFsID(fsID)
+	_, err := models.GetFileSystemWithFsID(fsID)
 	if err != nil {
-		ctx.Logging().Errorf("delete failed by getting file system error[%v]", err)
+		ctx.Logging().Errorf("delete fsID[%s] failed by getting file system error[%v]", fsID, err)
+		ctx.ErrorMessage = fmt.Sprintf("username[%s] not create fsName[%s]", username, fsName)
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			common.RenderErrWithMessage(w, ctx.RequestID, common.RecordNotFound, err.Error())
+			common.RenderErrWithMessage(w, ctx.RequestID, common.RecordNotFound, ctx.ErrorMessage)
 		} else {
 			common.RenderErrWithMessage(w, ctx.RequestID, common.FileSystemDataBaseError, err.Error())
 		}
@@ -606,6 +591,14 @@ func validateCreateFileSystemClaims(ctx *logger.RequestContext, req *api.CreateF
 	return nil
 }
 
+func getRealUserName(ctx *logger.RequestContext,
+	username string) string {
+	if common.IsRootUser(ctx.UserName) && username != "" {
+		return username
+	}
+	return ctx.UserName
+}
+
 func getFsIDAndCheckPermission(ctx *logger.RequestContext,
 	username, fsName string) (string, error) {
 	// check permission
@@ -641,13 +634,9 @@ func (pr *PFSRouter) createFSCacheConfig(w http.ResponseWriter, r *http.Request)
 		common.RenderErr(w, ctx.RequestID, common.MalformedJSON)
 		return
 	}
+	realUserName := getRealUserName(&ctx, createRequest.Username)
+	createRequest.FsID = common.ID(realUserName, createRequest.FsName)
 
-	createRequest.FsID, err = getFsIDAndCheckPermission(&ctx, createRequest.Username, createRequest.FsName)
-	if err != nil {
-		ctx.Logging().Errorf("getFSCacheConfig check fs permission failed: [%v]", err)
-		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
-		return
-	}
 	ctx.Logging().Debugf("create file system cache with req[%v]", createRequest)
 
 	err = validateCreateFSCacheConfig(&ctx, &createRequest)
@@ -701,12 +690,8 @@ func (pr *PFSRouter) getFSCacheConfig(w http.ResponseWriter, r *http.Request) {
 	username := r.URL.Query().Get(util.QueryKeyUserName)
 	ctx := common.GetRequestContext(r)
 
-	fsID, err := getFsIDAndCheckPermission(&ctx, username, fsName)
-	if err != nil {
-		ctx.Logging().Errorf("getFSCacheConfig check fs permission failed: [%v]", err)
-		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
-		return
-	}
+	realUserName := getRealUserName(&ctx, username)
+	fsID := common.ID(realUserName, fsName)
 
 	fsCacheConfigResp, err := api.GetFileSystemCacheConfig(&ctx, fsID)
 	if err != nil {
@@ -749,12 +734,8 @@ func (pr *PFSRouter) updateFSCacheConfig(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	req.FsID, err = getFsIDAndCheckPermission(&ctx, username, fsName)
-	if err != nil {
-		ctx.Logging().Errorf("getFSCacheConfig check fs permission failed: [%v]", err)
-		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
-		return
-	}
+	realUserName := getRealUserName(&ctx, username)
+	req.FsID = common.ID(realUserName, fsName)
 
 	// validate fs_cache_config existence
 	_, err = models.GetFSCacheConfig(ctx.Logging(), req.FsID)
@@ -810,12 +791,6 @@ func (pr *PFSRouter) fsCacheReport(w http.ResponseWriter, r *http.Request) {
 		request.Username = ctx.UserName
 	}
 
-	_, err = getFsIDAndCheckPermission(&ctx, request.Username, request.FsName)
-	if err != nil {
-		ctx.Logging().Errorf("getFSCacheConfig check fs permission failed: [%v]", err)
-		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
-		return
-	}
 	err = validateFsCacheReport(&ctx, &request)
 	if err != nil {
 		ctx.Logging().Errorf("validateFsCacheReport request[%v] failed: [%v]", request, err)
@@ -872,12 +847,6 @@ func (pr *PFSRouter) createFsMount(w http.ResponseWriter, r *http.Request) {
 		req.Username = ctx.UserName
 	}
 
-	_, err = getFsIDAndCheckPermission(&ctx, req.Username, req.FsName)
-	if err != nil {
-		ctx.Logging().Errorf("createFSMount check fs permission failed: [%v]", err)
-		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
-		return
-	}
 	ctx.Logging().Debugf("create file system cache with req[%v]", req)
 
 	err = validateCreateMount(&ctx, &req)
@@ -1023,15 +992,9 @@ func (pr *PFSRouter) deleteFsMount(w http.ResponseWriter, r *http.Request) {
 		req.Username = ctx.UserName
 	}
 
-	_, err := getFsIDAndCheckPermission(&ctx, req.Username, req.FsName)
-	if err != nil {
-		ctx.Logging().Errorf("deleteFsMount check fs permission failed: [%v]", err)
-		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
-		return
-	}
 	ctx.Logging().Debugf("delete fs mount with req[%v]", req)
 
-	err = validateDeleteMount(&ctx, &req)
+	err := validateDeleteMount(&ctx, &req)
 	if err != nil {
 		ctx.Logging().Errorf("validateDeleteMount failed: [%v]", err)
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
