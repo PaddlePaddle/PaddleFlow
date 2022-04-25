@@ -80,13 +80,9 @@ func (bwf *BaseWorkflow) log() *logrus.Entry {
 }
 
 func (bwf *BaseWorkflow) checkDeps() error {
-	stepNames := map[string]int{}
-	for name := range bwf.Source.EntryPoints {
-		stepNames[name] = 1
-	}
 	for name, step := range bwf.Source.EntryPoints {
 		for _, dep := range step.GetDeps() {
-			if _, ok := stepNames[dep]; !ok {
+			if _, ok := bwf.Source.EntryPoints[dep]; !ok {
 				return fmt.Errorf("step [%s] has an wrong dep [%s]", name, dep)
 			}
 		}
