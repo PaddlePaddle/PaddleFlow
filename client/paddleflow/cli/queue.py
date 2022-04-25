@@ -168,26 +168,6 @@ def delete(ctx, queuename):
 
 
 @queue.command()
-@click.argument('queuename')
-@click.pass_context
-def stop(ctx, queuename, action=None):
-    """ stop queue .\n
-    QUEUENAME: the name of queue
-    """
-    client = ctx.obj['client']
-    output_format = ctx.obj['output']
-    if not queuename:
-        click.echo('queue show  must provide queuename.', err=True)
-        sys.exit(1)
-    valid, response = client.stop_queue(queuename)
-    if valid:
-        click.echo("queue[%s] stop success " % queuename)
-    else:
-        click.echo("queue stop failed with message[%s]" % response)
-        sys.exit(1)
-
-
-@queue.command()
 @click.argument('username')
 @click.argument('queuename')
 @click.pass_context

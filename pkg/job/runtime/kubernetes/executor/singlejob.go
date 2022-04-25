@@ -58,9 +58,6 @@ func (sp *SingleJob) validateJob() error {
 // patchSinglePodVariable patch env variable to vcJob, the order of patches following vcJob crd
 func (sp *SingleJob) patchSinglePodVariable(pod *v1.Pod, jobID string) error {
 	// if pod's name exist, sp.Name should be overwritten
-	if pod.Name != "" {
-		sp.Name = pod.Name
-	}
 	// metadata
 	sp.patchMetadata(&pod.ObjectMeta)
 
@@ -72,7 +69,7 @@ func (sp *SingleJob) patchSinglePodVariable(pod *v1.Pod, jobID string) error {
 	// fill SchedulerName
 	pod.Spec.SchedulerName = config.GlobalServerConfig.Job.SchedulerName
 	// fill volumes
-	pod.Spec.Volumes = sp.appendVolumeIfAbsent(pod.Spec.Volumes, sp.generateVolume(sp.PVCName))
+	pod.Spec.Volumes = sp.appendVolumeIfAbsent(pod.Spec.Volumes, sp.generateVolume())
 	// file container
 	if err := sp.fillContainersInPod(pod); err != nil {
 		log.Errorf("failed to fill containers, err=%v", err)

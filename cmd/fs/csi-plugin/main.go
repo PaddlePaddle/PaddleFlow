@@ -28,10 +28,14 @@ import (
 
 	"paddleflow/cmd/fs/csi-plugin/flag"
 	"paddleflow/pkg/common/logger"
+	"paddleflow/pkg/fs/csiplugin/client/k8s"
 	"paddleflow/pkg/fs/csiplugin/controller"
+	"paddleflow/pkg/fs/csiplugin/csiconfig"
 	"paddleflow/pkg/fs/csiplugin/csidriver"
 	"paddleflow/pkg/metric"
 )
+
+const CsiContainerName = "csi-storage-driver"
 
 var logConf = logger.LogConfig{
 	Dir:             "./log",
@@ -41,6 +45,39 @@ var logConf = logger.LogConfig{
 	MaxFileNum:      100,
 	MaxFileSizeInMB: 200 * 1024 * 1024,
 	IsCompress:      true,
+}
+
+// init() obtain csi-plugin pod, to assign same parameters to mount pods in csiconfig
+func init() {
+	csiconfig.Namespace = os.Getenv("CSI_NAMESPACE")
+	csiconfig.NodeName = os.Getenv("KUBE_NODE_NAME")
+	csiconfig.PodName = os.Getenv("CSI_POD_NAME")
+
+	if csiconfig.PodName == "" || csiconfig.Namespace == "" {
+		log.Fatalf("Pod name[%s] & namespace[%s] can't be null\n", csiconfig.PodName, csiconfig.Namespace)
+		os.Exit(0)
+	}
+
+	k8sClient, err := k8s.GetK8sClient()
+	if err != nil {
+		log.Errorf("get k8s client failed: %v", err)
+		os.Exit(0)
+	}
+	pod, err := k8sClient.GetPod(csiconfig.PodName, csiconfig.Namespace)
+	if err != nil {
+		log.Errorf("Can't get pod %s: %v", csiconfig.PodName, err)
+		os.Exit(0)
+	}
+	csiconfig.CSIPod = *pod
+	for i := range pod.Spec.Containers {
+		if pod.Spec.Containers[i].Name == CsiContainerName {
+			csiconfig.MountImage = pod.Spec.Containers[i].Image
+			//csiconfig.ContainerResource = pod.Spec.Containers[i].Resources
+			return
+		}
+	}
+	log.Errorf("Can't get container csi-storage-driver in pod %s", csiconfig.PodName)
+	os.Exit(0)
 }
 
 func main() {
