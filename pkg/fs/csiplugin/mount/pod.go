@@ -18,6 +18,7 @@ package mount
 
 import (
 	"fmt"
+	"gorm.io/gorm"
 	"strconv"
 	"strings"
 	"time"
@@ -94,9 +95,13 @@ func createMount(k8sClient k8s.K8SInterface, targetPath string, mountInfo pfs.Mo
 	// get config
 	cacheConfig, err := base.Client.GetFSCacheConfig()
 	if err != nil {
-		log.Errorf("get fs[%s] meta from pfs server[%s] failed: %v",
-			mountInfo.FSID, mountInfo.Server, err)
-		return err
+		if strings.Contains(err.Error(), gorm.ErrRecordNotFound.Error()) {
+			log.Infof("fs[%s] has not set cacheConfig. mount with default settings.", mountInfo.FSID)
+		} else {
+			log.Errorf("get fs[%s] cacheConfig from pfs server[%s] failed: %v",
+				mountInfo.FSID, mountInfo.Server, err)
+			return err
+		}
 	}
 	// create pod
 	newPod := BuildMountPod(mountInfo, cacheConfig)
@@ -193,9 +198,12 @@ func getErrContainerLog(K8sClient k8s.K8SInterface, podName string) (log string,
 func BuildMountPod(mountInfo pfs.MountInfo, cacheConf common.FsCacheConfig) *v1.Pod {
 	pod := csiconfig.GeneratePodTemplate()
 	pod.Name = GeneratePodNameByFsID(mountInfo.FSID)
-	mountPoint := MountPath + "/" + mountInfo.FSID
-	cmd := getcmd(mountPoint, mountInfo, cacheConf)
+	cmd := getcmd(mountInfo, cacheConf)
 	pod.Spec.Containers[0].Command = []string{"sh", "-c", cmd}
+
+	if cacheConf.CacheDir == "" {
+		cacheConf.CacheDir = HostPathMnt + "/" + mountInfo.FSID
+	}
 
 	typeDir := corev1.HostPathDirectoryOrCreate
 	volumes := []corev1.Volume{
@@ -221,7 +229,7 @@ func BuildMountPod(mountInfo pfs.MountInfo, cacheConf common.FsCacheConfig) *v1.
 			Name: VolumesKeyMount,
 			VolumeSource: corev1.VolumeSource{
 				HostPath: &corev1.HostPathVolumeSource{
-					Path: HostPathMnt + "/" + mountInfo.FSID,
+					Path: HostPathMnt,
 					Type: &typeDir,
 				},
 			},
@@ -241,7 +249,8 @@ func BuildMountPod(mountInfo pfs.MountInfo, cacheConf common.FsCacheConfig) *v1.
 		},
 		{
 			Name:             VolumesKeyMount,
-			MountPath:        mountPoint,
+			MountPath:        MountPath,
+			SubPath:          mountInfo.FSID,
 			MountPropagation: &mp,
 		},
 	}
@@ -250,7 +259,8 @@ func BuildMountPod(mountInfo pfs.MountInfo, cacheConf common.FsCacheConfig) *v1.
 	return pod
 }
 
-func getcmd(mountPoint string, mountInfo pfs.MountInfo, cacheConf common.FsCacheConfig) string {
+func getcmd(mountInfo pfs.MountInfo, cacheConf common.FsCacheConfig) string {
+	mountPoint := MountPath + "/storage"
 	mkdir := "mkdir -p " + mountPoint + ";"
 	pfsMountPath := "/home/paddleflow/pfs-fuse mount "
 	mountPath := "--mount-point=" + mountPoint + " "
