@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS `cluster_info` (
     PRIMARY KEY (`pk`),
     UNIQUE KEY idx_name (`name`, `deleted_at`),
     UNIQUE KEY idx_id (`id`, `deleted_at`)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+    ) ENGINE=InnoDB DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
 
 CREATE TABLE IF NOT EXISTS `flavour` (
     `pk` bigint(20) NOT NULL AUTO_INCREMENT,
