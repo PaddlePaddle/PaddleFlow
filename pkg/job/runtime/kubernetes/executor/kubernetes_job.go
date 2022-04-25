@@ -18,6 +18,7 @@ package executor
 
 import (
 	"fmt"
+	"io/ioutil"
 	"reflect"
 	"strings"
 
@@ -30,10 +31,12 @@ import (
 	kubeschema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 
+	"paddleflow/pkg/apiserver/handler"
 	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/common/config"
 	"paddleflow/pkg/common/errors"
 	"paddleflow/pkg/common/k8s"
+	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/common/schema"
 	"paddleflow/pkg/job/api"
 )
@@ -104,12 +107,22 @@ func NewKubeJob(job *api.PFJob, dynamicClientOpt *k8s.DynamicClientOption) (api.
 		PVCName:             pvcName,
 		Labels:              job.Conf.Labels,
 		Annotations:         job.Conf.Annotations,
-		YamlTemplateContent: job.ExtRuntimeConf,
 		IsCustomYaml:        job.Conf.IsCustomYaml(),
 		Tasks:               job.Tasks,
 		Priority:            job.Conf.GetPriority(),
 		QueueName:           job.Conf.GetQueueName(),
 		DynamicClientOption: dynamicClientOpt,
+	}
+	// get extensionTemplate
+	if len(job.ExtensionTemplate) == 0 {
+		var err error
+		kubeJob.YamlTemplateContent, err = kubeJob.getExtRuntimeConf(job.Conf.GetFS(), job.Conf.GetYamlPath(), job.Framework)
+		if err != nil {
+			return nil, fmt.Errorf("get extra runtime config failed, err: %v", err)
+		}
+	} else {
+		// get runtime conf from user
+		kubeJob.YamlTemplateContent = []byte(job.ExtensionTemplate)
 	}
 
 	switch job.JobType {
@@ -501,4 +514,55 @@ func (j *JobModeParams) patchTaskParams(isMaster bool) (string, string, string) 
 		commandEnv = j.WorkerCommand
 	}
 	return psReplicaStr, commandEnv, flavourStr
+}
+
+// getDefaultPath get extra runtime conf default path
+func getDefaultPath(jobType schema.JobType, framework schema.Framework, jobMode string) string {
+	log.Debugf("get default path, jobType=%s, jobMode=%s", jobType, jobMode)
+	baseDir := config.GlobalServerConfig.Job.DefaultJobYamlDir
+	suffix := ".yaml"
+	if len(jobMode) != 0 {
+		suffix = fmt.Sprintf("_%s.yaml", strings.ToLower(jobMode))
+	}
+
+	switch jobType {
+	case schema.TypeSingle:
+		return fmt.Sprintf("%s/%s%s", baseDir, jobType, suffix)
+	case schema.TypeDistributed:
+		// e.g. basedir/spark.yaml, basedir/paddle_ps.yaml
+		return fmt.Sprintf("%s/%s%s", baseDir, framework, suffix)
+	default:
+		// todo(zhongzichao) remove vcjob type
+		return fmt.Sprintf("%s/vcjob%s", baseDir, suffix)
+	}
+}
+
+// getExtRuntimeConf get extra runtime conf from file
+func (j *KubeJob) getExtRuntimeConf(fsID, filePath string, framework schema.Framework) ([]byte, error) {
+	if len(filePath) == 0 {
+		j.IsCustomYaml = false
+		// get extra runtime conf from default path
+		filePath = getDefaultPath(j.JobType, framework, j.JobMode)
+		// check file exist
+		if exist, err := config.PathExists(filePath); !exist || err != nil {
+			log.Errorf("get job from path[%s] failed, file.exsit=[%v], err=[%v]", filePath, exist, err)
+			return nil, errors.JobFileNotFound(filePath)
+		}
+
+		// read extRuntimeConf as []byte
+		extConf, err := ioutil.ReadFile(filePath)
+		if err != nil {
+			log.Errorf("read file [%s] failed! err:[%v]\n", filePath, err)
+			return nil, err
+		}
+		return extConf, nil
+	}
+	conf, err := handler.ReadFileFromFs(fsID, filePath, logger.Logger())
+	if err != nil {
+		log.Errorf("get job from path[%s] failed, err=[%v]", filePath, err)
+		return nil, err
+	}
+
+	log.Debugf("reading extra runtime conf[%s]", conf)
+	return conf, nil
 }

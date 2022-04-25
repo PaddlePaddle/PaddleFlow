@@ -135,27 +135,28 @@ func TestPatchVCJobVariable(t *testing.T) {
 			}
 		}
 		pfjob.JobMode = test.vcJobMode
-		// read yaml content
-		extRuntimeConf, err := pfjob.GetExtRuntimeConf(pfjob.Conf.GetFS(), pfjob.Conf.GetYamlPath())
+		// create Job
+		kubeJob := KubeJob{
+			ID:         test.caseName,
+			Name:       "randomName",
+			Namespace:  "namespace",
+			JobType:    schema.TypeVcJob,
+			JobMode:    test.vcJobMode,
+			Image:      pfjob.Conf.GetImage(),
+			Command:    pfjob.Conf.GetCommand(),
+			Env:        pfjob.Conf.GetEnv(),
+			VolumeName: pfjob.Conf.GetFS(),
+			PVCName:    "PVCName",
+			Priority:   pfjob.Conf.GetPriority(),
+			QueueName:  pfjob.Conf.GetQueueName(),
+		}
+		// yaml content
+		yamlTemplateContent, err := kubeJob.getExtRuntimeConf(pfjob.Conf.GetFS(), pfjob.Conf.GetYamlPath(), pfjob.Framework)
 		if err != nil {
 			t.Errorf(err.Error())
 		}
-		// create Job
-		kubeJob := KubeJob{
-			ID:                  test.caseName,
-			Name:                "randomName",
-			Namespace:           "namespace",
-			JobType:             schema.TypeVcJob,
-			JobMode:             test.vcJobMode,
-			Image:               pfjob.Conf.GetImage(),
-			Command:             pfjob.Conf.GetCommand(),
-			Env:                 pfjob.Conf.GetEnv(),
-			VolumeName:          pfjob.Conf.GetFS(),
-			PVCName:             "PVCName",
-			Priority:            pfjob.Conf.GetPriority(),
-			QueueName:           pfjob.Conf.GetQueueName(),
-			YamlTemplateContent: extRuntimeConf,
-		}
+		kubeJob.YamlTemplateContent = yamlTemplateContent
+
 		if test.vcJobMode == schema.EnvJobModePS {
 			kubeJob.Tasks = psTasks
 		} else if test.vcJobMode == schema.EnvJobModeCollective {
