@@ -17,6 +17,8 @@ limitations under the License.
 package api
 
 import (
+	"encoding/json"
+
 	log "github.com/sirupsen/logrus"
 
 	"paddleflow/pkg/apiserver/common"
@@ -26,12 +28,13 @@ import (
 )
 
 const (
-	Prefix        = util.PaddleflowRouterPrefix + util.PaddleflowRouterVersionV1
-	LoginApi      = Prefix + "/login"
-	GetFsApi      = Prefix + "/fs"
-	GetLinksApis  = Prefix + "/link"
-	FsCacheConfig = Prefix + "/fsCache"
-	FsMount       = Prefix + "/fsMount"
+	Prefix            = util.PaddleflowRouterPrefix + util.PaddleflowRouterVersionV1
+	LoginApi          = Prefix + "/login"
+	GetFsApi          = Prefix + "/fs"
+	GetLinksApis      = Prefix + "/link"
+	FsCacheConfig     = Prefix + "/fsCache"
+	FsMount           = Prefix + "/fsMount"
+	CacheReportConfig = Prefix + "/fsCache/Report"
 )
 
 type LoginParams struct {
@@ -47,6 +50,14 @@ type FsParams struct {
 	FsName   string `json:"fsName"`
 	UserName string `json:"username"`
 	Token    string
+}
+
+type CacheReportParams struct {
+	FsParams
+	ClusterID string `json:"clusterID"`
+	CacheDir  string `json:"cacheDir"`
+	NodeName  string `json:"nodename"`
+	UsedSize  int    `json:"usedsize"`
 }
 
 type LinksParams struct {
@@ -201,4 +212,19 @@ func FsMountCreate(req CreateMountRequest, c *core.PFClient) error {
 		WithBody(req).
 		Do()
 	return err
+}
+
+func CacheReportRequest(params CacheReportParams, c *core.PFClient) error {
+	body, err := json.Marshal(params)
+	if err != nil {
+		return err
+	}
+	err = core.NewRequestBuilder(c).
+		WithHeader(common.HeaderKeyAuthorization, params.Token).
+		WithURL(CacheReportConfig).
+		WithBody(string(body)).WithMethod(http.POST).Do()
+	if err != nil {
+		return err
+	}
+	return nil
 }
