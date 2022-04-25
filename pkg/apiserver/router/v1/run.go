@@ -78,12 +78,7 @@ func (rr *RunRouter) createRun(w http.ResponseWriter, r *http.Request) {
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, "create run failed. fsname in request body shall not be empty\n")
 		return
 	}
-	// check grant
-	_, err := getFsIDAndCheckPermission(&ctx, createRunInfo.UserName, createRunInfo.FsName)
-	if err != nil {
-		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
-		return
-	}
+
 	// create run
 	response, err := run.CreateRun(&ctx, &createRunInfo)
 	if err != nil {
@@ -133,11 +128,6 @@ func (rr *RunRouter) createRunByJson(w http.ResponseWriter, r *http.Request) {
 	if err := common.BindJSON(r, &createRunByJsonInfo); err != nil {
 		logger.LoggerForRequest(&ctx).Errorf(
 			"create run by json failed parsing request body:%+v. error:%s", r.Body, err.Error())
-		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
-		return
-	}
-	_, err = getFsIDAndCheckPermission(&ctx, createRunByJsonInfo.UserName, createRunByJsonInfo.FsName)
-	if err != nil {
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
