@@ -103,6 +103,11 @@ class Parameter(object):
         if not validate_string_by_regex(name, VARIBLE_NAME_REGEX):
             raise PaddleFlowSDKException(PipelineDSLError, f"the name of parameter[{name}] for step[{step.name}]is illegal, " + \
                     f"the regex used for validation is {VARIBLE_NAME_REGEX}")
+
+        if ref:
+            if not isinstance(ref, Parameter) and type(ref) not in TYPE_TO_STRING:
+                raise PaddleFlowSDKException(PipelineDSLError,f"the value of parameter[{name}] for step[{step.name}] " + \
+                        f"should be an instance of {['Parameter'] + list(SUPPORT_TYPE)}")
             
         self.__name = name 
         self.__ref = ref
@@ -117,8 +122,8 @@ class Parameter(object):
             PaddleFlowSDKException: if the ref attribute and the [default, type] attribute exist at the same time
         """
         if self.__ref and any([self.default, self.type]):
-            raise PaddleFlowSDKException(PipelineDSLError, f"the  parameter[{self._name}] for step[{step.name}]" + \
-                    "have both [ref] attribute and [default | type] attribute, please contact manager")
+            raise PaddleFlowSDKException(PipelineDSLError, f"the  parameter[{self.name}] for step[{self.step.name}]" + \
+                    f"should be an instance of {['Parameter'] + list(SUPPORT_TYPE)}")
         
         if isinstance(self.__ref, Parameter):
             return self.__ref.to_template()
