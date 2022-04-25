@@ -31,6 +31,7 @@ import (
 
 const defaultExecutorInstances int32 = 1
 
+// SparkJob is the executor for spark job
 type SparkJob struct {
 	KubeJob
 	SparkMainFile    string
@@ -137,6 +138,7 @@ func (sj *SparkJob) patchSparkSpecExecutor(jobApp *sparkapp.SparkApplication, co
 	jobApp.Spec.Executor.SparkPodSpec.VolumeMounts = sj.appendMountIfAbsent(jobApp.Spec.Executor.SparkPodSpec.VolumeMounts, volumeMount)
 }
 
+// CreateJob creates a SparkJob
 func (sj *SparkJob) CreateJob() (string, error) {
 	if err := sj.validateJob(); err != nil {
 		log.Errorf("validate job failed, err %v", err)
@@ -153,7 +155,10 @@ func (sj *SparkJob) CreateJob() (string, error) {
 
 	// paddleflow won't patch any param to job if it is workflow type
 	if sj.JobType != schema.TypeWorkflow {
-		sj.patchSparkAppVariable(jobApp)
+		if err := sj.patchSparkAppVariable(jobApp); err != nil {
+			log.Errorf("patch spark app variable failed, err %v", err)
+			return "", err
+		}
 	}
 
 	log.Debugf("begin submit job jobID:[%s]", jobID)
@@ -165,6 +170,7 @@ func (sj *SparkJob) CreateJob() (string, error) {
 	return jobID, nil
 }
 
+// StopJobByID stops a job by jobID
 func (sj *SparkJob) StopJobByID(jobID string) error {
 	job, err := models.GetJobByID(jobID)
 	if err != nil {
