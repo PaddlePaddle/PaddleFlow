@@ -475,12 +475,9 @@ func (lr *LinkRouter) getLink(w http.ResponseWriter, r *http.Request) {
 	}
 
 	username, fsName := r.URL.Query().Get(util.QueryKeyUserName), chi.URLParam(r, util.QueryFsName)
-	fsID, err := getFsIDAndCheckPermission(&ctx, username, fsName)
-	if err != nil {
-		ctx.Logging().Errorf("GetLink check fs permission failed: [%v]", err)
-		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
-		return
-	}
+
+	realUserName := getRealUserName(&ctx, username)
+	fsID := common.ID(realUserName, fsName)
 
 	_, err = models.GetFileSystemWithFsID(fsID)
 	if err != nil {
