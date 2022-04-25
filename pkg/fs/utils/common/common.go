@@ -23,7 +23,10 @@ import (
 	"strconv"
 	"strings"
 
+	"paddleflow/pkg/apiserver/middleware"
+	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/common/logger"
+	"paddleflow/pkg/fs/common"
 )
 
 const (
@@ -180,13 +183,13 @@ func GetMountPointCheckIntervalTime() int {
 }
 
 func GetRootToken(ctx *logger.RequestContext) (string, error) {
-	// _, err := models.GetUserByName(ctx, common.RootKey)
-	// if err != nil {
-	// 	return "", err
-	// }
-	// token, err := middleware.GenerateToken(u.Name, u.Password)
-	// if err != nil {
-	// 	return "", err
-	// }
-	return "token", nil
+	u, err := models.GetUserByName(ctx, common.RootKey)
+	if err != nil {
+		return "", err
+	}
+	token, err := middleware.GenerateToken(u.Name, u.Password)
+	if err != nil {
+		return "", err
+	}
+	return token, err
 }
