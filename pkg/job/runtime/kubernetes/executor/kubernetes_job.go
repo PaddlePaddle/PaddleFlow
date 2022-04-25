@@ -78,6 +78,7 @@ type KubeJob struct {
 	Annotations map[string]string
 	// YamlTemplateContent indicate template content of job
 	YamlTemplateContent []byte
+	IsCustomYaml        bool
 	Tasks               []models.Member
 	GroupVersionKind    kubeschema.GroupVersionKind
 	DynamicClientOption *k8s.DynamicClientOption
@@ -104,6 +105,7 @@ func NewKubeJob(job *api.PFJob, dynamicClientOpt *k8s.DynamicClientOption) (api.
 		Labels:              job.Conf.Labels,
 		Annotations:         job.Conf.Annotations,
 		YamlTemplateContent: job.ExtRuntimeConf,
+		IsCustomYaml:        job.Conf.IsCustomYaml(),
 		Tasks:               job.Tasks,
 		Priority:            job.Conf.GetPriority(),
 		QueueName:           job.Conf.GetQueueName(),
@@ -275,15 +277,17 @@ func (j *KubeJob) fillContainerInVcJob(container *corev1.Container, flavourKey, 
 
 // fillContainerInTasks fill container in job task
 func (j *KubeJob) fillContainerInTasks(container *corev1.Container, task models.Member) {
-	if task.Image != "" {
+	if j.isNeedPatch(container.Image) {
 		container.Image = task.Image
 	}
-	if len(task.Command) != 0 {
+	if j.isNeedPatch(task.Command) {
 		container.Command = []string{"bash", "-c", j.fixContainerCommand(task.Command)}
 	}
 	container.Resources = j.generateResourceRequirements(task.Flavour)
-	container.VolumeMounts = j.appendMountIfAbsent(container.VolumeMounts, j.generateVolumeMount())
-	container.Env = j.generateEnvVars()
+	if j.VolumeName != "" {
+		container.VolumeMounts = j.appendMountIfAbsent(container.VolumeMounts, j.generateVolumeMount())
+	}
+	container.Env = j.appendEnvIfAbsent(container.Env, j.generateEnvVars())
 }
 
 //appendLabelsIfAbsent append labels if absent
@@ -394,6 +398,13 @@ func (j *KubeJob) patchMetadata(metadata *metav1.ObjectMeta) {
 	metadata.Labels = j.appendLabelsIfAbsent(metadata.Labels, j.Labels)
 	metadata.Labels[schema.JobOwnerLabel] = schema.JobOwnerValue
 	metadata.Labels[schema.JobIDLabel] = j.ID
+}
+
+func (j *KubeJob) isNeedPatch(v string) bool {
+	if j.IsCustomYaml && v == "" || !j.IsCustomYaml {
+		return true
+	}
+	return false
 }
 
 func (j *KubeJob) CreateJob() (string, error) {
