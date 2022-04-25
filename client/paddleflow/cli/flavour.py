@@ -35,7 +35,6 @@ def flavour():
 @flavour.command()
 @click.option('-m', '--maxkeys', help="Max size of the listed cluster.", default=100)
 @click.option('--marker', help="Next page.")
-@click.option('-cn', '--clustername', help="List the flavours by cluster name")
 @click.pass_context
 def list(ctx, maxkeys, marker=None, clustername="", key=""):
     """ list flavour."""
@@ -154,7 +153,6 @@ def _print_flavour_list(res, out_format):
             flavour_info.cpu,
             flavour_info.mem,
             flavour_info.scalar_resources,
-            flavour_info.cluster_name
      ] for flavour_info in res]
 
     print_output(data, headers, out_format, table_format='grid')
@@ -168,7 +166,6 @@ def _print_flavour_info(flavour_info, out_format):
             flavour_info.cpu,
             flavour_info.mem,
             flavour_info.scalar_resources,
-            flavour_info.cluster_name
      ]]
 
     print_output(data, headers, out_format, table_format='grid')
