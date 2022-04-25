@@ -985,7 +985,7 @@ func getListMountResult(fsMounts []models.FsMount, nextMarker, marker string) *a
 	}
 	ListFsResponse := &api.ListMountResponse{
 		Marker:    marker,
-		FsList:    fsMountLists,
+		MountList: fsMountLists,
 		Truncated: false,
 	}
 	if nextMarker != "" {
