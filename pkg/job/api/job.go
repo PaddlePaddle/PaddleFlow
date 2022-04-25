@@ -63,6 +63,8 @@ func (j *PFJob) getDefaultPath() string {
 // GetExtRuntimeConf get extra runtime conf from file
 func (j *PFJob) GetExtRuntimeConf(fsID, filePath string) ([]byte, error) {
 	if len(filePath) == 0 {
+		// yaml is default source
+		j.Conf.SetIsCustomYaml(false)
 		// get extra runtime conf from default path
 		filePath = j.getDefaultPath()
 		// check file exist
@@ -115,7 +117,6 @@ type PFJob struct {
 	Tasks []models.Member
 	// ExtRuntimeConf define extra runtime conf
 	ExtRuntimeConf []byte
-
 	// Conf for job
 	Conf schema.Conf
 

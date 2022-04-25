@@ -42,28 +42,15 @@ type SparkJob struct {
 }
 
 // patchSparkAppVariable patch env variable to jobApplication, the order of patches following spark crd
-func (sj *SparkJob) patchSparkAppVariable(jobApp *sparkapp.SparkApplication, jobID string) error {
-	jobApp.Name = jobID
+func (sj *SparkJob) patchSparkAppVariable(jobApp *sparkapp.SparkApplication) error {
 	// metadata
-	sj.patchSparkMetaData(jobApp, jobID)
+	sj.patchMetadata(&jobApp.ObjectMeta)
 	// spec, the order of patches following SparkApplicationSpec crd
-	sj.patchSparkSpec(jobApp, jobID)
+	sj.patchSparkSpec(jobApp, sj.GetID())
 
 	// volumes
-	if jobApp.Spec.Volumes == nil {
-		jobApp.Spec.Volumes = []corev1.Volume{}
-	}
 	jobApp.Spec.Volumes = sj.appendVolumeIfAbsent(jobApp.Spec.Volumes, sj.generateVolume())
 	return nil
-}
-
-func (sj *SparkJob) patchSparkMetaData(jobApp *sparkapp.SparkApplication, jobID string) {
-	jobApp.Namespace = sj.Namespace
-	if jobApp.Labels == nil {
-		jobApp.Labels = map[string]string{}
-	}
-	jobApp.Labels[schema.JobOwnerLabel] = schema.JobOwnerValue
-	jobApp.Labels[schema.JobIDLabel] = jobID
 }
 
 func (sj *SparkJob) patchSparkSpec(jobApp *sparkapp.SparkApplication, jobID string) {
@@ -164,7 +151,10 @@ func (sj *SparkJob) CreateJob() (string, error) {
 		return "", err
 	}
 
-	sj.patchSparkAppVariable(jobApp, jobID)
+	// paddleflow won't patch any param to job if it is workflow type
+	if sj.JobType != schema.TypeWorkflow {
+		sj.patchSparkAppVariable(jobApp)
+	}
 
 	log.Debugf("begin submit job jobID:[%s]", jobID)
 	err := Create(jobApp, k8s.SparkAppGVK, sj.DynamicClientOption)

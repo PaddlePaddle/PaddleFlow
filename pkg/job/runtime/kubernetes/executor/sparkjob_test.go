@@ -147,7 +147,7 @@ func TestPatchSparkAppVariable(t *testing.T) {
 		if err := sparkJob.createJobFromYaml(jobApp); err != nil {
 			t.Errorf("create job failed, err %v", err)
 		}
-		err = sparkJob.patchSparkAppVariable(jobApp, test.caseName)
+		err = sparkJob.patchSparkAppVariable(jobApp)
 		if err != nil {
 			t.Errorf(err.Error())
 		}

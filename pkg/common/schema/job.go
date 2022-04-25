@@ -16,6 +16,8 @@ limitations under the License.
 
 package schema
 
+import "strconv"
+
 type JobType string
 type ActionType string
 type JobStatus string
@@ -36,7 +38,8 @@ const (
 	EnvJobPriority    = "PF_JOB_PRIORITY"
 	EnvJobMode        = "PF_JOB_MODE"
 	// EnvJobYamlPath Additional configuration for a specific job
-	EnvJobYamlPath = "PF_JOB_YAML_PATH"
+	EnvJobYamlPath  = "PF_JOB_YAML_PATH"
+	EnvIsCustomYaml = "PF_IS_CUSTOM_YAML"
 
 	// EnvJobModePS env
 	EnvJobModePS          = "PS"
@@ -363,6 +366,17 @@ func (c *Conf) SetLabels(k, v string) {
 func (c *Conf) SetAnnotations(k, v string) {
 	c.preCheck()
 	c.Annotations[k] = v
+}
+
+// IsCustomYaml will get value of IsCustomYaml and remove from env as it be never used again
+func (c *Conf) IsCustomYaml() bool {
+	res, _ := strconv.ParseBool(c.Env[EnvIsCustomYaml])
+	return res
+}
+
+// SetIsCustomYaml set value of IsCustomYaml
+func (c *Conf) SetIsCustomYaml(b bool) {
+	c.Env[EnvIsCustomYaml] = strconv.FormatBool(b)
 }
 
 func (c *Conf) preCheck() {
