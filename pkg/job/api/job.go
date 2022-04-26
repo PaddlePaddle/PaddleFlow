@@ -18,17 +18,9 @@ package api
 
 import (
 	"fmt"
-	"io/ioutil"
-	"strings"
 	"time"
 
-	log "github.com/sirupsen/logrus"
-
-	"paddleflow/pkg/apiserver/handler"
 	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/common/config"
-	"paddleflow/pkg/common/errors"
-	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/common/schema"
 )
 
@@ -37,57 +29,6 @@ type PFJobInterface interface {
 	StopJobByID(string) error
 	UpdateJob([]byte) error
 	GetID() string
-}
-
-// getDefaultPath get extra runtime conf default path
-func (j *PFJob) getDefaultPath() string {
-	log.Debugf("get default path, jobType=%s, jobMode=%s", j.JobType, j.JobMode)
-	baseDir := config.GlobalServerConfig.Job.DefaultJobYamlDir
-	suffix := ".yaml"
-	if len(j.JobMode) != 0 {
-		suffix = fmt.Sprintf("_%s.yaml", strings.ToLower(j.JobMode))
-	}
-
-	switch j.JobType {
-	case schema.TypeSingle:
-		return fmt.Sprintf("%s/%s%s", baseDir, j.JobType, suffix)
-	case schema.TypeDistributed:
-		// e.g. basedir/spark.yaml, basedir/paddle_ps.yaml
-		return fmt.Sprintf("%s/%s%s", baseDir, j.Framework, suffix)
-	default:
-		// todo(zhongzichao) remove vcjob type
-		return fmt.Sprintf("%s/vcjob%s", baseDir, suffix)
-	}
-}
-
-// GetExtRuntimeConf get extra runtime conf from file
-func (j *PFJob) GetExtRuntimeConf(fsID, filePath string) ([]byte, error) {
-	if len(filePath) == 0 {
-		// get extra runtime conf from default path
-		filePath = j.getDefaultPath()
-		// check file exist
-		if exist, err := config.PathExists(filePath); !exist || err != nil {
-			log.Errorf("get job from path[%s] failed, file.exsit=[%v], err=[%v]", filePath, exist, err)
-			return nil, errors.JobFileNotFound(filePath)
-		}
-
-		// read extRuntimeConf as []byte
-		extConf, err := ioutil.ReadFile(filePath)
-		if err != nil {
-			log.Errorf("read file [%s] failed! err:[%v]\n", filePath, err)
-			return nil, err
-		}
-		return extConf, nil
-	} else {
-		conf, err := handler.ReadFileFromFs(fsID, filePath, logger.Logger())
-		if err != nil {
-			log.Errorf("get job from path[%s] failed, err=[%v]", filePath, err)
-			return nil, err
-		}
-
-		log.Debugf("reading extra runtime conf[%s]", conf)
-		return conf, nil
-	}
 }
 
 // PFJob will have all info of a Job
@@ -115,7 +56,8 @@ type PFJob struct {
 	Tasks []models.Member
 	// ExtRuntimeConf define extra runtime conf
 	ExtRuntimeConf []byte
-
+	// ExtensionTemplate records the extension template of job
+	ExtensionTemplate string
 	// Conf for job
 	Conf schema.Conf
 
@@ -138,31 +80,22 @@ func NewJobInfo(job *models.Job) (*PFJob, error) {
 		return nil, fmt.Errorf("job is nil")
 	}
 	pfjob := &PFJob{
-		ID:          job.ID,
-		Name:        job.Name,
-		Namespace:   job.Config.GetNamespace(),
-		JobType:     schema.JobType(job.Type),
-		JobMode:     job.Config.GetJobMode(),
-		Framework:   job.Framework,
-		ClusterID:   ClusterID(job.Config.GetClusterID()),
-		QueueID:     QueueID(job.QueueID),
-		FSID:        job.Config.GetFS(),
-		UserName:    job.UserName,
-		Conf:        *job.Config,
-		Labels:      make(map[string]string),
-		Annotations: make(map[string]string),
-		Resource:    job.Resource,
-		Tasks:       job.Members,
-	}
-	if len(job.ExtensionTemplate) == 0 {
-		var err error
-		pfjob.ExtRuntimeConf, err = pfjob.GetExtRuntimeConf(job.Config.GetFS(), job.Config.GetYamlPath())
-		if err != nil {
-			return nil, fmt.Errorf("get extra runtime config failed, err: %v", err)
-		}
-	} else {
-		// get runtime conf from user
-		pfjob.ExtRuntimeConf = []byte(job.ExtensionTemplate)
+		ID:                job.ID,
+		Name:              job.Name,
+		Namespace:         job.Config.GetNamespace(),
+		JobType:           schema.JobType(job.Type),
+		JobMode:           job.Config.GetJobMode(),
+		Framework:         job.Framework,
+		ClusterID:         ClusterID(job.Config.GetClusterID()),
+		QueueID:           QueueID(job.QueueID),
+		FSID:              job.Config.GetFS(),
+		UserName:          job.UserName,
+		Conf:              *job.Config,
+		Labels:            make(map[string]string),
+		Annotations:       make(map[string]string),
+		Resource:          job.Resource,
+		Tasks:             job.Members,
+		ExtensionTemplate: job.ExtensionTemplate,
 	}
 
 	return pfjob, nil
