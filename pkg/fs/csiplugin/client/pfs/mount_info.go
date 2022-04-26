@@ -46,6 +46,7 @@ type FSMountParameter struct {
 type MountInfo struct {
 	Server       string
 	FSID         string
+	TargetPath   string
 	LocalPath    string
 	UsernameRoot string
 	PasswordRoot string
@@ -72,15 +73,13 @@ func (m *MountInfo) GetMountCmd() (string, []string) {
 	return cmdName, args
 }
 
-func GetMountInfo(id, server, usernameRoot, passwordRoot string, readOnly bool) MountInfo {
+func GetMountInfo(id, server string, readOnly bool) MountInfo {
 	return MountInfo{
-		FSID:         id,
-		Server:       server,
-		UsernameRoot: usernameRoot,
-		PasswordRoot: passwordRoot,
-		UID:          csiCommon.GetDefaultUID(),
-		GID:          csiCommon.GetDefaultGID(),
-		Options:      GetOptions(readOnly),
+		FSID:    id,
+		Server:  server,
+		UID:     csiCommon.GetDefaultUID(),
+		GID:     csiCommon.GetDefaultGID(),
+		Options: GetOptions(readOnly),
 	}
 }
 

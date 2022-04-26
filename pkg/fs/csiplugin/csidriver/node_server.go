@@ -60,7 +60,7 @@ func (ns *nodeServer) NodeGetCapabilities(ctx context.Context, req *csi.NodeGetC
 
 func (ns *nodeServer) NodePublishVolume(ctx context.Context,
 	req *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {
-	log.Debugf("Node publish volume request [%+v]", *req)
+	log.Infof("Node publish volume request [%+v]", *req)
 	targetPath := req.GetTargetPath()
 	if exist, err := io.Exist(targetPath); err != nil {
 		log.Errorf("check path[%s] exist failed: %v", targetPath, err)
@@ -95,8 +95,11 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context,
 		return &csi.NodePublishVolumeResponse{}, err
 	}
 
-	mountInfo := pfs.GetMountInfo(fsId, server, login.UserName, login.Password, req.GetReadonly())
+	mountInfo := pfs.GetMountInfo(fsId, server, req.GetReadonly())
+	// root credentials for pfs-fuse
+	mountInfo.UsernameRoot, mountInfo.PasswordRoot = login.UserName, login.Password
 	pathPrefix := filepath.Dir(targetPath)
+	mountInfo.TargetPath = targetPath
 	if err := mountVolume(pathPrefix, mountInfo, req.GetReadonly()); err != nil {
 		log.Errorf("mount filesystem[%s] with server[%s] failed: %v", fsId, server, err)
 		return &csi.NodePublishVolumeResponse{}, status.Error(codes.Internal, err.Error())
@@ -143,6 +146,7 @@ func (ns *nodeServer) NodeExpandVolume(ctx context.Context,
 }
 
 func mountVolume(mountPathPrefix string, mountInfo pfs.MountInfo, readOnly bool) error {
+	log.Debugf("mountVolume mountInfo:%+v, readOnly:%t", mountInfo, readOnly)
 	// business pods use a separate source path
 	volumeSourceMountPath := common.GetVolumeSourceMountPath(mountPathPrefix)
 	if err := os.MkdirAll(volumeSourceMountPath, 0750); err != nil {
@@ -153,14 +157,13 @@ func mountVolume(mountPathPrefix string, mountInfo pfs.MountInfo, readOnly bool)
 
 	cmdName, args := mountInfo.GetMountCmd()
 	log.Infof("mountInfo GetMountCmd[%s %v] filesystem ID[%v] in pfs server[%v]", cmdName, args, mountInfo.FSID, mountInfo.Server)
-
 	output, err := mountUtil.ExecCmdWithTimeout(cmdName, args)
 	if err != nil {
 		log.Errorf("exec mount failed: [%v], output[%v]", err, string(output))
 		return err
 	}
 
-	//err := mount.MountThroughPod(mountPathPrefix, mountInfo)
+	//err := mount.MountThroughPod(mountInfo)
 	//if err != nil {
 	//	log.Errorf("MountThroughPod err: %v", err)
 	//	return err
@@ -168,6 +171,8 @@ func mountVolume(mountPathPrefix string, mountInfo pfs.MountInfo, readOnly bool)
 
 	volumeBindMountPath := common.GetVolumeMountPath(mountPathPrefix)
 	return bindMountVolume(volumeSourceMountPath, volumeBindMountPath, readOnly)
+	//bindSource := mount.MountDir + "/" + mountInfo.FSID + "/storage"
+	//return bindMountVolume(bindSource, mountInfo.TargetPath, readOnly)
 }
 
 func bindMountVolume(sourcePath, mountPath string, readOnly bool) error {

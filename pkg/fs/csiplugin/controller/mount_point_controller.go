@@ -292,8 +292,8 @@ func (m *MountPointController) Remount(params pfs.FSMountParameter, volumeMount 
 		}
 	}
 
-	// remount source dir (username password not used)
-	mountInfo := pfs.GetMountInfo(params.FSID, params.Server, params.UserID, "", false)
+	// remount source dir
+	mountInfo := pfs.GetMountInfo(params.FSID, params.Server, false)
 	mountInfo.LocalPath = mountPath
 	command, args := mountInfo.GetMountCmd()
 	log.Debugf("begin to exec cmd [%s %v]", command, args)

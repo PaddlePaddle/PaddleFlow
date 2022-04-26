@@ -43,7 +43,8 @@ const (
 	VolumesKeyDataCache = "data-cache"
 	VolumesKeyMetaCache = "meta-cache"
 	HostPathMnt         = "/data/paddleflow-fs/mnt"
-	MountPath           = "/home/paddleflow/mnt"
+	MountDir            = "/home/paddleflow/mnt"
+	MountPoint          = MountDir + "/storage"
 	CachePath           = "/home/paddleflow/pfs-cache"
 	DataCacheDir        = "/data-cache"
 	MetaCacheDir        = "/meta-cache"
@@ -53,15 +54,15 @@ type PodMount struct {
 	K8sClient *k8s.K8SInterface
 }
 
-func MountThroughPod(targetPath string, mountInfo pfs.MountInfo) error {
-	if err := createOrAddRef(targetPath, mountInfo); err != nil {
-		log.Errorf("MountThroughPod target[%s] info: %+v err: %v", targetPath, mountInfo, err)
+func MountThroughPod(mountInfo pfs.MountInfo) error {
+	if err := createOrAddRef(mountInfo); err != nil {
+		log.Errorf("MountThroughPod info: %+v err: %v", mountInfo, err)
 		return err
 	}
 	return waitUtilPodReady(GeneratePodNameByFsID(mountInfo.FSID))
 }
 
-func createOrAddRef(targetPath string, mountInfo pfs.MountInfo) error {
+func createOrAddRef(mountInfo pfs.MountInfo) error {
 	podName := GeneratePodNameByFsID(mountInfo.FSID)
 
 	for i := 0; i < 120; i++ {
@@ -80,18 +81,21 @@ func createOrAddRef(targetPath string, mountInfo pfs.MountInfo) error {
 			if k8serrors.IsNotFound(err) {
 				// pod not exist, create
 				log.Infof("createOrAddRef: Need to create pod %s.", podName)
-				return createMount(k8sClient, targetPath, mountInfo)
+				if err := createMountPod(k8sClient, mountInfo); err != nil {
+					return err
+				}
+			} else {
+				// unexpect error
+				log.Errorf("createOrAddRef: Get pod %s err: %v", podName, err)
+				return err
 			}
-			// unexpect error
-			log.Errorf("createOrAddRef: Get pod %s err: %v", podName, err)
-			return err
 		}
-		return addRefOfMount(targetPath, mountInfo)
+		return addRefOfMount(mountInfo)
 	}
 	return status.Errorf(codes.Internal, "Mount %v failed: mount pod %s has been deleting for 1 min", mountInfo.FSID, podName)
 }
 
-func createMount(k8sClient k8s.K8SInterface, targetPath string, mountInfo pfs.MountInfo) error {
+func createMountPod(k8sClient k8s.K8SInterface, mountInfo pfs.MountInfo) error {
 	// get config
 	cacheConfig, err := base.Client.GetFSCacheConfig()
 	if err != nil {
@@ -110,15 +114,10 @@ func createMount(k8sClient k8s.K8SInterface, targetPath string, mountInfo pfs.Mo
 		log.Errorf("createMount: Create pod for fsID %s err: %v", mountInfo.FSID, err)
 		return err
 	}
-	// create entry in apiserver
-	if err := addRefOfMount(targetPath, mountInfo); err != nil {
-		log.Errorf("createMount: addRefOfMount fsID:%s, targetPath: %+v err: %v", mountInfo.FSID, targetPath, err)
-		return err
-	}
 	return nil
 }
 
-func addRefOfMount(targetPath string, mountInfo pfs.MountInfo) error {
+func addRefOfMount(mountInfo pfs.MountInfo) error {
 	createMountReq := api.CreateMountRequest{
 		FsParams: api.FsParams{
 			FsName:   base.Client.FsName,
@@ -126,7 +125,7 @@ func addRefOfMount(targetPath string, mountInfo pfs.MountInfo) error {
 			Token:    base.Client.Token,
 		},
 		ClusterID:  "",
-		MountPoint: targetPath,
+		MountPoint: mountInfo.TargetPath,
 		NodeName:   csiconfig.NodeName,
 	}
 	if err := base.Client.CreateFsMount(createMountReq); err != nil {
@@ -249,7 +248,7 @@ func BuildMountPod(mountInfo pfs.MountInfo, cacheConf common.FsCacheConfig) *v1.
 		},
 		{
 			Name:             VolumesKeyMount,
-			MountPath:        MountPath,
+			MountPath:        MountDir,
 			SubPath:          mountInfo.FSID,
 			MountPropagation: &mp,
 		},
@@ -260,10 +259,9 @@ func BuildMountPod(mountInfo pfs.MountInfo, cacheConf common.FsCacheConfig) *v1.
 }
 
 func getcmd(mountInfo pfs.MountInfo, cacheConf common.FsCacheConfig) string {
-	mountPoint := MountPath + "/storage"
-	mkdir := "mkdir -p " + mountPoint + ";"
+	mkdir := "mkdir -p " + MountPoint + ";"
 	pfsMountPath := "/home/paddleflow/pfs-fuse mount "
-	mountPath := "--mount-point=" + mountPoint + " "
+	mountPath := "--mount-point=" + MountPoint + " "
 	options := []string{
 		"--server=" + mountInfo.Server,
 		"--user-name=" + mountInfo.UsernameRoot,

@@ -134,7 +134,7 @@ type ListMountResponse struct {
 	Marker     string           `json:"marker"`
 	Truncated  bool             `json:"truncated"`
 	NextMarker string           `json:"nextMarker"`
-	FsList     []*MountResponse `json:"mountList"`
+	MountList  []*MountResponse `json:"mountList"`
 }
 
 type MountResponse struct {
@@ -208,7 +208,7 @@ func FsMountCreate(req CreateMountRequest, c *core.PFClient) error {
 	err := core.NewRequestBuilder(c).
 		WithHeader(common.HeaderKeyAuthorization, req.Token).
 		WithURL(FsMount).
-		WithQueryParam("username", req.UserName).WithMethod(http.POST).
+		WithMethod(http.POST).
 		WithBody(req).
 		Do()
 	return err
