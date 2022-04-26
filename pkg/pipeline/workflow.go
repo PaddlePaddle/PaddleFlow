@@ -448,6 +448,13 @@ func (bwf *BaseWorkflow) checkSteps() error {
 		bwf.log().Debugln(step)
 	}
 	for stepName, _ := range steps {
+		isDisabled, err := bwf.Source.IsDisabled(stepName)
+		if err != nil {
+			return err
+		}
+		if isDisabled {
+			continue
+		}
 		if err := paramChecker.Check(stepName); err != nil {
 			bwf.log().Errorln(err.Error())
 			return err
