@@ -67,6 +67,7 @@ type fileReader struct {
 	buffersCache  cache.ReadBufferMap
 	streamReader  io.ReadCloser
 	seqReadAmount uint64
+	readBufOffset uint64
 }
 
 type dataReader struct {
@@ -136,24 +137,27 @@ func (fh *fileReader) Read(buf []byte, off uint64) (int, syscall.Errno) {
 }
 
 func (fh *fileReader) readFromStream(off int64, buf []byte) (bytesRead int, err error) {
-	log.Debugf("read from stream %v seqReadAmount[%d]", off, fh.seqReadAmount)
-	if fh.seqReadAmount != uint64(off) {
+	log.Debugf("read from stream %v readBufOffset[%d], len[%d]", off, fh.readBufOffset, len(buf))
+	if fh.readBufOffset != uint64(off) {
+		fh.readBufOffset = uint64(off)
 		if fh.streamReader != nil {
 			_ = fh.streamReader.Close()
 			fh.streamReader = nil
 		}
 	}
 	if fh.streamReader == nil {
+		log.Debugf("init reader %s flags[%s] off[%d]", fh.path, fh.flags, off)
 		resp, err := fh.ufs.Get(fh.path, fh.flags, off, 0)
 		if err != nil {
 			return 0, err
 		}
 		fh.streamReader = resp
-		fh.seqReadAmount = uint64(off)
 	}
 
 	bytesRead, err = fh.streamReader.Read(buf)
+	fh.readBufOffset += uint64(bytesRead)
 	if err != nil {
+		log.Debugf("stream reader err %v", err)
 		if err != io.EOF {
 			log.Errorf("readFromStream err %v", err)
 		}
@@ -162,6 +166,7 @@ func (fh *fileReader) readFromStream(off int64, buf []byte) (bytesRead int, err 
 		fh.streamReader = nil
 		err = nil
 	}
+	log.Debugf("stream result nread[%d] and buf[%s]", bytesRead, string(buf[:bytesRead]))
 	return
 }
 

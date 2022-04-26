@@ -437,7 +437,7 @@ func (pr *PFSRouter) getFileSystem(w http.ResponseWriter, r *http.Request) {
 	getRequest := api.GetFileSystemRequest{
 		Username: r.URL.Query().Get(util.QueryKeyUserName),
 	}
-	log.Debugf("get file system with req[%v] and fileSystemID[%s]", getRequest, fsName)
+	log.Infof("get file system with req[%v] and fileSystemID[%s]", getRequest, fsName)
 
 	fileSystemService := api.GetFileSystemService()
 	realUserName := getRealUserName(&ctx, getRequest.Username)
