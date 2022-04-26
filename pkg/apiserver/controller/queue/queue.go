@@ -152,7 +152,8 @@ func CreateQueue(ctx *logger.RequestContext, request *CreateQueueRequest) (Creat
 		ctx.ErrorCode = common.NamespaceNotFound
 		ctx.Logging().Errorln("create request failed. error: namespace is not found.")
 		return CreateQueueResponse{}, errors.New("namespace is not found")
-	} else {
+	}
+	if len(clusterInfo.NamespaceList) != 0 {
 		isExist := false
 		for _, ns := range clusterInfo.NamespaceList {
 			if request.Namespace == ns {
@@ -164,6 +165,12 @@ func CreateQueue(ctx *logger.RequestContext, request *CreateQueueRequest) (Creat
 			return CreateQueueResponse{}, fmt.Errorf(
 				"namespace[%s] of queue not in the specified values [%s] by cluster[%s]",
 				request.Namespace, clusterInfo.RawNamespaceList, clusterInfo.Name)
+		}
+	} else {
+		// check namespace format
+		if errStr := common.IsDNS1123Label(request.Namespace); len(errStr) != 0 {
+			return CreateQueueResponse{}, fmt.Errorf("namespace[%s] of queue is invalid, err: %s",
+				request.Namespace, strings.Join(errStr, ","))
 		}
 	}
 
