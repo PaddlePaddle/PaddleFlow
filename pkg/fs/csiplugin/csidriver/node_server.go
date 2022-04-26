@@ -27,6 +27,9 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"paddleflow/pkg/client"
+	"paddleflow/pkg/common/http/api"
+	"paddleflow/pkg/fs/client/base"
 	"paddleflow/pkg/fs/csiplugin/client/pfs"
 	"paddleflow/pkg/fs/utils/common"
 	"paddleflow/pkg/fs/utils/io"
@@ -34,14 +37,14 @@ import (
 )
 
 const (
-	pfsFSID     = "pfs.fs.id"
-	pfsServer   = "pfs.server"
-	pfsUserName = "pfs.user.name"
+	pfsFSID   = "pfs.fs.id"
+	pfsServer = "pfs.server"
 )
 
 type nodeServer struct {
 	nodeId string
 	*csicommon.DefaultNodeServer
+	credentialInfo credentials
 }
 
 func (ns *nodeServer) NodeGetCapabilities(ctx context.Context, req *csi.NodeGetCapabilitiesRequest) (*csi.NodeGetCapabilitiesResponse, error) {
@@ -57,7 +60,7 @@ func (ns *nodeServer) NodeGetCapabilities(ctx context.Context, req *csi.NodeGetC
 
 func (ns *nodeServer) NodePublishVolume(ctx context.Context,
 	req *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {
-	log.Debugf("Node publish volume request [%+v]", *req)
+	log.Infof("Node publish volume request [%+v]", *req)
 	targetPath := req.GetTargetPath()
 	if exist, err := io.Exist(targetPath); err != nil {
 		log.Errorf("check path[%s] exist failed: %v", targetPath, err)
@@ -72,10 +75,31 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context,
 	volumeContext := req.GetVolumeContext()
 	fsId := volumeContext[pfsFSID]
 	server := volumeContext[pfsServer]
-	userName := volumeContext[pfsUserName]
 
-	mountInfo := pfs.GetMountInfo(fsId, server, userName, req.GetReadonly())
+	// new fuse http client
+	httpClient := client.NewHttpClient(server, client.DefaultTimeOut)
+	// token
+	login := api.LoginParams{
+		UserName: ns.credentialInfo.usernameRoot,
+		Password: ns.credentialInfo.passwordRoot,
+	}
+	loginResponse, err := api.LoginRequest(login, httpClient)
+	if err != nil {
+		log.Errorf("fuse login failed: %v", err)
+		return &csi.NodePublishVolumeResponse{}, err
+	}
+	_, err = base.NewClient(fsId, httpClient, loginResponse.Authorization)
+	if err != nil {
+		log.Errorf("csi addRefOfMount: init client with fs[%s] and server[%s] failed: %v",
+			fsId, server, err)
+		return &csi.NodePublishVolumeResponse{}, err
+	}
+
+	mountInfo := pfs.GetMountInfo(fsId, server, req.GetReadonly())
+	// root credentials for pfs-fuse
+	mountInfo.UsernameRoot, mountInfo.PasswordRoot = login.UserName, login.Password
 	pathPrefix := filepath.Dir(targetPath)
+	mountInfo.TargetPath = targetPath
 	if err := mountVolume(pathPrefix, mountInfo, req.GetReadonly()); err != nil {
 		log.Errorf("mount filesystem[%s] with server[%s] failed: %v", fsId, server, err)
 		return &csi.NodePublishVolumeResponse{}, status.Error(codes.Internal, err.Error())
@@ -122,6 +146,7 @@ func (ns *nodeServer) NodeExpandVolume(ctx context.Context,
 }
 
 func mountVolume(mountPathPrefix string, mountInfo pfs.MountInfo, readOnly bool) error {
+	log.Debugf("mountVolume mountInfo:%+v, readOnly:%t", mountInfo, readOnly)
 	// business pods use a separate source path
 	volumeSourceMountPath := common.GetVolumeSourceMountPath(mountPathPrefix)
 	if err := os.MkdirAll(volumeSourceMountPath, 0750); err != nil {
@@ -138,14 +163,16 @@ func mountVolume(mountPathPrefix string, mountInfo pfs.MountInfo, readOnly bool)
 		return err
 	}
 
-	//err := mount.MountThroughPod(mountPathPrefix, mountInfo)
+	//err := mount.MountThroughPod(mountInfo)
 	//if err != nil {
-	//	log.Errorf("exec mount failed: [%v]", err)
+	//	log.Errorf("MountThroughPod err: %v", err)
 	//	return err
 	//}
 
 	volumeBindMountPath := common.GetVolumeMountPath(mountPathPrefix)
 	return bindMountVolume(volumeSourceMountPath, volumeBindMountPath, readOnly)
+	//bindSource := mount.MountDir + "/" + mountInfo.FSID + "/storage"
+	//return bindMountVolume(bindSource, mountInfo.TargetPath, readOnly)
 }
 
 func bindMountVolume(sourcePath, mountPath string, readOnly bool) error {
