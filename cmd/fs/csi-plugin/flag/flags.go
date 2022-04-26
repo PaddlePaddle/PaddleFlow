@@ -30,6 +30,16 @@ func CsiPluginFlags() []cli.Flag {
 			Value: "nodeId",
 			Usage: "node id",
 		},
+		&cli.StringFlag{
+			Name:  "username",
+			Value: "root",
+			Usage: "username",
+		},
+		&cli.StringFlag{
+			Name:  "password",
+			Value: "",
+			Usage: "password",
+		},
 	}
 }
 

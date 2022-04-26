@@ -144,7 +144,8 @@ func act(c *cli.Context) error {
 	go ctrl.Start(stopChan)
 	defer ctrl.Stop()
 
-	d := csidriver.NewDriver(c.String("node-id"), c.String("unix-endpoint"))
+	d := csidriver.NewDriver(c.String("node-id"), c.String("unix-endpoint"),
+		c.String("username"), c.String("password"))
 	d.Run()
 
 	return nil

@@ -614,7 +614,7 @@ func TestFSMount(t *testing.T) {
 	listRsp := fs.ListMountResponse{}
 	err = ParseBody(result.Body, &listRsp)
 	assert.Nil(t, err)
-	assert.Equal(t, 2, len(listRsp.FsList))
+	assert.Equal(t, 2, len(listRsp.MountList))
 
 	filters2 := "?" + util.QueryMountPoint + "=/var/2&" + util.QueryNodeName + "=abc&" + util.QueryClusterID + "=testcluster"
 	_, err = PerformDeleteRequest(router, url+"/"+mockFsName+filters2)
@@ -625,5 +625,5 @@ func TestFSMount(t *testing.T) {
 	listRsp = fs.ListMountResponse{}
 	err = ParseBody(result.Body, &listRsp)
 	assert.Nil(t, err)
-	assert.Equal(t, 1, len(listRsp.FsList))
+	assert.Equal(t, 1, len(listRsp.MountList))
 }
