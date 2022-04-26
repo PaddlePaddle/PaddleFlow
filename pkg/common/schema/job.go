@@ -16,8 +16,6 @@ limitations under the License.
 
 package schema
 
-import "strconv"
-
 type JobType string
 type ActionType string
 type JobStatus string
@@ -366,17 +364,6 @@ func (c *Conf) SetLabels(k, v string) {
 func (c *Conf) SetAnnotations(k, v string) {
 	c.preCheck()
 	c.Annotations[k] = v
-}
-
-// IsCustomYaml will get value of IsCustomYaml and remove from env as it be never used again
-func (c *Conf) IsCustomYaml() bool {
-	res, _ := strconv.ParseBool(c.Env[EnvIsCustomYaml])
-	return res
-}
-
-// SetIsCustomYaml set value of IsCustomYaml
-func (c *Conf) SetIsCustomYaml(b bool) {
-	c.Env[EnvIsCustomYaml] = strconv.FormatBool(b)
 }
 
 func (c *Conf) preCheck() {

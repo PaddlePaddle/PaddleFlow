@@ -54,6 +54,8 @@ type PFJob struct {
 	FSID string
 	// Tasks for TypeDistributed job
 	Tasks []models.Member
+	// ExtRuntimeConf define extra runtime conf
+	ExtRuntimeConf []byte
 	// ExtensionTemplate records the extension template of job
 	ExtensionTemplate string
 	// Conf for job

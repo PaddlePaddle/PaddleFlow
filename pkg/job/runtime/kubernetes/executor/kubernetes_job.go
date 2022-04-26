@@ -107,7 +107,6 @@ func NewKubeJob(job *api.PFJob, dynamicClientOpt *k8s.DynamicClientOption) (api.
 		PVCName:             pvcName,
 		Labels:              job.Conf.Labels,
 		Annotations:         job.Conf.Annotations,
-		IsCustomYaml:        job.Conf.IsCustomYaml(),
 		Tasks:               job.Tasks,
 		Priority:            job.Conf.GetPriority(),
 		QueueName:           job.Conf.GetQueueName(),
@@ -378,7 +377,7 @@ func (j *KubeJob) appendVolumeIfAbsent(vSlice []corev1.Volume, element corev1.Vo
 }
 
 func (j *KubeJob) fixContainerCommand(command string) string {
-	command = strings.TrimPrefix(command, "bash -c")
+	command = strings.TrimPrefix(command, "sh -c")
 	command = fmt.Sprintf("%s %s;%s", "cd", schema.DefaultFSMountPath, command)
 	return command
 }
@@ -521,7 +520,7 @@ func getDefaultPath(jobType schema.JobType, framework schema.Framework, jobMode 
 	log.Debugf("get default path, jobType=%s, jobMode=%s", jobType, jobMode)
 	baseDir := config.GlobalServerConfig.Job.DefaultJobYamlDir
 	suffix := ".yaml"
-	if len(jobMode) != 0 {
+	if len(jobMode) != 0 && framework != schema.FrameworkSpark {
 		suffix = fmt.Sprintf("_%s.yaml", strings.ToLower(jobMode))
 	}
 
