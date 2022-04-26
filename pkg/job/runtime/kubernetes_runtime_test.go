@@ -88,11 +88,11 @@ func TestKubeRuntimeJob(t *testing.T) {
 	}
 
 	pfJob := &api.PFJob{
-		ID:             testJobID,
-		Namespace:      "default",
-		JobType:        schema.TypeVcJob,
-		JobMode:        schema.EnvJobModePod,
-		ExtRuntimeConf: []byte(vcjobManifest),
+		ID:                testJobID,
+		Namespace:         "default",
+		JobType:           schema.TypeVcJob,
+		JobMode:           schema.EnvJobModePod,
+		ExtensionTemplate: vcjobManifest,
 		Conf: schema.Conf{
 			Env: map[string]string{
 				schema.EnvJobQueueName: "default",
