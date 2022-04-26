@@ -139,7 +139,7 @@ func CreateQueue(ctx *logger.RequestContext, request *CreateQueueRequest) (Creat
 	if err != nil {
 		ctx.ErrorCode = common.ClusterNotFound
 		ctx.Logging().Errorln("create request failed. error: cluster not found by Name.")
-		return CreateQueueResponse{}, errors.New("cluster not found  by Name")
+		return CreateQueueResponse{}, errors.New("cluster not found by Name")
 	}
 	if clusterInfo.Status != models.ClusterStatusOnLine {
 		ctx.ErrorCode = common.InvalidClusterStatus
