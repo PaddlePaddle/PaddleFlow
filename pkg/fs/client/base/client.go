@@ -60,6 +60,7 @@ func (c *_Client) GetFSMeta() (common.FSMeta, error) {
 		UserName: c.UserName,
 		Token:    c.Token,
 	}
+	log.Infof("Fs MetaRequest Parmas %+v", params)
 	fsResponseMeta, err := api.FsRequest(params, c.httpClient)
 	if err != nil {
 		log.Errorf("fs request failed: %v", err)
