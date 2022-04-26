@@ -41,7 +41,7 @@ func (wfj *WorkflowJob) CreateJob() (string, error) {
 	}
 
 	// patch .metadata field
-	wfj.patchMetadata(&workflowJob.ObjectMeta)
+	wfj.patchMetadata(&workflowJob.ObjectMeta, wfj.ID)
 	// patch .spec field
 	err := wfj.patchWorkflowSpec(&workflowJob.Spec)
 	if err != nil {

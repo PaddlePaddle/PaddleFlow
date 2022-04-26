@@ -28,6 +28,7 @@ import (
 	"paddleflow/pkg/common/errors"
 	"paddleflow/pkg/common/k8s"
 	"paddleflow/pkg/common/schema"
+	"paddleflow/pkg/common/uuid"
 )
 
 type PaddleJob struct {
@@ -62,7 +63,7 @@ func (pj *PaddleJob) CreateJob() (string, error) {
 	// paddleflow won't patch any param to job if it is workflow type
 	if pj.JobType != schema.TypeWorkflow {
 		// patch .metadata field
-		pj.patchMetadata(&pdj.ObjectMeta)
+		pj.patchMetadata(&pdj.ObjectMeta, pj.ID)
 		// patch .spec field
 		err = pj.patchPaddleJobSpec(&pdj.Spec)
 		if err != nil {
@@ -214,11 +215,14 @@ func (pj *PaddleJob) patchPdjTask(resourceSpec *paddlev1.ResourceSpec, task mode
 		resourceSpec.Replicas = defaultPSReplicas
 	}
 
-	// patch resourceSpec.Template.Labels
-	if resourceSpec.Template.Labels == nil {
-		resourceSpec.Template.Labels = map[string]string{}
+	// set metadata
+	taskName := task.Name
+	if taskName == "" {
+		taskName = uuid.GenerateIDWithLength(pj.ID, 3)
 	}
-	resourceSpec.Template.Labels[schema.JobIDLabel] = pj.Name
+	pj.patchMetadata(&resourceSpec.Template.ObjectMeta, taskName)
+	// set pod template
+	pj.fillPodSpec(&resourceSpec.Template.Spec)
 
 	// patch Task.Template.Spec.Containers[0]
 	if len(resourceSpec.Template.Spec.Containers) != 1 {
@@ -226,8 +230,6 @@ func (pj *PaddleJob) patchPdjTask(resourceSpec *paddlev1.ResourceSpec, task mode
 	}
 	pj.fillContainerInTasks(&resourceSpec.Template.Spec.Containers[0], task)
 
-	// patch resourceSpec.Template.Spec.Volumes
-	resourceSpec.Template.Spec.Volumes = pj.appendVolumeIfAbsent(resourceSpec.Template.Spec.Volumes, pj.generateVolume())
 	return nil
 }
 
