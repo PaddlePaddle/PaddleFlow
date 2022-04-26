@@ -114,25 +114,26 @@ func TestPatchSparkAppVariable(t *testing.T) {
 		if pfjob.Conf.GetNamespace() != "" {
 			pfjob.Namespace = pfjob.Conf.GetNamespace()
 		}
+
+		kubeJob := KubeJob{
+			ID:         test.caseName,
+			Name:       "randomName",
+			Namespace:  pfjob.Namespace,
+			JobType:    schema.TypeDistributed,
+			Image:      pfjob.Conf.GetImage(),
+			Command:    pfjob.Conf.GetCommand(),
+			Env:        pfjob.Conf.GetEnv(),
+			VolumeName: pfjob.Conf.GetFS(),
+			PVCName:    "PVCName",
+			Priority:   pfjob.Conf.GetPriority(),
+			QueueName:  pfjob.Conf.GetQueueName(),
+		}
 		// yaml content
-		extRuntimeConf, err := pfjob.GetExtRuntimeConf(pfjob.Conf.GetFS(), pfjob.Conf.GetYamlPath())
+		yamlTemplateContent, err := kubeJob.getExtRuntimeConf(pfjob.Conf.GetFS(), pfjob.Conf.GetYamlPath(), pfjob.Framework)
 		if err != nil {
 			t.Errorf(err.Error())
 		}
-		kubeJob := KubeJob{
-			ID:                  test.caseName,
-			Name:                "randomName",
-			Namespace:           pfjob.Namespace,
-			JobType:             schema.TypeDistributed,
-			Image:               pfjob.Conf.GetImage(),
-			Command:             pfjob.Conf.GetCommand(),
-			Env:                 pfjob.Conf.GetEnv(),
-			VolumeName:          pfjob.Conf.GetFS(),
-			PVCName:             "PVCName",
-			Priority:            pfjob.Conf.GetPriority(),
-			QueueName:           pfjob.Conf.GetQueueName(),
-			YamlTemplateContent: extRuntimeConf,
-		}
+		kubeJob.YamlTemplateContent = yamlTemplateContent
 
 		sparkJob := SparkJob{
 			KubeJob:          kubeJob,
@@ -147,7 +148,7 @@ func TestPatchSparkAppVariable(t *testing.T) {
 		if err := sparkJob.createJobFromYaml(jobApp); err != nil {
 			t.Errorf("create job failed, err %v", err)
 		}
-		err = sparkJob.patchSparkAppVariable(jobApp, test.caseName)
+		err = sparkJob.patchSparkAppVariable(jobApp)
 		if err != nil {
 			t.Errorf(err.Error())
 		}

@@ -437,7 +437,7 @@ func (pr *PFSRouter) getFileSystem(w http.ResponseWriter, r *http.Request) {
 	getRequest := api.GetFileSystemRequest{
 		Username: r.URL.Query().Get(util.QueryKeyUserName),
 	}
-	log.Debugf("get file system with req[%v] and fileSystemID[%s]", getRequest, fsName)
+	log.Infof("get file system with req[%v] and fileSystemID[%s]", getRequest, fsName)
 
 	fileSystemService := api.GetFileSystemService()
 	realUserName := getRealUserName(&ctx, getRequest.Username)
@@ -884,7 +884,6 @@ func validateCreateMount(ctx *logger.RequestContext, req *api.CreateMountRequest
 // @tag fs
 // @Accept   json
 // @Produce  json
-// @Param request body fs.ListMountRequest true "request body"
 // @Success 200 {object} fs.ListFileSystemResponse
 // @Failure 400 {object} common.ErrorResponse
 // @Failure 404 {object} common.ErrorResponse
@@ -955,7 +954,7 @@ func getListMountResult(fsMounts []models.FsMount, nextMarker, marker string) *a
 	}
 	ListFsResponse := &api.ListMountResponse{
 		Marker:    marker,
-		FsList:    fsMountLists,
+		MountList: fsMountLists,
 		Truncated: false,
 	}
 	if nextMarker != "" {

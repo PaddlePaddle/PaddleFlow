@@ -90,7 +90,7 @@ func getMetaAndLinks(server string, fsID string) (fsCommon.FSMeta, map[string]fs
 		log.Errorf("get root token failed: %v", err)
 		return fsMeta, nil, err
 	}
-	client, err := base.NewClient(fsID, httpClient, fsCommon.RootKey, token)
+	client, err := base.NewClient(fsID, httpClient, token)
 	if err != nil {
 		log.Errorf("init client with fs[%s] and server[%s] failed: %v", fsID, server, err)
 		return fsMeta, nil, err

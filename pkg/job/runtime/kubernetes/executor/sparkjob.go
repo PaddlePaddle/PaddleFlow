@@ -31,6 +31,7 @@ import (
 
 const defaultExecutorInstances int32 = 1
 
+// SparkJob is the executor for spark job
 type SparkJob struct {
 	KubeJob
 	SparkMainFile    string
@@ -42,28 +43,15 @@ type SparkJob struct {
 }
 
 // patchSparkAppVariable patch env variable to jobApplication, the order of patches following spark crd
-func (sj *SparkJob) patchSparkAppVariable(jobApp *sparkapp.SparkApplication, jobID string) error {
-	jobApp.Name = jobID
+func (sj *SparkJob) patchSparkAppVariable(jobApp *sparkapp.SparkApplication) error {
 	// metadata
-	sj.patchSparkMetaData(jobApp, jobID)
+	sj.patchMetadata(&jobApp.ObjectMeta)
 	// spec, the order of patches following SparkApplicationSpec crd
-	sj.patchSparkSpec(jobApp, jobID)
+	sj.patchSparkSpec(jobApp, sj.GetID())
 
 	// volumes
-	if jobApp.Spec.Volumes == nil {
-		jobApp.Spec.Volumes = []corev1.Volume{}
-	}
 	jobApp.Spec.Volumes = sj.appendVolumeIfAbsent(jobApp.Spec.Volumes, sj.generateVolume())
 	return nil
-}
-
-func (sj *SparkJob) patchSparkMetaData(jobApp *sparkapp.SparkApplication, jobID string) {
-	jobApp.Namespace = sj.Namespace
-	if jobApp.Labels == nil {
-		jobApp.Labels = map[string]string{}
-	}
-	jobApp.Labels[schema.JobOwnerLabel] = schema.JobOwnerValue
-	jobApp.Labels[schema.JobIDLabel] = jobID
 }
 
 func (sj *SparkJob) patchSparkSpec(jobApp *sparkapp.SparkApplication, jobID string) {
@@ -150,6 +138,7 @@ func (sj *SparkJob) patchSparkSpecExecutor(jobApp *sparkapp.SparkApplication, co
 	jobApp.Spec.Executor.SparkPodSpec.VolumeMounts = sj.appendMountIfAbsent(jobApp.Spec.Executor.SparkPodSpec.VolumeMounts, volumeMount)
 }
 
+// CreateJob creates a SparkJob
 func (sj *SparkJob) CreateJob() (string, error) {
 	if err := sj.validateJob(); err != nil {
 		log.Errorf("validate job failed, err %v", err)
@@ -164,7 +153,13 @@ func (sj *SparkJob) CreateJob() (string, error) {
 		return "", err
 	}
 
-	sj.patchSparkAppVariable(jobApp, jobID)
+	// paddleflow won't patch any param to job if it is workflow type
+	if sj.JobType != schema.TypeWorkflow {
+		if err := sj.patchSparkAppVariable(jobApp); err != nil {
+			log.Errorf("patch spark app variable failed, err %v", err)
+			return "", err
+		}
+	}
 
 	log.Debugf("begin submit job jobID:[%s]", jobID)
 	err := Create(jobApp, k8s.SparkAppGVK, sj.DynamicClientOption)
@@ -175,6 +170,7 @@ func (sj *SparkJob) CreateJob() (string, error) {
 	return jobID, nil
 }
 
+// StopJobByID stops a job by jobID
 func (sj *SparkJob) StopJobByID(jobID string) error {
 	job, err := models.GetJobByID(jobID)
 	if err != nil {
