@@ -45,7 +45,7 @@ type SparkJob struct {
 // patchSparkAppVariable patch env variable to jobApplication, the order of patches following spark crd
 func (sj *SparkJob) patchSparkAppVariable(jobApp *sparkapp.SparkApplication) error {
 	// metadata
-	sj.patchMetadata(&jobApp.ObjectMeta)
+	sj.patchMetadata(&jobApp.ObjectMeta, sj.ID)
 	// spec, the order of patches following SparkApplicationSpec crd
 	sj.patchSparkSpec(jobApp, sj.GetID())
 
