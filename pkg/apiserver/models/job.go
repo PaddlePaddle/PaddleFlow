@@ -55,7 +55,7 @@ type Job struct {
 	CreatedAt         time.Time        `json:"createTime"`
 	ActivatedAt       sql.NullTime     `json:"activateTime"`
 	UpdatedAt         time.Time        `json:"updateTime,omitempty"`
-	DeletedAt         string   `json:"-" gorm:"index:idx_id"`
+	DeletedAt         string           `json:"-" gorm:"index:idx_id"`
 }
 
 type Member struct {
@@ -170,7 +170,7 @@ func GetJobStatusByID(jobID string) (schema.JobStatus, error) {
 }
 
 func DeleteJob(jobID string) error {
-	t := database.DB.Table("job").Where("id = ?", jobID).UpdateColumn("deleted_at", generateDeletedUuidStr())
+	t := database.DB.Table("job").Where("id = ?", jobID).UpdateColumn("deleted_at", time.Now().Format(TimeFormat))
 	if t.Error != nil {
 		return t.Error
 	}
