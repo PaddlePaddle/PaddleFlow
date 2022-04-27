@@ -139,11 +139,6 @@ func (r *Resource) sub(rr *Resource) *Resource {
 	return r
 }
 
-// 不更新ScalarResources
-func (r *Resource) SubWithoutScalarResources(rr *Resource) *Resource {
-	return r.sub(rr)
-}
-
 // Sub subtracts two Resource objects.
 func (r *Resource) Sub(rr *Resource) *Resource {
 	r.sub(rr)
@@ -192,7 +187,8 @@ var minValue float64 = 0.01
 
 // LessEqual once any field in r less than rr, it would be return false
 // Notice that r is properly less than rr and r.ScalarResources can be nil
-// e.g. `if !requestResource.LessEqual(staticResource) {}`
+// e.g. `if !requestResource.lessEqual(staticResource) {}`
+// todo to be removed
 func (r Resource) LessEqual(rr *Resource) bool {
 	lessEqualFunc := func(l, r, diff float64) bool {
 		if l < r || math.Abs(l-r) < diff {
