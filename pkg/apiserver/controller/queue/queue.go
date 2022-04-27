@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	log "github.com/sirupsen/logrus"
+
 	"paddleflow/pkg/apiserver/common"
 	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/common/config"
@@ -212,19 +213,8 @@ func CreateQueue(ctx *logger.RequestContext, request *CreateQueueRequest) (Creat
 			ctx.ErrorCode = common.InvalidComputeResource
 			return CreateQueueResponse{}, err
 		}
-		maxResource, err := schema.NewResource(request.MaxResources)
-		if err != nil {
-			ctx.Logging().Errorf("create queue failed. error: %s", err.Error())
-			ctx.ErrorCode = common.InvalidComputeResource
-			return CreateQueueResponse{}, err
-		}
-		minResource, err := schema.NewResource(request.MinResources)
-		if err != nil {
-			ctx.Logging().Errorf("create queue failed. error: %s", err.Error())
-			ctx.ErrorCode = common.InvalidComputeResource
-			return CreateQueueResponse{}, err
-		}
-		if !minResource.LessEqual(maxResource) {
+
+		if !request.MinResources.LessEqual(request.MaxResources) {
 			ctx.Logging().Errorf("create queue failed. error: maxResources less than minResources")
 			ctx.ErrorCode = common.InvalidComputeResource
 			return CreateQueueResponse{}, fmt.Errorf("maxResources less than minResources")
