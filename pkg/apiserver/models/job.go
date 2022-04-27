@@ -55,7 +55,7 @@ type Job struct {
 	CreatedAt         time.Time        `json:"createTime"`
 	ActivatedAt       sql.NullTime     `json:"activateTime"`
 	UpdatedAt         time.Time        `json:"updateTime,omitempty"`
-	DeletedAt         gorm.DeletedAt   `json:"-" gorm:"index:idx_id"`
+	DeletedAt         string   `json:"-" gorm:"index:idx_id"`
 }
 
 type Member struct {
@@ -170,7 +170,7 @@ func GetJobStatusByID(jobID string) (schema.JobStatus, error) {
 }
 
 func DeleteJob(jobID string) error {
-	t := database.DB.Table("job").Where("id = ?", jobID).Delete(&Job{})
+	t := database.DB.Table("job").Where("id = ?", jobID).UpdateColumn("deleted_at", generateDeletedUuidStr())
 	if t.Error != nil {
 		return t.Error
 	}
@@ -239,7 +239,7 @@ func UpdateJob(jobID string, status schema.JobStatus, info interface{}, message 
 }
 
 func ListQueueJob(queueID string, status []schema.JobStatus) []Job {
-	db := database.DB.Table("job").Where("status in ?", status).Where("queue_id = ?", queueID)
+	db := database.DB.Table("job").Where("status in ?", status).Where("queue_id = ?", queueID).Where("deleted_at = ''")
 
 	var jobs []Job
 	err := db.Find(&jobs).Error
