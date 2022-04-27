@@ -39,6 +39,12 @@ const (
 	RegPatternPipelineName = "^[A-Za-z0-9_][A-Za-z0-9-_]{1,49}[A-Za-z0-9_]$"
 	RegPatternClusterName  = "^[A-Za-z0-9_][A-Za-z0-9-_]{0,253}[A-Za-z0-9_]$"
 
+	// DNS1123LabelMaxLength is a label's max length in DNS (RFC 1123)
+	DNS1123LabelMaxLength = 63
+	DNS1123LabelFmt       = "[a-z0-9]([-a-z0-9]*[a-z0-9])?"
+	dns1123LabelErrMsg    = "a lowercase RFC 1123 label must consist of lower case alphanumeric characters or '-'," +
+		" and must start and end with an alphanumeric character"
+
 	HDFS                          = "hdfs"
 	HDFSWithKerberos              = "hdfsWithKerberos"
 	S3                            = "s3"
@@ -235,4 +241,18 @@ func CheckFsNested(path1, path2 string) bool {
 func FSIDToName(fsID string) string {
 	fsArr := strings.Split(fsID, "-")
 	return fsArr[len(fsArr)-1]
+}
+
+// IsDNS1123Label tests for a string that conforms to the definition of a label in
+// DNS (RFC 1123).
+func IsDNS1123Label(value string) []string {
+	var errs []string
+	var dns1123LabelRegexp = regexp.MustCompile("^" + DNS1123LabelFmt + "$")
+	if len(value) > DNS1123LabelMaxLength {
+		errs = append(errs, fmt.Sprintf("must be no more than %d characters", DNS1123LabelMaxLength))
+	}
+	if !dns1123LabelRegexp.MatchString(value) {
+		errs = append(errs, dns1123LabelErrMsg+" (regex used for validation is '"+DNS1123LabelFmt+"')")
+	}
+	return errs
 }

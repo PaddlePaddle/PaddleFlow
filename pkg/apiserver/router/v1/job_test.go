@@ -143,7 +143,7 @@ func TestCreateJob(t *testing.T) {
 	for _, tt := range tests {
 		t.Logf("baseURL=%s", baseURL)
 		res, err := PerformPostRequest(router, baseURL+"/job/single", tt.args.req)
-		t.Logf("create single job, response=%+v", res)
+		t.Logf("case[%s] create single job, response=%+v", tt.name, res)
 		if tt.wantErr {
 			assert.Error(t, err)
 			continue

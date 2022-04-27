@@ -290,7 +290,7 @@ func InitVFS(c *cli.Context, registry *prometheus.Registry) error {
 			return err
 		}
 
-		fuseClient, err := base.NewClient(fsID, httpClient, username, loginResponse.Authorization)
+		fuseClient, err := base.NewClient(fsID, httpClient, loginResponse.Authorization)
 		if err != nil {
 			log.Errorf("init client with fs[%s] and server[%s] failed: %v", fsID, server, err)
 			return err

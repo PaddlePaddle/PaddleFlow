@@ -94,11 +94,11 @@ func TestWorkflowJob(t *testing.T) {
 		{
 			caseName: "create workflow job",
 			jobObj: &api.PFJob{
-				ID:             "wf-test1",
-				Namespace:      "default",
-				JobType:        schema.TypeWorkflow,
-				Conf:           schema.Conf{},
-				ExtRuntimeConf: []byte(extArgoWorkflowYaml),
+				ID:                "wf-test1",
+				Namespace:         "default",
+				JobType:           schema.TypeWorkflow,
+				Conf:              schema.Conf{},
+				ExtensionTemplate: extArgoWorkflowYaml,
 			},
 			wantErr: false,
 		},

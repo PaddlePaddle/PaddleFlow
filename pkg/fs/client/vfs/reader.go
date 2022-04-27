@@ -67,6 +67,7 @@ type fileReader struct {
 	buffersCache  cache.ReadBufferMap
 	streamReader  io.ReadCloser
 	seqReadAmount uint64
+	readBufOffset uint64
 }
 
 type dataReader struct {
@@ -81,7 +82,7 @@ type dataReader struct {
 func (fh *fileReader) Read(buf []byte, off uint64) (int, syscall.Errno) {
 	fh.Lock()
 	defer fh.Unlock()
-	log.Debugf("len[%d] off[%d] blockName[%s] length[%d]", len(buf), off, fh.name, fh.length)
+	log.Debugf("fileReader len[%d] off[%d] blockName[%s] length[%d]", len(buf), off, fh.name, fh.length)
 	if off >= fh.length || len(buf) == 0 {
 		return 0, syscall.F_OK
 	}
@@ -131,17 +132,21 @@ func (fh *fileReader) Read(buf []byte, off uint64) (int, syscall.Errno) {
 			return 0, syscall.EBADF
 		}
 	}
+	log.Debugf("filereader finish read %d and buf is %s", bytesRead, string(buf[:bytesRead]))
 	return bytesRead, syscall.F_OK
 }
 
 func (fh *fileReader) readFromStream(off int64, buf []byte) (bytesRead int, err error) {
-	if fh.seqReadAmount != uint64(off) {
+	log.Debugf("read from stream %v readBufOffset[%d], len[%d]", off, fh.readBufOffset, len(buf))
+	if fh.readBufOffset != uint64(off) {
+		fh.readBufOffset = uint64(off)
 		if fh.streamReader != nil {
 			_ = fh.streamReader.Close()
 			fh.streamReader = nil
 		}
 	}
 	if fh.streamReader == nil {
+		log.Debugf("init reader %s flags[%d] off[%d]", fh.path, fh.flags, off)
 		resp, err := fh.ufs.Get(fh.path, fh.flags, off, 0)
 		if err != nil {
 			return 0, err
@@ -150,7 +155,9 @@ func (fh *fileReader) readFromStream(off int64, buf []byte) (bytesRead int, err 
 	}
 
 	bytesRead, err = fh.streamReader.Read(buf)
+	fh.readBufOffset += uint64(bytesRead)
 	if err != nil {
+		log.Debugf("stream reader err %v", err)
 		if err != io.EOF {
 			log.Errorf("readFromStream err %v", err)
 		}
@@ -159,6 +166,7 @@ func (fh *fileReader) readFromStream(off int64, buf []byte) (bytesRead int, err 
 		fh.streamReader = nil
 		err = nil
 	}
+	log.Debugf("stream result nread[%d] and buf[%s]", bytesRead, string(buf[:bytesRead]))
 	return
 }
 

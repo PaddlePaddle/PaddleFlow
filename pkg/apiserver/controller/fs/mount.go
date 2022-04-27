@@ -49,6 +49,21 @@ type DeleteMountRequest struct {
 	NodeName   string `json:"nodename" validate:"required"`
 }
 
+type ListMountResponse struct {
+	Marker     string           `json:"marker"`
+	Truncated  bool             `json:"truncated"`
+	NextMarker string           `json:"nextMarker"`
+	MountList  []*MountResponse `json:"mountList"`
+}
+
+type MountResponse struct {
+	MountID    string `json:"mountID"`
+	FsID       string `json:"fsID"`
+	MountPoint string `json:"mountpoint"`
+	NodeName   string `json:"nodename"`
+	ClusterID  string `json:"clusterID"`
+}
+
 func CreateMount(ctx *logger.RequestContext, req CreateMountRequest) error {
 	fsID := common.ID(req.Username, req.FsName)
 	mountID := GetMountID(req.ClusterID, req.NodeName, req.MountPoint)

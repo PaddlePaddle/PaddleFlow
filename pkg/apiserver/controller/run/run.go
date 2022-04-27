@@ -23,6 +23,7 @@ import (
 
 	"gopkg.in/yaml.v2"
 	"gorm.io/gorm"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"paddleflow/pkg/apiserver/common"
 	"paddleflow/pkg/apiserver/handler"
@@ -55,21 +56,41 @@ type CreateRunRequest struct {
 }
 
 type CreateRunByJsonRequest struct {
-	FsName         string                     `json:"fsName"`
-	UserName       string                     `json:"userName,omitempty"` // optional, only for root user
-	Description    string                     `json:"desc,omitempty"`     // optional
-	Disabled       string                     `json:"disabled,omitempty"` // optional
-	Name           string                     `json:"name"`
-	DockerEnv      string                     `json:"dockerEnv,omitempty"`   // optional
-	Parallelism    int                        `json:"parallelism,omitempty"` // optional
-	EntryPoints    map[string]*schema.RunStep `json:"entryPoints"`
-	PostProcess    map[string]*schema.RunStep `json:"postProcess,omitempty"`    // optional
-	Cache          schema.Cache               `json:"cache,omitempty"`          // optional
-	Queue          string                     `json:"queue,omitempty"`          // optional
-	Flavour        string                     `json:"flavour,omitempty"`        // optional
-	JobType        string                     `json:"jobType,omitempty"`        // optional
-	FailureOptions schema.FailureOptions      `json:"failureOptions,omitempty"` // optional
-	Env            map[string]string          `json:"env,omitempty"`            // optional
+	FsName         string                `json:"fsName"`
+	UserName       string                `json:"userName,omitempty"` // optional, only for root user
+	Description    string                `json:"desc,omitempty"`     // optional
+	Disabled       string                `json:"disabled,omitempty"` // optional
+	Name           string                `json:"name"`
+	DockerEnv      string                `json:"dockerEnv,omitempty"`   // optional
+	Parallelism    int                   `json:"parallelism,omitempty"` // optional
+	EntryPoints    map[string]*RunStep   `json:"entryPoints"`
+	PostProcess    map[string]*RunStep   `json:"postProcess,omitempty"`    // optional
+	Cache          schema.Cache          `json:"cache,omitempty"`          // optional
+	Queue          string                `json:"queue,omitempty"`          // optional
+	Flavour        string                `json:"flavour,omitempty"`        // optional
+	JobType        string                `json:"jobType,omitempty"`        // optional
+	FailureOptions schema.FailureOptions `json:"failureOptions,omitempty"` // optional
+	Env            map[string]string     `json:"env,omitempty"`            // optional
+}
+
+// used for API CreateRunJson to unmarshal steps in entryPoints and postProcess
+type RunStep struct {
+	Parameters map[string]interface{} `json:"parameters"`
+	Command    string                 `json:"command"`
+	Deps       string                 `json:"deps"`
+	Artifacts  ArtifactsJson          `json:"artifacts"`
+	Env        map[string]string      `json:"env"`
+	Queue      string                 `json:"queue"`
+	Flavour    string                 `json:"flavour"`
+	JobType    string                 `json:"jobType"`
+	Cache      schema.Cache           `json:"cache"`
+	DockerEnv  string                 `json:"dockerEnv"`
+}
+
+// used for API CreateRunJson to unmarshal artifacts
+type ArtifactsJson struct {
+	Input  map[string]string `json:"input"`
+	Output []string          `json:"output"`
 }
 
 type UpdateRunRequest struct {
@@ -174,9 +195,17 @@ func buildWorkflowSource(ctx *logger.RequestContext, req CreateRunRequest, fsID 
 	return wfs, source, runYaml, nil
 }
 
+// Used for API CreateRunJson, get wfs by json request.
 func getWorkFlowSourceByReq(ctx *logger.RequestContext, request *CreateRunByJsonRequest, bodyMap map[string]interface{}) (schema.WorkflowSource, error) {
 	if len(request.EntryPoints) == 0 {
 		err := fmt.Errorf("missing entryPoints")
+		ctx.Logging().Errorf(err.Error())
+		return schema.WorkflowSource{}, err
+	}
+
+	// 暂时无法与fs解耦，待解耦后取消限制
+	if request.FsName == "" {
+		err := fmt.Errorf("missing fsName")
 		ctx.Logging().Errorf(err.Error())
 		return schema.WorkflowSource{}, err
 	}
@@ -205,11 +234,63 @@ func getWorkFlowSourceByReq(ctx *logger.RequestContext, request *CreateRunByJson
 		Disabled:       request.Disabled,
 		FailureOptions: failureOptions,
 	}
-	wfs.ValidateStepCacheByMap(bodyMap, "json")
+	if err := transCacheJson2Yaml(bodyMap); err != nil {
+		return schema.WorkflowSource{}, err
+	}
+	wfs.ValidateStepCacheByMap(bodyMap)
 	return wfs, nil
 }
 
-func parseRunSteps(steps map[string]*schema.RunStep, request *CreateRunByJsonRequest) map[string]*schema.WorkflowSourceStep {
+func transCacheJson2Yaml(bodyMap map[string]interface{}) error {
+	entryPoints, ok, err := unstructured.NestedFieldCopy(bodyMap, "entryPoints")
+	if err != nil {
+		return err
+	}
+	if !ok {
+		err := fmt.Errorf("no entryPoints in body of request")
+		return err
+	}
+	entryPointsMap := entryPoints.(map[string]interface{})
+	for name, point := range entryPointsMap {
+		pointMap := point.(map[string]interface{})
+
+		// 检查用户是否有设置节点级别的Cache
+		cache, ok, err := unstructured.NestedFieldCopy(pointMap, name, "cache")
+		if err != nil {
+			return err
+		}
+		if ok {
+			cacheMap := cache.(map[string]interface{})
+			// Enable字段的Json和Yaml形式一样，无需赋值
+			// MaxExpiredTime赋值
+			if value, ok := cacheMap["maxExpiredTime"]; ok {
+				if err := unstructured.SetNestedField(cacheMap, value, schema.CacheAttributeMaxExpiredTime); err != nil {
+					return err
+				}
+			}
+			// FsScope赋值
+			if value, ok := cacheMap["fsScope"]; ok {
+				if err := unstructured.SetNestedField(cacheMap, value, schema.CacheAttributeFsScope); err != nil {
+					return err
+				}
+			}
+
+			if err := unstructured.SetNestedField(pointMap, cacheMap, "cache"); err != nil {
+				return err
+			}
+			if err := unstructured.SetNestedField(entryPointsMap, pointMap, name); err != nil {
+				return err
+			}
+		}
+	}
+	if err := unstructured.SetNestedField(bodyMap, entryPointsMap, schema.EntryPointsStr); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Used for API CreateRunJson, validates step by request and run params like cache, dockerEnv, env, and returns steps.
+func parseRunSteps(steps map[string]*RunStep, request *CreateRunByJsonRequest) map[string]*schema.WorkflowSourceStep {
 	workFlowSourceSteps := make(map[string]*schema.WorkflowSourceStep)
 	for pointName, step := range steps {
 		if step.Env == nil {
@@ -247,7 +328,8 @@ func parseRunSteps(steps map[string]*schema.RunStep, request *CreateRunByJsonReq
 	return workFlowSourceSteps
 }
 
-func parseArtifacts(atf schema.ArtifactsJson) schema.Artifacts {
+// transform artifacts in Json to common artifacts used in wfs
+func parseArtifacts(atf ArtifactsJson) schema.Artifacts {
 	outputAritfacts := map[string]string{}
 	outputList := []string{}
 	for _, outputName := range atf.Output {

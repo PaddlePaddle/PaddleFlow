@@ -61,6 +61,7 @@ type GetJobResponse struct {
 	CreateSingleJobRequest `json:",inline"`
 	DistributedJobSpec     `json:",inline"`
 	Status                 string                  `json:"status"`
+	Message                string                  `json:"message"`
 	AcceptTime             string                  `json:"acceptTime"`
 	StartTime              string                  `json:"startTime"`
 	FinishTime             string                  `json:"finishTime"`

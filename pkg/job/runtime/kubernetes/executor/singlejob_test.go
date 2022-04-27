@@ -96,12 +96,13 @@ status: {}
 			},
 			Flavour: schema.Flavour{Name: "mockFlavourName", ResourceInfo: schema.ResourceInfo{CPU: "1", Mem: "1"}},
 		},
-		ExtRuntimeConf: []byte(extensionTemplateYaml),
+		ExtensionTemplate: extensionPaddleYaml,
 	}
 )
 
 func TestSinglePod_CreateJob(t *testing.T) {
 	config.GlobalServerConfig = &config.ServerConfig{}
+	config.GlobalServerConfig.Job.DefaultJobYamlDir = "../../../../../config/server/default/job"
 	config.GlobalServerConfig.Job.SchedulerName = "testSchedulerName"
 	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
 	defer server.Close()

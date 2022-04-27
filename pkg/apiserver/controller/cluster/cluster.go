@@ -127,6 +127,14 @@ func validateCreateClusterRequest(ctx *logger.RequestContext, request *CreateClu
 		}
 	}
 
+	// check namespaceList
+	for _, ns := range request.NamespaceList {
+		errStr := common.IsDNS1123Label(ns)
+		if len(errStr) != 0 {
+			return fmt.Errorf("namespace[%s] is invalid, err: %s", ns, strings.Join(errStr, ","))
+		}
+	}
+
 	request.Source = strings.TrimSpace(request.Source)
 	if request.Source == "" {
 		request.Source = models.DefaultClusterSource
