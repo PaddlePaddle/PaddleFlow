@@ -466,6 +466,7 @@ func (jr *JobRouter) ListJob(writer http.ResponseWriter, request *http.Request) 
 		if timestamp < 0 {
 			ctx.ErrorMessage = fmt.Sprintf("invalid timestamp params[%s]", timestampStr)
 			common.RenderErrWithMessage(writer, ctx.RequestID, common.InvalidURI, ctx.ErrorMessage)
+			return
 		}
 	}
 	startTime := request.URL.Query().Get(util.QueryKeyStartTime)
@@ -474,6 +475,7 @@ func (jr *JobRouter) ListJob(writer http.ResponseWriter, request *http.Request) 
 		if err != nil {
 			ctx.ErrorMessage = fmt.Sprintf("invalid startTime params[%s]", startTime)
 			common.RenderErrWithMessage(writer, ctx.RequestID, common.InvalidURI, ctx.ErrorMessage)
+			return
 		}
 	}
 	queue := request.URL.Query().Get(util.QueryKeyQueue)
