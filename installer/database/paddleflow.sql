@@ -75,7 +75,7 @@ CREATE TABLE IF NOT EXISTS `job` (
     `created_at` datetime(3) NULL DEFAULT CURRENT_TIMESTAMP(3),
     `activated_at` datetime(3) DEFAULT NULL,
     `updated_at` datetime(3) NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
-    `deleted_at` datetime(3) DEFAULT NULL,
+    `deleted_at` datetime(3) DEFAULT '',
     PRIMARY KEY (`pk`),
     UNIQUE KEY `job_id` (`id`, `deleted_at`)
 ) ENGINE=InnoDB DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;

@@ -143,7 +143,7 @@ func CreateJob(job *Job) error {
 
 func GetJobByID(jobID string) (Job, error) {
 	var job Job
-	tx := database.DB.Table("job").Where("id = ?", jobID).First(&job)
+	tx := database.DB.Table("job").Where("id = ?", jobID).Where("deleted_at = ''").First(&job)
 	if tx.Error != nil {
 		logger.LoggerForJob(jobID).Errorf("get job failed, err %v", tx.Error.Error())
 		return Job{}, tx.Error
@@ -251,7 +251,7 @@ func ListQueueJob(queueID string, status []schema.JobStatus) []Job {
 
 func GetJobsByRunID(runID string, jobID string) ([]Job, error) {
 	var jobList []Job
-	query := database.DB.Table("job").Where("id like ?", "job-"+runID+"-%")
+	query := database.DB.Table("job").Where("id like ?", "job-"+runID+"-%").Where("deleted_at = ''")
 	if jobID != "" {
 		query = query.Where("id = ?", jobID)
 	}
@@ -265,7 +265,7 @@ func GetJobsByRunID(runID string, jobID string) ([]Job, error) {
 
 func ListJobByUpdateTime(updateTime string) ([]Job, error) {
 	var jobList []Job
-	err := database.DB.Table("job").Where("updated_at >= ?", updateTime).Find(&jobList).Error
+	err := database.DB.Table("job").Where("updated_at >= ?", updateTime).Where("deleted_at = ''").Find(&jobList).Error
 	if err != nil {
 		log.Errorf("list job by updateTime[%s] failed, error:[%s]", updateTime, err.Error())
 		return nil, err
@@ -275,7 +275,7 @@ func ListJobByUpdateTime(updateTime string) ([]Job, error) {
 
 func ListJobByParentID(parentID string) ([]Job, error) {
 	var jobList []Job
-	err := database.DB.Table("job").Where("parent_job = ?", parentID).Find(&jobList).Error
+	err := database.DB.Table("job").Where("parent_job = ?", parentID).Where("deleted_at = ''").Find(&jobList).Error
 	if err != nil {
 		log.Errorf("list job by parentID[%s] failed, error:[%s]", parentID, err.Error())
 		return nil, err
@@ -285,7 +285,7 @@ func ListJobByParentID(parentID string) ([]Job, error) {
 
 func GetLastJob() (Job, error) {
 	job := Job{}
-	tx := database.DB.Table("job").Last(&job)
+	tx := database.DB.Table("job").Where("deleted_at = ''").Last(&job)
 	if tx.Error != nil {
 		log.Errorf("get last job failed. error:%s", tx.Error.Error())
 		return Job{}, tx.Error
@@ -294,7 +294,7 @@ func GetLastJob() (Job, error) {
 }
 
 func ListJob(pk int64, maxKeys int, queue, status, startTime, timestamp, userFilter string, labels map[string]string) ([]Job, error) {
-	tx := database.DB.Table("job").Where("pk > ?", pk).Where("parent_job = ''")
+	tx := database.DB.Table("job").Where("pk > ?", pk).Where("parent_job = ''").Where("deleted_at = ''")
 	if userFilter != "root" {
 		tx = tx.Where("user_name = ?", userFilter)
 	}
