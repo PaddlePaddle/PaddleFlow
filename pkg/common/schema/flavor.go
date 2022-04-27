@@ -61,7 +61,10 @@ func (r *ResourceInfo) Add(r2 ResourceInfo) ResourceInfo {
 func (r *ResourceInfo) Sub(r2 ResourceInfo) (ResourceInfo, error) {
 	quantities1, _ := newQuantities(*r)
 	quantities2, _ := newQuantities(r2)
-	(*quantities1).sub(quantities2)
+	_, err := (*quantities1).sub(quantities2)
+	if err != nil {
+		return ResourceInfo{}, err
+	}
 	return newResourceInfo(*quantities1), nil
 }
 
@@ -193,7 +196,7 @@ func ValidateResourceInfo(resourceInfo ResourceInfo, scalarResourcesType []strin
 		return errors.CPUNotFoundError()
 	}
 	if cpu, err := resource.ParseQuantity(resourceInfo.CPU); err != nil {
-		return err
+		return fmt.Errorf("cpu is invalid, %v", err)
 	} else if cpu.IsZero() {
 		return fmt.Errorf("cpu is zero")
 	}
@@ -202,7 +205,7 @@ func ValidateResourceInfo(resourceInfo ResourceInfo, scalarResourcesType []strin
 		return errors.MemoryNotFoundError()
 	}
 	if mem, err := resource.ParseQuantity(resourceInfo.Mem); err != nil {
-		return err
+		return fmt.Errorf("mem is invalid, %v", err)
 	} else if mem.IsZero() {
 		return fmt.Errorf("mem is zero")
 	}
@@ -221,7 +224,7 @@ func ValidateScalarResourceInfo(scalarResources ScalarResourcesType, scalarResou
 			return errors.InvalidScaleResourceError(resourceName)
 		}
 		if res, err := resource.ParseQuantity(v); err != nil {
-			return err
+			return fmt.Errorf("%s is invalid, %v", resourceName, err)
 		} else if res.IsZero() {
 			return fmt.Errorf("%s is zero", resourceName)
 		}
