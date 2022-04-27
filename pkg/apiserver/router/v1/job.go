@@ -464,14 +464,14 @@ func (jr *JobRouter) ListJob(writer http.ResponseWriter, request *http.Request) 
 			return
 		}
 		if timestamp < 0 {
-			ctx.ErrorMessage = fmt.Sprintf("invalid timestamp params")
+			ctx.ErrorMessage = fmt.Sprintf("invalid timestamp params[%s]", timestampStr)
 			common.RenderErrWithMessage(writer, ctx.RequestID, common.InvalidURI, ctx.ErrorMessage)
 		}
 	}
 	startTime := request.URL.Query().Get(util.QueryKeyStartTime)
 	_, err = time.ParseInLocation(models.TimeFormat, startTime, time.Local)
 	if err != nil {
-		ctx.ErrorMessage = fmt.Sprintf("invalid startTime params")
+		ctx.ErrorMessage = fmt.Sprintf("invalid startTime params[%s]", startTime)
 		common.RenderErrWithMessage(writer, ctx.RequestID, common.InvalidURI, ctx.ErrorMessage)
 	}
 	queue := request.URL.Query().Get(util.QueryKeyQueue)
