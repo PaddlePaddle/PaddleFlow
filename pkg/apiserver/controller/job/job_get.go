@@ -107,11 +107,8 @@ func ListJob(ctx *logger.RequestContext, request ListJobRequest) (*ListJobRespon
 			return nil, err
 		}
 	}
-	// normal user list its own
+
 	var userFilter string = common.UserRoot
-	if !common.IsRootUser(ctx.UserName) {
-		userFilter = ctx.UserName
-	}
 	timestampStr := ""
 	if request.Timestamp != 0 {
 		timestampStr = time.Unix(request.Timestamp, 0).Format(models.TimeFormat)
@@ -171,12 +168,6 @@ func GetJob(ctx *logger.RequestContext, jobID string) (*GetJobResponse, error) {
 		ctx.ErrorCode = common.JobNotFound
 		ctx.Logging().Errorln(err.Error())
 		return nil, common.NotFoundError(common.ResourceTypeJob, jobID)
-	}
-	if !common.IsRootUser(ctx.UserName) && ctx.UserName != job.UserName {
-		err := common.NoAccessError(ctx.UserName, common.ResourceTypeJob, jobID)
-		ctx.ErrorCode = common.AccessDenied
-		ctx.Logging().Errorln(err.Error())
-		return nil, err
 	}
 	response, err := convertJobToResponse(job, true)
 	if err != nil {
