@@ -469,10 +469,12 @@ func (jr *JobRouter) ListJob(writer http.ResponseWriter, request *http.Request) 
 		}
 	}
 	startTime := request.URL.Query().Get(util.QueryKeyStartTime)
-	_, err = time.ParseInLocation(models.TimeFormat, startTime, time.Local)
-	if err != nil {
-		ctx.ErrorMessage = fmt.Sprintf("invalid startTime params[%s]", startTime)
-		common.RenderErrWithMessage(writer, ctx.RequestID, common.InvalidURI, ctx.ErrorMessage)
+	if startTime != "" {
+		_, err = time.ParseInLocation(models.TimeFormat, startTime, time.Local)
+		if err != nil {
+			ctx.ErrorMessage = fmt.Sprintf("invalid startTime params[%s]", startTime)
+			common.RenderErrWithMessage(writer, ctx.RequestID, common.InvalidURI, ctx.ErrorMessage)
+		}
 	}
 	queue := request.URL.Query().Get(util.QueryKeyQueue)
 	labelsStr := request.URL.Query().Get(util.QueryKeyLabels)
