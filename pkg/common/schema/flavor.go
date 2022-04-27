@@ -180,37 +180,14 @@ func CheckReg(str, pattern string) bool {
 }
 
 // CheckResource check if the resource is valid
-func CheckResource(res string) bool {
+func CheckResource(res string) error {
 	if res == "" {
-		return false
+		return fmt.Errorf("resource is empty")
 	}
 	if _, err := resource.ParseQuantity(res); err != nil {
-		return false
+		return err
 	}
-	return true
-}
-
-// ValidateResourceInfo validate resource info
-func ValidateResourceInfo(resourceInfo ResourceInfo, scalarResourcesType []string) error {
-	if resourceInfo.CPU == "" {
-		return errors.CPUNotFoundError()
-	}
-	if cpu, err := resource.ParseQuantity(resourceInfo.CPU); err != nil {
-		return fmt.Errorf("cpu is invalid, %v", err)
-	} else if cpu.IsZero() {
-		return fmt.Errorf("cpu is zero")
-	}
-
-	if resourceInfo.Mem == "" {
-		return errors.MemoryNotFoundError()
-	}
-	if mem, err := resource.ParseQuantity(resourceInfo.Mem); err != nil {
-		return fmt.Errorf("mem is invalid, %v", err)
-	} else if mem.IsZero() {
-		return fmt.Errorf("mem is zero")
-	}
-
-	return ValidateScalarResourceInfo(resourceInfo.ScalarResources, scalarResourcesType)
+	return nil
 }
 
 // ValidateScalarResourceInfo validate scalar resource info
@@ -220,16 +197,23 @@ func ValidateScalarResourceInfo(scalarResources ScalarResourcesType, scalarResou
 		if !isValidScalarResource(resourceName, scalarResourcesType) {
 			return errors.InvalidScaleResourceError(resourceName)
 		}
-		if v == "" {
-			return errors.InvalidScaleResourceError(resourceName)
-		}
-		if res, err := resource.ParseQuantity(v); err != nil {
-			return fmt.Errorf("%s is invalid, %v", resourceName, err)
-		} else if res.IsZero() {
-			return fmt.Errorf("%s is zero", resourceName)
+		if err := CheckResource(v); err != nil {
+			return fmt.Errorf("%s %v", resourceName, err)
 		}
 	}
 	return nil
+}
+
+// ValidateResourceInfo validate resource info
+func ValidateResourceInfo(resourceInfo ResourceInfo, scalarResourcesType []string) error {
+	if err := CheckResource(resourceInfo.CPU); err != nil {
+		return fmt.Errorf("cpu %v", err)
+	}
+	if err := CheckResource(resourceInfo.Mem); err != nil {
+		return fmt.Errorf("mem %v", err)
+	}
+
+	return ValidateScalarResourceInfo(resourceInfo.ScalarResources, scalarResourcesType)
 }
 
 func newQuantities(r ResourceInfo) (*quantities, error) {
@@ -251,42 +235,3 @@ func newQuantities(r ResourceInfo) (*quantities, error) {
 	}
 	return q, nil
 }
-
-// lessEqual once any field in r less than rr, it would be return false
-// Notice that r is properly less than rr and r.ScalarResources can be nil
-// e.g. `if !requestResource.lessEqual(staticResource) {}`
-//func (r ResourceInfo) lessEqual(rr *Resource) bool {
-//	lessEqualFunc := func(l, r, diff float64) bool {
-//		if l < r || math.Abs(l-r) < diff {
-//			return true
-//		}
-//		return false
-//	}
-//
-//	if !lessEqualFunc(r.MilliCPU, rr.MilliCPU, minValue) {
-//		return false
-//	}
-//	if !lessEqualFunc(r.Memory, rr.Memory, minValue) {
-//		return false
-//	}
-//
-//	if r.ScalarResources == nil {
-//		return true
-//	}
-//
-//	for rName, rQuant := range r.ScalarResources {
-//		if rQuant <= minValue {
-//			continue
-//		}
-//		if rr.ScalarResources == nil {
-//			return false
-//		}
-//
-//		rrQuant := rr.ScalarResources[rName]
-//		if !lessEqualFunc(rQuant, rrQuant, minValue) {
-//			return false
-//		}
-//	}
-//
-//	return true
-//}
