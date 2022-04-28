@@ -17,8 +17,6 @@ limitations under the License.
 package base
 
 import (
-	"strings"
-
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 
@@ -39,18 +37,17 @@ type _Client struct {
 }
 
 func NewClient(fsID string, c *core.PFClient, token string) (*_Client, error) {
-	fsArray := strings.Split(fsID, "-")
-	realUsername := strings.Join(fsArray[1:len(fsArray)-1], "")
+	userName, fsName := common.GetFsNameAndUserNameByFsID(fsID)
 	_client := _Client{
 		Uuid:       uuid.NewString(),
 		FsID:       fsID,
-		UserName:   realUsername,
+		UserName:   userName,
 		httpClient: c,
 		Token:      token,
-		FsName:     fsArray[len(fsArray)-1],
+		FsName:     fsName,
 	}
 	Client = &_client
-	return Client, nil
+	return &_client, nil
 }
 
 func (c *_Client) GetFSMeta() (common.FSMeta, error) {
@@ -108,40 +105,4 @@ func (c *_Client) GetLinks() (map[string]common.FSMeta, error) {
 		}
 	}
 	return result, nil
-}
-
-func (c *_Client) GetFSCacheConfig() (common.FsCacheConfig, error) {
-	log.Debugf("Http CLient is %v", *c)
-	params := api.FsParams{
-		FsName:   c.FsName,
-		UserName: c.UserName,
-		Token:    c.Token,
-	}
-	cacheResp, err := api.FsCacheRequest(params, c.httpClient)
-	if err != nil {
-		log.Errorf("fs request failed: %v", err)
-		return common.FsCacheConfig{}, err
-	}
-	log.Debugf("the resp is [%+v]", cacheResp)
-	cacheConfig := common.FsCacheConfig{
-		CacheDir:            cacheResp.CacheDir,
-		Quota:               cacheResp.Quota,
-		CacheType:           cacheResp.CacheType,
-		BlockSize:           cacheResp.BlockSize,
-		NodeAffinity:        cacheResp.NodeAffinity,
-		NodeTaintToleration: cacheResp.NodeTaintToleration,
-		ExtraConfig:         cacheResp.ExtraConfig,
-		FsName:              cacheResp.FsName,
-		Username:            cacheResp.Username,
-	}
-	return cacheConfig, nil
-}
-
-func (c *_Client) CreateFsMount(req api.CreateMountRequest) error {
-	log.Debugf("CreateFsMount client: %+v, req: %+v", *c, req)
-	err := api.FsMountCreate(req, c.httpClient)
-	if err != nil {
-		log.Errorf("fs request failed: %v", err)
-	}
-	return err
 }
