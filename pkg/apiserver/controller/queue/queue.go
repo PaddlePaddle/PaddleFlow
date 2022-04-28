@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	log "github.com/sirupsen/logrus"
+
 	"paddleflow/pkg/apiserver/common"
 	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/common/config"
@@ -152,7 +153,8 @@ func CreateQueue(ctx *logger.RequestContext, request *CreateQueueRequest) (Creat
 		ctx.ErrorCode = common.NamespaceNotFound
 		ctx.Logging().Errorln("create request failed. error: namespace is not found.")
 		return CreateQueueResponse{}, errors.New("namespace is not found")
-	} else {
+	}
+	if len(clusterInfo.NamespaceList) != 0 {
 		isExist := false
 		for _, ns := range clusterInfo.NamespaceList {
 			if request.Namespace == ns {
@@ -164,6 +166,12 @@ func CreateQueue(ctx *logger.RequestContext, request *CreateQueueRequest) (Creat
 			return CreateQueueResponse{}, fmt.Errorf(
 				"namespace[%s] of queue not in the specified values [%s] by cluster[%s]",
 				request.Namespace, clusterInfo.RawNamespaceList, clusterInfo.Name)
+		}
+	} else {
+		// check namespace format
+		if errStr := common.IsDNS1123Label(request.Namespace); len(errStr) != 0 {
+			return CreateQueueResponse{}, fmt.Errorf("namespace[%s] of queue is invalid, err: %s",
+				request.Namespace, strings.Join(errStr, ","))
 		}
 	}
 
@@ -205,19 +213,8 @@ func CreateQueue(ctx *logger.RequestContext, request *CreateQueueRequest) (Creat
 			ctx.ErrorCode = common.InvalidComputeResource
 			return CreateQueueResponse{}, err
 		}
-		maxResource, err := schema.NewResource(request.MaxResources)
-		if err != nil {
-			ctx.Logging().Errorf("create queue failed. error: %s", err.Error())
-			ctx.ErrorCode = common.InvalidComputeResource
-			return CreateQueueResponse{}, err
-		}
-		minResource, err := schema.NewResource(request.MinResources)
-		if err != nil {
-			ctx.Logging().Errorf("create queue failed. error: %s", err.Error())
-			ctx.ErrorCode = common.InvalidComputeResource
-			return CreateQueueResponse{}, err
-		}
-		if !minResource.LessEqual(maxResource) {
+
+		if !request.MinResources.LessEqual(request.MaxResources) {
 			ctx.Logging().Errorf("create queue failed. error: maxResources less than minResources")
 			ctx.ErrorCode = common.InvalidComputeResource
 			return CreateQueueResponse{}, fmt.Errorf("maxResources less than minResources")
