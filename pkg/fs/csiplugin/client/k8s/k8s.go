@@ -42,6 +42,7 @@ type K8SInterface interface {
 	CreatePod(pod *v1.Pod) (*v1.Pod, error)
 	GetPod(podName, namespace string) (*v1.Pod, error)
 	GetPodLog(podName, namespace, containerName string) (string, error)
+	DeletePod(pod *v1.Pod) error
 }
 
 type K8SClient struct {
@@ -101,6 +102,15 @@ func (c *K8SClient) GetPod(podName, namespace string) (*v1.Pod, error) {
 		return nil, err
 	}
 	return mntPod, nil
+}
+
+func (c *K8SClient) DeletePod(pod *v1.Pod) error {
+	if pod == nil {
+		log.Infof("Delete pod: pod is nil")
+		return nil
+	}
+	log.Infof("Delete pod %v", pod.Name)
+	return c.Clientset.CoreV1().Pods(pod.Namespace).Delete(context.TODO(), pod.Name, metav1.DeleteOptions{})
 }
 
 func (c *K8SClient) GetPodLog(podName, namespace, containerName string) (string, error) {
