@@ -229,6 +229,7 @@ func patchFromCommonInfo(conf *schema.Conf, commonJobInfo *CommonJobInfo) error 
 	}
 	queueID := commonJobInfo.SchedulingPolicy.QueueID
 	conf.SetQueueID(queueID)
+	conf.SetQueueName(queueName)
 
 	conf.SetClusterID(queue.ClusterId)
 	conf.SetNamespace(queue.Namespace)
@@ -636,7 +637,7 @@ func getRuntimeByQueue(ctx *logger.RequestContext, queueID string) (runtime.Runt
 
 func validateFileSystem(fs schema.FileSystem, userName string) error {
 	fsID := common.ID(userName, fs.Name)
-	if _, err := models.GetFileSystemWithFsID(fsID); err == nil {
+	if _, err := models.GetFileSystemWithFsID(fsID); err != nil {
 		log.Errorf("get filesystem %s failed, err: %v", fsID, err)
 		return fmt.Errorf("find file system %s failed, err: %v", fs.Name, err)
 	}
