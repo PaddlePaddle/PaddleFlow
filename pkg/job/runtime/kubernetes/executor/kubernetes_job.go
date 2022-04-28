@@ -277,13 +277,23 @@ func (j *KubeJob) createJobFromYaml(jobEntity interface{}) error {
 }
 
 // fill PodSpec
-func (j *KubeJob) fillPodSpec(podSpec *corev1.PodSpec) {
+func (j *KubeJob) fillPodSpec(podSpec *corev1.PodSpec, task *models.Member) {
+	if task != nil {
+		j.Priority = task.Priority
+		podSpec.Volumes = j.appendVolumeIfAbsent(podSpec.Volumes, j.generateVolume())
+	}
+	podSpec.PriorityClassName = j.getPriorityClass()
 	// fill SchedulerName
 	podSpec.SchedulerName = config.GlobalServerConfig.Job.SchedulerName
 	// fill volumes
 	podSpec.Volumes = j.appendVolumeIfAbsent(podSpec.Volumes, j.generateVolume())
 	if j.isNeedPatch(string(podSpec.RestartPolicy)) {
 		podSpec.RestartPolicy = corev1.RestartPolicyNever
+	}
+
+	if task != nil {
+		podSpec.PriorityClassName = task.Priority
+		podSpec.Volumes = j.appendVolumeIfAbsent(podSpec.Volumes, j.generateVolume())
 	}
 }
 
@@ -305,6 +315,9 @@ func (j *KubeJob) fillContainerInTasks(container *corev1.Container, task models.
 	}
 	if j.isNeedPatch(task.Command) {
 		container.Command = []string{"bash", "-c", j.fixContainerCommand(task.Command)}
+	}
+	if j.IsCustomYaml && len(task.Args) == 0 || !j.IsCustomYaml && len(task.Args) > 0 {
+		container.Args = task.Args
 	}
 	container.Resources = j.generateResourceRequirements(task.Flavour)
 	if j.VolumeName != "" {

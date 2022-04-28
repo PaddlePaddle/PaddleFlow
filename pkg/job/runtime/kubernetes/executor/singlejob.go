@@ -66,7 +66,7 @@ func (sp *SingleJob) patchSinglePodVariable(pod *v1.Pod, jobID string) error {
 		priorityClass := sp.getPriorityClass()
 		pod.Spec.PriorityClassName = priorityClass
 	}
-	sp.fillPodSpec(&pod.Spec)
+	sp.fillPodSpec(&pod.Spec, nil)
 
 	// file container
 	if err := sp.fillContainersInPod(pod); err != nil {
