@@ -230,6 +230,7 @@ func patchFromCommonInfo(conf *schema.Conf, commonJobInfo *CommonJobInfo) error 
 	queueID := commonJobInfo.SchedulingPolicy.QueueID
 	conf.SetQueueID(queueID)
 	conf.SetQueueName(queueName)
+	conf.SetPriority(commonJobInfo.SchedulingPolicy.Priority)
 
 	conf.SetClusterID(queue.ClusterId)
 	conf.SetNamespace(queue.Namespace)
@@ -270,23 +271,22 @@ func CreateDistributedJob(ctx *logger.RequestContext, request *CreateDisJobReque
 	}
 	// set roles for members
 	var err error
-	if len(request.Members) == 1 && (request.Members[0].Role == string(schema.RolePWorker) ||
-		request.Members[0].Role == string(schema.RoleWorker)) {
-		log.Debugf("create distributed job %s with collective mode", request.CommonJobInfo.ID)
-		conf.SetEnv(schema.EnvJobMode, schema.EnvJobModeCollective)
-		jobInfo.Members, err = newCollectiveMembers(request)
-	} else if len(request.Members) == 2 {
-		log.Debugf("create distributed job %s with ps mode", request.CommonJobInfo.ID)
-		conf.SetEnv(schema.EnvJobMode, schema.EnvJobModePS)
-		jobInfo.Members, err = newPSMembers(request)
-	} else {
-		log.Errorf("create distributed job %s failed, invalid members number %d", request.CommonJobInfo.ID,
-			len(request.Members))
-		err = fmt.Errorf("invalid members number %d", len(request.Members))
-	}
-	if err != nil {
+
+	jobMode, err := validateJobMode(ctx, request)
+	if err != nil || jobMode == "" {
 		log.Errorf("create members failed, err=%v", err)
 		return nil, err
+	}
+	switch jobMode {
+	case schema.EnvJobModeCollective:
+		conf.SetEnv(schema.EnvJobMode, schema.EnvJobModeCollective)
+		jobInfo.Members, err = newCollectiveMembers(request)
+	case schema.EnvJobModePS:
+		conf.SetEnv(schema.EnvJobMode, schema.EnvJobModePS)
+		jobInfo.Members, err = newPSMembers(request)
+	default:
+		log.Errorf("invalid members number, cannot recognize job mode %s", jobMode)
+		return nil, fmt.Errorf("invalid job mode %s", jobMode)
 	}
 
 	jobInfo.Config = &conf
@@ -302,6 +302,25 @@ func CreateDistributedJob(ctx *logger.RequestContext, request *CreateDisJobReque
 		ID: jobInfo.ID,
 	}
 	return response, nil
+}
+
+func validateJobMode(ctx *logger.RequestContext, request *CreateDisJobRequest) (string, error) {
+	if len(request.Members) == 1 && (request.Members[0].Role == string(schema.RolePWorker) ||
+		request.Members[0].Role == string(schema.RoleWorker)) {
+		log.Debugf("create distributed job %s with collective mode", request.CommonJobInfo.ID)
+		return schema.EnvJobModeCollective, nil
+	} else if len(request.Members) == 2 {
+		log.Debugf("create distributed job %s with ps mode", request.CommonJobInfo.ID)
+		if request.Members[0].Role == string(schema.RolePWorker) && request.Members[1].Role == string(schema.RolePServer) ||
+			request.Members[0].Role == string(schema.RolePServer) && request.Members[1].Role == string(schema.RolePWorker) {
+			return schema.EnvJobModePS, nil
+		}
+	}
+	ctx.ErrorCode = common.JobInvalidField
+	ctx.Logging().Errorf("create distributed job %s failed, invalid members number %d", request.CommonJobInfo.ID,
+		len(request.Members))
+	return "", fmt.Errorf("create distributed job %s failed, invalid members number %d", request.CommonJobInfo.ID,
+		len(request.Members))
 }
 
 func patchDistributedConf(conf *schema.Conf, request *CreateDisJobRequest) error {
