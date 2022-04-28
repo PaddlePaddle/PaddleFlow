@@ -655,6 +655,9 @@ func getRuntimeByQueue(ctx *logger.RequestContext, queueID string) (runtime.Runt
 }
 
 func validateFileSystem(fs schema.FileSystem, userName string) error {
+	if fs.Name == "" {
+		return nil
+	}
 	fsID := common.ID(userName, fs.Name)
 	if _, err := models.GetFileSystemWithFsID(fsID); err != nil {
 		log.Errorf("get filesystem %s failed, err: %v", fsID, err)
