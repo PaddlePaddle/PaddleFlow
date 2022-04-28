@@ -305,7 +305,9 @@ func TestS3Client_read_with_small_block(t *testing.T) {
 	readn := 5
 	buf1 := make([]byte, readn)
 	buf2 := make([]byte, nExpect-readn)
+	p := setPoolNil()
 	n1, err := reader.Read(buf1)
+	p.Reset()
 	n2, err := reader.Read(buf2)
 	assert.Equal(t, nil, err)
 	assert.Equal(t, nExpect, n1+n2)

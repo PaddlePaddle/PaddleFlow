@@ -50,6 +50,7 @@ type MountInfo struct {
 	LocalPath    string
 	UsernameRoot string
 	PasswordRoot string
+	ClusterID    string
 	UID          int
 	GID          int
 	Options      []string

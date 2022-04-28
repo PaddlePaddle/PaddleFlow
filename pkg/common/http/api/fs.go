@@ -17,8 +17,6 @@ limitations under the License.
 package api
 
 import (
-	"encoding/json"
-
 	log "github.com/sirupsen/logrus"
 
 	"paddleflow/pkg/apiserver/common"
@@ -34,7 +32,7 @@ const (
 	GetLinksApis      = Prefix + "/link"
 	FsCacheConfig     = Prefix + "/fsCache"
 	FsMount           = Prefix + "/fsMount"
-	CacheReportConfig = Prefix + "/fsCache/Report"
+	CacheReportConfig = Prefix + "/fsCache/report"
 )
 
 type LoginParams struct {
@@ -214,15 +212,42 @@ func FsMountCreate(req CreateMountRequest, c *core.PFClient) error {
 	return err
 }
 
-func CacheReportRequest(params CacheReportParams, c *core.PFClient) error {
-	body, err := json.Marshal(params)
+func FsMountList(req ListMountRequest, c *core.PFClient) (*ListMountResponse, error) {
+	resp := &ListMountResponse{}
+	err := core.NewRequestBuilder(c).
+		WithHeader(common.HeaderKeyAuthorization, req.Token).
+		WithURL(FsMount).
+		WithQueryParam("clusterID", req.ClusterID).
+		WithQueryParam("nodename", req.NodeName).
+		WithQueryParam("fsName", req.FsName).
+		WithQueryParam("username", req.UserName).
+		WithMethod(http.GET).
+		WithResult(resp).
+		Do()
 	if err != nil {
-		return err
+		return nil, err
 	}
-	err = core.NewRequestBuilder(c).
-		WithHeader(common.HeaderKeyAuthorization, params.Token).
+	return resp, nil
+}
+
+func DeleteMount(req DeleteMountRequest, c *core.PFClient) error {
+	err := core.NewRequestBuilder(c).
+		WithHeader(common.HeaderKeyAuthorization, req.Token).
+		WithURL(FsMount+"/"+req.FsName).
+		WithQueryParam("clusterID", req.ClusterID).
+		WithQueryParam("nodename", req.NodeName).
+		WithQueryParam("username", req.UserName).
+		WithQueryParam("mountpoint", req.MountPoint).
+		WithMethod(http.DELETE).
+		Do()
+	return err
+}
+
+func CacheReportRequest(req CacheReportParams, c *core.PFClient) error {
+	err := core.NewRequestBuilder(c).
+		WithHeader(common.HeaderKeyAuthorization, req.Token).
 		WithURL(CacheReportConfig).
-		WithBody(string(body)).WithMethod(http.POST).Do()
+		WithBody(req).WithMethod(http.POST).Do()
 	if err != nil {
 		return err
 	}
