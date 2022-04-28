@@ -170,7 +170,7 @@ func GetJobStatusByID(jobID string) (schema.JobStatus, error) {
 }
 
 func DeleteJob(jobID string) error {
-	t := database.DB.Table("job").Where("id = ?", jobID).UpdateColumn("deleted_at", time.Now().Format(TimeFormat))
+	t := database.DB.Table("job").Where("id = ?", jobID).Where("deleted_at = ''").UpdateColumn("deleted_at", time.Now().Format(TimeFormat))
 	if t.Error != nil {
 		return t.Error
 	}
