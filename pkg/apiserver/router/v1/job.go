@@ -113,7 +113,7 @@ func (jr *JobRouter) CreateSingleJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response, err := job.CreateSingleJob(&request)
+	response, err := job.CreateSingleJob(&ctx, &request)
 	if err != nil {
 		ctx.ErrorCode = common.JobCreateFailed
 		ctx.Logging().Errorf("create job failed. job request:%v error:%s", request, err.Error())
@@ -211,7 +211,7 @@ func validateSingleJob(ctx *logger.RequestContext, request *job.CreateSingleJobR
 		return err
 	}
 	// SchedulingPolicy
-	if err := checkPriority(&request.SchedulingPolicy); err != nil {
+	if err := checkPriority(&request.SchedulingPolicy, nil); err != nil {
 		ctx.Logging().Errorf("Failed to check priority: %v", err)
 		ctx.ErrorCode = common.JobInvalidField
 		return err
@@ -223,11 +223,16 @@ func validateSingleJob(ctx *logger.RequestContext, request *job.CreateSingleJobR
 	return nil
 }
 
-func checkPriority(schedulingPolicy *job.SchedulingPolicy) error {
+// checkPriority check priority and fill parent's priority if schedulingPolicy.Priority is empty
+func checkPriority(schedulingPolicy, parentSP *job.SchedulingPolicy) error {
 	priority := schedulingPolicy.Priority
 	// check job priority
 	if priority == "" {
-		schedulingPolicy.Priority = schema.EnvJobNormalPriority
+		if parentSP != nil {
+			schedulingPolicy.Priority = parentSP.Priority
+		} else {
+			schedulingPolicy.Priority = schema.EnvJobNormalPriority
+		}
 	} else if priority != schema.EnvJobLowPriority &&
 		priority != schema.EnvJobNormalPriority && priority != schema.EnvJobHighPriority {
 		return errors.InvalidJobPriorityError(priority)
@@ -243,15 +248,37 @@ func validateEmptyField(request *job.CreateSingleJobRequest) []string {
 	if request.Image == "" {
 		emptyFields = append(emptyFields, "image")
 	}
-	if request.Flavour.Name == "" {
-		emptyFields = append(emptyFields, "flavour.name")
-	}
+
 	return emptyFields
 }
 
 func validateDistributedJob(ctx *logger.RequestContext, request *job.CreateDisJobRequest) error {
+	switch request.Framework {
+	case schema.FrameworkSpark, schema.FrameworkPaddle:
+		break
+	case schema.FrameworkTF, schema.FrameworkMPI:
+		ctx.Logging().Errorf("framework: %s will be supported in the future", request.Framework)
+		ctx.ErrorCode = common.JobInvalidField
+		return fmt.Errorf("framework: %s will be supported in the future", request.Framework)
+	default:
+		ctx.Logging().Errorf("invalid framework: %s", request.Framework)
+		ctx.ErrorCode = common.JobInvalidField
+		return fmt.Errorf("invalid framework: %s", request.Framework)
+	}
+	// check job priority
+	if err := checkPriority(&request.SchedulingPolicy, nil); err != nil {
+		ctx.Logging().Errorf("Failed to check priority: %v", err)
+		ctx.ErrorCode = common.JobInvalidField
+		return err
+	}
+
 	// request.SchedulingPolicy and request.Members[x].SchedulingPolicy should be the same
+	if err := validateQueue(ctx, &request.SchedulingPolicy); err != nil {
+		ctx.Logging().Errorf("validate queue failed. error: %s", err.Error())
+		return err
+	}
 	queueName := request.SchedulingPolicy.Queue
+
 	if request.Members == nil || len(request.Members) == 0 {
 		err := fmt.Errorf("request.Members is empty")
 		ctx.Logging().Errorf("create distributed job failed. error: %s", err.Error())
@@ -270,11 +297,7 @@ func validateDistributedJob(ctx *logger.RequestContext, request *job.CreateDisJo
 		// validate queue
 		mQueueName := member.SchedulingPolicy.Queue
 		if mQueueName != queueName {
-			if queueName == "" {
-				// set queueName by the first mQueueName which is not nil
-				queueName = mQueueName
-				request.SchedulingPolicy.Queue = mQueueName
-			} else if mQueueName == "" {
+			if mQueueName == "" {
 				// set value by default as request.SchedulingPolicy.Queue
 				member.SchedulingPolicy.Queue = queueName
 			} else {
@@ -284,21 +307,15 @@ func validateDistributedJob(ctx *logger.RequestContext, request *job.CreateDisJo
 				return err
 			}
 		}
-		// check priority
-		if err := checkPriority(&request.SchedulingPolicy); err != nil {
+		member.SchedulingPolicy.QueueID = request.SchedulingPolicy.QueueID
+		// check members priority
+		if err := checkPriority(&member.SchedulingPolicy, &request.SchedulingPolicy); err != nil {
 			ctx.Logging().Errorf("Failed to check priority: %v", err)
 			ctx.ErrorCode = common.JobInvalidField
 			return err
 		}
 	}
-	if err := validateQueue(ctx, &request.SchedulingPolicy); err != nil {
-		ctx.Logging().Errorf("validate queue failed. error: %s", err.Error())
-		return err
-	}
-	for _, member := range request.Members {
-		member.SchedulingPolicy.QueueID = request.SchedulingPolicy.QueueID
-	}
-	// todo(zhongzichao) more
+
 	return nil
 }
 
@@ -306,7 +323,9 @@ func validateDistributedJob(ctx *logger.RequestContext, request *job.CreateDisJo
 func validateQueue(ctx *logger.RequestContext, schedulingPolicy *job.SchedulingPolicy) error {
 	queueName := schedulingPolicy.Queue
 	if queueName == "" {
-		return fmt.Errorf("queue not found in request")
+		ctx.Logging().Errorf("queue is empty")
+		ctx.ErrorCode = common.JobInvalidField
+		return fmt.Errorf("queue is empty")
 	}
 	queue, err := models.GetQueueByName(queueName)
 	if err != nil {
