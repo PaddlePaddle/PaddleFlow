@@ -29,7 +29,6 @@ import (
 	"paddleflow/cmd/fs/csi-plugin/flag"
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/fs/csiplugin/client/k8s"
-	"paddleflow/pkg/fs/csiplugin/controller"
 	"paddleflow/pkg/fs/csiplugin/csiconfig"
 	"paddleflow/pkg/fs/csiplugin/csidriver"
 	"paddleflow/pkg/metric"
@@ -72,7 +71,7 @@ func init() {
 	for i := range pod.Spec.Containers {
 		if pod.Spec.Containers[i].Name == CsiContainerName {
 			csiconfig.MountImage = pod.Spec.Containers[i].Image
-			//csiconfig.ContainerResource = pod.Spec.Containers[i].Resources
+			// csiconfig.ContainerResource = pod.Spec.Containers[i].Resources
 			return
 		}
 	}
@@ -138,11 +137,11 @@ func act(c *cli.Context) error {
 		}()
 	}
 
-	stopChan := make(chan struct{})
-	defer close(stopChan)
-	ctrl := controller.GetMountPointController(c.String("node-id"))
-	go ctrl.Start(stopChan)
-	defer ctrl.Stop()
+	// stopChan := make(chan struct{})
+	// defer close(stopChan)
+	// ctrl := controller.GetMountPointController(c.String("node-id"))
+	// go ctrl.Start(stopChan)
+	// defer ctrl.Stop()
 
 	d := csidriver.NewDriver(c.String("node-id"), c.String("unix-endpoint"),
 		c.String("username"), c.String("password"))
