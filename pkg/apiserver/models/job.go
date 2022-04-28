@@ -189,7 +189,7 @@ func UpdateJobStatus(jobId, errMessage string, jobStatus schema.JobStatus) error
 		job.Message = errMessage
 	}
 	log.Infof("update job [%+v]", job)
-	tx := database.DB.Model(&Job{}).Where("id = ?", jobId).Updates(job)
+	tx := database.DB.Model(&Job{}).Where("id = ?", jobId).Where("deleted_at = ''").Updates(job)
 	if tx.Error != nil {
 		return tx.Error
 	}
@@ -205,7 +205,7 @@ func UpdateJobConfig(jobId string, conf *schema.Conf) error {
 		return err
 	}
 	log.Infof("update job config [%v]", conf)
-	tx := database.DB.Model(&Job{}).Where("id = ?", jobId).UpdateColumn("config", confJSON)
+	tx := database.DB.Model(&Job{}).Where("id = ?", jobId).Where("deleted_at = ''").UpdateColumn("config", confJSON)
 	if tx.Error != nil {
 		return tx.Error
 	}
@@ -230,7 +230,7 @@ func UpdateJob(jobID string, status schema.JobStatus, info interface{}, message 
 		job.ActivatedAt.Time = time.Now()
 		job.ActivatedAt.Valid = true
 	}
-	tx := database.DB.Table("job").Where("id = ?", jobID).Save(&job)
+	tx := database.DB.Table("job").Where("id = ?", jobID).Where("deleted_at = ''").Save(&job)
 	if tx.Error != nil {
 		logger.LoggerForJob(jobID).Errorf("update job failed, err %v", tx.Error)
 		return "", tx.Error
