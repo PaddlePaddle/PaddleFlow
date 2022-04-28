@@ -303,7 +303,7 @@ CREATE TABLE IF NOT EXISTS `link` (
 
 CREATE TABLE IF NOT EXISTS `fs_cache_config` (
     `pk` bigint(20) unsigned NOT NULL AUTO_INCREMENT COMMENT 'pk',
-    `id` varchar(36) NOT NULL COMMENT 'file system id',
+    `fs_id` varchar(36) NOT NULL COMMENT 'file system id',
     `cache_dir` varchar(4096) NOT NULL COMMENT 'cache dir, e.g. /var/pfs_cache',
     `quota` bigint(20) NOT NULL COMMENT 'cache quota',
     `blocksize` int(5) NOT NULL COMMENT 'cache blocksize',
@@ -315,7 +315,7 @@ CREATE TABLE IF NOT EXISTS `fs_cache_config` (
     `updated_at` datetime NOT NULL COMMENT 'update time',
     `deleted_at` datetime(3) DEFAULT NULL COMMENT 'delete time',
     PRIMARY KEY (`pk`),
-    UNIQUE KEY (`id`)
+    UNIQUE KEY (`fs_id`)
     )ENGINE=InnoDB DEFAULT CHARACTER SET utf8 COLLATE utf8_bin ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMMENT='file system cache config';
 
 CREATE TABLE IF NOT EXISTS `fs_cache` (
