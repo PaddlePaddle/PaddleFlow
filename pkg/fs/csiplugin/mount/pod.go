@@ -108,17 +108,17 @@ func PodUMount(volumeID, targetPath string, mountInfo pfs.MountInfo) error {
 		return err
 	}
 
-	lastRef := false
+	podUID := utils.GetPodUIDFromTargetPath(targetPath)
+	if podUID != "" {
+		// clean up mount points
+		pathsToCleanup := []string{targetPath}
+		if err := mountUtil.CleanUpMountPoints(pathsToCleanup); err != nil {
+			log.Errorf("PodUMount: cleanup mount points[%v] err: %s", pathsToCleanup, err.Error())
+			return err
+		}
+	}
+
 	if len(fsMountListResp.MountList) <= 1 {
-		lastRef = true
-	}
-
-	if err := cleanMpPaths(targetPath, mountInfo.FSID, lastRef); err != nil {
-		log.Errorf("PodUMount: fsID[%s] lastRef[%t] cleanup mountpoints err: %s", mountInfo.FSID, lastRef, err.Error())
-		return err
-	}
-
-	if lastRef {
 		err := deleteMountPod(k8sClient, pod)
 		if err != nil {
 			log.Errorf("DeletePod: podName[%s] err[%v]", pod.Name, err)
@@ -131,23 +131,6 @@ func PodUMount(volumeID, targetPath string, mountInfo pfs.MountInfo) error {
 		if errDeleteMount != nil {
 			log.Errorf("PodUMount: DeleteMount mountInfo[%+v] err[%v]", mountInfo, err)
 			return errDeleteMount
-		}
-	}
-	return nil
-}
-
-func cleanMpPaths(targetPath, fsID string, lastRef bool) error {
-	podUID := utils.GetPodUIDFromTargetPath(targetPath)
-	if podUID != "" {
-		// clean up mount points
-		pathsToCleanup := []string{targetPath}
-		if lastRef {
-			nodeMntPath := fmt.Sprintf(HostMountPoint, fsID)
-			pathsToCleanup = append(pathsToCleanup, nodeMntPath)
-		}
-		if err := mountUtil.CleanUpMountPoints(pathsToCleanup); err != nil {
-			log.Errorf("UMount: cleanup mount points[%v] err: %s", pathsToCleanup, err.Error())
-			return err
 		}
 	}
 	return nil
@@ -329,6 +312,21 @@ func BuildMountPod(volumeID string, mountInfo pfs.MountInfo, cacheConf common.Fs
 	pod.Name = GeneratePodNameByFsID(volumeID)
 	cmd := getcmd(mountInfo, cacheConf)
 	pod.Spec.Containers[0].Command = []string{"sh", "-c", cmd}
+	statCmd := "stat -c %i " + MountPoint
+	pod.Spec.Containers[0].ReadinessProbe = &corev1.Probe{
+		Handler: corev1.Handler{
+			Exec: &corev1.ExecAction{Command: []string{"sh", "-c", fmt.Sprintf(
+				"if [ x$(%v) = x1 ]; then exit 0; else exit 1; fi ", statCmd)},
+			}},
+		InitialDelaySeconds: 1,
+		PeriodSeconds:       1,
+	}
+	pod.Spec.Containers[0].Lifecycle = &corev1.Lifecycle{
+		PreStop: &corev1.Handler{
+			Exec: &corev1.ExecAction{Command: []string{"sh", "-c", fmt.Sprintf(
+				"umount %s && rmdir %s", MountPoint, MountPoint)}},
+		},
+	}
 	pod.Annotations = make(map[string]string)
 	pod.Annotations[AnnoKeyServer] = mountInfo.Server
 	pod.Annotations[AnnoKeyFsID] = mountInfo.FSID
