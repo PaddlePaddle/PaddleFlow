@@ -33,6 +33,12 @@ const (
 	FsCacheConfig     = Prefix + "/fsCache"
 	FsMount           = Prefix + "/fsMount"
 	CacheReportConfig = Prefix + "/fsCache/report"
+
+	KeyUsername   = "username"
+	KeyFsName     = "fsName"
+	KeyClusterID  = "clusterID"
+	KeyNodeName   = "nodename"
+	KeyMountPoint = "mountpoint"
 )
 
 type LoginParams struct {
@@ -164,7 +170,7 @@ func FsRequest(params FsParams, c *core.PFClient) (*FsResponse, error) {
 	err := core.NewRequestBuilder(c).
 		WithHeader(common.HeaderKeyAuthorization, params.Token).
 		WithURL(GetFsApi+"/"+params.FsName).
-		WithQueryParam("username", params.UserName).
+		WithQueryParam(KeyUsername, params.UserName).
 		WithMethod(http.GET).
 		WithResult(resp).
 		Do()
@@ -179,7 +185,7 @@ func LinksRequest(params LinksParams, c *core.PFClient) (*LinksResponse, error) 
 	err := core.NewRequestBuilder(c).
 		WithHeader(common.HeaderKeyAuthorization, params.Token).
 		WithURL(GetLinksApis+"/"+params.FsName).
-		WithQueryParam("username", params.UserName).WithMethod(http.GET).
+		WithQueryParam(KeyUsername, params.UserName).WithMethod(http.GET).
 		WithResult(resp).
 		Do()
 	if err != nil {
@@ -193,7 +199,7 @@ func FsCacheRequest(params FsParams, c *core.PFClient) (*FsCacheResponse, error)
 	err := core.NewRequestBuilder(c).
 		WithHeader(common.HeaderKeyAuthorization, params.Token).
 		WithURL(FsCacheConfig+"/"+params.FsName).
-		WithQueryParam("username", params.UserName).WithMethod(http.GET).
+		WithQueryParam(KeyUsername, params.UserName).WithMethod(http.GET).
 		WithResult(resp).
 		Do()
 	if err != nil {
@@ -217,10 +223,10 @@ func FsMountList(req ListMountRequest, c *core.PFClient) (*ListMountResponse, er
 	err := core.NewRequestBuilder(c).
 		WithHeader(common.HeaderKeyAuthorization, req.Token).
 		WithURL(FsMount).
-		WithQueryParam("clusterID", req.ClusterID).
-		WithQueryParam("nodename", req.NodeName).
-		WithQueryParam("fsName", req.FsName).
-		WithQueryParam("username", req.UserName).
+		WithQueryParam(KeyClusterID, req.ClusterID).
+		WithQueryParam(KeyNodeName, req.NodeName).
+		WithQueryParam(KeyFsName, req.FsName).
+		WithQueryParam(KeyUsername, req.UserName).
 		WithMethod(http.GET).
 		WithResult(resp).
 		Do()
@@ -230,14 +236,14 @@ func FsMountList(req ListMountRequest, c *core.PFClient) (*ListMountResponse, er
 	return resp, nil
 }
 
-func DeleteMount(req DeleteMountRequest, c *core.PFClient) error {
+func FsMountDelete(req DeleteMountRequest, c *core.PFClient) error {
 	err := core.NewRequestBuilder(c).
 		WithHeader(common.HeaderKeyAuthorization, req.Token).
 		WithURL(FsMount+"/"+req.FsName).
-		WithQueryParam("clusterID", req.ClusterID).
-		WithQueryParam("nodename", req.NodeName).
-		WithQueryParam("username", req.UserName).
-		WithQueryParam("mountpoint", req.MountPoint).
+		WithQueryParam(KeyClusterID, req.ClusterID).
+		WithQueryParam(KeyNodeName, req.NodeName).
+		WithQueryParam(KeyUsername, req.UserName).
+		WithQueryParam(KeyMountPoint, req.MountPoint).
 		WithMethod(http.DELETE).
 		Do()
 	return err

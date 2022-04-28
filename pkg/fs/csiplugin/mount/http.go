@@ -65,7 +65,7 @@ func deleteMount(mountInfo pfs.MountInfo, httpClient *core.PFClient, token strin
 		NodeName:   csiconfig.NodeName,
 		MountPoint: mountInfo.TargetPath,
 	}
-	err := api.DeleteMount(DeleteMountReq, httpClient)
+	err := api.FsMountDelete(DeleteMountReq, httpClient)
 	if err != nil {
 		log.Errorf("DeleteMount[%s] failed: %v", mountInfo.FSID, err)
 		return err
@@ -73,7 +73,7 @@ func deleteMount(mountInfo pfs.MountInfo, httpClient *core.PFClient, token strin
 	return nil
 }
 
-func fsMountList(mountInfo pfs.MountInfo, httpClient *core.PFClient, token string) (*api.ListMountResponse, error) {
+func listMount(mountInfo pfs.MountInfo, httpClient *core.PFClient, token string) (*api.ListMountResponse, error) {
 	userName, fsName := common.GetFsNameAndUserNameByFsID(mountInfo.FSID)
 	listMountReq := api.ListMountRequest{
 		FsParams: api.FsParams{
