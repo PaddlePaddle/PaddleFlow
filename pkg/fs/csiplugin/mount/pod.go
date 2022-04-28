@@ -18,7 +18,6 @@ package mount
 
 import (
 	"fmt"
-	utils "paddleflow/pkg/fs/utils/common"
 	"strconv"
 	"strings"
 	"sync"
@@ -40,6 +39,7 @@ import (
 	"paddleflow/pkg/fs/csiplugin/client/k8s"
 	"paddleflow/pkg/fs/csiplugin/client/pfs"
 	"paddleflow/pkg/fs/csiplugin/csiconfig"
+	utils "paddleflow/pkg/fs/utils/common"
 	mountUtil "paddleflow/pkg/fs/utils/mount"
 )
 
@@ -61,7 +61,7 @@ const (
 
 var umountLock sync.RWMutex
 
-func PodUMount(volumeID, targetPath string, mountInfo pfs.MountInfo) error {
+func PodUnmount(volumeID, targetPath string, mountInfo pfs.MountInfo) error {
 	podName := GeneratePodNameByFsID(volumeID)
 	log.Infof("PodUMount pod name is %s", podName)
 	umountLock.Lock()
@@ -119,7 +119,17 @@ func PodUMount(volumeID, targetPath string, mountInfo pfs.MountInfo) error {
 	}
 
 	if len(fsMountListResp.MountList) <= 1 {
-		err := deleteMountPod(k8sClient, pod)
+		err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			errDelete := k8sClient.DeletePod(pod)
+			if k8serrors.IsNotFound(errDelete) {
+				log.Infof("DeletePod : pod %s not exists.", pod.Name)
+				return nil
+			}
+			if errDelete != nil {
+				return errDelete
+			}
+			return nil
+		})
 		if err != nil {
 			log.Errorf("DeletePod: podName[%s] err[%v]", pod.Name, err)
 			return err
@@ -134,20 +144,6 @@ func PodUMount(volumeID, targetPath string, mountInfo pfs.MountInfo) error {
 		}
 	}
 	return nil
-}
-
-func deleteMountPod(k8sClient k8s.K8SInterface, pod *v1.Pod) error {
-	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		errDelete := k8sClient.DeletePod(pod)
-		if k8serrors.IsNotFound(errDelete) {
-			log.Infof("DeletePod : pod %s not exists.", pod.Name)
-			return nil
-		}
-		if errDelete != nil {
-			return errDelete
-		}
-		return nil
-	})
 }
 
 func PodMount(volumeID string, mountInfo pfs.MountInfo) error {

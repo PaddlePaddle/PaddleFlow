@@ -94,7 +94,7 @@ func (ns *nodeServer) NodeUnpublishVolume(ctx context.Context,
 		UsernameRoot: ns.credentialInfo.usernameRoot,
 		PasswordRoot: ns.credentialInfo.passwordRoot,
 	}
-	if err := mount.PodUMount(volumeID, targetPath, mountInfo); err != nil {
+	if err := mount.PodUnmount(volumeID, targetPath, mountInfo); err != nil {
 		log.Errorf("[UMount]: volumeID[%s] and targetPath[%s] with err: %s", volumeID, targetPath, err.Error())
 		return nil, err
 	}

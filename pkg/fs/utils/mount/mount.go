@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"paddleflow/pkg/fs/utils/io"
 	"strconv"
 	"strings"
 	"syscall"
@@ -29,6 +28,8 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"k8s.io/utils/mount"
+
+	"paddleflow/pkg/fs/utils/io"
 )
 
 const (
