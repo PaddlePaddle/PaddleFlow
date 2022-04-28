@@ -18,8 +18,7 @@ package mount
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
+	utils "paddleflow/pkg/fs/utils/common"
 	"strconv"
 	"strings"
 	"sync"
@@ -41,8 +40,6 @@ import (
 	"paddleflow/pkg/fs/csiplugin/client/k8s"
 	"paddleflow/pkg/fs/csiplugin/client/pfs"
 	"paddleflow/pkg/fs/csiplugin/csiconfig"
-	utils "paddleflow/pkg/fs/utils/common"
-	"paddleflow/pkg/fs/utils/io"
 	mountUtil "paddleflow/pkg/fs/utils/mount"
 )
 
@@ -56,6 +53,7 @@ const (
 	CachePath           = "/home/paddleflow/pfs-cache"
 	DataCacheDir        = "/data-cache"
 	MetaCacheDir        = "/meta-cache"
+	HostMountPoint      = HostPathMnt + "/%s/storage" // /home/paddleflow/mnt/{fsID}/storage
 
 	AnnoKeyServer = "server"
 	AnnoKeyFsID   = "fsID"
@@ -65,20 +63,9 @@ var umountLock sync.RWMutex
 
 func PodUMount(volumeID, targetPath string, mountInfo pfs.MountInfo) error {
 	podName := GeneratePodNameByFsID(volumeID)
-	log.Infof("umount pod name is %s", podName)
+	log.Infof("PodUMount pod name is %s", podName)
 	umountLock.Lock()
 	defer umountLock.Unlock()
-	podUID := utils.GetPodUIDFromTargetPath(targetPath)
-	if podUID != "" {
-		// clean up mount points
-		pathsToCleanup := []string{targetPath}
-		sourcePath := utils.GetVolumeSourceMountPath(filepath.Dir(targetPath))
-		pathsToCleanup = append(pathsToCleanup, sourcePath)
-		if err := cleanUpMountPoints(pathsToCleanup); err != nil {
-			log.Errorf("UMount: cleanup mount points[%v] err: %s", pathsToCleanup, err.Error())
-			return err
-		}
-	}
 
 	k8sClient, err := k8s.GetK8sClient()
 	if err != nil {
@@ -87,12 +74,12 @@ func PodUMount(volumeID, targetPath string, mountInfo pfs.MountInfo) error {
 	}
 	pod, err := k8sClient.GetPod(podName, csiconfig.Namespace)
 	if err != nil && !k8serrors.IsNotFound(err) {
-		log.Errorf("Umount: Get pod %s err: %v", podName, err)
+		log.Errorf("PodUMount: Get pod %s err: %v", podName, err)
 		return err
 	}
 	// if mount pod not exists.
 	if pod == nil {
-		log.Infof("Umount: Mount pod %s not exists.", podName)
+		log.Infof("PodUMount: Mount pod %s not exists.", podName)
 		return nil
 	}
 
@@ -100,7 +87,7 @@ func PodUMount(volumeID, targetPath string, mountInfo pfs.MountInfo) error {
 	mountInfo.FSID = pod.Annotations[AnnoKeyFsID]
 	mountInfo.TargetPath = targetPath
 	if mountInfo.Server == "" || mountInfo.FSID == "" {
-		log.Errorf("UMount: pod[%s] annotations[%v] missing field", pod.Name, pod.Annotations)
+		log.Errorf("PodUMount: pod[%s] annotations[%v] missing field", pod.Name, pod.Annotations)
 		return fmt.Errorf("pod[%s] annotations[%v] missing field", pod.Name, pod.Annotations)
 	}
 
@@ -111,41 +98,73 @@ func PodUMount(volumeID, targetPath string, mountInfo pfs.MountInfo) error {
 	}
 	loginResponse, err := api.LoginRequest(login, httpClient)
 	if err != nil {
-		log.Errorf("UMount: login failed: %v", err)
+		log.Errorf("PodUMount: login failed: %v", err)
 		return err
 	}
 
 	fsMountListResp, err := listMount(mountInfo, httpClient, loginResponse.Authorization)
 	if err != nil {
-		log.Errorf("UMount: fsMountList faield: %v", err)
+		log.Errorf("PodUMount: fsMountList faield: %v", err)
 		return err
 	}
 
+	lastRef := false
 	if len(fsMountListResp.MountList) <= 1 {
-		err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-			errDelete := k8sClient.DeletePod(pod)
-			if k8serrors.IsNotFound(errDelete) {
-				log.Infof("DeletePod : pod %s not exists.", pod.Name)
-				return nil
-			}
-			if errDelete != nil {
-				return errDelete
-			}
-			return nil
-		})
+		lastRef = true
+	}
+
+	if err := cleanMpPaths(targetPath, mountInfo.FSID, lastRef); err != nil {
+		log.Errorf("PodUMount: fsID[%s] lastRef[%t] cleanup mountpoints err: %s", mountInfo.FSID, lastRef, err.Error())
+		return err
+	}
+
+	if lastRef {
+		err := deleteMountPod(k8sClient, pod)
 		if err != nil {
 			log.Errorf("DeletePod: podName[%s] err[%v]", pod.Name, err)
 			return err
 		}
 	}
+
 	if len(fsMountListResp.MountList) >= 1 {
 		errDeleteMount := deleteMount(mountInfo, httpClient, loginResponse.Authorization)
 		if errDeleteMount != nil {
-			log.Errorf("DeleteMount: mountInfo[%+v] err[%v]", mountInfo, err)
+			log.Errorf("PodUMount: DeleteMount mountInfo[%+v] err[%v]", mountInfo, err)
 			return errDeleteMount
 		}
 	}
 	return nil
+}
+
+func cleanMpPaths(targetPath, fsID string, lastRef bool) error {
+	podUID := utils.GetPodUIDFromTargetPath(targetPath)
+	if podUID != "" {
+		// clean up mount points
+		pathsToCleanup := []string{targetPath}
+		if lastRef {
+			nodeMntPath := fmt.Sprintf(HostMountPoint, fsID)
+			pathsToCleanup = append(pathsToCleanup, nodeMntPath)
+		}
+		if err := mountUtil.CleanUpMountPoints(pathsToCleanup); err != nil {
+			log.Errorf("UMount: cleanup mount points[%v] err: %s", pathsToCleanup, err.Error())
+			return err
+		}
+	}
+	return nil
+}
+
+func deleteMountPod(k8sClient k8s.K8SInterface, pod *v1.Pod) error {
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		errDelete := k8sClient.DeletePod(pod)
+		if k8serrors.IsNotFound(errDelete) {
+			log.Infof("DeletePod : pod %s not exists.", pod.Name)
+			return nil
+		}
+		if errDelete != nil {
+			return errDelete
+		}
+		return nil
+	})
 }
 
 func PodMount(volumeID string, mountInfo pfs.MountInfo) error {
@@ -401,45 +420,4 @@ func getCacheWorkerCmd(mountInfo pfs.MountInfo) string {
 		"--fsID=" + mountInfo.FSID,
 	}
 	return cacheWorker + strings.Join(options, " ")
-}
-
-func cleanUpMountPoints(paths []string) error {
-	var retErr error
-
-	if len(paths) == 0 {
-		return nil
-	}
-
-	cleanUp := func(path string, cleanAll bool) error {
-		isMountPoint, err := mountUtil.IsMountPoint(path)
-		if err != nil && !isMountPoint {
-			if exist, exErr := io.Exist(path); exErr != nil {
-				log.Errorf("check path[%s] exist failed: %v", path, exErr)
-				return exErr
-			} else if !exist {
-				return nil
-			}
-			log.Errorf("check path[%s] mountpoint failed: %v", path, err)
-			return err
-		}
-
-		if isMountPoint {
-			return mountUtil.CleanUpMountPoint(path)
-		}
-		log.Infof("path [%s] is not a mountpoint, begin to remove path[%s]", path, path)
-		if err := os.Remove(path); err != nil {
-			log.Errorf("remove path[%s] failed: %v", path, err)
-			return err
-		}
-		return nil
-	}
-
-	for _, path := range paths {
-		log.Infof("cleanup mountPoint in path[%s] start", path)
-		if err := cleanUp(path, false); err != nil {
-			log.Errorf("cleanup path[%s] failed: %v", path, err)
-			retErr = err
-		}
-	}
-	return retErr
 }
