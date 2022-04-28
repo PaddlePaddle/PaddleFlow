@@ -201,6 +201,13 @@ func (jr *JobRouter) CreateWorkflowJob(w http.ResponseWriter, r *http.Request) {
 }
 
 func validateSingleJob(ctx *logger.RequestContext, request *job.CreateSingleJobRequest) error {
+	// validate job id
+	if request.ID != "" {
+		// check namespace format
+		if errStr := common.IsDNS1123Label(request.ID); len(errStr) != 0 {
+			return fmt.Errorf("ID[%s] of Job is invalid, err: %s", request.ID, strings.Join(errStr, ","))
+		}
+	}
 	// ensure required fields
 	emptyFields := validateEmptyField(request)
 	if len(emptyFields) != 0 {
@@ -253,6 +260,13 @@ func validateEmptyField(request *job.CreateSingleJobRequest) []string {
 }
 
 func validateDistributedJob(ctx *logger.RequestContext, request *job.CreateDisJobRequest) error {
+	// validate job id
+	if request.ID != "" {
+		// check namespace format
+		if errStr := common.IsDNS1123Label(request.ID); len(errStr) != 0 {
+			return fmt.Errorf("ID[%s] of Job is invalid, err: %s", request.ID, strings.Join(errStr, ","))
+		}
+	}
 	switch request.Framework {
 	case schema.FrameworkSpark, schema.FrameworkPaddle:
 		break
@@ -344,6 +358,13 @@ func validateQueue(ctx *logger.RequestContext, schedulingPolicy *job.SchedulingP
 }
 
 func validateWorkflowJob(ctx *logger.RequestContext, request *job.CreateWfJobRequest) error {
+	// validate job id
+	if request.ID != "" {
+		// check namespace format
+		if errStr := common.IsDNS1123Label(request.ID); len(errStr) != 0 {
+			return fmt.Errorf("ID[%s] of Job is invalid, err: %s", request.ID, strings.Join(errStr, ","))
+		}
+	}
 	if request.ExtensionTemplate == "" {
 		ctx.ErrorCode = common.RequiredFieldEmpty
 		err := fmt.Errorf("ExtensionTemplate for workflow job is needed, and now is empty")
