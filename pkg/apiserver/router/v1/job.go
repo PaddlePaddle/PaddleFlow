@@ -300,14 +300,6 @@ func validateDistributedJob(ctx *logger.RequestContext, request *job.CreateDisJo
 		return err
 	}
 	for _, member := range request.Members {
-		if member.Role != string(schema.RoleWorker) &&
-			member.Role != string(schema.RolePServer) &&
-			member.Role != string(schema.RolePWorker) {
-			err := fmt.Errorf("invalid role:%s", member.Role)
-			ctx.Logging().Errorf("create distributed job failed. error: %s", err.Error())
-			ctx.ErrorCode = common.JobInvalidField
-			return err
-		}
 		// validate queue
 		mQueueName := member.SchedulingPolicy.Queue
 		if mQueueName != queueName {

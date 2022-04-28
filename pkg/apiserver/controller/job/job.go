@@ -279,6 +279,12 @@ func CreateDistributedJob(ctx *logger.RequestContext, request *CreateDisJobReque
 	}
 	switch jobMode {
 	case schema.EnvJobModeCollective:
+		// validate replicas
+		if request.Members[0].Replicas < 2 {
+			ctx.ErrorCode = common.JobInvalidField
+			ctx.Logging().Errorln("replicas must be greater than 1")
+			return nil, fmt.Errorf("replicas must be greater than 1")
+		}
 		conf.SetEnv(schema.EnvJobMode, schema.EnvJobModeCollective)
 		jobInfo.Members, err = newCollectiveMembers(request)
 	case schema.EnvJobModePS:
