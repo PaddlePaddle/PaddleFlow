@@ -27,7 +27,10 @@ import (
 	"paddleflow/pkg/fs/common"
 )
 
-var Client *_Client
+var (
+	Client         *_Client = nil
+	LoginTokenRoot          = "" // for csi non-repeatedly login as root user
+)
 
 type _Client struct {
 	Uuid       string
@@ -140,6 +143,24 @@ func (c *_Client) GetFSCacheConfig() (common.FsCacheConfig, error) {
 func (c *_Client) CreateFsMount(req api.CreateMountRequest) error {
 	log.Debugf("CreateFsMount client: %+v, req: %+v", *c, req)
 	err := api.FsMountCreate(req, c.httpClient)
+	if err != nil {
+		log.Errorf("fs request failed: %v", err)
+	}
+	return err
+}
+
+func (c *_Client) ListFsMount(req api.ListMountRequest) (api.ListMountResponse, error) {
+	log.Debugf("ListFsMount client: %+v, req: %+v", *c, req)
+	resp, err := api.FsMountList(req, c.httpClient)
+	if err != nil {
+		log.Errorf("fs request failed: %v", err)
+	}
+	return resp, err
+}
+
+func (c *_Client) DeleteFsMount(req api.DeleteMountRequest) error {
+	log.Debugf("DeleteFsMount client: %+v, req: %+v", *c, req)
+	err := api.FsMountDelete(req, c.httpClient)
 	if err != nil {
 		log.Errorf("fs request failed: %v", err)
 	}

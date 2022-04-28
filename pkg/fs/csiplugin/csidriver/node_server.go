@@ -17,8 +17,13 @@ limitations under the License.
 package csidriver
 
 import (
+	"fmt"
 	"os"
+	"os/exec"
+	"paddleflow/pkg/common/http/core"
+	"paddleflow/pkg/fs/csiplugin/mount"
 	"path/filepath"
+	"strings"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/kubernetes-csi/drivers/pkg/csi-common"
@@ -39,6 +44,8 @@ import (
 const (
 	pfsFSID   = "pfs.fs.id"
 	pfsServer = "pfs.server"
+
+	FsBindPath = mount.MountDir + "/%s/storage" // /home/paddleflow/mnt/{fsID}/storage
 )
 
 type nodeServer struct {
@@ -76,19 +83,15 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context,
 	fsId := volumeContext[pfsFSID]
 	server := volumeContext[pfsServer]
 
-	// new fuse http client
 	httpClient := client.NewHttpClient(server, client.DefaultTimeOut)
-	// token
-	login := api.LoginParams{
-		UserName: ns.credentialInfo.usernameRoot,
-		Password: ns.credentialInfo.passwordRoot,
+
+	if !hasLoggedIn() {
+		if err := ns.loginAsRoot(httpClient); err != nil {
+			return &csi.NodePublishVolumeResponse{}, err
+		}
 	}
-	loginResponse, err := api.LoginRequest(login, httpClient)
-	if err != nil {
-		log.Errorf("fuse login failed: %v", err)
-		return &csi.NodePublishVolumeResponse{}, err
-	}
-	_, err = base.NewClient(fsId, httpClient, loginResponse.Authorization)
+
+	_, err := base.NewClient(fsId, httpClient, base.LoginTokenRoot)
 	if err != nil {
 		log.Errorf("csi addRefOfMount: init client with fs[%s] and server[%s] failed: %v",
 			fsId, server, err)
@@ -97,7 +100,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context,
 
 	mountInfo := pfs.GetMountInfo(fsId, server, req.GetReadonly())
 	// root credentials for pfs-fuse
-	mountInfo.UsernameRoot, mountInfo.PasswordRoot = login.UserName, login.Password
+	mountInfo.UsernameRoot, mountInfo.PasswordRoot = ns.credentialInfo.usernameRoot, ns.credentialInfo.passwordRoot
 	pathPrefix := filepath.Dir(targetPath)
 	mountInfo.TargetPath = targetPath
 	if err := mountVolume(pathPrefix, mountInfo, req.GetReadonly()); err != nil {
@@ -108,23 +111,112 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context,
 	return &csi.NodePublishVolumeResponse{}, nil
 }
 
+func hasLoggedIn() bool {
+	if base.LoginTokenRoot == "" {
+		return false
+	} else {
+		return true
+	}
+}
+
+func (ns *nodeServer) loginAsRoot(httpClient *core.PFClient) error {
+	loginReq := api.LoginParams{
+		UserName: ns.credentialInfo.usernameRoot,
+		Password: ns.credentialInfo.passwordRoot,
+	}
+	loginResponse, err := api.LoginRequest(loginReq, httpClient)
+	if err != nil {
+		log.Errorf("csi login as root failed: %v", err)
+		return err
+	}
+	base.LoginTokenRoot = loginResponse.Authorization
+	return nil
+}
+
 func (ns *nodeServer) NodeUnpublishVolume(ctx context.Context,
 	req *csi.NodeUnpublishVolumeRequest) (*csi.NodeUnpublishVolumeResponse, error) {
 	targetPath := req.GetTargetPath()
-	log.Debugf("Node Unpublish volume request [%+v], and begin to cleanup mountPoint in targetpath", *req)
+	log.Infof("Node Unpublish volume request [%+v], and begin to cleanup mountPoint in targetpath", *req)
 	podUID := common.GetPodUIDFromTargetPath(targetPath)
-	if podUID != "" {
-		// clean up mount points
-		pathsToCleanup := []string{targetPath}
-		sourcePath := common.GetVolumeSourceMountPath(filepath.Dir(targetPath))
-		pathsToCleanup = append(pathsToCleanup, sourcePath)
-		if err := cleanUpMountPoints(pathsToCleanup); err != nil {
-			log.Errorf("[UnPublishVolume]: cleanup mount points[%v] err: %s", pathsToCleanup, err.Error())
+
+	//if podUID != "" {
+	//	// clean up mount points
+	//	pathsToCleanup := []string{targetPath}
+	//	sourcePath := common.GetVolumeSourceMountPath(filepath.Dir(targetPath))
+	//	pathsToCleanup = append(pathsToCleanup, sourcePath)
+	//	if err := cleanUpMountPoints(pathsToCleanup); err != nil {
+	//		log.Errorf("[UnPublishVolume]: cleanup mount points[%v] err: %s", pathsToCleanup, err.Error())
+	//		return nil, err
+	//	}
+	//}
+	//return &csi.NodeUnpublishVolumeResponse{}, nil
+
+	if podUID == "" {
+		return &csi.NodeUnpublishVolumeResponse{}, nil
+	}
+	//// umount mp
+	//if err := umountMountPath(targetPath); err != nil {
+	//	log.Errorf("UnPublishVolume: umountMountPath[%v] err: %s", targetPath, err.Error())
+	//	return nil, err
+	//}
+	var err error
+	hasRef := true
+	fsID := common.GetFsIDFromVolumeID(req.GetVolumeId())
+
+	// clean up paths
+	if base.Client != nil {
+		hasRef, err = mount.HasRef(fsID)
+		if err != nil {
 			return nil, err
 		}
 	}
 
+	if podUID != "" {
+		// clean up mount points
+		pathsToCleanup := []string{targetPath}
+		if !hasRef {
+			bindPath := fmt.Sprintf(FsBindPath, fsID)
+			pathsToCleanup = append(pathsToCleanup, bindPath)
+		}
+		if err := cleanUpMountPoints(pathsToCleanup); err != nil {
+			log.Errorf("UnPublishVolume: cleanup mount points[%v] err: %s", pathsToCleanup, err.Error())
+			return nil, err
+		}
+	}
+
+	// delete po if no refs
+	if !hasRef {
+		if err := mount.PodUmount(fsID); err != nil {
+			log.Errorf("UnPublishVolume: PodUmount[%v] err: %s", fsID, err.Error())
+			return nil, err
+		}
+	}
 	return &csi.NodeUnpublishVolumeResponse{}, nil
+}
+
+func umountMountPath(mountPath string) error {
+	// targetPath may be mount bind many times when mount point recovered.
+	// umount until it's not mounted.
+	for {
+		command := exec.Command("umount", mountPath)
+		out, err := command.CombinedOutput()
+		if err == nil {
+			continue
+		}
+		log.Infoln(string(out))
+		if !strings.Contains(string(out), "not mounted") &&
+			!strings.Contains(string(out), "mountpoint not found") &&
+			!strings.Contains(string(out), "no mount point specified") {
+			log.Infof("Unmount %s failed: %q, try to lazy unmount", mountPath, err)
+			output, err := exec.Command("umount", "-l", mountPath).CombinedOutput()
+			if err != nil {
+				log.Infof("Could not lazy unmount %q: %v, output: %s", mountPath, err, string(output))
+				return err
+			}
+		}
+		break
+	}
+	return nil
 }
 
 func (ns *nodeServer) NodeStageVolume(ctx context.Context,
@@ -155,24 +247,25 @@ func mountVolume(mountPathPrefix string, mountInfo pfs.MountInfo, readOnly bool)
 	}
 	mountInfo.LocalPath = volumeSourceMountPath
 
-	cmdName, args := mountInfo.GetMountCmd()
-	log.Infof("mountInfo GetMountCmd[%s %v] filesystem ID[%v] in pfs server[%v]", cmdName, args, mountInfo.FSID, mountInfo.Server)
-	output, err := mountUtil.ExecCmdWithTimeout(cmdName, args)
+	//cmdName, args := mountInfo.GetMountCmd()
+	//log.Infof("mountInfo GetMountCmd[%s %v] filesystem ID[%v] in pfs server[%v]", cmdName, args, mountInfo.FSID, mountInfo.Server)
+	//output, err := mountUtil.ExecCmdWithTimeout(cmdName, args)
+	//if err != nil {
+	//	log.Errorf("exec mount failed: [%v], output[%v]", err, string(output))
+	//	return err
+	//}
+	//
+	//volumeBindMountPath := common.GetVolumeMountPath(mountPathPrefix)
+	//return bindMountVolume(volumeSourceMountPath, volumeBindMountPath, readOnly)
+
+	err := mount.PodMount(mountInfo)
 	if err != nil {
-		log.Errorf("exec mount failed: [%v], output[%v]", err, string(output))
+		log.Errorf("MountThroughPod err: %v", err)
 		return err
 	}
 
-	//err := mount.MountThroughPod(mountInfo)
-	//if err != nil {
-	//	log.Errorf("MountThroughPod err: %v", err)
-	//	return err
-	//}
-
-	volumeBindMountPath := common.GetVolumeMountPath(mountPathPrefix)
-	return bindMountVolume(volumeSourceMountPath, volumeBindMountPath, readOnly)
-	//bindSource := mount.MountDir + "/" + mountInfo.FSID + "/storage"
-	//return bindMountVolume(bindSource, mountInfo.TargetPath, readOnly)
+	bindSource := fmt.Sprintf(FsBindPath, mountInfo.FSID)
+	return bindMountVolume(bindSource, mountInfo.TargetPath, readOnly)
 }
 
 func bindMountVolume(sourcePath, mountPath string, readOnly bool) error {

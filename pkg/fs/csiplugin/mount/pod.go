@@ -50,13 +50,9 @@ const (
 	MetaCacheDir        = "/meta-cache"
 )
 
-type PodMount struct {
-	K8sClient *k8s.K8SInterface
-}
-
-func MountThroughPod(mountInfo pfs.MountInfo) error {
+func PodMount(mountInfo pfs.MountInfo) error {
 	if err := createOrAddRef(mountInfo); err != nil {
-		log.Errorf("MountThroughPod info: %+v err: %v", mountInfo, err)
+		log.Errorf("PodMount info: %+v err: %v", mountInfo, err)
 		return err
 	}
 	return waitUtilPodReady(GeneratePodNameByFsID(mountInfo.FSID))
@@ -130,6 +126,55 @@ func addRefOfMount(mountInfo pfs.MountInfo) error {
 	}
 	if err := base.Client.CreateFsMount(createMountReq); err != nil {
 		log.Errorf("CreateFsMount[%s] failed: %v", mountInfo.FSID, err)
+		return err
+	}
+	return nil
+}
+
+func HasRef(fsID string) (bool, error) {
+	fsArray := strings.Split(fsID, "-")
+	username := strings.Join(fsArray[1:len(fsArray)-1], "")
+	fsName := fsArray[len(fsArray)-1]
+
+	listMountReq := api.ListMountRequest{
+		FsParams: api.FsParams{
+			FsName:   fsName,
+			UserName: username,
+			Token:    base.LoginTokenRoot,
+		},
+		ClusterID: "",
+		NodeName:  csiconfig.NodeName,
+	}
+	resp, err := base.Client.ListFsMount(listMountReq)
+	if err != nil {
+		log.Errorf("ListFsMount: fsID[%s] nodeName[%s] failed: %v", fsID, csiconfig.NodeName, err)
+		return false, err
+	}
+	if len(resp.MountList) > 0 {
+		return true, nil
+	} else {
+		return false, nil
+	}
+}
+
+func PodUmount(fsID string) error {
+	k8sClient, err := k8s.GetK8sClient()
+	if err != nil {
+		log.Errorf("get k8s client failed: %v", err)
+		return err
+	}
+	podName := GeneratePodNameByFsID(fsID)
+	po, err := k8sClient.GetPod(podName, csiconfig.Namespace)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil
+		}
+		log.Errorf("PodUmount: Get mount pod %s err %v", podName, err)
+		return err
+	}
+
+	if err := k8sClient.DeletePod(po); err != nil {
+		log.Infof("PodUmount: Delete pod of fsID: %s error: %v", fsID, err)
 		return err
 	}
 	return nil

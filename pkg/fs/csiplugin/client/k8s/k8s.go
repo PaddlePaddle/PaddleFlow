@@ -41,6 +41,7 @@ type K8SInterface interface {
 	ListPersistentVolume(listOptions metav1.ListOptions) (*v1.PersistentVolumeList, error)
 	CreatePod(pod *v1.Pod) (*v1.Pod, error)
 	GetPod(podName, namespace string) (*v1.Pod, error)
+	DeletePod(pod *v1.Pod) error
 	GetPodLog(podName, namespace, containerName string) (string, error)
 }
 
@@ -101,6 +102,15 @@ func (c *K8SClient) GetPod(podName, namespace string) (*v1.Pod, error) {
 		return nil, err
 	}
 	return mntPod, nil
+}
+
+func (c *K8SClient) DeletePod(pod *v1.Pod) error {
+	if pod == nil {
+		log.Info("Delete pod: pod is nil")
+		return nil
+	}
+	log.Infof("Delete pod %v", pod.Name)
+	return c.Clientset.CoreV1().Pods(pod.Namespace).Delete(context.TODO(), pod.Name, metav1.DeleteOptions{})
 }
 
 func (c *K8SClient) GetPodLog(podName, namespace, containerName string) (string, error) {

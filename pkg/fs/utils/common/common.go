@@ -97,6 +97,12 @@ func GetPodUIDFromTargetPath(targetPath string) string {
 	return ""
 }
 
+func GetFsIDFromVolumeID(volumeID string) string {
+	str := strings.TrimPrefix(volumeID, "pfs-")
+	fsID := strings.TrimSuffix(str, "-paddleflow-pv")
+	return fsID
+}
+
 func GetDefaultUID() int {
 	uid := os.Getenv(DefaultUIDEnv)
 	if len(uid) == 0 {
