@@ -884,6 +884,12 @@ func validateCreateMount(ctx *logger.RequestContext, req *api.CreateMountRequest
 // @tag fs
 // @Accept   json
 // @Produce  json
+// @Param fsName query string true "存储名称"
+// @Param username query string false "用户名"
+// @Param clusterID query string true "集群ID"
+// @Param nodename query string true "结点名称"
+// @Param marker query string false "查询起始条目加密条码"
+// @Param maxKeys query string false "每页条数"
 // @Success 200 {object} fs.ListFileSystemResponse
 // @Failure 400 {object} common.ErrorResponse
 // @Failure 404 {object} common.ErrorResponse
@@ -970,12 +976,16 @@ func getListMountResult(fsMounts []models.FsMount, nextMarker, marker string) *a
 // @tag fs
 // @Accept   json
 // @Produce  json
-// @Param request body fs.DeleteMountRequest true "request body"
+// @Param fsName path string true "存储名称"
+// @Param username query string false "用户名"
+// @Param mountpoint query string true "挂载点"
+// @Param clusterID query string true "集群ID"
+// @Param nodename query string true "结点名称"
 // @Success 200
 // @Failure 400 {object} common.ErrorResponse
 // @Failure 404 {object} common.ErrorResponse
 // @Failure 500 {object} common.ErrorResponse
-// @Router /fsMount/{fsName} [post]
+// @Router /fsMount/{fsName} [delete]
 func (pr *PFSRouter) deleteFsMount(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
 	fsName := chi.URLParam(r, util.QueryFsName)
