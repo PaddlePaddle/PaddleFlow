@@ -56,15 +56,14 @@ const (
 	CachePath           = "/home/paddleflow/pfs-cache"
 	DataCacheDir        = "/data-cache"
 	MetaCacheDir        = "/meta-cache"
-)
 
-type PodMount struct {
-	K8sClient *k8s.K8SInterface
-}
+	AnnoKeyServer = "server"
+	AnnoKeyFsID   = "fsID"
+)
 
 var umountLock sync.RWMutex
 
-func UMount(volumeID, targetPath string, mountInfo pfs.MountInfo) error {
+func PodUMount(volumeID, targetPath string, mountInfo pfs.MountInfo) error {
 	podName := GeneratePodNameByFsID(volumeID)
 	log.Infof("umount pod name is %s", podName)
 	umountLock.Lock()
@@ -97,8 +96,8 @@ func UMount(volumeID, targetPath string, mountInfo pfs.MountInfo) error {
 		return nil
 	}
 
-	mountInfo.Server = pod.Annotations["server"]
-	mountInfo.FSID = pod.Annotations["fsID"]
+	mountInfo.Server = pod.Annotations[AnnoKeyServer]
+	mountInfo.FSID = pod.Annotations[AnnoKeyFsID]
 	mountInfo.TargetPath = targetPath
 	if mountInfo.Server == "" || mountInfo.FSID == "" {
 		log.Errorf("UMount: pod[%s] annotations[%v] missing field", pod.Name, pod.Annotations)
@@ -116,7 +115,7 @@ func UMount(volumeID, targetPath string, mountInfo pfs.MountInfo) error {
 		return err
 	}
 
-	fsMountListResp, err := fsMountList(mountInfo, httpClient, loginResponse.Authorization)
+	fsMountListResp, err := listMount(mountInfo, httpClient, loginResponse.Authorization)
 	if err != nil {
 		log.Errorf("UMount: fsMountList faield: %v", err)
 		return err
@@ -149,7 +148,7 @@ func UMount(volumeID, targetPath string, mountInfo pfs.MountInfo) error {
 	return nil
 }
 
-func MountThroughPod(volumeID string, mountInfo pfs.MountInfo) error {
+func PodMount(volumeID string, mountInfo pfs.MountInfo) error {
 	if err := createOrAddRef(volumeID, mountInfo); err != nil {
 		log.Errorf("MountThroughPod info: %+v err: %v", mountInfo, err)
 		return err
@@ -312,8 +311,8 @@ func BuildMountPod(volumeID string, mountInfo pfs.MountInfo, cacheConf common.Fs
 	cmd := getcmd(mountInfo, cacheConf)
 	pod.Spec.Containers[0].Command = []string{"sh", "-c", cmd}
 	pod.Annotations = make(map[string]string)
-	pod.Annotations["server"] = mountInfo.Server
-	pod.Annotations["fsID"] = mountInfo.FSID
+	pod.Annotations[AnnoKeyServer] = mountInfo.Server
+	pod.Annotations[AnnoKeyFsID] = mountInfo.FSID
 
 	if cacheConf.CacheDir == "" {
 		cacheConf.CacheDir = HostPathMnt + "/" + mountInfo.FSID
