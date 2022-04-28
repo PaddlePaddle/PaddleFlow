@@ -63,23 +63,23 @@ var umountLock sync.RWMutex
 
 func PodUnmount(volumeID, targetPath string, mountInfo pfs.MountInfo) error {
 	podName := GeneratePodNameByFsID(volumeID)
-	log.Infof("PodUMount pod name is %s", podName)
+	log.Infof("PodUnmount pod name is %s", podName)
 	umountLock.Lock()
 	defer umountLock.Unlock()
 
 	k8sClient, err := k8s.GetK8sClient()
 	if err != nil {
-		log.Errorf("Umount: Get k8s client failed: %v", err)
+		log.Errorf("PodUnmount: Get k8s client failed: %v", err)
 		return err
 	}
 	pod, err := k8sClient.GetPod(podName, csiconfig.Namespace)
 	if err != nil && !k8serrors.IsNotFound(err) {
-		log.Errorf("PodUMount: Get pod %s err: %v", podName, err)
+		log.Errorf("PodUnmount: Get pod %s err: %v", podName, err)
 		return err
 	}
 	// if mount pod not exists.
 	if pod == nil {
-		log.Infof("PodUMount: Mount pod %s not exists.", podName)
+		log.Infof("PodUnmount: Mount pod %s not exists.", podName)
 		return nil
 	}
 
@@ -87,8 +87,8 @@ func PodUnmount(volumeID, targetPath string, mountInfo pfs.MountInfo) error {
 	mountInfo.FSID = pod.Annotations[AnnoKeyFsID]
 	mountInfo.TargetPath = targetPath
 	if mountInfo.Server == "" || mountInfo.FSID == "" {
-		log.Errorf("PodUMount: pod[%s] annotations[%v] missing field", pod.Name, pod.Annotations)
-		return fmt.Errorf("pod[%s] annotations[%v] missing field", pod.Name, pod.Annotations)
+		log.Errorf("PodUnmount: pod[%s] annotations[%v] missing field", pod.Name, pod.Annotations)
+		return fmt.Errorf("PodUnmount: pod[%s] annotations[%v] missing field", pod.Name, pod.Annotations)
 	}
 
 	httpClient := client.NewHttpClient(mountInfo.Server, client.DefaultTimeOut)
@@ -98,13 +98,13 @@ func PodUnmount(volumeID, targetPath string, mountInfo pfs.MountInfo) error {
 	}
 	loginResponse, err := api.LoginRequest(login, httpClient)
 	if err != nil {
-		log.Errorf("PodUMount: login failed: %v", err)
+		log.Errorf("PodUnmount: login failed: %v", err)
 		return err
 	}
 
 	fsMountListResp, err := listMount(mountInfo, httpClient, loginResponse.Authorization)
 	if err != nil {
-		log.Errorf("PodUMount: fsMountList faield: %v", err)
+		log.Errorf("PodUnmount: fsMountList faield: %v", err)
 		return err
 	}
 
@@ -113,7 +113,7 @@ func PodUnmount(volumeID, targetPath string, mountInfo pfs.MountInfo) error {
 		// clean up mount points
 		pathsToCleanup := []string{targetPath}
 		if err := mountUtil.CleanUpMountPoints(pathsToCleanup); err != nil {
-			log.Errorf("PodUMount: cleanup mount points[%v] err: %s", pathsToCleanup, err.Error())
+			log.Errorf("PodUnmount: cleanup mount points[%v] err: %s", pathsToCleanup, err.Error())
 			return err
 		}
 	}
