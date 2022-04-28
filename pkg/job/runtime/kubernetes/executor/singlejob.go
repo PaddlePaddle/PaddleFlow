@@ -24,7 +24,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 
 	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/common/config"
 	"paddleflow/pkg/common/errors"
 	"paddleflow/pkg/common/k8s"
 	"paddleflow/pkg/common/schema"
@@ -60,17 +59,15 @@ func (sp *SingleJob) validateJob() error {
 func (sp *SingleJob) patchSinglePodVariable(pod *v1.Pod, jobID string) error {
 	// if pod's name exist, sp.Name should be overwritten
 	// metadata
-	sp.patchMetadata(&pod.ObjectMeta)
+	sp.patchMetadata(&pod.ObjectMeta, sp.ID)
 
 	if len(sp.QueueName) > 0 {
 		pod.Labels[schema.QueueLabelKey] = sp.QueueName
 		priorityClass := sp.getPriorityClass()
 		pod.Spec.PriorityClassName = priorityClass
 	}
-	// fill SchedulerName
-	pod.Spec.SchedulerName = config.GlobalServerConfig.Job.SchedulerName
-	// fill volumes
-	pod.Spec.Volumes = sp.appendVolumeIfAbsent(pod.Spec.Volumes, sp.generateVolume())
+	sp.fillPodSpec(&pod.Spec)
+
 	// file container
 	if err := sp.fillContainersInPod(pod); err != nil {
 		log.Errorf("failed to fill containers, err=%v", err)

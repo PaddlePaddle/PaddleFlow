@@ -1,4 +1,4 @@
-CREATE DATABASE IF NOT EXISTS paddleflow_db;
+CREATE DATABASE IF NOT EXISTS paddleflow_db DEFAULT CHARACTER SET utf8  COLLATE utf8_bin;
 
 CREATE TABLE IF NOT EXISTS `cluster_info` (
     `pk` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -72,13 +72,13 @@ CREATE TABLE IF NOT EXISTS `job` (
     `members` mediumtext DEFAULT NULL,
     `extension_template` text DEFAULT NULL,
     `parent_job` varchar(60) DEFAULT NULL,
-    `created_at` datetime(3) NULL DEFAULT CURRENT_TIMESTAMP,
+    `created_at` datetime(3) NULL DEFAULT CURRENT_TIMESTAMP(3),
     `activated_at` datetime(3) DEFAULT NULL,
-    `updated_at` datetime(3) NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    `deleted_at` datetime(3) DEFAULT NULL,
+    `updated_at` datetime(3) NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+    `deleted_at` varchar(64) DEFAULT '',
     PRIMARY KEY (`pk`),
     UNIQUE KEY `job_id` (`id`, `deleted_at`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
 
 CREATE TABLE IF NOT EXISTS `job_label` (
     `pk` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -89,7 +89,7 @@ CREATE TABLE IF NOT EXISTS `job_label` (
     `deleted_at` datetime(3) DEFAULT NULL,
     PRIMARY KEY (`pk`),
     UNIQUE KEY `idx_id` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
 
 CREATE TABLE IF NOT EXISTS `job_task` (
     `pk` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -108,7 +108,7 @@ CREATE TABLE IF NOT EXISTS `job_task` (
     `deleted_at` datetime(3) DEFAULT NULL,
     PRIMARY KEY (`pk`),
     UNIQUE KEY `idx_id` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
 
 CREATE TABLE IF NOT EXISTS `user` (
     `pk` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -119,7 +119,7 @@ CREATE TABLE IF NOT EXISTS `user` (
     `deleted_at` datetime DEFAULT NULL COMMENT 'delete time',
     PRIMARY KEY (`pk`),
     UNIQUE KEY (`name`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='user info table';
+) ENGINE=InnoDB DEFAULT CHARACTER SET utf8 COLLATE utf8_bin COMMENT='user info table';
 
 -- root user with initial password 'paddleflow'
 TRUNCATE `paddleflow`.`user`;
@@ -136,7 +136,7 @@ CREATE TABLE IF NOT EXISTS `grant` (
     `resource_id`   VARCHAR(36) NOT NULL,
     PRIMARY KEY (`pk`),
     UNIQUE KEY (`id`)
-)ENGINE=InnoDB DEFAULT CHARSET=utf8;
+)ENGINE=InnoDB DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
 
 CREATE TABLE IF NOT EXISTS `run` (
     `pk` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -163,7 +163,7 @@ CREATE TABLE IF NOT EXISTS `run` (
     UNIQUE KEY (`id`),
     INDEX (`fs_id`),
     INDEX (`status`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
 
 CREATE TABLE IF NOT EXISTS `run_job` (
     `pk` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -187,7 +187,7 @@ CREATE TABLE IF NOT EXISTS `run_job` (
     PRIMARY KEY (`pk`),
     INDEX (`run_id`),
     INDEX (`status`)
-)ENGINE=InnoDB DEFAULT CHARSET=utf8;
+)ENGINE=InnoDB DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
 
 CREATE TABLE IF NOT EXISTS `image` (
     `pk` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -204,7 +204,7 @@ CREATE TABLE IF NOT EXISTS `image` (
     UNIQUE KEY (`id`),
     INDEX (`fs_id`),
     INDEX (`image_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
 
 CREATE TABLE IF NOT EXISTS `pipeline` (
     `pk` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -223,7 +223,7 @@ CREATE TABLE IF NOT EXISTS `pipeline` (
     UNIQUE INDEX idx_fs_path (`fs_id`, `name`),
     UNIQUE INDEX idx_fs_md5 (`fs_id`, `pipeline_md5`),
     INDEX (`fs_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
 
 CREATE TABLE IF NOT EXISTS `run_cache` (
     `pk` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -247,7 +247,7 @@ CREATE TABLE IF NOT EXISTS `run_cache` (
     INDEX (`step`),
     INDEX (`fs_id`),
     INDEX (`strategy`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
 
 CREATE TABLE IF NOT EXISTS `artifact_event` (
     `pk` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -268,7 +268,7 @@ CREATE TABLE IF NOT EXISTS `artifact_event` (
     INDEX (`fs_id`),
     INDEX (`type`),
     INDEX (`run_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
 
 CREATE TABLE IF NOT EXISTS `filesystem` (
     `pk` bigint(20) unsigned NOT NULL AUTO_INCREMENT COMMENT 'pk',
@@ -283,7 +283,7 @@ CREATE TABLE IF NOT EXISTS `filesystem` (
     `properties` TEXT,
     PRIMARY KEY (`pk`),
     UNIQUE KEY (`id`)
-    )ENGINE=InnoDB DEFAULT CHARSET=utf8;
+    )ENGINE=InnoDB DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
 
 CREATE TABLE IF NOT EXISTS `link` (
     `pk` bigint(20) unsigned NOT NULL AUTO_INCREMENT COMMENT 'pk',
@@ -299,7 +299,7 @@ CREATE TABLE IF NOT EXISTS `link` (
     `properties` TEXT,
     PRIMARY KEY (`pk`),
     UNIQUE KEY (`id`)
-    )ENGINE=InnoDB DEFAULT CHARSET=utf8 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMMENT='file system';
+    )ENGINE=InnoDB DEFAULT CHARACTER SET utf8 COLLATE utf8_bin ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMMENT='file system';
 
 CREATE TABLE IF NOT EXISTS `fs_cache_config` (
     `pk` bigint(20) unsigned NOT NULL AUTO_INCREMENT COMMENT 'pk',
@@ -316,7 +316,7 @@ CREATE TABLE IF NOT EXISTS `fs_cache_config` (
     `deleted_at` datetime(3) DEFAULT NULL COMMENT 'delete time',
     PRIMARY KEY (`pk`),
     UNIQUE KEY (`fs_id`)
-    )ENGINE=InnoDB DEFAULT CHARSET=utf8 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMMENT='file system cache config';
+    )ENGINE=InnoDB DEFAULT CHARACTER SET utf8 COLLATE utf8_bin ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMMENT='file system cache config';
 
 CREATE TABLE IF NOT EXISTS `fs_cache` (
     `pk` bigint(20) unsigned NOT NULL AUTO_INCREMENT COMMENT 'pk',
@@ -334,7 +334,7 @@ CREATE TABLE IF NOT EXISTS `fs_cache` (
     UNIQUE KEY (`cache_id`),
     INDEX idx_fs_id (`fs_id`),
     INDEX idx_fs_id_nodename (`fs_id`,`nodename`)
-    )ENGINE=InnoDB DEFAULT CHARSET=utf8 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMMENT='manage file system cache ';
+    )ENGINE=InnoDB DEFAULT CHARACTER SET utf8 COLLATE utf8_bin ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMMENT='manage file system cache ';
 
 CREATE TABLE IF NOT EXISTS `paddleflow_node_info` (
     `pk` bigint(20) unsigned NOT NULL AUTO_INCREMENT COMMENT 'pk',
@@ -348,7 +348,7 @@ CREATE TABLE IF NOT EXISTS `paddleflow_node_info` (
     `deleted_at` datetime(3) DEFAULT NULL  COMMENT 'delete time',
     PRIMARY KEY (`pk`),
     UNIQUE INDEX idx_cluster_node (`cluster_id`,`nodename`)
-    )ENGINE=InnoDB DEFAULT CHARSET=utf8 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMMENT='all node info for compute node score for schedule or location awareness in the future';
+    )ENGINE=InnoDB DEFAULT CHARACTER SET utf8 COLLATE utf8_bin ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMMENT='all node info for compute node score for schedule or location awareness in the future';
 
 CREATE TABLE IF NOT EXISTS `fs_mount` (
     `pk` bigint(20) unsigned NOT NULL AUTO_INCREMENT COMMENT 'pk',
@@ -364,4 +364,4 @@ CREATE TABLE IF NOT EXISTS `fs_mount` (
     UNIQUE KEY (`mount_id`),
     INDEX idx_fs_id (`fs_id`),
     INDEX idx_fs_id_nodename (`fs_id`,`nodename`)
-    )ENGINE=InnoDB DEFAULT CHARSET=utf8 ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMMENT='manage file system mount';
+    )ENGINE=InnoDB DEFAULT CHARACTER SET utf8 COLLATE utf8_bin ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMMENT='manage file system mount';

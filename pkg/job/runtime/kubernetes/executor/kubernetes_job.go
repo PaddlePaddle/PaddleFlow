@@ -276,6 +276,17 @@ func (j *KubeJob) createJobFromYaml(jobEntity interface{}) error {
 	return nil
 }
 
+// fill PodSpec
+func (j *KubeJob) fillPodSpec(podSpec *corev1.PodSpec) {
+	// fill SchedulerName
+	podSpec.SchedulerName = config.GlobalServerConfig.Job.SchedulerName
+	// fill volumes
+	podSpec.Volumes = j.appendVolumeIfAbsent(podSpec.Volumes, j.generateVolume())
+	if j.isNeedPatch(string(podSpec.RestartPolicy)) {
+		podSpec.RestartPolicy = corev1.RestartPolicyNever
+	}
+}
+
 // todo: to be removed
 // fillContainerInVcJob fill container in job task, only called by vcjob
 func (j *KubeJob) fillContainerInVcJob(container *corev1.Container, flavourKey, command string) {
@@ -403,8 +414,8 @@ func (j *KubeJob) generateResourceRequirements(flavour schema.Flavour) corev1.Re
 	return resources
 }
 
-func (j *KubeJob) patchMetadata(metadata *metav1.ObjectMeta) {
-	metadata.Name = j.ID
+func (j *KubeJob) patchMetadata(metadata *metav1.ObjectMeta, name string) {
+	metadata.Name = name
 	metadata.Namespace = j.Namespace
 	metadata.Annotations = j.appendAnnotationsIfAbsent(metadata.Annotations, j.Annotations)
 	metadata.Labels = j.appendLabelsIfAbsent(metadata.Labels, j.Labels)
