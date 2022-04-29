@@ -65,7 +65,9 @@ func TestK8sQuantity(t *testing.T) {
 	} else {
 		t.Logf(rNegativem.String())
 	}
-
+	_, err = resource.ParseQuantity("")
+	assert.Error(t, err)
+	t.Logf("%v", err)
 }
 
 func TestCheckResource(t *testing.T) {
@@ -78,6 +80,7 @@ func TestCheckResource(t *testing.T) {
 		{"-1", "cpu", true},
 		{"0", "cpu", true},
 		{"0.1", "cpu", false},
+		{"", "cpu", true},
 
 		{"1", "memory", false},
 		{"-1", "memory", true},
@@ -91,25 +94,19 @@ func TestCheckResource(t *testing.T) {
 	}
 
 	for _, res := range reses {
+		var err error
 		switch res.resType {
 		case "cpu":
-			if res.expectErr {
-				assert.Error(t, CheckCPUResource(res.res))
-			} else {
-				assert.NoError(t, CheckCPUResource(res.res))
-			}
+			err = CheckCPUResource(res.res)
 		case "memory":
-			if res.expectErr {
-				assert.Error(t, CheckMemoryResource(res.res))
-			} else {
-				assert.NoError(t, CheckMemoryResource(res.res))
-			}
+			err = CheckMemoryResource(res.res)
 		default:
-			if res.expectErr {
-				assert.Error(t, CheckScalarResource(res.res))
-			} else {
-				assert.NoError(t, CheckScalarResource(res.res))
-			}
+			err = CheckScalarResource(res.res)
+		}
+		if res.expectErr {
+			assert.Error(t, err)
+		} else {
+			assert.NoError(t, err)
 		}
 	}
 }

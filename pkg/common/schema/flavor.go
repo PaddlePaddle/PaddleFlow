@@ -179,34 +179,34 @@ func CheckReg(str, pattern string) bool {
 	return ret
 }
 
-// CheckResource check if the resource is valid,
-// signLimit is -1 would permit the resource to be positive, 0 or negative
-// signLimit is 0 would permit the resource to be 0 or positive
-// signLimit is 1 would permit the resource to be only positive
-func CheckResource(res string, signLimit int) error {
-	if res == "" {
-		return fmt.Errorf("resource is empty")
-	}
-	if q, err := resource.ParseQuantity(res); err != nil {
+func CheckScalarResource(res string) error {
+	q, err := resource.ParseQuantity(res)
+	if err != nil {
 		return err
-	} else if signLimit > 0 && (q.IsZero() || q.Sign() < 0) {
-		return fmt.Errorf("resource cannot be negative")
-	} else if signLimit == 0 && q.Sign() < 0 {
-		return fmt.Errorf("resource cannot be zero")
+	} else if q.Sign() < 0 {
+		return fmt.Errorf("cpu cannot be negative")
 	}
 	return nil
 }
 
-func CheckScalarResource(res string) error {
-	return CheckResource(res, 0)
-}
-
 func CheckCPUResource(res string) error {
-	return CheckResource(res, 1)
+	q, err := resource.ParseQuantity(res)
+	if err != nil {
+		return err
+	} else if q.IsZero() || q.Sign() < 0 {
+		return fmt.Errorf("cpu cannot be negative")
+	}
+	return nil
 }
 
 func CheckMemoryResource(res string) error {
-	return CheckResource(res, 1)
+	q, err := resource.ParseQuantity(res)
+	if err != nil {
+		return err
+	} else if q.IsZero() || q.Sign() < 0 {
+		return fmt.Errorf("cpu cannot be negative")
+	}
+	return nil
 }
 
 // ValidateScalarResourceInfo validate scalar resource info
