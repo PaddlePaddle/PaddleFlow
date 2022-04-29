@@ -280,7 +280,7 @@ func (j *KubeJob) createJobFromYaml(jobEntity interface{}) error {
 func (j *KubeJob) fillPodSpec(podSpec *corev1.PodSpec, task *models.Member) {
 	if task != nil {
 		j.Priority = task.Priority
-		podSpec.Volumes = j.appendVolumeIfAbsent(podSpec.Volumes, j.generateVolume())
+		// todo(zhongzichao) fill task.ExtraFileSystem
 	}
 	podSpec.PriorityClassName = j.getPriorityClass()
 	// fill SchedulerName
@@ -289,11 +289,6 @@ func (j *KubeJob) fillPodSpec(podSpec *corev1.PodSpec, task *models.Member) {
 	podSpec.Volumes = j.appendVolumeIfAbsent(podSpec.Volumes, j.generateVolume())
 	if j.isNeedPatch(string(podSpec.RestartPolicy)) {
 		podSpec.RestartPolicy = corev1.RestartPolicyNever
-	}
-
-	if task != nil {
-		podSpec.PriorityClassName = task.Priority
-		podSpec.Volumes = j.appendVolumeIfAbsent(podSpec.Volumes, j.generateVolume())
 	}
 }
 
