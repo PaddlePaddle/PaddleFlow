@@ -27,7 +27,7 @@ import (
 
 type CacheReportRequest struct {
 	FsName    string `json:"fsName" validate:"required"`
-	Username  string `json:"userName"`
+	Username  string `json:"username"`
 	ClusterID string `json:"clusterID"`
 	CacheDir  string `json:"cacheDir" validate:"required"`
 	NodeName  string `json:"nodename" validate:"required"`

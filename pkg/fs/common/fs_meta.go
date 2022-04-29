@@ -16,6 +16,8 @@ limitations under the License.
 
 package common
 
+import "strings"
+
 const (
 	LocalType            = "local"
 	HDFSType             = "hdfs"
@@ -84,4 +86,11 @@ type FSMeta struct {
 	Properties    map[string]string
 	// type: fs 表示是默认的后端存储；link 表示是外部存储
 	Type string
+}
+
+func GetFsNameAndUserNameByFsID(fsID string) (userName string, fsName string) {
+	fsArray := strings.Split(fsID, "-")
+	userName = strings.Join(fsArray[1:len(fsArray)-1], "")
+	fsName = fsArray[len(fsArray)-1]
+	return userName, fsName
 }

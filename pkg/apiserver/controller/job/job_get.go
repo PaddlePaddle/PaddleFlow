@@ -96,6 +96,12 @@ type WorkflowRuntimeInfo struct {
 
 func ListJob(ctx *logger.RequestContext, request ListJobRequest) (*ListJobResponse, error) {
 	ctx.Logging().Debugf("begin list job.")
+	if err := CheckPermission(ctx); err != nil {
+		ctx.ErrorCode = common.ActionNotAllowed
+		ctx.Logging().Errorln(err.Error())
+		return nil, err
+	}
+
 	var pk int64
 	var err error
 	if request.Marker != "" {
@@ -107,11 +113,7 @@ func ListJob(ctx *logger.RequestContext, request ListJobRequest) (*ListJobRespon
 			return nil, err
 		}
 	}
-	// normal user list its own
-	var userFilter string = common.UserRoot
-	if !common.IsRootUser(ctx.UserName) {
-		userFilter = ctx.UserName
-	}
+
 	timestampStr := ""
 	if request.Timestamp != 0 {
 		timestampStr = time.Unix(request.Timestamp, 0).Format(models.TimeFormat)
@@ -128,7 +130,7 @@ func ListJob(ctx *logger.RequestContext, request ListJobRequest) (*ListJobRespon
 		queueID = queue.ID
 	}
 	// model list
-	jobList, err := models.ListJob(pk, request.MaxKeys, queueID, request.Status, request.StartTime, timestampStr, userFilter, request.Labels)
+	jobList, err := models.ListJob(pk, request.MaxKeys, queueID, request.Status, request.StartTime, timestampStr, common.UserRoot, request.Labels)
 	if err != nil {
 		ctx.Logging().Errorf("models list job failed. err:[%s]", err.Error())
 		ctx.ErrorCode = common.InternalError
@@ -166,17 +168,17 @@ func ListJob(ctx *logger.RequestContext, request ListJobRequest) (*ListJobRespon
 }
 
 func GetJob(ctx *logger.RequestContext, jobID string) (*GetJobResponse, error) {
+	if err := CheckPermission(ctx); err != nil {
+		ctx.ErrorCode = common.ActionNotAllowed
+		ctx.Logging().Errorln(err.Error())
+		return nil, err
+	}
+
 	job, err := models.GetJobByID(jobID)
 	if err != nil {
 		ctx.ErrorCode = common.JobNotFound
 		ctx.Logging().Errorln(err.Error())
 		return nil, common.NotFoundError(common.ResourceTypeJob, jobID)
-	}
-	if !common.IsRootUser(ctx.UserName) && ctx.UserName != job.UserName {
-		err := common.NoAccessError(ctx.UserName, common.ResourceTypeJob, jobID)
-		ctx.ErrorCode = common.AccessDenied
-		ctx.Logging().Errorln(err.Error())
-		return nil, err
 	}
 	response, err := convertJobToResponse(job, true)
 	if err != nil {

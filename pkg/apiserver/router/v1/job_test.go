@@ -130,9 +130,6 @@ func TestCreateJob(t *testing.T) {
 						Flavour: schema.Flavour{
 							Name: flavourName,
 						},
-						FileSystem: schema.FileSystem{
-							Name: MockFsName1,
-						},
 					},
 				},
 			},
