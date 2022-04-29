@@ -25,14 +25,12 @@ import (
 
 	"paddleflow/pkg/common/http/api"
 	"paddleflow/pkg/common/http/core"
-	"paddleflow/pkg/fs/csiplugin/mount"
 )
 
-func ReportCacheLoop(cacheReport api.CacheReportParams, httpClient *core.PFClient) error {
+func ReportCacheLoop(cacheReport api.CacheReportParams, podCachePath string, httpClient *core.PFClient) error {
 	var err, errStat error
 	var usageStat *disk.UsageStat
 	for {
-		podCachePath := mount.CachePath
 		usageStat, errStat = disk.Usage(podCachePath)
 		if errStat != nil {
 			log.Errorf("disk stat path[%s] and err[%v]", podCachePath, errStat)

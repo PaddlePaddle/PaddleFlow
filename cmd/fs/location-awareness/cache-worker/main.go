@@ -17,7 +17,10 @@ limitations under the License.
 package main
 
 import (
+	"errors"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -99,6 +102,7 @@ func act(c *cli.Context) error {
 	}
 	fsID := c.String("fsID")
 	cacheDir := c.String("cacheDir")
+	podCachePath := c.String("podCachePath")
 	nodName := c.String("nodename")
 	clusterID := c.String("clusterID")
 
@@ -114,10 +118,13 @@ func act(c *cli.Context) error {
 		NodeName:  nodName,
 	}
 	go func() {
-		_ = location_awareness.ReportCacheLoop(cacheReportParams, httpClient)
+		_ = location_awareness.ReportCacheLoop(cacheReportParams, podCachePath, httpClient)
 	}()
 
-	select {}
+	stopSig := make(chan os.Signal, 1)
+	signal.Notify(stopSig, syscall.SIGTERM, syscall.SIGINT)
+	sig := <-stopSig
+	log.Errorf("ReportCacheLoop stopped err: %s", sig.String())
 
-	return nil
+	return errors.New(sig.String())
 }
