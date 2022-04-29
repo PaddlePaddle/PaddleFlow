@@ -184,8 +184,10 @@ func CheckResource(res string) error {
 	if res == "" {
 		return fmt.Errorf("resource is empty")
 	}
-	if _, err := resource.ParseQuantity(res); err != nil {
+	if q, err := resource.ParseQuantity(res); err != nil {
 		return err
+	} else if q.Sign() < 0 {
+		return fmt.Errorf("resource is negative")
 	}
 	return nil
 }
