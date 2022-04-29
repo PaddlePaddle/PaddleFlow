@@ -61,7 +61,7 @@ var (
 	//})
 )
 
-func UpdateMetrics( /*m meta.Meta*/ ) {
+func UpdateBaseMetrics( /*m meta.Meta*/ ) {
 	prometheus.MustRegister(cpu)
 	prometheus.MustRegister(memory)
 	prometheus.MustRegister(uptime)

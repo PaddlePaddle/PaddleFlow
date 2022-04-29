@@ -124,20 +124,11 @@ func setup(c *cli.Context) error {
 		log.Errorf("init vfs failed: %v", err)
 		return err
 	}
-	go metric.UpdateMetrics()
-
-	if !c.Bool("local") {
-		stopChan := make(chan struct{})
-		defer close(stopChan)
-		if !c.Bool("skip-check-links") {
-			f := func() {
-				if err := vfs.GetVFS().Meta.LinksMetaUpdateHandler(stopChan,
-					c.Int("link-update-interval"), c.String("link-meta-dir-prefix")); err != nil {
-					log.Errorf("mount setup() vfs.GetVFS().Meta.LinksMetaUpdateHandler err: %v", err)
-				}
-			}
-			go f()
-		}
+	go metric.UpdateBaseMetrics()
+	// whether start metrics server
+	if c.Bool("metrics-service-on") {
+		metricsAddr := exposeMetricsService(c.String("server"), c.Int("metrics-service-port"))
+		log.Debugf("mount opts: %+v, metricsAddr: %s", opts, metricsAddr)
 	}
 
 	if c.Bool("pprof-enable") {
@@ -151,16 +142,10 @@ func setup(c *cli.Context) error {
 			}
 		}()
 	}
-
-	if c.Bool("metrics-service-on") {
-		metricsAddr := exposeMetrics(c.String("server"), c.Int("metrics-service-port"))
-		log.Debugf("mount opts: %+v, metricsAddr: %s", opts, metricsAddr)
-	}
-
 	return nil
 }
 
-func exposeMetrics(hostServer string, port int) string {
+func exposeMetricsService(hostServer string, port int) string {
 	// default set
 	ip, _, err := net.SplitHostPort(hostServer)
 	if err != nil {
@@ -202,6 +187,20 @@ func mount(c *cli.Context) error {
 	if err := setup(c); err != nil {
 		log.Errorf("mount setup() err: %v", err)
 		return err
+	}
+
+	if !c.Bool("local") {
+		stopChan := make(chan struct{})
+		defer close(stopChan)
+		if !c.Bool("skip-check-links") {
+			f := func() {
+				if err := vfs.GetVFS().Meta.LinksMetaUpdateHandler(stopChan,
+					c.Int("link-update-interval"), c.String("link-meta-dir-prefix")); err != nil {
+					log.Errorf("mount setup() vfs.GetVFS().Meta.LinksMetaUpdateHandler err: %v", err)
+				}
+			}
+			go f()
+		}
 	}
 
 	log.Debugf("start mount service")
