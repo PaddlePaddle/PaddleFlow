@@ -306,7 +306,7 @@ CREATE TABLE IF NOT EXISTS `fs_cache_config` (
     `fs_id` varchar(36) NOT NULL COMMENT 'file system id',
     `cache_dir` varchar(4096) NOT NULL COMMENT 'cache dir, e.g. /var/pfs_cache',
     `quota` bigint(20) NOT NULL COMMENT 'cache quota',
-    `blocksize` int(5) NOT NULL COMMENT 'cache blocksize',
+    `block_size` int(5) NOT NULL COMMENT 'cache blocksize',
     `cache_type` varchar(32) NOT NULL COMMENT 'cache type，e.g. disk/memory',
     `extra_config` text  COMMENT 'extra cache config',
     `node_affinity` text  COMMENT 'node affinity，e.g. node affinity in k8s',
