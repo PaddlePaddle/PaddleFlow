@@ -73,14 +73,16 @@ class ClusterServiceApi(object):
         return True, data['id']
 
     @classmethod
-    def list_cluster(self, host, maxkeys=None, marker=None, clusternames=None, clusterstatus=None, header=None):
+    def list_cluster(self, host, maxkeys=50, marker=None, clusternames=None, clusterstatus=None, header=None):
         """list cluster 
         """
         if not header:
             raise PaddleFlowSDKException("InvalidRequest", "paddleflow should login first")
-        params = {}
-        if maxkeys:
-            params['maxKeys'] = maxkeys
+        if not isinstance(maxkeys, int) or maxkeys <= 0:
+            raise PaddleFlowSDKException("InvalidRequest", "maxkeys should be int and greater than 0")
+        params = {
+            "maxKeys": maxkeys
+        }
         if marker:
             params['marker'] = marker
         if clusternames:
