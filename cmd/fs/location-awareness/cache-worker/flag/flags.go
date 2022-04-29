@@ -41,6 +41,11 @@ func CacheWorkerFlags() []cli.Flag {
 			Usage: "cacheDir",
 		},
 		&cli.StringFlag{
+			Name:  "podCachePath",
+			Value: "",
+			Usage: "podCachePath",
+		},
+		&cli.StringFlag{
 			Name:  "server",
 			Value: "",
 			Usage: "server",
