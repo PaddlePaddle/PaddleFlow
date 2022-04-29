@@ -73,7 +73,7 @@ class ClusterServiceApi(object):
         return True, data['id']
 
     @classmethod
-    def list_cluster(self, host, maxkeys=50, marker=None, clusternames=None, clusterstatus=None, header=None):
+    def list_cluster(self, host, maxkeys=100, marker=None, clusternames=None, clusterstatus=None, header=None):
         """list cluster 
         """
         if not header:
