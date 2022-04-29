@@ -49,11 +49,11 @@ const (
 	VolumesKeyMetaCache = "meta-cache"
 	HostPathMnt         = "/data/paddleflow-fs/mnt"
 	MountDir            = "/home/paddleflow/mnt"
+	CacheWorkerBin      = "/home/paddleflow/cache-worker"
 	MountPoint          = MountDir + "/storage"
 	CachePath           = "/home/paddleflow/pfs-cache"
 	DataCacheDir        = "/data-cache"
 	MetaCacheDir        = "/meta-cache"
-	HostMountPoint      = HostPathMnt + "/%s/storage" // /home/paddleflow/mnt/{fsID}/storage
 
 	AnnoKeyServer = "server"
 	AnnoKeyFsID   = "fsID"
@@ -207,6 +207,9 @@ func createMountPod(k8sClient k8s.K8SInterface, httpClient *core.PFClient, volum
 	if err != nil {
 		if strings.Contains(err.Error(), gorm.ErrRecordNotFound.Error()) {
 			log.Infof("fs[%s] has not set cacheConfig. mount with default settings.", mountInfo.FSID)
+			if cacheConfig.CacheDir == "" {
+				cacheConfig.CacheDir = HostPathMnt + "/" + mountInfo.FSID
+			}
 		} else {
 			log.Errorf("get fs[%s] cacheConfig from pfs server[%s] failed: %v",
 				mountInfo.FSID, mountInfo.Server, err)
@@ -215,13 +218,20 @@ func createMountPod(k8sClient k8s.K8SInterface, httpClient *core.PFClient, volum
 	}
 	// create pod
 	newPod := BuildMountPod(volumeID, mountInfo, cacheConfig)
-	newPod = BuildCacheWorkerPod(newPod, mountInfo)
 	_, err = k8sClient.CreatePod(newPod)
 	if err != nil {
 		log.Errorf("createMount: Create pod for fsID %s err: %v", mountInfo.FSID, err)
 		return err
 	}
 	return nil
+}
+
+func BuildMountPod(volumeID string, mountInfo pfs.MountInfo, cacheConf common.FsCacheConfig) *v1.Pod {
+	pod := csiconfig.GeneratePodTemplate()
+	pod.Name = GeneratePodNameByFsID(volumeID)
+	buildMountContainer(pod, mountInfo, cacheConf)
+	buildCacheWorkerContainer(pod, mountInfo, cacheConf)
+	return pod
 }
 
 func GeneratePodNameByFsID(volumeID string) string {
@@ -283,8 +293,8 @@ func getErrContainerLog(K8sClient k8s.K8SInterface, podName string) (log string,
 	return
 }
 
-func BuildCacheWorkerPod(pod *v1.Pod, mountInfo pfs.MountInfo) *v1.Pod {
-	cmd := getCacheWorkerCmd(mountInfo)
+func buildCacheWorkerContainer(pod *v1.Pod, mountInfo pfs.MountInfo, cacheConf common.FsCacheConfig) {
+	cmd := getCacheWorkerCmd(mountInfo, cacheConf)
 	pod.Spec.Containers[1].Command = []string{"sh", "-c", cmd}
 	mp := corev1.MountPropagationBidirectional
 	volumeMounts := []corev1.VolumeMount{
@@ -300,13 +310,10 @@ func BuildCacheWorkerPod(pod *v1.Pod, mountInfo pfs.MountInfo) *v1.Pod {
 		},
 	}
 	pod.Spec.Containers[1].VolumeMounts = volumeMounts
-	return pod
 }
 
-func BuildMountPod(volumeID string, mountInfo pfs.MountInfo, cacheConf common.FsCacheConfig) *v1.Pod {
-	pod := csiconfig.GeneratePodTemplate()
-	pod.Name = GeneratePodNameByFsID(volumeID)
-	cmd := getcmd(mountInfo, cacheConf)
+func buildMountContainer(pod *v1.Pod, mountInfo pfs.MountInfo, cacheConf common.FsCacheConfig) {
+	cmd := getMountCmd(mountInfo, cacheConf)
 	pod.Spec.Containers[0].Command = []string{"sh", "-c", cmd}
 	statCmd := "stat -c %i " + MountPoint
 	pod.Spec.Containers[0].ReadinessProbe = &corev1.Probe{
@@ -326,10 +333,6 @@ func BuildMountPod(volumeID string, mountInfo pfs.MountInfo, cacheConf common.Fs
 	pod.Annotations = make(map[string]string)
 	pod.Annotations[AnnoKeyServer] = mountInfo.Server
 	pod.Annotations[AnnoKeyFsID] = mountInfo.FSID
-
-	if cacheConf.CacheDir == "" {
-		cacheConf.CacheDir = HostPathMnt + "/" + mountInfo.FSID
-	}
 
 	typeDir := corev1.HostPathDirectoryOrCreate
 	volumes := []corev1.Volume{
@@ -382,10 +385,9 @@ func BuildMountPod(volumeID string, mountInfo pfs.MountInfo, cacheConf common.Fs
 	}
 	pod.Spec.Volumes = volumes
 	pod.Spec.Containers[0].VolumeMounts = volumeMounts
-	return pod
 }
 
-func getcmd(mountInfo pfs.MountInfo, cacheConf common.FsCacheConfig) string {
+func getMountCmd(mountInfo pfs.MountInfo, cacheConf common.FsCacheConfig) string {
 	mkdir := "mkdir -p " + MountPoint + ";"
 	pfsMountPath := "/home/paddleflow/pfs-fuse mount "
 	mountPath := "--mount-point=" + MountPoint + " "
@@ -402,16 +404,16 @@ func getcmd(mountInfo pfs.MountInfo, cacheConf common.FsCacheConfig) string {
 	return cmd
 }
 
-func getCacheWorkerCmd(mountInfo pfs.MountInfo) string {
-	cacheWorker := "/home/paddleflow/cache-worker "
+func getCacheWorkerCmd(mountInfo pfs.MountInfo, cacheConf common.FsCacheConfig) string {
 	options := []string{
 		"--server=" + mountInfo.Server,
 		"--username=" + mountInfo.UsernameRoot,
 		"--password=" + mountInfo.PasswordRoot,
-		"--cacheDir=" + CachePath,
+		"--podCachePath=" + CachePath,
+		"--cacheDir=" + cacheConf.CacheDir,
 		"--nodename=" + csiconfig.NodeName,
 		"--clusterID=" + mountInfo.ClusterID,
 		"--fsID=" + mountInfo.FSID,
 	}
-	return cacheWorker + strings.Join(options, " ")
+	return CacheWorkerBin + " " + strings.Join(options, " ")
 }
