@@ -247,6 +247,12 @@ func (c *Conf) GetQueueName() string {
 	return c.Env[EnvJobQueueName]
 }
 
+// SetQueueName set queue name
+func (c *Conf) SetQueueName(queueName string) {
+	c.preCheckEnv()
+	c.Env[EnvJobQueueName] = queueName
+}
+
 func (c *Conf) GetClusterName() string {
 	return c.Env[EnvJobClusterName]
 }

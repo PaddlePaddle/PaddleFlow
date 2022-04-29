@@ -58,6 +58,14 @@ func TestK8sQuantity(t *testing.T) {
 	} else {
 		t.Logf(r4.String())
 	}
+
+	rNegativem, err := resource.ParseQuantity("-1")
+	if err != nil {
+		t.Logf("parse quantity error: %v", err)
+	} else {
+		t.Logf(rNegativem.String())
+	}
+
 }
 
 func TestResourceInfo_LessEqual(t *testing.T) {
