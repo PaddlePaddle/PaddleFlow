@@ -109,7 +109,7 @@ func (job *Job) AfterFind(tx *gorm.DB) error {
 		var runtime interface{}
 		err := json.Unmarshal([]byte(job.RuntimeInfoJson), &runtime)
 		if err != nil {
-			log.Errorf("job[%s] json unmarshal runtime failed, error:[%s]", job.ID, err.Error())
+			log.Errorf("job[%s] json unmarshal runtime failed, error: %s", job.ID, err.Error())
 			return err
 		}
 		job.RuntimeInfo = runtime
@@ -118,7 +118,7 @@ func (job *Job) AfterFind(tx *gorm.DB) error {
 		var members []Member
 		err := json.Unmarshal([]byte(job.MembersJson), &members)
 		if err != nil {
-			log.Errorf("job[%s] json unmarshal member failed, error:[%s]", job.ID, err.Error())
+			log.Errorf("job[%s] json unmarshal member failed, error: %s", job.ID, err.Error())
 			return err
 		}
 		job.Members = members
@@ -127,7 +127,7 @@ func (job *Job) AfterFind(tx *gorm.DB) error {
 		conf := schema.Conf{}
 		err := json.Unmarshal([]byte(job.ConfigJson), &conf)
 		if err != nil {
-			log.Errorf("job[%s] json unmarshal config failed, error:[%s]", job.ID, err.Error())
+			log.Errorf("job[%s] json unmarshal config failed, error: %s", job.ID, err.Error())
 			return err
 		}
 		job.Config = &conf
@@ -170,7 +170,7 @@ func GetJobStatusByID(jobID string) (schema.JobStatus, error) {
 }
 
 func DeleteJob(jobID string) error {
-	t := database.DB.Table("job").Where("id = ?", jobID).UpdateColumn("deleted_at", time.Now().Format(TimeFormat))
+	t := database.DB.Table("job").Where("id = ?", jobID).Where("deleted_at = ''").UpdateColumn("deleted_at", time.Now().Format(TimeFormat))
 	if t.Error != nil {
 		return t.Error
 	}
@@ -230,7 +230,7 @@ func UpdateJob(jobID string, status schema.JobStatus, info interface{}, message 
 		job.ActivatedAt.Time = time.Now()
 		job.ActivatedAt.Valid = true
 	}
-	tx := database.DB.Table("job").Where("id = ?", jobID).Where("deleted_at = ''").Save(&job)
+	tx := database.DB.Table("job").Where("id = ?", jobID).Where("deleted_at = ''").Updates(&job)
 	if tx.Error != nil {
 		logger.LoggerForJob(jobID).Errorf("update job failed, err %v", tx.Error)
 		return "", tx.Error
