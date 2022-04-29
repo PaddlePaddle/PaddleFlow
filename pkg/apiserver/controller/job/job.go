@@ -17,7 +17,6 @@ limitations under the License.
 package job
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/ghodss/yaml"
@@ -115,26 +114,22 @@ func CreateSingleJob(ctx *logger.RequestContext, request *CreateSingleJobRequest
 		return nil, err
 	}
 
-	// validate request
-	if request.SchedulingPolicy.QueueID == "" {
-		return nil, fmt.Errorf("schedulingPolicy.queueID is required")
+	flavour, err := getFlavourWithCheck(request.Flavour)
+	if err != nil {
+		log.Errorf("get flavour failed, err=%v", err)
+		return nil, err
+	}
+	extensionTemplate, err := newExtensionTemplate(request.ExtensionTemplate)
+	if err != nil {
+		log.Errorf("parse extension template failed, err=%v", err)
+		return nil, err
 	}
 	// validate FileSystem
 	if err := validateFileSystem(request.FileSystem, request.UserName); err != nil {
 		return nil, err
 	}
 	// parse job template
-	extensionTemplate := request.ExtensionTemplate
-	if extensionTemplate != "" {
-		bytes, err := yaml.JSONToYAML([]byte(request.ExtensionTemplate))
-		if err != nil {
-			log.Errorf("Failed to parse extension template to yaml: %v", err)
-			return nil, err
-		}
-		extensionTemplate = string(bytes)
-	} else {
-		extensionTemplate = ""
-	}
+
 	// new job conf and set values
 	conf := schema.Conf{
 		Name: request.Name,
@@ -142,7 +137,7 @@ func CreateSingleJob(ctx *logger.RequestContext, request *CreateSingleJobRequest
 		FileSystem:      request.FileSystem,
 		ExtraFileSystem: request.ExtraFileSystems,
 		// 计算资源
-		Flavour:  request.Flavour,
+		Flavour:  flavour,
 		Priority: request.SchedulingPolicy.Priority,
 		// 运行时需要的参数
 		Labels:      request.Labels,
@@ -180,6 +175,21 @@ func CreateSingleJob(ctx *logger.RequestContext, request *CreateSingleJobRequest
 		ID: jobInfo.ID,
 	}
 	return response, nil
+}
+
+// newExtensionTemplate parse extensionTemplate
+func newExtensionTemplate(extensionTemplate string) (string, error) {
+	if extensionTemplate != "" {
+		bytes, err := yaml.JSONToYAML([]byte(extensionTemplate))
+		if err != nil {
+			log.Errorf("Failed to parse extension template to yaml: %v", err)
+			return "", err
+		}
+		extensionTemplate = string(bytes)
+	} else {
+		extensionTemplate = ""
+	}
+	return extensionTemplate, nil
 }
 
 func patchSingleConf(conf *schema.Conf, request *CreateSingleJobRequest) error {
@@ -246,6 +256,12 @@ func CreateDistributedJob(ctx *logger.RequestContext, request *CreateDisJobReque
 		ctx.Logging().Errorln(err.Error())
 		return nil, err
 	}
+	var err error
+	extensionTemplate, err := newExtensionTemplate(request.ExtensionTemplate)
+	if err != nil {
+		log.Errorf("parse extension template failed, err=%v", err)
+		return nil, err
+	}
 
 	jobInfo := &models.Job{
 		ID:                request.ID,
@@ -255,7 +271,7 @@ func CreateDistributedJob(ctx *logger.RequestContext, request *CreateDisJobReque
 		Type:              string(schema.TypeDistributed),
 		Status:            schema.StatusJobInit,
 		Framework:         request.Framework,
-		ExtensionTemplate: request.ExtensionTemplate,
+		ExtensionTemplate: extensionTemplate,
 	}
 
 	conf := schema.Conf{
@@ -270,7 +286,6 @@ func CreateDistributedJob(ctx *logger.RequestContext, request *CreateDisJobReque
 		return nil, err
 	}
 	// set roles for members
-	var err error
 
 	jobMode, err := validateJobMode(ctx, request)
 	if err != nil || jobMode == "" {
@@ -286,10 +301,16 @@ func CreateDistributedJob(ctx *logger.RequestContext, request *CreateDisJobReque
 			return nil, fmt.Errorf("replicas must be greater than 1")
 		}
 		conf.SetEnv(schema.EnvJobMode, schema.EnvJobModeCollective)
-		jobInfo.Members, err = newCollectiveMembers(request)
+		if jobInfo.Members, err = newCollectiveMembers(request); err != nil {
+			log.Errorf("create job with collective members failed, err=%v", err)
+			return nil, err
+		}
 	case schema.EnvJobModePS:
 		conf.SetEnv(schema.EnvJobMode, schema.EnvJobModePS)
-		jobInfo.Members, err = newPSMembers(request)
+		if jobInfo.Members, err = newPSMembers(request); err != nil {
+			log.Errorf("create job with ps members failed, err=%v", err)
+			return nil, err
+		}
 	default:
 		log.Errorf("invalid members number, cannot recognize job mode %s", jobMode)
 		return nil, fmt.Errorf("invalid job mode %s", jobMode)
@@ -395,7 +416,10 @@ func newMember(member MemberSpec, role schema.MemberRole) (models.Member, error)
 		log.Errorf("get flavour failed, err=%v", err)
 		return models.Member{}, err
 	}
-
+	if member.Replicas < 1 {
+		log.Errorf("member with invalid replicas %d", member.Replicas)
+		return models.Member{}, fmt.Errorf("invalid replicas %d", member.Replicas)
+	}
 	return models.Member{
 		ID:       member.ID,
 		Role:     role,
@@ -431,9 +455,9 @@ func getFlavourWithCheck(reqFlavour schema.Flavour) (schema.Flavour, error) {
 		return reqFlavour, nil
 	}
 	flavour, err := models.GetFlavour(reqFlavour.Name)
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+	if err != nil {
 		log.Errorf("Get flavour by name %s failed when creating job, err=%v", flavour.Name, err)
-		return schema.Flavour{}, err
+		return schema.Flavour{}, fmt.Errorf("get flavour[%s] failed, err=%v", flavour.Name, err)
 	}
 	return schema.Flavour{
 		Name: flavour.Name,
