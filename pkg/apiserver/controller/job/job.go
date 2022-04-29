@@ -17,7 +17,6 @@ limitations under the License.
 package job
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/ghodss/yaml"
@@ -450,7 +449,7 @@ func getFlavourWithCheck(reqFlavour schema.Flavour) (schema.Flavour, error) {
 		return reqFlavour, nil
 	}
 	flavour, err := models.GetFlavour(reqFlavour.Name)
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+	if err != nil {
 		log.Errorf("Get flavour by name %s failed when creating job, err=%v", flavour.Name, err)
 		return schema.Flavour{}, err
 	}
