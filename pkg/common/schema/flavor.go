@@ -179,15 +179,35 @@ func CheckReg(str, pattern string) bool {
 	return ret
 }
 
-// CheckResource check if the resource is valid
-func CheckResource(res string) error {
-	if res == "" {
-		return fmt.Errorf("resource is empty")
-	}
-	if q, err := resource.ParseQuantity(res); err != nil {
+func CheckScalarResource(res string) error {
+	q, err := resource.ParseQuantity(res)
+	if err != nil {
 		return err
-	} else if q.Sign() < 0 {
-		return fmt.Errorf("resource is negative")
+	}
+	if q.Sign() < 0 {
+		return fmt.Errorf("resource cannot be negative")
+	}
+	return nil
+}
+
+func CheckCPUResource(res string) error {
+	q, err := resource.ParseQuantity(res)
+	if err != nil {
+		return err
+	}
+	if q.IsZero() || q.Sign() < 0 {
+		return fmt.Errorf("cpu cannot be negative")
+	}
+	return nil
+}
+
+func CheckMemoryResource(res string) error {
+	q, err := resource.ParseQuantity(res)
+	if err != nil {
+		return err
+	}
+	if q.IsZero() || q.Sign() < 0 {
+		return fmt.Errorf("memory cannot be negative")
 	}
 	return nil
 }
@@ -199,7 +219,7 @@ func ValidateScalarResourceInfo(scalarResources ScalarResourcesType, scalarResou
 		if !isValidScalarResource(resourceName, scalarResourcesType) {
 			return errors.InvalidScaleResourceError(resourceName)
 		}
-		if err := CheckResource(v); err != nil {
+		if err := CheckScalarResource(v); err != nil {
 			return fmt.Errorf("%s %v", resourceName, err)
 		}
 	}
@@ -208,10 +228,10 @@ func ValidateScalarResourceInfo(scalarResources ScalarResourcesType, scalarResou
 
 // ValidateResourceInfo validate resource info
 func ValidateResourceInfo(resourceInfo ResourceInfo, scalarResourcesType []string) error {
-	if err := CheckResource(resourceInfo.CPU); err != nil {
+	if err := CheckCPUResource(resourceInfo.CPU); err != nil {
 		return fmt.Errorf("cpu %v", err)
 	}
-	if err := CheckResource(resourceInfo.Mem); err != nil {
+	if err := CheckMemoryResource(resourceInfo.Mem); err != nil {
 		return fmt.Errorf("mem %v", err)
 	}
 

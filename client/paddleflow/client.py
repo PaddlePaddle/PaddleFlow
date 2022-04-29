@@ -421,7 +421,7 @@ class Client(object):
         return ClusterServiceApi.create_cluster(self.paddleflow_server, clustername, endpoint, clustertype, 
         credential, description, source, setting, status, namespacelist, version, self.header)
 
-    def list_cluster(self, maxkeys=None, marker=None, clustername=None, clusterstatus=None):
+    def list_cluster(self, maxkeys=100, marker=None, clustername=None, clusterstatus=None):
         """
         list cluster
         """
