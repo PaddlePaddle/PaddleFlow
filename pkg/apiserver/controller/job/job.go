@@ -26,12 +26,15 @@ import (
 
 	"paddleflow/pkg/apiserver/common"
 	"paddleflow/pkg/apiserver/models"
+	"paddleflow/pkg/common/config"
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/common/schema"
 	"paddleflow/pkg/job"
 	"paddleflow/pkg/job/api"
 	"paddleflow/pkg/job/runtime"
 )
+
+const customFlavour = "customFlavour"
 
 // CreateSingleJobRequest convey request for create job
 type CreateSingleJobRequest struct {
@@ -105,10 +108,20 @@ type CreateJobResponse struct {
 }
 
 // CreateSingleJob handler for creating job
-func CreateSingleJob(request *CreateSingleJobRequest) (*CreateJobResponse, error) {
+func CreateSingleJob(ctx *logger.RequestContext, request *CreateSingleJobRequest) (*CreateJobResponse, error) {
+	if err := CheckPermission(ctx); err != nil {
+		ctx.ErrorCode = common.ActionNotAllowed
+		ctx.Logging().Errorln(err.Error())
+		return nil, err
+	}
+
 	// validate request
 	if request.SchedulingPolicy.QueueID == "" {
 		return nil, fmt.Errorf("schedulingPolicy.queueID is required")
+	}
+	// validate FileSystem
+	if err := validateFileSystem(request.FileSystem, request.UserName); err != nil {
+		return nil, err
 	}
 	// parse job template
 	extensionTemplate := request.ExtensionTemplate
@@ -137,6 +150,7 @@ func CreateSingleJob(request *CreateSingleJobRequest) (*CreateJobResponse, error
 		Env:         request.Env,
 		Port:        request.Port,
 		Image:       request.Image,
+		Args:        request.Args,
 		Command:     request.Command,
 	}
 
@@ -215,6 +229,8 @@ func patchFromCommonInfo(conf *schema.Conf, commonJobInfo *CommonJobInfo) error 
 	}
 	queueID := commonJobInfo.SchedulingPolicy.QueueID
 	conf.SetQueueID(queueID)
+	conf.SetQueueName(queueName)
+	conf.SetPriority(commonJobInfo.SchedulingPolicy.Priority)
 
 	conf.SetClusterID(queue.ClusterId)
 	conf.SetNamespace(queue.Namespace)
@@ -225,7 +241,11 @@ func patchFromCommonInfo(conf *schema.Conf, commonJobInfo *CommonJobInfo) error 
 // CreateDistributedJob handler for creating job
 func CreateDistributedJob(ctx *logger.RequestContext, request *CreateDisJobRequest) (*CreateJobResponse, error) {
 	log.Debugf("CreateDistributedJob request=%#v", request)
-	// get queue and fill request.SchedulePolicy.QueueID
+	if err := CheckPermission(ctx); err != nil {
+		ctx.ErrorCode = common.ActionNotAllowed
+		ctx.Logging().Errorln(err.Error())
+		return nil, err
+	}
 
 	jobInfo := &models.Job{
 		ID:                request.ID,
@@ -251,19 +271,28 @@ func CreateDistributedJob(ctx *logger.RequestContext, request *CreateDisJobReque
 	}
 	// set roles for members
 	var err error
-	if len(request.Members) == 1 && (request.Members[0].Role == string(schema.RolePWorker) ||
-		request.Members[0].Role == string(schema.RoleWorker)) {
-		log.Debugf("create distributed job %s with collective mode", request.CommonJobInfo.ID)
-		conf.SetEnv(schema.EnvJobMode, schema.EnvJobModeCollective)
-		jobInfo.Members, err = newCollectiveMembers(request)
-	} else {
-		log.Debugf("create distributed job %s with ps mode", request.CommonJobInfo.ID)
-		conf.SetEnv(schema.EnvJobMode, schema.EnvJobModePS)
-		jobInfo.Members, err = newPSMembers(request)
-	}
-	if err != nil {
+
+	jobMode, err := validateJobMode(ctx, request)
+	if err != nil || jobMode == "" {
 		log.Errorf("create members failed, err=%v", err)
 		return nil, err
+	}
+	switch jobMode {
+	case schema.EnvJobModeCollective:
+		// validate replicas
+		if request.Members[0].Replicas < 2 {
+			ctx.ErrorCode = common.JobInvalidField
+			ctx.Logging().Errorln("replicas must be greater than 1")
+			return nil, fmt.Errorf("replicas must be greater than 1")
+		}
+		conf.SetEnv(schema.EnvJobMode, schema.EnvJobModeCollective)
+		jobInfo.Members, err = newCollectiveMembers(request)
+	case schema.EnvJobModePS:
+		conf.SetEnv(schema.EnvJobMode, schema.EnvJobModePS)
+		jobInfo.Members, err = newPSMembers(request)
+	default:
+		log.Errorf("invalid members number, cannot recognize job mode %s", jobMode)
+		return nil, fmt.Errorf("invalid job mode %s", jobMode)
 	}
 
 	jobInfo.Config = &conf
@@ -281,6 +310,25 @@ func CreateDistributedJob(ctx *logger.RequestContext, request *CreateDisJobReque
 	return response, nil
 }
 
+func validateJobMode(ctx *logger.RequestContext, request *CreateDisJobRequest) (string, error) {
+	if len(request.Members) == 1 && (request.Members[0].Role == string(schema.RolePWorker) ||
+		request.Members[0].Role == string(schema.RoleWorker)) {
+		log.Debugf("create distributed job %s with collective mode", request.CommonJobInfo.ID)
+		return schema.EnvJobModeCollective, nil
+	} else if len(request.Members) == 2 {
+		log.Debugf("create distributed job %s with ps mode", request.CommonJobInfo.ID)
+		if request.Members[0].Role == string(schema.RolePWorker) && request.Members[1].Role == string(schema.RolePServer) ||
+			request.Members[0].Role == string(schema.RolePServer) && request.Members[1].Role == string(schema.RolePWorker) {
+			return schema.EnvJobModePS, nil
+		}
+	}
+	ctx.ErrorCode = common.JobInvalidField
+	ctx.Logging().Errorf("create distributed job %s failed, invalid members number %d", request.CommonJobInfo.ID,
+		len(request.Members))
+	return "", fmt.Errorf("create distributed job %s failed, invalid members number %d", request.CommonJobInfo.ID,
+		len(request.Members))
+}
+
 func patchDistributedConf(conf *schema.Conf, request *CreateDisJobRequest) error {
 	log.Debugf("patchSingleConf conf=%#v, request=%#v", conf, request)
 	// fields in request.CommonJobInfo
@@ -296,6 +344,10 @@ func patchDistributedConf(conf *schema.Conf, request *CreateDisJobRequest) error
 func newCollectiveMembers(request *CreateDisJobRequest) ([]models.Member, error) {
 	members := make([]models.Member, 0)
 	for _, reqMem := range request.Members {
+		// validate FileSystem
+		if err := validateFileSystem(reqMem.FileSystem, request.UserName); err != nil {
+			return nil, err
+		}
 		if reqMem.Role == string(schema.RoleWorker) {
 			member, err := newMember(reqMem, schema.RoleWorker)
 			if err != nil {
@@ -311,12 +363,20 @@ func newCollectiveMembers(request *CreateDisJobRequest) ([]models.Member, error)
 func newPSMembers(request *CreateDisJobRequest) ([]models.Member, error) {
 	members := make([]models.Member, 0)
 	for _, reqMember := range request.Members {
+		// validate FileSystem
+		if err := validateFileSystem(reqMember.FileSystem, request.UserName); err != nil {
+			return nil, err
+		}
+
 		var member models.Member
 		var err error
 		if reqMember.Role == string(schema.RolePWorker) {
 			member, err = newMember(reqMember, schema.RolePWorker)
-		} else {
+		} else if reqMember.Role == string(schema.RolePServer) {
 			member, err = newMember(reqMember, schema.RolePServer)
+		} else {
+			log.Errorf("create ps members failed, invalid role %s", reqMember.Role)
+			return nil, fmt.Errorf("invalid role %s", reqMember.Role)
 		}
 		if err != nil {
 			log.Errorf("create ps members failed, err=%v", err)
@@ -363,29 +423,36 @@ func newMember(member MemberSpec, role schema.MemberRole) (models.Member, error)
 
 // getFlavourWithCheck get req.Flavour and check if it is valid, if exists in db, return it
 func getFlavourWithCheck(reqFlavour schema.Flavour) (schema.Flavour, error) {
+	if reqFlavour.Name == "" || reqFlavour.Name == customFlavour {
+		if err := schema.ValidateResourceInfo(reqFlavour.ResourceInfo, config.GlobalServerConfig.Job.ScalarResourceArray); err != nil {
+			log.Errorf("validate resource info failed, err=%v", err)
+			return schema.Flavour{}, err
+		}
+		return reqFlavour, nil
+	}
 	flavour, err := models.GetFlavour(reqFlavour.Name)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		log.Errorf("Get flavour by name %s failed when creating job, err=%v", flavour.Name, err)
 		return schema.Flavour{}, err
-	} else if errors.Is(err, gorm.ErrRecordNotFound) {
-		if reqFlavour.CPU == "" || reqFlavour.Mem == "" {
-			return schema.Flavour{}, fmt.Errorf("cpu and mem are required when using custom flavour")
-		}
-		return reqFlavour, nil
-	} else {
-		return schema.Flavour{
-			Name: flavour.Name,
-			ResourceInfo: schema.ResourceInfo{
-				CPU:             flavour.CPU,
-				Mem:             flavour.Mem,
-				ScalarResources: flavour.ScalarResources,
-			},
-		}, nil
 	}
+	return schema.Flavour{
+		Name: flavour.Name,
+		ResourceInfo: schema.ResourceInfo{
+			CPU:             flavour.CPU,
+			Mem:             flavour.Mem,
+			ScalarResources: flavour.ScalarResources,
+		},
+	}, nil
 }
 
 // CreateWorkflowJob handler for creating job
 func CreateWorkflowJob(ctx *logger.RequestContext, request *CreateWfJobRequest) (*CreateJobResponse, error) {
+	if err := CheckPermission(ctx); err != nil {
+		ctx.ErrorCode = common.ActionNotAllowed
+		ctx.Logging().Errorln(err.Error())
+		return nil, err
+	}
+
 	var extensionTemplate string
 	if request.ExtensionTemplate != "" {
 		bytes, err := yaml.JSONToYAML([]byte(request.ExtensionTemplate))
@@ -413,7 +480,6 @@ func CreateWorkflowJob(ctx *logger.RequestContext, request *CreateWfJobRequest) 
 	}
 	conf.SetEnv(schema.EnvJobQueueName, request.SchedulingPolicy.Queue)
 
-	// TODO: add more fields
 	// create workflow job
 	jobInfo := &models.Job{
 		ID:                request.ID,
@@ -592,4 +658,16 @@ func getRuntimeByQueue(ctx *logger.RequestContext, queueID string) (runtime.Runt
 		return nil, fmt.Errorf("delete queue failed")
 	}
 	return runtimeSvc, nil
+}
+
+func validateFileSystem(fs schema.FileSystem, userName string) error {
+	if fs.Name == "" {
+		return nil
+	}
+	fsID := common.ID(userName, fs.Name)
+	if _, err := models.GetFileSystemWithFsID(fsID); err != nil {
+		log.Errorf("get filesystem %s failed, err: %v", fsID, err)
+		return fmt.Errorf("find file system %s failed, err: %v", fs.Name, err)
+	}
+	return nil
 }

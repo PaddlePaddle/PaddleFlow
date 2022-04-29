@@ -94,7 +94,7 @@ func (ns *nodeServer) NodeUnpublishVolume(ctx context.Context,
 		UsernameRoot: ns.credentialInfo.usernameRoot,
 		PasswordRoot: ns.credentialInfo.passwordRoot,
 	}
-	if err := mount.UMount(volumeID, targetPath, mountInfo); err != nil {
+	if err := mount.PodUnmount(volumeID, targetPath, mountInfo); err != nil {
 		log.Errorf("[UMount]: volumeID[%s] and targetPath[%s] with err: %s", volumeID, targetPath, err.Error())
 		return nil, err
 	}
@@ -123,7 +123,7 @@ func (ns *nodeServer) NodeExpandVolume(ctx context.Context,
 func mountVolume(volumeID string, mountInfo pfs.MountInfo, readOnly bool) error {
 	log.Infof("mountVolume mountInfo:%+v, readOnly:%t", mountInfo, readOnly)
 	// business pods use a separate source path
-	err := mount.MountThroughPod(volumeID, mountInfo)
+	err := mount.PodMount(volumeID, mountInfo)
 	if err != nil {
 		log.Errorf("MountThroughPod err: %v", err)
 		return err

@@ -222,7 +222,7 @@ func (pj *PaddleJob) patchPdjTask(resourceSpec *paddlev1.ResourceSpec, task mode
 	}
 	pj.patchMetadata(&resourceSpec.Template.ObjectMeta, taskName)
 	// set pod template
-	pj.fillPodSpec(&resourceSpec.Template.Spec)
+	pj.fillPodSpec(&resourceSpec.Template.Spec, &task)
 
 	// patch Task.Template.Spec.Containers[0]
 	if len(resourceSpec.Template.Spec.Containers) != 1 {
