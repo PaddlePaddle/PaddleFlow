@@ -183,7 +183,8 @@ func CheckScalarResource(res string) error {
 	q, err := resource.ParseQuantity(res)
 	if err != nil {
 		return err
-	} else if q.Sign() < 0 {
+	}
+	if q.Sign() < 0 {
 		return fmt.Errorf("cpu cannot be negative")
 	}
 	return nil
@@ -193,7 +194,8 @@ func CheckCPUResource(res string) error {
 	q, err := resource.ParseQuantity(res)
 	if err != nil {
 		return err
-	} else if q.IsZero() || q.Sign() < 0 {
+	}
+	if q.IsZero() || q.Sign() < 0 {
 		return fmt.Errorf("cpu cannot be negative")
 	}
 	return nil
@@ -203,7 +205,8 @@ func CheckMemoryResource(res string) error {
 	q, err := resource.ParseQuantity(res)
 	if err != nil {
 		return err
-	} else if q.IsZero() || q.Sign() < 0 {
+	}
+	if q.IsZero() || q.Sign() < 0 {
 		return fmt.Errorf("cpu cannot be negative")
 	}
 	return nil
