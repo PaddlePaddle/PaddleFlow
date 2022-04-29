@@ -52,6 +52,9 @@ const (
 	CacheStrategyAggressive   = "aggressive"
 	CacheExpiredTimeNever     = "-1"
 
+	PplDetailTypeNormal   = "normal"
+	PplDetailTypeSchedule = "schedule"
+
 	NodeTypeEntrypoint  NodeType = "entrypoints"
 	NodeTypePostProcess NodeType = "postProcess"
 

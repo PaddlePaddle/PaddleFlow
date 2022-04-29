@@ -46,13 +46,14 @@ type CreateRunRequest struct {
 	Entry       string                 `json:"entry,omitempty"`      // optional
 	Parameters  map[string]interface{} `json:"parameters,omitempty"` // optional
 	DockerEnv   string                 `json:"dockerEnv,omitempty"`  // optional
-	// run workflow source. priority: RunYamlRaw > PipelineID > RunYamlPath
+	// run workflow source. priority: RunYamlRaw > PipelineID + PipelineDetailID > RunYamlPath
 	// 为了防止字符串或者不同的http客户端对run.yaml
 	// 格式中的特殊字符串做特殊过滤处理导致yaml文件不正确，因此采用runYamlRaw采用base64编码传输
-	Disabled    string `json:"disabled,omitempty"`    // optional
-	RunYamlRaw  string `json:"runYamlRaw,omitempty"`  // optional. one of 3 sources of run. high priority
-	PipelineID  string `json:"pipelineID,omitempty"`  // optional. one of 3 sources of run. medium priority
-	RunYamlPath string `json:"runYamlPath,omitempty"` // optional. one of 3 sources of run. low priority
+	Disabled         string `json:"disabled,omitempty"`         // optional
+	RunYamlRaw       string `json:"runYamlRaw,omitempty"`       // optional. one of 3 sources of run. high priority
+	PipelineID       string `json:"pipelineID,omitempty"`       // optional. one of 3 sources of run. medium priority
+	PipelineDetailPk int64  `json:"pipelineDetailPk,omitempty"` // optional. one of 3 sources of run. medium priority
+	RunYamlPath      string `json:"runYamlPath,omitempty"`      // optional. one of 3 sources of run. low priority
 }
 
 type CreateRunByJsonRequest struct {
@@ -159,6 +160,12 @@ func buildWorkflowSource(ctx *logger.RequestContext, req CreateRunRequest, fsID 
 			return schema.WorkflowSource{}, "", "", err
 		}
 	} else if req.PipelineID != "" { // medium priority: wfs in pipeline
+		if req.PipelineDetailPk == 0 {
+			errMsg := fmt.Sprintf("start run failed: pipelineID[%s] passed, but PipelineDetailID not passed", req.PipelineID)
+			ctx.Logging().Errorf(errMsg)
+			return schema.WorkflowSource{}, "", "", fmt.Errorf(errMsg)
+		}
+
 		ppl, err := models.GetPipelineByID(req.PipelineID)
 		if err != nil {
 			ctx.Logging().Errorf("GetPipelineByID[%s] failed. err:%v", req.PipelineID, err)
@@ -170,8 +177,17 @@ func buildWorkflowSource(ctx *logger.RequestContext, req CreateRunRequest, fsID 
 			ctx.Logging().Errorf("buildWorkflowSource[%s] failed. err:%v", req.PipelineID, err)
 			return schema.WorkflowSource{}, "", "", err
 		}
-		runYaml = ppl.PipelineYaml
-		source = ppl.ID
+
+		// query pipeline detail
+		pplDetail, err := models.GetPipelineDetailByID(req.PipelineDetailPk)
+		if err != nil {
+			ctx.ErrorCode = common.InternalError
+			ctx.Logging().Errorf("get Pipeline detail[%d]. err: %v", req.PipelineDetailPk, err)
+			return schema.WorkflowSource{}, "", "", err
+		}
+
+		runYaml = pplDetail.PipelineYaml
+		source = fmt.Sprintf("%s-%d", req.PipelineID, req.PipelineDetailPk)
 	} else { // low priority: wfs in fs, read from runYamlPath
 		runYamlPath := req.RunYamlPath
 		if runYamlPath == "" {

@@ -31,11 +31,12 @@ const (
 	DefaultMaxKeys = 50
 	ListPageMax    = 1000
 
-	ParamKeyQueueName  = "queueName"
-	ParamKeyRunID      = "runID"
-	ParamKeyCheckCache = "checkCache"
-	ParamKeyRunCacheID = "runCacheID"
-	ParamKeyPipelineID = "pipelineID"
+	ParamKeyQueueName        = "queueName"
+	ParamKeyRunID            = "runID"
+	ParamKeyCheckCache       = "checkCache"
+	ParamKeyRunCacheID       = "runCacheID"
+	ParamKeyPipelineID       = "pipelineID"
+	ParamKeyPipelineDetailPk = "pipelineDetailPk"
 
 	QueryKeyAction    = "action"
 	QueryActionStop   = "stop"

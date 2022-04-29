@@ -28,19 +28,16 @@ import (
 )
 
 type Pipeline struct {
-	Pk           int64          `json:"-"                    gorm:"primaryKey;autoIncrement;not null"`
-	ID           string         `json:"pipelineID"           gorm:"type:varchar(60);not null;uniqueIndex"`
-	Name         string         `json:"name"                 gorm:"type:varchar(60);not null;uniqueIndex:idx_fs_name"`
-	FsID         string         `json:"-"                    gorm:"type:varchar(60);not null;uniqueIndex:idx_fs_name;uniqueIndex:idx_fs_md5"`
-	FsName       string         `json:"fsname"               gorm:"type:varchar(60);not null"`
-	UserName     string         `json:"username"             gorm:"type:varchar(60);not null"`
-	PipelineYaml string         `json:"pipelineYaml"         gorm:"type:text;size:65535"`
-	PipelineMd5  string         `json:"pipelineMd5"          gorm:"type:varchar(32);not null;uniqueIndex:idx_fs_md5"`
-	CreateTime   string         `json:"createTime,omitempty" gorm:"-"`
-	UpdateTime   string         `json:"updateTime,omitempty" gorm:"-"`
-	CreatedAt    time.Time      `json:"-"`
-	UpdatedAt    time.Time      `json:"-"`
-	DeletedAt    gorm.DeletedAt `json:"-"                    gorm:"index"`
+	Pk         int64          `json:"-"                    gorm:"primaryKey;autoIncrement;not null"`
+	ID         string         `json:"pipelineID"           gorm:"type:varchar(60);not null;uniqueIndex"`
+	Name       string         `json:"name"                 gorm:"type:varchar(60);not null;uniqueIndex:idx_fs_name"`
+	Desc       string         `json:"desc"                 gorm:"type:varchar(60);not null;uniqueIndex:idx_fs_name"`
+	UserName   string         `json:"username"             gorm:"type:varchar(60);not null"`
+	CreateTime string         `json:"createTime,omitempty" gorm:"-"`
+	UpdateTime string         `json:"updateTime,omitempty" gorm:"-"`
+	CreatedAt  time.Time      `json:"-"`
+	UpdatedAt  time.Time      `json:"-"`
+	DeletedAt  gorm.DeletedAt `json:"-"                    gorm:"index"`
 }
 
 func (Pipeline) TableName() string {
@@ -54,65 +51,71 @@ func (p *Pipeline) Decode() error {
 	return nil
 }
 
-func CreatePipeline(logEntry *log.Entry, ppl *Pipeline) (string, error) {
-	logEntry.Debugf("begin create pipeline: %+v", ppl)
-	err := withTransaction(database.DB, func(tx *gorm.DB) error {
-		result := tx.Model(&Pipeline{}).Create(ppl)
+func CreatePipeline(logEntry *log.Entry, pplDetail *PipelineDetail) (pplID string, pplDetailPk int64, err error) {
+	logEntry.Debugf("begin create pipeline & pipeline detail: %+v", pplDetail)
+	err = withTransaction(database.DB, func(tx *gorm.DB) error {
+		result := tx.Model(&PipelineDetail{}).Create(pplDetail)
 		if result.Error != nil {
-			logEntry.Errorf("create pipeline failed. pipeline:%+v, error:%v", ppl, result.Error)
+			logEntry.Errorf("create pipeline failed. pipeline detail:%+v, error:%v", pplDetail, result.Error)
 			return result.Error
 		}
-		ppl.ID = common.PrefixPipeline + fmt.Sprintf("%06d", ppl.Pk)
-		logEntry.Debugf("created ppl with pk[%d], pplID[%s]", ppl.Pk, ppl.ID)
+		pplDetail.Pipeline.ID = common.PrefixPipeline + fmt.Sprintf("%06d", pplDetail.Pipeline.Pk)
+		logEntry.Debugf("created ppl with pk[%d], pplID[%s]", pplDetail.Pipeline.Pk, pplDetail.Pipeline.ID)
+
 		// update ID by pk
-		result = tx.Model(&Pipeline{}).Where(&Pipeline{Pk: ppl.Pk}).Update("id", ppl.ID)
+		result = tx.Model(&Pipeline{}).Where(&Pipeline{Pk: pplDetail.Pipeline.Pk}).Update("id", pplDetail.Pipeline.ID)
 		if result.Error != nil {
-			logEntry.Errorf("back filling pplID failed. pk[%d], error:%v", ppl.Pk, result.Error)
+			logEntry.Errorf("backfilling pplID to pipeline[%d] failed. error:%v", pplDetail.Pipeline.Pk, result.Error)
+			return result.Error
+		}
+
+		result = tx.Model(&PipelineDetail{}).Where(&PipelineDetail{Pk: pplDetail.Pk}).Update("pipeline_id", pplDetail.Pipeline.ID)
+		if result.Error != nil {
+			logEntry.Errorf("backfilling pplID to pipeline detail[%d] failed. error:%v", pplDetail.Pk, result.Error)
 			return result.Error
 		}
 		return nil
 	})
-	return ppl.ID, err
+	return pplDetail.Pipeline.ID, pplDetail.Pk, err
 }
 
-func CountPipelineByNameInFs(name, fsID string) (int64, error) {
-	var count int64
-	result := database.DB.Model(&Pipeline{}).Where(&Pipeline{Name: name, FsID: fsID}).Count(&count)
-	return count, result.Error
-}
-
-func CountPipelineByMd5InFs(md5, fsID string) (int64, error) {
-	var count int64
-	result := database.DB.Model(&Pipeline{}).Where(&Pipeline{PipelineMd5: md5, FsID: fsID}).Count(&count)
-	return count, result.Error
-}
-
-func GetPipelineByMd5AndFs(md5, fsID string) (Pipeline, error) {
-	var ppl Pipeline
-	result := database.DB.Model(&Pipeline{}).Where(&Pipeline{FsID: fsID, PipelineMd5: md5}).Last(&ppl)
-	return ppl, result.Error
+func UpdatePipeline(logEntry *log.Entry, pplDetail *PipelineDetail) (pplID string, pplDetailPk int64, err error) {
+	logEntry.Debugf("begin update pipeline & pipeline detail: %+v", pplDetail)
+	err = withTransaction(database.DB, func(tx *gorm.DB) error {
+		result := tx.Create(pplDetail)
+		if result.Error != nil {
+			logEntry.Errorf("update pipeline failed. pipeline detail:%+v, error:%v", pplDetail, result.Error)
+			return result.Error
+		}
+		logEntry.Debugf("updated ppl with pk[%d], pplID[%s], new pplDetailPk[%d]", pplDetail.Pipeline.Pk, pplDetail.Pipeline.ID, pplDetail.Pk)
+		return nil
+	})
+	return pplDetail.Pipeline.ID, pplDetail.Pk, err
 }
 
 func GetPipelineByID(id string) (Pipeline, error) {
 	var ppl Pipeline
-	result := database.DB.Model(&Pipeline{}).Where(&Pipeline{ID: id}).Last(&ppl)
+	tx := database.DB.Model(&Pipeline{})
+
+	if id != "" {
+		tx = tx.Where("id = ?", id)
+	}
+
+	result := tx.Last(&ppl)
 	return ppl, result.Error
 }
 
-func GetPipelineByNameAndFs(fsID, name string) (Pipeline, error) {
+func CheckPipelineExist(name, userName string) (Pipeline, error) {
 	var ppl Pipeline
-	result := database.DB.Model(&Pipeline{}).Where(&Pipeline{FsID: fsID, Name: name}).Last(&ppl)
+	result := database.DB.Model(&Pipeline{}).Where(&Pipeline{Name: name, UserName: userName}).Last(&ppl)
 	return ppl, result.Error
 }
 
-func ListPipeline(pk int64, maxKeys int, userFilter, fsFilter, nameFilter []string) ([]Pipeline, error) {
-	logger.Logger().Debugf("begin list run. ")
+func ListPipeline(pk int64, maxKeys int, userFilter, nameFilter []string) ([]Pipeline, error) {
+	logger.Logger().Debugf("begin list pipeline. ")
 	tx := database.DB.Model(&Pipeline{}).Where("pk > ?", pk)
 	if len(userFilter) > 0 {
 		tx = tx.Where("user_name IN (?)", userFilter)
-	}
-	if len(fsFilter) > 0 {
-		tx = tx.Where("fs_name IN (?)", fsFilter)
 	}
 	if len(nameFilter) > 0 {
 		tx = tx.Where("name IN (?)", nameFilter)
@@ -123,8 +126,8 @@ func ListPipeline(pk int64, maxKeys int, userFilter, fsFilter, nameFilter []stri
 	var pplList []Pipeline
 	tx = tx.Find(&pplList)
 	if tx.Error != nil {
-		logger.Logger().Errorf("list run failed. Filters: user{%v}, fs{%v}, name{%v}. error:%s",
-			userFilter, fsFilter, nameFilter, tx.Error.Error())
+		logger.Logger().Errorf("list pipeline failed. pk:%d, maxKeys:%d, Filters: user{%v}, name{%v}. error:%s",
+			pk, maxKeys, userFilter, nameFilter, tx.Error.Error())
 		return []Pipeline{}, tx.Error
 	}
 	return pplList, nil
@@ -141,7 +144,13 @@ func GetLastPipeline(logEntry *log.Entry) (Pipeline, error) {
 	return ppl, nil
 }
 
-func HardDeletePipeline(logEntry *log.Entry, id string) error {
-	logEntry.Debugf("delete ppl: %s", id)
-	return database.DB.Unscoped().Where("id = ?", id).Delete(&Pipeline{}).Error
+func DeletePipeline(logEntry *log.Entry, id string, hardDelete bool) error {
+	logEntry.Debugf("delete ppl: %s, harDelete[%t]", id, hardDelete)
+	if hardDelete {
+		result := database.DB.Unscoped().Where("id = ?", id).Delete(&Pipeline{})
+		return result.Error
+	} else {
+		result := database.DB.Where("id = ?", id).Delete(&Pipeline{})
+		return result.Error
+	}
 }
