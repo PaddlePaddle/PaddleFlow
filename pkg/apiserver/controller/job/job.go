@@ -301,10 +301,16 @@ func CreateDistributedJob(ctx *logger.RequestContext, request *CreateDisJobReque
 			return nil, fmt.Errorf("replicas must be greater than 1")
 		}
 		conf.SetEnv(schema.EnvJobMode, schema.EnvJobModeCollective)
-		jobInfo.Members, err = newCollectiveMembers(request)
+		if jobInfo.Members, err = newCollectiveMembers(request); err != nil {
+			log.Errorf("create job with collective members failed, err=%v", err)
+			return nil, err
+		}
 	case schema.EnvJobModePS:
 		conf.SetEnv(schema.EnvJobMode, schema.EnvJobModePS)
-		jobInfo.Members, err = newPSMembers(request)
+		if jobInfo.Members, err = newPSMembers(request); err != nil {
+			log.Errorf("create job with ps members failed, err=%v", err)
+			return nil, err
+		}
 	default:
 		log.Errorf("invalid members number, cannot recognize job mode %s", jobMode)
 		return nil, fmt.Errorf("invalid job mode %s", jobMode)
