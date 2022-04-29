@@ -68,6 +68,52 @@ func TestK8sQuantity(t *testing.T) {
 
 }
 
+func TestCheckResource(t *testing.T) {
+	reses := []struct {
+		res       string
+		resType   string
+		expectErr bool
+	}{
+		{"1", "cpu", false},
+		{"-1", "cpu", true},
+		{"0", "cpu", true},
+		{"0.1", "cpu", false},
+
+		{"1", "memory", false},
+		{"-1", "memory", true},
+		{"0", "memory", true},
+		{"0.1Gi", "memory", false},
+
+		{"1", "nvidia.com/gpu", false},
+		{"0", "nvidia.com/gpu-xxx", false},
+		{"-1", "xxx", true},
+		{"0.1Gi", "nvidia.com/gpu", false},
+	}
+
+	for _, res := range reses {
+		switch res.resType {
+		case "cpu":
+			if res.expectErr {
+				assert.Error(t, CheckCPUResource(res.res))
+			} else {
+				assert.NoError(t, CheckCPUResource(res.res))
+			}
+		case "memory":
+			if res.expectErr {
+				assert.Error(t, CheckMemoryResource(res.res))
+			} else {
+				assert.NoError(t, CheckMemoryResource(res.res))
+			}
+		default:
+			if res.expectErr {
+				assert.Error(t, CheckScalarResource(res.res))
+			} else {
+				assert.NoError(t, CheckScalarResource(res.res))
+			}
+		}
+	}
+}
+
 func TestResourceInfo_LessEqual(t *testing.T) {
 	queue1 := ResourceInfo{CPU: "1", Mem: "100M"}
 	queue2 := ResourceInfo{

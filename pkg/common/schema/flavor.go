@@ -179,17 +179,34 @@ func CheckReg(str, pattern string) bool {
 	return ret
 }
 
-// CheckResource check if the resource is valid
-func CheckResource(res string) error {
+// CheckResource check if the resource is valid,
+// signLimit is -1 would permit the resource to be positive, 0 or negative
+// signLimit is 0 would permit the resource to be 0 or positive
+// signLimit is 1 would permit the resource to be only positive
+func CheckResource(res string, signLimit int) error {
 	if res == "" {
 		return fmt.Errorf("resource is empty")
 	}
 	if q, err := resource.ParseQuantity(res); err != nil {
 		return err
-	} else if q.Sign() < 0 {
-		return fmt.Errorf("resource is negative")
+	} else if signLimit > 0 && (q.IsZero() || q.Sign() < 0) {
+		return fmt.Errorf("resource cannot be negative")
+	} else if signLimit == 0 && q.Sign() < 0 {
+		return fmt.Errorf("resource cannot be zero")
 	}
 	return nil
+}
+
+func CheckScalarResource(res string) error {
+	return CheckResource(res, 0)
+}
+
+func CheckCPUResource(res string) error {
+	return CheckResource(res, 1)
+}
+
+func CheckMemoryResource(res string) error {
+	return CheckResource(res, 1)
 }
 
 // ValidateScalarResourceInfo validate scalar resource info
@@ -199,7 +216,7 @@ func ValidateScalarResourceInfo(scalarResources ScalarResourcesType, scalarResou
 		if !isValidScalarResource(resourceName, scalarResourcesType) {
 			return errors.InvalidScaleResourceError(resourceName)
 		}
-		if err := CheckResource(v); err != nil {
+		if err := CheckScalarResource(v); err != nil {
 			return fmt.Errorf("%s %v", resourceName, err)
 		}
 	}
@@ -208,10 +225,10 @@ func ValidateScalarResourceInfo(scalarResources ScalarResourcesType, scalarResou
 
 // ValidateResourceInfo validate resource info
 func ValidateResourceInfo(resourceInfo ResourceInfo, scalarResourcesType []string) error {
-	if err := CheckResource(resourceInfo.CPU); err != nil {
+	if err := CheckCPUResource(resourceInfo.CPU); err != nil {
 		return fmt.Errorf("cpu %v", err)
 	}
-	if err := CheckResource(resourceInfo.Mem); err != nil {
+	if err := CheckMemoryResource(resourceInfo.Mem); err != nil {
 		return fmt.Errorf("mem %v", err)
 	}
 
