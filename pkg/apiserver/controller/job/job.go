@@ -451,7 +451,7 @@ func getFlavourWithCheck(reqFlavour schema.Flavour) (schema.Flavour, error) {
 	flavour, err := models.GetFlavour(reqFlavour.Name)
 	if err != nil {
 		log.Errorf("Get flavour by name %s failed when creating job, err=%v", flavour.Name, err)
-		return schema.Flavour{}, err
+		return schema.Flavour{}, fmt.Errorf("get flavour[%s] failed, err=%v", flavour.Name, err)
 	}
 	return schema.Flavour{
 		Name: flavour.Name,
