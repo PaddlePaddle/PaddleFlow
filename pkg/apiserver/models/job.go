@@ -109,7 +109,7 @@ func (job *Job) AfterFind(tx *gorm.DB) error {
 		var runtime interface{}
 		err := json.Unmarshal([]byte(job.RuntimeInfoJson), &runtime)
 		if err != nil {
-			log.Errorf("job[%s] json unmarshal runtime failed, error:[%s]", job.ID, err.Error())
+			log.Errorf("job[%s] json unmarshal runtime failed, error: %s", job.ID, err.Error())
 			return err
 		}
 		job.RuntimeInfo = runtime
@@ -118,7 +118,7 @@ func (job *Job) AfterFind(tx *gorm.DB) error {
 		var members []Member
 		err := json.Unmarshal([]byte(job.MembersJson), &members)
 		if err != nil {
-			log.Errorf("job[%s] json unmarshal member failed, error:[%s]", job.ID, err.Error())
+			log.Errorf("job[%s] json unmarshal member failed, error: %s", job.ID, err.Error())
 			return err
 		}
 		job.Members = members
@@ -127,7 +127,7 @@ func (job *Job) AfterFind(tx *gorm.DB) error {
 		conf := schema.Conf{}
 		err := json.Unmarshal([]byte(job.ConfigJson), &conf)
 		if err != nil {
-			log.Errorf("job[%s] json unmarshal config failed, error:[%s]", job.ID, err.Error())
+			log.Errorf("job[%s] json unmarshal config failed, error: %s", job.ID, err.Error())
 			return err
 		}
 		job.Config = &conf
