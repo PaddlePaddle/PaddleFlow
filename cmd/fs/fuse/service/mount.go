@@ -19,13 +19,6 @@ package service
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/gin-contrib/pprof"
-	"github.com/gin-gonic/gin"
-	libfuse "github.com/hanwen/go-fuse/v2/fuse"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	log "github.com/sirupsen/logrus"
-	"github.com/urfave/cli/v2"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -33,6 +26,14 @@ import (
 	"path"
 	"strings"
 	"syscall"
+
+	"github.com/gin-contrib/pprof"
+	"github.com/gin-gonic/gin"
+	libfuse "github.com/hanwen/go-fuse/v2/fuse"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	log "github.com/sirupsen/logrus"
+	"github.com/urfave/cli/v2"
 
 	"paddleflow/cmd/fs/fuse/flag"
 	"paddleflow/pkg/client"
