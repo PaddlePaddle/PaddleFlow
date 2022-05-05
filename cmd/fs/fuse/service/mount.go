@@ -45,6 +45,7 @@ import (
 	"paddleflow/pkg/fs/client/meta"
 	"paddleflow/pkg/fs/client/vfs"
 	"paddleflow/pkg/fs/common"
+	mountUtil "paddleflow/pkg/fs/utils/mount"
 	"paddleflow/pkg/metric"
 )
 
@@ -125,9 +126,15 @@ func setup(c *cli.Context) error {
 		return fmt.Errorf("invalid mountpoint: %s", mountPoint)
 	}
 
-	if err := prepareMp(mountPoint); err != nil {
-		log.Errorf("prepareMp %s error:%v", mountPoint, err)
-		return err
+	isMounted, err := mountUtil.IsMountPoint(mountPoint)
+	if isMounted {
+		e := doUmount(mountPoint, true)
+		log.Errorf("unmount mountpoint %s failed: %v", mountPoint, e)
+		return fmt.Errorf("unmount mountpoint %s failed: %v", mountPoint, e)
+	}
+	if !isMounted && err != nil {
+		log.Errorf("check mount point failed: %v", err)
+		return fmt.Errorf("check mountpoint failed: %v", err)
 	}
 
 	mountOps := c.String("mount-options")
@@ -168,28 +175,6 @@ func setup(c *cli.Context) error {
 				log.Infof("pprof started")
 			}
 		}()
-	}
-	return nil
-}
-
-func prepareMp(mp string) error {
-	fi, err := os.Stat(mp)
-	if !strings.Contains(mp, ":") && err != nil {
-		if err := os.MkdirAll(mp, 0777); err != nil {
-			if os.IsExist(err) {
-				// a broken mount point, umount it
-				_ = doUmount(mp, true)
-			} else {
-				log.Errorf("create %s: %s", mp, err)
-				return err
-			}
-		}
-	} else if err == nil {
-		ino, _ := getFileInode(mp)
-		if ino <= 1 && fi.Size() == 0 {
-			// a broken mount point, umount it
-			_ = doUmount(mp, true)
-		}
 	}
 	return nil
 }

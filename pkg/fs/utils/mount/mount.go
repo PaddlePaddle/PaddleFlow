@@ -106,6 +106,7 @@ func IsMountPoint(path string) (bool, error) {
 	if err != nil {
 		if strings.Contains(string(output), IsNotMountPoint) ||
 			strings.Contains(string(output), IsNotMountPointZhCN) {
+			log.Infof("IsMountPoint has error not mountopint")
 			return false, nil
 		}
 		// path is mount point, but the mount point can not access
@@ -115,6 +116,7 @@ func IsMountPoint(path string) (bool, error) {
 		}
 		return false, fmt.Errorf("%s:%s", string(output), err)
 	}
+	log.Infof("IsMountPoint no error not mountopint")
 	return true, nil
 }
 
