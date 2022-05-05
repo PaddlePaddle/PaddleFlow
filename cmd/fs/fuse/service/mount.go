@@ -95,12 +95,15 @@ func setup(c *cli.Context) error {
 	}
 
 	isMounted, err := mountUtil.IsMountPoint(mountPoint)
-	if err != nil {
+	if isMounted {
+		if errUmount := doUmount(mountPoint, true); errUmount != nil {
+			log.Errorf("unmount mountpoint %s failed: %v", mountPoint, errUmount)
+			return fmt.Errorf("unmount mountpoint %s failed: %v", mountPoint, errUmount)
+		}
+	}
+	if !isMounted && err != nil {
 		log.Errorf("check mount point failed: %v", err)
 		return fmt.Errorf("check mountpoint failed: %v", err)
-	}
-	if isMounted {
-		return fmt.Errorf("%s is already the mountpoint", mountPoint)
 	}
 
 	mountOps := c.String("mount-options")
