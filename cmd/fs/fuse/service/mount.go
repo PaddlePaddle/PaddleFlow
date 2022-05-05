@@ -19,13 +19,6 @@ package service
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"net"
-	"net/http"
-	"os"
-	"path"
-	"strings"
-
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
 	libfuse "github.com/hanwen/go-fuse/v2/fuse"
@@ -33,6 +26,13 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
+	"io/ioutil"
+	"net"
+	"net/http"
+	"os"
+	"path"
+	"strings"
+	"syscall"
 
 	"paddleflow/cmd/fs/fuse/flag"
 	"paddleflow/pkg/client"
@@ -44,7 +44,6 @@ import (
 	"paddleflow/pkg/fs/client/meta"
 	"paddleflow/pkg/fs/client/vfs"
 	"paddleflow/pkg/fs/common"
-	mountUtil "paddleflow/pkg/fs/utils/mount"
 	"paddleflow/pkg/metric"
 )
 
@@ -82,6 +81,37 @@ Usage please refer to docs`,
 	}
 }
 
+func mount(c *cli.Context) error {
+	log.Tracef("mount setup VFS")
+	if err := setup(c); err != nil {
+		log.Errorf("mount setup() err: %v", err)
+		return err
+	}
+
+	if !c.Bool("local") {
+		stopChan := make(chan struct{})
+		defer close(stopChan)
+		if !c.Bool("skip-check-links") {
+			f := func() {
+				if err := vfs.GetVFS().Meta.LinksMetaUpdateHandler(stopChan,
+					c.Int("link-update-interval"), c.String("link-meta-dir-prefix")); err != nil {
+					log.Errorf("mount setup() vfs.GetVFS().Meta.LinksMetaUpdateHandler err: %v", err)
+				}
+			}
+			go f()
+		}
+	}
+
+	log.Debugf("start mount service")
+	server, err := fuse.Server(c.String("mount-point"), *opts)
+	if err != nil {
+		log.Fatalf("mount fail: %v", err)
+		os.Exit(-1)
+	}
+	server.Wait()
+	return err
+}
+
 func setup(c *cli.Context) error {
 	if err := logger.InitStandardFileLogger(&logConf); err != nil {
 		log.Errorf("cmd mount setup() logger.Init err:%v", err)
@@ -94,13 +124,9 @@ func setup(c *cli.Context) error {
 		return fmt.Errorf("invalid mountpoint: %s", mountPoint)
 	}
 
-	isMounted, err := mountUtil.IsMountPoint(mountPoint)
-	if err != nil {
-		log.Errorf("check mount point failed: %v", err)
-		return fmt.Errorf("check mountpoint failed: %v", err)
-	}
-	if isMounted {
-		return fmt.Errorf("%s is already the mountpoint", mountPoint)
+	if err := prepareMp(mountPoint); err != nil {
+		log.Errorf("prepareMp %s error:%v", mountPoint, err)
+		return err
 	}
 
 	mountOps := c.String("mount-options")
@@ -145,6 +171,39 @@ func setup(c *cli.Context) error {
 	return nil
 }
 
+func prepareMp(mp string) error {
+	fi, err := os.Stat(mp)
+	if !strings.Contains(mp, ":") && err != nil {
+		if err := os.MkdirAll(mp, 0777); err != nil {
+			if os.IsExist(err) {
+				// a broken mount point, umount it
+				_ = doUmount(mp, true)
+			} else {
+				log.Errorf("create %s: %s", mp, err)
+				return err
+			}
+		}
+	} else if err == nil {
+		ino, _ := getFileInode(mp)
+		if ino <= 1 && fi.Size() == 0 {
+			// a broken mount point, umount it
+			_ = doUmount(mp, true)
+		}
+	}
+	return nil
+}
+
+func getFileInode(path string) (uint64, error) {
+	fi, err := os.Stat(path)
+	if err != nil {
+		return 0, err
+	}
+	if sst, ok := fi.Sys().(*syscall.Stat_t); ok {
+		return sst.Ino, nil
+	}
+	return 0, nil
+}
+
 func exposeMetricsService(hostServer string, port int) string {
 	// default set
 	ip, _, err := net.SplitHostPort(hostServer)
@@ -180,37 +239,6 @@ func wrapRegister(mountPoint string) *prometheus.Registry {
 	prometheus.MustRegister(prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}))
 	prometheus.MustRegister(prometheus.NewGoCollector())
 	return registry
-}
-
-func mount(c *cli.Context) error {
-	log.Tracef("mount setup VFS")
-	if err := setup(c); err != nil {
-		log.Errorf("mount setup() err: %v", err)
-		return err
-	}
-
-	if !c.Bool("local") {
-		stopChan := make(chan struct{})
-		defer close(stopChan)
-		if !c.Bool("skip-check-links") {
-			f := func() {
-				if err := vfs.GetVFS().Meta.LinksMetaUpdateHandler(stopChan,
-					c.Int("link-update-interval"), c.String("link-meta-dir-prefix")); err != nil {
-					log.Errorf("mount setup() vfs.GetVFS().Meta.LinksMetaUpdateHandler err: %v", err)
-				}
-			}
-			go f()
-		}
-	}
-
-	log.Debugf("start mount service")
-	server, err := fuse.Server(c.String("mount-point"), *opts)
-	if err != nil {
-		log.Fatalf("mount fail: %v", err)
-		os.Exit(-1)
-	}
-	server.Wait()
-	return err
 }
 
 func InitVFS(c *cli.Context, registry *prometheus.Registry) error {
