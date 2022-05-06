@@ -135,10 +135,7 @@ func (sj *SparkJob) patchPodByTask(podSpec *sparkapp.SparkPodSpec, task models.M
 	}
 	podSpec.Env = append(podSpec.Env, sj.generateEnvVars()...)
 
-	if podSpec.VolumeMounts == nil {
-		podSpec.VolumeMounts = []corev1.VolumeMount{}
-	}
-	podSpec.VolumeMounts = append(podSpec.VolumeMounts, sj.generateVolumeMount())
+	podSpec.VolumeMounts = sj.appendMountIfAbsent(podSpec.VolumeMounts, sj.generateVolumeMount())
 }
 
 func (sj *SparkJob) patchSparkSpecDriver(jobApp *sparkapp.SparkApplication, task models.Member) {
