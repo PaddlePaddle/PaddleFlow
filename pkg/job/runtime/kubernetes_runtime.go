@@ -29,6 +29,8 @@ import (
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	k8sschema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -347,6 +349,56 @@ func (kr *KubeRuntime) executeVCQueueAction(q *models.Queue, action busv1alpha1.
 
 func (kr *KubeRuntime) UpdateQueue(q *models.Queue) error {
 	// TODO: add update queue logic
+	return nil
+}
+
+func (kr *KubeRuntime) CreateObject(obj map[string]interface{}) error {
+	unstructedObj := &unstructured.Unstructured{
+		Object: obj,
+	}
+	namespace := unstructedObj.GetNamespace()
+	name := unstructedObj.GetName()
+	gvk := unstructedObj.GroupVersionKind()
+
+	// TODO: add more check
+	if err := executor.Create(unstructedObj, gvk, kr.dynamicClientOpt); err != nil {
+		log.Errorf("create kubernetes %s resource failed. name:[%s/%s] err:[%s]", gvk.String(), namespace, name, err.Error())
+		return err
+	}
+	return nil
+}
+
+func (kr *KubeRuntime) UpdateObject(obj map[string]interface{}) error {
+	unstructedObj := &unstructured.Unstructured{
+		Object: obj,
+	}
+	namespace := unstructedObj.GetNamespace()
+	name := unstructedObj.GetName()
+	gvk := unstructedObj.GroupVersionKind()
+	// TODO: add more check
+	if err := executor.Update(unstructedObj, gvk, kr.dynamicClientOpt); err != nil {
+		log.Errorf("update kubernetes %s resource failed, name:[%s/%s] err:[%v]", gvk.String(), namespace, name, err.Error())
+		return err
+	}
+	return nil
+}
+
+func (kr *KubeRuntime) GetObject(namespace, name string, gvk k8sschema.GroupVersionKind) (interface{}, error) {
+	log.Debugf("get kubernetes %s resource: %s/%s", gvk.String(), namespace, name)
+	resourceObj, err := executor.Get(namespace, name, gvk, kr.dynamicClientOpt)
+	if err != nil {
+		log.Errorf("get kubernetes %s resource %s/%s failed, err: %v", gvk.String(), namespace, name, err.Error())
+		return nil, err
+	}
+	return resourceObj, nil
+}
+
+func (kr *KubeRuntime) DeleteObject(namespace, name string, gvk k8sschema.GroupVersionKind) error {
+	log.Infof("delete kubernetes %s resource: %s/%s", gvk.String(), namespace, name)
+	if err := executor.Delete(namespace, name, gvk, kr.dynamicClientOpt); err != nil {
+		log.Errorf("delete kubernetes %s resource %s/%s failed, err: %v", gvk.String(), namespace, name, err.Error())
+		return err
+	}
 	return nil
 }
 
