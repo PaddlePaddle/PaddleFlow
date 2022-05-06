@@ -308,6 +308,7 @@ func CreateDistributedJob(ctx *logger.RequestContext, request *CreateDisJobReque
 	case schema.EnvJobModePS:
 		conf.SetEnv(schema.EnvJobMode, schema.EnvJobModePS)
 		if jobInfo.Members, err = newPSMembers(request); err != nil {
+			ctx.ErrorCode = common.JobInvalidField
 			log.Errorf("create job with ps members failed, err=%v", err)
 			return nil, err
 		}
@@ -339,7 +340,9 @@ func validateJobMode(ctx *logger.RequestContext, request *CreateDisJobRequest) (
 	} else if len(request.Members) == 2 {
 		log.Debugf("create distributed job %s with ps mode", request.CommonJobInfo.ID)
 		if request.Members[0].Role == string(schema.RolePWorker) && request.Members[1].Role == string(schema.RolePServer) ||
-			request.Members[0].Role == string(schema.RolePServer) && request.Members[1].Role == string(schema.RolePWorker) {
+			request.Members[0].Role == string(schema.RolePServer) && request.Members[1].Role == string(schema.RolePWorker) ||
+			request.Members[0].Role == string(schema.RoleDriver) && request.Members[1].Role == string(schema.RoleExecutor) ||
+			request.Members[0].Role == string(schema.RoleExecutor) && request.Members[1].Role == string(schema.RoleDriver) {
 			return schema.EnvJobModePS, nil
 		}
 	}
@@ -391,14 +394,7 @@ func newPSMembers(request *CreateDisJobRequest) ([]models.Member, error) {
 
 		var member models.Member
 		var err error
-		if reqMember.Role == string(schema.RolePWorker) {
-			member, err = newMember(reqMember, schema.RolePWorker)
-		} else if reqMember.Role == string(schema.RolePServer) {
-			member, err = newMember(reqMember, schema.RolePServer)
-		} else {
-			log.Errorf("create ps members failed, invalid role %s", reqMember.Role)
-			return nil, fmt.Errorf("invalid role %s", reqMember.Role)
-		}
+		member, err = newMember(reqMember, schema.MemberRole(reqMember.Role))
 		if err != nil {
 			log.Errorf("create ps members failed, err=%v", err)
 			return nil, err

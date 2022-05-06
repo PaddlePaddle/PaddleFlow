@@ -68,6 +68,9 @@ func patchTasksFromEnv(conf *schema.Conf, jobInfo *models.Job) error {
 	log.Debugf("patch tasks from env: %v", conf)
 	switch conf.Type() {
 	case schema.TypePaddleJob:
+		jobInfo.Framework = schema.FrameworkPaddle
+		jobInfo.Type = string(schema.TypeDistributed)
+	case schema.TypeSparkJob:
 		jobInfo.Framework = schema.FrameworkSpark
 		jobInfo.Type = string(schema.TypeDistributed)
 	}
