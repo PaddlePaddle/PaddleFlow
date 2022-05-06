@@ -352,31 +352,34 @@ func (kr *KubeRuntime) UpdateQueue(q *models.Queue) error {
 	return nil
 }
 
-func (kr *KubeRuntime) CreateObject(obj map[string]interface{}) error {
-	unstructedObj := &unstructured.Unstructured{
-		Object: obj,
+func (kr *KubeRuntime) CreateObject(obj *unstructured.Unstructured) error {
+	if obj == nil {
+		return fmt.Errorf("create kubernetes resource failed, object is nil")
 	}
-	namespace := unstructedObj.GetNamespace()
-	name := unstructedObj.GetName()
-	gvk := unstructedObj.GroupVersionKind()
+	namespace := obj.GetNamespace()
+	name := obj.GetName()
+	gvk := obj.GroupVersionKind()
 
 	// TODO: add more check
-	if err := executor.Create(unstructedObj, gvk, kr.dynamicClientOpt); err != nil {
+	log.Infof("create kubernetes %s resource: %s/%s", gvk.String(), namespace, name)
+	if err := executor.Create(obj, gvk, kr.dynamicClientOpt); err != nil {
 		log.Errorf("create kubernetes %s resource failed. name:[%s/%s] err:[%s]", gvk.String(), namespace, name, err.Error())
 		return err
 	}
 	return nil
 }
 
-func (kr *KubeRuntime) UpdateObject(obj map[string]interface{}) error {
-	unstructedObj := &unstructured.Unstructured{
-		Object: obj,
+func (kr *KubeRuntime) UpdateObject(obj *unstructured.Unstructured) error {
+	if obj == nil {
+		return fmt.Errorf("update kubernetes resource failed, object is nil")
 	}
-	namespace := unstructedObj.GetNamespace()
-	name := unstructedObj.GetName()
-	gvk := unstructedObj.GroupVersionKind()
+
+	namespace := obj.GetNamespace()
+	name := obj.GetName()
+	gvk := obj.GroupVersionKind()
 	// TODO: add more check
-	if err := executor.Update(unstructedObj, gvk, kr.dynamicClientOpt); err != nil {
+	log.Infof("update kubernetes %s resource: %s/%s", gvk.String(), namespace, name)
+	if err := executor.Update(obj, gvk, kr.dynamicClientOpt); err != nil {
 		log.Errorf("update kubernetes %s resource failed, name:[%s/%s] err:[%v]", gvk.String(), namespace, name, err.Error())
 		return err
 	}

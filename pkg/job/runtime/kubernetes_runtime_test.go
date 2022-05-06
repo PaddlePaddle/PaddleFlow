@@ -26,6 +26,7 @@ import (
 	apiv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8sschema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
@@ -353,15 +354,14 @@ func TestKubeRuntimeObjectOperation(t *testing.T) {
 
 	cmObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(cm)
 	assert.Equal(t, nil, err)
-
-	err = kubeRuntime.CreateObject(cmObj)
+	err = kubeRuntime.CreateObject(&unstructured.Unstructured{Object: cmObj})
 	assert.Equal(t, nil, err)
 
 	// update ConfigMap
 	cm.Data["test2.conf"] = "a2:b2\nkey2:value2"
 	cmObj, err = runtime.DefaultUnstructuredConverter.ToUnstructured(cm)
 	assert.Equal(t, nil, err)
-	err = kubeRuntime.UpdateObject(cmObj)
+	err = kubeRuntime.UpdateObject(&unstructured.Unstructured{Object: cmObj})
 	assert.Equal(t, nil, err)
 
 	// get ConfigMap
