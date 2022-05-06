@@ -28,6 +28,8 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"k8s.io/utils/mount"
+
+	"paddleflow/pkg/fs/utils/io"
 )
 
 const (
@@ -36,6 +38,7 @@ const (
 	MountPointCmdName                   = "mountpoint"
 	IsNotMountPoint                     = "is not a mountpoint"
 	IsNotMountPointZhCN                 = "不是一个挂载点"
+	ErrEndpointNotConnected             = "transport endpoint is not connected"
 	TransportEndpointIsNotConnected     = "Transport endpoint is not connected"
 	TransportEndpointIsNotConnectedZhCN = "传输端点尚未连接"
 	DirectoryNotEmpty                   = "directory not empty"
@@ -48,6 +51,55 @@ const (
 
 	readOnly = "ro"
 )
+
+func CleanUpMountPoints(paths []string) error {
+	var retErr error
+
+	if len(paths) == 0 {
+		return nil
+	}
+
+	cleanUp := func(path string, cleanAll bool) error {
+		isMountPoint, err := IsMountPoint(path)
+		if err != nil && !isMountPoint {
+			if exist, exErr := io.Exist(path); exErr != nil {
+				log.Errorf("check path[%s] exist err: %v", path, exErr)
+				if strings.Contains(exErr.Error(), ErrEndpointNotConnected) {
+					return ManualUnmount(path)
+				}
+				return exErr
+			} else if !exist {
+				return nil
+			}
+			log.Errorf("check path[%s] mountpoint failed: %v", path, err)
+			return err
+		}
+
+		if isMountPoint {
+			return CleanUpMountPoint(path)
+		}
+		log.Infof("path [%s] is not a mountpoint, begin to remove path[%s]", path, path)
+		if err := os.Remove(path); err != nil {
+			log.Errorf("remove path[%s] failed: %v", path, err)
+			return err
+		}
+		return nil
+	}
+
+	for _, path := range paths {
+		log.Infof("cleanup mountPoint in path[%s] start", path)
+		if err := cleanUp(path, false); err != nil {
+			log.Errorf("cleanup path[%s] failed: %v", path, err)
+			retErr = err
+		}
+	}
+	return retErr
+}
+
+func IsLikelyMountPoint(path string) (bool, error) {
+	notMountPoint, err := mount.New("").IsLikelyNotMountPoint(path)
+	return !notMountPoint, err
+}
 
 func IsMountPoint(path string) (bool, error) {
 	output, err := ExecCmdWithTimeout(MountPointCmdName, []string{path})
@@ -76,17 +128,32 @@ func CleanUpMountPoint(path string) error {
 			strings.Contains(err.Error(), DirectoryNotEmptyZhCN) {
 			return err
 		}
+		log.Infof("CleanUpMountPoint [%s] failed. start force ForceUnmountAndRemove", path)
+		return ForceUnmountAndRemove(path)
+	}
+	return nil
+}
 
-		err = ForceUnmount(path)
-		if err != nil {
-			log.Errorf("force unmount mountPoint[%s] failed: %v", path, err)
-			return err
-		}
-		err = os.Remove(path)
-		if err != nil {
-			log.Errorf("remove path[%s] failed: %v", path, err)
-			return err
-		}
+func ForceUnmountAndRemove(path string) error {
+	log.Errorf("force unmount mountPoint[%s]", path)
+	err := ForceUnmount(path)
+	if err != nil {
+		log.Errorf("force unmount mountPoint[%s] failed: %v", path, err)
+		return err
+	}
+	err = os.Remove(path)
+	if err != nil {
+		log.Errorf("remove path[%s] failed: %v", path, err)
+		return err
+	}
+	return nil
+}
+
+func ManualUnmount(path string) error {
+	output, err := ExecCmdWithTimeout(UMountCmdName, []string{path})
+	if err != nil {
+		log.Errorf("exec cmd[umount %s] failed: [%v], output[%v]", path, err, string(output))
+		return ForceUnmount(path)
 	}
 	return nil
 }
@@ -105,6 +172,7 @@ func ExecCmdWithTimeout(name string, args []string) ([]byte, error) {
 	defer cancel()
 	newCmd := exec.CommandContext(ctx, name, args...)
 	newCmd.Env = append(os.Environ())
+	log.Debugf("newCmd is %s", newCmd.String())
 
 	sysProcAttr := &syscall.SysProcAttr{
 		Setpgid: true,

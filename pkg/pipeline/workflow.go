@@ -71,13 +71,23 @@ func NewBaseWorkflow(wfSource schema.WorkflowSource, runID, entry string, params
 		}
 		bwf.postProcess[name] = processPoint
 	}
-
 	bwf.runtimeSteps = bwf.getRunSteps()
 	return bwf
 }
 
 func (bwf *BaseWorkflow) log() *logrus.Entry {
 	return logger.LoggerForRun(bwf.RunID)
+}
+
+func (bwf *BaseWorkflow) checkDeps() error {
+	for name, step := range bwf.Source.EntryPoints {
+		for _, dep := range step.GetDeps() {
+			if _, ok := bwf.Source.EntryPoints[dep]; !ok {
+				return fmt.Errorf("step [%s] has an wrong dep [%s]", name, dep)
+			}
+		}
+	}
+	return nil
 }
 
 func (bwf *BaseWorkflow) getRunSteps() map[string]*schema.WorkflowSourceStep {
@@ -401,6 +411,11 @@ func (bwf *BaseWorkflow) checkSteps() error {
 		return err
 	}
 
+	if err := bwf.checkDeps(); err != nil {
+		bwf.log().Errorf("check deps failed. err: %s", err.Error())
+		return err
+	}
+
 	useFs := true
 	if bwf.Extra[WfExtraInfoKeyFsID] == "" {
 		useFs = false
@@ -414,7 +429,7 @@ func (bwf *BaseWorkflow) checkSteps() error {
 		SysParamNamePFStepName: "",
 		SysParamNamePFFsName:   "",
 		SysParamNamePFUserName: "",
-		SysParamNamePFRUNTIME:  "",
+		SysParamNamePFRuntime:  "",
 	}
 	steps := map[string]*schema.WorkflowSourceStep{}
 	for name, step := range bwf.runtimeSteps {
@@ -433,6 +448,13 @@ func (bwf *BaseWorkflow) checkSteps() error {
 		bwf.log().Debugln(step)
 	}
 	for stepName, _ := range steps {
+		isDisabled, err := bwf.Source.IsDisabled(stepName)
+		if err != nil {
+			return err
+		}
+		if isDisabled {
+			continue
+		}
 		if err := paramChecker.Check(stepName); err != nil {
 			bwf.log().Errorln(err.Error())
 			return err

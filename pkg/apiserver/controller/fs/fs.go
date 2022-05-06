@@ -88,21 +88,6 @@ type FileSystemResponse struct {
 	Properties    map[string]string `json:"properties"`
 }
 
-type ListMountResponse struct {
-	Marker     string           `json:"marker"`
-	Truncated  bool             `json:"truncated"`
-	NextMarker string           `json:"nextMarker"`
-	FsList     []*MountResponse `json:"mountList"`
-}
-
-type MountResponse struct {
-	MountID    string `json:"mountID"`
-	FsID       string `json:"fsID"`
-	MountPoint string `json:"mountpoint"`
-	NodeName   string `json:"nodename"`
-	ClusterID  string `json:"clusterID"`
-}
-
 type CreateFileSystemClaimsResponse struct {
 	Message string `json:"message"`
 }
@@ -161,17 +146,18 @@ func (s *FileSystemService) DeleteFileSystem(ctx *logger.RequestContext, fsID st
 }
 
 // ListFileSystem the function which performs the operation of list file systems
-func (s *FileSystemService) ListFileSystem(ctx *logger.RequestContext, req *ListFileSystemRequest, isRoot bool) ([]models.FileSystem, string, error) {
+func (s *FileSystemService) ListFileSystem(ctx *logger.RequestContext, req *ListFileSystemRequest) ([]models.FileSystem, string, error) {
 	limit := req.MaxKeys + 1
 	marker := req.Marker
 	if req.Marker == "" {
 		marker = time.Now().Format(TimeFormat)
 	}
-	if isRoot == true {
-		req.Username = ""
+	listUserName := req.Username
+	if req.Username == common.UserRoot {
+		listUserName = ""
 	}
 
-	items, err := models.ListFileSystem(int(limit), req.Username, marker, req.FsName)
+	items, err := models.ListFileSystem(int(limit), listUserName, marker, req.FsName)
 	if err != nil {
 		ctx.Logging().Errorf("list file systems err[%v]", err)
 		ctx.ErrorCode = common.FileSystemDataBaseError

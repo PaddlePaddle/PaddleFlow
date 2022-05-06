@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	log "github.com/sirupsen/logrus"
+
 	"paddleflow/pkg/apiserver/common"
 	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/common/config"
@@ -44,7 +45,7 @@ type CreateQueueRequest struct {
 	Location     map[string]string   `json:"location"`
 	// 任务调度策略
 	SchedulingPolicy []string `json:"schedulingPolicy,omitempty"`
-	Status           string   `json:"status"`
+	Status           string   `json:"-"`
 }
 
 type CreateQueueResponse struct {
@@ -101,9 +102,7 @@ func ListQueue(ctx *logger.RequestContext, marker string, maxKeys int, name stri
 	}
 
 	listQueueResponse.MaxKeys = maxKeys
-	for _, queue := range queueList {
-		listQueueResponse.QueueList = append(listQueueResponse.QueueList, queue)
-	}
+	listQueueResponse.QueueList = append(listQueueResponse.QueueList, queueList...)
 	return listQueueResponse, nil
 }
 
@@ -141,7 +140,7 @@ func CreateQueue(ctx *logger.RequestContext, request *CreateQueueRequest) (Creat
 	if err != nil {
 		ctx.ErrorCode = common.ClusterNotFound
 		ctx.Logging().Errorln("create request failed. error: cluster not found by Name.")
-		return CreateQueueResponse{}, errors.New("cluster not found  by Name")
+		return CreateQueueResponse{}, errors.New("cluster not found by Name")
 	}
 	if clusterInfo.Status != models.ClusterStatusOnLine {
 		ctx.ErrorCode = common.InvalidClusterStatus
@@ -154,7 +153,8 @@ func CreateQueue(ctx *logger.RequestContext, request *CreateQueueRequest) (Creat
 		ctx.ErrorCode = common.NamespaceNotFound
 		ctx.Logging().Errorln("create request failed. error: namespace is not found.")
 		return CreateQueueResponse{}, errors.New("namespace is not found")
-	} else if len(clusterInfo.NamespaceList) != 0 {
+	}
+	if len(clusterInfo.NamespaceList) != 0 {
 		isExist := false
 		for _, ns := range clusterInfo.NamespaceList {
 			if request.Namespace == ns {
@@ -166,6 +166,12 @@ func CreateQueue(ctx *logger.RequestContext, request *CreateQueueRequest) (Creat
 			return CreateQueueResponse{}, fmt.Errorf(
 				"namespace[%s] of queue not in the specified values [%s] by cluster[%s]",
 				request.Namespace, clusterInfo.RawNamespaceList, clusterInfo.Name)
+		}
+	} else {
+		// check namespace format
+		if errStr := common.IsDNS1123Label(request.Namespace); len(errStr) != 0 {
+			return CreateQueueResponse{}, fmt.Errorf("namespace[%s] of queue is invalid, err: %s",
+				request.Namespace, strings.Join(errStr, ","))
 		}
 	}
 
@@ -197,15 +203,21 @@ func CreateQueue(ctx *logger.RequestContext, request *CreateQueueRequest) (Creat
 	// check request max resources and min resources
 	if err = schema.ValidateResourceInfo(request.MaxResources, config.GlobalServerConfig.Job.ScalarResourceArray); err != nil {
 		ctx.Logging().Errorf("create queue failed. error: %s", err.Error())
-		ctx.ErrorCode = common.InvalidScaleResource
+		ctx.ErrorCode = common.InvalidComputeResource
 		return CreateQueueResponse{}, err
 	}
 	if request.QuotaType == schema.TypeElasticQuota {
 		// check min resources for elastic queue
 		if err = schema.ValidateResourceInfo(request.MinResources, config.GlobalServerConfig.Job.ScalarResourceArray); err != nil {
 			ctx.Logging().Errorf("create queue failed. error: %s", err.Error())
-			ctx.ErrorCode = common.InvalidScaleResource
+			ctx.ErrorCode = common.InvalidComputeResource
 			return CreateQueueResponse{}, err
+		}
+
+		if !request.MinResources.LessEqual(request.MaxResources) {
+			ctx.Logging().Errorf("create queue failed. error: maxResources less than minResources")
+			ctx.ErrorCode = common.InvalidComputeResource
+			return CreateQueueResponse{}, fmt.Errorf("maxResources less than minResources")
 		}
 	}
 

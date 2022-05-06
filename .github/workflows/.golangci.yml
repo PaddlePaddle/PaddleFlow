@@ -1,6 +1,6 @@
 run:
   skip-files:
-    - "_test.go$"
+    - ".+_test.go$"
 linters-settings:
   errcheck:
     check-type-assertions: true

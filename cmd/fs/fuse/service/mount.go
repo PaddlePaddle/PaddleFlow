@@ -95,12 +95,19 @@ func setup(c *cli.Context) error {
 	}
 
 	isMounted, err := mountUtil.IsMountPoint(mountPoint)
-	if err != nil {
+	if isMounted {
+		if err != nil {
+			if errUmount := doUmount(mountPoint, true); errUmount != nil {
+				log.Errorf("unmount mountpoint %s failed: %v", mountPoint, errUmount)
+				return fmt.Errorf("unmount mountpoint %s failed: %v", mountPoint, errUmount)
+			}
+		} else {
+			log.Errorf("mountpoint %s is already mounted", mountPoint)
+			return fmt.Errorf("mountpoint %s is already mounted", mountPoint)
+		}
+	} else if err != nil {
 		log.Errorf("check mount point failed: %v", err)
 		return fmt.Errorf("check mountpoint failed: %v", err)
-	}
-	if isMounted {
-		return fmt.Errorf("%s is already the mountpoint", mountPoint)
 	}
 
 	mountOps := c.String("mount-options")
@@ -124,20 +131,11 @@ func setup(c *cli.Context) error {
 		log.Errorf("init vfs failed: %v", err)
 		return err
 	}
-	go metric.UpdateMetrics()
-
-	if !c.Bool("local") {
-		stopChan := make(chan struct{})
-		defer close(stopChan)
-		if !c.Bool("skip-check-links") {
-			f := func() {
-				if err := vfs.GetVFS().Meta.LinksMetaUpdateHandler(stopChan,
-					c.Int("link-update-interval"), c.String("link-meta-dir-prefix")); err != nil {
-					log.Errorf("mount setup() vfs.GetVFS().Meta.LinksMetaUpdateHandler err: %v", err)
-				}
-			}
-			go f()
-		}
+	go metric.UpdateBaseMetrics()
+	// whether start metrics server
+	if c.Bool("metrics-service-on") {
+		metricsAddr := exposeMetricsService(c.String("server"), c.Int("metrics-service-port"))
+		log.Debugf("mount opts: %+v, metricsAddr: %s", opts, metricsAddr)
 	}
 
 	if c.Bool("pprof-enable") {
@@ -151,16 +149,10 @@ func setup(c *cli.Context) error {
 			}
 		}()
 	}
-
-	if c.Bool("metrics-service-on") {
-		metricsAddr := exposeMetrics(c.String("server"), c.Int("metrics-service-port"))
-		log.Debugf("mount opts: %+v, metricsAddr: %s", opts, metricsAddr)
-	}
-
 	return nil
 }
 
-func exposeMetrics(hostServer string, port int) string {
+func exposeMetricsService(hostServer string, port int) string {
 	// default set
 	ip, _, err := net.SplitHostPort(hostServer)
 	if err != nil {
@@ -202,6 +194,20 @@ func mount(c *cli.Context) error {
 	if err := setup(c); err != nil {
 		log.Errorf("mount setup() err: %v", err)
 		return err
+	}
+
+	if !c.Bool("local") {
+		stopChan := make(chan struct{})
+		defer close(stopChan)
+		if !c.Bool("skip-check-links") {
+			f := func() {
+				if err := vfs.GetVFS().Meta.LinksMetaUpdateHandler(stopChan,
+					c.Int("link-update-interval"), c.String("link-meta-dir-prefix")); err != nil {
+					log.Errorf("mount setup() vfs.GetVFS().Meta.LinksMetaUpdateHandler err: %v", err)
+				}
+			}
+			go f()
+		}
 	}
 
 	log.Debugf("start mount service")
@@ -290,7 +296,7 @@ func InitVFS(c *cli.Context, registry *prometheus.Registry) error {
 			return err
 		}
 
-		fuseClient, err := base.NewClient(fsID, httpClient, username, loginResponse.Authorization)
+		fuseClient, err := base.NewClient(fsID, httpClient, loginResponse.Authorization)
 		if err != nil {
 			log.Errorf("init client with fs[%s] and server[%s] failed: %v", fsID, server, err)
 			return err

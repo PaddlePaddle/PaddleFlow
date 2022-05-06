@@ -47,8 +47,6 @@ class FlavouriceApi(object):
             params['marker'] = marker
         if key:
             params['name'] = key
-        if clustername != "":
-            params['clustername'] = clustername
         response = api_client.call_api(method="GET", url=parse.urljoin(host, api.PADDLE_FLOW_FLAVOUR),
                                        params=params, headers=header)
         if not response:
@@ -61,7 +59,7 @@ class FlavouriceApi(object):
             for f in data['flavourList']:
                 scalarResources = json.dumps(f['scalarResources']) if f.__contains__('scalarResources') else ""
                 flavour_info = FlavourInfo(f['name'], f['cpu'], f['mem'], scalarResources,
-                                           f['clusterName'], f['createTime'], f['updateTime'])
+                                           "", f['createTime'], f['updateTime'])
                 flavour_list.append(flavour_info)
         return True, flavour_list, data['nextMarker'] if data.__contains__('nextMarker') else None
 
@@ -86,7 +84,6 @@ class FlavouriceApi(object):
                         cpu=data['cpu'],
                         mem=data['mem'],
                         scalar_resources=scalarResources,
-                        cluster_name=data['clusterName'],
                         createtime=data['createTime'],
                         updatetime=data['updateTime'])
         return True, f
