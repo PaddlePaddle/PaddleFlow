@@ -17,11 +17,13 @@ limitations under the License.
 package v1
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 
 	"github.com/go-chi/chi"
 	log "github.com/sirupsen/logrus"
+	k8sschema "k8s.io/apimachinery/pkg/runtime/schema"
 
 	"paddleflow/pkg/apiserver/common"
 	"paddleflow/pkg/apiserver/controller/cluster"
@@ -45,6 +47,11 @@ func (cr *ClusterRouter) AddRouter(r chi.Router) {
 	r.Delete("/cluster/{clusterName}", cr.deleteCluster)
 	r.Put("/cluster/{clusterName}", cr.updateCluster)
 	r.Get("/cluster/resource", cr.listClusterQuota)
+
+	r.Post("/cluster/{clusterName}/k8s/object", cr.createKubernetesObject)
+	r.Get("/cluster/{clusterName}/k8s/object", cr.getKubernetesObject)
+	r.Put("/cluster/{clusterName}/k8s/object", cr.updateKubernetesObject)
+	r.Post("/cluster/{clusterName}/k8s/object/delete", cr.deleteKubernetesObject)
 }
 
 // 创建集群
@@ -216,4 +223,132 @@ func (cr *ClusterRouter) listClusterQuota(w http.ResponseWriter, r *http.Request
 		return
 	}
 	common.Render(w, http.StatusOK, quotaList)
+}
+
+func (cr *ClusterRouter) createKubernetesObject(w http.ResponseWriter, r *http.Request) {
+	ctx := common.GetRequestContext(r)
+	clusterName := chi.URLParam(r, util.ParamKeyClusterName)
+	ctx.Logging().Infof("create object on cluster: %s", clusterName)
+
+	obj := make(map[string]interface{})
+	if err := common.BindJSON(r, &obj); err != nil {
+		ctx.Logging().Errorf(
+			"create cluster object failed parsing request body:%+v. error:%s", r.Body, err.Error())
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+
+	_, err := cluster.CreateClusterObject(&ctx, clusterName, obj)
+	if err != nil {
+		ctx.Logging().Errorf("create cluster object failed, err: %v", err.Error())
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+	ctx.Logging().Debugf("create cluster object: %s", string(config.PrettyFormat(obj)))
+	common.Render(w, http.StatusOK, clusterName)
+}
+
+func (cr *ClusterRouter) updateKubernetesObject(w http.ResponseWriter, r *http.Request) {
+	ctx := common.GetRequestContext(r)
+	clusterName := chi.URLParam(r, util.ParamKeyClusterName)
+	ctx.Logging().Infof("update object on cluster: %s", clusterName)
+
+	obj := make(map[string]interface{})
+	if err := common.BindJSON(r, &obj); err != nil {
+		ctx.Logging().Errorf(
+			"update cluster object failed parsing request body:%+v. error:%s", r.Body, err.Error())
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+
+	err := cluster.UpdateClusterObject(&ctx, clusterName, obj)
+	if err != nil {
+		ctx.Logging().Errorf("update cluster object failed, err: %v", err.Error())
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+	ctx.Logging().Debugf("update object on cluster: %s", string(config.PrettyFormat(obj)))
+	common.Render(w, http.StatusOK, obj)
+}
+
+func (cr *ClusterRouter) getKubernetesObject(w http.ResponseWriter, r *http.Request) {
+	ctx := common.GetRequestContext(r)
+	clusterName := chi.URLParam(r, util.ParamKeyClusterName)
+	name := r.URL.Query().Get(util.ParamKeyName)
+	namespace := r.URL.Query().Get(util.ParamKeyNamespace)
+	kind := r.URL.Query().Get(util.ParamKeyKind)
+	apiVersion := r.URL.Query().Get(util.ParamKeyAPIVersion)
+
+	ctx.Logging().Infof("get object from cluster: %s", clusterName)
+	request := cluster.ObjectRequest{
+		ClusterName: clusterName,
+		Name:        name,
+		Namespace:   namespace,
+		Kind:        kind,
+		APIVersion:  apiVersion,
+	}
+	if err := validateObjectRequest(&request); err != nil {
+		ctx.ErrorCode = common.InvalidArguments
+		ctx.Logging().Errorf("get cluster object request validate failed, err: %v", err)
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+
+	ctx.Logging().Debugf("get cluster object %s from cluster %s", string(config.PrettyFormat(request)), clusterName)
+	obj, err := cluster.GetClusterObject(&ctx, &request)
+	if err != nil {
+		ctx.Logging().Errorf("get cluster object failed, err: %v", err.Error())
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+	common.Render(w, http.StatusOK, obj)
+}
+
+func (cr *ClusterRouter) deleteKubernetesObject(w http.ResponseWriter, r *http.Request) {
+	ctx := common.GetRequestContext(r)
+	var request cluster.ObjectRequest
+
+	clusterName := chi.URLParam(r, util.ParamKeyClusterName)
+	ctx.Logging().Infof("delete object from cluster: %s", clusterName)
+
+	if err := common.BindJSON(r, &request); err != nil {
+		ctx.Logging().Errorf(
+			"delete cluster object failed parsing request body:%+v. error:%s", r.Body, err.Error())
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+	request.ClusterName = clusterName
+
+	if err := validateObjectRequest(&request); err != nil {
+		ctx.ErrorCode = common.InvalidArguments
+		ctx.Logging().Errorf("validate delete cluster object request failed, err: %v", err)
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+
+	ctx.Logging().Infof("delete cluster object: %s", string(config.PrettyFormat(request)))
+	if err := cluster.DeleteClusterObject(&ctx, &request); err != nil {
+		ctx.Logging().Errorf("delete cluster object failed, err: %v", err.Error())
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+	common.RenderStatus(w, http.StatusOK)
+}
+
+func validateObjectRequest(req *cluster.ObjectRequest) error {
+	if len(req.Name) == 0 {
+		return fmt.Errorf("name is required in request")
+	}
+	if len(req.APIVersion) == 0 {
+		return fmt.Errorf("apiVersion is required in request")
+	}
+	if len(req.Kind) == 0 {
+		return fmt.Errorf("kind is required in request")
+	}
+	gv, err := k8sschema.ParseGroupVersion(req.APIVersion)
+	if err != nil {
+		return fmt.Errorf("apiVersion is invalid, err: %v", err)
+	}
+	req.GroupVersionKind = gv.WithKind(req.Kind)
+	return nil
 }

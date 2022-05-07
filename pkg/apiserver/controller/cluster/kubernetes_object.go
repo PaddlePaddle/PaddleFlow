@@ -1,0 +1,166 @@
+/*
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package cluster
+
+import (
+	"fmt"
+
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	"paddleflow/pkg/apiserver/common"
+	"paddleflow/pkg/apiserver/models"
+	"paddleflow/pkg/common/logger"
+	schema2 "paddleflow/pkg/common/schema"
+	"paddleflow/pkg/job/runtime"
+)
+
+type ObjectRequest struct {
+	ClusterName      string                  `json:"-"`
+	GroupVersionKind schema.GroupVersionKind `json:"-"`
+	Name             string                  `json:"name"`
+	Namespace        string                  `json:"namespace"`
+	Kind             string                  `json:"kind"`
+	APIVersion       string                  `json:"apiVersion"`
+}
+
+func CreateClusterObject(ctx *logger.RequestContext, clusterName string, clusterObject map[string]interface{}) (string, error) {
+	//  TODO: add permission check
+	clusterInfo, err := models.GetClusterByName(clusterName)
+	if err != nil {
+		ctx.ErrorCode = common.ClusterNameNotFound
+		ctx.Logging().Errorf("get cluster failed. clusterName:[%s]", clusterName)
+		return "", err
+	}
+	runtimeSvc, err := runtime.GetOrCreateRuntime(clusterInfo)
+	if err != nil {
+		ctx.ErrorCode = common.InternalError
+		return "", err
+	}
+
+	switch clusterInfo.ClusterType {
+	case schema2.KubernetesType:
+		k8sRuntime := runtimeSvc.(*runtime.KubeRuntime)
+		obj := &unstructured.Unstructured{
+			Object: clusterObject,
+		}
+		if err = k8sRuntime.CreateObject(obj); err != nil {
+			ctx.ErrorCode = common.InternalError
+			ctx.Logging().Errorf("creatae resource on cluster %s failed, err: %v", clusterName, err)
+			return "", err
+		}
+		namespacedName := fmt.Sprintf("%s: %s/%s", obj.GroupVersionKind(), obj.GetNamespace(), obj.GetName())
+		return namespacedName, nil
+	default:
+		ctx.ErrorCode = common.ActionNotAllowed
+		return "", fmt.Errorf("action is not allowed in clusterType %s", clusterInfo.ClusterType)
+	}
+}
+
+func UpdateClusterObject(ctx *logger.RequestContext, clusterName string, clusterObject map[string]interface{}) error {
+	//  TODO: add permission check
+	clusterInfo, err := models.GetClusterByName(clusterName)
+	if err != nil {
+		ctx.ErrorCode = common.ClusterNameNotFound
+		ctx.Logging().Errorf("get cluster failed. clusterName:[%s]", clusterName)
+		return err
+	}
+	runtimeSvc, err := runtime.GetOrCreateRuntime(clusterInfo)
+	if err != nil {
+		ctx.ErrorCode = common.InternalError
+		return err
+	}
+
+	switch clusterInfo.ClusterType {
+	case schema2.KubernetesType:
+		k8sRuntime := runtimeSvc.(*runtime.KubeRuntime)
+		obj := &unstructured.Unstructured{
+			Object: clusterObject,
+		}
+		if err = k8sRuntime.UpdateObject(obj); err != nil {
+			ctx.ErrorCode = common.InternalError
+			ctx.Logging().Errorf("creatae resource on cluster %s failed, err: %v", clusterName, err)
+			return err
+		}
+		return nil
+	default:
+		ctx.ErrorCode = common.ActionNotAllowed
+		return fmt.Errorf("action is not allowed in clusterType %s", clusterInfo.ClusterType)
+	}
+}
+
+func GetClusterObject(ctx *logger.RequestContext, request *ObjectRequest) (interface{}, error) {
+	//  TODO: add permission check
+	clusterInfo, err := models.GetClusterByName(request.ClusterName)
+	if err != nil {
+		ctx.ErrorCode = common.ClusterNameNotFound
+		ctx.Logging().Errorf("get cluster %s failed. err: %v", request.ClusterName, err)
+		return nil, err
+	}
+	runtimeSvc, err := runtime.GetOrCreateRuntime(clusterInfo)
+	if err != nil {
+		ctx.ErrorCode = common.InternalError
+		ctx.Logging().Errorf("get cluster %s runtime failed. err: %v", request.ClusterName, err)
+		return nil, err
+	}
+
+	switch clusterInfo.ClusterType {
+	case schema2.KubernetesType:
+		k8sRuntime := runtimeSvc.(*runtime.KubeRuntime)
+		obj, err := k8sRuntime.GetObject(request.Namespace, request.Name, request.GroupVersionKind)
+		if err != nil {
+			ctx.ErrorCode = common.InternalError
+			ctx.Logging().Errorf("get resource from cluster %s failed, err: %v", request.ClusterName, err)
+			return nil, err
+		}
+		return obj, nil
+	default:
+		ctx.ErrorCode = common.ActionNotAllowed
+		return nil, fmt.Errorf("action is not allowed in clusterType %s", clusterInfo.ClusterType)
+	}
+}
+
+func DeleteClusterObject(ctx *logger.RequestContext, request *ObjectRequest) error {
+	//  TODO: add permission check
+	clusterInfo, err := models.GetClusterByName(request.ClusterName)
+	if err != nil {
+		ctx.ErrorCode = common.ClusterNameNotFound
+		ctx.Logging().Errorf("get cluster %s failed. err: %v", request.ClusterName, err)
+		return err
+	}
+	runtimeSvc, err := runtime.GetOrCreateRuntime(clusterInfo)
+	if err != nil {
+		ctx.ErrorCode = common.InternalError
+		ctx.Logging().Errorf("get cluster %s runtime failed. err: %v", request.ClusterName, err)
+		return err
+	}
+
+	switch clusterInfo.ClusterType {
+	case schema2.KubernetesType:
+		k8sRuntime := runtimeSvc.(*runtime.KubeRuntime)
+		err = k8sRuntime.DeleteObject(request.Namespace, request.Name, request.GroupVersionKind)
+		if err != nil {
+			ctx.ErrorCode = common.InternalError
+			ctx.Logging().Errorf("delete resource from cluster %s failed, err: %v", request.ClusterName, err)
+			return err
+		}
+	default:
+		ctx.ErrorCode = common.ActionNotAllowed
+		return fmt.Errorf("action is not allowed in clusterType %s", clusterInfo.ClusterType)
+	}
+	return nil
+}
