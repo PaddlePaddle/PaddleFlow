@@ -45,6 +45,7 @@ type SparkJob struct {
 
 func (sj *SparkJob) validateJob() error {
 	if err := sj.KubeJob.validateJob(); err != nil {
+		log.Errorf("validate basic params of spark job failed: %v", err)
 		return err
 	}
 	if !sj.IsCustomYaml {

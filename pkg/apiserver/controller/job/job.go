@@ -337,20 +337,38 @@ func validateJobMode(ctx *logger.RequestContext, request *CreateDisJobRequest) (
 		request.Members[0].Role == string(schema.RoleWorker)) {
 		log.Debugf("create distributed job %s with collective mode", request.CommonJobInfo.ID)
 		return schema.EnvJobModeCollective, nil
-	} else if len(request.Members) == 2 {
+	} else if isPSMode(request.Members) {
 		log.Debugf("create distributed job %s with ps mode", request.CommonJobInfo.ID)
-		if request.Members[0].Role == string(schema.RolePWorker) && request.Members[1].Role == string(schema.RolePServer) ||
-			request.Members[0].Role == string(schema.RolePServer) && request.Members[1].Role == string(schema.RolePWorker) ||
-			request.Members[0].Role == string(schema.RoleDriver) && request.Members[1].Role == string(schema.RoleExecutor) ||
-			request.Members[0].Role == string(schema.RoleExecutor) && request.Members[1].Role == string(schema.RoleDriver) {
-			return schema.EnvJobModePS, nil
-		}
+		return schema.EnvJobModePS, nil
 	}
 	ctx.ErrorCode = common.JobInvalidField
 	ctx.Logging().Errorf("create distributed job %s failed, invalid members number %d", request.CommonJobInfo.ID,
 		len(request.Members))
 	return "", fmt.Errorf("create distributed job %s failed, invalid members number %d", request.CommonJobInfo.ID,
 		len(request.Members))
+}
+
+func isPSMode(members []MemberSpec) bool {
+	if len(members) != 2 {
+		return false
+	}
+	var pserver, pworker, driver, executor bool
+	for _, member := range members {
+		switch member.Role {
+		case string(schema.RolePWorker):
+			pserver = true
+		case string(schema.RolePServer):
+			pworker = true
+		case string(schema.RoleDriver):
+			driver = true
+		case string(schema.RoleExecutor):
+			executor = true
+		}
+	}
+	if (pserver && pworker) || (driver && executor) {
+		return true
+	}
+	return false
 }
 
 func patchDistributedConf(conf *schema.Conf, request *CreateDisJobRequest) error {
