@@ -345,23 +345,20 @@ func (fs *PFS) ReadDirPlus(cancel <-chan struct{}, input *fuse.ReadIn, out *fuse
 	ctx := meta.NewContext(cancel, input.Uid, input.Pid, input.Gid)
 	entries, code := vfs.GetVFS().ReadDir(ctx, vfs.Ino(input.NodeId), input.Fh, input.Offset)
 	if code != 0 {
+		log.Errorf("pfs POSIX ReadDirPlus: error code: %d", code)
 		return fuse.Status(code)
 	}
 	var de fuse.DirEntry
-	log.Debugf("pfs POSIX ReadDirPlus entry %+v", entries)
-	for _, e := range entries {
+	for idx, e := range entries {
 		de.Ino = uint64(e.Ino)
 		de.Name = e.Name
 		de.Mode = e.Attr.Mode
+		log.Debugf("pfs POSIX ReadDirPlus entry #%d: %+v", idx, de)
 		eo := out.AddDirLookupEntry(de)
 		if eo == nil {
 			break
 		}
-		if e.Name == "." || e.Name == ".." {
-			continue
-		}
 	}
-	log.Debugf("pfs POSIX ReadDirPlus result %v", code)
 	return fuse.Status(code)
 }
 
