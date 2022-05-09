@@ -185,6 +185,12 @@ func TestPatchVCJobVariable(t *testing.T) {
 		vcJob := VCJob{
 			KubeJob:       kubeJob,
 			JobModeParams: jobModeParams,
+			Flavour: schema.Flavour{
+				ResourceInfo: schema.ResourceInfo{
+					CPU: "1",
+					Mem: "1Gi",
+				},
+			},
 		}
 		jobApp := test.actualValue
 		if err := vcJob.createJobFromYaml(jobApp); err != nil {

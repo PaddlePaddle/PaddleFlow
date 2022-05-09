@@ -37,6 +37,7 @@ const (
 
 type VCJob struct {
 	KubeJob
+	Flavour schema.Flavour
 	JobModeParams
 }
 
@@ -230,7 +231,7 @@ func (vj *VCJob) fillTaskInPodMode(taskSpec *vcjob.TaskSpec, jobName string) err
 	taskSpec.Template.Labels[schema.JobIDLabel] = jobName
 
 	// patch taskSpec.Template.Spec.Containers
-	vj.fillContainerInVcJob(&taskSpec.Template.Spec.Containers[0], vj.JobFlavour, vj.Command)
+	vj.fillContainerInVcJob(&taskSpec.Template.Spec.Containers[0], vj.Flavour, vj.Command)
 
 	// patch taskSpec.Template.Spec.Volumes
 	taskSpec.Template.Spec.Volumes = vj.appendVolumeIfAbsent(taskSpec.Template.Spec.Volumes, vj.generateVolume())

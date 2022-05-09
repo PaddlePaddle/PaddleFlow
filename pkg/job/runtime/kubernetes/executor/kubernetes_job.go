@@ -142,6 +142,7 @@ func NewKubeJob(job *api.PFJob, dynamicClientOpt *k8s.DynamicClientOption) (api.
 		kubeJob.GroupVersionKind = k8s.VCJobGVK
 		return &VCJob{
 			KubeJob:       kubeJob,
+			Flavour:       job.Conf.Flavour,
 			JobModeParams: newJobModeParams(job.Conf),
 		}, nil
 	case schema.TypeWorkflow:
@@ -297,11 +298,10 @@ func (j *KubeJob) fillPodSpec(podSpec *corev1.PodSpec, task *models.Member) {
 
 // todo: to be removed
 // fillContainerInVcJob fill container in job task, only called by vcjob
-func (j *KubeJob) fillContainerInVcJob(container *corev1.Container, flavourKey, command string) {
+func (j *KubeJob) fillContainerInVcJob(container *corev1.Container, flavour schema.Flavour, command string) {
 	container.Image = j.Image
 	container.Command = []string{"bash", "-c", j.fixContainerCommand(command)}
-	flavourValue := config.GlobalServerConfig.FlavourMap[flavourKey]
-	container.Resources = j.generateResourceRequirements(flavourValue)
+	container.Resources = j.generateResourceRequirements(flavour)
 	container.VolumeMounts = j.appendMountIfAbsent(container.VolumeMounts, j.generateVolumeMount())
 	container.Env = j.generateEnvVars()
 }

@@ -24,16 +24,14 @@ import (
 	"gorm.io/gorm"
 
 	"paddleflow/pkg/apiserver/common"
+	"paddleflow/pkg/apiserver/controller/flavour"
 	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/common/config"
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/common/schema"
 	"paddleflow/pkg/job"
 	"paddleflow/pkg/job/api"
 	"paddleflow/pkg/job/runtime"
 )
-
-const customFlavour = "customFlavour"
 
 // CreateSingleJobRequest convey request for create job
 type CreateSingleJobRequest struct {
@@ -114,7 +112,7 @@ func CreateSingleJob(ctx *logger.RequestContext, request *CreateSingleJobRequest
 		return nil, err
 	}
 
-	flavour, err := getFlavourWithCheck(request.Flavour)
+	f, err := flavour.GetFlavourWithCheck(request.Flavour)
 	if err != nil {
 		log.Errorf("get flavour failed, err=%v", err)
 		return nil, err
@@ -137,7 +135,7 @@ func CreateSingleJob(ctx *logger.RequestContext, request *CreateSingleJobRequest
 		FileSystem:      request.FileSystem,
 		ExtraFileSystem: request.ExtraFileSystems,
 		// 计算资源
-		Flavour:  flavour,
+		Flavour:  f,
 		Priority: request.SchedulingPolicy.Priority,
 		// 运行时需要的参数
 		Labels:      request.Labels,
@@ -207,7 +205,7 @@ func patchSingleConf(conf *schema.Conf, request *CreateSingleJobRequest) error {
 
 func patchFromJobSpec(conf *schema.Conf, jobSpec *JobSpec, userName string) error {
 	var err error
-	conf.Flavour, err = getFlavourWithCheck(jobSpec.Flavour)
+	conf.Flavour, err = flavour.GetFlavourWithCheck(jobSpec.Flavour)
 	if err != nil {
 		log.Errorf("get flavour failed when create job, err=%v", err)
 		return err
@@ -425,7 +423,7 @@ func newPSMembers(request *CreateDisJobRequest) ([]models.Member, error) {
 
 // newMember create models.member from request.Member
 func newMember(member MemberSpec, role schema.MemberRole) (models.Member, error) {
-	flavour, err := getFlavourWithCheck(member.Flavour)
+	f, err := flavour.GetFlavourWithCheck(member.Flavour)
 	if err != nil {
 		log.Errorf("get flavour failed, err=%v", err)
 		return models.Member{}, err
@@ -444,7 +442,7 @@ func newMember(member MemberSpec, role schema.MemberRole) (models.Member, error)
 			FileSystem:      member.FileSystem,
 			ExtraFileSystem: member.ExtraFileSystems,
 			// 计算资源
-			Flavour:  flavour,
+			Flavour:  f,
 			Priority: member.SchedulingPolicy.Priority,
 			QueueID:  member.SchedulingPolicy.QueueID,
 			// 运行时需要的参数
@@ -455,30 +453,6 @@ func newMember(member MemberSpec, role schema.MemberRole) (models.Member, error)
 			Image:       member.Image,
 			Port:        member.Port,
 			Args:        member.Args,
-		},
-	}, nil
-}
-
-// getFlavourWithCheck get req.Flavour and check if it is valid, if exists in db, return it
-func getFlavourWithCheck(reqFlavour schema.Flavour) (schema.Flavour, error) {
-	if reqFlavour.Name == "" || reqFlavour.Name == customFlavour {
-		if err := schema.ValidateResourceInfo(reqFlavour.ResourceInfo, config.GlobalServerConfig.Job.ScalarResourceArray); err != nil {
-			log.Errorf("validate resource info failed, err=%v", err)
-			return schema.Flavour{}, err
-		}
-		return reqFlavour, nil
-	}
-	flavour, err := models.GetFlavour(reqFlavour.Name)
-	if err != nil {
-		log.Errorf("Get flavour by name %s failed when creating job, err=%v", flavour.Name, err)
-		return schema.Flavour{}, fmt.Errorf("get flavour[%s] failed, err=%v", flavour.Name, err)
-	}
-	return schema.Flavour{
-		Name: flavour.Name,
-		ResourceInfo: schema.ResourceInfo{
-			CPU:             flavour.CPU,
-			Mem:             flavour.Mem,
-			ScalarResources: flavour.ScalarResources,
 		},
 	}, nil
 }
