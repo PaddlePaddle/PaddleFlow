@@ -216,15 +216,15 @@ func IsLastFlavourPk(pk int64) bool {
 func GetFlavourWithCheck(reqFlavour schema.Flavour) (schema.Flavour, error) {
 	if reqFlavour.Name == "" || reqFlavour.Name == customFlavour {
 		if err := schema.ValidateResourceInfo(reqFlavour.ResourceInfo, config.GlobalServerConfig.Job.ScalarResourceArray); err != nil {
-			log.Errorf("validate resource info failed, err=%v", err)
+			log.Errorf("validate resource info failed, err:%v", err)
 			return schema.Flavour{}, err
 		}
 		return reqFlavour, nil
 	}
 	flavour, err := models.GetFlavour(reqFlavour.Name)
 	if err != nil {
-		log.Errorf("Get flavour by name %s failed when creating job, err=%v", flavour.Name, err)
-		return schema.Flavour{}, fmt.Errorf("get flavour[%s] failed, err=%v", flavour.Name, err)
+		log.Errorf("Get flavour by name %s failed when creating job, err:%v", flavour.Name, err)
+		return schema.Flavour{}, fmt.Errorf("get flavour[%s] failed, err:%v", flavour.Name, err)
 	}
 	return schema.Flavour{
 		Name: flavour.Name,

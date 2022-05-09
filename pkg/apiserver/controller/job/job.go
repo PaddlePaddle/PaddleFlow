@@ -114,7 +114,7 @@ func CreateSingleJob(ctx *logger.RequestContext, request *CreateSingleJobRequest
 
 	f, err := flavour.GetFlavourWithCheck(request.Flavour)
 	if err != nil {
-		log.Errorf("get flavour failed, err=%v", err)
+		log.Errorf("get flavour failed, err:%v", err)
 		return nil, err
 	}
 	extensionTemplate, err := newExtensionTemplate(request.ExtensionTemplate)
@@ -207,7 +207,7 @@ func patchFromJobSpec(conf *schema.Conf, jobSpec *JobSpec, userName string) erro
 	var err error
 	conf.Flavour, err = flavour.GetFlavourWithCheck(jobSpec.Flavour)
 	if err != nil {
-		log.Errorf("get flavour failed when create job, err=%v", err)
+		log.Errorf("get flavour failed when create job, err:%v", err)
 		return err
 	}
 	// FileSystem
@@ -425,7 +425,7 @@ func newPSMembers(request *CreateDisJobRequest) ([]models.Member, error) {
 func newMember(member MemberSpec, role schema.MemberRole) (models.Member, error) {
 	f, err := flavour.GetFlavourWithCheck(member.Flavour)
 	if err != nil {
-		log.Errorf("get flavour failed, err=%v", err)
+		log.Errorf("get flavour failed, err:%v", err)
 		return models.Member{}, err
 	}
 	if member.Replicas < 1 {

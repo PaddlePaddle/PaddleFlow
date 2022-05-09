@@ -140,9 +140,17 @@ func NewKubeJob(job *api.PFJob, dynamicClientOpt *k8s.DynamicClientOption) (api.
 	case schema.TypeVcJob:
 		// todo(zhongzichao): to be removed
 		kubeJob.GroupVersionKind = k8s.VCJobGVK
+		if len(job.Tasks) == 0 {
+			kubeJob.Tasks = []models.Member{
+				{
+					Conf: schema.Conf{
+						Flavour: job.Conf.Flavour,
+					},
+				},
+			}
+		}
 		return &VCJob{
 			KubeJob:       kubeJob,
-			Flavour:       job.Conf.Flavour,
 			JobModeParams: newJobModeParams(job.Conf),
 		}, nil
 	case schema.TypeWorkflow:

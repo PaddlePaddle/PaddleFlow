@@ -37,7 +37,6 @@ const (
 
 type VCJob struct {
 	KubeJob
-	Flavour schema.Flavour
 	JobModeParams
 }
 
@@ -230,8 +229,12 @@ func (vj *VCJob) fillTaskInPodMode(taskSpec *vcjob.TaskSpec, jobName string) err
 	}
 	taskSpec.Template.Labels[schema.JobIDLabel] = jobName
 
+	if len(vj.Tasks) != 1 || len(vj.Tasks[0].Flavour.CPU) == 0 || len(vj.Tasks[0].Flavour.Mem) == 0 {
+		log.Errorf("vcjob[%s]'s flavour is absent, j.Tasks=[%+v]", jobName, vj.Tasks)
+		return fmt.Errorf("vcjob[%s]'s flavour is absent", jobName)
+	}
 	// patch taskSpec.Template.Spec.Containers
-	vj.fillContainerInVcJob(&taskSpec.Template.Spec.Containers[0], vj.Flavour, vj.Command)
+	vj.fillContainerInVcJob(&taskSpec.Template.Spec.Containers[0], vj.Tasks[0].Flavour, vj.Command)
 
 	// patch taskSpec.Template.Spec.Volumes
 	taskSpec.Template.Spec.Volumes = vj.appendVolumeIfAbsent(taskSpec.Template.Spec.Volumes, vj.generateVolume())
