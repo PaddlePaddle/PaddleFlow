@@ -1305,6 +1305,9 @@ func NewS3FileSystem(properties map[string]interface{}) (UnderFileStorage, error
 	if region == "" {
 		region = AwsDefaultRegion
 	}
+	log.Infof("new s3 fs endpoint[%s] ak[%s] bucket[%s] region[%s] subPath[%s] ssl[%v]",
+		endpoint, accessKey, bucket, region, subpath, ssl)
+
 	awsConfig := &aws.Config{
 		Region:           aws.String(region),
 		Endpoint:         aws.String(endpoint),
@@ -1321,7 +1324,7 @@ func NewS3FileSystem(properties map[string]interface{}) (UnderFileStorage, error
 
 	sess, err := session.NewSession(awsConfig)
 	if err != nil {
-		return nil, fmt.Errorf("Fail to create s3 session: %s", err)
+		return nil, fmt.Errorf("Fail to create s3 session: %v", err)
 	}
 
 	if strings.HasPrefix(subpath, Delimiter) {
@@ -1341,10 +1344,12 @@ func NewS3FileSystem(properties map[string]interface{}) (UnderFileStorage, error
 
 	exist, err := fs.isBucketExists(bucket)
 	if err != nil {
+		log.Errorf("S3 New buckert Exists: %v", err)
 		return nil, err
 	}
 
 	if !exist {
+		log.Errorf("bucker not exists")
 		return nil, errors.New("BucketNotExist")
 	}
 

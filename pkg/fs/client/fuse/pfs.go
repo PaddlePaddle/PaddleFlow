@@ -397,10 +397,13 @@ func (fs *PFS) StatFs(cancel <-chan struct{}, input *fuse.InHeader, out *fuse.St
 	return fuse.OK
 }
 
-func Server(moutpoint string, opt fuse.MountOptions) (*fuse.Server, error) {
+func Server(mountpoint string, opt fuse.MountOptions) (*fuse.Server, error) {
 	pfs := NewPaddleFlowFileSystem(false)
 	opt.SingleThreaded = false
-	fssrv, err := fuse.NewServer(pfs, moutpoint, &opt)
+	opt.MaxWrite = 1 << 20
+	opt.MaxReadAhead = 1 << 20
+	opt.MaxBackground = 50
+	fssrv, err := fuse.NewServer(pfs, mountpoint, &opt)
 	if err != nil {
 		return nil, err
 	}

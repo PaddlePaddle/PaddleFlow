@@ -17,6 +17,7 @@ limitations under the License.
 package meta
 
 import (
+	log "github.com/sirupsen/logrus"
 	"path"
 	"strings"
 	"sync"
@@ -89,6 +90,10 @@ func (m *InodeHandle) toInode(i Ino) *Inode {
 }
 
 func (m *InodeHandle) InodeToPath(inode *Inode) string {
+	if inode == nil {
+		log.Errorf("inode is nil inodeHandle[%+v]", m)
+		return ""
+	}
 	if inode.parent == nil {
 		return "/"
 	}
