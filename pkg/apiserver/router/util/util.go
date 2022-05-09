@@ -40,7 +40,8 @@ const (
 	QueryKeyAction    = "action"
 	QueryActionStop   = "stop"
 	QueryActionRetry  = "retry"
-	QueryActionClose  = "close"
+	QueryActionDelete = "delete"
+	QueryActionCreate = "create"
 	QueryActionModify = "modify"
 
 	QueryKeyMarker  = "marker"

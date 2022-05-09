@@ -48,10 +48,20 @@ func (cr *ClusterRouter) AddRouter(r chi.Router) {
 	r.Put("/cluster/{clusterName}", cr.updateCluster)
 	r.Get("/cluster/resource", cr.listClusterQuota)
 
-	r.Post("/cluster/{clusterName}/k8s/object", cr.createKubernetesObject)
+	r.Post("/cluster/{clusterName}/k8s/object", func(w http.ResponseWriter, r *http.Request) {
+		ctx := common.GetRequestContext(r)
+		action := r.URL.Query().Get(util.QueryKeyAction)
+		switch action {
+		case "", util.QueryActionCreate:
+			cr.createKubernetesObject(w, r)
+		case util.QueryActionDelete:
+			cr.deleteKubernetesObject(w, r)
+		default:
+			common.RenderErr(w, ctx.RequestID, common.ActionNotAllowed)
+		}
+	})
 	r.Get("/cluster/{clusterName}/k8s/object", cr.getKubernetesObject)
 	r.Put("/cluster/{clusterName}/k8s/object", cr.updateKubernetesObject)
-	r.Post("/cluster/{clusterName}/k8s/object/delete", cr.deleteKubernetesObject)
 }
 
 // 创建集群
