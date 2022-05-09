@@ -70,6 +70,17 @@ var (
 	}
 )
 
+// deprecated
+func initConfigsForTest(confEnv map[string]string) {
+	initGlobalServerConfig()
+	confEnv[schema.EnvJobType] = string(schema.TypeVcJob)
+	confEnv[schema.EnvJobNamespace] = "N1"
+	confEnv[schema.EnvJobFlavour] = "cpu"
+	confEnv[schema.EnvJobPServerReplicas] = "3"
+	confEnv[schema.EnvJobFsID] = "fs-root-test"
+	confEnv[schema.EnvJobPVCName] = "test-pvc-name"
+}
+
 func TestPatchVCJobVariable(t *testing.T) {
 	confEnv := make(map[string]string)
 	initConfigsForTest(confEnv)
