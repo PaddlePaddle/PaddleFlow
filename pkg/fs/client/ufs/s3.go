@@ -1324,8 +1324,11 @@ func NewS3FileSystem(properties map[string]interface{}) (UnderFileStorage, error
 		return nil, fmt.Errorf("Fail to create s3 session: %s", err)
 	}
 
-	if strings.HasPrefix(subpath, Delimiter) {
+	for strings.HasPrefix(subpath, Delimiter) {
 		subpath = strings.TrimPrefix(subpath, Delimiter)
+	}
+	for strings.HasSuffix(subpath, Delimiter) {
+		subpath = strings.TrimSuffix(subpath, Delimiter)
 	}
 
 	fs := &s3FileSystem{
