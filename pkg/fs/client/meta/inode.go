@@ -17,10 +17,11 @@ limitations under the License.
 package meta
 
 import (
-	log "github.com/sirupsen/logrus"
 	"path"
 	"strings"
 	"sync"
+
+	log "github.com/sirupsen/logrus"
 )
 
 const initDirSize = 20
