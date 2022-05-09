@@ -170,11 +170,14 @@ func newFrameWorkJob(kubeJob KubeJob, job *api.PFJob) (api.PFJobInterface, error
 	case schema.FrameworkSpark:
 		kubeJob.GroupVersionKind = k8s.SparkAppGVK
 		sparkJob := &SparkJob{
-			KubeJob:        kubeJob,
-			SparkMainFile:  job.Conf.Env[schema.EnvJobSparkMainFile],
-			SparkMainClass: job.Conf.Env[schema.EnvJobSparkMainClass],
-			SparkArguments: job.Conf.Env[schema.EnvJobSparkArguments],
+			KubeJob: kubeJob,
 		}
+		if kubeJob.Tasks != nil && kubeJob.Tasks[0].Env != nil {
+			sparkJob.SparkMainClass = kubeJob.Tasks[0].Env[schema.EnvJobSparkMainClass]
+			sparkJob.SparkMainFile = kubeJob.Tasks[0].Env[schema.EnvJobSparkMainFile]
+			sparkJob.SparkArguments = kubeJob.Tasks[0].Env[schema.EnvJobSparkArguments]
+		}
+		log.Debugf("newFrameWorkJob: create spark job: %#v", sparkJob)
 		return sparkJob, nil
 	case schema.FrameworkMPI:
 		kubeJob.GroupVersionKind = k8s.VCJobGVK
