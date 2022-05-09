@@ -132,7 +132,6 @@ func (fh *fileReader) Read(buf []byte, off uint64) (int, syscall.Errno) {
 			return 0, syscall.EBADF
 		}
 	}
-	log.Debugf("filereader finish read %d and buf is %s", bytesRead, string(buf[:bytesRead]))
 	return bytesRead, syscall.F_OK
 }
 
