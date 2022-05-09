@@ -160,6 +160,12 @@ func TestPatchVCJobVariable(t *testing.T) {
 			PVCName:    "PVCName",
 			Priority:   pfjob.Conf.GetPriority(),
 			QueueName:  pfjob.Conf.GetQueueName(),
+			Tasks: []models.Member{{Conf: schema.Conf{Flavour: schema.Flavour{
+				ResourceInfo: schema.ResourceInfo{
+					CPU: "1",
+					Mem: "1Gi",
+				},
+			}}}},
 		}
 		// yaml content
 		yamlTemplateContent, err := kubeJob.getExtRuntimeConf(pfjob.Conf.GetFS(), pfjob.Conf.GetYamlPath(), pfjob.Framework)
