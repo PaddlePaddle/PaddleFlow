@@ -17,6 +17,7 @@ limitations under the License.
 package fs
 
 import (
+	"fmt"
 	"os"
 	"sync"
 	"testing"
@@ -512,4 +513,63 @@ func TestFSClient_readAtwithsmallBlock_1(t *testing.T) {
 	assert.Equal(t, err, nil)
 	err = os.RemoveAll("./mock-cache")
 	assert.Equal(t, err, nil)
+}
+
+func TestFSClient_readAtNotEnoughMem(t *testing.T) {
+	os.RemoveAll("./mock")
+	os.RemoveAll("./mock-cache")
+
+	d := cache.Config{
+		BlockSize:    1,
+		MaxReadAhead: 1,
+		Mem:          &cache.MemConfig{CacheSize: 0, Expire: 0},
+		Disk:         &cache.DiskConfig{Dir: "./mock-cache", Expire: 0},
+	}
+	SetDataCache(d)
+
+	// new client
+	client, err := newPfsTest()
+	assert.Equal(t, err, nil)
+
+	// 创建文件
+	path := "testRead"
+	flags := os.O_RDWR | os.O_CREATE | os.O_TRUNC
+	mode := 0644
+	writer, err := client.Create(path, uint32(flags), uint32(mode))
+	assert.Equal(t, err, nil)
+
+	// 写文件
+	writeString := "1234567890abcdefgh"
+	_, err = writer.Write([]byte(writeString))
+	assert.Equal(t, err, nil)
+	writer.Close()
+
+	var reader *File
+	var buf []byte
+	var n int
+
+	n = 5
+	reader, err = client.Open(path)
+	assert.Equal(t, err, nil)
+	buf = make([]byte, 5)
+	off := 2
+	n, err = reader.ReadAt(buf, int64(off))
+	assert.Equal(t, len(buf), n)
+	assert.Equal(t, string(buf), "34567")
+	p := setPoolNil()
+	fmt.Println("===============")
+	time.Sleep(1 * time.Second)
+
+	buf = make([]byte, 5)
+	n, err = reader.ReadAt(buf, 3)
+	assert.Equal(t, len(buf), n)
+	assert.Equal(t, string(buf), "45678")
+	p.Reset()
+
+	buf = make([]byte, 10)
+	n, err = reader.ReadAt(buf, 5)
+	assert.Equal(t, 10, n)
+	assert.Equal(t, "67890abcde", string(buf[:n]))
+	reader.Close()
+
 }

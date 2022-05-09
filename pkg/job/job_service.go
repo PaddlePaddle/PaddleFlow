@@ -68,6 +68,9 @@ func patchTasksFromEnv(conf *schema.Conf, jobInfo *models.Job) error {
 	log.Debugf("patch tasks from env: %v", conf)
 	switch conf.Type() {
 	case schema.TypePaddleJob:
+		jobInfo.Framework = schema.FrameworkPaddle
+		jobInfo.Type = string(schema.TypeDistributed)
+	case schema.TypeSparkJob:
 		jobInfo.Framework = schema.FrameworkSpark
 		jobInfo.Type = string(schema.TypeDistributed)
 	}
@@ -224,7 +227,7 @@ func ValidateQueue(conf schema.PFJobConf, userName, queueName string) error {
 	queue, err := models.GetQueueByName(queueName)
 	if err != nil {
 		log.Errorf("get queue %s failed, err %v", queueName, err)
-		return fmt.Errorf("queueName[%s] is not exist\n", queueName)
+		return fmt.Errorf("queueName[%s] is not exist", queueName)
 	}
 	// check queue status
 	if queue.Status != schema.StatusQueueOpen {
@@ -262,12 +265,6 @@ func ValidateQueue(conf schema.PFJobConf, userName, queueName string) error {
 
 // validateFlavours checks flavour/psflavour/workflavour if exist
 func validateFlavours(conf schema.PFJobConf, queue *models.Queue) error {
-	queueResource, err := schema.NewResource(queue.MaxResources)
-	if err != nil {
-		log.Errorf("queue[%s]:[%+v] convert to Resource type failed, err=%v", queue.Name, queue, err)
-		return err
-	}
-
 	flavors := []string{
 		conf.GetFlavour(), conf.GetPSFlavour(), conf.GetWorkerFlavour(),
 	}
@@ -275,7 +272,7 @@ func validateFlavours(conf schema.PFJobConf, queue *models.Queue) error {
 		if len(flavor) == 0 {
 			continue
 		}
-		if err := isEnoughQueueCapacity(flavor, queueResource); err != nil {
+		if err := isEnoughQueueCapacity(flavor, queue.MaxResources); err != nil {
 			errMsg := fmt.Sprintf("queue %s has no enough resource:%s", conf.GetQueueName(), err.Error())
 			log.Errorf(errMsg)
 			return fmt.Errorf(errMsg)
@@ -285,19 +282,14 @@ func validateFlavours(conf schema.PFJobConf, queue *models.Queue) error {
 }
 
 // isEnoughQueueCapacity validate queue matching flavor
-func isEnoughQueueCapacity(flavourKey string, queueResource *schema.Resource) error {
+func isEnoughQueueCapacity(flavourKey string, queueResource schema.ResourceInfo) error {
 	flavourValue, exist := config.GlobalServerConfig.FlavourMap[flavourKey]
 	if !exist {
 		return errors.InvalidFlavourError(flavourKey)
 	}
-	fr := flavourValue.ResourceInfo
-	flavourRes, err := schema.NewResource(fr)
-	if err != nil {
-		log.Errorf("flavour[%s]:[%+v] convert to Resource type failed, err=%v", flavourKey, fr, err)
-		return err
-	}
+
 	// all field in flavour must be less equal than queue's
-	if !flavourRes.LessEqual(queueResource) {
+	if !flavourValue.ResourceInfo.LessEqual(queueResource) {
 		errMsg := fmt.Sprintf("the request flavour[%s] is larger than queue's", flavourKey)
 		log.Errorf(errMsg)
 		return fmt.Errorf(errMsg)

@@ -18,7 +18,6 @@ package csidriver
 
 import (
 	"github.com/container-storage-interface/spec/lib/go/csi"
-	"github.com/google/uuid"
 	"github.com/kubernetes-csi/drivers/pkg/csi-common"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
@@ -32,9 +31,9 @@ type controllerServer struct {
 
 func (cs *controllerServer) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest) (
 	*csi.CreateVolumeResponse, error) {
-	volumeID := uuid.NewString()
+	volumeID := req.Name
 	if err := cs.Driver.ValidateControllerServiceRequest(csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME); err != nil {
-		log.Infof("invalid create volume req: %v", req)
+		log.Errorf("invalid create volume req: %v", req)
 		return nil, err
 	}
 

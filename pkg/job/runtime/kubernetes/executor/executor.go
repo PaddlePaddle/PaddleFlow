@@ -130,3 +130,36 @@ func Patch(namespace, name string, gvk schema.GroupVersionKind, data []byte, cli
 	}
 	return err
 }
+
+func Update(resource interface{}, gvk schema.GroupVersionKind, clientOpt *k8s.DynamicClientOption) error {
+	log.Debugf("executor begin to update kubernetes resource[%s]", gvk.String())
+	if clientOpt == nil {
+		return fmt.Errorf("dynamic client is nil")
+	}
+	gvrMap, err := clientOpt.GetGVR(gvk)
+	if err != nil {
+		return err
+	}
+
+	newResource, err := runtime.DefaultUnstructuredConverter.ToUnstructured(resource)
+	if err != nil {
+		log.Errorf("convert to unstructured failed, err: %v", err)
+		return err
+	}
+
+	obj := &unstructured.Unstructured{
+		Object: newResource,
+	}
+	obj.SetKind(gvk.Kind)
+	obj.SetAPIVersion(gvk.GroupVersion().String())
+	// Create the object with dynamic client
+	if gvrMap.Scope.Name() == meta.RESTScopeNameNamespace {
+		_, err = clientOpt.DynamicClient.Resource(gvrMap.Resource).Namespace(obj.GetNamespace()).Update(context.TODO(), obj, v1.UpdateOptions{})
+	} else {
+		_, err = clientOpt.DynamicClient.Resource(gvrMap.Resource).Update(context.TODO(), obj, v1.UpdateOptions{})
+	}
+	if err != nil {
+		log.Errorf("update kuberentes resource[%s] failed. error:[%s]", gvk.String(), err.Error())
+	}
+	return err
+}

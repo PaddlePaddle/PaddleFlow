@@ -28,6 +28,7 @@ import (
 	"paddleflow/pkg/common/errors"
 	"paddleflow/pkg/common/k8s"
 	"paddleflow/pkg/common/schema"
+	"paddleflow/pkg/common/uuid"
 )
 
 type PaddleJob struct {
@@ -43,16 +44,8 @@ func (pj *PaddleJob) validateJob() error {
 		// patch default value
 		pj.JobMode = schema.EnvJobModeCollective
 	}
-	var err error
-	switch pj.JobMode {
-	case schema.EnvJobModePS:
-		err = pj.validatePSMode()
-	case schema.EnvJobModeCollective:
-		err = pj.validateCollectiveMode()
-	default:
-		return errors.InvalidJobModeError(pj.JobMode)
-	}
-	return err
+
+	return nil
 }
 
 func (pj *PaddleJob) CreateJob() (string, error) {
@@ -66,14 +59,19 @@ func (pj *PaddleJob) CreateJob() (string, error) {
 		return "", err
 	}
 
-	// patch .metadata field
-	pj.patchMetadata(&pdj.ObjectMeta)
-	// patch .spec field
-	err := pj.patchPaddleJobSpec(&pdj.Spec)
-	if err != nil {
-		log.Errorf("build job spec failed, err %v", err)
-		return "", err
+	var err error
+	// paddleflow won't patch any param to job if it is workflow type
+	if pj.JobType != schema.TypeWorkflow {
+		// patch .metadata field
+		pj.patchMetadata(&pdj.ObjectMeta, pj.ID)
+		// patch .spec field
+		err = pj.patchPaddleJobSpec(&pdj.Spec)
+		if err != nil {
+			log.Errorf("build job spec failed, err %v", err)
+			return "", err
+		}
 	}
+
 	// create job on cluster
 	log.Infof("create %s job %s/%s on cluster", pj.JobType, pj.Namespace, pj.Name)
 	if err = Create(pdj, pj.GroupVersionKind, pj.DynamicClientOption); err != nil {
@@ -210,17 +208,21 @@ func (pj *PaddleJob) patchPdjCollectiveSpec(pdjSpec *paddlev1.PaddleJobSpec) err
 // patchPdjTask patches info into task of paddleJob
 func (pj *PaddleJob) patchPdjTask(resourceSpec *paddlev1.ResourceSpec, task models.Member) error {
 	log.Infof("patchPdjTask, resourceSpec=%#v, task=%#v", resourceSpec, task)
-	if task.Replicas <= 0 {
-		resourceSpec.Replicas = defaultPSReplicas
-	} else {
+	if !pj.IsCustomYaml && task.Replicas > 0 {
 		resourceSpec.Replicas = task.Replicas
 	}
-
-	// patch resourceSpec.Template.Labels
-	if resourceSpec.Template.Labels == nil {
-		resourceSpec.Template.Labels = map[string]string{}
+	if resourceSpec.Replicas <= 0 {
+		resourceSpec.Replicas = defaultPSReplicas
 	}
-	resourceSpec.Template.Labels[schema.JobIDLabel] = pj.Name
+
+	// set metadata
+	taskName := task.Name
+	if taskName == "" {
+		taskName = uuid.GenerateIDWithLength(pj.ID, 3)
+	}
+	pj.patchMetadata(&resourceSpec.Template.ObjectMeta, taskName)
+	// set pod template
+	pj.fillPodSpec(&resourceSpec.Template.Spec, &task)
 
 	// patch Task.Template.Spec.Containers[0]
 	if len(resourceSpec.Template.Spec.Containers) != 1 {
@@ -228,8 +230,6 @@ func (pj *PaddleJob) patchPdjTask(resourceSpec *paddlev1.ResourceSpec, task mode
 	}
 	pj.fillContainerInTasks(&resourceSpec.Template.Spec.Containers[0], task)
 
-	// patch resourceSpec.Template.Spec.Volumes
-	resourceSpec.Template.Spec.Volumes = pj.appendVolumeIfAbsent(resourceSpec.Template.Spec.Volumes, pj.generateVolume())
 	return nil
 }
 

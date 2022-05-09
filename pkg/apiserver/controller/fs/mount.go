@@ -26,7 +26,7 @@ import (
 
 type CreateMountRequest struct {
 	FsName     string `json:"fsName" validate:"required"`
-	Username   string `json:"userName"`
+	Username   string `json:"username"`
 	ClusterID  string `json:"clusterID"`
 	MountPoint string `json:"mountPoint" validate:"required"`
 	NodeName   string `json:"nodename" validate:"required"`
@@ -34,7 +34,7 @@ type CreateMountRequest struct {
 
 type ListMountRequest struct {
 	FsName    string `json:"fsName"`
-	Username  string `json:"userName"`
+	Username  string `json:"username"`
 	ClusterID string `json:"clusterID"`
 	NodeName  string `json:"nodename" validate:"required"`
 	Marker    string `json:"marker"`
@@ -43,10 +43,25 @@ type ListMountRequest struct {
 
 type DeleteMountRequest struct {
 	FsName     string `json:"fsName" validate:"required"`
-	Username   string `json:"userName"`
+	Username   string `json:"username"`
 	ClusterID  string `json:"clusterID"`
 	MountPoint string `json:"mountPoint" validate:"required"`
 	NodeName   string `json:"nodename" validate:"required"`
+}
+
+type ListMountResponse struct {
+	Marker     string           `json:"marker"`
+	Truncated  bool             `json:"truncated"`
+	NextMarker string           `json:"nextMarker"`
+	MountList  []*MountResponse `json:"mountList"`
+}
+
+type MountResponse struct {
+	MountID    string `json:"mountID"`
+	FsID       string `json:"fsID"`
+	MountPoint string `json:"mountpoint"`
+	NodeName   string `json:"nodename"`
+	ClusterID  string `json:"clusterID"`
 }
 
 func CreateMount(ctx *logger.RequestContext, req CreateMountRequest) error {

@@ -36,7 +36,8 @@ const (
 	EnvJobPriority    = "PF_JOB_PRIORITY"
 	EnvJobMode        = "PF_JOB_MODE"
 	// EnvJobYamlPath Additional configuration for a specific job
-	EnvJobYamlPath = "PF_JOB_YAML_PATH"
+	EnvJobYamlPath  = "PF_JOB_YAML_PATH"
+	EnvIsCustomYaml = "PF_IS_CUSTOM_YAML"
 
 	// EnvJobModePS env
 	EnvJobModePS          = "PS"
@@ -244,6 +245,12 @@ func (c *Conf) SetPriority(pc string) {
 
 func (c *Conf) GetQueueName() string {
 	return c.Env[EnvJobQueueName]
+}
+
+// SetQueueName set queue name
+func (c *Conf) SetQueueName(queueName string) {
+	c.preCheckEnv()
+	c.Env[EnvJobQueueName] = queueName
 }
 
 func (c *Conf) GetClusterName() string {

@@ -26,7 +26,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/common/config"
 	"paddleflow/pkg/common/database/dbinit"
 	"paddleflow/pkg/common/k8s"
 	"paddleflow/pkg/common/schema"
@@ -112,7 +111,7 @@ spec:
 				},
 			},
 		},
-		ExtRuntimeConf: []byte(extensionPaddleYaml),
+		ExtensionTemplate: extensionPaddleYaml,
 	}
 	mockPaddlePSJob = api.PFJob{
 		ID:        "job-normal-0001",
@@ -149,33 +148,12 @@ spec:
 				},
 			},
 		},
-		ExtRuntimeConf: []byte(extensionPaddleYaml),
+		ExtensionTemplate: extensionPaddleYaml,
 	}
 )
 
 func TestPaddleJob_CreateJob(t *testing.T) {
-	config.GlobalServerConfig = &config.ServerConfig{}
-	config.GlobalServerConfig.Job.SchedulerName = "testSchedulerName"
-	config.GlobalServerConfig.FlavourMap = map[string]schema.Flavour{
-		"cpu": {
-			Name: "cpu",
-			ResourceInfo: schema.ResourceInfo{
-				CPU: "1",
-				Mem: "100M",
-			},
-		},
-		"gpu": {
-			Name: "gpu",
-			ResourceInfo: schema.ResourceInfo{
-				CPU: "1",
-				Mem: "100M",
-				ScalarResources: schema.ScalarResourcesType{
-					"nvidia.com/gpu": "500M",
-				},
-			},
-		},
-	}
-
+	initGlobalServerConfig()
 	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
 	defer server.Close()
 	dynamicClient := newFakeDynamicClient(server)

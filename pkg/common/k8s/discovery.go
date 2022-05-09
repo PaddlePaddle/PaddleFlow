@@ -54,6 +54,7 @@ var DiscoveryHandlerFunc = http.HandlerFunc(func(w http.ResponseWriter, req *htt
 			APIResources: []metav1.APIResource{
 				{Name: "pods", Namespaced: true, Kind: "Pod"},
 				{Name: "namespaces", Namespaced: false, Kind: "Namespace"},
+				{Name: "configmaps", Namespaced: true, Kind: "ConfigMap"},
 			},
 		}
 	case "/api":

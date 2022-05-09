@@ -55,7 +55,7 @@ type Job struct {
 	CreatedAt         time.Time        `json:"createTime"`
 	ActivatedAt       sql.NullTime     `json:"activateTime"`
 	UpdatedAt         time.Time        `json:"updateTime,omitempty"`
-	DeletedAt         gorm.DeletedAt   `json:"-" gorm:"index:idx_id"`
+	DeletedAt         string           `json:"-" gorm:"index:idx_id"`
 }
 
 type Member struct {
@@ -109,7 +109,7 @@ func (job *Job) AfterFind(tx *gorm.DB) error {
 		var runtime interface{}
 		err := json.Unmarshal([]byte(job.RuntimeInfoJson), &runtime)
 		if err != nil {
-			log.Errorf("job[%s] json unmarshal runtime failed, error:[%s]", job.ID, err.Error())
+			log.Errorf("job[%s] json unmarshal runtime failed, error: %s", job.ID, err.Error())
 			return err
 		}
 		job.RuntimeInfo = runtime
@@ -118,7 +118,7 @@ func (job *Job) AfterFind(tx *gorm.DB) error {
 		var members []Member
 		err := json.Unmarshal([]byte(job.MembersJson), &members)
 		if err != nil {
-			log.Errorf("job[%s] json unmarshal member failed, error:[%s]", job.ID, err.Error())
+			log.Errorf("job[%s] json unmarshal member failed, error: %s", job.ID, err.Error())
 			return err
 		}
 		job.Members = members
@@ -127,7 +127,7 @@ func (job *Job) AfterFind(tx *gorm.DB) error {
 		conf := schema.Conf{}
 		err := json.Unmarshal([]byte(job.ConfigJson), &conf)
 		if err != nil {
-			log.Errorf("job[%s] json unmarshal config failed, error:[%s]", job.ID, err.Error())
+			log.Errorf("job[%s] json unmarshal config failed, error: %s", job.ID, err.Error())
 			return err
 		}
 		job.Config = &conf
@@ -143,7 +143,7 @@ func CreateJob(job *Job) error {
 
 func GetJobByID(jobID string) (Job, error) {
 	var job Job
-	tx := database.DB.Table("job").Where("id = ?", jobID).First(&job)
+	tx := database.DB.Table("job").Where("id = ?", jobID).Where("deleted_at = ''").First(&job)
 	if tx.Error != nil {
 		logger.LoggerForJob(jobID).Errorf("get job failed, err %v", tx.Error.Error())
 		return Job{}, tx.Error
@@ -170,7 +170,7 @@ func GetJobStatusByID(jobID string) (schema.JobStatus, error) {
 }
 
 func DeleteJob(jobID string) error {
-	t := database.DB.Table("job").Where("id = ?", jobID).Delete(&Job{})
+	t := database.DB.Table("job").Where("id = ?", jobID).Where("deleted_at = ''").UpdateColumn("deleted_at", time.Now().Format(TimeFormat))
 	if t.Error != nil {
 		return t.Error
 	}
@@ -189,7 +189,7 @@ func UpdateJobStatus(jobId, errMessage string, jobStatus schema.JobStatus) error
 		job.Message = errMessage
 	}
 	log.Infof("update job [%+v]", job)
-	tx := database.DB.Model(&Job{}).Where("id = ?", jobId).Updates(job)
+	tx := database.DB.Model(&Job{}).Where("id = ?", jobId).Where("deleted_at = ''").Updates(job)
 	if tx.Error != nil {
 		return tx.Error
 	}
@@ -205,7 +205,7 @@ func UpdateJobConfig(jobId string, conf *schema.Conf) error {
 		return err
 	}
 	log.Infof("update job config [%v]", conf)
-	tx := database.DB.Model(&Job{}).Where("id = ?", jobId).UpdateColumn("config", confJSON)
+	tx := database.DB.Model(&Job{}).Where("id = ?", jobId).Where("deleted_at = ''").UpdateColumn("config", confJSON)
 	if tx.Error != nil {
 		return tx.Error
 	}
@@ -230,7 +230,7 @@ func UpdateJob(jobID string, status schema.JobStatus, info interface{}, message 
 		job.ActivatedAt.Time = time.Now()
 		job.ActivatedAt.Valid = true
 	}
-	tx := database.DB.Table("job").Where("id = ?", jobID).Save(&job)
+	tx := database.DB.Table("job").Where("id = ?", jobID).Where("deleted_at = ''").Updates(&job)
 	if tx.Error != nil {
 		logger.LoggerForJob(jobID).Errorf("update job failed, err %v", tx.Error)
 		return "", tx.Error
@@ -239,7 +239,7 @@ func UpdateJob(jobID string, status schema.JobStatus, info interface{}, message 
 }
 
 func ListQueueJob(queueID string, status []schema.JobStatus) []Job {
-	db := database.DB.Table("job").Where("status in ?", status).Where("queue_id = ?", queueID)
+	db := database.DB.Table("job").Where("status in ?", status).Where("queue_id = ?", queueID).Where("deleted_at = ''")
 
 	var jobs []Job
 	err := db.Find(&jobs).Error
@@ -251,7 +251,7 @@ func ListQueueJob(queueID string, status []schema.JobStatus) []Job {
 
 func GetJobsByRunID(runID string, jobID string) ([]Job, error) {
 	var jobList []Job
-	query := database.DB.Table("job").Where("id like ?", "job-"+runID+"-%")
+	query := database.DB.Table("job").Where("id like ?", "job-"+runID+"-%").Where("deleted_at = ''")
 	if jobID != "" {
 		query = query.Where("id = ?", jobID)
 	}
@@ -265,7 +265,7 @@ func GetJobsByRunID(runID string, jobID string) ([]Job, error) {
 
 func ListJobByUpdateTime(updateTime string) ([]Job, error) {
 	var jobList []Job
-	err := database.DB.Table("job").Where("updated_at >= ?", updateTime).Find(&jobList).Error
+	err := database.DB.Table("job").Where("updated_at >= ?", updateTime).Where("deleted_at = ''").Find(&jobList).Error
 	if err != nil {
 		log.Errorf("list job by updateTime[%s] failed, error:[%s]", updateTime, err.Error())
 		return nil, err
@@ -275,7 +275,7 @@ func ListJobByUpdateTime(updateTime string) ([]Job, error) {
 
 func ListJobByParentID(parentID string) ([]Job, error) {
 	var jobList []Job
-	err := database.DB.Table("job").Where("parent_job = ?", parentID).Find(&jobList).Error
+	err := database.DB.Table("job").Where("parent_job = ?", parentID).Where("deleted_at = ''").Find(&jobList).Error
 	if err != nil {
 		log.Errorf("list job by parentID[%s] failed, error:[%s]", parentID, err.Error())
 		return nil, err
@@ -285,7 +285,7 @@ func ListJobByParentID(parentID string) ([]Job, error) {
 
 func GetLastJob() (Job, error) {
 	job := Job{}
-	tx := database.DB.Table("job").Last(&job)
+	tx := database.DB.Table("job").Where("deleted_at = ''").Last(&job)
 	if tx.Error != nil {
 		log.Errorf("get last job failed. error:%s", tx.Error.Error())
 		return Job{}, tx.Error
@@ -294,7 +294,7 @@ func GetLastJob() (Job, error) {
 }
 
 func ListJob(pk int64, maxKeys int, queue, status, startTime, timestamp, userFilter string, labels map[string]string) ([]Job, error) {
-	tx := database.DB.Table("job").Where("pk > ?", pk).Where("parent_job = ''")
+	tx := database.DB.Table("job").Where("pk > ?", pk).Where("parent_job = ''").Where("deleted_at = ''")
 	if userFilter != "root" {
 		tx = tx.Where("user_name = ?", userFilter)
 	}

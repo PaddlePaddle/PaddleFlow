@@ -24,7 +24,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 
 	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/common/config"
+	"paddleflow/pkg/common/errors"
 	"paddleflow/pkg/common/k8s"
 	"paddleflow/pkg/common/schema"
 )
@@ -59,17 +59,15 @@ func (sp *SingleJob) validateJob() error {
 func (sp *SingleJob) patchSinglePodVariable(pod *v1.Pod, jobID string) error {
 	// if pod's name exist, sp.Name should be overwritten
 	// metadata
-	sp.patchMetadata(&pod.ObjectMeta)
+	sp.patchMetadata(&pod.ObjectMeta, sp.ID)
 
 	if len(sp.QueueName) > 0 {
 		pod.Labels[schema.QueueLabelKey] = sp.QueueName
 		priorityClass := sp.getPriorityClass()
 		pod.Spec.PriorityClassName = priorityClass
 	}
-	// fill SchedulerName
-	pod.Spec.SchedulerName = config.GlobalServerConfig.Job.SchedulerName
-	// fill volumes
-	pod.Spec.Volumes = sp.appendVolumeIfAbsent(pod.Spec.Volumes, sp.generateVolume())
+	sp.fillPodSpec(&pod.Spec, nil)
+
 	// file container
 	if err := sp.fillContainersInPod(pod); err != nil {
 		log.Errorf("failed to fill containers, err=%v", err)
@@ -95,9 +93,12 @@ func (sp *SingleJob) CreateJob() (string, error) {
 		}
 	}
 
-	if err := sp.patchSinglePodVariable(singlePod, jobID); err != nil {
-		log.Errorf("failed to patch single pod variable, err=%v", err)
-		return "", err
+	// paddleflow won't patch any param to job if it is workflow type
+	if sp.JobType != schema.TypeWorkflow {
+		if err := sp.patchSinglePodVariable(singlePod, jobID); err != nil {
+			log.Errorf("failed to patch single pod variable, err=%v", err)
+			return "", err
+		}
 	}
 
 	log.Debugf("begin submit job jobID:[%s], singlePod:[%v]", jobID, singlePod)
@@ -143,17 +144,21 @@ func (sp *SingleJob) fillContainersInPod(pod *v1.Pod) error {
 func (sp *SingleJob) fillContainer(container *v1.Container, podName string) error {
 	log.Debugf("fillContainer for job[%s]", podName)
 	// fill name
-	if container.Name == "" {
+	if sp.isNeedPatch(container.Name) {
 		container.Name = podName
 	}
 	// fill image
-	if container.Image == "" {
+	if sp.isNeedPatch(container.Image) {
 		container.Image = sp.Image
 	}
 	// fill command
-	if container.Command == nil || len(container.Command) == 0 {
+	if len(container.Command) == 0 && sp.IsCustomYaml || !sp.IsCustomYaml {
+		if sp.Command == "" {
+			return errors.EmptyJobCommandError()
+		}
 		container.Command = []string{"bash", "-c", sp.fixContainerCommand(sp.Command)}
 	}
+
 	// container.Args would be passed
 	// fill resource
 	flavour, err := sp.getFlavour()

@@ -17,8 +17,6 @@ limitations under the License.
 package base
 
 import (
-	"strings"
-
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 
@@ -38,19 +36,18 @@ type _Client struct {
 	httpClient *core.PFClient
 }
 
-func NewClient(fsID string, c *core.PFClient, userName string, token string) (*_Client, error) {
-	fsArray := strings.Split(fsID, "-")
-	realUsername := strings.Join(fsArray[1:len(fsArray)-1], "")
+func NewClient(fsID string, c *core.PFClient, token string) (*_Client, error) {
+	userName, fsName := common.GetFsNameAndUserNameByFsID(fsID)
 	_client := _Client{
 		Uuid:       uuid.NewString(),
 		FsID:       fsID,
-		UserName:   realUsername,
+		UserName:   userName,
 		httpClient: c,
 		Token:      token,
-		FsName:     fsArray[len(fsArray)-1],
+		FsName:     fsName,
 	}
 	Client = &_client
-	return Client, nil
+	return &_client, nil
 }
 
 func (c *_Client) GetFSMeta() (common.FSMeta, error) {
@@ -60,6 +57,7 @@ func (c *_Client) GetFSMeta() (common.FSMeta, error) {
 		UserName: c.UserName,
 		Token:    c.Token,
 	}
+	log.Infof("Fs MetaRequest Parmas %+v", params)
 	fsResponseMeta, err := api.FsRequest(params, c.httpClient)
 	if err != nil {
 		log.Errorf("fs request failed: %v", err)

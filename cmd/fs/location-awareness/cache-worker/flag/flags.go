@@ -18,17 +18,37 @@ package flag
 
 import "github.com/urfave/cli/v2"
 
-func CsiPluginFlags() []cli.Flag {
+func CacheWorkerFlags() []cli.Flag {
 	return []cli.Flag{
 		&cli.StringFlag{
-			Name:  "unix-endpoint",
-			Value: "unix://tmp/csi.sock",
-			Usage: "CSI endpoint",
+			Name:  "fsID",
+			Value: "",
+			Usage: "file system id",
 		},
 		&cli.StringFlag{
-			Name:  "node-id",
-			Value: "nodeId",
-			Usage: "node id",
+			Name:  "nodename",
+			Value: "",
+			Usage: "nodename",
+		},
+		&cli.StringFlag{
+			Name:  "clusterID",
+			Value: "",
+			Usage: "clusterID",
+		},
+		&cli.StringFlag{
+			Name:  "cacheDir",
+			Value: "",
+			Usage: "cacheDir",
+		},
+		&cli.StringFlag{
+			Name:  "podCachePath",
+			Value: "",
+			Usage: "podCachePath",
+		},
+		&cli.StringFlag{
+			Name:  "server",
+			Value: "",
+			Usage: "server",
 		},
 		&cli.StringFlag{
 			Name:  "username",
@@ -41,12 +61,4 @@ func CsiPluginFlags() []cli.Flag {
 			Usage: "password",
 		},
 	}
-}
-
-func ExpandFlags(compoundFlags [][]cli.Flag) []cli.Flag {
-	var flags []cli.Flag
-	for _, flag := range compoundFlags {
-		flags = append(flags, flag...)
-	}
-	return flags
 }
