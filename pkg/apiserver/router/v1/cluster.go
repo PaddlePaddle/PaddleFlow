@@ -248,14 +248,18 @@ func (cr *ClusterRouter) createKubernetesObject(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	_, err := cluster.CreateClusterObject(&ctx, clusterName, obj)
+	request := cluster.ObjectRequest{
+		ClusterName: clusterName,
+		Object:      obj,
+	}
+	err := cluster.CreateOrDeleteClusterObject(&ctx, request, util.QueryActionCreate)
 	if err != nil {
 		ctx.Logging().Errorf("create cluster object failed, err: %v", err.Error())
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
 	ctx.Logging().Debugf("create cluster object: %s", string(config.PrettyFormat(obj)))
-	common.Render(w, http.StatusOK, clusterName)
+	common.Render(w, http.StatusOK, obj)
 }
 
 func (cr *ClusterRouter) updateKubernetesObject(w http.ResponseWriter, r *http.Request) {
@@ -337,7 +341,7 @@ func (cr *ClusterRouter) deleteKubernetesObject(w http.ResponseWriter, r *http.R
 	}
 
 	ctx.Logging().Infof("delete cluster object: %s", string(config.PrettyFormat(request)))
-	if err := cluster.DeleteClusterObject(&ctx, &request); err != nil {
+	if err := cluster.CreateOrDeleteClusterObject(&ctx, request, util.QueryActionDelete); err != nil {
 		ctx.Logging().Errorf("delete cluster object failed, err: %v", err.Error())
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
