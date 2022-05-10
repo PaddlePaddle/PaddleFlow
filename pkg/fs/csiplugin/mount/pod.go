@@ -200,6 +200,19 @@ func createOrAddRef(volumeID string, mountInfo pfs.MountInfo) error {
 	return status.Errorf(codes.Internal, "Mount %v failed: mount pod %s has been deleting for 1 min", mountInfo.FSID, podName)
 }
 
+func addRefOfMount(mountInfo pfs.MountInfo, httpClient *core.PFClient, token string) error {
+	listMountResp, err := listMount(mountInfo, httpClient, token)
+	if err != nil {
+		log.Errorf("addRefOfMount: listMount faield: %v", err)
+		return err
+	}
+	if len(listMountResp.MountList) > 0 {
+		log.Infof("addRefOfMount: listMount has record. no need to create mount: %v", listMountResp.MountList[0])
+		return nil
+	}
+	return createMount(mountInfo, httpClient, token)
+}
+
 func createMountPod(k8sClient k8s.K8SInterface, httpClient *core.PFClient, volumeID, token string,
 	mountInfo pfs.MountInfo) error {
 	// get config
