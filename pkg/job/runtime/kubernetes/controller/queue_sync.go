@@ -18,12 +18,12 @@ package controller
 
 import (
 	"fmt"
-	"k8s.io/apimachinery/pkg/runtime"
 	"reflect"
 	"sync"
 
 	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -124,8 +124,9 @@ func (qs *QueueSync) processWorkItem() bool {
 	}
 	status := ""
 	if queueSyncInfo.Type == v1beta1.QuotaTypeLogical {
-		// set queue status
+		// set queue status to unavailable when queue is not modified by PaddleFlow
 		if q.Status != commomschema.StatusQueueUpdating {
+			log.Warningf("queue %s is not modified by PaddleFlow, update status to unavailable", queueSyncInfo.Name)
 			status = commomschema.StatusQueueUnavailable
 			queueSyncInfo.MaxResource = nil
 			queueSyncInfo.MinResource = nil
