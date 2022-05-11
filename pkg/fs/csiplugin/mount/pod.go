@@ -206,9 +206,12 @@ func addRefOfMount(mountInfo pfs.MountInfo, httpClient *core.PFClient, token str
 		log.Errorf("addRefOfMount: listMount faield: %v", err)
 		return err
 	}
-	if len(listMountResp.MountList) > 0 {
-		log.Infof("addRefOfMount: listMount has record. no need to create mount: %v", listMountResp.MountList[0])
-		return nil
+
+	for _, mountRecord := range listMountResp.MountList {
+		if mountRecord.MountPoint == mountInfo.TargetPath {
+			log.Infof("addRefOfMount: mount record already in db: %+v. no need to insert again.", mountRecord)
+			return nil
+		}
 	}
 	return createMount(mountInfo, httpClient, token)
 }
