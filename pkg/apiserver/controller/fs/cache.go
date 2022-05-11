@@ -69,8 +69,3 @@ func GetCacheID(clusterID, nodeName, CacheDir string) string {
 	hash := md5.Sum([]byte(clusterID + nodeName + CacheDir))
 	return hex.EncodeToString(hash[:])
 }
-
-func GetMountID(clusterID, nodeName, MountPoint string) string {
-	hash := md5.Sum([]byte(clusterID + nodeName + MountPoint))
-	return hex.EncodeToString(hash[:])
-}
