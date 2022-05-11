@@ -1,6 +1,6 @@
 #!/bin/sh
-
-shdir=$(dirname $(readlink -f ${BASH_SOURCE[0]}))
+set -x 
+shdir=$(cd "$(dirname "$0")";pwd)
 paddleflow_home=$(dirname $shdir)
 pipeline_home=$paddleflow_home/paddleflow/pipeline
 pipeline_test_home=$shdir/test_pipeline
