@@ -206,9 +206,24 @@ func addRefOfMount(mountInfo pfs.MountInfo, httpClient *core.PFClient, token str
 		log.Errorf("addRefOfMount: listMount faield: %v", err)
 		return err
 	}
-	if len(listMountResp.MountList) > 0 {
-		log.Infof("addRefOfMount: listMount has record. no need to create mount: %v", listMountResp.MountList[0])
-		return nil
+	if len(listMountResp.MountList) <= 0 {
+		log.Infof("addRefOfMount: createMount in db: %+v", mountInfo)
+		return createMount(mountInfo, httpClient, token)
+	}
+	if len(listMountResp.MountList) == 1 {
+		existMount := listMountResp.MountList[0]
+		if existMount.FsID == mountInfo.FSID &&
+			existMount.MountPoint == mountInfo.TargetPath &&
+			existMount.NodeName == csiconfig.NodeName &&
+			existMount.ClusterID == mountInfo.ClusterID {
+			log.Infof("addRefOfMount: mount record already in db: %+v. no need to insert again.", existMount)
+			return nil
+		}
+	}
+	log.Infof("addRefOfMount: mountInfo[%+v] obseleted record in db: %+v. delete and create again.", mountInfo, listMountResp.MountList)
+	if err := deleteMount(mountInfo, httpClient, token); err != nil {
+		log.Errorf("addRefOfMount: delete obseleted mountInfo[%+v] in db failed: %v", mountInfo, err)
+		return err
 	}
 	return createMount(mountInfo, httpClient, token)
 }
