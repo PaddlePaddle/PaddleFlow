@@ -22,6 +22,7 @@ const (
 	StatusQueueClosing     = "closing"
 	StatusQueueClosed      = "closed"
 	StatusQueueUnavailable = "unavailable"
+	StatusQueueUpdating    = "updating"
 
 	TypeElasticQuota           = "elasticQuota"
 	TypeVolcanoCapabilityQuota = "volcanoCapabilityQuota"
