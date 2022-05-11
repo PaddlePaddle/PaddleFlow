@@ -39,6 +39,7 @@ func (qr *QueueRouter) AddRouter(r chi.Router) {
 	r.Post("/queue", qr.createQueue)
 	r.Get("/queue", qr.listQueue)
 	r.Get("/queue/{queueName}", qr.getQueueByName)
+	r.Put("/queue/{queueName}", qr.updateQueue)
 	r.Delete("/queue/{queueName}", qr.deleteQueue)
 }
 
@@ -134,6 +135,41 @@ func (qr *QueueRouter) getQueueByName(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx.Logging().Debugf("GetQueueByName queue:%v", string(config.PrettyFormat(queueData)))
 	common.Render(w, http.StatusOK, queueData)
+}
+
+// updateQueue
+// @Summary 修改队列
+// @Description 修改队列
+// @Id updateQueue
+// @tags Queue
+// @Accept  json
+// @Produce json
+// @Param queueName path string true "队列名称"
+// @Success 200 {string} string "成功修改队列的响应码"
+// @Failure 400 {object} common.ErrorResponse "400"
+// @Failure 500 {object} common.ErrorResponse "500"
+// @Router /queue/{queueName} [PUT]
+func (qr *QueueRouter) updateQueue(w http.ResponseWriter, r *http.Request) {
+	ctx := common.GetRequestContext(r)
+
+	var queueInfo queue.UpdateQueueRequest
+	err := common.BindJSON(r, &queueInfo)
+	if err != nil {
+		log.Errorf("updateQueue bindjson failed. err:%s", err.Error())
+		common.RenderErr(w, ctx.RequestID, common.MalformedJSON)
+		return
+	}
+	queueInfo.Name = chi.URLParam(r, util.ParamKeyQueueName)
+
+	log.Debugf("updateQueue QueueInfo:%s", config.PrettyFormat(queueInfo))
+	response, err := queue.UpdateQueue(&ctx, &queueInfo)
+	if err != nil {
+		ctx.Logging().Errorf("update queue failed. queueInfo:%v error:%s", queueInfo, err.Error())
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+	ctx.Logging().Debugf("update queue finised:%v", string(config.PrettyFormat(response)))
+	common.Render(w, http.StatusOK, response)
 }
 
 // deleteQueue
