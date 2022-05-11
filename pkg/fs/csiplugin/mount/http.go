@@ -18,7 +18,6 @@ package mount
 
 import (
 	log "github.com/sirupsen/logrus"
-
 	"paddleflow/pkg/common/http/api"
 	"paddleflow/pkg/common/http/core"
 	"paddleflow/pkg/fs/common"
@@ -92,7 +91,7 @@ func listMount(mountInfo pfs.MountInfo, httpClient *core.PFClient, token string)
 	return listMountResp, nil
 }
 
-func addRefOfMount(mountInfo pfs.MountInfo, httpClient *core.PFClient, token string) error {
+func createMount(mountInfo pfs.MountInfo, httpClient *core.PFClient, token string) error {
 	userName, fsName := common.GetFsNameAndUserNameByFsID(mountInfo.FSID)
 	createMountReq := api.CreateMountRequest{
 		FsParams: api.FsParams{
