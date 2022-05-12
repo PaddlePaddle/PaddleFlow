@@ -22,7 +22,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
-const LevelDB = "levelDB"
+const LevelDB = "leveldb"
 
 type levelDBClient struct {
 	path string

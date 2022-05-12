@@ -243,8 +243,8 @@ func InitVFS(c *cli.Context, registry *prometheus.Registry) error {
 				},
 			}
 		}
-	} else if c.String("fs-info-path") != "" {
-		reader, err := os.Open(c.String("fs-info-path"))
+	} else if c.String("config") != "" {
+		reader, err := os.Open(c.String("config"))
 		if err != nil {
 			return err
 		}
