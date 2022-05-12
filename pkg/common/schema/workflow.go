@@ -61,13 +61,25 @@ func (atf *Artifacts) ValidateOutputMapByList() error {
 }
 
 type WorkflowSourceStep struct {
-	Parameters map[string]interface{} `yaml:"parameters"`
-	Command    string                 `yaml:"command"`
-	Deps       string                 `yaml:"deps"`
-	Artifacts  Artifacts              `yaml:"artifacts"`
-	Env        map[string]string      `yaml:"env"`
-	DockerEnv  string                 `yaml:"docker_env"`
-	Cache      Cache                  `yaml:"cache"`
+	LoopArgument []interface{}          `yaml:"loop_argument"`
+	Condition    string                 `yaml:"condition"`
+	Parameters   map[string]interface{} `yaml:"parameters"`
+	Command      string                 `yaml:"command"`
+	Deps         string                 `yaml:"deps"`
+	Artifacts    Artifacts              `yaml:"artifacts"`
+	Env          map[string]string      `yaml:"env"`
+	DockerEnv    string                 `yaml:"docker_env"`
+	Cache        Cache                  `yaml:"cache"`
+	Reference    string                 `yaml:"referenc"`
+}
+
+type WorkflowSourceDag struct {
+	LoopArgument []string               `yaml:"loop_argument"`
+	Condition    string                 `yaml:"condition"`
+	Parameters   map[string]interface{} `yaml:"parameters"`
+	Deps         string                 `yaml:"deps"`
+	Artifacts    Artifacts              `yaml:"artifacts"`
+	EntryPoints  map[string]interface{} `yaml:"entry_points"`
 }
 
 func (s *WorkflowSourceStep) GetDeps() []string {
