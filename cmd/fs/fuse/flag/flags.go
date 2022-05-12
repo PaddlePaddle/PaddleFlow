@@ -44,9 +44,9 @@ func BasicFlags() []cli.Flag {
 			Usage: "filesystem ID",
 		},
 		&cli.StringFlag{
-			Name:  "fs-info-path",
+			Name:  "config",
 			Value: "",
-			Usage: "filesystem info path",
+			Usage: "filesystem config",
 		},
 		&cli.StringFlag{
 			Name:  "local-root",

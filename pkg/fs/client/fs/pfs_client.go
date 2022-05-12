@@ -27,6 +27,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"paddleflow/pkg/client"
+	"paddleflow/pkg/common/config"
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/fs/client/base"
 	"paddleflow/pkg/fs/client/cache"
@@ -36,6 +37,15 @@ import (
 	fsCommon "paddleflow/pkg/fs/common"
 	"paddleflow/pkg/fs/utils/common"
 )
+
+func init() {
+	log_ := config.ServerConfig{Log: logger.LogConfig{Level: "debug"}}
+	err := logger.InitStandardFileLogger(&log_.Log)
+	if err != nil {
+		log.Errorf("InitStandardFileLogger err: %v", err)
+		panic("init logger err")
+	}
+}
 
 type PFSClient struct {
 	server string
@@ -123,7 +133,7 @@ func (c *PFSClient) initPFS(fsMeta fsCommon.FSMeta, links map[string]fsCommon.FS
 		vfs.WithMetaConfig(meta.Config{
 			AttrCacheExpire:  MetaCacheExpire,
 			EntryCacheExpire: EntryCacheExpire,
-			Driver:           meta.MemMetaName,
+			Driver:           meta.Mem,
 		}),
 	)
 	pfs, err := NewFileSystem(fsMeta, links, false, true, linkMetaDirPrefix, vfsConfig)

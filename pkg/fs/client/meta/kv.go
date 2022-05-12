@@ -96,14 +96,28 @@ func newKvMeta(meta Meta, config Config) (Meta, error) {
 }
 
 func newClient(config Config) (kvCache, error) {
-	if config.Driver == LevelDB {
+	switch config.Driver {
+	case LevelDB:
 		client, err := newLevelDBClient(config)
 		if err != nil {
 			return nil, err
 		}
 		return client, nil
+	case nutsDB:
+		client, err := newNutsClient(config)
+		if err != nil {
+			return nil, err
+		}
+		return client, nil
+	case Mem:
+		client, err := newMemClient(config)
+		if err != nil {
+			return nil, err
+		}
+		return client, nil
+	default:
+		return nil, fmt.Errorf("unknown meta client")
 	}
-	return nil, fmt.Errorf("unknown meta client")
 }
 
 func (m *kvMeta) ContactKey(args ...string) []byte {
@@ -203,7 +217,7 @@ func (m *kvMeta) getEntries(entryPath string) (map[string][]byte, bool) {
 	key := m.entryKey(entryPath, entryPath)
 	en, err := m.client.scanValues(key)
 	if err != nil {
-		log.Errorf("scanValues err: %v", err)
+		log.Debugf("scanValues err: %v with key[%s]", err, key)
 		return nil, false
 	}
 	for k, _ := range en {
