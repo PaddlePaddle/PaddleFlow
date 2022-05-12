@@ -202,6 +202,10 @@ func getWorkFlowSourceByReq(ctx *logger.RequestContext, request *CreateRunByJson
 		ctx.Logging().Errorf(err.Error())
 		return schema.WorkflowSource{}, err
 	}
+<<<<<<< HEAD
+=======
+
+>>>>>>> 1c60312313648c2d4c695a852137fe63e3a598f6
 	if request.Env == nil {
 		request.Env = map[string]string{}
 	}
