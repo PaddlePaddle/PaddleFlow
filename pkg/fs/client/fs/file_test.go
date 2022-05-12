@@ -45,10 +45,6 @@ func newPfsTest() (*FileSystem, error) {
 		vfs.WithDataCacheConfig(cache.Config{
 			BlockSize:    BlockSize,
 			MaxReadAhead: MaxReadAheadNum,
-			Mem: &cache.MemConfig{
-				CacheSize: MemCacheSize,
-				Expire:    MemCacheExpire,
-			},
 			Disk: &cache.DiskConfig{
 				Dir:    DiskCachePath,
 				Expire: DiskCacheExpire,
@@ -80,7 +76,6 @@ func TestFSClient_readAt_BigOff(t *testing.T) {
 	d := cache.Config{
 		BlockSize:    2,
 		MaxReadAhead: 100,
-		Mem:          &cache.MemConfig{CacheSize: 100, Expire: 1 * time.Minute},
 		Disk:         &cache.DiskConfig{},
 	}
 	SetDataCache(d)
@@ -136,7 +131,6 @@ func TestFsStat(t *testing.T) {
 	d := cache.Config{
 		BlockSize:    4,
 		MaxReadAhead: 10,
-		Mem:          &cache.MemConfig{CacheSize: 0, Expire: 0},
 		Disk:         &cache.DiskConfig{Dir: "./mock-cache", Expire: 10 * time.Second},
 	}
 	SetDataCache(d)
@@ -171,7 +165,6 @@ func TestFS_read_readAt(t *testing.T) {
 	d := cache.Config{
 		BlockSize:    1,
 		MaxReadAhead: 10,
-		Mem:          &cache.MemConfig{CacheSize: 0, Expire: 0},
 		Disk:         &cache.DiskConfig{Dir: "./mock-cache", Expire: 10 * time.Second},
 	}
 	SetDataCache(d)
@@ -251,7 +244,6 @@ func TestReadAtCocurrent(t *testing.T) {
 	d := cache.Config{
 		BlockSize:    3,
 		MaxReadAhead: 10,
-		Mem:          &cache.MemConfig{CacheSize: 0, Expire: 0},
 		Disk:         &cache.DiskConfig{Dir: "./mock-cache", Expire: 10 * time.Second},
 	}
 	SetDataCache(d)
@@ -331,7 +323,6 @@ func TestFSClient_readAt(t *testing.T) {
 	d := cache.Config{
 		BlockSize:    2,
 		MaxReadAhead: 10,
-		Mem:          &cache.MemConfig{CacheSize: 0, Expire: 0},
 		Disk:         &cache.DiskConfig{Dir: "./mock-cache", Expire: 10 * time.Second},
 	}
 	SetDataCache(d)
@@ -386,7 +377,6 @@ func TestFSClient_readAtwithsmallBlock_2(t *testing.T) {
 	d := cache.Config{
 		BlockSize:    3,
 		MaxReadAhead: 100,
-		Mem:          &cache.MemConfig{CacheSize: 100, Expire: 1 * time.Minute},
 		Disk:         &cache.DiskConfig{},
 	}
 	SetDataCache(d)
@@ -452,7 +442,6 @@ func TestFSClient_readAtwithsmallBlock_1(t *testing.T) {
 	d := cache.Config{
 		BlockSize:    1,
 		MaxReadAhead: 100,
-		Mem:          &cache.MemConfig{CacheSize: 0, Expire: 0},
 		Disk:         &cache.DiskConfig{Dir: "./mock-cache", Expire: 10 * time.Second},
 	}
 	SetDataCache(d)
@@ -522,7 +511,6 @@ func TestFSClient_readAtNotEnoughMem(t *testing.T) {
 	d := cache.Config{
 		BlockSize:    1,
 		MaxReadAhead: 1,
-		Mem:          &cache.MemConfig{CacheSize: 0, Expire: 0},
 		Disk:         &cache.DiskConfig{Dir: "./mock-cache", Expire: 0},
 	}
 	SetDataCache(d)

@@ -318,19 +318,15 @@ func InitVFS(c *cli.Context, registry *prometheus.Registry) error {
 	m := meta.Config{
 		AttrCacheExpire:  c.Duration("meta-cache-expire"),
 		EntryCacheExpire: c.Duration("entry-cache-expire"),
-		Driver:           c.String("meta-driver"),
-		CachePath:        c.String("meta-path"),
+		Driver:           c.String("meta-cache-driver"),
+		CachePath:        c.String("meta-cache-path"),
 	}
 	d := cache.Config{
 		BlockSize:    c.Int("block-size"),
 		MaxReadAhead: c.Int("data-read-ahead-size"),
-		Mem: &cache.MemConfig{
-			CacheSize: c.Int("data-mem-size"),
-			Expire:    c.Duration("data-mem-cache-expire"),
-		},
 		Disk: &cache.DiskConfig{
-			Dir:    c.String("data-disk-cache-path"),
-			Expire: c.Duration("data-disk-cache-expire"),
+			Dir:    c.String("data-cache-path"),
+			Expire: c.Duration("data-cache-expire"),
 		},
 	}
 	vfsOptions := []vfs.Option{
