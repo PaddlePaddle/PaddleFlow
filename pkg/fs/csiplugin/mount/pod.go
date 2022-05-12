@@ -147,17 +147,7 @@ func PodUnmount(volumeID, targetPath string, mountInfo pfs.MountInfo) error {
 }
 
 func PodMount(volumeID string, mountInfo pfs.MountInfo) error {
-	if err := createOrAddRef(volumeID, mountInfo); err != nil {
-		log.Errorf("MountThroughPod info: %+v err: %v", mountInfo, err)
-		return err
-	}
-	return waitUtilPodReady(GeneratePodNameByFsID(volumeID))
-}
-
-func createOrAddRef(volumeID string, mountInfo pfs.MountInfo) error {
-	podName := GeneratePodNameByFsID(volumeID)
-	log.Infof("pod name is %s", podName)
-
+	// login server
 	httpClient := client.NewHttpClient(mountInfo.Server, client.DefaultTimeOut)
 	login := api.LoginParams{
 		UserName: mountInfo.UsernameRoot,
@@ -165,9 +155,26 @@ func createOrAddRef(volumeID string, mountInfo pfs.MountInfo) error {
 	}
 	loginResponse, err := api.LoginRequest(login, httpClient)
 	if err != nil {
-		log.Errorf("createOrAddRef: login failed: %v", err)
+		log.Errorf("PodMount: login failed: %v", err)
 		return err
 	}
+	token := loginResponse.Authorization
+	// validate fs
+	if _, err := getFs(mountInfo.FSID, httpClient, token); err != nil {
+		log.Errorf("PodMount: validate fs exist [%s] err: %v", mountInfo.FSID, err)
+		return err
+	}
+	// create mount pod or add ref in server db
+	if err := createOrAddRef(httpClient, token, volumeID, mountInfo); err != nil {
+		log.Errorf("PodMount: info: %+v err: %v", mountInfo, err)
+		return err
+	}
+	return waitUtilPodReady(GeneratePodNameByFsID(volumeID))
+}
+
+func createOrAddRef(httpClient *core.PFClient, token, volumeID string, mountInfo pfs.MountInfo) error {
+	podName := GeneratePodNameByFsID(volumeID)
+	log.Infof("pod name is %s", podName)
 
 	for i := 0; i < 120; i++ {
 		k8sClient, err := k8s.GetK8sClient()
@@ -185,8 +192,8 @@ func createOrAddRef(volumeID string, mountInfo pfs.MountInfo) error {
 			if k8serrors.IsNotFound(errGetPod) {
 				// pod not exist, create
 				log.Infof("createOrAddRef: Need to create pod %s.", podName)
-				if createPodErr := createMountPod(k8sClient, httpClient,
-					volumeID, loginResponse.Authorization, mountInfo); createPodErr != nil {
+				if createPodErr := createMountPod(k8sClient, httpClient, token,
+					volumeID, mountInfo); createPodErr != nil {
 					return createPodErr
 				}
 			} else {
@@ -195,7 +202,7 @@ func createOrAddRef(volumeID string, mountInfo pfs.MountInfo) error {
 				return errGetPod
 			}
 		}
-		return addRefOfMount(mountInfo, httpClient, loginResponse.Authorization)
+		return addRefOfMount(mountInfo, httpClient, token)
 	}
 	return status.Errorf(codes.Internal, "Mount %v failed: mount pod %s has been deleting for 1 min", mountInfo.FSID, podName)
 }
@@ -216,7 +223,7 @@ func addRefOfMount(mountInfo pfs.MountInfo, httpClient *core.PFClient, token str
 	return createMount(mountInfo, httpClient, token)
 }
 
-func createMountPod(k8sClient k8s.K8SInterface, httpClient *core.PFClient, volumeID, token string,
+func createMountPod(k8sClient k8s.K8SInterface, httpClient *core.PFClient, token, volumeID string,
 	mountInfo pfs.MountInfo) error {
 	// get config
 	cacheConfig, err := fsCacheConfig(mountInfo, httpClient, token)
