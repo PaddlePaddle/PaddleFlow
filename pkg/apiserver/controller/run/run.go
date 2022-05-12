@@ -203,13 +203,6 @@ func getWorkFlowSourceByReq(ctx *logger.RequestContext, request *CreateRunByJson
 		return schema.WorkflowSource{}, err
 	}
 
-	// 暂时无法与fs解耦，待解耦后取消限制
-	if request.FsName == "" {
-		err := fmt.Errorf("missing fsName")
-		ctx.Logging().Errorf(err.Error())
-		return schema.WorkflowSource{}, err
-	}
-
 	if request.Env == nil {
 		request.Env = map[string]string{}
 	}
