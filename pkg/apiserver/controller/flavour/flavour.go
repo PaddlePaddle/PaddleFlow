@@ -19,12 +19,16 @@ package flavour
 import (
 	"errors"
 	"fmt"
+
 	log "github.com/sirupsen/logrus"
 
 	"paddleflow/pkg/apiserver/common"
 	"paddleflow/pkg/apiserver/models"
+	"paddleflow/pkg/common/config"
 	"paddleflow/pkg/common/schema"
 )
+
+const customFlavour = "customFlavour"
 
 // CreateFlavourRequest convey request for create flavour
 type CreateFlavourRequest struct {
@@ -206,4 +210,28 @@ func IsLastFlavourPk(pk int64) bool {
 		return true
 	}
 	return false
+}
+
+// GetFlavourWithCheck get req.Flavour and check if it is valid, if exists in db, return it
+func GetFlavourWithCheck(reqFlavour schema.Flavour) (schema.Flavour, error) {
+	if reqFlavour.Name == "" || reqFlavour.Name == customFlavour {
+		if err := schema.ValidateResourceInfo(reqFlavour.ResourceInfo, config.GlobalServerConfig.Job.ScalarResourceArray); err != nil {
+			log.Errorf("validate resource info failed, err:%v", err)
+			return schema.Flavour{}, err
+		}
+		return reqFlavour, nil
+	}
+	flavour, err := models.GetFlavour(reqFlavour.Name)
+	if err != nil {
+		log.Errorf("Get flavour by name %s failed when creating job, err:%v", flavour.Name, err)
+		return schema.Flavour{}, fmt.Errorf("get flavour[%s] failed, err:%v", flavour.Name, err)
+	}
+	return schema.Flavour{
+		Name: flavour.Name,
+		ResourceInfo: schema.ResourceInfo{
+			CPU:             flavour.CPU,
+			Mem:             flavour.Mem,
+			ScalarResources: flavour.ScalarResources,
+		},
+	}, nil
 }

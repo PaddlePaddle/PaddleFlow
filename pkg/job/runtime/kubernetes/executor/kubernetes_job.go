@@ -140,6 +140,15 @@ func NewKubeJob(job *api.PFJob, dynamicClientOpt *k8s.DynamicClientOption) (api.
 	case schema.TypeVcJob:
 		// todo(zhongzichao): to be removed
 		kubeJob.GroupVersionKind = k8s.VCJobGVK
+		if len(job.Tasks) == 0 {
+			kubeJob.Tasks = []models.Member{
+				{
+					Conf: schema.Conf{
+						Flavour: job.Conf.Flavour,
+					},
+				},
+			}
+		}
 		return &VCJob{
 			KubeJob:       kubeJob,
 			JobModeParams: newJobModeParams(job.Conf),
@@ -297,11 +306,10 @@ func (j *KubeJob) fillPodSpec(podSpec *corev1.PodSpec, task *models.Member) {
 
 // todo: to be removed
 // fillContainerInVcJob fill container in job task, only called by vcjob
-func (j *KubeJob) fillContainerInVcJob(container *corev1.Container, flavourKey, command string) {
+func (j *KubeJob) fillContainerInVcJob(container *corev1.Container, flavour schema.Flavour, command string) {
 	container.Image = j.Image
 	container.Command = []string{"bash", "-c", j.fixContainerCommand(command)}
-	flavourValue := config.GlobalServerConfig.FlavourMap[flavourKey]
-	container.Resources = j.generateResourceRequirements(flavourValue)
+	container.Resources = j.generateResourceRequirements(flavour)
 	container.VolumeMounts = j.appendMountIfAbsent(container.VolumeMounts, j.generateVolumeMount())
 	container.Env = j.generateEnvVars()
 }
