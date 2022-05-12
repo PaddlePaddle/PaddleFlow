@@ -123,7 +123,6 @@ type store struct {
 }
 
 type Config struct {
-	Mem          *MemConfig
 	Disk         *DiskConfig
 	BlockSize    int
 	MaxReadAhead int
@@ -141,19 +140,16 @@ type rCache struct {
 	seqReadAmount uint64
 }
 
-func NewCacheStore(config *Config) Store {
-	if (config.Mem == nil && config.Disk == nil) || config.BlockSize == 0 {
+func NewCacheStore(fsID string, config *Config) Store {
+	if config.Disk == nil || config.BlockSize == 0 {
 		return nil
 	}
 	cacheStore := &store{
 		conf: *config,
 		meta: make(map[string]string, 100),
 	}
-	if config.Mem != nil {
-		cacheStore.mem = NewMemCache(config.Mem)
-	}
 	if config.Disk != nil {
-		cacheStore.disk = NewDiskCache(config.Disk)
+		cacheStore.disk = NewDiskCache(fsID, config.Disk)
 	}
 	log.Debugf("metrics register NewCacheStore")
 	registerMetrics()

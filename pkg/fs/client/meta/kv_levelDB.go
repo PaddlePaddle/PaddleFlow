@@ -17,9 +17,12 @@ package meta
 
 import (
 	"os"
+	"path/filepath"
 
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
+
+	"paddleflow/pkg/fs/utils/common"
 )
 
 const LevelDB = "leveldb"
@@ -72,8 +75,9 @@ func (l levelDBClient) scanValues(prefix []byte) (map[string][]byte, error) {
 }
 
 func newLevelDBClient(config Config) (kvCache, error) {
-	os.RemoveAll(config.CachePath)
-	db, err := leveldb.OpenFile(config.CachePath, nil)
+	cachePath := filepath.Join(config.CachePath, config.FsID+"_"+common.GetRandID(5)+".db")
+	os.RemoveAll(cachePath)
+	db, err := leveldb.OpenFile(cachePath, nil)
 	if err != nil {
 		return nil, err
 	}

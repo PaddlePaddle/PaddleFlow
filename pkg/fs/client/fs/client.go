@@ -69,10 +69,6 @@ func SetMetaCache(config meta.Config) {
 func SetDataCache(config cache.Config) {
 	BlockSize = config.BlockSize
 	MaxReadAheadNum = config.MaxReadAhead
-	if config.Mem != nil {
-		MemCacheSize = config.Mem.CacheSize
-		MemCacheExpire = config.Mem.Expire
-	}
 	if config.Disk != nil {
 		DiskCacheExpire = config.Disk.Expire
 		DiskCachePath = config.Disk.Dir
