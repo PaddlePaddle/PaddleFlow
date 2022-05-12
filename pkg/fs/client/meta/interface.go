@@ -81,6 +81,7 @@ type Entry struct {
 type Config struct {
 	AttrCacheExpire    time.Duration
 	EntryCacheExpire   time.Duration
+	FsID               string
 	Driver             string
 	CachePath          string
 	AttrCacheSize      uint64
@@ -192,6 +193,7 @@ func NewMeta(fsMeta common.FSMeta, links map[string]common.FSMeta, inodeHandle *
 			Driver:           DefaultName,
 		}
 	}
+	config.FsID = fsMeta.ID
 	m, err := InitMeta(fsMeta, links, inodeHandle)
 	if err != nil {
 		return nil, err

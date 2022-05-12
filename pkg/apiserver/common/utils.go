@@ -18,7 +18,6 @@ package common
 
 import (
 	"encoding/base64"
-	"encoding/hex"
 	"fmt"
 	"math/rand"
 	"regexp"
@@ -118,12 +117,6 @@ func SplitString(str, sep string) []string {
 		result = append(result, strings.TrimSpace(s))
 	}
 	return result
-}
-
-func GetRandID(randNum int) string {
-	b := make([]byte, randNum/2)
-	rand.Read(b)
-	return hex.EncodeToString(b)
 }
 
 func ID(userName, fsName string) string {
