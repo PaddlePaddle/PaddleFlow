@@ -56,8 +56,10 @@ var _ Meta = &DefaultMeta{}
 
 func init() {
 	Register(DefaultName, NewDefaultMeta)
-	Register(MemMetaName, NewMemMeta)
+	// Register(MemMetaName, NewMemMeta)
 	Register(LevelDB, newKvMeta)
+	Register(nutsDB, newNutsMeta)
+	Register(Mem, newMemMeta)
 }
 
 func NewDefaultMeta(meta Meta, config Config) (Meta, error) {
