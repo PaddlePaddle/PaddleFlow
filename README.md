@@ -13,10 +13,10 @@
 - 抽象复杂的命令，模板化可多次调用
 # 架构
 PaddleFlow由四个部分组成：
-1.PaddleFlow 客户端（包含PaddleFlow fuse）: 命令行工具方便用户在开发机安装和使用，其中PaddleFlow fs管理以及fuse主要用于缓存数据和快照等能力，加速远端数据读写，可以支持多种数据源的对接，比如bos，hdfs，本地文件系统。
-2.PaddleFlow server: PaddleFlow核心服务，主要包含队列、存储、工作流等的管理。
-3.volcano（基于开源volcano改造）: 主要增加elastic quota更灵活管理资源的能力，未来会逐步提交社区review。
-4.pf-csi-plugin: 基于k8s csi插件机制实现了PaddleFlow的文件系统接入。
+- 1.PaddleFlow 客户端（包含PaddleFlow fuse）: 命令行工具方便用户在开发机安装和使用，其中PaddleFlow fs管理以及fuse主要用于缓存数据和快照等能力，加速远端数据读写，可以支持多种数据源的对接，比如bos，hdfs，本地文件系统。
+- 2.PaddleFlow server: PaddleFlow核心服务，主要包含队列、存储、工作流等的管理。
+- 3.volcano（基于开源volcano改造）: 主要增加elastic quota更灵活管理资源的能力，未来会逐步提交社区review。
+- 4.pf-csi-plugin: 基于k8s csi插件机制实现了PaddleFlow的文件系统接入。
 
 ![PaddleFlow 功能架构](docs/zh_cn/images/pf-arch.png) 
 
@@ -26,8 +26,8 @@ PaddleFlow的部署主要分为客户端和服务端，其中客户端主要用�
 
 # 开始使用
 在使用PaddleFlow之前需要做一下准备：
-1.准备kubernetes环境
-2.下载安装PaddleFlow客户端
+- 1.准备kubernetes环境
+- 2.下载安装PaddleFlow客户端
 请参考快速上手指南立即开始使用PaddleFlow
 ## 1.命令行参考
 点击[命令行操作说明](docs/zh_cn/reference/client_command_reference.md) 获取所有操作命令和示例。
