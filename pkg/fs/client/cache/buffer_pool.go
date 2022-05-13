@@ -100,7 +100,7 @@ func (pool *BufferPool) Init(size int) *BufferPool {
 
 	pool.pool = &sync.Pool{New: func() interface{} {
 		out := make([]byte, 0, size)
-		return &out
+		return out
 	}}
 
 	return pool
@@ -132,7 +132,7 @@ func (pool *BufferPool) RequestMBuf(size uint64, block bool, blockSize int) (buf
 	}
 
 	pool.totalBuffers++
-	buf = *(pool.pool.Get().(*[]byte))
+	buf = pool.pool.Get().([]byte)
 	return
 }
 
@@ -190,7 +190,7 @@ func (p *Page) Free() {
 	p.bufferPool.mu.Lock()
 	defer p.bufferPool.mu.Unlock()
 	if p.buffer != nil {
-		p.bufferPool.pool.Put(&p.buffer)
+		p.bufferPool.pool.Put(p.buffer)
 		p.buffer = nil
 		p.bufferPool.cond.Signal()
 	}

@@ -25,7 +25,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	"paddleflow/pkg/common/config"
 	"paddleflow/pkg/common/database/dbinit"
 	"paddleflow/pkg/common/k8s"
 	"paddleflow/pkg/common/schema"
@@ -101,9 +100,7 @@ status: {}
 )
 
 func TestSinglePod_CreateJob(t *testing.T) {
-	config.GlobalServerConfig = &config.ServerConfig{}
-	config.GlobalServerConfig.Job.DefaultJobYamlDir = "../../../../../config/server/default/job"
-	config.GlobalServerConfig.Job.SchedulerName = "testSchedulerName"
+	initGlobalServerConfig()
 	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
 	defer server.Close()
 	dynamicClient := newFakeDynamicClient(server)

@@ -52,6 +52,7 @@ func InitMockDB() {
 		&Link{},
 		&FSCacheConfig{},
 		&FSCache{},
+		&FsMount{},
 	)
 	database.DB = db
 }
