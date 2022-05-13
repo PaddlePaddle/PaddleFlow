@@ -26,6 +26,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"paddleflow/pkg/fs/client/cache"
+	"paddleflow/pkg/fs/client/kv"
 	"paddleflow/pkg/fs/client/meta"
 	"paddleflow/pkg/fs/client/vfs"
 	"paddleflow/pkg/fs/common"
@@ -54,8 +55,10 @@ func newPfsTest() (*FileSystem, error) {
 		vfs.WithMetaConfig(meta.Config{
 			AttrCacheExpire:  MetaCacheExpire,
 			EntryCacheExpire: EntryCacheExpire,
-			Driver:           Driver,
-			CachePath:        MetaCachePath,
+			Config: kv.Config{
+				Driver:    Driver,
+				CachePath: MetaCachePath,
+			},
 		}),
 	)
 	pfs, err := NewFileSystem(testFsMeta, nil, true, true, "", vfsConfig)
