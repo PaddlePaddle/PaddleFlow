@@ -17,10 +17,9 @@ limitations under the License.
 package kv
 
 import (
-	"os"
-
 	log "github.com/sirupsen/logrus"
 	"github.com/xujiajun/nutsdb"
+	"os"
 )
 
 const NutsDB = "nutsdb"
@@ -108,7 +107,7 @@ func (l nutsDBClient) ScanValues(prefix []byte) (map[string][]byte, error) {
 	return result, nil
 }
 
-func NewNutsClient(config MetaConfig) (KvCache, error) {
+func NewNutsClient(config Config) (Client, error) {
 	opt := nutsdb.DefaultOptions
 	os.RemoveAll(config.CachePath)
 	os.MkdirAll(config.CachePath, 0755)
@@ -122,4 +121,4 @@ func NewNutsClient(config MetaConfig) (KvCache, error) {
 	return &nutsDBClient{db: db}, nil
 }
 
-var _ KvCache = &nutsDBClient{}
+var _ Client = &nutsDBClient{}

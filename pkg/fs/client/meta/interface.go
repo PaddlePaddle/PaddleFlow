@@ -166,21 +166,22 @@ func (a *Attr) IsDir() bool {
 	return utils.StatModeToFileMode(int(a.Mode)).IsDir()
 }
 
-type Creator func(meta Meta, config kv.MetaConfig) (Meta, error)
+type Creator func(meta Meta, config Config) (Meta, error)
 
-func NewMeta(fsMeta common.FSMeta, links map[string]common.FSMeta, inodeHandle *InodeHandle, config *kv.MetaConfig) (Meta, error) {
+func NewMeta(fsMeta common.FSMeta, links map[string]common.FSMeta, inodeHandle *InodeHandle, config *Config) (Meta, error) {
 	if config == nil {
-		config = &kv.MetaConfig{
+		config = &Config{
 			AttrCacheExpire:  0,
 			EntryCacheExpire: 0,
-			Driver:           DefaultName,
+			Config: kv.Config{
+				Driver: DefaultName,
+				FsID:   fsMeta.ID,
+			},
 		}
 	}
-	config.FsID = fsMeta.ID
 	m, err := InitMeta(fsMeta, links, inodeHandle)
 	if err != nil {
 		return nil, err
 	}
-
 	return newKvMeta(m, *config)
 }

@@ -90,7 +90,7 @@ func (l *memClient) ScanValues(prefix []byte) (map[string][]byte, error) {
 	return ret, nil
 }
 
-func NewMemClient(config MetaConfig) (KvCache, error) {
+func NewMemClient(config Config) (Client, error) {
 	client := &memClient{db: btree.New(2), item: &kvItem{}}
 	return client, nil
 }
@@ -115,4 +115,4 @@ func (l *memClient) nextKey(key []byte) []byte {
 	return next
 }
 
-var _ KvCache = &memClient{}
+var _ Client = &memClient{}

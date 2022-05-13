@@ -32,6 +32,7 @@ import (
 	"paddleflow/pkg/fs/client/base"
 	"paddleflow/pkg/fs/client/cache"
 	"paddleflow/pkg/fs/client/kv"
+	"paddleflow/pkg/fs/client/meta"
 	"paddleflow/pkg/fs/client/utils"
 	"paddleflow/pkg/fs/client/vfs"
 	fsCommon "paddleflow/pkg/fs/common"
@@ -70,11 +71,13 @@ func NewFSClientForTest(fsMeta fsCommon.FSMeta) (*PFSClient, error) {
 				Mode:   DiskDirMode,
 			},
 		}),
-		vfs.WithMetaConfig(kv.MetaConfig{
+		vfs.WithMetaConfig(meta.Config{
 			AttrCacheExpire:  MetaCacheExpire,
 			EntryCacheExpire: EntryCacheExpire,
-			Driver:           Driver,
-			CachePath:        MetaCachePath,
+			Config: kv.Config{
+				Driver:    Driver,
+				CachePath: MetaCachePath,
+			},
 		}),
 	)
 	pfs, err := NewFileSystem(fsMeta, nil, true, false, "", vfsConfig)
@@ -125,10 +128,12 @@ func (c *PFSClient) initPFS(fsMeta fsCommon.FSMeta, links map[string]fsCommon.FS
 			MaxReadAhead: MaxReadAheadNum,
 			Disk:         &cache.DiskConfig{Dir: DiskCachePath, Expire: DiskCacheExpire},
 		}),
-		vfs.WithMetaConfig(kv.MetaConfig{
+		vfs.WithMetaConfig(meta.Config{
 			AttrCacheExpire:  MetaCacheExpire,
 			EntryCacheExpire: EntryCacheExpire,
-			Driver:           Driver,
+			Config: kv.Config{
+				Driver: Driver,
+			},
 		}),
 	)
 	pfs, err := NewFileSystem(fsMeta, links, false, true, linkMetaDirPrefix, vfsConfig)

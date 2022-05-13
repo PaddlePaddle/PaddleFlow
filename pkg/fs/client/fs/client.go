@@ -25,7 +25,6 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"paddleflow/pkg/fs/client/cache"
-	"paddleflow/pkg/fs/client/kv"
 	"paddleflow/pkg/fs/client/meta"
 	"paddleflow/pkg/fs/common"
 )
@@ -60,7 +59,7 @@ var (
 	MetaCachePath    = "/var/cache/pfs_meta_cache"
 )
 
-func SetMetaCache(config kv.MetaConfig) {
+func SetMetaCache(config meta.Config) {
 	Driver = config.Driver
 	MetaCacheExpire = config.AttrCacheExpire
 	EntryCacheExpire = config.EntryCacheExpire

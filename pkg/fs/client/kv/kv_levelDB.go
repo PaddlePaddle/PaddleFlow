@@ -75,7 +75,7 @@ func (l levelDBClient) ScanValues(prefix []byte) (map[string][]byte, error) {
 	return result, nil
 }
 
-func NewLevelDBClient(config MetaConfig) (KvCache, error) {
+func NewLevelDBClient(config Config) (Client, error) {
 	cachePath := filepath.Join(config.CachePath, config.FsID+"_"+common.GetRandID(5)+".db")
 	os.RemoveAll(cachePath)
 	db, err := leveldb.OpenFile(cachePath, nil)
@@ -85,4 +85,4 @@ func NewLevelDBClient(config MetaConfig) (KvCache, error) {
 	return &levelDBClient{db: db}, nil
 }
 
-var _ KvCache = &levelDBClient{}
+var _ Client = &levelDBClient{}

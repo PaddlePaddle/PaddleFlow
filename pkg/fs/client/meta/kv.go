@@ -45,11 +45,11 @@ const (
 
 var _ Meta = &kvMeta{}
 
-type KvCacheStore func(driver string, config *kv.MetaConfig) (Meta, error)
+type KvCacheStore func(driver string, config *Config) (Meta, error)
 
 // kvMeta
 type kvMeta struct {
-	client       kv.KvCache
+	client       kv.Client
 	defaultMeta  Meta
 	attrTimeOut  time.Duration
 	entryTimeOut time.Duration
@@ -75,13 +75,13 @@ type SliceByte struct {
 	cap  int
 }
 
-func newKvMeta(meta Meta, config kv.MetaConfig) (Meta, error) {
+func newKvMeta(meta Meta, config Config) (Meta, error) {
 	if config.Driver == DefaultName {
 		// default meta has no cache. query from remote each time
 		return meta, nil
 	}
 
-	client, err := newClient(config)
+	client, err := newClient(config.Config)
 	if err != nil {
 		return nil, err
 	}
@@ -94,8 +94,8 @@ func newKvMeta(meta Meta, config kv.MetaConfig) (Meta, error) {
 	return m, nil
 }
 
-func newClient(config kv.MetaConfig) (kv.KvCache, error) {
-	var client kv.KvCache
+func newClient(config kv.Config) (kv.Client, error) {
+	var client kv.Client
 	var err error
 	switch config.Driver {
 	case kv.LevelDB:
@@ -745,4 +745,12 @@ func (m *kvMeta) marshalEntry(attr *entryCacheItem) []byte {
 	w.Put64(uint64(attr.expire))
 	w.Put8(attr.done)
 	return w.Bytes()
+}
+
+type Config struct {
+	kv.Config
+	AttrCacheExpire    time.Duration
+	EntryCacheExpire   time.Duration
+	AttrCacheSize      uint64
+	EntryAttrCacheSize uint64
 }

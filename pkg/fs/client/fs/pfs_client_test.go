@@ -22,6 +22,7 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"os"
+	"paddleflow/pkg/fs/client/meta"
 	"path/filepath"
 	"reflect"
 	"strconv"
@@ -898,7 +899,7 @@ func NewFSClientForTestWithNoClientCache(fsMeta common.FSMeta) (*PFSClient, erro
 				Mode:   DiskDirMode,
 			},
 		}),
-		vfs.WithMetaConfig(kv.MetaConfig{
+		vfs.WithMetaConfig(meta.Config{
 			AttrCacheExpire:  MetaCacheExpire,
 			EntryCacheExpire: EntryCacheExpire,
 			Driver:           Driver,
@@ -939,7 +940,7 @@ func TestLevelDBMeta(t *testing.T) {
 	os.RemoveAll(db)
 	defer os.RemoveAll(db)
 	var err error
-	SetMetaCache(kv.MetaConfig{
+	SetMetaCache(meta.Config{
 		Driver:           kv.LevelDB,
 		CachePath:        db,
 		AttrCacheExpire:  100 * time.Second,
@@ -1045,7 +1046,7 @@ func TestMetaAttrCacheByLevelDB(t *testing.T) {
 	os.RemoveAll(db)
 	defer os.RemoveAll(db)
 	var err error
-	SetMetaCache(kv.MetaConfig{
+	SetMetaCache(meta.Config{
 		Driver:           kv.LevelDB,
 		CachePath:        db,
 		AttrCacheExpire:  100 * time.Second,

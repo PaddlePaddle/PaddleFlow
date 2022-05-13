@@ -27,7 +27,6 @@ import (
 
 	"paddleflow/pkg/fs/client/base"
 	"paddleflow/pkg/fs/client/cache"
-	"paddleflow/pkg/fs/client/kv"
 	"paddleflow/pkg/fs/client/meta"
 	ufslib "paddleflow/pkg/fs/client/ufs"
 	"paddleflow/pkg/fs/client/utils"
@@ -54,7 +53,7 @@ type VFS struct {
 type Config struct {
 	Cache *cache.Config
 	owner *Owner
-	Meta  *kv.MetaConfig
+	Meta  *meta.Config
 }
 
 type Owner struct {
@@ -95,7 +94,7 @@ func WithOwner(uid, gid uint32) Option {
 	}
 }
 
-func WithMetaConfig(m kv.MetaConfig) Option {
+func WithMetaConfig(m meta.Config) Option {
 	return func(config *Config) {
 		config.Meta = &m
 	}

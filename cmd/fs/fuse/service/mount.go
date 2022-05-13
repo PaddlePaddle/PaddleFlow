@@ -42,6 +42,7 @@ import (
 	"paddleflow/pkg/fs/client/cache"
 	"paddleflow/pkg/fs/client/fuse"
 	"paddleflow/pkg/fs/client/kv"
+	"paddleflow/pkg/fs/client/meta"
 	"paddleflow/pkg/fs/client/vfs"
 	"paddleflow/pkg/fs/common"
 	mountUtil "paddleflow/pkg/fs/utils/mount"
@@ -315,11 +316,13 @@ func InitVFS(c *cli.Context, registry *prometheus.Registry) error {
 			return err
 		}
 	}
-	m := kv.MetaConfig{
+	m := meta.Config{
 		AttrCacheExpire:  c.Duration("meta-cache-expire"),
 		EntryCacheExpire: c.Duration("entry-cache-expire"),
-		Driver:           c.String("meta-cache-driver"),
-		CachePath:        c.String("meta-cache-path"),
+		Config: kv.Config{
+			Driver:    c.String("meta-cache-driver"),
+			CachePath: c.String("meta-cache-path"),
+		},
 	}
 	d := cache.Config{
 		BlockSize:    c.Int("block-size"),
