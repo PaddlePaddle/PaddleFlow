@@ -17,15 +17,13 @@ limitations under the License.
 package meta
 
 import (
-	"fmt"
 	"io"
-	"syscall"
-	"time"
-
 	"paddleflow/pkg/fs/client/base"
+	"paddleflow/pkg/fs/client/kv"
 	ufslib "paddleflow/pkg/fs/client/ufs"
 	"paddleflow/pkg/fs/client/utils"
 	"paddleflow/pkg/fs/common"
+	"syscall"
 )
 
 const (
@@ -76,16 +74,6 @@ type Entry struct {
 	Name string
 	// Ino is the inode number.
 	Ino Ino
-}
-
-type Config struct {
-	AttrCacheExpire    time.Duration
-	EntryCacheExpire   time.Duration
-	FsID               string
-	Driver             string
-	CachePath          string
-	AttrCacheSize      uint64
-	EntryAttrCacheSize uint64
 }
 
 // Meta is a interface for a meta service for file system.
@@ -177,17 +165,11 @@ func (a *Attr) IsDir() bool {
 	return utils.StatModeToFileMode(int(a.Mode)).IsDir()
 }
 
-type Creator func(meta Meta, config Config) (Meta, error)
+type Creator func(meta Meta, config kv.MetaConfig) (Meta, error)
 
-var metaDrivers = make(map[string]Creator)
-
-func Register(_type string, creator Creator) {
-	metaDrivers[_type] = creator
-}
-
-func NewMeta(fsMeta common.FSMeta, links map[string]common.FSMeta, inodeHandle *InodeHandle, config *Config) (Meta, error) {
+func NewMeta(fsMeta common.FSMeta, links map[string]common.FSMeta, inodeHandle *InodeHandle, config *kv.MetaConfig) (Meta, error) {
 	if config == nil {
-		config = &Config{
+		config = &kv.MetaConfig{
 			AttrCacheExpire:  0,
 			EntryCacheExpire: 0,
 			Driver:           DefaultName,
@@ -198,13 +180,7 @@ func NewMeta(fsMeta common.FSMeta, links map[string]common.FSMeta, inodeHandle *
 	if err != nil {
 		return nil, err
 	}
-	fs, ok := metaDrivers[config.Driver]
-	if ok {
-		m, err = fs(m, *config)
-		if err != nil {
-			return nil, err
-		}
-		return m, err
-	}
-	return nil, fmt.Errorf("unknow meta %s", config.Driver)
+
+	meta, err := newKvMeta(m, *config)
+	return meta, err
 }

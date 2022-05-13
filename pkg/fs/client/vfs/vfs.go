@@ -18,6 +18,7 @@ package vfs
 
 import (
 	"os"
+	"paddleflow/pkg/fs/client/kv"
 	"sync"
 	"syscall"
 	"time"
@@ -53,7 +54,7 @@ type VFS struct {
 type Config struct {
 	Cache *cache.Config
 	owner *Owner
-	Meta  *meta.Config
+	Meta  *kv.MetaConfig
 }
 
 type Owner struct {
@@ -94,7 +95,7 @@ func WithOwner(uid, gid uint32) Option {
 	}
 }
 
-func WithMetaConfig(m meta.Config) Option {
+func WithMetaConfig(m kv.MetaConfig) Option {
 	return func(config *Config) {
 		config.Meta = &m
 	}

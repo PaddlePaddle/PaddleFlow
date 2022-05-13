@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package meta
+package kv
 
 import (
 	"strings"
@@ -40,11 +40,11 @@ type memClient struct {
 	item *kvItem
 }
 
-func (l *memClient) name() string {
+func (l *memClient) Name() string {
 	return Mem
 }
 
-func (l *memClient) get(key []byte) ([]byte, bool) {
+func (l *memClient) Get(key []byte) ([]byte, bool) {
 	l.item.key = string(key)
 	data := l.db.Get(l.item)
 	if data != nil {
@@ -53,7 +53,7 @@ func (l *memClient) get(key []byte) ([]byte, bool) {
 	return nil, false
 }
 
-func (l *memClient) set(key, value []byte) error {
+func (l *memClient) Set(key, value []byte) error {
 	l.item.key = string(key)
 	if value == nil {
 		l.db.Delete(l.item)
@@ -63,7 +63,7 @@ func (l *memClient) set(key, value []byte) error {
 	return nil
 }
 
-func (l *memClient) dels(keys ...[]byte) error {
+func (l *memClient) Dels(keys ...[]byte) error {
 	for _, key := range keys {
 		l.item.key = string(key)
 		l.db.Delete(l.item)
@@ -71,7 +71,7 @@ func (l *memClient) dels(keys ...[]byte) error {
 	return nil
 }
 
-func (l *memClient) scanValues(prefix []byte) (map[string][]byte, error) {
+func (l *memClient) ScanValues(prefix []byte) (map[string][]byte, error) {
 	l.Lock()
 	defer l.Unlock()
 	begin := string(prefix)
@@ -90,21 +90,7 @@ func (l *memClient) scanValues(prefix []byte) (map[string][]byte, error) {
 	return ret, nil
 }
 
-func newMemMeta(meta Meta, config Config) (Meta, error) {
-	client, err := newMemClient(config)
-	if err != nil {
-		return nil, err
-	}
-	m := &kvMeta{
-		client:       client,
-		defaultMeta:  meta,
-		attrTimeOut:  config.AttrCacheExpire,
-		entryTimeOut: config.EntryCacheExpire,
-	}
-	return m, nil
-}
-
-func newMemClient(config Config) (kvCache, error) {
+func NewMemClient(config MetaConfig) (KvCache, error) {
 	client := &memClient{db: btree.New(2), item: &kvItem{}}
 	return client, nil
 }
@@ -129,4 +115,4 @@ func (l *memClient) nextKey(key []byte) []byte {
 	return next
 }
 
-var _ kvCache = &memClient{}
+var _ KvCache = &memClient{}

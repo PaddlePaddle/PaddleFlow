@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -13,7 +13,8 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package meta
+
+package kv
 
 import (
 	"os"
@@ -32,11 +33,11 @@ type levelDBClient struct {
 	db   *leveldb.DB
 }
 
-func (l levelDBClient) name() string {
+func (l levelDBClient) Name() string {
 	return LevelDB
 }
 
-func (l levelDBClient) get(key []byte) ([]byte, bool) {
+func (l levelDBClient) Get(key []byte) ([]byte, bool) {
 	data, err := l.db.Get(key, nil)
 	if err != nil {
 		return nil, false
@@ -44,12 +45,12 @@ func (l levelDBClient) get(key []byte) ([]byte, bool) {
 	return data, true
 }
 
-func (l levelDBClient) set(key, value []byte) error {
+func (l levelDBClient) Set(key, value []byte) error {
 	err := l.db.Put(key, value, nil)
 	return err
 }
 
-func (l levelDBClient) dels(keys ...[]byte) error {
+func (l levelDBClient) Dels(keys ...[]byte) error {
 	batch := new(leveldb.Batch)
 	for _, key := range keys {
 		batch.Delete(key)
@@ -58,7 +59,7 @@ func (l levelDBClient) dels(keys ...[]byte) error {
 	return err
 }
 
-func (l levelDBClient) scanValues(prefix []byte) (map[string][]byte, error) {
+func (l levelDBClient) ScanValues(prefix []byte) (map[string][]byte, error) {
 	iter := l.db.NewIterator(util.BytesPrefix(prefix), nil)
 	result := make(map[string][]byte)
 	for iter.Next() {
@@ -74,7 +75,7 @@ func (l levelDBClient) scanValues(prefix []byte) (map[string][]byte, error) {
 	return result, nil
 }
 
-func newLevelDBClient(config Config) (kvCache, error) {
+func NewLevelDBClient(config MetaConfig) (KvCache, error) {
 	cachePath := filepath.Join(config.CachePath, config.FsID+"_"+common.GetRandID(5)+".db")
 	os.RemoveAll(cachePath)
 	db, err := leveldb.OpenFile(cachePath, nil)
@@ -84,4 +85,4 @@ func newLevelDBClient(config Config) (kvCache, error) {
 	return &levelDBClient{db: db}, nil
 }
 
-var _ kvCache = &levelDBClient{}
+var _ KvCache = &levelDBClient{}

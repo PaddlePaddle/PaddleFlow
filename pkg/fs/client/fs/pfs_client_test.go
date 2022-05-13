@@ -22,6 +22,7 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"os"
+	"paddleflow/pkg/fs/client/kv"
 	"path/filepath"
 	"reflect"
 	"strconv"
@@ -940,7 +941,7 @@ func TestLevelDBMeta(t *testing.T) {
 	defer os.RemoveAll(db)
 	var err error
 	SetMetaCache(meta.Config{
-		Driver:           meta.LevelDB,
+		Driver:           kv.LevelDB,
 		CachePath:        db,
 		AttrCacheExpire:  100 * time.Second,
 		EntryCacheExpire: 100 * time.Second,
@@ -1046,7 +1047,7 @@ func TestMetaAttrCacheByLevelDB(t *testing.T) {
 	defer os.RemoveAll(db)
 	var err error
 	SetMetaCache(meta.Config{
-		Driver:           meta.LevelDB,
+		Driver:           kv.LevelDB,
 		CachePath:        db,
 		AttrCacheExpire:  100 * time.Second,
 		EntryCacheExpire: 100 * time.Second,

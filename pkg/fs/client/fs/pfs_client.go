@@ -20,6 +20,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"paddleflow/pkg/fs/client/kv"
 	"path/filepath"
 	"strings"
 	"syscall"
@@ -128,7 +129,7 @@ func (c *PFSClient) initPFS(fsMeta fsCommon.FSMeta, links map[string]fsCommon.FS
 		vfs.WithMetaConfig(meta.Config{
 			AttrCacheExpire:  MetaCacheExpire,
 			EntryCacheExpire: EntryCacheExpire,
-			Driver:           meta.Mem,
+			Driver:           kv.Mem,
 		}),
 	)
 	pfs, err := NewFileSystem(fsMeta, links, false, true, linkMetaDirPrefix, vfsConfig)
