@@ -37,7 +37,7 @@ type Store interface {
 	InvalidateCache(name string, length int) error
 }
 
-type Cache interface {
+type DataCache interface {
 	load(key string) (ReadCloser, bool)
 	save(key string, buf []byte)
 	delete(key string)

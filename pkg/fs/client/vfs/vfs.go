@@ -74,9 +74,7 @@ type Option func(*Config)
 func InitConfig(options ...Option) *Config {
 	config := &Config{
 		Cache: &cache.Config{
-			Disk: &cache.DiskConfig{
-				Expire: 60 * time.Second,
-			},
+			Expire: 60 * time.Second,
 		},
 	}
 	for _, f := range options {

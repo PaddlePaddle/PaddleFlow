@@ -40,7 +40,7 @@ type cacheItem struct {
 	expTime time.Time
 }
 
-type diskCache struct {
+type KvDataCache struct {
 	sync.RWMutex
 	dir      string
 	capacity int64
@@ -51,18 +51,17 @@ type diskCache struct {
 
 type DiskConfig struct {
 	Dir    string
-	Mode   os.FileMode
 	Expire time.Duration
 }
 
-func NewDiskCache(fsID string, config *DiskConfig) *diskCache {
-	if config == nil || config.Dir == "" || config.Dir == "/" {
+func NewDataCache(fsID string, config *Config) *KvDataCache {
+	if config == nil || config.CachePath == "" || config.CachePath == "/" {
 		return nil
 	}
 
-	cachePath := filepath.Join(config.Dir, fsID)
+	cachePath := filepath.Join(config.CachePath, fsID)
 	if config != nil {
-		d := &diskCache{
+		d := &KvDataCache{
 			dir:    cachePath,
 			expire: config.Expire,
 		}
@@ -82,7 +81,7 @@ func NewDiskCache(fsID string, config *DiskConfig) *diskCache {
 	return nil
 }
 
-func (c *diskCache) load(key string) (ReadCloser, bool) {
+func (c *KvDataCache) load(key string) (ReadCloser, bool) {
 	if c.dir == "" {
 		return nil, false
 	}
@@ -110,7 +109,7 @@ func (c *diskCache) load(key string) (ReadCloser, bool) {
 	return f, true
 }
 
-func (c *diskCache) save(key string, buf []byte) {
+func (c *KvDataCache) save(key string, buf []byte) {
 	if c.dir == "" {
 		return
 	}
@@ -159,7 +158,7 @@ func (c *diskCache) save(key string, buf []byte) {
 	return
 }
 
-func (c *diskCache) delete(key string) {
+func (c *KvDataCache) delete(key string) {
 	path := c.cachePath(key)
 	_, ok := c.load(key)
 	if ok {
@@ -170,7 +169,7 @@ func (c *diskCache) delete(key string) {
 	}
 }
 
-func (c *diskCache) clean() {
+func (c *KvDataCache) clean() {
 	// 1. 首先清理掉已过期文件
 	c.keys.Range(func(key, value interface{}) bool {
 		cache := value.(*cacheItem)
@@ -206,19 +205,19 @@ func (c *diskCache) clean() {
 	c.updateCapacity()
 }
 
-func (c *diskCache) cachePath(key string) string {
+func (c *KvDataCache) cachePath(key string) string {
 	return filepath.Join(c.dir, CacheDir, key)
 }
 
-func (c *diskCache) getKeyFromCachePath(path string) string {
+func (c *KvDataCache) getKeyFromCachePath(path string) string {
 	return strings.TrimPrefix(path, filepath.Join(c.dir, CacheDir)+"/")
 }
 
-func (c *diskCache) createDir(dir string) {
+func (c *KvDataCache) createDir(dir string) {
 	os.MkdirAll(dir, 0755)
 }
 
-func (c *diskCache) exist(key string) bool {
+func (c *KvDataCache) exist(key string) bool {
 	value, ok := c.keys.Load(key)
 	if !ok {
 		return false
@@ -231,7 +230,7 @@ func (c *diskCache) exist(key string) bool {
 	return true
 }
 
-func (c *diskCache) updateCapacity() error {
+func (c *KvDataCache) updateCapacity() error {
 	output, err := mount.ExecCmdWithTimeout("df", []string{"-k", c.dir})
 	if err != nil {
 		log.Errorf("df %s %v ", c.dir, err)
@@ -270,4 +269,4 @@ func (c *diskCache) updateCapacity() error {
 	}
 }
 
-var _ Cache = &diskCache{}
+var _ DataCache = &KvDataCache{}

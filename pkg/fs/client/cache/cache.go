@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,18 +19,17 @@ package cache
 import (
 	"fmt"
 	"io"
+	"paddleflow/pkg/fs/client/kv"
 	"path"
 	"sync"
 	"syscall"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 
 	"paddleflow/pkg/fs/client/ufs"
 	"paddleflow/pkg/fs/client/utils"
-	"paddleflow/pkg/metric"
 )
 
 const (
@@ -38,94 +37,18 @@ const (
 	READAHEAD_CHUNK  = uint64(32 * 1024 * 1024)
 )
 
-var (
-	cacheHits = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "blockcache_hits",
-		Help: "read from cached block",
-	})
-	cacheMiss = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "blockcache_miss",
-		Help: "missed read from cached block",
-	})
-	cacheMissRate = prometheus.NewGaugeFunc(prometheus.GaugeOpts{
-		Name: "blockcache_hit_rate",
-		Help: "cache hit rate out of all read",
-	}, func() float64 {
-		hitCnt := metric.GetMetricValue(cacheHits)
-		missCnt := metric.GetMetricValue(cacheMiss)
-		return hitCnt / (hitCnt + missCnt)
-	})
-	cacheWrites = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "blockcache_writes",
-		Help: "written cached block",
-	})
-	cacheDrops = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "blockcache_drops",
-		Help: "dropped block",
-	})
-	cacheEvicts = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "blockcache_evicts",
-		Help: "evicted cache blocks",
-	})
-	cacheHitBytes = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "blockcache_hit_bytes",
-		Help: "read bytes from cached block",
-	})
-	cacheMissBytes = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "blockcache_miss_bytes",
-		Help: "missed bytes from cached block",
-	})
-	cacheWriteBytes = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "blockcache_write_bytes",
-		Help: "write bytes of cached block",
-	})
-	cacheReadHist = prometheus.NewHistogram(prometheus.HistogramOpts{
-		Name:    "blockcache_read_hist_seconds",
-		Help:    "read cached block latency distribution",
-		Buckets: prometheus.ExponentialBuckets(0.00001, 2, 20),
-	})
-	cacheWriteHist = prometheus.NewHistogram(prometheus.HistogramOpts{
-		Name:    "blockcache_write_hist_seconds",
-		Help:    "write cached block latency distribution",
-		Buckets: prometheus.ExponentialBuckets(0.00001, 2, 20),
-	})
-
-	objectReqsHistogram = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-		Name:    "object_request_durations_histogram_seconds",
-		Help:    "Object requests latency distributions.",
-		Buckets: prometheus.ExponentialBuckets(0.01, 1.5, 25),
-	}, []string{"method"})
-	objectReqErrors = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "object_request_errors",
-		Help: "failed requests to object store",
-	})
-	objectDataBytes = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name: "object_request_data_bytes",
-		Help: "Object requests size in bytes.",
-	}, []string{"method"})
-
-	stageBlocks = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "staging_blocks",
-		Help: "Number of blocks in the staging path.",
-	})
-	stageBlockBytes = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "staging_block_bytes",
-		Help: "Total bytes of blocks in the staging path.",
-	})
-)
-
 type store struct {
-	mem  *memCache
-	disk *diskCache
-	conf Config
+	conf      Config
+	meta      map[string]string
+	dataCache *KvDataCache
 	sync.RWMutex
-	meta map[string]string
 }
 
 type Config struct {
-	Disk         *DiskConfig
+	kv.Config
 	BlockSize    int
 	MaxReadAhead int
+	Expire       time.Duration
 }
 
 type rCache struct {
@@ -141,33 +64,17 @@ type rCache struct {
 }
 
 func NewCacheStore(fsID string, config *Config) Store {
-	if config.Disk == nil || config.BlockSize == 0 {
+	if config.BlockSize == 0 {
 		return nil
 	}
 	cacheStore := &store{
 		conf: *config,
 		meta: make(map[string]string, 100),
 	}
-	if config.Disk != nil {
-		cacheStore.disk = NewDiskCache(fsID, config.Disk)
-	}
+	cacheStore.dataCache = NewDataCache(fsID, config)
 	log.Debugf("metrics register NewCacheStore")
 	registerMetrics()
 	return cacheStore
-}
-
-func registerMetrics() {
-	prometheus.Register(cacheHits)
-	prometheus.Register(cacheHitBytes)
-	prometheus.Register(cacheMiss)
-	prometheus.Register(cacheMissBytes)
-	prometheus.Register(cacheMissRate)
-	prometheus.Register(cacheWrites)
-	prometheus.Register(cacheWriteBytes)
-	prometheus.Register(cacheDrops)
-	prometheus.Register(cacheEvicts)
-	prometheus.Register(cacheReadHist)
-	prometheus.Register(cacheWriteHist)
 }
 
 func (store *store) NewReader(name string, length int, flags uint32, ufs ufs.UnderFileStorage, buffers ReadBufferMap,
@@ -197,11 +104,8 @@ func (store *store) InvalidateCache(name string, length int) error {
 		for write <= length {
 			key := store.key(keyID, index)
 			log.Debugf("cache del key is %s and keyID %s", key, keyID)
-			if store.mem != nil {
-				store.mem.delete(key)
-			}
-			if store.disk != nil {
-				store.disk.delete(key)
+			if store.dataCache != nil {
+				store.dataCache.delete(key)
 			}
 			write += store.conf.BlockSize
 			index += 1
@@ -371,15 +275,14 @@ func (r *rCache) key(index int) string {
 }
 
 func (r *rCache) readCache(buf []byte, key string, off int) (int, bool) {
-	log.Debugf("read cache key is %s", key)
-	// disk cache
-	if r.store.disk != nil {
-		file, ok := r.store.disk.load(key)
+	log.Debugf("read data cache key is %s", key)
+	if r.store.dataCache != nil {
+		file, ok := r.store.dataCache.load(key)
 		if ok {
 			n, err := file.ReadAt(buf, int64(off))
 			file.Close()
 			if err != nil && err != io.EOF {
-				log.Debugf("disk readAt err %v", err)
+				log.Debugf("dataCache readAt err %v", err)
 				return 0, false
 			}
 			return n, true
@@ -398,7 +301,7 @@ func (r *rCache) setCache(index int, p []byte, n int) {
 	if right > n {
 		right = n
 	}
-	if r.store.disk != nil {
-		r.store.disk.save(key, p[:right])
+	if r.store.dataCache != nil {
+		r.store.dataCache.save(key, p[:right])
 	}
 }
