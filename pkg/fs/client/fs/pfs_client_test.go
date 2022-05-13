@@ -36,7 +36,6 @@ import (
 
 	"paddleflow/pkg/fs/client/cache"
 	"paddleflow/pkg/fs/client/kv"
-	"paddleflow/pkg/fs/client/meta"
 	"paddleflow/pkg/fs/client/vfs"
 	"paddleflow/pkg/fs/common"
 )
@@ -899,7 +898,7 @@ func NewFSClientForTestWithNoClientCache(fsMeta common.FSMeta) (*PFSClient, erro
 				Mode:   DiskDirMode,
 			},
 		}),
-		vfs.WithMetaConfig(meta.Config{
+		vfs.WithMetaConfig(kv.MetaConfig{
 			AttrCacheExpire:  MetaCacheExpire,
 			EntryCacheExpire: EntryCacheExpire,
 			Driver:           Driver,
@@ -940,7 +939,7 @@ func TestLevelDBMeta(t *testing.T) {
 	os.RemoveAll(db)
 	defer os.RemoveAll(db)
 	var err error
-	SetMetaCache(meta.Config{
+	SetMetaCache(kv.MetaConfig{
 		Driver:           kv.LevelDB,
 		CachePath:        db,
 		AttrCacheExpire:  100 * time.Second,
@@ -1046,7 +1045,7 @@ func TestMetaAttrCacheByLevelDB(t *testing.T) {
 	os.RemoveAll(db)
 	defer os.RemoveAll(db)
 	var err error
-	SetMetaCache(meta.Config{
+	SetMetaCache(kv.MetaConfig{
 		Driver:           kv.LevelDB,
 		CachePath:        db,
 		AttrCacheExpire:  100 * time.Second,
