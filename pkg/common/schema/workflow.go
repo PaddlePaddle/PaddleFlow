@@ -62,6 +62,7 @@ func (atf *Artifacts) ValidateOutputMapByList() error {
 
 type Node interface {
 	GetDeps() []string
+	GetFullName() string
 }
 
 type WorkflowSourceStep struct {
