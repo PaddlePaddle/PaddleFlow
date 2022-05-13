@@ -60,6 +60,11 @@ func (atf *Artifacts) ValidateOutputMapByList() error {
 	return nil
 }
 
+type Node interface {
+	GetDeps() []string
+	GetFullName() string
+}
+
 type WorkflowSourceStep struct {
 	Parameters map[string]interface{} `yaml:"parameters"`
 	Command    string                 `yaml:"command"`
