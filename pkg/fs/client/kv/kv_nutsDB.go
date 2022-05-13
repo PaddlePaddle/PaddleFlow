@@ -17,14 +17,17 @@ limitations under the License.
 package kv
 
 import (
+	"os"
+
 	log "github.com/sirupsen/logrus"
 	"github.com/xujiajun/nutsdb"
-	"os"
 )
 
-const NutsDB = "nutsdb"
-const bucketName = "mem"
-const iterNum = 200
+const (
+	NutsDB     = "nutsdb"
+	bucketName = "mem"
+	iterNum    = 200
+)
 
 type nutsDBClient struct {
 	db *nutsdb.DB
