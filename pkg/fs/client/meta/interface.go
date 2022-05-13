@@ -18,12 +18,13 @@ package meta
 
 import (
 	"io"
+	"syscall"
+
 	"paddleflow/pkg/fs/client/base"
 	"paddleflow/pkg/fs/client/kv"
 	ufslib "paddleflow/pkg/fs/client/ufs"
 	"paddleflow/pkg/fs/client/utils"
 	"paddleflow/pkg/fs/common"
-	"syscall"
 )
 
 const (
@@ -181,6 +182,5 @@ func NewMeta(fsMeta common.FSMeta, links map[string]common.FSMeta, inodeHandle *
 		return nil, err
 	}
 
-	meta, err := newKvMeta(m, *config)
-	return meta, err
+	return newKvMeta(m, *config)
 }
