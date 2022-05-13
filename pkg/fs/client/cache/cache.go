@@ -19,7 +19,6 @@ package cache
 import (
 	"fmt"
 	"io"
-	"paddleflow/pkg/fs/client/kv"
 	"path"
 	"sync"
 	"syscall"
@@ -28,6 +27,7 @@ import (
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 
+	"paddleflow/pkg/fs/client/kv"
 	"paddleflow/pkg/fs/client/ufs"
 	"paddleflow/pkg/fs/client/utils"
 )
