@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -32,7 +32,6 @@ import (
 	"paddleflow/pkg/fs/client/base"
 	"paddleflow/pkg/fs/client/cache"
 	"paddleflow/pkg/fs/client/kv"
-	"paddleflow/pkg/fs/client/meta"
 	"paddleflow/pkg/fs/client/utils"
 	"paddleflow/pkg/fs/client/vfs"
 	fsCommon "paddleflow/pkg/fs/common"
@@ -71,7 +70,7 @@ func NewFSClientForTest(fsMeta fsCommon.FSMeta) (*PFSClient, error) {
 				Mode:   DiskDirMode,
 			},
 		}),
-		vfs.WithMetaConfig(meta.Config{
+		vfs.WithMetaConfig(kv.MetaConfig{
 			AttrCacheExpire:  MetaCacheExpire,
 			EntryCacheExpire: EntryCacheExpire,
 			Driver:           Driver,
@@ -126,7 +125,7 @@ func (c *PFSClient) initPFS(fsMeta fsCommon.FSMeta, links map[string]fsCommon.FS
 			MaxReadAhead: MaxReadAheadNum,
 			Disk:         &cache.DiskConfig{Dir: DiskCachePath, Expire: DiskCacheExpire},
 		}),
-		vfs.WithMetaConfig(meta.Config{
+		vfs.WithMetaConfig(kv.MetaConfig{
 			AttrCacheExpire:  MetaCacheExpire,
 			EntryCacheExpire: EntryCacheExpire,
 			Driver:           kv.Mem,

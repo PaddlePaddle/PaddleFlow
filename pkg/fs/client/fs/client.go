@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"paddleflow/pkg/fs/client/cache"
+	"paddleflow/pkg/fs/client/kv"
 	"paddleflow/pkg/fs/client/meta"
 	"paddleflow/pkg/fs/common"
 )
@@ -59,7 +60,7 @@ var (
 	MetaCachePath    = "/var/cache/pfs_meta_cache"
 )
 
-func SetMetaCache(config meta.Config) {
+func SetMetaCache(config kv.MetaConfig) {
 	Driver = config.Driver
 	MetaCacheExpire = config.AttrCacheExpire
 	EntryCacheExpire = config.EntryCacheExpire
