@@ -18,7 +18,6 @@ package vfs
 
 import (
 	"os"
-	"paddleflow/pkg/fs/client/kv"
 	"sync"
 	"syscall"
 	"time"
@@ -28,6 +27,7 @@ import (
 
 	"paddleflow/pkg/fs/client/base"
 	"paddleflow/pkg/fs/client/cache"
+	"paddleflow/pkg/fs/client/kv"
 	"paddleflow/pkg/fs/client/meta"
 	ufslib "paddleflow/pkg/fs/client/ufs"
 	"paddleflow/pkg/fs/client/utils"

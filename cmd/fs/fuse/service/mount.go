@@ -23,7 +23,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"paddleflow/pkg/fs/client/kv"
 	"path"
 	"strings"
 
@@ -42,6 +41,7 @@ import (
 	"paddleflow/pkg/fs/client/base"
 	"paddleflow/pkg/fs/client/cache"
 	"paddleflow/pkg/fs/client/fuse"
+	"paddleflow/pkg/fs/client/kv"
 	"paddleflow/pkg/fs/client/vfs"
 	"paddleflow/pkg/fs/common"
 	mountUtil "paddleflow/pkg/fs/utils/mount"

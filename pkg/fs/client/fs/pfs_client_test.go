@@ -22,7 +22,6 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"os"
-	"paddleflow/pkg/fs/client/kv"
 	"path/filepath"
 	"reflect"
 	"strconv"
@@ -36,6 +35,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"paddleflow/pkg/fs/client/cache"
+	"paddleflow/pkg/fs/client/kv"
 	"paddleflow/pkg/fs/client/meta"
 	"paddleflow/pkg/fs/client/vfs"
 	"paddleflow/pkg/fs/common"
