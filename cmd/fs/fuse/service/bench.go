@@ -444,6 +444,7 @@ func bench(ctx *cli.Context) error {
 		//show("Put object", "put", "object_request_durations_histogram_seconds_PUT")
 		//show("Get object", "get", "object_request_durations_histogram_seconds_GET")
 		//show("Delete object", "delete", "object_request_durations_histogram_seconds_DELETE")
+		show("Read remote object", "read_remote", "object_request_durations_histogram_seconds")
 		show("Write into cache", "cachewr", "blockcache_write_hist_seconds")
 		show("Read from cache", "cacherd", "blockcache_read_hist_seconds")
 		var fmtString string

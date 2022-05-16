@@ -72,26 +72,17 @@ var (
 		Buckets: prometheus.ExponentialBuckets(0.00001, 2, 20),
 	})
 
-	objectReqsHistogram = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+	objectReqsHistogram = prometheus.NewHistogram(prometheus.HistogramOpts{
 		Name:    "object_request_durations_histogram_seconds",
 		Help:    "Object requests latency distributions.",
 		Buckets: prometheus.ExponentialBuckets(0.01, 1.5, 25),
-	}, []string{"method"})
+	})
 	objectReqErrors = prometheus.NewCounter(prometheus.CounterOpts{
 		Name: "object_request_errors",
 		Help: "failed requests to object store",
 	})
-	objectDataBytes = prometheus.NewCounterVec(prometheus.CounterOpts{
+	objectDataBytes = prometheus.NewCounter(prometheus.CounterOpts{
 		Name: "object_request_data_bytes",
 		Help: "Object requests size in bytes.",
-	}, []string{"method"})
-
-	stageBlocks = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "staging_blocks",
-		Help: "Number of blocks in the staging path.",
-	})
-	stageBlockBytes = prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: "staging_block_bytes",
-		Help: "Total bytes of blocks in the staging path.",
 	})
 )

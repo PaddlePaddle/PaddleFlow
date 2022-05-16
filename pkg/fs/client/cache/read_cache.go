@@ -70,22 +70,22 @@ func (r *rCache) readFromReadAhead(off int64, buf []byte) (bytesRead int, err er
 		if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
 			break
 		}
+
+		bytesRead += nread
+		blockOff += nread
+		index += 1
+
 		if readAheadBuf.size <= 0 && readAheadBuf.Buffer.page.ready {
 			readAheadBuf.Buffer.Close()
 			r.lock.Lock()
 			delete(r.buffers, indexOff)
 			r.lock.Unlock()
-			index += 1
 			blockOff = 0
-			bytesRead += nread
-			blockOff += nread
 			break
 		}
 		if nread == 0 {
 			break
 		}
-		bytesRead += nread
-		blockOff += nread
 	}
 	return bytesRead, nil
 }
@@ -161,6 +161,7 @@ func (r *rCache) ReadAt(buf []byte, off int64) (n int, err error) {
 	key = r.key(index)
 	blockOff := r.off(int(off))
 	start := time.Now()
+	// read from cache
 	nReadFromCache, hitCache := r.readCache(buf, key, blockOff)
 	if hitCache {
 		// metrics
@@ -170,14 +171,18 @@ func (r *rCache) ReadAt(buf []byte, off int64) (n int, err error) {
 		log.Debugf("metrics cacheHits++:%d and index %v blockOff %v and nread %v", nReadFromCache, index, blockOff, nReadFromCache)
 		return nReadFromCache, nil
 	}
-	err = r.readAhead(index)
-	log.Debugf("read buffers map %v", len(r.buffers))
-	if err == nil {
-		n, err = r.readFromReadAhead(off, buf)
-		return
-	} else {
-		log.Errorf("read ahead err is %v", err)
+	// read from remote
+	if err := r.readAhead(index); err != nil {
+		log.Errorf("ReadAt r.readAhead(index=%d) err:%v", index, err)
+		return 0, err
 	}
+	log.Debugf("read buffers map %v", len(r.buffers))
+	n, err = r.readFromReadAhead(off, buf)
+	if err != nil {
+		objectReqErrors.Inc()
+	}
+	objectReqsHistogram.Observe(time.Since(start).Seconds())
+	objectDataBytes.Add(float64(n))
 	return
 }
 
