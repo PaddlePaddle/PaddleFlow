@@ -25,12 +25,10 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 
-	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/common/k8s"
 	commomschema "paddleflow/pkg/common/schema"
 )
@@ -100,7 +98,6 @@ func (qs *QueueSync) Run(stopCh <-chan struct{}) {
 		}
 	}
 	log.Infof("Start %s controller successfully!", qs.Name())
-	go wait.Until(qs.runWorker, 0, stopCh)
 }
 
 func (qs *QueueSync) runWorker() {
@@ -116,42 +113,6 @@ func (qs *QueueSync) processWorkItem() bool {
 	queueSyncInfo := obj.(*QueueSyncInfo)
 	log.Debugf("process queue sync. queueName is %s", queueSyncInfo.Name)
 	defer qs.jobQueue.Done(queueSyncInfo)
-
-	q, err := models.GetQueueByName(queueSyncInfo.Name)
-	if err != nil {
-		log.Errorf("get queue from database failed. queueName is %s, error: %s", queueSyncInfo.Name, err.Error())
-		return true
-	}
-	status := ""
-	skipUpdate := false
-	if queueSyncInfo.Type == v1beta1.QuotaTypeLogical {
-		// set queue status to unavailable when queue is not modified by PaddleFlow
-		switch q.Status {
-		case commomschema.StatusQueueUpdating:
-			log.Infof("queue %s is updating by PaddleFlow", queueSyncInfo.Name)
-		case commomschema.StatusQueueOpen, commomschema.StatusQueueUnavailable:
-			log.Warningf("queue %s is not modified by PaddleFlow, update status to unavailable", queueSyncInfo.Name)
-			status = commomschema.StatusQueueUnavailable
-			queueSyncInfo.MaxResource = nil
-			queueSyncInfo.MinResource = nil
-		case commomschema.StatusQueueClosing, commomschema.StatusQueueClosed:
-			log.Infof("queue %s is closed, skip update", queueSyncInfo.Name)
-			skipUpdate = true
-		}
-	}
-	if skipUpdate {
-		return true
-	}
-	// update queue status and resource
-	err = models.UpdateQueue(queueSyncInfo.Name, status, queueSyncInfo.MaxResource, queueSyncInfo.MinResource)
-	if err != nil {
-		log.Errorf("queueInformer update queue status failed. queueName:[%s] error:[%s]", queueSyncInfo.Name, err.Error())
-		if queueSyncInfo.RetryTimes < DefaultSyncRetryTimes {
-			queueSyncInfo.RetryTimes += 1
-			qs.jobQueue.AddRateLimited(queueSyncInfo)
-		}
-	}
-	qs.jobQueue.Forget(queueSyncInfo)
 	return true
 }
 
@@ -196,21 +157,7 @@ func (qs *QueueSync) updateEQuota(oldObj, newObj interface{}) {
 	if reflect.DeepEqual(oldEquota.Spec, newEquota.Spec) {
 		return
 	}
-	log.Debugf("%s queue resource is updated. old:%v new:%v", newEquota.GroupVersionKind(), oldEquota.Spec, newEquota.Spec)
-
-	quotaType := v1beta1.QuotaTypeLogical
-	labels := newEquota.Labels
-	if labels != nil && labels[v1beta1.QuotaTypeKey] == v1beta1.QuotaTypePhysical {
-		quotaType = v1beta1.QuotaTypePhysical
-	}
-	queueInfo := &QueueSyncInfo{
-		Name:        newEquota.GetName(),
-		MaxResource: k8s.NewResourceInfo(newEquota.Spec.Max),
-		MinResource: k8s.NewResourceInfo(newEquota.Spec.Min),
-		Type:        quotaType,
-	}
-	log.Infof("watch %s resource is updated, name is %s", newEquota.GroupVersionKind(), newEquota.GetName())
-	qs.jobQueue.Add(queueInfo)
+	log.Infof("%s queue resource is updated. old:%v new:%v", newEquota.GroupVersionKind(), oldEquota.Spec, newEquota.Spec)
 }
 
 func (qs *QueueSync) updateVCQueue(oldObj, newObj interface{}) {
@@ -223,27 +170,13 @@ func (qs *QueueSync) updateVCQueue(oldObj, newObj interface{}) {
 	if reflect.DeepEqual(oldQueue.Spec, newQueue.Spec) {
 		return
 	}
-	log.Debugf("%s queue resource is updated. old:%v new:%v", newQueue.GroupVersionKind(), oldQueue.Spec, newQueue.Spec)
-	queueInfo := &QueueSyncInfo{
-		Name:        newQueue.Name,
-		MaxResource: k8s.NewResourceInfo(newQueue.Spec.Capability),
-		Type:        v1beta1.QuotaTypeLogical,
-	}
-	log.Infof("watch %s resource is updated, name is %s", newQueue.GroupVersionKind(), newQueue.Name)
-	qs.jobQueue.Add(queueInfo)
+	log.Infof("%s queue resource is updated. old:%v new:%v", newQueue.GroupVersionKind(), oldQueue.Spec, newQueue.Spec)
 }
 
 // deleteQueue for queue resource delete event
 func (qs *QueueSync) deleteQueue(obj interface{}) {
 	queueObj := obj.(*unstructured.Unstructured)
 	log.Infof("watch %s resource is deleted, name is %s", queueObj.GroupVersionKind(), queueObj.GetName())
-
-	queueInfo := &QueueSyncInfo{
-		Name:    queueObj.GetName(),
-		Status:  commomschema.StatusQueueUnavailable,
-		Message: fmt.Sprintf("queue resource[%s] is deleted from cluster", queueObj.GetName()),
-	}
-	qs.jobQueue.Add(queueInfo)
 }
 
 func convertUnstructuredResource(queueObj *unstructured.Unstructured, gvk schema.GroupVersionKind) (interface{}, error) {
