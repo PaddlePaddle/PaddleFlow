@@ -266,7 +266,7 @@ func transCacheJson2Yaml(bodyMap map[string]interface{}) error {
 					return err
 				}
 			}
-			logger.Logger().Errorf("%v", cacheMap)
+			logger.Logger().Errorf("Cache Debugger: %v", cacheMap)
 			if err := unstructured.SetNestedField(pointMap, cacheMap, "cache"); err != nil {
 				return err
 			}
