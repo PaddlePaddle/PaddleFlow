@@ -160,6 +160,7 @@ func createDatabaseTables(db *gorm.DB) error {
 	return db.AutoMigrate(
 		&models.Pipeline{},
 		&models.PipelineDetail{},
+		&models.Schedule{},
 		&models.RunCache{},
 		&models.ArtifactEvent{},
 		&models.User{},

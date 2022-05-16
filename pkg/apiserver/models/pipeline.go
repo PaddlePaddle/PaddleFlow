@@ -28,27 +28,18 @@ import (
 )
 
 type Pipeline struct {
-	Pk         int64          `json:"-"                    gorm:"primaryKey;autoIncrement;not null"`
-	ID         string         `json:"pipelineID"           gorm:"type:varchar(60);not null;uniqueIndex"`
-	Name       string         `json:"name"                 gorm:"type:varchar(60);not null;uniqueIndex:idx_fs_name"`
-	Desc       string         `json:"desc"                 gorm:"type:varchar(60);not null;uniqueIndex:idx_fs_name"`
-	UserName   string         `json:"username"             gorm:"type:varchar(60);not null"`
-	CreateTime string         `json:"createTime,omitempty" gorm:"-"`
-	UpdateTime string         `json:"updateTime,omitempty" gorm:"-"`
-	CreatedAt  time.Time      `json:"-"`
-	UpdatedAt  time.Time      `json:"-"`
-	DeletedAt  gorm.DeletedAt `json:"-"                    gorm:"index"`
+	Pk        int64          `json:"-"                    gorm:"primaryKey;autoIncrement;not null"`
+	ID        string         `json:"pipelineID"           gorm:"type:varchar(60);not null;uniqueIndex"`
+	Name      string         `json:"name"                 gorm:"type:varchar(60);not null;uniqueIndex:idx_fs_name"`
+	Desc      string         `json:"desc"                 gorm:"type:varchar(60);not null"`
+	UserName  string         `json:"username"             gorm:"type:varchar(60);not null;uniqueIndex:idx_fs_name"`
+	CreatedAt time.Time      `json:"-"`
+	UpdatedAt time.Time      `json:"-"`
+	DeletedAt gorm.DeletedAt `json:"-"                    gorm:"index"`
 }
 
 func (Pipeline) TableName() string {
 	return "pipeline"
-}
-
-func (p *Pipeline) Decode() error {
-	// format time
-	p.CreateTime = p.CreatedAt.Format("2006-01-02 15:04:05")
-	p.UpdateTime = p.UpdatedAt.Format("2006-01-02 15:04:05")
-	return nil
 }
 
 func CreatePipeline(logEntry *log.Entry, pplDetail *PipelineDetail) (pplID string, pplDetailPk int64, err error) {
@@ -63,13 +54,13 @@ func CreatePipeline(logEntry *log.Entry, pplDetail *PipelineDetail) (pplID strin
 		logEntry.Debugf("created ppl with pk[%d], pplID[%s]", pplDetail.Pipeline.Pk, pplDetail.Pipeline.ID)
 
 		// update ID by pk
-		result = tx.Model(&Pipeline{}).Where(&Pipeline{Pk: pplDetail.Pipeline.Pk}).Update("id", pplDetail.Pipeline.ID)
+		result = tx.Model(&Pipeline{}).Where("pk = ?", pplDetail.Pipeline.Pk).Update("id", pplDetail.Pipeline.ID)
 		if result.Error != nil {
 			logEntry.Errorf("backfilling pplID to pipeline[%d] failed. error:%v", pplDetail.Pipeline.Pk, result.Error)
 			return result.Error
 		}
 
-		result = tx.Model(&PipelineDetail{}).Where(&PipelineDetail{Pk: pplDetail.Pk}).Update("pipeline_id", pplDetail.Pipeline.ID)
+		result = tx.Model(&PipelineDetail{}).Where("pk = ?", pplDetail.Pk).Update("pipeline_id", pplDetail.Pipeline.ID)
 		if result.Error != nil {
 			logEntry.Errorf("backfilling pplID to pipeline detail[%d] failed. error:%v", pplDetail.Pk, result.Error)
 			return result.Error
@@ -105,7 +96,7 @@ func GetPipelineByID(id string) (Pipeline, error) {
 	return ppl, result.Error
 }
 
-func CheckPipelineExist(name, userName string) (Pipeline, error) {
+func GetPipeline(name, userName string) (Pipeline, error) {
 	var ppl Pipeline
 	result := database.DB.Model(&Pipeline{}).Where(&Pipeline{Name: name, UserName: userName}).Last(&ppl)
 	return ppl, result.Error

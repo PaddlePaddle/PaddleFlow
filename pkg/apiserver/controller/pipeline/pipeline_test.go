@@ -33,7 +33,6 @@ import (
 	"paddleflow/pkg/common/schema"
 	pkgPipeline "paddleflow/pkg/pipeline"
 	pkgPplCommon "paddleflow/pkg/pipeline/common"
-	pplcommon "paddleflow/pkg/pipeline/common"
 )
 
 const (
@@ -55,11 +54,11 @@ func TestCreatePipeline(t *testing.T) {
 	fmt.Println(pwd)
 
 	createPplReq := CreatePipelineRequest{
-		FsName:     MockFsName,
-		UserName:   "",
-		YamlPath:   "../../../../example/wide_and_deep/run.yaml",
-		Name:       "wrongPplName",
-		DetailType: "wrongDetailType",
+		FsName:   MockFsName,
+		UserName: "",
+		YamlPath: "../../../../example/wide_and_deep/run.yaml",
+		Name:     "distribute_wide_and_deep",
+		Desc:     "pipeline test",
 	}
 
 	patch := gomonkey.ApplyFunc(handler.ReadFileFromFs, func(fsID, runYamlPath string, logEntry *log.Entry) ([]byte, error) {
@@ -74,24 +73,19 @@ func TestCreatePipeline(t *testing.T) {
 	defer patch1.Reset()
 
 	// test create 失败，pplname 和 wfsname 不一致
+	createPplReq.Name = "wrongPplName"
 	resp, err := CreatePipeline(ctx, createPplReq, MockFsID)
 	assert.NotNil(t, err)
 	assert.Equal(t, fmt.Errorf("validateWorkflowForPipeline failed. err:pplName[wrongPplName] in request is not the same as name[distribute_wide_and_deep] in pipeline yaml."), err)
 
-	// test create 失败，detail type有误
-	createPplReq.Name = "distribute_wide_and_deep"
-	resp, err = CreatePipeline(ctx, createPplReq, MockFsID)
-	assert.NotNil(t, err)
-	assert.Equal(t, fmt.Errorf("CreatePipeline failed: pipeline detail type[wrongDetailType] not correct"), err)
-
 	// create 成功
-	createPplReq.DetailType = pplcommon.PplDetailTypeNormal
+	createPplReq.Name = "distribute_wide_and_deep"
 	resp, err = CreatePipeline(ctx, createPplReq, MockFsID)
 	assert.Nil(t, err)
 	assert.Equal(t, createPplReq.Name, resp.Name)
 
 	// test get success
-	getPplResp, err := GetPipeline(ctx, resp.ID, "", 10, []string{})
+	getPplResp, err := GetPipeline(ctx, resp.PipelineID, "", 10, []string{})
 	assert.Nil(t, err)
 	assert.Equal(t, getPplResp.Pipeline.Name, "distribute_wide_and_deep")
 	assert.Equal(t, len(getPplResp.PipelineDetailList), 1)
@@ -109,19 +103,42 @@ func TestCreatePipeline(t *testing.T) {
 	_, err = CreatePipeline(ctx, createPplReq, MockFsID)
 	assert.NotNil(t, err)
 	assert.Equal(t, fmt.Errorf("CreatePipeline failed: user[root] already has pipeline[distribute_wide_and_deep], cannot create again!"), err)
+
+	// 更改用户名后，创建成功
+	ctx = &logger.RequestContext{UserName: "another_user"}
+	createPplReq.Name = "distribute_wide_and_deep"
+	resp, err = CreatePipeline(ctx, createPplReq, MockFsID)
+	assert.Nil(t, err)
+	assert.Equal(t, createPplReq.Name, resp.Name)
+
+	// test get success
+	getPplResp, err = GetPipeline(ctx, resp.PipelineID, "", 10, []string{})
+	assert.Nil(t, err)
+	assert.Equal(t, getPplResp.Pipeline.Name, "distribute_wide_and_deep")
+	assert.Equal(t, len(getPplResp.PipelineDetailList), 1)
+	assert.Equal(t, getPplResp.PipelineDetailList[0].PipelineID, "ppl-000002")
+	assert.Equal(t, getPplResp.PipelineDetailList[0].Pk, int64(2))
 }
 
 // 测试更新pipeline
 func TestUpdatePipeline(t *testing.T) {
 	dbinit.InitMockDB()
-	ctx := &logger.RequestContext{UserName: MockRootUser}
+	ctx := &logger.RequestContext{UserName: "normalUser"}
 
-	createPplReq := UpdatePipelineRequest{
+	createPplReq := CreatePipelineRequest{
+		FsName:   MockFsName,
+		UserName: "",
+		YamlPath: "../../../../example/wide_and_deep/run.yaml",
+		Name:     "distribute_wide_and_deep",
+		Desc:     "pipeline test",
+	}
+
+	updatePplReq := UpdatePipelineRequest{
+		PipelineID: "ppl-000001",
 		FsName:     MockFsName,
 		UserName:   "",
 		YamlPath:   "../../../../example/wide_and_deep/run.yaml",
-		Name:       "wrongPplName",
-		DetailType: "wrongDetailType",
+		Desc:       "pipeline test",
 	}
 
 	patch := gomonkey.ApplyFunc(handler.ReadFileFromFs, func(fsID, runYamlPath string, logEntry *log.Entry) ([]byte, error) {
@@ -135,48 +152,63 @@ func TestUpdatePipeline(t *testing.T) {
 	})
 	defer patch1.Reset()
 
-	// test update 失败，pplname 和 wfsname 不一致
-	resp, err := UpdatePipeline(ctx, createPplReq, MockFsID)
-	assert.NotNil(t, err)
-	assert.Equal(t, fmt.Errorf("validateWorkflowForPipeline failed. err:pplName[wrongPplName] in request is not the same as name[distribute_wide_and_deep] in pipeline yaml."), err)
-
-	// test update 失败，detail type有误
-	createPplReq.Name = "distribute_wide_and_deep"
-	resp, err = UpdatePipeline(ctx, createPplReq, MockFsID)
-	assert.NotNil(t, err)
-	assert.Equal(t, fmt.Errorf("UpdatePipeline failed: pipeline detail type[wrongDetailType] not correct"), err)
-
 	// test update 失败，pipeline没有创建，不能更新
-	createPplReq.DetailType = pplcommon.PplDetailTypeNormal
-	resp, err = UpdatePipeline(ctx, createPplReq, MockFsID)
+	resp, err := UpdatePipeline(ctx, updatePplReq, MockFsID)
 	assert.NotNil(t, err)
-	assert.Equal(t, fmt.Errorf("UpdatePipeline failed: pipeline[distribute_wide_and_deep] not created for user[root], pls create first!"), err)
+	assert.Equal(t, fmt.Errorf("UpdatePipeline failed: pipeline[distribute_wide_and_deep] not created for user[normalUser], pls create first!"), err)
 
 	// create 成功
-	resp, err = CreatePipeline(ctx, createPplReq, MockFsID)
+	createPplResp, err := CreatePipeline(ctx, createPplReq, MockFsID)
 	assert.Nil(t, err)
-	assert.Equal(t, createPplReq.Name, resp.Name)
+	assert.Equal(t, createPplReq.Name, createPplResp.Name)
 
 	// test get success
-	getPplResp, err := GetPipeline(ctx, resp.ID, "", 10, []string{})
+	getPplResp, err := GetPipeline(ctx, createPplResp.PipelineID, "", 10, []string{})
 	assert.Nil(t, err)
 	assert.Equal(t, getPplResp.Pipeline.Name, "distribute_wide_and_deep")
 	assert.Equal(t, len(getPplResp.PipelineDetailList), 1)
 	assert.Equal(t, getPplResp.PipelineDetailList[0].PipelineID, "ppl-000001")
 	assert.Equal(t, getPplResp.PipelineDetailList[0].Pk, int64(1))
 
+	// update 失败，yaml name 与 pipeline记录中的 name 不一样
+	updatePplReq.YamlPath = "../../../../example/pipeline/run.yaml"
+	resp, err = UpdatePipeline(ctx, updatePplReq, MockFsID)
+	assert.NotNil(t, err)
+	assert.Equal(t, fmt.Errorf("update pipeline failed, pplname[myproject] in yaml not the same as [distribute_wide_and_deep] of pipeline[ppl-000001]"), err)
+
 	// update 成功
-	resp, err = UpdatePipeline(ctx, createPplReq, MockFsID)
+	updatePplReq.YamlPath = "../../../../example/wide_and_deep/run.yaml"
+	resp, err = UpdatePipeline(ctx, updatePplReq, MockFsID)
 	assert.Nil(t, err)
-	assert.Equal(t, createPplReq.Name, resp.Name)
+	assert.Equal(t, createPplResp.PipelineID, resp.PipelineID)
 
-	// 再次update 成功
-	resp, err = UpdatePipeline(ctx, createPplReq, MockFsID)
+	// 其他用户，update失败
+	ctx = &logger.RequestContext{UserName: "anotherUser"}
+	resp, err = UpdatePipeline(ctx, updatePplReq, MockFsID)
+	assert.NotNil(t, err)
+	assert.Equal(t, fmt.Errorf("user[anotherUser] has no access to resource[pipeline] with Name[ppl-000001]"), err)
+
+	// root用户，update成功
+	ctx = &logger.RequestContext{UserName: MockRootUser}
+	resp, err = UpdatePipeline(ctx, updatePplReq, MockFsID)
 	assert.Nil(t, err)
-	assert.Equal(t, createPplReq.Name, resp.Name)
+	assert.Equal(t, createPplResp.PipelineID, resp.PipelineID)
 
-	// test get success
-	getPplResp, err = GetPipeline(ctx, resp.ID, "", 10, []string{})
+	// root用户，test get success
+	getPplResp, err = GetPipeline(ctx, createPplResp.PipelineID, "", 10, []string{})
+	assert.Nil(t, err)
+	assert.Equal(t, getPplResp.Pipeline.Name, "distribute_wide_and_deep")
+	assert.Equal(t, len(getPplResp.PipelineDetailList), 3)
+	assert.Equal(t, getPplResp.PipelineDetailList[0].PipelineID, "ppl-000001")
+	assert.Equal(t, getPplResp.PipelineDetailList[0].Pk, int64(1))
+	assert.Equal(t, getPplResp.PipelineDetailList[1].PipelineID, "ppl-000001")
+	assert.Equal(t, getPplResp.PipelineDetailList[1].Pk, int64(2))
+	assert.Equal(t, getPplResp.PipelineDetailList[2].PipelineID, "ppl-000001")
+	assert.Equal(t, getPplResp.PipelineDetailList[2].Pk, int64(3))
+
+	// root用户，test get success
+	ctx = &logger.RequestContext{UserName: "normalUser"}
+	getPplResp, err = GetPipeline(ctx, createPplResp.PipelineID, "", 10, []string{})
 	assert.Nil(t, err)
 	assert.Equal(t, getPplResp.Pipeline.Name, "distribute_wide_and_deep")
 	assert.Equal(t, len(getPplResp.PipelineDetailList), 3)
@@ -507,6 +539,7 @@ func TestGetPipelineDetail(t *testing.T) {
 	fmt.Printf("\n%s\n", b)
 }
 
+// todo: 测试有schedule在运行的场景（不能删除）
 func TestDeletePipeline(t *testing.T) {
 	dbinit.InitMockDB()
 	ctx := &logger.RequestContext{UserName: MockRootUser}
@@ -622,6 +655,7 @@ func TestDeletePipeline(t *testing.T) {
 	assert.Equal(t, "delete pipeline[ppl-000003] failed. not exist", err.Error())
 }
 
+// todo: 测试有schedule在运行的场景（不能删除）
 func TestDeletePipelineDetail(t *testing.T) {
 	dbinit.InitMockDB()
 	ctx := &logger.RequestContext{UserName: MockRootUser}

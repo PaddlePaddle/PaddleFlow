@@ -25,6 +25,7 @@ import (
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/common/schema"
 	"paddleflow/pkg/job"
+	"paddleflow/pkg/pipeline"
 	"paddleflow/pkg/version"
 )
 
@@ -96,6 +97,9 @@ func start() error {
 		return err
 	}
 	go imageHandler.Run()
+
+	globalScheduler := pipeline.GetGlobalScheduler()
+	go globalScheduler.Start()
 
 	go job2.WSManager.SendGroupData()
 	go job2.WSManager.GetGroupData()

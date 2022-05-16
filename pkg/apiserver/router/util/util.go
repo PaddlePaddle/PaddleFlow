@@ -47,6 +47,7 @@ const (
 	QueryKeyMarker  = "marker"
 	QueryKeyMaxKeys = "maxKeys"
 
+	QueryKeyPipelineID = "pipelineID"
 	QueryKeyUserFilter = "userFilter"
 	QueryKeyFsFilter   = "fsFilter"
 	QueryKeyNameFilter = "nameFilter"

@@ -107,15 +107,19 @@ type CreateRunResponse struct {
 }
 
 type RunBrief struct {
-	ID           string `json:"runID"`
-	Name         string `json:"name"`
-	Source       string `json:"source"` // pipelineID or yamlPath
-	UserName     string `json:"username"`
-	FsName       string `json:"fsname"`
-	Message      string `json:"runMsg"`
-	Status       string `json:"status"`
-	CreateTime   string `json:"createTime"`
-	ActivateTime string `json:"activateTime"`
+	ID            string `json:"runID"`
+	Name          string `json:"name"`
+	Source        string `json:"source"` // pipelineID or yamlPath
+	UserName      string `json:"username"`
+	FsName        string `json:"fsname"`
+	Description   string `json:"description"`
+	ScheduleID    string `json:"scheduleID"`
+	Message       string `json:"runMsg"`
+	Status        string `json:"status"`
+	ScheduledTime string `json:"scheduledTime"`
+	CreateTime    string `json:"createTime"`
+	ActivateTime  string `json:"activateTime"`
+	UpdateTime    string `json:"updateTime"`
 }
 
 type ListRunResponse struct {
@@ -129,10 +133,19 @@ func (b *RunBrief) modelToListResp(run models.Run) {
 	b.Source = run.Source
 	b.UserName = run.UserName
 	b.FsName = run.FsName
+	b.Description = run.Description
+	b.ScheduleID = run.ScheduleID
 	b.Message = run.Message
 	b.Status = run.Status
 	b.CreateTime = run.CreateTime
 	b.ActivateTime = run.ActivateTime
+	b.UpdateTime = run.UpdateTime
+
+	if run.ScheduledAt.Valid {
+		b.ScheduledTime = run.ScheduledAt.Time.Format("2006-01-02 15:04:05")
+	} else {
+		b.ScheduledTime = ""
+	}
 }
 
 func buildWorkflowSource(ctx *logger.RequestContext, req CreateRunRequest, fsID string) (schema.WorkflowSource, string, string, error) {
@@ -543,7 +556,7 @@ func ValidateAndStartRun(ctx *logger.RequestContext, run models.Run, req interfa
 	return response, nil
 }
 
-func ListRun(ctx *logger.RequestContext, marker string, maxKeys int, userFilter, fsFilter, runFilter, nameFilter []string) (ListRunResponse, error) {
+func ListRun(ctx *logger.RequestContext, marker string, maxKeys int, userFilter, fsFilter, runFilter, nameFilter, statusFilter, scheduleIDFilter []string) (ListRunResponse, error) {
 	ctx.Logging().Debugf("begin list run.")
 	var pk int64
 	var err error
@@ -561,7 +574,7 @@ func ListRun(ctx *logger.RequestContext, marker string, maxKeys int, userFilter,
 		userFilter = []string{ctx.UserName}
 	}
 	// model list
-	runList, err := models.ListRun(ctx.Logging(), pk, maxKeys, userFilter, fsFilter, runFilter, nameFilter)
+	runList, err := models.ListRun(ctx.Logging(), pk, maxKeys, userFilter, fsFilter, runFilter, nameFilter, statusFilter, scheduleIDFilter)
 	if err != nil {
 		ctx.Logging().Errorf("models list run failed. err:[%s]", err.Error())
 		ctx.ErrorCode = common.InternalError
@@ -739,7 +752,7 @@ func DeleteRun(ctx *logger.RequestContext, id string, request *DeleteRunRequest)
 	runCacheIDList := run.GetRunCacheIDList()
 	if request.CheckCache && len(runCacheIDList) > 0 {
 		// 由于cache当前正要删除的Run的其他Run可能已经被删除了，所以需要检查实际存在的Run有哪些
-		if runCachedList, _ := models.ListRun(ctx.Logging(), 0, 0, nil, nil, runCacheIDList, nil); len(runCachedList) > 0 {
+		if runCachedList, _ := models.ListRun(ctx.Logging(), 0, 0, nil, nil, runCacheIDList, nil, nil, nil); len(runCachedList) > 0 {
 			// 为了错误信息更友好，把实际还存在的Run的ID打印出来
 			runExistIDList := make([]string, 0, len(runCachedList))
 			for _, runCached := range runCachedList {

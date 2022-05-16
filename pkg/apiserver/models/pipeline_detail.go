@@ -35,8 +35,6 @@ type PipelineDetail struct {
 	PipelineYaml string         `json:"pipelineYaml"         gorm:"type:text;size:65535"`
 	PipelineMd5  string         `json:"pipelineMd5"          gorm:"type:varchar(32);not null"`
 	UserName     string         `json:"username"             gorm:"type:varchar(60);not null"`
-	CreateTime   string         `json:"createTime,omitempty" gorm:"-"`
-	UpdateTime   string         `json:"updateTime,omitempty" gorm:"-"`
 	CreatedAt    time.Time      `json:"-"`
 	UpdatedAt    time.Time      `json:"-"`
 	DeletedAt    gorm.DeletedAt `json:"-"                    gorm:"index"`
@@ -45,14 +43,6 @@ type PipelineDetail struct {
 
 func (PipelineDetail) TableName() string {
 	return "PipelineDetail"
-}
-
-func (p *PipelineDetail) Decode() error {
-	// format time
-	p.CreateTime = p.CreatedAt.Format("2006-01-02 15:04:05")
-	p.UpdateTime = p.UpdatedAt.Format("2006-01-02 15:04:05")
-	p.Pipeline.Decode()
-	return nil
 }
 
 func ListPipelineDetail(PipelineID string, pk int64, maxKeys int, fsFilter, detailTypeFilter []string) ([]PipelineDetail, error) {
@@ -112,13 +102,30 @@ func GetLastPipelineDetail(logEntry *log.Entry, pipelineID string) (PipelineDeta
 	return pplDetail, nil
 }
 
+// 此处不检查pipeline detail对应的pipelineID是否存在，单纯做查询
 func GetPipelineDetailByID(pipelineDetailPk int64) (PipelineDetail, error) {
-	// todo: 如果pipeline被删除（逻辑删除），但是detail没有被删除时，get detail是否成功
-	// 如果成功，detail里面的pipeline是否会填充
-	// 需求：如果pipeline被删除，理论上查询也要失败
 	var pplDetail PipelineDetail
 	result := database.DB.Model(&PipelineDetail{}).Where("Pk = ?", pipelineDetailPk).Last(&pplDetail)
 	return pplDetail, result.Error
+}
+
+func GetPipelineDetail(pipelineID string, pipelineDetailPk int64, detailType string) ([]PipelineDetail, error) {
+	pplDetailList := []PipelineDetail{}
+	tx := database.DB.Model(&PipelineDetail{})
+
+	if pipelineID != "" {
+		tx.Where("pipeline_id = ?", pipelineID)
+	}
+
+	if pipelineDetailPk != 0 {
+		tx.Where("pk = ?", pipelineDetailPk)
+	}
+
+	if detailType != "" {
+		tx = tx.Where("detail_type = ?", detailType)
+	}
+	tx = tx.Preload("Pipeline").Find(&pplDetailList)
+	return pplDetailList, tx.Error
 }
 
 func DeletePipelineDetail(logEntry *log.Entry, pipelineDetailPk int64, hardDelete bool) error {

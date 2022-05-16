@@ -78,7 +78,7 @@ func (pr *PipelineRouter) createPipeline(w http.ResponseWriter, r *http.Request)
 		createPplReq.YamlPath = "./run.yaml"
 	}
 
-	// check grant
+	// check user grant to fs
 	fsID, err := getFsIDAndCheckPermission(&ctx, createPplReq.UserName, createPplReq.FsName)
 	if err != nil {
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
@@ -171,7 +171,7 @@ func (pr *PipelineRouter) updatePipeline(w http.ResponseWriter, r *http.Request)
 		updatePplReq.YamlPath = "./run.yaml"
 	}
 
-	// check grant
+	// check user grant to fs
 	fsID, err := getFsIDAndCheckPermission(&ctx, updatePplReq.UserName, updatePplReq.FsName)
 	if err != nil {
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
