@@ -38,9 +38,9 @@ const (
 )
 
 type store struct {
-	conf      Config
-	meta      map[string]string
-	dataCache *KvDataCache
+	conf   Config
+	meta   map[string]string
+	client kv.Client
 	sync.RWMutex
 }
 
@@ -63,18 +63,28 @@ type rCache struct {
 	seqReadAmount uint64
 }
 
-func NewCacheStore(fsID string, config *Config) Store {
+func NewCacheStore(fsID string, config *Config) (Store, error) {
 	if config.BlockSize == 0 {
-		return nil
+		return nil, nil
+	}
+	kvConf := kv.Config{
+		FsID:      fsID,
+		Driver:    config.Driver,
+		CachePath: config.CachePath,
+	}
+	dataCacheClient, err := kv.NewClient(kvConf)
+	if err != nil {
+		log.Errorf("NewDataCache fs[%s] err:%v", fsID, err)
+		return nil, err
 	}
 	cacheStore := &store{
-		conf: *config,
-		meta: make(map[string]string, 100),
+		conf:   *config,
+		meta:   make(map[string]string, 100),
+		client: dataCacheClient,
 	}
-	cacheStore.dataCache = NewDataCache(fsID, config)
 	log.Debugf("metrics register NewCacheStore")
 	registerMetrics()
-	return cacheStore
+	return cacheStore, nil
 }
 
 func (store *store) NewReader(name string, length int, flags uint32, ufs ufs.UnderFileStorage, buffers ReadBufferMap,
@@ -100,17 +110,21 @@ func (store *store) InvalidateCache(name string, length int) error {
 	store.Lock()
 	delete(store.meta, name)
 	store.Unlock()
-	go func() {
-		for write <= length {
-			key := store.key(keyID, index)
-			log.Debugf("cache del key is %s and keyID %s", key, keyID)
-			if store.dataCache != nil {
-				store.dataCache.delete(key)
+	// delete data cache
+	if store.client != nil {
+		go func() {
+			for write <= length {
+				key := store.key(keyID, index)
+				log.Debugf("cache del key is %s and keyID %s", key, keyID)
+				if err := store.client.Dels([]byte(key)); err != nil {
+					log.Errorf("InvalidateCache client.Dels keyID[%s] index[%d], err:%v", keyID, index, err)
+					break
+				}
+				write += store.conf.BlockSize
+				index += 1
 			}
-			write += store.conf.BlockSize
-			index += 1
-		}
-	}()
+		}()
+	}
 	return nil
 }
 
@@ -275,20 +289,16 @@ func (r *rCache) key(index int) string {
 }
 
 func (r *rCache) readCache(buf []byte, key string, off int) (int, bool) {
-	log.Debugf("read data cache key is %s", key)
-	if r.store.dataCache != nil {
-		file, ok := r.store.dataCache.load(key)
-		if ok {
-			n, err := file.ReadAt(buf, int64(off))
-			file.Close()
-			if err != nil && err != io.EOF {
-				log.Debugf("dataCache readAt err %v", err)
-				return 0, false
-			}
-			return n, true
-		}
+	if r.store.client == nil {
+		return 0, false
 	}
-	return 0, false
+	log.Debugf("read data cache key is %s", key)
+	data, ok := r.store.client.Get([]byte(key))
+	if !ok {
+		return 0, false
+	}
+	buf = data[:len(buf)]
+	return len(buf), true
 }
 
 func (r *rCache) setCache(index int, p []byte, n int) {
@@ -301,7 +311,9 @@ func (r *rCache) setCache(index int, p []byte, n int) {
 	if right > n {
 		right = n
 	}
-	if r.store.dataCache != nil {
-		r.store.dataCache.save(key, p[:right])
+	if r.store.client != nil {
+		if err := r.store.client.Set([]byte(key), p[:right]); err != nil {
+			log.Errorf("setCache index[%d] err: %v", index, err)
+		}
 	}
 }

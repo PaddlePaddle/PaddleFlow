@@ -128,7 +128,11 @@ func InitVFS(fsMeta common.FSMeta, links map[string]common.FSMeta, global bool,
 	var store cache.Store
 	var blockSize int
 	if config.Cache != nil {
-		store = cache.NewCacheStore(fsMeta.ID, config.Cache)
+		store, err = cache.NewCacheStore(fsMeta.ID, config.Cache)
+		if err != nil {
+			log.Errorf("vfs NewCacheStore failed: %v", err)
+			return nil, err
+		}
 		blockSize = config.Cache.BlockSize
 	}
 	vfs.Store = store
