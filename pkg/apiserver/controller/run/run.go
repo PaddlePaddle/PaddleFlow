@@ -244,8 +244,9 @@ func transCacheJson2Yaml(bodyMap map[string]interface{}) error {
 	}
 	entryPointsMap := entryPoints.(map[string]interface{})
 	for name, point := range entryPointsMap {
-		pointMap := point.(map[string]interface{})
 
+		pointMap := point.(map[string]interface{})
+		logger.Logger().Errorf("Cache Debugger: %v", pointMap)
 		// 检查用户是否有设置节点级别的Cache
 		cache, ok, err := unstructured.NestedFieldCopy(pointMap, name, "cache")
 		if err != nil {
