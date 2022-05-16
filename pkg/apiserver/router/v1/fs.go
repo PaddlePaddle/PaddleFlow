@@ -66,15 +66,16 @@ func (pr *PFSRouter) AddRouter(r chi.Router) {
 }
 
 var URLPrefix = map[string]bool{
-	common.HDFS:  true,
-	common.Local: true,
-	common.S3:    true,
-	common.SFTP:  true,
-	common.Mock:  true,
-	common.CFS:   true,
+	common.HDFS:      true,
+	common.Local:     true,
+	common.S3:        true,
+	common.SFTP:      true,
+	common.Mock:      true,
+	common.CFS:       true,
+	common.Glusterfs: true,
 }
 
-const FsNameMaxLen = 8
+const FsNameMaxLen = 20
 
 // createFileSystem the function that handle the create file system request
 // @Summary createFileSystem
@@ -173,7 +174,7 @@ func validateCreateFileSystem(ctx *logger.RequestContext, req *api.CreateFileSys
 		ctx.ErrorCode = common.InvalidFileSystemURL
 		return err
 	}
-	if fileSystemType == common.Mock {
+	if fileSystemType == common.Mock || fileSystemType == common.Glusterfs {
 		return nil
 	}
 	fsType, serverAddress, subPath := common.InformationFromURL(req.Url, req.Properties)
@@ -344,6 +345,9 @@ func checkFsDir(fsType, url string, properties map[string]string) error {
 	case common.S3:
 		inputIPs = strings.Split(properties[fsCommon.Endpoint], ",")
 		subPath = "/" + strings.SplitAfterN(url, "/", 4)[3]
+	}
+	if len(inputIPs) == 0 {
+		return nil
 	}
 	fsList, err := models.GetSimilarityAddressList(fsType, inputIPs)
 	if err != nil {
