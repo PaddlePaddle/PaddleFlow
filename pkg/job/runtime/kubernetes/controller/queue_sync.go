@@ -123,14 +123,24 @@ func (qs *QueueSync) processWorkItem() bool {
 		return true
 	}
 	status := ""
+	skipUpdate := false
 	if queueSyncInfo.Type == v1beta1.QuotaTypeLogical {
 		// set queue status to unavailable when queue is not modified by PaddleFlow
-		if q.Status != commomschema.StatusQueueUpdating {
+		switch q.Status {
+		case commomschema.StatusQueueUpdating:
+			log.Infof("queue %s is updating by PaddleFlow", queueSyncInfo.Name)
+		case commomschema.StatusQueueOpen, commomschema.StatusQueueUnavailable:
 			log.Warningf("queue %s is not modified by PaddleFlow, update status to unavailable", queueSyncInfo.Name)
 			status = commomschema.StatusQueueUnavailable
 			queueSyncInfo.MaxResource = nil
 			queueSyncInfo.MinResource = nil
+		case commomschema.StatusQueueClosing, commomschema.StatusQueueClosed:
+			log.Infof("queue %s is closed, skip update", queueSyncInfo.Name)
+			skipUpdate = true
 		}
+	}
+	if skipUpdate {
+		return true
 	}
 	// update queue status and resource
 	err = models.UpdateQueue(queueSyncInfo.Name, status, queueSyncInfo.MaxResource, queueSyncInfo.MinResource)
