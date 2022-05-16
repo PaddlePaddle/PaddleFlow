@@ -48,6 +48,7 @@ func newPfsTest() (*FileSystem, error) {
 			MaxReadAhead: MaxReadAheadNum,
 			Expire:       DataCacheExpire,
 			Config: kv.Config{
+				Driver:    kv.NutsDB,
 				CachePath: DataCachePath,
 			},
 		}),
@@ -84,7 +85,7 @@ func TestFSClient_readAt_BigOff(t *testing.T) {
 	}
 	SetDataCache(d)
 	client, err := newPfsTest()
-	assert.Equal(t, err, nil)
+	assert.Equal(t, nil, err)
 
 	path := "testRead"
 	flags := os.O_RDWR | os.O_CREATE | os.O_TRUNC
@@ -209,8 +210,8 @@ func TestFS_read_readAt(t *testing.T) {
 	assert.Equal(t, err, nil)
 	buf = make([]byte, n)
 	n, err = reader.Read(buf)
-	assert.Equal(t, len(buf), n)
-	assert.Equal(t, string(buf), "123456789a")
+	assert.Equal(t, n, len(buf))
+	assert.Equal(t, "123456789a", string(buf))
 	n2 := 2
 	buf = make([]byte, n2)
 	n, err = reader.ReadAt(buf, 3)

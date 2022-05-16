@@ -27,7 +27,6 @@ import (
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 
-	"paddleflow/pkg/fs/client/kv"
 	"paddleflow/pkg/fs/client/ufs"
 	"paddleflow/pkg/fs/client/utils"
 )
@@ -36,20 +35,6 @@ const (
 	maxReadAheadSize = 200 * 1024 * 1024
 	READAHEAD_CHUNK  = uint64(32 * 1024 * 1024)
 )
-
-type store struct {
-	conf   Config
-	meta   map[string]string
-	client kv.Client
-	sync.RWMutex
-}
-
-type Config struct {
-	kv.Config
-	BlockSize    int
-	MaxReadAhead int
-	Expire       time.Duration
-}
 
 type rCache struct {
 	id            string
@@ -61,76 +46,6 @@ type rCache struct {
 	bufferPool    *BufferPool
 	lock          sync.RWMutex
 	seqReadAmount uint64
-}
-
-func NewCacheStore(fsID string, config *Config) (Store, error) {
-	if config.BlockSize == 0 {
-		return nil, nil
-	}
-	kvConf := kv.Config{
-		FsID:      fsID,
-		Driver:    config.Driver,
-		CachePath: config.CachePath,
-	}
-	dataCacheClient, err := kv.NewClient(kvConf)
-	if err != nil {
-		log.Errorf("NewDataCache fs[%s] err:%v", fsID, err)
-		return nil, err
-	}
-	cacheStore := &store{
-		conf:   *config,
-		meta:   make(map[string]string, 100),
-		client: dataCacheClient,
-	}
-	log.Debugf("metrics register NewCacheStore")
-	registerMetrics()
-	return cacheStore, nil
-}
-
-func (store *store) NewReader(name string, length int, flags uint32, ufs ufs.UnderFileStorage, buffers ReadBufferMap,
-	bufferPool *BufferPool, seqReadAmount uint64) Reader {
-	return &rCache{id: path.Clean(name), length: length, store: store, flags: flags, ufs: ufs,
-		buffers: buffers, bufferPool: bufferPool, seqReadAmount: seqReadAmount}
-}
-
-func (store *store) NewWriter(name string, length int, fh ufs.FileHandle) Writer {
-	return nil
-}
-
-func (store *store) InvalidateCache(name string, length int) error {
-	write := 0
-	index := 0
-	name = path.Clean(name)
-	store.RLock()
-	keyID, ok := store.meta[name]
-	store.RUnlock()
-	if !ok {
-		return nil
-	}
-	store.Lock()
-	delete(store.meta, name)
-	store.Unlock()
-	// delete data cache
-	if store.client != nil {
-		go func() {
-			for write <= length {
-				key := store.key(keyID, index)
-				log.Debugf("cache del key is %s and keyID %s", key, keyID)
-				if err := store.client.Dels([]byte(key)); err != nil {
-					log.Errorf("InvalidateCache client.Dels keyID[%s] index[%d], err:%v", keyID, index, err)
-					break
-				}
-				write += store.conf.BlockSize
-				index += 1
-			}
-		}()
-	}
-	return nil
-}
-
-func (store *store) key(keyID string, index int) string {
-	hash := utils.KeyHash(keyID)
-	return path.Clean(fmt.Sprintf("blocks/%d/%v_%v", hash%256, keyID, index))
 }
 
 func (r *rCache) readFromReadAhead(off int64, buf []byte) (bytesRead int, err error) {
@@ -293,12 +208,13 @@ func (r *rCache) readCache(buf []byte, key string, off int) (int, bool) {
 		return 0, false
 	}
 	log.Debugf("read data cache key is %s", key)
+
 	data, ok := r.store.client.Get([]byte(key))
 	if !ok {
 		return 0, false
 	}
-	buf = data[:len(buf)]
-	return len(buf), true
+	n := copy(buf, data[off:])
+	return n, true
 }
 
 func (r *rCache) setCache(index int, p []byte, n int) {
