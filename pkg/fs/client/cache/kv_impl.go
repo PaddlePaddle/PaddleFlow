@@ -49,11 +49,6 @@ type KvDataCache struct {
 	keys     sync.Map
 }
 
-type DiskConfig struct {
-	Dir    string
-	Expire time.Duration
-}
-
 func NewDataCache(fsID string, config *Config) *KvDataCache {
 	if config == nil || config.CachePath == "" || config.CachePath == "/" {
 		return nil
