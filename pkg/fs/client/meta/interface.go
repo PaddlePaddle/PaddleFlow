@@ -77,7 +77,7 @@ type Entry struct {
 	Ino Ino
 }
 
-// Meta is a interface for a meta service for file system.
+// Meta is an interface for a meta service for file system.
 type Meta interface {
 	// GetUFS returns ufs of link and path
 	GetUFS(name string) (ufslib.UnderFileStorage, bool, string, string)

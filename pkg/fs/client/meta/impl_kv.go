@@ -42,12 +42,12 @@ const (
 	entryDone      = 1
 )
 
-var _ Meta = &MetaImpl{}
+var _ Meta = &kvMeta{}
 
 type KvCacheStore func(driver string, config *Config) (Meta, error)
 
-// MetaImpl
-type MetaImpl struct {
+// kvMeta
+type kvMeta struct {
 	client       kv.Client
 	defaultMeta  Meta
 	attrTimeOut  time.Duration
@@ -84,7 +84,7 @@ func newMetaImpl(defaultMeta Meta, config Config) (Meta, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &MetaImpl{
+	return &kvMeta{
 		client:       client,
 		defaultMeta:  defaultMeta,
 		attrTimeOut:  config.AttrCacheExpire,
@@ -92,7 +92,7 @@ func newMetaImpl(defaultMeta Meta, config Config) (Meta, error) {
 	}, nil
 }
 
-func (m *MetaImpl) ContactKey(args ...string) []byte {
+func (m *kvMeta) ContactKey(args ...string) []byte {
 	var buffer bytes.Buffer
 	for _, arg := range args {
 		buffer.WriteString(arg)
@@ -100,24 +100,24 @@ func (m *MetaImpl) ContactKey(args ...string) []byte {
 	return buffer.Bytes()
 }
 
-func (m *MetaImpl) FullPath(parent Ino, name string) string {
+func (m *kvMeta) FullPath(parent Ino, name string) string {
 	return filepath.Join(m.InoToPath(parent), name)
 }
 
-func (m *MetaImpl) findEntry(parentPath, fullPath string) ([]byte, bool) {
+func (m *kvMeta) findEntry(parentPath, fullPath string) ([]byte, bool) {
 	data, has := m.client.Get(m.entryKey(parentPath, fullPath))
 	return data, has
 }
 
-func (m *MetaImpl) entryKey(parentPath, fullPath string) []byte {
+func (m *kvMeta) entryKey(parentPath, fullPath string) []byte {
 	return m.ContactKey(EntryKey, parentPath, fullPath)
 }
 
-func (m *MetaImpl) attrKey(fullPath string) []byte {
+func (m *kvMeta) attrKey(fullPath string) []byte {
 	return m.ContactKey(AttrKey, fullPath)
 }
 
-func (m *MetaImpl) tryGetAttr(ino Ino, attr *attrCacheItem) bool {
+func (m *kvMeta) tryGetAttr(ino Ino, attr *attrCacheItem) bool {
 	fullPath := m.InoToPath(ino)
 	a, ok := m.client.Get(m.attrKey(fullPath))
 	if !ok {
@@ -134,7 +134,7 @@ func (m *MetaImpl) tryGetAttr(ino Ino, attr *attrCacheItem) bool {
 }
 
 // Put inode to cache, if ino already in cache, update
-func (m *MetaImpl) putAttr(fullPath string, attr attrCacheItem, expire int64) {
+func (m *kvMeta) putAttr(fullPath string, attr attrCacheItem, expire int64) {
 	attr.expire = expire
 	value := m.marshalAttr(&attr)
 	err := m.client.Set(m.attrKey(fullPath), value)
@@ -144,7 +144,7 @@ func (m *MetaImpl) putAttr(fullPath string, attr attrCacheItem, expire int64) {
 	}
 }
 
-func (m *MetaImpl) putEntry(parentPath string, entry entryCacheItem, expire int64) {
+func (m *kvMeta) putEntry(parentPath string, entry entryCacheItem, expire int64) {
 	entry.expire = expire
 	value := m.marshalEntry(&entry)
 	entryPath := m.InoToPath(entry.ino)
@@ -158,7 +158,7 @@ func (m *MetaImpl) putEntry(parentPath string, entry entryCacheItem, expire int6
 	}
 }
 
-func (m *MetaImpl) putEntries(parentEntry entryCacheItem, entries []entryCacheItem, expire int64) {
+func (m *kvMeta) putEntries(parentEntry entryCacheItem, entries []entryCacheItem, expire int64) {
 	parentPath := m.InoToPath(parentEntry.ino)
 	for _, entry := range entries {
 		m.putEntry(parentPath, entry, expire)
@@ -175,7 +175,7 @@ func (m *MetaImpl) putEntries(parentEntry entryCacheItem, entries []entryCacheIt
 	value, _ = m.client.Get(m.entryKey(parentPath, parentPath))
 }
 
-func (m *MetaImpl) getEntries(entryPath string) (map[string][]byte, bool) {
+func (m *kvMeta) getEntries(entryPath string) (map[string][]byte, bool) {
 	value, has := m.client.Get(m.entryKey(entryPath, entryPath))
 	if !has {
 		return nil, false
@@ -201,7 +201,7 @@ func (m *MetaImpl) getEntries(entryPath string) (map[string][]byte, bool) {
 	return en, true
 }
 
-func (m *MetaImpl) removeEntry(parentPath, name string) {
+func (m *kvMeta) removeEntry(parentPath, name string) {
 	fullPath := filepath.Join(parentPath, name)
 	err := m.client.Dels(m.entryKey(parentPath, fullPath))
 	if err != nil {
@@ -209,39 +209,39 @@ func (m *MetaImpl) removeEntry(parentPath, name string) {
 	}
 }
 
-func (m *MetaImpl) removeAttr(fullPath string) {
+func (m *kvMeta) removeAttr(fullPath string) {
 	err := m.client.Dels(m.attrKey(fullPath))
 	if err != nil {
 		log.Errorf("removeAttr err: %v", err)
 	}
 }
 
-func (m *MetaImpl) SetOwner(uid, gid uint32) {
+func (m *kvMeta) SetOwner(uid, gid uint32) {
 }
 
-func (m *MetaImpl) GetUFS(name string) (ufslib.UnderFileStorage, bool, string, string) {
+func (m *kvMeta) GetUFS(name string) (ufslib.UnderFileStorage, bool, string, string) {
 	return m.defaultMeta.GetUFS(name)
 }
 
-func (m *MetaImpl) Name() string {
+func (m *kvMeta) Name() string {
 	return m.client.Name()
 }
 
-func (m *MetaImpl) InoToPath(inode Ino) string {
+func (m *kvMeta) InoToPath(inode Ino) string {
 	return m.defaultMeta.InoToPath(inode)
 }
 
-func (m *MetaImpl) PathToIno(path string) Ino {
+func (m *kvMeta) PathToIno(path string) Ino {
 	return m.defaultMeta.PathToIno(path)
 }
 
 // StatFS returns summary statistics of a volume.
-func (m *MetaImpl) StatFS(ctx *Context) (*base.StatfsOut, syscall.Errno) {
+func (m *kvMeta) StatFS(ctx *Context) (*base.StatfsOut, syscall.Errno) {
 	return m.defaultMeta.StatFS(ctx)
 }
 
 // Access checks the access permission on given inode.
-func (m *MetaImpl) Access(ctx *Context, inode Ino, mask uint32, attr *Attr) syscall.Errno {
+func (m *kvMeta) Access(ctx *Context, inode Ino, mask uint32, attr *Attr) syscall.Errno {
 	if ctx.Uid == 0 {
 		return 0
 	}
@@ -261,7 +261,7 @@ func (m *MetaImpl) Access(ctx *Context, inode Ino, mask uint32, attr *Attr) sysc
 }
 
 // Lookup returns the inode and attributes for the given entry in a directory.
-func (m *MetaImpl) Lookup(ctx *Context, parent Ino, name string) (Ino, *Attr, syscall.Errno) {
+func (m *kvMeta) Lookup(ctx *Context, parent Ino, name string) (Ino, *Attr, syscall.Errno) {
 	parentPath := m.InoToPath(parent)
 	fullPath := filepath.Join(parentPath, name)
 	en, has := m.findEntry(parentPath, fullPath)
@@ -298,12 +298,12 @@ func (m *MetaImpl) Lookup(ctx *Context, parent Ino, name string) (Ino, *Attr, sy
 // Resolve fetches the inode and attributes for an entry identified by the given path.
 // ENOTSUP will be returned if there's no natural implementation for this operation or
 // if there are any symlink following involved.
-func (m *MetaImpl) Resolve(ctx *Context, parent Ino, path string, inode *Ino, attr *Attr) syscall.Errno {
+func (m *kvMeta) Resolve(ctx *Context, parent Ino, path string, inode *Ino, attr *Attr) syscall.Errno {
 	return m.defaultMeta.Resolve(ctx, parent, path, inode, attr)
 }
 
 // GetAttr returns the attributes for given node.
-func (m *MetaImpl) GetAttr(ctx *Context, inode Ino, attr *Attr) syscall.Errno {
+func (m *kvMeta) GetAttr(ctx *Context, inode Ino, attr *Attr) syscall.Errno {
 	attrCache_ := &attrCacheItem{}
 	if ok := m.tryGetAttr(inode, attrCache_); ok {
 		log.Debugf("try get attr data %+v", attrCache_.attr)
@@ -321,12 +321,12 @@ func (m *MetaImpl) GetAttr(ctx *Context, inode Ino, attr *Attr) syscall.Errno {
 	return syscall.F_OK
 }
 
-func (m *MetaImpl) doGetAttr(ctx *Context, inode Ino, attr *Attr) syscall.Errno {
+func (m *kvMeta) doGetAttr(ctx *Context, inode Ino, attr *Attr) syscall.Errno {
 	return m.defaultMeta.GetAttr(ctx, inode, attr)
 }
 
 // SetAttr updates the attributes for given node.
-func (m *MetaImpl) SetAttr(ctx *Context, inode Ino, set uint32, attr *Attr) syscall.Errno {
+func (m *kvMeta) SetAttr(ctx *Context, inode Ino, set uint32, attr *Attr) syscall.Errno {
 	if err := m.defaultMeta.SetAttr(ctx, inode, set, attr); utils.IsError(err) {
 		return err
 	}
@@ -337,7 +337,7 @@ func (m *MetaImpl) SetAttr(ctx *Context, inode Ino, set uint32, attr *Attr) sysc
 }
 
 // Truncate changes the length for given file.
-func (m *MetaImpl) Truncate(ctx *Context, inode Ino, size uint64) syscall.Errno {
+func (m *kvMeta) Truncate(ctx *Context, inode Ino, size uint64) syscall.Errno {
 	if err := m.defaultMeta.Truncate(ctx, inode, size); utils.IsError(err) {
 		return err
 	}
@@ -353,23 +353,23 @@ func (m *MetaImpl) Truncate(ctx *Context, inode Ino, size uint64) syscall.Errno 
 }
 
 // Fallocate preallocate given space for given file.
-func (m *MetaImpl) Fallocate(ctx *Context, inode Ino, mode uint8, off uint64, size uint64) syscall.Errno {
+func (m *kvMeta) Fallocate(ctx *Context, inode Ino, mode uint8, off uint64, size uint64) syscall.Errno {
 	return m.defaultMeta.Fallocate(ctx, initDirSize, mode, off, size)
 }
 
 // ReadLink returns the target of a symlink.
-func (m *MetaImpl) ReadLink(ctx *Context, inode Ino, path *[]byte) syscall.Errno {
+func (m *kvMeta) ReadLink(ctx *Context, inode Ino, path *[]byte) syscall.Errno {
 	return m.defaultMeta.ReadLink(ctx, inode, path)
 }
 
 // Symlink creates a symlink in a directory with given name.
-func (m *MetaImpl) Symlink(ctx *Context, parent Ino, name string, path string, inode *Ino, attr *Attr) syscall.Errno {
+func (m *kvMeta) Symlink(ctx *Context, parent Ino, name string, path string, inode *Ino, attr *Attr) syscall.Errno {
 	return m.defaultMeta.Symlink(ctx, parent, name, path, inode, attr)
 }
 
 // Mknod creates a node in a directory with given name, type and permissions.
 // TODO: inode和attr是不是必须要往抛，目前是按照juicefs添加了inode和attr，后续根据vfs需求做删减
-func (m *MetaImpl) Mknod(ctx *Context, parent Ino, name string, mode uint32, rdev uint32, inode *Ino, attr *Attr) syscall.Errno {
+func (m *kvMeta) Mknod(ctx *Context, parent Ino, name string, mode uint32, rdev uint32, inode *Ino, attr *Attr) syscall.Errno {
 	if err := m.defaultMeta.Mknod(ctx, parent, name, mode, rdev, inode, attr); utils.IsError(err) {
 		return err
 	}
@@ -389,7 +389,7 @@ func (m *MetaImpl) Mknod(ctx *Context, parent Ino, name string, mode uint32, rde
 }
 
 // Mkdir creates a sub-directory with given name and mode.
-func (m *MetaImpl) Mkdir(ctx *Context, parent Ino, name string, mode uint32, inode *Ino, attr *Attr) syscall.Errno {
+func (m *kvMeta) Mkdir(ctx *Context, parent Ino, name string, mode uint32, inode *Ino, attr *Attr) syscall.Errno {
 	if err := m.defaultMeta.Mkdir(ctx, parent, name, mode, inode, attr); utils.IsError(err) {
 		return err
 	}
@@ -411,7 +411,7 @@ func (m *MetaImpl) Mkdir(ctx *Context, parent Ino, name string, mode uint32, ino
 
 // Unlink removes a file entryMap from a directory.
 // The file will be deleted if it's not linked by any entries and not open by any sessions.
-func (m *MetaImpl) Unlink(ctx *Context, parent Ino, name string) syscall.Errno {
+func (m *kvMeta) Unlink(ctx *Context, parent Ino, name string) syscall.Errno {
 	ino, _, err := m.Lookup(ctx, parent, name)
 	if utils.IsError(err) {
 		return err
@@ -428,7 +428,7 @@ func (m *MetaImpl) Unlink(ctx *Context, parent Ino, name string) syscall.Errno {
 }
 
 // Rmdir removes an empty sub-directory.
-func (m *MetaImpl) Rmdir(ctx *Context, parent Ino, name string) syscall.Errno {
+func (m *kvMeta) Rmdir(ctx *Context, parent Ino, name string) syscall.Errno {
 	ino, _, err := m.Lookup(ctx, parent, name)
 	if utils.IsError(err) {
 		return err
@@ -446,7 +446,7 @@ func (m *MetaImpl) Rmdir(ctx *Context, parent Ino, name string) syscall.Errno {
 
 // Rename move an entry from a source directory to another with given name.
 // The targeted entry will be overwrited if it's a file or empty directory.
-func (m *MetaImpl) Rename(ctx *Context, parentSrc Ino, nameSrc string, parentDst Ino,
+func (m *kvMeta) Rename(ctx *Context, parentSrc Ino, nameSrc string, parentDst Ino,
 	nameDst string, flags uint32, inode *Ino, attr *Attr) syscall.Errno {
 
 	oldIno, _, err := m.Lookup(ctx, parentSrc, nameSrc)
@@ -479,12 +479,12 @@ func (m *MetaImpl) Rename(ctx *Context, parentSrc Ino, nameSrc string, parentDst
 }
 
 // Link creates an entry for node.
-func (m *MetaImpl) Link(ctx *Context, inodeSrc, parent Ino, name string, attr *Attr) syscall.Errno {
+func (m *kvMeta) Link(ctx *Context, inodeSrc, parent Ino, name string, attr *Attr) syscall.Errno {
 	return m.defaultMeta.Link(ctx, inodeSrc, parent, name, attr)
 }
 
 // Readdir returns all entries for given directory, which include attributes if plus is true.
-func (m *MetaImpl) Readdir(ctx *Context, inode Ino, entries *[]*Entry) syscall.Errno {
+func (m *kvMeta) Readdir(ctx *Context, inode Ino, entries *[]*Entry) syscall.Errno {
 	*entries = []*Entry{}
 	ens, has := m.getEntries(m.InoToPath(inode))
 	if has {
@@ -533,7 +533,7 @@ func (m *MetaImpl) Readdir(ctx *Context, inode Ino, entries *[]*Entry) syscall.E
 }
 
 // Create creates a file in a directory with given name.
-func (m *MetaImpl) Create(ctx *Context, parent Ino, name string, mode uint32, cumask uint16,
+func (m *kvMeta) Create(ctx *Context, parent Ino, name string, mode uint32, cumask uint16,
 	flags uint32, inode *Ino, attr *Attr) (ufslib.UnderFileStorage, string, syscall.Errno) {
 
 	ufs, newPath, err := m.defaultMeta.Create(ctx, parent, name, mode, cumask, flags, inode, attr)
@@ -558,7 +558,7 @@ func (m *MetaImpl) Create(ctx *Context, parent Ino, name string, mode uint32, cu
 }
 
 // Open checks permission on a node and track it as open.
-func (m *MetaImpl) Open(ctx *Context, inode Ino, flags uint32, attr *Attr) (ufslib.UnderFileStorage, string, syscall.Errno) {
+func (m *kvMeta) Open(ctx *Context, inode Ino, flags uint32, attr *Attr) (ufslib.UnderFileStorage, string, syscall.Errno) {
 	attrCache_ := &attrCacheItem{}
 	got := m.tryGetAttr(inode, attrCache_)
 	if got {
@@ -579,17 +579,17 @@ func (m *MetaImpl) Open(ctx *Context, inode Ino, flags uint32, attr *Attr) (ufsl
 }
 
 // Close a file.
-func (m *MetaImpl) Close(ctx *Context, inode Ino) syscall.Errno {
+func (m *kvMeta) Close(ctx *Context, inode Ino) syscall.Errno {
 	return m.defaultMeta.Close(ctx, inode)
 }
 
 // Read returns the list of blocks
-func (m *MetaImpl) Read(ctx *Context, inode Ino, indx uint32, buf []byte) syscall.Errno {
+func (m *kvMeta) Read(ctx *Context, inode Ino, indx uint32, buf []byte) syscall.Errno {
 	return syscall.ENOSYS
 }
 
 // Write put a slice of data on top of the given chunk.
-func (m *MetaImpl) Write(ctx *Context, inode Ino, off uint32, length int) syscall.Errno {
+func (m *kvMeta) Write(ctx *Context, inode Ino, off uint32, length int) syscall.Errno {
 	err := m.defaultMeta.Write(ctx, inode, off, length)
 	if utils.IsError(err) {
 		return err
@@ -613,59 +613,59 @@ func (m *MetaImpl) Write(ctx *Context, inode Ino, off uint32, length int) syscal
 }
 
 // CopyFileRange copies part of a file to another one.
-func (m *MetaImpl) CopyFileRange(ctx *Context, fin Ino, offIn uint64, fout Ino, offOut uint64,
+func (m *kvMeta) CopyFileRange(ctx *Context, fin Ino, offIn uint64, fout Ino, offOut uint64,
 	size uint64, flags uint32, copied *uint64) syscall.Errno {
 	return syscall.ENOSYS
 }
 
 // GetXattr returns the value of extended attribute for given name.
-func (m *MetaImpl) GetXattr(ctx *Context, inode Ino, attribute string, vbuff *[]byte) syscall.Errno {
+func (m *kvMeta) GetXattr(ctx *Context, inode Ino, attribute string, vbuff *[]byte) syscall.Errno {
 	return m.defaultMeta.GetXattr(ctx, inode, attribute, vbuff)
 }
 
 // ListXattr returns all extended attributes of a node.
-func (m *MetaImpl) ListXattr(ctx *Context, inode Ino, dbuff *[]string) syscall.Errno {
+func (m *kvMeta) ListXattr(ctx *Context, inode Ino, dbuff *[]string) syscall.Errno {
 	return m.defaultMeta.ListXattr(ctx, inode, dbuff)
 }
 
 // SetXattr update the extended attribute of a node.
-func (m *MetaImpl) SetXattr(ctx *Context, inode Ino, attribute string, value []byte, flags uint32) syscall.Errno {
+func (m *kvMeta) SetXattr(ctx *Context, inode Ino, attribute string, value []byte, flags uint32) syscall.Errno {
 	return m.defaultMeta.SetXattr(ctx, inode, attribute, value, flags)
 }
 
 // RemoveXattr removes the extended attribute of a node.
-func (m *MetaImpl) RemoveXattr(ctx *Context, inode Ino, name string) syscall.Errno {
+func (m *kvMeta) RemoveXattr(ctx *Context, inode Ino, name string) syscall.Errno {
 	return m.defaultMeta.RemoveXattr(ctx, inode, name)
 }
 
 // Flock tries to put a lock on given file.
-func (m *MetaImpl) Flock(ctx *Context, inode Ino, owner uint64, ltype uint32, block bool) syscall.Errno {
+func (m *kvMeta) Flock(ctx *Context, inode Ino, owner uint64, ltype uint32, block bool) syscall.Errno {
 	return m.defaultMeta.Flock(ctx, inode, owner, ltype, block)
 }
 
 // Getlk returns the current lock owner for a range on a file.
-func (m *MetaImpl) Getlk(ctx *Context, inode Ino, owner uint64, ltype *uint32, start, end *uint64, pid *uint32) syscall.Errno {
+func (m *kvMeta) Getlk(ctx *Context, inode Ino, owner uint64, ltype *uint32, start, end *uint64, pid *uint32) syscall.Errno {
 	return m.defaultMeta.Getlk(ctx, inode, owner, ltype, start, end, pid)
 }
 
 // Setlk sets a file range lock on given file.
-func (m *MetaImpl) Setlk(ctx *Context, inode Ino, owner uint64, block bool, ltype uint32, start, end uint64, pid uint32) syscall.Errno {
+func (m *kvMeta) Setlk(ctx *Context, inode Ino, owner uint64, block bool, ltype uint32, start, end uint64, pid uint32) syscall.Errno {
 	return m.defaultMeta.Setlk(ctx, inode, owner, block, ltype, start, end, pid)
 }
 
-func (m *MetaImpl) DumpMeta(w io.Writer) error {
+func (m *kvMeta) DumpMeta(w io.Writer) error {
 	return syscall.ENOSYS
 }
 
-func (m *MetaImpl) LoadMeta(r io.Reader) error {
+func (m *kvMeta) LoadMeta(r io.Reader) error {
 	return syscall.ENOSYS
 }
 
-func (m *MetaImpl) LinksMetaUpdateHandler(stopChan chan struct{}, interval int, linkMetaDirPrefix string) error {
+func (m *kvMeta) LinksMetaUpdateHandler(stopChan chan struct{}, interval int, linkMetaDirPrefix string) error {
 	return m.defaultMeta.LinksMetaUpdateHandler(stopChan, interval, linkMetaDirPrefix)
 }
 
-func (m *MetaImpl) parseAttr(buf []byte, attr *attrCacheItem) {
+func (m *kvMeta) parseAttr(buf []byte, attr *attrCacheItem) {
 	if attr == nil {
 		return
 	}
@@ -688,7 +688,7 @@ func (m *MetaImpl) parseAttr(buf []byte, attr *attrCacheItem) {
 	attr.expire = int64(rb.Get64())
 }
 
-func (m *MetaImpl) marshalAttr(attr *attrCacheItem) []byte {
+func (m *kvMeta) marshalAttr(attr *attrCacheItem) []byte {
 	w := utils.NewBuffer(attrCacheSize)
 	w.Put8(attr.attr.Type)
 	w.Put32(attr.attr.Mode)
@@ -709,7 +709,7 @@ func (m *MetaImpl) marshalAttr(attr *attrCacheItem) []byte {
 	return w.Bytes()
 }
 
-func (m *MetaImpl) parseEntry(buf []byte, entry *entryCacheItem) {
+func (m *kvMeta) parseEntry(buf []byte, entry *entryCacheItem) {
 	if entry == nil {
 		return
 	}
@@ -720,7 +720,7 @@ func (m *MetaImpl) parseEntry(buf []byte, entry *entryCacheItem) {
 	entry.done = rb.Get8()
 }
 
-func (m *MetaImpl) marshalEntry(attr *entryCacheItem) []byte {
+func (m *kvMeta) marshalEntry(attr *entryCacheItem) []byte {
 	w := utils.NewBuffer(entryCacheSize)
 	w.Put64(uint64(attr.ino))
 	w.Put32(attr.mode)
