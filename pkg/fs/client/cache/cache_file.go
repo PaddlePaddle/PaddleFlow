@@ -35,12 +35,14 @@ const (
 	CacheDir = "datacache"
 )
 
+var _ DataCacheClient = &fileDataCache{}
+
 type cacheItem struct {
 	size    int64
 	expTime time.Time
 }
 
-type KvDataCache struct {
+type fileDataCache struct {
 	sync.RWMutex
 	dir      string
 	capacity int64
@@ -49,34 +51,32 @@ type KvDataCache struct {
 	keys     sync.Map
 }
 
-func NewDataCache(fsID string, config *Config) *KvDataCache {
-	if config == nil || config.CachePath == "" || config.CachePath == "/" {
+func newFileClient(config Config) DataCacheClient {
+	d := &fileDataCache{
+		dir:    config.CachePath,
+		expire: config.Expire,
+	}
+
+	if err := os.MkdirAll(config.CachePath, 0755); err != nil {
+		log.Errorf("newFileClient os.MkdirAll [%s] err: %v", config.CachePath, err)
 		return nil
 	}
-
-	cachePath := filepath.Join(config.CachePath, fsID)
-	if config != nil {
-		d := &KvDataCache{
-			dir:    cachePath,
-			expire: config.Expire,
-		}
-		// TODO: 报错往上抛
-		os.MkdirAll(cachePath, 0755)
-		d.updateCapacity()
-		// 后续加stop channel
-		go func() {
-			for {
-				d.clean()
-				time.Sleep(10 * time.Second)
-			}
-		}()
-
-		return d
+	if err := d.updateCapacity(); err != nil {
+		log.Errorf("newFileClient d.updateCapacity err: %v", err)
+		return nil
 	}
-	return nil
+	// 后续加stop channel
+	go func() {
+		for {
+			d.clean()
+			time.Sleep(10 * time.Second)
+		}
+	}()
+
+	return d
 }
 
-func (c *KvDataCache) load(key string) (ReadCloser, bool) {
+func (c *fileDataCache) load(key string) (ReadCloser, bool) {
 	if c.dir == "" {
 		return nil, false
 	}
@@ -104,7 +104,7 @@ func (c *KvDataCache) load(key string) (ReadCloser, bool) {
 	return f, true
 }
 
-func (c *KvDataCache) save(key string, buf []byte) {
+func (c *fileDataCache) save(key string, buf []byte) {
 	if c.dir == "" {
 		return
 	}
@@ -153,7 +153,7 @@ func (c *KvDataCache) save(key string, buf []byte) {
 	return
 }
 
-func (c *KvDataCache) delete(key string) {
+func (c *fileDataCache) delete(key string) {
 	path := c.cachePath(key)
 	_, ok := c.load(key)
 	if ok {
@@ -164,7 +164,7 @@ func (c *KvDataCache) delete(key string) {
 	}
 }
 
-func (c *KvDataCache) clean() {
+func (c *fileDataCache) clean() {
 	// 1. 首先清理掉已过期文件
 	c.keys.Range(func(key, value interface{}) bool {
 		cache := value.(*cacheItem)
@@ -200,19 +200,19 @@ func (c *KvDataCache) clean() {
 	c.updateCapacity()
 }
 
-func (c *KvDataCache) cachePath(key string) string {
+func (c *fileDataCache) cachePath(key string) string {
 	return filepath.Join(c.dir, CacheDir, key)
 }
 
-func (c *KvDataCache) getKeyFromCachePath(path string) string {
+func (c *fileDataCache) getKeyFromCachePath(path string) string {
 	return strings.TrimPrefix(path, filepath.Join(c.dir, CacheDir)+"/")
 }
 
-func (c *KvDataCache) createDir(dir string) {
+func (c *fileDataCache) createDir(dir string) {
 	os.MkdirAll(dir, 0755)
 }
 
-func (c *KvDataCache) exist(key string) bool {
+func (c *fileDataCache) exist(key string) bool {
 	value, ok := c.keys.Load(key)
 	if !ok {
 		return false
@@ -225,7 +225,7 @@ func (c *KvDataCache) exist(key string) bool {
 	return true
 }
 
-func (c *KvDataCache) updateCapacity() error {
+func (c *fileDataCache) updateCapacity() error {
 	output, err := mount.ExecCmdWithTimeout("df", []string{"-k", c.dir})
 	if err != nil {
 		log.Errorf("df %s %v ", c.dir, err)
@@ -263,5 +263,3 @@ func (c *KvDataCache) updateCapacity() error {
 		}
 	}
 }
-
-var _ DataCache = &KvDataCache{}

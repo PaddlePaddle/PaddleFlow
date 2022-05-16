@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"path"
+	"path/filepath"
 	"sync"
 	"syscall"
 	"time"
@@ -27,7 +28,6 @@ import (
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 
-	"paddleflow/pkg/fs/client/kv"
 	"paddleflow/pkg/fs/client/ufs"
 	"paddleflow/pkg/fs/client/utils"
 )
@@ -37,18 +37,19 @@ const (
 	READAHEAD_CHUNK  = uint64(32 * 1024 * 1024)
 )
 
-type store struct {
-	conf      Config
-	meta      map[string]string
-	dataCache *KvDataCache
-	sync.RWMutex
+type DataCacheClient interface {
+	load(key string) (ReadCloser, bool)
+	save(key string, buf []byte)
+	delete(key string)
+	clean()
 }
 
-type Config struct {
-	kv.Config
-	BlockSize    int
-	MaxReadAhead int
-	Expire       time.Duration
+func NewDataCache(config Config) DataCacheClient {
+	if config.CachePath == "" || config.CachePath == "/" {
+		return nil
+	}
+	config.CachePath = filepath.Join(config.CachePath, config.FsID)
+	return newFileClient(config)
 }
 
 type rCache struct {
@@ -61,62 +62,6 @@ type rCache struct {
 	bufferPool    *BufferPool
 	lock          sync.RWMutex
 	seqReadAmount uint64
-}
-
-func NewCacheStore(fsID string, config *Config) Store {
-	if config.BlockSize == 0 {
-		return nil
-	}
-	cacheStore := &store{
-		conf: *config,
-		meta: make(map[string]string, 100),
-	}
-	cacheStore.dataCache = NewDataCache(fsID, config)
-	log.Debugf("metrics register NewCacheStore")
-	registerMetrics()
-	return cacheStore
-}
-
-func (store *store) NewReader(name string, length int, flags uint32, ufs ufs.UnderFileStorage, buffers ReadBufferMap,
-	bufferPool *BufferPool, seqReadAmount uint64) Reader {
-	return &rCache{id: path.Clean(name), length: length, store: store, flags: flags, ufs: ufs,
-		buffers: buffers, bufferPool: bufferPool, seqReadAmount: seqReadAmount}
-}
-
-func (store *store) NewWriter(name string, length int, fh ufs.FileHandle) Writer {
-	return nil
-}
-
-func (store *store) InvalidateCache(name string, length int) error {
-	write := 0
-	index := 0
-	name = path.Clean(name)
-	store.RLock()
-	keyID, ok := store.meta[name]
-	store.RUnlock()
-	if !ok {
-		return nil
-	}
-	store.Lock()
-	delete(store.meta, name)
-	store.Unlock()
-	go func() {
-		for write <= length {
-			key := store.key(keyID, index)
-			log.Debugf("cache del key is %s and keyID %s", key, keyID)
-			if store.dataCache != nil {
-				store.dataCache.delete(key)
-			}
-			write += store.conf.BlockSize
-			index += 1
-		}
-	}()
-	return nil
-}
-
-func (store *store) key(keyID string, index int) string {
-	hash := utils.KeyHash(keyID)
-	return path.Clean(fmt.Sprintf("blocks/%d/%v_%v", hash%256, keyID, index))
 }
 
 func (r *rCache) readFromReadAhead(off int64, buf []byte) (bytesRead int, err error) {
@@ -141,22 +86,19 @@ func (r *rCache) readFromReadAhead(off int64, buf []byte) (bytesRead int, err er
 		if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
 			break
 		}
+		bytesRead += nread
+		blockOff += nread
+
 		if readAheadBuf.size <= 0 && readAheadBuf.Buffer.page.ready {
 			readAheadBuf.Buffer.Close()
 			r.lock.Lock()
 			delete(r.buffers, indexOff)
 			r.lock.Unlock()
-			index += 1
-			blockOff = 0
-			bytesRead += nread
-			blockOff += nread
 			break
 		}
 		if nread == 0 {
 			break
 		}
-		bytesRead += nread
-		blockOff += nread
 	}
 	return bytesRead, nil
 }
@@ -276,13 +218,13 @@ func (r *rCache) key(index int) string {
 
 func (r *rCache) readCache(buf []byte, key string, off int) (int, bool) {
 	log.Debugf("read data cache key is %s", key)
-	if r.store.dataCache != nil {
-		file, ok := r.store.dataCache.load(key)
+	if r.store.client != nil {
+		file, ok := r.store.client.load(key)
 		if ok {
 			n, err := file.ReadAt(buf, int64(off))
 			file.Close()
 			if err != nil && err != io.EOF {
-				log.Debugf("dataCache readAt err %v", err)
+				log.Debugf("client readAt err %v", err)
 				return 0, false
 			}
 			return n, true
@@ -301,7 +243,7 @@ func (r *rCache) setCache(index int, p []byte, n int) {
 	if right > n {
 		right = n
 	}
-	if r.store.dataCache != nil {
-		r.store.dataCache.save(key, p[:right])
+	if r.store.client != nil {
+		r.store.client.save(key, p[:right])
 	}
 }
