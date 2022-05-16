@@ -18,15 +18,16 @@ package cache
 
 import (
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"io"
-	"paddleflow/pkg/fs/client/kv"
-	"paddleflow/pkg/fs/client/utils"
 	"path"
 	"sync"
 	"time"
 
+	log "github.com/sirupsen/logrus"
+
+	"paddleflow/pkg/fs/client/kv"
 	"paddleflow/pkg/fs/client/ufs"
+	"paddleflow/pkg/fs/client/utils"
 )
 
 type Reader interface {

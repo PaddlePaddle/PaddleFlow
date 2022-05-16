@@ -32,7 +32,8 @@ import (
 )
 
 const (
-	CacheDir = "datacache"
+	FileClient = "fileClient"
+	CacheDir   = "datacache"
 )
 
 var _ DataCacheClient = &fileDataCache{}
