@@ -108,7 +108,8 @@ type FailureOptions struct {
 type WorkflowSource struct {
 	Name           string                         `yaml:"name"`
 	DockerEnv      string                         `yaml:"docker_env"`
-	EntryPoints    map[string]*WorkflowSourceStep `yaml:"entry_points"`
+	EntryPoints    WorkflowSourceDag              `yaml:"entry_points"`
+	Templates      map[string]interface{}         `yaml:"templates"`
 	Cache          Cache                          `yaml:"cache"`
 	Parallelism    int                            `yaml:"parallelism"`
 	Disabled       string                         `yaml:"disabled"`
