@@ -41,6 +41,7 @@ import (
 	"paddleflow/pkg/fs/client/base"
 	"paddleflow/pkg/fs/client/cache"
 	"paddleflow/pkg/fs/client/fuse"
+	"paddleflow/pkg/fs/client/kv"
 	"paddleflow/pkg/fs/client/meta"
 	"paddleflow/pkg/fs/client/vfs"
 	"paddleflow/pkg/fs/common"
@@ -243,8 +244,8 @@ func InitVFS(c *cli.Context, registry *prometheus.Registry) error {
 				},
 			}
 		}
-	} else if c.String("fs-info-path") != "" {
-		reader, err := os.Open(c.String("fs-info-path"))
+	} else if c.String("config") != "" {
+		reader, err := os.Open(c.String("config"))
 		if err != nil {
 			return err
 		}
@@ -318,19 +319,18 @@ func InitVFS(c *cli.Context, registry *prometheus.Registry) error {
 	m := meta.Config{
 		AttrCacheExpire:  c.Duration("meta-cache-expire"),
 		EntryCacheExpire: c.Duration("entry-cache-expire"),
-		Driver:           c.String("meta-driver"),
-		CachePath:        c.String("meta-path"),
+		Config: kv.Config{
+			Driver:    c.String("meta-cache-driver"),
+			CachePath: c.String("meta-cache-path"),
+		},
 	}
 	d := cache.Config{
 		BlockSize:    c.Int("block-size"),
 		MaxReadAhead: c.Int("data-read-ahead-size"),
-		Mem: &cache.MemConfig{
-			CacheSize: c.Int("data-mem-size"),
-			Expire:    c.Duration("data-mem-cache-expire"),
-		},
-		Disk: &cache.DiskConfig{
-			Dir:    c.String("data-disk-cache-path"),
-			Expire: c.Duration("data-disk-cache-expire"),
+		Expire:       c.Duration("data-cache-expire"),
+		Config: kv.Config{
+			Driver:    kv.NutsDB,
+			CachePath: c.String("data-cache-path"),
 		},
 	}
 	vfsOptions := []vfs.Option{
