@@ -388,11 +388,13 @@ func runYamlAndReqToWfs(ctx *logger.RequestContext, runYaml string, req interfac
 func CreateRun(ctx *logger.RequestContext, request *CreateRunRequest) (CreateRunResponse, error) {
 	// concatenate fsID
 	var fsID string
-	if common.IsRootUser(ctx.UserName) && request.UserName != "" {
-		// root user can select fs under other users
-		fsID = common.ID(request.UserName, request.FsName)
-	} else {
-		fsID = common.ID(ctx.UserName, request.FsName)
+	if request.FsName != "" {
+		if common.IsRootUser(ctx.UserName) && request.UserName != "" {
+			// root user can select fs under other users
+			fsID = common.ID(request.UserName, request.FsName)
+		} else {
+			fsID = common.ID(ctx.UserName, request.FsName)
+		}
 	}
 	// todo://增加root用户判断fs是否存在
 	// TODO:// validate flavour

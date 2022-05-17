@@ -72,12 +72,6 @@ func (rr *RunRouter) createRun(w http.ResponseWriter, r *http.Request) {
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
-	if createRunInfo.FsName == "" {
-		logger.LoggerForRequest(&ctx).Errorf(
-			"create run failed. fsname shall not be empty")
-		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, "create run failed. fsname in request body shall not be empty\n")
-		return
-	}
 
 	// create run
 	response, err := run.CreateRun(&ctx, &createRunInfo)
