@@ -16,6 +16,9 @@ limitations under the License.
 
 package schema
 
+type NodeView interface {
+}
+
 // JobView is view of job info responded to user, while Job is for pipeline and job engine to process
 type JobView struct {
 	JobID      string            `json:"jobID"`
@@ -34,10 +37,23 @@ type JobView struct {
 	CacheRunID string            `json:"cacheRunID"`
 }
 
-// RuntimeView is view of run responded to user, while workflowRuntime is for pipeline engine to process
-type RuntimeView map[string]JobView
+type DagView struct {
+	DagID       string
+	DagName     string `json:"name"`
+	Deps        string
+	Parameters  map[string]string
+	Artifacts   Artifacts
+	StartTime   string
+	EndTime     string
+	Status      JobStatus
+	Message     string
+	EntryPoints map[string]NodeView
+}
 
-type PostProcessView RuntimeView
+// RuntimeView is view of run responded to user, while workflowRuntime is for pipeline engine to process
+type RuntimeView map[string]NodeView
+
+type PostProcessView map[string]JobView
 
 type LogRunCacheRequest struct {
 	FirstFp     string `json:"firstFp"`

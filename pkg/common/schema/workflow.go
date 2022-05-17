@@ -66,13 +66,25 @@ type Node interface {
 }
 
 type WorkflowSourceStep struct {
-	Parameters map[string]interface{} `yaml:"parameters"`
-	Command    string                 `yaml:"command"`
-	Deps       string                 `yaml:"deps"`
-	Artifacts  Artifacts              `yaml:"artifacts"`
-	Env        map[string]string      `yaml:"env"`
-	DockerEnv  string                 `yaml:"docker_env"`
-	Cache      Cache                  `yaml:"cache"`
+	LoopArgument []interface{}          `yaml:"loop_argument"`
+	Condition    string                 `yaml:"condition"`
+	Parameters   map[string]interface{} `yaml:"parameters"`
+	Command      string                 `yaml:"command"`
+	Deps         string                 `yaml:"deps"`
+	Artifacts    Artifacts              `yaml:"artifacts"`
+	Env          map[string]string      `yaml:"env"`
+	DockerEnv    string                 `yaml:"docker_env"`
+	Cache        Cache                  `yaml:"cache"`
+	Reference    string                 `yaml:"referenc"`
+}
+
+type WorkflowSourceDag struct {
+	LoopArgument interface{}            `yaml:"loop_argument"`
+	Condition    string                 `yaml:"condition"`
+	Parameters   map[string]interface{} `yaml:"parameters"`
+	Deps         string                 `yaml:"deps"`
+	Artifacts    Artifacts              `yaml:"artifacts"`
+	EntryPoints  map[string]interface{} `yaml:"entry_points"`
 }
 
 func (s *WorkflowSourceStep) GetDeps() []string {
@@ -101,7 +113,8 @@ type FailureOptions struct {
 type WorkflowSource struct {
 	Name           string                         `yaml:"name"`
 	DockerEnv      string                         `yaml:"docker_env"`
-	EntryPoints    map[string]*WorkflowSourceStep `yaml:"entry_points"`
+	EntryPoints    WorkflowSourceDag              `yaml:"entry_points"`
+	Templates      map[string]interface{}         `yaml:"templates"`
 	Cache          Cache                          `yaml:"cache"`
 	Parallelism    int                            `yaml:"parallelism"`
 	Disabled       string                         `yaml:"disabled"`
