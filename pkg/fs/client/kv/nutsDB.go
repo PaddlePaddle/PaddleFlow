@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package meta
+package kv
 
 import (
 	"os"
@@ -23,19 +23,21 @@ import (
 	"github.com/xujiajun/nutsdb"
 )
 
-const nutsDB = "nutsdb"
-const bucketName = "mem"
-const iterNum = 200
+const (
+	NutsDB     = "nutsdb"
+	bucketName = "mem"
+	iterNum    = 200
+)
 
 type nutsDBClient struct {
 	db *nutsdb.DB
 }
 
-func (l nutsDBClient) name() string {
-	return nutsDB
+func (l nutsDBClient) Name() string {
+	return NutsDB
 }
 
-func (l nutsDBClient) get(key []byte) ([]byte, bool) {
+func (l nutsDBClient) Get(key []byte) ([]byte, bool) {
 	var e *nutsdb.Entry
 	var err error
 
@@ -52,7 +54,7 @@ func (l nutsDBClient) get(key []byte) ([]byte, bool) {
 	return e.Value, true
 }
 
-func (l nutsDBClient) set(key, value []byte) error {
+func (l nutsDBClient) Set(key, value []byte) error {
 	if err := l.db.Update(
 		func(tx *nutsdb.Tx) error {
 			if err := tx.Put(bucketName, key, value, 0); err != nil {
@@ -65,7 +67,7 @@ func (l nutsDBClient) set(key, value []byte) error {
 	return nil
 }
 
-func (l nutsDBClient) dels(keys ...[]byte) error {
+func (l nutsDBClient) Dels(keys ...[]byte) error {
 	for _, key := range keys {
 		if err := l.db.Update(
 			func(tx *nutsdb.Tx) error {
@@ -80,7 +82,7 @@ func (l nutsDBClient) dels(keys ...[]byte) error {
 	return nil
 }
 
-func (l nutsDBClient) scanValues(prefix []byte) (map[string][]byte, error) {
+func (l nutsDBClient) ScanValues(prefix []byte) (map[string][]byte, error) {
 	result := make(map[string][]byte)
 	var off int
 	var err error
@@ -108,21 +110,7 @@ func (l nutsDBClient) scanValues(prefix []byte) (map[string][]byte, error) {
 	return result, nil
 }
 
-func newNutsMeta(meta Meta, config Config) (Meta, error) {
-	client, err := newNutsClient(config)
-	if err != nil {
-		return nil, err
-	}
-	m := &kvMeta{
-		client:       client,
-		defaultMeta:  meta,
-		attrTimeOut:  config.AttrCacheExpire,
-		entryTimeOut: config.EntryCacheExpire,
-	}
-	return m, nil
-}
-
-func newNutsClient(config Config) (kvCache, error) {
+func NewNutsClient(config Config) (Client, error) {
 	opt := nutsdb.DefaultOptions
 	os.RemoveAll(config.CachePath)
 	os.MkdirAll(config.CachePath, 0755)
@@ -136,4 +124,4 @@ func newNutsClient(config Config) (kvCache, error) {
 	return &nutsDBClient{db: db}, nil
 }
 
-var _ kvCache = &nutsDBClient{}
+var _ Client = &nutsDBClient{}

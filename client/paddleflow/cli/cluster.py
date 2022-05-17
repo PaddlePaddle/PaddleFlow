@@ -34,12 +34,12 @@ def cluster():
 
 
 @cluster.command()
-@click.option('-m', '--maxkeys', help="Max size of the listed cluster.")
+@click.option('-m', '--maxkeys', help="Max size of the listed cluster.", default=100)
 @click.option('-mk', '--marker', help="Next page.")
 @click.option('-cn', '--clusternames', help="List the cluster by name")
 @click.option('-cs', '--clusterstatus', help="List the cluster by status")
 @click.pass_context
-def list(ctx, maxkeys=None, marker=None, clusternames=None, clusterstatus=None):
+def list(ctx, maxkeys, marker=None, clusternames=None, clusterstatus=None):
     """list cluster. """
     client = ctx.obj['client']
     output_format = ctx.obj['output']
