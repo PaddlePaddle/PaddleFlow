@@ -16,14 +16,10 @@ limitations under the License.
 
 package run
 
-<<<<<<< HEAD
 import (
 	"fmt"
 	"paddleflow/pkg/common/schema"
 )
-=======
-import "paddleflow/pkg/common/schema"
->>>>>>> e68096c4e1996506bcf6e66af49eb98166bc5864
 
 type Parser struct {
 }
@@ -38,7 +34,6 @@ func (p *Parser) ParseNodes(entryPoints map[string]interface{}) (map[string]inte
 		nodeMap := node.(map[string]interface{})
 		if p.isDag(nodeMap) {
 			dagNode := schema.WorkflowSourceDag{}
-<<<<<<< HEAD
 			if err := p.ParseDag(nodeMap, &dagNode); err != nil {
 				return nil, err
 			}
@@ -47,18 +42,9 @@ func (p *Parser) ParseNodes(entryPoints map[string]interface{}) (map[string]inte
 			stepNode := schema.WorkflowSourceStep{}
 		}
 
-=======
-			// loop_argument
-			dagNode.LoopArgument = nodeMap["loop_argument"]
-			condition, ok := nodeMap["condition"].(string)
-		}
->>>>>>> e68096c4e1996506bcf6e66af49eb98166bc5864
 	}
 	return nodes, nil
 }
-
-<<<<<<< HEAD
-func (p *Parser) TransCacheJson2Yaml()
 
 func (p *Parser) ParseStep(params map[string]interface{}, stepNode *schema.WorkflowSourceStep) error {
 	for key, value := range params {
@@ -74,6 +60,8 @@ func (p *Parser) ParseStep(params map[string]interface{}, stepNode *schema.Workf
 func (p *Parser) ParseDag(params map[string]interface{}, dagNode *schema.WorkflowSourceDag) error {
 	for key, value := range params {
 		switch key {
+		case "loopArgument":
+			fallthrough
 		case "loop_argument":
 			dagNode.LoopArgument = value
 		case "conditon":
@@ -119,10 +107,12 @@ func (p *Parser) ParseDag(params map[string]interface{}, dagNode *schema.Workflo
 				}
 			}
 			dagNode.Artifacts = artifacts
+		case "entryPoints":
+			fallthrough
 		case "entry_points":
 			value, ok := value.(map[string]interface{})
 			if !ok {
-				return fmt.Errorf("[entry_points] of dag should be map type")
+				return fmt.Errorf("[entry_points/entryPoints] of dag should be map type")
 			}
 			entryPoints, err := p.ParseNodes(value)
 			if err != nil {
@@ -134,13 +124,6 @@ func (p *Parser) ParseDag(params map[string]interface{}, dagNode *schema.Workflo
 		}
 	}
 	return nil
-=======
-func (p *Parser) ParseDagParam(key string, value interface{}, dagNode *schema.WorkflowSourceDag) (interface{}, error) {
-	switch key {
-	case "loop_argument":
-		return
-	}
->>>>>>> e68096c4e1996506bcf6e66af49eb98166bc5864
 }
 
 func (p *Parser) isDag(node map[string]interface{}) bool {
