@@ -74,9 +74,7 @@ type Option func(*Config)
 func InitConfig(options ...Option) *Config {
 	config := &Config{
 		Cache: &cache.Config{
-			Disk: &cache.DiskConfig{
-				Expire: 60 * time.Second,
-			},
+			Expire: 60 * time.Second,
 		},
 	}
 	for _, f := range options {
@@ -130,7 +128,9 @@ func InitVFS(fsMeta common.FSMeta, links map[string]common.FSMeta, global bool,
 	var store cache.Store
 	var blockSize int
 	if config.Cache != nil {
-		store = cache.NewCacheStore(fsMeta.ID, config.Cache)
+		cacheConfig := *config.Cache
+		cacheConfig.FsID = fsMeta.ID
+		store = cache.NewCacheStore(cacheConfig)
 		blockSize = config.Cache.BlockSize
 	}
 	vfs.Store = store
