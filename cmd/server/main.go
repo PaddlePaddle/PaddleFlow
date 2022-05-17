@@ -23,7 +23,6 @@ import (
 	"paddleflow/pkg/common/database"
 	"paddleflow/pkg/common/database/dbinit"
 	"paddleflow/pkg/common/logger"
-	"paddleflow/pkg/common/schema"
 	"paddleflow/pkg/job"
 	"paddleflow/pkg/version"
 )
@@ -124,15 +123,6 @@ func initConfig() error {
 		return err
 	}
 
-	ServerConf.FlavourMap = make(map[string]schema.Flavour)
-	for _, f := range ServerConf.Flavour {
-		err := schema.ValidateResourceInfo(f.ResourceInfo, ServerConf.Job.ScalarResourceArray)
-		if err != nil {
-			log.Errorf("validate resource of flavor[%v] failed. error: %s\n", f, err)
-			return err
-		}
-		ServerConf.FlavourMap[f.Name] = f
-	}
 	config.GlobalServerConfig = ServerConf
 
 	// make sure template job yaml file exist

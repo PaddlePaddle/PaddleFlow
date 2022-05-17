@@ -178,6 +178,29 @@ func CreateQueue(queue *Queue) error {
 	return nil
 }
 
+func UpdateQueue(name, status string, maxResources, minResources *schema.ResourceInfo) error {
+	q, err := GetQueueByName(name)
+	if err != nil {
+		log.Errorf("get queue %s failed, err: %v.", name, err)
+		return err
+	}
+	if status != "" {
+		q.Status = status
+	}
+	if maxResources != nil {
+		q.MaxResources = *maxResources
+	}
+	if minResources != nil {
+		q.MinResources = *minResources
+	}
+	tx := database.DB.Table("queue").Where("name = ?", name).Updates(&q)
+	if tx.Error != nil {
+		log.Errorf("update queue %s failed, err %v", name, tx.Error)
+		return tx.Error
+	}
+	return nil
+}
+
 func UpdateQueueStatus(queueName string, queueStatus string) error {
 	log.Debugf("update queue status. queueName:[%s] newStatus:[%s]", queueName, queueStatus)
 	if !common.IsValidQueueStatus(queueStatus) {

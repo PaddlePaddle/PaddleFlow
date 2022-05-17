@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"paddleflow/pkg/fs/client/cache"
+	"paddleflow/pkg/fs/client/kv"
 	"paddleflow/pkg/fs/common"
 )
 
@@ -48,7 +49,7 @@ func getS3TestFsClient(t *testing.T) FSClient {
 		},
 		SubPath: os.Getenv("S3_PATH"),
 	}
-	DiskCachePath = "./mock-cache"
+	DataCachePath = "./mock-cache"
 	fsclient, err := NewFSClientForTest(testFsMeta)
 	assert.Equal(t, nil, err)
 	return fsclient
@@ -179,8 +180,11 @@ func TestS3Client_read(t *testing.T) {
 	d := cache.Config{
 		BlockSize:    200,
 		MaxReadAhead: 4,
-		Mem:          &cache.MemConfig{},
-		Disk:         &cache.DiskConfig{Dir: "./mock-cache", Expire: 600 * time.Second},
+		Expire:       600 * time.Second,
+		Config: kv.Config{
+			Driver:    kv.NutsDB,
+			CachePath: "./mock-cache",
+		},
 	}
 	SetDataCache(d)
 
@@ -250,8 +254,11 @@ func TestS3Client_read_with_small_block(t *testing.T) {
 	d := cache.Config{
 		BlockSize:    1,
 		MaxReadAhead: 40,
-		Mem:          &cache.MemConfig{},
-		Disk:         &cache.DiskConfig{Dir: "./mock-cache", Expire: 600 * time.Second},
+		Expire:       600 * time.Second,
+		Config: kv.Config{
+			Driver:    kv.NutsDB,
+			CachePath: "./mock-cache",
+		},
 	}
 	SetDataCache(d)
 
@@ -275,7 +282,7 @@ func TestS3Client_read_with_small_block(t *testing.T) {
 	nExpect, err := readFile(pathReal, bufExpect)
 	assert.Equal(t, nil, err)
 
-	DiskCachePath = "./mock-cache"
+	DataCachePath = "./mock-cache"
 
 	err = client.Mkdir("./mock", 0755)
 	assert.Equal(t, nil, err)
@@ -320,7 +327,6 @@ func TestS3Client_readMemAndDisk(t *testing.T) {
 	d := cache.Config{
 		BlockSize:    3,
 		MaxReadAhead: 4000,
-		Mem:          &cache.MemConfig{CacheSize: 80, Expire: 10 * time.Second},
 	}
 	SetDataCache(d)
 
@@ -372,8 +378,11 @@ func TestS3Client_read_with_small_block_with_no_no_mem(t *testing.T) {
 	d := cache.Config{
 		BlockSize:    1,
 		MaxReadAhead: 40,
-		Mem:          &cache.MemConfig{},
-		Disk:         &cache.DiskConfig{Dir: "./mock-cache", Expire: 600 * time.Second},
+		Expire:       600 * time.Second,
+		Config: kv.Config{
+			Driver:    kv.NutsDB,
+			CachePath: "./mock-cache",
+		},
 	}
 	SetDataCache(d)
 
@@ -397,7 +406,7 @@ func TestS3Client_read_with_small_block_with_no_no_mem(t *testing.T) {
 	nExpect, err := readFile(pathReal, bufExpect)
 	assert.Equal(t, nil, err)
 
-	DiskCachePath = "./mock-cache"
+	DataCachePath = "./mock-cache"
 
 	err = client.Mkdir("./mock", 0755)
 	assert.Equal(t, nil, err)

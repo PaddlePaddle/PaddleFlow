@@ -14,16 +14,31 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package schema
+package location_awareness
 
-const (
-	StatusQueueCreating    = "creating"
-	StatusQueueOpen        = "open"
-	StatusQueueUpdating    = "updating"
-	StatusQueueClosing     = "closing"
-	StatusQueueClosed      = "closed"
-	StatusQueueUnavailable = "unavailable"
+import (
+	"errors"
 
-	TypeElasticQuota           = "elasticQuota"
-	TypeVolcanoCapabilityQuota = "volcanoCapabilityQuota"
+	log "github.com/sirupsen/logrus"
+
+	"paddleflow/pkg/apiserver/models"
 )
+
+func ListMountNodesByFsID(fsIDs []string) (map[string][]string, error) {
+	if len(fsIDs) == 0 {
+		log.Errorf("GetFsMountByID IDs empty")
+		return nil, errors.New("fsIDS empty")
+	}
+	result := make(map[string][]string, len(fsIDs))
+
+	for _, fsID := range fsIDs {
+		nodeNames, err := models.ListMountNodesByID(fsID)
+		if err != nil {
+			log.Errorf("ListMountNodesByID[%s] err: %v", fsID, err)
+			return nil, err
+		}
+		result[fsID] = nodeNames
+	}
+
+	return result, nil
+}
