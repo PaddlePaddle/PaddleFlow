@@ -97,7 +97,7 @@ func (s *Scheduler) Start() {
 		case opInfo := <-s.OpsChannel:
 			toUpdate, tmpTimeout, err := s.dealWithOps(opInfo)
 			if err != nil {
-				log.Errorf("scheduler deal with op[%v] failed, %s", err.Error())
+				log.Errorf("scheduler deal with op[%v] failed, %s", opInfo, err.Error())
 				return
 			}
 			if toUpdate {

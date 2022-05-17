@@ -64,7 +64,7 @@ func TestCreatePipeline(t *testing.T) {
 	err = ParseBody(result.Body, &createPplRsp)
 	assert.Nil(t, err)
 	assert.Equal(t, createPplRsp.Name, createPplReq.Name)
-	assert.True(t, strings.Contains(createPplRsp.ID, "ppl-"))
+	assert.True(t, strings.Contains(createPplRsp.PipelineID, "ppl-"))
 
 	b, _ := json.Marshal(createPplRsp)
 	println("")

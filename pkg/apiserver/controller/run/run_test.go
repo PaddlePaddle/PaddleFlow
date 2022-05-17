@@ -92,13 +92,13 @@ func TestListRunSuccess(t *testing.T) {
 
 	emptyFilter := make([]string, 0)
 	// test list runs under user1
-	listRunResponse, err := ListRun(ctx1, "", 50, emptyFilter, emptyFilter, emptyFilter, emptyFilter)
+	listRunResponse, err := ListRun(ctx1, "", 50, emptyFilter, emptyFilter, emptyFilter, emptyFilter, emptyFilter, emptyFilter)
 	assert.Nil(t, err)
 	assert.Equal(t, 3, len(listRunResponse.RunList))
 	assert.Equal(t, MockRootUser, listRunResponse.RunList[0].UserName)
 
 	// test list runs under user2
-	listRunResponse, err = ListRun(ctx2, "", 50, emptyFilter, emptyFilter, emptyFilter, emptyFilter)
+	listRunResponse, err = ListRun(ctx2, "", 50, emptyFilter, emptyFilter, emptyFilter, emptyFilter, emptyFilter, emptyFilter)
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(listRunResponse.RunList))
 	assert.Equal(t, MockUserID2, listRunResponse.RunList[0].UserName)

@@ -187,7 +187,7 @@ func (rr *RunRouter) listRun(w http.ResponseWriter, r *http.Request) {
 	logger.LoggerForRequest(&ctx).Debugf(
 		"user[%s] ListRun marker:[%s] maxKeys:[%d] userFilter:%v fsFilter:%v runFilter:%v nameFilter:%v",
 		ctx.UserName, marker, maxKeys, userFilter, fsFilter, runFilter, nameFilter)
-	listRunResponse, err := run.ListRun(&ctx, marker, maxKeys, userFilter, fsFilter, runFilter, nameFilter)
+	listRunResponse, err := run.ListRun(&ctx, marker, maxKeys, userFilter, fsFilter, runFilter, nameFilter, nil, nil)
 	if err != nil {
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return

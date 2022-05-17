@@ -129,7 +129,7 @@ func GetPipelineDetail(pipelineID string, pipelineDetailPk int64, detailType str
 }
 
 func DeletePipelineDetail(logEntry *log.Entry, pipelineDetailPk int64, hardDelete bool) error {
-	logEntry.Debugf("delete pipelineDetailPk: %s, hardDelete[%t]", pipelineDetailPk, hardDelete)
+	logEntry.Debugf("delete pipelineDetailPk: %d, hardDelete[%t]", pipelineDetailPk, hardDelete)
 	if hardDelete {
 		result := database.DB.Unscoped().Where("Pk = ?", pipelineDetailPk).Delete(&PipelineDetail{})
 		return result.Error
