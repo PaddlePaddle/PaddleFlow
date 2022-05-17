@@ -25,7 +25,7 @@ import (
 )
 
 func ListMountNodesByFsID(fsIDs []string) (map[string][]string, error) {
-	if fsIDs == nil || len(fsIDs) == 0 {
+	if len(fsIDs) == 0 {
 		log.Errorf("GetFsMountByID IDs empty")
 		return nil, errors.New("fsIDS empty")
 	}
