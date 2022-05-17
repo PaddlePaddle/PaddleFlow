@@ -42,7 +42,8 @@ const (
 	QueryKeyAction    = "action"
 	QueryActionStop   = "stop"
 	QueryActionRetry  = "retry"
-	QueryActionClose  = "close"
+	QueryActionDelete = "delete"
+	QueryActionCreate = "create"
 	QueryActionModify = "modify"
 
 	QueryKeyMarker  = "marker"
@@ -85,6 +86,10 @@ const (
 	// cluster name最大长度
 	ClusterNameMaxLength = 255
 
+	ParamKeyName            = "name"
+	ParamKeyNamespace       = "namespace"
+	ParamKeyKind            = "kind"
+	ParamKeyAPIVersion      = "apiVersion"
 	ParamKeyJobID           = "jobID"
 	ParamKeyPageNo          = "pageNo"
 	ParamKeyPageSize        = "pageSize"

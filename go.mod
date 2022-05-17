@@ -21,8 +21,9 @@ require (
 	github.com/gin-gonic/gin v1.7.3
 	github.com/go-chi/chi v1.5.4
 	github.com/go-openapi/spec v0.20.4 // indirect
-	github.com/go-playground/validator/v10 v10.9.0 // indirect
+	github.com/go-playground/validator/v10 v10.9.0
 	github.com/golang/glog v1.0.0 // indirect
+	github.com/google/btree v1.0.0
 	github.com/google/go-cmp v0.5.6 // indirect
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/websocket v1.4.2
@@ -53,6 +54,7 @@ require (
 	github.com/ugorji/go v1.2.6 // indirect
 	github.com/urfave/cli/v2 v2.4.0
 	github.com/vbauerster/mpb/v7 v7.4.1
+	github.com/xujiajun/nutsdb v0.8.0
 	go.uber.org/automaxprocs v1.4.0
 	golang.org/x/crypto v0.0.0-20210711020723-a769d52b0f97
 	golang.org/x/net v0.0.0-20211216030914-fe4d6282115f

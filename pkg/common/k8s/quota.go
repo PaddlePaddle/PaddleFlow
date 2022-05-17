@@ -32,6 +32,32 @@ func SubQuota(r *schema.Resource, pod *v1.Pod) error {
 	return nil
 }
 
+// NewResourceInfo create a new resource object from resource list
+func NewResourceInfo(rl v1.ResourceList) *schema.ResourceInfo {
+	r := schema.EmptyResourceInfo()
+	scalarResourceArray := config.GlobalServerConfig.Job.ScalarResourceArray
+
+	scalarResourceMap := make(map[string]bool)
+	for _, resourceName := range scalarResourceArray {
+		scalarResourceMap[resourceName] = true
+	}
+
+	for rName, rQuant := range rl {
+		switch rName {
+		case v1.ResourceCPU:
+			r.CPU = rQuant.String()
+		case v1.ResourceMemory:
+			r.Mem = rQuant.String()
+		default:
+			_, found := scalarResourceMap[string(rName)]
+			if IsScalarResourceName(rName) && found {
+				r.SetScalar(schema.ResourceName(rName), rQuant.String())
+			}
+		}
+	}
+	return r
+}
+
 // NewResource create a new resource object from resource list
 func NewResource(rl v1.ResourceList) *schema.Resource {
 	r := schema.EmptyResource()

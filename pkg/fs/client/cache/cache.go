@@ -123,7 +123,6 @@ type store struct {
 }
 
 type Config struct {
-	Mem          *MemConfig
 	Disk         *DiskConfig
 	BlockSize    int
 	MaxReadAhead int
@@ -141,19 +140,16 @@ type rCache struct {
 	seqReadAmount uint64
 }
 
-func NewCacheStore(config *Config) Store {
-	if (config.Mem == nil && config.Disk == nil) || config.BlockSize == 0 {
+func NewCacheStore(fsID string, config *Config) Store {
+	if config.Disk == nil || config.BlockSize == 0 {
 		return nil
 	}
 	cacheStore := &store{
 		conf: *config,
 		meta: make(map[string]string, 100),
 	}
-	if config.Mem != nil {
-		cacheStore.mem = NewMemCache(config.Mem)
-	}
 	if config.Disk != nil {
-		cacheStore.disk = NewDiskCache(config.Disk)
+		cacheStore.disk = NewDiskCache(fsID, config.Disk)
 	}
 	log.Debugf("metrics register NewCacheStore")
 	registerMetrics()
@@ -238,7 +234,6 @@ func (r *rCache) readFromReadAhead(off int64, buf []byte) (bytesRead int, err er
 			return
 		}
 		nread, err = readAheadBuf.ReadAt(uint64(blockOff), buf[bytesRead:])
-		log.Debugf("readAheadBuf off %d nread %d bytesRead %d buf %s \n", off, nread, bytesRead, string(buf[bytesRead:bytesRead+nread]))
 		if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
 			break
 		}
@@ -377,19 +372,6 @@ func (r *rCache) key(index int) string {
 
 func (r *rCache) readCache(buf []byte, key string, off int) (int, bool) {
 	log.Debugf("read cache key is %s", key)
-	// memory cache
-	if r.store.mem != nil {
-		mem, ok := r.store.mem.load(key)
-		if ok {
-			n, err := mem.ReadAt(buf, int64(off))
-			if err != nil && err != io.EOF {
-				log.Debugf("mem readAt err %v", err)
-				return 0, false
-			}
-			return n, true
-		}
-	}
-
 	// disk cache
 	if r.store.disk != nil {
 		file, ok := r.store.disk.load(key)
@@ -415,9 +397,6 @@ func (r *rCache) setCache(index int, p []byte, n int) {
 	right := r.store.conf.BlockSize
 	if right > n {
 		right = n
-	}
-	if r.store.mem != nil && r.store.conf.Mem.CacheSize > 0 {
-		r.store.mem.save(key, p[:right])
 	}
 	if r.store.disk != nil {
 		r.store.disk.save(key, p[:right])

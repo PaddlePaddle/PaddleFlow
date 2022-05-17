@@ -179,7 +179,6 @@ func TestS3Client_read(t *testing.T) {
 	d := cache.Config{
 		BlockSize:    200,
 		MaxReadAhead: 4,
-		Mem:          &cache.MemConfig{},
 		Disk:         &cache.DiskConfig{Dir: "./mock-cache", Expire: 600 * time.Second},
 	}
 	SetDataCache(d)
@@ -250,7 +249,6 @@ func TestS3Client_read_with_small_block(t *testing.T) {
 	d := cache.Config{
 		BlockSize:    1,
 		MaxReadAhead: 40,
-		Mem:          &cache.MemConfig{},
 		Disk:         &cache.DiskConfig{Dir: "./mock-cache", Expire: 600 * time.Second},
 	}
 	SetDataCache(d)
@@ -320,7 +318,6 @@ func TestS3Client_readMemAndDisk(t *testing.T) {
 	d := cache.Config{
 		BlockSize:    3,
 		MaxReadAhead: 4000,
-		Mem:          &cache.MemConfig{CacheSize: 80, Expire: 10 * time.Second},
 	}
 	SetDataCache(d)
 
@@ -372,7 +369,6 @@ func TestS3Client_read_with_small_block_with_no_no_mem(t *testing.T) {
 	d := cache.Config{
 		BlockSize:    1,
 		MaxReadAhead: 40,
-		Mem:          &cache.MemConfig{},
 		Disk:         &cache.DiskConfig{Dir: "./mock-cache", Expire: 600 * time.Second},
 	}
 	SetDataCache(d)
