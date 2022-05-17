@@ -17,13 +17,14 @@ limitations under the License.
 package common
 
 import (
-	"testing"
-
+	"fmt"
 	"github.com/stretchr/testify/assert"
+	"testing"
 )
 
 func TestCheckVarName(t *testing.T) {
 	vc := VariableChecker{}
+	fmt.Println("123")
 
 	varName := "validName1_"
 	err := vc.CheckVarName(varName)
