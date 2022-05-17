@@ -30,7 +30,9 @@ import (
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
+	"paddleflow/pkg/client"
 	"paddleflow/pkg/common/http/api"
+	"paddleflow/pkg/common/http/core"
 	"paddleflow/pkg/fs/client/base"
 	"paddleflow/pkg/fs/common"
 	"paddleflow/pkg/fs/csiplugin/client/k8s"
@@ -273,4 +275,51 @@ func getcmd(mountInfo pfs.MountInfo, cacheConf common.FsCacheConfig) string {
 	}
 	cmd := mkdir + pfsMountPath + mountPath + strings.Join(options, " ")
 	return cmd
+}
+
+func HttpClientAndToken(mountInfo *pfs.MountInfo) (*core.PFClient, string, error) {
+	// login server
+	httpClient := client.NewHttpClient(mountInfo.Server, client.DefaultTimeOut)
+	login := api.LoginParams{
+		UserName: mountInfo.UsernameRoot,
+		Password: mountInfo.PasswordRoot,
+	}
+	loginResponse, err := api.LoginRequest(login, httpClient)
+	if err != nil {
+		log.Errorf("Mount: login failed: %v", err)
+		return nil, "", err
+	}
+	token := loginResponse.Authorization
+	// validate fs
+	var resp *api.FsResponse
+	if resp, err = getFs(mountInfo.FSID, httpClient, token); err != nil {
+		log.Errorf("Mount: validate fs exist [%s] err: %v", mountInfo.FSID, err)
+		return nil, "", err
+	}
+	mountInfo.Type = resp.Type
+	mountInfo.SubPath = resp.SubPath
+	mountInfo.ServerAddress = resp.ServerAddress
+	return httpClient, token, nil
+}
+
+func getFs(fsID string, httpClient *core.PFClient, token string) (*api.FsResponse, error) {
+	userName, fsName := getFsNameAndUserNameByFsID(fsID)
+	params := api.FsParams{
+		FsName:   fsName,
+		UserName: userName,
+		Token:    token,
+	}
+	fsResp, err := api.FsRequest(params, httpClient)
+	if err != nil {
+		log.Errorf("fs request[%+v] failed: %v", params, err)
+		return nil, err
+	}
+	return fsResp, nil
+}
+
+func getFsNameAndUserNameByFsID(fsID string) (userName string, fsName string) {
+	fsArray := strings.Split(fsID, "-")
+	userName = strings.Join(fsArray[1:len(fsArray)-1], "")
+	fsName = fsArray[len(fsArray)-1]
+	return userName, fsName
 }

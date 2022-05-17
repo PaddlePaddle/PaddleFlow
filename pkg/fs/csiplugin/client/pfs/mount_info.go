@@ -20,10 +20,12 @@ import (
 	"fmt"
 	"strings"
 
+	"paddleflow/pkg/apiserver/common"
 	csiCommon "paddleflow/pkg/fs/utils/common"
 )
 
 const (
+	mountName       = "mount"
 	pfsMountCmdName = "./mount.sh"
 	ReadOnly        = "ro"
 	ReadWrite       = "rw"
@@ -44,31 +46,44 @@ type FSMountParameter struct {
 }
 
 type MountInfo struct {
-	Server       string
-	FSID         string
-	TargetPath   string
-	LocalPath    string
-	UsernameRoot string
-	PasswordRoot string
-	UID          int
-	GID          int
-	Options      []string
+	Server        string
+	FSID          string
+	TargetPath    string
+	LocalPath     string
+	UsernameRoot  string
+	PasswordRoot  string
+	ClusterID     string
+	Type          string
+	ServerAddress string
+	SubPath       string
+	UID           int
+	GID           int
+	Options       []string
 }
 
 func (m *MountInfo) GetMountCmd() (string, []string) {
-	cmdName := pfsMountCmdName
+	var cmdName string
 	var args []string
-
-	if len(m.Options) > 0 {
-		mountOptions := strings.Join(m.Options[:], ",")
-		args = append(args, fmt.Sprintf(MountOptions, mountOptions))
+	if m.Type == common.Glusterfs {
+		cmdName = mountName
+		args = append(args, "-t", m.Type)
+		if len(m.Options) != 0 {
+			args = append(args, "-o", strings.Join(m.Options, ","))
+		}
+		args = append(args, strings.Join([]string{m.ServerAddress, m.SubPath}, ":"), m.LocalPath)
+	} else {
+		cmdName = pfsMountCmdName
+		if len(m.Options) > 0 {
+			mountOptions := strings.Join(m.Options[:], ",")
+			args = append(args, fmt.Sprintf(MountOptions, mountOptions))
+		}
+		// set pfs-fuse arguments
+		args = append(args, fmt.Sprintf(PFSServerOption, m.Server))
+		args = append(args, fmt.Sprintf(FSIDOptions, m.FSID))
+		args = append(args, fmt.Sprintf(UIDOption, m.UID))
+		args = append(args, fmt.Sprintf(GIDOption, m.GID))
+		args = append(args, fmt.Sprintf(MountPoint, m.LocalPath))
 	}
-	// set pfs-fuse arguments
-	args = append(args, fmt.Sprintf(PFSServerOption, m.Server))
-	args = append(args, fmt.Sprintf(FSIDOptions, m.FSID))
-	args = append(args, fmt.Sprintf(UIDOption, m.UID))
-	args = append(args, fmt.Sprintf(GIDOption, m.GID))
-	args = append(args, fmt.Sprintf(MountPoint, m.LocalPath))
 
 	return cmdName, args
 }
