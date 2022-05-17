@@ -187,25 +187,6 @@ func initGlobalServerConfig() {
 	config.GlobalServerConfig = &config.ServerConfig{}
 	config.GlobalServerConfig.Job.SchedulerName = "testSchedulerName"
 	config.GlobalServerConfig.Job.DefaultJobYamlDir = "../../../../../config/server/default/job"
-	config.GlobalServerConfig.FlavourMap = map[string]schema.Flavour{
-		"cpu": {
-			Name: "cpu",
-			ResourceInfo: schema.ResourceInfo{
-				CPU: "1",
-				Mem: "100M",
-			},
-		},
-		"gpu": {
-			Name: "gpu",
-			ResourceInfo: schema.ResourceInfo{
-				CPU: "1",
-				Mem: "100M",
-				ScalarResources: schema.ScalarResourcesType{
-					"nvidia.com/gpu": "500M",
-				},
-			},
-		},
-	}
 }
 
 // TestSparkApp_CreateJob tests create spark app by single yaml

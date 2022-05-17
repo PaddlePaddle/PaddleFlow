@@ -23,8 +23,8 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"paddleflow/pkg/apiserver/common"
+	"paddleflow/pkg/apiserver/controller/flavour"
 	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/common/config"
 	"paddleflow/pkg/common/errors"
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/common/schema"
@@ -75,19 +75,22 @@ func patchTasksFromEnv(conf *schema.Conf, jobInfo *models.Job) error {
 		jobInfo.Type = string(schema.TypeDistributed)
 	}
 
+	var err error
 	switch conf.GetJobMode() {
 	case schema.EnvJobModePS:
-		patchPSTasks(conf, jobInfo)
+		err = patchPSTasks(conf, jobInfo)
 	case schema.EnvJobModeCollective:
-		patchCollectiveTask(conf, jobInfo)
+		err = patchCollectiveTask(conf, jobInfo)
 	case schema.EnvJobModePod:
-		patchPodTask(conf, jobInfo)
+		err = patchPodTask(conf, jobInfo)
 	default:
 		log.Errorf("unsupport job mode")
 		return errors.InvalidJobModeError(conf.GetJobMode())
 	}
-	// patchFlavourFromEnv
-	jobInfo.Config.Flavour = config.GlobalServerConfig.FlavourMap[conf.GetFlavour()]
+	if err != nil {
+		log.Errorf("patch tasks failed, err: %v", err)
+		return err
+	}
 	return nil
 }
 
@@ -115,10 +118,11 @@ func newPSServerTask(conf *schema.Conf) (models.Member, error) {
 		Role: schema.RolePServer,
 		Conf: *conf,
 	}
-	if conf.GetPSFlavour() != "" {
-		psTask.Flavour = config.GlobalServerConfig.FlavourMap[conf.GetPSFlavour()]
-	} else {
-		return psTask, errors.InvalidFlavourError(conf.GetPSFlavour())
+	var err error
+	psTask.Flavour, err = flavour.GetFlavourWithCheck(schema.Flavour{Name: conf.GetPSFlavour()})
+	if err != nil {
+		log.Errorf("get worker flavour failed, err: %v", err)
+		return psTask, fmt.Errorf("get worker flavour failed, err: %v", err)
 	}
 	if conf.GetPSCommand() != "" {
 		psTask.Command = conf.GetPSCommand()
@@ -139,10 +143,11 @@ func newPSWorkerTask(conf *schema.Conf) (models.Member, error) {
 		Role: schema.RolePWorker,
 		Conf: *conf,
 	}
-	if conf.GetWorkerFlavour() != "" {
-		workerTask.Flavour = config.GlobalServerConfig.FlavourMap[conf.GetWorkerFlavour()]
-	} else {
-		return workerTask, errors.InvalidFlavourError(conf.GetWorkerFlavour())
+	var err error
+	workerTask.Flavour, err = flavour.GetFlavourWithCheck(schema.Flavour{Name: conf.GetWorkerFlavour()})
+	if err != nil {
+		log.Errorf("get worker flavour failed, err: %v", err)
+		return workerTask, fmt.Errorf("get worker flavour failed, err: %v", err)
 	}
 	if conf.GetWorkerCommand() != "" {
 		workerTask.Command = conf.GetWorkerCommand()
@@ -166,10 +171,12 @@ func patchCollectiveTask(conf *schema.Conf, jobInfo *models.Job) error {
 		Role: schema.RoleWorker,
 		Conf: *conf,
 	}
-	if conf.GetWorkerFlavour() != "" {
-		workerTask.Flavour = config.GlobalServerConfig.FlavourMap[conf.GetWorkerFlavour()]
-	} else {
-		return errors.InvalidFlavourError(conf.GetWorkerFlavour())
+	// flavour
+	var err error
+	workerTask.Flavour, err = flavour.GetFlavourWithCheck(schema.Flavour{Name: conf.GetWorkerFlavour()})
+	if err != nil {
+		log.Errorf("get worker flavour failed, err: %v", err)
+		return fmt.Errorf("get worker flavour failed, err: %v", err)
 	}
 	// commad
 	if conf.GetWorkerCommand() != "" {
@@ -188,8 +195,14 @@ func patchCollectiveTask(conf *schema.Conf, jobInfo *models.Job) error {
 	return nil
 }
 
-func patchPodTask(conf *schema.Conf, jobInfo *models.Job) {
-	jobInfo.Config.Flavour = config.GlobalServerConfig.FlavourMap[conf.GetFlavour()]
+func patchPodTask(conf *schema.Conf, jobInfo *models.Job) error {
+	var err error
+	jobInfo.Config.Flavour, err = flavour.GetFlavourWithCheck(schema.Flavour{Name: conf.GetFlavour()})
+	if err != nil {
+		log.Errorf("get worker flavour failed, err: %v", err)
+		return fmt.Errorf("get worker flavour failed, err: %v", err)
+	}
+	return nil
 }
 
 func generateJobID(param string) string {
@@ -283,9 +296,10 @@ func validateFlavours(conf schema.PFJobConf, queue *models.Queue) error {
 
 // isEnoughQueueCapacity validate queue matching flavor
 func isEnoughQueueCapacity(flavourKey string, queueResource schema.ResourceInfo) error {
-	flavourValue, exist := config.GlobalServerConfig.FlavourMap[flavourKey]
-	if !exist {
-		return errors.InvalidFlavourError(flavourKey)
+	flavourValue, err := flavour.GetFlavourWithCheck(schema.Flavour{Name: flavourKey})
+	if err != nil {
+		log.Errorf("get flavour[%s] failed, err: %v", flavourKey, err)
+		return err
 	}
 
 	// all field in flavour must be less equal than queue's
