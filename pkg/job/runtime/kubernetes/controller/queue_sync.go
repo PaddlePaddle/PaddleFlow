@@ -23,13 +23,14 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
-	"paddleflow/pkg/apiserver/models"
+	"volcano.sh/apis/pkg/apis/scheduling/v1beta1"
+
 	"paddleflow/pkg/common/k8s"
-	queueschema "paddleflow/pkg/common/schema"
+	commomschema "paddleflow/pkg/common/schema"
 )
 
 const (
@@ -37,10 +38,13 @@ const (
 )
 
 type QueueSyncInfo struct {
-	Name       string
-	Status     string
-	Message    string
-	RetryTimes int
+	Name        string
+	Status      string
+	MaxResource *commomschema.ResourceInfo
+	MinResource *commomschema.ResourceInfo
+	Type        string
+	Message     string
+	RetryTimes  int
 }
 
 type QueueSync struct {
@@ -94,7 +98,6 @@ func (qs *QueueSync) Run(stopCh <-chan struct{}) {
 		}
 	}
 	log.Infof("Start %s controller successfully!", qs.Name())
-	go wait.Until(qs.runWorker, 0, stopCh)
 }
 
 func (qs *QueueSync) runWorker() {
@@ -108,75 +111,87 @@ func (qs *QueueSync) processWorkItem() bool {
 		return false
 	}
 	queueSyncInfo := obj.(*QueueSyncInfo)
-	log.Debugf("process queue sync. queue name:[%s]", queueSyncInfo.Name)
+	log.Debugf("process queue sync. queueName is %s", queueSyncInfo.Name)
 	defer qs.jobQueue.Done(queueSyncInfo)
-
-	// update queue status to unavailable
-	err := models.UpdateQueueStatus(queueSyncInfo.Name, queueSyncInfo.Status)
-	if err != nil {
-		log.Errorf("queueInformer update queue status failed. queueName:[%s] error:[%s]", queueSyncInfo.Name, err.Error())
-		if queueSyncInfo.RetryTimes < DefaultSyncRetryTimes {
-			queueSyncInfo.RetryTimes += 1
-			qs.jobQueue.AddRateLimited(queueSyncInfo)
-		}
-	}
-	qs.jobQueue.Forget(queueSyncInfo)
 	return true
 }
 
 // updateQueue for queue update event
-func (qs *QueueSync) updateQueue(oldObj, newObj interface{}) {
-	oldQueue := oldObj.(*unstructured.Unstructured)
-	queue := newObj.(*unstructured.Unstructured)
+func (qs *QueueSync) updateQueue(old, new interface{}) {
+	oldObj := old.(*unstructured.Unstructured)
+	newObj := new.(*unstructured.Unstructured)
 
-	oldSpec, err := getResourceSpec(oldQueue)
-	if err != nil || oldSpec == nil {
-		log.Errorf("get spec from old resource object %s failed", oldQueue.GetName())
+	gvk := newObj.GroupVersionKind()
+	name := newObj.GetName()
+
+	oldQueue, err := convertUnstructuredResource(oldObj, gvk)
+	if err != nil || oldObj == nil {
+		log.Errorf("get spec from old resource object %s failed", name)
 		return
 	}
-	spec, err := getResourceSpec(queue)
-	if err != nil || spec == nil {
-		log.Errorf("get spec from new resource object %s failed", queue.GetName())
-		return
-	}
-
-	log.Debugf("%s queue resource is updated. old:%v new:%v", queue.GroupVersionKind(), oldQueue, queue)
-	if reflect.DeepEqual(oldSpec, spec) {
+	queue, err := convertUnstructuredResource(newObj, gvk)
+	if err != nil || newObj == nil {
+		log.Errorf("get spec from new resource object %s failed", name)
 		return
 	}
 
-	log.Infof("watch %s resource is updated, name is %s", queue.GroupVersionKind(), queue.GetName())
-	var status = queueschema.StatusQueueUnavailable
-	queueInfo := &QueueSyncInfo{
-		Name:    queue.GetName(),
-		Status:  status,
-		Message: fmt.Sprintf("queue[%s] is update from cluster", queue.GetName()),
+	switch gvk {
+	case k8s.VCQueueGVK:
+		qs.updateVCQueue(oldQueue, queue)
+	case k8s.EQuotaGVK:
+		qs.updateEQuota(oldQueue, queue)
+	default:
+		log.Warnf("quota type %s for queue is not supported", gvk.String())
+		return
 	}
-	qs.jobQueue.Add(queueInfo)
+}
+
+func (qs *QueueSync) updateEQuota(oldObj, newObj interface{}) {
+	if oldObj == nil || newObj == nil {
+		return
+	}
+
+	oldEquota := oldObj.(*v1beta1.ElasticResourceQuota)
+	newEquota := newObj.(*v1beta1.ElasticResourceQuota)
+
+	if reflect.DeepEqual(oldEquota.Spec, newEquota.Spec) {
+		return
+	}
+	log.Infof("%s queue resource is updated. old:%v new:%v", newEquota.GroupVersionKind(), oldEquota.Spec, newEquota.Spec)
+}
+
+func (qs *QueueSync) updateVCQueue(oldObj, newObj interface{}) {
+	if oldObj == nil || newObj == nil {
+		return
+	}
+	oldQueue := oldObj.(*v1beta1.Queue)
+	newQueue := newObj.(*v1beta1.Queue)
+
+	if reflect.DeepEqual(oldQueue.Spec, newQueue.Spec) {
+		return
+	}
+	log.Infof("%s queue resource is updated. old:%v new:%v", newQueue.GroupVersionKind(), oldQueue.Spec, newQueue.Spec)
 }
 
 // deleteQueue for queue resource delete event
 func (qs *QueueSync) deleteQueue(obj interface{}) {
 	queueObj := obj.(*unstructured.Unstructured)
 	log.Infof("watch %s resource is deleted, name is %s", queueObj.GroupVersionKind(), queueObj.GetName())
-
-	queueInfo := &QueueSyncInfo{
-		Name:    queueObj.GetName(),
-		Status:  queueschema.StatusQueueUnavailable,
-		Message: fmt.Sprintf("queue resource[%s] is deleted from cluster", queueObj.GetName()),
-	}
-	qs.jobQueue.Add(queueInfo)
 }
 
-func getResourceSpec(queueObj *unstructured.Unstructured) (interface{}, error) {
-	spec, ok, unerr := unstructured.NestedFieldCopy(queueObj.Object, "spec")
-	if !ok {
-		if unerr != nil {
-			log.Error(unerr, "NestedFieldCopy unstructured to spec error")
-			return nil, unerr
-		}
-		log.Info("NestedFieldCopy unstructured to spec error: Spec is not found in resource")
-		return nil, fmt.Errorf("get spec from unstructured object failed")
+func convertUnstructuredResource(queueObj *unstructured.Unstructured, gvk schema.GroupVersionKind) (interface{}, error) {
+	var realQueue interface{}
+	switch gvk {
+	case k8s.VCQueueGVK:
+		realQueue = &v1beta1.Queue{}
+	case k8s.EQuotaGVK:
+		realQueue = &v1beta1.ElasticResourceQuota{}
+	default:
+		return nil, fmt.Errorf("the group version kind %s for queue is not supported", gvk)
 	}
-	return spec, nil
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(queueObj.Object, realQueue); err != nil {
+		log.Errorf("convert unstructured object [%+v] to %s status failed. error: %s", queueObj, gvk.String(), err.Error())
+		return nil, err
+	}
+	return realQueue, nil
 }

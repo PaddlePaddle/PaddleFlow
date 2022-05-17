@@ -89,9 +89,9 @@ func (s *WorkflowSourceStep) GetDeps() []string {
 }
 
 type Cache struct {
-	Enable         bool   `yaml:"enable"`
-	MaxExpiredTime string `yaml:"max_expired_time"` // seconds
-	FsScope        string `yaml:"fs_scope"`         // seperated by ","
+	Enable         bool   `yaml:"enable"           json:"enable"`
+	MaxExpiredTime string `yaml:"max_expired_time" json:"maxExpiredTime"` // seconds
+	FsScope        string `yaml:"fs_scope"         json:"fsScope"`        // seperated by ","
 }
 
 type FailureOptions struct {

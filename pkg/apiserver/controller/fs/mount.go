@@ -19,7 +19,6 @@ package fs
 import (
 	"crypto/md5"
 	"encoding/hex"
-	"errors"
 	"time"
 
 	"paddleflow/pkg/apiserver/common"
@@ -143,23 +142,4 @@ func DeleteMount(ctx *logger.RequestContext, req DeleteMountRequest) error {
 		return err
 	}
 	return err
-}
-
-func ListMountNodesByFsID(fsIDs []string) (map[string][]string, error) {
-	if fsIDs == nil || len(fsIDs) == 0 {
-		logger.Logger().Errorf("GetFsMountByID IDs empty")
-		return nil, errors.New("fsIDs empty")
-	}
-	result := make(map[string][]string, len(fsIDs))
-
-	for _, fsID := range fsIDs {
-		nodeNames, err := models.ListMountNodesByID(fsID)
-		if err != nil {
-			logger.Logger().Errorf("ListMountNodesByID[%s] err: %v", fsID, err)
-			return nil, err
-		}
-		result[fsID] = nodeNames
-	}
-
-	return result, nil
 }
