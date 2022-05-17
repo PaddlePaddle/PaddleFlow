@@ -556,7 +556,7 @@ type Workflow struct {
 
 type WorkflowCallbacks struct {
 	GetJobCb      func(runID string, stepName string) (schema.JobView, error)
-	UpdateRunCb   func(string, interface{}) bool
+	UpdateRuntimeCb   func(string, interface{}) (string, bool)
 	LogCacheCb    func(req schema.LogRunCacheRequest) (string, error)
 	ListCacheCb   func(firstFp, fsID, step, yamlPath string) ([]models.RunCache, error)
 	LogArtifactCb func(req schema.LogRunArtifactRequest) error
