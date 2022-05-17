@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -27,15 +27,26 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"paddleflow/pkg/client"
+	"paddleflow/pkg/common/config"
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/fs/client/base"
 	"paddleflow/pkg/fs/client/cache"
+	"paddleflow/pkg/fs/client/kv"
 	"paddleflow/pkg/fs/client/meta"
 	"paddleflow/pkg/fs/client/utils"
 	"paddleflow/pkg/fs/client/vfs"
 	fsCommon "paddleflow/pkg/fs/common"
 	"paddleflow/pkg/fs/utils/common"
 )
+
+func init() {
+	log_ := config.ServerConfig{Log: logger.LogConfig{Level: "debug"}}
+	err := logger.InitStandardFileLogger(&log_.Log)
+	if err != nil {
+		log.Errorf("InitStandardFileLogger err: %v", err)
+		panic("init logger err")
+	}
+}
 
 type PFSClient struct {
 	server string
@@ -54,10 +65,6 @@ func NewFSClientForTest(fsMeta fsCommon.FSMeta) (*PFSClient, error) {
 		vfs.WithDataCacheConfig(cache.Config{
 			BlockSize:    BlockSize,
 			MaxReadAhead: MaxReadAheadNum,
-			Mem: &cache.MemConfig{
-				CacheSize: MemCacheSize,
-				Expire:    MemCacheExpire,
-			},
 			Disk: &cache.DiskConfig{
 				Dir:    DiskCachePath,
 				Expire: DiskCacheExpire,
@@ -67,8 +74,10 @@ func NewFSClientForTest(fsMeta fsCommon.FSMeta) (*PFSClient, error) {
 		vfs.WithMetaConfig(meta.Config{
 			AttrCacheExpire:  MetaCacheExpire,
 			EntryCacheExpire: EntryCacheExpire,
-			Driver:           Driver,
-			CachePath:        MetaCachePath,
+			Config: kv.Config{
+				Driver:    Driver,
+				CachePath: MetaCachePath,
+			},
 		}),
 	)
 	pfs, err := NewFileSystem(fsMeta, nil, true, false, "", vfsConfig)
@@ -117,13 +126,14 @@ func (c *PFSClient) initPFS(fsMeta fsCommon.FSMeta, links map[string]fsCommon.FS
 		vfs.WithDataCacheConfig(cache.Config{
 			BlockSize:    BlockSize,
 			MaxReadAhead: MaxReadAheadNum,
-			Mem:          &cache.MemConfig{CacheSize: MemCacheSize, Expire: MemCacheExpire},
 			Disk:         &cache.DiskConfig{Dir: DiskCachePath, Expire: DiskCacheExpire},
 		}),
 		vfs.WithMetaConfig(meta.Config{
 			AttrCacheExpire:  MetaCacheExpire,
 			EntryCacheExpire: EntryCacheExpire,
-			Driver:           meta.MemMetaName,
+			Config: kv.Config{
+				Driver: Driver,
+			},
 		}),
 	)
 	pfs, err := NewFileSystem(fsMeta, links, false, true, linkMetaDirPrefix, vfsConfig)

@@ -41,6 +41,10 @@ func init() {
 			count += 1
 			_ = cacheGoPool.Submit(func() {
 				page_.r.setCache(page_.index, page_.buffer, len(page_.buffer))
+				if *page_.closed == true {
+					page_.bufferPool.pool.Put(page_.buffer)
+				}
+				*page_.writeCacheReady = true
 				page_ = nil
 			})
 		}
@@ -54,13 +58,15 @@ func init() {
 }
 
 type Page struct {
-	bufferPool  *BufferPool
-	writeLength int
-	lock        sync.RWMutex
-	buffer      []byte
-	ready       bool
-	index       int
-	r           *rCache
+	bufferPool      *BufferPool
+	writeLength     int
+	lock            sync.RWMutex
+	buffer          []byte
+	ready           bool
+	index           int
+	r               *rCache
+	closed          *bool
+	writeCacheReady *bool
 }
 
 type BufferPool struct {
@@ -142,10 +148,12 @@ func (pool *BufferPool) MaybeGC() {
 
 func (p *Page) setCache() {
 	page := &Page{
-		index:      p.index,
-		buffer:     p.buffer,
-		r:          p.r,
-		bufferPool: p.bufferPool,
+		index:           p.index,
+		buffer:          p.buffer,
+		r:               p.r,
+		bufferPool:      p.bufferPool,
+		closed:          p.closed,
+		writeCacheReady: p.writeCacheReady,
 	}
 	go func() {
 		cacheChan <- page
@@ -190,10 +198,13 @@ func (p *Page) Free() {
 	p.bufferPool.mu.Lock()
 	defer p.bufferPool.mu.Unlock()
 	if p.buffer != nil {
-		p.bufferPool.pool.Put(p.buffer)
+		if *p.writeCacheReady == true {
+			p.bufferPool.pool.Put(p.buffer)
+		}
 		p.buffer = nil
 		p.bufferPool.cond.Signal()
 	}
+	*p.closed = true
 }
 
 func (p *Page) Init(pool *BufferPool, size uint64, block bool, blockSize int) *Page {
@@ -204,6 +215,10 @@ func (p *Page) Init(pool *BufferPool, size uint64, block bool, blockSize int) *P
 		if p.buffer == nil {
 			return nil
 		}
+		cacheWrite := false
+		closed := false
+		p.closed = &closed
+		p.writeCacheReady = &cacheWrite
 	}
 	return p
 }

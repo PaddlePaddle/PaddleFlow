@@ -54,16 +54,6 @@ type DefaultMeta struct {
 
 var _ Meta = &DefaultMeta{}
 
-func init() {
-	Register(DefaultName, NewDefaultMeta)
-	Register(MemMetaName, NewMemMeta)
-	Register(LevelDB, newKvMeta)
-}
-
-func NewDefaultMeta(meta Meta, config Config) (Meta, error) {
-	return meta, nil
-}
-
 func InitMeta(fsMeta common.FSMeta, links map[string]common.FSMeta, inodeHandle *InodeHandle) (Meta, error) {
 	meta := &DefaultMeta{
 		name:        DefaultName,

@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -13,6 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 package meta
 
 import (
@@ -27,6 +28,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"paddleflow/pkg/fs/client/base"
+	"paddleflow/pkg/fs/client/kv"
 	ufslib "paddleflow/pkg/fs/client/ufs"
 	"paddleflow/pkg/fs/client/utils"
 )
@@ -45,17 +47,9 @@ var _ Meta = &kvMeta{}
 
 type KvCacheStore func(driver string, config *Config) (Meta, error)
 
-type kvCache interface {
-	name() string
-	get(key []byte) ([]byte, bool)
-	set(key, value []byte) error
-	dels(keys ...[]byte) error
-	scanValues(prefix []byte) (map[string][]byte, error)
-}
-
 // kvMeta
 type kvMeta struct {
-	client       kvCache
+	client       kv.Client
 	defaultMeta  Meta
 	attrTimeOut  time.Duration
 	entryTimeOut time.Duration
@@ -82,7 +76,12 @@ type SliceByte struct {
 }
 
 func newKvMeta(meta Meta, config Config) (Meta, error) {
-	client, err := newClient(config)
+	if config.Driver == DefaultName {
+		// default meta has no cache. query from remote each time
+		return meta, nil
+	}
+
+	client, err := newClient(config.Config)
 	if err != nil {
 		return nil, err
 	}
@@ -95,15 +94,20 @@ func newKvMeta(meta Meta, config Config) (Meta, error) {
 	return m, nil
 }
 
-func newClient(config Config) (kvCache, error) {
-	if config.Driver == LevelDB {
-		client, err := newLevelDBClient(config)
-		if err != nil {
-			return nil, err
-		}
-		return client, nil
+func newClient(config kv.Config) (kv.Client, error) {
+	var client kv.Client
+	var err error
+	switch config.Driver {
+	case kv.LevelDB:
+		client, err = kv.NewLevelDBClient(config)
+	case kv.NutsDB:
+		client, err = kv.NewNutsClient(config)
+	case kv.Mem:
+		client, err = kv.NewMemClient(config)
+	default:
+		return nil, fmt.Errorf("unknown meta client")
 	}
-	return nil, fmt.Errorf("unknown meta client")
+	return client, err
 }
 
 func (m *kvMeta) ContactKey(args ...string) []byte {
@@ -119,7 +123,7 @@ func (m *kvMeta) FullPath(parent Ino, name string) string {
 }
 
 func (m *kvMeta) findEntry(parentPath, fullPath string) ([]byte, bool) {
-	data, has := m.client.get(m.entryKey(parentPath, fullPath))
+	data, has := m.client.Get(m.entryKey(parentPath, fullPath))
 	return data, has
 }
 
@@ -133,14 +137,14 @@ func (m *kvMeta) attrKey(fullPath string) []byte {
 
 func (m *kvMeta) tryGetAttr(ino Ino, attr *attrCacheItem) bool {
 	fullPath := m.InoToPath(ino)
-	a, ok := m.client.get(m.attrKey(fullPath))
+	a, ok := m.client.Get(m.attrKey(fullPath))
 	if !ok {
 		return false
 	}
 	m.parseAttr(a, attr)
 	if attr.expire < time.Now().Unix() {
 		go func() {
-			m.client.dels(m.attrKey(fullPath))
+			m.client.Dels(m.attrKey(fullPath))
 		}()
 		return false
 	}
@@ -151,7 +155,7 @@ func (m *kvMeta) tryGetAttr(ino Ino, attr *attrCacheItem) bool {
 func (m *kvMeta) putAttr(fullPath string, attr attrCacheItem, expire int64) {
 	attr.expire = expire
 	value := m.marshalAttr(&attr)
-	err := m.client.set(m.attrKey(fullPath), value)
+	err := m.client.Set(m.attrKey(fullPath), value)
 	if err != nil {
 		log.Errorf("putAttr cache err %v", err)
 		return
@@ -163,10 +167,10 @@ func (m *kvMeta) putEntry(parentPath string, entry entryCacheItem, expire int64)
 	value := m.marshalEntry(&entry)
 	entryPath := m.InoToPath(entry.ino)
 	entryKey := m.entryKey(parentPath, entryPath)
-	err := m.client.set(entryKey, value)
+	err := m.client.Set(entryKey, value)
 
 	if err != nil {
-		m.client.dels(entryKey)
+		m.client.Dels(entryKey)
 		log.Errorf("putEntry cache err %v", err)
 		return
 	}
@@ -181,16 +185,16 @@ func (m *kvMeta) putEntries(parentEntry entryCacheItem, entries []entryCacheItem
 	parentEntry.done = entryDone
 	value := m.marshalEntry(&parentEntry)
 
-	err := m.client.set(m.entryKey(parentPath, parentPath), value)
+	err := m.client.Set(m.entryKey(parentPath, parentPath), value)
 	if err != nil {
 		log.Errorf("putEntries cache err %v", err)
 		return
 	}
-	value, _ = m.client.get(m.entryKey(parentPath, parentPath))
+	value, _ = m.client.Get(m.entryKey(parentPath, parentPath))
 }
 
 func (m *kvMeta) getEntries(entryPath string) (map[string][]byte, bool) {
-	value, has := m.client.get(m.entryKey(entryPath, entryPath))
+	value, has := m.client.Get(m.entryKey(entryPath, entryPath))
 	if !has {
 		return nil, false
 	}
@@ -201,9 +205,9 @@ func (m *kvMeta) getEntries(entryPath string) (map[string][]byte, bool) {
 		return nil, false
 	}
 	key := m.entryKey(entryPath, entryPath)
-	en, err := m.client.scanValues(key)
+	en, err := m.client.ScanValues(key)
 	if err != nil {
-		log.Errorf("scanValues err: %v", err)
+		log.Debugf("scanValues err: %v with key[%s]", err, key)
 		return nil, false
 	}
 	for k, _ := range en {
@@ -217,14 +221,14 @@ func (m *kvMeta) getEntries(entryPath string) (map[string][]byte, bool) {
 
 func (m *kvMeta) removeEntry(parentPath, name string) {
 	fullPath := filepath.Join(parentPath, name)
-	err := m.client.dels(m.entryKey(parentPath, fullPath))
+	err := m.client.Dels(m.entryKey(parentPath, fullPath))
 	if err != nil {
 		log.Errorf("removeEntry err: %v", err)
 	}
 }
 
 func (m *kvMeta) removeAttr(fullPath string) {
-	err := m.client.dels(m.attrKey(fullPath))
+	err := m.client.Dels(m.attrKey(fullPath))
 	if err != nil {
 		log.Errorf("removeAttr err: %v", err)
 	}
@@ -238,7 +242,7 @@ func (m *kvMeta) GetUFS(name string) (ufslib.UnderFileStorage, bool, string, str
 }
 
 func (m *kvMeta) Name() string {
-	return m.client.name()
+	return m.client.Name()
 }
 
 func (m *kvMeta) InoToPath(inode Ino) string {
@@ -741,4 +745,12 @@ func (m *kvMeta) marshalEntry(attr *entryCacheItem) []byte {
 	w.Put64(uint64(attr.expire))
 	w.Put8(attr.done)
 	return w.Bytes()
+}
+
+type Config struct {
+	kv.Config
+	AttrCacheExpire    time.Duration
+	EntryCacheExpire   time.Duration
+	AttrCacheSize      uint64
+	EntryAttrCacheSize uint64
 }

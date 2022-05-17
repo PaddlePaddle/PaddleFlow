@@ -55,18 +55,19 @@ type DiskConfig struct {
 	Expire time.Duration
 }
 
-func NewDiskCache(config *DiskConfig) *diskCache {
+func NewDiskCache(fsID string, config *DiskConfig) *diskCache {
 	if config == nil || config.Dir == "" || config.Dir == "/" {
 		return nil
 	}
 
+	cachePath := filepath.Join(config.Dir, fsID)
 	if config != nil {
 		d := &diskCache{
-			dir:    config.Dir,
+			dir:    cachePath,
 			expire: config.Expire,
 		}
 		// TODO: 报错往上抛
-		os.MkdirAll(config.Dir, 0755)
+		os.MkdirAll(cachePath, 0755)
 		d.updateCapacity()
 		// 后续加stop channel
 		go func() {
