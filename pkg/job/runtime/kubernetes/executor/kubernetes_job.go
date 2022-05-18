@@ -19,6 +19,7 @@ package executor
 import (
 	"fmt"
 	"io/ioutil"
+	locationAwareness "paddleflow/pkg/fs/location-awareness"
 	"reflect"
 	"strings"
 
@@ -45,6 +46,9 @@ const (
 	defaultPodReplicas        = 1 // default replicas for pod mode
 	defaultPSReplicas         = 1 // default replicas for PS mode, including ps-server and ps-worker
 	defaultCollectiveReplicas = 2 // default replicas for collective mode
+
+	fsLocationAwarenessKey    = "kubernetes.io/hostname"
+	fsLocationAwarenessWeight = 10
 )
 
 // KubeJobInterface define methods for create kubernetes job
@@ -205,6 +209,52 @@ func newFrameWorkJob(kubeJob KubeJob, job *api.PFJob) (api.PFJobInterface, error
 	}
 }
 
+func (j *KubeJob) generateAffinity(affinity *corev1.Affinity, fsIDs []string) *corev1.Affinity {
+	nodes, err := locationAwareness.ListMountNodesByFsID(fsIDs)
+	if err == nil {
+		log.Warningf("get location awareness for PaddleFlow filesystem %s failed, err: %v", fsIDs, err)
+		return affinity
+	}
+	log.Infof("nodes for PaddleFlow filesystem %s location awareness: %v", fsIDs, nodes)
+	if len(nodes) == 0 {
+		return affinity
+	}
+	storageAffinity := j.getStorageAffinity(nodes)
+	if affinity == nil {
+		return storageAffinity
+	}
+	// merge storage affinity to job affinity
+	if affinity.NodeAffinity == nil {
+		affinity.NodeAffinity = storageAffinity.NodeAffinity
+	} else {
+		affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(
+			storageAffinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution,
+			affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution...)
+	}
+	return affinity
+}
+
+func (j *KubeJob) getStorageAffinity(nodes []string) *corev1.Affinity {
+	return &corev1.Affinity{
+		NodeAffinity: &corev1.NodeAffinity{
+			PreferredDuringSchedulingIgnoredDuringExecution: []corev1.PreferredSchedulingTerm{
+				{
+					Weight: fsLocationAwarenessWeight,
+					Preference: corev1.NodeSelectorTerm{
+						MatchExpressions: []corev1.NodeSelectorRequirement{
+							{
+								Key:      fsLocationAwarenessKey,
+								Operator: corev1.NodeSelectorOpIn,
+								Values:   nodes,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func (j *KubeJob) generateVolume() corev1.Volume {
 	if j.PVCName == "" || j.VolumeName == "" {
 		return corev1.Volume{}
@@ -302,6 +352,8 @@ func (j *KubeJob) fillPodSpec(podSpec *corev1.PodSpec, task *models.Member) {
 	if j.isNeedPatch(string(podSpec.RestartPolicy)) {
 		podSpec.RestartPolicy = corev1.RestartPolicyNever
 	}
+	// fill affinity
+	podSpec.Affinity = j.generateAffinity(podSpec.Affinity, []string{j.VolumeName})
 }
 
 // todo: to be removed
