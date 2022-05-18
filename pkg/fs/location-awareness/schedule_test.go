@@ -14,13 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package fs
+package location_awareness
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
+	"paddleflow/pkg/apiserver/controller/fs"
 	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/common/database/dbinit"
 )
@@ -33,7 +34,7 @@ func TestListMountNodesByFsID(t *testing.T) {
 	fsMount := &models.FsMount{
 		FsID:       fsID1,
 		MountPoint: mountPoint1,
-		MountID:    GetMountID(clusterID, nodeName1, mountPoint1),
+		MountID:    fs.GetMountID(clusterID, nodeName1, mountPoint1),
 		NodeName:   nodeName1,
 		ClusterID:  clusterID,
 	}
@@ -43,7 +44,7 @@ func TestListMountNodesByFsID(t *testing.T) {
 	fsMount = &models.FsMount{
 		FsID:       fsID1,
 		MountPoint: mountPoint1,
-		MountID:    GetMountID(clusterID, nodeName2, mountPoint1),
+		MountID:    fs.GetMountID(clusterID, nodeName2, mountPoint1),
 		NodeName:   nodeName2,
 		ClusterID:  clusterID,
 	}
@@ -53,7 +54,7 @@ func TestListMountNodesByFsID(t *testing.T) {
 	fsMount = &models.FsMount{
 		FsID:       fsID2,
 		MountPoint: mountPoint2,
-		MountID:    GetMountID(clusterID, nodeName1, mountPoint2),
+		MountID:    fs.GetMountID(clusterID, nodeName1, mountPoint2),
 		NodeName:   nodeName1,
 		ClusterID:  clusterID,
 	}

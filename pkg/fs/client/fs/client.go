@@ -46,12 +46,8 @@ var (
 	// 0 means not use data cache
 	BlockSize       = 0
 	MaxReadAheadNum = 0
-
-	MemCacheSize    = 0
-	MemCacheExpire  = 0 * time.Second
-	DiskCacheExpire = 0 * time.Second
-	DiskDirMode     = os.FileMode(0666)
-	DiskCachePath   = "/var/cache/pfs_data_cache"
+	DataCacheExpire = 0 * time.Second
+	DataCachePath   = "/var/cache/pfs_data_cache"
 
 	Driver           = meta.DefaultName
 	MetaCacheExpire  = 0 * time.Second
@@ -69,10 +65,8 @@ func SetMetaCache(config meta.Config) {
 func SetDataCache(config cache.Config) {
 	BlockSize = config.BlockSize
 	MaxReadAheadNum = config.MaxReadAhead
-	if config.Disk != nil {
-		DiskCacheExpire = config.Disk.Expire
-		DiskCachePath = config.Disk.Dir
-	}
+	DataCacheExpire = config.Expire
+	DataCachePath = config.CachePath
 }
 
 type FSClient interface {

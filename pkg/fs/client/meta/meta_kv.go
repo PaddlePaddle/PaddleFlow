@@ -45,8 +45,6 @@ const (
 
 var _ Meta = &kvMeta{}
 
-type KvCacheStore func(driver string, config *Config) (Meta, error)
-
 // kvMeta
 type kvMeta struct {
 	client       kv.Client
@@ -75,10 +73,10 @@ type SliceByte struct {
 	cap  int
 }
 
-func newKvMeta(meta Meta, config Config) (Meta, error) {
+func newKvMeta(defaultMeta Meta, config Config) (Meta, error) {
 	if config.Driver == DefaultName {
 		// default meta has no cache. query from remote each time
-		return meta, nil
+		return defaultMeta, nil
 	}
 
 	client, err := newClient(config.Config)
@@ -87,7 +85,7 @@ func newKvMeta(meta Meta, config Config) (Meta, error) {
 	}
 	m := &kvMeta{
 		client:       client,
-		defaultMeta:  meta,
+		defaultMeta:  defaultMeta,
 		attrTimeOut:  config.AttrCacheExpire,
 		entryTimeOut: config.EntryCacheExpire,
 	}
