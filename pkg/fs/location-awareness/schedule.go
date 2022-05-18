@@ -24,12 +24,12 @@ import (
 	"paddleflow/pkg/apiserver/models"
 )
 
-func ListMountNodesByFsID(fsIDs []string) (map[string][]string, error) {
+func ListMountNodesByFsID(fsIDs []string) ([]string, error) {
 	if len(fsIDs) == 0 {
 		log.Errorf("GetFsMountByID IDs empty")
 		return nil, errors.New("fsIDS empty")
 	}
-	result := make(map[string][]string, len(fsIDs))
+	nodesMap := make(map[string]struct{}, 0)
 
 	for _, fsID := range fsIDs {
 		nodeNames, err := models.ListMountNodesByID(fsID)
@@ -37,8 +37,15 @@ func ListMountNodesByFsID(fsIDs []string) (map[string][]string, error) {
 			log.Errorf("ListMountNodesByID[%s] err: %v", fsID, err)
 			return nil, err
 		}
-		result[fsID] = nodeNames
+		for _, nodeName := range nodeNames {
+			nodesMap[nodeName] = struct{}{}
+		}
 	}
 
-	return result, nil
+	nodes := make([]string, 0)
+	for nodeName, _ := range nodesMap {
+		nodes = append(nodes, nodeName)
+	}
+
+	return nodes, nil
 }
