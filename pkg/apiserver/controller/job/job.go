@@ -179,7 +179,7 @@ func CreateSingleJob(ctx *logger.RequestContext, request *CreateSingleJobRequest
 // newExtensionTemplate parse extensionTemplate
 func newExtensionTemplate(extensionTemplate map[string]interface{}) (string, error) {
 	yamlExtensionTemplate := ""
-	if extensionTemplate != nil {
+	if extensionTemplate != nil && len(extensionTemplate) > 0 {
 		extensionTemplateJSON, err := json.Marshal(&extensionTemplate)
 		bytes, err := yaml.JSONToYAML(extensionTemplateJSON)
 		if err != nil {
