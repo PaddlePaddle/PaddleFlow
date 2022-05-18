@@ -50,7 +50,7 @@ type CreateQueueRequest struct {
 
 type UpdateQueueRequest struct {
 	Name         string              `json:"-"`
-	Namespace    string              `json:"namespace,omitempty"`
+	Namespace    string              `json:"-"`
 	ClusterName  string              `json:"-"`
 	QuotaType    string              `json:"-"`
 	MaxResources schema.ResourceInfo `json:"maxResources,omitempty"`
@@ -338,32 +338,7 @@ func UpdateQueue(ctx *logger.RequestContext, request *UpdateQueueRequest) (Updat
 
 	// validate fields if not nil, validate namespace at first
 	updateClusterRequired := false
-	if request.Namespace != "" {
-		if errStr := common.IsDNS1123Label(request.Namespace); len(errStr) != 0 {
-			return UpdateQueueResponse{}, fmt.Errorf("namespace[%s] of queue is invalid, err: %s",
-				request.Namespace, strings.Join(errStr, ","))
-		}
-		if len(clusterInfo.NamespaceList) != 0 {
-			isExist := false
-			for _, ns := range clusterInfo.NamespaceList {
-				if request.Namespace == ns {
-					isExist = true
-					break
-				}
-			}
-			if !isExist {
-				ctx.ErrorCode = common.QueueInvalidField
-				err := fmt.Errorf("namespace[%s] of queue not in the specified values [%s] by cluster[%s]",
-					request.Namespace, clusterInfo.RawNamespaceList, clusterInfo.Name)
-				ctx.Logging().Errorf(err.Error())
-				return UpdateQueueResponse{}, err
-			}
-		}
-		if queueInfo.QuotaType == schema.TypeElasticQuota {
-			updateClusterRequired = true
-		}
-		queueInfo.Namespace = request.Namespace
-	}
+
 	// validate MaxResource or MinResource
 	scalarResourceLaws := config.GlobalServerConfig.Job.ScalarResourceArray
 	if request.MaxResources.CPU != "" && request.MaxResources.Mem != "" {
