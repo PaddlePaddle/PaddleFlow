@@ -211,7 +211,7 @@ func newFrameWorkJob(kubeJob KubeJob, job *api.PFJob) (api.PFJobInterface, error
 
 func (j *KubeJob) generateAffinity(affinity *corev1.Affinity, fsIDs []string) *corev1.Affinity {
 	nodes, err := locationAwareness.ListMountNodesByFsID(fsIDs)
-	if err == nil {
+	if err != nil {
 		log.Warningf("get location awareness for PaddleFlow filesystem %s failed, err: %v", fsIDs, err)
 		return affinity
 	}
@@ -353,7 +353,10 @@ func (j *KubeJob) fillPodSpec(podSpec *corev1.PodSpec, task *models.Member) {
 		podSpec.RestartPolicy = corev1.RestartPolicyNever
 	}
 	// fill affinity
-	podSpec.Affinity = j.generateAffinity(podSpec.Affinity, []string{j.VolumeName})
+	if len(j.VolumeName) != 0 {
+		// TODO: support multi filesystems
+		podSpec.Affinity = j.generateAffinity(podSpec.Affinity, []string{j.VolumeName})
+	}
 }
 
 // todo: to be removed
