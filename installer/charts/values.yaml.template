@@ -42,13 +42,6 @@ fs:
   rpcPort: ${PADDLEFLOW_FS_RPC_PORT}
   restPort: ${PADDLEFLOW_FS_REST_PORT}
 
-km_volcano:
-  enable: false
-  controller_image_name: ${IMAGE_REGISTRY}/${KM_VOLCANO_CONTROLLER_IMAGE_NAME}
-  scheduler_image_name: ${IMAGE_REGISTRY}/${KM_VOLCANO_SCHEDULER_IMAGE_NAME}
-  admission_image_name: ${IMAGE_REGISTRY}/${KM_VOLCANO_ADMISSION_IMAGE_NAME}
-  scheduler_config_file: "config/volcano-scheduler-km.conf"
-
 volcano:
   controller_image_name: ${IMAGE_REGISTRY}/${VOLCANO_CONTROLLER_IMAGE_NAME}
   scheduler_image_name: ${IMAGE_REGISTRY}/${VOLCANO_SCHEDULER_IMAGE_NAME}
