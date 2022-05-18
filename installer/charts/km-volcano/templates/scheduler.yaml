@@ -1,0 +1,145 @@
+{{- if .Values.km_volcano.enable -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: volcano-scheduler-configmap
+  namespace: {{ .Release.Namespace }}
+data:
+  {{- (.Files.Glob .Values.km_volcano.scheduler_config_file).AsConfig | nindent 2}}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: volcano-scheduler
+  namespace: {{ .Release.Namespace }}
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: volcano-scheduler
+rules:
+  - apiGroups: ["apiextensions.k8s.io"]
+    resources: ["customresourcedefinitions"]
+    verbs: ["create", "get", "list", "watch", "delete"]
+  - apiGroups: ["batch.volcano.sh"]
+    resources: ["jobs"]
+    verbs: ["get", "list", "watch", "update", "delete"]
+  - apiGroups: ["batch.volcano.sh"]
+    resources: ["jobs/status"]
+    verbs: ["update", "patch"]
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "watch", "create", "delete", "update"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "list", "watch", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["pods", "pods/status"]
+    verbs: ["create", "get", "list", "watch", "update", "patch", "bind", "updateStatus", "delete"]
+  - apiGroups: [""]
+    resources: ["pods/binding"]
+    verbs: ["create"]
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    verbs: ["list", "watch"]
+  - apiGroups: [""]
+    resources: ["persistentvolumes"]
+    verbs: ["list", "watch"]
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["list", "watch"]
+  - apiGroups: [""]
+    resources: ["resourcequotas"]
+    verbs: ["list", "watch", "create", "update"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses"]
+    verbs: ["list", "watch"]
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["list", "watch"]
+  - apiGroups: ["policy"]
+    resources: ["poddisruptionbudgets"]
+    verbs: ["list", "watch"]
+  - apiGroups: ["scheduling.k8s.io"]
+    resources: ["priorityclasses"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["scheduling.incubator.k8s.io", "scheduling.volcano.sh"]
+    resources: ["queues", "elasticresourcequotas"]
+    verbs: ["get", "list", "watch", "create", "delete"]
+  - apiGroups: ["scheduling.incubator.k8s.io", "scheduling.volcano.sh"]
+    resources: ["podgroups"]
+    verbs: ["list", "watch", "update"]
+
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: volcano-scheduler-role
+subjects:
+  - kind: ServiceAccount
+    name: volcano-scheduler
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: ClusterRole
+  name: volcano-scheduler
+  apiGroup: rbac.authorization.k8s.io
+
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: volcano-scheduler
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: volcano-scheduler
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: volcano-scheduler
+  template:
+    metadata:
+      labels:
+        app: volcano-scheduler
+    spec:
+      serviceAccount: volcano-scheduler
+      {{- if .Values.volcano.image_pull_secret }}
+      imagePullSecrets:
+          - name: {{ .Values.volcano.image_pull_secret }}
+      {{- end }}
+      containers:
+        - name: volcano-scheduler
+          image: {{.Values.km_volcano.scheduler_image_name}}
+          args:
+            - --logtostderr
+            - --scheduler-conf=/volcano.scheduler/{{base .Values.km_volcano.scheduler_config_file}}
+            - -v=3
+            - 2>&1
+          imagePullPolicy: "IfNotPresent"
+          volumeMounts:
+            - name: scheduler-config
+              mountPath: /volcano.scheduler
+      volumes:
+        - name: scheduler-config
+          configMap:
+            name: volcano-scheduler-configmap
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    prometheus.io/path: /metrics
+    prometheus.io/port: "8080"
+    prometheus.io/scrape: "true"
+  name: volcano-scheduler-service
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+  - port: 8080
+    protocol: TCP
+    targetPort: 8080
+  selector:
+    app: volcano-scheduler
+  type: ClusterIP
+
+{{- end -}}
