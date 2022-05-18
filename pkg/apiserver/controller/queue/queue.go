@@ -48,8 +48,25 @@ type CreateQueueRequest struct {
 	Status           string   `json:"-"`
 }
 
+type UpdateQueueRequest struct {
+	Name         string              `json:"-"`
+	Namespace    string              `json:"-"`
+	ClusterName  string              `json:"-"`
+	QuotaType    string              `json:"-"`
+	MaxResources schema.ResourceInfo `json:"maxResources,omitempty"`
+	MinResources schema.ResourceInfo `json:"minResources,omitempty"`
+	Location     map[string]string   `json:"location,omitempty"`
+	// 任务调度策略
+	SchedulingPolicy []string `json:"schedulingPolicy,omitempty"`
+	Status           string   `json:"-"`
+}
+
 type CreateQueueResponse struct {
 	QueueName string `json:"name"`
+}
+
+type UpdateQueueResponse struct {
+	models.Queue
 }
 
 type GetQueueResponse struct {
@@ -279,6 +296,127 @@ func CreateQueue(ctx *logger.RequestContext, request *CreateQueueRequest) (Creat
 	ctx.Logging().Debugf("create request success. queueName:%s", request.Name)
 	response := CreateQueueResponse{
 		QueueName: request.Name,
+	}
+	return response, nil
+}
+
+func UpdateQueue(ctx *logger.RequestContext, request *UpdateQueueRequest) (UpdateQueueResponse, error) {
+	ctx.Logging().Debugf("begin update request. request:%s", config.PrettyFormat(request))
+	if !common.IsRootUser(ctx.UserName) {
+		ctx.ErrorCode = common.OnlyRootAllowed
+		ctx.Logging().Errorln("update request failed. error: admin is needed.")
+		return UpdateQueueResponse{}, errors.New("update request failed")
+	}
+	// check queue name
+	if request.Name == "" {
+		ctx.ErrorCode = common.QueueNameNotFound
+		ctx.Logging().Errorln("update request failed. error: queueName is not found.")
+		return UpdateQueueResponse{}, errors.New("queueName is not found")
+	}
+	queueInfo, err := models.GetQueueByName(request.Name)
+	if err != nil {
+		ctx.ErrorCode = common.RecordNotFound
+		ctx.Logging().Errorf("get queue failed. error:%s", err.Error())
+		return UpdateQueueResponse{}, err
+	}
+	// record a snapshot of queue
+	var queueSnapshot models.Queue
+	models.DeepCopyQueue(queueInfo, &queueSnapshot)
+	// get cluster, if closed, refuse to update queue
+	clusterInfo, err := models.GetClusterById(queueInfo.ClusterId)
+	if err != nil {
+		ctx.ErrorCode = common.ClusterNotFound
+		ctx.Logging().Errorln("update request failed. error: cluster not found by Name.")
+		return UpdateQueueResponse{}, errors.New("cluster not found by Name")
+	}
+	if clusterInfo.Status != models.ClusterStatusOnLine {
+		ctx.ErrorCode = common.InvalidClusterStatus
+		errMsg := fmt.Sprintf("cluster[%s] not in online status, operator not permit", clusterInfo.Name)
+		ctx.Logging().Errorln(errMsg)
+		return UpdateQueueResponse{}, errors.New(errMsg)
+	}
+
+	// validate fields if not nil, validate namespace at first
+	updateClusterRequired := false
+
+	// validate MaxResource or MinResource
+	scalarResourceLaws := config.GlobalServerConfig.Job.ScalarResourceArray
+	if request.MaxResources.CPU != "" && request.MaxResources.Mem != "" {
+		if err = schema.ValidateResourceInfo(request.MaxResources, scalarResourceLaws); err != nil {
+			ctx.Logging().Errorf("update queue failed. error: %s", err.Error())
+			ctx.ErrorCode = common.InvalidComputeResource
+			return UpdateQueueResponse{}, err
+		}
+		updateClusterRequired = true
+		queueInfo.MaxResources = request.MaxResources
+	}
+	if request.QuotaType == schema.TypeElasticQuota && request.MinResources.CPU != "" && request.MinResources.Mem != "" {
+		if err = schema.ValidateResourceInfo(request.MinResources, scalarResourceLaws); err != nil {
+			ctx.Logging().Errorf("update queue failed. error: %s", err.Error())
+			ctx.ErrorCode = common.InvalidComputeResource
+			return UpdateQueueResponse{}, err
+		}
+		updateClusterRequired = true
+		queueInfo.MinResources = request.MinResources
+	}
+	// validate Location
+	if queueInfo.Location == nil {
+		queueInfo.Location = make(map[string]string)
+	}
+	if len(request.Location) != 0 || request.Location == nil {
+		for k, location := range request.Location {
+			queueInfo.Location[k] = location
+		}
+	} else {
+		log.Debugf("queue %s Location is set nil", request.Name)
+	}
+
+	// validate scheduling policy
+	if len(request.SchedulingPolicy) != 0 {
+		log.Warningf("todo queue.SchedulingPolicy havn't been validated yet")
+		queueInfo.SchedulingPolicy = request.SchedulingPolicy
+	}
+	// validate queue status
+	queueInfo.Status = schema.StatusQueueUpdating
+
+	// init runtimeSvc if updateCluster is necessary
+	var runtimeSvc runtime.RuntimeService
+	if updateClusterRequired {
+		runtimeSvc, err = runtime.GetOrCreateRuntime(clusterInfo)
+		if err != nil {
+			ctx.Logging().Errorf("GlobalVCQueue update request failed. error:%s", err.Error())
+			ctx.ErrorCode = common.QueueResourceNotMatch
+			ctx.ErrorMessage = err.Error()
+			return UpdateQueueResponse{}, err
+		}
+	}
+
+	// update queue in db
+	if err = models.UpdateQueue(&queueInfo); err != nil {
+		ctx.Logging().Errorf("update queue failed. error:%s", err.Error())
+		ctx.ErrorCode = common.QueueUpdateFailed
+		return UpdateQueueResponse{}, err
+	}
+
+	// update queue in cluster, which will roll back changes in db if failed
+	if updateClusterRequired {
+		log.Debugf("required to update queue in cluster. queueName:[%s]", queueInfo.Name)
+		if err = runtimeSvc.UpdateQueue(&queueInfo); err != nil {
+			ctx.Logging().Errorf("GlobalVCQueue create request failed. error:%s", err.Error())
+			ctx.ErrorCode = common.QueueResourceNotMatch
+			ctx.ErrorMessage = err.Error()
+			if rollbackErr := models.UpdateQueue(&queueSnapshot); rollbackErr != nil {
+				ctx.Logging().Errorf("update request roll back db failed.queue:%s error:%v",
+					queueSnapshot.Name, rollbackErr)
+				err = rollbackErr
+			}
+			return UpdateQueueResponse{}, err
+		}
+	}
+
+	ctx.Logging().Debugf("update request success. queueName:%s", queueInfo.Name)
+	response := UpdateQueueResponse{
+		queueInfo,
 	}
 	return response, nil
 }
