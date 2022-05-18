@@ -19,7 +19,6 @@ package executor
 import (
 	"fmt"
 	"io/ioutil"
-	locationAwareness "paddleflow/pkg/fs/location-awareness"
 	"reflect"
 	"strings"
 
@@ -39,6 +38,7 @@ import (
 	"paddleflow/pkg/common/k8s"
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/common/schema"
+	locationAwareness "paddleflow/pkg/fs/location-awareness"
 	"paddleflow/pkg/job/api"
 )
 
@@ -223,7 +223,7 @@ func (j *KubeJob) generateAffinity(affinity *corev1.Affinity, fsIDs []string) *c
 	if affinity == nil {
 		return storageAffinity
 	}
-	// merge storage affinity to job affinity
+	// merge filesystem location awareness affinity to pod affinity
 	if affinity.NodeAffinity == nil {
 		affinity.NodeAffinity = storageAffinity.NodeAffinity
 	} else {
