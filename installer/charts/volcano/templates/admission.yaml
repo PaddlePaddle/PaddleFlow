@@ -1,0 +1,140 @@
+{{- if .Values.volcano.enable -}}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Release.Name }}-admission
+  namespace: {{ .Release.Namespace }}
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ .Release.Name }}-admission
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps", "nodes", "namespaces"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["admissionregistration.k8s.io"]
+    resources: ["mutatingwebhookconfigurations", "validatingwebhookconfigurations"]
+    verbs: ["get", "list", "watch", "create", "update"]
+  # Rules below is used generate admission service secret
+  - apiGroups: ["certificates.k8s.io"]
+    resources: ["certificatesigningrequests"]
+    verbs: ["get", "list", "create", "delete"]
+  - apiGroups: ["certificates.k8s.io"]
+    resources: ["certificatesigningrequests/approval"]
+    verbs: ["create", "update"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["create", "get", "patch"]
+  - apiGroups: ["scheduling.incubator.k8s.io", "scheduling.volcano.sh"]
+    resources: ["queues"]
+    verbs: ["get", "list"]
+  - apiGroups: ["scheduling.incubator.k8s.io", "scheduling.volcano.sh"]
+    resources: ["elasticresourcequotas", "elasticresourcequotas/status"]
+    verbs: ["get", "list", "update"]
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["get"]
+  - apiGroups: ["scheduling.incubator.k8s.io", "scheduling.volcano.sh"]
+    resources: ["podgroups"]
+    verbs: ["get", "list", "watch"]
+
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ .Release.Name }}-admission-role
+subjects:
+  - kind: ServiceAccount
+    name: {{ .Release.Name }}-admission
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: ClusterRole
+  name: {{ .Release.Name }}-admission
+  apiGroup: rbac.authorization.k8s.io
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: volcano-admission
+  name: {{ .Release.Name }}-admission
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: volcano-admission
+  template:
+    metadata:
+      labels:
+        app: volcano-admission
+    spec:
+      serviceAccount: {{ .Release.Name }}-admission
+      {{- if .Values.volcano.image_pull_secret }}
+      imagePullSecrets:
+        - name: {{ .Values.volcano.image_pull_secret }}
+      {{- end }}
+      containers:
+        - args:
+            - --tls-cert-file=/admission.local.config/certificates/tls.crt
+            - --tls-private-key-file=/admission.local.config/certificates/tls.key
+            - --ca-cert-file=/admission.local.config/certificates/ca.crt
+            - --webhook-namespace={{ .Release.Namespace }}
+            - --webhook-service-name={{ .Release.Name }}-admission-service
+            - --logtostderr
+            - --port={{.Values.volcano.admission_port}}
+            - -v=4
+            - 2>&1
+          image: {{.Values.volcano.admission_image_name}}
+          imagePullPolicy: IfNotPresent
+          name: admission
+          volumeMounts:
+            - mountPath: /admission.local.config/certificates
+              name: admission-certs
+              readOnly: true
+      volumes:
+        - name: admission-certs
+          secret:
+            defaultMode: 420
+            secretName: {{.Values.volcano.admission_secret_name}}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: volcano-admission
+  name: {{ .Release.Name }}-admission-service
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+    - port: 443
+      protocol: TCP
+      targetPort: {{.Values.volcano.admission_port}}
+  selector:
+    app: volcano-admission
+  sessionAffinity: None
+
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-admission-init
+  namespace: {{.Values.volcano.volcano_namespace}}
+  labels:
+    app: volcano-admission-init
+spec:
+  backoffLimit: 3
+  template:
+    spec:
+      serviceAccountName: {{ .Release.Name }}-admission
+      restartPolicy: Never
+      containers:
+        - name: main
+          image: {{.Values.volcano.admission_image_name}}
+          imagePullPolicy: IfNotPresent
+          command: ["./gen-admission-secret.sh", "--service", "{{ .Release.Name }}-admission-service", "--namespace",
+                    "{{ .Release.Namespace }}", "--secret", "{{.Values.volcano.admission_secret_name}}"]
+{{- end -}}
