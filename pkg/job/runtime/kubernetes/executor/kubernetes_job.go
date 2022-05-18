@@ -48,7 +48,7 @@ const (
 	defaultCollectiveReplicas = 2 // default replicas for collective mode
 
 	fsLocationAwarenessKey    = "kubernetes.io/hostname"
-	fsLocationAwarenessWeight = 10
+	fsLocationAwarenessWeight = 100
 )
 
 // KubeJobInterface define methods for create kubernetes job
