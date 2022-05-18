@@ -327,9 +327,10 @@ func InitVFS(c *cli.Context, registry *prometheus.Registry) error {
 	d := cache.Config{
 		BlockSize:    c.Int("block-size"),
 		MaxReadAhead: c.Int("data-read-ahead-size"),
-		Disk: &cache.DiskConfig{
-			Dir:    c.String("data-cache-path"),
-			Expire: c.Duration("data-cache-expire"),
+		Expire:       c.Duration("data-cache-expire"),
+		Config: kv.Config{
+			Driver:    kv.NutsDB,
+			CachePath: c.String("data-cache-path"),
 		},
 	}
 	vfsOptions := []vfs.Option{

@@ -179,9 +179,9 @@ func NewMeta(fsMeta common.FSMeta, links map[string]common.FSMeta, inodeHandle *
 			},
 		}
 	}
-	m, err := InitMeta(fsMeta, links, inodeHandle)
+	defaultMeta, err := InitDefaultMeta(fsMeta, links, inodeHandle)
 	if err != nil {
 		return nil, err
 	}
-	return newKvMeta(m, *config)
+	return newKvMeta(defaultMeta, *config)
 }

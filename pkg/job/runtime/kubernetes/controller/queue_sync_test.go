@@ -18,9 +18,13 @@ package controller
 
 import (
 	"context"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"net/http/httptest"
+	"paddleflow/pkg/common/config"
 	"testing"
 	"time"
+	"volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -51,7 +55,10 @@ func newFakeQueueSyncController() *QueueSync {
 		DynamicFactory:  dynamicinformer.NewDynamicSharedInformerFactory(dynamicClient, 0),
 		DiscoveryClient: fakeDiscovery,
 	}
-	ctrl.Initialize(opt)
+	err := ctrl.Initialize(opt)
+	if err != nil {
+		return nil
+	}
 	return ctrl
 }
 
@@ -60,43 +67,116 @@ func TestQueueSync(t *testing.T) {
 		name      string
 		queueName string
 		gvr       schema.GroupVersionResource
-		oldObj    *unstructured.Unstructured
-		newObj    *unstructured.Unstructured
+		gvk       schema.GroupVersionKind
+		oldQueue  interface{}
+		newQueue  interface{}
 	}{
 		{
 			name:      "volcano queue capability quota",
 			queueName: "q1",
 			gvr:       VCQueueGVR,
-			oldObj:    NewUnstructured(k8s.VCQueueGVK, "", "q1"),
-			newObj:    NewUnstructured(k8s.VCQueueGVK, "", "q1"),
+			gvk:       k8s.VCQueueGVK,
+			oldQueue: &v1beta1.Queue{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "q1",
+				},
+				Spec: v1beta1.QueueSpec{
+					Capability: v1.ResourceList{
+						v1.ResourceCPU:    resource.MustParse("10"),
+						v1.ResourceMemory: resource.MustParse("20Gi"),
+					},
+				},
+			},
+			newQueue: &v1beta1.Queue{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "q1",
+				},
+				Spec: v1beta1.QueueSpec{
+					Capability: v1.ResourceList{
+						v1.ResourceCPU:    resource.MustParse("10"),
+						v1.ResourceMemory: resource.MustParse("30Gi"),
+					},
+				},
+			},
 		},
 		{
 			name:      "elastic resource quota",
 			queueName: "elasticQuota1",
 			gvr:       EQuotaGVR,
-			oldObj:    NewUnstructured(k8s.EQuotaGVK, "", "elasticQuota1"),
-			newObj:    NewUnstructured(k8s.EQuotaGVK, "", "elasticQuota1"),
+			gvk:       k8s.EQuotaGVK,
+			oldQueue: &v1beta1.ElasticResourceQuota{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "elasticQuota1",
+				},
+				Spec: v1beta1.ElasticResourceQuotaSpec{
+					Max: v1.ResourceList{
+						v1.ResourceCPU:    resource.MustParse("20"),
+						v1.ResourceMemory: resource.MustParse("40Gi"),
+					},
+					Min: v1.ResourceList{
+						v1.ResourceCPU:    resource.MustParse("10"),
+						v1.ResourceMemory: resource.MustParse("20Gi"),
+					},
+				},
+			},
+			newQueue: &v1beta1.ElasticResourceQuota{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "elasticQuota1",
+				},
+				Spec: v1beta1.ElasticResourceQuotaSpec{
+					Max: v1.ResourceList{
+						v1.ResourceCPU:    resource.MustParse("20"),
+						v1.ResourceMemory: resource.MustParse("45Gi"),
+					},
+					Min: v1.ResourceList{
+						v1.ResourceCPU:    resource.MustParse("10"),
+						v1.ResourceMemory: resource.MustParse("25Gi"),
+					},
+				},
+			},
 		},
 	}
 
+	config.GlobalServerConfig = &config.ServerConfig{
+		Job: config.JobConfig{
+			Reclaim: config.ReclaimConfig{
+				CleanJob: true,
+			},
+			ScalarResourceArray: []string{
+				"nvidia.com/gpu",
+			},
+		},
+	}
+
+	dbinit.InitMockDB()
+	c := newFakeQueueSyncController()
+	stopCh := make(chan struct{})
+	defer close(stopCh)
+	c.Run(stopCh)
+
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			dbinit.InitMockDB()
+			assert.NotEqual(t, nil, c)
 			err := models.CreateQueue(&models.Queue{
 				Name: test.queueName,
 			})
 			assert.Equal(t, nil, err)
 
-			c := newFakeQueueSyncController()
-			_, err = c.opt.DynamicClient.Resource(test.gvr).Create(context.TODO(), test.newObj, metav1.CreateOptions{})
+			oldObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(test.oldQueue)
 			assert.Equal(t, nil, err)
-			c.updateQueue(test.oldObj, test.newObj)
-			c.deleteQueue(test.newObj)
+			unOldObj := &unstructured.Unstructured{Object: oldObj}
+			unOldObj.SetGroupVersionKind(test.gvk)
+			_, err = c.opt.DynamicClient.Resource(test.gvr).Create(context.TODO(), unOldObj, metav1.CreateOptions{})
+			assert.Equal(t, nil, err)
 
-			stopCh := make(chan struct{})
-			defer close(stopCh)
-			c.Run(stopCh)
-			time.Sleep(2 * time.Second)
+			newObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(test.newQueue)
+			assert.Equal(t, nil, err)
+			unNewObj := &unstructured.Unstructured{Object: newObj}
+			unNewObj.SetGroupVersionKind(test.gvk)
+
+			c.updateQueue(unOldObj, unNewObj)
+			c.deleteQueue(unNewObj)
 		})
 	}
+	time.Sleep(2 * time.Second)
 }

@@ -357,7 +357,7 @@ func validateWorkflowJob(ctx *logger.RequestContext, request *job.CreateWfJobReq
 			return fmt.Errorf("ID[%s] of Job is invalid, err: %s", request.ID, strings.Join(errStr, ","))
 		}
 	}
-	if request.ExtensionTemplate == "" {
+	if request.ExtensionTemplate == nil {
 		ctx.ErrorCode = common.RequiredFieldEmpty
 		err := fmt.Errorf("ExtensionTemplate for workflow job is needed, and now is empty")
 		ctx.Logging().Errorf("create workflow job failed. error: %s", err.Error())
