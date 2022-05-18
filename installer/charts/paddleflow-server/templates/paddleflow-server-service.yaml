@@ -1,0 +1,18 @@
+{{- if .Values.paddleflowServer.enable -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: paddleflow-server
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: paddleflow-server
+spec:
+  type: NodePort
+  ports:
+    - port: {{ .Values.paddleflowServer.port }}
+      name: listen
+      targetPort: {{ .Values.paddleflowServer.port }}
+      nodePort: {{ .Values.paddleflowServer.port }}
+  selector:
+    app: paddleflow-server
+{{- end -}}
