@@ -17,6 +17,7 @@ limitations under the License.
 package job
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/ghodss/yaml"
@@ -42,17 +43,17 @@ type CreateSingleJobRequest struct {
 // CreateDisJobRequest convey request for create distributed job
 type CreateDisJobRequest struct {
 	CommonJobInfo     `json:",inline"`
-	Framework         schema.Framework `json:"framework"`
-	Members           []MemberSpec     `json:"members"`
-	ExtensionTemplate string           `json:"extensionTemplate"`
+	Framework         schema.Framework       `json:"framework"`
+	Members           []MemberSpec           `json:"members"`
+	ExtensionTemplate map[string]interface{} `json:"extensionTemplate"`
 }
 
 // CreateWfJobRequest convey request for create workflow job
 type CreateWfJobRequest struct {
 	CommonJobInfo     `json:",inline"`
-	Framework         schema.Framework `json:"framework"`
-	Members           []MemberSpec     `json:"members"`
-	ExtensionTemplate string           `json:"extensionTemplate"`
+	Framework         schema.Framework       `json:"framework"`
+	Members           []MemberSpec           `json:"members"`
+	ExtensionTemplate map[string]interface{} `json:"extensionTemplate"`
 }
 
 // CommonJobInfo the common fields for jobs
@@ -74,15 +75,15 @@ type SchedulingPolicy struct {
 
 // JobSpec the spec fields for jobs
 type JobSpec struct {
-	Flavour           schema.Flavour      `json:"flavour"`
-	FileSystem        schema.FileSystem   `json:"fileSystem"`
-	ExtraFileSystems  []schema.FileSystem `json:"extraFileSystems"`
-	Image             string              `json:"image"`
-	Env               map[string]string   `json:"env"`
-	Command           string              `json:"command"`
-	Args              []string            `json:"args"`
-	Port              int                 `json:"port"`
-	ExtensionTemplate string              `json:"extensionTemplate"`
+	Flavour           schema.Flavour         `json:"flavour"`
+	FileSystem        schema.FileSystem      `json:"fileSystem"`
+	ExtraFileSystems  []schema.FileSystem    `json:"extraFileSystems"`
+	Image             string                 `json:"image"`
+	Env               map[string]string      `json:"env"`
+	Command           string                 `json:"command"`
+	Args              []string               `json:"args"`
+	Port              int                    `json:"port"`
+	ExtensionTemplate map[string]interface{} `json:"extensionTemplate"`
 }
 
 type MemberSpec struct {
@@ -176,18 +177,18 @@ func CreateSingleJob(ctx *logger.RequestContext, request *CreateSingleJobRequest
 }
 
 // newExtensionTemplate parse extensionTemplate
-func newExtensionTemplate(extensionTemplate string) (string, error) {
-	if extensionTemplate != "" {
-		bytes, err := yaml.JSONToYAML([]byte(extensionTemplate))
+func newExtensionTemplate(extensionTemplate map[string]interface{}) (string, error) {
+	yamlExtensionTemplate := ""
+	if extensionTemplate != nil && len(extensionTemplate) > 0 {
+		extensionTemplateJSON, err := json.Marshal(&extensionTemplate)
+		bytes, err := yaml.JSONToYAML(extensionTemplateJSON)
 		if err != nil {
 			log.Errorf("Failed to parse extension template to yaml: %v", err)
 			return "", err
 		}
-		extensionTemplate = string(bytes)
-	} else {
-		extensionTemplate = ""
+		yamlExtensionTemplate = string(bytes)
 	}
-	return extensionTemplate, nil
+	return yamlExtensionTemplate, nil
 }
 
 func patchSingleConf(conf *schema.Conf, request *CreateSingleJobRequest) error {
@@ -466,15 +467,14 @@ func CreateWorkflowJob(ctx *logger.RequestContext, request *CreateWfJobRequest) 
 	}
 
 	var extensionTemplate string
-	if request.ExtensionTemplate != "" {
-		bytes, err := yaml.JSONToYAML([]byte(request.ExtensionTemplate))
-		if err != nil {
-			log.Errorf("Failed to parse extension template to yaml: %v", err)
-			return nil, err
-		}
-		extensionTemplate = string(bytes)
-	} else {
+	if request.ExtensionTemplate == nil {
 		return nil, fmt.Errorf("ExtensionTemplate for workflow job is needed")
+	}
+	var err error
+	extensionTemplate, err = newExtensionTemplate(request.ExtensionTemplate)
+	if err != nil {
+		log.Errorf("parse extension template failed, err=%v", err)
+		return nil, err
 	}
 
 	// TODO: get workflow job conf

@@ -54,7 +54,7 @@ type DefaultMeta struct {
 
 var _ Meta = &DefaultMeta{}
 
-func InitMeta(fsMeta common.FSMeta, links map[string]common.FSMeta, inodeHandle *InodeHandle) (Meta, error) {
+func InitDefaultMeta(fsMeta common.FSMeta, links map[string]common.FSMeta, inodeHandle *InodeHandle) (Meta, error) {
 	meta := &DefaultMeta{
 		name:        DefaultName,
 		inodeHandle: inodeHandle,
