@@ -74,7 +74,7 @@ func (rr *RunRouter) createRun(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// create run
-	response, err := run.CreateRun(&ctx, &createRunInfo)
+	response, err := run.CreateRun(ctx.UserName, &createRunInfo)
 	if err != nil {
 		logger.LoggerForRequest(&ctx).Errorf(
 			"create run failed. createRunInfo:%v error:%s", createRunInfo, err.Error())
@@ -127,7 +127,7 @@ func (rr *RunRouter) createRunByJson(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// create run
-	response, err := run.CreateRunByJson(&ctx, &createRunByJsonInfo, bodyMap)
+	response, err := run.CreateRunByJson(ctx.UserName, &createRunByJsonInfo, bodyMap)
 	if err != nil {
 		logger.LoggerForRequest(&ctx).Errorf(
 			"create run by json failed. createRunByJsonInfo:%v error:%s", createRunByJsonInfo, err.Error())
