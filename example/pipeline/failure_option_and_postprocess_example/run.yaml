@@ -1,0 +1,57 @@
+name: artifact_example
+
+docker_env: nginx:1.7.9
+
+entry_points:
+
+  step1:
+    command: "echo step1; exit 1"
+    env:
+      PF_JOB_TYPE: vcjob
+      PF_JOB_MODE: Pod
+      PF_JOB_QUEUE_NAME: queue1
+      PF_JOB_FLAVOUR: flavour1
+
+  step2:
+    deps: step1
+    command: "echo step2"
+    env:
+      PF_JOB_TYPE: vcjob
+      PF_JOB_MODE: Pod
+      PF_JOB_QUEUE_NAME: queue1
+      PF_JOB_FLAVOUR: flavour1
+
+  step3:
+    deps: step2
+    command: "echo step3"
+    env:
+      PF_JOB_TYPE: vcjob
+      PF_JOB_MODE: Pod
+      PF_JOB_QUEUE_NAME: queue1
+      PF_JOB_FLAVOUR: flavour1
+
+  step4:
+    command: "echo step4; exit 1"
+    env:
+      PF_JOB_TYPE: vcjob
+      PF_JOB_MODE: Pod
+      PF_JOB_QUEUE_NAME: queue1
+      PF_JOB_FLAVOUR: flavour1
+
+  step5:
+    deps: step4
+    command: "echo step5"
+    env:
+      PF_JOB_TYPE: vcjob
+      PF_JOB_MODE: Pod
+      PF_JOB_QUEUE_NAME: queue1
+      PF_JOB_FLAVOUR: flavour1
+
+post_process:
+  step6:
+    command: "echo step6"
+    env:
+      PF_JOB_TYPE: vcjob
+      PF_JOB_MODE: Pod
+      PF_JOB_QUEUE_NAME: queue1
+      PF_JOB_FLAVOUR: flavour1
