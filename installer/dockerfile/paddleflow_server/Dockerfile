@@ -1,4 +1,4 @@
-FROM iregistry.baidu-int.com/bmlc/alpine:3.13-shanghai-tz
+FROM iregistry.public.com/bmlc/alpine:3.13-shanghai-tz
 
 ENV WORKDIR /home/paddleflow
 ADD output/bin/paddleflow $WORKDIR/server/

@@ -1,4 +1,4 @@
-FROM iregistry.baidu-int.com/bmlc/pfs-csi:base
+FROM iregistry.public.com/bmlc/pfs-csi:base
 
 RUN echo "Asia/shanghai" > /etc/timezone
 ENV WORKDIR /home/paddleflow

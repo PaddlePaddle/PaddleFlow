@@ -2,7 +2,7 @@
 
 set -x
 
-# enter baidu/bmlc/paddleflow/
+# enter paddlepaddle/paddleflow/
 work_dir=`pwd`/../../
 pushd ${work_dir}
 
@@ -12,10 +12,10 @@ if [[ ! -d output ]]; then
   exit 255
 fi
 
-docker build -f ./installer/dockerfile/paddleflow_server/Dockerfile -t iregistry.baidu-int.com/bmlc/paddleflow-server:latest .
-docker push iregistry.baidu-int.com/bmlc/paddleflow-server:latest
+docker build -f ./installer/dockerfile/paddleflow_server/Dockerfile -t iregistry.public.com/bmlc/paddleflow-server:latest .
+docker push iregistry.public.com/bmlc/paddleflow-server:latest
 
-docker build -f ./installer/dockerfile/paddleflow_csiplugin/Dockerfile -t iregistry.baidu-int.com/bmlc/pfs-csi-plugin:latest .
-docker push iregistry.baidu-int.com/bmlc/pfs-csi-plugin:latest
+docker build -f ./installer/dockerfile/paddleflow_csiplugin/Dockerfile -t iregistry.public.com/bmlc/pfs-csi-plugin:latest .
+docker push iregistry.public.com/bmlc/pfs-csi-plugin:latest
 
 popd
