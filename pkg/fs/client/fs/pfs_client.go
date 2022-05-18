@@ -65,10 +65,10 @@ func NewFSClientForTest(fsMeta fsCommon.FSMeta) (*PFSClient, error) {
 		vfs.WithDataCacheConfig(cache.Config{
 			BlockSize:    BlockSize,
 			MaxReadAhead: MaxReadAheadNum,
-			Disk: &cache.DiskConfig{
-				Dir:    DiskCachePath,
-				Expire: DiskCacheExpire,
-				Mode:   DiskDirMode,
+			Expire:       DataCacheExpire,
+			Config: kv.Config{
+				Driver:    kv.NutsDB,
+				CachePath: DataCachePath,
 			},
 		}),
 		vfs.WithMetaConfig(meta.Config{
@@ -126,7 +126,11 @@ func (c *PFSClient) initPFS(fsMeta fsCommon.FSMeta, links map[string]fsCommon.FS
 		vfs.WithDataCacheConfig(cache.Config{
 			BlockSize:    BlockSize,
 			MaxReadAhead: MaxReadAheadNum,
-			Disk:         &cache.DiskConfig{Dir: DiskCachePath, Expire: DiskCacheExpire},
+			Expire:       DataCacheExpire,
+			Config: kv.Config{
+				Driver:    kv.NutsDB,
+				CachePath: DataCachePath,
+			},
 		}),
 		vfs.WithMetaConfig(meta.Config{
 			AttrCacheExpire:  MetaCacheExpire,
