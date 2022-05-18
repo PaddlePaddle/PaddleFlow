@@ -91,7 +91,7 @@ func NewKubeJob(job *api.PFJob, dynamicClientOpt *k8s.DynamicClientOption) (api.
 	log.Debugf("create kubernetes job: %#v", job)
 	pvcName := ""
 	if job.FSID != "" {
-		pvcName = fmt.Sprintf("pfs-%s-pvc", job.FSID)
+		pvcName = fmt.Sprintf("pfs-%s-%s-pvc", job.FSID, job.Namespace)
 	}
 
 	kubeJob := KubeJob{
