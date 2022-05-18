@@ -363,7 +363,6 @@ func (kr *KubeRuntime) updateVCQueue(q *models.Queue) error {
 	capability := k8s.NewKubeResourceList(&q.MaxResources)
 	log.Debugf("UpdateQueue resourceList[%v]", capability)
 	object, err := executor.Get("", q.Name, k8s.VCQueueGVK, kr.dynamicClientOpt)
-	//kr.GetObject("", q.Name, k8s.VCQueueGVK)
 	if err != nil {
 		log.Errorf("execute action of getting queue failed. queueName:[%s]", q.Name)
 		return err
@@ -373,7 +372,7 @@ func (kr *KubeRuntime) updateVCQueue(q *models.Queue) error {
 	queue.Spec.Capability = capability
 	queue.Status.State = schedulingv1beta1.QueueState(q.Status)
 
-	log.Debugf("UpdateQueue queue info:%#v", queue)
+	log.Infof("UpdateQueue queue info:%#v", queue)
 	if err := executor.Update(&queue, k8s.VCQueueGVK, kr.dynamicClientOpt); err != nil {
 		log.Errorf("UpdateQueue error. queueName:[%s], error:[%s]", q.Name, err.Error())
 		return err
@@ -397,7 +396,7 @@ func (kr *KubeRuntime) updateElasticResourceQuota(q *models.Queue) error {
 	equota.Spec.Min = minResources
 	equota.Spec.Namespace = q.Namespace
 
-	log.Debugf("Update elastic resource quota info:%#v", equota)
+	log.Infof("Update elastic resource quota info:%#v", equota)
 	if err := executor.Update(&equota, k8s.EQuotaGVK, kr.dynamicClientOpt); err != nil {
 		log.Errorf("UpdateQueue on cluster falied. queueName:[%s], error:[%s]", q.Name, err.Error())
 		return err
