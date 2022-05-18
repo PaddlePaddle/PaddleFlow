@@ -26,7 +26,9 @@ import (
 	apiv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	k8sschema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	fakedynamicclient "k8s.io/client-go/dynamic/fake"
@@ -98,23 +100,16 @@ func TestKubeRuntimeJob(t *testing.T) {
 				schema.EnvJobQueueName: "default",
 				schema.EnvJobFlavour:   "flavour1",
 			},
-		},
-	}
-	dbinit.InitMockDB()
-	config.GlobalServerConfig = &config.ServerConfig{
-		FlavourMap: map[string]schema.Flavour{
-			"flavour1": {
-				Name: "flavour1",
+			Flavour: schema.Flavour{
 				ResourceInfo: schema.ResourceInfo{
-					CPU: "20",
-					Mem: "20G",
-					ScalarResources: map[schema.ResourceName]string{
-						"com/gpu": "1",
-					},
+					CPU: "1",
+					Mem: "1Gi",
 				},
 			},
 		},
 	}
+	dbinit.InitMockDB()
+	config.GlobalServerConfig = &config.ServerConfig{}
 	err := models.CreateJob(&models.Job{
 		ID: testJobID,
 		Config: &schema.Conf{
@@ -322,4 +317,49 @@ func TestKubeRuntimeNodeResource(t *testing.T) {
 	assert.Equal(t, nil, err)
 	t.Logf("quota summary: %v", quotaSummary)
 	t.Logf("node  quota info: %v", nodeQuotaInfos)
+}
+
+func TestKubeRuntimeObjectOperation(t *testing.T) {
+	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
+	defer server.Close()
+	dynamicClient := newFakeDynamicClient(server)
+	kubeRuntime := &KubeRuntime{
+		dynamicClientOpt: dynamicClient,
+	}
+
+	gvk := k8sschema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"}
+
+	namespace := "default"
+	name := "cm1"
+	cm := &apiv1.ConfigMap{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ConfigMap",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Data: map[string]string{
+			"test.conf": "a:b1\nkey2:value2",
+		},
+	}
+
+	cmObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(cm)
+	assert.Equal(t, nil, err)
+	err = kubeRuntime.CreateObject(&unstructured.Unstructured{Object: cmObj})
+	assert.Equal(t, nil, err)
+
+	// update ConfigMap
+	cm.Data["test2.conf"] = "a2:b2\nkey2:value2"
+	cmObj, err = runtime.DefaultUnstructuredConverter.ToUnstructured(cm)
+	assert.Equal(t, nil, err)
+	err = kubeRuntime.UpdateObject(&unstructured.Unstructured{Object: cmObj})
+	assert.Equal(t, nil, err)
+
+	// get ConfigMap
+	obj, err := kubeRuntime.GetObject(namespace, name, gvk)
+	assert.Equal(t, nil, err)
+	t.Logf("get object: %v", obj)
+
 }

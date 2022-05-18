@@ -17,6 +17,7 @@ limitations under the License.
 package job
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/ghodss/yaml"
@@ -24,16 +25,14 @@ import (
 	"gorm.io/gorm"
 
 	"paddleflow/pkg/apiserver/common"
+	"paddleflow/pkg/apiserver/controller/flavour"
 	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/common/config"
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/common/schema"
 	"paddleflow/pkg/job"
 	"paddleflow/pkg/job/api"
 	"paddleflow/pkg/job/runtime"
 )
-
-const customFlavour = "customFlavour"
 
 // CreateSingleJobRequest convey request for create job
 type CreateSingleJobRequest struct {
@@ -44,17 +43,17 @@ type CreateSingleJobRequest struct {
 // CreateDisJobRequest convey request for create distributed job
 type CreateDisJobRequest struct {
 	CommonJobInfo     `json:",inline"`
-	Framework         schema.Framework `json:"framework"`
-	Members           []MemberSpec     `json:"members"`
-	ExtensionTemplate string           `json:"extensionTemplate"`
+	Framework         schema.Framework       `json:"framework"`
+	Members           []MemberSpec           `json:"members"`
+	ExtensionTemplate map[string]interface{} `json:"extensionTemplate"`
 }
 
 // CreateWfJobRequest convey request for create workflow job
 type CreateWfJobRequest struct {
 	CommonJobInfo     `json:",inline"`
-	Framework         schema.Framework `json:"framework"`
-	Members           []MemberSpec     `json:"members"`
-	ExtensionTemplate string           `json:"extensionTemplate"`
+	Framework         schema.Framework       `json:"framework"`
+	Members           []MemberSpec           `json:"members"`
+	ExtensionTemplate map[string]interface{} `json:"extensionTemplate"`
 }
 
 // CommonJobInfo the common fields for jobs
@@ -76,15 +75,15 @@ type SchedulingPolicy struct {
 
 // JobSpec the spec fields for jobs
 type JobSpec struct {
-	Flavour           schema.Flavour      `json:"flavour"`
-	FileSystem        schema.FileSystem   `json:"fileSystem"`
-	ExtraFileSystems  []schema.FileSystem `json:"extraFileSystems"`
-	Image             string              `json:"image"`
-	Env               map[string]string   `json:"env"`
-	Command           string              `json:"command"`
-	Args              []string            `json:"args"`
-	Port              int                 `json:"port"`
-	ExtensionTemplate string              `json:"extensionTemplate"`
+	Flavour           schema.Flavour         `json:"flavour"`
+	FileSystem        schema.FileSystem      `json:"fileSystem"`
+	ExtraFileSystems  []schema.FileSystem    `json:"extraFileSystems"`
+	Image             string                 `json:"image"`
+	Env               map[string]string      `json:"env"`
+	Command           string                 `json:"command"`
+	Args              []string               `json:"args"`
+	Port              int                    `json:"port"`
+	ExtensionTemplate map[string]interface{} `json:"extensionTemplate"`
 }
 
 type MemberSpec struct {
@@ -114,9 +113,9 @@ func CreateSingleJob(ctx *logger.RequestContext, request *CreateSingleJobRequest
 		return nil, err
 	}
 
-	flavour, err := getFlavourWithCheck(request.Flavour)
+	f, err := flavour.GetFlavourWithCheck(request.Flavour)
 	if err != nil {
-		log.Errorf("get flavour failed, err=%v", err)
+		log.Errorf("get flavour failed, err:%v", err)
 		return nil, err
 	}
 	extensionTemplate, err := newExtensionTemplate(request.ExtensionTemplate)
@@ -137,7 +136,7 @@ func CreateSingleJob(ctx *logger.RequestContext, request *CreateSingleJobRequest
 		FileSystem:      request.FileSystem,
 		ExtraFileSystem: request.ExtraFileSystems,
 		// 计算资源
-		Flavour:  flavour,
+		Flavour:  f,
 		Priority: request.SchedulingPolicy.Priority,
 		// 运行时需要的参数
 		Labels:      request.Labels,
@@ -178,18 +177,18 @@ func CreateSingleJob(ctx *logger.RequestContext, request *CreateSingleJobRequest
 }
 
 // newExtensionTemplate parse extensionTemplate
-func newExtensionTemplate(extensionTemplate string) (string, error) {
-	if extensionTemplate != "" {
-		bytes, err := yaml.JSONToYAML([]byte(extensionTemplate))
+func newExtensionTemplate(extensionTemplate map[string]interface{}) (string, error) {
+	yamlExtensionTemplate := ""
+	if extensionTemplate != nil && len(extensionTemplate) > 0 {
+		extensionTemplateJSON, err := json.Marshal(&extensionTemplate)
+		bytes, err := yaml.JSONToYAML(extensionTemplateJSON)
 		if err != nil {
 			log.Errorf("Failed to parse extension template to yaml: %v", err)
 			return "", err
 		}
-		extensionTemplate = string(bytes)
-	} else {
-		extensionTemplate = ""
+		yamlExtensionTemplate = string(bytes)
 	}
-	return extensionTemplate, nil
+	return yamlExtensionTemplate, nil
 }
 
 func patchSingleConf(conf *schema.Conf, request *CreateSingleJobRequest) error {
@@ -207,9 +206,9 @@ func patchSingleConf(conf *schema.Conf, request *CreateSingleJobRequest) error {
 
 func patchFromJobSpec(conf *schema.Conf, jobSpec *JobSpec, userName string) error {
 	var err error
-	conf.Flavour, err = getFlavourWithCheck(jobSpec.Flavour)
+	conf.Flavour, err = flavour.GetFlavourWithCheck(jobSpec.Flavour)
 	if err != nil {
-		log.Errorf("get flavour failed when create job, err=%v", err)
+		log.Errorf("get flavour failed when create job, err:%v", err)
 		return err
 	}
 	// FileSystem
@@ -308,6 +307,7 @@ func CreateDistributedJob(ctx *logger.RequestContext, request *CreateDisJobReque
 	case schema.EnvJobModePS:
 		conf.SetEnv(schema.EnvJobMode, schema.EnvJobModePS)
 		if jobInfo.Members, err = newPSMembers(request); err != nil {
+			ctx.ErrorCode = common.JobInvalidField
 			log.Errorf("create job with ps members failed, err=%v", err)
 			return nil, err
 		}
@@ -336,18 +336,38 @@ func validateJobMode(ctx *logger.RequestContext, request *CreateDisJobRequest) (
 		request.Members[0].Role == string(schema.RoleWorker)) {
 		log.Debugf("create distributed job %s with collective mode", request.CommonJobInfo.ID)
 		return schema.EnvJobModeCollective, nil
-	} else if len(request.Members) == 2 {
+	} else if isPSMode(request.Members) {
 		log.Debugf("create distributed job %s with ps mode", request.CommonJobInfo.ID)
-		if request.Members[0].Role == string(schema.RolePWorker) && request.Members[1].Role == string(schema.RolePServer) ||
-			request.Members[0].Role == string(schema.RolePServer) && request.Members[1].Role == string(schema.RolePWorker) {
-			return schema.EnvJobModePS, nil
-		}
+		return schema.EnvJobModePS, nil
 	}
 	ctx.ErrorCode = common.JobInvalidField
 	ctx.Logging().Errorf("create distributed job %s failed, invalid members number %d", request.CommonJobInfo.ID,
 		len(request.Members))
 	return "", fmt.Errorf("create distributed job %s failed, invalid members number %d", request.CommonJobInfo.ID,
 		len(request.Members))
+}
+
+func isPSMode(members []MemberSpec) bool {
+	if len(members) != 2 {
+		return false
+	}
+	var pserver, pworker, driver, executor bool
+	for _, member := range members {
+		switch member.Role {
+		case string(schema.RolePWorker):
+			pserver = true
+		case string(schema.RolePServer):
+			pworker = true
+		case string(schema.RoleDriver):
+			driver = true
+		case string(schema.RoleExecutor):
+			executor = true
+		}
+	}
+	if (pserver && pworker) || (driver && executor) {
+		return true
+	}
+	return false
 }
 
 func patchDistributedConf(conf *schema.Conf, request *CreateDisJobRequest) error {
@@ -391,14 +411,7 @@ func newPSMembers(request *CreateDisJobRequest) ([]models.Member, error) {
 
 		var member models.Member
 		var err error
-		if reqMember.Role == string(schema.RolePWorker) {
-			member, err = newMember(reqMember, schema.RolePWorker)
-		} else if reqMember.Role == string(schema.RolePServer) {
-			member, err = newMember(reqMember, schema.RolePServer)
-		} else {
-			log.Errorf("create ps members failed, invalid role %s", reqMember.Role)
-			return nil, fmt.Errorf("invalid role %s", reqMember.Role)
-		}
+		member, err = newMember(reqMember, schema.MemberRole(reqMember.Role))
 		if err != nil {
 			log.Errorf("create ps members failed, err=%v", err)
 			return nil, err
@@ -411,9 +424,9 @@ func newPSMembers(request *CreateDisJobRequest) ([]models.Member, error) {
 
 // newMember create models.member from request.Member
 func newMember(member MemberSpec, role schema.MemberRole) (models.Member, error) {
-	flavour, err := getFlavourWithCheck(member.Flavour)
+	f, err := flavour.GetFlavourWithCheck(member.Flavour)
 	if err != nil {
-		log.Errorf("get flavour failed, err=%v", err)
+		log.Errorf("get flavour failed, err:%v", err)
 		return models.Member{}, err
 	}
 	if member.Replicas < 1 {
@@ -430,7 +443,7 @@ func newMember(member MemberSpec, role schema.MemberRole) (models.Member, error)
 			FileSystem:      member.FileSystem,
 			ExtraFileSystem: member.ExtraFileSystems,
 			// 计算资源
-			Flavour:  flavour,
+			Flavour:  f,
 			Priority: member.SchedulingPolicy.Priority,
 			QueueID:  member.SchedulingPolicy.QueueID,
 			// 运行时需要的参数
@@ -445,30 +458,6 @@ func newMember(member MemberSpec, role schema.MemberRole) (models.Member, error)
 	}, nil
 }
 
-// getFlavourWithCheck get req.Flavour and check if it is valid, if exists in db, return it
-func getFlavourWithCheck(reqFlavour schema.Flavour) (schema.Flavour, error) {
-	if reqFlavour.Name == "" || reqFlavour.Name == customFlavour {
-		if err := schema.ValidateResourceInfo(reqFlavour.ResourceInfo, config.GlobalServerConfig.Job.ScalarResourceArray); err != nil {
-			log.Errorf("validate resource info failed, err=%v", err)
-			return schema.Flavour{}, err
-		}
-		return reqFlavour, nil
-	}
-	flavour, err := models.GetFlavour(reqFlavour.Name)
-	if err != nil {
-		log.Errorf("Get flavour by name %s failed when creating job, err=%v", flavour.Name, err)
-		return schema.Flavour{}, fmt.Errorf("get flavour[%s] failed, err=%v", flavour.Name, err)
-	}
-	return schema.Flavour{
-		Name: flavour.Name,
-		ResourceInfo: schema.ResourceInfo{
-			CPU:             flavour.CPU,
-			Mem:             flavour.Mem,
-			ScalarResources: flavour.ScalarResources,
-		},
-	}, nil
-}
-
 // CreateWorkflowJob handler for creating job
 func CreateWorkflowJob(ctx *logger.RequestContext, request *CreateWfJobRequest) (*CreateJobResponse, error) {
 	if err := CheckPermission(ctx); err != nil {
@@ -478,15 +467,14 @@ func CreateWorkflowJob(ctx *logger.RequestContext, request *CreateWfJobRequest) 
 	}
 
 	var extensionTemplate string
-	if request.ExtensionTemplate != "" {
-		bytes, err := yaml.JSONToYAML([]byte(request.ExtensionTemplate))
-		if err != nil {
-			log.Errorf("Failed to parse extension template to yaml: %v", err)
-			return nil, err
-		}
-		extensionTemplate = string(bytes)
-	} else {
+	if request.ExtensionTemplate == nil {
 		return nil, fmt.Errorf("ExtensionTemplate for workflow job is needed")
+	}
+	var err error
+	extensionTemplate, err = newExtensionTemplate(request.ExtensionTemplate)
+	if err != nil {
+		log.Errorf("parse extension template failed, err=%v", err)
+		return nil, err
 	}
 
 	// TODO: get workflow job conf

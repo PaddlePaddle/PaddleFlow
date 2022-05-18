@@ -61,3 +61,12 @@ func (f *FsMount) DeleteMount(mountID string) error {
 	tx := database.DB.Where(&FsMount{MountID: mountID}).Delete(&FsMount{})
 	return tx.Error
 }
+
+func ListMountNodesByID(fsID string) ([]string, error) {
+	nodenames := make([]string, 0)
+	tx := database.DB.Model(&FsMount{}).Where(&FsMount{FsID: fsID}).Distinct("nodename").Select("nodename").Find(&nodenames)
+	if tx.Error != nil {
+		return nil, tx.Error
+	}
+	return nodenames, nil
+}

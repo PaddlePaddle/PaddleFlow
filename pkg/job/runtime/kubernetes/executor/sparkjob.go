@@ -17,6 +17,7 @@ limitations under the License.
 package executor
 
 import (
+	"fmt"
 	"strconv"
 
 	log "github.com/sirupsen/logrus"
@@ -42,30 +43,57 @@ type SparkJob struct {
 	ExecutorReplicas string
 }
 
-// patchSparkAppVariable patch env variable to jobApplication, the order of patches following spark crd
-func (sj *SparkJob) patchSparkAppVariable(jobApp *sparkapp.SparkApplication) error {
-	// metadata
-	sj.patchMetadata(&jobApp.ObjectMeta, sj.ID)
-	// spec, the order of patches following SparkApplicationSpec crd
-	sj.patchSparkSpec(jobApp, sj.GetID())
-
-	// volumes
-	jobApp.Spec.Volumes = sj.appendVolumeIfAbsent(jobApp.Spec.Volumes, sj.generateVolume())
+func (sj *SparkJob) validateJob() error {
+	if err := sj.KubeJob.validateJob(); err != nil {
+		log.Errorf("validate basic params of spark job failed: %v", err)
+		return err
+	}
+	if !sj.IsCustomYaml {
+		if len(sj.Tasks) != 2 {
+			return fmt.Errorf("spark driver or executor is not defined")
+		}
+		if sj.Tasks[0].Image == "" {
+			return fmt.Errorf("spark image is not defined")
+		}
+		sj.Image = sj.Tasks[0].Image
+		// todo check all required fields when job is not custom
+	}
 	return nil
 }
 
-func (sj *SparkJob) patchSparkSpec(jobApp *sparkapp.SparkApplication, jobID string) {
+// patchSparkAppVariable patch env variable to jobApplication, the order of patches following spark crd
+func (sj *SparkJob) patchSparkAppVariable(jobApp *sparkapp.SparkApplication) error {
+	log.Debugf("patchSparkAppVariable from kubejob: %v", sj)
+	// metadata
+	sj.patchMetadata(&jobApp.ObjectMeta, sj.ID)
+	// spec, the order of patches following SparkApplicationSpec crd
+	if err := sj.patchSparkSpec(jobApp, sj.GetID()); err != nil {
+		log.Errorf("fill spark application spec failed, err: %v", err)
+		return err
+	}
+
+	// volumes
+	jobApp.Spec.Volumes = sj.appendVolumeIfAbsent(jobApp.Spec.Volumes, sj.generateVolume())
+	log.Debugf("jobApp: %v, driver=%v, executor=%v", jobApp, jobApp.Spec.Driver, jobApp.Spec.Executor)
+	return nil
+}
+
+func (sj *SparkJob) patchSparkSpec(jobApp *sparkapp.SparkApplication, jobID string) error {
 	// image
-	jobApp.Spec.Image = &sj.Image
+	if sj.isNeedPatch(sj.Image) {
+		jobApp.Spec.Image = &sj.Image
+	}
 
 	// mainAppFile, mainClass and arguments
-	mainAppFile := sj.SparkMainFile
-	jobApp.Spec.MainApplicationFile = &mainAppFile
+	if (sj.IsCustomYaml && jobApp.Spec.MainApplicationFile == nil || !sj.IsCustomYaml) && len(sj.SparkMainFile) > 0 {
+		sparkMainFile := sj.SparkMainFile
+		jobApp.Spec.MainApplicationFile = &sparkMainFile
+	}
 
-	if len(sj.SparkMainClass) != 0 {
+	if (sj.IsCustomYaml && jobApp.Spec.MainClass == nil || !sj.IsCustomYaml) && len(sj.SparkMainClass) != 0 {
 		jobApp.Spec.MainClass = &sj.SparkMainClass
 	}
-	if len(sj.SparkArguments) > 0 {
+	if (sj.IsCustomYaml && len(jobApp.Spec.Arguments) == 0 || !sj.IsCustomYaml) && len(sj.SparkArguments) > 0 {
 		jobApp.Spec.Arguments = []string{sj.SparkArguments}
 	}
 	// BatchScheduler && BatchSchedulerOptions
@@ -81,42 +109,47 @@ func (sj *SparkJob) patchSparkSpec(jobApp *sparkapp.SparkApplication, jobID stri
 	}
 
 	// resource of driver and executor
-	driverFlavour := config.GlobalServerConfig.FlavourMap[sj.DriverFlavour]
-	driverCoresInt, _ := strconv.Atoi(driverFlavour.CPU)
-	driverCores := int32(driverCoresInt)
-	executorFlavour := config.GlobalServerConfig.FlavourMap[sj.ExecutorFlavour]
-	executorCoresInt, _ := strconv.Atoi(executorFlavour.CPU)
-	executorCores := int32(executorCoresInt)
-	// driver
-	sj.patchSparkSpecDriver(jobApp, driverCores, driverFlavour)
-	// executor
-	sj.patchSparkSpecExecutor(jobApp, executorCores, executorFlavour)
-
+	var driverFlavour, executorFlavour schema.Flavour
+	for _, task := range sj.Tasks {
+		if task.Role == schema.RoleDriver {
+			driverFlavour = task.Flavour
+			sj.patchSparkSpecDriver(jobApp, task)
+		} else if task.Role == schema.RoleExecutor {
+			executorFlavour = task.Flavour
+			sj.patchSparkSpecExecutor(jobApp, task)
+		}
+	}
 	fillGPUSpec(driverFlavour, executorFlavour, jobApp)
-
+	return nil
 }
 
-func (sj *SparkJob) patchSparkSpecDriver(jobApp *sparkapp.SparkApplication, cores int32, flavour schema.Flavour) {
-	jobApp.Spec.Driver.Cores = &cores
-	jobApp.Spec.Driver.CoreLimit = &flavour.CPU
-	jobApp.Spec.Driver.Memory = &flavour.Mem
-	if len(jobApp.Spec.Driver.Env) == 0 {
-		jobApp.Spec.Driver.Env = make([]corev1.EnvVar, 0)
+func (sj *SparkJob) patchPodByTask(podSpec *sparkapp.SparkPodSpec, task models.Member) {
+	flavour := task.Flavour
+	coresInt, _ := strconv.Atoi(task.Flavour.CPU)
+	cores := int32(coresInt)
+	podSpec.Cores = &cores
+	podSpec.CoreLimit = &flavour.CPU
+	podSpec.Memory = &flavour.Mem
+
+	if len(podSpec.Env) == 0 {
+		podSpec.Env = make([]corev1.EnvVar, 0)
 	}
-	jobApp.Spec.Driver.Env = append(jobApp.Spec.Driver.Env, sj.generateEnvVars()...)
-	jobApp.Spec.Driver.PodName = &sj.Name
+	podSpec.Env = append(podSpec.Env, sj.generateEnvVars()...)
+
+	podSpec.VolumeMounts = sj.appendMountIfAbsent(podSpec.VolumeMounts, sj.generateVolumeMount())
+}
+
+func (sj *SparkJob) patchSparkSpecDriver(jobApp *sparkapp.SparkApplication, task models.Member) {
+	sj.patchPodByTask(&jobApp.Spec.Driver.SparkPodSpec, task)
+	jobApp.Spec.Driver.PodName = &task.Name
 	if jobApp.Spec.Driver.ServiceAccount == nil {
 		serviceAccount := string(schema.TypeSparkJob)
 		jobApp.Spec.Driver.ServiceAccount = &serviceAccount
 	}
-	if jobApp.Spec.Driver.SparkPodSpec.VolumeMounts == nil {
-		jobApp.Spec.Driver.SparkPodSpec.VolumeMounts = []corev1.VolumeMount{}
-	}
-	volumeMount := sj.generateVolumeMount()
-	jobApp.Spec.Driver.SparkPodSpec.VolumeMounts = sj.appendMountIfAbsent(jobApp.Spec.Driver.SparkPodSpec.VolumeMounts, volumeMount)
 }
 
-func (sj *SparkJob) patchSparkSpecExecutor(jobApp *sparkapp.SparkApplication, cores int32, flavour schema.Flavour) {
+func (sj *SparkJob) patchSparkSpecExecutor(jobApp *sparkapp.SparkApplication, task models.Member) {
+	sj.patchPodByTask(&jobApp.Spec.Executor.SparkPodSpec, task)
 	if len(sj.ExecutorReplicas) > 0 {
 		replicasInt, _ := strconv.Atoi(sj.ExecutorReplicas)
 		replicas := int32(replicasInt)
@@ -126,16 +159,6 @@ func (sj *SparkJob) patchSparkSpecExecutor(jobApp *sparkapp.SparkApplication, co
 		instances := defaultExecutorInstances
 		jobApp.Spec.Executor.Instances = &instances
 	}
-
-	jobApp.Spec.Executor.Cores = &cores
-	jobApp.Spec.Executor.CoreLimit = &flavour.CPU
-	jobApp.Spec.Executor.Memory = &flavour.Mem
-	if len(jobApp.Spec.Executor.Env) == 0 {
-		jobApp.Spec.Executor.Env = make([]corev1.EnvVar, 0)
-	}
-	jobApp.Spec.Executor.Env = append(jobApp.Spec.Driver.Env, sj.generateEnvVars()...)
-	volumeMount := sj.generateVolumeMount()
-	jobApp.Spec.Executor.SparkPodSpec.VolumeMounts = sj.appendMountIfAbsent(jobApp.Spec.Executor.SparkPodSpec.VolumeMounts, volumeMount)
 }
 
 // CreateJob creates a SparkJob

@@ -83,8 +83,8 @@ class FlavouriceApi(object):
         f = FlavourInfo(name=data['name'],
                         cpu=data['cpu'],
                         mem=data['mem'],
+                        cluster_name="",
                         scalar_resources=scalarResources,
-                        cluster_name=data['clusterName'],
                         createtime=data['createTime'],
                         updatetime=data['updateTime'])
         return True, f

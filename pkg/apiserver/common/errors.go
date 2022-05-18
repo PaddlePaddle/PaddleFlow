@@ -72,6 +72,8 @@ const (
 	QueueQuotaTypeIsNotSupported = "QueueQuotaTypeIsNotSupported"
 	QueueIsNotClosed             = "QueueIsNotClosed"
 	QueueIsInUse                 = "QueueIsInUse"
+	QueueInvalidField            = "QueueInvalidField"
+	QueueUpdateFailed            = "QueueUpdateFailed"
 
 	GrantResourceTypeNotFound = "GrantResourceTypeNotFound"
 	GrantNotFound             = "GrantNotFound"
@@ -170,6 +172,8 @@ var errorHTTPStatus = map[string]int{
 	QueueResourceNotMatch:        http.StatusBadRequest,
 	QueueIsNotClosed:             http.StatusBadRequest,
 	QueueIsInUse:                 http.StatusBadRequest,
+	QueueInvalidField:            http.StatusBadRequest,
+	QueueUpdateFailed:            http.StatusBadRequest,
 
 	RunNameDuplicated:     http.StatusBadRequest,
 	RunNotFound:           http.StatusNotFound,

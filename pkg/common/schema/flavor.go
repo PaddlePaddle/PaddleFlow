@@ -42,6 +42,21 @@ type Flavour struct {
 	Name         string `json:"name" yaml:"name"`
 }
 
+func EmptyResourceInfo() *ResourceInfo {
+	return &ResourceInfo{
+		ScalarResources: make(ScalarResourcesType),
+	}
+}
+
+// SetScalar sets a resource by a scalar value of this resource.
+func (r *ResourceInfo) SetScalar(name ResourceName, value string) {
+	// Lazily allocate scalar resource map.
+	if r.ScalarResources == nil {
+		r.ScalarResources = make(ScalarResourcesType)
+	}
+	r.ScalarResources[name] = value
+}
+
 // LessEqual returns true if the current flavour is less than or equal to the other one.
 func (r *ResourceInfo) LessEqual(r2 ResourceInfo) bool {
 	quantities1, _ := newQuantities(*r)
