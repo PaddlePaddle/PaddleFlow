@@ -1,4 +1,4 @@
-name: myproject
+name: base_pipeline
 
 docker_env: nginx:1.7.9
 
@@ -22,7 +22,7 @@ entry_points:
       model_path: "./output/{{ PF_RUN_ID }}"
     command: "bash train.sh {{epoch}} {{preprocess.data_path}} {{model_path}} "
     env:
-      USER_ABC: 123
+      USER_ABC: 123_{{ PF_USER_NAME }}
       PF_JOB_TYPE: vcjob
       PF_JOB_QUEUE_NAME: queue-aa693e3f
       PF_JOB_MODE: Pod
