@@ -24,7 +24,7 @@ import (
 	"paddleflow/pkg/apiserver/models"
 )
 
-func ListMountNodesByFsID(fsIDs []string) ([]string, error) {
+func ListFsCacheLocation(fsIDs []string) ([]string, error) {
 	if len(fsIDs) == 0 {
 		log.Errorf("GetFsMountByID IDs empty")
 		return nil, errors.New("fsIDS empty")

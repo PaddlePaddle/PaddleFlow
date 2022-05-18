@@ -210,7 +210,7 @@ func newFrameWorkJob(kubeJob KubeJob, job *api.PFJob) (api.PFJobInterface, error
 }
 
 func (j *KubeJob) generateAffinity(affinity *corev1.Affinity, fsIDs []string) *corev1.Affinity {
-	nodes, err := locationAwareness.ListMountNodesByFsID(fsIDs)
+	nodes, err := locationAwareness.ListFsCacheLocation(fsIDs)
 	if err != nil {
 		log.Warningf("get location awareness for PaddleFlow filesystem %s failed, err: %v", fsIDs, err)
 		return affinity
@@ -219,22 +219,22 @@ func (j *KubeJob) generateAffinity(affinity *corev1.Affinity, fsIDs []string) *c
 	if len(nodes) == 0 {
 		return affinity
 	}
-	storageAffinity := j.getStorageAffinity(nodes)
+	fsCacheAffinity := j.fsCacheAffinity(nodes)
 	if affinity == nil {
-		return storageAffinity
+		return fsCacheAffinity
 	}
 	// merge filesystem location awareness affinity to pod affinity
 	if affinity.NodeAffinity == nil {
-		affinity.NodeAffinity = storageAffinity.NodeAffinity
+		affinity.NodeAffinity = fsCacheAffinity.NodeAffinity
 	} else {
 		affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(
-			storageAffinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution,
+			fsCacheAffinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution,
 			affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution...)
 	}
 	return affinity
 }
 
-func (j *KubeJob) getStorageAffinity(nodes []string) *corev1.Affinity {
+func (j *KubeJob) fsCacheAffinity(nodes []string) *corev1.Affinity {
 	return &corev1.Affinity{
 		NodeAffinity: &corev1.NodeAffinity{
 			PreferredDuringSchedulingIgnoredDuringExecution: []corev1.PreferredSchedulingTerm{
