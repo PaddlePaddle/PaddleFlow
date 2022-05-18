@@ -17,6 +17,8 @@ limitations under the License.
 package fs
 
 import (
+	"crypto/md5"
+	"encoding/hex"
 	"time"
 
 	"paddleflow/pkg/apiserver/common"
@@ -82,6 +84,11 @@ func CreateMount(ctx *logger.RequestContext, req CreateMountRequest) error {
 		return err
 	}
 	return err
+}
+
+func GetMountID(clusterID, nodeName, mountPoint string) string {
+	hash := md5.Sum([]byte(clusterID + nodeName + mountPoint))
+	return hex.EncodeToString(hash[:])
 }
 
 func ListMount(ctx *logger.RequestContext, req ListMountRequest) ([]models.FsMount, string, error) {
