@@ -127,6 +127,7 @@ func (queue *Queue) AfterFind(*gorm.DB) error {
 
 // BeforeSave is the callback methods for saving file system
 func (queue *Queue) BeforeSave(*gorm.DB) error {
+	log.Debugf("queue[%s] BeforeSave, queue:%#v", queue.Name, queue)
 	minResourcesJson, err := json.Marshal(queue.MinResources)
 	if err != nil {
 		log.Errorf("json Marshal MinResources[%v] failed: %v", queue.MinResources, err)
@@ -159,6 +160,8 @@ func (queue *Queue) BeforeSave(*gorm.DB) error {
 		}
 		queue.RawSchedulingPolicy = string(schedulingPolicyJson)
 	}
+	log.Debugf("queue[%s] BeforeSave finished, queue:%#v", queue.Name, queue)
+
 	return nil
 }
 
@@ -178,27 +181,10 @@ func CreateQueue(queue *Queue) error {
 	return nil
 }
 
-func UpdateQueue(name, status string, maxResources, minResources *schema.ResourceInfo) error {
-	q, err := GetQueueByName(name)
-	if err != nil {
-		log.Errorf("get queue %s failed, err: %v.", name, err)
-		return err
-	}
-	if status != "" {
-		q.Status = status
-	}
-	if maxResources != nil {
-		q.MaxResources = *maxResources
-	}
-	if minResources != nil {
-		q.MinResources = *minResources
-	}
-	tx := database.DB.Table("queue").Where("name = ?", name).Updates(&q)
-	if tx.Error != nil {
-		log.Errorf("update queue %s failed, err %v", name, tx.Error)
-		return tx.Error
-	}
-	return nil
+func UpdateQueue(queue *Queue) error {
+	log.Debugf("update queue:[%s], queue:%#v", queue.Name, queue)
+	tx := database.DB.Model(queue).Updates(queue)
+	return tx.Error
 }
 
 func UpdateQueueStatus(queueName string, queueStatus string) error {
@@ -354,4 +340,16 @@ func IsQueueInUse(queueID string) (bool, map[string]schema.JobStatus) {
 		jobsInfo[job.ID] = job.Status
 	}
 	return true, jobsInfo
+}
+
+// DeepCopyQueue returns a deep copy of the queue
+func DeepCopyQueue(queueSrc Queue, queueDesc *Queue) {
+	queueStr, _ := json.Marshal(queueSrc)
+	json.Unmarshal(queueStr, &queueDesc)
+	queueDesc.Pk = queueSrc.Pk
+	queueDesc.ClusterId = queueSrc.ClusterId
+	queueDesc.RawMinResources = queueSrc.RawMinResources
+	queueDesc.RawMaxResources = queueSrc.RawMaxResources
+	queueDesc.RawLocation = queueSrc.RawLocation
+	queueDesc.RawSchedulingPolicy = queueSrc.RawSchedulingPolicy
 }
