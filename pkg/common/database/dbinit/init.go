@@ -203,6 +203,8 @@ func createDatabaseTables(db *gorm.DB) error {
 		&models.Flavour{},
 		&models.Grant{},
 		&models.Job{},
+		&models.JobTask{},
+		&models.JobLabel{},
 		&models.ClusterInfo{},
 		&models.Image{},
 		&models.FileSystem{},
