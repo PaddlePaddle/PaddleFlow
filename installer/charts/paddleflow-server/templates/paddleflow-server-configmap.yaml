@@ -82,8 +82,6 @@ data:
       schedulerName: {{  .Values.paddleflowServer.schedulerName  }}
       scalarResourceArray:
         - "nvidia.com/gpu"
-        - "baidu.com/v100_cgpu"
-        - "baidu.com/v100_cgpu_memory"
       defaultJobYamlDir: ./config/server/default/job
 
     kubeConfig:
@@ -106,21 +104,4 @@ data:
       - name: flavour1
         cpu: 1
         mem: 1Gi
-      - name: flavour2
-        cpu: 1
-        mem: 1G
-        scalarResources:
-          "baidu.com/v100_cgpu": "1"
-      - name: flavour3
-        cpu: 1
-        mem: 8Gi
-        scalarResources:
-          "baidu.com/v100_cgpu": "1"
-      - name: flavour4
-        cpu: 1
-        mem: 8Gi
-        scalarResources:
-          "baidu.com/v100_cgpu": "1"
-          "baidu.com/v100_cgpu_memory": 7
-
 {{- end -}}

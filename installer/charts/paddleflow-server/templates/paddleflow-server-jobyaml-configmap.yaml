@@ -16,7 +16,7 @@ data:
       driver:
         serviceAccount: spark
       executor:
-      image: iregistry.baidu-int.com/bmlc/image-packges/spark:pyml-2.8.0
+      image: iregistry.public.com/bmlc/image-packges/spark:pyml-2.8.0
       imagePullPolicy: IfNotPresent
       mainApplicationFile: local:///opt/spark/examples/jars/spark-examples_2.11-2.4.0.jar
       mainClass: org.apache.spark.examples.SparkPi
