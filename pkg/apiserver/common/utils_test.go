@@ -17,10 +17,10 @@ limitations under the License.
 package common
 
 import (
-	utils "paddleflow/pkg/fs/utils/common"
 	"testing"
 
 	"paddleflow/pkg/fs/common"
+	utils "paddleflow/pkg/fs/utils/common"
 )
 
 func TestInformationFromUrl(t *testing.T) {
