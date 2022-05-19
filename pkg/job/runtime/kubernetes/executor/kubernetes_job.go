@@ -210,31 +210,28 @@ func newFrameWorkJob(kubeJob KubeJob, job *api.PFJob) (api.PFJobInterface, error
 }
 
 func (j *KubeJob) generateAffinity(affinity *corev1.Affinity, fsIDs []string) *corev1.Affinity {
-	nodes, err := locationAwareness.ListMountNodesByFsID(fsIDs)
-	if err == nil {
-		log.Warningf("get location awareness for PaddleFlow filesystem %s failed, err: %v", fsIDs, err)
+	nodes, err := locationAwareness.ListFsCacheLocation(fsIDs)
+	if err != nil || len(nodes) == 0 {
+		log.Warningf("get location awareness for PaddleFlow filesystem %s failed or cache location is empty, err: %v", fsIDs, err)
 		return affinity
 	}
 	log.Infof("nodes for PaddleFlow filesystem %s location awareness: %v", fsIDs, nodes)
-	if len(nodes) == 0 {
-		return affinity
-	}
-	storageAffinity := j.getStorageAffinity(nodes)
+	fsCacheAffinity := j.fsCacheAffinity(nodes)
 	if affinity == nil {
-		return storageAffinity
+		return fsCacheAffinity
 	}
 	// merge filesystem location awareness affinity to pod affinity
 	if affinity.NodeAffinity == nil {
-		affinity.NodeAffinity = storageAffinity.NodeAffinity
+		affinity.NodeAffinity = fsCacheAffinity.NodeAffinity
 	} else {
 		affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(
-			storageAffinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution,
+			fsCacheAffinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution,
 			affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution...)
 	}
 	return affinity
 }
 
-func (j *KubeJob) getStorageAffinity(nodes []string) *corev1.Affinity {
+func (j *KubeJob) fsCacheAffinity(nodes []string) *corev1.Affinity {
 	return &corev1.Affinity{
 		NodeAffinity: &corev1.NodeAffinity{
 			PreferredDuringSchedulingIgnoredDuringExecution: []corev1.PreferredSchedulingTerm{
@@ -353,7 +350,10 @@ func (j *KubeJob) fillPodSpec(podSpec *corev1.PodSpec, task *models.Member) {
 		podSpec.RestartPolicy = corev1.RestartPolicyNever
 	}
 	// fill affinity
-	podSpec.Affinity = j.generateAffinity(podSpec.Affinity, []string{j.VolumeName})
+	if len(j.VolumeName) != 0 {
+		// TODO: support multi filesystems
+		podSpec.Affinity = j.generateAffinity(podSpec.Affinity, []string{j.VolumeName})
+	}
 }
 
 // todo: to be removed
