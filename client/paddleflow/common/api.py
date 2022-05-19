@@ -24,6 +24,7 @@ PADDLE_FLOW_USER = '/api/paddleflow/v%d/user' % PADDLE_FLOW_VERSION
 PADDLE_FLOW_QUEUE = '/api/paddleflow/v%d/queue' % PADDLE_FLOW_VERSION
 PADDLE_FLOW_GRANT = '/api/paddleflow/v%d/grant' % PADDLE_FLOW_VERSION
 PADDLE_FLOW_FS = '/api/paddleflow/v%d/fs' % FS_SERVER_VERSION
+PADDLE_FLOW_FS_CACHE = '/api/paddleflow/v%d/fsCache' % FS_SERVER_VERSION
 PADDLE_FLOW_RUN = '/api/paddleflow/v%d/run' % PADDLE_FLOW_VERSION
 PADDLE_FLOW_LINK = '/api/paddleflow/v%d/link' % FS_SERVER_VERSION
 PADDLE_FLOW_CLUSTER = '/api/paddleflow/v%d/cluster' % PADDLE_FLOW_VERSION
