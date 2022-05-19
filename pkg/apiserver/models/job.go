@@ -50,7 +50,7 @@ type Job struct {
 	Framework         schema.Framework `json:"framework" gorm:"type:varchar(30)"`
 	MembersJson       string           `json:"-" gorm:"column:members;type:text"`
 	Members           []Member         `json:"members" gorm:"-"`
-	ExtensionTemplate string           `json:"extensionTemplate" gorm:"type:text"`
+	ExtensionTemplate string           `json:"-" gorm:"type:text"`
 	ParentJob         string           `json:"-" gorm:"type:varchar(60)"`
 	CreatedAt         time.Time        `json:"createTime"`
 	ActivatedAt       sql.NullTime     `json:"activateTime"`
