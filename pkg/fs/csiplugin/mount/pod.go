@@ -422,6 +422,7 @@ func getMountCmd(mountInfo pfs.MountInfo, cacheConf common.FsCacheConfig) string
 		"--fs-id=" + mountInfo.FSID,
 		"--data-cache-path=" + CachePath + DataCacheDir,
 		"--meta-cache-path=" + CachePath + MetaCacheDir,
+		"--meta-cache-driver=" + cacheConf.MetaDriver,
 	}
 	cmd := mkdir + pfsMountPath + mountPath + strings.Join(options, " ")
 	return cmd
