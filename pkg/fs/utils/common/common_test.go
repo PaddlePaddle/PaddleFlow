@@ -55,3 +55,50 @@ func TestGetDefaultGID(t *testing.T) {
 	uid := GetDefaultGID()
 	assert.Equal(t, uid, value)
 }
+
+func TestFSIDToName(t *testing.T) {
+	type args struct {
+		fsID string
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "use fsname",
+			args: args{
+				fsID: "myfs",
+			},
+			want: "myfs",
+		},
+		{
+			name: "use fsID",
+			args: args{
+				fsID: "fs-root-myfs",
+			},
+			want: "myfs",
+		},
+		{
+			name: "use fsID with user has '-' ",
+			args: args{
+				fsID: "fs-user-test-myfs",
+			},
+			want: "myfs",
+		},
+		{
+			name: "empty fsID",
+			args: args{
+				fsID: "",
+			},
+			want: "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if fsName, _ := FsIDToFsNameUsername(tt.args.fsID); fsName != tt.want {
+				t.Errorf("FSIDToName() = %v, want %v", fsName, tt.want)
+			}
+		})
+	}
+}

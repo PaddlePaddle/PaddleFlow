@@ -20,7 +20,6 @@ import (
 	"testing"
 
 	"paddleflow/pkg/fs/common"
-	utils "paddleflow/pkg/fs/utils/common"
 )
 
 func TestInformationFromUrl(t *testing.T) {
@@ -219,53 +218,6 @@ func TestCheckFsNested(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := CheckFsNested(tt.args.path1, tt.args.path2); got != tt.want {
 				t.Errorf("CheckFsNested() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestFSIDToName(t *testing.T) {
-	type args struct {
-		fsID string
-	}
-	tests := []struct {
-		name string
-		args args
-		want string
-	}{
-		{
-			name: "use fsname",
-			args: args{
-				fsID: "myfs",
-			},
-			want: "myfs",
-		},
-		{
-			name: "use fsID",
-			args: args{
-				fsID: "fs-root-myfs",
-			},
-			want: "myfs",
-		},
-		{
-			name: "use fsID with user has '-' ",
-			args: args{
-				fsID: "fs-user-test-myfs",
-			},
-			want: "myfs",
-		},
-		{
-			name: "empty fsID",
-			args: args{
-				fsID: "",
-			},
-			want: "",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if fsName, _ := utils.FsIDToFsNameUsername(tt.args.fsID); fsName != tt.want {
-				t.Errorf("FSIDToName() = %v, want %v", fsName, tt.want)
 			}
 		})
 	}
