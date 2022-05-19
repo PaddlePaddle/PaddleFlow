@@ -427,21 +427,21 @@ func buildMockFS() models.FileSystem {
 
 func buildMockFSCacheConfig() models.FSCacheConfig {
 	return models.FSCacheConfig{
-		FsID:      mockFsID,
-		CacheDir:  "path",
-		Quota:     444,
-		CacheType: "disk",
-		BlockSize: 666,
+		FsID:       mockFsID,
+		CacheDir:   "path",
+		Quota:      444,
+		MetaDriver: "nutsdb",
+		BlockSize:  666,
 	}
 }
 
 func buildUpdateRequest(model models.FSCacheConfig) fs.UpdateFileSystemCacheRequest {
 	return fs.UpdateFileSystemCacheRequest{
-		FsID:      model.FsID,
-		CacheDir:  model.CacheDir,
-		Quota:     model.Quota,
-		CacheType: model.CacheType,
-		BlockSize: model.BlockSize,
+		FsID:       model.FsID,
+		CacheDir:   model.CacheDir,
+		Quota:      model.Quota,
+		MetaDriver: "nutsdb",
+		BlockSize:  model.BlockSize,
 	}
 }
 
@@ -483,7 +483,7 @@ func TestFSCacheConfigRouter(t *testing.T) {
 	cacheRsp := fs.FileSystemCacheResponse{}
 	err = ParseBody(result.Body, &cacheRsp)
 	assert.Nil(t, err)
-	assert.Equal(t, cacheConf.CacheType, cacheRsp.CacheType)
+	assert.Equal(t, cacheConf.MetaDriver, cacheRsp.MetaDriver)
 	assert.Equal(t, cacheConf.CacheDir, cacheRsp.CacheDir)
 	assert.Equal(t, cacheConf.BlockSize, cacheRsp.BlockSize)
 	assert.Equal(t, cacheConf.Quota, cacheRsp.Quota)
