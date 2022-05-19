@@ -66,13 +66,6 @@ func TestFSIDToName(t *testing.T) {
 		want string
 	}{
 		{
-			name: "use fsname",
-			args: args{
-				fsID: "myfs",
-			},
-			want: "myfs",
-		},
-		{
 			name: "use fsID",
 			args: args{
 				fsID: "fs-root-myfs",
