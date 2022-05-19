@@ -211,14 +211,11 @@ func newFrameWorkJob(kubeJob KubeJob, job *api.PFJob) (api.PFJobInterface, error
 
 func (j *KubeJob) generateAffinity(affinity *corev1.Affinity, fsIDs []string) *corev1.Affinity {
 	nodes, err := locationAwareness.ListFsCacheLocation(fsIDs)
-	if err != nil {
-		log.Warningf("get location awareness for PaddleFlow filesystem %s failed, err: %v", fsIDs, err)
+	if err != nil || len(nodes) == 0 {
+		log.Warningf("get location awareness for PaddleFlow filesystem %s failed or cache location is empty, err: %v", fsIDs, err)
 		return affinity
 	}
 	log.Infof("nodes for PaddleFlow filesystem %s location awareness: %v", fsIDs, nodes)
-	if len(nodes) == 0 {
-		return affinity
-	}
 	fsCacheAffinity := j.fsCacheAffinity(nodes)
 	if affinity == nil {
 		return fsCacheAffinity

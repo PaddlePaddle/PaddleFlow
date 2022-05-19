@@ -26,7 +26,7 @@ import (
 
 func ListFsCacheLocation(fsIDs []string) ([]string, error) {
 	if len(fsIDs) == 0 {
-		log.Errorf("GetFsMountByID IDs empty")
+		log.Errorf("ListFsCacheLocation IDs empty")
 		return nil, errors.New("fsIDS empty")
 	}
 	nodesMap := make(map[string]struct{}, 0)
