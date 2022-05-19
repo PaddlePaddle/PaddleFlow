@@ -141,7 +141,9 @@ func (sj *SparkJob) patchPodByTask(podSpec *sparkapp.SparkPodSpec, task models.M
 
 func (sj *SparkJob) patchSparkSpecDriver(jobApp *sparkapp.SparkApplication, task models.Member) {
 	sj.patchPodByTask(&jobApp.Spec.Driver.SparkPodSpec, task)
-	jobApp.Spec.Driver.PodName = &task.Name
+	if task.Name != "" {
+		jobApp.Spec.Driver.PodName = &task.Name
+	}
 	if jobApp.Spec.Driver.ServiceAccount == nil {
 		serviceAccount := string(schema.TypeSparkJob)
 		jobApp.Spec.Driver.ServiceAccount = &serviceAccount
