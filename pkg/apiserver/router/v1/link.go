@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	utils "paddleflow/pkg/fs/utils/common"
 	"path/filepath"
 	"strings"
 
@@ -513,7 +514,7 @@ func (lr *LinkRouter) getLink(w http.ResponseWriter, r *http.Request) {
 }
 
 func linkResponseFromModel(link models.Link) *api.LinkResponse {
-	fsName := common.FSIDToName(link.FsID)
+	fsName, _ := utils.FsIDToFsNameUsername(link.FsID)
 	return &api.LinkResponse{
 		FsName:        fsName,
 		FsPath:        link.FsPath,

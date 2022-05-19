@@ -17,10 +17,9 @@ limitations under the License.
 package fs
 
 import (
-	"strings"
-
 	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/common/logger"
+	utils "paddleflow/pkg/fs/utils/common"
 )
 
 type UpdateFileSystemCacheRequest struct {
@@ -79,20 +78,10 @@ func (resp *FileSystemCacheResponse) fromModel(config models.FSCacheConfig) {
 	resp.NodeAffinity = config.NodeAffinityMap
 	resp.NodeTaintToleration = config.NodeTaintTolerationMap
 	resp.ExtraConfig = config.ExtraConfigMap
-	resp.FsName, resp.Username = fsIDToName(config.FsID)
+	resp.FsName, resp.Username = utils.FsIDToFsNameUsername(config.FsID)
 	// format time
 	resp.CreateTime = config.CreatedAt.Format("2006-01-02 15:04:05")
 	resp.UpdateTime = config.UpdatedAt.Format("2006-01-02 15:04:05")
-}
-
-func fsIDToName(fsID string) (fsName, username string) {
-	fsArr := strings.Split(fsID, "-")
-	if len(fsArr) < 3 {
-		return "", ""
-	}
-	fsName = fsArr[len(fsArr)-1]
-	username = strings.Join(fsArr[1:len(fsArr)-1], "")
-	return
 }
 
 func CreateFileSystemCacheConfig(ctx *logger.RequestContext, req CreateFileSystemCacheRequest) error {

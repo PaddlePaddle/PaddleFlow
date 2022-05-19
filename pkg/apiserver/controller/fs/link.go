@@ -19,6 +19,7 @@ package fs
 import (
 	"encoding/json"
 	"os"
+	utils "paddleflow/pkg/fs/utils/common"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -171,9 +172,10 @@ func (s *LinkService) PersistLinksMeta(fsID string) error {
 
 	linksMeta := make(map[string]fsCommon.FSMeta)
 	for _, link := range links {
+		fsName, _ := utils.FsIDToFsNameUsername(link.ID)
 		linksMeta[link.FsPath] = fsCommon.FSMeta{
 			ID:            link.ID,
-			Name:          common.FSIDToName(link.ID),
+			Name:          fsName,
 			UfsType:       link.Type,
 			ServerAddress: link.ServerAddress,
 			SubPath:       link.SubPath,

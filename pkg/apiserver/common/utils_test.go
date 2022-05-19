@@ -17,6 +17,7 @@ limitations under the License.
 package common
 
 import (
+	utils "paddleflow/pkg/fs/utils/common"
 	"testing"
 
 	"paddleflow/pkg/fs/common"
@@ -263,8 +264,8 @@ func TestFSIDToName(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := FSIDToName(tt.args.fsID); got != tt.want {
-				t.Errorf("FSIDToName() = %v, want %v", got, tt.want)
+			if fsName, _ := utils.FsIDToFsNameUsername(tt.args.fsID); fsName != tt.want {
+				t.Errorf("FSIDToName() = %v, want %v", fsName, tt.want)
 			}
 		})
 	}

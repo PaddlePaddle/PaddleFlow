@@ -18,6 +18,7 @@ package csidriver
 
 import (
 	"os"
+	"path"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/kubernetes-csi/drivers/pkg/csi-common"
@@ -129,7 +130,7 @@ func mountVolume(volumeID string, mountInfo pfs.MountInfo, readOnly bool) error 
 		return err
 	}
 
-	bindSource := mount.MountDir + "/" + mountInfo.FSID + "/storage"
+	bindSource := path.Join(mount.MountDir, mountInfo.FSID, "storage")
 	log.Infof("bind info bindSource[%s] targetPath[%s]", bindSource, mountInfo.TargetPath)
 	return bindMountVolume(bindSource, mountInfo.TargetPath, readOnly)
 }

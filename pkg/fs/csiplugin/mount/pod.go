@@ -18,6 +18,7 @@ package mount
 
 import (
 	"fmt"
+	"path"
 	"strconv"
 	"strings"
 	"sync"
@@ -256,31 +257,21 @@ func createMountPod(k8sClient k8s.K8SInterface, httpClient *core.PFClient, token
 
 func defaultCacheConfig(fsID string) common.FsCacheConfig {
 	return common.FsCacheConfig{
-		CacheDir:   HostPathMnt + "/" + fsID,
+		CacheDir:   path.Join(HostPathMnt, fsID),
 		MetaDriver: MetaDriverDefault,
 	}
 }
 
 func completeCacheConfig(config *common.FsCacheConfig, fsID string) {
 	if config.CacheDir == "" {
-		config.CacheDir = HostPathMnt + "/" + fsID
+		config.CacheDir = path.Join(HostPathMnt, fsID)
 	}
 	if config.MetaDriver == "" {
 		config.MetaDriver = MetaDriverDefault
 	}
 	if config.FsName == "" || config.Username == "" {
-		config.FsName, config.Username = fsIDToName(fsID)
+		config.FsName, config.Username = utils.FsIDToFsNameUsername(fsID)
 	}
-}
-
-func fsIDToName(fsID string) (fsName, username string) {
-	fsArr := strings.Split(fsID, "-")
-	if len(fsArr) < 3 {
-		return "", ""
-	}
-	fsName = fsArr[len(fsArr)-1]
-	username = strings.Join(fsArr[1:len(fsArr)-1], "")
-	return
 }
 
 func BuildMountPod(volumeID string, mountInfo pfs.MountInfo, cacheConf common.FsCacheConfig) *v1.Pod {
