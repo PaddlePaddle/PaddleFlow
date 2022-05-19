@@ -20,7 +20,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	utils "paddleflow/pkg/fs/utils/common"
 	"path/filepath"
 	"strings"
 
@@ -36,6 +35,7 @@ import (
 	"paddleflow/pkg/common/logger"
 	fuse "paddleflow/pkg/fs/client/fs"
 	fsCommon "paddleflow/pkg/fs/common"
+	utils "paddleflow/pkg/fs/utils/common"
 )
 
 type LinkRouter struct{}
