@@ -1,6 +1,0 @@
-=============== May 16, 2022 (CST) ===============
-17:33:47.102444 log@legend F·NumFile S·FileSize N·Entry C·BadEntry B·BadBlock Ke·KeyError D·DroppedEntry L·Level Q·SeqNum T·TimeElapsed
-17:33:47.143496 db@open opening
-17:33:47.145434 version@stat F·[] S·0B[] Sc·[]
-17:33:47.164399 db@janitor F·2 G·0
-17:33:47.164530 db@open done T·20.970417ms
