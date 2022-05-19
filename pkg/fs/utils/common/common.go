@@ -17,7 +17,9 @@ limitations under the License.
 package common
 
 import (
+	"encoding/hex"
 	"fmt"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -192,4 +194,10 @@ func GetRootToken(ctx *logger.RequestContext) (string, error) {
 		return "", err
 	}
 	return token, err
+}
+
+func GetRandID(randNum int) string {
+	b := make([]byte, randNum/2)
+	rand.Read(b)
+	return hex.EncodeToString(b)
 }

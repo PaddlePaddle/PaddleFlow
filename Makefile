@@ -67,10 +67,10 @@ test-case:
 # make package
 package:
 	mkdir -p $(OUTDIR)/bin
-	mv $(HOMEDIR)/paddleflow $(OUTDIR)/bin
-	mv $(HOMEDIR)/pfs-fuse   $(OUTDIR)/bin
-	mv $(HOMEDIR)/csi-plugin $(OUTDIR)/bin
-	cp $(HOMEDIR)/pkg/fs/csiplugin/client/mount.sh $(OUTDIR)/bin
+	mv $(HOMEDIR)/paddleflow   $(OUTDIR)/bin
+	mv $(HOMEDIR)/pfs-fuse     $(OUTDIR)/bin
+	mv $(HOMEDIR)/csi-plugin   $(OUTDIR)/bin
+	mv $(HOMEDIR)/cache-worker $(OUTDIR)/bin
 
 # make clean
 clean:

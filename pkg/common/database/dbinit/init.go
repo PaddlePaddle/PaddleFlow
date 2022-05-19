@@ -140,6 +140,41 @@ func initSQLiteDB(dbConf *config.DatabaseConfig, gormConf *gorm.Config) *gorm.DB
 		log.Fatalf("init sqllite db error[%s]", tx.Error)
 		return nil
 	}
+	// init flavour to db
+	flavours := []models.Flavour{
+		{
+			Name: "flavour1",
+			CPU:  "1",
+			Mem:  "1G",
+		},
+		{
+			Name:               "flavour2",
+			CPU:                "1",
+			Mem:                "1G",
+			RawScalarResources: `{"baidu.com/v100_cgpu": "1"}`,
+		},
+		{
+			Name:               "flavour3",
+			CPU:                "1",
+			Mem:                "8G",
+			RawScalarResources: `{"baidu.com/v100_cgpu": "1"}`,
+		},
+		{
+			Name:               "flavour4",
+			CPU:                "1",
+			Mem:                "8G",
+			RawScalarResources: `{"baidu.com/v100_cgpu": "1","baidu.com/v100_cgpu_memory": "7"}`,
+		},
+	}
+	tx = db.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "name"}},
+		DoUpdates: clause.AssignmentColumns([]string{"cpu", "mem", "scalar_resources"}),
+	}).CreateInBatches(&flavours, 4)
+	if tx.Error != nil {
+		log.Fatalf("init sqllite db error[%s]", tx.Error)
+		return nil
+	}
+
 	log.Debugf("init sqlite DB success")
 	return db
 }
@@ -168,6 +203,8 @@ func createDatabaseTables(db *gorm.DB) error {
 		&models.Flavour{},
 		&models.Grant{},
 		&models.Job{},
+		&models.JobTask{},
+		&models.JobLabel{},
 		&models.ClusterInfo{},
 		&models.Image{},
 		&models.FileSystem{},

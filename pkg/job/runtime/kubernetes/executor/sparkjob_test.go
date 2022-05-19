@@ -17,155 +17,239 @@ limitations under the License.
 package executor
 
 import (
+	"net/http/httptest"
 	"testing"
 
+	"github.com/ghodss/yaml"
 	"github.com/stretchr/testify/assert"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	sparkapp "paddleflow/pkg/apis/spark-operator/sparkoperator.k8s.io/v1beta2"
+	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/common/config"
+	"paddleflow/pkg/common/database/dbinit"
+	"paddleflow/pkg/common/k8s"
 	"paddleflow/pkg/common/schema"
 	"paddleflow/pkg/job/api"
 )
 
-func initConfigsForTest(confEnv map[string]string) {
-	config.GlobalServerConfig = &config.ServerConfig{}
-	config.GlobalServerConfig.Job.DefaultJobYamlDir = "../../../../../config/server/default/job"
-	config.GlobalServerConfig.Job.SchedulerName = "testSchedulerName"
-	confEnv[schema.EnvJobType] = string(schema.TypeVcJob)
-	confEnv[schema.EnvJobNamespace] = "N1"
-	config.GlobalServerConfig.FlavourMap = map[string]schema.Flavour{
-		"ss": {
-			Name: "ss",
-			ResourceInfo: schema.ResourceInfo{
-				CPU: "1",
-				Mem: "100M",
+var (
+	extensionSparkYaml = `
+apiVersion: sparkoperator.k8s.io/v1beta2
+kind: SparkApplication
+metadata:
+  creationTimestamp: null
+  labels:
+	owner: paddleflow
+	paddleflow-job-id: job-normal-0c272d0a
+  name: job-normal-0c272d0a
+  namespace: default
+spec:
+  batchScheduler: testSchedulerName
+  batchSchedulerOptions: {}
+  deps: {}
+  driver:
+	coreLimit: "3"
+	cores: 3
+	memory: 3G
+	podName: normal
+	serviceAccount: spark
+  executor:
+	coreLimit: "2"
+	cores: 2
+	instances: 1
+	memory: 2Gi
+  image: mockImage
+  imagePullPolicy: IfNotPresent
+  mainApplicationFile: null
+  mode: cluster
+  restartPolicy:
+	onSubmissionFailureRetries: 3
+	onSubmissionFailureRetryInterval: 5
+	type: Never
+  sparkVersion: 3.0.0
+  type: Scala
+status:
+  applicationState:
+	state: ""
+  driverInfo: {}
+  lastSubmissionAttemptTime: null
+  terminationTime: null
+`
+	mockSparkJob = api.PFJob{
+		ID:        "job-normal-0c272d0a",
+		Name:      "",
+		Namespace: "default",
+		JobType:   schema.TypeDistributed,
+		Framework: schema.FrameworkSpark,
+		UserName:  "root",
+		QueueID:   "mockQueueID",
+		Conf: schema.Conf{
+			Name: "normal",
+			//Command: "sleep 200",
+			Image: "mockImage",
+			Env:   map[string]string{
+				//"PF_JOB_MODE":           "PS",
+				//"PF_FS_ID":              "fs-name_1",
+				//"PF_JOB_CLUSTER_ID":     "testClusterID",
+				//"PF_JOB_ID":             "",
+				//"PF_JOB_NAMESPACE":      "paddleflow",
+				//"PF_JOB_PRIORITY":       "NORMAL",
+				//"PF_JOB_QUEUE_ID":       "mockQueueID",
+				//"PF_JOB_FLAVOUR":        "cpu",
+				//"PF_JOB_WORKER_FLAVOUR": "cpu",
+				//"PF_JOB_WORKER_COMMAND": "sleep 3600",
+				//"PF_JOB_QUEUE_NAME":     "mockQueueName",
+				//"PF_USER_NAME": "root",
 			},
 		},
-		"cpu": {
-			Name: "cpu",
-			ResourceInfo: schema.ResourceInfo{
-				CPU: "1",
-				Mem: "100M",
+		Tasks: []models.Member{
+			{
+				ID:       "task-normal-0001",
+				Replicas: 3,
+				Role:     schema.RoleDriver,
+				Conf: schema.Conf{
+					Name:  "normal",
+					Image: "mockImage",
+					Env: map[string]string{
+						schema.EnvJobType: string(schema.TypeSparkJob),
+					},
+					Flavour: schema.Flavour{Name: "", ResourceInfo: schema.ResourceInfo{CPU: "3", Mem: "3G"}},
+				},
 			},
-		},
-		"gpu": {
-			Name: "gpu",
-			ResourceInfo: schema.ResourceInfo{
-				CPU: "1",
-				Mem: "100M",
-				ScalarResources: schema.ScalarResourcesType{
-					"nvidia.com/gpu": "500M",
+			{
+				ID:       "task-normal-0001",
+				Replicas: 3,
+				Role:     schema.RoleExecutor,
+				Conf: schema.Conf{
+					Name:    "normal",
+					Command: "sleep 200",
+					Image:   "mockImage",
+					Env: map[string]string{
+						//"PF_FS_ID":          "fs-name_1",
+						//"PF_JOB_CLUSTER_ID": "testClusterID",
+						//"PF_JOB_FLAVOUR":    "cpu",
+						//"PF_JOB_ID":         "",
+						//"PF_JOB_NAMESPACE":  "paddleflow",
+						//"PF_JOB_PRIORITY":   "NORMAL",
+						//"PF_JOB_QUEUE_ID":   "mockQueueID",
+						//"PF_JOB_QUEUE_NAME": "mockQueueName",
+						schema.EnvJobType: string(schema.TypeSparkJob),
+						//"PF_USER_NAME":      "root",
+					},
+					Flavour: schema.Flavour{Name: "", ResourceInfo: schema.ResourceInfo{CPU: "2", Mem: "2Gi"}},
 				},
 			},
 		},
+		//ExtensionTemplate: extensionPaddleYaml,
 	}
-	confEnv[schema.EnvJobFlavour] = "ss"
-	confEnv[schema.EnvJobPServerReplicas] = "3"
-	confEnv[schema.EnvJobFsID] = "fs-root-test"
-	confEnv[schema.EnvJobPVCName] = "test-pvc-name"
-}
-
-func TestPatchSparkAppVariable(t *testing.T) {
-	confEnv := make(map[string]string)
-	initConfigsForTest(confEnv)
-
-	confEnv[schema.EnvJobType] = "spark"
-	confEnv[schema.EnvJobNamespace] = "N1"
-
-	pfjob := &api.PFJob{
-		Conf: schema.Conf{
-			Name:    "confName",
-			Env:     confEnv,
-			Command: "sleep 3600",
-			Image:   "nginx",
-		},
+	mockSparkJobWithYaml = api.PFJob{
+		ID:        "job-mock-000002",
+		Namespace: "default",
 		JobType:   schema.TypeDistributed,
 		Framework: schema.FrameworkSpark,
+		UserName:  "root",
+		QueueID:   "mockQueueID",
+		Tasks: []models.Member{
+			{
+				ID:       "task-normal-0001",
+				Replicas: 3,
+				Role:     schema.RoleDriver,
+				Conf: schema.Conf{
+					Name:  "normal",
+					Image: "mockImage",
+					Env: map[string]string{
+						schema.EnvJobType: string(schema.TypeSparkJob),
+					},
+					Flavour: schema.Flavour{Name: "", ResourceInfo: schema.ResourceInfo{CPU: "1", Mem: "1G"}},
+				},
+			},
+			{
+				ID:       "task-normal-0001",
+				Replicas: 3,
+				Role:     schema.RoleExecutor,
+				Conf: schema.Conf{
+					Name:    "normal",
+					Command: "sleep 200",
+					Image:   "mockImage",
+					Env: map[string]string{
+						schema.EnvJobType: string(schema.TypeSparkJob),
+					},
+					Flavour: schema.Flavour{Name: "", ResourceInfo: schema.ResourceInfo{CPU: "2", Mem: "2Gi"}},
+				},
+			},
+		},
+		ExtensionTemplate: extensionPaddleYaml,
 	}
+)
 
+func initGlobalServerConfig() {
+	config.GlobalServerConfig = &config.ServerConfig{}
+	config.GlobalServerConfig.Job.SchedulerName = "testSchedulerName"
+	config.GlobalServerConfig.Job.DefaultJobYamlDir = "../../../../../config/server/default/job"
+}
+
+// TestSparkApp_CreateJob tests create spark app by single yaml
+func TestSparkApp_CreateJob(t *testing.T) {
+	initGlobalServerConfig()
+	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
+	defer server.Close()
+	dynamicClient := newFakeDynamicClient(server)
+	// mock db
+	dbinit.InitMockDB()
+	// create kubernetes resource with dynamic client
 	tests := []struct {
-		caseName      string
-		additionalEnv map[string]string
-		actualValue   *sparkapp.SparkApplication
-		expectValue   string
-		errMsg        string
+		caseName string
+		jobObj   *api.PFJob
+		wantErr  bool
+		wantMsg  string
 	}{
 		{
-			caseName:    "spark_test",
-			actualValue: &sparkapp.SparkApplication{},
-			expectValue: "N1",
+			caseName: "spark",
+			jobObj:   &mockSparkJob,
+			wantErr:  false,
+			wantMsg:  "",
 		},
 		{
-			caseName: "fromUserPath",
-			additionalEnv: map[string]string{
-				schema.EnvJobNamespace: "N2",
-			},
-			actualValue: &sparkapp.SparkApplication{},
-			expectValue: "N2",
+			caseName: "with_custom_yaml",
+			jobObj:   &mockSparkJobWithYaml,
+			wantErr:  false,
+			wantMsg:  "",
 		},
 	}
 
 	for _, test := range tests {
-		if len(test.additionalEnv) != 0 {
-			for k, v := range test.additionalEnv {
-				pfjob.Conf.SetEnv(k, v)
+		p, err := NewKubeJob(test.jobObj, dynamicClient)
+
+		if test.wantErr {
+			assert.NotNil(t, err)
+			t.Logf("%s: create kube job failed, err: %v", test.caseName, err)
+			continue
+		}
+		assert.NotNil(t, p)
+		t.Logf("case[%s] to NewKubeJob=%+v", test.caseName, p)
+
+		jobID, err := p.CreateJob()
+		if test.wantErr && assert.Error(t, err) {
+			assert.Equal(t, test.wantMsg, err.Error())
+		} else if !test.wantErr && assert.NotEmpty(t, jobID) {
+			t.Logf("case[%s] to CreateJob, paddleFlowJob=%+v", test.caseName, p)
+			jobObj, err := Get(test.jobObj.Namespace, test.jobObj.ID, k8s.SparkAppGVK, dynamicClient)
+			if !assert.NoError(t, err) {
+				t.Errorf(err.Error())
+				continue
 			}
+			t.Logf("obj=%#v", jobObj)
+			application := sparkapp.SparkApplication{}
+			err = runtime.DefaultUnstructuredConverter.FromUnstructured(jobObj.Object, &application)
+			assert.NoError(t, err)
+			t.Logf("application=%#v", application)
+			podYaml, err := yaml.Marshal(application)
+			assert.NoError(t, err)
+			t.Logf("%s", string(podYaml))
+			t.Skipped()
+		} else {
+			t.Errorf("error case, %v", err)
 		}
-		if pfjob.Conf.GetNamespace() != "" {
-			pfjob.Namespace = pfjob.Conf.GetNamespace()
-		}
-
-		kubeJob := KubeJob{
-			ID:         test.caseName,
-			Name:       "randomName",
-			Namespace:  pfjob.Namespace,
-			JobType:    schema.TypeDistributed,
-			Image:      pfjob.Conf.GetImage(),
-			Command:    pfjob.Conf.GetCommand(),
-			Env:        pfjob.Conf.GetEnv(),
-			VolumeName: pfjob.Conf.GetFS(),
-			PVCName:    "PVCName",
-			Priority:   pfjob.Conf.GetPriority(),
-			QueueName:  pfjob.Conf.GetQueueName(),
-		}
-		// yaml content
-		yamlTemplateContent, err := kubeJob.getExtRuntimeConf(pfjob.Conf.GetFS(), pfjob.Conf.GetYamlPath(), pfjob.Framework)
-		if err != nil {
-			t.Errorf(err.Error())
-		}
-		kubeJob.YamlTemplateContent = yamlTemplateContent
-
-		sparkJob := SparkJob{
-			KubeJob:          kubeJob,
-			SparkMainFile:    "",
-			SparkMainClass:   "",
-			SparkArguments:   "",
-			DriverFlavour:    "",
-			ExecutorFlavour:  "",
-			ExecutorReplicas: "",
-		}
-		jobApp := test.actualValue
-		if err := sparkJob.createJobFromYaml(jobApp); err != nil {
-			t.Errorf("create job failed, err %v", err)
-		}
-		err = sparkJob.patchSparkAppVariable(jobApp)
-		if err != nil {
-			t.Errorf(err.Error())
-		}
-
-		t.Logf("case[%s] jobApp=%+v", test.caseName, *jobApp)
-
-		assert.NotEmpty(t, jobApp.Spec.Volumes)
-		assert.NotEmpty(t, jobApp.Spec.MainClass)
-		assert.NotEmpty(t, jobApp.Spec.BatchSchedulerOptions.Queue)
-
-		assert.NotEmpty(t, jobApp.Spec.Driver)
-		assert.NotEmpty(t, jobApp.Spec.Driver.VolumeMounts)
-
-		assert.NotEmpty(t, jobApp.Spec.Executor)
-		assert.NotEmpty(t, jobApp.Spec.Executor.VolumeMounts)
-		assert.NotEmpty(t, jobApp.Spec.Executor.Instances)
-
-		assert.Equal(t, test.expectValue, jobApp.Namespace)
 	}
 }

@@ -38,6 +38,7 @@ import (
 	"paddleflow/pkg/common/k8s"
 	"paddleflow/pkg/common/logger"
 	"paddleflow/pkg/common/schema"
+	locationAwareness "paddleflow/pkg/fs/location-awareness"
 	"paddleflow/pkg/job/api"
 )
 
@@ -45,6 +46,9 @@ const (
 	defaultPodReplicas        = 1 // default replicas for pod mode
 	defaultPSReplicas         = 1 // default replicas for PS mode, including ps-server and ps-worker
 	defaultCollectiveReplicas = 2 // default replicas for collective mode
+
+	fsLocationAwarenessKey    = "kubernetes.io/hostname"
+	fsLocationAwarenessWeight = 100
 )
 
 // KubeJobInterface define methods for create kubernetes job
@@ -140,6 +144,15 @@ func NewKubeJob(job *api.PFJob, dynamicClientOpt *k8s.DynamicClientOption) (api.
 	case schema.TypeVcJob:
 		// todo(zhongzichao): to be removed
 		kubeJob.GroupVersionKind = k8s.VCJobGVK
+		if len(job.Tasks) == 0 {
+			kubeJob.Tasks = []models.Member{
+				{
+					Conf: schema.Conf{
+						Flavour: job.Conf.Flavour,
+					},
+				},
+			}
+		}
 		return &VCJob{
 			KubeJob:       kubeJob,
 			JobModeParams: newJobModeParams(job.Conf),
@@ -170,11 +183,14 @@ func newFrameWorkJob(kubeJob KubeJob, job *api.PFJob) (api.PFJobInterface, error
 	case schema.FrameworkSpark:
 		kubeJob.GroupVersionKind = k8s.SparkAppGVK
 		sparkJob := &SparkJob{
-			KubeJob:        kubeJob,
-			SparkMainFile:  job.Conf.Env[schema.EnvJobSparkMainFile],
-			SparkMainClass: job.Conf.Env[schema.EnvJobSparkMainClass],
-			SparkArguments: job.Conf.Env[schema.EnvJobSparkArguments],
+			KubeJob: kubeJob,
 		}
+		if kubeJob.Tasks != nil && kubeJob.Tasks[0].Env != nil {
+			sparkJob.SparkMainClass = kubeJob.Tasks[0].Env[schema.EnvJobSparkMainClass]
+			sparkJob.SparkMainFile = kubeJob.Tasks[0].Env[schema.EnvJobSparkMainFile]
+			sparkJob.SparkArguments = kubeJob.Tasks[0].Env[schema.EnvJobSparkArguments]
+		}
+		log.Debugf("newFrameWorkJob: create spark job: %#v", sparkJob)
 		return sparkJob, nil
 	case schema.FrameworkMPI:
 		kubeJob.GroupVersionKind = k8s.VCJobGVK
@@ -190,6 +206,49 @@ func newFrameWorkJob(kubeJob KubeJob, job *api.PFJob) (api.PFJobInterface, error
 		}, nil
 	default:
 		return nil, fmt.Errorf("kubernetes job framework[%s] is not supported", job.Framework)
+	}
+}
+
+func (j *KubeJob) generateAffinity(affinity *corev1.Affinity, fsIDs []string) *corev1.Affinity {
+	nodes, err := locationAwareness.ListFsCacheLocation(fsIDs)
+	if err != nil || len(nodes) == 0 {
+		log.Warningf("get location awareness for PaddleFlow filesystem %s failed or cache location is empty, err: %v", fsIDs, err)
+		return affinity
+	}
+	log.Infof("nodes for PaddleFlow filesystem %s location awareness: %v", fsIDs, nodes)
+	fsCacheAffinity := j.fsCacheAffinity(nodes)
+	if affinity == nil {
+		return fsCacheAffinity
+	}
+	// merge filesystem location awareness affinity to pod affinity
+	if affinity.NodeAffinity == nil {
+		affinity.NodeAffinity = fsCacheAffinity.NodeAffinity
+	} else {
+		affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(
+			fsCacheAffinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution,
+			affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution...)
+	}
+	return affinity
+}
+
+func (j *KubeJob) fsCacheAffinity(nodes []string) *corev1.Affinity {
+	return &corev1.Affinity{
+		NodeAffinity: &corev1.NodeAffinity{
+			PreferredDuringSchedulingIgnoredDuringExecution: []corev1.PreferredSchedulingTerm{
+				{
+					Weight: fsLocationAwarenessWeight,
+					Preference: corev1.NodeSelectorTerm{
+						MatchExpressions: []corev1.NodeSelectorRequirement{
+							{
+								Key:      fsLocationAwarenessKey,
+								Operator: corev1.NodeSelectorOpIn,
+								Values:   nodes,
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 }
 
@@ -290,15 +349,19 @@ func (j *KubeJob) fillPodSpec(podSpec *corev1.PodSpec, task *models.Member) {
 	if j.isNeedPatch(string(podSpec.RestartPolicy)) {
 		podSpec.RestartPolicy = corev1.RestartPolicyNever
 	}
+	// fill affinity
+	if len(j.VolumeName) != 0 {
+		// TODO: support multi filesystems
+		podSpec.Affinity = j.generateAffinity(podSpec.Affinity, []string{j.VolumeName})
+	}
 }
 
 // todo: to be removed
 // fillContainerInVcJob fill container in job task, only called by vcjob
-func (j *KubeJob) fillContainerInVcJob(container *corev1.Container, flavourKey, command string) {
+func (j *KubeJob) fillContainerInVcJob(container *corev1.Container, flavour schema.Flavour, command string) {
 	container.Image = j.Image
 	container.Command = []string{"bash", "-c", j.fixContainerCommand(command)}
-	flavourValue := config.GlobalServerConfig.FlavourMap[flavourKey]
-	container.Resources = j.generateResourceRequirements(flavourValue)
+	container.Resources = j.generateResourceRequirements(flavour)
 	container.VolumeMounts = j.appendMountIfAbsent(container.VolumeMounts, j.generateVolumeMount())
 	container.Env = j.generateEnvVars()
 }
