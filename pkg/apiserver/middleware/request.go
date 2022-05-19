@@ -20,25 +20,11 @@ import (
 	"net/http"
 	"runtime/debug"
 
-	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 
 	"paddleflow/pkg/apiserver/common"
 )
-
-func RequestID() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		requestID := c.Request.Header.Get(common.HeaderKeyRequestID)
-		if requestID == "" {
-			requestID = uuid.NewString()
-			log.Debugf("request is null, generate request-id:%s", requestID)
-		}
-		c.Request.Header.Set(common.HeaderKeyRequestID, requestID)
-		c.Writer.Header().Set(common.HeaderKeyRequestID, requestID)
-		c.Next()
-	}
-}
 
 func CheckRequestID(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
