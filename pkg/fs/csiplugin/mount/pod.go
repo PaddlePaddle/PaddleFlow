@@ -18,6 +18,7 @@ package mount
 
 import (
 	"fmt"
+	"path"
 	"strconv"
 	"strings"
 	"sync"
@@ -57,6 +58,11 @@ const (
 
 	AnnoKeyServer = "server"
 	AnnoKeyFsID   = "fsID"
+
+	MetaDriverDefault = "default"
+	MetaDriverMem     = "mem"
+	MetaDriverLevelDB = "leveldb"
+	MetaDriverNutsDB  = "nutsdb"
 )
 
 var umountLock sync.RWMutex
@@ -230,14 +236,14 @@ func createMountPod(k8sClient k8s.K8SInterface, httpClient *core.PFClient, token
 	if err != nil {
 		if strings.Contains(err.Error(), gorm.ErrRecordNotFound.Error()) {
 			log.Infof("fs[%s] has not set cacheConfig. mount with default settings.", mountInfo.FSID)
-			if cacheConfig.CacheDir == "" {
-				cacheConfig.CacheDir = HostPathMnt + "/" + mountInfo.FSID
-			}
+			cacheConfig = defaultCacheConfig(mountInfo.FSID)
 		} else {
 			log.Errorf("get fs[%s] cacheConfig from pfs server[%s] failed: %v",
 				mountInfo.FSID, mountInfo.Server, err)
 			return err
 		}
+	} else {
+		completeCacheConfig(&cacheConfig, mountInfo.FSID)
 	}
 	// create pod
 	newPod := BuildMountPod(volumeID, mountInfo, cacheConfig)
@@ -247,6 +253,25 @@ func createMountPod(k8sClient k8s.K8SInterface, httpClient *core.PFClient, token
 		return err
 	}
 	return nil
+}
+
+func defaultCacheConfig(fsID string) common.FsCacheConfig {
+	return common.FsCacheConfig{
+		CacheDir:   path.Join(HostPathMnt, fsID),
+		MetaDriver: MetaDriverDefault,
+	}
+}
+
+func completeCacheConfig(config *common.FsCacheConfig, fsID string) {
+	if config.CacheDir == "" {
+		config.CacheDir = path.Join(HostPathMnt, fsID)
+	}
+	if config.MetaDriver == "" {
+		config.MetaDriver = MetaDriverDefault
+	}
+	if config.FsName == "" || config.Username == "" {
+		config.FsName, config.Username = utils.FsIDToFsNameUsername(fsID)
+	}
 }
 
 func BuildMountPod(volumeID string, mountInfo pfs.MountInfo, cacheConf common.FsCacheConfig) *v1.Pod {
@@ -422,6 +447,7 @@ func getMountCmd(mountInfo pfs.MountInfo, cacheConf common.FsCacheConfig) string
 		"--fs-id=" + mountInfo.FSID,
 		"--data-cache-path=" + CachePath + DataCacheDir,
 		"--meta-cache-path=" + CachePath + MetaCacheDir,
+		"--meta-cache-driver=" + cacheConf.MetaDriver,
 	}
 	cmd := mkdir + pfsMountPath + mountPath + strings.Join(options, " ")
 	return cmd
