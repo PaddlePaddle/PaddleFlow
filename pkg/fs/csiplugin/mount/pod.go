@@ -57,6 +57,11 @@ const (
 
 	AnnoKeyServer = "server"
 	AnnoKeyFsID   = "fsID"
+
+	MetaDriverDefault = "default"
+	MetaDriverMem     = "mem"
+	MetaDriverLevelDB = "leveldb"
+	MetaDriverNutsDB  = "nutsdb"
 )
 
 var umountLock sync.RWMutex
@@ -230,14 +235,14 @@ func createMountPod(k8sClient k8s.K8SInterface, httpClient *core.PFClient, token
 	if err != nil {
 		if strings.Contains(err.Error(), gorm.ErrRecordNotFound.Error()) {
 			log.Infof("fs[%s] has not set cacheConfig. mount with default settings.", mountInfo.FSID)
-			if cacheConfig.CacheDir == "" {
-				cacheConfig.CacheDir = HostPathMnt + "/" + mountInfo.FSID
-			}
+			cacheConfig = defaultCacheConfig(mountInfo.FSID)
 		} else {
 			log.Errorf("get fs[%s] cacheConfig from pfs server[%s] failed: %v",
 				mountInfo.FSID, mountInfo.Server, err)
 			return err
 		}
+	} else {
+		completeCacheConfig(&cacheConfig, mountInfo.FSID)
 	}
 	// create pod
 	newPod := BuildMountPod(volumeID, mountInfo, cacheConfig)
@@ -247,6 +252,35 @@ func createMountPod(k8sClient k8s.K8SInterface, httpClient *core.PFClient, token
 		return err
 	}
 	return nil
+}
+
+func defaultCacheConfig(fsID string) common.FsCacheConfig {
+	return common.FsCacheConfig{
+		CacheDir:   HostPathMnt + "/" + fsID,
+		MetaDriver: MetaDriverDefault,
+	}
+}
+
+func completeCacheConfig(config *common.FsCacheConfig, fsID string) {
+	if config.CacheDir == "" {
+		config.CacheDir = HostPathMnt + "/" + fsID
+	}
+	if config.MetaDriver == "" {
+		config.MetaDriver = MetaDriverDefault
+	}
+	if config.FsName == "" || config.Username == "" {
+		config.FsName, config.Username = fsIDToName(fsID)
+	}
+}
+
+func fsIDToName(fsID string) (fsName, username string) {
+	fsArr := strings.Split(fsID, "-")
+	if len(fsArr) < 3 {
+		return "", ""
+	}
+	fsName = fsArr[len(fsArr)-1]
+	username = strings.Join(fsArr[1:len(fsArr)-1], "")
+	return
 }
 
 func BuildMountPod(volumeID string, mountInfo pfs.MountInfo, cacheConf common.FsCacheConfig) *v1.Pod {
