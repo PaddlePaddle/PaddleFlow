@@ -36,6 +36,7 @@ import (
 	"paddleflow/pkg/client"
 	"paddleflow/pkg/common/http/api"
 	"paddleflow/pkg/common/http/core"
+	"paddleflow/pkg/common/schema"
 	"paddleflow/pkg/fs/common"
 	"paddleflow/pkg/fs/csiplugin/client/k8s"
 	"paddleflow/pkg/fs/csiplugin/client/pfs"
@@ -58,11 +59,6 @@ const (
 
 	AnnoKeyServer = "server"
 	AnnoKeyFsID   = "fsID"
-
-	MetaDriverDefault = "default"
-	MetaDriverMem     = "mem"
-	MetaDriverLevelDB = "leveldb"
-	MetaDriverNutsDB  = "nutsdb"
 )
 
 var umountLock sync.RWMutex
@@ -258,7 +254,7 @@ func createMountPod(k8sClient k8s.K8SInterface, httpClient *core.PFClient, token
 func defaultCacheConfig(fsID string) common.FsCacheConfig {
 	return common.FsCacheConfig{
 		CacheDir:   path.Join(HostPathMnt, fsID),
-		MetaDriver: MetaDriverDefault,
+		MetaDriver: schema.FsMetaDefault,
 	}
 }
 
@@ -267,7 +263,7 @@ func completeCacheConfig(config *common.FsCacheConfig, fsID string) {
 		config.CacheDir = path.Join(HostPathMnt, fsID)
 	}
 	if config.MetaDriver == "" {
-		config.MetaDriver = MetaDriverDefault
+		config.MetaDriver = schema.FsMetaDefault
 	}
 	if config.FsName == "" || config.Username == "" {
 		config.FsName, config.Username = utils.FsIDToFsNameUsername(fsID)

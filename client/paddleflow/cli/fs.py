@@ -209,11 +209,11 @@ def mount(ctx, fsname, path, o="", username=None):
 
 @fs.command(context_settings=dict(max_content_width=2000), cls=command_required_option_from_option())
 @click.argument('fsname')
-@click.option('-u', '--username', help='Mount the specified fs by username, only useful for root.')
+@click.option('-u', '--username', help='specify fs under other user. for root use only.')
 @click.option('-o', '--o', multiple=True, help="""
 cacheConfig options: 
   -o cacheDir: cache dir on host node. Two sub-directories "data-cache" and "meta-cache" will be created under it.
-  -o metaDriver: meta driver type (e.g. mem, leveldb, nutsdb)",
+  -o metaDriver: meta driver type (e.g. default, mem, leveldb, nutsdb)",
   -o blockSize: data cache block size (default: 0), if block-size equals to 0, it means that no data cache is used
 """)
 @click.pass_context
@@ -248,11 +248,11 @@ def createfscache(ctx, fsname, o="", username=None):
 
 @fs.command(context_settings=dict(max_content_width=2000), cls=command_required_option_from_option())
 @click.argument('fsname')
-@click.option('-u', '--username', help='Mount the specified fs by username, only useful for root.')
+@click.option('-u', '--username', help='specify fs under other user. for root use only.')
 @click.option('-o', '--o', multiple=True, help="""
 cacheConfig options: 
   -o cacheDir: cache dir on host node. Two sub-directories "data-cache" and "meta-cache" will be created under it.
-  -o metaDriver: meta driver type (e.g. mem, leveldb, nutsdb)",
+  -o metaDriver: meta driver type (e.g. default, mem, leveldb, nutsdb)",
   -o blockSize: data cache block size (default: 0), if block-size equals to 0, it means that no data cache is used
 """)
 @click.pass_context
@@ -287,7 +287,7 @@ def updatefscache(ctx, fsname, o="", username=None):
 
 @fs.command(context_settings=dict(max_content_width=2000), cls=command_required_option_from_option())
 @click.argument('fsname')
-@click.option('-u', '--username', help='Mount the specified fs by username, only useful for root.')
+@click.option('-u', '--username', help='specify fs under other user. for root use only.')
 @click.pass_context
 def getfscache(ctx, fsname, username=None):
     """
@@ -296,7 +296,7 @@ def getfscache(ctx, fsname, username=None):
     """
     client = ctx.obj['client']
     if not fsname:
-        click.echo('fs mount must provide fsname.', err=True)
+        click.echo('must provide fsname.', err=True)
         sys.exit(1)
     valid, response = client.get_fs_cache(fsname, username)
     if valid:
