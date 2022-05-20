@@ -303,7 +303,7 @@ class Client(object):
         return FSServiceApi.mount(self.paddleflow_server, fsname, path,
                                   self.user_id, self.password, mountOptions, userinfo)
 
-    def createCache(self, fsname, options, username=None):
+    def create_cache(self, fsname, options, username=None):
         """
         create cache config for fs
         """
@@ -314,6 +314,42 @@ class Client(object):
             raise PaddleFlowSDKException("InvalidFsName", "fsname should not be none or empty")
         userinfo = {'header': self.header, 'name': username, 'host': self.paddleflow_server}
         return FSServiceApi.create_cache(self.paddleflow_server, fsname, options, userinfo)
+
+    def update_fs_cache(self, fsname, params, username=None):
+        """
+        update cache config for fs
+        """
+        self.pre_check()
+        if username and username.strip() == "":
+            raise PaddleFlowSDKException("InvalidUserName", "username should not be none or empty")
+        if fsname == "":
+            raise PaddleFlowSDKException("InvalidFsName", "fsname should not be none or empty")
+        userinfo = {'header': self.header, 'name': username, 'host': self.paddleflow_server}
+        return FSServiceApi.update_cache(self.paddleflow_server, fsname, params, userinfo)
+
+    def get_fs_cache(self, fsname, username=None):
+        """
+        get cache config for fs
+        """
+        self.pre_check()
+        if username and username.strip() == "":
+            raise PaddleFlowSDKException("InvalidUserName", "username should not be none or empty")
+        if fsname == "":
+            raise PaddleFlowSDKException("InvalidFsName", "fsname should not be none or empty")
+        userinfo = {'header': self.header, 'name': username, 'host': self.paddleflow_server}
+        return FSServiceApi.get_cache(self.paddleflow_server, fsname, userinfo)
+
+    def delete_fs_cache(self, fsname, username=None):
+        """
+        delete fs cache config
+        """
+        self.pre_check()
+        if fsname is None or fsname.strip() == "":
+            raise PaddleFlowSDKException("InvalidFSName", "fsname should not be none or empty")
+        if username and username.strip() == "":
+            raise PaddleFlowSDKException("InvalidUserName", "username should not be none or empty")
+        userinfo={'header': self.header, 'name': username, 'host': self.paddleflow_server}
+        return FSServiceApi.delete_cache(self.paddleflow_server, fsname, userinfo)
 
     def add_link(self, fsname, fspath, url, username=None, properties=None):
         """
