@@ -28,17 +28,25 @@ import (
 	"paddleflow/pkg/common/database"
 )
 
-func buildMockFSCacheConfig() models.FSCacheConfig {
+func mockFS() models.FileSystem {
+	return models.FileSystem{
+		Model:    models.Model{ID: mockFsID},
+		UserName: MockRootUser,
+		Name:     mockFsName,
+	}
+}
+
+func mockFSCache() models.FSCacheConfig {
 	return models.FSCacheConfig{
 		FsID:       mockFsID,
-		CacheDir:   "path",
+		CacheDir:   "/abs/path",
 		Quota:      444,
 		MetaDriver: "nutsdb",
 		BlockSize:  666,
 	}
 }
 
-func buildUpdateRequest(model models.FSCacheConfig) fs.UpdateFileSystemCacheRequest {
+func buildUpdateReq(model models.FSCacheConfig) fs.UpdateFileSystemCacheRequest {
 	return fs.UpdateFileSystemCacheRequest{
 		FsID:       model.FsID,
 		CacheDir:   model.CacheDir,
@@ -48,21 +56,21 @@ func buildUpdateRequest(model models.FSCacheConfig) fs.UpdateFileSystemCacheRequ
 	}
 }
 
-func buildCreateRequest(model models.FSCacheConfig) fs.CreateFileSystemCacheRequest {
+func buildCreateReq(model models.FSCacheConfig) fs.CreateFileSystemCacheRequest {
 	req := fs.CreateFileSystemCacheRequest{
 		Username:                     MockRootUser,
 		FsName:                       mockFsName,
-		UpdateFileSystemCacheRequest: buildUpdateRequest(model),
+		UpdateFileSystemCacheRequest: buildUpdateReq(model),
 	}
 	return req
 }
 
 func TestFSCacheConfigRouter(t *testing.T) {
 	router, baseUrl := prepareDBAndAPI(t)
-	mockFs := buildMockFS()
-	cacheConf := buildMockFSCacheConfig()
-	updateReq := buildUpdateRequest(cacheConf)
-	createRep := buildCreateRequest(cacheConf)
+	mockFs := mockFS()
+	cacheConf := mockFSCache()
+	updateReq := buildUpdateReq(cacheConf)
+	createRep := buildCreateReq(cacheConf)
 
 	// test create failure - no fs
 	url := baseUrl + "/fsCache"

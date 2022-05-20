@@ -409,11 +409,3 @@ func Test_getListResult(t *testing.T) {
 		})
 	}
 }
-
-func buildMockFS() models.FileSystem {
-	return models.FileSystem{
-		Model:    models.Model{ID: mockFsID},
-		UserName: MockRootUser,
-		Name:     mockFsName,
-	}
-}
