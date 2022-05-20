@@ -3,6 +3,7 @@ HOMEDIR := $(shell pwd)
 OUTDIR  := $(HOMEDIR)/output
 
 # init command params
+PYTHON3 := python3
 GO      := go
 GOPATH  := $(shell $(GO) env GOPATH)
 GOMOD   := $(GO) mod
@@ -47,6 +48,7 @@ build:
 	$(GOBUILD) -ldflags ${LD_FLAGS} -trimpath -o $(HOMEDIR)/pfs-fuse     $(HOMEDIR)/cmd/fs/fuse/main.go
 	$(GOBUILD) -ldflags ${LD_FLAGS} -trimpath -o $(HOMEDIR)/csi-plugin   $(HOMEDIR)/cmd/fs/csi-plugin/main.go
 	$(GOBUILD) -ldflags ${LD_FLAGS} -trimpath -o $(HOMEDIR)/cache-worker $(HOMEDIR)/cmd/fs/location-awareness/cache-worker/main.go
+	$(PYTHON3) $(HOMEDIR)/client/setup.py bdist_wheel
 
 # make doc
 doc:
@@ -71,6 +73,8 @@ package:
 	mv $(HOMEDIR)/pfs-fuse     $(OUTDIR)/bin
 	mv $(HOMEDIR)/csi-plugin   $(OUTDIR)/bin
 	mv $(HOMEDIR)/cache-worker $(OUTDIR)/bin
+	mkdir -p $(OUTDIR)/cli
+	mv $(HOMEDIR)/client/dist/* $(OUTDIR)/cli
 
 # make clean
 clean:

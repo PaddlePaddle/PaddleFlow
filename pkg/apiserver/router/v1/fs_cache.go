@@ -20,7 +20,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"paddleflow/pkg/common/schema"
 	"path/filepath"
 
 	"github.com/go-chi/chi"
@@ -33,6 +32,7 @@ import (
 	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/apiserver/router/util"
 	"paddleflow/pkg/common/logger"
+	"paddleflow/pkg/common/schema"
 )
 
 // createFSCacheConfig handles requests of creating filesystem cache config
