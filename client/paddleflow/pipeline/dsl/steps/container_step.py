@@ -61,13 +61,19 @@ class ContainerStep(Step):
         Raises:
             PaddleFlowSDKException: if some args is illegal
         """
+        super().__init__(
+                name=name,
+                inputs=inputs,
+                outputs=outputs,
+                parameters=parameters,
+                cache_options=cache_options
+                )
         self.docker_env = docker_env
         self.command = command
 
         self._env = EnvDict(self)
         self.add_env(env)
 
-        super().__init__(name=name, inputs=inputs, outputs=outputs, parameters=parameters, cache_options=cache_options)
 
     @property
     def env(self):
