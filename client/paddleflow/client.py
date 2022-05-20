@@ -315,6 +315,18 @@ class Client(object):
         userinfo = {'header': self.header, 'name': username, 'host': self.paddleflow_server}
         return FSServiceApi.create_cache(self.paddleflow_server, fsname, options, userinfo)
 
+    def update_fs_cache(self, fsname, params, username=None):
+        """
+        update cache config for fs
+        """
+        self.pre_check()
+        if username and username.strip() == "":
+            raise PaddleFlowSDKException("InvalidUserName", "username should not be none or empty")
+        if fsname == "":
+            raise PaddleFlowSDKException("InvalidFsName", "fsname should not be none or empty")
+        userinfo = {'header': self.header, 'name': username, 'host': self.paddleflow_server}
+        return FSServiceApi.update_cache(self.paddleflow_server, fsname, params, userinfo)
+
     def get_fs_cache(self, fsname, username=None):
         """
         get cache config for fs
