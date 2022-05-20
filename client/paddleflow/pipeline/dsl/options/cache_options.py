@@ -37,7 +37,7 @@ class CacheOptions(Options):
         Args:
             enable (bool): indicate use cache or not, default is False
             fs_scope (str): the paths involved in the cachekey calculation (mainly to calculate whether the content under the path has changed). Multiple paths are divided by ',' such as "/code,/data"
-            max_expired (int): the maximum expiration time of the cache, in seconds, - 1 means permanently valid, default is -1
+            max_expired_time (int): the maximum expiration time of the cache, in seconds, - 1 means permanently valid, default is -1
         """
         # cache 的默认处理由 server 侧决定
         if enable is None:
