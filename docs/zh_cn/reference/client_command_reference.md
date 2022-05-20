@@ -294,13 +294,14 @@ mount命令：用户输入```paddleflow fs mount {fs_name} {mountpath}```，界�
 
 ### 工作流运行管理
 
-`run` 提供了`create`,`stop`, `list`, `status` ,`listcache`, `showcache`, `delcache`, `artifact`八种不同的方法。 八种不同操作的示例如下：
+`run` 提供了`create`, `stop`, `list`, `status`, `retry`, `delete`, `listcache`, `showcache`, `delcache`, `artifact`十种不同的方法。 十种不同操作的示例如下：
 
 ```bash
+paddleflow run create fsname:entry（entry非必须） -n(--name) run_name  -d(--desc) xxx -u(--username) username xxx -p data_file=*** -p regularization=***  // 创建pipeline作业
+paddleflow run stop runid //停止一个pipeline 
 paddleflow run list -f fsname-u username  -r runid//列出所有运行的pipeline （通过fsname 列出特定fs下面的pipeline；通过username 列出特定用户的pipeline（限root用户）;通过runid列出特定runid的pipeline）
 paddleflow run status runid // 展示一个pipeline下面的详细信息，包括job信息列表
-paddleflow run stop runid //停止一个pipeline 
-paddleflow run create fsname:entry（entry非必须） -n(--name) run_name  -d(--desc) xxx -u(--username) username xxx -p data_file=*** -p regularization=***  // 创建pipeline作业
+paddleflow run retry runid // 重跑一个任务
 paddleflow run delete runid //删除一个运行的工作流
 paddleflow run listcache  //列出搜有的工作流缓存
 paddleflow run showcache  cacheid//显示工作流缓存详情

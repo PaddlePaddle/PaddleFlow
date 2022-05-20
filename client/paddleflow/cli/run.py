@@ -40,6 +40,7 @@ def run():
 @click.option('-p', '--param', multiple=True, help="Run pipeline params, example: -p regularization=xxx .")
 @click.option('-yp', '--runyamlpath', help='Run yaml file path, example ./run.yaml .')
 @click.option('-yr', '--runyamlraw', help='Run yaml file raw, local absolute path .')
+@click.option('-pplid', '--pipelineid', help='Pipeline ID, example ppl-000666')
 @click.option('--disabled', multiple=True, help="the name of step which need to be disabled.")
 @click.pass_context
 def create(ctx, fsname, name=None, desc=None, username=None, runyamlpath=None, runyamlraw=None,
@@ -151,7 +152,7 @@ def retry(ctx, runid):
     """
     client = ctx.obj['client']
     if not runid:
-        click.echo('run stop must provide runid.', err=True)
+        click.echo('run retry must provide runid.', err=True)
         sys.exit(1)
     valid, response = client.retry_run(runid)
     if valid:

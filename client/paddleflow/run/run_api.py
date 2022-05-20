@@ -34,8 +34,8 @@ class RunServiceApi(object):
 
     @classmethod
     def add_run(self, host, fsname, name=None, desc=None, entry=None,
-                param=None, username=None, runyamlpath=None, 
-                runyamlrawb64=None, header=None, disabled=None):
+                param=None, username=None, runyamlpath=None, runyamlrawb64=None, pipelineID=None,
+                header=None, disabled=None, dockerEnv=None):
         """ add run 
         """
         if not header:
@@ -56,12 +56,16 @@ class RunServiceApi(object):
                 body['runYamlRaw']=base64.b64encode(runyamlrawb64).decode()
             else:
                 raise PaddleFlowSDKException("InvalidRequest", "runYamlRaw must be bytes type")
+        if pipelineID:
+            body['pipelineID']= pipelineID
         if param:
             body['parameters'] = param
         if username:
             body['username'] = username
         if disabled:
             body["disabled"] = disabled
+        if dockerEnv:
+            body["dockerEnv"] = dockerEnv
         response = api_client.call_api(method="POST", url=parse.urljoin(host, api.PADDLE_FLOW_RUN),
                                        headers=header, json=body)
         if not response:
