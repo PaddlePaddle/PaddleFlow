@@ -201,6 +201,30 @@ class FSServiceApi(object):
         return True, None
 
     @classmethod
+    def update_cache(self, host, fsname, options, userinfo={'header': '', 'name': '', 'host': ''}):
+        """
+        update cache config for fs
+        """
+        if not userinfo['header']:
+            raise PaddleFlowSDKException("Invalid request", "please login paddleflow first")
+        body = options
+        params = None
+        if userinfo['name']:
+            params = {
+                'username': userinfo['name']
+            }
+        response = api_client.call_api(method="PUT", url=parse.urljoin(host, api.PADDLE_FLOW_FS_CACHE + "/%s" % fsname),
+                                       headers=userinfo['header'], json=body, params=params)
+        if not response:
+            raise PaddleFlowSDKException("update cache error", response.text)
+        if not response.text:
+            return True, None
+        data = json.loads(response.text)
+        if 'message' in data:
+            return False, data['message']
+        return True, None
+
+    @classmethod
     def get_cache(self, host, fsname, userinfo={'header': '', 'name': '', 'host': ''}):
         """
         get cache config for fs
