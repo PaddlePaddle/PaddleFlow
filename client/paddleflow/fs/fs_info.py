@@ -42,11 +42,12 @@ class LinkInfo(object):
         self.properties = properties
 
 
-class FsCacheConfig(object):
+class CacheConfigInfo(object):
     """the class of fs cache config"""
-    def __init__(self, fsid, cachepath, cachedriver, blocksize):
+    def __init__(self, fsname, username, cachedir, metadriver, blocksize):
         """init """
-        self.fsid = fsid
-        self.cachepath = cachepath
-        self.cachedriver = cachedriver
+        self.fsname = fsname
+        self.username = username
+        self.cachedir = cachedir
+        self.metadriver = metadriver
         self.blocksize = blocksize
