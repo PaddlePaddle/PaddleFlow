@@ -18,7 +18,6 @@ package common
 
 import (
 	"encoding/base64"
-	"encoding/hex"
 	"fmt"
 	"math/rand"
 	"regexp"
@@ -118,12 +117,6 @@ func SplitString(str, sep string) []string {
 		result = append(result, strings.TrimSpace(s))
 	}
 	return result
-}
-
-func GetRandID(randNum int) string {
-	b := make([]byte, randNum/2)
-	rand.Read(b)
-	return hex.EncodeToString(b)
 }
 
 func ID(userName, fsName string) string {
@@ -236,11 +229,6 @@ func CheckFsNested(path1, path2 string) bool {
 		}
 	}
 	return true
-}
-
-func FSIDToName(fsID string) string {
-	fsArr := strings.Split(fsID, "-")
-	return fsArr[len(fsArr)-1]
 }
 
 // IsDNS1123Label tests for a string that conforms to the definition of a label in

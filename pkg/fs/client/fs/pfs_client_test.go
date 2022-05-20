@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -35,6 +35,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"paddleflow/pkg/fs/client/cache"
+	"paddleflow/pkg/fs/client/kv"
 	"paddleflow/pkg/fs/client/meta"
 	"paddleflow/pkg/fs/client/vfs"
 	"paddleflow/pkg/fs/common"
@@ -60,7 +61,7 @@ func getTestFSClient(t *testing.T) FSClient {
 		},
 		SubPath: "/data",
 	}**/
-	DiskCachePath = "./mock-cache"
+	DataCachePath = "./mock-cache"
 	fsclient, err := NewFSClientForTest(testFsMeta)
 	assert.Equal(t, nil, err)
 	return fsclient
@@ -95,8 +96,11 @@ func TestFSClient_bigBuf(t *testing.T) {
 	d := cache.Config{
 		BlockSize:    1,
 		MaxReadAhead: 4,
-		Mem:          &cache.MemConfig{},
-		Disk:         &cache.DiskConfig{Dir: "./mock-cache", Expire: 600 * time.Second},
+		Expire:       600 * time.Second,
+		Config: kv.Config{
+			Driver:    kv.NutsDB,
+			CachePath: "./mock-cache",
+		},
 	}
 	SetDataCache(d)
 	client := getTestFSClient(t)
@@ -123,8 +127,11 @@ func TestFSClient_case1(t *testing.T) {
 	d := cache.Config{
 		BlockSize:    1,
 		MaxReadAhead: 4,
-		Mem:          &cache.MemConfig{},
-		Disk:         &cache.DiskConfig{Dir: "./mock-cache", Expire: 600 * time.Second},
+		Expire:       600 * time.Second,
+		Config: kv.Config{
+			Driver:    kv.NutsDB,
+			CachePath: "./mock-cache",
+		},
 	}
 	SetDataCache(d)
 	client := getTestFSClient(t)
@@ -227,8 +234,11 @@ func TestFSClient_read(t *testing.T) {
 	d := cache.Config{
 		BlockSize:    400,
 		MaxReadAhead: 4,
-		Mem:          &cache.MemConfig{},
-		Disk:         &cache.DiskConfig{Dir: "./mock-cache", Expire: 600 * time.Second},
+		Expire:       600 * time.Second,
+		Config: kv.Config{
+			Driver:    kv.NutsDB,
+			CachePath: "./mock-cache",
+		},
 	}
 	SetDataCache(d)
 	client := getTestFSClient(t)
@@ -286,12 +296,13 @@ func BenchmarkMemCachedRead(b *testing.B) {
 	d := cache.Config{
 		BlockSize:    1 << 23,
 		MaxReadAhead: 100,
-		Mem:          &cache.MemConfig{CacheSize: 100, Expire: 60 * time.Second},
-		Disk:         &cache.DiskConfig{},
+		Config: kv.Config{
+			Driver: kv.NutsDB,
+		},
 	}
 	SetDataCache(d)
 
-	DiskCachePath = "./mock-cache"
+	DataCachePath = "./mock-cache"
 	client, err := NewFSClientForTest(testFsMeta)
 	if err != nil {
 		b.Fatalf("new client fail %v", err)
@@ -339,11 +350,9 @@ func BenchmarkUnCachedRead(b *testing.B) {
 	d := cache.Config{
 		BlockSize:    0,
 		MaxReadAhead: 0,
-		Mem:          &cache.MemConfig{CacheSize: 100, Expire: 60 * time.Second},
-		Disk:         &cache.DiskConfig{},
 	}
 	SetDataCache(d)
-	DiskCachePath = "./mock-cache"
+	DataCachePath = "./mock-cache"
 	client, err := NewFSClientForTest(testFsMeta)
 	if err != nil {
 		b.Fatalf("new client fail %v", err)
@@ -414,8 +423,11 @@ func TestPoolOK(t *testing.T) {
 	d := cache.Config{
 		BlockSize:    3,
 		MaxReadAhead: 20 * 1024 * 1024,
-		Mem:          &cache.MemConfig{},
-		Disk:         &cache.DiskConfig{Dir: "./mock-cache", Expire: 600 * time.Second},
+		Expire:       600 * time.Second,
+		Config: kv.Config{
+			Driver:    kv.NutsDB,
+			CachePath: "./mock-cache",
+		},
 	}
 	SetDataCache(d)
 	client := getTestFSClient(t)
@@ -447,8 +459,11 @@ func TestFSClient_read_with_small_block_1(t *testing.T) {
 	d := cache.Config{
 		BlockSize:    1,
 		MaxReadAhead: 2,
-		Mem:          &cache.MemConfig{},
-		Disk:         &cache.DiskConfig{Dir: "./mock-cache", Expire: 10 * time.Second},
+		Expire:       10 * time.Second,
+		Config: kv.Config{
+			Driver:    kv.NutsDB,
+			CachePath: "./mock-cache",
+		},
 	}
 	SetDataCache(d)
 	os.RemoveAll("./mock")
@@ -462,7 +477,7 @@ func TestFSClient_read_with_small_block_1(t *testing.T) {
 	nExpect, err := readFile(pathReal, bufExpect)
 	assert.Equal(t, nil, err)
 
-	DiskCachePath = "./mock-cache"
+	DataCachePath = "./mock-cache"
 	client := getTestFSClient(t)
 
 	path := "testRead_small_1"
@@ -503,8 +518,11 @@ func TestFSClient_read_with_small_block_2(t *testing.T) {
 	d := cache.Config{
 		BlockSize:    2,
 		MaxReadAhead: 4,
-		Mem:          &cache.MemConfig{},
-		Disk:         &cache.DiskConfig{Dir: "./mock-cache", Expire: 10 * time.Second},
+		Expire:       10 * time.Second,
+		Config: kv.Config{
+			Driver:    kv.NutsDB,
+			CachePath: "./mock-cache",
+		},
 	}
 	SetDataCache(d)
 	os.RemoveAll("./mock")
@@ -518,7 +536,7 @@ func TestFSClient_read_with_small_block_2(t *testing.T) {
 	nExpect, err := readFile(pathReal, bufExpect)
 	assert.Equal(t, nil, err)
 
-	DiskCachePath = "./mock-cache"
+	DataCachePath = "./mock-cache"
 	client := getTestFSClient(t)
 
 	path := "testRead_small_1"
@@ -573,12 +591,15 @@ func TestFSClient_diskCache_Read(t *testing.T) {
 	d := cache.Config{
 		BlockSize:    200,
 		MaxReadAhead: 4,
-		Mem:          &cache.MemConfig{},
-		Disk:         &cache.DiskConfig{Dir: "./mock-cache", Expire: 10 * time.Second},
+		Expire:       10 * time.Second,
+		Config: kv.Config{
+			Driver:    kv.NutsDB,
+			CachePath: "./mock-cache",
+		},
 	}
 	SetDataCache(d)
 
-	DiskCachePath = "./mock-cache"
+	DataCachePath = "./mock-cache"
 	client := getTestFSClient(t)
 	path := "testRead"
 	writer, err := client.Create(path)
@@ -612,8 +633,11 @@ func TestFSClient_diskCache_Read(t *testing.T) {
 	d = cache.Config{
 		BlockSize:    1,
 		MaxReadAhead: 4,
-		Mem:          &cache.MemConfig{},
-		Disk:         &cache.DiskConfig{Dir: "./mock-cache", Expire: 10 * time.Second},
+		Expire:       10 * time.Second,
+		Config: kv.Config{
+			Driver:    kv.NutsDB,
+			CachePath: "./mock-cache",
+		},
 	}
 	SetDataCache(d)
 	client = getTestFSClient(t)
@@ -648,8 +672,11 @@ func TestFSClient_diskCache_Read_Expire(t *testing.T) {
 	d := cache.Config{
 		BlockSize:    1,
 		MaxReadAhead: 4,
-		Mem:          &cache.MemConfig{},
-		Disk:         &cache.DiskConfig{Dir: "./mock-cache", Expire: 6 * time.Second},
+		Expire:       6 * time.Second,
+		Config: kv.Config{
+			Driver:    kv.NutsDB,
+			CachePath: "./mock-cache",
+		},
 	}
 	SetDataCache(d)
 	client := getTestFSClient(t)
@@ -681,8 +708,11 @@ func TestFSClient_diskCache_Read_Full(t *testing.T) {
 	d := cache.Config{
 		BlockSize:    1 << 23,
 		MaxReadAhead: 4,
-		Mem:          &cache.MemConfig{},
-		Disk:         &cache.DiskConfig{Dir: "./mock-cache", Expire: 600 * time.Second},
+		Expire:       600 * time.Second,
+		Config: kv.Config{
+			Driver:    kv.NutsDB,
+			CachePath: "./mock-cache",
+		},
 	}
 	SetDataCache(d)
 	client := getTestFSClient(t)
@@ -721,8 +751,11 @@ func TestFSClient_cache_read(t *testing.T) {
 	d := cache.Config{
 		BlockSize:    5,
 		MaxReadAhead: 4,
-		Mem:          &cache.MemConfig{},
-		Disk:         &cache.DiskConfig{Dir: "./mock-cache", Expire: 600 * time.Second},
+		Expire:       600 * time.Second,
+		Config: kv.Config{
+			Driver:    kv.NutsDB,
+			CachePath: "./mock-cache",
+		},
 	}
 	SetDataCache(d)
 	client := getTestFSClient(t)
@@ -778,8 +811,11 @@ func TestFSClient_Concurrent_Read(t *testing.T) {
 	d := cache.Config{
 		BlockSize:    5,
 		MaxReadAhead: 4,
-		Mem:          &cache.MemConfig{},
-		Disk:         &cache.DiskConfig{Dir: "./mock-cache", Expire: 600 * time.Second},
+		Expire:       600 * time.Second,
+		Config: kv.Config{
+			Driver:    kv.NutsDB,
+			CachePath: "./mock-cache",
+		},
 	}
 	SetDataCache(d)
 	client := getTestFSClient(t)
@@ -906,21 +942,19 @@ func NewFSClientForTestWithNoClientCache(fsMeta common.FSMeta) (*PFSClient, erro
 		vfs.WithDataCacheConfig(cache.Config{
 			BlockSize:    BlockSize,
 			MaxReadAhead: MaxReadAheadNum,
-			Mem: &cache.MemConfig{
-				CacheSize: MemCacheSize,
-				Expire:    MemCacheExpire,
-			},
-			Disk: &cache.DiskConfig{
-				Dir:    DiskCachePath,
-				Expire: DiskCacheExpire,
-				Mode:   DiskDirMode,
+			Expire:       DataCacheExpire,
+			Config: kv.Config{
+				Driver:    kv.NutsDB,
+				CachePath: DataCachePath,
 			},
 		}),
 		vfs.WithMetaConfig(meta.Config{
 			AttrCacheExpire:  MetaCacheExpire,
 			EntryCacheExpire: EntryCacheExpire,
-			Driver:           Driver,
-			CachePath:        MetaCachePath,
+			Config: kv.Config{
+				Driver:    Driver,
+				CachePath: MetaCachePath,
+			},
 		}),
 	)
 	pfs, err := NewFileSystem(fsMeta, nil, true, false, "", vfsConfig)
@@ -942,7 +976,7 @@ func getTestFSClient2(t *testing.T) FSClient {
 		},
 		SubPath: "./mock",
 	}
-	DiskCachePath = "./mock-cache"
+	DataCachePath = "./mock-cache"
 	fsclient, err := NewFSClientForTestWithNoClientCache(testFsMeta)
 	assert.Equal(t, nil, err)
 	return fsclient
@@ -958,10 +992,12 @@ func TestLevelDBMeta(t *testing.T) {
 	defer os.RemoveAll(db)
 	var err error
 	SetMetaCache(meta.Config{
-		Driver:           meta.LevelDB,
-		CachePath:        db,
 		AttrCacheExpire:  100 * time.Second,
 		EntryCacheExpire: 100 * time.Second,
+		Config: kv.Config{
+			Driver:    kv.LevelDB,
+			CachePath: db,
+		},
 	})
 	client := getTestFSClient2(t)
 
@@ -1064,10 +1100,12 @@ func TestMetaAttrCacheByLevelDB(t *testing.T) {
 	defer os.RemoveAll(db)
 	var err error
 	SetMetaCache(meta.Config{
-		Driver:           meta.LevelDB,
-		CachePath:        db,
 		AttrCacheExpire:  100 * time.Second,
 		EntryCacheExpire: 100 * time.Second,
+		Config: kv.Config{
+			Driver:    kv.LevelDB,
+			CachePath: db,
+		},
 	})
 	client := getTestFSClient2(t)
 
@@ -1165,8 +1203,11 @@ func TestReadWithNotEnoughMem(t *testing.T) {
 	d := cache.Config{
 		BlockSize:    5,
 		MaxReadAhead: 4,
-		Mem:          &cache.MemConfig{},
-		Disk:         &cache.DiskConfig{Dir: "./mock-cache", Expire: 600 * time.Second},
+		Expire:       600 * time.Second,
+		Config: kv.Config{
+			Driver:    kv.NutsDB,
+			CachePath: "./mock-cache",
+		},
 	}
 	SetDataCache(d)
 	client := getTestFSClient(t)
@@ -1220,8 +1261,11 @@ func TestFSClient_read_with_small_block_1_not_enough_mem(t *testing.T) {
 	d := cache.Config{
 		BlockSize:    1,
 		MaxReadAhead: 2,
-		Mem:          &cache.MemConfig{},
-		Disk:         &cache.DiskConfig{Dir: "./mock-cache", Expire: 10 * time.Second},
+		Expire:       10 * time.Second,
+		Config: kv.Config{
+			Driver:    kv.NutsDB,
+			CachePath: "./mock-cache",
+		},
 	}
 	SetDataCache(d)
 	os.RemoveAll("./mock")
@@ -1235,7 +1279,7 @@ func TestFSClient_read_with_small_block_1_not_enough_mem(t *testing.T) {
 	nExpect, err := readFile(pathReal, bufExpect)
 	assert.Equal(t, nil, err)
 
-	DiskCachePath = "./mock-cache"
+	DataCachePath = "./mock-cache"
 	client := getTestFSClient(t)
 
 	path := "testRead_small_1"

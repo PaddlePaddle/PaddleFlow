@@ -17,7 +17,9 @@ limitations under the License.
 package common
 
 import (
+	"encoding/hex"
 	"fmt"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -192,4 +194,20 @@ func GetRootToken(ctx *logger.RequestContext) (string, error) {
 		return "", err
 	}
 	return token, err
+}
+
+func GetRandID(randNum int) string {
+	b := make([]byte, randNum/2)
+	rand.Read(b)
+	return hex.EncodeToString(b)
+}
+
+func FsIDToFsNameUsername(fsID string) (fsName, username string) {
+	fsArr := strings.Split(fsID, "-")
+	if len(fsArr) < 3 {
+		return "", ""
+	}
+	fsName = fsArr[len(fsArr)-1]
+	username = strings.Join(fsArr[1:len(fsArr)-1], "")
+	return
 }

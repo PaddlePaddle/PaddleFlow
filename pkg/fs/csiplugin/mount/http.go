@@ -18,7 +18,6 @@ package mount
 
 import (
 	log "github.com/sirupsen/logrus"
-
 	"paddleflow/pkg/common/http/api"
 	"paddleflow/pkg/common/http/core"
 	"paddleflow/pkg/fs/common"
@@ -42,7 +41,7 @@ func fsCacheConfig(mountInfo pfs.MountInfo, httpClient *core.PFClient, token str
 	cacheConfig := common.FsCacheConfig{
 		CacheDir:            cacheResp.CacheDir,
 		Quota:               cacheResp.Quota,
-		CacheType:           cacheResp.CacheType,
+		MetaDriver:          cacheResp.MetaDriver,
 		BlockSize:           cacheResp.BlockSize,
 		NodeAffinity:        cacheResp.NodeAffinity,
 		NodeTaintToleration: cacheResp.NodeTaintToleration,
@@ -51,6 +50,21 @@ func fsCacheConfig(mountInfo pfs.MountInfo, httpClient *core.PFClient, token str
 		Username:            cacheResp.Username,
 	}
 	return cacheConfig, nil
+}
+
+func getFs(fsID string, httpClient *core.PFClient, token string) (*api.FsResponse, error) {
+	userName, fsName := common.GetFsNameAndUserNameByFsID(fsID)
+	params := api.FsParams{
+		FsName:   fsName,
+		UserName: userName,
+		Token:    token,
+	}
+	fsResp, err := api.FsRequest(params, httpClient)
+	if err != nil {
+		log.Errorf("fs request[%+v] failed: %v", params, err)
+		return nil, err
+	}
+	return fsResp, nil
 }
 
 func deleteMount(mountInfo pfs.MountInfo, httpClient *core.PFClient, token string) error {
@@ -92,7 +106,7 @@ func listMount(mountInfo pfs.MountInfo, httpClient *core.PFClient, token string)
 	return listMountResp, nil
 }
 
-func addRefOfMount(mountInfo pfs.MountInfo, httpClient *core.PFClient, token string) error {
+func createMount(mountInfo pfs.MountInfo, httpClient *core.PFClient, token string) error {
 	userName, fsName := common.GetFsNameAndUserNameByFsID(mountInfo.FSID)
 	createMountReq := api.CreateMountRequest{
 		FsParams: api.FsParams{

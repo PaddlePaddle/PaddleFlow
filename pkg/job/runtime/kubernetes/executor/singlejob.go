@@ -62,6 +62,7 @@ func (sp *SingleJob) patchSinglePodVariable(pod *v1.Pod, jobID string) error {
 	sp.patchMetadata(&pod.ObjectMeta, sp.ID)
 
 	if len(sp.QueueName) > 0 {
+		pod.Annotations[schema.QueueLabelKey] = sp.QueueName
 		pod.Labels[schema.QueueLabelKey] = sp.QueueName
 		priorityClass := sp.getPriorityClass()
 		pod.Spec.PriorityClassName = priorityClass

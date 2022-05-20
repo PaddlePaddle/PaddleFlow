@@ -1,4 +1,5 @@
-CREATE DATABASE IF NOT EXISTS paddleflow_db DEFAULT CHARACTER SET utf8  COLLATE utf8_bin;
+CREATE DATABASE IF NOT EXISTS `paddleflow_db` DEFAULT CHARACTER SET utf8  COLLATE utf8_bin;
+USE `paddleflow_db`;
 
 CREATE TABLE IF NOT EXISTS `cluster_info` (
     `pk` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -124,6 +125,10 @@ CREATE TABLE IF NOT EXISTS `user` (
 -- root user with initial password 'paddleflow'
 TRUNCATE `paddleflow`.`user`;
 insert into user(name, password) values('root','$2a$10$1qdSQN5wMl3FtXoxw7mKpuxBqIuP0eYXTBM9CBn5H4KubM/g5Hrb6%');
+insert into flavour(id, name, cpu, mem, scalar_resources) values('1','flavour1', 1, '1G', null);
+insert into flavour(id, name, cpu, mem, scalar_resources) values('2','flavour2', 1, '1G', '{"baidu.com/v100_cgpu":"1"}');
+insert into flavour(id, name, cpu, mem, scalar_resources) values('3','flavour3', 4, '8Gi', '{"baidu.com/v100_cgpu":"1"}');
+insert into flavour(id, name, cpu, mem, scalar_resources) values('4','flavour4', 4, '8Gi', '{"baidu.com/v100_cgpu": "1", "baidu.com/v100_cgpu_memory":"4G"}');
 
 CREATE TABLE IF NOT EXISTS `grant` (
     `pk` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -306,8 +311,8 @@ CREATE TABLE IF NOT EXISTS `fs_cache_config` (
     `fs_id` varchar(36) NOT NULL COMMENT 'file system id',
     `cache_dir` varchar(4096) NOT NULL COMMENT 'cache dir, e.g. /var/pfs_cache',
     `quota` bigint(20) NOT NULL COMMENT 'cache quota',
-    `block_size` int(5) NOT NULL COMMENT 'cache blocksize',
-    `cache_type` varchar(32) NOT NULL COMMENT 'cache type，e.g. disk/memory',
+    `block_size` int(5) NOT NULL COMMENT 'cache block size',
+    `meta_driver` varchar(32) NOT NULL COMMENT 'meta_driver，e.g. default/mem/leveldb/nutsdb',
     `extra_config` text  COMMENT 'extra cache config',
     `node_affinity` text  COMMENT 'node affinity，e.g. node affinity in k8s',
     `node_tainttoleration` text COMMENT 'node taints',

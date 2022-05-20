@@ -18,6 +18,7 @@ package mount
 
 import (
 	"fmt"
+	"path"
 	"strconv"
 	"strings"
 	"sync"
@@ -57,6 +58,11 @@ const (
 
 	AnnoKeyServer = "server"
 	AnnoKeyFsID   = "fsID"
+
+	MetaDriverDefault = "default"
+	MetaDriverMem     = "mem"
+	MetaDriverLevelDB = "leveldb"
+	MetaDriverNutsDB  = "nutsdb"
 )
 
 var umountLock sync.RWMutex
@@ -147,17 +153,7 @@ func PodUnmount(volumeID, targetPath string, mountInfo pfs.MountInfo) error {
 }
 
 func PodMount(volumeID string, mountInfo pfs.MountInfo) error {
-	if err := createOrAddRef(volumeID, mountInfo); err != nil {
-		log.Errorf("MountThroughPod info: %+v err: %v", mountInfo, err)
-		return err
-	}
-	return waitUtilPodReady(GeneratePodNameByFsID(volumeID))
-}
-
-func createOrAddRef(volumeID string, mountInfo pfs.MountInfo) error {
-	podName := GeneratePodNameByFsID(volumeID)
-	log.Infof("pod name is %s", podName)
-
+	// login server
 	httpClient := client.NewHttpClient(mountInfo.Server, client.DefaultTimeOut)
 	login := api.LoginParams{
 		UserName: mountInfo.UsernameRoot,
@@ -165,9 +161,26 @@ func createOrAddRef(volumeID string, mountInfo pfs.MountInfo) error {
 	}
 	loginResponse, err := api.LoginRequest(login, httpClient)
 	if err != nil {
-		log.Errorf("createOrAddRef: login failed: %v", err)
+		log.Errorf("PodMount: login failed: %v", err)
 		return err
 	}
+	token := loginResponse.Authorization
+	// validate fs
+	if _, err := getFs(mountInfo.FSID, httpClient, token); err != nil {
+		log.Errorf("PodMount: validate fs exist [%s] err: %v", mountInfo.FSID, err)
+		return err
+	}
+	// create mount pod or add ref in server db
+	if err := createOrAddRef(httpClient, token, volumeID, mountInfo); err != nil {
+		log.Errorf("PodMount: info: %+v err: %v", mountInfo, err)
+		return err
+	}
+	return waitUtilPodReady(GeneratePodNameByFsID(volumeID))
+}
+
+func createOrAddRef(httpClient *core.PFClient, token, volumeID string, mountInfo pfs.MountInfo) error {
+	podName := GeneratePodNameByFsID(volumeID)
+	log.Infof("pod name is %s", podName)
 
 	for i := 0; i < 120; i++ {
 		k8sClient, err := k8s.GetK8sClient()
@@ -185,8 +198,8 @@ func createOrAddRef(volumeID string, mountInfo pfs.MountInfo) error {
 			if k8serrors.IsNotFound(errGetPod) {
 				// pod not exist, create
 				log.Infof("createOrAddRef: Need to create pod %s.", podName)
-				if createPodErr := createMountPod(k8sClient, httpClient,
-					volumeID, loginResponse.Authorization, mountInfo); createPodErr != nil {
+				if createPodErr := createMountPod(k8sClient, httpClient, token,
+					volumeID, mountInfo); createPodErr != nil {
 					return createPodErr
 				}
 			} else {
@@ -195,26 +208,42 @@ func createOrAddRef(volumeID string, mountInfo pfs.MountInfo) error {
 				return errGetPod
 			}
 		}
-		return addRefOfMount(mountInfo, httpClient, loginResponse.Authorization)
+		return addRefOfMount(mountInfo, httpClient, token)
 	}
 	return status.Errorf(codes.Internal, "Mount %v failed: mount pod %s has been deleting for 1 min", mountInfo.FSID, podName)
 }
 
-func createMountPod(k8sClient k8s.K8SInterface, httpClient *core.PFClient, volumeID, token string,
+func addRefOfMount(mountInfo pfs.MountInfo, httpClient *core.PFClient, token string) error {
+	listMountResp, err := listMount(mountInfo, httpClient, token)
+	if err != nil {
+		log.Errorf("addRefOfMount: listMount faield: %v", err)
+		return err
+	}
+
+	for _, mountRecord := range listMountResp.MountList {
+		if mountRecord.MountPoint == mountInfo.TargetPath {
+			log.Infof("addRefOfMount: mount record already in db: %+v. no need to insert again.", mountRecord)
+			return nil
+		}
+	}
+	return createMount(mountInfo, httpClient, token)
+}
+
+func createMountPod(k8sClient k8s.K8SInterface, httpClient *core.PFClient, token, volumeID string,
 	mountInfo pfs.MountInfo) error {
 	// get config
 	cacheConfig, err := fsCacheConfig(mountInfo, httpClient, token)
 	if err != nil {
 		if strings.Contains(err.Error(), gorm.ErrRecordNotFound.Error()) {
 			log.Infof("fs[%s] has not set cacheConfig. mount with default settings.", mountInfo.FSID)
-			if cacheConfig.CacheDir == "" {
-				cacheConfig.CacheDir = HostPathMnt + "/" + mountInfo.FSID
-			}
+			cacheConfig = defaultCacheConfig(mountInfo.FSID)
 		} else {
 			log.Errorf("get fs[%s] cacheConfig from pfs server[%s] failed: %v",
 				mountInfo.FSID, mountInfo.Server, err)
 			return err
 		}
+	} else {
+		completeCacheConfig(&cacheConfig, mountInfo.FSID)
 	}
 	// create pod
 	newPod := BuildMountPod(volumeID, mountInfo, cacheConfig)
@@ -224,6 +253,25 @@ func createMountPod(k8sClient k8s.K8SInterface, httpClient *core.PFClient, volum
 		return err
 	}
 	return nil
+}
+
+func defaultCacheConfig(fsID string) common.FsCacheConfig {
+	return common.FsCacheConfig{
+		CacheDir:   path.Join(HostPathMnt, fsID),
+		MetaDriver: MetaDriverDefault,
+	}
+}
+
+func completeCacheConfig(config *common.FsCacheConfig, fsID string) {
+	if config.CacheDir == "" {
+		config.CacheDir = path.Join(HostPathMnt, fsID)
+	}
+	if config.MetaDriver == "" {
+		config.MetaDriver = MetaDriverDefault
+	}
+	if config.FsName == "" || config.Username == "" {
+		config.FsName, config.Username = utils.FsIDToFsNameUsername(fsID)
+	}
 }
 
 func BuildMountPod(volumeID string, mountInfo pfs.MountInfo, cacheConf common.FsCacheConfig) *v1.Pod {
@@ -397,8 +445,9 @@ func getMountCmd(mountInfo pfs.MountInfo, cacheConf common.FsCacheConfig) string
 		"--password=" + mountInfo.PasswordRoot,
 		"--block-size=" + strconv.Itoa(cacheConf.BlockSize),
 		"--fs-id=" + mountInfo.FSID,
-		"--data-disk-cache-path=" + CachePath + DataCacheDir,
-		"--meta-path=" + CachePath + MetaCacheDir,
+		"--data-cache-path=" + CachePath + DataCacheDir,
+		"--meta-cache-path=" + CachePath + MetaCacheDir,
+		"--meta-cache-driver=" + cacheConf.MetaDriver,
 	}
 	cmd := mkdir + pfsMountPath + mountPath + strings.Join(options, " ")
 	return cmd

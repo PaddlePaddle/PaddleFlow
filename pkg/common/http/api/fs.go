@@ -101,7 +101,7 @@ type LinksResponse struct {
 type FsCacheResponse struct {
 	CacheDir            string                 `json:"cacheDir"`
 	Quota               int                    `json:"quota"`
-	CacheType           string                 `json:"cacheType"`
+	MetaDriver          string                 `json:"metaDriver"`
 	BlockSize           int                    `json:"blockSize"`
 	NodeAffinity        map[string]interface{} `json:"nodeAffinity"`
 	NodeTaintToleration map[string]interface{} `json:"nodeTaintToleration"`

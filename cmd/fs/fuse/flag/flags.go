@@ -44,9 +44,9 @@ func BasicFlags() []cli.Flag {
 			Usage: "filesystem ID",
 		},
 		&cli.StringFlag{
-			Name:  "fs-info-path",
+			Name:  "config",
 			Value: "",
-			Usage: "filesystem info path",
+			Usage: "filesystem config",
 		},
 		&cli.StringFlag{
 			Name:  "local-root",
@@ -64,49 +64,39 @@ func BasicFlags() []cli.Flag {
 func CacheFlags(fuseConf *fuse.FuseConfig) []cli.Flag {
 	return []cli.Flag{
 		&cli.StringFlag{
-			Name:  "data-disk-cache-path",
-			Value: "/var/cache/pfs_cache_dir",
-			Usage: "data-disk-cache-path",
+			Name:  "data-cache-path",
+			Value: "/var/cache/pfs-cache-dir/data-cache",
+			Usage: "data cache local path",
 		},
 		&cli.StringFlag{
-			Name:  "meta-driver",
+			Name:  "meta-cache-driver",
 			Value: meta.DefaultName,
-			Usage: "fuse meta driver: mem, leveldb",
+			Usage: "meta cache driver, e.g. mem, leveldb",
 		},
 		&cli.StringFlag{
-			Name:  "meta-path",
-			Value: "/var/cache/pfs_cache_dir/meta-driver",
+			Name:  "meta-cache-path",
+			Value: "/var/cache/pfs-cache-dir/meta-cache",
 			Usage: "meta cache local path",
 		},
 		&cli.DurationFlag{
-			Name:  "data-mem-cache-expire",
-			Value: 100 * time.Second,
-			Usage: "fuse memory data cache expire",
-		},
-		&cli.DurationFlag{
-			Name:  "data-disk-cache-expire",
+			Name:  "data-cache-expire",
 			Value: 15 * 60 * time.Second,
-			Usage: "fuse disk data cache expire",
+			Usage: "data cache expire",
 		},
 		&cli.DurationFlag{
 			Name:  "meta-cache-expire",
 			Value: 10 * time.Second,
-			Usage: "fuse meta cache expire",
+			Usage: "meta cache expire",
 		},
 		&cli.DurationFlag{
 			Name:  "entry-cache-expire",
 			Value: 10 * time.Second,
-			Usage: "fuse entry cache expire",
-		},
-		&cli.IntFlag{
-			Name:  "data-mem-size",
-			Value: 0,
-			Usage: "number of data cache item in mem cache",
+			Usage: "entry cache expire",
 		},
 		&cli.IntFlag{
 			Name:  "block-size",
 			Value: 0,
-			Usage: "fuse block size",
+			Usage: "block size",
 		},
 		&cli.IntFlag{
 			Name:        "attr-timeout",
