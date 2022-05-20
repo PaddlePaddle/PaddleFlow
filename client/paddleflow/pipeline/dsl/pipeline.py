@@ -360,7 +360,7 @@ class Pipeline(object):
         """
         params = {}
         for step in self._steps.values():
-            params[step] = step.parameters
+            params[step.name] = step.parameters
 
         return params
 
