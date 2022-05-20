@@ -1,57 +1,59 @@
-name: artifact_example
+name: failure_option_and_postprocess_example
 
-docker_env: nginx:1.7.9
+docker_env: registry.baidubce.com/pipeline/nginx:1.7.9
 
 entry_points:
-
   step1:
-    command: "echo step1; exit 1"
+    command: echo step1
     env:
-      PF_JOB_TYPE: vcjob
-      PF_JOB_MODE: Pod
-      PF_JOB_QUEUE_NAME: queue1
       PF_JOB_FLAVOUR: flavour1
+      PF_JOB_MODE: Pod
+      PF_JOB_QUEUE_NAME: ppl-queue
+      PF_JOB_TYPE: vcjob
 
   step2:
+    command: echo step2
     deps: step1
-    command: "echo step2"
     env:
-      PF_JOB_TYPE: vcjob
-      PF_JOB_MODE: Pod
-      PF_JOB_QUEUE_NAME: queue1
       PF_JOB_FLAVOUR: flavour1
+      PF_JOB_MODE: Pod
+      PF_JOB_QUEUE_NAME: ppl-queue
+      PF_JOB_TYPE: vcjob
 
   step3:
+    command: echo step3
     deps: step2
-    command: "echo step3"
     env:
-      PF_JOB_TYPE: vcjob
-      PF_JOB_MODE: Pod
-      PF_JOB_QUEUE_NAME: queue1
       PF_JOB_FLAVOUR: flavour1
+      PF_JOB_MODE: Pod
+      PF_JOB_QUEUE_NAME: ppl-queue
+      PF_JOB_TYPE: vcjob
 
   step4:
-    command: "echo step4; exit 1"
+    command: echo step4; exit  1
     env:
-      PF_JOB_TYPE: vcjob
-      PF_JOB_MODE: Pod
-      PF_JOB_QUEUE_NAME: queue1
       PF_JOB_FLAVOUR: flavour1
+      PF_JOB_MODE: Pod
+      PF_JOB_QUEUE_NAME: ppl-queue
+      PF_JOB_TYPE: vcjob
 
   step5:
+    command: echo step5
     deps: step4
-    command: "echo step5"
     env:
-      PF_JOB_TYPE: vcjob
-      PF_JOB_MODE: Pod
-      PF_JOB_QUEUE_NAME: queue1
       PF_JOB_FLAVOUR: flavour1
+      PF_JOB_MODE: Pod
+      PF_JOB_QUEUE_NAME: ppl-queue
+      PF_JOB_TYPE: vcjob
+
+failure_options:
+  strategy: continue
 
 post_process:
   step6:
-    command: "echo step6"
+    command: echo step6
     env:
-      PF_JOB_TYPE: vcjob
-      PF_JOB_MODE: Pod
-      PF_JOB_QUEUE_NAME: queue1
       PF_JOB_FLAVOUR: flavour1
+      PF_JOB_MODE: Pod
+      PF_JOB_QUEUE_NAME: ppl-queue
+      PF_JOB_TYPE: vcjob

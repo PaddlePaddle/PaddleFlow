@@ -1,42 +1,41 @@
 name: base_pipeline
 
-docker_env: nginx:1.7.9
+docker_env: registry.baidubce.com/pipeline/nginx:1.7.9
 
 entry_points:
 
   preprocess:
-    parameters:
-      data_path: "./data/{{ PF_RUN_ID }}"
-    command: "bash data.sh {{data_path}}"
+    command: bash base_pipeline/shells/data.sh {{data_path}}
+    docker_env: registry.baidubce.com/pipeline/kfp_mysql:1.7.0
     env:
-      PF_JOB_TYPE: vcjob
-      PF_JOB_QUEUE_NAME: queue-aa693e3f
+      PF_JOB_FLAVOUR: flavour1
       PF_JOB_MODE: Pod
-      PF_JOB_FLAVOUR: flavour-cpu
-
+      PF_JOB_QUEUE_NAME: ppl-queue
+      PF_JOB_TYPE: vcjob
+      USER_ABC: 123_{{PF_USER_NAME}}
+    parameters:
+      data_path: ./base_pipeline/data/{{PF_RUN_ID}}
 
   train:
+    command: bash base_pipeline/shells/train.sh {{epoch}} {{train_data}} {{model_path}}
     deps: preprocess
+    env:
+      PF_JOB_FLAVOUR: flavour1
+      PF_JOB_MODE: Pod
+      PF_JOB_QUEUE_NAME: ppl-queue
+      PF_JOB_TYPE: vcjob
     parameters:
       epoch: 5
-      model_path: "./output/{{ PF_RUN_ID }}"
-    command: "bash train.sh {{epoch}} {{preprocess.data_path}} {{model_path}} "
-    env:
-      USER_ABC: 123_{{ PF_USER_NAME }}
-      PF_JOB_TYPE: vcjob
-      PF_JOB_QUEUE_NAME: queue-aa693e3f
-      PF_JOB_MODE: Pod
-      PF_JOB_FLAVOUR: flavour-cpu
+      model_path: ./output/{{PF_RUN_ID}}
+      train_data: '{{preprocess.data_path}}'
 
   validate:
-    deps: train,preprocess
-    parameters:
-      model_path: "{{train.model_path}}"
-    command: "bash validate.sh {{ model_path }} "
+    command: bash base_pipeline/shells/validate.sh {{model_path}}
+    deps: train
     env:
-      PF_JOB_TYPE: vcjob
-      PF_JOB_QUEUE_NAME: queue-aa693e3f
+      PF_JOB_FLAVOUR: flavour1
       PF_JOB_MODE: Pod
-      PF_JOB_FLAVOUR: flavour-cpu
-
-parallelism: 1
+      PF_JOB_QUEUE_NAME: ppl-queue
+      PF_JOB_TYPE: vcjob
+    parameters:
+      model_path: '{{train.model_path}}'
