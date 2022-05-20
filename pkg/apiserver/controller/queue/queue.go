@@ -338,6 +338,7 @@ func UpdateQueue(ctx *logger.RequestContext, request *UpdateQueueRequest) (Updat
 
 	// validate fields if not nil, validate namespace at first
 	updateClusterRequired := false
+	resourceUpdated := true
 
 	// validate MaxResource or MinResource
 	scalarResourceLaws := config.GlobalServerConfig.Job.ScalarResourceArray
@@ -348,16 +349,24 @@ func UpdateQueue(ctx *logger.RequestContext, request *UpdateQueueRequest) (Updat
 			return UpdateQueueResponse{}, err
 		}
 		updateClusterRequired = true
+		resourceUpdated = true
 		queueInfo.MaxResources = request.MaxResources
 	}
-	if request.QuotaType == schema.TypeElasticQuota && request.MinResources.CPU != "" && request.MinResources.Mem != "" {
+	if queueInfo.QuotaType == schema.TypeElasticQuota && request.MinResources.CPU != "" && request.MinResources.Mem != "" {
 		if err = schema.ValidateResourceInfo(request.MinResources, scalarResourceLaws); err != nil {
 			ctx.Logging().Errorf("update queue failed. error: %s", err.Error())
 			ctx.ErrorCode = common.InvalidComputeResource
 			return UpdateQueueResponse{}, err
 		}
 		updateClusterRequired = true
+		resourceUpdated = true
 		queueInfo.MinResources = request.MinResources
+	}
+	if resourceUpdated && !request.MinResources.LessEqual(request.MaxResources) {
+		err = fmt.Errorf("minResource cannot be larger than maxResource")
+		ctx.Logging().Errorf("update queue failed. error: %s", err.Error())
+		ctx.ErrorCode = common.InvalidComputeResource
+		return UpdateQueueResponse{}, err
 	}
 	// validate Location
 	if queueInfo.Location == nil {
