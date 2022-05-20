@@ -26,8 +26,6 @@ import (
 	"path"
 	"strings"
 
-	"github.com/gin-contrib/pprof"
-	"github.com/gin-gonic/gin"
 	libfuse "github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -137,18 +135,6 @@ func setup(c *cli.Context) error {
 	if c.Bool("metrics-service-on") {
 		metricsAddr := exposeMetricsService(c.String("server"), c.Int("metrics-service-port"))
 		log.Debugf("mount opts: %+v, metricsAddr: %s", opts, metricsAddr)
-	}
-
-	if c.Bool("pprof-enable") {
-		go func() {
-			router := gin.Default()
-			pprof.Register(router, "debug/pprof")
-			if err := router.Run(fmt.Sprintf(":%d", c.Int("pprof-port"))); err != nil {
-				log.Errorf("run pprof failed: %s, skip this error", err.Error())
-			} else {
-				log.Infof("pprof started")
-			}
-		}()
 	}
 	return nil
 }
