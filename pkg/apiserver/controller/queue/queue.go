@@ -341,28 +341,26 @@ func UpdateQueue(ctx *logger.RequestContext, request *UpdateQueueRequest) (Updat
 	resourceUpdated := true
 
 	// validate MaxResource or MinResource
-	scalarResourceLaws := config.GlobalServerConfig.Job.ScalarResourceArray
-	if request.MaxResources.CPU != "" && request.MaxResources.Mem != "" {
-		if err = schema.ValidateResourceInfo(request.MaxResources, scalarResourceLaws); err != nil {
-			ctx.Logging().Errorf("update queue failed. error: %s", err.Error())
+	if request.MinResources.CPU != "" || request.MinResources.Mem != "" {
+		if err := validateQueueResource(request.MaxResources, &queueInfo.MaxResources); err != nil {
+			ctx.Logging().Errorf("update queue maxResources failed. error: %s", err.Error())
 			ctx.ErrorCode = common.InvalidComputeResource
 			return UpdateQueueResponse{}, err
 		}
 		updateClusterRequired = true
 		resourceUpdated = true
-		queueInfo.MaxResources = request.MaxResources
 	}
-	if queueInfo.QuotaType == schema.TypeElasticQuota && request.MinResources.CPU != "" && request.MinResources.Mem != "" {
-		if err = schema.ValidateResourceInfo(request.MinResources, scalarResourceLaws); err != nil {
-			ctx.Logging().Errorf("update queue failed. error: %s", err.Error())
+	if queueInfo.QuotaType == schema.TypeElasticQuota && (request.MinResources.CPU != "" || request.MinResources.Mem != "") {
+		if err := validateQueueResource(request.MinResources, &queueInfo.MinResources); err != nil {
+			ctx.Logging().Errorf("update queue minResources failed. error: %s", err.Error())
 			ctx.ErrorCode = common.InvalidComputeResource
 			return UpdateQueueResponse{}, err
 		}
 		updateClusterRequired = true
 		resourceUpdated = true
-		queueInfo.MinResources = request.MinResources
 	}
-	if resourceUpdated && !request.MinResources.LessEqual(request.MaxResources) {
+	if queueInfo.QuotaType == schema.TypeElasticQuota && resourceUpdated &&
+		!request.MinResources.LessEqual(request.MaxResources) {
 		err = fmt.Errorf("minResource cannot be larger than maxResource")
 		ctx.Logging().Errorf("update queue failed. error: %s", err.Error())
 		ctx.ErrorCode = common.InvalidComputeResource
@@ -426,6 +424,32 @@ func UpdateQueue(ctx *logger.RequestContext, request *UpdateQueueRequest) (Updat
 		queueInfo,
 	}
 	return response, nil
+}
+
+func validateQueueResource(resource schema.ResourceInfo, queueResource *schema.ResourceInfo) error {
+	scalarResourceLaws := config.GlobalServerConfig.Job.ScalarResourceArray
+	if resource.CPU != "" {
+		queueResource.CPU = resource.CPU
+	}
+	if resource.Mem != "" {
+		queueResource.Mem = resource.Mem
+	}
+	if resource.ScalarResources != nil {
+		queueResource.ScalarResources = make(schema.ScalarResourcesType)
+	}
+	if len(resource.ScalarResources) != 0 || resource.ScalarResources == nil {
+		for resourceName, resource := range resource.ScalarResources {
+			queueResource.ScalarResources[resourceName] = resource
+		}
+	} else {
+		log.Debugf("scalarResources %v is set nil", resource)
+	}
+
+	if err := schema.ValidateResourceInfo(*queueResource, scalarResourceLaws); err != nil {
+		log.Errorf("validate resourceInfo failed, err=%v", err)
+		return err
+	}
+	return nil
 }
 
 func GetQueueByName(ctx *logger.RequestContext, queueName string) (GetQueueResponse, error) {
