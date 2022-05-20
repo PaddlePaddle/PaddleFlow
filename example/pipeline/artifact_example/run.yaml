@@ -1,0 +1,54 @@
+name: artifact_example
+
+docker_env: nginx:1.7.9
+
+entry_points:
+
+  preprocess:
+    parameters:
+      data_path: "./data/"
+    command: "bash -x shell/data_artifact.sh {{data_path}} {{train_data}} {{validate_data}}"
+    env:
+      PF_JOB_TYPE: vcjob
+      PF_JOB_MODE: Pod
+      PF_JOB_QUEUE_NAME: queue1
+      PF_JOB_FLAVOUR: flavour1
+    artifacts:
+      output:
+        - train_data
+        - validate_data
+
+  train:
+    deps: preprocess
+    parameters:
+      epoch: 15
+      model_path: "./output"
+    command: "bash shell/train.sh {{epoch}} {{preprocess.data_path}} {{model_path}} "
+    env:
+      USER_ABC: 123
+      PF_JOB_TYPE: vcjob
+      PF_JOB_QUEUE_NAME: qdh
+      PF_JOB_MODE: Pod
+      PF_JOB_FLAVOUR: flavour1
+    artifacts:
+      input:
+        train_data: "{{ preprocess.train_data }}"
+      output:
+        - train_model
+
+  validate:
+    deps: train,preprocess
+    parameters:
+      model_path: "{{train.model_path}}"
+    command: "bash shell/validate.sh {{ model_path }}"
+    env:
+      PF_JOB_TYPE: vcjob
+      PF_JOB_QUEUE_NAME: qdh
+      PF_JOB_MODE: Pod
+      PF_JOB_FLAVOUR: flavour1
+    artifacts:
+      input:
+        data: "{{ preprocess.validate_data }}"
+        model: "{{ train.train_model }}"
+
+parallelism: 5
