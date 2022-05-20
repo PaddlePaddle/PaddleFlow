@@ -712,7 +712,10 @@ func checkDictParam(dict DictParam, paramName string, realVal interface{}) (inte
 	case ParamTypeFloat:
 		_, ok1 := realVal.(float32)
 		_, ok2 := realVal.(float64)
-		if ok1 || ok2 {
+		_, ok3 := realVal.(int32)
+		_, ok4 := realVal.(int64)
+		_, ok5 := realVal.(int)
+		if ok1 || ok2 || ok3 || ok4 || ok5 {
 			return realVal, nil
 		}
 		return nil, InvalidParamTypeError(realVal, ParamTypeFloat)
