@@ -217,7 +217,7 @@ cacheConfig options:
   -o blockSize: data cache block size (default: 0), if block-size equals to 0, it means that no data cache is used
 """)
 @click.pass_context
-def createcache(ctx, fsname, o="", username=None):
+def createfscache(ctx, fsname, o="", username=None):
     """
     create a cache config for your fs\n
     FSNAME: fs name to set cache config\n
@@ -235,7 +235,7 @@ def createcache(ctx, fsname, o="", username=None):
         params[params_kv[0]] = params_kv[1]
     if params["blockSize"]:
         params["blockSize"] = int(params["blockSize"])
-    valid, response = client.createCache(fsname, params, username)
+    valid, response = client.create_cache(fsname, params, username)
     if valid:
         click.echo("createCache success")
     else:
@@ -244,6 +244,48 @@ def createcache(ctx, fsname, o="", username=None):
         else:
             log = "createCache-{}.err.log".format(fsname)
             click.echo("createCache failed. Please check the log file for more details, the log file is {}".format(log))
+        sys.exit(1)
+
+
+@fs.command(context_settings=dict(max_content_width=2000), cls=command_required_option_from_option())
+@click.argument('fsname')
+@click.option('-u', '--username', help='Mount the specified fs by username, only useful for root.')
+@click.pass_context
+def getfscache(ctx, fsname, username=None):
+    """
+    get cache config info for a filesystem\n
+    FSNAME: fs name to set cache config\n
+    """
+    client = ctx.obj['client']
+    if not fsname:
+        click.echo('fs mount must provide fsname.', err=True)
+        sys.exit(1)
+    valid, response = client.get_fs_cache(fsname, username)
+    if valid:
+        _print_cache(response, ctx.obj['output'])
+    else:
+        click.echo("get fs cache config failed with message[%s]" % response)
+        sys.exit(1)
+
+
+@fs.command()
+@click.argument('fsname')
+@click.option('-u', '--username', help='List the specified fs by username,only useful for root.')
+@click.pass_context
+def deletefscache(ctx, fsname, username=None):
+    """
+    delete fs cache config\n
+    FSNAME: fs name
+    """
+    client = ctx.obj['client']
+    if not fsname:
+        click.echo('fs delete must provide fsname.', err=True)
+        sys.exit(1)
+    valid, response = client.delete_fs_cache(fsname, username)
+    if valid:
+        click.echo("fs[%s] cache config delete success" % fsname)
+    else:
+        click.echo("fs cache config delete failed with message[%s]" % response)
         sys.exit(1)
 
 
@@ -394,4 +436,11 @@ def _print_link(linklist, out_format):
     headers = ['name', 'owner', 'type', 'fs path', 'server address', 'sub path', 'properties']
     data = [[link.name, link.owner, link.fstype, link.fspath, link.server_adddress, link.subpath, link.properties]
             for link in linklist]
+    print_output(data, headers, out_format, table_format='grid')
+
+
+def _print_cache(cacheconfig, out_format):
+    """print fs cache config """
+    headers = ['fsname', 'owner', 'cache dir', 'meta driver', 'block size']
+    data = [[cacheconfig.fsname, cacheconfig.username, cacheconfig.cachedir, cacheconfig.metadriver, cacheconfig.blocksize]]
     print_output(data, headers, out_format, table_format='grid')
