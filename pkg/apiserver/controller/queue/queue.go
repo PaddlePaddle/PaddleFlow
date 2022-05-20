@@ -377,7 +377,7 @@ func UpdateQueue(ctx *logger.RequestContext, request *UpdateQueueRequest) (Updat
 		queueInfo.SchedulingPolicy = request.SchedulingPolicy
 	}
 	// validate queue status
-	queueInfo.Status = schema.StatusQueueOpen
+	//queueInfo.Status = schema.StatusQueueUpdating
 
 	// init runtimeSvc if updateCluster is necessary
 	var runtimeSvc runtime.RuntimeService
