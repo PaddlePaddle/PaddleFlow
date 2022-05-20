@@ -20,6 +20,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"paddleflow/pkg/common/schema"
+	"path/filepath"
 
 	"github.com/go-chi/chi"
 	"github.com/go-playground/validator/v10"
@@ -76,7 +78,7 @@ func (pr *PFSRouter) createFSCacheConfig(w http.ResponseWriter, r *http.Request)
 }
 
 func validateCreateFSCacheConfig(ctx *logger.RequestContext, req *api.CreateFileSystemCacheRequest) error {
-	// fs exists?
+	// fs exists
 	_, err := models.GetFileSystemWithFsID(req.FsID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -87,8 +89,26 @@ func validateCreateFSCacheConfig(ctx *logger.RequestContext, req *api.CreateFile
 		}
 		return err
 	}
-	// TODO param check rule
-
+	// cacheDir must be absolute path
+	if !filepath.IsAbs(req.CacheDir) {
+		ctx.ErrorCode = common.InvalidArguments
+		err := fmt.Errorf("fs cacheDir[%s] should be absolute path", req.CacheDir)
+		ctx.Logging().Errorf("validate fs cache config fsID[%s] err: %v", req.FsID, err)
+		return err
+	}
+	// meta driver
+	if !schema.IsValidFsMetaDriver(req.MetaDriver) {
+		ctx.ErrorCode = common.InvalidArguments
+		err := fmt.Errorf("fs meta driver[%s] not valid", req.MetaDriver)
+		ctx.Logging().Errorf("validate fs cache config fsID[%s] err: %v", req.FsID, err)
+		return err
+	}
+	if req.BlockSize < 0 {
+		ctx.ErrorCode = common.InvalidArguments
+		err := fmt.Errorf("fs data cache blockSize[%d] should not be negative", req.BlockSize)
+		ctx.Logging().Errorf("validate fs cache config fsID[%s] err: %v", req.FsID, err)
+		return err
+	}
 	return nil
 }
 
