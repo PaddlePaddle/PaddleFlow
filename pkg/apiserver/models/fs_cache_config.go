@@ -31,7 +31,7 @@ type FSCacheConfig struct {
 	FsID                    string                 `json:"fsID"                gorm:"type:varchar(36);unique_index"`
 	CacheDir                string                 `json:"cacheDir"`
 	Quota                   int                    `json:"quota"`
-	CacheType               string                 `json:"cacheType"`
+	MetaDriver              string                 `json:"metaDriver"`
 	BlockSize               int                    `json:"blockSize"`
 	NodeAffinityJson        string                 `json:"-"                   gorm:"column:node_affinity;type:text;default:'{}'"`
 	NodeAffinityMap         map[string]interface{} `json:"nodeAffinity"        gorm:"-"`
