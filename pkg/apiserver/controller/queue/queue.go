@@ -341,14 +341,14 @@ func UpdateQueue(ctx *logger.RequestContext, request *UpdateQueueRequest) (Updat
 
 	// validate MaxResource or MinResource
 	if request.MaxResources.CPU != "" || request.MaxResources.Mem != "" {
-		if err = validateQueueResource(request.MaxResources, &queueInfo.MaxResources, &resourceUpdated); err != nil {
+		if resourceUpdated, err = validateQueueResource(request.MaxResources, &queueInfo.MaxResources); err != nil {
 			ctx.Logging().Errorf("update queue maxResources failed. error: %s", err.Error())
 			ctx.ErrorCode = common.InvalidComputeResource
 			return UpdateQueueResponse{}, err
 		}
 	}
 	if queueInfo.QuotaType == schema.TypeElasticQuota {
-		if err = validateQueueResource(request.MinResources, &queueInfo.MinResources, &resourceUpdated); err != nil {
+		if resourceUpdated, err = validateQueueResource(request.MinResources, &queueInfo.MinResources); err != nil {
 			ctx.Logging().Errorf("update queue minResources failed. error: %s", err.Error())
 			ctx.ErrorCode = common.InvalidComputeResource
 			return UpdateQueueResponse{}, err
@@ -427,35 +427,35 @@ func UpdateQueue(ctx *logger.RequestContext, request *UpdateQueueRequest) (Updat
 	return response, nil
 }
 
-func validateQueueResource(resource schema.ResourceInfo, queueResource *schema.ResourceInfo, resourceUpdated *bool) error {
-	needUpdate := true
-	scalarResourceLaws := config.GlobalServerConfig.Job.ScalarResourceArray
-	if resource.CPU != "" {
-		resourceUpdated = &needUpdate
-		queueResource.CPU = resource.CPU
+func validateQueueResource(rResource schema.ResourceInfo, qResource *schema.ResourceInfo) (bool, error) {
+	needUpdate := false
+	if rResource.CPU != "" {
+		needUpdate = true
+		qResource.CPU = rResource.CPU
 	}
-	if resource.Mem != "" {
-		resourceUpdated = &needUpdate
-		queueResource.Mem = resource.Mem
+	if rResource.Mem != "" {
+		needUpdate = true
+		qResource.Mem = rResource.Mem
 	}
-	if queueResource.ScalarResources == nil {
-		queueResource.ScalarResources = make(schema.ScalarResourcesType)
+	if qResource.ScalarResources == nil {
+		qResource.ScalarResources = make(schema.ScalarResourcesType)
 	}
-	if len(resource.ScalarResources) != 0 {
-		resourceUpdated = &needUpdate
-		for resourceName, resource := range resource.ScalarResources {
-			queueResource.ScalarResources[resourceName] = resource
+	if len(rResource.ScalarResources) != 0 {
+		needUpdate = true
+		for resourceName, res := range rResource.ScalarResources {
+			qResource.ScalarResources[resourceName] = res
 		}
-	} else if resource.ScalarResources != nil {
-		resourceUpdated = &needUpdate
-		log.Debugf("scalarResources %v is set nil", resource)
+	} else if rResource.ScalarResources != nil {
+		needUpdate = true
+		log.Debugf("scalarResources %v is set nil", rResource)
 	}
 
-	if err := schema.ValidateResourceInfo(*queueResource, scalarResourceLaws); err != nil {
+	scalarResourceLaws := config.GlobalServerConfig.Job.ScalarResourceArray
+	if err := schema.ValidateResourceInfo(*qResource, scalarResourceLaws); err != nil {
 		log.Errorf("validate resourceInfo failed, err=%v", err)
-		return err
+		return needUpdate, err
 	}
-	return nil
+	return needUpdate, nil
 }
 
 func GetQueueByName(ctx *logger.RequestContext, queueName string) (GetQueueResponse, error) {
