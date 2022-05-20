@@ -337,11 +337,10 @@ func UpdateQueue(ctx *logger.RequestContext, request *UpdateQueueRequest) (Updat
 	}
 
 	// validate fields if not nil, validate namespace at first
-	updateClusterRequired := false
-	resourceUpdated := true
+	var updateClusterRequired, resourceUpdated bool
 
 	// validate MaxResource or MinResource
-	if request.MinResources.CPU != "" || request.MinResources.Mem != "" {
+	if request.MaxResources.CPU != "" || request.MaxResources.Mem != "" {
 		if err := validateQueueResource(request.MaxResources, &queueInfo.MaxResources); err != nil {
 			ctx.Logging().Errorf("update queue maxResources failed. error: %s", err.Error())
 			ctx.ErrorCode = common.InvalidComputeResource
