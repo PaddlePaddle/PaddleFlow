@@ -299,9 +299,21 @@ class Client(object):
             raise PaddleFlowSDKException("InvalidFsName", "fsname should not be none or empty")
         if path == "":
             raise PaddleFlowSDKException("InvalidPath", "path should not be none or empty")
-        userinfo={'header': self.header, 'name': username, 'host': self.paddleflow_server}
+        userinfo = {'header': self.header, 'name': username, 'host': self.paddleflow_server}
         return FSServiceApi.mount(self.paddleflow_server, fsname, path,
                                   self.user_id, self.password, mountOptions, userinfo)
+
+    def createCache(self, fsname, options, username=None):
+        """
+        create cache config for fs
+        """
+        self.pre_check()
+        if username and username.strip() == "":
+            raise PaddleFlowSDKException("InvalidUserName", "username should not be none or empty")
+        if fsname == "":
+            raise PaddleFlowSDKException("InvalidFsName", "fsname should not be none or empty")
+        userinfo = {'header': self.header, 'name': username, 'host': self.paddleflow_server}
+        return FSServiceApi.create_cache(self.paddleflow_server, fsname, options, userinfo)
 
     def add_link(self, fsname, fspath, url, username=None, properties=None):
         """

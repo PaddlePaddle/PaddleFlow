@@ -13,7 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-#!/usr/bin/env python3
+# !/usr/bin/env python3
 # -*- coding:utf8 -*-
 
 import sys
@@ -23,9 +23,8 @@ import json
 import click
 import shutil
 
-
 from paddleflow.cli.output import print_output, OutputFormat
-from paddleflow.utils.format_help import  command_required_option_from_option
+from paddleflow.utils.format_help import command_required_option_from_option
 
 
 @click.group()
@@ -168,11 +167,10 @@ def delete(ctx, fsname, username=None):
 @click.option('-o', '--o', multiple=True, help="""
 mount options: 
   -o block-size: data cache block size (default: 0), if block-size equals to 0, it means that no data cache is used 
-  -o data-mem-size: number of memory data cache items (default: 0) 
-  -o mem-cache-expire: expire time of memory data cache (default 100s) 
-  -o data-disk-cache-path: directory path of local data cache  (default:"./cache_dir") 
-  -o data-disk-cache-expire: expire time of disk data cache (default 900s) 
-  -o meta-driver: meta driver type (e.g. mem, levelDB, rocksDB)",
+  -o data-cache-path: directory path of local data cache  (default:"/var/cache/pfs-cache-dir/data-cache") 
+  -o data-cache-expire: expire time of disk data cache (default 900s) 
+  -o meta-cache-path: directory path of meta cache  (default:"/var/cache/pfs-cache-dir/meta-cache") 
+  -o meta-driver: meta driver type (e.g. mem, leveldb, nutsdb)",
   -o meta-cache-expire: expire time of meta cache expire (default 10s) 
   -o entry-cache-expire: expire time of meta entry cache expire (default 10s) 
 """)
@@ -193,14 +191,12 @@ def mount(ctx, fsname, path, o="", username=None):
     mountOptions = {}
     for k in o:
         splitTxt = k.split("=", 1)
-        for k in o:
-            splitTxt = k.split("=", 1)
-            if len(splitTxt) < 2:
-                click.echo("-o params must follow with {}=\"\"".format(k))
-                return
-            mountOptions[splitTxt[0]] = splitTxt[1]
+        if len(splitTxt) < 2:
+            click.echo("-o params must follow with {}=\"\"".format(k))
+            return
+        mountOptions[splitTxt[0]] = splitTxt[1]
     valid, response = client.mount(fsname, path, mountOptions, username)
-    if valid == False:
+    if not valid:
         if response is not None:
             click.echo(response)
         else:
@@ -209,6 +205,46 @@ def mount(ctx, fsname, path, o="", username=None):
     else:
         click.echo("mount success")
     sys.exit(1)
+
+
+@fs.command(context_settings=dict(max_content_width=2000), cls=command_required_option_from_option())
+@click.argument('fsname')
+@click.option('-u', '--username', help='Mount the specified fs by username, only useful for root.')
+@click.option('-o', '--o', multiple=True, help="""
+cacheConfig options: 
+  -o cacheDir: cache dir on host node. Two sub-directories "data-cache" and "meta-cache" will be created under it.
+  -o metaDriver: meta driver type (e.g. mem, leveldb, nutsdb)",
+  -o blockSize: data cache block size (default: 0), if block-size equals to 0, it means that no data cache is used
+""")
+@click.pass_context
+def createcache(ctx, fsname, o="", username=None):
+    """
+    create a cache config for your fs\n
+    FSNAME: fs name to set cache config\n
+    """
+    client = ctx.obj['client']
+    if not fsname:
+        click.echo('fs mount must provide fsname.', err=True)
+        sys.exit(1)
+    params = {}
+    for k in o:
+        params_kv = k.split("=", 1)
+        if len(params_kv) < 2:
+            click.echo("-o params must follow with {}=\"\"".format(k))
+            return
+        params[params_kv[0]] = params_kv[1]
+    if params["blockSize"]:
+        params["blockSize"] = int(params["blockSize"])
+    valid, response = client.createCache(fsname, params, username)
+    if valid:
+        click.echo("createCache success")
+    else:
+        if response is not None:
+            click.echo(response)
+        else:
+            log = "createCache-{}.err.log".format(fsname)
+            click.echo("createCache failed. Please check the log file for more details, the log file is {}".format(log))
+        sys.exit(1)
 
 
 @fs.command(context_settings=dict(max_content_width=2000), cls=command_required_option_from_option())
