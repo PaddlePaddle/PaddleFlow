@@ -341,45 +341,47 @@ func UpdateQueue(ctx *logger.RequestContext, request *UpdateQueueRequest) (Updat
 
 	// validate MaxResource or MinResource
 	if request.MaxResources.CPU != "" || request.MaxResources.Mem != "" {
-		if err := validateQueueResource(request.MaxResources, &queueInfo.MaxResources); err != nil {
+		if err = validateQueueResource(request.MaxResources, &queueInfo.MaxResources, &resourceUpdated); err != nil {
 			ctx.Logging().Errorf("update queue maxResources failed. error: %s", err.Error())
 			ctx.ErrorCode = common.InvalidComputeResource
 			return UpdateQueueResponse{}, err
 		}
-		updateClusterRequired = true
-		resourceUpdated = true
 	}
-	if queueInfo.QuotaType == schema.TypeElasticQuota && (request.MinResources.CPU != "" || request.MinResources.Mem != "") {
-		if err := validateQueueResource(request.MinResources, &queueInfo.MinResources); err != nil {
+	if queueInfo.QuotaType == schema.TypeElasticQuota {
+		if err = validateQueueResource(request.MinResources, &queueInfo.MinResources, &resourceUpdated); err != nil {
 			ctx.Logging().Errorf("update queue minResources failed. error: %s", err.Error())
 			ctx.ErrorCode = common.InvalidComputeResource
 			return UpdateQueueResponse{}, err
 		}
+		if resourceUpdated && !queueInfo.MinResources.LessEqual(queueInfo.MaxResources) {
+			err = fmt.Errorf("minResource cannot be larger than maxResource")
+			ctx.Logging().Errorf("update queue failed. error: %s", err.Error())
+			ctx.ErrorCode = common.InvalidComputeResource
+			return UpdateQueueResponse{}, err
+		}
+	}
+	if resourceUpdated {
 		updateClusterRequired = true
-		resourceUpdated = true
 	}
-	if queueInfo.QuotaType == schema.TypeElasticQuota && resourceUpdated &&
-		!request.MinResources.LessEqual(request.MaxResources) {
-		err = fmt.Errorf("minResource cannot be larger than maxResource")
-		ctx.Logging().Errorf("update queue failed. error: %s", err.Error())
-		ctx.ErrorCode = common.InvalidComputeResource
-		return UpdateQueueResponse{}, err
-	}
+
 	// validate Location
 	if queueInfo.Location == nil {
 		queueInfo.Location = make(map[string]string)
 	}
-	if len(request.Location) != 0 || request.Location == nil {
+	if len(request.Location) != 0 {
+		updateClusterRequired = true
 		for k, location := range request.Location {
 			queueInfo.Location[k] = location
 		}
-	} else {
+	} else if request.Location != nil {
+		updateClusterRequired = true
 		log.Debugf("queue %s Location is set nil", request.Name)
 	}
 
 	// validate scheduling policy
 	if len(request.SchedulingPolicy) != 0 {
 		log.Warningf("todo queue.SchedulingPolicy havn't been validated yet")
+		updateClusterRequired = true
 		queueInfo.SchedulingPolicy = request.SchedulingPolicy
 	}
 
@@ -425,22 +427,27 @@ func UpdateQueue(ctx *logger.RequestContext, request *UpdateQueueRequest) (Updat
 	return response, nil
 }
 
-func validateQueueResource(resource schema.ResourceInfo, queueResource *schema.ResourceInfo) error {
+func validateQueueResource(resource schema.ResourceInfo, queueResource *schema.ResourceInfo, resourceUpdated *bool) error {
+	needUpdate := true
 	scalarResourceLaws := config.GlobalServerConfig.Job.ScalarResourceArray
 	if resource.CPU != "" {
+		resourceUpdated = &needUpdate
 		queueResource.CPU = resource.CPU
 	}
 	if resource.Mem != "" {
+		resourceUpdated = &needUpdate
 		queueResource.Mem = resource.Mem
 	}
-	if resource.ScalarResources != nil {
+	if queueResource.ScalarResources == nil {
 		queueResource.ScalarResources = make(schema.ScalarResourcesType)
 	}
-	if len(resource.ScalarResources) != 0 || resource.ScalarResources == nil {
+	if len(resource.ScalarResources) != 0 {
+		resourceUpdated = &needUpdate
 		for resourceName, resource := range resource.ScalarResources {
 			queueResource.ScalarResources[resourceName] = resource
 		}
-	} else {
+	} else if resource.ScalarResources != nil {
+		resourceUpdated = &needUpdate
 		log.Debugf("scalarResources %v is set nil", resource)
 	}
 
