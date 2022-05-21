@@ -19,7 +19,7 @@ package common
 type FsCacheConfig struct {
 	CacheDir            string
 	Quota               int
-	CacheType           string
+	MetaDriver          string
 	BlockSize           int
 	NodeAffinity        map[string]interface{}
 	NodeTaintToleration map[string]interface{}

@@ -35,6 +35,7 @@ import (
 	"paddleflow/pkg/common/logger"
 	fuse "paddleflow/pkg/fs/client/fs"
 	fsCommon "paddleflow/pkg/fs/common"
+	utils "paddleflow/pkg/fs/utils/common"
 )
 
 type LinkRouter struct{}
@@ -513,7 +514,7 @@ func (lr *LinkRouter) getLink(w http.ResponseWriter, r *http.Request) {
 }
 
 func linkResponseFromModel(link models.Link) *api.LinkResponse {
-	fsName := common.FSIDToName(link.FsID)
+	fsName, _ := utils.FsIDToFsNameUsername(link.FsID)
 	return &api.LinkResponse{
 		FsName:        fsName,
 		FsPath:        link.FsPath,

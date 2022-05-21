@@ -201,3 +201,13 @@ func GetRandID(randNum int) string {
 	rand.Read(b)
 	return hex.EncodeToString(b)
 }
+
+func FsIDToFsNameUsername(fsID string) (fsName, username string) {
+	fsArr := strings.Split(fsID, "-")
+	if len(fsArr) < 3 {
+		return "", ""
+	}
+	fsName = fsArr[len(fsArr)-1]
+	username = strings.Join(fsArr[1:len(fsArr)-1], "")
+	return
+}
