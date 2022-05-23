@@ -131,7 +131,7 @@ func UpdateRunByWfEvent(id string, event interface{}) bool {
 		runtimeJobs[name] = job
 	}
 	activatedAt := sql.NullTime{}
-	if prevRun.Status == common.StatusRunPending {
+	if prevRun.Status == common.StatusRunPending || prevRun.Status == common.StatusRunInitiating {
 		logging.Errorf("Cb creating jobs\n")
 		activatedAt.Time = time.Now()
 		activatedAt.Valid = true
