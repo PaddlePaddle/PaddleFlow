@@ -18,6 +18,8 @@ if __name__ == "__main__":
     ppl = base_pipeline(data_path=f"./base_pipeline/data/{PF_RUN_ID}", epoch=5, model_path=f"./output/{PF_RUN_ID}")
 ```
 
+> Pipeline 是一个类装饰器，开发者需要用其对编排 pipeline 的函数进行装饰
+
 #### 参数说明
 
 |字段名称 | 字段类型 | 字段含义 | 备注 |
@@ -30,9 +32,9 @@ if __name__ == "__main__":
 |failure_options| [FailureOptions](#FailureOptions) (optional) |failure options 配置 | 关于failure options的相关介绍，请点击[这里](Cache机制)  |
 
 > 注意: 有部分参数，在 Pipeline 和 [Step](#Step) 中都可以进行设置，在运行时，哪一个参数值才会生效？ 相关说明如下：
-> -  docker_env : 如果 **Step.docker_env** 有值，则使用 *Step.docker_env* 的值，否则使用 *Pipeline.docker_env* 的值, 如果 *Step.docker_env*， *Pipeline.docker_env* 均无值，则会报错
-> - cache_opitons: 如果 *Step.cache_options* 有值，则使用 *Step.cache_options* 的值，否则使用 *Pipeline.cache_options* 的值, 如果 *Step.docker_env*， *Pipeline.docker_env* 均无值，则默认不使用 Cache 机制
-> - env: 采用合并机制: 在运行时， Step 的环境变量即包含了 Step.env 属性中指定环境变量，也包含了 Pipeline.env 中包含的环境变量， 如果有同名的环境变量，则使用 Step.env 定义的参数值
+> -  docker_env : 如果 **Step.docker_env** 有值，则使用 **Step.docker_env** 的值，否则使用 **Pipeline.docker_env** 的值, 如果 **Step.docker_env**， **Pipeline.docker_env** 均无值，则会报错
+> - cache_opitons: 如果 **Step.cache_options** 有值，则使用 **Step.cache_options** 的值，否则使用 **Pipeline.cache_options** 的值, 如果 **Step.docker_env**， **Pipeline.docker_env** 均无值，则默认不使用 Cache 机制
+> - env: 采用合并机制: 在运行时， Step 的环境变量即包含了 **Step.env** 属性中指定环境变量，也包含了 **Pipeline.env** 中包含的环境变量， 如果有同名的环境变量，则使用 **Step.env** 定义的参数值
 
 
 #### 返回值
