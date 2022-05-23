@@ -1,9 +1,6 @@
 name: artifact_example
 
-docker_env: registry.baidubce.com/pipeline/nginx:1.7.9
-
 entry_points:
-
   preprocess:
     artifacts:
       output:
@@ -17,6 +14,7 @@ entry_points:
       PF_JOB_MODE: Pod
       PF_JOB_QUEUE_NAME: ppl-queue
       PF_JOB_TYPE: vcjob
+      USER_ABC: 123_{{PF_USER_NAME}}
     parameters:
       data_path: ./artifact_example/data/
 
@@ -48,3 +46,7 @@ entry_points:
       PF_JOB_MODE: Pod
       PF_JOB_QUEUE_NAME: ppl-queue
       PF_JOB_TYPE: vcjob
+
+docker_env: registry.baidubce.com/pipeline/nginx:1.7.9
+
+parallelism: 1

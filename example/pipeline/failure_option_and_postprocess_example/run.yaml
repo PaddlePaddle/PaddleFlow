@@ -1,7 +1,5 @@
 name: failure_option_and_postprocess_example
 
-docker_env: registry.baidubce.com/pipeline/nginx:1.7.9
-
 entry_points:
   step1:
     command: echo step1
@@ -46,9 +44,6 @@ entry_points:
       PF_JOB_QUEUE_NAME: ppl-queue
       PF_JOB_TYPE: vcjob
 
-failure_options:
-  strategy: continue
-
 post_process:
   step6:
     command: echo step6
@@ -57,3 +52,11 @@ post_process:
       PF_JOB_MODE: Pod
       PF_JOB_QUEUE_NAME: ppl-queue
       PF_JOB_TYPE: vcjob
+
+failure_options:
+  strategy: continue
+
+parallelism: 1 
+
+docker_env: registry.baidubce.com/pipeline/nginx:1.7.9
+

@@ -3,6 +3,7 @@ from paddleflow.pipeline import ContainerStep
 from paddleflow.pipeline import Parameter
 from paddleflow.pipeline import Artifact
 from paddleflow.pipeline import CacheOptions
+from paddleflow.pipeline import PF_USER_NAME
 
 def job_info():
     return {
@@ -26,6 +27,7 @@ def preprocess(data_path):
         docker_env="registry.baidubce.com/pipeline/kfp_mysql:1.7.0",
         cache_options=cache,
         command="bash -x cache_example/shells/data_artifact.sh {{data_path}} {{train_data}} {{validate_data}}",
+        env={"USER_ABC": f"123_{PF_USER_NAME}"}
     )
 
 def train(epoch, train_data):
@@ -37,7 +39,6 @@ def train(epoch, train_data):
         inputs={"train_data": train_data},
         outputs={"train_model": Artifact()},
         command="bash -x cache_example/shells/train.sh {{epoch}} {{train_data}} {{train_model}}",
-        env={"USER_ABC": "123"},
     )
 
 def validate(data, model):
@@ -48,7 +49,7 @@ def validate(data, model):
     return ContainerStep(
         name="validate",
         inputs={"data":data, "model": model},
-        command="bash cache_example/shells/validate.sh", 
+        command="bash cache_example/shells/validate.sh {{model}}", 
         cache_options=cache,
     )
 
@@ -61,7 +62,9 @@ cache = CacheOptions(
 @Pipeline(
         name="cache_example",
         docker_env="registry.baidubce.com/pipeline/nginx:1.7.9",
-        cache_options=cache, env=job_info()
+        cache_options=cache,
+        env=job_info(),
+        parallelism=1
         )
 def cache_example(data_path, epoch):
     preprocess_step = preprocess(data_path)
@@ -73,5 +76,6 @@ def cache_example(data_path, epoch):
 
 if __name__ == "__main__":
     ppl = cache_example(data_path="./cache_example/data/", epoch=15)
-    result = ppl.run(fsname="your_fs_name")
-    print(result)
+    ppl.compile("run.yaml")
+    # result = ppl.run(fsname="your_fs_name")
+    # print(result)
