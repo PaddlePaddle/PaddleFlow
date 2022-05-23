@@ -24,8 +24,9 @@ from urllib import parse
 from paddleflow.common.exception.paddleflow_sdk_exception import PaddleFlowSDKException
 from paddleflow.utils import api_client
 from paddleflow.common import api
-from paddleflow.fs.fs_info import FSInfo, LinkInfo
+from paddleflow.fs.fs_info import FSInfo, LinkInfo, CacheConfigInfo
 import signal
+
 
 def callback_func_mount_time_out(*args):
     """
@@ -47,6 +48,7 @@ def time_out(interval, callback):
             del time out
             """
             raise TimeoutError("run func timeout")
+
         def wrapper(*args, **kwargs):
             """wrapper
             """
@@ -196,6 +198,75 @@ class FSServiceApi(object):
         data = json.loads(response.text)
         if 'message' in data:
             return False, data['message']
+        return True, None
+
+    @classmethod
+    def update_cache(self, host, fsname, options, userinfo={'header': '', 'name': '', 'host': ''}):
+        """
+        update cache config for fs
+        """
+        if not userinfo['header']:
+            raise PaddleFlowSDKException("Invalid request", "please login paddleflow first")
+        body = options
+        params = None
+        if userinfo['name']:
+            params = {
+                'username': userinfo['name']
+            }
+        response = api_client.call_api(method="PUT", url=parse.urljoin(host, api.PADDLE_FLOW_FS_CACHE + "/%s" % fsname),
+                                       headers=userinfo['header'], json=body, params=params)
+        if not response:
+            raise PaddleFlowSDKException("update cache error", response.text)
+        if not response.text:
+            return True, None
+        data = json.loads(response.text)
+        if 'message' in data:
+            return False, data['message']
+        return True, None
+
+    @classmethod
+    def get_cache(self, host, fsname, userinfo={'header': '', 'name': '', 'host': ''}):
+        """
+        get cache config for fs
+        """
+        if not userinfo['header']:
+            raise PaddleFlowSDKException("Invalid request", "please login paddleflow first")
+        params = None
+        if userinfo['name']:
+            params = {
+                'username': userinfo['name']
+            }
+        response = api_client.call_api(method="GET", url=parse.urljoin(host, api.PADDLE_FLOW_FS_CACHE + "/%s" % fsname),
+                                       headers=userinfo['header'], params=params)
+        if not response:
+            raise PaddleFlowSDKException("get cache error", response.text)
+        data = json.loads(response.text)
+        if 'message' in data:
+            return False, data['message']
+        resp = CacheConfigInfo(data['fsName'], data['username'], data['cacheDir'], data['metaDriver'], data['blockSize'])
+        return True, resp
+
+    @classmethod
+    def delete_cache(self, host, fsname, userinfo={'header': '', 'name': '', 'host': ''}):
+        """
+        delete fs cache config
+        """
+        if not userinfo['header']:
+            raise PaddleFlowSDKException("Invalid request", "please login paddleflow first")
+        params = None
+        if userinfo['name']:
+            params = {
+                'username': userinfo['name']
+            }
+        response = api_client.call_api(method="DELETE", url=parse.urljoin(host, api.PADDLE_FLOW_FS_CACHE + "/%s" % fsname),
+                                       headers=userinfo['header'], params=params)
+        if not response:
+            raise PaddleFlowSDKException("Delete fs cache config error", response.text)
+        if not response.text:
+            return True, None
+        data = json.loads(response.text)
+        if 'message' in data:
+            return True, data['message']
         return True, None
 
     @classmethod

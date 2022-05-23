@@ -59,4 +59,3 @@ failure_options:
 parallelism: 1 
 
 docker_env: registry.baidubce.com/pipeline/nginx:1.7.9
-
