@@ -27,7 +27,9 @@ if __name__ == "__main__":
 |docker_env| string (optional) | 各节点默认的docker 镜像地址 |  |
 |env| dict[str, str] (optional) | 各节点运行任务时的环境变量 | |
 |cache_options| [CacheOptions](#CacheOptions) (optional)| Pipeline 级别的 Cache 配置 | 关于Cache机制的相关介绍，请点击[这里](Cache机制) |
-|failure_options| [FailureOptions](#FailureOptions) (optional) |failure options 配置 | 关于failure options的相关介绍，请点击[这里](Cache机制) 
+|failure_options| [FailureOptions](#FailureOptions) (optional) |failure options 配置 | 关于failure options的相关介绍，请点击[这里](Cache机制)  |
+
+
 #### 返回值
 
 
