@@ -18,6 +18,7 @@ package ufs
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -36,84 +37,86 @@ import (
 )
 
 const (
-	glusterfsMountPath = ".tmp_gfs"
+	localMountPath = ".tmp_local_mount"
+	cfsMountParam  = "minorversion=1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport"
 )
 
-type gfsFileSystem struct {
-	addr      string // host:
+type localMount struct {
+	addr      string
 	subpath   string
 	localPath string
+	mountType string
 }
 
-func (fs *gfsFileSystem) String() string {
-	return common.GlusterfsType
+func (fs *localMount) String() string {
+	return fs.mountType
 }
 
-func (fs *gfsFileSystem) GetPath(relPath string) string {
+func (fs *localMount) GetPath(relPath string) string {
 	return filepath.Join(fs.localPath, relPath)
 }
 
-func (fs *gfsFileSystem) Chmod(name string, mode uint32) error {
+func (fs *localMount) Chmod(name string, mode uint32) error {
 	return os.Chmod(fs.GetPath(name), os.FileMode(mode))
 }
 
-func (fs *gfsFileSystem) Chown(name string, uid uint32, gid uint32) error {
+func (fs *localMount) Chown(name string, uid uint32, gid uint32) error {
 	return os.Chown(fs.GetPath(name), int(uid), int(gid))
 }
 
-func (fs *gfsFileSystem) Utimens(name string, atime *time.Time, mtime *time.Time) error {
+func (fs *localMount) Utimens(name string, atime *time.Time, mtime *time.Time) error {
 	return os.Chtimes(fs.GetPath(name), *atime, *mtime)
 }
 
-func (fs *gfsFileSystem) Truncate(name string, size uint64) error {
+func (fs *localMount) Truncate(name string, size uint64) error {
 	return os.Truncate(fs.GetPath(name), int64(size))
 }
 
-func (fs *gfsFileSystem) Access(name string, mode, callerUid, callerGid uint32) error {
+func (fs *localMount) Access(name string, mode, callerUid, callerGid uint32) error {
 	return syscall.ENOSYS
 }
 
-func (fs *gfsFileSystem) Link(oldName string, newName string) error {
+func (fs *localMount) Link(oldName string, newName string) error {
 	return os.Link(fs.GetPath(oldName), fs.GetPath(newName))
 }
 
-func (fs *gfsFileSystem) Mkdir(name string, mode uint32) error {
+func (fs *localMount) Mkdir(name string, mode uint32) error {
 	return os.Mkdir(fs.GetPath(name), os.FileMode(mode))
 }
 
-func (fs *gfsFileSystem) Mknod(name string, mode uint32, dev uint32) error {
+func (fs *localMount) Mknod(name string, mode uint32, dev uint32) error {
 	return syscall.ENOSYS
 }
 
-func (fs *gfsFileSystem) Rename(oldName string, newName string) error {
+func (fs *localMount) Rename(oldName string, newName string) error {
 	return os.Rename(fs.GetPath(oldName), fs.GetPath(newName))
 }
 
-func (fs *gfsFileSystem) Rmdir(name string) error {
+func (fs *localMount) Rmdir(name string) error {
 	return syscall.Rmdir(fs.GetPath(name))
 }
 
-func (fs *gfsFileSystem) Unlink(name string) error {
+func (fs *localMount) Unlink(name string) error {
 	return syscall.Unlink(fs.GetPath(name))
 }
 
-func (fs *gfsFileSystem) GetXAttr(name string, attribute string) (data []byte, err error) {
+func (fs *localMount) GetXAttr(name string, attribute string) (data []byte, err error) {
 	return nil, syscall.ENOSYS
 }
 
-func (fs *gfsFileSystem) ListXAttr(name string) (attributes []string, err error) {
+func (fs *localMount) ListXAttr(name string) (attributes []string, err error) {
 	return nil, syscall.ENOSYS
 }
 
-func (fs *gfsFileSystem) RemoveXAttr(name string, attr string) error {
+func (fs *localMount) RemoveXAttr(name string, attr string) error {
 	return syscall.ENOSYS
 }
 
-func (fs *gfsFileSystem) SetXAttr(name string, attr string, data []byte, flags int) error {
+func (fs *localMount) SetXAttr(name string, attr string, data []byte, flags int) error {
 	return syscall.ENOSYS
 }
 
-func (fs *gfsFileSystem) Open(name string, flags uint32) (fd base.FileHandle, err error) {
+func (fs *localMount) Open(name string, flags uint32) (fd base.FileHandle, err error) {
 	flags = flags &^ syscall.O_APPEND
 	f, err := os.OpenFile(fs.GetPath(name), int(flags), 0)
 	if err != nil {
@@ -122,14 +125,14 @@ func (fs *gfsFileSystem) Open(name string, flags uint32) (fd base.FileHandle, er
 	return nodefs.NewLoopbackFile(f), nil
 }
 
-func (fs *gfsFileSystem) Create(name string, flags uint32, mode uint32) (fd base.FileHandle, err error) {
+func (fs *localMount) Create(name string, flags uint32, mode uint32) (fd base.FileHandle, err error) {
 	flags = flags &^ syscall.O_APPEND
 	f, err := os.OpenFile(fs.GetPath(name), int(flags)|os.O_CREATE, os.FileMode(mode))
 	return nodefs.NewLoopbackFile(f), err
 }
 
 // Directory handling
-func (fs *gfsFileSystem) ReadDir(name string) (stream []base.DirEntry, err error) {
+func (fs *localMount) ReadDir(name string) (stream []base.DirEntry, err error) {
 	entries, err := os.ReadDir(fs.GetPath(name))
 	if err != nil {
 		return nil, err
@@ -156,16 +159,16 @@ func (fs *gfsFileSystem) ReadDir(name string) (stream []base.DirEntry, err error
 }
 
 // Symlinks.
-func (fs *gfsFileSystem) Symlink(value string, linkName string) error {
+func (fs *localMount) Symlink(value string, linkName string) error {
 	return os.Symlink(value, fs.GetPath(linkName))
 }
 
-func (fs *gfsFileSystem) Readlink(name string) (string, error) {
+func (fs *localMount) Readlink(name string) (string, error) {
 	f, err := os.Readlink(fs.GetPath(name))
 	return f, err
 }
 
-func (fs *gfsFileSystem) StatFs(name string) *base.StatfsOut {
+func (fs *localMount) StatFs(name string) *base.StatfsOut {
 	s := syscall.Statfs_t{}
 	err := syscall.Statfs(fs.GetPath(name), &s)
 	if err != nil {
@@ -177,7 +180,7 @@ func (fs *gfsFileSystem) StatFs(name string) *base.StatfsOut {
 	return out
 }
 
-func (fs *gfsFileSystem) Get(name string, flags uint32, off, limit int64) (io.ReadCloser, error) {
+func (fs *localMount) Get(name string, flags uint32, off, limit int64) (io.ReadCloser, error) {
 	flags = flags &^ syscall.O_APPEND
 	reader, err := os.OpenFile(fs.GetPath(name), int(flags), 0)
 	if err != nil {
@@ -195,37 +198,52 @@ func (fs *gfsFileSystem) Get(name string, flags uint32, off, limit int64) (io.Re
 	return reader, err
 }
 
-func (fs *gfsFileSystem) Put(name string, reader io.Reader) error {
+func (fs *localMount) Put(name string, reader io.Reader) error {
 	return nil
 }
 
-func NewGFSFileSystem(properties map[string]interface{}) (UnderFileStorage, error) {
-	addr := properties[common.Address].(string)
-	subpath := properties[common.SubPath].(string)
-	os.MkdirAll(glusterfsMountPath, 0755)
-	localPath, err := ioutil.TempDir(glusterfsMountPath, "*")
+func NewLocalMountFileSystem(properties map[string]interface{}) (UnderFileStorage, error) {
+	mountType := properties[common.Type].(string)
+	if mountType == "" {
+		return nil, errors.New("mount type empty")
+	}
+	var args []string
+	var sourcePath string
+	os.MkdirAll(localMountPath, 0755)
+	localPath, err := ioutil.TempDir(localMountPath, "*")
 	if err != nil {
 		log.Errorf("create temp dir all path[%s] failed: %v", localPath, err)
 		return nil, err
 	}
+	addr := properties[common.Address].(string)
+	subpath := properties[common.SubPath].(string)
 
-	// todo use cfs client
-	sourcePath := addr + ":" + subpath
-	args := []string{"-t", "glusterfs"}
+	switch mountType {
+	case common.GlusterfsType:
+		sourcePath = addr + ":" + subpath
+		args = []string{"-t", "glusterfs"}
+	case common.CFSType:
+		sourcePath = filepath.Join(addr, subpath) + "/"
+		args = []string{"-t", "nfs4", "-o", cfsMountParam}
+	default:
+		return nil, fmt.Errorf("type[%s] is not exist", mountType)
+	}
+
 	output, err := mount.ExecMount(sourcePath, localPath, args)
 	if err != nil {
-		log.Errorf("exec glusterfs mount cmd failed: %v, output[%s]", err, string(output))
+		log.Errorf("exec %d mount cmd failed: %v, output[%s]", mountType, err, string(output))
 		os.Remove(localPath)
 		return nil, errors.New(string(output))
 	}
 
-	fs := &gfsFileSystem{
+	fs := &localMount{
 		addr:      addr,
 		subpath:   subpath,
 		localPath: localPath,
+		mountType: mountType,
 	}
 
-	runtime.SetFinalizer(fs, func(fs *gfsFileSystem) {
+	runtime.SetFinalizer(fs, func(fs *localMount) {
 		err = mount.ForceUnmount(localPath)
 		if err != nil {
 			log.Debugf("force unmount mountPoint[%s] failed: %v", localPath, err)
@@ -240,5 +258,6 @@ func NewGFSFileSystem(properties map[string]interface{}) (UnderFileStorage, erro
 }
 
 func init() {
-	RegisterUFS(common.GlusterfsType, NewGFSFileSystem)
+	RegisterUFS(common.GlusterfsType, NewLocalMountFileSystem)
+	RegisterUFS(common.CFSType, NewLocalFileSystem)
 }

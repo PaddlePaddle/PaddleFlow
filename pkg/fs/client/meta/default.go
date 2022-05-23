@@ -650,6 +650,7 @@ func newUFS(fsMeta common.FSMeta) (ufslib.UnderFileStorage, error) {
 		properties[k] = v
 	}
 	properties[common.SubPath] = fsMeta.SubPath
+	properties[common.Type] = fsMeta.UfsType
 
 	switch fsMeta.UfsType {
 	case common.HDFSType:

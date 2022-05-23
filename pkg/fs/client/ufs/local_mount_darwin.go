@@ -23,7 +23,7 @@ import (
 	"paddleflow/pkg/fs/client/utils"
 )
 
-func (fs *gfsFileSystem) GetAttr(name string) (*base.FileInfo, error) {
+func (fs *localMount) GetAttr(name string) (*base.FileInfo, error) {
 	path := fs.GetPath(name)
 	var err error = nil
 	st := syscall.Stat_t{}
