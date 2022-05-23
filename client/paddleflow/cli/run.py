@@ -44,7 +44,7 @@ def run():
 @click.option('--disabled', multiple=True, help="the name of step which need to be disabled.")
 @click.pass_context
 def create(ctx, fsname, name=None, desc=None, username=None, runyamlpath=None, runyamlraw=None,
-        param="", disabled=None):
+        param="", pipelineid=None, disabled=None, dockerenv=None):
     """create a new run.\n
     FSNAME: the name of the fs.
     """
@@ -68,8 +68,8 @@ def create(ctx, fsname, name=None, desc=None, username=None, runyamlpath=None, r
     if disabled is not None:
         disabled = ",".join(disabled)
 
-    valid, response = client.create_run(fsname, username, name, desc, entry, runyamlpath, runyamlraw, param_dict, 
-                            disabled=disabled)
+    valid, response = client.create_run(fsname, username, name, desc, entry, runyamlpath, runyamlraw, pipelineid
+                            param_dict, disabled=disabled, dockerenv=dockerenv)
 
     if valid:
         click.echo("run[%s] create success with runid[%s]" % (fsname, response))
@@ -82,14 +82,15 @@ def create(ctx, fsname, name=None, desc=None, username=None, runyamlpath=None, r
 @click.option('-f', '--fsname', help='List the specified run by fsname.')
 @click.option('-u', '--username', help='List the specified run by username, only useful for root.')
 @click.option('-r', '--runid', help='List the specified run by runid')
+@click.option('-rn', '--runname', help='List the specified run by runname')
 @click.option('-m', '--maxsize', default=100, help="Max size of the listed users.")
 @click.option('-mk', '--marker', help="Next page.")
 @click.pass_context
-def list(ctx, fsname=None, username=None, runid=None, maxsize=100, marker=None):
+def list(ctx, fsname=None, username=None, runid=None, runname=None, maxsize=100, marker=None):
     """list run.\n """
     client = ctx.obj['client']
     output_format = ctx.obj['output']
-    valid, response, nextmarker = client.list_run(fsname, username, runid, maxsize, marker)
+    valid, response, nextmarker = client.list_run(fsname, username, runid, runname, maxsize, marker)
     if valid:
         if len(response):
             _print_runlist(response, output_format)
@@ -312,14 +313,21 @@ def _print_run(run, out_format):
         headers = ['run yaml detail']
         data = [[run.run_yaml]]
         print_output(data, headers, out_format, table_format='grid')
-    if not run.job_info or not len(run.job_info):
+    if (not run.runtime_info or not len(run.runtime_info)) and (not run.post_info or not len(run.post_info)):
         click.echo("no job found")
         return
-    print_output([], ["Job Details"], out_format)
-    headers = ['job id', 'name', 'status', 'deps', 'start time', 'end time', 'image']
-    data = [[job.jobId, job.name, job.status, job.deps, job.start_time, job.end_time, job.image] 
-            for job in run.job_info]
-    print_output(data, headers, out_format, table_format='grid')
+    if run.runtime_info and len(run.runtime_info):
+        print_output([], ["Runtime Details"], out_format)
+        headers = ['job id', 'name', 'status', 'deps', 'start time', 'end time', 'dockerEnv']
+        data = [[job.jobId, job.name, job.status, job.deps, job.start_time, job.end_time, job.dockerEnv] 
+                for job in run.runtime_info]
+        print_output(data, headers, out_format, table_format='grid')
+    if run.post_info and len(run.post_info):
+        print_output([], ["PostProcess Details"], out_format)
+        headers = ['job id', 'name', 'status', 'deps', 'start time', 'end time', 'dockerEnv']
+        data = [[job.jobId, job.name, job.status, job.deps, job.start_time, job.end_time, job.dockerEnv] 
+                for job in run.post_info]
+        print_output(data, headers, out_format, table_format='grid')
 
 
 def _print_artiface(runs, out_format):
