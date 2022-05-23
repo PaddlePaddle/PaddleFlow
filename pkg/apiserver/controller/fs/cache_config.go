@@ -17,6 +17,7 @@ limitations under the License.
 package fs
 
 import (
+	"paddleflow/pkg/apiserver/common"
 	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/common/logger"
 	utils "paddleflow/pkg/fs/utils/common"
@@ -113,4 +114,14 @@ func GetFileSystemCacheConfig(ctx *logger.RequestContext, fsID string) (FileSyst
 	var resp FileSystemCacheResponse
 	resp.fromModel(fsCacheConfig)
 	return resp, nil
+}
+
+func DeleteFileSystemCacheConfig(ctx *logger.RequestContext, fsID string) error {
+	err := models.DeleteFSCacheConfig(ctx.Logging(), fsID)
+	if err != nil {
+		ctx.Logging().Errorf("delete fs cache config failed error[%v]", err)
+		ctx.ErrorCode = common.FileSystemDataBaseError
+		return err
+	}
+	return err
 }
