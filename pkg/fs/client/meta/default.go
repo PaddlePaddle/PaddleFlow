@@ -656,7 +656,7 @@ func newUFS(fsMeta common.FSMeta) (ufslib.UnderFileStorage, error) {
 		properties[common.NameNodeAddress] = fsMeta.ServerAddress
 	case common.HDFSWithKerberosType:
 		properties[common.NameNodeAddress] = fsMeta.ServerAddress
-	case common.SFTPType, common.CFSType:
+	case common.SFTPType, common.CFSType, common.GlusterfsType:
 		properties[common.Address] = fsMeta.ServerAddress
 	}
 	return ufslib.NewUFS(fsMeta.UfsType, properties)
