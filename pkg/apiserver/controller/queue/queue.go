@@ -340,19 +340,19 @@ func UpdateQueue(ctx *logger.RequestContext, request *UpdateQueueRequest) (Updat
 	var updateClusterRequired, resourceUpdated bool
 
 	// validate MaxResource or MinResource
-	if request.MaxResources.CPU != "" || request.MaxResources.Mem != "" {
-		if resourceUpdated, err = validateQueueResource(request.MaxResources, &queueInfo.MaxResources); err != nil {
-			ctx.Logging().Errorf("update queue maxResources failed. error: %s", err.Error())
-			ctx.ErrorCode = common.InvalidComputeResource
-			return UpdateQueueResponse{}, err
-		}
+	if resourceUpdated, err = validateQueueResource(request.MaxResources, &queueInfo.MaxResources); err != nil {
+		ctx.Logging().Errorf("update queue maxResources failed. error: %s", err.Error())
+		ctx.ErrorCode = common.InvalidComputeResource
+		return UpdateQueueResponse{}, err
 	}
 	if queueInfo.QuotaType == schema.TypeElasticQuota {
-		if resourceUpdated, err = validateQueueResource(request.MinResources, &queueInfo.MinResources); err != nil {
+		maxResUpdated, err := validateQueueResource(request.MinResources, &queueInfo.MinResources)
+		if err != nil {
 			ctx.Logging().Errorf("update queue minResources failed. error: %s", err.Error())
 			ctx.ErrorCode = common.InvalidComputeResource
 			return UpdateQueueResponse{}, err
 		}
+		resourceUpdated = resourceUpdated || maxResUpdated
 		if resourceUpdated && !queueInfo.MinResources.LessEqual(queueInfo.MaxResources) {
 			err = fmt.Errorf("minResource cannot be larger than maxResource")
 			ctx.Logging().Errorf("update queue failed. error: %s", err.Error())
@@ -369,19 +369,16 @@ func UpdateQueue(ctx *logger.RequestContext, request *UpdateQueueRequest) (Updat
 		queueInfo.Location = make(map[string]string)
 	}
 	if len(request.Location) != 0 {
-		updateClusterRequired = true
 		for k, location := range request.Location {
 			queueInfo.Location[k] = location
 		}
 	} else if request.Location != nil {
-		updateClusterRequired = true
 		log.Debugf("queue %s Location is set nil", request.Name)
 	}
 
 	// validate scheduling policy
 	if len(request.SchedulingPolicy) != 0 {
 		log.Warningf("todo queue.SchedulingPolicy havn't been validated yet")
-		updateClusterRequired = true
 		queueInfo.SchedulingPolicy = request.SchedulingPolicy
 	}
 
