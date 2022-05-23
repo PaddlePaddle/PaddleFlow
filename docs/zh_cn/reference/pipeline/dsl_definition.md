@@ -157,11 +157,12 @@ Pipeline 实例化函数的主要参数说明如下：
 
 
 ### 4.3、指定Step实例间的依赖关系
-在一个Pipeline实例中，可能添加了多个Step实例，那么这么Step实例之间是否存在有某些关系呢？答案是肯定的， 在PaddleFlow Pipeline 中，Step之间可以存在如下的依赖关系：
+在一个Pipeline实例中，可能添加了多个Step实例，那么这么Step实例之间是否存在有某些关系呢？答案是肯定的， 在PaddleFlow Pipeline 中，Step之间可以存在如下的依赖关系:
 
 - 流程依赖: 如果Step<A>需要在Step<B>之后运行，则称Step<A>在流程上依赖于Step<B>。
-- Parameter依赖：如果Step<A>的某个Parameter引用了Step<B>的某个Parameter， 则称Step<A>在Parameter上依赖于Step<B>。
-
+- Parameter依赖: 如果Step<A>的某个Parameter引用了Step<B>的某个Parameter，则称Step<A>在Parameter上依赖于Step<B>。
+    
+    
 #### 流程依赖
 定义节点间流程依赖的方式很简单，只需要调用Step实例的 `after()` 函数，便可以指定该Step实例在流程上所依赖的其余Step。如在上面的[示例](#1pipeline-示例)中，我们可以看到如下的语句：
 
@@ -200,8 +201,12 @@ if __name__ == "__main__":
 
 ## 下一步
 [在DSL中使用Artifact][DSL-Artifact]
+    
 [在DSL中使用Cache][DSL-Cache]
+    
 [在DSL中使用PostProcess和FailureOpitons][DSL-PostProcess-And-FailureOpitons]
+
+[DSL接口文档][DSL接口文档]
 
 [pipeline yaml]: /docs/zh_cn/reference/pipeline/yaml_definition
 [base_pipeline]: /example/pipeline/base_pipeline
@@ -212,4 +217,5 @@ if __name__ == "__main__":
 [DSL-Artifact]: TODO
 [DSL-Cache]: TODO
 [DSL-PostProcess-And-FailureOpitons]: TODO
+[DSL接口文档]: TODO
     
