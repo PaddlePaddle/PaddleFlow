@@ -17,7 +17,9 @@ limitations under the License.
 package fs
 
 import (
+	"errors"
 	"fmt"
+	"gorm.io/gorm"
 	"strings"
 	"time"
 
@@ -142,13 +144,17 @@ func (s *FileSystemService) DeleteFileSystem(ctx *logger.RequestContext, fsID st
 		ctx.ErrorCode = common.FileSystemDataBaseError
 		return err
 	}
+	// delete cache config if exist
 	err = models.DeleteFSCacheConfig(ctx.Logging(), fsID)
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil
+		}
 		ctx.Logging().Errorf("delete fs[%s] cache config failed error[%v]", fsID, err)
 		ctx.ErrorCode = common.FileSystemDataBaseError
 		return err
 	}
-	return err
+	return nil
 }
 
 // ListFileSystem the function which performs the operation of list file systems
