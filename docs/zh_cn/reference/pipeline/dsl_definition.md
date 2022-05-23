@@ -81,7 +81,7 @@ if __name__ == "__main__":
 > 在阅读本文档前， 请确认已经安装了 PaddleFlow SDK，并完成了相关配置。详情请点击[这里][sdk 安装与配置]
 
 ## 2、导入DSL相关模块
-与编写任何Python脚本一样，我们首先要导入将会使用到的模块、类、或者函数等。 Python DSL 提供的模块、类、函数等都可以通过 paddleflow.pipeline 模块完成导入，如上面的[示例](#1、pipeline 示例)所示：
+与编写任何Python脚本一样，我们首先要导入将会使用到的模块、类、或者函数等。 Python DSL 提供的模块、类、函数等都可以通过 paddleflow.pipeline 模块完成导入，如上面的[示例](#1pipeline-示例)所示：
 ```python3
 from paddleflow.pipeline import Pipeline
 from paddleflow.pipeline import ContainerStep
