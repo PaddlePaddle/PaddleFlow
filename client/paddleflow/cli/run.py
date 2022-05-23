@@ -80,15 +80,15 @@ def create(ctx, fsname=None, name=None, desc=None, username=None, runyamlpath=No
 @click.option('-f', '--fsname', help='List the specified run by fsname.')
 @click.option('-u', '--username', help='List the specified run by username, only useful for root.')
 @click.option('-r', '--runid', help='List the specified run by runid')
-@click.option('-rn', '--runname', help='List the specified run by runname')
+@click.option('-n', '--name', help='List the specified run by run name')
 @click.option('-m', '--maxsize', default=100, help="Max size of the listed users.")
 @click.option('-mk', '--marker', help="Next page.")
 @click.pass_context
-def list(ctx, fsname=None, username=None, runid=None, runname=None, maxsize=100, marker=None):
+def list(ctx, fsname=None, username=None, runid=None, name=None, maxsize=100, marker=None):
     """list run.\n """
     client = ctx.obj['client']
     output_format = ctx.obj['output']
-    valid, response, nextmarker = client.list_run(fsname, username, runid, runname, maxsize, marker)
+    valid, response, nextmarker = client.list_run(fsname, username, runid, name, maxsize, marker)
     if valid:
         if len(response):
             _print_runlist(response, output_format)
