@@ -51,7 +51,7 @@ def validate(model_path):
         },
     )
 
-@Pipeline(name="base_pipeline", docker_env="registry.baidubce.com/pipeline/nginx:1.7.9")
+@Pipeline(name="base_pipeline", docker_env="registry.baidubce.com/pipeline/nginx:1.7.9", parallelism=1)
 def base_pipeline(data_path, epoch, model_path):
     preprocess_step = preprocess(data_path)
 

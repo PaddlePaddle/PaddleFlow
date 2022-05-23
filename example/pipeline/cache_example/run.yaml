@@ -1,7 +1,5 @@
 name: cache_example
 
-docker_env: registry.baidubce.com/pipeline/nginx:1.7.9
-
 entry_points:
   preprocess:
     artifacts:
@@ -20,6 +18,7 @@ entry_points:
       PF_JOB_MODE: Pod
       PF_JOB_QUEUE_NAME: ppl-queue
       PF_JOB_TYPE: vcjob
+      USER_ABC: 123_{{PF_USER_NAME}}
     parameters:
       data_path: ./cache_example/data/
 
@@ -49,14 +48,18 @@ entry_points:
       enable: false
       max_expired_time: -1
     command: bash cache_example/shells/validate.sh
-    deps: train,preprocess
+    deps: preprocess,train
     env:
       PF_JOB_FLAVOUR: flavour1
       PF_JOB_MODE: Pod
       PF_JOB_QUEUE_NAME: ppl-queue
       PF_JOB_TYPE: vcjob
 
+parallelism: 1
+
 cache:
   enable: true
   fs_scope: cache_example/shells/train.sh,cache_example/shells/validate.sh,cache_example/shells/data_artifact.sh
   max_expired_time: 600
+
+docker_env: registry.baidubce.com/pipeline/nginx:1.7.9

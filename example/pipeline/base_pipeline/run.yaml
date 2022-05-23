@@ -1,9 +1,6 @@
 name: base_pipeline
 
-docker_env: registry.baidubce.com/pipeline/nginx:1.7.9
-
 entry_points:
-
   preprocess:
     command: bash base_pipeline/shells/data.sh {{data_path}}
     docker_env: registry.baidubce.com/pipeline/kfp_mysql:1.7.0
@@ -39,3 +36,7 @@ entry_points:
       PF_JOB_TYPE: vcjob
     parameters:
       model_path: '{{train.model_path}}'
+
+parallelism: 1
+
+docker_env: registry.baidubce.com/pipeline/nginx:1.7.9
