@@ -827,6 +827,11 @@ func handleImageAndStartWf(run models.Run, isResume bool) error {
 		}
 		if !isResume {
 			// start workflow with image url
+			err := models.UpdateRun(logEntry, run.ID,
+				models.Run{DockerEnv: run.WorkflowSource.DockerEnv, Status: common.StatusRunPending})
+			if err != nil {
+				return err
+			}
 			wfPtr.Start()
 			logEntry.Debugf("workflow started, run:%+v", run)
 		} else {
@@ -835,11 +840,15 @@ func handleImageAndStartWf(run models.Run, isResume bool) error {
 				logEntry.Errorf("SetWorkflowRuntime for run[%s] failed. error:%v\n", run.ID, err)
 				return err
 			}
+			err := models.UpdateRun(logEntry, run.ID,
+				models.Run{DockerEnv: run.WorkflowSource.DockerEnv, Status: common.StatusRunPending})
+			if err != nil {
+				return err
+			}
 			wfPtr.Restart()
 			logEntry.Debugf("workflow restarted, run:%+v", run)
 		}
-		return models.UpdateRun(logEntry, run.ID,
-			models.Run{DockerEnv: run.WorkflowSource.DockerEnv, Status: common.StatusRunPending})
+		return nil
 	} else {
 		imageIDs, err := models.ListImageIDsByFsID(logEntry, run.FsID)
 		if err != nil {

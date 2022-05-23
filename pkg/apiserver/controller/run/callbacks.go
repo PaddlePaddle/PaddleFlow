@@ -93,7 +93,6 @@ func UpdateRunByWfEvent(id string, event interface{}) bool {
 		logging.Debugf("run[%s] has reached final status[%s]", runID, status)
 		delete(wfMap, runID)
 	}
-	logging.Errorf("in Cb status is [%s]\n", status)
 	runtime, ok := wfEvent.Extra[common.WfEventKeyRuntime].(schema.RuntimeView)
 	if !ok {
 		logging.Errorf("run[%s] malformat runtime", id)
@@ -116,7 +115,6 @@ func UpdateRunByWfEvent(id string, event interface{}) bool {
 		logging.Errorf("get run[%s] in db failed. error: %v", id, err)
 		return false
 	}
-	logging.Errorf("in Cb prerun status is [%s]\n", prevRun.Status)
 
 	message := wfEvent.Message
 	if prevRun.Message != "" {
@@ -132,14 +130,12 @@ func UpdateRunByWfEvent(id string, event interface{}) bool {
 	}
 	activatedAt := sql.NullTime{}
 	if prevRun.Status == common.StatusRunPending {
-		logging.Infof("Cb creating jobs\n")
 		activatedAt.Time = time.Now()
 		activatedAt.Valid = true
 		// 创建run_job记录
 		if err := models.CreateRunJobs(logging, runtimeJobs, id); err != nil {
 			return false
 		}
-		logging.Infof("Cb finish creating jobs\n")
 	}
 
 	if err := updateRunJobs(id, runtimeJobs); err != nil {
@@ -152,12 +148,10 @@ func UpdateRunByWfEvent(id string, event interface{}) bool {
 		Message:     message,
 		ActivatedAt: activatedAt,
 	}
-	logging.Infof("Cb start Update run status\n")
 	if err := models.UpdateRun(logging, runID, updateRun); err != nil {
 		logging.Errorf("update run[%s] in db failed. error: %v", id, err)
 		return false
 	}
-	logging.Infof("Cb finish Update run status\n")
 	return true
 }
 
