@@ -33,7 +33,7 @@ def run():
 
 
 @run.command()
-@click.argument('fsname')
+@click.option('-fs', '--fsname', help='The name of fs')
 @click.option('-n', '--name', help='The name of run.')
 @click.option('-d', '--desc', help='The description of run.')
 @click.option('-u', '--username', help='Run the specified run by username, only useful for root.')
@@ -42,18 +42,16 @@ def run():
 @click.option('-yr', '--runyamlraw', help='Run yaml file raw, local absolute path .')
 @click.option('-pplid', '--pipelineid', help='Pipeline ID, example ppl-000666')
 @click.option('--disabled', multiple=True, help="the name of step which need to be disabled.")
+@click.option('-de', '--dockerenv', help='a global dockerEnv used by all steps which have no dockerEnv')
 @click.pass_context
-def create(ctx, fsname, name=None, desc=None, username=None, runyamlpath=None, runyamlraw=None,
+def create(ctx, fsname=None, name=None, desc=None, username=None, runyamlpath=None, runyamlraw=None,
         param="", pipelineid=None, disabled=None, dockerenv=None):
     """create a new run.\n
     FSNAME: the name of the fs.
     """
     client = ctx.obj['client']
-    if not fsname:
-        click.echo('run create must provide fsname.', err=True)
-        sys.exit(1)
     entry = None 
-    if len(fsname.split(":")) > 1:
+    if fsname and len(fsname.split(":")) > 1:
         name_list = fsname.split(":")
         entry = name_list[len(name_list) - 1]
         fsname = name_list[0]
@@ -68,7 +66,7 @@ def create(ctx, fsname, name=None, desc=None, username=None, runyamlpath=None, r
     if disabled is not None:
         disabled = ",".join(disabled)
 
-    valid, response = client.create_run(fsname, username, name, desc, entry, runyamlpath, runyamlraw, pipelineid
+    valid, response = client.create_run(fsname, username, name, desc, entry, runyamlpath, runyamlraw, pipelineid,
                             param_dict, disabled=disabled, dockerenv=dockerenv)
 
     if valid:
