@@ -22,4 +22,18 @@ const (
 	FSID            = "pfs.fs.id"
 	PFSServer       = "pfs.server"
 	PFSUserName     = "pfs.user.name"
+
+	FsMetaDefault = "default"
+	FsMetaMemory  = "mem"
+	FsMetaLevelDB = "leveldb"
+	FsMetaNutsDB  = "nutsdb"
 )
+
+func IsValidFsMetaDriver(metaDriver string) bool {
+	switch metaDriver {
+	case FsMetaDefault, FsMetaMemory, FsMetaLevelDB, FsMetaNutsDB:
+		return true
+	default:
+		return false
+	}
+}
