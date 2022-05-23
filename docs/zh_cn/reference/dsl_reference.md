@@ -19,13 +19,18 @@ if __name__ == "__main__":
 ```
 
 #### 参数说明
-|字段名称 | 字段类型 | 字段含义 | 是否必须 | 备注 
-|:---:|:---:|:---:|
-|paddleflow_server| string (required)| paddleflow server服务地址
-|fs_server| string (required) | fs server服务地址
-|paddleflow_port| string (optional) | paddleflow server端口，默认值为8080
-|fs_http_port| string (optional) | fs server restful端口，默认值为8081
+
+|字段名称 | 字段类型 | 字段含义 | 备注 |
+|:---:|:---:|:---:|:---:|:---:|
+|name| string (required)| pipeline 的名字 | 需要满足如下正则表达式： "^[A-Za-z_][A-Za-z0-9-_]{1,49}[A-Za-z0-9_]$ |
+|parallelism| string (optional) | pipeline 任务的并发数，即最大可以同时运行的节点任务数量 | | 
+|docker_env| string (optional) | 各节点默认的docker 镜像地址 | |
+|env| dict[str, str] (optional) | 各节点运行任务时的环境变量 | 如果节点有设置自身的环境变量，则会将其与 Pipeline 级别的环境变量进行合并，对于同名的环境变量，节点的优先级
+|cache_options| Cache | fs server restful端口，默认值为8081
 |fs_rpc_port| string (optional) | fs server rpc端口，默认值为8082
 
 #### 返回值
+
+
+### CacheOptions
 
