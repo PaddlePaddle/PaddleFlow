@@ -173,13 +173,14 @@ train_step.after(preprocess_step)
 > 注意：Pipeline 的所有Step需要组成一个有向无环图(DAG)结构，不支持存在有环的情况
 
 #### Parameter 依赖
-在某些情况下，Step<A> 的某个Parameter<p1>需要使用Step<B>的Parameter<p2>的值，此时我们便可以定义Parameter参数依赖，定义方式也很简单，直接给Step<A>的参数Parameter<p1>赋值为Step<B>的Parameter<p2>的引用即可， 示例代码如下：
+在某些情况下，StepA 的某个ParameterP1需要使用StepB的ParameterP2的值，此时我们便可以定义Parameter参数依赖，定义方式也很简单，直接给StepA的参数ParameterP1赋值为StepB的ParameterP2的引用即可， 示例代码如下：
     
 ```python3
-stepA.parameters["p1"] = stepB.parameters["p2"]
+StepA.parameters["P1"] = StepB.parameters["P2"]
 ```
 
-在运行Step时，Step<A>的Parameter<p1>的值将会被替换为Step<B>的Parameter<p2>的值，具体的替换逻辑可以参考[这里][变量模板与替换]
+在运行StepA时，ParameterP1的值将会被替换为StepB的ParameterP2的值，具体的替换逻辑可以参考[这里][变量模板与替换]
+> 如果两个步骤间存在与Parameter依赖，则会隐含这两个步骤存在这流程依赖，如上例中，则会隐含有stepA在流程上依赖于stepB
     
 > 一些细心的用户应该早已发现，在上面的[pipeline 示例](#1pipeline-示例)中，存在有如下的参数依赖：
 >- train_step的Parameter<train_data> 依赖于preprocess_step的Parameter<data_path>
