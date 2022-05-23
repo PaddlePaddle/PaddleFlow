@@ -31,6 +31,10 @@
 
 下面为示例pipeline定义，其中包含failure option，和postprocess相关字段。
 
+> 该示例中pipeline定义，以及示例相关运行脚本，来自pddleflow项目下example/pipeline/failure_option_and_postprocess_example 示例。
+> 
+> 示例链接：[failure_option_and_postprocess_example]
+
 ```
 name: base_pipeline
 
@@ -131,3 +135,5 @@ post_process:
 - post_process中的节点，不支持 cache 相关配置（我们认为后处理步骤不需要缓存）
 - post_process中的节点，不能与entry_points中的节点存在任何依赖关系
 - post_process中的节点，不能与entry_points 中节点名相同
+
+[failure_option_and_postprocess_example]: https://github.com/Mo-Xianyuan/PaddleFlow/tree/docs/example/pipeline/failure_option_and_postprocess_example

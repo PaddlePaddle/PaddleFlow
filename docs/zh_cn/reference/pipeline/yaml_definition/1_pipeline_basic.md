@@ -5,6 +5,8 @@
 下面是一个典型的，最基础的yaml格式pipeline定义。
 
 > 该示例中pipeline定义，以及示例相关运行脚本，来自pddleflow项目下example/pipeline/base_pipeline示例。
+> 
+> 示例链接：[base_pipeline]
 
 ```
 name: base_pipeline
@@ -213,3 +215,5 @@ pipeline是由各个节点组成的有向无环图（DAG）结构，因此entry_
 
 > tips: parameters中命令行参数，表示发起pipeline run时，指定的parameters参数。
 > 命令行参数，将会覆盖yaml定义中对应parameter的默认值
+
+[base_pipeline]: https://github.com/Mo-Xianyuan/PaddleFlow/tree/docs/example/pipeline/base_pipeline

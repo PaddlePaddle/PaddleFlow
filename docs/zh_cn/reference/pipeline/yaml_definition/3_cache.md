@@ -14,7 +14,11 @@
 
 # 2 pipeline定义
 
-下面是基于【2_artifact.mdXXXXXX】示例，增加了cache相关参数后的pipeline定义。
+下面是基于 [2_artifact.md] 示例，增加了cache相关参数后的pipeline定义。
+
+> 该示例中pipeline定义，以及示例相关运行脚本，来自pddleflow项目下example/pipeline/cache_example示例。
+> 
+> 示例链接：[cache_example]
 
 ```
 name: artifact_example
@@ -205,3 +209,7 @@ b. 没有：则为当前要运行的job，将计算的 cache fingerprint 更新�
 >   - 第一层Fingerprint计算时，output artifact只使用名称，用于计算fingerprint。
 >   - command在计算Fingerprint时，不需要展开output artifact的变量
 >     - 但是在实际运行前，依然会利用output artifact的实际路径对command中的变量进行替换。
+
+
+[2_artifact.md]: https://github.com/Mo-Xianyuan/PaddleFlow/blob/docs/docs/zh_cn/reference/pipeline/yaml%20definition/2_artifact.md
+[cache_example]: https://github.com/Mo-Xianyuan/PaddleFlow/tree/docs/example/pipeline/cache_example

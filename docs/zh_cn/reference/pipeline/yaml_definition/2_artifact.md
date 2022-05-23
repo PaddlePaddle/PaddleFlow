@@ -2,7 +2,12 @@
 
 # 1 pipeline定义
 
-下面是一个增加了artifat变量的yaml格式pipeline定义。
+下面是基于 [1_pipeline_basic.md] 示例，增加了artifact变量后的yaml格式pipeline定义。
+
+> 该示例中pipeline定义，以及示例相关运行脚本，来自pddleflow项目下example/pipeline/artifact_example示例。
+> 
+> 示例链接：[artifact_example]
+
 
 ```
 name: artifact_example
@@ -211,3 +216,7 @@ ${FS_USER_ROOT_PATH}/.pipeline/
 - 本step内 parameter
 - 本 step 内 input artifact
 - 本 step 内 output artifact
+
+
+[1_pipeline_basic.md]: https://github.com/Mo-Xianyuan/PaddleFlow/blob/docs/docs/zh_cn/reference/pipeline/yaml%20definition/1_pipeline_basic.md
+[artifact_example]: https://github.com/Mo-Xianyuan/PaddleFlow/tree/docs/example/pipeline/base_pipeline
