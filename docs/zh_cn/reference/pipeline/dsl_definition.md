@@ -91,7 +91,47 @@ from paddleflow.pipeline import PF_USER_NAME
 ```
 
 ## 3、定义Step
-在PaddleFlow Pipeline 中，Step是运行Pipeline时最基本的调度单位，每一个Step都会执行一个指定的任务。在定义Pipeline之前，首先需要完成 Step 的定义，在DSL中，我们实例化 ContainerStep 即可完成Step的定义。如上面
+在PaddleFlow Pipeline 中，Step是运行Pipeline时最基本的调度单位，每一个Step都会执行一个指定的任务。在定义Pipeline之前，首先需要完成 Step 的定义，在DSL中，我们实例化 ContainerStep 即可完成Step的定义。如上面[示例中](#1pipeline-示例)的 `process()`, `train()`, `validate()` 函数所示, 在这三个函数中，都实例化了一个ContainerStep， 也即完成了一个Step 的定义，为了方便，我们将 `train()` 的函数代码抄录如下：
+
+```python3
+def preprocess(data_path):
+    return ContainerStep(
+        name="preprocess",
+        parameters={"data_path": data_path},
+        command="bash base_pipeline/shells/data.sh {{data_path}}",
+        docker_env="registry.baidubce.com/pipeline/kfp_mysql:1.7.0",
+        env={
+            "USER_ABC": f"123_{PF_USER_NAME}",
+            "PF_JOB_TYPE": "vcjob",
+            "PF_JOB_QUEUE_NAME": "ppl-queue",
+            "PF_JOB_MODE": "Pod",
+            "PF_JOB_FLAVOUR": "flavour1",
+        },
+    )
+```
+
+ContainerStep 初始化函数的主要参数说明如下：
+|字段名称 | 字段类型 | 字段含义 | 备注 |
+|:---:|:---:|:---:|:---:|
+|name| string (required)| Step 的名字 | 需要满足如下正则表达式： "^[A-Za-z][A-Za-z0-9-]{1,250}[A-Za-z0-9-]$" |
+|command| string (required) | Step 需要执行的任务 | | 
+|docker_env| string (optional) | docker 镜像地址 | |
+|parameters| dict[str, Union[int, string, float, [Parameter](Parameter)]] | Step 运行参数，在创建任务之前便需要确定其参数值 | |
+|env| dict[str, str] (optional) | 节点运行任务时的环境变量 | |
+
+与 ContainerStep 相关的更多说明，可以点击[这里][dsl 接口文档] 查看
+
+## 4、定义Pipeline
+在完成所有Step的定以后，便可以开始将这些Step有机的组装成一个pipeline。将Step组装成pipeline，可以分成以下三步：
+- 实例化Pipeline对象
+- 实例化Step对象
+- 指定Step对象间的依赖关系
+
+接下来，我们将依次介绍这三个步骤。
+
+### 4.1 实例化Pipeline对象
+
+
 
 [pipeline yaml]: /docs/zh_cn/reference/pipeline/yaml_definition
 [base_pipeline]: /example/pipeline/base_pipeline
