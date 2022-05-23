@@ -138,7 +138,13 @@ func (s *FileSystemService) GetFileSystem(fsID string) (models.FileSystem, error
 func (s *FileSystemService) DeleteFileSystem(ctx *logger.RequestContext, fsID string) error {
 	err := models.DeleteFileSystem(fsID)
 	if err != nil {
-		ctx.Logging().Errorf("delete failed error[%v]", err)
+		ctx.Logging().Errorf("delete fs[%s] failed error[%v]", fsID, err)
+		ctx.ErrorCode = common.FileSystemDataBaseError
+		return err
+	}
+	err = models.DeleteFSCacheConfig(ctx.Logging(), fsID)
+	if err != nil {
+		ctx.Logging().Errorf("delete fs[%s] cache config failed error[%v]", fsID, err)
 		ctx.ErrorCode = common.FileSystemDataBaseError
 		return err
 	}

@@ -41,7 +41,7 @@ func fsCacheConfig(mountInfo pfs.MountInfo, httpClient *core.PFClient, token str
 	cacheConfig := common.FsCacheConfig{
 		CacheDir:            cacheResp.CacheDir,
 		Quota:               cacheResp.Quota,
-		CacheType:           cacheResp.CacheType,
+		MetaDriver:          cacheResp.MetaDriver,
 		BlockSize:           cacheResp.BlockSize,
 		NodeAffinity:        cacheResp.NodeAffinity,
 		NodeTaintToleration: cacheResp.NodeTaintToleration,

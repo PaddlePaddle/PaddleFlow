@@ -17,8 +17,6 @@ require (
 	github.com/docker/docker v17.12.1-ce+incompatible
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/ghodss/yaml v1.0.0
-	github.com/gin-contrib/pprof v1.3.0
-	github.com/gin-gonic/gin v1.7.3
 	github.com/go-chi/chi v1.5.4
 	github.com/go-openapi/spec v0.20.4 // indirect
 	github.com/go-playground/validator/v10 v10.9.0
@@ -51,7 +49,6 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.7.1
 	github.com/syndtr/goleveldb v1.0.0
-	github.com/ugorji/go v1.2.6 // indirect
 	github.com/urfave/cli/v2 v2.4.0
 	github.com/vbauerster/mpb/v7 v7.4.1
 	github.com/xujiajun/nutsdb v0.8.0

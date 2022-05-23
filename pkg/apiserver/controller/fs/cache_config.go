@@ -17,17 +17,17 @@ limitations under the License.
 package fs
 
 import (
-	"strings"
-
+	"paddleflow/pkg/apiserver/common"
 	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/common/logger"
+	utils "paddleflow/pkg/fs/utils/common"
 )
 
 type UpdateFileSystemCacheRequest struct {
 	FsID                string                 `json:"-"`
 	CacheDir            string                 `json:"cacheDir"`
 	Quota               int                    `json:"quota"`
-	CacheType           string                 `json:"cacheType"`
+	MetaDriver          string                 `json:"metaDriver"`
 	BlockSize           int                    `json:"blockSize"`
 	NodeAffinity        map[string]interface{} `json:"nodeAffinity"`
 	NodeTaintToleration map[string]interface{} `json:"nodeTaintToleration"`
@@ -39,7 +39,7 @@ func (req *UpdateFileSystemCacheRequest) toModel() models.FSCacheConfig {
 		FsID:                   req.FsID,
 		CacheDir:               req.CacheDir,
 		Quota:                  req.Quota,
-		CacheType:              req.CacheType,
+		MetaDriver:             req.MetaDriver,
 		BlockSize:              req.BlockSize,
 		NodeAffinityMap:        req.NodeAffinity,
 		ExtraConfigMap:         req.ExtraConfig,
@@ -60,7 +60,7 @@ func (req *CreateFileSystemCacheRequest) toModel() models.FSCacheConfig {
 type FileSystemCacheResponse struct {
 	CacheDir            string                 `json:"cacheDir"`
 	Quota               int                    `json:"quota"`
-	CacheType           string                 `json:"cacheType"`
+	MetaDriver          string                 `json:"metaDriver"`
 	BlockSize           int                    `json:"blockSize"`
 	NodeAffinity        map[string]interface{} `json:"nodeAffinity"`
 	NodeTaintToleration map[string]interface{} `json:"nodeTaintToleration"`
@@ -74,25 +74,15 @@ type FileSystemCacheResponse struct {
 func (resp *FileSystemCacheResponse) fromModel(config models.FSCacheConfig) {
 	resp.CacheDir = config.CacheDir
 	resp.Quota = config.Quota
-	resp.CacheType = config.CacheType
+	resp.MetaDriver = config.MetaDriver
 	resp.BlockSize = config.BlockSize
 	resp.NodeAffinity = config.NodeAffinityMap
 	resp.NodeTaintToleration = config.NodeTaintTolerationMap
 	resp.ExtraConfig = config.ExtraConfigMap
-	resp.FsName, resp.Username = fsIDToName(config.FsID)
+	resp.FsName, resp.Username = utils.FsIDToFsNameUsername(config.FsID)
 	// format time
 	resp.CreateTime = config.CreatedAt.Format("2006-01-02 15:04:05")
 	resp.UpdateTime = config.UpdatedAt.Format("2006-01-02 15:04:05")
-}
-
-func fsIDToName(fsID string) (fsName, username string) {
-	fsArr := strings.Split(fsID, "-")
-	if len(fsArr) < 3 {
-		return "", ""
-	}
-	fsName = fsArr[len(fsArr)-1]
-	username = strings.Join(fsArr[1:len(fsArr)-1], "")
-	return
 }
 
 func CreateFileSystemCacheConfig(ctx *logger.RequestContext, req CreateFileSystemCacheRequest) error {
@@ -124,4 +114,14 @@ func GetFileSystemCacheConfig(ctx *logger.RequestContext, fsID string) (FileSyst
 	var resp FileSystemCacheResponse
 	resp.fromModel(fsCacheConfig)
 	return resp, nil
+}
+
+func DeleteFileSystemCacheConfig(ctx *logger.RequestContext, fsID string) error {
+	err := models.DeleteFSCacheConfig(ctx.Logging(), fsID)
+	if err != nil {
+		ctx.Logging().Errorf("delete fs cache config failed error[%v]", err)
+		ctx.ErrorCode = common.FileSystemDataBaseError
+		return err
+	}
+	return err
 }

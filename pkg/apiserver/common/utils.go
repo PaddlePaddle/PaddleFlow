@@ -232,11 +232,6 @@ func CheckFsNested(path1, path2 string) bool {
 	return true
 }
 
-func FSIDToName(fsID string) string {
-	fsArr := strings.Split(fsID, "-")
-	return fsArr[len(fsArr)-1]
-}
-
 // IsDNS1123Label tests for a string that conforms to the definition of a label in
 // DNS (RFC 1123).
 func IsDNS1123Label(value string) []string {
