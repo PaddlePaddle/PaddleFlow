@@ -21,7 +21,7 @@ if __name__ == "__main__":
 #### 参数说明
 
 |字段名称 | 字段类型 | 字段含义 | 备注 |
-|:---:|:---:|:---:|:---:|:---:|
+|:---:|:---:|:---:|:---:|
 |name| string (required)| pipeline 的名字 | 需要满足如下正则表达式： "^[A-Za-z_][A-Za-z0-9-_]{1,49}[A-Za-z0-9_]$ |
 |parallelism| string (optional) | pipeline 任务的并发数，即最大可以同时运行的节点任务数量 | | 
 |docker_env| string (optional) | 各节点默认的docker 镜像地址 |  |
