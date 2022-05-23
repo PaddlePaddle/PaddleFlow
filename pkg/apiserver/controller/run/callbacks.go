@@ -131,14 +131,15 @@ func UpdateRunByWfEvent(id string, event interface{}) bool {
 		runtimeJobs[name] = job
 	}
 	activatedAt := sql.NullTime{}
-	if prevRun.Status == common.StatusRunPending || prevRun.Status == common.StatusRunInitiating {
-		logging.Errorf("Cb creating jobs\n")
+	if prevRun.Status == common.StatusRunPending {
+		logging.Infof("Cb creating jobs\n")
 		activatedAt.Time = time.Now()
 		activatedAt.Valid = true
 		// 创建run_job记录
 		if err := models.CreateRunJobs(logging, runtimeJobs, id); err != nil {
 			return false
 		}
+		logging.Infof("Cb finish creating jobs\n")
 	}
 
 	if err := updateRunJobs(id, runtimeJobs); err != nil {
@@ -151,10 +152,12 @@ func UpdateRunByWfEvent(id string, event interface{}) bool {
 		Message:     message,
 		ActivatedAt: activatedAt,
 	}
+	logging.Infof("Cb start Update run status\n")
 	if err := models.UpdateRun(logging, runID, updateRun); err != nil {
 		logging.Errorf("update run[%s] in db failed. error: %v", id, err)
 		return false
 	}
+	logging.Infof("Cb finish Update run status\n")
 	return true
 }
 

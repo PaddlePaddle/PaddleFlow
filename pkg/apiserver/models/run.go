@@ -234,7 +234,9 @@ func UpdateRunStatus(logEntry *log.Entry, runID, status string) error {
 
 func UpdateRun(logEntry *log.Entry, runID string, run Run) error {
 	logEntry.Debugf("begin update run run. runID:%s", runID)
+	logEntry.Infof("begin update run run. runID:%s", runID)
 	tx := database.DB.Model(&Run{}).Where("id = ?", runID).Updates(run)
+	logEntry.Infof("finish update run run. runID:%s", runID)
 	if tx.Error != nil {
 		logEntry.Errorf("update run failed. runID:%s, error:%s",
 			runID, tx.Error.Error())
