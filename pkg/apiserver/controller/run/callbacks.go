@@ -93,6 +93,7 @@ func UpdateRunByWfEvent(id string, event interface{}) bool {
 		logging.Debugf("run[%s] has reached final status[%s]", runID, status)
 		delete(wfMap, runID)
 	}
+	logging.Errorf("in Cb status is [%s]\n", status)
 	runtime, ok := wfEvent.Extra[common.WfEventKeyRuntime].(schema.RuntimeView)
 	if !ok {
 		logging.Errorf("run[%s] malformat runtime", id)
@@ -115,6 +116,8 @@ func UpdateRunByWfEvent(id string, event interface{}) bool {
 		logging.Errorf("get run[%s] in db failed. error: %v", id, err)
 		return false
 	}
+	logging.Errorf("in Cb prerun status is [%s]\n", prevRun.Status)
+
 	message := wfEvent.Message
 	if prevRun.Message != "" {
 		logging.Infof("skip run message:[%s], only keep the first message for run", message)
@@ -129,6 +132,7 @@ func UpdateRunByWfEvent(id string, event interface{}) bool {
 	}
 	activatedAt := sql.NullTime{}
 	if prevRun.Status == common.StatusRunPending {
+		logging.Errorf("Cb creating jobs\n")
 		activatedAt.Time = time.Now()
 		activatedAt.Valid = true
 		// 创建run_job记录
