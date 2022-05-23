@@ -115,7 +115,6 @@ func UpdateRunByWfEvent(id string, event interface{}) bool {
 		logging.Errorf("get run[%s] in db failed. error: %v", id, err)
 		return false
 	}
-
 	message := wfEvent.Message
 	if prevRun.Message != "" {
 		logging.Infof("skip run message:[%s], only keep the first message for run", message)
