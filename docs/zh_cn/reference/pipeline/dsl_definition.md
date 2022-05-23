@@ -119,21 +119,49 @@ ContainerStep 初始化函数的主要参数说明如下：
 |parameters| dict[str, Union[int, string, float, [Parameter](Parameter)]] | Step 运行参数，在创建任务之前便需要确定其参数值 | |
 |env| dict[str, str] (optional) | 节点运行任务时的环境变量 | |
 
-与 ContainerStep 相关的更多说明，可以点击[这里][dsl 接口文档] 查看
+> command, docker_env, parameter, env 等字段的详细说明请点击[这里][节点字段]查看
+> 与 ContainerStep 相关的更多说明，可以点击[这里][dsl 接口文档] 查看
 
 ## 4、定义Pipeline
 在完成所有Step的定以后，便可以开始将这些Step有机的组装成一个pipeline。将Step组装成pipeline，可以分成以下三步：
 - 实例化Pipeline对象
-- 实例化Step对象
-- 指定Step对象间的依赖关系
+- 将 Step 实例添加至 Pipeline 实例中
+- 指定Step实例间的依赖关系
 
 接下来，我们将依次介绍这三个步骤。
 
-### 4.1 实例化Pipeline对象
+### 4.1 实例化Pipeline对像
+在将Step实例添加至Pipeline实例前，我们需要先实例化相关的Pipeline对象。这里需要特别注意的是，Pipeline 是一个类装饰器，我们不应该直接去实例化Pipeline对象，而应该作为一个函数的装饰器去进行实例化话，如上面的[示例](#1pipeline-示例)所示：
+```python3
+@Pipeline(name="base_pipeline", docker_env="registry.baidubce.com/pipeline/nginx:1.7.9", parallelism=1)
+def base_pipeline(data_path, epoch, model_path):
+    preprocess_step = preprocess(data_path)
 
+    train_step = train(epoch, model_path, preprocess_step.parameters["data_path"])
+    train_step.after(preprocess_step)
+
+    validate_step = validate(train_step.parameters["model_path"])
+```
+
+Pipeline 实例化函数的主要参数说明如下：
+|字段名称 | 字段类型 | 字段含义 | 备注 |
+|:---:|:---:|:---:|:---:|
+|name| string (required)| pipeline 的名字 | 需要满足如下正则表达式： "^[A-Za-z_][A-Za-z0-9-_]{1,49}[A-Za-z0-9_]$ |
+|parallelism| string (optional) | pipeline 任务的并发数，即最大可以同时运行的节点任务数量 | | 
+|docker_env| string (optional) | 各节点默认的docker 镜像地址 | 如果Pipeline 和 ContainerStep 均指定了 docker_env, 则ContainerStep的docker_env 具有更高的优先级 |
+
+### 4.2 将 Step 实例添加至 Pipeline 实例中
+在完成了Pipeline对象的实例化后, 接下来便需要
+
+
+### 4.3 指定Step实例间的依赖关系
+
+> 注意：Pipeline 的所有Step需要组成一个有向无环图(DAG)结构，不支持存在有环的情况
 
 
 [pipeline yaml]: /docs/zh_cn/reference/pipeline/yaml_definition
 [base_pipeline]: /example/pipeline/base_pipeline
 [dsl 接口文档]: TODO
 [sdk 安装与配置]: TODO
+[节点字段]: /docs/docs/zh_cn/reference/pipeline/yaml_definition/1_pipeline_basic.md#22-节点字段
+[变量模板与替换]: /docs/zh_cn/reference/pipeline/yaml_definition/1_pipeline_basic.md#32-变量模板与替换
