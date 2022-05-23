@@ -346,13 +346,13 @@ func UpdateQueue(ctx *logger.RequestContext, request *UpdateQueueRequest) (Updat
 		return UpdateQueueResponse{}, err
 	}
 	if queueInfo.QuotaType == schema.TypeElasticQuota {
-		maxResUpdated, err := validateQueueResource(request.MinResources, &queueInfo.MinResources)
+		minResUpdated, err := validateQueueResource(request.MinResources, &queueInfo.MinResources)
 		if err != nil {
 			ctx.Logging().Errorf("update queue minResources failed. error: %s", err.Error())
 			ctx.ErrorCode = common.InvalidComputeResource
 			return UpdateQueueResponse{}, err
 		}
-		resourceUpdated = resourceUpdated || maxResUpdated
+		resourceUpdated = resourceUpdated || minResUpdated
 		if resourceUpdated && !queueInfo.MinResources.LessEqual(queueInfo.MaxResources) {
 			err = fmt.Errorf("minResource cannot be larger than maxResource")
 			ctx.Logging().Errorf("update queue failed. error: %s", err.Error())
