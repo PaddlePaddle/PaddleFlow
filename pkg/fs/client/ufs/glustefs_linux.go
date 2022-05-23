@@ -16,6 +16,13 @@ limitations under the License.
 
 package ufs
 
+import (
+	"syscall"
+
+	"paddleflow/pkg/fs/client/base"
+	"paddleflow/pkg/fs/client/utils"
+)
+
 func (fs *gfsFileSystem) GetAttr(name string) (*base.FileInfo, error) {
 	path := fs.GetPath(name)
 	var err error = nil
