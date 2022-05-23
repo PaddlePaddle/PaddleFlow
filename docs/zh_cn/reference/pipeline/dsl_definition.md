@@ -130,7 +130,7 @@ ContainerStep 初始化函数的主要参数说明如下：
 
 接下来，我们将依次介绍这三个步骤。
 
-### 4.1 实例化Pipeline对像
+### 4.1、实例化Pipeline对像
 在将Step实例添加至Pipeline实例前，我们需要先实例化相关的Pipeline对象。这里需要特别注意的是，Pipeline 是一个类装饰器，我们不应该直接去实例化Pipeline对象，而应该作为一个函数的装饰器去进行实例化话，如上面的[示例](#1pipeline-示例)所示：
 ```python3
 @Pipeline(name="base_pipeline", docker_env="registry.baidubce.com/pipeline/nginx:1.7.9", parallelism=1)
@@ -150,14 +150,58 @@ Pipeline 实例化函数的主要参数说明如下：
 |parallelism| string (optional) | pipeline 任务的并发数，即最大可以同时运行的节点任务数量 | | 
 |docker_env| string (optional) | 各节点默认的docker 镜像地址 | 如果Pipeline 和 ContainerStep 均指定了 docker_env, 则ContainerStep的docker_env 具有更高的优先级 |
 
-### 4.2 将 Step 实例添加至 Pipeline 实例中
-在完成了Pipeline对象的实例化后, 接下来便需要
+### 4.2、将Step实例添加至 Pipeline 实例中
+在完成了Pipeline对象的实例化后, 接下来便需要将Step实例添加至Pipeline实例中，添加方式很简单：我们只需要在**pipeline函数**中完成Step的实例化即可。 如在上面的[示例](#1pipeline-示例)中，我们pipeline函数 `base_pipeline()`中，依次调用了 `preprocess()`, `train()`, `validate()` 三个函数，而在这三个函数中，均完成了一个 Step对象的实例化。因此，此时的 Pipeline 示例中，将会包含有三个 Step 实例， 其名字依次为： "preprocess"、"train"、 "validate"。
+
+> **pipeline函数**: 指被Pipeline实例装饰的函数。
 
 
-### 4.3 指定Step实例间的依赖关系
+### 4.3、指定Step实例间的依赖关系
+在一个Pipeline实例中，可能添加了多个Step实例，那么这么Step实例之间是否存在有某些关系呢？答案是肯定的， 在PaddleFlow Pipeline 中，Step之间可以存在如下的依赖关系：
 
+- 流程依赖: 如果Step<A>需要在Step<B>之后运行，则称Step<A>在流程上依赖于Step<B>。
+- Parameter依赖：如果Step<A>的某个Parameter引用了Step<B>的某个Parameter， 则称Step<A>在Parameter上依赖于Step<B>。
+
+#### 流程依赖
+定义节点间流程依赖的方式很简单，只需要调用Step实例的 `after()` 函数，便可以指定该Step实例在流程上所依赖的其余Step。如在上面的[示例](#1pipeline-示例)中，我们可以看到如下的语句：
+
+```python3
+train_step.after(preprocess_step)
+```
+
+通过上面的语句，便定义了 train_step 与 preprocess_step 之间的 流程依赖关系：train_step 在流程上依赖于preprocess_step。
 > 注意：Pipeline 的所有Step需要组成一个有向无环图(DAG)结构，不支持存在有环的情况
 
+#### Parameter 依赖
+在某些情况下，Step<A> 的某个Parameter<p1>需要使用Step<B>的Parameter<p2>的值，此时我们便可以定义Parameter参数依赖，定义方式也很简单，直接给Step<A>的参数Parameter<p1>赋值为Step<B>的Parameter<p2>的引用即可， 示例代码如下：
+    
+```python3
+stepA.parameters["p1"] = stepB.parameters["p2"]
+```
+
+在运行Step时，Step<A>的Parameter<p1>的值将会被替换为Step<B>的Parameter<p2>的值，具体的替换逻辑可以参考[这里][变量模板与替换]
+    
+> 一些细心的用户应该早已发现，在上面的[pipeline 示例](#1pipeline-示例)中，存在有如下的参数依赖：
+>- train_step的Parameter<train_data> 依赖于preprocess_step的Parameter<data_path>
+>- validate_step的Parameter<model_path> 依赖于train_step的Parameter<model_path>
+
+## 5、创建pipeline任务
+在完成了Pipeline的定义后，我们便可以使用该pipeline来发起任务了。发起pipeline 任务也可以分成两步:
+- 调用pipeline函数，得到完成了所有编排逻辑的Pipeline实例
+- 调用Pipeline实例的run()函数，发起任务。
+    
+如在上面的[示例](#1pipeline-示例)所示:
+```python3
+if __name__ == "__main__":
+    ppl = base_pipeline(data_path=f"./base_pipeline/data/{PF_RUN_ID}", epoch=5, model_path=f"./output/{PF_RUN_ID}")
+    result = ppl.run(fsname="your_fs_name")
+    print(result)    
+```
+
+## 下一步
+[在DSL中使用Artifact][DSL-Artifact]
+[在DSL中使用Cache][DSL-Cache]
+[在DSL中使用PostProcess和FailureOpitons][DSL-PostProcess-And-FailureOpitons]
 
 [pipeline yaml]: /docs/zh_cn/reference/pipeline/yaml_definition
 [base_pipeline]: /example/pipeline/base_pipeline
@@ -165,3 +209,7 @@ Pipeline 实例化函数的主要参数说明如下：
 [sdk 安装与配置]: TODO
 [节点字段]: /docs/docs/zh_cn/reference/pipeline/yaml_definition/1_pipeline_basic.md#22-节点字段
 [变量模板与替换]: /docs/zh_cn/reference/pipeline/yaml_definition/1_pipeline_basic.md#32-变量模板与替换
+[DSL-Artifact]: TODO
+[DSL-Cache]: TODO
+[DSL-PostProcess-And-FailureOpitons]: TODO
+    
