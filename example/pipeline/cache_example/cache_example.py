@@ -76,6 +76,5 @@ def cache_example(data_path, epoch):
 
 if __name__ == "__main__":
     ppl = cache_example(data_path="./cache_example/data/", epoch=15)
-    ppl.compile("run.yaml")
-    # result = ppl.run(fsname="your_fs_name")
-    # print(result)
+    result = ppl.run(fsname="your_fs_name")
+    print(result)
