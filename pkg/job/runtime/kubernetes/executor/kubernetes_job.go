@@ -532,9 +532,13 @@ func (j *KubeJob) GetID() string {
 	return j.ID
 }
 
-// patchPaddlePara patch some parameters for paddle para job
+// patchPaddlePara patch some parameters for paddle para job, and must be work with a shared gpu device plugin
+// environments for paddle para job:
+//   PF_PADDLE_PARA_JOB: defines the job is a paddle para job
+//   PF_PADDLE_PARA_PRIORITY: defines the priority of paddle para job, 0 is high, and 1 is low.
+//   PF_PADDLE_PARA_CONFIG_FILE: defines the config of paddle para job
 func (j *KubeJob) patchPaddlePara(podTemplate *corev1.Pod, jobName string) error {
-	// get parameters from job config
+	// get parameters from user's job config
 	var paddleParaPriority string
 	p := j.Env[schema.EnvPaddleParaPriority]
 	switch strings.ToLower(p) {
@@ -545,6 +549,7 @@ func (j *KubeJob) patchPaddlePara(podTemplate *corev1.Pod, jobName string) error
 	default:
 		return fmt.Errorf("priority %s for paddle para job is invalid", p)
 	}
+	// the config path of paddle para gpu job on host os, which will be mounted to job
 	gpuConfigFile := schema.PaddleParaGPUConfigFilePath
 	value, find := j.Env[schema.EnvPaddleParaConfigHostFile]
 	if find {
@@ -561,7 +566,7 @@ func (j *KubeJob) patchPaddlePara(podTemplate *corev1.Pod, jobName string) error
 	}
 	podTemplate.ObjectMeta.Annotations[schema.PaddleParaAnnotationKeyJobName] = jobName
 	podTemplate.ObjectMeta.Annotations[schema.PaddleParaAnnotationKeyPriority] = paddleParaPriority
-	// 2. patch env
+	// 2. patch env, including config file and job name
 	env := podTemplate.Spec.Containers[0].Env
 	podTemplate.Spec.Containers[0].Env = append([]corev1.EnvVar{
 		{
