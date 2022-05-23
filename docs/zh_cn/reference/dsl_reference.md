@@ -41,19 +41,48 @@ if __name__ == "__main__":
 Pipeline 的一个实例
 
 ### set_post_process 
-用于设置 [PostProcess](PostProcess) 节点，
+用于设置 [PostProcess][PostProcess] 节点，一个示例如下:
+```python3
+ppl.set_post_process(send_mail_step("xiaodu@baidu.com"))
+```
+### 参数说明
+|字段名称 | 字段类型 | 字段含义 | 备注 |
+|:---:|:---:|:---:|:---:|
+| step | [Step](#Step) (required) | PostProcess 阶段运行的 Step |
+
+#### 返回值说明
+无返回值
+
+### get_post_process 
+获取[PostProcess][PostProcess]阶段运行的[Step](#Step)实例，一个示例如下:
+```python3
+ppl.get_post_process()
+```
+
+#### 参数说明：
+无参数
+
+#### 返回值说明：
+一个在[PostProcess][PostProcess]阶段运行的[Step](#step)实例
+
+### compile
+对 Pipeline 实例执行编译操作，将其中存储信息转成一个 dict，或者写入文件中。 一个示例如下:
+```python3
+ppl.compile("run.")
+```
+
 ### add_env
 用户在完成 Pipeline 的初始化后，给 Pipeline 实例增加新的环境变量，示例如下:
 ```python3
 ppl.add_env({"env1": "env1"})
 ```
 
-#### 参数值说明
+#### 参数说明
 |字段名称 | 字段类型 | 字段含义 | 备注 |
 |:---:|:---:|:---:|:---:|
 | env | dict[str, str] (required) | 需要新增的环境变量 | | 
 
-#### 返回值
+#### 返回值说明
 无返回值
 
 
