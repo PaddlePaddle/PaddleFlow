@@ -2,7 +2,7 @@
 开发者除了可以通过编写 [yaml][pipeline yaml] 来定义 pipeline 外，PaddleFlow Pipeline 也提供 Python DSL 供开发者们通过写 Python 代码的方式来完成 pipeline 的定义。下面是一个最基础的使用 Python DSL 编排的 pipeline。
 
 > 该示例中pipeline定义，以及示例相关运行脚本，来自pddleflow项目下example/pipeline/base_pipeline示例。
-
+>
 > 示例链接：[base_pipeline][base_pipeline]
 
 ```python3
@@ -77,3 +77,4 @@ if __name__ == "__main__":
 
 [pipeline yaml]: /docs/zh_cn/reference/pipeline/yaml_definition
 [base_pipeline]: /example/pipeline/base_pipeline
+[dsl 接口文档]: TODO
