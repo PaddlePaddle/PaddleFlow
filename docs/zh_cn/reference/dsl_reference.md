@@ -1,5 +1,5 @@
 # PaddleFlow Pipeline Python DSL 接口文档
-本文档主要介绍 PaddleFlow Pipeline Python DSL 的相关接口， 开发者可以参考本说明结合自身需求进行使用。关于 PaddleFlow Pipeline 的介绍以及使用请参考[这里](/docs/zh_cn/reference/pipeline/overview.md)
+本文档主要介绍 PaddleFlow Pipeline Python DSL 的相关接口， 开发者可以参考本说明结合自身需求进行使用。关于 PaddleFlow Pipeline 的介绍以及使用请参考[这里][PaddleFlow Pipeline Overview]
 
 ## Pipeline
 ### Pipeline 初始化
@@ -37,10 +37,30 @@ if __name__ == "__main__":
 > - env: 采用合并机制: 在运行时， Step 的环境变量即包含了 **Step.env** 属性中指定环境变量，也包含了 **Pipeline.env** 中包含的环境变量， 如果有同名的环境变量，则使用 **Step.env** 定义的参数值
 
 
-#### 返回值
+#### 返回值说明
 Pipeline 的一个实例
 
+### set_post_process 
+用于设置 [PostProcess](PostProcess) 节点，
+### add_env
+用户在完成 Pipeline 的初始化后，给 Pipeline 实例增加新的环境变量，示例如下:
+```python3
+ppl.add_env({"env1": "env1"})
+```
 
-### CacheOptions
+#### 参数值说明
+|字段名称 | 字段类型 | 字段含义 | 备注 |
+|:---:|:---:|:---:|:---:|
+| env | dict[str, str] (required) | 需要新增的环境变量 | | 
 
-### FailureOptions
+#### 返回值
+无返回值
+
+
+## CacheOptions
+
+## FailureOptions
+
+
+[PaddleFlow Pipeline Overview]: /docs/zh_cn/reference/pipeline/overview.md
+[PostProcess]:
