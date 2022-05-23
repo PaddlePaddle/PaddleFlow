@@ -231,7 +231,7 @@ func NewLocalMountFileSystem(properties map[string]interface{}) (UnderFileStorag
 
 	output, err := mount.ExecMount(sourcePath, localPath, args)
 	if err != nil {
-		log.Errorf("exec %d mount cmd failed: %v, output[%s]", mountType, err, string(output))
+		log.Errorf("exec %s mount cmd failed: %v, output[%s]", mountType, err, string(output))
 		os.Remove(localPath)
 		return nil, errors.New(string(output))
 	}
