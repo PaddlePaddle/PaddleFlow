@@ -3,7 +3,7 @@
 
 ## 1、pipeline 示例
 下面的示例是基于[artifact_pipeline][artifact_pipeline]中的pipeline定义增加postprocess与failure options的特性升级而来
->该示例中pipeline定义，以及示例相关运行脚本，来自pddleflow项目下example/pipeline/failure_option_and_postprocess_example示例。
+>该示例中pipeline定义，以及示例相关运行脚本，来自paddleflow项目下example/pipeline/failure_option_and_postprocess_example示例。
 >
 >示例链接：[failure_option_and_postprocess_example][failure_option_and_postprocess_example]
 
@@ -115,3 +115,4 @@ def set_post_process(ppl):
 [在DSL中使用Cache]: /docs/zh_cn/reference/pipeline/dsl_definition/3_cache.md
 [artifact_pipeline]: /docs/zh_cn/reference/pipeline/dsl_definition/2_artifact.md
 [Post-Fail-ref]: /docs/zh_cn/reference/pipeline/yaml_definition/4_failure_option_and_postprocess.md
+[failure_option_and_postprocess_example]: /example/pipeline/failure_option_and_postprocess_example
