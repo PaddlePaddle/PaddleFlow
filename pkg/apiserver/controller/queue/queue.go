@@ -73,6 +73,12 @@ type GetQueueResponse struct {
 	models.Queue
 }
 
+type ListQueueRequest struct {
+	Marker    string
+	MaxKeys   int
+	QueueName string
+}
+
 type ListQueueResponse struct {
 	common.MarkerInfo
 	QueueList []models.Queue `json:"queueList"`

@@ -23,6 +23,8 @@ import (
 type APIV1Interface interface {
 	UserGetter
 	FileSystemGetter
+	ClusterGetter
+	QueueGetter
 }
 
 // APIV1Client is used to interact with features provided by the group.
@@ -36,6 +38,14 @@ func (c *APIV1Client) User() UserInterface {
 
 func (c *APIV1Client) FileSystem() FileSystemInterface {
 	return newFileSystem(c)
+}
+
+func (c *APIV1Client) Cluster() ClusterInterface {
+	return newCluster(c)
+}
+
+func (c *APIV1Client) Queue() QueueInterface {
+	return newQueue(c)
 }
 
 // RESTClient returns a RESTClient that is used to communicate
