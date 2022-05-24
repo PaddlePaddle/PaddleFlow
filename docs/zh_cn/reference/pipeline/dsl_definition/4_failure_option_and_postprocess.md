@@ -68,10 +68,7 @@ if __name__ == "__main__":
 ```
 
 ## 2、failure options
-在DSL中配置failure options的方式有两种，开发者可以按照自身喜好按需使用。
-
-### 2.1、 实例化Pipeline对象时传入
-在调用Pipeline的实例化函数时，给参数failure_options赋值即可，其值需要是一个[FailureOptions][FailureOptions]实例。一个示例如下：
+在DSL中配置failure options的非常简单，只需在调用Pipeline的实例化函数时，给参数failure_options赋值即可，其值需要是一个[FailureOptions][FailureOptions]实例。一个示例如下：
 ```python3
 failure_options = FailureOptions(FAIL_FAST)
 @Pipeline(name="failure_options", env=ENV, failure_options=failure_options,
@@ -80,15 +77,7 @@ def show_failuer_options(num):
     step0 = sleep_and_show("step0")
 ```
 
-### 2.2、 给Pipeline实例的failure_options 属性赋值
-开发者们也可以直接访问 Pipeline 实例的failure_options 属性，通过该属性来配置 failure options。 如在上面的[示例](#1pipeline-示例)中，便是通过该方法完成 faliure options 的配置。
-```python3
-def set_failure_options(ppl, strategy):
-    fail = FailureOptions(strategy)
-    ppl.failure_options = fail
-```
-
-## 3、 postprocess
+## 3、 post_process
 通过DSL设置postprocess的方式十分简单，直接调用Pipeline实例的set_post_process()函数即可，该函数的函数签名如下：
 ```python3
 def set_post_process(self, step: Step):
