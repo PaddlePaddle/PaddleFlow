@@ -3,7 +3,7 @@
 
 # 1、pipeline 示例
 下面的示例是基于[artifact_pipeline][artifact_pipeline]中的pipeline定义增加cache相关的配置升级而来
->该示例中pipeline定义，以及示例相关运行脚本，来自pddleflow项目下example/pipeline/cache_example示例。
+>该示例中pipeline定义，以及示例相关运行脚本，来自paddleflow项目下example/pipeline/cache_example示例。
 >
 >示例链接：[cache_example][cache_example]
 
@@ -93,7 +93,7 @@ if __name__ == "__main__":
 
 
 # 2、Pipeline级别的Cache
-在调用Pipeline的初始化函数时，可以给其cache_options 参数进行赋值，来设置pipeline级别的Cache配置。cache_options 的参数值需要是一个 [CacheOptions][CacheOptions] 的实例。在上例中，我们通过如下的代码，设置了Pipeline的Cache配置
+在调用Pipeline的初始化函数时，可以给其cache_options 参数进行赋值，来设置pipeline级别的Cache。cache_options 的参数值需要是一个 [CacheOptions][CacheOptions] 的实例。在上例中，我们通过如下的代码，设置了Pipeline的Cache配置
 ```python3
 cache = CacheOptions(
     enable=True,
