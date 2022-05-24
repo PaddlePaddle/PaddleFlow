@@ -137,6 +137,7 @@ def preprocess(data_path):
 
 [DSL接口文档][DSL接口文档]
 
+[Cache-ref]: /docs/zh_cn/reference/pipeline/yaml_definition/3_cache.md
 [DSL使用基础]: /docs/zh_cn/reference/pipeline/dsl_definition/1_pipeline_basic.md
 [artifact_pipeline]: /docs/zh_cn/reference/pipeline/dsl_definition/2_artifact.md
 [cache_example]: /example/pipeline/cache_example
