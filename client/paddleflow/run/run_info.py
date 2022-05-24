@@ -44,7 +44,7 @@ class RunInfo(object):
 class JobInfo(object):
     """ the class of job info"""
 
-    def __init__(self, name, deps, parameters, command, env, status, start_time, end_time, image, jobid):
+    def __init__(self, name, deps, parameters, command, env, status, start_time, end_time, dockerEnv, jobid):
         self.name = name
         self.deps = deps
         self.parameters = parameters
@@ -53,7 +53,7 @@ class JobInfo(object):
         self.status = status
         self.start_time = start_time
         self.end_time = end_time
-        self.image = image
+        self.dockerEnv = dockerEnv
         self.jobId = jobid
 
 

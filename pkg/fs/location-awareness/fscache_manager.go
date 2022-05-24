@@ -27,7 +27,7 @@ import (
 	"paddleflow/pkg/common/http/core"
 )
 
-func ReportCacheLoop(cacheReport api.CacheReportParams, podCachePath string, httpClient *core.PFClient) error {
+func ReportCacheLoop(cacheReport api.CacheReportParams, podCachePath string, httpClient *core.PaddleFlowClient) error {
 	var err, errStat error
 	var usageStat *disk.UsageStat
 	for {
