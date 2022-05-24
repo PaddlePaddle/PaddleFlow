@@ -207,10 +207,11 @@ if __name__ == "__main__":
 
 [DSL接口文档][DSL接口文档]
 
+
 [pipeline yaml]: /docs/zh_cn/reference/pipeline/yaml_definition
 [base_pipeline]: /example/pipeline/base_pipeline
 [sdk 安装与配置]: TODO
-[节点字段]: /docs/docs/zh_cn/reference/pipeline/yaml_definition/1_pipeline_basic.md#22-节点字段
+[节点字段]: /docs/zh_cn/reference/pipeline/yaml_definition/1_pipeline_basic.md#22-节点字段
 [变量模板与替换]: /docs/zh_cn/reference/pipeline/yaml_definition/1_pipeline_basic.md#32-变量模板与替换
 [DSL-Artifact]: /docs/zh_cn/reference/pipeline/dsl_definition/2_artifact.md
 [DSL-Cache]: /docs/zh_cn/reference/sdk_reference/pipeline_dsl_reference.md#CacheOptions
