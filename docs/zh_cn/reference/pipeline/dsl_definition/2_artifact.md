@@ -109,6 +109,16 @@ train_step = train(epoch, preprocess_step.outputs["train_data"])
 [DSL接口文档][DSL接口文档]
 
 
-[DSL使用基础中]:
+
+[DSL使用基础]: /docs/zh_cn/reference/pipeline/dsl_definition/1_pipeline_basic.md
+
 [artifact_pipeline]: /example/pipeline/artifact_pipeline
+
 [Artifact-ref]: /docs/zh_cn/reference/pipeline/yaml_definition/2_artifact.md#2-artifact详解
+
+[DSL接口文档]: /docs/zh_cn/reference/sdk_reference/pipeline_dsl_reference.md
+
+[DSL-PostProcess-And-FailureOpitons]: /docs/zh_cn/reference/pipeline/dsl_definition/4_failure_option_and_postprocess.md
+
+[DSL-Cache]: /docs/zh_cn/reference/pipeline/dsl_definition/3_cache.md
+
