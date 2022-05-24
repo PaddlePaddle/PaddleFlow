@@ -22,6 +22,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"path"
 	"strings"
@@ -131,21 +132,27 @@ func setup(c *cli.Context) error {
 		return err
 	}
 	go metric.UpdateBaseMetrics()
-	// whether start metrics server
-	if c.Bool("metrics-service-on") {
-		metricsAddr := exposeMetricsService(c.String("server"), c.Int("metrics-service-port"))
-		log.Debugf("mount opts: %+v, metricsAddr: %s", opts, metricsAddr)
+
+	if c.Bool("metrics-service-on") || c.Bool("pprof-enable") {
+		if err := supervisingService(c.String("server"), c.Int("metrics-service-port")); err != nil {
+			log.Errorf("mount supervisingService failed: %v", err)
+			return err
+		}
+		log.Debugf("mount supervisingService on")
 	}
 	return nil
 }
 
-func exposeMetricsService(hostServer string, port int) string {
+func supervisingService(hostServer string, port int) error {
 	// default set
 	ip, _, err := net.SplitHostPort(hostServer)
 	if err != nil {
-		log.Fatalf("metrics format error: %v", err)
+		return fmt.Errorf("supervisingService server[%s] format error: %v", hostServer, err)
 	}
-	log.Debugf("metrics server - ip:%s, port:%d", ip, port)
+	log.Debugf("supervisingService server - ip:%s, port:%d", ip, port)
+	// pprof handles in its pkg
+
+	// metrics handle
 	http.Handle("/metrics", promhttp.HandlerFor(
 		prometheus.DefaultGatherer,
 		promhttp.HandlerOpts{
@@ -154,6 +161,7 @@ func exposeMetricsService(hostServer string, port int) string {
 		},
 	))
 	prometheus.MustRegister(prometheus.NewBuildInfoCollector())
+
 	metricsAddr := fmt.Sprintf(":%d", port)
 	go func() {
 		if err := http.ListenAndServe(metricsAddr, nil); err != nil {
@@ -161,8 +169,7 @@ func exposeMetricsService(hostServer string, port int) string {
 		}
 	}()
 
-	log.Infof("metrics listening on %s", metricsAddr)
-	return metricsAddr
+	return nil
 }
 
 func wrapRegister(mountPoint string) *prometheus.Registry {
