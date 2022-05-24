@@ -26,10 +26,10 @@ if __name__ == "__main__":
 |:---:|:---:|:---:|:---:|
 |name| string (required)| pipeline 的名字 | 需要满足如下正则表达式： "^[A-Za-z_][A-Za-z0-9-_]{1,49}[A-Za-z0-9_]$" |
 |parallelism| string (optional) | pipeline 任务的并发数，即最大可以同时运行的节点任务数量 | | 
-|docker_env| string (optional) | 各节点默认的docker 镜像地址 | 参考下方表格 |
-|env| dict[str, str] (optional) | 各节点运行任务时的环境变量 | 参考下方表格 |
+|docker_env| string (optional) | 各节点默认的docker 镜像地址 |  |
+|env| dict[str, str] (optional) | 各节点运行任务时的环境变量 |  |
 |cache_options| [CacheOptions](#CacheOptions) (optional)| Pipeline 级别的 Cache 配置 | 关于Cache机制的相关介绍，请点击[这里][Cache] |
-|failure_options| [FailureOptions](#FailureOptions) (optional) |failure options 配置 | 关于failure options的相关介绍，请点击[这里][Cache机制]  |
+|failure_options| [FailureOptions](#FailureOptions) (optional) |failure options 配置 | 关于failure options的相关介绍，请点击[这里][failure_options]  |
 
 > 注意: 有部分参数，在 Pipeline 和 [Step](#Step) 中都可以进行设置，在运行时，哪一个参数值才会生效？ 相关说明如下：
 > -  docker_env : 如果 **Step.docker_env** 有值，则使用 **Step.docker_env** 的值，否则使用 **Pipeline.docker_env** 的值, 如果 **Step.docker_env**， **Pipeline.docker_env** 均无值，则会报错
