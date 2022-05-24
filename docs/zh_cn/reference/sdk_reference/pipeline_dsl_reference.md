@@ -306,7 +306,7 @@ step.outputs
 无参数
 
 #### 返回值说明
-一个dict: 其中key为artifact的名字，value为一个[Artifact](#Artifact) 示例
+一个dict: 其中key为artifact的名字，value为[Artifact](#Artifact) 实例
 
 
 ### 获取parameter信息
@@ -318,7 +318,7 @@ params = ppl.parameters
 无参数
 
 #### 返回值说明
-key 将作parameter的名字，value即为parameter的默认值
+key 为parameter的名字，value为对应的Parameter实例
 
 
 ### 添加流程依赖
@@ -333,12 +333,12 @@ step.after(step1, step2)
 | *upstream_steps | 可变参数，每一项均需要是 Step实例，(required) |当前节点的上游节点，在运行时，会等所有上游节点运行成功才会运行当前节点| |
 
 #### 返回值说明
-step实例本身
+Step实例本身
 
 
 ### 获取上游节点
 ```python3
-up_steps = step.upstream_steps()
+step.upstream_steps()
 ```
 
 #### 参数说明
@@ -361,7 +361,7 @@ art = Artifact()
 
 ### 获取当前的Artifact实例所属的step
 ```python3
-step = art.step
+art.step
 ```
 
 #### 参数说明
@@ -373,7 +373,7 @@ step = art.step
 
 ### 获取输出artifact的名字
 ```python3
-art_name = art.name
+art.name
 ```
 
 #### 参数说明
@@ -496,7 +496,7 @@ failure_options = FailureOptions("continue")
 一个 FailureOptions 实例
 
 
-## 系统变量 TODO
+## 系统变量
 DSL也提供一些可以节点运行时获取的系统变量，见下表：
 
 |字段名称 | 字段含义 |
