@@ -96,8 +96,8 @@ func (queue *Queue) AfterFind(*gorm.DB) error {
 		}
 	}
 
+	queue.Location = make(map[string]string)
 	if queue.RawLocation != "" {
-		queue.Location = make(map[string]string)
 		if err := json.Unmarshal([]byte(queue.RawLocation), &queue.Location); err != nil {
 			log.Errorf("json Unmarshal Location[%s] failed: %v", queue.RawLocation, err)
 			return err

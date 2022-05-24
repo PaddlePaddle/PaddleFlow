@@ -33,9 +33,9 @@ class RunServiceApi(object):
         """
 
     @classmethod
-    def add_run(self, host, fsname, name=None, desc=None, entry=None,
-                param=None, username=None, runyamlpath=None, 
-                runyamlrawb64=None, header=None, disabled=None):
+    def add_run(self, host, fsname, name=None, desc=None,
+                param=None, username=None, runyamlpath=None, runyamlrawb64=None, pipelineID=None,
+                header=None, disabled=None, dockerEnv=None):
         """ add run 
         """
         if not header:
@@ -47,8 +47,6 @@ class RunServiceApi(object):
             body['name'] = name
         if desc:
             body['desc'] = desc
-        if entry:
-            body['entry'] = entry
         if runyamlpath:
             body['runYamlPath']=runyamlpath
         if runyamlrawb64:
@@ -56,12 +54,16 @@ class RunServiceApi(object):
                 body['runYamlRaw']=base64.b64encode(runyamlrawb64).decode()
             else:
                 raise PaddleFlowSDKException("InvalidRequest", "runYamlRaw must be bytes type")
+        if pipelineID:
+            body['pipelineID']= pipelineID
         if param:
             body['parameters'] = param
         if username:
             body['username'] = username
         if disabled:
             body["disabled"] = disabled
+        if dockerEnv:
+            body["dockerEnv"] = dockerEnv
         response = api_client.call_api(method="POST", url=parse.urljoin(host, api.PADDLE_FLOW_RUN),
                                        headers=header, json=body)
         if not response:
@@ -72,7 +74,7 @@ class RunServiceApi(object):
         return True, data['runID']
 
     @classmethod
-    def list_run(self, host, fsname=None, username=None, runid=None,
+    def list_run(self, host, fsname=None, username=None, runid=None, runname=None,
                  header=None, maxsize=100, marker=None):
         """list run
         """
@@ -89,6 +91,8 @@ class RunServiceApi(object):
             params['fsFilter'] = fsname
         if runid:
             params['runFilter'] = runid
+        if runname:
+            params['nameFilter']=runname
         if marker:
             params['marker'] = marker
         response = api_client.call_api(method="GET", url=parse.urljoin(host, api.PADDLE_FLOW_RUN),
@@ -123,18 +127,31 @@ class RunServiceApi(object):
                                data['description'], data['entry'], data['parameters'], data['runYaml'], None,
                                data['dockerEnv'], data.get('updateTime', " "), data['source'],
                                data['runMsg'], data.get('createTime', " "), data.get('activateTime', ' '))
-        jobList = []
+        runtimeList = []
         runtime = data['runtime']
         if runtime:
             for key in runtime.keys():
-                jobinfo = JobInfo(None, runtime[key].get('deps', ' '), runtime[key]['parameters'],
+                runtimeInfo = JobInfo(None, runtime[key].get('deps', ' '), runtime[key]['parameters'],
                                 runtime[key]['command'], runtime[key]['env'],
                                 runtime[key]['status'], runtime[key]['startTime'],
-                                runtime[key].get('endTime', ' '), runtime[key].get('image'),
+                                runtime[key].get('endTime', ' '), runtime[key].get('dockerEnv'),
                                 runtime[key]['jobID'])
-                jobinfo.name = key
-                jobList.append(jobinfo)
-        runInfo.job_info = jobList
+                runtimeInfo.name = key
+                runtimeList.append(runtimeInfo)
+        runInfo.runtime_info = runtimeList
+
+        postProcessList = []
+        post = data['postProcess']
+        if post:
+            for key in post.keys():
+                postInfo = JobInfo(None, post[key].get('deps', ' '), post[key]['parameters'],
+                                post[key]['command'], post[key]['env'],
+                                post[key]['status'], post[key]['startTime'],
+                                post[key].get('endTime', ' '), post[key].get('dockerEnv'),
+                                post[key]['jobID'])
+                postInfo.name = key
+                postProcessList.append(postInfo)
+        runInfo.post_info = postProcessList
         return True, runInfo
 
     @classmethod

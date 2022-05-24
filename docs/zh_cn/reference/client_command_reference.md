@@ -294,23 +294,24 @@ mount命令：用户输入```paddleflow fs mount {fs_name} {mountpath}```，界�
 
 ### 工作流运行管理
 
-`run` 提供了`create`,`stop`, `list`, `status` ,`listcache`, `showcache`, `delcache`, `artifact`八种不同的方法。 八种不同操作的示例如下：
+`run` 提供了`create`, `list`, `status`, `stop`, `retry`, `delete`, `listcache`, `showcache`, `delcache`, `artifact`十种不同的方法。 十种不同操作的示例如下：
 
 ```bash
-paddleflow run list -f fsname-u username  -r runid//列出所有运行的pipeline （通过fsname 列出特定fs下面的pipeline；通过username 列出特定用户的pipeline（限root用户）;通过runid列出特定runid的pipeline）
+paddleflow run create -fs(--fsname) fs_name -n(--name) run_name  -d(--desc) xxx -u(--username) username -p(--param) data_file=xxx -p regularization=*** -yp(--runyamlpath) ./run.yaml -pplid(--pipelineid) ppl-000666 -yr(runyamlraw) xxx --disabled some_step_names -de(--dockerEnv) docker_env // 创建pipeline作业，-yp、-pplid、yr为3中发起任务的方式，每次只能使用其中一种
+paddleflow run list -f(--fsname) fsname -u(--username) username -r(--runid) runid -n(--name) name -m(--maxsize) 10 -mk(--marker) xxx//列出所有运行的pipeline （通过fsname 列出特定fs下面的pipeline；通过username 列出特定用户的pipeline（限root用户）;通过runid列出特定runid的pipeline; 通过name列出特定name的pipeline）
 paddleflow run status runid // 展示一个pipeline下面的详细信息，包括job信息列表
-paddleflow run stop runid //停止一个pipeline 
-paddleflow run create fsname:entry（entry非必须） -n(--name) run_name  -d(--desc) xxx -u(--username) username xxx -p data_file=*** -p regularization=***  // 创建pipeline作业
+paddleflow run stop runid -f(--force) //停止一个pipeline
+paddleflow run retry runid // 重跑一个pipeline
 paddleflow run delete runid //删除一个运行的工作流
-paddleflow run listcache  //列出搜有的工作流缓存
-paddleflow run showcache  cacheid//显示工作流缓存详情
-paddleflow run delcahce  cacheid //删除指定工作流缓存
-paddleflow run artifact //列出所有工作流产出
+paddleflow run listcache -u(--userfilter) username -f(--fsfilter) fsname -r(--runfilter) run-000666 -m(--maxsize) 10 -mk(--marker) xxx //列出搜有的工作流缓存
+paddleflow run showcache cacheid //显示工作流缓存详情
+paddleflow run delcahce cacheid //删除指定工作流缓存
+paddleflow run artifact -u(--userfilter) username -f(--fsfilter) fsname -r(runfilter) run-000666 -t(--typefilter) type -p(--pathfilter) path -m(--maxsize) 10 -mk(--marker) xxx //列出所有工作流产出
 ```
 
 ### 示例
 
-创建工作流：用户输入```paddleflow run create {fsname} -n {run_name} -d {main}```发起一次run任务，界面上能够返回对应的```runid```信息。
+创建工作流：用户输入```paddleflow run create -fs {fs_name} -n {run_name} -d {main} -yp {yaml_path}```发起一次run任务，界面上能够返回对应的```runid```信息。
 
 ```bash
 run[{run_name}] create success with runid[{runid}]
@@ -443,10 +444,10 @@ marker: f990bc858cbd2a8d5eae9243970a2d8c
 `pipeline` 提供了`create`,`show`, `list`, `delete`四种不同的方法。 四种不同操作的示例如下：
 
 ```bash
+paddleflow pipeline create  fsname:required（必须） yamlpath:required(必须)  -n(--name)  pipeline_name -u(--username) username    // 创建pipeline模板(指定创建的pipeline模板名称；指定模板的用户)
 paddleflow pipeline list -u(--userfilter) user -f(--fsfilter) fsname -n(--namefilter) pipeline_name -m(--maxkeys) int -mk(--marker) xxx//列出所有的pipeline模板 （通过username 列出特定用户的pipeline模板（限root用户）;通过fsname 列出特定fs下面的pipeline模板；通过pipelinename列出特定的pipeline模板；列出指定数量的pipeline模板；从marker列出pipeline模板）
 paddleflow pipeline show pipelineid // 展示一个pipeline模板下面的详细信息，包括yaml信息
 paddleflow pipeline delete  pipelineid  //删除一个pipeline模板 
-paddleflow pipeline create  fsname:required（必须） yamlpath:required(必须)  -n(--name)  pipeline_name -u(--username) username    // 创建pipeline模板(指定创建的pipeline模板名称；指定模板的用户)
 
 ```
 
