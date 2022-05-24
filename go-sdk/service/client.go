@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,31 +14,32 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package client
+package service
 
 import (
-	"strconv"
-	"strings"
-
+	v1 "paddleflow/go-sdk/service/apiserver/v1"
 	"paddleflow/pkg/common/http/core"
 )
 
-var Client *core.PaddleFlowClient
+type PFInterface interface {
+	APIV1() v1.APIV1Interface
+}
 
-const (
-	DefaultTimeOut = 200
-)
+type PaddleFlowClient struct {
+	apiV1 *v1.APIV1Client
+}
 
-func NewHttpClient(server string, timeout int) *core.PaddleFlowClient {
-	server = strings.TrimPrefix(server, "http://")
-	arr := strings.Split(server, ":")
-	port, _ := strconv.Atoi(arr[1])
-	if Client == nil {
-		Client = core.NewPaddleFlowClient(&core.PaddleFlowClientConfiguration{
-			Host:                       arr[0],
-			Port:                       port,
-			ConnectionTimeoutInSeconds: timeout,
-		})
+// APIV1 retrieves the APIV1Client.
+func (c *PaddleFlowClient) APIV1() v1.APIV1Interface {
+	return c.apiV1
+}
+
+func NewForClient(config *core.PaddleFlowClientConfiguration) (*PaddleFlowClient, error) {
+	var pc PaddleFlowClient
+	var err error
+	pc.apiV1, err = v1.NewForConfig(config)
+	if err != nil {
+		return nil, err
 	}
-	return Client
+	return &pc, nil
 }
