@@ -3,7 +3,8 @@
 
 # 1、Pipeline 示例
 下面是基于[DSL使用基础中][DSL使用基础]的示例增加了Artifact特性制作而成:
->该示例中pipeline定义，以及示例相关运行脚本，来自pddleflow项目下example/pipeline/artifact_pipeline示例
+>该示例中pipeline定义，以及示例相关运行脚本，来自paddleflow项目下example/pipeline/artifact_pipeline示例
+>
 >示例链接: [artifact_pipeline][artifact_pipeline]
 
 ```python3
@@ -112,7 +113,7 @@ train_step = train(epoch, preprocess_step.outputs["train_data"])
 
 [DSL使用基础]: /docs/zh_cn/reference/pipeline/dsl_definition/1_pipeline_basic.md
 
-[artifact_pipeline]: /example/pipeline/artifact_pipeline
+[artifact_pipeline]: /example/pipeline/artifact_example
 
 [Artifact-ref]: /docs/zh_cn/reference/pipeline/yaml_definition/2_artifact.md#2-artifact详解
 
