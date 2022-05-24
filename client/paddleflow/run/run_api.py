@@ -106,7 +106,7 @@ class RunServiceApi(object):
         if len(data['runList']):
             for run in data['runList']:
                 runInfo = RunInfo(run['runID'], run['fsname'], run['username'], run['status'], run['name'],
-                                       None, None, None, None, None, None, None, None, None, None, None)
+                                       None, None, None, None, None, None, None, None, None, None, None, None)
                 runList.append(runInfo)
         return True, runList, data.get('nextMarker', None)
 
@@ -124,7 +124,7 @@ class RunServiceApi(object):
         if 'message' in data:
             return False, data['message']
         runInfo = RunInfo(data['runID'], data['fsname'], data['username'], data['status'], data['name'],
-                               data['description'], data['entry'], data['parameters'], data['runYaml'], None,
+                               data['description'], data['entry'], data['parameters'], data['runYaml'], None, None,
                                data['dockerEnv'], data.get('updateTime', " "), data['source'],
                                data['runMsg'], data.get('createTime', " "), data.get('activateTime', ' '))
         runtimeList = []
@@ -155,14 +155,12 @@ class RunServiceApi(object):
         return True, runInfo
 
     @classmethod
-    def stop_run(self, host, runid, job_id=None, header=None, force=False):
+    def stop_run(self, host, runid, header=None, force=False):
         """stop run
         """
         if not header:
             raise PaddleFlowSDKException("InvalidRequest", "paddleflow should login first")
         url = host + api.PADDLE_FLOW_RUN + "/%s" % runid
-        if job_id:
-            url += "/job/%s" % job_id
         params = {
             "action": "stop"
         }
