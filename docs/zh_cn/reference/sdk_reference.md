@@ -501,8 +501,8 @@ ret, response = client.create_run(fsname="fsname", runyamlpath="./run.yaml")
 |runyamlraw| string (optional)|本地yaml 文件路径，发起任务方式之一
 |pipelineid| string (optional)|pipeline模板的ID，发起任务方式之一
 |param| dict (optional)|工作流运行参数 如{"epoch":100}
-|disabled| string |不需要运行的多个步骤，用逗号分割节点名称，如"step1,step2"
-|dockerenv| string |镜像的url或镜像tar包在fs的路径
+|disabled| string (optional) |不需要运行的多个步骤，用逗号分割节点名称，如"step1,step2"
+|dockerenv| string (optional) |镜像的url或镜像tar包在fs的路径
 
 #### 接口返回说明
 |字段名称 | 字段类型 | 字段含义
@@ -598,7 +598,7 @@ ret, response = client.stop_run("runid")
 |字段名称 | 字段类型 | 字段含义
 |:---:|:---:|:---:|
 |runid| string (required)|需要停止的runid
-|force| string (optional)|是否停止postProcess
+|force| bool (optional)|是否停止postProcess
 
 #### 接口返回说明
 |字段名称 | 字段类型 | 字段含义
