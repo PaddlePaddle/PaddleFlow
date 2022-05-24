@@ -50,11 +50,6 @@ def create(ctx, fsname=None, name=None, desc=None, username=None, runyamlpath=No
     FSNAME: the name of the fs.
     """
     client = ctx.obj['client']
-    entry = None 
-    if fsname and len(fsname.split(":")) > 1:
-        name_list = fsname.split(":")
-        entry = name_list[len(name_list) - 1]
-        fsname = name_list[0]
     param_dict = {}
     for k in param:
         splitTxt = k.split("=", 1)
@@ -66,7 +61,7 @@ def create(ctx, fsname=None, name=None, desc=None, username=None, runyamlpath=No
     if disabled is not None:
         disabled = ",".join(disabled)
 
-    valid, response = client.create_run(fsname, username, name, desc, entry, runyamlpath, runyamlraw, pipelineid,
+    valid, response = client.create_run(fsname, username, name, desc, runyamlpath, runyamlraw, pipelineid,
                             param_dict, disabled=disabled, dockerenv=dockerenv)
 
     if valid:
