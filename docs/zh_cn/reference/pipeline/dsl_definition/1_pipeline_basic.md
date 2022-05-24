@@ -3,7 +3,7 @@
 # 1、pipeline 示例
 开发者除了可以通过编写 [yaml][pipeline yaml] 来定义 pipeline 外，PaddleFlow Pipeline 也提供 Python DSL 供开发者们通过写 Python 代码的方式来完成 pipeline 的定义。下面是一个最基础的使用 Python DSL 编排的 pipeline。
 
-> 该示例中pipeline定义，以及示例相关运行脚本，来自pddleflow项目下example/pipeline/base_pipeline示例。
+> 该示例中pipeline定义，以及示例相关运行脚本，来自paddleflow项目下example/pipeline/base_pipeline示例。
 >
 > 示例链接：[base_pipeline][base_pipeline]
 
@@ -76,7 +76,6 @@ if __name__ == "__main__":
     result = ppl.run(fsname="your_fs_name")
     print(result)
 ```
-到此时，我们介绍了通过DSL定义pipeline 的的基本形式，那么接下来，将详细的讲解通过DSL定义Pipeline的各个步骤。
 
 > 在阅读本文档前， 请确认已经安装了 PaddleFlow SDK，并完成了相关配置。详情请点击[这里][sdk 安装与配置]
 
@@ -91,7 +90,7 @@ from paddleflow.pipeline import PF_USER_NAME
 ```
 
 ## 3、定义Step
-在PaddleFlow Pipeline 中，Step是运行Pipeline时最基本的调度单位，每一个Step都会执行一个指定的任务。在定义Pipeline之前，首先需要完成 Step 的定义，在DSL中，我们实例化 ContainerStep 即可完成Step的定义。如上面[示例中](#1pipeline-示例)的 `process()`, `train()`, `validate()` 函数所示, 在这三个函数中，都实例化了一个ContainerStep， 也即完成了一个Step 的定义，为了方便，我们将 `train()` 的函数代码抄录如下：
+在PaddleFlow Pipeline 中，Step是运行Pipeline时最基本的调度单位，每一个Step都会执行一个指定的任务。在定义Pipeline之前，首先需要完成 Step 的定义，在DSL中，我们实例化 ContainerStep 即可完成Step的定义。如上面[示例中](#1pipeline-示例)的 `process()`, `train()`, `validate()` 函数所示, 在这三个函数中，都实例化了一个ContainerStep对象。为了方便，我们将 `train()` 的函数代码抄录如下：
 
 ```python3
 def preprocess(data_path):
@@ -116,7 +115,7 @@ ContainerStep 初始化函数的主要参数说明如下：
 |name| string (required)| Step 的名字 | 需要满足如下正则表达式： "^[A-Za-z][A-Za-z0-9-]{1,250}[A-Za-z0-9-]$" |
 |command| string (required) | Step 需要执行的任务 | | 
 |docker_env| string (optional) | docker 镜像地址 | |
-|parameters| dict[str, Union[int, string, float, [Parameter](Parameter)]] | Step 运行参数，在创建任务之前便需要确定其参数值 | |
+|parameters| dict[str, Union[int, string, float, [Parameter][Parameter]]] | Step 运行参数，在创建任务之前便需要确定其参数值 | |
 |env| dict[str, str] (optional) | 节点运行任务时的环境变量 | |
 
 > command, docker_env, parameter, env 等字段的详细说明请点击[这里][节点字段]查看
@@ -213,8 +212,9 @@ if __name__ == "__main__":
 [sdk 安装与配置]: TODO
 [节点字段]: /docs/docs/zh_cn/reference/pipeline/yaml_definition/1_pipeline_basic.md#22-节点字段
 [变量模板与替换]: /docs/zh_cn/reference/pipeline/yaml_definition/1_pipeline_basic.md#32-变量模板与替换
-[DSL-Artifact]: /docs/zh_cn/reference/sdk_reference/pipeline_dsl_reference.md#Artifact
+[DSL-Artifact]: /docs/zh_cn/reference/pipeline/dsl_definition/2_artifact.md
 [DSL-Cache]: /docs/zh_cn/reference/sdk_reference/pipeline_dsl_reference.md#CacheOptions
 [PostProcess-And-FailureOpitons]: /docs/zh_cn/reference/pipeline/dsl_definition/4_failure_option_and_postprocess.md
 [DSL接口文档]: /docs/zh_cn/reference/sdk_reference/pipeline_dsl_reference.md
+[Parameter]: /docs/zh_cn/reference/sdk_reference/pipeline_dsl_reference.md#Parameter
     
