@@ -174,7 +174,7 @@ func PodMount(volumeID string, mountInfo pfs.MountInfo) error {
 	return waitUtilPodReady(GeneratePodNameByFsID(volumeID))
 }
 
-func createOrAddRef(httpClient *core.PFClient, token, volumeID string, mountInfo pfs.MountInfo) error {
+func createOrAddRef(httpClient *core.PaddleFlowClient, token, volumeID string, mountInfo pfs.MountInfo) error {
 	podName := GeneratePodNameByFsID(volumeID)
 	log.Infof("pod name is %s", podName)
 
@@ -209,7 +209,7 @@ func createOrAddRef(httpClient *core.PFClient, token, volumeID string, mountInfo
 	return status.Errorf(codes.Internal, "Mount %v failed: mount pod %s has been deleting for 1 min", mountInfo.FSID, podName)
 }
 
-func addRefOfMount(mountInfo pfs.MountInfo, httpClient *core.PFClient, token string) error {
+func addRefOfMount(mountInfo pfs.MountInfo, httpClient *core.PaddleFlowClient, token string) error {
 	listMountResp, err := listMount(mountInfo, httpClient, token)
 	if err != nil {
 		log.Errorf("addRefOfMount: listMount faield: %v", err)
@@ -225,7 +225,7 @@ func addRefOfMount(mountInfo pfs.MountInfo, httpClient *core.PFClient, token str
 	return createMount(mountInfo, httpClient, token)
 }
 
-func createMountPod(k8sClient k8s.K8SInterface, httpClient *core.PFClient, token, volumeID string,
+func createMountPod(k8sClient k8s.K8SInterface, httpClient *core.PaddleFlowClient, token, volumeID string,
 	mountInfo pfs.MountInfo) error {
 	// get config
 	cacheConfig, err := fsCacheConfig(mountInfo, httpClient, token)
