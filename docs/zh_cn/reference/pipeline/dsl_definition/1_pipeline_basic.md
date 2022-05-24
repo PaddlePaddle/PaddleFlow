@@ -90,7 +90,9 @@ from paddleflow.pipeline import PF_USER_NAME
 ```
 
 ## 3、定义Step
-在PaddleFlow Pipeline 中，Step是运行Pipeline时最基本的调度单位，每一个Step都会执行一个指定的任务。在定义Pipeline之前，首先需要完成 Step 的定义，在DSL中，我们实例化 ContainerStep 即可完成Step的定义。如上面[示例中](#1pipeline-示例)的 `process()`, `train()`, `validate()` 函数所示, 在这三个函数中，都实例化了一个ContainerStep对象。为了方便，我们将 `train()` 的函数代码抄录如下：
+在PaddleFlow Pipeline 中，Step是运行Pipeline时最基本的调度单位，每一个Step都会执行一个指定的任务。
+在定义Pipeline之前，首先需要完成 Step 的定义，在DSL中，我们实例化 ContainerStep 即可完成Step的定义。
+如上面[示例中](#1pipeline-示例)的 `preprocess()`, `train()`, `validate()` 函数所示, 在这三个函数中，都实例化了一个ContainerStep对象。为了方便，我们将 `preprocess()` 的函数代码抄录如下：
 
 ```python3
 def preprocess(data_path):
@@ -119,7 +121,7 @@ ContainerStep 初始化函数的主要参数说明如下：
 |env| dict[str, str] (optional) | 节点运行任务时的环境变量 | |
 
 > command, docker_env, parameter, env 等字段的详细说明请点击[这里][节点字段]查看
-> 与 ContainerStep 相关的更多说明，可以点击[这里][DSL 接口文档] 查看
+> 与 ContainerStep 相关的更多说明，可以点击[这里][DSL接口文档]查看
 
 ## 4、定义Pipeline
 在完成所有Step的定以后，便可以开始将这些Step有机的组装成一个pipeline。将Step组装成pipeline，可以分成以下三步：
