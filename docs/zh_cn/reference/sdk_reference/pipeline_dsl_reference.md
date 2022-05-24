@@ -49,7 +49,7 @@ ppl.set_post_process(send_mail_step("xiaodu@baidu.com"))
 #### 参数说明
 |字段名称 | 字段类型 | 字段含义 | 备注 |
 |:---:|:---:|:---:|:---:|
-| step | [ContainerStep][#ContainerStep] (required) | PostProcess 阶段运行的 Step |
+| step | [ContainerStep](#ContainerStep) (required) | PostProcess 阶段运行的 Step |
 
 #### 返回值说明
 无返回值
@@ -195,7 +195,7 @@ ppl.add_env({"env1": "env1"})
 #### 返回值说明
 无返回值
 
-## ContianerStep
+## ContainerStep
 ### 初始化
 ```python3
 step = ContainerStep(
