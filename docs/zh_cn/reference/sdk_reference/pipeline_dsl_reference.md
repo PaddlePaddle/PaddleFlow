@@ -98,10 +98,10 @@ ppl.compile("run.yaml")
 #### 参数说明：
 |字段名称 | 字段类型 | 字段含义 | 备注 |
 |:---:|:---:|:---:|:---:|
-| save_path | string (optional) | 保存编译产出的文件路径，文件内容可以参考[这里][base_pipeline] | 文件后缀需要是 [".yaml", ".json", ".yml"]之一 |
+| save_path | string (optional) | 保存编译产出的文件路径，文件内容可以参考[这里][yaml_definition] | 文件后缀需要是 [".yaml", ".json", ".yml"]之一 |
 
 #### 返回值说明：
-一个包含编译产出的所有信息的Dict。
+一个包含编译产出的所有信息的Dict。其内容可以参考 [这里][yaml_definition]
 
 
 ### 获取Pipeline中所有节点的拓扑序
