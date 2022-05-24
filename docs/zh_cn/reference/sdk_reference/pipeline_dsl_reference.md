@@ -76,7 +76,7 @@ ppl.run(fsname="your_fs_name")
 |字段名称 | 字段类型 | 字段含义 | 备注
 |:---:|:---:|:---:|:---:|
 |config|  string (required) |配置文件路径|配置文件的内容请参考[这里][config_content]
-|fsname| string (required)|存储系统名称 | | 
+|fsname| string (optional)|存储系统名称 |如果有使用Paddleflow Fs， 则必须填写该参数| 
 |username| string (optional)|指定用户，用于root账号运行特定用户的fs的工作流 | |
 |runname| string (optional)|工作流名称| |
 |desc| string (optional)|工作流描述| |
