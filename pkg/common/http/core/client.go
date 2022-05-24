@@ -28,11 +28,11 @@ type Client interface {
 	SendRequest(*PFRequest) (*PFResponse, error)
 }
 
-type PFClient struct {
-	Config *PFClientConfiguration
+type PaddleFlowClient struct {
+	Config *PaddleFlowClientConfiguration
 }
 
-func (c *PFClient) buildHttpRequest(request *PFRequest) {
+func (c *PaddleFlowClient) buildHttpRequest(request *PFRequest) {
 	request.BuildHttpRequest()
 	request.SetHost(c.Config.Host)
 	request.SetPort(c.Config.Port)
@@ -40,7 +40,7 @@ func (c *PFClient) buildHttpRequest(request *PFRequest) {
 	// TODO : add signer
 }
 
-func (c *PFClient) SendRequest(req *PFRequest) (*PFResponse, error) {
+func (c *PaddleFlowClient) SendRequest(req *PFRequest) (*PFResponse, error) {
 	// Build the http request and prepare to send
 	c.buildHttpRequest(req)
 	log.Debugf("send http request: %v", req)
@@ -56,7 +56,7 @@ func (c *PFClient) SendRequest(req *PFRequest) (*PFResponse, error) {
 	return resp, nil
 }
 
-func NewPaddleFlowClient(conf *PFClientConfiguration) *PFClient {
+func NewPaddleFlowClient(conf *PaddleFlowClientConfiguration) *PaddleFlowClient {
 	http.InitClient()
-	return &PFClient{conf}
+	return &PaddleFlowClient{conf}
 }

@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,31 +14,33 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package client
+package go_sdk
 
 import (
-	"strconv"
-	"strings"
-
+	"paddleflow/go-sdk/service"
 	"paddleflow/pkg/common/http/core"
 )
 
-var Client *core.PaddleFlowClient
+type Interface interface {
+	PF() service.PFInterface
+}
 
-const (
-	DefaultTimeOut = 200
-)
+type ClientSet struct {
+	client *service.PaddleFlowClient
+}
 
-func NewHttpClient(server string, timeout int) *core.PaddleFlowClient {
-	server = strings.TrimPrefix(server, "http://")
-	arr := strings.Split(server, ":")
-	port, _ := strconv.Atoi(arr[1])
-	if Client == nil {
-		Client = core.NewPaddleFlowClient(&core.PaddleFlowClientConfiguration{
-			Host:                       arr[0],
-			Port:                       port,
-			ConnectionTimeoutInSeconds: timeout,
-		})
+func (c ClientSet) PF() service.PFInterface {
+	return c.client
+}
+
+var _ Interface = &ClientSet{}
+
+func NewForConfig(config *core.PaddleFlowClientConfiguration) (*ClientSet, error) {
+	var cs ClientSet
+	var err error
+	cs.client, err = service.NewForClient(config)
+	if err != nil {
+		return nil, err
 	}
-	return Client
+	return &cs, nil
 }

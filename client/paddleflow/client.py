@@ -403,22 +403,20 @@ class Client(object):
         userinfo={'header': self.header, 'name': username, 'host': self.paddleflow_server}
         return FSServiceApi.show_link(self.paddleflow_server, fsname, fspath, self.user_id, userinfo)
 
-    def create_run(self, fsname, username=None, runname=None, desc=None, entry=None, 
-                        runyamlpath=None, runyamlraw=None, param=None, disabled=None):
+    def create_run(self, fsname, username=None, runname=None, desc=None, 
+                        runyamlpath=None, runyamlraw=None, pipelineid=None, param=None, disabled=None, dockerenv=None):
         """
         create run
         """
         self.pre_check()
-        if fsname is None or fsname.strip() == "":
-            raise PaddleFlowSDKException("InvalidFSName", "fsname should not be none or empty")
         if username and username.strip() == "":
             raise PaddleFlowSDKException("InvalidUserName", "username should not be none or empty") 
         if runname and runname.strip() == "":
             raise PaddleFlowSDKException("InvalidRunName", "runname should not be none or empty") 
         return RunServiceApi.add_run(self.paddleflow_server, fsname, runname, desc, 
-                                          entry, param, username, runyamlpath, runyamlraw, self.header, disabled)
+                                        param, username, runyamlpath, runyamlraw, pipelineid, self.header, disabled, dockerenv)
     
-    def list_run(self, fsname=None, username=None, run_id=None, maxsize=100, marker=None):
+    def list_run(self, fsname=None, username=None, run_id=None, run_name=None, maxsize=100, marker=None):
         """
         list run
         """
@@ -430,7 +428,7 @@ class Client(object):
         if  run_id and run_id.strip() == "":
             raise PaddleFlowSDKException("InvalidRunID", "runid should not be none or empty")
         return RunServiceApi.list_run(self.paddleflow_server, fsname, 
-                                           username, run_id, self.header, maxsize, marker)
+                                           username, run_id, run_name, self.header, maxsize, marker)
 
     def status_run(self, run_id):
         """

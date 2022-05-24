@@ -131,6 +131,16 @@ func (sp *SingleJob) fillContainersInPod(pod *v1.Pod) error {
 	if pod.Spec.Containers == nil || len(pod.Spec.Containers) == 0 {
 		pod.Spec.Containers = []v1.Container{{}}
 	}
+
+	// patch config for Paddle Para
+	_, find := sp.Env[schema.EnvPaddleParaJob]
+	if find {
+		if err := sp.patchPaddlePara(pod, pod.Name); err != nil {
+			log.Errorf("patch parameters for paddle para job failed, err: %v", err)
+			return err
+		}
+	}
+
 	// only fill the first container
 	index := 0
 	if err := sp.fillContainer(&pod.Spec.Containers[index], pod.Name); err != nil {
