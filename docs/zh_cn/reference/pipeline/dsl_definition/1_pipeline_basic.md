@@ -117,7 +117,7 @@ ContainerStep 初始化函数的主要参数说明如下：
 |name| string (required)| Step 的名字 | 需要满足如下正则表达式： "^[A-Za-z][A-Za-z0-9-]{1,250}[A-Za-z0-9-]$" |
 |command| string (required) | Step 需要执行的任务 | | 
 |docker_env| string (optional) | docker 镜像地址 | |
-|parameters| dict[str, Union[int, string, float, [Parameter][Parameter]]] | Step 运行参数，在创建任务之前便需要确定其参数值 | |
+|parameters| dict[str, Union[int, string, float, [Parameter][Parameter]]] (optional)| Step 运行参数，在创建任务之前便需要确定其参数值 | |
 |env| dict[str, str] (optional) | 节点运行任务时的环境变量 | |
 
 > command, docker_env, parameter, env 等字段的详细说明请点击[这里][节点字段]查看
@@ -126,7 +126,7 @@ ContainerStep 初始化函数的主要参数说明如下：
 ## 4、定义Pipeline
 在完成所有Step的定以后，便可以开始将这些Step有机的组装成一个pipeline。将Step组装成pipeline，可以分成以下三步：
 - 实例化Pipeline对象
-- 将 Step 实例添加至 Pipeline 实例中
+- 将Step实例添加至Pipeline实例中
 - 指定Step实例间的依赖关系
 
 接下来，我们将依次介绍这三个步骤。
@@ -149,9 +149,9 @@ Pipeline 实例化函数的主要参数说明如下：
 |:---:|:---:|:---:|:---:|
 |name| string (required)| pipeline 的名字 | 需要满足如下正则表达式： "^[A-Za-z_][A-Za-z0-9-_]{1,49}[A-Za-z0-9_]$ |
 |parallelism| int (optional) | pipeline 任务的并发数，即最大可以同时运行的节点任务数量 | | 
-|docker_env| string (optional) | 各节点默认的docker 镜像地址 | 如果Pipeline 和 Step 均指定了 docker_env, 则Step的docker_env 具有更高的优先级 |
+|docker_env| string (optional) | 各节点默认的docker镜像地址 | 如果Pipeline和Step均指定了 docker_env, 则Step的docker_env具有更高的优先级 |
 
-### 4.2、将Step实例添加至 Pipeline 实例中
+### 4.2、将Step实例添加至Pipeline实例中
 在完成了Pipeline对象的实例化后, 接下来便需要将Step实例添加至Pipeline实例中，添加方式很简单：我们只需在**pipeline函数**中完成Step的实例化即可。
 
 如在上面的[示例](#1pipeline-示例)所示, 在pipeline函数 `base_pipeline()`中，依次调用了 `preprocess()`, `train()`, `validate()` 三个函数，而在这三个函数中，均完成了一个 Step对象的实例化。因此，此时的Pipeline实例将会包含有三个Step实例， 其名字依次为： "preprocess"、"train"、 "validate"。
