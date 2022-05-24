@@ -22,14 +22,14 @@ if __name__ == "__main__":
 
 #### 参数说明
 
-|字段名称 | 字段类型 | 字段含义 | 备注 |
-|:---:|:---:|:---:|:---:|
-|name| string (required)| pipeline 的名字 | 需要满足如下正则表达式： "^[A-Za-z_][A-Za-z0-9-_]{1,49}[A-Za-z0-9_]$" |
-|parallelism| string (optional) | pipeline 任务的并发数，即最大可以同时运行的节点任务数量 | | 
-|docker_env| string (optional) | 各节点默认的docker 镜像地址 |  |
-|env| dict[str, str] (optional) | 各节点运行任务时的环境变量 |  |
-|cache_options| [CacheOptions](#CacheOptions) (optional)| Pipeline 级别的 Cache 配置 | 关于Cache机制的相关介绍，请点击[这里][Cache] |
-|failure_options| [FailureOptions](#FailureOptions) (optional) |failure options 配置 | 关于failure options的相关介绍，请点击[这里][failure_options]  |
+|字段名称 | 字段类型 | 字段含义 | 是否必须 | 备注 |
+|:---:|:---:|:---:|:---:|:---:|
+|name| string| pipeline 的名字 | 是 | 需要满足如下正则表达式： "^[A-Za-z_][A-Za-z0-9-_]{1,49}[A-Za-z0-9_]$" |
+|parallelism| string | pipeline 任务的并发数，即最大可以同时运行的节点任务数量 | 否 | | 
+|docker_env| string | 各节点默认的docker 镜像地址 | 否 | |
+|env| dict[str, str] | 各节点运行任务时的环境变量 | 否 | |
+|cache_options| [CacheOptions](#CacheOptions) | Pipeline 级别的 Cache 配置 | 否 | 关于Cache机制的相关介绍，请点击[这里][Cache] |
+|failure_options| [FailureOptions](#FailureOptions) |failure options 配置 | 否 |关于failure options的相关介绍，请点击[这里][failure_options]  |
 
 > 注意: 有部分参数，在 Pipeline 和 [Step](#ContainerStep) 中都可以进行设置，在运行时，哪一个参数值才会生效？ 相关说明如下：
 > -  docker_env : 如果 **Step.docker_env** 有值，则使用 **Step.docker_env** 的值，否则使用 **Pipeline.docker_env** 的值, 如果 **Step.docker_env**和**Pipeline.docker_env** 均无值，则会报错
@@ -41,15 +41,15 @@ if __name__ == "__main__":
 Pipeline 的一个实例
 
 
-### 设置postprocess节点
+### 设置post_process节点
 ```python3
 # 这里的 send_mail_step() 函数需要返回一个 ContainerStep 实例
 ppl.set_post_process(send_mail_step("xiaodu@baidu.com"))
 ```
 #### 参数说明
-|字段名称 | 字段类型 | 字段含义 | 备注 |
-|:---:|:---:|:---:|:---:|
-| step | [ContainerStep](#ContainerStep) (required) | PostProcess 阶段运行的 Step |
+|字段名称 | 字段类型 | 字段含义 | 是否必须 | 备注 |
+|:---:|:---:|:---:|:---:|:---:|
+| step | [ContainerStep](#ContainerStep) | post_process 阶段运行的 Step | 是 | |
 
 #### 返回值说明
 无返回值
@@ -73,9 +73,9 @@ ppl.run(fsname="your_fs_name")
 ```
 
 #### 参数说明
-|字段名称 | 字段类型 | 字段含义 | 备注
-|:---:|:---:|:---:|:---:|
-|config|  string (required) |配置文件路径|配置文件的内容请参考[这里][config_content]
+|字段名称 | 字段类型 | 字段含义 | 是否必须 | 备注 |
+|:---:|:---:|:---:|:---:|:---:|
+|config|  string|配置文件路径| 是 | 配置文件的内容请参考[这里][config_content] |
 |fsname| string (optional)|存储系统名称 |如果有使用Paddleflow Fs， 则必须填写该参数| 
 |username| string (optional)|指定用户，用于root账号运行特定用户的fs的工作流 | |
 |runname| string (optional)|工作流名称| |
