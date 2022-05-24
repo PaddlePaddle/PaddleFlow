@@ -1,5 +1,7 @@
 # 使用postprocess与failure options
-在[DSL使用基础中][DSL使用基础]，我们介绍了 DSL 的基础使用。但是，在某些情况下，在Pipeline任务结束时，我们需要执行某些操作，如向相关人员发送邮件，向某个服务发请求以做进一步的处理等，此时便需要使用postprocess机制。在Pipeline任务运行时，有一个节点运行失败了，其余的节点需要怎么处理？是快速失败还是继续运行？此时便需要使用failure options机制。关于postprocess与failure options机制的详细解释，请点击[这里][Post-Fail-ref]。本文主要讲解如何在使用 DSL 定义pipeline时如何使用，不在对其定义进行赘述。
+在[DSL使用基础中][DSL使用基础]，我们介绍了 DSL 的基础使用。但是，在某些情况下，在Pipeline任务结束时，我们需要执行某些操作，如向相关人员发送邮件，向某个服务发请求以做进一步的处理等，此时便需要使用postprocess机制。
+在Pipeline任务运行时，有一个节点运行失败了，其余的节点需要怎么处理？是快速失败还是继续运行？此时便需要使用failure options机制。
+关于postprocess与failure options机制的详细解释，请点击[这里][Post-Fail-ref]，本文主要讲解如何在使用 DSL 定义pipeline时如何使用，不在对其定义进行赘述。
 
 ## 1、pipeline 示例
 下面的示例是基于[artifact_pipeline][artifact_pipeline]中的pipeline定义增加postprocess与failure options的特性升级而来
