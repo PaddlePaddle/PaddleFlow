@@ -64,7 +64,7 @@ ppl.get_post_process()
 无参数
 
 #### 返回值说明：
-一个在[PostProcess][PostProcess]阶段运行的[Step](#step)实例
+一个在[PostProcess][PostProcess]阶段运行的[ContainerStep](#ContainerStep)实例
 
 
 ### 发起pipeline任务：
@@ -113,10 +113,10 @@ ppl.topological_sort()
 无参数
 
 #### 返回值说明
-一个Step的List，其中的Step按照拓扑序排列。如果Pipeline有设置postprocess节点，则该节点会作为拓扑序的最后一个节点。
+一个存储Step实例的List，其中的Step按照拓扑序排列。如果Pipeline有设置postprocess，则拓扑序中也会包含有 postprocess 中的Step
 
 
-### 获取所有节点的 parameter
+### 获取所有Step的 parameter
 ```python3
 ppl.get_params()
 ```
@@ -148,7 +148,7 @@ ppl.steps()
 
 ### 获取pipeline名字
 ```python3
-print(ppl.name)
+ppl.name
 ```
 
 #### 参数说明
@@ -219,9 +219,9 @@ step = ContainerStep(
 |name| string (required)| step 的名字 | 需要满足如下正则表达式： "^[A-Za-z][A-Za-z0-9-]{1,250}[A-Za-z0-9-]$" |
 |command|string (optional)| 需要执行的命令 | |
 |docker_env| string (optional) | docker 镜像地址 |  |
-|inputs|dict[string, Aritfact]| 输入artifact信息 | key 将会作为artifact的名字，value需要是其余的节点输出artifact的引用 |
+|inputs|dict[string, Aritfact]| 输入artifact信息 | key 将会作为artifact的名字，value需要是其余的节点输出artifact|
 |outputs|dict[string, Artifact]| 输出artifact信息 | key 将会作为artifact的名字, value必须是 Artifact()|
-|parameters|dict[string, Union[string, int, float, [Parameter][#Parameter]]] | parameter 信息 | key 将作为parameter的名字，value即为parameter的默认值|
+|parameters|dict[string, Union[string, int, float, [Parameter](#Parameter)]] | parameter 信息 | key 将作为parameter的名字，value即为parameter的默认值|
 |env| dict[str, str] (optional) | 节点运行任务时的环境变量 | |
 |cache_options| [CacheOptions](#CacheOptions) (optional)|  Cache 配置 | 关于Cache机制的相关介绍，请点击[这里](Cache机制) |
 
