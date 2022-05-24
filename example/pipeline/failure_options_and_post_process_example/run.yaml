@@ -1,4 +1,4 @@
-name: failure_option_and_postprocess_example
+name: failure_options_and_post_process_example
 
 entry_points:
   step1:

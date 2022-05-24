@@ -2,8 +2,8 @@
 本文档主要介绍 PaddleFlow Pipeline Python DSL 的相关接口， 开发者可以参考本说明结合自身需求进行使用。关于 PaddleFlow Pipeline 的介绍以及使用请参考[这里][PaddleFlow Pipeline Overview]
 
 
-## Pipeline
-### Pipeline 初始化
+## 1、Pipeline
+### 1.1、Pipeline 初始化
 ```python3
 @Pipeline(name="base_pipeline", docker_env="registry.baidubce.com/pipeline/nginx:1.7.9", parallelism=1)
 def base_pipeline(data_path, epoch, model_path):
@@ -41,7 +41,7 @@ if __name__ == "__main__":
 Pipeline 的一个实例
 
 
-### 设置post_process节点
+### 1.2、设置post_process节点
 ```python3
 # 这里的 send_mail_step() 函数需要返回一个 ContainerStep 实例
 ppl.set_post_process(send_mail_step("xiaodu@baidu.com"))
@@ -55,7 +55,7 @@ ppl.set_post_process(send_mail_step("xiaodu@baidu.com"))
 无返回值
 
 
-### 获取postprocess节点 
+### 1.3、获取postprocess节点 
 ```python3
 ppl.get_post_process()
 ```
@@ -67,7 +67,7 @@ ppl.get_post_process()
 一个在[PostProcess][PostProcess]阶段运行的[ContainerStep](#ContainerStep)实例
 
 
-### 发起pipeline任务：
+### 1.4、发起pipeline任务：
 ```python3
 ppl.run(fsname="your_fs_name")
 ```
@@ -76,11 +76,11 @@ ppl.run(fsname="your_fs_name")
 |字段名称 | 字段类型 | 字段含义 | 是否必须 | 备注 |
 |:---:|:---:|:---:|:---:|:---:|
 |config|  string|配置文件路径| 是 | 配置文件的内容请参考[这里][config_content] |
-|fsname| string (optional)|存储系统名称 |如果有使用Paddleflow Fs， 则必须填写该参数| 
-|username| string (optional)|指定用户，用于root账号运行特定用户的fs的工作流 | |
-|runname| string (optional)|工作流名称| |
-|desc| string (optional)|工作流描述| |
-|disabled| List[string] (optional)|本次运行需要disabled的步骤| |
+|fsname| string |存储系统名称 | 否 | 如果有使用Paddleflow Fs， 则必须填写该参数| 
+|username| string |指定用户，用于root账号运行特定用户的fs的工作流 | 否 | |
+|runname| string |工作流名称| 否 | |
+|desc| string 工作流描述| 否 | |
+|disabled| List[string]|本次运行需要disabled的步骤| 否 | |
 
 
 #### 接口返回说明
@@ -90,21 +90,21 @@ ppl.run(fsname="your_fs_name")
 |response| -| 失败返回失败message，成功返回runid
 
 
-### 编译Pipeline
+### 1.5、编译Pipeline
 ```python3
 ppl.compile("run.yaml")
 ```
 
 #### 参数说明：
-|字段名称 | 字段类型 | 字段含义 | 备注 |
-|:---:|:---:|:---:|:---:|
-| save_path | string (optional) | 保存编译产出的文件路径，文件内容可以参考[这里][yaml_definition] | 文件后缀需要是 [".yaml", ".json", ".yml"]之一 |
+|字段名称 | 字段类型 | 字段含义 | 是否必须 | 备注 |
+|:---:|:---:|:---:|:---:|:---:|
+| save_path | string | 保存编译产出的文件路径，文件内容可以参考[这里][yaml_definition] | 否 | 文件后缀需要是 [".yaml", ".json", ".yml"]之一 |
 
 #### 返回值说明：
 一个包含编译产出的所有信息的Dict。其内容可以参考 [这里][yaml_definition]
 
 
-### 获取Pipeline中所有节点的拓扑序
+### 1.6、获取Pipeline中所有节点的拓扑序
 ```python3
 ppl.topological_sort()
 ```
@@ -116,7 +116,7 @@ ppl.topological_sort()
 一个存储Step实例的List，其中的Step按照拓扑序排列。如果Pipeline有设置postprocess，则拓扑序中也会包含有 postprocess 中的Step
 
 
-### 获取所有Step的 parameter
+### 1.7、获取所有Step的 parameter
 ```python3
 ppl.get_params()
 ```
@@ -134,7 +134,7 @@ ppl.get_params()
 ```
 
 
-### 获取所有的Step(不包含postprocess节点)
+### 1.8、获取所有的Step(不包含postprocess节点)
 ```python3
 ppl.steps()
 ```
@@ -146,7 +146,7 @@ ppl.steps()
 一个Dict，其key为Step的名字，value为Step实例
 
 
-### 获取pipeline名字
+### 1.9、获取pipeline名字
 ```python3
 ppl.name
 ```
@@ -158,7 +158,7 @@ ppl.name
 一个string, 表示pipeline的名字
 
 
-### 设置pipeline名字
+### 1.10、设置pipeline名字
 ```python3
 ppl.name = "exp_ppl"
 ```
@@ -170,7 +170,7 @@ ppl.name = "exp_ppl"
 无返回值
 
 
-### 获取环境变量
+### 1.11、获取环境变量
 ```python3
 ppl.env
 ```
@@ -182,20 +182,20 @@ ppl.env
 一个dict，包含了所有pipeline级别的环境变量信息
 
 
-### 添加环境变量
+### 1.12、添加环境变量
 ```python3
 ppl.add_env({"env1": "env1"})
 ```
 
 #### 参数说明
-|字段名称 | 字段类型 | 字段含义 | 备注 |
-|:---:|:---:|:---:|:---:|
-| env | dict[str, str] (required) | 需要新增的环境变量 | | 
+|字段名称 | 字段类型 | 字段含义 | 是否必须 | 备注 |
+|:---:|:---:|:---:|:---:|:---:|
+| env | dict[str, str] | 需要新增的环境变量 | 是 | | 
 
 #### 返回值说明
 无返回值
 
-## ContainerStep
+## 2、ContainerStep
 ### 初始化
 ```python3
 step = ContainerStep(
@@ -214,16 +214,16 @@ step = ContainerStep(
 ```
 
 #### 参数说明
-|字段名称 | 字段类型 | 字段含义 | 备注 |
-|:---:|:---:|:---:|:---:|
-|name| string (required)| step 的名字 | 需要满足如下正则表达式： "^[A-Za-z][A-Za-z0-9-]{1,250}[A-Za-z0-9-]$" |
-|command|string (optional)| 需要执行的命令 | |
-|docker_env| string (optional) | docker 镜像地址 |  |
-|inputs|dict[string, Aritfact] (optional)| 输入artifact信息 | key 将会作为artifact的名字，value需要是其余的节点输出artifact|
-|outputs|dict[string, Artifact] (optional)| 输出artifact信息 | key 将会作为artifact的名字, value必须是 Artifact()|
-|parameters|dict[string, Union[string, int, float, [Parameter](#Parameter)]] (optional)| parameter 信息 | key 将作为parameter的名字，value即为parameter的默认值|
-|env| dict[str, str] (optional) | 节点运行任务时的环境变量 | |
-|cache_options| [CacheOptions](#CacheOptions) (optional)|  Cache 配置 | 关于Cache机制的相关介绍，请点击[这里](Cache机制) |
+|字段名称 | 字段类型 | 字段含义 | 是否必须 | 备注 |
+|:---:|:---:|:---:|:---:|:---:|
+|name| string | step 的名字 | 是 | 需要满足如下正则表达式： "^[A-Za-z][A-Za-z0-9-]{1,250}[A-Za-z0-9-]$" |
+|command|string | 需要执行的命令 | 否 | |
+|docker_env| string  | docker 镜像地址 | 否 | |
+|inputs|dict[string, Aritfact] | 输入artifact信息 | 否 | key 将会作为artifact的名字，value需要是其余的节点输出artifact|
+|outputs|dict[string, Artifact] | 输出artifact信息 | 否 | key 将会作为artifact的名字, value必须是 Artifact()|
+|parameters|dict[string, Union[string, int, float, [Parameter](#Parameter)]] | parameter 信息 |  否 | key 将作为parameter的名字，value即为parameter的默认值|
+|env| dict[str, str] | 节点运行任务时的环境变量 |  否 | |
+|cache_options| [CacheOptions](#CacheOptions) |  Cache 配置 | 否 |关于Cache机制的相关介绍，请点击[这里](Cache机制) |
 
 > 注意1：inputs, outputs, parameters 中的 key 不可以同名
 
@@ -236,7 +236,7 @@ step = ContainerStep(
 一个ContainerStep的实例
 
 
-### 获取环境变量
+### 2.1、获取环境变量
 ```python3
 step.env
 ```
@@ -248,21 +248,21 @@ step.env
 一个dict，包含了所有环境变量信息
 
 
-### 添加环境变量
+### 2.2、添加环境变量
 ```python3
 step.add_env({"env1": "env1"})
 ```
 
 #### 参数说明
-|字段名称 | 字段类型 | 字段含义 | 备注 |
-|:---:|:---:|:---:|:---:|
-| env | dict[str, str] (required) | 需要新增的环境变量 | | 
+|字段名称 | 字段类型 | 字段含义 | 是否必须 | 备注 |
+|:---:|:---:|:---:|:---:|:---:|
+| env | dict[str, str] (required) | 需要新增的环境变量 | 是 |  | 
 
 #### 返回值说明
 无返回值
 
 
-### 获取step名字
+### 2.3、获取step名字
 ```python3
 step.name
 ```
@@ -274,7 +274,7 @@ step.name
 一个string, 表示step的名字
 
 
-### 设置step名字
+### 2.4、设置step名字
 ```python3
 step.name = "step1"
 ```
@@ -286,7 +286,7 @@ step.name = "step1"
 无返回值
 
 
-### 获取输入artifact信息
+### 2.5、获取输入artifact信息
 ```python3
 step.inputs
 ```
@@ -297,7 +297,7 @@ step.inputs
 #### 返回值说明
 一个dict: 其中key为artifact的名字，value为该输入artifact的来源，为其余节点的输出artifact
 
-### 获取输出artifact信息
+### 2.6、获取输出artifact信息
 ```python3
 step.outputs
 ```
@@ -309,7 +309,7 @@ step.outputs
 一个dict: 其中key为artifact的名字，value为[Artifact](#Artifact) 实例
 
 
-### 获取parameter信息
+### 2.7、获取parameter信息
 ```python3
 params = ppl.parameters
 ```
@@ -321,22 +321,22 @@ params = ppl.parameters
 key 为parameter的名字，value为对应的Parameter实例
 
 
-### 添加流程依赖
+### 2.8、添加流程依赖
 ```python3
 # 这里 step1，step2 均为ContainerStep 实例
 step.after(step1, step2)
 ```
 
 #### 参数说明
-|字段名称 | 字段类型 | 字段含义 | 备注 |
-|:---:|:---:|:---:|:---:|
-| *upstream_steps | 可变参数，每一项均需要是 Step实例，(required) |当前节点的上游节点，在运行时，会等所有上游节点运行成功才会运行当前节点| |
+|字段名称 | 字段类型 | 字段含义 | 是否必须 | 备注 |
+|:---:|:---:|:---:|:---:|:---:|
+| *upstream_steps | 可变参数，每一项均需要是Step实例 | 是 | 当前节点的上游节点，在运行时，会等所有上游节点运行成功才会运行当前节点| |
 
 #### 返回值说明
 Step实例本身
 
 
-### 获取上游节点
+### 2.9、获取上游节点
 ```python3
 step.upstream_steps()
 ```
@@ -347,7 +347,7 @@ step.upstream_steps()
 #### 返回值
 一个存储 Step实例的List，其中的每一项均为当前节点的上游节点。
 
-## Artifact
+## 3、Artifact
 ### 初始化
 ```python3
 art = Artifact()
@@ -359,7 +359,7 @@ art = Artifact()
 #### 返回值
 一个 Artifact 实例
 
-### 获取当前的Artifact实例所属的step
+### 3.1、获取当前的Artifact实例所属的step
 ```python3
 art.step
 ```
@@ -371,7 +371,7 @@ art.step
 一个 ContainerStep 实例，当前的Artifact必然为其输出Artifact
 
 
-### 获取输出artifact的名字
+### 3.2、获取输出artifact的名字
 ```python3
 art.name
 ```
@@ -383,24 +383,24 @@ art.name
 一个string, 表名该Artifact的名字
 
 
-## Parameter
+## 4、Parameter
 ### 初始化
 ```python3
 pa = Parameter(10)
 ```
 
 #### 参数说明
-|字段名称 | 字段类型 | 字段含义 | 备注 |
-|:---:|:---:|:---:|:---:|
-| default | Union[string, int, float], (optional) | 默认值 | |
-| type | Enum["int", "float", "string"] (optional)| parameter 的类型 | |
+|字段名称 | 字段类型 | 字段含义 | 是否必须 | 备注 |
+|:---:|:---:|:---:|:---:|:---:|
+| default | Union[string, int, float] | parameter的默认值 | 否 | |
+| type | Enum["int", "float", "string"] | parameter 的类型 | 否 | |
 
 > 如果设置了**type**字段，则要求default的值与type指代的类型相同
 
 #### 返回值说明
 一个Parameter实例
 
-### 获取当前的Parameter实例所属的step
+### 4.1、获取当前的Parameter实例所属的step
 ```python3
 step = pa.step
 ```
@@ -412,7 +412,7 @@ step = pa.step
 一个 ContainerStep 实例
 
 
-### 获取Parameter的名字
+### 4.2、获取Parameter的名字
 ```python3
 pa_name = pa.name
 ```
@@ -423,7 +423,7 @@ pa_name = pa.name
 #### 返回值说明
 一个string, 表名该Parameter的名字
 
-### 获取默认值
+### 4.3、获取默认值
 ```python3
 default_value = pa.default
 ```
@@ -435,7 +435,7 @@ default_value = pa.default
 该Parameter的默认值
 
 
-### 设置默认值
+### 4.4、设置默认值
 ```python3
 pa.default = "10"
 ```
@@ -447,7 +447,7 @@ pa.default = "10"
 无返回值
 
 
-### 获取Parameter的类型信息
+### 4.5、获取Parameter的类型信息
 ```python3
 pa_type = pa.type
 ```
@@ -458,8 +458,8 @@ pa_type = pa.type
 #### 返回值说明
 如果Parameter有设置type字段，则返回一个字符串，用于指代该parameter的类型，否则为 None
 
-## CacheOptions
-### 初始化
+## 5、CacheOptions
+### 5.1、初始化
 ```python3
 cache = CacheOptions(
     enable=True,
@@ -469,26 +469,26 @@ cache = CacheOptions(
 ```
 
 #### 参数说明
-|字段名称 | 字段类型 | 字段含义 | 备注 |
-|:---:|:---:|:---:|:---:|
-| enable | bool (optional) | 是否启用[cache][cache]功能 | |
-| max_expired_time | int (optional)| cache 缓存的有效期 | 为 -1 表示无限期 |
-| fs_scope|string(optional) | 参与计算cache key的文件路径 | 详情请参考[这里][cache] |
+|字段名称 | 字段类型 | 字段含义 | 是否必须 | 备注 |
+|:---:|:---:|:---:|:---:|:---:|
+| enable | bool | 是否启用[cache][cache]功能 | 否 | |
+| max_expired_time | int | cache 缓存的有效期 | 否 | 为 -1 表示无限期 |
+| fs_scope| string | 参与计算cache key的文件路径 | 否 | 详情请参考[这里][cache] |
 
 
 #### 返回值说明
 一个 CacheOptions 实例
 
-## FailureOptions
-### 初始化
+## 6、FailureOptions
+### 6.1、初始化
 ```python3
 failure_options = FailureOptions("continue")
 ```
 
 #### 参数说明
-|字段名称 | 字段类型 | 字段含义 | 备注 |
-|:---:|:---:|:---:|:---:|
-|strategy|string(required)| failure options 策略 | 详情请参考[这里][failure_options] |
+|字段名称 | 字段类型 | 字段含义 | 是否必须 | 备注 |
+|:---:|:---:|:---:|:---:|:---:|
+| strategy | string | failure options 策略 | 是 | 详情请参考[这里][failure_options] |
 
 > 当前只支持两种策略：continue 和 fail_fast
 
@@ -496,7 +496,7 @@ failure_options = FailureOptions("continue")
 一个 FailureOptions 实例
 
 
-## 系统变量
+## 7、系统变量
 DSL也提供一些可以节点运行时获取的系统变量，见下表：
 
 |字段名称 | 字段含义 |
