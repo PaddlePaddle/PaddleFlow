@@ -31,7 +31,7 @@ const (
 )
 
 type user struct {
-	client *core.PFClient
+	client *core.PaddleFlowClient
 }
 
 func (u *user) Login(ctx context.Context, request *user_.LoginInfo) (result *user_.LoginResponse, err error) {

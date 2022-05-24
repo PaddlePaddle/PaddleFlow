@@ -17,8 +17,8 @@ limitations under the License.
 package go_sdk
 
 import (
+	"paddleflow/go-sdk/service"
 	"paddleflow/pkg/common/http/core"
-	"paddleflow/sdk/service"
 )
 
 type Interface interface {
@@ -26,7 +26,7 @@ type Interface interface {
 }
 
 type ClientSet struct {
-	client *service.PFClient
+	client *service.PaddleFlowClient
 }
 
 func (c ClientSet) PF() service.PFInterface {
@@ -35,7 +35,7 @@ func (c ClientSet) PF() service.PFInterface {
 
 var _ Interface = &ClientSet{}
 
-func NewForConfig(config *core.PFClientConfiguration) (*ClientSet, error) {
+func NewForConfig(config *core.PaddleFlowClientConfiguration) (*ClientSet, error) {
 	var cs ClientSet
 	var err error
 	cs.client, err = service.NewForClient(config)

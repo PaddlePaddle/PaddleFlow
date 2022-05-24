@@ -23,18 +23,18 @@ import (
 	"paddleflow/pkg/common/http/core"
 )
 
-var Client *core.PFClient
+var Client *core.PaddleFlowClient
 
 const (
 	DefaultTimeOut = 200
 )
 
-func NewHttpClient(server string, timeout int) *core.PFClient {
+func NewHttpClient(server string, timeout int) *core.PaddleFlowClient {
 	server = strings.TrimPrefix(server, "http://")
 	arr := strings.Split(server, ":")
 	port, _ := strconv.Atoi(arr[1])
 	if Client == nil {
-		Client = core.NewPaddleFlowClient(&core.PFClientConfiguration{
+		Client = core.NewPaddleFlowClient(&core.PaddleFlowClientConfiguration{
 			Host:                       arr[0],
 			Port:                       port,
 			ConnectionTimeoutInSeconds: timeout,

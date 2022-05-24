@@ -20,15 +20,15 @@ import (
 	"context"
 	"fmt"
 
+	"paddleflow/go-sdk/service"
 	"paddleflow/pkg/apiserver/controller/fs"
 	"paddleflow/pkg/apiserver/controller/user"
 	"paddleflow/pkg/common/http/core"
-	"paddleflow/sdk/service"
 )
 
 func main() {
-	config := &core.PFClientConfiguration{
-		Host:                       "127.0.0.1",
+	config := &core.PaddleFlowClientConfiguration{
+		Host:                       "",
 		Port:                       8999,
 		ConnectionTimeoutInSeconds: 1,
 	}

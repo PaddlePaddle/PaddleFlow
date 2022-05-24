@@ -17,25 +17,25 @@ limitations under the License.
 package service
 
 import (
+	v1 "paddleflow/go-sdk/service/apiserver/v1"
 	"paddleflow/pkg/common/http/core"
-	v1 "paddleflow/sdk/service/apiserver/v1"
 )
 
 type PFInterface interface {
 	APIV1() v1.APIV1Interface
 }
 
-type PFClient struct {
+type PaddleFlowClient struct {
 	apiV1 *v1.APIV1Client
 }
 
 // APIV1 retrieves the APIV1Client.
-func (c *PFClient) APIV1() v1.APIV1Interface {
+func (c *PaddleFlowClient) APIV1() v1.APIV1Interface {
 	return c.apiV1
 }
 
-func NewForClient(config *core.PFClientConfiguration) (*PFClient, error) {
-	var pc PFClient
+func NewForClient(config *core.PaddleFlowClientConfiguration) (*PaddleFlowClient, error) {
+	var pc PaddleFlowClient
 	var err error
 	pc.apiV1, err = v1.NewForConfig(config)
 	if err != nil {

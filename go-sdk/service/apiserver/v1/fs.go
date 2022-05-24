@@ -31,7 +31,7 @@ const (
 )
 
 type fileSystem struct {
-	client *core.PFClient
+	client *core.PaddleFlowClient
 }
 
 func (f *fileSystem) Create(ctx context.Context, request *fs.CreateFileSystemRequest,

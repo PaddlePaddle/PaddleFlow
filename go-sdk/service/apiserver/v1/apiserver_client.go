@@ -27,7 +27,7 @@ type APIV1Interface interface {
 
 // APIV1Client is used to interact with features provided by the group.
 type APIV1Client struct {
-	restClient *core.PFClient
+	restClient *core.PaddleFlowClient
 }
 
 func (c *APIV1Client) User() UserInterface {
@@ -40,7 +40,7 @@ func (c *APIV1Client) FileSystem() FileSystemInterface {
 
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
-func (c *APIV1Client) RESTClient() *core.PFClient {
+func (c *APIV1Client) RESTClient() *core.PaddleFlowClient {
 	if c == nil {
 		return nil
 	}
@@ -48,7 +48,7 @@ func (c *APIV1Client) RESTClient() *core.PFClient {
 	return c.restClient
 }
 
-func NewForConfig(config *core.PFClientConfiguration) (*APIV1Client, error) {
+func NewForConfig(config *core.PaddleFlowClientConfiguration) (*APIV1Client, error) {
 	httpClient := core.NewPaddleFlowClient(config)
 	return &APIV1Client{restClient: httpClient}, nil
 }
