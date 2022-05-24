@@ -134,7 +134,7 @@ func (b *RunBrief) modelToListResp(run models.Run) {
 	b.ActivateTime = run.ActivateTime
 }
 
-func buildWorkflowSource(ctx *logger.RequestContext, req CreateRunRequest, fsID string) (schema.WorkflowSource, string, string, error) {
+func buildWorkflowSource(userName string, req CreateRunRequest, fsID string) (schema.WorkflowSource, string, string, error) {
 	var source, runYaml string
 	// retrieve source and runYaml
 	if req.RunYamlRaw != "" { // high priority: wfs delivered by request
@@ -142,64 +142,66 @@ func buildWorkflowSource(ctx *logger.RequestContext, req CreateRunRequest, fsID 
 		// todo://后续将实际运行的run.yaml放入文件中
 		sDec, err := base64.StdEncoding.DecodeString(req.RunYamlRaw)
 		if err != nil {
-			ctx.Logging().Errorf("Decode raw runyaml is [%s] failed. err:%v", req.RunYamlRaw, err)
+			logger.Logger().Errorf("Decode raw runyaml is [%s] failed. err:%v", req.RunYamlRaw, err)
 			return schema.WorkflowSource{}, "", "", err
 		}
 		runYaml = string(sDec)
 		wfs := schema.WorkflowSource{}
 		if err := yaml.Unmarshal([]byte(runYaml), &wfs); err != nil {
-			ctx.ErrorCode = common.MalformedYaml
-			ctx.Logging().Errorf("Unmarshal runYaml to get source failed. yaml: %s \n, err:%v", runYaml, err)
+			logger.Logger().Errorf("Unmarshal runYaml to get source failed. yaml: %s \n, err:%v", runYaml, err)
 			return schema.WorkflowSource{}, "", "", err
 		}
 		// 目前只保存用户提交的yaml，因此这里获得的yaml直接舍去
-		source, _, err = getSourceAndYaml(ctx, wfs)
+		source, _, err = getSourceAndYaml(wfs)
 		if err != nil {
-			ctx.Logging().Errorf("get source and yaml by wrokFlowSource faild. err: %v", err)
+			logger.Logger().Errorf("get source and yaml by wrokFlowSource faild. err: %v", err)
 			return schema.WorkflowSource{}, "", "", err
 		}
 	} else if req.PipelineID != "" { // medium priority: wfs in pipeline
 		ppl, err := models.GetPipelineByID(req.PipelineID)
 		if err != nil {
-			ctx.Logging().Errorf("GetPipelineByID[%s] failed. err:%v", req.PipelineID, err)
+			logger.Logger().Errorf("GetPipelineByID[%s] failed. err:%v", req.PipelineID, err)
 			return schema.WorkflowSource{}, "", "", err
 		}
-		if !common.IsRootUser(ctx.UserName) && ppl.UserName != ctx.UserName {
-			ctx.ErrorCode = common.AccessDenied
-			err := common.NoAccessError(ctx.UserName, common.ResourceTypePipeline, ppl.ID)
-			ctx.Logging().Errorf("buildWorkflowSource[%s] failed. err:%v", req.PipelineID, err)
+		if !common.IsRootUser(userName) && ppl.UserName != userName {
+			err := common.NoAccessError(userName, common.ResourceTypePipeline, ppl.ID)
+			logger.Logger().Errorf("buildWorkflowSource[%s] failed. err:%v", req.PipelineID, err)
 			return schema.WorkflowSource{}, "", "", err
 		}
 		runYaml = ppl.PipelineYaml
 		source = ppl.ID
 	} else { // low priority: wfs in fs, read from runYamlPath
+		if fsID == "" {
+			err := fmt.Errorf("can not get runYaml without fs")
+			logger.Logger().Errorf(err.Error())
+			return schema.WorkflowSource{}, "", "", err
+		}
 		runYamlPath := req.RunYamlPath
 		if runYamlPath == "" {
 			runYamlPath = config.DefaultRunYamlPath
 		}
-		runYamlByte, err := handler.ReadFileFromFs(fsID, runYamlPath, ctx.Logging())
+		runYamlByte, err := handler.ReadFileFromFs(fsID, runYamlPath, logger.Logger())
 		if err != nil {
-			ctx.ErrorCode = common.IOOperationFailure
-			ctx.Logging().Errorf("readFileFromFs from[%s] failed. err:%v", fsID, err)
+			logger.Logger().Errorf("readFileFromFs from[%s] failed. err:%v", fsID, err)
 			return schema.WorkflowSource{}, "", "", err
 		}
 		source = runYamlPath
 		runYaml = string(runYamlByte)
 	}
 	// to wfs
-	wfs, err := runYamlAndReqToWfs(ctx, runYaml, req)
+	wfs, err := runYamlAndReqToWfs(runYaml, req)
 	if err != nil {
-		ctx.Logging().Errorf("runYamlAndReqToWfs failed. err:%v", err)
+		logger.Logger().Errorf("runYamlAndReqToWfs failed. err:%v", err)
 		return schema.WorkflowSource{}, "", "", err
 	}
 	return wfs, source, runYaml, nil
 }
 
 // Used for API CreateRunJson, get wfs by json request.
-func getWorkFlowSourceByReq(ctx *logger.RequestContext, request *CreateRunByJsonRequest, bodyMap map[string]interface{}) (schema.WorkflowSource, error) {
+func getWorkFlowSourceByReq(request *CreateRunByJsonRequest, bodyMap map[string]interface{}) (schema.WorkflowSource, error) {
 	if len(request.EntryPoints) == 0 {
 		err := fmt.Errorf("missing entryPoints")
-		ctx.Logging().Errorf(err.Error())
+		logger.Logger().Errorf(err.Error())
 		return schema.WorkflowSource{}, err
 	}
 	if request.Env == nil {
@@ -334,10 +336,10 @@ func parseArtifacts(atf ArtifactsJson) schema.Artifacts {
 	return res
 }
 
-func getSourceAndYaml(ctx *logger.RequestContext, wfs schema.WorkflowSource) (string, string, error) {
+func getSourceAndYaml(wfs schema.WorkflowSource) (string, string, error) {
 	yamlByte, err := yaml.Marshal(wfs)
 	if err != nil {
-		ctx.Logging().Errorf("marshal workFlowSource to yaml faild. err: %v", err)
+		logger.Logger().Errorf("marshal workFlowSource to yaml faild. err: %v", err)
 		return "", "", err
 	}
 	runYaml := string(yamlByte)
@@ -345,12 +347,11 @@ func getSourceAndYaml(ctx *logger.RequestContext, wfs schema.WorkflowSource) (st
 	return source, runYaml, nil
 }
 
-func runYamlAndReqToWfs(ctx *logger.RequestContext, runYaml string, req interface{}) (schema.WorkflowSource, error) {
+func runYamlAndReqToWfs(runYaml string, req interface{}) (schema.WorkflowSource, error) {
 	// parse yaml -> WorkflowSource
 	wfs, err := schema.ParseWorkflowSource([]byte(runYaml))
 	if err != nil {
-		ctx.ErrorCode = common.MalformedYaml
-		ctx.Logging().Errorf("get WorkflowSource by yaml failed. yaml: %s \n, err:%v", runYaml, err)
+		logger.Logger().Errorf("get WorkflowSource by yaml failed. yaml: %s \n, err:%v", runYaml, err)
 		return schema.WorkflowSource{}, err
 	}
 
@@ -385,30 +386,31 @@ func runYamlAndReqToWfs(ctx *logger.RequestContext, runYaml string, req interfac
 
 }
 
-func CreateRun(ctx *logger.RequestContext, request *CreateRunRequest) (CreateRunResponse, error) {
+func CreateRun(userName string, request *CreateRunRequest) (CreateRunResponse, error) {
 	// concatenate fsID
 	var fsID string
-	if common.IsRootUser(ctx.UserName) && request.UserName != "" {
-		// root user can select fs under other users
-		fsID = common.ID(request.UserName, request.FsName)
-	} else {
-		fsID = common.ID(ctx.UserName, request.FsName)
+	if request.FsName != "" {
+		if common.IsRootUser(userName) && request.UserName != "" {
+			// root user can select fs under other users
+			fsID = common.ID(request.UserName, request.FsName)
+		} else {
+			fsID = common.ID(userName, request.FsName)
+		}
 	}
 	// todo://增加root用户判断fs是否存在
 	// TODO:// validate flavour
 	// TODO:// validate queue
 
-	wfs, source, runYaml, err := buildWorkflowSource(ctx, *request, fsID)
+	wfs, source, runYaml, err := buildWorkflowSource(userName, *request, fsID)
 	if err != nil {
-		ctx.Logging().Errorf("buildWorkflowSource failed. error:%v", err)
+		logger.Logger().Errorf("buildWorkflowSource failed. error:%v", err)
 		return CreateRunResponse{}, err
 	}
 
 	// check name pattern
 	if wfs.Name != "" && !schema.CheckReg(wfs.Name, common.RegPatternRunName) {
-		ctx.ErrorCode = common.InvalidNamePattern
 		err := common.InvalidNamePatternError(wfs.Name, common.ResourceTypeRun, common.RegPatternRunName)
-		ctx.Logging().Errorf("create run failed as run name illegal. error:%v", err)
+		logger.Logger().Errorf("create run failed as run name illegal. error:%v", err)
 		return CreateRunResponse{}, err
 	}
 	// create run in db after run.yaml validated
@@ -416,7 +418,7 @@ func CreateRun(ctx *logger.RequestContext, request *CreateRunRequest) (CreateRun
 		ID:             "", // to be back filled according to db pk
 		Name:           wfs.Name,
 		Source:         source,
-		UserName:       ctx.UserName,
+		UserName:       userName,
 		FsName:         request.FsName,
 		FsID:           fsID,
 		Description:    request.Description,
@@ -427,38 +429,37 @@ func CreateRun(ctx *logger.RequestContext, request *CreateRunRequest) (CreateRun
 		Disabled:       request.Disabled,
 		Status:         common.StatusRunInitiating,
 	}
-	response, err := ValidateAndStartRun(ctx, run, *request)
+	response, err := ValidateAndStartRun(run, *request)
 	return response, err
 }
 
-func CreateRunByJson(ctx *logger.RequestContext, request *CreateRunByJsonRequest, bodyMap map[string]interface{}) (CreateRunResponse, error) {
+func CreateRunByJson(userName string, request *CreateRunByJsonRequest, bodyMap map[string]interface{}) (CreateRunResponse, error) {
 	var fsID string
 	if request.FsName != "" {
-		if common.IsRootUser(ctx.UserName) && request.UserName != "" {
+		if common.IsRootUser(userName) && request.UserName != "" {
 			// root user can select fs under other users
 			fsID = common.ID(request.UserName, request.FsName)
 		} else {
-			fsID = common.ID(ctx.UserName, request.FsName)
+			fsID = common.ID(userName, request.FsName)
 		}
 	}
 
-	wfs, err := getWorkFlowSourceByReq(ctx, request, bodyMap)
+	wfs, err := getWorkFlowSourceByReq(request, bodyMap)
 	if err != nil {
-		ctx.Logging().Errorf("get WorkFlowSource by request failed. error:%v", err)
+		logger.Logger().Errorf("get WorkFlowSource by request failed. error:%v", err)
 		return CreateRunResponse{}, err
 	}
 
-	source, runYaml, err := getSourceAndYaml(ctx, wfs)
+	source, runYaml, err := getSourceAndYaml(wfs)
 	if err != nil {
-		ctx.Logging().Errorf("get source and yaml by workflowsource failed. error:%v", err)
+		logger.Logger().Errorf("get source and yaml by workflowsource failed. error:%v", err)
 		return CreateRunResponse{}, err
 	}
 
 	// check name pattern
 	if wfs.Name != "" && !schema.CheckReg(wfs.Name, common.RegPatternRunName) {
-		ctx.ErrorCode = common.InvalidNamePattern
 		err := common.InvalidNamePatternError(wfs.Name, common.ResourceTypeRun, common.RegPatternRunName)
-		ctx.Logging().Errorf("create run failed as run name illegal. error:%v", err)
+		logger.Logger().Errorf("create run failed as run name illegal. error:%v", err)
 		return CreateRunResponse{}, err
 	}
 	// create run in db after run.yaml validated
@@ -466,7 +467,7 @@ func CreateRunByJson(ctx *logger.RequestContext, request *CreateRunByJsonRequest
 		ID:             "", // to be back filled according to db pk
 		Name:           wfs.Name,
 		Source:         source,
-		UserName:       ctx.UserName,
+		UserName:       userName,
 		FsName:         request.FsName,
 		FsID:           fsID,
 		Description:    request.Description,
@@ -475,42 +476,39 @@ func CreateRunByJson(ctx *logger.RequestContext, request *CreateRunByJsonRequest
 		Disabled:       request.Disabled,
 		Status:         common.StatusRunInitiating,
 	}
-	response, err := ValidateAndStartRun(ctx, run, *request)
+	response, err := ValidateAndStartRun(run, *request)
 	return response, err
 }
 
-func ValidateAndStartRun(ctx *logger.RequestContext, run models.Run, req interface{}) (CreateRunResponse, error) {
+func ValidateAndStartRun(run models.Run, req interface{}) (CreateRunResponse, error) {
 	if err := run.Encode(); err != nil {
-		ctx.Logging().Errorf("encode run failed. error:%s", err.Error())
-		ctx.ErrorCode = common.MalformedJSON
+		logger.Logger().Errorf("encode run failed. error:%s", err.Error())
 		return CreateRunResponse{}, err
 	}
 	// validate workflow in func NewWorkflow
 	if _, err := newWorkflowByRun(run); err != nil {
-		ctx.ErrorCode = common.MalformedYaml
-		ctx.Logging().Errorf("validateAndInitWorkflow. err:%v", err)
+		logger.Logger().Errorf("validateAndInitWorkflow. err:%v", err)
 		return CreateRunResponse{}, err
 	}
 	// create run in db and update run's ID by pk
-	runID, err := models.CreateRun(ctx.Logging(), &run)
+	runID, err := models.CreateRun(logger.Logger(), &run)
 	if err != nil {
-		ctx.Logging().Errorf("create run failed inserting db. error:%s", err.Error())
-		ctx.ErrorCode = common.InternalError
+		logger.Logger().Errorf("create run failed inserting db. error:%s", err.Error())
 		return CreateRunResponse{}, err
 	}
 	// to wfs again to revise previous wf replacement
-	wfs, err := runYamlAndReqToWfs(ctx, run.RunYaml, req)
+	wfs, err := runYamlAndReqToWfs(run.RunYaml, req)
 	if err != nil {
-		ctx.Logging().Errorf("runYamlAndReqToWfs failed. err:%v", err)
+		logger.Logger().Errorf("runYamlAndReqToWfs failed. err:%v", err)
 		return CreateRunResponse{}, err
 	}
 
 	run.WorkflowSource = wfs
 	// handler image
 	if err := handleImageAndStartWf(run, false); err != nil {
-		ctx.Logging().Errorf("create run[%s] failed handleImageAndStartWf[%s-%s]. error:%s\n", runID, wfs.DockerEnv, run.FsID, err.Error())
+		logger.Logger().Errorf("create run[%s] failed handleImageAndStartWf[%s-%s]. error:%s\n", runID, wfs.DockerEnv, run.FsID, err.Error())
 	}
-	ctx.Logging().Debugf("create run successful. runID:%s\n", runID)
+	logger.Logger().Debugf("create run successful. runID:%s\n", runID)
 	response := CreateRunResponse{
 		RunID: runID,
 	}

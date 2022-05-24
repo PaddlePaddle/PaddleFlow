@@ -130,6 +130,18 @@ const (
 	JobPrefix            = "job"
 	DefaultSchedulerName = "volcano"
 	DefaultFSMountPath   = "/home/paddleflow/storage/mnt"
+
+	// EnvPaddleParaJob defines env for Paddle Para Job
+	EnvPaddleParaJob            = "PF_PADDLE_PARA_JOB"
+	EnvPaddleParaPriority       = "PF_PADDLE_PARA_PRIORITY"
+	EnvPaddleParaConfigHostFile = "PF_PADDLE_PARA_CONFIG_FILE"
+	// PaddleParaVolumeName defines config for Paddle Para Pod
+	PaddleParaVolumeName            = "paddle-para-conf-volume"
+	PaddleParaAnnotationKeyJobName  = "paddle-para/job-name"
+	PaddleParaAnnotationKeyPriority = "paddle-para/priority"
+	PaddleParaEnvJobName            = "FLAGS_job_name"
+	PaddleParaEnvGPUConfigFile      = "GPU_CONFIG_FILE"
+	PaddleParaGPUConfigFilePath     = "/opt/paddle/para/gpu_config.json"
 )
 
 const (
