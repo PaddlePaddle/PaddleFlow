@@ -157,12 +157,14 @@ class RunServiceApi(object):
         return True, runInfo
 
     @classmethod
-    def stop_run(self, host, runid, header=None, force=False):
+    def stop_run(self, host, runid, job_id=None, header=None, force=False):
         """stop run
         """
         if not header:
             raise PaddleFlowSDKException("InvalidRequest", "paddleflow should login first")
         url = host + api.PADDLE_FLOW_RUN + "/%s" % runid
+        if job_id:
+            url += "/job/%s" % job_id
         params = {
             "action": "stop"
         }
