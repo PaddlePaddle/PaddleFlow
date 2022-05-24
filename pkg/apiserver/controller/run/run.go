@@ -825,24 +825,19 @@ func handleImageAndStartWf(run models.Run, isResume bool) error {
 			logEntry.Errorf("newWorkflowByRun failed. err:%v\n", err)
 			return updateRunStatusAndMsg(run.ID, common.StatusRunFailed, err.Error())
 		}
+		err = models.UpdateRun(logEntry, run.ID,
+			models.Run{DockerEnv: run.WorkflowSource.DockerEnv, Status: common.StatusRunPending})
+		if err != nil {
+			return err
+		}
 		if !isResume {
 			// start workflow with image url
-			err := models.UpdateRun(logEntry, run.ID,
-				models.Run{DockerEnv: run.WorkflowSource.DockerEnv, Status: common.StatusRunPending})
-			if err != nil {
-				return err
-			}
 			wfPtr.Start()
 			logEntry.Debugf("workflow started, run:%+v", run)
 		} else {
 			// set runtime and restart
 			if err := wfPtr.SetWorkflowRuntime(run.Runtime, run.PostProcess); err != nil {
 				logEntry.Errorf("SetWorkflowRuntime for run[%s] failed. error:%v\n", run.ID, err)
-				return err
-			}
-			err := models.UpdateRun(logEntry, run.ID,
-				models.Run{DockerEnv: run.WorkflowSource.DockerEnv, Status: common.StatusRunPending})
-			if err != nil {
 				return err
 			}
 			wfPtr.Restart()
