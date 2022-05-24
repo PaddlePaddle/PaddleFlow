@@ -151,40 +151,41 @@ Pipeline 实例化函数的主要参数说明如下：
 
 ### 4.2、将Step实例添加至 Pipeline 实例中
 在完成了Pipeline对象的实例化后, 接下来便需要将Step实例添加至Pipeline实例中，添加方式很简单：我们只需在**pipeline函数**中完成Step的实例化即可。
-如在上面的[示例](#1pipeline-示例), pipeline函数 `base_pipeline()`中，依次调用了 `preprocess()`, `train()`, `validate()` 三个函数，而在这三个函数中，均完成了一个 Step对象的实例化。因此，此时的 Pipeline 示例中，将会包含有三个 Step 实例， 其名字依次为： "preprocess"、"train"、 "validate"。
+
+如在上面的[示例](#1pipeline-示例)所示, 在pipeline函数 `base_pipeline()`中，依次调用了 `preprocess()`, `train()`, `validate()` 三个函数，而在这三个函数中，均完成了一个 Step对象的实例化。因此，此时的Pipeline实例将会包含有三个Step实例， 其名字依次为： "preprocess"、"train"、 "validate"。
 
 > **pipeline函数**: 指被Pipeline实例装饰的函数。
 
 
 ### 4.3、指定Step实例间的依赖关系
-在一个Pipeline实例中，可能添加了多个Step实例，那么这么Step实例之间是否存在有某些关系呢？答案是肯定的， 在PaddleFlow Pipeline 中，Step之间可以存在如下的依赖关系:
+在一个Pipeline实例中，可能包含多个Step实例，那么这么Step实例之间是否存在有某些关系呢？答案是肯定的，在PaddleFlow Pipeline 中，Step实例之间可以存在如下的依赖关系:
 
 - 流程依赖: 如果StepA需要在StepB之后运行，则称StepA在流程上依赖于StepB。
 - Parameter依赖: 如果StepA的某个Parameter引用了StepB的某个Parameter，则称StepA在Parameter上依赖于StepB。
  
 #### 流程依赖
-定义节点间流程依赖的方式很简单，只需要调用Step实例的 `after()` 函数，便可以指定该Step实例在流程上所依赖的其余Step。如在上面的[示例](#1pipeline-示例)中，我们可以看到如下的语句：
+定义节点间流程依赖的方式很简单，只需要调用Step实例的 `after()` 函数，便可以建立该Step实例在与其余Step实例的流程依赖关系。如在上面的[示例](#1pipeline-示例)中，我们可以看到如下的语句：
 
 ```python3
 train_step.after(preprocess_step)
 ```
 
-通过上面的语句，便定义了 train_step 与 preprocess_step 之间的 流程依赖关系：train_step 在流程上依赖于preprocess_step。
-> 注意：Pipeline 的所有Step需要组成一个有向无环图(DAG)结构，不支持存在有环的情况
+通过该语句，便定义了 train_step 与 preprocess_step 之间的流程依赖关系：train_step 在流程上依赖于preprocess_step。
+> 注意：Pipeline的所有Step实例需要组成一个有向无环图(DAG)结构，不支持存在有环的情况。
 
 #### Parameter 依赖
-在某些情况下，StepA 的某个ParameterP1需要使用StepB的ParameterP2的值，此时我们便可以定义Parameter参数依赖，定义方式也很简单，直接给StepA的参数ParameterP1赋值为StepB的ParameterP2的引用即可， 示例代码如下：
+在某些情况下，StepA 的某个Parameter["P1"]需要使用StepB的Parameter["P2"]的值，此时我们便可以定义Parameter参数依赖，定义方式也很简单，直接给StepA的参数Parameter["P1"]赋值为StepB的Parameter["P2"]的引用即可， 示例代码如下：
     
 ```python3
 StepA.parameters["P1"] = StepB.parameters["P2"]
 ```
 
 在运行StepA时，ParameterP1的值将会被替换为StepB的ParameterP2的值，具体的替换逻辑可以参考[这里][变量模板与替换]
-> 如果两个步骤间存在与Parameter依赖，则会隐含这两个步骤存在这流程依赖，如上例中，则会隐含有stepA在流程上依赖于stepB
+> 如果两个步骤间存在与Parameter依赖，则会隐含这两个步骤存在流程依赖，如上例中，则会隐含有stepA在流程上依赖于stepB
     
 > 一些细心的用户应该早已发现，在上面的[pipeline 示例](#1pipeline-示例)中，存在有如下的参数依赖：
->- train_step的Parameter<train_data> 依赖于preprocess_step的Parameter<data_path>
->- validate_step的Parameter<model_path> 依赖于train_step的Parameter<model_path>
+>- train_step的Parameter["train_data"] 依赖于preprocess_step的Parameter["data_path"]
+>- validate_step的Parameter["model_path"] 依赖于train_step的Parameter["model_path"]
 
 ## 5、创建pipeline任务
 在完成了Pipeline的定义后，我们便可以使用该pipeline来发起任务了。发起pipeline 任务也可以分成两步:
@@ -199,7 +200,7 @@ if __name__ == "__main__":
     print(result)    
 ```
 
-## 下一步
+## 6、更多信息
 [在DSL中使用Artifact][DSL-Artifact]
     
 [在DSL中使用Cache][DSL-Cache]
@@ -215,8 +216,7 @@ if __name__ == "__main__":
 [节点字段]: /docs/zh_cn/reference/pipeline/yaml_definition/1_pipeline_basic.md#22-节点字段
 [变量模板与替换]: /docs/zh_cn/reference/pipeline/yaml_definition/1_pipeline_basic.md#32-变量模板与替换
 [DSL-Artifact]: /docs/zh_cn/reference/pipeline/dsl_definition/2_artifact.md
-[DSL-Cache]: /docs/zh_cn/reference/sdk_reference/pipeline_dsl_reference.md#CacheOptions
+[DSL-Cache]: /docs/zh_cn/reference/pipeline/dsl_definition/3_cache.md
 [PostProcess-And-FailureOpitons]: /docs/zh_cn/reference/pipeline/dsl_definition/4_failure_option_and_postprocess.md
 [DSL接口文档]: /docs/zh_cn/reference/sdk_reference/pipeline_dsl_reference.md
 [Parameter]: /docs/zh_cn/reference/sdk_reference/pipeline_dsl_reference.md#Parameter
-    
