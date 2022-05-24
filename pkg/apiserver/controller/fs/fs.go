@@ -17,12 +17,14 @@ limitations under the License.
 package fs
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/jinzhu/copier"
 	log "github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 	apiv1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -142,13 +144,17 @@ func (s *FileSystemService) DeleteFileSystem(ctx *logger.RequestContext, fsID st
 		ctx.ErrorCode = common.FileSystemDataBaseError
 		return err
 	}
+	// delete cache config if exist
 	err = models.DeleteFSCacheConfig(ctx.Logging(), fsID)
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil
+		}
 		ctx.Logging().Errorf("delete fs[%s] cache config failed error[%v]", fsID, err)
 		ctx.ErrorCode = common.FileSystemDataBaseError
 		return err
 	}
-	return err
+	return nil
 }
 
 // ListFileSystem the function which performs the operation of list file systems

@@ -19,6 +19,7 @@ package executor
 import (
 	"fmt"
 	"io/ioutil"
+	"path/filepath"
 	"reflect"
 	"strings"
 
@@ -529,6 +530,76 @@ func (j *KubeJob) DeleteJob() error {
 
 func (j *KubeJob) GetID() string {
 	return j.ID
+}
+
+// patchPaddlePara patch some parameters for paddle para job, and must be work with a shared gpu device plugin
+// environments for paddle para job:
+//   PF_PADDLE_PARA_JOB: defines the job is a paddle para job
+//   PF_PADDLE_PARA_PRIORITY: defines the priority of paddle para job, 0 is high, and 1 is low.
+//   PF_PADDLE_PARA_CONFIG_FILE: defines the config of paddle para job
+func (j *KubeJob) patchPaddlePara(podTemplate *corev1.Pod, jobName string) error {
+	// get parameters from user's job config
+	var paddleParaPriority string
+	p := j.Env[schema.EnvPaddleParaPriority]
+	switch strings.ToLower(p) {
+	case schema.PriorityClassHigh:
+		paddleParaPriority = "0"
+	case schema.PriorityClassLow, "":
+		paddleParaPriority = "1"
+	default:
+		return fmt.Errorf("priority %s for paddle para job is invalid", p)
+	}
+	// the config path of paddle para gpu job on host os, which will be mounted to job
+	gpuConfigFile := schema.PaddleParaGPUConfigFilePath
+	value, find := j.Env[schema.EnvPaddleParaConfigHostFile]
+	if find {
+		gpuConfigFile = value
+	}
+	gpuConfigDirPath := filepath.Dir(gpuConfigFile)
+	if gpuConfigDirPath == "/" {
+		return fmt.Errorf("the directory of gpu config file %s cannot be mounted", gpuConfigFile)
+	}
+
+	// 1. patch jobName and priority in Annotations
+	if podTemplate.ObjectMeta.Annotations == nil {
+		podTemplate.ObjectMeta.Annotations = make(map[string]string)
+	}
+	podTemplate.ObjectMeta.Annotations[schema.PaddleParaAnnotationKeyJobName] = jobName
+	podTemplate.ObjectMeta.Annotations[schema.PaddleParaAnnotationKeyPriority] = paddleParaPriority
+	// 2. patch env, including config file and job name
+	env := podTemplate.Spec.Containers[0].Env
+	podTemplate.Spec.Containers[0].Env = append([]corev1.EnvVar{
+		{
+			Name:  schema.PaddleParaEnvJobName,
+			Value: jobName,
+		},
+		{
+			Name:  schema.PaddleParaEnvGPUConfigFile,
+			Value: gpuConfigFile,
+		},
+	}, env...)
+	// 3. patch volumes and volumeMounts
+	dirType := corev1.HostPathDirectory
+	volumes := podTemplate.Spec.Volumes
+	podTemplate.Spec.Volumes = append([]corev1.Volume{
+		{
+			Name: schema.PaddleParaVolumeName,
+			VolumeSource: corev1.VolumeSource{
+				HostPath: &corev1.HostPathVolumeSource{
+					Path: gpuConfigDirPath,
+					Type: &dirType,
+				},
+			},
+		},
+	}, volumes...)
+	volumeMounts := podTemplate.Spec.Containers[0].VolumeMounts
+	podTemplate.Spec.Containers[0].VolumeMounts = append([]corev1.VolumeMount{
+		{
+			Name:      schema.PaddleParaVolumeName,
+			MountPath: gpuConfigDirPath,
+		},
+	}, volumeMounts...)
+	return nil
 }
 
 // JobModeParams records the parameters related to job mode
