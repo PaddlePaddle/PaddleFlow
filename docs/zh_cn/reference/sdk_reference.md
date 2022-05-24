@@ -487,13 +487,13 @@ ret, response = client.show_link("fsname")
 
 ### 工作流创建
 ```python
-ret, response = client.create_run("fsname")
+ret, response = client.create_run(fsname="fsname", runyamlpath="./run.yaml")
 ```
 #### 接口入参说明
 
 |字段名称 | 字段类型 | 字段含义
 |:---:|:---:|:---:|
-|fsname| string (required)|存储系统名称
+|fsname| string (optional)|存储系统名称
 |username| string (optional)|指定用户，用于root账号运行特定用户的fs的工作流
 |runname| string (optional)|工作流名称
 |desc| string (optional)|工作流描述
