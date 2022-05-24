@@ -31,10 +31,10 @@ if __name__ == "__main__":
 |cache_options| [CacheOptions](#CacheOptions) (optional)| Pipeline 级别的 Cache 配置 | 关于Cache机制的相关介绍，请点击[这里][Cache] |
 |failure_options| [FailureOptions](#FailureOptions) (optional) |failure options 配置 | 关于failure options的相关介绍，请点击[这里][failure_options]  |
 
-> 注意: 有部分参数，在 Pipeline 和 [Step](#Step) 中都可以进行设置，在运行时，哪一个参数值才会生效？ 相关说明如下：
-> -  docker_env : 如果 **Step.docker_env** 有值，则使用 **Step.docker_env** 的值，否则使用 **Pipeline.docker_env** 的值, 如果 **Step.docker_env**， **Pipeline.docker_env** 均无值，则会报错
-> - cache_opitons: 如果 **Step.cache_options** 有值，则使用 **Step.cache_options** 的值，否则使用 **Pipeline.cache_options** 的值, 如果 **Step.docker_env**， **Pipeline.docker_env** 均无值，则默认不使用 Cache 机制
-> - env: 采用合并机制: 在运行时， Step 的环境变量即包含了 **Step.env** 属性中指定环境变量，也包含了 **Pipeline.env** 中包含的环境变量， 如果有同名的环境变量，则使用 **Step.env** 定义的参数值
+> 注意: 有部分参数，在 Pipeline 和 [ContainerStep](#ContainerStep) 中都可以进行设置，在运行时，哪一个参数值才会生效？ 相关说明如下：
+> -  docker_env : 如果 **ContainerStep.docker_env** 有值，则使用 **ContainerStep.docker_env** 的值，否则使用 **Pipeline.docker_env** 的值, 如果 **ContainerStep.docker_env**和**Pipeline.docker_env** 均无值，则会报错
+> - cache_opitons: 如果 **ContainerStep.cache_options** 有值，则使用 **ContainerStep.cache_options** 的值，否则使用 **Pipeline.cache_options** 的值, 如果 **ContainerStep.docker_env**， **Pipeline.docker_env** 均无值，则默认不使用 Cache 机制
+> - env: 采用合并机制: 在运行时， Step 的环境变量即包含了 **ContainerStep.env** 属性中指定环境变量，也包含了 **Pipeline.env** 中包含的环境变量， 如果有同名的环境变量，则使用 **ContainerStep.env** 定义的参数值
 
 
 #### 返回值说明
@@ -43,13 +43,13 @@ Pipeline 的一个实例
 
 ### 设置postprocess节点
 ```python3
-# 这里的 send_mail_step() 函数需要返回一个
+# 这里的 send_mail_step() 函数需要返回一个 ContainerStep 实例
 ppl.set_post_process(send_mail_step("xiaodu@baidu.com"))
 ```
 #### 参数说明
 |字段名称 | 字段类型 | 字段含义 | 备注 |
 |:---:|:---:|:---:|:---:|
-| step | [Step](#Step) (required) | PostProcess 阶段运行的 Step |
+| step | [ContainerStep](#ContainerStep) (required) | PostProcess 阶段运行的 Step |
 
 #### 返回值说明
 无返回值
