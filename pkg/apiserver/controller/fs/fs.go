@@ -60,7 +60,23 @@ type ListFileSystemRequest struct {
 }
 
 type GetFileSystemRequest struct {
+	FsName   string `json:"fsName"`
 	Username string `json:"username"`
+}
+
+type DeleteFileSystemRequest struct {
+	FsName   string `json:"fsName"`
+	Username string `json:"username"`
+}
+
+type GetFileSystemResponse struct {
+	Id            string            `json:"id"`
+	Name          string            `json:"name"`
+	ServerAddress string            `json:"serverAddress"`
+	Type          string            `json:"type"`
+	SubPath       string            `json:"subPath"`
+	Username      string            `json:"username"`
+	Properties    map[string]string `json:"properties"`
 }
 
 type CreateFileSystemClaimsRequest struct {
