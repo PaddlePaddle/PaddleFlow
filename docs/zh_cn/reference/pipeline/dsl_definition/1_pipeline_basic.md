@@ -130,7 +130,7 @@ ContainerStep 初始化函数的主要参数说明如下：
 接下来，我们将依次介绍这三个步骤。
 
 ### 4.1、实例化Pipeline对像
-在将Step实例添加至Pipeline实例前，我们需要先实例化相关的Pipeline对象。这里需要特别注意的是，Pipeline 是一个类装饰器，我们不应该直接去实例化Pipeline对象，而应该作为一个函数的装饰器去进行实例化话，如上面的[示例](#1pipeline-示例)所示：
+在将Step实例添加至Pipeline实例前，我们需要先实例化相关的Pipeline对象。这里需要特别注意的是，Pipeline 是一个类装饰器，我们不应该直接去实例化Pipeline对象，而应该作为一个函数的装饰器去进行实例化，如上面的[示例](#1pipeline-示例)所示：
 ```python3
 @Pipeline(name="base_pipeline", docker_env="registry.baidubce.com/pipeline/nginx:1.7.9", parallelism=1)
 def base_pipeline(data_path, epoch, model_path):
@@ -146,11 +146,12 @@ Pipeline 实例化函数的主要参数说明如下：
 |字段名称 | 字段类型 | 字段含义 | 备注 |
 |:---:|:---:|:---:|:---:|
 |name| string (required)| pipeline 的名字 | 需要满足如下正则表达式： "^[A-Za-z_][A-Za-z0-9-_]{1,49}[A-Za-z0-9_]$ |
-|parallelism| string (optional) | pipeline 任务的并发数，即最大可以同时运行的节点任务数量 | | 
-|docker_env| string (optional) | 各节点默认的docker 镜像地址 | 如果Pipeline 和 ContainerStep 均指定了 docker_env, 则ContainerStep的docker_env 具有更高的优先级 |
+|parallelism| int (optional) | pipeline 任务的并发数，即最大可以同时运行的节点任务数量 | | 
+|docker_env| string (optional) | 各节点默认的docker 镜像地址 | 如果Pipeline 和 Step 均指定了 docker_env, 则Step的docker_env 具有更高的优先级 |
 
 ### 4.2、将Step实例添加至 Pipeline 实例中
-在完成了Pipeline对象的实例化后, 接下来便需要将Step实例添加至Pipeline实例中，添加方式很简单：我们只需要在**pipeline函数**中完成Step的实例化即可。 如在上面的[示例](#1pipeline-示例)中，我们pipeline函数 `base_pipeline()`中，依次调用了 `preprocess()`, `train()`, `validate()` 三个函数，而在这三个函数中，均完成了一个 Step对象的实例化。因此，此时的 Pipeline 示例中，将会包含有三个 Step 实例， 其名字依次为： "preprocess"、"train"、 "validate"。
+在完成了Pipeline对象的实例化后, 接下来便需要将Step实例添加至Pipeline实例中，添加方式很简单：我们只需在**pipeline函数**中完成Step的实例化即可。
+如在上面的[示例](#1pipeline-示例), pipeline函数 `base_pipeline()`中，依次调用了 `preprocess()`, `train()`, `validate()` 三个函数，而在这三个函数中，均完成了一个 Step对象的实例化。因此，此时的 Pipeline 示例中，将会包含有三个 Step 实例， 其名字依次为： "preprocess"、"train"、 "validate"。
 
 > **pipeline函数**: 指被Pipeline实例装饰的函数。
 
