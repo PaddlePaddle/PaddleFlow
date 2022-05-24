@@ -1,0 +1,116 @@
+# 使用postprocess与failure options
+在[DSL使用基础中][DSL使用基础]，我们介绍了 DSL 的基础使用。但是，在某些情况下，在Pipeline任务结束时，我们需要执行某些操作，如向相关人员发送邮件，向某个服务发请求以做进一步的处理等，此时便需要使用postprocess机制。在Pipeline任务运行时，有一个节点运行失败了，其余的节点需要怎么处理？是快速失败还是继续运行？此时便需要使用failure options机制。关于postprocess与failure options机制的详细解释，请点击[这里][Post-Fail-ref]。本文主要讲解如何在使用 DSL 定义pipeline时如何使用，不在对其定义进行赘述。
+
+## 1、pipeline 示例
+下面的示例是基于中的pipeline定义增加postprocess与failure options的特性升级而来
+>该示例中pipeline定义，以及示例相关运行脚本，来自pddleflow项目下example/pipeline/failure_option_and_postprocess_example示例。
+>
+>示例链接：[failure_option_and_postprocess_example][failure_option_and_postprocess_example]
+
+```python3
+from paddleflow.pipeline import Pipeline
+from paddleflow.pipeline import ContainerStep
+from paddleflow.pipeline import FailureOptions
+from paddleflow.pipeline import FAIL_CONTINUE
+from paddleflow.pipeline import FAIL_FAST
+
+def job_info():
+    return {
+        "PF_JOB_TYPE": "vcjob",
+        "PF_JOB_MODE": "Pod",
+        "PF_JOB_QUEUE_NAME": "ppl-queue",
+        "PF_JOB_FLAVOUR": "flavour1",
+    }
+
+def echo_step(name, exit_error=False):
+    command = f"echo {name}"
+    command  = f"{command}; exit  1" if exit_error else command
+
+    return ContainerStep(
+        name=name,
+        command=command
+    )
+
+@Pipeline(
+        name="failure_option_and_postprocess_example",
+        docker_env="registry.baidubce.com/pipeline/nginx:1.7.9",
+        parallelism=1,
+        env=job_info()
+        )
+def failure_option_and_postprocess_example():
+    step1 = echo_step("step1")
+    step2 = echo_step("step2")
+    step3 = echo_step("step3")
+    step2.after(step1)
+    step3.after(step2)
+
+    step4 = echo_step("step4", True)
+    step5 = echo_step("step5")
+    step5.after(step4)
+
+def set_post_process(ppl):
+    post_process = echo_step("step6")
+    ppl.set_post_process(post_process)
+
+def set_failure_options(ppl, strategy):
+    fail = FailureOptions(strategy)
+    ppl.failure_options = fail
+
+if __name__ == "__main__":
+    ppl = failure_option_and_postprocess_example()
+    set_post_process(ppl)
+    set_failure_options(ppl, FAIL_CONTINUE)
+    
+    result = ppl.run(fsname="your_fs_name")
+    print(result)
+```
+
+## 2、failure options
+在DSL中配置failure options的方式有两种，开发者可以按照自身喜好按需使用。
+
+### 2.1 实例化Pipeline对象时传入
+在调用Pipeline的实例化函数时，给参数failure_options即可，其值需要是一个[FailureOptions][FailureOptions]实例。一个示例如下：
+```python3
+failure_options = FailureOptions(FAIL_FAST)
+@Pipeline(name="failure_options", env=ENV, failure_options=failure_options,
+        docker_env="iregistry.baidu-int.com/bmlc/framework/paddle:2.0.2-gpu-cuda10.1-cudnn7")
+def show_failuer_options(num):
+    step0 = sleep_and_show("step0")
+```
+
+### 2.2 给Pipeline实例的failure_options 属性赋值
+开发者们也可以直接访问 Pipeline 实例的failure_options 属性，通过该属性来配置 failure options。 如在上面的[示例](#1pipeline-示例)中，便是通过该方法完成 faliure options 的配置。
+```python3
+def set_failure_options(ppl, strategy):
+    fail = FailureOptions(strategy)
+    ppl.failure_options = fail
+```
+
+## 3. postprocess
+通过DSL设置postprocess的方式十分简单，直接调用Pipeline实例的set_post_process()函数即可，该函数的函数签名如下：
+```python3
+def set_post_process(self, step: Step):
+    """ 设置postprocess阶段需要运行的节点
+
+    参数:
+        step (Step): 将会在postprocess阶段需要运行的节点 
+    """
+```
+
+在上面的[示例](#1pipeline-示例)中，便是通过如下的代码来设置postprocess：
+```python3
+def set_post_process(ppl):
+    post_process = echo_step("step6")
+    ppl.set_post_process(post_process)
+```
+
+# 4、更多信息
+[DSL接口文档][DSL接口文档]
+
+[在DSL中使用Cache][DSL-Cache]
+
+[DSL使用基础]: /docs/zh_cn/reference/pipeline/dsl_definition/1_pipeline_basic.md
+[FailureOptions]: /docs/zh_cn/reference/sdk_reference/pipeline_dsl_reference.md#FailureOptions
+[DSL接口文档]: /docs/zh_cn/reference/sdk_reference/pipeline_dsl_reference.md
+[在DSL中使用Cache]: /docs/zh_cn/reference/pipeline/dsl_definition/3_cache.md
+[artifact_pipeline]: /docs/zh_cn/reference/pipeline/dsl_definition/2_artifact.md
