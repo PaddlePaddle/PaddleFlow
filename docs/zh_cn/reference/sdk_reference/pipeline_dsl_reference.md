@@ -494,6 +494,8 @@ failure_options = FailureOptions("continue")
 |:---:|:---:|:---:|:---:|
 |strategy|string(required)| failure options 策略 | 详情请参考[这里][failure_options] |
 
+> 当前只支持两种策略：continue 和 fail_fast
+
 #### 返回值说明
 一个 FailureOptions 实例
 
