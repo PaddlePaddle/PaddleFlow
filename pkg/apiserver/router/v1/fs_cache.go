@@ -20,7 +20,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"paddleflow/pkg/common/schema"
 	"path/filepath"
 
 	"github.com/go-chi/chi"
@@ -33,6 +32,7 @@ import (
 	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/apiserver/router/util"
 	"paddleflow/pkg/common/logger"
+	"paddleflow/pkg/common/schema"
 )
 
 // createFSCacheConfig handles requests of creating filesystem cache config
@@ -90,19 +90,24 @@ func validateCreateFSCacheConfig(ctx *logger.RequestContext, req *api.CreateFile
 		return err
 	}
 	// cacheDir must be absolute path
-	if !filepath.IsAbs(req.CacheDir) {
+	if req.CacheDir == "" {
+		req.CacheDir = schema.DefaultCacheDir(req.FsID)
+	} else if !filepath.IsAbs(req.CacheDir) {
 		ctx.ErrorCode = common.InvalidArguments
 		err := fmt.Errorf("fs cacheDir[%s] should be absolute path", req.CacheDir)
 		ctx.Logging().Errorf("validate fs cache config fsID[%s] err: %v", req.FsID, err)
 		return err
 	}
 	// meta driver
-	if !schema.IsValidFsMetaDriver(req.MetaDriver) {
+	if req.MetaDriver == "" {
+		req.MetaDriver = schema.FsMetaDefault
+	} else if !schema.IsValidFsMetaDriver(req.MetaDriver) {
 		ctx.ErrorCode = common.InvalidArguments
 		err := fmt.Errorf("fs meta driver[%s] not valid", req.MetaDriver)
 		ctx.Logging().Errorf("validate fs cache config fsID[%s] err: %v", req.FsID, err)
 		return err
 	}
+	// BlockSize
 	if req.BlockSize < 0 {
 		ctx.ErrorCode = common.InvalidArguments
 		err := fmt.Errorf("fs data cache blockSize[%d] should not be negative", req.BlockSize)
