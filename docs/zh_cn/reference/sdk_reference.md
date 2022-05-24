@@ -537,7 +537,7 @@ class RunInfo(object):
     """the class of RunInfo info"""   
 
     def __init__(self, runId, fsname, username, status, name, desc, entry, param,
-                 run_yaml, runtime, imageUrl, update_time, source, runMsg, createTime,
+                 run_yaml, runtime, postProcess, dockerEnv, update_time, source, runMsg, createTime,
                  activateTime):
         """init """
         self.runId = runId
@@ -550,6 +550,7 @@ class RunInfo(object):
         self.param = param
         self.run_yaml = run_yaml
         self.runtime = runtime
+        self.postProcess = postProcess
         self.dockerEnv = dockerEnv
         self.update_time = update_time
         self.source = source
@@ -577,7 +578,7 @@ ret, response = client.status_run("runid")
 ```python
 class JobInfo(object):
     """ the class of job info"""
-    def __init__(self, name, deps, parameters, command, env, status, start_time, end_time, image, jobid):
+    def __init__(self, name, deps, parameters, command, env, status, start_time, end_time, dockerEnv, jobid):
         self.name = name
         self.deps = deps
         self.parameters = parameters
@@ -586,7 +587,7 @@ class JobInfo(object):
         self.status = status
         self.start_time = start_time
         self.end_time = end_time
-        self.image = image
+        self.dockerEnv = dockerEnv
         self.jobId = jobid
 ```
 ### 工作流停止
@@ -695,7 +696,7 @@ ret, response = client.show_cache("cacheid")
 
 ### 工作流缓存删除
 ```python
-ret, response = client.show_cache("cacheid")
+ret, response = client.delete_cache("cacheid")
 ```
 #### 接口入参说明
 |字段名称 | 字段类型 | 字段含义
