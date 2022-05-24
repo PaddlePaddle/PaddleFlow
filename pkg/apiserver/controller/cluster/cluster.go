@@ -59,6 +59,13 @@ type GetClusterResponse struct {
 	models.ClusterInfo
 }
 
+type ListClusterRequest struct {
+	Marker          string   `json:"marker"`
+	MaxKeys         int      `json:"maxKeys"`
+	ClusterNameList []string `json:"clusterNameList"`
+	ClusterStatus   string   `json:"clusterStatus"`
+}
+
 type ListClusterResponse struct {
 	common.MarkerInfo
 	ClusterList []models.ClusterInfo `json:"clusterList"`
