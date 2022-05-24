@@ -31,10 +31,10 @@ if __name__ == "__main__":
 |cache_options| [CacheOptions](#CacheOptions) (optional)| Pipeline 级别的 Cache 配置 | 关于Cache机制的相关介绍，请点击[这里][Cache] |
 |failure_options| [FailureOptions](#FailureOptions) (optional) |failure options 配置 | 关于failure options的相关介绍，请点击[这里][failure_options]  |
 
-> 注意: 有部分参数，在 Pipeline 和 [ContainerStep](#ContainerStep) 中都可以进行设置，在运行时，哪一个参数值才会生效？ 相关说明如下：
-> -  docker_env : 如果 **ContainerStep.docker_env** 有值，则使用 **ContainerStep.docker_env** 的值，否则使用 **Pipeline.docker_env** 的值, 如果 **ContainerStep.docker_env**和**Pipeline.docker_env** 均无值，则会报错
-> - cache_opitons: 如果 **ContainerStep.cache_options** 有值，则使用 **ContainerStep.cache_options** 的值，否则使用 **Pipeline.cache_options** 的值, 如果 **ContainerStep.docker_env**， **Pipeline.docker_env** 均无值，则默认不使用 Cache 机制
-> - env: 采用合并机制: 在运行时， Step 的环境变量即包含了 **ContainerStep.env** 属性中指定环境变量，也包含了 **Pipeline.env** 中包含的环境变量， 如果有同名的环境变量，则使用 **ContainerStep.env** 定义的参数值
+> 注意: 有部分参数，在 Pipeline 和 [Step](#ContainerStep) 中都可以进行设置，在运行时，哪一个参数值才会生效？ 相关说明如下：
+> -  docker_env : 如果 **Step.docker_env** 有值，则使用 **Step.docker_env** 的值，否则使用 **Pipeline.docker_env** 的值, 如果 **Step.docker_env**和**Pipeline.docker_env** 均无值，则会报错
+> - cache_opitons: 如果 **Step.cache_options** 有值，则使用 **Step.cache_options** 的值，否则使用 **Pipeline.cache_options** 的值, 如果 **Step.docker_env**， **Pipeline.docker_env** 均无值，则默认不使用 Cache 机制
+> - env: 采用合并机制: 在运行时， Step 的环境变量即包含了 **Step.env** 属性中指定环境变量，也包含了 **Pipeline.env** 中包含的环境变量， 如果有同名的环境变量，则使用 **Step.env** 定义的参数值
 
 
 #### 返回值说明
@@ -219,15 +219,15 @@ step = ContainerStep(
 |name| string (required)| step 的名字 | 需要满足如下正则表达式： "^[A-Za-z][A-Za-z0-9-]{1,250}[A-Za-z0-9-]$" |
 |command|string (optional)| 需要执行的命令 | |
 |docker_env| string (optional) | docker 镜像地址 |  |
-|inputs|dict[string, Aritfact]| 输入artifact信息 | key 将会作为artifact的名字，value需要是其余的节点输出artifact|
-|outputs|dict[string, Artifact]| 输出artifact信息 | key 将会作为artifact的名字, value必须是 Artifact()|
-|parameters|dict[string, Union[string, int, float, [Parameter](#Parameter)]] | parameter 信息 | key 将作为parameter的名字，value即为parameter的默认值|
+|inputs|dict[string, Aritfact] (optional)| 输入artifact信息 | key 将会作为artifact的名字，value需要是其余的节点输出artifact|
+|outputs|dict[string, Artifact] (optional)| 输出artifact信息 | key 将会作为artifact的名字, value必须是 Artifact()|
+|parameters|dict[string, Union[string, int, float, [Parameter](#Parameter)]] (optional)| parameter 信息 | key 将作为parameter的名字，value即为parameter的默认值|
 |env| dict[str, str] (optional) | 节点运行任务时的环境变量 | |
 |cache_options| [CacheOptions](#CacheOptions) (optional)|  Cache 配置 | 关于Cache机制的相关介绍，请点击[这里](Cache机制) |
 
 > 注意1：inputs, outputs, parameters 中的 key 不可以同名
 
-> 注意2: 有部分参数，在 Pipeline 和 [Step](#Step) 中都可以进行设置，在运行时，哪一个参数值才会生效？ 相关说明如下：
+> 注意2: 有部分参数，在 Pipeline(#Pipeline) 和 [Step] 中都可以进行设置，在运行时，哪一个参数值才会生效？ 相关说明如下：
 > -  docker_env : 如果 **Step.docker_env** 有值，则使用 **Step.docker_env** 的值，否则使用 **Pipeline.docker_env** 的值, 如果 **Step.docker_env**， **Pipeline.docker_env** 均无值，则会报错
 > - cache_opitons: 如果 **Step.cache_options** 有值，则使用 **Step.cache_options** 的值，否则使用 **Pipeline.cache_options** 的值, 如果 **Step.docker_env**， **Pipeline.docker_env** 均无值，则默认不使用 Cache 机制
 > - env: 采用合并机制: 在运行时， Step 的环境变量即包含了 **Step.env** 属性中指定环境变量，也包含了 **Pipeline.env** 中包含的环境变量， 如果有同名的环境变量，则使用 **Step.env** 定义的参数值
@@ -245,7 +245,7 @@ step.env
 无参数
 
 #### 返回值说明
-一个dict，包含了所有pipeline级别的环境变量信息
+一个dict，包含了所有环境变量信息
 
 
 ### 添加环境变量
@@ -264,7 +264,7 @@ step.add_env({"env1": "env1"})
 
 ### 获取step名字
 ```python3
-print(step.name)
+step.name
 ```
 
 #### 参数说明
@@ -288,25 +288,25 @@ step.name = "step1"
 
 ### 获取输入artifact信息
 ```python3
-input_art = step.inputs
+step.inputs
 ```
 
 #### 参数说明
 无参数
 
 #### 返回值说明
-一个dict: 其中key为artifact的名字，value为该输入artifact的来源，当前为其余节点的输出artifact的引用
+一个dict: 其中key为artifact的名字，value为该输入artifact的来源，为其余节点的输出artifact
 
 ### 获取输出artifact信息
 ```python3
-output_art = step.outputs
+step.outputs
 ```
 
 #### 参数说明
 无参数
 
 #### 返回值说明
-一个dict: 其中key为artifact的名字，value为一个[Artifact][#Artifact] 示例
+一个dict: 其中key为artifact的名字，value为一个[Artifact](#Artifact) 示例
 
 
 ### 获取parameter信息
