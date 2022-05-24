@@ -123,10 +123,6 @@ class RunServiceApi(object):
         data = json.loads(response.text)
         if 'message' in data:
             return False, data['message']
-        runInfo = RunInfo(data['runID'], data['fsname'], data['username'], data['status'], data['name'],
-                               data['description'], data['entry'], data['parameters'], data['runYaml'], None, None,
-                               data['dockerEnv'], data.get('updateTime', " "), data['source'],
-                               data['runMsg'], data.get('createTime', " "), data.get('activateTime', ' '))
         runtimeList = []
         runtime = data['runtime']
         if runtime:
@@ -138,7 +134,7 @@ class RunServiceApi(object):
                                 runtime[key]['jobID'])
                 runtimeInfo.name = key
                 runtimeList.append(runtimeInfo)
-        runInfo.runtime_info = runtimeList
+        runInfo.runtime = runtimeList
 
         postProcessList = []
         post = data['postProcess']
@@ -151,7 +147,12 @@ class RunServiceApi(object):
                                 post[key]['jobID'])
                 postInfo.name = key
                 postProcessList.append(postInfo)
-        runInfo.post_info = postProcessList
+        runInfo.postProcess = postProcessList
+        runInfo = RunInfo(data['runID'], data['fsname'], data['username'], data['status'], data['name'],
+                               data['description'], data['entry'], data['parameters'], data['runYaml'], None, None,
+                               data['dockerEnv'], data.get('updateTime', " "), data['source'],
+                               data['runMsg'], data.get('createTime', " "), data.get('activateTime', ' '))
+        
         return True, runInfo
 
     @classmethod
