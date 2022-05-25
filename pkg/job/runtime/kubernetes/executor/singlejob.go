@@ -24,6 +24,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 
 	"paddleflow/pkg/apiserver/models"
+	"paddleflow/pkg/common/config"
 	"paddleflow/pkg/common/errors"
 	"paddleflow/pkg/common/k8s"
 	"paddleflow/pkg/common/schema"
@@ -48,8 +49,10 @@ func (sp *SingleJob) validateJob() error {
 	if sp.KubeJob.Command == "" {
 		return fmt.Errorf("command is empty")
 	}
-	if sp.Flavour.Name == "" {
-		return fmt.Errorf("flavour name is empty")
+
+	if err := schema.ValidateResourceInfo(sp.Flavour.ResourceInfo, config.GlobalServerConfig.Job.ScalarResourceArray); err != nil {
+		log.Errorf("validate singleJob flavour failed: %v", err)
+		return err
 	}
 
 	return nil
