@@ -1,3 +1,3 @@
-module paddleflow.io/go-sdk
+module github.com/paddlepaddle/paddleflow
 
 go 1.16
