@@ -66,7 +66,9 @@ if __name__ == "__main__":
 ```
 
 # 2、定义输出Artifact
-在调用ContainerStep的实例化函数时，通过给其outputs参数进行赋值即可给ContainerStep定义输出Artifact。outputs的参数值需要是一个Dict，其key将会作为输出Artifact的名字，而其Value则必须是 Artifact()。 如在上面的示例中的，通过定如下的代码，给train_step定义了一个名为"train_model"的输出artifact
+在调用ContainerStep的实例化函数时，通过给其outputs参数进行赋值即可给ContainerStep定义输出Artifact。outputs的参数值需要是一个Dict，其key将会作为输出Artifact的名字，而其Value则必须是 Artifact()。
+
+如在上面的示例中的，通过定如下的代码，给train_step定义了一个名为"train_model"的输出artifact
 
 ```python3
 def train(epoch, train_data):
@@ -82,9 +84,11 @@ def train(epoch, train_data):
 ```
 
 # 3、定义输入Artifact
-在调用ContainerStep的实例化函数时，通过给其inputs参数进行赋值即可给ContainerStep定义输入Artifact。inputs的参数值需要是一个Dict，其key将会作为输入Artifact的名字，而其Value则必须是其余节点的输出Artifact的引用。如在上面的示例中的，通过如下的代码便给train_step定义了一个名为"train_data"的输入artifact，其值为preprocess_step输出artifact["train_data"] 的引用。
+在调用ContainerStep的实例化函数时，通过给其inputs参数进行赋值即可给ContainerStep定义输入Artifact。inputs的参数值需要是一个Dict，其key将会作为输入Artifact的名字，而其Value则必须是其余节点的输出Artifact的引用。
 
-在运行train_step时，会将其输入artifact["train_data"]替换为preprocess_step输出artifact["train_data"]的存储路径。关于Artifact替换的更多信息请参考[这里][Artifact-ref]
+如在上面的示例中的，通过如下的代码便给train_step定义了一个名为"train_data"的输入artifact，其值为preprocess_step输出artifact["train_data"] 的引用。
+
+>在运行train_step时，会将其输入artifact["train_data"]替换为preprocess_step输出artifact["train_data"]的存储路径。关于Artifact替换的更多信息请参考[这里][Artifact-ref]
 
 ```python3
 def train(epoch, train_data):
