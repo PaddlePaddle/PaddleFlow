@@ -222,6 +222,6 @@ if __name__ == "__main__":
 [变量模板与替换]: /docs/zh_cn/reference/pipeline/yaml_definition/1_pipeline_basic.md#32-变量模板与替换
 [DSL-Artifact]: /docs/zh_cn/reference/pipeline/dsl_definition/2_artifact.md
 [DSL-Cache]: /docs/zh_cn/reference/pipeline/dsl_definition/3_cache.md
-[PostProcess-And-FailureOpitons]: /docs/zh_cn/reference/pipeline/dsl_definition/4_failure_option_and_postprocess.md
+[PostProcess-And-FailureOpitons]: /docs/zh_cn/reference/pipeline/dsl_definition/4_failure_options_and_post_process.md
 [DSL接口文档]: /docs/zh_cn/reference/sdk_reference/pipeline_dsl_reference.md
 [Parameter]: /docs/zh_cn/reference/sdk_reference/pipeline_dsl_reference.md#Parameter

@@ -142,5 +142,5 @@ def preprocess(data_path):
 [artifact_pipeline]: /docs/zh_cn/reference/pipeline/dsl_definition/2_artifact.md
 [cache_example]: /example/pipeline/cache_example
 [CacheOptions]: /docs/zh_cn/reference/sdk_reference/pipeline_dsl_reference.md#CacheOptions
-[DSL-PostProcess-And-FailureOpitons]: /docs/zh_cn/reference/pipeline/dsl_definition/4_failure_option_and_postprocess.md
+[DSL-PostProcess-And-FailureOpitons]: /docs/zh_cn/reference/pipeline/dsl_definition/4_failure_options_and_post_process.md
 [DSL接口文档]: /docs/zh_cn/reference/sdk_reference/pipeline_dsl_reference.md

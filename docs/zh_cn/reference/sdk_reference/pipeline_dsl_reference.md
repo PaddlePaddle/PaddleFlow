@@ -29,7 +29,7 @@ if __name__ == "__main__":
 |docker_env| string | 各节点默认的docker 镜像地址 | 否 | |
 |env| dict[str, str] | 各节点运行任务时的环境变量 | 否 | |
 |cache_options| [CacheOptions](#CacheOptions) | Pipeline 级别的 Cache 配置 | 否 | 关于Cache机制的相关介绍，请点击[这里][Cache] |
-|failure_options| [FailureOptions](#FailureOptions) |failure options 配置 | 否 |关于failure options的相关介绍，请点击[这里][failure_options]  |
+|failure_options| [FailureOptions](#FailureOptions) |failure_options 配置 | 否 |关于failure_options的相关介绍，请点击[这里][failure_options]  |
 
 > 注意: 有部分参数，在 Pipeline 和 [Step](#ContainerStep) 中都可以进行设置，在运行时，哪一个参数值才会生效？ 相关说明如下：
 > -  docker_env : 如果 **Step.docker_env** 有值，则使用 **Step.docker_env** 的值，否则使用 **Pipeline.docker_env** 的值, 如果 **Step.docker_env**和**Pipeline.docker_env** 均无值，则会报错
@@ -55,7 +55,7 @@ ppl.set_post_process(send_mail_step("xiaodu@baidu.com"))
 无返回值
 
 
-### 1.3、获取postprocess节点 
+### 1.3、获取post_process节点 
 ```python3
 ppl.get_post_process()
 ```
@@ -113,7 +113,7 @@ ppl.topological_sort()
 无参数
 
 #### 返回值说明
-一个存储Step实例的List，其中的Step按照拓扑序排列。如果Pipeline有设置postprocess，则拓扑序中也会包含有 postprocess 中的Step
+一个存储Step实例的List，其中的Step按照拓扑序排列。如果Pipeline有设置post_process，则拓扑序中也会包含有 post_process 中的Step
 
 
 ### 1.7、获取所有Step的 parameter
@@ -134,7 +134,7 @@ ppl.get_params()
 ```
 
 
-### 1.8、获取所有的Step(不包含postprocess节点)
+### 1.8、获取所有的Step(不包含post_process节点)
 ```python3
 ppl.steps()
 ```
@@ -488,7 +488,7 @@ failure_options = FailureOptions("continue")
 #### 参数说明
 |字段名称 | 字段类型 | 字段含义 | 是否必须 | 备注 |
 |:---:|:---:|:---:|:---:|:---:|
-| strategy | string | failure options 策略 | 是 | 详情请参考[这里][failure_options] |
+| strategy | string | failure_options 策略 | 是 | 详情请参考[这里][failure_options] |
 
 > 当前只支持两种策略：continue 和 fail_fast
 
@@ -509,8 +509,8 @@ DSL也提供一些可以节点运行时获取的系统变量，见下表：
 
 
 [PaddleFlow Pipeline Overview]: /docs/zh_cn/reference/pipeline/overview.md
-[PostProcess]: /docs/zh_cn/reference/pipeline/yaml_definition/4_failure_option_and_postprocess.md
+[PostProcess]: /docs/zh_cn/reference/pipeline/yaml_definition/4_failure_options_and_post_process.md
 [yaml_definition]: /docs/zh_cn/reference/pipeline/yaml_definition
 [config_content]: TODO
 [cache]: /docs/zh_cn/reference/pipeline/yaml_definition/3_cache.md
-[failure_options]: /docs/zh_cn/reference/pipeline/yaml_definition/4_failure_option_and_postprocess.md
+[failure_options]: /docs/zh_cn/reference/pipeline/yaml_definition/4_failure_options_and_post_process.md
