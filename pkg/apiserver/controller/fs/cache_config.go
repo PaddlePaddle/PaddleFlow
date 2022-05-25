@@ -17,6 +17,8 @@ limitations under the License.
 package fs
 
 import (
+	"errors"
+	"gorm.io/gorm"
 	"paddleflow/pkg/apiserver/common"
 	"paddleflow/pkg/apiserver/models"
 	"paddleflow/pkg/common/logger"
@@ -117,8 +119,17 @@ func GetFileSystemCacheConfig(ctx *logger.RequestContext, fsID string) (FileSyst
 }
 
 func DeleteFileSystemCacheConfig(ctx *logger.RequestContext, fsID string) error {
-	err := models.DeleteFSCacheConfig(ctx.Logging(), fsID)
+	_, err := models.GetFSCacheConfig(ctx.Logging(), fsID)
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			ctx.ErrorCode = common.RecordNotFound
+		} else {
+			ctx.ErrorCode = common.FileSystemDataBaseError
+		}
+		ctx.Logging().Errorf("GetFileSystemCacheConfig fs[%s] err:%v", fsID, err)
+		return err
+	}
+	if err := models.DeleteFSCacheConfig(ctx.Logging(), fsID); err != nil {
 		ctx.Logging().Errorf("delete fs cache config failed error[%v]", err)
 		ctx.ErrorCode = common.FileSystemDataBaseError
 		return err
