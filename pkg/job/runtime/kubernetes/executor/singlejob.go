@@ -48,9 +48,6 @@ func (sp *SingleJob) validateJob() error {
 	if sp.KubeJob.Command == "" {
 		return fmt.Errorf("command is empty")
 	}
-	if sp.Flavour.Name == "" {
-		return fmt.Errorf("flavour name is empty")
-	}
 
 	return nil
 }
