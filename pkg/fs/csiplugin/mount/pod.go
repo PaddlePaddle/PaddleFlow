@@ -18,7 +18,6 @@ package mount
 
 import (
 	"fmt"
-	"path"
 	"strconv"
 	"strings"
 	"sync"
@@ -49,7 +48,6 @@ const (
 	VolumesKeyMount     = "pfs-mount"
 	VolumesKeyDataCache = "data-cache"
 	VolumesKeyMetaCache = "meta-cache"
-	HostPathMnt         = "/data/paddleflow-fs/mnt"
 	MountDir            = "/home/paddleflow/mnt"
 	CacheWorkerBin      = "/home/paddleflow/cache-worker"
 	MountPoint          = MountDir + "/storage"
@@ -174,7 +172,7 @@ func PodMount(volumeID string, mountInfo pfs.MountInfo) error {
 	return waitUtilPodReady(GeneratePodNameByFsID(volumeID))
 }
 
-func createOrAddRef(httpClient *core.PFClient, token, volumeID string, mountInfo pfs.MountInfo) error {
+func createOrAddRef(httpClient *core.PaddleFlowClient, token, volumeID string, mountInfo pfs.MountInfo) error {
 	podName := GeneratePodNameByFsID(volumeID)
 	log.Infof("pod name is %s", podName)
 
@@ -209,7 +207,7 @@ func createOrAddRef(httpClient *core.PFClient, token, volumeID string, mountInfo
 	return status.Errorf(codes.Internal, "Mount %v failed: mount pod %s has been deleting for 1 min", mountInfo.FSID, podName)
 }
 
-func addRefOfMount(mountInfo pfs.MountInfo, httpClient *core.PFClient, token string) error {
+func addRefOfMount(mountInfo pfs.MountInfo, httpClient *core.PaddleFlowClient, token string) error {
 	listMountResp, err := listMount(mountInfo, httpClient, token)
 	if err != nil {
 		log.Errorf("addRefOfMount: listMount faield: %v", err)
@@ -225,7 +223,7 @@ func addRefOfMount(mountInfo pfs.MountInfo, httpClient *core.PFClient, token str
 	return createMount(mountInfo, httpClient, token)
 }
 
-func createMountPod(k8sClient k8s.K8SInterface, httpClient *core.PFClient, token, volumeID string,
+func createMountPod(k8sClient k8s.K8SInterface, httpClient *core.PaddleFlowClient, token, volumeID string,
 	mountInfo pfs.MountInfo) error {
 	// get config
 	cacheConfig, err := fsCacheConfig(mountInfo, httpClient, token)
@@ -253,14 +251,14 @@ func createMountPod(k8sClient k8s.K8SInterface, httpClient *core.PFClient, token
 
 func defaultCacheConfig(fsID string) common.FsCacheConfig {
 	return common.FsCacheConfig{
-		CacheDir:   path.Join(HostPathMnt, fsID),
+		CacheDir:   schema.DefaultCacheDir(fsID),
 		MetaDriver: schema.FsMetaDefault,
 	}
 }
 
 func completeCacheConfig(config *common.FsCacheConfig, fsID string) {
 	if config.CacheDir == "" {
-		config.CacheDir = path.Join(HostPathMnt, fsID)
+		config.CacheDir = schema.DefaultCacheDir(fsID)
 	}
 	if config.MetaDriver == "" {
 		config.MetaDriver = schema.FsMetaDefault
@@ -402,7 +400,7 @@ func buildMountContainer(pod *v1.Pod, mountInfo pfs.MountInfo, cacheConf common.
 			Name: VolumesKeyMount,
 			VolumeSource: corev1.VolumeSource{
 				HostPath: &corev1.HostPathVolumeSource{
-					Path: HostPathMnt,
+					Path: schema.HostMntDir,
 					Type: &typeDir,
 				},
 			},

@@ -33,10 +33,10 @@ type _Client struct {
 	FsName     string
 	UserName   string
 	Token      string
-	httpClient *core.PFClient
+	httpClient *core.PaddleFlowClient
 }
 
-func NewClient(fsID string, c *core.PFClient, token string) (*_Client, error) {
+func NewClient(fsID string, c *core.PaddleFlowClient, token string) (*_Client, error) {
 	userName, fsName := common.GetFsNameAndUserNameByFsID(fsID)
 	_client := _Client{
 		Uuid:       uuid.NewString(),

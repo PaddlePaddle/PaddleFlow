@@ -22,14 +22,14 @@ const (
 	API_V1_PREFIX = "/api/core/v1"
 )
 
-type PFClientConfiguration struct {
+type PaddleFlowClientConfiguration struct {
 	Host                       string
 	Port                       int
 	ConnectionTimeoutInSeconds int
 }
 
-func (b *PFClientConfiguration) String() string {
-	return fmt.Sprintf(`PFClientConfiguration[
+func (b *PaddleFlowClientConfiguration) String() string {
+	return fmt.Sprintf(`PaddleFlowClientConfiguration[
 		Host=%s;
 		Port=%v;
 		ConnectionTimeoutInSeconds=%v

@@ -33,7 +33,7 @@ class RunServiceApi(object):
         """
 
     @classmethod
-    def add_run(self, host, fsname, name=None, desc=None, entry=None,
+    def add_run(self, host, fsname, name=None, desc=None,
                 param=None, username=None, runyamlpath=None, runyamlrawb64=None, pipelineID=None,
                 header=None, disabled=None, dockerEnv=None):
         """ add run 
@@ -47,8 +47,6 @@ class RunServiceApi(object):
             body['name'] = name
         if desc:
             body['desc'] = desc
-        if entry:
-            body['entry'] = entry
         if runyamlpath:
             body['runYamlPath']=runyamlpath
         if runyamlrawb64:
