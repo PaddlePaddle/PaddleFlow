@@ -1,7 +1,7 @@
 # DSL 使用基础
 
 # 1、pipeline 示例
-开发者除了可以通过编写 [yaml][pipeline yaml] 来定义 pipeline 外，PaddleFlow Pipeline 也提供 Python DSL 供开发者们通过写 Python 代码的方式来完成 pipeline 的定义。下面是一个最基础的使用 Python DSL 编排的 pipeline。
+开发者除了可以通过编写 [yaml][pipeline yaml] 来定义 pipeline 外，Paddleflow Pipeline 也提供 Python DSL 供开发者们通过写 Python 代码的方式来完成 pipeline 的定义。下面是一个最基础的使用 Python DSL 编排的 pipeline。
 
 > 该示例中pipeline定义，以及示例相关运行脚本，来自paddleflow项目下example/pipeline/base_pipeline示例。
 >
@@ -77,7 +77,7 @@ if __name__ == "__main__":
     print(result)
 ```
 
-> 在阅读本文档前， 请确认已经安装了 PaddleFlow SDK，并完成了相关配置。详情请点击[这里][sdk 安装与配置]
+> 在阅读本文档前， 请确认已经安装了 Paddleflow SDK，并完成了相关配置。详情请点击[这里][sdk 安装与配置]
 
 ## 2、导入DSL相关模块
 与编写任何Python脚本一样，我们首先要导入将会使用到的模块、类、或者函数等。 Python DSL 提供的模块、类、函数等都可以通过 paddleflow.pipeline 模块完成导入，如上面的[示例](#1pipeline-示例)所示：
@@ -90,7 +90,7 @@ from paddleflow.pipeline import PF_USER_NAME
 ```
 
 ## 3、定义Step
-在PaddleFlow Pipeline 中，Step是运行Pipeline时最基本的调度单位，每一个Step都会执行一个指定的任务。
+在Paddleflow Pipeline 中，Step是运行Pipeline时最基本的调度单位，每一个Step都会执行一个指定的任务。
 
 在定义Pipeline之前，首先需要完成 Step 的定义，在DSL中，我们实例化 ContainerStep 即可完成Step的定义。
 
@@ -163,7 +163,7 @@ Pipeline 实例化函数的主要参数说明如下：
 
 
 ### 4.3、指定Step实例间的依赖关系
-在一个Pipeline实例中，可能包含多个Step实例，那么这么Step实例之间是否存在有某些关系呢？答案是肯定的，在PaddleFlow Pipeline 中，Step实例之间可以存在如下的依赖关系:
+在一个Pipeline实例中，可能包含多个Step实例，那么这么Step实例之间是否存在有某些关系呢？答案是肯定的，在Paddleflow Pipeline 中，Step实例之间可以存在如下的依赖关系:
 
 - 流程依赖: 如果StepA需要在StepB之后运行，则称StepA在流程上依赖于StepB。
 - Parameter依赖: 如果StepA的某个Parameter引用了StepB的某个Parameter，则称StepA在Parameter上依赖于StepB。

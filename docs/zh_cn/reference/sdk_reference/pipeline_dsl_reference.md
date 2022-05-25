@@ -1,5 +1,5 @@
-# PaddleFlow Pipeline Python DSL 接口文档
-本文档主要介绍 PaddleFlow Pipeline Python DSL 的相关接口， 开发者可以参考本说明结合自身需求进行使用。关于 PaddleFlow Pipeline 的介绍以及使用请参考[这里][PaddleFlow Pipeline Overview]
+# Paddleflow Pipeline Python DSL 接口文档
+本文档主要介绍 Paddleflow Pipeline Python DSL 的相关接口， 开发者可以参考本说明结合自身需求进行使用。关于 Paddleflow Pipeline 的介绍以及使用请参考[这里][Paddleflow Pipeline Overview]
 
 
 ## 1、Pipeline
@@ -502,13 +502,13 @@ DSL也提供一些可以节点运行时获取的系统变量，见下表：
 |字段名称 | 字段含义 |
 |:---:|:---:|
 |PF_RUN_ID|pipeline 任务的唯一标识符|
-|PF_FS_ID|PaddleFlow File System 的唯一标识符|
-|PF_FS_ID|PaddleFlow File System 的名字|
+|PF_FS_ID|Paddleflow File System 的唯一标识符|
+|PF_FS_ID|Paddleflow File System 的名字|
 |PF_STEP_NAME|step的名字|
 |PF_USER_NAME|发起本次pipeline任务的用户名|
 
 
-[PaddleFlow Pipeline Overview]: /docs/zh_cn/reference/pipeline/overview.md
+[Paddleflow Pipeline Overview]: /docs/zh_cn/reference/pipeline/overview.md
 [post_process]: /docs/zh_cn/reference/pipeline/yaml_definition/4_failure_options_and_post_process.md
 [yaml_definition]: /docs/zh_cn/reference/pipeline/yaml_definition
 [config_content]: TODO
