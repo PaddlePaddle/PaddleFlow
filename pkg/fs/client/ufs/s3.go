@@ -908,14 +908,13 @@ func (fs *s3FileSystem) StatFs(name string) *base.StatfsOut {
 
 type mpuInfo struct {
 	uploadID       *string
-	fileEndPos     int64
 	lastPartNum    int64
 	lastUploadEnd  int64
-	partsSize      []int64
 	partsETag      []*string
 	lastWriteError error
 	writeEG        *errgroup.Group
 	flushCnt       int
+	partPool       *sync.Pool
 }
 
 type s3FileHandle struct {
@@ -987,6 +986,10 @@ func (fh *s3FileHandle) Read(buf []byte, off int64) (res fuse.ReadResult, code f
 // s3 do not support random write
 func (fh *s3FileHandle) Write(data []byte, offset int64) (uint32, fuse.Status) {
 	log.Tracef("s3 write: fh.name[%s] offset[%d] length[%d]", fh.name, offset, len(data))
+	if len(data) <= 0 {
+		log.Infof("s3 write: fh.name[%s] no need to write. data len is 0", fh.name)
+		return uint32(0), fuse.OK
+	}
 	if fh.writeTmpfile == nil {
 		log.Errorf("s3 write: fh.name[%s] failed writeTmpfile = nil", fh.name)
 		return uint32(0), fuse.EIO
@@ -1005,15 +1008,6 @@ func (fh *s3FileHandle) Write(data []byte, offset int64) (uint32, fuse.Status) {
 	}
 	fh.mu.Lock()
 	defer fh.mu.Unlock()
-	if !fh.writeDirty && fh.mpuInfo.fileEndPos == 0 {
-		fInfo, err := fh.writeTmpfile.Stat()
-		if err != nil {
-			log.Errorf("s3 write: fh.name[%s] writeTmpfile.Stat err: %v", fh.name, err)
-			return uint32(0), fuse.ToStatus(err)
-		}
-		fh.mpuInfo.fileEndPos = fInfo.Size()
-		log.Tracef("s3 write: fh.name[%s] set fh.mpuInfo.fileEndPos %d", fh.name, fh.mpuInfo.fileEndPos)
-	}
 
 	n, err := fh.writeTmpfile.WriteAt(data, offset)
 	if err != nil {
@@ -1021,75 +1015,113 @@ func (fh *s3FileHandle) Write(data []byte, offset int64) (uint32, fuse.Status) {
 		return uint32(0), fuse.ToStatus(err)
 	}
 	fh.writeDirty = true
-	fh.mpuInfo.fileEndPos += int64(len(data))
 	return uint32(n), fuse.OK
 }
 
-// if wrapAll == false, it will leave content not uploaded if not fill up partSize()
-func (fh *s3FileHandle) serialMPUTillEnd(wrapAll bool) error {
-	partSize := fh.partSize()
-	for fh.mpuInfo.fileEndPos-fh.mpuInfo.lastUploadEnd >= partSize {
-		log.Tracef("s3 serialMPUTillEnd front fh.name[%s], fh.mpuInfo.fileEndPos[%d], fh.mpuInfo.lastUploadEnd[%d], partSize[%d]",
-			fh.name, fh.mpuInfo.fileEndPos, fh.mpuInfo.lastUploadEnd, partSize)
-		start, end := fh.mpuInfo.lastUploadEnd, fh.mpuInfo.lastUploadEnd+partSize
-		partNum := fh.mpuInfo.lastPartNum + 1
-		// update mpu info
-		fh.mpuInfo.partsSize = append(fh.mpuInfo.partsSize, partSize)
-		fh.mpuInfo.lastUploadEnd = end
-		fh.mpuInfo.lastPartNum = partNum
-		// read file and upload
-		if err := fh.readFileMPUAsync(partNum, start, end); err != nil {
-			log.Debugf("s3 write: fh.name[%s], serial readFileMPUAsync[%d] [%d]-[%d] err:%v",
-				fh.name, partNum, start, end, err)
+func (fh *s3FileHandle) serialMPUTillEnd() error {
+	fInfo, err := fh.writeTmpfile.Stat()
+	if err != nil {
+		log.Errorf("s3 serialMPUTillEnd: fh.name[%s] writeTmpfile.Stat err: %v", fh.name, err)
+		return err
+	}
+	fileSize := fInfo.Size()
+	log.Tracef("s3 mpu: fh.name[%s], fileSize[%d]", fh.name, fileSize)
+	partSize, chunkSize, _ := fh.partAndChunkSize(fileSize)
+	fh.mpuInfo.partPool = &sync.Pool{New: func() interface{} {
+		return make([]byte, partSize)
+	}}
+	defer func() {
+		fh.mpuInfo.partPool = nil
+	}()
+	chunkCnt := fileSize / chunkSize
+	chunkLeftover := fileSize % chunkSize
+	if chunkLeftover != 0 {
+		chunkCnt++
+	}
+	log.Tracef("s3 mpu: fh.name[%s], chunkCnt: %d, chunkLeftover: %d",
+		fh.name, chunkCnt, chunkLeftover)
+
+	partCnt := fileSize / partSize
+	partLeftover := fileSize % partSize
+	if partLeftover != 0 {
+		partCnt++
+	}
+
+	fh.mpuInfo.lastPartNum = partCnt
+	fh.mpuInfo.partsETag = make([]*string, partCnt)
+	fh.mpuInfo.writeEG = new(errgroup.Group)
+
+	log.Tracef("s3 mpu: fh.name[%s], fileSize[%d], chunkCnt[%d], partCnt[%d]",
+		fh.name, fileSize, chunkCnt, partCnt)
+
+	for i := int64(0); i < chunkCnt; i++ {
+		// read tmp file to chunks
+		chunkBuf := fh.fs.chunkPool.Get().([]byte)
+		// resize chunk buffer for the last chunk to avoid EOF error
+		if chunkLeftover != 0 && i == chunkCnt-1 {
+			log.Tracef("s3 mpu upload: fh.name[%s], last chunk: %d, leftover: %d", fh.name, i, chunkLeftover)
+			chunkBuf = chunkBuf[:chunkLeftover]
+		}
+		chunkNum := i
+		if err := fh.readChunkAndMPU(fileSize, chunkNum, chunkBuf); err != nil {
+			log.Errorf("s3 multipartUploadFile: readChunkAndMPU error: %v", err)
 			return err
 		}
 	}
-	if wrapAll {
-		log.Tracef("s3 serialMPUTillEnd wrapall fh.name[%s], fh.mpuInfo.fileEndPos[%d], fh.mpuInfo.lastUploadEnd[%d]", fh.name, fh.mpuInfo.fileEndPos, fh.mpuInfo.lastUploadEnd)
-		start, end := fh.mpuInfo.lastUploadEnd, fh.mpuInfo.fileEndPos
-		partNum := fh.mpuInfo.lastPartNum + 1
-		// update mpu info
-		fh.mpuInfo.partsSize = append(fh.mpuInfo.partsSize, fh.mpuInfo.fileEndPos-fh.mpuInfo.lastUploadEnd)
-		fh.mpuInfo.lastUploadEnd = fh.mpuInfo.fileEndPos
-		fh.mpuInfo.lastPartNum = partNum
-		// read file and upload
-		if err := fh.readFileMPUAsync(partNum, start, end); err != nil {
-			log.Debugf("s3 write: fh.name[%s], wrapall readFileMPUAsync[%d] [%d]-[%d] err:%v",
-				fh.name, partNum, start, end, err)
-			return err
-		}
+	if err := fh.mpuInfo.writeEG.Wait(); err != nil {
+		log.Errorf("s3 multipartUploadFile: fh.mpuInfo.writeEG.Wait() error: %v", err)
+		return err
 	}
 	return nil
 }
 
-func (fh *s3FileHandle) readFileMPUAsync(partNum, startPos, endPos int64) error {
-	log.Tracef("s3 readFileMPUAsync: fh.name[%s], partNum[%d], startPos[%d], endPos[%d]",
-		fh.name, partNum, startPos, endPos)
-	bufSz := endPos - startPos
-	buf := make([]byte, bufSz)
-	if _, err := fh.writeTmpfile.ReadAt(buf, startPos); err != nil {
-		log.Errorf("s3 readFileMPU: fh.name[%s], partNum: %d. writeTmpfile.ReadAt err:%v",
-			fh.name, partNum, err)
-		fh.mpuInfo.lastWriteError = err
+func (fh *s3FileHandle) readChunkAndMPU(fileSize, chunkNum int64, chunk []byte) error {
+	defer func() {
+		chunk = chunk[:cap(chunk)]
+		fh.fs.chunkPool.Put(chunk)
+	}()
+	partSize, chunkSize, partsPerChunk := fh.partAndChunkSize(fileSize)
+
+	// read from file to chunk buffer
+	_, err := fh.writeTmpfile.ReadAt(chunk, chunkNum*chunkSize)
+	if err != nil {
+		log.Errorf("s3 mpu upload: fh.name[%s], failed reading temp file chunkNum: %d. err:%v", fh.name, chunkNum, err)
 		return err
 	}
-
-	fh.mpuInfo.writeEG.Go(func() error {
-		if err := fh.multipartUpload(partNum, buf); err != nil {
-			log.Debugf("s3 readFileMPU: fh.name[%s], multipartUpload[%d] err: %v",
-				fh.name, partNum, err)
+	partCnt := int64(len(chunk)) / partSize
+	log.Tracef("s3 mpu readFileAndUploadChunks: fh.name[%s], chunkNum: %d, chunkLength: %d, partCnt: %d, partSize: %d",
+		fh.name, chunkNum, len(chunk), partCnt, partSize)
+	// partNum := lastPartNum + 1; partNum <= partCnt; partNum++
+	for i := int64(1); i <= partCnt; i++ {
+		partNum := partsPerChunk*chunkNum + i
+		start := (i - 1) * partSize
+		end := start + partSize
+		if end > int64(len(chunk)) {
+			end = int64(len(chunk))
+		}
+		partBuf := fh.mpuInfo.partPool.Get().([]byte)
+		partBuf = partBuf[:end-start]
+		cnt := copy(partBuf, chunk[start:end])
+		if int64(cnt) != end-start {
+			err := fmt.Errorf("copy part buf failed. len should be %d, but is %d", end-start, cnt)
 			return err
 		}
-		return nil
-	})
+		fh.mpuInfo.writeEG.Go(func() error {
+			if err := fh.multipartUpload(partNum, partBuf); err != nil {
+				log.Debugf("s3 readFileMPU: fh.name[%s], multipartUpload[%d] err: %v",
+					fh.name, partNum, err)
+				return err
+			}
+			return nil
+		})
+	}
 	return nil
 }
 
 func (fh *s3FileHandle) Release() {
-	log.Tracef("s3 release: fh.name[%s], tmpSize[%d], flushCnt[%d]",
-		fh.name, fh.mpuInfo.fileEndPos, fh.mpuInfo.flushCnt)
+	log.Tracef("s3 release: fh.name[%s], flushCnt[%d]", fh.name, fh.mpuInfo.flushCnt)
 
-	if err := fh.uploadWriteTmpFile(true); err != nil {
+	if err := fh.uploadWriteTmpFile(); err != nil {
 		log.Errorf("s3 release: fh.name[%s] fh.uploadWriteTmpFile err: %v", fh.name, err)
 	}
 
@@ -1103,12 +1135,11 @@ func (fh *s3FileHandle) Release() {
 
 func (fh *s3FileHandle) Flush() fuse.Status {
 	fh.mpuInfo.flushCnt++
-	log.Tracef("s3 flush: fh.name[%s], tmpSize[%d], flushCnt[%d]",
-		fh.name, fh.mpuInfo.fileEndPos, fh.mpuInfo.flushCnt)
-	return fuse.ToStatus(fh.uploadWriteTmpFile(true))
+	log.Tracef("s3 flush: fh.name[%s], flushCnt[%d]", fh.name, fh.mpuInfo.flushCnt)
+	return fuse.ToStatus(fh.uploadWriteTmpFile())
 }
 
-func (fh *s3FileHandle) uploadWriteTmpFile(commit bool) error {
+func (fh *s3FileHandle) uploadWriteTmpFile() error {
 	if !fh.writeDirty {
 		log.Tracef("s3 uploadWriteTmpFile: fh.name[%s] writeDirty=false, no need to upload", fh.name)
 		return nil
@@ -1134,54 +1165,58 @@ func (fh *s3FileHandle) uploadWriteTmpFile(commit bool) error {
 	fh.mu.Lock()
 	defer fh.mu.Unlock()
 
-	if fh.mpuInfo.uploadID == nil {
-		if fh.mpuInfo.fileEndPos > MPUThreshold {
-			if err := fh.multipartCreate(); err != nil {
-				log.Debugf("s3 uploadWriteTmpFile: fh.name[%s], mpu create err: %v", fh.name, err)
-				return err
-			}
-		} else if commit {
-			if fh.mpuInfo.fileEndPos == 0 {
-				if err := fh.fs.putEmptyFile(fh.path); err != nil {
-					log.Debugf("s3 uploadWriteTmpFile: fh.name[%s], putEmptyFile err: %v", fh.name, err)
-					return err
-				}
-			} else if fh.mpuInfo.fileEndPos <= MPUThreshold {
-				if err := fh.putFile(fh.mpuInfo.fileEndPos); err != nil {
-					log.Debugf("s3 uploadWriteTmpFile: fh.name[%s], putFile length[%d] err: %v", fh.name, fh.mpuInfo.fileEndPos, err)
-					return err
-				}
-			}
-			fh.writeDirty = false
-			log.Tracef("s3 uploadWriteTmpFile: fh.name[%s] commit finished", fh.name)
-			return nil
-		} else {
-			return nil
-		}
-	}
-
-	if fh.mpuInfo.uploadID == nil {
-		log.Errorf("s3 uploadWriteTmpFile: fh.name[%s] mpuID nil", fh.name)
-		return syscall.EIO
-	}
-
-	// read file and upload
-	if err := fh.serialMPUTillEnd(commit); err != nil {
-		log.Debugf("s3 flush: fh.name[%s], serialMPUTillEnd err:%v", fh.name, err)
+	fInfo, err := fh.writeTmpfile.Stat()
+	if err != nil {
+		log.Errorf("s3 serialMPUTillEnd: fh.name[%s] writeTmpfile.Stat err: %v", fh.name, err)
 		return err
 	}
-	if commit {
-		if err := fh.mpuInfo.writeEG.Wait(); err != nil {
-			log.Debugf("s3 flush: fh.name[%s], lastWriteError:%v, cannot flush", fh.name, fh.mpuInfo.lastWriteError)
-			return fh.mpuInfo.lastWriteError
-		}
-
-		if err := fh.multipartCommit(); err != nil {
-			log.Debugf("s3 flush: fh.name[%s], multipartCommit err:%v",
-				fh.name, err)
+	fileSize := fInfo.Size()
+	// put empty file
+	if fileSize == 0 {
+		if err := fh.fs.putEmptyFile(fh.path); err != nil {
+			log.Debugf("s3 uploadWriteTmpFile: fh.name[%s], putEmptyFile err: %v", fh.name, err)
 			return err
 		}
 		fh.writeDirty = false
+		return nil
+	}
+	// put file
+	if fileSize <= MPUThreshold {
+		if err := fh.putFile(fileSize); err != nil {
+			log.Debugf("s3 uploadWriteTmpFile: fh.name[%s], putFile length[%d] err: %v", fh.name, fileSize, err)
+			return err
+		}
+		fh.writeDirty = false
+		return nil
+	}
+	// multi-part upload
+	if fh.mpuInfo.uploadID != nil {
+		log.Errorf("s3 uploadWriteTmpFile: fh.name[%s] mpuID not nil", fh.name)
+		return syscall.EIO
+	}
+	if err := fh.MPU(); err != nil {
+		log.Errorf("s3 uploadWriteTmpFile: fh.name[%s] MPU err: %v", fh.name, err)
+		return err
+	}
+	fh.writeDirty = false
+	return nil
+}
+
+func (fh *s3FileHandle) MPU() error {
+	if err := fh.multipartCreate(); err != nil {
+		log.Debugf("s3 MPU: fh.name[%s], mpu create err: %v", fh.name, err)
+		return err
+	}
+
+	if err := fh.serialMPUTillEnd(); err != nil {
+		log.Debugf("s3 MPU: fh.name[%s], serialMPUTillEnd err:%v", fh.name, err)
+		return err
+	}
+
+	if err := fh.multipartCommit(); err != nil {
+		log.Debugf("s3 MPU: fh.name[%s], multipartCommit err:%v",
+			fh.name, err)
+		return err
 	}
 	return nil
 }
@@ -1250,8 +1285,7 @@ func (fh *s3FileHandle) Truncate(size uint64) fuse.Status {
 		return fuse.ToStatus(err)
 	}
 	fh.writeDirty = true
-	fh.mpuInfo.fileEndPos = int64(size)
-	return fuse.ToStatus(fh.uploadWriteTmpFile(true))
+	return fuse.ToStatus(fh.uploadWriteTmpFile())
 }
 
 func (fh *s3FileHandle) Chmod(mode uint32) fuse.Status {
@@ -1279,15 +1313,28 @@ func (fh *s3FileHandle) Utimens(atime *time.Time, mtime *time.Time) fuse.Status 
 	return fuse.ToStatus(fh.fs.Utimens(fh.name, atime, mtime))
 }
 
-func (fh *s3FileHandle) partSize() (size int64) {
-	if fh.mpuInfo.lastPartNum < 1000 {
-		size = 5 * 1024 * 1024
-	} else if fh.mpuInfo.lastPartNum < 2000 {
-		size = 25 * 1024 * 1024
-	} else {
-		size = 125 * 1024 * 1024
+func (fh *s3FileHandle) partAndChunkSize(fileSize int64) (partSize int64, chunkSize int64, partsPerChunk int64) {
+	chunkSize = MPUChunkSize // chunk size = 1 GiB
+	const MiB int64 = 1024 * 1024
+	const GiB int64 = 1024 * 1024 * 1024
+	if fileSize <= 8*GiB { // fileSize <= 8 GiB
+		// 8 MiB, 128 parts/chunk, total: 0 ~ 1,000 parts & chunks <= 8
+		partSize, partsPerChunk = 8*MiB, 128
+	} else if fileSize <= 256*GiB { // fileSize 8 GiB ~ 256 GiB
+		// 64 MiB, 16 parts/chunk, total: 125 ~ 4,000 parts & 8 ~ 256 chunks
+		partSize, partsPerChunk = 64*MiB, 16
+	} else if fileSize <= 2*1024*GiB { // fileSize 256 GiB ~ 2 TiB
+		// 512 MiB, 2 parts/chunk, total: 500 ~ 4000 parts & 256 ~ 2000 chunks
+		partSize, partsPerChunk = 512*MiB, 2
+	} else { // fileSize 2.5 TiB ~ 5 Tib
+		// 1 GiB, 1 parts/chunk, total: 2500 ~ 5000 parts & 2500 ~ 5000 chunks
+		partSize, partsPerChunk = 1*GiB, 1
 	}
-	return size
+	if chunkSize%partSize != 0 || chunkSize/partSize != partsPerChunk {
+		log.Errorf("not valid partSize: %d or chunkSize: %d", partSize, chunkSize)
+		return 0, 0, 0
+	}
+	return partSize, chunkSize, partsPerChunk
 }
 
 func tidySubpath(subpath string) string {
@@ -1433,13 +1480,15 @@ func (fh *s3FileHandle) multipartCreate() error {
 		return err
 	}
 	fh.mpuInfo.uploadID = respCreate.UploadId
-	fh.mpuInfo.writeEG = new(errgroup.Group)
-	fh.mpuInfo.partsETag = make([]*string, MPUMaxPartNum)
 	log.Debugf("s3 mpu create: fh.name[%s], create resp: %v ", fh.name, respCreate)
 	return nil
 }
 
 func (fh *s3FileHandle) multipartUpload(partNum int64, data []byte) error {
+	defer func() {
+		data = data[:cap(data)]
+		fh.mpuInfo.partPool.Put(data)
+	}()
 	mpu := s3.UploadPartInput{
 		Bucket:     &fh.bucket,
 		Key:        aws.String(fh.path),
@@ -1501,7 +1550,6 @@ func (fh *s3FileHandle) multipartCommit() error {
 		return err
 	}
 	fh.mpuInfo.uploadID = nil
-	fh.mpuInfo.partsSize = nil
 	fh.mpuInfo.partsETag = nil
 	log.Tracef("s3 mpu commit: fh.name[%s], commit resp: %v ", fh.name, respCommit)
 	return nil
