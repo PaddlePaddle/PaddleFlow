@@ -501,8 +501,8 @@ ret, response = client.create_run(fsname="fsname", runyamlpath="./run.yaml")
 |runyamlraw| string (optional)|本地yaml 文件路径，发起任务方式之一
 |pipelineid| string (optional)|pipeline模板的ID，发起任务方式之一
 |param| dict (optional)|工作流运行参数 如{"epoch":100}
-|disabled| string |不需要运行的多个步骤，用逗号分割节点名称，如"step1,step2"
-|dockerenv| string |镜像的url或镜像tar包在fs的路径
+|disabled| string (optional) |不需要运行的多个步骤，用逗号分割节点名称，如"step1,step2"
+|dockerenv| string (optional) |镜像的url或镜像tar包在fs的路径
 
 #### 接口返回说明
 |字段名称 | 字段类型 | 字段含义
@@ -520,8 +520,8 @@ ret, response = client.list_run()
 |:---:|:---:|:---:|
 |fsname| string (optional)|存储系统名称，传入只会list出对应fsname的run 
 |username| string (optional)|用户名称，传入只会list出指定用户的run 
-|run_id| string (optional)|run_id，传入只会list出指定的run
-|run_name| string (optional) |run的名称，传入只会list出拥有对应名称的run
+|runid| string (optional)|runid，传入只会list出指定的run
+|runname| string (optional) |run的名称，传入只会list出拥有对应名称的run
 |maxsize| int (optional,default=100)| 展示列表数量上限，默认值为100
 |marker| string (optional)| 下一页的起始位置，传入展示下一页，
 
@@ -537,7 +537,7 @@ class RunInfo(object):
     """the class of RunInfo info"""   
 
     def __init__(self, runId, fsname, username, status, name, desc, entry, param,
-                 run_yaml, runtime, postProcess, dockerEnv, update_time, source, runMsg, createTime,
+                 runYaml, runtime, postProcess, dockerEnv, updateTime, source, runMsg, createTime,
                  activateTime):
         """init """
         self.runId = runId
@@ -548,11 +548,11 @@ class RunInfo(object):
         self.desc = desc
         self.entry = entry
         self.param = param
-        self.run_yaml = run_yaml
+        self.runYaml = runYaml
         self.runtime = runtime
         self.postProcess = postProcess
         self.dockerEnv = dockerEnv
-        self.update_time = update_time
+        self.updateTime = updateTime
         self.source = source
         self.runMsg = runMsg
         self.createTime = createTime
@@ -598,7 +598,7 @@ ret, response = client.stop_run("runid")
 |字段名称 | 字段类型 | 字段含义
 |:---:|:---:|:---:|
 |runid| string (required)|需要停止的runid
-|force| string (optional)|是否停止postProcess
+|force| bool (optional)|是否停止postProcess
 
 #### 接口返回说明
 |字段名称 | 字段类型 | 字段含义
