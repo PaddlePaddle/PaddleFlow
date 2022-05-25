@@ -297,7 +297,7 @@ mount命令：用户输入```paddleflow fs mount {fs_name} {mountpath}```，界�
 `run` 提供了`create`, `list`, `status`, `stop`, `retry`, `delete`, `listcache`, `showcache`, `delcache`, `artifact`十种不同的方法。 十种不同操作的示例如下：
 
 ```bash
-paddleflow run create -fs(--fsname) fs_name -n(--name) run_name  -d(--desc) xxx -u(--username) username -p(--param) data_file=xxx -p regularization=*** -yp(--runyamlpath) ./run.yaml -pplid(--pipelineid) ppl-000666 -yr(runyamlraw) xxx --disabled some_step_names -de(--dockerEnv) docker_env // 创建pipeline作业，-yp、-pplid、yr为3中发起任务的方式，每次只能使用其中一种
+paddleflow run create -fs(--fsname) fs_name -n(--name) run_name  -d(--desc) xxx -u(--username) username -p(--param) data_file=xxx -p regularization=*** -yp(--runyamlpath) ./run.yaml -pplid(--pipelineid) ppl-000666 -yr(runyamlraw) xxx --disabled some_step_names -de(--dockerenv) docker_env // 创建pipeline作业，-yp、-pplid、yr为3中发起任务的方式，每次只能使用其中一种
 paddleflow run list -f(--fsname) fsname -u(--username) username -r(--runid) runid -n(--name) name -m(--maxsize) 10 -mk(--marker) xxx//列出所有运行的pipeline （通过fsname 列出特定fs下面的pipeline；通过username 列出特定用户的pipeline（限root用户）;通过runid列出特定runid的pipeline; 通过name列出特定name的pipeline）
 paddleflow run status runid // 展示一个pipeline下面的详细信息，包括job信息列表
 paddleflow run stop runid -f(--force) //停止一个pipeline

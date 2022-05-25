@@ -8,12 +8,10 @@ cat $2/data
 echo "Trainning..."
 
 mkdir -p $3
-echo "paddleflow model in path: $PF_OUTPUT_ARTIFACT_TRAIN_MODEL/model" > $3/model
-echo "get outputAtf in env: $PF_OUTPUT_ARTIFACT_TRAIN_MODEL/model"
-echo "MODEL PATH: $3/model"
+echo "step train: get inputAtf[train_data] in env: $PF_INPUT_ARTIFACT_TRAIN_DATA" >> $3/model
+echo "step train: get outputAtf[train_model] in env: $PF_OUTPUT_ARTIFACT_TRAIN_MODEL" >> $3/model
+echo "step train: paddleflow model in path: $PF_OUTPUT_ARTIFACT_TRAIN_MODEL/model" >> $3/model
 
-mkdir $PF_OUTPUT_ARTIFACT_TRAIN_MODEL
-
-sleep 30
+sleep 5
 
 echo "ending..."

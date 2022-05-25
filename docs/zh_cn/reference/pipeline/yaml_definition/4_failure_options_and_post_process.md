@@ -31,68 +31,72 @@
 
 下面为示例pipeline定义，其中包含failure option，和postprocess相关字段。
 
-> 该示例中pipeline定义，以及示例相关运行脚本，来自pddleflow项目下example/pipeline/failure_option_and_postprocess_example 示例。
+> 该示例中pipeline定义，以及示例相关运行脚本，来自pddleflow项目下example/pipeline/failure_options_and_post_process_example 示例。
 > 
-> 示例链接：[failure_option_and_postprocess_example]
+> 示例链接：[failure_options_and_post_process_example]
 
 ```
-name: base_pipeline
-
-docker_env: nginx:1.7.9
+name: failure_options_and_post_process_example
 
 entry_points:
-
   step1:
-    command: "echo step1; exit 1"
+    command: echo step1
     env:
-      PF_JOB_TYPE: vcjob
-      PF_JOB_MODE: Pod
-      PF_JOB_QUEUE_NAME: queue1
       PF_JOB_FLAVOUR: flavour1
+      PF_JOB_MODE: Pod
+      PF_JOB_QUEUE_NAME: ppl-queue
+      PF_JOB_TYPE: vcjob
 
   step2:
+    command: echo step2
     deps: step1
-    command: "echo step2"
     env:
-      PF_JOB_TYPE: vcjob
-      PF_JOB_MODE: Pod
-      PF_JOB_QUEUE_NAME: queue1
       PF_JOB_FLAVOUR: flavour1
+      PF_JOB_MODE: Pod
+      PF_JOB_QUEUE_NAME: ppl-queue
+      PF_JOB_TYPE: vcjob
 
   step3:
+    command: echo step3
     deps: step2
-    command: "echo step3"
     env:
-      PF_JOB_TYPE: vcjob
-      PF_JOB_MODE: Pod
-      PF_JOB_QUEUE_NAME: queue1
       PF_JOB_FLAVOUR: flavour1
+      PF_JOB_MODE: Pod
+      PF_JOB_QUEUE_NAME: ppl-queue
+      PF_JOB_TYPE: vcjob
 
   step4:
-    command: "echo step4; exit 1"
+    command: echo step4; exit  1
     env:
-      PF_JOB_TYPE: vcjob
-      PF_JOB_MODE: Pod
-      PF_JOB_QUEUE_NAME: queue1
       PF_JOB_FLAVOUR: flavour1
+      PF_JOB_MODE: Pod
+      PF_JOB_QUEUE_NAME: ppl-queue
+      PF_JOB_TYPE: vcjob
 
   step5:
+    command: echo step5
     deps: step4
-    command: "echo step5"
     env:
-      PF_JOB_TYPE: vcjob
-      PF_JOB_MODE: Pod
-      PF_JOB_QUEUE_NAME: queue1
       PF_JOB_FLAVOUR: flavour1
+      PF_JOB_MODE: Pod
+      PF_JOB_QUEUE_NAME: ppl-queue
+      PF_JOB_TYPE: vcjob
 
 post_process:
   step6:
-    command: "echo step6"
+    command: echo step6
     env:
-      PF_JOB_TYPE: vcjob
-      PF_JOB_MODE: Pod
-      PF_JOB_QUEUE_NAME: queue1
       PF_JOB_FLAVOUR: flavour1
+      PF_JOB_MODE: Pod
+      PF_JOB_QUEUE_NAME: ppl-queue
+      PF_JOB_TYPE: vcjob
+
+failure_options:
+  strategy: continue
+
+parallelism: 1
+
+docker_env: registry.baidubce.com/pipeline/nginx:1.7.9
 ```
 
 # 3 配置详解
@@ -114,7 +118,7 @@ post_process:
 
 与entrypoints字段类似，在该字段中，我们可以定义 post_process 阶段执行的 step，step的定义方式亦与entrypoints中保持一致。
 
-摘取【2 pipeline定义】中postprocess部分，展示如下：
+摘取 [2 pipeline定义] 中postprocess部分，展示如下：
 
 ```
 post_process:
@@ -136,4 +140,5 @@ post_process:
 - post_process中的节点，不能与entry_points中的节点存在任何依赖关系
 - post_process中的节点，不能与entry_points 中节点名相同
 
-[failure_option_and_postprocess_example]: https://github.com/Mo-Xianyuan/PaddleFlow/tree/docs/example/pipeline/failure_option_and_postprocess_example
+[failure_options_and_post_process_example]: https://github.com/Mo-Xianyuan/PaddleFlow/tree/docs/example/pipeline/failure_options_and_post_process_example
+[2 pipeline定义]: https://github.com/Mo-Xianyuan/PaddleFlow/blob/docs/docs/zh_cn/reference/pipeline/yaml_definition/4_failure_options_and_post_process.md#2-pipeline%E5%AE%9A%E4%B9%89
