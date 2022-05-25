@@ -91,7 +91,9 @@ from paddleflow.pipeline import PF_USER_NAME
 
 ## 3、定义Step
 在PaddleFlow Pipeline 中，Step是运行Pipeline时最基本的调度单位，每一个Step都会执行一个指定的任务。
+
 在定义Pipeline之前，首先需要完成 Step 的定义，在DSL中，我们实例化 ContainerStep 即可完成Step的定义。
+
 如上面[示例中](#1pipeline-示例)的 `preprocess()`, `train()`, `validate()` 函数所示, 在这三个函数中，都实例化了一个ContainerStep对象。为了方便，我们将 `preprocess()` 的函数代码抄录如下：
 
 ```python3
@@ -155,9 +157,9 @@ Pipeline 实例化函数的主要参数说明如下：
 ### 4.2、将Step实例添加至Pipeline实例中
 在完成了Pipeline对象的实例化后, 接下来便需要将Step实例添加至Pipeline实例中，添加方式很简单：我们只需在**pipeline函数**中完成Step的实例化即可。
 
-如在上面的[示例](#1pipeline-示例)所示, 在pipeline函数 `base_pipeline()`中，依次调用了 `preprocess()`, `train()`, `validate()` 三个函数，而在这三个函数中，均完成了一个 Step对象的实例化。因此，此时的Pipeline实例将会包含有三个Step实例， 其名字依次为： "preprocess"、"train"、 "validate"。
-
 > **pipeline函数**: 指被Pipeline实例装饰的函数。
+> 
+如在上面的[示例](#1pipeline-示例)所示, 在pipeline函数 `base_pipeline()`中，依次调用了 `preprocess()`, `train()`, `validate()` 三个函数，而在这三个函数中，均完成了一个 Step对象的实例化。因此，此时的Pipeline实例将会包含有三个Step实例， 其名字依次为： "preprocess"、"train"、 "validate"。
 
 
 ### 4.3、指定Step实例间的依赖关系
