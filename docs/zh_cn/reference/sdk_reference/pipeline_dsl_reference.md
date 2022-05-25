@@ -28,7 +28,7 @@ if __name__ == "__main__":
 |parallelism| string | pipeline 任务的并发数，即最大可以同时运行的节点任务数量 | 否 | | 
 |docker_env| string | 各节点默认的docker 镜像地址 | 否 | |
 |env| dict[str, str] | 各节点运行任务时的环境变量 | 否 | |
-|cache_options| [CacheOptions](#2CacheOptions) | Pipeline 级别的 Cache 配置 | 否 | 关于Cache机制的相关介绍，请点击[这里][Cache] |
+|cache_options| [CacheOptions](#5CacheOptions) | Pipeline 级别的 Cache 配置 | 否 | 关于Cache机制的相关介绍，请点击[这里][Cache] |
 |failure_options| [FailureOptions](#6FailureOptions) |failure_options 配置 | 否 |关于failure_options的相关介绍，请点击[这里][failure_options]  |
 
 > 注意: 有部分参数，在 Pipeline 和 [Step](#2ContainerStep) 中都可以进行设置，在运行时，哪一个参数值才会生效？ 相关说明如下：
