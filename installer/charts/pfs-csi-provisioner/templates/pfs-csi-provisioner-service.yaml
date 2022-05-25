@@ -1,0 +1,141 @@
+{{- if .Values.pfs_csi_provisioner.enable }}
+{{- if and .Values.pfs_csi_provisioner.service.ports (not .Values.pfs_csi_provisioner.service.extra_usr_define_services) }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "pfs-csi-provisioner.pfs_csi_provisioner.fullname" . }}
+  labels:
+    app: {{ template "pfs-csi-provisioner.pfs_csi_provisioner.fullname" . }}
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    release: "{{ .Release.Name }}"
+    heritage: "{{ .Release.Service }}"
+    app.kubernetes.io/managed-by: '{{ $.Release.Service }}'
+    app.kubernetes.io/instance: '{{ $.Release.Name }}'
+    helm.sh/chart: '{{ $.Chart.Name }}-{{ $.Chart.Version }}'
+    app.kubernetes.io/name: '{{ template "pfs-csi-provisioner.pfs_csi_provisioner.fullname" $ }}'
+
+  annotations:
+    {{- if (or .Values.pfs_csi_provisioner.logExporter.enable .Values.pfs_csi_provisioner.service.prometheus_scrape) }}
+    prometheus.io/scrape: "true"
+    {{- end }}
+    {{- if .Values.pfs_csi_provisioner.service.annotations }}
+    {{- range $key, $val := .Values.pfs_csi_provisioner.service.annotations }}
+    {{$key}}: {{$val}}
+    {{- end }}
+    {{- end }}
+spec:
+  {{- if ne "" .Values.pfs_csi_provisioner.service.clusterIP }}
+  clusterIP: {{ .Values.pfs_csi_provisioner.service.clusterIP }}
+  {{- end }}
+  type: {{ .Values.pfs_csi_provisioner.service.type }}
+  {{- with .Values.pfs_csi_provisioner.service.sessionAffinity }}
+  sessionAffinity: {{ . }}
+  {{- end }}
+  {{- with .Values.pfs_csi_provisioner.service.sessionAffinityConfig }}
+  sessionAffinityConfig:
+{{ toYaml . | indent 4}}
+  {{- end }}
+  ports:
+  {{- range $key, $val := .Values.pfs_csi_provisioner.service.ports }}
+  - name: {{ $val.name }}
+  {{- if $val.port }}
+    port: {{ $val.port }}
+  {{- else if $val.containerPort }}
+    port: {{ $val.containerPort }}
+  {{- end }}
+  {{- with $val.appProtocol}}
+    appProtocol: {{.}}
+  {{- end }}
+  {{- with $val.nodePort }}
+    nodePort: {{.}}
+  {{- end }}
+  {{- with $val.protocol }}
+    protocol: {{.}}
+  {{- end }}
+  {{- if $val.containerPort }}
+    targetPort: {{ $val.containerPort }}
+  {{- else if $val.port }}
+    targetPort: {{ $val.port }}
+  {{- end }}
+  {{- end }}
+  {{- if .Values.pfs_csi_provisioner.logExporter.enable }}
+  - name: log-metric
+    port: {{ $.Values.pfs_csi_provisioner.logExporter.port }}
+  {{- end }}
+  selector:
+    app: {{ template "pfs-csi-provisioner.pfs_csi_provisioner.fullname" . }}
+{{- end}}
+{{- range $service_name, $service := .Values.pfs_csi_provisioner.service.extra_usr_define_services }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{$service.service_domain}}
+  labels:
+    app: {{ template "pfs-csi-provisioner.pfs_csi_provisioner.fullname" $ }}
+    chart: "{{ $.Chart.Name }}-{{ $.Chart.Version }}"
+    release: "{{ $.Release.Name }}"
+    heritage: "{{ $.Release.Service }}"
+    app.kubernetes.io/managed-by: '{{ $.Release.Service }}'
+    app.kubernetes.io/instance: '{{ $.Release.Name }}'
+    helm.sh/chart: '{{ $.Chart.Name }}-{{ $.Chart.Version }}'
+    app.kubernetes.io/name: '{{ template "pfs-csi-provisioner.pfs_csi_provisioner.fullname" $ }}'
+
+  annotations:
+  {{- if (or $.Values.pfs_csi_provisioner.logExporter.enable $service.prometheus_scrape) }}
+    prometheus.io/scrape: "true"
+  {{- end }}
+  {{- with $service.annotations }}
+  {{- range $key, $val := . }}
+    {{$key}}: {{$val}}
+  {{- end }}
+  {{- end }}
+spec:
+  {{- if ne "" $service.clusterIP }}
+  clusterIP: {{ $service.clusterIP }}
+  {{- end }}
+  type: {{ $service.type }}
+  {{- with $service.externalTrafficPolicy }}
+  externalTrafficPolicy: {{ . }}
+  {{- end }}
+  {{- with $service.healthCheckNodePort }}
+  healthCheckNodePort: {{ . }}
+  {{- end }}
+  {{- with $service.sessionAffinity }}
+  sessionAffinity: {{ . }}
+  {{- end }}
+  {{- with $service.sessionAffinityConfig }}
+  sessionAffinityConfig:
+{{ toYaml . | indent 4}}
+  {{- end }}
+  ports:
+  {{- range $key, $val := $service.ports }}
+  - name: {{ $val.name }}
+  {{- if $val.port }}
+    port: {{ $val.port }}
+  {{- else if $val.containerPort }}
+    port: {{ $val.containerPort }}
+  {{- end }}
+  {{- with $val.appProtocol}}
+    appProtocol: {{.}}
+  {{- end }}
+  {{- with $val.nodePort }}
+    nodePort: {{.}}
+  {{- end }}
+  {{- with $val.protocol }}
+    protocol: {{.}}
+  {{- end }}
+  {{- if $val.containerPort }}
+    targetPort: {{ $val.containerPort }}
+  {{- else if $val.port }}
+    targetPort: {{ $val.port }}
+  {{- end }}
+  {{- end }}
+  {{- if $.Values.pfs_csi_provisioner.logExporter.enable }}
+  - name: log-metric
+    port: {{ $.Values.pfs_csi_provisioner.logExporter.port }}
+  {{- end }}
+  selector:
+    app: {{ template "pfs-csi-provisioner.pfs_csi_provisioner.fullname" $ }}
+{{- end }}
+{{- end }}

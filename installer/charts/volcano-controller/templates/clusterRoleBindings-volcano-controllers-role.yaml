@@ -1,0 +1,21 @@
+"apiVersion": |-
+  rbac.authorization.k8s.io/v1
+"kind": |-
+  ClusterRoleBinding
+"metadata":
+  "name": |-
+    volcano-controllers-role
+"roleRef":
+  "apiGroup": |-
+    rbac.authorization.k8s.io
+  "kind": |-
+    ClusterRole
+  "name": |-
+    volcano-controllers
+"subjects":
+- "kind": |-
+    ServiceAccount
+  "name": |-
+    volcano-controllers
+  "namespace": |-
+    volcano-system

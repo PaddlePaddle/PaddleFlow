@@ -1,0 +1,297 @@
+out_depend_msg:
+  CSI_ENDPOINT: unix:///csi/csi.sock
+  DEFAULT_GID_ENV: '601'
+  DEFAULT_UID_ENV: '601'
+  KUBELET_DATA_PATH: /data/lib/kubelet
+  MOUNT_POINT_INTERVAL_TIME: '10'
+pfs_csi_plugin:
+  affinity: {}
+  annotations:
+    reloader.stakater.com/auto: 'false'
+  args:
+  - --v=5
+  - --csi-address=/csi/csi.sock
+  - --kubelet-registration-path=/data/lib/kubelet/plugins/pfs-csi/csi.sock
+  chart_config_volumes:
+    configMaps: {}
+    secrets: {}
+  cluster_existing_volumes:
+    configMaps:
+      k8s-client-config:
+        name: k8s-client-config
+    secrets: {}
+  command: []
+  config_msg: []
+  cronjob_msg: {}
+  dnsPolicy: ClusterFirstWithHostNet
+  enable: true
+  hostAliases: {}
+  hostNetwork: true
+  image: ${pfsCsiPluginImage}
+  imageTag: '${pfsCsiPluginImageTag}'
+  imagePullPolicy: IfNotPresent
+  init_container_msg: {}
+  job_msg: {}
+  labels: {}
+  lifecycle:
+    preStop:
+      exec:
+        command:
+        - /bin/sh
+        - -c
+        - rm -rf /registration/pfs-csi /registration/paddleflowstorage-reg.sock
+  livenessProbe:
+    content:
+      httpGet:
+        path: /healthz
+        port: https
+        scheme: HTTPS
+    enabled: false
+    failureThreshold: 3
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    successThreshold: 1
+    timeoutSeconds: 5
+  logExporter:
+    enable: false
+    port: 9273
+    telegraf:
+      agent:
+        debug: false
+        flush_interval: 5s
+        interval: 3s
+        metric_batch_size: 1000
+        metric_buffer_limit: 10000
+      input: null
+      output:
+        buckets: '[0.0, 201.0, 312.0, 401.0, 405.0, 501.0]'
+        period: 30s
+  name: pfs-csi-plugin
+  nodeSelector: {}
+  persistence:
+    fuse:
+      accessMode: ''
+      annotations: {}
+      asset_storage_name: host-path
+      asset_storage_type: host-path
+      enabled: false
+      hostPath: /dev/fuse
+      hostPathSplice: ''
+      hostPathType: File
+      isCreator: ''
+      publicPvc: false
+      publicPvcName: ''
+      size: Gi
+      storageClass: host-path
+    mountpoint-dir:
+      accessMode: ''
+      annotations: {}
+      asset_storage_name: host-path
+      asset_storage_type: host-path
+      enabled: false
+      hostPath: /data/lib/kubelet/pods
+      hostPathSplice: ''
+      hostPathType: DirectoryOrCreate
+      isCreator: ''
+      publicPvc: false
+      publicPvcName: ''
+      size: Gi
+      storageClass: host-path
+    paddlefow-csi-log:
+      accessMode: ReadWriteOnce
+      annotations: {}
+      asset_storage_name: host-path
+      asset_storage_type: host-path
+      enabled: false
+      hostPath: /home/paddleflow/log
+      hostPathSplice: ''
+      hostPathType: DirectoryOrCreate
+      isCreator: ''
+      publicPvc: false
+      publicPvcName: ''
+      size: Gi
+      storageClass: host-path
+    pfs-mnt:
+      accessMode: ''
+      annotations: {}
+      asset_storage_name: host-path
+      asset_storage_type: host-path
+      enabled: false
+      hostPath: /data/paddleflow-fs/mnt
+      hostPathSplice: ''
+      hostPathType: DirectoryOrCreate
+      isCreator: ''
+      publicPvc: false
+      publicPvcName: ''
+      size: 500Gi
+      storageClass: host-path
+    plugins-dir:
+      accessMode: ''
+      annotations: {}
+      asset_storage_name: host-path
+      asset_storage_type: host-path
+      enabled: false
+      hostPath: /data/lib/kubelet/plugins
+      hostPathSplice: ''
+      hostPathType: DirectoryOrCreate
+      isCreator: ''
+      publicPvc: false
+      publicPvcName: ''
+      size: Gi
+      storageClass: host-path
+    registration-dir:
+      accessMode: ''
+      annotations: {}
+      asset_storage_name: host-path
+      asset_storage_type: host-path
+      enabled: false
+      hostPath: /data/lib/kubelet/plugins_registry
+      hostPathSplice: ''
+      hostPathType: DirectoryOrCreate
+      isCreator: ''
+      publicPvc: false
+      publicPvcName: ''
+      size: Gi
+      storageClass: host-path
+    socket-dir:
+      accessMode: ''
+      annotations: {}
+      asset_storage_name: host-path
+      asset_storage_type: host-path
+      enabled: false
+      hostPath: /data/lib/kubelet/plugins/pfs-csi
+      hostPathSplice: ''
+      hostPathType: DirectoryOrCreate
+      isCreator: ''
+      publicPvc: false
+      publicPvcName: ''
+      size: Gi
+      storageClass: host-path
+  podAnnotations: {}
+  podSecurityContext: {}
+  readinessProbe:
+    content:
+      httpGet:
+        path: /healthz
+        port: https
+        scheme: HTTPS
+    enabled: false
+    failureThreshold: 3
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    successThreshold: 1
+    timeoutSeconds: 1
+  replicas: 1
+  resources: {}
+  restartPolicy: Always
+  secret: {}
+  secret_msg: []
+  securityContext:
+    privileged: true
+  service:
+    clusterIP: ''
+    extra_usr_define_services: {}
+    ports: {}
+    service_domain: ''
+    type: ClusterIP
+  serviceAccount: csi-node-sa
+  serviceName: ''
+  sidecar_container_msg:
+  - args: []
+    command:
+    - /sbin/tini
+    - --
+    - /bin/sh
+    - -c
+    - cd /home/paddleflow && /home/paddleflow/csi-plugin --unix-endpoint=$(CSI_ENDPOINT)
+      --node-id=$(KUBE_NODE_NAME) --log-dir=./log/csidriver --username=root --password=paddleflow
+      --log-level=debug
+    config_msg:
+    - configMap: k8s-client-config
+      defaultMode: ''
+      mountPath: /home/paddleflow/config/kube.config
+      source: cluster-existing
+      subPath: kube.config
+      volName: k8s-client-config
+    expose_ports: {}
+    image: ${csiStorageDriverImage}
+    imageTag: '${csiStorageDriverImageTag}'
+    name: csi-storage-driver
+    podSecurityContext: ''
+    resources: {}
+    secret_msg: []
+    securityContext:
+      capabilities:
+        add:
+        - SYS_ADMIN
+      privileged: true
+      runAsGroup: 0
+      runAsUser: 0
+    special_env:
+      CSI_NAMESPACE:
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.namespace
+      CSI_POD_NAME:
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.name
+      KUBE_NODE_NAME:
+        valueFrom:
+          fieldRef:
+            fieldPath: spec.nodeName
+    volumeMounts:
+    - mountPath: /csi
+      mountPropagation: None
+      name: socket-dir
+      subPath: ''
+    - mountPath: /data/lib/kubelet/pods
+      mountPropagation: Bidirectional
+      name: mountpoint-dir
+      subPath: ''
+    - mountPath: /data/lib/kubelet/plugins
+      mountPropagation: Bidirectional
+      name: plugins-dir
+      subPath: ''
+    - mountPath: /home/paddleflow/log
+      mountPropagation: None
+      name: paddlefow-csi-log
+      subPath: ''
+    - mountPath: /home/paddleflow/mnt
+      mountPropagation: Bidirectional
+      name: pfs-mnt
+      subPath: ''
+  special_env:
+    KUBE_NODE_NAME:
+      valueFrom:
+        fieldRef:
+          fieldPath: spec.nodeName
+  startupProbe:
+    content:
+      httpGet:
+        path: /healthz
+        port: https
+        scheme: HTTPS
+    enabled: false
+    failureThreshold: 3
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    successThreshold: 1
+    timeoutSeconds: 1
+  strategy: {}
+  paddleflow_node_affinity: {}
+  tolerations: []
+  type: daemonset
+  usr_define_msg: {}
+  volumeMounts:
+  - mountPath: /csi
+    mountPropagation: None
+    name: socket-dir
+    subPath: ''
+  - mountPath: /registration
+    mountPropagation: None
+    name: registration-dir
+    subPath: ''
+product_name: pfs-csi-plugin
+total_ports: {}
+version: 0.0.40-rc6eh8

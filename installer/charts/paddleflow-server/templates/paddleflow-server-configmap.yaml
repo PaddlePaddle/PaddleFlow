@@ -1,107 +1,409 @@
-{{- if .Values.paddleflowServer.enable -}}
-
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: paddleflow-server-config
-  namespace: {{ .Release.Namespace }}
-data:
-  default_pv.yaml: |
-    kind: PersistentVolume
+"apiVersion": |-
+  v1
+"binaryData": {}
+"data":
+  "default_pv.yaml": |2-
+      kind: PersistentVolume
+      metadata:
+        name: pfs-$(pfs.fs.id)-$(namespace)-pv
+        annotations:
+          pv.kubernetes.io/provisioned-by: paddleflowstorage
+      spec:
+        accessModes:
+          - ReadWriteMany
+        persistentVolumeReclaimPolicy: Delete
+        storageClassName: paddleflowstorage
+        capacity:
+          storage: 400Gi
+        csi:
+          driver: paddleflowstorage
+          fsType: ext4
+          volumeAttributes:
+            pfs.fs.id: $(pfs.fs.id)
+            pfs.user.name: $(pfs.user.name)
+            pfs.server: $(pfs.server)
+          volumeHandle: pfs-$(pfs.fs.id)-$(namespace)-pv
+  "default_pvc.yaml": |2-
+      kind: PersistentVolumeClaim
+      metadata:
+        name: pfs-$(pfs.fs.id)-pvc
+        namespace: $(namespace)
+      spec:
+        accessModes:
+          - ReadWriteMany
+        resources:
+          requests:
+            storage: 100Gi
+        storageClassName: paddleflowstorage
+        volumeMode: Filesystem
+        volumeName: pfs-$(pfs.fs.id)-$(namespace)-pv
+  "paddle_collective.yaml": |2
+      apiVersion: batch.paddlepaddle.org/v1
+      kind: PaddleJob
+      metadata:
+        name: default-name
+      spec:
+        cleanPodPolicy: Never
+        worker:
+          replicas: 2
+          template:
+            spec:
+              containers:
+                - name: worker-name
+                  image: registry.baidubce.com/paddle-operator/demo-resnet:v1
+  "paddle_ps.yaml": |-
+    apiVersion: batch.paddlepaddle.org/v1
+    kind: PaddleJob
     metadata:
-      name: pfs-$(pfs.fs.id)-$(namespace)-pv
-      annotations:
-        pv.kubernetes.io/provisioned-by: paddleflowstorage
+      name: default-name
     spec:
-      accessModes:
-        - ReadWriteMany
-      persistentVolumeReclaimPolicy: Delete
-      storageClassName: paddleflowstorage
-      capacity:
-        storage: 400Gi
-      csi:
-        driver: paddleflowstorage
-        fsType: ext4
-        volumeAttributes:
-          pfs.fs.id: $(pfs.fs.id)
-          pfs.user.name: $(pfs.user.name)
-          pfs.server: $(pfs.server)
-        volumeHandle: pfs-$(pfs.fs.id)-$(namespace)-pv
-  default_pvc.yaml: |
-    kind: PersistentVolumeClaim
+      withGloo: 1
+      intranet: PodIP
+      cleanPodPolicy: OnCompletion
+      worker:
+        replicas: 2
+        template:
+          spec:
+            containers:
+              - name: worker-name
+                image: registry.baidubce.com/paddle-operator/demo-wide-and-deep:v1
+      ps:
+        replicas: 2
+        template:
+          spec:
+            containers:
+              - name: ps-name
+                image: registry.baidubce.com/paddle-operator/demo-wide-and-deep:v1
+  "paddleserver.yaml": |2
+      database:
+          driver: {{ $.Values.out_depend_msg.DB_DRIVER }}
+          host: {{ $.Values.out_depend_msg.DB_HOST }}
+          port: {{ $.Values.out_depend_msg.DB_PORT }}
+          user: {{ $.Values.out_depend_msg.DB_USER }}
+          password: {{ $.Values.out_depend_msg.DB_PASSWORD }}
+          database: {{ $.Values.out_depend_msg.DB_DATABASE }}
+
+      log:
+        dir: ./
+        filePrefix: log
+        level: INFO
+        maxKeepDays: 7
+        maxFileNum: 7
+        maxFileSizeInMB: 100
+        isCompress: true
+
+      apiServer:
+        host: 0.0.0.0
+        port: {{  $.Values.out_depend_msg.PADDLEFLOW_SERVER_PORT  }}
+        tokenExpirationHour: {{  $.Values.out_depend_msg.paddleflowServer_tokenExpirationHour  }}
+
+      fs:
+        defaultPVPath: "./config/fs/default_pv.yaml"
+        defaultPVCPath: "./config/fs/default_pvc.yaml"
+        k8sServiceName: "10.156.28.13"
+        K8sServicePort: {{  $.Values.out_depend_msg.PADDLEFLOW_SERVER_PORT  }}
+
+      namespaceList:
+        - "default"
+        - "paddleflow"
+
+      job:
+        reclaim:
+          isCleanJob: true
+          isSkipCleanFailedJob: false
+          succeededJobTTLSeconds: 600
+          failedJobTTLSeconds: 3600
+        schedulerName: {{  $.Values.out_depend_msg.PF_SERVER_SCHEDULER_NAME  }}
+        clusterSyncPeriod: 30
+        jobLoopPeriod: 5
+        scalarResourceArray:
+          - "nvidia.com/gpu"
+          - "baidu.com/v100_cgpu"
+          - "baidu.com/v100_cgpu_core"
+          - "baidu.com/v100_cgpu_memory"
+        defaultJobYamlDir: "./config/server/default/job"
+
+      pipeline: pipeline
+
+      imageRepository:
+        server: ""
+        namespace: ""
+        username: ""
+        password: ""
+        concurrency: 10
+        removeLocalImage: true
+
+      flavour:
+        - name: flavour1
+          cpu: 1
+          mem: 1Gi
+        - name: flavour2
+          cpu: 1
+          mem: 1G
+          scalarResources:
+            "baidu.com/v100_cgpu": "1"
+        - name: flavour3
+          cpu: 1
+          mem: 8Gi
+          scalarResources:
+            "baidu.com/v100_cgpu": "1"
+        - name: flavour4
+          cpu: 1
+          mem: 8Gi
+          scalarResources:
+            "baidu.com/v100_cgpu": "1"
+            "baidu.com/v100_cgpu_memory": 7
+  "single.yaml": |-
+    apiVersion: v1
+    kind: Pod
     metadata:
-      name: pfs-$(pfs.fs.id)-pvc
-      namespace: $(namespace)
+      name: default-name
+      namespace: default
     spec:
-      accessModes:
-        - ReadWriteMany
-      resources:
-        requests:
-          storage: 100Gi
-      storageClassName: paddleflowstorage
-      volumeMode: Filesystem
-      volumeName: pfs-$(pfs.fs.id)-$(namespace)-pv
-  paddleserver.yaml: |
-    database:
-      driver: {{ .Values.db.driver }}
-      host: {{ .Values.db.host }}
-      port: {{ .Values.db.port }}
-      user: {{ .Values.db.user }}
-      password: {{ .Values.db.password }}
-      database: {{ .Values.db.database }}
+      containers:
+      - image: nginx
+        imagePullPolicy: Always
+        name: job-default-name
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      enableServiceLinks: true
+      priorityClassName: normal
+      restartPolicy: Always
+      schedulerName: volcano
+      securityContext: {}
+      serviceAccount: default
+      serviceAccountName: default
+      terminationGracePeriodSeconds: 30
+  "spark.yaml": |2
+        apiVersion: sparkoperator.k8s.io/v1beta2
+        kind: SparkApplication
+        metadata:
+          name: sparkName
+          namespace: default
+        spec:
+          driver:
+            serviceAccount: spark
+          executor:
+          image: paddleflow/image-packges/spark:pyml-2.8.0
+          imagePullPolicy: IfNotPresent
+          mainApplicationFile: local:///opt/spark/examples/jars/spark-examples_2.11-2.4.0.jar
+          mainClass: org.apache.spark.examples.SparkPi
+          mode: cluster
+          restartPolicy:
+            onSubmissionFailureRetries: 3
+            onSubmissionFailureRetryInterval: 5
+            type: Never
+          sparkConf:
+            spark.driver.extraJavaOptions: -Dsun.zip.disableMemoryMapping=true
+            spark.executor.extraJavaOptions: -Dsun.zip.disableMemoryMapping=true
+            spark.hadoop.mapreduce.fileoutputcommitter.algorithm.version: "2"
+          sparkVersion: 3.0.0
+          type: Scala
+          batchSchedulerOptions:
+            queue: default
+            priorityClass: normal
+  "telegraf.conf": |
+    [global_tags]
+    {{- if $.Values.paddleflow_server.logExporter.enable }}
+    [agent]
+      interval = "{{ .Values.paddleflow_server.logExporter.telegraf.agent.interval }}"
+      metric_batch_size = {{ .Values.paddleflow_server.logExporter.telegraf.agent.metric_batch_size }}
+      metric_buffer_limit = {{ .Values.paddleflow_server.logExporter.telegraf.agent.metric_buffer_limit }}
+      collection_jitter = "0s"
+      flush_interval = "{{ .Values.paddleflow_server.logExporter.telegraf.agent.flush_interval }}"
+      flush_jitter = "0s"
+      precision = "1s"
+      debug = {{ .Values.paddleflow_server.logExporter.telegraf.agent.debug }}
+      hostname = ""
+      omit_hostname = false
 
-    log:
-      dir: ./
-      filePrefix: log
-      level: INFO
-      maxKeepDays: 7
-      maxFileNum: 7
-      maxFileSizeInMB: 100
-      isCompress: true
+    [[outputs.prometheus_client]]
+      listen = ":{{ .Values.paddleflow_server.logExporter.port }}"
 
-    apiServer:
-      host: 0.0.0.0
-      port: {{  .Values.paddleflowServer.port  }}
-      tokenExpirationHour: {{  .Values.paddleflowServer.tokenExpirationHour  }}
+    {{- range $index_input, $input := .Values.paddleflow_server.logExporter.telegraf.input }}
+    [[inputs.logparser]]
+      files = [
+                {{- range $index, $file := $input.logFiles }}
+                {{- if $index }},{{- end}}
+                 "{{ $file }}"
+                {{- end }}
+              ]
+      from_beginning = false
+      [inputs.logparser.grok]
+        patterns = [
+                    {{- range $index, $log := $input.logs }}
+                    {{- if $index }},{{- end}}
+                    ''{{ $log }}''
+                    {{- end }}
+                   ]
+        measurement = "LogMeasurement"
+        #custom_pattern_files = []
+        custom_patterns = '''
+            {{- range $input.custom_patterns }}
+            {{ . }}
+            {{- end }}
+        '''
+    {{- end}}
 
-    fs:
-      defaultPVPath: "./config/fs/default_pv.yaml"
-      defaultPVCPath: "./config/fs/default_pvc.yaml"
-      k8sServiceName: "paddleflow-server"
-      K8sServicePort: {{  .Values.paddleflowServer.port  }}
+    [[aggregators.basicstats]]
+      namepass = ["LogMeasurement"]
+      period = "{{ .Values.paddleflow_server.logExporter.telegraf.output.period }}"
+      drop_original = false
+      stats = ["count", "min", "max", "mean", "stdev", "s2", "sum"]
 
-    namespaceList:
-      - "default"
-      - "paddleflow"
-    
-    job:
-      reclaim:
-        isCleanJob: true
-        isSkipCleanFailedJob: false
-        jobTTLSeconds: 600
-      schedulerName: {{  .Values.paddleflowServer.schedulerName  }}
-      scalarResourceArray:
-        - "nvidia.com/gpu"
-      defaultJobYamlDir: ./config/server/default/job
+    [[aggregators.histogram]]
+      drop_original = false
+      reset = true
+      [[aggregators.histogram.config]]
+        buckets = {{ .Values.paddleflow_server.logExporter.telegraf.output.buckets }}
+        measurement_name = "LogMeasurement"
+        fields = [{{ range $index, $value := .Values.paddleflow_server.logExporter.telegraf.output.histogramFields }}{{if $index}}, {{end}}"{{$value}}"{{end}}]
 
-    kubeConfig:
-      configPath: /home/paddleflow/server/config/server/default/kube.config
-      clientQps: 1000
-      clientBurst: 1000
-      clientTimeout: 0
-    
-    pipeline: pipeline
-
-    imageRepository:
-      server: ""
-      namespace: ""
-      username: ""
-      password: ""
-      concurrency: 10
-      removeLocalImage: true
-
-    flavour:
-      - name: flavour1
-        cpu: 1
-        mem: 1Gi
-{{- end -}}
+    [[aggregators.valuecounter]]
+      namepass = ["LogMeasurement"]
+      period = "{{ .Values.paddleflow_server.logExporter.telegraf.output.period }}"
+      drop_original = false
+      fields = [{{ range $index, $value :=  .Values.paddleflow_server.logExporter.telegraf.output.valuecounterFields }}{{if $index}}, {{end}}"{{$value}}"{{end}}]
+    {{- end }}
+  "vcjob_collective.yaml": |2
+        apiVersion: batch.volcano.sh/v1alpha1
+        kind: Job
+        metadata:
+          name: vcJobName
+        spec:
+          minAvailable: 2
+          schedulerName: volcano
+          priorityClassName: normal
+          policies:
+            - event: PodEvicted
+              action: RestartJob
+          plugins:
+            ssh: []
+            env: []
+            svc: []
+          maxRetry: 5
+          queue: default
+          tasks:
+            - replicas: 2
+              name: "task"
+              template:
+                metadata:
+                  name: templateName
+                spec:
+                  containers:
+                    - image: collective-container
+                      imagePullPolicy: IfNotPresent
+                      name: defaultContainer
+                  restartPolicy: Never
+              policies:
+                - event: TaskCompleted
+                  action: CompleteJob
+  "vcjob_pod.yaml": |2
+        apiVersion: batch.volcano.sh/v1alpha1
+        kind: Job
+        metadata:
+          name: vcJobName
+        spec:
+          minAvailable: 1
+          schedulerName: volcano
+          priorityClassName: normal
+          policies:
+            - event: PodEvicted
+              action: RestartJob
+          maxRetry: 5
+          queue: default
+          tasks:
+            - replicas: 1
+              name: "task"
+              template:
+                metadata:
+                  name: pod
+                spec:
+                  containers:
+                    - image: nginx
+                      imagePullPolicy: IfNotPresent
+                      name: container
+                      resources:
+                        requests:
+                          cpu: "1"
+                  restartPolicy: Never
+              policies:
+                - event: TaskCompleted
+                  action: CompleteJob
+  "vcjob_ps.yaml": |2
+        apiVersion: batch.volcano.sh/v1alpha1
+        kind: Job
+        metadata:
+          name: vcJobName
+        spec:
+          minAvailable: 3
+          schedulerName: volcano
+          priorityClassName: normal
+          policies:
+            - event: PodEvicted
+              action: RestartJob
+          plugins:
+            ssh: []
+            env: []
+            svc: []
+          maxRetry: 5
+          queue: default
+          tasks:
+            - replicas: 1
+              name: "ps"
+              ports:
+                - ps-port: 8001
+              template:
+                metadata:
+                  name: web
+                spec:
+                  containers:
+                    - image: nginx
+                      imagePullPolicy: IfNotPresent
+                      name: ps
+                      resources:
+                        requests:
+                          cpu: "1"
+                  restartPolicy: OnFailure
+            - replicas: 2
+              name: "worker"
+              ports:
+                - worker-port: 8001
+              template:
+                metadata:
+                  name: web
+                spec:
+                  containers:
+                    - image: nginx
+                      imagePullPolicy: IfNotPresent
+                      name: worker
+                      resources:
+                        requests:
+                          cpu: "1"
+                  restartPolicy: Never
+              policies:
+                - event: TaskCompleted
+                  action: CompleteJob
+"kind": |-
+  ConfigMap
+"metadata":
+  "labels":
+    "app": |-
+      {{ template "paddleflow-server.paddleflow_server.fullname" . }}
+    "app.kubernetes.io/instance": |-
+      {{ $.Release.Name }}
+    "app.kubernetes.io/managed-by": |-
+      {{ $.Release.Service }}
+    "app.kubernetes.io/name": |-
+      {{ template "paddleflow-server.paddleflow_server.fullname" $ }}
+    "chart": |-
+      {{ .Chart.Name }}-{{ .Chart.Version }}
+    "helm.sh/chart": |-
+      {{ $.Chart.Name }}-{{ $.Chart.Version }}
+    "heritage": |-
+      {{ .Release.Service }}
+    "release": |-
+      {{ .Release.Name }}
+  "name": |-
+    {{ template "paddleflow-server.paddleflow_server.fullname" . }}

@@ -1,0 +1,134 @@
+out_depend_msg: {}
+product_name: volcano-controller
+total_ports: {}
+version: 0.0.8-rcbszz
+volcano_controller:
+  affinity: {}
+  annotations:
+    app: volcano-controller
+    reloader.stakater.com/auto: 'false'
+  args:
+  - --logtostderr=false
+  - -v=4
+  - 2>&1
+  - --log_dir=/tmp/log
+  - --alsologtostderr
+  - --log_file=/tmp/log/controller.log
+  - --log_file_max_size=300
+  chart_config_volumes:
+    configMaps: {}
+    secrets: {}
+  cluster_existing_volumes:
+    configMaps: {}
+    secrets: {}
+  command: []
+  config_msg: []
+  cronjob_msg: {}
+  dnsPolicy: ClusterFirst
+  enable: true
+  hostAliases: {}
+  hostNetwork: false
+  image: paddleflow/vc-controller-manager
+  imagePullPolicy: IfNotPresent
+  imageTag: '20220523_1653292737722'
+  init_container_msg: {}
+  job_msg: {}
+  labels:
+    app: volcano-controller
+  livenessProbe:
+    content:
+      httpGet:
+        path: /healthz
+        port: https
+        scheme: HTTPS
+    enabled: false
+    failureThreshold: 3
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    successThreshold: 1
+    timeoutSeconds: 5
+  logExporter:
+    enable: false
+    port: 9273
+    telegraf:
+      agent:
+        debug: false
+        flush_interval: 5s
+        interval: 3s
+        metric_batch_size: 1000
+        metric_buffer_limit: 10000
+      input: null
+      output:
+        buckets: '[0.0, 201.0, 312.0, 401.0, 405.0, 501.0]'
+        period: 30s
+  name: volcano-controller
+  nodeSelector: {}
+  persistence:
+    logdir:
+      accessMode: ''
+      annotations: {}
+      asset_storage_name: host-path
+      asset_storage_type: host-path
+      enabled: false
+      hostPath: /mnt/log/volcano/controller
+      hostPathSplice: ''
+      hostPathType: DirectoryOrCreate
+      isCreator: ''
+      publicPvc: false
+      publicPvcName: ''
+      size: Gi
+      storageClass: host-path
+  podAnnotations:
+    app: volcano-controller
+  podSecurityContext: {}
+  readinessProbe:
+    content:
+      httpGet:
+        path: /healthz
+        port: https
+        scheme: HTTPS
+    enabled: false
+    failureThreshold: 3
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    successThreshold: 1
+    timeoutSeconds: 1
+  replicas: 1
+  resources: {}
+  restartPolicy: Always
+  secret: {}
+  secret_msg: []
+  securityContext:
+    privileged: false
+  service:
+    clusterIP: ''
+    extra_usr_define_services: {}
+    ports: {}
+    service_domain: ''
+    type: ClusterIP
+  serviceAccount: volcano-controllers
+  serviceName: ''
+  sidecar_container_msg: []
+  special_env: {}
+  startupProbe:
+    content:
+      httpGet:
+        path: /healthz
+        port: https
+        scheme: HTTPS
+    enabled: false
+    failureThreshold: 3
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    successThreshold: 1
+    timeoutSeconds: 1
+  strategy: {}
+  paddleflow_node_affinity: {}
+  tolerations: []
+  type: deployment
+  usr_define_msg: {}
+  volumeMounts:
+  - mountPath: /tmp/log
+    mountPropagation: None
+    name: logdir
+    subPath: ''

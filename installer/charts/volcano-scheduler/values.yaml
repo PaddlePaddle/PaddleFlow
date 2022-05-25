@@ -1,0 +1,166 @@
+out_depend_msg: {}
+product_name: volcano-scheduler
+total_ports:
+  volcano_scheduler_service_port_0: '8080'
+version: 0.0.17-rcbt2x
+volcano_scheduler:
+  affinity: {}
+  annotations:
+    app: volcano-scheduler
+    reloader.stakater.com/auto: 'false'
+  args:
+  - --alsologtostderr
+  - --scheduler-conf=/volcano.scheduler/volcano-scheduler-pf.conf
+  - -v=4
+  - 2>&1
+  - --scheduler-name=volcano
+  - --log_dir=/tmp/log
+  - --logtostderr=false
+  - --log_file_max_size=100
+  - --log_file=/tmp/log/scheduler.log
+  chart_config_volumes:
+    configMaps:
+      conf:
+        name: conf
+    secrets: {}
+  cluster_existing_volumes:
+    configMaps: {}
+    secrets: {}
+  command: []
+  config_msg:
+  - config_name: volcano-scheduler-pf.conf
+    defaultMode: ''
+    mountPath: /volcano.scheduler/volcano-scheduler-pf.conf
+    volName: conf
+  cronjob_msg: {}
+  dnsPolicy: ClusterFirst
+  enable: true
+  hostAliases: {}
+  hostNetwork: false
+  image: paddleflow/vc-scheduler
+  imagePullPolicy: IfNotPresent
+  imageTag: '20220523_1653292737721'
+  init_container_msg: {}
+  job_msg: {}
+  labels:
+    app: volcano-scheduler
+  livenessProbe:
+    content:
+      httpGet:
+        path: /healthz
+        port: https
+        scheme: HTTPS
+    enabled: false
+    failureThreshold: 3
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    successThreshold: 1
+    timeoutSeconds: 5
+  logExporter:
+    enable: false
+    port: 9273
+    telegraf:
+      agent:
+        debug: false
+        flush_interval: 5s
+        interval: 3s
+        metric_batch_size: 1000
+        metric_buffer_limit: 10000
+      input: null
+      output:
+        buckets: '[0.0, 201.0, 312.0, 401.0, 405.0, 501.0]'
+        period: 30s
+  name: volcano-scheduler
+  nodeSelector: {}
+  persistence:
+    scheduler-logdir:
+      accessMode: ''
+      annotations: {}
+      asset_storage_name: host-path
+      asset_storage_type: host-path
+      enabled: false
+      hostPath: /mnt/log/volcano/scheduler
+      hostPathSplice: ''
+      hostPathType: DirectoryOrCreate
+      isCreator: ''
+      publicPvc: false
+      publicPvcName: ''
+      size: Gi
+      storageClass: host-path
+  podAnnotations:
+    app: volcano-scheduler
+  podSecurityContext: {}
+  readinessProbe:
+    content:
+      httpGet:
+        path: /healthz
+        port: https
+        scheme: HTTPS
+    enabled: false
+    failureThreshold: 3
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    successThreshold: 1
+    timeoutSeconds: 1
+  replicas: 1
+  resources: {}
+  restartPolicy: Always
+  secret: {}
+  secret_msg: []
+  securityContext:
+    privileged: false
+  service:
+    clusterIP: ''
+    extra_usr_define_services:
+      volcano-scheduler-service:
+        annotations: {}
+        clusterIP: ''
+        ports:
+          port-0:
+            containerPort: '8080'
+            name: port-0
+            port: '8080'
+            prometheus_scrape: false
+            prometheus_scrape_interval: ''
+            prometheus_scrape_path: /metrics
+            protocol: TCP
+        service_domain: volcano-scheduler-service
+        sessionAffinity: None
+        sessionAffinityConfig:
+          clientIP:
+            timeoutSeconds: 10800
+        type: ClusterIP
+    ports:
+      port-0:
+        containerPort: '8080'
+        name: port-0
+        port: '8080'
+        protocol: TCP
+    service_domain: ''
+    type: ClusterIP
+  serviceAccount: volcano-scheduler
+  serviceName: ''
+  sidecar_container_msg: []
+  special_env: {}
+  startupProbe:
+    content:
+      httpGet:
+        path: /healthz
+        port: https
+        scheme: HTTPS
+    enabled: false
+    failureThreshold: 3
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    successThreshold: 1
+    timeoutSeconds: 1
+  strategy: {}
+  paddleflow_node_affinity: {}
+  tolerations: []
+  type: deployment
+  usr_define_msg: {}
+  volumeMounts:
+  - mountPath: /tmp/log
+    mountPropagation: None
+    name: scheduler-logdir
+    subPath: ''

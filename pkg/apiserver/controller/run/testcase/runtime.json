@@ -25,7 +25,7 @@
 		"endTime": "",
 		"status": "init",
 		"deps": "",
-		"dockerEnv": "iregistry.baidu-int.com/bmlc/framework/paddle:2.0.2-gpu-cuda10.1-cudnn7",
+		"dockerEnv": "paddleflow/framework/paddle:2.0.2-gpu-cuda10.1-cudnn7",
 		"artifacts": {
 			"Input": {},
 			"Output": {},
@@ -65,7 +65,7 @@
 		"endTime": "",
 		"status": "init",
 		"deps": "",
-		"dockerEnv": "iregistry.baidu-int.com/bmlc/framework/paddle:2.0.2-gpu-cuda10.1-cudnn7",
+		"dockerEnv": "paddleflow/framework/paddle:2.0.2-gpu-cuda10.1-cudnn7",
 		"artifacts": {
 			"Input": {},
 			"Output": {},

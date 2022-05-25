@@ -1,0 +1,21 @@
+"apiVersion": |-
+  rbac.authorization.k8s.io/v1
+"kind": |-
+  ClusterRoleBinding
+"metadata":
+  "name": |-
+    csi-driver-registrar-role
+"roleRef":
+  "apiGroup": |-
+    rbac.authorization.k8s.io
+  "kind": |-
+    ClusterRole
+  "name": |-
+    driver-registrar-runner
+"subjects":
+- "kind": |-
+    ServiceAccount
+  "name": |-
+    csi-node-sa
+  "namespace": |-
+    paddleflow

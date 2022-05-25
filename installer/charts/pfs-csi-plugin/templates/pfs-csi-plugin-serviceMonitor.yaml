@@ -1,0 +1,97 @@
+{{- if $.Values.pfs_csi_plugin.logExporter.enable }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+    prometheus: kube-prometheus
+    app: {{ template "pfs-csi-plugin.pfs_csi_plugin.fullname" . }}
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    release: "{{ .Release.Name }}"
+    heritage: "{{ .Release.Service }}"
+    app.kubernetes.io/managed-by: '{{ $.Release.Service }}'
+    app.kubernetes.io/instance: '{{ $.Release.Name }}'
+    helm.sh/chart: '{{ $.Chart.Name }}-{{ $.Chart.Version }}'
+    app.kubernetes.io/name: '{{ template "pfs-csi-plugin.pfs_csi_plugin.fullname" $ }}'
+  name: {{ template "pfs-csi-plugin.pfs_csi_plugin.fullname" . }}-log-exporter
+spec:
+  endpoints:
+  - interval: 10s
+    port: log-metric
+    scrapeTimeout: 10s
+  namespaceSelector:
+    any: true
+  selector:
+    matchLabels:
+      app: {{ template "pfs-csi-plugin.pfs_csi_plugin.fullname" . }}
+{{- end }}
+
+
+{{- if and .Values.pfs_csi_plugin.service.ports (not .Values.pfs_csi_plugin.service.extra_usr_define_services) }}
+{{- if .Values.pfs_csi_plugin.service.prometheus_scrape }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+    app: {{ template "pfs-csi-plugin.pfs_csi_plugin.fullname" . }}
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    heritage: "{{ .Release.Service }}"
+    release: "{{ .Release.Name }}"
+    app.kubernetes.io/managed-by: '{{ $.Release.Service }}'
+    app.kubernetes.io/instance: '{{ $.Release.Name }}'
+    helm.sh/chart: '{{ $.Chart.Name }}-{{ $.Chart.Version }}'
+    app.kubernetes.io/name: '{{ template "pfs-csi-plugin.pfs_csi_plugin.fullname" $ }}'
+  name: {{ template "pfs-csi-plugin.pfs_csi_plugin.fullname" . }}-svc
+spec:
+  endpoints:
+  {{- range $port_name, $port_content := .Values.pfs_csi_plugin.service.ports }}
+  {{- if $port_content.prometheus_scrape }}
+  - interval: {{ default "10s" $port_content.prometheus_scrape_interval }}
+    {{- with $port_content.prometheus_scrape_path }}
+    path: {{ . }}
+    {{- end }}
+    port: {{ $port_content.name }}
+  {{- end }}
+  {{- end }}
+  namespaceSelector:
+    any: true
+  selector:
+    matchLabels:
+      app: {{ template "pfs-csi-plugin.pfs_csi_plugin.fullname" . }}
+{{- end }}
+{{- end }}
+
+{{- range $service_name, $service := .Values.pfs_csi_plugin.service.extra_usr_define_services }}
+{{- if $service.prometheus_scrape }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+    app: {{ template "pfs-csi-plugin.pfs_csi_plugin.fullname" $ }}
+    chart: "{{ $.Chart.Name }}-{{ $.Chart.Version }}"
+    heritage: "{{ $.Release.Service }}"
+    release: "{{ $.Release.Name }}"
+    app.kubernetes.io/managed-by: '{{ $.Release.Service }}'
+    app.kubernetes.io/instance: '{{ $.Release.Name }}'
+    helm.sh/chart: '{{ $.Chart.Name }}-{{ $.Chart.Version }}'
+    app.kubernetes.io/name: '{{ template "pfs-csi-plugin.pfs_csi_plugin.fullname" $ }}'
+  name: {{ template "pfs-csi-plugin.pfs_csi_plugin.fullname" $ }}-{{$service.service_domain}}
+spec:
+  endpoints:
+  {{- range $port_name, $port_content := $service.ports }}
+  {{- if $port_content.prometheus_scrape }}
+  - interval: {{ default "10s" $port_content.prometheus_scrape_interval }}
+    {{- with $port_content.prometheus_scrape_path }}
+    path: {{ . }}
+    {{- end }}
+    port: {{ $port_content.name }}
+  {{- end }}
+  {{- end }}
+  namespaceSelector:
+    any: true
+  selector:
+    matchLabels:
+      app: {{ template "pfs-csi-plugin.pfs_csi_plugin.fullname" $ }}
+{{- end }}
+{{- end }}

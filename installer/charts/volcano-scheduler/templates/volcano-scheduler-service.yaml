@@ -1,0 +1,141 @@
+{{- if .Values.volcano_scheduler.enable }}
+{{- if and .Values.volcano_scheduler.service.ports (not .Values.volcano_scheduler.service.extra_usr_define_services) }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "volcano-scheduler.volcano_scheduler.fullname" . }}
+  labels:
+    app: {{ template "volcano-scheduler.volcano_scheduler.fullname" . }}
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    release: "{{ .Release.Name }}"
+    heritage: "{{ .Release.Service }}"
+    app.kubernetes.io/managed-by: '{{ $.Release.Service }}'
+    app.kubernetes.io/instance: '{{ $.Release.Name }}'
+    helm.sh/chart: '{{ $.Chart.Name }}-{{ $.Chart.Version }}'
+    app.kubernetes.io/name: '{{ template "volcano-scheduler.volcano_scheduler.fullname" $ }}'
+
+  annotations:
+    {{- if (or .Values.volcano_scheduler.logExporter.enable .Values.volcano_scheduler.service.prometheus_scrape) }}
+    prometheus.io/scrape: "true"
+    {{- end }}
+    {{- if .Values.volcano_scheduler.service.annotations }}
+    {{- range $key, $val := .Values.volcano_scheduler.service.annotations }}
+    {{$key}}: {{$val}}
+    {{- end }}
+    {{- end }}
+spec:
+  {{- if ne "" .Values.volcano_scheduler.service.clusterIP }}
+  clusterIP: {{ .Values.volcano_scheduler.service.clusterIP }}
+  {{- end }}
+  type: {{ .Values.volcano_scheduler.service.type }}
+  {{- with .Values.volcano_scheduler.service.sessionAffinity }}
+  sessionAffinity: {{ . }}
+  {{- end }}
+  {{- with .Values.volcano_scheduler.service.sessionAffinityConfig }}
+  sessionAffinityConfig:
+{{ toYaml . | indent 4}}
+  {{- end }}
+  ports:
+  {{- range $key, $val := .Values.volcano_scheduler.service.ports }}
+  - name: {{ $val.name }}
+  {{- if $val.port }}
+    port: {{ $val.port }}
+  {{- else if $val.containerPort }}
+    port: {{ $val.containerPort }}
+  {{- end }}
+  {{- with $val.appProtocol}}
+    appProtocol: {{.}}
+  {{- end }}
+  {{- with $val.nodePort }}
+    nodePort: {{.}}
+  {{- end }}
+  {{- with $val.protocol }}
+    protocol: {{.}}
+  {{- end }}
+  {{- if $val.containerPort }}
+    targetPort: {{ $val.containerPort }}
+  {{- else if $val.port }}
+    targetPort: {{ $val.port }}
+  {{- end }}
+  {{- end }}
+  {{- if .Values.volcano_scheduler.logExporter.enable }}
+  - name: log-metric
+    port: {{ $.Values.volcano_scheduler.logExporter.port }}
+  {{- end }}
+  selector:
+    app: {{ template "volcano-scheduler.volcano_scheduler.fullname" . }}
+{{- end}}
+{{- range $service_name, $service := .Values.volcano_scheduler.service.extra_usr_define_services }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{$service.service_domain}}
+  labels:
+    app: {{ template "volcano-scheduler.volcano_scheduler.fullname" $ }}
+    chart: "{{ $.Chart.Name }}-{{ $.Chart.Version }}"
+    release: "{{ $.Release.Name }}"
+    heritage: "{{ $.Release.Service }}"
+    app.kubernetes.io/managed-by: '{{ $.Release.Service }}'
+    app.kubernetes.io/instance: '{{ $.Release.Name }}'
+    helm.sh/chart: '{{ $.Chart.Name }}-{{ $.Chart.Version }}'
+    app.kubernetes.io/name: '{{ template "volcano-scheduler.volcano_scheduler.fullname" $ }}'
+
+  annotations:
+  {{- if (or $.Values.volcano_scheduler.logExporter.enable $service.prometheus_scrape) }}
+    prometheus.io/scrape: "true"
+  {{- end }}
+  {{- with $service.annotations }}
+  {{- range $key, $val := . }}
+    {{$key}}: {{$val}}
+  {{- end }}
+  {{- end }}
+spec:
+  {{- if ne "" $service.clusterIP }}
+  clusterIP: {{ $service.clusterIP }}
+  {{- end }}
+  type: {{ $service.type }}
+  {{- with $service.externalTrafficPolicy }}
+  externalTrafficPolicy: {{ . }}
+  {{- end }}
+  {{- with $service.healthCheckNodePort }}
+  healthCheckNodePort: {{ . }}
+  {{- end }}
+  {{- with $service.sessionAffinity }}
+  sessionAffinity: {{ . }}
+  {{- end }}
+  {{- with $service.sessionAffinityConfig }}
+  sessionAffinityConfig:
+{{ toYaml . | indent 4}}
+  {{- end }}
+  ports:
+  {{- range $key, $val := $service.ports }}
+  - name: {{ $val.name }}
+  {{- if $val.port }}
+    port: {{ $val.port }}
+  {{- else if $val.containerPort }}
+    port: {{ $val.containerPort }}
+  {{- end }}
+  {{- with $val.appProtocol}}
+    appProtocol: {{.}}
+  {{- end }}
+  {{- with $val.nodePort }}
+    nodePort: {{.}}
+  {{- end }}
+  {{- with $val.protocol }}
+    protocol: {{.}}
+  {{- end }}
+  {{- if $val.containerPort }}
+    targetPort: {{ $val.containerPort }}
+  {{- else if $val.port }}
+    targetPort: {{ $val.port }}
+  {{- end }}
+  {{- end }}
+  {{- if $.Values.volcano_scheduler.logExporter.enable }}
+  - name: log-metric
+    port: {{ $.Values.volcano_scheduler.logExporter.port }}
+  {{- end }}
+  selector:
+    app: {{ template "volcano-scheduler.volcano_scheduler.fullname" $ }}
+{{- end }}
+{{- end }}

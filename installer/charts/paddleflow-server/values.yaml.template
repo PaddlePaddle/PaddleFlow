@@ -1,0 +1,235 @@
+out_depend_msg:
+  DB_DATABASE: paddleflow
+  DB_DRIVER: sqlite
+  DB_HOST: 127.0.0.1
+  DB_PASSWORD: paddleflow
+  DB_PORT: '3306'
+  DB_USER: paddleflow
+  PADDLEFLOW_SERVER_PORT: 8999
+  PF_SERVER_SCHEDULER_NAME: volcano
+  VOLCANO_SYSTEM: volcano-system
+  paddleflowServer_tokenExpirationHour: '-1'
+paddleflow_server:
+  affinity: {}
+  annotations:
+    reloader.stakater.com/auto: 'false'
+  args:
+  - -c
+  - cd /home/paddleflow/server && ./paddleflow  --pfs-service-name=${pfsServiceName}
+    --pfs-service-port=8999 --db-password=${DB_PW}
+  chart_config_volumes:
+    configMaps:
+      conf:
+        name: conf
+    secrets: {}
+  cluster_existing_volumes:
+    configMaps:
+      k8s-client-config:
+        name: k8s-client-config
+    secrets: {}
+  command:
+  - /bin/sh
+  config_msg:
+  - configMap: k8s-client-config
+    defaultMode: ''
+    mountPath: /home/paddleflow/server/config/server/default/kube.config
+    source: cluster-existing
+    subPath: kube.config
+    volName: k8s-client-config
+  - config_name: paddleserver.yaml
+    defaultMode: ''
+    mountPath: /home/paddleflow/server/config/server/default/paddleserver.yaml
+    volName: conf
+  - config_name: default_pvc.yaml
+    defaultMode: ''
+    mountPath: /home/paddleflow/server/config/fs/default_pvc.yaml
+    volName: conf
+  - config_name: default_pv.yaml
+    defaultMode: ''
+    mountPath: /home/paddleflow/server/config/fs/default_pv.yaml
+    volName: conf
+  - config_name: spark.yaml
+    defaultMode: ''
+    mountPath: /home/paddleflow/server/config/server/default/job/spark.yaml
+    volName: conf
+  - config_name: vcjob_ps.yaml
+    defaultMode: ''
+    mountPath: /home/paddleflow/server/config/server/default/job/vcjob_ps.yaml
+    volName: conf
+  - config_name: vcjob_pod.yaml
+    defaultMode: ''
+    mountPath: /home/paddleflow/server/config/server/default/job/vcjob_pod.yaml
+    volName: conf
+  - config_name: vcjob_collective.yaml
+    defaultMode: ''
+    mountPath: /home/paddleflow/server/config/server/default/job/vcjob_collective.yaml
+    volName: conf
+  - config_name: paddle_collective.yaml
+    defaultMode: ''
+    mountPath: /home/paddleflow/server/config/server/default/job/paddle_collective.yaml
+    volName: conf
+  - config_name: paddle_ps.yaml
+    defaultMode: ''
+    mountPath: /home/paddleflow/server/config/server/default/job/paddle_ps.yaml
+    volName: conf
+  - config_name: single.yaml
+    defaultMode: ''
+    mountPath: /home/paddleflow/server/config/server/default/job/single.yaml
+    volName: conf
+  cronjob_msg: {}
+  dnsPolicy: ClusterFirst
+  enable: true
+  hostAliases: {}
+  hostNetwork: false
+  image: ${paddleflowServerImage}
+  imagePullPolicy: IfNotPresent
+  imageTag: '${paddleflowServerImageTag}'
+  init_container_msg: {}
+  job_msg: {}
+  labels: {}
+  livenessProbe:
+    content:
+      httpGet:
+        path: /healthz
+        port: https
+        scheme: HTTPS
+    enabled: false
+    failureThreshold: 3
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    successThreshold: 1
+    timeoutSeconds: 5
+  logExporter:
+    enable: false
+    port: 9273
+    telegraf:
+      agent:
+        debug: false
+        flush_interval: 5s
+        interval: 3s
+        metric_batch_size: 1000
+        metric_buffer_limit: 10000
+      input:
+      output:
+        buckets: '[0.0, 201.0, 312.0, 401.0, 405.0, 501.0]'
+        period: 30s
+  name: paddleflow-server
+  nodeSelector: {}
+  persistence:
+    paddleflowdb:
+      accessMode: ''
+      annotations: {}
+      asset_storage_name: host-path
+      asset_storage_type: host-path
+      enabled: false
+      hostPath: /mnt/paddleflow/paddleflow.db
+      hostPathSplice: ''
+      hostPathType: FileOrCreate
+      isCreator: ''
+      publicPvc: false
+      publicPvcName: ''
+      size: Gi
+      storageClass: host-path
+    paddleflowdir:
+      accessMode: ReadWriteOnce
+      annotations: {}
+      asset_storage_name: host-path
+      asset_storage_type: host-path
+      enabled: false
+      hostPath: /mnt/paddleflow
+      hostPathSplice: ''
+      hostPathType: DirectoryOrCreate
+      isCreator: ''
+      publicPvc: false
+      publicPvcName: ''
+      size: Gi
+      storageClass: host-path
+  podAnnotations: {}
+  podSecurityContext:
+    runAsGroup: 1000
+    runAsUser: 1000
+  readinessProbe:
+    content:
+      httpGet:
+        path: /healthz
+        port: https
+        scheme: HTTPS
+    enabled: false
+    failureThreshold: 3
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    successThreshold: 1
+    timeoutSeconds: 1
+  replicas: 1
+  resources: {}
+  restartPolicy: Always
+  secret: {}
+  secret_msg: []
+  securityContext:
+    privileged: false
+    runAsGroup: 1000
+    runAsUser: 1000
+  service:
+    clusterIP: ''
+    extra_usr_define_services:
+      paddleflow-server:
+        annotations: {}
+        clusterIP: ''
+        ports:
+          port-0:
+            containerPort: '8999'
+            name: port-0
+            nodePort: '8999'
+            port: '8999'
+            prometheus_scrape: false
+            prometheus_scrape_interval: ''
+            prometheus_scrape_path: /metrics
+            protocol: TCP
+        service_domain: paddleflow-server
+        sessionAffinity: None
+        sessionAffinityConfig:
+          clientIP:
+            timeoutSeconds: 10800
+        type: NodePort
+    ports:
+      port-0:
+        containerPort: '8999'
+        name: port-0
+        port: '8999'
+        protocol: TCP
+    service_domain: ''
+    type: ClusterIP
+  serviceAccount: {}
+  serviceName: ''
+  sidecar_container_msg: []
+  special_env: {}
+  startupProbe:
+    content:
+      httpGet:
+        path: /healthz
+        port: https
+        scheme: HTTPS
+    enabled: false
+    failureThreshold: 3
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    successThreshold: 1
+    timeoutSeconds: 1
+  strategy: {}
+  paddleflow_node_affinity: {}
+  tolerations: []
+  type: deployment
+  usr_define_msg: {}
+  volumeMounts:
+  - mountPath: /home/paddleflow/server/paddleflow.db
+    mountPropagation: None
+    name: paddleflowdb
+    subPath: ''
+  - mountPath: /tmp/paddleflow
+    mountPropagation: HostToContainer
+    name: paddleflowdir
+    subPath: paddleflow
+product_name: paddleflow-server
+total_ports:
+  paddleflow_server_port_0: '8999'
+version: 0.0.91-rc68gc-tmp

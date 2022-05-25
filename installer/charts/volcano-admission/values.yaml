@@ -1,0 +1,187 @@
+out_depend_msg: {}
+product_name: volcano-admission
+total_ports:
+  volcano_admission_service_: '8443'
+version: 0.0.15-rcbsxa
+volcano_admission:
+  affinity: {}
+  annotations:
+    app: volcano-admission
+    reloader.stakater.com/auto: 'false'
+  args:
+  - --tls-cert-file=/admission.local.config/certificates/tls.crt
+  - --tls-private-key-file=/admission.local.config/certificates/tls.key
+  - --ca-cert-file=/admission.local.config/certificates/ca.crt
+  - --webhook-namespace=volcano-system
+  - --webhook-service-name=volcano-admission-service
+  - --logtostderr=false
+  - --port=8443
+  - -v=4
+  - 2>&1
+  - --alsologtostderr
+  - --log_dir=/tmp/log
+  - --log_file=/tmp/log/webhook.log
+  - --log_file_max_size=300
+  - --nvidia-mps-dev-volume-host-path=/dev/shm
+  - --nvidia-mps-dev-volume-container-path=/dev/shm
+  - --nvidia-cgpu-volume-host-path=/baidu-cgpu
+  - --nvidia-cgpu-volume-container-path=/home/baidu-cgpu
+  - --nvidia-lib-cuda-volume-host-path=/opt/baidu-cgpu/lib64/libcuda.so.1
+  - --nvidia-lib-cuda-volume-centos-container-path=/usr/lib64/libcuda.so.1
+  - --nvidia-lib-cuda-volume-ubuntu-container-path=/usr/lib/x86_64-linux-gnu/libcuda.so.1
+  - --nvidia-lib-cuda-original-volume-host-path=/usr/lib64/libcuda.so.1
+  - --nvidia-lib-cuda-original-volume-container-path=/usr/lib64/libcuda_original.so
+  - --nvidia-libml-volume-host-path=/usr/lib64/libnvidia-ml.so
+  - --nvidia-libml-volume-centos-container-path=/usr/lib64/libnvidia-ml.so.1
+  - --nvidia-libml-volume-ubuntu-container-path=/usr/lib/x86_64-linux-gnu/libnvidia-ml.so.1
+  - --nvidia-libml-original-volume-host-path=/usr/lib64/libnvidia-ml.so
+  - --nvidia-libml-original-volume-container-path=/usr/lib64/libnvidia-ml_original.so
+  chart_config_volumes:
+    configMaps: {}
+    secrets: {}
+  cluster_existing_volumes:
+    configMaps: {}
+    secrets:
+      volcano-admission-secret:
+        name: volcano-admission-secret
+  command: []
+  config_msg: []
+  cronjob_msg: {}
+  dnsPolicy: ClusterFirst
+  enable: true
+  hostAliases: {}
+  hostNetwork: false
+  image: paddleflow/vc-webhook-manager
+  imagePullPolicy: IfNotPresent
+  imageTag: '20220523_1653292737723'
+  init_container_msg: {}
+  job_msg: {}
+  labels:
+    app: volcano-admission
+  livenessProbe:
+    content:
+      httpGet:
+        path: /healthz
+        port: https
+        scheme: HTTPS
+    enabled: false
+    failureThreshold: 3
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    successThreshold: 1
+    timeoutSeconds: 5
+  logExporter:
+    enable: false
+    port: 9273
+    telegraf:
+      agent:
+        debug: false
+        flush_interval: 5s
+        interval: 3s
+        metric_batch_size: 1000
+        metric_buffer_limit: 10000
+      input: null
+      output:
+        buckets: '[0.0, 201.0, 312.0, 401.0, 405.0, 501.0]'
+        period: 30s
+  name: volcano-admission
+  nodeSelector: {}
+  persistence:
+    logdir:
+      accessMode: ''
+      annotations: {}
+      asset_storage_name: host-path
+      asset_storage_type: host-path
+      enabled: false
+      hostPath: /mnt/log/volcano/admission
+      hostPathSplice: ''
+      hostPathType: DirectoryOrCreate
+      isCreator: ''
+      publicPvc: false
+      publicPvcName: ''
+      size: Gi
+      storageClass: host-path
+  podAnnotations:
+    app: volcano-admission
+  podSecurityContext: {}
+  readinessProbe:
+    content:
+      httpGet:
+        path: /healthz
+        port: https
+        scheme: HTTPS
+    enabled: false
+    failureThreshold: 3
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    successThreshold: 1
+    timeoutSeconds: 1
+  replicas: 1
+  resources: {}
+  restartPolicy: Always
+  secret: {}
+  secret_msg:
+  - defaultMode: ''
+    mountPath: /admission.local.config/certificates
+    secret: volcano-admission-secret
+    source: cluster-existing
+    subPath: ''
+    volName: volcano-admission-secret
+  securityContext:
+    privileged: false
+  service:
+    clusterIP: ''
+    extra_usr_define_services:
+      volcano-admission-service:
+        annotations: {}
+        clusterIP: ''
+        ports:
+          ? ''
+          : containerPort: '8443'
+            name: ''
+            nodePort: '18443'
+            port: '8443'
+            prometheus_scrape: false
+            prometheus_scrape_interval: ''
+            prometheus_scrape_path: /metrics
+            protocol: TCP
+        service_domain: volcano-admission-service
+        sessionAffinity: None
+        sessionAffinityConfig:
+          clientIP:
+            timeoutSeconds: 10800
+        type: NodePort
+    ports:
+      ? ''
+      : containerPort: '8443'
+        name: ''
+        port: '8443'
+        protocol: TCP
+    service_domain: ''
+    type: ClusterIP
+  serviceAccount: volcano-admission
+  serviceName: ''
+  sidecar_container_msg: []
+  special_env: {}
+  startupProbe:
+    content:
+      httpGet:
+        path: /healthz
+        port: https
+        scheme: HTTPS
+    enabled: false
+    failureThreshold: 3
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    successThreshold: 1
+    timeoutSeconds: 1
+  strategy: {}
+  paddleflow_node_affinity: {}
+  tolerations: []
+  type: deployment
+  usr_define_msg: {}
+  volumeMounts:
+  - mountPath: /tmp/log
+    mountPropagation: None
+    name: logdir
+    subPath: ''

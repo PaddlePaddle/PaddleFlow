@@ -1,4 +1,4 @@
-FROM iregistry.public.com/bmlc/alpine:3.13
+FROM alpine:3.13
 
 RUN apk add fuse fuse-dev bash
 

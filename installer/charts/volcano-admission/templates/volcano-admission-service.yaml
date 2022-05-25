@@ -1,0 +1,141 @@
+{{- if .Values.volcano_admission.enable }}
+{{- if and .Values.volcano_admission.service.ports (not .Values.volcano_admission.service.extra_usr_define_services) }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "volcano-admission.volcano_admission.fullname" . }}
+  labels:
+    app: {{ template "volcano-admission.volcano_admission.fullname" . }}
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    release: "{{ .Release.Name }}"
+    heritage: "{{ .Release.Service }}"
+    app.kubernetes.io/managed-by: '{{ $.Release.Service }}'
+    app.kubernetes.io/instance: '{{ $.Release.Name }}'
+    helm.sh/chart: '{{ $.Chart.Name }}-{{ $.Chart.Version }}'
+    app.kubernetes.io/name: '{{ template "volcano-admission.volcano_admission.fullname" $ }}'
+
+  annotations:
+    {{- if (or .Values.volcano_admission.logExporter.enable .Values.volcano_admission.service.prometheus_scrape) }}
+    prometheus.io/scrape: "true"
+    {{- end }}
+    {{- if .Values.volcano_admission.service.annotations }}
+    {{- range $key, $val := .Values.volcano_admission.service.annotations }}
+    {{$key}}: {{$val}}
+    {{- end }}
+    {{- end }}
+spec:
+  {{- if ne "" .Values.volcano_admission.service.clusterIP }}
+  clusterIP: {{ .Values.volcano_admission.service.clusterIP }}
+  {{- end }}
+  type: {{ .Values.volcano_admission.service.type }}
+  {{- with .Values.volcano_admission.service.sessionAffinity }}
+  sessionAffinity: {{ . }}
+  {{- end }}
+  {{- with .Values.volcano_admission.service.sessionAffinityConfig }}
+  sessionAffinityConfig:
+{{ toYaml . | indent 4}}
+  {{- end }}
+  ports:
+  {{- range $key, $val := .Values.volcano_admission.service.ports }}
+  - name: {{ $val.name }}
+  {{- if $val.port }}
+    port: {{ $val.port }}
+  {{- else if $val.containerPort }}
+    port: {{ $val.containerPort }}
+  {{- end }}
+  {{- with $val.appProtocol}}
+    appProtocol: {{.}}
+  {{- end }}
+  {{- with $val.nodePort }}
+    nodePort: {{.}}
+  {{- end }}
+  {{- with $val.protocol }}
+    protocol: {{.}}
+  {{- end }}
+  {{- if $val.containerPort }}
+    targetPort: {{ $val.containerPort }}
+  {{- else if $val.port }}
+    targetPort: {{ $val.port }}
+  {{- end }}
+  {{- end }}
+  {{- if .Values.volcano_admission.logExporter.enable }}
+  - name: log-metric
+    port: {{ $.Values.volcano_admission.logExporter.port }}
+  {{- end }}
+  selector:
+    app: {{ template "volcano-admission.volcano_admission.fullname" . }}
+{{- end}}
+{{- range $service_name, $service := .Values.volcano_admission.service.extra_usr_define_services }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{$service.service_domain}}
+  labels:
+    app: {{ template "volcano-admission.volcano_admission.fullname" $ }}
+    chart: "{{ $.Chart.Name }}-{{ $.Chart.Version }}"
+    release: "{{ $.Release.Name }}"
+    heritage: "{{ $.Release.Service }}"
+    app.kubernetes.io/managed-by: '{{ $.Release.Service }}'
+    app.kubernetes.io/instance: '{{ $.Release.Name }}'
+    helm.sh/chart: '{{ $.Chart.Name }}-{{ $.Chart.Version }}'
+    app.kubernetes.io/name: '{{ template "volcano-admission.volcano_admission.fullname" $ }}'
+
+  annotations:
+  {{- if (or $.Values.volcano_admission.logExporter.enable $service.prometheus_scrape) }}
+    prometheus.io/scrape: "true"
+  {{- end }}
+  {{- with $service.annotations }}
+  {{- range $key, $val := . }}
+    {{$key}}: {{$val}}
+  {{- end }}
+  {{- end }}
+spec:
+  {{- if ne "" $service.clusterIP }}
+  clusterIP: {{ $service.clusterIP }}
+  {{- end }}
+  type: {{ $service.type }}
+  {{- with $service.externalTrafficPolicy }}
+  externalTrafficPolicy: {{ . }}
+  {{- end }}
+  {{- with $service.healthCheckNodePort }}
+  healthCheckNodePort: {{ . }}
+  {{- end }}
+  {{- with $service.sessionAffinity }}
+  sessionAffinity: {{ . }}
+  {{- end }}
+  {{- with $service.sessionAffinityConfig }}
+  sessionAffinityConfig:
+{{ toYaml . | indent 4}}
+  {{- end }}
+  ports:
+  {{- range $key, $val := $service.ports }}
+  - name: {{ $val.name }}
+  {{- if $val.port }}
+    port: {{ $val.port }}
+  {{- else if $val.containerPort }}
+    port: {{ $val.containerPort }}
+  {{- end }}
+  {{- with $val.appProtocol}}
+    appProtocol: {{.}}
+  {{- end }}
+  {{- with $val.nodePort }}
+    nodePort: {{.}}
+  {{- end }}
+  {{- with $val.protocol }}
+    protocol: {{.}}
+  {{- end }}
+  {{- if $val.containerPort }}
+    targetPort: {{ $val.containerPort }}
+  {{- else if $val.port }}
+    targetPort: {{ $val.port }}
+  {{- end }}
+  {{- end }}
+  {{- if $.Values.volcano_admission.logExporter.enable }}
+  - name: log-metric
+    port: {{ $.Values.volcano_admission.logExporter.port }}
+  {{- end }}
+  selector:
+    app: {{ template "volcano-admission.volcano_admission.fullname" $ }}
+{{- end }}
+{{- end }}

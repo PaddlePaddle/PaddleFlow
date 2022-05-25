@@ -1,0 +1,213 @@
+"apiVersion": |-
+  v1
+"binaryData":
+  "config": |-
+    Iy9iaW4vYmFzaAoKc2V0IC1lCgojIHBhZGRsZWZsb3fmnI3liqHkv6Hmga8KZXhwb3J0IFBhZGRsZUZsb3dIb3N0PTE4MC43Ni4yMzAuMwpleHBvcnQgUGFkZGxlRmxvd1Bvc3Q9ODk5OQpleHBvcnQgUGFkZGxlRmxvd1Bhc3N3ZD0ncGFkZGxlZmxvdycgICPliJ3lp4vljJZyb29055So5oi355qE5a+G56CBCgojIGs4c+mbhue+pOS/oeaBrwpleHBvcnQgQ0xVU1RFUklEPSLkuIDlj7fpm4bnvqQiCmV4cG9ydCBDTFVTVEVSTkFNRT0idGVzdCIKZXhwb3J0IEVORFBPSU5UPSdodHRwOi8vMC4wLjAuMDo4MDgwJwpleHBvcnQgQ1JFREVOVElBTEZJTEVQQVRIPScvcm9vdC8ua3ViZS9jb25maWcnCmV4cG9ydCBDUkVERU5USUFMPWBiYXNlNjQgJENSRURFTlRJQUxGSUxFUEFUSCB8IHRyIC1kICJcbiJgCmV4cG9ydCBDTFVTVEVSVFlQRT0na3ViZXJuZXRlcy12MS4xNicKZXhwb3J0IERFU0NSSVBUSU9OPSdjdWxwYSBpcHN1bSBwYXJpYXR1cicKZXhwb3J0IENMVVNURVJTRVRUSU5HPScnCmV4cG9ydCBDTFVTVEVSU09VUkNFPSdDQ0UnCmV4cG9ydCBDTFVTVEVSU1RBVFVTPSdvbmxpbmUnCmV4cG9ydCBOQU1FU1BBQ0VMSVNUPSJuMSxuMixuMyIK
+  "local-pv.yaml": |-
+    YXBpVmVyc2lvbjogc3RvcmFnZS5rOHMuaW8vdjEKa2luZDogU3RvcmFnZUNsYXNzCm1ldGFkYXRhOgogICAgbmFtZTogbG9jYWwtc3RvcmFnZQpwcm92aXNpb25lcjoga3ViZXJuZXRlcy5pby9uby1wcm92aXNpb25lcgp2b2x1bWVCaW5kaW5nTW9kZTogV2FpdEZvckZpcnN0Q29uc3VtZXIKLS0tCmFwaVZlcnNpb246IHYxCmtpbmQ6IFBlcnNpc3RlbnRWb2x1bWUKbWV0YWRhdGE6CiAgICBuYW1lOiBsb2NhbC1wdgogICAgbGFiZWxzOgogICAgICB0eXBlOiBsb2NhbApzcGVjOgogICAgY2FwYWNpdHk6CiAgICAgICAgc3RvcmFnZTogMjAwMEdpCiAgICBhY2Nlc3NNb2RlczoKICAgIC0gUmVhZFdyaXRlT25jZQogICAgc3RvcmFnZUNsYXNzTmFtZTogbG9jYWwtc3RvcmFnZQogICAgaG9zdFBhdGg6CiAgICAgIHBhdGg6ICIvY2VwaC9kYXRhL21vZGVscy9tb2RlbC1mYWN0b3J5LWRhdGEiCi0tLQphcGlWZXJzaW9uOiB2MQpraW5kOiBQZXJzaXN0ZW50Vm9sdW1lQ2xhaW0KbWV0YWRhdGE6CiAgbmFtZTogbG9jYWxmcwpzcGVjOgogIHN0b3JhZ2VDbGFzc05hbWU6IGxvY2FsLXN0b3JhZ2UKICBhY2Nlc3NNb2RlczoKICAgIC0gUmVhZFdyaXRlT25jZQogIHZvbHVtZU5hbWU6IGxvY2FsLXB2CiAgcmVzb3VyY2VzOgogICAgcmVxdWVzdHM6CiAgICAgIHN0b3JhZ2U6IDIwMDBHaQ==
+"data":
+  "main.sh": |-
+    #!/bin/bash
+
+    work_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+    echo $work_dir
+    source $work_dir/config
+
+    function echo_input_tips() {
+        echo -e "\tinstallpv"
+        echo -e "\tinitcluster"
+        echo -3 "\tinitfs"
+    }
+
+    function InitCluster() {
+      PasswdToken
+      curl --request POST "${PaddleFlowHost}:${PaddleFlowPost}/api/paddleflow/v1/cluster?version=v1" -H "Content-Type: application/json" -H "x-pf-authorization: ${token//\"/}" \
+      --data '{"clusterId": "'"${CLUSTERID}"'",
+      "clusterName": "'"${CLUSTERNAME}"'",
+      "endpoint": "'"${ENDPOINT}"'",
+      "credential": "'"${CREDENTIAL}"'",
+      "clusterType": "'"${CLUSTERTYPE}"'",
+      "description": "'"${DESCRIPTION}"'",
+      "setting": "'"${CLUSTERSETTING}"'",
+      "source": "'"${CLUSTERSOURCE}"'",
+      "status": "'"${CLUSTERSTATUS}"'",
+      "namespaceList": ["'"${NAMESPACELIST}"'"]
+      }'
+    }
+
+    function InitClusterFs() {
+      PasswdToken
+      curl --request POST "${PaddleFlowHost}:${PaddleFlowPost}/api/paddleflow/v1/fs" -H "Content-Type: application/json" -H "x-pf-authorization: ${token//\"/}" \
+      --data '{
+      "name": "lkgfs",
+      "url": "mock://demo",
+      "properties": {
+        "pvc": "localfs",
+      "namespace": "mpks"
+      },
+      "username": "root"
+      }'
+      curl --request POST "${PaddleFlowHost}:${PaddleFlowPost}/api/paddleflow/v1/fs" -H "Content-Type: application/json" -H "x-pf-authorization: ${token//\"/}" \
+      --data '{
+      "name": "kgfsceph",
+      "url": "mock://ceph",
+      "properties": {
+        "pvc": "cephfs",
+      "namespace": "mpks"
+      },
+      "username": "root"
+      }'
+    }
+
+    function InitUser() {
+      PasswdToken
+      curl --request put "${PaddleFlowHost}:{PaddleFlowPost}/api/paddleflow/v1/user/root" -H "Content-Type: application/json" -H "x-pf-authorization: ${token//\"/}" \
+      --data '{ "password":"'"${PaddleFlowPasswd}"'"}'
+    }
+
+    function PasswdToken() {
+      json=`curl --request POST -s  "http://${PaddleFlowHost}:${PaddleFlowPost}/api/paddleflow/v1/login" --header 'Content-Type: application/json' --data '{   "username":"root","password":"paddleflow"}'`
+      export token=`getJsonValuesByAwk "$json" "authorization" "defaultValue"`
+    }
+
+    function getJsonValuesByAwk() {
+        awk -v json="$1" -v key="$2" -v Value="$3" 'BEGIN{
+            foundKeyCount = 0
+            while (length(json) > 0) {
+                pos = match(json, "\""key"\"[ \\t]*?:[ \\t]*");
+                if (pos == 0) {if (foundKeyCount == 0) {print Value;} exit 0;}
+
+                ++foundKeyCount;
+                start = 0; stop = 0; layer = 0;
+                for (i = pos + length(key) + 1; i <= length(json); ++i) {
+                    lastChar = substr(json, i - 1, 1)
+                    currChar = substr(json, i, 1)
+
+                    if (start <= 0) {
+                        if (lastChar == ":") {
+                            start = currChar == " " ? i + 1: i;
+                            if (currChar == "{" || currChar == "[") {
+                                layer = 1;
+                            }
+                        }
+                    } else {
+                        if (currChar == "{" || currChar == "[") {
+                            ++layer;
+                        }
+                        if (currChar == "}" || currChar == "]") {
+                            --layer;
+                        }
+                        if ((currChar == "," || currChar == "}" || currChar == "]") && layer <= 0) {
+                            stop = currChar == "," ? i : i + 1 + layer;
+                            break;
+                        }
+                    }
+                }
+
+                if (start <= 0 || stop <= 0 || start > length(json) || stop > length(json) || start >= stop) {
+                    if (foundKeyCount == 0) {print Value;} exit 0;
+                } else {
+                    print substr(json, start, stop - start);
+                }
+
+                json = substr(json, stop + 1, length(json) - stop)
+            }
+        }'
+    }
+
+    # parse flag
+    if [ $1 = "initcluster" ]; then
+      InitCluster
+    elif [ $1 = "installpv" ];then
+      kubectl create -f /job/local-pv.yaml
+    elif [ $1 = "initfs" ];then
+      InitClusterFs
+    else
+      echo_input_tips
+      exit -1
+    fi
+  "telegraf.conf": |
+    [global_tags]
+    {{- if $.Values.init_cluster.logExporter.enable }}
+    [agent]
+      interval = "{{ .Values.init_cluster.logExporter.telegraf.agent.interval }}"
+      metric_batch_size = {{ .Values.init_cluster.logExporter.telegraf.agent.metric_batch_size }}
+      metric_buffer_limit = {{ .Values.init_cluster.logExporter.telegraf.agent.metric_buffer_limit }}
+      collection_jitter = "0s"
+      flush_interval = "{{ .Values.init_cluster.logExporter.telegraf.agent.flush_interval }}"
+      flush_jitter = "0s"
+      precision = "1s"
+      debug = {{ .Values.init_cluster.logExporter.telegraf.agent.debug }}
+      hostname = ""
+      omit_hostname = false
+
+    [[outputs.prometheus_client]]
+      listen = ":{{ .Values.init_cluster.logExporter.port }}"
+
+    {{- range $index_input, $input := .Values.init_cluster.logExporter.telegraf.input }}
+    [[inputs.logparser]]
+      files = [
+                {{- range $index, $file := $input.logFiles }}
+                {{- if $index }},{{- end}}
+                 "{{ $file }}"
+                {{- end }}
+              ]
+      from_beginning = false
+      [inputs.logparser.grok]
+        patterns = [
+                    {{- range $index, $log := $input.logs }}
+                    {{- if $index }},{{- end}}
+                    ''{{ $log }}''
+                    {{- end }}
+                   ]
+        measurement = "LogMeasurement"
+        #custom_pattern_files = []
+        custom_patterns = '''
+            {{- range $input.custom_patterns }}
+            {{ . }}
+            {{- end }}
+        '''
+    {{- end}}
+
+    [[aggregators.basicstats]]
+      namepass = ["LogMeasurement"]
+      period = "{{ .Values.init_cluster.logExporter.telegraf.output.period }}"
+      drop_original = false
+      stats = ["count", "min", "max", "mean", "stdev", "s2", "sum"]
+
+    [[aggregators.histogram]]
+      drop_original = false
+      reset = true
+      [[aggregators.histogram.config]]
+        buckets = {{ .Values.init_cluster.logExporter.telegraf.output.buckets }}
+        measurement_name = "LogMeasurement"
+        fields = [{{ range $index, $value := .Values.init_cluster.logExporter.telegraf.output.histogramFields }}{{if $index}}, {{end}}"{{$value}}"{{end}}]
+
+    [[aggregators.valuecounter]]
+      namepass = ["LogMeasurement"]
+      period = "{{ .Values.init_cluster.logExporter.telegraf.output.period }}"
+      drop_original = false
+      fields = [{{ range $index, $value :=  .Values.init_cluster.logExporter.telegraf.output.valuecounterFields }}{{if $index}}, {{end}}"{{$value}}"{{end}}]
+    {{- end }}
+"kind": |-
+  ConfigMap
+"metadata":
+  "labels":
+    "app": |-
+      {{ template "init-cluster.init_cluster.fullname" . }}
+    "app.kubernetes.io/instance": |-
+      {{ $.Release.Name }}
+    "app.kubernetes.io/managed-by": |-
+      {{ $.Release.Service }}
+    "app.kubernetes.io/name": |-
+      {{ template "init-cluster.init_cluster.fullname" $ }}
+    "chart": |-
+      {{ .Chart.Name }}-{{ .Chart.Version }}
+    "helm.sh/chart": |-
+      {{ $.Chart.Name }}-{{ $.Chart.Version }}
+    "heritage": |-
+      {{ .Release.Service }}
+    "release": |-
+      {{ .Release.Name }}
+  "name": |-
+    {{ template "init-cluster.init_cluster.fullname" . }}

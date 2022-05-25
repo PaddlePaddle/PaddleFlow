@@ -1,0 +1,11 @@
+name: volcano-controller
+home: paddleflow
+version: 0.0.8-rcbszz
+appVersion: 0.0.8-rcbszz
+apiVersion: v1
+description: baidu volcano-controller.
+sources:
+- paddleflow
+maintainers:
+- name: pf-op
+  email: paddleflow@paddle.com

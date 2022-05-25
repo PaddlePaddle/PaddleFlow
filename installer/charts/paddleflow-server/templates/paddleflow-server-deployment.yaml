@@ -1,72 +1,512 @@
-{{- if .Values.paddleflowServer.enable -}}
+{{- if .Values.paddleflow_server.enable }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: paddleflow-server
-  namespace: {{ .Release.Namespace }}
+  #文件里的所有paddleflow-server、paddleflow_server都替换成实际名称
+  name: {{ template "paddleflow-server.paddleflow_server.fullname" $ }}
+  labels:
+    app: {{ template "paddleflow-server.paddleflow_server.fullname" . }}
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    release: "{{ .Release.Name }}"
+    heritage: "{{ .Release.Service }}"
+    app.kubernetes.io/managed-by: '{{ $.Release.Service }}'
+    app.kubernetes.io/instance: '{{ $.Release.Name }}'
+    helm.sh/chart: '{{ $.Chart.Name }}-{{ $.Chart.Version }}'
+    app.kubernetes.io/name: '{{ template "paddleflow-server.paddleflow_server.fullname" $ }}'
+    {{- with .Values.paddleflow_server.labels }}
+{{ toYaml . | indent 4 }}
+    {{- end }}
+  {{- with .Values.paddleflow_server.annotations }}
+  annotations:
+{{ toYaml . | indent 4 }}
+  {{- end }}
 spec:
+  replicas: {{ .Values.paddleflow_server.replicas }}
+  {{- with .Values.paddleflow_server.strategy }}
+  strategy:
+{{ toYaml . | indent 4 }}
+  {{- end }}
   selector:
     matchLabels:
-      app: paddleflow-server
-  replicas: 1
+      app: {{ template "paddleflow-server.paddleflow_server.fullname" . }}
   template:
     metadata:
       labels:
-        app: paddleflow-server
+        app: {{ template "paddleflow-server.paddleflow_server.fullname" . }}
+        app.kubernetes.io/managed-by: '{{ $.Release.Service }}'
+        app.kubernetes.io/instance: '{{ $.Release.Name }}'
+        helm.sh/chart: '{{ $.Chart.Name }}-{{ $.Chart.Version }}'
+        app.kubernetes.io/name: '{{ template "paddleflow-server.paddleflow_server.fullname" $ }}'
+    {{- with .Values.paddleflow_server.labels }}
+{{ toYaml . | indent 8 }}
+    {{- end }}
+{{- with .Values.paddleflow_server.podAnnotations }}
+      annotations:
+{{ toYaml . | indent 8 }}
+{{- end }}
     spec:
+      {{- if .Values.paddleflow_server.imagePullSecrets }}
+      imagePullSecrets:
+      - name: {{ template "paddleflow-server.paddleflow_server.fullname_registry" . }}
+      {{- end }}
+      dnsPolicy: {{ .Values.paddleflow_server.dnsPolicy }}
+      restartPolicy: {{ .Values.paddleflow_server.restartPolicy }}
+      {{- with .Values.paddleflow_server.podSecurityContext }}
+      securityContext:
+{{ toYaml . | indent 8 }}
+      {{- end }}
+      {{- with .Values.paddleflow_server.hostAliases }}
+      hostAliases:
+{{ toYaml . | indent 8 }}
+      {{- end }}
+      {{- with .Values.paddleflow_server.tolerations }}
+      tolerations:
+{{ toYaml . | indent 8 }}
+      {{- end }}
+      {{- if or $.Values.paddleflow_server.affinity $.Values.paddleflow_server.paddleflow_node_affinity }}
+{{ $affinity := index $.Values.paddleflow_server "affinity" | default dict }}
+      affinity:
+        {{- if or $affinity.nodeAffinity $.Values.paddleflow_server.paddleflow_node_affinity }}
+        nodeAffinity:
+          {{- if $affinity.nodeAffinity }}
+            {{- if $affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution }}
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              {{- range $i, $matchExpression := $affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms }}
+            - matchExpressions:
+{{ toYaml $matchExpression.matchExpressions | indent 16 }}
+                {{- if eq 0 $i}}
+                  {{- /* add paddleflow_node_affinity if exists */}}
+                  {{- with $.Values.paddleflow_server.paddleflow_node_affinity }}
+                    {{- if $.Values.paddleflow_server.paddleflow_node_affinity.nodeAffinity }}
+                      {{- $paddleflow_matchExpression := (index (index $.Values.paddleflow_server.paddleflow_node_affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms 0).matchExpressions 0) | default dict }}
+                - key: {{ $paddleflow_matchExpression.key }}
+                  operator: {{ $paddleflow_matchExpression.operator }}
+                  values:
+                      {{- range $i, $value := $paddleflow_matchExpression.values}}
+                    - {{ $value | quote }}
+                      {{- end }}
+                    {{- end }}
+                  {{- end }}
+                {{- end }}
+              {{- end }}
+            {{- else if $.Values.paddleflow_server.paddleflow_node_affinity }}
+          requiredDuringSchedulingIgnoredDuringExecution:
+{{ toYaml $.Values.paddleflow_server.paddleflow_node_affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution |indent 12 }}
+            {{- end }}
+          {{- else if $.Values.paddleflow_server.paddleflow_node_affinity }}
+          requiredDuringSchedulingIgnoredDuringExecution:
+{{ toYaml $.Values.paddleflow_server.paddleflow_node_affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution |indent 12 }}
+          {{- end }}
+          {{- if $affinity.nodeAffinity }}
+            {{- with $affinity.nodeAffinity.preferredDuringSchedulingIgnoredDuringExecution}}
+          preferredDuringSchedulingIgnoredDuringExecution:
+{{ toYaml . | indent 12 }}
+            {{- end }}
+          {{- end}}
+        {{- end }}
+        {{- with $affinity.podAffinity }}
+        podAffinity:
+{{ toYaml . | indent 10 }}
+        {{- end }}
+        {{- with $affinity.podAntiAffinity }}
+        podAntiAffinity:
+{{ toYaml . | indent 10 }}
+        {{- end }}
+        {{- with $affinity.nodeAntiAffinity }}
+        nodeAntiAffinity:
+{{ toYaml . | indent 10 }}
+        {{- end }}
+      {{- end }}
+
+      {{- with .Values.paddleflow_server.nodeSelector }}
+      nodeSelector:
+{{ toYaml . | indent 8 }}
+      {{- end }}
+      {{- if .Values.paddleflow_server.priorityClassName }}
+      priorityClassName: "{{ .Values.paddleflow_server.priorityClassName }}"
+      {{- end }}
+      {{- if .Values.paddleflow_server.hostNetwork }}
+      hostNetwork: true
+      {{- end }}
+      {{- if .Values.paddleflow_server.serviceAccount }}
+      serviceAccountName: {{.Values.paddleflow_server.serviceAccount}}
+      {{- end }}
       containers:
-        - name: paddleflow-server
-          image: {{ .Values.paddleflowServer.image }}
-          resources:
-            requests:
-              cpu: 1
-              memory: 2000Mi
-            limits:
-              cpu: 1
-              memory: 2000Mi
-          command: ["/bin/sh"]
-          args: ["-c", "cd /home/paddleflow/server && ./paddleflow --k8s-config-path=/home/paddleflow/server/config/server/default/kube.config"]
-{{- if .Values.storage_pvc.enable }}
-          volumeMounts:
-{{- range .Values.pvc }}
-            - name: {{ .pvc_name }}
-              mountPath: {{ .pvc_point }}
-              mountPropagation: HostToContainer
-{{- end }}
-{{- else }}
-          volumeMounts:
-{{- end }}
-            - name: paddleflow-server-config
-              mountPath: /home/paddleflow/server/config/server/default/paddleserver.yaml
-              subPath: paddleserver.yaml
-            - name: k8s-client-config
-              mountPath: /home/paddleflow/server/config/server/default/kube.config
-              subPath: kube.config
-            - name: paddleflow-server-config
-              mountPath: /home/paddleflow/server/config/fs/default_pvc.yaml
-              subPath: default_pvc.yaml
-            - name: paddleflow-server-config
-              mountPath: /home/paddleflow/server/config/fs/default_pv.yaml
-              subPath: default_pv.yaml
-            - name: paddleflow-server-jobyaml-config
-              mountPath: /home/paddleflow/server/config/server/default/job
-{{- if .Values.storage_pvc.enable }}
+      - name: {{ template "paddleflow-server.paddleflow_server.fullname" $ }}{{with .name}}-{{ . }}{{end}}
+        image: "{{ .Values.paddleflow_server.image }}:{{ .Values.paddleflow_server.imageTag }}"
+        imagePullPolicy: {{ .Values.paddleflow_server.imagePullPolicy | quote }}
+        {{- with .Values.paddleflow_server.lifecycle }}
+        lifecycle:
+{{ toYaml . | indent 10 }}
+        {{- end }}
+        {{- if .Values.paddleflow_server.command }}
+        command:
+{{ toYaml .Values.paddleflow_server.command | indent 8 }}
+        {{- end }}
+        {{- if .Values.paddleflow_server.args }}
+        args:
+        #container_args list
+{{ toYaml .Values.paddleflow_server.args | indent 10 }}
+        {{- end }}
+        {{- with .Values.paddleflow_server.securityContext }}
+        securityContext:
+{{ toYaml . | indent 10 }}
+        {{- end }}
+        {{- with .Values.paddleflow_server.livenessProbe }}
+        {{- if .enabled }}
+        livenessProbe:
+{{ toYaml .content | indent 10 }}
+          initialDelaySeconds: {{ .initialDelaySeconds }}
+          periodSeconds: {{ .periodSeconds }}
+          timeoutSeconds: {{ .timeoutSeconds }}
+          successThreshold: {{ .successThreshold }}
+          failureThreshold: {{ .failureThreshold }}
+        {{- end }}
+        {{- end }}
+        {{- with .Values.paddleflow_server.readinessProbe }}
+        {{- if .enabled }}
+        readinessProbe:
+{{ toYaml .content | indent 10 }}
+          initialDelaySeconds: {{ .initialDelaySeconds }}
+          periodSeconds: {{ .periodSeconds }}
+          timeoutSeconds: {{ .timeoutSeconds }}
+          successThreshold: {{ .successThreshold }}
+          failureThreshold: {{ .failureThreshold }}
+        {{- end }}
+        {{- end }}
+        {{- if semverCompare ">1.16.0-0" .Capabilities.KubeVersion.GitVersion }}
+          {{- with .Values.paddleflow_server.startupProbe }}
+            {{- if .enabled }}
+        startupProbe:
+{{ toYaml .content | indent 10 }}
+          initialDelaySeconds: {{ .initialDelaySeconds }}
+          periodSeconds: {{ .periodSeconds }}
+          timeoutSeconds: {{ .timeoutSeconds }}
+          successThreshold: {{ .successThreshold }}
+          failureThreshold: {{ .failureThreshold }}
+            {{- end }}
+          {{- end }}
+        {{- end }}
+        {{-  with .Values.paddleflow_server.resources }}
+        resources:
+{{ toYaml . | indent 10 }}
+        {{- end }}
+        #服务启动暴露的端口，list形式，根据服务情况增加或删减
+        #注意：这个要跟paddleflow_server-service.yaml里的ports一一对应
+        ports:
+        {{- range $key, $val := $.Values.paddleflow_server.service.ports }}
+        {{- range $key_1, $val_1 := $val}}
+        {{- if eq $key_1 "name"}}
+        - name: {{ $val_1 }}
+        {{- end }}
+        {{- end }}
+        {{- range $key_1, $val_1 := $val}}
+        {{- if or (eq $key_1 "containerPort") (eq $key_1 "protocol") }}
+          {{ $key_1 }}: {{ $val_1 }}
+        {{- end }}
+        {{- end }}
+        {{- end }}
+        #服务的环境变量，list形式，根据服务情况增加或删减
+        env:
+        #container_envs list
+        #注意：这里的name跟后面volumes里name是一一对应的
+        volumeMounts:
+        {{- range $index, $pvc_message := .Values.paddleflow_server.volumeMounts }}
+        - name: {{ $pvc_message.name }}
+        {{- range $key, $value := $pvc_message}}
+        {{- if ne "name" $key }}
+          {{ $key }}: {{ $value }}
+        {{- end }}
+        {{- end }}
+        {{- end }}
+        {{- range $index, $pvc_message := .Values.paddleflow_server.config_msg }}
+          {{- if $pvc_message.source }}
+            {{-  if eq $pvc_message.source "cluster-existing" }}
+        - name: {{$pvc_message.volName}}
+          #容器里配置文件存放路径
+          mountPath: {{ $pvc_message.mountPath }}
+          #容器里配置文件名称
+          subPath: {{ $pvc_message.subPath }}
+            {{- end }}
+          {{- else }}
+        - name: {{$pvc_message.volName}}
+          #容器里配置文件存放路径
+          mountPath: {{ $pvc_message.mountPath }}
+          #容器里配置文件名称
+          subPath: {{ $pvc_message.config_name }}
+          {{- end }}
+        {{- end }}
+        {{- range $index, $pvc_message := .Values.paddleflow_server.secret_msg }}
+          {{- if $pvc_message.source }}
+            {{-  if eq $pvc_message.source "cluster-existing" }}
+        - name: {{$pvc_message.volName}}
+          #容器里配置文件存放路径
+          mountPath: {{ $pvc_message.mountPath }}
+          #容器里配置文件名称
+          subPath: {{ $pvc_message.subPath }}
+            {{- end }}
+          {{- else }}
+        - name: {{$pvc_message.volName}}
+          #容器里配置secret存放路径
+          mountPath: {{ $pvc_message.mountPath }}
+          #容器里配置secret名称
+          subPath: {{ $pvc_message.secret_name }}
+          {{- end }}
+        {{- end }}
+      {{- if $.Values.paddleflow_server.logExporter.enable }}
+      - name: telegraf
+        image: {{ $.Values.paddleflow_server.logExporter.image }}
+        ports:
+        - containerPort: {{ $.Values.paddleflow_server.logExporter.port }}
+        volumeMounts:
+        - mountPath: /etc/telegraf/telegraf.conf
+          name: conf
+          subPath: telegraf.conf
+        {{- range $index, $log_mount := $.Values.paddleflow_server.logExporter.logs }}
+        - mountPath: {{ $log_mount.mountPath }}
+          name: {{ $log_mount.persistence }}
+        {{- end }}
+      {{- end }}
+  {{- range $index, $sidecar := .Values.paddleflow_server.sidecar_container_msg }}
+      - name: {{with $sidecar.name}}{{.}}{{end}}
+        image: "{{ $sidecar.image }}:{{ $sidecar.imageTag }}"
+        imagePullPolicy: {{ $sidecar.imagePullPolicy | quote }}
+        {{- with $sidecar.lifecycle }}
+        lifecycle:
+{{ toYaml . | indent 10 }}
+        {{- end }}
+        {{- with $sidecar.command }}
+        command:
+{{ toYaml . | indent 8 }}
+        {{- end }}
+        {{- with $sidecar.args }}
+        args:
+{{ toYaml . | indent 8 }}
+        {{- end }}
+        {{- with $sidecar.securityContext }}
+        securityContext:
+{{ toYaml . | indent 10 }}
+        {{- end }}
+        {{-  with $sidecar.resources }}
+        resources:
+{{ toYaml . | indent 10 }}
+        {{- end }}
+        {{- with $sidecar.livenessProbe }}
+        {{- if .enabled }}
+        livenessProbe:
+{{ toYaml .content | indent 10 }}
+          initialDelaySeconds: {{ .initialDelaySeconds }}
+          periodSeconds: {{ .periodSeconds }}
+          timeoutSeconds: {{ .timeoutSeconds }}
+          successThreshold: {{ .successThreshold }}
+          failureThreshold: {{ .failureThreshold }}
+        {{- end }}
+        {{- end }}
+        {{- with $sidecar.readinessProbe }}
+        {{- if .enabled }}
+        readinessProbe:
+{{ toYaml .content | indent 10 }}
+          initialDelaySeconds: {{ .initialDelaySeconds }}
+          periodSeconds: {{ .periodSeconds }}
+          timeoutSeconds: {{ .timeoutSeconds }}
+          successThreshold: {{ .successThreshold }}
+          failureThreshold: {{ .failureThreshold }}
+        {{- end }}
+        {{- end }}
+        {{- if $sidecar.expose_ports }}
+        ports:
+        {{- range $name, $port := $sidecar.expose_ports }}
+        - name: {{ $name }}
+        {{- range $key_1, $val_1 := $port}}
+        {{- if or (eq $key_1 "containerPort") (eq $key_1 "protocol") }}
+          {{ $key_1 }}: {{ $val_1 }}
+        {{- end }}
+        {{- end }}
+        {{- end }}
+        {{- end }}
+        #服务的环境变量，list形式，根据服务情况增加或删减
+        env:
+        #env_list
+        #env end
+        #注意：这里的name跟后面volumes里name是一一对应的
+        volumeMounts:
+        {{- range $index, $pvc_message := $sidecar.volumeMounts }}
+        {{- range $key, $value := $pvc_message}}
+        {{- if eq "name" $key }}
+        - name: {{ $value }}
+        {{- end }}
+        {{- end }}
+        {{- range $key, $value := $pvc_message}}
+        {{- if ne "name" $key }}
+          {{ $key }}: {{ $value }}
+        {{- end }}
+        {{- end }}
+        {{- end }}
+        {{- range $index, $pvc_message := $sidecar.config_msg }}
+          {{- if $pvc_message.source }}
+            {{-  if eq $pvc_message.source "cluster-existing" }}
+        - name: {{$pvc_message.configMap}}
+          #容器里配置文件存放路径
+          mountPath: {{ $pvc_message.mountPath }}
+          #容器里配置文件名称
+          subPath: {{ $pvc_message.subPath }}
+            {{- end }}
+          {{- else }}
+        - name: conf
+          #容器里配置文件存放路径
+          mountPath: {{ $pvc_message.mountPath }}
+          #容器里配置文件名称
+          subPath: {{ $pvc_message.config_name }}
+          {{- end }}
+        {{- end }}
+        {{- range $index, $pvc_message := $sidecar.secret_msg }}
+        {{- if $pvc_message.source }}
+            {{-  if  $pvc_message.source "cluster-existing" }}
+        - name: {{$pvc_message.secret}}
+          #容器里配置文件存放路径
+          mountPath: {{ $pvc_message.mountPath }}
+          #容器里配置文件名称
+          subPath: {{ $pvc_message.subPath }}
+            {{- end }}
+          {{- else }}
+        - name: secret
+          #容器里 配置secret存放路径
+          mountPath: {{ $pvc_message.mountPath }}
+          #容器里配置secret名称
+          subPath: {{ $pvc_message.secret_name }}
+          {{- end }}
+        {{- end }}
+  #sidecar container messages
+  {{- end}}
+      initContainers:
+      {{- range .Values.paddleflow_server.init_container_msg }}
+      - name: {{ template "paddleflow-server.paddleflow_server.fullname" $ }}{{with .name}}-{{ . }}{{else}}-initcontainer{{end}}
+        image: "{{ .image }}:{{ .imageTag }}"
+        imagePullPolicy: {{ .imagePullPolicy | quote }}
+        {{- with .lifecycle }}
+        lifecycle:
+{{ toYaml . | indent 10 }}
+        {{- end }}
+        {{- with .command }}
+        command:
+{{ toYaml . | indent 8 }}
+        {{- end }}
+        {{- with .args }}
+        args:
+        #init_container_args list
+{{ toYaml . | indent 8 }}
+        {{- end }}
+        {{- with .securityContext }}
+        securityContext:
+{{ toYaml . | indent 10 }}
+        {{- end }}
+        {{-  with .resources }}
+        resources:
+{{ toYaml . | indent 10 }}
+        {{- end }}
+        #服务的环境变量，list形式，根据服务情况增加或删减
+        env:
+        #init_container_envs list
+        #注意：这里的name跟后面volumes里name是一一对应的
+        volumeMounts:
+        {{- range $index, $pvc_message := .volumeMounts }}
+        - name: {{ $pvc_message.name }}
+        {{- range $key, $value := $pvc_message}}
+        {{- if ne "name" $key }}
+          {{ $key }}: {{ $value }}
+        {{- end }}
+        {{- end }}
+        {{- end }}
+        {{- range $index, $pvc_message := .config_msg }}
+          {{- if $pvc_message.source }}
+            {{-  if eq $pvc_message.source "cluster-existing" }}
+        - name: {{$pvc_message.volName}}
+          #容器里配置文件存放路径
+          mountPath: {{ $pvc_message.mountPath }}
+          #容器里配置文件名称
+          subPath: {{ $pvc_message.subPath }}
+            {{- end }}
+          {{- else }}
+        - name: {{$pvc_message.volName}}
+          #容器里配置文件存放路径
+          mountPath: {{ $pvc_message.mountPath }}
+          #容器里配置文件名称
+          subPath: {{ $pvc_message.config_name }}
+          {{- end }}
+        {{- end }}
+        {{- range $index, $pvc_message := .secret_msg }}
+        - name: {{$pvc_message.volName}}
+          #容器里配置secret存放路径
+          mountPath: {{ $pvc_message.mountPath }}
+          #容器里配置secret名称
+          subPath: {{ $pvc_message.secret_name }}
+        {{- end }}
+      {{- end }}
       volumes:
-{{- range .Values.pvc }}
-        - name: {{ .pvc_name }}
-          persistentVolumeClaim:
-            claimName: {{ .pvc_name }}
+      {{- range $volume_name, $volume_msg := .Values.paddleflow_server.persistence }}
+      - name: {{ $volume_name }}
+      {{- if $volume_msg.enabled }}
+        persistentVolumeClaim:
+        {{- if $volume_msg.publicPvc }}
+          claimName: {{ $volume_msg.publicPvcName }}
+        {{- else }}
+          claimName: {{ template "paddleflow-server.paddleflow_server.fullname" $ }}-{{ $volume_name }}
+        {{- end }}
+      {{- else if $volume_msg.emptyDir }}
+        emptyDir:
+          {{- if $volume_msg.emptyDirMedium  }}
+          medium: {{ $volume_msg.emptyDirMedium }}
+          {{- end }}
+      {{- else }}
+        hostPath: 
+          path: {{ printf "%s%s" $volume_msg.hostPath $volume_msg.hostPathSplice }}
+          {{- with $volume_msg.hostPathType }}
+          type: {{ . }}
+          {{- else }}
+          type: DirectoryOrCreate
+          {{- end }}
+      {{- end }}
+      {{- end }}
+      # 集群已存在的configMap和secret
+      {{- with .Values.paddleflow_server.cluster_existing_volumes.configMaps }}
+        {{- range $name, $cm := . }}
+      - name: {{ $name }}
+        configMap:
+          name: {{ $cm.name }}
+          {{- if $cm.defaultMode }}
+          defaultMode: {{ $cm.defaultMode }}
+          {{- end}}
+        {{- end}}
+      {{- end}}
+      {{- with .Values.paddleflow_server.cluster_existing_volumes.secrets }}
+        {{- range $name, $secret := . }}
+      - name: {{ $name }}
+        secret:
+          secretName: {{ $secret.name }}
+          {{- if $secret.defaultMode }}
+          defaultMode: {{ $secret.defaultMode }}
+          {{- end}}
+        {{- end}}
+      {{- end}}
+      {{- with .Values.paddleflow_server.chart_config_volumes.configMaps }}
+        {{- range $name, $cm := . }}
+      - name: {{ $name }}
+        configMap:
+          name: {{ template "paddleflow-server.paddleflow_server.fullname" $ }}
+          {{- if $cm.defaultMode }}
+          defaultMode: {{ $cm.defaultMode }}
+          {{- end}}
+        {{- end}}
+      {{- end}}
+      {{- with .Values.paddleflow_server.chart_config_volumes.secrets }}
+        {{- range $name, $secret := . }}
+      - name: {{ $name }}
+        secret:
+          secretName: {{ template "paddleflow-server.paddleflow_server.fullname" $ }}
+          {{- if $secret.defaultMode }}
+          defaultMode: {{ $secret.defaultMode }}
+          {{- end}}
+        {{- end}}
+      {{- end}}
 {{- end }}
-{{- else }}
-      volumes:
-{{- end }}
-        - name: paddleflow-server-config
-          configMap:
-            name: paddleflow-server-config
-        - name: paddleflow-server-jobyaml-config
-          configMap:
-            name: paddleflow-server-jobyaml-config
-        - name: k8s-client-config
-          configMap:
-            name: k8s-client-config
-{{- end -}}

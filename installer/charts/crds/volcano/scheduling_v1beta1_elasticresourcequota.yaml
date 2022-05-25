@@ -1,0 +1,142 @@
+{{- if .Values.volcano.enable -}}
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.4.1
+  creationTimestamp: null
+  name: elasticresourcequotas.scheduling.volcano.sh
+spec:
+  group: scheduling.volcano.sh
+  names:
+    kind: ElasticResourceQuota
+    listKind: ElasticResourceQuotaList
+    plural: elasticresourcequotas
+    shortNames:
+    - equota
+    - equota-v1beta1
+    singular: elasticresourcequota
+  scope: Cluster
+  versions:
+    - name: v1beta1
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            kind:
+              type: string
+              description: >-
+                Kind is a string value representing the REST resource this
+                object represents. Servers may infer this from the endpoint the
+                client submits requests to. Cannot be updated. In CamelCase.
+                More info:
+                https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            spec:
+              type: object
+              properties:
+                max:
+                  type: object
+                  description: Max is the upper bound of elastic resource quota
+                  additionalProperties:
+                    anyOf:
+                      - type: integer
+                      - type: string
+                    pattern: >-
+                      ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                    x-kubernetes-int-or-string: true
+                min:
+                  type: object
+                  description: Min is the lower bound of elastic resource quota
+                  additionalProperties:
+                    anyOf:
+                      - type: integer
+                      - type: string
+                    pattern: >-
+                      ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                    x-kubernetes-int-or-string: true
+                namespace:
+                  type: string
+                  description: >-
+                    namespace defines elastic resource quota belongs to one
+                    namespace
+                reclaimable:
+                  type: boolean
+                  description: >-
+                    Reclaimable indicate whether the elastic quota can be
+                    reclaimed by other elastic resource quota
+                hardwareTypes:
+                  type: array
+                  items:
+                    type: string
+                  description: >-
+                    HardwareTypes defines hardware types of elastic resource
+                    quota
+              description: >-
+                Specification of the desired behavior of the
+                ElasticResourceQuota. More info:
+                https://git.k8s.io/community/contributors/devel/api-conventions.md#spec-and-status
+            status:
+              type: object
+              properties:
+                used:
+                  type: object
+                  description: Used resource of elastic resource quota
+                  additionalProperties:
+                    anyOf:
+                      - type: integer
+                      - type: string
+                    pattern: >-
+                      ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                    x-kubernetes-int-or-string: true
+                isLeaf:
+                  type: boolean
+                  description: IsLeaf defines whether elastic resource quota is leaf or not
+                queueName:
+                  type: string
+                  description: QueueName indicate bound queue
+              description: The status of ElasticResourceQuota.
+            metadata:
+              type: object
+            apiVersion:
+              type: string
+              description: >-
+                APIVersion defines the versioned schema of this representation
+                of an object. Servers should convert recognized schemas to the
+                latest internal value, and may reject unrecognized values. More
+                info:
+                https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+          description: Elastic Resource Quota
+      served: true
+      storage: true
+      subresources:
+        status: {}
+      additionalPrinterColumns:
+      - name: Age
+        type: date
+        priority: 0
+        jsonPath: .metadata.creationTimestamp
+      - name: Leaf
+        type: boolean
+        priority: 1
+        jsonPath: .status.isLeaf
+      - name: QueueName
+        type: string
+        priority: 2
+        description: The name of bound queue
+        jsonPath: .status.queueName
+      - name: Reclaim
+        type: boolean
+        priority: 3
+        jsonPath: .spec.reclaimable
+      - name: Namespace
+        type: string
+        priority: 4
+        description: The related of namespace
+        jsonPath: .spec.namespace
+      - name: HardwareTypes
+        type: string
+        priority: 5
+        jsonPath: .spec.hardwareTypes
+  conversion:
+    strategy: None
+{{- end -}}

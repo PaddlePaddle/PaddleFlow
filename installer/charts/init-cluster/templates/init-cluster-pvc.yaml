@@ -1,0 +1,38 @@
+{{- if .Values.init_cluster.enable }}
+{{- range $pvc_name, $pvc_msg := .Values.init_cluster.persistence }}
+{{- if $pvc_msg.enabled }}
+{{- if or (not $pvc_msg.publicPvc) (and $pvc_msg.publicPvc $pvc_msg.isCreator) }}
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  {{- if not $pvc_msg.publicPvc }}
+  name: {{ template "init-cluster.init_cluster.fullname" $ }}-{{ $pvc_name }}
+  {{- else }}
+  name: {{ $pvc_msg.publicPvcName }}
+  {{- end }}
+{{- with $pvc_msg.annotations  }}
+  annotations:
+{{ toYaml . | indent 4 }}
+{{- end }}
+  labels:
+    app: {{ template "init-cluster.init_cluster.fullname" $ }}
+    chart: "{{ $.Chart.Name }}-{{ $.Chart.Version }}"
+    release: "{{ $.Release.Name }}"
+    heritage: "{{ $.Release.Service }}"
+    app.kubernetes.io/managed-by: '{{ $.Release.Service }}'
+    app.kubernetes.io/instance: '{{ $.Release.Name }}'
+    helm.sh/chart: '{{ $.Chart.Name }}-{{ $.Chart.Version }}'
+    app.kubernetes.io/name: '{{ template "init-cluster.init_cluster.fullname" $ }}'
+spec:
+    accessModes:
+      - {{ $pvc_msg.accessMode }}
+    volumeMode: {{ $pvc_msg.volumeMode }}
+    resources:
+      requests:
+        storage: {{ $pvc_msg.size }}
+    storageClassName: '{{ $pvc_msg.storageClass }}'
+{{- end }}
+{{- end }}
+---
+{{- end }}
+{{- end }}

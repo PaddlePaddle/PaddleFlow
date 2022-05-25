@@ -1,0 +1,11 @@
+name: init-cluster
+home: paddleflow
+version: 0.0.24-17335360
+appVersion: 0.0.24-17335360
+apiVersion: v1
+description: baidu init-cluster.
+sources:
+- paddleflow
+maintainers:
+- name: pf-op
+  email: paddleflow@paddle.com

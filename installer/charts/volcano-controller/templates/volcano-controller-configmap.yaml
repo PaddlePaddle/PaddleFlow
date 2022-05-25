@@ -1,0 +1,89 @@
+"apiVersion": |-
+  v1
+"binaryData": {}
+"data":
+  "telegraf.conf": |
+    [global_tags]
+    {{- if $.Values.volcano_controller.logExporter.enable }}
+    [agent]
+      interval = "{{ .Values.volcano_controller.logExporter.telegraf.agent.interval }}"
+      metric_batch_size = {{ .Values.volcano_controller.logExporter.telegraf.agent.metric_batch_size }}
+      metric_buffer_limit = {{ .Values.volcano_controller.logExporter.telegraf.agent.metric_buffer_limit }}
+      collection_jitter = "0s"
+      flush_interval = "{{ .Values.volcano_controller.logExporter.telegraf.agent.flush_interval }}"
+      flush_jitter = "0s"
+      precision = "1s"
+      debug = {{ .Values.volcano_controller.logExporter.telegraf.agent.debug }}
+      hostname = ""
+      omit_hostname = false
+
+    [[outputs.prometheus_client]]
+      listen = ":{{ .Values.volcano_controller.logExporter.port }}"
+
+    {{- range $index_input, $input := .Values.volcano_controller.logExporter.telegraf.input }}
+    [[inputs.logparser]]
+      files = [
+                {{- range $index, $file := $input.logFiles }}
+                {{- if $index }},{{- end}}
+                 "{{ $file }}"
+                {{- end }}
+              ]
+      from_beginning = false
+      [inputs.logparser.grok]
+        patterns = [
+                    {{- range $index, $log := $input.logs }}
+                    {{- if $index }},{{- end}}
+                    ''{{ $log }}''
+                    {{- end }}
+                   ]
+        measurement = "LogMeasurement"
+        #custom_pattern_files = []
+        custom_patterns = '''
+            {{- range $input.custom_patterns }}
+            {{ . }}
+            {{- end }}
+        '''
+    {{- end}}
+
+    [[aggregators.basicstats]]
+      namepass = ["LogMeasurement"]
+      period = "{{ .Values.volcano_controller.logExporter.telegraf.output.period }}"
+      drop_original = false
+      stats = ["count", "min", "max", "mean", "stdev", "s2", "sum"]
+
+    [[aggregators.histogram]]
+      drop_original = false
+      reset = true
+      [[aggregators.histogram.config]]
+        buckets = {{ .Values.volcano_controller.logExporter.telegraf.output.buckets }}
+        measurement_name = "LogMeasurement"
+        fields = [{{ range $index, $value := .Values.volcano_controller.logExporter.telegraf.output.histogramFields }}{{if $index}}, {{end}}"{{$value}}"{{end}}]
+
+    [[aggregators.valuecounter]]
+      namepass = ["LogMeasurement"]
+      period = "{{ .Values.volcano_controller.logExporter.telegraf.output.period }}"
+      drop_original = false
+      fields = [{{ range $index, $value :=  .Values.volcano_controller.logExporter.telegraf.output.valuecounterFields }}{{if $index}}, {{end}}"{{$value}}"{{end}}]
+    {{- end }}
+"kind": |-
+  ConfigMap
+"metadata":
+  "labels":
+    "app": |-
+      {{ template "volcano-controller.volcano_controller.fullname" . }}
+    "app.kubernetes.io/instance": |-
+      {{ $.Release.Name }}
+    "app.kubernetes.io/managed-by": |-
+      {{ $.Release.Service }}
+    "app.kubernetes.io/name": |-
+      {{ template "volcano-controller.volcano_controller.fullname" $ }}
+    "chart": |-
+      {{ .Chart.Name }}-{{ .Chart.Version }}
+    "helm.sh/chart": |-
+      {{ $.Chart.Name }}-{{ $.Chart.Version }}
+    "heritage": |-
+      {{ .Release.Service }}
+    "release": |-
+      {{ .Release.Name }}
+  "name": |-
+    {{ template "volcano-controller.volcano_controller.fullname" . }}

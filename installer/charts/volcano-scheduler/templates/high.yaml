@@ -1,0 +1,13 @@
+"apiVersion": |-
+  scheduling.k8s.io/v1
+"description": |-
+  Used for critical pods that must not be moved from their current node.
+"kind": |-
+  PriorityClass
+"metadata":
+  "name": |-
+    high
+  "selfLink": |-
+    /apis/scheduling.k8s.io/v1/priorityclasses/high
+"value": !!int |-
+  1000

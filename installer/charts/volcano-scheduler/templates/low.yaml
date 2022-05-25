@@ -1,0 +1,13 @@
+"apiVersion": |-
+  scheduling.k8s.io/v1
+"description": |-
+  Used for low-priority Pods that are easily preempted.
+"kind": |-
+  PriorityClass
+"metadata":
+  "name": |-
+    low
+  "selfLink": |-
+    /apis/scheduling.k8s.io/v1/priorityclasses/low
+"value": !!int |-
+  50

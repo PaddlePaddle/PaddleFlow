@@ -675,7 +675,7 @@ index 63ea0fd..f6b41c0 100644
  
  
 -FROM alpine:latest
-+FROM iregistry.baidu-int.com/bmlc/alpine:latest
++FROM paddleflow/alpine:latest
  
 -ADD vc-controller-manager /vc-controller-manager
 +ADD output/bin/vc-controller-manager /vc-controller-manager
@@ -689,7 +689,7 @@ index 0581191..14a74f7 100644
  
  
 -FROM alpine:latest
-+FROM iregistry.baidu-int.com/bmlc/alpine:latest
++FROM paddleflow/alpine:latest
  
 -ADD vc-scheduler /vc-scheduler
 +ADD output/bin/vc-scheduler /vc-scheduler
@@ -703,7 +703,7 @@ index 38e2e2d..ba48d3c 100644
  # The base image is created via `Dockerfile.base`, the base image is cached
  # since the required packages change very rarely.
 -FROM volcanosh/vc-webhook-manager-base:1.3.1
-+FROM iregistry.baidu-int.com/bmlc/vc-webhook-manager-base:1.3.1
++FROM paddleflow/vc-webhook-manager-base:1.3.1
  
 -ADD vc-webhook-manager /vc-webhook-manager
 -ADD gen-admission-secret.sh /gen-admission-secret.sh

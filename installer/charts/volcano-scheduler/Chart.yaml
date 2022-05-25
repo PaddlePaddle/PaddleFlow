@@ -1,0 +1,11 @@
+name: volcano-scheduler
+home: paddleflow
+version: 0.0.17-rcbt2x
+appVersion: 0.0.17-rcbt2x
+apiVersion: v1
+description: baidu volcano-scheduler.
+sources:
+- paddleflow
+maintainers:
+- name: pf-op
+  email: paddleflow@paddle.com

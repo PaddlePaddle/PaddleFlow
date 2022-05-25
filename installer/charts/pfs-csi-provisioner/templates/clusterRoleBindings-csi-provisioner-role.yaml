@@ -1,0 +1,21 @@
+"apiVersion": |-
+  rbac.authorization.k8s.io/v1
+"kind": |-
+  ClusterRoleBinding
+"metadata":
+  "name": |-
+    csi-provisioner-role
+"roleRef":
+  "apiGroup": |-
+    rbac.authorization.k8s.io
+  "kind": |-
+    ClusterRole
+  "name": |-
+    external-provisioner-runner
+"subjects":
+- "kind": |-
+    ServiceAccount
+  "name": |-
+    pfs-csi-provisioner
+  "namespace": |-
+    {{ .Release.Namespace }}

@@ -1,0 +1,15 @@
+"apiVersion": |-
+  scheduling.k8s.io/v1
+"description": |-
+  Used for normal pods.
+"globalDefault": !!bool |-
+  true
+"kind": |-
+  PriorityClass
+"metadata":
+  "name": |-
+    normal
+  "selfLink": |-
+    /apis/scheduling.k8s.io/v1/priorityclasses/normal
+"value": !!int |-
+  100
