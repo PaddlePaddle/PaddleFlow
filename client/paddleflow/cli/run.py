@@ -302,9 +302,9 @@ def _print_run(run, out_format):
     data = [[run.runId, run.status, run.name, run.description, run.entry, run.parameters, run.source, 
              run.runMsg, run.createTime, run.updateTime, run.activateTime]]
     print_output(data, headers, out_format, table_format='grid')
-    if run.run_yaml:
+    if run.runYaml:
         headers = ['run yaml detail']
-        data = [[run.run_yaml]]
+        data = [[run.runYaml]]
         print_output(data, headers, out_format, table_format='grid')
     if (not run.runtime or not len(run.runtime)) and (not run.postProcess or not len(run.postProcess)):
         click.echo("no job found")
