@@ -1,7 +1,0 @@
-NAME,DESCRIPTION
-PF_RUN_ID,the unique identifier of pipeline run
-PF_FS_ID,the unique identifier of PaddleFlow File System
-PF_FS_NAME,the name of PaddleFlow File System
-PF_STEP_NAME,the name of current step
-PF_USER_NAME,the name of user 
-PF_RUN_TIME,a json string which include upstream steps' info 
