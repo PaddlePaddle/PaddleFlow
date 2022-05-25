@@ -126,6 +126,15 @@ func TestFSCacheConfigRouter(t *testing.T) {
 	result, err = PerformPutRequest(router, urlWrong, updateReq)
 	assert.Nil(t, err)
 	assert.Equal(t, http.StatusNotFound, result.Code)
+
+	// delte
+	result, err = PerformDeleteRequest(router, urlWithFsID)
+	assert.Nil(t, err)
+	assert.Equal(t, http.StatusOK, result.Code)
+
+	result, err = PerformDeleteRequest(router, urlWithFsID)
+	assert.Nil(t, err)
+	assert.Equal(t, http.StatusNotFound, result.Code)
 }
 
 func buildReportRequest() fs.CacheReportRequest {
