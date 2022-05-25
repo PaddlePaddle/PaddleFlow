@@ -662,13 +662,6 @@ func RetryRun(ctx *logger.RequestContext, runID string) error {
 		ctx.Logging().Errorf("resetRunSteps failed. err:%v\n", err)
 		return err
 	}
-	if len(run.Runtime) > 0 {
-		// 确保在run_job表有对应的记录时，run记录中的status字段不是pending，进而防止多次创建run_job记录
-		if err := models.UpdateRunStatus(ctx.Logging(), run.ID, common.StatusRunRunning); err != nil {
-			ctx.Logging().Errorf("update run status to running failed")
-			return err
-		}
-	}
 	// resume
 	if err := resumeRun(run); err != nil {
 		ctx.Logging().Errorf("retry run[%s] failed resumeRun. run:%+v. error:%s\n",
@@ -826,6 +819,11 @@ func handleImageAndStartWf(run models.Run, isResume bool) error {
 			return updateRunStatusAndMsg(run.ID, common.StatusRunFailed, err.Error())
 		}
 		if !isResume {
+			err := models.UpdateRun(logEntry, run.ID,
+				models.Run{DockerEnv: run.WorkflowSource.DockerEnv, Status: common.StatusRunPending})
+			if err != nil {
+				return err
+			}
 			// start workflow with image url
 			wfPtr.Start()
 			logEntry.Debugf("workflow started, run:%+v", run)
@@ -835,11 +833,25 @@ func handleImageAndStartWf(run models.Run, isResume bool) error {
 				logEntry.Errorf("SetWorkflowRuntime for run[%s] failed. error:%v\n", run.ID, err)
 				return err
 			}
+			if len(run.Runtime) > 0 {
+				// 确保在run_job表有对应的记录时，run记录中的status字段不是pending，进而防止多次创建run_job记录
+				err := models.UpdateRun(logEntry, run.ID,
+					models.Run{DockerEnv: run.WorkflowSource.DockerEnv, Status: common.StatusRunRunning})
+				if err != nil {
+					return err
+				}
+			} else {
+				// 如果数据库中没有run_job记录，那么为防止Run为init状态，导致无法创建run_job记录，这里将Run的状态置为pending
+				err := models.UpdateRun(logEntry, run.ID,
+					models.Run{DockerEnv: run.WorkflowSource.DockerEnv, Status: common.StatusRunPending})
+				if err != nil {
+					return err
+				}
+			}
 			wfPtr.Restart()
 			logEntry.Debugf("workflow restarted, run:%+v", run)
 		}
-		return models.UpdateRun(logEntry, run.ID,
-			models.Run{DockerEnv: run.WorkflowSource.DockerEnv, Status: common.StatusRunPending})
+		return nil
 	} else {
 		imageIDs, err := models.ListImageIDsByFsID(logEntry, run.FsID)
 		if err != nil {
