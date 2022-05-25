@@ -169,7 +169,7 @@ Pipeline 实例化函数的主要参数说明如下：
 - Parameter依赖: 如果StepA的某个Parameter引用了StepB的某个Parameter，则称StepA在Parameter上依赖于StepB。
  
 #### 流程依赖
-定义节点间流程依赖的方式很简单，只需要调用Step实例的 `after()` 函数，便可以建立该Step实例在与其余Step实例的流程依赖关系。如在上面的[示例](#1pipeline-示例)中，我们可以看到如下的语句：
+定义节点间流程依赖的方式很简单，只需要调用Step实例的 `after()` 函数，便可以建立该Step实例与其余Step实例的流程依赖关系。如在上面的[示例](#1pipeline-示例)中，我们可以看到如下的语句：
 
 ```python3
 train_step.after(preprocess_step)
