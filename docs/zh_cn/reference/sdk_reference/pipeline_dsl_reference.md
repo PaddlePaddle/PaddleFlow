@@ -28,10 +28,10 @@ if __name__ == "__main__":
 |parallelism| string | pipeline 任务的并发数，即最大可以同时运行的节点任务数量 | 否 | | 
 |docker_env| string | 各节点默认的docker 镜像地址 | 否 | |
 |env| dict[str, str] | 各节点运行任务时的环境变量 | 否 | |
-|cache_options| [CacheOptions](#CacheOptions) | Pipeline 级别的 Cache 配置 | 否 | 关于Cache机制的相关介绍，请点击[这里][Cache] |
-|failure_options| [FailureOptions](#FailureOptions) |failure_options 配置 | 否 |关于failure_options的相关介绍，请点击[这里][failure_options]  |
+|cache_options| [CacheOptions](#2CacheOptions) | Pipeline 级别的 Cache 配置 | 否 | 关于Cache机制的相关介绍，请点击[这里][Cache] |
+|failure_options| [FailureOptions](#6FailureOptions) |failure_options 配置 | 否 |关于failure_options的相关介绍，请点击[这里][failure_options]  |
 
-> 注意: 有部分参数，在 Pipeline 和 [Step](#ContainerStep) 中都可以进行设置，在运行时，哪一个参数值才会生效？ 相关说明如下：
+> 注意: 有部分参数，在 Pipeline 和 [Step](#2ContainerStep) 中都可以进行设置，在运行时，哪一个参数值才会生效？ 相关说明如下：
 > -  docker_env : 如果 **Step.docker_env** 有值，则使用 **Step.docker_env** 的值，否则使用 **Pipeline.docker_env** 的值, 如果 **Step.docker_env**和**Pipeline.docker_env** 均无值，则会报错
 > - cache_opitons: 如果 **Step.cache_options** 有值，则使用 **Step.cache_options** 的值，否则使用 **Pipeline.cache_options** 的值, 如果 **Step.docker_env**， **Pipeline.docker_env** 均无值，则默认不使用 Cache 机制
 > - env: 采用合并机制: 在运行时， Step 的环境变量即包含了 **Step.env** 属性中指定环境变量，也包含了 **Pipeline.env** 中包含的环境变量， 如果有同名的环境变量，则使用 **Step.env** 定义的参数值
@@ -49,7 +49,7 @@ ppl.set_post_process(send_mail_step("xiaodu@baidu.com"))
 #### 参数说明
 |字段名称 | 字段类型 | 字段含义 | 是否必须 | 备注 |
 |:---:|:---:|:---:|:---:|:---:|
-| step | [ContainerStep](#ContainerStep) | post_process 阶段运行的 Step | 是 | |
+| step | [ContainerStep](#2ContainerStep) | post_process 阶段运行的 Step | 是 | |
 
 #### 返回值说明
 无返回值
@@ -64,7 +64,7 @@ ppl.get_post_process()
 无参数
 
 #### 返回值说明：
-一个在[PostProcess][PostProcess]阶段运行的[ContainerStep](#ContainerStep)实例
+一个在[post_process][post_process]阶段运行的[ContainerStep](#2ContainerStep)实例
 
 
 ### 1.4、发起pipeline任务：
@@ -221,9 +221,9 @@ step = ContainerStep(
 |docker_env| string  | docker 镜像地址 | 否 | |
 |inputs|dict[string, Aritfact] | 输入artifact信息 | 否 | key 将会作为artifact的名字，value需要是其余的节点输出artifact|
 |outputs|dict[string, Artifact] | 输出artifact信息 | 否 | key 将会作为artifact的名字, value必须是 Artifact()|
-|parameters|dict[string, Union[string, int, float, [Parameter](#Parameter)]] | parameter 信息 |  否 | key 将作为parameter的名字，value即为parameter的默认值|
+|parameters|dict[string, Union[string, int, float, [Parameter](#4Parameter)]] | parameter 信息 |  否 | key 将作为parameter的名字，value即为parameter的默认值|
 |env| dict[str, str] | 节点运行任务时的环境变量 |  否 | |
-|cache_options| [CacheOptions](#CacheOptions) |  Cache 配置 | 否 |关于Cache机制的相关介绍，请点击[这里](Cache机制) |
+|cache_options| [CacheOptions](#5CacheOptions) |  Cache 配置 | 否 |关于Cache机制的相关介绍，请点击[这里](Cache机制) |
 
 > 注意1：inputs, outputs, parameters 中的 key 不可以同名
 
@@ -256,7 +256,7 @@ step.add_env({"env1": "env1"})
 #### 参数说明
 |字段名称 | 字段类型 | 字段含义 | 是否必须 | 备注 |
 |:---:|:---:|:---:|:---:|:---:|
-| env | dict[str, str] (required) | 需要新增的环境变量 | 是 |  | 
+| env | dict[str, str] | 需要新增的环境变量 | 是 |  | 
 
 #### 返回值说明
 无返回值
@@ -306,7 +306,7 @@ step.outputs
 无参数
 
 #### 返回值说明
-一个dict: 其中key为artifact的名字，value为[Artifact](#Artifact) 实例
+一个dict: 其中key为artifact的名字，value为[Artifact](#3Artifact) 实例
 
 
 ### 2.7、获取parameter信息
@@ -509,7 +509,7 @@ DSL也提供一些可以节点运行时获取的系统变量，见下表：
 
 
 [PaddleFlow Pipeline Overview]: /docs/zh_cn/reference/pipeline/overview.md
-[PostProcess]: /docs/zh_cn/reference/pipeline/yaml_definition/4_failure_options_and_post_process.md
+[post_process]: /docs/zh_cn/reference/pipeline/yaml_definition/4_failure_options_and_post_process.md
 [yaml_definition]: /docs/zh_cn/reference/pipeline/yaml_definition
 [config_content]: TODO
 [cache]: /docs/zh_cn/reference/pipeline/yaml_definition/3_cache.md
