@@ -34,8 +34,8 @@ class RunServiceApi(object):
 
     @classmethod
     def add_run(self, host, fsname, name=None, desc=None,
-                param=None, username=None, runyamlpath=None, runyamlrawb64=None, pipelineID=None,
-                header=None, disabled=None, dockerEnv=None):
+                param=None, username=None, runyamlpath=None, runyamlrawb64=None, pipelineid=None,
+                header=None, disabled=None, dockerenv=None):
         """ add run 
         """
         if not header:
@@ -54,16 +54,16 @@ class RunServiceApi(object):
                 body['runYamlRaw']=base64.b64encode(runyamlrawb64).decode()
             else:
                 raise PaddleFlowSDKException("InvalidRequest", "runYamlRaw must be bytes type")
-        if pipelineID:
-            body['pipelineID']= pipelineID
+        if pipelineid:
+            body['pipelineID']= pipelineid
         if param:
             body['parameters'] = param
         if username:
             body['username'] = username
         if disabled:
             body["disabled"] = disabled
-        if dockerEnv:
-            body["dockerEnv"] = dockerEnv
+        if dockerenv:
+            body["dockerEnv"] = dockerenv
         response = api_client.call_api(method="POST", url=parse.urljoin(host, api.PADDLE_FLOW_RUN),
                                        headers=header, json=body)
         if not response:
@@ -106,7 +106,7 @@ class RunServiceApi(object):
         if len(data['runList']):
             for run in data['runList']:
                 runInfo = RunInfo(run['runID'], run['fsname'], run['username'], run['status'], run['name'],
-                                       None, None, None, None, None, None, None, None, None, None, None)
+                                       None, None, None, None, None, None, None, None, None, None, None, None)
                 runList.append(runInfo)
         return True, runList, data.get('nextMarker', None)
 
@@ -123,10 +123,7 @@ class RunServiceApi(object):
         data = json.loads(response.text)
         if 'message' in data:
             return False, data['message']
-        runInfo = RunInfo(data['runID'], data['fsname'], data['username'], data['status'], data['name'],
-                               data['description'], data['entry'], data['parameters'], data['runYaml'], None,
-                               data['dockerEnv'], data.get('updateTime', " "), data['source'],
-                               data['runMsg'], data.get('createTime', " "), data.get('activateTime', ' '))
+
         runtimeList = []
         runtime = data['runtime']
         if runtime:
@@ -138,7 +135,6 @@ class RunServiceApi(object):
                                 runtime[key]['jobID'])
                 runtimeInfo.name = key
                 runtimeList.append(runtimeInfo)
-        runInfo.runtime_info = runtimeList
 
         postProcessList = []
         post = data['postProcess']
@@ -151,18 +147,21 @@ class RunServiceApi(object):
                                 post[key]['jobID'])
                 postInfo.name = key
                 postProcessList.append(postInfo)
-        runInfo.post_info = postProcessList
+
+        runInfo = RunInfo(data['runID'], data['fsname'], data['username'], data['status'], data['name'],
+                               data['description'], data['entry'], data['parameters'], data['runYaml'], runtimeList, postProcessList,
+                               data['dockerEnv'], data.get('updateTime', " "), data['source'],
+                               data['runMsg'], data.get('createTime', " "), data.get('activateTime', ' '))
+        
         return True, runInfo
 
     @classmethod
-    def stop_run(self, host, runid, job_id=None, header=None, force=False):
+    def stop_run(self, host, runid, header=None, force=False):
         """stop run
         """
         if not header:
             raise PaddleFlowSDKException("InvalidRequest", "paddleflow should login first")
         url = host + api.PADDLE_FLOW_RUN + "/%s" % runid
-        if job_id:
-            url += "/job/%s" % job_id
         params = {
             "action": "stop"
         }

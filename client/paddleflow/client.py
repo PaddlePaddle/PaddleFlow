@@ -416,7 +416,7 @@ class Client(object):
         return RunServiceApi.add_run(self.paddleflow_server, fsname, runname, desc, 
                                         param, username, runyamlpath, runyamlraw, pipelineid, self.header, disabled, dockerenv)
     
-    def list_run(self, fsname=None, username=None, run_id=None, run_name=None, maxsize=100, marker=None):
+    def list_run(self, fsname=None, username=None, runid=None, runname=None, maxsize=100, marker=None):
         """
         list run
         """
@@ -425,32 +425,30 @@ class Client(object):
             raise PaddleFlowSDKException("InvalidFSName", "fsname should not be none or empty")
         if username and username.strip() == "":
             raise PaddleFlowSDKException("InvalidUserName", "username should not be none or empty") 
-        if  run_id and run_id.strip() == "":
+        if  runid and runid.strip() == "":
             raise PaddleFlowSDKException("InvalidRunID", "runid should not be none or empty")
         return RunServiceApi.list_run(self.paddleflow_server, fsname, 
-                                           username, run_id, run_name, self.header, maxsize, marker)
+                                           username, runid, runname, self.header, maxsize, marker)
 
-    def status_run(self, run_id):
+    def status_run(self, runid):
         """
         status run
         """
         self.pre_check()
-        if run_id is None or run_id.strip() == "":
+        if runid is None or runid.strip() == "":
             raise PaddleFlowSDKException("InvalidRunID", "runid should not be none or empty")
-        return RunServiceApi.status_run(self.paddleflow_server, run_id, self.header)
+        return RunServiceApi.status_run(self.paddleflow_server, runid, self.header)
 
-    def stop_run(self, run_id, job_id=None, force=False):
+    def stop_run(self, runid, force=False):
         """
         stop run
         """
         self.pre_check()
-        if run_id is None or run_id.strip() == "":
+        if runid is None or runid.strip() == "":
             raise PaddleFlowSDKException("InvalidRunID", "runid should not be none or empty")
-        if job_id and job_id.strip() == "":
-            raise PaddleFlowSDKException("InvalidJobID", "jobid should not be none or empty")
         if not isinstance(force, bool):
             raise PaddleFlowSDKException("InvalidParam", "the Parameter [force] should be an instance of bool")            
-        return RunServiceApi.stop_run(self.paddleflow_server, run_id, job_id, self.header, force)
+        return RunServiceApi.stop_run(self.paddleflow_server, runid, self.header, force)
 
     def create_cluster(self, clustername, endpoint, clustertype, credential=None,
                         description=None, source=None, setting=None, status=None, namespacelist=None, version=None):

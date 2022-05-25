@@ -230,6 +230,7 @@ func UpdateJob(jobID string, status schema.JobStatus, info interface{}, message 
 		job.ActivatedAt.Time = time.Now()
 		job.ActivatedAt.Valid = true
 	}
+	log.Debugf("update job [%+v]", job)
 	tx := database.DB.Table("job").Where("id = ?", jobID).Where("deleted_at = ''").Updates(&job)
 	if tx.Error != nil {
 		logger.LoggerForJob(jobID).Errorf("update job failed, err %v", tx.Error)
