@@ -441,6 +441,7 @@ func (s *StepParamChecker) checkDuplication(currentStep string) error {
 
 	m := make(map[string]string)
 	for paramName, _ := range step.Parameters {
+		paramName = strings.ToUpper(paramName)
 		_, ok := m[paramName]
 		if ok {
 			return fmt.Errorf("parameter name[%s] has already existed in params/artifacts of step[%s]", paramName, currentStep)
@@ -450,6 +451,7 @@ func (s *StepParamChecker) checkDuplication(currentStep string) error {
 	}
 
 	for inputAtfName, _ := range step.Artifacts.Input {
+		inputAtfName = strings.ToUpper(inputAtfName)
 		_, ok := m[inputAtfName]
 		if ok {
 			return fmt.Errorf("inputAtf name[%s] has already existed in params/artifacts of step[%s]", inputAtfName, currentStep)
@@ -459,6 +461,7 @@ func (s *StepParamChecker) checkDuplication(currentStep string) error {
 	}
 
 	for outputAtfName, _ := range step.Artifacts.Output {
+		outputAtfName = strings.ToUpper(outputAtfName)
 		_, ok := m[outputAtfName]
 		if ok {
 			return fmt.Errorf("outputAtf name[%s] has already existed in params/artifacts of step[%s]", outputAtfName, currentStep)
