@@ -83,7 +83,7 @@ type FileSystemInterface interface {
 	Delete(ctx context.Context, request *fs.DeleteFileSystemRequest, token string) error
 }
 
-// newUsers returns a Users.
+// newFileSystem returns a fileSystem.
 func newFileSystem(c *APIV1Client) *fileSystem {
 	return &fileSystem{
 		client: c.RESTClient(),

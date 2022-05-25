@@ -22,6 +22,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"path"
 	"strings"
@@ -136,6 +137,11 @@ func setup(c *cli.Context) error {
 		metricsAddr := exposeMetricsService(c.String("server"), c.Int("metrics-service-port"))
 		log.Debugf("mount opts: %+v, metricsAddr: %s", opts, metricsAddr)
 	}
+	if c.Bool("pprof-enable") {
+		go func() {
+			http.ListenAndServe(fmt.Sprintf(":%d", c.Int("pprof-port")), nil)
+		}()
+	}
 	return nil
 }
 
@@ -145,8 +151,9 @@ func exposeMetricsService(hostServer string, port int) string {
 	if err != nil {
 		log.Fatalf("metrics format error: %v", err)
 	}
+	mx := http.NewServeMux()
 	log.Debugf("metrics server - ip:%s, port:%d", ip, port)
-	http.Handle("/metrics", promhttp.HandlerFor(
+	mx.Handle("/metrics", promhttp.HandlerFor(
 		prometheus.DefaultGatherer,
 		promhttp.HandlerOpts{
 			// Opt into OpenMetrics to support exemplars.
@@ -156,7 +163,7 @@ func exposeMetricsService(hostServer string, port int) string {
 	prometheus.MustRegister(prometheus.NewBuildInfoCollector())
 	metricsAddr := fmt.Sprintf(":%d", port)
 	go func() {
-		if err := http.ListenAndServe(metricsAddr, nil); err != nil {
+		if err := http.ListenAndServe(metricsAddr, mx); err != nil {
 			log.Errorf("metrics ListenAndServe error: %s", err)
 		}
 	}()
