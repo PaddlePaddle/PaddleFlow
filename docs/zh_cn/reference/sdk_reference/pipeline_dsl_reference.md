@@ -28,7 +28,7 @@ if __name__ == "__main__":
 |parallelism| string | pipeline 任务的并发数，即最大可以同时运行的节点任务数量 | 否 | | 
 |docker_env| string | 各节点默认的docker 镜像地址 | 否 | |
 |env| dict[str, str] | 各节点运行任务时的环境变量 | 否 | |
-|cache_options| [CacheOptions](#2CacheOptions) | Pipeline 级别的 Cache 配置 | 否 | 关于Cache机制的相关介绍，请点击[这里][Cache] |
+|cache_options| [CacheOptions](#5CacheOptions) | Pipeline 级别的 Cache 配置 | 否 | 关于Cache机制的相关介绍，请点击[这里][Cache] |
 |failure_options| [FailureOptions](#6FailureOptions) |failure_options 配置 | 否 |关于failure_options的相关介绍，请点击[这里][failure_options]  |
 
 > 注意: 有部分参数，在 Pipeline 和 [Step](#2ContainerStep) 中都可以进行设置，在运行时，哪一个参数值才会生效？ 相关说明如下：
@@ -75,7 +75,7 @@ ppl.run(fsname="your_fs_name")
 #### 参数说明
 |字段名称 | 字段类型 | 字段含义 | 是否必须 | 备注 |
 |:---:|:---:|:---:|:---:|:---:|
-|config|  string|配置文件路径| 是 | 配置文件的内容请参考[这里][config_content] |
+|config|  string|配置文件路径| 否 | 配置文件的内容请参考[这里][config_content] |
 |fsname| string |存储系统名称 | 否 | 如果有使用Paddleflow Fs， 则必须填写该参数| 
 |username| string |指定用户，用于root账号运行特定用户的fs的工作流 | 否 | |
 |runname| string |工作流名称| 否 | |
@@ -219,11 +219,11 @@ step = ContainerStep(
 |name| string | step 的名字 | 是 | 需要满足如下正则表达式： "^[A-Za-z][A-Za-z0-9-]{1,250}[A-Za-z0-9-]$" |
 |command|string | 需要执行的命令 | 否 | |
 |docker_env| string  | docker 镜像地址 | 否 | |
-|inputs|dict[string, Aritfact] | 输入artifact信息 | 否 | key 将会作为artifact的名字，value需要是其余的节点输出artifact|
-|outputs|dict[string, Artifact] | 输出artifact信息 | 否 | key 将会作为artifact的名字, value必须是 Artifact()|
+|inputs|dict[string, [Aritfact](#3Artifact)] | 输入artifact信息 | 否 | key 将会作为artifact的名字，value需要是其余的节点输出artifact|
+|outputs|dict[string, [Artifact](#3Artifact)] | 输出artifact信息 | 否 | key 将会作为artifact的名字, value必须是 Artifact()|
 |parameters|dict[string, Union[string, int, float, [Parameter](#4Parameter)]] | parameter 信息 |  否 | key 将作为parameter的名字，value即为parameter的默认值|
 |env| dict[str, str] | 节点运行任务时的环境变量 |  否 | |
-|cache_options| [CacheOptions](#5CacheOptions) |  Cache 配置 | 否 |关于Cache机制的相关介绍，请点击[这里](Cache机制) |
+|cache_options| [CacheOptions](#5CacheOptions) |  Cache 配置 | 否 |关于Cache机制的相关介绍，请点击[这里][Cache] |
 
 > 注意1：inputs, outputs, parameters 中的 key 不可以同名
 
