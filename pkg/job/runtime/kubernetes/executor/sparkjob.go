@@ -50,7 +50,7 @@ func (sj *SparkJob) validateJob() error {
 	}
 	if !sj.IsCustomYaml {
 		if len(sj.Tasks) != 2 {
-			return fmt.Errorf("spark driver or executor is not defined")
+			return fmt.Errorf("the number of members must be two, meanwhile the roles are driver or executor respectively")
 		}
 		if sj.Tasks[0].Image == "" {
 			return fmt.Errorf("spark image is not defined")
