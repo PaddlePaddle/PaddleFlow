@@ -537,7 +537,7 @@ class RunInfo(object):
     """the class of RunInfo info"""   
 
     def __init__(self, runId, fsname, username, status, name, desc, entry, param,
-                 run_yaml, runtime, postProcess, dockerEnv, updateTime, source, runMsg, createTime,
+                 runYaml, runtime, postProcess, dockerEnv, updateTime, source, runMsg, createTime,
                  activateTime):
         """init """
         self.runId = runId
