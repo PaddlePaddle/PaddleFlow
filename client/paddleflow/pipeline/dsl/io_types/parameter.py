@@ -25,7 +25,7 @@ from paddleflow.pipeline.dsl.utils.consts import PipelineDSLError
 from paddleflow.common.exception.paddleflow_sdk_exception import PaddleFlowSDKException
 
 
-TYPE_TO_STRING = {str: "string", float: "float"}
+TYPE_TO_STRING = {str: "string", float: "float", int: "int"}
 STRING_TO_TYPE = {value: key for key, value in TYPE_TO_STRING.items()}
 SUPPORT_TYPE = STRING_TO_TYPE.keys() 
 
