@@ -1,4 +1,4 @@
-name: failure_option_and_postprocess_example
+name: failure_options_and_post_process_example
 
 entry_points:
   step1:
@@ -56,7 +56,6 @@ post_process:
 failure_options:
   strategy: continue
 
-parallelism: 1 
+parallelism: 1
 
 docker_env: registry.baidubce.com/pipeline/nginx:1.7.9
-
