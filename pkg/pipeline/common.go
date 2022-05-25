@@ -431,6 +431,7 @@ func (s *StepParamChecker) getSysParams() map[string]string {
 func (s *StepParamChecker) checkDuplication(currentStep string) error {
 	/*
 		currentStep内，parameter, input/output artifact是否有重复的参数名
+		这里的重名检查是大小写不敏感的，如"param"和"ParAm"会被认为重名
 		Args:
 			currentStep: 需要校验的step名
 	*/
@@ -441,32 +442,35 @@ func (s *StepParamChecker) checkDuplication(currentStep string) error {
 
 	m := make(map[string]string)
 	for paramName, _ := range step.Parameters {
-		paramName = strings.ToUpper(paramName)
-		_, ok := m[paramName]
+		paramNameUpper := strings.ToUpper(paramName)
+		_, ok := m[paramNameUpper]
 		if ok {
-			return fmt.Errorf("parameter name[%s] has already existed in params/artifacts of step[%s]", paramName, currentStep)
+			return fmt.Errorf("parameter name[%s] has already existed in params/artifacts of step[%s] (these names are case-insensitive)",
+				paramName, currentStep)
 		} else {
-			m[paramName] = ""
+			m[paramNameUpper] = ""
 		}
 	}
 
 	for inputAtfName, _ := range step.Artifacts.Input {
-		inputAtfName = strings.ToUpper(inputAtfName)
-		_, ok := m[inputAtfName]
+		inputAtfNameUpper := strings.ToUpper(inputAtfName)
+		_, ok := m[inputAtfNameUpper]
 		if ok {
-			return fmt.Errorf("inputAtf name[%s] has already existed in params/artifacts of step[%s]", inputAtfName, currentStep)
+			return fmt.Errorf("inputAtf name[%s] has already existed in params/artifacts of step[%s] (these names are case-insensitive)",
+				inputAtfName, currentStep)
 		} else {
-			m[inputAtfName] = ""
+			m[inputAtfNameUpper] = ""
 		}
 	}
 
 	for outputAtfName, _ := range step.Artifacts.Output {
-		outputAtfName = strings.ToUpper(outputAtfName)
-		_, ok := m[outputAtfName]
+		outputAtfNameUpper := strings.ToUpper(outputAtfName)
+		_, ok := m[outputAtfNameUpper]
 		if ok {
-			return fmt.Errorf("outputAtf name[%s] has already existed in params/artifacts of step[%s]", outputAtfName, currentStep)
+			return fmt.Errorf("outputAtf name[%s] has already existed in params/artifacts of step[%s] (these names are case-insensitive)",
+				outputAtfName, currentStep)
 		} else {
-			m[outputAtfName] = ""
+			m[outputAtfNameUpper] = ""
 		}
 	}
 
