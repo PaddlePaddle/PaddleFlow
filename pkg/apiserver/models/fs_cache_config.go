@@ -122,7 +122,7 @@ func UpdateFSCacheConfig(logEntry *log.Entry, fsCacheConfig FSCacheConfig) error
 
 func DeleteFSCacheConfig(logEntry *log.Entry, fsID string) error {
 	logEntry.Debugf("begin delete fsCacheConfig. fsID:%s", fsID)
-	tx := database.DB.Model(&FSCacheConfig{}).Where(&FSCacheConfig{FsID: fsID}).Delete(&FSCacheConfig{})
+	tx := database.DB.Model(&FSCacheConfig{}).Unscoped().Where(&FSCacheConfig{FsID: fsID}).Delete(&FSCacheConfig{})
 	if tx.Error != nil {
 		logEntry.Errorf("delete fsCacheConfig failed. fsID:%s, error:%s",
 			fsID, tx.Error.Error())
