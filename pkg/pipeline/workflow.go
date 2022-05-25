@@ -302,14 +302,8 @@ func (bwf *BaseWorkflow) checkCache() error {
 			return fmt.Errorf("MaxExpiredTime[%s] of cache in step[%s] not correct", wfsStep.Cache.MaxExpiredTime, stepName)
 		}
 
-		if bwf.Extra[WfExtraInfoKeyFsID] == "" {
-			if wfsStep.Cache.FsScope != "" {
-				return fmt.Errorf("fs_scope of cache in step[%s] should be empty if Fs is not used!", stepName)
-			}
-		} else {
-			if wfsStep.Cache.FsScope == "" {
-				wfsStep.Cache.FsScope = "/"
-			}
+		if bwf.Extra[WfExtraInfoKeyFsID] == "" && wfsStep.Cache.FsScope != "" {
+			return fmt.Errorf("fs_scope of cache in step[%s] should be empty if Fs is not used!", stepName)
 		}
 	}
 
