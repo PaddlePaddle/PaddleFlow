@@ -107,6 +107,6 @@ def set_post_process(ppl):
 [DSL接口文档]: /docs/zh_cn/reference/sdk_reference/pipeline_dsl_reference.md
 [在DSL中使用Cache]: /docs/zh_cn/reference/pipeline/dsl_definition/3_cache.md
 [artifact_pipeline]: /docs/zh_cn/reference/pipeline/dsl_definition/2_artifact.md
-[Post-Fail-ref]: /docs/zh_cn/reference/pipeline/yaml_definition/4_failure_option_and_postprocess.md
+[Post-Fail-ref]: /docs/zh_cn/reference/pipeline/yaml_definition/4_failure_options_and_post_process.md
 [failure_options_and_post_process_example]: /example/pipeline/failure_options_and_post_process_example
 [DSL-Cache]: /docs/zh_cn/reference/pipeline/dsl_definition/3_cache.md
