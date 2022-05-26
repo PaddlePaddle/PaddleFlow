@@ -1,7 +1,7 @@
 # 使用Cache机制
 在[DSL使用基础中][DSL使用基础]，我们介绍了DSL的基础使用。但是，在某些情况下，对于已经运行过的Step，我们希望其可以直接使用上次运行的结果，以节省运行时间，加快迭代效率，此时我们便需要使用Cache机制。关于Cache机制的详细解释，请点击[这里][Cache-ref]。本文主要讲解如何在使用DSL定义pipeline时如何使用Cache机制，不在对其定义进行赘述。
 
-# 1、pipeline 示例
+# 1、pipeline示例
 下面的示例是基于[artifact_pipeline][artifact_pipeline]中的pipeline定义增加cache相关的配置升级而来
 >该示例中pipeline定义，以及示例相关运行脚本，来自paddleflow项目下example/pipeline/cache_example示例。
 >

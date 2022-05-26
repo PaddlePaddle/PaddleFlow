@@ -5,7 +5,7 @@
 
 关于post_process与failure_options机制的详细解释，请点击[这里][Post-Fail-ref]，本文主要讲解如何在使用 DSL 定义pipeline时如何使用，不在对其定义进行赘述。
 
-## 1、pipeline 示例
+## 1、pipeline示例
 下面的示例是基于[artifact_pipeline][artifact_pipeline]中的pipeline定义增加post_process与failure_options的特性升级而来
 >该示例中pipeline定义，以及示例相关运行脚本，来自paddleflow项目下example/pipeline/failure_options_and_post_process_example示例。
 >
@@ -90,7 +90,7 @@ def set_post_process(self, step: Step):
     """
 ```
 
-在上面的[示例](#1pipeline-示例)中，便是通过如下的代码来设置post_process：
+在上面的[示例](#1pipeline示例)中，便是通过如下的代码来设置post_process：
 ```python3
 def set_post_process(ppl):
     post_process = echo_step("step6")
@@ -103,7 +103,7 @@ def set_post_process(ppl):
 [在DSL中使用Cache][DSL-Cache]
 
 [DSL使用基础]: /docs/zh_cn/reference/pipeline/dsl_definition/1_pipeline_basic.md
-[FailureOptions]: /docs/zh_cn/reference/sdk_reference/pipeline_dsl_reference.md#FailureOptions
+[FailureOptions]: /docs/zh_cn/reference/sdk_reference/pipeline_dsl_reference.md#6FailureOptions
 [DSL接口文档]: /docs/zh_cn/reference/sdk_reference/pipeline_dsl_reference.md
 [在DSL中使用Cache]: /docs/zh_cn/reference/pipeline/dsl_definition/3_cache.md
 [artifact_pipeline]: /docs/zh_cn/reference/pipeline/dsl_definition/2_artifact.md
