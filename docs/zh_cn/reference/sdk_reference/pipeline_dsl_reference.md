@@ -46,6 +46,7 @@ Pipeline的一个实例
 # 这里的send_mail_step()函数需要返回一个ContainerStep实例
 ppl.set_post_process(send_mail_step("paddleflow@pipeline.com"))
 ```
+
 #### 参数说明
 |字段名称 | 字段类型 | 字段含义 | 是否必须 | 备注 |
 |:---:|:---:|:---:|:---:|:---:|
