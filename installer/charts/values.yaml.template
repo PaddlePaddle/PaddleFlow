@@ -2,6 +2,7 @@ csi:
   enable: false
   kubelet_data_path: ${PADDLEFLOW_FS_CSI_KUBELET_DATA_PATH}
   log: ${PADDLEFLOW_FS_CSI_LOG}
+  mount_host_path: ${CSI_MOUNT_HOST_PATH}
   driver_registrar:
     image: ${IMAGE_REGISTRY}/${PADDLEFLOW_FS_CSI_DRIVER_REGISTRAR_IMAGE}
   provisioner:
