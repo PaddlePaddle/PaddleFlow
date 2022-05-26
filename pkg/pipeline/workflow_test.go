@@ -375,7 +375,7 @@ func TestWorkflowParamDuplicate(t *testing.T) {
 	bwf.Source.EntryPoints["main"].Parameters["train_data"] = "whatever"
 	err = bwf.validate()
 	assert.NotNil(t, err)
-	assert.Equal(t, "inputAtf name[train_data] has already existed in params/artifacts of step[main]", err.Error())
+	assert.Equal(t, "inputAtf name[train_data] has already existed in params/artifacts of step[main] (these names are case-insensitive)", err.Error())
 
 	delete(bwf.Source.EntryPoints["main"].Parameters, "train_data") // 把上面的添加的删掉，再校验一遍
 	err = bwf.validate()
@@ -384,7 +384,7 @@ func TestWorkflowParamDuplicate(t *testing.T) {
 	bwf.Source.EntryPoints["main"].Parameters["train_model"] = "whatever"
 	err = bwf.validate()
 	assert.NotNil(t, err)
-	assert.Equal(t, "outputAtf name[train_model] has already existed in params/artifacts of step[main]", err.Error())
+	assert.Equal(t, "outputAtf name[train_model] has already existed in params/artifacts of step[main] (these names are case-insensitive)", err.Error())
 
 	delete(bwf.Source.EntryPoints["main"].Parameters, "train_model") // 把上面的添加的删掉，再校验一遍
 	err = bwf.validate()
@@ -393,7 +393,7 @@ func TestWorkflowParamDuplicate(t *testing.T) {
 	bwf.Source.EntryPoints["main"].Artifacts.Input["train_model"] = "whatever"
 	err = bwf.validate()
 	assert.NotNil(t, err)
-	assert.Equal(t, "outputAtf name[train_model] has already existed in params/artifacts of step[main]", err.Error())
+	assert.Equal(t, "outputAtf name[train_model] has already existed in params/artifacts of step[main] (these names are case-insensitive)", err.Error())
 
 	delete(bwf.Source.EntryPoints["main"].Artifacts.Input, "train_model") // 把上面的添加的删掉，再校验一遍
 	err = bwf.validate()
