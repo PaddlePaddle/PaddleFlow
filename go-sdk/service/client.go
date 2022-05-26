@@ -17,8 +17,8 @@ limitations under the License.
 package service
 
 import (
-	v1 "paddleflow/go-sdk/service/apiserver/v1"
-	"paddleflow/pkg/common/http/core"
+	v1 "github.com/PaddlePaddle/PaddleFlow/go-sdk/service/apiserver/v1"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/core"
 )
 
 type PFInterface interface {

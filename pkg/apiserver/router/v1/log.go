@@ -23,9 +23,9 @@ import (
 	"github.com/go-chi/chi"
 	log "github.com/sirupsen/logrus"
 
-	"paddleflow/pkg/apiserver/common"
-	runLog "paddleflow/pkg/apiserver/controller/log"
-	"paddleflow/pkg/apiserver/router/util"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
+	runLog "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/log"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
 )
 
 type LogRouter struct {

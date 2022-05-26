@@ -27,12 +27,12 @@ import (
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 
-	"paddleflow/pkg/apiserver/common"
-	api "paddleflow/pkg/apiserver/controller/fs"
-	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/apiserver/router/util"
-	"paddleflow/pkg/common/logger"
-	"paddleflow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
+	api "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/fs"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
 
 // createFSCacheConfig handles requests of creating filesystem cache config

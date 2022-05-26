@@ -31,12 +31,12 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
+	log "github.com/sirupsen/logrus"
 	"github.com/smallnest/chanx"
 
-	log "github.com/sirupsen/logrus"
-	"paddleflow/pkg/apiserver/common"
-	"paddleflow/pkg/common/config"
-	"paddleflow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 )
 
 var PFImageHandler *ImageHandler

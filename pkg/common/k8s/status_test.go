@@ -24,10 +24,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	sparkoperatorv1beta2 "paddleflow/pkg/apis/spark-operator/sparkoperator.k8s.io/v1beta2"
 	batchv1alpha1 "volcano.sh/apis/pkg/apis/batch/v1alpha1"
 
-	"paddleflow/pkg/common/schema"
+	sparkoperatorv1beta2 "github.com/PaddlePaddle/PaddleFlow/pkg/apis/spark-operator/sparkoperator.k8s.io/v1beta2"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
 
 const unknown = "unknown"

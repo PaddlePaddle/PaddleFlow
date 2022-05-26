@@ -19,10 +19,10 @@ package v1
 import (
 	"context"
 
-	user_ "paddleflow/pkg/apiserver/controller/user"
-	"paddleflow/pkg/apiserver/router/util"
-	"paddleflow/pkg/common/http/core"
-	"paddleflow/pkg/common/http/util/http"
+	user_ "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/user"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/core"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/util/http"
 )
 
 const (

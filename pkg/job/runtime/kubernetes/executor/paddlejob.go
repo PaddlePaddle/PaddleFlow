@@ -23,12 +23,12 @@ import (
 	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 
-	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/common/config"
-	"paddleflow/pkg/common/errors"
-	"paddleflow/pkg/common/k8s"
-	"paddleflow/pkg/common/schema"
-	"paddleflow/pkg/common/uuid"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
 )
 
 type PaddleJob struct {
@@ -195,7 +195,7 @@ func (pj *PaddleJob) patchPdjCollectiveSpec(pdjSpec *paddlev1.PaddleJobSpec) err
 	}
 	log.Infof("worker=%#v, pj.Tasks=%#v", worker, pj.Tasks)
 	// MinAvailable
-	//minAvailable := int32(defaultCollectiveReplicas)
+	// minAvailable := int32(defaultCollectiveReplicas)
 	if pdjSpec.SchedulingPolicy.MinAvailable == nil {
 		minAvailable := int32(worker.Replicas)
 		pdjSpec.SchedulingPolicy.MinAvailable = &minAvailable

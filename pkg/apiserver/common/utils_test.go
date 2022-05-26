@@ -19,7 +19,7 @@ package common
 import (
 	"testing"
 
-	"paddleflow/pkg/fs/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 )
 
 func TestInformationFromUrl(t *testing.T) {

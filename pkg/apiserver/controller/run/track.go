@@ -18,12 +18,13 @@ package run
 
 import (
 	"errors"
+
 	"gorm.io/gorm"
 
-	"paddleflow/pkg/apiserver/common"
-	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/common/logger"
-	"paddleflow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
 
 type ListRunCacheResponse struct {
@@ -101,7 +102,7 @@ func LogArtifactEvent(req schema.LogRunArtifactRequest) error {
 	return nil
 }
 
-//-------------CRUD-----------------//
+// -------------CRUD-----------------//
 func GetRunCache(ctx *logger.RequestContext, id string) (models.RunCache, error) {
 	ctx.Logging().Debugf("begin get run_cache by id:%s", id)
 	cache, err := models.GetRunCache(ctx.Logging(), id)
@@ -211,7 +212,7 @@ func DeleteRunCache(ctx *logger.RequestContext, id string) error {
 	return nil
 }
 
-//---------------------artifact_event---------------------//
+// ---------------------artifact_event---------------------//
 func DeleteArtifactEvent(ctx *logger.RequestContext, username, fsname, runID, artifactPath string) error {
 	ctx.Logging().Debugf("begin delete artifact_event. username:%s, fsname:%s, runID:%s, artifactPath:%s", username, fsname, runID, artifactPath)
 	err := models.DeleteArtifactEvent(ctx.Logging(), username, fsname, runID, artifactPath)

@@ -22,7 +22,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"paddleflow/pkg/common/database"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 )
 
 const FsMountTableName = "fs_mount"

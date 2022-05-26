@@ -30,7 +30,7 @@ import (
 	fakedynamicclient "k8s.io/client-go/dynamic/fake"
 	restclient "k8s.io/client-go/rest"
 
-	"paddleflow/pkg/common/k8s"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 )
 
 func newFakeDynamicClient(server *httptest.Server) *k8s.DynamicClientOption {

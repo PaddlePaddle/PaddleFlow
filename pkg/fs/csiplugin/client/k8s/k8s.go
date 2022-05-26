@@ -29,7 +29,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"paddleflow/pkg/fs/utils/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/common"
 )
 
 var k8sClient *K8SClient

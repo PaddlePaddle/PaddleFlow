@@ -25,9 +25,9 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"paddleflow/pkg/fs/client/kv"
-	"paddleflow/pkg/fs/client/ufs"
-	"paddleflow/pkg/fs/client/utils"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/kv"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/ufs"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/utils"
 )
 
 type Reader interface {

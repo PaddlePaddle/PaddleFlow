@@ -36,11 +36,11 @@ import (
 	restclient "k8s.io/client-go/rest"
 	batchv1alpha1 "volcano.sh/apis/pkg/apis/batch/v1alpha1"
 
-	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/common/config"
-	"paddleflow/pkg/common/database/dbinit"
-	"paddleflow/pkg/common/k8s"
-	"paddleflow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database/dbinit"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
 
 func newFakeJobSyncController() *JobSync {

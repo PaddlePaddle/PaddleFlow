@@ -17,16 +17,16 @@ limitations under the License.
 package executor
 
 import (
+	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"net/http/httptest"
 
-	"paddleflow/pkg/common/config"
-	"paddleflow/pkg/common/database/dbinit"
-	"paddleflow/pkg/common/k8s"
-	"paddleflow/pkg/common/schema"
-	"paddleflow/pkg/job/api"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database/dbinit"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 )
 
 var extArgoWorkflowYaml = `
