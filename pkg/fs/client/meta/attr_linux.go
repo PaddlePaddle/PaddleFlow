@@ -19,7 +19,7 @@ package meta
 import (
 	"syscall"
 
-	"paddleflow/pkg/fs/client/base"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/base"
 )
 
 func (a *Attr) FromFileInfo(info *base.FileInfo) {

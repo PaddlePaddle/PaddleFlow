@@ -32,15 +32,15 @@ import (
 	kubeschema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 
-	"paddleflow/pkg/apiserver/handler"
-	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/common/config"
-	"paddleflow/pkg/common/errors"
-	"paddleflow/pkg/common/k8s"
-	"paddleflow/pkg/common/logger"
-	"paddleflow/pkg/common/schema"
-	locationAwareness "paddleflow/pkg/fs/location-awareness"
-	"paddleflow/pkg/job/api"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	locationAwareness "github.com/PaddlePaddle/PaddleFlow/pkg/fs/location-awareness"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 )
 
 const (
@@ -385,17 +385,17 @@ func (j *KubeJob) fillContainerInTasks(container *corev1.Container, task models.
 	container.Env = j.appendEnvIfAbsent(container.Env, j.generateEnvVars())
 }
 
-//appendLabelsIfAbsent append labels if absent
+// appendLabelsIfAbsent append labels if absent
 func (j *KubeJob) appendLabelsIfAbsent(labels map[string]string, addLabels map[string]string) map[string]string {
 	return appendMapsIfAbsent(labels, addLabels)
 }
 
-//appendAnnotationsIfAbsent append Annotations if absent
+// appendAnnotationsIfAbsent append Annotations if absent
 func (j *KubeJob) appendAnnotationsIfAbsent(Annotations map[string]string, addAnnotations map[string]string) map[string]string {
 	return appendMapsIfAbsent(Annotations, addAnnotations)
 }
 
-//appendMapsIfAbsent append Maps if absent, only support string type
+// appendMapsIfAbsent append Maps if absent, only support string type
 func appendMapsIfAbsent(Maps map[string]string, addMaps map[string]string) map[string]string {
 	if Maps == nil {
 		Maps = make(map[string]string)

@@ -18,15 +18,13 @@ package controller
 
 import (
 	"context"
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	"net/http/httptest"
-	"paddleflow/pkg/common/config"
 	"testing"
 	"time"
-	"volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 
 	"github.com/stretchr/testify/assert"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -35,10 +33,12 @@ import (
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	fakedynamicclient "k8s.io/client-go/dynamic/fake"
 	restclient "k8s.io/client-go/rest"
+	"volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 
-	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/common/database/dbinit"
-	"paddleflow/pkg/common/k8s"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database/dbinit"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 )
 
 func newFakeQueueSyncController() *QueueSync {

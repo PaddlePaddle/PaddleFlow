@@ -22,9 +22,9 @@ import (
 	"github.com/go-chi/chi"
 	log "github.com/sirupsen/logrus"
 
-	"paddleflow/pkg/apiserver/common"
-	"paddleflow/pkg/apiserver/controller/grant"
-	"paddleflow/pkg/apiserver/router/util"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/grant"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
 )
 
 type GrantRouter struct {

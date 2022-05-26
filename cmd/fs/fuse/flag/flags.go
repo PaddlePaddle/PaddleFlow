@@ -22,8 +22,8 @@ import (
 
 	"github.com/urfave/cli/v2"
 
-	"paddleflow/pkg/fs/client/fuse"
-	"paddleflow/pkg/fs/client/meta"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/fuse"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/meta"
 )
 
 func BasicFlags() []cli.Flag {
