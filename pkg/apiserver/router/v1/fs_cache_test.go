@@ -109,7 +109,7 @@ func TestFSCacheConfigRouter(t *testing.T) {
 
 	// test update success
 	updateReq.Quota = 333
-	updateReq.CacheDir = "newPath"
+	updateReq.CacheDir = "/newPath"
 	result, err = PerformPutRequest(router, urlWithFsID, updateReq)
 	assert.Nil(t, err)
 	assert.Equal(t, http.StatusOK, result.Code)
@@ -126,6 +126,11 @@ func TestFSCacheConfigRouter(t *testing.T) {
 	result, err = PerformPutRequest(router, urlWrong, updateReq)
 	assert.Nil(t, err)
 	assert.Equal(t, http.StatusNotFound, result.Code)
+
+	updateReq.CacheDir = "newPath" // not abs path
+	result, err = PerformPutRequest(router, urlWithFsID, updateReq)
+	assert.Nil(t, err)
+	assert.Equal(t, http.StatusBadRequest, result.Code)
 
 	// delte
 	result, err = PerformDeleteRequest(router, urlWithFsID)
