@@ -25,10 +25,10 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 
-	"paddleflow/pkg/apiserver/handler"
-	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/common/database/dbinit"
-	"paddleflow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database/dbinit"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 )
 
 const (

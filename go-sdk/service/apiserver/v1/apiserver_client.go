@@ -17,7 +17,7 @@ limitations under the License.
 package v1
 
 import (
-	"paddleflow/pkg/common/http/core"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/core"
 )
 
 type APIV1Interface interface {

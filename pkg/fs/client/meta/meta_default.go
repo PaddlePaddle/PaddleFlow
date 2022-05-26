@@ -29,11 +29,11 @@ import (
 	"github.com/hanwen/go-fuse/v2/fuse"
 	log "github.com/sirupsen/logrus"
 
-	apicommon "paddleflow/pkg/apiserver/common"
-	"paddleflow/pkg/fs/client/base"
-	ufslib "paddleflow/pkg/fs/client/ufs"
-	"paddleflow/pkg/fs/client/utils"
-	"paddleflow/pkg/fs/common"
+	apicommon "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/base"
+	ufslib "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/ufs"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/utils"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 )
 
 const DefaultName = "default"

@@ -23,8 +23,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"paddleflow/pkg/apiserver/controller/fs"
-	"paddleflow/pkg/apiserver/router/util"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/fs"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
 )
 
 func TestFSMount(t *testing.T) {

@@ -29,7 +29,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"k8s.io/utils/mount"
 
-	"paddleflow/pkg/fs/utils/io"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/io"
 )
 
 const (

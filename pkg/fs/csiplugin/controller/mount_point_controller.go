@@ -33,10 +33,10 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
-	"paddleflow/pkg/fs/csiplugin/client/k8s"
-	"paddleflow/pkg/fs/csiplugin/client/pfs"
-	"paddleflow/pkg/fs/utils/common"
-	"paddleflow/pkg/fs/utils/mount"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/client/k8s"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/client/pfs"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/mount"
 )
 
 var mountPointController *MountPointController

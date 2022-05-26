@@ -19,7 +19,8 @@ package common
 import (
 	"encoding/json"
 	"fmt"
-	"paddleflow/pkg/common/schema"
+
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
 
 type PFRuntimeGenerator struct {

@@ -35,12 +35,12 @@ import (
 	fakedclient "k8s.io/client-go/kubernetes/fake"
 	restclient "k8s.io/client-go/rest"
 
-	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/common/config"
-	"paddleflow/pkg/common/database/dbinit"
-	"paddleflow/pkg/common/k8s"
-	"paddleflow/pkg/common/schema"
-	"paddleflow/pkg/job/api"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database/dbinit"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 )
 
 const (

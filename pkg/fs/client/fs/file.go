@@ -27,10 +27,10 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"paddleflow/pkg/fs/client/base"
-	"paddleflow/pkg/fs/client/meta"
-	"paddleflow/pkg/fs/client/utils"
-	"paddleflow/pkg/fs/client/vfs"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/base"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/meta"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/utils"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/vfs"
 )
 
 const (

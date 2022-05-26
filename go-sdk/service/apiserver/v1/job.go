@@ -21,10 +21,10 @@ import (
 	"encoding/json"
 	"strconv"
 
-	"paddleflow/pkg/apiserver/common"
-	job_ "paddleflow/pkg/apiserver/controller/job"
-	"paddleflow/pkg/common/http/core"
-	"paddleflow/pkg/common/http/util/http"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
+	job_ "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/job"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/core"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/util/http"
 )
 
 const (
