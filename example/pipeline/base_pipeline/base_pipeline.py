@@ -9,7 +9,7 @@ def preprocess(data_path):
         name="preprocess",
         parameters={"data_path": data_path},
         command="bash base_pipeline/shells/data.sh {{data_path}}",
-        docker_env="registry.baidubce.com/pipeline/kfp_mysql:1.7.0",
+        docker_env="centos:centos7",
         env={
             "USER_ABC": f"123_{PF_USER_NAME}",
             "PF_JOB_TYPE": "vcjob",
@@ -51,7 +51,7 @@ def validate(model_path):
         },
     )
 
-@Pipeline(name="base_pipeline", docker_env="registry.baidubce.com/pipeline/nginx:1.7.9", parallelism=1)
+@Pipeline(name="base_pipeline", docker_env="nginx:1.7.9", parallelism=1)
 def base_pipeline(data_path, epoch, model_path):
     preprocess_step = preprocess(data_path)
 
