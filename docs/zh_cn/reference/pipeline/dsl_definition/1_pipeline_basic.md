@@ -147,13 +147,14 @@ def base_pipeline(data_path, epoch, model_path):
     validate_step = validate(train_step.parameters["model_path"])
 ```
 
-Pipeline 实例化函数的主要参数说明如下：
+Pipeline实例化函数的主要参数说明如下：
 |字段名称 | 字段类型 | 字段含义 |是否必须| 备注 |
 |:---:|:---:|:---:|:---:|:---:|
 |name| string| pipeline 的名字 |是| 需要满足如下正则表达式："^[A-Za-z_][A-Za-z0-9-_]{1,49}[A-Za-z0-9_]$ |
 |parallelism| int | pipeline 任务的并发数，即最大可以同时运行的节点任务数量 | 否 | | 
 |docker_env| string| 各节点默认的docker镜像地址 | 否 | 如果Pipeline和Step均指定了docker_env, 则Step的docker_env具有更高的优先级 |
 
+> 关于Pipeline实例化函数的详细说明，请点击[这里][Pipeline]
 ### 4.2、将Step实例添加至Pipeline实例中
 在完成了Pipeline对象的实例化后, 接下来便需要将Step实例添加至Pipeline实例中，添加方式很简单：我们只需在**pipeline函数**中完成Step的实例化即可。
 
