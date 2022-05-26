@@ -32,22 +32,22 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/util/retry"
 
-	"paddleflow/pkg/client"
-	"paddleflow/pkg/common/http/api"
-	"paddleflow/pkg/common/http/core"
-	"paddleflow/pkg/fs/common"
-	"paddleflow/pkg/fs/csiplugin/client/k8s"
-	"paddleflow/pkg/fs/csiplugin/client/pfs"
-	"paddleflow/pkg/fs/csiplugin/csiconfig"
-	utils "paddleflow/pkg/fs/utils/common"
-	mountUtil "paddleflow/pkg/fs/utils/mount"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/client"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/api"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/core"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/client/k8s"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/client/pfs"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csiconfig"
+	utils "github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/common"
+	mountUtil "github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/mount"
 )
 
 const (
 	VolumesKeyMount     = "pfs-mount"
 	VolumesKeyDataCache = "data-cache"
 	VolumesKeyMetaCache = "meta-cache"
-	HostPathMnt         = "/data/paddleflow-fs/mnt"
 	MountDir            = "/home/paddleflow/mnt"
 	CacheWorkerBin      = "/home/paddleflow/cache-worker"
 	MountPoint          = MountDir + "/storage"
@@ -172,7 +172,7 @@ func PodMount(volumeID string, mountInfo pfs.MountInfo) error {
 	return waitUtilPodReady(GeneratePodNameByFsID(volumeID))
 }
 
-func createOrAddRef(httpClient *core.PFClient, token, volumeID string, mountInfo pfs.MountInfo) error {
+func createOrAddRef(httpClient *core.PaddleFlowClient, token, volumeID string, mountInfo pfs.MountInfo) error {
 	podName := GeneratePodNameByFsID(volumeID)
 	log.Infof("pod name is %s", podName)
 
@@ -207,7 +207,7 @@ func createOrAddRef(httpClient *core.PFClient, token, volumeID string, mountInfo
 	return status.Errorf(codes.Internal, "Mount %v failed: mount pod %s has been deleting for 1 min", mountInfo.FSID, podName)
 }
 
-func addRefOfMount(mountInfo pfs.MountInfo, httpClient *core.PFClient, token string) error {
+func addRefOfMount(mountInfo pfs.MountInfo, httpClient *core.PaddleFlowClient, token string) error {
 	listMountResp, err := listMount(mountInfo, httpClient, token)
 	if err != nil {
 		log.Errorf("addRefOfMount: listMount faield: %v", err)
@@ -223,21 +223,21 @@ func addRefOfMount(mountInfo pfs.MountInfo, httpClient *core.PFClient, token str
 	return createMount(mountInfo, httpClient, token)
 }
 
-func createMountPod(k8sClient k8s.K8SInterface, httpClient *core.PFClient, token, volumeID string,
+func createMountPod(k8sClient k8s.K8SInterface, httpClient *core.PaddleFlowClient, token, volumeID string,
 	mountInfo pfs.MountInfo) error {
 	// get config
 	cacheConfig, err := fsCacheConfig(mountInfo, httpClient, token)
 	if err != nil {
 		if strings.Contains(err.Error(), gorm.ErrRecordNotFound.Error()) {
 			log.Infof("fs[%s] has not set cacheConfig. mount with default settings.", mountInfo.FSID)
-			if cacheConfig.CacheDir == "" {
-				cacheConfig.CacheDir = HostPathMnt + "/" + mountInfo.FSID
-			}
+			cacheConfig = defaultCacheConfig(mountInfo.FSID)
 		} else {
 			log.Errorf("get fs[%s] cacheConfig from pfs server[%s] failed: %v",
 				mountInfo.FSID, mountInfo.Server, err)
 			return err
 		}
+	} else {
+		completeCacheConfig(&cacheConfig, mountInfo.FSID)
 	}
 	// create pod
 	newPod := BuildMountPod(volumeID, mountInfo, cacheConfig)
@@ -247,6 +247,25 @@ func createMountPod(k8sClient k8s.K8SInterface, httpClient *core.PFClient, token
 		return err
 	}
 	return nil
+}
+
+func defaultCacheConfig(fsID string) common.FsCacheConfig {
+	return common.FsCacheConfig{
+		CacheDir:   schema.DefaultCacheDir(fsID),
+		MetaDriver: schema.FsMetaDefault,
+	}
+}
+
+func completeCacheConfig(config *common.FsCacheConfig, fsID string) {
+	if config.CacheDir == "" {
+		config.CacheDir = schema.DefaultCacheDir(fsID)
+	}
+	if config.MetaDriver == "" {
+		config.MetaDriver = schema.FsMetaDefault
+	}
+	if config.FsName == "" || config.Username == "" {
+		config.FsName, config.Username = utils.FsIDToFsNameUsername(fsID)
+	}
 }
 
 func BuildMountPod(volumeID string, mountInfo pfs.MountInfo, cacheConf common.FsCacheConfig) *v1.Pod {
@@ -381,7 +400,7 @@ func buildMountContainer(pod *v1.Pod, mountInfo pfs.MountInfo, cacheConf common.
 			Name: VolumesKeyMount,
 			VolumeSource: corev1.VolumeSource{
 				HostPath: &corev1.HostPathVolumeSource{
-					Path: HostPathMnt,
+					Path: schema.HostMntDir,
 					Type: &typeDir,
 				},
 			},
@@ -422,6 +441,7 @@ func getMountCmd(mountInfo pfs.MountInfo, cacheConf common.FsCacheConfig) string
 		"--fs-id=" + mountInfo.FSID,
 		"--data-cache-path=" + CachePath + DataCacheDir,
 		"--meta-cache-path=" + CachePath + MetaCacheDir,
+		"--meta-cache-driver=" + cacheConf.MetaDriver,
 	}
 	cmd := mkdir + pfsMountPath + mountPath + strings.Join(options, " ")
 	return cmd

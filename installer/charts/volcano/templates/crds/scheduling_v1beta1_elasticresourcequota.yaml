@@ -1,0 +1,124 @@
+{{- if .Values.volcano.enable -}}
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.2.5
+  creationTimestamp: null
+  name: elasticresourcequotas.scheduling.volcano.sh
+spec:
+  group: scheduling.volcano.sh
+  names:
+    kind: ElasticResourceQuota
+    listKind: ElasticResourceQuotaList
+    plural: elasticresourcequotas
+    shortNames:
+    - equota
+    - equota-v1beta1
+    singular: elasticresourcequota
+  scope: Cluster
+  versions:
+  - name: v1beta1
+    schema:
+      openAPIV3Schema:
+        description: Elastic Resource Quota
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: 'Specification of the desired behavior of the queuemanager. More
+              info: https://git.k8s.io/community/contributors/devel/api-conventions.md#spec-and-status'
+            properties:
+              hardwareTypes:
+                description: HardwareTypes defines hardware types of elastic quota
+                items:
+                  type: string
+                type: array
+              max:
+                additionalProperties:
+                  anyOf:
+                  - type: integer
+                  - type: string
+                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                  x-kubernetes-int-or-string: true
+                description: Max is the upper bound of elastic resource quota
+                type: object
+              min:
+                additionalProperties:
+                  anyOf:
+                  - type: integer
+                  - type: string
+                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                  x-kubernetes-int-or-string: true
+                description: Min is the lower bound of elastic resource quota
+                type: object
+              namespace:
+                description: namespace defines resource quota belongs to one namespace
+                type: string
+              reclaimable:
+                description: Reclaimable indicate whether the elastic quota can be
+                  reclaimed by other elastic quota
+                type: boolean
+            type: object
+          status:
+            description: The status of elastic quota.
+            properties:
+              isLeaf:
+                description: IsLeaf defines whether elastic quota is leaf or not
+                type: boolean
+              queueName:
+                description: queueName indicates bound the name of queuemanager
+                type: string
+              used:
+                additionalProperties:
+                  anyOf:
+                  - type: integer
+                  - type: string
+                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                  x-kubernetes-int-or-string: true
+                description: used resource of elastic resource quota
+                type: object
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+    additionalPrinterColumns:
+    - name: Age
+      type: date
+      priority: 0
+      jsonPath: .metadata.creationTimestamp
+    - name: Leaf
+      type: boolean
+      priority: 1
+      jsonPath: .status.isLeaf
+    - name: QueueName
+      type: string
+      priority: 2
+      description: The name of bound queuemanager
+      jsonPath: .status.queueName
+    - name: Reclaim
+      type: boolean
+      priority: 3
+      jsonPath: .spec.reclaimable
+    - name: Namespace
+      type: string
+      priority: 4
+      description: The related of namespace
+      jsonPath: .spec.namespace
+    - name: HardwareTypes
+      type: string
+      priority: 5
+      jsonPath: .spec.hardwareTypes
+{{- end -}}

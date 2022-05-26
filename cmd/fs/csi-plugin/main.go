@@ -17,21 +17,18 @@ limitations under the License.
 package main
 
 import (
-	"fmt"
 	"os"
 	"time"
 
-	"github.com/gin-contrib/pprof"
-	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 
-	"paddleflow/cmd/fs/csi-plugin/flag"
-	"paddleflow/pkg/common/logger"
-	"paddleflow/pkg/fs/csiplugin/client/k8s"
-	"paddleflow/pkg/fs/csiplugin/csiconfig"
-	"paddleflow/pkg/fs/csiplugin/csidriver"
-	"paddleflow/pkg/metric"
+	"github.com/PaddlePaddle/PaddleFlow/cmd/fs/csi-plugin/flag"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/client/k8s"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csiconfig"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csidriver"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/metric"
 )
 
 const CsiContainerName = "csi-storage-driver"
@@ -124,25 +121,6 @@ func act(c *cli.Context) error {
 		log.Errorf("csi-plugin logger.InitStandardFileLogger err: %v", err)
 		return err
 	}
-
-	if c.Bool("pprof-enable") {
-		go func() {
-			router := gin.Default()
-			pprof.Register(router, "debug/pprof")
-			if err := router.Run(fmt.Sprintf(":%d", c.Int("pprof-port"))); err != nil {
-				log.Errorf("run pprof failed: %s, skip this error", err.Error())
-			} else {
-				log.Infof("pprof started")
-			}
-		}()
-	}
-
-	// stopChan := make(chan struct{})
-	// defer close(stopChan)
-	// ctrl := controller.GetMountPointController(c.String("node-id"))
-	// go ctrl.Start(stopChan)
-	// defer ctrl.Stop()
-
 	d := csidriver.NewDriver(c.String("node-id"), c.String("unix-endpoint"),
 		c.String("username"), c.String("password"))
 	d.Run()

@@ -16,10 +16,32 @@ limitations under the License.
 
 package schema
 
+import "path"
+
 const (
 	FSIDFormat      = "$(pfs.fs.id)"
 	NameSpaceFormat = "$(namespace)"
 	FSID            = "pfs.fs.id"
 	PFSServer       = "pfs.server"
 	PFSUserName     = "pfs.user.name"
+
+	HostMntDir = "/data/paddleflow-fs/mnt"
+
+	FsMetaDefault = "default"
+	FsMetaMemory  = "mem"
+	FsMetaLevelDB = "leveldb"
+	FsMetaNutsDB  = "nutsdb"
 )
+
+func IsValidFsMetaDriver(metaDriver string) bool {
+	switch metaDriver {
+	case FsMetaDefault, FsMetaMemory, FsMetaLevelDB, FsMetaNutsDB:
+		return true
+	default:
+		return false
+	}
+}
+
+func DefaultCacheDir(fsID string) string {
+	return path.Join(HostMntDir, fsID)
+}

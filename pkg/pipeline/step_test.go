@@ -12,9 +12,9 @@ import (
 	gomonkey "github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
 
-	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/common/schema"
-	"paddleflow/pkg/pipeline/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 )
 
 func loadcase(casePath string) []byte {

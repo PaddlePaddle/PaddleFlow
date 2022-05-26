@@ -21,7 +21,7 @@ import (
 	"io"
 	"time"
 
-	"paddleflow/pkg/fs/client/base"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/base"
 )
 
 // under file storage interface, copy from pathfs.FileSystem,

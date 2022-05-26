@@ -24,13 +24,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	sparkapp "paddleflow/pkg/apis/spark-operator/sparkoperator.k8s.io/v1beta2"
-	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/common/config"
-	"paddleflow/pkg/common/database/dbinit"
-	"paddleflow/pkg/common/k8s"
-	"paddleflow/pkg/common/schema"
-	"paddleflow/pkg/job/api"
+	sparkapp "github.com/PaddlePaddle/PaddleFlow/pkg/apis/spark-operator/sparkoperator.k8s.io/v1beta2"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database/dbinit"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 )
 
 var (
@@ -86,21 +86,21 @@ status:
 		QueueID:   "mockQueueID",
 		Conf: schema.Conf{
 			Name: "normal",
-			//Command: "sleep 200",
+			// Command: "sleep 200",
 			Image: "mockImage",
 			Env:   map[string]string{
-				//"PF_JOB_MODE":           "PS",
-				//"PF_FS_ID":              "fs-name_1",
-				//"PF_JOB_CLUSTER_ID":     "testClusterID",
-				//"PF_JOB_ID":             "",
-				//"PF_JOB_NAMESPACE":      "paddleflow",
-				//"PF_JOB_PRIORITY":       "NORMAL",
-				//"PF_JOB_QUEUE_ID":       "mockQueueID",
-				//"PF_JOB_FLAVOUR":        "cpu",
-				//"PF_JOB_WORKER_FLAVOUR": "cpu",
-				//"PF_JOB_WORKER_COMMAND": "sleep 3600",
-				//"PF_JOB_QUEUE_NAME":     "mockQueueName",
-				//"PF_USER_NAME": "root",
+				// "PF_JOB_MODE":           "PS",
+				// "PF_FS_ID":              "fs-name_1",
+				// "PF_JOB_CLUSTER_ID":     "testClusterID",
+				// "PF_JOB_ID":             "",
+				// "PF_JOB_NAMESPACE":      "paddleflow",
+				// "PF_JOB_PRIORITY":       "NORMAL",
+				// "PF_JOB_QUEUE_ID":       "mockQueueID",
+				// "PF_JOB_FLAVOUR":        "cpu",
+				// "PF_JOB_WORKER_FLAVOUR": "cpu",
+				// "PF_JOB_WORKER_COMMAND": "sleep 3600",
+				// "PF_JOB_QUEUE_NAME":     "mockQueueName",
+				// "PF_USER_NAME": "root",
 			},
 		},
 		Tasks: []models.Member{
@@ -126,22 +126,22 @@ status:
 					Command: "sleep 200",
 					Image:   "mockImage",
 					Env: map[string]string{
-						//"PF_FS_ID":          "fs-name_1",
-						//"PF_JOB_CLUSTER_ID": "testClusterID",
-						//"PF_JOB_FLAVOUR":    "cpu",
-						//"PF_JOB_ID":         "",
-						//"PF_JOB_NAMESPACE":  "paddleflow",
-						//"PF_JOB_PRIORITY":   "NORMAL",
-						//"PF_JOB_QUEUE_ID":   "mockQueueID",
-						//"PF_JOB_QUEUE_NAME": "mockQueueName",
+						// "PF_FS_ID":          "fs-name_1",
+						// "PF_JOB_CLUSTER_ID": "testClusterID",
+						// "PF_JOB_FLAVOUR":    "cpu",
+						// "PF_JOB_ID":         "",
+						// "PF_JOB_NAMESPACE":  "paddleflow",
+						// "PF_JOB_PRIORITY":   "NORMAL",
+						// "PF_JOB_QUEUE_ID":   "mockQueueID",
+						// "PF_JOB_QUEUE_NAME": "mockQueueName",
 						schema.EnvJobType: string(schema.TypeSparkJob),
-						//"PF_USER_NAME":      "root",
+						// "PF_USER_NAME":      "root",
 					},
 					Flavour: schema.Flavour{Name: "", ResourceInfo: schema.ResourceInfo{CPU: "2", Mem: "2Gi"}},
 				},
 			},
 		},
-		//ExtensionTemplate: extensionPaddleYaml,
+		// ExtensionTemplate: extensionPaddleYaml,
 	}
 	mockSparkJobWithYaml = api.PFJob{
 		ID:        "job-mock-000002",

@@ -24,10 +24,10 @@ import (
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 
-	"paddleflow/pkg/apiserver/common"
-	"paddleflow/pkg/common/database"
-	"paddleflow/pkg/common/schema"
-	"paddleflow/pkg/common/uuid"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
 )
 
 const (
@@ -96,8 +96,8 @@ func (queue *Queue) AfterFind(*gorm.DB) error {
 		}
 	}
 
+	queue.Location = make(map[string]string)
 	if queue.RawLocation != "" {
-		queue.Location = make(map[string]string)
 		if err := json.Unmarshal([]byte(queue.RawLocation), &queue.Location); err != nil {
 			log.Errorf("json Unmarshal Location[%s] failed: %v", queue.RawLocation, err)
 			return err
@@ -127,6 +127,7 @@ func (queue *Queue) AfterFind(*gorm.DB) error {
 
 // BeforeSave is the callback methods for saving file system
 func (queue *Queue) BeforeSave(*gorm.DB) error {
+	log.Debugf("queue[%s] BeforeSave, queue:%#v", queue.Name, queue)
 	minResourcesJson, err := json.Marshal(queue.MinResources)
 	if err != nil {
 		log.Errorf("json Marshal MinResources[%v] failed: %v", queue.MinResources, err)
@@ -159,6 +160,8 @@ func (queue *Queue) BeforeSave(*gorm.DB) error {
 		}
 		queue.RawSchedulingPolicy = string(schedulingPolicyJson)
 	}
+	log.Debugf("queue[%s] BeforeSave finished, queue:%#v", queue.Name, queue)
+
 	return nil
 }
 
@@ -178,27 +181,10 @@ func CreateQueue(queue *Queue) error {
 	return nil
 }
 
-func UpdateQueue(name, status string, maxResources, minResources *schema.ResourceInfo) error {
-	q, err := GetQueueByName(name)
-	if err != nil {
-		log.Errorf("get queue %s failed, err: %v.", name, err)
-		return err
-	}
-	if status != "" {
-		q.Status = status
-	}
-	if maxResources != nil {
-		q.MaxResources = *maxResources
-	}
-	if minResources != nil {
-		q.MinResources = *minResources
-	}
-	tx := database.DB.Table("queue").Where("name = ?", name).Updates(&q)
-	if tx.Error != nil {
-		log.Errorf("update queue %s failed, err %v", name, tx.Error)
-		return tx.Error
-	}
-	return nil
+func UpdateQueue(queue *Queue) error {
+	log.Debugf("update queue:[%s], queue:%#v", queue.Name, queue)
+	tx := database.DB.Model(queue).Updates(queue)
+	return tx.Error
 }
 
 func UpdateQueueStatus(queueName string, queueStatus string) error {
@@ -354,4 +340,16 @@ func IsQueueInUse(queueID string) (bool, map[string]schema.JobStatus) {
 		jobsInfo[job.ID] = job.Status
 	}
 	return true, jobsInfo
+}
+
+// DeepCopyQueue returns a deep copy of the queue
+func DeepCopyQueue(queueSrc Queue, queueDesc *Queue) {
+	queueStr, _ := json.Marshal(queueSrc)
+	json.Unmarshal(queueStr, &queueDesc)
+	queueDesc.Pk = queueSrc.Pk
+	queueDesc.ClusterId = queueSrc.ClusterId
+	queueDesc.RawMinResources = queueSrc.RawMinResources
+	queueDesc.RawMaxResources = queueSrc.RawMaxResources
+	queueDesc.RawLocation = queueSrc.RawLocation
+	queueDesc.RawSchedulingPolicy = queueSrc.RawSchedulingPolicy
 }

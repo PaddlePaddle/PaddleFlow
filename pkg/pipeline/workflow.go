@@ -19,15 +19,15 @@ package pipeline
 import (
 	"errors"
 	"fmt"
+	. "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 	"regexp"
 	"strconv"
 
 	"github.com/sirupsen/logrus"
 
-	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/common/logger"
-	"paddleflow/pkg/common/schema"
-	. "paddleflow/pkg/pipeline/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
 
 // ----------------------------------------------------------------------------
@@ -286,16 +286,10 @@ func (bwf *BaseWorkflow) checkCache() error {
 		return fmt.Errorf("MaxExpiredTime[%s] of cache not correct", bwf.Source.Cache.MaxExpiredTime)
 	}
 
-	// 校验FsScope。计算目录通过逗号分隔。如果没传，默认更新为"/"。
+	// 校验FsScope。计算目录通过逗号分隔。
 	// 此处不校验path格式是否valid，以及path是否存在（如果不valid或者不存在，在计算cache，查询FsScope更新时间时，会获取失败）
-	if bwf.Extra[WfExtraInfoKeyFsID] == "" {
-		if bwf.Source.Cache.FsScope != "" {
-			return fmt.Errorf("fs_scope of global cache should be empty if Fs is not used!")
-		}
-	} else {
-		if bwf.Source.Cache.FsScope == "" {
-			bwf.Source.Cache.FsScope = "/"
-		}
+	if bwf.Extra[WfExtraInfoKeyFsID] == "" && bwf.Source.Cache.FsScope != "" {
+		return fmt.Errorf("fs_scope of global cache should be empty if Fs is not used!")
 	}
 
 	for stepName, wfsStep := range bwf.Source.EntryPoints {
@@ -308,14 +302,8 @@ func (bwf *BaseWorkflow) checkCache() error {
 			return fmt.Errorf("MaxExpiredTime[%s] of cache in step[%s] not correct", wfsStep.Cache.MaxExpiredTime, stepName)
 		}
 
-		if bwf.Extra[WfExtraInfoKeyFsID] == "" {
-			if wfsStep.Cache.FsScope != "" {
-				return fmt.Errorf("fs_scope of cache in step[%s] should be empty if Fs is not used!", stepName)
-			}
-		} else {
-			if wfsStep.Cache.FsScope == "" {
-				wfsStep.Cache.FsScope = "/"
-			}
+		if bwf.Extra[WfExtraInfoKeyFsID] == "" && wfsStep.Cache.FsScope != "" {
+			return fmt.Errorf("fs_scope of cache in step[%s] should be empty if Fs is not used!", stepName)
 		}
 	}
 
