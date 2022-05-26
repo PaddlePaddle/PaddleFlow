@@ -3,7 +3,7 @@ home: paddleflow
 version: 0.0.91-rc68gc-tmp
 appVersion: 0.0.91-rc68gc-tmp
 apiVersion: v1
-description: baidu paddleflow-server.
+description: paddleflow paddleflow-server.
 sources:
 - paddleflow
 maintainers:

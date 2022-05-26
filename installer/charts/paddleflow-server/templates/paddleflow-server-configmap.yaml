@@ -50,7 +50,7 @@
             spec:
               containers:
                 - name: worker-name
-                  image: registry.baidubce.com/paddle-operator/demo-resnet:v1
+                  image: demo-resnet:v1
   "paddle_ps.yaml": |-
     apiVersion: batch.paddlepaddle.org/v1
     kind: PaddleJob
@@ -66,14 +66,14 @@
           spec:
             containers:
               - name: worker-name
-                image: registry.baidubce.com/paddle-operator/demo-wide-and-deep:v1
+                image: demo-wide-and-deep:v1
       ps:
         replicas: 2
         template:
           spec:
             containers:
               - name: ps-name
-                image: registry.baidubce.com/paddle-operator/demo-wide-and-deep:v1
+                image: demo-wide-and-deep:v1
   "paddleserver.yaml": |2
       database:
           driver: {{ $.Values.out_depend_msg.DB_DRIVER }}
@@ -118,9 +118,9 @@
         jobLoopPeriod: 5
         scalarResourceArray:
           - "nvidia.com/gpu"
-          - "baidu.com/v100_cgpu"
-          - "baidu.com/v100_cgpu_core"
-          - "baidu.com/v100_cgpu_memory"
+          - "nvidia.com/gpu/v100_cgpu"
+          - "nvidia.com/gpu/v100_cgpu_core"
+          - "nvidia.com/gpu/v100_cgpu_memory"
         defaultJobYamlDir: "./config/server/default/job"
 
       pipeline: pipeline
@@ -141,18 +141,18 @@
           cpu: 1
           mem: 1G
           scalarResources:
-            "baidu.com/v100_cgpu": "1"
+            "nvidia.com/gpu/v100_cgpu": "1"
         - name: flavour3
           cpu: 1
           mem: 8Gi
           scalarResources:
-            "baidu.com/v100_cgpu": "1"
+            "nvidia.com/gpu/v100_cgpu": "1"
         - name: flavour4
           cpu: 1
           mem: 8Gi
           scalarResources:
-            "baidu.com/v100_cgpu": "1"
-            "baidu.com/v100_cgpu_memory": 7
+            "nvidia.com/gpu/v100_cgpu": "1"
+            "nvidia.com/gpu/v100_cgpu_memory": 7
   "single.yaml": |-
     apiVersion: v1
     kind: Pod

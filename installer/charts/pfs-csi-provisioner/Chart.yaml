@@ -3,7 +3,7 @@ home: paddleflow
 version: 0.0.14-11786337
 appVersion: 0.0.14-11786337
 apiVersion: v1
-description: baidu pfs-csi-provisioner.
+description: paddleflow pfs-csi-provisioner.
 sources:
 - paddleflow
 maintainers:

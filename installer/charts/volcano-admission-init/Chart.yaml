@@ -3,7 +3,7 @@ home: paddleflow
 version: 0.0.4-rc0qx8
 appVersion: 0.0.4-rc0qx8
 apiVersion: v1
-description: baidu volcano-admission-init.
+description: paddleflow volcano-admission-init.
 sources:
 - paddleflow
 maintainers:

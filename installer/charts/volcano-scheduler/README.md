@@ -1,6 +1,6 @@
 # demo-product helm chart
 
-baidu demo-product helm chart
+paddleflow demo-product helm chart
 
 ## 前提
 

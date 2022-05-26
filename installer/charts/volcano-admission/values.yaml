@@ -22,20 +22,7 @@ volcano_admission:
   - --log_dir=/tmp/log
   - --log_file=/tmp/log/webhook.log
   - --log_file_max_size=300
-  - --nvidia-mps-dev-volume-host-path=/dev/shm
-  - --nvidia-mps-dev-volume-container-path=/dev/shm
-  - --nvidia-cgpu-volume-host-path=/baidu-cgpu
-  - --nvidia-cgpu-volume-container-path=/home/baidu-cgpu
-  - --nvidia-lib-cuda-volume-host-path=/opt/baidu-cgpu/lib64/libcuda.so.1
-  - --nvidia-lib-cuda-volume-centos-container-path=/usr/lib64/libcuda.so.1
-  - --nvidia-lib-cuda-volume-ubuntu-container-path=/usr/lib/x86_64-linux-gnu/libcuda.so.1
-  - --nvidia-lib-cuda-original-volume-host-path=/usr/lib64/libcuda.so.1
-  - --nvidia-lib-cuda-original-volume-container-path=/usr/lib64/libcuda_original.so
-  - --nvidia-libml-volume-host-path=/usr/lib64/libnvidia-ml.so
-  - --nvidia-libml-volume-centos-container-path=/usr/lib64/libnvidia-ml.so.1
-  - --nvidia-libml-volume-ubuntu-container-path=/usr/lib/x86_64-linux-gnu/libnvidia-ml.so.1
-  - --nvidia-libml-original-volume-host-path=/usr/lib64/libnvidia-ml.so
-  - --nvidia-libml-original-volume-container-path=/usr/lib64/libnvidia-ml_original.so
+
   chart_config_volumes:
     configMaps: {}
     secrets: {}

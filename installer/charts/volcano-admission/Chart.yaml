@@ -3,7 +3,7 @@ home: paddleflow
 version: 0.0.15-rcbsxa
 appVersion: 0.0.15-rcbsxa
 apiVersion: v1
-description: baidu volcano-admission.
+description: paddleflow volcano-admission.
 sources:
 - paddleflow
 maintainers:

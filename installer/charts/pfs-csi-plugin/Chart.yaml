@@ -3,7 +3,7 @@ home: paddleflow
 version: 0.0.40-rc6eh8
 appVersion: 0.0.40-rc6eh8
 apiVersion: v1
-description: baidu pfs-csi-plugin.
+description: paddleflow pfs-csi-plugin.
 sources:
 - paddleflow
 maintainers:

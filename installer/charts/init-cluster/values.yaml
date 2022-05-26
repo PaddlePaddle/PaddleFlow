@@ -31,7 +31,7 @@ init_cluster:
   enable: true
   hostAliases: {}
   hostNetwork: false
-  image: iregistry.baidu-int.com/paddleflow/centos7-shelljob
+  image: iregistry.paddleflow-int.com/paddleflow/centos7-shelljob
   imagePullPolicy: IfNotPresent
   imageTag: '1.0'
   init_container_msg: {}

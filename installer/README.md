@@ -74,7 +74,7 @@ PaddleFlow包括以下几个组件：</br>
 可选组件：</br>
 * mysql：PaddleFlow内置SQLLite，如需替换成为mysql见(todo)
 * spark-operator
-* mpi-operator
+* training-operator
 
 **paddleflow-server**
 
