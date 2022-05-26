@@ -103,7 +103,7 @@ def set_post_process(ppl):
 [在DSL中使用Cache][DSL-Cache]
 
 [DSL使用基础]: /docs/zh_cn/reference/pipeline/dsl_definition/1_pipeline_basic.md
-[FailureOptions]: /docs/zh_cn/reference/sdk_reference/pipeline_dsl_reference.md#FailureOptions
+[FailureOptions]: /docs/zh_cn/reference/sdk_reference/pipeline_dsl_reference.md#6FailureOptions
 [DSL接口文档]: /docs/zh_cn/reference/sdk_reference/pipeline_dsl_reference.md
 [在DSL中使用Cache]: /docs/zh_cn/reference/pipeline/dsl_definition/3_cache.md
 [artifact_pipeline]: /docs/zh_cn/reference/pipeline/dsl_definition/2_artifact.md
