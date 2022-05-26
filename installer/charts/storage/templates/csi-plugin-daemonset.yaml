@@ -121,6 +121,9 @@ spec:
               subPath: kube.config
             - mountPath: /home/paddleflow/log
               name: paddlefow-csi-log
+            - mountPath: /home/paddleflow/mnt
+              mountPropagation: Bidirectional
+              name: pfs-mnt
       tolerations:
         - effect: NoExecute
           operator: Exists
@@ -143,6 +146,10 @@ spec:
           path: {{ .Values.csi.kubelet_data_path }}/plugins
           type: Directory
         name: plugins-dir
+      - hostPath:
+          path: {{ .Values.csi.mount_host_path }}
+          type: DirectoryOrCreate
+        name: pfs-mnt
       - hostPath:
           path: {{ .Values.csi.log }}
           type: DirectoryOrCreate
