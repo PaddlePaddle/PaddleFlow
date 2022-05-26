@@ -61,14 +61,25 @@ func (pr *PFSRouter) createFSCacheConfig(w http.ResponseWriter, r *http.Request)
 
 	ctx.Logging().Debugf("create file system cache with req[%v]", createRequest)
 
-	err = validateCreateFSCacheConfig(&ctx, &createRequest)
+	// fs exists
+	if _, err := models.GetFileSystemWithFsID(createRequest.FsID); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			ctx.ErrorCode = common.FileSystemNotExist
+			ctx.Logging().Errorf("createFSCacheConfig fs[%s] not exist", createRequest.FsID)
+		} else {
+			ctx.Logging().Errorf("createFSCacheConfig fs[%s] err:%v", createRequest.FsID, err)
+		}
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+	// validate
+	err = validateCacheConfigRequest(&ctx, &createRequest.UpdateFileSystemCacheRequest)
 	if err != nil {
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
 
-	err = api.CreateFileSystemCacheConfig(&ctx, createRequest)
-	if err != nil {
+	if err = api.CreateFileSystemCacheConfig(&ctx, createRequest); err != nil {
 		ctx.Logging().Errorf("create file system cache with service error[%v]", err)
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
@@ -77,18 +88,61 @@ func (pr *PFSRouter) createFSCacheConfig(w http.ResponseWriter, r *http.Request)
 	common.RenderStatus(w, http.StatusCreated)
 }
 
-func validateCreateFSCacheConfig(ctx *logger.RequestContext, req *api.CreateFileSystemCacheRequest) error {
-	// fs exists
-	_, err := models.GetFileSystemWithFsID(req.FsID)
+// updateFSCacheConfig
+// @Summary 更新FsID的缓存配置
+// @Description  更新FsID的缓存配置
+// @Id updateFSCacheConfig
+// @tags FSCacheConfig
+// @Accept  json
+// @Produce json
+// @Param fsName path string true "存储名称"
+// @Param username query string false "用户名"
+// @Param request body fs.UpdateFileSystemCacheRequest true "request body"
+// @Success 200 {object} models.FSCacheConfig "缓存配置结构体"
+// @Failure 400 {object} common.ErrorResponse "400"
+// @Failure 500 {object} common.ErrorResponse "500"
+// @Router /fsCache/{fsName} [PUT]
+func (pr *PFSRouter) updateFSCacheConfig(w http.ResponseWriter, r *http.Request) {
+	fsName := chi.URLParam(r, util.QueryFsName)
+	username := r.URL.Query().Get(util.QueryKeyUserName)
+	ctx := common.GetRequestContext(r)
+
+	var req api.UpdateFileSystemCacheRequest
+	err := common.BindJSON(r, &req)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			ctx.ErrorCode = common.FileSystemNotExist
-			ctx.Logging().Errorf("validateCreateFileSystemCache fsID[%s] not exist", req.FsID)
-		} else {
-			ctx.Logging().Errorf("validateCreateFileSystemCache fsID[%s] err:%v", req.FsID, err)
-		}
-		return err
+		ctx.Logging().Errorf("UpdateFSCacheConfig[%s] bindjson failed. err:%s", fsName, err.Error())
+		common.RenderErr(w, ctx.RequestID, common.MalformedJSON)
+		return
 	}
+	realUserName := getRealUserName(&ctx, username)
+	req.FsID = common.ID(realUserName, fsName)
+
+	// validate fs_cache_config existence
+	if _, err = models.GetFSCacheConfig(ctx.Logging(), req.FsID); err != nil {
+		ctx.Logging().Errorf("validateUpdateFileSystemCache err:%v", err)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			common.RenderErr(w, ctx.RequestID, common.RecordNotFound)
+		} else {
+			common.RenderErr(w, ctx.RequestID, common.InternalError)
+		}
+		return
+	}
+	// validate request
+	if err = validateCacheConfigRequest(&ctx, &req); err != nil {
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+	// update DB
+	if err = api.UpdateFileSystemCacheConfig(&ctx, req); err != nil {
+		logger.LoggerForRequest(&ctx).Errorf(
+			"updateFSCacheConfig[%s] failed. error:%v", req.FsID, err)
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+	common.RenderStatus(w, http.StatusOK)
+}
+
+func validateCacheConfigRequest(ctx *logger.RequestContext, req *api.UpdateFileSystemCacheRequest) error {
 	// cacheDir must be absolute path
 	if req.CacheDir == "" {
 		req.CacheDir = schema.DefaultCacheDir(req.FsID)
@@ -150,63 +204,6 @@ func (pr *PFSRouter) getFSCacheConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	common.Render(w, http.StatusOK, fsCacheConfigResp)
-}
-
-// updateFSCacheConfig
-// @Summary 更新FsID的缓存配置
-// @Description  更新FsID的缓存配置
-// @Id updateFSCacheConfig
-// @tags FSCacheConfig
-// @Accept  json
-// @Produce json
-// @Param fsName path string true "存储名称"
-// @Param username query string false "用户名"
-// @Param request body fs.UpdateFileSystemCacheRequest true "request body"
-// @Success 200 {object} models.FSCacheConfig "缓存配置结构体"
-// @Failure 400 {object} common.ErrorResponse "400"
-// @Failure 500 {object} common.ErrorResponse "500"
-// @Router /fsCache/{fsName} [PUT]
-func (pr *PFSRouter) updateFSCacheConfig(w http.ResponseWriter, r *http.Request) {
-	fsName := chi.URLParam(r, util.QueryFsName)
-	username := r.URL.Query().Get(util.QueryKeyUserName)
-	ctx := common.GetRequestContext(r)
-
-	var req api.UpdateFileSystemCacheRequest
-	err := common.BindJSON(r, &req)
-	if err != nil {
-		ctx.Logging().Errorf("UpdateFSCacheConfig[%s] bindjson failed. err:%s", fsName, err.Error())
-		common.RenderErr(w, ctx.RequestID, common.MalformedJSON)
-		return
-	}
-
-	realUserName := getRealUserName(&ctx, username)
-	req.FsID = common.ID(realUserName, fsName)
-
-	// validate fs_cache_config existence
-	_, err = models.GetFSCacheConfig(ctx.Logging(), req.FsID)
-	if err != nil {
-		ctx.Logging().Errorf("validateUpdateFileSystemCache err:%v", err)
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			common.RenderErr(w, ctx.RequestID, common.RecordNotFound)
-		} else {
-			common.RenderErr(w, ctx.RequestID, common.InternalError)
-		}
-		return
-	}
-
-	err = api.UpdateFileSystemCacheConfig(&ctx, req)
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			common.RenderErr(w, ctx.RequestID, common.RecordNotFound)
-		} else {
-			common.RenderErr(w, ctx.RequestID, common.InternalError)
-		}
-		logger.LoggerForRequest(&ctx).Errorf(
-			"GetFSCacheConfig[%s] failed. error:%v", req.FsID, err)
-		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
-		return
-	}
-	common.RenderStatus(w, http.StatusOK)
 }
 
 // deleteFSCacheConfig api delete file system cache config request
