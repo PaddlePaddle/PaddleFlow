@@ -50,17 +50,14 @@ import (
 func (pr *PFSRouter) createFSCacheConfig(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
 	var createRequest api.CreateFileSystemCacheRequest
-	err := common.BindJSON(r, &createRequest)
-	if err != nil {
+	if err := common.BindJSON(r, &createRequest); err != nil {
 		ctx.Logging().Errorf("CreateFSCacheConfig bindjson failed. err:%s", err.Error())
-		common.RenderErr(w, ctx.RequestID, common.MalformedJSON)
+		common.RenderErrWithMessage(w, ctx.RequestID, common.MalformedJSON, err.Error())
 		return
 	}
 	realUserName := getRealUserName(&ctx, createRequest.Username)
 	createRequest.FsID = common.ID(realUserName, createRequest.FsName)
-
-	ctx.Logging().Debugf("create file system cache with req[%v]", createRequest)
-
+	ctx.Logging().Tracef("create file system cache with req[%v]", createRequest)
 	// fs exists
 	if _, err := models.GetFileSystemWithFsID(createRequest.FsID); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -72,19 +69,17 @@ func (pr *PFSRouter) createFSCacheConfig(w http.ResponseWriter, r *http.Request)
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
-	// validate
-	err = validateCacheConfigRequest(&ctx, &createRequest.UpdateFileSystemCacheRequest)
-	if err != nil {
+	// validate request
+	if err := validateCacheConfigRequest(&ctx, &createRequest.UpdateFileSystemCacheRequest); err != nil {
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
-
-	if err = api.CreateFileSystemCacheConfig(&ctx, createRequest); err != nil {
+	// create in db
+	if err := api.CreateFileSystemCacheConfig(&ctx, createRequest); err != nil {
 		ctx.Logging().Errorf("create file system cache with service error[%v]", err)
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
-
 	common.RenderStatus(w, http.StatusCreated)
 }
 
@@ -108,34 +103,32 @@ func (pr *PFSRouter) updateFSCacheConfig(w http.ResponseWriter, r *http.Request)
 	ctx := common.GetRequestContext(r)
 
 	var req api.UpdateFileSystemCacheRequest
-	err := common.BindJSON(r, &req)
-	if err != nil {
+	if err := common.BindJSON(r, &req); err != nil {
 		ctx.Logging().Errorf("UpdateFSCacheConfig[%s] bindjson failed. err:%s", fsName, err.Error())
-		common.RenderErr(w, ctx.RequestID, common.MalformedJSON)
+		common.RenderErrWithMessage(w, ctx.RequestID, common.MalformedJSON, err.Error())
 		return
 	}
 	realUserName := getRealUserName(&ctx, username)
 	req.FsID = common.ID(realUserName, fsName)
 
 	// validate fs_cache_config existence
-	if _, err = models.GetFSCacheConfig(ctx.Logging(), req.FsID); err != nil {
-		ctx.Logging().Errorf("validateUpdateFileSystemCache err:%v", err)
+	if _, err := models.GetFSCacheConfig(ctx.Logging(), req.FsID); err != nil {
+		ctx.Logging().Errorf("UpdateFSCacheConfig[%s] models.GetFSCacheConfig err:%s", fsName, err.Error())
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			common.RenderErr(w, ctx.RequestID, common.RecordNotFound)
+			common.RenderErrWithMessage(w, ctx.RequestID, common.RecordNotFound, err.Error())
 		} else {
-			common.RenderErr(w, ctx.RequestID, common.InternalError)
+			common.RenderErrWithMessage(w, ctx.RequestID, common.InternalError, err.Error())
 		}
 		return
 	}
 	// validate request
-	if err = validateCacheConfigRequest(&ctx, &req); err != nil {
+	if err := validateCacheConfigRequest(&ctx, &req); err != nil {
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
 	// update DB
-	if err = api.UpdateFileSystemCacheConfig(&ctx, req); err != nil {
-		logger.LoggerForRequest(&ctx).Errorf(
-			"updateFSCacheConfig[%s] failed. error:%v", req.FsID, err)
+	if err := api.UpdateFileSystemCacheConfig(&ctx, req); err != nil {
+		ctx.Logging().Errorf("updateFSCacheConfig[%s] err:%v", req.FsID, err)
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
