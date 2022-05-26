@@ -12,7 +12,7 @@ entry_points:
       max_expired_time: 300
     command: bash -x cache_example/shells/data_artifact.sh {{data_path}} {{train_data}}
       {{validate_data}}
-    docker_env: registry.baidubce.com/pipeline/kfp_mysql:1.7.0
+    docker_env: centos:centos7
     env:
       PF_JOB_FLAVOUR: flavour1
       PF_JOB_MODE: Pod
@@ -61,4 +61,4 @@ cache:
   fs_scope: cache_example/shells/train.sh,cache_example/shells/validate.sh,cache_example/shells/data_artifact.sh
   max_expired_time: 600
 
-docker_env: registry.baidubce.com/pipeline/nginx:1.7.9
+docker_env: nginx:1.7.9

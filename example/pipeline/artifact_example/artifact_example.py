@@ -17,7 +17,7 @@ def preprocess(data_path):
         name="preprocess",
         parameters={"data_path": data_path},
         outputs={"train_data": Artifact(), "validate_data": Artifact()},
-        docker_env="registry.baidubce.com/pipeline/kfp_mysql:1.7.0",
+        docker_env="centos:centos7",
         command="bash -x artifact_example/shells/data_artifact.sh {{data_path}} {{train_data}} {{validate_data}}",
         env={"USER_ABC": f"123_{PF_USER_NAME}"}
     )
@@ -40,7 +40,7 @@ def validate(data, model):
         command="bash artifact_example/shells/validate.sh {{model}}", 
     )
 
-@Pipeline(name="artifact_example", docker_env="registry.baidubce.com/pipeline/nginx:1.7.9", env=job_info(), parallelism=1)
+@Pipeline(name="artifact_example", docker_env="nginx:1.7.9", env=job_info(), parallelism=1)
 def artifact_example(data_path, epoch):
     preprocess_step = preprocess(data_path)
 

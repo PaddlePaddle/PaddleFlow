@@ -8,7 +8,7 @@ entry_points:
       - validate_data
     command: bash -x artifact_example/shells/data_artifact.sh {{data_path}} {{train_data}}
       {{validate_data}}
-    docker_env: registry.baidubce.com/pipeline/kfp_mysql:1.7.0
+    docker_env: centos:centos7
     env:
       PF_JOB_FLAVOUR: flavour1
       PF_JOB_MODE: Pod
@@ -40,13 +40,13 @@ entry_points:
         data: '{{preprocess.validate_data}}'
         model: '{{train.train_model}}'
     command: bash artifact_example/shells/validate.sh {{model}}
-    deps: train,preprocess
+    deps: preprocess,train
     env:
       PF_JOB_FLAVOUR: flavour1
       PF_JOB_MODE: Pod
       PF_JOB_QUEUE_NAME: ppl-queue
       PF_JOB_TYPE: vcjob
 
-docker_env: registry.baidubce.com/pipeline/nginx:1.7.9
+docker_env: nginx:1.7.9
 
 parallelism: 1

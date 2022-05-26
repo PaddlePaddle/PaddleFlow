@@ -24,7 +24,7 @@ def preprocess(data_path):
         name="preprocess",
         parameters={"data_path": data_path},
         outputs={"train_data": Artifact(), "validate_data": Artifact()},
-        docker_env="registry.baidubce.com/pipeline/kfp_mysql:1.7.0",
+        docker_env="centos:centos7",
         cache_options=cache,
         command="bash -x cache_example/shells/data_artifact.sh {{data_path}} {{train_data}} {{validate_data}}",
         env={"USER_ABC": f"123_{PF_USER_NAME}"}
@@ -61,7 +61,7 @@ cache = CacheOptions(
 
 @Pipeline(
         name="cache_example",
-        docker_env="registry.baidubce.com/pipeline/nginx:1.7.9",
+        docker_env="nginx:1.7.9",
         cache_options=cache,
         env=job_info(),
         parallelism=1
