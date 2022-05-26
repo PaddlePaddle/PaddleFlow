@@ -226,5 +226,5 @@ if __name__ == "__main__":
 [PostProcess-And-FailureOpitons]: /docs/zh_cn/reference/pipeline/dsl_definition/4_failure_options_and_post_process.md
 [DSL接口文档]: /docs/zh_cn/reference/sdk_reference/pipeline_dsl_reference.md
 [Parameter]: /docs/zh_cn/reference/sdk_reference/pipeline_dsl_reference.md#Parameter
-[ContainerStep]: /docs/zh_cn/reference/sdk_reference/pipeline_dsl_reference.md#ContainerStep
-[Pipeline]: /docs/zh_cn/reference/sdk_reference/pipeline_dsl_reference.md#Pipeline
+[ContainerStep]: /docs/zh_cn/reference/sdk_reference/pipeline_dsl_reference.md#2ContainerStep
+[Pipeline]: /docs/zh_cn/reference/sdk_reference/pipeline_dsl_reference.md#1Pipeline
