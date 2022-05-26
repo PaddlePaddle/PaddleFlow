@@ -124,7 +124,7 @@ ContainerStep 初始化函数的主要参数说明如下：
 
 > command, docker_env, parameter, env等字段的详细说明请点击[这里][节点字段]查看
 > 
-> 与 ContainerStep 相关的更多说明，可以点击[这里][DSL接口文档]查看
+> 与 ContainerStep 相关的更多说明，可以点击[这里][ContainerStep]查看
 
 ## 4、定义Pipeline
 在完成所有Step的定以后，便可以开始将这些Step有机的组装成一个pipeline。将Step组装成pipeline，可以分成以下三步：
@@ -135,7 +135,7 @@ ContainerStep 初始化函数的主要参数说明如下：
 接下来，我们将依次介绍这三个步骤。
 
 ### 4.1、实例化Pipeline对像
-在将Step实例添加至Pipeline实例前，我们需要先实例化相关的Pipeline对象。这里需要特别注意的是，Pipeline 是一个类装饰器，我们不应该直接去实例化Pipeline对象，而应该作为一个函数的装饰器去进行实例化，如上面的[示例](#1pipeline示例)所示：
+在将Step实例添加至Pipeline实例前，我们需要先实例化相关的Pipeline对象。这里需要特别注意的是，Pipeline是一个类装饰器，我们不应该直接去实例化Pipeline对象，而应该作为一个函数的装饰器去进行实例化，如上面的[示例](#1pipeline示例)所示：
 ```python3
 @Pipeline(name="base_pipeline", docker_env="nginx:1.7.9", parallelism=1)
 def base_pipeline(data_path, epoch, model_path):
@@ -225,3 +225,5 @@ if __name__ == "__main__":
 [PostProcess-And-FailureOpitons]: /docs/zh_cn/reference/pipeline/dsl_definition/4_failure_options_and_post_process.md
 [DSL接口文档]: /docs/zh_cn/reference/sdk_reference/pipeline_dsl_reference.md
 [Parameter]: /docs/zh_cn/reference/sdk_reference/pipeline_dsl_reference.md#Parameter
+[ContainerStep]: /docs/zh_cn/reference/sdk_reference/pipeline_dsl_reference.md#ContainerStep
+[Pipeline]: /docs/zh_cn/reference/sdk_reference/pipeline_dsl_reference.md#Pipeline
