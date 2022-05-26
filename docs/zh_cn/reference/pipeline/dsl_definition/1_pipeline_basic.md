@@ -80,7 +80,7 @@ if __name__ == "__main__":
 > 在阅读本文档前，请确认已经安装了 Paddleflow SDK，并完成了相关配置。详情请点击[这里][SDK安装与配置]
 
 ## 2、导入DSL相关模块
-与编写任何Python脚本一样，我们首先要导入将会使用到的模块、类、或者函数等。Python DSL提供的模块、类、函数等都可以通过paddleflow.pipeline模块完成导入，如上面的[示例](#1pipeline-示例)所示：
+与编写任何Python脚本一样，我们首先要导入将会使用到的模块、类、或者函数等。Python DSL提供的模块、类、函数等都可以通过paddleflow.pipeline模块完成导入，如上面的[示例](#1pipeline示例)所示：
 ```python3
 from paddleflow.pipeline import Pipeline
 from paddleflow.pipeline import ContainerStep
@@ -94,7 +94,7 @@ from paddleflow.pipeline import PF_USER_NAME
 
 在定义Pipeline之前，首先需要完成Step的定义，在DSL中，我们实例化ContainerStep即可完成Step的定义。
 
-如上面[示例中](#1pipeline-示例)的`preprocess()`,`train()`,`validate()`函数所示, 在这三个函数中，都实例化了一个ContainerStep对象。为了方便，我们将`preprocess()`的函数代码抄录如下：
+如上面[示例中](#1pipeline示例)的`preprocess()`,`train()`,`validate()`函数所示, 在这三个函数中，都实例化了一个ContainerStep对象。为了方便，我们将`preprocess()`的函数代码抄录如下：
 
 ```python3
 def preprocess(data_path):
@@ -135,7 +135,7 @@ ContainerStep 初始化函数的主要参数说明如下：
 接下来，我们将依次介绍这三个步骤。
 
 ### 4.1、实例化Pipeline对像
-在将Step实例添加至Pipeline实例前，我们需要先实例化相关的Pipeline对象。这里需要特别注意的是，Pipeline 是一个类装饰器，我们不应该直接去实例化Pipeline对象，而应该作为一个函数的装饰器去进行实例化，如上面的[示例](#1pipeline-示例)所示：
+在将Step实例添加至Pipeline实例前，我们需要先实例化相关的Pipeline对象。这里需要特别注意的是，Pipeline 是一个类装饰器，我们不应该直接去实例化Pipeline对象，而应该作为一个函数的装饰器去进行实例化，如上面的[示例](#1pipeline示例)所示：
 ```python3
 @Pipeline(name="base_pipeline", docker_env="nginx:1.7.9", parallelism=1)
 def base_pipeline(data_path, epoch, model_path):
@@ -159,7 +159,7 @@ Pipeline 实例化函数的主要参数说明如下：
 
 > **pipeline函数**: 指被Pipeline实例装饰的函数。
 > 
-如在上面的[示例](#1pipeline-示例)所示, 在pipeline函数 `base_pipeline()`中，依次调用了 `preprocess()`, `train()`, `validate()` 三个函数，而在这三个函数中，均完成了一个 Step对象的实例化。因此，此时的Pipeline实例将会包含有三个Step实例，其名字依次为："preprocess"、"train"、"validate"。
+如在上面的[示例](#1pipeline示例)所示, 在pipeline函数 `base_pipeline()`中，依次调用了 `preprocess()`, `train()`, `validate()` 三个函数，而在这三个函数中，均完成了一个 Step对象的实例化。因此，此时的Pipeline实例将会包含有三个Step实例，其名字依次为："preprocess"、"train"、"validate"。
 
 
 ### 4.3、指定Step实例间的依赖关系
@@ -169,7 +169,7 @@ Pipeline 实例化函数的主要参数说明如下：
 - Parameter依赖: 如果StepA的某个Parameter引用了StepB的某个Parameter，则称StepA在Parameter上依赖于StepB。
  
 #### 流程依赖
-定义节点间流程依赖的方式很简单，只需要调用Step实例的`after()`函数，便可以建立该Step实例与其余Step实例的流程依赖关系。如在上面的[示例](#1pipeline-示例)中，我们可以看到如下的语句：
+定义节点间流程依赖的方式很简单，只需要调用Step实例的`after()`函数，便可以建立该Step实例与其余Step实例的流程依赖关系。如在上面的[示例](#1pipeline示例)中，我们可以看到如下的语句：
 
 ```python3
 train_step.after(preprocess_step)
@@ -188,7 +188,7 @@ StepA.parameters["P1"] = StepB.parameters["P2"]
 在运行StepA时，ParameterP1的值将会被替换为StepB的ParameterP2的值，具体的替换逻辑可以参考[这里][变量模板与替换]
 > 如果两个步骤间存在与Parameter依赖，则会隐含这两个步骤存在流程依赖，如上例中，则会隐含有stepA在流程上依赖于stepB
     
-> 一些细心的用户应该早已发现，在上面的[pipeline示例](#1pipeline-示例)中，存在有如下的参数依赖：
+> 一些细心的用户应该早已发现，在上面的[pipeline示例](#1pipeline示例)中，存在有如下的参数依赖：
 >- train_step的Parameter["train_data"] 依赖于preprocess_step的Parameter["data_path"]
 >- validate_step的Parameter["model_path"]依赖于train_step的Parameter["model_path"]
 
@@ -197,7 +197,7 @@ StepA.parameters["P1"] = StepB.parameters["P2"]
 - 调用pipeline函数，得到完成了所有编排逻辑的Pipeline实例
 - 调用Pipeline实例的run()函数，发起任务。
     
-如在上面的[示例](#1pipeline-示例)所示:
+如在上面的[示例](#1pipeline示例)所示:
 ```python3
 if __name__ == "__main__":
     ppl = base_pipeline(data_path=f"./base_pipeline/data/{PF_RUN_ID}", epoch=5, model_path=f"./output/{PF_RUN_ID}")
