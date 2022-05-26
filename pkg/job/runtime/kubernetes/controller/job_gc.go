@@ -30,9 +30,9 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
-	"paddleflow/pkg/common/config"
-	"paddleflow/pkg/common/k8s"
-	commonschema "paddleflow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
+	commonschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
 
 const (

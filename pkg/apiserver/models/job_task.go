@@ -10,9 +10,9 @@ import (
 	"gorm.io/gorm/clause"
 	v1 "k8s.io/api/core/v1"
 
-	"paddleflow/pkg/common/database"
-	"paddleflow/pkg/common/logger"
-	"paddleflow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
 
 const (
@@ -30,7 +30,7 @@ type JobTask struct {
 	Message              string            `json:"message"`
 	LogURL               string            `json:"logURL"`
 	ExtRuntimeStatusJSON string            `json:"extRuntimeStatus" gorm:"column:ext_runtime_status;default:'{}'"`
-	ExtRuntimeStatus     interface{}       `json:"-" gorm:"-"` //k8s:v1.PodStatus
+	ExtRuntimeStatus     interface{}       `json:"-" gorm:"-"` // k8s:v1.PodStatus
 	CreatedAt            time.Time         `json:"-"`
 	StartedAt            sql.NullTime      `json:"-"`
 	UpdatedAt            time.Time         `json:"-"`

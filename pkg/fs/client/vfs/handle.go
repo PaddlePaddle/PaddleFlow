@@ -20,8 +20,8 @@ import (
 	"sync"
 	"syscall"
 
-	"paddleflow/pkg/fs/client/meta"
-	ufslib "paddleflow/pkg/fs/client/ufs"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/meta"
+	ufslib "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/ufs"
 )
 
 type handle struct {

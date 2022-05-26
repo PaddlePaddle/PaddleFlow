@@ -31,7 +31,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 
-	commomschema "paddleflow/pkg/common/schema"
+	commomschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
 
 var (

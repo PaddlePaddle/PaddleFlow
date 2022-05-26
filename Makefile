@@ -8,7 +8,7 @@ GOPATH  := $(shell $(GO) env GOPATH)
 GOMOD   := $(GO) mod
 GOBUILD := $(GO) build
 GOTEST  := $(GO) test -gcflags="-N -l"
-GOPKGS  := $$($(GO) list ./...| grep -vE "vendor" | grep -vE "paddleflow/pkg/fs/fuse/ufs")
+GOPKGS  := $$($(GO) list ./...| grep -vE "vendor" | grep -vE "github.com/PaddlePaddle/PaddleFlow/pkg/fs/fuse/ufs")
 export PATH := $(GOPATH)/bin/:$(PATH)
 
 # test cover files

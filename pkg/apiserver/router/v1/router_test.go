@@ -24,19 +24,19 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
-	"paddleflow/pkg/common/config"
-	"paddleflow/pkg/common/database/dbinit"
 	"testing"
 
 	"github.com/go-chi/chi"
 	"github.com/stretchr/testify/assert"
 
-	"paddleflow/pkg/apiserver/common"
-	"paddleflow/pkg/apiserver/controller/user"
-	"paddleflow/pkg/apiserver/middleware"
-	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/apiserver/router/util"
-	"paddleflow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/user"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/middleware"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database/dbinit"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 )
 
 var mockUserName = "mockUser"

@@ -27,10 +27,10 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"paddleflow/pkg/fs/csiplugin/client/pfs"
-	"paddleflow/pkg/fs/csiplugin/mount"
-	"paddleflow/pkg/fs/utils/io"
-	mountUtil "paddleflow/pkg/fs/utils/mount"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/client/pfs"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/mount"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/io"
+	mountUtil "github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/mount"
 )
 
 const (

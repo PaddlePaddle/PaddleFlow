@@ -25,9 +25,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"paddleflow/pkg/common/logger"
-	"paddleflow/pkg/fs/client/fs"
-	"paddleflow/pkg/fs/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/fs"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 )
 
 func prepareTestEnv() (fs.FSClient, *logger.RequestContext, error) {

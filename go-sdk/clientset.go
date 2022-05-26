@@ -17,8 +17,8 @@ limitations under the License.
 package go_sdk
 
 import (
-	"paddleflow/go-sdk/service"
-	"paddleflow/pkg/common/http/core"
+	"github.com/PaddlePaddle/PaddleFlow/go-sdk/service"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/core"
 )
 
 type Interface interface {

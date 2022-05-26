@@ -30,9 +30,9 @@ import (
 	"github.com/hanwen/go-fuse/v2/fuse/nodefs"
 	log "github.com/sirupsen/logrus"
 
-	"paddleflow/pkg/fs/client/base"
-	"paddleflow/pkg/fs/common"
-	"paddleflow/pkg/fs/utils/mount"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/base"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/mount"
 )
 
 const (

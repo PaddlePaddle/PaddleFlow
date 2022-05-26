@@ -33,10 +33,10 @@ import (
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/crypto/ssh"
 
-	"paddleflow/pkg/apiserver/common"
-	"paddleflow/pkg/fs/client/base"
-	"paddleflow/pkg/fs/client/utils"
-	fsCommon "paddleflow/pkg/fs/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/base"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/utils"
+	fsCommon "github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 )
 
 const (

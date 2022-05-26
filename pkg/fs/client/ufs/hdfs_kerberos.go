@@ -27,7 +27,7 @@ import (
 	krbconf "github.com/jcmturner/gokrb5/v8/config"
 	"github.com/jcmturner/gokrb5/v8/keytab"
 
-	"paddleflow/pkg/fs/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 )
 
 type KerberosConf struct {
