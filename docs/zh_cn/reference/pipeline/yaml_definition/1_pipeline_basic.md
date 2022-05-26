@@ -14,7 +14,7 @@ name: base_pipeline
 entry_points:
   preprocess:
     command: bash base_pipeline/shells/data.sh {{data_path}}
-    docker_env: registry.baidubce.com/pipeline/kfp_mysql:1.7.0
+    docker_env: centos:centos7
     env:
       PF_JOB_FLAVOUR: flavour1
       PF_JOB_MODE: Pod

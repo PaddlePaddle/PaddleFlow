@@ -403,7 +403,7 @@ class Client(object):
         userinfo={'header': self.header, 'name': username, 'host': self.paddleflow_server}
         return FSServiceApi.show_link(self.paddleflow_server, fsname, fspath, self.user_id, userinfo)
 
-    def create_run(self, fsname, username=None, runname=None, desc=None, 
+    def create_run(self, fsname=None, username=None, runname=None, desc=None, 
                         runyamlpath=None, runyamlraw=None, pipelineid=None, param=None, disabled=None, dockerenv=None):
         """
         create run
