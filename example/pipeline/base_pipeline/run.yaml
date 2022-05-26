@@ -3,7 +3,7 @@ name: base_pipeline
 entry_points:
   preprocess:
     command: bash base_pipeline/shells/data.sh {{data_path}}
-    docker_env: registry.baidubce.com/pipeline/kfp_mysql:1.7.0
+    docker_env: centos:centos7 
     env:
       PF_JOB_FLAVOUR: flavour1
       PF_JOB_MODE: Pod
@@ -37,6 +37,6 @@ entry_points:
     parameters:
       model_path: '{{train.model_path}}'
 
-parallelism: 1
+docker_env: nginx:1.7.9
 
-docker_env: registry.baidubce.com/pipeline/nginx:1.7.9
+parallelism: 1

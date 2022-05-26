@@ -21,11 +21,14 @@ def echo_step(name, exit_error=False):
         command=command
     )
 
+fail = FailureOptions(FAIL_CONTINUE)
+
 @Pipeline(
         name="failure_options_and_post_process_example",
-        docker_env="registry.baidubce.com/pipeline/nginx:1.7.9",
+        docker_env="nginx:1.7.9",
         parallelism=1,
-        env=job_info()
+        env=job_info(),
+        failure_options = fail
         )
 def failure_options_and_post_process_example():
     step1 = echo_step("step1")
@@ -42,14 +45,9 @@ def set_post_process(ppl):
     post_process = echo_step("step6")
     ppl.set_post_process(post_process)
 
-def set_failure_options(ppl, strategy):
-    fail = FailureOptions(strategy)
-    ppl.failure_options = fail
 
 if __name__ == "__main__":
     ppl = failure_options_and_post_process_example()
     set_post_process(ppl)
-    set_failure_options(ppl, FAIL_CONTINUE)
-    
     result = ppl.run(fsname="your_fs_name")
     print(result)
