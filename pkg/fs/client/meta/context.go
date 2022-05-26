@@ -19,7 +19,7 @@ package meta
 import (
 	"os"
 
-	"paddleflow/pkg/fs/client/base"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/base"
 )
 
 type Context struct {

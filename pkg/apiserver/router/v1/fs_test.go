@@ -17,14 +17,16 @@ limitations under the License.
 package v1
 
 import (
-	"github.com/agiledragon/gomonkey/v2"
-	"paddleflow/pkg/apiserver/common"
-	"paddleflow/pkg/apiserver/controller/fs"
-	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/common/logger"
-	fsCommon "paddleflow/pkg/fs/common"
 	"reflect"
 	"testing"
+
+	"github.com/agiledragon/gomonkey/v2"
+
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/fs"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	fsCommon "github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 )
 
 func Test_validateCreateFileSystem(t *testing.T) {

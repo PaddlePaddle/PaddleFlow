@@ -27,7 +27,7 @@ import (
 	dto "github.com/prometheus/client_model/go"
 	log "github.com/sirupsen/logrus"
 
-	"paddleflow/pkg/fs/client/meta"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/meta"
 )
 
 const (
@@ -142,6 +142,6 @@ func collectMetrics(registry *prometheus.Registry) []byte {
 			}
 		}
 	}
-	//log.Tracef("metrics collectMetrics: %s", w.String())
+	// log.Tracef("metrics collectMetrics: %s", w.String())
 	return w.Bytes()
 }

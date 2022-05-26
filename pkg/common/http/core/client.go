@@ -19,7 +19,7 @@ package core
 import (
 	log "github.com/sirupsen/logrus"
 
-	"paddleflow/pkg/common/http/util/http"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/util/http"
 )
 
 // Client is the general interface which can perform sending request. Different service

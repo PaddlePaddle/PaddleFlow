@@ -17,7 +17,7 @@ limitations under the License.
 package sortpolicy
 
 import (
-	"paddleflow/pkg/job/api"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 )
 
 func init() {

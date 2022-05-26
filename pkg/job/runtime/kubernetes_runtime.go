@@ -39,13 +39,13 @@ import (
 	"volcano.sh/apis/pkg/apis/helpers"
 	schedulingv1beta1 "volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 
-	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/common/config"
-	"paddleflow/pkg/common/k8s"
-	"paddleflow/pkg/common/schema"
-	"paddleflow/pkg/job/api"
-	"paddleflow/pkg/job/runtime/kubernetes/controller"
-	"paddleflow/pkg/job/runtime/kubernetes/executor"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime/kubernetes/controller"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime/kubernetes/executor"
 )
 
 type KubeRuntime struct {

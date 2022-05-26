@@ -18,13 +18,14 @@ package models
 
 import (
 	"fmt"
-	"paddleflow/pkg/apiserver/common"
-	"paddleflow/pkg/common/database"
-	"paddleflow/pkg/common/logger"
 	"time"
 
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
+
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 )
 
 type Pipeline struct {

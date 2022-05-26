@@ -3,7 +3,7 @@ package flag
 import (
 	"github.com/urfave/cli/v2"
 
-	"paddleflow/pkg/common/config"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 )
 
 func ApiServerFlags(apiConf *config.ApiServerConfig) []cli.Flag {

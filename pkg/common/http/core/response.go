@@ -24,7 +24,7 @@ import (
 	"strings"
 	"time"
 
-	"paddleflow/pkg/common/http/util/http"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/util/http"
 )
 
 type PFResponse struct {

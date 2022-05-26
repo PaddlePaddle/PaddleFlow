@@ -25,9 +25,9 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	api "paddleflow/pkg/apiserver/controller/fs"
-	"paddleflow/pkg/fs/client/fs"
-	"paddleflow/pkg/fs/common"
+	api "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/fs"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/fs"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 )
 
 const (

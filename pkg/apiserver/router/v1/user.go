@@ -22,11 +22,11 @@ import (
 	"github.com/go-chi/chi"
 	log "github.com/sirupsen/logrus"
 
-	"paddleflow/pkg/apiserver/common"
-	"paddleflow/pkg/apiserver/controller/user"
-	"paddleflow/pkg/apiserver/middleware"
-	"paddleflow/pkg/apiserver/router/util"
-	"paddleflow/pkg/common/config"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/user"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/middleware"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 )
 
 type UserRouter struct{}
