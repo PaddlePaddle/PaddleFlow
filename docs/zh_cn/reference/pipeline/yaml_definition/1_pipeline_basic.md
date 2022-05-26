@@ -50,7 +50,7 @@ entry_points:
 
 parallelism: 1
 
-docker_env: registry.baidubce.com/pipeline/nginx:1.7.9
+docker_env: nginx:1.7.9
 ```
 
 # 2 各字段解析

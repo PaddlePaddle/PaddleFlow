@@ -59,7 +59,7 @@ entry_points:
       PF_JOB_QUEUE_NAME: ppl-queue
       PF_JOB_TYPE: vcjob
 
-docker_env: registry.baidubce.com/pipeline/nginx:1.7.9
+docker_env: nginx:1.7.9
 
 parallelism: 1
 ```
