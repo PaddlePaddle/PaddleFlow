@@ -17,10 +17,14 @@ limitations under the License.
 package fs
 
 import (
-	"paddleflow/pkg/apiserver/common"
-	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/common/logger"
-	utils "paddleflow/pkg/fs/utils/common"
+	"errors"
+
+	"gorm.io/gorm"
+
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	utils "github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/common"
 )
 
 type UpdateFileSystemCacheRequest struct {
@@ -117,8 +121,17 @@ func GetFileSystemCacheConfig(ctx *logger.RequestContext, fsID string) (FileSyst
 }
 
 func DeleteFileSystemCacheConfig(ctx *logger.RequestContext, fsID string) error {
-	err := models.DeleteFSCacheConfig(ctx.Logging(), fsID)
+	_, err := models.GetFSCacheConfig(ctx.Logging(), fsID)
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			ctx.ErrorCode = common.RecordNotFound
+		} else {
+			ctx.ErrorCode = common.FileSystemDataBaseError
+		}
+		ctx.Logging().Errorf("GetFileSystemCacheConfig fs[%s] err:%v", fsID, err)
+		return err
+	}
+	if err := models.DeleteFSCacheConfig(ctx.Logging(), fsID); err != nil {
 		ctx.Logging().Errorf("delete fs cache config failed error[%v]", err)
 		ctx.ErrorCode = common.FileSystemDataBaseError
 		return err

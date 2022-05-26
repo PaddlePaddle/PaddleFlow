@@ -23,7 +23,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"paddleflow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 )
 
 func GetRequestContext(r *http.Request) logger.RequestContext {

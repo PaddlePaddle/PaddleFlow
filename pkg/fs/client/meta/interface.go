@@ -20,11 +20,11 @@ import (
 	"io"
 	"syscall"
 
-	"paddleflow/pkg/fs/client/base"
-	"paddleflow/pkg/fs/client/kv"
-	ufslib "paddleflow/pkg/fs/client/ufs"
-	"paddleflow/pkg/fs/client/utils"
-	"paddleflow/pkg/fs/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/base"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/kv"
+	ufslib "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/ufs"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/utils"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 )
 
 const (

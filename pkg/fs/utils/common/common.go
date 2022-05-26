@@ -25,10 +25,10 @@ import (
 	"strconv"
 	"strings"
 
-	"paddleflow/pkg/apiserver/middleware"
-	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/common/logger"
-	"paddleflow/pkg/fs/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/middleware"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 )
 
 const (

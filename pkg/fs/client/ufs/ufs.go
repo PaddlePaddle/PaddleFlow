@@ -23,8 +23,8 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"paddleflow/pkg/fs/client/base"
-	"paddleflow/pkg/fs/client/utils"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/base"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/utils"
 )
 
 // todo:: not use base.filehandle

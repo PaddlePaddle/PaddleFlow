@@ -19,7 +19,7 @@ package fuse
 import (
 	"github.com/hanwen/go-fuse/v2/fuse"
 
-	"paddleflow/pkg/fs/client/vfs"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/vfs"
 )
 
 func attrToStat(inode vfs.Ino, attr *vfs.Attr, out *fuse.Attr) {

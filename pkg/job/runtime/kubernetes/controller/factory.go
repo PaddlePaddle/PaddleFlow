@@ -22,7 +22,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"k8s.io/client-go/rest"
 
-	"paddleflow/pkg/common/k8s"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 )
 
 // Controller interface for kubernetes job sync, job gc, and queue sync

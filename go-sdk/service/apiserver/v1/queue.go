@@ -20,10 +20,10 @@ import (
 	"context"
 	"strconv"
 
-	"paddleflow/pkg/apiserver/common"
-	queue_ "paddleflow/pkg/apiserver/controller/queue"
-	"paddleflow/pkg/common/http/core"
-	"paddleflow/pkg/common/http/util/http"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
+	queue_ "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/queue"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/core"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/util/http"
 )
 
 const (

@@ -23,10 +23,10 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"paddleflow/pkg/fs/client/base"
-	"paddleflow/pkg/fs/client/cache"
-	"paddleflow/pkg/fs/client/meta"
-	ufslib "paddleflow/pkg/fs/client/ufs"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/base"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/cache"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/meta"
+	ufslib "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/ufs"
 )
 
 const READAHEAD_CHUNK = uint32(20 * 1024 * 1024)

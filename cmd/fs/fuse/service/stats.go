@@ -28,7 +28,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 
-	mountutil "paddleflow/pkg/fs/utils/mount"
+	mountutil "github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/mount"
 )
 
 func CmdStats() *cli.Command {
@@ -138,7 +138,7 @@ func (w *statsWatcher) buildSchema(schema string, verbosity uint) {
 			s.name = "usage"
 			s.items = append(s.items, &item{"cpu", "pfs_cpu_usage", metricCPU | metricCounter})
 			s.items = append(s.items, &item{"mem", "pfs_memory", metricGauge})
-			//s.items = append(s.items, &item{"buf", "pfs_used_buffer_size_bytes", metricGauge})
+			// s.items = append(s.items, &item{"buf", "pfs_used_buffer_size_bytes", metricGauge})
 			if verbosity > 0 {
 				s.items = append(s.items, &item{"cache", "pfs_store_cache_size_bytes", metricGauge})
 			}

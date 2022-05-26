@@ -20,7 +20,7 @@ import (
 	"strconv"
 	"strings"
 
-	"paddleflow/pkg/common/http/core"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/core"
 )
 
 var Client *core.PaddleFlowClient

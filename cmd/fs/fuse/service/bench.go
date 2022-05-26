@@ -32,7 +32,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 
-	"paddleflow/pkg/common/utils"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/utils"
 )
 
 func CmdBench() *cli.Command {
@@ -439,11 +439,11 @@ func bench(ctx *cli.Context) error {
 			line[2] += " ms/op"
 			result = append(result, line)
 		}
-		//show("FUSE operation", "fuse", "fuse_ops_durations_histogram_seconds")
-		//show("Update meta", "meta", "transaction_durations_histogram_seconds")
-		//show("Put object", "put", "object_request_durations_histogram_seconds_PUT")
-		//show("Get object", "get", "object_request_durations_histogram_seconds_GET")
-		//show("Delete object", "delete", "object_request_durations_histogram_seconds_DELETE")
+		// show("FUSE operation", "fuse", "fuse_ops_durations_histogram_seconds")
+		// show("Update meta", "meta", "transaction_durations_histogram_seconds")
+		// show("Put object", "put", "object_request_durations_histogram_seconds_PUT")
+		// show("Get object", "get", "object_request_durations_histogram_seconds_GET")
+		// show("Delete object", "delete", "object_request_durations_histogram_seconds_DELETE")
 		show("Write into cache", "cachewr", "blockcache_write_hist_seconds")
 		show("Read from cache", "cacherd", "blockcache_read_hist_seconds")
 		var fmtString string

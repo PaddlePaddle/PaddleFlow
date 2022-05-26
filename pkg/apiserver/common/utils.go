@@ -26,8 +26,8 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"paddleflow/pkg/common/schema"
-	"paddleflow/pkg/fs/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 )
 
 const (

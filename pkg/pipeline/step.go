@@ -19,14 +19,14 @@ package pipeline
 import (
 	"context"
 	"fmt"
+	. "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/sirupsen/logrus"
 
-	"paddleflow/pkg/common/schema"
-	. "paddleflow/pkg/pipeline/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
 
 type Step struct {
@@ -43,7 +43,7 @@ type Step struct {
 	firstFingerprint  string
 	secondFingerprint string
 	CacheRunID        string
-	nodeType          NodeType //用于表示step 是在 entryPoints 中定义还是在 post_process 中定义
+	nodeType          NodeType // 用于表示step 是在 entryPoints 中定义还是在 post_process 中定义
 }
 
 var NewStep = func(name string, wfr *WorkflowRuntime, info *schema.WorkflowSourceStep,

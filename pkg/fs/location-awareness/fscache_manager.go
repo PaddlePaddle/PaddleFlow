@@ -23,8 +23,8 @@ import (
 	"github.com/shirou/gopsutil/v3/disk"
 	log "github.com/sirupsen/logrus"
 
-	"paddleflow/pkg/common/http/api"
-	"paddleflow/pkg/common/http/core"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/api"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/core"
 )
 
 func ReportCacheLoop(cacheReport api.CacheReportParams, podCachePath string, httpClient *core.PaddleFlowClient) error {

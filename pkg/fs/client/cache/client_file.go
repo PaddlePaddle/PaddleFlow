@@ -28,7 +28,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"paddleflow/pkg/fs/utils/mount"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/mount"
 )
 
 const (

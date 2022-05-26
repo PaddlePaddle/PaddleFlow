@@ -22,7 +22,7 @@ import (
 	"strconv"
 	"strings"
 
-	"paddleflow/pkg/common/http/util"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/util"
 )
 
 type Request struct {

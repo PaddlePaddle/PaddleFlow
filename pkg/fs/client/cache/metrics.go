@@ -3,7 +3,7 @@ package cache
 import (
 	"github.com/prometheus/client_golang/prometheus"
 
-	"paddleflow/pkg/metric"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/metric"
 )
 
 func registerMetrics() {
