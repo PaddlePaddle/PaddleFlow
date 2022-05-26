@@ -130,7 +130,7 @@ parameters参数名必须满足: 只能由字母数字下划线组成，且以�
 
 2. 在每次发起任务时，可以通过接口参数，动态传入parameters的值
 
-> 发起任务相关接口，可参考[cli发起任务]或[sdk发起任务]
+> 发起任务相关接口，可参考[CLI发起任务]或[SDK发起任务]
 
 ###### 2.2.2.3 parameters使用方式
 
@@ -165,7 +165,7 @@ parameters参数名必须满足: 只能由字母数字下划线组成，且以�
 
 # 3 pipeline运行流程
 
-得到pipeline定义后，可以通过cli，sdk，或者http请求方式发起pipeline run。
+得到pipeline定义后，可以通过CLI，SDK，或者http请求方式发起pipeline run。
 
 发起pipeline run时，后端服务会做以下操作：
 1. 校验pipeline定义是否符合规范
@@ -230,8 +230,8 @@ parameters参数名必须满足: 只能由字母数字下划线组成，且以�
 - 本step内 parameters
 
 [base_pipeline]: https://github.com/Mo-Xianyuan/PaddleFlow/tree/docs/example/pipeline/base_pipeline
-[cli发起任务]: https://github.com/Mo-Xianyuan/PaddleFlow/blob/docs/docs/zh_cn/reference/client_command_reference.md
-[sdk发起任务]: https://github.com/Mo-Xianyuan/PaddleFlow/blob/docs/docs/zh_cn/reference/sdk_reference.md
+[CLI发起任务]: https://github.com/Mo-Xianyuan/PaddleFlow/blob/docs/docs/zh_cn/reference/client_command_reference.md
+[SDK发起任务]: https://github.com/Mo-Xianyuan/PaddleFlow/blob/docs/docs/zh_cn/reference/sdk_reference.md
 [1 pipeline定义]: https://github.com/Mo-Xianyuan/PaddleFlow/blob/docs/docs/zh_cn/reference/pipeline/yaml_definition/1_pipeline_basic.md#1-pipeline%E5%AE%9A%E4%B9%89
 [2.1.3 entry_points]: https://github.com/Mo-Xianyuan/PaddleFlow/blob/docs/docs/zh_cn/reference/pipeline/yaml_definition/1_pipeline_basic.md#213-entry_points
 [2.2 节点字段]: https://github.com/Mo-Xianyuan/PaddleFlow/blob/docs/docs/zh_cn/reference/pipeline/yaml_definition/1_pipeline_basic.md#22-%E8%8A%82%E7%82%B9%E5%AD%97%E6%AE%B5

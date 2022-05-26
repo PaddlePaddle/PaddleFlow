@@ -4,17 +4,17 @@
 
 工作流，即Pipeline部分，主要功能如下：
 
-1. 制定工作流定义规范。通过yaml，python dsl等规范，支持以有向无环图（DAG）的形式定义多个节点间的运行参数，以及运行关系。
+1. 制定工作流定义规范。通过yaml，python DSL等规范，支持以有向无环图（DAG）的形式定义多个节点间的运行参数，以及运行关系。
 
 - pipeline yaml定义规范：可以参考 [yaml定义规范]
 
-- pipeline python dsl定义规范：可以参考 [dsl定义规范]
+- pipeline python DSL定义规范：可以参考 [DSL定义规范]
 
-2. 支持工作流，工作流任务管理。通过命令行（cli），python sdk等形式，支持工作流的增删查改，以及工作流任务的管理，实现工作流定义的复用。
+2. 支持工作流，工作流任务管理。通过命令行（CLI），python SDK等形式，支持工作流的增删查改，以及工作流任务的管理，实现工作流定义的复用。
 
 - 命令行使用规范：可以参考 [命令行使用规范]
 
-- python sdk使用规范：可以参考 [sdk使用规范]
+- python SDK使用规范：可以参考 [SDK使用规范]
 
 
 ### 名词解释
@@ -35,6 +35,6 @@
 
 
 [yaml定义规范]: https://github.com/Mo-Xianyuan/PaddleFlow/tree/docs/docs/zh_cn/reference/pipeline/yaml%20definition
-[dsl定义规范]: https://github.com/Mo-Xianyuan/PaddleFlow/tree/docs/docs/zh_cn/reference/pipeline/yaml%20definition
+[DSL定义规范]: https://github.com/Mo-Xianyuan/PaddleFlow/tree/docs/docs/zh_cn/reference/pipeline/yaml%20definition
 [命令行使用规范]: https://github.com/Mo-Xianyuan/PaddleFlow/blob/docs/docs/zh_cn/reference/client_command_reference.md
-[sdk使用规范]: https://github.com/Mo-Xianyuan/PaddleFlow/blob/docs/docs/zh_cn/reference/sdk_reference.md
+[SDK使用规范]: https://github.com/Mo-Xianyuan/PaddleFlow/blob/docs/docs/zh_cn/reference/sdk_reference.md
