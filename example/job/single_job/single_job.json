@@ -1,0 +1,22 @@
+{
+  "id": "",
+  "name": "zzc-test",
+  "labels": {},
+  "annotations": {},
+  "schedulingPolicy": {
+    "queue": "dzz"
+  },
+  "flavour": {
+    "cpu": "",
+    "mem": "",
+    "name": "flavour1"
+  },
+  "fileSystem": {},
+  "extraFileSystems": [],
+  "image": "paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7",
+  "env": [],
+  "command": "sleep 40",
+  "args": [],
+  "port": 0,
+  "extensionTemplate": {}
+}
