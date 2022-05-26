@@ -98,6 +98,21 @@ spec:
               value: "601"
             - name: DEFAULT_GID_ENV
               value: "601"
+            - name: CSI_POD_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+            - name: CSI_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+            - name: KUBE_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: spec.nodeName
           securityContext:
             runAsUser: 0
             runAsGroup: 0
