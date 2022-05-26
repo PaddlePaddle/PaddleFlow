@@ -8,7 +8,7 @@
     "queue": "dzz",
     "priority": "NORMAL"
   },
-  "image": "iregistry.baidu-int.com/acg-bml/image-packges/spark:pyml-2.15.4",
+  "image": "gcr.io/spark-operator/spark:v3.1.1",
   "members": [
     {
       "role": "driver",
@@ -24,7 +24,7 @@
         "PF_JOB_SPARK_MAIN_FILE": "local:///opt/spark/examples/src/main/python/pi.py"
       },
       "extraFileSystems": null,
-      "image": "iregistry.baidu-int.com/acg-bml/image-packges/spark:pyml-2.15.4",
+      "image": "gcr.io/spark-operator/spark:v3.1.1",
       "command": "sleep 50",
       "args": null,
       "port": 0,
@@ -41,7 +41,7 @@
         "name": "flavour1"
       },
       "extraFileSystems": null,
-      "image": "iregistry.baidu-int.com/acg-bml/image-packges/spark:pyml-2.15.4",
+      "image": "gcr.io/spark-operator/spark:v3.1.1",
       "env": null,
       "command": "sleep 50",
       "args": null,
@@ -84,7 +84,7 @@
         "instances": 1,
         "memory": "1G"
       },
-      "image": "iregistry.baidu-int.com/acg-bml/image-packges/spark:pyml-2.15.4",
+      "image": "gcr.io/spark-operator/spark:v3.1.1",
       "imagePullPolicy": "IfNotPresent",
       "mainApplicationFile": "local:///opt/spark/examples/jars/spark-examples_2.12-v3.1.1.jar",
       "mainClass": "org.apache.spark.examples.SparkPi",

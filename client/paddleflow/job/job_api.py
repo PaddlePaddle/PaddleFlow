@@ -216,7 +216,7 @@ class JobServiceApi(object):
         if queue is not None:
             params['queue'] = queue
         if labels is not None:
-            params['labels'] = labels
+            params['labels'] = json.dumps(labels)
         if marker is not None:
             params['marker'] = marker
         params['maxKeys'] = maxsize
@@ -226,7 +226,7 @@ class JobServiceApi(object):
             raise PaddleFlowSDKException("List job error", response.text)
         data = json.loads(response.text)
         if 'message' in data:
-            return False, data['message']
+            return False, data['message'], None
         job_list = []
         if len(data['jobList']):
             for job in data['jobList']:

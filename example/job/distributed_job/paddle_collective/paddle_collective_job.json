@@ -21,7 +21,7 @@
       },
       "fileSystem": {},
       "extraFileSystems": null,
-      "image": "iregistry.baidu-int.com/bmlc/framework/paddle:2.0.2-gpu-cuda10.1-cudnn7",
+      "image": "paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7",
       "env": null,
       "command": "sleep 50",
       "args": null,

@@ -1,3 +1,9 @@
+# paddleflow job 介绍
+
+为方便用户使用PaddleFlow调度功能，不过多依赖其他模块，现PaddleFlow调度模块提供作业接口，方便用户快速使用PaddleFlow的功能。
+
+目前作业接口中支持用户创建单机作业，分布式作业（包括Paddle，Spark作业），工作流作业（目前只针对argo workflow）
+
 # paddleflow job 命令参考
 
 paddleflow基本的操作命令可以帮助您更好的上手使用，本页面提供所有的job相关命令的详细参考
@@ -154,3 +160,201 @@ job[job-id] delete success
 ```bash
 job[job-id] stop success
 ```
+
+
+# Paddleflow job SDK 使用说明
+
+
+### 创建作业
+```python
+ret, response = client.create_job()
+```
+#### 接口入参说明
+|字段名称 | 字段类型 | 字段含义
+|:---:|:---:|:---:|
+|job_type| string (required)|作业类型分为：single(单机)，distributed(分布式), workflow(工作流)
+|job_request| JobRequest (required)|作业所需请求参数
+
+入参中具体JobRequest结构如下：
+```python
+class JobRequest(object):
+    """
+    JobRequest
+    """
+
+    def __init__(self, queue, image=None, job_id=None, job_name=None, labels=None, annotations=None, priority=None,
+                 flavour=None, fs=None, extra_fs_list=None, env=None, command=None, args_list=None, port=None,
+                 extension_template=None, framework=None, member_list=None):
+        """
+        """
+        # 作业id
+        self.job_id = job_id
+        # 作业名称
+        self.job_name = job_name
+        # 作业标签（dict类型）
+        self.labels = labels
+        # 作业注释（dict类型）
+        self.annotations = annotations
+        # 作业所在队列
+        self.queue = queue
+        # 作业镜像名称
+        self.image = image
+        # 作业优先级（High、Normal、Low）
+        self.priority = priority
+        # 作业资源套餐（dict类型具体值参见命令行中的Flavour）
+        self.flavour = flavour
+        # 作业存储（dict类型具体值参见命令行中的FileSystem）
+        self.fs = fs
+        # 作业数据存储（list类型各元素具体值参见命令行中的FileSystem）
+        self.extra_fs_list = extra_fs_list
+        # 作业所需的环境变量（dict类型）
+        self.env = env
+        # 作业启动命令
+        self.command = command
+        # 作业启动参数（list类型）
+        self.args_list = args_list
+        # 作业启动端口（int类型）
+        self.port = port
+        # 作业所需的k8s对象模板（dict类型）
+        self.extension_template = extension_template
+        # 作业框架（分布式作业时使用，例如spark、paddle等）
+        self.framework = framework
+        # 作业成员信息（分布式作业时使用，list类型各元素具体值参见命令行中的MemberSpec和JobSpec的组合）
+        self.member_list = member_list
+```
+
+#### 接口返回说明
+|字段名称 | 字段类型 | 字段含义
+|:---:|:---:|:---:|
+|ret| bool| 操作成功返回True，失败返回False
+|response| -| 失败返回失败message，成功返回jobid
+
+
+### 获取作业详情
+```python
+ret, response = client.show_job("jobid")
+```
+
+#### 接口返回说明
+|字段名称 | 字段类型 | 字段含义
+|:---:|:---:|:---:|
+|ret| bool| 操作成功返回True，失败返回False
+|response| -| 失败返回失败message，成功返回JobInfo
+
+
+
+response中具体JobInfo结构如下：
+```python
+class JobInfo(object):
+"""
+JobInfo
+"""
+
+    def __init__(self, job_id, job_name, labels, annotations, username, queue, priority, flavour, fs, extra_fs_list,
+                 image, env, command, args_list, port, extension_template, framework, member_list, status, message,
+                 accept_time, start_time, finish_time, runtime, distributed_runtime, workflow_runtime):
+        """
+        """
+        # 作业id
+        self.job_id = job_id
+        # 作业名称
+        self.job_name = job_name
+        # 作业标签
+        self.labels = labels
+        # 作业注释
+        self.annotations = annotations
+        # 作业创建者
+        self.username = username
+        # 作业所在队列
+        self.queue = queue
+        # 作业优先级
+        self.priority = priority
+        # 作业资源套餐
+        self.flavour = flavour
+        # 作业存储资源
+        self.fs = fs
+        # 作业数据存储资源
+        self.extra_fs_list = extra_fs_list
+        # 作业所用镜像名称
+        self.image = image
+        # 作业所用环境变量
+        self.env = env
+        # 作业启动命令
+        self.command = command
+        # 作业启动参数
+        self.args_list = args_list
+        # 作业启动端口
+        self.port = port
+        # 作业所需k8s对象模板
+        self.extension_template = extension_template
+        # 作业框架
+        self.framework = framework
+        # 分布式作业成员信息
+        self.member_list = member_list
+        # 作业状态
+        self.status = status
+        # 作业状态说明信息
+        self.message = message
+        # 作业接收时间
+        self.accept_time = accept_time
+        # 作业启动时间
+        self.start_time = start_time
+        # 作业结束时间
+        self.finish_time = finish_time
+        # 作业运行详情
+        self.runtime = runtime
+        # 分布式作业运行详情
+        self.distributed_runtime = distributed_runtime
+        # 工作流作业运行详情
+        self.workflow_runtime = workflow_runtime
+```
+
+
+### 获取作业列表
+```python
+ret, response = client.list_job()
+```
+
+#### 接口入参说明
+|字段名称 | 字段类型 | 字段含义
+|:---:|:---:|:---:|
+|status| string (optional)|根据作业状态筛选
+|timestamp| int (optional)|筛选指定时间戳后有更新的作业
+|start_time| string (optional)|筛选该启动时间后的作业
+|queue| string (optional)|根据队列名称进行筛选
+|labels| dict (optional)|根据标签进行筛选
+|maxkeys| int (optional)|展示列表数量上限，默认值为100
+|marker| string (optional)|下一页的起始位置，传入展示下一页
+
+#### 接口返回说明
+|字段名称 | 字段类型 | 字段含义
+|:---:|:---:|:---:|
+|ret| bool| 操作成功返回True，失败返回False
+|response| -| 失败返回失败message，成功返回job列表，列表中各元素类型为JobInfo
+|marker| string| 存在返回下一页的起始string，否则返回null
+
+
+### 停止作业
+```python
+ret, response = client.stop_job("jobid")
+```
+
+#### 接口返回说明
+|字段名称 | 字段类型 | 字段含义
+|:---:|:---:|:---:|
+|ret| bool| 操作成功返回True，失败返回False
+|response| -| 失败返回失败message，成功返回None
+
+
+### 删除作业
+```python
+ret, response = client.delete_job("jobid")
+```
+
+#### 接口返回说明
+|字段名称 | 字段类型 | 字段含义
+|:---:|:---:|:---:|
+|ret| bool| 操作成功返回True，失败返回False
+|response| -| 失败返回失败message，成功返回None
+
+
