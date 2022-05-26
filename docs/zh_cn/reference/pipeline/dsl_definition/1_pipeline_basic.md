@@ -1,7 +1,7 @@
 # DSL 使用基础
 
 # 1、pipeline示例
-开发者除了可以通过编写[pipeline yaml][pipeline yaml]来定义pipeline外，Paddleflow Pipeline也提供Python DSL供开发者们通过写Python代码的方式来完成pipeline的定义。下面是一个最基础的使用Python DSL编排的pipeline。
+开发者除了可以通过编写[yaml定义规范][yaml定义规范]来定义pipeline外，Paddleflow Pipeline也提供Python DSL供开发者们通过写Python代码的方式来完成pipeline的定义。下面是一个最基础的使用Python DSL编排的pipeline。
 
 > 该示例中pipeline定义，以及示例相关运行脚本，来自paddleflow项目下example/pipeline/base_pipeline示例。
 >
@@ -216,7 +216,7 @@ if __name__ == "__main__":
 [DSL接口文档][DSL接口文档]
 
 
-[pipeline yaml]: /docs/zh_cn/reference/pipeline/yaml_definition
+[yaml定义规范]: /docs/zh_cn/reference/pipeline/yaml_definition
 [base_pipeline]: /example/pipeline/base_pipeline
 [SDK安装与配置]: TODO
 [节点字段]: /docs/zh_cn/reference/pipeline/yaml_definition/1_pipeline_basic.md#22-节点字段
