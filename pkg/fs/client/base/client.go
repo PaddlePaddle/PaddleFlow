@@ -20,9 +20,9 @@ import (
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 
-	"paddleflow/pkg/common/http/api"
-	"paddleflow/pkg/common/http/core"
-	"paddleflow/pkg/fs/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/api"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/core"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 )
 
 var Client *_Client

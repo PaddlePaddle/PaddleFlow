@@ -23,12 +23,12 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 
-	"paddleflow/cmd/fs/csi-plugin/flag"
-	"paddleflow/pkg/common/logger"
-	"paddleflow/pkg/fs/csiplugin/client/k8s"
-	"paddleflow/pkg/fs/csiplugin/csiconfig"
-	"paddleflow/pkg/fs/csiplugin/csidriver"
-	"paddleflow/pkg/metric"
+	"github.com/PaddlePaddle/PaddleFlow/cmd/fs/csi-plugin/flag"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/client/k8s"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csiconfig"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csidriver"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/metric"
 )
 
 const CsiContainerName = "csi-storage-driver"

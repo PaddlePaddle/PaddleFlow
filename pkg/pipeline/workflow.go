@@ -19,15 +19,15 @@ package pipeline
 import (
 	"errors"
 	"fmt"
+	. "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 	"regexp"
 	"strconv"
 
 	"github.com/sirupsen/logrus"
 
-	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/common/logger"
-	"paddleflow/pkg/common/schema"
-	. "paddleflow/pkg/pipeline/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
 
 // ----------------------------------------------------------------------------

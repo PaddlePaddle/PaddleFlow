@@ -19,11 +19,11 @@ package mount
 import (
 	log "github.com/sirupsen/logrus"
 
-	"paddleflow/pkg/common/http/api"
-	"paddleflow/pkg/common/http/core"
-	"paddleflow/pkg/fs/common"
-	"paddleflow/pkg/fs/csiplugin/client/pfs"
-	"paddleflow/pkg/fs/csiplugin/csiconfig"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/api"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/core"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/client/pfs"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csiconfig"
 )
 
 func fsCacheConfig(mountInfo pfs.MountInfo, httpClient *core.PaddleFlowClient, token string) (common.FsCacheConfig, error) {

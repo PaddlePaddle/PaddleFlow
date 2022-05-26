@@ -23,7 +23,7 @@ import (
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 
-	"paddleflow/pkg/apiserver/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 )
 
 func CheckRequestID(next http.Handler) http.Handler {

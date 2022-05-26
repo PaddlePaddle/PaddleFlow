@@ -14,17 +14,17 @@ import (
 	"github.com/urfave/cli/v2"
 	_ "go.uber.org/automaxprocs"
 
-	"paddleflow/cmd/server/flag"
-	job2 "paddleflow/pkg/apiserver/controller/job"
-	"paddleflow/pkg/apiserver/controller/run"
-	"paddleflow/pkg/apiserver/models"
-	v1 "paddleflow/pkg/apiserver/router/v1"
-	"paddleflow/pkg/common/config"
-	"paddleflow/pkg/common/database"
-	"paddleflow/pkg/common/database/dbinit"
-	"paddleflow/pkg/common/logger"
-	"paddleflow/pkg/job"
-	"paddleflow/pkg/version"
+	"github.com/PaddlePaddle/PaddleFlow/cmd/server/flag"
+	job2 "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/job"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/run"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	v1 "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/v1"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database/dbinit"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/version"
 )
 
 var ServerConf *config.ServerConfig

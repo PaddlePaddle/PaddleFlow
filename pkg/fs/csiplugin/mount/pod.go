@@ -18,7 +18,6 @@ package mount
 
 import (
 	"fmt"
-	"path"
 	"strconv"
 	"strings"
 	"sync"
@@ -33,23 +32,22 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/util/retry"
 
-	"paddleflow/pkg/client"
-	"paddleflow/pkg/common/http/api"
-	"paddleflow/pkg/common/http/core"
-	"paddleflow/pkg/common/schema"
-	"paddleflow/pkg/fs/common"
-	"paddleflow/pkg/fs/csiplugin/client/k8s"
-	"paddleflow/pkg/fs/csiplugin/client/pfs"
-	"paddleflow/pkg/fs/csiplugin/csiconfig"
-	utils "paddleflow/pkg/fs/utils/common"
-	mountUtil "paddleflow/pkg/fs/utils/mount"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/client"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/api"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/core"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/client/k8s"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/client/pfs"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csiconfig"
+	utils "github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/common"
+	mountUtil "github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/mount"
 )
 
 const (
 	VolumesKeyMount     = "pfs-mount"
 	VolumesKeyDataCache = "data-cache"
 	VolumesKeyMetaCache = "meta-cache"
-	HostPathMnt         = "/data/paddleflow-fs/mnt"
 	MountDir            = "/home/paddleflow/mnt"
 	CacheWorkerBin      = "/home/paddleflow/cache-worker"
 	MountPoint          = MountDir + "/storage"
@@ -253,14 +251,14 @@ func createMountPod(k8sClient k8s.K8SInterface, httpClient *core.PaddleFlowClien
 
 func defaultCacheConfig(fsID string) common.FsCacheConfig {
 	return common.FsCacheConfig{
-		CacheDir:   path.Join(HostPathMnt, fsID),
+		CacheDir:   schema.DefaultCacheDir(fsID),
 		MetaDriver: schema.FsMetaDefault,
 	}
 }
 
 func completeCacheConfig(config *common.FsCacheConfig, fsID string) {
 	if config.CacheDir == "" {
-		config.CacheDir = path.Join(HostPathMnt, fsID)
+		config.CacheDir = schema.DefaultCacheDir(fsID)
 	}
 	if config.MetaDriver == "" {
 		config.MetaDriver = schema.FsMetaDefault
@@ -402,7 +400,7 @@ func buildMountContainer(pod *v1.Pod, mountInfo pfs.MountInfo, cacheConf common.
 			Name: VolumesKeyMount,
 			VolumeSource: corev1.VolumeSource{
 				HostPath: &corev1.HostPathVolumeSource{
-					Path: HostPathMnt,
+					Path: schema.HostMntDir,
 					Type: &typeDir,
 				},
 			},

@@ -22,6 +22,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"path"
 	"strings"
@@ -32,19 +33,19 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 
-	"paddleflow/cmd/fs/fuse/flag"
-	"paddleflow/pkg/client"
-	"paddleflow/pkg/common/http/api"
-	"paddleflow/pkg/common/logger"
-	"paddleflow/pkg/fs/client/base"
-	"paddleflow/pkg/fs/client/cache"
-	"paddleflow/pkg/fs/client/fuse"
-	"paddleflow/pkg/fs/client/kv"
-	"paddleflow/pkg/fs/client/meta"
-	"paddleflow/pkg/fs/client/vfs"
-	"paddleflow/pkg/fs/common"
-	mountUtil "paddleflow/pkg/fs/utils/mount"
-	"paddleflow/pkg/metric"
+	"github.com/PaddlePaddle/PaddleFlow/cmd/fs/fuse/flag"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/client"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/api"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/base"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/cache"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/fuse"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/kv"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/meta"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/vfs"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
+	mountUtil "github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/mount"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/metric"
 )
 
 var opts *libfuse.MountOptions
@@ -136,6 +137,11 @@ func setup(c *cli.Context) error {
 		metricsAddr := exposeMetricsService(c.String("server"), c.Int("metrics-service-port"))
 		log.Debugf("mount opts: %+v, metricsAddr: %s", opts, metricsAddr)
 	}
+	if c.Bool("pprof-enable") {
+		go func() {
+			http.ListenAndServe(fmt.Sprintf(":%d", c.Int("pprof-port")), nil)
+		}()
+	}
 	return nil
 }
 
@@ -145,8 +151,9 @@ func exposeMetricsService(hostServer string, port int) string {
 	if err != nil {
 		log.Fatalf("metrics format error: %v", err)
 	}
+	mx := http.NewServeMux()
 	log.Debugf("metrics server - ip:%s, port:%d", ip, port)
-	http.Handle("/metrics", promhttp.HandlerFor(
+	mx.Handle("/metrics", promhttp.HandlerFor(
 		prometheus.DefaultGatherer,
 		promhttp.HandlerOpts{
 			// Opt into OpenMetrics to support exemplars.
@@ -156,7 +163,7 @@ func exposeMetricsService(hostServer string, port int) string {
 	prometheus.MustRegister(prometheus.NewBuildInfoCollector())
 	metricsAddr := fmt.Sprintf(":%d", port)
 	go func() {
-		if err := http.ListenAndServe(metricsAddr, nil); err != nil {
+		if err := http.ListenAndServe(metricsAddr, mx); err != nil {
 			log.Errorf("metrics ListenAndServe error: %s", err)
 		}
 	}()

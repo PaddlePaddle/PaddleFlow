@@ -22,7 +22,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 
-	"paddleflow/pkg/common/database"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 )
 
 type JobLabel struct {

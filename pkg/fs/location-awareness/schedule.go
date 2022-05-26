@@ -21,7 +21,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"paddleflow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 )
 
 func ListFsCacheLocation(fsIDs []string) ([]string, error) {

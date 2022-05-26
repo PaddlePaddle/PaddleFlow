@@ -23,10 +23,10 @@ import (
 	"gorm.io/gorm"
 	v1 "k8s.io/api/core/v1"
 
-	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/common/errors"
-	"paddleflow/pkg/common/k8s"
-	"paddleflow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
 
 // SingleJob is a executor struct that runs a single pod
@@ -47,9 +47,6 @@ func (sp *SingleJob) validateJob() error {
 	}
 	if sp.KubeJob.Command == "" {
 		return fmt.Errorf("command is empty")
-	}
-	if sp.Flavour.Name == "" {
-		return fmt.Errorf("flavour name is empty")
 	}
 
 	return nil
@@ -125,7 +122,7 @@ func (sp *SingleJob) StopJobByID(jobID string) error {
 	return nil
 }
 
-//fillContainersInPod fill containers in pod
+// fillContainersInPod fill containers in pod
 func (sp *SingleJob) fillContainersInPod(pod *v1.Pod) error {
 	log.Debugf("fillContainersInPod for job[%s]", pod.Name)
 	if pod.Spec.Containers == nil || len(pod.Spec.Containers) == 0 {
@@ -151,7 +148,7 @@ func (sp *SingleJob) fillContainersInPod(pod *v1.Pod) error {
 	return nil
 }
 
-//fill container for pod, and return err if exist error
+// fill container for pod, and return err if exist error
 func (sp *SingleJob) fillContainer(container *v1.Container, podName string) error {
 	log.Debugf("fillContainer for job[%s]", podName)
 	// fill name

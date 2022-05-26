@@ -21,7 +21,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"paddleflow/pkg/common/database"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 )
 
 const FsCacheTableName = "fs_cache"

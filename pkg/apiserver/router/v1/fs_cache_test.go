@@ -22,10 +22,10 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"paddleflow/pkg/apiserver/common"
-	"paddleflow/pkg/apiserver/controller/fs"
-	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/common/database"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/fs"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 )
 
 func mockFS() models.FileSystem {
@@ -124,6 +124,15 @@ func TestFSCacheConfigRouter(t *testing.T) {
 
 	// test update failure
 	result, err = PerformPutRequest(router, urlWrong, updateReq)
+	assert.Nil(t, err)
+	assert.Equal(t, http.StatusNotFound, result.Code)
+
+	// delte
+	result, err = PerformDeleteRequest(router, urlWithFsID)
+	assert.Nil(t, err)
+	assert.Equal(t, http.StatusOK, result.Code)
+
+	result, err = PerformDeleteRequest(router, urlWithFsID)
 	assert.Nil(t, err)
 	assert.Equal(t, http.StatusNotFound, result.Code)
 }

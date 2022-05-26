@@ -17,12 +17,15 @@ limitations under the License.
 package v1
 
 import (
-	"paddleflow/pkg/common/http/core"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/core"
 )
 
 type APIV1Interface interface {
 	UserGetter
 	FileSystemGetter
+	ClusterGetter
+	QueueGetter
+	JobGetter
 }
 
 // APIV1Client is used to interact with features provided by the group.
@@ -36,6 +39,18 @@ func (c *APIV1Client) User() UserInterface {
 
 func (c *APIV1Client) FileSystem() FileSystemInterface {
 	return newFileSystem(c)
+}
+
+func (c *APIV1Client) Cluster() ClusterInterface {
+	return newCluster(c)
+}
+
+func (c *APIV1Client) Queue() QueueInterface {
+	return newQueue(c)
+}
+
+func (c *APIV1Client) Job() JobInterface {
+	return newJob(c)
 }
 
 // RESTClient returns a RESTClient that is used to communicate

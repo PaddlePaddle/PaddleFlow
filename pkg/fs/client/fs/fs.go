@@ -28,10 +28,10 @@ import (
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	log "github.com/sirupsen/logrus"
 
-	"paddleflow/pkg/fs/client/meta"
-	"paddleflow/pkg/fs/client/utils"
-	"paddleflow/pkg/fs/client/vfs"
-	"paddleflow/pkg/fs/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/meta"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/utils"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/vfs"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 )
 
 type FileSystem struct {

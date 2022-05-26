@@ -18,6 +18,7 @@ package pipeline
 
 import (
 	"fmt"
+	. "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 	"os"
 	"regexp"
 	"strings"
@@ -25,9 +26,8 @@ import (
 	"github.com/mitchellh/mapstructure"
 	log "github.com/sirupsen/logrus"
 
-	"paddleflow/pkg/apiserver/handler"
-	"paddleflow/pkg/common/schema"
-	. "paddleflow/pkg/pipeline/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
 
 type DictParam struct {

@@ -21,10 +21,10 @@ import (
 
 	"gorm.io/gorm"
 
-	"paddleflow/pkg/apiserver/common"
-	"paddleflow/pkg/common/database"
-	"paddleflow/pkg/common/logger"
-	"paddleflow/pkg/common/uuid"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
 )
 
 type Grant struct {

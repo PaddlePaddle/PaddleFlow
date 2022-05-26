@@ -20,10 +20,10 @@ import (
 	"context"
 	"fmt"
 
-	"paddleflow/go-sdk/service"
-	"paddleflow/pkg/apiserver/controller/fs"
-	"paddleflow/pkg/apiserver/controller/user"
-	"paddleflow/pkg/common/http/core"
+	"github.com/PaddlePaddle/PaddleFlow/go-sdk/service"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/fs"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/user"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/core"
 )
 
 func main() {
