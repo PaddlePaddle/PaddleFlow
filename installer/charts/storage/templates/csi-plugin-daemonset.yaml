@@ -1,0 +1,178 @@
+{{- if .Values.csi.enable -}}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: csi-node-sa
+  namespace: {{ .Release.Namespace }}
+
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: driver-registrar-runner
+rules:
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: csi-driver-registrar-role
+subjects:
+  - kind: ServiceAccount
+    name: csi-node-sa
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: ClusterRole
+  name: driver-registrar-runner
+  apiGroup: rbac.authorization.k8s.io
+
+---
+kind: DaemonSet
+apiVersion: apps/v1
+metadata:
+  name: pfs-csi-plugin
+spec:
+  selector:
+    matchLabels:
+      app: pfs-csi-plugin
+  template:
+    metadata:
+      labels:
+        app: pfs-csi-plugin
+    spec:
+      serviceAccountName: csi-node-sa
+      dnsPolicy: ClusterFirstWithHostNet
+      hostNetwork: true
+      containers:
+        - name: node-driver-registrar
+          image: {{ .Values.csi.driver_registrar.image }}
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "rm -rf /registration/pfs-csi /registration/paddleflowstorage-reg.sock"]
+          args:
+            - --v=5
+            - --csi-address=/csi/csi.sock
+            - --kubelet-registration-path={{ .Values.csi.kubelet_data_path }}/plugins/pfs-csi/csi.sock
+          securityContext:
+            # This is necessary only for systems with SELinux, where
+            # non-privileged sidecar containers cannot access unix domain socket
+            # created by privileged CSI driver container.
+            privileged: true
+          env:
+            - name: KUBE_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: spec.nodeName
+            - name: MOUNT_POINT_INTERVAL_TIME
+              value: "10"
+          volumeMounts:
+            - mountPath: /csi
+              name: socket-dir
+            - mountPath: /registration
+              name: registration-dir
+        - name: csi-storage-driver
+          image: {{ .Values.csi.paddleflow_fs_csi.image }}
+          imagePullPolicy: IfNotPresent
+          command:
+            - /sbin/tini
+            - --
+            - /bin/sh
+            - -c
+            - cd /home/paddleflow && /home/paddleflow/csi-plugin --unix-endpoint=$(CSI_ENDPOINT) --node-id=$(KUBE_NODE_NAME) --log_dir=./log/csidriver
+          env:
+            - name: CSI_ENDPOINT
+              value: unix:///csi/csi.sock
+            - name: KUBE_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: spec.nodeName
+            - name: KUBELET_DATA_PATH
+              value: {{ .Values.csi.kubelet_data_path }}
+            - name: DEFAULT_UID_ENV
+              value: "601"
+            - name: DEFAULT_GID_ENV
+              value: "601"
+            - name: CSI_POD_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+            - name: CSI_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+            - name: KUBE_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: spec.nodeName
+          securityContext:
+            runAsUser: 0
+            runAsGroup: 0
+            privileged: true
+            capabilities:
+              add:
+                - SYS_ADMIN
+          volumeMounts:
+            - mountPath: /csi
+              name: socket-dir
+            - mountPath: {{ .Values.csi.kubelet_data_path }}/pods
+              mountPropagation: Bidirectional
+              name: mountpoint-dir
+            - mountPath: {{ .Values.csi.kubelet_data_path }}/plugins
+              mountPropagation: Bidirectional
+              name: plugins-dir
+            - mountPath: /dev/fuse
+              name: fuse
+            - name: k8s-config
+              mountPath: /home/paddleflow/config/kube.config
+              subPath: kube.config
+            - mountPath: /home/paddleflow/log
+              name: paddlefow-csi-log
+            - mountPath: /home/paddleflow/mnt
+              mountPropagation: Bidirectional
+              name: pfs-mnt
+      tolerations:
+        - effect: NoExecute
+          operator: Exists
+        - effect: NoSchedule
+          operator: Exists
+      volumes:
+      - hostPath:
+          path: {{ .Values.csi.kubelet_data_path }}/plugins/pfs-csi
+          type: DirectoryOrCreate
+        name: socket-dir
+      - hostPath:
+          path: {{ .Values.csi.kubelet_data_path }}/pods
+          type: DirectoryOrCreate
+        name: mountpoint-dir
+      - hostPath:
+          path: {{ .Values.csi.kubelet_data_path }}/plugins_registry
+          type: Directory
+        name: registration-dir
+      - hostPath:
+          path: {{ .Values.csi.kubelet_data_path }}/plugins
+          type: Directory
+        name: plugins-dir
+      - hostPath:
+          path: {{ .Values.csi.mount_host_path }}
+          type: DirectoryOrCreate
+        name: pfs-mnt
+      - hostPath:
+          path: {{ .Values.csi.log }}
+          type: DirectoryOrCreate
+        name: paddlefow-csi-log
+      - hostPath:
+          path: /dev/fuse
+        name: fuse
+      - name: k8s-config
+        configMap:
+          name: k8s-client-config
+{{- end -}}

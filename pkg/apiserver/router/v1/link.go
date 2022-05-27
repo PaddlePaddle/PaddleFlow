@@ -27,14 +27,15 @@ import (
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 
-	"paddleflow/pkg/apiserver/common"
-	api "paddleflow/pkg/apiserver/controller/fs"
-	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/apiserver/router/util"
-	"paddleflow/pkg/common/config"
-	"paddleflow/pkg/common/logger"
-	fuse "paddleflow/pkg/fs/client/fs"
-	fsCommon "paddleflow/pkg/fs/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
+	api "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/fs"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	fuse "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/fs"
+	fsCommon "github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
+	utils "github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/common"
 )
 
 type LinkRouter struct{}
@@ -513,7 +514,7 @@ func (lr *LinkRouter) getLink(w http.ResponseWriter, r *http.Request) {
 }
 
 func linkResponseFromModel(link models.Link) *api.LinkResponse {
-	fsName := common.FSIDToName(link.FsID)
+	fsName, _ := utils.FsIDToFsNameUsername(link.FsID)
 	return &api.LinkResponse{
 		FsName:        fsName,
 		FsPath:        link.FsPath,

@@ -23,7 +23,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"paddleflow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 )
 
 func TestGrantRouter(t *testing.T) {

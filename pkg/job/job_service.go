@@ -22,16 +22,16 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"paddleflow/pkg/apiserver/common"
-	"paddleflow/pkg/apiserver/controller/flavour"
-	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/common/errors"
-	"paddleflow/pkg/common/logger"
-	"paddleflow/pkg/common/schema"
-	"paddleflow/pkg/common/uuid"
-	"paddleflow/pkg/job/api"
-	_ "paddleflow/pkg/job/queue/sortpolicy"
-	"paddleflow/pkg/job/runtime"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/flavour"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
+	_ "github.com/PaddlePaddle/PaddleFlow/pkg/job/queue/sortpolicy"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
 )
 
 func CreateJob(conf schema.PFJobConf) (string, error) {

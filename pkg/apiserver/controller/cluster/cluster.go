@@ -24,14 +24,14 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"paddleflow/pkg/apiserver/common"
-	"paddleflow/pkg/apiserver/controller/queue"
-	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/apiserver/router/util"
-	"paddleflow/pkg/common/logger"
-	"paddleflow/pkg/common/schema"
-	"paddleflow/pkg/common/uuid"
-	"paddleflow/pkg/job/runtime"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/queue"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
 )
 
 type ClusterCommonInfo struct {
@@ -57,6 +57,13 @@ type CreateClusterResponse struct {
 
 type GetClusterResponse struct {
 	models.ClusterInfo
+}
+
+type ListClusterRequest struct {
+	Marker          string   `json:"marker"`
+	MaxKeys         int      `json:"maxKeys"`
+	ClusterNameList []string `json:"clusterNameList"`
+	ClusterStatus   string   `json:"clusterStatus"`
 }
 
 type ListClusterResponse struct {

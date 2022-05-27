@@ -23,8 +23,8 @@ import (
 	"github.com/hanwen/go-fuse/v2/fuse"
 	log "github.com/sirupsen/logrus"
 
-	"paddleflow/pkg/fs/client/meta"
-	"paddleflow/pkg/fs/client/vfs"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/meta"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/vfs"
 )
 
 const fsName = "PaddleFlowFS"

@@ -23,8 +23,8 @@ import (
 	"io"
 	"io/ioutil"
 
-	"paddleflow/pkg/common/http/util"
-	"paddleflow/pkg/common/http/util/http"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/util"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/util/http"
 )
 
 type PFRequest struct {

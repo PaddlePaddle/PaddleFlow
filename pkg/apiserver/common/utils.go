@@ -26,8 +26,8 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"paddleflow/pkg/common/schema"
-	"paddleflow/pkg/fs/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 )
 
 const (
@@ -229,11 +229,6 @@ func CheckFsNested(path1, path2 string) bool {
 		}
 	}
 	return true
-}
-
-func FSIDToName(fsID string) string {
-	fsArr := strings.Split(fsID, "-")
-	return fsArr[len(fsArr)-1]
 }
 
 // IsDNS1123Label tests for a string that conforms to the definition of a label in

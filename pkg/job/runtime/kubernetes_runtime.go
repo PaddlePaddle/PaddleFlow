@@ -30,6 +30,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	k8sschema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -38,13 +39,13 @@ import (
 	"volcano.sh/apis/pkg/apis/helpers"
 	schedulingv1beta1 "volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 
-	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/common/config"
-	"paddleflow/pkg/common/k8s"
-	"paddleflow/pkg/common/schema"
-	"paddleflow/pkg/job/api"
-	"paddleflow/pkg/job/runtime/kubernetes/controller"
-	"paddleflow/pkg/job/runtime/kubernetes/executor"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime/kubernetes/controller"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime/kubernetes/executor"
 )
 
 type KubeRuntime struct {
@@ -348,7 +349,58 @@ func (kr *KubeRuntime) executeVCQueueAction(q *models.Queue, action busv1alpha1.
 }
 
 func (kr *KubeRuntime) UpdateQueue(q *models.Queue) error {
-	// TODO: add update queue logic
+	switch q.QuotaType {
+	case schema.TypeVolcanoCapabilityQuota:
+		return kr.updateVCQueue(q)
+	case schema.TypeElasticQuota:
+		return kr.updateElasticResourceQuota(q)
+	default:
+		return fmt.Errorf("quota type %s is not supported", q.QuotaType)
+	}
+}
+
+func (kr *KubeRuntime) updateVCQueue(q *models.Queue) error {
+	capability := k8s.NewKubeResourceList(&q.MaxResources)
+	log.Debugf("UpdateQueue resourceList[%v]", capability)
+	object, err := executor.Get("", q.Name, k8s.VCQueueGVK, kr.dynamicClientOpt)
+	if err != nil {
+		log.Errorf("execute action of getting queue failed. queueName:[%s]", q.Name)
+		return err
+	}
+	var queue schedulingv1beta1.Queue
+	err = runtime.DefaultUnstructuredConverter.FromUnstructured(object.Object, &queue)
+	queue.Spec.Capability = capability
+	queue.Status.State = schedulingv1beta1.QueueState(q.Status)
+
+	log.Infof("UpdateQueue queue info:%#v", queue)
+	if err := executor.Update(&queue, k8s.VCQueueGVK, kr.dynamicClientOpt); err != nil {
+		log.Errorf("UpdateQueue error. queueName:[%s], error:[%s]", q.Name, err.Error())
+		return err
+	}
+	return nil
+}
+
+func (kr *KubeRuntime) updateElasticResourceQuota(q *models.Queue) error {
+	maxResources := k8s.NewKubeResourceList(&q.MaxResources)
+	minResources := k8s.NewKubeResourceList(&q.MinResources)
+	log.Debugf("Elastic resource quota max resources:%v,  min resources %v", maxResources, minResources)
+	object, err := executor.Get("", q.Name, k8s.EQuotaGVK, kr.dynamicClientOpt)
+	if err != nil {
+		log.Errorf("execute action of getting queue failed. queueName:[%s]", q.Name)
+		return err
+	}
+	var equota schedulingv1beta1.ElasticResourceQuota
+	err = runtime.DefaultUnstructuredConverter.FromUnstructured(object.Object, &equota)
+
+	equota.Spec.Max = maxResources
+	equota.Spec.Min = minResources
+	equota.Spec.Namespace = q.Namespace
+
+	log.Infof("Update elastic resource quota info:%#v", equota)
+	if err := executor.Update(&equota, k8s.EQuotaGVK, kr.dynamicClientOpt); err != nil {
+		log.Errorf("UpdateQueue on cluster falied. queueName:[%s], error:[%s]", q.Name, err.Error())
+		return err
+	}
 	return nil
 }
 

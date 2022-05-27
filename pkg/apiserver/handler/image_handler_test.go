@@ -23,10 +23,10 @@ import (
 	"testing"
 	"time"
 
-	"paddleflow/pkg/common/config"
-	"paddleflow/pkg/common/logger"
-
 	"github.com/stretchr/testify/assert"
+
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 )
 
 func TestNewImageHandler(t *testing.T) {

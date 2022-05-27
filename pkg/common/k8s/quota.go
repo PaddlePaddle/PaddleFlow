@@ -20,8 +20,8 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
-	"paddleflow/pkg/common/config"
-	"paddleflow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
 
 func SubQuota(r *schema.Resource, pod *v1.Pod) error {
@@ -77,7 +77,7 @@ func NewResource(rl v1.ResourceList) *schema.Resource {
 		case v1.ResourceEphemeralStorage:
 			r.Storage += float64(rQuant.Value())
 		default:
-			//NOTE: When converting this back to k8s resource, we need record the format as well as / 1000
+			// NOTE: When converting this back to k8s resource, we need record the format as well as / 1000
 			_, found := scalarResourceMap[string(rName)]
 			if IsScalarResourceName(rName) && found {
 				r.AddScalar(schema.ResourceName(rName), float64(rQuant.Value()))

@@ -20,8 +20,8 @@ import (
 	"net/http"
 	"strconv"
 
-	"paddleflow/pkg/apiserver/common"
-	"paddleflow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 )
 
 const (

@@ -20,7 +20,7 @@ import (
 	"io"
 	"sync"
 
-	ufslib "paddleflow/pkg/fs/client/ufs"
+	ufslib "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/ufs"
 )
 
 type ReadBuffer struct {

@@ -25,11 +25,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/common/database/dbinit"
-	"paddleflow/pkg/common/k8s"
-	"paddleflow/pkg/common/schema"
-	"paddleflow/pkg/job/api"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database/dbinit"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 )
 
 var (
@@ -81,7 +81,7 @@ spec:
 				"PF_JOB_WORKER_FLAVOUR": "cpu",
 				"PF_JOB_WORKER_COMMAND": "sleep 3600",
 				"PF_JOB_QUEUE_NAME":     "mockQueueName",
-				//schema.EnvJobType:   string(schema.TypePodJob),
+				// schema.EnvJobType:   string(schema.TypePodJob),
 				"PF_USER_NAME": "root",
 			},
 			Flavour: schema.Flavour{Name: "mockFlavourName", ResourceInfo: schema.ResourceInfo{CPU: "3", Mem: "3"}},

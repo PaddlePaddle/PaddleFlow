@@ -20,8 +20,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-
-	"github.com/gin-gonic/gin"
 )
 
 const (
@@ -72,6 +70,8 @@ const (
 	QueueQuotaTypeIsNotSupported = "QueueQuotaTypeIsNotSupported"
 	QueueIsNotClosed             = "QueueIsNotClosed"
 	QueueIsInUse                 = "QueueIsInUse"
+	QueueInvalidField            = "QueueInvalidField"
+	QueueUpdateFailed            = "QueueUpdateFailed"
 
 	GrantResourceTypeNotFound = "GrantResourceTypeNotFound"
 	GrantNotFound             = "GrantNotFound"
@@ -170,6 +170,8 @@ var errorHTTPStatus = map[string]int{
 	QueueResourceNotMatch:        http.StatusBadRequest,
 	QueueIsNotClosed:             http.StatusBadRequest,
 	QueueIsInUse:                 http.StatusBadRequest,
+	QueueInvalidField:            http.StatusBadRequest,
+	QueueUpdateFailed:            http.StatusBadRequest,
 
 	RunNameDuplicated:     http.StatusBadRequest,
 	RunNotFound:           http.StatusNotFound,
@@ -318,36 +320,6 @@ type ErrorResponse struct {
 	RequestID    string `json:"requestID"`
 	ErrorCode    string `json:"code"`
 	ErrorMessage string `json:"message"`
-}
-
-func AbortWithWriteErrorResponse(c *gin.Context, code string) {
-	if code == "" {
-		code = InternalError
-	}
-	httpCode := GetHttpStatusByCode(code)
-	message := GetMessageByCode(code)
-	errorResponse := ErrorResponse{
-		RequestID:    c.GetHeader(HeaderKeyRequestID),
-		ErrorCode:    code,
-		ErrorMessage: message,
-	}
-	c.AbortWithStatusJSON(httpCode, errorResponse)
-}
-
-func AbortWithWriteErrorResponseWithMessage(c *gin.Context, code string, message string) {
-	if code == "" {
-		code = InternalError
-	}
-	httpCode := GetHttpStatusByCode(code)
-	if message == "" {
-		message = GetMessageByCode(code)
-	}
-	errorResponse := ErrorResponse{
-		RequestID:    c.GetHeader(HeaderKeyRequestID),
-		ErrorCode:    code,
-		ErrorMessage: message,
-	}
-	c.AbortWithStatusJSON(httpCode, errorResponse)
 }
 
 func GetMessageByCode(code string) string {

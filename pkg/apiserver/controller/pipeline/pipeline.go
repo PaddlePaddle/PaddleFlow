@@ -22,14 +22,14 @@ import (
 
 	"gorm.io/gorm"
 
-	"paddleflow/pkg/apiserver/common"
-	"paddleflow/pkg/apiserver/controller/run"
-	"paddleflow/pkg/apiserver/handler"
-	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/common/logger"
-	"paddleflow/pkg/common/schema"
-	"paddleflow/pkg/pipeline"
-	pplcommon "paddleflow/pkg/pipeline/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/run"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/pipeline"
+	pplcommon "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 )
 
 type CreatePipelineRequest struct {

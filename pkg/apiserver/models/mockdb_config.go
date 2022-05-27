@@ -22,7 +22,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
-	"paddleflow/pkg/common/database"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 )
 
 func InitMockDB() {
