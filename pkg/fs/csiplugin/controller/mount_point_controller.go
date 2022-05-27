@@ -251,6 +251,18 @@ func (m *MountPointController) CheckAndRemountVolumeMount(volumeMount k8s.Volume
 
 	// pods need to restore source mount path mountpoints
 	mountPath := common.GetVolumeBindMountPathByPod(volumeMount.PodUID, volumeMount.VolumeName)
+	i := 0
+	for {
+		isMount, err := mount.IsMountPoint(schema.GetBindSource(fsMountParams.FSID))
+		if isMount && err == nil {
+			break
+		}
+		i += 1
+		time.Sleep(1 * time.Second)
+		if i > 2 {
+			return fmt.Errorf("path[%s] not mount, please check mount pod", schema.GetBindSource(fsMountParams.FSID))
+		}
+	}
 	if m.CheckIfNeedRemount(mountPath) {
 		if err := m.Remount(fsMountParams.FSID, mountPath, volumeMount.ReadOnly); err != nil {
 			log.Errorf("remount fs[%s] to mountPath[%s] failed: %v", fsMountParams.FSID, mountPath, err)
