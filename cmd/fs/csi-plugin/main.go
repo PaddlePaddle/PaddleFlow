@@ -26,6 +26,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/cmd/fs/csi-plugin/flag"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/client/k8s"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/controller"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csiconfig"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csidriver"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/metric"
@@ -121,9 +122,15 @@ func act(c *cli.Context) error {
 		log.Errorf("csi-plugin logger.InitStandardFileLogger err: %v", err)
 		return err
 	}
+
+	stopChan := make(chan struct{})
+	defer close(stopChan)
+	ctrl := controller.GetMountPointController(c.String("node-id"))
+	go ctrl.Start(stopChan)
+	defer ctrl.Stop()
+
 	d := csidriver.NewDriver(c.String("node-id"), c.String("unix-endpoint"),
 		c.String("username"), c.String("password"))
 	d.Run()
-
 	return nil
 }
