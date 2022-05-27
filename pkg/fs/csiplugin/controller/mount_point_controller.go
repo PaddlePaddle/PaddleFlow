@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -33,6 +33,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/client/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/client/pfs"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/common"
@@ -123,7 +124,6 @@ func (m *MountPointController) Start(stopCh <-chan struct{}) {
 		updateMounts := true
 
 		for k, pod := range m.podMap {
-			log.Debugf("now begin to check pod UID[%s] with state[%s]", pod.UID, pod.Status.Phase)
 			if _, ok := m.removePods.Load(k); ok {
 				continue
 			}
@@ -147,7 +147,7 @@ func (m *MountPointController) Start(stopCh <-chan struct{}) {
 					**/
 					m.RemovePod(string(p.UID))
 				} else if isRunning(p) {
-					m.handleRunningPod(p, updateMounts, m.fsMountParametersMap)
+					m.handleRunningPod(p, updateMounts)
 				}
 			}(pod)
 		}
@@ -225,10 +225,10 @@ func (m *MountPointController) Stop() {
 	checkerStopChan <- true
 }
 
-func (m *MountPointController) handleRunningPod(pod v1.Pod, updateMounts bool, fsMountParametersMap map[string]pfs.FSMountParameter) {
+func (m *MountPointController) handleRunningPod(pod v1.Pod, updateMounts bool) {
 	podVolumeMounts := k8s.GetVolumeMounts(&pod)
 	for _, volumeMount := range podVolumeMounts {
-		if err := m.CheckAndRemountVolumeMount(volumeMount, fsMountParametersMap); err != nil {
+		if err := m.CheckAndRemountVolumeMount(volumeMount); err != nil {
 			log.Errorf("check and remount volume mount[%v] failed: %s", volumeMount, err)
 		}
 
@@ -241,27 +241,20 @@ func (m *MountPointController) handleRunningPod(pod v1.Pod, updateMounts bool, f
 	}
 }
 
-func (m *MountPointController) CheckAndRemountVolumeMount(volumeMount k8s.VolumeMount, fsMountParametersMap map[string]pfs.FSMountParameter) error {
+func (m *MountPointController) CheckAndRemountVolumeMount(volumeMount k8s.VolumeMount) error {
 	// TODO(dongzezhao) get mountParameters from VolumeMount
 	fsMountParams, ok := m.fsMountParametersMap[volumeMount.VolumeName]
 	if !ok {
-		log.Error("get pfs parameters failed")
-		return fmt.Errorf("get pfs parameters failed")
+		log.Errorf("get pfs parameters [%s] not exist", volumeMount.VolumeName)
+		return fmt.Errorf("get pfs parameters [%s] not exist", volumeMount.VolumeName)
 	}
 
 	// pods need to restore source mount path mountpoints
-	sourceMountPath := common.GetSourceMountPathByPod(volumeMount.PodUID, volumeMount.VolumeName)
-	if m.CheckIfNeedRemount(sourceMountPath) {
-		if err := m.Remount(fsMountParams, volumeMount); err != nil {
-			log.Errorf("remount source[%s] failed: %v", sourceMountPath, err)
-			return fmt.Errorf("remount source[%s] failed: %v\n", sourceMountPath, err)
-		}
-		bindMountPath := common.GetVolumeBindMountPathByPod(volumeMount.PodUID, volumeMount.VolumeName)
-		if ok, err := mount.IsMountPoint(bindMountPath); ok && err != nil {
-			if err := remountBind(sourceMountPath, bindMountPath, volumeMount); err != nil {
-				log.Errorf("remount bind[%s] failed: %v", bindMountPath, err)
-				return fmt.Errorf("remount bind[%s] failed: %v\n", bindMountPath, err)
-			}
+	mountPath := common.GetVolumeBindMountPathByPod(volumeMount.PodUID, volumeMount.VolumeName)
+	if m.CheckIfNeedRemount(mountPath) {
+		if err := m.Remount(fsMountParams.FSID, mountPath, volumeMount.ReadOnly); err != nil {
+			log.Errorf("remount fs[%s] to mountPath[%s] failed: %v", fsMountParams.FSID, mountPath, err)
+			return fmt.Errorf("remount fs[%s] to mountPath[%s] failed: %v", fsMountParams.FSID, mountPath, err)
 		}
 	}
 	return nil
@@ -271,16 +264,15 @@ func (m *MountPointController) CheckAndRemountVolumeMount(volumeMount k8s.Volume
 // contains "Transport endpoint is not connected"
 func (m *MountPointController) CheckIfNeedRemount(path string) bool {
 	isMountPoint, err := mount.IsMountPoint(path)
+	log.Tracef("mountpoint path[%s] : isMountPoint[%t], err:%v", path, isMountPoint, err)
 	if err != nil && isMountPoint {
 		return true
 	}
 	return false
 }
 
-func (m *MountPointController) Remount(params pfs.FSMountParameter, volumeMount k8s.VolumeMount) error {
-	log.Infof("Remount: now begin to remount volume[%s], pod[%s]", "", volumeMount.PodUID)
-	mountPath := common.GetSourceMountPathByPod(volumeMount.PodUID, volumeMount.VolumeName)
-
+func (m *MountPointController) Remount(fsID, mountPath string, readOnly bool) error {
+	log.Tracef("Remount: fsID[%s], mountPath[%s]", fsID, mountPath)
 	// umount old mount point
 	output, err := mount.ExecCmdWithTimeout(mount.UMountCmdName, []string{mountPath})
 	if err != nil {
@@ -291,22 +283,9 @@ func (m *MountPointController) Remount(params pfs.FSMountParameter, volumeMount 
 			}
 		}
 	}
-
-	// remount source dir
-	mountInfo := pfs.GetMountInfo(params.FSID, params.Server, false)
-	mountInfo.LocalPath = mountPath
-	command, args := mountInfo.GetMountCmd()
-	log.Debugf("begin to exec cmd [%s %v]", command, args)
-	output, err = mount.ExecCmdWithTimeout(command, args)
-	if err != nil {
-		log.Errorf("exec cmd[%s %v] failed: %v, output[%v]", command, args, err, string(output))
-		return err
-	}
-	return nil
-}
-
-func remountBind(sourcePath, mountPath string, volumeMount k8s.VolumeMount) error {
-	output, err := mount.ExecMountBind(sourcePath, mountPath, volumeMount.ReadOnly)
+	// bind source path to mount path
+	log.Infof("Remount: bind source[%s] to target[%s], readOnly[%t]", schema.GetBindSource(fsID), mountPath, readOnly)
+	output, err = mount.ExecMountBind(schema.GetBindSource(fsID), mountPath, readOnly)
 	if err != nil {
 		log.Errorf("exec mount bind cmd failed: %v, output[%s]", err, string(output))
 		return err
@@ -345,7 +324,7 @@ func isTerminating(pod v1.Pod) bool {
 }
 
 // pvAddedUpdated reacts to pv added/updated events
-func (c *MountPointController) pvAddedUpdated(obj interface{}) {
+func (m *MountPointController) pvAddedUpdated(obj interface{}) {
 	pv, ok := obj.(*v1.PersistentVolume)
 	if !ok {
 		utilruntime.HandleError(fmt.Errorf("PV informer returned non-PV object: %#v", obj))
@@ -354,7 +333,7 @@ func (c *MountPointController) pvAddedUpdated(obj interface{}) {
 
 	// update pv
 	if pv.Spec.StorageClassName == "paddleflowstorage" {
-		c.fsMountParametersMap[pv.Name] = getPFSParameters(pv.Spec.CSI.VolumeAttributes)
+		m.fsMountParametersMap[pv.Name] = getPFSParameters(pv.Spec.CSI.VolumeAttributes)
 	}
 }
 
