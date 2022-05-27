@@ -24,9 +24,9 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"paddleflow/pkg/fs/client/cache"
-	"paddleflow/pkg/fs/client/meta"
-	"paddleflow/pkg/fs/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/cache"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/meta"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 )
 
 var defaultPfsServer string

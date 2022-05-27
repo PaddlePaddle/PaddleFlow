@@ -24,14 +24,14 @@ import (
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 
-	"paddleflow/pkg/apiserver/common"
-	"paddleflow/pkg/apiserver/controller/flavour"
-	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/common/logger"
-	"paddleflow/pkg/common/schema"
-	"paddleflow/pkg/job"
-	"paddleflow/pkg/job/api"
-	"paddleflow/pkg/job/runtime"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/flavour"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
 )
 
 // CreateSingleJobRequest convey request for create job
@@ -118,7 +118,7 @@ func CreateSingleJob(ctx *logger.RequestContext, request *CreateSingleJobRequest
 		log.Errorf("get flavour failed, err:%v", err)
 		return nil, err
 	}
-	extensionTemplate, err := newExtensionTemplate(request.ExtensionTemplate)
+	templateJson, err := newExtensionTemplateJson(request.ExtensionTemplate)
 	if err != nil {
 		log.Errorf("parse extension template failed, err=%v", err)
 		return nil, err
@@ -161,7 +161,7 @@ func CreateSingleJob(ctx *logger.RequestContext, request *CreateSingleJobRequest
 		QueueID:           request.SchedulingPolicy.QueueID,
 		Status:            schema.StatusJobInit,
 		Config:            &conf,
-		ExtensionTemplate: extensionTemplate,
+		ExtensionTemplate: templateJson,
 	}
 	log.Debugf("create single job %#v", jobInfo)
 	if err := models.CreateJob(jobInfo); err != nil {
@@ -176,8 +176,8 @@ func CreateSingleJob(ctx *logger.RequestContext, request *CreateSingleJobRequest
 	return response, nil
 }
 
-// newExtensionTemplate parse extensionTemplate
-func newExtensionTemplate(extensionTemplate map[string]interface{}) (string, error) {
+// newExtensionTemplateJson parse extensionTemplate
+func newExtensionTemplateJson(extensionTemplate map[string]interface{}) (string, error) {
 	yamlExtensionTemplate := ""
 	if extensionTemplate != nil && len(extensionTemplate) > 0 {
 		extensionTemplateJSON, err := json.Marshal(&extensionTemplate)
@@ -256,7 +256,7 @@ func CreateDistributedJob(ctx *logger.RequestContext, request *CreateDisJobReque
 		return nil, err
 	}
 	var err error
-	extensionTemplate, err := newExtensionTemplate(request.ExtensionTemplate)
+	templateJson, err := newExtensionTemplateJson(request.ExtensionTemplate)
 	if err != nil {
 		log.Errorf("parse extension template failed, err=%v", err)
 		return nil, err
@@ -270,7 +270,7 @@ func CreateDistributedJob(ctx *logger.RequestContext, request *CreateDisJobReque
 		Type:              string(schema.TypeDistributed),
 		Status:            schema.StatusJobInit,
 		Framework:         request.Framework,
-		ExtensionTemplate: extensionTemplate,
+		ExtensionTemplate: templateJson,
 	}
 
 	conf := schema.Conf{
@@ -466,12 +466,12 @@ func CreateWorkflowJob(ctx *logger.RequestContext, request *CreateWfJobRequest) 
 		return nil, err
 	}
 
-	var extensionTemplate string
+	var templateJson string
 	if request.ExtensionTemplate == nil {
 		return nil, fmt.Errorf("ExtensionTemplate for workflow job is needed")
 	}
 	var err error
-	extensionTemplate, err = newExtensionTemplate(request.ExtensionTemplate)
+	templateJson, err = newExtensionTemplateJson(request.ExtensionTemplate)
 	if err != nil {
 		log.Errorf("parse extension template failed, err=%v", err)
 		return nil, err
@@ -501,7 +501,7 @@ func CreateWorkflowJob(ctx *logger.RequestContext, request *CreateWfJobRequest) 
 		QueueID:           conf.GetQueueID(),
 		Status:            schema.StatusJobInit,
 		Config:            &conf,
-		ExtensionTemplate: extensionTemplate,
+		ExtensionTemplate: templateJson,
 	}
 
 	if err := models.CreateJob(jobInfo); err != nil {

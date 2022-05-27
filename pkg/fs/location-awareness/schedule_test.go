@@ -21,9 +21,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"paddleflow/pkg/apiserver/controller/fs"
-	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/common/database/dbinit"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/fs"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database/dbinit"
 )
 
 func TestListMountNodesByFsID(t *testing.T) {
@@ -62,7 +62,7 @@ func TestListMountNodesByFsID(t *testing.T) {
 	assert.Nil(t, err)
 
 	fsIDs := []string{fsID1, fsID2, "fs-non-exist"}
-	nodeList, err := ListMountNodesByFsID(fsIDs)
+	nodeList, err := ListFsCacheLocation(fsIDs)
 	assert.Nil(t, err)
 
 	assert.Equal(t, 2, len(nodeList))

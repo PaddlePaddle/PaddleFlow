@@ -33,9 +33,9 @@ import (
 	restclient "k8s.io/client-go/rest"
 	batchv1alpha1 "volcano.sh/apis/pkg/apis/batch/v1alpha1"
 
-	"paddleflow/pkg/common/config"
-	"paddleflow/pkg/common/k8s"
-	commonschema "paddleflow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
+	commonschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
 
 var (

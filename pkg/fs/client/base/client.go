@@ -20,9 +20,9 @@ import (
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 
-	"paddleflow/pkg/common/http/api"
-	"paddleflow/pkg/common/http/core"
-	"paddleflow/pkg/fs/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/api"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/core"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 )
 
 var Client *_Client
@@ -33,10 +33,10 @@ type _Client struct {
 	FsName     string
 	UserName   string
 	Token      string
-	httpClient *core.PFClient
+	httpClient *core.PaddleFlowClient
 }
 
-func NewClient(fsID string, c *core.PFClient, token string) (*_Client, error) {
+func NewClient(fsID string, c *core.PaddleFlowClient, token string) (*_Client, error) {
 	userName, fsName := common.GetFsNameAndUserNameByFsID(fsID)
 	_client := _Client{
 		Uuid:       uuid.NewString(),

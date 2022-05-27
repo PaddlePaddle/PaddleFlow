@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -26,10 +26,11 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"paddleflow/pkg/fs/csiplugin/client/pfs"
-	"paddleflow/pkg/fs/csiplugin/mount"
-	"paddleflow/pkg/fs/utils/io"
-	mountUtil "paddleflow/pkg/fs/utils/mount"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/client/pfs"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/mount"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/io"
+	mountUtil "github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/mount"
 )
 
 const (
@@ -123,18 +124,15 @@ func (ns *nodeServer) NodeExpandVolume(ctx context.Context,
 func mountVolume(volumeID string, mountInfo pfs.MountInfo, readOnly bool) error {
 	log.Infof("mountVolume mountInfo:%+v, readOnly:%t", mountInfo, readOnly)
 	// business pods use a separate source path
-	err := mount.PodMount(volumeID, mountInfo)
-	if err != nil {
+	if err := mount.PodMount(volumeID, mountInfo); err != nil {
 		log.Errorf("MountThroughPod err: %v", err)
 		return err
 	}
-
-	bindSource := mount.MountDir + "/" + mountInfo.FSID + "/storage"
-	log.Infof("bind info bindSource[%s] targetPath[%s]", bindSource, mountInfo.TargetPath)
-	return bindMountVolume(bindSource, mountInfo.TargetPath, readOnly)
+	return bindMountVolume(schema.GetBindSource(mountInfo.FSID), mountInfo.TargetPath, readOnly)
 }
 
 func bindMountVolume(sourcePath, mountPath string, readOnly bool) error {
+	log.Infof("bindMountVolume source[%s] target[%s]", sourcePath, mountPath)
 	if err := os.MkdirAll(mountPath, 0750); err != nil {
 		log.Errorf("mkdir volume bindMountPath[%s] failed: %v", mountPath, err)
 		return err

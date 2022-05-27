@@ -1,5 +1,5 @@
 """
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@ limitations under the License.
 
 #!/usr/bin/env python3
 # -*- coding:utf8 -*-
+
 
 class FSInfo(object):
     """the class of fs info"""
@@ -39,3 +40,14 @@ class LinkInfo(object):
         self.server_adddress = server_address
         self.subpath = subpath
         self.properties = properties
+
+
+class CacheConfigInfo(object):
+    """the class of fs cache config"""
+    def __init__(self, fsname, username, cachedir, metadriver, blocksize):
+        """init """
+        self.fsname = fsname
+        self.username = username
+        self.cachedir = cachedir
+        self.metadriver = metadriver
+        self.blocksize = blocksize

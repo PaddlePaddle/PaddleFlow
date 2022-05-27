@@ -3,7 +3,7 @@ package database
 import (
 	"github.com/urfave/cli/v2"
 
-	"paddleflow/pkg/common/config"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 )
 
 func DatabaseFlags(dbConf *config.DatabaseConfig) []cli.Flag {

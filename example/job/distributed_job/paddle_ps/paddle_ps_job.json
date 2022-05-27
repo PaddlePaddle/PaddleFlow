@@ -1,0 +1,57 @@
+{
+  "id": "",
+  "name": "",
+  "labels": null,
+  "annotations": null,
+  "framework": "paddle",
+  "schedulingPolicy": {
+    "queue": "dzz",
+    "priority": "NORMAL"
+  },
+  "members": [
+    {
+      "role": "pserver",
+      "replicas": 1,
+      "labels": {},
+      "annotations": {},
+      "schedulingPolicy": {
+        "queue": "dzz"
+      },
+      "flavour": {
+        "cpu": "",
+        "mem": "",
+        "name": "cpu_basic"
+      },
+      "fileSystem": {},
+      "extraFileSystems": null,
+      "image": "paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7",
+      "env": null,
+      "command": "sleep 30",
+      "args": null,
+      "port": 0,
+      "extensionTemplate": {}
+    },
+    {
+      "role": "pworker",
+      "replicas": 1,
+      "labels": {},
+      "annotations": {},
+      "schedulingPolicy": {
+        "queue": "dzz"
+      },
+      "flavour": {
+        "cpu": "",
+        "mem": "",
+        "name": "cpu_basic"
+      },
+      "fileSystem": {},
+      "extraFileSystems": null,
+      "image": "paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7",
+      "env": null,
+      "command": "sleep 20",
+      "args": null,
+      "port": 0,
+      "extensionTemplate": {}
+    }
+  ]
+}

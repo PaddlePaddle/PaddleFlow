@@ -17,23 +17,25 @@ limitations under the License.
 package fs
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/jinzhu/copier"
 	log "github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 	apiv1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"paddleflow/pkg/apiserver/common"
-	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/common/config"
-	"paddleflow/pkg/common/logger"
-	"paddleflow/pkg/common/schema"
-	fsCommon "paddleflow/pkg/fs/common"
-	"paddleflow/pkg/fs/utils/k8s"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	fsCommon "github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/k8s"
 )
 
 const (
@@ -58,7 +60,23 @@ type ListFileSystemRequest struct {
 }
 
 type GetFileSystemRequest struct {
+	FsName   string `json:"fsName"`
 	Username string `json:"username"`
+}
+
+type DeleteFileSystemRequest struct {
+	FsName   string `json:"fsName"`
+	Username string `json:"username"`
+}
+
+type GetFileSystemResponse struct {
+	Id            string            `json:"id"`
+	Name          string            `json:"name"`
+	ServerAddress string            `json:"serverAddress"`
+	Type          string            `json:"type"`
+	SubPath       string            `json:"subPath"`
+	Username      string            `json:"username"`
+	Properties    map[string]string `json:"properties"`
 }
 
 type CreateFileSystemClaimsRequest struct {
@@ -138,11 +156,21 @@ func (s *FileSystemService) GetFileSystem(fsID string) (models.FileSystem, error
 func (s *FileSystemService) DeleteFileSystem(ctx *logger.RequestContext, fsID string) error {
 	err := models.DeleteFileSystem(fsID)
 	if err != nil {
-		ctx.Logging().Errorf("delete failed error[%v]", err)
+		ctx.Logging().Errorf("delete fs[%s] failed error[%v]", fsID, err)
 		ctx.ErrorCode = common.FileSystemDataBaseError
 		return err
 	}
-	return err
+	// delete cache config if exist
+	err = models.DeleteFSCacheConfig(ctx.Logging(), fsID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil
+		}
+		ctx.Logging().Errorf("delete fs[%s] cache config failed error[%v]", fsID, err)
+		ctx.ErrorCode = common.FileSystemDataBaseError
+		return err
+	}
+	return nil
 }
 
 // ListFileSystem the function which performs the operation of list file systems

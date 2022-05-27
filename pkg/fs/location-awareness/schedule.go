@@ -21,12 +21,12 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"paddleflow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 )
 
-func ListMountNodesByFsID(fsIDs []string) ([]string, error) {
+func ListFsCacheLocation(fsIDs []string) ([]string, error) {
 	if len(fsIDs) == 0 {
-		log.Errorf("GetFsMountByID IDs empty")
+		log.Errorf("ListFsCacheLocation IDs empty")
 		return nil, errors.New("fsIDS empty")
 	}
 	nodesMap := make(map[string]struct{}, 0)
