@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@ package controller
 
 import (
 	"fmt"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"strings"
 	"sync"
 	"time"
@@ -34,6 +33,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/client/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/client/pfs"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/common"
@@ -251,12 +251,10 @@ func (m *MountPointController) CheckAndRemountVolumeMount(volumeMount k8s.Volume
 
 	// pods need to restore source mount path mountpoints
 	mountPath := common.GetVolumeBindMountPathByPod(volumeMount.PodUID, volumeMount.VolumeName)
-	log.Infof("elsie CheckIfNeedRemount [%s]", mountPath)
 	if m.CheckIfNeedRemount(mountPath) {
-		log.Infof("elsie NeedRemount")
 		if err := m.Remount(fsMountParams.FSID, mountPath, volumeMount.ReadOnly); err != nil {
-			log.Errorf("elsie remount mountPath[%s] failed: %v", mountPath, err)
-			return fmt.Errorf("remount mountPath[%s] failed: %v\n", mountPath, err)
+			log.Errorf("remount fs[%s] to mountPath[%s] failed: %v", fsMountParams.FSID, mountPath, err)
+			return fmt.Errorf("remount fs[%s] to mountPath[%s] failed: %v", fsMountParams.FSID, mountPath, err)
 		}
 	}
 	return nil
@@ -266,17 +264,15 @@ func (m *MountPointController) CheckAndRemountVolumeMount(volumeMount k8s.Volume
 // contains "Transport endpoint is not connected"
 func (m *MountPointController) CheckIfNeedRemount(path string) bool {
 	isMountPoint, err := mount.IsMountPoint(path)
-	log.Infof("elsie path[%s], mp[%t], err:%v", path, isMountPoint, err)
+	log.Tracef("mountpoint path[%s] : isMountPoint[%t], err:%v", path, isMountPoint, err)
 	if err != nil && isMountPoint {
-		log.Infof("elsie need remount")
 		return true
 	}
-	log.Infof("elsie no remount")
 	return false
 }
 
 func (m *MountPointController) Remount(fsID, mountPath string, readOnly bool) error {
-	log.Infof("Remount: fsID[%s], mountPath[%s]", fsID, mountPath)
+	log.Tracef("Remount: fsID[%s], mountPath[%s]", fsID, mountPath)
 	// umount old mount point
 	output, err := mount.ExecCmdWithTimeout(mount.UMountCmdName, []string{mountPath})
 	if err != nil {
@@ -287,8 +283,8 @@ func (m *MountPointController) Remount(fsID, mountPath string, readOnly bool) er
 			}
 		}
 	}
-	log.Infof("elsie bind")
 	// bind source path to mount path
+	log.Infof("Remount: bind source[%s] to target[%s], readOnly[%t]", schema.GetBindSource(fsID), mountPath, readOnly)
 	output, err = mount.ExecMountBind(schema.GetBindSource(fsID), mountPath, readOnly)
 	if err != nil {
 		log.Errorf("exec mount bind cmd failed: %v, output[%s]", err, string(output))
