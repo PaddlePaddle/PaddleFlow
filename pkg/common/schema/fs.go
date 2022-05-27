@@ -25,7 +25,8 @@ const (
 	PFSServer       = "pfs.server"
 	PFSUserName     = "pfs.user.name"
 
-	HostMntDir = "/data/paddleflow-fs/mnt"
+	HostMntDir  = "/data/paddleflow-fs/mnt"
+	PodMountDir = "/home/paddleflow/mnt"
 
 	FsMetaDefault = "default"
 	FsMetaMemory  = "mem"
@@ -44,4 +45,8 @@ func IsValidFsMetaDriver(metaDriver string) bool {
 
 func DefaultCacheDir(fsID string) string {
 	return path.Join(HostMntDir, fsID)
+}
+
+func GetBindSource(fsID string) string {
+	return path.Join(PodMountDir, fsID, "storage")
 }
