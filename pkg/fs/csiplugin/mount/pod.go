@@ -91,7 +91,10 @@ func PodUnmount(volumeID, targetPath string, mountInfo pfs.MountInfo) error {
 		return fmt.Errorf("PodUnmount: pod[%s] annotations[%v] missing field", pod.Name, pod.Annotations)
 	}
 
-	httpClient := client.NewHttpClient(mountInfo.Server, client.DefaultTimeOut)
+	httpClient, err := client.NewHttpClient(mountInfo.Server, client.DefaultTimeOut)
+	if err != nil {
+		return err
+	}
 	login := api.LoginParams{
 		UserName: mountInfo.UsernameRoot,
 		Password: mountInfo.PasswordRoot,
@@ -148,7 +151,10 @@ func PodUnmount(volumeID, targetPath string, mountInfo pfs.MountInfo) error {
 
 func PodMount(volumeID string, mountInfo pfs.MountInfo) error {
 	// login server
-	httpClient := client.NewHttpClient(mountInfo.Server, client.DefaultTimeOut)
+	httpClient, err := client.NewHttpClient(mountInfo.Server, client.DefaultTimeOut)
+	if err != nil {
+		return err
+	}
 	login := api.LoginParams{
 		UserName: mountInfo.UsernameRoot,
 		Password: mountInfo.PasswordRoot,
