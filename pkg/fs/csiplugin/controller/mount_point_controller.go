@@ -251,10 +251,24 @@ func (m *MountPointController) CheckAndRemountVolumeMount(volumeMount k8s.Volume
 
 	// pods need to restore source mount path mountpoints
 	mountPath := common.GetVolumeBindMountPathByPod(volumeMount.PodUID, volumeMount.VolumeName)
-	if m.CheckIfNeedRemount(mountPath) {
-		if err := m.Remount(fsMountParams.FSID, mountPath, volumeMount.ReadOnly); err != nil {
-			log.Errorf("remount fs[%s] to mountPath[%s] failed: %v", fsMountParams.FSID, mountPath, err)
-			return fmt.Errorf("remount fs[%s] to mountPath[%s] failed: %v", fsMountParams.FSID, mountPath, err)
+	bindSource := schema.GetBindSource(fsMountParams.FSID)
+	if checkIfNeedRemount(mountPath) && checkSourceReadyForBind(bindSource) {
+		log.Infof("Re-bind source[%s] to target[%s], readOnly[%t]", bindSource, mountPath, volumeMount.ReadOnly)
+		// umount old mount point
+		output, err := mount.ExecCmdWithTimeout(mount.UMountCmdName, []string{mountPath})
+		if err != nil {
+			log.Errorf("exec cmd[umount %s] failed: %v, output[%s]", mountPath, err, string(output))
+			if !strings.Contains(string(output), mount.NotMounted) {
+				if err := mount.ForceUnmount(mountPath); err != nil {
+					return err
+				}
+			}
+		}
+		// bind source path to mount path
+		output, err = mount.ExecMountBind(bindSource, mountPath, volumeMount.ReadOnly)
+		if err != nil {
+			log.Errorf("exec mount bind cmd failed: %v, output[%s]", err, string(output))
+			return err
 		}
 	}
 	return nil
@@ -262,7 +276,7 @@ func (m *MountPointController) CheckAndRemountVolumeMount(volumeMount k8s.Volume
 
 // CheckIfNeedRemount The conditions for remount: the path is the mount point and the error message returned by the `mountpoint` command
 // contains "Transport endpoint is not connected"
-func (m *MountPointController) CheckIfNeedRemount(path string) bool {
+func checkIfNeedRemount(path string) bool {
 	isMountPoint, err := mount.IsMountPoint(path)
 	log.Tracef("mountpoint path[%s] : isMountPoint[%t], err:%v", path, isMountPoint, err)
 	if err != nil && isMountPoint {
@@ -271,26 +285,13 @@ func (m *MountPointController) CheckIfNeedRemount(path string) bool {
 	return false
 }
 
-func (m *MountPointController) Remount(fsID, mountPath string, readOnly bool) error {
-	log.Tracef("Remount: fsID[%s], mountPath[%s]", fsID, mountPath)
-	// umount old mount point
-	output, err := mount.ExecCmdWithTimeout(mount.UMountCmdName, []string{mountPath})
-	if err != nil {
-		log.Errorf("exec cmd[umount %s] failed: %v, output[%s]", mountPath, err, string(output))
-		if !strings.Contains(string(output), mount.NotMounted) {
-			if err := mount.ForceUnmount(mountPath); err != nil {
-				return err
-			}
-		}
+func checkSourceReadyForBind(path string) bool {
+	isMountPoint, err := mount.IsMountPoint(path)
+	log.Tracef("mountpoint path[%s] : isMountPoint[%t], err:%v", path, isMountPoint, err)
+	if err == nil && isMountPoint {
+		return true
 	}
-	// bind source path to mount path
-	log.Infof("Remount: bind source[%s] to target[%s], readOnly[%t]", schema.GetBindSource(fsID), mountPath, readOnly)
-	output, err = mount.ExecMountBind(schema.GetBindSource(fsID), mountPath, readOnly)
-	if err != nil {
-		log.Errorf("exec mount bind cmd failed: %v, output[%s]", err, string(output))
-		return err
-	}
-	return nil
+	return false
 }
 
 // UpdateMounts update mount
