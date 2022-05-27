@@ -337,7 +337,7 @@ func validateQueue(ctx *logger.RequestContext, schedulingPolicy *job.SchedulingP
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			ctx.ErrorCode = common.JobInvalidField
-			log.Errorf("create job failed. error: %s", err.Error())
+			log.Errorf("validate queue failed when create job. error: %s", err.Error())
 			return fmt.Errorf("queue not found")
 		}
 		ctx.ErrorCode = common.InternalError
