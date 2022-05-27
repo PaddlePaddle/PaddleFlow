@@ -454,10 +454,10 @@ func getFlavourWithCheck(reqFlavour schema.Flavour) (schema.Flavour, error) {
 		}
 		return reqFlavour, nil
 	}
-	flavour, err := models.GetFlavour(reqFlavour.Name)
-	if err != nil {
-		log.Errorf("Get flavour by name %s failed when creating job, err=%v", flavour.Name, err)
-		return schema.Flavour{}, fmt.Errorf("get flavour[%s] failed, err=%v", flavour.Name, err)
+	flavour, exist := config.GlobalServerConfig.FlavourMap[reqFlavour.Name]
+	if !exist {
+		log.Errorf("Get flavour by name %s failed when creating job, flavour not found", flavour.Name)
+		return schema.Flavour{}, fmt.Errorf("get flavour[%s] failed, flavour not found", flavour.Name)
 	}
 	return schema.Flavour{
 		Name: flavour.Name,
