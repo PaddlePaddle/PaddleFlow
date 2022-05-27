@@ -50,7 +50,7 @@ const (
 	VolumesKeyMetaCache = "meta-cache"
 
 	CacheWorkerBin = "/home/paddleflow/cache-worker"
-	MountPoint     = schema.PodMountDir + "/storage"
+	MountPoint     = schema.PodMntDir + "/storage"
 	CachePath      = "/home/paddleflow/pfs-cache"
 	DataCacheDir   = "/data-cache"
 	MetaCacheDir   = "/meta-cache"
@@ -420,7 +420,7 @@ func buildMountContainer(pod *v1.Pod, mountInfo pfs.MountInfo, cacheConf common.
 		},
 		{
 			Name:             VolumesKeyMount,
-			MountPath:        schema.PodMountDir,
+			MountPath:        schema.PodMntDir,
 			SubPath:          mountInfo.FSID,
 			MountPropagation: &mp,
 		},
