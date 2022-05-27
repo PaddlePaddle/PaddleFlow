@@ -20,8 +20,8 @@ import (
 	wfv1 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
 	log "github.com/sirupsen/logrus"
 
-	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/common/k8s"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 )
 
 // WorkflowJob is a executor struct that runs a workflow

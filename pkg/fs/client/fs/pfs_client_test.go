@@ -34,11 +34,11 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 
-	"paddleflow/pkg/fs/client/cache"
-	"paddleflow/pkg/fs/client/kv"
-	"paddleflow/pkg/fs/client/meta"
-	"paddleflow/pkg/fs/client/vfs"
-	"paddleflow/pkg/fs/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/cache"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/kv"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/meta"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/vfs"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 )
 
 func getTestFSClient(t *testing.T) FSClient {

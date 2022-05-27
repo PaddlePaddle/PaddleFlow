@@ -23,7 +23,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/resource"
 
-	"paddleflow/pkg/common/errors"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 )
 
 // ScalarResourcesType is the type of scalar resources

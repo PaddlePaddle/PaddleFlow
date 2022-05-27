@@ -26,11 +26,11 @@ import (
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
 
-	"paddleflow/pkg/apiserver/common"
-	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/common/database/dbinit"
-	"paddleflow/pkg/common/schema"
-	pplcommon "paddleflow/pkg/pipeline/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database/dbinit"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	pplcommon "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 )
 
 const (
@@ -375,7 +375,7 @@ func TestWorkflowParamDuplicate(t *testing.T) {
 	bwf.Source.EntryPoints["main"].Parameters["train_data"] = "whatever"
 	err = bwf.validate()
 	assert.NotNil(t, err)
-	assert.Equal(t, "inputAtf name[train_data] has already existed in params/artifacts of step[main]", err.Error())
+	assert.Equal(t, "inputAtf name[train_data] has already existed in params/artifacts of step[main] (these names are case-insensitive)", err.Error())
 
 	delete(bwf.Source.EntryPoints["main"].Parameters, "train_data") // 把上面的添加的删掉，再校验一遍
 	err = bwf.validate()
@@ -384,7 +384,7 @@ func TestWorkflowParamDuplicate(t *testing.T) {
 	bwf.Source.EntryPoints["main"].Parameters["train_model"] = "whatever"
 	err = bwf.validate()
 	assert.NotNil(t, err)
-	assert.Equal(t, "outputAtf name[train_model] has already existed in params/artifacts of step[main]", err.Error())
+	assert.Equal(t, "outputAtf name[train_model] has already existed in params/artifacts of step[main] (these names are case-insensitive)", err.Error())
 
 	delete(bwf.Source.EntryPoints["main"].Parameters, "train_model") // 把上面的添加的删掉，再校验一遍
 	err = bwf.validate()
@@ -393,7 +393,7 @@ func TestWorkflowParamDuplicate(t *testing.T) {
 	bwf.Source.EntryPoints["main"].Artifacts.Input["train_model"] = "whatever"
 	err = bwf.validate()
 	assert.NotNil(t, err)
-	assert.Equal(t, "outputAtf name[train_model] has already existed in params/artifacts of step[main]", err.Error())
+	assert.Equal(t, "outputAtf name[train_model] has already existed in params/artifacts of step[main] (these names are case-insensitive)", err.Error())
 
 	delete(bwf.Source.EntryPoints["main"].Artifacts.Input, "train_model") // 把上面的添加的删掉，再校验一遍
 	err = bwf.validate()
@@ -458,9 +458,9 @@ func TestValidateWorkflow__DictParam(t *testing.T) {
 	bwf := NewBaseWorkflow(wfs, "", "", nil, extra)
 	err = bwf.validate()
 	assert.Nil(t, err)
-	//assert.Equal(t, "dictparam", bwf.Source.EntryPoints["main"].Parameters["p3"])
-	//assert.Equal(t, 0.66, bwf.Source.EntryPoints["main"].Parameters["p4"])
-	//assert.Equal(t, "/path/to/anywhere", bwf.Source.EntryPoints["main"].Parameters["p5"])
+	// assert.Equal(t, "dictparam", bwf.Source.EntryPoints["main"].Parameters["p3"])
+	// assert.Equal(t, 0.66, bwf.Source.EntryPoints["main"].Parameters["p4"])
+	// assert.Equal(t, "/path/to/anywhere", bwf.Source.EntryPoints["main"].Parameters["p5"])
 
 	// 缺 default 值
 	bwf.Source.EntryPoints["main"].Parameters["dict"] = map[interface{}]interface{}{"type": "path", "default": ""}
@@ -497,22 +497,22 @@ func TestValidateWorkflow__DictParam(t *testing.T) {
 	bwf.Source.EntryPoints["main"].Parameters["dict"] = map[interface{}]interface{}{"type": "float", "default": 111}
 	err = bwf.validate()
 	assert.Nil(t, err)
-	//assert.Equal(t, 111, bwf.Source.EntryPoints["main"].Parameters["dict"])
+	// assert.Equal(t, 111, bwf.Source.EntryPoints["main"].Parameters["dict"])
 
 	bwf.Source.EntryPoints["main"].Parameters["dict"] = map[interface{}]interface{}{"type": "string", "default": "111"}
 	err = bwf.validate()
 	assert.Nil(t, err)
-	//assert.Equal(t, "111", bwf.Source.EntryPoints["main"].Parameters["dict"])
+	// assert.Equal(t, "111", bwf.Source.EntryPoints["main"].Parameters["dict"])
 
 	bwf.Source.EntryPoints["main"].Parameters["dict"] = map[interface{}]interface{}{"type": "path", "default": "111"}
 	err = bwf.validate()
 	assert.Nil(t, err)
-	//assert.Equal(t, "111", bwf.Source.EntryPoints["main"].Parameters["dict"])
+	// assert.Equal(t, "111", bwf.Source.EntryPoints["main"].Parameters["dict"])
 
 	bwf.Source.EntryPoints["main"].Parameters["dict"] = map[interface{}]interface{}{"type": "path", "default": "/111"}
 	err = bwf.validate()
 	assert.Nil(t, err)
-	//assert.Equal(t, "/111", bwf.Source.EntryPoints["main"].Parameters["dict"])
+	// assert.Equal(t, "/111", bwf.Source.EntryPoints["main"].Parameters["dict"])
 
 	bwf.Source.EntryPoints["main"].Parameters["dict"] = map[interface{}]interface{}{"type": "path", "default": "/111 / "}
 	err = bwf.validate()
@@ -522,12 +522,12 @@ func TestValidateWorkflow__DictParam(t *testing.T) {
 	bwf.Source.EntryPoints["main"].Parameters["dict"] = map[interface{}]interface{}{"type": "path", "default": "/111-1/111_2"}
 	err = bwf.validate()
 	assert.Nil(t, err)
-	//assert.Equal(t, "/111-1/111_2", bwf.Source.EntryPoints["main"].Parameters["dict"])
+	// assert.Equal(t, "/111-1/111_2", bwf.Source.EntryPoints["main"].Parameters["dict"])
 
 	bwf.Source.EntryPoints["main"].Parameters["dict"] = map[interface{}]interface{}{"type": "float", "default": 111}
 	err = bwf.validate()
 	assert.Nil(t, err)
-	//assert.Equal(t, 111, bwf.Source.EntryPoints["main"].Parameters["dict"])
+	// assert.Equal(t, 111, bwf.Source.EntryPoints["main"].Parameters["dict"])
 
 	// invalid actual interface type
 	mapParam := map[string]string{"ffff": "2"}

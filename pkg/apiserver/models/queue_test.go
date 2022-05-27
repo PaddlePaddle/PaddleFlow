@@ -25,10 +25,10 @@ import (
 	"gorm.io/gorm"
 	glogger "gorm.io/gorm/logger"
 
-	"paddleflow/pkg/apiserver/common"
-	"paddleflow/pkg/common/database"
-	"paddleflow/pkg/common/logger"
-	"paddleflow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
 
 var (
@@ -109,6 +109,76 @@ func TestCreateQueue(t *testing.T) {
 
 	err = CreateQueue(&queue2)
 	assert.Equal(t, nil, err)
+}
+
+func TestUpdateQueue(t *testing.T) {
+	InitFakeDB()
+
+	cluster1 := ClusterInfo{
+		Name:          "cluster1",
+		Description:   "Description",
+		Endpoint:      "127.0.0.1:6655",
+		Source:        "Source",
+		ClusterType:   schema.KubernetesType,
+		Version:       "1.16",
+		Status:        "Status",
+		Credential:    "credential",
+		Setting:       "Setting",
+		NamespaceList: []string{"n1", "n2"},
+	}
+	if err := CreateCluster(&cluster1); err != nil {
+		t.Error(err)
+	}
+	assert.NotEmpty(t, cluster1.ID)
+
+	queue1 := Queue{
+		Name:      "queue1",
+		Namespace: "paddleflow",
+		ClusterId: cluster1.ID,
+		QuotaType: schema.TypeVolcanoCapabilityQuota,
+		MaxResources: schema.ResourceInfo{
+			CPU: "10",
+			Mem: "100G",
+			ScalarResources: schema.ScalarResourcesType{
+				"nvidia.com/gpu": "500",
+			},
+		},
+		SchedulingPolicy: []string{"s1", "s2"},
+		Status:           schema.StatusQueueCreating,
+	}
+
+	queue2 := Queue{
+		Name:      "queue2",
+		Namespace: "paddleflow",
+		ClusterId: "cluster1.ID",
+		QuotaType: schema.TypeVolcanoCapabilityQuota,
+		MaxResources: schema.ResourceInfo{
+			CPU: "20",
+			Mem: "200G",
+			ScalarResources: schema.ScalarResourcesType{
+				"nvidia.com/gpu": "200",
+			},
+		},
+		SchedulingPolicy: []string{"s1", "s2"},
+		Status:           schema.StatusQueueCreating,
+	}
+
+	err := CreateQueue(&queue1)
+	assert.Equal(t, nil, err)
+
+	err = CreateQueue(&queue2)
+	assert.Equal(t, nil, err)
+
+	queue1.MaxResources = schema.ResourceInfo{
+		CPU: "1",
+		Mem: "10G",
+		ScalarResources: schema.ScalarResourcesType{
+			"nvidia.com/gpu": "5",
+		},
+	}
+
+	err = UpdateQueue(&queue1)
+	assert.NoError(t, err)
 }
 
 func TestListQueue(t *testing.T) {

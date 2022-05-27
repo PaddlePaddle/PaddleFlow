@@ -26,13 +26,13 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 
-	expand "paddleflow/cmd/fs/csi-plugin/flag"
-	"paddleflow/cmd/fs/location-awareness/cache-worker/flag"
-	"paddleflow/pkg/client"
-	"paddleflow/pkg/common/http/api"
-	"paddleflow/pkg/common/logger"
-	"paddleflow/pkg/fs/common"
-	location_awareness "paddleflow/pkg/fs/location-awareness"
+	expand "github.com/PaddlePaddle/PaddleFlow/cmd/fs/csi-plugin/flag"
+	"github.com/PaddlePaddle/PaddleFlow/cmd/fs/location-awareness/cache-worker/flag"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/client"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/api"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
+	location_awareness "github.com/PaddlePaddle/PaddleFlow/pkg/fs/location-awareness"
 )
 
 var logConf = logger.LogConfig{

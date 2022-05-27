@@ -1,0 +1,62 @@
+csi:
+  enable: false
+  kubelet_data_path: ${PADDLEFLOW_FS_CSI_KUBELET_DATA_PATH}
+  log: ${PADDLEFLOW_FS_CSI_LOG}
+  mount_host_path: ${CSI_MOUNT_HOST_PATH}
+  driver_registrar:
+    image: ${IMAGE_REGISTRY}/${PADDLEFLOW_FS_CSI_DRIVER_REGISTRAR_IMAGE}
+  provisioner:
+    image: ${IMAGE_REGISTRY}/${PADDLEFLOW_FS_CSI_PROVISIONER_IMAGE}
+  paddleflow_fs_csi:
+    image: ${IMAGE_REGISTRY}/${PADDLEFLOW_FS_CSI_PLUGIN_IMAGE}
+
+paddleflowfs:
+  enable: false
+  rpcport: ${PADDLEFLOW_FS_RPC_PORT}
+  restport: ${PADDLEFLOW_FS_REST_PORT}
+  image: ${IMAGE_REGISTRY}/${PADDLEFLOW_FS_IMAGE_NAME}
+  imageTag: "${PADDLEFLOW_FS_IMAGE_TAG}"
+  user_id: 601
+  group_id: 601
+
+db:
+  host: ${DB_HOST}
+  port: ${DB_PORT}
+  driver: ${DB_DRIVER}
+  user: ${DB_USER}
+  password: ${DB_PW}
+  database: ${DB_DATABASE}
+
+spark_operator:
+  enable: false
+  image: ${DOCKER_REGISTRY}/${SPARK_OPERATOR_IMG_NAME}
+
+paddleflowServer:
+  enable: false
+  port: ${PADDLEFLOW_SERVER_PORT}
+  printVersionAndExit: ${PADDLEFLOW_SERVER_PRINTVERSIONANDEXIT}
+  image: ${IMAGE_REGISTRY}/${PADDLEFLOW_SERVER_IMAGE}
+  schedulerName: ${VOLCANO_SCHEDULER_NAME}
+  tokenExpirationHour: ${TOKEN_EXPIRATION_HOUR}
+fs:
+  host: paddleflow-fs
+  rpcPort: ${PADDLEFLOW_FS_RPC_PORT}
+  restPort: ${PADDLEFLOW_FS_REST_PORT}
+
+volcano:
+  controller_image_name: ${IMAGE_REGISTRY}/${VOLCANO_CONTROLLER_IMAGE_NAME}
+  scheduler_image_name: ${IMAGE_REGISTRY}/${VOLCANO_SCHEDULER_IMAGE_NAME}
+  admission_image_name: ${IMAGE_REGISTRY}/${VOLCANO_ADMISSION_IMAGE_NAME}
+  admission_secret_name: "volcano-admission-secret"
+  scheduler_config_file: "config/volcano-scheduler-pf.conf"
+  image_pull_secret: ""
+  volcano_namespace: ${VOLCANO_NAMESPACE}
+  scheduler_manage_namespace: ${SCHEDULER_MANAGE_NAMESPACE}
+  scheduler_name: ${VOLCANO_SCHEDULER_NAME}
+  admission_port: ${VOLCANO_PORT}
+custom:
+  metrics_enable: "false"
+
+storage_pvc:
+  enable: ${STORAGE_PVC}
+

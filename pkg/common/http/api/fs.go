@@ -19,10 +19,10 @@ package api
 import (
 	log "github.com/sirupsen/logrus"
 
-	"paddleflow/pkg/apiserver/common"
-	"paddleflow/pkg/apiserver/router/util"
-	"paddleflow/pkg/common/http/core"
-	"paddleflow/pkg/common/http/util/http"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/core"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/util/http"
 )
 
 const (
@@ -101,7 +101,7 @@ type LinksResponse struct {
 type FsCacheResponse struct {
 	CacheDir            string                 `json:"cacheDir"`
 	Quota               int                    `json:"quota"`
-	CacheType           string                 `json:"cacheType"`
+	MetaDriver          string                 `json:"metaDriver"`
 	BlockSize           int                    `json:"blockSize"`
 	NodeAffinity        map[string]interface{} `json:"nodeAffinity"`
 	NodeTaintToleration map[string]interface{} `json:"nodeTaintToleration"`
@@ -149,7 +149,7 @@ type MountResponse struct {
 	ClusterID  string `json:"clusterID"`
 }
 
-func LoginRequest(params LoginParams, c *core.PFClient) (*LoginResponse, error) {
+func LoginRequest(params LoginParams, c *core.PaddleFlowClient) (*LoginResponse, error) {
 	var err error
 	resp := &LoginResponse{}
 	err = core.NewRequestBuilder(c).
@@ -165,7 +165,7 @@ func LoginRequest(params LoginParams, c *core.PFClient) (*LoginResponse, error) 
 	return resp, nil
 }
 
-func FsRequest(params FsParams, c *core.PFClient) (*FsResponse, error) {
+func FsRequest(params FsParams, c *core.PaddleFlowClient) (*FsResponse, error) {
 	resp := &FsResponse{}
 	err := core.NewRequestBuilder(c).
 		WithHeader(common.HeaderKeyAuthorization, params.Token).
@@ -180,7 +180,7 @@ func FsRequest(params FsParams, c *core.PFClient) (*FsResponse, error) {
 	return resp, nil
 }
 
-func LinksRequest(params LinksParams, c *core.PFClient) (*LinksResponse, error) {
+func LinksRequest(params LinksParams, c *core.PaddleFlowClient) (*LinksResponse, error) {
 	resp := &LinksResponse{}
 	err := core.NewRequestBuilder(c).
 		WithHeader(common.HeaderKeyAuthorization, params.Token).
@@ -194,7 +194,7 @@ func LinksRequest(params LinksParams, c *core.PFClient) (*LinksResponse, error) 
 	return resp, nil
 }
 
-func FsCacheRequest(params FsParams, c *core.PFClient) (*FsCacheResponse, error) {
+func FsCacheRequest(params FsParams, c *core.PaddleFlowClient) (*FsCacheResponse, error) {
 	resp := &FsCacheResponse{}
 	err := core.NewRequestBuilder(c).
 		WithHeader(common.HeaderKeyAuthorization, params.Token).
@@ -208,7 +208,7 @@ func FsCacheRequest(params FsParams, c *core.PFClient) (*FsCacheResponse, error)
 	return resp, nil
 }
 
-func FsMountCreate(req CreateMountRequest, c *core.PFClient) error {
+func FsMountCreate(req CreateMountRequest, c *core.PaddleFlowClient) error {
 	err := core.NewRequestBuilder(c).
 		WithHeader(common.HeaderKeyAuthorization, req.Token).
 		WithURL(FsMount).
@@ -218,7 +218,7 @@ func FsMountCreate(req CreateMountRequest, c *core.PFClient) error {
 	return err
 }
 
-func FsMountList(req ListMountRequest, c *core.PFClient) (*ListMountResponse, error) {
+func FsMountList(req ListMountRequest, c *core.PaddleFlowClient) (*ListMountResponse, error) {
 	resp := &ListMountResponse{}
 	err := core.NewRequestBuilder(c).
 		WithHeader(common.HeaderKeyAuthorization, req.Token).
@@ -236,7 +236,7 @@ func FsMountList(req ListMountRequest, c *core.PFClient) (*ListMountResponse, er
 	return resp, nil
 }
 
-func FsMountDelete(req DeleteMountRequest, c *core.PFClient) error {
+func FsMountDelete(req DeleteMountRequest, c *core.PaddleFlowClient) error {
 	err := core.NewRequestBuilder(c).
 		WithHeader(common.HeaderKeyAuthorization, req.Token).
 		WithURL(FsMount+"/"+req.FsName).
@@ -249,7 +249,7 @@ func FsMountDelete(req DeleteMountRequest, c *core.PFClient) error {
 	return err
 }
 
-func CacheReportRequest(req CacheReportParams, c *core.PFClient) error {
+func CacheReportRequest(req CacheReportParams, c *core.PaddleFlowClient) error {
 	err := core.NewRequestBuilder(c).
 		WithHeader(common.HeaderKeyAuthorization, req.Token).
 		WithURL(CacheReportConfig).

@@ -33,9 +33,9 @@ import (
 	"github.com/hanwen/go-fuse/v2/fuse/nodefs"
 	log "github.com/sirupsen/logrus"
 
-	"paddleflow/pkg/fs/client/base"
-	"paddleflow/pkg/fs/client/utils"
-	"paddleflow/pkg/fs/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/base"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/utils"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 )
 
 var superuser = "hdfs"

@@ -18,14 +18,15 @@ package mount
 
 import (
 	log "github.com/sirupsen/logrus"
-	"paddleflow/pkg/common/http/api"
-	"paddleflow/pkg/common/http/core"
-	"paddleflow/pkg/fs/common"
-	"paddleflow/pkg/fs/csiplugin/client/pfs"
-	"paddleflow/pkg/fs/csiplugin/csiconfig"
+
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/api"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/core"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/client/pfs"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csiconfig"
 )
 
-func fsCacheConfig(mountInfo pfs.MountInfo, httpClient *core.PFClient, token string) (common.FsCacheConfig, error) {
+func fsCacheConfig(mountInfo pfs.MountInfo, httpClient *core.PaddleFlowClient, token string) (common.FsCacheConfig, error) {
 	userName, fsName := common.GetFsNameAndUserNameByFsID(mountInfo.FSID)
 	cacheReq := api.FsParams{
 		FsName:   fsName,
@@ -41,7 +42,7 @@ func fsCacheConfig(mountInfo pfs.MountInfo, httpClient *core.PFClient, token str
 	cacheConfig := common.FsCacheConfig{
 		CacheDir:            cacheResp.CacheDir,
 		Quota:               cacheResp.Quota,
-		CacheType:           cacheResp.CacheType,
+		MetaDriver:          cacheResp.MetaDriver,
 		BlockSize:           cacheResp.BlockSize,
 		NodeAffinity:        cacheResp.NodeAffinity,
 		NodeTaintToleration: cacheResp.NodeTaintToleration,
@@ -52,7 +53,7 @@ func fsCacheConfig(mountInfo pfs.MountInfo, httpClient *core.PFClient, token str
 	return cacheConfig, nil
 }
 
-func getFs(fsID string, httpClient *core.PFClient, token string) (*api.FsResponse, error) {
+func getFs(fsID string, httpClient *core.PaddleFlowClient, token string) (*api.FsResponse, error) {
 	userName, fsName := common.GetFsNameAndUserNameByFsID(fsID)
 	params := api.FsParams{
 		FsName:   fsName,
@@ -67,7 +68,7 @@ func getFs(fsID string, httpClient *core.PFClient, token string) (*api.FsRespons
 	return fsResp, nil
 }
 
-func deleteMount(mountInfo pfs.MountInfo, httpClient *core.PFClient, token string) error {
+func deleteMount(mountInfo pfs.MountInfo, httpClient *core.PaddleFlowClient, token string) error {
 	userName, fsName := common.GetFsNameAndUserNameByFsID(mountInfo.FSID)
 	DeleteMountReq := api.DeleteMountRequest{
 		FsParams: api.FsParams{
@@ -87,7 +88,7 @@ func deleteMount(mountInfo pfs.MountInfo, httpClient *core.PFClient, token strin
 	return nil
 }
 
-func listMount(mountInfo pfs.MountInfo, httpClient *core.PFClient, token string) (*api.ListMountResponse, error) {
+func listMount(mountInfo pfs.MountInfo, httpClient *core.PaddleFlowClient, token string) (*api.ListMountResponse, error) {
 	userName, fsName := common.GetFsNameAndUserNameByFsID(mountInfo.FSID)
 	listMountReq := api.ListMountRequest{
 		FsParams: api.FsParams{
@@ -106,7 +107,7 @@ func listMount(mountInfo pfs.MountInfo, httpClient *core.PFClient, token string)
 	return listMountResp, nil
 }
 
-func createMount(mountInfo pfs.MountInfo, httpClient *core.PFClient, token string) error {
+func createMount(mountInfo pfs.MountInfo, httpClient *core.PaddleFlowClient, token string) error {
 	userName, fsName := common.GetFsNameAndUserNameByFsID(mountInfo.FSID)
 	createMountReq := api.CreateMountRequest{
 		FsParams: api.FsParams{

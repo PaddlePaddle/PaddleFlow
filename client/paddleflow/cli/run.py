@@ -33,29 +33,23 @@ def run():
 
 
 @run.command()
-@click.argument('fsname')
+@click.option('-fs', '--fsname', help='The name of fs')
 @click.option('-n', '--name', help='The name of run.')
 @click.option('-d', '--desc', help='The description of run.')
 @click.option('-u', '--username', help='Run the specified run by username, only useful for root.')
 @click.option('-p', '--param', multiple=True, help="Run pipeline params, example: -p regularization=xxx .")
 @click.option('-yp', '--runyamlpath', help='Run yaml file path, example ./run.yaml .')
 @click.option('-yr', '--runyamlraw', help='Run yaml file raw, local absolute path .')
+@click.option('-pplid', '--pipelineid', help='Pipeline ID, example ppl-000666')
 @click.option('--disabled', multiple=True, help="the name of step which need to be disabled.")
+@click.option('-de', '--dockerenv', help='a global dockerEnv used by all steps which have no dockerEnv')
 @click.pass_context
-def create(ctx, fsname, name=None, desc=None, username=None, runyamlpath=None, runyamlraw=None,
-        param="", disabled=None):
+def create(ctx, fsname=None, name=None, desc=None, username=None, runyamlpath=None, runyamlraw=None,
+        param="", pipelineid=None, disabled=None, dockerenv=None):
     """create a new run.\n
     FSNAME: the name of the fs.
     """
     client = ctx.obj['client']
-    if not fsname:
-        click.echo('run create must provide fsname.', err=True)
-        sys.exit(1)
-    entry = None 
-    if len(fsname.split(":")) > 1:
-        name_list = fsname.split(":")
-        entry = name_list[len(name_list) - 1]
-        fsname = name_list[0]
     param_dict = {}
     for k in param:
         splitTxt = k.split("=", 1)
@@ -67,8 +61,8 @@ def create(ctx, fsname, name=None, desc=None, username=None, runyamlpath=None, r
     if disabled is not None:
         disabled = ",".join(disabled)
 
-    valid, response = client.create_run(fsname, username, name, desc, entry, runyamlpath, runyamlraw, param_dict, 
-                            disabled=disabled)
+    valid, response = client.create_run(fsname, username, name, desc, runyamlpath, runyamlraw, pipelineid,
+                            param_dict, disabled=disabled, dockerenv=dockerenv)
 
     if valid:
         click.echo("run[%s] create success with runid[%s]" % (fsname, response))
@@ -81,14 +75,15 @@ def create(ctx, fsname, name=None, desc=None, username=None, runyamlpath=None, r
 @click.option('-f', '--fsname', help='List the specified run by fsname.')
 @click.option('-u', '--username', help='List the specified run by username, only useful for root.')
 @click.option('-r', '--runid', help='List the specified run by runid')
+@click.option('-n', '--name', help='List the specified run by run name')
 @click.option('-m', '--maxsize', default=100, help="Max size of the listed users.")
 @click.option('-mk', '--marker', help="Next page.")
 @click.pass_context
-def list(ctx, fsname=None, username=None, runid=None, maxsize=100, marker=None):
+def list(ctx, fsname=None, username=None, runid=None, name=None, maxsize=100, marker=None):
     """list run.\n """
     client = ctx.obj['client']
     output_format = ctx.obj['output']
-    valid, response, nextmarker = client.list_run(fsname, username, runid, maxsize, marker)
+    valid, response, nextmarker = client.list_run(fsname, username, runid, name, maxsize, marker)
     if valid:
         if len(response):
             _print_runlist(response, output_format)
@@ -151,7 +146,7 @@ def retry(ctx, runid):
     """
     client = ctx.obj['client']
     if not runid:
-        click.echo('run stop must provide runid.', err=True)
+        click.echo('run retry must provide runid.', err=True)
         sys.exit(1)
     valid, response = client.retry_run(runid)
     if valid:
@@ -307,18 +302,25 @@ def _print_run(run, out_format):
     data = [[run.runId, run.status, run.name, run.description, run.entry, run.parameters, run.source, 
              run.runMsg, run.createTime, run.updateTime, run.activateTime]]
     print_output(data, headers, out_format, table_format='grid')
-    if run.run_yaml:
+    if run.runYaml:
         headers = ['run yaml detail']
-        data = [[run.run_yaml]]
+        data = [[run.runYaml]]
         print_output(data, headers, out_format, table_format='grid')
-    if not run.job_info or not len(run.job_info):
+    if (not run.runtime or not len(run.runtime)) and (not run.postProcess or not len(run.postProcess)):
         click.echo("no job found")
         return
-    print_output([], ["Job Details"], out_format)
-    headers = ['job id', 'name', 'status', 'deps', 'start time', 'end time', 'image']
-    data = [[job.jobId, job.name, job.status, job.deps, job.start_time, job.end_time, job.image] 
-            for job in run.job_info]
-    print_output(data, headers, out_format, table_format='grid')
+    if run.runtime and len(run.runtime):
+        print_output([], ["Runtime Details"], out_format)
+        headers = ['job id', 'name', 'status', 'deps', 'start time', 'end time', 'dockerEnv']
+        data = [[job.jobId, job.name, job.status, job.deps, job.start_time, job.end_time, job.dockerEnv] 
+                for job in run.runtime]
+        print_output(data, headers, out_format, table_format='grid')
+    if run.postProcess and len(run.postProcess):
+        print_output([], ["PostProcess Details"], out_format)
+        headers = ['job id', 'name', 'status', 'deps', 'start time', 'end time', 'dockerEnv']
+        data = [[job.jobId, job.name, job.status, job.deps, job.start_time, job.end_time, job.dockerEnv] 
+                for job in run.postProcess]
+        print_output(data, headers, out_format, table_format='grid')
 
 
 def _print_artiface(runs, out_format):

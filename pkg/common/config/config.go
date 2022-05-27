@@ -18,8 +18,9 @@ package config
 
 import (
 	apiv1 "k8s.io/api/core/v1"
-	"paddleflow/pkg/common/logger"
-	"paddleflow/pkg/common/schema"
+
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
 
 var (

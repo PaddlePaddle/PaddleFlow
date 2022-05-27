@@ -26,17 +26,17 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"paddleflow/pkg/client"
-	"paddleflow/pkg/common/config"
-	"paddleflow/pkg/common/logger"
-	"paddleflow/pkg/fs/client/base"
-	"paddleflow/pkg/fs/client/cache"
-	"paddleflow/pkg/fs/client/kv"
-	"paddleflow/pkg/fs/client/meta"
-	"paddleflow/pkg/fs/client/utils"
-	"paddleflow/pkg/fs/client/vfs"
-	fsCommon "paddleflow/pkg/fs/common"
-	"paddleflow/pkg/fs/utils/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/client"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/base"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/cache"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/kv"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/meta"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/utils"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/vfs"
+	fsCommon "github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/common"
 )
 
 func init() {

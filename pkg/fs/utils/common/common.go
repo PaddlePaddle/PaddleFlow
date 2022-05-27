@@ -25,10 +25,10 @@ import (
 	"strconv"
 	"strings"
 
-	"paddleflow/pkg/apiserver/middleware"
-	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/common/logger"
-	"paddleflow/pkg/fs/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/middleware"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 )
 
 const (
@@ -200,4 +200,14 @@ func GetRandID(randNum int) string {
 	b := make([]byte, randNum/2)
 	rand.Read(b)
 	return hex.EncodeToString(b)
+}
+
+func FsIDToFsNameUsername(fsID string) (fsName, username string) {
+	fsArr := strings.Split(fsID, "-")
+	if len(fsArr) < 3 {
+		return "", ""
+	}
+	fsName = fsArr[len(fsArr)-1]
+	username = strings.Join(fsArr[1:len(fsArr)-1], "")
+	return
 }

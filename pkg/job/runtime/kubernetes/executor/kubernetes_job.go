@@ -19,6 +19,7 @@ package executor
 import (
 	"fmt"
 	"io/ioutil"
+	"path/filepath"
 	"reflect"
 	"strings"
 
@@ -31,20 +32,24 @@ import (
 	kubeschema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 
-	"paddleflow/pkg/apiserver/handler"
-	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/common/config"
-	"paddleflow/pkg/common/errors"
-	"paddleflow/pkg/common/k8s"
-	"paddleflow/pkg/common/logger"
-	"paddleflow/pkg/common/schema"
-	"paddleflow/pkg/job/api"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	locationAwareness "github.com/PaddlePaddle/PaddleFlow/pkg/fs/location-awareness"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 )
 
 const (
 	defaultPodReplicas        = 1 // default replicas for pod mode
 	defaultPSReplicas         = 1 // default replicas for PS mode, including ps-server and ps-worker
 	defaultCollectiveReplicas = 2 // default replicas for collective mode
+
+	fsLocationAwarenessKey    = "kubernetes.io/hostname"
+	fsLocationAwarenessWeight = 100
 )
 
 // KubeJobInterface define methods for create kubernetes job
@@ -205,6 +210,49 @@ func newFrameWorkJob(kubeJob KubeJob, job *api.PFJob) (api.PFJobInterface, error
 	}
 }
 
+func (j *KubeJob) generateAffinity(affinity *corev1.Affinity, fsIDs []string) *corev1.Affinity {
+	nodes, err := locationAwareness.ListFsCacheLocation(fsIDs)
+	if err != nil || len(nodes) == 0 {
+		log.Warningf("get location awareness for PaddleFlow filesystem %s failed or cache location is empty, err: %v", fsIDs, err)
+		return affinity
+	}
+	log.Infof("nodes for PaddleFlow filesystem %s location awareness: %v", fsIDs, nodes)
+	fsCacheAffinity := j.fsCacheAffinity(nodes)
+	if affinity == nil {
+		return fsCacheAffinity
+	}
+	// merge filesystem location awareness affinity to pod affinity
+	if affinity.NodeAffinity == nil {
+		affinity.NodeAffinity = fsCacheAffinity.NodeAffinity
+	} else {
+		affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(
+			fsCacheAffinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution,
+			affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution...)
+	}
+	return affinity
+}
+
+func (j *KubeJob) fsCacheAffinity(nodes []string) *corev1.Affinity {
+	return &corev1.Affinity{
+		NodeAffinity: &corev1.NodeAffinity{
+			PreferredDuringSchedulingIgnoredDuringExecution: []corev1.PreferredSchedulingTerm{
+				{
+					Weight: fsLocationAwarenessWeight,
+					Preference: corev1.NodeSelectorTerm{
+						MatchExpressions: []corev1.NodeSelectorRequirement{
+							{
+								Key:      fsLocationAwarenessKey,
+								Operator: corev1.NodeSelectorOpIn,
+								Values:   nodes,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func (j *KubeJob) generateVolume() corev1.Volume {
 	if j.PVCName == "" || j.VolumeName == "" {
 		return corev1.Volume{}
@@ -302,6 +350,11 @@ func (j *KubeJob) fillPodSpec(podSpec *corev1.PodSpec, task *models.Member) {
 	if j.isNeedPatch(string(podSpec.RestartPolicy)) {
 		podSpec.RestartPolicy = corev1.RestartPolicyNever
 	}
+	// fill affinity
+	if len(j.VolumeName) != 0 {
+		// TODO: support multi filesystems
+		podSpec.Affinity = j.generateAffinity(podSpec.Affinity, []string{j.VolumeName})
+	}
 }
 
 // todo: to be removed
@@ -332,17 +385,17 @@ func (j *KubeJob) fillContainerInTasks(container *corev1.Container, task models.
 	container.Env = j.appendEnvIfAbsent(container.Env, j.generateEnvVars())
 }
 
-//appendLabelsIfAbsent append labels if absent
+// appendLabelsIfAbsent append labels if absent
 func (j *KubeJob) appendLabelsIfAbsent(labels map[string]string, addLabels map[string]string) map[string]string {
 	return appendMapsIfAbsent(labels, addLabels)
 }
 
-//appendAnnotationsIfAbsent append Annotations if absent
+// appendAnnotationsIfAbsent append Annotations if absent
 func (j *KubeJob) appendAnnotationsIfAbsent(Annotations map[string]string, addAnnotations map[string]string) map[string]string {
 	return appendMapsIfAbsent(Annotations, addAnnotations)
 }
 
-//appendMapsIfAbsent append Maps if absent, only support string type
+// appendMapsIfAbsent append Maps if absent, only support string type
 func appendMapsIfAbsent(Maps map[string]string, addMaps map[string]string) map[string]string {
 	if Maps == nil {
 		Maps = make(map[string]string)
@@ -477,6 +530,76 @@ func (j *KubeJob) DeleteJob() error {
 
 func (j *KubeJob) GetID() string {
 	return j.ID
+}
+
+// patchPaddlePara patch some parameters for paddle para job, and must be work with a shared gpu device plugin
+// environments for paddle para job:
+//   PF_PADDLE_PARA_JOB: defines the job is a paddle para job
+//   PF_PADDLE_PARA_PRIORITY: defines the priority of paddle para job, 0 is high, and 1 is low.
+//   PF_PADDLE_PARA_CONFIG_FILE: defines the config of paddle para job
+func (j *KubeJob) patchPaddlePara(podTemplate *corev1.Pod, jobName string) error {
+	// get parameters from user's job config
+	var paddleParaPriority string
+	p := j.Env[schema.EnvPaddleParaPriority]
+	switch strings.ToLower(p) {
+	case schema.PriorityClassHigh:
+		paddleParaPriority = "0"
+	case schema.PriorityClassLow, "":
+		paddleParaPriority = "1"
+	default:
+		return fmt.Errorf("priority %s for paddle para job is invalid", p)
+	}
+	// the config path of paddle para gpu job on host os, which will be mounted to job
+	gpuConfigFile := schema.PaddleParaGPUConfigFilePath
+	value, find := j.Env[schema.EnvPaddleParaConfigHostFile]
+	if find {
+		gpuConfigFile = value
+	}
+	gpuConfigDirPath := filepath.Dir(gpuConfigFile)
+	if gpuConfigDirPath == "/" {
+		return fmt.Errorf("the directory of gpu config file %s cannot be mounted", gpuConfigFile)
+	}
+
+	// 1. patch jobName and priority in Annotations
+	if podTemplate.ObjectMeta.Annotations == nil {
+		podTemplate.ObjectMeta.Annotations = make(map[string]string)
+	}
+	podTemplate.ObjectMeta.Annotations[schema.PaddleParaAnnotationKeyJobName] = jobName
+	podTemplate.ObjectMeta.Annotations[schema.PaddleParaAnnotationKeyPriority] = paddleParaPriority
+	// 2. patch env, including config file and job name
+	env := podTemplate.Spec.Containers[0].Env
+	podTemplate.Spec.Containers[0].Env = append([]corev1.EnvVar{
+		{
+			Name:  schema.PaddleParaEnvJobName,
+			Value: jobName,
+		},
+		{
+			Name:  schema.PaddleParaEnvGPUConfigFile,
+			Value: gpuConfigFile,
+		},
+	}, env...)
+	// 3. patch volumes and volumeMounts
+	dirType := corev1.HostPathDirectory
+	volumes := podTemplate.Spec.Volumes
+	podTemplate.Spec.Volumes = append([]corev1.Volume{
+		{
+			Name: schema.PaddleParaVolumeName,
+			VolumeSource: corev1.VolumeSource{
+				HostPath: &corev1.HostPathVolumeSource{
+					Path: gpuConfigDirPath,
+					Type: &dirType,
+				},
+			},
+		},
+	}, volumes...)
+	volumeMounts := podTemplate.Spec.Containers[0].VolumeMounts
+	podTemplate.Spec.Containers[0].VolumeMounts = append([]corev1.VolumeMount{
+		{
+			Name:      schema.PaddleParaVolumeName,
+			MountPath: gpuConfigDirPath,
+		},
+	}, volumeMounts...)
+	return nil
 }
 
 // JobModeParams records the parameters related to job mode
