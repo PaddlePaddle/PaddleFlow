@@ -33,7 +33,7 @@ def run():
 
 
 @run.command()
-@click.option('-fs', '--fsname', help='The name of fs')
+@click.option('-f', '--fsname', help='The name of fs')
 @click.option('-n', '--name', help='The name of run.')
 @click.option('-d', '--desc', help='The description of run.')
 @click.option('-u', '--username', help='Run the specified run by username, only useful for root.')
