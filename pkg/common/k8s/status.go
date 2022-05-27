@@ -26,10 +26,10 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8sschema "k8s.io/apimachinery/pkg/runtime/schema"
-	sparkoperatorv1beta2 "paddleflow/pkg/apis/spark-operator/sparkoperator.k8s.io/v1beta2"
 	batchv1alpha1 "volcano.sh/apis/pkg/apis/batch/v1alpha1"
 
-	"paddleflow/pkg/common/schema"
+	sparkoperatorv1beta2 "github.com/PaddlePaddle/PaddleFlow/pkg/apis/spark-operator/sparkoperator.k8s.io/v1beta2"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
 
 func ConvertToStatus(obj interface{}, gvk k8sschema.GroupVersionKind) (interface{}, error) {
@@ -178,7 +178,7 @@ func PaddleJobStatus(obj interface{}) (StatusInfo, error) {
 		return StatusInfo{}, err
 	}
 	jobStatus := status.(*paddlejobv1.PaddleJobStatus)
-	state, err := getPaddleJobStatus(jobStatus.Phase)
+	state, msg, err := getPaddleJobStatus(jobStatus.Phase)
 	if err != nil {
 		log.Errorf("get PaddleJob status failed, err: %v", err)
 		return StatusInfo{}, err
@@ -187,29 +187,35 @@ func PaddleJobStatus(obj interface{}) (StatusInfo, error) {
 	return StatusInfo{
 		OriginStatus: string(jobStatus.Phase),
 		Status:       state,
-		Message:      "",
+		Message:      msg,
 	}, nil
 }
 
-func getPaddleJobStatus(phase paddlejobv1.PaddleJobPhase) (schema.JobStatus, error) {
+func getPaddleJobStatus(phase paddlejobv1.PaddleJobPhase) (schema.JobStatus, string, error) {
 	status := schema.JobStatus("")
+	msg := ""
 	switch phase {
 	case paddlejobv1.Starting, paddlejobv1.Pending:
 		status = schema.StatusJobPending
 	case paddlejobv1.Running, paddlejobv1.Restarting, paddlejobv1.Completing, paddlejobv1.Scaling:
 		status = schema.StatusJobRunning
+		msg = "paddle job is running"
 	case paddlejobv1.Terminating, paddlejobv1.Aborting:
 		status = schema.StatusJobTerminating
+		msg = "paddle job is terminating"
 	case paddlejobv1.Completed, paddlejobv1.Succeed:
 		status = schema.StatusJobSucceeded
+		msg = "paddle job is succeeded"
 	case paddlejobv1.Aborted:
 		status = schema.StatusJobTerminated
+		msg = "paddle job is terminated"
 	case paddlejobv1.Failed, paddlejobv1.Terminated, paddlejobv1.Unknown:
 		status = schema.StatusJobFailed
+		msg = "paddle job is failed"
 	default:
-		return status, fmt.Errorf("unexpected paddlejob status: %s", phase)
+		return status, "", fmt.Errorf("unexpected paddlejob status: %s", phase)
 	}
-	return status, nil
+	return status, msg, nil
 }
 
 // SingleJobStatus get single job status, message from interface{}, and covert to JobStatus
@@ -220,7 +226,7 @@ func SingleJobStatus(obj interface{}) (StatusInfo, error) {
 		return StatusInfo{}, err
 	}
 	jobStatus := status.(*v1.PodStatus)
-	state, err := getSingleJobStatus(jobStatus.Phase)
+	state, msg, err := getSingleJobStatus(jobStatus)
 	if err != nil {
 		log.Errorf("get SingleJob status failed, err: %v", err)
 		return StatusInfo{}, err
@@ -229,25 +235,55 @@ func SingleJobStatus(obj interface{}) (StatusInfo, error) {
 	return StatusInfo{
 		OriginStatus: string(jobStatus.Phase),
 		Status:       state,
-		Message:      "",
+		Message:      msg,
 	}, nil
 }
 
-func getSingleJobStatus(phase v1.PodPhase) (schema.JobStatus, error) {
+func getSingleJobStatus(jobStatus *v1.PodStatus) (schema.JobStatus, string, error) {
 	status := schema.JobStatus("")
-	switch phase {
+	msg := ""
+	switch jobStatus.Phase {
 	case v1.PodPending:
 		status = schema.StatusJobPending
 	case v1.PodRunning:
 		status = schema.StatusJobRunning
+		msg = "job is running"
 	case v1.PodSucceeded:
 		status = schema.StatusJobSucceeded
+		msg = "job is succeeded"
 	case v1.PodFailed, v1.PodUnknown:
 		status = schema.StatusJobFailed
+		msg = getSingleJobMessage(jobStatus)
 	default:
-		return status, fmt.Errorf("unexpected single job status: %s", phase)
+		return status, "", fmt.Errorf("unexpected single job status: %s", jobStatus.Phase)
 	}
-	return status, nil
+	return status, msg, nil
+}
+
+func getSingleJobMessage(jobStatus *v1.PodStatus) string {
+	if jobStatus.Phase != v1.PodFailed && jobStatus.Phase != v1.PodUnknown {
+		return ""
+	}
+	errMessage := "job is failed, "
+	for _, initConStatus := range jobStatus.InitContainerStatuses {
+		if initConStatus.State.Terminated != nil {
+			errMessage += fmt.Sprintf("init container: %s exited with code: %d, reason: %s, message: %s",
+				initConStatus.Name,
+				initConStatus.State.Terminated.ExitCode,
+				initConStatus.State.Terminated.Reason,
+				initConStatus.State.Terminated.Message)
+		}
+	}
+	for _, conStatus := range jobStatus.ContainerStatuses {
+		if conStatus.State.Terminated != nil {
+			errMessage += fmt.Sprintf("container %s exited with code: %d, reason: %s, message: %s",
+				conStatus.Name,
+				conStatus.State.Terminated.ExitCode,
+				conStatus.State.Terminated.Reason,
+				conStatus.State.Terminated.Message)
+		}
+	}
+	return errMessage
 }
 
 // ArgoWorkflowStatus get argo workflow status, message from interface{}, and covert to JobStatus
@@ -267,7 +303,7 @@ func ArgoWorkflowStatus(obj interface{}) (StatusInfo, error) {
 	return StatusInfo{
 		OriginStatus: string(wfStatus.Phase),
 		Status:       state,
-		Message:      "",
+		Message:      wfStatus.Message,
 	}, nil
 }
 

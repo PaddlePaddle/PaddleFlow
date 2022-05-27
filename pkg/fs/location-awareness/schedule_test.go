@@ -21,9 +21,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"paddleflow/pkg/apiserver/controller/fs"
-	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/common/database/dbinit"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/fs"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database/dbinit"
 )
 
 func TestListMountNodesByFsID(t *testing.T) {
@@ -62,21 +62,15 @@ func TestListMountNodesByFsID(t *testing.T) {
 	assert.Nil(t, err)
 
 	fsIDs := []string{fsID1, fsID2, "fs-non-exist"}
-	resp, err := ListMountNodesByFsID(fsIDs)
+	nodeList, err := ListFsCacheLocation(fsIDs)
 	assert.Nil(t, err)
 
-	nodeNames, exist := resp[fsID1]
-	assert.Equal(t, true, exist)
-	assert.Equal(t, 2, len(nodeNames))
-	assert.Equal(t, nodeName1, nodeNames[0])
-	assert.Equal(t, nodeName2, nodeNames[1])
-
-	nodeNames, exist = resp[fsID2]
-	assert.Equal(t, true, exist)
-	assert.Equal(t, 1, len(nodeNames))
-	assert.Equal(t, nodeName1, nodeNames[0])
-
-	nodeNames, exist = resp["fs-non-exist"]
-	assert.Equal(t, true, exist)
-	assert.Equal(t, 0, len(nodeNames))
+	assert.Equal(t, 2, len(nodeList))
+	cnt := 0
+	for _, nodeName := range nodeList {
+		if nodeName == nodeName1 || nodeName == nodeName2 {
+			cnt++
+		}
+	}
+	assert.Equal(t, 2, cnt)
 }

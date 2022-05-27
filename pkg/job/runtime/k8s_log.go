@@ -31,8 +31,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 
-	"paddleflow/pkg/apiserver/common"
-	"paddleflow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
 
 // maximum number of lines loaded from the apiserver
@@ -110,8 +110,8 @@ func constructTaskLog(client kubernetes.Interface, namespace, name, logFilePosit
 		limitFlag := isReadLimitReached(int64(len(logContent)), int64(length), logFilePosition)
 		overFlag := false
 		// 判断开始位置是否已超过日志总行数，若超过overFlag为true；
-		//如果是logFilePPosition为end，则看下startIndex是否已经超过0，若超过则置startIndex为-1（从最开始获取），并检查日志是否被截断
-		//如果是logFilePPosition为begin，则判断末尾index是否超过总长度，若超过endIndex为-1（直到末尾），并检查日志是否被截断
+		// 如果是logFilePPosition为end，则看下startIndex是否已经超过0，若超过则置startIndex为-1（从最开始获取），并检查日志是否被截断
+		// 如果是logFilePPosition为begin，则判断末尾index是否超过总长度，若超过endIndex为-1（直到末尾），并检查日志是否被截断
 		if (pageNo-1)*pageSize+1 <= length {
 			switch logFilePosition {
 			case common.EndFilePosition:

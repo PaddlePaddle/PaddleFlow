@@ -24,7 +24,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 	log "github.com/sirupsen/logrus"
 
-	"paddleflow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
 
 type DictParam struct {
@@ -350,6 +350,7 @@ func (s *StepParamChecker) getSysParams() map[string]string {
 func (s *StepParamChecker) checkDuplication(currentStep string) error {
 	/*
 		currentStep内，parameter, input/output artifact是否有重复的参数名
+		这里的重名检查是大小写不敏感的，如"param"和"ParAm"会被认为重名
 		Args:
 			currentStep: 需要校验的step名
 	*/
@@ -360,29 +361,35 @@ func (s *StepParamChecker) checkDuplication(currentStep string) error {
 
 	m := make(map[string]string)
 	for paramName, _ := range step.Parameters {
-		_, ok := m[paramName]
+		paramNameUpper := strings.ToUpper(paramName)
+		_, ok := m[paramNameUpper]
 		if ok {
-			return fmt.Errorf("parameter name[%s] has already existed in params/artifacts of step[%s]", paramName, currentStep)
+			return fmt.Errorf("parameter name[%s] has already existed in params/artifacts of step[%s] (these names are case-insensitive)",
+				paramName, currentStep)
 		} else {
-			m[paramName] = ""
+			m[paramNameUpper] = ""
 		}
 	}
 
 	for inputAtfName, _ := range step.Artifacts.Input {
-		_, ok := m[inputAtfName]
+		inputAtfNameUpper := strings.ToUpper(inputAtfName)
+		_, ok := m[inputAtfNameUpper]
 		if ok {
-			return fmt.Errorf("inputAtf name[%s] has already existed in params/artifacts of step[%s]", inputAtfName, currentStep)
+			return fmt.Errorf("inputAtf name[%s] has already existed in params/artifacts of step[%s] (these names are case-insensitive)",
+				inputAtfName, currentStep)
 		} else {
-			m[inputAtfName] = ""
+			m[inputAtfNameUpper] = ""
 		}
 	}
 
 	for outputAtfName, _ := range step.Artifacts.Output {
-		_, ok := m[outputAtfName]
+		outputAtfNameUpper := strings.ToUpper(outputAtfName)
+		_, ok := m[outputAtfNameUpper]
 		if ok {
-			return fmt.Errorf("outputAtf name[%s] has already existed in params/artifacts of step[%s]", outputAtfName, currentStep)
+			return fmt.Errorf("outputAtf name[%s] has already existed in params/artifacts of step[%s] (these names are case-insensitive)",
+				outputAtfName, currentStep)
 		} else {
-			m[outputAtfName] = ""
+			m[outputAtfNameUpper] = ""
 		}
 	}
 
@@ -638,6 +645,14 @@ func checkDictParam(dict DictParam, paramName string, realVal interface{}) (inte
 			return realVal, nil
 		}
 		return nil, InvalidParamTypeError(realVal, ParamTypeFloat)
+	case ParamTypeInt:
+		_, ok1 := realVal.(int32)
+		_, ok2 := realVal.(int64)
+		_, ok3 := realVal.(int)
+		if ok1 || ok2 || ok3 {
+			return realVal, nil
+		}
+		return nil, InvalidParamTypeError(realVal, ParamTypeInt)
 	case ParamTypePath:
 		realValStr, ok := realVal.(string)
 		if !ok {

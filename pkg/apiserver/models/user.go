@@ -21,8 +21,8 @@ import (
 
 	"gorm.io/gorm"
 
-	"paddleflow/pkg/common/database"
-	"paddleflow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 )
 
 const (
