@@ -277,7 +277,10 @@ func InitVFS(c *cli.Context, registry *prometheus.Registry) error {
 			return fmt.Errorf("invalid password: [%s]", password)
 		}
 
-		httpClient := client.NewHttpClient(server, client.DefaultTimeOut)
+		httpClient, err := client.NewHttpClient(server, client.DefaultTimeOut)
+		if err != nil {
+			return err
+		}
 
 		// 获取token
 		login := api.LoginParams{
