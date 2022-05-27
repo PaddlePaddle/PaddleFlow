@@ -285,7 +285,13 @@ func validateFlavours(conf schema.PFJobConf, queue *models.Queue) error {
 		if len(flavor) == 0 {
 			continue
 		}
-		if err := isEnoughQueueCapacity(flavor, queue.MaxResources); err != nil {
+		flavourValue, err := flavour.GetFlavourWithCheck(schema.Flavour{Name: flavor})
+		if err != nil {
+			log.Errorf("get flavour[%+v] failed, err: %v", flavourValue, err)
+			return err
+		}
+
+		if err := isEnoughQueueCapacity(flavourValue, queue.MaxResources); err != nil {
 			errMsg := fmt.Sprintf("queue %s has no enough resource:%s", conf.GetQueueName(), err.Error())
 			log.Errorf(errMsg)
 			return fmt.Errorf(errMsg)
@@ -295,16 +301,10 @@ func validateFlavours(conf schema.PFJobConf, queue *models.Queue) error {
 }
 
 // isEnoughQueueCapacity validate queue matching flavor
-func isEnoughQueueCapacity(flavourKey string, queueResource schema.ResourceInfo) error {
-	flavourValue, err := flavour.GetFlavourWithCheck(schema.Flavour{Name: flavourKey})
-	if err != nil {
-		log.Errorf("get flavour[%s] failed, err: %v", flavourKey, err)
-		return err
-	}
-
+func isEnoughQueueCapacity(flavourValue schema.Flavour, queueResource schema.ResourceInfo) error {
 	// all field in flavour must be less equal than queue's
 	if !flavourValue.ResourceInfo.LessEqual(queueResource) {
-		errMsg := fmt.Sprintf("the request flavour[%s] is larger than queue's", flavourKey)
+		errMsg := fmt.Sprintf("the flavour[%+v] is larger than queue's [%+v]", flavourValue, queueResource)
 		log.Errorf(errMsg)
 		return fmt.Errorf(errMsg)
 	}

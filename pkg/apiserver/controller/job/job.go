@@ -236,6 +236,10 @@ func patchFromCommonInfo(conf *schema.Conf, commonJobInfo *CommonJobInfo) error 
 		}
 		return err
 	}
+	if err = IsEnoughQueueCapacity(conf.Flavour, queue.MaxResources); err != nil {
+		log.Errorf("patch Job from commonInfo failed, err:=%v", err)
+		return err
+	}
 	queueID := commonJobInfo.SchedulingPolicy.QueueID
 	conf.SetQueueID(queueID)
 	conf.SetQueueName(queueName)
@@ -395,6 +399,7 @@ func newCollectiveMembers(request *CreateDisJobRequest) ([]models.Member, error)
 				log.Errorf("create collective members failed, err=%v", err)
 				return nil, err
 			}
+			patchFromCommonInfo(&member.Conf, &request.CommonJobInfo)
 			members = append(members, member)
 		}
 	}
@@ -680,6 +685,17 @@ func validateFileSystem(fs schema.FileSystem, userName string) error {
 	if _, err := models.GetFileSystemWithFsID(fsID); err != nil {
 		log.Errorf("get filesystem %s failed, err: %v", fsID, err)
 		return fmt.Errorf("find file system %s failed, err: %v", fs.Name, err)
+	}
+	return nil
+}
+
+// IsEnoughQueueCapacity validate queue matching flavor
+func IsEnoughQueueCapacity(flavourValue schema.Flavour, queueResource schema.ResourceInfo) error {
+	// all field in flavour must be less equal than queue's
+	if !flavourValue.ResourceInfo.LessEqual(queueResource) {
+		errMsg := fmt.Sprintf("the flavour[%+v] is larger than queue's [%+v]", flavourValue, queueResource)
+		log.Errorf(errMsg)
+		return fmt.Errorf(errMsg)
 	}
 	return nil
 }
