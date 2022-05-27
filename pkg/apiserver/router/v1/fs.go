@@ -53,7 +53,6 @@ func (pr *PFSRouter) AddRouter(r chi.Router) {
 	r.Get("/fs", pr.listFileSystem)
 	r.Get("/fs/{fsName}", pr.getFileSystem)
 	r.Delete("/fs/{fsName}", pr.deleteFileSystem)
-	r.Post("/fs/claims", pr.createFileSystemClaims)
 	// fs cache config
 	r.Post("/fsCache", pr.createFSCacheConfig)
 	r.Put("/fsCache/{fsName}", pr.updateFSCacheConfig)
@@ -506,6 +505,19 @@ func (pr *PFSRouter) deleteFileSystem(w http.ResponseWriter, r *http.Request) {
 		} else {
 			common.RenderErrWithMessage(w, ctx.RequestID, common.FileSystemDataBaseError, err.Error())
 		}
+		return
+	}
+	fsMount := &models.FsMount{FsID: fsID}
+	listMount, err := fsMount.ListMount(fsMount, 1, "")
+	if err != nil {
+		ctx.Logging().Errorf("list mount with fsID[%s] error[%v]", fsID, err)
+		common.RenderErrWithMessage(w, ctx.RequestID, common.FileSystemDataBaseError, err.Error())
+		return
+	}
+	if len(listMount) != 0 {
+		ctx.Logging().Errorf("list mount result %v", listMount)
+		ctx.ErrorMessage = fmt.Sprintf("fsName[%s] is being used by pod and cannot be deleted", fsName)
+		common.RenderErrWithMessage(w, ctx.RequestID, common.ActionNotAllowed, err.Error())
 		return
 	}
 

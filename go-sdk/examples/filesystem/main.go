@@ -46,8 +46,9 @@ func main() {
 	token := data.Authorization
 	name := "pfstest"
 	createResult, err := pfClient.APIV1().FileSystem().Create(context.TODO(), &fs.CreateFileSystemRequest{
-		Name: name,
-		Url:  "glusterfs://10.190.170.12:ape-default-volume",
+		Name:       name,
+		Url:        "",
+		Properties: map[string]string{},
 	}, token)
 	if err != nil {
 		panic(err)
