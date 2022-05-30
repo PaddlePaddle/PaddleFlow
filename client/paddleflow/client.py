@@ -20,6 +20,7 @@ import json
 from urllib import parse
 from paddleflow.common.exception.paddleflow_sdk_exception import PaddleFlowSDKException
 from paddleflow.common import api
+from paddleflow.job import JobServiceApi
 from paddleflow.log import LogServiceApi
 from paddleflow.user import UserServiceApi
 from paddleflow.queue import QueueServiceApi
@@ -403,7 +404,7 @@ class Client(object):
         userinfo={'header': self.header, 'name': username, 'host': self.paddleflow_server}
         return FSServiceApi.show_link(self.paddleflow_server, fsname, fspath, self.user_id, userinfo)
 
-    def create_run(self, fsname, username=None, runname=None, desc=None, 
+    def create_run(self, fsname=None, username=None, runname=None, desc=None, 
                         runyamlpath=None, runyamlraw=None, pipelineid=None, param=None, disabled=None, dockerenv=None):
         """
         create run
@@ -611,3 +612,48 @@ class Client(object):
             raise PaddleFlowSDKException("InvalidRunID", "runid should not be none or empty")
         return LogServiceApi.get_log_info(self.paddleflow_server, runid, jobid, pagesize, pageno, logfileposition,
                                           self.header)
+
+    def create_job(self, job_type, job_request):
+        """
+        create_job
+        """
+        self.pre_check()
+        if job_type is None or (job_type != 'single' and job_type != 'distributed' and job_type != 'workflow'):
+            raise PaddleFlowSDKException("InvalidJobType", "job_type should not be none and should be single, distributed or workflow")
+        if job_request.queue is None or job_request.queue == '':
+            raise PaddleFlowSDKException("InvalidJobRequest", "job_request queue should not be none or empty")
+        return JobServiceApi.create_job(self.paddleflow_server, job_type, job_request, self.header)
+
+    def show_job(self, jobid):
+        """
+        show_job
+        """
+        self.pre_check()
+        if jobid is None or jobid == "":
+            raise PaddleFlowSDKException("InvalidJobID", "jobid should not be none or empty")
+        return JobServiceApi.show_job(self.paddleflow_server, jobid, self.header)
+
+    def list_job(self, status=None, timestamp=None, start_time=None, queue=None, labels=None, maxkeys=None, marker=None):
+        """
+        list_job
+        """
+        self.pre_check()
+        return JobServiceApi.list_job(self.paddleflow_server, status, timestamp, start_time, queue, labels, maxkeys, marker, self.header)
+
+    def stop_job(self, jobid):
+        """
+        stop_job
+        """
+        self.pre_check()
+        if jobid is None or jobid == "":
+            raise PaddleFlowSDKException("InvalidJobID", "jobid should not be none or empty")
+        return JobServiceApi.stop_job(self.paddleflow_server, jobid, self.header)
+
+    def delete_job(self, jobid):
+        """
+        delete_job
+        """
+        self.pre_check()
+        if jobid is None or jobid == "":
+            raise PaddleFlowSDKException("InvalidJobID", "jobid should not be none or empty")
+        return JobServiceApi.delete_job(self.paddleflow_server, jobid, self.header)

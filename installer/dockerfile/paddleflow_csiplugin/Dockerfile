@@ -5,6 +5,6 @@ ENV WORKDIR /home/paddleflow
 RUN adduser -g paddleflow paddleflow -D
 ADD  output/bin/csi-plugin $WORKDIR/csi-plugin
 ADD  output/bin/pfs-fuse $WORKDIR/pfs-fuse
-ADD  output/bin/mount.sh $WORKDIR/mount.sh
+ADD  output/bin/cache_worker $WORKDIR/cache-worker
 
 WORKDIR /home/paddleflow
