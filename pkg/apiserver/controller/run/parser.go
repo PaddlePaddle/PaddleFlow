@@ -46,7 +46,6 @@ func (p *Parser) ParseNodes(entryPoints map[string]interface{}) (map[string]inte
 			}
 			nodes[name] = &stepNode
 		}
-
 	}
 	return nodes, nil
 }
@@ -127,10 +126,44 @@ func (p *Parser) ParseStep(params map[string]interface{}, stepNode *schema.Workf
 			if !ok {
 				return fmt.Errorf("[cache] in step should be map[string]interface type")
 			}
-			for cacheKey, cacheValue 
-			
+			for cacheKey, cacheValue := range value {
+				switch cacheKey {
+				case "enable":
+					cacheValue, ok := cacheValue.(bool)
+					if !ok {
+						return fmt.Errorf("[cache.enable] in step should be bool type")
+					}
+					cache.Enable = cacheValue
+				case "maxExpiredTime":
+					fallthrough
+				case "max_expired_time":
+					cacheValue, ok := cacheValue.(string)
+					if !ok {
+						return fmt.Errorf("[cache.max_expired_time/maxExpiredTime] in step should be string type")
+					}
+					cache.MaxExpiredTime = cacheValue
+				case "fsScope":
+					fallthrough
+				case "fs_scope":
+					cacheValue, ok := cacheValue.(string)
+					if !ok {
+						return fmt.Errorf("[cache.fs_scope/fsScope] in step should be string type")
+					}
+					cache.FsScope = cacheValue
+				default:
+					return fmt.Errorf("[cache] of step has no attribute [%s]", cacheKey)
+				}
+			}
+			stepNode.Cache = cache
+		case "reference":
+			value, ok := value.(string)
+			if !ok {
+				return fmt.Errorf("[reference] in step should be string type")
+			}
+			stepNode.Reference = value
+		default:
+			return fmt.Errorf("step has no attribute [%s]", key)
 		}
-
 	}
 	return nil
 }

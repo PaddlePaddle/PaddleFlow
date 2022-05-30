@@ -212,7 +212,15 @@ func getWorkFlowSourceByReq(request *CreateRunByJsonRequest, bodyMap map[string]
 	request.Env[schema.EnvJobQueueName] = request.Queue
 	request.Env[schema.EnvJobFlavour] = request.Flavour
 
-	entryPoints := parseRunSteps(request.EntryPoints, request)
+	// TODO: handle errors
+	entryPointsMap, _, _ := unstructured.NestedFieldCopy(bodyMap, "entryPoints")
+	entryPointsNodes := entryPointsMap.(map[string]interface{})
+	parser := Parser{}
+	nodes, _ := parser.ParseNodes(entryPointsNodes)
+	entryPoints := schema.WorkflowSourceDag{
+		EntryPoints: nodes,
+	}
+
 	postProcess := parseRunSteps(request.PostProcess, request)
 	failureOptions := schema.FailureOptions{Strategy: schema.FailureStrategyFailFast}
 	if request.FailureOptions.Strategy != "" {
