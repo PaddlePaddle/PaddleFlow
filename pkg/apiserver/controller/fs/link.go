@@ -27,13 +27,13 @@ import (
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 
-	"paddleflow/pkg/apiserver/common"
-	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/common/config"
-	"paddleflow/pkg/common/logger"
-	fuse "paddleflow/pkg/fs/client/fs"
-	fsCommon "paddleflow/pkg/fs/common"
-	utils "paddleflow/pkg/fs/utils/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	fuse "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/fs"
+	fsCommon "github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
+	utils "github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/common"
 )
 
 // LinkService the service which contains the operation of link

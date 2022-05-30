@@ -29,14 +29,14 @@ import (
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 
-	"paddleflow/pkg/apiserver/common"
-	"paddleflow/pkg/apiserver/controller/job"
-	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/apiserver/router/util"
-	"paddleflow/pkg/common/config"
-	"paddleflow/pkg/common/errors"
-	"paddleflow/pkg/common/logger"
-	"paddleflow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/job"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
 
 // JobRouter is job api router

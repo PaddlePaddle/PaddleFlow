@@ -29,15 +29,15 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"paddleflow/pkg/apiserver/common"
-	api "paddleflow/pkg/apiserver/controller/fs"
-	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/apiserver/router/util"
-	"paddleflow/pkg/common/config"
-	"paddleflow/pkg/common/logger"
-	fuse "paddleflow/pkg/fs/client/fs"
-	fsCommon "paddleflow/pkg/fs/common"
-	"paddleflow/pkg/fs/utils/k8s"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
+	api "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/fs"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	fuse "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/fs"
+	fsCommon "github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/k8s"
 )
 
 type PFSRouter struct{}
@@ -53,11 +53,11 @@ func (pr *PFSRouter) AddRouter(r chi.Router) {
 	r.Get("/fs", pr.listFileSystem)
 	r.Get("/fs/{fsName}", pr.getFileSystem)
 	r.Delete("/fs/{fsName}", pr.deleteFileSystem)
-	r.Post("/fs/claims", pr.createFileSystemClaims)
 	// fs cache config
 	r.Post("/fsCache", pr.createFSCacheConfig)
 	r.Put("/fsCache/{fsName}", pr.updateFSCacheConfig)
 	r.Get("/fsCache/{fsName}", pr.getFSCacheConfig)
+	r.Delete("/fsCache/{fsName}", pr.deleteFSCacheConfig)
 	r.Post("/fsCache/report", pr.fsCacheReport)
 	// fs mount
 	r.Post("/fsMount", pr.createFsMount)
@@ -505,6 +505,19 @@ func (pr *PFSRouter) deleteFileSystem(w http.ResponseWriter, r *http.Request) {
 		} else {
 			common.RenderErrWithMessage(w, ctx.RequestID, common.FileSystemDataBaseError, err.Error())
 		}
+		return
+	}
+	fsMount := &models.FsMount{FsID: fsID}
+	listMount, err := fsMount.ListMount(fsMount, 1, "")
+	if err != nil {
+		ctx.Logging().Errorf("list mount with fsID[%s] error[%v]", fsID, err)
+		common.RenderErrWithMessage(w, ctx.RequestID, common.FileSystemDataBaseError, err.Error())
+		return
+	}
+	if len(listMount) != 0 {
+		ctx.Logging().Errorf("list mount result %v", listMount)
+		ctx.ErrorMessage = fmt.Sprintf("fsName[%s] is being used by pod and cannot be deleted", fsName)
+		common.RenderErrWithMessage(w, ctx.RequestID, common.ActionNotAllowed, err.Error())
 		return
 	}
 

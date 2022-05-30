@@ -25,10 +25,10 @@ import (
 	"strconv"
 	"strings"
 
-	"paddleflow/pkg/apiserver/middleware"
-	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/common/logger"
-	"paddleflow/pkg/fs/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/middleware"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 )
 
 const (
@@ -68,7 +68,7 @@ func GetVolumeSourceMountPath(pathPrefix string) string {
 }
 
 // GetSourceMountPathByPod default value: /var/lib/kubelet/pods/{podUID}/volumes/{volumePluginName}/{volumeName}/source
-func GetSourceMountPathByPod(podUID string, volumeName string) string {
+func GetSourceMountPathByPod(podUID, volumeName string) string {
 	return fmt.Sprintf("%s/pods/%s/volumes/%s/%s/source", GetKubeletDataPath(),
 		podUID, VolumePluginName, volumeName)
 }

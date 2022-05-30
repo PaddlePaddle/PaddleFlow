@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"strings"
 
-	csiCommon "paddleflow/pkg/fs/utils/common"
+	csiCommon "github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/common"
 )
 
 const (

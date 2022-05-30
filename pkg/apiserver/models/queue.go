@@ -24,10 +24,10 @@ import (
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 
-	"paddleflow/pkg/apiserver/common"
-	"paddleflow/pkg/common/database"
-	"paddleflow/pkg/common/schema"
-	"paddleflow/pkg/common/uuid"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
 )
 
 const (
@@ -96,8 +96,8 @@ func (queue *Queue) AfterFind(*gorm.DB) error {
 		}
 	}
 
+	queue.Location = make(map[string]string)
 	if queue.RawLocation != "" {
-		queue.Location = make(map[string]string)
 		if err := json.Unmarshal([]byte(queue.RawLocation), &queue.Location); err != nil {
 			log.Errorf("json Unmarshal Location[%s] failed: %v", queue.RawLocation, err)
 			return err

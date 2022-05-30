@@ -23,11 +23,11 @@ import (
 	log "github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 
-	sparkapp "paddleflow/pkg/apis/spark-operator/sparkoperator.k8s.io/v1beta2"
-	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/common/config"
-	"paddleflow/pkg/common/k8s"
-	"paddleflow/pkg/common/schema"
+	sparkapp "github.com/PaddlePaddle/PaddleFlow/pkg/apis/spark-operator/sparkoperator.k8s.io/v1beta2"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
 
 const defaultExecutorInstances int32 = 1
@@ -50,7 +50,8 @@ func (sj *SparkJob) validateJob() error {
 	}
 	if !sj.IsCustomYaml {
 		if len(sj.Tasks) != 2 {
-			return fmt.Errorf("spark driver or executor is not defined")
+			return fmt.Errorf("the members' roles of sparkapp are driver or executor respectively, " +
+				"but the number of members isn't two")
 		}
 		if sj.Tasks[0].Image == "" {
 			return fmt.Errorf("spark image is not defined")

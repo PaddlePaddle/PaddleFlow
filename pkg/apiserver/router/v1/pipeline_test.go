@@ -22,12 +22,12 @@ import (
 	"strings"
 	"testing"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 
-	log "github.com/sirupsen/logrus"
-	"paddleflow/pkg/apiserver/controller/pipeline"
-	"paddleflow/pkg/apiserver/handler"
-	"paddleflow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/pipeline"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 )
 
 func TestCreatePipeline(t *testing.T) {

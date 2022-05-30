@@ -22,10 +22,10 @@ import (
 	"github.com/go-chi/chi"
 	log "github.com/sirupsen/logrus"
 
-	"paddleflow/pkg/apiserver/common"
-	"paddleflow/pkg/apiserver/controller/queue"
-	"paddleflow/pkg/apiserver/router/util"
-	"paddleflow/pkg/common/config"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/queue"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 )
 
 type QueueRouter struct{}

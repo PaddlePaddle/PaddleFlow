@@ -22,7 +22,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 
-	"paddleflow/cmd/fs/fuse/service"
+	"github.com/PaddlePaddle/PaddleFlow/cmd/fs/fuse/service"
 )
 
 func main() {
