@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	log "github.com/sirupsen/logrus"
+	"volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
@@ -34,6 +35,7 @@ import (
 )
 
 const defaultQueueName = "default"
+const defaultRootEQuotaName = "root"
 
 type CreateQueueRequest struct {
 	Name         string              `json:"name"`
@@ -241,6 +243,18 @@ func CreateQueue(ctx *logger.RequestContext, request *CreateQueueRequest) (Creat
 			ctx.Logging().Errorf("create queue failed. error: maxResources less than minResources")
 			ctx.ErrorCode = common.InvalidComputeResource
 			return CreateQueueResponse{}, fmt.Errorf("maxResources less than minResources")
+		}
+	}
+
+	if request.Location == nil {
+		request.Location = make(map[string]string)
+	}
+	if request.QuotaType == schema.TypeElasticQuota {
+		if _, exist := request.Location[v1beta1.ElasticQuotaParentKey]; !exist {
+			request.Location[v1beta1.ElasticQuotaParentKey] = defaultRootEQuotaName
+		}
+		if _, exist := request.Location[v1beta1.QuotaTypeKey]; !exist {
+			request.Location[v1beta1.QuotaTypeKey] = v1beta1.QuotaTypeLogical
 		}
 	}
 
