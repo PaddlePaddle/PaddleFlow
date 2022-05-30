@@ -385,23 +385,22 @@ func UpdateQueue(ctx *logger.RequestContext, request *UpdateQueueRequest) (Updat
 	}
 
 	// validate Location
-	if queueInfo.Location == nil {
-		queueInfo.Location = make(map[string]string)
-	}
+	newLocation := make(map[string]string)
 	if len(request.Location) != 0 {
 		updateClusterRequired = true
 		for k, location := range request.Location {
-			queueInfo.Location[k] = location
+			newLocation[k] = location
 		}
 	} else if request.Location != nil {
 		updateClusterRequired = true
-		newLocation := make(map[string]string)
-		if queueInfo.QuotaType == schema.TypeElasticQuota {
-			newLocation[v1beta1.ElasticQuotaParentKey] = queueInfo.Location[v1beta1.ElasticQuotaParentKey]
-			newLocation[v1beta1.QuotaTypeKey] = queueInfo.Location[v1beta1.QuotaTypeKey]
-		}
-		queueInfo.Location = newLocation
 		log.Debugf("queue %s Location is set nil", request.Name)
+	}
+	if queueInfo.QuotaType == schema.TypeElasticQuota {
+		newLocation[v1beta1.ElasticQuotaParentKey] = queueInfo.Location[v1beta1.ElasticQuotaParentKey]
+		newLocation[v1beta1.QuotaTypeKey] = queueInfo.Location[v1beta1.QuotaTypeKey]
+	}
+	if updateClusterRequired {
+		queueInfo.Location = newLocation
 	}
 
 	// validate scheduling policy
