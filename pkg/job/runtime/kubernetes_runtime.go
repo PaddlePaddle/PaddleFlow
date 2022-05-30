@@ -396,14 +396,17 @@ func (kr *KubeRuntime) updateElasticResourceQuota(q *models.Queue) error {
 	equota.Spec.Max = maxResources
 	equota.Spec.Min = minResources
 	equota.Spec.Namespace = q.Namespace
+	// update labels
 	if equota.Labels == nil {
 		equota.Labels = make(map[string]string)
 	}
+	newLabels := make(map[string]string)
 	for key, v := range q.Location {
 		if key != schedulingv1beta1.ElasticQuotaParentKey && key != schedulingv1beta1.QuotaTypeKey {
-			equota.Labels[key] = v
+			newLabels[key] = v
 		}
 	}
+	equota.Labels = newLabels
 
 	log.Infof("Update elastic resource quota info:%#v", equota)
 	if err := executor.Update(&equota, k8s.EQuotaGVK, kr.dynamicClientOpt); err != nil {
