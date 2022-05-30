@@ -21,10 +21,10 @@ rules:
     resources: [ "persistentvolumeclaims" ]
     verbs: [ "get", "list", "watch", "create" ]
   - apiGroups: [ "" ]
-    resources: [ "persistentvolume" ]
+    resources: [ "persistentvolumes" ]
     verbs: [ "get", "list", "watch", "create" ]
   - apiGroups: [""]
-    resources: ["nodes"]
+    resources: ["nodes/proxy"]
     verbs: ["get", "list", "watch"]
 
 ---
