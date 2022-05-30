@@ -402,9 +402,7 @@ func (kr *KubeRuntime) updateElasticResourceQuota(q *models.Queue) error {
 	}
 	newLabels := make(map[string]string)
 	for key, v := range q.Location {
-		if key != schedulingv1beta1.ElasticQuotaParentKey && key != schedulingv1beta1.QuotaTypeKey {
-			newLabels[key] = v
-		}
+		newLabels[key] = v
 	}
 	equota.Labels = newLabels
 
