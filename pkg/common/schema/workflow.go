@@ -60,7 +60,6 @@ func (atf *Artifacts) ValidateOutputMapByList() error {
 
 type Component interface {
 	GetDeps() []string
-	GetFullName() string
 }
 
 type WorkflowSourceStep struct {
