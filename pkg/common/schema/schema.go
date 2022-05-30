@@ -16,7 +16,7 @@ limitations under the License.
 
 package schema
 
-type NodeView interface {
+type ComponentView interface {
 }
 
 // JobView is view of job info responded to user, while Job is for pipeline and job engine to process
@@ -47,11 +47,11 @@ type DagView struct {
 	EndTime     string
 	Status      JobStatus
 	Message     string
-	EntryPoints map[string]NodeView
+	EntryPoints map[string]ComponentView
 }
 
 // RuntimeView is view of run responded to user, while workflowRuntime is for pipeline engine to process
-type RuntimeView map[string]NodeView
+type RuntimeView map[string]ComponentView
 
 type PostProcessView map[string]JobView
 

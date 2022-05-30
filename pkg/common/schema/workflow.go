@@ -18,8 +18,6 @@ package schema
 
 import (
 	"fmt"
-	"reflect"
-	"strconv"
 	"strings"
 
 	"gopkg.in/yaml.v2"
@@ -60,7 +58,7 @@ func (atf *Artifacts) ValidateOutputMapByList() error {
 	return nil
 }
 
-type Node interface {
+type Component interface {
 	GetDeps() []string
 	GetFullName() string
 }
@@ -152,30 +150,12 @@ func (wfs *WorkflowSource) IsDisabled(stepName string) (bool, error) {
 }
 
 func (wfs *WorkflowSource) HasStep(step string) bool {
-	_, ok1 := wfs.EntryPoints[step]
-	_, ok2 := wfs.PostProcess[step]
-	ok := ok1 || ok2
-	if ok {
-		return true
-	} else {
-		return false
-	}
+	return true
 }
 
 // 该函数的作用是将WorkflowSource中的Slice类型的输出Artifact改为Map类型。
 // 这样做的原因是：之前的run.yaml中（ver.1.3.2之前），输出Artifact为Map类型，而现在为了支持Cache的优化，改为Slice类型
 func (wfs *WorkflowSource) validateArtifacts() error {
-	steps, err := parseArtifactsOfSteps(wfs.EntryPoints)
-	if err != nil {
-		return err
-	}
-	wfs.EntryPoints = steps
-
-	steps, err = parseArtifactsOfSteps(wfs.PostProcess)
-	if err != nil {
-		return err
-	}
-	wfs.PostProcess = steps
 	return nil
 }
 
@@ -209,51 +189,6 @@ func runYaml2Map(runYaml []byte) (map[string]interface{}, error) {
 }
 
 func (wfs *WorkflowSource) ValidateStepCacheByMap(runMap map[string]interface{}) error {
-	for name, point := range wfs.EntryPoints {
-		// 先将全局的Cache设置赋值给该节点的Cache，下面再根据Map进行替换
-		point.Cache = wfs.Cache
-
-		// 检查用户是否有设置节点级别的Cache
-		cache, ok, err := unstructured.NestedFieldCopy(runMap, EntryPointsStr, name, "cache")
-		if err != nil {
-			return err
-		}
-		if ok {
-			cacheMap := cache.(map[string]interface{})
-			// Enable字段赋值
-			if value, ok := cacheMap[CacheAttributeEnable]; ok {
-				switch value := value.(type) {
-				case bool:
-					point.Cache.Enable = value
-				default:
-					return fmt.Errorf("cannot assign cache attribute [%s] by value[%v] with type [%s]",
-						CacheAttributeEnable, value, reflect.TypeOf(value).Name())
-				}
-			}
-			// MaxExpiredTime字段赋值
-			if value, ok := cacheMap[CacheAttributeMaxExpiredTime]; ok {
-				switch value := value.(type) {
-				case int64:
-					point.Cache.MaxExpiredTime = strconv.FormatInt(value, 10)
-				case string:
-					point.Cache.MaxExpiredTime = value
-				default:
-					return fmt.Errorf("cannot assign cache attribute [%s] by value[%v] with type [%s]",
-						CacheAttributeMaxExpiredTime, value, reflect.TypeOf(value).Name())
-				}
-			}
-			// FsScope字段赋值
-			if value, ok := cacheMap[CacheAttributeFsScope]; ok {
-				switch value := value.(type) {
-				case string:
-					point.Cache.FsScope = value
-				default:
-					return fmt.Errorf("cannot assign cache attribute [%s] by value[%v] with type [%s]",
-						CacheAttributeFsScope, value, reflect.TypeOf(value).Name())
-				}
-			}
-		}
-	}
 	return nil
 }
 
