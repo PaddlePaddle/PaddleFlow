@@ -14,19 +14,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package pipeline
+package common
 
 import (
 	"fmt"
-	. "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
-	"os"
 	"regexp"
 	"strings"
 
 	"github.com/mitchellh/mapstructure"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
 
@@ -69,84 +66,6 @@ func StringsContain(items []string, item string) bool {
 		}
 	}
 	return false
-}
-
-/*
-*	resourceHandler
- */
-type ResourceHandler struct {
-	pplRunID  string
-	fsHandler *handler.FsHandler
-	logger    *log.Entry
-}
-
-func NewResourceHandler(runID string, fsID string, logger *log.Entry) (ResourceHandler, error) {
-	fsHandler, err := handler.NewFsHandlerWithServer(fsID, logger)
-
-	if err != nil {
-		newErr := fmt.Errorf("init fsHandler failed: %s", err.Error())
-		logger.Errorln(newErr)
-		return ResourceHandler{}, newErr
-	}
-
-	resourceHandler := ResourceHandler{
-		pplRunID:  runID,
-		fsHandler: fsHandler,
-		logger:    logger,
-	}
-	return resourceHandler, nil
-}
-
-func (resourceHandler *ResourceHandler) generateOutAtfPath(pplName string, stepName string, outatfName string, toInit bool) (string, error) {
-	pipelineDir := "./.pipeline"
-	outatfDir := fmt.Sprintf("%s/%s/%s/%s", pipelineDir, resourceHandler.pplRunID, pplName, stepName)
-	outatfPath := fmt.Sprintf("%s/%s", outatfDir, outatfName)
-
-	if toInit {
-		isExist, err := resourceHandler.fsHandler.Exist(outatfPath)
-		if err != nil {
-			return "", err
-		} else if isExist {
-			resourceHandler.logger.Infof("path[%s] of outAtf[%s] already existed, clear first", outatfPath, outatfName)
-			err = resourceHandler.fsHandler.RemoveAll(outatfPath)
-			if err != nil {
-				newErr := fmt.Errorf("clear generatePath[%s] for outAtf[%s] in step[%s] with pplname[%s] pplrunid[%s] failed: %s",
-					outatfPath, outatfName, stepName, pplName, resourceHandler.pplRunID, err.Error())
-				return "", newErr
-			}
-		}
-
-		isExist, err = resourceHandler.fsHandler.Exist(outatfPath)
-		if err != nil {
-			return "", err
-		} else if !isExist {
-			resourceHandler.logger.Infof("prepare dir[%s] for path[%s] of outAtf[%s]", outatfDir, outatfPath, outatfName)
-			err = resourceHandler.fsHandler.MkdirAll(outatfDir, os.ModePerm)
-			if err != nil {
-				newErr := fmt.Errorf("prepare dir[%s] for outAtf[%s] in step[%s] with pplname[%s] pplrunid[%s] failed: %s",
-					outatfDir, outatfName, stepName, pplName, resourceHandler.pplRunID, err.Error())
-				return "", newErr
-			}
-		}
-	}
-
-	return outatfPath, nil
-}
-
-func (resourceHandler *ResourceHandler) ClearResource() error {
-	// 用于清理pplRunID对应的output artifact资源
-	pipelineDir := "./.pipeline"
-	runResourceDir := fmt.Sprintf("%s/%s", pipelineDir, resourceHandler.pplRunID)
-
-	resourceHandler.logger.Infof("clear resource path[%s] of pplrunID[%s]", runResourceDir, resourceHandler.pplRunID)
-	err := resourceHandler.fsHandler.RemoveAll(runResourceDir)
-	if err != nil {
-		newErr := fmt.Errorf("clear resource path[%s] of pplrunID[%s] failed: %s",
-			runResourceDir, resourceHandler.pplRunID, err.Error())
-		return newErr
-	}
-
-	return nil
 }
 
 /*

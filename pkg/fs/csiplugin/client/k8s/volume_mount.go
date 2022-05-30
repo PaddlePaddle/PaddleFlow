@@ -26,7 +26,7 @@ import (
 )
 
 const (
-	BMLPrefix = "pfs-"
+	PFSPrefix = "pfs-"
 	PVCSuffix = "-pvc"
 )
 
@@ -54,13 +54,12 @@ func GetVolumeMounts(pod *v1.Pod) []VolumeMount {
 	for _, v := range pod.Spec.Volumes {
 		pvc := v.PersistentVolumeClaim
 		if pvc == nil {
-			log.Debug("volume is not pv, skipping this volume")
 			continue
 		}
 
 		if !strings.HasSuffix(pvc.ClaimName, PVCSuffix) ||
-			!strings.HasPrefix(pvc.ClaimName, BMLPrefix) {
-			log.Debug("volume is not valid, skipping this volume")
+			!strings.HasPrefix(pvc.ClaimName, PFSPrefix) {
+			log.Tracef("pvc[%s] is not valid, skipping this volume", pvc.ClaimName)
 			continue
 		}
 
@@ -72,16 +71,6 @@ func GetVolumeMounts(pod *v1.Pod) []VolumeMount {
 			ClaimName:  v.PersistentVolumeClaim.ClaimName,
 			VolumeName: volumeName,
 			ReadOnly:   v.PersistentVolumeClaim.ReadOnly,
-		}
-	}
-
-	for _, container := range pod.Spec.Containers {
-		for _, mount := range container.VolumeMounts {
-			_, ok := volumeMountMaps[mount.Name]
-			if !ok {
-				log.Debugf("Volume is missing for volumeMount[%v]", mount.Name)
-				continue
-			}
 		}
 	}
 

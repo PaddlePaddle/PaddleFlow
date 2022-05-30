@@ -27,7 +27,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 )
 
 type RunJob struct {
@@ -234,10 +233,6 @@ func ParseRunJob(jobView *schema.JobView) RunJob {
 
 	newEnv := map[string]string{}
 	for k, v := range jobView.Env {
-		// PF_RUN_TIME 不存数据库，读取Job时动态解析生成
-		if k == common.SysParamNamePFRuntime {
-			continue
-		}
 		newEnv[k] = v
 	}
 

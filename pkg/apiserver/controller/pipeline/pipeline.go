@@ -132,9 +132,9 @@ var ValidateWorkflowForPipeline = func(ppl models.Pipeline) error {
 	}
 	// validate
 	wfCbs := pipeline.WorkflowCallbacks{
-		UpdateRunCb: func(string, interface{}) bool { return true },
-		LogCacheCb:  run.LogCacheFunc,
-		ListCacheCb: run.ListCacheFunc,
+		UpdateRuntimeCb: func(string, interface{}) (string, bool) { return "", true },
+		LogCacheCb:      run.LogCacheFunc,
+		ListCacheCb:     run.ListCacheFunc,
 	}
 	wfPtr, err := pipeline.NewWorkflow(wfs, "validatePipeline", "", param, extra, wfCbs)
 	if err != nil {

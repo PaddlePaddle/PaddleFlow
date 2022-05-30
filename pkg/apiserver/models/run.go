@@ -30,7 +30,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
-	pplcommon "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 )
 
 type Run struct {
@@ -168,31 +167,6 @@ func (r *Run) validateRuntimeAndPostProcess() error {
 			return fmt.Errorf("cannot find step[%s] in either entry_points[%v]\nor post_process[%v]",
 				job.StepName, entryPointNames, postProcessNames)
 		}
-	}
-	// 初始化env中的PF_RUN_TIME
-	if err := r.initAllPFRuntime(); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (r *Run) initAllPFRuntime() error {
-	pfRuntimeGen := pplcommon.NewPFRuntimeGenerator(r.Runtime, r.WorkflowSource)
-	for name, step := range r.Runtime {
-		pfRuntimeJson, err := pfRuntimeGen.GetPFRuntime(name)
-		if err != nil {
-			return err
-		}
-		step.Env[pplcommon.SysParamNamePFRuntime] = pfRuntimeJson
-		r.Runtime[name] = step
-	}
-	for name, step := range r.PostProcess {
-		pfRuntimeJson, err := pfRuntimeGen.GetPFRuntime(name)
-		if err != nil {
-			return err
-		}
-		step.Env[pplcommon.SysParamNamePFRuntime] = pfRuntimeJson
-		r.PostProcess[name] = step
 	}
 	return nil
 }

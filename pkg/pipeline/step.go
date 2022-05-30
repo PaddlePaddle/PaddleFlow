@@ -98,20 +98,12 @@ func (st *Step) generateStepParamSolver(forCacheFingerprint bool) (*StepParamSol
 		jobs[step.name] = steps[step.name].job
 	}
 
-	pfRuntimeGen := NewPFRuntimeGenerator(st.wfr.runtimeView, st.wfr.wf.Source)
-	runtimeView, err := pfRuntimeGen.GetPFRuntime(st.name)
-
-	if err != nil {
-		st.getLogger().Errorf("marshal runtimeView of run[%s] for step[%s] failed: %v", st.wfr.wf.RunID, st.name, runtimeView)
-		return nil, err
-	}
 	var sysParams = map[string]string{
 		SysParamNamePFRunID:    st.wfr.wf.RunID,
 		SysParamNamePFStepName: st.name,
 		SysParamNamePFFsID:     st.wfr.wf.Extra[WfExtraInfoKeyFsID],
 		SysParamNamePFFsName:   st.wfr.wf.Extra[WfExtraInfoKeyFsName],
 		SysParamNamePFUserName: st.wfr.wf.Extra[WfExtraInfoKeyUserName],
-		SysParamNamePFRuntime:  runtimeView,
 	}
 
 	paramSolver := NewStepParamSolver(SourceSteps, sysParams, jobs, forCacheFingerprint, st.wfr.wf.Source.Name, st.wfr.wf.RunID, st.wfr.wf.Extra[WfExtraInfoKeyFsID], st.getLogger())

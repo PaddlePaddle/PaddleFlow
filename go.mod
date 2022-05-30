@@ -4,6 +4,7 @@ go 1.16
 
 require (
 	github.com/BurntSushi/toml v0.4.1 // indirect
+	github.com/Knetic/govaluate v3.0.1-0.20171022003610-9aa49832a739+incompatible // indirect
 	github.com/Microsoft/go-winio v0.5.0 // indirect
 	github.com/agiledragon/gomonkey/v2 v2.7.0
 	github.com/argoproj/argo v0.0.0-20210119221932-53f022c3f740
