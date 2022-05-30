@@ -18,7 +18,8 @@ package run
 
 import (
 	"fmt"
-	"paddleflow/pkg/common/schema"
+
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
 
 type Parser struct {
@@ -40,6 +41,10 @@ func (p *Parser) ParseNodes(entryPoints map[string]interface{}) (map[string]inte
 			nodes[name] = &dagNode
 		} else {
 			stepNode := schema.WorkflowSourceStep{}
+			if err := p.ParseStep(nodeMap, &stepNode); err != nil {
+				return nil, err
+			}
+			nodes[name] = &stepNode
 		}
 
 	}
@@ -49,9 +54,83 @@ func (p *Parser) ParseNodes(entryPoints map[string]interface{}) (map[string]inte
 func (p *Parser) ParseStep(params map[string]interface{}, stepNode *schema.WorkflowSourceStep) error {
 	for key, value := range params {
 		switch key {
+		case "loopArgument":
+			fallthrough
 		case "loop_argument":
-
+			stepNode.LoopArgument = value
+		case "conditon":
+			value, ok := value.(string)
+			if !ok {
+				return fmt.Errorf("[condition] in step should be string type")
+			}
+			stepNode.Condition = value
+		case "parameters":
+			value, ok := value.(map[string]interface{})
+			if !ok {
+				return fmt.Errorf("[parameters] in step should be map type")
+			}
+			stepNode.Parameters = value
+		case "command":
+			value, ok := value.(string)
+			if !ok {
+				return fmt.Errorf("[command] in step should be string type")
+			}
+			stepNode.Command = value
+		case "deps":
+			value, ok := value.(string)
+			if !ok {
+				return fmt.Errorf("[deps] in step should be string type")
+			}
+			stepNode.Deps = value
+		case "artifacts":
+			artifacts := schema.Artifacts{}
+			value, ok := value.(map[string]interface{})
+			if !ok {
+				return fmt.Errorf("[artifacts] in step should be map type")
+			}
+			for atfKey, atfValue := range value {
+				switch atfKey {
+				case "output":
+					atfValue, ok := atfValue.([]string)
+					if !ok {
+						return fmt.Errorf("[artifacts.output] in step should be list of string type")
+					}
+					artifacts.OutputList = atfValue
+				case "input":
+					atfValue, ok := atfValue.(map[string]string)
+					if !ok {
+						return fmt.Errorf("[artifacts.output] in step should be map[string]string type")
+					}
+					artifacts.Input = atfValue
+				default:
+					return fmt.Errorf("[artifacts] of step has no attribute [%s]", atfKey)
+				}
+			}
+			stepNode.Artifacts = artifacts
+		case "env":
+			value, ok := value.(map[string]string)
+			if !ok {
+				return fmt.Errorf("[artifacts] in step should be map type")
+			}
+			stepNode.Env = value
+		case "dockerEnv":
+			fallthrough
+		case "docker_env":
+			value, ok := value.(string)
+			if !ok {
+				return fmt.Errorf("[docker_env/dockerEnv] in step should be string type")
+			}
+			stepNode.DockerEnv = value
+		case "cache":
+			cache := schema.Cache{}
+			value, ok := value.(map[string]interface{})
+			if !ok {
+				return fmt.Errorf("[cache] in step should be map[string]interface type")
+			}
+			for cacheKey, cacheValue 
+			
 		}
+
 	}
 	return nil
 }
@@ -119,6 +198,14 @@ func (p *Parser) ParseDag(params map[string]interface{}, dagNode *schema.Workflo
 				return err
 			}
 			dagNode.EntryPoints = entryPoints
+		case "type":
+			value, ok := value.(string)
+			if !ok {
+				return fmt.Errorf("[type] of dag should be string type")
+			}
+			if value != "dag" {
+				return fmt.Errorf("set [type] as [%s] in dag", value)
+			}
 		default:
 			return fmt.Errorf("dag has no attribute [%s]", key)
 		}

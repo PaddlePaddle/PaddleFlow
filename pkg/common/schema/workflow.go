@@ -61,7 +61,7 @@ func (atf *Artifacts) ValidateOutputMapByList() error {
 }
 
 type WorkflowSourceStep struct {
-	LoopArgument []interface{}          `yaml:"loop_argument"`
+	LoopArgument interface{}            `yaml:"loop_argument"`
 	Condition    string                 `yaml:"condition"`
 	Parameters   map[string]interface{} `yaml:"parameters"`
 	Command      string                 `yaml:"command"`
