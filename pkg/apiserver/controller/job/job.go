@@ -236,6 +236,10 @@ func patchFromCommonInfo(conf *schema.Conf, commonJobInfo *CommonJobInfo) error 
 		}
 		return err
 	}
+	if err = job.IsEnoughQueueCapacity(conf.Flavour, queue.MaxResources); err != nil {
+		log.Errorf("patch Job from commonInfo failed, err:=%v", err)
+		return err
+	}
 	queueID := commonJobInfo.SchedulingPolicy.QueueID
 	conf.SetQueueID(queueID)
 	conf.SetQueueName(queueName)
@@ -395,6 +399,7 @@ func newCollectiveMembers(request *CreateDisJobRequest) ([]models.Member, error)
 				log.Errorf("create collective members failed, err=%v", err)
 				return nil, err
 			}
+			patchFromCommonInfo(&member.Conf, &request.CommonJobInfo)
 			members = append(members, member)
 		}
 	}
