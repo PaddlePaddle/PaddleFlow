@@ -33,6 +33,7 @@ type UpdateFileSystemCacheRequest struct {
 	Quota               int                    `json:"quota"`
 	MetaDriver          string                 `json:"metaDriver"`
 	BlockSize           int                    `json:"blockSize"`
+	Debug               bool                   `json:"debug"`
 	NodeAffinity        map[string]interface{} `json:"nodeAffinity"`
 	NodeTaintToleration map[string]interface{} `json:"nodeTaintToleration"`
 	ExtraConfig         map[string]string      `json:"extraConfig"`
@@ -45,6 +46,7 @@ func (req *UpdateFileSystemCacheRequest) toModel() models.FSCacheConfig {
 		Quota:                  req.Quota,
 		MetaDriver:             req.MetaDriver,
 		BlockSize:              req.BlockSize,
+		Debug:                  req.Debug,
 		NodeAffinityMap:        req.NodeAffinity,
 		ExtraConfigMap:         req.ExtraConfig,
 		NodeTaintTolerationMap: req.NodeTaintToleration,
