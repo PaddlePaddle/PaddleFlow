@@ -236,6 +236,8 @@ func patchFromCommonInfo(conf *schema.Conf, commonJobInfo *CommonJobInfo) error 
 		}
 		return err
 	}
+	// distributed Job would pass check flavour and queue, because conf is just constructed without flavour.
+	// flavour would be check in function newMembers
 	if !schema.IsEmptyResource(conf.Flavour.ResourceInfo) {
 		if err = job.IsEnoughQueueCapacity(conf.Flavour, queue.MaxResources); err != nil {
 			log.Errorf("patch Job from commonInfo failed, err:=%v", err)

@@ -351,6 +351,12 @@ func StopJobByID(jobID string) error {
 
 // IsEnoughQueueCapacity validate queue matching flavor
 func IsEnoughQueueCapacity(flavourValue schema.Flavour, queueResource schema.ResourceInfo) error {
+	if schema.IsEmptyResource(flavourValue.ResourceInfo) {
+		err := fmt.Errorf("flavour[%v] cpu or memory is empty", flavourValue)
+		log.Errorf("isEnoughQueueCapacity failed, err: %v", err)
+		return err
+	}
+
 	// all field in flavour must be less equal than queue's
 	if !flavourValue.ResourceInfo.LessEqual(queueResource) {
 		errMsg := fmt.Sprintf("the flavour[%+v] is larger than queue's [%+v]", flavourValue, queueResource)
