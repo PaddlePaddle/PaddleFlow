@@ -569,7 +569,8 @@ func (v *VFS) Fallocate(ctx *meta.Context, ino Ino, mode uint8, off, length int6
 		return syscall.EBADF
 	}
 	if h.writer != nil {
-		if err := h.writer.Fallocate(length, off, uint32(mode)); err != nil {
+		err := h.writer.Fallocate(length, off, uint32(mode))
+		if utils.IsError(err) {
 			return err
 		}
 	}
