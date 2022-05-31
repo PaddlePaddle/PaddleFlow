@@ -60,10 +60,14 @@ func (atf *Artifacts) ValidateOutputMapByList() error {
 
 type Component interface {
 	GetDeps() []string
+	GetArtifacts() Artifacts
+	GetParameters() map[string]interface{}
+	GetCondition() string
+	GetLoopArgument() interface{}
 }
 
 type WorkflowSourceStep struct {
-	LoopArgument []interface{}          `yaml:"loop_argument"`
+	LoopArgument interface{}            `yaml:"loop_argument"`
 	Condition    string                 `yaml:"condition"`
 	Parameters   map[string]interface{} `yaml:"parameters"`
 	Command      string                 `yaml:"command"`
@@ -73,15 +77,6 @@ type WorkflowSourceStep struct {
 	DockerEnv    string                 `yaml:"docker_env"`
 	Cache        Cache                  `yaml:"cache"`
 	Reference    string                 `yaml:"referenc"`
-}
-
-type WorkflowSourceDag struct {
-	LoopArgument interface{}            `yaml:"loop_argument"`
-	Condition    string                 `yaml:"condition"`
-	Parameters   map[string]interface{} `yaml:"parameters"`
-	Deps         string                 `yaml:"deps"`
-	Artifacts    Artifacts              `yaml:"artifacts"`
-	EntryPoints  map[string]interface{} `yaml:"entry_points"`
 }
 
 func (s *WorkflowSourceStep) GetDeps() []string {
@@ -97,6 +92,31 @@ func (s *WorkflowSourceStep) GetDeps() []string {
 	return deps
 }
 
+func (s *WorkflowSourceStep) GetArtifacts() Artifacts {
+	return s.Artifacts
+}
+
+func (s *WorkflowSourceStep) GetParameters() map[string]interface{} {
+	return s.Parameters
+}
+
+func (s *WorkflowSourceStep) GetCondition() string {
+	return s.Condition
+}
+
+func (s *WorkflowSourceStep) GetLoopArgument() interface{} {
+	return s.LoopArgument
+}
+
+type WorkflowSourceDag struct {
+	LoopArgument interface{}            `yaml:"loop_argument"`
+	Condition    string                 `yaml:"condition"`
+	Parameters   map[string]interface{} `yaml:"parameters"`
+	Deps         string                 `yaml:"deps"`
+	Artifacts    Artifacts              `yaml:"artifacts"`
+	EntryPoints  map[string]interface{} `yaml:"entry_points"`
+}
+
 func (d *WorkflowSourceDag) GetDeps() []string {
 	// 获取依赖节点列表。添加前删除每个步骤名称前后的空格，只有空格的步骤名直接略过不添加
 	deps := make([]string, 0)
@@ -108,6 +128,22 @@ func (d *WorkflowSourceDag) GetDeps() []string {
 		deps = append(deps, dryDep)
 	}
 	return deps
+}
+
+func (d *WorkflowSourceDag) GetArtifacts() Artifacts {
+	return d.Artifacts
+}
+
+func (d *WorkflowSourceDag) GetParameters() map[string]interface{} {
+	return d.Parameters
+}
+
+func (d *WorkflowSourceDag) GetCondition() string {
+	return d.Condition
+}
+
+func (d *WorkflowSourceDag) GetLoopArgument() interface{} {
+	return d.LoopArgument
 }
 
 type Cache struct {
