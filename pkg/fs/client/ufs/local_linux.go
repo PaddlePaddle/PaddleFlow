@@ -21,8 +21,8 @@ import (
 	"syscall"
 	"time"
 
-	"paddleflow/pkg/fs/client/base"
-	"paddleflow/pkg/fs/client/utils"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/base"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/utils"
 )
 
 // Attributes.  This function is the main entry point, through

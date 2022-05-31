@@ -19,8 +19,8 @@ package ufs
 import (
 	"syscall"
 
-	"paddleflow/pkg/fs/client/base"
-	"paddleflow/pkg/fs/client/utils"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/base"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/utils"
 )
 
 func (fs *cfsFileSystem) GetAttr(name string) (*base.FileInfo, error) {

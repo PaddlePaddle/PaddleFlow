@@ -20,13 +20,12 @@ import (
 	"fmt"
 
 	log "github.com/sirupsen/logrus"
-	"gorm.io/gorm"
 	v1 "k8s.io/api/core/v1"
 
-	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/common/errors"
-	"paddleflow/pkg/common/k8s"
-	"paddleflow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
 
 // SingleJob is a executor struct that runs a single pod
@@ -47,9 +46,6 @@ func (sp *SingleJob) validateJob() error {
 	}
 	if sp.KubeJob.Command == "" {
 		return fmt.Errorf("command is empty")
-	}
-	if sp.Flavour.Name == "" {
-		return fmt.Errorf("flavour name is empty")
 	}
 
 	return nil
@@ -125,7 +121,7 @@ func (sp *SingleJob) StopJobByID(jobID string) error {
 	return nil
 }
 
-//fillContainersInPod fill containers in pod
+// fillContainersInPod fill containers in pod
 func (sp *SingleJob) fillContainersInPod(pod *v1.Pod) error {
 	log.Debugf("fillContainersInPod for job[%s]", pod.Name)
 	if pod.Spec.Containers == nil || len(pod.Spec.Containers) == 0 {
@@ -151,7 +147,7 @@ func (sp *SingleJob) fillContainersInPod(pod *v1.Pod) error {
 	return nil
 }
 
-//fill container for pod, and return err if exist error
+// fill container for pod, and return err if exist error
 func (sp *SingleJob) fillContainer(container *v1.Container, podName string) error {
 	log.Debugf("fillContainer for job[%s]", podName)
 	// fill name
@@ -172,12 +168,8 @@ func (sp *SingleJob) fillContainer(container *v1.Container, podName string) erro
 
 	// container.Args would be passed
 	// fill resource
-	flavour, err := sp.getFlavour()
-	container.Resources = sp.generateResourceRequirements(flavour)
-	if err != nil {
-		log.Errorf("getFlavour occur a err[%v]", err)
-		return err
-	}
+	container.Resources = sp.generateResourceRequirements(sp.Flavour)
+
 	// fill env
 	container.Env = sp.appendEnvIfAbsent(container.Env, sp.generateEnvVars())
 	// fill volumeMount
@@ -185,31 +177,4 @@ func (sp *SingleJob) fillContainer(container *v1.Container, podName string) erro
 
 	log.Debugf("fillContainer completed: pod[%s]-container[%s]", podName, container.Name)
 	return nil
-}
-
-// getFlavour get flavour by name or create a new one
-func (sp *SingleJob) getFlavour() (schema.Flavour, error) {
-	res := schema.Flavour{}
-	// get flavour by name
-	log.Debugf("pod[%s].conf.Flavour=%v", sp.Name, sp.Flavour)
-	flavour, err := models.GetFlavour(sp.Flavour.Name)
-	if err == nil {
-		return schema.Flavour{
-			Name: flavour.Name,
-			ResourceInfo: schema.ResourceInfo{
-				CPU:             flavour.CPU,
-				Mem:             flavour.Mem,
-				ScalarResources: flavour.ScalarResources,
-			},
-		}, nil
-	}
-	// flavour not found from db, create a new one by singlePod.config
-	if err != gorm.ErrRecordNotFound {
-		return res, err
-	} else if sp.Flavour.CPU == "" && sp.Flavour.Mem == "" {
-		return res, fmt.Errorf("flavour[%v] not found, meanwhile cpu or mem is empty", sp.Flavour)
-	} else {
-		// If run here, it means flavour is not found by name, construct temp flavour.
-		return sp.Flavour, nil
-	}
 }

@@ -23,7 +23,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/resource"
 
-	"paddleflow/pkg/common/errors"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 )
 
 // ScalarResourcesType is the type of scalar resources
@@ -214,6 +214,11 @@ func CheckCPUResource(res string) error {
 		return fmt.Errorf("cpu cannot be negative")
 	}
 	return nil
+}
+
+// IsEmptyResource return true when cpu or mem is nil
+func IsEmptyResource(resourceInfo ResourceInfo) bool {
+	return resourceInfo.CPU == "" || resourceInfo.Mem == ""
 }
 
 func CheckMemoryResource(res string) error {

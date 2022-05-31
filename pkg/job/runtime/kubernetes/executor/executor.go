@@ -28,7 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 
-	"paddleflow/pkg/common/k8s"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 )
 
 func Get(namespace string, name string, gvk schema.GroupVersionKind, clientOpt *k8s.DynamicClientOption) (*unstructured.Unstructured, error) {

@@ -32,28 +32,28 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/util/retry"
 
-	"paddleflow/pkg/client"
-	"paddleflow/pkg/common/http/api"
-	"paddleflow/pkg/common/http/core"
-	"paddleflow/pkg/common/schema"
-	"paddleflow/pkg/fs/common"
-	"paddleflow/pkg/fs/csiplugin/client/k8s"
-	"paddleflow/pkg/fs/csiplugin/client/pfs"
-	"paddleflow/pkg/fs/csiplugin/csiconfig"
-	utils "paddleflow/pkg/fs/utils/common"
-	mountUtil "paddleflow/pkg/fs/utils/mount"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/client"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/api"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/core"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/client/k8s"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/client/pfs"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csiconfig"
+	utils "github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/common"
+	mountUtil "github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/mount"
 )
 
 const (
 	VolumesKeyMount     = "pfs-mount"
 	VolumesKeyDataCache = "data-cache"
 	VolumesKeyMetaCache = "meta-cache"
-	MountDir            = "/home/paddleflow/mnt"
-	CacheWorkerBin      = "/home/paddleflow/cache-worker"
-	MountPoint          = MountDir + "/storage"
-	CachePath           = "/home/paddleflow/pfs-cache"
-	DataCacheDir        = "/data-cache"
-	MetaCacheDir        = "/meta-cache"
+
+	CacheWorkerBin = "/home/paddleflow/cache-worker"
+	MountPoint     = schema.PodMntDir + "/storage"
+	CachePath      = "/home/paddleflow/pfs-cache"
+	DataCacheDir   = "/data-cache"
+	MetaCacheDir   = "/meta-cache"
 
 	AnnoKeyServer = "server"
 	AnnoKeyFsID   = "fsID"
@@ -91,7 +91,10 @@ func PodUnmount(volumeID, targetPath string, mountInfo pfs.MountInfo) error {
 		return fmt.Errorf("PodUnmount: pod[%s] annotations[%v] missing field", pod.Name, pod.Annotations)
 	}
 
-	httpClient := client.NewHttpClient(mountInfo.Server, client.DefaultTimeOut)
+	httpClient, err := client.NewHttpClient(mountInfo.Server, client.DefaultTimeOut)
+	if err != nil {
+		return err
+	}
 	login := api.LoginParams{
 		UserName: mountInfo.UsernameRoot,
 		Password: mountInfo.PasswordRoot,
@@ -148,7 +151,10 @@ func PodUnmount(volumeID, targetPath string, mountInfo pfs.MountInfo) error {
 
 func PodMount(volumeID string, mountInfo pfs.MountInfo) error {
 	// login server
-	httpClient := client.NewHttpClient(mountInfo.Server, client.DefaultTimeOut)
+	httpClient, err := client.NewHttpClient(mountInfo.Server, client.DefaultTimeOut)
+	if err != nil {
+		return err
+	}
 	login := api.LoginParams{
 		UserName: mountInfo.UsernameRoot,
 		Password: mountInfo.PasswordRoot,
@@ -420,7 +426,7 @@ func buildMountContainer(pod *v1.Pod, mountInfo pfs.MountInfo, cacheConf common.
 		},
 		{
 			Name:             VolumesKeyMount,
-			MountPath:        MountDir,
+			MountPath:        schema.PodMntDir,
 			SubPath:          mountInfo.FSID,
 			MountPropagation: &mp,
 		},

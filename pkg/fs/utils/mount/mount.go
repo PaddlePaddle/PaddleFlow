@@ -29,7 +29,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"k8s.io/utils/mount"
 
-	"paddleflow/pkg/fs/utils/io"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/io"
 )
 
 const (
@@ -40,6 +40,7 @@ const (
 	IsNotMountPointZhCN                 = "不是一个挂载点"
 	ErrEndpointNotConnected             = "transport endpoint is not connected"
 	TransportEndpointIsNotConnected     = "Transport endpoint is not connected"
+	SocketNotConnected                  = "Socket not connected"
 	TransportEndpointIsNotConnectedZhCN = "传输端点尚未连接"
 	DirectoryNotEmpty                   = "directory not empty"
 	DirectoryNotEmptyZhCN               = "目录非空"
@@ -110,7 +111,8 @@ func IsMountPoint(path string) (bool, error) {
 		}
 		// path is mount point, but the mount point can not access
 		if strings.Contains(string(output), TransportEndpointIsNotConnected) ||
-			strings.Contains(string(output), TransportEndpointIsNotConnectedZhCN) {
+			strings.Contains(string(output), TransportEndpointIsNotConnectedZhCN) ||
+			strings.Contains(string(output), SocketNotConnected) {
 			return true, fmt.Errorf("%s:%s", string(output), err)
 		}
 		return false, fmt.Errorf("%s:%s", string(output), err)

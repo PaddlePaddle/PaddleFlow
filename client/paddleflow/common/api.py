@@ -33,3 +33,4 @@ PADDLE_FLOW_RUNCACHE = '/api/paddleflow/v%d/runCache' % PADDLE_FLOW_VERSION
 PADDLE_FLOW_ARTIFACT = '/api/paddleflow/v%d/artifact' % PADDLE_FLOW_VERSION
 PADDLE_FLOW_FLAVOUR = '/api/paddleflow/v%d/flavour' % PADDLE_FLOW_VERSION
 PADDLE_FLOW_LOG = '/api/paddleflow/v%d/log/run' % PADDLE_FLOW_VERSION
+PADDLE_FLOW_JOB = '/api/paddleflow/v%d/job' % PADDLE_FLOW_VERSION

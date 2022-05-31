@@ -39,13 +39,13 @@ import (
 	"volcano.sh/apis/pkg/apis/helpers"
 	schedulingv1beta1 "volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 
-	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/common/config"
-	"paddleflow/pkg/common/k8s"
-	"paddleflow/pkg/common/schema"
-	"paddleflow/pkg/job/api"
-	"paddleflow/pkg/job/runtime/kubernetes/controller"
-	"paddleflow/pkg/job/runtime/kubernetes/executor"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime/kubernetes/controller"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime/kubernetes/executor"
 )
 
 type KubeRuntime struct {
@@ -275,7 +275,8 @@ func (kr *KubeRuntime) createElasticResourceQuota(q *models.Queue) error {
 
 	equota := &schedulingv1beta1.ElasticResourceQuota{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: q.Name,
+			Name:   q.Name,
+			Labels: q.Location,
 		},
 		Spec: schedulingv1beta1.ElasticResourceQuotaSpec{
 			Max:         maxResources,
@@ -395,6 +396,15 @@ func (kr *KubeRuntime) updateElasticResourceQuota(q *models.Queue) error {
 	equota.Spec.Max = maxResources
 	equota.Spec.Min = minResources
 	equota.Spec.Namespace = q.Namespace
+	// update labels
+	if equota.Labels == nil {
+		equota.Labels = make(map[string]string)
+	}
+	newLabels := make(map[string]string)
+	for key, v := range q.Location {
+		newLabels[key] = v
+	}
+	equota.Labels = newLabels
 
 	log.Infof("Update elastic resource quota info:%#v", equota)
 	if err := executor.Update(&equota, k8s.EQuotaGVK, kr.dynamicClientOpt); err != nil {

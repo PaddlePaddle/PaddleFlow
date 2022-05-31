@@ -20,8 +20,8 @@ import (
 	"github.com/go-chi/chi"
 	"github.com/sirupsen/logrus"
 
-	"paddleflow/pkg/apiserver/middleware"
-	"paddleflow/pkg/apiserver/router/util"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/middleware"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
 )
 
 type IRouter interface {

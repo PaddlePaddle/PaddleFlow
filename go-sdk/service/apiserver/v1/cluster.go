@@ -21,10 +21,10 @@ import (
 	"strconv"
 	"strings"
 
-	"paddleflow/pkg/apiserver/common"
-	cluster_ "paddleflow/pkg/apiserver/controller/cluster"
-	"paddleflow/pkg/common/http/core"
-	"paddleflow/pkg/common/http/util/http"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
+	cluster_ "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/cluster"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/core"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/util/http"
 )
 
 const (

@@ -25,10 +25,10 @@ import (
 	"strconv"
 	"strings"
 
-	"paddleflow/pkg/apiserver/middleware"
-	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/common/logger"
-	"paddleflow/pkg/fs/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/middleware"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 )
 
 const (
@@ -47,8 +47,6 @@ const (
 	K8SClientTimeoutEnv       = "K8S_CLIENT_TIMEOUT"
 
 	DefaultKubeletDataPath       = "/var/lib/kubelet"
-	DefaultNOTROOTUserEnable     = true
-	DefaultK8SConfigPath         = "/home/paddleflow/config/kube.config"
 	DefaultCheckIntervalTime     = 15
 	DefaultK8SClientTimeout      = 0
 	DefaultPodsHandleConcurrency = 10
@@ -68,7 +66,7 @@ func GetVolumeSourceMountPath(pathPrefix string) string {
 }
 
 // GetSourceMountPathByPod default value: /var/lib/kubelet/pods/{podUID}/volumes/{volumePluginName}/{volumeName}/source
-func GetSourceMountPathByPod(podUID string, volumeName string) string {
+func GetSourceMountPathByPod(podUID, volumeName string) string {
 	return fmt.Sprintf("%s/pods/%s/volumes/%s/%s/source", GetKubeletDataPath(),
 		podUID, VolumePluginName, volumeName)
 }
@@ -126,11 +124,7 @@ func GetDefaultGID() int {
 }
 
 func GetK8SConfigPathEnv() string {
-	path := os.Getenv(K8SConfigPathEnv)
-	if len(path) == 0 {
-		return DefaultK8SConfigPath
-	}
-	return path
+	return os.Getenv(K8SConfigPathEnv)
 }
 
 func GetK8STimeoutEnv() int {

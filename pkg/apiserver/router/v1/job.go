@@ -29,14 +29,14 @@ import (
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 
-	"paddleflow/pkg/apiserver/common"
-	"paddleflow/pkg/apiserver/controller/job"
-	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/apiserver/router/util"
-	"paddleflow/pkg/common/config"
-	"paddleflow/pkg/common/errors"
-	"paddleflow/pkg/common/logger"
-	"paddleflow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/job"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
 
 // JobRouter is job api router
@@ -337,7 +337,7 @@ func validateQueue(ctx *logger.RequestContext, schedulingPolicy *job.SchedulingP
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			ctx.ErrorCode = common.JobInvalidField
-			log.Errorf("create job failed. error: %s", err.Error())
+			log.Errorf("validate queue failed when create job. error: %s", err.Error())
 			return fmt.Errorf("queue not found")
 		}
 		ctx.ErrorCode = common.InternalError

@@ -22,16 +22,16 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"paddleflow/pkg/apiserver/common"
-	"paddleflow/pkg/apiserver/controller/flavour"
-	"paddleflow/pkg/apiserver/models"
-	"paddleflow/pkg/common/errors"
-	"paddleflow/pkg/common/logger"
-	"paddleflow/pkg/common/schema"
-	"paddleflow/pkg/common/uuid"
-	"paddleflow/pkg/job/api"
-	_ "paddleflow/pkg/job/queue/sortpolicy"
-	"paddleflow/pkg/job/runtime"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/flavour"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
+	_ "github.com/PaddlePaddle/PaddleFlow/pkg/job/queue/sortpolicy"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
 )
 
 func CreateJob(conf schema.PFJobConf) (string, error) {
@@ -285,28 +285,17 @@ func validateFlavours(conf schema.PFJobConf, queue *models.Queue) error {
 		if len(flavor) == 0 {
 			continue
 		}
-		if err := isEnoughQueueCapacity(flavor, queue.MaxResources); err != nil {
+		flavourValue, err := flavour.GetFlavourWithCheck(schema.Flavour{Name: flavor})
+		if err != nil {
+			log.Errorf("get flavour[%+v] failed, err: %v", flavourValue, err)
+			return err
+		}
+
+		if err := IsEnoughQueueCapacity(flavourValue, queue.MaxResources); err != nil {
 			errMsg := fmt.Sprintf("queue %s has no enough resource:%s", conf.GetQueueName(), err.Error())
 			log.Errorf(errMsg)
 			return fmt.Errorf(errMsg)
 		}
-	}
-	return nil
-}
-
-// isEnoughQueueCapacity validate queue matching flavor
-func isEnoughQueueCapacity(flavourKey string, queueResource schema.ResourceInfo) error {
-	flavourValue, err := flavour.GetFlavourWithCheck(schema.Flavour{Name: flavourKey})
-	if err != nil {
-		log.Errorf("get flavour[%s] failed, err: %v", flavourKey, err)
-		return err
-	}
-
-	// all field in flavour must be less equal than queue's
-	if !flavourValue.ResourceInfo.LessEqual(queueResource) {
-		errMsg := fmt.Sprintf("the request flavour[%s] is larger than queue's", flavourKey)
-		log.Errorf(errMsg)
-		return fmt.Errorf(errMsg)
 	}
 	return nil
 }
@@ -356,6 +345,23 @@ func StopJobByID(jobID string) error {
 	if err = models.UpdateJobStatus(jobID, "job is terminated.", schema.StatusJobTerminated); err != nil {
 		log.Errorf("update job[%s] status to [%s] failed, err: %v", jobID, schema.StatusJobTerminated, err)
 		return err
+	}
+	return nil
+}
+
+// IsEnoughQueueCapacity validate queue matching flavor
+func IsEnoughQueueCapacity(flavourValue schema.Flavour, queueResource schema.ResourceInfo) error {
+	if schema.IsEmptyResource(flavourValue.ResourceInfo) {
+		err := fmt.Errorf("flavour[%v] cpu or memory is empty", flavourValue)
+		log.Errorf("isEnoughQueueCapacity failed, err: %v", err)
+		return err
+	}
+
+	// all field in flavour must be less equal than queue's
+	if !flavourValue.ResourceInfo.LessEqual(queueResource) {
+		errMsg := fmt.Sprintf("the flavour[%+v] is larger than queue's [%+v]", flavourValue, queueResource)
+		log.Errorf(errMsg)
+		return fmt.Errorf(errMsg)
 	}
 	return nil
 }

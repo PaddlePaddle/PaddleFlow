@@ -33,7 +33,7 @@ def run():
 
 
 @run.command()
-@click.option('-fs', '--fsname', help='The name of fs')
+@click.option('-f', '--fsname', help='The name of fs')
 @click.option('-n', '--name', help='The name of run.')
 @click.option('-d', '--desc', help='The description of run.')
 @click.option('-u', '--username', help='Run the specified run by username, only useful for root.')
@@ -302,24 +302,24 @@ def _print_run(run, out_format):
     data = [[run.runId, run.status, run.name, run.description, run.entry, run.parameters, run.source, 
              run.runMsg, run.createTime, run.updateTime, run.activateTime]]
     print_output(data, headers, out_format, table_format='grid')
-    if run.run_yaml:
+    if run.runYaml:
         headers = ['run yaml detail']
-        data = [[run.run_yaml]]
+        data = [[run.runYaml]]
         print_output(data, headers, out_format, table_format='grid')
-    if (not run.runtime_info or not len(run.runtime_info)) and (not run.post_info or not len(run.post_info)):
+    if (not run.runtime or not len(run.runtime)) and (not run.postProcess or not len(run.postProcess)):
         click.echo("no job found")
         return
-    if run.runtime_info and len(run.runtime_info):
+    if run.runtime and len(run.runtime):
         print_output([], ["Runtime Details"], out_format)
         headers = ['job id', 'name', 'status', 'deps', 'start time', 'end time', 'dockerEnv']
         data = [[job.jobId, job.name, job.status, job.deps, job.start_time, job.end_time, job.dockerEnv] 
-                for job in run.runtime_info]
+                for job in run.runtime]
         print_output(data, headers, out_format, table_format='grid')
-    if run.post_info and len(run.post_info):
+    if run.postProcess and len(run.postProcess):
         print_output([], ["PostProcess Details"], out_format)
         headers = ['job id', 'name', 'status', 'deps', 'start time', 'end time', 'dockerEnv']
         data = [[job.jobId, job.name, job.status, job.deps, job.start_time, job.end_time, job.dockerEnv] 
-                for job in run.post_info]
+                for job in run.postProcess]
         print_output(data, headers, out_format, table_format='grid')
 
 

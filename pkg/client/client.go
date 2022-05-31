@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,10 +17,13 @@ limitations under the License.
 package client
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
-	"paddleflow/pkg/common/http/core"
+	log "github.com/sirupsen/logrus"
+
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/core"
 )
 
 var Client *core.PaddleFlowClient
@@ -29,9 +32,13 @@ const (
 	DefaultTimeOut = 200
 )
 
-func NewHttpClient(server string, timeout int) *core.PaddleFlowClient {
+func NewHttpClient(server string, timeout int) (*core.PaddleFlowClient, error) {
 	server = strings.TrimPrefix(server, "http://")
 	arr := strings.Split(server, ":")
+	if len(arr) != 2 {
+		log.Errorf("NewHttpClient: malformat server(ip:port) [%s]", server)
+		return nil, fmt.Errorf("NewHttpClient: malformat server(ip:port) [%s]", server)
+	}
 	port, _ := strconv.Atoi(arr[1])
 	if Client == nil {
 		Client = core.NewPaddleFlowClient(&core.PaddleFlowClientConfiguration{
@@ -40,5 +47,5 @@ func NewHttpClient(server string, timeout int) *core.PaddleFlowClient {
 			ConnectionTimeoutInSeconds: timeout,
 		})
 	}
-	return Client
+	return Client, nil
 }

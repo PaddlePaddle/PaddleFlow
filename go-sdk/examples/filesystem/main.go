@@ -20,10 +20,10 @@ import (
 	"context"
 	"fmt"
 
-	"paddleflow/go-sdk/service"
-	"paddleflow/pkg/apiserver/controller/fs"
-	"paddleflow/pkg/apiserver/controller/user"
-	"paddleflow/pkg/common/http/core"
+	"github.com/PaddlePaddle/PaddleFlow/go-sdk/service"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/fs"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/user"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/core"
 )
 
 func main() {
@@ -46,8 +46,9 @@ func main() {
 	token := data.Authorization
 	name := "pfstest"
 	createResult, err := pfClient.APIV1().FileSystem().Create(context.TODO(), &fs.CreateFileSystemRequest{
-		Name: name,
-		Url:  "glusterfs://10.190.170.12:ape-default-volume",
+		Name:       name,
+		Url:        "",
+		Properties: map[string]string{},
 	}, token)
 	if err != nil {
 		panic(err)

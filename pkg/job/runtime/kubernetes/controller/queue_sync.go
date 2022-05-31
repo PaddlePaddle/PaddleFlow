@@ -29,8 +29,8 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 
-	"paddleflow/pkg/common/k8s"
-	commomschema "paddleflow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
+	commomschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
 
 const (
