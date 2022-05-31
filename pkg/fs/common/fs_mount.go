@@ -21,6 +21,7 @@ type FsCacheConfig struct {
 	Quota               int
 	MetaDriver          string
 	BlockSize           int
+	Debug               bool
 	NodeAffinity        map[string]interface{}
 	NodeTaintToleration map[string]interface{}
 	ExtraConfig         map[string]string
