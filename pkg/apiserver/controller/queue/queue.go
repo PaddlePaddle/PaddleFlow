@@ -471,6 +471,7 @@ func validateQueueResource(rResource schema.ResourceInfo, qResource *schema.Reso
 		}
 	} else if rResource.ScalarResources != nil {
 		needUpdate = true
+		qResource.ScalarResources = make(schema.ScalarResourcesType)
 		log.Debugf("scalarResources %v is set nil", rResource)
 	}
 
