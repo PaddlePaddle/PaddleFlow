@@ -61,6 +61,7 @@ type LogRunCacheRequest struct {
 	Source      string `json:"source"`
 	RunID       string `json:"runID"`
 	Step        string `json:"step"`
+	JobID       string `json:"jobID"`
 	FsID        string `json:"fsID"`
 	FsName      string `json:"fsname"`
 	UserName    string `json:"username"`
@@ -76,6 +77,7 @@ type LogRunArtifactRequest struct {
 	UserName     string `json:"username"`
 	ArtifactPath string `json:"artifactPath"`
 	Step         string `json:"step"`
+	JobID        string `json:"jobID"`
 	Type         string `json:"type"`
 	ArtifactName string `json:"artifactName"`
 	Meta         string `json:"meta"`

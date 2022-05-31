@@ -22,8 +22,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	. "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 	"strings"
+
+	. "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
@@ -46,7 +47,6 @@ type aggressiveSecondCacheKey struct {
 // 用于计算保守策略的第一层 fingerprint 的结构
 type conservativeFirstCacheKey struct {
 	DockerEnv       string
-	StepName        string
 	Command         string
 	Env             map[string]string `json:",omitempty"`
 	Parameters      map[string]string `json:",omitempty"`
@@ -93,35 +93,35 @@ type CacheCalculator interface {
 }
 
 type aggressiveCacheCalculator struct {
-	step           Step
+	step           StepRuntime
 	cacheConfig    schema.Cache
 	firstCacheKey  aggressiveFirstCacheKey
 	secondCacheKey aggressiveSecondCacheKey
 }
 
 // TODO
-func NewAggressiveCacheCalculator(step Step, cacheConfig schema.Cache) (CacheCalculator, error) {
+func NewAggressiveCacheCalculator(step StepRuntime, cacheConfig schema.Cache) (CacheCalculator, error) {
 	errMsg := "aggressive cache strategy is not supported now!!"
 	err := errors.New(errMsg)
-	step.getLogger().Errorln(errMsg)
+	step.logger.Errorln(errMsg)
 	return nil, err
 }
 
 type conservativeCacheCalculator struct {
 	fsHandler      *handler.FsHandler
-	step           Step
+	step           StepRuntime
 	cacheConfig    schema.Cache
 	firstCacheKey  *conservativeFirstCacheKey
 	secondCacheKey *conservativeSecondCacheKey
 }
 
 // 调用方应该保证在启用了 cache 功能的情况下才会调用NewConservativeCacheCalculator
-func NewConservativeCacheCalculator(step Step, cacheConfig schema.Cache) (CacheCalculator, error) {
-	fsHandler, err := handler.NewFsHandlerWithServer(step.wfr.wf.Extra[WfExtraInfoKeyFsID], step.getLogger())
+func NewConservativeCacheCalculator(step StepRuntime, cacheConfig schema.Cache) (CacheCalculator, error) {
+	fsHandler, err := handler.NewFsHandlerWithServer(step.fsID, step.logger)
 
 	if err != nil {
 		errMsg := fmt.Errorf("init fsHandler failed: %s", err.Error())
-		step.getLogger().Errorln(errMsg)
+		step.logger.Errorln(errMsg)
 		return nil, err
 	}
 
@@ -147,12 +147,10 @@ func (cc *conservativeCacheCalculator) generateFirstCacheKey() error {
 		InputArtifacts:  job.Artifacts.Input,
 		OutputArtifacts: job.Artifacts.Output,
 		Env:             envWithoutSystmeEnv,
-		// job.Name 是全局唯一，step.name 是 run.yaml 内唯一
-		StepName: cc.step.name,
 	}
 
 	logMsg := fmt.Sprintf("FirstCacheKey: \nDockerEnv: %s, Parameters: %s, Command: %s, InputArtifacts: %s, OutputArtifacts: %s, Env: %s", cc.step.job.(*PaddleFlowJob).Image, job.Parameters, job.Command, job.Artifacts.Input, job.Artifacts.Output, cacheKey.Env)
-	cc.step.getLogger().Debugf(logMsg)
+	cc.step.logger.Debugf(logMsg)
 
 	cc.firstCacheKey = &cacheKey
 	return nil
@@ -162,14 +160,14 @@ func (cc *conservativeCacheCalculator) CalculateFirstFingerprint() (fingerprint 
 	err = cc.generateFirstCacheKey()
 	if err != nil {
 		err = fmt.Errorf("Calculate FirstFingerprint failed due to generating FirstCacheKey: %s", err.Error())
-		cc.step.getLogger().Errorln(err.Error())
+		cc.step.logger.Errorln(err.Error())
 		return "", err
 	}
 
 	firstFingerprint, err := calculateFingerprint(cc.firstCacheKey)
 	if err != nil {
 		err = fmt.Errorf("Calculate FirstFingerprint failed: %s", err.Error())
-		cc.step.getLogger().Errorln(err.Error())
+		cc.step.logger.Errorln(err.Error())
 		return "", err
 	}
 
@@ -189,7 +187,7 @@ func (cc *conservativeCacheCalculator) getFsScopeModTime() (map[string]string, e
 		mtime, err := cc.fsHandler.LastModTime(path)
 		if err != nil {
 			err = fmt.Errorf("get the mtime of fsScope file[%s] failed: %s", path, err.Error())
-			cc.step.getLogger().Errorln(err.Error())
+			cc.step.logger.Errorln(err.Error())
 			return map[string]string{}, err
 		}
 		fsScopeMtimeMap[path] = fmt.Sprintf("%d", mtime.UnixNano())
@@ -209,7 +207,7 @@ func (cc *conservativeCacheCalculator) getInputArtifactModTime() (map[string]str
 
 		if name == "" || path == "" {
 			err := fmt.Errorf("the input artifact[%s] is illegal, name or path of it is empty", name)
-			cc.step.getLogger().Errorln(err.Error())
+			cc.step.logger.Errorln(err.Error())
 			return map[string]string{}, err
 		}
 
@@ -229,14 +227,14 @@ func (cc *conservativeCacheCalculator) generateSecondCacheKey() error {
 	fsScopeMTime, err := cc.getFsScopeModTime()
 	if err != nil {
 		err := fmt.Errorf("generate SecondCacheKey failed: [%s]", err.Error())
-		cc.step.getLogger().Errorln(err.Error())
+		cc.step.logger.Errorln(err.Error())
 		return err
 	}
 
 	inArt, err := cc.getInputArtifactModTime()
 	if err != nil {
 		err := fmt.Errorf("generate SecondCacheKey failed: [%s]", err.Error())
-		cc.step.getLogger().Errorln(err.Error())
+		cc.step.logger.Errorln(err.Error())
 		return err
 	}
 
@@ -246,7 +244,7 @@ func (cc *conservativeCacheCalculator) generateSecondCacheKey() error {
 	}
 
 	logMsg := fmt.Sprintf("SecondCacheKey:\nInputArtMTime: %s, FsScopeMTime: %s", inArt, fsScopeMTime)
-	cc.step.getLogger().Debugf(logMsg)
+	cc.step.logger.Debugf(logMsg)
 
 	return nil
 }
@@ -255,14 +253,14 @@ func (cc *conservativeCacheCalculator) CalculateSecondFingerprint() (fingerprint
 	err = cc.generateSecondCacheKey()
 	if err != nil {
 		err = fmt.Errorf("Calculate SecondFingerprint failed due to generating SecondCacheKey failed: %s", err.Error())
-		cc.step.getLogger().Errorln(err.Error())
+		cc.step.logger.Errorln(err.Error())
 		return "", err
 	}
 
 	secondFingerprint, err := calculateFingerprint(cc.secondCacheKey)
 	if err != nil {
 		err = fmt.Errorf("Calculate FirstFingerprint failed: %s", err.Error())
-		cc.step.getLogger().Errorln(err.Error())
+		cc.step.logger.Errorln(err.Error())
 		return "", err
 	}
 
@@ -270,7 +268,7 @@ func (cc *conservativeCacheCalculator) CalculateSecondFingerprint() (fingerprint
 }
 
 // 调用方应该保证在启用了 cache 功能的情况下才会调用NewCacheCalculator
-func NewCacheCalculator(step Step, cacheConfig schema.Cache) (CacheCalculator, error) {
+func NewCacheCalculator(step StepRuntime, cacheConfig schema.Cache) (CacheCalculator, error) {
 	// TODO: 当支持多中 cache 策略时，做好分发的功能
 	return NewConservativeCacheCalculator(step, cacheConfig)
 }
