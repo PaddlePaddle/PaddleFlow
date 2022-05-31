@@ -448,7 +448,9 @@ func getMountCmd(mountInfo pfs.MountInfo, cacheConf common.FsCacheConfig) string
 		"--data-cache-path=" + CachePath + DataCacheDir,
 		"--meta-cache-path=" + CachePath + MetaCacheDir,
 		"--meta-cache-driver=" + cacheConf.MetaDriver,
-		"--log-level=trace",
+	}
+	if cacheConf.Debug {
+		options = append(options, "--log-level=trace")
 	}
 	cmd := mkdir + pfsMountPath + mountPath + strings.Join(options, " ")
 	return cmd

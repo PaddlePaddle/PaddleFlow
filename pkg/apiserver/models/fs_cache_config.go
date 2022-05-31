@@ -33,6 +33,7 @@ type FSCacheConfig struct {
 	Quota                   int                    `json:"quota"`
 	MetaDriver              string                 `json:"metaDriver"`
 	BlockSize               int                    `json:"blockSize"`
+	Debug                   bool                   `json:"debug"`
 	NodeAffinityJson        string                 `json:"-"                   gorm:"column:node_affinity;type:text;default:'{}'"`
 	NodeAffinityMap         map[string]interface{} `json:"nodeAffinity"        gorm:"-"`
 	NodeTaintTolerationJson string                 `json:"-"                   gorm:"column:node_tainttoleration;type:text;default:'{}'"`

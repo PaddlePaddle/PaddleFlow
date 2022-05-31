@@ -103,6 +103,7 @@ type FsCacheResponse struct {
 	Quota               int                    `json:"quota"`
 	MetaDriver          string                 `json:"metaDriver"`
 	BlockSize           int                    `json:"blockSize"`
+	Debug               bool                   `json:"debug"`
 	NodeAffinity        map[string]interface{} `json:"nodeAffinity"`
 	NodeTaintToleration map[string]interface{} `json:"nodeTaintToleration"`
 	ExtraConfig         map[string]string      `json:"extraConfig"`
