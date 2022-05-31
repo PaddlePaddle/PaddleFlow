@@ -560,21 +560,20 @@ func (v *VFS) Fsync(ctx *meta.Context, ino Ino, datasync int, fh uint64) (err sy
 	return err
 }
 
-func (v *VFS) Fallocate(ctx *meta.Context, ino Ino, mode uint8, off, length int64, fh uint64) (err syscall.Errno) {
+func (v *VFS) Fallocate(ctx *meta.Context, ino Ino, mode uint8, off, length int64, fh uint64) syscall.Errno {
 	if IsSpecialNode(ino) {
-		err = syscall.EPERM
-		return
+		return syscall.EPERM
 	}
 	h := v.findHandle(ino, fh)
 	if h == nil {
-		err = syscall.EBADF
-		return
+		return syscall.EBADF
 	}
 	if h.writer != nil {
-		err = h.writer.Fallocate(length, off, uint32(mode))
+		if err := h.writer.Fallocate(length, off, uint32(mode)); err != nil {
+			return err
+		}
 	}
-	err = v.Meta.Write(ctx, ino, uint32(off), int(length))
-	return err
+	return v.Meta.Write(ctx, ino, uint32(off), int(length))
 }
 
 // Directory handling
