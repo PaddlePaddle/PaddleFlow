@@ -28,6 +28,7 @@ const (
 	// 事件值
 	WfEventJobUpdate    WfEventValue = "JobUpdate"
 	WfEventRunUpdate    WfEventValue = "RunUpdate"
+	WfEventDagUpdate    WfEventValue = "DagUpdate"
 	WfEventJobSubmitErr WfEventValue = "JobSubmitErr"
 	WfEventJobWatchErr  WfEventValue = "JobWatchErr"
 	WfEventJobStopErr   WfEventValue = "JobStopErr"
@@ -59,6 +60,11 @@ func (wfe *WorkflowEvent) isJobUpdate() bool {
 
 // 是否Run更新事件
 func (wfe *WorkflowEvent) isRunUpdate() bool {
+	return wfe.Event == WfEventRunUpdate
+}
+
+// 是否Dag更新事件
+func (wfe *WorkflowEvent) isDagUpdate() bool {
 	return wfe.Event == WfEventRunUpdate
 }
 

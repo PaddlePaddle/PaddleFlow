@@ -97,6 +97,19 @@ func (s *WorkflowSourceStep) GetDeps() []string {
 	return deps
 }
 
+func (d *WorkflowSourceDag) GetDeps() []string {
+	// 获取依赖节点列表。添加前删除每个步骤名称前后的空格，只有空格的步骤名直接略过不添加
+	deps := make([]string, 0)
+	for _, dep := range strings.Split(d.Deps, ",") {
+		dryDep := strings.TrimSpace(dep)
+		if len(dryDep) <= 0 {
+			continue
+		}
+		deps = append(deps, dryDep)
+	}
+	return deps
+}
+
 type Cache struct {
 	Enable         bool   `yaml:"enable"           json:"enable"`
 	MaxExpiredTime string `yaml:"max_expired_time" json:"maxExpiredTime"` // seconds
