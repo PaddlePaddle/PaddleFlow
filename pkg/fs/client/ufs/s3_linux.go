@@ -23,7 +23,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func (fh *s3FileHandle) Allocate(off uint64, size uint64, mode uint32) (code fuse.Status) {
+func (fh *s3FileHandle) Allocate(off, size uint64, mode uint32) (code fuse.Status) {
 	log.Debugf("S3 Allocate: fh.name[%s]", fh.name)
 	if fh.writeTmpfile != nil {
 		if fh.canWrite != nil {
@@ -32,8 +32,12 @@ func (fh *s3FileHandle) Allocate(off uint64, size uint64, mode uint32) (code fus
 				break
 			}
 		}
-		err := syscall.Fallocate(int(fh.writeTmpfile.Fd()), mode, int64(off), int64(size))
-		return fuse.ToStatus(err)
+		if err := syscall.Fallocate(int(fh.writeTmpfile.Fd()), mode, int64(off), int64(size)); err != nil {
+			log.Errorf("s3 allocate file[%s] size[%d] err: %v", fh.name, size, err)
+			return fuse.ToStatus(err)
+		}
+		fh.writeDirty = true
+		return fuse.ToStatus(fh.uploadWriteTmpFile())
 	}
 	return fuse.EBADF
 }
