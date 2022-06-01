@@ -160,7 +160,7 @@ type WorkflowSource struct {
 	Name           string                         `yaml:"name"`
 	DockerEnv      string                         `yaml:"docker_env"`
 	EntryPoints    WorkflowSourceDag              `yaml:"entry_points"`
-	Templates      map[string]interface{}         `yaml:"templates"`
+	Components     map[string]interface{}         `yaml:"components"`
 	Cache          Cache                          `yaml:"cache"`
 	Parallelism    int                            `yaml:"parallelism"`
 	Disabled       string                         `yaml:"disabled"`
@@ -203,7 +203,7 @@ func (wfs *WorkflowSource) HasStep(step string) bool {
 
 // 该函数的作用是将WorkflowSource中的Slice类型的输出Artifact改为Map类型。
 // 这样做的原因是：之前的run.yaml中（ver.1.3.2之前），输出Artifact为Map类型，而现在为了支持Cache的优化，改为Slice类型
-func (wfs *WorkflowSource) validateArtifacts() error {
+func (wfs *WorkflowSource) ValidateArtifacts() error {
 	return nil
 }
 
@@ -219,7 +219,7 @@ func parseArtifactsOfSteps(steps map[string]*WorkflowSourceStep) (map[string]*Wo
 }
 
 // 将yaml解析为map
-func runYaml2Map(runYaml []byte) (map[string]interface{}, error) {
+func RunYaml2Map(runYaml []byte) (map[string]interface{}, error) {
 	// Unstructured没有解析Yaml的方法，且无法使用官方yaml库Unmarshal后的结果，因此需要先转成Json
 	jsonByte, err := k8syaml.ToJSON(runYaml)
 	if err != nil {

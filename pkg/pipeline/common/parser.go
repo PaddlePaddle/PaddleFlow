@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package run
+package common
 
 import (
 	"fmt"
@@ -25,8 +25,136 @@ import (
 type Parser struct {
 }
 
-func loopArgumentParser(param interface{}) interface{} {
-	return param
+func (p *Parser) UnmarshallWorkflowSource(runYaml []byte) (schema.WorkflowSource, error) {
+	wfs := schema.WorkflowSource{
+		FailureOptions: schema.FailureOptions{Strategy: schema.FailureStrategyFailFast},
+	}
+
+	yamlMap, err := schema.RunYaml2Map(runYaml)
+	if err != nil {
+		return schema.WorkflowSource{}, err
+	}
+
+	p.ParseWorkflowSource(yamlMap, &wfs)
+
+	// 将List格式的OutputArtifact，转换为Map格式
+	if err := wfs.ValidateArtifacts(); err != nil {
+		return schema.WorkflowSource{}, err
+	}
+
+	// 检查节点级别的Cache设置，根据需要用Run级别的Cache进行覆盖
+	if err := wfs.ValidateStepCacheByMap(yamlMap); err != nil {
+		return schema.WorkflowSource{}, err
+	}
+	return wfs, nil
+}
+
+func (p *Parser) ParseWorkflowSource(bodyMap map[string]interface{}, wfs *schema.WorkflowSource) error {
+	for key, value := range bodyMap {
+		switch key {
+		case "name":
+			value, ok := value.(string)
+			if !ok {
+				return fmt.Errorf("[name] of workflow should be string type")
+			}
+			wfs.Name = value
+		case "dockerEnv":
+			fallthrough
+		case "docker_env":
+			value, ok := value.(string)
+			if !ok {
+				return fmt.Errorf("[docker_env/dockerEnv] of workflow should be string type")
+			}
+			wfs.DockerEnv = value
+		case "entryPoints":
+			fallthrough
+		case "entry_points":
+			value, ok := value.(map[string]interface{})
+			if !ok {
+				return fmt.Errorf("[entry_points/entryPoints] of workflow should be map[string]interface{} type")
+			}
+			entryPointsMap, err := p.ParseNodes(value)
+			if err != nil {
+				return fmt.Errorf("parse [entry_points/entryPoints] failed, error: %s", err.Error())
+			}
+			entryPoints := schema.WorkflowSourceDag{
+				EntryPoints: entryPointsMap,
+			}
+			wfs.EntryPoints = entryPoints
+		case "components":
+			value, ok := value.(map[string]interface{})
+			if !ok {
+				return fmt.Errorf("[components] of workflow should be map[string]interface{} type")
+			}
+			componentsMap, err := p.ParseNodes(value)
+			if err != nil {
+				return fmt.Errorf("parse [components] failed, error: %s", err.Error())
+			}
+			wfs.Components = componentsMap
+		case "cache":
+			value, ok := value.(map[string]interface{})
+			if !ok {
+				return fmt.Errorf("[cache] of workflow should be map[string]interface{} type")
+			}
+			cache := schema.Cache{}
+			if err := p.parseCache(value, &cache); err != nil {
+				return fmt.Errorf("parse [cache] in workflow failed, error: %s", err.Error())
+			}
+			wfs.Cache = cache
+		case "parallelism":
+			value, ok := value.(int)
+			if !ok {
+				return fmt.Errorf("[parallelism] of workflow should be int type")
+			}
+			wfs.Parallelism = value
+		case "disabled":
+			value, ok := value.(string)
+			if !ok {
+				return fmt.Errorf("[disabled] of workflow should be string type")
+			}
+			wfs.Disabled = value
+		case "failureOptions":
+			fallthrough
+		case "failure_options":
+			value, ok := value.(map[string]interface{})
+			if !ok {
+				return fmt.Errorf("[failure_options/failureOptions] of workflow should be map[string]interface{} type")
+			}
+			options := schema.FailureOptions{}
+			for optKey, optValue := range value {
+				switch optKey {
+				case "strategy":
+					optValue, ok := optValue.(string)
+					if !ok {
+						return fmt.Errorf("[failure_options/failureOptions.strategy] of workflow should be string type")
+					}
+					options.Strategy = optValue
+				default:
+					return fmt.Errorf("[failure_options/failureOptions] has no attribute [%s]", optKey)
+				}
+			}
+		case "postProcess":
+			fallthrough
+		case "post_process":
+			value, ok := value.(map[string]interface{})
+			if !ok {
+				return fmt.Errorf("[post_process/postProcess] of workflow should be map[string]interface{} type")
+			}
+			postMap, err := p.ParseNodes(value)
+			if err != nil {
+				return fmt.Errorf("parse [post_process/postProcess] failed, error: %s", err.Error())
+			}
+			wfs.PostProcess = map[string]*schema.WorkflowSourceStep{}
+			for postkey, postValue := range postMap {
+				postValue, ok := postValue.(*schema.WorkflowSourceStep)
+				if !ok {
+					return fmt.Errorf("[post_process/postProcess] can only have step")
+				}
+				wfs.PostProcess[postkey] = postValue
+			}
+		}
+	}
+	return nil
 }
 
 func (p *Parser) ParseNodes(entryPoints map[string]interface{}) (map[string]interface{}, error) {
@@ -126,33 +254,8 @@ func (p *Parser) ParseStep(params map[string]interface{}, stepNode *schema.Workf
 			if !ok {
 				return fmt.Errorf("[cache] in step should be map[string]interface type")
 			}
-			for cacheKey, cacheValue := range value {
-				switch cacheKey {
-				case "enable":
-					cacheValue, ok := cacheValue.(bool)
-					if !ok {
-						return fmt.Errorf("[cache.enable] in step should be bool type")
-					}
-					cache.Enable = cacheValue
-				case "maxExpiredTime":
-					fallthrough
-				case "max_expired_time":
-					cacheValue, ok := cacheValue.(string)
-					if !ok {
-						return fmt.Errorf("[cache.max_expired_time/maxExpiredTime] in step should be string type")
-					}
-					cache.MaxExpiredTime = cacheValue
-				case "fsScope":
-					fallthrough
-				case "fs_scope":
-					cacheValue, ok := cacheValue.(string)
-					if !ok {
-						return fmt.Errorf("[cache.fs_scope/fsScope] in step should be string type")
-					}
-					cache.FsScope = cacheValue
-				default:
-					return fmt.Errorf("[cache] of step has no attribute [%s]", cacheKey)
-				}
+			if err := p.parseCache(value, &cache); err != nil {
+				return fmt.Errorf("parse cache in step failed, error: %s", err.Error())
 			}
 			stepNode.Cache = cache
 		case "reference":
@@ -161,8 +264,48 @@ func (p *Parser) ParseStep(params map[string]interface{}, stepNode *schema.Workf
 				return fmt.Errorf("[reference] in step should be string type")
 			}
 			stepNode.Reference = value
+		case "type":
+			value, ok := value.(string)
+			if !ok {
+				return fmt.Errorf("[type] of dag should be string type")
+			}
+			if value != "step" {
+				return fmt.Errorf("set [type] as [%s] in step", value)
+			}
 		default:
 			return fmt.Errorf("step has no attribute [%s]", key)
+		}
+	}
+	return nil
+}
+
+func (p *Parser) parseCache(cacheMap map[string]interface{}, cache *schema.Cache) error {
+	for cacheKey, cacheValue := range cacheMap {
+		switch cacheKey {
+		case "enable":
+			cacheValue, ok := cacheValue.(bool)
+			if !ok {
+				return fmt.Errorf("[cache.enable] should be bool type")
+			}
+			cache.Enable = cacheValue
+		case "maxExpiredTime":
+			fallthrough
+		case "max_expired_time":
+			cacheValue, ok := cacheValue.(string)
+			if !ok {
+				return fmt.Errorf("[cache.max_expired_time/maxExpiredTime] should be string type")
+			}
+			cache.MaxExpiredTime = cacheValue
+		case "fsScope":
+			fallthrough
+		case "fs_scope":
+			cacheValue, ok := cacheValue.(string)
+			if !ok {
+				return fmt.Errorf("[cache.fs_scope/fsScope] should be string type")
+			}
+			cache.FsScope = cacheValue
+		default:
+			return fmt.Errorf("[cache] has no attribute [%s]", cacheKey)
 		}
 	}
 	return nil
