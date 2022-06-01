@@ -72,7 +72,7 @@ type runConfig struct {
 	fsName   string
 	userName string
 
-	// pipelineID or yamlPath
+	// pipelineID or yamlPath or md5sum of yamlRaw
 	pplSource string
 
 	// 3. 由 ApiServer 或者 Parser 动态生成的信息
