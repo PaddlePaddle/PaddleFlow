@@ -146,8 +146,9 @@ func buildWorkflowSource(userName string, req CreateRunRequest, fsID string) (sc
 			return schema.WorkflowSource{}, "", "", err
 		}
 		runYaml = string(sDec)
-		wfs := schema.WorkflowSource{}
-		if err := yaml.Unmarshal([]byte(runYaml), &wfs); err != nil {
+		parser := pplcommon.Parser{}
+		wfs, err := parser.UnmarshallWorkflowSource([]byte(runYaml))
+		if err != nil {
 			logger.Logger().Errorf("Unmarshal runYaml to get source failed. yaml: %s \n, err:%v", runYaml, err)
 			return schema.WorkflowSource{}, "", "", err
 		}
@@ -215,7 +216,7 @@ func getWorkFlowSourceByReq(request *CreateRunByJsonRequest, bodyMap map[string]
 	// TODO: handle errors
 	entryPointsMap, _, _ := unstructured.NestedFieldCopy(bodyMap, "entryPoints")
 	entryPointsNodes := entryPointsMap.(map[string]interface{})
-	parser := Parser{}
+	parser := pplcommon.Parser{}
 	nodes, _ := parser.ParseNodes(entryPointsNodes)
 	entryPoints := schema.WorkflowSourceDag{
 		EntryPoints: nodes,
@@ -357,7 +358,8 @@ func getSourceAndYaml(wfs schema.WorkflowSource) (string, string, error) {
 
 func runYamlAndReqToWfs(runYaml string, req interface{}) (schema.WorkflowSource, error) {
 	// parse yaml -> WorkflowSource
-	wfs, err := schema.ParseWorkflowSource([]byte(runYaml))
+	parser := pplcommon.Parser{}
+	wfs, err := parser.UnmarshallWorkflowSource([]byte(runYaml))
 	if err != nil {
 		logger.Logger().Errorf("get WorkflowSource by yaml failed. yaml: %s \n, err:%v", runYaml, err)
 		return schema.WorkflowSource{}, err
