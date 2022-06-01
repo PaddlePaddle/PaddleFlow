@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"strings"
 
+	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
@@ -237,4 +238,29 @@ func RunYaml2Map(runYaml []byte) (map[string]interface{}, error) {
 
 func (wfs *WorkflowSource) ValidateStepCacheByMap(runMap map[string]interface{}) error {
 	return nil
+}
+
+func ParseWorkflowSource(runYaml []byte) (WorkflowSource, error) {
+	wfs := WorkflowSource{
+		FailureOptions: FailureOptions{Strategy: FailureStrategyFailFast},
+	}
+	if err := yaml.Unmarshal(runYaml, &wfs); err != nil {
+		return WorkflowSource{}, err
+	}
+	// 将List格式的OutputArtifact，转换为Map格式
+	if err := wfs.ValidateArtifacts(); err != nil {
+		return WorkflowSource{}, err
+	}
+
+	// 为了判断用户是否设定节点级别的Cache，需要第二次Unmarshal
+	yamlMap, err := RunYaml2Map(runYaml)
+	if err != nil {
+		return WorkflowSource{}, err
+	}
+
+	// 检查节点级别的Cache设置，根据需要用Run级别的Cache进行覆盖
+	if err := wfs.ValidateStepCacheByMap(yamlMap); err != nil {
+		return WorkflowSource{}, err
+	}
+	return wfs, nil
 }
