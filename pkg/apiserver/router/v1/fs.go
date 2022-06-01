@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi"
 	log "github.com/sirupsen/logrus"
@@ -74,7 +75,7 @@ var URLPrefix = map[string]bool{
 	common.CFS:   true,
 }
 
-const FsNameMaxLen = 8
+const FsNameMaxLen = 100
 
 // createFileSystem the function that handle the create file system request
 // @Summary createFileSystem
@@ -130,7 +131,7 @@ func validateCreateFileSystem(ctx *logger.RequestContext, req *api.CreateFileSys
 		ctx.ErrorCode = common.AuthFailed
 		return fmt.Errorf("userName is empty")
 	}
-	matchBool, err := regexp.MatchString(fmt.Sprintf("^[a-zA-Z0-9]{1,%d}$", FsNameMaxLen), req.Name)
+	matchBool, err := regexp.MatchString(fmt.Sprintf("^[a-zA-Z0-9_]{1,%d}$", FsNameMaxLen), req.Name)
 	if err != nil {
 		ctx.Logging().Errorf("regexp err[%v]", err)
 		ctx.ErrorCode = common.FileSystemNameFormatError
@@ -491,8 +492,6 @@ func (pr *PFSRouter) deleteFileSystem(w http.ResponseWriter, r *http.Request) {
 
 	log.Debugf("delete file system with fsName[%s] username[%s]", fsName, username)
 
-	fileSystemService := api.GetFileSystemService()
-
 	realUserName := getRealUserName(&ctx, username)
 	fsID := common.ID(realUserName, fsName)
 
@@ -507,8 +506,10 @@ func (pr *PFSRouter) deleteFileSystem(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+
 	fsMount := &models.FsMount{FsID: fsID}
-	listMount, err := fsMount.ListMount(fsMount, 1, "")
+	marker := time.Now().Format(models.TimeFormat)
+	listMount, err := fsMount.ListMount(fsMount, 1, marker)
 	if err != nil {
 		ctx.Logging().Errorf("list mount with fsID[%s] error[%v]", fsID, err)
 		common.RenderErrWithMessage(w, ctx.RequestID, common.FileSystemDataBaseError, err.Error())
@@ -517,14 +518,7 @@ func (pr *PFSRouter) deleteFileSystem(w http.ResponseWriter, r *http.Request) {
 	if len(listMount) != 0 {
 		ctx.Logging().Errorf("list mount result %v", listMount)
 		ctx.ErrorMessage = fmt.Sprintf("fsName[%s] is being used by pod and cannot be deleted", fsName)
-		common.RenderErrWithMessage(w, ctx.RequestID, common.ActionNotAllowed, err.Error())
-		return
-	}
-
-	err = fileSystemService.DeleteFileSystem(&ctx, fsID)
-	if err != nil {
-		ctx.Logging().Errorf("delete file system with error[%v]", err)
-		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		common.RenderErrWithMessage(w, ctx.RequestID, common.ActionNotAllowed, ctx.ErrorMessage)
 		return
 	}
 	common.RenderStatus(w, http.StatusOK)
