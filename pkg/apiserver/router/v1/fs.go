@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi"
 	log "github.com/sirupsen/logrus"
@@ -507,8 +508,10 @@ func (pr *PFSRouter) deleteFileSystem(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+
 	fsMount := &models.FsMount{FsID: fsID}
-	listMount, err := fsMount.ListMount(fsMount, 1, "")
+	marker := time.Now().Format(models.TimeFormat)
+	listMount, err := fsMount.ListMount(fsMount, 1, marker)
 	if err != nil {
 		ctx.Logging().Errorf("list mount with fsID[%s] error[%v]", fsID, err)
 		common.RenderErrWithMessage(w, ctx.RequestID, common.FileSystemDataBaseError, err.Error())
@@ -526,6 +529,12 @@ func (pr *PFSRouter) deleteFileSystem(w http.ResponseWriter, r *http.Request) {
 		ctx.Logging().Errorf("delete file system with error[%v]", err)
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
+	}
+
+	err = models.DeleteFSCacheConfig(ctx.Logging(), fsID)
+	if err != nil && err != gorm.ErrRecordNotFound {
+		ctx.Logging().Errorf("delete file system cache with error[%v]", err)
+		common.RenderErrWithMessage(w, ctx.RequestID, common.FileSystemDataBaseError, err.Error())
 	}
 	common.RenderStatus(w, http.StatusOK)
 }
