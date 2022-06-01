@@ -492,8 +492,6 @@ func (pr *PFSRouter) deleteFileSystem(w http.ResponseWriter, r *http.Request) {
 
 	log.Debugf("delete file system with fsName[%s] username[%s]", fsName, username)
 
-	fileSystemService := api.GetFileSystemService()
-
 	realUserName := getRealUserName(&ctx, username)
 	fsID := common.ID(realUserName, fsName)
 
