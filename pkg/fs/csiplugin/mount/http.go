@@ -44,6 +44,7 @@ func fsCacheConfig(mountInfo pfs.MountInfo, httpClient *core.PaddleFlowClient, t
 		Quota:               cacheResp.Quota,
 		MetaDriver:          cacheResp.MetaDriver,
 		BlockSize:           cacheResp.BlockSize,
+		Debug:               cacheResp.Debug,
 		NodeAffinity:        cacheResp.NodeAffinity,
 		NodeTaintToleration: cacheResp.NodeTaintToleration,
 		ExtraConfig:         cacheResp.ExtraConfig,

@@ -216,6 +216,11 @@ func CheckCPUResource(res string) error {
 	return nil
 }
 
+// IsEmptyResource return true when cpu or mem is nil
+func IsEmptyResource(resourceInfo ResourceInfo) bool {
+	return resourceInfo.CPU == "" || resourceInfo.Mem == ""
+}
+
 func CheckMemoryResource(res string) error {
 	q, err := resource.ParseQuantity(res)
 	if err != nil {
