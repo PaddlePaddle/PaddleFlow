@@ -523,14 +523,6 @@ func (pr *PFSRouter) deleteFileSystem(w http.ResponseWriter, r *http.Request) {
 		common.RenderErrWithMessage(w, ctx.RequestID, common.ActionNotAllowed, ctx.ErrorMessage)
 		return
 	}
-
-	err = fileSystemService.DeleteFileSystem(&ctx, fsID)
-	if err != nil {
-		ctx.Logging().Errorf("delete file system with error[%v]", err)
-		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
-		return
-	}
-
 	common.RenderStatus(w, http.StatusOK)
 }
 
