@@ -236,6 +236,14 @@ func patchFromCommonInfo(conf *schema.Conf, commonJobInfo *CommonJobInfo) error 
 		}
 		return err
 	}
+	// distributed Job would pass check flavour and queue, because conf is just constructed without flavour.
+	// flavour would be check in function newMembers
+	if !schema.IsEmptyResource(conf.Flavour.ResourceInfo) {
+		if err = job.IsEnoughQueueCapacity(conf.Flavour, queue.MaxResources); err != nil {
+			log.Errorf("patch Job from commonInfo failed, err:=%v", err)
+			return err
+		}
+	}
 	queueID := commonJobInfo.SchedulingPolicy.QueueID
 	conf.SetQueueID(queueID)
 	conf.SetQueueName(queueName)
@@ -392,9 +400,10 @@ func newCollectiveMembers(request *CreateDisJobRequest) ([]models.Member, error)
 		if reqMem.Role == string(schema.RoleWorker) {
 			member, err := newMember(reqMem, schema.RoleWorker)
 			if err != nil {
-				log.Errorf("create collective members failed, err=%v", err)
+				log.Errorf("create collective members failed, err: %v", err)
 				return nil, err
 			}
+			patchFromCommonInfo(&member.Conf, &request.CommonJobInfo)
 			members = append(members, member)
 		}
 	}

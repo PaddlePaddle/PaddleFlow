@@ -62,6 +62,7 @@ func GetK8sClient() (K8SInterface, error) {
 }
 
 func New(k8sConfigPath string, k8sClientTimeout int) (*K8SClient, error) {
+	// if k8sConfigPath == "", k8s invokes InClusterConfig, using service account to init
 	config, err := clientcmd.BuildConfigFromFlags("", k8sConfigPath)
 	if err != nil {
 		return nil, err
