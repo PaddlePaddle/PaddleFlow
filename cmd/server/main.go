@@ -16,7 +16,7 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/cmd/server/flag"
 	job2 "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/job"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/run"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/pipeline"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	v1 "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/v1"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
@@ -89,12 +89,15 @@ func start() error {
 	ServerCtx, ServerCancel := context.WithCancel(context.Background())
 	defer ServerCancel()
 
-	imageHandler, err := run.InitAndResumeRuns()
+	imageHandler, err := pipeline.InitAndResumeRuns()
 	if err != nil {
 		log.Errorf("InitAndResumePipeline failed. error: %v", err)
 		return err
 	}
 	go imageHandler.Run()
+
+	globalScheduler := pipeline.GetGlobalScheduler()
+	go globalScheduler.Start()
 
 	go job2.WSManager.SendGroupData()
 	go job2.WSManager.GetGroupData()
