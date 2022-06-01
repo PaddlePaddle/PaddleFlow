@@ -381,7 +381,7 @@ spec:
                 fieldRef:
                   apiVersion: v1
                   fieldPath: spec.nodeName
-          image: registry.baidubce.com/paddlecloud/paddleflow-server:1.4.2
+          image: paddleflow/paddleflow-server:1.4.2
           imagePullPolicy: IfNotPresent
           name: paddleflow-server
           ports:

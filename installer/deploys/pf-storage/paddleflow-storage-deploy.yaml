@@ -170,7 +170,7 @@ spec:
                   fieldPath: spec.nodeName
             - name: MOUNT_POINT_INTERVAL_TIME
               value: "10"
-          image: registry.baidubce.com/paddlecloud/csi-driver-registrar:1.2.0
+          image: paddleflow/csi-driver-registrar:1.2.0
           imagePullPolicy: IfNotPresent
           lifecycle:
             preStop:
@@ -338,7 +338,7 @@ spec:
             - -v=5
             - --csi-address=/csi/csi.sock
             - --feature-gates=Topology=true
-          image: registry.baidubce.com/paddlecloud/csi-provisioner:1.4.0
+          image: paddleflow/csi-provisioner:1.4.0
           imagePullPolicy: IfNotPresent
           name: pfs-csi-provisioner
           ports:

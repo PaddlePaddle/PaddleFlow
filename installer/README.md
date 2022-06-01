@@ -8,8 +8,8 @@ PaddleFLow部署分为客户端和服务端两个部分。
 
 **安装**paddleflow客户端有两种方式：
 
-1. 从仓库安装`pip3 install paddleflow`
-2. 通过编译包安装，编译包有两处来源，分别是分支的最新产出、执行编译命令`cd client && python3 setup.py bdist_wheel`。得到编译包后执行`pip3 install PaddleFlow-1.4.1-py3-none-any.whl`
+1. 从[release](https://github.com/PaddlePaddle/PaddleFlow/releases)下载最新版, 执行`pip3 install PaddleFlow-1.4.2-py3-none-any.whl`
+2. 通过编译包安装，编译包有两处来源，分别是分支的最新产出、执行编译命令`cd client && python3 setup.py bdist_wheel`。得到编译包后执行`pip3 install PaddleFlow-1.4.2-py3-none-any.whl`
 
 **卸载**paddleflow
 
@@ -42,8 +42,7 @@ paddleflow-storage提供的功能主要包括存储资源管理。</br>
 
 ```shell
 # 执行部署
-kubectl create -f installer/paddleflow-deployment.yaml
-# 执行卸载
+kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.2/installer/paddleflow-deployment.yaml
 ```
 ### 2.3 自定义安装
 #### 2.3.1 安装paddleflow-server
@@ -61,17 +60,17 @@ export DB_DATABASE='paddleflow'
 ```
 **安装paddleflow-server**
 ```shell
-kubectl create -f installer/deploys/paddleflow-server/paddleflow-server-deploy.yaml
+kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.2/installer/deploys/paddleflow-server/paddleflow-server-deploy.yaml
 ```
 
 #### 2.3.2 安装paddleflow-storage
 ```shell
-kubectl create -f installer/deploys/pf-storage/paddleflow-storage-deploy.yaml
+kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.2/installer/deploys/pf-storage/paddleflow-storage-deploy.yaml
 ```
 
 #### 2.3.3 安装volcano
 ```shell
-kubectl create -f installer/deploys/pf-volcano/pf-volcano-deploy.yaml
+kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.2/installer/deploys/pf-volcano/pf-volcano-deploy.yaml
 ```
 
 ### 2.4 服务端部署包说明
