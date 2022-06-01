@@ -75,7 +75,7 @@ var URLPrefix = map[string]bool{
 	common.CFS:   true,
 }
 
-const FsNameMaxLen = 8
+const FsNameMaxLen = 100
 
 // createFileSystem the function that handle the create file system request
 // @Summary createFileSystem
@@ -131,7 +131,7 @@ func validateCreateFileSystem(ctx *logger.RequestContext, req *api.CreateFileSys
 		ctx.ErrorCode = common.AuthFailed
 		return fmt.Errorf("userName is empty")
 	}
-	matchBool, err := regexp.MatchString(fmt.Sprintf("^[a-zA-Z0-9]{1,%d}$", FsNameMaxLen), req.Name)
+	matchBool, err := regexp.MatchString(fmt.Sprintf("^[a-zA-Z0-9_]{1,%d}$", FsNameMaxLen), req.Name)
 	if err != nil {
 		ctx.Logging().Errorf("regexp err[%v]", err)
 		ctx.ErrorCode = common.FileSystemNameFormatError
@@ -520,7 +520,7 @@ func (pr *PFSRouter) deleteFileSystem(w http.ResponseWriter, r *http.Request) {
 	if len(listMount) != 0 {
 		ctx.Logging().Errorf("list mount result %v", listMount)
 		ctx.ErrorMessage = fmt.Sprintf("fsName[%s] is being used by pod and cannot be deleted", fsName)
-		common.RenderErrWithMessage(w, ctx.RequestID, common.ActionNotAllowed, err.Error())
+		common.RenderErrWithMessage(w, ctx.RequestID, common.ActionNotAllowed, ctx.ErrorMessage)
 		return
 	}
 
@@ -531,11 +531,6 @@ func (pr *PFSRouter) deleteFileSystem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = models.DeleteFSCacheConfig(ctx.Logging(), fsID)
-	if err != nil && err != gorm.ErrRecordNotFound {
-		ctx.Logging().Errorf("delete file system cache with error[%v]", err)
-		common.RenderErrWithMessage(w, ctx.RequestID, common.FileSystemDataBaseError, err.Error())
-	}
 	common.RenderStatus(w, http.StatusOK)
 }
 
