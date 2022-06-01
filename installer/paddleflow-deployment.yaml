@@ -519,7 +519,7 @@ spec:
                 fieldRef:
                   apiVersion: v1
                   fieldPath: spec.nodeName
-          image: paddleflow/paddleflow-server:1.4.1
+          image: paddleflow/paddleflow-server:1.4.2
           imagePullPolicy: IfNotPresent
           name: paddleflow-server
           ports:
@@ -667,7 +667,7 @@ spec:
                 fieldRef:
                   apiVersion: v1
                   fieldPath: spec.nodeName
-          image: paddleflow/pfs-csi-plugin:2022531_01
+          image: paddleflow/pfs-csi-plugin:1.4.2
           imagePullPolicy: IfNotPresent
           name: csi-storage-driver
           resources: {}
