@@ -13,6 +13,7 @@ spec:
         containers:
           - name: paddle
             image: registry.baidubce.com/paddle-operator/demo-wide-and-deep:v1
+        terminationGracePeriodSeconds: 30
   ps:
     replicas: 2
     template:
@@ -20,3 +21,4 @@ spec:
         containers:
           - name: paddle
             image: registry.baidubce.com/paddle-operator/demo-wide-and-deep:v1
+        terminationGracePeriodSeconds: 30
