@@ -220,7 +220,7 @@ ${FS_USER_ROOT_PATH}/.pipeline/
 
 
 [1_pipeline_basic.md]: /docs/zh_cn/reference/pipeline/yaml_definition/1_pipeline_basic.md
-[artifact_example]: /docs/example/pipeline/artifact_example
+[artifact_example]: /example/pipeline/artifact_example
 [3_cache.md]: /docs/zh_cn/reference/pipeline/yaml_definition/3_cache.md
 [1 pipeline定义]: /docs/zh_cn/reference/pipeline/yaml_definition/2_artifact.md#1-pipeline%E5%AE%9A%E4%B9%89
 [2.1.1 artifact vs parameter]: /docs/zh_cn/reference/pipeline/yaml_definition/2_artifact.md#211-artifact-vs-parameter
