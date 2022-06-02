@@ -17,14 +17,19 @@ limitations under the License.
 package v1
 
 import (
+	"net/http"
+	"os"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/agiledragon/gomonkey/v2"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/fs"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	fsCommon "github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 )
@@ -410,4 +415,57 @@ func Test_getListResult(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestCreateFSAndDeleteFs(t *testing.T) {
+	router, baseUrl := prepareDBAndAPI(t)
+	// mockFs := buildMockFS()
+	// cacheConf := buildMockFSCacheConfig()
+	str, err := os.Getwd()
+	defer func() {
+		os.RemoveAll(str + "/fs")
+	}()
+	assert.Nil(t, err)
+	createFsReq := fs.CreateFileSystemRequest{
+		Name: mockFsName,
+		Url:  "local:/" + str + "/fs",
+		Properties: map[string]string{
+			"debug": "true",
+		},
+	}
+
+	fsUrl := baseUrl + "/fs"
+	result, err := PerformPostRequest(router, fsUrl, createFsReq)
+	assert.Nil(t, err)
+	assert.Equal(t, http.StatusCreated, result.Code)
+
+	// test create failure - no fs
+	url := baseUrl + "/fsMount"
+	createMountReq := fs.CreateMountRequest{
+		Username:   MockRootUser,
+		FsName:     mockFsName,
+		ClusterID:  "testcluster",
+		NodeName:   "abc",
+		MountPoint: "/var/2",
+	}
+	result, err = PerformPostRequest(router, url, createMountReq)
+	assert.Nil(t, err)
+	assert.Equal(t, http.StatusCreated, result.Code)
+
+	time.Sleep(1 * time.Second)
+
+	deleteUrl := fsUrl + "/" + mockFsName
+	result, err = PerformDeleteRequest(router, deleteUrl)
+	assert.Nil(t, err)
+	assert.Equal(t, http.StatusForbidden, result.Code)
+
+	filters2 := "?" + util.QueryMountPoint + "=/var/2&" + util.QueryNodeName + "=abc&" + util.QueryClusterID + "=testcluster"
+	_, err = PerformDeleteRequest(router, url+"/"+mockFsName+filters2)
+	assert.Nil(t, err)
+	time.Sleep(1 * time.Second)
+
+	deleteUrl = fsUrl + "/" + mockFsName
+	result, err = PerformDeleteRequest(router, deleteUrl)
+	assert.Nil(t, err)
+	assert.Equal(t, http.StatusOK, result.Code)
 }

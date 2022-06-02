@@ -11,3 +11,4 @@ spec:
         containers:
           - name: worker-name
             image: registry.baidubce.com/paddle-operator/demo-resnet:v1
+        terminationGracePeriodSeconds: 30

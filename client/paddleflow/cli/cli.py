@@ -21,11 +21,13 @@ import click
 import logging
 import sys
 import configparser
+
 from paddleflow.client import Client
 from paddleflow.cli.output import OutputFormat
 from paddleflow.cli.user import user
 from paddleflow.cli.queue import queue
 from paddleflow.cli.fs import fs
+from paddleflow.cli.job import job
 from paddleflow.cli.log import log
 from paddleflow.cli.run import run
 from paddleflow.cli.pipeline import pipeline
@@ -89,6 +91,7 @@ def main():
     cli.add_command(cluster)
     cli.add_command(flavour)
     cli.add_command(log)
+    cli.add_command(job)
     try:
         cli(obj={}, auto_envvar_prefix='paddleflow')
     except Exception as e:

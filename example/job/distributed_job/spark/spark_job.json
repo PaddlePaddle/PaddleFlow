@@ -1,0 +1,106 @@
+{
+  "id": "",
+  "name": "",
+  "labels": null,
+  "annotations": null,
+  "framework": "spark",
+  "schedulingPolicy": {
+    "queue": "dzz",
+    "priority": "NORMAL"
+  },
+  "image": "gcr.io/spark-operator/spark:v3.1.1",
+  "members": [
+    {
+      "role": "driver",
+      "replicas": 1,
+      "labels": {},
+      "annotations": {},
+      "flavour": {
+        "cpu": "",
+        "mem": "",
+        "name": "flavour1"
+      },
+      "env": {
+        "PF_JOB_SPARK_MAIN_FILE": "local:///opt/spark/examples/src/main/python/pi.py"
+      },
+      "extraFileSystems": null,
+      "image": "gcr.io/spark-operator/spark:v3.1.1",
+      "command": "sleep 50",
+      "args": null,
+      "port": 0,
+      "extensionTemplate": {}
+    },
+    {
+      "role": "executor",
+      "replicas": 1,
+      "labels": {},
+      "annotations": {},
+      "flavour": {
+        "cpu": "",
+        "mem": "",
+        "name": "flavour1"
+      },
+      "extraFileSystems": null,
+      "image": "gcr.io/spark-operator/spark:v3.1.1",
+      "env": null,
+      "command": "sleep 50",
+      "args": null,
+      "port": 0,
+      "extensionTemplate": {}
+    }
+  ],
+  "extensionTemplate": {
+    "apiVersion": "sparkoperator.k8s.io/v1beta2",
+    "kind": "SparkApplication",
+    "metadata": {
+      "labels": {
+        "a": "b"
+      },
+      "name": "job-a6bc9620d6034657",
+      "namespace": "default"
+    },
+    "spec": {
+      "batchScheduler": "volcano",
+      "batchSchedulerOptions": {
+        "priorityClassName": "normal",
+        "queue": "dzz"
+      },
+      "deps": {},
+      "driver": {
+        "coreLimit": "2",
+        "cores": 2,
+        "env": [
+          {
+            "name": "a",
+            "value": "b"
+          }
+        ],
+        "memory": "1G",
+        "serviceAccount": "default"
+      },
+      "executor": {
+        "coreLimit": "1",
+        "cores": 1,
+        "instances": 1,
+        "memory": "1G"
+      },
+      "image": "gcr.io/spark-operator/spark:v3.1.1",
+      "imagePullPolicy": "IfNotPresent",
+      "mainApplicationFile": "local:///opt/spark/examples/jars/spark-examples_2.12-v3.1.1.jar",
+      "mainClass": "org.apache.spark.examples.SparkPi",
+      "mode": "cluster",
+      "restartPolicy": {
+        "onSubmissionFailureRetries": 3,
+        "onSubmissionFailureRetryInterval": 5,
+        "type": "Never"
+      },
+      "sparkConf": {
+        "spark.driver.extraJavaOptions": "-Dsun.zip.disableMemoryMapping=true",
+        "spark.executor.extraJavaOptions": "-Dsun.zip.disableMemoryMapping=true",
+        "spark.hadoop.mapreduce.fileoutputcommitter.algorithm.version": "2"
+      },
+      "sparkVersion": "3.0.0",
+      "type": "Scala"
+    }
+  }
+}

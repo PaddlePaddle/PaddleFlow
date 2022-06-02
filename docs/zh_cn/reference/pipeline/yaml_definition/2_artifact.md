@@ -20,7 +20,7 @@ entry_points:
       - validate_data
     command: bash -x artifact_example/shells/data_artifact.sh {{data_path}} {{train_data}}
       {{validate_data}}
-    docker_env: registry.baidubce.com/pipeline/kfp_mysql:1.7.0
+    docker_env: centos:centos7
     env:
       PF_JOB_FLAVOUR: flavour1
       PF_JOB_MODE: Pod
@@ -219,10 +219,10 @@ ${FS_USER_ROOT_PATH}/.pipeline/
 - 本 step 内 output artifact
 
 
-[1_pipeline_basic.md]: https://github.com/Mo-Xianyuan/PaddleFlow/blob/docs/docs/zh_cn/reference/pipeline/yaml%20definition/1_pipeline_basic.md
-[artifact_example]: https://github.com/Mo-Xianyuan/PaddleFlow/tree/docs/example/pipeline/artifact_example
-[3_cache.md]: https://github.com/Mo-Xianyuan/PaddleFlow/blob/docs/docs/zh_cn/reference/pipeline/yaml_definition/3_cache.md
-[1 pipeline定义]: https://github.com/Mo-Xianyuan/PaddleFlow/blob/docs/docs/zh_cn/reference/pipeline/yaml_definition/2_artifact.md#1-pipeline%E5%AE%9A%E4%B9%89
-[2.1.1 artifact vs parameter]: https://github.com/Mo-Xianyuan/PaddleFlow/blob/docs/docs/zh_cn/reference/pipeline/yaml_definition/2_artifact.md#211-artifact-vs-parameter
-[2.4 artifact 使用方式]: https://github.com/Mo-Xianyuan/PaddleFlow/blob/docs/docs/zh_cn/reference/pipeline/yaml_definition/2_artifact.md#24-artifact-%E4%BD%BF%E7%94%A8%E6%96%B9%E5%BC%8F
-[3.1 artifact存储机制]: https://github.com/Mo-Xianyuan/PaddleFlow/blob/docs/docs/zh_cn/reference/pipeline/yaml_definition/2_artifact.md#31-artifact%E5%AD%98%E5%82%A8%E6%9C%BA%E5%88%B6
+[1_pipeline_basic.md]: /docs/zh_cn/reference/pipeline/yaml_definition/1_pipeline_basic.md
+[artifact_example]: /example/pipeline/artifact_example
+[3_cache.md]: /docs/zh_cn/reference/pipeline/yaml_definition/3_cache.md
+[1 pipeline定义]: /docs/zh_cn/reference/pipeline/yaml_definition/2_artifact.md#1-pipeline%E5%AE%9A%E4%B9%89
+[2.1.1 artifact vs parameter]: /docs/zh_cn/reference/pipeline/yaml_definition/2_artifact.md#211-artifact-vs-parameter
+[2.4 artifact 使用方式]: /docs/zh_cn/reference/pipeline/yaml_definition/2_artifact.md#24-artifact-%E4%BD%BF%E7%94%A8%E6%96%B9%E5%BC%8F
+[3.1 artifact存储机制]: /docs/zh_cn/reference/pipeline/yaml_definition/2_artifact.md#31-artifact%E5%AD%98%E5%82%A8%E6%9C%BA%E5%88%B6
