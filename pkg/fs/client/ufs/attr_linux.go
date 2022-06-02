@@ -1,5 +1,5 @@
 // +build linux
-// +build !arm64
+// +build amd64 ppc64
 
 /*
 Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.

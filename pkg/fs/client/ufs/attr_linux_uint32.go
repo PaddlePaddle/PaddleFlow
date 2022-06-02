@@ -1,5 +1,5 @@
 // +build linux
-// +build arm64
+// +build 386 arm arm64
 
 /*
 Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
