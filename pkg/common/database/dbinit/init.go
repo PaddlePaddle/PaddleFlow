@@ -187,6 +187,12 @@ func initMysqlDB(dbConf *config.DatabaseConfig, gormConf *gorm.Config) *gorm.DB 
 		log.Fatalf("initMysqlDB error[%s]", err.Error())
 		return nil
 	}
+
+	if err := createDatabaseTables(db); err != nil {
+		log.Fatalf("initSQLiteDB createDatabaseTables error[%s]", err.Error())
+		return nil
+	}
+
 	log.Debugf("init mysql DB success")
 	return db
 }
