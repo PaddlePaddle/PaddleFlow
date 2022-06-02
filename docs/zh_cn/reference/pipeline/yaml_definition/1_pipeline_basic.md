@@ -134,7 +134,7 @@ parameters参数名必须满足: 只能由字母数字下划线组成，且以�
 
 ###### 2.2.2.3 parameters使用方式
 
-1. parameters可以以变量模板形式被command，env等参数引用，具体使用逻辑可以参考[3.2.1 变量模板]
+1. parameters可以以变量模板形式被command，env等参数引用，具体使用逻辑可以参考[3.1.1 变量模板]
 
 ##### 2.2.3 env
 
@@ -148,9 +148,9 @@ parameters参数名必须满足: 只能由字母数字下划线组成，且以�
 
 - 正则表达式: ^[a-zA-Z_][a-zA-Z_0-9]*$
 
-2. 如 [2.2.2.2 parameters使用方式] 所示，Paddleflow为pamameters变量生成的环境变量
+2. 如 [2.2.2.3 parameters使用方式] 所示，Paddleflow为pamameters变量生成的环境变量
 
-3. 平台系统变量，可参考[3.2.1 变量模板]
+3. 平台系统变量，可参考[3.1.1 变量模板]
 
 ##### 2.2.4 command
 
@@ -229,11 +229,11 @@ parameters参数名必须满足: 只能由字母数字下划线组成，且以�
 - 系统变量
 - 本step内 parameters
 
-[base_pipeline]: https://github.com/Mo-Xianyuan/PaddleFlow/tree/docs/example/pipeline/base_pipeline
-[CLI发起任务]: https://github.com/Mo-Xianyuan/PaddleFlow/blob/docs/docs/zh_cn/reference/client_command_reference.md
-[SDK发起任务]: https://github.com/Mo-Xianyuan/PaddleFlow/blob/docs/docs/zh_cn/reference/sdk_reference.md
-[1 pipeline定义]: https://github.com/Mo-Xianyuan/PaddleFlow/blob/docs/docs/zh_cn/reference/pipeline/yaml_definition/1_pipeline_basic.md#1-pipeline%E5%AE%9A%E4%B9%89
-[2.1.3 entry_points]: https://github.com/Mo-Xianyuan/PaddleFlow/blob/docs/docs/zh_cn/reference/pipeline/yaml_definition/1_pipeline_basic.md#213-entry_points
-[2.2 节点字段]: https://github.com/Mo-Xianyuan/PaddleFlow/blob/docs/docs/zh_cn/reference/pipeline/yaml_definition/1_pipeline_basic.md#22-%E8%8A%82%E7%82%B9%E5%AD%97%E6%AE%B5
-[2.2.2.2 parameters使用方式]: https://github.com/Mo-Xianyuan/PaddleFlow/blob/docs/docs/zh_cn/reference/pipeline/yaml_definition/1_pipeline_basic.md#2222-parameters%E4%BD%BF%E7%94%A8%E6%96%B9%E5%BC%8F
-[3.2.1 变量模板]:https://github.com/Mo-Xianyuan/PaddleFlow/blob/docs/docs/zh_cn/reference/pipeline/yaml_definition/1_pipeline_basic.md#321-%E5%8F%98%E9%87%8F%E6%A8%A1%E6%9D%BF
+[base_pipeline]: /example/pipeline/base_pipeline
+[CLI发起任务]: /docs/zh_cn/reference/client_command_reference.md
+[SDK发起任务]: /docs/zh_cn/reference/sdk_reference/sdk_reference.md
+[1 pipeline定义]: /docs/zh_cn/reference/pipeline/yaml_definition/1_pipeline_basic.md#1-pipeline%E5%AE%9A%E4%B9%89
+[2.1.3 entry_points]: /docs/zh_cn/reference/pipeline/yaml_definition/1_pipeline_basic.md#213-entry_points
+[2.2 节点字段]: /docs/zh_cn/reference/pipeline/yaml_definition/1_pipeline_basic.md#22-%E8%8A%82%E7%82%B9%E5%AD%97%E6%AE%B5
+[2.2.2.3 parameters使用方式]: /docs/zh_cn/reference/pipeline/yaml_definition/1_pipeline_basic.md#2223-parameters%E4%BD%BF%E7%94%A8%E6%96%B9%E5%BC%8F
+[3.1.1 变量模板]: /docs/zh_cn/reference/pipeline/yaml_definition/1_pipeline_basic.md#311-%E5%8F%98%E9%87%8F%E6%A8%A1%E6%9D%BF
