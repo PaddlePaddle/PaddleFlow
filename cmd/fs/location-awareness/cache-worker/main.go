@@ -89,7 +89,10 @@ func act(c *cli.Context) error {
 	}
 
 	// new fuse http client
-	httpClient := client.NewHttpClient(c.String("server"), client.DefaultTimeOut)
+	httpClient, err := client.NewHttpClient(c.String("server"), client.DefaultTimeOut)
+	if err != nil {
+		return err
+	}
 	// token
 	login := api.LoginParams{
 		UserName: c.String("username"),

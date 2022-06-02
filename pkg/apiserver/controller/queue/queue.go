@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	log "github.com/sirupsen/logrus"
+	"volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
@@ -34,6 +35,7 @@ import (
 )
 
 const defaultQueueName = "default"
+const defaultRootEQuotaName = "root"
 
 type CreateQueueRequest struct {
 	Name         string              `json:"name"`
@@ -244,6 +246,18 @@ func CreateQueue(ctx *logger.RequestContext, request *CreateQueueRequest) (Creat
 		}
 	}
 
+	if request.Location == nil {
+		request.Location = make(map[string]string)
+	}
+	if request.QuotaType == schema.TypeElasticQuota {
+		if _, exist := request.Location[v1beta1.ElasticQuotaParentKey]; !exist {
+			request.Location[v1beta1.ElasticQuotaParentKey] = defaultRootEQuotaName
+		}
+		if _, exist := request.Location[v1beta1.QuotaTypeKey]; !exist {
+			request.Location[v1beta1.QuotaTypeKey] = v1beta1.QuotaTypeLogical
+		}
+	}
+
 	request.Status = schema.StatusQueueCreating
 	queueInfo := models.Queue{
 		Model: models.Model{
@@ -371,15 +385,22 @@ func UpdateQueue(ctx *logger.RequestContext, request *UpdateQueueRequest) (Updat
 	}
 
 	// validate Location
-	if queueInfo.Location == nil {
-		queueInfo.Location = make(map[string]string)
-	}
+	newLocation := make(map[string]string)
 	if len(request.Location) != 0 {
+		updateClusterRequired = true
 		for k, location := range request.Location {
-			queueInfo.Location[k] = location
+			newLocation[k] = location
 		}
 	} else if request.Location != nil {
+		updateClusterRequired = true
 		log.Debugf("queue %s Location is set nil", request.Name)
+	}
+	if queueInfo.QuotaType == schema.TypeElasticQuota {
+		newLocation[v1beta1.ElasticQuotaParentKey] = queueInfo.Location[v1beta1.ElasticQuotaParentKey]
+		newLocation[v1beta1.QuotaTypeKey] = queueInfo.Location[v1beta1.QuotaTypeKey]
+	}
+	if updateClusterRequired {
+		queueInfo.Location = newLocation
 	}
 
 	// validate scheduling policy
@@ -450,6 +471,7 @@ func validateQueueResource(rResource schema.ResourceInfo, qResource *schema.Reso
 		}
 	} else if rResource.ScalarResources != nil {
 		needUpdate = true
+		qResource.ScalarResources = make(schema.ScalarResourcesType)
 		log.Debugf("scalarResources %v is set nil", rResource)
 	}
 

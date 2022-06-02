@@ -1,0 +1,32 @@
+{
+  "id": "",
+  "name": "",
+  "labels": null,
+  "annotations": null,
+  "framework": "paddle",
+  "schedulingPolicy": {
+    "queue": "dzz",
+    "priority": "NORMAL"
+  },
+  "members": [
+    {
+      "role": "worker",
+      "replicas": 2,
+      "labels": {},
+      "annotations": {},
+      "flavour": {
+        "cpu": "",
+        "mem": "",
+        "name": "flavour1"
+      },
+      "fileSystem": {},
+      "extraFileSystems": null,
+      "image": "paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7",
+      "env": null,
+      "command": "sleep 50",
+      "args": null,
+      "port": 0,
+      "extensionTemplate": {}
+    }
+  ]
+}

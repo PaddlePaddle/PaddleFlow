@@ -493,7 +493,7 @@ ret, response = client.create_run(fsname="fsname", runyamlpath="./run.yaml")
 
 |字段名称 | 字段类型 | 字段含义
 |:---:|:---:|:---:|
-|fsname| string (optional)|存储系统名称
+|fsname| string (optional)|共享存储名称
 |username| string (optional)|指定用户，用于root账号运行特定用户的fs的工作流
 |runname| string (optional)|工作流名称
 |desc| string (optional)|工作流描述
@@ -518,7 +518,7 @@ ret, response = client.list_run()
 
 |字段名称 | 字段类型 | 字段含义
 |:---:|:---:|:---:|
-|fsname| string (optional)|存储系统名称，传入只会list出对应fsname的run 
+|fsname| string (optional)|共享存储名称，传入只会list出对应fsname的run 
 |username| string (optional)|用户名称，传入只会list出指定用户的run 
 |runid| string (optional)|runid，传入只会list出指定的run
 |runname| string (optional) |run的名称，传入只会list出拥有对应名称的run
@@ -737,7 +737,7 @@ ret, response = client.create_pipeline()
 #### 接口入参说明
 |字段名称 | 字段类型 | 字段含义
 |:---:|:---:|:---:|
-|fsname| string (required)|存储系统名称，传入只会list出对应fsname的run 
+|fsname| string (required)|共享存储名称
 |yamlpath| string (required)|yaml 文件所在路径
 |name| string (optional)|自定义工作流模板名称
 |username| string (optional)|模板所属用户名称

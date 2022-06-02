@@ -313,6 +313,7 @@ CREATE TABLE IF NOT EXISTS `fs_cache_config` (
     `quota` bigint(20) NOT NULL COMMENT 'cache quota',
     `block_size` int(5) NOT NULL COMMENT 'cache block size',
     `meta_driver` varchar(32) NOT NULL COMMENT 'meta_driver，e.g. default/mem/leveldb/nutsdb',
+    `debug` tinyint(1) NOT NULL COMMENT 'turn on debug log',
     `extra_config` text  COMMENT 'extra cache config',
     `node_affinity` text  COMMENT 'node affinity，e.g. node affinity in k8s',
     `node_tainttoleration` text COMMENT 'node taints',

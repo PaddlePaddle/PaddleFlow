@@ -11,5 +11,6 @@ spec:
     - image: nginx
       name: job-normal-00000001
   priorityClassName: normal
+  terminationGracePeriodSeconds: 30
   schedulerName: volcano
 status: {}
