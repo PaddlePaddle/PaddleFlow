@@ -46,11 +46,10 @@ type CreatePipelineResponse struct {
 }
 
 type UpdatePipelineRequest struct {
-	PipelineID string `json:"pipelineID"`
-	FsName     string `json:"fsname"`
-	YamlPath   string `json:"yamlPath"` // optional, use "./run.yaml" if not specified
-	UserName   string `json:"username"` // optional, only for root user
-	Desc       string `json:"desc"`     // optional
+	FsName   string `json:"fsname"`
+	YamlPath string `json:"yamlPath"` // optional, use "./run.yaml" if not specified
+	UserName string `json:"username"` // optional, only for root user
+	Desc     string `json:"desc"`     // optional
 }
 
 type UpdatePipelineResponse struct {
@@ -188,7 +187,7 @@ func CreatePipeline(ctx *logger.RequestContext, request CreatePipelineRequest, f
 	return response, nil
 }
 
-func UpdatePipeline(ctx *logger.RequestContext, request UpdatePipelineRequest, fsID string) (UpdatePipelineResponse, error) {
+func UpdatePipeline(ctx *logger.RequestContext, request UpdatePipelineRequest, pipelineID, fsID string) (UpdatePipelineResponse, error) {
 	// read run.yaml
 	pipelineYaml, err := handler.ReadFileFromFs(fsID, request.YamlPath, ctx.Logging())
 	if err != nil {
@@ -208,7 +207,7 @@ func UpdatePipeline(ctx *logger.RequestContext, request UpdatePipelineRequest, f
 	}
 
 	// 校验pipeline是否存在，不能更新不存在的pipeline
-	ppl, err := models.GetPipelineByID(request.PipelineID)
+	ppl, err := models.GetPipelineByID(pipelineID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			ctx.ErrorCode = common.DuplicatedName
@@ -226,7 +225,7 @@ func UpdatePipeline(ctx *logger.RequestContext, request UpdatePipelineRequest, f
 	// 校验用户对pipeline记录的权限
 	if !common.IsRootUser(ctx.UserName) && ctx.UserName != ppl.UserName {
 		ctx.ErrorCode = common.AccessDenied
-		err := common.NoAccessError(ctx.UserName, common.ResourceTypePipeline, request.PipelineID)
+		err := common.NoAccessError(ctx.UserName, common.ResourceTypePipeline, pipelineID)
 		ctx.Logging().Errorln(err.Error())
 		return UpdatePipelineResponse{}, err
 	}
@@ -234,7 +233,7 @@ func UpdatePipeline(ctx *logger.RequestContext, request UpdatePipelineRequest, f
 	// 校验待更新的pipeline name，和数据库中pipeline name一致
 	if ppl.Name != pplName {
 		ctx.ErrorCode = common.InvalidArguments
-		errMsg := fmt.Sprintf("update pipeline failed, pplname[%s] in yaml not the same as [%s] of pipeline[%s]", pplName, ppl.Name, request.PipelineID)
+		errMsg := fmt.Sprintf("update pipeline failed, pplname[%s] in yaml not the same as [%s] of pipeline[%s]", pplName, ppl.Name, pipelineID)
 		ctx.Logging().Errorf(errMsg)
 		return UpdatePipelineResponse{}, fmt.Errorf(errMsg)
 	}

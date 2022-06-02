@@ -127,12 +127,12 @@ func TestUpdatePipeline(t *testing.T) {
 		Desc:     "pipeline test",
 	}
 
+	pipelineID := "ppl-000001"
 	updatePplReq := UpdatePipelineRequest{
-		PipelineID: "ppl-000001",
-		FsName:     MockFsName,
-		UserName:   "",
-		YamlPath:   "../../../../example/wide_and_deep/run.yaml",
-		Desc:       "pipeline test",
+		FsName:   MockFsName,
+		UserName: "",
+		YamlPath: "../../../../example/wide_and_deep/run.yaml",
+		Desc:     "pipeline test",
 	}
 
 	patch := gomonkey.ApplyFunc(handler.ReadFileFromFs, func(fsID, runYamlPath string, logEntry *log.Entry) ([]byte, error) {
@@ -147,7 +147,7 @@ func TestUpdatePipeline(t *testing.T) {
 	defer patch1.Reset()
 
 	// test update 失败，pipeline没有创建，不能更新
-	resp, err := UpdatePipeline(ctx, updatePplReq, MockFsID)
+	resp, err := UpdatePipeline(ctx, updatePplReq, pipelineID, MockFsID)
 	assert.NotNil(t, err)
 	assert.Equal(t, fmt.Errorf("UpdatePipeline failed: pipeline[distribute_wide_and_deep] not created for user[normalUser], pls create first!"), err)
 
@@ -166,25 +166,25 @@ func TestUpdatePipeline(t *testing.T) {
 
 	// update 失败，yaml name 与 pipeline记录中的 name 不一样
 	updatePplReq.YamlPath = "../../../../example/pipeline/base_pipeline/run.yaml"
-	resp, err = UpdatePipeline(ctx, updatePplReq, MockFsID)
+	resp, err = UpdatePipeline(ctx, updatePplReq, pipelineID, MockFsID)
 	assert.NotNil(t, err)
 	assert.Equal(t, fmt.Errorf("update pipeline failed, pplname[base_pipeline] in yaml not the same as [distribute_wide_and_deep] of pipeline[ppl-000001]"), err)
 
 	// update 成功
 	updatePplReq.YamlPath = "../../../../example/wide_and_deep/run.yaml"
-	resp, err = UpdatePipeline(ctx, updatePplReq, MockFsID)
+	resp, err = UpdatePipeline(ctx, updatePplReq, pipelineID, MockFsID)
 	assert.Nil(t, err)
 	assert.Equal(t, createPplResp.PipelineID, resp.PipelineID)
 
 	// 其他用户，update失败
 	ctx = &logger.RequestContext{UserName: "anotherUser"}
-	resp, err = UpdatePipeline(ctx, updatePplReq, MockFsID)
+	resp, err = UpdatePipeline(ctx, updatePplReq, pipelineID, MockFsID)
 	assert.NotNil(t, err)
 	assert.Equal(t, fmt.Errorf("user[anotherUser] has no access to resource[pipeline] with Name[ppl-000001]"), err)
 
 	// root用户，update成功
 	ctx = &logger.RequestContext{UserName: MockRootUser}
-	resp, err = UpdatePipeline(ctx, updatePplReq, MockFsID)
+	resp, err = UpdatePipeline(ctx, updatePplReq, pipelineID, MockFsID)
 	assert.Nil(t, err)
 	assert.Equal(t, createPplResp.PipelineID, resp.PipelineID)
 

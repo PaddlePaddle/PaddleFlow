@@ -154,6 +154,8 @@ func (pr *PipelineRouter) listPipeline(w http.ResponseWriter, r *http.Request) {
 // @Router /pipeline [POST]
 func (pr *PipelineRouter) updatePipeline(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
+	pipelineID := chi.URLParam(r, util.ParamKeyPipelineID)
+
 	var updatePplReq pipeline.UpdatePipelineRequest
 	if err := common.BindJSON(r, &updatePplReq); err != nil {
 		logger.LoggerForRequest(&ctx).Errorf(
@@ -179,7 +181,7 @@ func (pr *PipelineRouter) updatePipeline(w http.ResponseWriter, r *http.Request)
 	}
 
 	// update in service
-	response, err := pipeline.UpdatePipeline(&ctx, updatePplReq, fsID)
+	response, err := pipeline.UpdatePipeline(&ctx, updatePplReq, pipelineID, fsID)
 	if err != nil {
 		logger.LoggerForRequest(&ctx).Errorf(
 			"update pipeline failed. updatePplReq:%v error:%v", updatePplReq, err)
@@ -268,8 +270,8 @@ func (pr *PipelineRouter) deletePipeline(w http.ResponseWriter, r *http.Request)
 func (pr *PipelineRouter) getPipelineDetail(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
 	pipelineID := chi.URLParam(r, util.ParamKeyPipelineID)
-	strPplDetailID := chi.URLParam(r, util.ParamKeyPipelineDetailPk)
-	pipelineDetailPk, err := strconv.ParseInt(strPplDetailID, 10, 64)
+	strPplDetailPk := chi.URLParam(r, util.ParamKeyPipelineDetailPk)
+	pipelineDetailPk, err := strconv.ParseInt(strPplDetailPk, 10, 64)
 	if err != nil {
 		common.RenderErrWithMessage(w, ctx.RequestID, common.InvalidURI, err.Error())
 		return
@@ -300,8 +302,8 @@ func (pr *PipelineRouter) getPipelineDetail(w http.ResponseWriter, r *http.Reque
 func (pr *PipelineRouter) deletePipelineDtail(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
 	pipelineID := chi.URLParam(r, util.ParamKeyPipelineID)
-	strPplDetailID := chi.URLParam(r, util.ParamKeyPipelineDetailPk)
-	pipelineDetailPk, err := strconv.ParseInt(strPplDetailID, 10, 64)
+	strPplDetailPk := chi.URLParam(r, util.ParamKeyPipelineDetailPk)
+	pipelineDetailPk, err := strconv.ParseInt(strPplDetailPk, 10, 64)
 	if err != nil {
 		common.RenderErrWithMessage(w, ctx.RequestID, common.InvalidURI, err.Error())
 		return
