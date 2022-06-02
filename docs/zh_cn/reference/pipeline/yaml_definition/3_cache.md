@@ -253,7 +253,7 @@ input artifact的使用逻辑很容易理解，因为每次节点job运行时，
 其原因，与 [3.2.2 cache fingerprint 与 artifact 的关系] 中描述的原因类似，我们并不希望output artifact的路径值影响fingerprint的计算，因此并不会展开output artifact的变量模板。
 
 
-[2_artifact.md]: /docs/zh_cn/reference/pipeline/yaml%20definition/2_artifact.md
+[2_artifact.md]: /docs/zh_cn/reference/pipeline/yaml_definition/2_artifact.md
 [cache_example]: /docs/example/pipeline/cache_example
 [2 pipeline定义]: /docs/zh_cn/reference/pipeline/yaml_definition/3_cache.md#2-pipeline%E5%AE%9A%E4%B9%89
 [3.1 cache运行流程]: /docs/zh_cn/reference/pipeline/yaml_definition/3_cache.md#31-cache%E8%BF%90%E8%A1%8C%E6%B5%81%E7%A8%8B

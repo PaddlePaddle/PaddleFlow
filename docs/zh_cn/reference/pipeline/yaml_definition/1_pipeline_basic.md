@@ -231,7 +231,7 @@ parameters参数名必须满足: 只能由字母数字下划线组成，且以�
 
 [base_pipeline]: /docs/example/pipeline/base_pipeline
 [CLI发起任务]: /docs/zh_cn/reference/client_command_reference.md
-[SDK发起任务]: /docs/zh_cn/reference/sdk_reference.md
+[SDK发起任务]: /docs/zh_cn/reference/sdk_reference/sdk_reference.md
 [1 pipeline定义]: /docs/zh_cn/reference/pipeline/yaml_definition/1_pipeline_basic.md#1-pipeline%E5%AE%9A%E4%B9%89
 [2.1.3 entry_points]: /docs/zh_cn/reference/pipeline/yaml_definition/1_pipeline_basic.md#213-entry_points
 [2.2 节点字段]: /docs/zh_cn/reference/pipeline/yaml_definition/1_pipeline_basic.md#22-%E8%8A%82%E7%82%B9%E5%AD%97%E6%AE%B5

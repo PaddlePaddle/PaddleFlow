@@ -34,7 +34,7 @@
 共享存储(Fs)：目前pf运行需要指定共享存储，job运行时会直接挂载共享存储到容器home目录。
 
 
-[yaml定义规范]: https://github.com/Mo-Xianyuan/PaddleFlow/tree/docs/docs/zh_cn/reference/pipeline/yaml%20definition
-[DSL定义规范]: https://github.com/Mo-Xianyuan/PaddleFlow/tree/docs/docs/zh_cn/reference/pipeline/yaml%20definition
-[命令行使用规范]: https://github.com/Mo-Xianyuan/PaddleFlow/blob/docs/docs/zh_cn/reference/client_command_reference.md
-[SDK使用规范]: https://github.com/Mo-Xianyuan/PaddleFlow/blob/docs/docs/zh_cn/reference/sdk_reference.md
+[yaml定义规范]: /docs/zh_cn/reference/pipeline/yaml_definition
+[DSL定义规范]: /docs/zh_cn/reference/sdk_reference/pipeline_dsl_reference.md
+[命令行使用规范]: /docs/zh_cn/reference/client_command_reference.md
+[SDK使用规范]: /docs/zh_cn/reference/sdk_reference/sdk_reference.md
