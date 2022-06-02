@@ -140,5 +140,5 @@ post_process:
 - post_process中的节点，不能与entry_points中的节点存在任何依赖关系
 - post_process中的节点，不能与entry_points 中节点名相同
 
-[failure_options_and_post_process_example]: https://github.com/Mo-Xianyuan/PaddleFlow/tree/docs/example/pipeline/failure_options_and_post_process_example
-[2 pipeline定义]: https://github.com/Mo-Xianyuan/PaddleFlow/blob/docs/docs/zh_cn/reference/pipeline/yaml_definition/4_failure_options_and_post_process.md#2-pipeline%E5%AE%9A%E4%B9%89
+[failure_options_and_post_process_example]: /docs/example/pipeline/failure_options_and_post_process_example
+[2 pipeline定义]: /docs/zh_cn/reference/pipeline/yaml_definition/4_failure_options_and_post_process.md#2-pipeline%E5%AE%9A%E4%B9%89
