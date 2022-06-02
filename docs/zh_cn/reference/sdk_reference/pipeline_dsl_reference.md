@@ -512,6 +512,6 @@ DSL也提供一些可以节点运行时获取的系统变量，见下表：
 [Paddleflow Pipeline Overview]: /docs/zh_cn/reference/pipeline/overview.md
 [post_process]: /docs/zh_cn/reference/pipeline/yaml_definition/4_failure_options_and_post_process.md
 [yaml_definition]: /docs/zh_cn/reference/pipeline/yaml_definition
-[config_content]: TODO
+[config_content]: /docs/zh_cn/reference/client_command_reference.md#配置文件说明
 [cache]: /docs/zh_cn/reference/pipeline/yaml_definition/3_cache.md
 [failure_options]: /docs/zh_cn/reference/pipeline/yaml_definition/4_failure_options_and_post_process.md
