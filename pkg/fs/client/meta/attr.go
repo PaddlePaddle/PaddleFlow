@@ -29,6 +29,7 @@ func (a *Attr) FromFileInfo(info *base.FileInfo) {
 	} else {
 		a.Type = TypeFile
 	}
+
 	a.Mode = st.Mode
 	a.Uid = st.Uid
 	a.Gid = st.Gid
