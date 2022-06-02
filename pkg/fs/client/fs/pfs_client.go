@@ -93,7 +93,10 @@ func NewFSClientForTest(fsMeta fsCommon.FSMeta) (*PFSClient, error) {
 
 func getMetaAndLinks(server string, fsID string) (fsCommon.FSMeta, map[string]fsCommon.FSMeta, error) {
 	fsMeta := fsCommon.FSMeta{}
-	httpClient := client.NewHttpClient(server, client.DefaultTimeOut)
+	httpClient, err := client.NewHttpClient(server, client.DefaultTimeOut)
+	if err != nil {
+		return fsMeta, nil, err
+	}
 	token, err := common.GetRootToken(&logger.RequestContext{})
 	if err != nil {
 		log.Errorf("get root token failed: %v", err)

@@ -14,7 +14,7 @@ name: base_pipeline
 entry_points:
   preprocess:
     command: bash base_pipeline/shells/data.sh {{data_path}}
-    docker_env: registry.baidubce.com/pipeline/kfp_mysql:1.7.0
+    docker_env: centos:centos7
     env:
       PF_JOB_FLAVOUR: flavour1
       PF_JOB_MODE: Pod
@@ -130,11 +130,19 @@ parameters参数名必须满足: 只能由字母数字下划线组成，且以�
 
 2. 在每次发起任务时，可以通过接口参数，动态传入parameters的值
 
+<<<<<<< HEAD
 > 发起任务相关接口，可参考[cli发起任务]或[sdk发起任务]
 
 ###### 2.2.2.3 parameters使用方式
 
 1. parameters可以以变量模板形式被command，env等参数引用，具体使用逻辑可以参考[3.2.1 变量模板]
+=======
+> 发起任务相关接口，可参考[CLI发起任务]或[SDK发起任务]
+
+###### 2.2.2.3 parameters使用方式
+
+1. parameters可以以变量模板形式被command，env等参数引用，具体使用逻辑可以参考[3.1.1 变量模板]
+>>>>>>> 00a35ad52e150621b5166eab6b41dacd376ccd3b
 
 ##### 2.2.3 env
 
@@ -148,9 +156,15 @@ parameters参数名必须满足: 只能由字母数字下划线组成，且以�
 
 - 正则表达式: ^[a-zA-Z_][a-zA-Z_0-9]*$
 
+<<<<<<< HEAD
 2. 如 [2.2.2.2 parameters使用方式] 所示，Paddleflow为pamameters变量生成的环境变量
 
 3. 平台系统变量，可参考[3.2.1 变量模板]
+=======
+2. 如 [2.2.2.3 parameters使用方式] 所示，Paddleflow为pamameters变量生成的环境变量
+
+3. 平台系统变量，可参考[3.1.1 变量模板]
+>>>>>>> 00a35ad52e150621b5166eab6b41dacd376ccd3b
 
 ##### 2.2.4 command
 
@@ -165,7 +179,11 @@ parameters参数名必须满足: 只能由字母数字下划线组成，且以�
 
 # 3 pipeline运行流程
 
+<<<<<<< HEAD
 得到pipeline定义后，可以通过cli，sdk，或者http请求方式发起pipeline run。
+=======
+得到pipeline定义后，可以通过CLI，SDK，或者http请求方式发起pipeline run。
+>>>>>>> 00a35ad52e150621b5166eab6b41dacd376ccd3b
 
 发起pipeline run时，后端服务会做以下操作：
 1. 校验pipeline定义是否符合规范
@@ -229,11 +247,11 @@ parameters参数名必须满足: 只能由字母数字下划线组成，且以�
 - 系统变量
 - 本step内 parameters
 
-[base_pipeline]: https://github.com/Mo-Xianyuan/PaddleFlow/tree/docs/example/pipeline/base_pipeline
-[cli发起任务]: https://github.com/Mo-Xianyuan/PaddleFlow/blob/docs/docs/zh_cn/reference/client_command_reference.md
-[sdk发起任务]: https://github.com/Mo-Xianyuan/PaddleFlow/blob/docs/docs/zh_cn/reference/sdk_reference.md
-[1 pipeline定义]: https://github.com/Mo-Xianyuan/PaddleFlow/blob/docs/docs/zh_cn/reference/pipeline/yaml_definition/1_pipeline_basic.md#1-pipeline%E5%AE%9A%E4%B9%89
-[2.1.3 entry_points]: https://github.com/Mo-Xianyuan/PaddleFlow/blob/docs/docs/zh_cn/reference/pipeline/yaml_definition/1_pipeline_basic.md#213-entry_points
-[2.2 节点字段]: https://github.com/Mo-Xianyuan/PaddleFlow/blob/docs/docs/zh_cn/reference/pipeline/yaml_definition/1_pipeline_basic.md#22-%E8%8A%82%E7%82%B9%E5%AD%97%E6%AE%B5
-[2.2.2.2 parameters使用方式]: https://github.com/Mo-Xianyuan/PaddleFlow/blob/docs/docs/zh_cn/reference/pipeline/yaml_definition/1_pipeline_basic.md#2222-parameters%E4%BD%BF%E7%94%A8%E6%96%B9%E5%BC%8F
-[3.2.1 变量模板]:https://github.com/Mo-Xianyuan/PaddleFlow/blob/docs/docs/zh_cn/reference/pipeline/yaml_definition/1_pipeline_basic.md#321-%E5%8F%98%E9%87%8F%E6%A8%A1%E6%9D%BF
+[base_pipeline]: /example/pipeline/base_pipeline
+[CLI发起任务]: /docs/zh_cn/reference/client_command_reference.md
+[SDK发起任务]: /docs/zh_cn/reference/sdk_reference/sdk_reference.md
+[1 pipeline定义]: /docs/zh_cn/reference/pipeline/yaml_definition/1_pipeline_basic.md#1-pipeline%E5%AE%9A%E4%B9%89
+[2.1.3 entry_points]: /docs/zh_cn/reference/pipeline/yaml_definition/1_pipeline_basic.md#213-entry_points
+[2.2 节点字段]: /docs/zh_cn/reference/pipeline/yaml_definition/1_pipeline_basic.md#22-%E8%8A%82%E7%82%B9%E5%AD%97%E6%AE%B5
+[2.2.2.3 parameters使用方式]: /docs/zh_cn/reference/pipeline/yaml_definition/1_pipeline_basic.md#2223-parameters%E4%BD%BF%E7%94%A8%E6%96%B9%E5%BC%8F
+[3.1.1 变量模板]: /docs/zh_cn/reference/pipeline/yaml_definition/1_pipeline_basic.md#311-%E5%8F%98%E9%87%8F%E6%A8%A1%E6%9D%BF

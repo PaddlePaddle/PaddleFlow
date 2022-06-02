@@ -27,6 +27,7 @@ spec:
               imagePullPolicy: IfNotPresent
               name: defaultContainer
           restartPolicy: Never
+          terminationGracePeriodSeconds: 30
       policies:
         - event: TaskCompleted
           action: CompleteJob

@@ -12,10 +12,10 @@ if [[ ! -d output ]]; then
   exit 255
 fi
 
-docker build -f ./installer/dockerfile/paddleflow_server/Dockerfile -t iregistry.public.com/bmlc/paddleflow-server:latest .
-docker push iregistry.public.com/bmlc/paddleflow-server:latest
+docker build -f ./installer/dockerfile/paddleflow_server/Dockerfile -t paddleflow/paddleflow-server:1.4.2 .
+docker push paddleflow/paddleflow-server:latest
 
-docker build -f ./installer/dockerfile/paddleflow_csiplugin/Dockerfile -t iregistry.public.com/bmlc/pfs-csi-plugin:latest .
-docker push iregistry.public.com/bmlc/pfs-csi-plugin:latest
+docker build -f ./installer/dockerfile/paddleflow_csiplugin/Dockerfile -t paddleflow/pfs-csi-plugin:1.4.2 .
+docker push paddleflow/pfs-csi-plugin:latest
 
 popd

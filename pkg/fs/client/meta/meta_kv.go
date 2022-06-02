@@ -136,7 +136,7 @@ func (m *kvMeta) attrKey(fullPath string) []byte {
 func (m *kvMeta) tryGetAttr(ino Ino, attr *attrCacheItem) bool {
 	fullPath := m.InoToPath(ino)
 	a, ok := m.client.Get(m.attrKey(fullPath))
-	if !ok {
+	if !ok || cap(a) < attrCacheSize {
 		return false
 	}
 	m.parseAttr(a, attr)
@@ -193,7 +193,7 @@ func (m *kvMeta) putEntries(parentEntry entryCacheItem, entries []entryCacheItem
 
 func (m *kvMeta) getEntries(entryPath string) (map[string][]byte, bool) {
 	value, has := m.client.Get(m.entryKey(entryPath, entryPath))
-	if !has {
+	if !has || cap(value) < entryCacheSize {
 		return nil, false
 	}
 	entryCacheItem_ := &entryCacheItem{}

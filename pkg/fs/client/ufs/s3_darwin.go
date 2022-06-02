@@ -21,7 +21,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func (fh *s3FileHandle) Allocate(off uint64, sz uint64, mode uint32) (code fuse.Status) {
+func (fh *s3FileHandle) Allocate(off, sz uint64, mode uint32) (code fuse.Status) {
 	log.Debugf("S3 Allocate not supported on mac. fh.name[%s]", fh.name)
 	return fuse.ENOSYS
 }
