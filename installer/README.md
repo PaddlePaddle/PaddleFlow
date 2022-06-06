@@ -35,7 +35,7 @@ paddleflow-csi-plugin提供的功能主要包括存储资源管理。</br>
 本模块基于开源调度器[volcano](https://volcano.sh/zh/docs/architecture/)改造,新增弹性资源队列elastic quota以及映射k8s namespace等能力。若用户已使用原生volcano，请勿执行`2.2`的快速部署,而是在自定义部署中单独执行`server`和`csi-plugin`的安装命令.
 
 ### 2.1 环境依赖
-- kubernetes集群 或 k3s集群
+- kubernetes 1.16+ 或 k3s 1.16+
 - mysql (可选)
 
 ### 2.2 快速部署
