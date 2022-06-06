@@ -1,17 +1,17 @@
-# paddleFlow部署
-PaddleFLow部署分为客户端和服务端两个部分。
+# PaddleFlow部署
+PaddleFlow部署分为客户端和服务端两个部分。
 ## 1.客户端
 ### 1.1 环境依赖
 - pip3
 
 ### 1.2 执行部署/卸载
 
-**安装**paddleflow客户端有两种方式：
+**安装**PaddleFlow客户端有两种方式：
 
 1. 从[release](https://github.com/PaddlePaddle/PaddleFlow/releases)下载最新版, 执行`pip3 install PaddleFlow-1.4.2-py3-none-any.whl`
 2. 通过编译包安装，编译包有两处来源，分别是分支的最新产出、执行编译命令`cd client && python3 setup.py bdist_wheel`。得到编译包后执行`pip3 install PaddleFlow-1.4.2-py3-none-any.whl`
 
-**卸载**paddleflow
+**卸载**PaddleFlow
 
 `pip3 uninstall paddleflow`
 
@@ -32,7 +32,7 @@ paddleflow-csi-plugin提供的功能主要包括存储资源管理。</br>
 
 **volcano**
 
-本模块基于开源调度器[volcano](https://volcano.sh/zh/docs/architecture/)改造,新增弹性资源队列elastic quota以及映射k8s namespace等能力。若用户已使用原生volcano，请勿执行`2.2`的快速部署,而是在自定义部署中单独执行`server`和`storage`的安装命令.
+本模块基于开源调度器[volcano](https://volcano.sh/zh/docs/architecture/)改造,新增弹性资源队列elastic quota以及映射k8s namespace等能力。若用户已使用原生volcano，请勿执行`2.2`的快速部署,而是在自定义部署中单独执行`server`和`csi-plugin`的安装命令.
 
 ### 2.1 环境依赖
 - kubernetes集群 或 k3s集群
@@ -55,15 +55,13 @@ kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/rele
 
 **指定数据库为mysql并安装(推荐)**
 ```shell
-# paddleflow默认使用SQLite配置
-export DB_DRIVER='sqlite'
-# 如需切换成mysql，需完善配置如下
+# paddleflow默认使用SQLite配置,如需切换成mysql，需执行命令如下
 export DB_DRIVER='mysql'
 export DB_HOST=127.0.0.1
 export DB_PORT=3306
 export DB_USER=paddleflow
 export DB_PW=paddleflow
-export DB_DATABASE='paddleflow'
+export DB_DATABASE=paddleflow
 # todo 待完善
 ```
 
