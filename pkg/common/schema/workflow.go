@@ -64,6 +64,10 @@ type Component interface {
 	GetParameters() map[string]interface{}
 	GetCondition() string
 	GetLoopArgument() interface{}
+
+	// 下面几个Update 函数在进行模板替换的时候会用到
+	UpdateCondition(string)
+	UpdateLoopArguemt(interface{})
 }
 
 type WorkflowSourceStep struct {
@@ -108,13 +112,21 @@ func (s *WorkflowSourceStep) GetLoopArgument() interface{} {
 	return s.LoopArgument
 }
 
+func (s *WorkflowSourceStep) UpdateCondition(condition string) {
+	s.Condition = condition
+}
+
+func (s *WorkflowSourceStep) UpdateLoopArguemt(loopArgument interface{}) {
+	s.LoopArgument = loopArgument
+}
+
 type WorkflowSourceDag struct {
 	LoopArgument interface{}            `yaml:"loop_argument"`
 	Condition    string                 `yaml:"condition"`
 	Parameters   map[string]interface{} `yaml:"parameters"`
 	Deps         string                 `yaml:"deps"`
 	Artifacts    Artifacts              `yaml:"artifacts"`
-	EntryPoints  map[string]interface{} `yaml:"entry_points"`
+	EntryPoints  map[string]Component   `yaml:"entry_points"`
 }
 
 func (d *WorkflowSourceDag) GetDeps() []string {
@@ -144,6 +156,19 @@ func (d *WorkflowSourceDag) GetCondition() string {
 
 func (d *WorkflowSourceDag) GetLoopArgument() interface{} {
 	return d.LoopArgument
+}
+
+func (d *WorkflowSourceDag) UpdateCondition(condition string) {
+	d.Condition = condition
+}
+
+func (d *WorkflowSourceDag) UpdateLoopArguemt(loopArgument interface{}) {
+	d.LoopArgument = loopArgument
+}
+
+func (d *WorkflowSourceDag) GetSubComponet(subComponentName string) (Component, bool) {
+	sc, ok := d.EntryPoints[subComponentName]
+	return sc, ok
 }
 
 type Cache struct {
