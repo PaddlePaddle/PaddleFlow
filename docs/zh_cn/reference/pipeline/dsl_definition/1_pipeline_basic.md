@@ -218,7 +218,7 @@ if __name__ == "__main__":
 
 [yaml定义规范]: /docs/zh_cn/reference/pipeline/yaml_definition
 [base_pipeline]: /example/pipeline/base_pipeline
-[SDK安装与配置]: TODO
+[SDK安装与配置]: /docs/zh_cn/deployment/how_to_install_paddlecli.md 
 [节点字段]: /docs/zh_cn/reference/pipeline/yaml_definition/1_pipeline_basic.md#22-节点字段
 [变量模板与替换]: /docs/zh_cn/reference/pipeline/yaml_definition/1_pipeline_basic.md#32-变量模板与替换
 [DSL-Artifact]: /docs/zh_cn/reference/pipeline/dsl_definition/2_artifact.md

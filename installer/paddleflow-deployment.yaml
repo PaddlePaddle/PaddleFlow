@@ -1,0 +1,958 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: paddleflow
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: csi-node-sa
+  namespace: paddleflow
+
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: paddleflow-csi-plugin-role
+rules:
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  - apiGroups: [ "" ]
+    resources: [ "pods" ]
+    verbs: [ "create", "get", "list", "watch", "update", "bind", "delete" ]
+  - apiGroups: [ "" ]
+    resources: [ "persistentvolumeclaims" ]
+    verbs: [ "get", "list", "watch", "create" ]
+  - apiGroups: [ "" ]
+    resources: [ "persistentvolumes" ]
+    verbs: [ "get", "list", "watch", "create" ]
+  - apiGroups: [""]
+    resources: ["nodes/proxy"]
+    verbs: ["get", "list", "watch", "update", "patch"]
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: pfs-csi-provisioner
+  namespace: paddleflow
+
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: external-provisioner-runner
+rules:
+  - apiGroups: [""]
+    resources: ["persistentvolumes"]
+    verbs: ["get", "list", "watch", "create", "delete"]
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    verbs: ["get", "list", "watch", "update"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["list", "watch", "create", "update", "patch"]
+  - apiGroups: ["snapshot.storage.k8s.io"]
+    resources: ["volumesnapshots"]
+    verbs: ["get", "list"]
+  - apiGroups: ["snapshot.storage.k8s.io"]
+    resources: ["volumesnapshotcontents"]
+    verbs: ["get", "list"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["csinodes"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "watch"]
+
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: csi-provisioner-role
+subjects:
+  - kind: ServiceAccount
+    name: pfs-csi-provisioner
+    namespace: paddleflow
+roleRef:
+  kind: ClusterRole
+  name: external-provisioner-runner
+  apiGroup: rbac.authorization.k8s.io
+
+---
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  namespace: paddleflow
+  name: external-provisioner-cfg
+rules:
+  - apiGroups: [""]
+    resources: ["endpoints"]
+    verbs: ["get", "watch", "list", "delete", "update", "create"]
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["get", "watch", "list", "delete", "update", "create"]
+
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: csi-provisioner-role-cfg
+  namespace: paddleflow
+subjects:
+  - kind: ServiceAccount
+    name: pfs-csi-provisioner
+    namespace: paddleflow
+roleRef:
+  kind: Role
+  name: external-provisioner-cfg
+  apiGroup: rbac.authorization.k8s.io
+
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: pfs-csi-provisioner
+  labels:
+    app: pfs-csi-provisioner
+spec:
+  selector:
+    app: pfs-csi-provisioner
+  ports:
+    - name: dummy
+      port: 12345
+
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: paddleflow-csi-node-binding
+subjects:
+  - kind: ServiceAccount
+    name: csi-node-sa
+    namespace: paddleflow
+roleRef:
+  kind: ClusterRole
+  name: paddleflow-csi-plugin-role
+  apiGroup: rbac.authorization.k8s.io
+
+---
+apiVersion: v1
+data:
+  default_pv.yaml: |2-
+      kind: PersistentVolume
+      metadata:
+        name: pfs-$(pfs.fs.id)-$(namespace)-pv
+        annotations:
+          pv.kubernetes.io/provisioned-by: paddleflowstorage
+      spec:
+        accessModes:
+          - ReadWriteMany
+        persistentVolumeReclaimPolicy: Delete
+        storageClassName: paddleflowstorage
+        capacity:
+          storage: 400Gi
+        csi:
+          driver: paddleflowstorage
+          fsType: ext4
+          volumeAttributes:
+            pfs.fs.id: $(pfs.fs.id)
+            pfs.user.name: $(pfs.user.name)
+            pfs.server: $(pfs.server)
+          volumeHandle: pfs-$(pfs.fs.id)-$(namespace)-pv
+  default_pvc.yaml: |2-
+      kind: PersistentVolumeClaim
+      metadata:
+        name: pfs-$(pfs.fs.id)-pvc
+        namespace: $(namespace)
+      spec:
+        accessModes:
+          - ReadWriteMany
+        resources:
+          requests:
+            storage: 100Gi
+        storageClassName: paddleflowstorage
+        volumeMode: Filesystem
+        volumeName: pfs-$(pfs.fs.id)-$(namespace)-pv
+  paddle_collective.yaml: |2
+      apiVersion: batch.paddlepaddle.org/v1
+      kind: PaddleJob
+      metadata:
+        name: default-name
+      spec:
+        cleanPodPolicy: Never
+        worker:
+          replicas: 2
+          template:
+            spec:
+              containers:
+                - name: worker-name
+                  image: paddleflow/demo-resnet:v1
+  paddle_ps.yaml: |-
+    apiVersion: batch.paddlepaddle.org/v1
+    kind: PaddleJob
+    metadata:
+      name: default-name
+    spec:
+      withGloo: 1
+      intranet: PodIP
+      cleanPodPolicy: OnCompletion
+      worker:
+        replicas: 2
+        template:
+          spec:
+            containers:
+              - name: worker-name
+                image: paddleflow/demo-wide-and-deep:v1
+      ps:
+        replicas: 2
+        template:
+          spec:
+            containers:
+              - name: ps-name
+                image: paddleflow/demo-wide-and-deep:v1
+  paddleserver.yaml: |2
+      database:
+          driver: sqlite
+          host: 127.0.0.1
+          port: 3306
+          user: paddleflow
+          password: paddleflow
+          database: paddleflow
+
+      log:
+        dir: ./
+        filePrefix: log
+        level: INFO
+        maxKeepDays: 7
+        maxFileNum: 7
+        maxFileSizeInMB: 100
+        isCompress: true
+
+      apiServer:
+        host: 0.0.0.0
+        port: 8999
+        tokenExpirationHour: -1
+
+      fs:
+        defaultPVPath: "./config/fs/default_pv.yaml"
+        defaultPVCPath: "./config/fs/default_pvc.yaml"
+        k8sServiceName: "10.156.28.13"
+        K8sServicePort: 8999
+
+      namespaceList:
+        - "default"
+        - "paddleflow"
+
+      job:
+        reclaim:
+          isCleanJob: true
+          isSkipCleanFailedJob: false
+          succeededJobTTLSeconds: 600
+          failedJobTTLSeconds: 3600
+        schedulerName: volcano
+        clusterSyncPeriod: 30
+        jobLoopPeriod: 5
+        scalarResourceArray:
+          - "nvidia.com/gpu"
+        defaultJobYamlDir: "./config/server/default/job"
+
+      pipeline: pipeline
+
+      imageRepository:
+        server: ""
+        namespace: ""
+        username: ""
+        password: ""
+        concurrency: 10
+        removeLocalImage: true
+
+      flavour:
+        - name: cpu1
+          cpu: 1
+          mem: 1Gi
+        - name: cpu2
+          cpu: 2
+          mem: 2G
+        - name: mem8gpu1
+          cpu: 4
+          mem: 8Gi
+          scalarResources:
+            "nvidia.com/gpu": "1"
+        - name: mem8gpu8
+          cpu: 1
+          mem: 8Gi
+          scalarResources:
+            "nvidia.com/gpu": "8"
+  single.yaml: |-
+    apiVersion: v1
+    kind: Pod
+    metadata:
+      name: default-name
+      namespace: default
+    spec:
+      containers:
+      - image: nginx
+        imagePullPolicy: Always
+        name: job-default-name
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      enableServiceLinks: true
+      priorityClassName: normal
+      restartPolicy: Always
+      schedulerName: volcano
+      securityContext: {}
+      serviceAccount: default
+      serviceAccountName: default
+      terminationGracePeriodSeconds: 30
+  spark.yaml: |2
+        apiVersion: sparkoperator.k8s.io/v1beta2
+        kind: SparkApplication
+        metadata:
+          name: sparkName
+          namespace: default
+        spec:
+          driver:
+            serviceAccount: spark
+          executor:
+          image: paddleflow/spark:pyml-2.8.0
+          imagePullPolicy: IfNotPresent
+          mainApplicationFile: local:///opt/spark/examples/jars/spark-examples_2.11-2.4.0.jar
+          mainClass: org.apache.spark.examples.SparkPi
+          mode: cluster
+          restartPolicy:
+            onSubmissionFailureRetries: 3
+            onSubmissionFailureRetryInterval: 5
+            type: Never
+          sparkConf:
+            spark.driver.extraJavaOptions: -Dsun.zip.disableMemoryMapping=true
+            spark.executor.extraJavaOptions: -Dsun.zip.disableMemoryMapping=true
+            spark.hadoop.mapreduce.fileoutputcommitter.algorithm.version: "2"
+          sparkVersion: 3.0.0
+          type: Scala
+          batchSchedulerOptions:
+            queue: default
+            priorityClass: normal
+  telegraf.conf: |
+    [global_tags]
+  vcjob_collective.yaml: |2
+        apiVersion: batch.volcano.sh/v1alpha1
+        kind: Job
+        metadata:
+          name: vcJobName
+        spec:
+          minAvailable: 2
+          schedulerName: volcano
+          priorityClassName: normal
+          policies:
+            - event: PodEvicted
+              action: RestartJob
+          plugins:
+            ssh: []
+            env: []
+            svc: []
+          maxRetry: 5
+          queue: default
+          tasks:
+            - replicas: 2
+              name: "task"
+              template:
+                metadata:
+                  name: templateName
+                spec:
+                  containers:
+                    - image: collective-container
+                      imagePullPolicy: IfNotPresent
+                      name: defaultContainer
+                  restartPolicy: Never
+              policies:
+                - event: TaskCompleted
+                  action: CompleteJob
+  vcjob_pod.yaml: |2
+        apiVersion: batch.volcano.sh/v1alpha1
+        kind: Job
+        metadata:
+          name: vcJobName
+        spec:
+          minAvailable: 1
+          schedulerName: volcano
+          priorityClassName: normal
+          policies:
+            - event: PodEvicted
+              action: RestartJob
+          maxRetry: 5
+          queue: default
+          tasks:
+            - replicas: 1
+              name: "task"
+              template:
+                metadata:
+                  name: pod
+                spec:
+                  containers:
+                    - image: nginx
+                      imagePullPolicy: IfNotPresent
+                      name: container
+                      resources:
+                        requests:
+                          cpu: "1"
+                  restartPolicy: Never
+              policies:
+                - event: TaskCompleted
+                  action: CompleteJob
+  vcjob_ps.yaml: |2
+        apiVersion: batch.volcano.sh/v1alpha1
+        kind: Job
+        metadata:
+          name: vcJobName
+        spec:
+          minAvailable: 3
+          schedulerName: volcano
+          priorityClassName: normal
+          policies:
+            - event: PodEvicted
+              action: RestartJob
+          plugins:
+            ssh: []
+            env: []
+            svc: []
+          maxRetry: 5
+          queue: default
+          tasks:
+            - replicas: 1
+              name: "ps"
+              ports:
+                - ps-port: 8001
+              template:
+                metadata:
+                  name: web
+                spec:
+                  containers:
+                    - image: nginx
+                      imagePullPolicy: IfNotPresent
+                      name: ps
+                      resources:
+                        requests:
+                          cpu: "1"
+                  restartPolicy: OnFailure
+            - replicas: 2
+              name: "worker"
+              ports:
+                - worker-port: 8001
+              template:
+                metadata:
+                  name: web
+                spec:
+                  containers:
+                    - image: nginx
+                      imagePullPolicy: IfNotPresent
+                      name: worker
+                      resources:
+                        requests:
+                          cpu: "1"
+                  restartPolicy: Never
+              policies:
+                - event: TaskCompleted
+                  action: CompleteJob
+kind: ConfigMap
+metadata:
+  name: paddleflow-server
+  namespace: paddleflow
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: paddleflow-server
+  namespace: paddleflow
+  labels:
+    app: paddleflow-server
+spec:
+  type: NodePort
+  ports:
+    - port: 8999
+      name: listen
+      targetPort: 8999
+      nodePort: 8999
+  selector:
+    app: paddleflow-server
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: paddleflow-server
+  namespace: paddleflow
+  labels:
+    app: paddleflow-server
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: paddleflow-server
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: paddleflow-server
+    spec:
+      containers:
+        - args:
+            - -c
+            - cd /home/paddleflow/server && ./paddleflow  --pfs-service-name=$(KUBE_NODE_NAME)
+              --pfs-service-port=8999 --db-password=${dbPassword}
+          command:
+            - /bin/sh
+          env:
+            - name: KUBE_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: spec.nodeName
+          image: paddleflow/paddleflow-server:1.4.2
+          imagePullPolicy: IfNotPresent
+          name: paddleflow-server
+          ports:
+            - containerPort: 8999
+              name: port-0
+              protocol: TCP
+          resources: {}
+          securityContext:
+            privileged: false
+            runAsGroup: 1000
+            runAsUser: 1000
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /home/paddleflow/server/paddleflow.db
+              mountPropagation: None
+              name: paddleflowdb
+            - mountPath: /home/paddleflow/server/config/server/default/paddleserver.yaml
+              name: conf
+              subPath: paddleserver.yaml
+            - mountPath: /home/paddleflow/server/config/fs/default_pvc.yaml
+              name: conf
+              subPath: default_pvc.yaml
+            - mountPath: /home/paddleflow/server/config/fs/default_pv.yaml
+              name: conf
+              subPath: default_pv.yaml
+            - mountPath: /home/paddleflow/server/config/server/default/job/spark.yaml
+              name: conf
+              subPath: spark.yaml
+            - mountPath: /home/paddleflow/server/config/server/default/job/vcjob_ps.yaml
+              name: conf
+              subPath: vcjob_ps.yaml
+            - mountPath: /home/paddleflow/server/config/server/default/job/vcjob_pod.yaml
+              name: conf
+              subPath: vcjob_pod.yaml
+            - mountPath: /home/paddleflow/server/config/server/default/job/vcjob_collective.yaml
+              name: conf
+              subPath: vcjob_collective.yaml
+            - mountPath: /home/paddleflow/server/config/server/default/job/paddle_collective.yaml
+              name: conf
+              subPath: paddle_collective.yaml
+            - mountPath: /home/paddleflow/server/config/server/default/job/paddle_ps.yaml
+              name: conf
+              subPath: paddle_ps.yaml
+            - mountPath: /home/paddleflow/server/config/server/default/job/single.yaml
+              name: conf
+              subPath: single.yaml
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext:
+        runAsGroup: 1000
+        runAsUser: 1000
+      terminationGracePeriodSeconds: 30
+      volumes:
+        - hostPath:
+            path: /mnt/paddleflow/paddleflow.db
+            type: FileOrCreate
+          name: paddleflowdb
+        - configMap:
+            defaultMode: 420
+            name: paddleflow-server
+          name: conf
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: pfs-csi-plugin
+  namespace: paddleflow
+spec:
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: pfs-csi-plugin
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: pfs-csi-plugin
+    spec:
+      containers:
+        - args:
+            - --v=5
+            - --csi-address=/csi/csi.sock
+            - --kubelet-registration-path=/data/lib/kubelet/plugins/pfs-csi/csi.sock
+          env:
+            - name: KUBE_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: spec.nodeName
+            - name: MOUNT_POINT_INTERVAL_TIME
+              value: "10"
+          image: paddleflow/csi-driver-registrar:1.2.0
+          imagePullPolicy: IfNotPresent
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                  - /bin/sh
+                  - -c
+                  - rm -rf /registration/pfs-csi /registration/paddleflowstorage-reg.sock
+          name: pfs-csi-plugin
+          resources: {}
+          securityContext:
+            privileged: true
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /csi
+              mountPropagation: None
+              name: socket-dir
+            - mountPath: /registration
+              mountPropagation: None
+              name: registration-dir
+        - command:
+            - /sbin/tini
+            - --
+            - /bin/sh
+            - -c
+            - cd /home/paddleflow && /home/paddleflow/csi-plugin --unix-endpoint=$(CSI_ENDPOINT)
+              --node-id=$(KUBE_NODE_NAME) --log-dir=./log/csidriver --username=root --password=paddleflow
+              --log-level=debug
+          env:
+            - name: CSI_ENDPOINT
+              value: unix:///csi/csi.sock
+            - name: DEFAULT_GID_ENV
+              value: "601"
+            - name: DEFAULT_UID_ENV
+              value: "601"
+            - name: KUBELET_DATA_PATH
+              value: /data/lib/kubelet
+            - name: CSI_POD_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+            - name: CSI_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+            - name: KUBE_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: spec.nodeName
+          image: paddleflow/pfs-csi-plugin:1.4.2
+          imagePullPolicy: IfNotPresent
+          name: csi-storage-driver
+          resources: {}
+          securityContext:
+            capabilities:
+              add:
+                - SYS_ADMIN
+            privileged: true
+            runAsGroup: 0
+            runAsUser: 0
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /csi
+              mountPropagation: None
+              name: socket-dir
+            - mountPath: /data/lib/kubelet/pods
+              mountPropagation: Bidirectional
+              name: mountpoint-dir
+            - mountPath: /data/lib/kubelet/plugins
+              mountPropagation: Bidirectional
+              name: plugins-dir
+            - mountPath: /home/paddleflow/log
+              mountPropagation: None
+              name: paddlefow-csi-log
+            - mountPath: /home/paddleflow/mnt
+              mountPropagation: Bidirectional
+              name: pfs-mnt
+      dnsPolicy: ClusterFirstWithHostNet
+      hostNetwork: true
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      serviceAccount: csi-node-sa
+      serviceAccountName: csi-node-sa
+      terminationGracePeriodSeconds: 30
+      volumes:
+        - hostPath:
+            path: /dev/fuse
+            type: File
+          name: fuse
+        - hostPath:
+            path: /data/lib/kubelet/pods
+            type: DirectoryOrCreate
+          name: mountpoint-dir
+        - hostPath:
+            path: /home/paddleflow/log
+            type: DirectoryOrCreate
+          name: paddlefow-csi-log
+        - hostPath:
+            path: /data/paddleflow-fs/mnt
+            type: DirectoryOrCreate
+          name: pfs-mnt
+        - hostPath:
+            path: /data/lib/kubelet/plugins
+            type: DirectoryOrCreate
+          name: plugins-dir
+        - hostPath:
+            path: /data/lib/kubelet/plugins_registry
+            type: DirectoryOrCreate
+          name: registration-dir
+        - hostPath:
+            path: /data/lib/kubelet/plugins/pfs-csi
+            type: DirectoryOrCreate
+          name: socket-dir
+  updateStrategy:
+    rollingUpdate:
+      maxUnavailable: 1
+    type: RollingUpdate
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    app: pfs-csi-provisioner
+  labels:
+    app: pfs-csi-provisioner
+  name: pfs-csi-provisioner
+  namespace: paddleflow
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: pfs-csi-provisioner
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        app: pfs-csi-provisioner
+      labels:
+        app: pfs-csi-provisioner
+    spec:
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: app
+                    operator: In
+                    values:
+                      - pfs-csi-plugin
+              topologyKey: kubernetes.io/hostname
+      containers:
+        - args:
+            - -v=5
+            - --csi-address=/csi/csi.sock
+            - --feature-gates=Topology=true
+          image: paddleflow/csi-provisioner:1.4.0
+          imagePullPolicy: IfNotPresent
+          name: pfs-csi-provisioner
+          ports:
+            - containerPort: 12345
+              name: port-0
+              protocol: TCP
+          resources: {}
+          securityContext:
+            privileged: true
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /csi
+              mountPropagation: None
+              name: socket-dir
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      serviceAccount: pfs-csi-provisioner
+      serviceAccountName: pfs-csi-provisioner
+      terminationGracePeriodSeconds: 30
+      tolerations:
+        - effect: NoSchedule
+          operator: Exists
+        - effect: NoExecute
+          operator: Exists
+      volumes:
+        - hostPath:
+            path: /data/lib/kubelet/plugins/pfs-csi
+            type: DirectoryOrCreate
+          name: socket-dir
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.4.1
+  creationTimestamp: null
+  name: elasticresourcequotas.scheduling.volcano.sh
+spec:
+  group: scheduling.volcano.sh
+  names:
+    kind: ElasticResourceQuota
+    listKind: ElasticResourceQuotaList
+    plural: elasticresourcequotas
+    shortNames:
+      - equota
+      - equota-v1beta1
+    singular: elasticresourcequota
+  scope: Cluster
+  versions:
+    - name: v1beta1
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            kind:
+              type: string
+              description: >-
+                Kind is a string value representing the REST resource this
+                object represents. Servers may infer this from the endpoint the
+                client submits requests to. Cannot be updated. In CamelCase.
+                More info:
+                https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            spec:
+              type: object
+              properties:
+                max:
+                  type: object
+                  description: Max is the upper bound of elastic resource quota
+                  additionalProperties:
+                    anyOf:
+                      - type: integer
+                      - type: string
+                    pattern: >-
+                      ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                    x-kubernetes-int-or-string: true
+                min:
+                  type: object
+                  description: Min is the lower bound of elastic resource quota
+                  additionalProperties:
+                    anyOf:
+                      - type: integer
+                      - type: string
+                    pattern: >-
+                      ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                    x-kubernetes-int-or-string: true
+                namespace:
+                  type: string
+                  description: >-
+                    namespace defines elastic resource quota belongs to one
+                    namespace
+                reclaimable:
+                  type: boolean
+                  description: >-
+                    Reclaimable indicate whether the elastic quota can be
+                    reclaimed by other elastic resource quota
+                hardwareTypes:
+                  type: array
+                  items:
+                    type: string
+                  description: >-
+                    HardwareTypes defines hardware types of elastic resource
+                    quota
+              description: >-
+                Specification of the desired behavior of the
+                ElasticResourceQuota. More info:
+                https://git.k8s.io/community/contributors/devel/api-conventions.md#spec-and-status
+            status:
+              type: object
+              properties:
+                used:
+                  type: object
+                  description: Used resource of elastic resource quota
+                  additionalProperties:
+                    anyOf:
+                      - type: integer
+                      - type: string
+                    pattern: >-
+                      ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                    x-kubernetes-int-or-string: true
+                isLeaf:
+                  type: boolean
+                  description: IsLeaf defines whether elastic resource quota is leaf or not
+                queueName:
+                  type: string
+                  description: QueueName indicate bound queue
+              description: The status of ElasticResourceQuota.
+            metadata:
+              type: object
+            apiVersion:
+              type: string
+              description: >-
+                APIVersion defines the versioned schema of this representation
+                of an object. Servers should convert recognized schemas to the
+                latest internal value, and may reject unrecognized values. More
+                info:
+                https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+          description: Elastic Resource Quota
+      served: true
+      storage: true
+      subresources:
+        status: {}
+      additionalPrinterColumns:
+        - name: Age
+          type: date
+          priority: 0
+          jsonPath: .metadata.creationTimestamp
+        - name: Leaf
+          type: boolean
+          priority: 1
+          jsonPath: .status.isLeaf
+        - name: QueueName
+          type: string
+          priority: 2
+          description: The name of bound queue
+          jsonPath: .status.queueName
+        - name: Reclaim
+          type: boolean
+          priority: 3
+          jsonPath: .spec.reclaimable
+        - name: Namespace
+          type: string
+          priority: 4
+          description: The related of namespace
+          jsonPath: .spec.namespace
+        - name: HardwareTypes
+          type: string
+          priority: 5
+          jsonPath: .spec.hardwareTypes
+  conversion:
+    strategy: None
