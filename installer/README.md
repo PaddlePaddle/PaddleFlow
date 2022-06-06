@@ -19,16 +19,16 @@ PaddleFLow部署分为客户端和服务端两个部分。
 部署组件说明
 PaddleFlow运行依赖以下几个组件：</br>
 * paddleflow-server
-* paddleflow-storage
+* paddleflow-csi-plugin
 * volcano
 
 **paddleflow-server**
 
 paddleflow-server提供的功能包括存储资源管理、作业资源调度和工作流编排。这是一个服务入口。详细配置参考文档（TODO）。</br>
 
-**paddleflow-storage**
+**paddleflow-csi-plugin**
 
-paddleflow-storage提供的功能主要包括存储资源管理。</br>
+paddleflow-csi-plugin提供的功能主要包括存储资源管理。</br>
 
 **volcano**
 
@@ -46,7 +46,14 @@ kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/rele
 ```
 ### 2.3 自定义安装
 #### 2.3.1 安装paddleflow-server
-**指定数据库**
+
+**快速安装paddleflow-server**
+```shell
+# 快速安装方式使用sqlite
+kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.2/installer/deploys/paddleflow-server/paddleflow-server-deploy.yaml
+```
+
+**指定数据库为mysql并安装(推荐)**
 ```shell
 # paddleflow默认使用SQLite配置
 export DB_DRIVER='sqlite'
@@ -57,15 +64,12 @@ export DB_PORT=3306
 export DB_USER=paddleflow
 export DB_PW=paddleflow
 export DB_DATABASE='paddleflow'
-```
-**安装paddleflow-server**
-```shell
-kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.2/installer/deploys/paddleflow-server/paddleflow-server-deploy.yaml
+# todo 待完善
 ```
 
-#### 2.3.2 安装paddleflow-storage
+#### 2.3.2 安装paddleflow-csi-plugin
 ```shell
-kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.2/installer/deploys/pf-storage/paddleflow-storage-deploy.yaml
+kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.2/installer/deploys/paddleflow-csi-plugin/paddleflow-csi-plugin-deploy.yaml
 ```
 
 #### 2.3.3 安装volcano
