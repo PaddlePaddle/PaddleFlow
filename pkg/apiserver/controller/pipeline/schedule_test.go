@@ -88,10 +88,9 @@ func TestCreateSchedule(t *testing.T) {
 		PipelineYaml: "ddddd",
 		PipelineMd5:  "md5_1",
 		UserName:     MockNormalUser,
-		Pipeline:     ppl1,
 	}
 
-	pplID1, pplDetailPk1, err := models.CreatePipeline(ctx.Logging(), &pplDetail1)
+	pplID1, pplDetailPk1, err := models.CreatePipeline(ctx.Logging(), &ppl1, &pplDetail1)
 	assert.Nil(t, err)
 	assert.Equal(t, ppl1.ID, pplID1)
 	assert.Equal(t, pplDetail1.Pk, pplDetailPk1)
@@ -261,10 +260,9 @@ func TestStopSchedule(t *testing.T) {
 		PipelineYaml: "ddddd",
 		PipelineMd5:  "md5_1",
 		UserName:     MockNormalUser,
-		Pipeline:     ppl1,
 	}
 
-	pplID1, pplDetailPk1, err := models.CreatePipeline(ctx.Logging(), &pplDetail1)
+	pplID1, pplDetailPk1, err := models.CreatePipeline(ctx.Logging(), &ppl1, &pplDetail1)
 	assert.Nil(t, err)
 	assert.Equal(t, ppl1.ID, pplID1)
 	assert.Equal(t, pplDetail1.Pk, pplDetailPk1)
@@ -358,10 +356,9 @@ func TestDeleteSchedule(t *testing.T) {
 		PipelineYaml: "ddddd",
 		PipelineMd5:  "md5_1",
 		UserName:     MockNormalUser,
-		Pipeline:     ppl1,
 	}
 
-	pplID1, pplDetailPk1, err := models.CreatePipeline(ctx.Logging(), &pplDetail1)
+	pplID1, pplDetailPk1, err := models.CreatePipeline(ctx.Logging(), &ppl1, &pplDetail1)
 	assert.Nil(t, err)
 	assert.Equal(t, ppl1.ID, pplID1)
 	assert.Equal(t, pplDetail1.Pk, pplDetailPk1)

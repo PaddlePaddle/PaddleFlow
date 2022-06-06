@@ -123,7 +123,7 @@ CREATE TABLE IF NOT EXISTS `user` (
 ) ENGINE=InnoDB DEFAULT CHARACTER SET utf8 COLLATE utf8_bin COMMENT='user info table';
 
 -- root user with initial password 'paddleflow'
-TRUNCATE `paddleflow`.`user`;
+TRUNCATE `paddleflow_db`.`user`;
 insert into user(name, password) values('root','$2a$10$1qdSQN5wMl3FtXoxw7mKpuxBqIuP0eYXTBM9CBn5H4KubM/g5Hrb6%');
 insert into flavour(id, name, cpu, mem, scalar_resources) values('1','flavour1', 1, '1G', null);
 insert into flavour(id, name, cpu, mem, scalar_resources) values('2','flavour2', 1, '1G', '{"baidu.com/v100_cgpu":"1"}');
@@ -240,10 +240,8 @@ CREATE TABLE IF NOT EXISTS `pipeline_detail` (
     `created_at` datetime(3) DEFAULT NULL,
     `updated_at` datetime(3) DEFAULT NULL,
     `deleted_at` datetime(3) DEFAULT NULL,
-    PRIMARY KEY (`pk`),
-    KEY `fk_PipelineDetail_pipeline` (`pipeline_id`),
-    CONSTRAINT `fk_PipelineDetail_pipeline` FOREIGN KEY (`pipeline_id`) REFERENCES `pipeline` (`id`)
-) ENGINE=InnoDB DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
+    PRIMARY KEY (`pk`)
+    ) ENGINE=InnoDB DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
 
 CREATE TABLE IF NOT EXISTS `schedule` (
     `pk` bigint(20) NOT NULL AUTO_INCREMENT,

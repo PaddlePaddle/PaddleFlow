@@ -39,7 +39,6 @@ type PipelineDetail struct {
 	CreatedAt    time.Time      `json:"-"`
 	UpdatedAt    time.Time      `json:"-"`
 	DeletedAt    gorm.DeletedAt `json:"-"`
-	Pipeline     Pipeline       `json:"-"                    gorm:"references:ID"`
 }
 
 func (PipelineDetail) TableName() string {
@@ -125,7 +124,7 @@ func GetPipelineDetail(pipelineID string, pipelineDetailPk int64, detailType str
 	if detailType != "" {
 		tx = tx.Where("detail_type = ?", detailType)
 	}
-	tx = tx.Preload("Pipeline").Find(&pplDetailList)
+	tx = tx.Find(&pplDetailList)
 	return pplDetailList, tx.Error
 }
 

@@ -160,7 +160,6 @@ func CreatePipeline(ctx *logger.RequestContext, request CreatePipelineRequest, f
 
 	yamlMd5 := common.GetMD5Hash(pipelineYaml)
 	pplDetail := models.PipelineDetail{
-		Pipeline:     ppl,
 		DetailType:   pplcommon.PplDetailTypeNormal,
 		FsID:         fsID,
 		FsName:       request.FsName,
@@ -170,7 +169,7 @@ func CreatePipeline(ctx *logger.RequestContext, request CreatePipelineRequest, f
 		UserName:     ctx.UserName,
 	}
 
-	pplID, pplDetailPk, err := models.CreatePipeline(ctx.Logging(), &pplDetail)
+	pplID, pplDetailPk, err := models.CreatePipeline(ctx.Logging(), &ppl, &pplDetail)
 	if err != nil {
 		ctx.ErrorCode = common.InternalError
 		errMsg := fmt.Sprintf("create pipeline run failed inserting db. error:%s", err.Error())
@@ -241,7 +240,7 @@ func UpdatePipeline(ctx *logger.RequestContext, request UpdatePipelineRequest, p
 	ppl.Desc = request.Desc
 	yamlMd5 := common.GetMD5Hash(pipelineYaml)
 	pplDetail := models.PipelineDetail{
-		Pipeline:     ppl,
+		PipelineID:   pipelineID,
 		DetailType:   pplcommon.PplDetailTypeNormal,
 		FsID:         fsID,
 		FsName:       request.FsName,
@@ -251,7 +250,7 @@ func UpdatePipeline(ctx *logger.RequestContext, request UpdatePipelineRequest, p
 		UserName:     ctx.UserName,
 	}
 
-	pplID, pplDetailPk, err := models.UpdatePipeline(ctx.Logging(), &pplDetail)
+	pplID, pplDetailPk, err := models.UpdatePipeline(ctx.Logging(), &ppl, &pplDetail)
 	if err != nil {
 		ctx.ErrorCode = common.InternalError
 		errMsg := fmt.Sprintf("update pipeline failed inserting db. error:%s", err.Error())
@@ -653,6 +652,16 @@ func DeletePipelineDetail(ctx *logger.RequestContext, pipelineID string, pipelin
 }
 
 func CheckPipelineDetailPermission(userName string, pipelineID string, pipelineDetailPk int64) (bool, error) {
+	ppl, err := models.GetPipelineByID(pipelineID)
+	if err != nil {
+		errMsg := fmt.Sprintf("get pipeline of piprlineID[%s] failed, err:[%s]", pipelineID, err.Error())
+		return false, fmt.Errorf(errMsg)
+	}
+
+	if !common.IsRootUser(userName) && userName != ppl.UserName {
+		return false, nil
+	}
+
 	pipelineDetailList, err := models.GetPipelineDetail(pipelineID, pipelineDetailPk, "")
 	if err != nil {
 		errMsg := fmt.Sprintf("get pipeline detail of piprlineID[%s], pplDetailPk[%d] failed, err:[%s]", pipelineID, pipelineDetailPk, err.Error())
@@ -660,10 +669,6 @@ func CheckPipelineDetailPermission(userName string, pipelineID string, pipelineD
 	} else if len(pipelineDetailList) != 1 {
 		errMsg := fmt.Sprintf("get pipeline detail of piprlineID[%s], pplDetailPk[%d] failed, [%d]records found", pipelineID, pipelineDetailPk, len(pipelineDetailList))
 		return false, fmt.Errorf(errMsg)
-	}
-
-	if !common.IsRootUser(userName) && userName != pipelineDetailList[0].Pipeline.UserName {
-		return false, nil
 	}
 
 	return true, nil

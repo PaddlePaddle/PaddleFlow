@@ -43,46 +43,54 @@ func (Pipeline) TableName() string {
 	return "pipeline"
 }
 
-func CreatePipeline(logEntry *log.Entry, pplDetail *PipelineDetail) (pplID string, pplDetailPk int64, err error) {
-	logEntry.Debugf("begin create pipeline & pipeline detail: %+v", pplDetail)
+func CreatePipeline(logEntry *log.Entry, ppl *Pipeline, pplDetail *PipelineDetail) (pplID string, pplDetailPk int64, err error) {
+	logEntry.Debugf("begin create pipeline: %+v & pipeline detail: %+v", ppl, pplDetail)
 	err = withTransaction(database.DB, func(tx *gorm.DB) error {
-		result := tx.Model(&PipelineDetail{}).Create(pplDetail)
+		result := tx.Model(&Pipeline{}).Create(ppl)
 		if result.Error != nil {
-			logEntry.Errorf("create pipeline failed. pipeline detail:%+v, error:%v", pplDetail, result.Error)
+			logEntry.Errorf("create pipeline failed. pipeline:%+v, error:%v", ppl, result.Error)
 			return result.Error
 		}
-		pplDetail.Pipeline.ID = common.PrefixPipeline + fmt.Sprintf("%06d", pplDetail.Pipeline.Pk)
-		logEntry.Debugf("created ppl with pk[%d], pplID[%s]", pplDetail.Pipeline.Pk, pplDetail.Pipeline.ID)
-
 		// update ID by pk
-		result = tx.Model(&Pipeline{}).Where("pk = ?", pplDetail.Pipeline.Pk).Update("id", pplDetail.Pipeline.ID)
+		ppl.ID = common.PrefixPipeline + fmt.Sprintf("%06d", ppl.Pk)
+		result = tx.Model(&Pipeline{}).Where("pk = ?", ppl.Pk).Update("id", ppl.ID)
 		if result.Error != nil {
-			logEntry.Errorf("backfilling pplID to pipeline[%d] failed. error:%v", pplDetail.Pipeline.Pk, result.Error)
+			logEntry.Errorf("backfilling pplID to pipeline[%d] failed. error:%v", ppl.Pk, result.Error)
 			return result.Error
 		}
 
-		result = tx.Model(&PipelineDetail{}).Where("pk = ?", pplDetail.Pk).Update("pipeline_id", pplDetail.Pipeline.ID)
+		pplDetail.PipelineID = ppl.ID
+		result = tx.Model(&PipelineDetail{}).Create(pplDetail)
 		if result.Error != nil {
-			logEntry.Errorf("backfilling pplID to pipeline detail[%d] failed. error:%v", pplDetail.Pk, result.Error)
+			logEntry.Errorf("create pipeline detail failed. pipeline detail:%+v, error:%v", pplDetail, result.Error)
 			return result.Error
 		}
+
+		logEntry.Debugf("created ppl with pk[%d], pplID[%s], pplDetailPk[%d]", ppl.Pk, ppl.ID, pplDetail.Pk)
 		return nil
 	})
-	return pplDetail.Pipeline.ID, pplDetail.Pk, err
+	return ppl.ID, pplDetail.Pk, err
 }
 
-func UpdatePipeline(logEntry *log.Entry, pplDetail *PipelineDetail) (pplID string, pplDetailPk int64, err error) {
-	logEntry.Debugf("begin update pipeline & pipeline detail: %+v", pplDetail)
+func UpdatePipeline(logEntry *log.Entry, ppl *Pipeline, pplDetail *PipelineDetail) (pplID string, pplDetailPk int64, err error) {
+	logEntry.Debugf("begin update pipeline: %+v and pipeline detail: %+v", ppl, pplDetail)
 	err = withTransaction(database.DB, func(tx *gorm.DB) error {
-		result := tx.Create(pplDetail)
+		// update desc by pk
+		result := tx.Model(&Pipeline{}).Where("pk = ?", ppl.Pk).Update("desc", ppl.Desc)
+		if result.Error != nil {
+			logEntry.Errorf("update desc to pipeline[%d] failed. error:%v", ppl.Pk, result.Error)
+			return result.Error
+		}
+
+		result = tx.Create(pplDetail)
 		if result.Error != nil {
 			logEntry.Errorf("update pipeline failed. pipeline detail:%+v, error:%v", pplDetail, result.Error)
 			return result.Error
 		}
-		logEntry.Debugf("updated ppl with pk[%d], pplID[%s], new pplDetailPk[%d]", pplDetail.Pipeline.Pk, pplDetail.Pipeline.ID, pplDetail.Pk)
+		logEntry.Debugf("updated ppl with pplID[%s], new pplDetailPk[%d]", pplDetail.PipelineID, pplDetail.Pk)
 		return nil
 	})
-	return pplDetail.Pipeline.ID, pplDetail.Pk, err
+	return pplDetail.PipelineID, pplDetail.Pk, err
 }
 
 func GetPipelineByID(id string) (Pipeline, error) {

@@ -234,7 +234,6 @@ func TestListPipeline(t *testing.T) {
 		PipelineYaml: "ddddd",
 		PipelineMd5:  "md5_1",
 		UserName:     "user1",
-		Pipeline:     ppl1,
 	}
 
 	ppl2 := models.Pipeline{
@@ -253,15 +252,14 @@ func TestListPipeline(t *testing.T) {
 		PipelineYaml: "ddddd",
 		PipelineMd5:  "md5_2",
 		UserName:     "root",
-		Pipeline:     ppl2,
 	}
 
-	pplID1, pplDetailPk1, err := models.CreatePipeline(ctx.Logging(), &pplDetail1)
+	pplID1, pplDetailPk1, err := models.CreatePipeline(ctx.Logging(), &ppl1, &pplDetail1)
 	assert.Nil(t, err)
 	assert.Equal(t, ppl1.ID, pplID1)
 	assert.Equal(t, pplDetail1.Pk, pplDetailPk1)
 
-	pplID2, pplDetailPk2, err := models.CreatePipeline(ctx.Logging(), &pplDetail2)
+	pplID2, pplDetailPk2, err := models.CreatePipeline(ctx.Logging(), &ppl2, &pplDetail2)
 	assert.Nil(t, err)
 	assert.Equal(t, ppl2.ID, pplID2)
 	assert.Equal(t, pplDetail2.Pk, pplDetailPk2)
@@ -356,6 +354,7 @@ func TestGetPipeline(t *testing.T) {
 	}
 	pplDetail1 := models.PipelineDetail{
 		Pk:           1,
+		PipelineID:   ppl1.ID,
 		DetailType:   pkgPplCommon.PplDetailTypeNormal,
 		FsID:         "root-fsname",
 		FsName:       "fsname",
@@ -363,11 +362,11 @@ func TestGetPipeline(t *testing.T) {
 		PipelineYaml: "ddddd",
 		PipelineMd5:  "md5_1",
 		UserName:     "user1",
-		Pipeline:     ppl1,
 	}
 
 	pplDetail2 := models.PipelineDetail{
 		Pk:           2,
+		PipelineID:   ppl1.ID,
 		DetailType:   pkgPplCommon.PplDetailTypeNormal,
 		FsID:         "root-fsname2",
 		FsName:       "fsname2",
@@ -375,15 +374,14 @@ func TestGetPipeline(t *testing.T) {
 		PipelineYaml: "ddddd",
 		PipelineMd5:  "md5_2",
 		UserName:     "user1",
-		Pipeline:     ppl1,
 	}
 
-	pplID1, pplDetailPk1, err := models.CreatePipeline(ctx.Logging(), &pplDetail1)
+	pplID1, pplDetailPk1, err := models.CreatePipeline(ctx.Logging(), &ppl1, &pplDetail1)
 	assert.Nil(t, err)
 	assert.Equal(t, ppl1.ID, pplID1)
 	assert.Equal(t, pplDetail1.Pk, pplDetailPk1)
 
-	pplID2, pplDetailPk2, err := models.CreatePipeline(ctx.Logging(), &pplDetail2)
+	pplID2, pplDetailPk2, err := models.UpdatePipeline(ctx.Logging(), &ppl1, &pplDetail2)
 	assert.Nil(t, err)
 	assert.Equal(t, ppl1.ID, pplID2)
 	assert.Equal(t, pplDetail2.Pk, pplDetailPk2)
@@ -471,6 +469,7 @@ func TestGetPipelineDetail(t *testing.T) {
 	}
 	pplDetail1 := models.PipelineDetail{
 		Pk:           1,
+		PipelineID:   ppl1.ID,
 		DetailType:   pkgPplCommon.PplDetailTypeNormal,
 		FsID:         "root-fsname",
 		FsName:       "fsname",
@@ -478,11 +477,11 @@ func TestGetPipelineDetail(t *testing.T) {
 		PipelineYaml: "ddddd",
 		PipelineMd5:  "md5_1",
 		UserName:     "user1",
-		Pipeline:     ppl1,
 	}
 
 	pplDetail2 := models.PipelineDetail{
 		Pk:           2,
+		PipelineID:   ppl1.ID,
 		DetailType:   pkgPplCommon.PplDetailTypeNormal,
 		FsID:         "root-fsname2",
 		FsName:       "fsname2",
@@ -490,15 +489,14 @@ func TestGetPipelineDetail(t *testing.T) {
 		PipelineYaml: "ddddd",
 		PipelineMd5:  "md5_2",
 		UserName:     "user1",
-		Pipeline:     ppl1,
 	}
 
-	pplID1, pplDetailPk1, err := models.CreatePipeline(ctx.Logging(), &pplDetail1)
+	pplID1, pplDetailPk1, err := models.CreatePipeline(ctx.Logging(), &ppl1, &pplDetail1)
 	assert.Nil(t, err)
 	assert.Equal(t, ppl1.ID, pplID1)
 	assert.Equal(t, pplDetail1.Pk, pplDetailPk1)
 
-	pplID2, pplDetailPk2, err := models.CreatePipeline(ctx.Logging(), &pplDetail2)
+	pplID2, pplDetailPk2, err := models.UpdatePipeline(ctx.Logging(), &ppl1, &pplDetail2)
 	assert.Nil(t, err)
 	assert.Equal(t, ppl1.ID, pplID2)
 	assert.Equal(t, pplDetail2.Pk, pplDetailPk2)
@@ -559,7 +557,6 @@ func TestDeletePipeline(t *testing.T) {
 		PipelineYaml: "ddddd",
 		PipelineMd5:  "md5_1",
 		UserName:     "user1",
-		Pipeline:     ppl1,
 	}
 
 	ppl2 := models.Pipeline{
@@ -578,7 +575,6 @@ func TestDeletePipeline(t *testing.T) {
 		PipelineYaml: "ddddd",
 		PipelineMd5:  "md5_2",
 		UserName:     "user2",
-		Pipeline:     ppl2,
 	}
 
 	ppl3 := models.Pipeline{
@@ -597,20 +593,19 @@ func TestDeletePipeline(t *testing.T) {
 		PipelineYaml: "ddddd",
 		PipelineMd5:  "md5_3",
 		UserName:     "root",
-		Pipeline:     ppl3,
 	}
 
-	pplID1, pplDetailPk1, err := models.CreatePipeline(ctx.Logging(), &pplDetail1)
+	pplID1, pplDetailPk1, err := models.CreatePipeline(ctx.Logging(), &ppl1, &pplDetail1)
 	assert.Nil(t, err)
 	assert.Equal(t, ppl1.ID, pplID1)
 	assert.Equal(t, pplDetail1.Pk, pplDetailPk1)
 
-	pplID2, pplDetailPk2, err := models.CreatePipeline(ctx.Logging(), &pplDetail2)
+	pplID2, pplDetailPk2, err := models.CreatePipeline(ctx.Logging(), &ppl2, &pplDetail2)
 	assert.Nil(t, err)
 	assert.Equal(t, ppl2.ID, pplID2)
 	assert.Equal(t, pplDetail2.Pk, pplDetailPk2)
 
-	pplID3, pplDetailPk3, err := models.CreatePipeline(ctx.Logging(), &pplDetail3)
+	pplID3, pplDetailPk3, err := models.CreatePipeline(ctx.Logging(), &ppl3, &pplDetail3)
 	assert.Nil(t, err)
 	assert.Equal(t, ppl3.ID, pplID3)
 	assert.Equal(t, pplDetail3.Pk, pplDetailPk3)
@@ -663,6 +658,7 @@ func TestDeletePipelineDetail(t *testing.T) {
 	}
 	pplDetail1 := models.PipelineDetail{
 		Pk:           1,
+		PipelineID:   ppl1.ID,
 		DetailType:   pkgPplCommon.PplDetailTypeNormal,
 		FsID:         "user1-fsname",
 		FsName:       "fsname",
@@ -670,11 +666,11 @@ func TestDeletePipelineDetail(t *testing.T) {
 		PipelineYaml: "ddddd",
 		PipelineMd5:  "md5_1",
 		UserName:     "user1",
-		Pipeline:     ppl1,
 	}
 
 	pplDetail2 := models.PipelineDetail{
 		Pk:           2,
+		PipelineID:   ppl1.ID,
 		DetailType:   pkgPplCommon.PplDetailTypeNormal,
 		FsID:         "user1-fsname2",
 		FsName:       "fsname2",
@@ -682,11 +678,11 @@ func TestDeletePipelineDetail(t *testing.T) {
 		PipelineYaml: "ddddd",
 		PipelineMd5:  "md5_2",
 		UserName:     "user1",
-		Pipeline:     ppl1,
 	}
 
 	pplDetail3 := models.PipelineDetail{
 		Pk:           3,
+		PipelineID:   ppl1.ID,
 		DetailType:   pkgPplCommon.PplDetailTypeNormal,
 		FsID:         "user1-fsname3",
 		FsName:       "fsname3",
@@ -694,7 +690,6 @@ func TestDeletePipelineDetail(t *testing.T) {
 		PipelineYaml: "ddddd",
 		PipelineMd5:  "md5_3",
 		UserName:     "user1",
-		Pipeline:     ppl1,
 	}
 
 	ppl2 := models.Pipeline{
@@ -707,6 +702,7 @@ func TestDeletePipelineDetail(t *testing.T) {
 
 	pplDetail4 := models.PipelineDetail{
 		Pk:           4,
+		PipelineID:   ppl2.ID,
 		DetailType:   pkgPplCommon.PplDetailTypeNormal,
 		FsID:         "root-fsname4",
 		FsName:       "fsname4",
@@ -714,11 +710,11 @@ func TestDeletePipelineDetail(t *testing.T) {
 		PipelineYaml: "ddddd",
 		PipelineMd5:  "md5_4",
 		UserName:     "root",
-		Pipeline:     ppl2,
 	}
 
 	pplDetail5 := models.PipelineDetail{
 		Pk:           5,
+		PipelineID:   ppl2.ID,
 		DetailType:   pkgPplCommon.PplDetailTypeNormal,
 		FsID:         "root-fsname5",
 		FsName:       "fsname5",
@@ -726,30 +722,29 @@ func TestDeletePipelineDetail(t *testing.T) {
 		PipelineYaml: "ddddd",
 		PipelineMd5:  "md5_5",
 		UserName:     "root",
-		Pipeline:     ppl2,
 	}
 
-	pplID1, pplDetailPk1, err := models.CreatePipeline(ctx.Logging(), &pplDetail1)
+	pplID1, pplDetailPk1, err := models.CreatePipeline(ctx.Logging(), &ppl1, &pplDetail1)
 	assert.Nil(t, err)
 	assert.Equal(t, ppl1.ID, pplID1)
 	assert.Equal(t, pplDetail1.Pk, pplDetailPk1)
 
-	pplID2, pplDetailPk2, err := models.CreatePipeline(ctx.Logging(), &pplDetail2)
+	pplID2, pplDetailPk2, err := models.UpdatePipeline(ctx.Logging(), &ppl1, &pplDetail2)
 	assert.Nil(t, err)
 	assert.Equal(t, ppl1.ID, pplID2)
 	assert.Equal(t, pplDetail2.Pk, pplDetailPk2)
 
-	pplID3, pplDetailPk3, err := models.CreatePipeline(ctx.Logging(), &pplDetail3)
+	pplID3, pplDetailPk3, err := models.UpdatePipeline(ctx.Logging(), &ppl1, &pplDetail3)
 	assert.Nil(t, err)
 	assert.Equal(t, ppl1.ID, pplID3)
 	assert.Equal(t, pplDetail3.Pk, pplDetailPk3)
 
-	pplID4, pplDetailPk4, err := models.CreatePipeline(ctx.Logging(), &pplDetail4)
+	pplID4, pplDetailPk4, err := models.CreatePipeline(ctx.Logging(), &ppl2, &pplDetail4)
 	assert.Nil(t, err)
 	assert.Equal(t, ppl2.ID, pplID4)
 	assert.Equal(t, pplDetail4.Pk, pplDetailPk4)
 
-	pplID5, pplDetailPk5, err := models.CreatePipeline(ctx.Logging(), &pplDetail5)
+	pplID5, pplDetailPk5, err := models.UpdatePipeline(ctx.Logging(), &ppl2, &pplDetail5)
 	assert.Nil(t, err)
 	assert.Equal(t, ppl2.ID, pplID5)
 	assert.Equal(t, pplDetail5.Pk, pplDetailPk5)
