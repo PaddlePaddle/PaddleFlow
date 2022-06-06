@@ -32,11 +32,11 @@ type Pipeline struct {
 	Pk        int64          `json:"-"                    gorm:"primaryKey;autoIncrement;not null"`
 	ID        string         `json:"pipelineID"           gorm:"type:varchar(60);not null;uniqueIndex"`
 	Name      string         `json:"name"                 gorm:"type:varchar(60);not null;uniqueIndex:idx_fs_name"`
-	Desc      string         `json:"desc"                 gorm:"type:varchar(60);not null"`
+	Desc      string         `json:"desc"                 gorm:"type:varchar(1024);not null"`
 	UserName  string         `json:"username"             gorm:"type:varchar(60);not null;uniqueIndex:idx_fs_name"`
 	CreatedAt time.Time      `json:"-"`
 	UpdatedAt time.Time      `json:"-"`
-	DeletedAt gorm.DeletedAt `json:"-"                    gorm:"index"`
+	DeletedAt gorm.DeletedAt `json:"-"`
 }
 
 func (Pipeline) TableName() string {

@@ -32,13 +32,13 @@ type PipelineDetail struct {
 	DetailType   string         `json:"detailType"           gorm:"type:varchar(60);not null"`
 	FsID         string         `json:"-"                    gorm:"type:varchar(60);not null"`
 	FsName       string         `json:"fsname"               gorm:"type:varchar(60);not null"`
-	YamlPath     string         `json:"yamlPath"             gorm:"type:text;size:65535"`
-	PipelineYaml string         `json:"pipelineYaml"         gorm:"type:text;size:65535"`
+	YamlPath     string         `json:"yamlPath"             gorm:"type:text;size:65535;not null"`
+	PipelineYaml string         `json:"pipelineYaml"         gorm:"type:text;size:65535;not null"`
 	PipelineMd5  string         `json:"pipelineMd5"          gorm:"type:varchar(32);not null"`
 	UserName     string         `json:"username"             gorm:"type:varchar(60);not null"`
 	CreatedAt    time.Time      `json:"-"`
 	UpdatedAt    time.Time      `json:"-"`
-	DeletedAt    gorm.DeletedAt `json:"-"                    gorm:"index"`
+	DeletedAt    gorm.DeletedAt `json:"-"`
 	Pipeline     Pipeline       `json:"-"                    gorm:"references:ID"`
 }
 

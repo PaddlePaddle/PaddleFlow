@@ -42,20 +42,20 @@ type Run struct {
 	FsID           string                 `gorm:"type:varchar(60);not null"         json:"-"`
 	FsName         string                 `gorm:"type:varchar(60);not null"         json:"fsname"`
 	Description    string                 `gorm:"type:text;size:65535;not null"     json:"description"`
-	ParametersJson string                 `gorm:"type:text;size:65535"              json:"-"`
+	ParametersJson string                 `gorm:"type:text;size:65535;not null"     json:"-"`
 	Parameters     map[string]interface{} `gorm:"-"                                 json:"parameters"`
-	RunYaml        string                 `gorm:"type:text;size:65535"              json:"runYaml"`
+	RunYaml        string                 `gorm:"type:text;size:65535;not null"     json:"runYaml"`
 	WorkflowSource schema.WorkflowSource  `gorm:"-"                                 json:"-"` // RunYaml's dynamic struct
 	Runtime        schema.RuntimeView     `gorm:"-"                                 json:"runtime"`
 	PostProcess    schema.PostProcessView `gorm:"-"                                 json:"postProcess"`
 	FailureOptions schema.FailureOptions  `gorm:"-"                                 json:"failureOptions"`
-	DockerEnv      string                 `gorm:"type:varchar(128)"                 json:"dockerEnv"`
-	Entry          string                 `gorm:"type:varchar(256)"                 json:"entry"`
-	Disabled       string                 `gorm:"type:text;size:65535"              json:"disabled"`
-	ScheduleID     string                 `gorm:"type:varchar(60)"         	        json:"scheduleID"`
-	Message        string                 `gorm:"type:text;size:65535"              json:"runMsg"`
-	Status         string                 `gorm:"type:varchar(32)"                  json:"status"` // StatusRun%%%
-	RunCachedIDs   string                 `gorm:"type:text;size:65535"              json:"runCachedIDs"`
+	DockerEnv      string                 `gorm:"type:varchar(128);not null"        json:"dockerEnv"`
+	Entry          string                 `gorm:"type:varchar(256);not null"        json:"entry"`
+	Disabled       string                 `gorm:"type:text;size:65535;not null"     json:"disabled"`
+	ScheduleID     string                 `gorm:"type:varchar(60);not null"         json:"scheduleID"`
+	Message        string                 `gorm:"type:text;size:65535;not null"     json:"runMsg"`
+	Status         string                 `gorm:"type:varchar(32);not null"         json:"status"` // StatusRun%%%
+	RunCachedIDs   string                 `gorm:"type:text;size:65535;not null"     json:"runCachedIDs"`
 	ScheduledAt    sql.NullTime           `                                         json:"-"`
 	CreateTime     string                 `gorm:"-"                                 json:"createTime"`
 	ActivateTime   string                 `gorm:"-"                                 json:"activateTime"`
@@ -63,7 +63,7 @@ type Run struct {
 	CreatedAt      time.Time              `                                         json:"-"`
 	ActivatedAt    sql.NullTime           `                                         json:"-"`
 	UpdatedAt      time.Time              `                                         json:"-"`
-	DeletedAt      gorm.DeletedAt         `gorm:"index"                             json:"-"`
+	DeletedAt      gorm.DeletedAt         `                                         json:"-"`
 }
 
 func (Run) TableName() string {

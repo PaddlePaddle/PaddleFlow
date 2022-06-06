@@ -42,15 +42,15 @@ type Schedule struct {
 	FsID             string         `gorm:"type:varchar(60);not null"         json:"fsID"`
 	FsName           string         `gorm:"type:varchar(60);not null"         json:"fsName"`
 	Crontab          string         `gorm:"type:varchar(60);not null"         json:"crontab"`
-	Options          string         `gorm:"type:text;size:65535"              json:"options"`
-	Message          string         `gorm:"type:text;size:65535"              json:"scheduleMsg"`
-	Status           string         `gorm:"type:varchar(32)"                  json:"status"`
+	Options          string         `gorm:"type:text;size:65535;not null"     json:"options"`
+	Message          string         `gorm:"type:text;size:65535;not null"     json:"scheduleMsg"`
+	Status           string         `gorm:"type:varchar(32);not null"         json:"status"`
 	StartAt          sql.NullTime   `                                         json:"-"`
 	EndAt            sql.NullTime   `                                         json:"-"`
 	NextRunAt        time.Time      `                                         json:"-"`
 	CreatedAt        time.Time      `                                         json:"-"`
 	UpdatedAt        time.Time      `                                         json:"-"`
-	DeletedAt        gorm.DeletedAt `gorm:"index"                             json:"-"`
+	DeletedAt        gorm.DeletedAt `                                         json:"-"`
 }
 
 type ScheduleOptions struct {
