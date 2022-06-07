@@ -91,7 +91,7 @@ func TestCreateQueue(t *testing.T) {
 	}
 	// test queue name
 	resp, err := CreateQueue(ctx, &createQueueReq)
-	expectErrMsg := fmt.Sprintf("name[%s] for [queue] does not compile with regex rule[%s]", createQueueReq.Name, common.RegPatternQueueName)
+	expectErrMsg := fmt.Sprintf("name[%s] for [queue] does not compile with regex rule[%s]", createQueueReq.Name, common.DNS1123LabelFmt)
 	if err != nil {
 		assert.Equal(t, expectErrMsg, err.Error())
 	}
