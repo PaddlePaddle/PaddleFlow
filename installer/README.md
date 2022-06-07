@@ -68,6 +68,26 @@ sed -e 's/sqlite/`${DB_DRIVER}`/g'  -e 's/DB_HOST: 127.0.0.2/DB_HOST=`${DB_HOST}
 ```
 
 #### 2.3.2 安装paddleflow-csi-plugin
+
+1. 检查 `kubelet root-dir` 路径
+
+在 Kubernetes 集群中任意一个非 Master 节点上执行以下命令：
+
+```shell
+ps -ef | grep kubelet | grep root-dir
+```
+
+2. 部署
+
+**如果前面检查命令返回的结果不为空**，则代表 kubelet 的 root-dir 路径不是默认值，因此需要在 CSI Driver 的部署文件中更新 `kubeletDir` 路径并部署：
+```shell
+# Kubernetes version >= v1.16
+curl -sSL https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.2/installer/deploys/paddleflow-csi-plugin/paddleflow-csi-plugin-deploy.yaml | sed 's@/var/lib/kubelet@{{KUBELET_DIR}}@g' | kubectl apply -f -
+```
+
+> **注意**: 请将上述命令中 `{{KUBELET_DIR}}` 替换成 kubelet 当前的根目录路径。
+
+**如果前面检查命令返回的结果为空**，无需修改配置，可直接部署：
 ```shell
 kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.2/installer/deploys/paddleflow-csi-plugin/paddleflow-csi-plugin-deploy.yaml
 ```
