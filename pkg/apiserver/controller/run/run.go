@@ -146,8 +146,7 @@ func buildWorkflowSource(userName string, req CreateRunRequest, fsID string) (sc
 			return schema.WorkflowSource{}, "", "", err
 		}
 		runYaml = string(sDec)
-		parser := pplcommon.Parser{}
-		wfs, err := parser.UnmarshallWorkflowSource([]byte(runYaml))
+		wfs, err := schema.GetWorkflowSource([]byte(runYaml))
 		if err != nil {
 			logger.Logger().Errorf("Unmarshal runYaml to get source failed. yaml: %s \n, err:%v", runYaml, err)
 			return schema.WorkflowSource{}, "", "", err
@@ -209,20 +208,46 @@ func getWorkFlowSourceByReq(request *CreateRunByJsonRequest, bodyMap map[string]
 		request.Env = map[string]string{}
 	}
 
-	request.Env[schema.EnvJobType] = request.JobType
-	request.Env[schema.EnvJobQueueName] = request.Queue
-	request.Env[schema.EnvJobFlavour] = request.Flavour
+	// 将全局的JobType、Queue、Flavour写入全局环境变量中
+	if _, ok := request.Env[schema.EnvJobType]; !ok {
+		request.Env[schema.EnvJobType] = request.JobType
+	}
+	if _, ok := request.Env[schema.EnvJobQueueName]; !ok {
+		request.Env[schema.EnvJobQueueName] = request.Queue
+	}
+	if _, ok := request.Env[schema.EnvJobFlavour]; !ok {
+		request.Env[schema.EnvJobFlavour] = request.Flavour
+	}
 
+	parser := schema.Parser{}
+
+	// 为避免 transCacheJson2Yaml 对 bodyMap 造成影响，这里复制一个新Map
+	bodyForCache, _, _ := unstructured.NestedFieldCopy(bodyMap)
+	bodyMapForCache, _ := bodyForCache.(map[string]interface{})
+	if err := transCacheJson2Yaml(bodyMapForCache); err != nil {
+		return schema.WorkflowSource{}, err
+	}
 	// TODO: handle errors
 	entryPointsMap, _, _ := unstructured.NestedFieldCopy(bodyMap, "entryPoints")
-	entryPointsNodes := entryPointsMap.(map[string]interface{})
-	parser := pplcommon.Parser{}
+	entryPointsNodes, _ := entryPointsMap.(map[string]interface{})
 	nodes, _ := parser.ParseNodes(entryPointsNodes)
+	validateRunJsonNodes(nodes, request, bodyMapForCache)
 	entryPoints := schema.WorkflowSourceDag{
 		EntryPoints: nodes,
 	}
 
-	postProcess := parseRunSteps(request.PostProcess, request)
+	// TODO: handle errors
+	postProcessMap, _, _ := unstructured.NestedFieldCopy(bodyMap, "postProcess")
+	postProcessNodes := postProcessMap.(map[string]interface{})
+	postNodesMap, _ := parser.ParseNodes(postProcessNodes)
+	validateRunJsonNodes(postNodesMap, request, bodyMapForCache)
+	postProcess := map[string]*schema.WorkflowSourceStep{}
+	for k, v := range postNodesMap {
+		postProcess[k] = v.(*schema.WorkflowSourceStep)
+		// 由于上面validateRunJsonNodes将PostProcess中的Cache进行了全局替换，这里将其还原为空值
+		postProcess[k].Cache = schema.Cache{}
+	}
+
 	failureOptions := schema.FailureOptions{Strategy: schema.FailureStrategyFailFast}
 	if request.FailureOptions.Strategy != "" {
 		failureOptions.Strategy = request.FailureOptions.Strategy
@@ -237,10 +262,6 @@ func getWorkFlowSourceByReq(request *CreateRunByJsonRequest, bodyMap map[string]
 		Disabled:       request.Disabled,
 		FailureOptions: failureOptions,
 	}
-	if err := transCacheJson2Yaml(bodyMap); err != nil {
-		return schema.WorkflowSource{}, err
-	}
-	wfs.ValidateStepCacheByMap(bodyMap)
 	return wfs, nil
 }
 
@@ -286,6 +307,43 @@ func transCacheJson2Yaml(bodyMap map[string]interface{}) error {
 	}
 	if err := unstructured.SetNestedField(bodyMap, entryPointsMap, schema.EntryPointsStr); err != nil {
 		return err
+	}
+	return nil
+}
+
+// 该函数主要完成CreateRunJson接口中，各类变量的全局替换操作
+func validateRunJsonNodes(nodes map[string]interface{}, request *CreateRunByJsonRequest, bodyMap map[string]interface{}) error {
+	for _, value := range nodes {
+		if node, ok := value.(*schema.WorkflowSourceDag); ok {
+			if err := validateRunJsonNodes(node.EntryPoints, request, bodyMap); err != nil {
+				return err
+			}
+		} else if step, ok := value.(*schema.WorkflowSourceStep); ok {
+			if step.Env == nil {
+				step.Env = map[string]string{}
+			}
+			if step.Parameters == nil {
+				step.Parameters = map[string]interface{}{}
+			}
+			// 对于每一个全局环境变量，检查节点是否有设置对应环境变量，如果没有则使用全局的
+			for globalKey, globalValue := range request.Env {
+				value, ok := step.Env[globalKey]
+				if !ok || value == "" {
+					step.Env[globalKey] = globalValue
+				}
+			}
+			// DockerEnv字段替换检查
+			if step.DockerEnv == "" {
+				step.DockerEnv = request.DockerEnv
+			}
+			cacheMap, ok, err := unstructured.NestedFieldCopy(bodyMap, "cache")
+			if ok && err == nil {
+				cacheMap, ok := cacheMap.(map[string]interface{})
+				if ok {
+					schema.ValidateStepCacheByMap(&step.Cache, cacheMap)
+				}
+			}
+		}
 	}
 	return nil
 }
@@ -358,8 +416,7 @@ func getSourceAndYaml(wfs schema.WorkflowSource) (string, string, error) {
 
 func runYamlAndReqToWfs(runYaml string, req interface{}) (schema.WorkflowSource, error) {
 	// parse yaml -> WorkflowSource
-	parser := pplcommon.Parser{}
-	wfs, err := parser.UnmarshallWorkflowSource([]byte(runYaml))
+	wfs, err := schema.GetWorkflowSource([]byte(runYaml))
 	if err != nil {
 		logger.Logger().Errorf("get WorkflowSource by yaml failed. yaml: %s \n, err:%v", runYaml, err)
 		return schema.WorkflowSource{}, err
@@ -795,7 +852,7 @@ func resumeRun(run models.Run) error {
 		return err
 	}
 
-	wfs, err := schema.ParseWorkflowSource([]byte(run.RunYaml))
+	wfs, err := schema.GetWorkflowSource([]byte(run.RunYaml))
 	if err != nil {
 		logger.LoggerForRun(run.ID).Errorf("get WorkflowSource by yaml failed. yaml: %s \n, err:%v", run.RunYaml, err)
 		return err

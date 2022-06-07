@@ -55,7 +55,7 @@ var mockCbs = WorkflowCallbacks{
 
 func loadTwoPostCaseSource() (schema.WorkflowSource, error) {
 	testCase := loadcase(runYamlPath)
-	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
+	wfs, err := schema.GetWorkflowSource([]byte(testCase))
 	if err != nil {
 		return schema.WorkflowSource{}, err
 	}
@@ -82,7 +82,7 @@ func GetExtra() map[string]string {
 // 测试NewBaseWorkflow, 只传yaml内容
 func TestNewBaseWorkflowByOnlyRunYaml(t *testing.T) {
 	testCase := loadcase(runYamlPath)
-	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
+	wfs, err := schema.GetWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
 	extra := GetExtra()
@@ -95,7 +95,7 @@ func TestNewBaseWorkflowByOnlyRunYaml(t *testing.T) {
 // 测试 BaseWorkflow
 func TestNewBaseWorkflow(t *testing.T) {
 	testCase := loadcase(runYamlPath)
-	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
+	wfs, err := schema.GetWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
 	extra := GetExtra()
@@ -114,7 +114,7 @@ func TestNewBaseWorkflow(t *testing.T) {
 // 测试带环流程
 func TestNewBaseWorkflowWithCircle(t *testing.T) {
 	testCase := loadcase(runCircleYamlPath)
-	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
+	wfs, err := schema.GetWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
 	extra := GetExtra()
@@ -126,7 +126,7 @@ func TestNewBaseWorkflowWithCircle(t *testing.T) {
 // 测试无环流程
 func TestTopologicalSort_noCircle(t *testing.T) {
 	testCase := loadcase(runYamlPath)
-	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
+	wfs, err := schema.GetWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
 	extra := GetExtra()
@@ -150,7 +150,7 @@ func TestTopologicalSort_noCircle(t *testing.T) {
 // 测试运行 Workflow，节点disable成功
 func TestCreateNewWorkflowRunDisabled_success(t *testing.T) {
 	testCase := loadcase(runYamlPath)
-	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
+	wfs, err := schema.GetWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
 	fmt.Printf("\n %+v \n", wfs)
@@ -179,7 +179,7 @@ func TestCreateNewWorkflowRunDisabled_success(t *testing.T) {
 // 测试运行 Workflow 成功
 func TestCreateNewWorkflowRun_success(t *testing.T) {
 	testCase := loadcase(runYamlPath)
-	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
+	wfs, err := schema.GetWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
 	fmt.Printf("\n %+v \n", wfs)
@@ -219,7 +219,7 @@ func TestCreateNewWorkflowRun_success(t *testing.T) {
 // 测试运行 Workflow 失败
 func TestCreateNewWorkflowRun_failed(t *testing.T) {
 	testCase := loadcase(runYamlPath)
-	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
+	wfs, err := schema.GetWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
 	extra := GetExtra()
@@ -266,7 +266,7 @@ func TestCreateNewWorkflowRun_failed(t *testing.T) {
 // 测试停止 Workflow
 func TestStopWorkflowRun(t *testing.T) {
 	testCase := loadcase(runYamlPath)
-	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
+	wfs, err := schema.GetWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
 	extra := GetExtra()
@@ -324,7 +324,7 @@ func TestStopWorkflowRun(t *testing.T) {
 // 测试baseWorkflow带entry初始化
 func TestNewWorkflowFromEntry(t *testing.T) {
 	testCase := loadcase(runYamlPath)
-	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
+	wfs, err := schema.GetWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
 	extra := GetExtra()
@@ -347,7 +347,7 @@ func TestNewWorkflowFromEntry(t *testing.T) {
 
 func TestValidateWorkflow_WrongParam(t *testing.T) {
 	testCase := loadcase(runWrongParamYamlPath)
-	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
+	wfs, err := schema.GetWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
 	extra := GetExtra()
@@ -364,7 +364,7 @@ func TestValidateWorkflow_WrongParam(t *testing.T) {
 
 func TestWorkflowParamDuplicate(t *testing.T) {
 	testCase := loadcase(runYamlPath)
-	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
+	wfs, err := schema.GetWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
 	extra := GetExtra()
@@ -402,7 +402,7 @@ func TestWorkflowParamDuplicate(t *testing.T) {
 
 func TestValidateWorkflowParam(t *testing.T) {
 	testCase := loadcase(runYamlPath)
-	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
+	wfs, err := schema.GetWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
 	extra := GetExtra()
@@ -451,7 +451,7 @@ func TestValidateWorkflowParam(t *testing.T) {
 
 func TestValidateWorkflow__DictParam(t *testing.T) {
 	testCase := loadcase(runYamlPath)
-	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
+	wfs, err := schema.GetWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
 	extra := GetExtra()
@@ -555,7 +555,7 @@ func TestValidateWorkflow__DictParam(t *testing.T) {
 // 校验初始化workflow时，传递param参数
 func TestValidateWorkflowPassingParam(t *testing.T) {
 	testCase := loadcase(runYamlPath)
-	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
+	wfs, err := schema.GetWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
 	// not exist in source yaml
@@ -605,7 +605,7 @@ func TestValidateWorkflowPassingParam(t *testing.T) {
 func TestValidateWorkflowArtifacts(t *testing.T) {
 	// 当前只会校验input artifact的值，output artifact的只不会校验，因为替换的时候，会直接用系统生成的路径覆盖原来的值
 	testCase := loadcase(runYamlPath)
-	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
+	wfs, err := schema.GetWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
 	extra := GetExtra()
@@ -631,7 +631,7 @@ func TestValidateWorkflowArtifacts(t *testing.T) {
 func TestValidateWorkflowDisabled(t *testing.T) {
 	// 校验workflow disable设置
 	testCase := loadcase(runYamlPath)
-	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
+	wfs, err := schema.GetWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
 	extra := GetExtra()
@@ -667,7 +667,7 @@ func TestValidateWorkflowDisabled(t *testing.T) {
 
 func TestValidateWorkflowCache(t *testing.T) {
 	testCase := loadcase(runYamlPath)
-	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
+	wfs, err := schema.GetWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
 	// 校验节点cache配置为空时，能够使用全局配置替换
@@ -708,7 +708,7 @@ func TestValidateWorkflowCache(t *testing.T) {
 // 测试不使用Fs时，workflow校验逻辑
 func TestValidateWorkflowWithoutFs(t *testing.T) {
 	testCase := loadcase(noAtfYamlPath)
-	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
+	wfs, err := schema.GetWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
 	// 校验 WfExtraInfoKeyFsID 和 WfExtraInfoKeyFsName，不能同时为空字符串
@@ -769,7 +769,7 @@ func TestValidateWorkflowWithoutFs(t *testing.T) {
 
 func TestRestartWorkflow(t *testing.T) {
 	testCase := loadcase(runYamlPath)
-	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
+	wfs, err := schema.GetWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
 	extra := GetExtra()
@@ -805,7 +805,7 @@ func TestRestartWorkflow(t *testing.T) {
 func TestRestartWorkflow_from1completed(t *testing.T) {
 	dbinit.InitMockDB()
 	testCase := loadcase(runYamlPath)
-	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
+	wfs, err := schema.GetWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
 	extra := GetExtra()
@@ -850,7 +850,7 @@ func TestCheckPostProcess(t *testing.T) {
 	assert.Equal(t, "post_process can only has 1 step at most", err.Error())
 
 	yamlByte := loadcase(runYamlPath)
-	wfs, err = schema.ParseWorkflowSource(yamlByte)
+	wfs, err = schema.GetWorkflowSource(yamlByte)
 	assert.Nil(t, err)
 
 	extra = GetExtra()

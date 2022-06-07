@@ -291,7 +291,7 @@ func startWfWithImageUrl(runID, imageUrl string) error {
 		return updateRunStatusAndMsg(runID, common.StatusRunFailed, err.Error())
 	}
 	// patch WorkflowSource from RunYaml
-	wfs, err := schema.ParseWorkflowSource([]byte(run.RunYaml))
+	wfs, err := schema.GetWorkflowSource([]byte(run.RunYaml))
 	if err != nil {
 		logEntry.Errorf("get WorkflowSource by yaml failed. yaml: %s \n, err:%v", run.RunYaml, err)
 		return err

@@ -94,7 +94,7 @@ func (r *Run) Encode() error {
 
 func (r *Run) decode() error {
 	// decode WorkflowSource
-	workflowSource, err := schema.ParseWorkflowSource([]byte(r.RunYaml))
+	workflowSource, err := schema.GetWorkflowSource([]byte(r.RunYaml))
 	if err != nil {
 		return err
 	}

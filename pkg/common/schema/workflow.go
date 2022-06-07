@@ -18,9 +18,10 @@ package schema
 
 import (
 	"fmt"
+	"reflect"
+	"strconv"
 	"strings"
 
-	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
@@ -201,12 +202,6 @@ func (wfs *WorkflowSource) HasStep(step string) bool {
 	return true
 }
 
-// 该函数的作用是将WorkflowSource中的Slice类型的输出Artifact改为Map类型。
-// 这样做的原因是：之前的run.yaml中（ver.1.3.2之前），输出Artifact为Map类型，而现在为了支持Cache的优化，改为Slice类型
-func (wfs *WorkflowSource) ValidateArtifacts() error {
-	return nil
-}
-
 func parseArtifactsOfSteps(steps map[string]*WorkflowSourceStep) (map[string]*WorkflowSourceStep, error) {
 	res := map[string]*WorkflowSourceStep{}
 	for stepName, step := range steps {
@@ -236,31 +231,99 @@ func RunYaml2Map(runYaml []byte) (map[string]interface{}, error) {
 	return yamlMap, nil
 }
 
-func (wfs *WorkflowSource) ValidateStepCacheByMap(runMap map[string]interface{}) error {
-	return nil
-}
-
-func ParseWorkflowSource(runYaml []byte) (WorkflowSource, error) {
+// 该函数除了将yaml解析为wfs，还进行了全局参数替换操作
+func GetWorkflowSource(runYaml []byte) (WorkflowSource, error) {
 	wfs := WorkflowSource{
 		FailureOptions: FailureOptions{Strategy: FailureStrategyFailFast},
 	}
-	if err := yaml.Unmarshal(runYaml, &wfs); err != nil {
-		return WorkflowSource{}, err
-	}
-	// 将List格式的OutputArtifact，转换为Map格式
-	if err := wfs.ValidateArtifacts(); err != nil {
-		return WorkflowSource{}, err
-	}
-
-	// 为了判断用户是否设定节点级别的Cache，需要第二次Unmarshal
+	p := Parser{}
 	yamlMap, err := RunYaml2Map(runYaml)
 	if err != nil {
 		return WorkflowSource{}, err
 	}
 
-	// 检查节点级别的Cache设置，根据需要用Run级别的Cache进行覆盖
-	if err := wfs.ValidateStepCacheByMap(yamlMap); err != nil {
+	if err := p.ParseWorkflowSource(yamlMap, &wfs); err != nil {
 		return WorkflowSource{}, err
 	}
+
+	// 全局参数替换
+	if err := ValidateRunNodes(wfs.EntryPoints.EntryPoints, &wfs, yamlMap); err != nil {
+		return WorkflowSource{}, err
+	}
+	postProcessMap := map[string]interface{}{}
+	for k, v := range wfs.PostProcess {
+		postProcessMap[k] = v
+	}
+	if err := ValidateRunNodes(postProcessMap, &wfs, yamlMap); err != nil {
+		return WorkflowSource{}, err
+	}
+
 	return wfs, nil
+}
+
+// 对Step的DockerEnv、Cache进行全局替换
+func ValidateRunNodes(nodes map[string]interface{}, wfs *WorkflowSource, yamlMap map[string]interface{}) error {
+	for _, value := range nodes {
+		if node, ok := value.(*WorkflowSourceDag); ok {
+			if err := ValidateRunNodes(node.EntryPoints, wfs, yamlMap); err != nil {
+				return err
+			}
+		} else if step, ok := value.(*WorkflowSourceStep); ok {
+			if step.Env == nil {
+				step.Env = map[string]string{}
+			}
+			if step.Parameters == nil {
+				step.Parameters = map[string]interface{}{}
+			}
+			// DockerEnv字段替换检查
+			if step.DockerEnv == "" {
+				step.DockerEnv = wfs.DockerEnv
+			}
+			cacheMap, ok, err := unstructured.NestedFieldCopy(yamlMap, "cache")
+			if ok && err == nil {
+				cacheMap, ok := cacheMap.(map[string]interface{})
+				if ok {
+					ValidateStepCacheByMap(&step.Cache, cacheMap)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func ValidateStepCacheByMap(cache *Cache, globalCacheMap map[string]interface{}) error {
+	// Enable字段赋值
+	if value, ok := globalCacheMap[CacheAttributeEnable]; ok {
+		switch value := value.(type) {
+		case bool:
+			cache.Enable = value
+		default:
+			return fmt.Errorf("cannot assign cache attribute [%s] by value[%v] with type [%s]",
+				CacheAttributeEnable, value, reflect.TypeOf(value).Name())
+		}
+	}
+	// MaxExpiredTime字段赋值
+	if value, ok := globalCacheMap[CacheAttributeMaxExpiredTime]; ok {
+		switch value := value.(type) {
+		case int64:
+			cache.MaxExpiredTime = strconv.FormatInt(value, 10)
+		case string:
+			cache.MaxExpiredTime = value
+		default:
+			return fmt.Errorf("cannot assign cache attribute [%s] by value[%v] with type [%s]",
+				CacheAttributeMaxExpiredTime, value, reflect.TypeOf(value).Name())
+		}
+	}
+	// FsScope字段赋值
+	if value, ok := globalCacheMap[CacheAttributeFsScope]; ok {
+		switch value := value.(type) {
+		case string:
+			cache.FsScope = value
+		default:
+			return fmt.Errorf("cannot assign cache attribute [%s] by value[%v] with type [%s]",
+				CacheAttributeFsScope, value, reflect.TypeOf(value).Name())
+		}
+	}
+
+	return nil
 }

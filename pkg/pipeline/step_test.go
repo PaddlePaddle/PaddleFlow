@@ -29,7 +29,7 @@ var runID string = "stepTestRunID"
 // 测试updateJob接口（用于计算fingerprint）
 func TestUpdateJobForFingerPrint(t *testing.T) {
 	testCase := loadcase(runYamlPath)
-	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
+	wfs, err := schema.GetWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
 	extra := GetExtra()
@@ -122,7 +122,7 @@ func TestUpdateJobForFingerPrint(t *testing.T) {
 // // 测试updateJob接口（cache命中失败后，替换用于节点运行）
 func TestUpdateJob(t *testing.T) {
 	testCase := loadcase(runYamlPath)
-	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
+	wfs, err := schema.GetWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
 	extra := GetExtra()
@@ -221,7 +221,7 @@ func TestUpdateJob(t *testing.T) {
 // 测试updateJob接口（根据cache命中后的artifact路径）
 func TestUpdateJobWithCache(t *testing.T) {
 	testCase := loadcase(runYamlPath)
-	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
+	wfs, err := schema.GetWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
 	extra := GetExtra()
@@ -327,7 +327,7 @@ func TestUpdateJobWithCache(t *testing.T) {
 // 测试checkCached接口（用于计算fingerprint）
 func TestCheckCached(t *testing.T) {
 	testCase := loadcase(runYamlPath)
-	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
+	wfs, err := schema.GetWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
 	mockCbs.GetJobCb = func(runID string, stepName string) (schema.JobView, error) {

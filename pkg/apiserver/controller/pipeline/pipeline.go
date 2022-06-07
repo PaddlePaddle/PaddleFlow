@@ -67,7 +67,7 @@ func CreatePipeline(ctx *logger.RequestContext, request CreatePipelineRequest) (
 	}
 	// parse yaml -> WorkflowSource
 	// TODO validate pipeline containing multiple ws's
-	wfs, err := schema.ParseWorkflowSource(pipelineYaml)
+	wfs, err := schema.GetWorkflowSource(pipelineYaml)
 	if err != nil {
 		ctx.ErrorCode = common.MalformedYaml
 		ctx.Logging().Errorf("get WorkflowSource by yaml failed. yaml: %s \n, err:%v", string(pipelineYaml), err)
@@ -117,7 +117,7 @@ func CreatePipeline(ctx *logger.RequestContext, request CreatePipelineRequest) (
 
 var ValidateWorkflowForPipeline = func(ppl models.Pipeline) error {
 	// parse yaml -> WorkflowSource
-	wfs, err := schema.ParseWorkflowSource([]byte(ppl.PipelineYaml))
+	wfs, err := schema.GetWorkflowSource([]byte(ppl.PipelineYaml))
 	if err != nil {
 		logger.Logger().Errorf("get WorkflowSource by yaml failed. yaml: %s \n, err:%v", ppl.PipelineYaml, err)
 		return err
