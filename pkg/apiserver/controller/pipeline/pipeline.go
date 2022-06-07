@@ -98,7 +98,6 @@ type PipelineDetailBrief struct {
 	FsName       string `json:"fsname"`
 	YamlPath     string `json:"yamlPath"`
 	PipelineYaml string `json:"pipelineYaml"`
-	PipelineMd5  string `json:"pipelineMd5"`
 	UserName     string `json:"username"`
 	CreateTime   string `json:"createTime"`
 	UpdateTime   string `json:"updateTime"`
@@ -210,12 +209,12 @@ func UpdatePipeline(ctx *logger.RequestContext, request UpdatePipelineRequest, p
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			ctx.ErrorCode = common.DuplicatedName
-			errMsg := fmt.Sprintf("UpdatePipeline failed: pipeline[%s] not created for user[%s], pls create first!", pplName, ctx.UserName)
+			errMsg := fmt.Sprintf("UpdatePipeline failed: pipeline[%s] not created for user[%s], pls create first!", pipelineID, ctx.UserName)
 			ctx.Logging().Errorf(errMsg)
 			return UpdatePipelineResponse{}, fmt.Errorf(errMsg)
 		} else {
 			ctx.ErrorCode = common.InternalError
-			errMsg := fmt.Sprintf("UpdatePipeline failed for pipeline[%s], err: [%s]", pplName, err.Error())
+			errMsg := fmt.Sprintf("UpdatePipeline failed for pipeline[%s], err: [%s]", pipelineID, err.Error())
 			ctx.Logging().Errorf(errMsg)
 			return UpdatePipelineResponse{}, fmt.Errorf(errMsg)
 		}
@@ -288,8 +287,8 @@ func validateWorkflowForPipeline(pipelineYaml string, pplName string) (name stri
 	param := map[string]interface{}{}
 	extra := map[string]string{
 		pplcommon.WfExtraInfoKeyUserName: "",
-		pplcommon.WfExtraInfoKeyFsName:   "",
-		pplcommon.WfExtraInfoKeyFsID:     "",
+		pplcommon.WfExtraInfoKeyFsName:   "mock-fsname",
+		pplcommon.WfExtraInfoKeyFsID:     "mock-fsid",
 	}
 
 	// validate
@@ -469,6 +468,7 @@ func GetPipeline(ctx *logger.RequestContext, pipelineID, marker string, maxKeys 
 		}
 	}
 	getPipelineResponse.MaxKeys = maxKeys
+	getPipelineResponse.PipelineDetailList = []PipelineDetailBrief{}
 	for _, pplDetail := range pipelineDetailList {
 		pipelineDetailBrief := PipelineDetailBrief{}
 		pipelineDetailBrief.updateFromPipelineModel(pplDetail)
@@ -500,6 +500,13 @@ func GetPipelineDetail(ctx *logger.RequestContext, pipelineID string, pipelineDe
 	if err != nil {
 		ctx.ErrorCode = common.InternalError
 		errMsg := fmt.Sprintf("get pipeline detail[%d] failed, err: %v", pipelineDetailPk, err)
+		ctx.Logging().Errorf(errMsg)
+		return GetPipelineDetailResponse{}, fmt.Errorf(errMsg)
+	}
+
+	if pplDetail.PipelineID != pipelineID {
+		ctx.ErrorCode = common.InternalError
+		errMsg := fmt.Sprintf("get pipeline detail[%d] failed. does not belong to pipeline[%s]", pipelineDetailPk, pipelineID)
 		ctx.Logging().Errorf(errMsg)
 		return GetPipelineDetailResponse{}, fmt.Errorf(errMsg)
 	}
@@ -597,7 +604,7 @@ func DeletePipelineDetail(ctx *logger.RequestContext, pipelineID string, pipelin
 		return fmt.Errorf(errMsg)
 	}
 
-	_, err = models.GetPipelineDetailByID(pipelineDetailPk)
+	pplDetail, err := models.GetPipelineDetailByID(pipelineDetailPk)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			ctx.ErrorCode = common.PipelineNotFound
@@ -610,6 +617,13 @@ func DeletePipelineDetail(ctx *logger.RequestContext, pipelineID string, pipelin
 			ctx.Logging().Errorf(errMsg)
 			return fmt.Errorf(errMsg)
 		}
+	}
+
+	if pplDetail.PipelineID != pipelineID {
+		ctx.ErrorCode = common.InternalError
+		errMsg := fmt.Sprintf("delete pipeline detail[%d] failed. does not belong to pipeline[%s]", pipelineDetailPk, pipelineID)
+		ctx.Logging().Errorf(errMsg)
+		return fmt.Errorf(errMsg)
 	}
 
 	// 如果只有一个pipeline detail的话，直接删除pipeline本身

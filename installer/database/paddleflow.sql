@@ -224,7 +224,7 @@ CREATE TABLE IF NOT EXISTS `pipeline` (
     `deleted_at` datetime(3) DEFAULT NULL,
     PRIMARY KEY (`pk`),
     UNIQUE KEY (`id`),
-    UNIQUE INDEX idx_fs_name (`user_name`, `name`)
+    INDEX idx_fs_name (`user_name`, `name`)
 ) ENGINE=InnoDB DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
 
 CREATE TABLE IF NOT EXISTS `pipeline_detail` (

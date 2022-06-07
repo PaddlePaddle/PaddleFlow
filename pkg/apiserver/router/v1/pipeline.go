@@ -17,6 +17,7 @@ limitations under the License.
 package v1
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -273,7 +274,8 @@ func (pr *PipelineRouter) getPipelineDetail(w http.ResponseWriter, r *http.Reque
 	strPplDetailPk := chi.URLParam(r, util.ParamKeyPipelineDetailPk)
 	pipelineDetailPk, err := strconv.ParseInt(strPplDetailPk, 10, 64)
 	if err != nil {
-		common.RenderErrWithMessage(w, ctx.RequestID, common.InvalidURI, err.Error())
+		errMsg := fmt.Sprintf("parse pipelineDetailPk[%s] to int failed, err[%s]", strPplDetailPk, err.Error())
+		common.RenderErrWithMessage(w, ctx.RequestID, common.InvalidURI, errMsg)
 		return
 	}
 
