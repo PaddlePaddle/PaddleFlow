@@ -201,7 +201,7 @@ func CreateQueue(ctx *logger.RequestContext, request *CreateQueueRequest) (Creat
 	}
 	if errStr := common.IsDNS1123Label(request.Name); len(errStr) != 0 {
 		ctx.ErrorCode = common.InvalidNamePattern
-		log.Errorf("CreateQueue failed when check name isDNS1123Label. err: %v.", err)
+		log.Errorf("CreateQueue failed when check name[%s] isDNS1123Label. err: %v.", request.Name, err)
 		return CreateQueueResponse{}, fmt.Errorf("name[%s] of queue is invalid, err: %s",
 			request.Name, strings.Join(errStr, ","))
 	}
