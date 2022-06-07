@@ -185,7 +185,7 @@ type WorkflowSource struct {
 	Name           string                         `yaml:"name"`
 	DockerEnv      string                         `yaml:"docker_env"`
 	EntryPoints    WorkflowSourceDag              `yaml:"entry_points"`
-	Templates      map[string]interface{}         `yaml:"templates"`
+	Components     map[string]interface{}         `yaml:"components"`
 	Cache          Cache                          `yaml:"cache"`
 	Parallelism    int                            `yaml:"parallelism"`
 	Disabled       string                         `yaml:"disabled"`
