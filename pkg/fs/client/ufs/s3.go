@@ -1290,6 +1290,19 @@ func (fh *s3FileHandle) partSize() (size int64) {
 	return size
 }
 
+func tidySubpath(subpath string) string {
+	for strings.HasPrefix(subpath, Delimiter) {
+		subpath = strings.TrimPrefix(subpath, Delimiter)
+	}
+	for strings.HasSuffix(subpath, Delimiter) {
+		subpath = strings.TrimSuffix(subpath, Delimiter)
+	}
+	if subpath == "" {
+		subpath = "/"
+	}
+	return subpath
+}
+
 func NewS3FileSystem(properties map[string]interface{}) (UnderFileStorage, error) {
 	log.Tracef("NewS3FileSystem: %+v", properties)
 	endpoint := properties[fsCommon.Endpoint].(string)
@@ -1330,7 +1343,7 @@ func NewS3FileSystem(properties map[string]interface{}) (UnderFileStorage, error
 
 	fs := &s3FileSystem{
 		bucket:      bucket,
-		subpath:     subpath,
+		subpath:     tidySubpath(subpath),
 		sess:        sess,
 		s3:          s3.New(sess),
 		defaultTime: time.Now(),
