@@ -17,7 +17,6 @@ limitations under the License.
 package pipeline
 
 import (
-	"errors"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -329,35 +328,20 @@ func (bwf *BaseWorkflow) replaceRunParam(param string, val interface{}) error {
 		- param: 寻找所有step内的parameter，并进行替换，没有则不替换。
 		只检验命令行参数是否存在在 yaml 定义中，不校验是否必须是本次运行的 step
 	*/
-	stepName, paramName := parseParamName(param)
+	nodesAndParam := ParseParamName(param)
 	steps := bwf.parseAllSteps()
 
-	if len(stepName) != 0 {
-		step, ok1 := steps[stepName]
-		if !ok1 {
-			errMsg := fmt.Sprintf("not found step[%s] in param[%s]", stepName, param)
-			return errors.New(errMsg)
-		}
-		orgVal, ok2 := step.Parameters[paramName]
-		if !ok2 {
-			errMsg := fmt.Sprintf("param[%s] not exit in step[%s]", paramName, stepName)
-			return errors.New(errMsg)
-		}
-		dictParam := DictParam{}
-		if err := dictParam.From(orgVal); err == nil {
-			if _, err := checkDictParam(dictParam, paramName, val); err != nil {
-				return err
-			}
-		}
-		step.Parameters[paramName] = val
-		return nil
+	if len(nodesAndParam) > 1 {
+		replaceNodeParam(bwf.Source.EntryPoints.EntryPoints, nodesAndParam, val)
+	} else {
+
 	}
 
 	for _, step := range steps {
 		if orgVal, ok := step.Parameters[paramName]; ok {
 			dictParam := DictParam{}
 			if err := dictParam.From(orgVal); err == nil {
-				if _, err := checkDictParam(dictParam, paramName, val); err != nil {
+				if _, err := CheckDictParam(dictParam, paramName, val); err != nil {
 					return err
 				}
 			}
@@ -366,6 +350,52 @@ func (bwf *BaseWorkflow) replaceRunParam(param string, val interface{}) error {
 		}
 	}
 	return fmt.Errorf("param[%s] not exist", param)
+}
+
+func replaceNodeParam(nodes map[string]interface{}, nodesAndParam []string, value interface{}) error {
+	if len(nodesAndParam) > 2 {
+		node, ok := nodes[nodesAndParam[0]].(*schema.WorkflowSourceDag)
+		if !ok {
+			return fmt.Errorf("replace param by request failed, node name list error")
+		}
+		if err := replaceNodeParam(node.EntryPoints, nodesAndParam[1:], value); err != nil {
+			return err
+		}
+	} else if len(nodesAndParam) == 2 {
+		nodeName := nodesAndParam[0]
+		paramName := nodesAndParam[1]
+		if dag, ok := nodes[nodeName].(*schema.WorkflowSourceDag); ok {
+			orgVal, ok := dag.Parameters[paramName]
+			if !ok {
+				return fmt.Errorf("param[%s] not exit in dag[%s]", paramName, nodeName)
+			}
+
+			dictParam := DictParam{}
+			if err := dictParam.From(orgVal); err == nil {
+				if _, err := CheckDictParam(dictParam, paramName, value); err != nil {
+					return err
+				}
+			}
+			dag.Parameters[paramName] = value
+		} else if step, ok := nodes[nodeName].(*schema.WorkflowSourceStep); ok {
+			orgVal, ok := step.Parameters[paramName]
+			if !ok {
+				return fmt.Errorf("param[%s] not exit in step[%s]", paramName, nodeName)
+			}
+
+			dictParam := DictParam{}
+			if err := dictParam.From(orgVal); err == nil {
+				if _, err := CheckDictParam(dictParam, paramName, value); err != nil {
+					return err
+				}
+			}
+			step.Parameters[paramName] = value
+		}
+
+	} else {
+		return fmt.Errorf("length of node and param list error")
+	}
+	return nil
 }
 
 // 将所有类型的steps合并到一起

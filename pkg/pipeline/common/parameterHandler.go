@@ -256,7 +256,7 @@ func (s *StepParamSolver) resolveRefParam(stepName, param, fieldType string) (in
 			return "", err
 		}
 		var tmpVal string
-		refStepName, refParamName := parseParamName(row[2])
+		refStepName, refParamName := ParseParamName(row[2])
 		if len(refStepName) == 0 {
 			// 分别替换系统参数，如{{PF_RUN_ID}}；当前step parameter；当前step的input artifact；当前step的output artifact
 			// 只有param，env，command三类变量需要处理
@@ -531,7 +531,7 @@ func (s *StepParamChecker) resolveRefParam(step, param, fieldType string) error 
 			return MismatchRegexError(param, pattern)
 		}
 
-		refStep, refParamName := parseParamName(row[2])
+		refStep, refParamName := ParseParamName(row[2])
 		if len(refStep) == 0 {
 			// 分别替换系统参数，如{{PF_RUN_ID}}；当前step parameter；当前step的input artifact；当前step的output artifact
 			// 只有param，env，command三类变量需要处理
@@ -571,7 +571,7 @@ func (s *StepParamChecker) resolveRefParam(step, param, fieldType string) error 
 	return nil
 }
 
-func parseParamName(paramName string) (string, string) {
+func ParseParamName(paramName string) (string, string) {
 	paramStrList := strings.Split(paramName, ".")
 	if len(paramStrList) == 1 {
 		return "", paramStrList[0]
