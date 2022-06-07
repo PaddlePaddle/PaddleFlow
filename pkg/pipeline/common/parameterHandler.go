@@ -231,7 +231,7 @@ func (s *StepParamSolver) resolveParamValue(step string, paramName string, param
 		if err := dictParam.From(param); err != nil {
 			return "", fmt.Errorf("invalid dict parameter[%s]", param)
 		}
-		return checkDictParam(dictParam, paramName, nil)
+		return CheckDictParam(dictParam, paramName, nil)
 	default:
 		return nil, UnsupportedParamTypeError(param, paramName)
 	}
@@ -509,7 +509,7 @@ func (s *StepParamChecker) checkParamValue(step string, paramName string, param 
 		if err := dictParam.From(param); err != nil {
 			return fmt.Errorf("invalid dict parameter[%s]", param)
 		}
-		_, err := checkDictParam(dictParam, paramName, nil)
+		_, err := CheckDictParam(dictParam, paramName, nil)
 		return err
 	default:
 		return UnsupportedParamTypeError(param, paramName)
@@ -571,13 +571,9 @@ func (s *StepParamChecker) resolveRefParam(step, param, fieldType string) error 
 	return nil
 }
 
-func ParseParamName(paramName string) (string, string) {
+func ParseParamName(paramName string) []string {
 	paramStrList := strings.Split(paramName, ".")
-	if len(paramStrList) == 1 {
-		return "", paramStrList[0]
-	}
-
-	return paramStrList[0], paramStrList[1]
+	return paramStrList
 }
 
 func (s *StepParamChecker) refParamExist(currentStepName, refStepName, refParamName, fieldType string) error {
@@ -616,7 +612,7 @@ func (s *StepParamChecker) refParamExist(currentStepName, refStepName, refParamN
 	return nil
 }
 
-func checkDictParam(dict DictParam, paramName string, realVal interface{}) (interface{}, error) {
+func CheckDictParam(dict DictParam, paramName string, realVal interface{}) (interface{}, error) {
 	if dict.Type == "" {
 		return nil, UnsupportedDictParamTypeError(dict.Type, paramName, dict)
 	}
