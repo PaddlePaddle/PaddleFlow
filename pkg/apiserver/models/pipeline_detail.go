@@ -42,7 +42,7 @@ type PipelineDetail struct {
 }
 
 func (PipelineDetail) TableName() string {
-	return "PipelineDetail"
+	return "pipeline_detail"
 }
 
 func ListPipelineDetail(PipelineID string, pk int64, maxKeys int, fsFilter, detailTypeFilter []string) ([]PipelineDetail, error) {

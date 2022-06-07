@@ -149,7 +149,7 @@ func TestUpdatePipeline(t *testing.T) {
 	// test update 失败，pipeline没有创建，不能更新
 	resp, err := UpdatePipeline(ctx, updatePplReq, pipelineID, MockFsID)
 	assert.NotNil(t, err)
-	assert.Equal(t, fmt.Errorf("UpdatePipeline failed: pipeline[distribute_wide_and_deep] not created for user[normalUser], pls create first!"), err)
+	assert.Equal(t, fmt.Errorf("UpdatePipeline failed: pipeline[ppl-000001] not created for user[normalUser], pls create first!"), err)
 
 	// create 成功
 	createPplResp, err := CreatePipeline(ctx, createPplReq, MockFsID)
