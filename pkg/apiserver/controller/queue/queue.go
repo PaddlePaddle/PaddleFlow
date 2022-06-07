@@ -199,12 +199,11 @@ func CreateQueue(ctx *logger.RequestContext, request *CreateQueueRequest) (Creat
 				request.Namespace, strings.Join(errStr, ","))
 		}
 	}
-
-	if !schema.CheckReg(request.Name, common.RegPatternQueueName) {
+	if errStr := common.IsDNS1123Label(request.Name); len(errStr) != 0 {
 		ctx.ErrorCode = common.InvalidNamePattern
-		err := common.InvalidNamePatternError(request.Name, common.ResourceTypeQueue, common.RegPatternQueueName)
-		log.Errorf("CreateQueue failed. err: %v.", err)
-		return CreateQueueResponse{}, err
+		log.Errorf("CreateQueue failed when check name[%s] isDNS1123Label. err: %v.", request.Name, err)
+		return CreateQueueResponse{}, fmt.Errorf("name[%s] of queue is invalid, err: %s",
+			request.Name, strings.Join(errStr, ","))
 	}
 
 	exist := strings.EqualFold(request.Name, defaultQueueName) || models.IsQueueExist(request.Name)
