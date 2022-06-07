@@ -275,7 +275,7 @@ func GetWorkflowSource(runYaml []byte) (WorkflowSource, error) {
 	if err := ValidateRunNodes(wfs.EntryPoints.EntryPoints, &wfs, yamlMap); err != nil {
 		return WorkflowSource{}, err
 	}
-	postProcessMap := map[string]interface{}{}
+	postProcessMap := map[string]Component{}
 	for k, v := range wfs.PostProcess {
 		postProcessMap[k] = v
 	}
@@ -287,7 +287,7 @@ func GetWorkflowSource(runYaml []byte) (WorkflowSource, error) {
 }
 
 // 对Step的DockerEnv、Cache进行全局替换
-func ValidateRunNodes(nodes map[string]interface{}, wfs *WorkflowSource, yamlMap map[string]interface{}) error {
+func ValidateRunNodes(nodes map[string]Component, wfs *WorkflowSource, yamlMap map[string]interface{}) error {
 	for _, value := range nodes {
 		if node, ok := value.(*WorkflowSourceDag); ok {
 			if err := ValidateRunNodes(node.EntryPoints, wfs, yamlMap); err != nil {

@@ -58,20 +58,7 @@ func NewBaseWorkflow(wfSource schema.WorkflowSource, runID, entry string, params
 		Entry:  entry,
 	}
 
-	for _, wfsStep := range bwf.Source.EntryPoints {
-		if wfsStep.DockerEnv == "" {
-			wfsStep.DockerEnv = bwf.Source.DockerEnv
-		}
-	}
-
-	bwf.postProcess = map[string]*schema.WorkflowSourceStep{}
-	for name, processPoint := range bwf.Source.PostProcess {
-		if processPoint.DockerEnv == "" {
-			processPoint.DockerEnv = bwf.Source.DockerEnv
-		}
-		bwf.postProcess[name] = processPoint
-	}
-	bwf.runtimeSteps = bwf.getRunSteps()
+	bwf.runtimeSteps = bwf.getComponents()
 	return bwf
 }
 
@@ -90,7 +77,7 @@ func (bwf *BaseWorkflow) checkDeps() error {
 	return nil
 }
 
-func (bwf *BaseWorkflow) getRunSteps() map[string]*schema.WorkflowSourceStep {
+func (bwf *BaseWorkflow) getComponents() map[string]*schema.WorkflowSourceStep {
 	/*
 		根据传入的entry，获取此次run需要运行的step集合
 		注意：此处返回的map中，每个schema.WorkflowSourceStep元素都是以指针形式返回（与BaseWorkflow中Source参数中的step指向相同的类对象），后续对与元素内容的修改，会直接同步到BaseWorkflow中Source参数
@@ -121,12 +108,6 @@ func (bwf *BaseWorkflow) recursiveGetRunSteps(entry string, steps map[string]*sc
 
 // validate BaseWorkflow 校验合法性
 func (bwf *BaseWorkflow) validate() error {
-	// 校验 entry 是否存在
-	if _, ok := bwf.Source.EntryPoints[bwf.Entry]; bwf.Entry != "" && !ok {
-		err := fmt.Errorf("entry[%s] not exist in run", bwf.Entry)
-		bwf.log().Errorln(err.Error())
-		return err
-	}
 
 	// 2. 检验extra，保证FsID和FsName，要么都传，要么都不传
 	if err := bwf.checkExtra(); err != nil {
@@ -329,37 +310,50 @@ func (bwf *BaseWorkflow) replaceRunParam(param string, val interface{}) error {
 		只检验命令行参数是否存在在 yaml 定义中，不校验是否必须是本次运行的 step
 	*/
 	nodesAndParam := ParseParamName(param)
-	steps := bwf.parseAllSteps()
 
 	if len(nodesAndParam) > 1 {
-		replaceNodeParam(bwf.Source.EntryPoints.EntryPoints, nodesAndParam, val)
-	} else {
-
-	}
-
-	for _, step := range steps {
-		if orgVal, ok := step.Parameters[paramName]; ok {
-			dictParam := DictParam{}
-			if err := dictParam.From(orgVal); err == nil {
-				if _, err := CheckDictParam(dictParam, paramName, val); err != nil {
-					return err
-				}
-			}
-			step.Parameters[paramName] = val
-			return nil
+		ok1, err := replaceNodeParam(bwf.Source.EntryPoints.EntryPoints, nodesAndParam, val)
+		if err != nil {
+			return err
 		}
+		// ok 为 false，且 err 为 nil，表示在entryPoints中没有找到要替换的节点，则去postProcess中寻找
+		if !ok1 {
+			postMap := map[string]schema.Component{}
+			for name, component := range bwf.Source.PostProcess {
+				postMap[name] = component
+			}
+			ok2, err2 := replaceNodeParam(postMap, nodesAndParam, val)
+			if err2 != nil {
+				return err2
+			}
+			if !ok2 {
+				// 如果postProcess中也没有，则查找节点失败
+				return fmt.Errorf("cannont find component to replace param with [%s]", param)
+			}
+		}
+	} else if len(nodesAndParam) == 0 {
+		paramName := nodesAndParam[0]
+		if err := replaceAllNodeParam(bwf.Source.EntryPoints.EntryPoints, paramName, val); err != nil {
+			return err
+		}
+	} else {
+		fmt.Errorf("empty component list")
 	}
-	return fmt.Errorf("param[%s] not exist", param)
+	return nil
 }
 
-func replaceNodeParam(nodes map[string]interface{}, nodesAndParam []string, value interface{}) error {
+func replaceNodeParam(nodes map[string]schema.Component, nodesAndParam []string, value interface{}) (bool, error) {
 	if len(nodesAndParam) > 2 {
 		node, ok := nodes[nodesAndParam[0]].(*schema.WorkflowSourceDag)
 		if !ok {
-			return fmt.Errorf("replace param by request failed, node name list error")
+			return false, fmt.Errorf("replace param by request failed, node name list error")
 		}
-		if err := replaceNodeParam(node.EntryPoints, nodesAndParam[1:], value); err != nil {
-			return err
+		ok, err := replaceNodeParam(node.EntryPoints, nodesAndParam[1:], value)
+		if err != nil {
+			return false, err
+		}
+		if !ok {
+			return false, nil
 		}
 	} else if len(nodesAndParam) == 2 {
 		nodeName := nodesAndParam[0]
@@ -367,33 +361,63 @@ func replaceNodeParam(nodes map[string]interface{}, nodesAndParam []string, valu
 		if dag, ok := nodes[nodeName].(*schema.WorkflowSourceDag); ok {
 			orgVal, ok := dag.Parameters[paramName]
 			if !ok {
-				return fmt.Errorf("param[%s] not exit in dag[%s]", paramName, nodeName)
+				return false, nil
 			}
 
 			dictParam := DictParam{}
 			if err := dictParam.From(orgVal); err == nil {
 				if _, err := CheckDictParam(dictParam, paramName, value); err != nil {
-					return err
+					return false, err
 				}
 			}
 			dag.Parameters[paramName] = value
 		} else if step, ok := nodes[nodeName].(*schema.WorkflowSourceStep); ok {
 			orgVal, ok := step.Parameters[paramName]
 			if !ok {
-				return fmt.Errorf("param[%s] not exit in step[%s]", paramName, nodeName)
+				return false, nil
 			}
 
 			dictParam := DictParam{}
 			if err := dictParam.From(orgVal); err == nil {
 				if _, err := CheckDictParam(dictParam, paramName, value); err != nil {
-					return err
+					return false, err
 				}
 			}
 			step.Parameters[paramName] = value
 		}
 
 	} else {
-		return fmt.Errorf("length of node and param list error")
+		return false, fmt.Errorf("length of node and param list error")
+	}
+	return true, nil
+}
+
+func replaceAllNodeParam(entryPoints map[string]schema.Component, paramName string, value interface{}) error {
+	for _, node := range entryPoints {
+		if dag, ok := node.(*schema.WorkflowSourceDag); ok {
+			if orgVal, ok := dag.Parameters[paramName]; ok {
+				dictParam := DictParam{}
+				if err := dictParam.From(orgVal); err == nil {
+					if _, err := CheckDictParam(dictParam, paramName, value); err != nil {
+						return err
+					}
+				}
+				dag.Parameters[paramName] = value
+			}
+			if err := replaceAllNodeParam(dag.EntryPoints, paramName, value); err != nil {
+				return err
+			}
+		} else if step, ok := node.(*schema.WorkflowSourceStep); ok {
+			if orgVal, ok := step.Parameters[paramName]; ok {
+				dictParam := DictParam{}
+				if err := dictParam.From(orgVal); err == nil {
+					if _, err := CheckDictParam(dictParam, paramName, value); err != nil {
+						return err
+					}
+				}
+				step.Parameters[paramName] = value
+			}
+		}
 	}
 	return nil
 }

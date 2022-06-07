@@ -139,7 +139,7 @@ func TestTopologicalSort_noCircle(t *testing.T) {
 	assert.Equal(t, "validate", result[2])
 
 	bwf = NewBaseWorkflow(wfs, "", "main", nil, extra)
-	runSteps := bwf.getRunSteps()
+	runSteps := bwf.getComponents()
 	assert.Equal(t, 2, len(runSteps))
 	result, err = bwf.topologicalSort(bwf.Source.EntryPoints)
 	assert.Nil(t, err)

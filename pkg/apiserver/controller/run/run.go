@@ -221,10 +221,8 @@ func getWorkFlowSourceByReq(request *CreateRunByJsonRequest, bodyMap map[string]
 
 	parser := schema.Parser{}
 
-	// 为避免 transCacheJson2Yaml 对 bodyMap 造成影响，这里复制一个新Map
-	bodyForCache, _, _ := unstructured.NestedFieldCopy(bodyMap)
-	bodyMapForCache, _ := bodyForCache.(map[string]interface{})
-	if err := transCacheJson2Yaml(bodyMapForCache); err != nil {
+	bodyMapForCache, err := transCacheJson2Yaml(bodyMap)
+	if err != nil {
 		return schema.WorkflowSource{}, err
 	}
 	// TODO: handle errors
@@ -265,14 +263,16 @@ func getWorkFlowSourceByReq(request *CreateRunByJsonRequest, bodyMap map[string]
 	return wfs, nil
 }
 
-func transCacheJson2Yaml(bodyMap map[string]interface{}) error {
-	entryPoints, ok, err := unstructured.NestedFieldCopy(bodyMap, "entryPoints")
+func transCacheJson2Yaml(bodyMap map[string]interface{}) (map[string]interface{}, error) {
+	res, _, _ := unstructured.NestedFieldCopy(bodyMap)
+	resMap := res.(map[string]interface{})
+	entryPoints, ok, err := unstructured.NestedFieldCopy(resMap, "entryPoints")
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if !ok {
 		err := fmt.Errorf("no entryPoints in body of request")
-		return err
+		return nil, err
 	}
 	entryPointsMap := entryPoints.(map[string]interface{})
 	for name, point := range entryPointsMap {
@@ -280,7 +280,7 @@ func transCacheJson2Yaml(bodyMap map[string]interface{}) error {
 		// 检查用户是否有设置节点级别的Cache
 		cache, ok, err := unstructured.NestedFieldCopy(pointMap, "cache")
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if ok {
 			cacheMap := cache.(map[string]interface{})
@@ -288,31 +288,31 @@ func transCacheJson2Yaml(bodyMap map[string]interface{}) error {
 			// MaxExpiredTime赋值
 			if value, ok := cacheMap["maxExpiredTime"]; ok {
 				if err := unstructured.SetNestedField(cacheMap, value, schema.CacheAttributeMaxExpiredTime); err != nil {
-					return err
+					return nil, err
 				}
 			}
 			// FsScope赋值
 			if value, ok := cacheMap["fsScope"]; ok {
 				if err := unstructured.SetNestedField(cacheMap, value, schema.CacheAttributeFsScope); err != nil {
-					return err
+					return nil, err
 				}
 			}
 			if err := unstructured.SetNestedField(pointMap, cacheMap, "cache"); err != nil {
-				return err
+				return nil, err
 			}
 			if err := unstructured.SetNestedField(entryPointsMap, pointMap, name); err != nil {
-				return err
+				return nil, err
 			}
 		}
 	}
-	if err := unstructured.SetNestedField(bodyMap, entryPointsMap, schema.EntryPointsStr); err != nil {
-		return err
+	if err := unstructured.SetNestedField(resMap, entryPointsMap, schema.EntryPointsStr); err != nil {
+		return nil, err
 	}
-	return nil
+	return resMap, nil
 }
 
 // 该函数主要完成CreateRunJson接口中，各类变量的全局替换操作
-func validateRunJsonNodes(nodes map[string]interface{}, request *CreateRunByJsonRequest, bodyMap map[string]interface{}) error {
+func validateRunJsonNodes(nodes map[string]schema.Component, request *CreateRunByJsonRequest, bodyMap map[string]interface{}) error {
 	for _, value := range nodes {
 		if node, ok := value.(*schema.WorkflowSourceDag); ok {
 			if err := validateRunJsonNodes(node.EntryPoints, request, bodyMap); err != nil {
