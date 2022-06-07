@@ -161,7 +161,7 @@ spec:
         - args:
             - --v=5
             - --csi-address=/csi/csi.sock
-            - --kubelet-registration-path=/data/lib/kubelet/plugins/pfs-csi/csi.sock
+            - --kubelet-registration-path=/var/lib/kubelet/plugins/pfs-csi/csi.sock
           env:
             - name: KUBE_NODE_NAME
               valueFrom:
@@ -208,7 +208,7 @@ spec:
             - name: DEFAULT_UID_ENV
               value: "601"
             - name: KUBELET_DATA_PATH
-              value: /data/lib/kubelet
+              value: /var/lib/kubelet
             - name: CSI_POD_NAME
               valueFrom:
                 fieldRef:
@@ -241,10 +241,10 @@ spec:
             - mountPath: /csi
               mountPropagation: None
               name: socket-dir
-            - mountPath: /data/lib/kubelet/pods
+            - mountPath: /var/lib/kubelet/pods
               mountPropagation: Bidirectional
               name: mountpoint-dir
-            - mountPath: /data/lib/kubelet/plugins
+            - mountPath: /var/lib/kubelet/plugins
               mountPropagation: Bidirectional
               name: plugins-dir
             - mountPath: /home/paddleflow/log
@@ -267,7 +267,7 @@ spec:
             type: File
           name: fuse
         - hostPath:
-            path: /data/lib/kubelet/pods
+            path: /var/lib/kubelet/pods
             type: DirectoryOrCreate
           name: mountpoint-dir
         - hostPath:
@@ -279,15 +279,15 @@ spec:
             type: DirectoryOrCreate
           name: pfs-mnt
         - hostPath:
-            path: /data/lib/kubelet/plugins
+            path: /var/lib/kubelet/plugins
             type: DirectoryOrCreate
           name: plugins-dir
         - hostPath:
-            path: /data/lib/kubelet/plugins_registry
+            path: /var/lib/kubelet/plugins_registry
             type: DirectoryOrCreate
           name: registration-dir
         - hostPath:
-            path: /data/lib/kubelet/plugins/pfs-csi
+            path: /var/lib/kubelet/plugins/pfs-csi
             type: DirectoryOrCreate
           name: socket-dir
   updateStrategy:
@@ -368,6 +368,6 @@ spec:
           operator: Exists
       volumes:
         - hostPath:
-            path: /data/lib/kubelet/plugins/pfs-csi
+            path: /var/lib/kubelet/plugins/pfs-csi
             type: DirectoryOrCreate
           name: socket-dir
