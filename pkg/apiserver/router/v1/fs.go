@@ -109,7 +109,7 @@ func (pr *PFSRouter) createFileSystem(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		ctx.Logging().Errorf("create file system params error: %v", err)
-		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, ctx.ErrorMessage)
 		return
 	}
 
@@ -168,6 +168,14 @@ func validateCreateFileSystem(ctx *logger.RequestContext, req *api.CreateFileSys
 		ctx.ErrorCode = common.InvalidFileSystemProperties
 		return err
 	}
+
+	err = checkFSNameDuplicate(common.ID(req.Username, req.Name))
+	if err != nil {
+		ctx.Logging().Errorf("check fs duplicate with name %s with err[%v]", req.Name, err)
+		ctx.ErrorCode = common.DuplicatedName
+		return err
+	}
+
 	err = checkFsDir(fileSystemType, req.Url, req.Properties)
 	if err != nil {
 		ctx.Logging().Errorf("check fs dir err[%v] with url[%s]", err, req.Url)
@@ -328,6 +336,17 @@ func checkURLFormat(fsType, url string, properties map[string]string) error {
 		properties[fsCommon.Bucket] = urlSplit[common.S3EndpointSplit]
 	}
 	return nil
+}
+
+func checkFSNameDuplicate(fsID string) error {
+	_, err := models.GetFileSystemWithFsID(fsID)
+	if err == gorm.ErrRecordNotFound {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	return fmt.Errorf("fsID[%s] is exists", fsID)
 }
 
 // checkFsDir duplicate and nesting of the same storage source directory is not supported
