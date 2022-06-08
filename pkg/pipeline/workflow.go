@@ -183,23 +183,58 @@ func (bwf *BaseWorkflow) checkRunYaml() error {
 		return fmt.Errorf("format of pipeline name[%s] in run[%s] invalid", bwf.Source.Name, bwf.RunID)
 	}
 
-	for stepName := range bwf.Source.EntryPoints {
-		err := variableChecker.CheckStepName(stepName)
-		if err != nil {
-			return fmt.Errorf("format of stepName[%s] in run[%s] invalid", stepName, bwf.RunID)
-		}
+	// 检查名字命名规范，不涉及重名检查
+	if err := bwf.checkAllComponentName(bwf.Source.EntryPoints.EntryPoints); err != nil {
+		return err
+	}
+	postComponent := map[string]schema.Component{}
+	for name, step := range bwf.Source.PostProcess {
+		postComponent[name] = step
+	}
+	if err := bwf.checkAllComponentName(postComponent); err != nil {
+		return err
 	}
 
-	if _, err := bwf.topologicalSort(bwf.runtimeSteps); err != nil {
+	if err := bwf.checkTopoSort(bwf.Source.EntryPoints.EntryPoints); err != nil {
 		return err
 	}
 
 	return nil
 }
 
+func (bwf *BaseWorkflow) checkAllComponentName(components map[string]schema.Component) error {
+	variableChecker := VariableChecker{}
+	for name, component := range components {
+		err := variableChecker.CheckStepName(name)
+		if err != nil {
+			return fmt.Errorf("format of stepName[%s] in run[%s] invalid", name, bwf.RunID)
+		}
+		if dag, ok := component.(*schema.WorkflowSourceDag); ok {
+			if err := bwf.checkAllComponentName(dag.EntryPoints); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (bwf *BaseWorkflow) checkTopoSort(components map[string]schema.Component) error {
+	if _, err := bwf.topologicalSort(components); err != nil {
+		return err
+	}
+	for _, component := range components {
+		if dag, ok := component.(*schema.WorkflowSourceDag); ok {
+			if err := bwf.checkTopoSort(dag.EntryPoints); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 // topologicalSort step 拓扑排序
 // todo: use map as return value type?
-func (bwf *BaseWorkflow) topologicalSort(steps map[string]*schema.WorkflowSourceStep) ([]string, error) {
+func (bwf *BaseWorkflow) topologicalSort(components map[string]schema.Component) ([]string, error) {
 	// unsorted: unsorted graph
 	// if we have dag:
 	//     1 -> 2 -> 3
@@ -208,7 +243,7 @@ func (bwf *BaseWorkflow) topologicalSort(steps map[string]*schema.WorkflowSource
 	//     2 -> [3]
 	sortedSteps := make([]string, 0)
 	unsorted := map[string][]string{}
-	for name, step := range steps {
+	for name, step := range components {
 		depsList := step.GetDeps()
 
 		if len(depsList) == 0 {
