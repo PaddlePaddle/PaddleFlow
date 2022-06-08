@@ -191,18 +191,27 @@ func (m *JobManagerImpl) JobProcessLoop(jobSubmit func(*api.PFJob) error, stopCh
 		default:
 			jobInfo, find = queueJobs.GetJob()
 			if find {
-				err := jobSubmit(jobInfo)
+				job, err := models.GetJobByID(jobInfo.ID)
 				if err != nil {
-					// new job failed, update db and skip this job
-					msg = err.Error()
-					jobStatus = schema.StatusJobFailed
-				} else {
-					msg = "submit job to cluster successfully."
-					jobStatus = schema.StatusJobPending
+					log.Errorf("get job %s from database failed, err: %v", jobInfo.ID, err)
+					queueJobs.DeleteMark(jobInfo.ID)
+					continue
 				}
-				// new job failed, update db and skip this job
-				if dbErr := models.UpdateJobStatus(jobInfo.ID, msg, jobStatus); dbErr != nil {
-					log.Errorf("update job[%s] status to [%s] failed, err: %v", jobInfo.ID, schema.StatusJobFailed, dbErr)
+				// check job status before create job on cluster
+				if job.Status == schema.StatusJobInit {
+					err = jobSubmit(jobInfo)
+					if err != nil {
+						// new job failed, update db and skip this job
+						msg = err.Error()
+						jobStatus = schema.StatusJobFailed
+					} else {
+						msg = "submit job to cluster successfully."
+						jobStatus = schema.StatusJobPending
+					}
+					// new job failed, update db and skip this job
+					if dbErr := models.UpdateJobStatus(jobInfo.ID, msg, jobStatus); dbErr != nil {
+						log.Errorf("update job[%s] status to [%s] failed, err: %v", jobInfo.ID, schema.StatusJobFailed, dbErr)
+					}
 				}
 				queueJobs.DeleteMark(jobInfo.ID)
 			} else {
