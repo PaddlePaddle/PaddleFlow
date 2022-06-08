@@ -221,29 +221,62 @@ func getWorkFlowSourceByReq(request *CreateRunByJsonRequest, bodyMap map[string]
 
 	parser := schema.Parser{}
 
+	//将Map中Cache相关的key统一为下划线命名格式，以便后面统一进行Cache的相关处理
 	bodyMapForCache, err := transCacheJson2Yaml(bodyMap)
 	if err != nil {
 		return schema.WorkflowSource{}, err
 	}
-	// TODO: handle errors
-	entryPointsMap, _, _ := unstructured.NestedFieldCopy(bodyMap, "entryPoints")
-	entryPointsNodes, _ := entryPointsMap.(map[string]interface{})
-	nodes, _ := parser.ParseNodes(entryPointsNodes)
+	entryPointsMap, ok, err := unstructured.NestedFieldCopy(bodyMap, "entryPoints")
+	if err != nil {
+		logger.Logger().Errorf(err.Error())
+		return schema.WorkflowSource{}, err
+	}
+	if !ok {
+		err := fmt.Errorf("missing entryPoints in request")
+		logger.Logger().Errorf(err.Error())
+		return schema.WorkflowSource{}, err
+	}
+	entryPointsNodes, ok := entryPointsMap.(map[string]interface{})
+	if !ok {
+		err := fmt.Errorf("entryPoints should be map type")
+		logger.Logger().Errorf(err.Error())
+		return schema.WorkflowSource{}, err
+	}
+	nodes, err := parser.ParseNodes(entryPointsNodes)
+	if err != nil {
+		logger.Logger().Errorf(err.Error())
+		return schema.WorkflowSource{}, err
+	}
 	validateRunJsonNodes(nodes, request, bodyMapForCache)
 	entryPoints := schema.WorkflowSourceDag{
 		EntryPoints: nodes,
 	}
 
-	// TODO: handle errors
-	postProcessMap, _, _ := unstructured.NestedFieldCopy(bodyMap, "postProcess")
-	postProcessNodes := postProcessMap.(map[string]interface{})
-	postNodesMap, _ := parser.ParseNodes(postProcessNodes)
-	validateRunJsonNodes(postNodesMap, request, bodyMapForCache)
+	postProcessMap, ok, err := unstructured.NestedFieldCopy(bodyMap, "postProcess")
+	if err != nil {
+		logger.Logger().Errorf(err.Error())
+		return schema.WorkflowSource{}, err
+	}
+	// postProcess非必须
 	postProcess := map[string]*schema.WorkflowSourceStep{}
-	for k, v := range postNodesMap {
-		postProcess[k] = v.(*schema.WorkflowSourceStep)
-		// 由于上面validateRunJsonNodes将PostProcess中的Cache进行了全局替换，这里将其还原为空值
-		postProcess[k].Cache = schema.Cache{}
+	if ok {
+		postProcessNodes, ok := postProcessMap.(map[string]interface{})
+		if !ok {
+			err := fmt.Errorf("postProcess should be map type")
+			logger.Logger().Errorf(err.Error())
+			return schema.WorkflowSource{}, err
+		}
+		postNodesMap, err := parser.ParseNodes(postProcessNodes)
+		if err != nil {
+			logger.Logger().Errorf(err.Error())
+			return schema.WorkflowSource{}, err
+		}
+		validateRunJsonNodes(postNodesMap, request, bodyMapForCache)
+		for k, v := range postNodesMap {
+			postProcess[k] = v.(*schema.WorkflowSourceStep)
+			// 由于上面validateRunJsonNodes将PostProcess中的Cache进行了全局替换，这里将其还原为空值
+			postProcess[k].Cache = schema.Cache{}
+		}
 	}
 
 	failureOptions := schema.FailureOptions{Strategy: schema.FailureStrategyFailFast}
