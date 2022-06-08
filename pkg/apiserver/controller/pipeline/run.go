@@ -49,7 +49,7 @@ type CreateRunRequest struct {
 	Entry       string                 `json:"entry,omitempty"`      // optional
 	Parameters  map[string]interface{} `json:"parameters,omitempty"` // optional
 	DockerEnv   string                 `json:"dockerEnv,omitempty"`  // optional
-	// run workflow source. priority: RunYamlRaw > PipelineID + PipelineDetailID > RunYamlPath
+	// run workflow source. priority: RunYamlRaw > PipelineID + PipelineDetailPk > RunYamlPath
 	// 为了防止字符串或者不同的http客户端对run.yaml
 	// 格式中的特殊字符串做特殊过滤处理导致yaml文件不正确，因此采用runYamlRaw采用base64编码传输
 	Disabled         string `json:"disabled,omitempty"`         // optional
@@ -178,7 +178,7 @@ func buildWorkflowSource(userName string, req CreateRunRequest, fsID string) (sc
 		}
 	} else if req.PipelineID != "" { // medium priority: wfs in pipeline
 		if req.PipelineDetailPk == 0 {
-			errMsg := fmt.Sprintf("start run failed: pipelineID[%s] passed, but PipelineDetailID not passed", req.PipelineID)
+			errMsg := fmt.Sprintf("start run failed: pipelineID[%s] passed, but PipelineDetailPk not passed", req.PipelineID)
 			logger.Logger().Errorf(errMsg)
 			return schema.WorkflowSource{}, "", "", fmt.Errorf(errMsg)
 		}
@@ -196,7 +196,7 @@ func buildWorkflowSource(userName string, req CreateRunRequest, fsID string) (sc
 		}
 
 		// query pipeline detail
-		pplDetail, err := models.GetPipelineDetailByID(req.PipelineDetailPk)
+		pplDetail, err := models.GetPipelineDetailByPk(req.PipelineDetailPk)
 		if err != nil {
 			logger.Logger().Errorf("get Pipeline detail[%d]. err: %v", req.PipelineDetailPk, err)
 			return schema.WorkflowSource{}, "", "", err

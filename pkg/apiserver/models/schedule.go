@@ -374,19 +374,19 @@ func GetAvailableSchedule(logEntry *log.Entry, checkCatchup bool) (killMap map[s
 			catchup = false
 		}
 
-		notEndedList := []string{common.StatusRunInitiating, common.StatusRunPending, common.StatusRunRunning, common.StatusRunTerminating}
-		scheduleIDFilter := []string{schedule.ID}
-		count, err := CountRun(logEntry, 0, 0, nil, nil, nil, nil, notEndedList, scheduleIDFilter)
+		count, err := CountActiveRunsForSchedule(logEntry, schedule.ID)
 		if err != nil {
 			errMsg := fmt.Sprintf("count notEnded runs for schedule[%s] failed. error:%s", schedule.ID, err.Error())
 			log.Errorf(errMsg)
 			return nil, nil, nil, fmt.Errorf(errMsg)
 		}
 
+		// 先处理currentTime之前，而且schedule.EndAt之前的任务
+		// 只需要处理 catchup == true 的case
+		// - 如果catchup == false，即不需要catchup，则currentTime和schedule.EndAt前，所有miss的周期任务都被抛弃，不再发起
 		totalCount := int(count)
+		expire_interval_durtion := time.Duration(options.ExpireInterval) * time.Second
 		for checkNextRunAt(nextRunAt, currentTime, schedule.EndAt) {
-			// 如果不需要catchup，则所有miss的周期任务都被抛弃不发起
-			// 所以下面只需要处理 catchup == true 的case
 			if catchup == true {
 				if totalCount < options.Concurrency {
 					// 当没有达到concurrency，所有ConcurrencyPolicy处理方式一致
@@ -394,8 +394,7 @@ func GetAvailableSchedule(logEntry *log.Entry, checkCatchup bool) (killMap map[s
 					// 1. 不大于当前时间
 					// 2. 不大于endtime（如果有的话）
 					// 3. 在expire_interval内（如果有的话）
-					Expire_interval_durtion := time.Duration(options.ExpireInterval) * time.Second
-					if !nextRunAt.Add(Expire_interval_durtion).Before(currentTime) {
+					if !nextRunAt.Add(expire_interval_durtion).Before(currentTime) {
 						execMap[schedule.ID] = append(execMap[schedule.ID], nextRunAt)
 						totalCount += 1
 					}
@@ -434,8 +433,9 @@ func GetAvailableSchedule(logEntry *log.Entry, checkCatchup bool) (killMap map[s
 			}
 
 			// 获取待停止的runid
-			scheduleIdList := []string{schedule.ID}
-			stopRunList, err := ListRun(logEntry, 0, stopCount, []string{}, []string{}, []string{}, []string{}, notEndedList, scheduleIdList)
+			notEndedList := []string{common.StatusRunInitiating, common.StatusRunPending, common.StatusRunRunning, common.StatusRunTerminating}
+			scheduleIDList := []string{schedule.ID}
+			stopRunList, err := ListRun(logEntry, 0, stopCount, []string{}, []string{}, []string{}, []string{}, notEndedList, scheduleIDList)
 			if err != nil {
 				errMsg := fmt.Sprintf("get runs to stop for schedule[%s] failed, err: %s", schedule.ID, err.Error())
 				return nil, nil, nil, fmt.Errorf(errMsg)
@@ -489,7 +489,6 @@ func GetAvailableSchedule(logEntry *log.Entry, checkCatchup bool) (killMap map[s
 	return killMap, execMap, nextWakeupTime, err
 }
 
-// 该函数只有只读操作，所以不加锁
 func GetNextGlobalWakeupTime(logEntry *log.Entry) (*time.Time, error) {
 	currentTime := time.Now()
 	logEntry.Debugf("begin to get next wakeup time after[%s]", currentTime.Format("01-02-2006 15:04:05"))
@@ -512,9 +511,7 @@ func GetNextGlobalWakeupTime(logEntry *log.Entry) (*time.Time, error) {
 			return nil, fmt.Errorf(errMsg)
 		}
 
-		notEndedList := []string{common.StatusRunInitiating, common.StatusRunPending, common.StatusRunRunning, common.StatusRunTerminating}
-		scheduleIDFilter := []string{schedule.ID}
-		count, err := CountRun(logEntry, 0, 0, nil, nil, nil, nil, notEndedList, scheduleIDFilter)
+		count, err := CountActiveRunsForSchedule(logEntry, schedule.ID)
 		if err != nil {
 			errMsg := fmt.Sprintf("count notEnded runs for schedule[%s] failed. error:%s", schedule.ID, err.Error())
 			log.Errorf(errMsg)
@@ -545,53 +542,10 @@ func GetNextGlobalWakeupTime(logEntry *log.Entry) (*time.Time, error) {
 	return nextWakeupTime, nil
 }
 
-// 为指定周期调度，计算下一次wakeup时间
-//   - 如果end_at不存在，则根据next_run_at
-//   - 如果end_at存在，且next_run_at不早于end_at，则根据end_at计算
-//   - 如果end_at存在，且next_run_at早于end_at，则根据next_run_at计算
-func GetNextWakeupTime(logEntry *log.Entry, scheduleID string) (*time.Time, error) {
-	logEntry.Debugf("begin to get next wakeup time of ID[%s]", scheduleID)
-
-	var schedule Schedule
-	result := database.DB.Model(&Schedule{}).Where("id = ?", scheduleID).First(&schedule)
-	if result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			errMsg := fmt.Sprintf("get schedule failed: schedule of ID[%s] not found!", scheduleID)
-			logEntry.Errorf(errMsg)
-			return nil, fmt.Errorf(errMsg)
-		} else {
-			return nil, result.Error
-		}
-	}
-
-	if schedule.Status != ScheduleStatusRunning {
-		return nil, nil
-	}
-
-	// 如果当前【run并发度】>= concurrency，而且policy是suspend时，则跳过该schedule
-	options := ScheduleOptions{}
-	if err := json.Unmarshal([]byte(schedule.Options), &options); err != nil {
-		errMsg := fmt.Sprintf("decode optinos[%s] of schedule of ID[%s] failed. error: %v", schedule.Options, schedule.ID, err)
-		logEntry.Errorf(errMsg)
-		return nil, fmt.Errorf(errMsg)
-	}
-
+func CountActiveRunsForSchedule(logEntry *log.Entry, scheduleID string) (int64, error) {
+	// todo：加索引，或者schedule记录添加count字段，通过run更新状态时同时更新schedule count字段，减少扫表
 	notEndedList := []string{common.StatusRunInitiating, common.StatusRunPending, common.StatusRunRunning, common.StatusRunTerminating}
-	scheduleIDFilter := []string{schedule.ID}
+	scheduleIDFilter := []string{scheduleID}
 	count, err := CountRun(logEntry, 0, 0, nil, nil, nil, nil, notEndedList, scheduleIDFilter)
-	if err != nil {
-		errMsg := fmt.Sprintf("count notEnded runs for schedule[%s] failed. error:%s", schedule.ID, err.Error())
-		log.Errorf(errMsg)
-		return nil, fmt.Errorf(errMsg)
-	}
-
-	if int(count) >= options.Concurrency && options.ConcurrencyPolicy == ConcurrencyPolicySuspend {
-		return nil, nil
-	}
-
-	if !schedule.EndAt.Valid || schedule.NextRunAt.Before(schedule.EndAt.Time) {
-		return &schedule.NextRunAt, nil
-	} else {
-		return &schedule.EndAt.Time, nil
-	}
+	return count, err
 }

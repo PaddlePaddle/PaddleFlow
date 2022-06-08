@@ -103,7 +103,7 @@ type PipelineDetailBrief struct {
 	UpdateTime   string `json:"updateTime"`
 }
 
-func (pdb *PipelineDetailBrief) updateFromPipelineModel(pipelineDetail models.PipelineDetail) {
+func (pdb *PipelineDetailBrief) updateFromPipelineDetailModel(pipelineDetail models.PipelineDetail) {
 	pdb.Pk = pipelineDetail.Pk
 	pdb.PipelineID = pipelineDetail.PipelineID
 	pdb.FsName = pipelineDetail.FsName
@@ -138,7 +138,7 @@ func CreatePipeline(ctx *logger.RequestContext, request CreatePipelineRequest, f
 	_, err = models.GetPipeline(pplName, ctx.UserName)
 	if err == nil {
 		ctx.ErrorCode = common.DuplicatedName
-		errMsg := fmt.Sprintf("CreatePipeline failed: user[%s] already has pipeline[%s], cannot create again!", ctx.UserName, pplName)
+		errMsg := fmt.Sprintf("CreatePipeline failed: user[%s] already has pipeline[%s], cannot create again, use update instead!", ctx.UserName, pplName)
 		ctx.Logging().Errorf(errMsg)
 		return CreatePipelineResponse{}, fmt.Errorf(errMsg)
 	}
@@ -208,7 +208,7 @@ func UpdatePipeline(ctx *logger.RequestContext, request UpdatePipelineRequest, p
 	ppl, err := models.GetPipelineByID(pipelineID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			ctx.ErrorCode = common.DuplicatedName
+			ctx.ErrorCode = common.PipelineNotFound
 			errMsg := fmt.Sprintf("UpdatePipeline failed: pipeline[%s] not created for user[%s], pls create first!", pipelineID, ctx.UserName)
 			ctx.Logging().Errorf(errMsg)
 			return UpdatePipelineResponse{}, fmt.Errorf(errMsg)
@@ -471,7 +471,7 @@ func GetPipeline(ctx *logger.RequestContext, pipelineID, marker string, maxKeys 
 	getPipelineResponse.PipelineDetailList = []PipelineDetailBrief{}
 	for _, pplDetail := range pipelineDetailList {
 		pipelineDetailBrief := PipelineDetailBrief{}
-		pipelineDetailBrief.updateFromPipelineModel(pplDetail)
+		pipelineDetailBrief.updateFromPipelineDetailModel(pplDetail)
 		getPipelineResponse.PipelineDetailList = append(getPipelineResponse.PipelineDetailList, pipelineDetailBrief)
 	}
 	return getPipelineResponse, nil
@@ -496,7 +496,7 @@ func GetPipelineDetail(ctx *logger.RequestContext, pipelineID string, pipelineDe
 	}
 
 	// query pipeline detail
-	pplDetail, err := models.GetPipelineDetailByID(pipelineDetailPk)
+	pplDetail, err := models.GetPipelineDetailByPk(pipelineDetailPk)
 	if err != nil {
 		ctx.ErrorCode = common.InternalError
 		errMsg := fmt.Sprintf("get pipeline detail[%d] failed, err: %v", pipelineDetailPk, err)
@@ -513,7 +513,7 @@ func GetPipelineDetail(ctx *logger.RequestContext, pipelineID string, pipelineDe
 
 	getPipelineDetailResponse := GetPipelineDetailResponse{}
 	getPipelineDetailResponse.Pipeline.updateFromPipelineModel(ppl)
-	getPipelineDetailResponse.PipelineDetail.updateFromPipelineModel(pplDetail)
+	getPipelineDetailResponse.PipelineDetail.updateFromPipelineDetailModel(pplDetail)
 	return getPipelineDetailResponse, nil
 }
 
@@ -604,7 +604,7 @@ func DeletePipelineDetail(ctx *logger.RequestContext, pipelineID string, pipelin
 		return fmt.Errorf(errMsg)
 	}
 
-	pplDetail, err := models.GetPipelineDetailByID(pipelineDetailPk)
+	pplDetail, err := models.GetPipelineDetailByPk(pipelineDetailPk)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			ctx.ErrorCode = common.PipelineNotFound

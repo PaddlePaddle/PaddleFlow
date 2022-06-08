@@ -96,7 +96,7 @@ func TestCreatePipeline(t *testing.T) {
 	// test create 失败，重复创建
 	_, err = CreatePipeline(ctx, createPplReq, MockFsID)
 	assert.NotNil(t, err)
-	assert.Equal(t, fmt.Errorf("CreatePipeline failed: user[root] already has pipeline[distribute_wide_and_deep], cannot create again!"), err)
+	assert.Equal(t, fmt.Errorf("CreatePipeline failed: user[root] already has pipeline[distribute_wide_and_deep], cannot create again, use update instead!"), err)
 
 	// 更改用户名后，创建成功
 	ctx = &logger.RequestContext{UserName: "another_user"}

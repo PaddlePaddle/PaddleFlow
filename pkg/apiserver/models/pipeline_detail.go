@@ -103,7 +103,7 @@ func GetLastPipelineDetail(logEntry *log.Entry, pipelineID string) (PipelineDeta
 }
 
 // 此处不检查pipeline detail对应的pipelineID是否存在，单纯做查询
-func GetPipelineDetailByID(pipelineDetailPk int64) (PipelineDetail, error) {
+func GetPipelineDetailByPk(pipelineDetailPk int64) (PipelineDetail, error) {
 	var pplDetail PipelineDetail
 	result := database.DB.Model(&PipelineDetail{}).Where("Pk = ?", pipelineDetailPk).Last(&pplDetail)
 	return pplDetail, result.Error

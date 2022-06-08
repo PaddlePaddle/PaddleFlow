@@ -18,9 +18,10 @@ package pipeline
 
 import (
 	"fmt"
-	. "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 	"strings"
 	"testing"
+
+	. "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 
 	"github.com/stretchr/testify/assert"
 

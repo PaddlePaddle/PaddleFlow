@@ -97,8 +97,8 @@ func start() error {
 	go imageHandler.Run()
 
 	// todo: pipeline scheduler
-	//globalScheduler := pipeline.GetGlobalScheduler()
-	//go globalScheduler.Start()
+	globalScheduler := pipeline.GetGlobalScheduler()
+	go globalScheduler.Start()
 
 	go job2.WSManager.SendGroupData()
 	go job2.WSManager.GetGroupData()
