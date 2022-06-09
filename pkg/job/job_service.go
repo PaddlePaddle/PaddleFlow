@@ -19,6 +19,7 @@ package job
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	log "github.com/sirupsen/logrus"
 
@@ -303,12 +304,17 @@ func validateFlavours(conf schema.PFJobConf, queue *models.Queue) error {
 func checkResource(conf schema.PFJobConf) error {
 	// check job priority
 	priority := conf.GetPriority()
+	priorityUpper := strings.ToUpper(priority)
 	if len(priority) == 0 {
 		conf.SetPriority(schema.EnvJobNormalPriority)
 	} else {
-		if priority != schema.EnvJobLowPriority &&
-			priority != schema.EnvJobNormalPriority && priority != schema.EnvJobHighPriority {
+		if priorityUpper != schema.EnvJobLowPriority &&
+			priorityUpper != schema.EnvJobNormalPriority &&
+			priorityUpper != schema.EnvJobHighPriority {
 			return errors.InvalidJobPriorityError(priority)
+		}
+		if priority != priorityUpper {
+			conf.SetPriority(priorityUpper)
 		}
 	}
 	return nil

@@ -232,18 +232,20 @@ func validateSingleJob(ctx *logger.RequestContext, request *job.CreateSingleJobR
 
 // checkPriority check priority and fill parent's priority if schedulingPolicy.Priority is empty
 func checkPriority(schedulingPolicy, parentSP *job.SchedulingPolicy) error {
-	priority := schedulingPolicy.Priority
+	priority := strings.ToUpper(schedulingPolicy.Priority)
 	// check job priority
 	if priority == "" {
 		if parentSP != nil {
-			schedulingPolicy.Priority = parentSP.Priority
+			priority = parentSP.Priority
 		} else {
-			schedulingPolicy.Priority = schema.EnvJobNormalPriority
+			priority = schema.EnvJobNormalPriority
 		}
-	} else if priority != schema.EnvJobLowPriority &&
+	}
+	if priority != schema.EnvJobLowPriority &&
 		priority != schema.EnvJobNormalPriority && priority != schema.EnvJobHighPriority {
 		return errors.InvalidJobPriorityError(priority)
 	}
+	schedulingPolicy.Priority = priority
 	return nil
 }
 
