@@ -16,7 +16,7 @@ PaddleFlow作为机器学习平台的资源核心，适用于机器学习和深�
 - 支持运行在主流的DAG执行引擎上（未来版本），如Argo、Airflow等
 # 架构
 PaddleFlow由四个部分组成：
-- 1.PaddleFlow 客户端（包含PaddleFlow fuse）: 命令行工具方便用户在开发机安装和使用，其中PaddleFlow fs管理以及fuse主要用于缓存数据等能力，加速远端数据读写，可以支持多种数据源的对接，比如BOS等类S3系统，HDFS，本地文件系统等。
+- 1.PaddleFlow 客户端（包含PaddleFlowFS）: 命令行工具方便用户在开发机安装和使用，PaddleFlow 客户端（包含PaddleFlowFS）: 命令行工具方便用户在开发机安装和使用，其中PaddleFlowFS基于fuse实现，兼容posix语义，支持AI作业常用的命令，内置缓存能力，加速远端数据读写，同时支持多种数据源的对接，比如BOS等类S3系统，HDFS，本地文件系统等。
 - 2.PaddleFlow server: PaddleFlow核心服务，主要包含队列、存储、工作流等核心功能的管理。
 - 3.volcano（基于开源volcano改造）: 主要增加elastic quota更灵活管理资源的能力，未来会逐步提交社区review。
 - 4.paddleflow-csi-plugin: 基于kubernetes csi插件机制实现了PaddleFlowFS接入并提供fuse客户端的管理能力。
