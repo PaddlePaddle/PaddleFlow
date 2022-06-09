@@ -236,7 +236,7 @@ func checkPriority(schedulingPolicy, parentSP *job.SchedulingPolicy) error {
 	// check job priority
 	if priority == "" {
 		if parentSP != nil {
-			priority = parentSP.Priority
+			priority = strings.ToUpper(parentSP.Priority)
 		} else {
 			priority = schema.EnvJobNormalPriority
 		}
