@@ -576,7 +576,7 @@ spec:
       terminationGracePeriodSeconds: 30
       volumes:
         - hostPath:
-            path: /mnt/paddleflow/paddleflow.db
+            path: /mnt/paddleflow.db
             type: FileOrCreate
           name: paddleflowdb
         - configMap:
