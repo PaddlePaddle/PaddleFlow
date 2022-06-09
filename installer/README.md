@@ -62,7 +62,7 @@ touch /mnt/paddleflow.db && chmod 666 /mnt/paddleflow.db && curl -sSL https://ra
 
 ```shell
 # 执行部署
-kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.2/installer/paddleflow-deployment.yaml
+touch /mnt/paddleflow.db && chmod 666 /mnt/paddleflow.db && kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.2/installer/paddleflow-deployment.yaml
 ```
 ### 2.3 自定义安装
 #### 2.3.1 安装paddleflow-server
