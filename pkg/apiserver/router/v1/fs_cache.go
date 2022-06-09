@@ -126,6 +126,12 @@ func (pr *PFSRouter) updateFSCacheConfig(w http.ResponseWriter, r *http.Request)
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
+	// validate can be modified
+	if err := fsCheckCanModify(&ctx, req.FsID); err != nil {
+		ctx.Logging().Errorf("checkCanModifyFs[%s] err: %v", req.FsID, err)
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
 	// update DB
 	if err := api.UpdateFileSystemCacheConfig(&ctx, req); err != nil {
 		ctx.Logging().Errorf("updateFSCacheConfig[%s] err:%v", req.FsID, err)
@@ -211,20 +217,13 @@ func (pr *PFSRouter) deleteFSCacheConfig(w http.ResponseWriter, r *http.Request)
 	realUserName := getRealUserName(&ctx, username)
 	fsID := common.ID(realUserName, fsName)
 
-	_, err := models.GetFileSystemWithFsID(fsID)
-	if err != nil {
-		ctx.Logging().Errorf("delete fsID[%s] failed by getting file system error[%v]", fsID, err)
-		ctx.ErrorMessage = fmt.Sprintf("username[%s] not create fsName[%s]", username, fsName)
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			common.RenderErrWithMessage(w, ctx.RequestID, common.RecordNotFound, ctx.ErrorMessage)
-		} else {
-			common.RenderErrWithMessage(w, ctx.RequestID, common.FileSystemDataBaseError, err.Error())
-		}
+	if err := fsCheckCanModify(&ctx, fsID); err != nil {
+		ctx.Logging().Errorf("checkCanModifyFs[%s] err: %v", fsID, err)
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
 
-	err = api.DeleteFileSystemCacheConfig(&ctx, fsID)
-	if err != nil {
+	if err := api.DeleteFileSystemCacheConfig(&ctx, fsID); err != nil {
 		ctx.Logging().Errorf("delete file system with error[%v]", err)
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
