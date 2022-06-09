@@ -221,12 +221,7 @@ func getWorkFlowSourceByReq(request *CreateRunByJsonRequest, bodyMap map[string]
 
 	parser := schema.Parser{}
 
-	//将Map中Cache相关的key统一为下划线命名格式，以便后面统一进行Cache的相关处理
-	bodyMapForCache, err := transCacheJson2Yaml(bodyMap)
-	if err != nil {
-		return schema.WorkflowSource{}, err
-	}
-	entryPointsMap, ok, err := unstructured.NestedFieldCopy(bodyMap, "entryPoints")
+	entryComponents, ok, err := unstructured.NestedFieldCopy(bodyMap, "entryPoints")
 	if err != nil {
 		logger.Logger().Errorf(err.Error())
 		return schema.WorkflowSource{}, err
@@ -236,23 +231,24 @@ func getWorkFlowSourceByReq(request *CreateRunByJsonRequest, bodyMap map[string]
 		logger.Logger().Errorf(err.Error())
 		return schema.WorkflowSource{}, err
 	}
-	entryPointsNodes, ok := entryPointsMap.(map[string]interface{})
+	entryComponentsMap, ok := entryComponents.(map[string]interface{})
 	if !ok {
 		err := fmt.Errorf("entryPoints should be map type")
 		logger.Logger().Errorf(err.Error())
 		return schema.WorkflowSource{}, err
 	}
-	nodes, err := parser.ParseNodes(entryPointsNodes)
+	parsedComponents, err := parser.ParseNodes(entryComponentsMap)
 	if err != nil {
 		logger.Logger().Errorf(err.Error())
 		return schema.WorkflowSource{}, err
 	}
-	validateRunJsonNodes(nodes, request, bodyMapForCache)
+
+	validateRunJsonNodes(parsedComponents, request, bodyMap, entryComponentsMap)
 	entryPoints := schema.WorkflowSourceDag{
-		EntryPoints: nodes,
+		EntryPoints: parsedComponents,
 	}
 
-	postProcessMap, ok, err := unstructured.NestedFieldCopy(bodyMap, "postProcess")
+	postComponents, ok, err := unstructured.NestedFieldCopy(bodyMap, "postProcess")
 	if err != nil {
 		logger.Logger().Errorf(err.Error())
 		return schema.WorkflowSource{}, err
@@ -260,19 +256,19 @@ func getWorkFlowSourceByReq(request *CreateRunByJsonRequest, bodyMap map[string]
 	// postProcess非必须
 	postProcess := map[string]*schema.WorkflowSourceStep{}
 	if ok {
-		postProcessNodes, ok := postProcessMap.(map[string]interface{})
+		postComponentsMap, ok := postComponents.(map[string]interface{})
 		if !ok {
 			err := fmt.Errorf("postProcess should be map type")
 			logger.Logger().Errorf(err.Error())
 			return schema.WorkflowSource{}, err
 		}
-		postNodesMap, err := parser.ParseNodes(postProcessNodes)
+		parsedComponents, err := parser.ParseNodes(postComponentsMap)
 		if err != nil {
 			logger.Logger().Errorf(err.Error())
 			return schema.WorkflowSource{}, err
 		}
-		validateRunJsonNodes(postNodesMap, request, bodyMapForCache)
-		for k, v := range postNodesMap {
+		validateRunJsonNodes(parsedComponents, request, bodyMap, postComponentsMap)
+		for k, v := range parsedComponents {
 			postProcess[k] = v.(*schema.WorkflowSourceStep)
 			// 由于上面validateRunJsonNodes将PostProcess中的Cache进行了全局替换，这里将其还原为空值
 			postProcess[k].Cache = schema.Cache{}
@@ -299,7 +295,21 @@ func getWorkFlowSourceByReq(request *CreateRunByJsonRequest, bodyMap map[string]
 func transCacheJson2Yaml(bodyMap map[string]interface{}) (map[string]interface{}, error) {
 	res, _, _ := unstructured.NestedFieldCopy(bodyMap)
 	resMap := res.(map[string]interface{})
-	entryPoints, ok, err := unstructured.NestedFieldCopy(resMap, "entryPoints")
+
+	globalCache, ok, err := unstructured.NestedFieldNoCopy(resMap, "cache")
+	if err != nil {
+		return nil, err
+	}
+	if ok {
+		globalCacheMap, ok := globalCache.(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("cache should be map type")
+		}
+		if err := transCacheMap(globalCacheMap); err != nil {
+			return nil, err
+		}
+	}
+	entryPoints, ok, err := unstructured.NestedFieldNoCopy(resMap, "entryPoints")
 	if err != nil {
 		return nil, err
 	}
@@ -308,50 +318,59 @@ func transCacheJson2Yaml(bodyMap map[string]interface{}) (map[string]interface{}
 		return nil, err
 	}
 	entryPointsMap := entryPoints.(map[string]interface{})
-	for name, point := range entryPointsMap {
+	for _, point := range entryPointsMap {
 		pointMap := point.(map[string]interface{})
 		// 检查用户是否有设置节点级别的Cache
-		cache, ok, err := unstructured.NestedFieldCopy(pointMap, "cache")
+		cache, ok, err := unstructured.NestedFieldNoCopy(pointMap, "cache")
 		if err != nil {
 			return nil, err
 		}
 		if ok {
 			cacheMap := cache.(map[string]interface{})
-			// Enable字段的Json和Yaml形式一样，无需赋值
-			// MaxExpiredTime赋值
-			if value, ok := cacheMap["maxExpiredTime"]; ok {
-				if err := unstructured.SetNestedField(cacheMap, value, schema.CacheAttributeMaxExpiredTime); err != nil {
-					return nil, err
-				}
-			}
-			// FsScope赋值
-			if value, ok := cacheMap["fsScope"]; ok {
-				if err := unstructured.SetNestedField(cacheMap, value, schema.CacheAttributeFsScope); err != nil {
-					return nil, err
-				}
-			}
-			if err := unstructured.SetNestedField(pointMap, cacheMap, "cache"); err != nil {
-				return nil, err
-			}
-			if err := unstructured.SetNestedField(entryPointsMap, pointMap, name); err != nil {
+			if err := transCacheMap(cacheMap); err != nil {
 				return nil, err
 			}
 		}
 	}
-	if err := unstructured.SetNestedField(resMap, entryPointsMap, schema.EntryPointsStr); err != nil {
-		return nil, err
-	}
 	return resMap, nil
 }
 
+func transCacheMap(cacheMap map[string]interface{}) error {
+	// Enable字段的Json和Yaml形式一样，无需赋值
+	// MaxExpiredTime赋值
+	if value, ok := cacheMap["maxExpiredTime"]; ok {
+		if err := unstructured.SetNestedField(cacheMap, value, schema.CacheAttributeMaxExpiredTime); err != nil {
+			return err
+		}
+		delete(cacheMap, "maxExpiredTime")
+	}
+	// FsScope赋值
+	if value, ok := cacheMap["fsScope"]; ok {
+		if err := unstructured.SetNestedField(cacheMap, value, schema.CacheAttributeFsScope); err != nil {
+			return err
+		}
+		delete(cacheMap, "maxExpiredTime")
+	}
+	return nil
+}
+
 // 该函数主要完成CreateRunJson接口中，各类变量的全局替换操作
-func validateRunJsonNodes(nodes map[string]schema.Component, request *CreateRunByJsonRequest, bodyMap map[string]interface{}) error {
-	for _, value := range nodes {
-		if node, ok := value.(*schema.WorkflowSourceDag); ok {
-			if err := validateRunJsonNodes(node.EntryPoints, request, bodyMap); err != nil {
+func validateRunJsonNodes(components map[string]schema.Component, request *CreateRunByJsonRequest,
+	bodyMap map[string]interface{}, componentsMap map[string]interface{}) error {
+	for name, component := range components {
+		if dag, ok := component.(*schema.WorkflowSourceDag); ok {
+			subComponent, ok, err := unstructured.NestedFieldCopy(componentsMap, name, "entryPoints")
+			if err != nil || !ok {
+				return fmt.Errorf("get subComponent failed")
+			}
+			subComponentMap, ok := subComponent.(map[string]interface{})
+			if !ok {
+				return fmt.Errorf("get subComponentMap failed")
+			}
+			if err := validateRunJsonNodes(dag.EntryPoints, request, bodyMap, subComponentMap); err != nil {
 				return err
 			}
-		} else if step, ok := value.(*schema.WorkflowSourceStep); ok {
+		} else if step, ok := component.(*schema.WorkflowSourceStep); ok {
 			if step.Env == nil {
 				step.Env = map[string]string{}
 			}
@@ -369,12 +388,26 @@ func validateRunJsonNodes(nodes map[string]schema.Component, request *CreateRunB
 			if step.DockerEnv == "" {
 				step.DockerEnv = request.DockerEnv
 			}
-			cacheMap, ok, err := unstructured.NestedFieldCopy(bodyMap, "cache")
-			if ok && err == nil {
-				cacheMap, ok := cacheMap.(map[string]interface{})
-				if ok {
-					schema.ValidateStepCacheByMap(&step.Cache, cacheMap)
-				}
+
+			// 检查是否需要全局Cache替换（节点Cache字段优先级大于全局Cache字段）
+			componentCache, ok, err := unstructured.NestedFieldCopy(componentsMap, name, "cache")
+			if err != nil || !ok {
+				return fmt.Errorf("get componentCache failed")
+			}
+			componentCacheMap, ok := componentCache.(map[string]interface{})
+			if !ok {
+				return fmt.Errorf("get componentCacheMap failed")
+			}
+			globalCache, ok, err := unstructured.NestedFieldCopy(bodyMap, "cache")
+			if err != nil || !ok {
+				return fmt.Errorf("get globalCache failed")
+			}
+			globalCacheMap, ok := globalCache.(map[string]interface{})
+			if !ok {
+				return fmt.Errorf("get globalCacheMap failed")
+			}
+			if err := schema.ValidateStepCacheByMap(&step.Cache, globalCacheMap, componentCacheMap); err != nil {
+				return err
 			}
 		}
 	}

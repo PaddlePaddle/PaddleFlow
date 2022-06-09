@@ -18,8 +18,6 @@ package schema
 
 import (
 	"fmt"
-	"reflect"
-	"strconv"
 	"strings"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
@@ -304,22 +302,41 @@ func GetWorkflowSource(runYaml []byte) (WorkflowSource, error) {
 	p := Parser{}
 	yamlMap, err := RunYaml2Map(runYaml)
 	if err != nil {
+		logger.Logger().Errorf(err.Error())
 		return WorkflowSource{}, err
 	}
 
 	if err := p.ParseWorkflowSource(yamlMap, &wfs); err != nil {
+		logger.Logger().Errorf(err.Error())
 		return WorkflowSource{}, err
 	}
 
 	// 全局参数替换
-	if err := ValidateRunNodes(wfs.EntryPoints.EntryPoints, &wfs, yamlMap); err != nil {
+	entryPoints, ok := yamlMap["entry_points"]
+	if !ok {
+		return WorkflowSource{}, fmt.Errorf("get entry_points failed")
+	}
+	entryPointsMap, ok := entryPoints.(map[string]interface{})
+	if !ok {
+		return WorkflowSource{}, fmt.Errorf("get entry_points map failed")
+	}
+	if err := wfs.ValidateRunNodes(wfs.EntryPoints.EntryPoints, yamlMap, entryPointsMap); err != nil {
 		return WorkflowSource{}, err
 	}
-	postProcessMap := map[string]Component{}
+
+	postComponentsMap := map[string]Component{}
 	for k, v := range wfs.PostProcess {
-		postProcessMap[k] = v
+		postComponentsMap[k] = v
 	}
-	if err := ValidateRunNodes(postProcessMap, &wfs, yamlMap); err != nil {
+	postProcess, ok := yamlMap["post_process"]
+	if !ok {
+		return WorkflowSource{}, fmt.Errorf("get post_process failed")
+	}
+	postProcessMap, ok := postProcess.(map[string]interface{})
+	if !ok {
+		return WorkflowSource{}, fmt.Errorf("get entry_points map failed")
+	}
+	if err := wfs.ValidateRunNodes(postComponentsMap, yamlMap, postProcessMap); err != nil {
 		return WorkflowSource{}, err
 	}
 
@@ -327,68 +344,71 @@ func GetWorkflowSource(runYaml []byte) (WorkflowSource, error) {
 }
 
 // 对Step的DockerEnv、Cache进行全局替换
-func ValidateRunNodes(nodes map[string]Component, wfs *WorkflowSource, yamlMap map[string]interface{}) error {
-	for _, value := range nodes {
-		if node, ok := value.(*WorkflowSourceDag); ok {
-			if err := ValidateRunNodes(node.EntryPoints, wfs, yamlMap); err != nil {
+func (wfs *WorkflowSource) ValidateRunNodes(components map[string]Component, yamlMap map[string]interface{}, componentsMap map[string]interface{}) error {
+	for name, component := range components {
+		if dag, ok := component.(*WorkflowSourceDag); ok {
+			subComponent, ok, err := unstructured.NestedFieldCopy(componentsMap, name, "entry_points")
+			if err != nil || !ok {
+				return fmt.Errorf("get subComponent failed")
+			}
+			subComponentMap, ok := subComponent.(map[string]interface{})
+			if !ok {
+				return fmt.Errorf("get subComponentMap failed")
+			}
+			if err := wfs.ValidateRunNodes(dag.EntryPoints, yamlMap, subComponentMap); err != nil {
 				return err
 			}
-		} else if step, ok := value.(*WorkflowSourceStep); ok {
+		} else if step, ok := component.(*WorkflowSourceStep); ok {
 			if step.Env == nil {
 				step.Env = map[string]string{}
 			}
 			if step.Parameters == nil {
 				step.Parameters = map[string]interface{}{}
 			}
+
 			// DockerEnv字段替换检查
 			if step.DockerEnv == "" {
 				step.DockerEnv = wfs.DockerEnv
 			}
-			cacheMap, ok, err := unstructured.NestedFieldCopy(yamlMap, "cache")
-			if ok && err == nil {
-				cacheMap, ok := cacheMap.(map[string]interface{})
-				if ok {
-					ValidateStepCacheByMap(&step.Cache, cacheMap)
-				}
+
+			// 检查是否需要全局Cache替换（节点Cache字段优先级大于全局Cache字段）
+			componentCache, ok, err := unstructured.NestedFieldCopy(componentsMap, name, "cache")
+			if err != nil || !ok {
+				return fmt.Errorf("get componentCache failed")
+			}
+			componentCacheMap, ok := componentCache.(map[string]interface{})
+			if !ok {
+				return fmt.Errorf("get componentCacheMap failed")
+			}
+			globalCache, ok, err := unstructured.NestedFieldCopy(yamlMap, "cache")
+			if err != nil || !ok {
+				return fmt.Errorf("get globalCache failed")
+			}
+			globalCacheMap, ok := globalCache.(map[string]interface{})
+			if !ok {
+				return fmt.Errorf("get globalCacheMap failed")
+			}
+			if err := ValidateStepCacheByMap(&step.Cache, globalCacheMap, componentCacheMap); err != nil {
+				return err
 			}
 		}
 	}
 	return nil
 }
 
-func ValidateStepCacheByMap(cache *Cache, globalCacheMap map[string]interface{}) error {
-	// Enable字段赋值
-	if value, ok := globalCacheMap[CacheAttributeEnable]; ok {
-		switch value := value.(type) {
-		case bool:
-			cache.Enable = value
-		default:
-			return fmt.Errorf("cannot assign cache attribute [%s] by value[%v] with type [%s]",
-				CacheAttributeEnable, value, reflect.TypeOf(value).Name())
-		}
+func ValidateStepCacheByMap(cache *Cache, globalCacheMap map[string]interface{}, componentCacheMap map[string]interface{}) error {
+	// 节点级别的Cache字段的优先级大于全局Cache字段
+	parser := Parser{}
+	// 先将节点的Cache，用全局的Cache赋值，这样如果下面节点级别的Cache字段没有再次覆盖，那节点级别的Cache字段就会采用全局的值
+	if err := parser.ParseCache(globalCacheMap, cache); err != nil {
+		return err
 	}
-	// MaxExpiredTime字段赋值
-	if value, ok := globalCacheMap[CacheAttributeMaxExpiredTime]; ok {
-		switch value := value.(type) {
-		case int64:
-			cache.MaxExpiredTime = strconv.FormatInt(value, 10)
-		case string:
-			cache.MaxExpiredTime = value
-		default:
-			return fmt.Errorf("cannot assign cache attribute [%s] by value[%v] with type [%s]",
-				CacheAttributeMaxExpiredTime, value, reflect.TypeOf(value).Name())
-		}
+	if err := parser.ParseCache(componentCacheMap, cache); err != nil {
+		return err
 	}
-	// FsScope字段赋值
-	if value, ok := globalCacheMap[CacheAttributeFsScope]; ok {
-		switch value := value.(type) {
-		case string:
-			cache.FsScope = value
-		default:
-			return fmt.Errorf("cannot assign cache attribute [%s] by value[%v] with type [%s]",
-				CacheAttributeFsScope, value, reflect.TypeOf(value).Name())
-		}
-	}
-
 	return nil
+}
+
+func setCacheByMap(cache *Cache, cacheMap map[string]interface{}) {
+
 }

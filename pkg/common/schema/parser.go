@@ -18,6 +18,7 @@ package schema
 
 import (
 	"fmt"
+	"strconv"
 )
 
 type Parser struct {
@@ -74,7 +75,7 @@ func (p *Parser) ParseWorkflowSource(bodyMap map[string]interface{}, wfs *Workfl
 				return fmt.Errorf("[cache] of workflow should be map[string]interface{} type")
 			}
 			cache := Cache{}
-			if err := p.parseCache(value, &cache); err != nil {
+			if err := p.ParseCache(value, &cache); err != nil {
 				return fmt.Errorf("parse [cache] in workflow failed, error: %s", err.Error())
 			}
 			wfs.Cache = cache
@@ -241,7 +242,7 @@ func (p *Parser) ParseStep(params map[string]interface{}, stepNode *WorkflowSour
 			if !ok {
 				return fmt.Errorf("[cache] in step should be map[string]interface type")
 			}
-			if err := p.parseCache(value, &cache); err != nil {
+			if err := p.ParseCache(value, &cache); err != nil {
 				return fmt.Errorf("parse cache in step failed, error: %s", err.Error())
 			}
 			stepNode.Cache = cache
@@ -301,7 +302,7 @@ func (p *Parser) ParseStep(params map[string]interface{}, stepNode *WorkflowSour
 	return nil
 }
 
-func (p *Parser) parseCache(cacheMap map[string]interface{}, cache *Cache) error {
+func (p *Parser) ParseCache(cacheMap map[string]interface{}, cache *Cache) error {
 	for cacheKey, cacheValue := range cacheMap {
 		switch cacheKey {
 		case "enable":
@@ -313,11 +314,14 @@ func (p *Parser) parseCache(cacheMap map[string]interface{}, cache *Cache) error
 		case "maxExpiredTime":
 			fallthrough
 		case "max_expired_time":
-			cacheValue, ok := cacheValue.(string)
-			if !ok {
-				return fmt.Errorf("[cache.max_expired_time/maxExpiredTime] should be string type")
+			switch cacheValue := cacheValue.(type) {
+			case string:
+				cache.MaxExpiredTime = cacheValue
+			case int64:
+				cache.MaxExpiredTime = strconv.FormatInt(cacheValue, 10)
+			default:
+				return fmt.Errorf("[cache.max_expired_time/maxExpiredTime] should be string/int64 type")
 			}
-			cache.MaxExpiredTime = cacheValue
 		case "fsScope":
 			fallthrough
 		case "fs_scope":
