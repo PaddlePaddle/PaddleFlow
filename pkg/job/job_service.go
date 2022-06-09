@@ -304,10 +304,10 @@ func validateFlavours(conf schema.PFJobConf, queue *models.Queue) error {
 func checkResource(conf schema.PFJobConf) error {
 	// check job priority
 	priority := conf.GetPriority()
-	priorityUpper := strings.ToUpper(priority)
 	if len(priority) == 0 {
 		conf.SetPriority(schema.EnvJobNormalPriority)
 	} else {
+		priorityUpper := strings.ToUpper(priority)
 		if priorityUpper != schema.EnvJobLowPriority &&
 			priorityUpper != schema.EnvJobNormalPriority &&
 			priorityUpper != schema.EnvJobHighPriority {
