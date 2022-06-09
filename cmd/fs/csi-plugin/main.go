@@ -30,6 +30,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csiconfig"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csidriver"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/metric"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/version"
 )
 
 const CsiContainerName = "csi-storage-driver"
@@ -92,7 +93,7 @@ func main() {
 	app := &cli.App{
 		Name:                 "paddleflow-csi-plugin",
 		Usage:                "csi-plugin for paddleflow",
-		Version:              "1.4",
+		Version:              version.InfoStr(),
 		Copyright:            "Apache License 2.0",
 		HideHelpCommand:      true,
 		EnableBashCompletion: true,
