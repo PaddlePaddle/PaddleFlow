@@ -23,6 +23,7 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"github.com/PaddlePaddle/PaddleFlow/cmd/fs/fuse/service"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/version"
 )
 
 func main() {
@@ -40,7 +41,7 @@ func Main(args []string) error {
 	app := &cli.App{
 		Name:                 "pfs-fuse",
 		Usage:                "A POSIX file system built on kv DB and object storage.",
-		Version:              "1.4",
+		Version:              version.InfoStr(),
 		Copyright:            "Apache License 2.0",
 		HideHelpCommand:      true,
 		EnableBashCompletion: true,
