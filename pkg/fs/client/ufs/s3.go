@@ -1276,6 +1276,13 @@ func (fh *s3FileHandle) Truncate(size uint64) fuse.Status {
 	return fuse.ToStatus(fh.uploadWriteTmpFile())
 }
 
+func (fh *s3FileHandle) Allocate(off, size uint64, mode uint32) (code fuse.Status) {
+	log.Tracef("s3 allocate: name[%s], size[%d]", fh.name, size)
+	// s3 is remote object storage. no need to allocate space in advance.
+	// no need to do anything here. upload files when real file exists
+	return fuse.OK
+}
+
 func (fh *s3FileHandle) Chmod(mode uint32) fuse.Status {
 	return fuse.ToStatus(fh.fs.Chmod(fh.name, mode))
 }
