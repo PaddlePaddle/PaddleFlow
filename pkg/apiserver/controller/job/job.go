@@ -536,7 +536,7 @@ func DeleteJob(ctx *logger.RequestContext, jobID string) error {
 		log.Errorf("get job from database failed, err: %v", err)
 		return err
 	}
-	// check job status
+	// check job status before delete
 	if !schema.IsImmutableJobStatus(job.Status) {
 		ctx.ErrorCode = common.ActionNotAllowed
 		msg := fmt.Sprintf("job %s status is %s, please stop it first.", jobID, job.Status)
