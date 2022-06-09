@@ -74,7 +74,7 @@ SchedulingPolicy
 |字段名称 | 字段类型 | 字段含义
 |:---:|:---:|:---:|
 |queue| string (required)|作业所在队列
-|priority| string (optional)|作业优先级（HIGH、NORMAL、LOW)）默认为Normal
+|priority| string (optional)|作业优先级（HIGH、NORMAL、LOW）默认为Normal
 
 
 MemberSpec
