@@ -42,6 +42,7 @@ type BaseWorkflow struct {
 	Params       map[string]interface{}                `json:"params,omitempty"`
 	Extra        map[string]string                     `json:"extra,omitempty"` // 可以存放一些ID，fsId，userId等
 	Source       schema.WorkflowSource                 `json:"-"`               // Yaml string
+	runtimeDags  map[string]*schema.WorkflowSourceDag  `json:"-"`
 	runtimeSteps map[string]*schema.WorkflowSourceStep `json:"-"`
 	postProcess  map[string]*schema.WorkflowSourceStep `json:"-"`
 }
@@ -49,16 +50,17 @@ type BaseWorkflow struct {
 func NewBaseWorkflow(wfSource schema.WorkflowSource, runID, entry string, params map[string]interface{}, extra map[string]string) BaseWorkflow {
 	// Todo: 设置默认值
 	bwf := BaseWorkflow{
-		RunID:  runID,
-		Name:   "default_name",
-		Desc:   "default_desc",
-		Params: params,
-		Extra:  extra,
-		Source: wfSource,
-		Entry:  entry,
+		RunID:       runID,
+		Name:        "default_name",
+		Desc:        "default_desc",
+		Params:      params,
+		Extra:       extra,
+		Source:      wfSource,
+		Entry:       entry,
+		postProcess: wfSource.PostProcess,
 	}
 
-	bwf.runtimeSteps = bwf.getComponents()
+	bwf.runtimeDags, bwf.runtimeSteps = bwf.getComponents()
 	return bwf
 }
 
@@ -77,31 +79,27 @@ func (bwf *BaseWorkflow) checkDeps() error {
 	return nil
 }
 
-func (bwf *BaseWorkflow) getComponents() map[string]*schema.WorkflowSourceStep {
+func (bwf *BaseWorkflow) getComponents() (map[string]*schema.WorkflowSourceDag, map[string]*schema.WorkflowSourceStep) {
 	/*
 		根据传入的entry，获取此次run需要运行的step集合
 		注意：此处返回的map中，每个schema.WorkflowSourceStep元素都是以指针形式返回（与BaseWorkflow中Source参数中的step指向相同的类对象），后续对与元素内容的修改，会直接同步到BaseWorkflow中Source参数
 	*/
-	entry := bwf.Entry
-	if entry == "" {
-		return bwf.Source.EntryPoints
-	}
 
-	runSteps := map[string]*schema.WorkflowSourceStep{}
-	bwf.recursiveGetRunSteps(entry, runSteps)
-	return runSteps
+	runtimeSteps := map[string]*schema.WorkflowSourceStep{}
+	runtimeDags := map[string]*schema.WorkflowSourceDag{}
+	bwf.recursiveGetComponents(bwf.Source.EntryPoints.EntryPoints, "", runtimeDags, runtimeSteps)
+	return runtimeDags, runtimeSteps
 }
 
-func (bwf *BaseWorkflow) recursiveGetRunSteps(entry string, steps map[string]*schema.WorkflowSourceStep) {
-	// duplicated in result map
-	if _, ok := steps[entry]; ok {
-		return
-	}
-
-	if step, ok := bwf.Source.EntryPoints[entry]; ok {
-		steps[entry] = step
-		for _, dep := range step.GetDeps() {
-			bwf.recursiveGetRunSteps(dep, steps)
+func (bwf *BaseWorkflow) recursiveGetComponents(components map[string]schema.Component, prefix string, dags map[string]*schema.WorkflowSourceDag, steps map[string]*schema.WorkflowSourceStep) {
+	for name, component := range components {
+		absoluteName := prefix + "." + name
+		if dag, ok := component.(*schema.WorkflowSourceDag); ok {
+			dags[absoluteName] = dag
+			bwf.recursiveGetComponents(dag.EntryPoints, absoluteName, dags, steps)
+		} else {
+			step := component.(*schema.WorkflowSourceStep)
+			steps[absoluteName] = step
 		}
 	}
 }
@@ -550,7 +548,7 @@ func (bwf *BaseWorkflow) checkPostProcess() error {
 
 	for name, postStep := range bwf.Source.PostProcess {
 		// 检查是否与EntryPoints中的step有重名
-		if _, ok := bwf.Source.EntryPoints[name]; ok {
+		if _, ok := bwf.Source.EntryPoints.EntryPoints[name]; ok {
 			return fmt.Errorf("a step in post_process has name [%s], which is same to name of a step in entry_points", name)
 		}
 
@@ -607,19 +605,23 @@ func (bwf *BaseWorkflow) checkDisabled() ([]string, error) {
 		- 目前支持pipeline中所有节点都disabled
 	*/
 	tempMap := make(map[string]int)
-	disabledSteps := bwf.Source.GetDisabled()
-	for _, stepName := range disabledSteps {
-		_, ok := tempMap[stepName]
+	disabledComponents := bwf.Source.GetDisabled()
+	postComponents := map[string]schema.Component{}
+	for k, v := range bwf.Source.PostProcess {
+		postComponents[k] = v
+	}
+	for _, name := range disabledComponents {
+		_, ok := tempMap[name]
 		if ok {
-			return nil, fmt.Errorf("disabled step[%s] is set repeatedly!", stepName)
+			return nil, fmt.Errorf("disabled component[%s] is set repeatedly!", name)
 		}
-		tempMap[stepName] = 1
-		if !bwf.Source.HasStep(stepName) {
-			return nil, fmt.Errorf("disabled step[%s] not existed!", stepName)
+		tempMap[name] = 1
+		if !bwf.Source.HasStep(bwf.Source.EntryPoints.EntryPoints, name) && !bwf.Source.HasStep(postComponents, name) {
+			return nil, fmt.Errorf("disabled component[%s] not existed!", name)
 		}
 	}
 
-	return disabledSteps, nil
+	return disabledComponents, nil
 }
 
 // ----------------------------------------------------------------------------
