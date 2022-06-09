@@ -20,18 +20,15 @@ import (
 	"fmt"
 
 	"github.com/Knetic/govaluate"
-	"github.com/sirupsen/logrus"
 )
 
 type ConditionCalculator struct {
 	condition string
-	logger    *logrus.Entry
 }
 
-func NewConditionCalculator(condition string, logger *logrus.Entry) *ConditionCalculator {
+func NewConditionCalculator(condition string) *ConditionCalculator {
 	return &ConditionCalculator{
 		condition: condition,
-		logger:    logger,
 	}
 }
 
@@ -43,7 +40,6 @@ func (cc *ConditionCalculator) calculate() (bool, error) {
 	expression, err := govaluate.NewEvaluableExpression(cc.condition)
 	if err != nil {
 		err := fmt.Errorf("cannot calculate the result of condition[%s]: %v", cc.condition, err)
-		cc.logger.Errorln(err.Error())
 		return false, err
 	}
 
@@ -65,14 +61,12 @@ func (cc *ConditionCalculator) calculate() (bool, error) {
 	expression, err = govaluate.NewEvaluableExpressionFromTokens(tokens)
 	if err != nil {
 		err := fmt.Errorf("failed to parse condition[%s]: %v", cc.condition, err)
-		cc.logger.Errorln(err.Error())
 		return false, err
 	}
 
 	result, err := expression.Evaluate(nil)
 	if err != nil {
 		err := fmt.Errorf("failed to parse condition[%s]: %v", cc.condition, err)
-		cc.logger.Errorln(err.Error())
 		return false, err
 	}
 
@@ -80,7 +74,6 @@ func (cc *ConditionCalculator) calculate() (bool, error) {
 	boolRes, ok := result.(bool)
 	if !ok {
 		err := fmt.Errorf("the result of condition[%s] cannot trans to bool: %v", cc.condition, boolRes)
-		cc.logger.Errorln(err.Error())
 		return false, err
 	}
 	return boolRes, nil

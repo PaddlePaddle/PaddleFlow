@@ -22,8 +22,9 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	. "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 )
 
 type RuntimeStatus = schema.JobStatus
@@ -57,6 +58,18 @@ func (pm *parallelismManager) increase() {
 
 func (pm *parallelismManager) decrease() {
 	<-pm.ch
+}
+
+type componentRuntime interface {
+	isSucceeded() bool
+	isDone() bool
+	isFailed() bool
+	isCancelled() bool
+	isSkipped() bool
+	isStarted() bool
+	isTerminated() bool
+
+	getComponent() schema.Component
 }
 
 // Run 的相关配置，其信息来源有以下几种:
@@ -102,7 +115,7 @@ func NewRunConfig(workflowSource *schema.WorkflowSource, fsID, fsName, userName,
 }
 
 // stepRuntime 和 DagRuntime 的基类
-type componentRuntime struct {
+type baseComponentRuntime struct {
 	component schema.Component
 
 	// 节点名字
@@ -121,7 +134,7 @@ type componentRuntime struct {
 	ctx context.Context
 
 	// 监听子节点事件的 channel
-	receiveEventChildren <-chan WorkflowEvent
+	receiveEventChildren chan WorkflowEvent
 
 	// 将 event 同步至父节点的 channel
 	sendEventToParent chan<- WorkflowEvent
@@ -136,24 +149,36 @@ type componentRuntime struct {
 
 	// run 级别的相关配置
 	*runConfig
+
+	// 用于替换 节点内部的引用模板
+	*innerSolver
+
+	// 系统环境变量的值
+	sysParams map[string]string
 }
 
-func NewComponentRuntime(name string, component schema.Component, seq int, ctx context.Context,
-	eventChannel chan<- WorkflowEvent, config *runConfig) *componentRuntime {
+func NewBaseComponentRuntime(name string, fullname string, component schema.Component, seq int, ctx context.Context,
+	eventChannel chan<- WorkflowEvent, config *runConfig) *baseComponentRuntime {
 
-	return &componentRuntime{
+	cr := &baseComponentRuntime{
 		componentName:        name,
+		fullName:             fullname,
 		component:            component,
 		seq:                  seq,
 		ctx:                  ctx,
 		sendEventToParent:    eventChannel,
-		receiveEventChildren: make(<-chan WorkflowEvent),
+		receiveEventChildren: make(chan WorkflowEvent),
 		runConfig:            config,
 	}
+
+	isv := NewInnerSolver(component, fullname, config)
+	cr.innerSolver = isv
+	cr.setSysParams()
+	return cr
 }
 
 // 判断当前节点是否被 disabled
-func (crt *componentRuntime) isDisabled() bool {
+func (crt *baseComponentRuntime) isDisabled() bool {
 	for _, fullName := range crt.GetDisabled() {
 		if fullName == crt.fullName {
 			return true
@@ -162,30 +187,42 @@ func (crt *componentRuntime) isDisabled() bool {
 	return false
 }
 
-func (crt *componentRuntime) isCancelled() bool {
+func (crt *baseComponentRuntime) isSucceeded() bool {
+	return crt.status == StatusRuntimeSucceeded
+}
+
+func (crt *baseComponentRuntime) isCancelled() bool {
 	return crt.status == StatusRuntimeCancelled
 }
 
-func (crt *componentRuntime) isFailed() bool {
+func (crt *baseComponentRuntime) isFailed() bool {
 	return crt.status == StatusRuntimeFailed
 }
 
-func (crt *componentRuntime) isTerminated() bool {
+func (crt *baseComponentRuntime) isSkipped() bool {
+	return crt.status == StatusRuntimeSkipped
+}
+
+func (crt *baseComponentRuntime) isTerminated() bool {
 	return crt.status == StatusRuntimeTerminated
 }
 
 // 判断当次运行是否已经处于终态
-func (crt *componentRuntime) isDone() bool {
+func (crt *baseComponentRuntime) isDone() bool {
 	return crt.done
 }
 
 // 用于判断是否已经调用过节点的 Start() 函数
-func (crt *componentRuntime) isStarted() bool {
+func (crt *baseComponentRuntime) isStarted() bool {
 	return crt.started
 }
 
+func (crt *baseComponentRuntime) getComponent() schema.Component {
+	return crt.component
+}
+
 // 更新节点状态
-func (crt *componentRuntime) updateStatus(status RuntimeStatus) error {
+func (crt *baseComponentRuntime) updateStatus(status RuntimeStatus) error {
 	if crt.done {
 		err := fmt.Errorf("cannot update the status of runtime[%s] for node[%s]，because the status of it is [%s]",
 			crt.componentName, crt.fullName, crt.status)
@@ -201,82 +238,89 @@ func (crt *componentRuntime) updateStatus(status RuntimeStatus) error {
 	return nil
 }
 
-// 获取 artifact 的路径
-func (crt *componentRuntime) getArtifactPath(artName string) (string, error) {
-	path, err := crt.GetInputArtifactPath(artName)
-	if err == nil {
-		return path, err
-	}
-
-	path, err = crt.GetOutputArtifactPath(artName)
-	if err == nil {
-		return path, err
-	}
-
-	err = fmt.Errorf("the Component[%s] doesn't has an artifact named [%s]", crt.fullName, artName)
-	return "", err
-}
-
-// 获取 输入artifact的存储路径
-func (crt *componentRuntime) GetInputArtifactPath(artName string) (string, error) {
-	path, ok := crt.component.GetArtifacts().Input[artName]
-	if !ok {
-		err := fmt.Errorf("the Component[%s] doesn't has an input artifact named [%s]", crt.fullName, artName)
-		return "", err
-	}
-
-	return path, nil
-}
-
-// 获取输出artifact的存储路径
-func (crt *componentRuntime) GetOutputArtifactPath(artName string) (string, error) {
-	path, ok := crt.component.GetArtifacts().Output[artName]
-	if !ok {
-		err := fmt.Errorf("the Component[%s] doesn't has an output artifact named [%s]", crt.fullName, artName)
-		return "", err
-	}
-
-	return path, nil
-}
-
-// 获取制定Artifact的内容
-func (crt *componentRuntime) GetArtifactContent(artName string) (string, error) {
-	path, err := crt.getArtifactPath(artName)
+// 获取当次运行时循环参数的值
+func (crt *baseComponentRuntime) getPFLoopArgument() (interface{}, error) {
+	err := crt.innerSolver.resolveLoopArugment()
 	if err != nil {
-		err = fmt.Errorf("failed to get the content of artifact[%s] of component[%s]: %v",
-			artName, crt.fullName, err.Error())
-		return "", err
+		return nil, err
 	}
 
-	fsHandler, err := handler.NewFsHandlerWithServer(crt.fsID, crt.logger)
-	if err != nil {
-		err = fmt.Errorf("failed to get the content of artifact[%s] of component[%s]: %v",
-			artName, crt.fullName, err.Error())
-		return "", err
+	if crt.component.GetLoopArgument() == nil {
+		return nil, nil
+	}
+	if len(crt.component.GetLoopArgument().([]interface{})) < crt.seq {
+		err := fmt.Errorf("inner error: the index of loop_argumetn is out of range")
+		return nil, err
 	}
 
-	// 这里不在对 path 是否存在，以及其是否为一个文件做校验，因为如果不符合要求，fsHandler.ReadFsFile 会报错
-	content, err := fsHandler.ReadFsFile(path)
-	if err != nil {
-		err = fmt.Errorf("failed to get the content of artifact[%s] of component[%s]: %v",
-			artName, crt.fullName, err.Error())
-		return "", err
-	}
-
-	contentString := string(content)
-	return contentString, nil
-
+	return crt.component.GetLoopArgument().([]interface{})[crt.seq], nil
 }
 
-// 替换节点中，command，env，condition，loop_argument 中 parameter 或者 artifact 模版
-func (crt *componentRuntime) resolveParameterAndArtifactTemplate() error {
+// 获取系统变量
+/*
+var SysParamNameList []string = []string{
+	SysParamNamePFRunID,
+	SysParamNamePFFsID,
+	SysParamNamePFJobID,
+	SysParamNamePFStepName,
+	SysParamNamePFFsName,
+	SysParamNamePFUserID,
+	SysParamNamePFUserName,
+	SysParamNamePFLoopArgument,
+}
+*/
+func (crt *baseComponentRuntime) setSysParams() error {
+	crt.sysParams = map[string]string{
+		SysParamNamePFRunID:    crt.runID,
+		SysParamNamePFFsID:     crt.fsID,
+		SysParamNamePFFsName:   crt.fsName,
+		SysParamNamePFStepName: crt.componentName,
+		SysParamNamePFUserName: crt.userName,
+	}
+
+	pfLoopArugment, err := crt.getPFLoopArgument()
+	if err != nil {
+		return err
+	}
+
+	if pfLoopArugment == nil {
+		crt.sysParams[SysParamNamePFLoopArgument] = ""
+	} else {
+		crt.sysParams[SysParamNamePFLoopArgument] = fmt.Sprintf("%v", pfLoopArugment)
+	}
+
 	return nil
 }
 
-func (crt *componentRuntime) CalculateCondition() bool {
-	//TODO:
-	// 1、获取 condition 中parameter/ artifact 的模板
-	// 2、进行参数替换
-	// 3、计算Condition值
-	return false
+func (crt *baseComponentRuntime) CalculateCondition() (bool, error) {
+	crt.resolveCondition()
+	cc := NewConditionCalculator(crt.component.GetCondition())
+	return cc.calculate()
+}
+
+func (crt *baseComponentRuntime) syncToApiServerAndParent(wv WfEventValue, view schema.ComponentView, msg string) {
+	extra := map[string]interface{}{
+		common.WfEventKeyRunID:  crt.runID,
+		common.WfEventKeyPK:     crt.pk,
+		common.WfEventKeyStatus: crt.status,
+		common.WfEventKeyView:   view,
+	}
+
+	event := NewWorkflowEvent(wv, msg, extra)
+
+	// 调用回调函数，将信息同步至 apiserver
+	crt.callback(event)
+
+	// 将事件冒泡给父节点
+	crt.sendEventToParent <- *event
+}
+
+func (crt *baseComponentRuntime) callback(event *WorkflowEvent) {
+	for i := 0; i < 3; i++ {
+		crt.logger.Infof("callback event [%+v]", event)
+		if pk, success := crt.callbacks.UpdateRuntimeCb(crt.runID, event); success {
+			crt.pk = pk
+			break
+		}
+	}
 }
