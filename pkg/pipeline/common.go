@@ -17,7 +17,9 @@ limitations under the License.
 package pipeline
 
 import (
+	"encoding/hex"
 	"fmt"
+	"math/rand"
 	"os"
 	"regexp"
 	"strings"
@@ -775,4 +777,10 @@ func GetArtifactContent(artPath string, maxSize int, fsID string, logger *logrus
 
 	contentString := string(content)
 	return contentString, nil
+}
+
+func GetRandID(randNum int) string {
+	b := make([]byte, randNum/2)
+	rand.Read(b)
+	return hex.EncodeToString(b)
 }

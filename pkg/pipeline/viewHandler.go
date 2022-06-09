@@ -33,20 +33,23 @@ func newDagViewFromDagRuntime(drt *DagRuntime, msg string) schema.DagView {
 
 	// DAGID 在写库时生成，因此，此处并不会传递该参数, EntryPoints 在运行子节点时会同步至数据库，因此此处不包含这两个字段
 	return schema.DagView{
-		DagName:    drt.componentName,
-		Deps:       deps,
-		Parameters: paramters,
-		Artifacts:  drt.component.GetArtifacts(),
-		StartTime:  drt.startTime,
-		EndTime:    drt.endTime,
-		Status:     drt.status,
-		Message:    msg,
+		DagName:     drt.componentName,
+		Deps:        deps,
+		Parameters:  paramters,
+		Artifacts:   drt.component.GetArtifacts(),
+		StartTime:   drt.startTime,
+		EndTime:     drt.endTime,
+		Status:      drt.status,
+		Message:     msg,
+		ParentDagID: drt.parentDagID,
 	}
 }
 
 // newDagViewFromWorkFlowSourceDag: 从WorkflowSourceDag 生成 DagView
 // 如果是生成 对应的 dagRuntime 失败，则会调用该函数来生成对应 DagView
-func newDagViewFromWorkFlowSourceDag(dag *schema.WorkflowSourceDag, dagName string, msg string, status RuntimeStatus) schema.DagView {
+func newDagViewFromWorkFlowSourceDag(dag *schema.WorkflowSourceDag, dagName string, msg string,
+	status RuntimeStatus, parentDagID string) schema.DagView {
+
 	deps := strings.Join(dag.GetDeps(), string(','))
 
 	paramters := map[string]string{}
@@ -56,35 +59,19 @@ func newDagViewFromWorkFlowSourceDag(dag *schema.WorkflowSourceDag, dagName stri
 
 	// DAGID 在写库时生成，因此，此处并不会传递该参数, EntryPoints 在运行子节点时会同步至数据库，由于节点都没有运行，因此也就不会有starttime 和 endtime 属性
 	return schema.DagView{
-		DagName:    dagName,
-		Deps:       deps,
-		Parameters: paramters,
-		Artifacts:  dag.GetArtifacts(),
-		Status:     status,
-		Message:    msg,
+		ParentDagID: parentDagID,
+		DagName:     dagName,
+		Deps:        deps,
+		Parameters:  paramters,
+		Artifacts:   dag.GetArtifacts(),
+		Status:      status,
+		Message:     msg,
 	}
 }
 
-/*
-type JobView struct {
-	JobID      string            `json:"jobID"`
-	JobName    string            `json:"name"`
-	Command    string            `json:"command"`
-	Parameters map[string]string `json:"parameters"`
-	Env        map[string]string `json:"env"`
-	StartTime  string            `json:"startTime"`
-	EndTime    string            `json:"endTime"`
-	Status     JobStatus         `json:"status"`
-	Deps       string            `json:"deps"`
-	DockerEnv  string            `json:"dockerEnv"`
-	Artifacts  Artifacts         `json:"artifacts"`
-	Cache      Cache             `json:"cache"`
-	JobMessage string            `json:"jobMessage"`
-	CacheRunID string            `json:"cacheRunID"`
-}
-*/
 // newJobViewFromWorkFlowSourceStep: 从 WorkflowSouceStep 生成 JobView
-func newStepViewFromWorkFlowSourceStep(step schema.WorkflowSourceStep, stepName, msg string, status RuntimeStatus, config *runConfig) schema.JobView {
+func newStepViewFromWorkFlowSourceStep(step *schema.WorkflowSourceStep, stepName,
+	msg string, status RuntimeStatus, config *runConfig, parentDagID string) schema.JobView {
 	jobName := generateJobName(config.runID, stepName, 0)
 	params := map[string]string{}
 
@@ -93,13 +80,14 @@ func newStepViewFromWorkFlowSourceStep(step schema.WorkflowSourceStep, stepName,
 	}
 
 	return schema.JobView{
-		JobName:    jobName,
-		Command:    step.Command,
-		Parameters: params,
-		Env:        step.Env,
-		Status:     status,
-		Deps:       step.Deps,
-		Artifacts:  step.Artifacts,
-		JobMessage: msg,
+		JobName:     jobName,
+		Command:     step.Command,
+		Parameters:  params,
+		Env:         step.Env,
+		Status:      status,
+		Deps:        step.Deps,
+		Artifacts:   step.Artifacts,
+		JobMessage:  msg,
+		ParentDagID: parentDagID,
 	}
 }

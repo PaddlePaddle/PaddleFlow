@@ -61,7 +61,11 @@ func (atf *Artifacts) ValidateOutputMapByList() error {
 type Component interface {
 	GetDeps() []string
 	GetArtifacts() Artifacts
+	GetArtifactPath(artName string) (string, error)
+	GetInputArtifactPath(artName string) (string, error)
+	GetOutputArtifactPath(artName string) (string, error)
 	GetParameters() map[string]interface{}
+	GetParameterValue(paramName string) (interface{}, error)
 	GetCondition() string
 	GetLoopArgument() interface{}
 
@@ -120,6 +124,55 @@ func (s *WorkflowSourceStep) UpdateLoopArguemt(loopArgument interface{}) {
 	s.LoopArgument = loopArgument
 }
 
+// 获取 artifact 的路径
+func (s *WorkflowSourceStep) GetArtifactPath(artName string) (string, error) {
+	path, err := s.GetInputArtifactPath(artName)
+	if err == nil {
+		return path, err
+	}
+
+	path, err = s.GetOutputArtifactPath(artName)
+	if err == nil {
+		return path, err
+	}
+
+	err = fmt.Errorf("there is no artifact named [%s] in this component", artName)
+	return "", err
+}
+
+// 获取指定 parameter 的值
+func (s *WorkflowSourceStep) GetParameterValue(paramName string) (interface{}, error) {
+	value, ok := s.Parameters[paramName]
+	if !ok {
+		err := fmt.Errorf("there is no parameter named [%s] in this component", paramName)
+		return nil, err
+	}
+
+	return value, nil
+}
+
+// 获取 输入artifact的存储路径
+func (s *WorkflowSourceStep) GetInputArtifactPath(artName string) (string, error) {
+	path, ok := s.Artifacts.Input[artName]
+	if !ok {
+		err := fmt.Errorf("there is no input artifact named [%s] in this component", artName)
+		return "", err
+	}
+
+	return path, nil
+}
+
+// 获取输出artifact的存储路径
+func (s *WorkflowSourceStep) GetOutputArtifactPath(artName string) (string, error) {
+	path, ok := s.Artifacts.Output[artName]
+	if !ok {
+		err := fmt.Errorf("there is no output artifact named [%s] in this component", artName)
+		return "", err
+	}
+
+	return path, nil
+}
+
 type WorkflowSourceDag struct {
 	LoopArgument interface{}            `yaml:"loop_argument"`
 	Condition    string                 `yaml:"condition"`
@@ -169,6 +222,55 @@ func (d *WorkflowSourceDag) UpdateLoopArguemt(loopArgument interface{}) {
 func (d *WorkflowSourceDag) GetSubComponet(subComponentName string) (Component, bool) {
 	sc, ok := d.EntryPoints[subComponentName]
 	return sc, ok
+}
+
+// 获取 artifact 的路径
+func (d *WorkflowSourceDag) GetArtifactPath(artName string) (string, error) {
+	path, err := d.GetInputArtifactPath(artName)
+	if err == nil {
+		return path, err
+	}
+
+	path, err = d.GetOutputArtifactPath(artName)
+	if err == nil {
+		return path, err
+	}
+
+	err = fmt.Errorf("there is no artifact named [%s] in this component", artName)
+	return "", err
+}
+
+// 获取指定 parameter 的值
+func (d *WorkflowSourceDag) GetParameterValue(paramName string) (interface{}, error) {
+	value, ok := d.Parameters[paramName]
+	if !ok {
+		err := fmt.Errorf("there is no parameter named [%s] in this component", paramName)
+		return nil, err
+	}
+
+	return value, nil
+}
+
+// 获取 输入artifact的存储路径
+func (d *WorkflowSourceDag) GetInputArtifactPath(artName string) (string, error) {
+	path, ok := d.Artifacts.Input[artName]
+	if !ok {
+		err := fmt.Errorf("there is no input artifact named [%s] in this component", artName)
+		return "", err
+	}
+
+	return path, nil
+}
+
+// 获取输出artifact的存储路径
+func (d *WorkflowSourceDag) GetOutputArtifactPath(artName string) (string, error) {
+	path, ok := d.Artifacts.Output[artName]
+	if !ok {
+		err := fmt.Errorf("there is no output artifact named [%s] in this component", artName)
+		return "", err
+	}
+
+	return path, nil
 }
 
 type Cache struct {

@@ -155,10 +155,13 @@ type baseComponentRuntime struct {
 
 	// 系统环境变量的值
 	sysParams map[string]string
+
+	// 父节点ID
+	parentDagID string
 }
 
 func NewBaseComponentRuntime(name string, fullname string, component schema.Component, seq int, ctx context.Context,
-	eventChannel chan<- WorkflowEvent, config *runConfig) *baseComponentRuntime {
+	eventChannel chan<- WorkflowEvent, config *runConfig, parentDagID string) *baseComponentRuntime {
 
 	cr := &baseComponentRuntime{
 		componentName:        name,
@@ -169,6 +172,7 @@ func NewBaseComponentRuntime(name string, fullname string, component schema.Comp
 		sendEventToParent:    eventChannel,
 		receiveEventChildren: make(chan WorkflowEvent),
 		runConfig:            config,
+		parentDagID:          parentDagID,
 	}
 
 	isv := NewInnerSolver(component, fullname, config)
@@ -300,10 +304,11 @@ func (crt *baseComponentRuntime) CalculateCondition() (bool, error) {
 
 func (crt *baseComponentRuntime) syncToApiServerAndParent(wv WfEventValue, view schema.ComponentView, msg string) {
 	extra := map[string]interface{}{
-		common.WfEventKeyRunID:  crt.runID,
-		common.WfEventKeyPK:     crt.pk,
-		common.WfEventKeyStatus: crt.status,
-		common.WfEventKeyView:   view,
+		common.WfEventKeyRunID:         crt.runID,
+		common.WfEventKeyPK:            crt.pk,
+		common.WfEventKeyStatus:        crt.status,
+		common.WfEventKeyView:          view,
+		common.WfEventKeyComponentName: crt.componentName,
 	}
 
 	event := NewWorkflowEvent(wv, msg, extra)
