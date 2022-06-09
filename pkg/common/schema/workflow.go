@@ -22,6 +22,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
@@ -223,8 +224,54 @@ func (wfs *WorkflowSource) IsDisabled(stepName string) (bool, error) {
 	return false, nil
 }
 
-func (wfs *WorkflowSource) HasStep(step string) bool {
-	return true
+// 递归的检查absoluteName对应的Component是否存在
+func (wfs *WorkflowSource) HasStep(components map[string]Component, absoluteName string) bool {
+	// nameList := strings.SplitN(absoluteName, ".", 2)
+	// if len(nameList) > 1 {
+	// 	if dag, ok := component.(*WorkflowSourceDag); ok {
+	// 		if name == nameList[0] {
+	// 			return wfs.hasStep(dag.EntryPoints, )
+	// 		}
+	// 	}
+	// }
+
+	nameList := strings.SplitN(absoluteName, ".", 2)
+	if len(nameList) > 1 {
+		if component, ok := components[nameList[0]]; ok {
+			if dag, ok := component.(*WorkflowSourceDag); ok {
+				return wfs.HasStep(dag.EntryPoints, nameList[1])
+			} else if step, ok := component.(*WorkflowSourceStep); ok {
+				// 如果为step，检查是否有引用Source.Components中的节点
+				reference := step.Reference
+				for {
+					if referedComponent, ok := wfs.Components[reference]; ok {
+						if dag, ok := referedComponent.(*WorkflowSourceDag); ok {
+							// 检查Source.Components中的节点，如果它是一个dag，那就继续向下遍历子节点
+							return wfs.HasStep(dag.EntryPoints, nameList[1])
+						} else if step, ok := referedComponent.(*WorkflowSourceStep); ok {
+							// 如果是step，那就看是否继续ref了其他component
+							reference = step.Reference
+							continue
+						} else {
+							logger.Logger().Errorf("a component not dag or step")
+							return false
+						}
+					} else {
+						return false
+					}
+				}
+			} else {
+				logger.Logger().Errorf("a component not dag or step")
+				return false
+			}
+		} else {
+			return false
+		}
+
+		wfs.HasStep()
+	}
+	wfs.EntryPoints.EntryPoints
+	return false
 }
 
 func parseArtifactsOfSteps(steps map[string]*WorkflowSourceStep) (map[string]*WorkflowSourceStep, error) {
