@@ -17,11 +17,13 @@ limitations under the License.
 package v1
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/go-chi/chi"
 	"github.com/go-playground/validator/v10"
 	log "github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	api "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/fs"
@@ -58,14 +60,26 @@ func (pr *PFSRouter) createFsMount(w http.ResponseWriter, r *http.Request) {
 
 	ctx.Logging().Debugf("create file system cache with req[%v]", req)
 
-	err = validateCreateMount(&ctx, &req)
+	fsID := common.ID(req.Username, req.FsName)
+	mountID := api.GetMountID(req.ClusterID, req.NodeName, req.MountPoint)
+
+	fsMount := &models.FsMount{
+		FsID:       fsID,
+		MountPoint: req.MountPoint,
+		MountID:    mountID,
+		NodeName:   req.NodeName,
+		ClusterID:  req.ClusterID,
+	}
+
+	err = validateCreateMount(&ctx, &req, fsMount)
 	if err != nil {
+		ctx.ErrorMessage = fmt.Sprintf("%v mount exists, cannot be created repeatedly", fsMount)
 		ctx.Logging().Errorf("validateCreateMount failed: [%v]", err)
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
 
-	err = api.CreateMount(&ctx, req)
+	err = api.CreateMount(&ctx, fsMount)
 	if err != nil {
 		ctx.Logging().Errorf("create mount with service error[%v]", err)
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
@@ -75,7 +89,7 @@ func (pr *PFSRouter) createFsMount(w http.ResponseWriter, r *http.Request) {
 	common.RenderStatus(w, http.StatusCreated)
 }
 
-func validateCreateMount(ctx *logger.RequestContext, req *api.CreateMountRequest) error {
+func validateCreateMount(ctx *logger.RequestContext, req *api.CreateMountRequest, fsMount *models.FsMount) error {
 	validate := validator.New()
 	err := validate.Struct(req)
 	if err != nil {
@@ -83,6 +97,15 @@ func validateCreateMount(ctx *logger.RequestContext, req *api.CreateMountRequest
 			ctx.ErrorCode = common.InappropriateJSON
 			return err
 		}
+	}
+	result, err := fsMount.GetMount(fsMount)
+	if result != nil {
+		ctx.ErrorCode = common.InvalidHTTPRequest
+		return fmt.Errorf("mount path exist")
+	}
+	if err != nil && err != gorm.ErrRecordNotFound {
+		ctx.ErrorCode = common.FileSystemDataBaseError
+		return err
 	}
 	return nil
 }
