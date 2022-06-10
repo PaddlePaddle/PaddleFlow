@@ -19,7 +19,6 @@ package fs
 import (
 	"crypto/md5"
 	"encoding/hex"
-	"fmt"
 	"time"
 
 	"gorm.io/gorm"
@@ -70,24 +69,25 @@ type MountResponse struct {
 }
 
 func CreateMount(ctx *logger.RequestContext, fsMount *models.FsMount) error {
-	result, err := fsMount.GetMountWithDelete(fsMount)
-	fmt.Println("get result", result)
-	fmt.Println(err)
-	if err == gorm.ErrRecordNotFound {
-		err = fsMount.Add(fsMount)
-		if err != nil {
-			ctx.ErrorCode = common.InternalError
-			ctx.Logging().Errorf("create mount with req[%v] err:%v", fsMount, err)
-			return err
+	_, err := fsMount.GetMountWithDelete(fsMount)
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			err = fsMount.Add(fsMount)
+			if err != nil {
+				ctx.ErrorCode = common.InternalError
+				ctx.Logging().Errorf("create mount with req[%v] err:%v", fsMount, err)
+				return err
+			}
+			return nil
 		}
-	} else {
-		fsMount.DeletedAt = gorm.DeletedAt{}
-		err = fsMount.UpdateMount(fsMount)
-		if err != nil {
-			ctx.ErrorCode = common.InternalError
-			ctx.Logging().Errorf("create mount with req[%v] err:%v", fsMount, err)
-			return err
-		}
+		return err
+	}
+	fsMount.DeletedAt = gorm.DeletedAt{}
+	err = fsMount.UpdateMount(fsMount)
+	if err != nil {
+		ctx.ErrorCode = common.InternalError
+		ctx.Logging().Errorf("create mount with req[%v] err:%v", fsMount, err)
+		return err
 	}
 	return err
 }
