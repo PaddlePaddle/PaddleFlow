@@ -3,8 +3,10 @@
 ## 1. create
 **快速安装paddleflow-server**
 ```shell
-# 快速安装方式使用sqlite
-touch /mnt/paddleflow.db && chmod 666 /mnt/paddleflow.db && kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.2/installer/deploys/paddleflow-server/paddleflow-server-deploy.yaml
+# 初始化sqlite
+touch /mnt/paddleflow.db && chmod 666 /mnt/paddleflow.db
+# 部署
+kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.2/installer/deploys/paddleflow-server/paddleflow-server-deploy.yaml
 ```
 
 **指定数据库为mysql并安装(推荐)**

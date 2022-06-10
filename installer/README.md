@@ -40,7 +40,13 @@ paddleflow-csi-plugin提供的功能主要包括存储资源管理。</br>
 
 ### 2.2 快速部署
 
-1. 检查 `kubelet root-dir` 路径
+1. 准备一个具有写权限的sqlite数据库,路径默认位于`/mnt/paddleflow.db`
+
+```shell
+touch /mnt/paddleflow.db && chmod 666 /mnt/paddleflow.db
+```
+
+2. 检查 `kubelet root-dir` 路径
 
 在 Kubernetes 集群中任意一个非 Master 节点上执行以下命令：
 
@@ -48,12 +54,12 @@ paddleflow-csi-plugin提供的功能主要包括存储资源管理。</br>
 ps -ef | grep kubelet | grep root-dir
 ```
 
-2. 部署
+3. 部署
 
 **如果前面检查命令返回的结果不为空**，则代表 kubelet 的 root-dir 路径不是默认值，因此需要在 CSI Driver 的部署文件中更新 `kubeletDir` 路径并部署：
 ```shell
 # Kubernetes version >= v1.16
-touch /mnt/paddleflow.db && chmod 666 /mnt/paddleflow.db && curl -sSL https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.2/installer/paddleflow-deployment.yaml | sed 's@/var/lib/kubelet@{{KUBELET_DIR}}@g' | kubectl apply -f -
+curl -sSL https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.2/installer/paddleflow-deployment.yaml | sed 's@/var/lib/kubelet@{{KUBELET_DIR}}@g' | kubectl apply -f -
 ```
 
 > **注意**: 请将上述命令中 `{{KUBELET_DIR}}` 替换成 kubelet 当前的根目录路径。
@@ -62,15 +68,18 @@ touch /mnt/paddleflow.db && chmod 666 /mnt/paddleflow.db && curl -sSL https://ra
 
 ```shell
 # 执行部署
-touch /mnt/paddleflow.db && chmod 666 /mnt/paddleflow.db && kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.2/installer/paddleflow-deployment.yaml
+kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.2/installer/paddleflow-deployment.yaml
 ```
 ### 2.3 自定义安装
 #### 2.3.1 安装paddleflow-server
 
 **快速安装paddleflow-server**
+
 ```shell
-# 快速安装方式使用sqlite
-touch /mnt/paddleflow.db && chmod 666 /mnt/paddleflow.db && kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.2/installer/deploys/paddleflow-server/paddleflow-server-deploy.yaml
+# 使用sqlite方式,首先需要创建sqlite文件并赋予写权限
+touch /mnt/paddleflow.db && chmod 666 /mnt/paddleflow.db
+# 创建基于sqlite的PaddleFlow-erver
+kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.2/installer/deploys/paddleflow-server/paddleflow-server-deploy.yaml
 ```
 
 **指定数据库为mysql并安装(推荐)**
@@ -114,7 +123,7 @@ kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/rele
 
 #### 2.3.3 安装volcano
 ```shell
-kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.2/installer/deploys/pf-volcano/pf-volcano-deploy.yaml
+kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.2/installer/deploys/volcano/pf-volcano-deploy.yaml
 ```
 
 ### 2.4 服务端部署包说明
