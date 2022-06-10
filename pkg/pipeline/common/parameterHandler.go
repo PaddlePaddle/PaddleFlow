@@ -243,68 +243,68 @@ func (s *StepParamSolver) resolveParamValue(step string, paramName string, param
 // env 支持平台内置参数替换，上游step的parameter依赖替换，当前step的parameter替换
 // command 支持平台内置参数替换，上游step的parameter依赖替换，当前step的parameter替换，当前step内input artifact、当前step内output artifact替换
 func (s *StepParamSolver) resolveRefParam(stepName, param, fieldType string) (interface{}, error) {
-	// regular expression must match case {{ xxx }} like {{ <step-name>.<param_name> }} or {{ PS_RUN_ID }}
-	pattern := RegExpIncludingTpl
-	reg := regexp.MustCompile(pattern)
+	// // regular expression must match case {{ xxx }} like {{ <step-name>.<param_name> }} or {{ PS_RUN_ID }}
+	// pattern := RegExpIncludingTpl
+	// reg := regexp.MustCompile(pattern)
 
-	matches := reg.FindAllStringSubmatch(param, -1)
+	// matches := reg.FindAllStringSubmatch(param, -1)
 	result := param
-	for index := range matches {
-		row := matches[index]
-		if len(row) != 4 {
-			err := MismatchRegexError(param, pattern)
-			return "", err
-		}
-		var tmpVal string
-		refStepName, refParamName := ParseParamName(row[2])
-		if len(refStepName) == 0 {
-			// 分别替换系统参数，如{{PF_RUN_ID}}；当前step parameter；当前step的input artifact；当前step的output artifact
-			// 只有param，env，command三类变量需要处理
+	// for index := range matches {
+	// 	row := matches[index]
+	// 	if len(row) != 4 {
+	// 		err := MismatchRegexError(param, pattern)
+	// 		return "", err
+	// 	}
+	// 	var tmpVal string
+	// 	refStepName, refParamName := ParseParamName(row[2])
+	// 	if len(refStepName) == 0 {
+	// 		// 分别替换系统参数，如{{PF_RUN_ID}}；当前step parameter；当前step的input artifact；当前step的output artifact
+	// 		// 只有param，env，command三类变量需要处理
 
-			currentStep, ok := s.stepParamChecker.getWorkflowSourceStep(stepName)
-			if !ok {
-				return nil, fmt.Errorf("check param reference[%s] failed: %s no exists", param, stepName)
-			}
+	// 		currentStep, ok := s.stepParamChecker.getWorkflowSourceStep(stepName)
+	// 		if !ok {
+	// 			return nil, fmt.Errorf("check param reference[%s] failed: %s no exists", param, stepName)
+	// 		}
 
-			tmpVal, ok = s.stepParamChecker.getSysParam(refParamName)
-			if !ok {
-				if fieldType == FieldParameters {
-					return "", fmt.Errorf("unsupported SysParamName[%s] for param[%s] of filedType[%s]", refParamName, param, fieldType)
-				}
-				tmpVal2, ok := currentStep.Parameters[refParamName]
-				if !ok {
-					if fieldType == FieldEnv {
-						return "", fmt.Errorf("unsupported RefParamName[%s] for param[%s] of filedType[%s]", refParamName, param, fieldType)
-					}
+	// 		tmpVal, ok = s.stepParamChecker.getSysParam(refParamName)
+	// 		if !ok {
+	// 			if fieldType == FieldParameters {
+	// 				return "", fmt.Errorf("unsupported SysParamName[%s] for param[%s] of filedType[%s]", refParamName, param, fieldType)
+	// 			}
+	// 			tmpVal2, ok := currentStep.Parameters[refParamName]
+	// 			if !ok {
+	// 				if fieldType == FieldEnv {
+	// 					return "", fmt.Errorf("unsupported RefParamName[%s] for param[%s] of filedType[%s]", refParamName, param, fieldType)
+	// 				}
 
-					// 处理command逻辑，command 可以引用 system parameter + step 内的 parameter + artifact
-					tmpVal, ok = currentStep.Artifacts.Input[refParamName]
-					if !ok {
-						tmpVal, ok = currentStep.Artifacts.Output[refParamName]
-						if !ok {
-							return "", fmt.Errorf("unsupported RefParamName[%s] for param[%s] of filedType[%s]", refParamName, param, fieldType)
-						}
+	// 				// 处理command逻辑，command 可以引用 system parameter + step 内的 parameter + artifact
+	// 				tmpVal, ok = currentStep.Artifacts.Input[refParamName]
+	// 				if !ok {
+	// 					tmpVal, ok = currentStep.Artifacts.Output[refParamName]
+	// 					if !ok {
+	// 						return "", fmt.Errorf("unsupported RefParamName[%s] for param[%s] of filedType[%s]", refParamName, param, fieldType)
+	// 					}
 
-						// 如果替换参数是用于计算fingerprint的话，不会替换当前节点output artifact的值
-						// 目前只有command中会替换当前节点output artifact的值
-						if s.forCacheFingerprint {
-							tmpVal = row[0]
-						}
-					}
-				} else {
-					tmpVal = fmt.Sprintf("%v", tmpVal2)
-				}
-			}
-		} else {
-			tmpVal2, err := s.refParamExist(stepName, refStepName, refParamName, fieldType)
-			if err != nil {
-				return nil, err
-			}
-			tmpVal = fmt.Sprintf("%v", tmpVal2)
-		}
+	// 					// 如果替换参数是用于计算fingerprint的话，不会替换当前节点output artifact的值
+	// 					// 目前只有command中会替换当前节点output artifact的值
+	// 					if s.forCacheFingerprint {
+	// 						tmpVal = row[0]
+	// 					}
+	// 				}
+	// 			} else {
+	// 				tmpVal = fmt.Sprintf("%v", tmpVal2)
+	// 			}
+	// 		}
+	// 	} else {
+	// 		tmpVal2, err := s.refParamExist(stepName, refStepName, refParamName, fieldType)
+	// 		if err != nil {
+	// 			return nil, err
+	// 		}
+	// 		tmpVal = fmt.Sprintf("%v", tmpVal2)
+	// 	}
 
-		result = strings.Replace(result, row[0], tmpVal, -1)
-	}
+	// 	result = strings.Replace(result, row[0], tmpVal, -1)
+	// }
 	return result, nil
 }
 
@@ -522,52 +522,52 @@ func (s *StepParamChecker) checkParamValue(step string, paramName string, param 
 // env 支持平台内置参数替换，上游step的parameter依赖替换，当前step的parameter替换
 // command 支持平台内置参数替换，上游step的parameter依赖替换，当前step的parameter替换，当前step内input artifact、当前step内output artifact替换
 func (s *StepParamChecker) resolveRefParam(step, param, fieldType string) error {
-	// regular expression must match case {{ xxx }} like {{ <step-name>.<param_name> }} or {{ PS_RUN_ID }}
-	pattern := RegExpIncludingTpl
-	reg := regexp.MustCompile(pattern)
-	matches := reg.FindAllStringSubmatch(param, -1)
-	for _, row := range matches {
-		if len(row) != 4 {
-			return MismatchRegexError(param, pattern)
-		}
+	// // regular expression must match case {{ xxx }} like {{ <step-name>.<param_name> }} or {{ PS_RUN_ID }}
+	// pattern := RegExpIncludingTpl
+	// reg := regexp.MustCompile(pattern)
+	// matches := reg.FindAllStringSubmatch(param, -1)
+	// for _, row := range matches {
+	// 	if len(row) != 4 {
+	// 		return MismatchRegexError(param, pattern)
+	// 	}
 
-		refStep, refParamName := ParseParamName(row[2])
-		if len(refStep) == 0 {
-			// 分别替换系统参数，如{{PF_RUN_ID}}；当前step parameter；当前step的input artifact；当前step的output artifact
-			// 只有param，env，command三类变量需要处理
-			if !s.useFs && (refParamName == SysParamNamePFFsID || refParamName == SysParamNamePFFsName) {
-				return fmt.Errorf("cannot use sysParam[%s] template in step[%s] for pipeline run with no Fs mounted", refParamName, step)
-			}
+	// 	refStep, refParamName := ParseParamName(row[2])
+	// 	if len(refStep) == 0 {
+	// 		// 分别替换系统参数，如{{PF_RUN_ID}}；当前step parameter；当前step的input artifact；当前step的output artifact
+	// 		// 只有param，env，command三类变量需要处理
+	// 		if !s.useFs && (refParamName == SysParamNamePFFsID || refParamName == SysParamNamePFFsName) {
+	// 			return fmt.Errorf("cannot use sysParam[%s] template in step[%s] for pipeline run with no Fs mounted", refParamName, step)
+	// 		}
 
-			var ok bool
-			_, ok = s.sysParams[refParamName]
-			if !ok {
-				if fieldType == FieldParameters {
-					return fmt.Errorf("unsupported SysParamName[%s] for param[%s] of filedType[%s]", refParamName, param, fieldType)
-				}
-				_, ok := s.steps[step].Parameters[refParamName]
-				if !ok {
-					if fieldType == FieldEnv {
-						return fmt.Errorf("unsupported RefParamName[%s] for param[%s] of filedType[%s]", refParamName, param, fieldType)
-					}
+	// 		var ok bool
+	// 		_, ok = s.sysParams[refParamName]
+	// 		if !ok {
+	// 			if fieldType == FieldParameters {
+	// 				return fmt.Errorf("unsupported SysParamName[%s] for param[%s] of filedType[%s]", refParamName, param, fieldType)
+	// 			}
+	// 			_, ok := s.steps[step].Parameters[refParamName]
+	// 			if !ok {
+	// 				if fieldType == FieldEnv {
+	// 					return fmt.Errorf("unsupported RefParamName[%s] for param[%s] of filedType[%s]", refParamName, param, fieldType)
+	// 				}
 
-					// 处理command逻辑，command 可以引用 system parameter + step 内的 parameter + artifact
-					_, ok = s.steps[step].Artifacts.Input[refParamName]
-					if !ok {
-						_, ok = s.steps[step].Artifacts.Output[refParamName]
-						if !ok {
-							return fmt.Errorf("unsupported RefParamName[%s] for param[%s] of filedType[%s]", refParamName, param, fieldType)
-						}
-					}
-				}
-			}
-		} else {
-			err := s.refParamExist(step, refStep, refParamName, fieldType)
-			if err != nil {
-				return err
-			}
-		}
-	}
+	// 				// 处理command逻辑，command 可以引用 system parameter + step 内的 parameter + artifact
+	// 				_, ok = s.steps[step].Artifacts.Input[refParamName]
+	// 				if !ok {
+	// 					_, ok = s.steps[step].Artifacts.Output[refParamName]
+	// 					if !ok {
+	// 						return fmt.Errorf("unsupported RefParamName[%s] for param[%s] of filedType[%s]", refParamName, param, fieldType)
+	// 					}
+	// 				}
+	// 			}
+	// 		}
+	// 	} else {
+	// 		err := s.refParamExist(step, refStep, refParamName, fieldType)
+	// 		if err != nil {
+	// 			return err
+	// 		}
+	// 	}
+	// }
 	return nil
 }
 

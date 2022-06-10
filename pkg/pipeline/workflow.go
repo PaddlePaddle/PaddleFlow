@@ -69,10 +69,19 @@ func (bwf *BaseWorkflow) log() *logrus.Entry {
 }
 
 func (bwf *BaseWorkflow) checkDeps() error {
-	for name, step := range bwf.Source.EntryPoints {
-		for _, dep := range step.GetDeps() {
-			if _, ok := bwf.Source.EntryPoints[dep]; !ok {
-				return fmt.Errorf("step [%s] has an wrong dep [%s]", name, dep)
+	return bwf.checkDepsRecursively(bwf.Source.EntryPoints.EntryPoints)
+}
+
+func (bwf *BaseWorkflow) checkDepsRecursively(components map[string]schema.Component) error {
+	for name, component := range components {
+		for _, dep := range component.GetDeps() {
+			if _, ok := components[dep]; !ok {
+				return fmt.Errorf("component [%s] has an wrong dep [%s]", name, dep)
+			}
+		}
+		if dag, ok := component.(*schema.WorkflowSourceDag); ok {
+			if err := bwf.checkDepsRecursively(dag.EntryPoints); err != nil {
+				return err
 			}
 		}
 	}
@@ -505,7 +514,6 @@ func (bwf *BaseWorkflow) checkSteps() error {
 		SysParamNamePFStepName: "",
 		SysParamNamePFFsName:   "",
 		SysParamNamePFUserName: "",
-		SysParamNamePFRuntime:  "",
 	}
 	steps := map[string]*schema.WorkflowSourceStep{}
 	for name, step := range bwf.runtimeSteps {
@@ -520,6 +528,7 @@ func (bwf *BaseWorkflow) checkSteps() error {
 		disabledSteps: disabledSteps,
 		useFs:         useFs,
 	}
+
 	for _, step := range steps {
 		bwf.log().Debugln(step)
 	}
