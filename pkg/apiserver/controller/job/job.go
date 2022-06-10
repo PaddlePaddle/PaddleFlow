@@ -533,32 +533,20 @@ func DeleteJob(ctx *logger.RequestContext, jobID string) error {
 	job, err := models.GetJobByID(jobID)
 	if err != nil {
 		ctx.ErrorCode = common.JobNotFound
-		log.Errorf("get job from database failed, err: %v", err)
-		return err
+		msg := fmt.Sprintf("get job %s failed, err: %v", jobID, err)
+		log.Errorf(msg)
+		return fmt.Errorf(msg)
 	}
-	// check job status
+	// check job status before delete
 	if !schema.IsImmutableJobStatus(job.Status) {
 		ctx.ErrorCode = common.ActionNotAllowed
 		msg := fmt.Sprintf("job %s status is %s, please stop it first.", jobID, job.Status)
 		log.Errorf(msg)
 		return fmt.Errorf(msg)
 	}
-	runtimeSvc, err := getRuntimeByQueue(ctx, job.QueueID)
-	if err != nil {
-		log.Errorf("get runtime by queue failed, err: %v", err)
-		return err
-	}
-	pfjob, err := api.NewJobInfo(&job)
-	if err != nil {
-		return err
-	}
-	err = runtimeSvc.DeleteJob(pfjob)
-	if err != nil {
-		log.Errorf("delete job %s from cluster failed, err: %v", jobID, err)
-		return err
-	}
 	err = models.DeleteJob(jobID)
 	if err != nil {
+		ctx.ErrorCode = common.InternalError
 		log.Errorf("delete job %s from cluster failed, err: %v", jobID, err)
 		return err
 	}
