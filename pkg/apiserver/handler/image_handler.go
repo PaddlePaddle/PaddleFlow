@@ -35,7 +35,6 @@ import (
 	"github.com/smallnest/chanx"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 )
@@ -396,12 +395,8 @@ func (handler *ImageHandler) processHandleInfo(handleInfo imageHandleInfo) {
 			runID := handleInfo.runID
 			errmsg := fmt.Sprintf("imageHandler process failed, %v", info)
 			logger.LoggerForRun(runID).Errorf(errmsg)
-			updateRun := models.Run{
-				Status:  common.StatusRunFailed,
-				Message: errmsg,
-			}
-			if err := models.UpdateRun(logger.LoggerForRun(runID), runID, updateRun); err != nil {
-				logger.LoggerForRun(runID).Errorf("update run status after imageHandler panic, error: %v", err)
+			if err := handleInfo.cb(ImageInfo{RunID: runID}, fmt.Errorf("%v", info)); err != nil {
+				logger.LoggerForRun(runID).Errorf("update run status by cb after imageHandler panic, error: %v", err)
 			}
 		}
 	}()
