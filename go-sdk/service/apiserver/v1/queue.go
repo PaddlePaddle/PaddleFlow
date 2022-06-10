@@ -19,11 +19,12 @@ package v1
 import (
 	"context"
 	"strconv"
+	"time"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
-	queue_ "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/queue"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/core"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/util/http"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
 
 const (
@@ -35,9 +36,80 @@ type queue struct {
 	client *core.PaddleFlowClient
 }
 
-func (q *queue) Create(ctx context.Context, request *queue_.CreateQueueRequest,
-	token string) (result *queue_.CreateQueueResponse, err error) {
-	result = &queue_.CreateQueueResponse{}
+type Queue struct {
+	ID              string              `json:"id"`
+	CreatedAt       time.Time           `json:"-"`
+	UpdatedAt       time.Time           `json:"-"`
+	Pk              int64               `json:"-" gorm:"primaryKey;autoIncrement"`
+	Name            string              `json:"name" gorm:"uniqueIndex"`
+	Namespace       string              `json:"namespace" gorm:"column:"`
+	ClusterId       string              `json:"-" gorm:"column:cluster_id"`
+	ClusterName     string              `json:"clusterName" gorm:"column:cluster_name;->"`
+	QuotaType       string              `json:"quotaType"`
+	RawMinResources string              `json:"-" gorm:"column:min_resources;default:'{}'"`
+	MinResources    schema.ResourceInfo `json:"minResources" gorm:"-"`
+	RawMaxResources string              `json:"-" gorm:"column:max_resources;default:'{}'"`
+	MaxResources    schema.ResourceInfo `json:"maxResources" gorm:"-"`
+	RawLocation     string              `json:"-" gorm:"column:location;type:text;default:'{}'"`
+	Location        map[string]string   `json:"location" gorm:"-"`
+	// 任务调度策略
+	RawSchedulingPolicy string   `json:"-" gorm:"column:scheduling_policy"`
+	SchedulingPolicy    []string `json:"schedulingPolicy,omitempty" gorm:"-"`
+	Status              string   `json:"status"`
+}
+
+type CreateQueueRequest struct {
+	Name         string              `json:"name"`
+	Namespace    string              `json:"namespace"`
+	ClusterName  string              `json:"clusterName"`
+	QuotaType    string              `json:"quotaType"`
+	MaxResources schema.ResourceInfo `json:"maxResources"`
+	MinResources schema.ResourceInfo `json:"minResources"`
+	Location     map[string]string   `json:"location"`
+	// 任务调度策略
+	SchedulingPolicy []string `json:"schedulingPolicy,omitempty"`
+	Status           string   `json:"-"`
+}
+
+type UpdateQueueRequest struct {
+	Name         string              `json:"-"`
+	Namespace    string              `json:"-"`
+	ClusterName  string              `json:"-"`
+	QuotaType    string              `json:"-"`
+	MaxResources schema.ResourceInfo `json:"maxResources,omitempty"`
+	MinResources schema.ResourceInfo `json:"minResources,omitempty"`
+	Location     map[string]string   `json:"location,omitempty"`
+	// 任务调度策略
+	SchedulingPolicy []string `json:"schedulingPolicy,omitempty"`
+	Status           string   `json:"-"`
+}
+
+type CreateQueueResponse struct {
+	QueueName string `json:"name"`
+}
+
+type UpdateQueueResponse struct {
+	Queue
+}
+
+type GetQueueResponse struct {
+	Queue
+}
+
+type ListQueueRequest struct {
+	Marker    string
+	MaxKeys   int
+	QueueName string
+}
+
+type ListQueueResponse struct {
+	common.MarkerInfo
+	QueueList []Queue `json:"queueList"`
+}
+
+func (q *queue) Create(ctx context.Context, request *CreateQueueRequest,
+	token string) (result *CreateQueueResponse, err error) {
+	result = &CreateQueueResponse{}
 	err = core.NewRequestBuilder(q.client).
 		WithHeader(common.HeaderKeyAuthorization, token).
 		WithURL(QueueApi).
@@ -49,8 +121,8 @@ func (q *queue) Create(ctx context.Context, request *queue_.CreateQueueRequest,
 }
 
 func (q *queue) Get(ctx context.Context, queueName,
-	token string) (result *queue_.GetQueueResponse, err error) {
-	result = &queue_.GetQueueResponse{}
+	token string) (result *GetQueueResponse, err error) {
+	result = &GetQueueResponse{}
 	err = core.NewRequestBuilder(q.client).
 		WithHeader(common.HeaderKeyAuthorization, token).
 		WithURL(QueueApi + "/" + queueName).
@@ -63,9 +135,9 @@ func (q *queue) Get(ctx context.Context, queueName,
 	return
 }
 
-func (q *queue) List(ctx context.Context, request *queue_.ListQueueRequest,
-	token string) (result *queue_.ListQueueResponse, err error) {
-	result = &queue_.ListQueueResponse{}
+func (q *queue) List(ctx context.Context, request *ListQueueRequest,
+	token string) (result *ListQueueResponse, err error) {
+	result = &ListQueueResponse{}
 	err = core.NewRequestBuilder(q.client).
 		WithHeader(common.HeaderKeyAuthorization, token).
 		WithURL(QueueApi).
@@ -81,9 +153,9 @@ func (q *queue) List(ctx context.Context, request *queue_.ListQueueRequest,
 	return
 }
 
-func (q *queue) Update(ctx context.Context, queueName string, request *queue_.UpdateQueueRequest,
-	token string) (result *queue_.UpdateQueueResponse, err error) {
-	result = &queue_.UpdateQueueResponse{}
+func (q *queue) Update(ctx context.Context, queueName string, request *UpdateQueueRequest,
+	token string) (result *UpdateQueueResponse, err error) {
+	result = &UpdateQueueResponse{}
 	err = core.NewRequestBuilder(q.client).
 		WithHeader(common.HeaderKeyAuthorization, token).
 		WithURL(QueueApi + "/" + queueName).
@@ -108,10 +180,10 @@ type QueueGetter interface {
 }
 
 type QueueInterface interface {
-	Create(ctx context.Context, request *queue_.CreateQueueRequest, token string) (*queue_.CreateQueueResponse, error)
-	Get(ctx context.Context, queueName string, token string) (*queue_.GetQueueResponse, error)
-	List(ctx context.Context, request *queue_.ListQueueRequest, token string) (*queue_.ListQueueResponse, error)
-	Update(ctx context.Context, queueName string, request *queue_.UpdateQueueRequest, token string) (*queue_.UpdateQueueResponse, error)
+	Create(ctx context.Context, request *CreateQueueRequest, token string) (*CreateQueueResponse, error)
+	Get(ctx context.Context, queueName string, token string) (*GetQueueResponse, error)
+	List(ctx context.Context, request *ListQueueRequest, token string) (*ListQueueResponse, error)
+	Update(ctx context.Context, queueName string, request *UpdateQueueRequest, token string) (*UpdateQueueResponse, error)
 	Delete(ctx context.Context, queueName string, token string) error
 }
 
