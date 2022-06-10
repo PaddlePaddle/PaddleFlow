@@ -33,6 +33,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 	location_awareness "github.com/PaddlePaddle/PaddleFlow/pkg/fs/location-awareness"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/version"
 )
 
 var logConf = logger.LogConfig{
@@ -59,7 +60,7 @@ func main() {
 	app := &cli.App{
 		Name:                 "paddleflow-fs-cache-worker",
 		Usage:                "cache-worker for file system",
-		Version:              "1.0",
+		Version:              version.InfoStr(),
 		Copyright:            "Apache License 2.0",
 		HideHelpCommand:      true,
 		EnableBashCompletion: true,
