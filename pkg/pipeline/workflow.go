@@ -526,10 +526,10 @@ func (bwf *BaseWorkflow) checkSteps() error {
 		components[name] = step
 	}
 	paramChecker := StepParamChecker{
-		steps:         components,
-		sysParams:     sysParamNameMap,
-		disabledSteps: disabledSteps,
-		useFs:         useFs,
+		Components:    components,
+		SysParams:     sysParamNameMap,
+		DisabledSteps: disabledSteps,
+		UseFs:         useFs,
 	}
 	for _, component := range components {
 		bwf.log().Debugln(component)
