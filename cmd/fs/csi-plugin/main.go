@@ -33,7 +33,10 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/version"
 )
 
-const CsiContainerName = "csi-storage-driver"
+const (
+	CsiContainerName = "csi-storage-driver"
+	VolumeNameMnt    = "pfs-mnt"
+)
 
 var logConf = logger.LogConfig{
 	Dir:             "./log",
@@ -71,11 +74,17 @@ func init() {
 		if pod.Spec.Containers[i].Name == CsiContainerName {
 			csiconfig.MountImage = pod.Spec.Containers[i].Image
 			// csiconfig.ContainerResource = pod.Spec.Containers[i].Resources
-			return
 		}
 	}
-	log.Errorf("Can't get container csi-storage-driver in pod %s", csiconfig.PodName)
-	os.Exit(0)
+	for _, v := range pod.Spec.Volumes {
+		if v.Name == VolumeNameMnt {
+			csiconfig.HostMntDir = v.HostPath.Path
+		}
+	}
+	if csiconfig.HostMntDir == "" || csiconfig.MountImage == "" {
+		log.Fatalf("Can't get HostPath [pfs-mnt] or container [csi-storage-driver] in pod %s", csiconfig.PodName)
+		os.Exit(0)
+	}
 }
 
 func main() {
