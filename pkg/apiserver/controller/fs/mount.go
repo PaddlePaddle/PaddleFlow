@@ -19,7 +19,10 @@ package fs
 import (
 	"crypto/md5"
 	"encoding/hex"
+	"fmt"
 	"time"
+
+	"gorm.io/gorm"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
@@ -66,22 +69,25 @@ type MountResponse struct {
 	ClusterID  string `json:"clusterID"`
 }
 
-func CreateMount(ctx *logger.RequestContext, req CreateMountRequest) error {
-	fsID := common.ID(req.Username, req.FsName)
-	mountID := GetMountID(req.ClusterID, req.NodeName, req.MountPoint)
-
-	fsMount := &models.FsMount{
-		FsID:       fsID,
-		MountPoint: req.MountPoint,
-		MountID:    mountID,
-		NodeName:   req.NodeName,
-		ClusterID:  req.ClusterID,
-	}
-	err := fsMount.Add(fsMount)
-	if err != nil {
-		ctx.ErrorCode = common.InternalError
-		ctx.Logging().Errorf("create mount with req[%v] err:%v", req, err)
-		return err
+func CreateMount(ctx *logger.RequestContext, fsMount *models.FsMount) error {
+	result, err := fsMount.GetMountWithDelete(fsMount)
+	fmt.Println("get result", result)
+	fmt.Println(err)
+	if err == gorm.ErrRecordNotFound {
+		err = fsMount.Add(fsMount)
+		if err != nil {
+			ctx.ErrorCode = common.InternalError
+			ctx.Logging().Errorf("create mount with req[%v] err:%v", fsMount, err)
+			return err
+		}
+	} else {
+		fsMount.DeletedAt = gorm.DeletedAt{}
+		err = fsMount.UpdateMount(fsMount)
+		if err != nil {
+			ctx.ErrorCode = common.InternalError
+			ctx.Logging().Errorf("create mount with req[%v] err:%v", fsMount, err)
+			return err
+		}
 	}
 	return err
 }
