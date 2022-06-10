@@ -40,21 +40,21 @@ type Queue struct {
 	ID              string              `json:"id"`
 	CreatedAt       time.Time           `json:"-"`
 	UpdatedAt       time.Time           `json:"-"`
-	Pk              int64               `json:"-" gorm:"primaryKey;autoIncrement"`
-	Name            string              `json:"name" gorm:"uniqueIndex"`
-	Namespace       string              `json:"namespace" gorm:"column:"`
-	ClusterId       string              `json:"-" gorm:"column:cluster_id"`
-	ClusterName     string              `json:"clusterName" gorm:"column:cluster_name;->"`
+	Pk              int64               `json:"-"`
+	Name            string              `json:"name"`
+	Namespace       string              `json:"namespace"`
+	ClusterId       string              `json:"-"`
+	ClusterName     string              `json:"clusterName"`
 	QuotaType       string              `json:"quotaType"`
-	RawMinResources string              `json:"-" gorm:"column:min_resources;default:'{}'"`
-	MinResources    schema.ResourceInfo `json:"minResources" gorm:"-"`
-	RawMaxResources string              `json:"-" gorm:"column:max_resources;default:'{}'"`
-	MaxResources    schema.ResourceInfo `json:"maxResources" gorm:"-"`
-	RawLocation     string              `json:"-" gorm:"column:location;type:text;default:'{}'"`
-	Location        map[string]string   `json:"location" gorm:"-"`
+	RawMinResources string              `json:"-"`
+	MinResources    schema.ResourceInfo `json:"minResources"`
+	RawMaxResources string              `json:"-"`
+	MaxResources    schema.ResourceInfo `json:"maxResources"`
+	RawLocation     string              `json:"-"`
+	Location        map[string]string   `json:"location"`
 	// 任务调度策略
-	RawSchedulingPolicy string   `json:"-" gorm:"column:scheduling_policy"`
-	SchedulingPolicy    []string `json:"schedulingPolicy,omitempty" gorm:"-"`
+	RawSchedulingPolicy string   `json:"-"`
+	SchedulingPolicy    []string `json:"schedulingPolicy,omitempty"`
 	Status              string   `json:"status"`
 }
 

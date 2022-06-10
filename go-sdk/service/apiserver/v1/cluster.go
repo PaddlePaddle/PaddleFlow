@@ -80,19 +80,19 @@ type ClusterInfo struct {
 	ID               string
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
-	Pk               int64    `gorm:"primaryKey;autoIncrement" json:"-"`      // 自增主键
-	Name             string   `gorm:"column:name" json:"clusterName"`         // 集群名字
-	Description      string   `gorm:"column:description" json:"description"`  // 集群描述
-	Endpoint         string   `gorm:"column:endpoint" json:"endpoint"`        // 集群endpoint, 比如 http://10.11.11.47:8080
-	Source           string   `gorm:"column:source" json:"source"`            // 来源, 比如 OnPremise （内部部署）、AWS、CCE
-	ClusterType      string   `gorm:"column:cluster_type" json:"clusterType"` // 集群类型，比如Kubernetes/Local
-	Version          string   `gorm:"column:version" json:"version"`          // 集群版本，比如v1.16
-	Status           string   `gorm:"column:status" json:"status"`            // 集群状态，可选值为online, offline
-	Credential       string   `gorm:"column:credential" json:"credential"`    // 用于存储集群的凭证信息，比如k8s的kube_config配置
-	Setting          string   `gorm:"column:setting" json:"setting"`          // 存储额外配置信息
-	RawNamespaceList string   `gorm:"column:namespace_list" json:"-"`         // 命名空间列表，json类型，如["ns1", "ns2"]
-	NamespaceList    []string `gorm:"-" json:"namespaceList"`                 // 命名空间列表，json类型，如["ns1", "ns2"]
-	DeletedAt        string   `gorm:"column:deleted_at" json:"-"`             // 删除标识，非空表示软删除
+	Pk               int64    `json:"-"`             // 自增主键
+	Name             string   `json:"clusterName"`   // 集群名字
+	Description      string   `json:"description"`   // 集群描述
+	Endpoint         string   `json:"endpoint"`      // 集群endpoint, 比如 http://10.11.11.47:8080
+	Source           string   `json:"source"`        // 来源, 比如 OnPremise （内部部署）、AWS、CCE
+	ClusterType      string   `json:"clusterType"`   // 集群类型，比如Kubernetes/Local
+	Version          string   `json:"version"`       // 集群版本，比如v1.16
+	Status           string   `json:"status"`        // 集群状态，可选值为online, offline
+	Credential       string   `json:"credential"`    // 用于存储集群的凭证信息，比如k8s的kube_config配置
+	Setting          string   `json:"setting"`       // 存储额外配置信息
+	RawNamespaceList string   `json:"-"`             // 命名空间列表，json类型，如["ns1", "ns2"]
+	NamespaceList    []string `json:"namespaceList"` // 命名空间列表，json类型，如["ns1", "ns2"]
+	DeletedAt        string   `json:"-"`             // 删除标识，非空表示软删除
 }
 
 type GetClusterResponse struct {
