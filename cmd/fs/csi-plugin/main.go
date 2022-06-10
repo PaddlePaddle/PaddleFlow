@@ -82,7 +82,7 @@ func init() {
 		}
 	}
 	if csiconfig.HostMntDir == "" || csiconfig.MountImage == "" {
-		log.Fatalf("Can't get HostPath [pfs-mnt] or container [csi-storage-driver] in pod %s", csiconfig.PodName)
+		log.Errorf("Can't get HostPath [pfs-mnt] or container [csi-storage-driver] in pod %s", csiconfig.PodName)
 		os.Exit(0)
 	}
 }
