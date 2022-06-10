@@ -40,7 +40,6 @@ type Queue struct {
 	ID              string              `json:"id"`
 	CreatedAt       time.Time           `json:"-"`
 	UpdatedAt       time.Time           `json:"-"`
-	Pk              int64               `json:"-"`
 	Name            string              `json:"name"`
 	Namespace       string              `json:"namespace"`
 	ClusterId       string              `json:"-"`

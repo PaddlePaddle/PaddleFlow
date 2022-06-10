@@ -61,7 +61,6 @@ type CreateClusterResponse struct {
 	ID               string
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
-	Pk               int64    // 自增主键
 	Name             string   // 集群名字
 	Description      string   // 集群描述
 	Endpoint         string   // 集群endpoint, 比如 http://10.11.11.47:8080
@@ -80,7 +79,6 @@ type ClusterInfo struct {
 	ID               string
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
-	Pk               int64    `json:"-"`             // 自增主键
 	Name             string   `json:"clusterName"`   // 集群名字
 	Description      string   `json:"description"`   // 集群描述
 	Endpoint         string   `json:"endpoint"`      // 集群endpoint, 比如 http://10.11.11.47:8080
