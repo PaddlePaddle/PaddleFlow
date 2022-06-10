@@ -507,9 +507,9 @@ func ValidateAndStartRun(run models.Run, req interface{}) (CreateRunResponse, er
 	defer func() {
 		if info := recover(); info != nil {
 			errmsg := fmt.Sprintf("StartWf failed, %v", info)
-			logger.Logger().Errorf(errmsg)
+			logger.LoggerForRun(runID).Errorf(errmsg)
 			if err := updateRunStatusAndMsg(runID, common.StatusRunFailed, errmsg); err != nil {
-				logger.Logger().Errorf("set run status as failed after StartWf panic failed")
+				logger.LoggerForRun(runID).Errorf("set run status as failed after StartWf panic failed")
 			}
 		}
 	}()

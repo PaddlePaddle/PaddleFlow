@@ -299,20 +299,6 @@ func (handler *ImageHandler) process(wg *sync.WaitGroup) {
 			handleInfo.logEntry.Errorf("get the handleInfo from UChan failed, maybe it has been closed")
 			return
 		}
-		defer func() {
-			if info := recover(); info != nil {
-				errmsg := fmt.Sprintf("imageHandler process failed, %v", info)
-				logger.Logger().Errorf(errmsg)
-				updateRun := models.Run{
-					Status:  common.StatusRunFailed,
-					Message: errmsg,
-				}
-				runID := handleInfo.runID
-				if err := models.UpdateRun(logger.LoggerForRun(runID), runID, updateRun); err != nil {
-					logger.LoggerForRun(runID).Errorf("update run status after imageHandler panic, error: %v", err)
-				}
-			}
-		}()
 		handleInfo.logEntry.Infof("begin to handle image with runID[%s]", handleInfo.runID)
 		handler.processHandleInfo(handleInfo)
 	}
@@ -405,7 +391,20 @@ func (handler *ImageHandler) processHandleInfo(handleInfo imageHandleInfo) {
 	if handler.isStopped {
 		return
 	}
-
+	defer func() {
+		if info := recover(); info != nil {
+			runID := handleInfo.runID
+			errmsg := fmt.Sprintf("imageHandler process failed, %v", info)
+			logger.LoggerForRun(runID).Errorf(errmsg)
+			updateRun := models.Run{
+				Status:  common.StatusRunFailed,
+				Message: errmsg,
+			}
+			if err := models.UpdateRun(logger.LoggerForRun(runID), runID, updateRun); err != nil {
+				logger.LoggerForRun(runID).Errorf("update run status after imageHandler panic, error: %v", err)
+			}
+		}
+	}()
 	imageConfig, err := handler.handleImageConfig(handleInfo)
 	if err != nil {
 		imageInfo := ImageInfo{
