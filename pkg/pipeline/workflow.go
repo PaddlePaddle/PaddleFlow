@@ -515,32 +515,34 @@ func (bwf *BaseWorkflow) checkSteps() error {
 		SysParamNamePFFsName:   "",
 		SysParamNamePFUserName: "",
 	}
-	steps := map[string]*schema.WorkflowSourceStep{}
+	components := map[string]schema.Component{}
 	for name, step := range bwf.runtimeSteps {
-		steps[name] = step
+		components[name] = step
+	}
+	for name, dag := range bwf.runtimeDags {
+		components[name] = dag
 	}
 	for name, step := range bwf.postProcess {
-		steps[name] = step
+		components[name] = step
 	}
 	paramChecker := StepParamChecker{
-		steps:         steps,
+		steps:         components,
 		sysParams:     sysParamNameMap,
 		disabledSteps: disabledSteps,
 		useFs:         useFs,
 	}
-
-	for _, step := range steps {
-		bwf.log().Debugln(step)
+	for _, component := range components {
+		bwf.log().Debugln(component)
 	}
-	for stepName, _ := range steps {
-		isDisabled, err := bwf.Source.IsDisabled(stepName)
+	for name, _ := range components {
+		isDisabled, err := bwf.Source.IsDisabled(name)
 		if err != nil {
 			return err
 		}
 		if isDisabled {
 			continue
 		}
-		if err := paramChecker.Check(stepName); err != nil {
+		if err := paramChecker.Check(name); err != nil {
 			bwf.log().Errorln(err.Error())
 			return err
 		}
