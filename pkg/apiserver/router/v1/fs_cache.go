@@ -143,9 +143,6 @@ func (pr *PFSRouter) updateFSCacheConfig(w http.ResponseWriter, r *http.Request)
 
 func validateCacheConfigRequest(ctx *logger.RequestContext, req *api.UpdateFileSystemCacheRequest) error {
 	// patch default value
-	if req.CacheDir == "" {
-		req.CacheDir = schema.DefaultCacheDir(req.FsID)
-	}
 	if req.MetaDriver == "" {
 		req.MetaDriver = schema.FsMetaDefault
 	}
