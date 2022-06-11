@@ -240,9 +240,9 @@ func createMountPod(k8sClient k8s.K8SInterface, httpClient *core.PaddleFlowClien
 		return err
 	}
 
-	completeCacheConfig(&cacheConfig, mountInfo.FSID)
+	completeWithDefault(&cacheConfig, mountInfo.FSID)
 	// create pod
-	newPod := BuildMountPod(volumeID, mountInfo, cacheConfig)
+	newPod := buildMountPod(volumeID, mountInfo, cacheConfig)
 	_, err = k8sClient.CreatePod(newPod)
 	if err != nil {
 		log.Errorf("createMount: Create pod for fsID %s err: %v", mountInfo.FSID, err)
@@ -251,9 +251,9 @@ func createMountPod(k8sClient k8s.K8SInterface, httpClient *core.PaddleFlowClien
 	return nil
 }
 
-func completeCacheConfig(config *common.FsCacheConfig, fsID string) {
+func completeWithDefault(config *common.FsCacheConfig, fsID string) {
 	if config.CacheDir == "" {
-		path.Join(csiconfig.HostMntDir, fsID)
+		config.CacheDir = path.Join(csiconfig.HostMntDir, fsID)
 	}
 	if config.MetaDriver == "" {
 		config.MetaDriver = schema.FsMetaDefault
@@ -263,7 +263,7 @@ func completeCacheConfig(config *common.FsCacheConfig, fsID string) {
 	}
 }
 
-func BuildMountPod(volumeID string, mountInfo pfs.MountInfo, cacheConf common.FsCacheConfig) *v1.Pod {
+func buildMountPod(volumeID string, mountInfo pfs.MountInfo, cacheConf common.FsCacheConfig) *v1.Pod {
 	pod := csiconfig.GeneratePodTemplate()
 	pod.Name = GeneratePodNameByFsID(volumeID)
 	buildMountContainer(pod, mountInfo, cacheConf)
