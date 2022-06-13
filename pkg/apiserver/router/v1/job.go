@@ -457,11 +457,23 @@ func (jr *JobRouter) UpdateJob(w http.ResponseWriter, r *http.Request) {
 	request.JobID = jobID
 	log.Debugf("update job request: %v", request)
 
-	// TODO: check update job request
 	if err := validateJob(&ctx, jobID); err != nil {
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, ctx.ErrorMessage)
 		return
 	}
+	priority := strings.ToUpper(request.Priority)
+	switch priority {
+	case "", schema.EnvJobLowPriority, schema.EnvJobHighPriority, schema.EnvJobNormalPriority,
+		schema.EnvJobVeryHighPriority, schema.EnvJobVeryLowPriority:
+		request.Priority = priority
+	default:
+		ctx.ErrorCode = common.InvalidArguments
+		err := fmt.Errorf("the priorty %s is invalid", request.Priority)
+		ctx.Logging().Errorf("update job failed, err: %v", err)
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+
 	err := job.UpdateJob(&ctx, &request)
 	if err != nil {
 		ctx.ErrorMessage = fmt.Sprintf("update job failed, err: %v", err)
