@@ -122,7 +122,7 @@ kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/rele
 
 #### 2.3.3 安装volcano
 ```shell
-kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.2/installer/deploys/pf-volcano/pf-volcano-deploy.yaml
+kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.2/installer/deploys/volcano/pf-volcano-deploy.yaml
 ```
 
 ### 2.4 服务端部署包说明
