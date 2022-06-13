@@ -666,23 +666,6 @@ func updateRuntimeJob(ctx *logger.RequestContext, job *models.Job, request *Upda
 		pfjob.UpdateAnnotations(request.Annotations)
 	}
 	if request.Priority != "" {
-		//// TODO: get pgName
-		//jobRuntime := job.RuntimeInfo.(map[string]interface{})
-		//obj := &unstructured.Unstructured{}
-		//if err = k8sruntime.DefaultUnstructuredConverter.FromUnstructured(jobRuntime, obj); err != nil {
-		//	log.Errorf("convert obj to unstructed.Unstructed failed, err %v", err)
-		//	return err
-		//}
-		//anno := obj.GetAnnotations()
-		//pgName := ""
-		//if anno != nil {
-		//	pgName = anno[schedulingv1beta1.KubeGroupNameAnnotationKey]
-		//}
-		//if len(pgName) == 0 {
-		//	err = fmt.Errorf("update priority for job %s failed, pod group not found", job.ID)
-		//	log.Errorln(err)
-		//	return err
-		//}
 		pfjob.UpdateJobPriority(request.Priority)
 	}
 	return runtimeSvc.UpdateJob(pfjob)
