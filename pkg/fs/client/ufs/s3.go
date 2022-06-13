@@ -907,11 +907,10 @@ func (fs *s3FileSystem) StatFs(name string) *base.StatfsOut {
 }
 
 type mpuInfo struct {
-	uploadID       *string
-	lastPartNum    int64
-	lastUploadEnd  int64
-	partsETag      []*string
-	lastWriteError error
+	uploadID      *string
+	lastPartNum   int64
+	lastUploadEnd int64
+	partsETag     []*string
 }
 
 type s3FileHandle struct {
@@ -990,11 +989,6 @@ func (fh *s3FileHandle) Write(data []byte, offset int64) (uint32, fuse.Status) {
 	if fh.writeTmpfile == nil {
 		log.Errorf("s3 write: fh.name[%s] failed writeTmpfile = nil", fh.name)
 		return uint32(0), fuse.EIO
-	}
-
-	if fh.mpuInfo.lastWriteError != nil {
-		log.Errorf("s3 write: fh.name[%s] lastWriteError:%v", fh.name, fh.mpuInfo.lastWriteError)
-		return uint32(0), fuse.ToStatus(fh.mpuInfo.lastWriteError)
 	}
 
 	if fh.canWrite != nil {
@@ -1135,7 +1129,7 @@ func (fh *s3FileHandle) uploadWriteTmpFile() error {
 
 	// abort mpu on error
 	defer func() {
-		if fh.mpuInfo.uploadID != nil && fh.mpuInfo.lastWriteError != nil {
+		if fh.mpuInfo.uploadID != nil {
 			go func() {
 				_ = fh.multipartAbort()
 				fh.mpuInfo.uploadID = nil
@@ -1144,11 +1138,6 @@ func (fh *s3FileHandle) uploadWriteTmpFile() error {
 			}()
 		}
 	}()
-
-	if fh.mpuInfo.lastWriteError != nil {
-		log.Debugf("s3 uploadWriteTmpFile: fh.name[%s], lastWriteError:%v, cannot upload", fh.name, fh.mpuInfo.lastWriteError)
-		return fh.mpuInfo.lastWriteError
-	}
 
 	fh.mu.Lock()
 	defer fh.mu.Unlock()
@@ -1267,9 +1256,6 @@ func (fh *s3FileHandle) Truncate(size uint64) fuse.Status {
 	err := fh.writeTmpfile.Truncate(int64(size))
 	if err != nil {
 		log.Debugf("s3 truncate: fh.name[%s], writeTmpfile.Truncate err: %v", fh.name, err)
-		if fh.mpuInfo.lastWriteError == nil {
-			fh.mpuInfo.lastWriteError = err
-		}
 		return fuse.ToStatus(err)
 	}
 	fh.writeDirty = true
@@ -1461,17 +1447,11 @@ func (fh *s3FileHandle) multipartCreate() error {
 	respCreate, err := fh.fs.s3.CreateMultipartUpload(&mpu)
 	if err != nil {
 		log.Errorf("s3 mpu create: fh.name[%s] create failed, err: %v ", fh.name, err)
-		if fh.mpuInfo.lastWriteError == nil {
-			fh.mpuInfo.lastWriteError = err
-		}
 		return err
 	}
 	if respCreate.UploadId == nil {
 		err := fmt.Errorf("respCreate.UploadId nil")
 		log.Errorf("s3 mpu create: fh.name[%s] create failed, err: %v ", fh.name, err)
-		if fh.mpuInfo.lastWriteError == nil {
-			fh.mpuInfo.lastWriteError = syscall.EAGAIN
-		}
 		return err
 	}
 	fh.mpuInfo.uploadID = respCreate.UploadId
@@ -1499,9 +1479,6 @@ func (fh *s3FileHandle) multipartUpload(partNum int64, data []byte) error {
 			fh.mpuInfo.partsETag[partNum-1] = resp.ETag
 			return nil
 		}
-	}
-	if err != nil && fh.mpuInfo.lastWriteError == nil {
-		fh.mpuInfo.lastWriteError = err
 	}
 	return err
 }
@@ -1535,9 +1512,6 @@ func (fh *s3FileHandle) multipartCommit() error {
 	respCommit, err := fh.fs.s3.CompleteMultipartUpload(&commit)
 	if err != nil {
 		log.Errorf("s3 mpu commit: fh.name[%s], commit failed. err: %v ", fh.name, err)
-		if fh.mpuInfo.lastWriteError == nil {
-			fh.mpuInfo.lastWriteError = err
-		}
 		return err
 	}
 	fh.mpuInfo.uploadID = nil
