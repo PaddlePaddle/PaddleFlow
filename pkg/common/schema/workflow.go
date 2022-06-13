@@ -72,9 +72,11 @@ type Component interface {
 	// 下面几个Update 函数在进行模板替换的时候会用到
 	UpdateCondition(string)
 	UpdateLoopArguemt(interface{})
+	GetName() string
 }
 
 type WorkflowSourceStep struct {
+	name         string
 	LoopArgument interface{}            `yaml:"loop_argument"`
 	Condition    string                 `yaml:"condition"`
 	Parameters   map[string]interface{} `yaml:"parameters"`
@@ -85,6 +87,10 @@ type WorkflowSourceStep struct {
 	DockerEnv    string                 `yaml:"docker_env"`
 	Cache        Cache                  `yaml:"cache"`
 	Reference    string                 `yaml:"referenc"`
+}
+
+func (s *WorkflowSourceStep) GetName() string {
+	return s.name
 }
 
 func (s *WorkflowSourceStep) GetDeps() []string {
@@ -174,12 +180,17 @@ func (s *WorkflowSourceStep) GetOutputArtifactPath(artName string) (string, erro
 }
 
 type WorkflowSourceDag struct {
+	name         string
 	LoopArgument interface{}            `yaml:"loop_argument"`
 	Condition    string                 `yaml:"condition"`
 	Parameters   map[string]interface{} `yaml:"parameters"`
 	Deps         string                 `yaml:"deps"`
 	Artifacts    Artifacts              `yaml:"artifacts"`
 	EntryPoints  map[string]Component   `yaml:"entry_points"`
+}
+
+func (d *WorkflowSourceDag) GetName() string {
+	return d.name
 }
 
 func (d *WorkflowSourceDag) GetDeps() []string {

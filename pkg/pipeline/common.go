@@ -784,3 +784,11 @@ func GetRandID(randNum int) string {
 	rand.Read(b)
 	return hex.EncodeToString(b)
 }
+
+func GetInputArtifactEnvName(atfName string) string {
+	return "PF_INPUT_ARTIFACT_" + strings.ToUpper(atfName)
+}
+
+func GetOutputArtifactEnvName(atfName string) string {
+	return "PF_OUTPUT_ARTIFACT_" + strings.ToUpper(atfName)
+}

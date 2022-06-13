@@ -66,10 +66,10 @@ type componentRuntime interface {
 	isFailed() bool
 	isCancelled() bool
 	isSkipped() bool
-	isStarted() bool
 	isTerminated() bool
 
 	getComponent() schema.Component
+	getFullName() string
 }
 
 // Run 的相关配置，其信息来源有以下几种:
@@ -118,20 +118,23 @@ func NewRunConfig(workflowSource *schema.WorkflowSource, fsID, fsName, userName,
 type baseComponentRuntime struct {
 	component schema.Component
 
-	// 节点名字
-	componentName string
-
-	//表明 节点的第几次运行， 从 0 开始计算
-	seq int
-
 	// 类似根目录，由其所有祖先组件名加上自身名字组成，名字与名字之间以"." 分隔
-	fullName string
+	CompoentFullName string
+
+	// runtime 的名字，由 componentFullName 和 seq 组成
+	name string
+
+	// 表明节点的第几次运行， 从 0 开始计算
+	seq int
 
 	// runtime 在数据库的主键值，方便在存库是使用，应该由 apiserver 的回调函数返回，不应该自行设置
 	pk int64
 
 	// 用于监听终止信号的上下文
 	ctx context.Context
+
+	// 用于监听 failureOptions 信号的上下文
+	failureOpitonsCtx context.Context
 
 	// 监听子节点事件的 channel
 	receiveEventChildren chan WorkflowEvent
@@ -143,9 +146,6 @@ type baseComponentRuntime struct {
 
 	// 是否处于终态
 	done bool
-
-	// 节点是否已经别调度执行
-	started bool
 
 	// run 级别的相关配置
 	*runConfig
@@ -160,12 +160,12 @@ type baseComponentRuntime struct {
 	parentDagID string
 }
 
-func NewBaseComponentRuntime(name string, fullname string, component schema.Component, seq int, ctx context.Context,
+func NewBaseComponentRuntime(fullname string, component schema.Component, seq int, ctx context.Context, failureOpitonsCtx context.Context,
 	eventChannel chan<- WorkflowEvent, config *runConfig, parentDagID string) *baseComponentRuntime {
 
 	cr := &baseComponentRuntime{
-		componentName:        name,
-		fullName:             fullname,
+		name:                 fmt.Sprintf("%s-%d", fullname, seq),
+		CompoentFullName:     fullname,
 		component:            component,
 		seq:                  seq,
 		ctx:                  ctx,
@@ -173,6 +173,7 @@ func NewBaseComponentRuntime(name string, fullname string, component schema.Comp
 		receiveEventChildren: make(chan WorkflowEvent),
 		runConfig:            config,
 		parentDagID:          parentDagID,
+		failureOpitonsCtx:    failureOpitonsCtx,
 	}
 
 	isv := NewInnerSolver(component, fullname, config)
@@ -184,7 +185,7 @@ func NewBaseComponentRuntime(name string, fullname string, component schema.Comp
 // 判断当前节点是否被 disabled
 func (crt *baseComponentRuntime) isDisabled() bool {
 	for _, fullName := range crt.GetDisabled() {
-		if fullName == crt.fullName {
+		if fullName == crt.CompoentFullName {
 			return true
 		}
 	}
@@ -207,6 +208,10 @@ func (crt *baseComponentRuntime) isSkipped() bool {
 	return crt.status == StatusRuntimeSkipped
 }
 
+func (crt *baseComponentRuntime) isTerminating() bool {
+	return crt.status == StatusRuntimeTerminating
+}
+
 func (crt *baseComponentRuntime) isTerminated() bool {
 	return crt.status == StatusRuntimeTerminated
 }
@@ -214,11 +219,6 @@ func (crt *baseComponentRuntime) isTerminated() bool {
 // 判断当次运行是否已经处于终态
 func (crt *baseComponentRuntime) isDone() bool {
 	return crt.done
-}
-
-// 用于判断是否已经调用过节点的 Start() 函数
-func (crt *baseComponentRuntime) isStarted() bool {
-	return crt.started
 }
 
 func (crt *baseComponentRuntime) getComponent() schema.Component {
@@ -229,7 +229,7 @@ func (crt *baseComponentRuntime) getComponent() schema.Component {
 func (crt *baseComponentRuntime) updateStatus(status RuntimeStatus) error {
 	if crt.done {
 		err := fmt.Errorf("cannot update the status of runtime[%s] for node[%s]，because the status of it is [%s]",
-			crt.componentName, crt.fullName, crt.status)
+			crt.component.GetName(), crt.CompoentFullName, crt.status)
 		crt.logger.Errorln(err.Error())
 		return err
 	}
@@ -278,7 +278,7 @@ func (crt *baseComponentRuntime) setSysParams() error {
 		SysParamNamePFRunID:    crt.runID,
 		SysParamNamePFFsID:     crt.fsID,
 		SysParamNamePFFsName:   crt.fsName,
-		SysParamNamePFStepName: crt.componentName,
+		SysParamNamePFStepName: crt.component.GetName(),
 		SysParamNamePFUserName: crt.userName,
 	}
 
@@ -308,7 +308,7 @@ func (crt *baseComponentRuntime) syncToApiServerAndParent(wv WfEventValue, view 
 		common.WfEventKeyPK:            crt.pk,
 		common.WfEventKeyStatus:        crt.status,
 		common.WfEventKeyView:          view,
-		common.WfEventKeyComponentName: crt.componentName,
+		common.WfEventKeyComponentName: crt.component.GetName(),
 	}
 
 	event := NewWorkflowEvent(wv, msg, extra)
@@ -328,4 +328,8 @@ func (crt *baseComponentRuntime) callback(event *WorkflowEvent) {
 			break
 		}
 	}
+}
+
+func (crt *baseComponentRuntime) getFullName() string {
+	return crt.CompoentFullName
 }
