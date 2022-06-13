@@ -40,7 +40,13 @@ paddleflow-csi-plugin提供的功能主要包括存储资源管理。</br>
 
 ### 2.2 快速部署
 
-1. 检查 `kubelet root-dir` 路径
+1. 创建一个具有写权限的sqlite数据库文件,默认位于`/mnt/paddleflow.db`
+
+```shell
+touch /mnt/paddleflow.db && chmod 666 /mnt/paddleflow.db
+```
+
+2. 检查 `kubelet root-dir` 路径
 
 在 Kubernetes 集群中任意一个非 Master 节点上执行以下命令：
 
@@ -48,7 +54,7 @@ paddleflow-csi-plugin提供的功能主要包括存储资源管理。</br>
 ps -ef | grep kubelet | grep root-dir
 ```
 
-2. 部署
+3. 部署
 
 **如果前面检查命令返回的结果不为空**，则代表 kubelet 的 root-dir 路径不是默认值，因此需要在 CSI Driver 的部署文件中更新 `kubeletDir` 路径并部署：
 ```shell
@@ -69,7 +75,9 @@ kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/rele
 
 **快速安装paddleflow-server**
 ```shell
-# 快速安装方式使用sqlite
+# 创建一个具有写权限的sqlite数据库文件,默认位于`/mnt/paddleflow.db`
+touch /mnt/paddleflow.db && chmod 666 /mnt/paddleflow.db
+# 创建基于sqlite的PaddleFlow-server
 kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.2/installer/deploys/paddleflow-server/paddleflow-server-deploy.yaml
 ```
 
@@ -131,7 +139,7 @@ kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/rele
 ├── deploys
 │   ├── paddleflow-server
 │   ├── paddleflow-csi-plugin
-│   └── pf-volcano
+│   └── volcano
 └── dockerfile
     ├── README.md
     ├── build_latest.sh

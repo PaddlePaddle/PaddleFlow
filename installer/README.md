@@ -40,7 +40,7 @@ paddleflow-csi-plugin提供的功能主要包括存储资源管理。</br>
 
 ### 2.2 快速部署
 
-1. 准备一个具有写权限的sqlite数据库,路径默认位于`/mnt/paddleflow.db`
+1. 创建一个具有写权限的sqlite数据库文件,默认位于`/mnt/paddleflow.db`
 
 ```shell
 touch /mnt/paddleflow.db && chmod 666 /mnt/paddleflow.db
@@ -76,9 +76,9 @@ kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/rele
 **快速安装paddleflow-server**
 
 ```shell
-# 使用sqlite方式,首先需要创建sqlite文件并赋予写权限
+# 创建一个具有写权限的sqlite数据库文件,默认位于`/mnt/paddleflow.db`
 touch /mnt/paddleflow.db && chmod 666 /mnt/paddleflow.db
-# 创建基于sqlite的PaddleFlow-erver
+# 创建基于sqlite的PaddleFlow-server
 kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.2/installer/deploys/paddleflow-server/paddleflow-server-deploy.yaml
 ```
 
@@ -139,15 +139,15 @@ kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/rele
 │   └── execute.sh
 ├── deploys
 │   ├── paddleflow-server
-│   ├── pf-storage
-│   └── pf-volcano
+│   ├── paddleflow-csi-plugin
+│   └── volcano
 └── dockerfile
     ├── README.md
     ├── build_latest.sh
-    ├── paddleflow_csiplugin
+    ├── paddleflow-csi-plugin
     │   ├── Dockerfile
     │   └── Dockerfile_base
-    └── paddleflow_server
+    └── paddleflow-server
         ├── Dockerfile
         └── Dockerfile_base
 
