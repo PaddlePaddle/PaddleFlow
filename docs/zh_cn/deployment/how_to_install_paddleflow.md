@@ -48,13 +48,20 @@ touch /mnt/paddleflow.db && chmod 666 /mnt/paddleflow.db
 
 2. 检查 `kubelet root-dir` 路径
 
-在 Kubernetes 集群中任意一个非 Master 节点上执行以下命令：
+在`Kubernetes`或`k3s`集群中任意节点上执行以下命令：
 
 ```shell
 ps -ef | grep kubelet | grep root-dir
 ```
 
 3. 部署
+
+**如果前面检查命令返回的结果为空**，无需修改配置，可直接部署：
+
+```shell
+# 执行部署
+kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.2/installer/paddleflow-deployment.yaml
+```
 
 **如果前面检查命令返回的结果不为空**，则代表 kubelet 的 root-dir 路径不是默认值，因此需要在 CSI Driver 的部署文件中更新 `kubeletDir` 路径并部署：
 ```shell
@@ -64,32 +71,28 @@ curl -sSL https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14
 
 > **注意**: 请将上述命令中 `{{KUBELET_DIR}}` 替换成 kubelet 当前的根目录路径。
 
-**如果前面检查命令返回的结果为空**，无需修改配置，可直接部署：
 
-```shell
-# 执行部署
-kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.2/installer/paddleflow-deployment.yaml
-```
 ### 2.3 自定义安装
 #### 2.3.1 安装paddleflow-server
-
-**快速安装paddleflow-server**
+`paddleflow-server`支持多种数据库(`sqlite`,`mysql`)，其中`sqlite`仅用于快速部署和体验功能，不适合用于生产环境。
+- **指定用sqllite安装paddleflow-server**
 ```shell
 # 创建一个具有写权限的sqlite数据库文件,默认位于`/mnt/paddleflow.db`
 touch /mnt/paddleflow.db && chmod 666 /mnt/paddleflow.db
-# 创建基于sqlite的PaddleFlow-server
+# 创建基于sqllite的paddleflow-server
 kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.2/installer/deploys/paddleflow-server/paddleflow-server-deploy.yaml
 ```
 
-**指定数据库为mysql并安装(推荐)**
+- **指定用mysql安装paddleflow-server(推荐)**
 ```shell
-# paddleflow默认使用SQLite配置,如需切换成mysql，需执行命令如下
+# 指定mysql配置如下
 export DB_DRIVER='mysql'
 export DB_HOST=127.0.0.1
 export DB_PORT=3306
 export DB_USER=paddleflow
 export DB_PW=paddleflow
 export DB_DATABASE=paddleflow
+# 创建基于mysql的paddleflow-server
 curl -sSL https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.2/installer/deploys/paddleflow-server/paddleflow-server-deploy.yaml | \
 sed -e 's/sqlite/`${DB_DRIVER}`/g'  -e 's/DB_HOST: 127.0.0.2/DB_HOST=`${DB_HOST}`/g'  -e 's/3306/`${DB_PORT}`/g' -e 's/DB_USER: paddleflow/DB_USER: ${DB_USER}/g'  -e 's/DB_PW=paddleflow/DB_PW=${DB_PW}/g'  -e 's/DB_DATABASE: paddleflow/DB_DATABASE: ${DB_DATABASE}/g' \
 | kubectl create -f -
@@ -99,13 +102,18 @@ sed -e 's/sqlite/`${DB_DRIVER}`/g'  -e 's/DB_HOST: 127.0.0.2/DB_HOST=`${DB_HOST}
 
 1. 检查 `kubelet root-dir` 路径
 
-在 Kubernetes 集群中任意一个非 Master 节点上执行以下命令：
+在`Kubernetes`或`k3s`集群中任意节点上执行以下命令：
 
 ```shell
 ps -ef | grep kubelet | grep root-dir
 ```
 
 2. 部署
+
+**如果前面检查命令返回的结果为空**，无需修改配置，可直接部署：
+```shell
+kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.2/installer/deploys/paddleflow-csi-plugin/paddleflow-csi-plugin-deploy.yaml
+```
 
 **如果前面检查命令返回的结果不为空**，则代表 kubelet 的 root-dir 路径不是默认值，因此需要在 CSI Driver 的部署文件中更新 `kubeletDir` 路径并部署：
 ```shell
@@ -115,14 +123,13 @@ curl -sSL https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14
 
 > **注意**: 请将上述命令中 `{{KUBELET_DIR}}` 替换成 kubelet 当前的根目录路径。
 
-**如果前面检查命令返回的结果为空**，无需修改配置，可直接部署：
-```shell
-kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.2/installer/deploys/paddleflow-csi-plugin/paddleflow-csi-plugin-deploy.yaml
-```
-
 #### 2.3.3 安装volcano
 ```shell
-kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.2/installer/deploys/volcano/pf-volcano-deploy.yaml
+For x86_64:
+kubectl apply -f https://raw.githubusercontent.com/volcano-sh/volcano/master/installer/volcano-development.yaml
+
+For arm64:
+kubectl apply -f https://raw.githubusercontent.com/volcano-sh/volcano/master/installer/volcano-development-arm64.yaml
 ```
 
 ### 2.4 服务端部署包说明

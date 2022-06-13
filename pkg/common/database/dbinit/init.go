@@ -36,7 +36,7 @@ import (
 
 // data init for sqllite
 const (
-	dsn              = "file:./sqlite/paddleflow.db?cache=shared&mode=rwc"
+	dsn              = "file:paddleflow.db?cache=shared&mode=rwc"
 	rootUserName     = "root"
 	rootUserPassword = "$2a$10$1qdSQN5wMl3FtXoxw7mKpuxBqIuP0eYXTBM9CBn5H4KubM/g5Hrb6%"
 )

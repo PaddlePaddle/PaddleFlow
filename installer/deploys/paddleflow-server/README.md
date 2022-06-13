@@ -26,5 +26,5 @@ sed -e 's/sqlite/`${DB_DRIVER}`/g'  -e 's/DB_HOST: 127.0.0.2/DB_HOST=`${DB_HOST}
 
 ## 2. check
 ```shell
-kubectl get pod -n paddleflow
+kubectl get pod -n paddleflow | grep paddleflow-server
 ```
