@@ -600,8 +600,25 @@ func UpdateJob(ctx *logger.RequestContext, request *UpdateJobRequest) error {
 		log.Errorf("get job %s from database failed, err: %v", job.ID, err)
 		return err
 	}
-	// check job status
-	if !schema.IsImmutableJobStatus(job.Status) && job.Status != schema.StatusJobInit {
+	// check job status when update job on cluster
+	needUpdateCluster := false
+	if request.Priority != "" {
+		// need to update job priority
+		if job.Status != schema.StatusJobPending && job.Status != schema.StatusJobInit {
+			ctx.ErrorCode = common.ActionNotAllowed
+			err = fmt.Errorf("the status of job %s is %s, job priority cannot be updated", job.ID, job.Status)
+			log.Errorln(err)
+			return err
+		}
+		needUpdateCluster = job.Status == schema.StatusJobPending
+	} else {
+		// need to update job labels or annotations
+		if job.Status == schema.StatusJobPending || job.Status == schema.StatusJobRunning {
+			needUpdateCluster = true
+		}
+	}
+
+	if needUpdateCluster {
 		// update job on cluster
 		err = updateRuntimeJob(ctx, &job, request)
 		if err != nil {
@@ -611,6 +628,7 @@ func UpdateJob(ctx *logger.RequestContext, request *UpdateJobRequest) error {
 		}
 	}
 
+	// update job on database
 	if request.Priority != "" {
 		job.Config.Priority = request.Priority
 	}
@@ -641,9 +659,15 @@ func updateRuntimeJob(ctx *logger.RequestContext, job *models.Job, request *Upda
 		log.Errorf("new paddleflow job failed, err: %v", err)
 		return err
 	}
-	pfjob.UpdateLabels(request.Labels)
-	pfjob.UpdateAnnotations(request.Annotations)
-	// TODO: update job priority
+	if request.Labels != nil {
+		pfjob.UpdateLabels(request.Labels)
+	}
+	if request.Annotations != nil {
+		pfjob.UpdateAnnotations(request.Annotations)
+	}
+	if request.Priority != "" {
+		pfjob.UpdateJobPriority(request.Priority)
+	}
 	return runtimeSvc.UpdateJob(pfjob)
 }
 
