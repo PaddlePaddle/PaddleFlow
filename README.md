@@ -8,7 +8,7 @@ PaddleFlow作为机器学习平台的资源核心，适用于机器学习和深�
 ## 2.调度
 - 基于kubernetes的计算资源池化管理
 - 基于华为开源的volcano的队列调度
-- 内置主流深度学习计算框架引擎（Paddle、Spark、Tensorflow等）
+- 内置主流深度学习计算框架引擎（Paddle、Tensorflow等）
 - 支持机器学习和数据分析框架（Spark等）
 ## 3.工作流
 - 通过工作流抽象复杂的命令，将其模板化，可被多次运行（支持断点运行和产出Artifact管理）和分享。
