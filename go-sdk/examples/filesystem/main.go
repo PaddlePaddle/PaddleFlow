@@ -21,8 +21,7 @@ import (
 	"fmt"
 
 	"github.com/PaddlePaddle/PaddleFlow/go-sdk/service"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/fs"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/user"
+	v1 "github.com/PaddlePaddle/PaddleFlow/go-sdk/service/apiserver/v1"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/core"
 )
 
@@ -36,7 +35,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	data, err := pfClient.APIV1().User().Login(context.TODO(), &user.LoginInfo{
+	data, err := pfClient.APIV1().User().Login(context.TODO(), &v1.LoginInfo{
 		UserName: "",
 		Password: "",
 	})
@@ -45,7 +44,7 @@ func main() {
 	}
 	token := data.Authorization
 	name := "pfstest"
-	createResult, err := pfClient.APIV1().FileSystem().Create(context.TODO(), &fs.CreateFileSystemRequest{
+	createResult, err := pfClient.APIV1().FileSystem().Create(context.TODO(), &v1.CreateFileSystemRequest{
 		Name:       name,
 		Url:        "",
 		Properties: map[string]string{},
@@ -55,13 +54,13 @@ func main() {
 	}
 	fmt.Printf("create fs result %v", createResult)
 
-	getResult, err := pfClient.APIV1().FileSystem().Get(context.TODO(), &fs.GetFileSystemRequest{FsName: name}, token)
+	getResult, err := pfClient.APIV1().FileSystem().Get(context.TODO(), &v1.GetFileSystemRequest{FsName: name}, token)
 	if err != nil {
 		panic(err)
 	}
 	fmt.Printf("get fs result %v", getResult)
 
-	err = pfClient.APIV1().FileSystem().Delete(context.TODO(), &fs.DeleteFileSystemRequest{FsName: name}, token)
+	err = pfClient.APIV1().FileSystem().Delete(context.TODO(), &v1.DeleteFileSystemRequest{FsName: name}, token)
 	if err != nil {
 		panic(err)
 	}
