@@ -19,7 +19,6 @@ package v1
 import (
 	"context"
 
-	user_ "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/user"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/core"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/util/http"
@@ -34,8 +33,17 @@ type user struct {
 	client *core.PaddleFlowClient
 }
 
-func (u *user) Login(ctx context.Context, request *user_.LoginInfo) (result *user_.LoginResponse, err error) {
-	result = &user_.LoginResponse{}
+type LoginInfo struct {
+	UserName string `json:"username"`
+	Password string `json:"password"`
+}
+
+type LoginResponse struct {
+	Authorization string `json:"authorization"`
+}
+
+func (u *user) Login(ctx context.Context, request *LoginInfo) (result *LoginResponse, err error) {
+	result = &LoginResponse{}
 	err = core.NewRequestBuilder(u.client).
 		WithURL(LoginApi).
 		WithMethod(http.POST).
@@ -50,7 +58,7 @@ type UserGetter interface {
 }
 
 type UserInterface interface {
-	Login(ctx context.Context, request *user_.LoginInfo) (*user_.LoginResponse, error)
+	Login(ctx context.Context, request *LoginInfo) (*LoginResponse, error)
 }
 
 // newUsers returns a Users.
