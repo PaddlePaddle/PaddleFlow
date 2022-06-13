@@ -406,7 +406,7 @@ func buildMountContainer(pod *v1.Pod, mountInfo pfs.MountInfo, cacheConf common.
 			Name: VolumesKeyMount,
 			VolumeSource: corev1.VolumeSource{
 				HostPath: &corev1.HostPathVolumeSource{
-					Path: schema.HostMntDir,
+					Path: csiconfig.HostMntDir,
 					Type: &typeDir,
 				},
 			},
