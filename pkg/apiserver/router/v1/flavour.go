@@ -153,7 +153,7 @@ func (fr *FlavourRouter) updateFlavour(w http.ResponseWriter, r *http.Request) {
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
-	ctx.Logging().Debugf("CreateFlavour flavour:%v", string(config.PrettyFormat(response)))
+	ctx.Logging().Debugf("update flavour:%v", string(config.PrettyFormat(response)))
 	common.Render(w, http.StatusOK, response)
 }
 
@@ -164,19 +164,21 @@ func validateUpdateFlavour(ctx *logger.RequestContext, request *flavour.UpdateFl
 		ctx.Logging().Error(msg)
 		return fmt.Errorf(msg)
 	}
+	if request.CPU != "" {
+		if err := schema.ValidateResourceItem(request.CPU); err != nil {
+			ctx.Logging().Errorf("create flavour failed. error: %v", err)
+			ctx.ErrorCode = common.FlavourInvalidField
+			return err
+		}
+	}
+	if request.Mem != "" {
+		if err := schema.ValidateResourceItem(request.Mem); err != nil {
+			ctx.Logging().Errorf("create flavour failed. error: %s", err)
+			ctx.ErrorCode = common.FlavourInvalidField
+			return err
+		}
+	}
 
-	if err := schema.CheckCPUResource(request.CPU); request.CPU != "" && err != nil {
-		errMsg := "cpu not found"
-		ctx.Logging().Errorf("create flavour failed. error: %s", errMsg)
-		ctx.ErrorCode = common.FlavourInvalidField
-		return errors.New(errMsg)
-	}
-	if err := schema.CheckMemoryResource(request.Mem); request.Mem != "" && err != nil {
-		errMsg := "mem not found"
-		ctx.Logging().Errorf("create flavour failed. error: %s", errMsg)
-		ctx.ErrorCode = common.FlavourInvalidField
-		return errors.New(errMsg)
-	}
 	if request.ScalarResources != nil {
 		err := schema.ValidateScalarResourceInfo(request.ScalarResources, config.GlobalServerConfig.Job.ScalarResourceArray)
 		if err != nil {
@@ -259,7 +261,7 @@ func validateCreateFlavour(ctx *logger.RequestContext, request *flavour.CreateFl
 		Mem:             request.Mem,
 		ScalarResources: request.ScalarResources,
 	}
-	if err := schema.ValidateResourceInfo(resourceInfo, config.GlobalServerConfig.Job.ScalarResourceArray); err != nil {
+	if err := schema.ValidateResource(resourceInfo, config.GlobalServerConfig.Job.ScalarResourceArray); err != nil {
 		ctx.Logging().Errorf("create flavour failed. error: %s", err.Error())
 		ctx.ErrorCode = common.FlavourInvalidField
 		return err
