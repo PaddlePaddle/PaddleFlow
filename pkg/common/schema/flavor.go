@@ -205,7 +205,8 @@ func CheckScalarResource(res string) error {
 	return nil
 }
 
-func CheckCPUResource(res string) error {
+// ValidateResourceItem check resource for cpu or memory
+func ValidateResourceItem(res string) error {
 	q, err := resource.ParseQuantity(res)
 	if err != nil {
 		return err
@@ -216,8 +217,8 @@ func CheckCPUResource(res string) error {
 	return nil
 }
 
-// checkCPUResourceNN permit resource Non-negative
-func checkCPUResourceNN(res string) error {
+// ValidateResourceItemNonNegative check resource non-negative, which permit zero value
+func ValidateResourceItemNonNegative(res string) error {
 	q, err := resource.ParseQuantity(res)
 	if err != nil {
 		return err
@@ -231,29 +232,6 @@ func checkCPUResourceNN(res string) error {
 // IsEmptyResource return true when cpu or mem is nil
 func IsEmptyResource(resourceInfo ResourceInfo) bool {
 	return resourceInfo.CPU == "" || resourceInfo.Mem == ""
-}
-
-func CheckMemoryResource(res string) error {
-	q, err := resource.ParseQuantity(res)
-	if err != nil {
-		return err
-	}
-	if q.IsZero() || q.Sign() < 0 {
-		return fmt.Errorf("memory cannot be negative")
-	}
-	return nil
-}
-
-// checkMemoryResourceNN permit memory resource Non-negative
-func checkMemoryResourceNN(res string) error {
-	q, err := resource.ParseQuantity(res)
-	if err != nil {
-		return err
-	}
-	if q.IsZero() || q.Sign() < 0 {
-		return fmt.Errorf("memory cannot be negative")
-	}
-	return nil
 }
 
 // ValidateScalarResourceInfo validate scalar resource info
@@ -270,25 +248,25 @@ func ValidateScalarResourceInfo(scalarResources ScalarResourcesType, scalarResou
 	return nil
 }
 
-// ValidateResourceInfo validate resource info
-func ValidateResourceInfo(resourceInfo ResourceInfo, scalarResourcesType []string) error {
-	if err := CheckCPUResource(resourceInfo.CPU); err != nil {
-		return fmt.Errorf("cpu %v", err)
+// ValidateResource validate resource info
+func ValidateResource(resourceInfo ResourceInfo, scalarResourcesType []string) error {
+	if err := ValidateResourceItem(resourceInfo.CPU); err != nil {
+		return fmt.Errorf("validate cpu failed,err: %v", err)
 	}
-	if err := CheckMemoryResource(resourceInfo.Mem); err != nil {
-		return fmt.Errorf("mem %v", err)
+	if err := ValidateResourceItem(resourceInfo.Mem); err != nil {
+		return fmt.Errorf("validate mem failed,err: %v", err)
 	}
 
 	return ValidateScalarResourceInfo(resourceInfo.ScalarResources, scalarResourcesType)
 }
 
-// ValidateResourceInfoNN validate resource info with Non-negative
-func ValidateResourceInfoNN(resourceInfo ResourceInfo, scalarResourcesType []string) error {
-	if err := checkCPUResourceNN(resourceInfo.CPU); err != nil {
-		return fmt.Errorf("cpu %v", err)
+// ValidateResourceNonNegative validate resource info with Non-negative
+func ValidateResourceNonNegative(resourceInfo ResourceInfo, scalarResourcesType []string) error {
+	if err := ValidateResourceItemNonNegative(resourceInfo.CPU); err != nil {
+		return fmt.Errorf("validate cpu failed,err: %v", err)
 	}
-	if err := checkMemoryResourceNN(resourceInfo.Mem); err != nil {
-		return fmt.Errorf("mem %v", err)
+	if err := ValidateResourceItemNonNegative(resourceInfo.Mem); err != nil {
+		return fmt.Errorf("validate mem failed,err: %v", err)
 	}
 
 	return ValidateScalarResourceInfo(resourceInfo.ScalarResources, scalarResourcesType)
