@@ -205,11 +205,9 @@ flavour列表显示：用户输入```paddleflow grant flavour```，界面上显�
 +=======+=======+==========+=================================================================+
 |     1 | 1Gi   | flavour1 |                                                                 |
 +-------+-------+----------+-----------------------------------------------------------------+
-|     1 | 8Gi   | flavour2 | {'baidu.com/v100_cgpu': '1'}                                    |
+|     4 | 8Gi   | flavour2 | {'nvidia.com/gpu': '1'}                                         |
 +-------+-------+----------+-----------------------------------------------------------------+
-|     1 | 8Gi   | flavour3 | {'baidu.com/v100_cgpu': '2'}                                    |
-+-------+-------+----------+-----------------------------------------------------------------+
-|     1 | 8Gi   | flavour4 | {'baidu.com/v100_cgpu': '1', 'baidu.com/v100_cgpu_memory': '7'} |
+|     4 | 8Gi   | flavour3 | {'nvidia.com/gpu': '2'}                                         |
 +-------+-------+----------+-----------------------------------------------------------------+
 
 ```
@@ -702,9 +700,6 @@ cluster[clustername] update success
 |                |                 "memory": "",                               |
 |                |                 "storage": "",                              |
 |                |                 "scalarResources": {                        |
-|                |                     "baidu.com/v100_cgpu": "",              |
-|                |                     "baidu.com/v100_cgpu_core": "",         |
-|                |                     "baidu.com/v100_cgpu_memory": "",       |
 |                |                     "nvidia.com/gpu": ""                    |
 |                |                 }                                           |
 |                |             },                                              |
@@ -713,9 +708,6 @@ cluster[clustername] update success
 |                |                 "memory": "",                               |
 |                |                 "storage": "",                              |
 |                |                 "scalarResources": {                        |
-|                |                     "baidu.com/v100_cgpu": "",              |
-|                |                     "baidu.com/v100_cgpu_core": "",         |
-|                |                     "baidu.com/v100_cgpu_memory": "",       |
 |                |                     "nvidia.com/gpu": ""                    |
 |                |                 }                                           |
 |                |             }                                               |
@@ -727,9 +719,6 @@ cluster[clustername] update success
 |                |             "memory": "",                                   |
 |                |             "storage": "",                                  |
 |                |             "scalarResources": {                            |
-|                |                 "baidu.com/v100_cgpu": "",                  |
-|                |                 "baidu.com/v100_cgpu_core": "",             |
-|                |                 "baidu.com/v100_cgpu_memory": "",           |
 |                |                 "nvidia.com/gpu": ""                        |
 |                |             }                                               |
 |                |         },                                                  |
@@ -738,9 +727,6 @@ cluster[clustername] update success
 |                |             "memory": "",                                   |
 |                |             "storage": "",                                  |
 |                |             "scalarResources": {                            |
-|                |                 "baidu.com/v100_cgpu": "",                  |
-|                |                 "baidu.com/v100_cgpu_core": "",             |
-|                |                 "baidu.com/v100_cgpu_memory": "",           |
 |                |                 "nvidia.com/gpu": ""                        |
 |                |             }                                               |
 |                |         }                                                   |
