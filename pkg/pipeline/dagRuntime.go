@@ -52,7 +52,7 @@ type DagRuntime struct {
 	// 需要使用锁的原因： 避免在调度循环结构的时候，此时收到终止信号，出现一个协程在创建 runtime， 另一个协程在终止runtime的情况。
 	processSubComponentLock sync.Mutex
 
-	failureOptionsCtxCanels map[string]context.CancelFunc
+	failureOptionsCtxCancels map[string]context.CancelFunc
 }
 
 func generateDagID(runID string) string {
@@ -61,7 +61,14 @@ func generateDagID(runID string) string {
 
 // TODO
 func NewDagRuntime(fullName string, component schema.Component, seq int, ctx context.Context, failureOpitonsCtx context.Context,
-	eventChannel chan<- WorkflowEvent, config *runConfig, parentDagID string) *DagRuntime {
+	eventChannel chan<- WorkflowEvent, config *runConfig, parentDagID string) (*DagRuntime, error) {
+
+	_, ok := component.(*schema.WorkflowSourceDag)
+	if !ok {
+		err := fmt.Errorf("inner Error: cannont trans component[%s] to dag", fullName)
+		config.logger.Error(err.Error())
+		return nil, err
+	}
 
 	nrt := NewBaseComponentRuntime(fullName, component, seq, ctx, failureOpitonsCtx, eventChannel, config, parentDagID)
 	res := NewReferenceSolver(config.WorkflowSource)
@@ -79,18 +86,18 @@ func NewDagRuntime(fullName string, component schema.Component, seq int, ctx con
 	ds := NewDependencySolver(drt)
 	drt.DependencySolver = ds
 
-	return drt
+	return drt, nil
 }
 
 // NewDagRuntimeWithStatus: 在创建Runtime 的同时，指定runtime的状态
 // 主要用于重启或者父节点调度子节点的失败时调用， 将相关信息通过evnet 的方式同步给其父节点， 并同步至数据库中
 func newDagRuntimeWithStatus(fullName string, component schema.Component, seq int, ctx context.Context, failureOpitonsCtx context.Context,
 	eventChannel chan<- WorkflowEvent, config *runConfig, parentDagID string, status RuntimeStatus, msg string) *DagRuntime {
-
-	drt := NewDagRuntime(fullName, component, seq, ctx, failureOpitonsCtx, eventChannel, config, parentDagID)
+	// 调用方在调用本函数前，需要保证 component 是一个 dag 类型的节点，所以此时NewDagRuntime 不应该会报错，故忽略该错误信息
+	drt, _ := NewDagRuntime(fullName, component, seq, ctx, failureOpitonsCtx, eventChannel, config, parentDagID)
 	drt.updateStatus(status)
 
-	view := drt.newDagView(msg)
+	view := drt.newView(msg)
 	drt.syncToApiServerAndParent(WfEventJobUpdate, view, msg)
 
 	return drt
@@ -170,7 +177,7 @@ func (drt *DagRuntime) createAndStartSubComponentRuntime(subComponentName string
 	if err != nil {
 		err := fmt.Errorf("cannot get the value of loop_arugment for component[%s]", subFullName)
 		drt.logger.Errorln(err.Error())
-		drt.processSubRuntimeError(err, subComponent, subComponentName)
+		drt.processSubRuntimeError(err, subComponent, StatusRuntimeFailed)
 	}
 
 	var loop_argument []interface{}
@@ -180,7 +187,7 @@ func (drt *DagRuntime) createAndStartSubComponentRuntime(subComponentName string
 
 	// 同一个节点的多次运行，共享同一个 failureOptionsCtx
 	failureOptionsctx, failureOptionsCancel := context.WithCancel(context.Background())
-	drt.failureOptionsCtxCanels[subComponentName] = failureOptionsCancel
+	drt.failureOptionsCtxCancels[subComponentName] = failureOptionsCancel
 
 	step, ok := subComponent.(*schema.WorkflowSourceStep)
 	if ok {
@@ -198,13 +205,18 @@ func (drt *DagRuntime) createAndStartSubComponentRuntime(subComponentName string
 		dag, _ := subComponent.(*schema.WorkflowSourceDag)
 		for index := range loop_argument {
 			subFullName := drt.generateSubComponentFullName(subComponentName)
-			subDrt := NewDagRuntime(subFullName, dag, index, drt.ctx, failureOptionsctx,
+			subDrt, _ := NewDagRuntime(subFullName, dag, index, drt.ctx, failureOptionsctx,
 				drt.receiveEventChildren, drt.runConfig, drt.ID)
 			drt.subComponentRumtimes[subComponentName] = append(drt.subComponentRumtimes[subComponentName], subDrt)
 			drt.logger.Infof("begion to run Component[%s]", subDrt.name)
 			go subDrt.Start()
 		}
 	}
+}
+
+func (drt *DagRuntime) getworkflowSouceDag() *schema.WorkflowSourceDag {
+	dag := drt.getComponent().(*schema.WorkflowSourceDag)
+	return dag
 }
 
 // 开始执行 runtime
@@ -255,7 +267,7 @@ func (drt *DagRuntime) scheduleSubComponent(mustSchedule bool) {
 		drt.logger.Errorln(err.Error())
 
 		drt.updateStatus(StatusRuntimeFailed)
-		dagView := newDagViewFromDagRuntime(drt, err.Error())
+		dagView := drt.newView(err.Error())
 		drt.syncToApiServerAndParent(WfEventDagUpdate, dagView, err.Error())
 		return
 	}
@@ -284,14 +296,14 @@ func (drt *DagRuntime) scheduleSubComponent(mustSchedule bool) {
 			drt.logger.Errorln(err.Error())
 
 			// 创建占位用 runtime, 并将相关信息
-			drt.processSubRuntimeError(err, subComponent, subComponentName)
+			drt.processSubRuntimeError(err, subComponent, StatusRuntimeFailed)
 		}
 
 		// 3. 替换子节点 parameter，artifact 字段中的模板
 		err = drt.DependencySolver.ResolveBeforeRun(subComponentName)
 		if err != nil {
 			drt.logger.Errorln(err.Error())
-			drt.processSubRuntimeError(err, subComponent, subComponentName)
+			drt.processSubRuntimeError(err, subComponent, StatusRuntimeFailed)
 		}
 
 		// 4. 创建 runtime 并运行 runtime
@@ -304,12 +316,25 @@ func (drt *DagRuntime) Listen() {
 	// TODO: 处理 failure 和 ctx 信号
 	// drt 的状态处于终态时，一定要return
 	for {
-		event := <-drt.receiveEventChildren
-		if err := drt.processEvent(event); err != nil {
-			// how to read event?
-			drt.logger.Debugf("process event failed %s", err.Error())
-		}
-		if drt.isDone() {
+		select {
+		case event := <-drt.receiveEventChildren:
+			if err := drt.processEvent(event); err != nil {
+				// how to read event?
+				drt.logger.Debugf("process event failed %s", err.Error())
+			}
+			if drt.isDone() {
+				return
+			}
+
+		case <-drt.ctx.Done():
+			drt.updateStatus(StatusRuntimeTerminating)
+			drt.stopByCtx()
+			return
+		case <-drt.failureOpitonsCtx.Done():
+			drt.updateStatus(StatusRuntimeTerminating)
+
+			// 此时 failureOptions的策略必然是 fail_fast
+			drt.ProcessFailureOptionsWithFailFast()
 			return
 		}
 	}
@@ -373,21 +398,25 @@ func (drt *DagRuntime) processEvent(event WorkflowEvent) error {
 	}
 	drt.logger.Infof("process event: [%+v]", event)
 
-	// 判断节点处于异常状态： Failed 和 Terminated（但是 dag 状态不是terminated 也不是terminating），是的话，则开始执行 FailureOptions 相关的逻辑
+	// 判断事件类型是否为 failureOptionstriggered 类型，是的话，执行 processFailureOptions
+	if event.isFailureOptionsTriggered() {
+		drt.ProcessFailureOptions(event)
+	} else {
+		// 判断节点处于异常状态： Failed 和 Terminated（但是 dag 状态不是terminated 也不是terminating），是的话，则开始执行 FailureOptions 相关的逻辑
+		status, ok := event.Extra[common.WfEventKeyStatus]
+		if ok {
+			subRuntimeStatus := status.(schema.JobStatus)
+			isFailed := subRuntimeStatus == StatusRuntimeFailed
+			isUnexpectedTerminated := subRuntimeStatus == StatusRuntimeTerminated && drt.status != StatusRuntimeTerminating
 
-	status, ok := event.Extra[common.WfEventKeyStatus]
-	if ok {
-		subRuntimeStatus := status.(schema.JobStatus)
-		isFailed := subRuntimeStatus == StatusRuntimeFailed
-		isUnexpectedTerminated := subRuntimeStatus == StatusRuntimeTerminated && drt.status != StatusRuntimeTerminating
-
-		if isFailed || isUnexpectedTerminated {
-			drt.ProcessFailureOptions(event)
+			if isFailed || isUnexpectedTerminated {
+				drt.ProcessFailureOptions(event)
+			}
 		}
 	}
 
 	StatusMsg := drt.updateStatusAccordingSubComponentRuntimeStatus()
-	view := newDagViewFromDagRuntime(drt, StatusMsg)
+	view := drt.newView(StatusMsg)
 	drt.syncToApiServerAndParent(WfEventDagUpdate, view, StatusMsg)
 
 	// 如果 dagRuntime 未处于终态，则需要判断是否有新的子节点可以运行
@@ -398,7 +427,8 @@ func (drt *DagRuntime) processEvent(event WorkflowEvent) error {
 func (drt *DagRuntime) getDirectDownstreamComponent(componentName string) (DowncomponentNames map[string]string) {
 	// 因为golang 没有 set，所以使用 map 模拟一个 set，steps 的value 并没有实际意义
 	DowncomponentNames = map[string]string{}
-	for subName, subComponent := range drt.getComponent().(*schema.WorkflowSourceDag).EntryPoints {
+
+	for subName, subComponent := range drt.getworkflowSouceDag().EntryPoints {
 		deps := subComponent.GetDeps()
 		for _, dep := range deps {
 			dep = strings.Trim(dep, " ")
@@ -446,15 +476,35 @@ func (drt *DagRuntime) ProcessFailureOptionsWithContinue(component schema.Compon
 	drt.processSubComponentLock.Lock()
 
 	needCancelComponentNames := drt.getAllDownstreamComponents(component)
+
 	for name, _ := range needCancelComponentNames {
-		component, _ := drt.getComponent().(*schema.WorkflowSourceDag).EntryPoints[name]
-		drt.CancellNotReadyComponent(component)
+		// 1、 处理已经调度过的节点
+		_, ok := drt.subComponentRumtimes[name]
+		if ok {
+			// 1、处理已经调度过的节点, 直接调用 failureoptionsCancel 结束运行。
+			// PS: 对于已经处于终止态的 runtime, 其对应的协程也已经结束，不会监听 failureOptionsCtx 信号，所以不会有影响
+			drt.failureOptionsCtxCancels[name]()
+		} else {
+			// 2、处理还没有调度的节点
+			cancelComponent := drt.getworkflowSouceDag().EntryPoints[name]
+			reason := fmt.Sprintf("begin to process FailureOptions, there are some component run failed")
+			drt.CancellNotReadyComponent(cancelComponent, reason)
+		}
 	}
 }
 
 func (drt *DagRuntime) ProcessFailureOptionsWithFailFast() {
-	// 此时需要快速终止所有的 run
-	drt.ctx.Done()
+	defer drt.processSubComponentLock.Unlock()
+	drt.processSubComponentLock.Lock()
+
+	for name, component := range drt.getworkflowSouceDag().EntryPoints {
+		_, ok := drt.subComponentRumtimes[name]
+		if ok {
+			drt.failureOptionsCtxCancels[name]()
+		}
+
+		drt.CancellNotReadyComponent(component, "receive failure options signal")
+	}
 }
 
 func (drt *DagRuntime) ProcessFailureOptions(event WorkflowEvent) {
@@ -462,17 +512,22 @@ func (drt *DagRuntime) ProcessFailureOptions(event WorkflowEvent) {
 	name, ok := event.Extra[common.WfEventKeyComponentName]
 
 	if !ok {
-		drt.logger.Errorf("cannot get the Component info of event[%v] for dagRuntime[%s], begin to cancell all not ready step",
+		errMsg := fmt.Sprintf("cannot get the Component info of event[%v] for dagRuntime[%s], begin to cancell all not ready step",
 			drt.runID, event)
+		drt.logger.Errorf(errMsg)
 
 		// 理论上不会出现这种情况，用户兜底
 		// 防止下游节点无法调度，导致任务被 hang 住，将所有还没有调度的节点置为 cancelled 状态
 		// 或者直接终止 run？ 又或者终止当前的 dagRuntime？
-		drt.cancellAllNotReadySubComponent()
+		drt.cancellAllNotReadySubComponent(errMsg)
 
 	}
 	componentName := name.(string)
 	component := drt.subComponentRumtimes[componentName][0].getComponent()
+
+	// 通过时间通知其父节点处理开始处理 failureOptions
+
+	drt.syncToApiServerAndParent(WfEventFailureOptionsTriggered, schema.DagView{}, fmt.Sprintf("failure options triggered by event: %v", event))
 
 	// 策略的合法性由 workflow 保证
 	if drt.FailureOptions.Strategy == schema.FailureStrategyContinue {
@@ -482,20 +537,24 @@ func (drt *DagRuntime) ProcessFailureOptions(event WorkflowEvent) {
 	}
 }
 
-func (drt *DagRuntime) cancellAllNotReadySubComponent() {
+func (drt *DagRuntime) cancellAllNotReadySubComponent(errMsg string) {
 	defer drt.processSubComponentLock.Unlock()
 	drt.processSubComponentLock.Lock()
 
-	for subName, subComponent := range drt.getComponent().(*schema.WorkflowSourceDag).EntryPoints {
+	for subName, subComponent := range drt.getworkflowSouceDag().EntryPoints {
 		_, ok := drt.subComponentRumtimes[subName]
-		if ok {
-			drt.CancellNotReadyComponent(subComponent)
+		if !ok {
+			drt.CancellNotReadyComponent(subComponent, errMsg)
 		}
 	}
 }
 
-func (drt *DagRuntime) CancellNotReadyComponent(subComponent schema.Component) {
+func (drt *DagRuntime) CancellNotReadyComponent(subComponent schema.Component, reason string) {
+	cancelComponentFullName := drt.generateSubComponentFullName(subComponent.GetName())
+	drt.logger.Infof("begin to cancel component[%s]: %s", cancelComponentFullName, reason)
 
+	err := fmt.Errorf(reason)
+	drt.processSubRuntimeError(err, subComponent, StatusRuntimeCancelled)
 }
 
 // processSkipped: 处理节点 skiped 的情况
@@ -503,35 +562,6 @@ func (drt *DagRuntime) processStartAbnormalStatus(msg string, status RuntimeStat
 	drt.updateStatus(status)
 	dagView := drt.newView(msg)
 	drt.syncToApiServerAndParent(WfEventDagUpdate, dagView, msg)
-}
-
-func (drt *DagRuntime) processSubStepRuntimeError(err error, step *schema.WorkflowSourceStep, StepName string) {
-	stepView := newStepViewFromWorkFlowSourceStep(step, StepName, err.Error(), StatusRuntimeFailed, drt.runConfig, drt.ID)
-
-	extra := map[string]interface{}{
-		common.WfEventKeyRunID:         drt.runID,
-		common.WfEventKeyPK:            drt.pk,
-		common.WfEventKeyStatus:        StatusRuntimeFailed,
-		common.WfEventKeyView:          stepView,
-		common.WfEventKeyComponentName: drt.getComponent().GetName(),
-	}
-
-	event := NewWorkflowEvent(WfEventJobSubmitErr, err.Error(), extra)
-	drt.processEvent(*event)
-}
-
-func (drt *DagRuntime) processSubDagRuntimeError(err error, dag *schema.WorkflowSourceDag, dagName string) {
-	dagView := newDagViewFromWorkFlowSourceDag(dag, dagName, err.Error(), StatusRuntimeFailed, drt.ID)
-	extra := map[string]interface{}{
-		common.WfEventKeyRunID:         drt.runID,
-		common.WfEventKeyPK:            drt.pk,
-		common.WfEventKeyStatus:        StatusRuntimeFailed,
-		common.WfEventKeyView:          dagView,
-		common.WfEventKeyComponentName: dagName,
-	}
-
-	event := NewWorkflowEvent(WfEventDagUpdate, err.Error(), extra)
-	drt.processEvent(*event)
 }
 
 // processSubRuntimeError： 处理调度子节点失败的情况，通过调用processEvent()函数来进行同步
@@ -542,7 +572,7 @@ func (drt *DagRuntime) processSubRuntimeError(err error, cp schema.Component, st
 	step, ok := cp.(*schema.WorkflowSourceStep)
 
 	failureOptionsctx, failureOptionsCancel := context.WithCancel(context.Background())
-	drt.failureOptionsCtxCanels[componentName] = failureOptionsCancel
+	drt.failureOptionsCtxCancels[componentName] = failureOptionsCancel
 
 	if ok {
 		newStepRuntimeWithStatus(subFullName, step, 0, drt.ctx, failureOptionsctx, drt.receiveEventChildren, drt.runConfig, drt.ID, status, err.Error())
@@ -552,14 +582,10 @@ func (drt *DagRuntime) processSubRuntimeError(err error, cp schema.Component, st
 	}
 }
 
-func (drt *DagRuntime) prcessCancelledSignall() {
-	return
-}
-
 // updateStatusAccordingSubComponentRuntimeStatus: 根据子节点的状态来更新
 func (drt *DagRuntime) updateStatusAccordingSubComponentRuntimeStatus() string {
 	// 1. 如果有子节点还没有调度，且节点本身的状态不为 Terminating， 则状态必定为running
-	if len(drt.subComponentRumtimes) != len(drt.getComponent().(*schema.WorkflowSourceDag).EntryPoints) &&
+	if len(drt.subComponentRumtimes) != len(drt.getworkflowSouceDag().EntryPoints) &&
 		drt.isTerminating() {
 		drt.updateStatus(StatusRuntimeRunning)
 		return ""
@@ -659,4 +685,10 @@ func (drt *DagRuntime) newView(msg string) schema.DagView {
 		Message:     msg,
 		ParentDagID: drt.parentDagID,
 	}
+}
+
+// stopByCtx: 在监测到底 ctx 的信号后，开始终止逻辑
+func (drt *DagRuntime) stopByCtx() {
+	// 对于已经调度了节点，其本身也会监听 ctx 信号, 执行终止相关的逻辑，因此，此处只需要处理还未被调度的节点
+	drt.cancellAllNotReadySubComponent("receive stop signall")
 }
