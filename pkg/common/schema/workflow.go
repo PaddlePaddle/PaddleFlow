@@ -64,6 +64,7 @@ type Component interface {
 	GetParameters() map[string]interface{}
 	GetCondition() string
 	GetLoopArgument() interface{}
+	GetType() string
 
 	// 下面几个Update 函数在进行模板替换的时候会用到
 	UpdateCondition(string)
@@ -112,6 +113,10 @@ func (s *WorkflowSourceStep) GetLoopArgument() interface{} {
 	return s.LoopArgument
 }
 
+func (s *WorkflowSourceStep) GetType() string {
+	return "step"
+}
+
 func (s *WorkflowSourceStep) UpdateCondition(condition string) {
 	s.Condition = condition
 }
@@ -156,6 +161,10 @@ func (d *WorkflowSourceDag) GetCondition() string {
 
 func (d *WorkflowSourceDag) GetLoopArgument() interface{} {
 	return d.LoopArgument
+}
+
+func (d *WorkflowSourceDag) GetType() string {
+	return "dag"
 }
 
 func (d *WorkflowSourceDag) UpdateCondition(condition string) {
