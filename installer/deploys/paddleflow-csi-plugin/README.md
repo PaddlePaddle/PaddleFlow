@@ -1,6 +1,6 @@
 # paddleflow-csi-plugin install guide
 
-## 1. create
+## 1. install
 1. 检查 `kubelet root-dir` 路径
 
 在`Kubernetes`或`k3s`集群中任意节点上执行以下命令：

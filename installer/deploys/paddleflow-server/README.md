@@ -1,17 +1,18 @@
 # paddleflow-server install guide
 
-## 1. create
-**快速安装paddleflow-server**
+## 1. install
+`paddleflow-server`支持多种数据库(`sqlite`,`mysql`)，其中`sqlite`仅用于快速部署和体验功能，不适合用于生产环境。
+- **指定用sqllite安装paddleflow-server**
 ```shell
-# 初始化sqlite
+# 创建一个具有写权限的sqlite数据库文件,默认位于`/mnt/paddleflow.db`
 touch /mnt/paddleflow.db && chmod 666 /mnt/paddleflow.db
-# 部署
+# 创建基于sqllite的paddleflow-server
 kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.2/installer/deploys/paddleflow-server/paddleflow-server-deploy.yaml
 ```
 
-**指定数据库为mysql并安装(推荐)**
+- **指定用mysql安装paddleflow-server(推荐)**
 ```shell
-# paddleflow默认使用SQLite配置,如需切换成mysql，需执行命令如下
+# 指定mysql配置如下
 export DB_DRIVER='mysql'
 export DB_HOST=127.0.0.1
 export DB_PORT=3306

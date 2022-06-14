@@ -1,6 +1,6 @@
 # pf-volcano install guide
 
-## 1. create
+## 1. install
 目前PaddleFlow使用开源volcano作为默认调度器
 ```shell
 # todo(使用pf版volcano,替换image, volcano-scheduler-pf.conf)
