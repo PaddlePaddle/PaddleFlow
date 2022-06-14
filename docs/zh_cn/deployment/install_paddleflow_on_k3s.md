@@ -1,6 +1,20 @@
-# paddleflow-server安装指南
+### 在k3s中安装paddleflow-server
+1. 创建一个具有写权限的sqlite数据库文件,默认位于`/mnt/paddleflow.db`. 若需更换路径,请等待后续支持的shell部署脚本
 
-## 1. 安装
+```shell
+touch /mnt/paddleflow.db && chmod 666 /mnt/paddleflow.db
+```
+
+2. 部署
+
+```shell
+# For x86:
+kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.2/installer/paddleflow-deployment.yaml
+# For arm64: todo
+```
+
+### 2.3 自定义安装
+#### 2.3.1 安装paddleflow-server
 `paddleflow-server`支持多种数据库(`sqlite`,`mysql`)，其中`sqlite`仅用于快速部署和体验功能，不适合用于生产环境。
 - **指定用sqllite安装paddleflow-server**
 ```shell
@@ -31,8 +45,21 @@ sed -e "s/sqlite/${DB_DRIVER}/g"  -e "s/host: 127.0.0.1/host: ${DB_HOST}/g"  -e 
 # For arm64: todo
 ```
 
+#### 2.3.2 安装paddleflow-csi-plugin
 
-## 2. 验证
+1. 部署
+
 ```shell
-kubectl get pod -n paddleflow | grep paddleflow-server
+# For x86_64:
+kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.2/installer/deploys/paddleflow-csi-plugin/paddleflow-csi-plugin-deploy.yaml
+# For arm64: todo
+```
+
+#### 2.3.3 安装volcano
+```shell
+# For x86_64:
+kubectl apply -f https://raw.githubusercontent.com/volcano-sh/volcano/master/installer/volcano-development.yaml
+
+# For arm64:
+kubectl apply -f https://raw.githubusercontent.com/volcano-sh/volcano/master/installer/volcano-development-arm64.yaml
 ```
