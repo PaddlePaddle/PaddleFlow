@@ -23,7 +23,7 @@
       "env": {
         "PF_JOB_SPARK_MAIN_FILE": "local:///opt/spark/examples/src/main/python/pi.py"
       },
-      "extraFileSystems": null,
+      "extraFS": null,
       "image": "gcr.io/spark-operator/spark:v3.1.1",
       "command": "sleep 50",
       "args": null,
@@ -40,7 +40,7 @@
         "mem": "",
         "name": "flavour1"
       },
-      "extraFileSystems": null,
+      "extraFS": null,
       "image": "gcr.io/spark-operator/spark:v3.1.1",
       "env": null,
       "command": "sleep 50",
