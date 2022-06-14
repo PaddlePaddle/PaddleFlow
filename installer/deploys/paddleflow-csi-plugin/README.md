@@ -1,16 +1,17 @@
-# paddleflow-csi-plugin install guide
+# paddleflow-csi-plugin安装指南
 
-## 1. install
-1. 检查 `kubelet root-dir` 路径
+## 1. 安装
+### 1.1 paddleflow-csi-plugin on Kubernetes
+step1. 检查 `kubelet root-dir` 路径
 
-在`Kubernetes`或`k3s`集群中任意节点上执行以下命令：
+在`Kubernetes`集群中任意节点上执行以下命令：
 
 ```shell
 # 查询kubelet当前的根目录路径
 ps -ef | grep kubelet | grep root-dir
 ```
 
-2. 部署
+step2. 部署
 
 **如果前面检查命令返回的结果为空**，无需修改配置，可直接部署：
 ```shell
@@ -22,6 +23,12 @@ kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/rele
 # Kubernetes version >= v1.16
 curl -sSL https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.2/installer/deploys/paddleflow-csi-plugin/paddleflow-csi-plugin-deploy.yaml | sed 's@/var/lib/kubelet@{{KUBELET_DIR}}@g' | kubectl apply -f -
 ```
+
+### 1.2 paddleflow-csi-plugin on k3s
+```shell
+kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.2/installer/deploys/paddleflow-csi-plugin/paddleflow-csi-plugin-deploy.yaml
+```
+
 
 ## 2. check
 ```shell

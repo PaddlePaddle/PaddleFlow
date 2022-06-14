@@ -32,9 +32,9 @@ PaddleFlow运行依赖以下几个组件：</br>
 
 ### 2.2 快速部署
 
-- [在kubernetes中部署](install_server_kubernetes.md)
+- [PaddleFlow On Kubernetes](install_paddleflow_on_k8s.md)
 
-- [在k3s中部署](install_server_k3s.md)
+- [PaddleFlow On K3s](install_paddleflow_on_k3s.md)
 
 
 ### 2.4 服务端部署包说明
@@ -42,7 +42,6 @@ PaddleFlow运行依赖以下几个组件：</br>
 
 ```
 .
-├── README.md
 ├── paddleflow-deployment.yaml
 ├── database
 │   ├── README.md
@@ -62,3 +61,7 @@ PaddleFlow运行依赖以下几个组件：</br>
         ├── Dockerfile
         └── Dockerfile_base
 ```
+- `paddleflow-deployment.yaml`用于部署paddleflow各个组件;
+- `database`目录用于执行数据库初始化脚本,创建数据库及相应的数据表,详见[数据库初始化指南](../../../installer/database/README.md)
+- `deploys`目录用于存放各组件yaml格式的部署文件,包括了`paddleflow-server`,`paddleflow-csi-plugin`,`volcano`
+- `dockerfile`目录包含了各组件的镜像构建文件,使用方式详见[paddleflow镜像构建指南](../../../installer/dockerfile/README.md)
