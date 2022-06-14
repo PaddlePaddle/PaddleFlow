@@ -92,7 +92,7 @@ Flavour
 |name| string (optional)|套餐实例名称，可以是注册的套餐实例名称，也可以是自定义套餐实例（customFlavour或不填）
 |cpu| string (optional)|cpu个数，当套餐实例名称为自定义时，有效
 |mem| string (optional)|mem大小，当套餐实例名称为自定义时，有效
-|scalarResources| Map[string]string (optional)|套餐实例的可扩展资源，例如nvidia.com/gpu、baidu.com/v100_cgpu、baidu.com/v100_cgpu_core等，当套餐名称为自定义时，有效
+|scalarResources| Map[string]string (optional)|套餐实例的可扩展资源，例如nvidia.com/gpu等，当套餐名称为自定义时，有效
 
 
 FileSystem
