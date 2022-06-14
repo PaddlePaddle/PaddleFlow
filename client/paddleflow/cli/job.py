@@ -188,6 +188,36 @@ def create(ctx, jobtype, jsonpath):
 
 @job.command()
 @click.argument('jobid')
+@click.option('-p', '--priority', help="Update the priority of job, such as: low, normal, high, e.g. --priority high")
+@click.option('-l', '--labels', help="Update the labels of job, e.g. --labels label1=value1,label2=value2")
+@click.option('-a', '--annotations', help="Update the annotations of job, e.g. --annotations anno1=value1,anno2=value2")
+@click.pass_context
+def update(ctx, jobid, priority, labels, annotations):
+    """update job, including priority, labels, or annotations.\n
+    JOBID: the id of the specificed job.
+    """
+    client = ctx.obj['client']
+    if not jobid:
+        click.echo('job update must provide jobid.', err=True)
+        sys.exit(1)
+    labelDict = None
+    if labels:
+        args = labels.split(',')
+        labelDict = dict([item.split("=") for item in args])
+    annotationDict = None
+    if annotations:
+        args = annotations.split(',')
+        annotationDict = dict([item.split("=") for item in args])
+    valid, response = client.update_job(jobid, priority, labelDict, annotationDict)
+    if valid:
+        click.echo("jobid[%s] update success" % jobid)
+    else:
+        click.echo("update job %s failed with message[%s]" % jobid, response)
+        sys.exit(1)
+
+
+@job.command()
+@click.argument('jobid')
 @click.pass_context
 def stop(ctx, jobid):
     """stop the job.\n

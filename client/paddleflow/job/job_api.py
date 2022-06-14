@@ -253,12 +253,39 @@ class JobServiceApi(object):
 
 
     @classmethod
-    def update_job(cls):
+    def update_job(cls, host, job_id, priority, labels, annotations, header=None):
         """
+        update job priority, labels, or annotations
 
-        :return:
+        :param host:
+        :param job_id:
+        :param priority:
+        :param labels:
+        :param annotations:
         """
-        pass
+        if not header:
+            raise PaddleFlowSDKException("InvalidRequest", "paddleflow should login first")
+        params = {
+            "action": "modify"
+        }
+        body = {}
+        if priority is not None:
+            body['priority'] = priority
+        if labels is not None:
+            body['labels'] = labels
+        if annotations is not None:
+            body['annotations'] = annotations
+        response = api_client.call_api(method="PUT", url=parse.urljoin(host, api.PADDLE_FLOW_JOB + "/%s" % job_id),
+                                               headers=header, params=params, json=body)
+        if not response:
+            raise PaddleFlowSDKException("Update job error", response.text)
+        if not response.text:
+            return True, None
+        data = json.loads(response.text)
+        if 'message' in data:
+            return False, data['message']
+        return True, None
+
 
     @classmethod
     def delete_job(cls, host, job_id, header=None):
