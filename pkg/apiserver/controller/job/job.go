@@ -236,6 +236,14 @@ func patchFromCommonInfo(conf *schema.Conf, commonJobInfo *CommonJobInfo) error 
 		}
 		return err
 	}
+	// distributed Job would pass check flavour and queue, because conf is just constructed without flavour.
+	// flavour would be check in function newMembers
+	if !schema.IsEmptyResource(conf.Flavour.ResourceInfo) {
+		if err = job.IsEnoughQueueCapacity(conf.Flavour, queue.MaxResources); err != nil {
+			log.Errorf("patch Job from commonInfo failed, err:=%v", err)
+			return err
+		}
+	}
 	queueID := commonJobInfo.SchedulingPolicy.QueueID
 	conf.SetQueueID(queueID)
 	conf.SetQueueName(queueName)
@@ -392,9 +400,10 @@ func newCollectiveMembers(request *CreateDisJobRequest) ([]models.Member, error)
 		if reqMem.Role == string(schema.RoleWorker) {
 			member, err := newMember(reqMem, schema.RoleWorker)
 			if err != nil {
-				log.Errorf("create collective members failed, err=%v", err)
+				log.Errorf("create collective members failed, err: %v", err)
 				return nil, err
 			}
+			patchFromCommonInfo(&member.Conf, &request.CommonJobInfo)
 			members = append(members, member)
 		}
 	}
@@ -524,32 +533,20 @@ func DeleteJob(ctx *logger.RequestContext, jobID string) error {
 	job, err := models.GetJobByID(jobID)
 	if err != nil {
 		ctx.ErrorCode = common.JobNotFound
-		log.Errorf("get job from database failed, err: %v", err)
-		return err
+		msg := fmt.Sprintf("get job %s failed, err: %v", jobID, err)
+		log.Errorf(msg)
+		return fmt.Errorf(msg)
 	}
-	// check job status
+	// check job status before delete
 	if !schema.IsImmutableJobStatus(job.Status) {
 		ctx.ErrorCode = common.ActionNotAllowed
 		msg := fmt.Sprintf("job %s status is %s, please stop it first.", jobID, job.Status)
 		log.Errorf(msg)
 		return fmt.Errorf(msg)
 	}
-	runtimeSvc, err := getRuntimeByQueue(ctx, job.QueueID)
-	if err != nil {
-		log.Errorf("get runtime by queue failed, err: %v", err)
-		return err
-	}
-	pfjob, err := api.NewJobInfo(&job)
-	if err != nil {
-		return err
-	}
-	err = runtimeSvc.DeleteJob(pfjob)
-	if err != nil {
-		log.Errorf("delete job %s from cluster failed, err: %v", jobID, err)
-		return err
-	}
 	err = models.DeleteJob(jobID)
 	if err != nil {
+		ctx.ErrorCode = common.InternalError
 		log.Errorf("delete job %s from cluster failed, err: %v", jobID, err)
 		return err
 	}
@@ -603,8 +600,25 @@ func UpdateJob(ctx *logger.RequestContext, request *UpdateJobRequest) error {
 		log.Errorf("get job %s from database failed, err: %v", job.ID, err)
 		return err
 	}
-	// check job status
-	if !schema.IsImmutableJobStatus(job.Status) && job.Status != schema.StatusJobInit {
+	// check job status when update job on cluster
+	needUpdateCluster := false
+	if request.Priority != "" {
+		// need to update job priority
+		if job.Status != schema.StatusJobPending && job.Status != schema.StatusJobInit {
+			ctx.ErrorCode = common.ActionNotAllowed
+			err = fmt.Errorf("the status of job %s is %s, job priority cannot be updated", job.ID, job.Status)
+			log.Errorln(err)
+			return err
+		}
+		needUpdateCluster = job.Status == schema.StatusJobPending
+	} else {
+		// need to update job labels or annotations
+		if job.Status == schema.StatusJobPending || job.Status == schema.StatusJobRunning {
+			needUpdateCluster = true
+		}
+	}
+
+	if needUpdateCluster {
 		// update job on cluster
 		err = updateRuntimeJob(ctx, &job, request)
 		if err != nil {
@@ -614,6 +628,7 @@ func UpdateJob(ctx *logger.RequestContext, request *UpdateJobRequest) error {
 		}
 	}
 
+	// update job on database
 	if request.Priority != "" {
 		job.Config.Priority = request.Priority
 	}
@@ -644,9 +659,15 @@ func updateRuntimeJob(ctx *logger.RequestContext, job *models.Job, request *Upda
 		log.Errorf("new paddleflow job failed, err: %v", err)
 		return err
 	}
-	pfjob.UpdateLabels(request.Labels)
-	pfjob.UpdateAnnotations(request.Annotations)
-	// TODO: update job priority
+	if request.Labels != nil {
+		pfjob.UpdateLabels(request.Labels)
+	}
+	if request.Annotations != nil {
+		pfjob.UpdateAnnotations(request.Annotations)
+	}
+	if request.Priority != "" {
+		pfjob.UpdateJobPriority(request.Priority)
+	}
 	return runtimeSvc.UpdateJob(pfjob)
 }
 

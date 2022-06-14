@@ -6,7 +6,9 @@ metadata:
 spec:
   driver:
     serviceAccount:
+    terminationGracePeriodSeconds: 30
   executor:
+    terminationGracePeriodSeconds: 30
   image:
   imagePullPolicy: IfNotPresent
   mainApplicationFile:

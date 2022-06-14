@@ -58,14 +58,9 @@ func (pr *PFSRouter) createFSCacheConfig(w http.ResponseWriter, r *http.Request)
 	realUserName := getRealUserName(&ctx, createRequest.Username)
 	createRequest.FsID = common.ID(realUserName, createRequest.FsName)
 	ctx.Logging().Tracef("create file system cache with req[%v]", createRequest)
-	// fs exists
-	if _, err := models.GetFileSystemWithFsID(createRequest.FsID); err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			ctx.ErrorCode = common.FileSystemNotExist
-			ctx.Logging().Errorf("createFSCacheConfig fs[%s] not exist", createRequest.FsID)
-		} else {
-			ctx.Logging().Errorf("createFSCacheConfig fs[%s] err:%v", createRequest.FsID, err)
-		}
+	// validate can be modified
+	if err := fsCheckCanModify(&ctx, createRequest.FsID); err != nil {
+		ctx.Logging().Errorf("checkCanModifyFs[%s] err: %v", createRequest.FsID, err)
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
@@ -121,6 +116,12 @@ func (pr *PFSRouter) updateFSCacheConfig(w http.ResponseWriter, r *http.Request)
 		}
 		return
 	}
+	// validate can be modified
+	if err := fsCheckCanModify(&ctx, req.FsID); err != nil {
+		ctx.Logging().Errorf("checkCanModifyFs[%s] err: %v", req.FsID, err)
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
 	// validate request
 	if err := validateCacheConfigRequest(&ctx, &req); err != nil {
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
@@ -136,24 +137,28 @@ func (pr *PFSRouter) updateFSCacheConfig(w http.ResponseWriter, r *http.Request)
 }
 
 func validateCacheConfigRequest(ctx *logger.RequestContext, req *api.UpdateFileSystemCacheRequest) error {
-	// patch default value
-	if req.CacheDir == "" {
-		req.CacheDir = schema.DefaultCacheDir(req.FsID)
-	}
-	if req.MetaDriver == "" {
-		req.MetaDriver = schema.FsMetaDefault
-	}
-	// validate: 1. cacheDir must be absolute path; 2. valid meta driver; 3. BlockSize >= 0
-	if filepath.IsAbs(req.CacheDir) &&
-		schema.IsValidFsMetaDriver(req.MetaDriver) &&
-		req.BlockSize >= 0 {
-		return nil
-	} else {
+	// cacheDir must be absolute path
+	if req.CacheDir != "" && !filepath.IsAbs(req.CacheDir) {
 		ctx.ErrorCode = common.InvalidArguments
-		err := fmt.Errorf("fs cache config [%+v] not valid", req)
+		err := fmt.Errorf("fs cacheDir[%s] should be an absolute path", req.CacheDir)
 		ctx.Logging().Errorf("validate fs cache config fsID[%s] err: %v", req.FsID, err)
 		return err
 	}
+	// meta driver
+	if req.MetaDriver != "" && !schema.IsValidFsMetaDriver(req.MetaDriver) {
+		ctx.ErrorCode = common.InvalidArguments
+		err := fmt.Errorf("fs meta driver[%s] not valid", req.MetaDriver)
+		ctx.Logging().Errorf("validate fs cache config fsID[%s] err: %v", req.FsID, err)
+		return err
+	}
+	// BlockSize
+	if req.BlockSize < 0 {
+		ctx.ErrorCode = common.InvalidArguments
+		err := fmt.Errorf("fs data cache blockSize[%d] should not be negative", req.BlockSize)
+		ctx.Logging().Errorf("validate fs cache config fsID[%s] err: %v", req.FsID, err)
+		return err
+	}
+	return nil
 }
 
 // getFSCacheConfig
@@ -211,24 +216,18 @@ func (pr *PFSRouter) deleteFSCacheConfig(w http.ResponseWriter, r *http.Request)
 	realUserName := getRealUserName(&ctx, username)
 	fsID := common.ID(realUserName, fsName)
 
-	_, err := models.GetFileSystemWithFsID(fsID)
-	if err != nil {
-		ctx.Logging().Errorf("delete fsID[%s] failed by getting file system error[%v]", fsID, err)
-		ctx.ErrorMessage = fmt.Sprintf("username[%s] not create fsName[%s]", username, fsName)
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			common.RenderErrWithMessage(w, ctx.RequestID, common.RecordNotFound, ctx.ErrorMessage)
-		} else {
-			common.RenderErrWithMessage(w, ctx.RequestID, common.FileSystemDataBaseError, err.Error())
-		}
+	if err := fsCheckCanModify(&ctx, fsID); err != nil {
+		ctx.Logging().Errorf("checkCanModifyFs[%s] err: %v", fsID, err)
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
 
-	err = api.DeleteFileSystemCacheConfig(&ctx, fsID)
-	if err != nil {
+	if err := api.DeleteFileSystemCacheConfig(&ctx, fsID); err != nil {
 		ctx.Logging().Errorf("delete file system with error[%v]", err)
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
+
 	common.RenderStatus(w, http.StatusOK)
 }
 

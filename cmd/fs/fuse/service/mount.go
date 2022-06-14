@@ -24,8 +24,11 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"os"
+	"os/signal"
 	"path"
 	"strings"
+	"syscall"
+	"time"
 
 	libfuse "github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/prometheus/client_golang/prometheus"
@@ -116,7 +119,7 @@ func setup(c *cli.Context) error {
 		opts.Options = append(opts.Options, mopts...)
 	}
 
-	if logConf.Level == "DEBUG" || logConf.Level == "TRACE" {
+	if strings.ToTitle(logConf.Level) == "DEBUG" || strings.ToTitle(logConf.Level) == "TRACE" {
 		opts.Debug = true
 	}
 
@@ -131,6 +134,7 @@ func setup(c *cli.Context) error {
 		log.Errorf("init vfs failed: %v", err)
 		return err
 	}
+	signalHandle(mountPoint)
 	go metric.UpdateBaseMetrics()
 	// whether start metrics server
 	if c.Bool("metrics-service-on") {
@@ -345,4 +349,20 @@ func InitVFS(c *cli.Context, registry *prometheus.Registry) error {
 		return err
 	}
 	return nil
+}
+
+func signalHandle(mp string) {
+	signalChan := make(chan os.Signal, 10)
+	signal.Notify(signalChan, syscall.SIGTERM, syscall.SIGINT, syscall.SIGHUP, syscall.SIGKILL)
+	go func() {
+		for {
+			waitForSignal := <-signalChan
+			log.Infof("fuse exit with signal %v", waitForSignal)
+			go func() { _ = doUmount(mp, true) }()
+			go func() {
+				time.Sleep(time.Second * 3)
+				os.Exit(1)
+			}()
+		}
+	}()
 }

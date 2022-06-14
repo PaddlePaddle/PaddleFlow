@@ -161,26 +161,76 @@ func (kr *KubeRuntime) UpdateJob(jobInfo *api.PFJob) error {
 		return err
 	}
 
+	// update job priority
+	if len(jobInfo.PriorityClassName) != 0 {
+		err = kr.updateJobPriority(jobInfo)
+		if err != nil {
+			return err
+		}
+	}
 	// update labels and annotations
-	patchJSON := struct {
-		metav1.ObjectMeta `json:"metadata,omitempty"`
-	}{
-		ObjectMeta: metav1.ObjectMeta{
-			Labels:      jobInfo.Labels,
-			Annotations: jobInfo.Annotations,
-		},
-	}
-	updateData, err := json.Marshal(patchJSON)
-	if err != nil {
-		log.Errorf("update kubernetes job[%s] failed, err: %v", jobInfo.ID, err)
-		return err
-	}
-	err = job.UpdateJob(updateData)
-	if err != nil && !k8serrors.IsNotFound(err) {
-		log.Warnf("update kubernetes job[%s] failed, err: %v", jobInfo.ID, err)
-		return err
+	if jobInfo.Labels != nil || jobInfo.Annotations != nil {
+		patchJSON := struct {
+			metav1.ObjectMeta `json:"metadata,omitempty"`
+		}{
+			ObjectMeta: metav1.ObjectMeta{
+				Labels:      jobInfo.Labels,
+				Annotations: jobInfo.Annotations,
+			},
+		}
+		updateData, err := json.Marshal(patchJSON)
+		if err != nil {
+			log.Errorf("update kubernetes job[%s] failed, err: %v", jobInfo.ID, err)
+			return err
+		}
+		err = job.UpdateJob(updateData)
+		if err != nil && !k8serrors.IsNotFound(err) {
+			log.Warnf("update kubernetes job[%s] failed, err: %v", jobInfo.ID, err)
+			return err
+		}
 	}
 	return nil
+}
+
+func (kr *KubeRuntime) updateJobPriority(jobInfo *api.PFJob) error {
+	// get pod group name for job
+	pgName := executor.GetPodGroupName(jobInfo.ID)
+	if len(pgName) == 0 {
+		err := fmt.Errorf("update priority for job %s failed, pod group not found", jobInfo.ID)
+		log.Errorln(err)
+		return err
+	}
+
+	obj, err := executor.Get(jobInfo.Namespace, pgName, k8s.PodGroupGVK, kr.dynamicClientOpt)
+	if err != nil {
+		log.Errorf("get pod group for job %s failed, err: %v", jobInfo.ID, err)
+		return err
+	}
+	oldPG := &schedulingv1beta1.PodGroup{}
+	if err = runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, oldPG); err != nil {
+		log.Errorf("convert unstructured object [%v] to pod group failed. err: %v", obj, err)
+		return err
+	}
+	if oldPG.Status.Phase != schedulingv1beta1.PodGroupInqueue &&
+		oldPG.Status.Phase != schedulingv1beta1.PodGroupPending {
+		errmsg := fmt.Errorf("the job %s is already scheduled", jobInfo.ID)
+		log.Errorln(errmsg)
+		return errmsg
+	}
+
+	priorityClassName := executor.KubePriorityClass(jobInfo.PriorityClassName)
+	if oldPG.Spec.PriorityClassName != priorityClassName {
+		oldPG.Spec.PriorityClassName = priorityClassName
+	} else {
+		err = fmt.Errorf("the priority of job %s is already %s", jobInfo.ID, oldPG.Spec.PriorityClassName)
+		log.Errorln(err)
+		return err
+	}
+	err = executor.Update(oldPG, k8s.PodGroupGVK, kr.dynamicClientOpt)
+	if err != nil {
+		log.Errorf("update priority for job %s failed. err: %v", jobInfo.ID, err)
+	}
+	return err
 }
 
 func (kr *KubeRuntime) DeleteJob(jobInfo *api.PFJob) error {
@@ -275,7 +325,8 @@ func (kr *KubeRuntime) createElasticResourceQuota(q *models.Queue) error {
 
 	equota := &schedulingv1beta1.ElasticResourceQuota{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: q.Name,
+			Name:   q.Name,
+			Labels: q.Location,
 		},
 		Spec: schedulingv1beta1.ElasticResourceQuotaSpec{
 			Max:         maxResources,
@@ -395,6 +446,15 @@ func (kr *KubeRuntime) updateElasticResourceQuota(q *models.Queue) error {
 	equota.Spec.Max = maxResources
 	equota.Spec.Min = minResources
 	equota.Spec.Namespace = q.Namespace
+	// update labels
+	if equota.Labels == nil {
+		equota.Labels = make(map[string]string)
+	}
+	newLabels := make(map[string]string)
+	for key, v := range q.Location {
+		newLabels[key] = v
+	}
+	equota.Labels = newLabels
 
 	log.Infof("Update elastic resource quota info:%#v", equota)
 	if err := executor.Update(&equota, k8s.EQuotaGVK, kr.dynamicClientOpt); err != nil {
