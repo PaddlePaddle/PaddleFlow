@@ -203,7 +203,7 @@ func (s *FileSystemService) ListFileSystem(ctx *logger.RequestContext, req *List
 	return items, "", err
 }
 
-// CreateFileSystemClaims the function which performs the operation of creating FileSystem claims
+// CreateFileSystemClaims obsoleted func TODO: remove to kubernetes runtime
 func (s *FileSystemService) CreateFileSystemClaims(ctx *logger.RequestContext, req *CreateFileSystemClaimsRequest) error {
 	if len(req.Namespaces) == 0 || len(req.FsIDs) == 0 {
 		return nil
@@ -237,8 +237,7 @@ func (s *FileSystemService) CreateFileSystemClaims(ctx *logger.RequestContext, r
 				continue
 			}
 			var pv string
-			userName := fsModel[k].UserName
-			if pv, err = createPV(ns, fsID, userName); err != nil {
+			if pv, err = createPV(ns, fsID); err != nil {
 				ctx.Logging().Errorf("create PV with file system[%v] in namespace[%v] failed: %v",
 					fsID, ns, err)
 				ctx.ErrorCode = common.K8sOperatorError
@@ -255,7 +254,7 @@ func (s *FileSystemService) CreateFileSystemClaims(ctx *logger.RequestContext, r
 	return nil
 }
 
-// TODO: remove to kubernetes runtime
+// deletePVC obsoleted func TODO: remove to kubernetes runtime
 func deletePVC(fsID string) error {
 	k8sOperator := k8s.GetK8sOperator()
 	nsList, err := k8sOperator.ListNamespaces(metav1.ListOptions{})
@@ -287,8 +286,8 @@ func deletePVC(fsID string) error {
 	return nil
 }
 
-// TODO: remove to kubernetes runtime
-func createPV(namespace, fsId, userName string) (string, error) {
+// createPV obsoleted func TODO: remove to kubernetes runtime
+func createPV(namespace, fsId string) (string, error) {
 	k8sOperator := k8s.GetK8sOperator()
 	pv := config.DefaultPV
 	// format pvname to fsid
@@ -312,9 +311,6 @@ func createPV(namespace, fsId, userName string) (string, error) {
 			newPV.Spec.CSI.VolumeAttributes[schema.FSID] = fsId
 			newPV.Spec.CSI.VolumeHandle = pvName
 		}
-		if _, ok := csi.VolumeAttributes[schema.PFSUserName]; ok {
-			newPV.Spec.CSI.VolumeAttributes[schema.PFSUserName] = userName
-		}
 		if _, ok := csi.VolumeAttributes[schema.PFSServer]; ok {
 			newPV.Spec.CSI.VolumeAttributes[schema.PFSServer] = fmt.Sprintf("%s:%d", config.GlobalServerConfig.Fs.K8sServiceName, config.GlobalServerConfig.Fs.K8sServicePort)
 		}
@@ -326,7 +322,7 @@ func createPV(namespace, fsId, userName string) (string, error) {
 	return pvName, nil
 }
 
-// TODO: remove to kubernetes runtime
+// createPVC obsoleted func TODO: remove to kubernetes runtime
 func createPVC(namespace, fsId, pv string) error {
 	k8sOperator := k8s.GetK8sOperator()
 	pvc := config.DefaultPVC

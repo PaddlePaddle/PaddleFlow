@@ -18,6 +18,7 @@ package mount
 
 import (
 	"fmt"
+	"path"
 	"strconv"
 	"strings"
 	"sync"
@@ -233,20 +234,15 @@ func createMountPod(k8sClient k8s.K8SInterface, httpClient *core.PaddleFlowClien
 	mountInfo pfs.MountInfo) error {
 	// get config
 	cacheConfig, err := fsCacheConfig(mountInfo, httpClient, token)
-	if err != nil {
-		if strings.Contains(err.Error(), gorm.ErrRecordNotFound.Error()) {
-			log.Infof("fs[%s] has not set cacheConfig. mount with default settings.", mountInfo.FSID)
-			cacheConfig = defaultCacheConfig(mountInfo.FSID)
-		} else {
-			log.Errorf("get fs[%s] cacheConfig from pfs server[%s] failed: %v",
-				mountInfo.FSID, mountInfo.Server, err)
-			return err
-		}
-	} else {
-		completeCacheConfig(&cacheConfig, mountInfo.FSID)
+	if err != nil && !strings.Contains(err.Error(), gorm.ErrRecordNotFound.Error()) {
+		log.Errorf("get fs[%s] cacheConfig from pfs server[%s] failed: %v",
+			mountInfo.FSID, mountInfo.Server, err)
+		return err
 	}
+
+	completeCacheConfig(&cacheConfig, mountInfo.FSID)
 	// create pod
-	newPod := BuildMountPod(volumeID, mountInfo, cacheConfig)
+	newPod := buildMountPod(volumeID, mountInfo, cacheConfig)
 	_, err = k8sClient.CreatePod(newPod)
 	if err != nil {
 		log.Errorf("createMount: Create pod for fsID %s err: %v", mountInfo.FSID, err)
@@ -255,16 +251,9 @@ func createMountPod(k8sClient k8s.K8SInterface, httpClient *core.PaddleFlowClien
 	return nil
 }
 
-func defaultCacheConfig(fsID string) common.FsCacheConfig {
-	return common.FsCacheConfig{
-		CacheDir:   schema.DefaultCacheDir(fsID),
-		MetaDriver: schema.FsMetaDefault,
-	}
-}
-
 func completeCacheConfig(config *common.FsCacheConfig, fsID string) {
 	if config.CacheDir == "" {
-		config.CacheDir = schema.DefaultCacheDir(fsID)
+		config.CacheDir = path.Join(csiconfig.HostMntDir, fsID)
 	}
 	if config.MetaDriver == "" {
 		config.MetaDriver = schema.FsMetaDefault
@@ -274,7 +263,7 @@ func completeCacheConfig(config *common.FsCacheConfig, fsID string) {
 	}
 }
 
-func BuildMountPod(volumeID string, mountInfo pfs.MountInfo, cacheConf common.FsCacheConfig) *v1.Pod {
+func buildMountPod(volumeID string, mountInfo pfs.MountInfo, cacheConf common.FsCacheConfig) *v1.Pod {
 	pod := csiconfig.GeneratePodTemplate()
 	pod.Name = GeneratePodNameByFsID(volumeID)
 	buildMountContainer(pod, mountInfo, cacheConf)
@@ -406,7 +395,7 @@ func buildMountContainer(pod *v1.Pod, mountInfo pfs.MountInfo, cacheConf common.
 			Name: VolumesKeyMount,
 			VolumeSource: corev1.VolumeSource{
 				HostPath: &corev1.HostPathVolumeSource{
-					Path: schema.HostMntDir,
+					Path: csiconfig.HostMntDir,
 					Type: &typeDir,
 				},
 			},

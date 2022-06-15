@@ -1,8 +1,7 @@
-# paddleflow命令参考
+# PaddleFlow命令参考
 
-paddleflow基本的操作命令可以帮助您更好的上手使用，本页面提供所有的命令的详细参考
-
-paddleflow cli 是基于paddleflow python sdk 上层封装的命令行工具。支持用户管理(`user`)、队列管理(`queue`)、 存储管理(`fs`)以及工作流(`run`)的命令行操作。
+PaddleFlow基本的操作命令可以帮助您更好的上手使用，本页面提供所有的命令的详细参考
+PaddleFlow-cli 是基于PaddleFlow python-sdk 上层封装的命令行工具。支持用户管理(`user`)、队列管理(`queue`)、 存储管理(`fs`)以及工作流(`run`)的命令行操作。
 
 ## 环境依赖
 
@@ -13,7 +12,7 @@ paddleflow cli 是基于paddleflow python sdk 上层封装的命令行工具。�
 
 ## 概览
 
-在安装paddleflow之后，在终端输入`paddleflow`并执行，就能看到所有可用的命令，同时，每个命令后面添加`--help`能获得该命令的详细帮助信息
+在安装PaddleFlow之后，在终端输入`paddleflow`并执行，就能看到所有可用的命令，同时，每个命令后面添加`--help`能获得该命令的详细帮助信息
 
 ```bash
 $ paddleflow --help
@@ -63,8 +62,10 @@ paddleflow [options] [<submodule> <verb> <parameters> [options]]
 name = 账户名
 password = 账户密码
 [server]
-paddleflow_server = 127.0.0.1   // paddleflow server 地址
-paddleflow_port = 8080          // paddleflow server 端口
+# paddleflow server 地址
+paddleflow_server = 127.0.0.1
+# paddleflow server 端口
+paddleflow_port = 8080         
 ```
 
 其中，`paddleflow_port`,不是必须填写选择，如果用户在使用过程中没有调整过`paddleflow server`服务的端口，则不需要进行填写。 `paddleflow cli` 会使用默认端口进行初始化操作。
@@ -206,11 +207,9 @@ flavour列表显示：用户输入```paddleflow grant flavour```，界面上显�
 +=======+=======+==========+=================================================================+
 |     1 | 1Gi   | flavour1 |                                                                 |
 +-------+-------+----------+-----------------------------------------------------------------+
-|     1 | 8Gi   | flavour2 | {'baidu.com/v100_cgpu': '1'}                                    |
+|     4 | 8Gi   | flavour2 | {'nvidia.com/gpu': '1'}                                         |
 +-------+-------+----------+-----------------------------------------------------------------+
-|     1 | 8Gi   | flavour3 | {'baidu.com/v100_cgpu': '2'}                                    |
-+-------+-------+----------+-----------------------------------------------------------------+
-|     1 | 8Gi   | flavour4 | {'baidu.com/v100_cgpu': '1', 'baidu.com/v100_cgpu_memory': '7'} |
+|     4 | 8Gi   | flavour3 | {'nvidia.com/gpu': '2'}                                         |
 +-------+-------+----------+-----------------------------------------------------------------+
 
 ```
@@ -703,9 +702,6 @@ cluster[clustername] update success
 |                |                 "memory": "",                               |
 |                |                 "storage": "",                              |
 |                |                 "scalarResources": {                        |
-|                |                     "baidu.com/v100_cgpu": "",              |
-|                |                     "baidu.com/v100_cgpu_core": "",         |
-|                |                     "baidu.com/v100_cgpu_memory": "",       |
 |                |                     "nvidia.com/gpu": ""                    |
 |                |                 }                                           |
 |                |             },                                              |
@@ -714,9 +710,6 @@ cluster[clustername] update success
 |                |                 "memory": "",                               |
 |                |                 "storage": "",                              |
 |                |                 "scalarResources": {                        |
-|                |                     "baidu.com/v100_cgpu": "",              |
-|                |                     "baidu.com/v100_cgpu_core": "",         |
-|                |                     "baidu.com/v100_cgpu_memory": "",       |
 |                |                     "nvidia.com/gpu": ""                    |
 |                |                 }                                           |
 |                |             }                                               |
@@ -728,9 +721,6 @@ cluster[clustername] update success
 |                |             "memory": "",                                   |
 |                |             "storage": "",                                  |
 |                |             "scalarResources": {                            |
-|                |                 "baidu.com/v100_cgpu": "",                  |
-|                |                 "baidu.com/v100_cgpu_core": "",             |
-|                |                 "baidu.com/v100_cgpu_memory": "",           |
 |                |                 "nvidia.com/gpu": ""                        |
 |                |             }                                               |
 |                |         },                                                  |
@@ -739,9 +729,6 @@ cluster[clustername] update success
 |                |             "memory": "",                                   |
 |                |             "storage": "",                                  |
 |                |             "scalarResources": {                            |
-|                |                 "baidu.com/v100_cgpu": "",                  |
-|                |                 "baidu.com/v100_cgpu_core": "",             |
-|                |                 "baidu.com/v100_cgpu_memory": "",           |
 |                |                 "nvidia.com/gpu": ""                        |
 |                |             }                                               |
 |                |         }                                                   |

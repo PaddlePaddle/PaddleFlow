@@ -96,10 +96,8 @@ func TestCheckResource(t *testing.T) {
 	for _, res := range reses {
 		var err error
 		switch res.resType {
-		case "cpu":
-			err = CheckCPUResource(res.res)
-		case "memory":
-			err = CheckMemoryResource(res.res)
+		case "cpu", "memory":
+			err = ValidateResourceItem(res.res)
 		default:
 			err = CheckScalarResource(res.res)
 		}

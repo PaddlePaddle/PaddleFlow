@@ -640,6 +640,15 @@ class Client(object):
         self.pre_check()
         return JobServiceApi.list_job(self.paddleflow_server, status, timestamp, start_time, queue, labels, maxkeys, marker, self.header)
 
+    def update_job(self, jobid, priority=None, labels=None, annotations=None):
+        """
+        update_job
+        """
+        self.pre_check()
+        if jobid is None or jobid == "":
+            raise PaddleFlowSDKException("InvalidJobID", "jobid should not be none or empty")
+        return JobServiceApi.update_job(self.paddleflow_server, jobid, priority, labels, annotations, self.header)
+
     def stop_job(self, jobid):
         """
         stop_job
