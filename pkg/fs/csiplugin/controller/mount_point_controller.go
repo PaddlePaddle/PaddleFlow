@@ -18,6 +18,7 @@ package controller
 
 import (
 	"fmt"
+	k8s2 "github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/k8s"
 	"strings"
 	"sync"
 	"time"
@@ -75,13 +76,13 @@ func GetMountPointController(nodeID string) *MountPointController {
 }
 
 func Initialize(nodeID string, masterNodesAware bool) *MountPointController {
-	k8sClient, err := k8s.New(common.GetK8SConfigPathEnv(), common.GetK8STimeoutEnv())
+	k8sClient, err := k8s2.New(common.GetK8SConfigPathEnv(), common.GetK8STimeoutEnv())
 	if err != nil {
 		log.Errorf("init k8sClient failed: %v", err)
 		return nil
 	}
 
-	sharedInformers := informers.NewSharedInformerFactory(k8sClient.Clientset, 0)
+	sharedInformers := informers.NewSharedInformerFactory(k8sClient, 0)
 	pvInformer := sharedInformers.Core().V1().PersistentVolumes()
 
 	mountPointController = &MountPointController{
@@ -175,7 +176,7 @@ func (m *MountPointController) RemovePod(podUID string) {
 // UpdatePodMap Synchronize all pod information of the node from kubelet
 func (m *MountPointController) UpdatePodMap() error {
 	log.Debug("begin to update pods map")
-	client, err := k8s.GetK8sClient()
+	client, err := k8s2.GetK8sClient()
 	if err != nil {
 		log.Errorf("get k8s client failed: %v", err)
 		return err

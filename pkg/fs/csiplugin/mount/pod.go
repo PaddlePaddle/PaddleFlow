@@ -18,6 +18,7 @@ package mount
 
 import (
 	"fmt"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/k8s"
 	"path"
 	"strconv"
 	"strings"
@@ -38,7 +39,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/core"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/client/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/client/pfs"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csiconfig"
 	utils "github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/common"
@@ -230,7 +230,7 @@ func addRefOfMount(mountInfo pfs.MountInfo, httpClient *core.PaddleFlowClient, t
 	return createMount(mountInfo, httpClient, token)
 }
 
-func createMountPod(k8sClient k8s.K8SInterface, httpClient *core.PaddleFlowClient, token, volumeID string,
+func createMountPod(k8sClient k8s.Client, httpClient *core.PaddleFlowClient, token, volumeID string,
 	mountInfo pfs.MountInfo) error {
 	// get config
 	cacheConfig, err := fsCacheConfig(mountInfo, httpClient, token)
@@ -310,7 +310,7 @@ func isPodReady(pod *corev1.Pod) bool {
 	return conditionsTrue == 2
 }
 
-func getErrContainerLog(K8sClient k8s.K8SInterface, podName string) (log string, err error) {
+func getErrContainerLog(K8sClient k8s.Client, podName string) (log string, err error) {
 	pod, err := K8sClient.GetPod(podName, csiconfig.Namespace)
 	if err != nil {
 		return
