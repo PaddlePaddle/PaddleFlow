@@ -43,6 +43,8 @@ type K8SInterface interface {
 	GetPod(podName, namespace string) (*v1.Pod, error)
 	GetPodLog(podName, namespace, containerName string) (string, error)
 	DeletePod(pod *v1.Pod) error
+	DeletePersistentVolume(name string, deleteOptions metav1.DeleteOptions) error
+	DeletePersistentVolumeClaim(namespace string, name string, deleteOptions metav1.DeleteOptions) error
 }
 
 type K8SClient struct {
@@ -145,11 +147,34 @@ func (c *K8SClient) ProxyGetPods(nodeID string) (result *v1.PodList, err error) 
 	return
 }
 
-func (c *K8SClient) GetPersistentVolumeClaim(namespace, name string,
-	getOptions metav1.GetOptions) (*v1.PersistentVolumeClaim, error) {
-	return c.Clientset.CoreV1().PersistentVolumeClaims(namespace).Get(context.TODO(), name, getOptions)
-}
-
 func (c *K8SClient) ListPersistentVolume(listOptions metav1.ListOptions) (*v1.PersistentVolumeList, error) {
 	return c.Clientset.CoreV1().PersistentVolumes().List(context.TODO(), listOptions)
+}
+
+func (c *K8SClient) CreatePersistentVolume(pv *v1.PersistentVolume) (*v1.PersistentVolume, error) {
+	return c.Clientset.CoreV1().PersistentVolumes().Create(context.TODO(), pv, metav1.CreateOptions{})
+}
+func (c *K8SClient) DeletePersistentVolume(name string, deleteOptions metav1.DeleteOptions) error {
+	return c.Clientset.CoreV1().PersistentVolumes().Delete(context.TODO(), name, deleteOptions)
+}
+func (c *K8SClient) GetPersistentVolume(name string, getOptions metav1.GetOptions) (*v1.PersistentVolume, error) {
+	return c.Clientset.CoreV1().PersistentVolumes().Get(context.TODO(), name, getOptions)
+}
+func (c *K8SClient) CreatePersistentVolumeClaim(namespace string, pvc *v1.PersistentVolumeClaim) (*v1.
+	PersistentVolumeClaim, error) {
+	return c.Clientset.CoreV1().PersistentVolumeClaims(namespace).Create(context.TODO(), pvc, metav1.CreateOptions{})
+}
+func (c *K8SClient) DeletePersistentVolumeClaim(namespace string, name string, deleteOptions metav1.DeleteOptions) error {
+	return c.Clientset.CoreV1().PersistentVolumeClaims(namespace).Delete(context.TODO(), name, deleteOptions)
+}
+func (c *K8SClient) GetPersistentVolumeClaim(namespace, name string, getOptions metav1.GetOptions) (*v1.
+	PersistentVolumeClaim, error) {
+	return c.Clientset.CoreV1().PersistentVolumeClaims(namespace).Get(context.TODO(), name, getOptions)
+}
+func (c *K8SClient) GetNamespace(namespace string, getOptions metav1.GetOptions) (*v1.Namespace, error) {
+	return c.Clientset.CoreV1().Namespaces().Get(context.TODO(), namespace, getOptions)
+}
+
+func (c *K8SClient) ListNamespaces(listOptions metav1.ListOptions) (*v1.NamespaceList, error) {
+	return c.Clientset.CoreV1().Namespaces().List(context.TODO(), listOptions)
 }

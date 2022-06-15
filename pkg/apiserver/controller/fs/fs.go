@@ -19,23 +19,18 @@ package fs
 import (
 	"errors"
 	"fmt"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/client/k8s"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"strings"
 	"time"
 
-	"github.com/jinzhu/copier"
-	log "github.com/sirupsen/logrus"
-	"gorm.io/gorm"
-	apiv1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
-	fsCommon "github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/k8s"
+	log "github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 )
 
 const (
@@ -154,21 +149,57 @@ func (s *FileSystemService) GetFileSystem(fsID string) (models.FileSystem, error
 
 // DeleteFileSystem the function which performs the operation of delete file system
 func (s *FileSystemService) DeleteFileSystem(ctx *logger.RequestContext, fsID string) error {
-	err := models.DeleteFileSystem(fsID)
-	if err != nil {
-		ctx.Logging().Errorf("delete fs[%s] failed error[%v]", fsID, err)
-		ctx.ErrorCode = common.FileSystemDataBaseError
-		return err
-	}
-	// delete cache config if exist
-	err = models.DeleteFSCacheConfig(ctx.Logging(), fsID)
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil
+	return models.WithTransaction(database.DB, func(tx *gorm.DB) error {
+		if err := models.DeleteFileSystem(fsID); err != nil {
+			ctx.Logging().Errorf("delete fs[%s] failed error[%v]", fsID, err)
+			ctx.ErrorCode = common.FileSystemDataBaseError
+			return err
 		}
-		ctx.Logging().Errorf("delete fs[%s] cache config failed error[%v]", fsID, err)
-		ctx.ErrorCode = common.FileSystemDataBaseError
-		return err
+		// delete cache config if exist
+		if err := models.DeleteFSCacheConfig(ctx.Logging(), fsID); err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return nil
+			}
+			ctx.Logging().Errorf("delete fs[%s] cache config failed error[%v]", fsID, err)
+			ctx.ErrorCode = common.FileSystemDataBaseError
+			return err
+		}
+		if err := deletePvPvc(fsID); err != nil {
+			ctx.Logging().Errorf("delete deletePvPvc for fs[%s] err: %v", fsID, err)
+			return err
+		}
+		return nil
+	})
+}
+
+func deletePvPvc(fsID string) error {
+	clusters, err := models.ListCluster(0, 0, nil, "")
+	if err != nil {
+		return fmt.Errorf("list clusters failed")
+	}
+	for _, cluster := range clusters {
+		switch cluster.ClusterType {
+		case schema.KubernetesType:
+			k8sClient, err := k8s.GetK8sClient()
+			if err != nil {
+				log.Errorf("PodUnmount: Get k8s client failed: %v", err)
+				return err
+			}
+			for _, ns := range cluster.NamespaceList {
+				if err := k8sClient.DeletePersistentVolumeClaim(ns, schema.ConcatenatePVCName(fsID), metav1.DeleteOptions{});
+					err != nil && !strings.Contains(err.Error(), "not found") {
+					return fmt.Errorf("delete pvc[%s-%s] err: %v", ns, schema.ConcatenatePVCName(fsID), err)
+				}
+				if err := k8sClient.DeletePersistentVolume(schema.ConcatenatePVName(ns, fsID), metav1.DeleteOptions{});
+					err != nil && !strings.Contains(err.Error(), "not found") {
+					return fmt.Errorf("delete pv[%s] err: %v", schema.ConcatenatePVName(ns, fsID), err)
+				}
+			}
+
+		default:
+			log.Debugf("cluster[%s] type: %s, no need to delete pv pvc", cluster.Name, cluster.ClusterType)
+			continue
+		}
 	}
 	return nil
 }
@@ -203,147 +234,148 @@ func (s *FileSystemService) ListFileSystem(ctx *logger.RequestContext, req *List
 	return items, "", err
 }
 
-// CreateFileSystemClaims obsoleted func TODO: remove to kubernetes runtime
-func (s *FileSystemService) CreateFileSystemClaims(ctx *logger.RequestContext, req *CreateFileSystemClaimsRequest) error {
-	if len(req.Namespaces) == 0 || len(req.FsIDs) == 0 {
-		return nil
-	}
-	fsModel, err := models.GetFsWithIDs(req.FsIDs)
-	if err != nil {
-		ctx.Logging().Errorf("get fs modelss failed: %v", err)
-		ctx.ErrorCode = common.FileSystemDataBaseError
-		return err
-	}
-	if len(req.FsIDs) != len(fsModel) {
-		ctx.Logging().Errorf("get fs modelss failed: %v, modelss: %v", req.FsIDs, fsModel)
-		ctx.ErrorCode = common.FileSystemDataBaseError
+//
+//// CreateFileSystemClaims obsoleted func TODO: remove to kubernetes runtime
+//func (s *FileSystemService) CreateFileSystemClaims(ctx *logger.RequestContext, req *CreateFileSystemClaimsRequest) error {
+//	if len(req.Namespaces) == 0 || len(req.FsIDs) == 0 {
+//		return nil
+//	}
+//	fsModel, err := models.GetFsWithIDs(req.FsIDs)
+//	if err != nil {
+//		ctx.Logging().Errorf("get fs modelss failed: %v", err)
+//		ctx.ErrorCode = common.FileSystemDataBaseError
+//		return err
+//	}
+//	if len(req.FsIDs) != len(fsModel) {
+//		ctx.Logging().Errorf("get fs modelss failed: %v, modelss: %v", req.FsIDs, fsModel)
+//		ctx.ErrorCode = common.FileSystemDataBaseError
+//
+//		var notExistFsIDs []string
+//		count := make(map[string]int)
+//		for _, fsmodels := range fsModel {
+//			count[fsmodels.ID]++
+//		}
+//		for _, fsID := range req.FsIDs {
+//			if count[fsID] == 0 {
+//				notExistFsIDs = append(notExistFsIDs, fsID)
+//			}
+//		}
+//		return common.InvalidField("fsIDs", fmt.Sprintf("fs %v is not exist", notExistFsIDs))
+//	}
+//
+//	for k, fsID := range req.FsIDs {
+//		for _, ns := range req.Namespaces {
+//			if fsModel[k].Type == fsCommon.MockType {
+//				continue
+//			}
+//			var pv string
+//			if pv, err = createPV(ns, fsID); err != nil {
+//				ctx.Logging().Errorf("create PV with file system[%v] in namespace[%v] failed: %v",
+//					fsID, ns, err)
+//				ctx.ErrorCode = common.K8sOperatorError
+//				return err
+//			}
+//			if err = createPVC(ns, fsID, pv); err != nil {
+//				ctx.Logging().Errorf("create PVC with file system[%v] in namespace[%v] failed: %v",
+//					fsID, ns, err)
+//				ctx.ErrorCode = common.K8sOperatorError
+//				return err
+//			}
+//		}
+//	}
+//	return nil
+//}
 
-		var notExistFsIDs []string
-		count := make(map[string]int)
-		for _, fsmodels := range fsModel {
-			count[fsmodels.ID]++
-		}
-		for _, fsID := range req.FsIDs {
-			if count[fsID] == 0 {
-				notExistFsIDs = append(notExistFsIDs, fsID)
-			}
-		}
-		return common.InvalidField("fsIDs", fmt.Sprintf("fs %v is not exist", notExistFsIDs))
-	}
-
-	for k, fsID := range req.FsIDs {
-		for _, ns := range req.Namespaces {
-			if fsModel[k].Type == fsCommon.MockType {
-				continue
-			}
-			var pv string
-			if pv, err = createPV(ns, fsID); err != nil {
-				ctx.Logging().Errorf("create PV with file system[%v] in namespace[%v] failed: %v",
-					fsID, ns, err)
-				ctx.ErrorCode = common.K8sOperatorError
-				return err
-			}
-			if err = createPVC(ns, fsID, pv); err != nil {
-				ctx.Logging().Errorf("create PVC with file system[%v] in namespace[%v] failed: %v",
-					fsID, ns, err)
-				ctx.ErrorCode = common.K8sOperatorError
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-// deletePVC obsoleted func TODO: remove to kubernetes runtime
-func deletePVC(fsID string) error {
-	k8sOperator := k8s.GetK8sOperator()
-	nsList, err := k8sOperator.ListNamespaces(metav1.ListOptions{})
-	if err != nil {
-		log.Errorf("list namespaces when clean pvc failed: %v", err)
-		return err
-	}
-	log.Debugf("namespace list %v", nsList)
-	pvc := config.DefaultPVC
-	pvcName := strings.Replace(pvc.Name, schema.FSIDFormat, fsID, -1)
-	log.Debugf("delete pvc name:%s", pvcName)
-	propagationPolicy := metav1.DeletePropagationBackground
-	deleteOptions := &metav1.DeleteOptions{PropagationPolicy: &propagationPolicy}
-	for _, item := range nsList.Items {
-		ns := item.Name
-
-		if _, errK8sOperator := k8sOperator.GetPersistentVolumeClaim(ns, pvcName, metav1.GetOptions{}); k8serrors.IsNotFound(errK8sOperator) {
-			continue
-		} else if errK8sOperator != nil && !k8serrors.IsNotFound(errK8sOperator) {
-			log.Errorf("k8sOperator GetPersistentVolumeClaim err[%v]", errK8sOperator)
-			return errK8sOperator
-		}
-
-		if err := k8sOperator.DeletePersistentVolumeClaim(ns, pvcName, deleteOptions); err != nil {
-			log.Errorf("delete pvc[%s/%s] failed: %v", ns, pvc, err)
-			return err
-		}
-	}
-	return nil
-}
-
-// createPV obsoleted func TODO: remove to kubernetes runtime
-func createPV(namespace, fsId string) (string, error) {
-	k8sOperator := k8s.GetK8sOperator()
-	pv := config.DefaultPV
-	// format pvname to fsid
-	pvName := strings.Replace(pv.Name, schema.FSIDFormat, fsId, -1)
-	pvName = strings.Replace(pvName, schema.NameSpaceFormat, namespace, -1)
-	// check pv existence
-	if _, err := k8sOperator.GetPersistentVolume(pvName, metav1.GetOptions{}); err == nil {
-		return "", nil
-	} else if !k8serrors.IsNotFound(err) {
-		return "", err
-	}
-	// construct a new pv
-	newPV := &apiv1.PersistentVolume{}
-	if err := copier.Copy(newPV, pv); err != nil {
-		return "", err
-	}
-	newPV.Name = pvName
-	csi := newPV.Spec.CSI
-	if csi != nil && csi.VolumeAttributes != nil {
-		if _, ok := csi.VolumeAttributes[schema.FSID]; ok {
-			newPV.Spec.CSI.VolumeAttributes[schema.FSID] = fsId
-			newPV.Spec.CSI.VolumeHandle = pvName
-		}
-		if _, ok := csi.VolumeAttributes[schema.PFSServer]; ok {
-			newPV.Spec.CSI.VolumeAttributes[schema.PFSServer] = fmt.Sprintf("%s:%d", config.GlobalServerConfig.Fs.K8sServiceName, config.GlobalServerConfig.Fs.K8sServicePort)
-		}
-	}
-	// create pv in k8s
-	if _, err := k8sOperator.CreatePersistentVolume(newPV); err != nil {
-		return "", err
-	}
-	return pvName, nil
-}
-
-// createPVC obsoleted func TODO: remove to kubernetes runtime
-func createPVC(namespace, fsId, pv string) error {
-	k8sOperator := k8s.GetK8sOperator()
-	pvc := config.DefaultPVC
-	pvcName := strings.Replace(pvc.Name, schema.FSIDFormat, fsId, -1)
-	// check pvc existence
-	if _, err := k8sOperator.GetPersistentVolumeClaim(namespace, pvcName, metav1.GetOptions{}); err == nil {
-		return nil
-	} else if !k8serrors.IsNotFound(err) {
-		return err
-	}
-	// construct a new pvc
-	newPVC := &apiv1.PersistentVolumeClaim{}
-	if err := copier.Copy(newPVC, pvc); err != nil {
-		return err
-	}
-	newPVC.Namespace = namespace
-	newPVC.Name = pvcName
-	newPVC.Spec.VolumeName = pv
-	// create pvc in k8s
-	if _, err := k8sOperator.CreatePersistentVolumeClaim(namespace, newPVC); err != nil {
-		return err
-	}
-	return nil
-}
+//// deletePVC obsoleted func TODO: remove to kubernetes runtime
+//func deletePVC(fsID string) error {
+//	k8sOperator := k8s.GetK8sOperator()
+//	nsList, err := k8sOperator.ListNamespaces(metav1.ListOptions{})
+//	if err != nil {
+//		log.Errorf("list namespaces when clean pvc failed: %v", err)
+//		return err
+//	}
+//	log.Debugf("namespace list %v", nsList)
+//	pvc := config.DefaultPVC
+//	pvcName := strings.Replace(pvc.Name, schema.FSIDFormat, fsID, -1)
+//	log.Debugf("delete pvc name:%s", pvcName)
+//	propagationPolicy := metav1.DeletePropagationBackground
+//	deleteOptions := &metav1.DeleteOptions{PropagationPolicy: &propagationPolicy}
+//	for _, item := range nsList.Items {
+//		ns := item.Name
+//
+//		if _, errK8sOperator := k8sOperator.GetPersistentVolumeClaim(ns, pvcName, metav1.GetOptions{}); k8serrors.IsNotFound(errK8sOperator) {
+//			continue
+//		} else if errK8sOperator != nil && !k8serrors.IsNotFound(errK8sOperator) {
+//			log.Errorf("k8sOperator GetPersistentVolumeClaim err[%v]", errK8sOperator)
+//			return errK8sOperator
+//		}
+//
+//		if err := k8sOperator.DeletePersistentVolumeClaim(ns, pvcName, deleteOptions); err != nil {
+//			log.Errorf("delete pvc[%s/%s] failed: %v", ns, pvc, err)
+//			return err
+//		}
+//	}
+//	return nil
+//}
+//
+//// createPV obsoleted func TODO: remove to kubernetes runtime
+//func createPV(namespace, fsId string) (string, error) {
+//	k8sOperator := k8s.GetK8sOperator()
+//	pv := config.DefaultPV
+//	// format pvname to fsid
+//	pvName := strings.Replace(pv.Name, schema.FSIDFormat, fsId, -1)
+//	pvName = strings.Replace(pvName, schema.NameSpaceFormat, namespace, -1)
+//	// check pv existence
+//	if _, err := k8sOperator.GetPersistentVolume(pvName, metav1.GetOptions{}); err == nil {
+//		return "", nil
+//	} else if !k8serrors.IsNotFound(err) {
+//		return "", err
+//	}
+//	// construct a new pv
+//	newPV := &apiv1.PersistentVolume{}
+//	if err := copier.Copy(newPV, pv); err != nil {
+//		return "", err
+//	}
+//	newPV.Name = pvName
+//	csi := newPV.Spec.CSI
+//	if csi != nil && csi.VolumeAttributes != nil {
+//		if _, ok := csi.VolumeAttributes[schema.FSID]; ok {
+//			newPV.Spec.CSI.VolumeAttributes[schema.FSID] = fsId
+//			newPV.Spec.CSI.VolumeHandle = pvName
+//		}
+//		if _, ok := csi.VolumeAttributes[schema.PFSServer]; ok {
+//			newPV.Spec.CSI.VolumeAttributes[schema.PFSServer] = fmt.Sprintf("%s:%d", config.GlobalServerConfig.Fs.K8sServiceName, config.GlobalServerConfig.Fs.K8sServicePort)
+//		}
+//	}
+//	// create pv in k8s
+//	if _, err := k8sOperator.CreatePersistentVolume(newPV); err != nil {
+//		return "", err
+//	}
+//	return pvName, nil
+//}
+//
+//// createPVC obsoleted func TODO: remove to kubernetes runtime
+//func createPVC(namespace, fsId, pv string) error {
+//	k8sOperator := k8s.GetK8sOperator()
+//	pvc := config.DefaultPVC
+//	pvcName := strings.Replace(pvc.Name, schema.FSIDFormat, fsId, -1)
+//	// check pvc existence
+//	if _, err := k8sOperator.GetPersistentVolumeClaim(namespace, pvcName, metav1.GetOptions{}); err == nil {
+//		return nil
+//	} else if !k8serrors.IsNotFound(err) {
+//		return err
+//	}
+//	// construct a new pvc
+//	newPVC := &apiv1.PersistentVolumeClaim{}
+//	if err := copier.Copy(newPVC, pvc); err != nil {
+//		return err
+//	}
+//	newPVC.Namespace = namespace
+//	newPVC.Name = pvcName
+//	newPVC.Spec.VolumeName = pv
+//	// create pvc in k8s
+//	if _, err := k8sOperator.CreatePersistentVolumeClaim(namespace, newPVC); err != nil {
+//		return err
+//	}
+//	return nil
+//}

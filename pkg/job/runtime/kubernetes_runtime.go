@@ -519,11 +519,9 @@ func (kr *KubeRuntime) DeleteObject(namespace, name string, gvk k8sschema.GroupV
 
 func (kr *KubeRuntime) CreatePV(namespace, fsId, userName string) (string, error) {
 	pv := config.DefaultPV
-	// format pvname to fsid
-	pvName := strings.Replace(pv.Name, schema.FSIDFormat, fsId, -1)
-	pvName = strings.Replace(pvName, schema.NameSpaceFormat, namespace, -1)
+	pv.Name = schema.ConcatenatePVName(namespace, fsId)
 	// check pv existence
-	if _, err := kr.getPersistentVolume(pvName, metav1.GetOptions{}); err == nil {
+	if _, err := kr.getPersistentVolume(pv.Name, metav1.GetOptions{}); err == nil {
 		return "", nil
 	} else if !k8serrors.IsNotFound(err) {
 		return "", err
@@ -533,16 +531,15 @@ func (kr *KubeRuntime) CreatePV(namespace, fsId, userName string) (string, error
 	if err := copier.Copy(newPV, pv); err != nil {
 		return "", err
 	}
-	newPV.Name = pvName
 	if newPV.Spec.CSI == nil || newPV.Spec.CSI.VolumeAttributes == nil {
-		err := fmt.Errorf("pv[%s] generation error: no csi or csi volume attributes", pvName)
+		err := fmt.Errorf("pv[%s] generation error: no csi or csi volume attributes", pv.Name)
 		log.Errorf(err.Error())
 		return "", err
 	}
 	cva := newPV.Spec.CSI.VolumeAttributes
 	if _, ok := cva[schema.FSID]; ok {
 		newPV.Spec.CSI.VolumeAttributes[schema.FSID] = fsId
-		newPV.Spec.CSI.VolumeHandle = pvName
+		newPV.Spec.CSI.VolumeHandle = pv.Name
 	}
 	if _, ok := cva[schema.PFSServer]; ok {
 		newPV.Spec.CSI.VolumeAttributes[schema.PFSServer] = fmt.Sprintf("%s:%d",
@@ -552,12 +549,12 @@ func (kr *KubeRuntime) CreatePV(namespace, fsId, userName string) (string, error
 	if _, err := kr.createPersistentVolume(newPV); err != nil {
 		return "", err
 	}
-	return pvName, nil
+	return pv.Name, nil
 }
 
 func (kr *KubeRuntime) CreatePVC(namespace, fsId, pv string) error {
 	pvc := config.DefaultPVC
-	pvcName := strings.Replace(pvc.Name, schema.FSIDFormat, fsId, -1)
+	pvcName := schema.ConcatenatePVCName(fsId)
 	// check pvc existence
 	if _, err := kr.getPersistentVolumeClaim(namespace, pvcName, metav1.GetOptions{}); err == nil {
 		return nil
