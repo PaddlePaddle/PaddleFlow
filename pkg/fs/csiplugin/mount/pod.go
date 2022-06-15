@@ -18,7 +18,6 @@ package mount
 
 import (
 	"fmt"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/k8s"
 	"path"
 	"strconv"
 	"strings"
@@ -41,6 +40,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csiconfig"
 	utils "github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/k8s"
 	mountUtil "github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/mount"
 )
 

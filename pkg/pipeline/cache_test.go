@@ -18,17 +18,17 @@ package pipeline
 
 import (
 	"fmt"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/handler"
-	. "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/handler"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/fs"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
+	. "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 )
 
 func TestcalculateFingerprint(t *testing.T) {

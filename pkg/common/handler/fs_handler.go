@@ -18,7 +18,6 @@ package handler
 
 import (
 	"fmt"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	iofs "io/fs"
 	"io/ioutil"
 	"os"
@@ -26,6 +25,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/fs"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 )
