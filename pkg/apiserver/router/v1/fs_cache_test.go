@@ -76,7 +76,7 @@ func TestFSCacheConfigRouter(t *testing.T) {
 	url := baseUrl + "/fsCache"
 	result, err := PerformPostRequest(router, url, createRep)
 	assert.Nil(t, err)
-	assert.Equal(t, http.StatusForbidden, result.Code)
+	assert.Equal(t, http.StatusNotFound, result.Code)
 
 	// test create success
 	err = models.CreatFileSystem(&mockFs)

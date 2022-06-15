@@ -21,8 +21,7 @@ import (
 	"fmt"
 
 	"github.com/PaddlePaddle/PaddleFlow/go-sdk/service"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/job"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/user"
+	v1 "github.com/PaddlePaddle/PaddleFlow/go-sdk/service/apiserver/v1"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/core"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
@@ -37,7 +36,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	data, err := pfClient.APIV1().User().Login(context.TODO(), &user.LoginInfo{
+	data, err := pfClient.APIV1().User().Login(context.TODO(), &v1.LoginInfo{
 		UserName: "",
 		Password: "",
 	})
@@ -49,17 +48,17 @@ func main() {
 	queueName := "test-queue"
 
 	// Create single job
-	createResult, err := pfClient.APIV1().Job().Create(context.TODO(), &job.CreateSingleJobRequest{
-		CommonJobInfo: job.CommonJobInfo{
+	createResult, err := pfClient.APIV1().Job().Create(context.TODO(), &v1.CreateSingleJobRequest{
+		CommonJobInfo: v1.CommonJobInfo{
 			Name: "test-single-job",
 			Labels: map[string]string{
 				"job-type": "single",
 			},
-			SchedulingPolicy: job.SchedulingPolicy{
+			SchedulingPolicy: v1.SchedulingPolicy{
 				Queue: queueName,
 			},
 		},
-		JobSpec: job.JobSpec{
+		JobSpec: v1.JobSpec{
 			Flavour: schema.Flavour{
 				Name: "customFlavour",
 				ResourceInfo: schema.ResourceInfo{
@@ -79,20 +78,20 @@ func main() {
 	fmt.Printf("create single job result %v\n", createResult)
 
 	// Create distributed job
-	createResult, err = pfClient.APIV1().Job().Create(context.TODO(), nil, &job.CreateDisJobRequest{
-		CommonJobInfo: job.CommonJobInfo{
+	createResult, err = pfClient.APIV1().Job().Create(context.TODO(), nil, &v1.CreateDisJobRequest{
+		CommonJobInfo: v1.CommonJobInfo{
 			Name: "test-distributed-paddle-job",
 			Labels: map[string]string{
 				"job-type": "distributed",
 			},
-			SchedulingPolicy: job.SchedulingPolicy{
+			SchedulingPolicy: v1.SchedulingPolicy{
 				Queue: queueName,
 			},
 		},
 		Framework: schema.FrameworkPaddle,
-		Members: []job.MemberSpec{
+		Members: []v1.MemberSpec{
 			{
-				JobSpec: job.JobSpec{
+				JobSpec: v1.JobSpec{
 					Flavour: schema.Flavour{
 						Name: "customFlavour",
 						ResourceInfo: schema.ResourceInfo{
@@ -121,7 +120,7 @@ func main() {
 	}
 	fmt.Printf("get job result %v\n", getResult)
 
-	listResult, err := pfClient.APIV1().Job().List(context.TODO(), &job.ListJobRequest{
+	listResult, err := pfClient.APIV1().Job().List(context.TODO(), &v1.ListJobRequest{
 		Queue:     queueName,
 		Timestamp: 1653292737721,
 		Labels: map[string]string{
@@ -134,7 +133,7 @@ func main() {
 	}
 	fmt.Printf("list job result %v\n", listResult)
 
-	err = pfClient.APIV1().Job().Update(context.TODO(), jobID, &job.UpdateJobRequest{
+	err = pfClient.APIV1().Job().Update(context.TODO(), jobID, &v1.UpdateJobRequest{
 		Labels: map[string]string{
 			"key1": "value1",
 		},

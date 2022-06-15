@@ -20,7 +20,6 @@ import (
 	"context"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/fs"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/core"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/util/http"
 )
@@ -34,9 +33,41 @@ type fileSystem struct {
 	client *core.PaddleFlowClient
 }
 
-func (f *fileSystem) Create(ctx context.Context, request *fs.CreateFileSystemRequest,
-	token string) (result *fs.CreateFileSystemResponse, err error) {
-	result = &fs.CreateFileSystemResponse{}
+type CreateFileSystemRequest struct {
+	Name       string            `json:"name"`
+	Url        string            `json:"url"`
+	Properties map[string]string `json:"properties"`
+	Username   string            `json:"username"`
+}
+
+type CreateFileSystemResponse struct {
+	FsName string `json:"fsName"`
+	FsID   string `json:"fsID"`
+}
+
+type GetFileSystemRequest struct {
+	FsName   string `json:"fsName"`
+	Username string `json:"username"`
+}
+
+type GetFileSystemResponse struct {
+	Id            string            `json:"id"`
+	Name          string            `json:"name"`
+	ServerAddress string            `json:"serverAddress"`
+	Type          string            `json:"type"`
+	SubPath       string            `json:"subPath"`
+	Username      string            `json:"username"`
+	Properties    map[string]string `json:"properties"`
+}
+
+type DeleteFileSystemRequest struct {
+	FsName   string `json:"fsName"`
+	Username string `json:"username"`
+}
+
+func (f *fileSystem) Create(ctx context.Context, request *CreateFileSystemRequest,
+	token string) (result *CreateFileSystemResponse, err error) {
+	result = &CreateFileSystemResponse{}
 	err = core.NewRequestBuilder(f.client).
 		WithHeader(common.HeaderKeyAuthorization, token).
 		WithURL(FsApi).
@@ -47,9 +78,9 @@ func (f *fileSystem) Create(ctx context.Context, request *fs.CreateFileSystemReq
 	return
 }
 
-func (f *fileSystem) Get(ctx context.Context, request *fs.GetFileSystemRequest,
-	token string) (result *fs.GetFileSystemResponse, err error) {
-	result = &fs.GetFileSystemResponse{}
+func (f *fileSystem) Get(ctx context.Context, request *GetFileSystemRequest,
+	token string) (result *GetFileSystemResponse, err error) {
+	result = &GetFileSystemResponse{}
 	err = core.NewRequestBuilder(f.client).
 		WithHeader(common.HeaderKeyAuthorization, token).
 		WithURL(FsApi+"/"+request.FsName).
@@ -63,7 +94,7 @@ func (f *fileSystem) Get(ctx context.Context, request *fs.GetFileSystemRequest,
 	return
 }
 
-func (f *fileSystem) Delete(ctx context.Context, request *fs.DeleteFileSystemRequest, token string) (err error) {
+func (f *fileSystem) Delete(ctx context.Context, request *DeleteFileSystemRequest, token string) (err error) {
 	err = core.NewRequestBuilder(f.client).
 		WithHeader(common.HeaderKeyAuthorization, token).
 		WithURL(FsApi+"/"+request.FsName).
@@ -78,9 +109,9 @@ type FileSystemGetter interface {
 }
 
 type FileSystemInterface interface {
-	Create(ctx context.Context, request *fs.CreateFileSystemRequest, token string) (*fs.CreateFileSystemResponse, error)
-	Get(ctx context.Context, request *fs.GetFileSystemRequest, token string) (*fs.GetFileSystemResponse, error)
-	Delete(ctx context.Context, request *fs.DeleteFileSystemRequest, token string) error
+	Create(ctx context.Context, request *CreateFileSystemRequest, token string) (*CreateFileSystemResponse, error)
+	Get(ctx context.Context, request *GetFileSystemRequest, token string) (*GetFileSystemResponse, error)
+	Delete(ctx context.Context, request *DeleteFileSystemRequest, token string) error
 }
 
 // newFileSystem returns a fileSystem.

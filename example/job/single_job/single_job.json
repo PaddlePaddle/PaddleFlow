@@ -11,8 +11,8 @@
     "mem": "",
     "name": "flavour1"
   },
-  "fileSystem": {},
-  "extraFileSystems": [],
+  "fs": {},
+  "extraFS": [],
   "image": "paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7",
   "env": [],
   "command": "sleep 40",

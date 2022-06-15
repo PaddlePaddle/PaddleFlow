@@ -50,6 +50,8 @@ type PFJob struct {
 	Resource     *schema.Resource
 	Priority     int32
 	MinAvailable int32
+	// PriorityClassName defines job info on cluster
+	PriorityClassName string
 	// storage resource for job
 	FSID string
 	// Tasks for TypeDistributed job
@@ -113,4 +115,8 @@ func (pfj *PFJob) UpdateAnnotations(annotations map[string]string) {
 		return
 	}
 	pfj.Annotations = annotations
+}
+
+func (pfj *PFJob) UpdateJobPriority(priorityClassName string) {
+	pfj.PriorityClassName = priorityClassName
 }

@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	kubeschema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
+	schedulingv1beta1 "volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
@@ -101,7 +102,7 @@ func NewKubeJob(job *api.PFJob, dynamicClientOpt *k8s.DynamicClientOption) (api.
 
 	kubeJob := KubeJob{
 		ID:                  job.ID,
-		Name:                job.Name,
+		Name:                job.ID,
 		Namespace:           job.Namespace,
 		JobType:             job.JobType,
 		JobMode:             job.JobMode,
@@ -298,7 +299,11 @@ func (j *KubeJob) validateJob() error {
 }
 
 func (j *KubeJob) getPriorityClass() string {
-	switch j.Priority {
+	return KubePriorityClass(j.Priority)
+}
+
+func KubePriorityClass(priority string) string {
+	switch priority {
 	case schema.EnvJobVeryLowPriority:
 		return schema.PriorityClassVeryLow
 	case schema.EnvJobLowPriority:
@@ -309,8 +314,9 @@ func (j *KubeJob) getPriorityClass() string {
 		return schema.PriorityClassHigh
 	case schema.EnvJobVeryHighPriority:
 		return schema.PriorityClassVeryHigh
+	default:
+		return schema.PriorityClassNormal
 	}
-	return schema.PriorityClassNormal
 }
 
 // createJobFromYaml parse the object of job from specified yaml file path
@@ -526,6 +532,26 @@ func (j *KubeJob) DeleteJob() error {
 		return err
 	}
 	return nil
+}
+
+func GetPodGroupName(jobID string) string {
+	job, err := models.GetJobByID(jobID)
+	if err != nil {
+		log.Errorf("get job %s failed, err %v", jobID, err)
+		return ""
+	}
+	runtimeInfo := job.RuntimeInfo.(map[string]interface{})
+	jobObj := &unstructured.Unstructured{}
+	if err = runtime.DefaultUnstructuredConverter.FromUnstructured(runtimeInfo, jobObj); err != nil {
+		log.Errorf("convert obj to unstructed.Unstructed failed, err %v", err)
+		return ""
+	}
+	anno := jobObj.GetAnnotations()
+	pgName := ""
+	if anno != nil {
+		pgName = anno[schedulingv1beta1.KubeGroupNameAnnotationKey]
+	}
+	return pgName
 }
 
 func (j *KubeJob) GetID() string {
