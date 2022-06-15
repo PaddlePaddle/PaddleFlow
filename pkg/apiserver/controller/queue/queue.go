@@ -225,14 +225,14 @@ func CreateQueue(ctx *logger.RequestContext, request *CreateQueueRequest) (Creat
 	}
 
 	// check request max resources and min resources
-	if err = schema.ValidateResourceInfo(request.MaxResources, config.GlobalServerConfig.Job.ScalarResourceArray); err != nil {
+	if err = schema.ValidateResourceNonNegative(request.MaxResources, config.GlobalServerConfig.Job.ScalarResourceArray); err != nil {
 		ctx.Logging().Errorf("create queue failed. error: %s", err.Error())
 		ctx.ErrorCode = common.InvalidComputeResource
 		return CreateQueueResponse{}, err
 	}
 	if request.QuotaType == schema.TypeElasticQuota {
 		// check min resources for elastic queue
-		if err = schema.ValidateResourceInfo(request.MinResources, config.GlobalServerConfig.Job.ScalarResourceArray); err != nil {
+		if err = schema.ValidateResourceNonNegative(request.MinResources, config.GlobalServerConfig.Job.ScalarResourceArray); err != nil {
 			ctx.Logging().Errorf("create queue failed. error: %s", err.Error())
 			ctx.ErrorCode = common.InvalidComputeResource
 			return CreateQueueResponse{}, err
@@ -475,7 +475,7 @@ func validateQueueResource(rResource schema.ResourceInfo, qResource *schema.Reso
 	}
 
 	scalarResourceLaws := config.GlobalServerConfig.Job.ScalarResourceArray
-	if err := schema.ValidateResourceInfo(*qResource, scalarResourceLaws); err != nil {
+	if err := schema.ValidateResourceNonNegative(*qResource, scalarResourceLaws); err != nil {
 		log.Errorf("validate resourceInfo failed, err=%v", err)
 		return needUpdate, err
 	}

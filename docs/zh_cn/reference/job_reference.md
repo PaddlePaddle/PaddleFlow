@@ -30,14 +30,14 @@ queue参数传入指定队列下的作业
 labels参数支持筛选指定labels的作业
 maxkeys参数列出指定数量的作业
 marker参数指从marker列出作业
-fieldlist参数展示指定列的作业信息，具体的列名包括（"id"[作业id];"name"[作业名称];"queue"[队列名称];"status"[作业状态];"acceptTime"[作业接收时间];"startTime"[作业启动时间];"finishTime"[作业结束时间];"user"[作业创建者];"runtime"[单机作业运行详情];"distributedRuntime"[分布式作业运行详情];"workflowRuntime"[工作流作业运行详情];"message"[作业状态说明信息];"labels"[作业标签];"annotations"[作业注释];"priority"[作业优先级];"flavour"[作业套餐];"fileSystem"[作业存储资源];"extraFileSystems"[作业数据存储资源];"image"[作业镜像];"env"[作业环境变量];"command"[作业启动命令];"args"[启动参数];"port"[端口];"extensionTemplate"[作业使用的k8s对象模版];"framework"[作业框架];"members"[作业成员信息]）
+fieldlist参数展示指定列的作业信息，具体的列名包括（"id"[作业id];"name"[作业名称];"queue"[队列名称];"status"[作业状态];"acceptTime"[作业接收时间];"startTime"[作业启动时间];"finishTime"[作业结束时间];"user"[作业创建者];"runtime"[单机作业运行详情];"distributedRuntime"[分布式作业运行详情];"workflowRuntime"[工作流作业运行详情];"message"[作业状态说明信息];"labels"[作业标签];"annotations"[作业注释];"priority"[作业优先级];"flavour"[作业套餐];"fs"[作业存储资源];"extraFS"[作业数据存储资源];"image"[作业镜像];"env"[作业环境变量];"command"[作业启动命令];"args"[启动参数];"port"[端口];"extensionTemplate"[作业使用的k8s对象模版];"framework"[作业框架];"members"[作业成员信息]）
 
 ```
 
 show方法
 
 ```bash
-fieldlist参数展示指定列的作业信息，具体的列名包括（"id"[作业id];"name"[作业名称];"queue"[队列名称];"status"[作业状态];"acceptTime"[作业接收时间];"startTime"[作业启动时间];"finishTime"[作业结束时间];"user"[作业创建者];"runtime"[单机作业运行详情];"distributedRuntime"[分布式作业运行详情];"workflowRuntime"[工作流作业运行详情];"message"[作业状态说明信息];"labels"[作业标签];"annotations"[作业注释];"priority"[作业优先级];"flavour"[作业套餐];"fileSystem"[作业存储资源];"extraFileSystems"[作业数据存储资源];"image"[作业镜像];"env"[作业环境变量];"command"[作业启动命令];"args"[启动参数];"port"[端口];"extensionTemplate"[作业使用的k8s对象模版];"framework"[作业框架];"members"[作业成员信息]）
+fieldlist参数展示指定列的作业信息，具体的列名包括（"id"[作业id];"name"[作业名称];"queue"[队列名称];"status"[作业状态];"acceptTime"[作业接收时间];"startTime"[作业启动时间];"finishTime"[作业结束时间];"user"[作业创建者];"runtime"[单机作业运行详情];"distributedRuntime"[分布式作业运行详情];"workflowRuntime"[工作流作业运行详情];"message"[作业状态说明信息];"labels"[作业标签];"annotations"[作业注释];"priority"[作业优先级];"flavour"[作业套餐];"fs"[作业存储资源];"extraFS"[作业数据存储资源];"image"[作业镜像];"env"[作业环境变量];"command"[作业启动命令];"args"[启动参数];"port"[端口];"extensionTemplate"[作业使用的k8s对象模版];"framework"[作业框架];"members"[作业成员信息]）
 
 ```
 
@@ -58,8 +58,8 @@ JobSpec
 |annotations| Map[string]string(optional)|作业注释
 |schedulingPolicy| SchedulingPolicy(required)|作业调度策略
 |flavour| Flavour(optional)|作业资源套餐
-|fileSystem| FileSystem(optional)|作业存储资源
-|extraFileSystems| List<FileSystem>(optional)|作业数据存储资源
+|fs| FileSystem(optional)|作业存储资源
+|extraFS| List<FileSystem>(optional)|作业数据存储资源
 |image| string(required)|作业存储资源
 |env| Map[string]string(optional)|作业存储资源
 |command| string(optional)|作业启动命令
@@ -92,7 +92,7 @@ Flavour
 |name| string (optional)|套餐实例名称，可以是注册的套餐实例名称，也可以是自定义套餐实例（customFlavour或不填）
 |cpu| string (optional)|cpu个数，当套餐实例名称为自定义时，有效
 |mem| string (optional)|mem大小，当套餐实例名称为自定义时，有效
-|scalarResources| Map[string]string (optional)|套餐实例的可扩展资源，例如nvidia.com/gpu、baidu.com/v100_cgpu、baidu.com/v100_cgpu_core等，当套餐名称为自定义时，有效
+|scalarResources| Map[string]string (optional)|套餐实例的可扩展资源，例如nvidia.com/gpu等，当套餐名称为自定义时，有效
 
 
 FileSystem
@@ -201,11 +201,11 @@ class JobRequest(object):
         self.image = image
         # 作业优先级（High、Normal、Low）
         self.priority = priority
-        # 作业资源套餐（dict类型具体值参见命令行中的Flavour）
+        # 作业资源套餐（dict类型具体值参见命令行中的flavour）
         self.flavour = flavour
-        # 作业存储（dict类型具体值参见命令行中的FileSystem）
+        # 作业存储（dict类型具体值参见命令行中的fs）
         self.fs = fs
-        # 作业数据存储（list类型各元素具体值参见命令行中的FileSystem）
+        # 作业数据存储（list类型各元素具体值参见命令行中的fs）
         self.extra_fs_list = extra_fs_list
         # 作业所需的环境变量（dict类型）
         self.env = env
