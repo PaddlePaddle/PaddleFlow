@@ -163,7 +163,7 @@ func getListMountResult(fsMounts []models.FsMount, nextMarker, marker string) *a
 			FsID:       fsMount.FsID,
 			MountPoint: fsMount.MountPoint,
 			NodeName:   fsMount.NodeName,
-			ClusterID:  fsMount.NodeName,
+			ClusterID:  fsMount.ClusterID,
 		}
 		fsMountLists = append(fsMountLists, FsList)
 	}
