@@ -19,6 +19,7 @@ package fs
 import (
 	"errors"
 	"fmt"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
 	"strings"
 	"time"
 
@@ -31,7 +32,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/k8s"
 )
 
 const (
@@ -181,17 +181,16 @@ func DeletePvPvc(fsID string) error {
 	for _, cluster := range clusters {
 		switch cluster.ClusterType {
 		case schema.KubernetesType:
-			k8sClient, err := k8s.GetK8sClient()
+			runtimeSvc, err := runtime.GetOrCreateRuntime(cluster)
 			if err != nil {
-				log.Errorf("PodUnmount: Get k8s client failed: %v", err)
 				return err
 			}
+			k8sRuntime := runtimeSvc.(*runtime.KubeRuntime)
 			for _, ns := range cluster.NamespaceList {
-				if err := k8sClient.DeletePersistentVolumeClaim(ns, schema.ConcatenatePVCName(fsID), metav1.DeleteOptions{}); err != nil && !strings.Contains(err.Error(), "not found") {
+				// delete pvc manually. pv will be deleted automatically
+				err := k8sRuntime.DeletePersistentVolumeClaim(ns, schema.ConcatenatePVCName(fsID), metav1.DeleteOptions{})
+				if err != nil && !strings.Contains(err.Error(), "not found") {
 					return fmt.Errorf("delete pvc[%s-%s] err: %v", ns, schema.ConcatenatePVCName(fsID), err)
-				}
-				if err := k8sClient.DeletePersistentVolume(schema.ConcatenatePVName(ns, fsID), metav1.DeleteOptions{}); err != nil && !strings.Contains(err.Error(), "not found") {
-					return fmt.Errorf("delete pv[%s] err: %v", schema.ConcatenatePVName(ns, fsID), err)
 				}
 			}
 

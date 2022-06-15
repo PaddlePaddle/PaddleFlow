@@ -597,9 +597,9 @@ func (kr *KubeRuntime) createPersistentVolumeClaim(namespace string, pvc *apiv1.
 	return kr.clientset.CoreV1().PersistentVolumeClaims(namespace).Create(context.TODO(), pvc, metav1.CreateOptions{})
 }
 
-func (kr *KubeRuntime) deletePersistentVolumeClaim(namespace string, name string,
-	deleteOptions *metav1.DeleteOptions) error {
-	return kr.clientset.CoreV1().PersistentVolumeClaims(namespace).Delete(context.TODO(), name, *deleteOptions)
+func (kr *KubeRuntime) DeletePersistentVolumeClaim(namespace string, name string,
+	deleteOptions metav1.DeleteOptions) error {
+	return kr.clientset.CoreV1().PersistentVolumeClaims(namespace).Delete(context.TODO(), name, deleteOptions)
 }
 
 func (kr *KubeRuntime) getPersistentVolumeClaim(namespace, name string, getOptions metav1.GetOptions) (*apiv1.
