@@ -109,6 +109,7 @@ func (pr *PFSRouter) createFileSystem(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		ctx.Logging().Errorf("create file system params error: %v", err)
+		ctx.ErrorMessage = err.Error()
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, ctx.ErrorMessage)
 		return
 	}
