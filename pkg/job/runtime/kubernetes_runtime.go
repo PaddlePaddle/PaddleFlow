@@ -65,6 +65,10 @@ func (kr *KubeRuntime) Name() string {
 	return fmt.Sprintf("kubernetes runtime for cluster: %s", kr.Cluster.Name)
 }
 
+func (kr *KubeRuntime) GetClientSet() kubernetes.Interface {
+	return kr.clientset
+}
+
 func (kr *KubeRuntime) BuildConfig() (*rest.Config, error) {
 	var cfg *rest.Config
 	// decode credential base64 string to []byte

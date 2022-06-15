@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"sync"
 
+	"k8s.io/client-go/kubernetes"
+
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
@@ -29,7 +31,7 @@ type RuntimeService interface {
 	Name() string
 	// Init create client for runtime
 	Init() error
-
+	GetClientSet() kubernetes.Interface
 	// SubmitJob submit job to cluster
 	SubmitJob(job *api.PFJob) error
 	// StopJob stop job on cluster

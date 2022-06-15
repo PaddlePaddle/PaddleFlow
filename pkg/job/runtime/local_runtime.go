@@ -18,6 +18,7 @@ package runtime
 
 import (
 	"fmt"
+	"k8s.io/client-go/kubernetes"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
@@ -40,6 +41,10 @@ func (l *LocRuntime) Init() error {
 
 func (l *LocRuntime) Name() string {
 	return fmt.Sprintf("local runtime for cluster: %s", l.Cluster.Name)
+}
+
+func (l *LocRuntime) GetClientSet() kubernetes.Interface {
+	return nil
 }
 
 func (l *LocRuntime) SubmitJob(job *api.PFJob) error {
