@@ -21,9 +21,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/job"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/job"
 )
 
 type Job interface {
