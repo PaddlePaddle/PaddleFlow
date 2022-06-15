@@ -534,19 +534,19 @@ func (kr *KubeRuntime) CreatePV(namespace, fsId, userName string) (string, error
 		return "", err
 	}
 	newPV.Name = pvName
-	csi := newPV.Spec.CSI
-	if csi != nil && csi.VolumeAttributes != nil {
-		if _, ok := csi.VolumeAttributes[schema.FSID]; ok {
-			newPV.Spec.CSI.VolumeAttributes[schema.FSID] = fsId
-			newPV.Spec.CSI.VolumeHandle = pvName
-		}
-		if _, ok := csi.VolumeAttributes[schema.PFSUserName]; ok {
-			newPV.Spec.CSI.VolumeAttributes[schema.PFSUserName] = userName
-		}
-		if _, ok := csi.VolumeAttributes[schema.PFSServer]; ok {
-			newPV.Spec.CSI.VolumeAttributes[schema.PFSServer] = fmt.Sprintf("%s:%d",
-				config.GlobalServerConfig.Fs.K8sServiceName, config.GlobalServerConfig.Fs.K8sServicePort)
-		}
+	if newPV.Spec.CSI == nil || newPV.Spec.CSI.VolumeAttributes == nil {
+		err := fmt.Errorf("pv[%s] generation error: no csi or csi volume attributes", pvName)
+		log.Errorf(err.Error())
+		return "", err
+	}
+	cva := newPV.Spec.CSI.VolumeAttributes
+	if _, ok := cva[schema.FSID]; ok {
+		newPV.Spec.CSI.VolumeAttributes[schema.FSID] = fsId
+		newPV.Spec.CSI.VolumeHandle = pvName
+	}
+	if _, ok := cva[schema.PFSServer]; ok {
+		newPV.Spec.CSI.VolumeAttributes[schema.PFSServer] = fmt.Sprintf("%s:%d",
+			config.GlobalServerConfig.Fs.K8sServiceName, config.GlobalServerConfig.Fs.K8sServicePort)
 	}
 	// create pv in k8s
 	if _, err := kr.createPersistentVolume(newPV); err != nil {

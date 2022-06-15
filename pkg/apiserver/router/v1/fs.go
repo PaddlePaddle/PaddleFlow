@@ -564,7 +564,7 @@ func checkFsNoMount(fsID string) error {
 	return nil
 }
 
-// createFileSystemClaims the function that handle the create file system claims request
+// createFileSystemClaims obsoleted func TODO: remove to kubernetes runtime
 // @Summary createFileSystemClaims
 // @Description
 // @tag fs
