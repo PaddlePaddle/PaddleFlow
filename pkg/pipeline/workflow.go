@@ -314,22 +314,32 @@ func (bwf *BaseWorkflow) checkCache() error {
 	if bwf.Extra[WfExtraInfoKeyFsID] == "" && bwf.Source.Cache.FsScope != "" {
 		return fmt.Errorf("fs_scope of global cache should be empty if Fs is not used!")
 	}
+	if err := bwf.checkStepCache(bwf.Source.Components); err != nil {
+		return err
+	}
+	return nil
+}
 
-	for stepName, wfsStep := range bwf.Source.EntryPoints {
-		if wfsStep.Cache.MaxExpiredTime == "" {
-			wfsStep.Cache.MaxExpiredTime = CacheExpiredTimeNever
-		}
+func (bwf *BaseWorkflow) checkStepCache(components map[string]schema.Component) error {
+	for name, component := range components {
+		if dag, ok := component.(*schema.WorkflowSourceDag); ok {
+			return bwf.checkStepCache(dag.EntryPoints)
+		} else if step, ok := component.(*schema.WorkflowSourceStep); ok {
+			if step.Cache.MaxExpiredTime == "" {
+				step.Cache.MaxExpiredTime = CacheExpiredTimeNever
+			}
+			_, err := strconv.Atoi(step.Cache.MaxExpiredTime)
+			if err != nil {
+				return fmt.Errorf("MaxExpiredTime[%s] of cache in step[%s] not correct", step.Cache.MaxExpiredTime, name)
+			}
 
-		_, err := strconv.Atoi(wfsStep.Cache.MaxExpiredTime)
-		if err != nil {
-			return fmt.Errorf("MaxExpiredTime[%s] of cache in step[%s] not correct", wfsStep.Cache.MaxExpiredTime, stepName)
-		}
-
-		if bwf.Extra[WfExtraInfoKeyFsID] == "" && wfsStep.Cache.FsScope != "" {
-			return fmt.Errorf("fs_scope of cache in step[%s] should be empty if Fs is not used!", stepName)
+			if bwf.Extra[WfExtraInfoKeyFsID] == "" && step.Cache.FsScope != "" {
+				return fmt.Errorf("fs_scope of cache in step[%s] should be empty if Fs is not used!", name)
+			}
+		} else {
+			return fmt.Errorf("component not step or dag")
 		}
 	}
-
 	return nil
 }
 
@@ -680,7 +690,9 @@ func (wf *Workflow) newWorkflowRuntime() error {
 		parallelism = WfParallelismMaximum
 	}
 	logger.LoggerForRun(wf.RunID).Debugf("initializing [%d] parallelism jobs", parallelism)
-	wf.runtime = NewWorkflowRuntime(wf, parallelism)
+	runConf := NewRunConfig(&wf.Source, wf.Extra[WfExtraInfoKeyFsID], wf.Extra[WfExtraInfoKeyFsName], wf.Extra[WfExtraInfoKeyUserName], wf.RunID,
+		logger.LoggerForRun(wf.RunID), wf.callbacks, wf.Extra[WfExtraInfoKeySource])
+	wf.runtime = NewWorkflowRuntime(runConf)
 
 	if err := wf.initRuntimeSteps(wf.runtime.entryPoints, wf.runtimeSteps, NodeTypeEntrypoint); err != nil {
 		return err
