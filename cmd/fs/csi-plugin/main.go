@@ -17,7 +17,6 @@ limitations under the License.
 package main
 
 import (
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/k8s"
 	"os"
 	"time"
 
@@ -29,6 +28,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/controller"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csiconfig"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csidriver"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/metric"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/version"
 )

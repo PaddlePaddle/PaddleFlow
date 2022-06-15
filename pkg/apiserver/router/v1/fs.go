@@ -284,10 +284,7 @@ func checkProperties(fsType string, req *api.CreateFileSystemRequest) error {
 		if namespace == "" {
 			return common.InvalidField(fsCommon.Namespace, "key[namespace] cannot be empty")
 		}
-		if checkPVCExist(pvc, namespace) {
-			return nil
-		}
-		return common.PVCNotFountError(pvc, namespace)
+		return nil
 	default:
 		return nil
 	}

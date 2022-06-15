@@ -19,7 +19,6 @@ package fs
 import (
 	"errors"
 	"fmt"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/k8s"
 	"strings"
 	"time"
 
@@ -32,6 +31,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/k8s"
 )
 
 const (
@@ -338,8 +338,8 @@ func (s *FileSystemService) ListFileSystem(ctx *logger.RequestContext, req *List
 //	newPV.Name = pvName
 //	csi := newPV.Spec.CSI
 //	if csi != nil && csi.VolumeAttributes != nil {
-//		if _, ok := csi.VolumeAttributes[schema.FSID]; ok {
-//			newPV.Spec.CSI.VolumeAttributes[schema.FSID] = fsId
+//		if _, ok := csi.VolumeAttributes[schema.fsID]; ok {
+//			newPV.Spec.CSI.VolumeAttributes[schema.fsID] = fsId
 //			newPV.Spec.CSI.VolumeHandle = pvName
 //		}
 //		if _, ok := csi.VolumeAttributes[schema.PFSServer]; ok {
