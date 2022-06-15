@@ -19,18 +19,19 @@ package fs
 import (
 	"errors"
 	"fmt"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/client/k8s"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"strings"
 	"time"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/client/k8s"
 )
 
 const (
@@ -186,12 +187,10 @@ func deletePvPvc(fsID string) error {
 				return err
 			}
 			for _, ns := range cluster.NamespaceList {
-				if err := k8sClient.DeletePersistentVolumeClaim(ns, schema.ConcatenatePVCName(fsID), metav1.DeleteOptions{});
-					err != nil && !strings.Contains(err.Error(), "not found") {
+				if err := k8sClient.DeletePersistentVolumeClaim(ns, schema.ConcatenatePVCName(fsID), metav1.DeleteOptions{}); err != nil && !strings.Contains(err.Error(), "not found") {
 					return fmt.Errorf("delete pvc[%s-%s] err: %v", ns, schema.ConcatenatePVCName(fsID), err)
 				}
-				if err := k8sClient.DeletePersistentVolume(schema.ConcatenatePVName(ns, fsID), metav1.DeleteOptions{});
-					err != nil && !strings.Contains(err.Error(), "not found") {
+				if err := k8sClient.DeletePersistentVolume(schema.ConcatenatePVName(ns, fsID), metav1.DeleteOptions{}); err != nil && !strings.Contains(err.Error(), "not found") {
 					return fmt.Errorf("delete pv[%s] err: %v", schema.ConcatenatePVName(ns, fsID), err)
 				}
 			}
