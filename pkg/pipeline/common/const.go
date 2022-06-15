@@ -41,6 +41,7 @@ const (
 	ParamTypeFloat  = "float"
 	ParamTypePath   = "path"
 	ParamTypeInt    = "int"
+	ParamTypeList   = "list"
 
 	WfParallelismDefault = 10
 	WfParallelismMaximum = 20

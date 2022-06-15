@@ -700,7 +700,7 @@ func CheckDictParam(dict DictParam, paramName string, realVal interface{}) (inte
 			return realVal, nil
 		}
 		return nil, InvalidParamTypeError(realVal, ParamTypeInt)
-	case ParamTypeSlice:
+	case ParamTypeList:
 		_, ok1 := realVal.([]float32)
 		_, ok2 := realVal.([]float64)
 		_, ok3 := realVal.([]int32)
