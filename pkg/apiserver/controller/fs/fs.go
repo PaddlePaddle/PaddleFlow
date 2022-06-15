@@ -151,13 +151,13 @@ func (s *FileSystemService) GetFileSystem(fsID string) (models.FileSystem, error
 // DeleteFileSystem the function which performs the operation of delete file system
 func (s *FileSystemService) DeleteFileSystem(ctx *logger.RequestContext, fsID string) error {
 	return models.WithTransaction(database.DB, func(tx *gorm.DB) error {
-		if err := models.DeleteFileSystem(fsID); err != nil {
+		if err := models.DeleteFileSystem(tx, fsID); err != nil {
 			ctx.Logging().Errorf("delete fs[%s] failed error[%v]", fsID, err)
 			ctx.ErrorCode = common.FileSystemDataBaseError
 			return err
 		}
 		// delete cache config if exist
-		if err := models.DeleteFSCacheConfig(ctx.Logging(), fsID); err != nil {
+		if err := models.DeleteFSCacheConfig(tx, fsID); err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return nil
 			}
@@ -165,7 +165,7 @@ func (s *FileSystemService) DeleteFileSystem(ctx *logger.RequestContext, fsID st
 			ctx.ErrorCode = common.FileSystemDataBaseError
 			return err
 		}
-		if err := deletePvPvc(fsID); err != nil {
+		if err := DeletePvPvc(fsID); err != nil {
 			ctx.Logging().Errorf("delete deletePvPvc for fs[%s] err: %v", fsID, err)
 			return err
 		}
@@ -173,7 +173,7 @@ func (s *FileSystemService) DeleteFileSystem(ctx *logger.RequestContext, fsID st
 	})
 }
 
-func deletePvPvc(fsID string) error {
+func DeletePvPvc(fsID string) error {
 	clusters, err := models.ListCluster(0, 0, nil, "")
 	if err != nil {
 		return fmt.Errorf("list clusters failed")

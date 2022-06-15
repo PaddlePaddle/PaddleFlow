@@ -17,6 +17,7 @@ limitations under the License.
 package v1
 
 import (
+	"fmt"
 	"net/http"
 	"os"
 	"reflect"
@@ -488,8 +489,14 @@ func TestCreateFSAndDeleteFs(t *testing.T) {
 	assert.Nil(t, err)
 	time.Sleep(1 * time.Second)
 
+	var p1 = gomonkey.ApplyFunc(fs.DeletePvPvc, func(fsID string) error {
+		return nil
+	})
+	defer p1.Reset()
+
 	deleteUrl = fsUrl + "/" + mockFsName
 	result, err = PerformDeleteRequest(router, deleteUrl)
 	assert.Nil(t, err)
+	fmt.Printf(result.Body.String())
 	assert.Equal(t, http.StatusOK, result.Code)
 }

@@ -90,8 +90,8 @@ func GetFileSystemWithFsIDAndUserName(fsID, userName string) (FileSystem, error)
 	return fileSystem, result.Error
 }
 
-func DeleteFileSystem(id string) error {
-	return database.DB.Transaction(func(tx *gorm.DB) error {
+func DeleteFileSystem(tx *gorm.DB, id string) error {
+	return tx.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Delete(&FileSystem{Model: Model{ID: id}}).Error; err != nil {
 			return err
 		}
