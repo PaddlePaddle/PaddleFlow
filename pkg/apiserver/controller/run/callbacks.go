@@ -19,6 +19,7 @@ package run
 import (
 	"database/sql"
 	"fmt"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/handler"
 	"strings"
 	"time"
 
@@ -26,7 +27,6 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"

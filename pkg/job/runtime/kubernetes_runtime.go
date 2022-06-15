@@ -542,8 +542,7 @@ func (kr *KubeRuntime) CreatePV(namespace, fsId, userName string) (string, error
 		newPV.Spec.CSI.VolumeHandle = pv.Name
 	}
 	if _, ok := cva[schema.PFSServer]; ok {
-		newPV.Spec.CSI.VolumeAttributes[schema.PFSServer] = fmt.Sprintf("%s:%d",
-			config.GlobalServerConfig.Fs.K8sServiceName, config.GlobalServerConfig.Fs.K8sServicePort)
+		newPV.Spec.CSI.VolumeAttributes[schema.PFSServer] = config.GetServiceAddress()
 	}
 	// create pv in k8s
 	if _, err := kr.createPersistentVolume(newPV); err != nil {

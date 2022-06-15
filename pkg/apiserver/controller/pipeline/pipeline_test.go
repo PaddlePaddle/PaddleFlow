@@ -19,13 +19,13 @@ package pipeline
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/handler"
 	"os"
 	"testing"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database/dbinit"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"

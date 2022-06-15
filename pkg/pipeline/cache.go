@@ -22,10 +22,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/handler"
 	. "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 	"strings"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
 

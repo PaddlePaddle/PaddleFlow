@@ -18,6 +18,7 @@ package executor
 
 import (
 	"fmt"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/handler"
 	"io/ioutil"
 	"path/filepath"
 	"reflect"
@@ -33,7 +34,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 	schedulingv1beta1 "volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
