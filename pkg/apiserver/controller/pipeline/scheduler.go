@@ -109,25 +109,26 @@ func (s *Scheduler) Start() {
 			toUpdate, tmpNextWakeupTime, err = s.dealWithOps(opInfo)
 			if err != nil {
 				log.Errorf("scheduler deal with op[%v] failed, %s", opInfo, err.Error())
-				return
+				continue
 			}
 		case <-timeout:
 			// 在循环过程中，发起任务不需要检查catchup配置（肯定catchup==true）
 			tmpNextWakeupTime, err = s.dealWithTimout(false)
 			if err != nil {
 				log.Errorf("scheduler deal with timeout failed, %s", err.Error())
-				return
+				continue
 			}
 			toUpdate = true
 		case scheduleID := <-s.ConcurrencyChannel:
 			toUpdate, tmpNextWakeupTime, err = s.dealWithConcurrency(scheduleID, nextWakeupTime)
 			if err != nil {
 				log.Errorf("scheduler deal with cncurrency change of schedule[%s] failed, %s", scheduleID, err.Error())
-				return
+				continue
 			}
 		}
 
 		if toUpdate {
+			log.Errorf("update nextWakeupTime, origin:[%s], new:[%s]", nextWakeupTime.Format("2006-01-02 15:04:05"), tmpNextWakeupTime.Format("2006-01-02 15:04:05"))
 			nextWakeupTime = tmpNextWakeupTime
 			timeout = s.getTimeout(nextWakeupTime)
 		}
@@ -158,7 +159,6 @@ func (s *Scheduler) getTimeout(nextWakeupTime *time.Time) <-chan time.Time {
 // - 该函数不会执行周期任务，如果有到时的周期调度，只需设置timeout为0即可
 // - 计算timeout，如果有 schedule 的 next_run_at 在 expire_interval以外，会直接把 timeout 设置为0
 //   - 有过期任务，此处不会更新next_run_at，而是马上触发dealWithTimout函数处理
-// - 计算timeout不需要加行级锁，因为只影响休眠时间
 //
 // 对于 stop/delete 操作，可以不再计算timeout
 // - 如果停止的schedule，【不是】下一次wakeup要执行的，那对timeout毫无影响
@@ -192,6 +192,7 @@ func (s *Scheduler) dealWithTimout(checkCatchup bool) (*time.Time, error) {
 	logEntry := log.WithFields(log.Fields{})
 	killMap, execMap, nextWakeupTime, err := models.GetAvailableSchedule(logEntry, checkCatchup)
 	if err != nil {
+		log.Errorf("GetAvailableSchedule failed, err:[%s]", err.Error())
 		return nil, err
 	}
 
@@ -202,12 +203,8 @@ func (s *Scheduler) dealWithTimout(checkCatchup bool) (*time.Time, error) {
 			return nil, err
 		}
 
-		pplDetail, err := models.GetPipelineDetail(schedule.PipelineID, schedule.PipelineDetailPk, "")
-		if err != nil {
-			return nil, err
-		}
-
 		for _, nextRunAt := range nextRunAtList {
+			log.Infof("start to create run in ScheduledAt[%s] for schedule[%s]", nextRunAt.Format("2006-01-02 15:04:05"), scheduleID)
 			createRequest := CreateRunRequest{
 				FsName:           schedule.FsName,
 				UserName:         schedule.UserName,
@@ -220,25 +217,27 @@ func (s *Scheduler) dealWithTimout(checkCatchup bool) (*time.Time, error) {
 			}
 			_, err := CreateRun(schedule.UserName, &createRequest)
 			if err != nil {
+				log.Errorf("create run for schedule[%s] in ScheduledAt[%s] failed, err:[%s]", scheduleID, nextRunAt.Format("2006-01-02 15:04:05"), err.Error())
 				return nil, err
 			}
-			fmt.Print(nextRunAt)
-			fmt.Print(pplDetail)
 		}
 	}
 
 	// 根据killMap，停止run
 	for scheduleID, runIDList := range killMap {
-		logEntry.Infof("start to stop runs[%v] for schedule[%s]", runIDList, scheduleID)
+		log.Infof("start to stop runs[%v] for schedule[%s]", runIDList, scheduleID)
 		schedule, err := models.GetSchedule(logEntry, scheduleID)
 		if err != nil {
+			log.Errorf("GetSchedule in stop runs[%v] for schedule[%s]", runIDList, scheduleID)
 			return nil, err
 		}
 
 		for _, runID := range runIDList {
+			log.Infof("start to stop run[%s] for schedule[%s]", runID, scheduleID)
 			request := UpdateRunRequest{StopForce: false}
 			err = StopRun(logEntry, schedule.UserName, runID, request)
 			if err != nil {
+				log.Errorf("stop run[%s] failed for schedule[%s]", runID, scheduleID)
 				return nil, err
 			}
 		}
@@ -266,6 +265,7 @@ func (s *Scheduler) dealWithConcurrency(scheduleID string, originNextWakeupTime 
 	}
 
 	if schedule.Status != models.ScheduleStatusRunning {
+		log.Infof("schedule[%s] not running, doing nothing", scheduleID)
 		return false, nil, nil
 	}
 
@@ -276,7 +276,9 @@ func (s *Scheduler) dealWithConcurrency(scheduleID string, originNextWakeupTime 
 		return false, nil, fmt.Errorf(errMsg)
 	}
 
+	// 如果scheduler的 ConcurrencyPolicy 不是 Suspend，就只需要到时间就运行 or skip，这些操作在deal with timeout中处理
 	if options.ConcurrencyPolicy != models.ConcurrencyPolicySuspend {
+		log.Infof("schedule[%s] ConcurrencyPolicy not suspend, doing nothing", scheduleID)
 		return false, nil, nil
 	}
 
