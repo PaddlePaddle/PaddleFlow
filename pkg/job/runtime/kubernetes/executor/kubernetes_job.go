@@ -119,12 +119,14 @@ func NewKubeJob(job *api.PFJob, dynamicClientOpt *k8s.DynamicClientOption) (api.
 	// get extensionTemplate
 	if len(job.ExtensionTemplate) == 0 {
 		var err error
-		kubeJob.YamlTemplateContent, err = kubeJob.getExtRuntimeConf(job.Conf.GetFS(), job.Conf.GetYamlPath(), job.Framework)
+		kubeJob.IsCustomYaml = false
+		kubeJob.YamlTemplateContent, err = kubeJob.getDefaultTemplate(job.Framework)
 		if err != nil {
 			return nil, fmt.Errorf("get extra runtime config failed, err: %v", err)
 		}
 	} else {
 		// get runtime conf from user
+		kubeJob.IsCustomYaml = true
 		kubeJob.YamlTemplateContent = []byte(job.ExtensionTemplate)
 	}
 
@@ -713,18 +715,17 @@ func getDefaultPath(jobType schema.JobType, framework schema.Framework, jobMode 
 	}
 }
 
-// getExtRuntimeConf get extra runtime conf from file
-func (j *KubeJob) getExtRuntimeConf(fsID, filePath string, framework schema.Framework) ([]byte, error) {
-	j.IsCustomYaml = false
-	// get extra runtime conf from default path
-	filePath = getDefaultPath(j.JobType, framework, j.JobMode)
+// getDefaultTemplate get default template from file
+func (j *KubeJob) getDefaultTemplate(framework schema.Framework) ([]byte, error) {
+	// get template from default path
+	filePath := getDefaultPath(j.JobType, framework, j.JobMode)
 	// check file exist
 	if exist, err := config.PathExists(filePath); !exist || err != nil {
 		log.Errorf("get job from path[%s] failed, file.exsit=[%v], err=[%v]", filePath, exist, err)
 		return nil, errors.JobFileNotFound(filePath)
 	}
 
-	// read extRuntimeConf as []byte
+	// read file as []byte
 	extConf, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		log.Errorf("read file [%s] failed! err:[%v]\n", filePath, err)
