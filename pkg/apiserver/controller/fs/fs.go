@@ -19,6 +19,7 @@ package fs
 import (
 	"errors"
 	"fmt"
+	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"time"
 
@@ -179,22 +180,36 @@ func DeletePvPvc(fsID string) error {
 		return fmt.Errorf("list clusters failed")
 	}
 	for _, cluster := range clusters {
-		switch cluster.ClusterType {
-		case schema.KubernetesType:
-			runtimeSvc, err := runtime.GetOrCreateRuntime(cluster)
+		if cluster.ClusterType != schema.KubernetesType {
+			log.Debugf("cluster[%s] type: %s, no need to delete pv pvc", cluster.Name, cluster.ClusterType)
+			continue
+		}
+		runtimeSvc, err := runtime.GetOrCreateRuntime(cluster)
+		if err != nil {
+			return err
+		}
+		k8sRuntime := runtimeSvc.(*runtime.KubeRuntime)
+		namespaces := cluster.NamespaceList
+		if len(namespaces) == 0 { // cluster has no namespace restrictions. iterate all namespaces
+			nsList, err := k8sRuntime.ListNamespaces(metav1.ListOptions{})
 			if err != nil {
 				return err
 			}
-			k8sRuntime := runtimeSvc.(*runtime.KubeRuntime)
-			for _, ns := range cluster.NamespaceList {
-				// delete pvc manually. pv will be deleted automatically
-				if err := k8sRuntime.DeletePersistentVolumeClaim(ns, schema.ConcatenatePVCName(fsID), metav1.DeleteOptions{}); err != nil && !k8serrors.IsNotFound(err) {
-					return fmt.Errorf("delete pvc[%s-%s] err: %v", ns, schema.ConcatenatePVCName(fsID), err)
+			if nsList == nil {
+				return fmt.Errorf("clust[%s] namespace list nil", cluster.Name)
+			}
+			for _, ns := range nsList.Items {
+				if ns.Status.Phase == v1.NamespaceActive {
+					namespaces = append(namespaces, ns.Name)
 				}
 			}
-		default:
-			log.Debugf("cluster[%s] type: %s, no need to delete pv pvc", cluster.Name, cluster.ClusterType)
-			continue
+			log.Debugf("clust[%s] all namespaces: %v", cluster.Name, namespaces)
+		}
+		for _, ns := range namespaces {
+			// delete pvc manually. pv will be deleted automatically
+			if err := k8sRuntime.DeletePersistentVolumeClaim(ns, schema.ConcatenatePVCName(fsID), metav1.DeleteOptions{}); err != nil && !k8serrors.IsNotFound(err) {
+				return fmt.Errorf("delete pvc[%s-%s] err: %v", ns, schema.ConcatenatePVCName(fsID), err)
+			}
 		}
 	}
 	return nil

@@ -579,6 +579,10 @@ func (kr *KubeRuntime) GetJobLog(jobLogRequest schema.JobLogRequest) (schema.Job
 	return getKubernetesLogs(kr.clientset, jobLogRequest)
 }
 
+func (kr *KubeRuntime) ListNamespaces(listOptions metav1.ListOptions) (*v1.NamespaceList, error) {
+	return kr.clientset.CoreV1().Namespaces().List(context.TODO(), listOptions)
+}
+
 func (kr *KubeRuntime) createPersistentVolume(pv *apiv1.PersistentVolume) (*apiv1.PersistentVolume, error) {
 	return kr.clientset.CoreV1().PersistentVolumes().Create(context.TODO(), pv, metav1.CreateOptions{})
 }
