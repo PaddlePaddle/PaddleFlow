@@ -75,7 +75,7 @@ rules:
   - apiGroups: ["scheduling.incubator.k8s.io", "scheduling.volcano.sh"]
     resources: ["queues"]
     verbs: ["get", "list"]
-   - apiGroups: ["scheduling.incubator.k8s.io", "scheduling.volcano.sh"]
+  - apiGroups: ["scheduling.incubator.k8s.io", "scheduling.volcano.sh"]
     resources: ["elasticresourcequotas"]
     verbs: ["get", "list", "update"]
   - apiGroups: [""]

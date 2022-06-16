@@ -504,6 +504,15 @@ func ValidateAndStartRun(run models.Run, req interface{}) (CreateRunResponse, er
 	}
 
 	run.WorkflowSource = wfs
+	defer func() {
+		if info := recover(); info != nil {
+			errmsg := fmt.Sprintf("StartWf failed, %v", info)
+			logger.LoggerForRun(runID).Errorf(errmsg)
+			if err := updateRunStatusAndMsg(runID, common.StatusRunFailed, errmsg); err != nil {
+				logger.LoggerForRun(runID).Errorf("set run status as failed after StartWf panic failed")
+			}
+		}
+	}()
 	// handler image
 	if err := handleImageAndStartWf(run, false); err != nil {
 		logger.Logger().Errorf("create run[%s] failed handleImageAndStartWf[%s-%s]. error:%s\n", runID, wfs.DockerEnv, run.FsID, err.Error())

@@ -21,8 +21,7 @@ import (
 	"fmt"
 
 	"github.com/PaddlePaddle/PaddleFlow/go-sdk/service"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/cluster"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/user"
+	v1 "github.com/PaddlePaddle/PaddleFlow/go-sdk/service/apiserver/v1"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/core"
 )
 
@@ -36,7 +35,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	data, err := pfClient.APIV1().User().Login(context.TODO(), &user.LoginInfo{
+	data, err := pfClient.APIV1().User().Login(context.TODO(), &v1.LoginInfo{
 		UserName: "",
 		Password: "",
 	})
@@ -46,8 +45,8 @@ func main() {
 	token := data.Authorization
 
 	clusterName := "test-cluster"
-	createResult, err := pfClient.APIV1().Cluster().Create(context.TODO(), &cluster.CreateClusterRequest{
-		ClusterCommonInfo: cluster.ClusterCommonInfo{
+	createResult, err := pfClient.APIV1().Cluster().Create(context.TODO(), &v1.CreateClusterRequest{
+		ClusterCommonInfo: v1.ClusterCommonInfo{
 			Endpoint:    "http://127.0.0.1:6443",
 			ClusterType: "Kubernetes",
 			Version:     "v1.16.3",
@@ -67,7 +66,7 @@ func main() {
 	}
 	fmt.Printf("get cluster result %v\n", getResult)
 
-	listResult, err := pfClient.APIV1().Cluster().List(context.TODO(), &cluster.ListClusterRequest{
+	listResult, err := pfClient.APIV1().Cluster().List(context.TODO(), &v1.ListClusterRequest{
 		MaxKeys:         100,
 		ClusterStatus:   "online",
 		ClusterNameList: []string{clusterName, "xx", "xx2"},
@@ -77,8 +76,8 @@ func main() {
 	}
 	fmt.Printf("list cluster result %v\n", listResult)
 
-	updateResult, err := pfClient.APIV1().Cluster().Update(context.TODO(), clusterName, &cluster.UpdateClusterRequest{
-		ClusterCommonInfo: cluster.ClusterCommonInfo{
+	updateResult, err := pfClient.APIV1().Cluster().Update(context.TODO(), clusterName, &v1.UpdateClusterRequest{
+		ClusterCommonInfo: v1.ClusterCommonInfo{
 			Endpoint:    "http://127.0.0.1:6443",
 			ClusterType: "Kubernetes",
 			Version:     "v1.16.9",

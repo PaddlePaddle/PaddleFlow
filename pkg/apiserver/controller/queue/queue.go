@@ -199,12 +199,11 @@ func CreateQueue(ctx *logger.RequestContext, request *CreateQueueRequest) (Creat
 				request.Namespace, strings.Join(errStr, ","))
 		}
 	}
-
-	if !schema.CheckReg(request.Name, common.RegPatternQueueName) {
+	if errStr := common.IsDNS1123Label(request.Name); len(errStr) != 0 {
 		ctx.ErrorCode = common.InvalidNamePattern
-		err := common.InvalidNamePatternError(request.Name, common.ResourceTypeQueue, common.RegPatternQueueName)
-		log.Errorf("CreateQueue failed. err: %v.", err)
-		return CreateQueueResponse{}, err
+		log.Errorf("CreateQueue failed when check name[%s] isDNS1123Label. err: %v.", request.Name, err)
+		return CreateQueueResponse{}, fmt.Errorf("name[%s] of queue is invalid, err: %s",
+			request.Name, strings.Join(errStr, ","))
 	}
 
 	exist := strings.EqualFold(request.Name, defaultQueueName) || models.IsQueueExist(request.Name)
@@ -226,14 +225,14 @@ func CreateQueue(ctx *logger.RequestContext, request *CreateQueueRequest) (Creat
 	}
 
 	// check request max resources and min resources
-	if err = schema.ValidateResourceInfo(request.MaxResources, config.GlobalServerConfig.Job.ScalarResourceArray); err != nil {
+	if err = schema.ValidateResourceNonNegative(request.MaxResources, config.GlobalServerConfig.Job.ScalarResourceArray); err != nil {
 		ctx.Logging().Errorf("create queue failed. error: %s", err.Error())
 		ctx.ErrorCode = common.InvalidComputeResource
 		return CreateQueueResponse{}, err
 	}
 	if request.QuotaType == schema.TypeElasticQuota {
 		// check min resources for elastic queue
-		if err = schema.ValidateResourceInfo(request.MinResources, config.GlobalServerConfig.Job.ScalarResourceArray); err != nil {
+		if err = schema.ValidateResourceNonNegative(request.MinResources, config.GlobalServerConfig.Job.ScalarResourceArray); err != nil {
 			ctx.Logging().Errorf("create queue failed. error: %s", err.Error())
 			ctx.ErrorCode = common.InvalidComputeResource
 			return CreateQueueResponse{}, err
@@ -476,7 +475,7 @@ func validateQueueResource(rResource schema.ResourceInfo, qResource *schema.Reso
 	}
 
 	scalarResourceLaws := config.GlobalServerConfig.Job.ScalarResourceArray
-	if err := schema.ValidateResourceInfo(*qResource, scalarResourceLaws); err != nil {
+	if err := schema.ValidateResourceNonNegative(*qResource, scalarResourceLaws); err != nil {
 		log.Errorf("validate resourceInfo failed, err=%v", err)
 		return needUpdate, err
 	}

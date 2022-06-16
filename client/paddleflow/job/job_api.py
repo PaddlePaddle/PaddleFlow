@@ -62,8 +62,8 @@ class JobServiceApi(object):
                                                                  member.get('schedulingPolicy', {}).get('queue', None),
                                                                  member.get('labels', None), member.get('annotations', None),
                                                                  member.get('schedulingPolicy', {}).get('priority', None),
-                                                                 member.get('flavour', None), member.get('fileSystem', None),
-                                                                 member.get('extraFileSystems', None), member.get('image', None),
+                                                                 member.get('flavour', None), member.get('fs', None),
+                                                                 member.get('extraFS', None), member.get('image', None),
                                                                  member.get('env', None), member.get('command', None),
                                                                  member.get('args', None), member.get('port', None),
                                                                  member.get('extensionTemplate', None)))
@@ -107,17 +107,17 @@ class JobServiceApi(object):
             if 'scalarResources' in job_request.flavour:
                 body['flavour']['scalarResources'] = job_request.flavour['scalarResources']
         if job_request.fs:
-            body['fileSystem'] = dict()
+            body['fs'] = dict()
             if 'name' in job_request.fs:
-                body['fileSystem']['name'] = job_request.fs['name']
+                body['fs']['name'] = job_request.fs['name']
             if 'mountPath' in job_request.fs:
-                body['fileSystem']['mountPath'] = job_request.fs['mountPath']
+                body['fs']['mountPath'] = job_request.fs['mountPath']
             if 'subPath' in job_request.fs:
-                body['fileSystem']['subPath'] = job_request.fs['subPath']
+                body['fs']['subPath'] = job_request.fs['subPath']
             if 'readOnly' in job_request.fs:
-                body['fileSystem']['readOnly'] = job_request.fs['readOnly']
+                body['fs']['readOnly'] = job_request.fs['readOnly']
         if job_request.extra_fs_list:
-            body['extraFileSystems'] = list()
+            body['extraFS'] = list()
             for fs in job_request.extra_fs_list:
                 fs_dict = dict()
                 if 'name' in fs:
@@ -128,7 +128,7 @@ class JobServiceApi(object):
                     fs_dict['subPath'] = fs['subPath']
                 if 'readOnly' in fs:
                     fs_dict['readOnly'] = fs['readOnly']
-                body['extraFileSystems'].append(fs_dict)
+                body['extraFS'].append(fs_dict)
         if job_request.env:
             body['env'] = job_request.env
         if job_request.command:
@@ -181,7 +181,7 @@ class JobServiceApi(object):
         job_info = JobInfo(job_id=data['id'], job_name=data['name'], labels=data['labels'],
                            annotations=data['annotations'], username=data['UserName'],
                            queue=data['schedulingPolicy']['queue'], priority=priority, flavour=data['flavour'],
-                           fs=data['fileSystem'], extra_fs_list=data['extraFileSystems'], image=data['image'],
+                           fs=data['fs'], extra_fs_list=data['extraFS'], image=data['image'],
                            env=data['env'], command=data['command'], args_list=data['args'], port=data['port'],
                            extension_template=data['extensionTemplate'], framework=framework, member_list=members,
                            status=data['status'], message=data['message'], accept_time=data['acceptTime'],
@@ -242,7 +242,7 @@ class JobServiceApi(object):
                 job_info = JobInfo(job_id=job['id'], job_name=job['name'], labels=job['labels'],
                                    annotations=job['annotations'], username=job['UserName'],
                                    queue=job['schedulingPolicy']['queue'], priority=priority, flavour=job['flavour'],
-                                   fs=job['fileSystem'], extra_fs_list=job['extraFileSystems'], image=job['image'],
+                                   fs=job['fs'], extra_fs_list=job['extraFS'], image=job['image'],
                                    env=job['env'], command=job['command'], args_list=job['args'], port=job['port'],
                                    extension_template=job['extensionTemplate'], framework=framework, member_list=members,
                                    status=job['status'], message=job['message'], accept_time=job['acceptTime'],
@@ -253,12 +253,39 @@ class JobServiceApi(object):
 
 
     @classmethod
-    def update_job(cls):
+    def update_job(cls, host, job_id, priority, labels, annotations, header=None):
         """
+        update job priority, labels, or annotations
 
-        :return:
+        :param host:
+        :param job_id:
+        :param priority:
+        :param labels:
+        :param annotations:
         """
-        pass
+        if not header:
+            raise PaddleFlowSDKException("InvalidRequest", "paddleflow should login first")
+        params = {
+            "action": "modify"
+        }
+        body = {}
+        if priority is not None:
+            body['priority'] = priority
+        if labels is not None:
+            body['labels'] = labels
+        if annotations is not None:
+            body['annotations'] = annotations
+        response = api_client.call_api(method="PUT", url=parse.urljoin(host, api.PADDLE_FLOW_JOB + "/%s" % job_id),
+                                               headers=header, params=params, json=body)
+        if not response:
+            raise PaddleFlowSDKException("Update job error", response.text)
+        if not response.text:
+            return True, None
+        data = json.loads(response.text)
+        if 'message' in data:
+            return False, data['message']
+        return True, None
+
 
     @classmethod
     def delete_job(cls, host, job_id, header=None):
