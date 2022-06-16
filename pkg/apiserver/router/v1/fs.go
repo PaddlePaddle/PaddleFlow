@@ -24,6 +24,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-chi/chi"
+	log "github.com/sirupsen/logrus"
+	"gorm.io/gorm"
+	k8smeta "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	api "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/fs"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
@@ -33,10 +38,6 @@ import (
 	fuse "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/fs"
 	fsCommon "github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/k8s"
-	"github.com/go-chi/chi"
-	log "github.com/sirupsen/logrus"
-	"gorm.io/gorm"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type PFSRouter struct{}
@@ -295,7 +296,7 @@ func checkPVCExist(pvc, namespace string) bool {
 		log.Errorf("checkPVCExist: Get k8s client failed: %v", err)
 		return false
 	}
-	if _, err := k8sClient.GetPersistentVolumeClaim(namespace, pvc, metav1.GetOptions{}); err != nil {
+	if _, err := k8sClient.GetPersistentVolumeClaim(namespace, pvc, k8smeta.GetOptions{}); err != nil {
 		log.Errorf("check namespace[%s] pvc[%s] exist failed: %v", namespace, pvc, err)
 		return false
 	}
@@ -620,7 +621,7 @@ func checkFsNoMount(fsID string) error {
 //	}
 //	var notExistNamespaces []string
 //	for _, ns := range req.Namespaces {
-//		if _, err := k8s.GetK8sOperator().GetNamespace(ns, metav1.GetOptions{}); err != nil {
+//		if _, err := k8s.GetK8sOperator().GetNamespace(ns, k8smeta.GetOptions{}); err != nil {
 //			if k8serrors.IsNotFound(err) {
 //				notExistNamespaces = append(notExistNamespaces, ns)
 //				continue
