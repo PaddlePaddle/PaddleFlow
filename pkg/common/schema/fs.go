@@ -23,7 +23,6 @@ const (
 	NameSpaceFormat = "$(namespace)"
 	FSID            = "pfs.fs.id"
 	PFSServer       = "pfs.server"
-	PFSUserName     = "pfs.user.name"
 
 	PodMntDir = "/home/paddleflow/mnt"
 

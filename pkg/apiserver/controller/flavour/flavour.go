@@ -215,7 +215,7 @@ func IsLastFlavourPk(pk int64) bool {
 // GetFlavourWithCheck get req.Flavour and check if it is valid, if exists in db, return it
 func GetFlavourWithCheck(reqFlavour schema.Flavour) (schema.Flavour, error) {
 	if reqFlavour.Name == "" || reqFlavour.Name == customFlavour {
-		if err := schema.ValidateResourceInfo(reqFlavour.ResourceInfo, config.GlobalServerConfig.Job.ScalarResourceArray); err != nil {
+		if err := schema.ValidateResource(reqFlavour.ResourceInfo, config.GlobalServerConfig.Job.ScalarResourceArray); err != nil {
 			log.Errorf("validate resource info failed, err:%v", err)
 			return schema.Flavour{}, err
 		}

@@ -109,6 +109,7 @@ func (pr *PFSRouter) createFileSystem(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		ctx.Logging().Errorf("create file system params error: %v", err)
+		ctx.ErrorMessage = err.Error()
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, ctx.ErrorMessage)
 		return
 	}
@@ -564,7 +565,7 @@ func checkFsNoMount(fsID string) error {
 	return nil
 }
 
-// createFileSystemClaims the function that handle the create file system claims request
+// createFileSystemClaims obsoleted func TODO: remove to kubernetes runtime
 // @Summary createFileSystemClaims
 // @Description
 // @tag fs
