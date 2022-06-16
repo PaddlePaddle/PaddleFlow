@@ -375,30 +375,33 @@ func (wfs *WorkflowSource) ValidateRunNodes(components map[string]Component, yam
 				step.Parameters = map[string]interface{}{}
 			}
 
-			// DockerEnv字段替换检查
-			if step.DockerEnv == "" {
-				step.DockerEnv = wfs.DockerEnv
-			}
+			// Reference节点不用替换
+			if step.Reference == "" {
+				// DockerEnv字段替换检查
+				if step.DockerEnv == "" {
+					step.DockerEnv = wfs.DockerEnv
+				}
 
-			// 检查是否需要全局Cache替换（节点Cache字段优先级大于全局Cache字段）
-			componentCache, ok, err := unstructured.NestedFieldCopy(componentsMap, name, "cache")
-			if err != nil || !ok {
-				return fmt.Errorf("get componentCache failed")
-			}
-			componentCacheMap, ok := componentCache.(map[string]interface{})
-			if !ok {
-				return fmt.Errorf("get componentCacheMap failed")
-			}
-			globalCache, ok, err := unstructured.NestedFieldCopy(yamlMap, "cache")
-			if err != nil || !ok {
-				return fmt.Errorf("get globalCache failed")
-			}
-			globalCacheMap, ok := globalCache.(map[string]interface{})
-			if !ok {
-				return fmt.Errorf("get globalCacheMap failed")
-			}
-			if err := ValidateStepCacheByMap(&step.Cache, globalCacheMap, componentCacheMap); err != nil {
-				return err
+				// 检查是否需要全局Cache替换（节点Cache字段优先级大于全局Cache字段）
+				componentCache, ok, err := unstructured.NestedFieldCopy(componentsMap, name, "cache")
+				if err != nil || !ok {
+					return fmt.Errorf("get componentCache failed")
+				}
+				componentCacheMap, ok := componentCache.(map[string]interface{})
+				if !ok {
+					return fmt.Errorf("get componentCacheMap failed")
+				}
+				globalCache, ok, err := unstructured.NestedFieldCopy(yamlMap, "cache")
+				if err != nil || !ok {
+					return fmt.Errorf("get globalCache failed")
+				}
+				globalCacheMap, ok := globalCache.(map[string]interface{})
+				if !ok {
+					return fmt.Errorf("get globalCacheMap failed")
+				}
+				if err := ValidateStepCacheByMap(&step.Cache, globalCacheMap, componentCacheMap); err != nil {
+					return err
+				}
 			}
 		}
 	}

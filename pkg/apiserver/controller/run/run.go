@@ -377,37 +377,40 @@ func validateRunJsonNodes(components map[string]schema.Component, request *Creat
 			if step.Parameters == nil {
 				step.Parameters = map[string]interface{}{}
 			}
-			// 对于每一个全局环境变量，检查节点是否有设置对应环境变量，如果没有则使用全局的
-			for globalKey, globalValue := range request.Env {
-				value, ok := step.Env[globalKey]
-				if !ok || value == "" {
-					step.Env[globalKey] = globalValue
+			// Reference节点无需替换
+			if step.Reference == "" {
+				// 对于每一个全局环境变量，检查节点是否有设置对应环境变量，如果没有则使用全局的
+				for globalKey, globalValue := range request.Env {
+					value, ok := step.Env[globalKey]
+					if !ok || value == "" {
+						step.Env[globalKey] = globalValue
+					}
 				}
-			}
-			// DockerEnv字段替换检查
-			if step.DockerEnv == "" {
-				step.DockerEnv = request.DockerEnv
-			}
+				// DockerEnv字段替换检查
+				if step.DockerEnv == "" {
+					step.DockerEnv = request.DockerEnv
+				}
 
-			// 检查是否需要全局Cache替换（节点Cache字段优先级大于全局Cache字段）
-			componentCache, ok, err := unstructured.NestedFieldCopy(componentsMap, name, "cache")
-			if err != nil || !ok {
-				return fmt.Errorf("get componentCache failed")
-			}
-			componentCacheMap, ok := componentCache.(map[string]interface{})
-			if !ok {
-				return fmt.Errorf("get componentCacheMap failed")
-			}
-			globalCache, ok, err := unstructured.NestedFieldCopy(bodyMap, "cache")
-			if err != nil || !ok {
-				return fmt.Errorf("get globalCache failed")
-			}
-			globalCacheMap, ok := globalCache.(map[string]interface{})
-			if !ok {
-				return fmt.Errorf("get globalCacheMap failed")
-			}
-			if err := schema.ValidateStepCacheByMap(&step.Cache, globalCacheMap, componentCacheMap); err != nil {
-				return err
+				// 检查是否需要全局Cache替换（节点Cache字段优先级大于全局Cache字段）
+				componentCache, ok, err := unstructured.NestedFieldCopy(componentsMap, name, "cache")
+				if err != nil || !ok {
+					return fmt.Errorf("get componentCache failed")
+				}
+				componentCacheMap, ok := componentCache.(map[string]interface{})
+				if !ok {
+					return fmt.Errorf("get componentCacheMap failed")
+				}
+				globalCache, ok, err := unstructured.NestedFieldCopy(bodyMap, "cache")
+				if err != nil || !ok {
+					return fmt.Errorf("get globalCache failed")
+				}
+				globalCacheMap, ok := globalCache.(map[string]interface{})
+				if !ok {
+					return fmt.Errorf("get globalCacheMap failed")
+				}
+				if err := schema.ValidateStepCacheByMap(&step.Cache, globalCacheMap, componentCacheMap); err != nil {
+					return err
+				}
 			}
 		}
 	}

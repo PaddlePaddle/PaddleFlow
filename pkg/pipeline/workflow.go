@@ -44,6 +44,8 @@ type BaseWorkflow struct {
 	Source       schema.WorkflowSource                 `json:"-"`               // Yaml string
 	runtimeDags  map[string]*schema.WorkflowSourceDag  `json:"-"`
 	runtimeSteps map[string]*schema.WorkflowSourceStep `json:"-"`
+	tmpDags      map[string]*schema.WorkflowSourceDag  `json:"-"`
+	tmpSteps     map[string]*schema.WorkflowSourceStep `json:"-"`
 	postProcess  map[string]*schema.WorkflowSourceStep `json:"-"`
 }
 
@@ -61,6 +63,10 @@ func NewBaseWorkflow(wfSource schema.WorkflowSource, runID, entry string, params
 	}
 
 	bwf.runtimeDags, bwf.runtimeSteps = bwf.getComponents()
+	bwf.tmpDags = map[string]*schema.WorkflowSourceDag{}
+	bwf.tmpSteps = map[string]*schema.WorkflowSourceStep{}
+	// 对于Components模板中的节点，添加一个前缀，避免后面与EntryPoints中的节点重复
+	bwf.recursiveGetComponents(bwf.Source.Components, SysComponentsPrefix, bwf.tmpDags, bwf.tmpSteps)
 	return bwf
 }
 
@@ -115,6 +121,8 @@ func (bwf *BaseWorkflow) recursiveGetComponents(components map[string]schema.Com
 
 // validate BaseWorkflow 校验合法性
 func (bwf *BaseWorkflow) validate() error {
+
+	bwf.checkComponents()
 
 	// 2. 检验extra，保证FsID和FsName，要么都传，要么都不传
 	if err := bwf.checkExtra(); err != nil {
@@ -171,6 +179,11 @@ func (bwf *BaseWorkflow) checkFailureOption() error {
 	}
 }
 
+func (bwf *BaseWorkflow) checkComponents() error {
+
+	return nil
+}
+
 // 校验extra字典
 // 保证FsID和FsName，要么同时传（pipeline run需要挂载fs），要么都不传（pipeline run不需要挂载fs）
 func (bwf *BaseWorkflow) checkExtra() error {
@@ -199,6 +212,9 @@ func (bwf *BaseWorkflow) checkRunYaml() error {
 		postComponent[name] = step
 	}
 	if err := bwf.checkAllComponentName(postComponent); err != nil {
+		return err
+	}
+	if err := bwf.checkAllComponentName(bwf.Source.Components); err != nil {
 		return err
 	}
 
@@ -324,7 +340,7 @@ func (bwf *BaseWorkflow) checkStepCache(components map[string]schema.Component) 
 	for name, component := range components {
 		if dag, ok := component.(*schema.WorkflowSourceDag); ok {
 			return bwf.checkStepCache(dag.EntryPoints)
-		} else if step, ok := component.(*schema.WorkflowSourceStep); ok {
+		} else if step, ok := component.(*schema.WorkflowSourceStep); ok && step.Reference == "" {
 			if step.Cache.MaxExpiredTime == "" {
 				step.Cache.MaxExpiredTime = CacheExpiredTimeNever
 			}
@@ -540,6 +556,7 @@ func (bwf *BaseWorkflow) checkSteps() error {
 		SysParams:     sysParamNameMap,
 		DisabledSteps: disabledSteps,
 		UseFs:         useFs,
+		CompTempletes: bwf.Source.Components,
 	}
 	for _, component := range components {
 		bwf.log().Debugln(component)
@@ -693,14 +710,6 @@ func (wf *Workflow) newWorkflowRuntime() error {
 	runConf := NewRunConfig(&wf.Source, wf.Extra[WfExtraInfoKeyFsID], wf.Extra[WfExtraInfoKeyFsName], wf.Extra[WfExtraInfoKeyUserName], wf.RunID,
 		logger.LoggerForRun(wf.RunID), wf.callbacks, wf.Extra[WfExtraInfoKeySource])
 	wf.runtime = NewWorkflowRuntime(runConf)
-
-	if err := wf.initRuntimeSteps(wf.runtime.entryPoints, wf.runtimeSteps, NodeTypeEntrypoint); err != nil {
-		return err
-	}
-
-	if err := wf.initRuntimeSteps(wf.runtime.postProcess, wf.postProcess, NodeTypePostProcess); err != nil {
-		return err
-	}
 
 	return nil
 }

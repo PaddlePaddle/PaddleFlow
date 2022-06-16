@@ -331,6 +331,7 @@ type StepParamChecker struct {
 	SysParams     map[string]string           // sysParams 的值和 step 相关，需要传入
 	DisabledSteps []string                    // 被disabled的节点列表
 	UseFs         bool                        // 表示是否挂载Fs
+	CompTempletes map[string]schema.Component // 对应WorkflowSource中的Components的内容
 }
 
 func (s *StepParamChecker) getWorkflowSourceStep(currentStep string) (*schema.WorkflowSourceStep, bool) {
@@ -460,7 +461,7 @@ func (s *StepParamChecker) Check(currentComponent string) error {
 				return err
 			}
 			variableChecker := VariableChecker{}
-			// 虽然这里不是引用上游节点，但是规则相同，因此可以复用
+			// 虽然这里不是引用上游节点，而是子节点，但是规则相同，因此可以复用
 			err = variableChecker.CheckRefUpstreamStep(outArtValue)
 			if err != nil {
 				return fmt.Errorf("check input artifact [%s] in step[%s] failed: %s", outArtValue, currentComponent, err.Error())
@@ -499,6 +500,13 @@ func (s *StepParamChecker) Check(currentComponent string) error {
 		if err != nil {
 			return err
 		}
+
+		// 6. reference 校验
+		if step.Reference != "" {
+			if err := s.CheckRefComponent(currentComponent); err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }
@@ -514,7 +522,7 @@ func (s *StepParamChecker) checkName(step, fieldType, name string) error {
 
 // 该函数主要处理parameter, command, env，input artifact四类参数
 // schema中已经限制了input artifact，command, env只能为string，此处再判断类型用于兜底
-func (s *StepParamChecker) checkParamValue(step string, paramName string, param interface{}, fieldType string) error {
+func (s *StepParamChecker) checkParamValue(compName string, paramName string, param interface{}, fieldType string) error {
 	if fieldType == FieldCommand || fieldType == FieldEnv || fieldType == FieldInputArtifacts {
 		_, ok := param.(string)
 		if !ok {
@@ -522,11 +530,53 @@ func (s *StepParamChecker) checkParamValue(step string, paramName string, param 
 		}
 	}
 
+	// Reference节点相关检查
+	comp, ok := s.Components[compName]
+	// 兜底检查
+	if !ok {
+		return fmt.Errorf("no component in EntryPoints named %s", compName)
+	}
+	if step, ok := comp.(*schema.WorkflowSourceStep); ok {
+		if step.Reference != "" {
+			// 对reference节点进行检查
+			template, ok := s.CompTempletes[step.Reference]
+			if !ok {
+				return fmt.Errorf("no component named %s", compName)
+			}
+
+			switch fieldType {
+			case FieldParameters:
+				// 在reference 节点中定义的parameters 需要是其引用的component的 parameters 的子集
+				referedParam, ok := template.GetParameters()[paramName]
+				if !ok {
+					return fmt.Errorf("parameters in step with reference must be in refered component")
+				}
+				// 如果 component 中的parameter 为dict 形式，在reference 节点中对应的parameter需要满足类型要求
+				switch referedParam.(type) {
+				case map[interface{}]interface{}:
+					dictParam := DictParam{}
+					if err := dictParam.From(referedParam); err != nil {
+						return fmt.Errorf("invalid dict parameter[%s]", param)
+					}
+					if _, err := CheckDictParam(dictParam, step.Reference, param); err != nil {
+						return fmt.Errorf("parameters in step with reference check dict param in refered param failed, error: %s", err.Error())
+					}
+				}
+			case FieldInputArtifacts:
+				// 在reference 节点中定义的 input artifacts 需要是其引用的component的 input artifacts 的子集
+				if _, ok := template.GetArtifacts().Input[paramName]; !ok {
+					return fmt.Errorf("input artifact in step with reference must be in refered component")
+				}
+			}
+		}
+	}
+
+	// 参数值检查
 	switch param.(type) {
 	case float32, float64, int:
 		return nil
 	case string:
-		return s.resolveRefParam(step, param.(string), fieldType)
+		return s.resolveRefParam(compName, param.(string), fieldType)
 	case map[interface{}]interface{}:
 		dictParam := DictParam{}
 		if err := dictParam.From(param); err != nil {
@@ -607,10 +657,17 @@ func ParseParamName(paramName string) []string {
 
 func (s *StepParamChecker) refParamExist(currentCompName, refCompName, refParamName, fieldType string) error {
 	/*
-		只有param，input artifact 2类变量需要处理
-		param，env，command 只做上游step的parameter 依赖替换
+		env, command只能引用当前节点的param, input/output artifacts
+		param 只做上游step的 param 依赖替换
 		input artifact 只做上游step的output artifact 依赖替换
+		PF_PARENT 为引用父节点的
 	*/
+	if refCompName == PF_PARENT {
+		if len(strings.Split(currentCompName, ".")) < 2 {
+			return fmt.Errorf("PF_PARENT should used by a child component")
+		}
+		return nil
+	}
 	curComponent := s.Components[currentCompName]
 	// s.DisabledSteps和s.Components保存的是完整节点名称，即从跟节点到当前节点的完整路径，如A.BB.CCC
 	// 因此需要结合currentCompName（完整节点名称），对refCompName（相对节点名称）进行拓展
@@ -725,4 +782,20 @@ func CheckDictParam(dict DictParam, paramName string, realVal interface{}) (inte
 	default:
 		return nil, UnsupportedDictParamTypeError(dict.Type, paramName, dict)
 	}
+}
+
+func (s *StepParamChecker) CheckRefComponent(compName string) error {
+	component, ok := s.Components[compName]
+	if !ok {
+		fmt.Errorf("no component named %s", compName)
+	}
+
+	if step, ok := component.(*schema.WorkflowSourceStep); ok {
+		if len(step.Artifacts.Output) > 0 || len(step.Command) > 0 || len(step.Condition) > 0 ||
+			len(step.DockerEnv) > 0 || len(step.Env) > 0 || step.LoopArgument != nil ||
+			len(step.Cache.FsScope) > 0 || len(step.Cache.MaxExpiredTime) > 0 || step.Cache.Enable {
+			fmt.Errorf("reference step can only have deps, parameters, input artifacts, reference")
+		}
+	}
+	return nil
 }

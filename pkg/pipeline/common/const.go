@@ -32,6 +32,8 @@ const (
 
 	PF_PARENT = "PF_PARENT"
 
+	SysComponentsPrefix = "SysComponentsPrefix"
+
 	WfExtraInfoKeySource   = "Source" // pipelineID or yamlPath
 	WfExtraInfoKeyUserName = "UserName"
 	WfExtraInfoKeyFsName   = "FsName"
