@@ -76,7 +76,7 @@ var URLPrefix = map[string]bool{
 
 const FsNameMaxLen = 100
 
-// obsoleted funcs: create PVC code can be fount in commit 23e7038cecd7bfa9acdc80bbe1d62d904dbe1568
+// obsoleted funcs: create PVC code can be found in commit 23e7038cecd7bfa9acdc80bbe1d62d904dbe1568
 
 // createFileSystem the function that handle the create file system request
 // @Summary createFileSystem

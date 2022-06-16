@@ -39,7 +39,7 @@ const (
 	TimeFormat = "2006-01-02 15:04:05"
 )
 
-// obsoleted funcs: create/delete PVC/PVC code can be fount in commit 23e7038cecd7bfa9acdc80bbe1d62d904dbe1568
+// obsoleted funcs: create/delete PVC/PVC code can be found in commit 23e7038cecd7bfa9acdc80bbe1d62d904dbe1568
 
 // FileSystemService the service which contains the operation of file system
 type FileSystemService struct{}
