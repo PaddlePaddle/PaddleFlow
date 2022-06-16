@@ -92,7 +92,7 @@ func NewResource(resourceInfo ResourceInfo) (*Resource, error) {
 	for k, v := range resourceInfo.ScalarResources {
 		vFloat, err := strconv.ParseFloat(v, 64)
 		if err != nil {
-			fmt.Errorf("string[%s] ParseFloat failed, %+v", v, err)
+			err = fmt.Errorf("string[%s] ParseFloat failed, %+v", v, err)
 			return nil, err
 		}
 		r.AddScalar(k, vFloat)
