@@ -97,3 +97,7 @@ func FileNumsInDir(path string) (int, error) {
 	files, _ := ioutil.ReadDir(path)
 	return len(files), nil
 }
+
+func GetServiceAddress() string {
+	return fmt.Sprintf("%s:%d", GlobalServerConfig.Fs.K8sServiceName, GlobalServerConfig.Fs.K8sServicePort)
+}

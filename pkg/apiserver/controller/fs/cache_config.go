@@ -23,6 +23,7 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	utils "github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/common"
 )
@@ -133,7 +134,7 @@ func DeleteFileSystemCacheConfig(ctx *logger.RequestContext, fsID string) error 
 		ctx.Logging().Errorf("GetFileSystemCacheConfig fs[%s] err:%v", fsID, err)
 		return err
 	}
-	if err := models.DeleteFSCacheConfig(ctx.Logging(), fsID); err != nil {
+	if err := models.DeleteFSCacheConfig(database.DB, fsID); err != nil {
 		ctx.Logging().Errorf("delete fs cache config failed error[%v]", err)
 		ctx.ErrorCode = common.FileSystemDataBaseError
 		return err
