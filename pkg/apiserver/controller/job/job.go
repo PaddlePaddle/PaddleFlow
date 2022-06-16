@@ -29,7 +29,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/job"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
 )
@@ -239,7 +238,7 @@ func patchFromCommonInfo(conf *schema.Conf, commonJobInfo *CommonJobInfo) error 
 	// distributed Job would pass check flavour and queue, because conf is just constructed without flavour.
 	// flavour would be check in function newMembers
 	if !schema.IsEmptyResource(conf.Flavour.ResourceInfo) {
-		if err = job.IsEnoughQueueCapacity(conf.Flavour, queue.MaxResources); err != nil {
+		if err = IsEnoughQueueCapacity(conf.Flavour, queue.MaxResources); err != nil {
 			log.Errorf("patch Job from commonInfo failed, err:=%v", err)
 			return err
 		}
@@ -494,7 +493,7 @@ func CreateWorkflowJob(ctx *logger.RequestContext, request *CreateWfJobRequest) 
 		Priority:    request.SchedulingPolicy.Priority,
 	}
 	// validate queue
-	if err := job.ValidateQueue(&conf, ctx.UserName, request.SchedulingPolicy.Queue); err != nil {
+	if err := ValidateQueue(&conf, ctx.UserName, request.SchedulingPolicy.Queue); err != nil {
 		msg := fmt.Sprintf("valiate queue for workflow job failed, err: %v", err)
 		log.Errorf(msg)
 		return nil, fmt.Errorf(msg)
