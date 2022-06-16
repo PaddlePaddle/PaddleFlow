@@ -20,10 +20,12 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database/dbinit"
 )
 
 func TestGetFSCacheStore(t *testing.T) {
-	InitMockDB()
+	dbinit.InitMockDB()
 	dbStore := GetFSCacheStore()
 	fsCache, err := dbStore.Get("", "")
 	assert.NotNil(t, err)

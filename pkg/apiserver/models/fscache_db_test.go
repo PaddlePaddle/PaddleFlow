@@ -20,10 +20,12 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database/dbinit"
 )
 
 func TestDBFSCache(t *testing.T) {
-	InitMockDB()
+	dbinit.InitMockDB()
 	dbfs := newDBFSCache()
 	fsCache1 := new(FSCache)
 	fsCache1.CacheDir = "cachedir"
