@@ -19,13 +19,13 @@ package fs
 import (
 	"errors"
 	"fmt"
-	v1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"time"
 
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8score "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	k8smeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
@@ -191,7 +191,7 @@ func DeletePvPvc(fsID string) error {
 		k8sRuntime := runtimeSvc.(*runtime.KubeRuntime)
 		namespaces := cluster.NamespaceList
 		if len(namespaces) == 0 { // cluster has no namespace restrictions. iterate all namespaces
-			nsList, err := k8sRuntime.ListNamespaces(metav1.ListOptions{})
+			nsList, err := k8sRuntime.ListNamespaces(k8smeta.ListOptions{})
 			if err != nil {
 				return err
 			}
@@ -199,7 +199,7 @@ func DeletePvPvc(fsID string) error {
 				return fmt.Errorf("clust[%s] namespace list nil", cluster.Name)
 			}
 			for _, ns := range nsList.Items {
-				if ns.Status.Phase == v1.NamespaceActive {
+				if ns.Status.Phase == k8score.NamespaceActive {
 					namespaces = append(namespaces, ns.Name)
 				}
 			}
@@ -207,7 +207,7 @@ func DeletePvPvc(fsID string) error {
 		}
 		for _, ns := range namespaces {
 			// delete pvc manually. pv will be deleted automatically
-			if err := k8sRuntime.DeletePersistentVolumeClaim(ns, schema.ConcatenatePVCName(fsID), metav1.DeleteOptions{}); err != nil && !k8serrors.IsNotFound(err) {
+			if err := k8sRuntime.DeletePersistentVolumeClaim(ns, schema.ConcatenatePVCName(fsID), k8smeta.DeleteOptions{}); err != nil && !k8serrors.IsNotFound(err) {
 				return fmt.Errorf("delete pvc[%s-%s] err: %v", ns, schema.ConcatenatePVCName(fsID), err)
 			}
 		}
@@ -300,7 +300,7 @@ func (s *FileSystemService) ListFileSystem(ctx *logger.RequestContext, req *List
 //// deletePVC obsoleted func TODO: remove to kubernetes runtime
 //func deletePVC(fsID string) error {
 //	k8sOperator := k8s.GetK8sOperator()
-//	nsList, err := k8sOperator.ListNamespaces(metav1.ListOptions{})
+//	nsList, err := k8sOperator.ListNamespaces(k8smeta.ListOptions{})
 //	if err != nil {
 //		log.Errorf("list namespaces when clean pvc failed: %v", err)
 //		return err
@@ -309,12 +309,12 @@ func (s *FileSystemService) ListFileSystem(ctx *logger.RequestContext, req *List
 //	pvc := config.DefaultPVC
 //	pvcName := strings.Replace(pvc.Name, schema.FSIDFormat, fsID, -1)
 //	log.Debugf("delete pvc name:%s", pvcName)
-//	propagationPolicy := metav1.DeletePropagationBackground
-//	deleteOptions := &metav1.DeleteOptions{PropagationPolicy: &propagationPolicy}
+//	propagationPolicy := k8smeta.DeletePropagationBackground
+//	deleteOptions := &k8smeta.DeleteOptions{PropagationPolicy: &propagationPolicy}
 //	for _, item := range nsList.Items {
 //		ns := item.Name
 //
-//		if _, errK8sOperator := k8sOperator.GetPersistentVolumeClaim(ns, pvcName, metav1.GetOptions{}); k8serrors.IsNotFound(errK8sOperator) {
+//		if _, errK8sOperator := k8sOperator.GetPersistentVolumeClaim(ns, pvcName, k8smeta.GetOptions{}); k8serrors.IsNotFound(errK8sOperator) {
 //			continue
 //		} else if errK8sOperator != nil && !k8serrors.IsNotFound(errK8sOperator) {
 //			log.Errorf("k8sOperator GetPersistentVolumeClaim err[%v]", errK8sOperator)
@@ -337,7 +337,7 @@ func (s *FileSystemService) ListFileSystem(ctx *logger.RequestContext, req *List
 //	pvName := strings.Replace(pv.Name, schema.FSIDFormat, fsId, -1)
 //	pvName = strings.Replace(pvName, schema.NameSpaceFormat, namespace, -1)
 //	// check pv existence
-//	if _, err := k8sOperator.GetPersistentVolume(pvName, metav1.GetOptions{}); err == nil {
+//	if _, err := k8sOperator.GetPersistentVolume(pvName, k8smeta.GetOptions{}); err == nil {
 //		return "", nil
 //	} else if !k8serrors.IsNotFound(err) {
 //		return "", err
@@ -371,7 +371,7 @@ func (s *FileSystemService) ListFileSystem(ctx *logger.RequestContext, req *List
 //	pvc := config.DefaultPVC
 //	pvcName := strings.Replace(pvc.Name, schema.FSIDFormat, fsId, -1)
 //	// check pvc existence
-//	if _, err := k8sOperator.GetPersistentVolumeClaim(namespace, pvcName, metav1.GetOptions{}); err == nil {
+//	if _, err := k8sOperator.GetPersistentVolumeClaim(namespace, pvcName, k8smeta.GetOptions{}); err == nil {
 //		return nil
 //	} else if !k8serrors.IsNotFound(err) {
 //		return err
