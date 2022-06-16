@@ -25,6 +25,7 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/flavour"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
@@ -55,6 +56,16 @@ func CreateJob(conf schema.PFJobConf) (string, error) {
 	if err := patchTasksFromEnv(jobConf, jobInfo); err != nil {
 		log.Errorf("patch tasks from env failed, err: %v", err)
 		return "", err
+	}
+
+	filePath := jobConf.GetYamlPath()
+	if filePath != "" {
+		templateConf, err := handler.ReadFileFromFs(jobConf.GetFS(), filePath, logger.Logger())
+		if err != nil {
+			log.Errorf("get job from path[%s] failed, err=[%v]", filePath, err)
+			return "", err
+		}
+		jobInfo.ExtensionTemplate = string(templateConf)
 	}
 
 	if err := models.CreateJob(jobInfo); err != nil {
