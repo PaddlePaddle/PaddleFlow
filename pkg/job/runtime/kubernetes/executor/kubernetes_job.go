@@ -33,12 +33,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 	schedulingv1beta1 "volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	locationAwareness "github.com/PaddlePaddle/PaddleFlow/pkg/fs/location-awareness"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
@@ -121,12 +119,14 @@ func NewKubeJob(job *api.PFJob, dynamicClientOpt *k8s.DynamicClientOption) (api.
 	// get extensionTemplate
 	if len(job.ExtensionTemplate) == 0 {
 		var err error
-		kubeJob.YamlTemplateContent, err = kubeJob.getExtRuntimeConf(job.Conf.GetFS(), job.Conf.GetYamlPath(), job.Framework)
+		kubeJob.IsCustomYaml = false
+		kubeJob.YamlTemplateContent, err = kubeJob.getDefaultTemplate(job.Framework)
 		if err != nil {
 			return nil, fmt.Errorf("get extra runtime config failed, err: %v", err)
 		}
 	} else {
 		// get runtime conf from user
+		kubeJob.IsCustomYaml = true
 		kubeJob.YamlTemplateContent = []byte(job.ExtensionTemplate)
 	}
 
@@ -715,32 +715,21 @@ func getDefaultPath(jobType schema.JobType, framework schema.Framework, jobMode 
 	}
 }
 
-// getExtRuntimeConf get extra runtime conf from file
-func (j *KubeJob) getExtRuntimeConf(fsID, filePath string, framework schema.Framework) ([]byte, error) {
-	if len(filePath) == 0 {
-		j.IsCustomYaml = false
-		// get extra runtime conf from default path
-		filePath = getDefaultPath(j.JobType, framework, j.JobMode)
-		// check file exist
-		if exist, err := config.PathExists(filePath); !exist || err != nil {
-			log.Errorf("get job from path[%s] failed, file.exsit=[%v], err=[%v]", filePath, exist, err)
-			return nil, errors.JobFileNotFound(filePath)
-		}
-
-		// read extRuntimeConf as []byte
-		extConf, err := ioutil.ReadFile(filePath)
-		if err != nil {
-			log.Errorf("read file [%s] failed! err:[%v]\n", filePath, err)
-			return nil, err
-		}
-		return extConf, nil
+// getDefaultTemplate get default template from file
+func (j *KubeJob) getDefaultTemplate(framework schema.Framework) ([]byte, error) {
+	// get template from default path
+	filePath := getDefaultPath(j.JobType, framework, j.JobMode)
+	// check file exist
+	if exist, err := config.PathExists(filePath); !exist || err != nil {
+		log.Errorf("get job from path[%s] failed, file.exsit=[%v], err=[%v]", filePath, exist, err)
+		return nil, errors.JobFileNotFound(filePath)
 	}
-	conf, err := handler.ReadFileFromFs(fsID, filePath, logger.Logger())
+
+	// read file as []byte
+	extConf, err := ioutil.ReadFile(filePath)
 	if err != nil {
-		log.Errorf("get job from path[%s] failed, err=[%v]", filePath, err)
+		log.Errorf("read file [%s] failed! err:[%v]\n", filePath, err)
 		return nil, err
 	}
-
-	log.Debugf("reading extra runtime conf[%s]", conf)
-	return conf, nil
+	return extConf, nil
 }
