@@ -17,7 +17,6 @@ limitations under the License.
 package v1
 
 import (
-	"fmt"
 	"net/http"
 	"os"
 	"reflect"
@@ -497,6 +496,5 @@ func TestCreateFSAndDeleteFs(t *testing.T) {
 	deleteUrl = fsUrl + "/" + mockFsName
 	result, err = PerformDeleteRequest(router, deleteUrl)
 	assert.Nil(t, err)
-	fmt.Printf(result.Body.String())
 	assert.Equal(t, http.StatusOK, result.Code)
 }

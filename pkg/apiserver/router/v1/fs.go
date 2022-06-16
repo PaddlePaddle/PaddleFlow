@@ -24,11 +24,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-chi/chi"
-	log "github.com/sirupsen/logrus"
-	"gorm.io/gorm"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	api "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/fs"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
@@ -38,6 +33,10 @@ import (
 	fuse "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/fs"
 	fsCommon "github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/k8s"
+	"github.com/go-chi/chi"
+	log "github.com/sirupsen/logrus"
+	"gorm.io/gorm"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type PFSRouter struct{}

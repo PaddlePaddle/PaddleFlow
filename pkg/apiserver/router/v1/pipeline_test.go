@@ -17,7 +17,6 @@ limitations under the License.
 package v1
 
 import (
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/handler"
 	"net/http"
 	"os"
 	"strings"
@@ -28,6 +27,7 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/pipeline"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/handler"
 )
 
 func TestCreatePipeline(t *testing.T) {

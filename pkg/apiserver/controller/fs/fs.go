@@ -19,7 +19,7 @@ package fs
 import (
 	"errors"
 	"fmt"
-	"strings"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -188,12 +188,10 @@ func DeletePvPvc(fsID string) error {
 			k8sRuntime := runtimeSvc.(*runtime.KubeRuntime)
 			for _, ns := range cluster.NamespaceList {
 				// delete pvc manually. pv will be deleted automatically
-				err := k8sRuntime.DeletePersistentVolumeClaim(ns, schema.ConcatenatePVCName(fsID), metav1.DeleteOptions{})
-				if err != nil && !strings.Contains(err.Error(), "not found") {
+				if err := k8sRuntime.DeletePersistentVolumeClaim(ns, schema.ConcatenatePVCName(fsID), metav1.DeleteOptions{}); err != nil && !k8serrors.IsNotFound(err) {
 					return fmt.Errorf("delete pvc[%s-%s] err: %v", ns, schema.ConcatenatePVCName(fsID), err)
 				}
 			}
-
 		default:
 			log.Debugf("cluster[%s] type: %s, no need to delete pv pvc", cluster.Name, cluster.ClusterType)
 			continue
