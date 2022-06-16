@@ -76,6 +76,8 @@ var URLPrefix = map[string]bool{
 
 const FsNameMaxLen = 100
 
+// obsoleted funcs: create PVC code can be fount in commit 23e7038cecd7bfa9acdc80bbe1d62d904dbe1568
+
 // createFileSystem the function that handle the create file system request
 // @Summary createFileSystem
 // @Description 创建文件系统
@@ -564,80 +566,6 @@ func checkFsNoMount(fsID string) error {
 	}
 	return nil
 }
-
-//// createFileSystemClaims obsoleted func TODO: remove to kubernetes runtime
-//// @Summary createFileSystemClaims
-//// @Description
-//// @tag fs
-//// @Accept   json
-//// @Produce  json
-//// @Param request body request.CreateFileSystemClaimsRequest true "request body"
-//// @Success 200 {object} response.CreateFileSystemClaimsResponse
-//// @Failure 400 {object} common.ErrorResponse
-//// @Failure 404 {object} common.ErrorResponse
-//// @Failure 500 {object} common.ErrorResponse
-//// @Router /fs/claims [post]
-//func (pr *PFSRouter) createFileSystemClaims(w http.ResponseWriter, r *http.Request) {
-//	ctx := common.GetRequestContext(r)
-//
-//	var createRequest api.CreateFileSystemClaimsRequest
-//	err := common.BindJSON(r, &createRequest)
-//	if err != nil {
-//		ctx.Logging().Errorf("CreateFileSystemClaims bindjson failed. err:%s", err.Error())
-//		common.RenderErr(w, ctx.RequestID, common.MalformedJSON)
-//		return
-//	}
-//	log.Debugf("create file system claims with req[%v]", config.PrettyFormat(createRequest))
-//
-//	fileSystemService := api.GetFileSystemService()
-//
-//	err = validateCreateFileSystemClaims(&ctx, &createRequest)
-//	if err != nil {
-//		ctx.Logging().Errorf("create file system claims params error: %v", err)
-//		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
-//		return
-//	}
-//
-//	err = fileSystemService.CreateFileSystemClaims(&ctx, &createRequest)
-//	if err != nil {
-//		ctx.Logging().Errorf("create file system claims with error[%v]", err)
-//		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
-//		return
-//	}
-//
-//	response := api.CreateFileSystemClaimsResponse{Message: common.ClaimsSuccessMessage}
-//	ctx.Logging().Debugf("CreateFileSystemClaims Fs:%v", string(config.PrettyFormat(response)))
-//	common.Render(w, http.StatusOK, response)
-//}
-//
-//func validateCreateFileSystemClaims(ctx *logger.RequestContext, req *api.CreateFileSystemClaimsRequest) error {
-//	if len(req.FsIDs) == 0 {
-//		ctx.ErrorCode = common.InvalidPVClaimsParams
-//		return common.InvalidField("fsIDs", "must not be empty")
-//	}
-//	if len(req.Namespaces) == 0 {
-//		ctx.ErrorCode = common.InvalidPVClaimsParams
-//		return common.InvalidField("namespaces", "must not be empty")
-//	}
-//	var notExistNamespaces []string
-//	for _, ns := range req.Namespaces {
-//		if _, err := k8s.GetK8sOperator().GetNamespace(ns, k8smeta.GetOptions{}); err != nil {
-//			if k8serrors.IsNotFound(err) {
-//				notExistNamespaces = append(notExistNamespaces, ns)
-//				continue
-//			}
-//			ctx.Logging().Errorf("get namespace[%s] failed: %v", ns, err)
-//			ctx.ErrorCode = common.GetNamespaceFail
-//			return err
-//		}
-//	}
-//	if len(notExistNamespaces) != 0 {
-//		ctx.Logging().Errorf("namespaces[%v] to create pvc is not found", notExistNamespaces)
-//		ctx.ErrorCode = common.NamespaceNotFound
-//		return common.InvalidField("namespaces", fmt.Sprintf("namespaces %v not found", notExistNamespaces))
-//	}
-//	return nil
-//}
 
 func getRealUserName(ctx *logger.RequestContext,
 	username string) string {
