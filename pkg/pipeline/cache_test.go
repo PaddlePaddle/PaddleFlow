@@ -18,13 +18,13 @@ package pipeline
 
 import (
 	"fmt"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/handler"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/fs"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"

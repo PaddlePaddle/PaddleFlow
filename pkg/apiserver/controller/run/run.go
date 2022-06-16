@@ -20,6 +20,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	handler2 "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
 
 	"gopkg.in/yaml.v2"
 	"gorm.io/gorm"
@@ -29,7 +30,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/handler"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/pipeline"
@@ -180,7 +180,7 @@ func buildWorkflowSource(userName string, req CreateRunRequest, fsID string) (sc
 		if runYamlPath == "" {
 			runYamlPath = config.DefaultRunYamlPath
 		}
-		runYamlByte, err := handler.ReadFileFromFs(fsID, runYamlPath, logger.Logger())
+		runYamlByte, err := handler2.ReadFileFromFs(fsID, runYamlPath, logger.Logger())
 		if err != nil {
 			logger.Logger().Errorf("readFileFromFs from[%s] failed. err:%v", fsID, err)
 			return schema.WorkflowSource{}, "", "", err
@@ -751,8 +751,8 @@ func DeleteRun(ctx *logger.RequestContext, id string, request *DeleteRunRequest)
 	return nil
 }
 
-func InitAndResumeRuns() (*handler.ImageHandler, error) {
-	imageHandler, err := handler.InitPFImageHandler()
+func InitAndResumeRuns() (*handler2.ImageHandler, error) {
+	imageHandler, err := handler2.InitPFImageHandler()
 	if err != nil {
 		return nil, err
 	}
@@ -820,7 +820,7 @@ func resumeRun(run models.Run) error {
 func handleImageAndStartWf(run models.Run, isResume bool) error {
 	logEntry := logger.LoggerForRun(run.ID)
 	logEntry.Debugf("start handleImageAndStartWf isResume:%t, run:%+v", isResume, run)
-	if !handler.NeedHandleImage(run.WorkflowSource.DockerEnv) {
+	if !handler2.NeedHandleImage(run.WorkflowSource.DockerEnv) {
 		// init workflow and start
 		wfPtr, err := newWorkflowByRun(run)
 		if err != nil {
@@ -867,7 +867,7 @@ func handleImageAndStartWf(run models.Run, isResume bool) error {
 			logEntry.Errorf("create run failed ListImageIDsByFsID[%s]. error:%s\n", run.FsID, err.Error())
 			return updateRunStatusAndMsg(run.ID, common.StatusRunFailed, err.Error())
 		}
-		if err := handler.PFImageHandler.HandleImage(run.WorkflowSource.DockerEnv, run.ID, run.FsID,
+		if err := handler2.PFImageHandler.HandleImage(run.WorkflowSource.DockerEnv, run.ID, run.FsID,
 			imageIDs, logEntry, handleImageCallbackFunc); err != nil {
 			logEntry.Errorf("handle image failed. error:%s\n", err.Error())
 			return updateRunStatusAndMsg(run.ID, common.StatusRunFailed, err.Error())

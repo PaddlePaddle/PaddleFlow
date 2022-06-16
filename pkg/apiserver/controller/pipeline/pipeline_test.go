@@ -19,6 +19,7 @@ package pipeline
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
 	"os"
 	"testing"
 
@@ -27,7 +28,6 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database/dbinit"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/handler"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 )
 
