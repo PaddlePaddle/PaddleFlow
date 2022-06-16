@@ -488,6 +488,11 @@ func TestCreateFSAndDeleteFs(t *testing.T) {
 	assert.Nil(t, err)
 	time.Sleep(1 * time.Second)
 
+	var p1 = gomonkey.ApplyFunc(fs.DeletePvPvc, func(fsID string) error {
+		return nil
+	})
+	defer p1.Reset()
+
 	deleteUrl = fsUrl + "/" + mockFsName
 	result, err = PerformDeleteRequest(router, deleteUrl)
 	assert.Nil(t, err)

@@ -27,7 +27,6 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/client/pfs"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/mount"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/io"
 	mountUtil "github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/mount"
@@ -74,7 +73,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context,
 	server := volumeContext[pfsServer]
 	volumeID := req.VolumeId
 
-	mountInfo := pfs.GetMountInfo(fsID, server, req.GetReadonly())
+	mountInfo := mount.GetMountInfo(fsID, server, req.GetReadonly())
 	// root credentials for pfs-fuse
 	mountInfo.UsernameRoot, mountInfo.PasswordRoot = ns.credentialInfo.usernameRoot, ns.credentialInfo.passwordRoot
 	mountInfo.TargetPath = targetPath
@@ -91,7 +90,7 @@ func (ns *nodeServer) NodeUnpublishVolume(ctx context.Context,
 
 	targetPath := req.GetTargetPath()
 	volumeID := req.VolumeId
-	mountInfo := pfs.MountInfo{
+	mountInfo := mount.Info{
 		UsernameRoot: ns.credentialInfo.usernameRoot,
 		PasswordRoot: ns.credentialInfo.passwordRoot,
 	}
@@ -121,7 +120,7 @@ func (ns *nodeServer) NodeExpandVolume(ctx context.Context,
 	return nil, status.Error(codes.Unimplemented, "NodeExpandVolume is not implemented")
 }
 
-func mountVolume(volumeID string, mountInfo pfs.MountInfo, readOnly bool) error {
+func mountVolume(volumeID string, mountInfo mount.Info, readOnly bool) error {
 	log.Infof("mountVolume mountInfo:%+v, readOnly:%t", mountInfo, readOnly)
 	// business pods use a separate source path
 	if err := mount.PodMount(volumeID, mountInfo); err != nil {

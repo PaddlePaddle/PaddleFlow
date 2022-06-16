@@ -519,11 +519,9 @@ func (kr *KubeRuntime) DeleteObject(namespace, name string, gvk k8sschema.GroupV
 
 func (kr *KubeRuntime) CreatePV(namespace, fsId, userName string) (string, error) {
 	pv := config.DefaultPV
-	// format pvname to fsid
-	pvName := strings.Replace(pv.Name, schema.FSIDFormat, fsId, -1)
-	pvName = strings.Replace(pvName, schema.NameSpaceFormat, namespace, -1)
+	pv.Name = schema.ConcatenatePVName(namespace, fsId)
 	// check pv existence
-	if _, err := kr.getPersistentVolume(pvName, metav1.GetOptions{}); err == nil {
+	if _, err := kr.getPersistentVolume(pv.Name, metav1.GetOptions{}); err == nil {
 		return "", nil
 	} else if !k8serrors.IsNotFound(err) {
 		return "", err
@@ -533,31 +531,29 @@ func (kr *KubeRuntime) CreatePV(namespace, fsId, userName string) (string, error
 	if err := copier.Copy(newPV, pv); err != nil {
 		return "", err
 	}
-	newPV.Name = pvName
 	if newPV.Spec.CSI == nil || newPV.Spec.CSI.VolumeAttributes == nil {
-		err := fmt.Errorf("pv[%s] generation error: no csi or csi volume attributes", pvName)
+		err := fmt.Errorf("pv[%s] generation error: no csi or csi volume attributes", pv.Name)
 		log.Errorf(err.Error())
 		return "", err
 	}
 	cva := newPV.Spec.CSI.VolumeAttributes
 	if _, ok := cva[schema.FSID]; ok {
 		newPV.Spec.CSI.VolumeAttributes[schema.FSID] = fsId
-		newPV.Spec.CSI.VolumeHandle = pvName
+		newPV.Spec.CSI.VolumeHandle = pv.Name
 	}
 	if _, ok := cva[schema.PFSServer]; ok {
-		newPV.Spec.CSI.VolumeAttributes[schema.PFSServer] = fmt.Sprintf("%s:%d",
-			config.GlobalServerConfig.Fs.K8sServiceName, config.GlobalServerConfig.Fs.K8sServicePort)
+		newPV.Spec.CSI.VolumeAttributes[schema.PFSServer] = config.GetServiceAddress()
 	}
 	// create pv in k8s
 	if _, err := kr.createPersistentVolume(newPV); err != nil {
 		return "", err
 	}
-	return pvName, nil
+	return pv.Name, nil
 }
 
 func (kr *KubeRuntime) CreatePVC(namespace, fsId, pv string) error {
 	pvc := config.DefaultPVC
-	pvcName := strings.Replace(pvc.Name, schema.FSIDFormat, fsId, -1)
+	pvcName := schema.ConcatenatePVCName(fsId)
 	// check pvc existence
 	if _, err := kr.getPersistentVolumeClaim(namespace, pvcName, metav1.GetOptions{}); err == nil {
 		return nil
@@ -583,6 +579,10 @@ func (kr *KubeRuntime) GetJobLog(jobLogRequest schema.JobLogRequest) (schema.Job
 	return getKubernetesLogs(kr.clientset, jobLogRequest)
 }
 
+func (kr *KubeRuntime) ListNamespaces(listOptions metav1.ListOptions) (*v1.NamespaceList, error) {
+	return kr.clientset.CoreV1().Namespaces().List(context.TODO(), listOptions)
+}
+
 func (kr *KubeRuntime) createPersistentVolume(pv *apiv1.PersistentVolume) (*apiv1.PersistentVolume, error) {
 	return kr.clientset.CoreV1().PersistentVolumes().Create(context.TODO(), pv, metav1.CreateOptions{})
 }
@@ -600,9 +600,9 @@ func (kr *KubeRuntime) createPersistentVolumeClaim(namespace string, pvc *apiv1.
 	return kr.clientset.CoreV1().PersistentVolumeClaims(namespace).Create(context.TODO(), pvc, metav1.CreateOptions{})
 }
 
-func (kr *KubeRuntime) deletePersistentVolumeClaim(namespace string, name string,
-	deleteOptions *metav1.DeleteOptions) error {
-	return kr.clientset.CoreV1().PersistentVolumeClaims(namespace).Delete(context.TODO(), name, *deleteOptions)
+func (kr *KubeRuntime) DeletePersistentVolumeClaim(namespace string, name string,
+	deleteOptions metav1.DeleteOptions) error {
+	return kr.clientset.CoreV1().PersistentVolumeClaims(namespace).Delete(context.TODO(), name, deleteOptions)
 }
 
 func (kr *KubeRuntime) getPersistentVolumeClaim(namespace, name string, getOptions metav1.GetOptions) (*apiv1.
