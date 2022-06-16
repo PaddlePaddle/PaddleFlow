@@ -128,9 +128,10 @@ func (s *Scheduler) Start() {
 		}
 
 		if toUpdate {
-			log.Errorf("update nextWakeupTime, origin:[%s], new:[%s]", nextWakeupTime.Format("2006-01-02 15:04:05"), tmpNextWakeupTime.Format("2006-01-02 15:04:05"))
+			log.Infof("update nextWakeupTime, origin:[%s], new:[%s]", nextWakeupTime.Format("2006-01-02 15:04:05"), tmpNextWakeupTime.Format("2006-01-02 15:04:05"))
 			nextWakeupTime = tmpNextWakeupTime
 			timeout = s.getTimeout(nextWakeupTime)
+			toUpdate = false
 		}
 	}
 }
@@ -195,6 +196,8 @@ func (s *Scheduler) dealWithTimout(checkCatchup bool) (*time.Time, error) {
 		log.Errorf("GetAvailableSchedule failed, err:[%s]", err.Error())
 		return nil, err
 	}
+
+	log.Infof("execMap:[%v], killMap:[%v]", execMap, killMap)
 
 	// 根据execMap，发起周期任务
 	for scheduleID, nextRunAtList := range execMap {

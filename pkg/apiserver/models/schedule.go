@@ -228,7 +228,7 @@ func ListSchedule(logEntry *log.Entry, pipelineID string, PipelineDetailPk, pk i
 func GetLastSchedule(logEntry *log.Entry, pipelineID string) (Schedule, error) {
 	logEntry.Debugf("get last schedule for pipeline[%s].", pipelineID)
 	schedule := Schedule{}
-	tx := database.DB.Model(&Schedule{}).Where("pipelineID > ?", pipelineID).Last(&schedule)
+	tx := database.DB.Model(&Schedule{}).Where("pipeline_id = ?", pipelineID).Last(&schedule)
 	if tx.Error != nil {
 		logEntry.Errorf("get last schedule for pipeline[%s] failed. error:%s", pipelineID, tx.Error.Error())
 		return Schedule{}, tx.Error
