@@ -21,6 +21,8 @@ import (
 	"strings"
 	"testing"
 
+	. "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
+
 	"github.com/stretchr/testify/assert"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
@@ -80,8 +82,8 @@ func TestcalculateFingerprint(t *testing.T) {
 
 func mockArtifact() schema.Artifacts {
 	return schema.Artifacts{
-		Input:  map[string]string{"model": "/class/mode", "data": "/data/predict"},
-		Output: map[string]string{"result": "/result/predict"},
+		Input:     map[string]string{"model": "/class/mode", "data": "/data/predict"},
+		OutputMap: map[string]string{"result": "/result/predict"},
 	}
 }
 
@@ -214,7 +216,7 @@ func TestGenerateFirstCacheKey(t *testing.T) {
 	assert.Equal(t, cacheKey.Command, "python3 predict.py /class/model")
 	assert.Equal(t, cacheKey.StepName, "predict")
 	assert.Equal(t, cacheKey.InputArtifacts, arts.Input)
-	assert.Equal(t, cacheKey.OutputArtifacts, arts.Output)
+	assert.Equal(t, cacheKey.OutputArtifacts, arts.OutputMap)
 }
 
 func TestCalculateFirstFingerprint(t *testing.T) {

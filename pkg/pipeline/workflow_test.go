@@ -759,7 +759,7 @@ func TestValidateWorkflowWithoutFs(t *testing.T) {
 
 	// 校验不使用Fs时，不能定义artifact
 	// 因为input artifact一定引用上游的outputAtf，所以只需要测试没法定义outputAtf即可
-	wfs.EntryPoints["data-preprocess"].Artifacts.Output["Atf1"] = ""
+	wfs.EntryPoints["data-preprocess"].Artifacts.OutputMap["Atf1"] = ""
 	bwf = NewBaseWorkflow(wfs, "", "", nil, extra)
 	err = bwf.validate()
 	assert.NotNil(t, err)

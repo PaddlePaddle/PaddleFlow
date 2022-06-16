@@ -19,10 +19,11 @@ package pipeline
 import (
 	"context"
 	"fmt"
-	. "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 	"strconv"
 	"strings"
 	"time"
+
+	. "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 
 	"github.com/sirupsen/logrus"
 
@@ -135,12 +136,12 @@ func (st *Step) updateJob(forCacheFingerprint bool, cacheOutputArtifacts map[str
 		params[paramName] = fmt.Sprintf("%v", paramValue)
 	}
 
-	artifacts := schema.Artifacts{Input: map[string]string{}, Output: map[string]string{}}
+	artifacts := schema.Artifacts{Input: map[string]string{}, OutputMap: map[string]string{}}
 	for atfName, atfValue := range st.info.Artifacts.Input {
 		artifacts.Input[atfName] = atfValue
 	}
-	for atfName, atfValue := range st.info.Artifacts.Output {
-		artifacts.Output[atfName] = atfValue
+	for atfName, atfValue := range st.info.Artifacts.OutputMap {
+		artifacts.OutputMap[atfName] = atfValue
 	}
 
 	// 获取替换后的 env, 替换后，将内置参数也添加到环境变量中
@@ -156,7 +157,7 @@ func (st *Step) updateJob(forCacheFingerprint bool, cacheOutputArtifacts map[str
 	for atfName, atfValue := range st.info.Artifacts.Input {
 		newEnvs[GetInputArtifactEnvName(atfName)] = atfValue
 	}
-	for atfName, atfValue := range st.info.Artifacts.Output {
+	for atfName, atfValue := range st.info.Artifacts.OutputMap {
 		newEnvs[GetOutputArtifactEnvName(atfName)] = atfValue
 	}
 
@@ -190,7 +191,7 @@ func (st *Step) logInputArtifact() {
 }
 
 func (st *Step) logOutputArtifact() {
-	for atfName, atfValue := range st.info.Artifacts.Output {
+	for atfName, atfValue := range st.info.Artifacts.OutputMap {
 		req := schema.LogRunArtifactRequest{
 			RunID:        st.wfr.wf.RunID,
 			FsID:         st.wfr.wf.Extra[WfExtraInfoKeyFsID],
@@ -291,7 +292,7 @@ func (st *Step) checkCached() (cacheFound bool, err error) {
 		}
 
 		forCacheFingerprint := false
-		err = st.updateJob(forCacheFingerprint, jobView.Artifacts.Output)
+		err = st.updateJob(forCacheFingerprint, jobView.Artifacts.OutputMap)
 		if err != nil {
 			return false, err
 		}
