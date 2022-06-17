@@ -50,12 +50,12 @@ func DeleteFileSystem(tx *gorm.DB, id string) error {
 	if tx == nil {
 		tx = database.DB
 	}
-	return tx.Model(&models.FileSystem{}).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Delete(&models.FileSystem{Model: models.Model{ID: id}}).Error; err != nil {
+	return tx.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&models.FileSystem{}).Delete(&models.FileSystem{Model: models.Model{ID: id}}).Error; err != nil {
 			return err
 		}
 
-		if err := tx.Where(fmt.Sprintf(QueryEqualWithParam, FsID), id).Delete(&models.Link{}).Error; err != nil {
+		if err := tx.Model(&models.Link{}).Where(fmt.Sprintf(QueryEqualWithParam, FsID), id).Delete(&models.Link{}).Error; err != nil {
 			return err
 		}
 		return nil
