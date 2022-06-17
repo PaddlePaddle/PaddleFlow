@@ -14,16 +14,35 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package trace_logger
-
 /**
  * @Author: kiritoxkiriko
  * @Date: 2022/6/15
  * @Description: trace logger
  */
 
-func initLogger() {
-	// TODO: init logger
-}
+package trace_logger
 
-// TODO: write a logger manager
+import (
+	"fmt"
+	file_logger "github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/sirupsen/logrus"
+)
+
+// initFileLogger
+/**
+ * Copy from ../logger/file_logger.go
+ * made some modification
+ */
+
+var logger *logrus.Logger
+
+func InitTraceLogger(config file_logger.LogConfig) error {
+	l := logrus.New()
+	// set logger formatter to json
+	config.Formatter = "json"
+	if err := file_logger.InitFileLogger(l, &config); err != nil {
+		return fmt.Errorf("failed to init file logger: %w", err)
+	}
+	logger = l
+	return nil
+}
