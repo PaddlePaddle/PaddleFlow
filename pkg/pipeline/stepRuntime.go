@@ -36,6 +36,7 @@ type StepRuntime struct {
 	firstFingerprint  string
 	secondFingerprint string
 	CacheRunID        string
+	CacheJobID        string
 
 	// 需要避免在终止的同时在 创建 job 的情况，导致数据不一致
 	processJobLock sync.Mutex
@@ -163,7 +164,6 @@ func (srt StepRuntime) Listen() {
 			srt.stop("stop by failureOptions, some component has been failed")
 			return
 		}
-
 	}
 }
 
@@ -303,7 +303,7 @@ func (srt *StepRuntime) checkCached() (cacheFound bool, err error) {
 		return false, err
 	}
 
-	runCacheList, err := srt.callbacks.ListCacheCb(srt.firstFingerprint, srt.fsID, srt.name, srt.pplSource)
+	runCacheList, err := srt.callbacks.ListCacheCb(srt.firstFingerprint, srt.fsID, srt.pplSource)
 	if err != nil {
 		return false, err
 	}
@@ -323,11 +323,13 @@ func (srt *StepRuntime) checkCached() (cacheFound bool, err error) {
 
 	cacheFound = false
 	var cacheRunID string
+	var cacheJobID string
 	for _, runCache := range runCacheList {
 		if srt.secondFingerprint == runCache.SecondFp {
 			if runCache.ExpiredTime == CacheExpiredTimeNever {
 				cacheFound = true
 				cacheRunID = runCache.RunID
+				cacheJobID = runCache.JobID
 				break
 			} else {
 				runCacheExpiredTime, _ := strconv.Atoi(runCache.ExpiredTime)
@@ -339,6 +341,7 @@ func (srt *StepRuntime) checkCached() (cacheFound bool, err error) {
 					srt.logger.Infof(logMsg)
 					cacheFound = true
 					cacheRunID = runCache.RunID
+					cacheJobID = runCache.JobID
 					break
 				} else {
 					logMsg := fmt.Sprintf("time.now() after expiredTime")
@@ -349,7 +352,7 @@ func (srt *StepRuntime) checkCached() (cacheFound bool, err error) {
 	}
 
 	if cacheFound {
-		jobView, err := srt.callbacks.GetJobCb(cacheRunID, srt.name)
+		jobView, err := srt.callbacks.GetJobCb(cacheJobID)
 		if err != nil {
 			return false, err
 		}
@@ -372,6 +375,7 @@ func (srt *StepRuntime) checkCached() (cacheFound bool, err error) {
 		}
 
 		srt.CacheRunID = cacheRunID
+		srt.CacheJobID = cacheJobID
 		logMsg := fmt.Sprintf("cache found in former runid[%s] for step[%s] of runid[%s], with fingerprint[%s] and [%s]", cacheRunID, srt.name, srt.runID, srt.firstFingerprint, srt.secondFingerprint)
 		srt.logger.Infof(logMsg)
 	} else {
@@ -468,7 +472,7 @@ func (srt *StepRuntime) Execute() {
 
 		if cachedFound {
 			for {
-				jobView, err := srt.callbacks.GetJobCb(srt.CacheRunID, srt.name)
+				jobView, err := srt.callbacks.GetJobCb(srt.CacheJobID)
 				if err != nil {
 					// TODO: 此时是否应该继续运行，创建一个新的Job？
 					srt.logger.Errorln("get cache job info for step[%s] failed: %s", srt.name, err.Error())
@@ -654,6 +658,8 @@ func (srt *StepRuntime) newJobView(msg string) schema.JobView {
 		DockerEnv:   step.DockerEnv,
 		JobMessage:  msg,
 		ParentDagID: srt.parentDagID,
+		CacheRunID:  srt.CacheRunID,
+		CacheJobID:  srt.CacheJobID,
 	}
 
 	return view
