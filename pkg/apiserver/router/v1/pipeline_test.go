@@ -17,6 +17,7 @@ limitations under the License.
 package v1
 
 import (
+	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 	"net/http"
 	"os"
 	"strings"
@@ -27,7 +28,6 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/pipeline"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 )
 
 func TestCreatePipeline(t *testing.T) {
@@ -42,7 +42,7 @@ func TestCreatePipeline(t *testing.T) {
 		Name:     "mockPplName",
 	}
 
-	pipeline.ValidateWorkflowForPipeline = func(ppl models.Pipeline) error { return nil }
+	pipeline.ValidateWorkflowForPipeline = func(ppl db_service.Pipeline) error { return nil }
 	handler.ReadFileFromFs = func(fsID, runYamlPath string, logEntry *log.Entry) ([]byte, error) { return os.ReadFile(runYamlPath) }
 
 	result, err := PerformPostRequest(router, pplUrl, createPplReq)

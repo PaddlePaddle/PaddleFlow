@@ -22,9 +22,10 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 )
 
 type ListRunCacheResponse struct {
@@ -71,7 +72,7 @@ func LogCache(req schema.LogRunCacheRequest) (string, error) {
 	logEntry := logger.LoggerForRun(req.RunID)
 	logEntry.Debugf("log cache[%+v] starts", req)
 	newCache := logCacheReqToModel(req)
-	cacheID, err := models.CreateRunCache(logEntry, &newCache)
+	cacheID, err := db_service.CreateRunCache(logEntry, &newCache)
 	if err != nil {
 		logEntry.Errorf("log cache[%+v] failed error:%v", req, err)
 		return "", err
@@ -81,7 +82,7 @@ func LogCache(req schema.LogRunCacheRequest) (string, error) {
 
 func ListCacheByFirstFp(firstFp, fsID, step, source string) ([]models.RunCache, error) {
 	logEntry := logger.Logger()
-	cacheList, err := models.ListRunCacheByFirstFp(logEntry, firstFp, fsID, step, source)
+	cacheList, err := db_service.ListRunCacheByFirstFp(logEntry, firstFp, fsID, step, source)
 	if err != nil {
 		logEntry.Errorf("ListRunCacheByFirstFp failed. firstFp[%s] fsID[%s] step[%s] source[%s]. error:%v",
 			firstFp, fsID, step, source, err)
@@ -95,7 +96,7 @@ func LogArtifactEvent(req schema.LogRunArtifactRequest) error {
 	logEntry := logger.LoggerForRun(req.RunID)
 	logEntry.Debugf("log artifactEvent[%+v] starts", req)
 	artifactEvent := logArtifactReqToModel(req)
-	if err := models.CreateArtifactEvent(logEntry, artifactEvent); err != nil {
+	if err := db_service.CreateArtifactEvent(logEntry, artifactEvent); err != nil {
 		logEntry.Errorf("log new artifactEvent[%+v] failed error:%v", req, err)
 		return err
 	}
@@ -105,7 +106,7 @@ func LogArtifactEvent(req schema.LogRunArtifactRequest) error {
 // -------------CRUD-----------------//
 func GetRunCache(ctx *logger.RequestContext, id string) (models.RunCache, error) {
 	ctx.Logging().Debugf("begin get run_cache by id:%s", id)
-	cache, err := models.GetRunCache(ctx.Logging(), id)
+	cache, err := db_service.GetRunCache(ctx.Logging(), id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			ctx.ErrorCode = common.RunCacheNotFound
@@ -144,7 +145,7 @@ func ListRunCache(ctx *logger.RequestContext, marker string, maxKeys int, userFi
 		userFilter = []string{ctx.UserName}
 	}
 	// model list
-	runCacheList, err := models.ListRunCache(ctx.Logging(), pk, maxKeys, userFilter, fsFilter, runFilter)
+	runCacheList, err := db_service.ListRunCache(ctx.Logging(), pk, maxKeys, userFilter, fsFilter, runFilter)
 	if err != nil {
 		ctx.Logging().Errorf("models list runCache failed. err:[%s]", err.Error())
 		ctx.ErrorCode = common.InternalError
@@ -172,7 +173,7 @@ func ListRunCache(ctx *logger.RequestContext, marker string, maxKeys int, userFi
 }
 
 func isLastRunCachePk(ctx *logger.RequestContext, pk int64) bool {
-	lastRun, err := models.GetLastRunCache(ctx.Logging())
+	lastRun, err := db_service.GetLastRunCache(ctx.Logging())
 	if err != nil {
 		ctx.Logging().Errorf("get last run failed. error:[%s]", err.Error())
 	}
@@ -184,7 +185,7 @@ func isLastRunCachePk(ctx *logger.RequestContext, pk int64) bool {
 
 func DeleteRunCache(ctx *logger.RequestContext, id string) error {
 	ctx.Logging().Debugf("begin delete run_cache by id:%s", id)
-	cache, err := models.GetRunCache(ctx.Logging(), id)
+	cache, err := db_service.GetRunCache(ctx.Logging(), id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			ctx.ErrorCode = common.RunCacheNotFound
@@ -203,7 +204,7 @@ func DeleteRunCache(ctx *logger.RequestContext, id string) error {
 		return err
 	}
 	// model delete
-	err = models.DeleteRunCache(ctx.Logging(), id)
+	err = db_service.DeleteRunCache(ctx.Logging(), id)
 	if err != nil {
 		ctx.ErrorCode = common.InternalError
 		ctx.Logging().Errorf("delete run_cache failed. err: %v", err)
@@ -215,7 +216,7 @@ func DeleteRunCache(ctx *logger.RequestContext, id string) error {
 // ---------------------artifact_event---------------------//
 func DeleteArtifactEvent(ctx *logger.RequestContext, username, fsname, runID, artifactPath string) error {
 	ctx.Logging().Debugf("begin delete artifact_event. username:%s, fsname:%s, runID:%s, artifactPath:%s", username, fsname, runID, artifactPath)
-	err := models.DeleteArtifactEvent(ctx.Logging(), username, fsname, runID, artifactPath)
+	err := db_service.DeleteArtifactEvent(ctx.Logging(), username, fsname, runID, artifactPath)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			ctx.ErrorCode = common.ArtifactEventNotFound
@@ -247,7 +248,7 @@ func ListArtifactEvent(ctx *logger.RequestContext, marker string, maxKeys int, u
 		userFilter = []string{ctx.UserName}
 	}
 	// model list
-	runCacheList, err := models.ListArtifactEvent(ctx.Logging(), pk, maxKeys, userFilter, fsFilter, runFilter, typeFilter, pathFilter)
+	runCacheList, err := db_service.ListArtifactEvent(ctx.Logging(), pk, maxKeys, userFilter, fsFilter, runFilter, typeFilter, pathFilter)
 	if err != nil {
 		ctx.Logging().Errorf("models list runCache failed. err:[%s]", err.Error())
 		ctx.ErrorCode = common.InternalError
@@ -275,7 +276,7 @@ func ListArtifactEvent(ctx *logger.RequestContext, marker string, maxKeys int, u
 }
 
 func isLastArtifactEventPk(ctx *logger.RequestContext, pk int64) bool {
-	lastRun, err := models.GetLastArtifactEvent(ctx.Logging())
+	lastRun, err := db_service.GetLastArtifactEvent(ctx.Logging())
 	if err != nil {
 		ctx.Logging().Errorf("get last ArtifactEvent failed. error:[%s]", err.Error())
 	}

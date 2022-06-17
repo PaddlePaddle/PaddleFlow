@@ -17,10 +17,10 @@ limitations under the License.
 package executor
 
 import (
+	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 	wfv1 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 )
 
@@ -64,7 +64,7 @@ func (wfj *WorkflowJob) patchWorkflowSpec(spec *wfv1.WorkflowSpec) error {
 }
 
 func (wfj *WorkflowJob) StopJobByID(jobID string) error {
-	job, err := models.GetJobByID(jobID)
+	job, err := db_service.GetJobByID(jobID)
 	if err != nil {
 		return err
 	}

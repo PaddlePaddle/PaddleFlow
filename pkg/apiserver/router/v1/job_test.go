@@ -17,12 +17,12 @@ limitations under the License.
 package v1
 
 import (
+	storage_db2 "github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/job"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
@@ -34,8 +34,8 @@ const (
 )
 
 var (
-	queue1 = models.Queue{
-		Model: models.Model{
+	queue1 = storage_db2.Queue{
+		Model: storage_db2.Model{
 			ID: MockQueueID,
 		},
 		Name:      MockQueueName,
@@ -60,7 +60,7 @@ type args struct {
 }
 
 func initQueue(t *testing.T, userName string) {
-	err := models.CreateQueue(&queue1)
+	err := storage_db2.CreateQueue(&queue1)
 	assert.Nil(t, err)
 }
 

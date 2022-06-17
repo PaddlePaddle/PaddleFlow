@@ -19,13 +19,14 @@ package fs
 import (
 	"crypto/md5"
 	"encoding/hex"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/models"
 	"time"
 
 	"gorm.io/gorm"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 )
 
 type CreateMountRequest struct {
@@ -69,10 +70,10 @@ type MountResponse struct {
 }
 
 func CreateMount(ctx *logger.RequestContext, fsMount *models.FsMount) error {
-	_, err := fsMount.GetMountWithDelete(fsMount)
+	_, err := db_service.GetMountWithDelete(fsMount)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
-			err = fsMount.Add(fsMount)
+			err = db_service.Add(fsMount)
 			if err != nil {
 				ctx.ErrorCode = common.InternalError
 				ctx.Logging().Errorf("create mount with req[%v] err:%v", fsMount, err)
@@ -83,7 +84,7 @@ func CreateMount(ctx *logger.RequestContext, fsMount *models.FsMount) error {
 		return err
 	}
 	fsMount.DeletedAt = gorm.DeletedAt{}
-	err = fsMount.UpdateMount(fsMount)
+	err = db_service.UpdateMount(fsMount)
 	if err != nil {
 		ctx.ErrorCode = common.InternalError
 		ctx.Logging().Errorf("create mount with req[%v] err:%v", fsMount, err)
@@ -114,7 +115,7 @@ func ListMount(ctx *logger.RequestContext, req ListMountRequest) ([]models.FsMou
 		marker = time.Now().Format(TimeFormat)
 	}
 
-	items, err := fsMount.ListMount(fsMount, int(limit), marker)
+	items, err := db_service.ListMount(fsMount, int(limit), marker)
 	if err != nil {
 		ctx.ErrorCode = common.InternalError
 		ctx.Logging().Errorf("list mount with req[%v] err:%v", req, err)
@@ -131,21 +132,10 @@ func ListMount(ctx *logger.RequestContext, req ListMountRequest) ([]models.FsMou
 }
 
 func DeleteMount(ctx *logger.RequestContext, req DeleteMountRequest) error {
-	fsID := common.ID(req.Username, req.FsName)
-	mountID := GetMountID(req.ClusterID, req.NodeName, req.MountPoint)
-
-	fsMount := &models.FsMount{
-		FsID:       fsID,
-		MountPoint: req.MountPoint,
-		MountID:    mountID,
-		NodeName:   req.NodeName,
-		ClusterID:  req.ClusterID,
-	}
-	err := fsMount.DeleteMount(mountID)
-	if err != nil {
+	if err := db_service.DeleteMount(GetMountID(req.ClusterID, req.NodeName, req.MountPoint)); err != nil {
 		ctx.ErrorCode = common.InternalError
 		ctx.Logging().Errorf("delete mount with req[%v] err:%v", req, err)
 		return err
 	}
-	return err
+	return nil
 }

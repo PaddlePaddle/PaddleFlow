@@ -26,9 +26,10 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database/dbinit"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 )
 
 const (
@@ -37,7 +38,7 @@ const (
 )
 
 func TestCreatePipeline(t *testing.T) {
-	dbinit.InitMockDB()
+	database.InitMockDB()
 	ctx := &logger.RequestContext{UserName: MockRootUser}
 
 	pwd, err := os.Getwd()
@@ -76,7 +77,7 @@ func TestCreatePipeline(t *testing.T) {
 }
 
 func TestListPipeline(t *testing.T) {
-	dbinit.InitMockDB()
+	database.InitMockDB()
 	ctx := &logger.RequestContext{UserName: MockRootUser}
 
 	ppl1 := models.Pipeline{
@@ -99,11 +100,11 @@ func TestListPipeline(t *testing.T) {
 		PipelineYaml: "ddddd",
 		PipelineMd5:  "md5_2",
 	}
-	ID1, err := models.CreatePipeline(ctx.Logging(), &ppl1)
+	ID1, err := db_service.CreatePipeline(ctx.Logging(), &ppl1)
 	assert.Nil(t, err)
 	assert.Equal(t, ppl1.ID, ID1)
 
-	ID2, err := models.CreatePipeline(ctx.Logging(), &ppl2)
+	ID2, err := db_service.CreatePipeline(ctx.Logging(), &ppl2)
 	assert.Nil(t, err)
 	assert.Equal(t, ppl2.ID, ID2)
 

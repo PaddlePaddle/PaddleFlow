@@ -28,12 +28,13 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	fuse "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/fs"
 	fsCommon "github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 	utils "github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 )
 
 // LinkService the service which contains the operation of link
@@ -103,7 +104,7 @@ func (s *LinkService) CreateLink(ctx *logger.RequestContext, req *CreateLinkRequ
 		UserName:      req.Username,
 	}
 
-	err := models.CreateLink(&link)
+	err := db_service.CreateLink(&link)
 	if err != nil {
 		ctx.Logging().Errorf("create link[%v] in db failed: %v", link, err)
 		ctx.ErrorCode = common.LinkModelError
@@ -114,7 +115,7 @@ func (s *LinkService) CreateLink(ctx *logger.RequestContext, req *CreateLinkRequ
 
 // DeleteLink the function which performs the operation of delete file system link
 func (s *LinkService) DeleteLink(ctx *logger.RequestContext, req *DeleteLinkRequest) error {
-	err := models.DeleteLinkWithFsIDAndFsPath(common.ID(req.Username, req.FsName), req.FsPath)
+	err := db_service.DeleteLinkWithFsIDAndFsPath(common.ID(req.Username, req.FsName), req.FsPath)
 	if err != nil {
 		ctx.Logging().Errorf("delete link failed error[%v]", err)
 		ctx.ErrorCode = common.FileSystemDataBaseError
@@ -134,13 +135,13 @@ func (s *LinkService) GetLink(req *GetLinkRequest) ([]models.Link, string, error
 	var items []models.Link
 	var err error
 	if req.FsPath == "" {
-		items, err = models.ListLink(int(limit), marker, req.FsID)
+		items, err = db_service.ListLink(int(limit), marker, req.FsID)
 		if err != nil {
 			log.Errorf("list links models err[%v]", err)
 			return nil, "", err
 		}
 	} else {
-		items, err = models.GetLinkWithFsIDAndPath(req.FsID, req.FsPath)
+		items, err = db_service.GetLinkWithFsIDAndPath(req.FsID, req.FsPath)
 		if err != nil {
 			log.Errorf("get link models err[%v]", err)
 			return nil, "", err
@@ -164,7 +165,7 @@ func (s *LinkService) PersistLinksMeta(fsID string) error {
 	unlock := s.FsLock(fsID)
 	defer unlock()
 
-	links, err := models.FsNameLinks(fsID)
+	links, err := db_service.FsNameLinks(fsID)
 	if err != nil {
 		log.Errorf("get links err[%v] with fsID[%s]", err, fsID)
 		return err
@@ -204,7 +205,7 @@ func (s *LinkService) PersistLinksMeta(fsID string) error {
 }
 
 func writeLinksMeta(encodedLinksMeta string, fsID string) error {
-	fs, err := models.GetFileSystemWithFsID(fsID)
+	fs, err := db_service.GetFileSystemWithFsID(fsID)
 	if err != nil {
 		log.Errorf("GetFileSystemWithFsID error[%v]", err)
 		return err

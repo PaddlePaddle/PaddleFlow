@@ -24,11 +24,12 @@ import (
 	"k8s.io/api/core/v1"
 	vcjob "volcano.sh/apis/pkg/apis/batch/v1alpha1"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 )
 
 const (
@@ -125,7 +126,7 @@ func (vj *VCJob) CreateJob() (string, error) {
 }
 
 func (vj *VCJob) StopJobByID(jobID string) error {
-	job, err := models.GetJobByID(jobID)
+	job, err := db_service.GetJobByID(jobID)
 	if err != nil {
 		return err
 	}

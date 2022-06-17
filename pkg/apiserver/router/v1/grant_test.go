@@ -17,20 +17,19 @@ limitations under the License.
 package v1
 
 import (
+	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 )
 
 func TestGrantRouter(t *testing.T) {
 	r := DebugChiRouter()
 	// test create grant
 	testServer := httptest.NewServer(r)
-	grant := models.Grant{UserName: mockUserName, ResourceType: "mockRT"}
+	grant := db_service.Grant{UserName: mockUserName, ResourceType: "mockRT"}
 	req := NewHttpRecorder(testServer.URL, "/grant", http.MethodPost, grant)
 	res, err := http.DefaultClient.Do(req)
 	assert.NoError(t, err)

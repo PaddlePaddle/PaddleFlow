@@ -19,13 +19,14 @@ package pipeline
 import (
 	"errors"
 	"fmt"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 
 	"gorm.io/gorm"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/run"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/pipeline"
@@ -101,7 +102,7 @@ func CreatePipeline(ctx *logger.RequestContext, request CreatePipelineRequest) (
 		return CreatePipelineResponse{}, err
 	}
 
-	pipelineID, err := models.CreatePipeline(ctx.Logging(), &ppl)
+	pipelineID, err := db_service.CreatePipeline(ctx.Logging(), &ppl)
 	if err != nil {
 		ctx.Logging().Errorf("create run failed inserting db. error:%s", err.Error())
 		ctx.ErrorCode = common.InternalError
@@ -157,7 +158,7 @@ func validatePipeline(ctx *logger.RequestContext, name, md5, fsID string) error 
 		return common.InvalidNamePatternError(name, common.ResourceTypePipeline, common.RegPatternPipelineName)
 	}
 	// check md5 duplicates in fs
-	ppl, err := models.GetPipelineByMd5AndFs(md5, fsID)
+	ppl, err := db_service.GetPipelineByMd5AndFs(md5, fsID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil
@@ -177,7 +178,7 @@ func validatePipeline(ctx *logger.RequestContext, name, md5, fsID string) error 
 }
 
 func GetPipelineByID(ctx *logger.RequestContext, pipelineID string) (models.Pipeline, error) {
-	ppl, err := models.GetPipelineByID(pipelineID)
+	ppl, err := db_service.GetPipelineByID(pipelineID)
 	if err != nil {
 		ctx.ErrorCode = common.InternalError
 		ctx.Logging().Errorf("GetPipeline[%s]. err: %v", pipelineID, err)
@@ -189,7 +190,6 @@ func GetPipelineByID(ctx *logger.RequestContext, pipelineID string) (models.Pipe
 		ctx.Logging().Errorln(err.Error())
 		return models.Pipeline{}, err
 	}
-	ppl.Decode()
 	return ppl, nil
 }
 
@@ -209,19 +209,19 @@ func ListPipeline(ctx *logger.RequestContext, marker string, maxKeys int, userFi
 	if !common.IsRootUser(ctx.UserName) {
 		userFilter = []string{ctx.UserName}
 	}
-	pipelineList, err := models.ListPipeline(pk, maxKeys, userFilter, fsFilter, nameFilter)
+	pipelineList, err := db_service.ListPipeline(pk, maxKeys, userFilter, fsFilter, nameFilter)
 	if err != nil {
 		ctx.ErrorCode = common.InternalError
 		ctx.Logging().Errorf("ListPipeline[%s-%s-%s]. err: %v", userFilter, fsFilter, nameFilter, err)
 		return ListPipelineResponse{}, err
 	}
 	listPipelineResponse := ListPipelineResponse{
-		PipelineList: []models.Pipeline{},
+		MarkerInfo: common.MarkerInfo{IsTruncated: false},
 	}
 
 	// get next marker
-	listPipelineResponse.IsTruncated = false
 	if len(pipelineList) > 0 {
+		listPipelineResponse.PipelineList = pipelineList
 		ppl := pipelineList[len(pipelineList)-1]
 		if !isLastPipelinePk(ctx, ppl.Pk) {
 			nextMarker, err := common.EncryptPk(ppl.Pk)
@@ -234,19 +234,15 @@ func ListPipeline(ctx *logger.RequestContext, marker string, maxKeys int, userFi
 			listPipelineResponse.NextMarker = nextMarker
 			listPipelineResponse.IsTruncated = true
 		}
+	} else {
+		listPipelineResponse.PipelineList = []models.Pipeline{}
 	}
 	listPipelineResponse.MaxKeys = maxKeys
-	for _, ppl := range pipelineList {
-		if err := ppl.Decode(); err != nil {
-			return ListPipelineResponse{}, err
-		}
-		listPipelineResponse.PipelineList = append(listPipelineResponse.PipelineList, ppl)
-	}
 	return listPipelineResponse, nil
 }
 
 func isLastPipelinePk(ctx *logger.RequestContext, pk int64) bool {
-	lastPipeline, err := models.GetLastPipeline(ctx.Logging())
+	lastPipeline, err := db_service.GetLastPipeline(ctx.Logging())
 	if err != nil {
 		ctx.Logging().Errorf("get last pipeline failed. error:[%s]", err.Error())
 	}
@@ -259,7 +255,7 @@ func isLastPipelinePk(ctx *logger.RequestContext, pk int64) bool {
 func DeletePipeline(ctx *logger.RequestContext, id string) error {
 	ctx.Logging().Debugf("begin delete pipeline: %s", id)
 
-	ppl, err := models.GetPipelineByID(id)
+	ppl, err := db_service.GetPipelineByID(id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			ctx.ErrorCode = common.PipelineNotFound
@@ -280,7 +276,7 @@ func DeletePipeline(ctx *logger.RequestContext, id string) error {
 		return err
 	}
 
-	if err := models.HardDeletePipeline(ctx.Logging(), id); err != nil {
+	if err := db_service.HardDeletePipeline(ctx.Logging(), id); err != nil {
 		ctx.ErrorCode = common.InternalError
 		ctx.Logging().Errorf("models delete pipeline[%s] failed. error:%s", id, err.Error())
 		return err

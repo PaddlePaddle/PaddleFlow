@@ -17,6 +17,7 @@ limitations under the License.
 package v1
 
 import (
+	storage_db2 "github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 	"net/http"
 	"testing"
 
@@ -24,20 +25,19 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/fs"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 )
 
-func mockFS() models.FileSystem {
-	return models.FileSystem{
-		Model:    models.Model{ID: mockFsID},
+func mockFS() storage_db2.FileSystem {
+	return storage_db2.FileSystem{
+		Model:    storage_db2.Model{ID: mockFsID},
 		UserName: MockRootUser,
 		Name:     mockFsName,
 	}
 }
 
-func mockFSCache() models.FSCacheConfig {
-	return models.FSCacheConfig{
+func mockFSCache() storage_db2.FSCacheConfig {
+	return storage_db2.FSCacheConfig{
 		FsID:       mockFsID,
 		CacheDir:   "/abs/path",
 		Quota:      444,
@@ -46,7 +46,7 @@ func mockFSCache() models.FSCacheConfig {
 	}
 }
 
-func buildUpdateReq(model models.FSCacheConfig) fs.UpdateFileSystemCacheRequest {
+func buildUpdateReq(model storage_db2.FSCacheConfig) fs.UpdateFileSystemCacheRequest {
 	return fs.UpdateFileSystemCacheRequest{
 		FsID:       model.FsID,
 		CacheDir:   model.CacheDir,
@@ -56,7 +56,7 @@ func buildUpdateReq(model models.FSCacheConfig) fs.UpdateFileSystemCacheRequest 
 	}
 }
 
-func buildCreateReq(model models.FSCacheConfig) fs.CreateFileSystemCacheRequest {
+func buildCreateReq(model storage_db2.FSCacheConfig) fs.CreateFileSystemCacheRequest {
 	req := fs.CreateFileSystemCacheRequest{
 		Username:                     MockRootUser,
 		FsName:                       mockFsName,
@@ -79,7 +79,7 @@ func TestFSCacheConfigRouter(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, result.Code)
 
 	// test create success
-	err = models.CreatFileSystem(&mockFs)
+	err = storage_db2.CreatFileSystem(&mockFs)
 	assert.Nil(t, err)
 
 	result, err = PerformPostRequest(router, url, createRep)
@@ -176,8 +176,8 @@ func TestFSCacheReportRouter(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, http.StatusOK, result.Code)
 
-	var cache []models.FSCache
-	tx := database.DB.Where(&models.FSCache{FsID: common.ID(MockRootUser, mockFsName)}).Find(&cache)
+	var cache []storage_db2.FSCache
+	tx := database.DB.Where(&storage_db2.FSCache{FsID: common.ID(MockRootUser, mockFsName)}).Find(&cache)
 	assert.Equal(t, int64(1), tx.RowsAffected)
 	assert.Equal(t, 100, cache[0].UsedSize)
 
@@ -186,7 +186,7 @@ func TestFSCacheReportRouter(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, http.StatusOK, result.Code)
 
-	tx = database.DB.Where(&models.FSCache{FsID: common.ID(MockRootUser, mockFsName)}).Find(&cache)
+	tx = database.DB.Where(&storage_db2.FSCache{FsID: common.ID(MockRootUser, mockFsName)}).Find(&cache)
 	assert.Equal(t, int64(1), tx.RowsAffected)
 	assert.Equal(t, 200, cache[0].UsedSize)
 }

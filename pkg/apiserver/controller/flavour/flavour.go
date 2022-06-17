@@ -23,9 +23,10 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 )
 
 const customFlavour = "customFlavour"
@@ -79,7 +80,7 @@ func CreateFlavour(request *CreateFlavourRequest) (*CreateFlavourResponse, error
 		ClusterName:     request.ClusterName,
 		UserName:        request.UserName,
 	}
-	if err := models.CreateFlavour(&flavour); err != nil {
+	if err := db_service.CreateFlavour(&flavour); err != nil {
 		return nil, err
 	}
 
@@ -126,7 +127,7 @@ func UpdateFlavour(request *UpdateFlavourRequest) (*UpdateFlavourResponse, error
 
 	if isChanged {
 		log.Debugf("field changed, update flavour %s to %v", flavour.Name, flavour)
-		if err := models.UpdateFlavour(&flavour); err != nil {
+		if err := db_service.UpdateFlavour(&flavour); err != nil {
 			log.Errorf("update flavour in db failed, err=%v", err)
 			return nil, err
 		}
@@ -137,7 +138,7 @@ func UpdateFlavour(request *UpdateFlavourRequest) (*UpdateFlavourResponse, error
 
 // GetFlavour handler for getting flavour
 func GetFlavour(name string) (models.Flavour, error) {
-	return models.GetFlavour(name)
+	return db_service.GetFlavour(name)
 }
 
 // ListFlavour handler for listing flavour
@@ -158,7 +159,7 @@ func ListFlavour(maxKeys int, marker, clusterName, queryKey string) (*ListFlavou
 	}
 	var clusterID string
 	if clusterName != "" {
-		cluster, err := models.GetClusterByName(clusterName)
+		cluster, err := db_service.GetClusterByName(clusterName)
 		if err != nil {
 			log.Errorf("cluster %s not found, err=%v", clusterName, err)
 			return nil, err
@@ -166,7 +167,7 @@ func ListFlavour(maxKeys int, marker, clusterName, queryKey string) (*ListFlavou
 		clusterID = cluster.ID
 	}
 
-	flavours, err := models.ListFlavour(pk, maxKeys, clusterID, queryKey)
+	flavours, err := db_service.ListFlavour(pk, maxKeys, clusterID, queryKey)
 	if err != nil {
 		log.Errorf("models list flavour failed. err:[%s]", err.Error())
 		return &response, err
@@ -192,7 +193,7 @@ func ListFlavour(maxKeys int, marker, clusterName, queryKey string) (*ListFlavou
 
 // DeleteFlavour handler for deleting flavour
 func DeleteFlavour(flavourName string, userID int64) error {
-	if err := models.DeleteFlavour(flavourName); err != nil {
+	if err := db_service.DeleteFlavour(flavourName); err != nil {
 		log.Errorf("delete flavour %s failed, err: %v", flavourName, err)
 		return err
 	}
@@ -202,7 +203,7 @@ func DeleteFlavour(flavourName string, userID int64) error {
 
 // IsLastFlavourPk get last flavour that usually be used for indicating last page
 func IsLastFlavourPk(pk int64) bool {
-	lastFlavour, err := models.GetLastFlavour()
+	lastFlavour, err := db_service.GetLastFlavour()
 	if err != nil {
 		log.Errorf("get last flavour failed. error:[%s]", err.Error())
 	}
@@ -221,7 +222,7 @@ func GetFlavourWithCheck(reqFlavour schema.Flavour) (schema.Flavour, error) {
 		}
 		return reqFlavour, nil
 	}
-	flavour, err := models.GetFlavour(reqFlavour.Name)
+	flavour, err := db_service.GetFlavour(reqFlavour.Name)
 	if err != nil {
 		log.Errorf("Get flavour by name %s failed when creating job, err:%v", reqFlavour.Name, err)
 		return schema.Flavour{}, fmt.Errorf("get flavour[%s] failed, err:%v", reqFlavour.Name, err)

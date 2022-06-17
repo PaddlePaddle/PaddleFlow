@@ -28,11 +28,12 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	commonschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime/kubernetes/executor"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 )
 
 const (
@@ -195,14 +196,14 @@ func (j *JobSync) syncJobStatus(jobSyncInfo *JobSyncInfo) error {
 
 func (j *JobSync) doCreateAction(jobSyncInfo *JobSyncInfo) error {
 	log.Infof("do create action, job sync info are as follows. %s", jobSyncInfo.String())
-	_, err := models.GetJobByID(jobSyncInfo.ID)
+	_, err := db_service.GetJobByID(jobSyncInfo.ID)
 	if err == nil {
 		return j.doUpdateAction(jobSyncInfo)
 	}
 	// only create job for subtask
 	if jobSyncInfo.ParentJobID != "" {
 		// check weather parent job is exist or not
-		parentJob, err := models.GetJobByID(jobSyncInfo.ParentJobID)
+		parentJob, err := db_service.GetJobByID(jobSyncInfo.ParentJobID)
 		if err != nil {
 			log.Errorf("get parent job %s failed, err: %v", jobSyncInfo.ParentJobID, err)
 			return err
@@ -218,7 +219,7 @@ func (j *JobSync) doCreateAction(jobSyncInfo *JobSyncInfo) error {
 			RuntimeInfo: jobSyncInfo.Runtime,
 			ParentJob:   jobSyncInfo.ParentJobID,
 		}
-		if err = models.CreateJob(job); err != nil {
+		if err = db_service.CreateJob(job); err != nil {
 			log.Errorf("craete job %v failed, err: %v", job, err)
 			return err
 		}
@@ -228,7 +229,7 @@ func (j *JobSync) doCreateAction(jobSyncInfo *JobSyncInfo) error {
 
 func (j *JobSync) doDeleteAction(jobSyncInfo *JobSyncInfo) error {
 	log.Infof("do update action, job sync info are as follows. %s", jobSyncInfo.String())
-	if _, err := models.UpdateJob(jobSyncInfo.ID, commonschema.StatusJobTerminated,
+	if _, err := db_service.UpdateJob(jobSyncInfo.ID, commonschema.StatusJobTerminated,
 		jobSyncInfo.Runtime, ""); err != nil {
 		log.Errorf("sync job status failed. jobID:[%s] err:[%s]", jobSyncInfo.ID, err.Error())
 		return err
@@ -240,7 +241,7 @@ func (j *JobSync) doUpdateAction(jobSyncInfo *JobSyncInfo) error {
 	log.Infof("do update action. jobID:[%s] action:[%s] status:[%s] message:[%s]",
 		jobSyncInfo.ID, jobSyncInfo.Action, jobSyncInfo.Status, jobSyncInfo.Message)
 
-	if _, err := models.UpdateJob(jobSyncInfo.ID, jobSyncInfo.Status, jobSyncInfo.Runtime, jobSyncInfo.Message); err != nil {
+	if _, err := db_service.UpdateJob(jobSyncInfo.ID, jobSyncInfo.Status, jobSyncInfo.Runtime, jobSyncInfo.Message); err != nil {
 		log.Errorf("update job failed. jobID:[%s] err:[%s]", jobSyncInfo.ID, err.Error())
 		return err
 	}
@@ -250,7 +251,7 @@ func (j *JobSync) doUpdateAction(jobSyncInfo *JobSyncInfo) error {
 func (j *JobSync) doTerminateAction(jobSyncInfo *JobSyncInfo) error {
 	log.Infof("do terminate action. jobID:[%s] action:[%s] status:[%s] message:[%s]",
 		jobSyncInfo.ID, jobSyncInfo.Action, jobSyncInfo.Status, jobSyncInfo.Message)
-	job, err := models.GetJobByID(jobSyncInfo.ID)
+	job, err := db_service.GetJobByID(jobSyncInfo.ID)
 	if err != nil {
 		log.Infof("do terminate action. jobID[%s] not found", jobSyncInfo.ID)
 		return nil
@@ -303,7 +304,7 @@ func (j *JobSync) processTaskWorkItem() bool {
 func (j *JobSync) syncTaskStatus(taskSyncInfo *TaskSyncInfo) error {
 	name := taskSyncInfo.Name
 	namespace := taskSyncInfo.Namespace
-	_, err := models.GetJobByID(taskSyncInfo.JobID)
+	_, err := db_service.GetJobByID(taskSyncInfo.JobID)
 	if err != nil {
 		log.Infof("update task %s/%s status failed, job %s for task not found", namespace, name, taskSyncInfo.JobID)
 		return err
@@ -325,7 +326,7 @@ func (j *JobSync) syncTaskStatus(taskSyncInfo *TaskSyncInfo) error {
 		taskStatus.DeletedAt.Valid = true
 	}
 	log.Debugf("update job task %s/%s status: %v", namespace, name, taskStatus)
-	err = models.UpdateTask(taskStatus)
+	err = db_service.UpdateTask(taskStatus)
 	if err != nil {
 		log.Errorf("update task %s/%s status in database failed, err %v",
 			namespace, name, err)

@@ -23,11 +23,12 @@ import (
 	"github.com/bluele/gcache"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 )
 
 const (
@@ -82,8 +83,8 @@ func (m *JobManagerImpl) Start(activeClusters ActiveClustersFunc, activeQueueJob
 		for _, cluster := range clusters {
 			clusterID := api.ClusterID(cluster.ID)
 			// skip when cluster status is offline
-			if cluster.Status == models.ClusterStatusOffLine {
-				log.Warnf("cluster[%s] status is %s, skip it", cluster.ID, models.ClusterStatusOffLine)
+			if cluster.Status == db_service.ClusterStatusOffLine {
+				log.Warnf("cluster[%s] status is %s, skip it", cluster.ID, db_service.ClusterStatusOffLine)
 				m.stopClusterRuntime(clusterID)
 				continue
 			}
@@ -123,7 +124,7 @@ func (m *JobManagerImpl) syncClusterJobs(clusterID api.ClusterID, submitJobs *ap
 			log.Infof("exit sync job cache for cluster[%s] loop...", clusterID)
 			return
 		default:
-			clusterQueues := models.ListQueuesByCluster(string(clusterID))
+			clusterQueues := db_service.ListQueuesByCluster(string(clusterID))
 			for _, queue := range clusterQueues {
 				if queue.Status != schema.StatusQueueOpen {
 					log.Infof("skip queue %s when status is not open", queue.Name)
@@ -191,7 +192,7 @@ func (m *JobManagerImpl) JobProcessLoop(jobSubmit func(*api.PFJob) error, stopCh
 		default:
 			jobInfo, find = queueJobs.GetJob()
 			if find {
-				job, err := models.GetJobByID(jobInfo.ID)
+				job, err := db_service.GetJobByID(jobInfo.ID)
 				if err != nil {
 					log.Errorf("get job %s from database failed, err: %v", jobInfo.ID, err)
 					queueJobs.DeleteMark(jobInfo.ID)
@@ -209,7 +210,7 @@ func (m *JobManagerImpl) JobProcessLoop(jobSubmit func(*api.PFJob) error, stopCh
 						jobStatus = schema.StatusJobPending
 					}
 					// new job failed, update db and skip this job
-					if dbErr := models.UpdateJobStatus(jobInfo.ID, msg, jobStatus); dbErr != nil {
+					if dbErr := db_service.UpdateJobStatus(jobInfo.ID, msg, jobStatus); dbErr != nil {
 						log.Errorf("update job[%s] status to [%s] failed, err: %v", jobInfo.ID, schema.StatusJobFailed, dbErr)
 					}
 				}
@@ -229,7 +230,7 @@ func (m *JobManagerImpl) GetQueue(queueID api.QueueID) (*api.QueueInfo, bool) {
 		return value.(*api.QueueInfo), true
 	}
 	// get queue from db
-	q, err := models.GetQueueByID(string(queueID))
+	q, err := db_service.GetQueueByID(string(queueID))
 	if err != nil {
 		log.Errorf("get queue from database failed, err: %s", err)
 		return nil, false

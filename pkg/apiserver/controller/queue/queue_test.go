@@ -24,16 +24,17 @@ import (
 
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
-	kschema "k8s.io/apimachinery/pkg/runtime/schema"
+	k8sschema "k8s.io/apimachinery/pkg/runtime/schema"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database/dbinit"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime/kubernetes/executor"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 )
 
 const (
@@ -50,7 +51,7 @@ var clusterInfo = models.ClusterInfo{
 	Source:        "Source",
 	ClusterType:   schema.KubernetesType,
 	Version:       "1.16",
-	Status:        models.ClusterStatusOnLine,
+	Status:        db_service.ClusterStatusOnLine,
 	Credential:    "credential",
 	Setting:       "Setting",
 	NamespaceList: []string{"n1", "n2", MockNamespace},
@@ -61,10 +62,10 @@ func TestCreateQueue(t *testing.T) {
 	err := config.InitConfigFromYaml(ServerConf, "../../../../config/server/default/paddleserver.yaml")
 	config.GlobalServerConfig = ServerConf
 
-	dbinit.InitMockDB()
+	database.InitMockDB()
 	ctx := &logger.RequestContext{UserName: MockRootUser}
 
-	assert.Nil(t, models.CreateCluster(&clusterInfo))
+	assert.Nil(t, db_service.CreateCluster(&clusterInfo))
 
 	rts := &runtime.KubeRuntime{}
 	var p2 = gomonkey.ApplyPrivateMethod(reflect.TypeOf(rts), "Init", func() error {
@@ -72,7 +73,7 @@ func TestCreateQueue(t *testing.T) {
 	})
 	defer p2.Reset()
 
-	var p3 = gomonkey.ApplyFunc(executor.Create, func(resource interface{}, gvk kschema.GroupVersionKind, clientOpt *k8s.DynamicClientOption) error {
+	var p3 = gomonkey.ApplyFunc(executor.Create, func(resource interface{}, gvk k8sschema.GroupVersionKind, clientOpt *k8s.DynamicClientOption) error {
 		return nil
 	})
 	defer p3.Reset()
@@ -158,11 +159,11 @@ func TestCloseAndDeleteQueue(t *testing.T) {
 
 // TestMarshalJSONForTime test for time format
 func TestMarshalJSONForTime(t *testing.T) {
-	dbinit.InitMockDB()
+	database.InitMockDB()
 	queue := models.Queue{
 		Name: "mockQueueName",
 	}
-	err := models.CreateQueue(&queue)
+	err := db_service.CreateQueue(&queue)
 	if err != nil {
 		t.Errorf(err.Error())
 	}

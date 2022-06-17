@@ -25,10 +25,11 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database/dbinit"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 )
 
 const runtimePath = "./testcase/runtime.json"
@@ -56,17 +57,17 @@ func loadCase(casePath string) []byte {
 }
 
 func TestGetJobByRun(t *testing.T) {
-	dbinit.InitMockDB()
+	database.InitMockDB()
 	ctx := &logger.RequestContext{UserName: MockRootUser}
 	run := getMockRunWithRuntime()
-	runID, err := models.CreateRun(ctx.Logging(), &run)
+	runID, err := db_service.CreateRun(ctx.Logging(), &run)
 	assert.Nil(t, err)
 
 	runtimeView := schema.RuntimeView{}
 	runtimeJson := loadCase(runtimePath)
 	json.Unmarshal([]byte(runtimeJson), &runtimeView)
 
-	models.CreateRunJobs(ctx.Logging(), runtimeView, runID)
+	db_service.CreateRunJobs(ctx.Logging(), runtimeView, runID)
 	updateRunJobs(runID, runtimeView)
 
 	jobView, err := GetJobByRun(runID, "main")

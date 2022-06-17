@@ -26,11 +26,12 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/flavour"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 )
 
 // CreateSingleJobRequest convey request for create job
@@ -163,7 +164,7 @@ func CreateSingleJob(ctx *logger.RequestContext, request *CreateSingleJobRequest
 		ExtensionTemplate: templateJson,
 	}
 	log.Debugf("create single job %#v", jobInfo)
-	if err := models.CreateJob(jobInfo); err != nil {
+	if err := db_service.CreateJob(jobInfo); err != nil {
 		log.Errorf("create job[%s] in database faield, err: %v", conf.GetName(), err)
 		return nil, fmt.Errorf("create job[%s] in database faield, err: %v", conf.GetName(), err)
 	}
@@ -227,7 +228,7 @@ func patchFromCommonInfo(conf *schema.Conf, commonJobInfo *CommonJobInfo) error 
 	conf.Annotations = commonJobInfo.Annotations
 	// info in SchedulingPolicy: queue,Priority,ClusterId,Namespace
 	queueName := commonJobInfo.SchedulingPolicy.Queue
-	queue, err := models.GetQueueByName(queueName)
+	queue, err := db_service.GetQueueByName(queueName)
 	if err != nil {
 		log.Errorf("Get queue by id failed when creating job %s failed, err=%v", commonJobInfo.Name, err)
 		if err == gorm.ErrRecordNotFound {
@@ -326,7 +327,7 @@ func CreateDistributedJob(ctx *logger.RequestContext, request *CreateDisJobReque
 	jobInfo.Config = &conf
 
 	log.Debugf("create distributed job %#v", jobInfo)
-	if err := models.CreateJob(jobInfo); err != nil {
+	if err := db_service.CreateJob(jobInfo); err != nil {
 		log.Errorf("create job[%s] in database faield, err: %v", conf.GetName(), err)
 		return nil, fmt.Errorf("create job[%s] in database faield, err: %v", conf.GetName(), err)
 	}
@@ -512,7 +513,7 @@ func CreateWorkflowJob(ctx *logger.RequestContext, request *CreateWfJobRequest) 
 		ExtensionTemplate: templateJson,
 	}
 
-	if err := models.CreateJob(jobInfo); err != nil {
+	if err := db_service.CreateJob(jobInfo); err != nil {
 		log.Errorf("create job[%s] in database faield, err: %v", conf.GetName(), err)
 		return nil, fmt.Errorf("create job[%s] in database faield, err: %v", conf.GetName(), err)
 	}
@@ -529,7 +530,7 @@ func DeleteJob(ctx *logger.RequestContext, jobID string) error {
 	if err := CheckPermission(ctx); err != nil {
 		return err
 	}
-	job, err := models.GetJobByID(jobID)
+	job, err := db_service.GetJobByID(jobID)
 	if err != nil {
 		ctx.ErrorCode = common.JobNotFound
 		msg := fmt.Sprintf("get job %s failed, err: %v", jobID, err)
@@ -543,7 +544,7 @@ func DeleteJob(ctx *logger.RequestContext, jobID string) error {
 		log.Errorf(msg)
 		return fmt.Errorf(msg)
 	}
-	err = models.DeleteJob(jobID)
+	err = db_service.DeleteJob(jobID)
 	if err != nil {
 		ctx.ErrorCode = common.InternalError
 		log.Errorf("delete job %s from cluster failed, err: %v", jobID, err)
@@ -556,7 +557,7 @@ func StopJob(ctx *logger.RequestContext, jobID string) error {
 	if err := CheckPermission(ctx); err != nil {
 		return err
 	}
-	job, err := models.GetJobByID(jobID)
+	job, err := db_service.GetJobByID(jobID)
 	if err != nil {
 		ctx.ErrorCode = common.JobNotFound
 		log.Errorf("get job %s from database failed, err: %v", jobID, err)
@@ -582,7 +583,7 @@ func StopJob(ctx *logger.RequestContext, jobID string) error {
 		log.Errorf("delete job %s from cluster failed, err: %v", job.ID, err)
 		return err
 	}
-	if err = models.UpdateJobStatus(jobID, "job is terminated.", schema.StatusJobTerminated); err != nil {
+	if err = db_service.UpdateJobStatus(jobID, "job is terminated.", schema.StatusJobTerminated); err != nil {
 		log.Errorf("update job[%s] status to [%s] failed, err: %v", jobID, schema.StatusJobTerminated, err)
 		return err
 	}
@@ -593,7 +594,7 @@ func UpdateJob(ctx *logger.RequestContext, request *UpdateJobRequest) error {
 	if err := CheckPermission(ctx); err != nil {
 		return err
 	}
-	job, err := models.GetJobByID(request.JobID)
+	job, err := db_service.GetJobByID(request.JobID)
 	if err != nil {
 		ctx.ErrorCode = common.JobNotFound
 		log.Errorf("get job %s from database failed, err: %v", job.ID, err)
@@ -638,7 +639,7 @@ func UpdateJob(ctx *logger.RequestContext, request *UpdateJobRequest) error {
 		job.Config.SetAnnotations(key, value)
 	}
 
-	err = models.UpdateJobConfig(job.ID, job.Config)
+	err = db_service.UpdateJobConfig(job.ID, job.Config)
 	if err != nil {
 		log.Errorf("update job %s on database failed, err: %v", job.ID, err)
 		ctx.ErrorCode = common.DBUpdateFailed
@@ -671,13 +672,13 @@ func updateRuntimeJob(ctx *logger.RequestContext, job *models.Job, request *Upda
 }
 
 func getRuntimeByQueue(ctx *logger.RequestContext, queueID string) (runtime.RuntimeService, error) {
-	queue, err := models.GetQueueByID(queueID)
+	queue, err := db_service.GetQueueByID(queueID)
 	if err != nil {
 		log.Errorf("get queue for job failed, err: %v", err)
 		return nil, err
 	}
 	// TODO: GetOrCreateRuntime by cluster id
-	clusterInfo, err := models.GetClusterById(queue.ClusterId)
+	clusterInfo, err := db_service.GetClusterById(queue.ClusterId)
 	if err != nil {
 		ctx.Logging().Errorf("get clusterInfo by id %s failed. error: %s",
 			queue.ClusterId, err.Error())
@@ -697,7 +698,7 @@ func validateFileSystem(fs schema.FileSystem, userName string) error {
 		return nil
 	}
 	fsID := common.ID(userName, fs.Name)
-	if _, err := models.GetFileSystemWithFsID(fsID); err != nil {
+	if _, err := db_service.GetFileSystemWithFsID(fsID); err != nil {
 		log.Errorf("get filesystem %s failed, err: %v", fsID, err)
 		return fmt.Errorf("find file system %s failed, err: %v", fs.Name, err)
 	}

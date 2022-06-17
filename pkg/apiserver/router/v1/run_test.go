@@ -17,6 +17,7 @@ limitations under the License.
 package v1
 
 import (
+	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 	"net/http"
 	"testing"
 
@@ -24,13 +25,12 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/run"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 )
 
-func getMockRun1() models.Run {
-	run1 := models.Run{
+func getMockRun1() db_service.Run {
+	run1 := db_service.Run{
 		ID:       MockRunID1,
 		Name:     MockRunName1,
 		UserName: MockRootUser,
@@ -41,8 +41,8 @@ func getMockRun1() models.Run {
 	return run1
 }
 
-func getMockRun1_3() models.Run {
-	run1 := models.Run{
+func getMockRun1_3() db_service.Run {
+	run1 := db_service.Run{
 		ID:       MockRunID3,
 		Name:     "",
 		UserName: MockRootUser,
@@ -53,8 +53,8 @@ func getMockRun1_3() models.Run {
 	return run1
 }
 
-func getMockRun2() models.Run {
-	run2 := models.Run{
+func getMockRun2() db_service.Run {
+	run2 := db_service.Run{
 		ID:       MockRunID2,
 		Name:     MockRunName2,
 		UserName: MockNormalUser,
@@ -71,14 +71,14 @@ func TestGetRunRouter(t *testing.T) {
 
 	ctxroot := &logger.RequestContext{UserName: MockRootUser}
 	run1 := getMockRun1()
-	run1.ID, err = models.CreateRun(ctxroot.Logging(), &run1)
+	run1.ID, err = db_service.CreateRun(ctxroot.Logging(), &run1)
 	assert.Nil(t, err)
 
 	url := baseUrl + "/run/" + run1.ID
 	result, err := PerformGetRequest(router, url)
 	assert.Nil(t, err)
 	assert.Equal(t, http.StatusOK, result.Code)
-	runRsp := models.Run{}
+	runRsp := db_service.Run{}
 	err = ParseBody(result.Body, &runRsp)
 	assert.Nil(t, err)
 	assert.Equal(t, run1.ID, runRsp.ID)
@@ -94,11 +94,11 @@ func TestListRunRouter(t *testing.T) {
 	ctx2 := &logger.RequestContext{UserName: MockNormalUser}
 
 	run1 := getMockRun1()
-	run1.ID, err = models.CreateRun(ctxroot.Logging(), &run1)
+	run1.ID, err = db_service.CreateRun(ctxroot.Logging(), &run1)
 	run2 := getMockRun2()
-	run2.ID, err = models.CreateRun(ctx2.Logging(), &run2)
+	run2.ID, err = db_service.CreateRun(ctx2.Logging(), &run2)
 	run3UnderUser1 := getMockRun1_3()
-	run1.ID, err = models.CreateRun(ctxroot.Logging(), &run3UnderUser1)
+	run1.ID, err = db_service.CreateRun(ctxroot.Logging(), &run3UnderUser1)
 
 	result, err := PerformGetRequest(router, runUrl)
 	assert.Nil(t, err)

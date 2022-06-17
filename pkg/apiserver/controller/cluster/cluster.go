@@ -26,12 +26,13 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/queue"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 )
 
 type ClusterCommonInfo struct {
@@ -87,8 +88,8 @@ type ClusterQuotaReponse struct {
 
 func validateClusterStatus(clusterStatus string) error {
 	validClusterStatusList := []string{
-		models.ClusterStatusOnLine,
-		models.ClusterStatusOffLine,
+		db_service.ClusterStatusOnLine,
+		db_service.ClusterStatusOffLine,
 	}
 
 	if !common.StringInSlice(clusterStatus, validClusterStatusList) {
@@ -127,7 +128,7 @@ func validateCreateClusterRequest(ctx *logger.RequestContext, request *CreateClu
 
 	request.Status = strings.TrimSpace(request.Status)
 	if request.Status == "" {
-		request.Status = models.DefaultClusterStatus
+		request.Status = db_service.DefaultClusterStatus
 	} else {
 		if err := validateClusterStatus(request.Status); err != nil {
 			return err
@@ -144,7 +145,7 @@ func validateCreateClusterRequest(ctx *logger.RequestContext, request *CreateClu
 
 	request.Source = strings.TrimSpace(request.Source)
 	if request.Source == "" {
-		request.Source = models.DefaultClusterSource
+		request.Source = db_service.DefaultClusterSource
 	}
 
 	request.Credential = strings.TrimSpace(request.Credential)
@@ -224,7 +225,7 @@ func validateNamespace(new, old []string, clusterID string) error {
 		newSet[ns] = true
 	}
 	// get queues
-	queues := models.ListQueuesByCluster(clusterID)
+	queues := db_service.ListQueuesByCluster(clusterID)
 	relatedSet := make(map[string]bool)
 	for _, queue := range queues {
 		relatedSet[queue.Namespace] = true
@@ -263,7 +264,7 @@ func CreateCluster(ctx *logger.RequestContext, request *CreateClusterRequest) (*
 		return nil, err
 	}
 
-	clusterId := uuid.GenerateID(common.PrefixCluster)
+	clusterId := uuid.GenerateID(schema.PrefixCluster)
 	clusterInfo := models.ClusterInfo{
 		Model: models.Model{
 			ID:        clusterId,
@@ -288,7 +289,7 @@ func CreateCluster(ctx *logger.RequestContext, request *CreateClusterRequest) (*
 		return nil, err
 	}
 
-	err := models.CreateCluster(&clusterInfo)
+	err := db_service.CreateCluster(&clusterInfo)
 	response := CreateClusterResponse{clusterInfo}
 	return &response, err
 }
@@ -303,7 +304,7 @@ func validateConnectivity(clusterInfo models.ClusterInfo) error {
 }
 
 func IsLastClusterPk(ctx *logger.RequestContext, pk int64) bool {
-	lastCluster, err := models.GetLastCluster()
+	lastCluster, err := db_service.GetLastCluster()
 	if err != nil {
 		ctx.Logging().Errorf("get last cluster failed. error:[%s]", err.Error())
 	}
@@ -337,7 +338,7 @@ func ListCluster(ctx *logger.RequestContext, marker string, maxKeys int,
 		}
 	}
 
-	clusterList, err := models.ListCluster(pk, maxKeys, clusterNameList, clusterStatus)
+	clusterList, err := db_service.ListCluster(pk, maxKeys, clusterNameList, clusterStatus)
 	if err != nil {
 		ctx.Logging().Errorf("models list cluster failed. err:[%s]", err.Error())
 		ctx.ErrorCode = common.InternalError
@@ -373,7 +374,7 @@ func GetCluster(ctx *logger.RequestContext, clusterName string) (*GetClusterResp
 		return nil, errors.New("get cluster failed")
 	}
 
-	clusterInfo, err := models.GetClusterByName(clusterName)
+	clusterInfo, err := db_service.GetClusterByName(clusterName)
 	if err != nil {
 		ctx.ErrorMessage = err.Error()
 		ctx.Logging().Errorf("get cluster failed. clusterName:[%s]", clusterName)
@@ -389,16 +390,16 @@ func DeleteCluster(ctx *logger.RequestContext, clusterName string) error {
 		return errors.New("delete cluster failed")
 	}
 	// 检查clusterName是否存在
-	clusterInfo, err := models.GetClusterByName(clusterName)
+	clusterInfo, err := db_service.GetClusterByName(clusterName)
 	if err != nil {
 		ctx.ErrorCode = common.ClusterNotFound
 		ctx.Logging().Errorln("delete cluster failed. error: cluster not found.")
 		return err
 	}
-	queues := models.ListQueuesByCluster(clusterInfo.ID)
+	queues := db_service.ListQueuesByCluster(clusterInfo.ID)
 	var inUsedQueue []string
 	for _, q := range queues {
-		isInUse, _ := models.IsQueueInUse(q.ID)
+		isInUse, _ := db_service.IsQueueInUse(q.ID)
 		if isInUse {
 			inUsedQueue = append(inUsedQueue, q.Name)
 		}
@@ -418,7 +419,7 @@ func DeleteCluster(ctx *logger.RequestContext, clusterName string) error {
 			return err
 		}
 	}
-	if err := models.DeleteCluster(clusterName); err != nil {
+	if err := db_service.DeleteCluster(clusterName); err != nil {
 		ctx.ErrorCode = common.InternalError
 		ctx.ErrorMessage = err.Error()
 		ctx.Logging().Errorf("delete cluster failed. clusterName:[%s]", clusterName)
@@ -436,7 +437,7 @@ func UpdateCluster(ctx *logger.RequestContext,
 		return nil, errors.New("update cluster failed")
 	}
 
-	clusterInfo, err := models.GetClusterByName(clusterName)
+	clusterInfo, err := db_service.GetClusterByName(clusterName)
 	if err != nil {
 		ctx.ErrorCode = common.ClusterNameNotFound
 		ctx.Logging().Errorf("get cluster failed. clusterName:[%s]", clusterName)
@@ -449,7 +450,7 @@ func UpdateCluster(ctx *logger.RequestContext,
 		return nil, err
 	}
 
-	if err := models.UpdateCluster(clusterInfo.ID, &clusterInfo); err != nil {
+	if err := db_service.UpdateCluster(clusterInfo.ID, &clusterInfo); err != nil {
 		ctx.ErrorMessage = err.Error()
 		ctx.Logging().Errorf("delete cluster failed. clusterName:[%s]", clusterName)
 		return nil, err
@@ -470,7 +471,7 @@ func ListClusterQuota(ctx *logger.RequestContext, clusterNameList []string) (map
 	}
 
 	// 获取状态为online的集群列表
-	clusterList, err := models.ListCluster(0, -1, clusterNameList, models.ClusterStatusOnLine)
+	clusterList, err := db_service.ListCluster(0, -1, clusterNameList, db_service.ClusterStatusOnLine)
 	if err != nil {
 		ctx.Logging().Errorf("listCluster failed. error: %s", err.Error())
 		return response, err

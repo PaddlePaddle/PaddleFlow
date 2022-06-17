@@ -18,6 +18,8 @@ package controller
 
 import (
 	"context"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 	"net/http/httptest"
 	"testing"
 	"time"
@@ -36,9 +38,7 @@ import (
 	restclient "k8s.io/client-go/rest"
 	batchv1alpha1 "volcano.sh/apis/pkg/apis/batch/v1alpha1"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database/dbinit"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
@@ -149,8 +149,8 @@ func TestJobSyncVCJob(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			dbinit.InitMockDB()
-			err := models.CreateJob(&models.Job{ID: test.newObj.GetName()})
+			database.InitMockDB()
+			err := db_service.CreateJob(&db_service.Job{ID: test.newObj.GetName()})
 			assert.Equal(t, nil, err)
 
 			c := newFakeJobSyncController()
@@ -309,8 +309,8 @@ func TestJobSyncPod(t *testing.T) {
 		},
 	}
 
-	dbinit.InitMockDB()
-	err := models.CreateJob(&models.Job{
+	database.InitMockDB()
+	err := db_service.CreateJob(&db_service.Job{
 		ID:     jobName,
 		Name:   jobName,
 		Status: schema.StatusJobPending,

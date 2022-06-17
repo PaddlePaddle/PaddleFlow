@@ -19,6 +19,7 @@ package v1
 import (
 	"errors"
 	"fmt"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 	"net/http"
 	"path/filepath"
 
@@ -29,7 +30,6 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	api "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/fs"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
@@ -107,7 +107,7 @@ func (pr *PFSRouter) updateFSCacheConfig(w http.ResponseWriter, r *http.Request)
 	req.FsID = common.ID(realUserName, fsName)
 
 	// validate fs_cache_config existence
-	if _, err := models.GetFSCacheConfig(ctx.Logging(), req.FsID); err != nil {
+	if _, err := db_service.GetFSCacheConfig(ctx.Logging(), req.FsID); err != nil {
 		ctx.Logging().Errorf("UpdateFSCacheConfig[%s] models.GetFSCacheConfig err:%s", fsName, err.Error())
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			common.RenderErrWithMessage(w, ctx.RequestID, common.RecordNotFound, err.Error())

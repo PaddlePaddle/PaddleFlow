@@ -31,13 +31,14 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	api "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/fs"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	fuse "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/fs"
 	fsCommon "github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/k8s"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 )
 
 type PFSRouter struct{}
@@ -342,7 +343,7 @@ func checkURLFormat(fsType, url string, properties map[string]string) error {
 }
 
 func checkFSNameDuplicate(fsID string) error {
-	_, err := models.GetFileSystemWithFsID(fsID)
+	_, err := db_service.GetFileSystemWithFsID(fsID)
 	if err == gorm.ErrRecordNotFound {
 		return nil
 	}
@@ -368,7 +369,7 @@ func checkFsDir(fsType, url string, properties map[string]string) error {
 		inputIPs = strings.Split(properties[fsCommon.Endpoint], ",")
 		subPath = "/" + strings.SplitAfterN(url, "/", 4)[3]
 	}
-	fsList, err := models.GetSimilarityAddressList(fsType, inputIPs)
+	fsList, err := db_service.GetSimilarityAddressList(fsType, inputIPs)
 	if err != nil {
 		return err
 	}
@@ -533,7 +534,7 @@ func (pr *PFSRouter) deleteFileSystem(w http.ResponseWriter, r *http.Request) {
 
 func fsCheckCanModify(ctx *logger.RequestContext, fsID string) error {
 	// check fs exist
-	if _, err := models.GetFileSystemWithFsID(fsID); err != nil {
+	if _, err := db_service.GetFileSystemWithFsID(fsID); err != nil {
 		ctx.Logging().Errorf("get filesystem[%s] err: %v", fsID, err)
 		var errRet error
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -556,7 +557,7 @@ func fsCheckCanModify(ctx *logger.RequestContext, fsID string) error {
 func checkFsNoMount(fsID string) error {
 	fsMount := &models.FsMount{FsID: fsID}
 	marker := time.Now().Format(models.TimeFormat)
-	listMount, err := fsMount.ListMount(fsMount, 1, marker)
+	listMount, err := db_service.ListMount(fsMount, 1, marker)
 	if err != nil {
 		err := fmt.Errorf("list mount for fs[%s] error: %v", fsID, err)
 		return err

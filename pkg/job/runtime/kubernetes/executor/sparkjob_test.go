@@ -17,6 +17,8 @@ limitations under the License.
 package executor
 
 import (
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 	"net/http/httptest"
 	"testing"
 
@@ -25,9 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	sparkapp "github.com/PaddlePaddle/PaddleFlow/pkg/apis/spark-operator/sparkoperator.k8s.io/v1beta2"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database/dbinit"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
@@ -103,7 +103,7 @@ status:
 				// "PF_USER_NAME": "root",
 			},
 		},
-		Tasks: []models.Member{
+		Tasks: []db_service.Member{
 			{
 				ID:       "task-normal-0001",
 				Replicas: 3,
@@ -150,7 +150,7 @@ status:
 		Framework: schema.FrameworkSpark,
 		UserName:  "root",
 		QueueID:   "mockQueueID",
-		Tasks: []models.Member{
+		Tasks: []db_service.Member{
 			{
 				ID:       "task-normal-0001",
 				Replicas: 3,
@@ -196,7 +196,7 @@ func TestSparkApp_CreateJob(t *testing.T) {
 	defer server.Close()
 	dynamicClient := newFakeDynamicClient(server)
 	// mock db
-	dbinit.InitMockDB()
+	database.InitMockDB()
 	// create kubernetes resource with dynamic client
 	tests := []struct {
 		caseName string

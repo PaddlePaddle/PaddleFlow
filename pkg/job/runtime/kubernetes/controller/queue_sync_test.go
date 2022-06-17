@@ -18,6 +18,8 @@ package controller
 
 import (
 	"context"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 	"net/http/httptest"
 	"testing"
 	"time"
@@ -35,9 +37,7 @@ import (
 	restclient "k8s.io/client-go/rest"
 	"volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database/dbinit"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 )
 
@@ -148,7 +148,7 @@ func TestQueueSync(t *testing.T) {
 		},
 	}
 
-	dbinit.InitMockDB()
+	database.InitMockDB()
 	c := newFakeQueueSyncController()
 	stopCh := make(chan struct{})
 	defer close(stopCh)
@@ -157,7 +157,7 @@ func TestQueueSync(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			assert.NotEqual(t, nil, c)
-			err := models.CreateQueue(&models.Queue{
+			err := db_service.CreateQueue(&db_service.Queue{
 				Name: test.queueName,
 			})
 			assert.Equal(t, nil, err)

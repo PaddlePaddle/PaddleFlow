@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	storage_db2 "github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 	"net/http"
 	"os"
 	"os/signal"
@@ -17,11 +18,9 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/cmd/server/flag"
 	job2 "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/job"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/run"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	v1 "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/v1"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database/dbinit"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/version"
@@ -147,7 +146,7 @@ func setup() {
 
 	dbConf := &ServerConf.Database
 
-	database.DB, err = dbinit.InitDatabase(&config.DatabaseConfig{
+	database.DB, err = database.InitDatabase(&config.DatabaseConfig{
 		Driver:   dbConf.Driver,
 		Host:     dbConf.Host,
 		Port:     dbConf.Port,
@@ -181,7 +180,7 @@ func newAndStartJobManager() error {
 		log.Errorf("new job manager failed, error: %v", err)
 		return err
 	}
-	go runtimeMgr.Start(models.ActiveClusters, models.ListQueueJob)
+	go runtimeMgr.Start(storage_db2.ActiveClusters, storage_db2.ListQueueJob)
 	return nil
 }
 

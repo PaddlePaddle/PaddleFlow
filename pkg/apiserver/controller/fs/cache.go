@@ -21,8 +21,9 @@ import (
 	"encoding/hex"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 )
 
 type CacheReportRequest struct {
@@ -35,7 +36,7 @@ type CacheReportRequest struct {
 }
 
 func ReportCache(ctx *logger.RequestContext, req CacheReportRequest) error {
-	cacheStore := models.GetFSCacheStore()
+	cacheStore := db_service.GetFSCacheStore()
 	cacheID := GetCacheID(req.ClusterID, req.NodeName, req.CacheDir)
 	fsID := common.ID(req.Username, req.FsName)
 

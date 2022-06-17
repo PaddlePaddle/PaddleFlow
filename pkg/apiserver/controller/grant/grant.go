@@ -21,16 +21,16 @@ import (
 	"fmt"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 )
 
 var checkFuncs map[string]func(ctx *logger.RequestContext, ID string) error
 
 type ListGrantResponse struct {
 	common.MarkerInfo
-	GrantList []models.Grant `json:"grantList"`
+	GrantList []db_service.Grant `json:"grantList"`
 }
 
 type CreateGrantRequest struct {
@@ -39,8 +39,8 @@ type CreateGrantRequest struct {
 	ResourceID   string `json:"resourceID"`
 }
 
-func (req *CreateGrantRequest) toModel() models.Grant {
-	return models.Grant{
+func (req *CreateGrantRequest) toModel() db_service.Grant {
+	return db_service.Grant{
 		UserName:     req.UserName,
 		ResourceType: req.ResourceType,
 		ResourceID:   req.ResourceID,
@@ -48,7 +48,7 @@ func (req *CreateGrantRequest) toModel() models.Grant {
 }
 
 func checkQueue(ctx *logger.RequestContext, queueName string) error {
-	_, err := models.GetQueueByName(queueName)
+	_, err := db_service.GetQueueByName(queueName)
 	if err != nil {
 		ctx.ErrorCode = common.QueueNameNotFound
 		return fmt.Errorf("queueName:%s not found", queueName)
@@ -57,7 +57,7 @@ func checkQueue(ctx *logger.RequestContext, queueName string) error {
 }
 
 func checkUser(ctx *logger.RequestContext, userName string) error {
-	_, err := models.GetUserByName(ctx, userName)
+	_, err := db_service.GetUserByName(ctx, userName)
 	if err != nil {
 		ctx.ErrorCode = common.UserNotExist
 		return fmt.Errorf("userName:%s not found", userName)
@@ -66,7 +66,7 @@ func checkUser(ctx *logger.RequestContext, userName string) error {
 }
 
 func checkFs(ctx *logger.RequestContext, fsID string) error {
-	_, err := models.GetFileSystemWithFsID(fsID)
+	_, err := db_service.GetFileSystemWithFsID(fsID)
 	if err != nil {
 		ctx.ErrorCode = common.UserNotExist
 		return fmt.Errorf("fs:%s not found", fsID)
@@ -118,14 +118,14 @@ func CreateGrant(ctx *logger.RequestContext, grantInfo CreateGrantRequest) (*Cre
 	}
 
 	// can't grant repeatedly
-	if existgrant, _ := models.GetGrant(ctx, grantInfo.UserName, grantInfo.ResourceType, grantInfo.ResourceID); existgrant != nil {
+	if existgrant, _ := db_service.GetGrant(ctx, grantInfo.UserName, grantInfo.ResourceType, grantInfo.ResourceID); existgrant != nil {
 		ctx.ErrorCode = common.GrantAlreadyExist
 		ctx.Logging().Errorf("create grant failed.user:[%s] already has the grant of resource[%s].", grantInfo.UserName, grantInfo.ResourceID)
 		return nil, errors.New("create grant failed")
 	}
 
 	grant := grantInfo.toModel()
-	err := models.CreateGrant(ctx, &grant)
+	err := db_service.CreateGrant(ctx, &grant)
 	if err != nil {
 		ctx.Logging().Errorf("create grant failed. error:%s", err.Error())
 		if database.GetErrorCode(err) == database.ErrorKeyIsDuplicated {
@@ -171,13 +171,13 @@ func DeleteGrant(ctx *logger.RequestContext, userName, resourceID, resourceType 
 		return err
 	}
 	// check if grant exist
-	if _, err := models.GetGrant(ctx, userName, resourceType, resourceID); err != nil {
+	if _, err := db_service.GetGrant(ctx, userName, resourceType, resourceID); err != nil {
 		ctx.ErrorCode = common.GrantNotFound
 		ctx.Logging().Errorf("delete grant failed. grant with userName:%v and resourceID:%v not exist.", userName, resourceID)
 		return err
 	}
 
-	if err := models.DeleteGrant(ctx, userName, resourceType, resourceID); err != nil {
+	if err := db_service.DeleteGrant(ctx, userName, resourceType, resourceID); err != nil {
 		ctx.ErrorCode = common.GrantNotFound
 		ctx.Logging().Errorf("delete grant failed. userName:%v, resourceID:%v",
 			userName, resourceID)
@@ -197,7 +197,7 @@ func ListGrant(ctx *logger.RequestContext, marker string, maxKeys int, userName 
 	}
 	listGrantResponse := ListGrantResponse{}
 	listGrantResponse.IsTruncated = false
-	listGrantResponse.GrantList = []models.Grant{}
+	listGrantResponse.GrantList = []db_service.Grant{}
 
 	var pk int64
 	var err error
@@ -211,7 +211,7 @@ func ListGrant(ctx *logger.RequestContext, marker string, maxKeys int, userName 
 		}
 	}
 
-	grantList, err := models.ListGrant(ctx, pk, maxKeys, userName)
+	grantList, err := db_service.ListGrant(ctx, pk, maxKeys, userName)
 	if err != nil {
 		ctx.Logging().Errorf("models list grant failed. err:[%s]", err.Error())
 		ctx.ErrorCode = common.InternalError
@@ -240,7 +240,7 @@ func ListGrant(ctx *logger.RequestContext, marker string, maxKeys int, userName 
 }
 
 func IsLastGrantPk(ctx *logger.RequestContext, pk int64) bool {
-	lastGrant, err := models.GetLastGrant(ctx)
+	lastGrant, err := db_service.GetLastGrant(ctx)
 	if err != nil {
 		ctx.Logging().Errorf("get last grant failed. error:[%s]", err.Error())
 	}

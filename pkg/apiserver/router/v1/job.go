@@ -31,12 +31,13 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/job"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 )
 
 // JobRouter is job api router
@@ -335,7 +336,7 @@ func validateQueue(ctx *logger.RequestContext, schedulingPolicy *job.SchedulingP
 		ctx.ErrorCode = common.JobInvalidField
 		return fmt.Errorf("queue is empty")
 	}
-	queue, err := models.GetQueueByName(queueName)
+	queue, err := db_service.GetQueueByName(queueName)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			ctx.ErrorCode = common.JobInvalidField

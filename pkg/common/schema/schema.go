@@ -16,6 +16,17 @@ limitations under the License.
 
 package schema
 
+const (
+	PrefixRun        = "run-"
+	PrefixPipeline   = "ppl-"
+	PrefixCache      = "cch-"
+	PrefixGrant      = "grant"
+	PrefixQueue      = "queue"
+	PrefixCluster    = "cluster"
+	PrefixFlavour    = "flavour"
+	PrefixConnection = "conn"
+)
+
 // JobView is view of job info responded to user, while Job is for pipeline and job engine to process
 type JobView struct {
 	JobID      string            `json:"jobID"`

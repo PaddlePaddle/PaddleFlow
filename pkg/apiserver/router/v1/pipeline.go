@@ -17,6 +17,7 @@ limitations under the License.
 package v1
 
 import (
+	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 	"net/http"
 	"strings"
 
@@ -25,7 +26,6 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/pipeline"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 )
@@ -77,7 +77,7 @@ func (pr *PipelineRouter) createPipeline(w http.ResponseWriter, r *http.Request)
 	// check grant
 	if !common.IsRootUser(ctx.UserName) {
 		fsID := common.ID(ctx.UserName, createPplReq.FsName)
-		if !models.HasAccessToResource(&ctx, common.ResourceTypeFs, fsID) {
+		if !db_service.HasAccessToResource(&ctx, common.ResourceTypeFs, fsID) {
 			ctx.ErrorCode = common.AccessDenied
 			err := common.NoAccessError(ctx.UserName, common.ResourceTypeFs, fsID)
 			ctx.Logging().Errorf("access denied creating pipeline. error: %v", err)

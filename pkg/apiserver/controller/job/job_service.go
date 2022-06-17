@@ -26,7 +26,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/flavour"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
@@ -34,6 +33,8 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	_ "github.com/PaddlePaddle/PaddleFlow/pkg/job/queue/sortpolicy"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 )
 
 func CreateJob(conf schema.PFJobConf) (string, error) {
@@ -68,7 +69,7 @@ func CreateJob(conf schema.PFJobConf) (string, error) {
 		jobInfo.ExtensionTemplate = string(templateConf)
 	}
 
-	if err := models.CreateJob(jobInfo); err != nil {
+	if err := db_service.CreateJob(jobInfo); err != nil {
 		log.Errorf("create job[%s] in database faield, err: %v", conf.GetName(), err)
 		return "", fmt.Errorf("create job[%s] in database faield, err: %v", conf.GetName(), err)
 	}
@@ -249,7 +250,7 @@ func ValidateQueue(conf schema.PFJobConf, userName, queueName string) error {
 		UserName: userName,
 	}
 	// check whether queue is exist or not
-	queue, err := models.GetQueueByName(queueName)
+	queue, err := db_service.GetQueueByName(queueName)
 	if err != nil {
 		log.Errorf("get queue %s failed, err %v", queueName, err)
 		return fmt.Errorf("queueName[%s] is not exist", queueName)
@@ -267,14 +268,14 @@ func ValidateQueue(conf schema.PFJobConf, userName, queueName string) error {
 	}
 
 	// check whether cluster is exist or not
-	cluster, err := models.GetClusterById(queue.ClusterId)
+	cluster, err := db_service.GetClusterById(queue.ClusterId)
 	if err != nil {
 		log.Errorf("get cluster[%s] failed, err: %s", queue.ClusterId, err)
 		return err
 	}
 	// check cluster status
-	if cluster.Status != models.ClusterStatusOnLine {
-		errMsg := fmt.Sprintf("cluster[%s] status is not %s", cluster.Status, models.ClusterStatusOnLine)
+	if cluster.Status != db_service.ClusterStatusOnLine {
+		errMsg := fmt.Sprintf("cluster[%s] status is not %s", cluster.Status, db_service.ClusterStatusOnLine)
 		log.Errorf(errMsg)
 		return fmt.Errorf(errMsg)
 	}
@@ -282,7 +283,7 @@ func ValidateQueue(conf schema.PFJobConf, userName, queueName string) error {
 	conf.SetNamespace(queue.Namespace)
 	conf.SetClusterID(cluster.ID)
 	// check whether user has access to queue or not
-	if !models.HasAccessToResource(ctx, common.ResourceTypeQueue, queueName) {
+	if !db_service.HasAccessToResource(ctx, common.ResourceTypeQueue, queueName) {
 		return common.NoAccessError(userName, common.ResourceTypeQueue, queueName)
 	}
 	return nil
@@ -332,7 +333,7 @@ func checkResource(conf schema.PFJobConf) error {
 }
 
 func StopJobByID(jobID string) error {
-	job, err := models.GetJobByID(jobID)
+	job, err := db_service.GetJobByID(jobID)
 	if err != nil {
 		return errors.JobIDNotFoundError(jobID)
 	}
@@ -344,7 +345,7 @@ func StopJobByID(jobID string) error {
 		JobMode:   job.Config.GetJobMode(),
 	}
 	// create runtime for cluster
-	clusterInfo, err := models.GetClusterById(job.Config.GetClusterID())
+	clusterInfo, err := db_service.GetClusterById(job.Config.GetClusterID())
 	if err != nil {
 		return fmt.Errorf("stop job %s failed. cluster %s not found", jobID, clusterInfo.Name)
 	}
@@ -359,7 +360,7 @@ func StopJobByID(jobID string) error {
 		log.Errorf("delete job %s from cluster %s failed, err: %v.", jobID, clusterInfo.Name, err)
 		return err
 	}
-	if err = models.UpdateJobStatus(jobID, "job is terminated.", schema.StatusJobTerminated); err != nil {
+	if err = db_service.UpdateJobStatus(jobID, "job is terminated.", schema.StatusJobTerminated); err != nil {
 		log.Errorf("update job[%s] status to [%s] failed, err: %v", jobID, schema.StatusJobTerminated, err)
 		return err
 	}

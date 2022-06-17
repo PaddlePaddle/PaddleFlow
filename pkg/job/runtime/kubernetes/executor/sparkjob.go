@@ -24,10 +24,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	sparkapp "github.com/PaddlePaddle/PaddleFlow/pkg/apis/spark-operator/sparkoperator.k8s.io/v1beta2"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 )
 
 const defaultExecutorInstances int32 = 1
@@ -198,7 +199,7 @@ func (sj *SparkJob) CreateJob() (string, error) {
 
 // StopJobByID stops a job by jobID
 func (sj *SparkJob) StopJobByID(jobID string) error {
-	job, err := models.GetJobByID(jobID)
+	job, err := db_service.GetJobByID(jobID)
 	if err != nil {
 		return err
 	}

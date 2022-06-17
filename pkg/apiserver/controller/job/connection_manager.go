@@ -24,8 +24,10 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 )
 
 type WebsocketManager struct {
@@ -35,7 +37,7 @@ type WebsocketManager struct {
 
 func (manager *WebsocketManager) Register(connection *Connection, clientID string) {
 	if clientID == "" {
-		connection.ID = uuid.GenerateID(common.PrefixConnection)
+		connection.ID = uuid.GenerateID(schema.PrefixConnection)
 	} else {
 		connection.ID = clientID
 	}
@@ -81,7 +83,7 @@ func (manager *WebsocketManager) GetGroupData() {
 		}
 		nextTime := time.Now()
 		log.Infof("start get data")
-		jobList, err := models.ListJobByUpdateTime(UpdateTime.Format(models.TimeFormat))
+		jobList, err := db_service.ListJobByUpdateTime(UpdateTime.Format(models.TimeFormat))
 		if err != nil {
 			log.Errorf("list job failed for websocket to send job")
 			continue

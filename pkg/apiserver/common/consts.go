@@ -19,15 +19,6 @@ package common
 const (
 	SeparatorComma = ","
 
-	PrefixRun        = "run-"
-	PrefixPipeline   = "ppl-"
-	PrefixCache      = "cch-"
-	PrefixGrant      = "grant"
-	PrefixQueue      = "queue"
-	PrefixCluster    = "cluster"
-	PrefixFlavour    = "flavour"
-	PrefixConnection = "conn"
-
 	ResourceTypeRun           = "run"
 	ResourceTypeRunCache      = "run_cache"
 	ResourceTypeArtifactEvent = "artifact_event"

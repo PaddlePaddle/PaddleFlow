@@ -24,9 +24,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 )
 
 var (
@@ -121,7 +122,7 @@ func ListJob(ctx *logger.RequestContext, request ListJobRequest) (*ListJobRespon
 	queueID := ""
 	if request.Queue != "" {
 		var queue models.Queue
-		queue, err = models.GetQueueByName(request.Queue)
+		queue, err = db_service.GetQueueByName(request.Queue)
 		if err != nil {
 			ctx.Logging().Errorf("get queue by queueName[%s] failed, error:[%s]", request.Queue, err.Error())
 			ctx.ErrorCode = common.QueueNameNotFound
@@ -130,7 +131,7 @@ func ListJob(ctx *logger.RequestContext, request ListJobRequest) (*ListJobRespon
 		queueID = queue.ID
 	}
 	// model list
-	jobList, err := models.ListJob(pk, request.MaxKeys, queueID, request.Status, request.StartTime, timestampStr, common.UserRoot, request.Labels)
+	jobList, err := db_service.ListJob(pk, request.MaxKeys, queueID, request.Status, request.StartTime, timestampStr, common.UserRoot, request.Labels)
 	if err != nil {
 		ctx.Logging().Errorf("models list job failed. err:[%s]", err.Error())
 		ctx.ErrorCode = common.InternalError
@@ -174,7 +175,7 @@ func GetJob(ctx *logger.RequestContext, jobID string) (*GetJobResponse, error) {
 		return nil, err
 	}
 
-	job, err := models.GetJobByID(jobID)
+	job, err := db_service.GetJobByID(jobID)
 	if err != nil {
 		ctx.ErrorCode = common.JobNotFound
 		ctx.Logging().Errorln(err.Error())
@@ -188,7 +189,7 @@ func GetJob(ctx *logger.RequestContext, jobID string) (*GetJobResponse, error) {
 }
 
 func isLastJobPk(ctx *logger.RequestContext, pk int64) bool {
-	lastJob, err := models.GetLastJob()
+	lastJob, err := db_service.GetLastJob()
 	if err != nil {
 		ctx.Logging().Errorf("get last job failed. error:[%s]", err.Error())
 	}
@@ -335,7 +336,7 @@ func parseK8sMeta(runtimeInfo interface{}) (metav1.ObjectMeta, error) {
 }
 
 func getTaskRuntime(jobID string) ([]RuntimeInfo, error) {
-	tasks, err := models.ListByJobID(jobID)
+	tasks, err := db_service.ListByJobID(jobID)
 	if err != nil {
 		log.Errorf("list job[%s] tasks failed, error:[%s]", jobID, err.Error())
 		return nil, err
@@ -355,7 +356,7 @@ func getTaskRuntime(jobID string) ([]RuntimeInfo, error) {
 
 func getNodeRuntime(jobID string) ([]DistributedRuntimeInfo, error) {
 	nodeRuntimes := make([]DistributedRuntimeInfo, 0)
-	nodeList, err := models.ListJobByParentID(jobID)
+	nodeList, err := db_service.ListJobByParentID(jobID)
 	if err != nil {
 		log.Errorf("list job[%s] nodes failed, error:[%s]", jobID, err.Error())
 		return nil, err

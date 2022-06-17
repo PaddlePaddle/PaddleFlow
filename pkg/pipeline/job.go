@@ -19,10 +19,10 @@ package pipeline
 import (
 	"errors"
 	"fmt"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 	"time"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/job"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
 
@@ -158,7 +158,7 @@ func (pfj *PaddleFlowJob) Check() (schema.JobStatus, error) {
 		err := errors.New(errMsg)
 		return "", err
 	}
-	status, err := models.GetJobStatusByID(pfj.Id)
+	status, err := db_service.GetJobStatusByID(pfj.Id)
 	if err != nil {
 		return "", err
 	}
@@ -180,7 +180,7 @@ func (pfj *PaddleFlowJob) Watch(ch chan WorkflowEvent) error {
 		}
 
 		// 在连续查询job子系统出错的情况下，把错误信息返回给run，但不会停止轮询
-		jobInstance, err := models.GetJobByID(pfj.Id)
+		jobInstance, err := db_service.GetJobByID(pfj.Id)
 		if err != nil {
 			if tryCount < TryMax {
 				tryCount += 1

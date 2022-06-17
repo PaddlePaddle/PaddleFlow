@@ -25,10 +25,11 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 )
 
 type LoginInfo struct {
@@ -57,7 +58,7 @@ var ErrMismatchedPassword = errors.New("password mismatched")
 
 func Login(ctx *logger.RequestContext, userName string, password string, passwordEncoded bool) (*models.User, error) {
 	ctx.Logging().Debugf("begin verify user. userName:%s ", userName)
-	user, err := models.GetUserByName(ctx, userName)
+	user, err := db_service.GetUserByName(ctx, userName)
 	if err != nil {
 		ctx.Logging().Errorf("user verify failed. userName: error:%s", err.Error())
 		ctx.ErrorCode = common.UserNotExist
@@ -116,7 +117,7 @@ func CreateUser(ctx *logger.RequestContext, userName, password string) (*CreateU
 	user := models.User{
 		UserInfo: userInfo,
 	}
-	if err := models.CreateUser(ctx, &user); err != nil {
+	if err := db_service.CreateUser(ctx, &user); err != nil {
 		ctx.Logging().Errorln("models create user failed.")
 		if database.GetErrorCode(err) == database.ErrorKeyIsDuplicated {
 			ctx.ErrorCode = common.UserNameDuplicated
@@ -149,7 +150,7 @@ func UpdateUser(ctx *logger.RequestContext, userName, password string) error {
 		return errors.New("update user failed")
 	}
 	// check user exist
-	if _, err := models.GetUserByName(ctx, userName); err != nil {
+	if _, err := db_service.GetUserByName(ctx, userName); err != nil {
 		ctx.ErrorCode = common.UserNotExist
 		ctx.Logging().Errorf("update user's password failed. user not exist. userName:%s", ctx.UserName)
 		return errors.New("update user failed")
@@ -161,7 +162,7 @@ func UpdateUser(ctx *logger.RequestContext, userName, password string) error {
 		return errors.New("update user failed")
 	}
 
-	err = models.UpdateUser(ctx, userName, newPassword)
+	err = db_service.UpdateUser(ctx, userName, newPassword)
 	if err != nil {
 		ctx.Logging().Errorf("models update user's password failed. error:%s",
 			err.Error())
@@ -181,7 +182,7 @@ func DeleteUser(ctx *logger.RequestContext, userName string) error {
 		return errors.New("delete user failed")
 	}
 
-	user, err := models.GetUserByName(ctx, userName)
+	user, err := db_service.GetUserByName(ctx, userName)
 	if err != nil {
 		ctx.ErrorCode = common.UserNotExist
 		ctx.Logging().Errorf("delete user failed. user:%s not exist", userName)
@@ -194,12 +195,12 @@ func DeleteUser(ctx *logger.RequestContext, userName string) error {
 		return errors.New("delete user failed")
 	}
 
-	if err := models.DeleteUser(ctx, userName); err != nil {
+	if err := db_service.DeleteUser(ctx, userName); err != nil {
 		ctx.ErrorCode = common.InternalError
 		ctx.Logging().Errorf("models delete user failed. error:%s", err.Error())
 		return err
 	}
-	if err := models.DeleteGrantByUserName(ctx, userName); err != nil {
+	if err := db_service.DeleteGrantByUserName(ctx, userName); err != nil {
 		ctx.ErrorCode = common.InternalError
 		ctx.Logging().Errorf("models delete user failed. delete user's grant  error:%s", err.Error())
 		return err
@@ -225,7 +226,7 @@ func ListUser(ctx *logger.RequestContext, marker string, maxKeys int) (*ListUser
 			return nil, err
 		}
 	}
-	userList, err := models.ListUser(ctx, pk, maxKeys)
+	userList, err := db_service.ListUser(ctx, pk, maxKeys)
 	if err != nil {
 		ctx.Logging().Errorf("models list user failed. err:[%s]", err.Error())
 		ctx.ErrorCode = common.InternalError
@@ -262,7 +263,7 @@ func EncodePassWord(password string) (string, error) {
 }
 
 func IsLastUserPk(ctx *logger.RequestContext, pk int64) bool {
-	lastQueue, err := models.GetLastUser(ctx)
+	lastQueue, err := db_service.GetLastUser(ctx)
 	if err != nil {
 		ctx.Logging().Errorf("models get last user failed. error:[%s]",
 			err.Error())
@@ -280,7 +281,7 @@ func GetUserByName(ctx *logger.RequestContext, userName string) (*models.User, e
 		ctx.Logging().Errorln("get user failed. root is needed.")
 		return nil, errors.New("get user failed")
 	}
-	user, err := models.GetUserByName(ctx, userName)
+	user, err := db_service.GetUserByName(ctx, userName)
 	if err != nil {
 		ctx.Logging().Errorf("models get user failed. userName: error:%s",
 			err.Error())

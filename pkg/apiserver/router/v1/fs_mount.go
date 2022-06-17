@@ -27,10 +27,11 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	api "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/fs"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 )
 
 // createFsMount handles requests of creating filesystem mount record
@@ -98,7 +99,7 @@ func validateCreateMount(ctx *logger.RequestContext, req *api.CreateMountRequest
 			return err
 		}
 	}
-	result, err := fsMount.GetMount(fsMount)
+	result, err := db_service.GetMount(fsMount)
 	if result != nil {
 		ctx.ErrorCode = common.InvalidHTTPRequest
 		return fmt.Errorf("mount path exist")

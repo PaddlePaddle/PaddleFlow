@@ -28,10 +28,11 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/fs"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	fsCommon "github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 )
 
 func Test_validateCreateFileSystem(t *testing.T) {
@@ -40,7 +41,7 @@ func Test_validateCreateFileSystem(t *testing.T) {
 		req *fs.CreateFileSystemRequest
 	}
 
-	var p1 = gomonkey.ApplyFunc(models.GetSimilarityAddressList, func(fsType string, ips []string) ([]models.FileSystem, error) {
+	var p1 = gomonkey.ApplyFunc(db_service.GetSimilarityAddressList, func(fsType string, ips []string) ([]models.FileSystem, error) {
 		return []models.FileSystem{}, nil
 	})
 	defer p1.Reset()
@@ -291,7 +292,7 @@ func Test_checkFsDir(t *testing.T) {
 		url        string
 		properties map[string]string
 	}
-	var p1 = gomonkey.ApplyFunc(models.GetSimilarityAddressList, func(fsType string, ips []string) ([]models.FileSystem, error) {
+	var p1 = gomonkey.ApplyFunc(db_service.GetSimilarityAddressList, func(fsType string, ips []string) ([]models.FileSystem, error) {
 		return []models.FileSystem{
 			{SubPath: "/data"},
 			{SubPath: "/data/mypath"},
