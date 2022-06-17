@@ -17,17 +17,17 @@ limitations under the License.
 package cluster
 
 import (
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 	"reflect"
 	"testing"
 
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 )
 
 const (

@@ -19,7 +19,6 @@ package v1
 import (
 	"errors"
 	"fmt"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 	"net/http"
 	"path/filepath"
 
@@ -33,6 +32,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 )
 
 // createFSCacheConfig handles requests of creating filesystem cache config

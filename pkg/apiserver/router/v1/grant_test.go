@@ -17,12 +17,13 @@ limitations under the License.
 package v1
 
 import (
-	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 )
 
 func TestGrantRouter(t *testing.T) {

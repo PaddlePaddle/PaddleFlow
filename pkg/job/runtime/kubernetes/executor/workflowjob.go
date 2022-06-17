@@ -17,11 +17,12 @@ limitations under the License.
 package executor
 
 import (
-	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 	wfv1 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
+
+	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 )
 
 // WorkflowJob is a executor struct that runs a workflow

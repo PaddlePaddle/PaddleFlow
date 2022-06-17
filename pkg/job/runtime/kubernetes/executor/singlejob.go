@@ -18,7 +18,6 @@ package executor
 
 import (
 	"fmt"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 
 	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
@@ -26,6 +25,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 )
 
 // SingleJob is a executor struct that runs a single pod

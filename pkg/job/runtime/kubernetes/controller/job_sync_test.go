@@ -18,8 +18,6 @@ package controller
 
 import (
 	"context"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 	"net/http/httptest"
 	"testing"
 	"time"
@@ -39,8 +37,10 @@ import (
 	batchv1alpha1 "volcano.sh/apis/pkg/apis/batch/v1alpha1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 )
 
 func newFakeJobSyncController() *JobSync {

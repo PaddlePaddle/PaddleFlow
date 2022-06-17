@@ -17,7 +17,6 @@ limitations under the License.
 package v1
 
 import (
-	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 	"net/http"
 	"strings"
 
@@ -28,6 +27,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/pipeline"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 )
 
 type PipelineRouter struct{}

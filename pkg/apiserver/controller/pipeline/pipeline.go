@@ -19,8 +19,6 @@ package pipeline
 import (
 	"errors"
 	"fmt"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/models"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 
 	"gorm.io/gorm"
 
@@ -29,8 +27,10 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/pipeline"
 	pplcommon "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 )
 
 type CreatePipelineRequest struct {

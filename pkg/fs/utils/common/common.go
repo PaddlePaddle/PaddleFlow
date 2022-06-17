@@ -19,7 +19,6 @@ package common
 import (
 	"encoding/hex"
 	"fmt"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -29,6 +28,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/middleware"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 )
 
 const (
