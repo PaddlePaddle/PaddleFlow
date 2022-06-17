@@ -40,6 +40,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 )
 
@@ -150,7 +151,7 @@ func TestJobSyncVCJob(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			database.InitMockDB()
-			err := db_service.CreateJob(&db_service.Job{ID: test.newObj.GetName()})
+			err := db_service.CreateJob(&models.Job{ID: test.newObj.GetName()})
 			assert.Equal(t, nil, err)
 
 			c := newFakeJobSyncController()
@@ -310,7 +311,7 @@ func TestJobSyncPod(t *testing.T) {
 	}
 
 	database.InitMockDB()
-	err := db_service.CreateJob(&db_service.Job{
+	err := db_service.CreateJob(&models.Job{
 		ID:     jobName,
 		Name:   jobName,
 		Status: schema.StatusJobPending,

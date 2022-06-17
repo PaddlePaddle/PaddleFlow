@@ -18,8 +18,6 @@ package controller
 
 import (
 	"context"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 	"net/http/httptest"
 	"testing"
 	"time"
@@ -38,7 +36,10 @@ import (
 	"volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 )
 
 func newFakeQueueSyncController() *QueueSync {
@@ -157,7 +158,7 @@ func TestQueueSync(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			assert.NotEqual(t, nil, c)
-			err := db_service.CreateQueue(&db_service.Queue{
+			err := db_service.CreateQueue(&models.Queue{
 				Name: test.queueName,
 			})
 			assert.Equal(t, nil, err)

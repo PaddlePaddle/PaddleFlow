@@ -30,7 +30,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/models"
 )
 
 var (
@@ -88,7 +88,7 @@ status:
 			Name: "normal",
 			// Command: "sleep 200",
 			Image: "mockImage",
-			Env: map[string]string{
+			Env:   map[string]string{
 				// "PF_JOB_MODE":           "PS",
 				// "PF_FS_ID":              "fs-name_1",
 				// "PF_JOB_CLUSTER_ID":     "testClusterID",
@@ -103,7 +103,7 @@ status:
 				// "PF_USER_NAME": "root",
 			},
 		},
-		Tasks: []db_service.Member{
+		Tasks: []models.Member{
 			{
 				ID:       "task-normal-0001",
 				Replicas: 3,
@@ -150,7 +150,7 @@ status:
 		Framework: schema.FrameworkSpark,
 		UserName:  "root",
 		QueueID:   "mockQueueID",
-		Tasks: []db_service.Member{
+		Tasks: []models.Member{
 			{
 				ID:       "task-normal-0001",
 				Replicas: 3,

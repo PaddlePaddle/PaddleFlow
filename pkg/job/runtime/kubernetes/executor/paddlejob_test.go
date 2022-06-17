@@ -29,7 +29,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/models"
 )
 
 var (
@@ -86,7 +86,7 @@ spec:
 			},
 			Flavour: schema.Flavour{Name: "mockFlavourName", ResourceInfo: schema.ResourceInfo{CPU: "3", Mem: "3"}},
 		},
-		Tasks: []db_service.Member{
+		Tasks: []models.Member{
 			{
 				ID:       "task-normal-0001",
 				Replicas: 3,
@@ -122,7 +122,7 @@ spec:
 		UserName:  "root",
 		QueueID:   "mockQueueID",
 		Conf:      schema.Conf{},
-		Tasks: []db_service.Member{
+		Tasks: []models.Member{
 			{
 				ID:       "task-normal-0001",
 				Replicas: 3,
