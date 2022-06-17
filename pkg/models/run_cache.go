@@ -47,7 +47,7 @@ func (RunCache) TableName() string {
 	return "run_cache"
 }
 
-func (c *RunCache) AfterFind() {
+func (c *RunCache) AfterFind(*gorm.DB) error {
 	c.CreateTime = c.CreatedAt.Format("2006-01-02 15:04:05")
 	c.UpdateTime = c.UpdatedAt.Format("2006-01-02 15:04:05")
 }
