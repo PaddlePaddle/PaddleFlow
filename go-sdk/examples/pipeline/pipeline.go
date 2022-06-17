@@ -35,7 +35,7 @@ func GetPipelineFromFile(filepath string) (p *pipeline.Pipeline) {
 	for name, step := range p.EntryPoints {
 		fmt.Println(name)
 		fmt.Println("input", step.Artifacts.Input)
-		fmt.Println("output", step.Artifacts.OutputList)
+		fmt.Println("output", step.Artifacts.Output)
 	}
 
 	return p
@@ -99,6 +99,6 @@ func CreateRunByRunYamlRaw(filepath string) (runID string) {
 }
 
 func main() {
-	// GetPipelineFromFile("")
+	GetPipelineFromFile("")
 	CreateRunByRunYamlRaw("")
 }
