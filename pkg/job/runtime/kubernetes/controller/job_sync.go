@@ -228,7 +228,7 @@ func (j *JobSync) doCreateAction(jobSyncInfo *JobSyncInfo) error {
 }
 
 func (j *JobSync) doDeleteAction(jobSyncInfo *JobSyncInfo) error {
-	log.Infof("do update action, job sync info are as follows. %s", jobSyncInfo.String())
+	log.Infof("do delete action, job sync info are as follows. %s", jobSyncInfo.String())
 	if _, err := db_service.UpdateJob(jobSyncInfo.ID, commonschema.StatusJobTerminated,
 		jobSyncInfo.Runtime, ""); err != nil {
 		log.Errorf("sync job status failed. jobID:[%s] err:[%s]", jobSyncInfo.ID, err.Error())

@@ -30,9 +30,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	_ "github.com/PaddlePaddle/PaddleFlow/pkg/job/queue/sortpolicy"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 )
@@ -333,38 +331,8 @@ func checkResource(conf schema.PFJobConf) error {
 }
 
 func StopJobByID(jobID string) error {
-	job, err := db_service.GetJobByID(jobID)
-	if err != nil {
-		return errors.JobIDNotFoundError(jobID)
-	}
-	pfJob := &api.PFJob{
-		ID:        jobID,
-		Name:      job.Config.GetName(),
-		Namespace: job.Config.GetNamespace(),
-		JobType:   job.Config.Type(),
-		JobMode:   job.Config.GetJobMode(),
-	}
-	// create runtime for cluster
-	clusterInfo, err := db_service.GetClusterById(job.Config.GetClusterID())
-	if err != nil {
-		return fmt.Errorf("stop job %s failed. cluster %s not found", jobID, clusterInfo.Name)
-	}
-	runtimeSvc, err := runtime.GetOrCreateRuntime(clusterInfo)
-	if err != nil {
-		errMsg := fmt.Sprintf("new runtime for cluster %s failed, err: %v.", clusterInfo.Name, err)
-		log.Errorf(errMsg)
-		return fmt.Errorf(errMsg)
-	}
-	// stop job on cluster
-	if err = runtimeSvc.StopJob(pfJob); err != nil {
-		log.Errorf("delete job %s from cluster %s failed, err: %v.", jobID, clusterInfo.Name, err)
-		return err
-	}
-	if err = db_service.UpdateJobStatus(jobID, "job is terminated.", schema.StatusJobTerminated); err != nil {
-		log.Errorf("update job[%s] status to [%s] failed, err: %v", jobID, schema.StatusJobTerminated, err)
-		return err
-	}
-	return nil
+	logCtx := &logger.RequestContext{}
+	return StopJob(logCtx, jobID)
 }
 
 // IsEnoughQueueCapacity validate queue matching flavor

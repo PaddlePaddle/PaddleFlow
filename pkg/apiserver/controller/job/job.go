@@ -574,17 +574,22 @@ func StopJob(ctx *logger.RequestContext, jobID string) error {
 		log.Errorf("get runtime by queue failed, err: %v", err)
 		return err
 	}
-	pfjob, err := api.NewJobInfo(&job)
-	if err != nil {
-		return err
-	}
-	err = runtimeSvc.StopJob(pfjob)
-	if err != nil {
-		log.Errorf("delete job %s from cluster failed, err: %v", job.ID, err)
-		return err
-	}
-	if err = db_service.UpdateJobStatus(jobID, "job is terminated.", schema.StatusJobTerminated); err != nil {
-		log.Errorf("update job[%s] status to [%s] failed, err: %v", jobID, schema.StatusJobTerminated, err)
+
+	// stop job on cluster
+	go func(job *models.Job, runtimeSvc runtime.RuntimeService) {
+		pfjob, err := api.NewJobInfo(job)
+		if err != nil {
+			return
+		}
+		err = runtimeSvc.StopJob(pfjob)
+		if err != nil {
+			log.Errorf("delete job %s from cluster failed, err: %v", job.ID, err)
+			return
+		}
+	}(&job, runtimeSvc)
+
+	if err = db_service.UpdateJobStatus(jobID, "job is terminating.", schema.StatusJobTerminating); err != nil {
+		log.Errorf("update job[%s] status to [%s] failed, err: %v", jobID, schema.StatusJobTerminating, err)
 		return err
 	}
 	return nil
