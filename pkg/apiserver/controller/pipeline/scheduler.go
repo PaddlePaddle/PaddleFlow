@@ -146,7 +146,7 @@ func (s *Scheduler) getTimeout(nextWakeupTime *time.Time) <-chan time.Time {
 		timeout = nil
 	} else {
 		currentTime := time.Now()
-		if currentTime.Before(*nextWakeupTime) || currentTime.Equal(*nextWakeupTime) {
+		if nextWakeupTime.Before(currentTime) || nextWakeupTime.Equal(currentTime) {
 			timeout = time.After(0 * time.Second)
 		} else {
 			timeout = time.After(nextWakeupTime.Sub(currentTime))
