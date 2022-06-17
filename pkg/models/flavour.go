@@ -30,16 +30,16 @@ const flavourTableName = "flavour"
 // Flavour records request resource info for each job
 type Flavour struct {
 	Model              `gorm:"embedded"  json:",inline"`
-	Pk                 int64                      `json:"-"           gorm:"primaryKey;autoIncrement"`
-	Name               string                     `json:"name"        gorm:"uniqueIndex"`
-	ClusterID          string                     `json:"-"   gorm:"column:cluster_id;default:''"`
-	ClusterName        string                     `json:"-" gorm:"column:cluster_name;->"`
-	CPU                string                     `json:"cpu"         gorm:"column:cpu"`
-	Mem                string                     `json:"mem"         gorm:"column:mem"`
-	RawScalarResources string                     `json:"-"           gorm:"column:scalar_resources;type:text;default:'{}'"`
+	Pk                 int64                      `json:"-"               gorm:"primaryKey;autoIncrement"`
+	Name               string                     `json:"name"            gorm:"uniqueIndex"`
+	ClusterID          string                     `json:"-"               gorm:"column:cluster_id;default:''"`
+	ClusterName        string                     `json:"-"               gorm:"-"`
+	CPU                string                     `json:"cpu"             gorm:"column:cpu"`
+	Mem                string                     `json:"mem"             gorm:"column:mem"`
+	RawScalarResources string                     `json:"-"               gorm:"column:scalar_resources;type:text;default:'{}'"`
 	ScalarResources    schema.ScalarResourcesType `json:"scalarResources" gorm:"-"`
-	UserName           string                     `json:"-" gorm:"column:user_name"`
-	DeletedAt          gorm.DeletedAt             `json:"-" gorm:"index"`
+	UserName           string                     `json:"-"               gorm:"column:user_name"`
+	DeletedAt          gorm.DeletedAt             `json:"-"               gorm:"index"`
 }
 
 // TableName indicate table name of Flavour
