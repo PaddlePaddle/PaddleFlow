@@ -45,7 +45,7 @@ func (ArtifactEvent) TableName() string {
 	return "artifact_event"
 }
 
-func (a *ArtifactEvent) AfterFind() error {
+func (a *ArtifactEvent) AfterFind(*gorm.DB) error {
 	a.CreateTime = a.CreatedAt.Format("2006-01-02 15:04:05")
 	a.UpdateTime = a.UpdatedAt.Format("2006-01-02 15:04:05")
 	return nil
