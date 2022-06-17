@@ -54,7 +54,7 @@ func NewPipelineFromReader(reader io.Reader) (pipeline *Pipeline, err error) {
 }
 
 func NewPipelineFromYamlBytes(content []byte) (pipeline *Pipeline, err error) {
-	ppl, err := schema.ParseWorkflowSourceWithOutTransOutputArtifact(content)
+	ppl, err := schema.ParseWorkflowSource(content)
 	if err != nil {
 		return nil, err
 	}

@@ -239,7 +239,7 @@ func (wfs *WorkflowSource) ValidateStepCacheByMap(runMap map[string]interface{})
 	return nil
 }
 
-func ParseWorkflowSourceWithOutTransOutputArtifact(runYaml []byte) (WorkflowSource, error) {
+func ParseWorkflowSource(runYaml []byte) (WorkflowSource, error) {
 	wfs := WorkflowSource{
 		FailureOptions: FailureOptions{Strategy: FailureStrategyFailFast},
 	}
