@@ -19,8 +19,6 @@ package runtime
 import (
 	"context"
 	"fmt"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
-	storage_db2 "github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 	"net/http/httptest"
 	"testing"
 
@@ -38,9 +36,12 @@ import (
 	restclient "k8s.io/client-go/rest"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 )
 
 const (
@@ -110,7 +111,7 @@ func TestKubeRuntimeJob(t *testing.T) {
 	}
 	database.InitMockDB()
 	config.GlobalServerConfig = &config.ServerConfig{}
-	err := storage_db2.CreateJob(&storage_db2.Job{
+	err := db_service.CreateJob(&models.Job{
 		ID: testJobID,
 		Config: &schema.Conf{
 			Env: map[string]string{
@@ -137,8 +138,8 @@ func TestKubeRuntimeVCQueue(t *testing.T) {
 		dynamicClientOpt: dynamicClient,
 	}
 
-	q := &storage_db2.Queue{
-		Model: storage_db2.Model{
+	q := &models.Queue{
+		Model: models.Model{
 			ID: "test_queue_id",
 		},
 		Name:      "test_queue_name",
@@ -168,8 +169,8 @@ func TestKubeRuntimeElasticQuota(t *testing.T) {
 		dynamicClientOpt: dynamicClient,
 	}
 
-	q := &storage_db2.Queue{
-		Model: storage_db2.Model{
+	q := &models.Queue{
+		Model: models.Model{
 			ID: "test_queue_id",
 		},
 		Name:      "test_queue_name",

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	storage_db2 "github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 	"net/http"
 	"os"
 	"os/signal"
@@ -23,6 +22,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/version"
 )
 
@@ -180,7 +180,7 @@ func newAndStartJobManager() error {
 		log.Errorf("new job manager failed, error: %v", err)
 		return err
 	}
-	go runtimeMgr.Start(storage_db2.ActiveClusters, storage_db2.ListQueueJob)
+	go runtimeMgr.Start(db_service.ActiveClusters, db_service.ListQueueJob)
 	return nil
 }
 
