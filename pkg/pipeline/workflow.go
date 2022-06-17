@@ -543,10 +543,10 @@ type Workflow struct {
 }
 
 type WorkflowCallbacks struct {
-	GetJobCb        func(runID string, stepName string) (schema.JobView, error)
+	GetJobCb        func(cacheJobId string) (schema.JobView, error)
 	UpdateRuntimeCb func(string, interface{}) (int64, bool)
 	LogCacheCb      func(req schema.LogRunCacheRequest) (string, error)
-	ListCacheCb     func(firstFp, fsID, step, yamlPath string) ([]models.RunCache, error)
+	ListCacheCb     func(firstFp, fsID, yamlPath string) ([]models.RunCache, error)
 	LogArtifactCb   func(req schema.LogRunArtifactRequest) error
 }
 
