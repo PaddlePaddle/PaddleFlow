@@ -338,8 +338,13 @@ func getEarlierTime(time1, time2 time.Time) time.Time {
 // 先处理同时满足currentTime之前，而且schedule.EndAt之前的任务
 // 只需要处理 catchup == true 的case
 // - 如果catchup == false，即不需要catchup，则currentTime和schedule.EndAt前，所有miss的周期任务都被抛弃，不再发起
-func findExectableRunBeforeCurrentTime(schedule Schedule, nextRunAt, currentTime time.Time,
-	options ScheduleOptions, checkCatchup bool, totalCount int, execMap map[string][]time.Time) (time.Time, error) {
+func findExectableRunBeforeCurrentTime(schedule Schedule, currentTime time.Time, checkCatchup bool, totalCount int, execMap map[string][]time.Time) (time.Time, error) {
+	options := ScheduleOptions{}
+	if err := json.Unmarshal([]byte(schedule.Options), &options); err != nil {
+		errMsg := fmt.Sprintf("decode optinos[%s] of schedule of ID[%s] failed. error: %v", schedule.Options, schedule.ID, err)
+		return time.Time{}, fmt.Errorf(errMsg)
+	}
+
 	cronSchedule, err := cron.ParseStandard(schedule.Crontab)
 	if err != nil {
 		errMsg := fmt.Sprintf("parse crontab spec[%s] for schedule[%s] of pipeline detail[%d] failed, errMsg[%s]",
@@ -352,37 +357,36 @@ func findExectableRunBeforeCurrentTime(schedule Schedule, nextRunAt, currentTime
 		catchup = false
 	}
 
+	log.Debugf("findExectableRunBeforeCurrentTime with catchup[%t]", catchup)
+
+	nextRunAt := schedule.NextRunAt
 	expire_interval_durtion := time.Duration(options.ExpireInterval) * time.Second
 	for checkNextRunAt(nextRunAt, currentTime, schedule.EndAt) {
+		log.Debugf("start to check schedule[%s] at %s, with schedule.EndAt[%s]", schedule.ID, nextRunAt.Format("2006-01-02 15:04:05"), schedule.EndAt.Time.Format("2006-01-02 15:04:05"))
 		if catchup == true {
-			if totalCount < options.Concurrency {
-				// 当没有达到concurrency，所有ConcurrencyPolicy处理方式一致
-				// 有效的next_run_at需要满足三个条件
-				// 1. 不大于当前时间
-				// 2. 不大于endtime（如果有的话）
-				// 3. 在expire_interval内（如果有的话）
-				if !nextRunAt.Add(expire_interval_durtion).Before(currentTime) {
+			if options.ExpireInterval == 0 || !nextRunAt.Add(expire_interval_durtion).Before(currentTime) {
+				if options.Concurrency == 0 || totalCount < options.Concurrency {
 					execMap[schedule.ID] = append(execMap[schedule.ID], nextRunAt)
 					totalCount += 1
+				} else {
+					if options.ConcurrencyPolicy == ConcurrencyPolicySuspend {
+						// 直接跳出循环，不会继续更新nextRunAt
+						errMsg := fmt.Sprintf("concurrency of schedule with ID[%s] already reach[%d], so suspend", schedule.ID, options.Concurrency)
+						log.Info(errMsg)
+						break
+					} else if options.ConcurrencyPolicy == ConcurrencyPolicyReplace {
+						// 停止该schedule最早的run，并发起新的run，更新next_run_at
+						execMap[schedule.ID] = append(execMap[schedule.ID], nextRunAt)
+						totalCount += 1
+					} else if options.ConcurrencyPolicy == ConcurrencyPolicySkip {
+						// 不跳出循环，会继续更新nextRunAt
+						errMsg := fmt.Sprintf("concurrency of schedule with ID[%s] already reach[%d], so skip", schedule.ID, options.Concurrency)
+						log.Info(errMsg)
+					}
 				}
 			} else {
-				switch options.ConcurrencyPolicy {
-				case ConcurrencyPolicySuspend:
-					// 直接跳出循环，不会继续更新nextRunAt
-					errMsg := fmt.Sprintf("concurrency of schedule with ID[%s] already reach[%d], so suspend", schedule.ID, options.Concurrency)
-					log.Debug(errMsg)
-					break
-
-				case ConcurrencyPolicyReplace:
-					// 停止该schedule最早的run，并发起新的run，更新next_run_at
-					execMap[schedule.ID] = append(execMap[schedule.ID], nextRunAt)
-					totalCount += 1
-
-				case ConcurrencyPolicySkip:
-					// 不跳出循环，会继续更新nextRunAt
-					errMsg := fmt.Sprintf("concurrency of schedule with ID[%s] already reach[%d], so skip", schedule.ID, options.Concurrency)
-					log.Debug(errMsg)
-				}
+				log.Infof("nextRunAt[%s] of schedule[%s] is beyond expire interval[%d] from currentTime[%s], so skip",
+					nextRunAt.Format("2006-01-02 15:04:05"), schedule.ID, options.ExpireInterval, currentTime.Format("2006-01-02 15:04:05"))
 			}
 		}
 
@@ -454,15 +458,16 @@ func GetAvailableSchedule(logEntry *log.Entry, checkCatchup bool) (killMap map[s
 
 		// 先处理同时满足currentTime之前，而且schedule.EndAt之前的任务
 		notEndedCount := int(count)
-		nextRunAt := schedule.NextRunAt
-		nextRunAt, err = findExectableRunBeforeCurrentTime(schedule, nextRunAt, currentTime, options, checkCatchup, notEndedCount, execMap)
+		nextRunAt, err := findExectableRunBeforeCurrentTime(schedule, currentTime, checkCatchup, notEndedCount, execMap)
 		if err != nil {
 			return nil, nil, nil, err
 		}
 
-		// ConcurrencyPolicy == replace时，有可能【待发起任务 + 运行中任务】>= concurrency
+		logEntry.Debugf("after findExectableRunBeforeCurrentTime, execMap[%v], notEndedCount:[%d]", execMap, notEndedCount)
+
+		// Concurrency != 0，即存在并发度限制，而且ConcurrencyPolicy == replace时，有可能【待发起任务 + 运行中任务】>= concurrency
 		// 此时判断是否需要截取一部分待运行任务，以及停止一些已经启动的任务
-		if options.ConcurrencyPolicy == ConcurrencyPolicyReplace {
+		if options.Concurrency != 0 && options.ConcurrencyPolicy == ConcurrencyPolicyReplace {
 			err = updateKillMap(logEntry, schedule.ID, notEndedCount, options.Concurrency, execMap, killMap)
 			if err != nil {
 				errMsg := fmt.Sprintf("getKillMap for schedule[%s] failed, err: %s", schedule.ID, err.Error())
@@ -494,7 +499,9 @@ func GetAvailableSchedule(logEntry *log.Entry, checkCatchup bool) (killMap map[s
 		}
 
 		// 更新全局wakeup时间
-		if schedule.Status == ScheduleStatusRunning {
+		// 1. 如果NextRunAt <= currentTime，证明目前schedule超过concurrency，而且concurrency是suspend，导致调度被阻塞，此时nextRunAt不能被纳入nextWakeupTime
+		// 2. 如果status是终止态，nextRunAt也不能被纳入nextWakeupTime
+		if schedule.Status == ScheduleStatusRunning && schedule.NextRunAt.After(currentTime) {
 			var earlierTime time.Time
 			if schedule.EndAt.Valid {
 				earlierTime = getEarlierTime(schedule.NextRunAt, schedule.EndAt.Time)
