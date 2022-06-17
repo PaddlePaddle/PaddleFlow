@@ -23,7 +23,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/models"
 )
 
-func Add(value *models.FsMount) error {
+func AddMount(value *models.FsMount) error {
 	return database.DB.Model(&models.FsMount{}).Create(value).Error
 }
 

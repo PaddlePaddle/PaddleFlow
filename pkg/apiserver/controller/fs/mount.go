@@ -73,7 +73,7 @@ func CreateMount(ctx *logger.RequestContext, fsMount *models.FsMount) error {
 	_, err := db_service.GetMountWithDelete(fsMount)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
-			err = db_service.Add(fsMount)
+			err = db_service.AddMount(fsMount)
 			if err != nil {
 				ctx.ErrorCode = common.InternalError
 				ctx.Logging().Errorf("create mount with req[%v] err:%v", fsMount, err)

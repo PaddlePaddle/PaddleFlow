@@ -45,7 +45,7 @@ func TestListMountNodesByFsID(t *testing.T) {
 		NodeName:   nodeName1,
 		ClusterID:  clusterID,
 	}
-	err := db_service.Add(fsMount)
+	err := db_service.AddMount(fsMount)
 	assert.Nil(t, err)
 
 	fsMount = &models.FsMount{
@@ -55,7 +55,7 @@ func TestListMountNodesByFsID(t *testing.T) {
 		NodeName:   nodeName2,
 		ClusterID:  clusterID,
 	}
-	err = db_service.Add(fsMount)
+	err = db_service.AddMount(fsMount)
 	assert.Nil(t, err)
 
 	fsMount = &models.FsMount{
@@ -65,7 +65,7 @@ func TestListMountNodesByFsID(t *testing.T) {
 		NodeName:   nodeName1,
 		ClusterID:  clusterID,
 	}
-	err = db_service.Add(fsMount)
+	err = db_service.AddMount(fsMount)
 	assert.Nil(t, err)
 
 	fsIDs := []string{fsID1, fsID2, "fs-non-exist"}
