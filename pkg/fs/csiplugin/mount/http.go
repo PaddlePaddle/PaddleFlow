@@ -22,11 +22,10 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/core"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/client/pfs"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csiconfig"
 )
 
-func fsCacheConfig(mountInfo pfs.MountInfo, httpClient *core.PaddleFlowClient, token string) (common.FsCacheConfig, error) {
+func fsCacheConfig(mountInfo Info, httpClient *core.PaddleFlowClient, token string) (common.FsCacheConfig, error) {
 	userName, fsName := common.GetFsNameAndUserNameByFsID(mountInfo.FSID)
 	cacheReq := api.FsParams{
 		FsName:   fsName,
@@ -69,7 +68,7 @@ func getFs(fsID string, httpClient *core.PaddleFlowClient, token string) (*api.F
 	return fsResp, nil
 }
 
-func deleteMount(mountInfo pfs.MountInfo, httpClient *core.PaddleFlowClient, token string) error {
+func deleteMount(mountInfo Info, httpClient *core.PaddleFlowClient, token string) error {
 	userName, fsName := common.GetFsNameAndUserNameByFsID(mountInfo.FSID)
 	DeleteMountReq := api.DeleteMountRequest{
 		FsParams: api.FsParams{
@@ -89,7 +88,7 @@ func deleteMount(mountInfo pfs.MountInfo, httpClient *core.PaddleFlowClient, tok
 	return nil
 }
 
-func listMount(mountInfo pfs.MountInfo, httpClient *core.PaddleFlowClient, token string) (*api.ListMountResponse, error) {
+func listMount(mountInfo Info, httpClient *core.PaddleFlowClient, token string) (*api.ListMountResponse, error) {
 	userName, fsName := common.GetFsNameAndUserNameByFsID(mountInfo.FSID)
 	listMountReq := api.ListMountRequest{
 		FsParams: api.FsParams{
@@ -108,7 +107,7 @@ func listMount(mountInfo pfs.MountInfo, httpClient *core.PaddleFlowClient, token
 	return listMountResp, nil
 }
 
-func createMount(mountInfo pfs.MountInfo, httpClient *core.PaddleFlowClient, token string) error {
+func createMount(mountInfo Info, httpClient *core.PaddleFlowClient, token string) error {
 	userName, fsName := common.GetFsNameAndUserNameByFsID(mountInfo.FSID)
 	createMountReq := api.CreateMountRequest{
 		FsParams: api.FsParams{
