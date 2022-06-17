@@ -19,9 +19,9 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/PaddlePaddle/PaddleFlow/go-sdk/pipeline"
 	"github.com/PaddlePaddle/PaddleFlow/go-sdk/service"
 	v1 "github.com/PaddlePaddle/PaddleFlow/go-sdk/service/apiserver/v1"
-	"github.com/PaddlePaddle/PaddleFlow/go-sdk/service/pipeline"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/core"
 )
 
