@@ -101,6 +101,9 @@ func (drt *DagRuntime) generateSubComponentFullName(subComponentName string) str
 
 // TODO: 需要注意上上游节点 skipped， failed， cancelled 时， 导致上游节点没有生成 runtime 的情况？
 func (drt *DagRuntime) getReadyComponent() map[string]schema.Component {
+	defer drt.processSubComponentLock.Unlock()
+	drt.processSubComponentLock.Lock()
+
 	readyComponent := map[string]schema.Component{}
 	for name, subComponent := range drt.component.(*schema.WorkflowSourceDag).EntryPoints {
 		// 如果已经生成了对应的 Runtime，则说明对应该 Component 已经被调度了
@@ -130,7 +133,6 @@ func (drt *DagRuntime) getReadyComponent() map[string]schema.Component {
 		}
 
 		readyComponent[name] = subComponent
-
 	}
 	return readyComponent
 }
@@ -227,7 +229,7 @@ func (drt *DagRuntime) Start() {
 		drt.processStartAbnormalStatus(errMsg, StatusRuntimeSkipped)
 	}
 
-	if !conditon {
+	if conditon {
 		skipMsg := fmt.Sprintf("the result of condition for Component [%s] is false, skip running", drt.CompoentFullName)
 		drt.logger.Infoln(skipMsg)
 		drt.processStartAbnormalStatus(skipMsg, StatusRuntimeSkipped)
@@ -270,15 +272,15 @@ func (drt *DagRuntime) scheduleSubComponent(mustSchedule bool) {
 
 		// 如果此时收到了终止信号，则无需调度子节点
 		if drt.ctx.Err() != nil || drt.failureOpitonsCtx.Err() != nil {
-			drt.logger.Infof("component[%s] receives temination signal, so it's subComponent wouldn't be scheduled anymore",
-				drt.componentFullName, drt.status)
+			drt.logger.Infof("componentRuntime[%s] receives temination signal, so it's subComponent wouldn't be scheduled anymore",
+				drt.name, drt.status)
 			return
 		}
 
 		// 如果此时的状态为 terminating 或者处于终态， 也不应该在调度子节点
 		if drt.isTerminating() || drt.isDone() {
-			drt.logger.Infof("the status of component[%s] is [%s], so it's subComponent wouldn't be scheduled anymore",
-				drt.componentFullName, drt.status)
+			drt.logger.Infof("the status of componentRuntime[%s] is [%s], so it's subComponent wouldn't be scheduled anymore",
+				drt.name, drt.status)
 			return
 		}
 
@@ -310,6 +312,9 @@ func (drt *DagRuntime) Listen() {
 	for {
 		select {
 		case event := <-drt.receiveEventChildren:
+			if drt.done {
+				return
+			}
 			if err := drt.processEventFromSubComponent(event); err != nil {
 				// how to read event?
 				drt.logger.Debugf("process event failed %s", err.Error())
@@ -319,10 +324,16 @@ func (drt *DagRuntime) Listen() {
 			}
 
 		case <-drt.ctx.Done():
+			if drt.done {
+				return
+			}
 			drt.updateStatus(StatusRuntimeTerminating)
 			drt.stopByCtx()
 			return
 		case <-drt.failureOpitonsCtx.Done():
+			if drt.done {
+				return
+			}
 			drt.updateStatus(StatusRuntimeTerminating)
 
 			// 此时 failureOptions的策略必然是 fail_fast
@@ -343,8 +354,8 @@ func (drt *DagRuntime) GetSubComponentParameterValue(componentName string, param
 	var err error
 	subComponentsRuntime, ok := drt.subComponentRumtimes[componentName]
 	if !ok {
-		err := fmt.Errorf("cannot get the value of parameter[%s] from component[%s], because there is no component named [%s]",
-			paramName, drt.CompoentFullName+"."+componentName, drt.CompoentFullName+"."+componentName)
+		err := fmt.Errorf("cannot get the value of parameter[%s] from component[%s], because there is no component named [%s] in dag[%s]",
+			paramName, drt.CompoentFullName+"."+componentName, componentName, drt.CompoentFullName)
 		return nil, err
 	} else {
 		// 对于同一个节点的多次运行，其 parameter 的值都是一样的。
@@ -360,8 +371,8 @@ func (drt *DagRuntime) GetSubComponentArtifactPaths(componentName string, artNam
 	var value string
 	subComponents, ok := drt.subComponentRumtimes[componentName]
 	if !ok {
-		err := fmt.Errorf("cannot get the value of parameter[%s] from component[%s], because there is no component named [%s]",
-			artName, drt.CompoentFullName+"."+componentName, drt.CompoentFullName+"."+componentName)
+		err := fmt.Errorf("cannot get the value of parameter[%s] from component[%s], because there is no component named [%s] in dag[%s]",
+			artName, drt.CompoentFullName+"."+componentName, componentName, drt.CompoentFullName)
 		return "", err
 	} else {
 		for index := range subComponents {
@@ -597,7 +608,7 @@ func (drt *DagRuntime) updateStatusAccordingSubComponentRuntimeStatus() string {
 			loop_args, ok := loop_argument.([]interface{})
 			// 2.2. 如果loop_argument 不能转换成 splice, 则该子节点的loop_argument 有问题，且必然已经被置为 failed 状态
 			if !ok {
-				faieldComponentNames = append(faieldComponentNames, cps[0].getFullName())
+				faieldComponentNames = append(faieldComponentNames, cps[0].getName())
 			} else if len(cps) != len(loop_args) {
 				if !drt.isTerminating() {
 					drt.updateStatus(StatusRuntimeRunning)
@@ -608,15 +619,15 @@ func (drt *DagRuntime) updateStatusAccordingSubComponentRuntimeStatus() string {
 
 		for index := range cps {
 			if cps[index].isFailed() {
-				faieldComponentNames = append(faieldComponentNames, cps[index].getFullName())
+				faieldComponentNames = append(faieldComponentNames, cps[index].getName())
 			} else if cps[index].isTerminated() {
-				terminatedComponentNames = append(terminatedComponentNames, cps[index].getFullName())
+				terminatedComponentNames = append(terminatedComponentNames, cps[index].getName())
 			} else if cps[index].isCancelled() {
-				cancelledComponentNames = append(cancelledComponentNames, cps[index].getFullName())
+				cancelledComponentNames = append(cancelledComponentNames, cps[index].getName())
 			} else if cps[index].isSucceeded() {
-				succeededComponentNames = append(succeededComponentNames, cps[index].getFullName())
+				succeededComponentNames = append(succeededComponentNames, cps[index].getName())
 			} else if cps[index].isSkipped() {
-				skippedComponentNames = append(skippedComponentNames, cps[index].getFullName())
+				skippedComponentNames = append(skippedComponentNames, cps[index].getName())
 			} else if !drt.isTerminating() {
 				drt.updateStatus(StatusRuntimeRunning)
 				return ""

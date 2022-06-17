@@ -60,6 +60,10 @@ func (pm *parallelismManager) decrease() {
 	<-pm.ch
 }
 
+func (pm *parallelismManager) CurrentParallelism() int {
+	return len(pm.ch)
+}
+
 type componentRuntime interface {
 	isSucceeded() bool
 	isDone() bool
@@ -70,6 +74,7 @@ type componentRuntime interface {
 
 	getComponent() schema.Component
 	getFullName() string
+	getName() string
 }
 
 // Run 的相关配置，其信息来源有以下几种:
@@ -244,11 +249,7 @@ func (crt *baseComponentRuntime) updateStatus(status RuntimeStatus) error {
 
 // 获取当次运行时循环参数的值
 func (crt *baseComponentRuntime) getPFLoopArgument() (interface{}, error) {
-	err := crt.innerSolver.resolveLoopArugment()
-	if err != nil {
-		return nil, err
-	}
-
+	// LoopArgument 在创建 Runtime 之前便已经由其父节点resolve 了
 	if crt.component.GetLoopArgument() == nil {
 		return nil, nil
 	}
@@ -261,18 +262,6 @@ func (crt *baseComponentRuntime) getPFLoopArgument() (interface{}, error) {
 }
 
 // 获取系统变量
-/*
-var SysParamNameList []string = []string{
-	SysParamNamePFRunID,
-	SysParamNamePFFsID,
-	SysParamNamePFJobID,
-	SysParamNamePFStepName,
-	SysParamNamePFFsName,
-	SysParamNamePFUserID,
-	SysParamNamePFUserName,
-	SysParamNamePFLoopArgument,
-}
-*/
 func (crt *baseComponentRuntime) setSysParams() error {
 	crt.sysParams = map[string]string{
 		SysParamNamePFRunID:    crt.runID,
@@ -332,4 +321,8 @@ func (crt *baseComponentRuntime) callback(event *WorkflowEvent) {
 
 func (crt *baseComponentRuntime) getFullName() string {
 	return crt.CompoentFullName
+}
+
+func (crt *baseComponentRuntime) getName() string {
+	return crt.name
 }

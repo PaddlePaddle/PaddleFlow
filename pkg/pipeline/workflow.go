@@ -329,7 +329,7 @@ func (bwf *BaseWorkflow) replaceRunParam(param string, val interface{}) error {
 		- param: 寻找所有step内的parameter，并进行替换，没有则不替换。
 		只检验命令行参数是否存在在 yaml 定义中，不校验是否必须是本次运行的 step
 	*/
-	stepName, paramName := parseParamName(param)
+	stepName, paramName := parseTemplate(param)
 	steps := bwf.parseAllSteps()
 
 	if len(stepName) != 0 {
@@ -418,7 +418,6 @@ func (bwf *BaseWorkflow) checkSteps() error {
 		SysParamNamePFStepName: "",
 		SysParamNamePFFsName:   "",
 		SysParamNamePFUserName: "",
-		SysParamNamePFRuntime:  "",
 	}
 	steps := map[string]*schema.WorkflowSourceStep{}
 	for name, step := range bwf.runtimeSteps {
@@ -628,7 +627,7 @@ func (wf *Workflow) setRuntimeSteps(runtime map[string]schema.JobView, steps map
 		}
 		paddleflowJob := PaddleFlowJob{
 			BaseJob: BaseJob{
-				Id:         jobView.JobID,
+				ID:         jobView.JobID,
 				Name:       jobView.JobName,
 				Command:    jobView.Command,
 				Parameters: jobView.Parameters,
