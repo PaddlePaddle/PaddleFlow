@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package k8s
+package controller
 
 import (
 	"fmt"
@@ -30,8 +30,8 @@ const (
 	PVCSuffix = "-pvc"
 )
 
-// VolumeMount is a struct that contains volume information and its mounts in the pod spec
-type VolumeMount struct {
+// volumeMountInfo is a struct that contains volume information and its mounts in the pod spec
+type volumeMountInfo struct {
 	// POD UID is the unique in time and space value for the Pod
 	PodUID string
 
@@ -48,9 +48,8 @@ type VolumeMount struct {
 	ReadOnly bool
 }
 
-// GetVolumeMounts Get volume mounts information from the pod spec
-func GetVolumeMounts(pod *v1.Pod) []VolumeMount {
-	volumeMountMaps := make(map[string]VolumeMount)
+func getPodVolumeMounts(pod *v1.Pod) []volumeMountInfo {
+	volumeMountMaps := make(map[string]volumeMountInfo)
 	for _, v := range pod.Spec.Volumes {
 		pvc := v.PersistentVolumeClaim
 		if pvc == nil {
@@ -65,23 +64,23 @@ func GetVolumeMounts(pod *v1.Pod) []VolumeMount {
 
 		volumeName := fmt.Sprintf("%s-%s-pv", strings.TrimSuffix(v.PersistentVolumeClaim.ClaimName, PVCSuffix),
 			pod.Namespace)
-		volumeMountMaps[v.Name] = VolumeMount{
+		volumeMountMaps[v.Name] = volumeMountInfo{
 			PodUID:     string(pod.UID),
-			PFSID:      GetBmlVolumeIDByPVCName(v.PersistentVolumeClaim.ClaimName),
+			PFSID:      getPfsVolumeIDByPVCName(v.PersistentVolumeClaim.ClaimName),
 			ClaimName:  v.PersistentVolumeClaim.ClaimName,
 			VolumeName: volumeName,
 			ReadOnly:   v.PersistentVolumeClaim.ReadOnly,
 		}
 	}
 
-	var volumeMounts []VolumeMount
+	var volumeMounts []volumeMountInfo
 	for _, v := range volumeMountMaps {
 		volumeMounts = append(volumeMounts, v)
 	}
 	return volumeMounts
 }
 
-func GetBmlVolumeIDByPVCName(claimName string) string {
+func getPfsVolumeIDByPVCName(claimName string) string {
 	idRegexp := regexp.MustCompile(`^pfs-(.*)-pvc$`)
 	ids := idRegexp.FindStringSubmatch(claimName)
 	if len(ids) == 2 {

@@ -329,9 +329,9 @@ func parseArtifacts(atf ArtifactsJson) schema.Artifacts {
 		outputList = append(outputList, outputName)
 	}
 	res := schema.Artifacts{
-		Input:     atf.Input,
-		OutputMap: outputAritfacts,
-		Output:    outputList,
+		Input:      atf.Input,
+		Output:     outputAritfacts,
+		OutputList: outputList,
 	}
 	return res
 }

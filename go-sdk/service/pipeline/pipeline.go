@@ -79,25 +79,6 @@ func validatePipeline(pipeline *schema.WorkflowSource) (err error) {
 	return
 }
 
-/*
-sDec, err := base64.StdEncoding.DecodeString(req.RunYamlRaw)
-		if err != nil {
-			logger.Logger().Errorf("Decode raw runyaml is [%s] failed. err:%v", req.RunYamlRaw, err)
-			return schema.WorkflowSource{}, "", "", err
-		}
-		runYaml = string(sDec)
-		wfs := schema.WorkflowSource{}
-		if err := yaml.Unmarshal([]byte(runYaml), &wfs); err != nil {
-			logger.Logger().Errorf("Unmarshal runYaml to get source failed. yaml: %s \n, err:%v", runYaml, err)
-			return schema.WorkflowSource{}, "", "", err
-		}
-		// 目前只保存用户提交的yaml，因此这里获得的yaml直接舍去
-		source, _, err = getSourceAndYaml(wfs)
-		if err != nil {
-			logger.Logger().Errorf("get source and yaml by wrokFlowSource faild. err: %v", err)
-			return schema.WorkflowSource{}, "", "", err
-		}
-*/
 func TransPipelineToYamlRaw(p *Pipeline) (runYamlRaw string, err error) {
 	runYaml, err := yaml.Marshal(*p)
 	if err != nil {

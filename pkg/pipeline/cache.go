@@ -24,10 +24,9 @@ import (
 	"fmt"
 	"strings"
 
-	. "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
-
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	. "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 )
 
 // 为了序列化，所有字段名均需大写开头
@@ -146,13 +145,13 @@ func (cc *conservativeCacheCalculator) generateFirstCacheKey() error {
 		Parameters:      job.Parameters,
 		Command:         job.Command,
 		InputArtifacts:  job.Artifacts.Input,
-		OutputArtifacts: job.Artifacts.OutputMap,
+		OutputArtifacts: job.Artifacts.Output,
 		Env:             envWithoutSystmeEnv,
 		// job.Name 是全局唯一，step.name 是 run.yaml 内唯一
 		StepName: cc.step.name,
 	}
 
-	logMsg := fmt.Sprintf("FirstCacheKey: \nDockerEnv: %s, Parameters: %s, Command: %s, InputArtifacts: %s, OutputArtifacts: %s, Env: %s", cc.step.job.(*PaddleFlowJob).Image, job.Parameters, job.Command, job.Artifacts.Input, job.Artifacts.OutputMap, cacheKey.Env)
+	logMsg := fmt.Sprintf("FirstCacheKey: \nDockerEnv: %s, Parameters: %s, Command: %s, InputArtifacts: %s, OutputArtifacts: %s, Env: %s", cc.step.job.(*PaddleFlowJob).Image, job.Parameters, job.Command, job.Artifacts.Input, job.Artifacts.Output, cacheKey.Env)
 	cc.step.getLogger().Debugf(logMsg)
 
 	cc.firstCacheKey = &cacheKey

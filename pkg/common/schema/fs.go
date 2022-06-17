@@ -16,9 +16,14 @@ limitations under the License.
 
 package schema
 
-import "path"
+import (
+	"path"
+	"strings"
+)
 
 const (
+	PVNameTemplate  = "pfs-$(pfs.fs.id)-$(namespace)-pv"
+	PVCNameTemplate = "pfs-$(pfs.fs.id)-pvc"
 	FSIDFormat      = "$(pfs.fs.id)"
 	NameSpaceFormat = "$(namespace)"
 	FSID            = "pfs.fs.id"
@@ -43,4 +48,14 @@ func IsValidFsMetaDriver(metaDriver string) bool {
 
 func GetBindSource(fsID string) string {
 	return path.Join(PodMntDir, fsID, "storage")
+}
+
+func ConcatenatePVName(namespace, fsID string) string {
+	pvName := strings.Replace(PVNameTemplate, FSIDFormat, fsID, -1)
+	pvName = strings.Replace(pvName, NameSpaceFormat, namespace, -1)
+	return pvName
+}
+
+func ConcatenatePVCName(fsID string) string {
+	return strings.Replace(PVCNameTemplate, FSIDFormat, fsID, -1)
 }

@@ -56,10 +56,10 @@ func TestUpdateJobForFingerPrint(t *testing.T) {
 			fmt.Println(st.job.Job().Env)
 			assert.Equal(t, 2+6+2, len(st.job.Job().Env)) // 2 env + 6 sys param + 2 artifact
 
-			assert.Contains(t, st.job.Job().Artifacts.OutputMap, "train_data")
-			assert.Contains(t, st.job.Job().Artifacts.OutputMap, "validate_data")
-			assert.Equal(t, "", st.job.Job().Artifacts.OutputMap["train_data"])
-			assert.Equal(t, "", st.job.Job().Artifacts.OutputMap["validate_data"])
+			assert.Contains(t, st.job.Job().Artifacts.Output, "train_data")
+			assert.Contains(t, st.job.Job().Artifacts.Output, "validate_data")
+			assert.Equal(t, "", st.job.Job().Artifacts.Output["train_data"])
+			assert.Equal(t, "", st.job.Job().Artifacts.Output["validate_data"])
 
 			assert.Contains(t, st.job.Job().Env, "PF_OUTPUT_ARTIFACT_TRAIN_DATA")
 			assert.Contains(t, st.job.Job().Env, "PF_OUTPUT_ARTIFACT_VALIDATE_DATA")
@@ -83,8 +83,8 @@ func TestUpdateJobForFingerPrint(t *testing.T) {
 			assert.Contains(t, st.job.Job().Artifacts.Input, "train_data")
 			assert.Equal(t, "", st.job.Job().Artifacts.Input["train_data"])
 
-			assert.Contains(t, st.job.Job().Artifacts.OutputMap, "train_model")
-			assert.Equal(t, "", st.job.Job().Artifacts.OutputMap["train_model"])
+			assert.Contains(t, st.job.Job().Artifacts.Output, "train_model")
+			assert.Equal(t, "", st.job.Job().Artifacts.Output["train_model"])
 
 			assert.Contains(t, st.job.Job().Env, "PF_INPUT_ARTIFACT_TRAIN_DATA")
 			assert.Contains(t, st.job.Job().Env, "PF_OUTPUT_ARTIFACT_TRAIN_MODEL")
@@ -154,10 +154,10 @@ func TestUpdateJob(t *testing.T) {
 			fmt.Println(st.job.Job().Env)
 			assert.Equal(t, 2+6+2, len(st.job.Job().Env)) // 4 env + 6 sys param + 2 artifact
 
-			assert.Contains(t, st.job.Job().Artifacts.OutputMap, "train_data")
-			assert.Contains(t, st.job.Job().Artifacts.OutputMap, "validate_data")
-			assert.Equal(t, OutatfTrainData, st.job.Job().Artifacts.OutputMap["train_data"])
-			assert.Equal(t, OutatfValidateData, st.job.Job().Artifacts.OutputMap["validate_data"])
+			assert.Contains(t, st.job.Job().Artifacts.Output, "train_data")
+			assert.Contains(t, st.job.Job().Artifacts.Output, "validate_data")
+			assert.Equal(t, OutatfTrainData, st.job.Job().Artifacts.Output["train_data"])
+			assert.Equal(t, OutatfValidateData, st.job.Job().Artifacts.Output["validate_data"])
 
 			assert.Contains(t, st.job.Job().Env, "PF_OUTPUT_ARTIFACT_TRAIN_DATA")
 			assert.Contains(t, st.job.Job().Env, "PF_OUTPUT_ARTIFACT_VALIDATE_DATA")
@@ -182,8 +182,8 @@ func TestUpdateJob(t *testing.T) {
 			assert.Contains(t, st.job.Job().Artifacts.Input, "train_data")
 			assert.Equal(t, OutatfTrainData, st.job.Job().Artifacts.Input["train_data"])
 
-			assert.Contains(t, st.job.Job().Artifacts.OutputMap, "train_model")
-			assert.Equal(t, OutatfTrainModel, st.job.Job().Artifacts.OutputMap["train_model"])
+			assert.Contains(t, st.job.Job().Artifacts.Output, "train_model")
+			assert.Equal(t, OutatfTrainModel, st.job.Job().Artifacts.Output["train_model"])
 
 			assert.Contains(t, st.job.Job().Env, "PF_INPUT_ARTIFACT_TRAIN_DATA")
 			assert.Contains(t, st.job.Job().Env, "PF_OUTPUT_ARTIFACT_TRAIN_MODEL")
@@ -261,10 +261,10 @@ func TestUpdateJobWithCache(t *testing.T) {
 			fmt.Println(st.job.Job().Env)
 			assert.Equal(t, 2+6+2, len(st.job.Job().Env)) // 4 env + 6 sys param + 2 artifact
 
-			assert.Contains(t, st.job.Job().Artifacts.OutputMap, "train_data")
-			assert.Contains(t, st.job.Job().Artifacts.OutputMap, "validate_data")
-			assert.Equal(t, cacheOutatfTrainData, st.job.Job().Artifacts.OutputMap["train_data"])
-			assert.Equal(t, cacheOutatfValidateData, st.job.Job().Artifacts.OutputMap["validate_data"])
+			assert.Contains(t, st.job.Job().Artifacts.Output, "train_data")
+			assert.Contains(t, st.job.Job().Artifacts.Output, "validate_data")
+			assert.Equal(t, cacheOutatfTrainData, st.job.Job().Artifacts.Output["train_data"])
+			assert.Equal(t, cacheOutatfValidateData, st.job.Job().Artifacts.Output["validate_data"])
 
 			assert.Contains(t, st.job.Job().Env, "PF_OUTPUT_ARTIFACT_TRAIN_DATA")
 			assert.Contains(t, st.job.Job().Env, "PF_OUTPUT_ARTIFACT_VALIDATE_DATA")
@@ -288,8 +288,8 @@ func TestUpdateJobWithCache(t *testing.T) {
 			assert.Contains(t, st.job.Job().Artifacts.Input, "train_data")
 			assert.Equal(t, cacheOutatfTrainData, st.job.Job().Artifacts.Input["train_data"])
 
-			assert.Contains(t, st.job.Job().Artifacts.OutputMap, "train_model")
-			assert.Equal(t, OutatfTrainModel, st.job.Job().Artifacts.OutputMap["train_model"])
+			assert.Contains(t, st.job.Job().Artifacts.Output, "train_model")
+			assert.Equal(t, OutatfTrainModel, st.job.Job().Artifacts.Output["train_model"])
 
 			assert.Contains(t, st.job.Job().Env, "PF_INPUT_ARTIFACT_TRAIN_DATA")
 			assert.Contains(t, st.job.Job().Env, "PF_OUTPUT_ARTIFACT_TRAIN_MODEL")
@@ -337,7 +337,7 @@ func TestCheckCached(t *testing.T) {
 			"train_data":    "way/to/train_data",
 			"validate_data": "way/to/validate_data",
 		}
-		return schema.JobView{Artifacts: schema.Artifacts{OutputMap: outAtfs}}, nil
+		return schema.JobView{Artifacts: schema.Artifacts{Output: outAtfs}}, nil
 	}
 
 	// first fingerprint 查询返回为空

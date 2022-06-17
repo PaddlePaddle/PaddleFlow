@@ -22,13 +22,12 @@ import (
 	"regexp"
 	"strings"
 
-	. "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
-
 	"github.com/mitchellh/mapstructure"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	. "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 )
 
 type DictParam struct {
@@ -236,12 +235,12 @@ func (s *StepParamSolver) Solve(currentStep string, cacheOutputArtifacts map[str
 	}
 
 	// 3. output artifacts 由平台生成路径，所以在校验时，不会对其值进行校验（即使非空迟早也会被替换）
-	for outAtfName, _ := range step.Artifacts.OutputMap {
+	for outAtfName, _ := range step.Artifacts.Output {
 		realVal, err := s.solveOutputArtifactValue(currentStep, outAtfName, cacheOutputArtifacts)
 		if err != nil {
 			return err
 		}
-		step.Artifacts.OutputMap[outAtfName] = fmt.Sprintf("%v", realVal)
+		step.Artifacts.Output[outAtfName] = fmt.Sprintf("%v", realVal)
 	}
 
 	// 4. env 校验/更新
@@ -362,7 +361,7 @@ func (s *StepParamSolver) resolveRefParam(stepName, param, fieldType string) (in
 					// 处理command逻辑，command 可以引用 system parameter + step 内的 parameter + artifact
 					tmpVal, ok = currentStep.Artifacts.Input[refParamName]
 					if !ok {
-						tmpVal, ok = currentStep.Artifacts.OutputMap[refParamName]
+						tmpVal, ok = currentStep.Artifacts.Output[refParamName]
 						if !ok {
 							return "", fmt.Errorf("unsupported RefParamName[%s] for param[%s] of filedType[%s]", refParamName, param, fieldType)
 						}
@@ -397,7 +396,7 @@ func (s *StepParamSolver) refParamExist(currentStep, refStep, refParamName, fiel
 	ref := s.jobs[refStep].(*PaddleFlowJob)
 	switch fieldType {
 	case FieldInputArtifacts:
-		if refParamVal, ok := ref.Artifacts.OutputMap[refParamName]; ok {
+		if refParamVal, ok := ref.Artifacts.Output[refParamName]; ok {
 			return refParamVal, nil
 		}
 	default:
@@ -464,7 +463,7 @@ func (s *StepParamChecker) checkDuplication(currentStep string) error {
 		}
 	}
 
-	for outputAtfName, _ := range step.Artifacts.OutputMap {
+	for outputAtfName, _ := range step.Artifacts.Output {
 		outputAtfNameUpper := strings.ToUpper(outputAtfName)
 		_, ok := m[outputAtfNameUpper]
 		if ok {
@@ -533,10 +532,10 @@ func (s *StepParamChecker) Check(currentStep string) error {
 
 	// 3. output artifacts 由平台生成路径，所以在校验时，不会对其值进行校验（即使非空迟早也会被替换）
 	// 如果不使用Fs，不能定义outputAtf。因为inputAtf只能引用上游output Atf，所以只需要校验outputAtf即可。
-	if !s.useFs && len(step.Artifacts.OutputMap) > 0 {
+	if !s.useFs && len(step.Artifacts.Output) > 0 {
 		return fmt.Errorf("cannot define artifact in step[%s] with no Fs mounted", currentStep)
 	}
-	for outAtfName, _ := range step.Artifacts.OutputMap {
+	for outAtfName, _ := range step.Artifacts.Output {
 		if err = s.checkName(currentStep, FieldOutputArtifacts, outAtfName); err != nil {
 			return err
 		}
@@ -636,7 +635,7 @@ func (s *StepParamChecker) resolveRefParam(step, param, fieldType string) error 
 					// 处理command逻辑，command 可以引用 system parameter + step 内的 parameter + artifact
 					_, ok = s.steps[step].Artifacts.Input[refParamName]
 					if !ok {
-						_, ok = s.steps[step].Artifacts.OutputMap[refParamName]
+						_, ok = s.steps[step].Artifacts.Output[refParamName]
 						if !ok {
 							return fmt.Errorf("unsupported RefParamName[%s] for param[%s] of filedType[%s]", refParamName, param, fieldType)
 						}
@@ -686,7 +685,7 @@ func (s *StepParamChecker) refParamExist(currentStepName, refStepName, refParamN
 
 	switch fieldType {
 	case FieldInputArtifacts:
-		if _, ok := refStep.Artifacts.OutputMap[refParamName]; !ok {
+		if _, ok := refStep.Artifacts.Output[refParamName]; !ok {
 			return fmt.Errorf("invalid reference param {{ %s.%s }} in step[%s]: output artifact[%s] not exist", refStepName, refParamName, currentStepName, refParamName)
 		}
 	default:

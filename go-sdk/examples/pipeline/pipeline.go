@@ -35,7 +35,7 @@ func GetPipelineFromFile(filepath string) (p *pipeline.Pipeline) {
 	for name, step := range p.EntryPoints {
 		fmt.Println(name)
 		fmt.Println("input", step.Artifacts.Input)
-		fmt.Println("output", step.Artifacts.Output)
+		fmt.Println("output", step.Artifacts.OutputList)
 	}
 
 	return p

@@ -45,17 +45,17 @@ const (
 )
 
 type Artifacts struct {
-	Input     map[string]string `yaml:"input"       json:"input"`
-	OutputMap map[string]string `yaml:"-"           json:"output"`
-	Output    []string          `yaml:"output"      json:"-"`
+	Input      map[string]string `yaml:"input"       json:"input"`
+	Output     map[string]string `yaml:"-"           json:"output"`
+	OutputList []string          `yaml:"output"      json:"-"`
 }
 
 func (atf *Artifacts) ValidateOutputMapByList() error {
-	if atf.OutputMap == nil {
-		atf.OutputMap = make(map[string]string)
+	if atf.Output == nil {
+		atf.Output = make(map[string]string)
 	}
-	for _, outputName := range atf.Output {
-		atf.OutputMap[outputName] = ""
+	for _, outputName := range atf.OutputList {
+		atf.Output[outputName] = ""
 	}
 	return nil
 }
@@ -239,20 +239,6 @@ func (wfs *WorkflowSource) ValidateStepCacheByMap(runMap map[string]interface{})
 	return nil
 }
 
-func ParseWorkflowSource(runYaml []byte) (WorkflowSource, error) {
-	wfs, err := ParseWorkflowSourceWithOutTransOutputArtifact(runYaml)
-	if err != nil {
-		return wfs, err
-	}
-
-	// 将List格式的OutputArtifact，转换为Map格式
-	if err := wfs.validateArtifacts(); err != nil {
-		return WorkflowSource{}, err
-	}
-
-	return wfs, nil
-}
-
 func ParseWorkflowSourceWithOutTransOutputArtifact(runYaml []byte) (WorkflowSource, error) {
 	wfs := WorkflowSource{
 		FailureOptions: FailureOptions{Strategy: FailureStrategyFailFast},
@@ -264,6 +250,11 @@ func ParseWorkflowSourceWithOutTransOutputArtifact(runYaml []byte) (WorkflowSour
 	// 为了判断用户是否设定节点级别的Cache，需要第二次Unmarshal
 	yamlMap, err := runYaml2Map(runYaml)
 	if err != nil {
+		return WorkflowSource{}, err
+	}
+
+	// 将List格式的OutputArtifact，转换为Map格式
+	if err := wfs.validateArtifacts(); err != nil {
 		return WorkflowSource{}, err
 	}
 

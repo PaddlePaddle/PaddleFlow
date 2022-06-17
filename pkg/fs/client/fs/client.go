@@ -91,7 +91,7 @@ type FSClient interface {
 	Stat(path string) (os.FileInfo, error)
 }
 
-func NewFSClientWithServer(server string, fsID string) (FSClient, error) {
+func NewFSClientWithServer(server, fsID string) (FSClient, error) {
 	return newFSClient(server, fsID)
 }
 
