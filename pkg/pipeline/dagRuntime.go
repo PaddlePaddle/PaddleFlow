@@ -60,17 +60,9 @@ func generateDagID(runID string) string {
 }
 
 // TODO
-func NewDagRuntime(fullName string, component schema.Component, seq int, ctx context.Context, failureOpitonsCtx context.Context,
-	eventChannel chan<- WorkflowEvent, config *runConfig, parentDagID string) (*DagRuntime, error) {
-
-	_, ok := component.(*schema.WorkflowSourceDag)
-	if !ok {
-		err := fmt.Errorf("inner Error: cannont trans component[%s] to dag", fullName)
-		config.logger.Error(err.Error())
-		return nil, err
-	}
-
-	nrt := NewBaseComponentRuntime(fullName, component, seq, ctx, failureOpitonsCtx, eventChannel, config, parentDagID)
+func NewDagRuntime(fullName string, dag *schema.WorkflowSourceDag, seq int, ctx context.Context, failureOpitonsCtx context.Context,
+	eventChannel chan<- WorkflowEvent, config *runConfig, parentDagID string) *DagRuntime {
+	nrt := NewBaseComponentRuntime(fullName, dag, seq, ctx, failureOpitonsCtx, eventChannel, config, parentDagID)
 	res := NewReferenceSolver(config.WorkflowSource)
 
 	ID := generateDagID(config.runID)
@@ -86,15 +78,15 @@ func NewDagRuntime(fullName string, component schema.Component, seq int, ctx con
 	ds := NewDependencySolver(drt)
 	drt.DependencySolver = ds
 
-	return drt, nil
+	return drt
 }
 
 // NewDagRuntimeWithStatus: 在创建Runtime 的同时，指定runtime的状态
 // 主要用于重启或者父节点调度子节点的失败时调用， 将相关信息通过evnet 的方式同步给其父节点， 并同步至数据库中
-func newDagRuntimeWithStatus(fullName string, component schema.Component, seq int, ctx context.Context, failureOpitonsCtx context.Context,
+func newDagRuntimeWithStatus(fullName string, dag *schema.WorkflowSourceDag, seq int, ctx context.Context, failureOpitonsCtx context.Context,
 	eventChannel chan<- WorkflowEvent, config *runConfig, parentDagID string, status RuntimeStatus, msg string) *DagRuntime {
 	// 调用方在调用本函数前，需要保证 component 是一个 dag 类型的节点，所以此时NewDagRuntime 不应该会报错，故忽略该错误信息
-	drt, _ := NewDagRuntime(fullName, component, seq, ctx, failureOpitonsCtx, eventChannel, config, parentDagID)
+	drt := NewDagRuntime(fullName, dag, seq, ctx, failureOpitonsCtx, eventChannel, config, parentDagID)
 	drt.updateStatus(status)
 
 	view := drt.newView(msg)
@@ -205,7 +197,7 @@ func (drt *DagRuntime) createAndStartSubComponentRuntime(subComponentName string
 		dag, _ := subComponent.(*schema.WorkflowSourceDag)
 		for index := range loop_argument {
 			subFullName := drt.generateSubComponentFullName(subComponentName)
-			subDrt, _ := NewDagRuntime(subFullName, dag, index, drt.ctx, failureOptionsctx,
+			subDrt := NewDagRuntime(subFullName, dag, index, drt.ctx, failureOptionsctx,
 				drt.receiveEventChildren, drt.runConfig, drt.ID)
 			drt.subComponentRumtimes[subComponentName] = append(drt.subComponentRumtimes[subComponentName], subDrt)
 			drt.logger.Infof("begion to run Component[%s]", subDrt.name)
@@ -318,7 +310,7 @@ func (drt *DagRuntime) Listen() {
 	for {
 		select {
 		case event := <-drt.receiveEventChildren:
-			if err := drt.processEvent(event); err != nil {
+			if err := drt.processEventFromSubComponent(event); err != nil {
 				// how to read event?
 				drt.logger.Debugf("process event failed %s", err.Error())
 			}
@@ -384,14 +376,14 @@ func (drt *DagRuntime) GetSubComponentArtifactPaths(componentName string, artNam
 	return value, nil
 }
 
-// processEvent 处理 stepRuntime 推送过来的 run 的事件
+// processEventFromSubComponent 处理 stepRuntime 推送过来的 run 的事件
 // TODO: 进一步完善具体的逻辑
 // 对于异常处理的情况
 // 1. 提交失败，job id\status 都为空，视为 job 失败，更新 run message 字段
 // 2. watch 失败，状态不更新，更新 run message 字段；等 job 恢复服务之后，job watch 恢复，run 自动恢复调度
 // 3. stop 失败，状态不更新，run message 字段；需要用户根据提示再次调用 stop
 // 4. 如果有 job 的状态异常，将会走 FailureOptions 的处理逻辑
-func (drt *DagRuntime) processEvent(event WorkflowEvent) error {
+func (drt *DagRuntime) processEventFromSubComponent(event WorkflowEvent) error {
 	if drt.isDone() {
 		drt.logger.Debugf("workflow has completed. skip event")
 		return nil
@@ -564,7 +556,7 @@ func (drt *DagRuntime) processStartAbnormalStatus(msg string, status RuntimeStat
 	drt.syncToApiServerAndParent(WfEventDagUpdate, dagView, msg)
 }
 
-// processSubRuntimeError： 处理调度子节点失败的情况，通过调用processEvent()函数来进行同步
+// processSubRuntimeError： 处理调度子节点失败的情况，通过调用processEventFromSubComponent()函数来进行同步
 // TODO: 需要创建占位用的 runtime
 func (drt *DagRuntime) processSubRuntimeError(err error, cp schema.Component, status RuntimeStatus) {
 	componentName := cp.GetName()

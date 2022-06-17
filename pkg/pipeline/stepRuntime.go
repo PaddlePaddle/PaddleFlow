@@ -47,20 +47,24 @@ func generateJobName(runID, stepName string, seq int) string {
 func NewStepRuntime(fullName string, step *schema.WorkflowSourceStep, seq int, ctx context.Context,
 	failureOpitonsCtx context.Context, eventChannel chan<- WorkflowEvent, config *runConfig, ParentDagID string) *StepRuntime {
 	cr := NewBaseComponentRuntime(fullName, step, seq, ctx, failureOpitonsCtx, eventChannel, config, ParentDagID)
-	st := &StepRuntime{
+	srt := &StepRuntime{
 		baseComponentRuntime: cr,
 	}
 
 	jobName := generateJobName(config.runID, step.GetName(), seq)
-	job := NewPaddleFlowJob(jobName, st.DockerEnv)
-	st.job = job
+	job := NewPaddleFlowJob(jobName, srt.DockerEnv)
+	srt.job = job
 
-	st.logger.Debugf("step[%s] of runid[%s] before starting job: param[%s], env[%s], command[%s], artifacts[%s], deps[%s]",
-		st.component.GetName(), st.runID, st.component.(*schema.WorkflowSourceStep).Parameters,
-		st.component.(*schema.WorkflowSourceStep).Env, st.component.(*schema.WorkflowSourceStep).Command,
-		st.component.(*schema.WorkflowSourceStep).Artifacts, st.component.(*schema.WorkflowSourceStep).Deps)
+	srt.updateStatus(StatusRunttimePending)
+	srt.logger.Debugf("step[%s] of runid[%s] before starting job: param[%s], env[%s], command[%s], artifacts[%s], deps[%s]",
+		srt.getFullName(), srt.runID, step.Parameters, step.Env, step.Command, step.Artifacts, step.Deps)
 
-	return st
+	return srt
+}
+
+func (srt *StepRuntime) getWorkFlowStep() *schema.WorkflowSourceStep {
+	step := srt.getComponent().(*schema.WorkflowSourceStep)
+	return step
 }
 
 // NewStepRuntimeWithStaus: 在创建Runtime 的同时，指定runtime的状态
@@ -76,67 +80,59 @@ func newStepRuntimeWithStatus(fullName string, step *schema.WorkflowSourceStep, 
 	return srt
 }
 
-// TODO: Restart时会调用该函数
-var NewStepRuntimeWithView = func(sv schema.ComponentView) (*StepRuntime, error) {
-	return nil, nil
+func (str *StepRuntime) processStartWithError(err error, status RuntimeStatus) {
+	// TODO: 1、更新节点状态， 2、生成 event 将相关信息同步至父节点
+	str.updateStatus(status)
 }
 
-func (str *StepRuntime) Start() {
-	str.started = true
+func (srt *StepRuntime) Start() {
+	// 1、替换 condition，loop_argument 中的模板，将其替换成具体真实值
+	conditon, err := srt.CalculateCondition()
+	if err != nil {
+		errMsg := fmt.Sprintf("caculate the condition field for component[%s] faild:\n%s",
+			srt.CompoentFullName, err.Error())
+		srt.logger.Errorln(errMsg)
+		srt.syncToApiServerAndParent(WfEventJobSubmitErr)
+		srt.processStartAbnormalStatus(errMsg, StatusRuntimeSkipped)
+	}
 
-	str.Execute()
+	if !conditon {
+		skipMsg := fmt.Sprintf("the result of condition for Component [%s] is false, skip running", srt.CompoentFullName)
+		srt.logger.Infoln(skipMsg)
+		srt.processStartAbnormalStatus(skipMsg, StatusRuntimeSkipped)
+		return
+	}
+
+	if srt.isDisabled() {
+		skipMsg := fmt.Sprintf("Component [%s] is disabled, skip running", srt.CompoentFullName)
+		srt.logger.Infoln(skipMsg)
+		srt.processStartAbnormalStatus(skipMsg, StatusRuntimeSkipped)
+	}
+	srt.Execute()
 }
 
 // 主要用于断电重启
 // TODO: 待进一步完善
-func (st *StepRuntime) Resume() {
+func (srt *StepRuntime) Resume() {
 	// TODO： 这里主要是为了占位， 是否真的有必要？
-	if st.job.Started() {
-		if st.job.NotEnded() {
-			logMsg := fmt.Sprintf("start to recover job[%s] of step[%s] with runid[%s]", st.job.(*PaddleFlowJob).ID, st.component.GetName(), st.runID)
-			st.logger.Infof(logMsg)
+	if srt.job.Started() {
+		if srt.job.NotEnded() {
+			logMsg := fmt.Sprintf("start to recover job[%s] of step[%s] with runid[%s]", srt.job.(*PaddleFlowJob).ID, srt.component.GetName(), srt.runID)
+			srt.logger.Infof(logMsg)
 
-			st.parallelismManager.increase()
-			st.Watch()
+			srt.parallelismManager.increase()
+			srt.Watch()
 			return
 		}
 	}
 
-	st.Execute()
+	srt.Execute()
 }
 
 func (st *StepRuntime) update(done bool, submitted bool, job Job) {
 	st.done = done
 	st.submitted = submitted
 	st.job = job
-}
-
-func (st *StepRuntime) generateStepParamSolver(forCacheFingerprint bool) (*StepParamSolver, error) {
-	SourceSteps := make(map[string]*schema.WorkflowSourceStep)
-	jobs := make(map[string]Job)
-
-	var steps map[string]*StepRuntime
-	if st.nodeType == NodeTypeEntrypoint {
-		steps = st.wfr.entryPoints
-	} else {
-		steps = st.wfr.postProcess
-	}
-
-	for _, step := range steps {
-		SourceSteps[step.name] = steps[step.name].info
-		jobs[step.name] = steps[step.name].job
-	}
-
-	var sysParams = map[string]string{
-		SysParamNamePFRunID:    st.runID,
-		SysParamNamePFStepName: st.component.GetName(),
-		SysParamNamePFFsID:     st.fsID,
-		SysParamNamePFFsName:   st.fsName,
-		SysParamNamePFUserName: st.userName,
-	}
-
-	paramSolver := NewStepParamSolver(SourceSteps, sysParams, jobs, forCacheFingerprint, st.wfr.wf.Source.Name, st.runID, st.fsID, st.logger)
-	return &paramSolver, nil
 }
 
 func (st *StepRuntime) updateJob(forCacheFingerprint bool, cacheOutputArtifacts map[string]string) error {
@@ -188,7 +184,7 @@ func (st *StepRuntime) updateJob(forCacheFingerprint bool, cacheOutputArtifacts 
 }
 
 func (st *StepRuntime) logInputArtifact() {
-	for atfName, atfValue := range st.component.(*schema.WorkflowSourceStep).Artifacts.Input {
+	for atfName, atfValue := range st.getComponent().GetArtifacts().Input {
 		req := schema.LogRunArtifactRequest{
 			RunID:        st.runID,
 			FsID:         st.fsID,
@@ -233,18 +229,6 @@ func (st *StepRuntime) logOutputArtifact() {
 			break
 		}
 	}
-}
-
-// 获取输出artifact的路径
-func (st *StepRuntime) getOutputArtifactPath(outputArtifactName string) (path string) {
-	return st.component.(*schema.WorkflowSourceStep).Artifacts.Output[outputArtifactName]
-}
-
-// 获取输入artifact的内容
-// 要求输入Artifact为一个文件，不能是目录
-func (st *StepRuntime) GetInputArtifactContent(inputArtifactName string) (string, error) {
-	// TODO
-	return "", nil
 }
 
 func (st *StepRuntime) checkCached() (cacheFound bool, err error) {
@@ -579,26 +563,6 @@ func (st *StepRuntime) Watch() {
 	}
 }
 
-/*
-// JobView is view of job info responded to user, while Job is for pipeline and job engine to process
-type JobView struct {
-	JobID       string            `json:"jobID"`
-	JobName     string            `json:"name"`
-	Command     string            `json:"command"`
-	Parameters  map[string]string `json:"parameters"`
-	Env         map[string]string `json:"env"`
-	StartTime   string            `json:"startTime"`
-	EndTime     string            `json:"endTime"`
-	Status      JobStatus         `json:"status"`
-	Deps        string            `json:"deps"`
-	DockerEnv   string            `json:"dockerEnv"`
-	Artifacts   Artifacts         `json:"artifacts"`
-	Cache       Cache             `json:"cache"`
-	JobMessage  string            `json:"jobMessage"`
-	CacheRunID  string            `json:"cacheRunID"`
-	ParentDagID string            `json:"parentDagID"`
-}
-*/
 func (srt *StepRuntime) newJobView(msg string) schema.JobView {
 	return schema.JobView{}
 
