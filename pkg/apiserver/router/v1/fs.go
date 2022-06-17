@@ -133,15 +133,17 @@ func validateCreateFileSystem(ctx *logger.RequestContext, req *api.CreateFileSys
 		ctx.ErrorCode = common.AuthFailed
 		return fmt.Errorf("userName is empty")
 	}
-	matchBool, err := regexp.MatchString(fmt.Sprintf("^[a-zA-Z0-9_]{1,%d}$", FsNameMaxLen), req.Name)
+	matchBool, err := regexp.MatchString(fmt.Sprintf("^[a-zA-Z0-9_-]{1,%d}$", FsNameMaxLen), req.Name)
 	if err != nil {
 		ctx.Logging().Errorf("regexp err[%v]", err)
 		ctx.ErrorCode = common.FileSystemNameFormatError
+		ctx.ErrorMessage = err.Error()
 		return err
 	}
 	if !matchBool {
 		ctx.Logging().Errorf("regexp match failed with fsName[%s]", req.Name)
 		ctx.ErrorCode = common.FileSystemNameFormatError
+		ctx.ErrorMessage = common.InvalidField("name", fmt.Sprintf("fsName[%s] must be letters or numbers and fsName maximum length is %d", req.Name, FsNameMaxLen)).Error()
 		return common.InvalidField("name", fmt.Sprintf("fsName[%s] must be letters or numbers and fsName maximum length is %d", req.Name, FsNameMaxLen))
 	}
 
