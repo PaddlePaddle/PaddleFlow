@@ -20,8 +20,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 	"io/ioutil"
 	"mime/multipart"
 	"net/http"
@@ -36,7 +34,10 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/middleware"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 )
 
 var mockUserName = "mockUser"
@@ -107,8 +108,8 @@ func CreateTestUser(ctx *logger.RequestContext, username, password string) (stri
 		fmt.Printf("CreateTestUser failed EncodePassWord. err:%v\n", err)
 		return "", err
 	}
-	root := db_service.User{
-		UserInfo: db_service.UserInfo{
+	root := models.User{
+		UserInfo: models.UserInfo{
 			Name:     username,
 			Password: encrypted,
 		},

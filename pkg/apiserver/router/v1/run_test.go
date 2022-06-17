@@ -17,7 +17,6 @@ limitations under the License.
 package v1
 
 import (
-	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 	"net/http"
 	"testing"
 
@@ -27,10 +26,12 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/run"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 )
 
-func getMockRun1() db_service.Run {
-	run1 := db_service.Run{
+func getMockRun1() models.Run {
+	run1 := models.Run{
 		ID:       MockRunID1,
 		Name:     MockRunName1,
 		UserName: MockRootUser,
@@ -41,8 +42,8 @@ func getMockRun1() db_service.Run {
 	return run1
 }
 
-func getMockRun1_3() db_service.Run {
-	run1 := db_service.Run{
+func getMockRun1_3() models.Run {
+	run1 := models.Run{
 		ID:       MockRunID3,
 		Name:     "",
 		UserName: MockRootUser,
@@ -53,8 +54,8 @@ func getMockRun1_3() db_service.Run {
 	return run1
 }
 
-func getMockRun2() db_service.Run {
-	run2 := db_service.Run{
+func getMockRun2() models.Run {
+	run2 := models.Run{
 		ID:       MockRunID2,
 		Name:     MockRunName2,
 		UserName: MockNormalUser,
@@ -78,7 +79,7 @@ func TestGetRunRouter(t *testing.T) {
 	result, err := PerformGetRequest(router, url)
 	assert.Nil(t, err)
 	assert.Equal(t, http.StatusOK, result.Code)
-	runRsp := db_service.Run{}
+	runRsp := models.Run{}
 	err = ParseBody(result.Body, &runRsp)
 	assert.Nil(t, err)
 	assert.Equal(t, run1.ID, runRsp.ID)
