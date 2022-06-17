@@ -106,6 +106,7 @@ func (s *Scheduler) Start() {
 	for {
 		select {
 		case opInfo := <-s.OpsChannel:
+			log.Infof("begin deal with op[%v]", opInfo)
 			toUpdate, tmpNextWakeupTime, err = s.dealWithOps(opInfo)
 			if err != nil {
 				log.Errorf("scheduler deal with op[%v] failed, %s", opInfo, err.Error())
@@ -113,6 +114,7 @@ func (s *Scheduler) Start() {
 			}
 		case <-timeout:
 			// 在循环过程中，发起任务不需要检查catchup配置（肯定catchup==true）
+			log.Infof("begin deal with timeout")
 			tmpNextWakeupTime, err = s.dealWithTimout(false)
 			if err != nil {
 				log.Errorf("scheduler deal with timeout failed, %s", err.Error())
@@ -120,6 +122,7 @@ func (s *Scheduler) Start() {
 			}
 			toUpdate = true
 		case scheduleID := <-s.ConcurrencyChannel:
+			log.Infof("begin deal with concurrency change of schedule[%s]", scheduleID)
 			toUpdate, tmpNextWakeupTime, err = s.dealWithConcurrency(scheduleID, nextWakeupTime)
 			if err != nil {
 				log.Errorf("scheduler deal with cncurrency change of schedule[%s] failed, %s", scheduleID, err.Error())
