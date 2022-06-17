@@ -100,6 +100,7 @@ func (s *Scheduler) Start() {
 		return
 	}
 	timeout := s.getTimeout(nextWakeupTime)
+	log.Infof("after initialization: nextWakeupTime[%s]", nextWakeupTime.Format("2006-01-02 15:04:05"))
 
 	var toUpdate bool
 	var tmpNextWakeupTime *time.Time

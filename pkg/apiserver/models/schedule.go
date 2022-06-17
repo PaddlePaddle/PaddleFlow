@@ -357,12 +357,12 @@ func findExectableRunBeforeCurrentTime(schedule Schedule, currentTime time.Time,
 		catchup = false
 	}
 
-	log.Debugf("findExectableRunBeforeCurrentTime with catchup[%t]", catchup)
+	log.Infof("findExectableRunBeforeCurrentTime with catchup[%t], init totalCount[%d], schedule[%v]", catchup, totalCount, schedule)
 
 	nextRunAt := schedule.NextRunAt
 	expire_interval_durtion := time.Duration(options.ExpireInterval) * time.Second
 	for checkNextRunAt(nextRunAt, currentTime, schedule.EndAt) {
-		log.Debugf("start to check schedule[%s] at %s, with schedule.EndAt[%s]", schedule.ID, nextRunAt.Format("2006-01-02 15:04:05"), schedule.EndAt.Time.Format("2006-01-02 15:04:05"))
+		log.Infof("start to check schedule[%s] at %s, with schedule.EndAt[%s]", schedule.ID, nextRunAt.Format("2006-01-02 15:04:05"), schedule.EndAt.Time.Format("2006-01-02 15:04:05"))
 		if catchup == true {
 			if options.ExpireInterval == 0 || !nextRunAt.Add(expire_interval_durtion).Before(currentTime) {
 				if options.Concurrency == 0 || totalCount < options.Concurrency {
@@ -434,7 +434,7 @@ func GetAvailableSchedule(logEntry *log.Entry, checkCatchup bool) (killMap map[s
 	nextWakeupTime = nil
 
 	currentTime := time.Now()
-	logEntry.Debugf("begin to search available schedule before [%s]", currentTime.Format("01-02-2006 15:04:05"))
+	logEntry.Infof("begin to search available schedule before [%s]", currentTime.Format("01-02-2006 15:04:05"))
 
 	schedules, err := GetSchedules(logEntry, ScheduleStatusRunning)
 	if err != nil {
@@ -463,7 +463,7 @@ func GetAvailableSchedule(logEntry *log.Entry, checkCatchup bool) (killMap map[s
 			return nil, nil, nil, err
 		}
 
-		logEntry.Debugf("after findExectableRunBeforeCurrentTime, execMap[%v], notEndedCount:[%d]", execMap, notEndedCount)
+		logEntry.Infof("after findExectableRunBeforeCurrentTime, execMap[%v], notEndedCount:[%d]", execMap, notEndedCount)
 
 		// Concurrency != 0，即存在并发度限制，而且ConcurrencyPolicy == replace时，有可能【待发起任务 + 运行中任务】>= concurrency
 		// 此时判断是否需要截取一部分待运行任务，以及停止一些已经启动的任务
