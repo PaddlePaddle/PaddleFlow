@@ -3,17 +3,17 @@ package pipeline
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 	"io/ioutil"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
 
-	gomonkey "github.com/agiledragon/gomonkey/v2"
+	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 )
 
@@ -341,8 +341,8 @@ func TestCheckCached(t *testing.T) {
 	}
 
 	// first fingerprint 查询返回为空
-	mockCbs.ListCacheCb = func(firstFp, fsID, step, yamlPath string) ([]db_service.RunCache, error) {
-		return []db_service.RunCache{}, nil
+	mockCbs.ListCacheCb = func(firstFp, fsID, step, yamlPath string) ([]models.RunCache, error) {
+		return []models.RunCache{}, nil
 	}
 
 	extra := GetExtra()
@@ -376,9 +376,9 @@ func TestCheckCached(t *testing.T) {
 
 	// first fingerprint 查询返回非空，但是second fingerprint不一致
 	updateTime := time.Now().Add(time.Second * time.Duration(-1*100))
-	mockCbs.ListCacheCb = func(firstFp, fsID, step, yamlPath string) ([]db_service.RunCache, error) {
-		return []db_service.RunCache{
-			db_service.RunCache{FirstFp: "1111", SecondFp: "3333", RunID: "run-000027", UpdatedAt: updateTime, ExpiredTime: "-1"},
+	mockCbs.ListCacheCb = func(firstFp, fsID, step, yamlPath string) ([]models.RunCache, error) {
+		return []models.RunCache{
+			models.RunCache{FirstFp: "1111", SecondFp: "3333", RunID: "run-000027", UpdatedAt: updateTime, ExpiredTime: "-1"},
 		}, nil
 	}
 
@@ -396,9 +396,9 @@ func TestCheckCached(t *testing.T) {
 
 	// first fingerprint 查询返回非空，但是cache已经过时
 	updateTime = time.Now().Add(time.Second * time.Duration(-1*500))
-	mockCbs.ListCacheCb = func(firstFp, fsID, step, yamlPath string) ([]db_service.RunCache, error) {
-		return []db_service.RunCache{
-			db_service.RunCache{FirstFp: "1111", SecondFp: "2222", RunID: "run-000027", UpdatedAt: updateTime, ExpiredTime: "300"},
+	mockCbs.ListCacheCb = func(firstFp, fsID, step, yamlPath string) ([]models.RunCache, error) {
+		return []models.RunCache{
+			models.RunCache{FirstFp: "1111", SecondFp: "2222", RunID: "run-000027", UpdatedAt: updateTime, ExpiredTime: "300"},
 		}, nil
 	}
 
@@ -416,9 +416,9 @@ func TestCheckCached(t *testing.T) {
 
 	// first fingerprint 查询返回非空，且命中expired time为-1的cache记录
 	updateTime = time.Now().Add(time.Second * time.Duration(-1*100))
-	mockCbs.ListCacheCb = func(firstFp, fsID, step, yamlPath string) ([]db_service.RunCache, error) {
-		return []db_service.RunCache{
-			db_service.RunCache{FirstFp: "1111", SecondFp: "2222", RunID: "run-000027", UpdatedAt: updateTime, ExpiredTime: "-1"},
+	mockCbs.ListCacheCb = func(firstFp, fsID, step, yamlPath string) ([]models.RunCache, error) {
+		return []models.RunCache{
+			models.RunCache{FirstFp: "1111", SecondFp: "2222", RunID: "run-000027", UpdatedAt: updateTime, ExpiredTime: "-1"},
 		}, nil
 	}
 
@@ -436,9 +436,9 @@ func TestCheckCached(t *testing.T) {
 
 	// first fingerprint 查询返回非空，且命中expired time不为-1，但依然有效的cache记录
 	updateTime = time.Now().Add(time.Second * time.Duration(-1*100))
-	mockCbs.ListCacheCb = func(firstFp, fsID, step, yamlPath string) ([]db_service.RunCache, error) {
-		return []db_service.RunCache{
-			db_service.RunCache{FirstFp: "1111", SecondFp: "2222", RunID: "run-000027", UpdatedAt: updateTime, ExpiredTime: "300"},
+	mockCbs.ListCacheCb = func(firstFp, fsID, step, yamlPath string) ([]models.RunCache, error) {
+		return []models.RunCache{
+			models.RunCache{FirstFp: "1111", SecondFp: "2222", RunID: "run-000027", UpdatedAt: updateTime, ExpiredTime: "300"},
 		}, nil
 	}
 

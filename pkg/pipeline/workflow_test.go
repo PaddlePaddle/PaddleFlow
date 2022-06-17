@@ -18,8 +18,6 @@ package pipeline
 
 import (
 	"fmt"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/service/db_service"
 	"reflect"
 	"regexp"
 	"testing"
@@ -29,7 +27,9 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/models"
 	pplcommon "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 )
 
@@ -48,8 +48,8 @@ var mockCbs = WorkflowCallbacks{
 	LogCacheCb: func(req schema.LogRunCacheRequest) (string, error) {
 		return "cch-000027", nil
 	},
-	ListCacheCb: func(firstFp, fsID, step, yamlPath string) ([]db_service.RunCache, error) {
-		return []db_service.RunCache{db_service.RunCache{RunID: "run-000027"}, db_service.RunCache{RunID: "run-000028"}}, nil
+	ListCacheCb: func(firstFp, fsID, step, yamlPath string) ([]models.RunCache, error) {
+		return []models.RunCache{models.RunCache{RunID: "run-000027"}, models.RunCache{RunID: "run-000028"}}, nil
 	},
 }
 
