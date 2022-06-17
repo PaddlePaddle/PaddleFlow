@@ -126,8 +126,8 @@ func TestListQueue(t *testing.T) {
 		t.Error(err)
 	} else {
 		for _, queue := range queues.QueueList {
-			assert.Equal(t, queue.ClusterName, MockClusterName)
-			assert.Equal(t, queue.Namespace, MockNamespace)
+			assert.Equal(t, "", queue.ClusterName) // ClusterName not from db, from clusterInfo
+			assert.Equal(t, MockNamespace, queue.Namespace)
 		}
 	}
 }
