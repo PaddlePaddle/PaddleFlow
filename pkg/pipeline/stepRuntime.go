@@ -57,7 +57,7 @@ func NewStepRuntime(fullName string, step *schema.WorkflowSourceStep, seq int, c
 
 	srt.updateStatus(StatusRunttimePending)
 	srt.logger.Debugf("step[%s] of runid[%s] before starting job: param[%s], env[%s], command[%s], artifacts[%s], deps[%s]",
-		srt.getFullName(), srt.runID, step.Parameters, step.Env, step.Command, step.Artifacts, step.Deps)
+		srt.getName(), srt.runID, step.Parameters, step.Env, step.Command, step.Artifacts, step.Deps)
 
 	return srt
 }
@@ -80,53 +80,48 @@ func newStepRuntimeWithStatus(fullName string, step *schema.WorkflowSourceStep, 
 	return srt
 }
 
-func (str *StepRuntime) processStartWithError(err error, status RuntimeStatus) {
+func (srt *StepRuntime) processStartAbnormalStatus(msg string, status RuntimeStatus) {
 	// TODO: 1、更新节点状态， 2、生成 event 将相关信息同步至父节点
-	str.updateStatus(status)
+	srt.updateStatus(status)
+
+	view := srt.newJobView(msg)
+
+	srt.syncToApiServerAndParent(WfEventJobUpdate, view, msg)
 }
 
 func (srt *StepRuntime) Start() {
-	// 1、替换 condition，loop_argument 中的模板，将其替换成具体真实值
+	// 1、计算 condition
 	conditon, err := srt.CalculateCondition()
 	if err != nil {
 		errMsg := fmt.Sprintf("caculate the condition field for component[%s] faild:\n%s",
-			srt.CompoentFullName, err.Error())
+			srt.getName(), err.Error())
+
 		srt.logger.Errorln(errMsg)
-		srt.syncToApiServerAndParent(WfEventJobSubmitErr)
-		srt.processStartAbnormalStatus(errMsg, StatusRuntimeSkipped)
+		srt.processStartAbnormalStatus(errMsg, StatusRuntimeFailed)
 	}
 
-	if !conditon {
-		skipMsg := fmt.Sprintf("the result of condition for Component [%s] is false, skip running", srt.CompoentFullName)
+	if conditon {
+		skipMsg := fmt.Sprintf("the result of condition for Component [%s] is true, skip running", srt.getName())
 		srt.logger.Infoln(skipMsg)
 		srt.processStartAbnormalStatus(skipMsg, StatusRuntimeSkipped)
 		return
 	}
 
+	// 判断节点是否被 disabled
 	if srt.isDisabled() {
-		skipMsg := fmt.Sprintf("Component [%s] is disabled, skip running", srt.CompoentFullName)
+		skipMsg := fmt.Sprintf("Component [%s] is disabled, skip running", srt.getName())
 		srt.logger.Infoln(skipMsg)
 		srt.processStartAbnormalStatus(skipMsg, StatusRuntimeSkipped)
 	}
+
+	// 监听channel, 及时除了时间
+	go srt.Listen()
+
 	srt.Execute()
 }
 
-// 主要用于断电重启
-// TODO: 待进一步完善
-func (srt *StepRuntime) Resume() {
-	// TODO： 这里主要是为了占位， 是否真的有必要？
-	if srt.job.Started() {
-		if srt.job.NotEnded() {
-			logMsg := fmt.Sprintf("start to recover job[%s] of step[%s] with runid[%s]", srt.job.(*PaddleFlowJob).ID, srt.component.GetName(), srt.runID)
-			srt.logger.Infof(logMsg)
-
-			srt.parallelismManager.increase()
-			srt.Watch()
-			return
-		}
-	}
-
-	srt.Execute()
+func (srt StepRuntime) Listen() {
+	return
 }
 
 func (st *StepRuntime) update(done bool, submitted bool, job Job) {
@@ -135,51 +130,58 @@ func (st *StepRuntime) update(done bool, submitted bool, job Job) {
 	st.job = job
 }
 
-func (st *StepRuntime) updateJob(forCacheFingerprint bool, cacheOutputArtifacts map[string]string) error {
-	// 替换parameters， command， envs
-	// 这个为啥要在这里替换，而不是在runtime初始化的时候呢？因为后续可能支持上游动态模板值。
-	paramSolver, err := st.generateStepParamSolver(forCacheFingerprint)
-	if err != nil {
+func (srt *StepRuntime) updateJob(forCacheFingerprint bool) error {
+	// 替换command, envs, parameter 与 artifact 已经在创建Step前便已经替换完成
+	// 这个为啥要在这里替换，而不是在runtime初始化的时候呢？ 计算cache 需要进行的替换和运行时进行的替换有些许不同
+
+	// 替换env
+	if err := srt.innerSolver.resolveEnv(forCacheFingerprint); err != nil {
 		return err
 	}
 
-	if err := paramSolver.Solve(st.component.GetName(), cacheOutputArtifacts); err != nil {
+	// 替换command
+	if err := srt.innerSolver.resolveCommand(forCacheFingerprint); err != nil {
 		return err
 	}
 
 	var params = make(map[string]string)
-	for paramName, paramValue := range st.component.(*schema.WorkflowSourceStep).Parameters {
+	for paramName, paramValue := range srt.GetParameters() {
 		params[paramName] = fmt.Sprintf("%v", paramValue)
 	}
 
 	artifacts := schema.Artifacts{Input: map[string]string{}, Output: map[string]string{}}
-	for atfName, atfValue := range st.info.Artifacts.Input {
+	for atfName, atfValue := range srt.GetArtifacts().Input {
 		artifacts.Input[atfName] = atfValue
 	}
-	for atfName, atfValue := range st.info.Artifacts.Output {
+	for atfName, atfValue := range srt.GetArtifacts().Output {
 		artifacts.Output[atfName] = atfValue
 	}
 
 	// 获取替换后的 env, 替换后，将内置参数也添加到环境变量中
 	var newEnvs = make(map[string]string)
-	for envName, envVal := range st.info.Env {
+	for envName, envVal := range srt.getWorkFlowStep().Env {
 		newEnvs[envName] = envVal
 	}
-	sysParams := paramSolver.getSysParams()
-	for integratedParam, integratedParamVal := range sysParams {
-		newEnvs[integratedParam] = integratedParamVal
-	}
-	// artifact 也添加到环境变量中
-	for atfName, atfValue := range st.info.Artifacts.Input {
-		newEnvs[GetInputArtifactEnvName(atfName)] = atfValue
-	}
-	for atfName, atfValue := range st.info.Artifacts.Output {
-		newEnvs[GetOutputArtifactEnvName(atfName)] = atfValue
+
+	// 对于 cache 相关场景，下面的信息无需添加到环境变量中
+	if !forCacheFingerprint {
+		sysParams := srt.sysParams
+		for integratedParam, integratedParamVal := range sysParams {
+			newEnvs[integratedParam] = integratedParamVal
+		}
+
+		// artifact 也添加到环境变量中
+		for atfName, atfValue := range srt.GetArtifacts().Input {
+			newEnvs[GetInputArtifactEnvName(atfName)] = atfValue
+		}
+		for atfName, atfValue := range srt.GetArtifacts().Output {
+			newEnvs[GetOutputArtifactEnvName(atfName)] = atfValue
+		}
 	}
 
-	st.job.Update(st.info.Command, params, newEnvs, &artifacts)
-	st.logger.Debugf("step[%s] of runid[%s]: param[%s], artifacts[%s], command[%s], env[%s]",
-		st.component.GetName(), st.runID, params, st.info.Artifacts, st.info.Command, newEnvs)
+	srt.job.Update(srt.getWorkFlowStep().Command, params, newEnvs, &artifacts)
+	srt.logger.Debugf("step[%s] after resolve template: param[%s], artifacts[%s], command[%s], env[%s]",
+		srt.componentFullName, params, artifacts, srt.getWorkFlowStep().Command, newEnvs)
 	return nil
 }
 
@@ -231,47 +233,47 @@ func (st *StepRuntime) logOutputArtifact() {
 	}
 }
 
-func (st *StepRuntime) checkCached() (cacheFound bool, err error) {
+func (srt *StepRuntime) checkCached() (cacheFound bool, err error) {
 	/*
 		计算cache key，并查看是否存在可用的cache
 	*/
 
 	// check Cache前，先替换参数（参数替换逻辑与运行前的参数替换逻辑不一样）
 	forCacheFingerprint := true
-	err = st.updateJob(forCacheFingerprint, nil)
+	err = srt.updateJob(forCacheFingerprint)
 	if err != nil {
 		return false, err
 	}
 
-	err = st.job.Validate()
+	err = srt.job.Validate()
 	if err != nil {
 		return false, err
 	}
 
-	cacheCaculator, err := NewCacheCalculator(*st, st.Cache)
+	cacheCaculator, err := NewCacheCalculator(*srt, srt.Cache)
 	if err != nil {
 		return false, err
 	}
 
-	st.firstFingerprint, err = cacheCaculator.CalculateFirstFingerprint()
+	srt.firstFingerprint, err = cacheCaculator.CalculateFirstFingerprint()
 	if err != nil {
 		return false, err
 	}
 
-	runCacheList, err := st.callbacks.ListCacheCb(st.firstFingerprint, st.fsID, st.component.GetName(), st.pplSource)
+	runCacheList, err := srt.callbacks.ListCacheCb(srt.firstFingerprint, srt.fsID, srt.component.GetName(), srt.pplSource)
 	if err != nil {
 		return false, err
 	}
 	if len(runCacheList) == 0 {
 		// 这里不能直接返回，因为还要计算secondFingerprint，用来在节点运行成功时，记录到数据库
-		logMsg := fmt.Sprintf("cache list empty for step[%s] in runid[%s], with first fingerprint[%s]", st.component.GetName(), st.runID, st.firstFingerprint)
-		st.logger.Infof(logMsg)
+		logMsg := fmt.Sprintf("cache list empty for step[%s] in runid[%s], with first fingerprint[%s]", srt.component.GetName(), srt.runID, srt.firstFingerprint)
+		srt.logger.Infof(logMsg)
 	} else {
-		logMsg := fmt.Sprintf("cache list length(%d) for step[%s] in runid[%s], with first fingerprint[%s]", len(runCacheList), st.component.GetName(), st.runID, st.firstFingerprint)
-		st.logger.Infof(logMsg)
+		logMsg := fmt.Sprintf("cache list length(%d) for step[%s] in runid[%s], with first fingerprint[%s]", len(runCacheList), srt.component.GetName(), srt.runID, srt.firstFingerprint)
+		srt.logger.Infof(logMsg)
 	}
 
-	st.secondFingerprint, err = cacheCaculator.CalculateSecondFingerprint()
+	srt.secondFingerprint, err = cacheCaculator.CalculateSecondFingerprint()
 	if err != nil {
 		return false, err
 	}
@@ -279,7 +281,7 @@ func (st *StepRuntime) checkCached() (cacheFound bool, err error) {
 	cacheFound = false
 	var cacheRunID string
 	for _, runCache := range runCacheList {
-		if st.secondFingerprint == runCache.SecondFp {
+		if srt.secondFingerprint == runCache.SecondFp {
 			if runCache.ExpiredTime == CacheExpiredTimeNever {
 				cacheFound = true
 				cacheRunID = runCache.RunID
@@ -288,39 +290,50 @@ func (st *StepRuntime) checkCached() (cacheFound bool, err error) {
 				runCacheExpiredTime, _ := strconv.Atoi(runCache.ExpiredTime)
 				expiredTime := runCache.UpdatedAt.Add(time.Second * time.Duration(runCacheExpiredTime))
 				logMsg := fmt.Sprintf("runCache.SecondFp: %s, runCacheExpiredTime: %d, runCache.UpdatedAt: %s, expiredTime: %s, time.Now(): %s", runCache.SecondFp, runCacheExpiredTime, runCache.UpdatedAt, expiredTime, time.Now())
-				st.logger.Infof(logMsg)
+				srt.logger.Infof(logMsg)
 				if time.Now().Before(expiredTime) {
 					logMsg := fmt.Sprintf("time.now() before expiredTime")
-					st.logger.Infof(logMsg)
+					srt.logger.Infof(logMsg)
 					cacheFound = true
 					cacheRunID = runCache.RunID
 					break
 				} else {
 					logMsg := fmt.Sprintf("time.now() after expiredTime")
-					st.logger.Infof(logMsg)
+					srt.logger.Infof(logMsg)
 				}
 			}
 		}
 	}
 
 	if cacheFound {
-		jobView, err := st.callbacks.GetJobCb(cacheRunID, st.component.GetName())
+		jobView, err := srt.callbacks.GetJobCb(cacheRunID, srt.component.GetName())
 		if err != nil {
 			return false, err
 		}
 
 		forCacheFingerprint := false
-		err = st.updateJob(forCacheFingerprint, jobView.Artifacts.Output)
+		for name, _ := range srt.GetArtifacts().Output {
+			value, ok := jobView.Artifacts.Output[name]
+			if !ok {
+				err := fmt.Errorf("cannot get the output Artifact[%s] path for component[%s] from cache job[%s] of run[%s]",
+					name, srt.componentFullName, jobView.JobID, srt.CacheRunID)
+				return false, err
+			}
+
+			srt.GetArtifacts().Output[name] = value
+		}
+
+		err = srt.updateJob(forCacheFingerprint)
 		if err != nil {
 			return false, err
 		}
 
-		st.CacheRunID = cacheRunID
-		logMsg := fmt.Sprintf("cache found in former runid[%s] for step[%s] of runid[%s], with fingerprint[%s] and [%s]", cacheRunID, st.component.GetName(), st.runID, st.firstFingerprint, st.secondFingerprint)
-		st.logger.Infof(logMsg)
+		srt.CacheRunID = cacheRunID
+		logMsg := fmt.Sprintf("cache found in former runid[%s] for step[%s] of runid[%s], with fingerprint[%s] and [%s]", cacheRunID, srt.component.GetName(), srt.runID, srt.firstFingerprint, srt.secondFingerprint)
+		srt.logger.Infof(logMsg)
 	} else {
-		logMsg := fmt.Sprintf("NO cache found for step[%s] in runid[%s], with fingerprint[%s] and [%s]", st.component.GetName(), st.runID, st.firstFingerprint, st.secondFingerprint)
-		st.logger.Infof(logMsg)
+		logMsg := fmt.Sprintf("NO cache found for step[%s] in runid[%s], with fingerprint[%s] and [%s]", srt.component.GetName(), srt.runID, srt.firstFingerprint, srt.secondFingerprint)
+		srt.logger.Infof(logMsg)
 	}
 	return cacheFound, nil
 }
@@ -352,132 +365,123 @@ func (st *StepRuntime) logCache() error {
 
 }
 
-func (st *StepRuntime) updateJobStatus(eventValue WfEventValue, jobStatus schema.JobStatus, logMsg string) {
-	if jobStatus == schema.StatusJobFailed {
-		st.logger.Errorf(logMsg)
-	} else {
-		st.logger.Infof(logMsg)
-	}
+// 运行步骤
+func (srt *StepRuntime) Execute() {
+	logMsg := fmt.Sprintf("start execute step[%s] with runid[%s]", srt.component.GetName(), srt.runID)
+	srt.logger.Infof(logMsg)
 
-	extra := map[string]interface{}{
-		"preStatus": st.job.(*PaddleFlowJob).Status,
-		"status":    jobStatus,
-		"jobid":     st.job.(*PaddleFlowJob).ID,
-		"step":      st,
-	}
-
-	st.job.(*PaddleFlowJob).Message = logMsg
-	st.job.(*PaddleFlowJob).Status = jobStatus
-	if jobStatus == schema.StatusJobCancelled || jobStatus == schema.StatusJobFailed || jobStatus == schema.StatusJobSucceeded || jobStatus == schema.StatusJobSkipped {
-		st.done = true
-	}
-
-	wfe := NewWorkflowEvent(eventValue, logMsg, extra)
-	st.sendEventToParent <- *wfe
-}
-
-// 步骤执行
-func (st *StepRuntime) Execute() {
-	// 计算Condition字段的值，判断当前步骤是否需要执行
-	if condition := st.CalculateCondition(); condition {
-		logMsg := fmt.Sprintf("step[%s] with runid[%s] would be cancelled due to condition is false", st.component.GetName(), st.runID)
-		st.updateJobStatus(WfEventJobUpdate, schema.StatusJobSkipped, logMsg)
-		return
-	}
-
-	logMsg := fmt.Sprintf("start execute step[%s] with runid[%s]", st.component.GetName(), st.runID)
-	st.logger.Infof(logMsg)
-
-	if st.isDisabled() {
-		logMsg = fmt.Sprintf("step[%s] with runid[%s] is disabled, skip running", st.component.GetName(), st.runID)
-		st.updateJobStatus(WfEventJobUpdate, schema.StatusJobSkipped, logMsg)
-		return
-	}
-
-	if st.Cache.Enable {
-		cachedFound, err := st.checkCached()
+	// 1、 查看是否命中cache
+	if srt.Cache.Enable {
+		cachedFound, err := srt.checkCached()
 		if err != nil {
-			logMsg = fmt.Sprintf("check cache for step[%s] with runid[%s] failed: [%s]", st.component.GetName(), st.runID, err.Error())
-			st.updateJobStatus(WfEventJobUpdate, schema.StatusJobFailed, logMsg)
+			logMsg = fmt.Sprintf("check cache for step[%s] with runid[%s] failed: [%s]", srt.component.GetName(), srt.runID, err.Error())
+			srt.updateJobStatus(WfEventJobUpdate, schema.StatusJobFailed, logMsg)
 			return
 		}
 
 		if cachedFound {
 			for {
-				jobView, err := st.callbacks.GetJobCb(st.CacheRunID, st.component.GetName())
+				jobView, err := srt.callbacks.GetJobCb(srt.CacheRunID, srt.component.GetName())
 				if err != nil {
 					// TODO: 此时是否应该继续运行，创建一个新的Job？
-					st.updateJobStatus(WfEventJobUpdate, schema.StatusJobFailed, err.Error())
+					srt.processStartAbnormalStatus(err.Error(), schema.StatusJobFailed)
 					break
 				}
 
 				cacheStatus := jobView.Status
 				if cacheStatus == schema.StatusJobFailed || cacheStatus == schema.StatusJobSucceeded {
 					// 通过讲workflow event传回去，就能够在runtime中callback，将job更新后的参数存到数据库中
-					logMsg = fmt.Sprintf("skip job for step[%s] in runid[%s], use cache of runid[%s]", st.component.GetName(), st.runID, st.CacheRunID)
-					st.updateJobStatus(WfEventJobUpdate, cacheStatus, logMsg)
+					logMsg = fmt.Sprintf("skip job for step[%s] in runid[%s], use cache of runid[%s]",
+						srt.component.GetName(), srt.runID, srt.CacheRunID)
+
+					srt.processStartAbnormalStatus(logMsg, cacheStatus)
 					return
-				} else if cacheStatus == schema.StatusJobInit || cacheStatus == schema.StatusJobPending || cacheStatus == schema.StatusJobRunning || cacheStatus == schema.StatusJobTerminating {
+
+				} else if cacheStatus == schema.StatusJobInit || cacheStatus == schema.StatusJobPending ||
+					cacheStatus == schema.StatusJobRunning || cacheStatus == schema.StatusJobTerminating {
 					time.Sleep(time.Second * 3)
 				} else {
 					// 如果过往job的状态属于其他状态，如 StatusJobTerminated StatusJobCancelled，则无视该cache，继续运行当前job
 					// 不过按照正常逻辑，不存在处于Cancelled，但是有cache的job，这里单纯用于兜底
 
 					// 命中cachekey的时候，已经将cacheRunID添加了，但是此时不会利用cache记录，所以要删掉该字段
-					st.CacheRunID = ""
+					srt.CacheRunID = ""
 					break
 				}
 			}
 		}
 
-		err = st.logCache()
+		err = srt.logCache()
 		if err != nil {
-			st.updateJobStatus(WfEventJobUpdate, schema.StatusJobFailed, err.Error())
+			srt.updateJobStatus(WfEventJobUpdate, schema.StatusJobFailed, err.Error())
 			return
 		}
 	}
 
+	// 2、更新outputArtifact 的path
+	if len(srt.GetArtifacts().Output) != 0 {
+		rh, err := NewResourceHandler(srt.runID, srt.fsID, srt.logger)
+		if err != nil {
+			logMsg = fmt.Sprintf("cannot generate output artifact's path for step[%s]: %s", srt.name, err.Error())
+			srt.logger.Error(logMsg)
+			srt.processStartAbnormalStatus(logMsg, StatusRuntimeFailed)
+			return
+		}
+
+		for artName, _ := range srt.GetArtifacts().Output {
+			artPath, err := rh.generateOutAtfPath(srt.runConfig.WorkflowSource.Name, srt.name, artName, true)
+			if err != nil {
+				logMsg = fmt.Sprintf("cannot generate output artifact[%s] for step[%s] path: %s",
+					artName, srt.name, err.Error())
+				srt.logger.Error(logMsg)
+				srt.processStartAbnormalStatus(logMsg, StatusRuntimeFailed)
+				return
+			}
+
+			srt.GetArtifacts().Output[artName] = artPath
+		}
+	}
 	// 节点运行前，先替换参数（参数替换逻辑与check Cache的参数替换逻辑不一样，多了一步替换output artifact，并利用output artifact参数替换command以及添加到env）
 	forCacheFingerprint := false
-	err := st.updateJob(forCacheFingerprint, nil)
+	err := srt.updateJob(forCacheFingerprint)
 	if err != nil {
-		logMsg = fmt.Sprintf("update output artifacts value for step[%s] with runid[%s] failed: [%s]", st.component.GetName(), st.runID, err.Error())
-		st.updateJobStatus(WfEventJobUpdate, schema.StatusJobFailed, logMsg)
+		logMsg = fmt.Sprintf("update output artifacts value for step[%s] with runid[%s] failed: [%s]", srt.component.GetName(), srt.runID, err.Error())
+		srt.updateJobStatus(WfEventJobUpdate, schema.StatusJobFailed, logMsg)
 		return
 	}
 
-	err = st.job.Validate()
+	err = srt.job.Validate()
 	if err != nil {
-		logMsg = fmt.Sprintf("validating step[%s] with runid[%s] failed: [%s]", st.component.GetName(), st.runID, err.Error())
-		st.updateJobStatus(WfEventJobUpdate, schema.StatusJobFailed, logMsg)
+		logMsg = fmt.Sprintf("validating step[%s] with runid[%s] failed: [%s]", srt.component.GetName(), srt.runID, err.Error())
+		srt.updateJobStatus(WfEventJobUpdate, schema.StatusJobFailed, logMsg)
 		return
 	}
 
-	st.parallelismManager.increase() // 如果达到并行Job上限，将会Block
+	srt.parallelismManager.increase() // 如果达到并行Job上限，将会Block
 
 	// 有可能在跳出block的时候，run已经结束了，此时直接退出，不发起
-	if st.ctx.Err() != nil {
-		st.parallelismManager.decrease()
+	if srt.ctx.Err() != nil {
+		srt.parallelismManager.decrease()
 		logMsg = fmt.Sprintf("context of step[%s] with runid[%s] has stopped with msg:[%s], no need to execute",
-			st.component.GetName(), st.runID, st.ctx.Err())
-		st.updateJobStatus(WfEventJobUpdate, schema.StatusJobCancelled, logMsg)
+			srt.component.GetName(), srt.runID, srt.ctx.Err())
+		srt.updateJobStatus(WfEventJobUpdate, schema.StatusJobCancelled, logMsg)
 		return
 	}
 
 	// todo: 正式运行前，需要将更新后的参数更新到数据库中（通过传递workflow event到runtime即可）
-	_, err = st.job.Start()
+	_, err = srt.job.Start()
 	if err != nil {
 		// 异常处理，塞event，不返回error是因为统一通过channel与run沟通
 		// todo：要不要改成WfEventJobUpdate的event？
-		logMsg = fmt.Sprintf("start job for step[%s] with runid[%s] failed: [%s]", st.component.GetName(), st.runID, err.Error())
-		st.updateJobStatus(WfEventJobSubmitErr, schema.StatusJobFailed, logMsg)
+		logMsg = fmt.Sprintf("start job for step[%s] with runid[%s] failed: [%s]", srt.component.GetName(), srt.runID, err.Error())
+		srt.updateJobStatus(WfEventJobSubmitErr, schema.StatusJobFailed, logMsg)
 		return
 	}
-	st.logger.Debugf("step[%s] of runid[%s]: jobID[%s]", st.component.GetName(), st.runID, st.job.(*PaddleFlowJob).ID)
+	srt.logger.Debugf("step[%s] of runid[%s]: jobID[%s]", srt.component.GetName(), srt.runID, srt.job.(*PaddleFlowJob).ID)
 
-	st.logInputArtifact()
+	srt.logInputArtifact()
 	// watch不需要做异常处理，因为在watch函数里面已经做了
-	st.Watch()
+	srt.Watch()
 }
 
 func (st *StepRuntime) stopJob() {

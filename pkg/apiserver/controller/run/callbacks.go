@@ -44,7 +44,7 @@ var workflowCallbacks = pipeline.WorkflowCallbacks{
 
 var (
 	GetJobFunc        func(runID string, stepName string) (schema.JobView, error)         = GetJobByRun
-	UpdateRuntimeFunc func(id string, event interface{}) (string, bool)                   = UpdateRuntimeByWfEvent
+	UpdateRuntimeFunc func(id string, event interface{}) (int64, bool)                    = UpdateRuntimeByWfEvent
 	LogCacheFunc      func(req schema.LogRunCacheRequest) (string, error)                 = LogCache
 	ListCacheFunc     func(firstFp, fsID, step, source string) ([]models.RunCache, error) = ListCacheByFirstFp
 	LogArtifactFunc   func(req schema.LogRunArtifactRequest) error                        = LogArtifactEvent
@@ -72,7 +72,7 @@ func GetJobByRun(runID string, stepName string) (schema.JobView, error) {
 	return jobView, fmt.Errorf(errMsg)
 }
 
-func UpdateRuntimeByWfEvent(id string, event interface{}) (string, bool) {
+func UpdateRuntimeByWfEvent(id string, event interface{}) (int64, bool) {
 	// TODO: 根据 event.enventType 字段判断更新的 View 类型（Job， DAG， Run）
 	// 如果没有传递 id 为空字符串，则说明此时对应的数据在 数据库中没有记录，需要新创建一条记录，否则更新相关记录就行
 	logging := logger.LoggerForRun(id)
@@ -95,7 +95,7 @@ func UpdateRuntimeByWfEvent(id string, event interface{}) (string, bool) {
 		logging.Debugf("run[%s] has reached final status[%s]", runID, status)
 		delete(wfMap, runID)
 	}
-	runtime, ok := wfEvent.Extra[common.WfEventKeyRuntime].(schema.RuntimeView)
+	runtime, ok := wfEvent.Extra[common.WfEventKeyView].(schema.RuntimeView)
 	if !ok {
 		logging.Errorf("run[%s] malformat runtime", id)
 		return id, false

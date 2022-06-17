@@ -26,7 +26,7 @@ const (
 	WfEventError  WfEventType = "Error"    // 异常事件类型，影响业务运行，例如其他模块函数返回异常
 
 	// 事件值
-	WfEventFailureOptionsTriggered WfEventValue = "failureOpitons"
+	WfEventFailureOptionsTriggered WfEventValue = "FailureOpitons"
 	WfEventJobUpdate               WfEventValue = "JobUpdate"
 	WfEventRunUpdate               WfEventValue = "RunUpdate"
 	WfEventDagUpdate               WfEventValue = "DagUpdate"

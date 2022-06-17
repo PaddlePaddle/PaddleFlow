@@ -79,20 +79,6 @@ func NewInnerSolver(cp schema.Component, fullName string, config *runConfig) *in
 	}
 }
 
-// validateTemplate: 校验模板的合法性
-// command, env, condition, loop_argument 只能引用当前
-/*
-func (isv *innerSolver) validateTemplate(template []string) (string, error) {
-	refStepName, refParamName := parseParamName(template[2])
-	if len(refStepName) == 0 || refStepName == isv.ComponentName {
-		return refParamName, nil
-	}
-
-	err := fmt.Errorf("component's env, command, condition, and loop_argument cannot ref other component's parameter or artifact")
-	return "", err
-}
-*/
-
 // resloveParameterTemplate: 将字符串中 sysParam 和 parameter 模板替换成真实值
 // PS: 在 替换 loop_arguments 中的引用模板时，需要保留原始的类型信息，所以增加了 transToString 这个参数，表明是否要将对应 parameter 强转成 string
 func (isv *innerSolver) resloveParameterTemplate(tpl []string, fieldType string) (interface{}, error) {
@@ -129,12 +115,20 @@ func (isv *innerSolver) updateSysParam(paraDict map[string]string) {
 }
 
 // resolveArtifactTemplate： 将ArtifactTemplate 替换成对应路径或者其中的内容
-func (isv *innerSolver) resolveArtifactTemplate(tpl []string, fieldType string) (string, error) {
+func (isv *innerSolver) resolveArtifactTemplate(tpl []string, fieldType string, forCache bool) (string, error) {
 	_, refParamName := parseTemplate(tpl[2])
 
-	// 1. 获取输入artifact的路径
 	var result string
 	var err error
+
+	// 如果是在处理 cache 阶段时进行模板替换，此时对于输出artifact的的模板则不应该进行替换
+	if forCache {
+		_, ok := isv.GetArtifacts().Output[refParamName]
+		if ok {
+			return tpl[0], nil
+		}
+	}
+
 	if fieldType != FieldCondition && fieldType != FieldLoopArguemt {
 		result, err = isv.GetArtifactPath(refParamName)
 		if err != nil {
@@ -163,7 +157,7 @@ func (isv *innerSolver) resolveArtifactTemplate(tpl []string, fieldType string) 
 }
 
 // resolveEnv: 将字符串中给定模板替换成具体值
-func (isv *innerSolver) resolveTemplate(tplString string, fieldType string) (interface{}, error) {
+func (isv *innerSolver) resolveTemplate(tplString string, fieldType string, forCache bool) (interface{}, error) {
 	tpls, err := fetchTemplate(tplString)
 	if err != nil {
 		return "", err
@@ -183,7 +177,7 @@ func (isv *innerSolver) resolveTemplate(tplString string, fieldType string) (int
 
 		var value interface{}
 		var err error
-		// 1、 尝试按照 Parameter / sysParameter tpl 的方式进行解析，此时如果tpl为 artifact 模板，怎会报错，因此，此时我们会忽略err
+		// 1、 尝试按照 Parameter / sysParameter tpl 的方式进行解析，此时如果tpl为 artifact 模板，肯定会报错
 		value, err = isv.resloveParameterTemplate(tpl, fieldType)
 		if err != nil {
 			// env 字段中只允许引用parameter/sysParameter 模板
@@ -194,7 +188,7 @@ func (isv *innerSolver) resolveTemplate(tplString string, fieldType string) (int
 			}
 
 			// 2、尝试按照 artifact tpl 的方式进行解析
-			value, err = isv.resolveArtifactTemplate(tpl, fieldType)
+			value, err = isv.resolveArtifactTemplate(tpl, fieldType, forCache)
 			if err != nil {
 				err = fmt.Errorf("cannot not resolve Template[%s] for component[%s] in %s field.",
 					tpl[0], isv.componentFullName, fieldType)
@@ -213,10 +207,10 @@ func (isv *innerSolver) resolveTemplate(tplString string, fieldType string) (int
 }
 
 // resolveEnv: 替换 env 字段的中的template
-func (isv *innerSolver) resolveEnv() error {
+func (isv *innerSolver) resolveEnv(forCache bool) error {
 	// 调用方需要保证此时的 component 是一个Step
 	for name, value := range isv.Component.(*schema.WorkflowSourceStep).Env {
-		newValue, err := isv.resolveTemplate(value, FieldEnv)
+		newValue, err := isv.resolveTemplate(value, FieldEnv, forCache)
 		if err != nil {
 			return err
 		}
@@ -225,10 +219,10 @@ func (isv *innerSolver) resolveEnv() error {
 	return nil
 }
 
-func (isv *innerSolver) resolveCommand() error {
+func (isv *innerSolver) resolveCommand(forCache bool) error {
 	// 调用方需要保证此时的 component 是一个Step
 	command := isv.Component.(*schema.WorkflowSourceStep).Command
-	newCommand, err := isv.resolveTemplate(command, FieldCommand)
+	newCommand, err := isv.resolveTemplate(command, FieldCommand, forCache)
 	if err != nil {
 		return err
 	}
@@ -239,7 +233,7 @@ func (isv *innerSolver) resolveCommand() error {
 
 func (isv *innerSolver) resolveCondition() error {
 	condition := isv.Component.GetCondition()
-	newCondition, err := isv.resolveTemplate(condition, FieldCondition)
+	newCondition, err := isv.resolveTemplate(condition, FieldCondition, false)
 	if err != nil {
 		return err
 	}
@@ -260,7 +254,7 @@ func (isv *innerSolver) resolveLoopArugment() error {
 		return nil
 	}
 
-	newLoopArgument, err := isv.resolveTemplate(loopArgumentString, FieldLoopArguemt)
+	newLoopArgument, err := isv.resolveTemplate(loopArgumentString, FieldLoopArguemt, false)
 	if err != nil {
 		return err
 	}
@@ -285,30 +279,6 @@ func (isv *innerSolver) resolveLoopArugment() error {
 	isv.Component.UpdateLoopArguemt(newLoopArgument.([]interface{}))
 	return nil
 }
-
-/**
-// ResolveStep： 解析 Step 类型节点的 env，command
-func (isv *innerSolver) ResolveStep() error {
-	// TODO： 系统环境变量 PF_LOOP_ARGUMEG 依赖与 LoopArgument, 因此，对于 loop argument 需要额外处理
-	var resolveFunc []func() error
-
-	_, ok := isv.Component.(*schema.WorkflowSourceStep)
-	if ok {
-		resolveFunc = []func() error{isv.resolveEnv, isv.resolveCommand, isv.resolveCondition, isv.resolveLoopArugment}
-	} else {
-		resolveFunc = []func() error{isv.resolveCondition, isv.resolveLoopArugment}
-	}
-
-	for index := range resolveFunc {
-		err := resolveFunc[index]()
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-***/
 
 // 用于解析可能存在依赖关系的模版
 // 如 parameter，artifact 字段，因为其有可能会引用上游节点，以及父节点（子节点） 的相关信息

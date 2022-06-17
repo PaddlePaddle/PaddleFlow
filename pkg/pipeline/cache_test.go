@@ -18,9 +18,10 @@ package pipeline
 
 import (
 	"fmt"
-	. "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 	"strings"
 	"testing"
+
+	. "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 
 	"github.com/stretchr/testify/assert"
 
@@ -95,7 +96,7 @@ func mockBaseJob() BaseJob {
 		"num":        "1200",
 	}
 	return BaseJob{
-		Id:         "1234",
+		ID:         "1234",
 		Name:       "run1-predict",
 		Command:    "python3 predict.py /class/model",
 		Parameters: map[string]string{"epoch": "1", "batch_size": "128"},
