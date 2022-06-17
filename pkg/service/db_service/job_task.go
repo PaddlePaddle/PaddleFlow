@@ -12,7 +12,7 @@ import (
 
 func GetJobTaskByID(id string) (models.JobTask, error) {
 	var taskStatus models.JobTask
-	tx := database.DB.Model(&models.RunCache{}).Where("id = ?", id).First(&taskStatus)
+	tx := database.DB.Model(&models.JobTask{}).Where("id = ?", id).First(&taskStatus)
 	if tx.Error != nil {
 		logger.LoggerForJob(id).Errorf("get job task status failed, err %v", tx.Error.Error())
 		return models.JobTask{}, tx.Error
@@ -25,7 +25,7 @@ func UpdateTask(task *models.JobTask) error {
 		return fmt.Errorf("JobTask is nil")
 	}
 	// TODO: change update task logic
-	tx := database.DB.Model(&models.RunCache{}).Clauses(clause.OnConflict{
+	tx := database.DB.Model(&models.JobTask{}).Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "id"}},
 		DoUpdates: clause.AssignmentColumns([]string{"status", "message", "ext_runtime_status", "deleted_at"}),
 	}).Create(task)
@@ -34,7 +34,7 @@ func UpdateTask(task *models.JobTask) error {
 
 func ListByJobID(jobID string) ([]models.JobTask, error) {
 	var jobList []models.JobTask
-	err := database.DB.Model(&models.RunCache{}).Where("job_id = ?", jobID).Find(&jobList).Error
+	err := database.DB.Model(&models.JobTask{}).Where("job_id = ?", jobID).Find(&jobList).Error
 	if err != nil {
 		return nil, err
 	}
