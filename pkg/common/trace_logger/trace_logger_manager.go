@@ -53,6 +53,14 @@ type traceLog struct {
 	Time  time.Time    `json:"time"`
 }
 
+func (t traceLog) String() string {
+	return fmt.Sprintf("[%s] %s - %s: %s", t.Level, t.Time, t.Key, t.Msg)
+}
+
+func (t Trace) String() string {
+	return fmt.Sprint(t.logs)
+}
+
 type TraceLogger interface {
 	// logger interface
 	Infof(format string, args ...interface{})
@@ -65,15 +73,16 @@ type TraceLogger interface {
 	// trace interface
 	CommitTraceWithKey(key string) error
 	CommitTrace() error
-	SetKey(key string) error
+	SetKey(key string)
 	RollbackTrace() error
 }
 
 type TraceLoggerManager interface {
-	NewTraceLogger() (TraceLogger, error)
+	NewTraceLogger() TraceLogger
 
-	GetTraceFromCache(key string) (*Trace, bool)
-	SetTraceToCache(key string, trace *Trace) error
+	GetTraceFromCache(key string) (Trace, bool)
+	GetAllTraceFromCache() []Trace
+	SetTraceToCache(key string, trace Trace) error
 
 	SyncAll() error
 	LoadAll() error
@@ -85,7 +94,7 @@ type TraceLoggerManager interface {
 // implementation for trace logger
 
 type defaultTraceLogger struct {
-	trace   *Trace
+	trace   Trace
 	key     string
 	manager TraceLoggerManager
 }
@@ -136,17 +145,15 @@ func (d *defaultTraceLogger) CommitTrace() error {
 
 // SetKey
 // it won't return error for now
-func (d *defaultTraceLogger) SetKey(key string) error {
+func (d *defaultTraceLogger) SetKey(key string) {
 	d.key = key
-	for _, traceLog := range d.trace.logs {
-		traceLog.Key = key
+	for i := range d.trace.logs {
+		d.trace.logs[i].Key = key
 	}
-	return nil
 }
 
 func (d *defaultTraceLogger) RollbackTrace() error {
 	// noting to do here
-	d.trace = nil
 	return nil
 }
 
@@ -175,7 +182,7 @@ func NewDefaultTraceLoggerManager() *DefaultTraceLoggerManager {
 	}
 }
 
-func (d *DefaultTraceLoggerManager) StoreTraceToFile(trace *Trace) {
+func (d *DefaultTraceLoggerManager) StoreTraceToFile(trace Trace) {
 	for _, traceLog := range trace.logs {
 		d.storeTraceLogToFile(traceLog)
 	}
@@ -187,21 +194,34 @@ func (d *DefaultTraceLoggerManager) storeTraceLogToFile(traceLog traceLog) {
 	}).WithTime(traceLog.Time).WithTime(traceLog.Time).Log(traceLog.Level, traceLog.Msg)
 }
 
-func (d *DefaultTraceLoggerManager) NewTraceLogger() (TraceLogger, error) {
+func (d *DefaultTraceLoggerManager) NewTraceLogger() TraceLogger {
 	return &defaultTraceLogger{
-		trace:   &Trace{},
+		trace:   Trace{},
 		manager: d,
-	}, nil
+	}
 }
 
-func (d *DefaultTraceLoggerManager) GetTraceFromCache(key string) (*Trace, bool) {
+func (d *DefaultTraceLoggerManager) GetTraceFromCache(key string) (Trace, bool) {
 	// add lock
 	d.RLock()
 	defer d.RUnlock()
 	val, ok := d.cache.Get(key)
-	return val.(*Trace), ok
+	return val.(Trace), ok
 }
-func (d *DefaultTraceLoggerManager) SetTraceToCache(key string, trace *Trace) (err error) {
+
+func (d *DefaultTraceLoggerManager) GetAllTraceFromCache() []Trace {
+	d.RLock()
+	defer d.RUnlock()
+
+	vals := d.cache.Values()
+	traces := make([]Trace, len(vals), len(vals))
+	for i := range vals {
+		traces[i] = vals[i].(Trace)
+	}
+	return traces
+}
+
+func (d *DefaultTraceLoggerManager) SetTraceToCache(key string, trace Trace) (err error) {
 	// add lock
 	d.Lock()
 	defer d.Unlock()
@@ -245,7 +265,7 @@ func (d *DefaultTraceLoggerManager) SyncAll() error {
 	// log trace
 	for iter.Next() {
 		val := iter.Value()
-		trace := val.(*Trace)
+		trace := val.(Trace)
 		d.StoreTraceToFile(trace)
 	}
 
@@ -271,6 +291,7 @@ func (d *DefaultTraceLoggerManager) AutoDelete(timeout, duration time.Duration) 
 			case <-d.cancelChan:
 				return
 			case <-time.After(duration):
+				fmt.Println("auto delete")
 				d.deleteTraceFromCacheBefore(timeout)
 			}
 		}
@@ -302,7 +323,7 @@ func (d *DefaultTraceLoggerManager) deleteTraceFromCacheBefore(timeout time.Dura
 	// find the timeBefore first
 
 	_ = iter.NextTo(func(key interface{}, value interface{}) bool {
-		trace := value.(*Trace)
+		trace := value.(Trace)
 
 		// if time after timeBefore, stop iterating
 		return trace.time.After(timeBefore)
