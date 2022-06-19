@@ -33,7 +33,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database/dbinit"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
-	pkgPplCommon "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 )
 
 const (
@@ -43,6 +42,61 @@ const (
 	MockFsID       = "root-mockFs"
 )
 
+func insertPipeline(t *testing.T, logEntry *log.Entry) (pplID1, pplID2, pplDetailID1, pplDetailID2 string) {
+	ppl1 := models.Pipeline{
+		Name:     "ppl1",
+		Desc:     "ppl1",
+		UserName: "user1",
+	}
+	pplDetail1 := models.PipelineDetail{
+		FsID:         "user1-fsname",
+		FsName:       "fsname",
+		YamlPath:     "./run.yml",
+		PipelineYaml: "ddddd",
+		PipelineMd5:  "md5_1",
+		UserName:     "user1",
+	}
+
+	ppl2 := models.Pipeline{
+		Name:     "ppl2",
+		Desc:     "ppl2",
+		UserName: "root",
+	}
+	pplDetail2 := models.PipelineDetail{
+		FsID:         "root-fsname2",
+		FsName:       "fsname2",
+		YamlPath:     "./run.yml",
+		PipelineYaml: "ddddd",
+		PipelineMd5:  "md5_2",
+		UserName:     "root",
+	}
+
+	var err error
+	pplID1, pplDetailID1, err = models.CreatePipeline(logEntry, &ppl1, &pplDetail1)
+	assert.Nil(t, err)
+	assert.Equal(t, ppl1.Pk, int64(1))
+	assert.Equal(t, pplID1, ppl1.ID)
+	assert.Equal(t, pplID1, "ppl-000001")
+
+	assert.Equal(t, pplDetail1.Pk, int64(1))
+	assert.Equal(t, pplDetailID1, pplDetail1.ID)
+	assert.Equal(t, pplDetailID1, "1")
+	assert.Equal(t, pplDetail1.PipelineID, ppl1.ID)
+
+	pplID2, pplDetailID2, err = models.CreatePipeline(logEntry, &ppl2, &pplDetail2)
+	assert.Nil(t, err)
+	assert.Equal(t, ppl2.Pk, int64(2))
+	assert.Equal(t, pplID2, ppl2.ID)
+	assert.Equal(t, pplID2, "ppl-000002")
+
+	assert.Equal(t, pplDetail2.Pk, int64(2))
+	assert.Equal(t, pplDetailID2, pplDetail2.ID)
+	assert.Equal(t, pplDetailID2, "1")
+	assert.Equal(t, pplDetail2.PipelineID, ppl2.ID)
+
+	return pplID1, pplID2, pplDetailID1, pplDetailID2
+}
+
 // 测试创建schedule
 func TestCreateSchedule(t *testing.T) {
 	dbinit.InitMockDB()
@@ -51,7 +105,7 @@ func TestCreateSchedule(t *testing.T) {
 		Name:              "schedule_1",
 		Desc:              "schedule test",
 		PipelineID:        "ppl-000001",
-		PipelineDetailPk:  1,
+		PipelineDetailID:  "1",
 		Crontab:           "* */3 * * *",
 		StartTime:         "",
 		EndTime:           "",
@@ -74,34 +128,13 @@ func TestCreateSchedule(t *testing.T) {
 	defer patch1.Reset()
 
 	// 创建 pipeline & pipelineDetail
-	ppl1 := models.Pipeline{
-		Pk:       1,
-		ID:       "ppl-000001",
-		Name:     "ppl1",
-		Desc:     "ppl1",
-		UserName: MockNormalUser,
-	}
-	pplDetail1 := models.PipelineDetail{
-		Pk:           1,
-		DetailType:   pkgPplCommon.PplDetailTypeNormal,
-		FsID:         "root-fsname",
-		FsName:       "fsname",
-		YamlPath:     "./run.yml",
-		PipelineYaml: "ddddd",
-		PipelineMd5:  "md5_1",
-		UserName:     MockNormalUser,
-	}
-
-	pplID1, pplDetailPk1, err := models.CreatePipeline(ctx.Logging(), &ppl1, &pplDetail1)
-	assert.Nil(t, err)
-	assert.Equal(t, ppl1.ID, pplID1)
-	assert.Equal(t, pplDetail1.Pk, pplDetailPk1)
+	_, _, _, _ = insertPipeline(t, ctx.Logging())
 
 	// 失败: schedule名称格式不支持
 	createScheduleReq.Name = "-asdf"
 	resp, err := CreateSchedule(ctx, &createScheduleReq)
 	assert.NotNil(t, err)
-	assert.Equal(t, fmt.Errorf("name[-asdf] for [schedule] does not compile with regex rule[^[A-Za-z0-9_][A-Za-z0-9-_]{1,49}[A-Za-z0-9_]$]"), err)
+	assert.Equal(t, fmt.Errorf("name[-asdf] for [schedule] does not compile with regex rule[^[A-Za-z_][A-Za-z0-9_]{1,49}[A-Za-z0-9_]$]"), err)
 
 	// 失败: concurrency < 0
 	createScheduleReq.Name = "schedule_1"
@@ -227,61 +260,20 @@ func TestListSchedule(t *testing.T) {
 	dbinit.InitMockDB()
 	ctx := &logger.RequestContext{UserName: MockRootUser}
 
-	ppl1 := models.Pipeline{
-		Pk:       1,
-		ID:       "ppl-000001",
-		Name:     "ppl1",
-		Desc:     "ppl1",
-		UserName: "user1",
-	}
-	pplDetail1 := models.PipelineDetail{
-		Pk:           1,
-		DetailType:   pkgPplCommon.PplDetailTypeNormal,
-		FsID:         "user1-fsname",
-		FsName:       "fsname",
-		YamlPath:     "./run.yml",
-		PipelineYaml: "ddddd",
-		PipelineMd5:  "md5_1",
-		UserName:     "user1",
-	}
+	pplID1, _, pplDetailID1, _ := insertPipeline(t, ctx.Logging())
 
-	ppl2 := models.Pipeline{
-		Pk:       2,
-		ID:       "ppl-000002",
-		Name:     "ppl2",
-		Desc:     "ppl2",
-		UserName: "root",
-	}
-	pplDetail2 := models.PipelineDetail{
-		Pk:           2,
-		DetailType:   pkgPplCommon.PplDetailTypeNormal,
-		FsID:         "root-fsname2",
-		FsName:       "fsname2",
-		YamlPath:     "./run.yml",
-		PipelineYaml: "ddddd",
-		PipelineMd5:  "md5_2",
-		UserName:     "root",
-	}
-
-	pplID1, pplDetailPk1, err := models.CreatePipeline(ctx.Logging(), &ppl1, &pplDetail1)
+	fsConfig := models.FsConfig{FsName: "fsname", UserName: "user1"}
+	StrFsConfig, err := fsConfig.Encode(ctx.Logging())
 	assert.Nil(t, err)
-	assert.Equal(t, ppl1.ID, pplID1)
-	assert.Equal(t, pplDetail1.Pk, pplDetailPk1)
-
-	pplID2, pplDetailPk2, err := models.CreatePipeline(ctx.Logging(), &ppl2, &pplDetail2)
-	assert.Nil(t, err)
-	assert.Equal(t, ppl2.ID, pplID2)
-	assert.Equal(t, pplDetail2.Pk, pplDetailPk2)
 
 	schedule := models.Schedule{
 		ID:               "", // to be back filled according to db pk
 		Name:             "schedule1",
 		Desc:             "schedule1",
 		PipelineID:       pplID1,
-		PipelineDetailPk: pplDetailPk1,
+		PipelineDetailID: pplDetailID1,
 		UserName:         "user1",
-		FsID:             "user1-fsname",
-		FsName:           "fsname",
+		FsConfig:         string(StrFsConfig),
 		Crontab:          "*/5 * * * *",
 		Options:          "{}",
 		Status:           models.ScheduleStatusRunning,
@@ -324,35 +316,14 @@ func TestStopSchedule(t *testing.T) {
 	defer patch1.Reset()
 
 	// 创建 pipeline & pipelineDetail
-	ppl1 := models.Pipeline{
-		Pk:       1,
-		ID:       "ppl-000001",
-		Name:     "ppl1",
-		Desc:     "ppl1",
-		UserName: MockNormalUser,
-	}
-	pplDetail1 := models.PipelineDetail{
-		Pk:           1,
-		DetailType:   pkgPplCommon.PplDetailTypeNormal,
-		FsID:         "user1-fsname",
-		FsName:       "fsname",
-		YamlPath:     "./run.yml",
-		PipelineYaml: "ddddd",
-		PipelineMd5:  "md5_1",
-		UserName:     MockNormalUser,
-	}
-
-	pplID1, pplDetailPk1, err := models.CreatePipeline(ctx.Logging(), &ppl1, &pplDetail1)
-	assert.Nil(t, err)
-	assert.Equal(t, ppl1.ID, pplID1)
-	assert.Equal(t, pplDetail1.Pk, pplDetailPk1)
+	pplID1, _, pplDetailID1, _ := insertPipeline(t, ctx.Logging())
 
 	// 连续创建2次schedule 成功
 	createScheduleReq := CreateScheduleRequest{
 		Name:              "schedule_1",
 		Desc:              "schedule test",
-		PipelineID:        "ppl-000001",
-		PipelineDetailPk:  1,
+		PipelineID:        pplID1,
+		PipelineDetailID:  pplDetailID1,
 		Crontab:           "* * * * */1",
 		StartTime:         "",
 		EndTime:           "",
@@ -420,35 +391,14 @@ func TestDeleteSchedule(t *testing.T) {
 	defer patch1.Reset()
 
 	// 创建 pipeline & pipelineDetail
-	ppl1 := models.Pipeline{
-		Pk:       1,
-		ID:       "ppl-000001",
-		Name:     "ppl1",
-		Desc:     "ppl1",
-		UserName: MockNormalUser,
-	}
-	pplDetail1 := models.PipelineDetail{
-		Pk:           1,
-		DetailType:   pkgPplCommon.PplDetailTypeNormal,
-		FsID:         "user1-fsname",
-		FsName:       "fsname",
-		YamlPath:     "./run.yml",
-		PipelineYaml: "ddddd",
-		PipelineMd5:  "md5_1",
-		UserName:     MockNormalUser,
-	}
-
-	pplID1, pplDetailPk1, err := models.CreatePipeline(ctx.Logging(), &ppl1, &pplDetail1)
-	assert.Nil(t, err)
-	assert.Equal(t, ppl1.ID, pplID1)
-	assert.Equal(t, pplDetail1.Pk, pplDetailPk1)
+	pplID1, _, pplDetailID1, _ := insertPipeline(t, ctx.Logging())
 
 	// 连续创建2次schedule 成功
 	createScheduleReq := CreateScheduleRequest{
 		Name:              "schedule_1",
 		Desc:              "schedule test",
-		PipelineID:        "ppl-000001",
-		PipelineDetailPk:  1,
+		PipelineID:        pplID1,
+		PipelineDetailID:  pplDetailID1,
 		Crontab:           "* * * * */1",
 		StartTime:         "",
 		EndTime:           "",

@@ -229,8 +229,8 @@ CREATE TABLE IF NOT EXISTS `pipeline` (
 
 CREATE TABLE IF NOT EXISTS `pipeline_detail` (
     `pk` bigint(20) NOT NULL AUTO_INCREMENT,
+    `id` varchar(60) NOT NULL,
     `pipeline_id` varchar(60) NOT NULL,
-    `detail_type` varchar(60) NOT NULL,
     `fs_id` varchar(60) NOT NULL,
     `fs_name` varchar(60) NOT NULL,
     `yaml_path` text NOT NULL,
@@ -249,10 +249,9 @@ CREATE TABLE IF NOT EXISTS `schedule` (
     `name` varchar(60) NOT NULL,
     `desc` varchar(1024) NOT NULL,
     `pipeline_id` varchar(60) NOT NULL,
-    `pipeline_detail_pk` bigint(20) NOT NULL,
+    `pipeline_detail_id` varchar(60) NOT NULL,
     `user_name` varchar(60) NOT NULL,
-    `fs_id` varchar(60) NOT NULL,
-    `fs_name` varchar(60) NOT NULL,
+    `fs_config` varchar(1024) NOT NULL,
     `crontab` varchar(60) NOT NULL,
     `options` text,
     `message` text,

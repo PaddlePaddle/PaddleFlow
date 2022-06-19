@@ -18,6 +18,7 @@ package models
 
 import (
 	"fmt"
+	"strconv"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -43,7 +44,7 @@ func (Pipeline) TableName() string {
 	return "pipeline"
 }
 
-func CreatePipeline(logEntry *log.Entry, ppl *Pipeline, pplDetail *PipelineDetail) (pplID string, pplDetailPk int64, err error) {
+func CreatePipeline(logEntry *log.Entry, ppl *Pipeline, pplDetail *PipelineDetail) (pplID string, pplDetailID string, err error) {
 	logEntry.Debugf("begin create pipeline: %+v & pipeline detail: %+v", ppl, pplDetail)
 	err = withTransaction(database.DB, func(tx *gorm.DB) error {
 		result := tx.Model(&Pipeline{}).Create(ppl)
@@ -59,6 +60,14 @@ func CreatePipeline(logEntry *log.Entry, ppl *Pipeline, pplDetail *PipelineDetai
 			return result.Error
 		}
 
+		var pplDetailCount int64
+		tx = tx.Model(&PipelineDetail{}).Where("pipeline_id = ?", ppl.ID).Count(&pplDetailCount)
+		if tx.Error != nil {
+			logger.Logger().Errorf("count pipeline detail failed. pipelineID[%s]. error:%s",
+				ppl.ID, tx.Error.Error())
+			return tx.Error
+		}
+		pplDetail.ID = strconv.FormatInt(pplDetailCount+1, 10)
 		pplDetail.PipelineID = ppl.ID
 		result = tx.Model(&PipelineDetail{}).Create(pplDetail)
 		if result.Error != nil {
@@ -66,13 +75,13 @@ func CreatePipeline(logEntry *log.Entry, ppl *Pipeline, pplDetail *PipelineDetai
 			return result.Error
 		}
 
-		logEntry.Debugf("created ppl with pk[%d], pplID[%s], pplDetailPk[%d]", ppl.Pk, ppl.ID, pplDetail.Pk)
+		logEntry.Infof("created ppl with pk[%d], pplID[%s], pplDetailPk[%d], pplDetailID[%s]", ppl.Pk, ppl.ID, pplDetail.Pk, pplDetail.ID)
 		return nil
 	})
-	return ppl.ID, pplDetail.Pk, err
+	return ppl.ID, pplDetail.ID, err
 }
 
-func UpdatePipeline(logEntry *log.Entry, ppl *Pipeline, pplDetail *PipelineDetail) (pplID string, pplDetailPk int64, err error) {
+func UpdatePipeline(logEntry *log.Entry, ppl *Pipeline, pplDetail *PipelineDetail) (pplID string, pplDetailID string, err error) {
 	logEntry.Debugf("begin update pipeline: %+v and pipeline detail: %+v", ppl, pplDetail)
 	err = withTransaction(database.DB, func(tx *gorm.DB) error {
 		// update desc by pk
@@ -82,15 +91,25 @@ func UpdatePipeline(logEntry *log.Entry, ppl *Pipeline, pplDetail *PipelineDetai
 			return result.Error
 		}
 
+		var pplDetailCount int64
+		tx = tx.Model(&PipelineDetail{}).Where("pipeline_id = ?", ppl.ID).Count(&pplDetailCount)
+		if tx.Error != nil {
+			logger.Logger().Errorf("count pipeline detail failed. pipelineID[%s]. error:%s",
+				ppl.ID, tx.Error.Error())
+			return tx.Error
+		}
+
+		pplDetail.ID = strconv.FormatInt(pplDetailCount+1, 10)
+		pplDetail.PipelineID = ppl.ID
 		result = tx.Create(pplDetail)
 		if result.Error != nil {
 			logEntry.Errorf("update pipeline failed. pipeline detail:%+v, error:%v", pplDetail, result.Error)
 			return result.Error
 		}
-		logEntry.Debugf("updated ppl with pplID[%s], new pplDetailPk[%d]", pplDetail.PipelineID, pplDetail.Pk)
+		logEntry.Debugf("updated ppl with pplID[%s], new pplDetailPk[%d], pplDetailID[%s]", pplDetail.PipelineID, pplDetail.Pk, pplDetail.ID)
 		return nil
 	})
-	return pplDetail.PipelineID, pplDetail.Pk, err
+	return pplDetail.PipelineID, pplDetail.ID, err
 }
 
 func GetPipelineByID(id string) (Pipeline, error) {
@@ -133,15 +152,23 @@ func ListPipeline(pk int64, maxKeys int, userFilter, nameFilter []string) ([]Pip
 	return pplList, nil
 }
 
-func GetLastPipeline(logEntry *log.Entry) (Pipeline, error) {
-	logEntry.Debugf("get last ppl. ")
-	ppl := Pipeline{}
-	tx := database.DB.Model(&Pipeline{}).Last(&ppl)
-	if tx.Error != nil {
-		logEntry.Errorf("get last ppl failed. error:%s", tx.Error.Error())
-		return Pipeline{}, tx.Error
+func IsLastPipelinePk(logEntry *log.Entry, pk int64, userFilter, nameFilter []string) (bool, error) {
+	logger.Logger().Debugf("begin check isLastPipeline.")
+	tx := database.DB.Model(&Pipeline{})
+	if len(userFilter) > 0 {
+		tx = tx.Where("user_name IN (?)", userFilter)
 	}
-	return ppl, nil
+	if len(nameFilter) > 0 {
+		tx = tx.Where("name IN (?)", nameFilter)
+	}
+
+	ppl := Pipeline{}
+	tx = tx.Last(&ppl)
+	if tx.Error != nil {
+		logEntry.Errorf("get last ppl failed. Filters: user{%v}, name{%v}, error:%s", userFilter, nameFilter, tx.Error.Error())
+		return false, tx.Error
+	}
+	return pk == ppl.Pk, nil
 }
 
 func DeletePipeline(logEntry *log.Entry, id string, hardDelete bool) error {

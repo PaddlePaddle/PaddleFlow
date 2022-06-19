@@ -24,8 +24,6 @@ import (
 	cron "github.com/robfig/cron/v3"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
-
-	pkgPplCommon "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 )
 
 const (
@@ -35,17 +33,13 @@ const (
 	MockFsID       = "root-mockFs"
 )
 
-func insertPipeline(t *testing.T, logEntry *log.Entry) (pplID1, pplID2 string, pplDetailPk1, pplDetailPk2 int64) {
+func insertPipeline(t *testing.T, logEntry *log.Entry) (pplID1, pplID2, pplDetailID1, pplDetailID2 string) {
 	ppl1 := Pipeline{
-		Pk:       1,
-		ID:       "ppl-000001",
 		Name:     "ppl1",
 		Desc:     "ppl1",
 		UserName: "user1",
 	}
 	pplDetail1 := PipelineDetail{
-		Pk:           1,
-		DetailType:   pkgPplCommon.PplDetailTypeNormal,
 		FsID:         "user1-fsname",
 		FsName:       "fsname",
 		YamlPath:     "./run.yml",
@@ -55,15 +49,11 @@ func insertPipeline(t *testing.T, logEntry *log.Entry) (pplID1, pplID2 string, p
 	}
 
 	ppl2 := Pipeline{
-		Pk:       2,
-		ID:       "ppl-000002",
 		Name:     "ppl2",
 		Desc:     "ppl2",
 		UserName: "root",
 	}
 	pplDetail2 := PipelineDetail{
-		Pk:           2,
-		DetailType:   pkgPplCommon.PplDetailTypeNormal,
 		FsID:         "root-fsname2",
 		FsName:       "fsname2",
 		YamlPath:     "./run.yml",
@@ -73,34 +63,49 @@ func insertPipeline(t *testing.T, logEntry *log.Entry) (pplID1, pplID2 string, p
 	}
 
 	var err error
-	pplID1, pplDetailPk1, err = CreatePipeline(logEntry, &ppl1, &pplDetail1)
+	pplID1, pplDetailID1, err = CreatePipeline(logEntry, &ppl1, &pplDetail1)
 	assert.Nil(t, err)
-	assert.Equal(t, ppl1.ID, pplID1)
-	assert.Equal(t, pplDetail1.Pk, pplDetailPk1)
+	assert.Equal(t, ppl1.Pk, int64(1))
+	assert.Equal(t, pplID1, ppl1.ID)
+	assert.Equal(t, pplID1, "ppl-000001")
 
-	pplID2, pplDetailPk2, err = CreatePipeline(logEntry, &ppl2, &pplDetail2)
+	assert.Equal(t, pplDetail1.Pk, int64(1))
+	assert.Equal(t, pplDetailID1, pplDetail1.ID)
+	assert.Equal(t, pplDetailID1, "1")
+	assert.Equal(t, pplDetail1.PipelineID, ppl1.ID)
+
+	pplID2, pplDetailID2, err = CreatePipeline(logEntry, &ppl2, &pplDetail2)
 	assert.Nil(t, err)
-	assert.Equal(t, ppl2.ID, pplID2)
-	assert.Equal(t, pplDetail2.Pk, pplDetailPk2)
+	assert.Equal(t, ppl2.Pk, int64(2))
+	assert.Equal(t, pplID2, ppl2.ID)
+	assert.Equal(t, pplID2, "ppl-000002")
 
-	return pplID1, pplID2, pplDetailPk1, pplDetailPk2
+	assert.Equal(t, pplDetail2.Pk, int64(2))
+	assert.Equal(t, pplDetailID2, pplDetail2.ID)
+	assert.Equal(t, pplDetailID2, "1")
+	assert.Equal(t, pplDetail2.PipelineID, ppl2.ID)
+
+	return pplID1, pplID2, pplDetailID1, pplDetailID2
 }
 
 // 测试创建schedule catchup 参数
 func TestCatchup(t *testing.T) {
 	InitMockDB()
 	logEntry := log.WithFields(log.Fields{})
-	pplID1, _, pplDetailPk1, _ := insertPipeline(t, logEntry)
+	pplID1, _, pplDetailID1, _ := insertPipeline(t, logEntry)
+
+	fsConfig := FsConfig{FsName: "fsname", UserName: "user1"}
+	StrFsConfig, err := fsConfig.Encode(logEntry)
+	assert.Nil(t, err)
 
 	schedule := Schedule{
 		ID:               "", // to be back filled according to db pk
 		Name:             "schedule1",
 		Desc:             "schedule1",
 		PipelineID:       pplID1,
-		PipelineDetailPk: pplDetailPk1,
+		PipelineDetailID: pplDetailID1,
 		UserName:         "user1",
-		FsID:             "user1-fsname",
-		FsName:           "fsname",
+		FsConfig:         StrFsConfig,
 		Crontab:          "*/5 * * * *",
 		Options:          "{}",
 		Status:           ScheduleStatusRunning,
@@ -183,7 +188,7 @@ func TestCatchup(t *testing.T) {
 func TestExpireInterval(t *testing.T) {
 	InitMockDB()
 	logEntry := log.WithFields(log.Fields{})
-	pplID1, _, pplDetailPk1, _ := insertPipeline(t, logEntry)
+	pplID1, _, pplDetailID1, _ := insertPipeline(t, logEntry)
 
 	// 开启catchup，设置expireinterval = 60s（1min）, 同时设置开始的 NextRunAt 为 2min前，周期频率为1/min
 	// 有两次nextRunAt会被校验，最终第一次会被过滤掉，只有第二次才会被加进execMap
@@ -200,15 +205,18 @@ func TestExpireInterval(t *testing.T) {
 	strOptions, err := scheduleOptions.Encode(logEntry)
 	assert.Nil(t, err)
 
+	fsConfig := FsConfig{FsName: "fsname", UserName: "user1"}
+	StrFsConfig, err := fsConfig.Encode(logEntry)
+	assert.Nil(t, err)
+
 	schedule := Schedule{
 		ID:               "", // to be back filled according to db pk
 		Name:             "schedule1",
 		Desc:             "schedule1",
 		PipelineID:       pplID1,
-		PipelineDetailPk: pplDetailPk1,
+		PipelineDetailID: pplDetailID1,
 		UserName:         "user1",
-		FsID:             "user1-fsname",
-		FsName:           "fsname",
+		FsConfig:         StrFsConfig,
 		Crontab:          "*/1 * * * *",
 		Options:          strOptions,
 		Status:           ScheduleStatusRunning,
@@ -245,7 +253,7 @@ func TestExpireInterval(t *testing.T) {
 func TestConcurrency(t *testing.T) {
 	InitMockDB()
 	logEntry := log.WithFields(log.Fields{})
-	pplID1, _, pplDetailPk1, _ := insertPipeline(t, logEntry)
+	pplID1, _, pplDetailID1, _ := insertPipeline(t, logEntry)
 
 	// 开启catchup，设置expireinterval = 0（没有expire限制）, 同时设置开始的 NextRunAt 为 2min前，周期频率为1/min
 	// concurrency = 1，且policy = suspend，所以只校验一次nextRunAt，并被加入execMap
@@ -262,15 +270,18 @@ func TestConcurrency(t *testing.T) {
 	strOptions, err := scheduleOptions.Encode(logEntry)
 	assert.Nil(t, err)
 
+	fsConfig := FsConfig{FsName: "fsname", UserName: "user1"}
+	StrFsConfig, err := fsConfig.Encode(logEntry)
+	assert.Nil(t, err)
+
 	schedule := Schedule{
 		ID:               "", // to be back filled according to db pk
 		Name:             "schedule1",
 		Desc:             "schedule1",
 		PipelineID:       pplID1,
-		PipelineDetailPk: pplDetailPk1,
+		PipelineDetailID: pplDetailID1,
 		UserName:         "user1",
-		FsID:             "user1-fsname",
-		FsName:           "fsname",
+		FsConfig:         StrFsConfig,
 		Crontab:          "*/1 * * * *",
 		Options:          strOptions,
 		Status:           ScheduleStatusRunning,
@@ -401,7 +412,7 @@ func TestConcurrency(t *testing.T) {
 func TestScheduleTime(t *testing.T) {
 	InitMockDB()
 	logEntry := log.WithFields(log.Fields{})
-	pplID1, _, pplDetailPk1, _ := insertPipeline(t, logEntry)
+	pplID1, _, pplDetailID1, _ := insertPipeline(t, logEntry)
 
 	// 开启catchup，设置expireinterval = 0（没有expire限制）,
 	// concurrency = 0，且policy = suspend，即没有concurrency限制
@@ -422,15 +433,18 @@ func TestScheduleTime(t *testing.T) {
 	strOptions, err := scheduleOptions.Encode(logEntry)
 	assert.Nil(t, err)
 
+	fsConfig := FsConfig{FsName: "fsname", UserName: "user1"}
+	StrFsConfig, err := fsConfig.Encode(logEntry)
+	assert.Nil(t, err)
+
 	schedule := Schedule{
 		ID:               "", // to be back filled according to db pk
 		Name:             "schedule1",
 		Desc:             "schedule1",
 		PipelineID:       pplID1,
-		PipelineDetailPk: pplDetailPk1,
+		PipelineDetailID: pplDetailID1,
 		UserName:         "user1",
-		FsID:             "user1-fsname",
-		FsName:           "fsname",
+		FsConfig:         StrFsConfig,
 		Crontab:          "*/1 * * * *",
 		Options:          strOptions,
 		Status:           ScheduleStatusRunning,

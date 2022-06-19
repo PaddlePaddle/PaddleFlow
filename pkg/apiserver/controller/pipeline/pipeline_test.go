@@ -32,10 +32,10 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	pkgPipeline "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline"
-	pkgPplCommon "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 )
 
 // 测试创建pipeline
+// yaml结构校验跟run相同，所以此处略过
 func TestCreatePipeline(t *testing.T) {
 	dbinit.InitMockDB()
 	ctx := &logger.RequestContext{UserName: MockRootUser}
@@ -51,7 +51,6 @@ func TestCreatePipeline(t *testing.T) {
 		FsName:   MockFsName,
 		UserName: "",
 		YamlPath: "../../../../example/wide_and_deep/run.yaml",
-		Name:     "distribute_wide_and_deep",
 		Desc:     "pipeline test",
 	}
 
@@ -66,17 +65,9 @@ func TestCreatePipeline(t *testing.T) {
 	})
 	defer patch1.Reset()
 
-	// test create 失败，pplname 和 wfsname 不一致
-	createPplReq.Name = "wrongPplName"
-	resp, err := CreatePipeline(ctx, createPplReq, MockFsID)
-	assert.NotNil(t, err)
-	assert.Equal(t, fmt.Errorf("validateWorkflowForPipeline failed. err:pplName[wrongPplName] in request is not the same as name[distribute_wide_and_deep] in pipeline yaml."), err)
-
 	// create 成功
-	createPplReq.Name = "distribute_wide_and_deep"
-	resp, err = CreatePipeline(ctx, createPplReq, MockFsID)
+	resp, err := CreatePipeline(ctx, createPplReq, MockFsID)
 	assert.Nil(t, err)
-	assert.Equal(t, createPplReq.Name, resp.Name)
 
 	// test get success
 	getPplResp, err := GetPipeline(ctx, resp.PipelineID, "", 10, []string{})
@@ -84,7 +75,7 @@ func TestCreatePipeline(t *testing.T) {
 	assert.Equal(t, getPplResp.Pipeline.Name, "distribute_wide_and_deep")
 	assert.Equal(t, len(getPplResp.PipelineDetailList), 1)
 	assert.Equal(t, getPplResp.PipelineDetailList[0].PipelineID, "ppl-000001")
-	assert.Equal(t, getPplResp.PipelineDetailList[0].Pk, int64(1))
+	assert.Equal(t, getPplResp.PipelineDetailList[0].ID, "1")
 
 	fmt.Printf("=========================\n=========================\n")
 	b, _ := json.Marshal(getPplResp.Pipeline)
@@ -100,10 +91,8 @@ func TestCreatePipeline(t *testing.T) {
 
 	// 更改用户名后，创建成功
 	ctx = &logger.RequestContext{UserName: "another_user"}
-	createPplReq.Name = "distribute_wide_and_deep"
 	resp, err = CreatePipeline(ctx, createPplReq, MockFsID)
 	assert.Nil(t, err)
-	assert.Equal(t, createPplReq.Name, resp.Name)
 
 	// test get success
 	getPplResp, err = GetPipeline(ctx, resp.PipelineID, "", 10, []string{})
@@ -111,7 +100,7 @@ func TestCreatePipeline(t *testing.T) {
 	assert.Equal(t, getPplResp.Pipeline.Name, "distribute_wide_and_deep")
 	assert.Equal(t, len(getPplResp.PipelineDetailList), 1)
 	assert.Equal(t, getPplResp.PipelineDetailList[0].PipelineID, "ppl-000002")
-	assert.Equal(t, getPplResp.PipelineDetailList[0].Pk, int64(2))
+	assert.Equal(t, getPplResp.PipelineDetailList[0].ID, "1")
 }
 
 // 测试更新pipeline
@@ -123,7 +112,6 @@ func TestUpdatePipeline(t *testing.T) {
 		FsName:   MockFsName,
 		UserName: "",
 		YamlPath: "../../../../example/wide_and_deep/run.yaml",
-		Name:     "distribute_wide_and_deep",
 		Desc:     "pipeline test",
 	}
 
@@ -149,12 +137,11 @@ func TestUpdatePipeline(t *testing.T) {
 	// test update 失败，pipeline没有创建，不能更新
 	resp, err := UpdatePipeline(ctx, updatePplReq, pipelineID, MockFsID)
 	assert.NotNil(t, err)
-	assert.Equal(t, fmt.Errorf("UpdatePipeline failed: pipeline[ppl-000001] not created for user[normalUser], pls create first!"), err)
+	assert.Equal(t, fmt.Errorf("update pipeline[ppl-000001] failed. err:pipeline[ppl-000001] not exist"), err)
 
 	// create 成功
 	createPplResp, err := CreatePipeline(ctx, createPplReq, MockFsID)
 	assert.Nil(t, err)
-	assert.Equal(t, createPplReq.Name, createPplResp.Name)
 
 	// test get success
 	getPplResp, err := GetPipeline(ctx, createPplResp.PipelineID, "", 10, []string{})
@@ -162,7 +149,7 @@ func TestUpdatePipeline(t *testing.T) {
 	assert.Equal(t, getPplResp.Pipeline.Name, "distribute_wide_and_deep")
 	assert.Equal(t, len(getPplResp.PipelineDetailList), 1)
 	assert.Equal(t, getPplResp.PipelineDetailList[0].PipelineID, "ppl-000001")
-	assert.Equal(t, getPplResp.PipelineDetailList[0].Pk, int64(1))
+	assert.Equal(t, getPplResp.PipelineDetailList[0].ID, "1")
 
 	// update 失败，yaml name 与 pipeline记录中的 name 不一样
 	updatePplReq.YamlPath = "../../../../example/pipeline/base_pipeline/run.yaml"
@@ -180,7 +167,7 @@ func TestUpdatePipeline(t *testing.T) {
 	ctx = &logger.RequestContext{UserName: "anotherUser"}
 	resp, err = UpdatePipeline(ctx, updatePplReq, pipelineID, MockFsID)
 	assert.NotNil(t, err)
-	assert.Equal(t, fmt.Errorf("user[anotherUser] has no access to resource[pipeline] with Name[ppl-000001]"), err)
+	assert.Equal(t, fmt.Errorf("update pipeline[ppl-000001] failed. Access denied for user[anotherUser]"), err)
 
 	// root用户，update成功
 	ctx = &logger.RequestContext{UserName: MockRootUser}
@@ -194,75 +181,33 @@ func TestUpdatePipeline(t *testing.T) {
 	assert.Equal(t, getPplResp.Pipeline.Name, "distribute_wide_and_deep")
 	assert.Equal(t, len(getPplResp.PipelineDetailList), 3)
 	assert.Equal(t, getPplResp.PipelineDetailList[0].PipelineID, "ppl-000001")
-	assert.Equal(t, getPplResp.PipelineDetailList[0].Pk, int64(1))
+	assert.Equal(t, getPplResp.PipelineDetailList[0].ID, "1")
 	assert.Equal(t, getPplResp.PipelineDetailList[1].PipelineID, "ppl-000001")
-	assert.Equal(t, getPplResp.PipelineDetailList[1].Pk, int64(2))
+	assert.Equal(t, getPplResp.PipelineDetailList[1].ID, "2")
 	assert.Equal(t, getPplResp.PipelineDetailList[2].PipelineID, "ppl-000001")
-	assert.Equal(t, getPplResp.PipelineDetailList[2].Pk, int64(3))
+	assert.Equal(t, getPplResp.PipelineDetailList[2].ID, "3")
 
-	// root用户，test get success
+	// 普通用户，test get success
 	ctx = &logger.RequestContext{UserName: "normalUser"}
 	getPplResp, err = GetPipeline(ctx, createPplResp.PipelineID, "", 10, []string{})
 	assert.Nil(t, err)
 	assert.Equal(t, getPplResp.Pipeline.Name, "distribute_wide_and_deep")
 	assert.Equal(t, len(getPplResp.PipelineDetailList), 3)
 	assert.Equal(t, getPplResp.PipelineDetailList[0].PipelineID, "ppl-000001")
-	assert.Equal(t, getPplResp.PipelineDetailList[0].Pk, int64(1))
+	assert.Equal(t, getPplResp.PipelineDetailList[0].ID, "1")
 	assert.Equal(t, getPplResp.PipelineDetailList[1].PipelineID, "ppl-000001")
-	assert.Equal(t, getPplResp.PipelineDetailList[1].Pk, int64(2))
+	assert.Equal(t, getPplResp.PipelineDetailList[1].ID, "2")
 	assert.Equal(t, getPplResp.PipelineDetailList[2].PipelineID, "ppl-000001")
-	assert.Equal(t, getPplResp.PipelineDetailList[2].Pk, int64(3))
+	assert.Equal(t, getPplResp.PipelineDetailList[2].ID, "3")
 }
 
+// 测试list pipeline
+// todo：测试marker不为空
 func TestListPipeline(t *testing.T) {
 	dbinit.InitMockDB()
 	ctx := &logger.RequestContext{UserName: MockRootUser}
 
-	ppl1 := models.Pipeline{
-		Pk:       1,
-		ID:       "ppl-000001",
-		Name:     "ppl1",
-		Desc:     "ppl1",
-		UserName: "user1",
-	}
-	pplDetail1 := models.PipelineDetail{
-		Pk:           1,
-		DetailType:   pkgPplCommon.PplDetailTypeNormal,
-		FsID:         "root-fsname",
-		FsName:       "fsname",
-		YamlPath:     "./run.yml",
-		PipelineYaml: "ddddd",
-		PipelineMd5:  "md5_1",
-		UserName:     "user1",
-	}
-
-	ppl2 := models.Pipeline{
-		Pk:       2,
-		ID:       "ppl-000002",
-		Name:     "ppl2",
-		Desc:     "ppl2",
-		UserName: "root",
-	}
-	pplDetail2 := models.PipelineDetail{
-		Pk:           2,
-		DetailType:   pkgPplCommon.PplDetailTypeNormal,
-		FsID:         "root-fsname2",
-		FsName:       "fsname2",
-		YamlPath:     "./run.yml",
-		PipelineYaml: "ddddd",
-		PipelineMd5:  "md5_2",
-		UserName:     "root",
-	}
-
-	pplID1, pplDetailPk1, err := models.CreatePipeline(ctx.Logging(), &ppl1, &pplDetail1)
-	assert.Nil(t, err)
-	assert.Equal(t, ppl1.ID, pplID1)
-	assert.Equal(t, pplDetail1.Pk, pplDetailPk1)
-
-	pplID2, pplDetailPk2, err := models.CreatePipeline(ctx.Logging(), &ppl2, &pplDetail2)
-	assert.Nil(t, err)
-	assert.Equal(t, ppl2.ID, pplID2)
-	assert.Equal(t, pplDetail2.Pk, pplDetailPk2)
+	_, _, _, _ = insertPipeline(t, ctx.Logging())
 
 	// test list
 	resp, err := ListPipeline(ctx, "", 10, []string{}, []string{})
@@ -291,12 +236,13 @@ func TestListPipeline(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(resp.PipelineList))
 	assert.Equal(t, resp.PipelineList[0].ID, "ppl-000001")
-	assert.Equal(t, resp.IsTruncated, true)
+	assert.Equal(t, resp.IsTruncated, false)
+	assert.Equal(t, resp.NextMarker, "")
 	b, _ = json.Marshal(resp)
 	println("")
 	fmt.Printf("%s\n", b)
 
-	// test list, 指定返回包含最后一条记录的pipeline记录集合，导致istruncated = false
+	// test list,
 	resp, err = ListPipeline(ctx, "", 10, []string{"root"}, []string{})
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(resp.PipelineList))
@@ -323,39 +269,44 @@ func TestListPipeline(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(resp.PipelineList))
 	assert.Equal(t, resp.PipelineList[0].ID, "ppl-000001")
-	assert.Equal(t, resp.IsTruncated, true)
+	assert.Equal(t, resp.IsTruncated, false)
+	assert.Equal(t, resp.NextMarker, "")
 	b, _ = json.Marshal(resp)
 	println("")
 	fmt.Printf("%s\n", b)
 
-	// test list，user非root时，无法指定userfilter，只返回自己有权限的pipeline
+	// test list，user非root时，不指定userFilter，只能返回自己有权限的pipeline
 	ctx = &logger.RequestContext{UserName: "user1"}
-	resp, err = ListPipeline(ctx, "", 10, []string{"root"}, []string{})
+	resp, err = ListPipeline(ctx, "", 10, []string{}, []string{})
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(resp.PipelineList))
 	assert.Equal(t, resp.PipelineList[0].ID, "ppl-000001")
 	assert.Equal(t, resp.PipelineList[0].UserName, "user1")
-	assert.Equal(t, resp.IsTruncated, true)
+	assert.Equal(t, resp.IsTruncated, false)
+	assert.Equal(t, resp.NextMarker, "")
 	b, _ = json.Marshal(resp)
+	println("")
+	fmt.Printf("%s\n", b)
+
+	// test list，user非root时，指定userfilter时会报错
+	resp, err = ListPipeline(ctx, "", 10, []string{"root"}, []string{})
+	assert.NotNil(t, err)
+	assert.Equal(t, "only root user can set userFilter!", err.Error())
 	println("")
 	fmt.Printf("%s\n", b)
 }
 
+// todo：测试marker不为空
 func TestGetPipeline(t *testing.T) {
 	dbinit.InitMockDB()
 	ctx := &logger.RequestContext{UserName: MockRootUser}
 
 	ppl1 := models.Pipeline{
-		Pk:       1,
-		ID:       "ppl-000001",
 		Name:     "ppl1",
 		Desc:     "ppl1",
 		UserName: "user1",
 	}
 	pplDetail1 := models.PipelineDetail{
-		Pk:           1,
-		PipelineID:   ppl1.ID,
-		DetailType:   pkgPplCommon.PplDetailTypeNormal,
 		FsID:         "root-fsname",
 		FsName:       "fsname",
 		YamlPath:     "./run.yml",
@@ -365,9 +316,6 @@ func TestGetPipeline(t *testing.T) {
 	}
 
 	pplDetail2 := models.PipelineDetail{
-		Pk:           2,
-		PipelineID:   ppl1.ID,
-		DetailType:   pkgPplCommon.PplDetailTypeNormal,
 		FsID:         "root-fsname2",
 		FsName:       "fsname2",
 		YamlPath:     "./run.yml",
@@ -376,15 +324,24 @@ func TestGetPipeline(t *testing.T) {
 		UserName:     "user1",
 	}
 
-	pplID1, pplDetailPk1, err := models.CreatePipeline(ctx.Logging(), &ppl1, &pplDetail1)
+	pplID1, pplDetailID1, err := models.CreatePipeline(ctx.Logging(), &ppl1, &pplDetail1)
 	assert.Nil(t, err)
-	assert.Equal(t, ppl1.ID, pplID1)
-	assert.Equal(t, pplDetail1.Pk, pplDetailPk1)
+	assert.Equal(t, ppl1.Pk, int64(1))
+	assert.Equal(t, pplID1, ppl1.ID)
+	assert.Equal(t, pplID1, "ppl-000001")
 
-	pplID2, pplDetailPk2, err := models.UpdatePipeline(ctx.Logging(), &ppl1, &pplDetail2)
+	assert.Equal(t, pplDetail1.Pk, int64(1))
+	assert.Equal(t, pplDetailID1, pplDetail1.ID)
+	assert.Equal(t, pplDetailID1, "1")
+	assert.Equal(t, pplDetail1.PipelineID, ppl1.ID)
+
+	pplID2, pplDetailID2, err := models.UpdatePipeline(ctx.Logging(), &ppl1, &pplDetail2)
 	assert.Nil(t, err)
-	assert.Equal(t, ppl1.ID, pplID2)
-	assert.Equal(t, pplDetail2.Pk, pplDetailPk2)
+	assert.Equal(t, pplID2, ppl1.ID)
+
+	assert.Equal(t, pplDetail2.Pk, int64(2))
+	assert.Equal(t, pplDetailID2, pplDetail2.ID)
+	assert.Equal(t, pplDetailID2, "2")
 
 	// test get pipeline 失败，pipeline id不存在
 	resp, err := GetPipeline(ctx, "wrongPplID", "", 10, []string{})
@@ -401,17 +358,30 @@ func TestGetPipeline(t *testing.T) {
 	b, _ = json.Marshal(resp)
 	fmt.Printf("\n%s\n", b)
 
-	// test get pipeline, 指定maxkeys
+	// test get pipeline 成功，root用户可以查看所有pipeline
 	ctx = &logger.RequestContext{UserName: MockRootUser}
 	resp, err = GetPipeline(ctx, "ppl-000001", "", 10, []string{})
 	assert.Nil(t, err)
 	assert.Equal(t, resp.Pipeline.ID, "ppl-000001")
 	assert.Equal(t, resp.Pipeline.Name, "ppl1")
 	assert.Equal(t, 2, len(resp.PipelineDetailList))
-	assert.Equal(t, resp.PipelineDetailList[0].Pk, int64(1))
-	assert.Equal(t, resp.PipelineDetailList[1].Pk, int64(2))
+	assert.Equal(t, resp.PipelineDetailList[0].ID, "1")
+	assert.Equal(t, resp.PipelineDetailList[1].ID, "2")
 	assert.Equal(t, resp.IsTruncated, false)
 	assert.Equal(t, resp.NextMarker, "")
+	b, _ = json.Marshal(resp)
+	println("")
+	fmt.Printf("%s\n", b)
+
+	// test get pipeline, 指定maxkeys
+	ctx = &logger.RequestContext{UserName: "user1"}
+	resp, err = GetPipeline(ctx, "ppl-000001", "", 1, []string{})
+	assert.Nil(t, err)
+	assert.Equal(t, resp.Pipeline.ID, "ppl-000001")
+	assert.Equal(t, resp.Pipeline.Name, "ppl1")
+	assert.Equal(t, 1, len(resp.PipelineDetailList))
+	assert.Equal(t, resp.PipelineDetailList[0].ID, "1")
+	assert.Equal(t, resp.IsTruncated, true)
 	b, _ = json.Marshal(resp)
 	println("")
 	fmt.Printf("%s\n", b)
@@ -422,20 +392,7 @@ func TestGetPipeline(t *testing.T) {
 	assert.Equal(t, resp.Pipeline.ID, "ppl-000001")
 	assert.Equal(t, resp.Pipeline.Name, "ppl1")
 	assert.Equal(t, 1, len(resp.PipelineDetailList))
-	assert.Equal(t, resp.PipelineDetailList[0].Pk, int64(1))
-	assert.Equal(t, resp.IsTruncated, true)
-	assert.NotEqual(t, resp.NextMarker, "")
-	b, _ = json.Marshal(resp)
-	println("")
-	fmt.Printf("%s\n", b)
-
-	// test get pipeline, 指定返回包含最后一条记录的pipeline记录集合，导致istruncated = false
-	resp, err = GetPipeline(ctx, "ppl-000001", "", 10, []string{"fsname2"})
-	assert.Nil(t, err)
-	assert.Equal(t, resp.Pipeline.ID, "ppl-000001")
-	assert.Equal(t, resp.Pipeline.Name, "ppl1")
-	assert.Equal(t, 1, len(resp.PipelineDetailList))
-	assert.Equal(t, resp.PipelineDetailList[0].Pk, int64(2))
+	assert.Equal(t, resp.PipelineDetailList[0].ID, "1")
 	assert.Equal(t, resp.IsTruncated, false)
 	assert.Equal(t, resp.NextMarker, "")
 	b, _ = json.Marshal(resp)
@@ -448,7 +405,7 @@ func TestGetPipeline(t *testing.T) {
 	assert.Equal(t, resp.Pipeline.ID, "ppl-000001")
 	assert.Equal(t, resp.Pipeline.Name, "ppl1")
 	assert.Equal(t, 1, len(resp.PipelineDetailList))
-	assert.Equal(t, resp.PipelineDetailList[0].Pk, int64(2))
+	assert.Equal(t, resp.PipelineDetailList[0].ID, "2")
 	assert.Equal(t, resp.IsTruncated, false)
 	assert.Equal(t, resp.NextMarker, "")
 	b, _ = json.Marshal(resp)
@@ -470,7 +427,6 @@ func TestGetPipelineDetail(t *testing.T) {
 	pplDetail1 := models.PipelineDetail{
 		Pk:           1,
 		PipelineID:   ppl1.ID,
-		DetailType:   pkgPplCommon.PplDetailTypeNormal,
 		FsID:         "root-fsname",
 		FsName:       "fsname",
 		YamlPath:     "./run.yml",
@@ -482,7 +438,6 @@ func TestGetPipelineDetail(t *testing.T) {
 	pplDetail2 := models.PipelineDetail{
 		Pk:           2,
 		PipelineID:   ppl1.ID,
-		DetailType:   pkgPplCommon.PplDetailTypeNormal,
 		FsID:         "root-fsname2",
 		FsName:       "fsname2",
 		YamlPath:     "./run.yml",
@@ -491,41 +446,56 @@ func TestGetPipelineDetail(t *testing.T) {
 		UserName:     "user1",
 	}
 
-	pplID1, pplDetailPk1, err := models.CreatePipeline(ctx.Logging(), &ppl1, &pplDetail1)
+	pplID1, pplDetailID1, err := models.CreatePipeline(ctx.Logging(), &ppl1, &pplDetail1)
 	assert.Nil(t, err)
-	assert.Equal(t, ppl1.ID, pplID1)
-	assert.Equal(t, pplDetail1.Pk, pplDetailPk1)
+	assert.Equal(t, ppl1.Pk, int64(1))
+	assert.Equal(t, pplID1, ppl1.ID)
+	assert.Equal(t, pplID1, "ppl-000001")
 
-	pplID2, pplDetailPk2, err := models.UpdatePipeline(ctx.Logging(), &ppl1, &pplDetail2)
+	assert.Equal(t, pplDetail1.Pk, int64(1))
+	assert.Equal(t, pplDetailID1, pplDetail1.ID)
+	assert.Equal(t, pplDetailID1, "1")
+	assert.Equal(t, pplDetail1.PipelineID, ppl1.ID)
+
+	pplID2, pplDetailID2, err := models.UpdatePipeline(ctx.Logging(), &ppl1, &pplDetail2)
 	assert.Nil(t, err)
-	assert.Equal(t, ppl1.ID, pplID2)
-	assert.Equal(t, pplDetail2.Pk, pplDetailPk2)
+	assert.Equal(t, pplID2, ppl1.ID)
+
+	assert.Equal(t, pplDetail2.Pk, int64(2))
+	assert.Equal(t, pplDetailID2, pplDetail2.ID)
+	assert.Equal(t, pplDetailID2, "2")
 
 	// test get pipeline detail 失败，pipeline id不存在
-	resp, err := GetPipelineDetail(ctx, "wrongPplID", 1)
+	resp, err := GetPipelineDetail(ctx, "wrongPplID", "1")
 	assert.NotNil(t, err)
-	assert.Equal(t, "get pipeline[wrongPplID] failed, err: record not found", err.Error())
+	assert.Equal(t, "delete pipeline[wrongPplID] detail[1] failed. err:pipeline[wrongPplID] not exist", err.Error())
 	b, _ := json.Marshal(resp)
 	fmt.Printf("\n%s\n", b)
 
 	// test get pipeline detail 失败，用户没有权限
 	ctx = &logger.RequestContext{UserName: "user2"}
-	resp, err = GetPipelineDetail(ctx, "ppl-000001", 1)
+	resp, err = GetPipelineDetail(ctx, "ppl-000001", "1")
 	assert.NotNil(t, err)
-	assert.Equal(t, "user[user2] has no access to resource[pipeline] with Name[ppl-000001]", err.Error())
+	assert.Equal(t, "delete pipeline[ppl-000001] detail[1] failed. Access denied for user[user2]", err.Error())
 	b, _ = json.Marshal(resp)
 	fmt.Printf("\n%s\n", b)
 
 	// test get pipeline detail 失败, detailPk 不存在
 	ctx = &logger.RequestContext{UserName: MockRootUser}
-	resp, err = GetPipelineDetail(ctx, "ppl-000001", 3)
+	resp, err = GetPipelineDetail(ctx, "ppl-000001", "3")
 	assert.NotNil(t, err)
-	assert.Equal(t, "get pipeline detail[3] failed, err: record not found", err.Error())
+	assert.Equal(t, "delete pipeline[ppl-000001] detail[3] failed. err:pipeline[ppl-000001] detail[3] not exist", err.Error())
 	b, _ = json.Marshal(resp)
 	fmt.Printf("\n%s\n", b)
 
 	// test get pipeline detail 成功
-	resp, err = GetPipelineDetail(ctx, "ppl-000001", 1)
+	resp, err = GetPipelineDetail(ctx, "ppl-000001", "1")
+	assert.Nil(t, err)
+	b, _ = json.Marshal(resp)
+	fmt.Printf("\n%s\n", b)
+
+	// test get pipeline detail 成功
+	resp, err = GetPipelineDetail(ctx, "ppl-000001", "2")
 	assert.Nil(t, err)
 	b, _ = json.Marshal(resp)
 	fmt.Printf("\n%s\n", b)
@@ -539,18 +509,14 @@ func TestDeletePipeline(t *testing.T) {
 	// 创建pipeline前，test delete pipeline 失败，pipeline id不存在
 	err := DeletePipeline(ctx, "wrongPplID")
 	assert.NotNil(t, err)
-	assert.Equal(t, "delete pipeline[wrongPplID] failed. not exist", err.Error())
+	assert.Equal(t, "delete pipeline[wrongPplID] failed. err:pipeline[wrongPplID] not exist", err.Error())
 
 	ppl1 := models.Pipeline{
-		Pk:       1,
-		ID:       "ppl-000001",
 		Name:     "ppl1",
 		Desc:     "ppl1",
 		UserName: "user1",
 	}
 	pplDetail1 := models.PipelineDetail{
-		Pk:           1,
-		DetailType:   pkgPplCommon.PplDetailTypeNormal,
 		FsID:         "root-fsname",
 		FsName:       "fsname",
 		YamlPath:     "./run.yml",
@@ -560,15 +526,11 @@ func TestDeletePipeline(t *testing.T) {
 	}
 
 	ppl2 := models.Pipeline{
-		Pk:       2,
-		ID:       "ppl-000002",
 		Name:     "ppl2",
 		Desc:     "ppl2",
 		UserName: "user2",
 	}
 	pplDetail2 := models.PipelineDetail{
-		Pk:           2,
-		DetailType:   pkgPplCommon.PplDetailTypeNormal,
 		FsID:         "root-fsname2",
 		FsName:       "fsname2",
 		YamlPath:     "./run.yml",
@@ -578,15 +540,11 @@ func TestDeletePipeline(t *testing.T) {
 	}
 
 	ppl3 := models.Pipeline{
-		Pk:       3,
-		ID:       "ppl-000003",
 		Name:     "ppl3",
 		Desc:     "ppl3",
 		UserName: "root",
 	}
 	pplDetail3 := models.PipelineDetail{
-		Pk:           3,
-		DetailType:   pkgPplCommon.PplDetailTypeNormal,
 		FsID:         "root-fsname3",
 		FsName:       "fsname3",
 		YamlPath:     "./run.yml",
@@ -595,26 +553,44 @@ func TestDeletePipeline(t *testing.T) {
 		UserName:     "root",
 	}
 
-	pplID1, pplDetailPk1, err := models.CreatePipeline(ctx.Logging(), &ppl1, &pplDetail1)
+	pplID1, pplDetailID1, err := models.CreatePipeline(ctx.Logging(), &ppl1, &pplDetail1)
 	assert.Nil(t, err)
-	assert.Equal(t, ppl1.ID, pplID1)
-	assert.Equal(t, pplDetail1.Pk, pplDetailPk1)
+	assert.Equal(t, ppl1.Pk, int64(1))
+	assert.Equal(t, pplID1, ppl1.ID)
+	assert.Equal(t, pplID1, "ppl-000001")
 
-	pplID2, pplDetailPk2, err := models.CreatePipeline(ctx.Logging(), &ppl2, &pplDetail2)
-	assert.Nil(t, err)
-	assert.Equal(t, ppl2.ID, pplID2)
-	assert.Equal(t, pplDetail2.Pk, pplDetailPk2)
+	assert.Equal(t, pplDetail1.Pk, int64(1))
+	assert.Equal(t, pplDetailID1, pplDetail1.ID)
+	assert.Equal(t, pplDetailID1, "1")
+	assert.Equal(t, pplDetail1.PipelineID, ppl1.ID)
 
-	pplID3, pplDetailPk3, err := models.CreatePipeline(ctx.Logging(), &ppl3, &pplDetail3)
+	pplID2, pplDetailID2, err := models.CreatePipeline(ctx.Logging(), &ppl2, &pplDetail2)
 	assert.Nil(t, err)
-	assert.Equal(t, ppl3.ID, pplID3)
-	assert.Equal(t, pplDetail3.Pk, pplDetailPk3)
+	assert.Equal(t, ppl2.Pk, int64(2))
+	assert.Equal(t, pplID2, ppl2.ID)
+	assert.Equal(t, pplID2, "ppl-000002")
+
+	assert.Equal(t, pplDetail2.Pk, int64(2))
+	assert.Equal(t, pplDetailID2, pplDetail2.ID)
+	assert.Equal(t, pplDetailID2, "1")
+	assert.Equal(t, pplDetail2.PipelineID, ppl2.ID)
+
+	pplID3, pplDetailID3, err := models.CreatePipeline(ctx.Logging(), &ppl3, &pplDetail3)
+	assert.Nil(t, err)
+	assert.Equal(t, ppl3.Pk, int64(3))
+	assert.Equal(t, pplID3, ppl3.ID)
+	assert.Equal(t, pplID3, "ppl-000003")
+
+	assert.Equal(t, pplDetail3.Pk, int64(3))
+	assert.Equal(t, pplDetailID3, pplDetail3.ID)
+	assert.Equal(t, pplDetailID3, "1")
+	assert.Equal(t, pplDetail3.PipelineID, ppl3.ID)
 
 	// test delete pipeline 失败，用户没有权限
 	ctx = &logger.RequestContext{UserName: "user2"}
 	err = DeletePipeline(ctx, "ppl-000001")
 	assert.NotNil(t, err)
-	assert.Equal(t, "delete pipeline[ppl-000001] failed. Access denied", err.Error())
+	assert.Equal(t, "delete pipeline[ppl-000001] failed. Access denied for user[user2]", err.Error())
 
 	// test delete pipeline 成功
 	ctx = &logger.RequestContext{UserName: "user1"}
@@ -624,7 +600,7 @@ func TestDeletePipeline(t *testing.T) {
 	// 再次删除，pipeline不存在，删除失败
 	err = DeletePipeline(ctx, "ppl-000001")
 	assert.NotNil(t, err)
-	assert.Equal(t, "delete pipeline[ppl-000001] failed. not exist", err.Error())
+	assert.Equal(t, "delete pipeline[ppl-000001] failed. err:pipeline[ppl-000001] not exist", err.Error())
 
 	// test delete pipeline 成功，root用户能够删除自己创建的pipeline
 	ctx = &logger.RequestContext{UserName: MockRootUser}
@@ -633,7 +609,7 @@ func TestDeletePipeline(t *testing.T) {
 
 	err = DeletePipeline(ctx, "ppl-000002")
 	assert.NotNil(t, err)
-	assert.Equal(t, "delete pipeline[ppl-000002] failed. not exist", err.Error())
+	assert.Equal(t, "delete pipeline[ppl-000002] failed. err:pipeline[ppl-000002] not exist", err.Error())
 
 	// test delete pipeline 成功，root用户也能删除别人创建的pipeline
 	err = DeletePipeline(ctx, "ppl-000003")
@@ -641,7 +617,7 @@ func TestDeletePipeline(t *testing.T) {
 
 	err = DeletePipeline(ctx, "ppl-000003")
 	assert.NotNil(t, err)
-	assert.Equal(t, "delete pipeline[ppl-000003] failed. not exist", err.Error())
+	assert.Equal(t, "delete pipeline[ppl-000003] failed. err:pipeline[ppl-000003] not exist", err.Error())
 }
 
 // todo: 测试有schedule在运行的场景（不能删除）
@@ -650,16 +626,11 @@ func TestDeletePipelineDetail(t *testing.T) {
 	ctx := &logger.RequestContext{UserName: MockRootUser}
 
 	ppl1 := models.Pipeline{
-		Pk:       1,
-		ID:       "ppl-000001",
 		Name:     "ppl1",
 		Desc:     "ppl1",
 		UserName: "user1",
 	}
 	pplDetail1 := models.PipelineDetail{
-		Pk:           1,
-		PipelineID:   ppl1.ID,
-		DetailType:   pkgPplCommon.PplDetailTypeNormal,
 		FsID:         "user1-fsname",
 		FsName:       "fsname",
 		YamlPath:     "./run.yml",
@@ -669,9 +640,6 @@ func TestDeletePipelineDetail(t *testing.T) {
 	}
 
 	pplDetail2 := models.PipelineDetail{
-		Pk:           2,
-		PipelineID:   ppl1.ID,
-		DetailType:   pkgPplCommon.PplDetailTypeNormal,
 		FsID:         "user1-fsname2",
 		FsName:       "fsname2",
 		YamlPath:     "./run.yml",
@@ -681,9 +649,6 @@ func TestDeletePipelineDetail(t *testing.T) {
 	}
 
 	pplDetail3 := models.PipelineDetail{
-		Pk:           3,
-		PipelineID:   ppl1.ID,
-		DetailType:   pkgPplCommon.PplDetailTypeNormal,
 		FsID:         "user1-fsname3",
 		FsName:       "fsname3",
 		YamlPath:     "./run.yml",
@@ -693,17 +658,12 @@ func TestDeletePipelineDetail(t *testing.T) {
 	}
 
 	ppl2 := models.Pipeline{
-		Pk:       2,
-		ID:       "ppl-000002",
 		Name:     "ppl2",
 		Desc:     "ppl2",
 		UserName: "root",
 	}
 
 	pplDetail4 := models.PipelineDetail{
-		Pk:           4,
-		PipelineID:   ppl2.ID,
-		DetailType:   pkgPplCommon.PplDetailTypeNormal,
 		FsID:         "root-fsname4",
 		FsName:       "fsname4",
 		YamlPath:     "./run.yml",
@@ -713,9 +673,6 @@ func TestDeletePipelineDetail(t *testing.T) {
 	}
 
 	pplDetail5 := models.PipelineDetail{
-		Pk:           5,
-		PipelineID:   ppl2.ID,
-		DetailType:   pkgPplCommon.PplDetailTypeNormal,
 		FsID:         "root-fsname5",
 		FsName:       "fsname5",
 		YamlPath:     "./run.yml",
@@ -724,76 +681,97 @@ func TestDeletePipelineDetail(t *testing.T) {
 		UserName:     "root",
 	}
 
-	pplID1, pplDetailPk1, err := models.CreatePipeline(ctx.Logging(), &ppl1, &pplDetail1)
+	pplID1, pplDetailID1, err := models.CreatePipeline(ctx.Logging(), &ppl1, &pplDetail1)
 	assert.Nil(t, err)
-	assert.Equal(t, ppl1.ID, pplID1)
-	assert.Equal(t, pplDetail1.Pk, pplDetailPk1)
+	assert.Equal(t, ppl1.Pk, int64(1))
+	assert.Equal(t, pplID1, ppl1.ID)
+	assert.Equal(t, pplID1, "ppl-000001")
 
-	pplID2, pplDetailPk2, err := models.UpdatePipeline(ctx.Logging(), &ppl1, &pplDetail2)
-	assert.Nil(t, err)
-	assert.Equal(t, ppl1.ID, pplID2)
-	assert.Equal(t, pplDetail2.Pk, pplDetailPk2)
+	assert.Equal(t, pplDetail1.Pk, int64(1))
+	assert.Equal(t, pplDetailID1, pplDetail1.ID)
+	assert.Equal(t, pplDetailID1, "1")
+	assert.Equal(t, pplDetail1.PipelineID, ppl1.ID)
 
-	pplID3, pplDetailPk3, err := models.UpdatePipeline(ctx.Logging(), &ppl1, &pplDetail3)
+	pplID2, pplDetailID2, err := models.UpdatePipeline(ctx.Logging(), &ppl1, &pplDetail2)
 	assert.Nil(t, err)
-	assert.Equal(t, ppl1.ID, pplID3)
-	assert.Equal(t, pplDetail3.Pk, pplDetailPk3)
+	assert.Equal(t, pplID2, ppl1.ID)
 
-	pplID4, pplDetailPk4, err := models.CreatePipeline(ctx.Logging(), &ppl2, &pplDetail4)
-	assert.Nil(t, err)
-	assert.Equal(t, ppl2.ID, pplID4)
-	assert.Equal(t, pplDetail4.Pk, pplDetailPk4)
+	assert.Equal(t, pplDetail2.Pk, int64(2))
+	assert.Equal(t, pplDetailID2, pplDetail2.ID)
+	assert.Equal(t, pplDetailID2, "2")
 
-	pplID5, pplDetailPk5, err := models.UpdatePipeline(ctx.Logging(), &ppl2, &pplDetail5)
+	pplID3, pplDetailID3, err := models.UpdatePipeline(ctx.Logging(), &ppl1, &pplDetail3)
 	assert.Nil(t, err)
-	assert.Equal(t, ppl2.ID, pplID5)
-	assert.Equal(t, pplDetail5.Pk, pplDetailPk5)
+	assert.Equal(t, pplID3, ppl1.ID)
+
+	assert.Equal(t, pplDetail3.Pk, int64(3))
+	assert.Equal(t, pplDetailID3, pplDetail3.ID)
+	assert.Equal(t, pplDetailID3, "3")
+
+	pplID4, pplDetailID4, err := models.CreatePipeline(ctx.Logging(), &ppl2, &pplDetail4)
+	assert.Nil(t, err)
+	assert.Equal(t, ppl2.Pk, int64(2))
+	assert.Equal(t, pplID4, ppl2.ID)
+	assert.Equal(t, pplID4, "ppl-000002")
+
+	assert.Equal(t, pplDetail4.Pk, int64(4))
+	assert.Equal(t, pplDetailID4, pplDetail4.ID)
+	assert.Equal(t, pplDetailID4, "1")
+	assert.Equal(t, pplDetail4.PipelineID, ppl2.ID)
+
+	pplID5, pplDetailID5, err := models.UpdatePipeline(ctx.Logging(), &ppl2, &pplDetail5)
+	assert.Nil(t, err)
+	assert.Equal(t, pplID5, ppl2.ID)
+
+	assert.Equal(t, pplDetail5.Pk, int64(5))
+	assert.Equal(t, pplDetailID5, pplDetail5.ID)
+	assert.Equal(t, pplDetailID5, "2")
 
 	// test delete pipeline detail 失败，pipeline记录不存在
-	err = DeletePipelineDetail(ctx, "ppl-000003", 1)
+	err = DeletePipelineDetail(ctx, "ppl-000003", "1")
 	assert.NotNil(t, err)
-	assert.Equal(t, "delete pipeline detail failed. pipeline[ppl-000003] not exist", err.Error())
+	assert.Equal(t, "delete pipeline[ppl-000003] detail[1] failed. err:pipeline[ppl-000003] not exist", err.Error())
 
 	// test delete pipeline detail 失败，用户没有权限
 	ctx = &logger.RequestContext{UserName: "user2"}
-	err = DeletePipelineDetail(ctx, "ppl-000001", 1)
+	err = DeletePipelineDetail(ctx, "ppl-000001", "1")
 	assert.NotNil(t, err)
-	assert.Equal(t, "delete pipeline detail[1] of pipeline[ppl-000001] failed. Access denied", err.Error())
+	assert.Equal(t, "delete pipeline[ppl-000001] detail[1] failed. Access denied for user[user2]", err.Error())
 
 	// delete pipeline detail 失败，pipeline detail不存在，删除失败
 	ctx = &logger.RequestContext{UserName: "user1"}
-	err = DeletePipelineDetail(ctx, "ppl-000001", 6)
+	err = DeletePipelineDetail(ctx, "ppl-000001", "4")
 	assert.NotNil(t, err)
-	assert.Equal(t, "delete pipeline detail failed. pipeline detail[6] not exist", err.Error())
+	assert.Equal(t, "delete pipeline[ppl-000001] detail[4] failed. err:pipeline[ppl-000001] detail[4] not exist", err.Error())
 
 	// test delete pipeline detail 成功
-	err = DeletePipelineDetail(ctx, "ppl-000001", 1)
+	err = DeletePipelineDetail(ctx, "ppl-000001", "1")
 	assert.Nil(t, err)
 
 	// 再次删除，pipeline不存在，删除失败
-	err = DeletePipelineDetail(ctx, "ppl-000001", 1)
+	err = DeletePipelineDetail(ctx, "ppl-000001", "1")
 	assert.NotNil(t, err)
-	assert.Equal(t, "delete pipeline detail failed. pipeline detail[1] not exist", err.Error())
+	assert.Equal(t, "delete pipeline[ppl-000001] detail[1] failed. err:pipeline[ppl-000001] detail[1] not exist", err.Error())
+
+	// test delete pipeline 成功，root用户也能删除别人创建的pipeline
+	err = DeletePipelineDetail(ctx, "ppl-000001", "2")
+	assert.Nil(t, err)
+
+	err = DeletePipelineDetail(ctx, "ppl-000001", "2")
+	assert.NotNil(t, err)
+	assert.Equal(t, "delete pipeline[ppl-000001] detail[2] failed. err:pipeline[ppl-000001] detail[2] not exist", err.Error())
 
 	// test delete pipeline detail 成功，root用户能够删除自己创建的pipeline
 	ctx = &logger.RequestContext{UserName: MockRootUser}
-	err = DeletePipelineDetail(ctx, "ppl-000002", 4)
+	err = DeletePipelineDetail(ctx, "ppl-000002", "1")
 	assert.Nil(t, err)
 
-	err = DeletePipelineDetail(ctx, "ppl-000002", 4)
+	err = DeletePipelineDetail(ctx, "ppl-000002", "1")
 	assert.NotNil(t, err)
-	assert.Equal(t, "delete pipeline detail failed. pipeline detail[4] not exist", err.Error())
-
-	// test delete pipeline 成功，root用户也能删除别人创建的pipeline
-	err = DeletePipelineDetail(ctx, "ppl-000001", 2)
-	assert.Nil(t, err)
-
-	err = DeletePipelineDetail(ctx, "ppl-000001", 2)
-	assert.NotNil(t, err)
-	assert.Equal(t, "delete pipeline detail failed. pipeline detail[2] not exist", err.Error())
+	assert.Equal(t, "delete pipeline[ppl-000002] detail[1] failed. err:pipeline[ppl-000002] detail[1] not exist", err.Error())
 
 	// 当pipeline只有一个detail时，不能删除detail，只能删除pipeline
-	err = DeletePipelineDetail(ctx, "ppl-000002", 5)
+	err = DeletePipelineDetail(ctx, "ppl-000002", "2")
 	assert.NotNil(t, err)
-	assert.Equal(t, "delete pipeline detail[5] failed. only one pipeline detail left, pls delete pipeline instead", err.Error())
+	assert.Equal(t, "delete pipeline[ppl-000002] detail[2] failed. only one pipeline detail left, pls delete pipeline instead", err.Error())
 }

@@ -43,7 +43,6 @@ func TestCreatePipeline(t *testing.T) {
 		FsName:   "mockFsName",
 		UserName: "",
 		YamlPath: "../../../../example/wide_and_deep/run.yaml",
-		Name:     "distribute_wide_and_deep",
 	}
 
 	patch := gomonkey.ApplyFunc(pkgPipeline.NewWorkflow, func(wfSource schema.WorkflowSource, runID, entry string, params map[string]interface{}, extra map[string]string,
@@ -63,7 +62,6 @@ func TestCreatePipeline(t *testing.T) {
 	createPplRsp := pipeline.CreatePipelineResponse{}
 	err = ParseBody(result.Body, &createPplRsp)
 	assert.Nil(t, err)
-	assert.Equal(t, createPplRsp.Name, createPplReq.Name)
 	assert.True(t, strings.Contains(createPplRsp.PipelineID, "ppl-"))
 
 	b, _ := json.Marshal(createPplRsp)

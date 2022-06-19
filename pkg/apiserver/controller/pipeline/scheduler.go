@@ -210,15 +210,21 @@ func (s *Scheduler) dealWithTimout(checkCatchup bool) (*time.Time, error) {
 			return nil, err
 		}
 
+		fsConfig, err := models.DecodeFsConfig(schedule.FsConfig)
+		if err != nil {
+			return nil, err
+		}
+
 		for _, nextRunAt := range nextRunAtList {
 			log.Infof("start to create run in ScheduledAt[%s] for schedule[%s]", nextRunAt.Format("2006-01-02 15:04:05"), scheduleID)
+
 			createRequest := CreateRunRequest{
-				FsName:           schedule.FsName,
-				UserName:         schedule.UserName,
+				FsName:           fsConfig.FsName,
+				UserName:         fsConfig.UserName,
 				Name:             schedule.Name,
 				Description:      schedule.Desc,
 				PipelineID:       schedule.PipelineID,
-				PipelineDetailPk: schedule.PipelineDetailPk,
+				PipelineDetailID: schedule.PipelineDetailID,
 				ScheduleID:       schedule.ID,
 				ScheduledAt:      nextRunAt.Format("2006-01-02 15:04:05"),
 			}

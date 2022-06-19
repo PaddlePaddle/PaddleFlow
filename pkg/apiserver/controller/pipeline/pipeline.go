@@ -35,13 +35,12 @@ type CreatePipelineRequest struct {
 	FsName   string `json:"fsname"`
 	YamlPath string `json:"yamlPath"` // optional, use "./run.yaml" if not specified
 	UserName string `json:"username"` // optional, only for root user
-	Name     string `json:"name"`     // optional
 	Desc     string `json:"desc"`     // optional
 }
 
 type CreatePipelineResponse struct {
 	PipelineID       string `json:"pipelineID"`
-	PipelineDetailPk int64  `json:"pipelineDetailPk"`
+	PipelineDetailID string `json:"pipelineDetailID"`
 	Name             string `json:"name"`
 }
 
@@ -54,7 +53,7 @@ type UpdatePipelineRequest struct {
 
 type UpdatePipelineResponse struct {
 	PipelineID       string `json:"pipelineID"`
-	PipelineDetailPk int64  `json:"pipelineDetailPk"`
+	PipelineDetailID string `json:"pipelineDetailID"`
 }
 
 type ListPipelineResponse struct {
@@ -93,7 +92,7 @@ func (pb *PipelineBrief) updateFromPipelineModel(pipeline models.Pipeline) {
 }
 
 type PipelineDetailBrief struct {
-	Pk           int64  `json:"pipelineDetailPk"`
+	ID           string `json:"pipelineDetailID"`
 	PipelineID   string `json:"pipelineID"`
 	FsName       string `json:"fsname"`
 	YamlPath     string `json:"yamlPath"`
@@ -104,7 +103,7 @@ type PipelineDetailBrief struct {
 }
 
 func (pdb *PipelineDetailBrief) updateFromPipelineDetailModel(pipelineDetail models.PipelineDetail) {
-	pdb.Pk = pipelineDetail.Pk
+	pdb.ID = pipelineDetail.ID
 	pdb.PipelineID = pipelineDetail.PipelineID
 	pdb.FsName = pipelineDetail.FsName
 	pdb.YamlPath = pipelineDetail.YamlPath
@@ -126,7 +125,7 @@ func CreatePipeline(ctx *logger.RequestContext, request CreatePipelineRequest, f
 	}
 
 	// validate pipeline and get name of pipeline
-	pplName, err := validateWorkflowForPipeline(string(pipelineYaml), request.Name)
+	pplName, err := validateWorkflowForPipeline(string(pipelineYaml))
 	if err != nil {
 		ctx.ErrorCode = common.MalformedYaml
 		errMsg := fmt.Sprintf("validateWorkflowForPipeline failed. err:%v", err)
@@ -159,7 +158,6 @@ func CreatePipeline(ctx *logger.RequestContext, request CreatePipelineRequest, f
 
 	yamlMd5 := common.GetMD5Hash(pipelineYaml)
 	pplDetail := models.PipelineDetail{
-		DetailType:   pplcommon.PplDetailTypeNormal,
 		FsID:         fsID,
 		FsName:       request.FsName,
 		YamlPath:     request.YamlPath,
@@ -168,7 +166,7 @@ func CreatePipeline(ctx *logger.RequestContext, request CreatePipelineRequest, f
 		UserName:     ctx.UserName,
 	}
 
-	pplID, pplDetailPk, err := models.CreatePipeline(ctx.Logging(), &ppl, &pplDetail)
+	pplID, pplDetailID, err := models.CreatePipeline(ctx.Logging(), &ppl, &pplDetail)
 	if err != nil {
 		ctx.ErrorCode = common.InternalError
 		errMsg := fmt.Sprintf("create pipeline run failed inserting db. error:%s", err.Error())
@@ -179,7 +177,7 @@ func CreatePipeline(ctx *logger.RequestContext, request CreatePipelineRequest, f
 	ctx.Logging().Debugf("create pipeline[%s] successful", pplID)
 	response := CreatePipelineResponse{
 		PipelineID:       pplID,
-		PipelineDetailPk: pplDetailPk,
+		PipelineDetailID: pplDetailID,
 		Name:             pplName,
 	}
 	return response, nil
@@ -196,7 +194,7 @@ func UpdatePipeline(ctx *logger.RequestContext, request UpdatePipelineRequest, p
 	}
 
 	// validate pipeline and get name of pipeline
-	pplName, err := validateWorkflowForPipeline(string(pipelineYaml), "")
+	pplName, err := validateWorkflowForPipeline(string(pipelineYaml))
 	if err != nil {
 		ctx.ErrorCode = common.MalformedYaml
 		errMsg := fmt.Sprintf("validateWorkflowForPipeline failed. err:%v", err)
@@ -204,28 +202,17 @@ func UpdatePipeline(ctx *logger.RequestContext, request UpdatePipelineRequest, p
 		return UpdatePipelineResponse{}, fmt.Errorf(errMsg)
 	}
 
-	// 校验pipeline是否存在，不能更新不存在的pipeline
-	ppl, err := models.GetPipelineByID(pipelineID)
+	hasAuth, ppl, err := CheckPipelinePermission(ctx.UserName, pipelineID)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			ctx.ErrorCode = common.PipelineNotFound
-			errMsg := fmt.Sprintf("UpdatePipeline failed: pipeline[%s] not created for user[%s], pls create first!", pipelineID, ctx.UserName)
-			ctx.Logging().Errorf(errMsg)
-			return UpdatePipelineResponse{}, fmt.Errorf(errMsg)
-		} else {
-			ctx.ErrorCode = common.InternalError
-			errMsg := fmt.Sprintf("UpdatePipeline failed for pipeline[%s], err: [%s]", pipelineID, err.Error())
-			ctx.Logging().Errorf(errMsg)
-			return UpdatePipelineResponse{}, fmt.Errorf(errMsg)
-		}
-	}
-
-	// 校验用户对pipeline记录的权限
-	if !common.IsRootUser(ctx.UserName) && ctx.UserName != ppl.UserName {
+		ctx.ErrorCode = common.InternalError
+		errMsg := fmt.Sprintf("update pipeline[%s] failed. err:%v", pipelineID, err)
+		ctx.Logging().Errorf(errMsg)
+		return UpdatePipelineResponse{}, fmt.Errorf(errMsg)
+	} else if !hasAuth {
 		ctx.ErrorCode = common.AccessDenied
-		err := common.NoAccessError(ctx.UserName, common.ResourceTypePipeline, pipelineID)
-		ctx.Logging().Errorln(err.Error())
-		return UpdatePipelineResponse{}, err
+		errMsg := fmt.Sprintf("update pipeline[%s] failed. Access denied for user[%s]", pipelineID, ctx.UserName)
+		ctx.Logging().Errorf(errMsg)
+		return UpdatePipelineResponse{}, fmt.Errorf(errMsg)
 	}
 
 	// 校验待更新的pipeline name，和数据库中pipeline name一致
@@ -240,7 +227,6 @@ func UpdatePipeline(ctx *logger.RequestContext, request UpdatePipelineRequest, p
 	yamlMd5 := common.GetMD5Hash(pipelineYaml)
 	pplDetail := models.PipelineDetail{
 		PipelineID:   pipelineID,
-		DetailType:   pplcommon.PplDetailTypeNormal,
 		FsID:         fsID,
 		FsName:       request.FsName,
 		YamlPath:     request.YamlPath,
@@ -249,7 +235,7 @@ func UpdatePipeline(ctx *logger.RequestContext, request UpdatePipelineRequest, p
 		UserName:     ctx.UserName,
 	}
 
-	pplID, pplDetailPk, err := models.UpdatePipeline(ctx.Logging(), &ppl, &pplDetail)
+	pplID, pplDetailID, err := models.UpdatePipeline(ctx.Logging(), &ppl, &pplDetail)
 	if err != nil {
 		ctx.ErrorCode = common.InternalError
 		errMsg := fmt.Sprintf("update pipeline failed inserting db. error:%s", err.Error())
@@ -257,30 +243,22 @@ func UpdatePipeline(ctx *logger.RequestContext, request UpdatePipelineRequest, p
 		return UpdatePipelineResponse{}, fmt.Errorf(errMsg)
 	}
 
-	ctx.Logging().Debugf("update pipeline[%s] successful, pplDetailPk[%d]", pplID, pplDetailPk)
+	ctx.Logging().Debugf("update pipeline[%s] successful, pplDetailID[%s]", pplID, pplDetailID)
 	response := UpdatePipelineResponse{
 		PipelineID:       pplID,
-		PipelineDetailPk: pplDetailPk,
+		PipelineDetailID: pplDetailID,
 	}
 	return response, nil
 }
 
 // todo: 为了校验pipeline，需要准备的内容太多，需要简化校验逻辑
-func validateWorkflowForPipeline(pipelineYaml string, pplName string) (name string, err error) {
+func validateWorkflowForPipeline(pipelineYaml string) (name string, err error) {
 	// parse yaml -> WorkflowSource
 	// TODO： validate pipeline containing multiple ws's
 	wfs, err := schema.ParseWorkflowSource([]byte(pipelineYaml))
 	if err != nil {
 		logger.Logger().Errorf("get WorkflowSource by yaml failed. yaml: %s \n, err:%v", pipelineYaml, err)
 		return "", err
-	}
-
-	// request name > yaml name
-	// todo: 是否需要校验pipeline中的name，和参数中传的name，保持一致
-	if pplName != "" && pplName != wfs.Name {
-		errMsg := fmt.Sprintf("pplName[%s] in request is not the same as name[%s] in pipeline yaml.", pplName, wfs.Name)
-		logger.Logger().Errorf(errMsg)
-		return "", fmt.Errorf(errMsg)
 	}
 
 	// fill extra info
@@ -301,28 +279,15 @@ func validateWorkflowForPipeline(pipelineYaml string, pplName string) (name stri
 	// todo：这里为了校验，还要传特殊的run name（validatePipeline），可以想办法简化校验逻辑
 	wfPtr, err := pipeline.NewWorkflow(wfs, "validatePipeline", "", param, extra, wfCbs)
 	if err != nil {
-		logger.Logger().Errorf("NewWorkflow for pipeline[%s] failed. err:%v", pplName, err)
+		logger.Logger().Errorf("NewWorkflow for pipeline[%s] failed. err:%v", wfs.Name, err)
 		return "", err
 	}
 	if wfPtr == nil {
-		err := fmt.Errorf("NewWorkflow ptr for pipeline[%s] is nil", pplName)
+		err := fmt.Errorf("NewWorkflow ptr for pipeline[%s] is nil", wfs.Name)
 		logger.Logger().Errorln(err.Error())
 		return "", err
 	}
 	return wfs.Name, nil
-}
-
-func checkAndGetDetailType(detailType string) (string, error) {
-	if detailType == "" {
-		detailType = pplcommon.PplDetailTypeNormal
-	}
-
-	if detailType != pplcommon.PplDetailTypeNormal && detailType != pplcommon.PplDetailTypeSchedule {
-		errMsg := fmt.Sprintf("pipeline detail type[%s] not correct", detailType)
-		return "", fmt.Errorf(errMsg)
-	} else {
-		return detailType, nil
-	}
 }
 
 func ListPipeline(ctx *logger.RequestContext, marker string, maxKeys int, userFilter, nameFilter []string) (ListPipelineResponse, error) {
@@ -342,7 +307,14 @@ func ListPipeline(ctx *logger.RequestContext, marker string, maxKeys int, userFi
 
 	// 只有root用户才能设置userFilter，否则只能查询当前普通用户创建的pipeline列表
 	if !common.IsRootUser(ctx.UserName) {
-		userFilter = []string{ctx.UserName}
+		if len(userFilter) != 0 {
+			ctx.ErrorCode = common.InternalError
+			errMsg := fmt.Sprint("only root user can set userFilter!")
+			ctx.Logging().Errorf(errMsg)
+			return ListPipelineResponse{}, fmt.Errorf(errMsg)
+		} else {
+			userFilter = []string{ctx.UserName}
+		}
 	}
 
 	pipelineList, err := models.ListPipeline(pk, maxKeys, userFilter, nameFilter)
@@ -360,7 +332,7 @@ func ListPipeline(ctx *logger.RequestContext, marker string, maxKeys int, userFi
 	listPipelineResponse.IsTruncated = false
 	if len(pipelineList) > 0 {
 		ppl := pipelineList[len(pipelineList)-1]
-		isLastPk, err := isLastPipelinePk(ctx, ppl.Pk)
+		isLastPk, err := models.IsLastPipelinePk(ctx.Logging(), ppl.Pk, userFilter, nameFilter)
 		if err != nil {
 			ctx.ErrorCode = common.InternalError
 			errMsg := fmt.Sprintf("get last pipeline Pk failed. err:[%s]", err.Error())
@@ -388,19 +360,6 @@ func ListPipeline(ctx *logger.RequestContext, marker string, maxKeys int, userFi
 		listPipelineResponse.PipelineList = append(listPipelineResponse.PipelineList, pplBrief)
 	}
 	return listPipelineResponse, nil
-}
-
-func isLastPipelinePk(ctx *logger.RequestContext, pk int64) (bool, error) {
-	lastPipeline, err := models.GetLastPipeline(ctx.Logging())
-	if err != nil {
-		errMsg := fmt.Sprintf("get last pipeline failed. error:[%s]", err.Error())
-		ctx.Logging().Errorf(errMsg)
-		return false, fmt.Errorf(errMsg)
-	}
-	if lastPipeline.Pk == pk {
-		return true, nil
-	}
-	return false, nil
 }
 
 func GetPipeline(ctx *logger.RequestContext, pipelineID, marker string, maxKeys int, fsFilter []string) (GetPipelineResponse, error) {
@@ -435,8 +394,7 @@ func GetPipeline(ctx *logger.RequestContext, pipelineID, marker string, maxKeys 
 		}
 	}
 
-	detailTypeFilter := []string{pplcommon.PplDetailTypeNormal}
-	pipelineDetailList, err := models.ListPipelineDetail(pipelineID, pk, maxKeys, fsFilter, detailTypeFilter)
+	pipelineDetailList, err := models.ListPipelineDetail(pipelineID, pk, maxKeys, fsFilter)
 	if err != nil {
 		ctx.ErrorCode = common.InternalError
 		ctx.Logging().Errorf("get Pipeline detail[%s-%d-%d-%s]. err: %v", pipelineID, pk, maxKeys, fsFilter, err)
@@ -447,7 +405,7 @@ func GetPipeline(ctx *logger.RequestContext, pipelineID, marker string, maxKeys 
 	getPipelineResponse.IsTruncated = false
 	if len(pipelineDetailList) > 0 {
 		pplDetail := pipelineDetailList[len(pipelineDetailList)-1]
-		isLastPPlDetailPk, err := isLastPipelineDetailPk(ctx, pipelineID, pplDetail.Pk)
+		isLastPPlDetailPk, err := models.IsLastPipelineDetailPk(ctx.Logging(), pipelineID, pplDetail.Pk, fsFilter)
 		if err != nil {
 			ctx.ErrorCode = common.InternalError
 			errMsg := fmt.Sprintf("get last ppldetail for ppl[%s] failed. err:[%s]", pipelineID, err.Error())
@@ -477,36 +435,19 @@ func GetPipeline(ctx *logger.RequestContext, pipelineID, marker string, maxKeys 
 	return getPipelineResponse, nil
 }
 
-func GetPipelineDetail(ctx *logger.RequestContext, pipelineID string, pipelineDetailPk int64) (GetPipelineDetailResponse, error) {
+func GetPipelineDetail(ctx *logger.RequestContext, pipelineID string, pipelineDetailID string) (GetPipelineDetailResponse, error) {
 	ctx.Logging().Debugf("begin get pipeline detail.")
 
 	// query pipeline
-	ppl, err := models.GetPipelineByID(pipelineID)
+	hasAuth, ppl, pplDetail, err := CheckPipelineDetailPermission(ctx.UserName, pipelineID, pipelineDetailID)
 	if err != nil {
 		ctx.ErrorCode = common.InternalError
-		errMsg := fmt.Sprintf("get pipeline[%s] failed, err: %v", pipelineID, err)
+		errMsg := fmt.Sprintf("delete pipeline[%s] detail[%s] failed. err:%v", pipelineID, pipelineDetailID, err)
 		ctx.Logging().Errorf(errMsg)
 		return GetPipelineDetailResponse{}, fmt.Errorf(errMsg)
-	}
-	if !common.IsRootUser(ctx.UserName) && ctx.UserName != ppl.UserName {
+	} else if !hasAuth {
 		ctx.ErrorCode = common.AccessDenied
-		err := common.NoAccessError(ctx.UserName, common.ResourceTypePipeline, pipelineID)
-		ctx.Logging().Errorln(err.Error())
-		return GetPipelineDetailResponse{}, err
-	}
-
-	// query pipeline detail
-	pplDetail, err := models.GetPipelineDetailByPk(pipelineDetailPk)
-	if err != nil {
-		ctx.ErrorCode = common.InternalError
-		errMsg := fmt.Sprintf("get pipeline detail[%d] failed, err: %v", pipelineDetailPk, err)
-		ctx.Logging().Errorf(errMsg)
-		return GetPipelineDetailResponse{}, fmt.Errorf(errMsg)
-	}
-
-	if pplDetail.PipelineID != pipelineID {
-		ctx.ErrorCode = common.InternalError
-		errMsg := fmt.Sprintf("get pipeline detail[%d] failed. does not belong to pipeline[%s]", pipelineDetailPk, pipelineID)
+		errMsg := fmt.Sprintf("delete pipeline[%s] detail[%s] failed. Access denied for user[%s]", pipelineID, pipelineDetailID, ctx.UserName)
 		ctx.Logging().Errorf(errMsg)
 		return GetPipelineDetailResponse{}, fmt.Errorf(errMsg)
 	}
@@ -517,47 +458,24 @@ func GetPipelineDetail(ctx *logger.RequestContext, pipelineID string, pipelineDe
 	return getPipelineDetailResponse, nil
 }
 
-func isLastPipelineDetailPk(ctx *logger.RequestContext, pplID string, pk int64) (bool, error) {
-	lastPipelineDetail, err := models.GetLastPipelineDetail(ctx.Logging(), pplID)
+func DeletePipeline(ctx *logger.RequestContext, pipelineID string) error {
+	ctx.Logging().Debugf("begin delete pipeline: %s", pipelineID)
 
+	hasAuth, _, err := CheckPipelinePermission(ctx.UserName, pipelineID)
 	if err != nil {
-		errMsg := fmt.Sprintf("get last pipeline detail failed. error:[%s]", err.Error())
+		ctx.ErrorCode = common.InternalError
+		errMsg := fmt.Sprintf("delete pipeline[%s] failed. err:%v", pipelineID, err)
 		ctx.Logging().Errorf(errMsg)
-		return false, fmt.Errorf(errMsg)
-	}
-	if lastPipelineDetail.Pk == pk {
-		return true, nil
-	}
-	return false, nil
-}
-
-func DeletePipeline(ctx *logger.RequestContext, id string) error {
-	ctx.Logging().Debugf("begin delete pipeline: %s", id)
-
-	ppl, err := models.GetPipelineByID(id)
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			ctx.ErrorCode = common.PipelineNotFound
-			errMsg := fmt.Sprintf("delete pipeline[%s] failed. not exist", id)
-			ctx.Logging().Errorf(errMsg)
-			return fmt.Errorf(errMsg)
-		} else {
-			ctx.ErrorCode = common.InternalError
-			errMsg := fmt.Sprintf("delete pipeline[%s] failed. err:%v", id, err)
-			ctx.Logging().Errorf(errMsg)
-			return fmt.Errorf(errMsg)
-		}
-	}
-
-	if !common.IsRootUser(ctx.UserName) && ctx.UserName != ppl.UserName {
+		return fmt.Errorf(errMsg)
+	} else if !hasAuth {
 		ctx.ErrorCode = common.AccessDenied
-		errMsg := fmt.Sprintf("delete pipeline[%s] failed. Access denied", id)
+		errMsg := fmt.Sprintf("delete pipeline[%s] failed. Access denied for user[%s]", pipelineID, ctx.UserName)
 		ctx.Logging().Errorf(errMsg)
 		return fmt.Errorf(errMsg)
 	}
 
 	// 需要判断是否有周期调度运行中（单次任务不影响，因为run会直接保存yaml）
-	scheduleList, err := models.ListSchedule(ctx.Logging(), id, 0, 0, 0, []string{}, []string{}, []string{}, []string{}, models.ScheduleNotFinalStatusList)
+	scheduleList, err := models.ListSchedule(ctx.Logging(), pipelineID, "", 0, 0, []string{}, []string{}, []string{}, []string{}, models.ScheduleNotFinalStatusList)
 	if err != nil {
 		ctx.ErrorCode = common.InternalError
 		errMsg := fmt.Sprintf("models list schedule failed. err:[%s]", err.Error())
@@ -565,99 +483,66 @@ func DeletePipeline(ctx *logger.RequestContext, id string) error {
 		return fmt.Errorf(errMsg)
 	} else if len(scheduleList) > 0 {
 		ctx.ErrorCode = common.InternalError
-		errMsg := fmt.Sprintf("delete pipeline[%s] failed, there are running schedules, pls stop first", id)
+		errMsg := fmt.Sprintf("delete pipeline[%s] failed, there are running schedules, pls stop first", pipelineID)
 		ctx.Logging().Errorf(errMsg)
 		return fmt.Errorf(errMsg)
 	}
 
-	if err := models.DeletePipeline(ctx.Logging(), id, false); err != nil {
+	if err := models.DeletePipeline(ctx.Logging(), pipelineID, false); err != nil {
 		ctx.ErrorCode = common.InternalError
-		errMsg := fmt.Sprintf("models delete pipeline[%s] failed. error:%s", id, err.Error())
+		errMsg := fmt.Sprintf("models delete pipeline[%s] failed. error:%s", pipelineID, err.Error())
 		ctx.Logging().Errorf(errMsg)
 		return fmt.Errorf(errMsg)
 	}
 	return nil
 }
 
-func DeletePipelineDetail(ctx *logger.RequestContext, pipelineID string, pipelineDetailPk int64) error {
-	ctx.Logging().Debugf("begin delete pipeline detail[%d], with pipelineID[%s]", pipelineDetailPk, pipelineID)
-
-	ppl, err := models.GetPipelineByID(pipelineID)
+func DeletePipelineDetail(ctx *logger.RequestContext, pipelineID string, pipelineDetailID string) error {
+	ctx.Logging().Debugf("begin delete pipeline detail[%s], with pipelineID[%s]", pipelineDetailID, pipelineID)
+	hasAuth, _, _, err := CheckPipelineDetailPermission(ctx.UserName, pipelineID, pipelineDetailID)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			ctx.ErrorCode = common.PipelineNotFound
-			errMsg := fmt.Sprintf("delete pipeline detail failed. pipeline[%s] not exist", pipelineID)
-			ctx.Logging().Errorf(errMsg)
-			return fmt.Errorf(errMsg)
-		} else {
-			ctx.ErrorCode = common.InternalError
-			errMsg := fmt.Sprintf("delete pipeline detail[%d] failed. err:%v", pipelineDetailPk, err)
-			ctx.Logging().Errorf(errMsg)
-			return fmt.Errorf(errMsg)
-		}
-	}
-
-	if !common.IsRootUser(ctx.UserName) && ctx.UserName != ppl.UserName {
-		ctx.ErrorCode = common.AccessDenied
-		errMsg := fmt.Sprintf("delete pipeline detail[%d] of pipeline[%s] failed. Access denied", pipelineDetailPk, pipelineID)
+		ctx.ErrorCode = common.InternalError
+		errMsg := fmt.Sprintf("delete pipeline[%s] detail[%s] failed. err:%v", pipelineID, pipelineDetailID, err)
 		ctx.Logging().Errorf(errMsg)
 		return fmt.Errorf(errMsg)
-	}
-
-	pplDetail, err := models.GetPipelineDetailByPk(pipelineDetailPk)
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			ctx.ErrorCode = common.PipelineNotFound
-			errMsg := fmt.Sprintf("delete pipeline detail failed. pipeline detail[%d] not exist", pipelineDetailPk)
-			ctx.Logging().Errorf(errMsg)
-			return fmt.Errorf(errMsg)
-		} else {
-			ctx.ErrorCode = common.InternalError
-			errMsg := fmt.Sprintf("delete pipeline detail[%d] failed. err:%v", pipelineDetailPk, err)
-			ctx.Logging().Errorf(errMsg)
-			return fmt.Errorf(errMsg)
-		}
-	}
-
-	if pplDetail.PipelineID != pipelineID {
-		ctx.ErrorCode = common.InternalError
-		errMsg := fmt.Sprintf("delete pipeline detail[%d] failed. does not belong to pipeline[%s]", pipelineDetailPk, pipelineID)
+	} else if !hasAuth {
+		ctx.ErrorCode = common.AccessDenied
+		errMsg := fmt.Sprintf("delete pipeline[%s] detail[%s] failed. Access denied for user[%s]", pipelineID, pipelineDetailID, ctx.UserName)
 		ctx.Logging().Errorf(errMsg)
 		return fmt.Errorf(errMsg)
 	}
 
 	// 如果只有一个pipeline detail的话，直接删除pipeline本身
-	detailTypeFilter := []string{pplcommon.PplDetailTypeNormal}
-	count, err := models.CountPipelineDetail(pipelineID, detailTypeFilter)
+	count, err := models.CountPipelineDetail(pipelineID)
 	if err != nil {
 		ctx.ErrorCode = common.InternalError
-		errMsg := fmt.Sprintf("delete pipeline detail[%d] failed. err:%v", pipelineDetailPk, err)
+		errMsg := fmt.Sprintf("delete pipeline[%s] detail[%s] failed. err:%v", pipelineID, pipelineDetailID, err)
 		ctx.Logging().Errorf(errMsg)
 		return fmt.Errorf(errMsg)
 	} else if count == 1 {
 		ctx.ErrorCode = common.InternalError
-		errMsg := fmt.Sprintf("delete pipeline detail[%d] failed. only one pipeline detail left, pls delete pipeline instead", pipelineDetailPk)
+		errMsg := fmt.Sprintf("delete pipeline[%s] detail[%s] failed. only one pipeline detail left, pls delete pipeline instead", pipelineID, pipelineDetailID)
 		ctx.Logging().Errorf(errMsg)
 		return fmt.Errorf(errMsg)
 	}
 
 	// 需要判断是否有周期调度运行中（单次任务不影响，因为run会直接保存yaml）
-	scheduleList, err := models.ListSchedule(ctx.Logging(), pipelineID, pipelineDetailPk, 0, 0, []string{}, []string{}, []string{}, []string{}, models.ScheduleNotFinalStatusList)
+	scheduleList, err := models.ListSchedule(ctx.Logging(), pipelineID, pipelineDetailID, 0, 0, []string{}, []string{}, []string{}, []string{}, models.ScheduleNotFinalStatusList)
 	if err != nil {
 		ctx.ErrorCode = common.InternalError
-		errMsg := fmt.Sprintf("models list schedule failed. err:[%s]", err.Error())
+		errMsg := fmt.Sprintf("models list schedule for pipeline[%s] detail[%s] failed. err:[%s]", pipelineID, pipelineDetailID, err.Error())
 		ctx.Logging().Errorf(errMsg)
 		return fmt.Errorf(errMsg)
 	} else if len(scheduleList) > 0 {
 		ctx.ErrorCode = common.InternalError
-		errMsg := fmt.Sprintf("delete detail[%d] of pipeline[%s] failed, there are running schedules, pls stop first", pipelineDetailPk, pipelineID)
+		errMsg := fmt.Sprintf("delete pipeline[%s] detail[%s] failed, there are running schedules, pls stop first", pipelineDetailID, pipelineID)
 		ctx.Logging().Errorf(errMsg)
 		return fmt.Errorf(errMsg)
 	}
 
-	if err := models.DeletePipelineDetail(ctx.Logging(), pipelineDetailPk, false); err != nil {
+	if err := models.DeletePipelineDetail(ctx.Logging(), pipelineID, pipelineDetailID, false); err != nil {
 		ctx.ErrorCode = common.InternalError
-		errMsg := fmt.Sprintf("delete pipeline detail[%d] failed. error:%s", pipelineDetailPk, err.Error())
+		errMsg := fmt.Sprintf("delete pipeline[%s] detail[%s] failed. error:%s", pipelineID, pipelineDetailID, err.Error())
 		ctx.Logging().Errorf(errMsg)
 		return fmt.Errorf(errMsg)
 	}
@@ -665,25 +550,43 @@ func DeletePipelineDetail(ctx *logger.RequestContext, pipelineID string, pipelin
 	return nil
 }
 
-func CheckPipelineDetailPermission(userName string, pipelineID string, pipelineDetailPk int64) (bool, error) {
+func CheckPipelinePermission(userName string, pipelineID string) (bool, models.Pipeline, error) {
 	ppl, err := models.GetPipelineByID(pipelineID)
 	if err != nil {
-		errMsg := fmt.Sprintf("get pipeline of piprlineID[%s] failed, err:[%s]", pipelineID, err.Error())
-		return false, fmt.Errorf(errMsg)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			errMsg := fmt.Sprintf("pipeline[%s] not exist", pipelineID)
+			return false, models.Pipeline{}, fmt.Errorf(errMsg)
+		} else {
+			errMsg := fmt.Sprintf("get pipeline[%s] failed, err:[%s]", pipelineID, err.Error())
+			return false, models.Pipeline{}, fmt.Errorf(errMsg)
+		}
 	}
 
 	if !common.IsRootUser(userName) && userName != ppl.UserName {
-		return false, nil
+		return false, models.Pipeline{}, nil
 	}
 
-	pipelineDetailList, err := models.GetPipelineDetail(pipelineID, pipelineDetailPk, "")
+	return true, ppl, nil
+}
+
+func CheckPipelineDetailPermission(userName string, pipelineID string, pipelineDetailID string) (bool, models.Pipeline, models.PipelineDetail, error) {
+	hasAuth, ppl, err := CheckPipelinePermission(userName, pipelineID)
 	if err != nil {
-		errMsg := fmt.Sprintf("get pipeline detail of piprlineID[%s], pplDetailPk[%d] failed, err:[%s]", pipelineID, pipelineDetailPk, err.Error())
-		return false, fmt.Errorf(errMsg)
-	} else if len(pipelineDetailList) != 1 {
-		errMsg := fmt.Sprintf("get pipeline detail of piprlineID[%s], pplDetailPk[%d] failed, [%d]records found", pipelineID, pipelineDetailPk, len(pipelineDetailList))
-		return false, fmt.Errorf(errMsg)
+		return false, models.Pipeline{}, models.PipelineDetail{}, err
+	} else if !hasAuth {
+		return false, models.Pipeline{}, models.PipelineDetail{}, nil
 	}
 
-	return true, nil
+	pipelineDetail, err := models.GetPipelineDetail(pipelineID, pipelineDetailID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			errMsg := fmt.Sprintf("pipeline[%s] detail[%s] not exist", pipelineID, pipelineDetailID)
+			return false, models.Pipeline{}, models.PipelineDetail{}, fmt.Errorf(errMsg)
+		} else {
+			errMsg := fmt.Sprintf("get pipeline[%s] detail[%s] failed, err:[%s]", pipelineID, pipelineDetailID, err.Error())
+			return false, models.Pipeline{}, models.PipelineDetail{}, fmt.Errorf(errMsg)
+		}
+	}
+
+	return true, ppl, pipelineDetail, nil
 }

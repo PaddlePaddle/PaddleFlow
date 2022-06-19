@@ -27,9 +27,9 @@ import (
 )
 
 type PipelineDetail struct {
-	Pk           int64          `json:"pipelineDetailPk"     gorm:"primaryKey;autoIncrement;not null"`
+	Pk           int64          `json:"-"                    gorm:"primaryKey;autoIncrement;not null"`
+	ID           string         `json:"pipelineDetailID"     gorm:"type:varchar(60);not null"`
 	PipelineID   string         `json:"pipelineID"           gorm:"type:varchar(60);not null"`
-	DetailType   string         `json:"detailType"           gorm:"type:varchar(60);not null"`
 	FsID         string         `json:"-"                    gorm:"type:varchar(60);not null"`
 	FsName       string         `json:"fsname"               gorm:"type:varchar(60);not null"`
 	YamlPath     string         `json:"yamlPath"             gorm:"type:text;size:65535;not null"`
@@ -45,14 +45,11 @@ func (PipelineDetail) TableName() string {
 	return "pipeline_detail"
 }
 
-func ListPipelineDetail(PipelineID string, pk int64, maxKeys int, fsFilter, detailTypeFilter []string) ([]PipelineDetail, error) {
+func ListPipelineDetail(pipelineID string, pk int64, maxKeys int, fsFilter []string) ([]PipelineDetail, error) {
 	logger.Logger().Debugf("begin list pipeline detail. ")
-	tx := database.DB.Model(&PipelineDetail{}).Where("pk > ?", pk).Where("pipeline_id = ?", PipelineID)
+	tx := database.DB.Model(&PipelineDetail{}).Where("pk > ?", pk).Where("pipeline_id = ?", pipelineID)
 	if len(fsFilter) > 0 {
 		tx = tx.Where("fs_name IN (?)", fsFilter)
-	}
-	if len(detailTypeFilter) > 0 {
-		tx = tx.Where("detail_type IN (?)", detailTypeFilter)
 	}
 
 	if maxKeys > 0 {
@@ -61,55 +58,45 @@ func ListPipelineDetail(PipelineID string, pk int64, maxKeys int, fsFilter, deta
 	var pplDetailList []PipelineDetail
 	tx = tx.Find(&pplDetailList)
 	if tx.Error != nil {
-		logger.Logger().Errorf("list pipeline detail failed. pk:%d, maxKeys:%d, Filters: fs{%v}, detailtype{%v}. error:%s",
-			pk, maxKeys, fsFilter, detailTypeFilter, tx.Error.Error())
+		logger.Logger().Errorf("list pipeline detail failed. pk:%d, maxKeys:%d, Filters: fs{%v}. error:%s",
+			pk, maxKeys, fsFilter, tx.Error.Error())
 		return []PipelineDetail{}, tx.Error
 	}
 	return pplDetailList, nil
 }
 
-func CountPipelineDetail(pipelineID string, detailTypeFilter []string) (int64, error) {
-	logger.Logger().Debugf("begin to count pipeline detail for pipeline[%s].", pipelineID)
-	tx := database.DB.Model(&PipelineDetail{}).Where("pipeline_id = ?", pipelineID)
-	if len(detailTypeFilter) > 0 {
-		tx = tx.Where("detail_type IN (?)", detailTypeFilter)
-	}
-
-	var count int64
-	tx = tx.Count(&count)
-	if tx.Error != nil {
-		logger.Logger().Errorf("count pipeline detail failed. pipelineID[%s] detailtype{%v}. error:%s",
-			pipelineID, detailTypeFilter, tx.Error.Error())
-		return count, tx.Error
-	}
-	return count, nil
-}
-
-func GetLastPipelineDetail(logEntry *log.Entry, pipelineID string) (PipelineDetail, error) {
-	logEntry.Debugf("get last ppl detail for ppl[%s]", pipelineID)
+func IsLastPipelineDetailPk(logEntry *log.Entry, pipelineID string, pk int64, fsFilter []string) (bool, error) {
+	logEntry.Debugf("get last ppl detail for ppl[%s], Filters: fs{%v}", pipelineID, fsFilter)
 	pplDetail := PipelineDetail{}
-	tx := database.DB.Model(&PipelineDetail{})
-
-	if pipelineID != "" {
-		tx = tx.Where("pipeline_id = ?", pipelineID)
+	tx := database.DB.Model(&PipelineDetail{}).Where("pipeline_id = ?", pipelineID)
+	if len(fsFilter) > 0 {
+		tx = tx.Where("fs_name IN (?)", fsFilter)
 	}
 
 	tx = tx.Last(&pplDetail)
 	if tx.Error != nil {
 		logEntry.Errorf("get last ppl detail failed. error:%s", tx.Error.Error())
-		return PipelineDetail{}, tx.Error
+		return false, tx.Error
 	}
-	return pplDetail, nil
+
+	return pplDetail.Pk == pk, nil
 }
 
-// 此处不检查pipeline detail对应的pipelineID是否存在，单纯做查询
-func GetPipelineDetailByPk(pipelineDetailPk int64) (PipelineDetail, error) {
-	var pplDetail PipelineDetail
-	result := database.DB.Model(&PipelineDetail{}).Where("Pk = ?", pipelineDetailPk).Last(&pplDetail)
-	return pplDetail, result.Error
+func CountPipelineDetail(pipelineID string) (int64, error) {
+	logger.Logger().Debugf("begin to count pipeline detail for pipeline[%s].", pipelineID)
+	tx := database.DB.Model(&PipelineDetail{}).Where("pipeline_id = ?", pipelineID)
+
+	var count int64
+	tx = tx.Count(&count)
+	if tx.Error != nil {
+		logger.Logger().Errorf("count pipeline detail failed. pipelineID[%s]. error:%s",
+			pipelineID, tx.Error.Error())
+		return count, tx.Error
+	}
+	return count, nil
 }
 
-func GetPipelineDetail(pipelineID string, pipelineDetailPk int64, detailType string) ([]PipelineDetail, error) {
+func GetPipelineDetails(pipelineID string) ([]PipelineDetail, error) {
 	pplDetailList := []PipelineDetail{}
 	tx := database.DB.Model(&PipelineDetail{})
 
@@ -117,24 +104,29 @@ func GetPipelineDetail(pipelineID string, pipelineDetailPk int64, detailType str
 		tx.Where("pipeline_id = ?", pipelineID)
 	}
 
-	if pipelineDetailPk != 0 {
-		tx.Where("pk = ?", pipelineDetailPk)
-	}
-
-	if detailType != "" {
-		tx = tx.Where("detail_type = ?", detailType)
-	}
 	tx = tx.Find(&pplDetailList)
 	return pplDetailList, tx.Error
 }
 
-func DeletePipelineDetail(logEntry *log.Entry, pipelineDetailPk int64, hardDelete bool) error {
-	logEntry.Debugf("delete pipelineDetailPk: %d, hardDelete[%t]", pipelineDetailPk, hardDelete)
+func GetPipelineDetail(pipelineID string, pipelineDetailID string) (PipelineDetail, error) {
+	pplDetail := PipelineDetail{}
+	tx := database.DB.Model(&PipelineDetail{}).Where("pipeline_id = ?", pipelineID).Where("id = ?", pipelineDetailID).Last(&pplDetail)
+	return pplDetail, tx.Error
+}
+
+func GetLastPipelineDetail(pipelineID string) (PipelineDetail, error) {
+	pplDetail := PipelineDetail{}
+	tx := database.DB.Model(&PipelineDetail{}).Where("pipeline_id = ?", pipelineID).Last(&pplDetail)
+	return pplDetail, tx.Error
+}
+
+func DeletePipelineDetail(logEntry *log.Entry, pipelineID string, pipelineDetailID string, hardDelete bool) error {
+	logEntry.Debugf("delete pipeline[%s] detailID[%s], hardDelete[%t]", pipelineID, pipelineDetailID, hardDelete)
+
+	tx := database.DB
 	if hardDelete {
-		result := database.DB.Unscoped().Where("Pk = ?", pipelineDetailPk).Delete(&PipelineDetail{})
-		return result.Error
-	} else {
-		result := database.DB.Where("Pk = ?", pipelineDetailPk).Delete(&PipelineDetail{})
-		return result.Error
+		tx = tx.Unscoped()
 	}
+	result := tx.Model(&PipelineDetail{}).Where("pipeline_id = ?", pipelineID).Where("id = ?", pipelineDetailID).Delete(&PipelineDetail{})
+	return result.Error
 }

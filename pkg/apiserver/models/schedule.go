@@ -31,16 +31,49 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 )
 
+const (
+	ConcurrencyPolicySuspend = "suspend"
+	ConcurrencyPolicyReplace = "replace"
+	ConcurrencyPolicySkip    = "skip"
+
+	ScheduleStatusSuccess    = "success"
+	ScheduleStatusRunning    = "running"
+	ScheduleStatusFailed     = "failed"
+	ScheduleStatusTerminated = "terminated"
+)
+
+var ConcurrencyPolicyList = []string{
+	ConcurrencyPolicySuspend,
+	ConcurrencyPolicyReplace,
+	ConcurrencyPolicySkip,
+}
+
+var ScheduleStatusList = []string{
+	ScheduleStatusSuccess,
+	ScheduleStatusRunning,
+	ScheduleStatusFailed,
+	ScheduleStatusTerminated,
+}
+
+var ScheduleFinalStatusList = []string{
+	ScheduleStatusSuccess,
+	ScheduleStatusFailed,
+	ScheduleStatusTerminated,
+}
+
+var ScheduleNotFinalStatusList = []string{
+	ScheduleStatusRunning,
+}
+
 type Schedule struct {
 	Pk               int64          `gorm:"primaryKey;autoIncrement;not null" json:"-"`
 	ID               string         `gorm:"type:varchar(60);not null"         json:"scheduleID"`
 	Name             string         `gorm:"type:varchar(60);not null"         json:"name"`
 	Desc             string         `gorm:"type:varchar(1024);not null"       json:"desc"`
 	PipelineID       string         `gorm:"type:varchar(60);not null"         json:"pipelineID"`
-	PipelineDetailPk int64          `gorm:"type:bigint(20);not null"          json:"-"`
+	PipelineDetailID string         `gorm:"type:varchar(60);not null"         json:"pipelineDetailID"`
 	UserName         string         `gorm:"type:varchar(60);not null"         json:"username"`
-	FsID             string         `gorm:"type:varchar(60);not null"         json:"fsID"`
-	FsName           string         `gorm:"type:varchar(60);not null"         json:"fsName"`
+	FsConfig         string         `gorm:"type:varchar(1024);not null"       json:"fsConfig"`
 	Crontab          string         `gorm:"type:varchar(60);not null"         json:"crontab"`
 	Options          string         `gorm:"type:text;size:65535;not null"     json:"options"`
 	Message          string         `gorm:"type:text;size:65535;not null"     json:"scheduleMsg"`
@@ -51,6 +84,30 @@ type Schedule struct {
 	CreatedAt        time.Time      `                                         json:"-"`
 	UpdatedAt        time.Time      `                                         json:"-"`
 	DeletedAt        gorm.DeletedAt `                                         json:"-"`
+}
+
+type FsConfig struct {
+	FsName   string `json:"fsName"`
+	UserName string `json:"userName"`
+}
+
+func DecodeFsConfig(strConfig string) (fc FsConfig, err error) {
+	if err := json.Unmarshal([]byte(strConfig), &fc); err != nil {
+		errMsg := fmt.Sprintf("decode fsConfig failed. error:%v", err)
+		return FsConfig{}, fmt.Errorf(errMsg)
+	}
+
+	return fc, nil
+}
+
+func (fc *FsConfig) Encode(logEntry *log.Entry) (string, error) {
+	strConfig, err := json.Marshal(fc)
+	if err != nil {
+		logEntry.Errorf("encode fsConfig failed. error:%v", err)
+		return "", err
+	}
+
+	return string(strConfig), nil
 }
 
 type ScheduleOptions struct {
@@ -124,40 +181,6 @@ func (so *ScheduleOptions) Encode(logEntry *log.Entry) (string, error) {
 	return string(strOptions), nil
 }
 
-const (
-	ConcurrencyPolicySuspend = "suspend"
-	ConcurrencyPolicyReplace = "replace"
-	ConcurrencyPolicySkip    = "skip"
-
-	ScheduleStatusSuccess    = "success"
-	ScheduleStatusRunning    = "running"
-	ScheduleStatusFailed     = "failed"
-	ScheduleStatusTerminated = "terminated"
-)
-
-var ConcurrencyPolicyList = []string{
-	ConcurrencyPolicySuspend,
-	ConcurrencyPolicyReplace,
-	ConcurrencyPolicySkip,
-}
-
-var ScheduleStatusList = []string{
-	ScheduleStatusSuccess,
-	ScheduleStatusRunning,
-	ScheduleStatusFailed,
-	ScheduleStatusTerminated,
-}
-
-var ScheduleFinalStatusList = []string{
-	ScheduleStatusSuccess,
-	ScheduleStatusFailed,
-	ScheduleStatusTerminated,
-}
-
-var ScheduleNotFinalStatusList = []string{
-	ScheduleStatusRunning,
-}
-
 func (Schedule) TableName() string {
 	return "schedule"
 }
@@ -187,12 +210,12 @@ func CreateSchedule(logEntry *log.Entry, schedule Schedule) (scheduleID string, 
 	return schedule.ID, err
 }
 
-func ListSchedule(logEntry *log.Entry, pipelineID string, PipelineDetailPk, pk int64, maxKeys int, userFilter, fsFilter, scheduleFilter, nameFilter, statusFilter []string) ([]Schedule, error) {
+func ListSchedule(logEntry *log.Entry, pipelineID, PipelineDetailID string, pk int64, maxKeys int, userFilter, fsFilter, scheduleFilter, nameFilter, statusFilter []string) ([]Schedule, error) {
 	logEntry.Debugf("begin list schedule. ")
 	tx := database.DB.Model(&Schedule{}).Where("pk > ?", pk).Where("pipeline_id = ?", pipelineID)
 
-	if PipelineDetailPk != 0 {
-		tx = tx.Where("pipeline_detail_pk = ?", PipelineDetailPk)
+	if PipelineDetailID != "" {
+		tx = tx.Where("pipeline_detail_id = ?", PipelineDetailID)
 	}
 
 	if len(userFilter) > 0 {
@@ -347,8 +370,8 @@ func findExectableRunBeforeCurrentTime(schedule Schedule, currentTime time.Time,
 
 	cronSchedule, err := cron.ParseStandard(schedule.Crontab)
 	if err != nil {
-		errMsg := fmt.Sprintf("parse crontab spec[%s] for schedule[%s] of pipeline detail[%d] failed, errMsg[%s]",
-			schedule.Crontab, schedule.ID, schedule.PipelineDetailPk, err.Error())
+		errMsg := fmt.Sprintf("parse crontab spec[%s] for schedule[%s] of pipeline detail[%s] failed, errMsg[%s]",
+			schedule.Crontab, schedule.ID, schedule.PipelineDetailID, err.Error())
 		return time.Time{}, fmt.Errorf(errMsg)
 	}
 
@@ -491,8 +514,8 @@ func GetAvailableSchedule(logEntry *log.Entry, checkCatchup bool) (killMap map[s
 		if to_update {
 			result := database.DB.Model(&schedule).Save(schedule)
 			if result.Error != nil {
-				errMsg := fmt.Sprintf("update schedule[%s] of pipeline detail[%d] failed, error:%v",
-					schedule.ID, schedule.PipelineDetailPk, result.Error)
+				errMsg := fmt.Sprintf("update schedule[%s] of pipeline detail[%s] failed, error:%v",
+					schedule.ID, schedule.PipelineDetailID, result.Error)
 				logEntry.Errorf(errMsg)
 				return nil, nil, nil, fmt.Errorf(errMsg)
 			}

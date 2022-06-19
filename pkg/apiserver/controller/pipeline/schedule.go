@@ -33,7 +33,7 @@ type CreateScheduleRequest struct {
 	Name              string `json:"name"`
 	Desc              string `json:"desc"` // optional
 	PipelineID        string `json:"pipelineID"`
-	PipelineDetailPk  int64  `json:"pipelineDetailPk"`
+	PipelineDetailID  string `json:"pipelineDetailID"`
 	Crontab           string `json:"crontab"`
 	StartTime         string `json:"startTime"`         // optional
 	EndTime           string `json:"endTime"`           // optional
@@ -55,7 +55,7 @@ type ScheduleBrief struct {
 	Desc        string                 `json:"desc"`
 	PipelineID  string                 `json:"pipelineID"`
 	UserName    string                 `json:"username"`
-	FsName      string                 `json:"fsname"`
+	FsConfig    models.FsConfig        `json:"fsConfig"`
 	Crontab     string                 `json:"crontab"`
 	Options     models.ScheduleOptions `json:"options"`
 	StartTime   string                 `json:"startTime"`
@@ -83,13 +83,17 @@ func (b *ScheduleBrief) updateFromScheduleModel(schedule models.Schedule) (err e
 	b.Desc = schedule.Desc
 	b.PipelineID = schedule.PipelineID
 	b.UserName = schedule.UserName
-	b.FsName = schedule.FsName
 	b.Crontab = schedule.Crontab
 	b.CreateTime = schedule.CreatedAt.Format("2006-01-02 15:04:05")
 	b.UpdateTime = schedule.UpdatedAt.Format("2006-01-02 15:04:05")
 	b.NextRunTime = schedule.NextRunAt.Format("2006-01-02 15:04:05")
 	b.Message = schedule.Message
 	b.Status = schedule.Status
+
+	b.FsConfig, err = models.DecodeFsConfig(schedule.FsConfig)
+	if err != nil {
+		return err
+	}
 
 	b.Options, err = models.DecodeScheduleOptions(schedule.Options)
 	if err != nil {
@@ -155,22 +159,23 @@ func validateScheduleTime(startTime, endTime string, currentTime time.Time) (sta
 }
 
 func CreateSchedule(ctx *logger.RequestContext, request *CreateScheduleRequest) (CreateScheduleResponse, error) {
-	// concatenate fsID
-	var fsID string
-	if common.IsRootUser(ctx.UserName) && request.UserName != "" {
-		// root user can select fs under other users
-		fsID = common.ID(request.UserName, request.FsName)
-	} else {
-		fsID = common.ID(ctx.UserName, request.FsName)
-	}
-	// todo:增加判断fs是否存在
-
 	// check schedule name pattern
 	if !schema.CheckReg(request.Name, common.RegPatternScheduleName) {
 		ctx.ErrorCode = common.InvalidNamePattern
 		err := common.InvalidNamePatternError(request.Name, common.ResourceTypeSchedule, common.RegPatternScheduleName)
 		ctx.Logging().Errorf("create schedule failed as schedule name illegal. error:%v", err)
 		return CreateScheduleResponse{}, err
+	}
+
+	// 生成FsConfig对象
+	// todo:增加判断fs是否存在
+	fsConfig := models.FsConfig{FsName: request.FsName, UserName: request.UserName}
+	StrFsConfig, err := fsConfig.Encode(ctx.Logging())
+	if err != nil {
+		ctx.ErrorCode = common.InvalidArguments
+		errMsg := fmt.Sprintf("create schedule failed, dump fsConfig[%v] error: %s", fsConfig, err.Error())
+		ctx.Logging().Errorf(errMsg)
+		return CreateScheduleResponse{}, fmt.Errorf(errMsg)
 	}
 
 	// 校验 & 生成options对象
@@ -217,8 +222,8 @@ func CreateSchedule(ctx *logger.RequestContext, request *CreateScheduleRequest) 
 		nextRunAt = cronSchedule.Next(currentTime)
 	}
 
-	// 校验用户对pplID pplDetailPk是否有权限
-	hasAuth, err := CheckPipelineDetailPermission(ctx.UserName, request.PipelineID, request.PipelineDetailPk)
+	// 校验用户对pplID pplDetailID是否有权限
+	hasAuth, _, _, err := CheckPipelineDetailPermission(ctx.UserName, request.PipelineID, request.PipelineDetailID)
 	if err != nil {
 		ctx.ErrorCode = common.InvalidArguments
 		errMsg := fmt.Sprintf("create schedule failed, %s", err.Error())
@@ -236,10 +241,9 @@ func CreateSchedule(ctx *logger.RequestContext, request *CreateScheduleRequest) 
 		Name:             request.Name,
 		Desc:             request.Desc,
 		PipelineID:       request.PipelineID,
-		PipelineDetailPk: request.PipelineDetailPk,
+		PipelineDetailID: request.PipelineDetailID,
 		UserName:         ctx.UserName,
-		FsID:             fsID,
-		FsName:           request.FsName,
+		FsConfig:         string(StrFsConfig),
 		Crontab:          request.Crontab,
 		Options:          string(StrOptions),
 		Status:           models.ScheduleStatusRunning,
@@ -301,7 +305,7 @@ func ListSchedule(ctx *logger.RequestContext, pipelineID, marker string, maxKeys
 	}
 
 	// model list
-	scheduleList, err := models.ListSchedule(ctx.Logging(), pipelineID, 0, pk, maxKeys, userFilter, fsFilter, scheduleFilter, nameFilter, statusFilter)
+	scheduleList, err := models.ListSchedule(ctx.Logging(), pipelineID, "", pk, maxKeys, userFilter, fsFilter, scheduleFilter, nameFilter, statusFilter)
 	if err != nil {
 		ctx.Logging().Errorf("models list schedule failed. err:[%s]", err.Error())
 		ctx.ErrorCode = common.InternalError

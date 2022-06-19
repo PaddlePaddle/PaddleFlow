@@ -17,9 +17,7 @@ limitations under the License.
 package v1
 
 import (
-	"fmt"
 	"net/http"
-	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi"
@@ -44,8 +42,8 @@ func (pr *PipelineRouter) AddRouter(r chi.Router) {
 	r.Post("/pipeline/{pipelineID}", pr.updatePipeline)
 	r.Get("/pipeline/{pipelineID}", pr.getPipeline)
 	r.Delete("/pipeline/{pipelineID}", pr.deletePipeline)
-	r.Get("/pipeline/{pipelineID}/{pipelineDetailPk}", pr.getPipelineDetail)
-	r.Delete("/pipeline/{pipelineID}/{pipelineDetailPk}", pr.deletePipelineDtail)
+	r.Get("/pipeline/{pipelineID}/{pipelineDetailID}", pr.getPipelineDetail)
+	r.Delete("/pipeline/{pipelineID}/{pipelineDetailID}", pr.deletePipelineDtail)
 }
 
 // createPipeline
@@ -271,17 +269,11 @@ func (pr *PipelineRouter) deletePipeline(w http.ResponseWriter, r *http.Request)
 func (pr *PipelineRouter) getPipelineDetail(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
 	pipelineID := chi.URLParam(r, util.ParamKeyPipelineID)
-	strPplDetailPk := chi.URLParam(r, util.ParamKeyPipelineDetailPk)
-	pipelineDetailPk, err := strconv.ParseInt(strPplDetailPk, 10, 64)
-	if err != nil {
-		errMsg := fmt.Sprintf("parse pipelineDetailPk[%s] to int failed, err[%s]", strPplDetailPk, err.Error())
-		common.RenderErrWithMessage(w, ctx.RequestID, common.InvalidURI, errMsg)
-		return
-	}
+	pipelineDetailID := chi.URLParam(r, util.ParamKeyPipelineDetailID)
 
 	logger.LoggerForRequest(&ctx).Debugf(
-		"user[%s] get Pipeline detail:[%d], pipelineID[%s]", ctx.UserName, pipelineDetailPk, pipelineID)
-	pplDetail, err := pipeline.GetPipelineDetail(&ctx, pipelineID, pipelineDetailPk)
+		"user[%s] get Pipeline detail:[%s], pipelineID[%s]", ctx.UserName, pipelineDetailID, pipelineID)
+	pplDetail, err := pipeline.GetPipelineDetail(&ctx, pipelineID, pipelineDetailID)
 	if err != nil {
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
@@ -304,16 +296,11 @@ func (pr *PipelineRouter) getPipelineDetail(w http.ResponseWriter, r *http.Reque
 func (pr *PipelineRouter) deletePipelineDtail(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
 	pipelineID := chi.URLParam(r, util.ParamKeyPipelineID)
-	strPplDetailPk := chi.URLParam(r, util.ParamKeyPipelineDetailPk)
-	pipelineDetailPk, err := strconv.ParseInt(strPplDetailPk, 10, 64)
-	if err != nil {
-		common.RenderErrWithMessage(w, ctx.RequestID, common.InvalidURI, err.Error())
-		return
-	}
+	pipelineDetailID := chi.URLParam(r, util.ParamKeyPipelineDetailID)
 
-	err = pipeline.DeletePipelineDetail(&ctx, pipelineID, pipelineDetailPk)
+	err := pipeline.DeletePipelineDetail(&ctx, pipelineID, pipelineDetailID)
 	if err != nil {
-		ctx.Logging().Errorf("delete pipeline detail failed. error:%s", err.Error())
+		ctx.Logging().Errorf("delete pipeline[%s] detail[%s] failed. error:%s", pipelineID, pipelineDetailID, err.Error())
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}

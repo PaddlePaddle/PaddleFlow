@@ -36,7 +36,7 @@ const (
 	ParamKeyCheckCache       = "checkCache"
 	ParamKeyRunCacheID       = "runCacheID"
 	ParamKeyPipelineID       = "pipelineID"
-	ParamKeyPipelineDetailPk = "pipelineDetailPk"
+	ParamKeyPipelineDetailID = "pipelineDetailID"
 	ParamKeyScheduleID       = "scheduleID"
 
 	QueryKeyAction    = "action"
