@@ -187,7 +187,7 @@ func (Schedule) TableName() string {
 
 func CreateSchedule(logEntry *log.Entry, schedule Schedule) (scheduleID string, err error) {
 	logEntry.Debugf("begin create schedule:%+v", schedule)
-	err = withTransaction(database.DB, func(tx *gorm.DB) error {
+	err = WithTransaction(database.DB, func(tx *gorm.DB) error {
 		result := tx.Model(&Schedule{}).Create(&schedule)
 		if result.Error != nil {
 			logEntry.Errorf("create schedule failed. schedule:%v, error:%s",
