@@ -21,7 +21,7 @@ import (
 	"fmt"
 
 	"github.com/PaddlePaddle/PaddleFlow/go-sdk/service"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/user"
+	v1 "github.com/PaddlePaddle/PaddleFlow/go-sdk/service/apiserver/v1"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/core"
 )
 
@@ -35,7 +35,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	data, err := pfClient.APIV1().User().Login(context.TODO(), &user.LoginInfo{
+	data, err := pfClient.APIV1().User().Login(context.TODO(), &v1.LoginInfo{
 		UserName: "",
 		Password: "",
 	})

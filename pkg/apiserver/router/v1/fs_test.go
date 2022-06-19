@@ -417,6 +417,30 @@ func Test_getListResult(t *testing.T) {
 	}
 }
 
+func TestCreateFSDuplicateName(t *testing.T) {
+	router, baseUrl := prepareDBAndAPI(t)
+	str, err := os.Getwd()
+	defer func() {
+		os.RemoveAll(str + "/fs")
+	}()
+	assert.Nil(t, err)
+	createFsReq := fs.CreateFileSystemRequest{
+		Name: mockFsName,
+		Url:  "local:/" + str + "/fs",
+		Properties: map[string]string{
+			"debug": "true",
+		},
+	}
+
+	fsUrl := baseUrl + "/fs"
+	result, err := PerformPostRequest(router, fsUrl, createFsReq)
+	assert.Nil(t, err)
+	assert.Equal(t, http.StatusCreated, result.Code)
+
+	result, err = PerformPostRequest(router, fsUrl, createFsReq)
+	assert.Equal(t, http.StatusBadRequest, result.Code)
+}
+
 func TestCreateFSAndDeleteFs(t *testing.T) {
 	router, baseUrl := prepareDBAndAPI(t)
 	// mockFs := buildMockFS()
@@ -463,6 +487,11 @@ func TestCreateFSAndDeleteFs(t *testing.T) {
 	_, err = PerformDeleteRequest(router, url+"/"+mockFsName+filters2)
 	assert.Nil(t, err)
 	time.Sleep(1 * time.Second)
+
+	var p1 = gomonkey.ApplyFunc(fs.DeletePvPvc, func(fsID string) error {
+		return nil
+	})
+	defer p1.Reset()
 
 	deleteUrl = fsUrl + "/" + mockFsName
 	result, err = PerformDeleteRequest(router, deleteUrl)

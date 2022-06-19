@@ -25,14 +25,18 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/cmd/fs/csi-plugin/flag"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/client/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/controller"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csiconfig"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csidriver"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/metric"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/version"
 )
 
-const CsiContainerName = "csi-storage-driver"
+const (
+	CsiContainerName = "csi-storage-driver"
+	VolumeNameMnt    = "pfs-mnt"
+)
 
 var logConf = logger.LogConfig{
 	Dir:             "./log",
@@ -70,11 +74,17 @@ func init() {
 		if pod.Spec.Containers[i].Name == CsiContainerName {
 			csiconfig.MountImage = pod.Spec.Containers[i].Image
 			// csiconfig.ContainerResource = pod.Spec.Containers[i].Resources
-			return
 		}
 	}
-	log.Errorf("Can't get container csi-storage-driver in pod %s", csiconfig.PodName)
-	os.Exit(0)
+	for _, v := range pod.Spec.Volumes {
+		if v.Name == VolumeNameMnt {
+			csiconfig.HostMntDir = v.HostPath.Path
+		}
+	}
+	if csiconfig.HostMntDir == "" || csiconfig.MountImage == "" {
+		log.Errorf("Can't get HostPath [pfs-mnt] or container [csi-storage-driver] in pod %s", csiconfig.PodName)
+		os.Exit(0)
+	}
 }
 
 func main() {
@@ -92,7 +102,7 @@ func main() {
 	app := &cli.App{
 		Name:                 "paddleflow-csi-plugin",
 		Usage:                "csi-plugin for paddleflow",
-		Version:              "1.4",
+		Version:              version.InfoStr(),
 		Copyright:            "Apache License 2.0",
 		HideHelpCommand:      true,
 		EnableBashCompletion: true,

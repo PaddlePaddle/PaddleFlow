@@ -19,19 +19,19 @@ package job
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	log "github.com/sirupsen/logrus"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/flavour"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	_ "github.com/PaddlePaddle/PaddleFlow/pkg/job/queue/sortpolicy"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
 )
 
 func CreateJob(conf schema.PFJobConf) (string, error) {
@@ -54,6 +54,16 @@ func CreateJob(conf schema.PFJobConf) (string, error) {
 	if err := patchTasksFromEnv(jobConf, jobInfo); err != nil {
 		log.Errorf("patch tasks from env failed, err: %v", err)
 		return "", err
+	}
+
+	filePath := jobConf.GetYamlPath()
+	if filePath != "" {
+		templateConf, err := handler.ReadFileFromFs(jobConf.GetFS(), filePath, logger.Logger())
+		if err != nil {
+			log.Errorf("get job from path[%s] failed, err=[%v]", filePath, err)
+			return "", err
+		}
+		jobInfo.ExtensionTemplate = string(templateConf)
 	}
 
 	if err := models.CreateJob(jobInfo); err != nil {
@@ -306,47 +316,22 @@ func checkResource(conf schema.PFJobConf) error {
 	if len(priority) == 0 {
 		conf.SetPriority(schema.EnvJobNormalPriority)
 	} else {
-		if priority != schema.EnvJobLowPriority &&
-			priority != schema.EnvJobNormalPriority && priority != schema.EnvJobHighPriority {
+		priorityUpper := strings.ToUpper(priority)
+		if priorityUpper != schema.EnvJobLowPriority &&
+			priorityUpper != schema.EnvJobNormalPriority &&
+			priorityUpper != schema.EnvJobHighPriority {
 			return errors.InvalidJobPriorityError(priority)
+		}
+		if priority != priorityUpper {
+			conf.SetPriority(priorityUpper)
 		}
 	}
 	return nil
 }
 
 func StopJobByID(jobID string) error {
-	job, err := models.GetJobByID(jobID)
-	if err != nil {
-		return errors.JobIDNotFoundError(jobID)
-	}
-	pfJob := &api.PFJob{
-		ID:        jobID,
-		Name:      job.Config.GetName(),
-		Namespace: job.Config.GetNamespace(),
-		JobType:   job.Config.Type(),
-		JobMode:   job.Config.GetJobMode(),
-	}
-	// create runtime for cluster
-	clusterInfo, err := models.GetClusterById(job.Config.GetClusterID())
-	if err != nil {
-		return fmt.Errorf("stop job %s failed. cluster %s not found", jobID, clusterInfo.Name)
-	}
-	runtimeSvc, err := runtime.GetOrCreateRuntime(clusterInfo)
-	if err != nil {
-		errMsg := fmt.Sprintf("new runtime for cluster %s failed, err: %v.", clusterInfo.Name, err)
-		log.Errorf(errMsg)
-		return fmt.Errorf(errMsg)
-	}
-	// stop job on cluster
-	if err = runtimeSvc.StopJob(pfJob); err != nil {
-		log.Errorf("delete job %s from cluster %s failed, err: %v.", jobID, clusterInfo.Name, err)
-		return err
-	}
-	if err = models.UpdateJobStatus(jobID, "job is terminated.", schema.StatusJobTerminated); err != nil {
-		log.Errorf("update job[%s] status to [%s] failed, err: %v", jobID, schema.StatusJobTerminated, err)
-		return err
-	}
-	return nil
+	logCtx := &logger.RequestContext{}
+	return StopJob(logCtx, jobID)
 }
 
 // IsEnoughQueueCapacity validate queue matching flavor

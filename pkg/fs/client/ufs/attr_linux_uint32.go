@@ -1,5 +1,8 @@
+// +build linux
+// +build 386 arm arm64
+
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,12 +19,19 @@ limitations under the License.
 
 package ufs
 
-import (
-	"github.com/hanwen/go-fuse/v2/fuse"
-	log "github.com/sirupsen/logrus"
-)
+import "syscall"
 
-func (fh *s3FileHandle) Allocate(off, sz uint64, mode uint32) (code fuse.Status) {
-	log.Debugf("S3 Allocate not supported on mac. fh.name[%s]", fh.name)
-	return fuse.ENOSYS
+func fillStat(nlink uint64, mode uint32, uid uint32, gid uint32, size int64, blksize int64, blocks int64, atime, mtime, ctime syscall.Timespec) syscall.Stat_t {
+	return syscall.Stat_t{
+		Nlink:   uint32(nlink),
+		Mode:    mode,
+		Uid:     uid,
+		Gid:     gid,
+		Size:    size,
+		Blksize: int32(blksize),
+		Blocks:  blocks,
+		Atim:    atime,
+		Mtim:    mtime,
+		Ctim:    ctime,
+	}
 }

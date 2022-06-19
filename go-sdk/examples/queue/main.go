@@ -21,8 +21,7 @@ import (
 	"fmt"
 
 	"github.com/PaddlePaddle/PaddleFlow/go-sdk/service"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/queue"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/user"
+	v1 "github.com/PaddlePaddle/PaddleFlow/go-sdk/service/apiserver/v1"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/core"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
@@ -37,7 +36,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	data, err := pfClient.APIV1().User().Login(context.TODO(), &user.LoginInfo{
+	data, err := pfClient.APIV1().User().Login(context.TODO(), &v1.LoginInfo{
 		UserName: "",
 		Password: "",
 	})
@@ -48,7 +47,7 @@ func main() {
 
 	queueName := "test-queue"
 	clusterName := "test-cluster"
-	createResult, err := pfClient.APIV1().Queue().Create(context.TODO(), &queue.CreateQueueRequest{
+	createResult, err := pfClient.APIV1().Queue().Create(context.TODO(), &v1.CreateQueueRequest{
 		Name:        queueName,
 		Namespace:   "default",
 		ClusterName: clusterName,
@@ -72,7 +71,7 @@ func main() {
 	}
 	fmt.Printf("get queue result %v\n", getResult)
 
-	listResult, err := pfClient.APIV1().Queue().List(context.TODO(), &queue.ListQueueRequest{
+	listResult, err := pfClient.APIV1().Queue().List(context.TODO(), &v1.ListQueueRequest{
 		MaxKeys: 100,
 	}, token)
 	if err != nil {
@@ -80,7 +79,7 @@ func main() {
 	}
 	fmt.Printf("list queue result %v\n", listResult)
 
-	updateResult, err := pfClient.APIV1().Queue().Update(context.TODO(), queueName, &queue.UpdateQueueRequest{
+	updateResult, err := pfClient.APIV1().Queue().Update(context.TODO(), queueName, &v1.UpdateQueueRequest{
 		Location:         map[string]string{},
 		SchedulingPolicy: []string{"priority"},
 	}, token)
