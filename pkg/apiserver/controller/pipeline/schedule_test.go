@@ -134,7 +134,7 @@ func TestCreateSchedule(t *testing.T) {
 	createScheduleReq.Name = "-asdf"
 	resp, err := CreateSchedule(ctx, &createScheduleReq)
 	assert.NotNil(t, err)
-	assert.Equal(t, fmt.Errorf("name[-asdf] for [schedule] does not compile with regex rule[^[A-Za-z_][A-Za-z0-9_]{1,49}[A-Za-z0-9_]$]"), err)
+	assert.Equal(t, fmt.Errorf("name[-asdf] for [schedule] does not compile with regex rule[^[A-Za-z_][A-Za-z0-9_]{1,49}$]"), err)
 
 	// 失败: concurrency < 0
 	createScheduleReq.Name = "schedule_1"
