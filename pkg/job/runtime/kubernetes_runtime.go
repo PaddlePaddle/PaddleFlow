@@ -49,14 +49,14 @@ import (
 )
 
 type KubeRuntime struct {
-	schema.Cluster
+	Cluster          *schema.Cluster
 	clientset        kubernetes.Interface
 	dynamicClientOpt *k8s.DynamicClientOption
 }
 
 func NewKubeRuntime(cluster schema.Cluster) RuntimeService {
 	kr := &KubeRuntime{
-		Cluster: cluster,
+		Cluster: &cluster,
 	}
 	return kr
 }
@@ -92,7 +92,7 @@ func (kr *KubeRuntime) Init() error {
 		log.Errorf("build config failed. error:%s", err)
 		return err
 	}
-	kr.dynamicClientOpt, err = k8s.CreateDynamicClientOpt(config)
+	kr.dynamicClientOpt, err = k8s.CreateDynamicClientOpt(config, kr.Cluster)
 	if err != nil {
 		log.Errorf("init dynamic client failed. error:%s", err)
 		return err
@@ -253,7 +253,7 @@ func (kr *KubeRuntime) DeleteJob(jobInfo *api.PFJob) error {
 func (kr *KubeRuntime) SyncJob(stopCh <-chan struct{}) {
 	log.Infof("start job sync loop for cluster[%s]", kr.Cluster.ID)
 
-	syncController, err := controller.New(controller.JobSyncControllerName, kr.dynamicClientOpt.Config)
+	syncController, err := controller.New(controller.JobSyncControllerName, kr.dynamicClientOpt.Config, kr.Cluster)
 	if err != nil {
 		log.Errorf("init sync controller failed, err: %v", err)
 		return
@@ -264,7 +264,7 @@ func (kr *KubeRuntime) SyncJob(stopCh <-chan struct{}) {
 func (kr *KubeRuntime) GCJob(stopCh <-chan struct{}) {
 	log.Infof("start job gc loop for cluster[%s]", kr.Cluster.ID)
 
-	gcController, err := controller.New(controller.JobGCControllerName, kr.dynamicClientOpt.Config)
+	gcController, err := controller.New(controller.JobGCControllerName, kr.dynamicClientOpt.Config, kr.Cluster)
 	if err != nil {
 		log.Errorf("init sync controller failed, err: %v", err)
 		return
@@ -275,7 +275,7 @@ func (kr *KubeRuntime) GCJob(stopCh <-chan struct{}) {
 func (kr *KubeRuntime) SyncQueue(stopCh <-chan struct{}) {
 	log.Infof("start queue sync loop for cluster[%s]", kr.Cluster.ID)
 
-	queueController, err := controller.New(controller.QueueSyncControllerName, kr.dynamicClientOpt.Config)
+	queueController, err := controller.New(controller.QueueSyncControllerName, kr.dynamicClientOpt.Config, kr.Cluster)
 	if err != nil {
 		log.Errorf("init queue sync controller failed, err: %v", err)
 		return
