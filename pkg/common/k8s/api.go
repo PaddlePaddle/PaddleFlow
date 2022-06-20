@@ -88,11 +88,12 @@ type DynamicClientOption struct {
 	DynamicFactory  dynamicinformer.DynamicSharedInformerFactory
 	DiscoveryClient discovery.DiscoveryInterface
 	Config          *rest.Config
+	ClusterInfo     *commomschema.Cluster
 	// GVKToGVR contains GroupVersionKind map to GroupVersionResource
 	GVKToGVR sync.Map
 }
 
-func CreateDynamicClientOpt(config *rest.Config) (*DynamicClientOption, error) {
+func CreateDynamicClientOpt(config *rest.Config, cluster *commomschema.Cluster) (*DynamicClientOption, error) {
 	dynamicClient, err := dynamic.NewForConfig(config)
 	if err != nil {
 		log.Errorf("init dynamic client failed. error:%s", err)
@@ -104,11 +105,16 @@ func CreateDynamicClientOpt(config *rest.Config) (*DynamicClientOption, error) {
 		log.Errorf("create discovery client failed: %v", err)
 		return nil, err
 	}
+	if cluster == nil {
+		log.Errorf("cluster info is nil")
+		return nil, fmt.Errorf("cluster info is nil")
+	}
 	return &DynamicClientOption{
 		DynamicClient:   dynamicClient,
 		DynamicFactory:  factory,
 		DiscoveryClient: discoveryClient,
 		Config:          config,
+		ClusterInfo:     cluster,
 	}, nil
 }
 

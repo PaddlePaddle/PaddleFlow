@@ -76,6 +76,7 @@ func newFakeDynamicClient(server *httptest.Server) *k8s.DynamicClientOption {
 		DynamicClient:   dynamicClient,
 		DynamicFactory:  dynamicinformer.NewDynamicSharedInformerFactory(dynamicClient, 0),
 		DiscoveryClient: fakeDiscovery,
+		ClusterInfo:     &schema.Cluster{Name: "test-cluster"},
 	}
 }
 
@@ -87,6 +88,7 @@ func TestKubeRuntimeJob(t *testing.T) {
 	kubeRuntime := &KubeRuntime{
 		clientset:        client,
 		dynamicClientOpt: dynamicClient,
+		cluster:          dynamicClient.ClusterInfo,
 	}
 
 	pfJob := &api.PFJob{
@@ -134,6 +136,7 @@ func TestKubeRuntimeVCQueue(t *testing.T) {
 	defer server.Close()
 	dynamicClient := newFakeDynamicClient(server)
 	kubeRuntime := &KubeRuntime{
+		cluster:          dynamicClient.ClusterInfo,
 		dynamicClientOpt: dynamicClient,
 	}
 
@@ -165,6 +168,7 @@ func TestKubeRuntimeElasticQuota(t *testing.T) {
 	defer server.Close()
 	dynamicClient := newFakeDynamicClient(server)
 	kubeRuntime := &KubeRuntime{
+		cluster:          dynamicClient.ClusterInfo,
 		dynamicClientOpt: dynamicClient,
 	}
 
@@ -324,6 +328,7 @@ func TestKubeRuntimeObjectOperation(t *testing.T) {
 	defer server.Close()
 	dynamicClient := newFakeDynamicClient(server)
 	kubeRuntime := &KubeRuntime{
+		cluster:          dynamicClient.ClusterInfo,
 		dynamicClientOpt: dynamicClient,
 	}
 
