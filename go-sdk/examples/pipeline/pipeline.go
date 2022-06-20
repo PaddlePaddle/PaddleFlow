@@ -75,7 +75,7 @@ func CreateRunByRunYamlRaw(filepath string) (runID string) {
 		panic(err)
 	}
 
-	runYamlRaw, err := p.TransToYamlRaw()
+	runYamlRaw, err := p.TransToRunYamlRaw()
 	if err != nil {
 		panic(err)
 	}

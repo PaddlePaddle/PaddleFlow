@@ -266,7 +266,7 @@ func ParseWorkflowSource(runYaml []byte) (WorkflowSource, error) {
 	return wfs, nil
 }
 
-func (wfs *WorkflowSource) TransToYamlRaw() (runYamlRaw string, err error) {
+func (wfs *WorkflowSource) TransToRunYamlRaw() (runYamlRaw string, err error) {
 	runYaml, err := yaml.Marshal(wfs)
 	if err != nil {
 		return "", err
