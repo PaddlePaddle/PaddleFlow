@@ -39,7 +39,6 @@ type RunJob struct {
 	Command        string            `gorm:"type:text;size:65535;not null"      json:"command"`
 	Parameters     map[string]string `gorm:"-"                                  json:"parameters"`
 	ParametersJson string            `gorm:"type:text;size:65535;not null"      json:"-"`
-	Condition      int               `gorm:"type:tinyint(1);not null;default:0" json:"-"`
 	Artifacts      schema.Artifacts  `gorm:"-"                                  json:"artifacts"`
 	ArtifactsJson  string            `gorm:"type:text;size:65535;not null"      json:"-"`
 	Env            map[string]string `gorm:"-"                                  json:"env"`
@@ -81,15 +80,9 @@ func CreateRunJobs(logEntry *log.Entry, jobs map[string]schema.JobView, runID st
 	return err
 }
 
-func CreateRunJob(logEntry *log.Entry, job schema.JobView, runID string) error {
-	logEntry.Debugf("begin create run_jobs by jobView: %v", job)
+func CreateRunJob(logEntry *log.Entry, runJob *RunJob) (int64, error) {
+	logEntry.Debugf("begin create run_job, model: %v", runJob)
 	err := withTransaction(database.DB, func(tx *gorm.DB) error {
-		runJob := RunJob{
-			ID:       job.JobID,
-			RunID:    runID,
-			Name:     job.JobName,
-			StepName: name,
-		}
 		result := tx.Model(&RunJob{}).Create(&runJob)
 		if result.Error != nil {
 			logEntry.Errorf("create run_job failed. run_job: %v, error: %s",
@@ -98,15 +91,14 @@ func CreateRunJob(logEntry *log.Entry, job schema.JobView, runID string) error {
 		}
 		return nil
 	})
-	return err
+	return runJob.Pk, err
 }
 
-func UpdateRunJob(logEntry *log.Entry, runID string, stepName string, runJob RunJob) error {
-	logEntry.Debugf("begin update run_job. run_job run_id: %s, step_name: %s", runID, stepName)
-	tx := database.DB.Model(&RunJob{}).Where("run_id = ?", runID).Where("step_name = ?", stepName).Updates(runJob)
+func UpdateRunJob(logEntry *log.Entry, pk int64, runJob RunJob) error {
+	logEntry.Debugf("begin update run_job. run_job pk = %d", pk)
+	tx := database.DB.Model(&RunJob{}).Where("pk = ?", pk).Updates(runJob)
 	if tx.Error != nil {
-		logEntry.Errorf("update run_job failed. run_id: [%s], step_name: [%s], error: %s",
-			runID, stepName, tx.Error.Error())
+		logEntry.Errorf("update run_job failed, error: %s", tx.Error.Error())
 		return tx.Error
 	}
 	return nil
@@ -261,6 +253,7 @@ func ParseRunJob(jobView *schema.JobView) RunJob {
 	return RunJob{
 		ID:           jobView.JobID,
 		Name:         jobView.JobName,
+		ParentDagID:  jobView.ParentDagID,
 		Command:      jobView.Command,
 		Parameters:   newParameters,
 		Artifacts:    jobView.Artifacts,
