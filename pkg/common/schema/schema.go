@@ -35,6 +35,7 @@ type JobView struct {
 	Cache       Cache             `json:"cache"`
 	JobMessage  string            `json:"jobMessage"`
 	CacheRunID  string            `json:"cacheRunID"`
+	CacheJobID  string            `json:"cacheJobID"`
 	ParentDagID string            `json:"parentDagID"`
 }
 
