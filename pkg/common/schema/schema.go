@@ -17,6 +17,10 @@ limitations under the License.
 package schema
 
 type ComponentView interface {
+	GetComponentName() string
+	GetParentDagID() string
+
+	SetDeps(string)
 }
 
 // JobView is view of job info responded to user, while Job is for pipeline and job engine to process
@@ -39,6 +43,18 @@ type JobView struct {
 	ParentDagID string            `json:"parentDagID"`
 }
 
+func (j *JobView) GetComponentName() string {
+	return j.JobName
+}
+
+func (j *JobView) GetParentDagID() string {
+	return j.ParentDagID
+}
+
+func (j *JobView) SetDeps(deps string) {
+	j.Deps = deps
+}
+
 type DagView struct {
 	DagID       string
 	DagName     string `json:"name"`
@@ -51,6 +67,18 @@ type DagView struct {
 	Message     string
 	EntryPoints map[string][]ComponentView
 	ParentDagID string
+}
+
+func (d *DagView) GetComponentName() string {
+	return d.DagName
+}
+
+func (d *DagView) GetParentDagID() string {
+	return d.ParentDagID
+}
+
+func (d *DagView) SetDeps(deps string) {
+	d.Deps = deps
 }
 
 // RuntimeView is view of run responded to user, while workflowRuntime is for pipeline engine to process

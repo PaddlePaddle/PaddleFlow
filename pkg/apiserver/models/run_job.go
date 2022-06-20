@@ -222,7 +222,9 @@ func (rj *RunJob) decode() error {
 	return nil
 }
 
-func (rj *RunJob) ParseJobView(step *schema.WorkflowSourceStep) schema.JobView {
+func (rj *RunJob) Trans2JobView() schema.JobView {
+	// 该函数通过数据库中run_job记录的信息，生成JobView，该JobView的信息是不全的：少了deps
+	// 差别可参考ParseJobView函数
 	// 对map进行深拷贝
 	newParameters := map[string]string{}
 	for k, v := range rj.Parameters {
@@ -245,13 +247,18 @@ func (rj *RunJob) ParseJobView(step *schema.WorkflowSourceStep) schema.JobView {
 		StartTime:  rj.ActivateTime,
 		EndTime:    newEndTime,
 		Status:     rj.Status,
-		Deps:       step.Deps,
 		DockerEnv:  rj.DockerEnv,
 		Artifacts:  rj.Artifacts,
 		Cache:      rj.Cache,
 		JobMessage: rj.Message,
 		CacheRunID: rj.CacheRunID,
 	}
+}
+
+func (rj *RunJob) ParseJobView(step *schema.WorkflowSourceStep) schema.JobView {
+	resRj := rj.Trans2JobView()
+	resRj.Deps = step.Deps
+	return resRj
 }
 
 func ParseRunJob(jobView *schema.JobView) RunJob {

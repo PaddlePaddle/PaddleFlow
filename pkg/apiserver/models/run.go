@@ -166,7 +166,62 @@ func (r *Run) validateRuntimeAndPostProcess() error {
 		}
 	}
 
+	r.initRuntime(runtimeJobs, runDags)
+
 	return nil
+}
+
+func (r *Run) initRuntime(jobs []RunJob, dags []RunDag) {
+
+	// runtimeView
+	runtimeView := map[string][]schema.ComponentView{}
+
+	// 把dags由slice转为由ID为key，对应DagView为Value的map，方便后续操作
+	dagMap := map[string]*schema.DagView{}
+	comps := []schema.ComponentView{}
+	for _, dag := range dags {
+		dagView := dag.Trans2DagView()
+		dagMap[dag.ID] = &dagView
+		comps = append(comps, &dagView)
+	}
+
+	for _, job := range jobs {
+		jobView := job.Trans2JobView()
+		comps = append(comps, &jobView)
+	}
+
+	// 处理jobs，根据parentID，在对应的dagView（若为空，则改为runtimeView）中，添加对应的JobView
+	// 处理dags，方法同上
+	for _, comp := range comps {
+		parentID := comp.GetParentDagID()
+		compName := comp.GetComponentName()
+		if parentID == "" {
+			runtimeView[compName] = append(runtimeView[compName], comp)
+		} else {
+			dagMap[parentID].EntryPoints[compName] = append(dagMap[parentID].EntryPoints[compName], comp)
+		}
+	}
+
+	// 此时已拿到RuntimeView树，但是信息不全，需要用wfs补全
+	ProcessRuntimeView(runtimeView, r.WorkflowSource.EntryPoints.EntryPoints)
+	r.Runtime = runtimeView
+}
+
+func ProcessRuntimeView(componentViews map[string][]schema.ComponentView, components map[string]schema.Component) {
+	for compName, comp := range components {
+		compViewList := componentViews[compName]
+		deps := strings.Join(comp.GetDeps(), ",")
+		for i, compView := range compViewList {
+			// 信息补全
+			compView.SetDeps(deps)
+			compViewList[i] = compView
+
+			if dagView, ok := compView.(*schema.DagView); ok {
+				dag := comp.(*schema.WorkflowSourceDag)
+				ProcessRuntimeView(dagView.EntryPoints, dag.EntryPoints)
+			}
+		}
+	}
 }
 
 func CreateRun(logEntry *log.Entry, run *Run) (string, error) {

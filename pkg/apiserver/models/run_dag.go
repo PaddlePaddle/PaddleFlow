@@ -94,6 +94,28 @@ func ParseRunDag(dagView *schema.DagView) RunDag {
 	}
 }
 
+func (rd *RunDag) Trans2DagView() schema.DagView {
+	newParameters := map[string]string{}
+	for k, v := range rd.Parameters {
+		newParameters[k] = v
+	}
+	newEndTime := ""
+	if rd.Status == schema.StatusJobCancelled || rd.Status == schema.StatusJobFailed || rd.Status == schema.StatusJobSucceeded || rd.Status == schema.StatusJobSkipped {
+		newEndTime = rd.UpdateTime
+	}
+	return schema.DagView{
+		DagID:       rd.ID,
+		DagName:     rd.Name,
+		Parameters:  newParameters,
+		StartTime:   rd.ActivateTime,
+		EndTime:     newEndTime,
+		Status:      rd.Status,
+		Artifacts:   rd.Artifacts,
+		Message:     rd.Message,
+		ParentDagID: rd.ParentDagID,
+	}
+}
+
 func (rd *RunDag) Encode() error {
 	artifactJson, err := json.Marshal(rd.Artifacts)
 	if err != nil {
