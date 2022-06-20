@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 	schedulingv1beta1 "volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
@@ -77,12 +78,15 @@ type KubeJob struct {
 	Image       string
 	Command     string
 	Env         map[string]string
-	VolumeName  string
-	PVCName     string
+	VolumeName  string // deprecated
+	PVCName     string // deprecated
 	Priority    string
 	QueueName   string
 	Labels      map[string]string
 	Annotations map[string]string
+	// 存储资源
+	FileSystems []schema.FileSystem
+
 	// YamlTemplateContent indicate template content of job
 	YamlTemplateContent []byte
 	IsCustomYaml        bool
@@ -111,6 +115,7 @@ func NewKubeJob(job *api.PFJob, dynamicClientOpt *k8s.DynamicClientOption) (api.
 		PVCName:             pvcName,
 		Labels:              job.Conf.Labels,
 		Annotations:         job.Conf.Annotations,
+		FileSystems:         job.Conf.GetAllFileSystem(),
 		Tasks:               job.Tasks,
 		Priority:            job.Conf.GetPriority(),
 		QueueName:           job.Conf.GetQueueName(),
@@ -131,18 +136,6 @@ func NewKubeJob(job *api.PFJob, dynamicClientOpt *k8s.DynamicClientOption) (api.
 	}
 
 	switch job.JobType {
-	case schema.TypeSparkJob:
-		// todo(zhongzichao): to be removed
-		kubeJob.GroupVersionKind = k8s.SparkAppGVK
-		return &SparkJob{
-			KubeJob:          kubeJob,
-			SparkMainFile:    job.Conf.Env[schema.EnvJobSparkMainFile],
-			SparkMainClass:   job.Conf.Env[schema.EnvJobSparkMainClass],
-			SparkArguments:   job.Conf.Env[schema.EnvJobSparkArguments],
-			DriverFlavour:    job.Conf.Env[schema.EnvJobDriverFlavour],
-			ExecutorFlavour:  job.Conf.Env[schema.EnvJobExecutorFlavour],
-			ExecutorReplicas: job.Conf.Env[schema.EnvJobExecutorReplicas],
-		}, nil
 	case schema.TypeVcJob:
 		// todo(zhongzichao): to be removed
 		kubeJob.GroupVersionKind = k8s.VCJobGVK
@@ -254,6 +247,7 @@ func (j *KubeJob) fsCacheAffinity(nodes []string) *corev1.Affinity {
 	}
 }
 
+// deprecated
 func (j *KubeJob) generateVolume() corev1.Volume {
 	if j.PVCName == "" || j.VolumeName == "" {
 		return corev1.Volume{}
@@ -269,6 +263,7 @@ func (j *KubeJob) generateVolume() corev1.Volume {
 	return volume
 }
 
+// deprecated
 func (j *KubeJob) generateVolumeMount() corev1.VolumeMount {
 	if j.VolumeName == "" {
 		return corev1.VolumeMount{}
@@ -346,20 +341,22 @@ func (j *KubeJob) createJobFromYaml(jobEntity interface{}) error {
 func (j *KubeJob) fillPodSpec(podSpec *corev1.PodSpec, task *models.Member) {
 	if task != nil {
 		j.Priority = task.Priority
-		// todo(zhongzichao) fill task.ExtraFileSystem
 	}
 	podSpec.PriorityClassName = j.getPriorityClass()
 	// fill SchedulerName
 	podSpec.SchedulerName = config.GlobalServerConfig.Job.SchedulerName
 	// fill volumes
-	podSpec.Volumes = j.appendVolumeIfAbsent(podSpec.Volumes, j.generateVolume())
+	podSpec.Volumes = appendVolumesIfAbsent(podSpec.Volumes, generateVolumes(j.FileSystems))
 	if j.isNeedPatch(string(podSpec.RestartPolicy)) {
 		podSpec.RestartPolicy = corev1.RestartPolicyNever
 	}
 	// fill affinity
-	if len(j.VolumeName) != 0 {
-		// TODO: support multi filesystems
-		podSpec.Affinity = j.generateAffinity(podSpec.Affinity, []string{j.VolumeName})
+	if len(j.FileSystems) != 0 {
+		var fsIDs []string
+		for _, fs := range j.FileSystems {
+			fsIDs = append(fsIDs, fs.ID)
+		}
+		podSpec.Affinity = j.generateAffinity(podSpec.Affinity, fsIDs)
 	}
 }
 
@@ -385,9 +382,10 @@ func (j *KubeJob) fillContainerInTasks(container *corev1.Container, task models.
 		container.Args = task.Args
 	}
 	container.Resources = j.generateResourceRequirements(task.Flavour)
-	if j.VolumeName != "" {
-		container.VolumeMounts = j.appendMountIfAbsent(container.VolumeMounts, j.generateVolumeMount())
-	}
+
+	taskFs := task.Conf.GetAllFileSystem()
+	container.VolumeMounts = appendMountsIfAbsent(container.VolumeMounts, generateVolumeMounts(taskFs))
+
 	container.Env = j.appendEnvIfAbsent(container.Env, j.generateEnvVars())
 }
 
@@ -431,6 +429,7 @@ func (j *KubeJob) appendEnvIfAbsent(baseEnvs []corev1.EnvVar, addEnvs []corev1.E
 	return baseEnvs
 }
 
+// deprecated
 // appendMountIfAbsent append volumeMount if not exist in volumeMounts
 func (j *KubeJob) appendMountIfAbsent(vmSlice []corev1.VolumeMount, element corev1.VolumeMount) []corev1.VolumeMount {
 	if element.Name == "" {
@@ -448,6 +447,7 @@ func (j *KubeJob) appendMountIfAbsent(vmSlice []corev1.VolumeMount, element core
 	return vmSlice
 }
 
+// deprecated
 // appendVolumeIfAbsent append volume if not exist in volumes
 func (j *KubeJob) appendVolumeIfAbsent(vSlice []corev1.Volume, element corev1.Volume) []corev1.Volume {
 	if element.Name == "" {
@@ -466,8 +466,8 @@ func (j *KubeJob) appendVolumeIfAbsent(vSlice []corev1.Volume, element corev1.Vo
 }
 
 func (j *KubeJob) fixContainerCommand(command string) string {
+	command = strings.TrimPrefix(command, "bash -c")
 	command = strings.TrimPrefix(command, "sh -c")
-	command = fmt.Sprintf("%s %s;%s", "cd", schema.DefaultFSMountPath, command)
 	return command
 }
 
@@ -732,4 +732,110 @@ func (j *KubeJob) getDefaultTemplate(framework schema.Framework) ([]byte, error)
 		return nil, err
 	}
 	return extConf, nil
+}
+
+func generateVolumes(fileSystem []schema.FileSystem) []corev1.Volume {
+	var vs []corev1.Volume
+	if len(fileSystem) == 0 {
+		log.Debug("len(fileSystem) == 0")
+		return vs
+	}
+
+	for _, fs := range fileSystem {
+		log.Debugf("FileSystems[%+v]", fs)
+		volume := corev1.Volume{
+			Name: fs.Name,
+			VolumeSource: corev1.VolumeSource{
+				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+					ClaimName: common.PVCName(fs.ID),
+				},
+			},
+		}
+		vs = append(vs, volume)
+	}
+
+	return vs
+}
+
+func generateVolumeMounts(fileSystems []schema.FileSystem) []corev1.VolumeMount {
+	var vms []corev1.VolumeMount
+	if len(fileSystems) == 0 {
+		return vms
+	}
+	for _, fs := range fileSystems {
+		if fs.ID == "" {
+			continue
+		}
+		mountPath := filepath.Clean(fs.MountPath)
+		if mountPath == "" {
+			mountPath = filepath.Join(schema.DefaultFSMountPath, fs.ID)
+		}
+		volumeMount := corev1.VolumeMount{
+			Name:      fs.Name,
+			ReadOnly:  fs.ReadOnly,
+			MountPath: mountPath,
+			SubPath:   fs.SubPath,
+		}
+		vms = append(vms, volumeMount)
+	}
+	return vms
+}
+
+// appendVolumesIfAbsent append newElements if not exist in volumes
+// if job with tasks, it should be like
+// `Volumes = appendVolumesIfAbsent(Volumes, generateVolumes(taskFs))`
+// otherwise,
+// `Volumes = appendVolumesIfAbsent(Volumes, generateVolumes(kubeJob.FileSystems))`
+func appendVolumesIfAbsent(volumes []corev1.Volume, newElements []corev1.Volume) []corev1.Volume {
+	log.Infof("appendVolumesIfAbsent volumes=%+v, newElements=%+v", volumes, newElements)
+	if len(newElements) == 0 {
+		return volumes
+	}
+	if len(volumes) == 0 {
+		volumes = []corev1.Volume{}
+	}
+	volumesDict := make(map[string]bool)
+	for _, v := range volumes {
+		volumesDict[v.Name] = true
+	}
+	for _, cur := range newElements {
+		if volumesDict[cur.Name] {
+			log.Debugf("volume %s has been created in jobTemplate", cur.Name)
+			continue
+		}
+		volumesDict[cur.Name] = true
+		volumes = append(volumes, cur)
+	}
+	return volumes
+}
+
+// appendMountsIfAbsent append volumeMount if not exist in volumeMounts
+// if job with tasks, it should be like
+// `VolumeMounts = appendMountsIfAbsent(VolumeMounts, generateVolumeMounts(taskFs))`
+// otherwise,
+// `VolumeMounts = appendMountsIfAbsent(VolumeMounts, generateVolumeMounts(kubeJob.FileSystems))`
+func appendMountsIfAbsent(volumeMounts []corev1.VolumeMount, newElements []corev1.VolumeMount) []corev1.VolumeMount {
+	if volumeMounts == nil {
+		volumeMounts = []corev1.VolumeMount{}
+	}
+	if len(newElements) == 0 {
+		return volumeMounts
+	}
+	// deduplication
+	volumeMountsDict := make(map[string]string)
+	for _, cur := range volumeMounts {
+		mountPath := filepath.Clean(cur.MountPath)
+		volumeMountsDict[mountPath] = cur.Name
+	}
+
+	for _, cur := range newElements {
+		mountPath := filepath.Clean(cur.MountPath)
+		if _, exist := volumeMountsDict[mountPath]; exist {
+			log.Debugf("moutPath %s in volumeMount %s has been created in jobTemplate", cur.MountPath, cur.Name)
+			continue
+		}
+		volumeMountsDict[mountPath] = cur.Name
+		volumeMounts = append(volumeMounts, cur)
+	}
+	return volumeMounts
 }

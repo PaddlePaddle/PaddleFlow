@@ -237,10 +237,9 @@ func TestKubeRuntimePVAndPVC(t *testing.T) {
 
 	namespace := "default"
 	fsID := "fs-test"
-	userName := "test"
 	pvc := fmt.Sprintf("pfs-%s-pvc", fsID)
 	// create pv
-	pv, err := kubeRuntime.CreatePV(namespace, fsID, userName)
+	pv, err := kubeRuntime.CreatePV(namespace, fsID)
 	assert.Equal(t, nil, err)
 	// create pvc
 	err = kubeRuntime.CreatePVC(namespace, fsID, pv)
