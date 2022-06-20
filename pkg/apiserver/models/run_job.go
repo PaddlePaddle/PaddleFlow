@@ -30,31 +30,33 @@ import (
 )
 
 type RunJob struct {
-	Pk             int64             `gorm:"primaryKey;autoIncrement;not null" json:"-"`
-	ID             string            `gorm:"type:varchar(60);not null"         json:"jobID"`
-	RunID          string            `gorm:"type:varchar(60);not null"         json:"runID"`
-	Name           string            `gorm:"type:varchar(60);not null"         json:"name"`
-	StepName       string            `gorm:"type:varchar(60);not null"         json:"step_name"`
-	Command        string            `gorm:"type:text;size:65535;not null"     json:"command"`
-	Parameters     map[string]string `gorm:"-"                                 json:"parameters"`
-	ParametersJson string            `gorm:"type:text;size:65535;not null"     json:"-"`
-	Artifacts      schema.Artifacts  `gorm:"-"                                 json:"artifacts"`
-	ArtifactsJson  string            `gorm:"type:text;size:65535;not null"     json:"-"`
-	Env            map[string]string `gorm:"-"                                 json:"env"`
-	EnvJson        string            `gorm:"type:text;size:65535;not null"     json:"-"`
-	DockerEnv      string            `gorm:"type:varchar(128);not null"        json:"docker_env"`
-	Status         schema.JobStatus  `gorm:"type:varchar(32);not null"         json:"status"`
-	Message        string            `gorm:"type:text;size:65535;not null"     json:"message"`
-	Cache          schema.Cache      `gorm:"-"                                 json:"cache"`
-	CacheJson      string            `gorm:"type:text;size:65535;not null"     json:"-"`
-	CacheRunID     string            `gorm:"type:varchar(60);not null"         json:"cache_run_id"`
-	CreateTime     string            `gorm:"-"                                 json:"createTime"`
-	ActivateTime   string            `gorm:"-"                                 json:"activateTime"`
-	UpdateTime     string            `gorm:"-"                                 json:"updateTime,omitempty"`
-	CreatedAt      time.Time         `                                         json:"-"`
-	ActivatedAt    sql.NullTime      `                                         json:"-"`
-	UpdatedAt      time.Time         `                                         json:"-"`
-	DeletedAt      gorm.DeletedAt    `gorm:"index"                             json:"-"`
+	Pk             int64             `gorm:"primaryKey;autoIncrement;not null"  json:"-"`
+	ID             string            `gorm:"type:varchar(60);not null"          json:"jobID"`
+	RunID          string            `gorm:"type:varchar(60);not null"          json:"runID"`
+	ParentDagID    string            `gorm:"type:varchar(60);not null"          json:"parentDagID"`
+	Name           string            `gorm:"type:varchar(60);not null"          json:"name"`
+	StepName       string            `gorm:"type:varchar(60);not null"          json:"step_name"`
+	Command        string            `gorm:"type:text;size:65535;not null"      json:"command"`
+	Parameters     map[string]string `gorm:"-"                                  json:"parameters"`
+	ParametersJson string            `gorm:"type:text;size:65535;not null"      json:"-"`
+	Condition      int               `gorm:"type:tinyint(1);not null;default:0" json:"-"`
+	Artifacts      schema.Artifacts  `gorm:"-"                                  json:"artifacts"`
+	ArtifactsJson  string            `gorm:"type:text;size:65535;not null"      json:"-"`
+	Env            map[string]string `gorm:"-"                                  json:"env"`
+	EnvJson        string            `gorm:"type:text;size:65535;not null"      json:"-"`
+	DockerEnv      string            `gorm:"type:varchar(128);not null"         json:"docker_env"`
+	Status         schema.JobStatus  `gorm:"type:varchar(32);not null"          json:"status"`
+	Message        string            `gorm:"type:text;size:65535;not null"      json:"message"`
+	Cache          schema.Cache      `gorm:"-"                                  json:"cache"`
+	CacheJson      string            `gorm:"type:text;size:65535;not null"      json:"-"`
+	CacheRunID     string            `gorm:"type:varchar(60);not null"          json:"cache_run_id"`
+	CreateTime     string            `gorm:"-"                                  json:"createTime"`
+	ActivateTime   string            `gorm:"-"                                  json:"activateTime"`
+	UpdateTime     string            `gorm:"-"                                  json:"updateTime,omitempty"`
+	CreatedAt      time.Time         `                                          json:"-"`
+	ActivatedAt    sql.NullTime      `                                          json:"-"`
+	UpdatedAt      time.Time         `                                          json:"-"`
+	DeletedAt      gorm.DeletedAt    `gorm:"index"                              json:"-"`
 }
 
 func CreateRunJobs(logEntry *log.Entry, jobs map[string]schema.JobView, runID string) error {
@@ -73,6 +75,26 @@ func CreateRunJobs(logEntry *log.Entry, jobs map[string]schema.JobView, runID st
 					runJob, result.Error.Error())
 				return result.Error
 			}
+		}
+		return nil
+	})
+	return err
+}
+
+func CreateRunJob(logEntry *log.Entry, job schema.JobView, runID string) error {
+	logEntry.Debugf("begin create run_jobs by jobView: %v", job)
+	err := withTransaction(database.DB, func(tx *gorm.DB) error {
+		runJob := RunJob{
+			ID:       job.JobID,
+			RunID:    runID,
+			Name:     job.JobName,
+			StepName: name,
+		}
+		result := tx.Model(&RunJob{}).Create(&runJob)
+		if result.Error != nil {
+			logEntry.Errorf("create run_job failed. run_job: %v, error: %s",
+				runJob, result.Error.Error())
+			return result.Error
 		}
 		return nil
 	})

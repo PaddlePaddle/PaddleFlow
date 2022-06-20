@@ -156,6 +156,35 @@ func UpdateRuntimeByWfEvent(id string, event interface{}) (string, bool) {
 	return id, true
 }
 
+func UpdateRuntimeJobByWfEvent(pk string, event interface{}) (string, bool) {
+	logging := logger.Logger()
+	wfEvent, ok := event.(*pipeline.WorkflowEvent)
+	if !ok {
+		logging.Errorf("event type-casting failed in update job callback")
+		return "", false
+	}
+	if wfEvent.Event != pipeline.WfEventJobUpdate {
+		logging.Errorf("event type[%s] invalid in update job callback", wfEvent.Event)
+		return "", false
+	}
+
+	runID := wfEvent.Extra[common.WfEventKeyRunID].(string)
+	logging = logger.LoggerForRun(runID)
+
+	runtimeJob, ok := wfEvent.Extra[common.WfEventKeyRuntime].(schema.JobView)
+	if !ok {
+		logging.Errorf("run[%s] malformat runtime", runID)
+		return "", false
+	}
+	runJob := models.ParseRunJob(&runtimeJob)
+	runJob.Encode()
+	//TODO，更新Updatejob，用PK更新
+	if err := models.UpdateRunJob(logging, runID, name, runJob); err != nil {
+		logging.Errorf("update run_job in callback failed")
+		return "", false
+	}
+}
+
 func updateRunCache(logging *logrus.Entry, runtime schema.RuntimeView, runID string) error {
 	// 检查每个job的cache情况
 	// 多个job很可能cache同一个Run，所以用set来去重

@@ -121,8 +121,11 @@ func (bwf *BaseWorkflow) recursiveGetComponents(components map[string]schema.Com
 
 // validate BaseWorkflow 校验合法性
 func (bwf *BaseWorkflow) validate() error {
-
-	bwf.checkComponents()
+	// 1. 检查Components/Reference
+	if err := bwf.checkComponents(); err != nil {
+		bwf.log().Errorf("check components failed, err: %s", err.Error())
+		return err
+	}
 
 	// 2. 检验extra，保证FsID和FsName，要么都传，要么都不传
 	if err := bwf.checkExtra(); err != nil {
@@ -180,7 +183,57 @@ func (bwf *BaseWorkflow) checkFailureOption() error {
 }
 
 func (bwf *BaseWorkflow) checkComponents() error {
+	/*
+		components不能有deps(最外层，不包括子节点)
+		components/reference不支持递归
+	*/
+	for name, comp := range bwf.Source.Components {
+		// component不能有deps
+		if len(comp.GetDeps()) > 0 {
+			fmt.Errorf("components can not have deps")
+		}
 
+		// 递归检查
+		visited := map[string]int{name: 1}
+		if err := bwf.checkRecursion(comp, visited); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (bwf *BaseWorkflow) checkRecursion(component schema.Component, visited map[string]int) error {
+	if step, ok := component.(*schema.WorkflowSourceStep); ok {
+		if step.Reference != "" {
+			refComp, ok := bwf.Source.Components[step.Reference]
+			if !ok {
+				fmt.Errorf("no component named %s", step.Reference)
+			}
+
+			// 如果visited已有将要reference的节点，则说明存在递归
+			if _, ok := visited[step.Reference]; ok {
+				return fmt.Errorf("reference should not be recursive")
+			} else {
+				visited[step.Reference] = 1
+			}
+			return bwf.checkRecursion(refComp, visited)
+		} else {
+			return nil
+		}
+	} else if dag, ok := component.(*schema.WorkflowSourceDag); ok {
+		for _, comp := range dag.EntryPoints {
+			newVisitied := map[string]int{}
+			for k, v := range visited {
+				newVisitied[k] = v
+			}
+			if err := bwf.checkRecursion(comp, newVisitied); err != nil {
+				return err
+			}
+		}
+		return nil
+	} else {
+		return fmt.Errorf("component not dag or step")
+	}
 	return nil
 }
 
