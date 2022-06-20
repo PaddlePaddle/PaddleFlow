@@ -20,11 +20,12 @@ import (
 	"context"
 	"encoding/json"
 	"strconv"
+	"time"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
-	job_ "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/job"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/core"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/util/http"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
 
 const (
@@ -44,9 +45,144 @@ type job struct {
 	client *core.PaddleFlowClient
 }
 
-func (j *job) Create(ctx context.Context, single *job_.CreateSingleJobRequest, distributed *job_.CreateDisJobRequest,
-	wf *job_.CreateWfJobRequest, token string) (result *job_.CreateJobResponse, err error) {
-	result = &job_.CreateJobResponse{}
+// CreateSingleJobRequest convey request for create job
+type CreateSingleJobRequest struct {
+	CommonJobInfo `json:",inline"`
+	JobSpec       `json:",inline"`
+}
+
+// CreateDisJobRequest convey request for create distributed job
+type CreateDisJobRequest struct {
+	CommonJobInfo     `json:",inline"`
+	Framework         schema.Framework       `json:"framework"`
+	Members           []MemberSpec           `json:"members"`
+	ExtensionTemplate map[string]interface{} `json:"extensionTemplate"`
+}
+
+// CreateWfJobRequest convey request for create workflow job
+type CreateWfJobRequest struct {
+	CommonJobInfo     `json:",inline"`
+	Framework         schema.Framework       `json:"framework"`
+	Members           []MemberSpec           `json:"members"`
+	ExtensionTemplate map[string]interface{} `json:"extensionTemplate"`
+}
+
+// CommonJobInfo the common fields for jobs
+type CommonJobInfo struct {
+	ID               string            `json:"id"`
+	Name             string            `json:"name"`
+	Labels           map[string]string `json:"labels"`
+	Annotations      map[string]string `json:"annotations"`
+	SchedulingPolicy SchedulingPolicy  `json:"schedulingPolicy"`
+	UserName         string            `json:",omitempty"`
+}
+
+// SchedulingPolicy indicate queueID/priority
+type SchedulingPolicy struct {
+	Queue    string `json:"queue"`
+	QueueID  string `json:"-"`
+	Priority string `json:"priority,omitempty"`
+}
+
+// JobSpec the spec fields for jobs
+type JobSpec struct {
+	Flavour           schema.Flavour         `json:"flavour"`
+	FS                schema.FileSystem      `json:"fs"`
+	ExtraFS           []schema.FileSystem    `json:"extraFS"`
+	Image             string                 `json:"image"`
+	Env               map[string]string      `json:"env"`
+	Command           string                 `json:"command"`
+	Args              []string               `json:"args"`
+	Port              int                    `json:"port"`
+	ExtensionTemplate map[string]interface{} `json:"extensionTemplate"`
+}
+
+type MemberSpec struct {
+	CommonJobInfo `json:",inline"`
+	JobSpec       `json:",inline"`
+	Role          string `json:"role"`
+	Replicas      int    `json:"replicas"`
+}
+
+type UpdateJobRequest struct {
+	JobID       string            `json:"-"`
+	Priority    string            `json:"priority"`
+	Labels      map[string]string `json:"labels"`
+	Annotations map[string]string `json:"annotations"`
+}
+
+// CreateJobResponse convey response for create job
+type CreateJobResponse struct {
+	ID string `json:"id"`
+}
+
+type Member struct {
+	ID          string            `json:"id"`
+	Replicas    int               `json:"replicas"`
+	Role        schema.MemberRole `json:"role"`
+	schema.Conf `json:",inline"`
+}
+
+type DistributedJobSpec struct {
+	Framework schema.Framework `json:"framework,omitempty"`
+	Members   []Member         `json:"members,omitempty"`
+}
+
+type ListJobRequest struct {
+	Queue     string            `json:"queue,omitempty"`
+	Status    string            `json:"status,omitempty"`
+	Timestamp int64             `json:"timestamp,omitempty"`
+	StartTime string            `json:"startTime,omitempty"`
+	Labels    map[string]string `json:"labels,omitempty"`
+	Marker    string            `json:"marker"`
+	MaxKeys   int               `json:"maxKeys"`
+}
+
+type ListJobResponse struct {
+	common.MarkerInfo
+	JobList []*GetJobResponse `json:"jobList"`
+}
+
+type GetJobResponse struct {
+	CreateSingleJobRequest `json:",inline"`
+	DistributedJobSpec     `json:",inline"`
+	Status                 string                  `json:"status"`
+	Message                string                  `json:"message"`
+	AcceptTime             string                  `json:"acceptTime"`
+	StartTime              string                  `json:"startTime"`
+	FinishTime             string                  `json:"finishTime"`
+	Runtime                *RuntimeInfo            `json:"runtime,omitempty"`
+	DistributedRuntime     *DistributedRuntimeInfo `json:"distributedRuntime,omitempty"`
+	WorkflowRuntime        *WorkflowRuntimeInfo    `json:"workflowRuntime,omitempty"`
+	UpdateTime             time.Time               `json:"-"`
+}
+
+type RuntimeInfo struct {
+	Name      string `json:"name,omitempty"`
+	Namespace string `json:"namespace,omitempty"`
+	ID        string `json:"id,omitempty"`
+	Status    string `json:"status,omitempty"`
+}
+
+type DistributedRuntimeInfo struct {
+	Name      string        `json:"name,omitempty"`
+	Namespace string        `json:"namespace,omitempty"`
+	ID        string        `json:"id,omitempty"`
+	Status    string        `json:"status,omitempty"`
+	Runtimes  []RuntimeInfo `json:"runtimes,omitempty"`
+}
+
+type WorkflowRuntimeInfo struct {
+	Name      string                   `json:"name,omitempty"`
+	Namespace string                   `json:"namespace,omitempty"`
+	ID        string                   `json:"id,omitempty"`
+	Status    string                   `json:"status,omitempty"`
+	Nodes     []DistributedRuntimeInfo `json:"nodes,omitempty"`
+}
+
+func (j *job) Create(ctx context.Context, single *CreateSingleJobRequest, distributed *CreateDisJobRequest,
+	wf *CreateWfJobRequest, token string) (result *CreateJobResponse, err error) {
+	result = &CreateJobResponse{}
 	requestClient := core.NewRequestBuilder(j.client).
 		WithHeader(common.HeaderKeyAuthorization, token).
 		WithMethod(http.POST)
@@ -66,8 +202,8 @@ func (j *job) Create(ctx context.Context, single *job_.CreateSingleJobRequest, d
 }
 
 func (j *job) Get(ctx context.Context, jobID,
-	token string) (result *job_.GetJobResponse, err error) {
-	result = &job_.GetJobResponse{}
+	token string) (result *GetJobResponse, err error) {
+	result = &GetJobResponse{}
 	err = core.NewRequestBuilder(j.client).
 		WithHeader(common.HeaderKeyAuthorization, token).
 		WithURL(JobApi + "/" + jobID).
@@ -80,9 +216,9 @@ func (j *job) Get(ctx context.Context, jobID,
 	return
 }
 
-func (j *job) List(ctx context.Context, request *job_.ListJobRequest,
-	token string) (result *job_.ListJobResponse, err error) {
-	result = &job_.ListJobResponse{}
+func (j *job) List(ctx context.Context, request *ListJobRequest,
+	token string) (result *ListJobResponse, err error) {
+	result = &ListJobResponse{}
 	requestClient := core.NewRequestBuilder(j.client).
 		WithHeader(common.HeaderKeyAuthorization, token).
 		WithURL(JobApi).
@@ -108,7 +244,7 @@ func (j *job) List(ctx context.Context, request *job_.ListJobRequest,
 	return
 }
 
-func (j *job) Update(ctx context.Context, jobID string, request *job_.UpdateJobRequest,
+func (j *job) Update(ctx context.Context, jobID string, request *UpdateJobRequest,
 	token string) (err error) {
 	err = core.NewRequestBuilder(j.client).
 		WithHeader(common.HeaderKeyAuthorization, token).
@@ -144,11 +280,11 @@ type JobGetter interface {
 }
 
 type JobInterface interface {
-	Create(ctx context.Context, single *job_.CreateSingleJobRequest, distributed *job_.CreateDisJobRequest,
-		wf *job_.CreateWfJobRequest, token string) (*job_.CreateJobResponse, error)
-	Get(ctx context.Context, jobID string, token string) (*job_.GetJobResponse, error)
-	List(ctx context.Context, request *job_.ListJobRequest, token string) (*job_.ListJobResponse, error)
-	Update(ctx context.Context, jobID string, request *job_.UpdateJobRequest, token string) error
+	Create(ctx context.Context, single *CreateSingleJobRequest, distributed *CreateDisJobRequest,
+		wf *CreateWfJobRequest, token string) (*CreateJobResponse, error)
+	Get(ctx context.Context, jobID string, token string) (*GetJobResponse, error)
+	List(ctx context.Context, request *ListJobRequest, token string) (*ListJobResponse, error)
+	Update(ctx context.Context, jobID string, request *UpdateJobRequest, token string) error
 	Stop(ctx context.Context, jobID string, token string) error
 	Delete(ctx context.Context, jobID string, token string) error
 }

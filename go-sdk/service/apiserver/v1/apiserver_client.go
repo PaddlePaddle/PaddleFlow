@@ -25,6 +25,7 @@ type APIV1Interface interface {
 	FileSystemGetter
 	ClusterGetter
 	QueueGetter
+	FlavourGetter
 	JobGetter
 	RunGetter
 	PipelineGetter
@@ -49,6 +50,10 @@ func (c *APIV1Client) Cluster() ClusterInterface {
 
 func (c *APIV1Client) Queue() QueueInterface {
 	return newQueue(c)
+}
+
+func (c *APIV1Client) Flavour() FlavourInterface {
+	return newFlavour(c)
 }
 
 func (c *APIV1Client) Job() JobInterface {

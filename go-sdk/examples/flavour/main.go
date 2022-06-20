@@ -21,7 +21,7 @@ import (
 	"fmt"
 
 	"github.com/PaddlePaddle/PaddleFlow/go-sdk/service"
-	v1 "github.com/PaddlePaddle/PaddleFlow/go-sdk/service/apiserver/v1"
+	"github.com/PaddlePaddle/PaddleFlow/go-sdk/service/apiserver/v1"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/core"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
@@ -45,52 +45,50 @@ func main() {
 	}
 	token := data.Authorization
 
-	queueName := "test-queue"
-	clusterName := "test-cluster"
-	createResult, err := pfClient.APIV1().Queue().Create(context.TODO(), &v1.CreateQueueRequest{
-		Name:        queueName,
-		Namespace:   "default",
-		ClusterName: clusterName,
-		MaxResources: schema.ResourceInfo{
-			CPU: "30",
-			Mem: "50Gi",
-		},
-		MinResources: schema.ResourceInfo{
-			CPU: "10",
-			Mem: "20Gi",
+	flavourName := "test-flavour"
+	createResult, err := pfClient.APIV1().Flavour().Create(context.TODO(), &v1.CreateFlavourRequest{
+		Name: flavourName,
+		CPU:  "4",
+		Mem:  "8Gi",
+		ScalarResources: map[schema.ResourceName]string{
+			"nvidia.com/gpu": "1",
 		},
 	}, token)
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("create queue result %v\n", createResult)
+	fmt.Printf("create flavour result %v\n", createResult)
 
-	getResult, err := pfClient.APIV1().Queue().Get(context.TODO(), queueName, token)
+	getResult, err := pfClient.APIV1().Flavour().Get(context.TODO(), flavourName, token)
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("get queue result %v\n", getResult)
+	fmt.Printf("get flavour result %v\n", getResult)
 
-	listResult, err := pfClient.APIV1().Queue().List(context.TODO(), &v1.ListQueueRequest{
+	listResult, err := pfClient.APIV1().Flavour().List(context.TODO(), &v1.ListFlavourRequest{
 		MaxKeys: 100,
 	}, token)
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("list queue result %v\n", listResult)
+	fmt.Printf("list flavour result %v\n", listResult)
 
-	updateResult, err := pfClient.APIV1().Queue().Update(context.TODO(), queueName, &v1.UpdateQueueRequest{
-		Location:         map[string]string{},
-		SchedulingPolicy: []string{"priority"},
+	updateResult, err := pfClient.APIV1().Flavour().Update(context.TODO(), &v1.UpdateFlavourRequest{
+		Name: flavourName,
+		CPU:  "8",
+		Mem:  "10Gi",
+		ScalarResources: map[schema.ResourceName]string{
+			"nvidia.com/gpu": "2",
+		},
 	}, token)
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("update queue result %v\n", updateResult)
+	fmt.Printf("update flavour result %v\n", updateResult)
 
-	err = pfClient.APIV1().Queue().Delete(context.TODO(), queueName, token)
+	err = pfClient.APIV1().Flavour().Delete(context.TODO(), flavourName, token)
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println("delete queue ok")
+	fmt.Println("delete flavour ok")
 }
