@@ -26,6 +26,8 @@ type APIV1Interface interface {
 	ClusterGetter
 	QueueGetter
 	JobGetter
+	RunGetter
+	PipelineGetter
 }
 
 // APIV1Client is used to interact with features provided by the group.
@@ -51,6 +53,14 @@ func (c *APIV1Client) Queue() QueueInterface {
 
 func (c *APIV1Client) Job() JobInterface {
 	return newJob(c)
+}
+
+func (c *APIV1Client) Run() RunInterface {
+	return newRun(c)
+}
+
+func (c *APIV1Client) Pipeline() PipelineInterface {
+	return newPipeline(c)
 }
 
 // RESTClient returns a RESTClient that is used to communicate
