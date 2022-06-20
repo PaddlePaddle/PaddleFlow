@@ -79,14 +79,14 @@ func CreateRunCache(logEntry *log.Entry, cache *RunCache) (string, error) {
 	return cache.ID, err
 }
 
-func ListRunCacheByFirstFp(logEntry *log.Entry, firstFp, fsID, step, source string) ([]RunCache, error) {
+func ListRunCacheByFirstFp(logEntry *log.Entry, firstFp, fsID, source string) ([]RunCache, error) {
 	var cacheList []RunCache
 	tx := database.DB.Model(&RunCache{}).Where(
-		"first_fp = ? and fs_id = ? and step = ? and source = ?",
-		firstFp, fsID, step, source).Order("created_at DESC").Find(&cacheList)
+		"first_fp = ? and fs_id = ? and source = ?",
+		firstFp, fsID, source).Order("created_at DESC").Find(&cacheList)
 	if tx.Error != nil {
-		logEntry.Errorf("ListRunCacheByFirstFp failed. firstFp[%s] fsID[%s] step[%s] source[%s]. error:%v",
-			firstFp, fsID, step, source, tx.Error)
+		logEntry.Errorf("ListRunCacheByFirstFp failed. firstFp[%s] fsID[%s] source[%s]. error:%v",
+			firstFp, fsID, source, tx.Error)
 		return nil, tx.Error
 	}
 	return cacheList, nil
