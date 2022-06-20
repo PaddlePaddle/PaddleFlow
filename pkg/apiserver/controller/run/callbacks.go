@@ -43,11 +43,11 @@ var workflowCallbacks = pipeline.WorkflowCallbacks{
 }
 
 var (
-	GetJobFunc        func(runID string, stepName string) (schema.JobView, error)         = GetJobByRun
-	UpdateRuntimeFunc func(id string, event interface{}) (string, bool)                   = UpdateRuntimeByWfEvent
-	LogCacheFunc      func(req schema.LogRunCacheRequest) (string, error)                 = LogCache
-	ListCacheFunc     func(firstFp, fsID, step, source string) ([]models.RunCache, error) = ListCacheByFirstFp
-	LogArtifactFunc   func(req schema.LogRunArtifactRequest) error                        = LogArtifactEvent
+	GetJobFunc        func(jobID string, fullComponentName string) (schema.JobView, error) = GetJobByRun
+	UpdateRuntimeFunc func(id string, event interface{}) (int64, bool)                     = UpdateRuntimeByWfEvent
+	LogCacheFunc      func(req schema.LogRunCacheRequest) (string, error)                  = LogCache
+	ListCacheFunc     func(firstFp, fsID, source string) ([]models.RunCache, error)        = ListCacheByFirstFp
+	LogArtifactFunc   func(req schema.LogRunArtifactRequest) error                         = LogArtifactEvent
 )
 
 func GetJobByRun(runID string, stepName string) (schema.JobView, error) {
