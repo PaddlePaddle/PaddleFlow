@@ -73,8 +73,6 @@ func (sj *SparkJob) patchSparkAppVariable(jobApp *sparkapp.SparkApplication) err
 		return err
 	}
 
-	// volumes
-	jobApp.Spec.Volumes = sj.appendVolumeIfAbsent(jobApp.Spec.Volumes, sj.generateVolume())
 	log.Debugf("jobApp: %v, driver=%v, executor=%v", jobApp, jobApp.Spec.Driver, jobApp.Spec.Executor)
 	return nil
 }
@@ -111,6 +109,7 @@ func (sj *SparkJob) patchSparkSpec(jobApp *sparkapp.SparkApplication, jobID stri
 
 	// resource of driver and executor
 	var driverFlavour, executorFlavour schema.Flavour
+	var taskFileSystem []schema.FileSystem
 	for _, task := range sj.Tasks {
 		if task.Role == schema.RoleDriver {
 			driverFlavour = task.Flavour
@@ -118,9 +117,18 @@ func (sj *SparkJob) patchSparkSpec(jobApp *sparkapp.SparkApplication, jobID stri
 		} else if task.Role == schema.RoleExecutor {
 			executorFlavour = task.Flavour
 			sj.patchSparkSpecExecutor(jobApp, task)
+		} else {
+			err := fmt.Errorf("unknown type[%s] in task[%v]", task.Role, task)
+			log.Errorf("patchSparkSpec failed, err: %v", err)
+			return err
 		}
+		taskFileSystem = append(taskFileSystem, task.Conf.GetAllFileSystem()...)
 	}
 	fillGPUSpec(driverFlavour, executorFlavour, jobApp)
+
+	// volumes
+	jobApp.Spec.Volumes = appendVolumesIfAbsent(jobApp.Spec.Volumes, generateVolumes(taskFileSystem))
+
 	return nil
 }
 
@@ -137,7 +145,8 @@ func (sj *SparkJob) patchPodByTask(podSpec *sparkapp.SparkPodSpec, task models.M
 	}
 	podSpec.Env = append(podSpec.Env, sj.generateEnvVars()...)
 
-	podSpec.VolumeMounts = sj.appendMountIfAbsent(podSpec.VolumeMounts, sj.generateVolumeMount())
+	taskFileSystems := task.Conf.GetAllFileSystem()
+	podSpec.VolumeMounts = appendMountsIfAbsent(podSpec.VolumeMounts, generateVolumeMounts(taskFileSystems))
 }
 
 func (sj *SparkJob) patchSparkSpecDriver(jobApp *sparkapp.SparkApplication, task models.Member) {

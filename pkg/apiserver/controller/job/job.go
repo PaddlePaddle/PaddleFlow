@@ -123,7 +123,7 @@ func CreateSingleJob(ctx *logger.RequestContext, request *CreateSingleJobRequest
 		return nil, err
 	}
 	// validate FileSystem
-	if err := validateFileSystem(request.FileSystem, request.UserName); err != nil {
+	if err := validateFileSystem(&request.JobSpec, request.UserName); err != nil {
 		return nil, err
 	}
 	// parse job template
@@ -211,12 +211,7 @@ func patchFromJobSpec(conf *schema.Conf, jobSpec *JobSpec, userName string) erro
 		return err
 	}
 	// FileSystem
-	if jobSpec.FileSystem.Name != "" {
-		fsID := common.ID(userName, jobSpec.FileSystem.Name)
-		// todo to be removed if not used
-		conf.SetFS(fsID)
-	}
-	// todo ExtraFileSystem
+	fixFsInConf(conf, jobSpec, userName)
 	return nil
 }
 
@@ -262,6 +257,7 @@ func CreateDistributedJob(ctx *logger.RequestContext, request *CreateDisJobReque
 		ctx.Logging().Errorln(err.Error())
 		return nil, err
 	}
+	request.UserName = ctx.UserName
 	var err error
 	templateJson, err := newExtensionTemplateJson(request.ExtensionTemplate)
 	if err != nil {
@@ -392,8 +388,9 @@ func patchDistributedConf(conf *schema.Conf, request *CreateDisJobRequest) error
 func newCollectiveMembers(request *CreateDisJobRequest) ([]models.Member, error) {
 	members := make([]models.Member, 0)
 	for _, reqMem := range request.Members {
+		reqMem.UserName = request.UserName
 		// validate FileSystem
-		if err := validateFileSystem(reqMem.FileSystem, request.UserName); err != nil {
+		if err := validateFileSystem(&reqMem.JobSpec, request.UserName); err != nil {
 			return nil, err
 		}
 		if reqMem.Role == string(schema.RoleWorker) {
@@ -412,8 +409,9 @@ func newCollectiveMembers(request *CreateDisJobRequest) ([]models.Member, error)
 func newPSMembers(request *CreateDisJobRequest) ([]models.Member, error) {
 	members := make([]models.Member, 0)
 	for _, reqMember := range request.Members {
+		reqMember.UserName = request.UserName
 		// validate FileSystem
-		if err := validateFileSystem(reqMember.FileSystem, request.UserName); err != nil {
+		if err := validateFileSystem(&reqMember.JobSpec, request.UserName); err != nil {
 			return nil, err
 		}
 
@@ -441,28 +439,32 @@ func newMember(member MemberSpec, role schema.MemberRole) (models.Member, error)
 		log.Errorf("member with invalid replicas %d", member.Replicas)
 		return models.Member{}, fmt.Errorf("invalid replicas %d", member.Replicas)
 	}
+
+	conf := schema.Conf{
+		Name: member.Name,
+		// 存储资源
+		FileSystem:      member.FileSystem,
+		ExtraFileSystem: member.ExtraFileSystems,
+		// 计算资源
+		Flavour:  f,
+		Priority: member.SchedulingPolicy.Priority,
+		QueueID:  member.SchedulingPolicy.QueueID,
+		// 运行时需要的参数
+		Labels:      member.Labels,
+		Annotations: member.Annotations,
+		Env:         member.Env,
+		Command:     member.Command,
+		Image:       member.Image,
+		Port:        member.Port,
+		Args:        member.Args,
+	}
+	fixFsInConf(&conf, &member.JobSpec, member.UserName)
+
 	return models.Member{
 		ID:       member.ID,
 		Role:     role,
 		Replicas: member.Replicas,
-		Conf: schema.Conf{
-			Name: member.Name,
-			// 存储资源
-			FileSystem:      member.FileSystem,
-			ExtraFileSystem: member.ExtraFileSystems,
-			// 计算资源
-			Flavour:  f,
-			Priority: member.SchedulingPolicy.Priority,
-			QueueID:  member.SchedulingPolicy.QueueID,
-			// 运行时需要的参数
-			Labels:      member.Labels,
-			Annotations: member.Annotations,
-			Env:         member.Env,
-			Command:     member.Command,
-			Image:       member.Image,
-			Port:        member.Port,
-			Args:        member.Args,
-		},
+		Conf:     conf,
 	}, nil
 }
 
@@ -697,14 +699,37 @@ func getRuntimeByQueue(ctx *logger.RequestContext, queueID string) (runtime.Runt
 	return runtimeSvc, nil
 }
 
-func validateFileSystem(fs schema.FileSystem, userName string) error {
-	if fs.Name == "" {
+func validateFileSystem(jobSpec *JobSpec, userName string) error {
+	if jobSpec.FileSystem.Name == "" {
 		return nil
 	}
-	fsID := common.ID(userName, fs.Name)
-	if _, err := models.GetFileSystemWithFsID(fsID); err != nil {
-		log.Errorf("get filesystem %s failed, err: %v", fsID, err)
-		return fmt.Errorf("find file system %s failed, err: %v", fs.Name, err)
+	fileSystems := append([]schema.FileSystem{}, jobSpec.FileSystem)
+	fileSystems = append(fileSystems, jobSpec.ExtraFileSystems...)
+	for _, fs := range fileSystems {
+		if fs.Name == "" {
+			log.Errorf("name of fileSystem %v is null", fs)
+			return fmt.Errorf("name of fileSystem %v is null", fs)
+		}
+		fsID := common.ID(userName, fs.Name)
+		if _, err := models.GetFileSystemWithFsID(fsID); err != nil {
+			log.Errorf("get filesystem %s failed, err: %v", fsID, err)
+			return fmt.Errorf("find file system %s failed, err: %v", fs.Name, err)
+		}
 	}
+
 	return nil
+}
+
+func fixFsInConf(conf *schema.Conf, jobSpec *JobSpec, userName string) {
+	if jobSpec.FileSystem.Name != "" {
+		fsID := common.ID(userName, jobSpec.FileSystem.Name)
+		conf.FileSystem.ID = fsID
+	}
+	if conf.ExtraFileSystem == nil {
+		conf.ExtraFileSystem = []schema.FileSystem{}
+	}
+	for _, fs := range jobSpec.ExtraFileSystems {
+		fs.ID = common.ID(userName, fs.Name)
+		conf.ExtraFileSystem = append(jobSpec.ExtraFileSystems, fs)
+	}
 }
