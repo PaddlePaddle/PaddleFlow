@@ -75,7 +75,7 @@ func CreateRunByRunYamlRaw(filepath string) (runID string) {
 		panic(err)
 	}
 
-	runYamlRaw, err := pipeline.TransPipelineToYamlRaw(p)
+	runYamlRaw, err := p.TransPipelineToYamlRaw()
 	if err != nil {
 		panic(err)
 	}
