@@ -17,20 +17,15 @@ limitations under the License.
 package pipeline
 
 import (
-	"encoding/base64"
 	"fmt"
 	"io"
 	"os"
-
-	"gopkg.in/yaml.v2"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
 
 type Pipeline = schema.WorkflowSource
-
-type Step = schema.WorkflowSourceStep
 
 func NewPipelineFromYamlFile(filepath string) (pipeline *Pipeline, err error) {
 	file, err := os.Open(filepath)
@@ -69,28 +64,12 @@ func NewPipelineFromYamlBytes(content []byte) (pipeline *Pipeline, err error) {
 	return
 }
 
-func validatePipeline(pipeline *schema.WorkflowSource) (err error) {
+func validatePipeline(pipeline *Pipeline) (err error) {
 	// TODO: 进行更为详细的校验
 	name := pipeline.Name
 	if name != "" && !schema.CheckReg(name, common.RegPatternPipelineName) {
 		err = fmt.Errorf("validate pipeline name[%s] with pattern[%s] failed", pipeline.Name, common.RegPatternPipelineName)
 	}
 
-	return
-}
-
-func TransPipelineToYamlRaw(p *Pipeline) (runYamlRaw string, err error) {
-	runYaml, err := yaml.Marshal(*p)
-	if err != nil {
-		return "", err
-	}
-
-	defer func() {
-		if info := recover(); info != nil {
-			err = fmt.Errorf("trans Pipeline to YamlRaw failed: %v", info)
-		}
-	}()
-
-	runYamlRaw = base64.StdEncoding.EncodeToString(runYaml)
 	return
 }
