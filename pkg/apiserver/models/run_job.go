@@ -116,10 +116,25 @@ func GetRunJobsOfRun(logEntry *log.Entry, runID string) ([]RunJob, error) {
 	for i := range runJobs {
 		if err := runJobs[i].decode(); err != nil {
 			logEntry.Errorf("decode run_jobs failed. error: %v", err)
-			return nil, err
+			return []RunJob{}, err
 		}
 	}
 	return runJobs, nil
+}
+
+func GetRunJob(logEntry *log.Entry, jobID string) (RunJob, error) {
+	logEntry.Debugf("begin to get run_job with jobID[%s].", jobID)
+	var runJob RunJob
+	tx := database.DB.Model(&RunJob{}).Where("id = ?", jobID).Find(&runJob)
+	if tx.Error != nil {
+		logEntry.Errorf("get run_job with jobID[%s] failed. error:%s", jobID, tx.Error.Error())
+		return RunJob{}, tx.Error
+	}
+	if err := runJob.decode(); err != nil {
+		logEntry.Errorf("decode run_job failed. error: %v", err)
+		return RunJob{}, err
+	}
+	return runJob, nil
 }
 
 func (rj *RunJob) Encode() error {

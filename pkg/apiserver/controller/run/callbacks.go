@@ -42,33 +42,37 @@ var workflowCallbacks = pipeline.WorkflowCallbacks{
 }
 
 var (
-	GetJobFunc        func(runID string, stepName string) (schema.JobView, error)   = GetJobByRun
-	UpdateRuntimeFunc func(id string, event interface{}) (int64, bool)              = UpdateRuntimeByWfEvent
-	LogCacheFunc      func(req schema.LogRunCacheRequest) (string, error)           = LogCache
-	ListCacheFunc     func(firstFp, fsID, source string) ([]models.RunCache, error) = ListCacheByFirstFp
-	LogArtifactFunc   func(req schema.LogRunArtifactRequest) error                  = LogArtifactEvent
+	GetJobFunc        func(jobID string, fullComponentName string) (schema.JobView, error) = GetJobByRun
+	UpdateRuntimeFunc func(id string, event interface{}) (int64, bool)                     = UpdateRuntimeByWfEvent
+	LogCacheFunc      func(req schema.LogRunCacheRequest) (string, error)                  = LogCache
+	ListCacheFunc     func(firstFp, fsID, source string) ([]models.RunCache, error)        = ListCacheByFirstFp
+	LogArtifactFunc   func(req schema.LogRunArtifactRequest) error                         = LogArtifactEvent
 )
 
-func GetJobByRun(runID string, stepName string) (schema.JobView, error) {
-	logging := logger.LoggerForRun(runID)
-	var jobView schema.JobView
-
-	run, err := models.GetRunByID(logging, runID)
+func GetJobByRun(jobID string, fullComponentName string) (schema.JobView, error) {
+	logging := logger.Logger()
+	job, err := models.GetRunJob(logging, jobID)
 	if err != nil {
-		logging.Errorf("get Run by runID[%s] failed. Error: %v", runID, err)
-		return jobView, err
+		logging.Errorf("get run_job failed in get job cb, err: %v", err)
+		return schema.JobView{}, err
 	}
-
-	if jobViewRuntime, ok := run.Runtime[stepName]; ok {
-		return jobViewRuntime, nil
+	run, err := models.GetRunByID(logging, job.RunID)
+	if err != nil {
+		logging.Errorf("get run failed in get job cb, err: %v", err)
+		return schema.JobView{}, err
 	}
-	if jobViewPostProcess, ok := run.PostProcess[stepName]; ok {
-		return jobViewPostProcess, nil
+	comp, err := run.WorkflowSource.GetComponentByFullName(fullComponentName)
+	if err != nil {
+		logging.Errorf("get Step source failed, err: %v", err)
+		return schema.JobView{}, err
 	}
-
-	errMsg := fmt.Sprintf("get jobView from Run with stepName[%s] failed.", stepName)
-	logging.Errorf(errMsg)
-	return jobView, fmt.Errorf(errMsg)
+	var resJob schema.JobView
+	if step, ok := comp.(*schema.WorkflowSourceStep); ok {
+		resJob = job.ParseJobView(step)
+	} else {
+		return schema.JobView{}, fmt.Errorf("the component with fullName is not step")
+	}
+	return resJob, nil
 }
 
 func UpdateRuntimeByWfEvent(id string, event interface{}) (int64, bool) {
@@ -293,18 +297,6 @@ func updateRunCache(logging *logrus.Entry, runtimeJob schema.JobView, runID stri
 			runCacheIDList = append(runCacheIDList, runID)
 			newRunCacheIDs := strings.Join(runCacheIDList, common.SeparatorComma)
 			models.UpdateRun(logging, runCached.ID, models.Run{RunCachedIDs: newRunCacheIDs})
-		}
-	}
-	return nil
-}
-
-func updateRunJobs(runID string, jobs map[string]schema.JobView) error {
-	logging := logger.Logger()
-	for name, job := range jobs {
-		runJob := models.ParseRunJob(&job)
-		runJob.Encode()
-		if err := models.UpdateRunJob(logging, runID, name, runJob); err != nil {
-			return err
 		}
 	}
 	return nil

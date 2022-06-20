@@ -136,6 +136,7 @@ func (r *Run) validateFailureOptions() {
 
 // validate runtime and postProcess
 func (r *Run) validateRuntimeAndPostProcess() error {
+	logging := logger.LoggerForRun(r.ID)
 	if r.Runtime == nil {
 		r.Runtime = schema.RuntimeView{}
 	}
@@ -143,31 +144,28 @@ func (r *Run) validateRuntimeAndPostProcess() error {
 		r.PostProcess = schema.PostProcessView{}
 	}
 	// 从数据库中获取该Run的所有Step发起的Job
-	runJobs, err := GetRunJobsOfRun(logger.LoggerForRun(r.ID), r.ID)
+	runJobs, err := GetRunJobsOfRun(logging, r.ID)
 	if err != nil {
 		return err
 	}
-	// 将所有run_job转换成JobView之后，赋值给Runtime和PostProcess
+	runDags, err := GetRunDagsOfRun(logging, r.ID)
+	if err != nil {
+		return err
+	}
+
+	// 先将post节点从runJobs中剔除
+	// TODO: 后续版本，如果支持了复杂结构的PostProcess，那么建议在step和dag表中添加 type 字段，用于区分该节点属于EntryPoints还是PostProcess
+	runtimeJobs := []RunJob{}
 	for _, job := range runJobs {
-		if step, ok := r.WorkflowSource.PostProcess[job.StepName]; ok {
+		step, ok := r.WorkflowSource.PostProcess[job.StepName]
+		if ok && job.ParentDagID == "" {
 			jobView := job.ParseJobView(step)
 			r.PostProcess[job.StepName] = jobView
-		} else if step, ok := r.WorkflowSource.EntryPoints[job.StepName]; ok {
-			jobView := job.ParseJobView(step)
-			r.Runtime[job.StepName] = jobView
 		} else {
-			entryPointNames := []string{}
-			for name := range r.Runtime {
-				entryPointNames = append(entryPointNames, name)
-			}
-			postProcessNames := []string{}
-			for name := range r.PostProcess {
-				postProcessNames = append(postProcessNames, name)
-			}
-			return fmt.Errorf("cannot find step[%s] in either entry_points[%v]\nor post_process[%v]",
-				job.StepName, entryPointNames, postProcessNames)
+			runtimeJobs = append(runtimeJobs, job)
 		}
 	}
+
 	return nil
 }
 

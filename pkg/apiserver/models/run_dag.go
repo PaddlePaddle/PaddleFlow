@@ -94,31 +94,75 @@ func ParseRunDag(dagView *schema.DagView) RunDag {
 	}
 }
 
-func (rj *RunDag) Encode() error {
-	artifactJson, err := json.Marshal(rj.Artifacts)
+func (rd *RunDag) Encode() error {
+	artifactJson, err := json.Marshal(rd.Artifacts)
 	if err != nil {
 		logger.Logger().Errorf("encode run job artifact failed. error:%v", err)
 		return err
 	}
-	rj.ArtifactsJson = string(artifactJson)
+	rd.ArtifactsJson = string(artifactJson)
 
-	parametersJson, err := json.Marshal(rj.Parameters)
+	parametersJson, err := json.Marshal(rd.Parameters)
 	if err != nil {
 		logger.Logger().Errorf("encode run job parameters failed. error:%v", err)
 		return err
 	}
-	rj.ParametersJson = string(parametersJson)
+	rd.ParametersJson = string(parametersJson)
 
-	if rj.ActivateTime != "" {
+	if rd.ActivateTime != "" {
 		activatedAt := sql.NullTime{}
-		activatedAt.Time, err = time.ParseInLocation("2006-01-02 15:04:05", rj.ActivateTime, time.Local)
+		activatedAt.Time, err = time.ParseInLocation("2006-01-02 15:04:05", rd.ActivateTime, time.Local)
 		activatedAt.Valid = true
 		if err != nil {
 			logger.Logger().Errorf("encode run job activateTime failed. error: %v", err)
 			return err
 		}
-		rj.ActivatedAt = activatedAt
+		rd.ActivatedAt = activatedAt
 	}
 
+	return nil
+}
+
+func GetRunDagsOfRun(logEntry *log.Entry, runID string) ([]RunDag, error) {
+	logEntry.Debugf("begin to get run_dags of run with runID[%s].", runID)
+	var runDags []RunDag
+	tx := database.DB.Model(&RunDag{}).Where("run_id = ?", runID).Find(&runDags)
+	if tx.Error != nil {
+		logEntry.Errorf("get run_dags of run with runID[%s] failed. error:%s", runID, tx.Error.Error())
+		return []RunDag{}, tx.Error
+	}
+
+	for i := range runDags {
+		if err := runDags[i].decode(); err != nil {
+			logEntry.Errorf("decode run_jobs failed. error: %v", err)
+			return []RunDag{}, err
+		}
+	}
+	return runDags, nil
+}
+
+func (rd *RunDag) decode() error {
+	if len(rd.ArtifactsJson) > 0 {
+		artifacts := schema.Artifacts{}
+		if err := json.Unmarshal([]byte(rd.ArtifactsJson), &artifacts); err != nil {
+			logger.Logger().Errorf("decode run dag artifacts failed. error: %v", err)
+		}
+		rd.Artifacts = artifacts
+	}
+
+	if len(rd.ParametersJson) > 0 {
+		parameters := map[string]string{}
+		if err := json.Unmarshal([]byte(rd.ParametersJson), &parameters); err != nil {
+			logger.Logger().Errorf("decode run dag parameters failed. error: %v", err)
+		}
+		rd.Parameters = parameters
+	}
+
+	// format time
+	rd.CreateTime = rd.CreatedAt.Format("2006-01-02 15:04:05")
+	rd.UpdateTime = rd.UpdatedAt.Format("2006-01-02 15:04:05")
+	if rd.ActivatedAt.Valid {
+		rd.ActivateTime = rd.ActivatedAt.Time.Format("2006-01-02 15:04:05")
+	}
 	return nil
 }

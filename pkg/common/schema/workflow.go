@@ -421,6 +421,40 @@ func ValidateStepCacheByMap(cache *Cache, globalCacheMap map[string]interface{},
 	return nil
 }
 
-func setCacheByMap(cache *Cache, cacheMap map[string]interface{}) {
+func (wfs *WorkflowSource) GetComponentByFullName(fullName string) (Component, error) {
+	names := strings.Split(fullName, ".")
+	comp1, err1 := getComponentRecursively(wfs.EntryPoints.EntryPoints, names)
+	postComps := map[string]Component{}
+	for k, v := range wfs.PostProcess {
+		postComps[k] = v
+	}
+	comp2, err2 := getComponentRecursively(postComps, names)
+	if err1 != nil {
+		return comp1, nil
+	}
+	if err2 != nil {
+		return comp2, nil
+	}
+	return nil, fmt.Errorf("no component has fullName[%s]", fullName)
+}
 
+func getComponentRecursively(components map[string]Component, names []string) (Component, error) {
+	if len(names) == 0 {
+		return nil, fmt.Errorf("need names")
+	} else {
+		subComp, ok := components[names[0]]
+		if !ok {
+			return nil, fmt.Errorf("no component named [%s]", names[0])
+		}
+		if len(names) == 1 {
+			return subComp, nil
+		} else {
+			if dag, ok := subComp.(*WorkflowSourceDag); ok {
+				return getComponentRecursively(dag.EntryPoints, names[1:])
+			} else {
+				return nil, fmt.Errorf("invalid fullName")
+			}
+		}
+	}
+	return nil, nil
 }
