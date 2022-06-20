@@ -18,9 +18,10 @@ package pipeline
 
 import (
 	"fmt"
-	. "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 	"testing"
 	"time"
+
+	. "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 
 	"github.com/stretchr/testify/assert"
 
@@ -218,7 +219,7 @@ func TestFailFast(t *testing.T) {
 	assert.Nil(t, err)
 
 	go wf.runtime.Start()
-	time.Sleep(time.Millisecond * 10)
+	time.Sleep(time.Millisecond * 1000)
 
 	assert.Equal(t, schema.StatusJobFailed, wf.runtime.entryPoints["data-preprocess"].job.(*PaddleFlowJob).Status)
 	assert.Equal(t, schema.StatusJobCancelled, wf.runtime.entryPoints["main"].job.(*PaddleFlowJob).Status)
