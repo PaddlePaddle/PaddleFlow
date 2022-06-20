@@ -21,20 +21,22 @@ type ComponentView interface {
 
 // JobView is view of job info responded to user, while Job is for pipeline and job engine to process
 type JobView struct {
-	JobID      string            `json:"jobID"`
-	JobName    string            `json:"name"`
-	Command    string            `json:"command"`
-	Parameters map[string]string `json:"parameters"`
-	Env        map[string]string `json:"env"`
-	StartTime  string            `json:"startTime"`
-	EndTime    string            `json:"endTime"`
-	Status     JobStatus         `json:"status"`
-	Deps       string            `json:"deps"`
-	DockerEnv  string            `json:"dockerEnv"`
-	Artifacts  Artifacts         `json:"artifacts"`
-	Cache      Cache             `json:"cache"`
-	JobMessage string            `json:"jobMessage"`
-	CacheRunID string            `json:"cacheRunID"`
+	JobID       string            `json:"jobID"`
+	JobName     string            `json:"name"`
+	Command     string            `json:"command"`
+	Parameters  map[string]string `json:"parameters"`
+	Env         map[string]string `json:"env"`
+	StartTime   string            `json:"startTime"`
+	EndTime     string            `json:"endTime"`
+	Status      JobStatus         `json:"status"`
+	Deps        string            `json:"deps"`
+	DockerEnv   string            `json:"dockerEnv"`
+	Artifacts   Artifacts         `json:"artifacts"`
+	Cache       Cache             `json:"cache"`
+	JobMessage  string            `json:"jobMessage"`
+	CacheRunID  string            `json:"cacheRunID"`
+	CacheJobID  string            `json:"cacheJobID"`
+	ParentDagID string            `json:"parentDagID"`
 }
 
 type DagView struct {
@@ -48,6 +50,7 @@ type DagView struct {
 	Status      JobStatus
 	Message     string
 	EntryPoints map[string]ComponentView
+	ParentDagID string
 }
 
 // RuntimeView is view of run responded to user, while workflowRuntime is for pipeline engine to process
