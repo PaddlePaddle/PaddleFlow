@@ -543,21 +543,6 @@ func replaceAllNodeParam(entryPoints map[string]schema.Component, paramName stri
 	return nil
 }
 
-// 将所有类型的steps合并到一起
-func (bwf *BaseWorkflow) parseAllSteps() map[string]*schema.WorkflowSourceStep {
-	steps := map[string]*schema.WorkflowSourceStep{}
-	for name, step := range bwf.Source.EntryPoints {
-		steps[name] = step
-	}
-	for name, step := range bwf.Source.PostProcess {
-		// 虽然按照现有逻辑，在之前已经进行过查重，但考虑到后续该函数会在其他地方被调用，还是需要进行查重
-		if _, ok := steps[name]; !ok {
-			steps[name] = step
-		}
-	}
-	return steps
-}
-
 func (bwf *BaseWorkflow) checkSteps() error {
 	/*
 		1. 检查disabled参数是否合法。
@@ -767,28 +752,6 @@ func (wf *Workflow) newWorkflowRuntime() error {
 	return nil
 }
 
-func (wf *Workflow) initRuntimeSteps(runtimeSteps map[string]*StepRuntime, steps map[string]*schema.WorkflowSourceStep, nodeType NodeType) error {
-	// 此处topologicalSort不为了校验，而是为了排序，NewStep中会进行参数替换，必须保证上游节点已经替换完毕
-	sortedSteps, err := wf.topologicalSort(steps)
-	if err != nil {
-		return err
-	}
-	wf.log().Debugf("get sorted run[%s] steps:[%+v]", wf.RunID, steps)
-	for _, stepName := range sortedSteps {
-		disabled, err := wf.Source.IsDisabled(stepName)
-		if err != nil {
-			return err
-		}
-
-		stepInfo := steps[stepName]
-		runtimeSteps[stepName], err = NewStep(stepName, wf.runtime, stepInfo, disabled, nodeType)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // set workflow runtime when server resuming
 func (wf *Workflow) SetWorkflowRuntime(runtime schema.RuntimeView, postProcess schema.PostProcessView) error {
 	wf.setRuntimeSteps(runtime, wf.runtime.entryPoints)
@@ -804,7 +767,7 @@ func (wf *Workflow) setRuntimeSteps(runtime map[string]schema.JobView, steps map
 		}
 		paddleflowJob := PaddleFlowJob{
 			BaseJob: BaseJob{
-				ID:         jobView.JobID,
+				Id:         jobView.JobID,
 				Name:       jobView.JobName,
 				Command:    jobView.Command,
 				Parameters: jobView.Parameters,

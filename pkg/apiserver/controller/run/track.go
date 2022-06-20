@@ -79,12 +79,12 @@ func LogCache(req schema.LogRunCacheRequest) (string, error) {
 	return cacheID, nil
 }
 
-func ListCacheByFirstFp(firstFp, fsID, step, source string) ([]models.RunCache, error) {
+func ListCacheByFirstFp(firstFp, fsID, source string) ([]models.RunCache, error) {
 	logEntry := logger.Logger()
-	cacheList, err := models.ListRunCacheByFirstFp(logEntry, firstFp, fsID, step, source)
+	cacheList, err := models.ListRunCacheByFirstFp(logEntry, firstFp, fsID, source)
 	if err != nil {
-		logEntry.Errorf("ListRunCacheByFirstFp failed. firstFp[%s] fsID[%s] step[%s] source[%s]. error:%v",
-			firstFp, fsID, step, source, err)
+		logEntry.Errorf("ListRunCacheByFirstFp failed. firstFp[%s] fsID[%s] source[%s]. error:%v",
+			firstFp, fsID, source, err)
 		return nil, err
 	}
 	logEntry.Debugf("ListRunCacheByFirstFp: %+v", cacheList)
