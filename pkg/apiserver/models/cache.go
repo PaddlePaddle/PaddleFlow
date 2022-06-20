@@ -34,7 +34,7 @@ type RunCache struct {
 	SecondFp    string         `json:"secondFp"             gorm:"type:varchar(256)"`
 	RunID       string         `json:"runID"                gorm:"type:varchar(60);not null"`
 	Source      string         `json:"source"               gorm:"type:varchar(256);not null"`
-	Step        string         `json:"step"                 gorm:"type:varchar(256);not null"`
+	JobID       string         `json:"jobID"                gorm:"type:varchar(256);not null"`
 	FsID        string         `json:"-"                    gorm:"type:varchar(60);not null"`
 	FsName      string         `json:"fsname"               gorm:"type:varchar(60);not null"`
 	UserName    string         `json:"username"             gorm:"type:varchar(60);not null"`
