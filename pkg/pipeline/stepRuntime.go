@@ -152,11 +152,29 @@ func (srt *StepRuntime) Start() {
 	srt.Execute()
 }
 
-func (srt StepRuntime) Restart() (restarted bool, err error) {
-	return
+// Restart: 根据 jobView 来重启step
+// 如果 jobView 中的状态为 Succeeded, 则直接返回，无需重启
+// 如果 jobView 中的状态为 Running, 则进入监听即可
+// 否则 创建一个新的job并开始调度执行
+func (srt *StepRuntime) Restart(view schema.JobView) (restarted bool, err error) {
+	restarted = false
+	err = nil 
+
+	if view.Status == StatusRunSucceeded {
+		return
+	}
+
+	if view.Status == StatusRuntimeRunning {
+		err = srt.restartWithRunning(view)
+	} else {
+		err = srt.restartWithAbnormalStatus(view)
+		
+	}
 }
 
-func (srt StepRuntime) Listen() {
+func(srt *StepRuntime)
+
+func (srt *StepRuntime) Listen() {
 	for {
 		select {
 		case event := <-srt.receiveEventChildren:
