@@ -142,8 +142,8 @@ func (s *FileSystemService) CreateFileSystem(ctx *logger.RequestContext, req *Cr
 }
 
 // GetFileSystem the function which performs the operation of getting file system detail
-func (s *FileSystemService) GetFileSystem(fsID string) (models.FileSystem, error) {
-	modelsFs, err := models.GetFileSystemWithFsID(fsID)
+func (s *FileSystemService) GetFileSystem(username, fsName string) (models.FileSystem, error) {
+	modelsFs, err := models.GetFileSystemWithFsID(common.ID(username, fsName))
 	if err != nil {
 		log.Errorf("get file system err[%v]", err)
 		return models.FileSystem{}, err

@@ -464,8 +464,7 @@ func (pr *PFSRouter) getFileSystem(w http.ResponseWriter, r *http.Request) {
 
 	fileSystemService := api.GetFileSystemService()
 	realUserName := getRealUserName(&ctx, getRequest.Username)
-	fsID := common.ID(realUserName, fsName)
-	fsModel, err := fileSystemService.GetFileSystem(fsID)
+	fsModel, err := fileSystemService.GetFileSystem(realUserName, fsName)
 	if err != nil {
 		ctx.Logging().Errorf("get file system username[%s] fsname[%s] with error[%v]", getRequest.Username, fsName, err)
 		if errors.Is(err, gorm.ErrRecordNotFound) {
