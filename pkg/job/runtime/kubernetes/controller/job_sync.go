@@ -91,7 +91,10 @@ func (j *JobSync) Name() string {
 }
 
 func (j *JobSync) Initialize(opt *k8s.DynamicClientOption) error {
-	log.Infof("Initialize %s controller!", j.Name())
+	if opt == nil || opt.ClusterInfo == nil {
+		return fmt.Errorf("init %s controller failed", j.Name())
+	}
+	log.Infof("Initialize %s controller for cluster [%s]!", j.Name(), opt.ClusterInfo.Name)
 	j.opt = opt
 	j.jobQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	j.taskQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
@@ -145,7 +148,7 @@ func (j *JobSync) Run(stopCh <-chan struct{}) {
 		log.Errorf("timed out waiting for pod caches to %s", j.Name())
 		return
 	}
-	log.Infof("Start %s controller successfully!", j.Name())
+	log.Infof("Start %s controller for cluster [%s] successfully!", j.Name(), j.opt.ClusterInfo.Name)
 	go wait.Until(j.runWorker, 0, stopCh)
 	go wait.Until(j.runTaskWorker, 0, stopCh)
 }
@@ -227,7 +230,7 @@ func (j *JobSync) doCreateAction(jobSyncInfo *JobSyncInfo) error {
 }
 
 func (j *JobSync) doDeleteAction(jobSyncInfo *JobSyncInfo) error {
-	log.Infof("do update action, job sync info are as follows. %s", jobSyncInfo.String())
+	log.Infof("do delete action, job sync info are as follows. %s", jobSyncInfo.String())
 	if _, err := models.UpdateJob(jobSyncInfo.ID, commonschema.StatusJobTerminated,
 		jobSyncInfo.Runtime, ""); err != nil {
 		log.Errorf("sync job status failed. jobID:[%s] err:[%s]", jobSyncInfo.ID, err.Error())

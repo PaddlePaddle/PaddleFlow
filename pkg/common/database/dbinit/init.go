@@ -145,25 +145,19 @@ func initSQLiteDB(dbConf *config.DatabaseConfig, gormConf *gorm.Config) *gorm.DB
 		{
 			Name: "flavour1",
 			CPU:  "1",
-			Mem:  "1G",
+			Mem:  "1Gi",
 		},
 		{
 			Name:               "flavour2",
-			CPU:                "1",
-			Mem:                "1G",
-			RawScalarResources: `{"baidu.com/v100_cgpu": "1"}`,
+			CPU:                "4",
+			Mem:                "8Gi",
+			RawScalarResources: `{"nvidia.com/gpu": "1"}`,
 		},
 		{
 			Name:               "flavour3",
-			CPU:                "1",
-			Mem:                "8G",
-			RawScalarResources: `{"baidu.com/v100_cgpu": "1"}`,
-		},
-		{
-			Name:               "flavour4",
-			CPU:                "1",
-			Mem:                "8G",
-			RawScalarResources: `{"baidu.com/v100_cgpu": "1","baidu.com/v100_cgpu_memory": "7"}`,
+			CPU:                "4",
+			Mem:                "8Gi",
+			RawScalarResources: `{"nvidia.com/gpu": "2"}`,
 		},
 	}
 	tx = db.Clauses(clause.OnConflict{

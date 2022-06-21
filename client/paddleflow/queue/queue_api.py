@@ -150,7 +150,7 @@ class QueueServiceApi(object):
         queueList = []        
         if len(data['queueList']):
             for queue in data['queueList']:
-                queueinfo = QueueInfo(queue['name'], queue['status'], queue['namespace'], queue['clusterName'], None,
+                queueinfo = QueueInfo(queue['name'], queue['status'], queue['namespace'], queue['clusterName'], queue['quotaType'],
                                       queue['maxResources'], queue['minResources'], None, None,
                                       queue['createTime'], queue['updateTime'])
                 queueList.append(queueinfo)
@@ -170,7 +170,7 @@ class QueueServiceApi(object):
         data = json.loads(response.text)
         if 'message' in data:
             return False, data['message']
-        queueInfo = QueueInfo(data['name'], data['status'], data['namespace'], data['clusterName'], None,
+        queueInfo = QueueInfo(data['name'], data['status'], data['namespace'], data['clusterName'], data['quotaType'],
                               data['maxResources'], data.get('minResources'), data.get('location'),
                               data.get('schedulingPolicy'), data['createTime'], data['updateTime'])
         return True, queueInfo

@@ -26,7 +26,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	kschema "k8s.io/apimachinery/pkg/runtime/schema"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database/dbinit"
@@ -91,9 +90,9 @@ func TestCreateQueue(t *testing.T) {
 	}
 	// test queue name
 	resp, err := CreateQueue(ctx, &createQueueReq)
-	expectErrMsg := fmt.Sprintf("name[%s] for [queue] does not compile with regex rule[%s]", createQueueReq.Name, common.RegPatternQueueName)
+	expectErrMsg := fmt.Sprintf("name[%s] of queue is invalid", createQueueReq.Name)
 	if err != nil {
-		assert.Equal(t, expectErrMsg, err.Error())
+		assert.Contains(t, err.Error(), expectErrMsg)
 	}
 
 	// test create queue

@@ -125,10 +125,9 @@ CREATE TABLE IF NOT EXISTS `user` (
 -- root user with initial password 'paddleflow'
 TRUNCATE `paddleflow`.`user`;
 insert into user(name, password) values('root','$2a$10$1qdSQN5wMl3FtXoxw7mKpuxBqIuP0eYXTBM9CBn5H4KubM/g5Hrb6%');
-insert into flavour(id, name, cpu, mem, scalar_resources) values('1','flavour1', 1, '1G', null);
-insert into flavour(id, name, cpu, mem, scalar_resources) values('2','flavour2', 1, '1G', '{"baidu.com/v100_cgpu":"1"}');
-insert into flavour(id, name, cpu, mem, scalar_resources) values('3','flavour3', 4, '8Gi', '{"baidu.com/v100_cgpu":"1"}');
-insert into flavour(id, name, cpu, mem, scalar_resources) values('4','flavour4', 4, '8Gi', '{"baidu.com/v100_cgpu": "1", "baidu.com/v100_cgpu_memory":"4G"}');
+insert into flavour(id, name, cpu, mem, scalar_resources) values('1','flavour1', 1, '1Gi', null);
+insert into flavour(id, name, cpu, mem, scalar_resources) values('2','flavour2', 4, '8Gi', '{"nvidia.com/gpu":"1"}');
+insert into flavour(id, name, cpu, mem, scalar_resources) values('3','flavour3', 4, '8Gi', '{"nvidia.com/gpu":"2"}');
 
 CREATE TABLE IF NOT EXISTS `grant` (
     `pk` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -313,6 +312,7 @@ CREATE TABLE IF NOT EXISTS `fs_cache_config` (
     `quota` bigint(20) NOT NULL COMMENT 'cache quota',
     `block_size` int(5) NOT NULL COMMENT 'cache block size',
     `meta_driver` varchar(32) NOT NULL COMMENT 'meta_driver，e.g. default/mem/leveldb/nutsdb',
+    `debug` tinyint(1) NOT NULL COMMENT 'turn on debug log',
     `extra_config` text  COMMENT 'extra cache config',
     `node_affinity` text  COMMENT 'node affinity，e.g. node affinity in k8s',
     `node_tainttoleration` text COMMENT 'node taints',

@@ -406,8 +406,16 @@ func (fh *sftpFileHandle) Utimens(atime *time.Time, mtime *time.Time) fuse.Statu
 	return fuse.ToStatus(fh.fs.Utimens(fh.name, atime, mtime))
 }
 
-func (fh *sftpFileHandle) Allocate(off uint64, size uint64, mode uint32) (code fuse.Status) {
-	return fuse.ENOSYS
+func (fh *sftpFileHandle) Allocate(off, size uint64, mode uint32) (code fuse.Status) {
+	fInfo, err := fh.f.Stat()
+	if err != nil {
+		log.Errorf("sftp allocate: stat current fh[%s] err: %v", fh.name, err)
+		return fuse.ToStatus(err)
+	}
+	if int64(size) > fInfo.Size() {
+		return fuse.ToStatus(fh.fs.Truncate(fh.name, size))
+	}
+	return fuse.OK
 }
 
 func NewSftpFileSystem(properties map[string]interface{}) (UnderFileStorage, error) {

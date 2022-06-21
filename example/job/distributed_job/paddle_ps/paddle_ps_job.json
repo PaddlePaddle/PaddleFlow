@@ -22,8 +22,8 @@
         "mem": "",
         "name": "cpu_basic"
       },
-      "fileSystem": {},
-      "extraFileSystems": null,
+      "fs": {},
+      "extraFS": null,
       "image": "paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7",
       "env": null,
       "command": "sleep 30",
@@ -44,8 +44,8 @@
         "mem": "",
         "name": "cpu_basic"
       },
-      "fileSystem": {},
-      "extraFileSystems": null,
+      "fs": {},
+      "extraFS": null,
       "image": "paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7",
       "env": null,
       "command": "sleep 20",
