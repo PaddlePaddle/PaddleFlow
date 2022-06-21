@@ -23,6 +23,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
@@ -181,6 +182,24 @@ func CreateQueue(queue *Queue) error {
 	return nil
 }
 
+func CreateOrUpdateQueue(queue *Queue) error {
+	log.Debugf("create or update queue: %s, info:%#v", queue.Name, queue)
+	if queue.ID == "" {
+		queue.ID = uuid.GenerateID(common.PrefixQueue)
+	}
+	tx := database.DB.Table("queue").Clauses(clause.OnConflict{
+		Columns: []clause.Column{{Name: "name"}},
+		DoUpdates: clause.AssignmentColumns([]string{"status", "namespace", "cluster_id",
+			"max_resources", "min_resources", "location"}),
+	}).Create(queue)
+	if tx.Error != nil {
+		log.Errorf("create or update queue %v failed. err: %s", queue, tx.Error.Error())
+		return tx.Error
+	}
+	return nil
+
+}
+
 func UpdateQueue(queue *Queue) error {
 	log.Debugf("update queue:[%s], queue:%#v", queue.Name, queue)
 	tx := database.DB.Model(queue).Updates(queue)
@@ -197,6 +216,28 @@ func UpdateQueueStatus(queueName string, queueStatus string) error {
 	if tx.Error != nil {
 		log.Errorf("update queue status failed. queueName:[%s], queueStatus:[%s] error:[%s]",
 			queueName, queueStatus, tx.Error.Error())
+		return tx.Error
+	}
+	return nil
+}
+
+func UpdateQueueInfo(name, status string, max, min *schema.ResourceInfo) error {
+	queue, err := GetQueueByName(name)
+	if err != nil {
+		return err
+	}
+	if status != "" && common.IsValidQueueStatus(status) {
+		queue.Status = status
+	}
+	if max != nil {
+		queue.MaxResources = *max
+	}
+	if min != nil {
+		queue.MinResources = *min
+	}
+	tx := database.DB.Table("queue").Where("name = ?", name).Updates(&queue)
+	if tx.Error != nil {
+		log.Errorf("update queue failed, err %v", tx.Error)
 		return tx.Error
 	}
 	return nil
