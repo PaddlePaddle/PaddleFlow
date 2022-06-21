@@ -19,6 +19,7 @@ package v1
 import (
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 
@@ -137,6 +138,7 @@ func TestFSCacheConfigRouter(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, http.StatusOK, result.Code)
 
+	time.Sleep(1 * time.Second)
 	result, err = PerformDeleteRequest(router, urlWithFsID)
 	assert.Nil(t, err)
 	assert.Equal(t, http.StatusNotFound, result.Code)

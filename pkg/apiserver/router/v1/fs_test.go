@@ -487,7 +487,7 @@ func TestCreateFSAndDeleteFs(t *testing.T) {
 	filters2 := "?" + util.QueryMountPoint + "=/var/2&" + util.QueryNodeName + "=abc&" + util.QueryClusterID + "=testcluster"
 	_, err = PerformDeleteRequest(router, url+"/"+mockFsName+filters2)
 	assert.Nil(t, err)
-	time.Sleep(1 * time.Second)
+	time.Sleep(3 * time.Second)
 
 	var p1 = gomonkey.ApplyFunc(fs.DeletePvPvc, func(fsID string) error {
 		return nil
