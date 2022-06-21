@@ -24,7 +24,7 @@ import (
 
 const (
 	driverName = "paddleflowstorage"
-	version    = "1.0.0"
+	version    = "1.4.3"
 )
 
 type credentials struct {

@@ -292,7 +292,6 @@ func (handler *ImageHandler) process(wg *sync.WaitGroup) {
 		if handler.isStopped {
 			return
 		}
-
 		info, ok := <-handler.handleChan.Out
 		handleInfo := info.(imageHandleInfo)
 		if !ok {
@@ -391,7 +390,16 @@ func (handler *ImageHandler) processHandleInfo(handleInfo imageHandleInfo) {
 	if handler.isStopped {
 		return
 	}
-
+	defer func() {
+		if info := recover(); info != nil {
+			runID := handleInfo.runID
+			errmsg := fmt.Sprintf("imageHandler process failed, %v", info)
+			logger.LoggerForRun(runID).Errorf(errmsg)
+			if err := handleInfo.cb(ImageInfo{RunID: runID}, fmt.Errorf("%v", info)); err != nil {
+				logger.LoggerForRun(runID).Errorf("update run status by cb after imageHandler panic, error: %v", err)
+			}
+		}
+	}()
 	imageConfig, err := handler.handleImageConfig(handleInfo)
 	if err != nil {
 		imageInfo := ImageInfo{

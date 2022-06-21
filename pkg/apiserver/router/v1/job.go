@@ -232,18 +232,20 @@ func validateSingleJob(ctx *logger.RequestContext, request *job.CreateSingleJobR
 
 // checkPriority check priority and fill parent's priority if schedulingPolicy.Priority is empty
 func checkPriority(schedulingPolicy, parentSP *job.SchedulingPolicy) error {
-	priority := schedulingPolicy.Priority
+	priority := strings.ToUpper(schedulingPolicy.Priority)
 	// check job priority
 	if priority == "" {
 		if parentSP != nil {
-			schedulingPolicy.Priority = parentSP.Priority
+			priority = strings.ToUpper(parentSP.Priority)
 		} else {
-			schedulingPolicy.Priority = schema.EnvJobNormalPriority
+			priority = schema.EnvJobNormalPriority
 		}
-	} else if priority != schema.EnvJobLowPriority &&
+	}
+	if priority != schema.EnvJobLowPriority &&
 		priority != schema.EnvJobNormalPriority && priority != schema.EnvJobHighPriority {
 		return errors.InvalidJobPriorityError(priority)
 	}
+	schedulingPolicy.Priority = priority
 	return nil
 }
 
@@ -337,7 +339,7 @@ func validateQueue(ctx *logger.RequestContext, schedulingPolicy *job.SchedulingP
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			ctx.ErrorCode = common.JobInvalidField
-			log.Errorf("create job failed. error: %s", err.Error())
+			log.Errorf("validate queue failed when create job. error: %s", err.Error())
 			return fmt.Errorf("queue not found")
 		}
 		ctx.ErrorCode = common.InternalError
@@ -455,11 +457,23 @@ func (jr *JobRouter) UpdateJob(w http.ResponseWriter, r *http.Request) {
 	request.JobID = jobID
 	log.Debugf("update job request: %v", request)
 
-	// TODO: check update job request
 	if err := validateJob(&ctx, jobID); err != nil {
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, ctx.ErrorMessage)
 		return
 	}
+	priority := strings.ToUpper(request.Priority)
+	switch priority {
+	case "", schema.EnvJobLowPriority, schema.EnvJobHighPriority, schema.EnvJobNormalPriority,
+		schema.EnvJobVeryHighPriority, schema.EnvJobVeryLowPriority:
+		request.Priority = priority
+	default:
+		ctx.ErrorCode = common.InvalidArguments
+		err := fmt.Errorf("the priorty %s is invalid", request.Priority)
+		ctx.Logging().Errorf("update job failed, err: %v", err)
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+
 	err := job.UpdateJob(&ctx, &request)
 	if err != nil {
 		ctx.ErrorMessage = fmt.Sprintf("update job failed, err: %v", err)

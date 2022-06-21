@@ -57,7 +57,7 @@ func (p *Pipeline) Decode() error {
 
 func CreatePipeline(logEntry *log.Entry, ppl *Pipeline) (string, error) {
 	logEntry.Debugf("begin create pipeline: %+v", ppl)
-	err := withTransaction(database.DB, func(tx *gorm.DB) error {
+	err := WithTransaction(database.DB, func(tx *gorm.DB) error {
 		result := tx.Model(&Pipeline{}).Create(ppl)
 		if result.Error != nil {
 			logEntry.Errorf("create pipeline failed. pipeline:%+v, error:%v", ppl, result.Error)

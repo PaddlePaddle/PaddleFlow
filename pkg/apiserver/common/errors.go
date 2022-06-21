@@ -393,3 +393,7 @@ func LogFilePositionInvalidValueError() error {
 func ConnectionClosedError() error {
 	return fmt.Errorf("Connection closed")
 }
+
+func FsBeingUsedError(fsID string) error {
+	return fmt.Errorf("fs[%s] is being used and cannot be deleted/modified", fsID)
+}

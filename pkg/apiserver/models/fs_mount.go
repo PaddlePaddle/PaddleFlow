@@ -48,6 +48,32 @@ func (f *FsMount) Add(value *FsMount) error {
 	return database.DB.Create(value).Error
 }
 
+func (f *FsMount) GetMount(where *FsMount) (*FsMount, error) {
+	fsMount := &FsMount{}
+	tx := database.DB.Where(where).First(fsMount)
+	if tx.Error != nil {
+		return nil, tx.Error
+	}
+	return fsMount, nil
+}
+
+func (f *FsMount) GetMountWithDelete(where *FsMount) (*FsMount, error) {
+	fsMount := &FsMount{}
+	tx := database.DB.Unscoped().Model(&FsMount{}).Where(where).First(fsMount)
+	if tx.Error != nil {
+		return nil, tx.Error
+	}
+	return fsMount, nil
+}
+
+func (f *FsMount) UpdateMount(fsMount *FsMount) error {
+	tx := database.DB.Model(&FsMount{}).Where(&FsMount{MountID: fsMount.MountID}).Updates(*fsMount)
+	if tx.Error != nil {
+		return tx.Error
+	}
+	return nil
+}
+
 func (f *FsMount) ListMount(where *FsMount, limit int, marker string) (fsMounts []FsMount, err error) {
 	tx := database.DB.Where(where).Where(fmt.Sprintf(QueryLess, CreatedAt, "'"+marker+"'")).
 		Order(fmt.Sprintf(" %s %s ", CreatedAt, DESC)).Limit(limit).Find(&fsMounts)

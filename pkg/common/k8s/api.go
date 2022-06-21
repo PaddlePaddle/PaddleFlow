@@ -37,6 +37,7 @@ import (
 var (
 	PodGVK       = schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"}
 	VCJobGVK     = schema.GroupVersionKind{Group: "batch.volcano.sh", Version: "v1alpha1", Kind: "Job"}
+	PodGroupGVK  = schema.GroupVersionKind{Group: "scheduling.volcano.sh", Version: "v1beta1", Kind: "PodGroup"}
 	VCQueueGVK   = schema.GroupVersionKind{Group: "scheduling.volcano.sh", Version: "v1beta1", Kind: "Queue"}
 	EQuotaGVK    = schema.GroupVersionKind{Group: "scheduling.volcano.sh", Version: "v1beta1", Kind: "ElasticResourceQuota"}
 	SparkAppGVK  = schema.GroupVersionKind{Group: "sparkoperator.k8s.io", Version: "v1beta2", Kind: "SparkApplication"}
@@ -87,11 +88,12 @@ type DynamicClientOption struct {
 	DynamicFactory  dynamicinformer.DynamicSharedInformerFactory
 	DiscoveryClient discovery.DiscoveryInterface
 	Config          *rest.Config
+	ClusterInfo     *commomschema.Cluster
 	// GVKToGVR contains GroupVersionKind map to GroupVersionResource
 	GVKToGVR sync.Map
 }
 
-func CreateDynamicClientOpt(config *rest.Config) (*DynamicClientOption, error) {
+func CreateDynamicClientOpt(config *rest.Config, cluster *commomschema.Cluster) (*DynamicClientOption, error) {
 	dynamicClient, err := dynamic.NewForConfig(config)
 	if err != nil {
 		log.Errorf("init dynamic client failed. error:%s", err)
@@ -103,11 +105,16 @@ func CreateDynamicClientOpt(config *rest.Config) (*DynamicClientOption, error) {
 		log.Errorf("create discovery client failed: %v", err)
 		return nil, err
 	}
+	if cluster == nil {
+		log.Errorf("cluster info is nil")
+		return nil, fmt.Errorf("cluster info is nil")
+	}
 	return &DynamicClientOption{
 		DynamicClient:   dynamicClient,
 		DynamicFactory:  factory,
 		DiscoveryClient: discoveryClient,
 		Config:          config,
+		ClusterInfo:     cluster,
 	}, nil
 }
 

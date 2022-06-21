@@ -23,6 +23,7 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	utils "github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/common"
 )
@@ -33,6 +34,7 @@ type UpdateFileSystemCacheRequest struct {
 	Quota               int                    `json:"quota"`
 	MetaDriver          string                 `json:"metaDriver"`
 	BlockSize           int                    `json:"blockSize"`
+	Debug               bool                   `json:"debug"`
 	NodeAffinity        map[string]interface{} `json:"nodeAffinity"`
 	NodeTaintToleration map[string]interface{} `json:"nodeTaintToleration"`
 	ExtraConfig         map[string]string      `json:"extraConfig"`
@@ -45,6 +47,7 @@ func (req *UpdateFileSystemCacheRequest) toModel() models.FSCacheConfig {
 		Quota:                  req.Quota,
 		MetaDriver:             req.MetaDriver,
 		BlockSize:              req.BlockSize,
+		Debug:                  req.Debug,
 		NodeAffinityMap:        req.NodeAffinity,
 		ExtraConfigMap:         req.ExtraConfig,
 		NodeTaintTolerationMap: req.NodeTaintToleration,
@@ -131,7 +134,7 @@ func DeleteFileSystemCacheConfig(ctx *logger.RequestContext, fsID string) error 
 		ctx.Logging().Errorf("GetFileSystemCacheConfig fs[%s] err:%v", fsID, err)
 		return err
 	}
-	if err := models.DeleteFSCacheConfig(ctx.Logging(), fsID); err != nil {
+	if err := models.DeleteFSCacheConfig(database.DB, fsID); err != nil {
 		ctx.Logging().Errorf("delete fs cache config failed error[%v]", err)
 		ctx.ErrorCode = common.FileSystemDataBaseError
 		return err

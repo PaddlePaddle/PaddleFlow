@@ -17,6 +17,7 @@ limitations under the License.
 package schema
 
 import (
+	"encoding/base64"
 	"fmt"
 	"strings"
 
@@ -385,14 +386,15 @@ func ParseWorkflowSource(runYaml []byte) (WorkflowSource, error) {
 	if err := yaml.Unmarshal(runYaml, &wfs); err != nil {
 		return WorkflowSource{}, err
 	}
-	// 将List格式的OutputArtifact，转换为Map格式
-	if err := wfs.validateArtifacts(); err != nil {
-		return WorkflowSource{}, err
-	}
 
 	// 为了判断用户是否设定节点级别的Cache，需要第二次Unmarshal
 	yamlMap, err := runYaml2Map(runYaml)
 	if err != nil {
+		return WorkflowSource{}, err
+	}
+
+	// 将List格式的OutputArtifact，转换为Map格式
+	if err := wfs.validateArtifacts(); err != nil {
 		return WorkflowSource{}, err
 	}
 
@@ -401,4 +403,20 @@ func ParseWorkflowSource(runYaml []byte) (WorkflowSource, error) {
 		return WorkflowSource{}, err
 	}
 	return wfs, nil
+}
+
+func (wfs *WorkflowSource) TransToRunYamlRaw() (runYamlRaw string, err error) {
+	runYaml, err := yaml.Marshal(wfs)
+	if err != nil {
+		return "", err
+	}
+
+	defer func() {
+		if info := recover(); info != nil {
+			err = fmt.Errorf("trans Pipeline to YamlRaw failed: %v", info)
+		}
+	}()
+
+	runYamlRaw = base64.StdEncoding.EncodeToString(runYaml)
+	return
 }
