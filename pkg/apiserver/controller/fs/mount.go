@@ -24,8 +24,9 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 type CreateMountRequest struct {
@@ -68,11 +69,11 @@ type MountResponse struct {
 	ClusterID  string `json:"clusterID"`
 }
 
-func CreateMount(ctx *logger.RequestContext, fsMount *models.FsMount) error {
-	_, err := fsMount.GetMountWithDelete(fsMount)
+func CreateMount(ctx *logger.RequestContext, fsMount *model.FsMount) error {
+	_, err := storage.FsMountStore.GetMountWithDelete(fsMount)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
-			err = fsMount.Add(fsMount)
+			err = storage.FsMountStore.AddMount(fsMount)
 			if err != nil {
 				ctx.ErrorCode = common.InternalError
 				ctx.Logging().Errorf("create mount with req[%v] err:%v", fsMount, err)
@@ -83,7 +84,7 @@ func CreateMount(ctx *logger.RequestContext, fsMount *models.FsMount) error {
 		return err
 	}
 	fsMount.DeletedAt = gorm.DeletedAt{}
-	err = fsMount.UpdateMount(fsMount)
+	err = storage.FsMountStore.UpdateMount(fsMount)
 	if err != nil {
 		ctx.ErrorCode = common.InternalError
 		ctx.Logging().Errorf("create mount with req[%v] err:%v", fsMount, err)
@@ -97,8 +98,8 @@ func GetMountID(clusterID, nodeName, mountPoint string) string {
 	return hex.EncodeToString(hash[:])
 }
 
-func ListMount(ctx *logger.RequestContext, req ListMountRequest) ([]models.FsMount, string, error) {
-	fsMount := &models.FsMount{
+func ListMount(ctx *logger.RequestContext, req ListMountRequest) ([]model.FsMount, string, error) {
+	fsMount := &model.FsMount{
 		NodeName: req.NodeName,
 	}
 	if req.FsName != "" {
@@ -114,7 +115,7 @@ func ListMount(ctx *logger.RequestContext, req ListMountRequest) ([]models.FsMou
 		marker = time.Now().Format(TimeFormat)
 	}
 
-	items, err := fsMount.ListMount(fsMount, int(limit), marker)
+	items, err := storage.FsMountStore.ListMount(fsMount, int(limit), marker)
 	if err != nil {
 		ctx.ErrorCode = common.InternalError
 		ctx.Logging().Errorf("list mount with req[%v] err:%v", req, err)
@@ -131,21 +132,11 @@ func ListMount(ctx *logger.RequestContext, req ListMountRequest) ([]models.FsMou
 }
 
 func DeleteMount(ctx *logger.RequestContext, req DeleteMountRequest) error {
-	fsID := common.ID(req.Username, req.FsName)
 	mountID := GetMountID(req.ClusterID, req.NodeName, req.MountPoint)
-
-	fsMount := &models.FsMount{
-		FsID:       fsID,
-		MountPoint: req.MountPoint,
-		MountID:    mountID,
-		NodeName:   req.NodeName,
-		ClusterID:  req.ClusterID,
-	}
-	err := fsMount.DeleteMount(mountID)
-	if err != nil {
+	if err := storage.FsMountStore.DeleteMount(mountID); err != nil {
 		ctx.ErrorCode = common.InternalError
 		ctx.Logging().Errorf("delete mount with req[%v] err:%v", req, err)
 		return err
 	}
-	return err
+	return nil
 }

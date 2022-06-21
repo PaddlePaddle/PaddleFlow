@@ -19,6 +19,7 @@ package job
 import (
 	"encoding/json"
 	"errors"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -81,7 +82,7 @@ func (manager *WebsocketManager) GetGroupData() {
 		}
 		nextTime := time.Now()
 		log.Infof("start get data")
-		jobList, err := models.ListJobByUpdateTime(UpdateTime.Format(models.TimeFormat))
+		jobList, err := models.ListJobByUpdateTime(UpdateTime.Format(storage.TimeFormat))
 		if err != nil {
 			log.Errorf("list job failed for websocket to send job")
 			continue

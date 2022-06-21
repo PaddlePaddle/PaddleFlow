@@ -18,6 +18,7 @@ package job
 
 import (
 	"encoding/json"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -116,7 +117,7 @@ func ListJob(ctx *logger.RequestContext, request ListJobRequest) (*ListJobRespon
 
 	timestampStr := ""
 	if request.Timestamp != 0 {
-		timestampStr = time.Unix(request.Timestamp, 0).Format(models.TimeFormat)
+		timestampStr = time.Unix(request.Timestamp, 0).Format(storage.TimeFormat)
 	}
 	queueID := ""
 	if request.Queue != "" {
@@ -211,12 +212,12 @@ func convertJobToResponse(job models.Job, runtimeFlag bool) (GetJobResponse, err
 		return response, err
 	}
 
-	response.AcceptTime = job.CreatedAt.Format(models.TimeFormat)
+	response.AcceptTime = job.CreatedAt.Format(storage.TimeFormat)
 	if job.ActivatedAt.Valid {
-		response.StartTime = job.ActivatedAt.Time.Format(models.TimeFormat)
+		response.StartTime = job.ActivatedAt.Time.Format(storage.TimeFormat)
 	}
 	if schema.IsImmutableJobStatus(job.Status) {
-		response.FinishTime = job.UpdatedAt.Format(models.TimeFormat)
+		response.FinishTime = job.UpdatedAt.Format(storage.TimeFormat)
 	}
 	response.ID = job.ID
 	response.Name = job.Name

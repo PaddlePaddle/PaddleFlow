@@ -28,12 +28,13 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	fuse "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/fs"
 	fsCommon "github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 	utils "github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 // LinkService the service which contains the operation of link
@@ -90,10 +91,10 @@ func GetLinkService() *LinkService {
 }
 
 // CreateLink the function which performs the operation of creating Link
-func (s *LinkService) CreateLink(ctx *logger.RequestContext, req *CreateLinkRequest) (models.Link, error) {
+func (s *LinkService) CreateLink(ctx *logger.RequestContext, req *CreateLinkRequest) (model.Link, error) {
 	fsType, serverAddress, subPath := common.InformationFromURL(req.Url, req.Properties)
 	fsID := common.ID(req.Username, req.FsName)
-	link := models.Link{
+	link := model.Link{
 		FsID:          fsID,
 		FsPath:        req.FsPath,
 		PropertiesMap: req.Properties,
@@ -103,18 +104,18 @@ func (s *LinkService) CreateLink(ctx *logger.RequestContext, req *CreateLinkRequ
 		UserName:      req.Username,
 	}
 
-	err := models.CreateLink(&link)
+	err := storage.LinkStore.CreateLink(&link)
 	if err != nil {
 		ctx.Logging().Errorf("create link[%v] in db failed: %v", link, err)
 		ctx.ErrorCode = common.LinkModelError
-		return models.Link{}, err
+		return model.Link{}, err
 	}
 	return link, nil
 }
 
 // DeleteLink the function which performs the operation of delete file system link
 func (s *LinkService) DeleteLink(ctx *logger.RequestContext, req *DeleteLinkRequest) error {
-	err := models.DeleteLinkWithFsIDAndFsPath(common.ID(req.Username, req.FsName), req.FsPath)
+	err := storage.LinkStore.DeleteLinkWithFsIDAndFsPath(common.ID(req.Username, req.FsName), req.FsPath)
 	if err != nil {
 		ctx.Logging().Errorf("delete link failed error[%v]", err)
 		ctx.ErrorCode = common.FileSystemDataBaseError
@@ -125,22 +126,22 @@ func (s *LinkService) DeleteLink(ctx *logger.RequestContext, req *DeleteLinkRequ
 }
 
 // GetLink the function which performs the operation of list file system links
-func (s *LinkService) GetLink(req *GetLinkRequest) ([]models.Link, string, error) {
+func (s *LinkService) GetLink(req *GetLinkRequest) ([]model.Link, string, error) {
 	limit := req.MaxKeys + 1
 	marker := req.Marker
 	if req.Marker == "" {
 		marker = time.Now().Format(TimeFormat)
 	}
-	var items []models.Link
+	var items []model.Link
 	var err error
 	if req.FsPath == "" {
-		items, err = models.ListLink(int(limit), marker, req.FsID)
+		items, err = storage.LinkStore.ListLink(int(limit), marker, req.FsID)
 		if err != nil {
 			log.Errorf("list links models err[%v]", err)
 			return nil, "", err
 		}
 	} else {
-		items, err = models.GetLinkWithFsIDAndPath(req.FsID, req.FsPath)
+		items, err = storage.LinkStore.GetLinkWithFsIDAndPath(req.FsID, req.FsPath)
 		if err != nil {
 			log.Errorf("get link models err[%v]", err)
 			return nil, "", err
@@ -150,7 +151,7 @@ func (s *LinkService) GetLink(req *GetLinkRequest) ([]models.Link, string, error
 	itemsLen := len(items)
 	if itemsLen == 0 && req.FsPath != "" {
 		log.Errorf("get link with fsID[%s] fsPath[%s] failed", req.FsID, req.FsPath)
-		return []models.Link{}, "", common.New("Link not exist")
+		return []model.Link{}, "", common.New("Link not exist")
 	}
 
 	if itemsLen > int(req.MaxKeys) {
@@ -164,7 +165,7 @@ func (s *LinkService) PersistLinksMeta(fsID string) error {
 	unlock := s.FsLock(fsID)
 	defer unlock()
 
-	links, err := models.FsNameLinks(fsID)
+	links, err := storage.LinkStore.FsNameLinks(fsID)
 	if err != nil {
 		log.Errorf("get links err[%v] with fsID[%s]", err, fsID)
 		return err
@@ -204,7 +205,7 @@ func (s *LinkService) PersistLinksMeta(fsID string) error {
 }
 
 func writeLinksMeta(encodedLinksMeta string, fsID string) error {
-	fs, err := models.GetFileSystemWithFsID(fsID)
+	fs, err := storage.FsStore.GetFileSystemWithFsID(fsID)
 	if err != nil {
 		log.Errorf("GetFileSystemWithFsID error[%v]", err)
 		return err

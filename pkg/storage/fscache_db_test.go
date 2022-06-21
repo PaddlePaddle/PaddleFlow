@@ -14,18 +14,21 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package models
+package storage
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
 
 func TestDBFSCache(t *testing.T) {
-	InitMockDB()
-	dbfs := newDBFSCache()
-	fsCache1 := new(FSCache)
+	initMockDB()
+	dbfs := newDBFSCache(database.DB)
+	fsCache1 := new(model.FSCache)
 	fsCache1.CacheDir = "cachedir"
 	fsCache1.CacheID = "cacheID1"
 	fsCache1.FsID = "fsid"

@@ -14,17 +14,19 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package models
+package storage
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
 
 func TestMemFSCache(t *testing.T) {
 	mm := newMemFSCache()
-	fsCache1 := new(FSCache)
+	fsCache1 := new(model.FSCache)
 	fsCache1.CacheDir = "cachedir"
 	fsCache1.CacheID = "cacheID1"
 	fsCache1.FsID = "fsid"

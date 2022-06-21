@@ -19,11 +19,11 @@ package location_awareness
 import (
 	"crypto/md5"
 	"encoding/hex"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database/dbinit"
 )
 
@@ -37,7 +37,7 @@ func TestListMountNodesByFsID(t *testing.T) {
 
 	fsID1, fsID2, mountPoint1, mountPoint2, nodeName1, nodeName2, clusterID :=
 		"fs-root-1", "fs-root-2", "/mnt/fs-root-1/storage", "/mnt/fs-root-2/storage", "node1", "node2", ""
-	fsMount := &models.FsMount{
+	fsMount := &storage.FsMount{
 		FsID:       fsID1,
 		MountPoint: mountPoint1,
 		MountID:    getMountID(clusterID, nodeName1, mountPoint1),
@@ -47,7 +47,7 @@ func TestListMountNodesByFsID(t *testing.T) {
 	err := fsMount.Add(fsMount)
 	assert.Nil(t, err)
 
-	fsMount = &models.FsMount{
+	fsMount = &storage.FsMount{
 		FsID:       fsID1,
 		MountPoint: mountPoint1,
 		MountID:    getMountID(clusterID, nodeName2, mountPoint1),
@@ -57,7 +57,7 @@ func TestListMountNodesByFsID(t *testing.T) {
 	err = fsMount.Add(fsMount)
 	assert.Nil(t, err)
 
-	fsMount = &models.FsMount{
+	fsMount = &storage.FsMount{
 		FsID:       fsID2,
 		MountPoint: mountPoint2,
 		MountID:    getMountID(clusterID, nodeName1, mountPoint2),

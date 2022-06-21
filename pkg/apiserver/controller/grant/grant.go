@@ -19,6 +19,7 @@ package grant
 import (
 	"errors"
 	"fmt"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
@@ -66,7 +67,7 @@ func checkUser(ctx *logger.RequestContext, userName string) error {
 }
 
 func checkFs(ctx *logger.RequestContext, fsID string) error {
-	_, err := models.GetFileSystemWithFsID(fsID)
+	_, err := storage.FsStore.GetFileSystemWithFsID(fsID)
 	if err != nil {
 		ctx.ErrorCode = common.UserNotExist
 		return fmt.Errorf("fs:%s not found", fsID)

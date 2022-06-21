@@ -14,18 +14,27 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package models
+package model
 
 import (
-	"testing"
+	"time"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
-func TestGetFSCacheStore(t *testing.T) {
-	InitMockDB()
-	dbStore := GetFSCacheStore()
-	fsCache, err := dbStore.Get("", "")
-	assert.NotNil(t, err)
-	assert.Nil(t, fsCache)
+type Model struct {
+	ID        string    `json:"id"`
+	CreatedAt time.Time `json:"-"`
+	UpdatedAt time.Time `json:"-"`
+}
+
+// BeforeCreate the function do the operation before creating file system or link
+func (m *Model) BeforeCreate(tx *gorm.DB) error {
+	if m.ID != "" {
+		return nil
+	}
+
+	m.ID = uuid.NewString()
+	return nil
 }

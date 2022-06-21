@@ -14,28 +14,30 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package models
+package storage
 
 import (
 	"errors"
 	"sync"
+
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
 
 type ConcurrentFSCacheMap struct {
 	sync.RWMutex
 	// key1:fsID key2:cacheID
-	value map[string]map[string]*FSCache
+	value map[string]map[string]*model.FSCache
 }
 
 func newFSCacheMap() *ConcurrentFSCacheMap {
 	cm := new(ConcurrentFSCacheMap)
-	cm.value = map[string]map[string]*FSCache{}
+	cm.value = map[string]map[string]*model.FSCache{}
 	return cm
 }
 
-func (cm *ConcurrentFSCacheMap) Get(key1, key2 string) *FSCache {
+func (cm *ConcurrentFSCacheMap) Get(key1, key2 string) *model.FSCache {
 	cm.RLock()
-	var retValue *FSCache
+	var retValue *model.FSCache
 	if v1, ok := cm.value[key1]; ok {
 		retValue = v1[key2]
 	}
@@ -43,9 +45,9 @@ func (cm *ConcurrentFSCacheMap) Get(key1, key2 string) *FSCache {
 	return retValue
 }
 
-func (cm *ConcurrentFSCacheMap) GetBatch(key string) []FSCache {
+func (cm *ConcurrentFSCacheMap) GetBatch(key string) []model.FSCache {
 	cm.RLock()
-	var tmp []FSCache
+	var tmp []model.FSCache
 	if v, ok := cm.value[key]; ok {
 		for _, v1 := range v {
 			tmp = append(tmp, *v1)
@@ -55,9 +57,9 @@ func (cm *ConcurrentFSCacheMap) GetBatch(key string) []FSCache {
 	return tmp
 }
 
-func (cm *ConcurrentFSCacheMap) Put(key string, value *FSCache) {
+func (cm *ConcurrentFSCacheMap) Put(key string, value *model.FSCache) {
 	cm.Lock()
-	tempV := map[string]*FSCache{}
+	tempV := map[string]*model.FSCache{}
 	if v, ok := cm.value[key]; ok {
 		tempV = v
 	}
@@ -86,7 +88,7 @@ func (cm *ConcurrentFSCacheMap) Delete(key1, key2 string) error {
 	return err
 }
 
-func (cm *ConcurrentFSCacheMap) Update(key, value *FSCache) (has bool, err error) {
+func (cm *ConcurrentFSCacheMap) Update(key, value *model.FSCache) (has bool, err error) {
 	cm.Lock()
 	defer cm.Unlock()
 	if v1, ok := cm.value[value.FsID]; ok {
@@ -99,7 +101,7 @@ func (cm *ConcurrentFSCacheMap) Update(key, value *FSCache) (has bool, err error
 	return has, nil
 }
 
-func newMemFSCache() FSCacheStore {
+func newMemFSCache() *MemFSCache {
 	m := new(MemFSCache)
 	m.fsCacheMap = newFSCacheMap()
 	return m
@@ -109,12 +111,12 @@ type MemFSCache struct {
 	fsCacheMap *ConcurrentFSCacheMap
 }
 
-func (mem *MemFSCache) Add(value *FSCache) error {
+func (mem *MemFSCache) Add(value *model.FSCache) error {
 	mem.fsCacheMap.Put(value.FsID, value)
 	return nil
 }
 
-func (mem *MemFSCache) Get(fsID string, cacheID string) (*FSCache, error) {
+func (mem *MemFSCache) Get(fsID string, cacheID string) (*model.FSCache, error) {
 	return mem.fsCacheMap.Get(fsID, cacheID), nil
 }
 
@@ -122,8 +124,8 @@ func (mem *MemFSCache) Delete(fsID, cacheID string) error {
 	return mem.fsCacheMap.Delete(fsID, cacheID)
 }
 
-func (mem *MemFSCache) List(fsID, cacheID string) ([]FSCache, error) {
-	var retMap []FSCache
+func (mem *MemFSCache) List(fsID, cacheID string) ([]model.FSCache, error) {
+	var retMap []model.FSCache
 	if fsID != "" {
 		if cacheID != "" {
 			retMap = append(retMap, *mem.fsCacheMap.Get(fsID, cacheID))
@@ -134,6 +136,6 @@ func (mem *MemFSCache) List(fsID, cacheID string) ([]FSCache, error) {
 	return retMap, nil
 }
 
-func (mem *MemFSCache) Update(value *FSCache) (int64, error) {
+func (mem *MemFSCache) Update(value *model.FSCache) (int64, error) {
 	return 0, nil
 }

@@ -19,6 +19,7 @@ package job
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 
 	"github.com/ghodss/yaml"
 	log "github.com/sirupsen/logrus"
@@ -702,7 +703,7 @@ func validateFileSystem(fs schema.FileSystem, userName string) error {
 		return nil
 	}
 	fsID := common.ID(userName, fs.Name)
-	if _, err := models.GetFileSystemWithFsID(fsID); err != nil {
+	if _, err := storage.FsStore.GetFileSystemWithFsID(fsID); err != nil {
 		log.Errorf("get filesystem %s failed, err: %v", fsID, err)
 		return fmt.Errorf("find file system %s failed, err: %v", fs.Name, err)
 	}

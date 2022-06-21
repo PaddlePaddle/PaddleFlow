@@ -18,6 +18,7 @@ package dbinit
 
 import (
 	"fmt"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"strings"
 	"time"
 
@@ -32,6 +33,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
 
 // data init for sqllite
@@ -95,6 +97,7 @@ func InitDatabase(dbConf *config.DatabaseConfig, gormConf *gorm.Config, logLevel
 	}
 	sqlDB.SetConnMaxLifetime(time.Hour * time.Duration(*dbConf.ConnMaxLifetimeInHours))
 	log.Debugf("InitDatabase success.dbConf:%v", dbConf)
+	storage.InitStores(db)
 	return db, nil
 }
 
@@ -111,6 +114,7 @@ func InitMockDB() {
 		log.Fatalf("InitMockDB createDatabaseTables error[%s]", err.Error())
 	}
 	database.DB = db
+	storage.InitStores(db)
 }
 
 func initSQLiteDB(dbConf *config.DatabaseConfig, gormConf *gorm.Config) *gorm.DB {
@@ -201,10 +205,10 @@ func createDatabaseTables(db *gorm.DB) error {
 		&models.JobLabel{},
 		&models.ClusterInfo{},
 		&models.Image{},
-		&models.FileSystem{},
-		&models.Link{},
-		&models.FSCacheConfig{},
-		&models.FSCache{},
-		&models.FsMount{},
+		&model.FileSystem{},
+		&model.Link{},
+		&model.FSCacheConfig{},
+		&model.FSCache{},
+		&model.FsMount{},
 	)
 }
