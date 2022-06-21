@@ -217,8 +217,12 @@ func (drt *DagRuntime) getworkflowSouceDag() *schema.WorkflowSourceDag {
 // 不返回error，直接通过 event 向上冒泡
 // TODO: 处理在这期间任务被终止的情况
 func (drt *DagRuntime) Start() {
+	drt.logger.Debugln("begin to run dagp[%s]", drt.name)
+
 	drt.updateStatus(StatusRuntimeRunning)
 	drt.startTime = time.Now().Format("2006-01-02 15:04:05")
+
+	// TODO: 此时是否需要同步至数据库？
 
 	// 1、替换 condition，loop_argument 中的模板，将其替换成具体真实值
 	conditon, err := drt.CalculateCondition()

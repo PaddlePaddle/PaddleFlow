@@ -116,6 +116,9 @@ func (srt *StepRuntime) processStartAbnormalStatus(msg string, status RuntimeSta
 
 func (srt *StepRuntime) Start() {
 	// 如果达到并行Job上限，将会Block
+
+	// TODO: 此时是否需要同步至数据库？
+
 	srt.parallelismManager.increase()
 	srt.logger.Debugf("begin to run step[%s], and current parallelism is %d", srt.name, srt.parallelismManager.CurrentParallelism())
 
@@ -393,6 +396,7 @@ func (srt *StepRuntime) logCache() error {
 		Source:      srt.pplSource,
 		RunID:       srt.runID,
 		Step:        srt.name,
+		JobID:       srt.job.Job().ID,
 		FsID:        srt.fsID,
 		FsName:      srt.fsName,
 		UserName:    srt.userName,

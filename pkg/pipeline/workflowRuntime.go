@@ -19,6 +19,7 @@ package pipeline
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
@@ -35,24 +36,22 @@ type WorkflowRuntime struct {
 	postProcess          *StepRuntime
 	status               string
 	EventChan            chan WorkflowEvent
-}
 
-// 生成 entryPoint 所对应的 DAG 的名字，因为用户无法给其指定名字
-func generateEntrPointName(pplName string) string {
-	// 使用 pipeline 的名字 + "-" + "entry-points"
-	return pplName + "-entry-points"
+	// 主要用于避免在调度节点的同时遇到终止任务的情况
+	scheduleLock sync.Mutex
 }
 
 // TODO: 将创建 Step 的逻辑迁移至此处，以合理的设置 step 的ctx，和 nodeType 等属性
 func NewWorkflowRuntime(rc *runConfig) *WorkflowRuntime {
 	entryCtx, entryCtxCancel := context.WithCancel(context.Background())
 	postCtx, postCtxCancel := context.WithCancel(context.Background())
+	failureOptionsCtx, _ := context.WithCancel(context.Background())
 
 	EventChan := make(chan WorkflowEvent)
 
-	entryPointName := generateEntrPointName(rc.WorkflowSource.Name)
-	entryPoint := NewDagRuntime(entryPointName, &rc.WorkflowSource.EntryPoints, 0, entryCtx,
-		EventChan, rc)
+	// 对于 EntryPoint 所代表的名字，此时应该没有名字的。
+	entryPoint := NewDagRuntime("", &rc.WorkflowSource.EntryPoints, 0, entryCtx, failureOptionsCtx,
+		EventChan, rc, "")
 
 	wfr := &WorkflowRuntime{
 		runConfig:            rc,
@@ -62,14 +61,9 @@ func NewWorkflowRuntime(rc *runConfig) *WorkflowRuntime {
 		postProcessctxCancel: postCtxCancel,
 		EventChan:            EventChan,
 		entryPoints:          entryPoint,
+		scheduleLock:         sync.Mutex{},
 	}
 
-	if len(rc.WorkflowSource.PostProcess) != 0 {
-		for name, componet := range rc.WorkflowSource.PostProcess {
-			postProcess := NewStepRuntime(name, componet, 0, postCtx, EventChan, rc)
-			wfr.postProcess = postProcess
-		}
-	}
 	return wfr
 }
 
@@ -81,10 +75,19 @@ func NewWorkflowRuntimeWithRuntimeView(view schema.RuntimeView) *WorkflowRuntime
 
 // 运行
 func (wfr *WorkflowRuntime) Start() error {
-	wfr.status = common.StatusRunRunning
+	defer wfr.scheduleLock.Unlock()
+	wfr.scheduleLock.Lock()
 
-	wfr.entryPoints.Start()
-	go wfr.Listen()
+	// 处理正式运行前，便收到了 Stop 信号的场景
+	if wfr.status == common.StatusRunTerminating || wfr.IsCompleted() {
+		wfr.logger.Warningln("the status of run is %s, so it won't start run", wfr.status)
+	} else {
+		wfr.status = common.StatusRunRunning
+
+		go wfr.Listen()
+		wfr.entryPoints.Start()
+	}
+
 	return nil
 }
 
@@ -121,13 +124,33 @@ func (wfr *WorkflowRuntime) Stop(force bool) error {
 		return nil
 	}
 
-	wfr.entryPointsctxCancel()
+	defer wfr.scheduleLock.Unlock()
+	wfr.scheduleLock.Lock()
 
-	if force {
-		wfr.postProcessctxCancel()
+	// 1、 处理已经开始运行情况
+	if wfr.status == common.StatusRunRunning {
+		wfr.status = common.StatusRunTerminating
+
+		wfr.entryPointsctxCancel()
+
+		if force && wfr.postProcess != nil {
+			defer wfr.postProcessctxCancel()
+		}
+	} else {
+		// 2、 处理还没有开始运行的情况
+		wfr.status = common.StatusRunTerminating
+		failureOptionsCtx, _ := context.WithCancel(context.Background())
+
+		newDagRuntimeWithStatus("", wfr.entryPoints.getworkflowSouceDag(), 0, wfr.entryPointsCtx, failureOptionsCtx,
+			wfr.EventChan, wfr.runConfig, "", StatusRuntimeTerminated, "reveice termination signal")
+
+		for name, step := range wfr.WorkflowSource.PostProcess {
+			newStepRuntimeWithStatus(name, step, 0, wfr.postProcessPointsCtx, failureOptionsCtx, wfr.EventChan,
+				wfr.runConfig, "", StatusRuntimeTerminated, "reveice termination signal")
+		}
+
+		wfr.status = common.StatusRunTerminated
 	}
-
-	wfr.status = common.StatusRunTerminating
 
 	return nil
 }
@@ -157,12 +180,34 @@ func (wfr *WorkflowRuntime) IsCompleted() bool {
 		wfr.status == common.StatusRunTerminated
 }
 
+func (wfr *WorkflowRuntime) schedulePostProcess() {
+	defer wfr.scheduleLock.Unlock()
+	wfr.scheduleLock.Lock()
+
+	if wfr.postProcess != nil {
+		wfr.logger.Warningf("the postProcess step[%s] has been scheduled", wfr.postProcess.name)
+		return
+	} else if len(wfr.WorkflowSource.PostProcess) != 0 {
+		for name, step := range wfr.WorkflowSource.PostProcess {
+			failureOptionsCtx, _ := context.WithCancel(context.Background())
+			postProcess := NewStepRuntime(name, step, 0, wfr.postProcessPointsCtx, failureOptionsCtx, wfr.EventChan,
+				wfr.runConfig, "")
+			wfr.postProcess = postProcess
+		}
+		wfr.logger.Infof("begin to execute postProcess step [%s]", wfr.postProcess.name)
+		wfr.postProcess.Start()
+	} else {
+		wfr.logger.Infof("there is no postProcess step")
+	}
+
+	return
+}
+
 // processEvent 处理 job 推送到 run 的事件
 // 对于异常处理的情况
 // 1. 提交失败，job id\status 都为空，视为 job 失败，更新 run message 字段
 // 2. watch 失败，状态不更新，更新 run message 字段；等 job 恢复服务之后，job watch 恢复，run 自动恢复调度
 // 3. stop 失败，状态不更新，run message 字段；需要用户根据提示再次调用 stop
-// 4. 如果有 job 的状态异常，将会走 FailureOptions 的处理逻辑
 func (wfr *WorkflowRuntime) processEvent(event WorkflowEvent) error {
 	if wfr.IsCompleted() {
 		wfr.logger.Debugf("workflow has completed. skip event")
@@ -174,14 +219,11 @@ func (wfr *WorkflowRuntime) processEvent(event WorkflowEvent) error {
 	// 2. 如果 entryPoints 处于终态，但是postProcess 还没有开始执行，此时则应该开始执行 PostProcess 节点
 	// 3. 如果 entryPoints 处于终态，且PostProcess 处于中间态，则只需做好信息同步即可
 	// 4. 如果 entryPoints 和 postProcess 均处于终态，则会更新 Run 的状态
-	if wfr.entryPoints.isDone() && wfr.postProcess != nil {
-		if !wfr.postProcess.isStarted() {
-			wfr.postProcess.Start()
-		} else if wfr.postProcess.isDone() {
-			wfr.updateStatus()
-		}
+	if wfr.entryPoints.isDone() {
+		wfr.schedulePostProcess()
 	}
 
+	wfr.updateStatus()
 	wfr.callback(event)
 
 	return nil
