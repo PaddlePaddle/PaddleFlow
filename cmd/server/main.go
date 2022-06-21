@@ -19,7 +19,8 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/run"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	v1 "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/v1"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
+	config "github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config/singlecluster"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database/dbinit"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
@@ -157,6 +158,12 @@ func setup() {
 	}, nil, ServerConf.Log.Level)
 	if err != nil {
 		log.Errorf("init database err: %v", err)
+		gracefullyExit(err)
+	}
+
+	err = singlecluster.Init(ServerConf)
+	if err != nil {
+		log.Errorf("init singlecluster data failed, err: %v", err)
 		gracefullyExit(err)
 	}
 

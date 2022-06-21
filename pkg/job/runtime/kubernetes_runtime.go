@@ -67,17 +67,25 @@ func (kr *KubeRuntime) Name() string {
 
 func (kr *KubeRuntime) BuildConfig() (*rest.Config, error) {
 	var cfg *rest.Config
-	// decode credential base64 string to []byte
-	configBytes, decodeErr := base64.StdEncoding.DecodeString(kr.cluster.ClientOpt.Config)
-	if decodeErr != nil {
-		err := fmt.Errorf("decode cluster[%s] credential base64 string error! msg: %s",
-			kr.cluster.Name, decodeErr.Error())
-		return nil, err
-	}
-	cfg, err := clientcmd.RESTConfigFromKubeConfig(configBytes)
-	if err != nil {
-		log.Errorf("Failed to build kube config from kubeConfBytes[%s], err:[%v]", string(configBytes[:]), err)
-		return nil, err
+	var err error
+	if len(kr.cluster.ClientOpt.Config) == 0 {
+		if cfg, err = clientcmd.BuildConfigFromFlags("", ""); err != nil {
+			log.Errorf("Failed to build rest.config by BuildConfigFromFlags, err:[%v]", err)
+			return nil, err
+		}
+	} else {
+		// decode credential base64 string to []byte
+		configBytes, decodeErr := base64.StdEncoding.DecodeString(kr.cluster.ClientOpt.Config)
+		if decodeErr != nil {
+			err := fmt.Errorf("decode cluster[%s] credential base64 string error! msg: %s",
+				kr.cluster.Name, decodeErr.Error())
+			return nil, err
+		}
+		cfg, err = clientcmd.RESTConfigFromKubeConfig(configBytes)
+		if err != nil {
+			log.Errorf("Failed to build rest.config from kubeConfBytes[%s], err:[%v]", string(configBytes[:]), err)
+			return nil, err
+		}
 	}
 
 	// set qps, burst

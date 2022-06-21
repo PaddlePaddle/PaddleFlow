@@ -76,6 +76,7 @@ type JobConfig struct {
 	JobLoopPeriod     int `yaml:"jobLoopPeriod"`
 	// DefaultJobYamlDir is directory that stores default template yaml files for job
 	DefaultJobYamlDir string `yaml:"defaultJobYamlDir"`
+	IsSingleCluster   bool   `yaml:"isSingleCluster"`
 }
 
 type FsServerConf struct {
