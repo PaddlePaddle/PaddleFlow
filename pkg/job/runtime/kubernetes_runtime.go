@@ -50,14 +50,14 @@ import (
 )
 
 type KubeRuntime struct {
-	schema.Cluster
+	cluster          *schema.Cluster
 	clientset        kubernetes.Interface
 	dynamicClientOpt *k8s.DynamicClientOption
 }
 
 func NewKubeRuntime(cluster schema.Cluster) RuntimeService {
 	kr := &KubeRuntime{
-		Cluster: cluster,
+		cluster: &cluster,
 	}
 	return kr
 }
@@ -71,16 +71,16 @@ func getFileSystem(jobConf schema.Conf, tasks []models.Member) []schema.FileSyst
 }
 
 func (kr *KubeRuntime) Name() string {
-	return fmt.Sprintf("kubernetes runtime for cluster: %s", kr.Cluster.Name)
+	return fmt.Sprintf("kubernetes runtime for cluster: %s", kr.cluster.Name)
 }
 
 func (kr *KubeRuntime) BuildConfig() (*rest.Config, error) {
 	var cfg *rest.Config
 	// decode credential base64 string to []byte
-	configBytes, decodeErr := base64.StdEncoding.DecodeString(kr.Cluster.ClientOpt.Config)
+	configBytes, decodeErr := base64.StdEncoding.DecodeString(kr.cluster.ClientOpt.Config)
 	if decodeErr != nil {
 		err := fmt.Errorf("decode cluster[%s] credential base64 string error! msg: %s",
-			kr.Cluster.Name, decodeErr.Error())
+			kr.cluster.Name, decodeErr.Error())
 		return nil, err
 	}
 	cfg, err := clientcmd.RESTConfigFromKubeConfig(configBytes)
@@ -90,8 +90,8 @@ func (kr *KubeRuntime) BuildConfig() (*rest.Config, error) {
 	}
 
 	// set qps, burst
-	cfg.QPS = kr.Cluster.ClientOpt.QPS
-	cfg.Burst = kr.Cluster.ClientOpt.Burst
+	cfg.QPS = kr.cluster.ClientOpt.QPS
+	cfg.Burst = kr.cluster.ClientOpt.Burst
 	return cfg, nil
 }
 
@@ -101,7 +101,7 @@ func (kr *KubeRuntime) Init() error {
 		log.Errorf("build config failed. error:%s", err)
 		return err
 	}
-	kr.dynamicClientOpt, err = k8s.CreateDynamicClientOpt(config)
+	kr.dynamicClientOpt, err = k8s.CreateDynamicClientOpt(config, kr.cluster)
 	if err != nil {
 		log.Errorf("init dynamic client failed. error:%s", err)
 		return err
@@ -117,7 +117,7 @@ func (kr *KubeRuntime) Init() error {
 }
 
 func (kr *KubeRuntime) SubmitJob(jobInfo *api.PFJob) error {
-	log.Infof("submit job[%v] to cluster[%s] queue[%s]", jobInfo.ID, kr.Cluster.ID, jobInfo.QueueID)
+	log.Infof("submit job[%v] to cluster[%s] queue[%s]", jobInfo.ID, kr.cluster.ID, jobInfo.QueueID)
 	// prepare kubernetes storage
 	jobFileSystems := getFileSystem(jobInfo.Conf, jobInfo.Tasks)
 	for _, fs := range jobFileSystems {
@@ -150,7 +150,7 @@ func (kr *KubeRuntime) SubmitJob(jobInfo *api.PFJob) error {
 }
 
 func (kr *KubeRuntime) StopJob(jobInfo *api.PFJob) error {
-	log.Infof("stop job[%s] on cluster[%s] queue[%s]", jobInfo.ID, kr.Cluster.ID, jobInfo.QueueID)
+	log.Infof("stop job[%s] on cluster[%s] queue[%s]", jobInfo.ID, kr.cluster.ID, jobInfo.QueueID)
 	job, err := executor.NewKubeJob(jobInfo, kr.dynamicClientOpt)
 	if err != nil {
 		log.Warnf("stop kubernetes job[%s] failed, err: %v", jobInfo.ID, err)
@@ -166,7 +166,7 @@ func (kr *KubeRuntime) StopJob(jobInfo *api.PFJob) error {
 }
 
 func (kr *KubeRuntime) UpdateJob(jobInfo *api.PFJob) error {
-	log.Infof("update job[%s] on cluster[%s] queue[%s]", jobInfo.ID, kr.Cluster.ID, jobInfo.QueueID)
+	log.Infof("update job[%s] on cluster[%s] queue[%s]", jobInfo.ID, kr.cluster.ID, jobInfo.QueueID)
 	job, err := executor.NewKubeJob(jobInfo, kr.dynamicClientOpt)
 	if err != nil {
 		log.Warnf("update kubernetes job[%s] failed, err: %v", jobInfo.ID, err)
@@ -246,7 +246,7 @@ func (kr *KubeRuntime) updateJobPriority(jobInfo *api.PFJob) error {
 }
 
 func (kr *KubeRuntime) DeleteJob(jobInfo *api.PFJob) error {
-	log.Infof("delete job %v from cluster %s, and queue %s", jobInfo.ID, kr.Cluster.ID, jobInfo.QueueID)
+	log.Infof("delete job %v from cluster %s, and queue %s", jobInfo.ID, kr.cluster.ID, jobInfo.QueueID)
 	job, err := executor.NewKubeJob(jobInfo, kr.dynamicClientOpt)
 	if err != nil {
 		log.Warnf("create kubernetes job %s failed, err: %v", jobInfo.ID, err)
@@ -263,9 +263,9 @@ func (kr *KubeRuntime) DeleteJob(jobInfo *api.PFJob) error {
 }
 
 func (kr *KubeRuntime) SyncJob(stopCh <-chan struct{}) {
-	log.Infof("start job sync loop for cluster[%s]", kr.Cluster.ID)
+	log.Infof("start job sync loop for cluster[%s]", kr.cluster.ID)
 
-	syncController, err := controller.New(controller.JobSyncControllerName, kr.dynamicClientOpt.Config)
+	syncController, err := controller.New(controller.JobSyncControllerName, kr.dynamicClientOpt.Config, kr.cluster)
 	if err != nil {
 		log.Errorf("init sync controller failed, err: %v", err)
 		return
@@ -274,9 +274,9 @@ func (kr *KubeRuntime) SyncJob(stopCh <-chan struct{}) {
 }
 
 func (kr *KubeRuntime) GCJob(stopCh <-chan struct{}) {
-	log.Infof("start job gc loop for cluster[%s]", kr.Cluster.ID)
+	log.Infof("start job gc loop for cluster[%s]", kr.cluster.ID)
 
-	gcController, err := controller.New(controller.JobGCControllerName, kr.dynamicClientOpt.Config)
+	gcController, err := controller.New(controller.JobGCControllerName, kr.dynamicClientOpt.Config, kr.cluster)
 	if err != nil {
 		log.Errorf("init sync controller failed, err: %v", err)
 		return
@@ -285,9 +285,9 @@ func (kr *KubeRuntime) GCJob(stopCh <-chan struct{}) {
 }
 
 func (kr *KubeRuntime) SyncQueue(stopCh <-chan struct{}) {
-	log.Infof("start queue sync loop for cluster[%s]", kr.Cluster.ID)
+	log.Infof("start queue sync loop for cluster[%s]", kr.cluster.ID)
 
-	queueController, err := controller.New(controller.QueueSyncControllerName, kr.dynamicClientOpt.Config)
+	queueController, err := controller.New(controller.QueueSyncControllerName, kr.dynamicClientOpt.Config, kr.cluster)
 	if err != nil {
 		log.Errorf("init queue sync controller failed, err: %v", err)
 		return
