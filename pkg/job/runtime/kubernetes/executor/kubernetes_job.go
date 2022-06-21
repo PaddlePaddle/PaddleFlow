@@ -383,7 +383,9 @@ func (j *KubeJob) fillContainerInTasks(container *corev1.Container, task models.
 	container.Resources = j.generateResourceRequirements(task.Flavour)
 
 	taskFs := task.Conf.GetAllFileSystem()
-	container.VolumeMounts = appendMountsIfAbsent(container.VolumeMounts, generateVolumeMounts(taskFs))
+	if len(taskFs) != 0 {
+		container.VolumeMounts = appendMountsIfAbsent(container.VolumeMounts, generateVolumeMounts(taskFs))
+	}
 
 	container.Env = j.appendEnvIfAbsent(container.Env, j.generateEnvVars())
 }
@@ -764,6 +766,7 @@ func generateVolumeMounts(fileSystems []schema.FileSystem) []corev1.VolumeMount 
 		return vms
 	}
 	for _, fs := range fileSystems {
+		log.Debug("generateVolumeMounts walking fileSystem %+v", fs)
 		mountPath := filepath.Clean(fs.MountPath)
 		if mountPath == "" {
 			mountPath = filepath.Join(schema.DefaultFSMountPath, fs.ID)

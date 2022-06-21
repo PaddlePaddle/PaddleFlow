@@ -146,7 +146,9 @@ func (sj *SparkJob) patchPodByTask(podSpec *sparkapp.SparkPodSpec, task models.M
 	podSpec.Env = append(podSpec.Env, sj.generateEnvVars()...)
 
 	taskFileSystems := task.Conf.GetAllFileSystem()
-	podSpec.VolumeMounts = appendMountsIfAbsent(podSpec.VolumeMounts, generateVolumeMounts(taskFileSystems))
+	if len(taskFileSystems) != 0 {
+		podSpec.VolumeMounts = appendMountsIfAbsent(podSpec.VolumeMounts, generateVolumeMounts(taskFileSystems))
+	}
 }
 
 func (sj *SparkJob) patchSparkSpecDriver(jobApp *sparkapp.SparkApplication, task models.Member) {

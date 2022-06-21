@@ -19,6 +19,7 @@ package job
 import (
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 
 	"github.com/ghodss/yaml"
 	log "github.com/sirupsen/logrus"
@@ -699,13 +700,18 @@ func getRuntimeByQueue(ctx *logger.RequestContext, queueID string) (runtime.Runt
 
 func validateFileSystem(jobSpec *JobSpec, userName string) error {
 	fsService := fs.GetFileSystemService()
-
-	if jobSpec.FileSystem.Name != "" {
-		fsID := common.ID(userName, jobSpec.FileSystem.Name)
-		fileSystem, err := fsService.GetFileSystem(fsID)
+	fsName := jobSpec.FileSystem.Name
+	if fsName != "" {
+		jobSpec.FileSystem.MountPath = filepath.Clean(jobSpec.FileSystem.MountPath)
+		if jobSpec.FileSystem.MountPath == "/" {
+			err := fmt.Errorf("mountPath cannot be `/` in fileSystem[%s]", fsName)
+			log.Errorf("validateFileSystem failed, err: %v", err)
+			return err
+		}
+		fileSystem, err := fsService.GetFileSystem(userName, fsName)
 		if err != nil {
-			log.Errorf("get filesystem %s failed, err: %v", fsID, err)
-			return fmt.Errorf("find file system %s failed, err: %v", jobSpec.FileSystem.Name, err)
+			log.Errorf("get filesystem by userName[%s] fsName[%s] failed, err: %v", userName, fsName, err)
+			return fmt.Errorf("find file system %s failed, err: %v", fsName, err)
 		}
 		jobSpec.FileSystem.ID = fileSystem.ID
 	}
@@ -715,11 +721,16 @@ func validateFileSystem(jobSpec *JobSpec, userName string) error {
 			log.Errorf("name of fileSystem %v is null", fs)
 			return fmt.Errorf("name of fileSystem %v is null", fs)
 		}
+		jobSpec.ExtraFileSystems[index].MountPath = filepath.Clean(fs.MountPath)
+		if jobSpec.ExtraFileSystems[index].MountPath == "/" {
+			err := fmt.Errorf("mountPath cannot be `/` in fileSystem[%s]", fs.Name)
+			log.Errorf("validateFileSystem failed, err: %v", err)
+			return err
+		}
 
-		fsID := common.ID(userName, fs.Name)
-		fileSystem, err := fsService.GetFileSystem(fsID)
+		fileSystem, err := fsService.GetFileSystem(userName, fs.Name)
 		if err != nil {
-			log.Errorf("get filesystem %s failed, err: %v", fsID, err)
+			log.Errorf("get filesystem by userName[%s] fsName[%s] failed, err: %v", userName, fs.Name, err)
 			return fmt.Errorf("find file system %s failed, err: %v", fs.Name, err)
 		}
 		jobSpec.ExtraFileSystems[index].ID = fileSystem.ID
