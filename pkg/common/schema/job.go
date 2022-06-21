@@ -404,10 +404,9 @@ func (c *Conf) preCheckEnv() {
 // GetAllFileSystem combine FileSystem and ExtraFileSystem to a slice
 func (c *Conf) GetAllFileSystem() []FileSystem {
 	var fileSystems []FileSystem
-	if c.FileSystem.Name == "" {
-		return fileSystems
+	if c.FileSystem.Name != "" {
+		fileSystems = append([]FileSystem{}, c.FileSystem)
 	}
-	fileSystems = append([]FileSystem{}, c.FileSystem)
 	fileSystems = append(fileSystems, c.ExtraFileSystem...)
 	return fileSystems
 }

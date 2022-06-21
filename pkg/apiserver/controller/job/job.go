@@ -26,6 +26,7 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/flavour"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/fs"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
@@ -210,8 +211,6 @@ func patchFromJobSpec(conf *schema.Conf, jobSpec *JobSpec, userName string) erro
 		log.Errorf("get flavour failed when create job, err:%v", err)
 		return err
 	}
-	// FileSystem
-	fixFsInConf(conf, jobSpec, userName)
 	return nil
 }
 
@@ -458,7 +457,6 @@ func newMember(member MemberSpec, role schema.MemberRole) (models.Member, error)
 		Port:        member.Port,
 		Args:        member.Args,
 	}
-	fixFsInConf(&conf, &member.JobSpec, member.UserName)
 
 	return models.Member{
 		ID:       member.ID,
@@ -700,36 +698,32 @@ func getRuntimeByQueue(ctx *logger.RequestContext, queueID string) (runtime.Runt
 }
 
 func validateFileSystem(jobSpec *JobSpec, userName string) error {
-	if jobSpec.FileSystem.Name == "" {
-		return nil
+	fsService := fs.GetFileSystemService()
+
+	if jobSpec.FileSystem.Name != "" {
+		fsID := common.ID(userName, jobSpec.FileSystem.Name)
+		fileSystem, err := fsService.GetFileSystem(fsID)
+		if err != nil {
+			log.Errorf("get filesystem %s failed, err: %v", fsID, err)
+			return fmt.Errorf("find file system %s failed, err: %v", jobSpec.FileSystem.Name, err)
+		}
+		jobSpec.FileSystem.ID = fileSystem.ID
 	}
-	fileSystems := append([]schema.FileSystem{}, jobSpec.FileSystem)
-	fileSystems = append(fileSystems, jobSpec.ExtraFileSystems...)
-	for _, fs := range fileSystems {
+
+	for index, fs := range jobSpec.ExtraFileSystems {
 		if fs.Name == "" {
 			log.Errorf("name of fileSystem %v is null", fs)
 			return fmt.Errorf("name of fileSystem %v is null", fs)
 		}
+
 		fsID := common.ID(userName, fs.Name)
-		if _, err := models.GetFileSystemWithFsID(fsID); err != nil {
+		fileSystem, err := fsService.GetFileSystem(fsID)
+		if err != nil {
 			log.Errorf("get filesystem %s failed, err: %v", fsID, err)
 			return fmt.Errorf("find file system %s failed, err: %v", fs.Name, err)
 		}
+		jobSpec.ExtraFileSystems[index].ID = fileSystem.ID
 	}
 
 	return nil
-}
-
-func fixFsInConf(conf *schema.Conf, jobSpec *JobSpec, userName string) {
-	if jobSpec.FileSystem.Name != "" {
-		fsID := common.ID(userName, jobSpec.FileSystem.Name)
-		conf.FileSystem.ID = fsID
-	}
-	if conf.ExtraFileSystem == nil {
-		conf.ExtraFileSystem = []schema.FileSystem{}
-	}
-	for _, fs := range jobSpec.ExtraFileSystems {
-		fs.ID = common.ID(userName, fs.Name)
-		conf.ExtraFileSystem = append(jobSpec.ExtraFileSystems, fs)
-	}
 }
