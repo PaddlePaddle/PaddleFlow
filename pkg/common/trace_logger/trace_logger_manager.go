@@ -23,9 +23,14 @@ limitations under the License.
 package trace_logger
 
 import (
+	"bufio"
+	"encoding/json"
 	"fmt"
 	"github.com/emirpasic/gods/maps/linkedhashmap"
 	"github.com/sirupsen/logrus"
+	"os"
+	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 	// log "github.com/sirupsen/logrus"
@@ -33,15 +38,26 @@ import (
 
 // define errors
 const (
-	NoKeyError   = "no key has been set"
-	NoTraceError = "no trace has been set"
+	NoKeyError         = "no key has been set"
+	NoTraceError       = "no trace has been set"
+	LogLevelStringSize = 4
+	MaxCacheSize       = 10000
+	CacheLoadFactor    = 0.8
+)
+
+// assert implements
+var (
+	_ TraceLogger        = (*defaultTraceLogger)(nil)
+	_ TraceLoggerManager = (*DefaultTraceLoggerManager)(nil)
 )
 
 // define interface
 
 type Trace struct {
-	logs []traceLog
-	time time.Time
+	logs       []traceLog
+	updateTime time.Time
+	// lastSyncIndex store the last synced index in the logs
+	lastSyncIndex int
 }
 
 // the name of trace log fields is same as logrus/Entry
@@ -54,11 +70,27 @@ type traceLog struct {
 }
 
 func (t traceLog) String() string {
-	return fmt.Sprintf("[%s] %s - %s: %s", t.Level, t.Time, t.Key, t.Msg)
+	timeStr := t.Time.Format("2006-01-02 15:04:05.06")
+	level := strings.ToUpper(t.Level.String()[:LogLevelStringSize])
+	return fmt.Sprintf("[%s] [%s] %s %s", level, t.Key, timeStr, t.Msg)
 }
 
 func (t Trace) String() string {
-	return fmt.Sprint(t.logs)
+	lines := make([]string, len(t.logs))
+	for i, traceLog := range t.logs {
+		lines[i] = fmt.Sprintf("%s", traceLog)
+	}
+	return strings.Join(lines, "\n")
+}
+
+func (d DefaultTraceLoggerManager) String() string {
+	d.RLock()
+	defer d.RUnlock()
+	lines := make([]string, d.cache.Size())
+	for i, trace := range d.cache.Values() {
+		lines[i] = fmt.Sprintf("%s", trace.(Trace))
+	}
+	return strings.Join(lines, "\n")
 }
 
 type TraceLogger interface {
@@ -71,10 +103,17 @@ type TraceLogger interface {
 	Panicf(format string, args ...interface{})
 
 	// trace interface
-	CommitTraceWithKey(key string) error
-	CommitTrace() error
 	SetKey(key string)
-	RollbackTrace() error
+	GetKey() string
+	GetTrace() Trace
+	UpdateTraceWithKey(key string) error
+	UpdateTrace() error
+}
+
+type DeleteMethod func(key string) bool
+
+var DefaultDeleteMethod DeleteMethod = func(key string) bool {
+	return true
 }
 
 type TraceLoggerManager interface {
@@ -83,10 +122,14 @@ type TraceLoggerManager interface {
 	GetTraceFromCache(key string) (Trace, bool)
 	GetAllTraceFromCache() []Trace
 	SetTraceToCache(key string, trace Trace) error
+	UpdateKey(key string, newKey string) error
+	Key(key string) TraceLogger
 
 	SyncAll() error
-	LoadAll() error
+	LoadAll(path string) error
+	ClearAll() error
 	AutoDelete(timeout, duration time.Duration) error
+	AutoDeleteWithMethod(timeout, duration time.Duration, method DeleteMethod) error
 	CancelAutoDelete() error
 }
 
@@ -101,10 +144,14 @@ type defaultTraceLogger struct {
 
 func (d *defaultTraceLogger) saveOneLog(level logrus.Level, format string, args ...interface{}) {
 	d.trace.logs = append(d.trace.logs, traceLog{
+		Key:   d.key,
 		Msg:   fmt.Sprintf(format, args...),
 		Level: level,
 		Time:  time.Now(),
 	})
+
+	// call update trace after every log
+	_ = d.UpdateTrace()
 }
 
 func (d *defaultTraceLogger) Infof(format string, args ...interface{}) {
@@ -131,12 +178,12 @@ func (d *defaultTraceLogger) Panicf(format string, args ...interface{}) {
 	d.saveOneLog(logrus.PanicLevel, format, args...)
 }
 
-func (d *defaultTraceLogger) CommitTraceWithKey(key string) error {
+func (d *defaultTraceLogger) UpdateTraceWithKey(key string) error {
 	d.key = key
-	return d.CommitTrace()
+	return d.UpdateTrace()
 }
 
-func (d *defaultTraceLogger) CommitTrace() error {
+func (d *defaultTraceLogger) UpdateTrace() error {
 	if d.key == "" {
 		return fmt.Errorf("no key has been set")
 	}
@@ -152,9 +199,12 @@ func (d *defaultTraceLogger) SetKey(key string) {
 	}
 }
 
-func (d *defaultTraceLogger) RollbackTrace() error {
-	// noting to do here
-	return nil
+func (d *defaultTraceLogger) GetKey() string {
+	return d.key
+}
+
+func (d *defaultTraceLogger) GetTrace() Trace {
+	return d.trace
 }
 
 // implementation for trace logger manager
@@ -162,28 +212,32 @@ func (d *defaultTraceLogger) RollbackTrace() error {
 type DefaultTraceLoggerManager struct {
 	// use linked list to sustain the order of the trace
 	cache       *linkedhashmap.Map
+	tmpKeyMap   sync.Map
 	lastSyncKey string
 	l           *logrus.Logger
-	*sync.RWMutex
+	sync.RWMutex
 
 	// auto delete
 	autoDeleteFlag bool
-	autoDeleteLock *sync.Mutex
+	autoDeleteLock sync.Mutex
 	cancelChan     chan struct{}
 }
 
 func NewDefaultTraceLoggerManager() *DefaultTraceLoggerManager {
 	return &DefaultTraceLoggerManager{
 		cache:          linkedhashmap.New(),
-		RWMutex:        &sync.RWMutex{},
+		tmpKeyMap:      sync.Map{},
+		RWMutex:        sync.RWMutex{},
 		l:              logger,
-		autoDeleteLock: &sync.Mutex{},
+		autoDeleteLock: sync.Mutex{},
 		cancelChan:     make(chan struct{}, 1),
 	}
 }
 
 func (d *DefaultTraceLoggerManager) StoreTraceToFile(trace Trace) {
-	for _, traceLog := range trace.logs {
+	d.RLock()
+	defer d.RUnlock()
+	for _, traceLog := range trace.logs[trace.lastSyncIndex:] {
 		d.storeTraceLogToFile(traceLog)
 	}
 }
@@ -231,19 +285,43 @@ func (d *DefaultTraceLoggerManager) SetTraceToCache(key string, trace Trace) (er
 		}
 	}()
 
-	// add time
-	trace.time = time.Now()
+	// add updateTime
+	old, ok := d.cache.Get(key)
+
+	// if key exists, remove old trace and add it to the end of the list, in order to maintain the insertion order
+	if ok {
+		trace.lastSyncIndex = old.(Trace).lastSyncIndex
+		d.cache.Remove(key)
+	}
+	trace.updateTime = time.Now()
 	d.cache.Put(key, trace)
+	// delete outdated trace
+	d.deleteOldTrace()
 	return
 }
 
+func (d *DefaultTraceLoggerManager) deleteOldTrace() {
+	if d.cache.Size() < MaxCacheSize {
+		return // do not delete if cache is not full
+	}
+	newSize := int(MaxCacheSize * CacheLoadFactor)
+
+	iter := d.cache.Iterator()
+	for i := d.cache.Size(); i > newSize; i = d.cache.Size() {
+		if ok := iter.First(); !ok {
+			break
+		}
+		d.cache.Remove(iter.Key())
+	}
+}
+
+// SyncAll dont call this method in a concurrent environment
 func (d *DefaultTraceLoggerManager) SyncAll() error {
 	// get lock
 	d.RLock()
 	defer d.RUnlock()
 
 	// sync all the Trace backward until the last sync key
-
 	iter := d.cache.Iterator()
 	ok := iter.Last()
 	if !ok {
@@ -253,7 +331,7 @@ func (d *DefaultTraceLoggerManager) SyncAll() error {
 	// get the last sync key
 	tmpIter := d.cache.Iterator()
 	tmpIter.End()
-	lastSyncKey := tmpIter.Key().(string)
+	newLastSyncedKey := tmpIter.Key().(string)
 
 	// find the last synced key
 	_ = iter.PrevTo(func(key interface{}, value interface{}) bool {
@@ -265,17 +343,109 @@ func (d *DefaultTraceLoggerManager) SyncAll() error {
 	// log trace
 	for iter.Next() {
 		val := iter.Value()
+		key := iter.Key().(string)
 		trace := val.(Trace)
 		d.StoreTraceToFile(trace)
+		// update synced index
+		trace.lastSyncIndex = len(trace.logs)
+		d.cache.Put(key, trace)
 	}
 
-	d.lastSyncKey = lastSyncKey
+	d.lastSyncKey = newLastSyncedKey
 	return nil
 }
 
-func (d *DefaultTraceLoggerManager) LoadAll() error {
-	//TODO implement me
-	panic("implement me")
+// LoadAll will load all the trace from the file, and replace local cache
+func (d *DefaultTraceLoggerManager) LoadAll(path string) (err error) {
+
+	d.Lock()
+	defer d.Unlock()
+	// clear the cache
+	d.clearCache()
+
+	stat, err := os.Stat(path)
+	if err != nil {
+		return fmt.Errorf("failed to get file stat: %v", err)
+	}
+
+	// if is a directory, open the files in the directory
+	if stat.IsDir() {
+		filesEntries, err := os.ReadDir(path)
+		if err != nil {
+			return fmt.Errorf("failed to read dir: %v", err)
+		}
+		for _, fileEntry := range filesEntries {
+			if !fileEntry.IsDir() {
+				err := d.loadFromFile(filepath.Join(path, fileEntry.Name()))
+				if err != nil {
+					return err
+				}
+			}
+		}
+	} else {
+		err := d.loadFromFile(path)
+		if err != nil {
+			return err
+		}
+	}
+
+	// update last sync key
+	iter := d.cache.Iterator()
+	if iter.Last() {
+		d.lastSyncKey = iter.Key().(string)
+	}
+
+	return nil
+}
+
+func (d *DefaultTraceLoggerManager) loadFromFile(filePath string) (err error) {
+
+	file, err := os.Open(filePath)
+	defer func() {
+		err1 := file.Close()
+		if err1 != nil {
+			err = fmt.Errorf("failed to close file: %v", err1)
+		}
+	}()
+
+	if err != nil {
+		return fmt.Errorf("read log file fail: %w", err)
+	}
+	scanner := bufio.NewScanner(file)
+
+	var (
+		currentTrace Trace
+		currentKey   string
+	)
+
+	for scanner.Scan() {
+		jsonBytes := scanner.Bytes()
+		traceLog := traceLog{}
+		err = json.Unmarshal(jsonBytes, &traceLog)
+		if err != nil {
+			return fmt.Errorf("parse log fail: %w", err)
+		}
+		if currentKey != traceLog.Key {
+			// save the previous trace to cache
+			if currentKey != "" {
+				d.cache.Put(currentKey, currentTrace)
+			}
+			currentKey = traceLog.Key
+			val, ok := d.cache.Get(currentKey)
+			if !ok {
+				currentTrace = Trace{}
+			} else {
+				currentTrace = val.(Trace)
+			}
+
+			// update updateTime
+			currentTrace.updateTime = time.Now()
+		}
+		currentTrace.logs = append(currentTrace.logs, traceLog)
+	}
+	d.cache.Put(currentKey, currentTrace)
+
+	return nil
 }
 
 func (d *DefaultTraceLoggerManager) AutoDelete(timeout, duration time.Duration) error {
@@ -292,7 +462,33 @@ func (d *DefaultTraceLoggerManager) AutoDelete(timeout, duration time.Duration) 
 				return
 			case <-time.After(duration):
 				fmt.Println("auto delete")
-				d.deleteTraceFromCacheBefore(timeout)
+				d.Lock()
+				d.deleteTraceFromCacheBefore(timeout, DefaultDeleteMethod)
+				d.Unlock()
+			}
+		}
+	}()
+
+	return nil
+}
+
+func (d *DefaultTraceLoggerManager) AutoDeleteWithMethod(timeout, duration time.Duration, method DeleteMethod) error {
+	d.autoDeleteLock.Lock()
+	defer d.autoDeleteLock.Unlock()
+	if d.autoDeleteFlag {
+		return fmt.Errorf("auto delete has started")
+	}
+
+	go func() {
+		for {
+			select {
+			case <-d.cancelChan:
+				return
+			case <-time.After(duration):
+				fmt.Println("auto delete")
+				d.Lock()
+				d.deleteTraceFromCacheBefore(timeout, method)
+				d.Unlock()
 			}
 		}
 	}()
@@ -311,9 +507,12 @@ func (d *DefaultTraceLoggerManager) CancelAutoDelete() error {
 	return nil
 }
 
-func (d *DefaultTraceLoggerManager) deleteTraceFromCacheBefore(timeout time.Duration) {
-	d.Lock()
-	defer d.Unlock()
+func (d *DefaultTraceLoggerManager) deleteTraceFromCacheBefore(timeout time.Duration, method DeleteMethod) {
+
+	// check if synced already, if not, no need to delete
+	if d.lastSyncKey == "" {
+		return // no need to delete
+	}
 
 	timeBefore := time.Now().Add(-timeout)
 
@@ -321,18 +520,78 @@ func (d *DefaultTraceLoggerManager) deleteTraceFromCacheBefore(timeout time.Dura
 	iter := d.cache.Iterator()
 
 	// find the timeBefore first
-
 	_ = iter.NextTo(func(key interface{}, value interface{}) bool {
 		trace := value.(Trace)
 
-		// if time after timeBefore, stop iterating
-		return trace.time.After(timeBefore)
+		// if not synced yet, stop iterating
+		if key.(string) == d.lastSyncKey {
+			return true
+		}
+		// if updateTime after timeBefore, stop iterating
+		return trace.updateTime.After(timeBefore)
 	})
-
 	// delete the trace logs before
-	// must remove item backwards while iterating,
+	// must remove item in backwards order while iterating,
 	// otherwise the index will be wrong
 	for iter.Prev() {
+		key := iter.Key().(string)
+		if !method(key) {
+			return
+		}
 		d.cache.Remove(iter.Key())
+		// also remove it from tmp map
+		d.tmpKeyMap.Delete(iter.Key())
 	}
+}
+
+func (d *DefaultTraceLoggerManager) deleteUnusedTmpKey(timeout time.Duration) {
+	d.tmpKeyMap.Range(func(key, value interface{}) bool {
+		tmpKey := key.(string)
+		traceLogger := value.(TraceLogger)
+		// if no key set, then this logger is temporary, and can be deleted
+		if traceLogger.GetKey() == "" {
+			updateTime := traceLogger.GetTrace().updateTime
+			if updateTime.Before(time.Now().Add(-timeout)) {
+				d.tmpKeyMap.Delete(tmpKey)
+			}
+		}
+		return true
+	})
+}
+
+// ClearAll will clear all the trace from the cache
+// please sync the cache before calling this function
+func (d *DefaultTraceLoggerManager) ClearAll() error {
+	d.Lock()
+	defer d.Unlock()
+	d.clearCache()
+	return nil
+}
+
+func (d *DefaultTraceLoggerManager) clearCache() {
+	d.cache.Clear()
+	d.lastSyncKey = ""
+}
+
+func (d *DefaultTraceLoggerManager) UpdateKey(key string, newKey string) error {
+
+	// delete tmp key map
+	val, ok := d.tmpKeyMap.LoadAndDelete(key)
+	if !ok {
+		return fmt.Errorf("key %s not found", key)
+	}
+
+	// update tmp key
+	d.tmpKeyMap.Store(newKey, val)
+	traceLogger := val.(TraceLogger)
+	traceLogger.SetKey(newKey)
+	return nil
+}
+
+func (d *DefaultTraceLoggerManager) Key(key string) TraceLogger {
+	var traceLogger TraceLogger
+	// use load or store
+	val, _ := d.tmpKeyMap.LoadOrStore(key, d.NewTraceLogger())
+	traceLogger = val.(TraceLogger)
+	return traceLogger
 }

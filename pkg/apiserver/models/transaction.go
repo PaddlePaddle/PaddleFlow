@@ -22,7 +22,7 @@ import (
 
 type Transaction func(db *gorm.DB) error
 
-func withTransaction(tdb *gorm.DB, fn Transaction) (err error) {
+func WithTransaction(tdb *gorm.DB, fn Transaction) (err error) {
 	tx := tdb.Begin()
 	defer func() {
 		if p := recover(); p != nil {
