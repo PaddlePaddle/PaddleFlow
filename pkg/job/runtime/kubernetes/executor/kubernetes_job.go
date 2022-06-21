@@ -766,7 +766,7 @@ func generateVolumeMounts(fileSystems []schema.FileSystem) []corev1.VolumeMount 
 		return vms
 	}
 	for _, fs := range fileSystems {
-		log.Debug("generateVolumeMounts walking fileSystem %+v", fs)
+		log.Debugf("generateVolumeMounts walking fileSystem %+v", fs)
 		mountPath := filepath.Clean(fs.MountPath)
 		if mountPath == "" {
 			mountPath = filepath.Join(schema.DefaultFSMountPath, fs.ID)
