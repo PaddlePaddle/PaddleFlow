@@ -21,14 +21,18 @@ type ViewType string
 
 const (
 	// 如果有增加新的系统变量，记得需要同步更新 SysParamNameList
-	SysParamNamePFRunID    = "PF_RUN_ID"
-	SysParamNamePFFsID     = "PF_FS_ID"
-	SysParamNamePFJobID    = "PF_JOB_ID"
-	SysParamNamePFStepName = "PF_STEP_NAME"
-	SysParamNamePFFsName   = "PF_FS_NAME"
-	SysParamNamePFUserID   = "PF_USER_ID"
-	SysParamNamePFUserName = "PF_USER_NAME"
-	SysParamNamePFRuntime  = "PF_RUN_TIME"
+	SysParamNamePFRunID        = "PF_RUN_ID"
+	SysParamNamePFFsID         = "PF_FS_ID"
+	SysParamNamePFJobID        = "PF_JOB_ID"
+	SysParamNamePFStepName     = "PF_STEP_NAME"
+	SysParamNamePFFsName       = "PF_FS_NAME"
+	SysParamNamePFUserID       = "PF_USER_ID"
+	SysParamNamePFUserName     = "PF_USER_NAME"
+	SysParamNamePFLoopArgument = "PF_LOOP_ARGUMENT"
+
+	PF_PARENT = "PF_PARENT"
+
+	SysComponentsPrefix = "SysComponentsPrefix"
 
 	WfExtraInfoKeySource   = "Source" // pipelineID or yamlPath
 	WfExtraInfoKeyUserName = "UserName"
@@ -39,6 +43,7 @@ const (
 	ParamTypeFloat  = "float"
 	ParamTypePath   = "path"
 	ParamTypeInt    = "int"
+	ParamTypeList   = "list"
 
 	WfParallelismDefault = 10
 	WfParallelismMaximum = 20
@@ -48,6 +53,8 @@ const (
 	FieldEnv             = "env"
 	FieldInputArtifacts  = "inputArtifacts"
 	FieldOutputArtifacts = "outputArtifacts"
+	FieldCondition       = "condition"
+	FieldLoopArguemt     = "loop_argument"
 
 	CacheStrategyConservative = "conservative"
 	CacheStrategyAggressive   = "aggressive"
@@ -59,10 +66,15 @@ const (
 	ViewTypeEntrypoint  ViewType = "entrypoints"
 	ViewTypePostProcess ViewType = "postProcess"
 
-	RegExpUpstreamTpl          = `^\{\{(\s)*[a-zA-Z0-9-]+\.[a-zA-Z0-9_]+(\s)*\}\}$`   // {{xx-xx.xx_xx}}
-	RegExpIncludingUpstreamTpl = `\{\{(\s)*[a-zA-Z0-9-]+\.[a-zA-Z0-9_]+(\s)*\}\}`     // 包含 {{xx-xx.xx_xx}}
-	RegExpIncludingTpl         = `\{\{(\s)*([a-zA-Z0-9-]*\.?[a-zA-Z0-9_]+)?(\s)*\}\}` // 包含 {{xx-xx.xx_xx}} 或 {{xx_xx}}
+	RegExpUpstreamTpl          = `^\{\{(\s)*[a-zA-Z0-9-]+\.[a-zA-Z0-9_]+(\s)*\}\}$`      // {{xx-xx.xx_xx}}
+	RegExpIncludingUpstreamTpl = `\{\{(\s)*[a-zA-Z0-9-]+\.[a-zA-Z0-9_]+(\s)*\}\}`        // 包含 {{xx-xx.xx_xx}}
+	RegExpIncludingTpl         = `\{\{(\s)*([a-zA-Z0-9-]*[\.?[a-zA-Z0-9_]+]*)?(\s)*\}\}` // 包含 {{xx-xx（.xx_xx）（可重复多次）}}，如 {{xx-xx}}或{{xx-xx.xx_xx.xx_x}}
 
+	// condition 字段中引用的 artifact 支持最大空间， 单位为 byte
+	ConditionArtifactMaxSize = 1024 // 1KB
+
+	// loop_argument 字段中引用的 artifact 支持最大空间， 单位为 byte
+	LoopArgumentArtifactMaxSize = 1024 * 1024 // 1MB
 )
 
 var SysParamNameList []string = []string{
@@ -73,5 +85,5 @@ var SysParamNameList []string = []string{
 	SysParamNamePFFsName,
 	SysParamNamePFUserID,
 	SysParamNamePFUserName,
-	SysParamNamePFRuntime,
+	SysParamNamePFLoopArgument,
 }

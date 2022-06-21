@@ -32,7 +32,7 @@ import (
 // 测试运行 Workflow 成功
 func TestStartWithPostProcess(t *testing.T) {
 	yamlByte := loadcase(runYamlPath)
-	wfs, err := schema.ParseWorkflowSource(yamlByte)
+	wfs, err := schema.GetWorkflowSource(yamlByte)
 	assert.Nil(t, err)
 
 	// fmt.Printf("\n %+v \n", wfs)
@@ -74,7 +74,7 @@ func TestStartWithPostProcess(t *testing.T) {
 
 func TestStopWithPostProcess(t *testing.T) {
 	yamlByte := loadcase(runYamlPath)
-	wfs, err := schema.ParseWorkflowSource(yamlByte)
+	wfs, err := schema.GetWorkflowSource(yamlByte)
 	assert.Nil(t, err)
 
 	// fmt.Printf("\n %+v \n", wfs)
@@ -115,7 +115,7 @@ func TestStopWithPostProcess(t *testing.T) {
 func TestStopEntry(t *testing.T) {
 	fmt.Println("TestStopEntry Begin")
 	yamlByte := loadcase(runYamlPath)
-	wfs, err := schema.ParseWorkflowSource(yamlByte)
+	wfs, err := schema.GetWorkflowSource(yamlByte)
 	assert.Nil(t, err)
 
 	// fmt.Printf("\n %+v \n", wfs)
@@ -161,7 +161,7 @@ func TestStopEntry(t *testing.T) {
 
 func TestRestartEntry(t *testing.T) {
 	yamlByte := loadcase(runYamlPath)
-	wfs, err := schema.ParseWorkflowSource(yamlByte)
+	wfs, err := schema.GetWorkflowSource(yamlByte)
 	assert.Nil(t, err)
 
 	// fmt.Printf("\n %+v \n", wfs)
@@ -186,7 +186,7 @@ func TestRestartEntry(t *testing.T) {
 
 func TestRestartPost(t *testing.T) {
 	yamlByte := loadcase(runYamlPath)
-	wfs, err := schema.ParseWorkflowSource(yamlByte)
+	wfs, err := schema.GetWorkflowSource(yamlByte)
 	assert.Nil(t, err)
 
 	// fmt.Printf("\n %+v \n", wfs)
@@ -210,7 +210,7 @@ func TestRestartPost(t *testing.T) {
 // 测试 FailureOptions 为快速失败的情况
 func TestFailFast(t *testing.T) {
 	yamlByte := loadcase(runYamlPath)
-	wfs, err := schema.ParseWorkflowSource(yamlByte)
+	wfs, err := schema.GetWorkflowSource(yamlByte)
 	assert.Nil(t, err)
 
 	fmt.Printf("\n %+v \n", wfs)

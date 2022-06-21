@@ -34,7 +34,7 @@ type RunCache struct {
 	SecondFp    string         `json:"secondFp"             gorm:"type:varchar(256)"`
 	RunID       string         `json:"runID"                gorm:"type:varchar(60);not null"`
 	Source      string         `json:"source"               gorm:"type:varchar(256);not null"`
-	Step        string         `json:"step"                 gorm:"type:varchar(256);not null"`
+	JobID       string         `json:"jobID"                gorm:"type:varchar(256);not null"`
 	FsID        string         `json:"-"                    gorm:"type:varchar(60);not null"`
 	FsName      string         `json:"fsname"               gorm:"type:varchar(60);not null"`
 	UserName    string         `json:"username"             gorm:"type:varchar(60);not null"`
@@ -79,14 +79,14 @@ func CreateRunCache(logEntry *log.Entry, cache *RunCache) (string, error) {
 	return cache.ID, err
 }
 
-func ListRunCacheByFirstFp(logEntry *log.Entry, firstFp, fsID, step, source string) ([]RunCache, error) {
+func ListRunCacheByFirstFp(logEntry *log.Entry, firstFp, fsID, source string) ([]RunCache, error) {
 	var cacheList []RunCache
 	tx := database.DB.Model(&RunCache{}).Where(
-		"first_fp = ? and fs_id = ? and step = ? and source = ?",
-		firstFp, fsID, step, source).Order("created_at DESC").Find(&cacheList)
+		"first_fp = ? and fs_id = ? and source = ?",
+		firstFp, fsID, source).Order("created_at DESC").Find(&cacheList)
 	if tx.Error != nil {
-		logEntry.Errorf("ListRunCacheByFirstFp failed. firstFp[%s] fsID[%s] step[%s] source[%s]. error:%v",
-			firstFp, fsID, step, source, tx.Error)
+		logEntry.Errorf("ListRunCacheByFirstFp failed. firstFp[%s] fsID[%s] source[%s]. error:%v",
+			firstFp, fsID, source, tx.Error)
 		return nil, tx.Error
 	}
 	return cacheList, nil

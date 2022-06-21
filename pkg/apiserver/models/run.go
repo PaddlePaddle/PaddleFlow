@@ -30,7 +30,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
-	pplcommon "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 )
 
 type Run struct {
@@ -95,7 +94,7 @@ func (r *Run) Encode() error {
 
 func (r *Run) decode() error {
 	// decode WorkflowSource
-	workflowSource, err := schema.ParseWorkflowSource([]byte(r.RunYaml))
+	workflowSource, err := schema.GetWorkflowSource([]byte(r.RunYaml))
 	if err != nil {
 		return err
 	}
@@ -137,6 +136,7 @@ func (r *Run) validateFailureOptions() {
 
 // validate runtime and postProcess
 func (r *Run) validateRuntimeAndPostProcess() error {
+	logging := logger.LoggerForRun(r.ID)
 	if r.Runtime == nil {
 		r.Runtime = schema.RuntimeView{}
 	}
@@ -144,57 +144,84 @@ func (r *Run) validateRuntimeAndPostProcess() error {
 		r.PostProcess = schema.PostProcessView{}
 	}
 	// 从数据库中获取该Run的所有Step发起的Job
-	runJobs, err := GetRunJobsOfRun(logger.LoggerForRun(r.ID), r.ID)
+	runJobs, err := GetRunJobsOfRun(logging, r.ID)
 	if err != nil {
 		return err
 	}
-	// 将所有run_job转换成JobView之后，赋值给Runtime和PostProcess
-	for _, job := range runJobs {
-		if step, ok := r.WorkflowSource.PostProcess[job.StepName]; ok {
-			jobView := job.ParseJobView(step)
-			r.PostProcess[job.StepName] = jobView
-		} else if step, ok := r.WorkflowSource.EntryPoints[job.StepName]; ok {
-			jobView := job.ParseJobView(step)
-			r.Runtime[job.StepName] = jobView
-		} else {
-			entryPointNames := []string{}
-			for name := range r.Runtime {
-				entryPointNames = append(entryPointNames, name)
-			}
-			postProcessNames := []string{}
-			for name := range r.PostProcess {
-				postProcessNames = append(postProcessNames, name)
-			}
-			return fmt.Errorf("cannot find step[%s] in either entry_points[%v]\nor post_process[%v]",
-				job.StepName, entryPointNames, postProcessNames)
-		}
-	}
-	// 初始化env中的PF_RUN_TIME
-	if err := r.initAllPFRuntime(); err != nil {
+	runDags, err := GetRunDagsOfRun(logging, r.ID)
+	if err != nil {
 		return err
 	}
+
+	// 先将post节点从runJobs中剔除
+	// TODO: 后续版本，如果支持了复杂结构的PostProcess，那么建议在step和dag表中添加 type 字段，用于区分该节点属于EntryPoints还是PostProcess
+	runtimeJobs := []RunJob{}
+	for _, job := range runJobs {
+		step, ok := r.WorkflowSource.PostProcess[job.StepName]
+		if ok && job.ParentDagID == "" {
+			jobView := job.ParseJobView(step)
+			r.PostProcess[job.StepName] = jobView
+		} else {
+			runtimeJobs = append(runtimeJobs, job)
+		}
+	}
+
+	r.initRuntime(runtimeJobs, runDags)
+
 	return nil
 }
 
-func (r *Run) initAllPFRuntime() error {
-	pfRuntimeGen := pplcommon.NewPFRuntimeGenerator(r.Runtime, r.WorkflowSource)
-	for name, step := range r.Runtime {
-		pfRuntimeJson, err := pfRuntimeGen.GetPFRuntime(name)
-		if err != nil {
-			return err
-		}
-		step.Env[pplcommon.SysParamNamePFRuntime] = pfRuntimeJson
-		r.Runtime[name] = step
+func (r *Run) initRuntime(jobs []RunJob, dags []RunDag) {
+
+	// runtimeView
+	runtimeView := map[string][]schema.ComponentView{}
+
+	// 把dags由slice转为由ID为key，对应DagView为Value的map，方便后续操作
+	dagMap := map[string]*schema.DagView{}
+	comps := []schema.ComponentView{}
+	for _, dag := range dags {
+		dagView := dag.Trans2DagView()
+		dagMap[dag.ID] = &dagView
+		comps = append(comps, &dagView)
 	}
-	for name, step := range r.PostProcess {
-		pfRuntimeJson, err := pfRuntimeGen.GetPFRuntime(name)
-		if err != nil {
-			return err
-		}
-		step.Env[pplcommon.SysParamNamePFRuntime] = pfRuntimeJson
-		r.PostProcess[name] = step
+
+	for _, job := range jobs {
+		jobView := job.Trans2JobView()
+		comps = append(comps, &jobView)
 	}
-	return nil
+
+	// 处理jobs，根据parentID，在对应的dagView（若为空，则改为runtimeView）中，添加对应的JobView
+	// 处理dags，方法同上
+	for _, comp := range comps {
+		parentID := comp.GetParentDagID()
+		compName := comp.GetComponentName()
+		if parentID == "" {
+			runtimeView[compName] = append(runtimeView[compName], comp)
+		} else {
+			dagMap[parentID].EntryPoints[compName] = append(dagMap[parentID].EntryPoints[compName], comp)
+		}
+	}
+
+	// 此时已拿到RuntimeView树，但是信息不全，需要用wfs补全
+	ProcessRuntimeView(runtimeView, r.WorkflowSource.EntryPoints.EntryPoints)
+	r.Runtime = runtimeView
+}
+
+func ProcessRuntimeView(componentViews map[string][]schema.ComponentView, components map[string]schema.Component) {
+	for compName, comp := range components {
+		compViewList := componentViews[compName]
+		deps := strings.Join(comp.GetDeps(), ",")
+		for i, compView := range compViewList {
+			// 信息补全
+			compView.SetDeps(deps)
+			compViewList[i] = compView
+
+			if dagView, ok := compView.(*schema.DagView); ok {
+				dag := comp.(*schema.WorkflowSourceDag)
+				ProcessRuntimeView(dagView.EntryPoints, dag.EntryPoints)
+			}
+		}
+	}
 }
 
 func CreateRun(logEntry *log.Entry, run *Run) (string, error) {

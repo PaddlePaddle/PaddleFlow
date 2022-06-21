@@ -27,65 +27,56 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 )
 
 type RunJob struct {
-	Pk             int64             `gorm:"primaryKey;autoIncrement;not null" json:"-"`
-	ID             string            `gorm:"type:varchar(60);not null"         json:"jobID"`
-	RunID          string            `gorm:"type:varchar(60);not null"         json:"runID"`
-	Name           string            `gorm:"type:varchar(60);not null"         json:"name"`
-	StepName       string            `gorm:"type:varchar(60);not null"         json:"step_name"`
-	Command        string            `gorm:"type:text;size:65535;not null"     json:"command"`
-	Parameters     map[string]string `gorm:"-"                                 json:"parameters"`
-	ParametersJson string            `gorm:"type:text;size:65535;not null"     json:"-"`
-	Artifacts      schema.Artifacts  `gorm:"-"                                 json:"artifacts"`
-	ArtifactsJson  string            `gorm:"type:text;size:65535;not null"     json:"-"`
-	Env            map[string]string `gorm:"-"                                 json:"env"`
-	EnvJson        string            `gorm:"type:text;size:65535;not null"     json:"-"`
-	DockerEnv      string            `gorm:"type:varchar(128);not null"        json:"docker_env"`
-	Status         schema.JobStatus  `gorm:"type:varchar(32);not null"         json:"status"`
-	Message        string            `gorm:"type:text;size:65535;not null"     json:"message"`
-	Cache          schema.Cache      `gorm:"-"                                 json:"cache"`
-	CacheJson      string            `gorm:"type:text;size:65535;not null"     json:"-"`
-	CacheRunID     string            `gorm:"type:varchar(60);not null"         json:"cache_run_id"`
-	CreateTime     string            `gorm:"-"                                 json:"createTime"`
-	ActivateTime   string            `gorm:"-"                                 json:"activateTime"`
-	UpdateTime     string            `gorm:"-"                                 json:"updateTime,omitempty"`
-	CreatedAt      time.Time         `                                         json:"-"`
-	ActivatedAt    sql.NullTime      `                                         json:"-"`
-	UpdatedAt      time.Time         `                                         json:"-"`
-	DeletedAt      gorm.DeletedAt    `gorm:"index"                             json:"-"`
+	Pk             int64             `gorm:"primaryKey;autoIncrement;not null"  json:"-"`
+	ID             string            `gorm:"type:varchar(60);not null"          json:"jobID"`
+	RunID          string            `gorm:"type:varchar(60);not null"          json:"runID"`
+	ParentDagID    string            `gorm:"type:varchar(60);not null"          json:"parentDagID"`
+	Name           string            `gorm:"type:varchar(60);not null"          json:"name"`
+	StepName       string            `gorm:"type:varchar(60);not null"          json:"step_name"`
+	Command        string            `gorm:"type:text;size:65535;not null"      json:"command"`
+	Parameters     map[string]string `gorm:"-"                                  json:"parameters"`
+	ParametersJson string            `gorm:"type:text;size:65535;not null"      json:"-"`
+	Artifacts      schema.Artifacts  `gorm:"-"                                  json:"artifacts"`
+	ArtifactsJson  string            `gorm:"type:text;size:65535;not null"      json:"-"`
+	Env            map[string]string `gorm:"-"                                  json:"env"`
+	EnvJson        string            `gorm:"type:text;size:65535;not null"      json:"-"`
+	DockerEnv      string            `gorm:"type:varchar(128);not null"         json:"docker_env"`
+	Status         schema.JobStatus  `gorm:"type:varchar(32);not null"          json:"status"`
+	Message        string            `gorm:"type:text;size:65535;not null"      json:"message"`
+	Cache          schema.Cache      `gorm:"-"                                  json:"cache"`
+	CacheJson      string            `gorm:"type:text;size:65535;not null"      json:"-"`
+	CacheRunID     string            `gorm:"type:varchar(60);not null"          json:"cache_run_id"`
+	CreateTime     string            `gorm:"-"                                  json:"createTime"`
+	ActivateTime   string            `gorm:"-"                                  json:"activateTime"`
+	UpdateTime     string            `gorm:"-"                                  json:"updateTime,omitempty"`
+	CreatedAt      time.Time         `                                          json:"-"`
+	ActivatedAt    sql.NullTime      `                                          json:"-"`
+	UpdatedAt      time.Time         `                                          json:"-"`
+	DeletedAt      gorm.DeletedAt    `gorm:"index"                              json:"-"`
 }
 
-func CreateRunJobs(logEntry *log.Entry, jobs map[string]schema.JobView, runID string) error {
-	logEntry.Debugf("begin create run_jobs by jobMap: %v", jobs)
-	err := WithTransaction(database.DB, func(tx *gorm.DB) error {
-		for name, job := range jobs {
-			runJob := RunJob{
-				ID:       job.JobID,
-				RunID:    runID,
-				Name:     job.JobName,
-				StepName: name,
-			}
-			result := tx.Model(&RunJob{}).Create(&runJob)
-			if result.Error != nil {
-				logEntry.Errorf("create run_job failed. run_job: %v, error: %s",
-					runJob, result.Error.Error())
-				return result.Error
-			}
+func CreateRunJob(logEntry *log.Entry, runJob *RunJob) (int64, error) {
+	logEntry.Debugf("begin create run_job, model: %v", runJob)
+	err := withTransaction(database.DB, func(tx *gorm.DB) error {
+		result := tx.Model(&RunJob{}).Create(&runJob)
+		if result.Error != nil {
+			logEntry.Errorf("create run_job failed. run_job: %v, error: %s",
+				runJob, result.Error.Error())
+			return result.Error
 		}
 		return nil
 	})
-	return err
+	return runJob.Pk, err
 }
 
-func UpdateRunJob(logEntry *log.Entry, runID string, stepName string, runJob RunJob) error {
-	logEntry.Debugf("begin update run_job. run_job run_id: %s, step_name: %s", runID, stepName)
-	tx := database.DB.Model(&RunJob{}).Where("run_id = ?", runID).Where("step_name = ?", stepName).Updates(runJob)
+func UpdateRunJob(logEntry *log.Entry, pk int64, runJob RunJob) error {
+	logEntry.Debugf("begin update run_job. run_job pk = %d", pk)
+	tx := database.DB.Model(&RunJob{}).Where("pk = ?", pk).Updates(runJob)
 	if tx.Error != nil {
-		logEntry.Errorf("update run_job failed. run_id: [%s], step_name: [%s], error: %s",
-			runID, stepName, tx.Error.Error())
+		logEntry.Errorf("update run_job failed, error: %s", tx.Error.Error())
 		return tx.Error
 	}
 	return nil
@@ -103,10 +94,25 @@ func GetRunJobsOfRun(logEntry *log.Entry, runID string) ([]RunJob, error) {
 	for i := range runJobs {
 		if err := runJobs[i].decode(); err != nil {
 			logEntry.Errorf("decode run_jobs failed. error: %v", err)
-			return nil, err
+			return []RunJob{}, err
 		}
 	}
 	return runJobs, nil
+}
+
+func GetRunJob(logEntry *log.Entry, jobID string) (RunJob, error) {
+	logEntry.Debugf("begin to get run_job with jobID[%s].", jobID)
+	var runJob RunJob
+	tx := database.DB.Model(&RunJob{}).Where("id = ?", jobID).Find(&runJob)
+	if tx.Error != nil {
+		logEntry.Errorf("get run_job with jobID[%s] failed. error:%s", jobID, tx.Error.Error())
+		return RunJob{}, tx.Error
+	}
+	if err := runJob.decode(); err != nil {
+		logEntry.Errorf("decode run_job failed. error: %v", err)
+		return RunJob{}, err
+	}
+	return runJob, nil
 }
 
 func (rj *RunJob) Encode() error {
@@ -194,7 +200,9 @@ func (rj *RunJob) decode() error {
 	return nil
 }
 
-func (rj *RunJob) ParseJobView(step *schema.WorkflowSourceStep) schema.JobView {
+func (rj *RunJob) Trans2JobView() schema.JobView {
+	// 该函数通过数据库中run_job记录的信息，生成JobView，该JobView的信息是不全的：少了deps
+	// 差别可参考ParseJobView函数
 	// 对map进行深拷贝
 	newParameters := map[string]string{}
 	for k, v := range rj.Parameters {
@@ -217,13 +225,18 @@ func (rj *RunJob) ParseJobView(step *schema.WorkflowSourceStep) schema.JobView {
 		StartTime:  rj.ActivateTime,
 		EndTime:    newEndTime,
 		Status:     rj.Status,
-		Deps:       step.Deps,
 		DockerEnv:  rj.DockerEnv,
 		Artifacts:  rj.Artifacts,
 		Cache:      rj.Cache,
 		JobMessage: rj.Message,
 		CacheRunID: rj.CacheRunID,
 	}
+}
+
+func (rj *RunJob) ParseJobView(step *schema.WorkflowSourceStep) schema.JobView {
+	resRj := rj.Trans2JobView()
+	resRj.Deps = step.Deps
+	return resRj
 }
 
 func ParseRunJob(jobView *schema.JobView) RunJob {
@@ -234,16 +247,13 @@ func ParseRunJob(jobView *schema.JobView) RunJob {
 
 	newEnv := map[string]string{}
 	for k, v := range jobView.Env {
-		// PF_RUN_TIME 不存数据库，读取Job时动态解析生成
-		if k == common.SysParamNamePFRuntime {
-			continue
-		}
 		newEnv[k] = v
 	}
 
 	return RunJob{
 		ID:           jobView.JobID,
 		Name:         jobView.JobName,
+		ParentDagID:  jobView.ParentDagID,
 		Command:      jobView.Command,
 		Parameters:   newParameters,
 		Artifacts:    jobView.Artifacts,

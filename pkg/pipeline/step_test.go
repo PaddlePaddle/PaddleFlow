@@ -1,11 +1,9 @@
 package pipeline
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"reflect"
-	"strings"
 	"testing"
 	"time"
 
@@ -31,7 +29,7 @@ var runID string = "stepTestRunID"
 // 测试updateJob接口（用于计算fingerprint）
 func TestUpdateJobForFingerPrint(t *testing.T) {
 	testCase := loadcase(runYamlPath)
-	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
+	wfs, err := schema.GetWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
 	extra := GetExtra()
@@ -124,7 +122,7 @@ func TestUpdateJobForFingerPrint(t *testing.T) {
 // // 测试updateJob接口（cache命中失败后，替换用于节点运行）
 func TestUpdateJob(t *testing.T) {
 	testCase := loadcase(runYamlPath)
-	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
+	wfs, err := schema.GetWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
 	extra := GetExtra()
@@ -223,7 +221,7 @@ func TestUpdateJob(t *testing.T) {
 // 测试updateJob接口（根据cache命中后的artifact路径）
 func TestUpdateJobWithCache(t *testing.T) {
 	testCase := loadcase(runYamlPath)
-	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
+	wfs, err := schema.GetWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
 	extra := GetExtra()
@@ -329,7 +327,7 @@ func TestUpdateJobWithCache(t *testing.T) {
 // 测试checkCached接口（用于计算fingerprint）
 func TestCheckCached(t *testing.T) {
 	testCase := loadcase(runYamlPath)
-	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
+	wfs, err := schema.GetWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
 	mockCbs.GetJobCb = func(runID string, stepName string) (schema.JobView, error) {
@@ -452,100 +450,4 @@ func TestCheckCached(t *testing.T) {
 	cacheFound, err = st.checkCached()
 	assert.Nil(t, err)
 	assert.Equal(t, true, cacheFound)
-}
-
-func TestPFRUNTIME(t *testing.T) {
-	yamlByte := loadcase(runYamlPath)
-	wfs, err := schema.ParseWorkflowSource(yamlByte)
-	assert.Nil(t, err)
-
-	extra := GetExtra()
-	wf, err := NewWorkflow(wfs, "stepTestRunID", "", nil, extra, mockCbs)
-	if err != nil {
-		t.Errorf("new workflow failed: %s", err.Error())
-	}
-
-	wf.runtime.runtimeView = schema.RuntimeView{
-		"data-preprocess": schema.JobView{
-			JobID: "123",
-			Env: map[string]string{
-				"PF_RUN_ID": "00001",
-				"name1":     "name1",
-			},
-		},
-		"main": schema.JobView{
-			JobID: "3456",
-		},
-		"validate": schema.JobView{
-			JobID: "9087",
-		},
-	}
-
-	// entryPoints
-	st := wf.runtime.entryPoints["data-preprocess"]
-	st.nodeType = common.NodeTypeEntrypoint
-	st.updateJob(false, nil)
-
-	runtimeString := st.job.(*PaddleFlowJob).Env["PF_RUN_TIME"]
-	fmt.Println("runtimeString", runtimeString)
-	assert.Equal(t, "{}", st.job.Job().Env["PF_RUN_TIME"])
-
-	st = wf.runtime.entryPoints["main"]
-	st.nodeType = common.NodeTypeEntrypoint
-	st.updateJob(false, nil)
-	runtime := schema.RuntimeView{}
-	err = json.Unmarshal([]byte(st.job.Job().Env["PF_RUN_TIME"]), &runtime)
-	if err != nil {
-		t.Errorf("unmarshal runtime failed: %s", err.Error())
-	}
-	assert.Equal(t, 1, len(runtime))
-	assert.Equal(t, runtime["data-preprocess"].Env["name1"], "name1")
-
-	_, ok := runtime["data-preprocess"].Env["PF_RUN_ID"]
-	fmt.Println("PF_RUN_ID_test", runtime["data-preprocess"].Env["PF_RUN_ID"])
-	assert.Equal(t, ok, false)
-
-	st = wf.runtime.entryPoints["validate"]
-	st.nodeType = common.NodeTypeEntrypoint
-	st.updateJob(false, nil)
-	runtime = schema.RuntimeView{}
-	err = json.Unmarshal([]byte(st.job.Job().Env["PF_RUN_TIME"]), &runtime)
-	if err != nil {
-		t.Errorf("unmarshal runtime failed: %s", err.Error())
-	}
-	assert.Equal(t, 2, len(runtime))
-
-	_, ok = runtime["data-preprocess"]
-	assert.Equal(t, ok, true)
-
-	_, ok = runtime["main"]
-	assert.Equal(t, ok, true)
-
-	// postProcess
-	assert.Equal(t, 1, len(wf.Source.PostProcess))
-	for name, st := range wf.runtime.postProcess {
-		st.nodeType = common.NodeTypePostProcess
-
-		assert.Equal(t, name, "mail")
-
-		st.updateJob(false, nil)
-		assert.Equal(t, true, strings.Contains(st.job.Job().Command, "hahaha"))
-
-		runtime := schema.RuntimeView{}
-		err := json.Unmarshal([]byte(st.job.Job().Env["PF_RUN_TIME"]), &runtime)
-		if err != nil {
-			t.Errorf("unmarshal runtime failed: %s", err.Error())
-		}
-		assert.Equal(t, 3, len(runtime))
-
-		_, ok = runtime["data-preprocess"]
-		assert.Equal(t, ok, true)
-
-		_, ok = runtime["main"]
-		assert.Equal(t, ok, true)
-
-		_, ok = runtime["validate"]
-		assert.Equal(t, ok, true)
-	}
-
 }

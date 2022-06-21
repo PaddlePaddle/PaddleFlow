@@ -61,10 +61,8 @@ type CreateRunByJsonRequest struct {
 	Description    string                `json:"desc,omitempty"`     // optional
 	Disabled       string                `json:"disabled,omitempty"` // optional
 	Name           string                `json:"name"`
-	DockerEnv      string                `json:"dockerEnv,omitempty"`   // optional
-	Parallelism    int                   `json:"parallelism,omitempty"` // optional
-	EntryPoints    map[string]*RunStep   `json:"entryPoints"`
-	PostProcess    map[string]*RunStep   `json:"postProcess,omitempty"`    // optional
+	DockerEnv      string                `json:"dockerEnv,omitempty"`      // optional
+	Parallelism    int                   `json:"parallelism,omitempty"`    // optional
 	Cache          schema.Cache          `json:"cache,omitempty"`          // optional
 	Queue          string                `json:"queue,omitempty"`          // optional
 	Flavour        string                `json:"flavour,omitempty"`        // optional
@@ -146,8 +144,8 @@ func buildWorkflowSource(userName string, req CreateRunRequest, fsID string) (sc
 			return schema.WorkflowSource{}, "", "", err
 		}
 		runYaml = string(sDec)
-		wfs := schema.WorkflowSource{}
-		if err := yaml.Unmarshal([]byte(runYaml), &wfs); err != nil {
+		wfs, err := schema.GetWorkflowSource([]byte(runYaml))
+		if err != nil {
 			logger.Logger().Errorf("Unmarshal runYaml to get source failed. yaml: %s \n, err:%v", runYaml, err)
 			return schema.WorkflowSource{}, "", "", err
 		}
@@ -198,22 +196,113 @@ func buildWorkflowSource(userName string, req CreateRunRequest, fsID string) (sc
 }
 
 // Used for API CreateRunJson, get wfs by json request.
-func getWorkFlowSourceByReq(request *CreateRunByJsonRequest, bodyMap map[string]interface{}) (schema.WorkflowSource, error) {
-	if len(request.EntryPoints) == 0 {
-		err := fmt.Errorf("missing entryPoints")
-		logger.Logger().Errorf(err.Error())
-		return schema.WorkflowSource{}, err
-	}
+func getWorkFlowSourceByJson(request *CreateRunByJsonRequest, bodyMap map[string]interface{}) (schema.WorkflowSource, error) {
 	if request.Env == nil {
 		request.Env = map[string]string{}
 	}
 
-	request.Env[schema.EnvJobType] = request.JobType
-	request.Env[schema.EnvJobQueueName] = request.Queue
-	request.Env[schema.EnvJobFlavour] = request.Flavour
+	// 将全局的JobType、Queue、Flavour写入全局环境变量中
+	if _, ok := request.Env[schema.EnvJobType]; !ok {
+		request.Env[schema.EnvJobType] = request.JobType
+	}
+	if _, ok := request.Env[schema.EnvJobQueueName]; !ok {
+		request.Env[schema.EnvJobQueueName] = request.Queue
+	}
+	if _, ok := request.Env[schema.EnvJobFlavour]; !ok {
+		request.Env[schema.EnvJobFlavour] = request.Flavour
+	}
 
-	entryPoints := parseRunSteps(request.EntryPoints, request)
-	postProcess := parseRunSteps(request.PostProcess, request)
+	parser := schema.Parser{}
+
+	// 处理components，非必须
+	components, ok, err := unstructured.NestedFieldCopy(bodyMap, "components")
+	if err != nil {
+		logger.Logger().Errorf(err.Error())
+		return schema.WorkflowSource{}, err
+	}
+	resComponents := map[string]schema.Component{}
+	if ok {
+		componentMap, ok := components.(map[string]interface{})
+		if !ok {
+			err := fmt.Errorf("components should be map type")
+			logger.Logger().Errorf(err.Error())
+			return schema.WorkflowSource{}, err
+		}
+		var err error
+		// 将interface转为具体的Dag或Step
+		resComponents, err = parser.ParseNodes(componentMap)
+		if err != nil {
+			logger.Logger().Errorf(err.Error())
+			return schema.WorkflowSource{}, err
+		}
+		// 进行DockerEnv、Cache等参数的全局替换
+		if err := processRunJsonComponents(resComponents, request, bodyMap, componentMap); err != nil {
+			logger.Logger().Errorf(err.Error())
+			return schema.WorkflowSource{}, err
+		}
+	}
+
+	//处理EntryPoints，流程同上
+	entryComponents, ok, err := unstructured.NestedFieldCopy(bodyMap, "entryPoints")
+	if err != nil {
+		logger.Logger().Errorf(err.Error())
+		return schema.WorkflowSource{}, err
+	}
+	if !ok {
+		err := fmt.Errorf("missing entryPoints in request")
+		logger.Logger().Errorf(err.Error())
+		return schema.WorkflowSource{}, err
+	}
+	entryComponentsMap, ok := entryComponents.(map[string]interface{})
+	if !ok {
+		err := fmt.Errorf("entryPoints should be map type")
+		logger.Logger().Errorf(err.Error())
+		return schema.WorkflowSource{}, err
+	}
+	parsedEntryPoints, err := parser.ParseNodes(entryComponentsMap)
+	if err != nil {
+		logger.Logger().Errorf(err.Error())
+		return schema.WorkflowSource{}, err
+	}
+
+	if err := processRunJsonComponents(parsedEntryPoints, request, bodyMap, entryComponentsMap); err != nil {
+		logger.Logger().Errorf(err.Error())
+		return schema.WorkflowSource{}, err
+	}
+	entryPoints := schema.WorkflowSourceDag{
+		EntryPoints: parsedEntryPoints,
+	}
+
+	// 处理postProcess，非必须，流程同上
+	postComponents, ok, err := unstructured.NestedFieldCopy(bodyMap, "postProcess")
+	if err != nil {
+		logger.Logger().Errorf(err.Error())
+		return schema.WorkflowSource{}, err
+	}
+	postProcess := map[string]*schema.WorkflowSourceStep{}
+	if ok {
+		postComponentsMap, ok := postComponents.(map[string]interface{})
+		if !ok {
+			err := fmt.Errorf("postProcess should be map type")
+			logger.Logger().Errorf(err.Error())
+			return schema.WorkflowSource{}, err
+		}
+		parsedComponents, err := parser.ParseNodes(postComponentsMap)
+		if err != nil {
+			logger.Logger().Errorf(err.Error())
+			return schema.WorkflowSource{}, err
+		}
+		if err := processRunJsonComponents(parsedComponents, request, bodyMap, postComponentsMap); err != nil {
+			logger.Logger().Errorf(err.Error())
+			return schema.WorkflowSource{}, err
+		}
+		for k, v := range parsedComponents {
+			postProcess[k] = v.(*schema.WorkflowSourceStep)
+			// 由于上面processRunJsonComponents将PostProcess中的Cache进行了全局替换，这里将其还原为空值
+			postProcess[k].Cache = schema.Cache{}
+		}
+	}
+
 	failureOptions := schema.FailureOptions{Strategy: schema.FailureStrategyFailFast}
 	if request.FailureOptions.Strategy != "" {
 		failureOptions.Strategy = request.FailureOptions.Strategy
@@ -225,58 +314,91 @@ func getWorkFlowSourceByReq(request *CreateRunByJsonRequest, bodyMap map[string]
 		Parallelism:    request.Parallelism,
 		EntryPoints:    entryPoints,
 		PostProcess:    postProcess,
+		Components:     resComponents,
 		Disabled:       request.Disabled,
 		FailureOptions: failureOptions,
 	}
-	if err := transCacheJson2Yaml(bodyMap); err != nil {
-		return schema.WorkflowSource{}, err
-	}
-	wfs.ValidateStepCacheByMap(bodyMap)
 	return wfs, nil
 }
 
-func transCacheJson2Yaml(bodyMap map[string]interface{}) error {
-	entryPoints, ok, err := unstructured.NestedFieldCopy(bodyMap, "entryPoints")
-	if err != nil {
-		return err
-	}
-	if !ok {
-		err := fmt.Errorf("no entryPoints in body of request")
-		return err
-	}
-	entryPointsMap := entryPoints.(map[string]interface{})
-	for name, point := range entryPointsMap {
-		pointMap := point.(map[string]interface{})
-		// 检查用户是否有设置节点级别的Cache
-		cache, ok, err := unstructured.NestedFieldCopy(pointMap, "cache")
-		if err != nil {
+func transCacheMap(cacheMap map[string]interface{}) error {
+	// Enable字段的Json和Yaml形式一样，无需赋值
+	// MaxExpiredTime赋值
+	if value, ok := cacheMap["maxExpiredTime"]; ok {
+		if err := unstructured.SetNestedField(cacheMap, value, schema.CacheAttributeMaxExpiredTime); err != nil {
 			return err
 		}
-		if ok {
-			cacheMap := cache.(map[string]interface{})
-			// Enable字段的Json和Yaml形式一样，无需赋值
-			// MaxExpiredTime赋值
-			if value, ok := cacheMap["maxExpiredTime"]; ok {
-				if err := unstructured.SetNestedField(cacheMap, value, schema.CacheAttributeMaxExpiredTime); err != nil {
-					return err
-				}
+		delete(cacheMap, "maxExpiredTime")
+	}
+	// FsScope赋值
+	if value, ok := cacheMap["fsScope"]; ok {
+		if err := unstructured.SetNestedField(cacheMap, value, schema.CacheAttributeFsScope); err != nil {
+			return err
+		}
+		delete(cacheMap, "maxExpiredTime")
+	}
+	return nil
+}
+
+// 该函数主要完成CreateRunJson接口中，各类变量的全局替换操作
+func processRunJsonComponents(components map[string]schema.Component, request *CreateRunByJsonRequest,
+	bodyMap map[string]interface{}, componentsMap map[string]interface{}) error {
+	for name, component := range components {
+		if dag, ok := component.(*schema.WorkflowSourceDag); ok {
+			subComponent, ok, err := unstructured.NestedFieldCopy(componentsMap, name, "entryPoints")
+			if err != nil || !ok {
+				return fmt.Errorf("get subComponent [%s] failed, err: %s", name, err.Error())
 			}
-			// FsScope赋值
-			if value, ok := cacheMap["fsScope"]; ok {
-				if err := unstructured.SetNestedField(cacheMap, value, schema.CacheAttributeFsScope); err != nil {
-					return err
-				}
+			subComponentMap, ok := subComponent.(map[string]interface{})
+			if !ok {
+				return fmt.Errorf("get subComponentMap [%s] failed, component cannot trans to map", name)
 			}
-			if err := unstructured.SetNestedField(pointMap, cacheMap, "cache"); err != nil {
+			if err := processRunJsonComponents(dag.EntryPoints, request, bodyMap, subComponentMap); err != nil {
 				return err
 			}
-			if err := unstructured.SetNestedField(entryPointsMap, pointMap, name); err != nil {
-				return err
+		} else if step, ok := component.(*schema.WorkflowSourceStep); ok {
+			if step.Env == nil {
+				step.Env = map[string]string{}
+			}
+			if step.Parameters == nil {
+				step.Parameters = map[string]interface{}{}
+			}
+			// Reference节点无需替换
+			if step.Reference == "" {
+				// 对于每一个全局环境变量，检查节点是否有设置对应环境变量，如果没有则使用全局的
+				for globalKey, globalValue := range request.Env {
+					value, ok := step.Env[globalKey]
+					if !ok || value == "" {
+						step.Env[globalKey] = globalValue
+					}
+				}
+				// DockerEnv字段替换检查
+				if step.DockerEnv == "" {
+					step.DockerEnv = request.DockerEnv
+				}
+
+				// 检查是否需要全局Cache替换（节点Cache字段优先级大于全局Cache字段）
+				componentCache, ok, err := unstructured.NestedFieldCopy(componentsMap, name, "cache")
+				if err != nil || !ok {
+					return fmt.Errorf("get componentCache failed")
+				}
+				componentCacheMap, ok := componentCache.(map[string]interface{})
+				if !ok {
+					return fmt.Errorf("get componentCacheMap failed")
+				}
+				globalCache, ok, err := unstructured.NestedFieldCopy(bodyMap, "cache")
+				if err != nil || !ok {
+					return fmt.Errorf("get globalCache failed")
+				}
+				globalCacheMap, ok := globalCache.(map[string]interface{})
+				if !ok {
+					return fmt.Errorf("get globalCacheMap failed")
+				}
+				if err := schema.ProcessStepCacheByMap(&step.Cache, globalCacheMap, componentCacheMap); err != nil {
+					return err
+				}
 			}
 		}
-	}
-	if err := unstructured.SetNestedField(bodyMap, entryPointsMap, schema.EntryPointsStr); err != nil {
-		return err
 	}
 	return nil
 }
@@ -349,7 +471,7 @@ func getSourceAndYaml(wfs schema.WorkflowSource) (string, string, error) {
 
 func runYamlAndReqToWfs(runYaml string, req interface{}) (schema.WorkflowSource, error) {
 	// parse yaml -> WorkflowSource
-	wfs, err := schema.ParseWorkflowSource([]byte(runYaml))
+	wfs, err := schema.GetWorkflowSource([]byte(runYaml))
 	if err != nil {
 		logger.Logger().Errorf("get WorkflowSource by yaml failed. yaml: %s \n, err:%v", runYaml, err)
 		return schema.WorkflowSource{}, err
@@ -444,7 +566,7 @@ func CreateRunByJson(userName string, request *CreateRunByJsonRequest, bodyMap m
 		}
 	}
 
-	wfs, err := getWorkFlowSourceByReq(request, bodyMap)
+	wfs, err := getWorkFlowSourceByJson(request, bodyMap)
 	if err != nil {
 		logger.Logger().Errorf("get WorkFlowSource by request failed. error:%v", err)
 		return CreateRunResponse{}, err
@@ -794,7 +916,7 @@ func resumeRun(run models.Run) error {
 		return err
 	}
 
-	wfs, err := schema.ParseWorkflowSource([]byte(run.RunYaml))
+	wfs, err := schema.GetWorkflowSource([]byte(run.RunYaml))
 	if err != nil {
 		logger.LoggerForRun(run.ID).Errorf("get WorkflowSource by yaml failed. yaml: %s \n, err:%v", run.RunYaml, err)
 		return err
