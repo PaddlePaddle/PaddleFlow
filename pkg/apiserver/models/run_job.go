@@ -60,7 +60,7 @@ type RunJob struct {
 
 func CreateRunJobs(logEntry *log.Entry, jobs map[string]schema.JobView, runID string) error {
 	logEntry.Debugf("begin create run_jobs by jobMap: %v", jobs)
-	err := withTransaction(database.DB, func(tx *gorm.DB) error {
+	err := WithTransaction(database.DB, func(tx *gorm.DB) error {
 		for name, job := range jobs {
 			runJob := RunJob{
 				ID:       job.JobID,

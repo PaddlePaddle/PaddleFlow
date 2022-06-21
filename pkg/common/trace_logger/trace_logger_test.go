@@ -26,6 +26,7 @@ package trace_logger
 
 import (
 	file_logger "github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
 	testing "testing"
 	"time"
 )
@@ -34,7 +35,7 @@ func TestInitTraceLogger(t *testing.T) {
 	// init logger
 	var err error
 	conf := file_logger.LogConfig{
-		Dir:             "../../../tmp",
+		Dir:             "/Users/alex/BAIDU/PaddleFlow/tmp",
 		FilePrefix:      "trace_log",
 		Level:           "debug",
 		MaxKeepDays:     2,
@@ -49,55 +50,106 @@ func TestInitTraceLogger(t *testing.T) {
 	}
 
 	manager := NewDefaultTraceLoggerManager()
+
+	t.Log("start auto delete, timeout 5s")
 	err = manager.AutoDelete(5*time.Second, 2*time.Second)
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	defer manager.CancelAutoDelete() //nolint:errcheck
-	err = testFunc(manager, "key1")
+	defer manager.CancelAutoDelete()
+	// lint:errcheck
+
+	key1 := uuid.GenerateIDWithLength("key", 4)
+	t.Logf("log key %s", key1)
+	err = testFunc(manager, key1)
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
-	t.Logf("cache: %+v\n", manager.cache)
+	t.Logf("cache: %s\n", manager)
 
-	err = testFunc(manager, "key2")
+	key2 := uuid.GenerateIDWithLength("key", 4)
+	t.Logf("log key %s", key2)
+	err = testFunc(manager, key2)
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
-	t.Logf("cache: %+v\n", manager.cache)
+	t.Logf("cache: %s\n", manager)
+
+	t.Logf("sync all")
+	err = manager.SyncAll()
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	t.Logf("wait for 6s")
 	<-time.After(6 * time.Second)
-	t.Logf("cache: %+v\n", manager.cache)
+	t.Logf("cache: %s\n", manager)
+
+	t.Logf("sync all")
+	err = manager.SyncAll()
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	// test clear
+	t.Logf("clear all")
+	_ = manager.ClearAll()
+	t.Logf("cache: %s\n", manager)
+
+	// load from disk
+	t.Logf("load all")
+	err = manager.LoadAll(conf.Dir)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	t.Logf("cache: %s\n", manager)
+
+	/*
+		logger.key("key1").logf("test1")
+
+		logger.update("key1", "key2")
+
+
+		logger.key("key1").logf("test1")
+		logger.logf("key1", "test1")
+
+		logger.key("key2").logf("test1")
+		logger.key("key2").logf("test1")
+		logger.key("key2").logf("test1")
+		logger.commit("key1")
+	*/
+
 	return
 }
 
-func testFunc(manager TraceLoggerManager, key string) error {
-	traceLogger := manager.NewTraceLogger()
-	defer traceLogger.RollbackTrace() //nolint:errcheck
-
-	traceLogger.Infof("test1")
-	traceLogger.Errorf("test2")
-	traceLogger.SetKey(key)
-	traceLogger.Panicf("test3")
+func testFunc(log TraceLoggerManager, key string) error {
+	tmpKey := uuid.GenerateIDWithLength("tmp", 4)
+	log.Key(tmpKey).Infof("test1")
+	log.Key(tmpKey).Errorf("test2")
+	log.UpdateKey(tmpKey, key)
+	log.Key(key).Warnf("test3")
 	<-time.After(1 * time.Second)
-	traceLogger.Infof("test4")
-	traceLogger.Infof("test5")
-
-	err := traceLogger.CommitTrace()
-	if err != nil {
-		return err
-	}
+	log.Key(key).Infof("test4")
+	log.Key(key).Infof("test5")
 	return nil
 }
 
-func sPrintTrace(trace Trace) string {
-	str := ""
-	for _, x := range trace.logs {
-		str += x.String() + "\n"
-	}
-	return str
+func testFunc(log TraceLoggerManager, key string) error {
+	tmpKey := uuid.GenerateIDWithLength("tmp", 4)
+	log.Key(tmpKey).Infof("test1")
+	log.Key(tmpKey).Errorf("test2")
+	log.UpdateKey(tmpKey, key)
+	log.Key(key).Warnf("test3")
+	<-time.After(1 * time.Second)
+	log.Key(key).Infof("test4")
+	log.Key(key).Infof("test5")
+	return nil
 }
