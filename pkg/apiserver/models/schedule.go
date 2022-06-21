@@ -377,7 +377,7 @@ func getEarlierTime(time1, time2 time.Time) time.Time {
 // 先处理同时满足currentTime之前，而且schedule.EndAt之前的任务
 // 只需要处理 catchup == true 的case
 // - 如果catchup == false，即不需要catchup，则currentTime和schedule.EndAt前，所有miss的周期任务都被抛弃，不再发起
-func findExectableRunBeforeCurrentTime(schedule Schedule, currentTime time.Time, checkCatchup bool, totalCount int, execMap map[string][]time.Time) (time.Time, error) {
+func findExectableRunBeforeCurrentTime(logEntry *log.Entry, schedule Schedule, currentTime time.Time, checkCatchup bool, totalCount int, execMap map[string][]time.Time) (time.Time, error) {
 	options, err := DecodeScheduleOptions(schedule.Options)
 	if err != nil {
 		errMsg := fmt.Sprintf("decode options of schedule[%s] failed. error: %v", schedule.ID, err)
@@ -396,19 +396,19 @@ func findExectableRunBeforeCurrentTime(schedule Schedule, currentTime time.Time,
 		catchup = false
 	}
 
-	log.Infof("findExectableRunBeforeCurrentTime with catchup[%t], init totalCount[%d], schedule[%v]", catchup, totalCount, schedule)
+	logEntry.Infof("findExectableRunBeforeCurrentTime with catchup[%t], init totalCount[%d], schedule[%v]", catchup, totalCount, schedule)
 
 	nextRunAt := schedule.NextRunAt
 	expire_interval_durtion := time.Duration(options.ExpireInterval) * time.Second
 	for ; checkNextRunAt(nextRunAt, currentTime, schedule.EndAt); nextRunAt = cronSchedule.Next(nextRunAt) {
-		log.Infof("start to check schedule[%s] at %s, with schedule.EndAt[%s]", schedule.ID, nextRunAt.Format("2006-01-02 15:04:05"), schedule.EndAt.Time.Format("2006-01-02 15:04:05"))
+		logEntry.Infof("start to check schedule[%s] at %s, with schedule.EndAt[%s]", schedule.ID, nextRunAt.Format("2006-01-02 15:04:05"), schedule.EndAt.Time.Format("2006-01-02 15:04:05"))
 
 		if catchup == false {
 			continue
 		}
 
 		if options.ExpireInterval != 0 && nextRunAt.Add(expire_interval_durtion).Before(currentTime) {
-			log.Infof("skip nextRunAt[%s] of schedule[%s], beyond expire interval[%d] from currentTime[%s]",
+			logEntry.Infof("skip nextRunAt[%s] of schedule[%s], beyond expire interval[%d] from currentTime[%s]",
 				nextRunAt.Format("2006-01-02 15:04:05"), schedule.ID, options.ExpireInterval, currentTime.Format("2006-01-02 15:04:05"))
 			continue
 		}
@@ -420,7 +420,7 @@ func findExectableRunBeforeCurrentTime(schedule Schedule, currentTime time.Time,
 			if options.ConcurrencyPolicy == ConcurrencyPolicySuspend {
 				// 直接跳出循环，不会继续更新nextRunAt
 				errMsg := fmt.Sprintf("concurrency of schedule with ID[%s] already reach[%d], so suspend", schedule.ID, options.Concurrency)
-				log.Info(errMsg)
+				logEntry.Info(errMsg)
 				break
 			} else if options.ConcurrencyPolicy == ConcurrencyPolicyReplace {
 				// 停止该schedule最早的run，并发起新的run，更新next_run_at
@@ -429,7 +429,7 @@ func findExectableRunBeforeCurrentTime(schedule Schedule, currentTime time.Time,
 			} else if options.ConcurrencyPolicy == ConcurrencyPolicySkip {
 				// 不跳出循环，会继续更新nextRunAt
 				errMsg := fmt.Sprintf("concurrency of schedule with ID[%s] already reach[%d], so skip", schedule.ID, options.Concurrency)
-				log.Info(errMsg)
+				logEntry.Info(errMsg)
 			}
 		}
 	}
@@ -493,13 +493,13 @@ func GetAvailableSchedule(logEntry *log.Entry, checkCatchup bool) (killMap map[s
 		count, err := CountActiveRunsForSchedule(logEntry, schedule.ID)
 		if err != nil {
 			errMsg := fmt.Sprintf("count notEnded runs for schedule[%s] failed. error:%s", schedule.ID, err.Error())
-			log.Errorf(errMsg)
+			logEntry.Errorf(errMsg)
 			return nil, nil, nil, fmt.Errorf(errMsg)
 		}
 
 		// 先处理同时满足currentTime之前，而且schedule.EndAt之前的任务
 		notEndedCount := int(count)
-		nextRunAt, err := findExectableRunBeforeCurrentTime(schedule, currentTime, checkCatchup, notEndedCount, execMap)
+		nextRunAt, err := findExectableRunBeforeCurrentTime(logEntry, schedule, currentTime, checkCatchup, notEndedCount, execMap)
 		if err != nil {
 			return nil, nil, nil, err
 		}
@@ -586,7 +586,7 @@ func GetNextGlobalWakeupTime(logEntry *log.Entry) (*time.Time, error) {
 		count, err := CountActiveRunsForSchedule(logEntry, schedule.ID)
 		if err != nil {
 			errMsg := fmt.Sprintf("count notEnded runs for schedule[%s] failed. error:%s", schedule.ID, err.Error())
-			log.Errorf(errMsg)
+			logEntry.Errorf(errMsg)
 			return nil, fmt.Errorf(errMsg)
 		}
 

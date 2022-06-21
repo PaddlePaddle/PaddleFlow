@@ -22,9 +22,8 @@ import (
 	"sync"
 	"time"
 
-	log "github.com/sirupsen/logrus"
-
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 )
 
 const (
@@ -96,44 +95,48 @@ func (s *Scheduler) Start() {
 	// 在start scheduler初始阶段，在考虑catchup的前提下，发起任务
 	nextWakeupTime, err := s.dealWithTimout(true)
 	if err != nil {
-		log.Errorf("start scheduler failed, %s", err.Error())
+		logger.Logger().Errorf("start scheduler failed, %s", err.Error())
 		return
 	}
 	timeout := s.getTimeout(nextWakeupTime)
-	log.Infof("after initialization: nextWakeupTime[%s]", nextWakeupTime.Format("2006-01-02 15:04:05"))
+	if nextWakeupTime != nil {
+		logger.Logger().Infof("after initialization: nextWakeupTime[%s]", nextWakeupTime.Format("2006-01-02 15:04:05"))
+	} else {
+		logger.Logger().Info("after initialization: no need to wakeup")
+	}
 
 	var toUpdate bool
 	var tmpNextWakeupTime *time.Time
 	for {
 		select {
 		case opInfo := <-s.OpsChannel:
-			log.Infof("begin deal with op[%v]", opInfo)
+			logger.Logger().Infof("begin deal with op[%v]", opInfo)
 			toUpdate, tmpNextWakeupTime, err = s.dealWithOps(opInfo)
 			if err != nil {
-				log.Errorf("scheduler deal with op[%v] failed, %s", opInfo, err.Error())
+				logger.Logger().Errorf("scheduler deal with op[%v] failed, %s", opInfo, err.Error())
 				continue
 			}
 		case <-timeout:
 			// 在循环过程中，发起任务不需要检查catchup配置（肯定catchup==true）
-			log.Infof("begin deal with timeout")
+			logger.Logger().Infof("begin deal with timeout")
 			checkCatchup := false
 			tmpNextWakeupTime, err = s.dealWithTimout(checkCatchup)
 			if err != nil {
-				log.Errorf("scheduler deal with timeout failed, %s", err.Error())
+				logger.Logger().Errorf("scheduler deal with timeout failed, %s", err.Error())
 				continue
 			}
 			toUpdate = true
 		case scheduleID := <-s.ConcurrencyChannel:
-			log.Infof("begin deal with concurrency change of schedule[%s]", scheduleID)
+			logger.Logger().Infof("begin deal with concurrency change of schedule[%s]", scheduleID)
 			toUpdate, tmpNextWakeupTime, err = s.dealWithConcurrency(scheduleID, nextWakeupTime)
 			if err != nil {
-				log.Errorf("scheduler deal with cncurrency change of schedule[%s] failed, %s", scheduleID, err.Error())
+				logger.Logger().Errorf("scheduler deal with cncurrency change of schedule[%s] failed, %s", scheduleID, err.Error())
 				continue
 			}
 		}
 
 		if toUpdate {
-			log.Infof("update nextWakeupTime, origin:[%s], new:[%s]", nextWakeupTime.Format("2006-01-02 15:04:05"), tmpNextWakeupTime.Format("2006-01-02 15:04:05"))
+			logger.Logger().Infof("update nextWakeupTime, origin:[%s], new:[%s]", nextWakeupTime.Format("2006-01-02 15:04:05"), tmpNextWakeupTime.Format("2006-01-02 15:04:05"))
 			nextWakeupTime = tmpNextWakeupTime
 			timeout = s.getTimeout(nextWakeupTime)
 			toUpdate = false
@@ -171,15 +174,14 @@ func (s *Scheduler) getTimeout(nextWakeupTime *time.Time) <-chan time.Time {
 // - 如果停止的schedule恰好是下一次wakeup要执行的，那只是导致一次无效的wakeup而已
 //   - 一次无效的timeout，代价是一次扫表；但是为了避免无效的timeout，这里也要扫表，代价是一致的。
 func (s *Scheduler) dealWithOps(opInfo OpInfo) (toUpdate bool, timeout *time.Time, err error) {
-	log.Debugf("begin to deal with shedule op[%s] of schedule[%s]", opInfo.GetOpType(), opInfo.GetScheduleID())
+	logger.Logger().Debugf("begin to deal with shedule op[%s] of schedule[%s]", opInfo.GetOpType(), opInfo.GetScheduleID())
 
 	opType := opInfo.GetOpType()
 	if opType == OpTypeStop || opType == OpTypeDelete {
 		return false, nil, nil
 	}
 
-	logEntry := log.WithFields(log.Fields{})
-	nextWakeupTime, err := models.GetNextGlobalWakeupTime(logEntry)
+	nextWakeupTime, err := models.GetNextGlobalWakeupTime(logger.Logger())
 	if err != nil {
 		return false, nil, err
 	}
@@ -195,32 +197,31 @@ func (s *Scheduler) dealWithOps(opInfo OpInfo) (toUpdate bool, timeout *time.Tim
 // 2. 发起到期的任务
 // 3. 休眠
 func (s *Scheduler) dealWithTimout(checkCatchup bool) (*time.Time, error) {
-	logEntry := log.WithFields(log.Fields{})
-	killMap, execMap, nextWakeupTime, err := models.GetAvailableSchedule(logEntry, checkCatchup)
+	killMap, execMap, nextWakeupTime, err := models.GetAvailableSchedule(logger.Logger(), checkCatchup)
 	if err != nil {
-		log.Errorf("GetAvailableSchedule failed, err:[%s]", err.Error())
+		logger.Logger().Errorf("GetAvailableSchedule failed, err:[%s]", err.Error())
 		return nil, err
 	}
 
-	log.Infof("execMap:[%v], killMap:[%v]", execMap, killMap)
+	logger.Logger().Infof("execMap:[%v], killMap:[%v]", execMap, killMap)
 
 	// 根据execMap，发起周期任务，发起任务失败了只打日志，不影响调度
 	for scheduleID, nextRunAtList := range execMap {
-		log.Infof("start to create runs[%v] for schedule[%s]", nextRunAtList, scheduleID)
-		schedule, err := models.GetSchedule(logEntry, scheduleID)
+		logger.Logger().Infof("start to create runs[%v] for schedule[%s]", nextRunAtList, scheduleID)
+		schedule, err := models.GetSchedule(logger.Logger(), scheduleID)
 		if err != nil {
-			log.Errorf("skip createRun for schedule[%s] with nextRunAtList[%v] in scheduler, getSchedule err:[%s]", scheduleID, nextRunAtList, err.Error())
+			logger.Logger().Errorf("skip createRun for schedule[%s] with nextRunAtList[%v] in scheduler, getSchedule err:[%s]", scheduleID, nextRunAtList, err.Error())
 			continue
 		}
 
 		fsConfig, err := models.DecodeFsConfig(schedule.FsConfig)
 		if err != nil {
-			log.Errorf("skip createRun for schedule[%s] with nextRunAtList[%v] in scheduler, decodeFsConfig err:[%s]", scheduleID, nextRunAtList, err.Error())
+			logger.Logger().Errorf("skip createRun for schedule[%s] with nextRunAtList[%v] in scheduler, decodeFsConfig err:[%s]", scheduleID, nextRunAtList, err.Error())
 			continue
 		}
 
 		for _, nextRunAt := range nextRunAtList {
-			log.Infof("start to create run in ScheduledAt[%s] for schedule[%s]", nextRunAt.Format("2006-01-02 15:04:05"), scheduleID)
+			logger.Logger().Infof("start to create run in ScheduledAt[%s] for schedule[%s]", nextRunAt.Format("2006-01-02 15:04:05"), scheduleID)
 			createRequest := CreateRunRequest{
 				FsName:           fsConfig.FsName,
 				UserName:         fsConfig.UserName,
@@ -233,7 +234,7 @@ func (s *Scheduler) dealWithTimout(checkCatchup bool) (*time.Time, error) {
 			}
 			_, err := CreateRun(schedule.UserName, &createRequest)
 			if err != nil {
-				log.Errorf("create run for schedule[%s] in ScheduledAt[%s] failed, err:[%s]", scheduleID, nextRunAt.Format("2006-01-02 15:04:05"), err.Error())
+				logger.Logger().Errorf("create run for schedule[%s] in ScheduledAt[%s] failed, err:[%s]", scheduleID, nextRunAt.Format("2006-01-02 15:04:05"), err.Error())
 				continue
 			}
 		}
@@ -241,19 +242,19 @@ func (s *Scheduler) dealWithTimout(checkCatchup bool) (*time.Time, error) {
 
 	// 根据killMap，停止run
 	for scheduleID, runIDList := range killMap {
-		log.Infof("start to stop runs[%v] for schedule[%s]", runIDList, scheduleID)
-		schedule, err := models.GetSchedule(logEntry, scheduleID)
+		logger.Logger().Infof("start to stop runs[%v] for schedule[%s]", runIDList, scheduleID)
+		schedule, err := models.GetSchedule(logger.Logger(), scheduleID)
 		if err != nil {
-			log.Errorf("skip StopRun for schedule[%s] with runIDList[%s] in scheduler, getSchedule err:[%s]", scheduleID, runIDList, err.Error())
+			logger.Logger().Errorf("skip StopRun for schedule[%s] with runIDList[%s] in scheduler, getSchedule err:[%s]", scheduleID, runIDList, err.Error())
 			continue
 		}
 
 		for _, runID := range runIDList {
-			log.Infof("start to stop run[%s] for schedule[%s]", runID, scheduleID)
+			logger.Logger().Infof("start to stop run[%s] for schedule[%s]", runID, scheduleID)
 			request := UpdateRunRequest{StopForce: false}
-			err = StopRun(logEntry, schedule.UserName, runID, request)
+			err = StopRun(logger.Logger(), schedule.UserName, runID, request)
 			if err != nil {
-				log.Errorf("stop run[%s] failed for schedule[%s], err:[%s]", runID, scheduleID, err.Error())
+				logger.Logger().Errorf("stop run[%s] failed for schedule[%s], err:[%s]", runID, scheduleID, err.Error())
 				continue
 			}
 		}
@@ -274,35 +275,34 @@ func (s *Scheduler) dealWithTimout(checkCatchup bool) (*time.Time, error) {
 //
 // 注意：该函数并不会真正运行任务，或者更新schedule数据库状态。跟dealWithOps一样，只会更新timeout
 func (s *Scheduler) dealWithConcurrency(scheduleID string, originNextWakeupTime *time.Time) (toUpdate bool, timeout *time.Time, err error) {
-	logEntry := log.WithFields(log.Fields{})
-	schedule, err := models.GetSchedule(logEntry, scheduleID)
+	schedule, err := models.GetSchedule(logger.Logger(), scheduleID)
 	if err != nil {
 		return false, nil, err
 	}
 
 	if schedule.Status != models.ScheduleStatusRunning {
-		log.Infof("schedule[%s] not running, doing nothing", scheduleID)
+		logger.Logger().Infof("schedule[%s] not running, doing nothing", scheduleID)
 		return false, nil, nil
 	}
 
 	options := models.ScheduleOptions{}
 	if err := json.Unmarshal([]byte(schedule.Options), &options); err != nil {
 		errMsg := fmt.Sprintf("decode options[%s] of schedule of ID[%s] failed. error: %v", schedule.Options, scheduleID, err)
-		log.Errorf(errMsg)
+		logger.Logger().Errorf(errMsg)
 		return false, nil, fmt.Errorf(errMsg)
 	}
 
 	// 如果scheduler的 ConcurrencyPolicy 不是 Suspend，就只需要到时间就运行 or skip，这些操作在deal with timeout中处理
 	if options.ConcurrencyPolicy != models.ConcurrencyPolicySuspend {
-		log.Infof("schedule[%s] ConcurrencyPolicy not suspend, doing nothing", scheduleID)
+		logger.Logger().Infof("schedule[%s] ConcurrencyPolicy not suspend, doing nothing", scheduleID)
 		return false, nil, nil
 	}
 
 	// 查询当前schedule的并发度，如果当前并发度>=concurrency，不做任何处理
-	count, err := models.CountActiveRunsForSchedule(logEntry, scheduleID)
+	count, err := models.CountActiveRunsForSchedule(logger.Logger(), scheduleID)
 	if err != nil {
 		errMsg := fmt.Sprintf("count notEnded runs for schedule[%s] failed. error:%s", scheduleID, err.Error())
-		log.Errorf(errMsg)
+		logger.Logger().Errorf(errMsg)
 		return false, nil, fmt.Errorf(errMsg)
 	}
 
