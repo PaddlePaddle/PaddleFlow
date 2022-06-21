@@ -51,7 +51,7 @@ func NewResourceHandler(runID string, fsID string, logger *log.Entry) (ResourceH
 	return resourceHandler, nil
 }
 
-func (resourceHandler *ResourceHandler) generateOutAtfPath(pplName string, stepName string, outatfName string, toInit bool) (string, error) {
+func (resourceHandler *ResourceHandler) GenerateOutAtfPath(pplName string, stepName string, outatfName string, toInit bool) (string, error) {
 	pipelineDir := "./.pipeline"
 	outatfDir := fmt.Sprintf("%s/%s/%s/%s", pipelineDir, resourceHandler.pplRunID, pplName, stepName)
 	outatfPath := fmt.Sprintf("%s/%s", outatfDir, outatfName)

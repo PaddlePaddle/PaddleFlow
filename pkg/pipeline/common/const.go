@@ -75,6 +75,9 @@ const (
 
 	// loop_argument 字段中引用的 artifact 支持最大空间， 单位为 byte
 	LoopArgumentArtifactMaxSize = 1024 * 1024 // 1MB
+
+	// dagID 中随机码的位数
+	DagIDRandCodeNum = 16
 )
 
 var SysParamNameList []string = []string{

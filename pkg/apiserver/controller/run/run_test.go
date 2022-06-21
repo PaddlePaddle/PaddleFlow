@@ -157,7 +157,7 @@ func TestCallback(t *testing.T) {
 		Extra: map[string]interface{}{
 			common.WfEventKeyRunID:       run1.ID,
 			common.WfEventKeyStatus:      common.StatusRunRunning,
-			common.WfEventKeyRuntime:     runtimeView,
+			common.WfEventKeyView:        runtimeView,
 			common.WfEventKeyPostProcess: postProcessView,
 		},
 	}

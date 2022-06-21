@@ -43,15 +43,15 @@ type JobView struct {
 	ParentDagID string            `json:"parentDagID"`
 }
 
-func (j *JobView) GetComponentName() string {
+func (j JobView) GetComponentName() string {
 	return j.JobName
 }
 
-func (j *JobView) GetParentDagID() string {
+func (j JobView) GetParentDagID() string {
 	return j.ParentDagID
 }
 
-func (j *JobView) SetDeps(deps string) {
+func (j JobView) SetDeps(deps string) {
 	j.Deps = deps
 }
 
@@ -69,15 +69,15 @@ type DagView struct {
 	ParentDagID string
 }
 
-func (d *DagView) GetComponentName() string {
+func (d DagView) GetComponentName() string {
 	return d.DagName
 }
 
-func (d *DagView) GetParentDagID() string {
+func (d DagView) GetParentDagID() string {
 	return d.ParentDagID
 }
 
-func (d *DagView) SetDeps(deps string) {
+func (d DagView) SetDeps(deps string) {
 	d.Deps = deps
 }
 
