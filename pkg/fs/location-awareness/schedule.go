@@ -18,9 +18,10 @@ package location_awareness
 
 import (
 	"errors"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 
 	log "github.com/sirupsen/logrus"
+
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 func ListFsCacheLocation(fsIDs []string) ([]string, error) {

@@ -19,7 +19,6 @@ package runtime
 import (
 	"context"
 	"fmt"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"net/http/httptest"
 	"testing"
 
@@ -142,7 +141,7 @@ func TestKubeRuntimeVCQueue(t *testing.T) {
 	}
 
 	q := &models.Queue{
-		Model: storage.Model{
+		Model: models.Model{
 			ID: "test_queue_id",
 		},
 		Name:      "test_queue_name",
@@ -174,7 +173,7 @@ func TestKubeRuntimeElasticQuota(t *testing.T) {
 	}
 
 	q := &models.Queue{
-		Model: storage.Model{
+		Model: models.Model{
 			ID: "test_queue_id",
 		},
 		Name:      "test_queue_name",

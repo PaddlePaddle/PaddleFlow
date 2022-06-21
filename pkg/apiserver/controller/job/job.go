@@ -19,7 +19,6 @@ package job
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 
 	"github.com/ghodss/yaml"
 	log "github.com/sirupsen/logrus"
@@ -32,6 +31,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 // CreateSingleJobRequest convey request for create job

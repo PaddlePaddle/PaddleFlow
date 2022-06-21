@@ -18,7 +18,6 @@ package dbinit
 
 import (
 	"fmt"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"strings"
 	"time"
 
@@ -34,6 +33,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 // data init for sqllite

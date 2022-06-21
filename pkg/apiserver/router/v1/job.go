@@ -19,7 +19,6 @@ package v1
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"net/http"
 	"strconv"
 	"strings"
@@ -518,7 +517,7 @@ func (jr *JobRouter) ListJob(writer http.ResponseWriter, request *http.Request) 
 	}
 	startTime := request.URL.Query().Get(util.QueryKeyStartTime)
 	if startTime != "" {
-		_, err = time.ParseInLocation(storage.TimeFormat, startTime, time.Local)
+		_, err = time.ParseInLocation(models.TimeFormat, startTime, time.Local)
 		if err != nil {
 			ctx.ErrorMessage = fmt.Sprintf("invalid startTime params[%s]", startTime)
 			common.RenderErrWithMessage(writer, ctx.RequestID, common.InvalidURI, ctx.ErrorMessage)
