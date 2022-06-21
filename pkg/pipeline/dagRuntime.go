@@ -349,8 +349,8 @@ func (drt *DagRuntime) Listen() {
 
 // 重新执行
 // TODO
-func (drt *DagRuntime) Resume() error {
-	return nil
+func (drt *DagRuntime) Restart(dagview schema.DagView) (restarted bool, err error) {
+	return false, nil
 }
 
 func (drt *DagRuntime) GetSubComponentParameterValue(componentName string, paramName string) (interface{}, error) {

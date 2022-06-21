@@ -152,6 +152,10 @@ func (srt *StepRuntime) Start() {
 	srt.Execute()
 }
 
+func (srt StepRuntime) Restart() (restarted bool, err error) {
+	return
+}
+
 func (srt StepRuntime) Listen() {
 	for {
 		select {

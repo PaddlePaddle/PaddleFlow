@@ -54,8 +54,7 @@ type DagView struct {
 }
 
 // RuntimeView is view of run responded to user, while workflowRuntime is for pipeline engine to process
-// type RuntimeView map[string][]ComponentView
-type RuntimeView map[string]DagView
+type RuntimeView map[string][]ComponentView
 
 type PostProcessView map[string]JobView
 

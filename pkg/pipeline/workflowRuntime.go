@@ -18,6 +18,7 @@ package pipeline
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
@@ -88,7 +89,7 @@ func (wfr *WorkflowRuntime) Start() error {
 		wfr.logger.Warningln("the status of run is %s, so it won't start run", wfr.status)
 	} else {
 		wfr.status = common.StatusRunRunning
-		wfr.callback("begin to running")
+		wfr.callback("begin to running, update status to running")
 
 		go wfr.Listen()
 		wfr.entryPoints.Start()
@@ -101,25 +102,69 @@ func (wfr *WorkflowRuntime) Start() error {
 // TODO: 进一步思考重启逻辑
 func (wfr *WorkflowRuntime) Restart(entryPointView schema.RuntimeView,
 	postProcessView schema.PostProcessView) error {
+	defer wfr.scheduleLock.Unlock()
+	wfr.scheduleLock.Lock()
 
 	wfr.status = common.StatusRunRunning
+	msg := fmt.Sprintf("restart run[%s], and update status to [%s]", wfr.runID, wfr.status)
+	wfr.logger.Infof(msg)
+	wfr.callback(msg)
 
-	// 1. 如果 entryPoints 中的有节点尚未处于终态，则需要处理 entryPoints 中的节点，此时 PostProcess 中的节点会在 processEvent 中进行调度
-	// 2. 如果 entryPoints 中所有节点都处于终态，且 PostProcess 中有节点未处于终态，此时直接 处理 PostProcess 中的 节点
-	// 3. 如果 entryPoints 和 PostProcess 所有节点均处于终态，则直接更新 run 的状态即可, 并调用回调函数，传给 Server 入库
-	// PS：第3种发生的概率很少，用于兜底
-	if !wfr.entryPoints.isDone() {
-		wfr.entryPoints.Resume()
-		go wfr.Listen()
-	} else if !wfr.postProcess.isDone() {
-		wfr.postProcess.Start()
-		go wfr.Listen()
-	} else {
-		wfr.updateStatus()
-		message := "run has been finished"
-		wfEvent := NewWorkflowEvent(WfEventRunUpdate, message, nil)
-		wfr.callback(*&wfEvent.Message)
+	// 1、处理entryPoint
+	dagView := schema.DagView{
+		EntryPoints: entryPointView,
 	}
+
+	entryPointRestarted, err := wfr.entryPoints.Restart(dagView)
+	if err != nil {
+		errMsg := fmt.Sprintf("restart entryPoints failed: %s", err.Error())
+		wfr.logger.Errorf(errMsg)
+		wfr.status = common.StatusRunFailed
+		wfr.callback(errMsg)
+		return err
+	}
+
+	// 2、处理 PostProcess
+	// - 如果此时的 entryPoint 不为终态，则 PostProcess 还没有开始运行，此时，
+	// PostProcess 节点会在 entryPoint 处于终态时，由 processEvent 函数驱动
+	// 因此我们在此处只需关注 entryPoint 已经处于终态（主要值 succeede， 其余终态entryPoint 都会重启）的情况。
+	if !entryPointRestarted {
+		for name, step := range wfr.WorkflowSource.PostProcess {
+			failureOptionsCtx, _ := context.WithCancel(context.Background())
+			postProcess := NewStepRuntime(name, step, 0, wfr.postProcessPointsCtx, failureOptionsCtx, wfr.EventChan,
+				wfr.runConfig, "")
+			wfr.postProcess = postProcess
+		}
+
+		// 如果没有 postProcess, 则说明 run 已经运行成功了
+		if wfr.postProcess == nil {
+			wfr.status = string(StatusRuntimeSucceeded)
+			msg := fmt.Sprintf("there is no need to restart, because it is already success")
+			wfr.logger.Infof(msg)
+			wfr.callback(msg)
+		}
+
+		for _, view := range postProcessView {
+
+			postProcessRestarted, err := wfr.postProcess.Restart(view)
+			if err != nil {
+				errMsg := fmt.Sprintf("restart postProcess failed: %s", err.Error())
+				wfr.logger.Errorf(errMsg)
+				wfr.status = common.StatusRunFailed
+				wfr.callback(errMsg)
+				return err
+			}
+
+			// 如果没有重启，则说明 postProcess 已经运行成功了。
+			if !postProcessRestarted {
+				wfr.status = string(StatusRuntimeSucceeded)
+				msg := fmt.Sprintf("there is no need to restart, because it is already success")
+				wfr.logger.Infof(msg)
+				wfr.callback(msg)
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -135,16 +180,13 @@ func (wfr *WorkflowRuntime) Stop(force bool) error {
 	defer wfr.scheduleLock.Unlock()
 	wfr.scheduleLock.Lock()
 
-	// 1、 处理已经开始运行情况
+	// 1、 终止entryPoint
+	// 1.1、 处理已经开始运行情况
 	if wfr.status == common.StatusRunRunning {
 		wfr.status = common.StatusRunTerminating
 		wfr.callback("receive termination signal, update status to terminating")
 
 		wfr.entryPointsctxCancel()
-
-		if force && wfr.postProcess != nil {
-			defer wfr.postProcessctxCancel()
-		}
 	} else {
 		// 2、 处理还没有开始运行的情况
 		wfr.status = common.StatusRunTerminating
@@ -152,15 +194,25 @@ func (wfr *WorkflowRuntime) Stop(force bool) error {
 
 		failureOptionsCtx, _ := context.WithCancel(context.Background())
 
-		newDagRuntimeWithStatus("", wfr.entryPoints.getworkflowSouceDag(), 0, wfr.entryPointsCtx, failureOptionsCtx,
-			wfr.EventChan, wfr.runConfig, "", StatusRuntimeCancelled, "reveice termination signal")
+		newDagRuntimeWithStatus("", wfr.entryPoints.getworkflowSouceDag(), 0, wfr.entryPointsCtx,
+			failureOptionsCtx, wfr.EventChan, wfr.runConfig, "", StatusRuntimeCancelled,
+			"reveice termination signal")
+	}
 
-		for name, step := range wfr.WorkflowSource.PostProcess {
-			newStepRuntimeWithStatus(name, step, 0, wfr.postProcessPointsCtx, failureOptionsCtx, wfr.EventChan,
-				wfr.runConfig, "", StatusRuntimeCancelled, "reveice termination signal")
+	// 处理 PostProcess
+	if force {
+		wfr.logger.Info("begin to stop postProcess step")
+		// 如果 postProcess 已经调度，则直接终止
+		if wfr.postProcess != nil {
+			defer wfr.postProcessctxCancel()
+		} else {
+			// 如果在创建 stepRuntime时，直接给定状态为 Cancelled
+			for name, step := range wfr.WorkflowSource.PostProcess {
+				failureOptionsCtx, _ := context.WithCancel(context.Background())
+				newStepRuntimeWithStatus(name, step, 0, wfr.postProcessPointsCtx, failureOptionsCtx,
+					wfr.EventChan, wfr.runConfig, "", StatusRuntimeCancelled, "reveice termination signal")
+			}
 		}
-
-		wfr.status = common.StatusRunTerminated
 	}
 
 	return nil
@@ -205,7 +257,8 @@ func (wfr *WorkflowRuntime) schedulePostProcess() {
 				wfr.runConfig, "")
 			wfr.postProcess = postProcess
 		}
-		wfr.logger.Infof("begin to execute postProcess step [%s]", wfr.postProcess.name)
+		msg := fmt.Sprintf("begin to execute postProcess step [%s]", wfr.postProcess.name)
+		wfr.logger.Infof(msg)
 		wfr.postProcess.Start()
 	} else {
 		wfr.logger.Infof("there is no postProcess step")
@@ -234,20 +287,21 @@ func (wfr *WorkflowRuntime) processEvent(event WorkflowEvent) error {
 		wfr.schedulePostProcess()
 	}
 
-	wfr.updateStatus()
+	wfr.updateStatusAccordingComponentStatus()
 	wfr.callback(event.Message)
 
 	return nil
 }
 
-func (wfr *WorkflowRuntime) updateStatus() {
-	// 只有所有step运行结束后会，才更新run为终止状态
+func (wfr *WorkflowRuntime) updateStatusAccordingComponentStatus() {
+	// 只有当所有的 节点都处于终态后，此函数才会更新 run 的状态
 	// 有failed step，run 状态为failed
 	// 如果当前状态为 terminating，存在有 cancelled step 或者 terminated step，run 状态为terminated
 	// 其余情况都为succeeded，因为：
 	// - 有step为 cancelled 状态，要么是因为有节点失败了，要么是用户终止了 Run
 	// - 另外skipped 状态的节点也视作运行成功（目前运行所有step都skip，此时run也是为succeeded）
 	// - 如果有 Step 的状态为 terminated，但是 run 的状态不为 terminating, 则说明改step 是意外终止，此时 run 的状态应该Failed
+
 	hasFailedComponent := wfr.entryPoints.isFailed() || wfr.postProcess.isFailed()
 	hasTerminatedComponent := wfr.entryPoints.isTerminated() || wfr.postProcess.isTerminated()
 	hasCancelledComponent := wfr.entryPoints.isCancelled() || wfr.postProcess.isCancelled()
