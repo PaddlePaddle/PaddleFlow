@@ -17,14 +17,20 @@ limitations under the License.
 package location_awareness
 
 import (
+	"crypto/md5"
+	"encoding/hex"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/fs"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database/dbinit"
 )
+
+func getMountID(clusterID, nodeName, mountPoint string) string {
+	hash := md5.Sum([]byte(clusterID + nodeName + mountPoint))
+	return hex.EncodeToString(hash[:])
+}
 
 func TestListMountNodesByFsID(t *testing.T) {
 	dbinit.InitMockDB()
@@ -34,7 +40,7 @@ func TestListMountNodesByFsID(t *testing.T) {
 	fsMount := &models.FsMount{
 		FsID:       fsID1,
 		MountPoint: mountPoint1,
-		MountID:    fs.GetMountID(clusterID, nodeName1, mountPoint1),
+		MountID:    getMountID(clusterID, nodeName1, mountPoint1),
 		NodeName:   nodeName1,
 		ClusterID:  clusterID,
 	}
@@ -44,7 +50,7 @@ func TestListMountNodesByFsID(t *testing.T) {
 	fsMount = &models.FsMount{
 		FsID:       fsID1,
 		MountPoint: mountPoint1,
-		MountID:    fs.GetMountID(clusterID, nodeName2, mountPoint1),
+		MountID:    getMountID(clusterID, nodeName2, mountPoint1),
 		NodeName:   nodeName2,
 		ClusterID:  clusterID,
 	}
@@ -54,7 +60,7 @@ func TestListMountNodesByFsID(t *testing.T) {
 	fsMount = &models.FsMount{
 		FsID:       fsID2,
 		MountPoint: mountPoint2,
-		MountID:    fs.GetMountID(clusterID, nodeName1, mountPoint2),
+		MountID:    getMountID(clusterID, nodeName1, mountPoint2),
 		NodeName:   nodeName1,
 		ClusterID:  clusterID,
 	}
