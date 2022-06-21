@@ -60,7 +60,7 @@ type RunJob struct {
 
 func CreateRunJob(logEntry *log.Entry, runJob *RunJob) (int64, error) {
 	logEntry.Debugf("begin create run_job, model: %v", runJob)
-	err := withTransaction(database.DB, func(tx *gorm.DB) error {
+	err := WithTransaction(database.DB, func(tx *gorm.DB) error {
 		result := tx.Model(&RunJob{}).Create(&runJob)
 		if result.Error != nil {
 			logEntry.Errorf("create run_job failed. run_job: %v, error: %s",
