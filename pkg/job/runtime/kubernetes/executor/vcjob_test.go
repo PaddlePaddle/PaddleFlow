@@ -168,7 +168,7 @@ func TestPatchVCJobVariable(t *testing.T) {
 			}}}},
 		}
 		// yaml content
-		yamlTemplateContent, err := kubeJob.getExtRuntimeConf(pfjob.Conf.GetFS(), pfjob.Conf.GetYamlPath(), pfjob.Framework)
+		yamlTemplateContent, err := kubeJob.getDefaultTemplate(pfjob.Framework)
 		if err != nil {
 			t.Errorf(err.Error())
 		}

@@ -25,10 +25,10 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/cmd/fs/csi-plugin/flag"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/client/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/controller"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csiconfig"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csidriver"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/metric"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/version"
 )

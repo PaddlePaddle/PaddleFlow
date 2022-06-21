@@ -25,7 +25,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	api "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/fs"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/fs"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 )
@@ -105,7 +105,7 @@ var NewFsHandlerWithServer = func(fsID string, logEntry *log.Entry) (*FsHandler,
 		fsHandler = FsHandler{
 			fsID: fsID,
 		}
-		fsClient, fsClientError = fsHandler.getFSClient()
+		fsClient, fsClientError = fs.NewFSClientWithServer(config.GetServiceAddress(), fsID)
 		if fsClientError != nil {
 			logEntry.Errorf("new a FSClient with fsID[%s] failed: %v", fsID, fsClientError)
 			time.Sleep(sleepMillisecond * time.Millisecond)
@@ -227,42 +227,4 @@ func (fh *FsHandler) LastModTime(path string) (time.Time, error) {
 			return t, nil
 		}
 	}
-}
-
-func (fh *FsHandler) getFSClient() (fs.FSClient, error) {
-	fsService := api.GetFileSystemService()
-	fsModel, err := fsService.GetFileSystem(fh.fsID)
-	if err != nil {
-		log.Errorf("get file system with fsID[%s] error[%v]", fh.fsID, err)
-		return nil, err
-	}
-
-	linkService := api.GetLinkService()
-	listLinks, _, err := linkService.GetLink(&api.GetLinkRequest{FsID: fh.fsID})
-	if err != nil {
-		log.Errorf("get file system links with fsID[%s] error[%v]", fh.fsID, err)
-		return nil, err
-	}
-
-	fsMeta := common.FSMeta{
-		ID:            fsModel.ID,
-		Name:          fsModel.Name,
-		UfsType:       fsModel.Type,
-		ServerAddress: fsModel.ServerAddress,
-		SubPath:       fsModel.SubPath,
-		Properties:    fsModel.PropertiesMap,
-		Type:          common.FSType,
-	}
-	links := make(map[string]common.FSMeta)
-	for _, link := range listLinks {
-		links[link.FsPath] = common.FSMeta{
-			ID:            link.ID,
-			UfsType:       link.Type,
-			ServerAddress: link.ServerAddress,
-			SubPath:       link.SubPath,
-			Properties:    link.PropertiesMap,
-			Type:          common.LinkType,
-		}
-	}
-	return fs.NewFSClient(fsMeta, links)
 }
