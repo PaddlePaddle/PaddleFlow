@@ -49,12 +49,13 @@ type DagView struct {
 	EndTime     string
 	Status      JobStatus
 	Message     string
-	EntryPoints map[string]ComponentView
+	EntryPoints map[string][]ComponentView
 	ParentDagID string
 }
 
 // RuntimeView is view of run responded to user, while workflowRuntime is for pipeline engine to process
-type RuntimeView map[string]ComponentView
+// type RuntimeView map[string][]ComponentView
+type RuntimeView map[string]DagView
 
 type PostProcessView map[string]JobView
 
