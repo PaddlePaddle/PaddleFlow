@@ -22,12 +22,12 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi"
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8smeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	api "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/fs"
@@ -74,7 +74,9 @@ var URLPrefix = map[string]bool{
 	common.CFS:   true,
 }
 
-const FsNameMaxLen = 8
+const FsNameMaxLen = 100
+
+// obsoleted funcs: create PVC code can be found in commit 23e7038cecd7bfa9acdc80bbe1d62d904dbe1568
 
 // createFileSystem the function that handle the create file system request
 // @Summary createFileSystem
@@ -108,7 +110,8 @@ func (pr *PFSRouter) createFileSystem(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		ctx.Logging().Errorf("create file system params error: %v", err)
-		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		ctx.ErrorMessage = err.Error()
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, ctx.ErrorMessage)
 		return
 	}
 
@@ -130,15 +133,17 @@ func validateCreateFileSystem(ctx *logger.RequestContext, req *api.CreateFileSys
 		ctx.ErrorCode = common.AuthFailed
 		return fmt.Errorf("userName is empty")
 	}
-	matchBool, err := regexp.MatchString(fmt.Sprintf("^[a-zA-Z0-9]{1,%d}$", FsNameMaxLen), req.Name)
+	matchBool, err := regexp.MatchString(fmt.Sprintf("^[a-zA-Z0-9_-]{1,%d}$", FsNameMaxLen), req.Name)
 	if err != nil {
 		ctx.Logging().Errorf("regexp err[%v]", err)
 		ctx.ErrorCode = common.FileSystemNameFormatError
+		ctx.ErrorMessage = err.Error()
 		return err
 	}
 	if !matchBool {
 		ctx.Logging().Errorf("regexp match failed with fsName[%s]", req.Name)
 		ctx.ErrorCode = common.FileSystemNameFormatError
+		ctx.ErrorMessage = common.InvalidField("name", fmt.Sprintf("fsName[%s] must be letters or numbers and fsName maximum length is %d", req.Name, FsNameMaxLen)).Error()
 		return common.InvalidField("name", fmt.Sprintf("fsName[%s] must be letters or numbers and fsName maximum length is %d", req.Name, FsNameMaxLen))
 	}
 
@@ -167,6 +172,14 @@ func validateCreateFileSystem(ctx *logger.RequestContext, req *api.CreateFileSys
 		ctx.ErrorCode = common.InvalidFileSystemProperties
 		return err
 	}
+
+	err = checkFSNameDuplicate(common.ID(req.Username, req.Name))
+	if err != nil {
+		ctx.Logging().Errorf("check fs duplicate with name %s with err[%v]", req.Name, err)
+		ctx.ErrorCode = common.DuplicatedName
+		return err
+	}
+
 	err = checkFsDir(fileSystemType, req.Url, req.Properties)
 	if err != nil {
 		ctx.Logging().Errorf("check fs dir err[%v] with url[%s]", err, req.Url)
@@ -275,19 +288,20 @@ func checkProperties(fsType string, req *api.CreateFileSystemRequest) error {
 		if namespace == "" {
 			return common.InvalidField(fsCommon.Namespace, "key[namespace] cannot be empty")
 		}
-		if checkPVCExist(pvc, namespace) {
-			return nil
-		}
-		return common.PVCNotFountError(pvc, namespace)
+		return nil
 	default:
 		return nil
 	}
 }
 
 func checkPVCExist(pvc, namespace string) bool {
-	_, errK8sOperator := k8s.GetK8sOperator().GetPersistentVolumeClaim(namespace, pvc, metav1.GetOptions{})
-	if errK8sOperator != nil {
-		log.Errorf("check namespace[%s] pvc[%s] exist failed: %v", namespace, pvc, errK8sOperator)
+	k8sClient, err := k8s.GetK8sClient()
+	if err != nil {
+		log.Errorf("checkPVCExist: Get k8s client failed: %v", err)
+		return false
+	}
+	if _, err := k8sClient.GetPersistentVolumeClaim(namespace, pvc, k8smeta.GetOptions{}); err != nil {
+		log.Errorf("check namespace[%s] pvc[%s] exist failed: %v", namespace, pvc, err)
 		return false
 	}
 	return true
@@ -327,6 +341,17 @@ func checkURLFormat(fsType, url string, properties map[string]string) error {
 		properties[fsCommon.Bucket] = urlSplit[common.S3EndpointSplit]
 	}
 	return nil
+}
+
+func checkFSNameDuplicate(fsID string) error {
+	_, err := models.GetFileSystemWithFsID(fsID)
+	if err == gorm.ErrRecordNotFound {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	return fmt.Errorf("fsID[%s] is exists", fsID)
 }
 
 // checkFsDir duplicate and nesting of the same storage source directory is not supported
@@ -427,7 +452,8 @@ func getListResult(fsModel []models.FileSystem, nextMarker, marker string) *api.
 // @tag fs
 // @Accept   json
 // @Produce  json
-// @Param id path string true "文件系统ID"
+// @Param fsName path string true "文件系统名称"
+// @Param username query string false "root用户指定其他用户"
 // @Success 200 {object} models.FileSystem
 // @Router /fs/{fsName} [get]
 func (pr *PFSRouter) getFileSystem(w http.ResponseWriter, r *http.Request) {
@@ -441,8 +467,7 @@ func (pr *PFSRouter) getFileSystem(w http.ResponseWriter, r *http.Request) {
 
 	fileSystemService := api.GetFileSystemService()
 	realUserName := getRealUserName(&ctx, getRequest.Username)
-	fsID := common.ID(realUserName, fsName)
-	fsModel, err := fileSystemService.GetFileSystem(fsID)
+	fsModel, err := fileSystemService.GetFileSystem(realUserName, fsName)
 	if err != nil {
 		ctx.Logging().Errorf("get file system username[%s] fsname[%s] with error[%v]", getRequest.Username, fsName, err)
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -491,38 +516,16 @@ func (pr *PFSRouter) deleteFileSystem(w http.ResponseWriter, r *http.Request) {
 
 	log.Debugf("delete file system with fsName[%s] username[%s]", fsName, username)
 
-	fileSystemService := api.GetFileSystemService()
-
 	realUserName := getRealUserName(&ctx, username)
 	fsID := common.ID(realUserName, fsName)
 
-	_, err := models.GetFileSystemWithFsID(fsID)
-	if err != nil {
-		ctx.Logging().Errorf("delete fsID[%s] failed by getting file system error[%v]", fsID, err)
-		ctx.ErrorMessage = fmt.Sprintf("username[%s] not create fsName[%s]", username, fsName)
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			common.RenderErrWithMessage(w, ctx.RequestID, common.RecordNotFound, ctx.ErrorMessage)
-		} else {
-			common.RenderErrWithMessage(w, ctx.RequestID, common.FileSystemDataBaseError, err.Error())
-		}
-		return
-	}
-	fsMount := &models.FsMount{FsID: fsID}
-	listMount, err := fsMount.ListMount(fsMount, 1, "")
-	if err != nil {
-		ctx.Logging().Errorf("list mount with fsID[%s] error[%v]", fsID, err)
-		common.RenderErrWithMessage(w, ctx.RequestID, common.FileSystemDataBaseError, err.Error())
-		return
-	}
-	if len(listMount) != 0 {
-		ctx.Logging().Errorf("list mount result %v", listMount)
-		ctx.ErrorMessage = fmt.Sprintf("fsName[%s] is being used by pod and cannot be deleted", fsName)
-		common.RenderErrWithMessage(w, ctx.RequestID, common.ActionNotAllowed, err.Error())
+	if err := fsCheckCanModify(&ctx, fsID); err != nil {
+		ctx.Logging().Errorf("checkCanModifyFs[%s] err: %v", fsID, err)
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
 
-	err = fileSystemService.DeleteFileSystem(&ctx, fsID)
-	if err != nil {
+	if err := api.GetFileSystemService().DeleteFileSystem(&ctx, fsID); err != nil {
 		ctx.Logging().Errorf("delete file system with error[%v]", err)
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
@@ -530,76 +533,38 @@ func (pr *PFSRouter) deleteFileSystem(w http.ResponseWriter, r *http.Request) {
 	common.RenderStatus(w, http.StatusOK)
 }
 
-// createFileSystemClaims the function that handle the create file system claims request
-// @Summary createFileSystemClaims
-// @Description
-// @tag fs
-// @Accept   json
-// @Produce  json
-// @Param request body request.CreateFileSystemClaimsRequest true "request body"
-// @Success 200 {object} response.CreateFileSystemClaimsResponse
-// @Failure 400 {object} common.ErrorResponse
-// @Failure 404 {object} common.ErrorResponse
-// @Failure 500 {object} common.ErrorResponse
-// @Router /fs/claims [post]
-func (pr *PFSRouter) createFileSystemClaims(w http.ResponseWriter, r *http.Request) {
-	ctx := common.GetRequestContext(r)
-
-	var createRequest api.CreateFileSystemClaimsRequest
-	err := common.BindJSON(r, &createRequest)
-	if err != nil {
-		ctx.Logging().Errorf("CreateFileSystemClaims bindjson failed. err:%s", err.Error())
-		common.RenderErr(w, ctx.RequestID, common.MalformedJSON)
-		return
+func fsCheckCanModify(ctx *logger.RequestContext, fsID string) error {
+	// check fs exist
+	if _, err := models.GetFileSystemWithFsID(fsID); err != nil {
+		ctx.Logging().Errorf("get filesystem[%s] err: %v", fsID, err)
+		var errRet error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			ctx.ErrorCode = common.RecordNotFound
+			errRet = fmt.Errorf("fs[%s] not exist", fsID)
+		} else {
+			ctx.ErrorCode = common.FileSystemDataBaseError
+			errRet = fmt.Errorf("get fs[%s] db err: %v", fsID, err)
+		}
+		return errRet
 	}
-	log.Debugf("create file system claims with req[%v]", config.PrettyFormat(createRequest))
-
-	fileSystemService := api.GetFileSystemService()
-
-	err = validateCreateFileSystemClaims(&ctx, &createRequest)
-	if err != nil {
-		ctx.Logging().Errorf("create file system claims params error: %v", err)
-		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
-		return
+	// check fs not mounted
+	if err := checkFsNoMount(fsID); err != nil {
+		ctx.ErrorCode = common.ActionNotAllowed
+		return err
 	}
-
-	err = fileSystemService.CreateFileSystemClaims(&ctx, &createRequest)
-	if err != nil {
-		ctx.Logging().Errorf("create file system claims with error[%v]", err)
-		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
-		return
-	}
-
-	response := api.CreateFileSystemClaimsResponse{Message: common.ClaimsSuccessMessage}
-	ctx.Logging().Debugf("CreateFileSystemClaims Fs:%v", string(config.PrettyFormat(response)))
-	common.Render(w, http.StatusOK, response)
+	return nil
 }
 
-func validateCreateFileSystemClaims(ctx *logger.RequestContext, req *api.CreateFileSystemClaimsRequest) error {
-	if len(req.FsIDs) == 0 {
-		ctx.ErrorCode = common.InvalidPVClaimsParams
-		return common.InvalidField("fsIDs", "must not be empty")
+func checkFsNoMount(fsID string) error {
+	fsMount := &models.FsMount{FsID: fsID}
+	marker := time.Now().Format(models.TimeFormat)
+	listMount, err := fsMount.ListMount(fsMount, 1, marker)
+	if err != nil {
+		err := fmt.Errorf("list mount for fs[%s] error: %v", fsID, err)
+		return err
 	}
-	if len(req.Namespaces) == 0 {
-		ctx.ErrorCode = common.InvalidPVClaimsParams
-		return common.InvalidField("namespaces", "must not be empty")
-	}
-	var notExistNamespaces []string
-	for _, ns := range req.Namespaces {
-		if _, err := k8s.GetK8sOperator().GetNamespace(ns, metav1.GetOptions{}); err != nil {
-			if k8serrors.IsNotFound(err) {
-				notExistNamespaces = append(notExistNamespaces, ns)
-				continue
-			}
-			ctx.Logging().Errorf("get namespace[%s] failed: %v", ns, err)
-			ctx.ErrorCode = common.GetNamespaceFail
-			return err
-		}
-	}
-	if len(notExistNamespaces) != 0 {
-		ctx.Logging().Errorf("namespaces[%v] to create pvc is not found", notExistNamespaces)
-		ctx.ErrorCode = common.NamespaceNotFound
-		return common.InvalidField("namespaces", fmt.Sprintf("namespaces %v not found", notExistNamespaces))
+	if len(listMount) != 0 {
+		return common.FsBeingUsedError(fsID)
 	}
 	return nil
 }

@@ -27,6 +27,33 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
 )
 
+func TestDeleteMountCanCreate(t *testing.T) {
+	router, baseUrl := prepareDBAndAPI(t)
+	req1 := fs.CreateMountRequest{
+		Username:   MockRootUser,
+		FsName:     "mountfs",
+		ClusterID:  "testcluster",
+		NodeName:   "abc",
+		MountPoint: "/data",
+	}
+	url := baseUrl + "/fsMount"
+	result, err := PerformPostRequest(router, url, req1)
+	assert.Nil(t, err)
+	assert.Equal(t, http.StatusCreated, result.Code)
+
+	result, err = PerformPostRequest(router, url, req1)
+	assert.Nil(t, err)
+	assert.Equal(t, http.StatusBadRequest, result.Code)
+
+	filters2 := "?" + util.QueryMountPoint + "=/data&" + util.QueryNodeName + "=abc&" + util.QueryClusterID + "=testcluster"
+	_, err = PerformDeleteRequest(router, url+"/mountfs"+filters2)
+	assert.Nil(t, err)
+
+	result, err = PerformPostRequest(router, url, req1)
+	assert.Nil(t, err)
+	assert.Equal(t, http.StatusCreated, result.Code)
+}
+
 func TestFSMount(t *testing.T) {
 	router, baseUrl := prepareDBAndAPI(t)
 	// mockFs := buildMockFS()

@@ -171,9 +171,6 @@ func CheckKerberosProperties(properties map[string]string) error {
 	if properties[common.KeyTabData] == "" {
 		return InvalidField(common.KeyTabData, fmt.Sprintf("kerberos hdfs, %s must be provided", common.KeyTabData))
 	}
-	if properties[common.DataTransferProtection] == "" {
-		return InvalidField(common.DataTransferProtection, fmt.Sprintf("kerberos hdfs, %s must be provided", common.DataTransferProtection))
-	}
 
 	_, err := base64.StdEncoding.DecodeString(properties[common.KeyTabData])
 	if err != nil {

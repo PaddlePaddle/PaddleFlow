@@ -17,10 +17,12 @@ limitations under the License.
 package schema
 
 import (
+	"encoding/base64"
 	"fmt"
 	"strings"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
@@ -473,4 +475,20 @@ func getComponentRecursively(components map[string]Component, names []string) (C
 		}
 	}
 	return nil, nil
+}
+
+func (wfs *WorkflowSource) TransToRunYamlRaw() (runYamlRaw string, err error) {
+	runYaml, err := yaml.Marshal(wfs)
+	if err != nil {
+		return "", err
+	}
+
+	defer func() {
+		if info := recover(); info != nil {
+			err = fmt.Errorf("trans Pipeline to YamlRaw failed: %v", info)
+		}
+	}()
+
+	runYamlRaw = base64.StdEncoding.EncodeToString(runYaml)
+	return
 }

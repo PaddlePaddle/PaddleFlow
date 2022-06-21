@@ -77,6 +77,10 @@ func (j *JobGarbageCollector) Name() string {
 }
 
 func (j *JobGarbageCollector) Initialize(opt *k8s.DynamicClientOption) error {
+	if opt == nil || opt.ClusterInfo == nil {
+		return fmt.Errorf("init %s controller failed", j.Name())
+	}
+	log.Infof("Initialize %s controller for cluster [%s]!", j.Name(), opt.ClusterInfo.Name)
 	j.opt = opt
 	j.WaitedCleanQueue = workqueue.NewDelayingQueue()
 	j.informerMap = make(map[schema.GroupVersionKind]cache.SharedIndexInformer)
@@ -117,7 +121,7 @@ func (j *JobGarbageCollector) Run(stopCh <-chan struct{}) {
 			return
 		}
 	}
-	log.Infof("Start %s controller successfully!", j.Name())
+	log.Infof("Start %s controller for cluster [%s] successfully!", j.Name(), j.opt.ClusterInfo.Name)
 	// clean exist & completed job
 	j.preCleanFinishedJob()
 	// watch job event to handle new job_gc events

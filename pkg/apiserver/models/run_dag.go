@@ -53,7 +53,7 @@ type RunDag struct {
 
 func CreateRunDag(logEntry *log.Entry, runDag *RunDag) (int64, error) {
 	logEntry.Debugf("begin create run_dag model: %v", runDag)
-	err := withTransaction(database.DB, func(tx *gorm.DB) error {
+	err := WithTransaction(database.DB, func(tx *gorm.DB) error {
 		result := tx.Model(&RunDag{}).Create(&runDag)
 		if result.Error != nil {
 			logEntry.Errorf("create run_dag failed. run_dag: %v, error: %s",

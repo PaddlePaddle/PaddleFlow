@@ -177,14 +177,12 @@ func DeleteJob(jobID string) error {
 	return nil
 }
 
-func UpdateJobStatus(jobId, errMessage string, jobStatus schema.JobStatus) error {
+func UpdateJobStatus(jobId, errMessage string, newStatus schema.JobStatus) error {
 	job, err := GetJobByID(jobId)
 	if err != nil {
 		return errors.JobIDNotFoundError(jobId)
 	}
-	if jobStatus != "" && !schema.IsImmutableJobStatus(job.Status) {
-		job.Status = jobStatus
-	}
+	job.Status, errMessage = jobStatusTransition(job.ID, job.Status, newStatus, errMessage)
 	if errMessage != "" {
 		job.Message = errMessage
 	}
@@ -212,14 +210,29 @@ func UpdateJobConfig(jobId string, conf *schema.Conf) error {
 	return nil
 }
 
+func jobStatusTransition(jobID string, preStatus, newStatus schema.JobStatus, msg string) (schema.JobStatus, string) {
+	if schema.IsImmutableJobStatus(preStatus) {
+		return preStatus, ""
+	}
+	if preStatus == schema.StatusJobTerminating {
+		if newStatus == schema.StatusJobRunning {
+			newStatus = schema.StatusJobTerminating
+			msg = "job is terminating"
+		} else {
+			newStatus = schema.StatusJobTerminated
+			msg = "job is terminated"
+		}
+	}
+	log.Infof("job %s status update from %s to %s", jobID, preStatus, newStatus)
+	return newStatus, msg
+}
+
 func UpdateJob(jobID string, status schema.JobStatus, info interface{}, message string) (schema.JobStatus, error) {
 	job, err := GetUnscopedJobByID(jobID)
 	if err != nil {
 		return "", errors.JobIDNotFoundError(jobID)
 	}
-	if status != "" && !schema.IsImmutableJobStatus(job.Status) {
-		job.Status = status
-	}
+	job.Status, message = jobStatusTransition(jobID, job.Status, status, message)
 	if info != nil {
 		job.RuntimeInfo = info
 	}
