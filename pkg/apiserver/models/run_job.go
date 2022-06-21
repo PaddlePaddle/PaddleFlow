@@ -58,28 +58,6 @@ type RunJob struct {
 	DeletedAt      gorm.DeletedAt    `gorm:"index"                              json:"-"`
 }
 
-func CreateRunJobs(logEntry *log.Entry, jobs map[string]schema.JobView, runID string) error {
-	logEntry.Debugf("begin create run_jobs by jobMap: %v", jobs)
-	err := withTransaction(database.DB, func(tx *gorm.DB) error {
-		for name, job := range jobs {
-			runJob := RunJob{
-				ID:       job.JobID,
-				RunID:    runID,
-				Name:     job.JobName,
-				StepName: name,
-			}
-			result := tx.Model(&RunJob{}).Create(&runJob)
-			if result.Error != nil {
-				logEntry.Errorf("create run_job failed. run_job: %v, error: %s",
-					runJob, result.Error.Error())
-				return result.Error
-			}
-		}
-		return nil
-	})
-	return err
-}
-
 func CreateRunJob(logEntry *log.Entry, runJob *RunJob) (int64, error) {
 	logEntry.Debugf("begin create run_job, model: %v", runJob)
 	err := withTransaction(database.DB, func(tx *gorm.DB) error {
