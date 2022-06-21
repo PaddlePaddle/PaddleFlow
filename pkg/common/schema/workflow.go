@@ -244,23 +244,7 @@ func (wfs *WorkflowSource) HasStep(components map[string]Component, absoluteName
 			} else if step, ok := component.(*WorkflowSourceStep); ok {
 				// 如果为step，检查是否有引用Source.Components中的节点
 				reference := step.Reference
-				for {
-					if referedComponent, ok := wfs.Components[reference]; ok {
-						if dag, ok := referedComponent.(*WorkflowSourceDag); ok {
-							// 检查Source.Components中的节点，如果它是一个dag，那就继续向下遍历子节点
-							return wfs.HasStep(dag.EntryPoints, nameList[1])
-						} else if step, ok := referedComponent.(*WorkflowSourceStep); ok {
-							// 如果是step，那就看是否继续ref了其他component
-							reference = step.Reference
-							continue
-						} else {
-							logger.Logger().Errorf("a component not dag or step")
-							return false
-						}
-					} else {
-						return false
-					}
-				}
+				return wfs.componentsHasStep(reference, nameList[1])
 			} else {
 				logger.Logger().Errorf("a component not dag or step")
 				return false
@@ -271,6 +255,28 @@ func (wfs *WorkflowSource) HasStep(components map[string]Component, absoluteName
 	} else {
 		_, ok := components[absoluteName]
 		return ok
+	}
+}
+
+func (wfs *WorkflowSource) componentsHasStep(reference string, subNames string) bool {
+	// 在前面已经校验过递归reference因此不会有递归出现，但后续可能会允许递归
+	// TODO: 如果有递归reference的情况，这里会出现死循环，需要升级
+	for {
+		if referedComponent, ok := wfs.Components[reference]; ok {
+			if dag, ok := referedComponent.(*WorkflowSourceDag); ok {
+				// 检查Source.Components中的节点，如果它是一个dag，那就继续向下遍历子节点
+				return wfs.HasStep(dag.EntryPoints, subNames)
+			} else if step, ok := referedComponent.(*WorkflowSourceStep); ok {
+				// 如果是step，那就看是否继续ref了其他component
+				reference = step.Reference
+				continue
+			} else {
+				logger.Logger().Errorf("a component not dag or step")
+				return false
+			}
+		} else {
+			return false
+		}
 	}
 }
 
@@ -329,7 +335,7 @@ func GetWorkflowSource(runYaml []byte) (WorkflowSource, error) {
 	if !ok {
 		return WorkflowSource{}, fmt.Errorf("get entry_points map failed")
 	}
-	if err := wfs.ValidateRunNodes(wfs.EntryPoints.EntryPoints, yamlMap, entryPointsMap); err != nil {
+	if err := wfs.ProcessRuntimeComponents(wfs.EntryPoints.EntryPoints, yamlMap, entryPointsMap); err != nil {
 		return WorkflowSource{}, err
 	}
 
@@ -338,22 +344,32 @@ func GetWorkflowSource(runYaml []byte) (WorkflowSource, error) {
 		postComponentsMap[k] = v
 	}
 	postProcess, ok := yamlMap["post_process"]
-	if !ok {
-		return WorkflowSource{}, fmt.Errorf("get post_process failed")
+	if ok {
+		postProcessMap, ok := postProcess.(map[string]interface{})
+		if !ok {
+			return WorkflowSource{}, fmt.Errorf("get post_process map failed")
+		}
+		if err := wfs.ProcessRuntimeComponents(postComponentsMap, yamlMap, postProcessMap); err != nil {
+			return WorkflowSource{}, err
+		}
 	}
-	postProcessMap, ok := postProcess.(map[string]interface{})
-	if !ok {
-		return WorkflowSource{}, fmt.Errorf("get entry_points map failed")
-	}
-	if err := wfs.ValidateRunNodes(postComponentsMap, yamlMap, postProcessMap); err != nil {
-		return WorkflowSource{}, err
+
+	components, ok := yamlMap["components"]
+	if ok {
+		componentMap, ok := components.(map[string]interface{})
+		if !ok {
+			return WorkflowSource{}, fmt.Errorf("get components map failed")
+		}
+		if err := wfs.ProcessRuntimeComponents(wfs.Components, yamlMap, componentMap); err != nil {
+			return WorkflowSource{}, err
+		}
 	}
 
 	return wfs, nil
 }
 
 // 对Step的DockerEnv、Cache进行全局替换
-func (wfs *WorkflowSource) ValidateRunNodes(components map[string]Component, yamlMap map[string]interface{}, componentsMap map[string]interface{}) error {
+func (wfs *WorkflowSource) ProcessRuntimeComponents(components map[string]Component, yamlMap map[string]interface{}, componentsMap map[string]interface{}) error {
 	for name, component := range components {
 		if dag, ok := component.(*WorkflowSourceDag); ok {
 			subComponent, ok, err := unstructured.NestedFieldCopy(componentsMap, name, "entry_points")
@@ -364,7 +380,7 @@ func (wfs *WorkflowSource) ValidateRunNodes(components map[string]Component, yam
 			if !ok {
 				return fmt.Errorf("get subComponentMap failed")
 			}
-			if err := wfs.ValidateRunNodes(dag.EntryPoints, yamlMap, subComponentMap); err != nil {
+			if err := wfs.ProcessRuntimeComponents(dag.EntryPoints, yamlMap, subComponentMap); err != nil {
 				return err
 			}
 		} else if step, ok := component.(*WorkflowSourceStep); ok {
@@ -399,7 +415,7 @@ func (wfs *WorkflowSource) ValidateRunNodes(components map[string]Component, yam
 				if !ok {
 					return fmt.Errorf("get globalCacheMap failed")
 				}
-				if err := ValidateStepCacheByMap(&step.Cache, globalCacheMap, componentCacheMap); err != nil {
+				if err := ProcessStepCacheByMap(&step.Cache, globalCacheMap, componentCacheMap); err != nil {
 					return err
 				}
 			}
@@ -408,7 +424,7 @@ func (wfs *WorkflowSource) ValidateRunNodes(components map[string]Component, yam
 	return nil
 }
 
-func ValidateStepCacheByMap(cache *Cache, globalCacheMap map[string]interface{}, componentCacheMap map[string]interface{}) error {
+func ProcessStepCacheByMap(cache *Cache, globalCacheMap map[string]interface{}, componentCacheMap map[string]interface{}) error {
 	// 节点级别的Cache字段的优先级大于全局Cache字段
 	parser := Parser{}
 	// 先将节点的Cache，用全局的Cache赋值，这样如果下面节点级别的Cache字段没有再次覆盖，那节点级别的Cache字段就会采用全局的值

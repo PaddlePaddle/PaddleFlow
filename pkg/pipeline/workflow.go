@@ -545,9 +545,11 @@ func replaceAllNodeParam(entryPoints map[string]schema.Component, paramName stri
 
 func (bwf *BaseWorkflow) checkSteps() error {
 	/*
+		该函数检查了Components、EntryPoints、PostProcess
+
 		1. 检查disabled参数是否合法。
 			- disabled节点以逗号分隔。
-			- 所有disabled节点应该在entrypoints中，但是不要求必须在runSteps内
+			- 所有disabled节点应该在entrypoints/components/postProcess中，但是不要求必须在runSteps内
 
 		2. 检查每个节点 env, command, parameters and artifacts 是否合法（包括模板引用，参数值）
 			- 只检查此次运行中，可运行的节点集合(runSteps), 而不是yaml中定义的所有节点集合(Source)
@@ -579,7 +581,16 @@ func (bwf *BaseWorkflow) checkSteps() error {
 		SysParamNamePFFsName:   "",
 		SysParamNamePFUserName: "",
 	}
+
+	// 同时检查components、entryPoints、postProcess
+	// 其中components的名称中加了前缀，因此不会与entryPoints中的重名，也不会被disabled
 	components := map[string]schema.Component{}
+	for name, dag := range bwf.tmpDags {
+		components[name] = dag
+	}
+	for name, step := range bwf.tmpSteps {
+		components[name] = step
+	}
 	for name, step := range bwf.runtimeSteps {
 		components[name] = step
 	}

@@ -345,7 +345,7 @@ func (p *Parser) ParseDag(params map[string]interface{}, dagNode *WorkflowSource
 			fallthrough
 		case "loop_argument":
 			dagNode.LoopArgument = value
-		case "conditon":
+		case "condition":
 			value, ok := value.(string)
 			if !ok {
 				return fmt.Errorf("[condition] in dag should be string type")
