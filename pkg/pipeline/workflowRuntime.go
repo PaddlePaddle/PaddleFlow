@@ -99,7 +99,6 @@ func (wfr *WorkflowRuntime) Start() error {
 }
 
 // Restart 从 DB 中恢复重启
-// TODO: 进一步思考重启逻辑
 func (wfr *WorkflowRuntime) Restart(entryPointView schema.RuntimeView,
 	postProcessView schema.PostProcessView) error {
 	defer wfr.scheduleLock.Unlock()
