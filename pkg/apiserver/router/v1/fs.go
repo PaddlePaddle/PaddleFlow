@@ -452,7 +452,8 @@ func getListResult(fsModel []models.FileSystem, nextMarker, marker string) *api.
 // @tag fs
 // @Accept   json
 // @Produce  json
-// @Param id path string true "文件系统ID"
+// @Param fsName path string true "文件系统名称"
+// @Param username query string false "root用户指定其他用户"
 // @Success 200 {object} models.FileSystem
 // @Router /fs/{fsName} [get]
 func (pr *PFSRouter) getFileSystem(w http.ResponseWriter, r *http.Request) {

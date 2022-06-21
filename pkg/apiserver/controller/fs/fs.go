@@ -19,6 +19,7 @@ package fs
 import (
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -43,6 +44,18 @@ const (
 
 // FileSystemService the service which contains the operation of file system
 type FileSystemService struct{}
+
+var fileSystemService *FileSystemService
+var once sync.Once
+
+// GetFileSystemService returns the instance of file system service
+func GetFileSystemService() *FileSystemService {
+	once.Do(func() {
+		// default use db storage, mem used in the future maybe as the cache for db
+		fileSystemService = new(FileSystemService)
+	})
+	return fileSystemService
+}
 
 type CreateFileSystemRequest struct {
 	Name       string            `json:"name"`
@@ -109,16 +122,6 @@ type CreateFileSystemClaimsResponse struct {
 	Message string `json:"message"`
 }
 
-var fileSystemService *FileSystemService
-
-// GetFileSystemService returns the instance of file system service
-func GetFileSystemService() *FileSystemService {
-	if fileSystemService == nil {
-		fileSystemService = &FileSystemService{}
-	}
-	return fileSystemService
-}
-
 // CreateFileSystem the function which performs the operation of creating FileSystem
 func (s *FileSystemService) CreateFileSystem(ctx *logger.RequestContext, req *CreateFileSystemRequest) (models.FileSystem, error) {
 	fsType, serverAddress, subPath := common.InformationFromURL(req.Url, req.Properties)
@@ -145,7 +148,7 @@ func (s *FileSystemService) CreateFileSystem(ctx *logger.RequestContext, req *Cr
 func (s *FileSystemService) GetFileSystem(username, fsName string) (models.FileSystem, error) {
 	modelsFs, err := models.GetFileSystemWithFsID(common.ID(username, fsName))
 	if err != nil {
-		log.Errorf("get file system err[%v]", err)
+		log.Errorf("get filesystem[%s] under username[%s] err[%v]", fsName, username, err)
 		return models.FileSystem{}, err
 	}
 	return modelsFs, err
