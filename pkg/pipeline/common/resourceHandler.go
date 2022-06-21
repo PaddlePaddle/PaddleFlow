@@ -22,7 +22,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"paddleflow/pkg/apiserver/handler"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
 )
 
 /*
