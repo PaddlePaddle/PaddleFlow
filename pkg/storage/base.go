@@ -39,13 +39,18 @@ var (
 )
 
 func InitStores(db *gorm.DB) {
-	once.Do(func() {
-		FsStore = NewFileSystemStore(db)
-		CacheConfigStore = NewFsCacheConfigStore(db)
-		LinkStore = NewLinkStore(db)
-		FsMountStore = NewFsMountStore(db)
-		FsCacheStore = NewFsCacheStore(db)
-	})
+	//once.Do(func() {
+	//	FsStore = NewFileSystemStore(db)
+	//	CacheConfigStore = NewFsCacheConfigStore(db)
+	//	LinkStore = NewLinkStore(db)
+	//	FsMountStore = NewFsMountStore(db)
+	//	FsCacheStore = NewFsCacheStore(db)
+	//})
+	FsStore = NewFileSystemStore(db)
+	CacheConfigStore = NewFsCacheConfigStore(db)
+	LinkStore = NewLinkStore(db)
+	FsMountStore = NewFsMountStore(db)
+	FsCacheStore = NewFsCacheStore(db)
 }
 
 func initMockDB() {
