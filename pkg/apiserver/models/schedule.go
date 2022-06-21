@@ -483,8 +483,8 @@ func GetAvailableSchedule(logEntry *log.Entry, checkCatchup bool) (killMap map[s
 	}
 
 	for _, schedule := range schedules {
-		options := ScheduleOptions{}
-		if err := json.Unmarshal([]byte(schedule.Options), &options); err != nil {
+		options, err := DecodeScheduleOptions(schedule.Options)
+		if err != nil {
 			errMsg := fmt.Sprintf("decode options[%s] of schedule of ID[%s] failed. error: %v", schedule.Options, schedule.ID, err)
 			logEntry.Errorf(errMsg)
 			return nil, nil, nil, fmt.Errorf(errMsg)
@@ -576,8 +576,8 @@ func GetNextGlobalWakeupTime(logEntry *log.Entry) (*time.Time, error) {
 	var nextWakeupTime *time.Time = nil
 	for _, schedule := range schedules {
 		// 如果当前【run并发度】>= concurrency，而且policy是suspend时，则跳过该schedule
-		options := ScheduleOptions{}
-		if err := json.Unmarshal([]byte(schedule.Options), &options); err != nil {
+		options, err := DecodeScheduleOptions(schedule.Options)
+		if err != nil {
 			errMsg := fmt.Sprintf("decode options[%s] of schedule of ID[%s] failed. error: %v", schedule.Options, schedule.ID, err)
 			logEntry.Errorf(errMsg)
 			return nil, fmt.Errorf(errMsg)

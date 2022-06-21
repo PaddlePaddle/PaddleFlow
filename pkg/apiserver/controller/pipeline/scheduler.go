@@ -17,7 +17,6 @@ limitations under the License.
 package pipeline
 
 import (
-	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
@@ -285,8 +284,8 @@ func (s *Scheduler) dealWithConcurrency(scheduleID string, originNextWakeupTime 
 		return false, nil, nil
 	}
 
-	options := models.ScheduleOptions{}
-	if err := json.Unmarshal([]byte(schedule.Options), &options); err != nil {
+	options, err := models.DecodeScheduleOptions(schedule.Options)
+	if err != nil {
 		errMsg := fmt.Sprintf("decode options[%s] of schedule of ID[%s] failed. error: %v", schedule.Options, scheduleID, err)
 		logger.Logger().Errorf(errMsg)
 		return false, nil, fmt.Errorf(errMsg)
