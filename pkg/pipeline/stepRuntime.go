@@ -355,7 +355,7 @@ func (srt *StepRuntime) checkCached() (cacheFound bool, err error) {
 	}
 
 	if cacheFound {
-		jobView, err := srt.callbacks.GetJobCb(cacheJobID)
+		jobView, err := srt.callbacks.GetJobCb(cacheJobID, srt.componentFullName)
 		if err != nil {
 			return false, err
 		}
@@ -476,7 +476,7 @@ func (srt *StepRuntime) Execute() {
 
 		if cachedFound {
 			for {
-				jobView, err := srt.callbacks.GetJobCb(srt.CacheJobID)
+				jobView, err := srt.callbacks.GetJobCb(srt.CacheJobID, srt.componentFullName)
 				if err != nil {
 					// TODO: 此时是否应该继续运行，创建一个新的Job？
 					srt.logger.Errorln("get cache job info for step[%s] failed: %s", srt.name, err.Error())
