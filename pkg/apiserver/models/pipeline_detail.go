@@ -120,13 +120,10 @@ func GetLastPipelineDetail(pipelineID string) (PipelineDetail, error) {
 	return pplDetail, tx.Error
 }
 
-func DeletePipelineDetail(logEntry *log.Entry, pipelineID string, pipelineDetailID string, hardDelete bool) error {
-	logEntry.Debugf("delete pipeline[%s] detailID[%s], hardDelete[%t]", pipelineID, pipelineDetailID, hardDelete)
+func DeletePipelineDetail(logEntry *log.Entry, pipelineID string, pipelineDetailID string) error {
+	logEntry.Debugf("delete pipeline[%s] detailID[%s]", pipelineID, pipelineDetailID)
 
 	tx := database.DB
-	if hardDelete {
-		tx = tx.Unscoped()
-	}
 	result := tx.Model(&PipelineDetail{}).Where("pipeline_id = ?", pipelineID).Where("id = ?", pipelineDetailID).Delete(&PipelineDetail{})
 	return result.Error
 }

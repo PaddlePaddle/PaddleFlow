@@ -116,7 +116,8 @@ func (s *Scheduler) Start() {
 		case <-timeout:
 			// 在循环过程中，发起任务不需要检查catchup配置（肯定catchup==true）
 			log.Infof("begin deal with timeout")
-			tmpNextWakeupTime, err = s.dealWithTimout(false)
+			checkCatchup := false
+			tmpNextWakeupTime, err = s.dealWithTimout(checkCatchup)
 			if err != nil {
 				log.Errorf("scheduler deal with timeout failed, %s", err.Error())
 				continue
@@ -203,21 +204,23 @@ func (s *Scheduler) dealWithTimout(checkCatchup bool) (*time.Time, error) {
 
 	log.Infof("execMap:[%v], killMap:[%v]", execMap, killMap)
 
-	// 根据execMap，发起周期任务
+	// 根据execMap，发起周期任务，发起任务失败了只打日志，不影响调度
 	for scheduleID, nextRunAtList := range execMap {
+		log.Infof("start to create runs[%v] for schedule[%s]", nextRunAtList, scheduleID)
 		schedule, err := models.GetSchedule(logEntry, scheduleID)
 		if err != nil {
-			return nil, err
+			log.Errorf("skip createRun for schedule[%s] with nextRunAtList[%v] in scheduler, getSchedule err:[%s]", scheduleID, nextRunAtList, err.Error())
+			continue
 		}
 
 		fsConfig, err := models.DecodeFsConfig(schedule.FsConfig)
 		if err != nil {
-			return nil, err
+			log.Errorf("skip createRun for schedule[%s] with nextRunAtList[%v] in scheduler, decodeFsConfig err:[%s]", scheduleID, nextRunAtList, err.Error())
+			continue
 		}
 
 		for _, nextRunAt := range nextRunAtList {
 			log.Infof("start to create run in ScheduledAt[%s] for schedule[%s]", nextRunAt.Format("2006-01-02 15:04:05"), scheduleID)
-
 			createRequest := CreateRunRequest{
 				FsName:           fsConfig.FsName,
 				UserName:         fsConfig.UserName,
@@ -231,7 +234,7 @@ func (s *Scheduler) dealWithTimout(checkCatchup bool) (*time.Time, error) {
 			_, err := CreateRun(schedule.UserName, &createRequest)
 			if err != nil {
 				log.Errorf("create run for schedule[%s] in ScheduledAt[%s] failed, err:[%s]", scheduleID, nextRunAt.Format("2006-01-02 15:04:05"), err.Error())
-				return nil, err
+				continue
 			}
 		}
 	}
@@ -241,8 +244,8 @@ func (s *Scheduler) dealWithTimout(checkCatchup bool) (*time.Time, error) {
 		log.Infof("start to stop runs[%v] for schedule[%s]", runIDList, scheduleID)
 		schedule, err := models.GetSchedule(logEntry, scheduleID)
 		if err != nil {
-			log.Errorf("GetSchedule in stop runs[%v] for schedule[%s]", runIDList, scheduleID)
-			return nil, err
+			log.Errorf("skip StopRun for schedule[%s] with runIDList[%s] in scheduler, getSchedule err:[%s]", scheduleID, runIDList, err.Error())
+			continue
 		}
 
 		for _, runID := range runIDList {
@@ -250,8 +253,8 @@ func (s *Scheduler) dealWithTimout(checkCatchup bool) (*time.Time, error) {
 			request := UpdateRunRequest{StopForce: false}
 			err = StopRun(logEntry, schedule.UserName, runID, request)
 			if err != nil {
-				log.Errorf("stop run[%s] failed for schedule[%s]", runID, scheduleID)
-				return nil, err
+				log.Errorf("stop run[%s] failed for schedule[%s], err:[%s]", runID, scheduleID, err.Error())
+				continue
 			}
 		}
 	}
@@ -284,7 +287,7 @@ func (s *Scheduler) dealWithConcurrency(scheduleID string, originNextWakeupTime 
 
 	options := models.ScheduleOptions{}
 	if err := json.Unmarshal([]byte(schedule.Options), &options); err != nil {
-		errMsg := fmt.Sprintf("decode optinos[%s] of schedule of ID[%s] failed. error: %v", schedule.Options, scheduleID, err)
+		errMsg := fmt.Sprintf("decode options[%s] of schedule of ID[%s] failed. error: %v", schedule.Options, scheduleID, err)
 		log.Errorf(errMsg)
 		return false, nil, fmt.Errorf(errMsg)
 	}

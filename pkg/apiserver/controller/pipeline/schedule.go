@@ -69,7 +69,7 @@ type ScheduleBrief struct {
 
 type ListScheduleResponse struct {
 	common.MarkerInfo
-	ScheduleList []ScheduleBrief `json:"ScheduleList"`
+	ScheduleList []ScheduleBrief `json:"scheduleList"`
 }
 
 type GetScheduleResponse struct {
@@ -285,7 +285,7 @@ func SendSingnal(opType, scheduleID string) error {
 	return nil
 }
 
-func ListSchedule(ctx *logger.RequestContext, pipelineID, marker string, maxKeys int, userFilter, fsFilter, scheduleFilter, nameFilter, statusFilter []string) (ListScheduleResponse, error) {
+func ListSchedule(ctx *logger.RequestContext, pipelineID, marker string, maxKeys int, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter []string) (ListScheduleResponse, error) {
 	ctx.Logging().Debugf("begin list schedule.")
 	var pk int64
 	var err error
@@ -299,16 +299,24 @@ func ListSchedule(ctx *logger.RequestContext, pipelineID, marker string, maxKeys
 		}
 	}
 
-	// normal user list its own
+	// 只有root用户才能设置userFilter，否则只能查询当前普通用户创建的schedule列表
 	if !common.IsRootUser(ctx.UserName) {
-		userFilter = []string{ctx.UserName}
+		if len(userFilter) != 0 {
+			ctx.ErrorCode = common.InternalError
+			errMsg := fmt.Sprint("only root user can set userFilter!")
+			ctx.Logging().Errorf(errMsg)
+			return ListScheduleResponse{}, fmt.Errorf(errMsg)
+		} else {
+			userFilter = []string{ctx.UserName}
+		}
 	}
 
 	// model list
-	scheduleList, err := models.ListSchedule(ctx.Logging(), pipelineID, "", pk, maxKeys, userFilter, fsFilter, scheduleFilter, nameFilter, statusFilter)
+	scheduleList, err := models.ListSchedule(ctx.Logging(), pipelineID, pk, maxKeys, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
 	if err != nil {
 		ctx.Logging().Errorf("models list schedule failed. err:[%s]", err.Error())
 		ctx.ErrorCode = common.InternalError
+		return ListScheduleResponse{}, err
 	}
 	listScheduleResponse := ListScheduleResponse{ScheduleList: []ScheduleBrief{}}
 
@@ -316,7 +324,15 @@ func ListSchedule(ctx *logger.RequestContext, pipelineID, marker string, maxKeys
 	listScheduleResponse.IsTruncated = false
 	if len(scheduleList) > 0 {
 		schedule := scheduleList[len(scheduleList)-1]
-		if !isLastSchedulePk(ctx, schedule.Pk, pipelineID) {
+		isLastPk, err := models.IsLastSchedulePk(ctx.Logging(), schedule.Pk, pipelineID, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
+		if err != nil {
+			ctx.ErrorCode = common.InternalError
+			errMsg := fmt.Sprintf("get last schedule Pk failed. err:[%s]", err.Error())
+			ctx.Logging().Errorf(errMsg)
+			return ListScheduleResponse{}, fmt.Errorf(errMsg)
+		}
+
+		if !isLastPk {
 			nextMarker, err := common.EncryptPk(schedule.Pk)
 			if err != nil {
 				ctx.Logging().Errorf("EncryptPk error. pk:[%d] error:[%s]",
@@ -342,17 +358,6 @@ func ListSchedule(ctx *logger.RequestContext, pipelineID, marker string, maxKeys
 	return listScheduleResponse, nil
 }
 
-func isLastSchedulePk(ctx *logger.RequestContext, pk int64, pipelienID string) bool {
-	lastSchedule, err := models.GetLastSchedule(ctx.Logging(), pipelienID)
-	if err != nil {
-		ctx.Logging().Errorf("get last schedule failed. error:[%s]", err.Error())
-	}
-	if lastSchedule.Pk == pk {
-		return true
-	}
-	return false
-}
-
 func getSchedule(ctx *logger.RequestContext, scheduleID string) (models.Schedule, error) {
 	ctx.Logging().Debugf("begin get schedule by id. scheduleID:%s", scheduleID)
 	schedule, err := models.GetSchedule(ctx.Logging(), scheduleID)
@@ -369,7 +374,8 @@ func getSchedule(ctx *logger.RequestContext, scheduleID string) (models.Schedule
 	return schedule, nil
 }
 
-func GetSchedule(ctx *logger.RequestContext, scheduleID string, marker string, maxKeys int, runFilter, statusFilter []string) (GetScheduleResponse, error) {
+func GetSchedule(ctx *logger.RequestContext, scheduleID string,
+	marker string, maxKeys int, runFilter, statusFilter []string) (GetScheduleResponse, error) {
 	ctx.Logging().Debugf("begin get schedule[%s]", scheduleID)
 
 	// check schedule exist && user access right

@@ -73,14 +73,14 @@ func TestCreatePipeline(t *testing.T) {
 	getPplResp, err := GetPipeline(ctx, resp.PipelineID, "", 10, []string{})
 	assert.Nil(t, err)
 	assert.Equal(t, getPplResp.Pipeline.Name, "distribute_wide_and_deep")
-	assert.Equal(t, len(getPplResp.PipelineDetailList), 1)
-	assert.Equal(t, getPplResp.PipelineDetailList[0].PipelineID, "ppl-000001")
-	assert.Equal(t, getPplResp.PipelineDetailList[0].ID, "1")
+	assert.Equal(t, len(getPplResp.PipelineDetails.PipelineDetailList), 1)
+	assert.Equal(t, getPplResp.PipelineDetails.PipelineDetailList[0].PipelineID, "ppl-000001")
+	assert.Equal(t, getPplResp.PipelineDetails.PipelineDetailList[0].ID, "1")
 
 	fmt.Printf("=========================\n=========================\n")
 	b, _ := json.Marshal(getPplResp.Pipeline)
 	fmt.Printf("%s\n", b)
-	b, _ = json.Marshal(getPplResp.PipelineDetailList)
+	b, _ = json.Marshal(getPplResp.PipelineDetails.PipelineDetailList)
 	fmt.Printf("%s\n", b)
 	fmt.Printf("\n=========================\n=========================\n")
 
@@ -98,9 +98,9 @@ func TestCreatePipeline(t *testing.T) {
 	getPplResp, err = GetPipeline(ctx, resp.PipelineID, "", 10, []string{})
 	assert.Nil(t, err)
 	assert.Equal(t, getPplResp.Pipeline.Name, "distribute_wide_and_deep")
-	assert.Equal(t, len(getPplResp.PipelineDetailList), 1)
-	assert.Equal(t, getPplResp.PipelineDetailList[0].PipelineID, "ppl-000002")
-	assert.Equal(t, getPplResp.PipelineDetailList[0].ID, "1")
+	assert.Equal(t, len(getPplResp.PipelineDetails.PipelineDetailList), 1)
+	assert.Equal(t, getPplResp.PipelineDetails.PipelineDetailList[0].PipelineID, "ppl-000002")
+	assert.Equal(t, getPplResp.PipelineDetails.PipelineDetailList[0].ID, "1")
 }
 
 // 测试更新pipeline
@@ -147,9 +147,9 @@ func TestUpdatePipeline(t *testing.T) {
 	getPplResp, err := GetPipeline(ctx, createPplResp.PipelineID, "", 10, []string{})
 	assert.Nil(t, err)
 	assert.Equal(t, getPplResp.Pipeline.Name, "distribute_wide_and_deep")
-	assert.Equal(t, len(getPplResp.PipelineDetailList), 1)
-	assert.Equal(t, getPplResp.PipelineDetailList[0].PipelineID, "ppl-000001")
-	assert.Equal(t, getPplResp.PipelineDetailList[0].ID, "1")
+	assert.Equal(t, len(getPplResp.PipelineDetails.PipelineDetailList), 1)
+	assert.Equal(t, getPplResp.PipelineDetails.PipelineDetailList[0].PipelineID, "ppl-000001")
+	assert.Equal(t, getPplResp.PipelineDetails.PipelineDetailList[0].ID, "1")
 
 	// update 失败，yaml name 与 pipeline记录中的 name 不一样
 	updatePplReq.YamlPath = "../../../../example/pipeline/base_pipeline/run.yaml"
@@ -179,26 +179,26 @@ func TestUpdatePipeline(t *testing.T) {
 	getPplResp, err = GetPipeline(ctx, createPplResp.PipelineID, "", 10, []string{})
 	assert.Nil(t, err)
 	assert.Equal(t, getPplResp.Pipeline.Name, "distribute_wide_and_deep")
-	assert.Equal(t, len(getPplResp.PipelineDetailList), 3)
-	assert.Equal(t, getPplResp.PipelineDetailList[0].PipelineID, "ppl-000001")
-	assert.Equal(t, getPplResp.PipelineDetailList[0].ID, "1")
-	assert.Equal(t, getPplResp.PipelineDetailList[1].PipelineID, "ppl-000001")
-	assert.Equal(t, getPplResp.PipelineDetailList[1].ID, "2")
-	assert.Equal(t, getPplResp.PipelineDetailList[2].PipelineID, "ppl-000001")
-	assert.Equal(t, getPplResp.PipelineDetailList[2].ID, "3")
+	assert.Equal(t, len(getPplResp.PipelineDetails.PipelineDetailList), 3)
+	assert.Equal(t, getPplResp.PipelineDetails.PipelineDetailList[0].PipelineID, "ppl-000001")
+	assert.Equal(t, getPplResp.PipelineDetails.PipelineDetailList[0].ID, "1")
+	assert.Equal(t, getPplResp.PipelineDetails.PipelineDetailList[1].PipelineID, "ppl-000001")
+	assert.Equal(t, getPplResp.PipelineDetails.PipelineDetailList[1].ID, "2")
+	assert.Equal(t, getPplResp.PipelineDetails.PipelineDetailList[2].PipelineID, "ppl-000001")
+	assert.Equal(t, getPplResp.PipelineDetails.PipelineDetailList[2].ID, "3")
 
 	// 普通用户，test get success
 	ctx = &logger.RequestContext{UserName: "normalUser"}
 	getPplResp, err = GetPipeline(ctx, createPplResp.PipelineID, "", 10, []string{})
 	assert.Nil(t, err)
 	assert.Equal(t, getPplResp.Pipeline.Name, "distribute_wide_and_deep")
-	assert.Equal(t, len(getPplResp.PipelineDetailList), 3)
-	assert.Equal(t, getPplResp.PipelineDetailList[0].PipelineID, "ppl-000001")
-	assert.Equal(t, getPplResp.PipelineDetailList[0].ID, "1")
-	assert.Equal(t, getPplResp.PipelineDetailList[1].PipelineID, "ppl-000001")
-	assert.Equal(t, getPplResp.PipelineDetailList[1].ID, "2")
-	assert.Equal(t, getPplResp.PipelineDetailList[2].PipelineID, "ppl-000001")
-	assert.Equal(t, getPplResp.PipelineDetailList[2].ID, "3")
+	assert.Equal(t, len(getPplResp.PipelineDetails.PipelineDetailList), 3)
+	assert.Equal(t, getPplResp.PipelineDetails.PipelineDetailList[0].PipelineID, "ppl-000001")
+	assert.Equal(t, getPplResp.PipelineDetails.PipelineDetailList[0].ID, "1")
+	assert.Equal(t, getPplResp.PipelineDetails.PipelineDetailList[1].PipelineID, "ppl-000001")
+	assert.Equal(t, getPplResp.PipelineDetails.PipelineDetailList[1].ID, "2")
+	assert.Equal(t, getPplResp.PipelineDetails.PipelineDetailList[2].PipelineID, "ppl-000001")
+	assert.Equal(t, getPplResp.PipelineDetails.PipelineDetailList[2].ID, "3")
 }
 
 // 测试list pipeline
@@ -227,6 +227,7 @@ func TestListPipeline(t *testing.T) {
 	assert.Equal(t, 1, len(resp.PipelineList))
 	assert.Equal(t, resp.PipelineList[0].ID, "ppl-000001")
 	assert.Equal(t, resp.IsTruncated, true)
+	assert.NotEqual(t, resp.NextMarker, "")
 	b, _ = json.Marshal(resp)
 	println("")
 	fmt.Printf("%s\n", b)
@@ -364,11 +365,11 @@ func TestGetPipeline(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, resp.Pipeline.ID, "ppl-000001")
 	assert.Equal(t, resp.Pipeline.Name, "ppl1")
-	assert.Equal(t, 2, len(resp.PipelineDetailList))
-	assert.Equal(t, resp.PipelineDetailList[0].ID, "1")
-	assert.Equal(t, resp.PipelineDetailList[1].ID, "2")
-	assert.Equal(t, resp.IsTruncated, false)
-	assert.Equal(t, resp.NextMarker, "")
+	assert.Equal(t, 2, len(resp.PipelineDetails.PipelineDetailList))
+	assert.Equal(t, resp.PipelineDetails.PipelineDetailList[0].ID, "1")
+	assert.Equal(t, resp.PipelineDetails.PipelineDetailList[1].ID, "2")
+	assert.Equal(t, resp.PipelineDetails.IsTruncated, false)
+	assert.Equal(t, resp.PipelineDetails.NextMarker, "")
 	b, _ = json.Marshal(resp)
 	println("")
 	fmt.Printf("%s\n", b)
@@ -379,9 +380,10 @@ func TestGetPipeline(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, resp.Pipeline.ID, "ppl-000001")
 	assert.Equal(t, resp.Pipeline.Name, "ppl1")
-	assert.Equal(t, 1, len(resp.PipelineDetailList))
-	assert.Equal(t, resp.PipelineDetailList[0].ID, "1")
-	assert.Equal(t, resp.IsTruncated, true)
+	assert.Equal(t, 1, len(resp.PipelineDetails.PipelineDetailList))
+	assert.Equal(t, resp.PipelineDetails.PipelineDetailList[0].ID, "1")
+	assert.Equal(t, resp.PipelineDetails.IsTruncated, true)
+	assert.NotEqual(t, resp.PipelineDetails.NextMarker, "")
 	b, _ = json.Marshal(resp)
 	println("")
 	fmt.Printf("%s\n", b)
@@ -391,23 +393,22 @@ func TestGetPipeline(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, resp.Pipeline.ID, "ppl-000001")
 	assert.Equal(t, resp.Pipeline.Name, "ppl1")
-	assert.Equal(t, 1, len(resp.PipelineDetailList))
-	assert.Equal(t, resp.PipelineDetailList[0].ID, "1")
-	assert.Equal(t, resp.IsTruncated, false)
-	assert.Equal(t, resp.NextMarker, "")
+	assert.Equal(t, 1, len(resp.PipelineDetails.PipelineDetailList))
+	assert.Equal(t, resp.PipelineDetails.PipelineDetailList[0].ID, "1")
+	assert.Equal(t, resp.PipelineDetails.IsTruncated, false)
+	assert.Equal(t, resp.PipelineDetails.NextMarker, "")
 	b, _ = json.Marshal(resp)
 	println("")
 	fmt.Printf("%s\n", b)
 
 	// test get pipeline, 没有pipeline detail匹配时，istruncated=false
-	resp, err = GetPipeline(ctx, "ppl-000001", "", 10, []string{"fsname2"})
+	resp, err = GetPipeline(ctx, "ppl-000001", "", 10, []string{"notExistFsname"})
 	assert.Nil(t, err)
 	assert.Equal(t, resp.Pipeline.ID, "ppl-000001")
 	assert.Equal(t, resp.Pipeline.Name, "ppl1")
-	assert.Equal(t, 1, len(resp.PipelineDetailList))
-	assert.Equal(t, resp.PipelineDetailList[0].ID, "2")
-	assert.Equal(t, resp.IsTruncated, false)
-	assert.Equal(t, resp.NextMarker, "")
+	assert.Equal(t, 0, len(resp.PipelineDetails.PipelineDetailList))
+	assert.Equal(t, resp.PipelineDetails.IsTruncated, false)
+	assert.Equal(t, resp.PipelineDetails.NextMarker, "")
 	b, _ = json.Marshal(resp)
 	println("")
 	fmt.Printf("%s\n", b)
@@ -468,7 +469,7 @@ func TestGetPipelineDetail(t *testing.T) {
 	// test get pipeline detail 失败，pipeline id不存在
 	resp, err := GetPipelineDetail(ctx, "wrongPplID", "1")
 	assert.NotNil(t, err)
-	assert.Equal(t, "delete pipeline[wrongPplID] detail[1] failed. err:pipeline[wrongPplID] not exist", err.Error())
+	assert.Equal(t, "get pipeline[wrongPplID] detail[1] failed. err:pipeline[wrongPplID] not exist", err.Error())
 	b, _ := json.Marshal(resp)
 	fmt.Printf("\n%s\n", b)
 
@@ -476,7 +477,7 @@ func TestGetPipelineDetail(t *testing.T) {
 	ctx = &logger.RequestContext{UserName: "user2"}
 	resp, err = GetPipelineDetail(ctx, "ppl-000001", "1")
 	assert.NotNil(t, err)
-	assert.Equal(t, "delete pipeline[ppl-000001] detail[1] failed. Access denied for user[user2]", err.Error())
+	assert.Equal(t, "get pipeline[ppl-000001] detail[1] failed. Access denied for user[user2]", err.Error())
 	b, _ = json.Marshal(resp)
 	fmt.Printf("\n%s\n", b)
 
@@ -484,7 +485,7 @@ func TestGetPipelineDetail(t *testing.T) {
 	ctx = &logger.RequestContext{UserName: MockRootUser}
 	resp, err = GetPipelineDetail(ctx, "ppl-000001", "3")
 	assert.NotNil(t, err)
-	assert.Equal(t, "delete pipeline[ppl-000001] detail[3] failed. err:pipeline[ppl-000001] detail[3] not exist", err.Error())
+	assert.Equal(t, "get pipeline[ppl-000001] detail[3] failed. err:pipeline[ppl-000001] detail[3] not exist", err.Error())
 	b, _ = json.Marshal(resp)
 	fmt.Printf("\n%s\n", b)
 
@@ -774,4 +775,22 @@ func TestDeletePipelineDetail(t *testing.T) {
 	err = DeletePipelineDetail(ctx, "ppl-000002", "2")
 	assert.NotNil(t, err)
 	assert.Equal(t, "delete pipeline[ppl-000002] detail[2] failed. only one pipeline detail left, pls delete pipeline instead", err.Error())
+
+	// 删除detail后重新更新pipeline，确保detail_id是严格递增（包括被删除的部分）
+	pplDetail6 := models.PipelineDetail{
+		FsID:         "user1-fsname4",
+		FsName:       "fsname4",
+		YamlPath:     "./run.yml",
+		PipelineYaml: "ddddd",
+		PipelineMd5:  "md5_4",
+		UserName:     "user1",
+	}
+
+	pplID6, pplDetailID6, err := models.UpdatePipeline(ctx.Logging(), &ppl1, &pplDetail6)
+	assert.Nil(t, err)
+	assert.Equal(t, pplID6, ppl1.ID)
+
+	assert.Equal(t, pplDetail6.Pk, int64(6))
+	assert.Equal(t, pplDetailID6, pplDetail6.ID)
+	assert.Equal(t, pplDetailID6, "4")
 }

@@ -61,7 +61,7 @@ func CreatePipeline(logEntry *log.Entry, ppl *Pipeline, pplDetail *PipelineDetai
 		}
 
 		var pplDetailCount int64
-		tx = tx.Model(&PipelineDetail{}).Where("pipeline_id = ?", ppl.ID).Count(&pplDetailCount)
+		tx = tx.Unscoped().Model(&PipelineDetail{}).Where("pipeline_id = ?", ppl.ID).Count(&pplDetailCount)
 		if tx.Error != nil {
 			logger.Logger().Errorf("count pipeline detail failed. pipelineID[%s]. error:%s",
 				ppl.ID, tx.Error.Error())
@@ -92,7 +92,7 @@ func UpdatePipeline(logEntry *log.Entry, ppl *Pipeline, pplDetail *PipelineDetai
 		}
 
 		var pplDetailCount int64
-		tx = tx.Model(&PipelineDetail{}).Where("pipeline_id = ?", ppl.ID).Count(&pplDetailCount)
+		tx = tx.Unscoped().Model(&PipelineDetail{}).Where("pipeline_id = ?", ppl.ID).Count(&pplDetailCount)
 		if tx.Error != nil {
 			logger.Logger().Errorf("count pipeline detail failed. pipelineID[%s]. error:%s",
 				ppl.ID, tx.Error.Error())
@@ -171,13 +171,8 @@ func IsLastPipelinePk(logEntry *log.Entry, pk int64, userFilter, nameFilter []st
 	return pk == ppl.Pk, nil
 }
 
-func DeletePipeline(logEntry *log.Entry, id string, hardDelete bool) error {
-	logEntry.Debugf("delete ppl: %s, harDelete[%t]", id, hardDelete)
-	if hardDelete {
-		result := database.DB.Unscoped().Where("id = ?", id).Delete(&Pipeline{})
-		return result.Error
-	} else {
-		result := database.DB.Where("id = ?", id).Delete(&Pipeline{})
-		return result.Error
-	}
+func DeletePipeline(logEntry *log.Entry, id string) error {
+	logEntry.Debugf("delete ppl: %s", id)
+	result := database.DB.Where("id = ?", id).Delete(&Pipeline{})
+	return result.Error
 }

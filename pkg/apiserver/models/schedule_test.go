@@ -210,7 +210,7 @@ func TestExpireInterval(t *testing.T) {
 	assert.Nil(t, err)
 
 	schedule := Schedule{
-		ID:               "", // to be back filled according to db pk
+		ID:               "", // to be backfilled according to db pk
 		Name:             "schedule1",
 		Desc:             "schedule1",
 		PipelineID:       pplID1,

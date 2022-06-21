@@ -49,7 +49,7 @@ var mockCbs = WorkflowCallbacks{
 		return "cch-000027", nil
 	},
 	ListCacheCb: func(firstFp, fsID, step, yamlPath string) ([]models.RunCache, error) {
-		return []models.RunCache{models.RunCache{RunID: "run-000027"}, models.RunCache{RunID: "run-000028"}}, nil
+		return []models.RunCache{{RunID: "run-000027"}, {RunID: "run-000028"}}, nil
 	},
 }
 

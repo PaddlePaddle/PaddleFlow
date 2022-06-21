@@ -112,9 +112,9 @@ func (fc *FsConfig) Encode(logEntry *log.Entry) (string, error) {
 
 type ScheduleOptions struct {
 	Catchup           bool   `json:"catchup"`
-	ExpireInterval    int    `json:"expire_interval"`
+	ExpireInterval    int    `json:"expireInterval"`
 	Concurrency       int    `json:"concurrency"`
-	ConcurrencyPolicy string `json:"concurrency_policy"`
+	ConcurrencyPolicy string `json:"concurrencyPolicy"`
 }
 
 func checkContains(val string, list []string) bool {
@@ -164,7 +164,7 @@ func NewScheduleOptions(logEntry *log.Entry, catchup bool, expireInterval int, c
 
 func DecodeScheduleOptions(StrOptions string) (so ScheduleOptions, err error) {
 	if err := json.Unmarshal([]byte(StrOptions), &so); err != nil {
-		errMsg := fmt.Sprintf("decode scheduleOptions failed. error:%v", err)
+		errMsg := fmt.Sprintf("decode scheduleOptions[%s] failed. error:%v", StrOptions, err)
 		return ScheduleOptions{}, fmt.Errorf(errMsg)
 	}
 
@@ -210,19 +210,15 @@ func CreateSchedule(logEntry *log.Entry, schedule Schedule) (scheduleID string, 
 	return schedule.ID, err
 }
 
-func ListSchedule(logEntry *log.Entry, pipelineID, PipelineDetailID string, pk int64, maxKeys int, userFilter, fsFilter, scheduleFilter, nameFilter, statusFilter []string) ([]Schedule, error) {
+func ListSchedule(logEntry *log.Entry, pipelineID string, pk int64, maxKeys int, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter []string) ([]Schedule, error) {
 	logEntry.Debugf("begin list schedule. ")
 	tx := database.DB.Model(&Schedule{}).Where("pk > ?", pk).Where("pipeline_id = ?", pipelineID)
 
-	if PipelineDetailID != "" {
-		tx = tx.Where("pipeline_detail_id = ?", PipelineDetailID)
+	if len(pplDetailFilter) > 0 {
+		tx = tx.Where("pipeline_detail_id IN (?)", pplDetailFilter)
 	}
-
 	if len(userFilter) > 0 {
 		tx = tx.Where("user_name IN (?)", userFilter)
-	}
-	if len(fsFilter) > 0 {
-		tx = tx.Where("fs_name IN (?)", fsFilter)
 	}
 	if len(scheduleFilter) > 0 {
 		tx = tx.Where("id IN (?)", scheduleFilter)
@@ -240,23 +236,43 @@ func ListSchedule(logEntry *log.Entry, pipelineID, PipelineDetailID string, pk i
 	var scheduleList []Schedule
 	tx = tx.Find(&scheduleList)
 	if tx.Error != nil {
-		logEntry.Errorf("list schedule failed. Filters: user{%v}, fs{%v}, schedule{%v}, name{%v}, status{%v}, scheduleID{%v}. error:%s",
-			userFilter, fsFilter, scheduleFilter, nameFilter, statusFilter, scheduleFilter, tx.Error.Error())
+		logEntry.Errorf("list schedule failed. Filters: pplDetail[%v], user{%v}, schedule{%v}, name{%v}, status{%v}. error:%s",
+			pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter, tx.Error.Error())
 		return []Schedule{}, tx.Error
 	}
 
 	return scheduleList, nil
 }
 
-func GetLastSchedule(logEntry *log.Entry, pipelineID string) (Schedule, error) {
-	logEntry.Debugf("get last schedule for pipeline[%s].", pipelineID)
+func IsLastSchedulePk(logEntry *log.Entry, pk int64, pipelineID string, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter []string) (bool, error) {
+	logEntry.Debugf("get last schedule for ppl[%s], Filters: pplDetail[%v], user[%v], schedule[%v], name[%v], status[%v]",
+		pipelineID, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
+	tx := database.DB.Model(&Schedule{}).Where("pipeline_id = ?", pipelineID)
+
+	if len(pplDetailFilter) > 0 {
+		tx = tx.Where("pipeline_detail_id IN (?)", pplDetailFilter)
+	}
+	if len(userFilter) > 0 {
+		tx = tx.Where("user_name IN (?)", userFilter)
+	}
+	if len(scheduleFilter) > 0 {
+		tx = tx.Where("id IN (?)", scheduleFilter)
+	}
+	if len(nameFilter) > 0 {
+		tx = tx.Where("name IN (?)", nameFilter)
+	}
+	if len(statusFilter) > 0 {
+		tx = tx.Where("status IN (?)", statusFilter)
+	}
+
 	schedule := Schedule{}
-	tx := database.DB.Model(&Schedule{}).Where("pipeline_id = ?", pipelineID).Last(&schedule)
+	tx = tx.Last(&schedule)
 	if tx.Error != nil {
 		logEntry.Errorf("get last schedule for pipeline[%s] failed. error:%s", pipelineID, tx.Error.Error())
-		return Schedule{}, tx.Error
+		return false, tx.Error
 	}
-	return schedule, nil
+
+	return schedule.Pk == pk, nil
 }
 
 func checkScheduleStatus(status string) bool {
@@ -297,7 +313,7 @@ func GetSchedule(logEntry *log.Entry, scheduleID string) (Schedule, error) {
 	return schedule, nil
 }
 
-func GetSchedules(logEntry *log.Entry, status string) (schedules []Schedule, err error) {
+func GetSchedulesByStatus(logEntry *log.Entry, status string) (schedules []Schedule, err error) {
 	if !checkScheduleStatus(status) {
 		errMsg := fmt.Sprintf("get schedules failed: status[%s] invalid!", status)
 		logEntry.Errorf(errMsg)
@@ -362,9 +378,9 @@ func getEarlierTime(time1, time2 time.Time) time.Time {
 // 只需要处理 catchup == true 的case
 // - 如果catchup == false，即不需要catchup，则currentTime和schedule.EndAt前，所有miss的周期任务都被抛弃，不再发起
 func findExectableRunBeforeCurrentTime(schedule Schedule, currentTime time.Time, checkCatchup bool, totalCount int, execMap map[string][]time.Time) (time.Time, error) {
-	options := ScheduleOptions{}
-	if err := json.Unmarshal([]byte(schedule.Options), &options); err != nil {
-		errMsg := fmt.Sprintf("decode optinos[%s] of schedule of ID[%s] failed. error: %v", schedule.Options, schedule.ID, err)
+	options, err := DecodeScheduleOptions(schedule.Options)
+	if err != nil {
+		errMsg := fmt.Sprintf("decode options of schedule[%s] failed. error: %v", schedule.ID, err)
 		return time.Time{}, fmt.Errorf(errMsg)
 	}
 
@@ -384,36 +400,38 @@ func findExectableRunBeforeCurrentTime(schedule Schedule, currentTime time.Time,
 
 	nextRunAt := schedule.NextRunAt
 	expire_interval_durtion := time.Duration(options.ExpireInterval) * time.Second
-	for checkNextRunAt(nextRunAt, currentTime, schedule.EndAt) {
+	for ; checkNextRunAt(nextRunAt, currentTime, schedule.EndAt); nextRunAt = cronSchedule.Next(nextRunAt) {
 		log.Infof("start to check schedule[%s] at %s, with schedule.EndAt[%s]", schedule.ID, nextRunAt.Format("2006-01-02 15:04:05"), schedule.EndAt.Time.Format("2006-01-02 15:04:05"))
-		if catchup == true {
-			if options.ExpireInterval == 0 || !nextRunAt.Add(expire_interval_durtion).Before(currentTime) {
-				if options.Concurrency == 0 || totalCount < options.Concurrency {
-					execMap[schedule.ID] = append(execMap[schedule.ID], nextRunAt)
-					totalCount += 1
-				} else {
-					if options.ConcurrencyPolicy == ConcurrencyPolicySuspend {
-						// 直接跳出循环，不会继续更新nextRunAt
-						errMsg := fmt.Sprintf("concurrency of schedule with ID[%s] already reach[%d], so suspend", schedule.ID, options.Concurrency)
-						log.Info(errMsg)
-						break
-					} else if options.ConcurrencyPolicy == ConcurrencyPolicyReplace {
-						// 停止该schedule最早的run，并发起新的run，更新next_run_at
-						execMap[schedule.ID] = append(execMap[schedule.ID], nextRunAt)
-						totalCount += 1
-					} else if options.ConcurrencyPolicy == ConcurrencyPolicySkip {
-						// 不跳出循环，会继续更新nextRunAt
-						errMsg := fmt.Sprintf("concurrency of schedule with ID[%s] already reach[%d], so skip", schedule.ID, options.Concurrency)
-						log.Info(errMsg)
-					}
-				}
-			} else {
-				log.Infof("nextRunAt[%s] of schedule[%s] is beyond expire interval[%d] from currentTime[%s], so skip",
-					nextRunAt.Format("2006-01-02 15:04:05"), schedule.ID, options.ExpireInterval, currentTime.Format("2006-01-02 15:04:05"))
-			}
+
+		if catchup == false {
+			continue
 		}
 
-		nextRunAt = cronSchedule.Next(nextRunAt)
+		if options.ExpireInterval != 0 && nextRunAt.Add(expire_interval_durtion).Before(currentTime) {
+			log.Infof("skip nextRunAt[%s] of schedule[%s], beyond expire interval[%d] from currentTime[%s]",
+				nextRunAt.Format("2006-01-02 15:04:05"), schedule.ID, options.ExpireInterval, currentTime.Format("2006-01-02 15:04:05"))
+			continue
+		}
+
+		if options.Concurrency == 0 || totalCount < options.Concurrency {
+			execMap[schedule.ID] = append(execMap[schedule.ID], nextRunAt)
+			totalCount += 1
+		} else {
+			if options.ConcurrencyPolicy == ConcurrencyPolicySuspend {
+				// 直接跳出循环，不会继续更新nextRunAt
+				errMsg := fmt.Sprintf("concurrency of schedule with ID[%s] already reach[%d], so suspend", schedule.ID, options.Concurrency)
+				log.Info(errMsg)
+				break
+			} else if options.ConcurrencyPolicy == ConcurrencyPolicyReplace {
+				// 停止该schedule最早的run，并发起新的run，更新next_run_at
+				execMap[schedule.ID] = append(execMap[schedule.ID], nextRunAt)
+				totalCount += 1
+			} else if options.ConcurrencyPolicy == ConcurrencyPolicySkip {
+				// 不跳出循环，会继续更新nextRunAt
+				errMsg := fmt.Sprintf("concurrency of schedule with ID[%s] already reach[%d], so skip", schedule.ID, options.Concurrency)
+				log.Info(errMsg)
+			}
+		}
 	}
 
 	return nextRunAt, nil
@@ -459,7 +477,7 @@ func GetAvailableSchedule(logEntry *log.Entry, checkCatchup bool) (killMap map[s
 	currentTime := time.Now()
 	logEntry.Infof("begin to search available schedule before [%s]", currentTime.Format("01-02-2006 15:04:05"))
 
-	schedules, err := GetSchedules(logEntry, ScheduleStatusRunning)
+	schedules, err := GetSchedulesByStatus(logEntry, ScheduleStatusRunning)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -467,7 +485,7 @@ func GetAvailableSchedule(logEntry *log.Entry, checkCatchup bool) (killMap map[s
 	for _, schedule := range schedules {
 		options := ScheduleOptions{}
 		if err := json.Unmarshal([]byte(schedule.Options), &options); err != nil {
-			errMsg := fmt.Sprintf("decode optinos[%s] of schedule of ID[%s] failed. error: %v", schedule.Options, schedule.ID, err)
+			errMsg := fmt.Sprintf("decode options[%s] of schedule of ID[%s] failed. error: %v", schedule.Options, schedule.ID, err)
 			logEntry.Errorf(errMsg)
 			return nil, nil, nil, fmt.Errorf(errMsg)
 		}
@@ -560,7 +578,7 @@ func GetNextGlobalWakeupTime(logEntry *log.Entry) (*time.Time, error) {
 		// 如果当前【run并发度】>= concurrency，而且policy是suspend时，则跳过该schedule
 		options := ScheduleOptions{}
 		if err := json.Unmarshal([]byte(schedule.Options), &options); err != nil {
-			errMsg := fmt.Sprintf("decode optinos[%s] of schedule of ID[%s] failed. error: %v", schedule.Options, schedule.ID, err)
+			errMsg := fmt.Sprintf("decode options[%s] of schedule of ID[%s] failed. error: %v", schedule.Options, schedule.ID, err)
 			logEntry.Errorf(errMsg)
 			return nil, fmt.Errorf(errMsg)
 		}
