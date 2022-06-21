@@ -23,6 +23,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
 
 // Controller interface for kubernetes job sync, job gc, and queue sync
@@ -32,7 +33,7 @@ type Controller interface {
 	Run(stopCh <-chan struct{})
 }
 
-func New(name string, conf *rest.Config) (Controller, error) {
+func New(name string, conf *rest.Config, cluster *schema.Cluster) (Controller, error) {
 	var ctrl Controller
 	switch name {
 	case JobSyncControllerName:
@@ -46,7 +47,7 @@ func New(name string, conf *rest.Config) (Controller, error) {
 		return nil, fmt.Errorf("job controller[%s] is not find", name)
 	}
 
-	opt, err := k8s.CreateDynamicClientOpt(conf)
+	opt, err := k8s.CreateDynamicClientOpt(conf, cluster)
 	if err != nil {
 		log.Errorf("init dynamic client failed. error: %v", err)
 		return nil, err

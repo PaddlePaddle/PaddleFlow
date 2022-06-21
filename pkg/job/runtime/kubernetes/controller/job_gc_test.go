@@ -77,6 +77,7 @@ func newFakeGCController() *JobGarbageCollector {
 		DynamicClient:   dynamicClient,
 		DynamicFactory:  dynamicinformer.NewDynamicSharedInformerFactory(dynamicClient, 0),
 		DiscoveryClient: fakeDiscovery,
+		ClusterInfo:     &commonschema.Cluster{Name: "test-cluster"},
 	}
 	ctrl.Initialize(opt)
 	return ctrl

@@ -56,6 +56,7 @@ func newFakeJobSyncController() *JobSync {
 		DynamicClient:   dynamicClient,
 		DynamicFactory:  dynamicinformer.NewDynamicSharedInformerFactory(dynamicClient, 0),
 		DiscoveryClient: fakeDiscovery,
+		ClusterInfo:     &schema.Cluster{Name: "test-cluster"},
 	}
 	err := ctrl.Initialize(opt)
 	if err != nil {
