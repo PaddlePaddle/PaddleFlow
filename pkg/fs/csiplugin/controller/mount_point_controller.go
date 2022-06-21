@@ -34,9 +34,8 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/client/k8s"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/client/pfs"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/mount"
 )
 
@@ -48,6 +47,11 @@ var checkerStopChan = make(chan bool)
 
 // checkerUpdateChan informs it is time to update pods information from kubelet
 var checkerUpdateChan = make(chan bool)
+
+type pvParams struct {
+	fsID   string
+	server string
+}
 
 // MountPointController will check the status of the mount point and remount unconnected mount point
 type MountPointController struct {
@@ -63,8 +67,8 @@ type MountPointController struct {
 	pvLister   corelisters.PersistentVolumeLister
 	pvSynced   cache.InformerSynced
 
-	queue                workqueue.RateLimitingInterface
-	fsMountParametersMap map[string]pfs.FSMountParameter
+	queue       workqueue.RateLimitingInterface
+	pvParamsMap map[string]pvParams
 }
 
 func GetMountPointController(nodeID string) *MountPointController {
@@ -81,7 +85,7 @@ func Initialize(nodeID string, masterNodesAware bool) *MountPointController {
 		return nil
 	}
 
-	sharedInformers := informers.NewSharedInformerFactory(k8sClient.Clientset, 0)
+	sharedInformers := informers.NewSharedInformerFactory(k8sClient, 0)
 	pvInformer := sharedInformers.Core().V1().PersistentVolumes()
 
 	mountPointController = &MountPointController{
@@ -91,10 +95,10 @@ func Initialize(nodeID string, masterNodesAware bool) *MountPointController {
 		removePods:       sync.Map{},
 		rateLimiter:      make(chan struct{}, common.GetPodsHandleConcurrency()),
 
-		pvInformer:           pvInformer,
-		pvLister:             pvInformer.Lister(),
-		pvSynced:             pvInformer.Informer().HasSynced,
-		fsMountParametersMap: make(map[string]pfs.FSMountParameter),
+		pvInformer:  pvInformer,
+		pvLister:    pvInformer.Lister(),
+		pvSynced:    pvInformer.Informer().HasSynced,
+		pvParamsMap: make(map[string]pvParams),
 	}
 	pvInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: mountPointController.pvAddedUpdated,
@@ -200,7 +204,7 @@ func (m *MountPointController) UpdatePodMap() error {
 	pvs, err := client.ListPersistentVolume(metav1.ListOptions{})
 	for _, pv := range pvs.Items {
 		if pv.Spec.CSI != nil && pv.Spec.CSI.Driver == "paddleflowstorage" {
-			m.fsMountParametersMap[pv.Name] = getPFSParameters(pv.Spec.CSI.VolumeAttributes)
+			m.pvParamsMap[pv.Name] = getPFSParameters(pv.Spec.CSI.VolumeAttributes)
 		}
 	}
 	return nil
@@ -226,7 +230,7 @@ func (m *MountPointController) Stop() {
 }
 
 func (m *MountPointController) handleRunningPod(pod v1.Pod, updateMounts bool) {
-	podVolumeMounts := k8s.GetVolumeMounts(&pod)
+	podVolumeMounts := getPodVolumeMounts(&pod)
 	for _, volumeMount := range podVolumeMounts {
 		if err := m.CheckAndRemountVolumeMount(volumeMount); err != nil {
 			log.Errorf("check and remount volume mount[%v] failed: %s", volumeMount, err)
@@ -241,9 +245,9 @@ func (m *MountPointController) handleRunningPod(pod v1.Pod, updateMounts bool) {
 	}
 }
 
-func (m *MountPointController) CheckAndRemountVolumeMount(volumeMount k8s.VolumeMount) error {
-	// TODO(dongzezhao) get mountParameters from VolumeMount
-	fsMountParams, ok := m.fsMountParametersMap[volumeMount.VolumeName]
+func (m *MountPointController) CheckAndRemountVolumeMount(volumeMount volumeMountInfo) error {
+	// TODO(dongzezhao) get mountParameters from volumeMountInfo
+	fsMountParams, ok := m.pvParamsMap[volumeMount.VolumeName]
 	if !ok {
 		log.Errorf("get pfs parameters [%s] not exist", volumeMount.VolumeName)
 		return fmt.Errorf("get pfs parameters [%s] not exist", volumeMount.VolumeName)
@@ -253,20 +257,20 @@ func (m *MountPointController) CheckAndRemountVolumeMount(volumeMount k8s.Volume
 	mountPath := common.GetVolumeBindMountPathByPod(volumeMount.PodUID, volumeMount.VolumeName)
 	i := 0
 	for {
-		isMount, err := mount.IsMountPoint(schema.GetBindSource(fsMountParams.FSID))
+		isMount, err := mount.IsMountPoint(schema.GetBindSource(fsMountParams.fsID))
 		if isMount && err == nil {
 			break
 		}
 		i += 1
 		time.Sleep(1 * time.Second)
 		if i > 2 {
-			return fmt.Errorf("path[%s] not mount, please check mount pod", schema.GetBindSource(fsMountParams.FSID))
+			return fmt.Errorf("path[%s] not mount, please check mount pod", schema.GetBindSource(fsMountParams.fsID))
 		}
 	}
 	if m.CheckIfNeedRemount(mountPath) {
-		if err := m.Remount(fsMountParams.FSID, mountPath, volumeMount.ReadOnly); err != nil {
-			log.Errorf("remount fs[%s] to mountPath[%s] failed: %v", fsMountParams.FSID, mountPath, err)
-			return fmt.Errorf("remount fs[%s] to mountPath[%s] failed: %v", fsMountParams.FSID, mountPath, err)
+		if err := m.Remount(fsMountParams.fsID, mountPath, volumeMount.ReadOnly); err != nil {
+			log.Errorf("remount fs[%s] to mountPath[%s] failed: %v", fsMountParams.fsID, mountPath, err)
+			return fmt.Errorf("remount fs[%s] to mountPath[%s] failed: %v", fsMountParams.fsID, mountPath, err)
 		}
 	}
 	return nil
@@ -306,7 +310,7 @@ func (m *MountPointController) Remount(fsID, mountPath string, readOnly bool) er
 }
 
 // UpdateMounts update mount
-func (m *MountPointController) UpdateMounts(volumeMount k8s.VolumeMount) error {
+func (m *MountPointController) UpdateMounts(volumeMount volumeMountInfo) error {
 	// TODO(dongzezhao): update mounts
 
 	return nil
@@ -345,17 +349,15 @@ func (m *MountPointController) pvAddedUpdated(obj interface{}) {
 
 	// update pv
 	if pv.Spec.StorageClassName == "paddleflowstorage" {
-		m.fsMountParametersMap[pv.Name] = getPFSParameters(pv.Spec.CSI.VolumeAttributes)
+		m.pvParamsMap[pv.Name] = getPFSParameters(pv.Spec.CSI.VolumeAttributes)
 	}
 }
 
-func getPFSParameters(params map[string]string) pfs.FSMountParameter {
-	fsID := params["pfs.fs.id"]
-	server := params["pfs.server"]
-	userID := params["pfs.user.name"]
-	return pfs.FSMountParameter{
-		FSID:   fsID,
-		Server: server,
-		UserID: userID,
+func getPFSParameters(params map[string]string) pvParams {
+	fsID := params[schema.FSID]
+	server := params[schema.PFSServer]
+	return pvParams{
+		fsID:   fsID,
+		server: server,
 	}
 }

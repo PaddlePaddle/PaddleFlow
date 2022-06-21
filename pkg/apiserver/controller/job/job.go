@@ -29,7 +29,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/job"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
 )
@@ -76,8 +75,8 @@ type SchedulingPolicy struct {
 // JobSpec the spec fields for jobs
 type JobSpec struct {
 	Flavour           schema.Flavour         `json:"flavour"`
-	FileSystem        schema.FileSystem      `json:"fileSystem"`
-	ExtraFileSystems  []schema.FileSystem    `json:"extraFileSystems"`
+	FileSystem        schema.FileSystem      `json:"fs"`
+	ExtraFileSystems  []schema.FileSystem    `json:"extraFS"`
 	Image             string                 `json:"image"`
 	Env               map[string]string      `json:"env"`
 	Command           string                 `json:"command"`
@@ -239,7 +238,7 @@ func patchFromCommonInfo(conf *schema.Conf, commonJobInfo *CommonJobInfo) error 
 	// distributed Job would pass check flavour and queue, because conf is just constructed without flavour.
 	// flavour would be check in function newMembers
 	if !schema.IsEmptyResource(conf.Flavour.ResourceInfo) {
-		if err = job.IsEnoughQueueCapacity(conf.Flavour, queue.MaxResources); err != nil {
+		if err = IsEnoughQueueCapacity(conf.Flavour, queue.MaxResources); err != nil {
 			log.Errorf("patch Job from commonInfo failed, err:=%v", err)
 			return err
 		}
@@ -494,7 +493,7 @@ func CreateWorkflowJob(ctx *logger.RequestContext, request *CreateWfJobRequest) 
 		Priority:    request.SchedulingPolicy.Priority,
 	}
 	// validate queue
-	if err := job.ValidateQueue(&conf, ctx.UserName, request.SchedulingPolicy.Queue); err != nil {
+	if err := ValidateQueue(&conf, ctx.UserName, request.SchedulingPolicy.Queue); err != nil {
 		msg := fmt.Sprintf("valiate queue for workflow job failed, err: %v", err)
 		log.Errorf(msg)
 		return nil, fmt.Errorf(msg)
@@ -574,17 +573,22 @@ func StopJob(ctx *logger.RequestContext, jobID string) error {
 		log.Errorf("get runtime by queue failed, err: %v", err)
 		return err
 	}
-	pfjob, err := api.NewJobInfo(&job)
-	if err != nil {
-		return err
-	}
-	err = runtimeSvc.StopJob(pfjob)
-	if err != nil {
-		log.Errorf("delete job %s from cluster failed, err: %v", job.ID, err)
-		return err
-	}
-	if err = models.UpdateJobStatus(jobID, "job is terminated.", schema.StatusJobTerminated); err != nil {
-		log.Errorf("update job[%s] status to [%s] failed, err: %v", jobID, schema.StatusJobTerminated, err)
+
+	// stop job on cluster
+	go func(job *models.Job, runtimeSvc runtime.RuntimeService) {
+		pfjob, err := api.NewJobInfo(job)
+		if err != nil {
+			return
+		}
+		err = runtimeSvc.StopJob(pfjob)
+		if err != nil {
+			log.Errorf("delete job %s from cluster failed, err: %v", job.ID, err)
+			return
+		}
+	}(&job, runtimeSvc)
+
+	if err = models.UpdateJobStatus(jobID, "job is terminating.", schema.StatusJobTerminating); err != nil {
+		log.Errorf("update job[%s] status to [%s] failed, err: %v", jobID, schema.StatusJobTerminating, err)
 		return err
 	}
 	return nil

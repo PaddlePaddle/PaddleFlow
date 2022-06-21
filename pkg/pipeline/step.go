@@ -19,10 +19,11 @@ package pipeline
 import (
 	"context"
 	"fmt"
-	. "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 	"strconv"
 	"strings"
 	"time"
+
+	. "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 
 	"github.com/sirupsen/logrus"
 

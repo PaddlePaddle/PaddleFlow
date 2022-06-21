@@ -49,29 +49,29 @@ import (
 )
 
 type KubeRuntime struct {
-	schema.Cluster
+	cluster          *schema.Cluster
 	clientset        kubernetes.Interface
 	dynamicClientOpt *k8s.DynamicClientOption
 }
 
 func NewKubeRuntime(cluster schema.Cluster) RuntimeService {
 	kr := &KubeRuntime{
-		Cluster: cluster,
+		cluster: &cluster,
 	}
 	return kr
 }
 
 func (kr *KubeRuntime) Name() string {
-	return fmt.Sprintf("kubernetes runtime for cluster: %s", kr.Cluster.Name)
+	return fmt.Sprintf("kubernetes runtime for cluster: %s", kr.cluster.Name)
 }
 
 func (kr *KubeRuntime) BuildConfig() (*rest.Config, error) {
 	var cfg *rest.Config
 	// decode credential base64 string to []byte
-	configBytes, decodeErr := base64.StdEncoding.DecodeString(kr.Cluster.ClientOpt.Config)
+	configBytes, decodeErr := base64.StdEncoding.DecodeString(kr.cluster.ClientOpt.Config)
 	if decodeErr != nil {
 		err := fmt.Errorf("decode cluster[%s] credential base64 string error! msg: %s",
-			kr.Cluster.Name, decodeErr.Error())
+			kr.cluster.Name, decodeErr.Error())
 		return nil, err
 	}
 	cfg, err := clientcmd.RESTConfigFromKubeConfig(configBytes)
@@ -81,8 +81,8 @@ func (kr *KubeRuntime) BuildConfig() (*rest.Config, error) {
 	}
 
 	// set qps, burst
-	cfg.QPS = kr.Cluster.ClientOpt.QPS
-	cfg.Burst = kr.Cluster.ClientOpt.Burst
+	cfg.QPS = kr.cluster.ClientOpt.QPS
+	cfg.Burst = kr.cluster.ClientOpt.Burst
 	return cfg, nil
 }
 
@@ -92,7 +92,7 @@ func (kr *KubeRuntime) Init() error {
 		log.Errorf("build config failed. error:%s", err)
 		return err
 	}
-	kr.dynamicClientOpt, err = k8s.CreateDynamicClientOpt(config)
+	kr.dynamicClientOpt, err = k8s.CreateDynamicClientOpt(config, kr.cluster)
 	if err != nil {
 		log.Errorf("init dynamic client failed. error:%s", err)
 		return err
@@ -108,7 +108,7 @@ func (kr *KubeRuntime) Init() error {
 }
 
 func (kr *KubeRuntime) SubmitJob(jobInfo *api.PFJob) error {
-	log.Infof("submit job[%v] to cluster[%s] queue[%s]", jobInfo.ID, kr.Cluster.ID, jobInfo.QueueID)
+	log.Infof("submit job[%v] to cluster[%s] queue[%s]", jobInfo.ID, kr.cluster.ID, jobInfo.QueueID)
 	// prepare kubernetes storage
 	if len(jobInfo.FSID) != 0 {
 		pvName, err := kr.CreatePV(jobInfo.Namespace, jobInfo.FSID, jobInfo.UserName)
@@ -138,7 +138,7 @@ func (kr *KubeRuntime) SubmitJob(jobInfo *api.PFJob) error {
 }
 
 func (kr *KubeRuntime) StopJob(jobInfo *api.PFJob) error {
-	log.Infof("stop job[%s] on cluster[%s] queue[%s]", jobInfo.ID, kr.Cluster.ID, jobInfo.QueueID)
+	log.Infof("stop job[%s] on cluster[%s] queue[%s]", jobInfo.ID, kr.cluster.ID, jobInfo.QueueID)
 	job, err := executor.NewKubeJob(jobInfo, kr.dynamicClientOpt)
 	if err != nil {
 		log.Warnf("stop kubernetes job[%s] failed, err: %v", jobInfo.ID, err)
@@ -154,7 +154,7 @@ func (kr *KubeRuntime) StopJob(jobInfo *api.PFJob) error {
 }
 
 func (kr *KubeRuntime) UpdateJob(jobInfo *api.PFJob) error {
-	log.Infof("update job[%s] on cluster[%s] queue[%s]", jobInfo.ID, kr.Cluster.ID, jobInfo.QueueID)
+	log.Infof("update job[%s] on cluster[%s] queue[%s]", jobInfo.ID, kr.cluster.ID, jobInfo.QueueID)
 	job, err := executor.NewKubeJob(jobInfo, kr.dynamicClientOpt)
 	if err != nil {
 		log.Warnf("update kubernetes job[%s] failed, err: %v", jobInfo.ID, err)
@@ -234,7 +234,7 @@ func (kr *KubeRuntime) updateJobPriority(jobInfo *api.PFJob) error {
 }
 
 func (kr *KubeRuntime) DeleteJob(jobInfo *api.PFJob) error {
-	log.Infof("delete job %v from cluster %s, and queue %s", jobInfo.ID, kr.Cluster.ID, jobInfo.QueueID)
+	log.Infof("delete job %v from cluster %s, and queue %s", jobInfo.ID, kr.cluster.ID, jobInfo.QueueID)
 	job, err := executor.NewKubeJob(jobInfo, kr.dynamicClientOpt)
 	if err != nil {
 		log.Warnf("create kubernetes job %s failed, err: %v", jobInfo.ID, err)
@@ -251,9 +251,9 @@ func (kr *KubeRuntime) DeleteJob(jobInfo *api.PFJob) error {
 }
 
 func (kr *KubeRuntime) SyncJob(stopCh <-chan struct{}) {
-	log.Infof("start job sync loop for cluster[%s]", kr.Cluster.ID)
+	log.Infof("start job sync loop for cluster[%s]", kr.cluster.ID)
 
-	syncController, err := controller.New(controller.JobSyncControllerName, kr.dynamicClientOpt.Config)
+	syncController, err := controller.New(controller.JobSyncControllerName, kr.dynamicClientOpt.Config, kr.cluster)
 	if err != nil {
 		log.Errorf("init sync controller failed, err: %v", err)
 		return
@@ -262,9 +262,9 @@ func (kr *KubeRuntime) SyncJob(stopCh <-chan struct{}) {
 }
 
 func (kr *KubeRuntime) GCJob(stopCh <-chan struct{}) {
-	log.Infof("start job gc loop for cluster[%s]", kr.Cluster.ID)
+	log.Infof("start job gc loop for cluster[%s]", kr.cluster.ID)
 
-	gcController, err := controller.New(controller.JobGCControllerName, kr.dynamicClientOpt.Config)
+	gcController, err := controller.New(controller.JobGCControllerName, kr.dynamicClientOpt.Config, kr.cluster)
 	if err != nil {
 		log.Errorf("init sync controller failed, err: %v", err)
 		return
@@ -273,9 +273,9 @@ func (kr *KubeRuntime) GCJob(stopCh <-chan struct{}) {
 }
 
 func (kr *KubeRuntime) SyncQueue(stopCh <-chan struct{}) {
-	log.Infof("start queue sync loop for cluster[%s]", kr.Cluster.ID)
+	log.Infof("start queue sync loop for cluster[%s]", kr.cluster.ID)
 
-	queueController, err := controller.New(controller.QueueSyncControllerName, kr.dynamicClientOpt.Config)
+	queueController, err := controller.New(controller.QueueSyncControllerName, kr.dynamicClientOpt.Config, kr.cluster)
 	if err != nil {
 		log.Errorf("init queue sync controller failed, err: %v", err)
 		return
@@ -519,11 +519,9 @@ func (kr *KubeRuntime) DeleteObject(namespace, name string, gvk k8sschema.GroupV
 
 func (kr *KubeRuntime) CreatePV(namespace, fsId, userName string) (string, error) {
 	pv := config.DefaultPV
-	// format pvname to fsid
-	pvName := strings.Replace(pv.Name, schema.FSIDFormat, fsId, -1)
-	pvName = strings.Replace(pvName, schema.NameSpaceFormat, namespace, -1)
+	pv.Name = schema.ConcatenatePVName(namespace, fsId)
 	// check pv existence
-	if _, err := kr.getPersistentVolume(pvName, metav1.GetOptions{}); err == nil {
+	if _, err := kr.getPersistentVolume(pv.Name, metav1.GetOptions{}); err == nil {
 		return "", nil
 	} else if !k8serrors.IsNotFound(err) {
 		return "", err
@@ -533,31 +531,29 @@ func (kr *KubeRuntime) CreatePV(namespace, fsId, userName string) (string, error
 	if err := copier.Copy(newPV, pv); err != nil {
 		return "", err
 	}
-	newPV.Name = pvName
-	csi := newPV.Spec.CSI
-	if csi != nil && csi.VolumeAttributes != nil {
-		if _, ok := csi.VolumeAttributes[schema.FSID]; ok {
-			newPV.Spec.CSI.VolumeAttributes[schema.FSID] = fsId
-			newPV.Spec.CSI.VolumeHandle = pvName
-		}
-		if _, ok := csi.VolumeAttributes[schema.PFSUserName]; ok {
-			newPV.Spec.CSI.VolumeAttributes[schema.PFSUserName] = userName
-		}
-		if _, ok := csi.VolumeAttributes[schema.PFSServer]; ok {
-			newPV.Spec.CSI.VolumeAttributes[schema.PFSServer] = fmt.Sprintf("%s:%d",
-				config.GlobalServerConfig.Fs.K8sServiceName, config.GlobalServerConfig.Fs.K8sServicePort)
-		}
+	if newPV.Spec.CSI == nil || newPV.Spec.CSI.VolumeAttributes == nil {
+		err := fmt.Errorf("pv[%s] generation error: no csi or csi volume attributes", pv.Name)
+		log.Errorf(err.Error())
+		return "", err
+	}
+	cva := newPV.Spec.CSI.VolumeAttributes
+	if _, ok := cva[schema.FSID]; ok {
+		newPV.Spec.CSI.VolumeAttributes[schema.FSID] = fsId
+		newPV.Spec.CSI.VolumeHandle = pv.Name
+	}
+	if _, ok := cva[schema.PFSServer]; ok {
+		newPV.Spec.CSI.VolumeAttributes[schema.PFSServer] = config.GetServiceAddress()
 	}
 	// create pv in k8s
 	if _, err := kr.createPersistentVolume(newPV); err != nil {
 		return "", err
 	}
-	return pvName, nil
+	return pv.Name, nil
 }
 
 func (kr *KubeRuntime) CreatePVC(namespace, fsId, pv string) error {
 	pvc := config.DefaultPVC
-	pvcName := strings.Replace(pvc.Name, schema.FSIDFormat, fsId, -1)
+	pvcName := schema.ConcatenatePVCName(fsId)
 	// check pvc existence
 	if _, err := kr.getPersistentVolumeClaim(namespace, pvcName, metav1.GetOptions{}); err == nil {
 		return nil
@@ -583,6 +579,10 @@ func (kr *KubeRuntime) GetJobLog(jobLogRequest schema.JobLogRequest) (schema.Job
 	return getKubernetesLogs(kr.clientset, jobLogRequest)
 }
 
+func (kr *KubeRuntime) ListNamespaces(listOptions metav1.ListOptions) (*v1.NamespaceList, error) {
+	return kr.clientset.CoreV1().Namespaces().List(context.TODO(), listOptions)
+}
+
 func (kr *KubeRuntime) createPersistentVolume(pv *apiv1.PersistentVolume) (*apiv1.PersistentVolume, error) {
 	return kr.clientset.CoreV1().PersistentVolumes().Create(context.TODO(), pv, metav1.CreateOptions{})
 }
@@ -600,9 +600,9 @@ func (kr *KubeRuntime) createPersistentVolumeClaim(namespace string, pvc *apiv1.
 	return kr.clientset.CoreV1().PersistentVolumeClaims(namespace).Create(context.TODO(), pvc, metav1.CreateOptions{})
 }
 
-func (kr *KubeRuntime) deletePersistentVolumeClaim(namespace string, name string,
-	deleteOptions *metav1.DeleteOptions) error {
-	return kr.clientset.CoreV1().PersistentVolumeClaims(namespace).Delete(context.TODO(), name, *deleteOptions)
+func (kr *KubeRuntime) DeletePersistentVolumeClaim(namespace string, name string,
+	deleteOptions metav1.DeleteOptions) error {
+	return kr.clientset.CoreV1().PersistentVolumeClaims(namespace).Delete(context.TODO(), name, deleteOptions)
 }
 
 func (kr *KubeRuntime) getPersistentVolumeClaim(namespace, name string, getOptions metav1.GetOptions) (*apiv1.
