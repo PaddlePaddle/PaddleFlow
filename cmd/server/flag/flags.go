@@ -55,6 +55,12 @@ func JobFlags(jobConf *config.JobConfig) []cli.Flag {
 			Usage:       "loop period for job manager processing job",
 			Destination: &jobConf.JobLoopPeriod,
 		},
+		&cli.BoolFlag{
+			Name:        "sync-cluster-queue",
+			Value:       jobConf.SyncClusterQueue,
+			Usage:       "sync cluster queues",
+			Destination: &jobConf.SyncClusterQueue,
+		},
 		&cli.IntFlag{
 			Name:        "failed-job-ttl-seconds",
 			Value:       jobConf.Reclaim.FailedJobTTLSeconds,
