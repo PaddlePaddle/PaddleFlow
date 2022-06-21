@@ -34,7 +34,7 @@ field_dict = {"id": "job id", "name": "job name", "queue": "queue", "status": "s
               "startTime": "start time", "finishTime": "finish time", "user": "user", "runtime": "runtime",
               "distributedRuntime": "distributed runtime", "workflowRuntime": "workflow runtime", "message": "message",
               "labels": "labels", "annotations": "annotations", "priority": "priority", "flavour": "flavour",
-              "fileSystem": "file system", "extraFileSystems": "extra file systems", "image": "image", "env": "env",
+              "fs": "file system", "extraFS": "extra file systems", "image": "image", "env": "env",
               "command": "command", "args": "args", "port": "port", "extensionTemplate": "extension template",
               "framework": "framework", "members": "members"}
 
@@ -77,8 +77,8 @@ def _print_job(job_info, out_format, fieldlist):
                         "finishTime": job_info.finish_time, "user": job_info.username, "runtime": job_info.runtime,
                         "distributedRuntime": job_info.distributed_runtime, "workflowRuntime": job_info.workflow_runtime,
                         "message": job_info.message, "labels": job_info.labels, "annotations": job_info.annotations,
-                        "priority": job_info.priority, "flavour": job_info.flavour, "fileSystem": job_info.fs,
-                        "extraFileSystems": job_info.extra_fs_list, "image": job_info.image, "env": job_info.env,
+                        "priority": job_info.priority, "flavour": job_info.flavour, "fs": job_info.fs,
+                        "extraFS": job_info.extra_fs_list, "image": job_info.image, "env": job_info.env,
                         "command": job_info.command, "args": job_info.args_list, "port": job_info.port,
                         "extensionTemplate": job_info.extension_template, "framework": job_info.framework,
                         "members": job_info.member_list}
@@ -142,8 +142,8 @@ def _print_job_list(jobs, out_format, fieldlist):
                                 "workflowRuntime": job_info.workflow_runtime,
                                 "message": job_info.message, "labels": job_info.labels,
                                 "annotations": job_info.annotations,
-                                "priority": job_info.priority, "flavour": job_info.flavour, "fileSystem": job_info.fs,
-                                "extraFileSystems": job_info.extra_fs_list, "image": job_info.image,
+                                "priority": job_info.priority, "flavour": job_info.flavour, "fs": job_info.fs,
+                                "extraFS": job_info.extra_fs_list, "image": job_info.image,
                                 "env": job_info.env,
                                 "command": job_info.command, "args": job_info.args_list, "port": job_info.port,
                                 "extensionTemplate": job_info.extension_template, "framework": job_info.framework,
@@ -173,7 +173,7 @@ def create(ctx, jobtype, jsonpath):
                              job_request_dict.get('id', None), job_request_dict.get('name', None),
                              job_request_dict.get('labels', None), job_request_dict.get('annotations', None),
                              job_request_dict.get('schedulingPolicy', {}).get('priority', None), job_request_dict.get('flavour', None),
-                             job_request_dict.get('fileSystem', None), job_request_dict.get('extraFileSystems', None),
+                             job_request_dict.get('fs', None), job_request_dict.get('extraFS', None),
                              job_request_dict.get('env', None), job_request_dict.get('command', None),
                              job_request_dict.get('args', None), job_request_dict.get('port', None),
                              job_request_dict.get('extensionTemplate', None), job_request_dict.get('framework', None),
@@ -183,6 +183,36 @@ def create(ctx, jobtype, jsonpath):
         click.echo("job create success, id[%s]" % response)
     else:
         click.echo("job create failed with message[%s]" % response)
+        sys.exit(1)
+
+
+@job.command()
+@click.argument('jobid')
+@click.option('-p', '--priority', help="Update the priority of job, such as: low, normal, high, e.g. --priority high")
+@click.option('-l', '--labels', help="Update the labels of job, e.g. --labels label1=value1,label2=value2")
+@click.option('-a', '--annotations', help="Update the annotations of job, e.g. --annotations anno1=value1,anno2=value2")
+@click.pass_context
+def update(ctx, jobid, priority, labels, annotations):
+    """update job, including priority, labels, or annotations.\n
+    JOBID: the id of the specificed job.
+    """
+    client = ctx.obj['client']
+    if not jobid:
+        click.echo('job update must provide jobid.', err=True)
+        sys.exit(1)
+    labelDict = None
+    if labels:
+        args = labels.split(',')
+        labelDict = dict([item.split("=") for item in args])
+    annotationDict = None
+    if annotations:
+        args = annotations.split(',')
+        annotationDict = dict([item.split("=") for item in args])
+    valid, response = client.update_job(jobid, priority, labelDict, annotationDict)
+    if valid:
+        click.echo("jobid[%s] update success" % jobid)
+    else:
+        click.echo("update job %s failed with message[%s]" % jobid, response)
         sys.exit(1)
 
 

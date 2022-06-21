@@ -47,8 +47,6 @@ const (
 	K8SClientTimeoutEnv       = "K8S_CLIENT_TIMEOUT"
 
 	DefaultKubeletDataPath       = "/var/lib/kubelet"
-	DefaultNOTROOTUserEnable     = true
-	DefaultK8SConfigPath         = "/home/paddleflow/config/kube.config"
 	DefaultCheckIntervalTime     = 15
 	DefaultK8SClientTimeout      = 0
 	DefaultPodsHandleConcurrency = 10
@@ -126,11 +124,7 @@ func GetDefaultGID() int {
 }
 
 func GetK8SConfigPathEnv() string {
-	path := os.Getenv(K8SConfigPathEnv)
-	if len(path) == 0 {
-		return DefaultK8SConfigPath
-	}
-	return path
+	return os.Getenv(K8SConfigPathEnv)
 }
 
 func GetK8STimeoutEnv() int {

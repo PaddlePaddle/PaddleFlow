@@ -33,6 +33,7 @@ type FSCacheConfig struct {
 	Quota                   int                    `json:"quota"`
 	MetaDriver              string                 `json:"metaDriver"`
 	BlockSize               int                    `json:"blockSize"`
+	Debug                   bool                   `json:"debug"`
 	NodeAffinityJson        string                 `json:"-"                   gorm:"column:node_affinity;type:text;default:'{}'"`
 	NodeAffinityMap         map[string]interface{} `json:"nodeAffinity"        gorm:"-"`
 	NodeTaintTolerationJson string                 `json:"-"                   gorm:"column:node_tainttoleration;type:text;default:'{}'"`
@@ -120,15 +121,8 @@ func UpdateFSCacheConfig(logEntry *log.Entry, fsCacheConfig FSCacheConfig) error
 	return nil
 }
 
-func DeleteFSCacheConfig(logEntry *log.Entry, fsID string) error {
-	logEntry.Debugf("begin delete fsCacheConfig. fsID:%s", fsID)
-	tx := database.DB.Model(&FSCacheConfig{}).Unscoped().Where(&FSCacheConfig{FsID: fsID}).Delete(&FSCacheConfig{})
-	if tx.Error != nil {
-		logEntry.Errorf("delete fsCacheConfig failed. fsID:%s, error:%s",
-			fsID, tx.Error.Error())
-		return tx.Error
-	}
-	return nil
+func DeleteFSCacheConfig(tx *gorm.DB, fsID string) error {
+	return tx.Model(&FSCacheConfig{}).Unscoped().Where(&FSCacheConfig{FsID: fsID}).Delete(&FSCacheConfig{}).Error
 }
 
 func GetFSCacheConfig(logEntry *log.Entry, fsID string) (FSCacheConfig, error) {

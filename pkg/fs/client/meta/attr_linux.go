@@ -39,8 +39,8 @@ func (a *Attr) FromFileInfo(info *base.FileInfo) {
 	a.Atimensec = uint32(st.Atim.Nsec)
 	a.Mtimensec = uint32(st.Mtim.Nsec)
 	a.Ctimensec = uint32(st.Ctim.Nsec)
-	a.Nlink = st.Nlink
+	a.Nlink = uint64(st.Nlink)
 	a.Size = uint64(st.Size)
-	a.Blksize = st.Blksize
-	a.Block = st.Blocks
+	a.Blksize = int64(st.Blksize)
+	a.Block = int64(st.Blocks)
 }

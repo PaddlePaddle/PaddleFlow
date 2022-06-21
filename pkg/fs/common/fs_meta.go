@@ -90,6 +90,12 @@ type FSMeta struct {
 
 func GetFsNameAndUserNameByFsID(fsID string) (userName string, fsName string) {
 	fsArray := strings.Split(fsID, "-")
+	// such as fs-root-v-xxxx
+	if len(fsArray) > 3 {
+		fsName = strings.Join(fsArray[2:len(fsArray)], "-")
+		userName = fsArray[1]
+		return
+	}
 	userName = strings.Join(fsArray[1:len(fsArray)-1], "")
 	fsName = fsArray[len(fsArray)-1]
 	return userName, fsName
