@@ -33,7 +33,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 	schedulingv1beta1 "volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
@@ -735,19 +734,19 @@ func (j *KubeJob) getDefaultTemplate(framework schema.Framework) ([]byte, error)
 }
 
 func generateVolumes(fileSystem []schema.FileSystem) []corev1.Volume {
+	log.Debugf("generateVolumes FileSystems[%+v]", fileSystem)
 	var vs []corev1.Volume
 	if len(fileSystem) == 0 {
-		log.Debug("len(fileSystem) == 0")
+		log.Debugf("found len(fileSystem) is 0 when calling generateVolumes(fs), fs: %+v", fileSystem)
 		return vs
 	}
 
 	for _, fs := range fileSystem {
-		log.Debugf("FileSystems[%+v]", fs)
 		volume := corev1.Volume{
 			Name: fs.Name,
 			VolumeSource: corev1.VolumeSource{
 				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-					ClaimName: common.PVCName(fs.ID),
+					ClaimName: schema.ConcatenatePVCName(fs.ID),
 				},
 			},
 		}
@@ -758,14 +757,13 @@ func generateVolumes(fileSystem []schema.FileSystem) []corev1.Volume {
 }
 
 func generateVolumeMounts(fileSystems []schema.FileSystem) []corev1.VolumeMount {
+	log.Infof("generateVolumeMounts fileSystems:%+v", fileSystems)
 	var vms []corev1.VolumeMount
 	if len(fileSystems) == 0 {
+		log.Debug("generateVolumeMounts fileSystems len is 0")
 		return vms
 	}
 	for _, fs := range fileSystems {
-		if fs.ID == "" {
-			continue
-		}
 		mountPath := filepath.Clean(fs.MountPath)
 		if mountPath == "" {
 			mountPath = filepath.Join(schema.DefaultFSMountPath, fs.ID)

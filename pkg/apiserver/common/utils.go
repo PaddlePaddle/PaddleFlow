@@ -123,11 +123,6 @@ func ID(userName, fsName string) string {
 	return FsPrefix + userName + "-" + fsName
 }
 
-// PVCName generate PVC name by fsID
-func PVCName(fsID string) string {
-	return fmt.Sprintf("pfs-%s-pvc", fsID)
-}
-
 // InformationFromURL get fs system information from url
 func InformationFromURL(url string, properties map[string]string) (fileSystemType, serverAddress, subPath string) {
 	fileSystemType = strings.Split(url, ":")[TypeSplit]
