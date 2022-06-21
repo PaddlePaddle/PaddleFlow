@@ -42,10 +42,9 @@ type Job interface {
 	NotEnded() bool
 }
 
-func NewBaseJob(name, deps string) *BaseJob {
+func NewBaseJob(name string) *BaseJob {
 	return &BaseJob{
 		Name: name,
-		Deps: deps,
 	}
 }
 
@@ -59,7 +58,6 @@ type BaseJob struct {
 	StartTime  string            `json:"startTime"`
 	EndTime    string            `json:"endTime"`
 	Status     schema.JobStatus  `json:"status"`
-	Deps       string            `json:"deps"`
 	Message    string            `json:"message"`
 }
 
@@ -71,9 +69,9 @@ type PaddleFlowJob struct {
 	Image string
 }
 
-func NewPaddleFlowJob(name, image, deps string) *PaddleFlowJob {
+func NewPaddleFlowJob(name, image string) *PaddleFlowJob {
 	return &PaddleFlowJob{
-		BaseJob: *NewBaseJob(name, deps),
+		BaseJob: *NewBaseJob(name),
 		Image:   image,
 	}
 }

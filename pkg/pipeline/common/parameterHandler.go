@@ -14,18 +14,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package pipeline
+package common
 
 import (
 	"fmt"
-	"os"
 	"regexp"
 	"strings"
 
 	"github.com/mitchellh/mapstructure"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	. "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 )
@@ -72,84 +70,6 @@ func StringsContain(items []string, item string) bool {
 }
 
 /*
-*	resourceHandler
- */
-type ResourceHandler struct {
-	pplRunID  string
-	fsHandler *handler.FsHandler
-	logger    *log.Entry
-}
-
-func NewResourceHandler(runID string, fsID string, logger *log.Entry) (ResourceHandler, error) {
-	fsHandler, err := handler.NewFsHandlerWithServer(fsID, logger)
-
-	if err != nil {
-		newErr := fmt.Errorf("init fsHandler failed: %s", err.Error())
-		logger.Errorln(newErr)
-		return ResourceHandler{}, newErr
-	}
-
-	resourceHandler := ResourceHandler{
-		pplRunID:  runID,
-		fsHandler: fsHandler,
-		logger:    logger,
-	}
-	return resourceHandler, nil
-}
-
-func (resourceHandler *ResourceHandler) generateOutAtfPath(pplName string, stepName string, outatfName string, toInit bool) (string, error) {
-	pipelineDir := "./.pipeline"
-	outatfDir := fmt.Sprintf("%s/%s/%s/%s", pipelineDir, resourceHandler.pplRunID, pplName, stepName)
-	outatfPath := fmt.Sprintf("%s/%s", outatfDir, outatfName)
-
-	if toInit {
-		isExist, err := resourceHandler.fsHandler.Exist(outatfPath)
-		if err != nil {
-			return "", err
-		} else if isExist {
-			resourceHandler.logger.Infof("path[%s] of outAtf[%s] already existed, clear first", outatfPath, outatfName)
-			err = resourceHandler.fsHandler.RemoveAll(outatfPath)
-			if err != nil {
-				newErr := fmt.Errorf("clear generatePath[%s] for outAtf[%s] in step[%s] with pplname[%s] pplrunid[%s] failed: %s",
-					outatfPath, outatfName, stepName, pplName, resourceHandler.pplRunID, err.Error())
-				return "", newErr
-			}
-		}
-
-		isExist, err = resourceHandler.fsHandler.Exist(outatfPath)
-		if err != nil {
-			return "", err
-		} else if !isExist {
-			resourceHandler.logger.Infof("prepare dir[%s] for path[%s] of outAtf[%s]", outatfDir, outatfPath, outatfName)
-			err = resourceHandler.fsHandler.MkdirAll(outatfDir, os.ModePerm)
-			if err != nil {
-				newErr := fmt.Errorf("prepare dir[%s] for outAtf[%s] in step[%s] with pplname[%s] pplrunid[%s] failed: %s",
-					outatfDir, outatfName, stepName, pplName, resourceHandler.pplRunID, err.Error())
-				return "", newErr
-			}
-		}
-	}
-
-	return outatfPath, nil
-}
-
-func (resourceHandler *ResourceHandler) ClearResource() error {
-	// 用于清理pplRunID对应的output artifact资源
-	pipelineDir := "./.pipeline"
-	runResourceDir := fmt.Sprintf("%s/%s", pipelineDir, resourceHandler.pplRunID)
-
-	resourceHandler.logger.Infof("clear resource path[%s] of pplrunID[%s]", runResourceDir, resourceHandler.pplRunID)
-	err := resourceHandler.fsHandler.RemoveAll(runResourceDir)
-	if err != nil {
-		newErr := fmt.Errorf("clear resource path[%s] of pplrunID[%s] failed: %s",
-			runResourceDir, resourceHandler.pplRunID, err.Error())
-		return newErr
-	}
-
-	return nil
-}
-
-/*
 * StepParamSolver
 * 用于校验以及替换所有WorkflowSourceStep中的参数，分四种情况：
 * 1. 只校验不替换
@@ -183,9 +103,9 @@ func NewStepParamSolver(
 	}
 
 	stepParamChecker := StepParamChecker{
-		steps:     steps,
-		sysParams: sysParams,
-		useFs:     useFs,
+		Components: steps,
+		SysParams:  sysParams,
+		UseFs:      useFs,
 	}
 
 	stepParamSolver := StepParamSolver{
@@ -312,7 +232,7 @@ func (s *StepParamSolver) resolveParamValue(step string, paramName string, param
 		if err := dictParam.From(param); err != nil {
 			return "", fmt.Errorf("invalid dict parameter[%s]", param)
 		}
-		return checkDictParam(dictParam, paramName, nil)
+		return CheckDictParam(dictParam, paramName, nil)
 	default:
 		return nil, UnsupportedParamTypeError(param, paramName)
 	}
@@ -337,7 +257,7 @@ func (s *StepParamSolver) resolveRefParam(stepName, param, fieldType string) (in
 			return "", err
 		}
 		var tmpVal string
-		refStepName, refParamName := parseParamName(row[2])
+		refStepName, refParamName := ParseParamName(row[2])
 		if len(refStepName) == 0 {
 			// 分别替换系统参数，如{{PF_RUN_ID}}；当前step parameter；当前step的input artifact；当前step的output artifact
 			// 只有param，env，command三类变量需要处理
@@ -408,67 +328,68 @@ func (s *StepParamSolver) refParamExist(currentStep, refStep, refParamName, fiel
 }
 
 type StepParamChecker struct {
-	steps         map[string]*schema.WorkflowSourceStep // 需要传入相关的所有 step，以判断依赖是否合法
-	sysParams     map[string]string                     // sysParams 的值和 step 相关，需要传入
-	disabledSteps []string                              // 被disabled的节点列表
-	useFs         bool                                  // 表示是否挂载Fs
+	Components    map[string]schema.Component // 需要传入相关的所有 step，以判断依赖是否合法
+	SysParams     map[string]string           // sysParams 的值和 step 相关，需要传入
+	DisabledSteps []string                    // 被disabled的节点列表
+	UseFs         bool                        // 表示是否挂载Fs
+	CompTempletes map[string]schema.Component // 对应WorkflowSource中的Components的内容
 }
 
 func (s *StepParamChecker) getWorkflowSourceStep(currentStep string) (*schema.WorkflowSourceStep, bool) {
-	step, ok := s.steps[currentStep]
+	step, ok := s.Components[currentStep]
 	return step, ok
 }
 
 func (s *StepParamChecker) getSysParam(paramName string) (string, bool) {
-	param, ok := s.sysParams[paramName]
+	param, ok := s.SysParams[paramName]
 	return param, ok
 }
 
 func (s *StepParamChecker) getSysParams() map[string]string {
-	return s.sysParams
+	return s.SysParams
 }
 
-func (s *StepParamChecker) checkDuplication(currentStep string) error {
+func (s *StepParamChecker) checkDuplication(currentComponent string) error {
 	/*
 		currentStep内，parameter, input/output artifact是否有重复的参数名
 		这里的重名检查是大小写不敏感的，如"param"和"ParAm"会被认为重名
 		Args:
-			currentStep: 需要校验的step名
+			currentComponent: 需要校验的Component名
 	*/
-	step, ok := s.steps[currentStep]
+	component, ok := s.Components[currentComponent]
 	if !ok {
-		return fmt.Errorf("check param reference failed: step %s not exist", currentStep)
+		return fmt.Errorf("check param reference failed: component %s not exist", currentComponent)
 	}
 
 	m := make(map[string]string)
-	for paramName, _ := range step.Parameters {
+	for paramName, _ := range component.GetParameters() {
 		paramNameUpper := strings.ToUpper(paramName)
 		_, ok := m[paramNameUpper]
 		if ok {
-			return fmt.Errorf("parameter name[%s] has already existed in params/artifacts of step[%s] (these names are case-insensitive)",
-				paramName, currentStep)
+			return fmt.Errorf("parameter name[%s] has already existed in params/artifacts of component[%s] (these names are case-insensitive)",
+				paramName, currentComponent)
 		} else {
 			m[paramNameUpper] = ""
 		}
 	}
 
-	for inputAtfName, _ := range step.Artifacts.Input {
+	for inputAtfName, _ := range component.GetArtifacts().Input {
 		inputAtfNameUpper := strings.ToUpper(inputAtfName)
 		_, ok := m[inputAtfNameUpper]
 		if ok {
-			return fmt.Errorf("inputAtf name[%s] has already existed in params/artifacts of step[%s] (these names are case-insensitive)",
-				inputAtfName, currentStep)
+			return fmt.Errorf("inputAtf name[%s] has already existed in params/artifacts of component[%s] (these names are case-insensitive)",
+				inputAtfName, currentComponent)
 		} else {
 			m[inputAtfNameUpper] = ""
 		}
 	}
 
-	for outputAtfName, _ := range step.Artifacts.Output {
+	for outputAtfName, _ := range component.GetArtifacts().Output {
 		outputAtfNameUpper := strings.ToUpper(outputAtfName)
 		_, ok := m[outputAtfNameUpper]
 		if ok {
 			return fmt.Errorf("outputAtf name[%s] has already existed in params/artifacts of step[%s] (these names are case-insensitive)",
-				outputAtfName, currentStep)
+				outputAtfName, currentComponent)
 		} else {
 			m[outputAtfNameUpper] = ""
 		}
@@ -477,7 +398,7 @@ func (s *StepParamChecker) checkDuplication(currentStep string) error {
 	return nil
 }
 
-func (s *StepParamChecker) Check(currentStep string) error {
+func (s *StepParamChecker) Check(currentComponent string) error {
 	/*
 		1. 如果没有用到Fs，不能用Fs相关系统参数，以及inputAtf，outputAtf机制
 		2. 先检查参数名是否有重复（parameter，artifact）
@@ -489,75 +410,105 @@ func (s *StepParamChecker) Check(currentStep string) error {
 		- command 支持平台内置参数替换，上游step的parameter依赖替换，当前step的parameter替换，当前step内input artifact、当前step内output artifact替换
 		4. 引用上游参数时，必须保证上游节点不在disabled列表中。
 	*/
-	err := s.checkDuplication(currentStep)
+	err := s.checkDuplication(currentComponent)
 	if err != nil {
 		return err
 	}
 
-	step, ok := s.steps[currentStep]
+	component, ok := s.Components[currentComponent]
 	if !ok {
-		return fmt.Errorf("check param reference failed: step %s not exist", currentStep)
+		return fmt.Errorf("check param reference failed: component %s not exist", currentComponent)
 	}
 
 	// 1. parameter 校验
 	// parameter不需要将dict类型的参数默认值提取出来，因为会在StepParamResolver中做了
 	// 另外命令行参数替换默认值，会在workflow.go中完成
-	for paramName, paramVal := range step.Parameters {
-		if err = s.checkName(currentStep, FieldParameters, paramName); err != nil {
+	for paramName, paramVal := range component.GetParameters() {
+		if err = s.checkName(currentComponent, FieldParameters, paramName); err != nil {
 			return err
 		}
-		err = s.checkParamValue(currentStep, paramName, paramVal, FieldParameters)
+		err = s.checkParamValue(currentComponent, paramName, paramVal, FieldParameters)
 		if err != nil {
 			return err
 		}
 	}
 
 	// 2. input artifact 校验
-	for inputAtfName, inputAtfVal := range step.Artifacts.Input {
-		if err = s.checkName(currentStep, FieldInputArtifacts, inputAtfName); err != nil {
+	for inputAtfName, inputAtfVal := range component.GetArtifacts().Input {
+		if err = s.checkName(currentComponent, FieldInputArtifacts, inputAtfName); err != nil {
 			return err
 		}
 
 		variableChecker := VariableChecker{}
 		err = variableChecker.CheckRefUpstreamStep(inputAtfVal)
 		if err != nil {
-			return fmt.Errorf("check input artifact [%s] in step[%s] failed: %s", inputAtfName, currentStep, err.Error())
+			return fmt.Errorf("check input artifact [%s] in step[%s] failed: %s", inputAtfName, currentComponent, err.Error())
 		}
 
-		err = s.checkParamValue(currentStep, inputAtfName, inputAtfVal, FieldInputArtifacts)
+		err = s.checkParamValue(currentComponent, inputAtfName, inputAtfVal, FieldInputArtifacts)
 		if err != nil {
 			return err
 		}
 	}
 
 	// 3. output artifacts 由平台生成路径，所以在校验时，不会对其值进行校验（即使非空迟早也会被替换）
-	// 如果不使用Fs，不能定义outputAtf。因为inputAtf只能引用上游output Atf，所以只需要校验outputAtf即可。
-	if !s.useFs && len(step.Artifacts.Output) > 0 {
-		return fmt.Errorf("cannot define artifact in step[%s] with no Fs mounted", currentStep)
+	// 如果不使用Fs，不能定义outputAtf。
+	if !s.UseFs && len(component.GetArtifacts().Output) > 0 {
+		return fmt.Errorf("cannot define artifact in step[%s] with no Fs mounted", currentComponent)
 	}
-	for outAtfName, _ := range step.Artifacts.Output {
-		if err = s.checkName(currentStep, FieldOutputArtifacts, outAtfName); err != nil {
-			return err
+	if dag, ok := component.(*schema.WorkflowSourceDag); ok {
+		for outAtfName, outArtValue := range dag.Artifacts.Output {
+			if err = s.checkName(currentComponent, FieldOutputArtifacts, outAtfName); err != nil {
+				return err
+			}
+			variableChecker := VariableChecker{}
+			// 虽然这里不是引用上游节点，而是子节点，但是规则相同，因此可以复用
+			err = variableChecker.CheckRefUpstreamStep(outArtValue)
+			if err != nil {
+				return fmt.Errorf("check input artifact [%s] in step[%s] failed: %s", outArtValue, currentComponent, err.Error())
+			}
+
+			err = s.checkParamValue(currentComponent, outAtfName, outArtValue, FieldOutputArtifacts)
+			if err != nil {
+				return err
+			}
+		}
+	} else {
+		// step 的 OutputArtifact 没有 value
+		for outAtfName, _ := range component.GetArtifacts().Output {
+			if err = s.checkName(currentComponent, FieldOutputArtifacts, outAtfName); err != nil {
+				return err
+			}
 		}
 	}
 
-	// 4. env 校验/更新
-	for envName, envVal := range step.Env {
-		if err = s.checkName(currentStep, FieldEnv, envName); err != nil {
-			return err
+	// 只有step才有env和command
+
+	if step, ok := component.(*schema.WorkflowSourceStep); ok {
+		// 4. env 校验/更新
+		for envName, envVal := range step.Env {
+			if err = s.checkName(currentComponent, FieldEnv, envName); err != nil {
+				return err
+			}
+			err = s.checkParamValue(currentComponent, envName, envVal, FieldEnv)
+			if err != nil {
+				return err
+			}
 		}
-		err = s.checkParamValue(currentStep, envName, envVal, FieldEnv)
+
+		// 5. command 校验/更新
+		err = s.checkParamValue(currentComponent, "command", step.Command, FieldCommand)
 		if err != nil {
 			return err
 		}
-	}
 
-	// 5. command 校验/更新
-	err = s.checkParamValue(currentStep, "command", step.Command, FieldCommand)
-	if err != nil {
-		return err
+		// 6. reference 校验
+		if step.Reference != "" {
+			if err := s.CheckRefComponent(currentComponent); err != nil {
+				return err
+			}
+		}
 	}
-
 	return nil
 }
 
@@ -572,7 +523,7 @@ func (s *StepParamChecker) checkName(step, fieldType, name string) error {
 
 // 该函数主要处理parameter, command, env，input artifact四类参数
 // schema中已经限制了input artifact，command, env只能为string，此处再判断类型用于兜底
-func (s *StepParamChecker) checkParamValue(step string, paramName string, param interface{}, fieldType string) error {
+func (s *StepParamChecker) checkParamValue(compName string, paramName string, param interface{}, fieldType string) error {
 	if fieldType == FieldCommand || fieldType == FieldEnv || fieldType == FieldInputArtifacts {
 		_, ok := param.(string)
 		if !ok {
@@ -580,17 +531,59 @@ func (s *StepParamChecker) checkParamValue(step string, paramName string, param 
 		}
 	}
 
+	// Reference节点相关检查
+	comp, ok := s.Components[compName]
+	// 兜底检查
+	if !ok {
+		return fmt.Errorf("no component in EntryPoints named %s", compName)
+	}
+	if step, ok := comp.(*schema.WorkflowSourceStep); ok {
+		if step.Reference != "" {
+			// 对reference节点进行检查
+			template, ok := s.CompTempletes[step.Reference]
+			if !ok {
+				return fmt.Errorf("no component named %s", compName)
+			}
+
+			switch fieldType {
+			case FieldParameters:
+				// 在reference 节点中定义的parameters 需要是其引用的component的 parameters 的子集
+				referedParam, ok := template.GetParameters()[paramName]
+				if !ok {
+					return fmt.Errorf("parameters in step with reference must be in refered component")
+				}
+				// 如果 component 中的parameter 为dict 形式，在reference 节点中对应的parameter需要满足类型要求
+				switch referedParam.(type) {
+				case map[interface{}]interface{}:
+					dictParam := DictParam{}
+					if err := dictParam.From(referedParam); err != nil {
+						return fmt.Errorf("invalid dict parameter[%s]", param)
+					}
+					if _, err := CheckDictParam(dictParam, step.Reference, param); err != nil {
+						return fmt.Errorf("parameters in step with reference check dict param in refered param failed, error: %s", err.Error())
+					}
+				}
+			case FieldInputArtifacts:
+				// 在reference 节点中定义的 input artifacts 需要是其引用的component的 input artifacts 的子集
+				if _, ok := template.GetArtifacts().Input[paramName]; !ok {
+					return fmt.Errorf("input artifact in step with reference must be in refered component")
+				}
+			}
+		}
+	}
+
+	// 参数值检查
 	switch param.(type) {
 	case float32, float64, int:
 		return nil
 	case string:
-		return s.resolveRefParam(step, param.(string), fieldType)
+		return s.resolveRefParam(compName, param.(string), fieldType)
 	case map[interface{}]interface{}:
 		dictParam := DictParam{}
 		if err := dictParam.From(param); err != nil {
 			return fmt.Errorf("invalid dict parameter[%s]", param)
 		}
-		_, err := checkDictParam(dictParam, paramName, nil)
+		_, err := CheckDictParam(dictParam, paramName, nil)
 		return err
 	default:
 		return UnsupportedParamTypeError(param, paramName)
@@ -602,7 +595,7 @@ func (s *StepParamChecker) checkParamValue(step string, paramName string, param 
 // input artifacts 只能引用上游 outputArtifact
 // env 支持平台内置参数替换，上游step的parameter依赖替换，当前step的parameter替换
 // command 支持平台内置参数替换，上游step的parameter依赖替换，当前step的parameter替换，当前step内input artifact、当前step内output artifact替换
-func (s *StepParamChecker) resolveRefParam(step, param, fieldType string) error {
+func (s *StepParamChecker) resolveRefParam(componentName, param, fieldType string) error {
 	// regular expression must match case {{ xxx }} like {{ <step-name>.<param_name> }} or {{ PS_RUN_ID }}
 	pattern := RegExpIncludingTpl
 	reg := regexp.MustCompile(pattern)
@@ -611,31 +604,37 @@ func (s *StepParamChecker) resolveRefParam(step, param, fieldType string) error 
 		if len(row) != 4 {
 			return MismatchRegexError(param, pattern)
 		}
+		refList := ParseParamName(row[2])
+		refComponent, refParamName := "", ""
+		if len(refList) > 1 {
+			refComponent, refParamName = refList[0], refList[1]
+		} else {
+			refParamName = refList[0]
+		}
 
-		refStep, refParamName := parseParamName(row[2])
-		if len(refStep) == 0 {
+		if len(refComponent) == 0 {
 			// 分别替换系统参数，如{{PF_RUN_ID}}；当前step parameter；当前step的input artifact；当前step的output artifact
 			// 只有param，env，command三类变量需要处理
-			if !s.useFs && (refParamName == SysParamNamePFFsID || refParamName == SysParamNamePFFsName) {
-				return fmt.Errorf("cannot use sysParam[%s] template in step[%s] for pipeline run with no Fs mounted", refParamName, step)
+			if !s.UseFs && (refParamName == SysParamNamePFFsID || refParamName == SysParamNamePFFsName) {
+				return fmt.Errorf("cannot use sysParam[%s] template in step[%s] for pipeline run with no Fs mounted", refParamName, componentName)
 			}
 
 			var ok bool
-			_, ok = s.sysParams[refParamName]
+			_, ok = s.SysParams[refParamName]
 			if !ok {
 				if fieldType == FieldParameters {
 					return fmt.Errorf("unsupported SysParamName[%s] for param[%s] of filedType[%s]", refParamName, param, fieldType)
 				}
-				_, ok := s.steps[step].Parameters[refParamName]
+				_, ok := s.Components[componentName].GetParameters()[refParamName]
 				if !ok {
 					if fieldType == FieldEnv {
 						return fmt.Errorf("unsupported RefParamName[%s] for param[%s] of filedType[%s]", refParamName, param, fieldType)
 					}
 
 					// 处理command逻辑，command 可以引用 system parameter + step 内的 parameter + artifact
-					_, ok = s.steps[step].Artifacts.Input[refParamName]
+					_, ok = s.Components[componentName].GetArtifacts().Input[refParamName]
 					if !ok {
-						_, ok = s.steps[step].Artifacts.Output[refParamName]
+						_, ok = s.Components[componentName].GetArtifacts().Output[refParamName]
 						if !ok {
 							return fmt.Errorf("unsupported RefParamName[%s] for param[%s] of filedType[%s]", refParamName, param, fieldType)
 						}
@@ -643,7 +642,7 @@ func (s *StepParamChecker) resolveRefParam(step, param, fieldType string) error 
 				}
 			}
 		} else {
-			err := s.refParamExist(step, refStep, refParamName, fieldType)
+			err := s.refParamExist(componentName, refComponent, refParamName, fieldType)
 			if err != nil {
 				return err
 			}
@@ -652,52 +651,77 @@ func (s *StepParamChecker) resolveRefParam(step, param, fieldType string) error 
 	return nil
 }
 
-func parseParamName(paramName string) (string, string) {
+func ParseParamName(paramName string) []string {
 	paramStrList := strings.Split(paramName, ".")
-	if len(paramStrList) == 1 {
-		return "", paramStrList[0]
-	}
-
-	return paramStrList[0], paramStrList[1]
+	return paramStrList
 }
 
-func (s *StepParamChecker) refParamExist(currentStepName, refStepName, refParamName, fieldType string) error {
+func (s *StepParamChecker) refParamExist(currentCompName, refCompName, refParamName, fieldType string) error {
 	/*
-		只有param，env，command，input artifact 四类变量需要处理
-		param，env，command 只做上游step的parameter 依赖替换
+		env, command只能引用当前节点的param, input/output artifacts
+		param 只做上游step的 param 依赖替换
 		input artifact 只做上游step的output artifact 依赖替换
+		PF_PARENT 为引用父节点的
 	*/
-	step := s.steps[currentStepName]
-	if !StringsContain(step.GetDeps(), refStepName) {
-		return fmt.Errorf("invalid reference param {{ %s.%s }} in step[%s]: step[%s] not in deps", refStepName, refParamName, currentStepName, refStepName)
+	if refCompName == PF_PARENT {
+		if len(strings.Split(currentCompName, ".")) < 2 {
+			return fmt.Errorf("PF_PARENT should used by a child component")
+		}
+		return nil
 	}
+	curComponent := s.Components[currentCompName]
+	// s.DisabledSteps和s.Components保存的是完整节点名称，即从跟节点到当前节点的完整路径，如A.BB.CCC
+	// 因此需要结合currentCompName（完整节点名称），对refCompName（相对节点名称）进行拓展
+	var absoluteRefCompName string
+	switch fieldType {
+	case FieldOutputArtifacts:
+		if curComponent.GetType() != "dag" {
+			return fmt.Errorf("only dag can use output aritfacts of subComponents")
+		}
+		absoluteRefCompName = currentCompName + "." + refParamName
+	default:
+		if !StringsContain(curComponent.GetDeps(), refCompName) {
+			return fmt.Errorf("invalid reference param {{ %s.%s }} in step[%s]: step[%s] not in deps", refCompName, refParamName, currentCompName, refCompName)
+		}
 
-	for _, disableStepName := range s.disabledSteps {
-		if refStepName == disableStepName {
-			return fmt.Errorf("invalid reference param {{ %s.%s }} in step[%s]: step[%s] is disabled", refStepName, refParamName, currentStepName, refStepName)
+		refCompNameList := strings.Split(currentCompName, ".")
+		if len(refCompNameList) > 1 {
+			absoluteRefCompName = strings.Join(refCompNameList[:len(refCompNameList)-1], ".") + "." + refCompName
+		} else {
+			absoluteRefCompName = refParamName
+		}
+	}
+	// 检查引用的节点是否被disabled
+	for _, disableStepName := range s.DisabledSteps {
+		if absoluteRefCompName == disableStepName {
+			return fmt.Errorf("invalid reference param {{ %s.%s }} in step[%s]: step[%s] is disabled", refCompName, refParamName, currentCompName, refCompName)
 		}
 	}
 
-	refStep, ok := s.steps[refStepName]
+	refComponent, ok := s.Components[absoluteRefCompName]
 	if !ok {
-		return fmt.Errorf("invalid reference param {{ %s.%s }} in step[%s]: step[%s] not exist", refStepName, refParamName, currentStepName, refStepName)
+		return fmt.Errorf("invalid reference param {{ %s.%s }} in step[%s]: step[%s] not exist", refCompName, refParamName, currentCompName, refCompName)
 	}
 
 	switch fieldType {
 	case FieldInputArtifacts:
-		if _, ok := refStep.Artifacts.Output[refParamName]; !ok {
-			return fmt.Errorf("invalid reference param {{ %s.%s }} in step[%s]: output artifact[%s] not exist", refStepName, refParamName, currentStepName, refParamName)
+		fallthrough
+	case FieldOutputArtifacts:
+		if _, ok := refComponent.GetArtifacts().Output[refParamName]; !ok {
+			return fmt.Errorf("invalid reference param {{ %s.%s }} in step[%s]: output artifact[%s] not exist", refCompName, refParamName, currentCompName, refParamName)
+		}
+	case FieldParameters:
+		if _, ok := refComponent.GetParameters()[refParamName]; !ok {
+			return fmt.Errorf("invalid reference param {{ %s.%s }} in step[%s]: parameter[%s] not exist", refCompName, refParamName, currentCompName, refParamName)
 		}
 	default:
-		if _, ok := refStep.Parameters[refParamName]; !ok {
-			return fmt.Errorf("invalid reference param {{ %s.%s }} in step[%s]: parameter[%s] not exist", refStepName, refParamName, currentStepName, refParamName)
-		}
+		return fmt.Errorf("only parameters can use upstream parameters and only input artifacts can use upstream output artifacts")
 	}
 
 	return nil
 }
 
-func checkDictParam(dict DictParam, paramName string, realVal interface{}) (interface{}, error) {
+func CheckDictParam(dict DictParam, paramName string, realVal interface{}) (interface{}, error) {
 	if dict.Type == "" {
 		return nil, UnsupportedDictParamTypeError(dict.Type, paramName, dict)
 	}
@@ -734,6 +758,16 @@ func checkDictParam(dict DictParam, paramName string, realVal interface{}) (inte
 			return realVal, nil
 		}
 		return nil, InvalidParamTypeError(realVal, ParamTypeInt)
+	case ParamTypeList:
+		_, ok1 := realVal.([]float32)
+		_, ok2 := realVal.([]float64)
+		_, ok3 := realVal.([]int32)
+		_, ok4 := realVal.([]int64)
+		_, ok5 := realVal.([]int)
+		_, ok6 := realVal.([]string)
+		if ok1 || ok2 || ok3 || ok4 || ok5 || ok6 {
+			return realVal, nil
+		}
 	case ParamTypePath:
 		realValStr, ok := realVal.(string)
 		if !ok {
@@ -749,4 +783,20 @@ func checkDictParam(dict DictParam, paramName string, realVal interface{}) (inte
 	default:
 		return nil, UnsupportedDictParamTypeError(dict.Type, paramName, dict)
 	}
+}
+
+func (s *StepParamChecker) CheckRefComponent(compName string) error {
+	component, ok := s.Components[compName]
+	if !ok {
+		fmt.Errorf("no component named %s", compName)
+	}
+
+	if step, ok := component.(*schema.WorkflowSourceStep); ok {
+		if len(step.Artifacts.Output) > 0 || len(step.Command) > 0 || len(step.Condition) > 0 ||
+			len(step.DockerEnv) > 0 || len(step.Env) > 0 || step.LoopArgument != nil ||
+			len(step.Cache.FsScope) > 0 || len(step.Cache.MaxExpiredTime) > 0 || step.Cache.Enable {
+			fmt.Errorf("reference step can only have deps, parameters, input artifacts, reference")
+		}
+	}
+	return nil
 }

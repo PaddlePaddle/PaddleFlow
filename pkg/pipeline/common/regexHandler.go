@@ -51,7 +51,7 @@ func (variableChecker *VariableChecker) CheckRefUpstreamStep(varValue string) er
 	pattern := RegExpUpstreamTpl
 	reg := regexp.MustCompile(pattern)
 	if !reg.MatchString(varValue) {
-		err := fmt.Errorf("format of value[%s] invalid, should be like {{XXX.XXX}}", varValue)
+		err := fmt.Errorf("format of value[%s] invalid, should be like {{XX-XX.XX_XX}}", varValue)
 		return err
 	}
 	return nil

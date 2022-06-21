@@ -16,28 +16,75 @@ limitations under the License.
 
 package schema
 
+type ComponentView interface {
+	GetComponentName() string
+	GetParentDagID() string
+
+	SetDeps(string)
+}
+
 // JobView is view of job info responded to user, while Job is for pipeline and job engine to process
 type JobView struct {
-	JobID      string            `json:"jobID"`
-	JobName    string            `json:"name"`
-	Command    string            `json:"command"`
-	Parameters map[string]string `json:"parameters"`
-	Env        map[string]string `json:"env"`
-	StartTime  string            `json:"startTime"`
-	EndTime    string            `json:"endTime"`
-	Status     JobStatus         `json:"status"`
-	Deps       string            `json:"deps"`
-	DockerEnv  string            `json:"dockerEnv"`
-	Artifacts  Artifacts         `json:"artifacts"`
-	Cache      Cache             `json:"cache"`
-	JobMessage string            `json:"jobMessage"`
-	CacheRunID string            `json:"cacheRunID"`
+	JobID       string            `json:"jobID"`
+	JobName     string            `json:"name"`
+	Command     string            `json:"command"`
+	Parameters  map[string]string `json:"parameters"`
+	Env         map[string]string `json:"env"`
+	StartTime   string            `json:"startTime"`
+	EndTime     string            `json:"endTime"`
+	Status      JobStatus         `json:"status"`
+	Deps        string            `json:"deps"`
+	DockerEnv   string            `json:"dockerEnv"`
+	Artifacts   Artifacts         `json:"artifacts"`
+	Cache       Cache             `json:"cache"`
+	JobMessage  string            `json:"jobMessage"`
+	CacheRunID  string            `json:"cacheRunID"`
+	CacheJobID  string            `json:"cacheJobID"`
+	ParentDagID string            `json:"parentDagID"`
+}
+
+func (j *JobView) GetComponentName() string {
+	return j.JobName
+}
+
+func (j *JobView) GetParentDagID() string {
+	return j.ParentDagID
+}
+
+func (j *JobView) SetDeps(deps string) {
+	j.Deps = deps
+}
+
+type DagView struct {
+	DagID       string
+	DagName     string `json:"name"`
+	Deps        string
+	Parameters  map[string]string
+	Artifacts   Artifacts
+	StartTime   string
+	EndTime     string
+	Status      JobStatus
+	Message     string
+	EntryPoints map[string][]ComponentView
+	ParentDagID string
+}
+
+func (d *DagView) GetComponentName() string {
+	return d.DagName
+}
+
+func (d *DagView) GetParentDagID() string {
+	return d.ParentDagID
+}
+
+func (d *DagView) SetDeps(deps string) {
+	d.Deps = deps
 }
 
 // RuntimeView is view of run responded to user, while workflowRuntime is for pipeline engine to process
-type RuntimeView map[string]JobView
+type RuntimeView map[string][]ComponentView
 
-type PostProcessView RuntimeView
+type PostProcessView map[string]JobView
 
 type LogRunCacheRequest struct {
 	FirstFp     string `json:"firstFp"`
@@ -45,6 +92,7 @@ type LogRunCacheRequest struct {
 	Source      string `json:"source"`
 	RunID       string `json:"runID"`
 	Step        string `json:"step"`
+	JobID       string `json:"jobID"`
 	FsID        string `json:"fsID"`
 	FsName      string `json:"fsname"`
 	UserName    string `json:"username"`
@@ -60,6 +108,7 @@ type LogRunArtifactRequest struct {
 	UserName     string `json:"username"`
 	ArtifactPath string `json:"artifactPath"`
 	Step         string `json:"step"`
+	JobID        string `json:"jobID"`
 	Type         string `json:"type"`
 	ArtifactName string `json:"artifactName"`
 	Meta         string `json:"meta"`

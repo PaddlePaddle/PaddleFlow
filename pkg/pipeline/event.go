@@ -26,12 +26,14 @@ const (
 	WfEventError  WfEventType = "Error"    // 异常事件类型，影响业务运行，例如其他模块函数返回异常
 
 	// 事件值
-	WfEventJobUpdate    WfEventValue = "JobUpdate"
-	WfEventRunUpdate    WfEventValue = "RunUpdate"
-	WfEventJobSubmitErr WfEventValue = "JobSubmitErr"
-	WfEventJobWatchErr  WfEventValue = "JobWatchErr"
-	WfEventJobStopErr   WfEventValue = "JobStopErr"
-	wfEventRunSysError  WfEventValue = "SysError"
+	WfEventFailureOptionsTriggered WfEventValue = "FailureOpitons"
+	WfEventJobUpdate               WfEventValue = "JobUpdate"
+	WfEventRunUpdate               WfEventValue = "RunUpdate"
+	WfEventDagUpdate               WfEventValue = "DagUpdate"
+	WfEventJobSubmitErr            WfEventValue = "JobSubmitErr"
+	WfEventJobWatchErr             WfEventValue = "JobWatchErr"
+	WfEventJobStopErr              WfEventValue = "JobStopErr"
+	wfEventRunSysError             WfEventValue = "SysError"
 )
 
 type WorkflowEvent struct {
@@ -62,6 +64,11 @@ func (wfe *WorkflowEvent) isRunUpdate() bool {
 	return wfe.Event == WfEventRunUpdate
 }
 
+// 是否Dag更新事件
+func (wfe *WorkflowEvent) isDagUpdate() bool {
+	return wfe.Event == WfEventRunUpdate
+}
+
 // 是否Job Watch异常事件
 func (wfe *WorkflowEvent) isJobWatchErr() bool {
 	return wfe.Event == WfEventJobWatchErr
@@ -75,6 +82,11 @@ func (wfe *WorkflowEvent) isJobSubmitErr() bool {
 // 是否Job Stop异常事件
 func (wfe *WorkflowEvent) isJobStopErr() bool {
 	return wfe.Event == WfEventJobStopErr
+}
+
+// 是否是 FailureOptionsTriggered 事件
+func (wfe *WorkflowEvent) isFailureOptionsTriggered() bool {
+	return wfe.Event == WfEventFailureOptionsTriggered
 }
 
 // 获取Job更新信息

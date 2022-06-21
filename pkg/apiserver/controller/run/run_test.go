@@ -161,7 +161,7 @@ func TestCallback(t *testing.T) {
 			common.WfEventKeyPostProcess: postProcessView,
 		},
 	}
-	f := UpdateRunFunc
+	f := UpdateRuntimeFunc
 	f(run1.ID, &event1)
 	updatedRun, err := models.GetRunByID(ctx.Logging(), run1.ID)
 	assert.Nil(t, err)

@@ -17,11 +17,11 @@ limitations under the License.
 package pipeline
 
 import (
-	"errors"
 	"fmt"
-	. "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 	"regexp"
 	"strconv"
+
+	. "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 
 	"github.com/sirupsen/logrus"
 
@@ -42,36 +42,31 @@ type BaseWorkflow struct {
 	Params       map[string]interface{}                `json:"params,omitempty"`
 	Extra        map[string]string                     `json:"extra,omitempty"` // 可以存放一些ID，fsId，userId等
 	Source       schema.WorkflowSource                 `json:"-"`               // Yaml string
+	runtimeDags  map[string]*schema.WorkflowSourceDag  `json:"-"`
 	runtimeSteps map[string]*schema.WorkflowSourceStep `json:"-"`
+	tmpDags      map[string]*schema.WorkflowSourceDag  `json:"-"`
+	tmpSteps     map[string]*schema.WorkflowSourceStep `json:"-"`
 	postProcess  map[string]*schema.WorkflowSourceStep `json:"-"`
 }
 
 func NewBaseWorkflow(wfSource schema.WorkflowSource, runID, entry string, params map[string]interface{}, extra map[string]string) BaseWorkflow {
 	// Todo: 设置默认值
 	bwf := BaseWorkflow{
-		RunID:  runID,
-		Name:   "default_name",
-		Desc:   "default_desc",
-		Params: params,
-		Extra:  extra,
-		Source: wfSource,
-		Entry:  entry,
+		RunID:       runID,
+		Name:        "default_name",
+		Desc:        "default_desc",
+		Params:      params,
+		Extra:       extra,
+		Source:      wfSource,
+		Entry:       entry,
+		postProcess: wfSource.PostProcess,
 	}
 
-	for _, wfsStep := range bwf.Source.EntryPoints {
-		if wfsStep.DockerEnv == "" {
-			wfsStep.DockerEnv = bwf.Source.DockerEnv
-		}
-	}
-
-	bwf.postProcess = map[string]*schema.WorkflowSourceStep{}
-	for name, processPoint := range bwf.Source.PostProcess {
-		if processPoint.DockerEnv == "" {
-			processPoint.DockerEnv = bwf.Source.DockerEnv
-		}
-		bwf.postProcess[name] = processPoint
-	}
-	bwf.runtimeSteps = bwf.getRunSteps()
+	bwf.runtimeDags, bwf.runtimeSteps = bwf.getComponents()
+	bwf.tmpDags = map[string]*schema.WorkflowSourceDag{}
+	bwf.tmpSteps = map[string]*schema.WorkflowSourceStep{}
+	// 对于Components模板中的节点，添加一个前缀，避免后面与EntryPoints中的节点重复
+	bwf.recursiveGetComponents(bwf.Source.Components, SysComponentsPrefix, bwf.tmpDags, bwf.tmpSteps)
 	return bwf
 }
 
@@ -80,51 +75,55 @@ func (bwf *BaseWorkflow) log() *logrus.Entry {
 }
 
 func (bwf *BaseWorkflow) checkDeps() error {
-	for name, step := range bwf.Source.EntryPoints {
-		for _, dep := range step.GetDeps() {
-			if _, ok := bwf.Source.EntryPoints[dep]; !ok {
-				return fmt.Errorf("step [%s] has an wrong dep [%s]", name, dep)
+	return bwf.checkDepsRecursively(bwf.Source.EntryPoints.EntryPoints)
+}
+
+func (bwf *BaseWorkflow) checkDepsRecursively(components map[string]schema.Component) error {
+	for name, component := range components {
+		for _, dep := range component.GetDeps() {
+			if _, ok := components[dep]; !ok {
+				return fmt.Errorf("component [%s] has an wrong dep [%s]", name, dep)
+			}
+		}
+		if dag, ok := component.(*schema.WorkflowSourceDag); ok {
+			if err := bwf.checkDepsRecursively(dag.EntryPoints); err != nil {
+				return err
 			}
 		}
 	}
 	return nil
 }
 
-func (bwf *BaseWorkflow) getRunSteps() map[string]*schema.WorkflowSourceStep {
+func (bwf *BaseWorkflow) getComponents() (map[string]*schema.WorkflowSourceDag, map[string]*schema.WorkflowSourceStep) {
 	/*
 		根据传入的entry，获取此次run需要运行的step集合
 		注意：此处返回的map中，每个schema.WorkflowSourceStep元素都是以指针形式返回（与BaseWorkflow中Source参数中的step指向相同的类对象），后续对与元素内容的修改，会直接同步到BaseWorkflow中Source参数
 	*/
-	entry := bwf.Entry
-	if entry == "" {
-		return bwf.Source.EntryPoints
-	}
 
-	runSteps := map[string]*schema.WorkflowSourceStep{}
-	bwf.recursiveGetRunSteps(entry, runSteps)
-	return runSteps
+	runtimeSteps := map[string]*schema.WorkflowSourceStep{}
+	runtimeDags := map[string]*schema.WorkflowSourceDag{}
+	bwf.recursiveGetComponents(bwf.Source.EntryPoints.EntryPoints, "", runtimeDags, runtimeSteps)
+	return runtimeDags, runtimeSteps
 }
 
-func (bwf *BaseWorkflow) recursiveGetRunSteps(entry string, steps map[string]*schema.WorkflowSourceStep) {
-	// duplicated in result map
-	if _, ok := steps[entry]; ok {
-		return
-	}
-
-	if step, ok := bwf.Source.EntryPoints[entry]; ok {
-		steps[entry] = step
-		for _, dep := range step.GetDeps() {
-			bwf.recursiveGetRunSteps(dep, steps)
+func (bwf *BaseWorkflow) recursiveGetComponents(components map[string]schema.Component, prefix string, dags map[string]*schema.WorkflowSourceDag, steps map[string]*schema.WorkflowSourceStep) {
+	for name, component := range components {
+		absoluteName := prefix + "." + name
+		if dag, ok := component.(*schema.WorkflowSourceDag); ok {
+			dags[absoluteName] = dag
+			bwf.recursiveGetComponents(dag.EntryPoints, absoluteName, dags, steps)
+		} else {
+			step := component.(*schema.WorkflowSourceStep)
+			steps[absoluteName] = step
 		}
 	}
 }
 
 // validate BaseWorkflow 校验合法性
 func (bwf *BaseWorkflow) validate() error {
-	// 校验 entry 是否存在
-	if _, ok := bwf.Source.EntryPoints[bwf.Entry]; bwf.Entry != "" && !ok {
-		err := fmt.Errorf("entry[%s] not exist in run", bwf.Entry)
-		bwf.log().Errorln(err.Error())
+	// 1. 检查Components/Reference
+	if err := bwf.checkComponents(); err != nil {
+		bwf.log().Errorf("check components failed, err: %s", err.Error())
 		return err
 	}
 
@@ -183,6 +182,61 @@ func (bwf *BaseWorkflow) checkFailureOption() error {
 	}
 }
 
+func (bwf *BaseWorkflow) checkComponents() error {
+	/*
+		components不能有deps(最外层，不包括子节点)
+		components/reference不支持递归
+	*/
+	for name, comp := range bwf.Source.Components {
+		// component不能有deps
+		if len(comp.GetDeps()) > 0 {
+			fmt.Errorf("components can not have deps")
+		}
+
+		// 递归检查
+		visited := map[string]int{name: 1}
+		if err := bwf.checkRecursion(comp, visited); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (bwf *BaseWorkflow) checkRecursion(component schema.Component, visited map[string]int) error {
+	if step, ok := component.(*schema.WorkflowSourceStep); ok {
+		if step.Reference != "" {
+			refComp, ok := bwf.Source.Components[step.Reference]
+			if !ok {
+				fmt.Errorf("no component named %s", step.Reference)
+			}
+
+			// 如果visited已有将要reference的节点，则说明存在递归
+			if _, ok := visited[step.Reference]; ok {
+				return fmt.Errorf("reference should not be recursive")
+			} else {
+				visited[step.Reference] = 1
+			}
+			return bwf.checkRecursion(refComp, visited)
+		} else {
+			return nil
+		}
+	} else if dag, ok := component.(*schema.WorkflowSourceDag); ok {
+		for _, comp := range dag.EntryPoints {
+			newVisitied := map[string]int{}
+			for k, v := range visited {
+				newVisitied[k] = v
+			}
+			if err := bwf.checkRecursion(comp, newVisitied); err != nil {
+				return err
+			}
+		}
+		return nil
+	} else {
+		return fmt.Errorf("component not dag or step")
+	}
+	return nil
+}
+
 // 校验extra字典
 // 保证FsID和FsName，要么同时传（pipeline run需要挂载fs），要么都不传（pipeline run不需要挂载fs）
 func (bwf *BaseWorkflow) checkExtra() error {
@@ -202,23 +256,61 @@ func (bwf *BaseWorkflow) checkRunYaml() error {
 		return fmt.Errorf("format of pipeline name[%s] in run[%s] invalid", bwf.Source.Name, bwf.RunID)
 	}
 
-	for stepName := range bwf.Source.EntryPoints {
-		err := variableChecker.CheckStepName(stepName)
-		if err != nil {
-			return fmt.Errorf("format of stepName[%s] in run[%s] invalid", stepName, bwf.RunID)
-		}
+	// 检查名字命名规范，不涉及重名检查
+	if err := bwf.checkAllComponentName(bwf.Source.EntryPoints.EntryPoints); err != nil {
+		return err
+	}
+	postComponent := map[string]schema.Component{}
+	for name, step := range bwf.Source.PostProcess {
+		postComponent[name] = step
+	}
+	if err := bwf.checkAllComponentName(postComponent); err != nil {
+		return err
+	}
+	if err := bwf.checkAllComponentName(bwf.Source.Components); err != nil {
+		return err
 	}
 
-	if _, err := bwf.topologicalSort(bwf.runtimeSteps); err != nil {
+	if err := bwf.checkTopoSort(bwf.Source.EntryPoints.EntryPoints); err != nil {
 		return err
 	}
 
 	return nil
 }
 
+func (bwf *BaseWorkflow) checkAllComponentName(components map[string]schema.Component) error {
+	variableChecker := VariableChecker{}
+	for name, component := range components {
+		err := variableChecker.CheckStepName(name)
+		if err != nil {
+			return fmt.Errorf("format of stepName[%s] in run[%s] invalid", name, bwf.RunID)
+		}
+		if dag, ok := component.(*schema.WorkflowSourceDag); ok {
+			if err := bwf.checkAllComponentName(dag.EntryPoints); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (bwf *BaseWorkflow) checkTopoSort(components map[string]schema.Component) error {
+	if _, err := bwf.topologicalSort(components); err != nil {
+		return err
+	}
+	for _, component := range components {
+		if dag, ok := component.(*schema.WorkflowSourceDag); ok {
+			if err := bwf.checkTopoSort(dag.EntryPoints); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 // topologicalSort step 拓扑排序
 // todo: use map as return value type?
-func (bwf *BaseWorkflow) topologicalSort(steps map[string]*schema.WorkflowSourceStep) ([]string, error) {
+func (bwf *BaseWorkflow) topologicalSort(components map[string]schema.Component) ([]string, error) {
 	// unsorted: unsorted graph
 	// if we have dag:
 	//     1 -> 2 -> 3
@@ -227,7 +319,7 @@ func (bwf *BaseWorkflow) topologicalSort(steps map[string]*schema.WorkflowSource
 	//     2 -> [3]
 	sortedSteps := make([]string, 0)
 	unsorted := map[string][]string{}
-	for name, step := range steps {
+	for name, step := range components {
 		depsList := step.GetDeps()
 
 		if len(depsList) == 0 {
@@ -291,22 +383,32 @@ func (bwf *BaseWorkflow) checkCache() error {
 	if bwf.Extra[WfExtraInfoKeyFsID] == "" && bwf.Source.Cache.FsScope != "" {
 		return fmt.Errorf("fs_scope of global cache should be empty if Fs is not used!")
 	}
+	if err := bwf.checkStepCache(bwf.Source.Components); err != nil {
+		return err
+	}
+	return nil
+}
 
-	for stepName, wfsStep := range bwf.Source.EntryPoints {
-		if wfsStep.Cache.MaxExpiredTime == "" {
-			wfsStep.Cache.MaxExpiredTime = CacheExpiredTimeNever
-		}
+func (bwf *BaseWorkflow) checkStepCache(components map[string]schema.Component) error {
+	for name, component := range components {
+		if dag, ok := component.(*schema.WorkflowSourceDag); ok {
+			return bwf.checkStepCache(dag.EntryPoints)
+		} else if step, ok := component.(*schema.WorkflowSourceStep); ok && step.Reference == "" {
+			if step.Cache.MaxExpiredTime == "" {
+				step.Cache.MaxExpiredTime = CacheExpiredTimeNever
+			}
+			_, err := strconv.Atoi(step.Cache.MaxExpiredTime)
+			if err != nil {
+				return fmt.Errorf("MaxExpiredTime[%s] of cache in step[%s] not correct", step.Cache.MaxExpiredTime, name)
+			}
 
-		_, err := strconv.Atoi(wfsStep.Cache.MaxExpiredTime)
-		if err != nil {
-			return fmt.Errorf("MaxExpiredTime[%s] of cache in step[%s] not correct", wfsStep.Cache.MaxExpiredTime, stepName)
-		}
-
-		if bwf.Extra[WfExtraInfoKeyFsID] == "" && wfsStep.Cache.FsScope != "" {
-			return fmt.Errorf("fs_scope of cache in step[%s] should be empty if Fs is not used!", stepName)
+			if bwf.Extra[WfExtraInfoKeyFsID] == "" && step.Cache.FsScope != "" {
+				return fmt.Errorf("fs_scope of cache in step[%s] should be empty if Fs is not used!", name)
+			}
+		} else {
+			return fmt.Errorf("component not step or dag")
 		}
 	}
-
 	return nil
 }
 
@@ -328,65 +430,126 @@ func (bwf *BaseWorkflow) replaceRunParam(param string, val interface{}) error {
 		- param: 寻找所有step内的parameter，并进行替换，没有则不替换。
 		只检验命令行参数是否存在在 yaml 定义中，不校验是否必须是本次运行的 step
 	*/
-	stepName, paramName := parseParamName(param)
-	steps := bwf.parseAllSteps()
+	nodesAndParam := ParseParamName(param)
 
-	if len(stepName) != 0 {
-		step, ok1 := steps[stepName]
+	if len(nodesAndParam) > 1 {
+		ok1, err := replaceNodeParam(bwf.Source.EntryPoints.EntryPoints, nodesAndParam, val)
+		if err != nil {
+			return err
+		}
+		// ok 为 false，且 err 为 nil，表示在entryPoints中没有找到要替换的节点，则去postProcess中寻找
 		if !ok1 {
-			errMsg := fmt.Sprintf("not found step[%s] in param[%s]", stepName, param)
-			return errors.New(errMsg)
-		}
-		orgVal, ok2 := step.Parameters[paramName]
-		if !ok2 {
-			errMsg := fmt.Sprintf("param[%s] not exit in step[%s]", paramName, stepName)
-			return errors.New(errMsg)
-		}
-		dictParam := DictParam{}
-		if err := dictParam.From(orgVal); err == nil {
-			if _, err := checkDictParam(dictParam, paramName, val); err != nil {
-				return err
+			postMap := map[string]schema.Component{}
+			for name, component := range bwf.Source.PostProcess {
+				postMap[name] = component
+			}
+			ok2, err2 := replaceNodeParam(postMap, nodesAndParam, val)
+			if err2 != nil {
+				return err2
+			}
+			if !ok2 {
+				// 如果postProcess中也没有，则查找节点失败
+				return fmt.Errorf("cannont find component to replace param with [%s]", param)
 			}
 		}
-		step.Parameters[paramName] = val
-		return nil
-	}
-
-	for _, step := range steps {
-		if orgVal, ok := step.Parameters[paramName]; ok {
-			dictParam := DictParam{}
-			if err := dictParam.From(orgVal); err == nil {
-				if _, err := checkDictParam(dictParam, paramName, val); err != nil {
-					return err
-				}
-			}
-			step.Parameters[paramName] = val
-			return nil
+	} else if len(nodesAndParam) == 0 {
+		paramName := nodesAndParam[0]
+		if err := replaceAllNodeParam(bwf.Source.EntryPoints.EntryPoints, paramName, val); err != nil {
+			return err
 		}
+	} else {
+		fmt.Errorf("empty component list")
 	}
-	return fmt.Errorf("param[%s] not exist", param)
+	return nil
 }
 
-// 将所有类型的steps合并到一起
-func (bwf *BaseWorkflow) parseAllSteps() map[string]*schema.WorkflowSourceStep {
-	steps := map[string]*schema.WorkflowSourceStep{}
-	for name, step := range bwf.Source.EntryPoints {
-		steps[name] = step
+func replaceNodeParam(nodes map[string]schema.Component, nodesAndParam []string, value interface{}) (bool, error) {
+	if len(nodesAndParam) > 2 {
+		node, ok := nodes[nodesAndParam[0]].(*schema.WorkflowSourceDag)
+		if !ok {
+			return false, fmt.Errorf("replace param by request failed, node name list error")
+		}
+		ok, err := replaceNodeParam(node.EntryPoints, nodesAndParam[1:], value)
+		if err != nil {
+			return false, err
+		}
+		if !ok {
+			return false, nil
+		}
+	} else if len(nodesAndParam) == 2 {
+		nodeName := nodesAndParam[0]
+		paramName := nodesAndParam[1]
+		if dag, ok := nodes[nodeName].(*schema.WorkflowSourceDag); ok {
+			orgVal, ok := dag.Parameters[paramName]
+			if !ok {
+				return false, nil
+			}
+
+			dictParam := DictParam{}
+			if err := dictParam.From(orgVal); err == nil {
+				if _, err := CheckDictParam(dictParam, paramName, value); err != nil {
+					return false, err
+				}
+			}
+			dag.Parameters[paramName] = value
+		} else if step, ok := nodes[nodeName].(*schema.WorkflowSourceStep); ok {
+			orgVal, ok := step.Parameters[paramName]
+			if !ok {
+				return false, nil
+			}
+
+			dictParam := DictParam{}
+			if err := dictParam.From(orgVal); err == nil {
+				if _, err := CheckDictParam(dictParam, paramName, value); err != nil {
+					return false, err
+				}
+			}
+			step.Parameters[paramName] = value
+		}
+
+	} else {
+		return false, fmt.Errorf("length of node and param list error")
 	}
-	for name, step := range bwf.Source.PostProcess {
-		// 虽然按照现有逻辑，在之前已经进行过查重，但考虑到后续该函数会在其他地方被调用，还是需要进行查重
-		if _, ok := steps[name]; !ok {
-			steps[name] = step
+	return true, nil
+}
+
+func replaceAllNodeParam(entryPoints map[string]schema.Component, paramName string, value interface{}) error {
+	for _, node := range entryPoints {
+		if dag, ok := node.(*schema.WorkflowSourceDag); ok {
+			if orgVal, ok := dag.Parameters[paramName]; ok {
+				dictParam := DictParam{}
+				if err := dictParam.From(orgVal); err == nil {
+					if _, err := CheckDictParam(dictParam, paramName, value); err != nil {
+						return err
+					}
+				}
+				dag.Parameters[paramName] = value
+			}
+			if err := replaceAllNodeParam(dag.EntryPoints, paramName, value); err != nil {
+				return err
+			}
+		} else if step, ok := node.(*schema.WorkflowSourceStep); ok {
+			if orgVal, ok := step.Parameters[paramName]; ok {
+				dictParam := DictParam{}
+				if err := dictParam.From(orgVal); err == nil {
+					if _, err := CheckDictParam(dictParam, paramName, value); err != nil {
+						return err
+					}
+				}
+				step.Parameters[paramName] = value
+			}
 		}
 	}
-	return steps
+	return nil
 }
 
 func (bwf *BaseWorkflow) checkSteps() error {
 	/*
+		该函数检查了Components、EntryPoints、PostProcess
+
 		1. 检查disabled参数是否合法。
 			- disabled节点以逗号分隔。
-			- 所有disabled节点应该在entrypoints中，但是不要求必须在runSteps内
+			- 所有disabled节点应该在entrypoints/components/postProcess中，但是不要求必须在runSteps内
 
 		2. 检查每个节点 env, command, parameters and artifacts 是否合法（包括模板引用，参数值）
 			- 只检查此次运行中，可运行的节点集合(runSteps), 而不是yaml中定义的所有节点集合(Source)
@@ -417,33 +580,45 @@ func (bwf *BaseWorkflow) checkSteps() error {
 		SysParamNamePFStepName: "",
 		SysParamNamePFFsName:   "",
 		SysParamNamePFUserName: "",
-		SysParamNamePFRuntime:  "",
 	}
-	steps := map[string]*schema.WorkflowSourceStep{}
+
+	// 同时检查components、entryPoints、postProcess
+	// 其中components的名称中加了前缀，因此不会与entryPoints中的重名，也不会被disabled
+	components := map[string]schema.Component{}
+	for name, dag := range bwf.tmpDags {
+		components[name] = dag
+	}
+	for name, step := range bwf.tmpSteps {
+		components[name] = step
+	}
 	for name, step := range bwf.runtimeSteps {
-		steps[name] = step
+		components[name] = step
+	}
+	for name, dag := range bwf.runtimeDags {
+		components[name] = dag
 	}
 	for name, step := range bwf.postProcess {
-		steps[name] = step
+		components[name] = step
 	}
 	paramChecker := StepParamChecker{
-		steps:         steps,
-		sysParams:     sysParamNameMap,
-		disabledSteps: disabledSteps,
-		useFs:         useFs,
+		Components:    components,
+		SysParams:     sysParamNameMap,
+		DisabledSteps: disabledSteps,
+		UseFs:         useFs,
+		CompTempletes: bwf.Source.Components,
 	}
-	for _, step := range steps {
-		bwf.log().Debugln(step)
+	for _, component := range components {
+		bwf.log().Debugln(component)
 	}
-	for stepName, _ := range steps {
-		isDisabled, err := bwf.Source.IsDisabled(stepName)
+	for name, _ := range components {
+		isDisabled, err := bwf.Source.IsDisabled(name)
 		if err != nil {
 			return err
 		}
 		if isDisabled {
 			continue
 		}
-		if err := paramChecker.Check(stepName); err != nil {
+		if err := paramChecker.Check(name); err != nil {
 			bwf.log().Errorln(err.Error())
 			return err
 		}
@@ -460,7 +635,7 @@ func (bwf *BaseWorkflow) checkPostProcess() error {
 
 	for name, postStep := range bwf.Source.PostProcess {
 		// 检查是否与EntryPoints中的step有重名
-		if _, ok := bwf.Source.EntryPoints[name]; ok {
+		if _, ok := bwf.Source.EntryPoints.EntryPoints[name]; ok {
 			return fmt.Errorf("a step in post_process has name [%s], which is same to name of a step in entry_points", name)
 		}
 
@@ -517,19 +692,23 @@ func (bwf *BaseWorkflow) checkDisabled() ([]string, error) {
 		- 目前支持pipeline中所有节点都disabled
 	*/
 	tempMap := make(map[string]int)
-	disabledSteps := bwf.Source.GetDisabled()
-	for _, stepName := range disabledSteps {
-		_, ok := tempMap[stepName]
+	disabledComponents := bwf.Source.GetDisabled()
+	postComponents := map[string]schema.Component{}
+	for k, v := range bwf.Source.PostProcess {
+		postComponents[k] = v
+	}
+	for _, name := range disabledComponents {
+		_, ok := tempMap[name]
 		if ok {
-			return nil, fmt.Errorf("disabled step[%s] is set repeatedly!", stepName)
+			return nil, fmt.Errorf("disabled component[%s] is set repeatedly!", name)
 		}
-		tempMap[stepName] = 1
-		if !bwf.Source.HasStep(stepName) {
-			return nil, fmt.Errorf("disabled step[%s] not existed!", stepName)
+		tempMap[name] = 1
+		if !bwf.Source.HasStep(bwf.Source.EntryPoints.EntryPoints, name) && !bwf.Source.HasStep(postComponents, name) {
+			return nil, fmt.Errorf("disabled component[%s] not existed!", name)
 		}
 	}
 
-	return disabledSteps, nil
+	return disabledComponents, nil
 }
 
 // ----------------------------------------------------------------------------
@@ -543,11 +722,11 @@ type Workflow struct {
 }
 
 type WorkflowCallbacks struct {
-	GetJobCb      func(runID string, stepName string) (schema.JobView, error)
-	UpdateRunCb   func(string, interface{}) bool
-	LogCacheCb    func(req schema.LogRunCacheRequest) (string, error)
-	ListCacheCb   func(firstFp, fsID, step, yamlPath string) ([]models.RunCache, error)
-	LogArtifactCb func(req schema.LogRunArtifactRequest) error
+	GetJobCb        func(jobID string, fullComponentName string) (schema.JobView, error)
+	UpdateRuntimeCb func(id string, event interface{}) (int64, bool)
+	LogCacheCb      func(req schema.LogRunCacheRequest) (string, error)
+	ListCacheCb     func(firstFp, fsID, source string) ([]models.RunCache, error)
+	LogArtifactCb   func(req schema.LogRunArtifactRequest) error
 }
 
 // 实例化一个Workflow，并返回
@@ -577,38 +756,10 @@ func (wf *Workflow) newWorkflowRuntime() error {
 		parallelism = WfParallelismMaximum
 	}
 	logger.LoggerForRun(wf.RunID).Debugf("initializing [%d] parallelism jobs", parallelism)
-	wf.runtime = NewWorkflowRuntime(wf, parallelism)
+	runConf := NewRunConfig(&wf.Source, wf.Extra[WfExtraInfoKeyFsID], wf.Extra[WfExtraInfoKeyFsName], wf.Extra[WfExtraInfoKeyUserName], wf.RunID,
+		logger.LoggerForRun(wf.RunID), wf.callbacks, wf.Extra[WfExtraInfoKeySource])
+	wf.runtime = NewWorkflowRuntime(runConf)
 
-	if err := wf.initRuntimeSteps(wf.runtime.entryPoints, wf.runtimeSteps, NodeTypeEntrypoint); err != nil {
-		return err
-	}
-
-	if err := wf.initRuntimeSteps(wf.runtime.postProcess, wf.postProcess, NodeTypePostProcess); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (wf *Workflow) initRuntimeSteps(runtimeSteps map[string]*Step, steps map[string]*schema.WorkflowSourceStep, nodeType NodeType) error {
-	// 此处topologicalSort不为了校验，而是为了排序，NewStep中会进行参数替换，必须保证上游节点已经替换完毕
-	sortedSteps, err := wf.topologicalSort(steps)
-	if err != nil {
-		return err
-	}
-	wf.log().Debugf("get sorted run[%s] steps:[%+v]", wf.RunID, steps)
-	for _, stepName := range sortedSteps {
-		disabled, err := wf.Source.IsDisabled(stepName)
-		if err != nil {
-			return err
-		}
-
-		stepInfo := steps[stepName]
-		runtimeSteps[stepName], err = NewStep(stepName, wf.runtime, stepInfo, disabled, nodeType)
-		if err != nil {
-			return err
-		}
-	}
 	return nil
 }
 
@@ -619,7 +770,7 @@ func (wf *Workflow) SetWorkflowRuntime(runtime schema.RuntimeView, postProcess s
 	return nil
 }
 
-func (wf *Workflow) setRuntimeSteps(runtime map[string]schema.JobView, steps map[string]*Step) {
+func (wf *Workflow) setRuntimeSteps(runtime map[string]schema.JobView, steps map[string]*StepRuntime) {
 	for name, step := range steps {
 		jobView, ok := runtime[name]
 		if !ok {
@@ -636,7 +787,6 @@ func (wf *Workflow) setRuntimeSteps(runtime map[string]schema.JobView, steps map
 				StartTime:  jobView.StartTime,
 				EndTime:    jobView.EndTime,
 				Status:     jobView.Status,
-				Deps:       jobView.Deps,
 			},
 			Image: wf.Source.DockerEnv,
 		}

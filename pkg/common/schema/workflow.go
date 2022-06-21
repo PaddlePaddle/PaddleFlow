@@ -19,10 +19,9 @@ package schema
 import (
 	"encoding/base64"
 	"fmt"
-	"reflect"
-	"strconv"
 	"strings"
 
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -61,14 +60,30 @@ func (atf *Artifacts) ValidateOutputMapByList() error {
 	return nil
 }
 
+type Component interface {
+	GetDeps() []string
+	GetArtifacts() Artifacts
+	GetParameters() map[string]interface{}
+	GetCondition() string
+	GetLoopArgument() interface{}
+	GetType() string
+
+	// 下面几个Update 函数在进行模板替换的时候会用到
+	UpdateCondition(string)
+	UpdateLoopArguemt(interface{})
+}
+
 type WorkflowSourceStep struct {
-	Parameters map[string]interface{} `yaml:"parameters"`
-	Command    string                 `yaml:"command"`
-	Deps       string                 `yaml:"deps"`
-	Artifacts  Artifacts              `yaml:"artifacts"`
-	Env        map[string]string      `yaml:"env"`
-	DockerEnv  string                 `yaml:"docker_env"`
-	Cache      Cache                  `yaml:"cache"`
+	LoopArgument interface{}            `yaml:"loop_argument"`
+	Condition    string                 `yaml:"condition"`
+	Parameters   map[string]interface{} `yaml:"parameters"`
+	Command      string                 `yaml:"command"`
+	Deps         string                 `yaml:"deps"`
+	Artifacts    Artifacts              `yaml:"artifacts"`
+	Env          map[string]string      `yaml:"env"`
+	DockerEnv    string                 `yaml:"docker_env"`
+	Cache        Cache                  `yaml:"cache"`
+	Reference    string                 `yaml:"referenc"`
 }
 
 func (s *WorkflowSourceStep) GetDeps() []string {
@@ -84,6 +99,89 @@ func (s *WorkflowSourceStep) GetDeps() []string {
 	return deps
 }
 
+func (s *WorkflowSourceStep) GetArtifacts() Artifacts {
+	return s.Artifacts
+}
+
+func (s *WorkflowSourceStep) GetParameters() map[string]interface{} {
+	return s.Parameters
+}
+
+func (s *WorkflowSourceStep) GetCondition() string {
+	return s.Condition
+}
+
+func (s *WorkflowSourceStep) GetLoopArgument() interface{} {
+	return s.LoopArgument
+}
+
+func (s *WorkflowSourceStep) GetType() string {
+	return "step"
+}
+
+func (s *WorkflowSourceStep) UpdateCondition(condition string) {
+	s.Condition = condition
+}
+
+func (s *WorkflowSourceStep) UpdateLoopArguemt(loopArgument interface{}) {
+	s.LoopArgument = loopArgument
+}
+
+type WorkflowSourceDag struct {
+	LoopArgument interface{}            `yaml:"loop_argument"`
+	Condition    string                 `yaml:"condition"`
+	Parameters   map[string]interface{} `yaml:"parameters"`
+	Deps         string                 `yaml:"deps"`
+	Artifacts    Artifacts              `yaml:"artifacts"`
+	EntryPoints  map[string]Component   `yaml:"entry_points"`
+}
+
+func (d *WorkflowSourceDag) GetDeps() []string {
+	// 获取依赖节点列表。添加前删除每个步骤名称前后的空格，只有空格的步骤名直接略过不添加
+	deps := make([]string, 0)
+	for _, dep := range strings.Split(d.Deps, ",") {
+		dryDep := strings.TrimSpace(dep)
+		if len(dryDep) <= 0 {
+			continue
+		}
+		deps = append(deps, dryDep)
+	}
+	return deps
+}
+
+func (d *WorkflowSourceDag) GetArtifacts() Artifacts {
+	return d.Artifacts
+}
+
+func (d *WorkflowSourceDag) GetParameters() map[string]interface{} {
+	return d.Parameters
+}
+
+func (d *WorkflowSourceDag) GetCondition() string {
+	return d.Condition
+}
+
+func (d *WorkflowSourceDag) GetLoopArgument() interface{} {
+	return d.LoopArgument
+}
+
+func (d *WorkflowSourceDag) GetType() string {
+	return "dag"
+}
+
+func (d *WorkflowSourceDag) UpdateCondition(condition string) {
+	d.Condition = condition
+}
+
+func (d *WorkflowSourceDag) UpdateLoopArguemt(loopArgument interface{}) {
+	d.LoopArgument = loopArgument
+}
+
+func (d *WorkflowSourceDag) GetSubComponet(subComponentName string) (Component, bool) {
+	sc, ok := d.EntryPoints[subComponentName]
+	return sc, ok
+}
+
 type Cache struct {
 	Enable         bool   `yaml:"enable"           json:"enable"`
 	MaxExpiredTime string `yaml:"max_expired_time" json:"maxExpiredTime"` // seconds
@@ -97,7 +195,8 @@ type FailureOptions struct {
 type WorkflowSource struct {
 	Name           string                         `yaml:"name"`
 	DockerEnv      string                         `yaml:"docker_env"`
-	EntryPoints    map[string]*WorkflowSourceStep `yaml:"entry_points"`
+	EntryPoints    WorkflowSourceDag              `yaml:"entry_points"`
+	Components     map[string]Component           `yaml:"components"`
 	Cache          Cache                          `yaml:"cache"`
 	Parallelism    int                            `yaml:"parallelism"`
 	Disabled       string                         `yaml:"disabled"`
@@ -118,48 +217,69 @@ func (wfs *WorkflowSource) GetDisabled() []string {
 	return disabledSteps
 }
 
-func (wfs *WorkflowSource) IsDisabled(stepName string) (bool, error) {
+func (wfs *WorkflowSource) IsDisabled(componentName string) (bool, error) {
 	// 表示该节点是否disabled
-	disabledSteps := wfs.GetDisabled()
-
-	if !wfs.HasStep(stepName) {
-		return false, fmt.Errorf("check disabled for step[%s] failed, step not existed!", stepName)
+	disabledComponents := wfs.GetDisabled()
+	postComponents := map[string]Component{}
+	for k, v := range wfs.PostProcess {
+		postComponents[k] = v
+	}
+	if !wfs.HasStep(wfs.EntryPoints.EntryPoints, componentName) && !wfs.HasStep(postComponents, componentName) {
+		return false, fmt.Errorf("check disabled for component[%s] failed, component not existed!", componentName)
 	}
 
-	for _, disableStepName := range disabledSteps {
-		if stepName == disableStepName {
+	for _, disableStepName := range disabledComponents {
+		if componentName == disableStepName {
 			return true, nil
 		}
 	}
 	return false, nil
 }
 
-func (wfs *WorkflowSource) HasStep(step string) bool {
-	_, ok1 := wfs.EntryPoints[step]
-	_, ok2 := wfs.PostProcess[step]
-	ok := ok1 || ok2
-	if ok {
-		return true
+// 递归的检查absoluteName对应的Component是否存在
+func (wfs *WorkflowSource) HasStep(components map[string]Component, absoluteName string) bool {
+	nameList := strings.SplitN(absoluteName, ".", 2)
+	if len(nameList) > 1 {
+		if component, ok := components[nameList[0]]; ok {
+			if dag, ok := component.(*WorkflowSourceDag); ok {
+				return wfs.HasStep(dag.EntryPoints, nameList[1])
+			} else if step, ok := component.(*WorkflowSourceStep); ok {
+				// 如果为step，检查是否有引用Source.Components中的节点
+				reference := step.Reference
+				return wfs.componentsHasStep(reference, nameList[1])
+			} else {
+				logger.Logger().Errorf("a component not dag or step")
+				return false
+			}
+		} else {
+			return false
+		}
 	} else {
-		return false
+		_, ok := components[absoluteName]
+		return ok
 	}
 }
 
-// 该函数的作用是将WorkflowSource中的Slice类型的输出Artifact改为Map类型。
-// 这样做的原因是：之前的run.yaml中（ver.1.3.2之前），输出Artifact为Map类型，而现在为了支持Cache的优化，改为Slice类型
-func (wfs *WorkflowSource) validateArtifacts() error {
-	steps, err := parseArtifactsOfSteps(wfs.EntryPoints)
-	if err != nil {
-		return err
+func (wfs *WorkflowSource) componentsHasStep(reference string, subNames string) bool {
+	// 在前面已经校验过递归reference因此不会有递归出现，但后续可能会允许递归
+	// TODO: 如果有递归reference的情况，这里会出现死循环，需要升级
+	for {
+		if referedComponent, ok := wfs.Components[reference]; ok {
+			if dag, ok := referedComponent.(*WorkflowSourceDag); ok {
+				// 检查Source.Components中的节点，如果它是一个dag，那就继续向下遍历子节点
+				return wfs.HasStep(dag.EntryPoints, subNames)
+			} else if step, ok := referedComponent.(*WorkflowSourceStep); ok {
+				// 如果是step，那就看是否继续ref了其他component
+				reference = step.Reference
+				continue
+			} else {
+				logger.Logger().Errorf("a component not dag or step")
+				return false
+			}
+		} else {
+			return false
+		}
 	}
-	wfs.EntryPoints = steps
-
-	steps, err = parseArtifactsOfSteps(wfs.PostProcess)
-	if err != nil {
-		return err
-	}
-	wfs.PostProcess = steps
-	return nil
 }
 
 func parseArtifactsOfSteps(steps map[string]*WorkflowSourceStep) (map[string]*WorkflowSourceStep, error) {
@@ -174,7 +294,7 @@ func parseArtifactsOfSteps(steps map[string]*WorkflowSourceStep) (map[string]*Wo
 }
 
 // 将yaml解析为map
-func runYaml2Map(runYaml []byte) (map[string]interface{}, error) {
+func RunYaml2Map(runYaml []byte) (map[string]interface{}, error) {
 	// Unstructured没有解析Yaml的方法，且无法使用官方yaml库Unmarshal后的结果，因此需要先转成Json
 	jsonByte, err := k8syaml.ToJSON(runYaml)
 	if err != nil {
@@ -191,48 +311,114 @@ func runYaml2Map(runYaml []byte) (map[string]interface{}, error) {
 	return yamlMap, nil
 }
 
-func (wfs *WorkflowSource) ValidateStepCacheByMap(runMap map[string]interface{}) error {
-	for name, point := range wfs.EntryPoints {
-		// 先将全局的Cache设置赋值给该节点的Cache，下面再根据Map进行替换
-		point.Cache = wfs.Cache
+// 该函数除了将yaml解析为wfs，还进行了全局参数替换操作
+func GetWorkflowSource(runYaml []byte) (WorkflowSource, error) {
+	wfs := WorkflowSource{
+		FailureOptions: FailureOptions{Strategy: FailureStrategyFailFast},
+	}
+	p := Parser{}
+	yamlMap, err := RunYaml2Map(runYaml)
+	if err != nil {
+		logger.Logger().Errorf(err.Error())
+		return WorkflowSource{}, err
+	}
 
-		// 检查用户是否有设置节点级别的Cache
-		cache, ok, err := unstructured.NestedFieldCopy(runMap, EntryPointsStr, name, "cache")
-		if err != nil {
-			return err
+	if err := p.ParseWorkflowSource(yamlMap, &wfs); err != nil {
+		logger.Logger().Errorf(err.Error())
+		return WorkflowSource{}, err
+	}
+
+	// 全局参数替换
+	entryPoints, ok := yamlMap["entry_points"]
+	if !ok {
+		return WorkflowSource{}, fmt.Errorf("get entry_points failed")
+	}
+	entryPointsMap, ok := entryPoints.(map[string]interface{})
+	if !ok {
+		return WorkflowSource{}, fmt.Errorf("get entry_points map failed")
+	}
+	if err := wfs.ProcessRuntimeComponents(wfs.EntryPoints.EntryPoints, yamlMap, entryPointsMap); err != nil {
+		return WorkflowSource{}, err
+	}
+
+	postComponentsMap := map[string]Component{}
+	for k, v := range wfs.PostProcess {
+		postComponentsMap[k] = v
+	}
+	postProcess, ok := yamlMap["post_process"]
+	if ok {
+		postProcessMap, ok := postProcess.(map[string]interface{})
+		if !ok {
+			return WorkflowSource{}, fmt.Errorf("get post_process map failed")
 		}
-		if ok {
-			cacheMap := cache.(map[string]interface{})
-			// Enable字段赋值
-			if value, ok := cacheMap[CacheAttributeEnable]; ok {
-				switch value := value.(type) {
-				case bool:
-					point.Cache.Enable = value
-				default:
-					return fmt.Errorf("cannot assign cache attribute [%s] by value[%v] with type [%s]",
-						CacheAttributeEnable, value, reflect.TypeOf(value).Name())
-				}
+		if err := wfs.ProcessRuntimeComponents(postComponentsMap, yamlMap, postProcessMap); err != nil {
+			return WorkflowSource{}, err
+		}
+	}
+
+	components, ok := yamlMap["components"]
+	if ok {
+		componentMap, ok := components.(map[string]interface{})
+		if !ok {
+			return WorkflowSource{}, fmt.Errorf("get components map failed")
+		}
+		if err := wfs.ProcessRuntimeComponents(wfs.Components, yamlMap, componentMap); err != nil {
+			return WorkflowSource{}, err
+		}
+	}
+
+	return wfs, nil
+}
+
+// 对Step的DockerEnv、Cache进行全局替换
+func (wfs *WorkflowSource) ProcessRuntimeComponents(components map[string]Component, yamlMap map[string]interface{}, componentsMap map[string]interface{}) error {
+	for name, component := range components {
+		if dag, ok := component.(*WorkflowSourceDag); ok {
+			subComponent, ok, err := unstructured.NestedFieldCopy(componentsMap, name, "entry_points")
+			if err != nil || !ok {
+				return fmt.Errorf("get subComponent failed")
 			}
-			// MaxExpiredTime字段赋值
-			if value, ok := cacheMap[CacheAttributeMaxExpiredTime]; ok {
-				switch value := value.(type) {
-				case int64:
-					point.Cache.MaxExpiredTime = strconv.FormatInt(value, 10)
-				case string:
-					point.Cache.MaxExpiredTime = value
-				default:
-					return fmt.Errorf("cannot assign cache attribute [%s] by value[%v] with type [%s]",
-						CacheAttributeMaxExpiredTime, value, reflect.TypeOf(value).Name())
-				}
+			subComponentMap, ok := subComponent.(map[string]interface{})
+			if !ok {
+				return fmt.Errorf("get subComponentMap failed")
 			}
-			// FsScope字段赋值
-			if value, ok := cacheMap[CacheAttributeFsScope]; ok {
-				switch value := value.(type) {
-				case string:
-					point.Cache.FsScope = value
-				default:
-					return fmt.Errorf("cannot assign cache attribute [%s] by value[%v] with type [%s]",
-						CacheAttributeFsScope, value, reflect.TypeOf(value).Name())
+			if err := wfs.ProcessRuntimeComponents(dag.EntryPoints, yamlMap, subComponentMap); err != nil {
+				return err
+			}
+		} else if step, ok := component.(*WorkflowSourceStep); ok {
+			if step.Env == nil {
+				step.Env = map[string]string{}
+			}
+			if step.Parameters == nil {
+				step.Parameters = map[string]interface{}{}
+			}
+
+			// Reference节点不用替换
+			if step.Reference == "" {
+				// DockerEnv字段替换检查
+				if step.DockerEnv == "" {
+					step.DockerEnv = wfs.DockerEnv
+				}
+
+				// 检查是否需要全局Cache替换（节点Cache字段优先级大于全局Cache字段）
+				componentCache, ok, err := unstructured.NestedFieldCopy(componentsMap, name, "cache")
+				if err != nil || !ok {
+					return fmt.Errorf("get componentCache failed")
+				}
+				componentCacheMap, ok := componentCache.(map[string]interface{})
+				if !ok {
+					return fmt.Errorf("get componentCacheMap failed")
+				}
+				globalCache, ok, err := unstructured.NestedFieldCopy(yamlMap, "cache")
+				if err != nil || !ok {
+					return fmt.Errorf("get globalCache failed")
+				}
+				globalCacheMap, ok := globalCache.(map[string]interface{})
+				if !ok {
+					return fmt.Errorf("get globalCacheMap failed")
+				}
+				if err := ProcessStepCacheByMap(&step.Cache, globalCacheMap, componentCacheMap); err != nil {
+					return err
 				}
 			}
 		}
@@ -240,30 +426,55 @@ func (wfs *WorkflowSource) ValidateStepCacheByMap(runMap map[string]interface{})
 	return nil
 }
 
-func ParseWorkflowSource(runYaml []byte) (WorkflowSource, error) {
-	wfs := WorkflowSource{
-		FailureOptions: FailureOptions{Strategy: FailureStrategyFailFast},
+func ProcessStepCacheByMap(cache *Cache, globalCacheMap map[string]interface{}, componentCacheMap map[string]interface{}) error {
+	// 节点级别的Cache字段的优先级大于全局Cache字段
+	parser := Parser{}
+	// 先将节点的Cache，用全局的Cache赋值，这样如果下面节点级别的Cache字段没有再次覆盖，那节点级别的Cache字段就会采用全局的值
+	if err := parser.ParseCache(globalCacheMap, cache); err != nil {
+		return err
 	}
-	if err := yaml.Unmarshal(runYaml, &wfs); err != nil {
-		return WorkflowSource{}, err
+	if err := parser.ParseCache(componentCacheMap, cache); err != nil {
+		return err
 	}
+	return nil
+}
 
-	// 为了判断用户是否设定节点级别的Cache，需要第二次Unmarshal
-	yamlMap, err := runYaml2Map(runYaml)
-	if err != nil {
-		return WorkflowSource{}, err
+func (wfs *WorkflowSource) GetComponentByFullName(fullName string) (Component, error) {
+	names := strings.Split(fullName, ".")
+	comp1, err1 := getComponentRecursively(wfs.EntryPoints.EntryPoints, names)
+	postComps := map[string]Component{}
+	for k, v := range wfs.PostProcess {
+		postComps[k] = v
 	}
+	comp2, err2 := getComponentRecursively(postComps, names)
+	if err1 != nil {
+		return comp1, nil
+	}
+	if err2 != nil {
+		return comp2, nil
+	}
+	return nil, fmt.Errorf("no component has fullName[%s]", fullName)
+}
 
-	// 将List格式的OutputArtifact，转换为Map格式
-	if err := wfs.validateArtifacts(); err != nil {
-		return WorkflowSource{}, err
+func getComponentRecursively(components map[string]Component, names []string) (Component, error) {
+	if len(names) == 0 {
+		return nil, fmt.Errorf("need names")
+	} else {
+		subComp, ok := components[names[0]]
+		if !ok {
+			return nil, fmt.Errorf("no component named [%s]", names[0])
+		}
+		if len(names) == 1 {
+			return subComp, nil
+		} else {
+			if dag, ok := subComp.(*WorkflowSourceDag); ok {
+				return getComponentRecursively(dag.EntryPoints, names[1:])
+			} else {
+				return nil, fmt.Errorf("invalid fullName")
+			}
+		}
 	}
-
-	// 检查节点级别的Cache设置，根据需要用Run级别的Cache进行覆盖
-	if err := wfs.ValidateStepCacheByMap(yamlMap); err != nil {
-		return WorkflowSource{}, err
-	}
-	return wfs, nil
+	return nil, nil
 }
 
 func (wfs *WorkflowSource) TransToRunYamlRaw() (runYamlRaw string, err error) {
