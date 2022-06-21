@@ -25,12 +25,15 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
-	commomschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	commonschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
 
 const (
@@ -39,10 +42,13 @@ const (
 
 type QueueSyncInfo struct {
 	Name        string
+	Namespace   string
+	Labels      map[string]string
 	Status      string
-	MaxResource *commomschema.ResourceInfo
-	MinResource *commomschema.ResourceInfo
-	Type        string
+	QuotaType   string
+	MaxResource *commonschema.ResourceInfo
+	MinResource *commonschema.ResourceInfo
+	Action      commonschema.ActionType
 	Message     string
 	RetryTimes  int
 }
@@ -64,7 +70,10 @@ func (qs *QueueSync) Name() string {
 }
 
 func (qs *QueueSync) Initialize(opt *k8s.DynamicClientOption) error {
-	log.Infof("Initialize %s controller!", qs.Name())
+	if opt == nil || opt.ClusterInfo == nil {
+		return fmt.Errorf("init %s controller failed", qs.Name())
+	}
+	log.Infof("Initialize %s controller for cluster %s!", qs.Name(), opt.ClusterInfo.Name)
 	qs.opt = opt
 	qs.jobQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	qs.informerMap = make(map[schema.GroupVersionKind]cache.SharedIndexInformer)
@@ -76,8 +85,9 @@ func (qs *QueueSync) Initialize(opt *k8s.DynamicClientOption) error {
 		} else {
 			qs.informerMap[gvk] = qs.opt.DynamicFactory.ForResource(gvrMap.Resource).Informer()
 			qs.informerMap[gvk].AddEventHandler(cache.ResourceEventHandlerFuncs{
-				UpdateFunc: qs.updateQueue,
-				DeleteFunc: qs.deleteQueue,
+				AddFunc:    qs.add,
+				UpdateFunc: qs.update,
+				DeleteFunc: qs.delete,
 			})
 		}
 	}
@@ -86,7 +96,7 @@ func (qs *QueueSync) Initialize(opt *k8s.DynamicClientOption) error {
 
 func (qs *QueueSync) Run(stopCh <-chan struct{}) {
 	if len(qs.informerMap) == 0 {
-		log.Infof("Cluster hasn't needed GroupVersionKind, skip %s controller!", qs.Name())
+		log.Infof("cluster hasn't needed GroupVersionKind, skip %s controller!", qs.Name())
 		return
 	}
 	go qs.opt.DynamicFactory.Start(stopCh)
@@ -97,7 +107,8 @@ func (qs *QueueSync) Run(stopCh <-chan struct{}) {
 			return
 		}
 	}
-	log.Infof("Start %s controller successfully!", qs.Name())
+	log.Infof("Start %s controller for cluster %s successfully!", qs.Name(), qs.opt.ClusterInfo.Name)
+	go wait.Until(qs.runWorker, 0, stopCh)
 }
 
 func (qs *QueueSync) runWorker() {
@@ -113,70 +124,175 @@ func (qs *QueueSync) processWorkItem() bool {
 	queueSyncInfo := obj.(*QueueSyncInfo)
 	log.Debugf("process queue sync. queueName is %s", queueSyncInfo.Name)
 	defer qs.jobQueue.Done(queueSyncInfo)
+
+	if config.GlobalServerConfig.Job.SyncClusterQueue {
+		if err := qs.syncQueueInfo(queueSyncInfo); err != nil {
+			log.Errorf("sync queue %s failed. err: %s", queueSyncInfo.Name, err)
+			if queueSyncInfo.RetryTimes < DefaultSyncRetryTimes {
+				queueSyncInfo.RetryTimes += 1
+				qs.jobQueue.AddRateLimited(queueSyncInfo)
+			}
+			qs.jobQueue.Forget(queueSyncInfo)
+			return true
+		}
+	}
+	qs.jobQueue.Forget(queueSyncInfo)
 	return true
 }
 
-// updateQueue for queue update event
-func (qs *QueueSync) updateQueue(old, new interface{}) {
+func (qs *QueueSync) syncQueueInfo(qsInfo *QueueSyncInfo) error {
+	log.Debugf("sync queue %s with action %s", qsInfo.Name, qsInfo.Action)
+	var err error
+	switch qsInfo.Action {
+	case commonschema.Create:
+		queue := &models.Queue{
+			Name:         qsInfo.Name,
+			Namespace:    qsInfo.Namespace,
+			ClusterId:    qs.opt.ClusterInfo.ID,
+			Status:       qsInfo.Status,
+			QuotaType:    qsInfo.QuotaType,
+			MaxResources: *qsInfo.MaxResource,
+			Location:     qsInfo.Labels,
+		}
+		if qsInfo.MinResource != nil {
+			queue.MinResources = *qsInfo.MinResource
+		}
+		err = models.CreateOrUpdateQueue(queue)
+	case commonschema.Update, commonschema.Delete:
+		err = models.UpdateQueueInfo(qsInfo.Name, qsInfo.Status, qsInfo.MaxResource, qsInfo.MinResource)
+	default:
+		err = fmt.Errorf("the sync action of queue %s is not supported", qsInfo.Action)
+	}
+	return err
+}
+
+// add for queue resource add event
+func (qs *QueueSync) add(obj interface{}) {
+	newObj := obj.(*unstructured.Unstructured)
+
+	gvk := newObj.GroupVersionKind()
+	name := newObj.GetName()
+	queue, err := convertUnstructuredResource(newObj, gvk)
+	if err != nil || queue == nil {
+		log.Errorf("get spec from resource object %s failed, err: %v", name, err)
+		return
+	}
+
+	qSyncInfo := &QueueSyncInfo{
+		Name:   name,
+		Action: commonschema.Create,
+		Labels: newObj.GetLabels(),
+	}
+	switch gvk {
+	case k8s.VCQueueGVK:
+		vcQueue := queue.(*v1beta1.Queue)
+		qSyncInfo.MaxResource = k8s.NewResourceInfo(vcQueue.Spec.Capability)
+		// set queue status
+		qSyncInfo.Status = getVCQueueStatus(vcQueue.Status.State)
+		qSyncInfo.QuotaType = commonschema.TypeVolcanoCapabilityQuota
+		qSyncInfo.Namespace = "default"
+	case k8s.EQuotaGVK:
+		eQuota := queue.(*v1beta1.ElasticResourceQuota)
+		qSyncInfo.MaxResource = k8s.NewResourceInfo(eQuota.Spec.Max)
+		qSyncInfo.MinResource = k8s.NewResourceInfo(eQuota.Spec.Min)
+		// set queue status
+		qSyncInfo.Status = getEQuotaStatus(eQuota.Status)
+		qSyncInfo.QuotaType = commonschema.TypeElasticQuota
+		qSyncInfo.Namespace = eQuota.Spec.Namespace
+	default:
+		log.Warnf("quota type %s for queue is not supported", gvk.String())
+		return
+	}
+
+	qs.jobQueue.Add(qSyncInfo)
+	log.Infof("watch queue %s is added, type is %s", name, gvk.String())
+}
+
+// update for queue update event
+func (qs *QueueSync) update(old, new interface{}) {
 	oldObj := old.(*unstructured.Unstructured)
 	newObj := new.(*unstructured.Unstructured)
 
 	gvk := newObj.GroupVersionKind()
 	name := newObj.GetName()
-
 	oldQueue, err := convertUnstructuredResource(oldObj, gvk)
-	if err != nil || oldObj == nil {
+	if err != nil || oldQueue == nil {
 		log.Errorf("get spec from old resource object %s failed", name)
 		return
 	}
 	queue, err := convertUnstructuredResource(newObj, gvk)
-	if err != nil || newObj == nil {
+	if err != nil || queue == nil {
 		log.Errorf("get spec from new resource object %s failed", name)
 		return
 	}
 
+	qSyncInfo := &QueueSyncInfo{
+		Name:   name,
+		Action: commonschema.Update,
+	}
+	msg := ""
 	switch gvk {
 	case k8s.VCQueueGVK:
-		qs.updateVCQueue(oldQueue, queue)
+		oldQ := oldQueue.(*v1beta1.Queue)
+		newQ := queue.(*v1beta1.Queue)
+		if reflect.DeepEqual(oldQ.Spec, newQ.Spec) {
+			return
+		}
+		msg = fmt.Sprintf("old queue: %v, new queue: %v", oldQ.Spec, newQ.Spec)
+		qSyncInfo.MaxResource = k8s.NewResourceInfo(newQ.Spec.Capability)
+		// set queue status
+		qSyncInfo.Status = getVCQueueStatus(newQ.Status.State)
 	case k8s.EQuotaGVK:
-		qs.updateEQuota(oldQueue, queue)
+		oldEquota := oldQueue.(*v1beta1.ElasticResourceQuota)
+		newEquota := queue.(*v1beta1.ElasticResourceQuota)
+		if reflect.DeepEqual(oldEquota.Spec, newEquota.Spec) {
+			return
+		}
+		msg = fmt.Sprintf("old queue: %v, new queue: %v", oldEquota.Spec, newEquota.Spec)
+		qSyncInfo.MaxResource = k8s.NewResourceInfo(newEquota.Spec.Max)
+		qSyncInfo.MinResource = k8s.NewResourceInfo(newEquota.Spec.Min)
+		qSyncInfo.Status = getEQuotaStatus(newEquota.Status)
 	default:
 		log.Warnf("quota type %s for queue is not supported", gvk.String())
 		return
 	}
+	qs.jobQueue.Add(qSyncInfo)
+	log.Infof("watch queue %s is updated, type is %s. message: %s", name, gvk.String(), msg)
 }
 
-func (qs *QueueSync) updateEQuota(oldObj, newObj interface{}) {
-	if oldObj == nil || newObj == nil {
-		return
-	}
-
-	oldEquota := oldObj.(*v1beta1.ElasticResourceQuota)
-	newEquota := newObj.(*v1beta1.ElasticResourceQuota)
-
-	if reflect.DeepEqual(oldEquota.Spec, newEquota.Spec) {
-		return
-	}
-	log.Infof("%s queue resource is updated. old:%v new:%v", newEquota.GroupVersionKind(), oldEquota.Spec, newEquota.Spec)
-}
-
-func (qs *QueueSync) updateVCQueue(oldObj, newObj interface{}) {
-	if oldObj == nil || newObj == nil {
-		return
-	}
-	oldQueue := oldObj.(*v1beta1.Queue)
-	newQueue := newObj.(*v1beta1.Queue)
-
-	if reflect.DeepEqual(oldQueue.Spec, newQueue.Spec) {
-		return
-	}
-	log.Infof("%s queue resource is updated. old:%v new:%v", newQueue.GroupVersionKind(), oldQueue.Spec, newQueue.Spec)
-}
-
-// deleteQueue for queue resource delete event
-func (qs *QueueSync) deleteQueue(obj interface{}) {
+// delete for queue resource delete event
+func (qs *QueueSync) delete(obj interface{}) {
 	queueObj := obj.(*unstructured.Unstructured)
-	log.Infof("watch %s resource is deleted, name is %s", queueObj.GroupVersionKind(), queueObj.GetName())
+	qSyncInfo := &QueueSyncInfo{
+		Name:   queueObj.GetName(),
+		Action: commonschema.Delete,
+		Status: commonschema.StatusQueueUnavailable,
+	}
+	qs.jobQueue.Add(qSyncInfo)
+	log.Infof("watch queue %s is deleted, type is %s", queueObj.GetName(), queueObj.GroupVersionKind())
+}
+
+func getVCQueueStatus(state v1beta1.QueueState) string {
+	status := commonschema.StatusQueueOpen
+	switch state {
+	case "", v1beta1.QueueStateOpen:
+		status = commonschema.StatusQueueOpen
+	case v1beta1.QueueStateClosing:
+		status = commonschema.StatusQueueClosing
+	case v1beta1.QueueStateClosed:
+		status = commonschema.StatusQueueClosed
+	case v1beta1.QueueStateUnknown:
+		status = commonschema.StatusQueueUnavailable
+	}
+	return status
+}
+
+func getEQuotaStatus(state v1beta1.ElasticResourceQuotaStatus) string {
+	status := commonschema.StatusQueueOpen
+	if !state.IsLeaf {
+		status = commonschema.StatusQueueClosed
+	}
+	return status
 }
 
 func convertUnstructuredResource(queueObj *unstructured.Unstructured, gvk schema.GroupVersionKind) (interface{}, error) {

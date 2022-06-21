@@ -74,6 +74,8 @@ type JobConfig struct {
 	QueueExpireTime   int `yaml:"queueExpireTime"`
 	QueueCacheSize    int `yaml:"queueCacheSize"`
 	JobLoopPeriod     int `yaml:"jobLoopPeriod"`
+	// SyncClusterQueue defines whether aware cluster resource or not, such as queue
+	SyncClusterQueue bool `yaml:"syncClusterQueue"`
 	// DefaultJobYamlDir is directory that stores default template yaml files for job
 	DefaultJobYamlDir string `yaml:"defaultJobYamlDir"`
 }

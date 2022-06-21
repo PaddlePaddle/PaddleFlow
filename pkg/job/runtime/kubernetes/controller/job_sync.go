@@ -91,7 +91,10 @@ func (j *JobSync) Name() string {
 }
 
 func (j *JobSync) Initialize(opt *k8s.DynamicClientOption) error {
-	log.Infof("Initialize %s controller!", j.Name())
+	if opt == nil || opt.ClusterInfo == nil {
+		return fmt.Errorf("init %s controller failed", j.Name())
+	}
+	log.Infof("Initialize %s controller for cluster [%s]!", j.Name(), opt.ClusterInfo.Name)
 	j.opt = opt
 	j.jobQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	j.taskQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
@@ -145,7 +148,7 @@ func (j *JobSync) Run(stopCh <-chan struct{}) {
 		log.Errorf("timed out waiting for pod caches to %s", j.Name())
 		return
 	}
-	log.Infof("Start %s controller successfully!", j.Name())
+	log.Infof("Start %s controller for cluster [%s] successfully!", j.Name(), j.opt.ClusterInfo.Name)
 	go wait.Until(j.runWorker, 0, stopCh)
 	go wait.Until(j.runTaskWorker, 0, stopCh)
 }
