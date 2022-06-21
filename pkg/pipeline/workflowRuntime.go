@@ -18,7 +18,6 @@ package pipeline
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
@@ -36,6 +35,8 @@ type WorkflowRuntime struct {
 	postProcess          *StepRuntime
 	status               string
 	EventChan            chan WorkflowEvent
+
+	pk int64
 
 	// 主要用于避免在调度节点的同时遇到终止任务的情况
 	scheduleLock sync.Mutex
@@ -64,6 +65,10 @@ func NewWorkflowRuntime(rc *runConfig) *WorkflowRuntime {
 		scheduleLock:         sync.Mutex{},
 	}
 
+	wfr.status = common.StatusRunPending
+
+	wfr.callback("finished init, update status to pending")
+
 	return wfr
 }
 
@@ -83,6 +88,7 @@ func (wfr *WorkflowRuntime) Start() error {
 		wfr.logger.Warningln("the status of run is %s, so it won't start run", wfr.status)
 	} else {
 		wfr.status = common.StatusRunRunning
+		wfr.callback("begin to running")
 
 		go wfr.Listen()
 		wfr.entryPoints.Start()
@@ -93,7 +99,9 @@ func (wfr *WorkflowRuntime) Start() error {
 
 // Restart 从 DB 中恢复重启
 // TODO: 进一步思考重启逻辑
-func (wfr *WorkflowRuntime) Restart() error {
+func (wfr *WorkflowRuntime) Restart(entryPointView schema.RuntimeView,
+	postProcessView schema.PostProcessView) error {
+
 	wfr.status = common.StatusRunRunning
 
 	// 1. 如果 entryPoints 中的有节点尚未处于终态，则需要处理 entryPoints 中的节点，此时 PostProcess 中的节点会在 processEvent 中进行调度
@@ -104,13 +112,13 @@ func (wfr *WorkflowRuntime) Restart() error {
 		wfr.entryPoints.Resume()
 		go wfr.Listen()
 	} else if !wfr.postProcess.isDone() {
-		wfr.postProcess.Resume()
+		wfr.postProcess.Start()
 		go wfr.Listen()
 	} else {
 		wfr.updateStatus()
 		message := "run has been finished"
 		wfEvent := NewWorkflowEvent(WfEventRunUpdate, message, nil)
-		wfr.callback(*wfEvent)
+		wfr.callback(*&wfEvent.Message)
 	}
 	return nil
 }
@@ -130,6 +138,7 @@ func (wfr *WorkflowRuntime) Stop(force bool) error {
 	// 1、 处理已经开始运行情况
 	if wfr.status == common.StatusRunRunning {
 		wfr.status = common.StatusRunTerminating
+		wfr.callback("receive termination signal, update status to terminating")
 
 		wfr.entryPointsctxCancel()
 
@@ -139,14 +148,16 @@ func (wfr *WorkflowRuntime) Stop(force bool) error {
 	} else {
 		// 2、 处理还没有开始运行的情况
 		wfr.status = common.StatusRunTerminating
+		wfr.callback("receive termination signal, update status to terminating")
+
 		failureOptionsCtx, _ := context.WithCancel(context.Background())
 
 		newDagRuntimeWithStatus("", wfr.entryPoints.getworkflowSouceDag(), 0, wfr.entryPointsCtx, failureOptionsCtx,
-			wfr.EventChan, wfr.runConfig, "", StatusRuntimeTerminated, "reveice termination signal")
+			wfr.EventChan, wfr.runConfig, "", StatusRuntimeCancelled, "reveice termination signal")
 
 		for name, step := range wfr.WorkflowSource.PostProcess {
 			newStepRuntimeWithStatus(name, step, 0, wfr.postProcessPointsCtx, failureOptionsCtx, wfr.EventChan,
-				wfr.runConfig, "", StatusRuntimeTerminated, "reveice termination signal")
+				wfr.runConfig, "", StatusRuntimeCancelled, "reveice termination signal")
 		}
 
 		wfr.status = common.StatusRunTerminated
@@ -224,7 +235,7 @@ func (wfr *WorkflowRuntime) processEvent(event WorkflowEvent) error {
 	}
 
 	wfr.updateStatus()
-	wfr.callback(event)
+	wfr.callback(event.Message)
 
 	return nil
 }
@@ -257,30 +268,19 @@ func (wfr *WorkflowRuntime) updateStatus() {
 	return
 }
 
-func (wfr *WorkflowRuntime) callback(event WorkflowEvent) {
+func (wfr *WorkflowRuntime) callback(msg string) {
 	extra := map[string]interface{}{
 		common.WfEventKeyRunID:  wfr.runID,
 		common.WfEventKeyStatus: wfr.status,
 	}
 
 	// TODO: 梳理这个 message 信息
-	message := ""
-	if event.isJobStopErr() && wfr.status == common.StatusRunTerminating {
-		message = fmt.Sprintf("stop runfailed because of %s. please retry it.", event.Message)
-	} else if event.isJobStopErr() {
-		message = fmt.Sprintf("run has failed. but cannot stop related job because of %s.", event.Message)
-	} else if event.isJobSubmitErr() {
-		message = fmt.Sprintf("submit job in run error because of %s.", event.Message)
-	} else if event.isJobWatchErr() {
-		message = fmt.Sprintf("watch job in run error because of %s.", event.Message)
-	} else {
-		message = event.Message
-	}
 
-	wfEvent := NewWorkflowEvent(WfEventRunUpdate, message, extra)
+	wfEvent := NewWorkflowEvent(WfEventRunUpdate, msg, extra)
 	for i := 0; i < 3; i++ {
-		wfr.logger.Infof("callback event [%+v]", wfEvent)
-		if _, success := wfr.callbacks.UpdateRuntimeCb(wfr.runID, wfEvent); success {
+		wfr.logger.Infof("callback run event [%+v]", wfEvent)
+		var success bool
+		if wfr.pk, success = wfr.callbacks.UpdateRuntimeCb(wfr.runID, wfEvent); success {
 			break
 		}
 	}
