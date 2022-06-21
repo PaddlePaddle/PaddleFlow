@@ -156,37 +156,37 @@ func (p *Parser) ParseNodes(entryPoints map[string]interface{}) (map[string]Comp
 	return nodes, nil
 }
 
-func (p *Parser) ParseStep(params map[string]interface{}, stepNode *WorkflowSourceStep) error {
+func (p *Parser) ParseStep(params map[string]interface{}, step *WorkflowSourceStep) error {
 	for key, value := range params {
 		switch key {
 		case "loopArgument":
 			fallthrough
 		case "loop_argument":
-			stepNode.LoopArgument = value
+			step.LoopArgument = value
 		case "conditon":
 			value, ok := value.(string)
 			if !ok {
 				return fmt.Errorf("[condition] in step should be string type")
 			}
-			stepNode.Condition = value
+			step.Condition = value
 		case "parameters":
 			value, ok := value.(map[string]interface{})
 			if !ok {
 				return fmt.Errorf("[parameters] in step should be map type")
 			}
-			stepNode.Parameters = value
+			step.Parameters = value
 		case "command":
 			value, ok := value.(string)
 			if !ok {
 				return fmt.Errorf("[command] in step should be string type")
 			}
-			stepNode.Command = value
+			step.Command = value
 		case "deps":
 			value, ok := value.(string)
 			if !ok {
 				return fmt.Errorf("[deps] in step should be string type")
 			}
-			stepNode.Deps = value
+			step.Deps = value
 		case "artifacts":
 			artifacts := Artifacts{}
 			value, ok := value.(map[string]interface{})
@@ -215,18 +215,18 @@ func (p *Parser) ParseStep(params map[string]interface{}, stepNode *WorkflowSour
 					return fmt.Errorf("[artifacts] of step has no attribute [%s]", atfKey)
 				}
 			}
-			stepNode.Artifacts = artifacts
+			step.Artifacts = artifacts
 		case "env":
 			value, ok := value.(map[string]string)
 			if !ok {
 				return fmt.Errorf("[artifacts] in step should be map type")
 			}
-			if stepNode.Env == nil {
-				stepNode.Env = map[string]string{}
+			if step.Env == nil {
+				step.Env = map[string]string{}
 			}
 			// 设置在env里的变量优先级最高，如果在Step里设置了如queue、flavour等需要填充到env的字段，会直接被env中对应的值覆盖
 			for envKey, envValue := range value {
-				stepNode.Env[envKey] = envValue
+				step.Env[envKey] = envValue
 			}
 		case "dockerEnv":
 			fallthrough
@@ -235,7 +235,7 @@ func (p *Parser) ParseStep(params map[string]interface{}, stepNode *WorkflowSour
 			if !ok {
 				return fmt.Errorf("[docker_env/dockerEnv] in step should be string type")
 			}
-			stepNode.DockerEnv = value
+			step.DockerEnv = value
 		case "cache":
 			cache := Cache{}
 			value, ok := value.(map[string]interface{})
@@ -245,13 +245,13 @@ func (p *Parser) ParseStep(params map[string]interface{}, stepNode *WorkflowSour
 			if err := p.ParseCache(value, &cache); err != nil {
 				return fmt.Errorf("parse cache in step failed, error: %s", err.Error())
 			}
-			stepNode.Cache = cache
+			step.Cache = cache
 		case "reference":
 			value, ok := value.(string)
 			if !ok {
 				return fmt.Errorf("[reference] in step should be string type")
 			}
-			stepNode.Reference = value
+			step.Reference = value
 		case "type":
 			value, ok := value.(string)
 			if !ok {
@@ -265,11 +265,11 @@ func (p *Parser) ParseStep(params map[string]interface{}, stepNode *WorkflowSour
 			if !ok {
 				return fmt.Errorf("[flavour] of step should be string type")
 			}
-			if stepNode.Env == nil {
-				stepNode.Env = map[string]string{}
+			if step.Env == nil {
+				step.Env = map[string]string{}
 			}
-			if _, ok := stepNode.Env[EnvJobFlavour]; !ok {
-				stepNode.Env[EnvJobFlavour] = value
+			if _, ok := step.Env[EnvJobFlavour]; !ok {
+				step.Env[EnvJobFlavour] = value
 			}
 		case "jobType":
 			fallthrough
@@ -278,22 +278,22 @@ func (p *Parser) ParseStep(params map[string]interface{}, stepNode *WorkflowSour
 			if !ok {
 				return fmt.Errorf("[job_type/jobType] of step should be string type")
 			}
-			if stepNode.Env == nil {
-				stepNode.Env = map[string]string{}
+			if step.Env == nil {
+				step.Env = map[string]string{}
 			}
-			if _, ok := stepNode.Env[EnvJobType]; !ok {
-				stepNode.Env[EnvJobType] = value
+			if _, ok := step.Env[EnvJobType]; !ok {
+				step.Env[EnvJobType] = value
 			}
 		case "queue":
 			value, ok := value.(string)
 			if !ok {
 				return fmt.Errorf("[queue] of step should be string type")
 			}
-			if stepNode.Env == nil {
-				stepNode.Env = map[string]string{}
+			if step.Env == nil {
+				step.Env = map[string]string{}
 			}
-			if _, ok := stepNode.Env[EnvJobQueueName]; !ok {
-				stepNode.Env[EnvJobQueueName] = value
+			if _, ok := step.Env[EnvJobQueueName]; !ok {
+				step.Env[EnvJobQueueName] = value
 			}
 		default:
 			return fmt.Errorf("step has no attribute [%s]", key)
