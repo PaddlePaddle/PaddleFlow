@@ -115,6 +115,7 @@ type TraceLogger interface {
 // DeleteMethod return true to delete
 type DeleteMethod func(key string) bool
 
+// TODO: add custom delete method
 var DefaultDeleteMethod DeleteMethod = func(key string) bool {
 	return true
 }

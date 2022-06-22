@@ -96,6 +96,8 @@ func start() error {
 	}
 	go imageHandler.Run()
 
+	// TODO: enable auto delete and sync
+
 	go job2.WSManager.SendGroupData()
 	go job2.WSManager.GetGroupData()
 
@@ -142,6 +144,9 @@ func setup() {
 		log.Errorf("InitStandardFileLogger err: %v", err)
 		gracefullyExit(err)
 	}
+
+	// TODO: add trace logger config
+	// TODO: enable auto delete
 
 	log.Infof("The final server config is: %s ", config.PrettyFormat(ServerConf))
 

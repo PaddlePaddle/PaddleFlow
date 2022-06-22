@@ -17,6 +17,7 @@ limitations under the License.
 package config
 
 import (
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/trace_logger"
 	apiv1 "k8s.io/api/core/v1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
@@ -33,15 +34,16 @@ var (
 )
 
 type ServerConfig struct {
-	Database      DatabaseConfig            `yaml:"database"`
-	Log           logger.LogConfig          `yaml:"log"`
-	ApiServer     ApiServerConfig           `yaml:"apiServer"`
-	Job           JobConfig                 `yaml:"job"`
-	Fs            FsServerConf              `yaml:"fs"`
-	NamespaceList []string                  `yaml:"namespaceList"`
-	Flavour       []schema.Flavour          `yaml:"flavour"`
-	FlavourMap    map[string]schema.Flavour `yaml:"-"`
-	ImageConf     ImageConfig               `yaml:"imageRepository"`
+	Database      DatabaseConfig                 `yaml:"database"`
+	Log           logger.LogConfig               `yaml:"log"`
+	TraceLog      trace_logger.TraceLoggerConfig `yaml:"traceLog"`
+	ApiServer     ApiServerConfig                `yaml:"apiServer"`
+	Job           JobConfig                      `yaml:"job"`
+	Fs            FsServerConf                   `yaml:"fs"`
+	NamespaceList []string                       `yaml:"namespaceList"`
+	Flavour       []schema.Flavour               `yaml:"flavour"`
+	FlavourMap    map[string]schema.Flavour      `yaml:"-"`
+	ImageConf     ImageConfig                    `yaml:"imageRepository"`
 }
 
 type DatabaseConfig struct {
