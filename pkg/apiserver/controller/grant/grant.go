@@ -67,7 +67,7 @@ func checkUser(ctx *logger.RequestContext, userName string) error {
 }
 
 func checkFs(ctx *logger.RequestContext, fsID string) error {
-	_, err := storage.FsStore.GetFileSystemWithFsID(fsID)
+	_, err := storage.Filesystem.GetFileSystemWithFsID(fsID)
 	if err != nil {
 		ctx.ErrorCode = common.UserNotExist
 		return fmt.Errorf("fs:%s not found", fsID)

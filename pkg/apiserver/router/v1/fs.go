@@ -345,7 +345,7 @@ func checkURLFormat(fsType, url string, properties map[string]string) error {
 }
 
 func checkFSNameDuplicate(fsID string) error {
-	_, err := storage.FsStore.GetFileSystemWithFsID(fsID)
+	_, err := storage.Filesystem.GetFileSystemWithFsID(fsID)
 	if err == gorm.ErrRecordNotFound {
 		return nil
 	}
@@ -371,7 +371,7 @@ func checkFsDir(fsType, url string, properties map[string]string) error {
 		inputIPs = strings.Split(properties[fsCommon.Endpoint], ",")
 		subPath = "/" + strings.SplitAfterN(url, "/", 4)[3]
 	}
-	fsList, err := storage.FsStore.GetSimilarityAddressList(fsType, inputIPs)
+	fsList, err := storage.Filesystem.GetSimilarityAddressList(fsType, inputIPs)
 	if err != nil {
 		return err
 	}
@@ -536,7 +536,7 @@ func (pr *PFSRouter) deleteFileSystem(w http.ResponseWriter, r *http.Request) {
 
 func fsCheckCanModify(ctx *logger.RequestContext, fsID string) error {
 	// check fs exist
-	if _, err := storage.FsStore.GetFileSystemWithFsID(fsID); err != nil {
+	if _, err := storage.Filesystem.GetFileSystemWithFsID(fsID); err != nil {
 		ctx.Logging().Errorf("get filesystem[%s] err: %v", fsID, err)
 		var errRet error
 		if errors.Is(err, gorm.ErrRecordNotFound) {

@@ -95,7 +95,7 @@ func (resp *FileSystemCacheResponse) fromModel(config model.FSCacheConfig) {
 
 func CreateFileSystemCacheConfig(ctx *logger.RequestContext, req CreateFileSystemCacheRequest) error {
 	cacheConfig := req.toModel()
-	err := storage.CacheConfigStore.CreateFSCacheConfig(ctx.Logging(), &cacheConfig)
+	err := storage.Filesystem.CreateFSCacheConfig(ctx.Logging(), &cacheConfig)
 	if err != nil {
 		ctx.Logging().Errorf("CreateFSCacheConfig fs[%s] err:%v", cacheConfig.FsID, err)
 		return err
@@ -105,7 +105,7 @@ func CreateFileSystemCacheConfig(ctx *logger.RequestContext, req CreateFileSyste
 
 func UpdateFileSystemCacheConfig(ctx *logger.RequestContext, req UpdateFileSystemCacheRequest) error {
 	cacheConfig := req.toModel()
-	err := storage.CacheConfigStore.UpdateFSCacheConfig(ctx.Logging(), cacheConfig)
+	err := storage.Filesystem.UpdateFSCacheConfig(ctx.Logging(), cacheConfig)
 	if err != nil {
 		ctx.Logging().Errorf("UpdateFSCacheConfig fs[%s] err:%v", cacheConfig.FsID, err)
 		return err
@@ -114,7 +114,7 @@ func UpdateFileSystemCacheConfig(ctx *logger.RequestContext, req UpdateFileSyste
 }
 
 func GetFileSystemCacheConfig(ctx *logger.RequestContext, fsID string) (FileSystemCacheResponse, error) {
-	fsCacheConfig, err := storage.CacheConfigStore.GetFSCacheConfig(ctx.Logging(), fsID)
+	fsCacheConfig, err := storage.Filesystem.GetFSCacheConfig(ctx.Logging(), fsID)
 	if err != nil {
 		ctx.Logging().Errorf("GetFileSystemCacheConfig fs[%s] err:%v", fsID, err)
 		return FileSystemCacheResponse{}, err
@@ -125,7 +125,7 @@ func GetFileSystemCacheConfig(ctx *logger.RequestContext, fsID string) (FileSyst
 }
 
 func DeleteFileSystemCacheConfig(ctx *logger.RequestContext, fsID string) error {
-	_, err := storage.CacheConfigStore.GetFSCacheConfig(ctx.Logging(), fsID)
+	_, err := storage.Filesystem.GetFSCacheConfig(ctx.Logging(), fsID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			ctx.ErrorCode = common.RecordNotFound
@@ -135,7 +135,7 @@ func DeleteFileSystemCacheConfig(ctx *logger.RequestContext, fsID string) error 
 		ctx.Logging().Errorf("GetFileSystemCacheConfig fs[%s] err:%v", fsID, err)
 		return err
 	}
-	if err := storage.CacheConfigStore.DeleteFSCacheConfig(database.DB, fsID); err != nil {
+	if err := storage.Filesystem.DeleteFSCacheConfig(database.DB, fsID); err != nil {
 		ctx.Logging().Errorf("delete fs cache config failed error[%v]", err)
 		ctx.ErrorCode = common.FileSystemDataBaseError
 		return err

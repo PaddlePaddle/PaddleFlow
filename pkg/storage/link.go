@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,60 +19,41 @@ package storage
 import (
 	"fmt"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
-
-	"gorm.io/gorm"
 )
 
-type LinkStoreInterface interface {
-	CreateLink(link *model.Link) error
-	FsNameLinks(fsID string) ([]model.Link, error)
-	LinkWithFsIDAndFsPath(fsID, fsPath string) (model.Link, error)
-	DeleteLinkWithFsIDAndFsPath(fsID, fsPath string) error
-	ListLink(limit int, marker, fsID string) ([]model.Link, error)
-	GetLinkWithFsIDAndPath(fsID, fsPath string) ([]model.Link, error)
-}
-
-type LinkStorage struct {
-	db *gorm.DB
-}
-
-func NewLinkStore(db *gorm.DB) *LinkStorage {
-	return &LinkStorage{db: db}
-}
-
 // CreateLink creates a new link
-func (ls *LinkStorage) CreateLink(link *model.Link) error {
-	return ls.db.Create(link).Error
+func (fss *FilesystemStore) CreateLink(link *model.Link) error {
+	return fss.db.Create(link).Error
 }
 
-func (ls *LinkStorage) FsNameLinks(fsID string) ([]model.Link, error) {
+func (fss *FilesystemStore) FsNameLinks(fsID string) ([]model.Link, error) {
 	var links []model.Link
-	result := ls.db.Where(&model.Link{FsID: fsID}).Find(&links)
+	result := fss.db.Where(&model.Link{FsID: fsID}).Find(&links)
 	return links, result.Error
 }
 
-func (ls *LinkStorage) LinkWithFsIDAndFsPath(fsID, fsPath string) (model.Link, error) {
+func (fss *FilesystemStore) LinkWithFsIDAndFsPath(fsID, fsPath string) (model.Link, error) {
 	var link model.Link
-	result := ls.db.Where(&model.Link{FsID: fsID, FsPath: fsPath}).Find(&link)
+	result := fss.db.Where(&model.Link{FsID: fsID, FsPath: fsPath}).Find(&link)
 	return link, result.Error
 }
 
 // DeleteLinkWithFsIDAndFsPath delete a file system link
-func (ls *LinkStorage) DeleteLinkWithFsIDAndFsPath(fsID, fsPath string) error {
-	result := ls.db.Where(fmt.Sprintf(QueryEqualWithParam, FsID), fsID).Where(fmt.Sprintf(QueryEqualWithParam, FsPath), fsPath).Delete(&model.Link{})
+func (fss *FilesystemStore) DeleteLinkWithFsIDAndFsPath(fsID, fsPath string) error {
+	result := fss.db.Where(fmt.Sprintf(QueryEqualWithParam, FsID), fsID).Where(fmt.Sprintf(QueryEqualWithParam, FsPath), fsPath).Delete(&model.Link{})
 	return result.Error
 }
 
 // ListLink get links with marker and limit sort by create_at desc
-func (ls *LinkStorage) ListLink(limit int, marker, fsID string) ([]model.Link, error) {
+func (fss *FilesystemStore) ListLink(limit int, marker, fsID string) ([]model.Link, error) {
 	var links []model.Link
-	result := ls.db.Where(&model.Link{FsID: fsID}).Where(fmt.Sprintf(QueryLess, CreatedAt, "'"+marker+"'")).
+	result := fss.db.Where(&model.Link{FsID: fsID}).Where(fmt.Sprintf(QueryLess, CreatedAt, "'"+marker+"'")).
 		Order(fmt.Sprintf(" %s %s ", CreatedAt, DESC)).Limit(limit).Find(&links)
 	return links, result.Error
 }
 
-func (ls *LinkStorage) GetLinkWithFsIDAndPath(fsID, fsPath string) ([]model.Link, error) {
+func (fss *FilesystemStore) GetLinkWithFsIDAndPath(fsID, fsPath string) ([]model.Link, error) {
 	var links []model.Link
-	result := ls.db.Where(&model.Link{FsID: fsID, FsPath: fsPath}).First(&links)
+	result := fss.db.Where(&model.Link{FsID: fsID, FsPath: fsPath}).First(&links)
 	return links, result.Error
 }

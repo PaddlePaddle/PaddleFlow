@@ -80,7 +80,7 @@ func TestFSCacheConfigRouter(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, result.Code)
 
 	// test create success
-	err = storage.FsStore.CreatFileSystem(&mockFs)
+	err = storage.Filesystem.CreatFileSystem(&mockFs)
 	assert.Nil(t, err)
 
 	result, err = PerformPostRequest(router, url, createRep)
