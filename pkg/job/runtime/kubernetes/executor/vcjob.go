@@ -185,6 +185,8 @@ func (vj *VCJob) fillTaskInPSMode(vcTask *vcjob.TaskSpec, task models.Member, jo
 		vcTask.Template.Spec.Containers = []v1.Container{{}}
 	}
 	vj.fillContainerInTasks(&vcTask.Template.Spec.Containers[0], task)
+	vcTask.Template.Spec.Containers[0].VolumeMounts = vj.appendMountIfAbsent(vcTask.Template.Spec.Containers[0].VolumeMounts,
+		vj.generateVolumeMount())
 
 	// patch vcTask.Template.Spec.Volumes
 	vcTask.Template.Spec.Volumes = vj.appendVolumeIfAbsent(vcTask.Template.Spec.Volumes, vj.generateVolume())
@@ -289,7 +291,8 @@ func (vj *VCJob) fillTaskInCollectiveMode(tasks []vcjob.TaskSpec, jobName string
 	}
 	// todo : add affinity
 	vj.fillContainerInTasks(&task.Template.Spec.Containers[0], vj.Tasks[0])
-
+	task.Template.Spec.Containers[0].VolumeMounts = vj.appendMountIfAbsent(task.Template.Spec.Containers[0].VolumeMounts,
+		vj.generateVolumeMount())
 	// patch task.Template.Spec.Volumes
 	task.Template.Spec.Volumes = vj.appendVolumeIfAbsent(task.Template.Spec.Volumes, vj.generateVolume())
 

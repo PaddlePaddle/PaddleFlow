@@ -31,7 +31,7 @@ import (
 	. "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 )
 
-func TestcalculateFingerprint(t *testing.T) {
+func TestCalculateFingerprint(t *testing.T) {
 	cacheKey := map[string]string{
 		"name":    "xiaodu",
 		"command": "echo 124",

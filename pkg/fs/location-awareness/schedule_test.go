@@ -23,8 +23,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database/dbinit"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 func getMountID(clusterID, nodeName, mountPoint string) string {
@@ -37,34 +38,34 @@ func TestListMountNodesByFsID(t *testing.T) {
 
 	fsID1, fsID2, mountPoint1, mountPoint2, nodeName1, nodeName2, clusterID :=
 		"fs-root-1", "fs-root-2", "/mnt/fs-root-1/storage", "/mnt/fs-root-2/storage", "node1", "node2", ""
-	fsMount := &models.FsMount{
+	fsMount := &model.FsMount{
 		FsID:       fsID1,
 		MountPoint: mountPoint1,
 		MountID:    getMountID(clusterID, nodeName1, mountPoint1),
 		NodeName:   nodeName1,
 		ClusterID:  clusterID,
 	}
-	err := fsMount.Add(fsMount)
+	err := storage.FsMountStore.AddMount(fsMount)
 	assert.Nil(t, err)
 
-	fsMount = &models.FsMount{
+	fsMount = &model.FsMount{
 		FsID:       fsID1,
 		MountPoint: mountPoint1,
 		MountID:    getMountID(clusterID, nodeName2, mountPoint1),
 		NodeName:   nodeName2,
 		ClusterID:  clusterID,
 	}
-	err = fsMount.Add(fsMount)
+	err = storage.FsMountStore.AddMount(fsMount)
 	assert.Nil(t, err)
 
-	fsMount = &models.FsMount{
+	fsMount = &model.FsMount{
 		FsID:       fsID2,
 		MountPoint: mountPoint2,
 		MountID:    getMountID(clusterID, nodeName1, mountPoint2),
 		NodeName:   nodeName1,
 		ClusterID:  clusterID,
 	}
-	err = fsMount.Add(fsMount)
+	err = storage.FsMountStore.AddMount(fsMount)
 	assert.Nil(t, err)
 
 	fsIDs := []string{fsID1, fsID2, "fs-non-exist"}

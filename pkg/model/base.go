@@ -14,30 +14,27 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package models
+package model
 
 import (
-	"testing"
+	"time"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
-func TestDBFSCache(t *testing.T) {
-	InitMockDB()
-	dbfs := newDBFSCache()
-	fsCache1 := new(FSCache)
-	fsCache1.CacheDir = "cachedir"
-	fsCache1.CacheID = "cacheID1"
-	fsCache1.FsID = "fsid"
-	fsCache1.NodeName = "nodename"
-	fsCache1.UsedSize = 111
-	// test add
-	err := dbfs.Add(fsCache1)
-	assert.Nil(t, err)
-	fsc, err := dbfs.Get("fsid", "cacheID1")
-	assert.Nil(t, err)
-	assert.Equal(t, fsc.FsID, "fsid")
-	fscacheList, err := dbfs.List("", "")
-	assert.Nil(t, err)
-	assert.Equal(t, 1, len(fscacheList))
+type Model struct {
+	ID        string    `json:"id"`
+	CreatedAt time.Time `json:"-"`
+	UpdatedAt time.Time `json:"-"`
+}
+
+// BeforeCreate the function do the operation before creating file system or link
+func (m *Model) BeforeCreate(tx *gorm.DB) error {
+	if m.ID != "" {
+		return nil
+	}
+
+	m.ID = uuid.NewString()
+	return nil
 }

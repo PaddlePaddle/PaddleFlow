@@ -123,7 +123,7 @@ CREATE TABLE IF NOT EXISTS `user` (
 ) ENGINE=InnoDB DEFAULT CHARACTER SET utf8 COLLATE utf8_bin COMMENT='user info table';
 
 -- root user with initial password 'paddleflow'
-TRUNCATE `paddleflow`.`user`;
+TRUNCATE `paddleflow_db`.`user`;
 insert into user(name, password) values('root','$2a$10$1qdSQN5wMl3FtXoxw7mKpuxBqIuP0eYXTBM9CBn5H4KubM/g5Hrb6%');
 insert into flavour(id, name, cpu, mem, scalar_resources) values('1','flavour1', 1, '1Gi', null);
 insert into flavour(id, name, cpu, mem, scalar_resources) values('2','flavour2', 4, '8Gi', '{"nvidia.com/gpu":"1"}');
@@ -145,20 +145,22 @@ CREATE TABLE IF NOT EXISTS `grant` (
 CREATE TABLE IF NOT EXISTS `run` (
     `pk` bigint(20) NOT NULL AUTO_INCREMENT,
     `id` varchar(60) NOT NULL,
-    `source` varchar(256) NOT NULL,
     `name` varchar(60) NOT NULL,
+    `source` varchar(256) NOT NULL,
     `user_name` varchar(60) NOT NULL,
     `fs_id` varchar(60) NOT NULL,
     `fs_name` varchar(60) NOT NULL,
-    `docker_env` varchar(128),
-    `description` text,
-    `parameters_json` text,
-    `run_yaml` text,
-    `entry` varchar(256),
-    `disabled` text,
-    `message` text,
+    `description` text NOT NULL,
+    `parameters_json` text NOT NULL,
+    `run_yaml` text NOT NULL,
+    `docker_env` varchar(128) NOT NULL,
+    `entry` varchar(256) NOT NULL,
+    `disabled` text NOT NULL,
+    `schedule_id` varchar(60) NOT NULL,
+    `message` text NOT NULL,
     `status` varchar(32) DEFAULT NULL,
-    `run_cached_ids` text,
+    `run_cached_ids` text NOT NULL,
+    `scheduled_at` datetime(3) DEFAULT NULL,
     `created_at` datetime(3) DEFAULT NULL,
     `activated_at` datetime(3) DEFAULT NULL,
     `updated_at` datetime(3) DEFAULT NULL,
@@ -214,19 +216,52 @@ CREATE TABLE IF NOT EXISTS `pipeline` (
     `pk` bigint(20) NOT NULL AUTO_INCREMENT,
     `id` varchar(60) NOT NULL UNIQUE,
     `name` varchar(60) NOT NULL,
-    `fs_id` varchar(60) NOT NULL,
-    `fs_name` varchar(60) NOT NULL,
+    `desc` varchar(1024) NOT NULL,
     `user_name` varchar(60) NOT NULL,
-    `pipeline_yaml` text NOT NULL,
-    `pipeline_md5` varchar(32) NOT NULL,
     `created_at` datetime(3) DEFAULT NULL,
     `updated_at` datetime(3) DEFAULT NULL,
     `deleted_at` datetime(3) DEFAULT NULL,
     PRIMARY KEY (`pk`),
     UNIQUE KEY (`id`),
-    UNIQUE INDEX idx_fs_path (`fs_id`, `name`),
-    UNIQUE INDEX idx_fs_md5 (`fs_id`, `pipeline_md5`),
-    INDEX (`fs_id`)
+    INDEX idx_fs_name (`user_name`, `name`)
+) ENGINE=InnoDB DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
+
+CREATE TABLE IF NOT EXISTS `pipeline_detail` (
+    `pk` bigint(20) NOT NULL AUTO_INCREMENT,
+    `id` varchar(60) NOT NULL,
+    `pipeline_id` varchar(60) NOT NULL,
+    `fs_id` varchar(60) NOT NULL,
+    `fs_name` varchar(60) NOT NULL,
+    `yaml_path` text NOT NULL,
+    `pipeline_yaml` text NOT NULL,
+    `pipeline_md5` varchar(32) NOT NULL,
+    `user_name` varchar(60) NOT NULL,
+    `created_at` datetime(3) DEFAULT NULL,
+    `updated_at` datetime(3) DEFAULT NULL,
+    `deleted_at` datetime(3) DEFAULT NULL,
+    PRIMARY KEY (`pk`)
+    ) ENGINE=InnoDB DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
+
+CREATE TABLE IF NOT EXISTS `schedule` (
+    `pk` bigint(20) NOT NULL AUTO_INCREMENT,
+    `id` varchar(60) NOT NULL,
+    `name` varchar(60) NOT NULL,
+    `desc` varchar(1024) NOT NULL,
+    `pipeline_id` varchar(60) NOT NULL,
+    `pipeline_detail_id` varchar(60) NOT NULL,
+    `user_name` varchar(60) NOT NULL,
+    `fs_config` varchar(1024) NOT NULL,
+    `crontab` varchar(60) NOT NULL,
+    `options` text,
+    `message` text,
+    `status` varchar(32) DEFAULT NULL,
+    `start_at` datetime(3) DEFAULT NULL,
+    `end_at` datetime(3) DEFAULT NULL,
+    `next_run_at` datetime(3) DEFAULT NULL,
+    `created_at` datetime(3) DEFAULT NULL,
+    `updated_at` datetime(3) DEFAULT NULL,
+    `deleted_at` datetime(3) DEFAULT NULL,
+    PRIMARY KEY (`pk`)
 ) ENGINE=InnoDB DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
 
 CREATE TABLE IF NOT EXISTS `run_cache` (
