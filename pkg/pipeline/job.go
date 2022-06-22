@@ -84,7 +84,7 @@ func NewPaddleFlowJobWithJobView(view schema.JobView, image string, eventChannel
 	pfj := PaddleFlowJob{
 		BaseJob: BaseJob{
 			ID:         view.JobID,
-			Name:       view.JobName,
+			Name:       view.Name,
 			Command:    view.Command,
 			Parameters: view.Parameters,
 			Artifacts:  view.Artifacts,

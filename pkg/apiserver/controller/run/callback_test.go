@@ -61,7 +61,7 @@ func TestGetJobByRun(t *testing.T) {
 	assert.Nil(t, err)
 
 	runJob := models.RunJob{
-		ID:          "job-run-000059-main-b7a9a264",
+		ID:          "job-run-post",
 		RunID:       runID,
 		ParentDagID: "",
 		StepName:    "post",
@@ -69,7 +69,7 @@ func TestGetJobByRun(t *testing.T) {
 	_, err = models.CreateRunJob(ctx.Logging(), &runJob)
 	assert.Nil(t, err)
 
-	jobView, err := GetJobByRun("job-run-000059-main-b7a9a264", "post")
+	jobView, err := GetJobByRun("job-run-post", "post")
 	assert.Nil(t, err)
-	assert.Equal(t, "job-run-000059-main-b7a9a264", jobView.JobID)
+	assert.Equal(t, "job-run-post", jobView.JobID)
 }

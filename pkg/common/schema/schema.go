@@ -86,7 +86,7 @@ type DagView struct {
 }
 
 func (d DagView) GetComponentName() string {
-	return d.Name
+	return d.DagName
 }
 
 func (d DagView) GetParentDagID() string {
