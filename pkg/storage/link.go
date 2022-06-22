@@ -18,6 +18,7 @@ package storage
 
 import (
 	"fmt"
+
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
 

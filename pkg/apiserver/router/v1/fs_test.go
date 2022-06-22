@@ -293,7 +293,7 @@ func Test_checkFsDir(t *testing.T) {
 		properties map[string]string
 	}
 	var p1 = gomonkey.ApplyMethod(reflect.TypeOf(storage.Filesystem), "GetSimilarityAddressList",
-		func(_ *storage.FileSystemStorage, fsType string, ips []string) ([]model.FileSystem, error) {
+		func(_ *storage.FilesystemStore, fsType string, ips []string) ([]model.FileSystem, error) {
 			return []model.FileSystem{
 				{SubPath: "/data"},
 				{SubPath: "/data/mypath"},
