@@ -26,8 +26,9 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
-	"github.com/emirpasic/gods/maps/linkedhashmap"
+	"github.com/orcaman/concurrent-map"
 	"github.com/sirupsen/logrus"
+	"github.com/viney-shih/go-lock"
 	"os"
 	"path/filepath"
 	"strings"
@@ -42,7 +43,9 @@ const (
 	NoTraceError       = "no trace has been set"
 	LogLevelStringSize = 4
 	MaxCacheSize       = 10000
-	CacheLoadFactor    = 0.8
+	MaxIterationCount  = 5
+	CacheLoadFactor    = 0.75
+	DefaultTimeout     = time.Hour * 2
 )
 
 // assert implements
@@ -83,12 +86,11 @@ func (t Trace) String() string {
 	return strings.Join(lines, "\n")
 }
 
-func (d DefaultTraceLoggerManager) String() string {
-	d.RLock()
-	defer d.RUnlock()
-	lines := make([]string, d.cache.Size())
-	for i, trace := range d.cache.Values() {
-		lines[i] = fmt.Sprintf("%s", trace.(Trace))
+func (d *DefaultTraceLoggerManager) String() string {
+	lines := make([]string, 0, d.cache.Count())
+	for x := range d.cache.IterBuffered() {
+		v := x.Val.(Trace)
+		lines = append(lines, v.String())
 	}
 	return strings.Join(lines, "\n")
 }
@@ -110,6 +112,7 @@ type TraceLogger interface {
 	UpdateTrace() error
 }
 
+// DeleteMethod return true to delete
 type DeleteMethod func(key string) bool
 
 var DefaultDeleteMethod DeleteMethod = func(key string) bool {
@@ -128,9 +131,13 @@ type TraceLoggerManager interface {
 	SyncAll() error
 	LoadAll(path string) error
 	ClearAll() error
-	AutoDelete(timeout, duration time.Duration) error
-	AutoDeleteWithMethod(timeout, duration time.Duration, method DeleteMethod) error
+	DeleteUnusedCache(timeout time.Duration, method ...DeleteMethod) error
+
+	AutoDelete(duration time.Duration, method ...DeleteMethod) error
 	CancelAutoDelete() error
+
+	AutoSync(duration time.Duration) error
+	CancelAutoSync() error
 }
 
 // define implementation
@@ -143,12 +150,15 @@ type defaultTraceLogger struct {
 }
 
 func (d *defaultTraceLogger) saveOneLog(level logrus.Level, format string, args ...interface{}) {
-	d.trace.logs = append(d.trace.logs, traceLog{
+
+	log := traceLog{
 		Key:   d.key,
 		Msg:   fmt.Sprintf(format, args...),
 		Level: level,
 		Time:  time.Now(),
-	})
+	}
+	//fmt.Println(log.String())
+	d.trace.logs = append(d.trace.logs, log)
 
 	// call update trace after every log
 	_ = d.UpdateTrace()
@@ -184,6 +194,7 @@ func (d *defaultTraceLogger) UpdateTraceWithKey(key string) error {
 }
 
 func (d *defaultTraceLogger) UpdateTrace() error {
+	d.trace.updateTime = time.Now()
 	if d.key == "" {
 		return fmt.Errorf("no key has been set")
 	}
@@ -210,33 +221,44 @@ func (d *defaultTraceLogger) GetTrace() Trace {
 // implementation for trace logger manager
 
 type DefaultTraceLoggerManager struct {
-	// use linked list to sustain the order of the trace
-	cache       *linkedhashmap.Map
-	tmpKeyMap   sync.Map
-	lastSyncKey string
-	l           *logrus.Logger
-	sync.RWMutex
+	// use more efficient map as local cache
+	// see https://github.com/orcaman/concurrent-map
+	cache     cmap.ConcurrentMap
+	tmpKeyMap sync.Map
+	l         *logrus.Logger
+
+	// use  unblocking for eliminate lock
+	eliminateLock lock.RWMutex
+	lock          sync.RWMutex
+
+	timeout      time.Duration
+	maxCacheSize int
 
 	// auto delete
-	autoDeleteFlag bool
-	autoDeleteLock sync.Mutex
-	cancelChan     chan struct{}
+	autoDeleteFlag       bool
+	autoDeleteLock       sync.Mutex
+	autoDeleteCancelChan chan struct{}
+
+	// auto sync
+	autoSyncFlag       bool
+	autoSyncLock       sync.Mutex
+	autoSyncCancelChan chan struct{}
 }
 
 func NewDefaultTraceLoggerManager() *DefaultTraceLoggerManager {
 	return &DefaultTraceLoggerManager{
-		cache:          linkedhashmap.New(),
-		tmpKeyMap:      sync.Map{},
-		RWMutex:        sync.RWMutex{},
-		l:              logger,
-		autoDeleteLock: sync.Mutex{},
-		cancelChan:     make(chan struct{}, 1),
+		cache:                cmap.New(),
+		tmpKeyMap:            sync.Map{},
+		l:                    logger,
+		eliminateLock:        lock.NewCASMutex(),
+		timeout:              DefaultTimeout,
+		maxCacheSize:         MaxCacheSize,
+		autoDeleteCancelChan: make(chan struct{}, 1),
+		autoSyncCancelChan:   make(chan struct{}, 1),
 	}
 }
 
 func (d *DefaultTraceLoggerManager) StoreTraceToFile(trace Trace) {
-	d.RLock()
-	defer d.RUnlock()
 	for _, traceLog := range trace.logs[trace.lastSyncIndex:] {
 		d.storeTraceLogToFile(traceLog)
 	}
@@ -256,113 +278,112 @@ func (d *DefaultTraceLoggerManager) NewTraceLogger() TraceLogger {
 }
 
 func (d *DefaultTraceLoggerManager) GetTraceFromCache(key string) (Trace, bool) {
-	// add lock
-	d.RLock()
-	defer d.RUnlock()
 	val, ok := d.cache.Get(key)
 	return val.(Trace), ok
 }
 
 func (d *DefaultTraceLoggerManager) GetAllTraceFromCache() []Trace {
-	d.RLock()
-	defer d.RUnlock()
-
-	vals := d.cache.Values()
-	traces := make([]Trace, len(vals), len(vals))
-	for i := range vals {
-		traces[i] = vals[i].(Trace)
+	iter := d.cache.IterBuffered()
+	traces := make([]Trace, 0, d.cache.Count())
+	for x := range iter {
+		traces = append(traces, x.Val.(Trace))
 	}
 	return traces
 }
 
 func (d *DefaultTraceLoggerManager) SetTraceToCache(key string, trace Trace) (err error) {
-	// add lock
-	d.Lock()
-	defer d.Unlock()
-	defer func() {
-		if err1 := recover(); err1 != nil {
-			err = fmt.Errorf("%v", err1)
+
+	//defer func() {
+	//	if err1 := recover(); err1 != nil {
+	//		err = fmt.Errorf("%v", err1)
+	//	}
+	//}()
+
+	d.cache.Upsert(key, trace, func(exist bool, valueInMap interface{}, newValue interface{}) interface{} {
+		// if trace exists, copy last synced index to new trace
+		newVal := newValue.(Trace)
+		if exist {
+			newVal.lastSyncIndex = valueInMap.(Trace).lastSyncIndex
 		}
-	}()
+		return newVal
+	})
 
-	// add updateTime
-	old, ok := d.cache.Get(key)
-
-	// if key exists, remove old trace and add it to the end of the list, in order to maintain the insertion order
-	if ok {
-		trace.lastSyncIndex = old.(Trace).lastSyncIndex
-		d.cache.Remove(key)
-	}
-	trace.updateTime = time.Now()
-	d.cache.Put(key, trace)
 	// delete outdated trace
-	d.deleteOldTrace()
+	// run it in a goroutine to avoid deadlock
+	//fmt.Println("maxCacheSize:", d.maxCacheSize, d.cache.Count())
+	if d.cache.Count() >= d.maxCacheSize {
+		logrus.Debugf("cache size is too large, start auto delete")
+		d.eliminateCache()
+	}
 	return
 }
 
-func (d *DefaultTraceLoggerManager) deleteOldTrace() {
-	if d.cache.Size() < MaxCacheSize {
+// eliminateCache eliminate cache by lazy call
+func (d *DefaultTraceLoggerManager) eliminateCache() {
+
+	success := d.eliminateLock.TryLock()
+	// if not get eliminateLock, omit eliminateCache
+	if !success {
+		return
+	}
+	defer d.eliminateLock.Unlock()
+
+	if d.cache.Count() < d.maxCacheSize {
 		return // do not delete if cache is not full
 	}
-	newSize := int(MaxCacheSize * CacheLoadFactor)
+	newSize := int(float64(d.maxCacheSize) * CacheLoadFactor)
+	numberToBeDeleted := d.cache.Count() - newSize
 
-	iter := d.cache.Iterator()
-	for i := d.cache.Size(); i > newSize; i = d.cache.Size() {
-		if ok := iter.First(); !ok {
-			break
+	iter := d.cache.IterBuffered()
+
+	timeout := d.timeout
+	count := MaxIterationCount
+
+loop:
+	// loop to delete outdated trace
+	// if one loop do not reach the goal, then half the timeout, and try again
+	for count > 0 {
+		ddl := time.Now().Add(-timeout)
+		for x := range iter {
+			if numberToBeDeleted <= 0 {
+				break loop
+			}
+			k, v := x.Key, x.Val.(Trace)
+			if v.updateTime.Before(ddl) {
+				d.removeKey(k)
+				numberToBeDeleted--
+			}
 		}
-		d.cache.Remove(iter.Key())
+		count--
+		timeout /= 2
 	}
+
 }
 
-// SyncAll dont call this method in a concurrent environment
 func (d *DefaultTraceLoggerManager) SyncAll() error {
-	// get lock
-	d.RLock()
-	defer d.RUnlock()
+	d.lock.RLock()
+	defer d.lock.RUnlock()
 
-	// sync all the Trace backward until the last sync key
-	iter := d.cache.Iterator()
-	ok := iter.Last()
-	if !ok {
-		return fmt.Errorf("no trace has been set")
+	// iter all traces in cache, and sync them
+	iter := d.cache.IterBuffered()
+
+	// sync trace to file
+	for x := range iter {
+		k, v := x.Key, x.Val.(Trace)
+		d.StoreTraceToFile(v)
+		v.lastSyncIndex = len(v.logs)
+		d.cache.Set(k, v)
 	}
-
-	// get the last sync key
-	tmpIter := d.cache.Iterator()
-	tmpIter.End()
-	newLastSyncedKey := tmpIter.Key().(string)
-
-	// find the last synced key
-	_ = iter.PrevTo(func(key interface{}, value interface{}) bool {
-		k := key.(string)
-		// find last sync key, stop iterating
-		return k == d.lastSyncKey
-	})
-
-	// log trace
-	for iter.Next() {
-		val := iter.Value()
-		key := iter.Key().(string)
-		trace := val.(Trace)
-		d.StoreTraceToFile(trace)
-		// update synced index
-		trace.lastSyncIndex = len(trace.logs)
-		d.cache.Put(key, trace)
-	}
-
-	d.lastSyncKey = newLastSyncedKey
 	return nil
 }
 
 // LoadAll will load all the trace from the file, and replace local cache
 func (d *DefaultTraceLoggerManager) LoadAll(path string) (err error) {
+	d.lock.Lock()
+	defer d.lock.Unlock()
 
-	d.Lock()
-	defer d.Unlock()
 	// clear the cache
 	d.clearCache()
-
 	stat, err := os.Stat(path)
 	if err != nil {
 		return fmt.Errorf("failed to get file stat: %v", err)
@@ -389,12 +410,6 @@ func (d *DefaultTraceLoggerManager) LoadAll(path string) (err error) {
 		}
 	}
 
-	// update last sync key
-	iter := d.cache.Iterator()
-	if iter.Last() {
-		d.lastSyncKey = iter.Key().(string)
-	}
-
 	return nil
 }
 
@@ -413,42 +428,30 @@ func (d *DefaultTraceLoggerManager) loadFromFile(filePath string) (err error) {
 	}
 	scanner := bufio.NewScanner(file)
 
-	var (
-		currentTrace Trace
-		currentKey   string
-	)
-
+	// sync cache
 	for scanner.Scan() {
 		jsonBytes := scanner.Bytes()
-		traceLog := traceLog{}
-		err = json.Unmarshal(jsonBytes, &traceLog)
+		log := traceLog{}
+		err = json.Unmarshal(jsonBytes, &log)
 		if err != nil {
 			return fmt.Errorf("parse log fail: %w", err)
 		}
-		if currentKey != traceLog.Key {
-			// save the previous trace to cache
-			if currentKey != "" {
-				d.cache.Put(currentKey, currentTrace)
+		d.cache.Upsert(log.Key, log, func(exist bool, valueInMap interface{}, newValue interface{}) interface{} {
+			val := Trace{}
+			if exist {
+				val = valueInMap.(Trace)
 			}
-			currentKey = traceLog.Key
-			val, ok := d.cache.Get(currentKey)
-			if !ok {
-				currentTrace = Trace{}
-			} else {
-				currentTrace = val.(Trace)
-			}
-
-			// update updateTime
-			currentTrace.updateTime = time.Now()
-		}
-		currentTrace.logs = append(currentTrace.logs, traceLog)
+			val.logs = append(val.logs, newValue.(traceLog))
+			val.lastSyncIndex = len(val.logs)
+			val.updateTime = time.Now()
+			return val
+		})
 	}
-	d.cache.Put(currentKey, currentTrace)
 
 	return nil
 }
 
-func (d *DefaultTraceLoggerManager) AutoDelete(timeout, duration time.Duration) error {
+func (d *DefaultTraceLoggerManager) AutoDelete(duration time.Duration, methods ...DeleteMethod) error {
 	d.autoDeleteLock.Lock()
 	defer d.autoDeleteLock.Unlock()
 	if d.autoDeleteFlag {
@@ -458,37 +461,11 @@ func (d *DefaultTraceLoggerManager) AutoDelete(timeout, duration time.Duration) 
 	go func() {
 		for {
 			select {
-			case <-d.cancelChan:
+			case <-d.autoDeleteCancelChan:
 				return
 			case <-time.After(duration):
-				fmt.Println("auto delete")
-				d.Lock()
-				d.deleteTraceFromCacheBefore(timeout, DefaultDeleteMethod)
-				d.Unlock()
-			}
-		}
-	}()
-
-	return nil
-}
-
-func (d *DefaultTraceLoggerManager) AutoDeleteWithMethod(timeout, duration time.Duration, method DeleteMethod) error {
-	d.autoDeleteLock.Lock()
-	defer d.autoDeleteLock.Unlock()
-	if d.autoDeleteFlag {
-		return fmt.Errorf("auto delete has started")
-	}
-
-	go func() {
-		for {
-			select {
-			case <-d.cancelChan:
-				return
-			case <-time.After(duration):
-				fmt.Println("auto delete")
-				d.Lock()
-				d.deleteTraceFromCacheBefore(timeout, method)
-				d.Unlock()
+				logrus.Debug("auto deleting")
+				_ = d.DeleteUnusedCache(d.timeout, methods...)
 			}
 		}
 	}()
@@ -503,45 +480,46 @@ func (d *DefaultTraceLoggerManager) CancelAutoDelete() error {
 	if !d.autoDeleteFlag {
 		return fmt.Errorf("auto delete has not started")
 	}
-	d.cancelChan <- struct{}{}
+	d.autoDeleteCancelChan <- struct{}{}
+	return nil
+}
+
+func (d *DefaultTraceLoggerManager) DeleteUnusedCache(timeout time.Duration, methods ...DeleteMethod) error {
+	d.lock.Lock()
+	method := DefaultDeleteMethod
+	if len(methods) > 0 {
+		method = methods[0]
+	}
+	d.deleteTraceFromCacheBefore(timeout, method)
+	// delete unused key
+	d.deleteUnusedTmpKey(timeout)
+	d.lock.Unlock()
 	return nil
 }
 
 func (d *DefaultTraceLoggerManager) deleteTraceFromCacheBefore(timeout time.Duration, method DeleteMethod) {
 
-	// check if synced already, if not, no need to delete
-	if d.lastSyncKey == "" {
-		return // no need to delete
-	}
-
-	timeBefore := time.Now().Add(-timeout)
+	ddl := time.Now().Add(-timeout)
 
 	// delete all the trace logs before the timeBefore
-	iter := d.cache.Iterator()
-
-	// find the timeBefore first
-	_ = iter.NextTo(func(key interface{}, value interface{}) bool {
-		trace := value.(Trace)
-
-		// if not synced yet, stop iterating
-		if key.(string) == d.lastSyncKey {
-			return true
+	iter := d.cache.IterBuffered()
+	for x := range iter {
+		k, v := x.Key, x.Val.(Trace)
+		if v.updateTime.Before(ddl) && method(k) {
+			d.removeKey(k)
 		}
-		// if updateTime after timeBefore, stop iterating
-		return trace.updateTime.After(timeBefore)
-	})
-	// delete the trace logs before
-	// must remove item in backwards order while iterating,
-	// otherwise the index will be wrong
-	for iter.Prev() {
-		key := iter.Key().(string)
-		if !method(key) {
-			return
-		}
-		d.cache.Remove(iter.Key())
-		// also remove it from tmp map
-		d.tmpKeyMap.Delete(iter.Key())
 	}
+}
+
+func (d *DefaultTraceLoggerManager) removeKey(key string) bool {
+	return d.cache.RemoveCb(key, func(key string, v interface{}, exists bool) bool {
+		if !exists {
+			return false
+		}
+		// remove key from tmpLogger
+		d.tmpKeyMap.Delete(key)
+		return true
+	})
 }
 
 func (d *DefaultTraceLoggerManager) deleteUnusedTmpKey(timeout time.Duration) {
@@ -562,15 +540,14 @@ func (d *DefaultTraceLoggerManager) deleteUnusedTmpKey(timeout time.Duration) {
 // ClearAll will clear all the trace from the cache
 // please sync the cache before calling this function
 func (d *DefaultTraceLoggerManager) ClearAll() error {
-	d.Lock()
-	defer d.Unlock()
+	d.lock.Lock()
+	defer d.lock.Unlock()
 	d.clearCache()
 	return nil
 }
 
 func (d *DefaultTraceLoggerManager) clearCache() {
 	d.cache.Clear()
-	d.lastSyncKey = ""
 }
 
 func (d *DefaultTraceLoggerManager) UpdateKey(key string, newKey string) error {
@@ -582,9 +559,9 @@ func (d *DefaultTraceLoggerManager) UpdateKey(key string, newKey string) error {
 	}
 
 	// update tmp key
-	d.tmpKeyMap.Store(newKey, val)
 	traceLogger := val.(TraceLogger)
 	traceLogger.SetKey(newKey)
+	d.tmpKeyMap.Store(newKey, traceLogger)
 	return nil
 }
 
@@ -594,4 +571,37 @@ func (d *DefaultTraceLoggerManager) Key(key string) TraceLogger {
 	val, _ := d.tmpKeyMap.LoadOrStore(key, d.NewTraceLogger())
 	traceLogger = val.(TraceLogger)
 	return traceLogger
+}
+
+func (d *DefaultTraceLoggerManager) AutoSync(duration time.Duration) error {
+	d.autoSyncLock.Lock()
+	defer d.autoSyncLock.Unlock()
+	if d.autoSyncFlag {
+		return fmt.Errorf("auto sync has started")
+	}
+
+	go func() {
+		for {
+			select {
+			case <-d.autoSyncCancelChan:
+				return
+			case <-time.After(duration):
+				logrus.Debug("auto syncing")
+				_ = d.SyncAll()
+			}
+		}
+	}()
+
+	return nil
+}
+
+func (d *DefaultTraceLoggerManager) CancelAutoSync() error {
+	d.autoSyncLock.Lock()
+	defer d.autoSyncLock.Unlock()
+
+	if !d.autoSyncFlag {
+		return fmt.Errorf("auto sync has not started")
+	}
+	d.autoSyncCancelChan <- struct{}{}
+	return nil
 }
