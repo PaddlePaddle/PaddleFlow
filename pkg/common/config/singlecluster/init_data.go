@@ -28,6 +28,8 @@ func Init(serverConf *config.ServerConfig) error {
 		log.Info("IsSingleCluster is false, pass init cluster and queue")
 		return nil
 	}
+	log.Info("init data for single cluster is starting")
+
 	if database.DB == nil {
 		err := fmt.Errorf("please ensure call this function after db is inited")
 		log.Errorf("init failed, err: %v", err)
@@ -41,10 +43,13 @@ func Init(serverConf *config.ServerConfig) error {
 		log.Errorf("initDefaultQueue failed, err: %v", err)
 		return err
 	}
+	log.Info("init data for single cluster completed")
+
 	return nil
 }
 
 func initDefaultCluster() error {
+	log.Info("starting init data for single cluster: initDefaultCluster")
 	if _, err := models.GetClusterByName(DefaultClusterName); err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		log.Errorf("GetClusterByName %s failed, err: %v", DefaultClusterName, err)
 		return err
@@ -70,6 +75,7 @@ func initDefaultCluster() error {
 }
 
 func initDefaultQueue() error {
+	log.Info("starting init data for single cluster: initDefaultQueue")
 	if _, err := models.GetQueueByName(DefaultQueueName); err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		log.Errorf("GetQueueByName %s failed, err: %v", DefaultQueueName, err)
 		return err
