@@ -30,6 +30,12 @@ var (
 
 	DefaultRunYamlPath    = "./run.yaml"
 	serverDefaultConfPath = "./config/server/default/paddleserver.yaml"
+	// DefaultClusterName for default cluster in single cluster
+	DefaultClusterName = "default-cluster"
+	// DefaultQueueName for default queue in single cluster
+	DefaultQueueName = "default-queue"
+	// DefaultNamespace for default namespace of default queue in single cluster
+	DefaultNamespace = "default"
 )
 
 type ServerConfig struct {

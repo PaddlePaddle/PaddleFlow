@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	log "github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 	"volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
@@ -595,5 +596,35 @@ func DeleteQueue(ctx *logger.RequestContext, queueName string) error {
 	}
 
 	ctx.Logging().Debugf("queue is deleting. queueName:%s", queueName)
+	return nil
+}
+
+// InitDefaultQueue init default queue for single cluster environment
+func InitDefaultQueue() error {
+	log.Info("starting init data for single cluster: initDefaultQueue")
+	if _, err := models.GetQueueByName(config.DefaultQueueName); err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		log.Errorf("GetQueueByName %s failed, err: %v", config.DefaultQueueName, err)
+		return err
+	} else if err == nil {
+		log.Info("default queue has been created")
+		return nil
+	}
+	ctx := &logger.RequestContext{UserName: common.UserRoot}
+	// create default cluster
+	defaultQueue := &CreateQueueRequest{
+		Name:        config.DefaultQueueName,
+		Namespace:   config.DefaultNamespace,
+		ClusterName: config.DefaultClusterName,
+		QuotaType:   schema.TypeVolcanoCapabilityQuota,
+		MaxResources: schema.ResourceInfo{
+			CPU: "20",
+			Mem: "20Gi",
+		},
+	}
+	_, err := CreateQueue(ctx, defaultQueue)
+	if err != nil {
+		log.Errorf("create default queue[%+v] failed, err: %v", defaultQueue, err)
+		return err
+	}
 	return nil
 }

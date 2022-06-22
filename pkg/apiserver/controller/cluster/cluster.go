@@ -23,11 +23,13 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/queue"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
@@ -514,4 +516,31 @@ func ListClusterQuota(ctx *logger.RequestContext, clusterNameList []string) (map
 		return response, fmt.Errorf("%s", strings.Join(failedClusterErrorMsgList, "\n"))
 	}
 	return response, nil
+}
+
+// InitDefaultCluster init default cluster for single cluster environment
+func InitDefaultCluster() error {
+	log.Info("starting init data for single cluster: initDefaultCluster")
+	if _, err := models.GetClusterByName(config.DefaultClusterName); err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		log.Errorf("GetClusterByName %s failed, err: %v", config.DefaultClusterName, err)
+		return err
+	} else if err == nil {
+		log.Info("default cluster has been created")
+		return nil
+	}
+	// create default cluster
+	clusterInfo := &models.ClusterInfo{
+		Name:        config.DefaultClusterName,
+		Description: "default cluster",
+		Endpoint:    "127.0.0.1",
+		Source:      "",
+		ClusterType: schema.KubernetesType,
+		Version:     "1.16+",
+		Status:      models.ClusterStatusOnLine,
+	}
+	if err := models.CreateCluster(clusterInfo); err != nil {
+		log.Errorf("create default cluster failed, err: %v", err)
+		return err
+	}
+	return nil
 }
