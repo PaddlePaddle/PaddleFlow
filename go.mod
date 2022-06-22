@@ -52,6 +52,7 @@ require (
 	github.com/syndtr/goleveldb v1.0.0
 	github.com/urfave/cli/v2 v2.4.0
 	github.com/vbauerster/mpb/v7 v7.4.1
+	github.com/viney-shih/go-lock v1.1.2 // indirect
 	github.com/xujiajun/nutsdb v0.8.0
 	go.uber.org/automaxprocs v1.4.0
 	golang.org/x/crypto v0.0.0-20210711020723-a769d52b0f97
