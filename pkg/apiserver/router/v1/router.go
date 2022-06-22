@@ -59,6 +59,7 @@ func RegisterRouters(r *chi.Mux, debugMode bool) {
 		AddRouter(apiV1Router, &FlavourRouter{})
 		AddRouter(apiV1Router, &RunRouter{})
 		AddRouter(apiV1Router, &PipelineRouter{})
+		AddRouter(apiV1Router, &ScheduleRouter{})
 		AddRouter(apiV1Router, &UserRouter{})
 		AddRouter(apiV1Router, &LinkRouter{})
 		AddRouter(apiV1Router, &PFSRouter{})
