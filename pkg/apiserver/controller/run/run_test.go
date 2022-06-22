@@ -25,7 +25,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database/dbinit"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/pipeline"
 )
 
@@ -49,6 +48,7 @@ func getMockRun1() models.Run {
 		UserName: MockRootUser,
 		FsID:     MockFsID1,
 		Status:   common.StatusRunPending,
+		RunYaml:  string(loadCase(runYamlPath)),
 	}
 	return run1
 }
@@ -60,6 +60,7 @@ func getMockRun1_3() models.Run {
 		UserName: MockRootUser,
 		FsID:     MockFsID1,
 		Status:   common.StatusRunRunning,
+		RunYaml:  string(loadCase(runYamlPath)),
 	}
 	return run1
 }
@@ -71,6 +72,7 @@ func getMockRun2() models.Run {
 		UserName: MockUserID2,
 		FsID:     MockFsID2,
 		Status:   common.StatusRunPending,
+		RunYaml:  string(loadCase(runYamlPath)),
 	}
 	return run2
 }
@@ -150,15 +152,11 @@ func TestCallback(t *testing.T) {
 	run1 := getMockRun1()
 	run1.ID, err = models.CreateRun(ctx.Logging(), &run1)
 	assert.Nil(t, err)
-	runtimeView := schema.RuntimeView{}
-	postProcessView := schema.PostProcessView{}
 	event1 := pipeline.WorkflowEvent{
 		Event: pipeline.WfEventRunUpdate,
 		Extra: map[string]interface{}{
-			common.WfEventKeyRunID:       run1.ID,
-			common.WfEventKeyStatus:      common.StatusRunRunning,
-			common.WfEventKeyView:        runtimeView,
-			common.WfEventKeyPostProcess: postProcessView,
+			common.WfEventKeyRunID:  run1.ID,
+			common.WfEventKeyStatus: common.StatusRunRunning,
 		},
 	}
 	f := UpdateRuntimeFunc

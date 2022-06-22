@@ -26,7 +26,8 @@ type ComponentView interface {
 // JobView is view of job info responded to user, while Job is for pipeline and job engine to process
 type JobView struct {
 	JobID       string            `json:"jobID"`
-	JobName     string            `json:"name"`
+	Name        string            `json:"name"`
+	StepName    string            `json:"-"`
 	Command     string            `json:"command"`
 	Parameters  map[string]string `json:"parameters"`
 	Env         map[string]string `json:"env"`
@@ -44,7 +45,7 @@ type JobView struct {
 }
 
 func (j JobView) GetComponentName() string {
-	return j.JobName
+	return j.StepName
 }
 
 func (j JobView) GetParentDagID() string {
@@ -57,7 +58,8 @@ func (j JobView) SetDeps(deps string) {
 
 type DagView struct {
 	DagID       string
-	DagName     string `json:"name"`
+	Name        string
+	DagName     string `json:"-"`
 	Deps        string
 	Parameters  map[string]string
 	Artifacts   Artifacts
@@ -70,7 +72,7 @@ type DagView struct {
 }
 
 func (d DagView) GetComponentName() string {
-	return d.DagName
+	return d.Name
 }
 
 func (d DagView) GetParentDagID() string {

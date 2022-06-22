@@ -24,8 +24,6 @@ import (
 	"fmt"
 	"strings"
 
-	. "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
-
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	. "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"

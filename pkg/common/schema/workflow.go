@@ -515,21 +515,29 @@ func (wfs *WorkflowSource) ProcessRuntimeComponents(components map[string]Compon
 
 				// 检查是否需要全局Cache替换（节点Cache字段优先级大于全局Cache字段）
 				componentCache, ok, err := unstructured.NestedFieldCopy(componentsMap, name, "cache")
-				if err != nil || !ok {
-					return fmt.Errorf("get componentCache failed")
+				if err != nil {
+					return fmt.Errorf("check componentCache failed")
 				}
-				componentCacheMap, ok := componentCache.(map[string]interface{})
-				if !ok {
-					return fmt.Errorf("get componentCacheMap failed")
+				componentCacheMap := map[string]interface{}{}
+				if ok {
+					componentCacheMap, ok = componentCache.(map[string]interface{})
+					if !ok {
+						return fmt.Errorf("get componentCacheMap failed")
+					}
 				}
+
 				globalCache, ok, err := unstructured.NestedFieldCopy(yamlMap, "cache")
-				if err != nil || !ok {
-					return fmt.Errorf("get globalCache failed")
+				if err != nil {
+					return fmt.Errorf("check globalCache failed")
 				}
-				globalCacheMap, ok := globalCache.(map[string]interface{})
-				if !ok {
-					return fmt.Errorf("get globalCacheMap failed")
+				globalCacheMap := map[string]interface{}{}
+				if ok {
+					globalCacheMap, ok = globalCache.(map[string]interface{})
+					if !ok {
+						return fmt.Errorf("get globalCacheMap failed")
+					}
 				}
+
 				if err := ProcessStepCacheByMap(&step.Cache, globalCacheMap, componentCacheMap); err != nil {
 					return err
 				}
@@ -560,12 +568,13 @@ func (wfs *WorkflowSource) GetComponentByFullName(fullName string) (Component, e
 		postComps[k] = v
 	}
 	comp2, err2 := getComponentRecursively(postComps, names)
-	if err1 != nil {
-		return comp1, nil
-	}
-	if err2 != nil {
+	if err2 == nil {
 		return comp2, nil
 	}
+	if err1 == nil {
+		return comp1, nil
+	}
+
 	return nil, fmt.Errorf("no component has fullName[%s]", fullName)
 }
 

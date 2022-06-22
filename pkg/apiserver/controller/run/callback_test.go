@@ -30,7 +30,7 @@ import (
 )
 
 const runtimePath = "./testcase/runtime.json"
-const runYaml = "name: myproject\n\ndocker_env: iregistry.baidu-int.com/bmlc/framework/paddle:2.0.2-gpu-cuda10.1-cudnn7\n\nentry_points:\n  main:\n    parameters:\n      test: \"111\"\n    command: \"echo {{test}}\"\n    env:\n      PF_JOB_QUEUE_NAME: abc-q1\n      PF_JOB_TYPE: vcjob\n      PF_JOB_MODE: Pod\n      PF_JOB_FLAVOUR: flavour1\n      PF_JOB_PRIORITY: HIGH\n    cache:\n      enable: false\n      max_expired_time: 600\n      fs_scope: \"./lalal\"\n  nomain:\n    parameters:\n      test: \"222\"\n    command: \"echo {{test}}\"\n    env:\n      PF_JOB_QUEUE_NAME: abc-q1\n      PF_JOB_TYPE: vcjob\n      PF_JOB_MODE: Pod\n      PF_JOB_FLAVOUR: flavour1\n      PF_JOB_PRIORITY: HIGH\n    cache:\n      enable: false\n      max_expired_time: 600\n      fs_scope: \"./lalal\"\ncache:\n  enable: true\n  max_expired_time: 300\n  fs_scope: \"./for_fsscope\"\n"
+const runYamlPath = "./testcase/run.yaml"
 
 func getMockRunWithoutRuntime() models.Run {
 	run1 := models.Run{
@@ -39,7 +39,7 @@ func getMockRunWithoutRuntime() models.Run {
 		UserName: MockRootUser,
 		FsID:     MockFsID1,
 		Status:   common.StatusRunRunning,
-		RunYaml:  runYaml,
+		RunYaml:  string(loadCase(runYamlPath)),
 	}
 	return run1
 }
@@ -64,12 +64,12 @@ func TestGetJobByRun(t *testing.T) {
 		ID:          "job-run-000059-main-b7a9a264",
 		RunID:       runID,
 		ParentDagID: "",
-		StepName:    "main",
+		StepName:    "post",
 	}
 	_, err = models.CreateRunJob(ctx.Logging(), &runJob)
 	assert.Nil(t, err)
 
-	jobView, err := GetJobByRun("job-run-000059-main-b7a9a264", "main")
+	jobView, err := GetJobByRun("job-run-000059-main-b7a9a264", "post")
 	assert.Nil(t, err)
 	assert.Equal(t, "job-run-000059-main-b7a9a264", jobView.JobID)
 }

@@ -218,7 +218,7 @@ func (rj *RunJob) Trans2JobView() schema.JobView {
 	}
 	return schema.JobView{
 		JobID:      rj.ID,
-		JobName:    rj.Name,
+		Name:       rj.Name,
 		Command:    rj.Command,
 		Parameters: newParameters,
 		Env:        newEnv,
@@ -252,7 +252,7 @@ func ParseRunJob(jobView *schema.JobView) RunJob {
 
 	return RunJob{
 		ID:           jobView.JobID,
-		Name:         jobView.JobName,
+		Name:         jobView.Name,
 		ParentDagID:  jobView.ParentDagID,
 		Command:      jobView.Command,
 		Parameters:   newParameters,

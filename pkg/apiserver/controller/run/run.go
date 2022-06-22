@@ -379,21 +379,29 @@ func processRunJsonComponents(components map[string]schema.Component, request *C
 
 				// 检查是否需要全局Cache替换（节点Cache字段优先级大于全局Cache字段）
 				componentCache, ok, err := unstructured.NestedFieldCopy(componentsMap, name, "cache")
-				if err != nil || !ok {
-					return fmt.Errorf("get componentCache failed")
+				if err != nil {
+					return fmt.Errorf("check componentCache failed")
 				}
-				componentCacheMap, ok := componentCache.(map[string]interface{})
-				if !ok {
-					return fmt.Errorf("get componentCacheMap failed")
+				componentCacheMap := map[string]interface{}{}
+				if ok {
+					componentCacheMap, ok = componentCache.(map[string]interface{})
+					if !ok {
+						return fmt.Errorf("get componentCacheMap failed")
+					}
 				}
+
 				globalCache, ok, err := unstructured.NestedFieldCopy(bodyMap, "cache")
-				if err != nil || !ok {
-					return fmt.Errorf("get globalCache failed")
+				if err != nil {
+					return fmt.Errorf("check globalCache failed")
 				}
-				globalCacheMap, ok := globalCache.(map[string]interface{})
-				if !ok {
-					return fmt.Errorf("get globalCacheMap failed")
+				globalCacheMap := map[string]interface{}{}
+				if ok {
+					globalCacheMap, ok = globalCache.(map[string]interface{})
+					if !ok {
+						return fmt.Errorf("get globalCacheMap failed")
+					}
 				}
+
 				if err := schema.ProcessStepCacheByMap(&step.Cache, globalCacheMap, componentCacheMap); err != nil {
 					return err
 				}
@@ -787,12 +795,7 @@ func RetryRun(ctx *logger.RequestContext, runID string) error {
 		ctx.Logging().Errorln(err.Error())
 		return err
 	}
-	// reset run steps
-	if err := resetRunSteps(&run); err != nil {
-		ctx.ErrorCode = common.InternalError
-		ctx.Logging().Errorf("resetRunSteps failed. err:%v\n", err)
-		return err
-	}
+
 	// resume
 	if err := resumeRun(run); err != nil {
 		ctx.Logging().Errorf("retry run[%s] failed resumeRun. run:%+v. error:%s\n",
@@ -851,7 +854,7 @@ func DeleteRun(ctx *logger.RequestContext, id string, request *DeleteRunRequest)
 
 	// 删除pipeline run outputAtf (只有Fs不为空，才需要清理artifact。因为不使用Fs时，不允许定义outputAtf)
 	if run.FsID != "" {
-		resourceHandler, err := pipeline.NewResourceHandler(id, run.FsID, ctx.Logging())
+		resourceHandler, err := pplcommon.NewResourceHandler(id, run.FsID, ctx.Logging())
 		if err != nil {
 			ctx.Logging().Errorf("delete run[%s] failed. Init handler failed. err: %v", id, err.Error())
 			ctx.ErrorCode = common.InternalError
@@ -950,39 +953,15 @@ func handleImageAndStartWf(run models.Run, isResume bool) error {
 			return updateRunStatusAndMsg(run.ID, common.StatusRunFailed, err.Error())
 		}
 		if !isResume {
-			err := models.UpdateRun(logEntry, run.ID,
-				models.Run{DockerEnv: run.WorkflowSource.DockerEnv, Status: common.StatusRunPending})
-			if err != nil {
-				return err
-			}
 			// start workflow with image url
 			wfPtr.Start()
 			logEntry.Debugf("workflow started, run:%+v", run)
 		} else {
-			// set runtime and restart
-			if err := wfPtr.SetWorkflowRuntime(run.Runtime, run.PostProcess); err != nil {
-				logEntry.Errorf("SetWorkflowRuntime for run[%s] failed. error:%v\n", run.ID, err)
-				return err
-			}
-			if len(run.Runtime) > 0 {
-				// 确保在run_job表有对应的记录时，run记录中的status字段不是pending，进而防止多次创建run_job记录
-				err := models.UpdateRun(logEntry, run.ID,
-					models.Run{DockerEnv: run.WorkflowSource.DockerEnv, Status: common.StatusRunRunning})
-				if err != nil {
-					return err
-				}
-			} else {
-				// 如果数据库中没有run_job记录，那么为防止Run为init状态，导致无法创建run_job记录，这里将Run的状态置为pending
-				err := models.UpdateRun(logEntry, run.ID,
-					models.Run{DockerEnv: run.WorkflowSource.DockerEnv, Status: common.StatusRunPending})
-				if err != nil {
-					return err
-				}
-			}
-			wfPtr.Restart()
+			wfPtr.Restart(run.Runtime, run.PostProcess)
 			logEntry.Debugf("workflow restarted, run:%+v", run)
 		}
-		return nil
+		return models.UpdateRun(logEntry, run.ID,
+			models.Run{DockerEnv: run.WorkflowSource.DockerEnv, Status: common.StatusRunPending})
 	} else {
 		imageIDs, err := models.ListImageIDsByFsID(logEntry, run.FsID)
 		if err != nil {
@@ -1019,45 +998,4 @@ func newWorkflowByRun(run models.Run) (*pipeline.Workflow, error) {
 		wfMap[run.ID] = wfPtr
 	}
 	return wfPtr, nil
-}
-
-func resetRunSteps(run *models.Run) error {
-	if err := resetRuntimeSteps(run.Runtime); err != nil {
-		err = fmt.Errorf("failed to retry run[%s], error: %v", run.ID, err)
-		logger.LoggerForRun(run.ID).Errorf(err.Error())
-		return err
-	}
-
-	if err := resetRuntimeSteps(run.PostProcess); err != nil {
-		err = fmt.Errorf("failed to retry run[%s], error: %v", run.ID, err)
-		logger.LoggerForRun(run.ID).Errorf(err.Error())
-		return err
-	}
-
-	if err := run.Encode(); err != nil {
-		logger.LoggerForRun(run.ID).Errorf("reset run steps encode failure. err: %v", err)
-		return err
-	}
-	return models.UpdateRun(logger.LoggerForRun(run.ID), run.ID, *run)
-}
-
-func resetRuntimeSteps(runtime map[string]schema.JobView) error {
-	for stepName, jobView := range runtime {
-		if jobView.Status == schema.StatusJobCancelled ||
-			jobView.Status == schema.StatusJobFailed ||
-			jobView.Status == schema.StatusJobTerminated {
-			jobView.JobID = ""
-			jobView.Status = ""
-			jobView.StartTime = ""
-			jobView.EndTime = ""
-
-			runtime[stepName] = jobView
-		}
-		if jobView.Status == schema.StatusJobRunning ||
-			jobView.Status == schema.StatusJobTerminating {
-			err := fmt.Errorf("step[%s] has invalid status[%s]", stepName, jobView.Status)
-			return err
-		}
-	}
-	return nil
 }
