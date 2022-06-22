@@ -144,12 +144,14 @@ func (p *Parser) ParseNodes(entryPoints map[string]interface{}) (map[string]Comp
 			if err := p.ParseDag(nodeMap, &dagNode); err != nil {
 				return nil, err
 			}
+			dagNode.name = name
 			nodes[name] = &dagNode
 		} else {
 			stepNode := WorkflowSourceStep{}
 			if err := p.ParseStep(nodeMap, &stepNode); err != nil {
 				return nil, err
 			}
+			stepNode.name = name
 			nodes[name] = &stepNode
 		}
 	}
@@ -196,36 +198,52 @@ func (p *Parser) ParseStep(params map[string]interface{}, step *WorkflowSourceSt
 			for atfKey, atfValue := range value {
 				switch atfKey {
 				case "output":
-					atfValue, ok := atfValue.([]string)
+					atfValue, ok := atfValue.([]interface{})
 					if !ok {
 						return fmt.Errorf("[artifacts.output] in step should be list of string type")
 					}
 					atfMap := map[string]string{}
 					for _, atfName := range atfValue {
+						atfName, ok := atfName.(string)
+						if !ok {
+							return fmt.Errorf("[artifacts.output] in step should be list of string type")
+						}
 						atfMap[atfName] = ""
 					}
 					artifacts.Output = atfMap
 				case "input":
-					atfValue, ok := atfValue.(map[string]string)
+					atfValue, ok := atfValue.(map[string]interface{})
 					if !ok {
-						return fmt.Errorf("[artifacts.output] in step should be map[string]string type")
+						return fmt.Errorf("[artifacts.input] in step should be map[string]string type")
 					}
-					artifacts.Input = atfValue
+					atfMap := map[string]string{}
+					for k, v := range atfValue {
+						v, ok := v.(string)
+						if !ok {
+							return fmt.Errorf("[artifacts.input] in step should be map[string]string type")
+						}
+						atfMap[k] = v
+					}
+					artifacts.Input = atfMap
 				default:
 					return fmt.Errorf("[artifacts] of step has no attribute [%s]", atfKey)
 				}
 			}
 			step.Artifacts = artifacts
 		case "env":
-			value, ok := value.(map[string]string)
+			value, ok := value.(map[string]interface{})
 			if !ok {
-				return fmt.Errorf("[artifacts] in step should be map type")
+				return fmt.Errorf("[env] in step should be map type")
 			}
 			if step.Env == nil {
 				step.Env = map[string]string{}
 			}
 			// 设置在env里的变量优先级最高，如果在Step里设置了如queue、flavour等需要填充到env的字段，会直接被env中对应的值覆盖
 			for envKey, envValue := range value {
+				envValue, ok := envValue.(string)
+				if !ok {
+					return fmt.Errorf("value of [env] should be string type")
+				}
 				step.Env[envKey] = envValue
 			}
 		case "dockerEnv":
@@ -247,11 +265,24 @@ func (p *Parser) ParseStep(params map[string]interface{}, step *WorkflowSourceSt
 			}
 			step.Cache = cache
 		case "reference":
-			value, ok := value.(string)
+			value, ok := value.(map[string]interface{})
 			if !ok {
-				return fmt.Errorf("[reference] in step should be string type")
+				return fmt.Errorf("[reference] in step should be map type")
 			}
-			step.Reference = value
+			reference := Reference{}
+			for refKey, refValue := range value {
+				switch refKey {
+				case "component":
+					refValue, ok := refValue.(string)
+					if !ok {
+						return fmt.Errorf("[reference.component] in step should be string type")
+					}
+					reference.Component = refValue
+				default:
+					return fmt.Errorf("[reference] of step has no attribute [%s]", refKey)
+				}
+			}
+			step.Reference = reference
 		case "type":
 			value, ok := value.(string)
 			if !ok {
@@ -372,17 +403,33 @@ func (p *Parser) ParseDag(params map[string]interface{}, dagNode *WorkflowSource
 			for atfKey, atfValue := range value {
 				switch atfKey {
 				case "output":
-					atfValue, ok := atfValue.(map[string]string)
+					atfValue, ok := atfValue.(map[string]interface{})
 					if !ok {
 						return fmt.Errorf("[artifacts.output] in dag should be map[string]string type")
 					}
-					artifacts.Output = atfValue
+					atfMap := map[string]string{}
+					for k, v := range atfValue {
+						v, ok := v.(string)
+						if !ok {
+							return fmt.Errorf("[artifacts.output] in dag should be map[string]string type")
+						}
+						atfMap[k] = v
+					}
+					artifacts.Output = atfMap
 				case "input":
-					atfValue, ok := atfValue.(map[string]string)
+					atfValue, ok := atfValue.(map[string]interface{})
 					if !ok {
 						return fmt.Errorf("[artifacts.output] in dag should be map[string]string type")
 					}
-					artifacts.Input = atfValue
+					atfMap := map[string]string{}
+					for k, v := range atfValue {
+						v, ok := v.(string)
+						if !ok {
+							return fmt.Errorf("[artifacts.output] in dag should be map[string]string type")
+						}
+						atfMap[k] = v
+					}
+					artifacts.Input = atfMap
 				default:
 					return fmt.Errorf("[artifacts] of dag has no attribute [%s]", atfKey)
 				}

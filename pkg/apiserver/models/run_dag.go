@@ -84,7 +84,7 @@ func ParseRunDag(dagView *schema.DagView) RunDag {
 
 	return RunDag{
 		ID:           dagView.DagID,
-		Name:         dagView.DagName,
+		Name:         dagView.Name,
 		ParentDagID:  dagView.ParentDagID,
 		Parameters:   newParameters,
 		Artifacts:    dagView.Artifacts,
@@ -105,7 +105,7 @@ func (rd *RunDag) Trans2DagView() schema.DagView {
 	}
 	return schema.DagView{
 		DagID:       rd.ID,
-		DagName:     rd.Name,
+		Name:        rd.Name,
 		Parameters:  newParameters,
 		StartTime:   rd.ActivateTime,
 		EndTime:     newEndTime,

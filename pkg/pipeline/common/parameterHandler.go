@@ -21,9 +21,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/mitchellh/mapstructure"
-
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/mitchellh/mapstructure"
 )
 
 type DictParam struct {
@@ -229,7 +228,7 @@ func (s *StepParamChecker) Check(currentComponent string) error {
 		}
 
 		// 6. reference 校验
-		if step.Reference != "" {
+		if step.Reference.Component != "" {
 			if err := s.CheckRefComponent(currentComponent); err != nil {
 				return err
 			}
@@ -264,9 +263,9 @@ func (s *StepParamChecker) checkParamValue(compName string, paramName string, pa
 		return fmt.Errorf("no component in EntryPoints named %s", compName)
 	}
 	if step, ok := comp.(*schema.WorkflowSourceStep); ok {
-		if step.Reference != "" {
+		if step.Reference.Component != "" {
 			// 对reference节点进行检查
-			template, ok := s.CompTempletes[step.Reference]
+			template, ok := s.CompTempletes[step.Reference.Component]
 			if !ok {
 				return fmt.Errorf("no component named %s", compName)
 			}
@@ -285,7 +284,7 @@ func (s *StepParamChecker) checkParamValue(compName string, paramName string, pa
 					if err := dictParam.From(referedParam); err != nil {
 						return fmt.Errorf("invalid dict parameter[%s]", param)
 					}
-					if _, err := CheckDictParam(dictParam, step.Reference, param); err != nil {
+					if _, err := CheckDictParam(dictParam, step.Reference.Component, param); err != nil {
 						return fmt.Errorf("parameters in step with reference check dict param in refered param failed, error: %s", err.Error())
 					}
 				}

@@ -193,6 +193,7 @@ func createDatabaseTables(db *gorm.DB) error {
 		&models.User{},
 		&models.Run{},
 		&models.RunJob{},
+		&models.RunDag{},
 		&models.Queue{},
 		&models.Flavour{},
 		&models.Grant{},

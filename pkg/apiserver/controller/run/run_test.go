@@ -40,6 +40,8 @@ const (
 	MockRunName2 = "run-name_2"
 	MockUserID2  = "user-id_2"
 	MockFsID2    = "fs-id_2"
+
+	runDagYamlPath = "./testcase/run_dag.yaml"
 )
 
 func getMockRun1() models.Run {
@@ -49,6 +51,7 @@ func getMockRun1() models.Run {
 		UserName: MockRootUser,
 		FsID:     MockFsID1,
 		Status:   common.StatusRunPending,
+		RunYaml:  string(loadCase(runYamlPath)),
 	}
 	return run1
 }
@@ -60,6 +63,7 @@ func getMockRun1_3() models.Run {
 		UserName: MockRootUser,
 		FsID:     MockFsID1,
 		Status:   common.StatusRunRunning,
+		RunYaml:  string(loadCase(runYamlPath)),
 	}
 	return run1
 }
@@ -71,8 +75,31 @@ func getMockRun2() models.Run {
 		UserName: MockUserID2,
 		FsID:     MockFsID2,
 		Status:   common.StatusRunPending,
+		RunYaml:  string(loadCase(runYamlPath)),
 	}
 	return run2
+}
+
+func getMockFullRun() (models.Run, error) {
+	runYaml := loadCase(runDagYamlPath)
+	wfs, err := schema.GetWorkflowSource(runYaml)
+	if err != nil {
+		return models.Run{}, err
+	}
+	run := models.Run{
+		ID:             "000666",
+		Name:           "full_run",
+		Source:         "run.yaml",
+		UserName:       "root",
+		FsID:           "fs-root-cyang14",
+		FsName:         "cyang14",
+		Description:    "desc",
+		Parameters:     map[string]interface{}{},
+		RunYaml:        string(runYaml),
+		WorkflowSource: wfs,
+		Status:         common.StatusRunInitiating,
+	}
+	return run, nil
 }
 
 func TestListRunSuccess(t *testing.T) {
@@ -150,15 +177,11 @@ func TestCallback(t *testing.T) {
 	run1 := getMockRun1()
 	run1.ID, err = models.CreateRun(ctx.Logging(), &run1)
 	assert.Nil(t, err)
-	runtimeView := schema.RuntimeView{}
-	postProcessView := schema.PostProcessView{}
 	event1 := pipeline.WorkflowEvent{
 		Event: pipeline.WfEventRunUpdate,
 		Extra: map[string]interface{}{
-			common.WfEventKeyRunID:       run1.ID,
-			common.WfEventKeyStatus:      common.StatusRunRunning,
-			common.WfEventKeyView:        runtimeView,
-			common.WfEventKeyPostProcess: postProcessView,
+			common.WfEventKeyRunID:  run1.ID,
+			common.WfEventKeyStatus: common.StatusRunRunning,
 		},
 	}
 	f := UpdateRuntimeFunc
@@ -177,4 +200,14 @@ func TestCallback(t *testing.T) {
 	assert.Nil(t, err)
 	assert.False(t, updatedRun.ActivatedAt.Valid)
 	assert.Empty(t, updatedRun.ActivateTime)
+}
+
+func TestNewWorkflowByRun(t *testing.T) {
+	dbinit.InitMockDB()
+	var err error
+	// ctx := &logger.RequestContext{UserName: MockRootUser}
+	run, err := getMockFullRun()
+	assert.Nil(t, err)
+	_, err = newWorkflowByRun(run)
+	assert.Nil(t, err)
 }

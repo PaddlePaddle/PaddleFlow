@@ -42,7 +42,6 @@ func TestcalculateFingerprint(t *testing.T) {
 
 	firstCacheKey := conservativeFirstCacheKey{
 		DockerEnv:      "test:1",
-		StepName:       "predict",
 		Command:        "echo 123",
 		Env:            map[string]string{"name": "xiaodu", "value": "123"},
 		Parameters:     map[string]string{"name": "xiaodu", "value": "456"},
@@ -57,7 +56,6 @@ func TestcalculateFingerprint(t *testing.T) {
 	// 测试参数顺序是否会导致fingerPrint 不一致
 	firstCacheKey2 := conservativeFirstCacheKey{
 		DockerEnv:      "test:1",
-		StepName:       "predict",
 		Command:        "echo 123",
 		Env:            map[string]string{"value": "123", "name": "xiaodu"},
 		Parameters:     map[string]string{"name": "xiaodu", "value": "456"},
@@ -95,7 +93,7 @@ func mockBaseJob() BaseJob {
 		"num":        "1200",
 	}
 	return BaseJob{
-		Id:         "1234",
+		ID:         "1234",
 		Name:       "run1-predict",
 		Command:    "python3 predict.py /class/model",
 		Parameters: map[string]string{"epoch": "1", "batch_size": "128"},
@@ -212,7 +210,6 @@ func TestGenerateFirstCacheKey(t *testing.T) {
 	assert.Equal(t, cacheKey.Parameters, map[string]string{"epoch": "1", "batch_size": "128"})
 	assert.Equal(t, cacheKey.Env, map[string]string{"num": "1200"})
 	assert.Equal(t, cacheKey.Command, "python3 predict.py /class/model")
-	assert.Equal(t, cacheKey.StepName, "predict")
 	assert.Equal(t, cacheKey.InputArtifacts, arts.Input)
 	assert.Equal(t, cacheKey.OutputArtifacts, arts.Output)
 }

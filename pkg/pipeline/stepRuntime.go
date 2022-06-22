@@ -693,7 +693,7 @@ func (srt *StepRuntime) newJobView(msg string) schema.JobView {
 
 	view := schema.JobView{
 		JobID:       job.ID,
-		JobName:     job.Name,
+		Name:        job.Name,
 		Command:     job.Command,
 		Parameters:  params,
 		Env:         job.Env,
