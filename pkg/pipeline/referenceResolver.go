@@ -36,12 +36,11 @@ func (rr *referenceSolver) resolveComponentReference(component schema.Component)
 	// 引用的合法性由 parser 模块保证，因此，此处不在进行合法行校验
 
 	// 当前，reference 会被解析成 WorkflowStep, 所以如果不能转成 WorkflowStep, 则必然没有 referenece 字段
-	_, ok := component.(*schema.WorkflowSourceStep)
+	step, ok := component.(*schema.WorkflowSourceStep)
 	if !ok {
 		return component, nil
 	}
 
-	step := component.(*schema.WorkflowSourceStep)
 	if step.Reference.Component == "" {
 		return component, nil
 	}

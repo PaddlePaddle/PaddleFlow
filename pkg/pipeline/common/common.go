@@ -48,6 +48,7 @@ func GetArtifactContent(artPath string, maxSize int, fsID string, logger *logrus
 		err = fmt.Errorf("failed to get the content of artifact by path[%s]: "+
 			"maybe it's an directory or it is too large[>= %d]",
 			artPath, maxSize)
+		return "", err
 	}
 
 	content, err := fsHandler.ReadFsFile(artPath)
