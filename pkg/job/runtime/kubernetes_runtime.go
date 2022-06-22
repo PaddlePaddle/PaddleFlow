@@ -39,6 +39,7 @@ import (
 	"volcano.sh/apis/pkg/apis/helpers"
 	schedulingv1beta1 "volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
@@ -59,6 +60,14 @@ func NewKubeRuntime(cluster schema.Cluster) RuntimeService {
 		cluster: &cluster,
 	}
 	return kr
+}
+
+func getFileSystem(jobConf schema.Conf, tasks []models.Member) []schema.FileSystem {
+	fileSystems := jobConf.GetAllFileSystem()
+	for _, task := range tasks {
+		fileSystems = append(fileSystems, task.Conf.GetAllFileSystem()...)
+	}
+	return fileSystems
 }
 
 func (kr *KubeRuntime) Name() string {
@@ -118,13 +127,16 @@ func (kr *KubeRuntime) Init() error {
 func (kr *KubeRuntime) SubmitJob(jobInfo *api.PFJob) error {
 	log.Infof("submit job[%v] to cluster[%s] queue[%s]", jobInfo.ID, kr.cluster.ID, jobInfo.QueueID)
 	// prepare kubernetes storage
-	if len(jobInfo.FSID) != 0 {
-		pvName, err := kr.CreatePV(jobInfo.Namespace, jobInfo.FSID, jobInfo.UserName)
+	jobFileSystems := getFileSystem(jobInfo.Conf, jobInfo.Tasks)
+	for _, fs := range jobFileSystems {
+		fsID := common.ID(jobInfo.UserName, fs.Name)
+		pvName, err := kr.CreatePV(jobInfo.Namespace, fsID)
 		if err != nil {
 			log.Errorf("create pv for job[%s] failed, err: %v", jobInfo.ID, err)
 			return err
 		}
-		err = kr.CreatePVC(jobInfo.Namespace, jobInfo.FSID, pvName)
+		log.Infof("SubmitJob CreatePV fsID=%s pvName=%s", fsID, pvName)
+		err = kr.CreatePVC(jobInfo.Namespace, fsID, pvName)
 		if err != nil {
 			log.Errorf("create pvc for job[%s] failed, err: %v", jobInfo.ID, err)
 			return err
@@ -525,12 +537,12 @@ func (kr *KubeRuntime) DeleteObject(namespace, name string, gvk k8sschema.GroupV
 	return nil
 }
 
-func (kr *KubeRuntime) CreatePV(namespace, fsId, userName string) (string, error) {
+func (kr *KubeRuntime) CreatePV(namespace, fsId string) (string, error) {
 	pv := config.DefaultPV
 	pv.Name = schema.ConcatenatePVName(namespace, fsId)
 	// check pv existence
 	if _, err := kr.getPersistentVolume(pv.Name, metav1.GetOptions{}); err == nil {
-		return "", nil
+		return pv.Name, nil
 	} else if !k8serrors.IsNotFound(err) {
 		return "", err
 	}

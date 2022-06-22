@@ -27,10 +27,11 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	api "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/fs"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 // createFsMount handles requests of creating filesystem mount record
@@ -63,7 +64,7 @@ func (pr *PFSRouter) createFsMount(w http.ResponseWriter, r *http.Request) {
 	fsID := common.ID(req.Username, req.FsName)
 	mountID := api.GetMountID(req.ClusterID, req.NodeName, req.MountPoint)
 
-	fsMount := &models.FsMount{
+	fsMount := &model.FsMount{
 		FsID:       fsID,
 		MountPoint: req.MountPoint,
 		MountID:    mountID,
@@ -89,7 +90,7 @@ func (pr *PFSRouter) createFsMount(w http.ResponseWriter, r *http.Request) {
 	common.RenderStatus(w, http.StatusCreated)
 }
 
-func validateCreateMount(ctx *logger.RequestContext, req *api.CreateMountRequest, fsMount *models.FsMount) error {
+func validateCreateMount(ctx *logger.RequestContext, req *api.CreateMountRequest, fsMount *model.FsMount) error {
 	validate := validator.New()
 	err := validate.Struct(req)
 	if err != nil {
@@ -98,7 +99,7 @@ func validateCreateMount(ctx *logger.RequestContext, req *api.CreateMountRequest
 			return err
 		}
 	}
-	result, err := fsMount.GetMount(fsMount)
+	result, err := storage.FsMountStore.GetMount(fsMount)
 	if result != nil {
 		ctx.ErrorCode = common.InvalidHTTPRequest
 		return fmt.Errorf("mount path exist")
@@ -178,7 +179,7 @@ func validateListMount(ctx *logger.RequestContext, req *api.ListMountRequest) er
 	return nil
 }
 
-func getListMountResult(fsMounts []models.FsMount, nextMarker, marker string) *api.ListMountResponse {
+func getListMountResult(fsMounts []model.FsMount, nextMarker, marker string) *api.ListMountResponse {
 	var fsMountLists []*api.MountResponse
 	for _, fsMount := range fsMounts {
 		FsList := &api.MountResponse{

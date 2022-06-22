@@ -20,41 +20,23 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	log "github.com/sirupsen/logrus"
+	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
+
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 )
 
 const (
-	QueryEqualWithParam = " (%s = ?) "
-	QueryLess           = " (%s <= %s) "
-	QueryGreater        = " (%s >= %d) "
-	QueryLikeWithParam  = " (%s LIKE ?) "
-	QueryInWithParam    = " (%s IN (?)) "
-	QueryNotInWithParam = " (%s NOT IN (?)) "
-	QueryIsNull         = " (%s IS NULL) "
-	QueryAnd            = " AND "
-	QueryOr             = " OR "
-
-	CreatedAt     = "created_at"
-	UpdatedAt     = "updated_at"
-	Type          = "type"
-	ServerAddress = "server_address"
-	State         = "state"
-	ID            = "id"
-	FsID          = "fs_id"
-	FsCacheID     = "cache_id"
-	FsPath        = "fs_path"
-	Address       = "address"
-	UserName      = "user_name"
-	FsName        = "name"
-	GrantFsType   = "fs"
-
-	ASC  = "asc"
-	DESC = "desc"
-
-	MAXListFileSystems = 1000
-
-	FsPrefix  = "fs-"
-	FsNameNum = 8
+	CreatedAt   = "created_at"
+	UpdatedAt   = "updated_at"
+	Type        = "type"
+	ID          = "id"
+	FsID        = "fs_id"
+	UserName    = "user_name"
+	FsName      = "name"
+	GrantFsType = "fs"
 
 	TimeFormat = "2006-01-02 15:04:05"
 )
@@ -73,4 +55,35 @@ func (m *Model) BeforeCreate(tx *gorm.DB) error {
 
 	m.ID = uuid.NewString()
 	return nil
+}
+
+func initMockDB() {
+	// github.com/mattn/go-sqlite3
+	db, err := gorm.Open(sqlite.Open("file::memory:"), &gorm.Config{
+		// print sql
+		Logger: logger.Default.LogMode(logger.Info),
+	})
+	if err != nil {
+		log.Fatalf("The fake DB doesn't create successfully. Fail fast. error: %v", err)
+	}
+	// Create tables
+	_ = db.AutoMigrate(
+		&Pipeline{},
+		&PipelineDetail{},
+		&Schedule{},
+		&RunCache{},
+		&ArtifactEvent{},
+		&User{},
+		&Run{},
+		&RunJob{},
+		&Queue{},
+		&Flavour{},
+		&Grant{},
+		&Job{},
+		&JobTask{},
+		&JobLabel{},
+		&ClusterInfo{},
+		&Image{},
+	)
+	database.DB = db
 }
