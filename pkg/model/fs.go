@@ -18,6 +18,7 @@ package model
 
 import (
 	"encoding/json"
+
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 )

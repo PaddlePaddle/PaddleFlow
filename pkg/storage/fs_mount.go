@@ -18,8 +18,10 @@ package storage
 
 import (
 	"fmt"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
+
 	"gorm.io/gorm"
+
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
 
 type FsMountStoreInterface interface {

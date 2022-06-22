@@ -19,12 +19,12 @@ package location_awareness
 import (
 	"crypto/md5"
 	"encoding/hex"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database/dbinit"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
