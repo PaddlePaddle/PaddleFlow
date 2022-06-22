@@ -176,3 +176,24 @@ func TestCallback(t *testing.T) {
 	assert.False(t, updatedRun.ActivatedAt.Valid)
 	assert.Empty(t, updatedRun.ActivateTime)
 }
+
+func TestNewWorkflowByRun(t *testing.T) {
+	dbinit.InitMockDB()
+	var err error
+	ctx := &logger.RequestContext{UserName: MockRootUser}
+	run1 := getMockRun1()
+	run1.ID, err = models.CreateRun(ctx.Logging(), &run1)
+
+	// test non-admin user no access to other users' run
+	ctxOtherNonAdmin := &logger.RequestContext{UserName: "non-admin"}
+	_, err = GetRunByID(ctxOtherNonAdmin, run1.ID)
+	assert.NotNil(t, err)
+	assert.Equal(t, common.AccessDenied, ctxOtherNonAdmin.ErrorCode)
+	assert.Equal(t, common.NoAccessError("non-admin", common.ResourceTypeRun, run1.ID).Error(), err.Error())
+
+	// test no record
+	_, err = GetRunByID(ctx, "run-id_non_existed")
+	assert.NotNil(t, err)
+	assert.Equal(t, common.RunNotFound, ctx.ErrorCode)
+	assert.Equal(t, common.NotFoundError(common.ResourceTypeRun, "run-id_non_existed").Error(), err.Error())
+}

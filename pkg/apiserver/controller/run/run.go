@@ -364,7 +364,7 @@ func processRunJsonComponents(components map[string]schema.Component, request *C
 				step.Parameters = map[string]interface{}{}
 			}
 			// Reference节点无需替换
-			if step.Reference == "" {
+			if step.Reference.Component == "" {
 				// 对于每一个全局环境变量，检查节点是否有设置对应环境变量，如果没有则使用全局的
 				for globalKey, globalValue := range request.Env {
 					value, ok := step.Env[globalKey]
