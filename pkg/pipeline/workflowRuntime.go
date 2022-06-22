@@ -43,7 +43,6 @@ type WorkflowRuntime struct {
 	scheduleLock sync.Mutex
 }
 
-// TODO: 将创建 Step 的逻辑迁移至此处，以合理的设置 step 的ctx，和 nodeType 等属性
 func NewWorkflowRuntime(rc *runConfig) *WorkflowRuntime {
 	entryCtx, entryCtxCancel := context.WithCancel(context.Background())
 	postCtx, postCtxCancel := context.WithCancel(context.Background())
@@ -73,12 +72,6 @@ func NewWorkflowRuntime(rc *runConfig) *WorkflowRuntime {
 	return wfr
 }
 
-// 根据 runtimeview 来实例化 WorkflowRuntime, 主要用于 Restart 或者 Resume 的时候调用
-// TODO:
-func NewWorkflowRuntimeWithRuntimeView(view schema.RuntimeView) *WorkflowRuntime {
-	return &WorkflowRuntime{}
-}
-
 // 运行
 func (wfr *WorkflowRuntime) Start() error {
 	defer wfr.scheduleLock.Unlock()
@@ -86,7 +79,7 @@ func (wfr *WorkflowRuntime) Start() error {
 
 	// 处理正式运行前，便收到了 Stop 信号的场景
 	if wfr.status == common.StatusRunTerminating || wfr.IsCompleted() {
-		wfr.logger.Warningln("the status of run is %s, so it won't start run", wfr.status)
+		wfr.logger.Warningf("the status of run is %s, so it won't start run", wfr.status)
 	} else {
 		wfr.status = common.StatusRunRunning
 		wfr.callback("begin to running, update status to running")
@@ -337,8 +330,6 @@ func (wfr *WorkflowRuntime) callback(msg string) {
 		common.WfEventKeyRunID:  wfr.runID,
 		common.WfEventKeyStatus: wfr.status,
 	}
-
-	// TODO: 梳理这个 message 信息
 
 	wfEvent := NewWorkflowEvent(WfEventRunUpdate, msg, extra)
 	for i := 0; i < 3; i++ {

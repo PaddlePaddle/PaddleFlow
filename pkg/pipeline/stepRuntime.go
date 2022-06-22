@@ -51,7 +51,7 @@ func generateJobName(runID, stepName string, seq int) string {
 		return fmt.Sprintf("%s-%s", runID, stepName)
 	}
 
-	return fmt.Sprintf("%s-%s-%s", runID, stepName, seq)
+	return fmt.Sprintf("%s-%s-%d", runID, stepName, seq)
 }
 
 func NewStepRuntime(fullName string, step *schema.WorkflowSourceStep, seq int, ctx context.Context,
@@ -106,7 +106,7 @@ func (srt *StepRuntime) syncToApiServerAndParent(wv WfEventValue, view schema.Co
 }
 
 func (srt *StepRuntime) processStartAbnormalStatus(msg string, status RuntimeStatus) {
-	// TODO: 1、更新节点状态， 2、生成 event 将相关信息同步至父节点
+	// 1、更新节点状态， 2、生成 event 将相关信息同步至父节点
 	srt.updateStatus(status)
 
 	view := srt.newJobView(msg)
@@ -195,7 +195,7 @@ func (srt *StepRuntime) restartWithRunning(view schema.JobView) (err error) {
 }
 
 func (srt *StepRuntime) restartWithAbnormalStatus(view schema.JobView) {
-	srt.logger.Info("restart step[%s]", srt.name)
+	srt.logger.Infof("restart step[%s]", srt.name)
 	srt.updateStatus(StatusRunttimePending)
 
 	srt.Start()
@@ -206,15 +206,23 @@ func (srt *StepRuntime) Listen() {
 	for {
 		select {
 		case event := <-srt.receiveEventChildren:
-			srt.processEventFromJob(event)
 			if srt.done {
 				return
 			}
+			srt.processEventFromJob(event)
 		case <-srt.ctx.Done():
+			if srt.done {
+				return
+			}
 			srt.stop("receive stop signall")
-			return
 		case <-srt.failureOpitonsCtx.Done():
+			if srt.done {
+				return
+			}
 			srt.stop("stop by failureOptions, some component has been failed")
+		}
+
+		if srt.done {
 			return
 		}
 	}
@@ -519,7 +527,7 @@ func (srt *StepRuntime) Execute() {
 		cachedFound, err := srt.checkCached()
 		if err != nil {
 			logMsg = fmt.Sprintf("check cache for step[%s] with runid[%s] failed: [%s]", srt.name, srt.runID, err.Error())
-			srt.logger.Errorln(logMsg)
+			srt.logger.Errorf(logMsg)
 			srt.processStartAbnormalStatus(logMsg, schema.StatusJobFailed)
 			return
 		}
@@ -529,7 +537,7 @@ func (srt *StepRuntime) Execute() {
 				jobView, err := srt.callbacks.GetJobCb(srt.CacheJobID, srt.componentFullName)
 				if err != nil {
 					// TODO: 此时是否应该继续运行，创建一个新的Job？
-					srt.logger.Errorln("get cache job info for step[%s] failed: %s", srt.name, err.Error())
+					srt.logger.Errorf("get cache job info for step[%s] failed: %s", srt.name, err.Error())
 					srt.processStartAbnormalStatus(err.Error(), schema.StatusJobFailed)
 					break
 				}
@@ -642,7 +650,6 @@ func (srt *StepRuntime) stop(msg string) {
 
 // 步骤监控
 func (srt *StepRuntime) processEventFromJob(event WorkflowEvent) {
-	// TODO: 在生成事件时需要调用回调函数将相关信息记录至数据库中
 	logMsg := fmt.Sprintf("receive event from job[%s] of step[%s]: \n%v",
 		srt.job.(*PaddleFlowJob).ID, srt.name, event)
 	srt.logger.Infof(logMsg)

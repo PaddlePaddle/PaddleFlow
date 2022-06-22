@@ -25,13 +25,14 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/fs"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
-	. "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
+	// . "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 )
 
-func TestcalculateFingerprint(t *testing.T) {
+func TestCalculateFingerprint(t *testing.T) {
 	cacheKey := map[string]string{
 		"name":    "xiaodu",
 		"command": "echo 124",
@@ -101,7 +102,6 @@ func mockBaseJob() BaseJob {
 		StartTime:  "2021-11-11:00:00:11",
 		EndTime:    "2021-11-21:00:00:11",
 		Status:     "init",
-		Deps:       "dataProcess",
 		Artifacts:  arts,
 	}
 }
@@ -126,33 +126,22 @@ func mockWorkflowSourceStep() schema.WorkflowSourceStep {
 	}
 }
 
-func mockWorkflowRunTime() *WorkflowRuntime {
-	extra := map[string]string{
-		WfExtraInfoKeyFsID: "fs-root-sftpahz1",
-	}
-
-	baseWorkflow := BaseWorkflow{
-		Extra: extra,
-	}
-	workflow := &Workflow{
-		BaseWorkflow: baseWorkflow,
-	}
-
-	return &WorkflowRuntime{
-		wf: workflow,
+func mockRunConfigWithLogger() *runConfig {
+	return &runConfig{
+		logger: logger.LoggerForRun("run-0000"),
 	}
 }
 
-func mockStep() Step {
-	wfs := mockWorkflowSourceStep()
+func mockStep() StepRuntime {
 	job := mockPaddleFlowJob()
-	wfr := mockWorkflowRunTime()
+	bcr := baseComponentRuntime{
+		name:      "predict.defe-1",
+		runConfig: mockRunConfigWithLogger(),
+	}
 
-	return Step{
-		name: "predict",
-		wfr:  wfr,
-		info: &wfs,
-		job:  &job,
+	return StepRuntime{
+		baseComponentRuntime: &bcr,
+		job:                  &job,
 	}
 }
 
@@ -166,6 +155,7 @@ func mockCacheConfig() schema.Cache {
 
 func TestNewAggressiveCacheCalculator(t *testing.T) {
 	step := mockStep()
+	// fmt.Println(step)
 	cacheConfig := mockCacheConfig()
 
 	calculator, err := NewAggressiveCacheCalculator(step, cacheConfig)
