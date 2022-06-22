@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package pipeline
+package common
 
 import (
 	"encoding/hex"
@@ -29,7 +29,6 @@ import (
 )
 
 // 获取制定Artifact的内容
-// TODO: 作为 ResourceHandler 的成员函数
 func GetArtifactContent(artPath string, maxSize int, fsID string, logger *logrus.Entry) (string, error) {
 	fsHandler, err := handler.NewFsHandlerWithServer(fsID, logger)
 	if err != nil {
@@ -49,6 +48,7 @@ func GetArtifactContent(artPath string, maxSize int, fsID string, logger *logrus
 		err = fmt.Errorf("failed to get the content of artifact by path[%s]: "+
 			"maybe it's an directory or it is too large[>= %d]",
 			artPath, maxSize)
+		return "", err
 	}
 
 	content, err := fsHandler.ReadFsFile(artPath)
@@ -76,7 +76,7 @@ func GetOutputArtifactEnvName(atfName string) string {
 	return "PF_OUTPUT_ARTIFACT_" + strings.ToUpper(atfName)
 }
 
-func topologicalSort(components map[string]schema.Component) ([]string, error) {
+func TopologicalSort(components map[string]schema.Component) ([]string, error) {
 	// unsorted: unsorted graph
 	// if we have dag:
 	//     1 -> 2 -> 3

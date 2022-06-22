@@ -75,6 +75,11 @@ type componentRuntime interface {
 	getComponent() schema.Component
 	getFullName() string
 	getName() string
+	getSeq() int
+
+	Start()
+
+	// TODO: 考虑将 Stop, Restart 等函数加入这个接口中？
 }
 
 // Run 的相关配置，其信息来源有以下几种:
@@ -183,7 +188,7 @@ func NewBaseComponentRuntime(fullname string, component schema.Component, seq in
 
 	isv := NewInnerSolver(component, fullname, config)
 	cr.innerSolver = isv
-	cr.setSysParams()
+
 	return cr
 }
 
@@ -325,4 +330,13 @@ func (crt *baseComponentRuntime) getFullName() string {
 
 func (crt *baseComponentRuntime) getName() string {
 	return crt.name
+}
+
+// 主要是为了实现 ComponentRuntime 接口，无实际意义
+func (crt *baseComponentRuntime) Start() {
+	crt.status = StatusRuntimeRunning
+}
+
+func (crt *baseComponentRuntime) getSeq() int {
+	return crt.seq
 }

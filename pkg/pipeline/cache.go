@@ -98,7 +98,6 @@ type aggressiveCacheCalculator struct {
 	secondCacheKey aggressiveSecondCacheKey
 }
 
-// TODO
 func NewAggressiveCacheCalculator(step StepRuntime, cacheConfig schema.Cache) (CacheCalculator, error) {
 	errMsg := "aggressive cache strategy is not supported now!!"
 	err := errors.New(errMsg)

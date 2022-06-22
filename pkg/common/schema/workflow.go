@@ -71,15 +71,16 @@ type Component interface {
 	GetCondition() string
 	GetLoopArgument() interface{}
 	GetType() string
+	GetName() string
 
 	// 下面几个Update 函数在进行模板替换的时候会用到
 	UpdateCondition(string)
 	UpdateLoopArguemt(interface{})
-	GetName() string
+	UpdateName(name string)
 }
 
 type WorkflowSourceStep struct {
-	name         string
+	Name         string
 	LoopArgument interface{}            `yaml:"loop_argument"`
 	Condition    string                 `yaml:"condition"`
 	Parameters   map[string]interface{} `yaml:"parameters"`
@@ -93,7 +94,7 @@ type WorkflowSourceStep struct {
 }
 
 func (s *WorkflowSourceStep) GetName() string {
-	return s.name
+	return s.Name
 }
 
 func (s *WorkflowSourceStep) GetDeps() []string {
@@ -131,6 +132,10 @@ func (s *WorkflowSourceStep) GetType() string {
 
 func (s *WorkflowSourceStep) UpdateCondition(condition string) {
 	s.Condition = condition
+}
+
+func (s *WorkflowSourceStep) UpdateName(name string) {
+	s.Name = name
 }
 
 func (s *WorkflowSourceStep) UpdateLoopArguemt(loopArgument interface{}) {
@@ -187,7 +192,7 @@ func (s *WorkflowSourceStep) GetOutputArtifactPath(artName string) (string, erro
 }
 
 type WorkflowSourceDag struct {
-	name         string
+	Name         string
 	LoopArgument interface{}            `yaml:"loop_argument"`
 	Condition    string                 `yaml:"condition"`
 	Parameters   map[string]interface{} `yaml:"parameters"`
@@ -197,7 +202,7 @@ type WorkflowSourceDag struct {
 }
 
 func (d *WorkflowSourceDag) GetName() string {
-	return d.name
+	return d.Name
 }
 
 func (d *WorkflowSourceDag) GetDeps() []string {
@@ -231,6 +236,10 @@ func (d *WorkflowSourceDag) GetLoopArgument() interface{} {
 
 func (d *WorkflowSourceDag) GetType() string {
 	return "dag"
+}
+
+func (d *WorkflowSourceDag) UpdateName(name string) {
+	d.Name = name
 }
 
 func (d *WorkflowSourceDag) UpdateCondition(condition string) {
