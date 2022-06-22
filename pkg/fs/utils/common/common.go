@@ -91,7 +91,7 @@ func GetPodUIDFromTargetPath(targetPath string) string {
 	if !strings.HasSuffix(prefix, "/") {
 		prefix += "/"
 	}
-	prefix += "pods"
+	prefix += "pods/"
 	items := strings.Split(strings.TrimPrefix(targetPath, prefix), "/")
 	if len(items) > 0 {
 		return items[0]
