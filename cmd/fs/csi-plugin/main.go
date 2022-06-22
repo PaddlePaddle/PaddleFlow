@@ -52,6 +52,8 @@ func init() {
 	csiconfig.Namespace = os.Getenv("CSI_NAMESPACE")
 	csiconfig.NodeName = os.Getenv("KUBE_NODE_NAME")
 	csiconfig.PodName = os.Getenv("CSI_POD_NAME")
+	csiconfig.GlusterFsLogLevel = os.Getenv("GFS_LOG_LEVEL")
+	csiconfig.GlusterFsLogPath = os.Getenv("GFS_LOG_PATH")
 
 	if csiconfig.PodName == "" || csiconfig.Namespace == "" {
 		log.Fatalf("Pod name[%s] & namespace[%s] can't be null\n", csiconfig.PodName, csiconfig.Namespace)
@@ -72,7 +74,7 @@ func init() {
 	for i := range pod.Spec.Containers {
 		if pod.Spec.Containers[i].Name == CsiContainerName {
 			csiconfig.MountImage = pod.Spec.Containers[i].Image
-			//csiconfig.ContainerResource = pod.Spec.Containers[i].Resources
+			// csiconfig.ContainerResource = pod.Spec.Containers[i].Resources
 			return
 		}
 	}
