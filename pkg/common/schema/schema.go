@@ -19,6 +19,8 @@ package schema
 type ComponentView interface {
 	GetComponentName() string
 	GetParentDagID() string
+	GetStatus() JobStatus
+	GetSeq() int
 
 	SetDeps(string)
 }
@@ -41,6 +43,8 @@ type JobView struct {
 	CacheRunID  string            `json:"cacheRunID"`
 	CacheJobID  string            `json:"cacheJobID"`
 	ParentDagID string            `json:"parentDagID"`
+	PK          int64             `json:"'-"`
+	Seq         int               `json:"-"`
 }
 
 func (j JobView) GetComponentName() string {
@@ -55,6 +59,14 @@ func (j JobView) SetDeps(deps string) {
 	j.Deps = deps
 }
 
+func (j JobView) GetStatus() JobStatus {
+	return j.Status
+}
+
+func (j JobView) GetSeq() int {
+	return j.Seq
+}
+
 type DagView struct {
 	DagID       string
 	DagName     string `json:"name"`
@@ -67,6 +79,8 @@ type DagView struct {
 	Message     string
 	EntryPoints map[string][]ComponentView
 	ParentDagID string
+	PK          int64 `json:"'-"`
+	Seq         int   `json:"-"`
 }
 
 func (d DagView) GetComponentName() string {
@@ -79,6 +93,14 @@ func (d DagView) GetParentDagID() string {
 
 func (d DagView) SetDeps(deps string) {
 	d.Deps = deps
+}
+
+func (d DagView) GetStatus() JobStatus {
+	return d.Status
+}
+
+func (d DagView) GetSeq() int {
+	return d.Seq
 }
 
 // RuntimeView is view of run responded to user, while workflowRuntime is for pipeline engine to process

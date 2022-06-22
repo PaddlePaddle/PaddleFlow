@@ -96,7 +96,7 @@ func newDagRuntimeWithStatus(fullName string, dag *schema.WorkflowSourceDag, seq
 }
 
 func (drt *DagRuntime) generateSubComponentFullName(subComponentName string) string {
-	return strings.Join([]string{drt.CompoentFullName, subComponentName}, string('.'))
+	return strings.Join([]string{drt.CompoentFullName, subComponentName}, ".")
 }
 
 // TODO: 需要注意上上游节点 skipped， failed， cancelled 时， 导致上游节点没有生成 runtime 的情况？
@@ -349,8 +349,105 @@ func (drt *DagRuntime) Listen() {
 
 // 重新执行
 // TODO
-func (drt *DagRuntime) Restart(dagview schema.DagView) (restarted bool, err error) {
-	return false, nil
+func (drt *DagRuntime) Restart(dagView schema.DagView) (restarted bool, err error) {
+	restarted = false
+	err = nil
+
+	// 避免在重试过程中的收到 stop 信号，出现数据，状态不一致的情况
+	defer drt.processSubComponentLock.Unlock()
+	drt.processSubComponentLock.Lock()
+
+	drt.logger.Infof("restart dag[%s]", drt.name)
+
+	// 1、更新dagRuntime的状态
+	drt.updateStatusAccordingSubComponentRuntimeStatus()
+
+	if drt.isSucceeded() {
+		return
+	}
+
+	// 2、根据view来更新 subComponentRuntime
+	// 这里只会保留 succeded，running 以及 skipped 状态的 subRuntime
+	drt.updateSubCompoentRuntimeByView(dagView)
+
+	// 3、 对于已经有处于 succeeded 、 running、 skipped 状态的runtime的节点，说明其一定是处于可调度的状态，
+	// 此时需要判断其对应的节点是否为 循环结构，是的话，可能有某几次运行失败，或者还没有来的及发起，此时我们需要补齐缺失的运行
+	scheduleNum, err := drt.scheduleSubComponentAccordingSubRuntime()
+
+	// 4、根据节点依赖关系，来开始调度此时可运行的节点。
+	// 这里做一次调度的原因是，避免 3 中没有发起任何任务，导致永远监听不到信息，导致任务 hang 住的情况出现
+	var mustSchedule bool
+	if scheduleNum != 0 {
+		mustSchedule = false
+	} else {
+		mustSchedule = true
+	}
+
+	drt.scheduleSubComponent(mustSchedule)
+
+	// 处理完所有的view 后 才开始 监听信号, 主要是为了在还没有处理完 view 中新，便接受到了事件， 导致在 view 中存在的节点再次被调度
+	go drt.Listen()
+
+	return
+}
+
+func (drt *DagRuntime) updateSubCompoentRuntimeByView(dagView schema.DagView) {
+	for name, views := range dagView.EntryPoints {
+		for _, view := range views {
+			status := view.GetStatus()
+			if status != StatusRuntimeRunning || status != StatusRuntimeSucceeded || status != StatusRuntimeSkipped {
+				continue
+			} else {
+				subRuntime := drt.CreateSubRuntimeAccordingView(view, name)
+				drt.subComponentRumtimes[name] = append(drt.subComponentRumtimes[name], subRuntime)
+			}
+		}
+	}
+}
+
+func (drt *DagRuntime) CreateSubRuntimeAccordingView(view schema.ComponentView, name string) componentRuntime {
+	JobView, ok := view.(schema.JobView)
+	if ok {
+		return drt.creatStepRuntimeAccordingView(JobView, name)
+	}
+
+	return drt.createDagRuntimeAccordingView(view.(schema.DagView), name)
+}
+
+func (drt *DagRuntime) creatStepRuntimeAccordingView(view schema.JobView, name string) componentRuntime {
+	fullName := drt.generateSubComponentFullName(name)
+
+	failureOptionsctx, failureOptionsCancel := context.WithCancel(context.Background())
+	drt.failureOptionsCtxCancels[name] = failureOptionsCancel
+
+	srt := NewStepRuntime(fullName, drt.getworkflowSouceDag().EntryPoints[name].(*schema.WorkflowSourceStep),
+		view.Seq, drt.ctx, failureOptionsctx, drt.receiveEventChildren, drt.runConfig, drt.ID)
+
+	srt.updateStatus(view.GetStatus())
+	return srt
+}
+
+func (drt *DagRuntime) createDagRuntimeAccordingView(view schema.DagView, name string) componentRuntime {
+	fullName := drt.generateSubComponentFullName(name)
+
+	failureOptionsctx, failureOptionsCancel := context.WithCancel(context.Background())
+	drt.failureOptionsCtxCancels[name] = failureOptionsCancel
+
+	sDrt := NewDagRuntime(fullName, drt.getworkflowSouceDag().EntryPoints[name].(*schema.WorkflowSourceDag),
+		view.Seq, drt.ctx, failureOptionsctx, drt.receiveEventChildren, drt.runConfig, drt.ID)
+
+	sDrt.updateStatus(view.GetStatus())
+	return sDrt
+}
+
+// TODO: 需要按照拓扑序处理
+func (drt *DagRuntime) scheduleSubComponentAccordingSubRuntime() (count int, err error) {
+	count = 0
+	err = nil
+
+	// 由于需要解决参数依赖的问题，因此，我们需要根据拓扑序来依序处理 subComponent
+	// 由于parameter和 loop_argument 未能按照原样
+	return
 }
 
 func (drt *DagRuntime) GetSubComponentParameterValue(componentName string, paramName string) (interface{}, error) {
@@ -593,7 +690,7 @@ func (drt *DagRuntime) processSubRuntimeError(err error, cp schema.Component, st
 func (drt *DagRuntime) updateStatusAccordingSubComponentRuntimeStatus() string {
 	// 1. 如果有子节点还没有调度，且节点本身的状态不为 Terminating， 则状态必定为running
 	if len(drt.subComponentRumtimes) != len(drt.getworkflowSouceDag().EntryPoints) &&
-		drt.isTerminating() {
+		!drt.isTerminating() {
 		drt.updateStatus(StatusRuntimeRunning)
 		return ""
 	}
@@ -643,16 +740,16 @@ func (drt *DagRuntime) updateStatusAccordingSubComponentRuntimeStatus() string {
 	if len(faieldComponentNames) != 0 {
 		drt.updateStatus(StatusRuntimeFailed)
 		msg = fmt.Sprintf("update Compoent[%s]'s status to [%s] due to subcomponents[%s] faield",
-			drt.CompoentFullName, strings.Join(faieldComponentNames, string(',')))
+			drt.CompoentFullName, strings.Join(faieldComponentNames, ","))
 	} else if len(terminatedComponentNames) != 0 {
 		if drt.status != StatusRuntimeTerminating {
 			drt.updateStatus(StatusRuntimeFailed)
 			msg = fmt.Sprintf("update Compoent[%s]'s status to [%s] due to subcomponents[%s] faield",
-				drt.CompoentFullName, StatusRuntimeFailed, strings.Join(terminatedComponentNames, string(',')))
+				drt.CompoentFullName, StatusRuntimeFailed, strings.Join(terminatedComponentNames, ","))
 		} else {
 			drt.updateStatus(StatusRuntimeTerminated)
 			msg = fmt.Sprintf("update Compoent[%s]'s status to [%s] due to subcomponents[%s] terminated",
-				drt.CompoentFullName, StatusRuntimeFailed, strings.Join(terminatedComponentNames, string(',')))
+				drt.CompoentFullName, StatusRuntimeFailed, strings.Join(terminatedComponentNames, ","))
 		}
 	} else if len(cancelledComponentNames) != 0 {
 		// 如果节点的状态是 cancelled，只有两种情况：
@@ -660,7 +757,7 @@ func (drt *DagRuntime) updateStatusAccordingSubComponentRuntimeStatus() string {
 		// 2、收到终止信号
 		drt.updateStatus(StatusRuntimeTerminated)
 		msg = fmt.Sprintf("update Compoent[%s]'s status to [%s] due to subcomponents[%s] cancelled",
-			drt.CompoentFullName, StatusRuntimeFailed, strings.Join(terminatedComponentNames, string(',')))
+			drt.CompoentFullName, StatusRuntimeFailed, strings.Join(terminatedComponentNames, ","))
 	} else {
 		drt.updateStatus(StatusRuntimeSucceeded)
 	}
@@ -673,7 +770,7 @@ func (drt *DagRuntime) updateStatusAccordingSubComponentRuntimeStatus() string {
 }
 
 func (drt *DagRuntime) newView(msg string) schema.DagView {
-	deps := strings.Join(drt.component.GetDeps(), string(','))
+	deps := strings.Join(drt.component.GetDeps(), ",")
 
 	paramters := map[string]string{}
 	for name, value := range drt.component.GetParameters() {
@@ -691,6 +788,8 @@ func (drt *DagRuntime) newView(msg string) schema.DagView {
 		Status:      drt.status,
 		Message:     msg,
 		ParentDagID: drt.parentDagID,
+		Seq:         drt.seq,
+		PK:          drt.pk,
 	}
 }
 

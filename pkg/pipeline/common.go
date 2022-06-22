@@ -25,6 +25,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
 
 // 获取制定Artifact的内容
@@ -73,4 +74,58 @@ func GetInputArtifactEnvName(atfName string) string {
 
 func GetOutputArtifactEnvName(atfName string) string {
 	return "PF_OUTPUT_ARTIFACT_" + strings.ToUpper(atfName)
+}
+
+func topologicalSort(components map[string]schema.Component) ([]string, error) {
+	// unsorted: unsorted graph
+	// if we have dag:
+	//     1 -> 2 -> 3
+	// then unsorted as follow will be get:
+	//     1 -> [2]
+	//     2 -> [3]
+	sortedComponent := make([]string, 0)
+	unsorted := map[string][]string{}
+	for name, component := range components {
+		depsList := component.GetDeps()
+
+		if len(depsList) == 0 {
+			unsorted[name] = nil
+			continue
+		}
+		for _, dep := range depsList {
+			if _, ok := unsorted[name]; ok {
+				unsorted[name] = append(unsorted[name], dep)
+			} else {
+				unsorted[name] = []string{dep}
+			}
+		}
+	}
+
+	// 通过判断入度，每一轮寻找入度为0（没有parent节点）的节点，从unsorted中移除，并添加到sortedSteps中
+	// 如果unsorted长度被减少到0，说明无环。如果有一轮没有出现入度为0的节点，说明每个节点都有父节点，即有环。
+	for len(unsorted) != 0 {
+		acyclic := false
+		for name, parents := range unsorted {
+			parentExist := false
+			for _, parent := range parents {
+				if _, ok := unsorted[parent]; ok {
+					parentExist = true
+					break
+				}
+			}
+			// if all the source nodes of this node has been removed,
+			// consider it as sorted and remove this node from the unsorted graph
+			if !parentExist {
+				acyclic = true
+				delete(unsorted, name)
+				sortedComponent = append(sortedComponent, name)
+			}
+		}
+		if !acyclic {
+			// we have go through all the nodes and weren't able to resolve any of them
+			// there must be cyclic edges
+			return nil, fmt.Errorf("workflow is not acyclic")
+		}
+	}
+	return sortedComponent, nil
 }

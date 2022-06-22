@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/job"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
@@ -77,6 +78,29 @@ func NewPaddleFlowJob(name, image string, eventChannel chan<- WorkflowEvent) *Pa
 		Image:        image,
 		eventChannel: eventChannel,
 	}
+}
+
+func NewPaddleFlowJobWithJobView(view schema.JobView, image string, eventChannel chan<- WorkflowEvent) *PaddleFlowJob {
+	pfj := PaddleFlowJob{
+		BaseJob: BaseJob{
+			ID:         view.JobID,
+			Name:       view.JobName,
+			Command:    view.Command,
+			Parameters: view.Parameters,
+			Artifacts:  view.Artifacts,
+			Env:        view.Env,
+			StartTime:  view.StartTime,
+			EndTime:    view.EndTime,
+			Status:     view.Status,
+		},
+
+		Image:        image,
+		eventChannel: eventChannel,
+	}
+
+	pfj.Status = common.StatusRunRunning
+
+	return &pfj
 }
 
 // 发起作业接口

@@ -164,14 +164,39 @@ func (srt *StepRuntime) Restart(view schema.JobView) (restarted bool, err error)
 		return
 	}
 
-	/*
-		if view.Status == StatusRuntimeRunning {
-			err = srt.restartWithRunning(view)
-		} else {
-			err = srt.restartWithAbnormalStatus(view)
+	defer srt.processJobLock.Unlock()
+	srt.processJobLock.Lock()
 
-		}
-	*/
+	go srt.Listen()
+
+	if view.Status == StatusRuntimeRunning {
+		err = srt.restartWithRunning(view)
+	} else {
+		// 这条支线只有当前节点为 postProcess 节点才会走
+		srt.restartWithAbnormalStatus(view)
+		restarted = true
+	}
+	return
+}
+
+func (srt *StepRuntime) restartWithRunning(view schema.JobView) (err error) {
+	err = nil
+
+	srt.parallelismManager.increase()
+	srt.logger.Infof("Watch Job [%s] again", view.JobID)
+	srt.updateStatus(StatusRuntimeRunning)
+	srt.job = NewPaddleFlowJobWithJobView(view, srt.getWorkFlowStep().DockerEnv,
+		srt.receiveEventChildren)
+
+	go srt.job.Watch()
+	return
+}
+
+func (srt *StepRuntime) restartWithAbnormalStatus(view schema.JobView) {
+	srt.logger.Info("restart step[%s]", srt.name)
+	srt.updateStatus(StatusRunttimePending)
+
+	srt.Start()
 	return
 }
 
@@ -624,16 +649,8 @@ func (srt *StepRuntime) processEventFromJob(event WorkflowEvent) {
 		ErrMsg := fmt.Sprintf("receive watch error of job[%s] for step[%s] with errmsg:[%s]",
 			srt.job.(*PaddleFlowJob).ID, srt.name, event.Message)
 		srt.logger.Errorf(ErrMsg)
+
 		// 对于 WatchErr, 目前不需要传递父节点
-		/*
-					extra := map[string]interface{}{
-				common.WfEventKeyRunID:         crt.runID,
-				common.WfEventKeyPK:            crt.pk,
-				common.WfEventKeyStatus:        crt.status,
-				common.WfEventKeyView:          view,
-				common.WfEventKeyComponentName: crt.component.GetName(),
-			}
-		*/
 		view := srt.newJobView(ErrMsg)
 		extra := map[string]interface{}{
 			common.WfEventKeyRunID:         srt.runID,
@@ -687,6 +704,8 @@ func (srt *StepRuntime) newJobView(msg string) schema.JobView {
 		ParentDagID: srt.parentDagID,
 		CacheRunID:  srt.CacheRunID,
 		CacheJobID:  srt.CacheJobID,
+		PK:          srt.pk,
+		Seq:         srt.seq,
 	}
 
 	return view
