@@ -130,6 +130,7 @@ func (srt *StepRuntime) Start() {
 
 		srt.logger.Errorln(errMsg)
 		srt.processStartAbnormalStatus(errMsg, StatusRuntimeFailed)
+		return
 	}
 
 	if conditon {
@@ -144,6 +145,7 @@ func (srt *StepRuntime) Start() {
 		skipMsg := fmt.Sprintf("Component [%s] is disabled, skip running", srt.getName())
 		srt.logger.Infoln(skipMsg)
 		srt.processStartAbnormalStatus(skipMsg, StatusRuntimeSkipped)
+		return
 	}
 
 	// 监听channel, 及时除了时间
