@@ -26,6 +26,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database/dbinit"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
@@ -63,12 +64,12 @@ func TestCreateGrant(t *testing.T) {
 		ClusterId: cluser.ID,
 	})
 	assert.Nil(t, err)
-	// mock user
-	mockUser := &storage.User{
-		UserInfo: storage.UserInfo{
+	// momodeler
+	mockUser := &model.User{
+		UserInfo: model.UserInfo{
 			Name: MockUserName, Password: "fake",
 		}}
-	err = storage.CreateUser(ctx, mockUser)
+	err = storage.Auth.CreateUser(ctx, mockUser)
 	assert.Nil(t, err)
 
 	// case start
