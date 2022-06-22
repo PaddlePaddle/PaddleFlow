@@ -18,6 +18,7 @@ package job
 
 import (
 	"fmt"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"strconv"
 	"strings"
 
@@ -280,7 +281,7 @@ func ValidateQueue(conf schema.PFJobConf, userName, queueName string) error {
 	conf.SetNamespace(queue.Namespace)
 	conf.SetClusterID(cluster.ID)
 	// check whether user has access to queue or not
-	if !models.HasAccessToResource(ctx, common.ResourceTypeQueue, queueName) {
+	if !storage.HasAccessToResource(ctx, common.ResourceTypeQueue, queueName) {
 		return common.NoAccessError(userName, common.ResourceTypeQueue, queueName)
 	}
 	return nil

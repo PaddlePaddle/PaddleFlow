@@ -17,6 +17,7 @@ limitations under the License.
 package storage
 
 import (
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
@@ -26,6 +27,7 @@ var (
 	Filesystem   FileSystemStoreInterface
 	FsMountStore FsMountStoreInterface
 	FsCache      FsCacheStoreInterface
+	Auth         AuthStoreInterface
 )
 
 func InitStores(db *gorm.DB) {
@@ -33,6 +35,7 @@ func InitStores(db *gorm.DB) {
 	Filesystem = newFilesystemStore(db)
 	FsMountStore = NewFsMountStore(db)
 	FsCache = newDBFSCache(db)
+	Auth = newAuthStore(db)
 }
 
 type FileSystemStoreInterface interface {
@@ -64,4 +67,23 @@ type FsCacheStoreInterface interface {
 	Delete(fsID, cacheID string) error
 	List(fsID, cacheID string) ([]model.FSCache, error)
 	Update(value *model.FSCache) (int64, error)
+}
+
+type AuthStoreInterface interface {
+	// user
+	CreateUser(ctx *logger.RequestContext, user *model.User) error
+	UpdateUser(ctx *logger.RequestContext, userName, password string) error
+	ListUser(ctx *logger.RequestContext, pk int64, maxKey int) ([]model.User, error)
+	DeleteUser(ctx *logger.RequestContext, userName string) error
+	GetUserByName(ctx *logger.RequestContext, userName string) (model.User, error)
+	GetLastUser(ctx *logger.RequestContext) (model.User, error)
+	// grant
+	CreateGrant(ctx *logger.RequestContext, grant *model.Grant) error
+	DeleteGrant(ctx *logger.RequestContext, userName, resourceType, resourceID string) error
+	GetGrant(ctx *logger.RequestContext, userName, resourceType, resourceID string) (*model.Grant, error)
+	HasAccessToResource(ctx *logger.RequestContext, resourceType string, resourceID string) bool
+	DeleteGrantByUserName(ctx *logger.RequestContext, userName string) error
+	DeleteGrantByResourceID(ctx *logger.RequestContext, resourceID string) error
+	ListGrant(ctx *logger.RequestContext, pk int64, maxKeys int, userName string) ([]model.Grant, error)
+	GetLastGrant(ctx *logger.RequestContext) (model.Grant, error)
 }

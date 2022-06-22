@@ -17,6 +17,7 @@ limitations under the License.
 package models
 
 import (
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"time"
 
 	"github.com/google/uuid"
@@ -73,12 +74,12 @@ func initMockDB() {
 		&Schedule{},
 		&RunCache{},
 		&ArtifactEvent{},
-		&User{},
+		&storage.User{},
 		&Run{},
 		&RunJob{},
 		&Queue{},
 		&Flavour{},
-		&Grant{},
+		&storage.Grant{},
 		&Job{},
 		&JobTask{},
 		&JobLabel{},

@@ -17,6 +17,7 @@ limitations under the License.
 package models
 
 import (
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -165,11 +166,11 @@ func TestListQueue(t *testing.T) {
 	ctx := &logger.RequestContext{UserName: mockUserName}
 
 	// init grant
-	grantModel := &Grant{ID: "fakeID", UserName: mockUserName, ResourceID: "queue1", ResourceType: GrantFsType}
-	if err := CreateGrant(ctx, grantModel); err != nil {
+	grantModel := &storage.Grant{ID: "fakeID", UserName: mockUserName, ResourceID: "queue1", ResourceType: GrantFsType}
+	if err := storage.CreateGrant(ctx, grantModel); err != nil {
 		t.Error(err)
 	}
-	grants, err := ListGrant(ctx, 0, 0, mockUserName)
+	grants, err := storage.ListGrant(ctx, 0, 0, mockUserName)
 	if err != nil {
 		t.Error(err)
 	}

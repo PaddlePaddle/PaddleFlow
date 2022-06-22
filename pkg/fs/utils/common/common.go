@@ -19,6 +19,7 @@ package common
 import (
 	"encoding/hex"
 	"fmt"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -26,7 +27,6 @@ import (
 	"strings"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/middleware"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 )
@@ -179,7 +179,7 @@ func GetMountPointCheckIntervalTime() int {
 }
 
 func GetRootToken(ctx *logger.RequestContext) (string, error) {
-	u, err := models.GetUserByName(ctx, common.RootKey)
+	u, err := storage.GetUserByName(ctx, common.RootKey)
 	if err != nil {
 		return "", err
 	}

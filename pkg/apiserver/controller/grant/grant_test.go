@@ -17,6 +17,7 @@ limitations under the License.
 package grant
 
 import (
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -63,11 +64,11 @@ func TestCreateGrant(t *testing.T) {
 	})
 	assert.Nil(t, err)
 	// mock user
-	mockUser := &models.User{
-		UserInfo: models.UserInfo{
+	mockUser := &storage.User{
+		UserInfo: storage.UserInfo{
 			Name: MockUserName, Password: "fake",
 		}}
-	err = models.CreateUser(ctx, mockUser)
+	err = storage.CreateUser(ctx, mockUser)
 	assert.Nil(t, err)
 
 	// case start

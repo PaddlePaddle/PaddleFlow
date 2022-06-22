@@ -25,10 +25,11 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 type LoginInfo struct {
@@ -50,14 +51,14 @@ type LoginResponse struct {
 
 type ListUserResponse struct {
 	common.MarkerInfo
-	Users []models.User `json:"userList"`
+	Users []model.User `json:"userList"`
 }
 
 var ErrMismatchedPassword = errors.New("password mismatched")
 
-func Login(ctx *logger.RequestContext, userName string, password string, passwordEncoded bool) (*models.User, error) {
+func Login(ctx *logger.RequestContext, userName string, password string, passwordEncoded bool) (*model.User, error) {
 	ctx.Logging().Debugf("begin verify user. userName:%s ", userName)
-	user, err := models.GetUserByName(ctx, userName)
+	user, err := storage.Auth.GetUserByName(ctx, userName)
 	if err != nil {
 		ctx.Logging().Errorf("user verify failed. userName: error:%s", err.Error())
 		ctx.ErrorCode = common.UserNotExist
@@ -109,14 +110,14 @@ func CreateUser(ctx *logger.RequestContext, userName, password string) (*CreateU
 		ctx.ErrorCode = common.InternalError
 		return nil, err
 	}
-	userInfo := models.UserInfo{
+	userInfo := model.UserInfo{
 		Name:     userName,
 		Password: pd,
 	}
-	user := models.User{
+	user := model.User{
 		UserInfo: userInfo,
 	}
-	if err := models.CreateUser(ctx, &user); err != nil {
+	if err := storage.Auth.CreateUser(ctx, &user); err != nil {
 		ctx.Logging().Errorln("models create user failed.")
 		if database.GetErrorCode(err) == database.ErrorKeyIsDuplicated {
 			ctx.ErrorCode = common.UserNameDuplicated
@@ -149,7 +150,7 @@ func UpdateUser(ctx *logger.RequestContext, userName, password string) error {
 		return errors.New("update user failed")
 	}
 	// check user exist
-	if _, err := models.GetUserByName(ctx, userName); err != nil {
+	if _, err := storage.Auth.GetUserByName(ctx, userName); err != nil {
 		ctx.ErrorCode = common.UserNotExist
 		ctx.Logging().Errorf("update user's password failed. user not exist. userName:%s", ctx.UserName)
 		return errors.New("update user failed")
@@ -161,7 +162,7 @@ func UpdateUser(ctx *logger.RequestContext, userName, password string) error {
 		return errors.New("update user failed")
 	}
 
-	err = models.UpdateUser(ctx, userName, newPassword)
+	err = storage.Auth.UpdateUser(ctx, userName, newPassword)
 	if err != nil {
 		ctx.Logging().Errorf("models update user's password failed. error:%s",
 			err.Error())
@@ -181,7 +182,7 @@ func DeleteUser(ctx *logger.RequestContext, userName string) error {
 		return errors.New("delete user failed")
 	}
 
-	user, err := models.GetUserByName(ctx, userName)
+	user, err := storage.Auth.GetUserByName(ctx, userName)
 	if err != nil {
 		ctx.ErrorCode = common.UserNotExist
 		ctx.Logging().Errorf("delete user failed. user:%s not exist", userName)
@@ -194,12 +195,12 @@ func DeleteUser(ctx *logger.RequestContext, userName string) error {
 		return errors.New("delete user failed")
 	}
 
-	if err := models.DeleteUser(ctx, userName); err != nil {
+	if err := storage.Auth.DeleteUser(ctx, userName); err != nil {
 		ctx.ErrorCode = common.InternalError
 		ctx.Logging().Errorf("models delete user failed. error:%s", err.Error())
 		return err
 	}
-	if err := models.DeleteGrantByUserName(ctx, userName); err != nil {
+	if err := storage.Auth.DeleteGrantByUserName(ctx, userName); err != nil {
 		ctx.ErrorCode = common.InternalError
 		ctx.Logging().Errorf("models delete user failed. delete user's grant  error:%s", err.Error())
 		return err
@@ -225,7 +226,7 @@ func ListUser(ctx *logger.RequestContext, marker string, maxKeys int) (*ListUser
 			return nil, err
 		}
 	}
-	userList, err := models.ListUser(ctx, pk, maxKeys)
+	userList, err := storage.Auth.ListUser(ctx, pk, maxKeys)
 	if err != nil {
 		ctx.Logging().Errorf("models list user failed. err:[%s]", err.Error())
 		ctx.ErrorCode = common.InternalError
@@ -262,7 +263,7 @@ func EncodePassWord(password string) (string, error) {
 }
 
 func IsLastUserPk(ctx *logger.RequestContext, pk int64) bool {
-	lastQueue, err := models.GetLastUser(ctx)
+	lastQueue, err := storage.Auth.GetLastUser(ctx)
 	if err != nil {
 		ctx.Logging().Errorf("models get last user failed. error:[%s]",
 			err.Error())
@@ -273,14 +274,14 @@ func IsLastUserPk(ctx *logger.RequestContext, pk int64) bool {
 	return false
 }
 
-func GetUserByName(ctx *logger.RequestContext, userName string) (*models.User, error) {
+func GetUserByName(ctx *logger.RequestContext, userName string) (*model.User, error) {
 	ctx.Logging().Debug("begin get user.")
 	if !common.IsRootUser(ctx.UserName) {
 		ctx.ErrorCode = common.AccessDenied
 		ctx.Logging().Errorln("get user failed. root is needed.")
 		return nil, errors.New("get user failed")
 	}
-	user, err := models.GetUserByName(ctx, userName)
+	user, err := storage.Auth.GetUserByName(ctx, userName)
 	if err != nil {
 		ctx.Logging().Errorf("models get user failed. userName: error:%s",
 			err.Error())

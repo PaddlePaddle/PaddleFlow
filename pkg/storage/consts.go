@@ -39,6 +39,7 @@ const (
 	Address       = "address"
 	UserName      = "user_name"
 	FsName        = "name"
+	UserROOT      = "root"
 	GrantFsType   = "fs"
 
 	ASC  = "asc"
