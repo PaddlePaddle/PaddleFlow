@@ -17,9 +17,6 @@ limitations under the License.
 package fs
 
 import (
-	"crypto/md5"
-	"encoding/hex"
-
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
@@ -36,12 +33,8 @@ type CacheReportRequest struct {
 }
 
 func ReportCache(ctx *logger.RequestContext, req CacheReportRequest) error {
-	cacheID := GetCacheID(req.ClusterID, req.NodeName, req.CacheDir)
-	fsID := common.ID(req.Username, req.FsName)
-
 	fsCache := &model.FSCache{
-		CacheID:   cacheID,
-		FsID:      fsID,
+		FsID:      common.ID(req.Username, req.FsName),
 		CacheDir:  req.CacheDir,
 		NodeName:  req.NodeName,
 		UsedSize:  req.UsedSize,
@@ -51,7 +44,7 @@ func ReportCache(ctx *logger.RequestContext, req CacheReportRequest) error {
 	n, err := storage.FsCache.Update(fsCache)
 	if err != nil {
 		ctx.ErrorCode = common.InternalError
-		ctx.Logging().Errorf("ReportCache Update[%s] err:%v", fsID, err)
+		ctx.Logging().Errorf("ReportCache Update[%s] err:%v", fsCache.FsID, err)
 		return err
 	}
 	if n == 0 {
@@ -59,13 +52,8 @@ func ReportCache(ctx *logger.RequestContext, req CacheReportRequest) error {
 	}
 	if err != nil {
 		ctx.ErrorCode = common.InternalError
-		ctx.Logging().Errorf("ReportCache Create[%s] err:%v", fsID, err)
+		ctx.Logging().Errorf("ReportCache Create[%s] err:%v", fsCache.FsID, err)
 		return err
 	}
 	return nil
-}
-
-func GetCacheID(clusterID, nodeName, CacheDir string) string {
-	hash := md5.Sum([]byte(clusterID + nodeName + CacheDir))
-	return hex.EncodeToString(hash[:])
 }

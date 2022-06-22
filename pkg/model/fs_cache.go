@@ -17,6 +17,8 @@ limitations under the License.
 package model
 
 import (
+	"crypto/md5"
+	"encoding/hex"
 	"time"
 
 	"gorm.io/gorm"
@@ -38,6 +40,18 @@ type FSCache struct {
 	DeletedAt   gorm.DeletedAt `json:"-"`
 }
 
-func (s *FSCache) TableName() string {
+func (c *FSCache) TableName() string {
 	return FsCacheTableName
+}
+
+func (c *FSCache) BeforeSave(*gorm.DB) error {
+	if c.CacheID == "" {
+		c.CacheID = CacheID(c.ClusterID, c.NodeName, c.CacheDir)
+	}
+	return nil
+}
+
+func CacheID(clusterID, nodeName, CacheDir string) string {
+	hash := md5.Sum([]byte(clusterID + nodeName + CacheDir))
+	return hex.EncodeToString(hash[:])
 }
