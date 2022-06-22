@@ -463,7 +463,7 @@ func (drt *DagRuntime) scheduleSubComponentAccordingView(dagView schema.DagView)
 	hasSchedule = false
 	err = nil
 
-	sorted, err := topologicalSort(drt.getworkflowSouceDag().EntryPoints)
+	sorted, err := TopologicalSort(drt.getworkflowSouceDag().EntryPoints)
 	if err != nil {
 		err = fmt.Errorf("get topo sort failed: %s", err.Error())
 		return
