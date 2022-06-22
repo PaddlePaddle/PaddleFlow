@@ -17,12 +17,13 @@ limitations under the License.
 package v1
 
 import (
-	"github.com/agiledragon/gomonkey/v2"
-	"github.com/stretchr/testify/assert"
 	"net/http"
 	"os"
 	"reflect"
 	"testing"
+
+	"github.com/agiledragon/gomonkey/v2"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/fs"
@@ -461,6 +462,11 @@ func TestCreateFSAndDeleteFs(t *testing.T) {
 	result, err := PerformPostRequest(router, fsUrl, createFsReq)
 	assert.Nil(t, err)
 	assert.Equal(t, http.StatusCreated, result.Code)
+
+	var p1 = gomonkey.ApplyFunc(fs.DeletePvPvc, func(fsID string) error {
+		return nil
+	})
+	defer p1.Reset()
 
 	deleteUrl := fsUrl + "/" + mockFsName
 	result, err = PerformDeleteRequest(router, deleteUrl)
