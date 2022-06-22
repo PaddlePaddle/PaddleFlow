@@ -215,7 +215,9 @@ type Conf struct {
 	Args        []string          `json:"args,omitempty"`
 }
 
+// FileSystem indicate PaddleFlow
 type FileSystem struct {
+	ID        string `json:"id,omitempty"`
 	Name      string `json:"name"`
 	MountPath string `json:"mountPath,omitempty"`
 	SubPath   string `json:"subPath,omitempty"`
@@ -397,6 +399,16 @@ func (c *Conf) preCheckEnv() {
 	if c.Env == nil {
 		c.Env = make(map[string]string)
 	}
+}
+
+// GetAllFileSystem combine FileSystem and ExtraFileSystem to a slice
+func (c *Conf) GetAllFileSystem() []FileSystem {
+	var fileSystems []FileSystem
+	if c.FileSystem.Name != "" {
+		fileSystems = append([]FileSystem{}, c.FileSystem)
+	}
+	fileSystems = append(fileSystems, c.ExtraFileSystem...)
+	return fileSystems
 }
 
 /**
