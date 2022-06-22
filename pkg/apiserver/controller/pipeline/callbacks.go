@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package run
+package pipeline
 
 import (
 	"database/sql"
@@ -89,10 +89,6 @@ func UpdateRunByWfEvent(id string, event interface{}) bool {
 		return false
 	}
 	status := wfEvent.Extra[common.WfEventKeyStatus].(string)
-	if common.IsRunFinalStatus(status) {
-		logging.Debugf("run[%s] has reached final status[%s]", runID, status)
-		delete(wfMap, runID)
-	}
 	runtime, ok := wfEvent.Extra[common.WfEventKeyRuntime].(schema.RuntimeView)
 	if !ok {
 		logging.Errorf("run[%s] malformat runtime", id)
@@ -151,6 +147,18 @@ func UpdateRunByWfEvent(id string, event interface{}) bool {
 		logging.Errorf("update run[%s] in db failed. error: %v", id, err)
 		return false
 	}
+
+	if common.IsRunFinalStatus(status) {
+		logging.Debugf("run[%s] has reached final status[%s]", runID, status)
+		delete(wfMap, runID)
+
+		// 给scheduler发concurrency channel信号
+		if prevRun.ScheduleID != "" {
+			globalScheduler := GetGlobalScheduler()
+			globalScheduler.ConcurrencyChannel <- prevRun.ScheduleID
+			logging.Debugf("send scheduleID[%s] to concurrency channel succeed.", prevRun.ScheduleID)
+		}
+	}
 	return true
 }
 
@@ -172,7 +180,7 @@ func updateRunCache(logging *logrus.Entry, runtime schema.RuntimeView, runID str
 	runCachedList := make([]models.Run, 0)
 	if len(cacheIdList) > 0 {
 		var err error
-		runCachedList, err = models.ListRun(logging, 0, 0, nil, nil, cacheIdList, nil)
+		runCachedList, err = models.ListRun(logging, 0, 0, nil, nil, cacheIdList, nil, nil, nil)
 		if err != nil {
 			logging.Errorf("update cacheIDs failed. Get runs[%v] failed. error: %v", cacheIdList, err)
 			return err

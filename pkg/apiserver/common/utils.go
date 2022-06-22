@@ -33,9 +33,10 @@ import (
 const (
 	RegPatternQueueName    = "^[a-z0-9][a-z0-9-]{0,8}[a-z0-9]$"
 	RegPatternUserName     = "^[A-Za-z0-9-]{4,16}$"
-	RegPatternRunName      = "^[A-Za-z0-9_][A-Za-z0-9-_]{1,49}[A-Za-z0-9_]$"
+	RegPatternRunName      = "^[A-Za-z_][A-Za-z0-9_]{1,49}$"
+	RegPatternPipelineName = "^[A-Za-z_][A-Za-z0-9_]{1,49}$"
+	RegPatternScheduleName = "^[A-Za-z_][A-Za-z0-9_]{1,49}$"
 	RegPatternResource     = "^[1-9][0-9]*([numkMGTPE]|Ki|Mi|Gi|Ti|Pi|Ei)?$"
-	RegPatternPipelineName = "^[A-Za-z0-9_][A-Za-z0-9-_]{1,49}[A-Za-z0-9_]$"
 	RegPatternClusterName  = "^[A-Za-z0-9_][A-Za-z0-9-_]{0,253}[A-Za-z0-9_]$"
 
 	// DNS1123LabelMaxLength is a label's max length in DNS (RFC 1123)
