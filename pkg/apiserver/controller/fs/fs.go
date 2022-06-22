@@ -34,6 +34,8 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 const (
@@ -123,9 +125,9 @@ type CreateFileSystemClaimsResponse struct {
 }
 
 // CreateFileSystem the function which performs the operation of creating FileSystem
-func (s *FileSystemService) CreateFileSystem(ctx *logger.RequestContext, req *CreateFileSystemRequest) (models.FileSystem, error) {
+func (s *FileSystemService) CreateFileSystem(ctx *logger.RequestContext, req *CreateFileSystemRequest) (model.FileSystem, error) {
 	fsType, serverAddress, subPath := common.InformationFromURL(req.Url, req.Properties)
-	fs := models.FileSystem{
+	fs := model.FileSystem{
 		Name:          req.Name,
 		PropertiesMap: req.Properties,
 		ServerAddress: serverAddress,
@@ -135,21 +137,21 @@ func (s *FileSystemService) CreateFileSystem(ctx *logger.RequestContext, req *Cr
 	}
 	fs.ID = common.ID(req.Username, req.Name)
 
-	err := models.CreatFileSystem(&fs)
+	err := storage.FsStore.CreatFileSystem(&fs)
 	if err != nil {
 		log.Errorf("create file system[%v] in db failed: %v", fs, err)
 		ctx.ErrorCode = common.FileSystemDataBaseError
-		return models.FileSystem{}, err
+		return model.FileSystem{}, err
 	}
 	return fs, nil
 }
 
 // GetFileSystem the function which performs the operation of getting file system detail
-func (s *FileSystemService) GetFileSystem(username, fsName string) (models.FileSystem, error) {
-	modelsFs, err := models.GetFileSystemWithFsID(common.ID(username, fsName))
+func (s *FileSystemService) GetFileSystem(username, fsName string) (model.FileSystem, error) {
+	modelsFs, err := storage.FsStore.GetFileSystemWithFsID(common.ID(username, fsName))
 	if err != nil {
 		log.Errorf("get filesystem[%s] under username[%s] err[%v]", fsName, username, err)
-		return models.FileSystem{}, err
+		return model.FileSystem{}, err
 	}
 	return modelsFs, err
 }
@@ -157,13 +159,13 @@ func (s *FileSystemService) GetFileSystem(username, fsName string) (models.FileS
 // DeleteFileSystem the function which performs the operation of delete file system
 func (s *FileSystemService) DeleteFileSystem(ctx *logger.RequestContext, fsID string) error {
 	return models.WithTransaction(database.DB, func(tx *gorm.DB) error {
-		if err := models.DeleteFileSystem(tx, fsID); err != nil {
+		if err := storage.FsStore.DeleteFileSystem(tx, fsID); err != nil {
 			ctx.Logging().Errorf("delete fs[%s] failed error[%v]", fsID, err)
 			ctx.ErrorCode = common.FileSystemDataBaseError
 			return err
 		}
 		// delete cache config if exist
-		if err := models.DeleteFSCacheConfig(tx, fsID); err != nil {
+		if err := storage.CacheConfigStore.DeleteFSCacheConfig(tx, fsID); err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return nil
 			}
@@ -225,7 +227,7 @@ func DeletePvPvc(fsID string) error {
 }
 
 // ListFileSystem the function which performs the operation of list file systems
-func (s *FileSystemService) ListFileSystem(ctx *logger.RequestContext, req *ListFileSystemRequest) ([]models.FileSystem, string, error) {
+func (s *FileSystemService) ListFileSystem(ctx *logger.RequestContext, req *ListFileSystemRequest) ([]model.FileSystem, string, error) {
 	limit := req.MaxKeys + 1
 	marker := req.Marker
 	if req.Marker == "" {
@@ -236,7 +238,7 @@ func (s *FileSystemService) ListFileSystem(ctx *logger.RequestContext, req *List
 		listUserName = ""
 	}
 
-	items, err := models.ListFileSystem(int(limit), listUserName, marker, req.FsName)
+	items, err := storage.FsStore.ListFileSystem(int(limit), listUserName, marker, req.FsName)
 	if err != nil {
 		ctx.Logging().Errorf("list file systems err[%v]", err)
 		ctx.ErrorCode = common.FileSystemDataBaseError
@@ -245,7 +247,7 @@ func (s *FileSystemService) ListFileSystem(ctx *logger.RequestContext, req *List
 
 	itemsLen := len(items)
 	if itemsLen == 0 {
-		return []models.FileSystem{}, "", err
+		return []model.FileSystem{}, "", err
 	}
 	if itemsLen > int(req.MaxKeys) {
 		return items[:len(items)-1], items[len(items)-1].UpdatedAt.Format(TimeFormat), err

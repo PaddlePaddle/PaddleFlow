@@ -21,7 +21,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 func ListFsCacheLocation(fsIDs []string) ([]string, error) {
@@ -32,7 +32,7 @@ func ListFsCacheLocation(fsIDs []string) ([]string, error) {
 	nodesMap := make(map[string]struct{}, 0)
 
 	for _, fsID := range fsIDs {
-		nodeNames, err := models.ListMountNodesByID(fsID)
+		nodeNames, err := storage.FsMountStore.ListMountNodesByID(fsID)
 		if err != nil {
 			log.Errorf("ListMountNodesByID[%s] err: %v", fsID, err)
 			return nil, err
