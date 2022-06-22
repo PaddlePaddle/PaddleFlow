@@ -18,9 +18,11 @@ package pfs
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"paddleflow/pkg/apiserver/common"
+	"paddleflow/pkg/fs/csiplugin/csiconfig"
 	csiCommon "paddleflow/pkg/fs/utils/common"
 )
 
@@ -67,8 +69,15 @@ func (m *MountInfo) GetMountCmd() (string, []string) {
 	if m.Type == common.Glusterfs {
 		cmdName = mountName
 		args = append(args, "-t", m.Type)
-		if len(m.Options) != 0 {
-			args = append(args, "-o", strings.Join(m.Options, ","))
+		if csiconfig.GlusterFsLogLevel != "" {
+			m.Options = append(m.Options, fmt.Sprintf("log-level=%s", csiconfig.GlusterFsLogLevel))
+			if csiconfig.GlusterFsLogPath == "" {
+				csiconfig.GlusterFsLogPath = "/home/paddleflow/log/"
+			}
+			m.Options = append(m.Options, fmt.Sprintf("log-file=%s", filepath.Join(csiconfig.GlusterFsLogPath, "glusterfs-" + m.FSID+".log")))
+		}
+		for _, option := range m.Options {
+			args = append(args, "-o", option)
 		}
 		args = append(args, strings.Join([]string{m.ServerAddress, m.SubPath}, ":"), m.LocalPath)
 	} else {

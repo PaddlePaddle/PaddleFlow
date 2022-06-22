@@ -22,10 +22,12 @@ import (
 )
 
 var (
-	NodeName   = ""
-	Namespace  = ""
-	PodName    = ""
-	MountImage = ""
+	NodeName          = ""
+	Namespace         = ""
+	PodName           = ""
+	MountImage        = ""
+	GlusterFsLogLevel = ""
+	GlusterFsLogPath  = ""
 
 	CSIPod = corev1.Pod{}
 )
