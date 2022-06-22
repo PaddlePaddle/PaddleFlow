@@ -27,6 +27,7 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 const (
@@ -87,4 +88,5 @@ func initMockDB() {
 		&Image{},
 	)
 	database.DB = db
+	storage.InitStores(db)
 }
