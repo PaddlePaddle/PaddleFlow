@@ -19,10 +19,11 @@ package models
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
-	"github.com/stretchr/testify/assert"
 )
 
 var (
