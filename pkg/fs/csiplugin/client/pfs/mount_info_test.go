@@ -67,7 +67,7 @@ func TestMountInfo_GetMountCmd(t *testing.T) {
 				LocalPath:     "/mnt/test",
 			},
 			want:  "mount",
-			want1: []string{"-t", "glusterfs", "-o", "log-level=TRACE", "-o", "log-file=/home/paddleflow/log/fs-root-1.log", "127.0.0.1:default-volume", "/mnt/test"},
+			want1: []string{"-t", "glusterfs", "-o", "log-level=TRACE", "-o", "log-file=/home/paddleflow/log/glusterfs-fs-root-1.log", "127.0.0.1:default-volume", "/mnt/test"},
 		},
 	}
 	for _, tt := range tests {

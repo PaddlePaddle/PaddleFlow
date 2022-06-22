@@ -74,7 +74,7 @@ func (m *MountInfo) GetMountCmd() (string, []string) {
 			if csiconfig.GlusterFsLogPath == "" {
 				csiconfig.GlusterFsLogPath = "/home/paddleflow/log/"
 			}
-			m.Options = append(m.Options, fmt.Sprintf("log-file=%s", filepath.Join(csiconfig.GlusterFsLogPath, m.FSID+".log")))
+			m.Options = append(m.Options, fmt.Sprintf("log-file=%s", filepath.Join(csiconfig.GlusterFsLogPath, "glusterfs-" + m.FSID+".log")))
 		}
 		for _, option := range m.Options {
 			args = append(args, "-o", option)
