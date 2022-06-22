@@ -99,7 +99,6 @@ func (wfr *WorkflowRuntime) Start() error {
 }
 
 // Restart 从 DB 中恢复重启
-// TODO: 进一步思考重启逻辑
 func (wfr *WorkflowRuntime) Restart(entryPointView schema.RuntimeView,
 	postProcessView schema.PostProcessView) error {
 	defer wfr.scheduleLock.Unlock()
@@ -114,6 +113,8 @@ func (wfr *WorkflowRuntime) Restart(entryPointView schema.RuntimeView,
 	dagView := schema.DagView{
 		EntryPoints: entryPointView,
 	}
+
+	wfr.entryPoints.updateStatus(StatusRuntimeRunning)
 
 	entryPointRestarted, err := wfr.entryPoints.Restart(dagView)
 	if err != nil {
@@ -164,6 +165,8 @@ func (wfr *WorkflowRuntime) Restart(entryPointView schema.RuntimeView,
 			}
 		}
 	}
+
+	go wfr.Listen()
 
 	return nil
 }
@@ -302,9 +305,16 @@ func (wfr *WorkflowRuntime) updateStatusAccordingComponentStatus() {
 	// - 另外skipped 状态的节点也视作运行成功（目前运行所有step都skip，此时run也是为succeeded）
 	// - 如果有 Step 的状态为 terminated，但是 run 的状态不为 terminating, 则说明改step 是意外终止，此时 run 的状态应该Failed
 
-	hasFailedComponent := wfr.entryPoints.isFailed() || wfr.postProcess.isFailed()
-	hasTerminatedComponent := wfr.entryPoints.isTerminated() || wfr.postProcess.isTerminated()
-	hasCancelledComponent := wfr.entryPoints.isCancelled() || wfr.postProcess.isCancelled()
+	if !wfr.entryPoints.isDone() || (wfr.postProcess != nil && !wfr.postProcess.isDone()) {
+		return
+	}
+
+	hasFailedComponent := wfr.entryPoints.isFailed() ||
+		(wfr.postProcess != nil && wfr.postProcess.isFailed())
+	hasTerminatedComponent := wfr.entryPoints.isTerminated() ||
+		(wfr.postProcess != nil && wfr.postProcess.isTerminated())
+	hasCancelledComponent := wfr.entryPoints.isCancelled() ||
+		(wfr.postProcess != nil && wfr.postProcess.isCancelled())
 
 	if hasFailedComponent {
 		wfr.status = common.StatusRunFailed
