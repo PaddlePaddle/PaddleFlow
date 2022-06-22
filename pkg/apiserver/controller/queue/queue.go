@@ -525,6 +525,9 @@ func GetQueueByName(ctx *logger.RequestContext, queueName string) (GetQueueRespo
 		}
 	}
 
+	if usedResource == nil {
+		usedResource = schema.EmptyResourceInfo()
+	}
 	maxResource := queue.MaxResources
 	idleResource, err := maxResource.Sub(*usedResource)
 	if err != nil {
@@ -532,10 +535,10 @@ func GetQueueByName(ctx *logger.RequestContext, queueName string) (GetQueueRespo
 	}
 	queue.IdleResource = &idleResource
 	queue.UsedResource = usedResource
+
 	getQueueResponse := GetQueueResponse{
 		Queue: queue,
 	}
-
 	return getQueueResponse, nil
 }
 
