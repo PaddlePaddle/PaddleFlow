@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	DefaultClusterName = "default"
+	DefaultClusterName = "default-cluster"
 	DefaultQueueName   = "default-queue"
 	DefaultNamespace   = "default"
 )
