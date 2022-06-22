@@ -18,7 +18,7 @@ package storage
 
 import (
 	"fmt"
-	
+
 	"gorm.io/gorm"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
@@ -72,6 +72,12 @@ func (f *DBFSCache) List(fsID, cacheID string) ([]model.FSCache, error) {
 		return nil, err
 	}
 	return fsCaches, nil
+}
+
+func (f *DBFSCache) ListNodes(fsIDs []string) ([]string, error) {
+	nodeList := make([]string, 0)
+	result := f.db.Model(&model.FSCache{}).Where(fmt.Sprintf(QueryInWithParam, FsID), fsIDs).Select(NodeName).Find(&nodeList)
+	return nodeList, result.Error
 }
 
 func (f *DBFSCache) Update(value *model.FSCache) (int64, error) {

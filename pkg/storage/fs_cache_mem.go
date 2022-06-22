@@ -136,6 +136,17 @@ func (mem *MemFSCache) List(fsID, cacheID string) ([]model.FSCache, error) {
 	return retMap, nil
 }
 
+func (mem *MemFSCache) ListNodes(fsIDs []string) ([]string, error) {
+	nodeList := make([]string, 0)
+	for _, fsID := range fsIDs {
+		cacheMap := mem.fsCacheMap.GetBatch(fsID)
+		for _, cache := range cacheMap {
+			nodeList = append(nodeList, cache.NodeName)
+		}
+	}
+	return nodeList, nil
+}
+
 func (mem *MemFSCache) Update(value *model.FSCache) (int64, error) {
 	return 0, nil
 }

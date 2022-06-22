@@ -67,6 +67,7 @@ type FsCacheStoreInterface interface {
 	Get(fsID string, cacheID string) (*model.FSCache, error)
 	Delete(fsID, cacheID string) error
 	List(fsID, cacheID string) ([]model.FSCache, error)
+	ListNodes(fsID []string) ([]string, error)
 	Update(value *model.FSCache) (int64, error)
 }
 
