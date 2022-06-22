@@ -64,9 +64,9 @@ const (
 	ViewTypeEntrypoint  ViewType = "entrypoints"
 	ViewTypePostProcess ViewType = "postProcess"
 
-	RegExpUpstreamTpl          = `^\{\{(\s)*[a-zA-Z0-9-]+\.[a-zA-Z0-9_]+(\s)*\}\}$`      // {{xx-xx.xx_xx}}
-	RegExpIncludingUpstreamTpl = `\{\{(\s)*[a-zA-Z0-9-]+\.[a-zA-Z0-9_]+(\s)*\}\}`        // 包含 {{xx-xx.xx_xx}}
-	RegExpIncludingTpl         = `\{\{(\s)*([a-zA-Z0-9-]*[\.?[a-zA-Z0-9_]+]*)?(\s)*\}\}` // 包含 {{xx-xx（.xx_xx）（可重复多次）}}，如 {{xx-xx}}或{{xx-xx.xx_xx.xx_x}}
+	RegExpUpstreamTpl          = `^\{\{(\s)*[a-zA-Z0-9-]+\.[a-zA-Z0-9_]+(\s)*\}\}$`    // {{xx-xx.xx_xx}}
+	RegExpIncludingUpstreamTpl = `\{\{(\s)*[a-zA-Z0-9-]+\.[a-zA-Z0-9_]+(\s)*\}\}`      // 包含 {{xx-xx.xx_xx}}
+	RegExpIncludingTpl         = `\{\{(\s)*(([a-zA-Z0-9-]*\.)*[a-zA-Z0-9_]+)(\s)*\}\}` // 包含 {{(xx-xx.)（可重复多次）xx_xx}}，如 {{xx-xx}}或{{xx-xx.xx-xx.xx_x}}，或者是{xx_xx}
 
 	// condition 字段中引用的 artifact 支持最大空间， 单位为 byte
 	ConditionArtifactMaxSize = 1024 // 1KB

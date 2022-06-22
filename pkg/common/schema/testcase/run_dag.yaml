@@ -24,7 +24,7 @@ entry_points:
     loop_argument: "{{random_int}}"
     artifacts:
       output:
-        square_result: "{{square.result}" 
+        square_result: "{{square.result}}" 
       input:
         random_int: "{{randint.random_int}}"
     entry_points:

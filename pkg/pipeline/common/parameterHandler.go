@@ -123,7 +123,7 @@ func (s *StepParamChecker) checkDuplication(currentComponent string) error {
 	return nil
 }
 
-func (s *StepParamChecker) Check(currentComponent string) error {
+func (s *StepParamChecker) Check(currentComponent string, isOuterComp bool) error {
 	/*
 		1. 如果没有用到Fs，不能用Fs相关系统参数，以及inputAtf，outputAtf机制
 		2. 先检查参数名是否有重复（parameter，artifact）
@@ -145,6 +145,11 @@ func (s *StepParamChecker) Check(currentComponent string) error {
 		return fmt.Errorf("check param reference failed: component %s not exist", currentComponent)
 	}
 
+	// Reference节点检查
+	if err := s.checkReference(component); err != nil {
+		return fmt.Errorf("check reference failed, error: %s", err.Error())
+	}
+
 	// 1. parameter 校验
 	// parameter不需要将dict类型的参数默认值提取出来，因为会在StepParamResolver中做了
 	// 另外命令行参数替换默认值，会在workflow.go中完成
@@ -164,15 +169,17 @@ func (s *StepParamChecker) Check(currentComponent string) error {
 			return err
 		}
 
-		variableChecker := VariableChecker{}
-		err = variableChecker.CheckRefUpstreamStep(inputAtfVal)
-		if err != nil {
-			return fmt.Errorf("check input artifact [%s] in step[%s] failed: %s", inputAtfName, currentComponent, err.Error())
-		}
+		if !isOuterComp {
+			variableChecker := VariableChecker{}
+			err = variableChecker.CheckRefUpstreamStep(inputAtfVal)
+			if err != nil {
+				return fmt.Errorf("check input artifact [%s] in step[%s] failed: %s", inputAtfName, currentComponent, err.Error())
+			}
 
-		err = s.checkParamValue(currentComponent, inputAtfName, inputAtfVal, FieldInputArtifacts)
-		if err != nil {
-			return err
+			err = s.checkParamValue(currentComponent, inputAtfName, inputAtfVal, FieldInputArtifacts)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -190,7 +197,7 @@ func (s *StepParamChecker) Check(currentComponent string) error {
 			// 虽然这里不是引用上游节点，而是子节点，但是规则相同，因此可以复用
 			err = variableChecker.CheckRefUpstreamStep(outArtValue)
 			if err != nil {
-				return fmt.Errorf("check input artifact [%s] in step[%s] failed: %s", outArtValue, currentComponent, err.Error())
+				return fmt.Errorf("check output artifact [%s] in step[%s] failed: %s", outArtValue, currentComponent, err.Error())
 			}
 
 			err = s.checkParamValue(currentComponent, outAtfName, outArtValue, FieldOutputArtifacts)
@@ -226,11 +233,56 @@ func (s *StepParamChecker) Check(currentComponent string) error {
 		if err != nil {
 			return err
 		}
+	}
+	return nil
+}
 
-		// 6. reference 校验
-		if step.Reference.Component != "" {
-			if err := s.CheckRefComponent(currentComponent); err != nil {
-				return err
+// 对reference节点进行检查
+func (s *StepParamChecker) checkReference(comp schema.Component) error {
+	// Reference节点的parameters的keys要是被引用节点的子集
+	// Reference节点的input artifact的keys要和被引用节点的一样
+	if step, ok := comp.(*schema.WorkflowSourceStep); ok {
+		refName := step.Reference.Component
+		if refName != "" {
+			if len(step.Artifacts.Output) > 0 || len(step.Command) > 0 || len(step.Condition) > 0 ||
+				len(step.DockerEnv) > 0 || len(step.Env) > 0 || step.LoopArgument != nil ||
+				len(step.Cache.FsScope) > 0 || len(step.Cache.MaxExpiredTime) > 0 || step.Cache.Enable {
+				fmt.Errorf("reference step can only have deps, parameters, input artifacts, reference")
+			}
+
+			template, ok := s.CompTempletes[refName]
+			if !ok {
+				return fmt.Errorf("no component named %s", refName)
+			}
+
+			// reference节点的parameters的keys要是被引用节点的子集
+			for paramName, param := range comp.GetParameters() {
+				referedParam, ok := template.GetParameters()[paramName]
+				if !ok {
+					return fmt.Errorf("parameters in step with reference must be in refered component")
+				}
+				// 如果对应的被引用节点的参数为dict形式，则Reference节点的参数类型需要符合dict中Type的要求
+				switch referedParam.(type) {
+				case map[interface{}]interface{}:
+					refDictParam := DictParam{}
+					if err := refDictParam.From(referedParam); err != nil {
+						return fmt.Errorf("invalid dict parameter[%s]", referedParam)
+					}
+					if _, err := CheckDictParam(refDictParam, paramName, param); err != nil {
+						return fmt.Errorf("parameters in step with reference check dict param in refered param failed, error: %s", err.Error())
+					}
+				}
+			}
+
+			// Reference节点的input artifact的keys要和被引用节点的一样
+			for atfName := range comp.GetArtifacts().Input {
+				if _, ok := template.GetArtifacts().Input[atfName]; !ok {
+					return fmt.Errorf("input artifact in step with reference must be in refered component")
+				}
+			}
+
+			if len(comp.GetArtifacts().Input) != len(template.GetArtifacts().Input) {
+				return fmt.Errorf("input artifact in refered component should all used by reference component")
 			}
 		}
 	}
@@ -256,50 +308,9 @@ func (s *StepParamChecker) checkParamValue(compName string, paramName string, pa
 		}
 	}
 
-	// Reference节点相关检查
-	comp, ok := s.Components[compName]
-	// 兜底检查
-	if !ok {
-		return fmt.Errorf("no component in EntryPoints named %s", compName)
-	}
-	if step, ok := comp.(*schema.WorkflowSourceStep); ok {
-		if step.Reference.Component != "" {
-			// 对reference节点进行检查
-			template, ok := s.CompTempletes[step.Reference.Component]
-			if !ok {
-				return fmt.Errorf("no component named %s", compName)
-			}
-
-			switch fieldType {
-			case FieldParameters:
-				// 在reference 节点中定义的parameters 需要是其引用的component的 parameters 的子集
-				referedParam, ok := template.GetParameters()[paramName]
-				if !ok {
-					return fmt.Errorf("parameters in step with reference must be in refered component")
-				}
-				// 如果 component 中的parameter 为dict 形式，在reference 节点中对应的parameter需要满足类型要求
-				switch referedParam.(type) {
-				case map[interface{}]interface{}:
-					dictParam := DictParam{}
-					if err := dictParam.From(referedParam); err != nil {
-						return fmt.Errorf("invalid dict parameter[%s]", param)
-					}
-					if _, err := CheckDictParam(dictParam, step.Reference.Component, param); err != nil {
-						return fmt.Errorf("parameters in step with reference check dict param in refered param failed, error: %s", err.Error())
-					}
-				}
-			case FieldInputArtifacts:
-				// 在reference 节点中定义的 input artifacts 需要是其引用的component的 input artifacts 的子集
-				if _, ok := template.GetArtifacts().Input[paramName]; !ok {
-					return fmt.Errorf("input artifact in step with reference must be in refered component")
-				}
-			}
-		}
-	}
-
 	// 参数值检查
 	switch param.(type) {
-	case float32, float64, int:
+	case float32, float64, int, int64:
 		return nil
 	case string:
 		return s.resolveRefParam(compName, param.(string), fieldType)
@@ -326,7 +337,7 @@ func (s *StepParamChecker) resolveRefParam(componentName, param, fieldType strin
 	reg := regexp.MustCompile(pattern)
 	matches := reg.FindAllStringSubmatch(param, -1)
 	for _, row := range matches {
-		if len(row) != 4 {
+		if len(row) != 5 {
 			return MismatchRegexError(param, pattern)
 		}
 		refList := ParseParamName(row[2])
@@ -403,7 +414,7 @@ func (s *StepParamChecker) refParamExist(currentCompName, refCompName, refParamN
 		if curComponent.GetType() != "dag" {
 			return fmt.Errorf("only dag can use output aritfacts of subComponents")
 		}
-		absoluteRefCompName = currentCompName + "." + refParamName
+		absoluteRefCompName = currentCompName + "." + refCompName
 	default:
 		if !StringsContain(curComponent.GetDeps(), refCompName) {
 			return fmt.Errorf("invalid reference param {{ %s.%s }} in step[%s]: step[%s] not in deps", refCompName, refParamName, currentCompName, refCompName)
@@ -413,19 +424,13 @@ func (s *StepParamChecker) refParamExist(currentCompName, refCompName, refParamN
 		if len(refCompNameList) > 1 {
 			absoluteRefCompName = strings.Join(refCompNameList[:len(refCompNameList)-1], ".") + "." + refCompName
 		} else {
-			absoluteRefCompName = refParamName
-		}
-	}
-	// 检查引用的节点是否被disabled
-	for _, disableStepName := range s.DisabledSteps {
-		if absoluteRefCompName == disableStepName {
-			return fmt.Errorf("invalid reference param {{ %s.%s }} in step[%s]: step[%s] is disabled", refCompName, refParamName, currentCompName, refCompName)
+			absoluteRefCompName = refCompName
 		}
 	}
 
 	refComponent, ok := s.Components[absoluteRefCompName]
 	if !ok {
-		return fmt.Errorf("invalid reference param {{ %s.%s }} in step[%s]: step[%s] not exist", refCompName, refParamName, currentCompName, refCompName)
+		return fmt.Errorf("invalid reference param {{ %s.%s }} in step[%s]: step[%s] not exist", refCompName, refParamName, currentCompName, absoluteRefCompName)
 	}
 
 	switch fieldType {

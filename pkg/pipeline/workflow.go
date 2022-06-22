@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
+	"strings"
 
 	. "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 
@@ -62,11 +63,14 @@ func NewBaseWorkflow(wfSource schema.WorkflowSource, runID, entry string, params
 		postProcess: wfSource.PostProcess,
 	}
 
-	bwf.runtimeDags, bwf.runtimeSteps = bwf.getComponents()
+	bwf.runtimeDags = map[string]*schema.WorkflowSourceDag{}
+	bwf.runtimeSteps = map[string]*schema.WorkflowSourceStep{}
+	bwf.recursiveGetComponents(bwf.Source.EntryPoints.EntryPoints, "", bwf.runtimeDags, bwf.runtimeSteps)
+
 	bwf.tmpDags = map[string]*schema.WorkflowSourceDag{}
 	bwf.tmpSteps = map[string]*schema.WorkflowSourceStep{}
 	// 对于Components模板中的节点，添加一个前缀，避免后面与EntryPoints中的节点重复
-	bwf.recursiveGetComponents(bwf.Source.Components, schema.SysComponentsPrefix, bwf.tmpDags, bwf.tmpSteps)
+	bwf.recursiveGetComponents(bwf.Source.Components, "", bwf.tmpDags, bwf.tmpSteps)
 	return bwf
 }
 
@@ -108,7 +112,13 @@ func (bwf *BaseWorkflow) getComponents() (map[string]*schema.WorkflowSourceDag, 
 
 func (bwf *BaseWorkflow) recursiveGetComponents(components map[string]schema.Component, prefix string, dags map[string]*schema.WorkflowSourceDag, steps map[string]*schema.WorkflowSourceStep) {
 	for name, component := range components {
-		absoluteName := prefix + "." + name
+		var absoluteName string
+		if prefix != "" {
+			absoluteName = prefix + "." + name
+		} else {
+			absoluteName = name
+		}
+
 		if dag, ok := component.(*schema.WorkflowSourceDag); ok {
 			dags[absoluteName] = dag
 			bwf.recursiveGetComponents(dag.EntryPoints, absoluteName, dags, steps)
@@ -556,7 +566,7 @@ func (bwf *BaseWorkflow) checkSteps() error {
 			- 只校验，不替换任何参数
 	*/
 
-	disabledSteps, err := bwf.checkDisabled()
+	_, err := bwf.checkDisabled()
 	if err != nil {
 		bwf.log().Errorf("check disabled failed. err:%s", err.Error())
 		return err
@@ -582,35 +592,62 @@ func (bwf *BaseWorkflow) checkSteps() error {
 		SysParamNamePFUserName: "",
 	}
 
-	// 同时检查components、entryPoints、postProcess
-	// 其中components的名称中加了前缀，因此不会与entryPoints中的重名，也不会被disabled
-	components := map[string]schema.Component{}
+	innerTmplComps := map[string]schema.Component{}
+	outerTmplComps := map[string]schema.Component{}
 	for name, dag := range bwf.tmpDags {
-		components[name] = dag
+		if strings.Contains(name, ".") {
+			innerTmplComps[name] = dag
+		} else {
+			outerTmplComps[name] = dag
+		}
 	}
 	for name, step := range bwf.tmpSteps {
-		components[name] = step
+		if strings.Contains(name, ".") {
+			innerTmplComps[name] = step
+		} else {
+			outerTmplComps[name] = step
+		}
 	}
-	for name, step := range bwf.runtimeSteps {
-		components[name] = step
-	}
-	for name, dag := range bwf.runtimeDags {
-		components[name] = dag
-	}
-	for name, step := range bwf.postProcess {
-		components[name] = step
-	}
-	paramChecker := StepParamChecker{
-		Components:    components,
+	tmplParamChecker := StepParamChecker{
+		Components:    innerTmplComps,
 		SysParams:     sysParamNameMap,
-		DisabledSteps: disabledSteps,
 		UseFs:         useFs,
 		CompTempletes: bwf.Source.Components,
 	}
-	for _, component := range components {
+	for name, _ := range innerTmplComps {
+		if err := tmplParamChecker.Check(name, false); err != nil {
+			bwf.log().Errorln(err.Error())
+			return err
+		}
+	}
+	for name, _ := range outerTmplComps {
+		if err := tmplParamChecker.Check(name, true); err != nil {
+			bwf.log().Errorln(err.Error())
+			return err
+		}
+	}
+
+	// 同时检查entryPoints、postProcess
+	runComponents := map[string]schema.Component{}
+	for name, step := range bwf.runtimeSteps {
+		runComponents[name] = step
+	}
+	for name, dag := range bwf.runtimeDags {
+		runComponents[name] = dag
+	}
+	for name, step := range bwf.postProcess {
+		runComponents[name] = step
+	}
+	runParamChecker := StepParamChecker{
+		Components:    runComponents,
+		SysParams:     sysParamNameMap,
+		UseFs:         useFs,
+		CompTempletes: bwf.Source.Components,
+	}
+	for _, component := range runComponents {
 		bwf.log().Debugln(component)
 	}
-	for name, _ := range components {
+	for name, _ := range runComponents {
 		isDisabled, err := bwf.Source.IsDisabled(name)
 		if err != nil {
 			return err
@@ -618,7 +655,7 @@ func (bwf *BaseWorkflow) checkSteps() error {
 		if isDisabled {
 			continue
 		}
-		if err := paramChecker.Check(name); err != nil {
+		if err := runParamChecker.Check(name, false); err != nil {
 			bwf.log().Errorln(err.Error())
 			return err
 		}
@@ -703,12 +740,67 @@ func (bwf *BaseWorkflow) checkDisabled() ([]string, error) {
 			return nil, fmt.Errorf("disabled component[%s] is set repeatedly!", name)
 		}
 		tempMap[name] = 1
-		if !bwf.Source.HasStep(bwf.Source.EntryPoints.EntryPoints, name) && !bwf.Source.HasStep(postComponents, name) {
+		components1, name1, ok1 := bwf.Source.GetComponent(bwf.Source.EntryPoints.EntryPoints, name)
+		components2, name2, ok2 := bwf.Source.GetComponent(postComponents, name)
+		components, name := map[string]schema.Component{}, ""
+		if ok1 {
+			components, name = components1, name1
+		} else if ok2 {
+			components, name = components2, name2
+		} else {
 			return nil, fmt.Errorf("disabled component[%s] not existed!", name)
+		}
+
+		// 检查被disabled的节点有没有被引用
+		for compName, comp := range components {
+			if compName == name {
+				continue
+			}
+			for _, atfVal := range comp.GetArtifacts().Input {
+				ok, err := checkRefed(compName, atfVal)
+				if err != nil {
+					return nil, err
+				}
+				if ok {
+					return nil, fmt.Errorf("disabled component[%s] is refered", compName)
+				}
+			}
+			for _, paramVal := range comp.GetParameters() {
+				paramVal, ok := paramVal.(string)
+				if !ok {
+					continue
+				}
+				ok, err := checkRefed(compName, paramVal)
+				if err != nil {
+					return nil, err
+				}
+				if ok {
+					return nil, fmt.Errorf("disabled component[%s] is refered", compName)
+				}
+			}
 		}
 	}
 
 	return disabledComponents, nil
+}
+
+func checkRefed(target string, strWithRef string) (bool, error) {
+	pattern := RegExpIncludingUpstreamTpl
+	reg := regexp.MustCompile(pattern)
+	matches := reg.FindAllStringSubmatch(strWithRef, -1)
+	for _, row := range matches {
+		if len(row) != 5 {
+			return false, MismatchRegexError(strWithRef, pattern)
+		}
+		refList := ParseParamName(row[2])
+		if len(refList) != 2 {
+			return false, MismatchRegexError(strWithRef, pattern)
+		}
+		if target == refList[0] {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // ----------------------------------------------------------------------------
