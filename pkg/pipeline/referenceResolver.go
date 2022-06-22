@@ -48,6 +48,7 @@ func (rr *referenceSolver) resolveComponentReference(component schema.Component)
 	// 被引用节点名
 	referencedComponentName := step.Reference.Component
 	referencedComponent := rr.WorkflowSource.Components[referencedComponentName]
+	referencedComponent.UpdateName(component.GetName())
 
 	// 递归的解析 reference 字段
 	referencedComponent, err := rr.resolveComponentReference(referencedComponent)
