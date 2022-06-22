@@ -533,8 +533,8 @@ func GetQueueByName(ctx *logger.RequestContext, queueName string) (GetQueueRespo
 	if err != nil {
 		return GetQueueResponse{}, fmt.Errorf("get queue idle quota failed, error: %v", err)
 	}
-	queue.IdleResource = &idleResource
-	queue.UsedResource = usedResource
+	queue.IdleResources = &idleResource
+	queue.UsedResources = usedResource
 
 	getQueueResponse := GetQueueResponse{
 		Queue: queue,
