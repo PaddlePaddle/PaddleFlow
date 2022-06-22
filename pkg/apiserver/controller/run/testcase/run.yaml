@@ -1,0 +1,49 @@
+name: myproject
+
+docker_env: iregistry.baidu-int.com/bmlc/framework/paddle:2.0.2-gpu-cuda10.1-cudnn7
+
+entry_points:
+  main:
+    parameters:
+      test: "111"
+    command: "echo {{test}}"
+    env:
+      PF_JOB_QUEUE_NAME: abc-q1
+      PF_JOB_TYPE: vcjob
+      PF_JOB_MODE: Pod
+      PF_JOB_FLAVOUR: flavour1
+      PF_JOB_PRIORITY: HIGH
+    cache:
+      enable: false
+      max_expired_time: 600
+      fs_scope: "./lalal"
+  nomain:
+    deps: "main"
+    parameters:
+      test: "222"
+    command: "echo {{test}}"
+    env:
+      PF_JOB_QUEUE_NAME: abc-q1
+      PF_JOB_TYPE: vcjob
+      PF_JOB_MODE: Pod
+      PF_JOB_FLAVOUR: flavour1
+      PF_JOB_PRIORITY: HIGH
+    cache:
+      enable: false
+      max_expired_time: 600
+      fs_scope: "./lalal"
+post_process:
+  post:
+    parameters:
+      test: "111"
+    command: "echo {{test}}"
+    env:
+      PF_JOB_QUEUE_NAME: abc-q1
+      PF_JOB_TYPE: vcjob
+      PF_JOB_MODE: Pod
+      PF_JOB_FLAVOUR: flavour1
+      PF_JOB_PRIORITY: HIGH
+cache:
+  enable: true
+  max_expired_time: 300
+  fs_scope: "./for_fsscope"

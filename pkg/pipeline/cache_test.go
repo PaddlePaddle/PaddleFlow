@@ -210,7 +210,6 @@ func TestGenerateFirstCacheKey(t *testing.T) {
 	assert.Equal(t, cacheKey.Parameters, map[string]string{"epoch": "1", "batch_size": "128"})
 	assert.Equal(t, cacheKey.Env, map[string]string{"num": "1200"})
 	assert.Equal(t, cacheKey.Command, "python3 predict.py /class/model")
-	assert.Equal(t, cacheKey.StepName, "predict")
 	assert.Equal(t, cacheKey.InputArtifacts, arts.Input)
 	assert.Equal(t, cacheKey.OutputArtifacts, arts.Output)
 }

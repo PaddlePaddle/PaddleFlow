@@ -89,7 +89,7 @@ type WorkflowSourceStep struct {
 	Env          map[string]string      `yaml:"env"`
 	DockerEnv    string                 `yaml:"docker_env"`
 	Cache        Cache                  `yaml:"cache"`
-	Reference    string                 `yaml:"referenc"`
+	Reference    Reference              `yaml:"reference"`
 }
 
 func (s *WorkflowSourceStep) GetName() string {
@@ -295,6 +295,10 @@ func (d *WorkflowSourceDag) GetOutputArtifactPath(artName string) (string, error
 	return path, nil
 }
 
+type Reference struct {
+	Component string
+}
+
 type Cache struct {
 	Enable         bool   `yaml:"enable"           json:"enable"`
 	MaxExpiredTime string `yaml:"max_expired_time" json:"maxExpiredTime"` // seconds
@@ -358,8 +362,8 @@ func (wfs *WorkflowSource) HasStep(components map[string]Component, absoluteName
 				return wfs.HasStep(dag.EntryPoints, nameList[1])
 			} else if step, ok := component.(*WorkflowSourceStep); ok {
 				// 如果为step，检查是否有引用Source.Components中的节点
-				reference := step.Reference
-				return wfs.componentsHasStep(reference, nameList[1])
+				referComp := step.Reference.Component
+				return wfs.componentsHasStep(referComp, nameList[1])
 			} else {
 				logger.Logger().Errorf("a component not dag or step")
 				return false
@@ -373,17 +377,17 @@ func (wfs *WorkflowSource) HasStep(components map[string]Component, absoluteName
 	}
 }
 
-func (wfs *WorkflowSource) componentsHasStep(reference string, subNames string) bool {
+func (wfs *WorkflowSource) componentsHasStep(referComp string, subNames string) bool {
 	// 在前面已经校验过递归reference因此不会有递归出现，但后续可能会允许递归
 	// TODO: 如果有递归reference的情况，这里会出现死循环，需要升级
 	for {
-		if referedComponent, ok := wfs.Components[reference]; ok {
+		if referedComponent, ok := wfs.Components[referComp]; ok {
 			if dag, ok := referedComponent.(*WorkflowSourceDag); ok {
 				// 检查Source.Components中的节点，如果它是一个dag，那就继续向下遍历子节点
 				return wfs.HasStep(dag.EntryPoints, subNames)
 			} else if step, ok := referedComponent.(*WorkflowSourceStep); ok {
 				// 如果是step，那就看是否继续ref了其他component
-				reference = step.Reference
+				referComp = step.Reference.Component
 				continue
 			} else {
 				logger.Logger().Errorf("a component not dag or step")
@@ -507,7 +511,7 @@ func (wfs *WorkflowSource) ProcessRuntimeComponents(components map[string]Compon
 			}
 
 			// Reference节点不用替换
-			if step.Reference == "" {
+			if step.Reference.Component == "" {
 				// DockerEnv字段替换检查
 				if step.DockerEnv == "" {
 					step.DockerEnv = wfs.DockerEnv

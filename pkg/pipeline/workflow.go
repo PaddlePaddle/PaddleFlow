@@ -204,17 +204,17 @@ func (bwf *BaseWorkflow) checkComponents() error {
 
 func (bwf *BaseWorkflow) checkRecursion(component schema.Component, visited map[string]int) error {
 	if step, ok := component.(*schema.WorkflowSourceStep); ok {
-		if step.Reference != "" {
-			refComp, ok := bwf.Source.Components[step.Reference]
+		if step.Reference.Component != "" {
+			refComp, ok := bwf.Source.Components[step.Reference.Component]
 			if !ok {
 				fmt.Errorf("no component named %s", step.Reference)
 			}
 
 			// 如果visited已有将要reference的节点，则说明存在递归
-			if _, ok := visited[step.Reference]; ok {
+			if _, ok := visited[step.Reference.Component]; ok {
 				return fmt.Errorf("reference should not be recursive")
 			} else {
-				visited[step.Reference] = 1
+				visited[step.Reference.Component] = 1
 			}
 			return bwf.checkRecursion(refComp, visited)
 		} else {
@@ -393,7 +393,7 @@ func (bwf *BaseWorkflow) checkStepCache(components map[string]schema.Component) 
 	for name, component := range components {
 		if dag, ok := component.(*schema.WorkflowSourceDag); ok {
 			return bwf.checkStepCache(dag.EntryPoints)
-		} else if step, ok := component.(*schema.WorkflowSourceStep); ok && step.Reference == "" {
+		} else if step, ok := component.(*schema.WorkflowSourceStep); ok && step.Reference.Component == "" {
 			if step.Cache.MaxExpiredTime == "" {
 				step.Cache.MaxExpiredTime = CacheExpiredTimeNever
 			}

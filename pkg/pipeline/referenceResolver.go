@@ -42,12 +42,12 @@ func (rr *referenceSolver) resolveComponentReference(component schema.Component)
 	}
 
 	step := component.(*schema.WorkflowSourceStep)
-	if step.Reference == "" {
+	if step.Reference.Component == "" {
 		return component, nil
 	}
 
 	// 被引用节点名
-	referencedComponentName := step.Reference
+	referencedComponentName := step.Reference.Component
 	referencedComponent := rr.WorkflowSource.Components[referencedComponentName]
 
 	// 递归的解析 reference 字段
