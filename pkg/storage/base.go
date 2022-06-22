@@ -17,8 +17,6 @@ limitations under the License.
 package storage
 
 import (
-	"sync"
-
 	log "github.com/sirupsen/logrus"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -27,8 +25,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
-
-var once sync.Once
 
 var (
 	FsStore          FileSystemStoreInterface
@@ -39,13 +35,7 @@ var (
 )
 
 func InitStores(db *gorm.DB) {
-	//once.Do(func() {
-	//	FsStore = NewFileSystemStore(db)
-	//	CacheConfigStore = NewFsCacheConfigStore(db)
-	//	LinkStore = NewLinkStore(db)
-	//	FsMountStore = NewFsMountStore(db)
-	//	FsCacheStore = NewFsCacheStore(db)
-	//})
+	// do not use once.Do() because unit test need to init db twice
 	FsStore = NewFileSystemStore(db)
 	CacheConfigStore = NewFsCacheConfigStore(db)
 	LinkStore = NewLinkStore(db)
