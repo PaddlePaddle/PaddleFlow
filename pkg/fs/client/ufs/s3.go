@@ -107,10 +107,12 @@ func (fs *s3FileSystem) list(name, continuationToken string, limit int, recursiv
 	limit_ := int64(limit)
 	fullPath := fs.getFullPath(name)
 	request := &s3.ListObjectsV2Input{
-		Bucket:            &fs.bucket,
-		Prefix:            &fullPath,
-		ContinuationToken: &continuationToken,
-		MaxKeys:           &limit_,
+		Bucket:  &fs.bucket,
+		Prefix:  &fullPath,
+		MaxKeys: &limit_,
+	}
+	if continuationToken != "" {
+		request.ContinuationToken = &continuationToken
 	}
 	if !recursive {
 		delim := Delimiter
