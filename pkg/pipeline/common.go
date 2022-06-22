@@ -29,7 +29,6 @@ import (
 )
 
 // 获取制定Artifact的内容
-// TODO: 作为 ResourceHandler 的成员函数
 func GetArtifactContent(artPath string, maxSize int, fsID string, logger *logrus.Entry) (string, error) {
 	fsHandler, err := handler.NewFsHandlerWithServer(fsID, logger)
 	if err != nil {
