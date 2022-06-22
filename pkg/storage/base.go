@@ -30,7 +30,6 @@ var (
 	FsStore          FileSystemStoreInterface
 	CacheConfigStore FsCacheConfigStoreInterface
 	LinkStore        LinkStoreInterface
-	FsMountStore     FsMountStoreInterface
 	FsCacheStore     FsCacheStoreInterface
 )
 
@@ -39,7 +38,6 @@ func InitStores(db *gorm.DB) {
 	FsStore = NewFileSystemStore(db)
 	CacheConfigStore = NewFsCacheConfigStore(db)
 	LinkStore = NewLinkStore(db)
-	FsMountStore = NewFsMountStore(db)
 	FsCacheStore = NewFsCacheStore(db)
 }
 

@@ -38,16 +38,7 @@ const (
 	FsPath        = "fs_path"
 	Address       = "address"
 	UserName      = "user_name"
-	FsName        = "name"
-	GrantFsType   = "fs"
 
 	ASC  = "asc"
 	DESC = "desc"
-
-	MAXListFileSystems = 1000
-
-	FsPrefix  = "fs-"
-	FsNameNum = 8
-
-	TimeFormat = "2006-01-02 15:04:05"
 )

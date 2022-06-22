@@ -18,6 +18,7 @@ package mount
 
 import (
 	"fmt"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"path"
 	"strconv"
 	"strings"
@@ -181,7 +182,7 @@ func annotateMountPod(c k8s.Client, pod *v1.Pod, mountInfo Info) error {
 		log.Warnf("workPodUID not obtained from target path: %s", mountInfo.TargetPath)
 	}
 	ann[workPodUID] = mountInfo.TargetPath
-	ann[PodAnnoMTime] = time.Now().String()
+	ann[PodAnnoMTime] = time.Now().Format(model.TimeFormat)
 	pod.ObjectMeta.Annotations = ann
 	updatedPod, err := c.UpdatePod(csiconfig.Namespace, pod)
 	if err != nil {
@@ -216,7 +217,7 @@ func createMountPod(k8sClient k8s.Client, httpClient *core.PaddleFlowClient, tok
 		log.Warnf("workPodUID not obtained from target path: %s", mountInfo.TargetPath)
 	}
 	ann[workPodUID] = mountInfo.TargetPath
-	ann[PodAnnoMTime] = time.Now().String()
+	ann[PodAnnoMTime] = time.Now().Format(model.TimeFormat)
 	mountPod.ObjectMeta.Annotations = ann
 
 	_, err = k8sClient.CreatePod(mountPod)
