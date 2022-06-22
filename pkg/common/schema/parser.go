@@ -144,12 +144,14 @@ func (p *Parser) ParseNodes(entryPoints map[string]interface{}) (map[string]Comp
 			if err := p.ParseDag(nodeMap, &dagNode); err != nil {
 				return nil, err
 			}
+			dagNode.name = name
 			nodes[name] = &dagNode
 		} else {
 			stepNode := WorkflowSourceStep{}
 			if err := p.ParseStep(nodeMap, &stepNode); err != nil {
 				return nil, err
 			}
+			stepNode.name = name
 			nodes[name] = &stepNode
 		}
 	}

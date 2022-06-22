@@ -125,7 +125,7 @@ func TestStopEntry(t *testing.T) {
 
 	time.Sleep(time.Millisecond * 10)
 
-	wf.runtime.entryPoints["data-preprocess"].job.(*PaddleFlowJob).Status = schema.StatusJobSucceeded
+	wf.runtime.entryPoints.en["data-preprocess"].job.(*PaddleFlowJob).Status = schema.StatusJobSucceeded
 	wf.runtime.entryPoints["data-preprocess"].done = true
 	wf.runtime.entryPoints["main"].job.(*PaddleFlowJob).Status = schema.StatusJobSucceeded
 	wf.runtime.entryPoints["main"].done = true
