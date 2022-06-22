@@ -19,7 +19,6 @@ package models
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
@@ -30,6 +29,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
 
 const (
@@ -265,7 +265,7 @@ func DeleteQueue(queueName string) error {
 			return t.Error
 		}
 		t = tx.Table("grant").Unscoped().Where("resource_id = ?",
-			queueName).Where("resource_type = ?", common.ResourceTypeQueue).Delete(&storage.Grant{})
+			queueName).Where("resource_type = ?", common.ResourceTypeQueue).Delete(&model.Grant{})
 		if t.Error != nil {
 			log.Errorf("delete queue failed. queueName:%s, error:%s",
 				queueName, tx.Error.Error())

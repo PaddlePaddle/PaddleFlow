@@ -19,7 +19,6 @@ package queue
 import (
 	"errors"
 	"fmt"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
@@ -33,6 +32,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 const defaultQueueName = "default"
@@ -486,7 +486,7 @@ func validateQueueResource(rResource schema.ResourceInfo, qResource *schema.Reso
 func GetQueueByName(ctx *logger.RequestContext, queueName string) (GetQueueResponse, error) {
 	ctx.Logging().Debugf("begin get queue by name. queueName:%s", queueName)
 
-	if !storage.HasAccessToResource(ctx, common.ResourceTypeQueue, queueName) {
+	if !storage.Auth.HasAccessToResource(ctx, common.ResourceTypeQueue, queueName) {
 		ctx.ErrorCode = common.ActionNotAllowed
 		ctx.Logging().Errorf("get queueName[%s] failed. error: access denied.", queueName)
 		return GetQueueResponse{}, fmt.Errorf("get queueName[%s] failed.\n", queueName)

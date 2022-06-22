@@ -17,7 +17,6 @@ limitations under the License.
 package models
 
 import (
-	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"time"
 
 	"github.com/google/uuid"
@@ -27,6 +26,7 @@ import (
 	"gorm.io/gorm/logger"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
 
 const (
@@ -74,12 +74,12 @@ func initMockDB() {
 		&Schedule{},
 		&RunCache{},
 		&ArtifactEvent{},
-		&storage.User{},
+		&model.User{},
 		&Run{},
 		&RunJob{},
 		&Queue{},
 		&Flavour{},
-		&storage.Grant{},
+		&model.Grant{},
 		&Job{},
 		&JobTask{},
 		&JobLabel{},
