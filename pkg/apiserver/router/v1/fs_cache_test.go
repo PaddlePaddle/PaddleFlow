@@ -178,7 +178,7 @@ func TestFSCacheReportRouter(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, http.StatusOK, result.Code)
 
-	cacheList, err := storage.FsCacheStore.List(common.ID(MockRootUser, mockFsName), "")
+	cacheList, err := storage.FsCache.List(common.ID(MockRootUser, mockFsName), "")
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(cacheList))
 
@@ -187,7 +187,7 @@ func TestFSCacheReportRouter(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, http.StatusOK, result.Code)
 
-	cacheList, err = storage.FsCacheStore.List(common.ID(MockRootUser, mockFsName), "")
+	cacheList, err = storage.FsCache.List(common.ID(MockRootUser, mockFsName), "")
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(cacheList))
 	assert.Equal(t, 200, cacheList[0].UsedSize)

@@ -48,14 +48,14 @@ func ReportCache(ctx *logger.RequestContext, req CacheReportRequest) error {
 		ClusterID: req.ClusterID,
 	}
 
-	n, err := storage.FsCacheStore.Update(fsCache)
+	n, err := storage.FsCache.Update(fsCache)
 	if err != nil {
 		ctx.ErrorCode = common.InternalError
 		ctx.Logging().Errorf("ReportCache Update[%s] err:%v", fsID, err)
 		return err
 	}
 	if n == 0 {
-		err = storage.FsCacheStore.Add(fsCache)
+		err = storage.FsCache.Add(fsCache)
 	}
 	if err != nil {
 		ctx.ErrorCode = common.InternalError

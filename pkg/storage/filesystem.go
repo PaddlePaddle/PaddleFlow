@@ -18,10 +18,22 @@ package storage
 
 import (
 	"fmt"
+
+	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
+
+type FilesystemStore struct {
+	db *gorm.DB
+}
+
+func newFilesystemStore(db *gorm.DB) *FilesystemStore {
+	return &FilesystemStore{db: db}
+}
+
+// ============================================================= table filesystem ============================================================= //
 
 func (fss *FilesystemStore) CreatFileSystem(fs *model.FileSystem) error {
 	return fss.db.Transaction(func(tx *gorm.DB) error {
@@ -79,4 +91,85 @@ func (fss *FilesystemStore) GetSimilarityAddressList(fsType string, ips []string
 	}
 	result := tx.Where(fmt.Sprintf("%s = ?", Type), fsType).Find(&fileSystems)
 	return fileSystems, result.Error
+}
+
+// ============================================================= table link ============================================================= //
+
+func (fss *FilesystemStore) CreateLink(link *model.Link) error {
+	return fss.db.Create(link).Error
+}
+
+func (fss *FilesystemStore) FsNameLinks(fsID string) ([]model.Link, error) {
+	var links []model.Link
+	result := fss.db.Where(&model.Link{FsID: fsID}).Find(&links)
+	return links, result.Error
+}
+
+func (fss *FilesystemStore) LinkWithFsIDAndFsPath(fsID, fsPath string) (model.Link, error) {
+	var link model.Link
+	result := fss.db.Where(&model.Link{FsID: fsID, FsPath: fsPath}).Find(&link)
+	return link, result.Error
+}
+
+// DeleteLinkWithFsIDAndFsPath delete a file system link
+func (fss *FilesystemStore) DeleteLinkWithFsIDAndFsPath(fsID, fsPath string) error {
+	result := fss.db.Where(fmt.Sprintf(QueryEqualWithParam, FsID), fsID).Where(fmt.Sprintf(QueryEqualWithParam, FsPath), fsPath).Delete(&model.Link{})
+	return result.Error
+}
+
+// ListLink get links with marker and limit sort by create_at desc
+func (fss *FilesystemStore) ListLink(limit int, marker, fsID string) ([]model.Link, error) {
+	var links []model.Link
+	result := fss.db.Where(&model.Link{FsID: fsID}).Where(fmt.Sprintf(QueryLess, CreatedAt, "'"+marker+"'")).
+		Order(fmt.Sprintf(" %s %s ", CreatedAt, DESC)).Limit(limit).Find(&links)
+	return links, result.Error
+}
+
+func (fss *FilesystemStore) GetLinkWithFsIDAndPath(fsID, fsPath string) ([]model.Link, error) {
+	var links []model.Link
+	result := fss.db.Where(&model.Link{FsID: fsID, FsPath: fsPath}).First(&links)
+	return links, result.Error
+}
+
+// ============================================================= table fs_cache_config ============================================================= //
+
+func (fss *FilesystemStore) CreateFSCacheConfig(logEntry *log.Entry, fsCacheConfig *model.FSCacheConfig) error {
+	logEntry.Debugf("begin create fsCacheConfig:%+v", fsCacheConfig)
+	err := fss.db.Model(&model.FSCacheConfig{}).Create(fsCacheConfig).Error
+	if err != nil {
+		logEntry.Errorf("create fsCacheConfig failed. fsCacheConfig:%v, error:%s",
+			fsCacheConfig, err.Error())
+		return err
+	}
+	return nil
+}
+
+func (fss *FilesystemStore) UpdateFSCacheConfig(logEntry *log.Entry, fsCacheConfig model.FSCacheConfig) error {
+	logEntry.Debugf("begin update fsCacheConfig fsCacheConfig. fsID:%s", fsCacheConfig.FsID)
+	tx := fss.db.Model(&model.FSCacheConfig{}).Where(&model.FSCacheConfig{FsID: fsCacheConfig.FsID}).Updates(fsCacheConfig)
+	if tx.Error != nil {
+		logEntry.Errorf("update fsCacheConfig failed. fsCacheConfig.ID:%s, error:%s",
+			fsCacheConfig.FsID, tx.Error.Error())
+		return tx.Error
+	}
+	return nil
+}
+
+func (fss *FilesystemStore) DeleteFSCacheConfig(tx *gorm.DB, fsID string) error {
+	if tx == nil {
+		tx = fss.db
+	}
+	return tx.Model(&model.FSCacheConfig{}).Unscoped().Where(&model.FSCacheConfig{FsID: fsID}).Delete(&model.FSCacheConfig{}).Error
+}
+
+func (fss *FilesystemStore) GetFSCacheConfig(logEntry *log.Entry, fsID string) (model.FSCacheConfig, error) {
+	logEntry.Debugf("begin get fsCacheConfig. fsID:%s", fsID)
+	var fsCacheConfig model.FSCacheConfig
+	tx := fss.db.Model(&model.FSCacheConfig{}).Where(&model.FSCacheConfig{FsID: fsID}).First(&fsCacheConfig)
+	if tx.Error != nil {
+		logEntry.Errorf("get fsCacheConfig failed. fsID:%s, error:%s",
+			fsID, tx.Error.Error())
+		return model.FSCacheConfig{}, tx.Error
+	}
+	return fsCacheConfig, nil
 }

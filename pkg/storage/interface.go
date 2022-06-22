@@ -17,26 +17,22 @@ limitations under the License.
 package storage
 
 import (
-	log "github.com/sirupsen/logrus"
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
-
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
+	log "github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 )
 
 var (
 	Filesystem   FileSystemStoreInterface
 	FsMountStore FsMountStoreInterface
-	FsCacheStore FsCacheStoreInterface
+	FsCache      FsCacheStoreInterface
 )
 
 func InitStores(db *gorm.DB) {
 	// do not use once.Do() because unit test need to init db twice
-	Filesystem = NewFilesystemStore(db)
+	Filesystem = newFilesystemStore(db)
 	FsMountStore = NewFsMountStore(db)
-	FsCacheStore = NewFsCacheStore(db)
+	FsCache = newDBFSCache(db)
 }
 
 type FileSystemStoreInterface interface {
@@ -53,19 +49,11 @@ type FileSystemStoreInterface interface {
 	DeleteLinkWithFsIDAndFsPath(fsID, fsPath string) error
 	ListLink(limit int, marker, fsID string) ([]model.Link, error)
 	GetLinkWithFsIDAndPath(fsID, fsPath string) ([]model.Link, error)
-	// cache config
+	// fs_cache_config
 	CreateFSCacheConfig(logEntry *log.Entry, fsCacheConfig *model.FSCacheConfig) error
 	UpdateFSCacheConfig(logEntry *log.Entry, fsCacheConfig model.FSCacheConfig) error
 	DeleteFSCacheConfig(tx *gorm.DB, fsID string) error
 	GetFSCacheConfig(logEntry *log.Entry, fsID string) (model.FSCacheConfig, error)
-}
-
-type FilesystemStore struct {
-	db *gorm.DB
-}
-
-func NewFilesystemStore(db *gorm.DB) *FilesystemStore {
-	return &FilesystemStore{db: db}
 }
 
 // FsCacheStoreInterface currently has two implementations: DB and memory
@@ -76,32 +64,4 @@ type FsCacheStoreInterface interface {
 	Delete(fsID, cacheID string) error
 	List(fsID, cacheID string) ([]model.FSCache, error)
 	Update(value *model.FSCache) (int64, error)
-}
-
-func NewFsCacheStore(db *gorm.DB) FsCacheStoreInterface {
-	// default use db storage, mem used in the future maybe as the cache for db
-	return newDBFSCache(db)
-}
-
-func initMockDB() {
-	// github.com/mattn/go-sqlite3
-	db, err := gorm.Open(sqlite.Open("file::memory:"), &gorm.Config{
-		// print sql
-		Logger: logger.Default.LogMode(logger.Info),
-	})
-	if err != nil {
-		log.Fatalf("InitMockDB open db error: %v", err)
-	}
-
-	if err := db.AutoMigrate(
-		&model.FileSystem{},
-		&model.Link{},
-		&model.FSCacheConfig{},
-		&model.FSCache{},
-		&model.FsMount{},
-	); err != nil {
-		log.Fatalf("InitMockDB createDatabaseTables error[%s]", err.Error())
-	}
-	database.DB = db
-	InitStores(db)
 }
