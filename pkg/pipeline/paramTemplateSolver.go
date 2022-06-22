@@ -19,6 +19,7 @@ package pipeline
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"regexp"
 	"strings"
 
@@ -105,13 +106,6 @@ func (isv *innerSolver) resloveParameterTemplate(tpl []string, fieldType string)
 		value = fmt.Sprintf("%v", value2)
 	}
 	return value, nil
-}
-
-// updateSysParam: 用于更新系统参数的值
-func (isv *innerSolver) updateSysParam(paraDict map[string]string) {
-	for name, value := range paraDict {
-		isv.sysParams[name] = value
-	}
 }
 
 // resolveArtifactTemplate： 将ArtifactTemplate 替换成对应路径或者其中的内容
@@ -264,19 +258,20 @@ func (isv *innerSolver) resolveLoopArugment() error {
 	// 1. json list
 	// 2. list
 	if valueString, ok := newLoopArgument.(string); ok {
-		var loopValue []interface{}
+		var loopValue interface{}
 
-		json.Unmarshal([]byte(valueString), loopValue)
+		json.Unmarshal([]byte(valueString), &loopValue)
 		newLoopArgument = loopValue
 	}
 
-	if _, ok := newLoopArgument.([]interface{}); !ok {
+	typeOfNewLoopArg := reflect.TypeOf(newLoopArgument)
+	if !strings.HasPrefix(typeOfNewLoopArg.String(), "[]") {
 		err := fmt.Errorf("the value of loop_argument for component[%s] should be an list or json list",
 			isv.componentFullName)
 		return err
 	}
 
-	isv.Component.UpdateLoopArguemt(newLoopArgument.([]interface{}))
+	isv.Component.UpdateLoopArguemt(newLoopArgument)
 	return nil
 }
 

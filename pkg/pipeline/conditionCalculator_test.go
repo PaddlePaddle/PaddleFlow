@@ -46,4 +46,5 @@ func TestCaculatCondition(t *testing.T) {
 	cc = NewConditionCalculator("'9' > '10'")
 	result, err = cc.calculate()
 	assert.True(t, result)
+
 }
