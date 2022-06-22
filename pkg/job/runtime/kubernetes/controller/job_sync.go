@@ -42,6 +42,7 @@ const (
 
 type JobSyncInfo struct {
 	ID          string
+	Namespace   string
 	ParentJobID string
 	GVK         schema.GroupVersionKind
 	Status      commonschema.JobStatus
@@ -212,8 +213,13 @@ func (j *JobSync) doCreateAction(jobSyncInfo *JobSyncInfo) error {
 		}
 		jobType, framework := k8s.GetJobTypeAndFramework(jobSyncInfo.GVK)
 		job := &models.Job{
-			ID:          jobSyncInfo.ID,
-			Type:        string(jobType),
+			ID:   jobSyncInfo.ID,
+			Type: string(jobType),
+			Config: &commonschema.Conf{
+				Env: map[string]string{
+					commonschema.EnvJobNamespace: jobSyncInfo.Namespace,
+				},
+			},
 			Framework:   framework,
 			QueueID:     parentJob.QueueID,
 			Status:      jobSyncInfo.Status,

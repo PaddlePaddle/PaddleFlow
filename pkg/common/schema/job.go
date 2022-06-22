@@ -237,10 +237,12 @@ func (c *Conf) GetCommand() string {
 }
 
 func (c *Conf) GetWorkerCommand() string {
+	c.preCheckEnv()
 	return c.Env[EnvJobWorkerCommand]
 }
 
 func (c *Conf) GetPSCommand() string {
+	c.preCheckEnv()
 	return c.Env[EnvJobPServerCommand]
 }
 
@@ -249,6 +251,7 @@ func (c *Conf) GetImage() string {
 }
 
 func (c *Conf) GetPriority() string {
+	c.preCheckEnv()
 	return c.Env[EnvJobPriority]
 }
 
@@ -258,6 +261,7 @@ func (c *Conf) SetPriority(pc string) {
 }
 
 func (c *Conf) GetQueueName() string {
+	c.preCheckEnv()
 	return c.Env[EnvJobQueueName]
 }
 
@@ -268,10 +272,12 @@ func (c *Conf) SetQueueName(queueName string) {
 }
 
 func (c *Conf) GetClusterName() string {
+	c.preCheckEnv()
 	return c.Env[EnvJobClusterName]
 }
 
 func (c *Conf) GetUserName() string {
+	c.preCheckEnv()
 	return c.Env[EnvJobUserName]
 }
 
@@ -281,6 +287,7 @@ func (c *Conf) SetUserName(userName string) {
 }
 
 func (c *Conf) GetFS() string {
+	c.preCheckEnv()
 	return c.Env[EnvJobFsID]
 }
 
@@ -291,10 +298,12 @@ func (c *Conf) SetFS(fsID string) {
 }
 
 func (c *Conf) GetYamlPath() string {
+	c.preCheckEnv()
 	return c.Env[EnvJobYamlPath]
 }
 
 func (c *Conf) GetNamespace() string {
+	c.preCheckEnv()
 	return c.Env[EnvJobNamespace]
 }
 
@@ -304,38 +313,47 @@ func (c *Conf) SetNamespace(ns string) {
 }
 
 func (c *Conf) Type() JobType {
+	c.preCheckEnv()
 	return JobType(c.Env[EnvJobType])
 }
 
 func (c *Conf) GetJobMode() string {
+	c.preCheckEnv()
 	return c.Env[EnvJobMode]
 }
 
 func (c *Conf) GetJobReplicas() string {
+	c.preCheckEnv()
 	return c.Env[EnvJobReplicas]
 }
 
 func (c *Conf) GetWorkerReplicas() string {
+	c.preCheckEnv()
 	return c.Env[EnvJobWorkerReplicas]
 }
 
 func (c *Conf) GetPSReplicas() string {
+	c.preCheckEnv()
 	return c.Env[EnvJobPServerReplicas]
 }
 
 func (c *Conf) GetJobExecutorReplicas() string {
+	c.preCheckEnv()
 	return c.Env[EnvJobExecutorReplicas]
 }
 
 func (c *Conf) GetFlavour() string {
+	c.preCheckEnv()
 	return c.Env[EnvJobFlavour]
 }
 
 func (c *Conf) GetPSFlavour() string {
+	c.preCheckEnv()
 	return c.Env[EnvJobPServerFlavour]
 }
 
 func (c *Conf) GetWorkerFlavour() string {
+	c.preCheckEnv()
 	return c.Env[EnvJobWorkerFlavour]
 }
 
@@ -368,6 +386,7 @@ func (c *Conf) SetQueueID(id string) {
 }
 
 func (c *Conf) GetClusterID() string {
+	c.preCheckEnv()
 	return c.Env[EnvJobClusterID]
 }
 
