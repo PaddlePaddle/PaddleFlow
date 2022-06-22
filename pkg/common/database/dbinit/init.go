@@ -108,10 +108,10 @@ func InitMockDB() {
 		Logger: logger.Default.LogMode(logger.Info),
 	})
 	if err != nil {
-		log.Fatalf("InitMockDB open db error: %v", err)
+		log.Fatalf("initMockDB open db error: %v", err)
 	}
 	if err := createDatabaseTables(db); err != nil {
-		log.Fatalf("InitMockDB createDatabaseTables error[%s]", err.Error())
+		log.Fatalf("initMockDB createDatabaseTables error[%s]", err.Error())
 	}
 	database.DB = db
 	storage.InitStores(db)

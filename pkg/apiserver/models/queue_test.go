@@ -19,16 +19,10 @@ package models
 import (
 	"testing"
 
-	log "github.com/sirupsen/logrus"
-	"github.com/stretchr/testify/assert"
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
-	glogger "gorm.io/gorm/logger"
-
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/stretchr/testify/assert"
 )
 
 var (
@@ -36,24 +30,8 @@ var (
 	mockRootUserName = "root"
 )
 
-func InitFakeDB() {
-	db, err := gorm.Open(sqlite.Open("file::memory:"), &gorm.Config{
-		Logger: glogger.Default.LogMode(glogger.Info),
-	})
-	if err != nil {
-		log.Fatalf("The fake DB doesn't create successfully. Fail fast. error: %v", err)
-	}
-	// Create tables
-	db.AutoMigrate(
-		&Grant{},
-		&Queue{},
-		&ClusterInfo{},
-	)
-	database.DB = db
-}
-
 func TestCreateQueue(t *testing.T) {
-	InitFakeDB()
+	initMockDB()
 
 	cluster1 := ClusterInfo{
 		Name:          "cluster1",
@@ -112,7 +90,7 @@ func TestCreateQueue(t *testing.T) {
 }
 
 func TestUpdateQueue(t *testing.T) {
-	InitFakeDB()
+	initMockDB()
 
 	cluster1 := ClusterInfo{
 		Name:          "cluster1",

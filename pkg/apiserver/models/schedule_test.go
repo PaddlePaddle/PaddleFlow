@@ -90,7 +90,7 @@ func insertPipeline(t *testing.T, logEntry *log.Entry) (pplID1, pplID2, pplDetai
 
 // 测试创建schedule catchup 参数
 func TestCatchup(t *testing.T) {
-	InitMockDB()
+	initMockDB()
 	logEntry := log.WithFields(log.Fields{})
 	pplID1, _, pplDetailID1, _ := insertPipeline(t, logEntry)
 
@@ -186,7 +186,7 @@ func TestCatchup(t *testing.T) {
 
 // 测试创建schedule expire interval 参数
 func TestExpireInterval(t *testing.T) {
-	InitMockDB()
+	initMockDB()
 	logEntry := log.WithFields(log.Fields{})
 	pplID1, _, pplDetailID1, _ := insertPipeline(t, logEntry)
 
@@ -251,7 +251,7 @@ func TestExpireInterval(t *testing.T) {
 
 // 测试创建schedule concurrency, 以及concurrencyPolicy 参数
 func TestConcurrency(t *testing.T) {
-	InitMockDB()
+	initMockDB()
 	logEntry := log.WithFields(log.Fields{})
 	pplID1, _, pplDetailID1, _ := insertPipeline(t, logEntry)
 
@@ -410,7 +410,7 @@ func TestConcurrency(t *testing.T) {
 // 测试创建schedule endtime 参数
 // 此处不测试starttime参数，因为start time只用于create schedule时，确定nextRunAt的值，该功能在createSchedule会测试
 func TestScheduleTime(t *testing.T) {
-	InitMockDB()
+	initMockDB()
 	logEntry := log.WithFields(log.Fields{})
 	pplID1, _, pplDetailID1, _ := insertPipeline(t, logEntry)
 
