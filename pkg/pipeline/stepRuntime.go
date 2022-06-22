@@ -128,7 +128,7 @@ func (srt *StepRuntime) Start() {
 		errMsg := fmt.Sprintf("caculate the condition field for component[%s] faild:\n%s",
 			srt.getName(), err.Error())
 
-		srt.logger.Errorln(errMsg)
+		srt.logger.Errorf(errMsg)
 		srt.processStartAbnormalStatus(errMsg, StatusRuntimeFailed)
 		return
 	}
@@ -568,7 +568,7 @@ func (srt *StepRuntime) Execute() {
 
 		err = srt.logCache()
 		if err != nil {
-			srt.logger.Errorln(err.Error())
+			srt.logger.Errorf(err.Error())
 			srt.processStartAbnormalStatus(err.Error(), schema.StatusJobFailed)
 			return
 		}
@@ -589,7 +589,7 @@ func (srt *StepRuntime) Execute() {
 	err := srt.updateJob(forCacheFingerprint)
 	if err != nil {
 		logMsg = fmt.Sprintf("update output artifacts value for step[%s] in runid[%s] failed: [%s]", srt.name, srt.runID, err.Error())
-		srt.logger.Errorln(logMsg)
+		srt.logger.Errorf(logMsg)
 		srt.processStartAbnormalStatus(logMsg, schema.StatusJobFailed)
 		return
 	}
@@ -597,7 +597,7 @@ func (srt *StepRuntime) Execute() {
 	err = srt.job.Validate()
 	if err != nil {
 		logMsg = fmt.Sprintf("validating step[%s] failed: [%s]", srt.name, err.Error())
-		srt.logger.Errorln(logMsg)
+		srt.logger.Errorf(logMsg)
 		srt.processStartAbnormalStatus(logMsg, schema.StatusJobFailed)
 		return
 	}
