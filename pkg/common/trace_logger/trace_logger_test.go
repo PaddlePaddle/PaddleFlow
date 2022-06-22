@@ -25,44 +25,30 @@ package trace_logger
 // TODO: file part is not ready
 
 import (
-	file_logger "github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
 	testing "testing"
 	"time"
 )
 
-func TestInitTraceLogger(t *testing.T) {
+func TestTraceLogger(t *testing.T) {
 	// init logger
 	var err error
-	conf := file_logger.LogConfig{
-		Dir:             "/Users/alex/BAIDU/PaddleFlow/tmp",
-		FilePrefix:      "trace_log",
-		Level:           "debug",
-		MaxKeepDays:     2,
-		MaxFileNum:      10,
-		MaxFileSizeInMB: 1,
-		IsCompress:      false,
-	}
-	err = InitTraceLogger(conf)
+	err = initTraceLogger()
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
-	manager := NewDefaultTraceLoggerManager()
-
-	t.Log("start auto delete, timeout 5s")
-	err = manager.AutoDelete(5*time.Second, 2*time.Second)
+	// start auto delete
+	//err = AutoDelete(2 * time.Second)
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	defer manager.CancelAutoDelete()
-	// lint:errcheck
 
 	key1 := uuid.GenerateIDWithLength("key", 4)
 	t.Logf("log key %s", key1)
-	err = testFunc(manager, key1)
+	err = testFunc1(key1)
 	if err != nil {
 		t.Error(err)
 		return
@@ -72,7 +58,33 @@ func TestInitTraceLogger(t *testing.T) {
 
 	key2 := uuid.GenerateIDWithLength("key", 4)
 	t.Logf("log key %s", key2)
-	err = testFunc(manager, key2)
+	err = testFunc1(key2)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	t.Logf("cache: %s\n", manager)
+
+	key3 := uuid.GenerateIDWithLength("key", 4)
+	t.Logf("log key %s", key3)
+	err = testFunc1(key3)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	key4 := uuid.GenerateIDWithLength("key", 4)
+	t.Logf("log key %s", key4)
+	err = testFunc1(key4)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	key5 := uuid.GenerateIDWithLength("key", 4)
+	t.Logf("log key %s", key5)
+	err = testFunc1(key5)
 	if err != nil {
 		t.Error(err)
 		return
@@ -105,7 +117,7 @@ func TestInitTraceLogger(t *testing.T) {
 
 	// load from disk
 	t.Logf("load all")
-	err = manager.LoadAll(conf.Dir)
+	err = manager.LoadAll("/Users/alex/BAIDU/PaddleFlow/tmp")
 	if err != nil {
 		t.Error(err)
 		return
@@ -130,26 +142,50 @@ func TestInitTraceLogger(t *testing.T) {
 	return
 }
 
-func testFunc(log TraceLoggerManager, key string) error {
+func initTraceLogger() error {
+	conf := TraceLoggerConfig{
+		Dir:             "/Users/alex/BAIDU/PaddleFlow/tmp",
+		FilePrefix:      "trace_log",
+		Level:           "debug",
+		MaxKeepDays:     2,
+		MaxFileNum:      10,
+		MaxFileSizeInMB: 1,
+		IsCompress:      false,
+		Timeout:         time.Second * 2,
+		MaxCacheSize:    3,
+	}
+
+	return InitTraceLogger(conf)
+}
+
+func testFunc1(key string) error {
 	tmpKey := uuid.GenerateIDWithLength("tmp", 4)
-	log.Key(tmpKey).Infof("test1")
-	log.Key(tmpKey).Errorf("test2")
-	log.UpdateKey(tmpKey, key)
-	log.Key(key).Warnf("test3")
-	<-time.After(1 * time.Second)
-	log.Key(key).Infof("test4")
-	log.Key(key).Infof("test5")
+	Key(tmpKey).Infof("test1")
+	Key(tmpKey).Errorf("test2")
+	err := UpdateKey(tmpKey, key)
+	if err != nil {
+		return err
+	}
+	Key(key).Warnf("test3")
+	<-time.After(2 * time.Second)
+	Key(key).Infof("test4")
+	Key(key).Infof("test5")
+	Key(key).Infof("test6")
+	Key(key).Infof("test7")
+	Key(key).Infof("test8")
+	Key(key).Infof("test9")
+	Key(key).Infof("test10")
+	Key(key).Infof("test11")
+	Key(key).Infof("test12")
+	Key(key).Infof("test13")
+	Key(key).Infof("test14")
 	return nil
 }
 
-func testFunc(log TraceLoggerManager, key string) error {
+func testFunc2(key string) error {
 	tmpKey := uuid.GenerateIDWithLength("tmp", 4)
-	log.Key(tmpKey).Infof("test1")
-	log.Key(tmpKey).Errorf("test2")
-	log.UpdateKey(tmpKey, key)
-	log.Key(key).Warnf("test3")
-	<-time.After(1 * time.Second)
-	log.Key(key).Infof("test4")
-	log.Key(key).Infof("test5")
+	Key(tmpKey).Infof("tmp test1")
+	Key(tmpKey).Errorf("tmp test2")
+	Key(tmpKey).Errorf("tmp test3")
 	return nil
 }
