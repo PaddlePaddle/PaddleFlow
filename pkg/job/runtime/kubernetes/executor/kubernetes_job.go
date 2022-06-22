@@ -86,6 +86,8 @@ type KubeJob struct {
 	// 存储资源
 	FileSystems []schema.FileSystem
 
+	// job framework
+	Framework schema.Framework
 	// YamlTemplateContent indicate template content of job
 	YamlTemplateContent []byte
 	IsCustomYaml        bool
@@ -115,23 +117,11 @@ func NewKubeJob(job *api.PFJob, dynamicClientOpt *k8s.DynamicClientOption) (api.
 		Labels:              job.Conf.Labels,
 		Annotations:         job.Conf.Annotations,
 		FileSystems:         job.Conf.GetAllFileSystem(),
+		Framework:           job.Framework,
 		Tasks:               job.Tasks,
 		Priority:            job.Conf.GetPriority(),
 		QueueName:           job.Conf.GetQueueName(),
 		DynamicClientOption: dynamicClientOpt,
-	}
-	// get extensionTemplate
-	if len(job.ExtensionTemplate) == 0 {
-		var err error
-		kubeJob.IsCustomYaml = false
-		kubeJob.YamlTemplateContent, err = kubeJob.getDefaultTemplate(job.Framework)
-		if err != nil {
-			return nil, fmt.Errorf("get extra runtime config failed, err: %v", err)
-		}
-	} else {
-		// get runtime conf from user
-		kubeJob.IsCustomYaml = true
-		kubeJob.YamlTemplateContent = []byte(job.ExtensionTemplate)
 	}
 
 	switch job.JobType {
@@ -316,6 +306,18 @@ func KubePriorityClass(priority string) string {
 // createJobFromYaml parse the object of job from specified yaml file path
 func (j *KubeJob) createJobFromYaml(jobEntity interface{}) error {
 	log.Debugf("createJobFromYaml jobEntity[%+v] %v", jobEntity, reflect.TypeOf(jobEntity))
+	// get extensionTemplate
+	if len(j.YamlTemplateContent) == 0 {
+		var err error
+		j.IsCustomYaml = false
+		j.YamlTemplateContent, err = j.getDefaultTemplate(j.Framework)
+		if err != nil {
+			return fmt.Errorf("get default template failed, err: %v", err)
+		}
+	} else {
+		// get template from user
+		j.IsCustomYaml = true
+	}
 
 	// decode []byte into unstructured.Unstructured
 	dec := yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
