@@ -18,10 +18,12 @@ package ufs
 
 import (
 	"bytes"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -1382,6 +1384,16 @@ func NewS3FileSystem(properties map[string]interface{}) (UnderFileStorage, error
 		Endpoint:         aws.String(endpoint),
 		DisableSSL:       aws.Bool(!ssl),
 		S3ForcePathStyle: aws.Bool(true),
+	}
+
+	if properties[fsCommon.InsecureSkipVerify] == "true" {
+		awsConfig.HTTPClient = &http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{
+					InsecureSkipVerify: true,
+				},
+			},
+		}
 	}
 	if accessKey != "" && secretKey != "" {
 		secretKey, err := common.AesDecrypt(secretKey, common.AESEncryptKey)
