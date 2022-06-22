@@ -122,6 +122,7 @@ func NewKubeJob(job *api.PFJob, dynamicClientOpt *k8s.DynamicClientOption) (api.
 		Priority:            job.Conf.GetPriority(),
 		QueueName:           job.Conf.GetQueueName(),
 		DynamicClientOption: dynamicClientOpt,
+		YamlTemplateContent: []byte(job.ExtensionTemplate),
 	}
 
 	switch job.JobType {
