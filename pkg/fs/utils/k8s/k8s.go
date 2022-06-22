@@ -37,9 +37,10 @@ type Client interface {
 	// pod
 	ProxyGetPods(nodeID string) (result *v1.PodList, err error)
 	CreatePod(pod *v1.Pod) (*v1.Pod, error)
-	GetPod(podName, namespace string) (*v1.Pod, error)
+	GetPod(namespace, name string) (*v1.Pod, error)
+	UpdatePod(namespace string, pod *v1.Pod) (*v1.Pod, error)
 	DeletePod(pod *v1.Pod) error
-	GetPodLog(podName, namespace, containerName string) (string, error)
+	GetPodLog(namespace, podName, containerName string) (string, error)
 	// pv
 	CreatePersistentVolume(pv *v1.PersistentVolume) (*v1.PersistentVolume, error)
 	DeletePersistentVolume(name string, deleteOptions metav1.DeleteOptions) error
@@ -47,8 +48,8 @@ type Client interface {
 	ListPersistentVolume(listOptions metav1.ListOptions) (*v1.PersistentVolumeList, error)
 	// pvc
 	CreatePersistentVolumeClaim(namespace string, pvc *v1.PersistentVolumeClaim) (*v1.PersistentVolumeClaim, error)
-	DeletePersistentVolumeClaim(namespace string, name string, deleteOptions metav1.DeleteOptions) error
-	GetPersistentVolumeClaim(namespace string, name string, getOptions metav1.GetOptions) (*v1.PersistentVolumeClaim, error)
+	DeletePersistentVolumeClaim(namespace, name string, deleteOptions metav1.DeleteOptions) error
+	GetPersistentVolumeClaim(namespace, name string, getOptions metav1.GetOptions) (*v1.PersistentVolumeClaim, error)
 	// ns
 	GetNamespace(namespace string, getOptions metav1.GetOptions) (*v1.Namespace, error)
 	ListNamespaces(listOptions metav1.ListOptions) (*v1.NamespaceList, error)
@@ -100,14 +101,30 @@ func (c *k8sClient) CreatePod(pod *v1.Pod) (*v1.Pod, error) {
 	return mntPod, nil
 }
 
-func (c *k8sClient) GetPod(podName, namespace string) (*v1.Pod, error) {
-	log.Infof("Get pod %s", podName)
-	mntPod, err := c.CoreV1().Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
+func (c *k8sClient) GetPod(namespace, name string) (*v1.Pod, error) {
+	log.Infof("Get pod %s", name)
+	mntPod, err := c.CoreV1().Pods(namespace).Get(context.TODO(), name, metav1.GetOptions{})
 	if err != nil {
-		log.Errorf("Can't get pod %s namespace %s: %v", podName, namespace, err)
+		log.Errorf("Can't get pod %s namespace %s: %v", name, namespace, err)
 		return nil, err
 	}
 	return mntPod, nil
+}
+
+type PatchStringTemplate struct {
+	Op    string `json:"op"`
+	Path  string `json:"path"`
+	Value string `json:"value"`
+}
+
+func (c *k8sClient) UpdatePod(namespace string, pod *v1.Pod) (*v1.Pod, error) {
+	log.Infof("Get pod %s", pod.Name)
+	updatedPod, err := c.CoreV1().Pods(namespace).Update(context.TODO(), pod, metav1.UpdateOptions{})
+	if err != nil {
+		log.Errorf("Can't get pod %s namespace %s: %v", pod.Name, namespace, err)
+		return nil, err
+	}
+	return updatedPod, nil
 }
 
 func (c *k8sClient) DeletePod(pod *v1.Pod) error {
@@ -119,7 +136,7 @@ func (c *k8sClient) DeletePod(pod *v1.Pod) error {
 	return c.CoreV1().Pods(pod.Namespace).Delete(context.TODO(), pod.Name, metav1.DeleteOptions{})
 }
 
-func (c *k8sClient) GetPodLog(podName, namespace, containerName string) (string, error) {
+func (c *k8sClient) GetPodLog(namespace, podName, containerName string) (string, error) {
 	log.Infof("Get pod %s log", podName)
 	tailLines := int64(20)
 	req := c.CoreV1().Pods(namespace).GetLogs(podName, &v1.PodLogOptions{
