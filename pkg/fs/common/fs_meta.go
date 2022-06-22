@@ -50,11 +50,12 @@ const (
 	KeyTabData             = "kerberos.keytab.data"
 
 	// S3 properties
-	AccessKey = "accessKey"
-	SecretKey = "secretKey"
-	Endpoint  = "endpoint"
-	Bucket    = "bucket"
-	Region    = "region"
+	AccessKey          = "accessKey"
+	SecretKey          = "secretKey"
+	Endpoint           = "endpoint"
+	Bucket             = "bucket"
+	Region             = "region"
+	InsecureSkipVerify = "insecureSkipVerify"
 
 	// sftp properties
 	Address  = "address"
