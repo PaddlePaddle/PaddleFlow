@@ -64,6 +64,8 @@ func (rr *RunRouter) AddRouter(r chi.Router) {
 // @Failure 500 {object} common.ErrorResponse "500"
 // @Router /run [POST]
 func (rr *RunRouter) createRun(w http.ResponseWriter, r *http.Request) {
+	// TODO: add trace log point
+
 	ctx := common.GetRequestContext(r)
 	var createRunInfo run.CreateRunRequest
 	if err := common.BindJSON(r, &createRunInfo); err != nil {
@@ -72,6 +74,9 @@ func (rr *RunRouter) createRun(w http.ResponseWriter, r *http.Request) {
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
+
+	// TODO: example
+	// trace_logger.Key(ctx.RequestID).Errorf("placeholder")
 
 	// create run
 	response, err := run.CreateRun(ctx.UserName, &createRunInfo)

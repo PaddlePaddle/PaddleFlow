@@ -40,7 +40,7 @@ func TestTraceLogger(t *testing.T) {
 	}
 
 	// start auto delete
-	//err = AutoDelete(2 * time.Second)
+	err = AutoDelete(2 * time.Second)
 	if err != nil {
 		t.Error(err)
 		return
@@ -156,6 +156,12 @@ func initTraceLogger() error {
 	}
 
 	return InitTraceLogger(conf)
+
+}
+func test() {
+	Key("key1").Infof("test1")
+	UpdateKey("key1", "key2")
+	Key("key2").Warnf("test3")
 }
 
 func testFunc1(key string) error {
