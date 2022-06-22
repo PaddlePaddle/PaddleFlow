@@ -176,17 +176,8 @@ func UpdateRuntimeDagByWfEvent(id string, event interface{}) (int64, bool) {
 		return 0, false
 	}
 
-	dagName, ok := wfEvent.Extra[common.WfEventKeyComponentName].(string)
-	if !ok {
-		logging.Errorf("get component name failed in update dag cb")
-		return 0, false
-	}
-
-	pk, ok := wfEvent.Extra[common.WfEventKeyPK].(int64)
-	if !ok {
-		logging.Errorf("get pk failed in update dag cb")
-		return 0, false
-	}
+	dagName := runtimeDag.DagName
+	pk := runtimeDag.PK
 
 	runDag := models.ParseRunDag(&runtimeDag)
 	runDag.Encode()
@@ -235,17 +226,8 @@ func UpdateRuntimeJobByWfEvent(id string, event interface{}) (int64, bool) {
 		return 0, false
 	}
 
-	stepName, ok := wfEvent.Extra[common.WfEventKeyComponentName].(string)
-	if !ok {
-		logging.Errorf("get component name failed in update job cb")
-		return 0, false
-	}
-
-	pk, ok := wfEvent.Extra[common.WfEventKeyPK].(int64)
-	if !ok {
-		logging.Errorf("get pk failed in update job cb")
-		return 0, false
-	}
+	stepName := runtimeJob.StepName
+	pk := runtimeJob.PK
 
 	runJob := models.ParseRunJob(&runtimeJob)
 	runJob.Encode()

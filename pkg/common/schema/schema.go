@@ -44,7 +44,7 @@ type JobView struct {
 	CacheRunID  string            `json:"cacheRunID"`
 	CacheJobID  string            `json:"cacheJobID"`
 	ParentDagID string            `json:"parentDagID"`
-	PK          int64             `json:"'-"`
+	PK          int64             `json:"-"`
 	Seq         int               `json:"-"`
 }
 

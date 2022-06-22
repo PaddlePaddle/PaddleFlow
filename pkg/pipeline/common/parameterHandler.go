@@ -21,9 +21,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/mitchellh/mapstructure"
-
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/mitchellh/mapstructure"
 )
 
 type DictParam struct {

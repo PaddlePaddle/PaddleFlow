@@ -41,7 +41,8 @@ const (
 	FailureStrategyFailFast = "fail_fast"
 	FailureStrategyContinue = "continue"
 
-	EnvDockerEnv = "dockerEnv"
+	EnvDockerEnv        = "dockerEnv"
+	SysComponentsPrefix = "SysComponentsPrefix"
 )
 
 type Artifacts struct {
@@ -341,7 +342,8 @@ func (wfs *WorkflowSource) IsDisabled(componentName string) (bool, error) {
 	for k, v := range wfs.PostProcess {
 		postComponents[k] = v
 	}
-	if !wfs.HasStep(wfs.EntryPoints.EntryPoints, componentName) && !wfs.HasStep(postComponents, componentName) {
+	if !wfs.HasStep(wfs.EntryPoints.EntryPoints, componentName) && !wfs.HasStep(postComponents, componentName) &&
+		strings.HasPrefix(componentName, SysComponentsPrefix) {
 		return false, fmt.Errorf("check disabled for component[%s] failed, component not existed!", componentName)
 	}
 

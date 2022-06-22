@@ -66,7 +66,7 @@ func NewBaseWorkflow(wfSource schema.WorkflowSource, runID, entry string, params
 	bwf.tmpDags = map[string]*schema.WorkflowSourceDag{}
 	bwf.tmpSteps = map[string]*schema.WorkflowSourceStep{}
 	// 对于Components模板中的节点，添加一个前缀，避免后面与EntryPoints中的节点重复
-	bwf.recursiveGetComponents(bwf.Source.Components, SysComponentsPrefix, bwf.tmpDags, bwf.tmpSteps)
+	bwf.recursiveGetComponents(bwf.Source.Components, schema.SysComponentsPrefix, bwf.tmpDags, bwf.tmpSteps)
 	return bwf
 }
 

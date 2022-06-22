@@ -25,6 +25,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database/dbinit"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/pipeline"
 )
 
@@ -39,6 +40,8 @@ const (
 	MockRunName2 = "run-name_2"
 	MockUserID2  = "user-id_2"
 	MockFsID2    = "fs-id_2"
+
+	runDagYamlPath = "./testcase/run_dag.yaml"
 )
 
 func getMockRun1() models.Run {
@@ -75,6 +78,28 @@ func getMockRun2() models.Run {
 		RunYaml:  string(loadCase(runYamlPath)),
 	}
 	return run2
+}
+
+func getMockFullRun() (models.Run, error) {
+	runYaml := loadCase(runDagYamlPath)
+	wfs, err := schema.GetWorkflowSource(runYaml)
+	if err != nil {
+		return models.Run{}, err
+	}
+	run := models.Run{
+		ID:             "000666",
+		Name:           "full_run",
+		Source:         "run.yaml",
+		UserName:       "root",
+		FsID:           "fs-root-cyang14",
+		FsName:         "cyang14",
+		Description:    "desc",
+		Parameters:     map[string]interface{}{},
+		RunYaml:        string(runYaml),
+		WorkflowSource: wfs,
+		Status:         common.StatusRunInitiating,
+	}
+	return run, nil
 }
 
 func TestListRunSuccess(t *testing.T) {
@@ -180,20 +205,9 @@ func TestCallback(t *testing.T) {
 func TestNewWorkflowByRun(t *testing.T) {
 	dbinit.InitMockDB()
 	var err error
-	ctx := &logger.RequestContext{UserName: MockRootUser}
-	run1 := getMockRun1()
-	run1.ID, err = models.CreateRun(ctx.Logging(), &run1)
-
-	// test non-admin user no access to other users' run
-	ctxOtherNonAdmin := &logger.RequestContext{UserName: "non-admin"}
-	_, err = GetRunByID(ctxOtherNonAdmin, run1.ID)
-	assert.NotNil(t, err)
-	assert.Equal(t, common.AccessDenied, ctxOtherNonAdmin.ErrorCode)
-	assert.Equal(t, common.NoAccessError("non-admin", common.ResourceTypeRun, run1.ID).Error(), err.Error())
-
-	// test no record
-	_, err = GetRunByID(ctx, "run-id_non_existed")
-	assert.NotNil(t, err)
-	assert.Equal(t, common.RunNotFound, ctx.ErrorCode)
-	assert.Equal(t, common.NotFoundError(common.ResourceTypeRun, "run-id_non_existed").Error(), err.Error())
+	// ctx := &logger.RequestContext{UserName: MockRootUser}
+	run, err := getMockFullRun()
+	assert.Nil(t, err)
+	_, err = newWorkflowByRun(run)
+	assert.Nil(t, err)
 }
