@@ -17,6 +17,8 @@ limitations under the License.
 package storage
 
 import (
+	"crypto/md5"
+	"encoding/hex"
 	"fmt"
 
 	"gorm.io/gorm"
@@ -35,6 +37,9 @@ type DBFSCache struct {
 }
 
 func (f *DBFSCache) Add(value *model.FSCache) error {
+	if value.CacheID == "" {
+		value.CacheID = cacheID(value.ClusterID, value.NodeName, value.CacheDir)
+	}
 	return f.db.Create(value).Error
 }
 
@@ -76,11 +81,19 @@ func (f *DBFSCache) List(fsID, cacheID string) ([]model.FSCache, error) {
 
 func (f *DBFSCache) ListNodes(fsIDs []string) ([]string, error) {
 	nodeList := make([]string, 0)
-	result := f.db.Model(&model.FSCache{}).Where(fmt.Sprintf(QueryInWithParam, FsID), fsIDs).Select(NodeName).Find(&nodeList)
+	result := f.db.Model(&model.FSCache{}).Where(fmt.Sprintf(QueryInWithParam, FsID), fsIDs).Select(NodeName).Group(NodeName).Find(&nodeList)
 	return nodeList, result.Error
 }
 
 func (f *DBFSCache) Update(value *model.FSCache) (int64, error) {
+	if value.CacheID == "" {
+		value.CacheID = cacheID(value.ClusterID, value.NodeName, value.CacheDir)
+	}
 	result := f.db.Where(&model.FSCache{FsID: value.FsID, CacheID: value.CacheID}).Updates(value)
 	return result.RowsAffected, result.Error
+}
+
+func cacheID(clusterID, nodeName, CacheDir string) string {
+	hash := md5.Sum([]byte(clusterID + nodeName + CacheDir))
+	return hex.EncodeToString(hash[:])
 }

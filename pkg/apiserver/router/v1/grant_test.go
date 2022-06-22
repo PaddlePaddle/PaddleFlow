@@ -21,8 +21,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
 
 func TestGrantRouter(t *testing.T) {

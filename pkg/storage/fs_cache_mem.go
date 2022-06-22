@@ -112,6 +112,9 @@ type MemFSCache struct {
 }
 
 func (mem *MemFSCache) Add(value *model.FSCache) error {
+	if value.CacheID == "" {
+		value.CacheID = cacheID(value.ClusterID, value.NodeName, value.CacheDir)
+	}
 	mem.fsCacheMap.Put(value.FsID, value)
 	return nil
 }

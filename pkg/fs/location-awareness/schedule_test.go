@@ -17,8 +17,6 @@ limitations under the License.
 package location_awareness
 
 import (
-	"crypto/md5"
-	"encoding/hex"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -28,44 +26,36 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
-func getMountID(clusterID, nodeName, mountPoint string) string {
-	hash := md5.Sum([]byte(clusterID + nodeName + mountPoint))
-	return hex.EncodeToString(hash[:])
-}
-
 func TestListMountNodesByFsID(t *testing.T) {
 	dbinit.InitMockDB()
 
-	fsID1, fsID2, mountPoint1, mountPoint2, nodeName1, nodeName2, clusterID :=
+	fsID1, fsID2, cacheDir1, cacheDir2, nodeName1, nodeName2, clusterID :=
 		"fs-root-1", "fs-root-2", "/mnt/fs-root-1/storage", "/mnt/fs-root-2/storage", "node1", "node2", ""
-	fsMount := &model.FsMount{
-		FsID:       fsID1,
-		MountPoint: mountPoint1,
-		MountID:    getMountID(clusterID, nodeName1, mountPoint1),
-		NodeName:   nodeName1,
-		ClusterID:  clusterID,
+	cache := &model.FSCache{
+		FsID:      fsID1,
+		CacheDir:  cacheDir1,
+		NodeName:  nodeName1,
+		ClusterID: clusterID,
 	}
-	err := storage.FsMountStore.AddMount(fsMount)
+	err := storage.FsCache.Add(cache)
 	assert.Nil(t, err)
 
-	fsMount = &model.FsMount{
-		FsID:       fsID1,
-		MountPoint: mountPoint1,
-		MountID:    getMountID(clusterID, nodeName2, mountPoint1),
-		NodeName:   nodeName2,
-		ClusterID:  clusterID,
+	cache = &model.FSCache{
+		FsID:      fsID1,
+		CacheDir:  cacheDir1,
+		NodeName:  nodeName2,
+		ClusterID: clusterID,
 	}
-	err = storage.FsMountStore.AddMount(fsMount)
+	err = storage.FsCache.Add(cache)
 	assert.Nil(t, err)
 
-	fsMount = &model.FsMount{
-		FsID:       fsID2,
-		MountPoint: mountPoint2,
-		MountID:    getMountID(clusterID, nodeName1, mountPoint2),
-		NodeName:   nodeName1,
-		ClusterID:  clusterID,
+	cache = &model.FSCache{
+		FsID:      fsID2,
+		CacheDir:  cacheDir2,
+		NodeName:  nodeName1,
+		ClusterID: clusterID,
 	}
-	err = storage.FsMountStore.AddMount(fsMount)
+	err = storage.FsCache.Add(cache)
 	assert.Nil(t, err)
 
 	fsIDs := []string{fsID1, fsID2, "fs-non-exist"}
