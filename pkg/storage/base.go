@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package models
+package storage
 
 import (
 	log "github.com/sirupsen/logrus"
@@ -23,40 +23,45 @@ import (
 	"gorm.io/gorm/logger"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
 
-func InitMockDB() {
+var (
+	FsStore          FileSystemStoreInterface
+	CacheConfigStore FsCacheConfigStoreInterface
+	LinkStore        LinkStoreInterface
+	FsMountStore     FsMountStoreInterface
+	FsCacheStore     FsCacheStoreInterface
+)
+
+func InitStores(db *gorm.DB) {
+	// do not use once.Do() because unit test need to init db twice
+	FsStore = NewFileSystemStore(db)
+	CacheConfigStore = NewFsCacheConfigStore(db)
+	LinkStore = NewLinkStore(db)
+	FsMountStore = NewFsMountStore(db)
+	FsCacheStore = NewFsCacheStore(db)
+}
+
+func initMockDB() {
 	// github.com/mattn/go-sqlite3
 	db, err := gorm.Open(sqlite.Open("file::memory:"), &gorm.Config{
 		// print sql
 		Logger: logger.Default.LogMode(logger.Info),
 	})
 	if err != nil {
-		log.Fatalf("The fake DB doesn't create successfully. Fail fast. error: %v", err)
+		log.Fatalf("InitMockDB open db error: %v", err)
 	}
-	// Create tables
-	_ = db.AutoMigrate(
-		&Pipeline{},
-		&PipelineDetail{},
-		&Schedule{},
-		&RunCache{},
-		&ArtifactEvent{},
-		&User{},
-		&Run{},
-		&RunJob{},
-		&Queue{},
-		&Flavour{},
-		&Grant{},
-		&Job{},
-		&JobTask{},
-		&JobLabel{},
-		&ClusterInfo{},
-		&Image{},
-		&FileSystem{},
-		&Link{},
-		&FSCacheConfig{},
-		&FSCache{},
-		&FsMount{},
-	)
+
+	if err := db.AutoMigrate(
+		&model.FileSystem{},
+		&model.Link{},
+		&model.FSCacheConfig{},
+		&model.FSCache{},
+		&model.FsMount{},
+	); err != nil {
+		log.Fatalf("InitMockDB createDatabaseTables error[%s]", err.Error())
+	}
 	database.DB = db
+	InitStores(db)
 }

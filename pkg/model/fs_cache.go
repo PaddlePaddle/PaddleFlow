@@ -14,14 +14,15 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package models
+package model
 
 import (
-	"sync"
 	"time"
 
 	"gorm.io/gorm"
 )
+
+const FsCacheTableName = "fs_cache"
 
 type FSCache struct {
 	PK          int64          `json:"-" gorm:"primaryKey;autoIncrement"`
@@ -37,21 +38,6 @@ type FSCache struct {
 	DeletedAt   gorm.DeletedAt `json:"-"`
 }
 
-type FSCacheStore interface {
-	Add(value *FSCache) error
-	Get(fsID string, cacheID string) (*FSCache, error)
-	Delete(fsID, cacheID string) error
-	List(fsID, cacheID string) ([]FSCache, error)
-	Update(value *FSCache) (int64, error)
-}
-
-var instance FSCacheStore
-var once sync.Once
-
-func GetFSCacheStore() FSCacheStore {
-	once.Do(func() {
-		// default use db storage, mem used in the future maybe as the cache for db
-		instance = newDBFSCache()
-	})
-	return instance
+func (s *FSCache) TableName() string {
+	return FsCacheTableName
 }

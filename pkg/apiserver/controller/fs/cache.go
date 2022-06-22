@@ -21,8 +21,9 @@ import (
 	"encoding/hex"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 type CacheReportRequest struct {
@@ -35,11 +36,10 @@ type CacheReportRequest struct {
 }
 
 func ReportCache(ctx *logger.RequestContext, req CacheReportRequest) error {
-	cacheStore := models.GetFSCacheStore()
 	cacheID := GetCacheID(req.ClusterID, req.NodeName, req.CacheDir)
 	fsID := common.ID(req.Username, req.FsName)
 
-	fsCache := &models.FSCache{
+	fsCache := &model.FSCache{
 		CacheID:   cacheID,
 		FsID:      fsID,
 		CacheDir:  req.CacheDir,
@@ -48,14 +48,14 @@ func ReportCache(ctx *logger.RequestContext, req CacheReportRequest) error {
 		ClusterID: req.ClusterID,
 	}
 
-	n, err := cacheStore.Update(fsCache)
+	n, err := storage.FsCacheStore.Update(fsCache)
 	if err != nil {
 		ctx.ErrorCode = common.InternalError
 		ctx.Logging().Errorf("ReportCache Update[%s] err:%v", fsID, err)
 		return err
 	}
 	if n == 0 {
-		err = cacheStore.Add(fsCache)
+		err = storage.FsCacheStore.Add(fsCache)
 	}
 	if err != nil {
 		ctx.ErrorCode = common.InternalError

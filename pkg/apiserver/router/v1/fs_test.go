@@ -28,10 +28,11 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/fs"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	fsCommon "github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 func Test_validateCreateFileSystem(t *testing.T) {
@@ -40,8 +41,8 @@ func Test_validateCreateFileSystem(t *testing.T) {
 		req *fs.CreateFileSystemRequest
 	}
 
-	var p1 = gomonkey.ApplyFunc(models.GetSimilarityAddressList, func(fsType string, ips []string) ([]models.FileSystem, error) {
-		return []models.FileSystem{}, nil
+	var p1 = gomonkey.ApplyFunc(storage.FsStore.GetSimilarityAddressList, func(fsType string, ips []string) ([]model.FileSystem, error) {
+		return []model.FileSystem{}, nil
 	})
 	defer p1.Reset()
 	var p2 = gomonkey.ApplyFunc(checkStorageConnectivity, func(fsMeta fsCommon.FSMeta) error {
@@ -291,12 +292,13 @@ func Test_checkFsDir(t *testing.T) {
 		url        string
 		properties map[string]string
 	}
-	var p1 = gomonkey.ApplyFunc(models.GetSimilarityAddressList, func(fsType string, ips []string) ([]models.FileSystem, error) {
-		return []models.FileSystem{
-			{SubPath: "/data"},
-			{SubPath: "/data/mypath"},
-		}, nil
-	})
+	var p1 = gomonkey.ApplyMethod(reflect.TypeOf(storage.FsStore), "GetSimilarityAddressList",
+		func(_ *storage.FileSystemStorage, fsType string, ips []string) ([]model.FileSystem, error) {
+			return []model.FileSystem{
+				{SubPath: "/data"},
+				{SubPath: "/data/mypath"},
+			}, nil
+		})
 	defer p1.Reset()
 	tests := []struct {
 		name    string
@@ -366,7 +368,7 @@ func Test_checkFsDir(t *testing.T) {
 
 func Test_getListResult(t *testing.T) {
 	type args struct {
-		fsModel    []models.FileSystem
+		fsModel    []model.FileSystem
 		marker     string
 		nextMarker string
 	}
@@ -378,7 +380,7 @@ func Test_getListResult(t *testing.T) {
 		{
 			name: "Truncated true",
 			args: args{
-				fsModel:    []models.FileSystem{{Name: "fsName"}},
+				fsModel:    []model.FileSystem{{Name: "fsName"}},
 				nextMarker: "2019-5-19 00:00:00",
 				marker:     "2016-5-19 00:00:00",
 			},
@@ -396,7 +398,7 @@ func Test_getListResult(t *testing.T) {
 		{
 			name: "Truncated false",
 			args: args{
-				fsModel: []models.FileSystem{{Name: "fsName"}},
+				fsModel: []model.FileSystem{{Name: "fsName"}},
 				marker:  "",
 			},
 			want: &fs.ListFileSystemResponse{
@@ -486,7 +488,7 @@ func TestCreateFSAndDeleteFs(t *testing.T) {
 	filters2 := "?" + util.QueryMountPoint + "=/var/2&" + util.QueryNodeName + "=abc&" + util.QueryClusterID + "=testcluster"
 	_, err = PerformDeleteRequest(router, url+"/"+mockFsName+filters2)
 	assert.Nil(t, err)
-	time.Sleep(1 * time.Second)
+	time.Sleep(3 * time.Second)
 
 	var p1 = gomonkey.ApplyFunc(fs.DeletePvPvc, func(fsID string) error {
 		return nil
