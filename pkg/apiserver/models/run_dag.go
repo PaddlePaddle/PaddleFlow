@@ -40,6 +40,7 @@ type RunDag struct {
 	ParametersJson string            `gorm:"type:text;size:65535;not null"      json:"-"`
 	Artifacts      schema.Artifacts  `gorm:"-"                                  json:"artifacts"`
 	ArtifactsJson  string            `gorm:"type:text;size:65535;not null"      json:"-"`
+	Seq            int               `gorm:"type:int;not null"                  json:"-"`
 	Status         schema.JobStatus  `gorm:"type:varchar(32);not null"          json:"status"`
 	Message        string            `gorm:"type:text;size:65535;not null"      json:"message"`
 	CreateTime     string            `gorm:"-"                                  json:"createTime"`
@@ -88,6 +89,7 @@ func ParseRunDag(dagView *schema.DagView) RunDag {
 		ParentDagID:  dagView.ParentDagID,
 		Parameters:   newParameters,
 		Artifacts:    dagView.Artifacts,
+		Seq:          dagView.Seq,
 		Status:       dagView.Status,
 		Message:      dagView.Message,
 		ActivateTime: dagView.StartTime,
@@ -107,6 +109,7 @@ func (rd *RunDag) Trans2DagView() schema.DagView {
 		DagID:       rd.ID,
 		Name:        rd.Name,
 		Parameters:  newParameters,
+		Seq:         rd.Seq,
 		StartTime:   rd.ActivateTime,
 		EndTime:     newEndTime,
 		Status:      rd.Status,

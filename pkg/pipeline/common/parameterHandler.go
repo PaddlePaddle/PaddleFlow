@@ -83,7 +83,7 @@ func (s *StepParamChecker) checkDuplication(currentComponent string) error {
 	*/
 	component, ok := s.Components[currentComponent]
 	if !ok {
-		return fmt.Errorf("check param reference failed: component %s not exist", currentComponent)
+		return fmt.Errorf("check param reference failed: component [%s] not exist", currentComponent)
 	}
 
 	m := make(map[string]string)
@@ -142,7 +142,7 @@ func (s *StepParamChecker) Check(currentComponent string, isOuterComp bool) erro
 
 	component, ok := s.Components[currentComponent]
 	if !ok {
-		return fmt.Errorf("check param reference failed: component %s not exist", currentComponent)
+		return fmt.Errorf("check param reference failed: component [%s] not exist", currentComponent)
 	}
 
 	// Reference节点检查
@@ -247,7 +247,7 @@ func (s *StepParamChecker) checkReference(comp schema.Component) error {
 			if len(step.Artifacts.Output) > 0 || len(step.Command) > 0 || len(step.Condition) > 0 ||
 				len(step.DockerEnv) > 0 || len(step.Env) > 0 || step.LoopArgument != nil ||
 				len(step.Cache.FsScope) > 0 || len(step.Cache.MaxExpiredTime) > 0 || step.Cache.Enable {
-				fmt.Errorf("reference step can only have deps, parameters, input artifacts, reference")
+				return fmt.Errorf("reference step can only have deps, parameters, input artifacts, reference")
 			}
 
 			template, ok := s.CompTempletes[refName]
@@ -519,14 +519,14 @@ func CheckDictParam(dict DictParam, paramName string, realVal interface{}) (inte
 func (s *StepParamChecker) CheckRefComponent(compName string) error {
 	component, ok := s.Components[compName]
 	if !ok {
-		fmt.Errorf("no component named %s", compName)
+		return fmt.Errorf("no component named %s", compName)
 	}
 
 	if step, ok := component.(*schema.WorkflowSourceStep); ok {
 		if len(step.Artifacts.Output) > 0 || len(step.Command) > 0 || len(step.Condition) > 0 ||
 			len(step.DockerEnv) > 0 || len(step.Env) > 0 || step.LoopArgument != nil ||
 			len(step.Cache.FsScope) > 0 || len(step.Cache.MaxExpiredTime) > 0 || step.Cache.Enable {
-			fmt.Errorf("reference step can only have deps, parameters, input artifacts, reference")
+			return fmt.Errorf("reference step can only have deps, parameters, input artifacts, reference")
 		}
 	}
 	return nil

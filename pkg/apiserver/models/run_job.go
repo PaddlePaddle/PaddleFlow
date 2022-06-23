@@ -44,6 +44,7 @@ type RunJob struct {
 	Env            map[string]string `gorm:"-"                                  json:"env"`
 	EnvJson        string            `gorm:"type:text;size:65535;not null"      json:"-"`
 	DockerEnv      string            `gorm:"type:varchar(128);not null"         json:"docker_env"`
+	Seq            int               `gorm:"type:int;not null"                  json:"-"`
 	Status         schema.JobStatus  `gorm:"type:varchar(32);not null"          json:"status"`
 	Message        string            `gorm:"type:text;size:65535;not null"      json:"message"`
 	Cache          schema.Cache      `gorm:"-"                                  json:"cache"`
@@ -224,6 +225,7 @@ func (rj *RunJob) Trans2JobView() schema.JobView {
 		Env:        newEnv,
 		StartTime:  rj.ActivateTime,
 		EndTime:    newEndTime,
+		Seq:        rj.Seq,
 		Status:     rj.Status,
 		DockerEnv:  rj.DockerEnv,
 		Artifacts:  rj.Artifacts,
@@ -259,6 +261,7 @@ func ParseRunJob(jobView *schema.JobView) RunJob {
 		Artifacts:    jobView.Artifacts,
 		Env:          newEnv,
 		DockerEnv:    jobView.DockerEnv,
+		Seq:          jobView.Seq,
 		Status:       jobView.Status,
 		Message:      jobView.JobMessage,
 		Cache:        jobView.Cache,

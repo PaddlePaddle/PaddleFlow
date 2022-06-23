@@ -56,3 +56,14 @@ func (variableChecker *VariableChecker) CheckRefUpstreamStep(varValue string) er
 	}
 	return nil
 }
+
+// 检查是否使用了模板，如{{xxx}}
+func (variableChecker *VariableChecker) CheckRefCurArgument(varValue string) error {
+	pattern := RegExpIncludingCurTpl
+	reg := regexp.MustCompile(pattern)
+	if !reg.MatchString(varValue) {
+		err := fmt.Errorf("format of value[%s] invalid, should be like {{XX_XX}}", varValue)
+		return err
+	}
+	return nil
+}
