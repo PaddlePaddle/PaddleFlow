@@ -24,15 +24,16 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
-	k8score "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	k8smeta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sCore "k8s.io/api/core/v1"
+	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
+	k8sMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	fsCommon "github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
@@ -181,6 +182,19 @@ func (s *FileSystemService) DeleteFileSystem(ctx *logger.RequestContext, fsID st
 	})
 }
 
+func (s *FileSystemService) HasFsPermission(username, fsID string) (bool, error) {
+	fsName, owner := fsCommon.FsIDToFsNameUsername(fsID)
+	fs, err := s.GetFileSystem(owner, fsName)
+	if err != nil {
+		return false, err
+	}
+	if common.IsRootUser(username) || fs.UserName == username {
+		return true, nil
+	} else {
+		return false, nil
+	}
+}
+
 func DeletePvPvc(fsID string) error {
 	clusters, err := models.ListCluster(0, 0, nil, "")
 	if err != nil {
@@ -199,7 +213,7 @@ func DeletePvPvc(fsID string) error {
 		k8sRuntime := runtimeSvc.(*runtime.KubeRuntime)
 		namespaces := cluster.NamespaceList
 		if len(namespaces) == 0 { // cluster has no namespace restrictions. iterate all namespaces
-			nsList, err := k8sRuntime.ListNamespaces(k8smeta.ListOptions{})
+			nsList, err := k8sRuntime.ListNamespaces(k8sMeta.ListOptions{})
 			if err != nil {
 				log.Errorf("DeletePvPvc: cluster[%s] ListNamespaces err: %v", cluster.Name, err)
 				return err
@@ -209,7 +223,7 @@ func DeletePvPvc(fsID string) error {
 				return fmt.Errorf("clust[%s] namespace list nil", cluster.Name)
 			}
 			for _, ns := range nsList.Items {
-				if ns.Status.Phase == k8score.NamespaceActive {
+				if ns.Status.Phase == k8sCore.NamespaceActive {
 					namespaces = append(namespaces, ns.Name)
 				}
 			}
@@ -217,7 +231,7 @@ func DeletePvPvc(fsID string) error {
 		}
 		for _, ns := range namespaces {
 			// delete pvc manually. pv will be deleted automatically
-			if err := k8sRuntime.DeletePersistentVolumeClaim(ns, schema.ConcatenatePVCName(fsID), k8smeta.DeleteOptions{}); err != nil && !k8serrors.IsNotFound(err) {
+			if err := k8sRuntime.DeletePersistentVolumeClaim(ns, schema.ConcatenatePVCName(fsID), k8sMeta.DeleteOptions{}); err != nil && !k8sErrors.IsNotFound(err) {
 				log.Errorf("delete pvc[%s/%s] err: %v", ns, schema.ConcatenatePVCName(fsID), err)
 				return fmt.Errorf("delete pvc[%s-%s] err: %v", ns, schema.ConcatenatePVCName(fsID), err)
 			}
