@@ -35,6 +35,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"volcano.sh/apis/pkg/apis/batch/v1alpha1"
 	busv1alpha1 "volcano.sh/apis/pkg/apis/bus/v1alpha1"
 	"volcano.sh/apis/pkg/apis/helpers"
 	schedulingv1beta1 "volcano.sh/apis/pkg/apis/scheduling/v1beta1"
@@ -474,6 +475,43 @@ func (kr *KubeRuntime) updateElasticResourceQuota(q *models.Queue) error {
 		return err
 	}
 	return nil
+}
+
+func (kr *KubeRuntime) GetQueueUsedQuota(q *models.Queue) (*schema.ResourceInfo, error) {
+	log.Infof("get used quota for queue %s, namespace %s", q.Name, q.Namespace)
+
+	fieldSelector := fmt.Sprintf(
+		"status.phase!=Succeeded,status.phase!=Failed,status.phase!=Unknown,spec.schedulerName=%s",
+		config.GlobalServerConfig.Job.SchedulerName)
+	// TODO: add label selector
+	listOpts := metav1.ListOptions{
+		FieldSelector: fieldSelector,
+	}
+	podList, err := kr.listPods(q.Namespace, listOpts)
+	if err != nil || podList == nil {
+		log.Errorf("get queue used quota failed, err: %v", err)
+		return nil, fmt.Errorf("get queue used quota failed, err: %v", err)
+	}
+	usedResource := schema.EmptyResourceInfo()
+	for idx := range podList.Items {
+		if isAllocatedPod(&podList.Items[idx], q.Name) {
+			podRes := k8s.CalcPodResources(&podList.Items[idx])
+			*usedResource = usedResource.Add(*podRes)
+		}
+	}
+	return usedResource, nil
+}
+
+func isAllocatedPod(pod *v1.Pod, queueName string) bool {
+	log.Debugf("pod name %s/%s, nodeName: %s, phase: %s, annotations: %v\n",
+		pod.Namespace, pod.Name, pod.Spec.NodeName, pod.Status.Phase, pod.Annotations)
+	if pod.Annotations == nil || pod.Annotations[v1alpha1.QueueNameKey] != queueName {
+		return false
+	}
+	if pod.Spec.NodeName != "" {
+		return true
+	}
+	return false
 }
 
 func (kr *KubeRuntime) CreateObject(obj *unstructured.Unstructured) error {
