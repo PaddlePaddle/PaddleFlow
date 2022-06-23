@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"k8s.io/apimachinery/pkg/types"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -38,6 +39,7 @@ type Client interface {
 	ProxyGetPods(nodeID string) (result *v1.PodList, err error)
 	CreatePod(pod *v1.Pod) (*v1.Pod, error)
 	GetPod(namespace, name string) (*v1.Pod, error)
+	PatchPod(pod *v1.Pod, data []byte) error
 	UpdatePod(namespace string, pod *v1.Pod) (*v1.Pod, error)
 	DeletePod(pod *v1.Pod) error
 	GetPodLog(namespace, podName, containerName string) (string, error)
@@ -111,10 +113,21 @@ func (c *k8sClient) GetPod(namespace, name string) (*v1.Pod, error) {
 	return mntPod, nil
 }
 
-type PatchStringTemplate struct {
-	Op    string `json:"op"`
-	Path  string `json:"path"`
-	Value string `json:"value"`
+type PatchMapValue struct {
+	Op    string            `json:"op"`
+	Path  string            `json:"path"`
+	Value map[string]string `json:"value"`
+}
+
+func (c *k8sClient) PatchPod(pod *v1.Pod, data []byte) error {
+	if pod == nil {
+		log.Info("Patch pod: pod is nil")
+		return nil
+	}
+	log.Infof("Patch pod %v", pod.Name)
+	_, err := c.CoreV1().Pods(pod.Namespace).Patch(context.TODO(),
+		pod.Name, types.JSONPatchType, data, metav1.PatchOptions{})
+	return err
 }
 
 func (c *k8sClient) UpdatePod(namespace string, pod *v1.Pod) (*v1.Pod, error) {

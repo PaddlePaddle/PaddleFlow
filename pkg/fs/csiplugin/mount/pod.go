@@ -17,6 +17,7 @@ limitations under the License.
 package mount
 
 import (
+	"encoding/json"
 	"fmt"
 	"path"
 	"strconv"
@@ -170,40 +171,54 @@ func createOrUpdatePod(httpClient *core.PaddleFlowClient, token, volumeID string
 }
 
 func addRef(c k8s.Client, pod *k8sCore.Pod, targetPath string) error {
-	// annotate target path and modified time
-	if err := annotatePod(pod, targetPath); err != nil {
-		return err
-	}
-	// update pod
-	updatedPod, err := c.UpdatePod(csiconfig.Namespace, pod)
+	annotation, err := buildAnnotation(pod, targetPath)
 	if err != nil {
-		err := fmt.Errorf("updatePod[%s] anno err: %v", pod.Name, err)
-		log.Errorf(err.Error())
+		log.Errorf("mount_pod[%s] addRef: buildAnnotation err: %v", pod.Name, err)
 		return err
-
 	}
-	log.Infof("updated pod[%s] anno: %v", updatedPod.Name, updatedPod.Annotations)
+	if err := patchPodAnnotation(c, pod, annotation); err != nil {
+		retErr := fmt.Errorf("mount_pod addRef: patch pod[%s] annotation:%+v err:%v", pod.Name, annotation, err)
+		log.Errorf(retErr.Error())
+		return retErr
+	}
 	return nil
 }
 
 func removeRef(c k8s.Client, pod *k8sCore.Pod, workPodUID string) error {
-	ann := pod.ObjectMeta.Annotations
-	if ann == nil {
-		log.Warnf("removeRef: pod[%s] has no anno", pod.Name)
+	annotation := pod.ObjectMeta.Annotations
+	if annotation == nil {
+		log.Warnf("mount_pod removeRef: pod[%s] has no annotation", pod.Name)
 		return nil
 	}
-	delete(ann, workPodUID)
-	ann[PodAnnoMTime] = time.Now().Format(model.TimeFormat)
-	pod.ObjectMeta.Annotations = ann
-	// update pod
-	updatedPod, err := c.UpdatePod(csiconfig.Namespace, pod)
-	if err != nil {
-		err := fmt.Errorf("updatePod[%s] removeRef[%s] err: %v", pod.Name, workPodUID, err)
-		log.Errorf(err.Error())
-		return err
-
+	if _, ok := annotation[workPodUID]; !ok {
+		log.Infof("mount_pod removeRef: workPodUID [%s] in pod [%s] already not exists.", workPodUID, pod.Name)
+		return nil
 	}
-	log.Infof("updated pod[%s] removeRef[%s]", updatedPod.Name, workPodUID)
+	delete(annotation, workPodUID)
+	annotation[PodAnnoMTime] = time.Now().Format(model.TimeFormat)
+	if err := patchPodAnnotation(c, pod, annotation); err != nil {
+		retErr := fmt.Errorf("mount_pod removeRef: patch pod[%s] annotation:%+v err:%v", pod.Name, annotation, err)
+		log.Errorf(retErr.Error())
+		return retErr
+	}
+	return nil
+}
+
+func patchPodAnnotation(c k8s.Client, pod *k8sCore.Pod, annotation map[string]string) error {
+	payload := []k8s.PatchMapValue{{
+		Op:    "replace",
+		Path:  "/metadata/annotations",
+		Value: annotation,
+	}}
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		log.Errorf("parse annotation json error: %v", err)
+		return err
+	}
+	if err := c.PatchPod(pod, payloadBytes); err != nil {
+		log.Errorf("patch pod %s error: %v", pod.Name, err)
+		return err
+	}
 	return nil
 }
 
@@ -247,28 +262,28 @@ func buildMountPod(volumeID string, mountInfo Info, cacheConf common.FsCacheConf
 	pod.Name = GeneratePodNameByVolumeID(volumeID)
 	buildMountContainer(pod, mountInfo, cacheConf)
 	buildCacheWorkerContainer(pod, mountInfo, cacheConf)
-	if err := annotatePod(pod, mountInfo.TargetPath); err != nil {
+	anno, err := buildAnnotation(pod, mountInfo.TargetPath)
+	if err != nil {
 		return nil, err
 	}
+	pod.ObjectMeta.Annotations = anno
 	return pod, nil
 }
 
-func annotatePod(pod *k8sCore.Pod, targetPath string) error {
-	// annotate target path and modified time
-	ann := pod.ObjectMeta.Annotations
-	if ann == nil {
-		ann = make(map[string]string)
+func buildAnnotation(pod *k8sCore.Pod, targetPath string) (map[string]string, error) {
+	annotation := pod.ObjectMeta.Annotations
+	if annotation == nil {
+		annotation = make(map[string]string)
 	}
 	workPodUID := utils.GetPodUIDFromTargetPath(targetPath)
 	if workPodUID == "" {
-		err := fmt.Errorf("mount pod[%s] failed obtain workPodUID from target path: %s", pod.Name, targetPath)
+		err := fmt.Errorf("mount_pod[%s] buildAnnotation: failed obtain workPodUID from target path: %s", pod.Name, targetPath)
 		log.Errorf(err.Error())
-		return err
+		return nil, err
 	}
-	ann[workPodUID] = targetPath
-	ann[PodAnnoMTime] = time.Now().Format(model.TimeFormat)
-	pod.ObjectMeta.Annotations = ann
-	return nil
+	annotation[workPodUID] = targetPath
+	annotation[PodAnnoMTime] = time.Now().Format(model.TimeFormat)
+	return annotation, nil
 }
 
 func GeneratePodNameByVolumeID(volumeID string) string {
