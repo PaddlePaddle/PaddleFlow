@@ -25,16 +25,14 @@ import (
 )
 
 var (
-	Filesystem   FileSystemStoreInterface
-	FsMountStore FsMountStoreInterface
-	FsCache      FsCacheStoreInterface
-	Auth         AuthStoreInterface
+	Filesystem FileSystemStoreInterface
+	FsCache    FsCacheStoreInterface
+	Auth       AuthStoreInterface
 )
 
 func InitStores(db *gorm.DB) {
 	// do not use once.Do() because unit test need to init db twice
 	Filesystem = newFilesystemStore(db)
-	FsMountStore = NewFsMountStore(db)
 	FsCache = newDBFSCache(db)
 	Auth = newAuthStore(db)
 }
