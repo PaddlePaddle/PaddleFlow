@@ -515,19 +515,3 @@ func CheckDictParam(dict DictParam, paramName string, realVal interface{}) (inte
 	}
 	return nil, fmt.Errorf("check dict param failed in end")
 }
-
-func (s *StepParamChecker) CheckRefComponent(compName string) error {
-	component, ok := s.Components[compName]
-	if !ok {
-		return fmt.Errorf("no component named %s", compName)
-	}
-
-	if step, ok := component.(*schema.WorkflowSourceStep); ok {
-		if len(step.Artifacts.Output) > 0 || len(step.Command) > 0 || len(step.Condition) > 0 ||
-			len(step.DockerEnv) > 0 || len(step.Env) > 0 || step.LoopArgument != nil ||
-			len(step.Cache.FsScope) > 0 || len(step.Cache.MaxExpiredTime) > 0 || step.Cache.Enable {
-			return fmt.Errorf("reference step can only have deps, parameters, input artifacts, reference")
-		}
-	}
-	return nil
-}

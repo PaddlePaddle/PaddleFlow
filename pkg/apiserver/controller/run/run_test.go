@@ -87,7 +87,6 @@ func getMockFullRun() (models.Run, error) {
 		return models.Run{}, err
 	}
 	run := models.Run{
-		ID:             "000666",
 		Name:           "full_run",
 		Source:         "run.yaml",
 		UserName:       "root",
@@ -205,7 +204,6 @@ func TestCallback(t *testing.T) {
 func TestNewWorkflowByRun(t *testing.T) {
 	dbinit.InitMockDB()
 	var err error
-	// ctx := &logger.RequestContext{UserName: MockRootUser}
 	run, err := getMockFullRun()
 	assert.Nil(t, err)
 	_, err = newWorkflowByRun(run)
