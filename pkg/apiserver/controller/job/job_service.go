@@ -32,6 +32,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
 	_ "github.com/PaddlePaddle/PaddleFlow/pkg/job/queue/sortpolicy"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 func CreateJob(conf schema.PFJobConf) (string, error) {
@@ -280,7 +281,7 @@ func ValidateQueue(conf schema.PFJobConf, userName, queueName string) error {
 	conf.SetNamespace(queue.Namespace)
 	conf.SetClusterID(cluster.ID)
 	// check whether user has access to queue or not
-	if !models.HasAccessToResource(ctx, common.ResourceTypeQueue, queueName) {
+	if !storage.Auth.HasAccessToResource(ctx, common.ResourceTypeQueue, queueName) {
 		return common.NoAccessError(userName, common.ResourceTypeQueue, queueName)
 	}
 	return nil

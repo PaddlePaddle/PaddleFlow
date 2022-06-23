@@ -389,19 +389,3 @@ CREATE TABLE IF NOT EXISTS `paddleflow_node_info` (
     PRIMARY KEY (`pk`),
     UNIQUE INDEX idx_cluster_node (`cluster_id`,`nodename`)
     )ENGINE=InnoDB DEFAULT CHARACTER SET utf8 COLLATE utf8_bin ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMMENT='all node info for compute node score for schedule or location awareness in the future';
-
-CREATE TABLE IF NOT EXISTS `fs_mount` (
-    `pk` bigint(20) unsigned NOT NULL AUTO_INCREMENT COMMENT 'pk',
-    `mount_id` varchar(36) NOT NULL COMMENT 'unique fs mount id',
-    `fs_id` varchar(36) NOT NULL COMMENT 'file system id',
-    `cluster_id` varchar(60) DEFAULT '' COMMENT 'cluster id',
-    `nodename` varchar(255) NOT NULL COMMENT 'node name',
-    `mountpoint` varchar(4096) NOT NULL COMMENT 'mount point',
-    `created_at` datetime NOT NULL COMMENT 'create time',
-    `updated_at` datetime NOT NULL COMMENT 'update time',
-    `deleted_at` datetime(3) DEFAULT NULL  COMMENT 'delete time',
-    PRIMARY KEY (`pk`),
-    UNIQUE KEY (`mount_id`),
-    INDEX idx_fs_id (`fs_id`),
-    INDEX idx_fs_id_nodename (`fs_id`,`nodename`)
-    )ENGINE=InnoDB DEFAULT CHARACTER SET utf8 COLLATE utf8_bin ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=8 COMMENT='manage file system mount';

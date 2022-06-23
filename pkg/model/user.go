@@ -14,12 +14,27 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package location_awareness
+package model
 
 import (
-	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
+	"time"
+
+	"gorm.io/gorm"
 )
 
-func ListFsCacheLocation(fsIDs []string) ([]string, error) {
-	return storage.FsCache.ListNodes(fsIDs)
+type UserInfo struct {
+	Name     string `gorm:"uniqueIndex" json:"name"`
+	Password string `json:"-"`
+}
+
+type User struct {
+	Pk        int64          `json:"-" gorm:"primaryKey;autoIncrement"`
+	CreatedAt time.Time      `json:"createTime"`
+	UpdatedAt time.Time      `json:"-"`
+	DeletedAt gorm.DeletedAt `json:"-"`
+	UserInfo  `gorm:"embedded"`
+}
+
+func (User) TableName() string {
+	return "user"
 }

@@ -19,7 +19,11 @@ package storage
 import (
 	"testing"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
@@ -27,7 +31,7 @@ import (
 
 func TestGetFSCacheStore(t *testing.T) {
 	initMockDB()
-	fsCache, err := FsCacheStore.Get("", "")
+	fsCache, err := FsCache.Get("", "")
 	assert.NotNil(t, err)
 	assert.Nil(t, fsCache)
 }
@@ -69,4 +73,26 @@ func TestMemFSCache(t *testing.T) {
 	_ = mm.Delete("fsid", "")
 	retValues, _ = mm.List("fsid", "")
 	assert.Equal(t, len(retValues), 0)
+}
+
+func initMockDB() {
+	// github.com/mattn/go-sqlite3
+	db, err := gorm.Open(sqlite.Open("file::memory:"), &gorm.Config{
+		// print sql
+		Logger: logger.Default.LogMode(logger.Info),
+	})
+	if err != nil {
+		log.Fatalf("InitMockDB open db error: %v", err)
+	}
+
+	if err := db.AutoMigrate(
+		&model.FileSystem{},
+		&model.Link{},
+		&model.FSCacheConfig{},
+		&model.FSCache{},
+	); err != nil {
+		log.Fatalf("InitMockDB createDatabaseTables error[%s]", err.Error())
+	}
+	database.DB = db
+	InitStores(db)
 }
