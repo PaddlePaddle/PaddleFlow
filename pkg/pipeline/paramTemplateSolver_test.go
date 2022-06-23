@@ -355,13 +355,13 @@ func TestResolveAfterDone(t *testing.T) {
 	err := ds.ResolveBeforeRun("step1")
 	assert.Nil(t, err)
 
-	err = ds.ResolveBeforeRun("step2")
-	assert.Nil(t, err)
-
 	stepRuntime1 := mockStepRuntime(dr.getworkflowSouceDag().EntryPoints["step1"].(*schema.WorkflowSourceStep))
 	dr.subComponentRumtimes["step1"] = []componentRuntime{}
 	dr.subComponentRumtimes["step1"] = append(dr.subComponentRumtimes["step1"], stepRuntime1)
 	dr.subComponentRumtimes["step1"] = append(dr.subComponentRumtimes["step1"], stepRuntime1)
+
+	err = ds.ResolveBeforeRun("step2")
+	assert.Nil(t, err)
 
 	stepRuntime2 := mockStepRuntime(dr.getworkflowSouceDag().EntryPoints["step2"].(*schema.WorkflowSourceStep))
 	dr.subComponentRumtimes["step2"] = []componentRuntime{}
@@ -370,9 +370,9 @@ func TestResolveAfterDone(t *testing.T) {
 	err = ds.ResolveAfterDone()
 	assert.Nil(t, err)
 
-	_, p := dr.GetArtifactPath("do1")
+	p, _ := dr.getworkflowSouceDag().GetArtifactPath("do1")
 	assert.Equal(t, "./s1o1.txt,./s1o1.txt", p)
 
-	_, p = dr.GetArtifactPath("do2")
+	p, _ = dr.getworkflowSouceDag().GetArtifactPath("do2")
 	assert.Equal(t, "./s2o1.txt", p)
 }
