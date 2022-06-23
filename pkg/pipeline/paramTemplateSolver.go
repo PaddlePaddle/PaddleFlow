@@ -41,8 +41,6 @@ func fetchTemplate(tplString string) ([][]string, error) {
 		}
 	}
 
-	fmt.Println("matches", matches, "tplString", tplString)
-
 	return matches, nil
 }
 
