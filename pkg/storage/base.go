@@ -30,7 +30,6 @@ var (
 	FsStore          FileSystemStoreInterface
 	CacheConfigStore FsCacheConfigStoreInterface
 	LinkStore        LinkStoreInterface
-	FsMountStore     FsMountStoreInterface
 	FsCacheStore     FsCacheStoreInterface
 )
 
@@ -39,7 +38,6 @@ func InitStores(db *gorm.DB) {
 	FsStore = NewFileSystemStore(db)
 	CacheConfigStore = NewFsCacheConfigStore(db)
 	LinkStore = NewLinkStore(db)
-	FsMountStore = NewFsMountStore(db)
 	FsCacheStore = NewFsCacheStore(db)
 }
 
@@ -58,7 +56,6 @@ func initMockDB() {
 		&model.Link{},
 		&model.FSCacheConfig{},
 		&model.FSCache{},
-		&model.FsMount{},
 	); err != nil {
 		log.Fatalf("InitMockDB createDatabaseTables error[%s]", err.Error())
 	}

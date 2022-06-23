@@ -211,6 +211,5 @@ func createDatabaseTables(db *gorm.DB) error {
 		&model.Link{},
 		&model.FSCacheConfig{},
 		&model.FSCache{},
-		&model.FsMount{},
 	)
 }

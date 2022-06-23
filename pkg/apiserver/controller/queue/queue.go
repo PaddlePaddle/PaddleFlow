@@ -498,54 +498,49 @@ func GetQueueByName(ctx *logger.RequestContext, queueName string) (GetQueueRespo
 		return GetQueueResponse{}, fmt.Errorf("queueName[%s] is not found.\n", queueName)
 	}
 
+	clusterInfo, err := models.GetClusterById(queue.ClusterId)
+	if err != nil {
+		ctx.Logging().Errorf("get clusterInfo by ClusterId %s failed. error: %s",
+			queue.ClusterId, err.Error())
+		return GetQueueResponse{}, err
+	}
+	usedResource := schema.EmptyResourceInfo()
+	if clusterInfo.Status == models.ClusterStatusOnLine {
+		runtimeSvc, err := runtime.GetOrCreateRuntime(clusterInfo)
+		if err != nil {
+			ctx.ErrorCode = common.InternalError
+			ctx.Logging().Errorf("get queue used quota failed. queueName:[%s] error:[%s]", queueName, err.Error())
+			return GetQueueResponse{}, fmt.Errorf("get queue used quota failed, error: %v", err)
+		}
+		switch clusterInfo.ClusterType {
+		case schema.KubernetesType:
+			kubeRuntime := runtimeSvc.(*runtime.KubeRuntime)
+			usedResource, err = kubeRuntime.GetQueueUsedQuota(&queue)
+			if err != nil {
+				ctx.ErrorCode = common.InternalError
+				ctx.Logging().Errorf("get queue used quota failed. queueName:[%s] error:[%s]", queueName, err.Error())
+				return GetQueueResponse{}, fmt.Errorf("get queue used quota failed, error: %v", err)
+			}
+		default:
+			ctx.Logging().Warnf("cannot get queue used quota for cluster type %s", clusterInfo.ClusterType)
+		}
+	}
+
+	if usedResource == nil {
+		usedResource = schema.EmptyResourceInfo()
+	}
+	maxResource := queue.MaxResources
+	idleResource, err := maxResource.Sub(*usedResource)
+	if err != nil {
+		return GetQueueResponse{}, fmt.Errorf("get queue idle quota failed, error: %v", err)
+	}
+	queue.IdleResources = &idleResource
+	queue.UsedResources = usedResource
+
 	getQueueResponse := GetQueueResponse{
 		Queue: queue,
 	}
-
 	return getQueueResponse, nil
-}
-
-func CloseQueue(ctx *logger.RequestContext, queueName string) error {
-	ctx.Logging().Debugf("begin stop queue. queueName:%s", queueName)
-	if !common.IsRootUser(ctx.UserName) {
-		ctx.ErrorCode = common.OnlyRootAllowed
-		ctx.Logging().Errorln("close queue failed. error: admin is needed.")
-		return errors.New("close queue failed")
-	}
-
-	queue, err := models.GetQueueByName(queueName)
-	if err != nil {
-		ctx.ErrorCode = common.QueueNameNotFound
-		return fmt.Errorf("queueName[%s] is not found.\n", queueName)
-	}
-
-	clusterInfo, err := models.GetClusterById(queue.ClusterId)
-	if err != nil {
-		ctx.Logging().Errorf("get clusterInfo by ClusterId %s failed. error: %s", queue.ClusterId, err.Error())
-		return err
-	}
-
-	runtimeSvc, err := runtime.GetOrCreateRuntime(clusterInfo)
-	if err != nil {
-		ctx.ErrorCode = common.InternalError
-		ctx.Logging().Errorf("close queue failed. queueName:[%s] error:[%s]", queueName, err.Error())
-		return errors.New("close queue failed")
-	}
-	err = runtimeSvc.CloseQueue(&queue)
-	if err != nil {
-		ctx.ErrorCode = common.InternalError
-		ctx.Logging().Errorf("close queue failed. queueName:[%s] error:[%s]", queueName, err.Error())
-		return errors.New("close queue failed")
-	}
-
-	err = models.CloseQueue(queueName)
-	if err != nil {
-		ctx.ErrorCode = common.InternalError
-		ctx.Logging().Errorf("close queue update db failed. queueName:[%s] error:[%s]", queueName, err.Error())
-		return errors.New("close queue failed")
-	}
-	ctx.Logging().Debugf("close queue succeed. queueName:%s", queueName)
-	return nil
 }
 
 func DeleteQueue(ctx *logger.RequestContext, queueName string) error {

@@ -57,6 +57,9 @@ type Queue struct {
 	SchedulingPolicy    []string       `json:"schedulingPolicy,omitempty" gorm:"-"`
 	Status              string         `json:"status"`
 	DeletedAt           gorm.DeletedAt `json:"-" gorm:"index"`
+
+	UsedResources *schema.ResourceInfo `json:"usedResources,omitempty" gorm:"-"`
+	IdleResources *schema.ResourceInfo `json:"idleResources,omitempty" gorm:"-"`
 }
 
 func (Queue) TableName() string {

@@ -783,7 +783,7 @@ spec:
             type: DirectoryOrCreate
           name: paddlefow-csi-log
         - hostPath:
-            path: /data/paddleflow-fs/mnt
+            path: /var/lib/kubelet/data/paddleflow-fs/mnt
             type: DirectoryOrCreate
           name: pfs-mnt
         - hostPath:
