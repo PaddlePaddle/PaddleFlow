@@ -61,8 +61,8 @@ const (
 
 var umountLock sync.RWMutex
 
-func PodUnmount(volumeID, targetPath string, mountInfo Info) error {
-	podName := GeneratePodNameByFsID(volumeID)
+func PodUnmount(volumeID string, mountInfo Info) error {
+	podName := GeneratePodNameByVolumeID(volumeID)
 	log.Infof("PodUnmount pod name is %s", podName)
 	umountLock.Lock()
 	defer umountLock.Unlock()
@@ -85,20 +85,20 @@ func PodUnmount(volumeID, targetPath string, mountInfo Info) error {
 
 	mountInfo.Server = pod.Annotations[AnnoKeyServer]
 	mountInfo.FSID = pod.Annotations[AnnoKeyFsID]
-	mountInfo.TargetPath = targetPath
 	if mountInfo.Server == "" || mountInfo.FSID == "" {
 		log.Errorf("PodUnmount: pod[%s] annotations[%v] missing field", pod.Name, pod.Annotations)
 		return fmt.Errorf("PodUnmount: pod[%s] annotations[%v] missing field", pod.Name, pod.Annotations)
 	}
 
-	podUID := utils.GetPodUIDFromTargetPath(targetPath)
-	if podUID != "" {
+	workPodUID := utils.GetPodUIDFromTargetPath(mountInfo.TargetPath)
+	if workPodUID != "" {
 		// clean up mount points
-		pathsToCleanup := []string{targetPath}
+		pathsToCleanup := []string{mountInfo.TargetPath}
 		if err := mountUtil.CleanUpMountPoints(pathsToCleanup); err != nil {
 			log.Errorf("PodUnmount: cleanup mount points[%v] err: %s", pathsToCleanup, err.Error())
 			return err
 		}
+		return removeRef(k8sClient, pod, workPodUID)
 	}
 	// TODO whether delete mount pod
 	return nil
@@ -130,11 +130,11 @@ func PodMount(volumeID string, mountInfo Info) error {
 		log.Errorf("PodMount: info: %+v err: %v", mountInfo, err)
 		return err
 	}
-	return waitUtilPodReady(GeneratePodNameByFsID(volumeID))
+	return waitUtilPodReady(GeneratePodNameByVolumeID(volumeID))
 }
 
 func createOrUpdatePod(httpClient *core.PaddleFlowClient, token, volumeID string, mountInfo Info) error {
-	podName := GeneratePodNameByFsID(volumeID)
+	podName := GeneratePodNameByVolumeID(volumeID)
 	log.Infof("pod name is %s", podName)
 	k8sClient, err := k8s.GetK8sClient()
 	if err != nil {
@@ -164,26 +164,18 @@ func createOrUpdatePod(httpClient *core.PaddleFlowClient, token, volumeID string
 			continue
 		} else {
 			// mount pod exist, update annotation
-			return annotateMountPod(k8sClient, oldPod, mountInfo)
+			return addRef(k8sClient, oldPod, mountInfo.TargetPath)
 		}
 	}
 	return status.Errorf(codes.Internal, "Mount %v failed: mount pod %s has been deleting for 1 min", mountInfo.FSID, podName)
 }
 
-func annotateMountPod(c k8s.Client, pod *k8sCore.Pod, mountInfo Info) error {
+func addRef(c k8s.Client, pod *k8sCore.Pod, targetPath string) error {
 	// annotate target path and modified time
-	ann := pod.ObjectMeta.Annotations
-	if ann == nil {
-		ann = make(map[string]string)
-		log.Warnf("mount pod has no previous annotations")
+	if err := annotatePod(pod, targetPath); err != nil {
+		return err
 	}
-	workPodUID := utils.GetPodUIDFromTargetPath(mountInfo.TargetPath)
-	if workPodUID == "" {
-		log.Warnf("workPodUID not obtained from target path: %s", mountInfo.TargetPath)
-	}
-	ann[workPodUID] = mountInfo.TargetPath
-	ann[PodAnnoMTime] = time.Now().Format(model.TimeFormat)
-	pod.ObjectMeta.Annotations = ann
+	// update pod
 	updatedPod, err := c.UpdatePod(csiconfig.Namespace, pod)
 	if err != nil {
 		err := fmt.Errorf("updatePod[%s] anno err: %v", pod.Name, err)
@@ -192,6 +184,27 @@ func annotateMountPod(c k8s.Client, pod *k8sCore.Pod, mountInfo Info) error {
 
 	}
 	log.Infof("updated pod[%s] anno: %v", updatedPod.Name, updatedPod.Annotations)
+	return nil
+}
+
+func removeRef(c k8s.Client, pod *k8sCore.Pod, workPodUID string) error {
+	ann := pod.ObjectMeta.Annotations
+	if ann == nil {
+		log.Warnf("removeRef: pod[%s] has no anno", pod.Name)
+		return nil
+	}
+	delete(ann, workPodUID)
+	ann[PodAnnoMTime] = time.Now().Format(model.TimeFormat)
+	pod.ObjectMeta.Annotations = ann
+	// update pod
+	updatedPod, err := c.UpdatePod(csiconfig.Namespace, pod)
+	if err != nil {
+		err := fmt.Errorf("updatePod[%s] removeRef[%s] err: %v", pod.Name, workPodUID, err)
+		log.Errorf(err.Error())
+		return err
+
+	}
+	log.Infof("updated pod[%s] removeRef[%s]", updatedPod.Name, workPodUID)
 	return nil
 }
 
@@ -204,22 +217,12 @@ func createMountPod(k8sClient k8s.Client, httpClient *core.PaddleFlowClient, tok
 			mountInfo.FSID, mountInfo.Server, err)
 		return err
 	}
-
 	completeCacheConfig(&cacheConfig, mountInfo.FSID)
-	mountPod := buildMountPod(volumeID, mountInfo, cacheConfig)
-	// annotate target path and modified time
-	ann := mountPod.ObjectMeta.Annotations
-	if ann == nil {
-		ann = make(map[string]string)
+	mountPod, err := buildMountPod(volumeID, mountInfo, cacheConfig)
+	if err != nil {
+		log.Errorf("createMount: buildMountPod[%s] err: %v", mountInfo.FSID, err)
+		return err
 	}
-	workPodUID := utils.GetPodUIDFromTargetPath(mountInfo.TargetPath)
-	if workPodUID == "" {
-		log.Warnf("workPodUID not obtained from target path: %s", mountInfo.TargetPath)
-	}
-	ann[workPodUID] = mountInfo.TargetPath
-	ann[PodAnnoMTime] = time.Now().Format(model.TimeFormat)
-	mountPod.ObjectMeta.Annotations = ann
-
 	_, err = k8sClient.CreatePod(mountPod)
 	if err != nil {
 		log.Errorf("createMount: Create pod for fsID %s err: %v", mountInfo.FSID, err)
@@ -240,15 +243,36 @@ func completeCacheConfig(config *common.FsCacheConfig, fsID string) {
 	}
 }
 
-func buildMountPod(volumeID string, mountInfo Info, cacheConf common.FsCacheConfig) *k8sCore.Pod {
+func buildMountPod(volumeID string, mountInfo Info, cacheConf common.FsCacheConfig) (*k8sCore.Pod, error) {
 	pod := csiconfig.GeneratePodTemplate()
-	pod.Name = GeneratePodNameByFsID(volumeID)
+	pod.Name = GeneratePodNameByVolumeID(volumeID)
 	buildMountContainer(pod, mountInfo, cacheConf)
 	buildCacheWorkerContainer(pod, mountInfo, cacheConf)
-	return pod
+	if err := annotatePod(pod, mountInfo.TargetPath); err != nil {
+		return nil, err
+	}
+	return pod, nil
 }
 
-func GeneratePodNameByFsID(volumeID string) string {
+func annotatePod(pod *k8sCore.Pod, targetPath string) error {
+	// annotate target path and modified time
+	ann := pod.ObjectMeta.Annotations
+	if ann == nil {
+		ann = make(map[string]string)
+	}
+	workPodUID := utils.GetPodUIDFromTargetPath(targetPath)
+	if workPodUID == "" {
+		err := fmt.Errorf("mount pod[%s] failed obtain workPodUID from target path: %s", pod.Name, targetPath)
+		log.Errorf(err.Error())
+		return err
+	}
+	ann[workPodUID] = targetPath
+	ann[PodAnnoMTime] = time.Now().Format(model.TimeFormat)
+	pod.ObjectMeta.Annotations = ann
+	return nil
+}
+
+func GeneratePodNameByVolumeID(volumeID string) string {
 	return fmt.Sprintf("pfs-%s-%s", csiconfig.NodeName, volumeID)
 }
 
