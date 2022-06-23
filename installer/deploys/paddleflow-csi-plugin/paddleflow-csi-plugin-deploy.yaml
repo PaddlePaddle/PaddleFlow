@@ -224,7 +224,7 @@ spec:
                 fieldRef:
                   apiVersion: v1
                   fieldPath: spec.nodeName
-          image: registry.baidubce.com/paddlecloud/pfs-csi-plugin:1.4.2
+          image: paddleflow/pfs-csi-plugin:1.4.2
           imagePullPolicy: IfNotPresent
           name: csi-storage-driver
           resources: {}
@@ -275,7 +275,7 @@ spec:
             type: DirectoryOrCreate
           name: paddlefow-csi-log
         - hostPath:
-            path: /data/paddleflow-fs/mnt
+            path: /var/lib/kubelet/data/paddleflow-fs/mnt
             type: DirectoryOrCreate
           name: pfs-mnt
         - hostPath:
