@@ -100,7 +100,6 @@ func PodUnmount(volumeID string, mountInfo Info) error {
 		}
 		return removeRef(k8sClient, pod, workPodUID)
 	}
-	// TODO whether delete mount pod
 	return nil
 }
 
