@@ -22,12 +22,11 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
-	"time"
 
 	"github.com/go-chi/chi"
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
-	k8smeta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	api "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/fs"
@@ -60,10 +59,6 @@ func (pr *PFSRouter) AddRouter(r chi.Router) {
 	r.Get("/fsCache/{fsName}", pr.getFSCacheConfig)
 	r.Delete("/fsCache/{fsName}", pr.deleteFSCacheConfig)
 	r.Post("/fsCache/report", pr.fsCacheReport)
-	// fs mount
-	r.Post("/fsMount", pr.createFsMount)
-	r.Delete("/fsMount/{fsName}", pr.deleteFsMount)
-	r.Get("/fsMount", pr.listFsMount)
 }
 
 var URLPrefix = map[string]bool{
@@ -301,7 +296,7 @@ func checkPVCExist(pvc, namespace string) bool {
 		log.Errorf("checkPVCExist: Get k8s client failed: %v", err)
 		return false
 	}
-	if _, err := k8sClient.GetPersistentVolumeClaim(namespace, pvc, k8smeta.GetOptions{}); err != nil {
+	if _, err := k8sClient.GetPersistentVolumeClaim(namespace, pvc, k8sMeta.GetOptions{}); err != nil {
 		log.Errorf("check namespace[%s] pvc[%s] exist failed: %v", namespace, pvc, err)
 		return false
 	}
@@ -547,25 +542,6 @@ func fsCheckCanModify(ctx *logger.RequestContext, fsID string) error {
 			errRet = fmt.Errorf("get fs[%s] db err: %v", fsID, err)
 		}
 		return errRet
-	}
-	// check fs not mounted
-	if err := checkFsNoMount(fsID); err != nil {
-		ctx.ErrorCode = common.ActionNotAllowed
-		return err
-	}
-	return nil
-}
-
-func checkFsNoMount(fsID string) error {
-	fsMount := &model.FsMount{FsID: fsID}
-	marker := time.Now().Format(storage.TimeFormat)
-	listMount, err := storage.FsMountStore.ListMount(fsMount, 1, marker)
-	if err != nil {
-		err := fmt.Errorf("list mount for fs[%s] error: %v", fsID, err)
-		return err
-	}
-	if len(listMount) != 0 {
-		return common.FsBeingUsedError(fsID)
 	}
 	return nil
 }

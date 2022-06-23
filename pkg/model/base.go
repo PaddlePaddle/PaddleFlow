@@ -23,10 +23,14 @@ import (
 	"gorm.io/gorm"
 )
 
+const TimeFormat = "2006-01-02 15:04:05"
+
 type Model struct {
-	ID        string    `json:"id"`
-	CreatedAt time.Time `json:"-"`
-	UpdatedAt time.Time `json:"-"`
+	ID         string    `json:"id"`
+	CreatedAt  time.Time `json:"-"`
+	UpdatedAt  time.Time `json:"-"`
+	CreateTime string    `json:"createTime"           gorm:"-"`
+	UpdateTime string    `json:"updateTime,omitempty" gorm:"-"`
 }
 
 // BeforeCreate the function do the operation before creating file system or link
@@ -36,5 +40,11 @@ func (m *Model) BeforeCreate(tx *gorm.DB) error {
 	}
 
 	m.ID = uuid.NewString()
+	return nil
+}
+
+func (m *Model) AfterFind(tx *gorm.DB) error {
+	m.CreateTime = m.CreatedAt.Format(TimeFormat)
+	m.UpdateTime = m.UpdatedAt.Format(TimeFormat)
 	return nil
 }

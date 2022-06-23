@@ -21,14 +21,12 @@ import (
 	"os"
 	"reflect"
 	"testing"
-	"time"
 
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/fs"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	fsCommon "github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
@@ -465,37 +463,12 @@ func TestCreateFSAndDeleteFs(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, http.StatusCreated, result.Code)
 
-	// test create failure - no fs
-	url := baseUrl + "/fsMount"
-	createMountReq := fs.CreateMountRequest{
-		Username:   MockRootUser,
-		FsName:     mockFsName,
-		ClusterID:  "testcluster",
-		NodeName:   "abc",
-		MountPoint: "/var/2",
-	}
-	result, err = PerformPostRequest(router, url, createMountReq)
-	assert.Nil(t, err)
-	assert.Equal(t, http.StatusCreated, result.Code)
-
-	time.Sleep(1 * time.Second)
-
-	deleteUrl := fsUrl + "/" + mockFsName
-	result, err = PerformDeleteRequest(router, deleteUrl)
-	assert.Nil(t, err)
-	assert.Equal(t, http.StatusForbidden, result.Code)
-
-	filters2 := "?" + util.QueryMountPoint + "=/var/2&" + util.QueryNodeName + "=abc&" + util.QueryClusterID + "=testcluster"
-	_, err = PerformDeleteRequest(router, url+"/"+mockFsName+filters2)
-	assert.Nil(t, err)
-	time.Sleep(3 * time.Second)
-
 	var p1 = gomonkey.ApplyFunc(fs.DeletePvPvc, func(fsID string) error {
 		return nil
 	})
 	defer p1.Reset()
 
-	deleteUrl = fsUrl + "/" + mockFsName
+	deleteUrl := fsUrl + "/" + mockFsName
 	result, err = PerformDeleteRequest(router, deleteUrl)
 	assert.Nil(t, err)
 	assert.Equal(t, http.StatusOK, result.Code)
