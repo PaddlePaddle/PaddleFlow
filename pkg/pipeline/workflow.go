@@ -259,7 +259,7 @@ func (bwf *BaseWorkflow) recursiveGetComponents(components map[string]schema.Com
 
 // validate BaseWorkflow 校验合法性
 func (bwf *BaseWorkflow) validate() error {
-	// 1. 检查Components/Reference
+	// 1. 检查Components/Reference，不包括parameters校验
 	if err := bwf.checkComponents(); err != nil {
 		bwf.log().Errorf("check components failed, err: %s", err.Error())
 		return err
@@ -605,11 +605,15 @@ func (bwf *BaseWorkflow) replaceRunParam(param string, val interface{}) error {
 
 func replaceNodeParam(nodes map[string]schema.Component, nodesAndParam []string, value interface{}) (bool, error) {
 	if len(nodesAndParam) > 2 {
-		node, ok := nodes[nodesAndParam[0]].(*schema.WorkflowSourceDag)
+		node, ok := nodes[nodesAndParam[0]]
+		if !ok {
+			return false, fmt.Errorf("component [%s] not exist", nodesAndParam[0])
+		}
+		dag, ok := node.(*schema.WorkflowSourceDag)
 		if !ok {
 			return false, fmt.Errorf("replace param by request failed, node name list error")
 		}
-		ok, err := replaceNodeParam(node.EntryPoints, nodesAndParam[1:], value)
+		ok, err := replaceNodeParam(dag.EntryPoints, nodesAndParam[1:], value)
 		if err != nil {
 			return false, err
 		}
@@ -619,7 +623,12 @@ func replaceNodeParam(nodes map[string]schema.Component, nodesAndParam []string,
 	} else if len(nodesAndParam) == 2 {
 		nodeName := nodesAndParam[0]
 		paramName := nodesAndParam[1]
-		if dag, ok := nodes[nodeName].(*schema.WorkflowSourceDag); ok {
+
+		comp, ok := nodes[nodeName]
+		if !ok {
+			return false, fmt.Errorf("component [%s] not exist", nodeName)
+		}
+		if dag, ok := comp.(*schema.WorkflowSourceDag); ok {
 			orgVal, ok := dag.Parameters[paramName]
 			if !ok {
 				return false, nil
@@ -632,7 +641,7 @@ func replaceNodeParam(nodes map[string]schema.Component, nodesAndParam []string,
 				}
 			}
 			dag.Parameters[paramName] = value
-		} else if step, ok := nodes[nodeName].(*schema.WorkflowSourceStep); ok {
+		} else if step, ok := comp.(*schema.WorkflowSourceStep); ok {
 			orgVal, ok := step.Parameters[paramName]
 			if !ok {
 				return false, nil
@@ -645,8 +654,9 @@ func replaceNodeParam(nodes map[string]schema.Component, nodesAndParam []string,
 				}
 			}
 			step.Parameters[paramName] = value
+		} else {
+			return false, fmt.Errorf("component not step or dag")
 		}
-
 	} else {
 		return false, fmt.Errorf("length of node and param list error")
 	}
@@ -868,6 +878,7 @@ func (bwf *BaseWorkflow) checkDisabled() ([]string, error) {
 	for k, v := range bwf.Source.PostProcess {
 		postComponents[k] = v
 	}
+	logger.Logger().Errorf("inin")
 	for _, disFullName := range disabledComponents {
 		_, ok := tempMap[disFullName]
 		if ok {
@@ -886,6 +897,7 @@ func (bwf *BaseWorkflow) checkDisabled() ([]string, error) {
 		}
 
 		// 检查被disabled的节点有没有被引用
+		// 先检查同级别的节点是否有引用
 		for compName, comp := range components {
 			if compName == disName {
 				continue
@@ -915,30 +927,32 @@ func (bwf *BaseWorkflow) checkDisabled() ([]string, error) {
 					return nil, fmt.Errorf("disabled component[%s] is refered by [%s]", disName, compName)
 				}
 			}
+		}
 
-			if len(comp.GetArtifacts().Output) > 0 {
-				disNameList := strings.Split(disFullName, ".")
-				if len(disNameList) > 1 {
-					//该节点有父节点
-					disParentFullName := strings.Join(disNameList[:len(disNameList)-1], ".")
-					components1, name1, ok1 := bwf.Source.GetComponent(bwf.Source.EntryPoints.EntryPoints, disParentFullName)
-					components2, name2, ok2 := bwf.Source.GetComponent(postComponents, disParentFullName)
-					parentComponents, parentName := map[string]schema.Component{}, ""
-					if ok1 {
-						parentComponents, parentName = components1, name1
-					} else if ok2 {
-						parentComponents, parentName = components2, name2
-					} else {
-						return nil, fmt.Errorf("disabled component[%s] not existed!", disParentFullName)
+		// 再检查父节点是否有引用（输出Artifact引用）
+		if len(components[disName].GetArtifacts().Output) > 0 {
+			logger.Logger().Errorf("inin")
+			disNameList := strings.Split(disFullName, ".")
+			if len(disNameList) > 1 {
+				//该节点有父节点
+				disParentFullName := strings.Join(disNameList[:len(disNameList)-1], ".")
+				components1, name1, ok1 := bwf.Source.GetComponent(bwf.Source.EntryPoints.EntryPoints, disParentFullName)
+				components2, name2, ok2 := bwf.Source.GetComponent(postComponents, disParentFullName)
+				parentComponents, parentName := map[string]schema.Component{}, ""
+				if ok1 {
+					parentComponents, parentName = components1, name1
+				} else if ok2 {
+					parentComponents, parentName = components2, name2
+				} else {
+					return nil, fmt.Errorf("disabled component[%s] not existed!", disParentFullName)
+				}
+				for _, atfVal := range parentComponents[parentName].GetArtifacts().Output {
+					ok, err := checkRefed(disName, atfVal)
+					if err != nil {
+						return nil, err
 					}
-					for _, atfVal := range parentComponents[parentName].GetArtifacts().Output {
-						ok, err := checkRefed(disName, atfVal)
-						if err != nil {
-							return nil, err
-						}
-						if ok {
-							return nil, fmt.Errorf("disabled component[%s] is refered by [%s]", disName, compName)
-						}
+					if ok {
+						return nil, fmt.Errorf("disabled component[%s] is refered by [%s]", disName, parentName)
 					}
 				}
 			}

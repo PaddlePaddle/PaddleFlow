@@ -21,12 +21,11 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
-
 	"github.com/stretchr/testify/assert"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	pkgCommon "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 )
 
 // 测试运行 Workflow 成功
@@ -62,7 +61,7 @@ func TestStartWithPostProcess(t *testing.T) {
 
 	// 此时的 job 一定会失败
 	assert.Equal(t, common.StatusRunFailed, wf.runtime.status)
-	assert.Equal(t, NodeTypePostProcess, wf.runtime.postProcess["mail"].nodeType)
+	assert.Equal(t, pkgCommon.NodeTypePostProcess, wf.runtime.postProcess["mail"].nodeType)
 
 	wf.runtime.postProcess["mail"].job.(*PaddleFlowJob).Status = schema.StatusJobSucceeded
 	statusToEntry := wf.runtime.countStepStatus(wf.runtime.entryPoints)

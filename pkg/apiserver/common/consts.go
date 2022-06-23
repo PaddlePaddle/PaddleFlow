@@ -19,6 +19,7 @@ package common
 const (
 	SeparatorComma = ","
 
+	PrefixSchedule   = "schedule-"
 	PrefixRun        = "run-"
 	PrefixPipeline   = "ppl-"
 	PrefixCache      = "cch-"
@@ -28,6 +29,7 @@ const (
 	PrefixFlavour    = "flavour"
 	PrefixConnection = "conn"
 
+	ResourceTypeSchedule      = "schedule"
 	ResourceTypeRun           = "run"
 	ResourceTypeRunCache      = "run_cache"
 	ResourceTypeArtifactEvent = "artifact_event"

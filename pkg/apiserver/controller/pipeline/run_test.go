@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package run
+package pipeline
 
 import (
 	"testing"
@@ -32,7 +32,6 @@ import (
 const (
 	MockRunID1   = "run-id_1"
 	MockRunName1 = "run-name_1"
-	MockRootUser = "root"
 	MockFsID1    = "fs-id_1"
 	MockRunID3   = "run-id_3"
 
@@ -118,13 +117,13 @@ func TestListRunSuccess(t *testing.T) {
 
 	emptyFilter := make([]string, 0)
 	// test list runs under user1
-	listRunResponse, err := ListRun(ctx1, "", 50, emptyFilter, emptyFilter, emptyFilter, emptyFilter)
+	listRunResponse, err := ListRun(ctx1, "", 50, emptyFilter, emptyFilter, emptyFilter, emptyFilter, emptyFilter, emptyFilter)
 	assert.Nil(t, err)
 	assert.Equal(t, 3, len(listRunResponse.RunList))
 	assert.Equal(t, MockRootUser, listRunResponse.RunList[0].UserName)
 
 	// test list runs under user2
-	listRunResponse, err = ListRun(ctx2, "", 50, emptyFilter, emptyFilter, emptyFilter, emptyFilter)
+	listRunResponse, err = ListRun(ctx2, "", 50, emptyFilter, emptyFilter, emptyFilter, emptyFilter, emptyFilter, emptyFilter)
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(listRunResponse.RunList))
 	assert.Equal(t, MockUserID2, listRunResponse.RunList[0].UserName)
@@ -139,7 +138,7 @@ func TestGetRunSuccess(t *testing.T) {
 	run1.ID, err = models.CreateRun(ctx.Logging(), &run1)
 	assert.Nil(t, err)
 
-	runRsp, err := GetRunByID(ctx, run1.ID)
+	runRsp, err := GetRunByID(ctx.Logging(), ctx.UserName, run1.ID)
 	assert.Nil(t, err)
 	assert.Equal(t, run1.ID, runRsp.ID)
 	assert.Equal(t, run1.Name, runRsp.Name)
@@ -155,15 +154,13 @@ func TestGetRunFail(t *testing.T) {
 
 	// test non-admin user no access to other users' run
 	ctxOtherNonAdmin := &logger.RequestContext{UserName: "non-admin"}
-	_, err = GetRunByID(ctxOtherNonAdmin, run1.ID)
+	_, err = GetRunByID(ctxOtherNonAdmin.Logging(), ctxOtherNonAdmin.UserName, run1.ID)
 	assert.NotNil(t, err)
-	assert.Equal(t, common.AccessDenied, ctxOtherNonAdmin.ErrorCode)
 	assert.Equal(t, common.NoAccessError("non-admin", common.ResourceTypeRun, run1.ID).Error(), err.Error())
 
 	// test no record
-	_, err = GetRunByID(ctx, "run-id_non_existed")
+	_, err = GetRunByID(ctx.Logging(), ctx.UserName, "run-id_non_existed")
 	assert.NotNil(t, err)
-	assert.Equal(t, common.RunNotFound, ctx.ErrorCode)
 	assert.Equal(t, common.NotFoundError(common.ResourceTypeRun, "run-id_non_existed").Error(), err.Error())
 }
 
@@ -208,4 +205,31 @@ func TestNewWorkflowByRun(t *testing.T) {
 	assert.Nil(t, err)
 	_, err = newWorkflowByRun(run)
 	assert.Nil(t, err)
+
+	run1, err := getMockFullRun()
+	assert.Nil(t, err)
+	run1.WorkflowSource.Disabled = "square-loop.square"
+	_, err = newWorkflowByRun(run1)
+	assert.NotNil(t, err)
+	assert.Equal(t, "disabled component[square] is refered by [square-loop]", err.Error())
+
+	run1.WorkflowSource.Disabled = "process-negetive.condition2.show"
+	_, err = newWorkflowByRun(run1)
+	assert.NotNil(t, err)
+	assert.Equal(t, "disabled component[show] is refered by [abs]", err.Error())
+
+	run2, err := getMockFullRun()
+	assert.Nil(t, err)
+	run2.Parameters = map[string]interface{}{
+		"square-loop.noComp.noParam": "1",
+	}
+	_, err = newWorkflowByRun(run2)
+	assert.NotNil(t, err)
+	assert.Equal(t, "component [noComp] not exist", err.Error())
+	run2.Parameters = map[string]interface{}{
+		"square-loop.square.num": 3,
+	}
+	_, err = newWorkflowByRun(run2)
+	assert.Nil(t, err)
+
 }

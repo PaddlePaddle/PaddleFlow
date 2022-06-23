@@ -18,10 +18,12 @@ package ufs
 
 import (
 	"bytes"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -109,8 +111,10 @@ func (fs *s3FileSystem) list(name, continuationToken string, limit int, recursiv
 	request := &s3.ListObjectsV2Input{
 		Bucket:            &fs.bucket,
 		Prefix:            &fullPath,
-		ContinuationToken: &continuationToken,
 		MaxKeys:           &limit_,
+	}
+	if continuationToken != "" {
+		request.ContinuationToken = &continuationToken
 	}
 	if !recursive {
 		delim := Delimiter
@@ -1355,6 +1359,17 @@ func NewS3FileSystem(properties map[string]interface{}) (UnderFileStorage, error
 		DisableSSL:       aws.Bool(!ssl),
 		S3ForcePathStyle: aws.Bool(true),
 	}
+
+	if properties[fsCommon.InsecureSkipVerify] == "true" {
+		awsConfig.HTTPClient = &http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{
+					InsecureSkipVerify: true,
+				},
+			},
+		}
+	}
+
 	if accessKey != "" && secretKey != "" {
 		secretKey, err := common.AesDecrypt(secretKey, common.AESEncryptKey)
 		if err != nil {

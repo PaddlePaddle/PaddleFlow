@@ -41,26 +41,28 @@ type Run struct {
 	FsID           string                 `gorm:"type:varchar(60);not null"         json:"-"`
 	FsName         string                 `gorm:"type:varchar(60);not null"         json:"fsname"`
 	Description    string                 `gorm:"type:text;size:65535;not null"     json:"description"`
-	ParametersJson string                 `gorm:"type:text;size:65535"              json:"-"`
+	ParametersJson string                 `gorm:"type:text;size:65535;not null"     json:"-"`
 	Parameters     map[string]interface{} `gorm:"-"                                 json:"parameters"`
-	RunYaml        string                 `gorm:"type:text;size:65535"              json:"runYaml"`
+	RunYaml        string                 `gorm:"type:text;size:65535;not null"     json:"runYaml"`
 	WorkflowSource schema.WorkflowSource  `gorm:"-"                                 json:"-"` // RunYaml's dynamic struct
 	Runtime        schema.RuntimeView     `gorm:"-"                                 json:"runtime"`
 	PostProcess    schema.PostProcessView `gorm:"-"                                 json:"postProcess"`
 	FailureOptions schema.FailureOptions  `gorm:"-"                                 json:"failureOptions"`
-	DockerEnv      string                 `gorm:"type:varchar(128)"                 json:"dockerEnv"`
-	Entry          string                 `gorm:"type:varchar(256)"                 json:"entry"`
-	Disabled       string                 `gorm:"type:text;size:65535"              json:"disabled"`
-	Message        string                 `gorm:"type:text;size:65535"              json:"runMsg"`
-	Status         string                 `gorm:"type:varchar(32)"                  json:"status"` // StatusRun%%%
-	RunCachedIDs   string                 `gorm:"type:text;size:65535"              json:"runCachedIDs"`
+	DockerEnv      string                 `gorm:"type:varchar(128);not null"        json:"dockerEnv"`
+	Entry          string                 `gorm:"type:varchar(256);not null"        json:"entry"`
+	Disabled       string                 `gorm:"type:text;size:65535;not null"     json:"disabled"`
+	ScheduleID     string                 `gorm:"type:varchar(60);not null"         json:"scheduleID"`
+	Message        string                 `gorm:"type:text;size:65535;not null"     json:"runMsg"`
+	Status         string                 `gorm:"type:varchar(32);not null"         json:"status"` // StatusRun%%%
+	RunCachedIDs   string                 `gorm:"type:text;size:65535;not null"     json:"runCachedIDs"`
+	ScheduledAt    sql.NullTime           `                                         json:"-"`
 	CreateTime     string                 `gorm:"-"                                 json:"createTime"`
 	ActivateTime   string                 `gorm:"-"                                 json:"activateTime"`
 	UpdateTime     string                 `gorm:"-"                                 json:"updateTime,omitempty"`
 	CreatedAt      time.Time              `                                         json:"-"`
 	ActivatedAt    sql.NullTime           `                                         json:"-"`
 	UpdatedAt      time.Time              `                                         json:"-"`
-	DeletedAt      gorm.DeletedAt         `gorm:"index"                             json:"-"`
+	DeletedAt      gorm.DeletedAt         `                                         json:"-"`
 }
 
 func (Run) TableName() string {
@@ -305,7 +307,7 @@ func GetRunByID(logEntry *log.Entry, runID string) (Run, error) {
 	return run, nil
 }
 
-func ListRun(logEntry *log.Entry, pk int64, maxKeys int, userFilter, fsFilter, runFilter, nameFilter []string) ([]Run, error) {
+func ListRun(logEntry *log.Entry, pk int64, maxKeys int, userFilter, fsFilter, runFilter, nameFilter, statusFilter, scheduleIdFilter []string) ([]Run, error) {
 	logEntry.Debugf("begin list run. ")
 	tx := database.DB.Model(&Run{}).Where("pk > ?", pk)
 	if len(userFilter) > 0 {
@@ -320,14 +322,20 @@ func ListRun(logEntry *log.Entry, pk int64, maxKeys int, userFilter, fsFilter, r
 	if len(nameFilter) > 0 {
 		tx = tx.Where("name IN (?)", nameFilter)
 	}
+	if len(statusFilter) > 0 {
+		tx = tx.Where("status IN (?)", statusFilter)
+	}
+	if len(scheduleIdFilter) > 0 {
+		tx = tx.Where("schedule_id IN (?)", scheduleIdFilter)
+	}
 	if maxKeys > 0 {
 		tx = tx.Limit(maxKeys)
 	}
 	var runList []Run
 	tx = tx.Find(&runList)
 	if tx.Error != nil {
-		logEntry.Errorf("list run failed. Filters: user{%v}, fs{%v}, run{%v}, name{%v}. error:%s",
-			userFilter, fsFilter, runFilter, nameFilter, tx.Error.Error())
+		logEntry.Errorf("list run failed. Filters: user{%v}, fs{%v}, run{%v}, name{%v}, status{%v}, scheduleID{%v}. error:%s",
+			userFilter, fsFilter, runFilter, nameFilter, statusFilter, scheduleIdFilter, tx.Error.Error())
 		return []Run{}, tx.Error
 	}
 	for i := range runList {
@@ -352,13 +360,36 @@ func GetLastRun(logEntry *log.Entry) (Run, error) {
 	return run, nil
 }
 
-func GetRunCount(logEntry *log.Entry) (int64, error) {
-	logEntry.Debugf("get run count")
-	var count int64
-	tx := database.DB.Model(&Run{}).Count(&count)
+func CountRun(logEntry *log.Entry, pk int64, maxKeys int, userFilter, fsFilter, runFilter, nameFilter, statusFilter, scheduleIdFilter []string) (count int64, err error) {
+	logEntry.Debugf("begin count run. ")
+	tx := database.DB.Model(&Run{}).Where("pk > ?", pk)
+	if len(userFilter) > 0 {
+		tx = tx.Where("user_name IN (?)", userFilter)
+	}
+	if len(fsFilter) > 0 {
+		tx = tx.Where("fs_name IN (?)", fsFilter)
+	}
+	if len(runFilter) > 0 {
+		tx = tx.Where("id IN (?)", runFilter)
+	}
+	if len(nameFilter) > 0 {
+		tx = tx.Where("name IN (?)", nameFilter)
+	}
+	if len(statusFilter) > 0 {
+		tx = tx.Where("status IN (?)", statusFilter)
+	}
+	if len(scheduleIdFilter) > 0 {
+		tx = tx.Where("schedule_id IN (?)", scheduleIdFilter)
+	}
+	if maxKeys > 0 {
+		tx = tx.Limit(maxKeys)
+	}
+
+	tx = tx.Count(&count)
 	if tx.Error != nil {
-		logEntry.Errorf("get run count failed. error:%s", tx.Error.Error())
-		return 0, tx.Error
+		logEntry.Errorf("count run failed. Filters: user{%v}, fs{%v}, run{%v}, name{%v}, status{%v}, scheduleID{%v}. error:%s",
+			userFilter, fsFilter, runFilter, nameFilter, statusFilter, scheduleIdFilter, tx.Error.Error())
+		return count, tx.Error
 	}
 	return count, nil
 }
