@@ -521,11 +521,11 @@ func ListClusterQuota(ctx *logger.RequestContext, clusterNameList []string) (map
 // InitDefaultCluster init default cluster for single cluster environment
 func InitDefaultCluster() error {
 	log.Info("starting init data for single cluster: initDefaultCluster")
-	if _, err := models.GetClusterByName(config.DefaultClusterName); err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+	if clusterInfo, err := models.GetClusterByName(config.DefaultClusterName); err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		log.Errorf("GetClusterByName %s failed, err: %v", config.DefaultClusterName, err)
 		return err
 	} else if err == nil {
-		log.Info("default cluster has been created")
+		log.Info("default cluster[%+v] has been created", clusterInfo)
 		return nil
 	}
 	// create default cluster

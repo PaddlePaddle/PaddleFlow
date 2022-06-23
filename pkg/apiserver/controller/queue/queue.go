@@ -602,11 +602,11 @@ func DeleteQueue(ctx *logger.RequestContext, queueName string) error {
 // InitDefaultQueue init default queue for single cluster environment
 func InitDefaultQueue() error {
 	log.Info("starting init data for single cluster: initDefaultQueue")
-	if _, err := models.GetQueueByName(config.DefaultQueueName); err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+	if defaultQueue, err := models.GetQueueByName(config.DefaultQueueName); err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		log.Errorf("GetQueueByName %s failed, err: %v", config.DefaultQueueName, err)
 		return err
 	} else if err == nil {
-		log.Info("default queue has been created")
+		log.Info("default queue[%+v] has been created", defaultQueue)
 		return nil
 	}
 	ctx := &logger.RequestContext{UserName: common.UserRoot}

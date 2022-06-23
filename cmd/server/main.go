@@ -149,11 +149,6 @@ func initData(serverConf *config.ServerConfig) error {
 	}
 	log.Info("init data for single cluster is starting")
 
-	if database.DB == nil {
-		err := fmt.Errorf("please ensure call this function after db is inited")
-		log.Errorf("init failed, err: %v", err)
-		return err
-	}
 	if err := cluster.InitDefaultCluster(); err != nil {
 		log.Errorf("initDefaultCluster failed, err: %v", err)
 		return err
@@ -191,12 +186,6 @@ func setup() {
 		gracefullyExit(err)
 	}
 
-	err = initData(ServerConf)
-	if err != nil {
-		log.Errorf("init singlecluster data failed, err: %v", err)
-		gracefullyExit(err)
-	}
-
 	if err = newAndStartJobManager(); err != nil {
 		log.Errorf("create pfjob manager failed, err %v", err)
 		gracefullyExit(err)
@@ -213,6 +202,12 @@ func setup() {
 }
 
 func newAndStartJobManager() error {
+	err := initData(ServerConf)
+	if err != nil {
+		log.Errorf("init singlecluster data failed, err: %v", err)
+		gracefullyExit(err)
+	}
+
 	runtimeMgr, err := job.NewJobManagerImpl()
 	if err != nil {
 		log.Errorf("new job manager failed, error: %v", err)
