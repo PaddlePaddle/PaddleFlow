@@ -39,7 +39,7 @@ func Test_validateCreateFileSystem(t *testing.T) {
 		req *fs.CreateFileSystemRequest
 	}
 
-	var p1 = gomonkey.ApplyFunc(storage.FsStore.GetSimilarityAddressList, func(fsType string, ips []string) ([]model.FileSystem, error) {
+	var p1 = gomonkey.ApplyFunc(storage.Filesystem.GetSimilarityAddressList, func(fsType string, ips []string) ([]model.FileSystem, error) {
 		return []model.FileSystem{}, nil
 	})
 	defer p1.Reset()
@@ -290,8 +290,8 @@ func Test_checkFsDir(t *testing.T) {
 		url        string
 		properties map[string]string
 	}
-	var p1 = gomonkey.ApplyMethod(reflect.TypeOf(storage.FsStore), "GetSimilarityAddressList",
-		func(_ *storage.FileSystemStorage, fsType string, ips []string) ([]model.FileSystem, error) {
+	var p1 = gomonkey.ApplyMethod(reflect.TypeOf(storage.Filesystem), "GetSimilarityAddressList",
+		func(_ *storage.FilesystemStore, fsType string, ips []string) ([]model.FileSystem, error) {
 			return []model.FileSystem{
 				{SubPath: "/data"},
 				{SubPath: "/data/mypath"},
