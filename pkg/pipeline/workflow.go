@@ -17,10 +17,13 @@ limitations under the License.
 package pipeline
 
 import (
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strconv"
+	"strings"
 
+	"github.com/Knetic/govaluate"
 	. "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 
 	"github.com/sirupsen/logrus"
@@ -62,11 +65,14 @@ func NewBaseWorkflow(wfSource schema.WorkflowSource, runID, entry string, params
 		postProcess: wfSource.PostProcess,
 	}
 
-	bwf.runtimeDags, bwf.runtimeSteps = bwf.getComponents()
+	bwf.runtimeDags = map[string]*schema.WorkflowSourceDag{}
+	bwf.runtimeSteps = map[string]*schema.WorkflowSourceStep{}
+	bwf.recursiveGetComponents(bwf.Source.EntryPoints.EntryPoints, "", bwf.runtimeDags, bwf.runtimeSteps)
+
 	bwf.tmpDags = map[string]*schema.WorkflowSourceDag{}
 	bwf.tmpSteps = map[string]*schema.WorkflowSourceStep{}
 	// 对于Components模板中的节点，添加一个前缀，避免后面与EntryPoints中的节点重复
-	bwf.recursiveGetComponents(bwf.Source.Components, schema.SysComponentsPrefix, bwf.tmpDags, bwf.tmpSteps)
+	bwf.recursiveGetComponents(bwf.Source.Components, "", bwf.tmpDags, bwf.tmpSteps)
 	return bwf
 }
 
@@ -74,22 +80,148 @@ func (bwf *BaseWorkflow) log() *logrus.Entry {
 	return logger.LoggerForRun(bwf.RunID)
 }
 
-func (bwf *BaseWorkflow) checkDeps() error {
-	return bwf.checkDepsRecursively(bwf.Source.EntryPoints.EntryPoints)
+func (bwf *BaseWorkflow) checkCompAttrs() error {
+	return bwf.checkAttrRecursively(bwf.Source.EntryPoints.EntryPoints)
 }
 
-func (bwf *BaseWorkflow) checkDepsRecursively(components map[string]schema.Component) error {
+// 校验Deps, Condition, LoopArguments
+func (bwf *BaseWorkflow) checkAttrRecursively(components map[string]schema.Component) error {
 	for name, component := range components {
+		// deps
 		for _, dep := range component.GetDeps() {
 			if _, ok := components[dep]; !ok {
 				return fmt.Errorf("component [%s] has an wrong dep [%s]", name, dep)
 			}
 		}
+
+		// condition
+		if err := bwf.checkCondition(component); err != nil {
+			logger.LoggerForRun(bwf.RunID).Errorf("check condition failed, error: %s", err.Error())
+			return err
+		}
+
+		if err := bwf.checkLoopArgument(component); err != nil {
+			logger.LoggerForRun(bwf.RunID).Errorf("check loopArgument failed, error: %s", err.Error())
+			return err
+		}
+
 		if dag, ok := component.(*schema.WorkflowSourceDag); ok {
-			if err := bwf.checkDepsRecursively(dag.EntryPoints); err != nil {
+			if err := bwf.checkAttrRecursively(dag.EntryPoints); err != nil {
 				return err
 			}
 		}
+	}
+	return nil
+}
+
+func (bwf *BaseWorkflow) checkCondition(component schema.Component) error {
+	condition := component.GetCondition()
+	if condition == "" {
+		return nil
+	}
+	pattern := RegExpIncludingCurTpl
+	reg := regexp.MustCompile(pattern)
+	matches := reg.FindAllStringSubmatch(condition, -1)
+	for _, row := range matches {
+		if len(row) != 4 {
+			return MismatchRegexError(condition, pattern)
+		}
+		argName := row[2]
+		_, ok1 := component.GetParameters()[argName]
+		_, ok2 := component.GetArtifacts().Input[argName]
+
+		sysParamNameMap := map[string]string{}
+		for _, name := range SysParamNameList {
+			sysParamNameMap[name] = ""
+		}
+		_, ok3 := sysParamNameMap[argName]
+
+		if !ok1 && !ok2 && !ok3 {
+			return fmt.Errorf("{{%s}} in condition is not parameter or input artifact or system templete", argName)
+		}
+	}
+
+	newCondition := condition
+	newCondition = strings.ReplaceAll(newCondition, "{{", "")
+	newCondition = strings.ReplaceAll(newCondition, "}}", "")
+	_, err := govaluate.NewEvaluableExpression(newCondition)
+	if err != nil {
+		return fmt.Errorf("condition[%s] is invalid, error: %s", condition, err.Error())
+	}
+	return nil
+}
+
+func (bwf *BaseWorkflow) checkLoopArgument(component schema.Component) error {
+	loop := component.GetLoopArgument()
+	if loop == nil {
+		return nil
+	}
+	switch loop := loop.(type) {
+	case []interface{}:
+		for _, v := range loop {
+			_, ok1 := v.(int)
+			_, ok2 := v.(int64)
+			_, ok3 := v.(float32)
+			_, ok4 := v.(float64)
+			loopStr, ok5 := v.(string)
+			if !ok1 && !ok2 && !ok3 && !ok4 && !ok5 {
+				return fmt.Errorf("[%v]in loopArgument is invalid, each one with list type can only have int or float or string", v)
+			}
+			if ok5 {
+				checker := VariableChecker{}
+				// list中的元素不能为模板，如果使用了模板，则报错
+				if err := checker.CheckRefCurArgument(loopStr); err == nil {
+					return fmt.Errorf("[%v]in loopArgument is invalid, each one in list loopArgument must not be templete", loopStr)
+				}
+			}
+		}
+	case string:
+		pattern := RegExpIncludingCurTpl
+		reg := regexp.MustCompile(pattern)
+		matches := reg.FindAllStringSubmatch(loop, -1)
+
+		if len(matches) > 1 {
+			// loopArgument不能用多余一个的模板
+			return fmt.Errorf("loopArgument[%v] is invalid, using templates in loopArgument invalid", loop)
+		} else if len(matches) == 1 {
+			// 如果使用了模板，则只能有模板，不能再加其他内容
+			pattern = RegExpCurTpl
+			reg = regexp.MustCompile(pattern)
+			if !reg.MatchString(loop) {
+				return fmt.Errorf("loopArgument[%v] is invalid, using template and others in the sametime", loop)
+			}
+
+			for _, row := range matches {
+				if len(row) != 4 {
+					return MismatchRegexError(loop, pattern)
+				}
+				argName := row[2]
+				_, ok1 := component.GetParameters()[argName]
+				_, ok2 := component.GetArtifacts().Input[argName]
+				if !ok1 && !ok2 {
+					return fmt.Errorf("loopArgument {{%s}} is not parameter or input artifact", argName)
+				}
+			}
+		} else {
+			// 如果不是模板，那就必须是JsonList
+			listArg := []interface{}{}
+			if err := json.Unmarshal([]byte(loop), &listArg); err != nil {
+				return fmt.Errorf("loopArgument [%s] unmarshal to list failed, error: %s", loop, err.Error())
+			}
+			for _, arg := range listArg {
+				switch arg.(type) {
+				case string:
+				case int:
+				case int64:
+				case float32:
+				case float64:
+				default:
+					return fmt.Errorf("each one in list loopArgument should be int or float or string")
+				}
+			}
+		}
+	default:
+		return fmt.Errorf("loopArgument can only be string or list type")
 	}
 	return nil
 }
@@ -108,7 +240,13 @@ func (bwf *BaseWorkflow) getComponents() (map[string]*schema.WorkflowSourceDag, 
 
 func (bwf *BaseWorkflow) recursiveGetComponents(components map[string]schema.Component, prefix string, dags map[string]*schema.WorkflowSourceDag, steps map[string]*schema.WorkflowSourceStep) {
 	for name, component := range components {
-		absoluteName := prefix + "." + name
+		var absoluteName string
+		if prefix != "" {
+			absoluteName = prefix + "." + name
+		} else {
+			absoluteName = name
+		}
+
 		if dag, ok := component.(*schema.WorkflowSourceDag); ok {
 			dags[absoluteName] = dag
 			bwf.recursiveGetComponents(dag.EntryPoints, absoluteName, dags, steps)
@@ -190,7 +328,7 @@ func (bwf *BaseWorkflow) checkComponents() error {
 	for name, comp := range bwf.Source.Components {
 		// component不能有deps
 		if len(comp.GetDeps()) > 0 {
-			fmt.Errorf("components can not have deps")
+			return fmt.Errorf("components can not have deps")
 		}
 
 		// 递归检查
@@ -207,7 +345,7 @@ func (bwf *BaseWorkflow) checkRecursion(component schema.Component, visited map[
 		if step.Reference.Component != "" {
 			refComp, ok := bwf.Source.Components[step.Reference.Component]
 			if !ok {
-				fmt.Errorf("no component named %s", step.Reference)
+				return fmt.Errorf("no component named %s", step.Reference)
 			}
 
 			// 如果visited已有将要reference的节点，则说明存在递归
@@ -393,17 +531,19 @@ func (bwf *BaseWorkflow) checkStepCache(components map[string]schema.Component) 
 	for name, component := range components {
 		if dag, ok := component.(*schema.WorkflowSourceDag); ok {
 			return bwf.checkStepCache(dag.EntryPoints)
-		} else if step, ok := component.(*schema.WorkflowSourceStep); ok && step.Reference.Component == "" {
-			if step.Cache.MaxExpiredTime == "" {
-				step.Cache.MaxExpiredTime = CacheExpiredTimeNever
-			}
-			_, err := strconv.Atoi(step.Cache.MaxExpiredTime)
-			if err != nil {
-				return fmt.Errorf("MaxExpiredTime[%s] of cache in step[%s] not correct", step.Cache.MaxExpiredTime, name)
-			}
+		} else if step, ok := component.(*schema.WorkflowSourceStep); ok {
+			if step.Reference.Component == "" {
+				if step.Cache.MaxExpiredTime == "" {
+					step.Cache.MaxExpiredTime = CacheExpiredTimeNever
+				}
+				_, err := strconv.Atoi(step.Cache.MaxExpiredTime)
+				if err != nil {
+					return fmt.Errorf("MaxExpiredTime[%s] of cache in step[%s] not correct", step.Cache.MaxExpiredTime, name)
+				}
 
-			if bwf.Extra[WfExtraInfoKeyFsID] == "" && step.Cache.FsScope != "" {
-				return fmt.Errorf("fs_scope of cache in step[%s] should be empty if Fs is not used!", name)
+				if bwf.Extra[WfExtraInfoKeyFsID] == "" && step.Cache.FsScope != "" {
+					return fmt.Errorf("fs_scope of cache in step[%s] should be empty if Fs is not used!", name)
+				}
 			}
 		} else {
 			return fmt.Errorf("component not step or dag")
@@ -458,7 +598,7 @@ func (bwf *BaseWorkflow) replaceRunParam(param string, val interface{}) error {
 			return err
 		}
 	} else {
-		fmt.Errorf("empty component list")
+		return fmt.Errorf("empty component list")
 	}
 	return nil
 }
@@ -556,13 +696,13 @@ func (bwf *BaseWorkflow) checkSteps() error {
 			- 只校验，不替换任何参数
 	*/
 
-	disabledSteps, err := bwf.checkDisabled()
+	_, err := bwf.checkDisabled()
 	if err != nil {
 		bwf.log().Errorf("check disabled failed. err:%s", err.Error())
 		return err
 	}
 
-	if err := bwf.checkDeps(); err != nil {
+	if err := bwf.checkCompAttrs(); err != nil {
 		bwf.log().Errorf("check deps failed. err: %s", err.Error())
 		return err
 	}
@@ -574,43 +714,74 @@ func (bwf *BaseWorkflow) checkSteps() error {
 
 	// 这里独立构建一个sysParamNameMap，因为有可能bwf.Extra传递的系统变量，数量或者名称有误
 	// 这里只用于做校验，所以其值没有含义
-	var sysParamNameMap = map[string]string{
-		SysParamNamePFRunID:    "",
-		SysParamNamePFFsID:     "",
-		SysParamNamePFStepName: "",
-		SysParamNamePFFsName:   "",
-		SysParamNamePFUserName: "",
+	sysParamNameMap := map[string]string{}
+	for _, name := range SysParamNameList {
+		sysParamNameMap[name] = ""
 	}
 
-	// 同时检查components、entryPoints、postProcess
-	// 其中components的名称中加了前缀，因此不会与entryPoints中的重名，也不会被disabled
-	components := map[string]schema.Component{}
+	// 这里的为Components字段下（非EntryPoints）的Compoonents，且分为外层和内层的，两者校验逻辑有差异
+	innerTmplComps := map[string]schema.Component{}
+	outerTmplComps := map[string]schema.Component{}
 	for name, dag := range bwf.tmpDags {
-		components[name] = dag
+		if strings.Contains(name, ".") {
+			innerTmplComps[name] = dag
+		} else {
+			outerTmplComps[name] = dag
+		}
 	}
 	for name, step := range bwf.tmpSteps {
-		components[name] = step
+		if strings.Contains(name, ".") {
+			innerTmplComps[name] = step
+		} else {
+			outerTmplComps[name] = step
+		}
 	}
-	for name, step := range bwf.runtimeSteps {
-		components[name] = step
-	}
-	for name, dag := range bwf.runtimeDags {
-		components[name] = dag
-	}
-	for name, step := range bwf.postProcess {
-		components[name] = step
-	}
-	paramChecker := StepParamChecker{
-		Components:    components,
+	innerTmplParamChecker := StepParamChecker{
+		Components:    innerTmplComps,
 		SysParams:     sysParamNameMap,
-		DisabledSteps: disabledSteps,
 		UseFs:         useFs,
 		CompTempletes: bwf.Source.Components,
 	}
-	for _, component := range components {
+	for name, _ := range innerTmplComps {
+		if err := innerTmplParamChecker.Check(name, false); err != nil {
+			bwf.log().Errorln(err.Error())
+			return err
+		}
+	}
+	outerTmplParamChecker := StepParamChecker{
+		Components:    outerTmplComps,
+		SysParams:     sysParamNameMap,
+		UseFs:         useFs,
+		CompTempletes: bwf.Source.Components,
+	}
+	for name, _ := range outerTmplComps {
+		if err := outerTmplParamChecker.Check(name, true); err != nil {
+			bwf.log().Errorln(err.Error())
+			return err
+		}
+	}
+
+	// 同时检查entryPoints、postProcess
+	runComponents := map[string]schema.Component{}
+	for name, step := range bwf.runtimeSteps {
+		runComponents[name] = step
+	}
+	for name, dag := range bwf.runtimeDags {
+		runComponents[name] = dag
+	}
+	for name, step := range bwf.postProcess {
+		runComponents[name] = step
+	}
+	runParamChecker := StepParamChecker{
+		Components:    runComponents,
+		SysParams:     sysParamNameMap,
+		UseFs:         useFs,
+		CompTempletes: bwf.Source.Components,
+	}
+	for _, component := range runComponents {
 		bwf.log().Debugln(component)
 	}
-	for name, _ := range components {
+	for name, _ := range runComponents {
 		isDisabled, err := bwf.Source.IsDisabled(name)
 		if err != nil {
 			return err
@@ -618,7 +789,7 @@ func (bwf *BaseWorkflow) checkSteps() error {
 		if isDisabled {
 			continue
 		}
-		if err := paramChecker.Check(name); err != nil {
+		if err := runParamChecker.Check(name, false); err != nil {
 			bwf.log().Errorln(err.Error())
 			return err
 		}
@@ -697,18 +868,103 @@ func (bwf *BaseWorkflow) checkDisabled() ([]string, error) {
 	for k, v := range bwf.Source.PostProcess {
 		postComponents[k] = v
 	}
-	for _, name := range disabledComponents {
-		_, ok := tempMap[name]
+	for _, disFullName := range disabledComponents {
+		_, ok := tempMap[disFullName]
 		if ok {
-			return nil, fmt.Errorf("disabled component[%s] is set repeatedly!", name)
+			return nil, fmt.Errorf("disabled component[%s] is set repeatedly!", disFullName)
 		}
-		tempMap[name] = 1
-		if !bwf.Source.HasStep(bwf.Source.EntryPoints.EntryPoints, name) && !bwf.Source.HasStep(postComponents, name) {
-			return nil, fmt.Errorf("disabled component[%s] not existed!", name)
+		tempMap[disFullName] = 1
+		components1, name1, ok1 := bwf.Source.GetComponent(bwf.Source.EntryPoints.EntryPoints, disFullName)
+		components2, name2, ok2 := bwf.Source.GetComponent(postComponents, disFullName)
+		components, disName := map[string]schema.Component{}, ""
+		if ok1 {
+			components, disName = components1, name1
+		} else if ok2 {
+			components, disName = components2, name2
+		} else {
+			return nil, fmt.Errorf("disabled component[%s] not existed!", disFullName)
+		}
+
+		// 检查被disabled的节点有没有被引用
+		for compName, comp := range components {
+			if compName == disName {
+				continue
+			}
+			// 检查输入Artifact引用
+			for _, atfVal := range comp.GetArtifacts().Input {
+				ok, err := checkRefed(disName, atfVal)
+				if err != nil {
+					return nil, err
+				}
+				if ok {
+					return nil, fmt.Errorf("disabled component[%s] is refered by [%s]", disName, compName)
+				}
+			}
+
+			// 检查parameters引用
+			for _, paramVal := range comp.GetParameters() {
+				paramVal, ok := paramVal.(string)
+				if !ok {
+					continue
+				}
+				ok, err := checkRefed(disName, paramVal)
+				if err != nil {
+					return nil, err
+				}
+				if ok {
+					return nil, fmt.Errorf("disabled component[%s] is refered by [%s]", disName, compName)
+				}
+			}
+
+			if len(comp.GetArtifacts().Output) > 0 {
+				disNameList := strings.Split(disFullName, ".")
+				if len(disNameList) > 1 {
+					//该节点有父节点
+					disParentFullName := strings.Join(disNameList[:len(disNameList)-1], ".")
+					components1, name1, ok1 := bwf.Source.GetComponent(bwf.Source.EntryPoints.EntryPoints, disParentFullName)
+					components2, name2, ok2 := bwf.Source.GetComponent(postComponents, disParentFullName)
+					parentComponents, parentName := map[string]schema.Component{}, ""
+					if ok1 {
+						parentComponents, parentName = components1, name1
+					} else if ok2 {
+						parentComponents, parentName = components2, name2
+					} else {
+						return nil, fmt.Errorf("disabled component[%s] not existed!", disParentFullName)
+					}
+					for _, atfVal := range parentComponents[parentName].GetArtifacts().Output {
+						ok, err := checkRefed(disName, atfVal)
+						if err != nil {
+							return nil, err
+						}
+						if ok {
+							return nil, fmt.Errorf("disabled component[%s] is refered by [%s]", disName, compName)
+						}
+					}
+				}
+			}
 		}
 	}
 
 	return disabledComponents, nil
+}
+
+func checkRefed(target string, strWithRef string) (bool, error) {
+	pattern := RegExpIncludingUpstreamTpl
+	reg := regexp.MustCompile(pattern)
+	matches := reg.FindAllStringSubmatch(strWithRef, -1)
+	for _, row := range matches {
+		if len(row) != 4 {
+			return false, MismatchRegexError(strWithRef, pattern)
+		}
+		refList := ParseParamName(row[2])
+		if len(refList) != 2 {
+			return false, MismatchRegexError(strWithRef, pattern)
+		}
+		if target == refList[0] {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // ----------------------------------------------------------------------------

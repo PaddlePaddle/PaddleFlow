@@ -41,8 +41,7 @@ const (
 	FailureStrategyFailFast = "fail_fast"
 	FailureStrategyContinue = "continue"
 
-	EnvDockerEnv        = "dockerEnv"
-	SysComponentsPrefix = "SysComponentsPrefix"
+	EnvDockerEnv = "dockerEnv"
 )
 
 type Artifacts struct {
@@ -351,8 +350,9 @@ func (wfs *WorkflowSource) IsDisabled(componentName string) (bool, error) {
 	for k, v := range wfs.PostProcess {
 		postComponents[k] = v
 	}
-	if !wfs.HasStep(wfs.EntryPoints.EntryPoints, componentName) && !wfs.HasStep(postComponents, componentName) &&
-		strings.HasPrefix(componentName, SysComponentsPrefix) {
+	_, _, ok1 := wfs.GetComponent(wfs.EntryPoints.EntryPoints, componentName)
+	_, _, ok2 := wfs.GetComponent(postComponents, componentName)
+	if !ok1 && !ok2 {
 		return false, fmt.Errorf("check disabled for component[%s] failed, component not existed!", componentName)
 	}
 
@@ -365,47 +365,51 @@ func (wfs *WorkflowSource) IsDisabled(componentName string) (bool, error) {
 }
 
 // 递归的检查absoluteName对应的Component是否存在
-func (wfs *WorkflowSource) HasStep(components map[string]Component, absoluteName string) bool {
+func (wfs *WorkflowSource) GetComponent(components map[string]Component, absoluteName string) (map[string]Component, string, bool) {
 	nameList := strings.SplitN(absoluteName, ".", 2)
 	if len(nameList) > 1 {
 		if component, ok := components[nameList[0]]; ok {
 			if dag, ok := component.(*WorkflowSourceDag); ok {
-				return wfs.HasStep(dag.EntryPoints, nameList[1])
+				return wfs.GetComponent(dag.EntryPoints, nameList[1])
 			} else if step, ok := component.(*WorkflowSourceStep); ok {
 				// 如果为step，检查是否有引用Source.Components中的节点
 				referComp := step.Reference.Component
 				return wfs.componentsHasStep(referComp, nameList[1])
 			} else {
 				logger.Logger().Errorf("a component not dag or step")
-				return false
+				return nil, "", false
 			}
 		} else {
-			return false
+			return nil, "", false
 		}
 	} else {
 		_, ok := components[absoluteName]
-		return ok
+		return components, absoluteName, ok
 	}
 }
 
-func (wfs *WorkflowSource) componentsHasStep(referComp string, subNames string) bool {
+func (wfs *WorkflowSource) checkRefered(components map[string]Component, absoluteName string) {
+
+}
+
+func (wfs *WorkflowSource) componentsHasStep(referComp string, subNames string) (map[string]Component, string, bool) {
 	// 在前面已经校验过递归reference因此不会有递归出现，但后续可能会允许递归
 	// TODO: 如果有递归reference的情况，这里会出现死循环，需要升级
 	for {
 		if referedComponent, ok := wfs.Components[referComp]; ok {
 			if dag, ok := referedComponent.(*WorkflowSourceDag); ok {
 				// 检查Source.Components中的节点，如果它是一个dag，那就继续向下遍历子节点
-				return wfs.HasStep(dag.EntryPoints, subNames)
+				return wfs.GetComponent(dag.EntryPoints, subNames)
 			} else if step, ok := referedComponent.(*WorkflowSourceStep); ok {
 				// 如果是step，那就看是否继续ref了其他component
 				referComp = step.Reference.Component
 				continue
 			} else {
 				logger.Logger().Errorf("a component not dag or step")
-				return false
+				return nil, "", false
 			}
 		} else {
-			return false
+			return nil, "", false
 		}
 	}
 }
