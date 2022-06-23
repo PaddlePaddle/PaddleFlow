@@ -141,14 +141,18 @@ func initConfig() error {
 	return nil
 }
 
-// initData init cluster and queue by default
-func initData(serverConf *config.ServerConfig) error {
+// initClusterAndQueue init cluster and queue by default name
+func initClusterAndQueue(serverConf *config.ServerConfig) error {
 	if !serverConf.Job.IsSingleCluster {
 		log.Info("IsSingleCluster is false, pass init cluster and queue")
 		return nil
 	}
 	log.Info("init data for single cluster is starting")
-
+	if database.DB == nil {
+		err := fmt.Errorf("please ensure call this function after db is inited")
+		log.Errorf("init failed, err: %v", err)
+		return err
+	}
 	if err := cluster.InitDefaultCluster(); err != nil {
 		log.Errorf("initDefaultCluster failed, err: %v", err)
 		return err
@@ -202,7 +206,7 @@ func setup() {
 }
 
 func newAndStartJobManager() error {
-	err := initData(ServerConf)
+	err := initClusterAndQueue(ServerConf)
 	if err != nil {
 		log.Errorf("init singlecluster data failed, err: %v", err)
 		gracefullyExit(err)
