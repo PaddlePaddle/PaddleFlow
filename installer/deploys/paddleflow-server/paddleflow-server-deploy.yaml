@@ -23,8 +23,8 @@ data:
           fsType: ext4
           volumeAttributes:
             pfs.fs.id: $(pfs.fs.id)
-            pfs.user.name: $(pfs.user.name)
             pfs.server: $(pfs.server)
+            pfs.fs.info: $(pfs.fs.info)
           volumeHandle: pfs-$(pfs.fs.id)-$(namespace)-pv
   default_pvc.yaml: |2-
       kind: PersistentVolumeClaim
