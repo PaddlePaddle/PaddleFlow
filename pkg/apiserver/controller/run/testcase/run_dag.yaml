@@ -126,6 +126,7 @@ components:
         deps: show
         parameters:
           num: "{{PF_PARENT.num}}"
+          show_num: "{{show.num}}"
         artifacts:
           output:
           - out

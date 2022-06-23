@@ -868,48 +868,78 @@ func (bwf *BaseWorkflow) checkDisabled() ([]string, error) {
 	for k, v := range bwf.Source.PostProcess {
 		postComponents[k] = v
 	}
-	for _, name := range disabledComponents {
-		_, ok := tempMap[name]
+	for _, disFullName := range disabledComponents {
+		_, ok := tempMap[disFullName]
 		if ok {
-			return nil, fmt.Errorf("disabled component[%s] is set repeatedly!", name)
+			return nil, fmt.Errorf("disabled component[%s] is set repeatedly!", disFullName)
 		}
-		tempMap[name] = 1
-		components1, name1, ok1 := bwf.Source.GetComponent(bwf.Source.EntryPoints.EntryPoints, name)
-		components2, name2, ok2 := bwf.Source.GetComponent(postComponents, name)
-		components, name := map[string]schema.Component{}, ""
+		tempMap[disFullName] = 1
+		components1, name1, ok1 := bwf.Source.GetComponent(bwf.Source.EntryPoints.EntryPoints, disFullName)
+		components2, name2, ok2 := bwf.Source.GetComponent(postComponents, disFullName)
+		components, disName := map[string]schema.Component{}, ""
 		if ok1 {
-			components, name = components1, name1
+			components, disName = components1, name1
 		} else if ok2 {
-			components, name = components2, name2
+			components, disName = components2, name2
 		} else {
-			return nil, fmt.Errorf("disabled component[%s] not existed!", name)
+			return nil, fmt.Errorf("disabled component[%s] not existed!", disFullName)
 		}
 
 		// 检查被disabled的节点有没有被引用
 		for compName, comp := range components {
-			if compName == name {
+			if compName == disName {
 				continue
 			}
+			// 检查输入Artifact引用
 			for _, atfVal := range comp.GetArtifacts().Input {
-				ok, err := checkRefed(compName, atfVal)
+				ok, err := checkRefed(disName, atfVal)
 				if err != nil {
 					return nil, err
 				}
 				if ok {
-					return nil, fmt.Errorf("disabled component[%s] is refered", compName)
+					return nil, fmt.Errorf("disabled component[%s] is refered by [%s]", disName, compName)
 				}
 			}
+
+			// 检查parameters引用
 			for _, paramVal := range comp.GetParameters() {
 				paramVal, ok := paramVal.(string)
 				if !ok {
 					continue
 				}
-				ok, err := checkRefed(compName, paramVal)
+				ok, err := checkRefed(disName, paramVal)
 				if err != nil {
 					return nil, err
 				}
 				if ok {
-					return nil, fmt.Errorf("disabled component[%s] is refered", compName)
+					return nil, fmt.Errorf("disabled component[%s] is refered by [%s]", disName, compName)
+				}
+			}
+
+			if len(comp.GetArtifacts().Output) > 0 {
+				disNameList := strings.Split(disFullName, ".")
+				if len(disNameList) > 1 {
+					//该节点有父节点
+					disParentFullName := strings.Join(disNameList[:len(disNameList)-1], ".")
+					components1, name1, ok1 := bwf.Source.GetComponent(bwf.Source.EntryPoints.EntryPoints, disParentFullName)
+					components2, name2, ok2 := bwf.Source.GetComponent(postComponents, disParentFullName)
+					parentComponents, parentName := map[string]schema.Component{}, ""
+					if ok1 {
+						parentComponents, parentName = components1, name1
+					} else if ok2 {
+						parentComponents, parentName = components2, name2
+					} else {
+						return nil, fmt.Errorf("disabled component[%s] not existed!", disParentFullName)
+					}
+					for _, atfVal := range parentComponents[parentName].GetArtifacts().Output {
+						ok, err := checkRefed(disName, atfVal)
+						if err != nil {
+							return nil, err
+						}
+						if ok {
+							return nil, fmt.Errorf("disabled component[%s] is refered by [%s]", disName, compName)
+						}
+					}
 				}
 			}
 		}
