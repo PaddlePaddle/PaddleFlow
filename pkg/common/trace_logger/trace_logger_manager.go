@@ -57,9 +57,9 @@ var (
 // define interface
 
 type Trace struct {
-	logs       []traceLog
-	updateTime time.Time
-	// lastSyncIndex store the last synced index in the logs
+	Logs       []traceLog
+	UpdateTime time.Time
+	// lastSyncIndex store the last synced index in the Logs
 	lastSyncIndex int
 }
 
@@ -79,8 +79,8 @@ func (t traceLog) String() string {
 }
 
 func (t Trace) String() string {
-	lines := make([]string, len(t.logs))
-	for i, traceLog := range t.logs {
+	lines := make([]string, len(t.Logs))
+	for i, traceLog := range t.Logs {
 		lines[i] = fmt.Sprintf("%s", traceLog)
 	}
 	return strings.Join(lines, "\n")
@@ -159,7 +159,7 @@ func (d *defaultTraceLogger) saveOneLog(level logrus.Level, format string, args 
 		Time:  time.Now(),
 	}
 	//fmt.Println(log.String())
-	d.trace.logs = append(d.trace.logs, log)
+	d.trace.Logs = append(d.trace.Logs, log)
 
 	// call update trace after every log
 	_ = d.UpdateTrace()
@@ -195,7 +195,7 @@ func (d *defaultTraceLogger) UpdateTraceWithKey(key string) error {
 }
 
 func (d *defaultTraceLogger) UpdateTrace() error {
-	d.trace.updateTime = time.Now()
+	d.trace.UpdateTime = time.Now()
 	if d.key == "" {
 		return fmt.Errorf("no key has been set")
 	}
@@ -206,8 +206,8 @@ func (d *defaultTraceLogger) UpdateTrace() error {
 // it won't return error for now
 func (d *defaultTraceLogger) SetKey(key string) {
 	d.key = key
-	for i := range d.trace.logs {
-		d.trace.logs[i].Key = key
+	for i := range d.trace.Logs {
+		d.trace.Logs[i].Key = key
 	}
 }
 
@@ -229,8 +229,8 @@ type DefaultTraceLoggerManager struct {
 	l         *logrus.Logger
 
 	// use  unblocking for eliminate lock
-	eliminateLock lock.RWMutex
-	lock          sync.RWMutex
+	evictLock lock.RWMutex
+	lock      sync.RWMutex
 
 	timeout      time.Duration
 	maxCacheSize int
@@ -251,7 +251,7 @@ func NewDefaultTraceLoggerManager() *DefaultTraceLoggerManager {
 		cache:                cmap.New(),
 		tmpKeyMap:            sync.Map{},
 		l:                    logger,
-		eliminateLock:        lock.NewCASMutex(),
+		evictLock:            lock.NewCASMutex(),
 		timeout:              DefaultTimeout,
 		maxCacheSize:         MaxCacheSize,
 		autoDeleteCancelChan: make(chan struct{}, 1),
@@ -260,7 +260,7 @@ func NewDefaultTraceLoggerManager() *DefaultTraceLoggerManager {
 }
 
 func (d *DefaultTraceLoggerManager) StoreTraceToFile(trace Trace) {
-	for _, traceLog := range trace.logs[trace.lastSyncIndex:] {
+	for _, traceLog := range trace.Logs[trace.lastSyncIndex:] {
 		d.storeTraceLogToFile(traceLog)
 	}
 }
@@ -314,20 +314,21 @@ func (d *DefaultTraceLoggerManager) SetTraceToCache(key string, trace Trace) (er
 	//fmt.Println("maxCacheSize:", d.maxCacheSize, d.cache.Count())
 	if d.cache.Count() >= d.maxCacheSize {
 		logrus.Debugf("cache size is too large, start auto delete")
-		d.eliminateCache()
+		d.evictCache()
 	}
 	return
 }
 
-// eliminateCache eliminate cache by lazy call
-func (d *DefaultTraceLoggerManager) eliminateCache() {
+// evictCache eliminate cache by lazy call
+// will decrease cache size until it is less than maxCacheSize
+func (d *DefaultTraceLoggerManager) evictCache() {
 
-	success := d.eliminateLock.TryLock()
-	// if not get eliminateLock, omit eliminateCache
+	success := d.evictLock.TryLock()
+	// if not get evictLock, omit evictCache
 	if !success {
 		return
 	}
-	defer d.eliminateLock.Unlock()
+	defer d.evictLock.Unlock()
 
 	if d.cache.Count() < d.maxCacheSize {
 		return // do not delete if cache is not full
@@ -350,7 +351,7 @@ loop:
 				break loop
 			}
 			k, v := x.Key, x.Val.(Trace)
-			if v.updateTime.Before(ddl) {
+			if v.UpdateTime.Before(ddl) {
 				d.removeKey(k)
 				numberToBeDeleted--
 			}
@@ -372,7 +373,7 @@ func (d *DefaultTraceLoggerManager) SyncAll() error {
 	for x := range iter {
 		k, v := x.Key, x.Val.(Trace)
 		d.StoreTraceToFile(v)
-		v.lastSyncIndex = len(v.logs)
+		v.lastSyncIndex = len(v.Logs)
 		d.cache.Set(k, v)
 	}
 	return nil
@@ -442,9 +443,9 @@ func (d *DefaultTraceLoggerManager) loadFromFile(filePath string) (err error) {
 			if exist {
 				val = valueInMap.(Trace)
 			}
-			val.logs = append(val.logs, newValue.(traceLog))
-			val.lastSyncIndex = len(val.logs)
-			val.updateTime = time.Now()
+			val.Logs = append(val.Logs, newValue.(traceLog))
+			val.lastSyncIndex = len(val.Logs)
+			val.UpdateTime = time.Now()
 			return val
 		})
 	}
@@ -502,11 +503,11 @@ func (d *DefaultTraceLoggerManager) deleteTraceFromCacheBefore(timeout time.Dura
 
 	ddl := time.Now().Add(-timeout)
 
-	// delete all the trace logs before the timeBefore
+	// delete all the trace Logs before the timeBefore
 	iter := d.cache.IterBuffered()
 	for x := range iter {
 		k, v := x.Key, x.Val.(Trace)
-		if v.updateTime.Before(ddl) && method(k) {
+		if v.UpdateTime.Before(ddl) && method(k) {
 			d.removeKey(k)
 		}
 	}
@@ -529,7 +530,7 @@ func (d *DefaultTraceLoggerManager) deleteUnusedTmpKey(timeout time.Duration) {
 		traceLogger := value.(TraceLogger)
 		// if no key set, then this logger is temporary, and can be deleted
 		if traceLogger.GetKey() == "" {
-			updateTime := traceLogger.GetTrace().updateTime
+			updateTime := traceLogger.GetTrace().UpdateTime
 			if updateTime.Before(time.Now().Add(-timeout)) {
 				d.tmpKeyMap.Delete(tmpKey)
 			}

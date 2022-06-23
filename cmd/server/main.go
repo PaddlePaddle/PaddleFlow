@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/trace_logger"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/go-chi/chi"
 	log "github.com/sirupsen/logrus"
@@ -28,6 +30,17 @@ import (
 )
 
 var ServerConf *config.ServerConfig
+
+// auto delete durations
+const (
+	AutoDeleteDuration = time.Minute * 5
+	AutoSyncDuration   = time.Minute * 10
+)
+
+// DeleteFunc delete function for trace log
+var DeleteFunc trace_logger.DeleteMethod = func(key string) bool {
+	return true
+}
 
 func main() {
 	if err := Main(os.Args); err != nil {
@@ -96,10 +109,19 @@ func start() error {
 	}
 	go imageHandler.Run()
 
-	// TODO: enable auto delete and sync
-
 	go job2.WSManager.SendGroupData()
 	go job2.WSManager.GetGroupData()
+
+	// enable auto delete and sync for trace log
+	if err = trace_logger.AutoDelete(AutoDeleteDuration, DeleteFunc); err != nil {
+		log.Errorf("auto delete trace log failed. error: %v", err)
+		return err
+	}
+
+	if err = trace_logger.AutoSync(AutoSyncDuration); err != nil {
+		log.Errorf("auto sync trace log failed. error: %v", err)
+		return err
+	}
 
 	go func() {
 		if err := HttpSvr.ListenAndServe(); err != nil && errors.Is(err, http.ErrServerClosed) {
@@ -145,8 +167,12 @@ func setup() {
 		gracefullyExit(err)
 	}
 
-	// TODO: add trace logger config
-	// TODO: enable auto delete
+	// init trace logger config
+	trace_logger.InitTraceLogger(ServerConf.TraceLog)
+	if err != nil {
+		log.Errorf("InitTraceLogger err: %v", err)
+		gracefullyExit(err)
+	}
 
 	log.Infof("The final server config is: %s ", config.PrettyFormat(ServerConf))
 

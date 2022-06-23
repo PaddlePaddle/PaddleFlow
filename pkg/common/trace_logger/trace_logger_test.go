@@ -162,6 +162,8 @@ func test() {
 	Key("key1").Infof("test1")
 	UpdateKey("key1", "key2")
 	Key("key2").Warnf("test3")
+
+	//cache := gcache.New(10000).LRU().Expiration(time.Second * 2).Build()
 }
 
 func testFunc1(key string) error {
