@@ -525,7 +525,7 @@ func InitDefaultCluster() error {
 		log.Errorf("GetClusterByName %s failed, err: %v", config.DefaultClusterName, err)
 		return err
 	} else if err == nil {
-		log.Info("default cluster[%+v] has been created", clusterInfo)
+		log.Infof("default cluster[%+v] has been created", clusterInfo)
 		return nil
 	}
 	// create default cluster

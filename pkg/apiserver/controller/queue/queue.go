@@ -606,7 +606,7 @@ func InitDefaultQueue() error {
 		log.Errorf("GetQueueByName %s failed, err: %v", config.DefaultQueueName, err)
 		return err
 	} else if err == nil {
-		log.Info("default queue[%+v] has been created", defaultQueue)
+		log.Infof("default queue[%+v] has been created", defaultQueue)
 		return nil
 	}
 	ctx := &logger.RequestContext{UserName: common.UserRoot}
