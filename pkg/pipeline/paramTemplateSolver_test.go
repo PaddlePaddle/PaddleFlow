@@ -208,3 +208,171 @@ func TestResolveEnv(t *testing.T) {
 	err = is.resolveEnv()
 	assert.NotNil(t, err)
 }
+
+// 测试 dependenceResolver
+func mockRunconfigForDepRsl() *runConfig {
+	return &runConfig{
+		logger:   logger.LoggerForRun("depResolve"),
+		fsID:     "fs-xx",
+		fsName:   "xx",
+		userName: "aa",
+		runID:    "run-dep",
+	}
+}
+
+func mockWorkflowDagForDs() *schema.WorkflowSourceDag {
+	return &schema.WorkflowSourceDag{
+		Name: "dag",
+		Parameters: map[string]interface{}{
+			"dp1": 0,
+			"dp2": 1,
+			"dp3": "dag1",
+		},
+		Artifacts: schema.Artifacts{
+			Input: map[string]string{
+				"di1": "./di1.txt",
+				"di2": "./di2.txt",
+			},
+			Output: map[string]string{
+				"do1": "{{step1.s1o1}}",
+				"do2": "{{step2.s2o1}}",
+			},
+		},
+		EntryPoints: map[string]schema.Component{
+			"step1": &schema.WorkflowSourceStep{
+				Parameters: map[string]interface{}{
+					"s1p1": 10,
+					"s1p2": "{{PF_PARENT.dp1}}_{{PF_PARENT.dp2}}",
+					"s1p3": "st1",
+					"s1p4": "{{PF_PARENT.PF_LOOP_ARGUMENT}}",
+				},
+				Artifacts: schema.Artifacts{
+					Input: map[string]string{
+						"s1i1": "{{PF_PARENT.di1}}",
+					},
+					Output: map[string]string{
+						"s1o1": "./s1o1.txt",
+					},
+				},
+			},
+			"step2": &schema.WorkflowSourceStep{
+				Parameters: map[string]interface{}{
+					"s2p1": 12,
+					"s2p2": "{{PF_PARENT.dp1}}_{{PF_PARENT.dp2}}",
+					"s2p3": "{{step1.s1p1}}",
+				},
+				Artifacts: schema.Artifacts{
+					Input: map[string]string{
+						"s2i1": "{{PF_PARENT.di1}}",
+						"s2i2": "{{step1.s1o1}}",
+					},
+					Output: map[string]string{
+						"s2o1": "./s2o1.txt",
+					},
+				},
+				Deps: "step1",
+			},
+		},
+	}
+}
+
+func mockDagRuntime() *DagRuntime {
+	bcr := baseComponentRuntime{
+		runConfig:        mockRunconfigForDepRsl(),
+		component:        mockWorkflowDagForDs(),
+		name:             "dag1-0",
+		CompoentFullName: "dag1",
+	}
+
+	return &DagRuntime{
+		baseComponentRuntime: &bcr,
+		subComponentRumtimes: make(map[string][]componentRuntime),
+	}
+}
+
+func mockStepRuntime(step *schema.WorkflowSourceStep) *StepRuntime {
+	bcr := baseComponentRuntime{
+		runConfig:        mockRunconfigForDepRsl(),
+		component:        step,
+		name:             "dag1.step1-0",
+		CompoentFullName: "dag1.step1",
+	}
+
+	return &StepRuntime{
+		baseComponentRuntime: &bcr,
+	}
+}
+
+func TestResolveBeforeRun(t *testing.T) {
+	dr := mockDagRuntime()
+	dr.sysParams = map[string]string{"PF_LOOP_ARGUMENT": "10"}
+	ds := NewDependencySolver(dr)
+
+	// step1: 主要测试父子间传递
+	err := ds.ResolveBeforeRun("step1")
+	assert.Nil(t, err)
+
+	params := dr.getworkflowSouceDag().EntryPoints["step1"].GetParameters()
+	assert.Equal(t, 10, params["s1p1"])
+	assert.Equal(t, "0_1", params["s1p2"])
+	assert.Equal(t, "st1", params["s1p3"])
+	assert.Equal(t, "10", params["s1p4"])
+
+	inputs := dr.getworkflowSouceDag().EntryPoints["step1"].GetArtifacts().Input
+	assert.Equal(t, "./di1.txt", inputs["s1i1"])
+
+	// step2: 主要测试上下游传递
+	stepRuntime1 := mockStepRuntime(dr.getworkflowSouceDag().EntryPoints["step1"].(*schema.WorkflowSourceStep))
+	dr.subComponentRumtimes["step1"] = []componentRuntime{}
+	dr.subComponentRumtimes["step1"] = append(dr.subComponentRumtimes["step1"], stepRuntime1)
+
+	err = ds.ResolveBeforeRun("step2")
+	assert.Nil(t, err)
+
+	params = dr.getworkflowSouceDag().EntryPoints["step2"].GetParameters()
+	assert.Equal(t, 12, params["s2p1"])
+	assert.Equal(t, "0_1", params["s2p2"])
+	assert.Equal(t, 10, params["s2p3"])
+
+	inputs = dr.getworkflowSouceDag().EntryPoints["step2"].GetArtifacts().Input
+	assert.Equal(t, "./di1.txt", inputs["s2i1"])
+	assert.Equal(t, "./s1o1.txt", inputs["s2i2"])
+
+	// 测试异常情况
+	err = ds.ResolveBeforeRun("step3")
+	assert.NotNil(t, err)
+
+	dr.getworkflowSouceDag().EntryPoints["step2"].GetArtifacts().Input["s203"] = "{{PF_PARENT.do2}}"
+	err = ds.ResolveBeforeRun("step3")
+	assert.NotNil(t, err)
+}
+
+func TestResolveAfterDone(t *testing.T) {
+	dr := mockDagRuntime()
+	dr.sysParams = map[string]string{"PF_LOOP_ARGUMENT": "10"}
+	ds := NewDependencySolver(dr)
+
+	err := ds.ResolveBeforeRun("step1")
+	assert.Nil(t, err)
+
+	err = ds.ResolveBeforeRun("step2")
+	assert.Nil(t, err)
+
+	stepRuntime1 := mockStepRuntime(dr.getworkflowSouceDag().EntryPoints["step1"].(*schema.WorkflowSourceStep))
+	dr.subComponentRumtimes["step1"] = []componentRuntime{}
+	dr.subComponentRumtimes["step1"] = append(dr.subComponentRumtimes["step1"], stepRuntime1)
+	dr.subComponentRumtimes["step1"] = append(dr.subComponentRumtimes["step1"], stepRuntime1)
+
+	stepRuntime2 := mockStepRuntime(dr.getworkflowSouceDag().EntryPoints["step2"].(*schema.WorkflowSourceStep))
+	dr.subComponentRumtimes["step2"] = []componentRuntime{}
+	dr.subComponentRumtimes["step2"] = append(dr.subComponentRumtimes["step2"], stepRuntime2)
+
+	err = ds.ResolveAfterDone()
+	assert.Nil(t, err)
+
+	_, p := dr.GetArtifactPath("do1")
+	assert.Equal(t, "./s1o1.txt,./s1o1.txt", p)
+
+	_, p = dr.GetArtifactPath("do2")
+	assert.Equal(t, "./s2o1.txt", p)
+}
