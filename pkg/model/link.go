@@ -14,16 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package models
+package model
 
 import (
 	"encoding/json"
-	"fmt"
-
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
-
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 )
 
 const (
@@ -47,12 +43,6 @@ func (Link) TableName() string {
 	return LinkTableName
 }
 
-// CreateLink creates a new link
-func CreateLink(link *Link) error {
-	db := database.DB
-	return db.Create(link).Error
-}
-
 // AfterFind is the callback methods doing after the find link
 func (s *Link) AfterFind(*gorm.DB) error {
 	if s.PropertiesJson != "" {
@@ -74,44 +64,4 @@ func (s *Link) BeforeSave(*gorm.DB) error {
 	}
 	s.PropertiesJson = string(propertiesJson)
 	return nil
-}
-
-func FsNameLinks(fsID string) ([]Link, error) {
-	var links []Link
-	db := database.DB
-	result := &gorm.DB{}
-	result = db.Where(&Link{FsID: fsID}).Find(&links)
-	return links, result.Error
-}
-
-func LinkWithFsIDAndFsPath(fsID, fsPath string) (Link, error) {
-	var link Link
-	db := database.DB
-	result := &gorm.DB{}
-	result = db.Where(&Link{FsID: fsID, FsPath: fsPath}).Find(&link)
-	return link, result.Error
-}
-
-// DeleteLinkWithFsIDAndFsPath delete a file system link
-func DeleteLinkWithFsIDAndFsPath(fsID, fsPath string) error {
-	db := database.DB
-	result := db.Where(fmt.Sprintf(QueryEqualWithParam, FsID), fsID).Where(fmt.Sprintf(QueryEqualWithParam, FsPath), fsPath).Delete(&Link{})
-	return result.Error
-}
-
-// ListLink get links with marker and limit sort by create_at desc
-func ListLink(limit int, marker, fsID string) ([]Link, error) {
-	var links []Link
-	db := database.DB
-	result := &gorm.DB{}
-	result = db.Where(&Link{FsID: fsID}).Where(fmt.Sprintf(QueryLess, CreatedAt, "'"+marker+"'")).
-		Order(fmt.Sprintf(" %s %s ", CreatedAt, DESC)).Limit(limit).Find(&links)
-	return links, result.Error
-}
-
-func GetLinkWithFsIDAndPath(fsID, fsPath string) ([]Link, error) {
-	var links []Link
-	db := database.DB
-	result := db.Where(&Link{FsID: fsID, FsPath: fsPath}).First(&links)
-	return links, result.Error
 }

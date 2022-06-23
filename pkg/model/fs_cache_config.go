@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package models
+package model
 
 import (
 	"encoding/json"
@@ -22,8 +22,6 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
-
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 )
 
 type FSCacheConfig struct {
@@ -97,42 +95,4 @@ func (s *FSCacheConfig) BeforeSave(*gorm.DB) error {
 	}
 	s.ExtraConfigJson = string(extraConfigMap)
 	return nil
-}
-
-func CreateFSCacheConfig(logEntry *log.Entry, fsCacheConfig *FSCacheConfig) error {
-	logEntry.Debugf("begin create fsCacheConfig:%+v", fsCacheConfig)
-	err := database.DB.Model(&FSCacheConfig{}).Create(fsCacheConfig).Error
-	if err != nil {
-		logEntry.Errorf("create fsCacheConfig failed. fsCacheConfig:%v, error:%s",
-			fsCacheConfig, err.Error())
-		return err
-	}
-	return nil
-}
-
-func UpdateFSCacheConfig(logEntry *log.Entry, fsCacheConfig FSCacheConfig) error {
-	logEntry.Debugf("begin update fsCacheConfig fsCacheConfig. fsID:%s", fsCacheConfig.FsID)
-	tx := database.DB.Model(&FSCacheConfig{}).Where(&FSCacheConfig{FsID: fsCacheConfig.FsID}).Updates(fsCacheConfig)
-	if tx.Error != nil {
-		logEntry.Errorf("update fsCacheConfig failed. fsCacheConfig.ID:%s, error:%s",
-			fsCacheConfig.FsID, tx.Error.Error())
-		return tx.Error
-	}
-	return nil
-}
-
-func DeleteFSCacheConfig(tx *gorm.DB, fsID string) error {
-	return tx.Model(&FSCacheConfig{}).Unscoped().Where(&FSCacheConfig{FsID: fsID}).Delete(&FSCacheConfig{}).Error
-}
-
-func GetFSCacheConfig(logEntry *log.Entry, fsID string) (FSCacheConfig, error) {
-	logEntry.Debugf("begin get fsCacheConfig. fsID:%s", fsID)
-	var fsCacheConfig FSCacheConfig
-	tx := database.DB.Model(&FSCacheConfig{}).Where(&FSCacheConfig{FsID: fsID}).First(&fsCacheConfig)
-	if tx.Error != nil {
-		logEntry.Errorf("get fsCacheConfig failed. fsID:%s, error:%s",
-			fsID, tx.Error.Error())
-		return FSCacheConfig{}, tx.Error
-	}
-	return fsCacheConfig, nil
 }

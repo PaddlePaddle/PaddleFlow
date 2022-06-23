@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -23,8 +23,9 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 
@@ -35,23 +36,25 @@ var client *k8sClient
 
 type Client interface {
 	// pod
-	ProxyGetPods(nodeID string) (result *v1.PodList, err error)
-	CreatePod(pod *v1.Pod) (*v1.Pod, error)
-	GetPod(podName, namespace string) (*v1.Pod, error)
-	DeletePod(pod *v1.Pod) error
-	GetPodLog(podName, namespace, containerName string) (string, error)
+	ProxyGetPods(nodeID string) (result *corev1.PodList, err error)
+	CreatePod(pod *corev1.Pod) (*corev1.Pod, error)
+	GetPod(namespace, name string) (*corev1.Pod, error)
+	PatchPod(pod *corev1.Pod, data []byte) error
+	UpdatePod(namespace string, pod *corev1.Pod) (*corev1.Pod, error)
+	DeletePod(pod *corev1.Pod) error
+	GetPodLog(namespace, podName, containerName string) (string, error)
 	// pv
-	CreatePersistentVolume(pv *v1.PersistentVolume) (*v1.PersistentVolume, error)
+	CreatePersistentVolume(pv *corev1.PersistentVolume) (*corev1.PersistentVolume, error)
 	DeletePersistentVolume(name string, deleteOptions metav1.DeleteOptions) error
-	GetPersistentVolume(name string, getOptions metav1.GetOptions) (*v1.PersistentVolume, error)
-	ListPersistentVolume(listOptions metav1.ListOptions) (*v1.PersistentVolumeList, error)
+	GetPersistentVolume(name string, getOptions metav1.GetOptions) (*corev1.PersistentVolume, error)
+	ListPersistentVolume(listOptions metav1.ListOptions) (*corev1.PersistentVolumeList, error)
 	// pvc
-	CreatePersistentVolumeClaim(namespace string, pvc *v1.PersistentVolumeClaim) (*v1.PersistentVolumeClaim, error)
-	DeletePersistentVolumeClaim(namespace string, name string, deleteOptions metav1.DeleteOptions) error
-	GetPersistentVolumeClaim(namespace string, name string, getOptions metav1.GetOptions) (*v1.PersistentVolumeClaim, error)
+	CreatePersistentVolumeClaim(namespace string, pvc *corev1.PersistentVolumeClaim) (*corev1.PersistentVolumeClaim, error)
+	DeletePersistentVolumeClaim(namespace, name string, deleteOptions metav1.DeleteOptions) error
+	GetPersistentVolumeClaim(namespace, name string, getOptions metav1.GetOptions) (*corev1.PersistentVolumeClaim, error)
 	// ns
-	GetNamespace(namespace string, getOptions metav1.GetOptions) (*v1.Namespace, error)
-	ListNamespaces(listOptions metav1.ListOptions) (*v1.NamespaceList, error)
+	GetNamespace(namespace string, getOptions metav1.GetOptions) (*corev1.Namespace, error)
+	ListNamespaces(listOptions metav1.ListOptions) (*corev1.NamespaceList, error)
 }
 
 type k8sClient struct {
@@ -86,7 +89,7 @@ func New(k8sConfigPath string, k8sClientTimeout int) (*k8sClient, error) {
 	return &k8sClient{Interface: clientset}, nil
 }
 
-func (c *k8sClient) CreatePod(pod *v1.Pod) (*v1.Pod, error) {
+func (c *k8sClient) CreatePod(pod *corev1.Pod) (*corev1.Pod, error) {
 	if pod == nil {
 		log.Info("Create pod: pod is nil")
 		return nil, nil
@@ -100,17 +103,44 @@ func (c *k8sClient) CreatePod(pod *v1.Pod) (*v1.Pod, error) {
 	return mntPod, nil
 }
 
-func (c *k8sClient) GetPod(podName, namespace string) (*v1.Pod, error) {
-	log.Infof("Get pod %s", podName)
-	mntPod, err := c.CoreV1().Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
+func (c *k8sClient) GetPod(namespace, name string) (*corev1.Pod, error) {
+	log.Infof("Get pod %s", name)
+	mntPod, err := c.CoreV1().Pods(namespace).Get(context.TODO(), name, metav1.GetOptions{})
 	if err != nil {
-		log.Errorf("Can't get pod %s namespace %s: %v", podName, namespace, err)
+		log.Errorf("Can't get pod %s namespace %s: %v", name, namespace, err)
 		return nil, err
 	}
 	return mntPod, nil
 }
 
-func (c *k8sClient) DeletePod(pod *v1.Pod) error {
+type PatchMapValue struct {
+	Op    string            `json:"op"`
+	Path  string            `json:"path"`
+	Value map[string]string `json:"value"`
+}
+
+func (c *k8sClient) PatchPod(pod *corev1.Pod, data []byte) error {
+	if pod == nil {
+		log.Info("Patch pod: pod is nil")
+		return nil
+	}
+	log.Infof("Patch pod %v", pod.Name)
+	_, err := c.CoreV1().Pods(pod.Namespace).Patch(context.TODO(),
+		pod.Name, types.JSONPatchType, data, metav1.PatchOptions{})
+	return err
+}
+
+func (c *k8sClient) UpdatePod(namespace string, pod *corev1.Pod) (*corev1.Pod, error) {
+	log.Infof("Get pod %s", pod.Name)
+	updatedPod, err := c.CoreV1().Pods(namespace).Update(context.TODO(), pod, metav1.UpdateOptions{})
+	if err != nil {
+		log.Errorf("Can't get pod %s namespace %s: %v", pod.Name, namespace, err)
+		return nil, err
+	}
+	return updatedPod, nil
+}
+
+func (c *k8sClient) DeletePod(pod *corev1.Pod) error {
 	if pod == nil {
 		log.Infof("Delete pod: pod is nil")
 		return nil
@@ -119,10 +149,10 @@ func (c *k8sClient) DeletePod(pod *v1.Pod) error {
 	return c.CoreV1().Pods(pod.Namespace).Delete(context.TODO(), pod.Name, metav1.DeleteOptions{})
 }
 
-func (c *k8sClient) GetPodLog(podName, namespace, containerName string) (string, error) {
+func (c *k8sClient) GetPodLog(namespace, podName, containerName string) (string, error) {
 	log.Infof("Get pod %s log", podName)
 	tailLines := int64(20)
-	req := c.CoreV1().Pods(namespace).GetLogs(podName, &v1.PodLogOptions{
+	req := c.CoreV1().Pods(namespace).GetLogs(podName, &corev1.PodLogOptions{
 		Container: containerName,
 		TailLines: &tailLines,
 	})
@@ -143,41 +173,41 @@ func (c *k8sClient) GetPodLog(podName, namespace, containerName string) (string,
 
 // ProxyGetPods returns all pods on the node with nodeName, and the api server will forward this request to
 // the kubelet proxy on the node. Therefore， the pods information comes from kubelet cache, not etcd
-func (c *k8sClient) ProxyGetPods(nodeID string) (result *v1.PodList, err error) {
-	result = &v1.PodList{}
+func (c *k8sClient) ProxyGetPods(nodeID string) (result *corev1.PodList, err error) {
+	result = &corev1.PodList{}
 	err = c.CoreV1().RESTClient().Get().Resource("nodes").
 		Name(nodeID).Suffix("/proxy/pods").Do(context.TODO()).Into(result)
 	return
 }
 
-func (c *k8sClient) ListPersistentVolume(listOptions metav1.ListOptions) (*v1.PersistentVolumeList, error) {
+func (c *k8sClient) ListPersistentVolume(listOptions metav1.ListOptions) (*corev1.PersistentVolumeList, error) {
 	return c.CoreV1().PersistentVolumes().List(context.TODO(), listOptions)
 }
 
-func (c *k8sClient) CreatePersistentVolume(pv *v1.PersistentVolume) (*v1.PersistentVolume, error) {
+func (c *k8sClient) CreatePersistentVolume(pv *corev1.PersistentVolume) (*corev1.PersistentVolume, error) {
 	return c.CoreV1().PersistentVolumes().Create(context.TODO(), pv, metav1.CreateOptions{})
 }
 func (c *k8sClient) DeletePersistentVolume(name string, deleteOptions metav1.DeleteOptions) error {
 	return c.CoreV1().PersistentVolumes().Delete(context.TODO(), name, deleteOptions)
 }
-func (c *k8sClient) GetPersistentVolume(name string, getOptions metav1.GetOptions) (*v1.PersistentVolume, error) {
+func (c *k8sClient) GetPersistentVolume(name string, getOptions metav1.GetOptions) (*corev1.PersistentVolume, error) {
 	return c.CoreV1().PersistentVolumes().Get(context.TODO(), name, getOptions)
 }
-func (c *k8sClient) CreatePersistentVolumeClaim(namespace string, pvc *v1.PersistentVolumeClaim) (*v1.
-	PersistentVolumeClaim, error) {
+func (c *k8sClient) CreatePersistentVolumeClaim(namespace string, pvc *corev1.PersistentVolumeClaim) (*corev1.
+PersistentVolumeClaim, error) {
 	return c.CoreV1().PersistentVolumeClaims(namespace).Create(context.TODO(), pvc, metav1.CreateOptions{})
 }
 func (c *k8sClient) DeletePersistentVolumeClaim(namespace string, name string, deleteOptions metav1.DeleteOptions) error {
 	return c.CoreV1().PersistentVolumeClaims(namespace).Delete(context.TODO(), name, deleteOptions)
 }
-func (c *k8sClient) GetPersistentVolumeClaim(namespace, name string, getOptions metav1.GetOptions) (*v1.
-	PersistentVolumeClaim, error) {
+func (c *k8sClient) GetPersistentVolumeClaim(namespace, name string, getOptions metav1.GetOptions) (*corev1.
+PersistentVolumeClaim, error) {
 	return c.CoreV1().PersistentVolumeClaims(namespace).Get(context.TODO(), name, getOptions)
 }
-func (c *k8sClient) GetNamespace(namespace string, getOptions metav1.GetOptions) (*v1.Namespace, error) {
+func (c *k8sClient) GetNamespace(namespace string, getOptions metav1.GetOptions) (*corev1.Namespace, error) {
 	return c.CoreV1().Namespaces().Get(context.TODO(), namespace, getOptions)
 }
 
-func (c *k8sClient) ListNamespaces(listOptions metav1.ListOptions) (*v1.NamespaceList, error) {
+func (c *k8sClient) ListNamespaces(listOptions metav1.ListOptions) (*corev1.NamespaceList, error) {
 	return c.CoreV1().Namespaces().List(context.TODO(), listOptions)
 }

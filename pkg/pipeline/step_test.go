@@ -376,7 +376,7 @@ func TestCheckCached(t *testing.T) {
 	updateTime := time.Now().Add(time.Second * time.Duration(-1*100))
 	mockCbs.ListCacheCb = func(firstFp, fsID, step, yamlPath string) ([]models.RunCache, error) {
 		return []models.RunCache{
-			models.RunCache{FirstFp: "1111", SecondFp: "3333", RunID: "run-000027", UpdatedAt: updateTime, ExpiredTime: "-1"},
+			{FirstFp: "1111", SecondFp: "3333", RunID: "run-000027", UpdatedAt: updateTime, ExpiredTime: "-1"},
 		}, nil
 	}
 
@@ -396,7 +396,7 @@ func TestCheckCached(t *testing.T) {
 	updateTime = time.Now().Add(time.Second * time.Duration(-1*500))
 	mockCbs.ListCacheCb = func(firstFp, fsID, step, yamlPath string) ([]models.RunCache, error) {
 		return []models.RunCache{
-			models.RunCache{FirstFp: "1111", SecondFp: "2222", RunID: "run-000027", UpdatedAt: updateTime, ExpiredTime: "300"},
+			{FirstFp: "1111", SecondFp: "2222", RunID: "run-000027", UpdatedAt: updateTime, ExpiredTime: "300"},
 		}, nil
 	}
 
@@ -416,7 +416,7 @@ func TestCheckCached(t *testing.T) {
 	updateTime = time.Now().Add(time.Second * time.Duration(-1*100))
 	mockCbs.ListCacheCb = func(firstFp, fsID, step, yamlPath string) ([]models.RunCache, error) {
 		return []models.RunCache{
-			models.RunCache{FirstFp: "1111", SecondFp: "2222", RunID: "run-000027", UpdatedAt: updateTime, ExpiredTime: "-1"},
+			{FirstFp: "1111", SecondFp: "2222", RunID: "run-000027", UpdatedAt: updateTime, ExpiredTime: "-1"},
 		}, nil
 	}
 
@@ -436,7 +436,7 @@ func TestCheckCached(t *testing.T) {
 	updateTime = time.Now().Add(time.Second * time.Duration(-1*100))
 	mockCbs.ListCacheCb = func(firstFp, fsID, step, yamlPath string) ([]models.RunCache, error) {
 		return []models.RunCache{
-			models.RunCache{FirstFp: "1111", SecondFp: "2222", RunID: "run-000027", UpdatedAt: updateTime, ExpiredTime: "300"},
+			{FirstFp: "1111", SecondFp: "2222", RunID: "run-000027", UpdatedAt: updateTime, ExpiredTime: "300"},
 		}, nil
 	}
 

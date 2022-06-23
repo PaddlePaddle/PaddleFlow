@@ -24,6 +24,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 var checkFuncs map[string]func(ctx *logger.RequestContext, ID string) error
@@ -66,7 +67,7 @@ func checkUser(ctx *logger.RequestContext, userName string) error {
 }
 
 func checkFs(ctx *logger.RequestContext, fsID string) error {
-	_, err := models.GetFileSystemWithFsID(fsID)
+	_, err := storage.FsStore.GetFileSystemWithFsID(fsID)
 	if err != nil {
 		ctx.ErrorCode = common.UserNotExist
 		return fmt.Errorf("fs:%s not found", fsID)
