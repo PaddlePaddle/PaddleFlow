@@ -35,6 +35,7 @@ const (
 	// local properties and root path
 	RootKey = "root"
 	SubPath = "subpath"
+	Type    = "type"
 
 	// HDFS properties
 	NameNodeAddress = "dfs.namenode.address"
