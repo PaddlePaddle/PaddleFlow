@@ -287,6 +287,8 @@ func (crt *baseComponentRuntime) setSysParams() error {
 		crt.sysParams[SysParamNamePFLoopArgument] = fmt.Sprintf("%v", pfLoopArugment)
 	}
 
+	crt.innerSolver.setSysParams(crt.sysParams)
+
 	return nil
 }
 

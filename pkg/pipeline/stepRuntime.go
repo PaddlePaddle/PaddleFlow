@@ -239,7 +239,7 @@ func (srt *StepRuntime) updateJob(forCacheFingerprint bool) error {
 	// 这个为啥要在这里替换，而不是在runtime初始化的时候呢？ 计算cache 需要进行的替换和运行时进行的替换有些许不同
 
 	// 替换env
-	if err := srt.innerSolver.resolveEnv(forCacheFingerprint); err != nil {
+	if err := srt.innerSolver.resolveEnv(); err != nil {
 		return err
 	}
 
