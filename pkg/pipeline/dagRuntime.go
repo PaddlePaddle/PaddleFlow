@@ -74,6 +74,7 @@ func NewDagRuntime(fullName string, dag *schema.WorkflowSourceDag, seq int, ctx 
 		baseComponentRuntime: nrt,
 		referenceSolver:      res,
 		ID:                   ID,
+		subComponentRumtimes: make(map[string][]componentRuntime),
 	}
 
 	drt.updateStatus(StatusRuntimeInit)
@@ -562,8 +563,8 @@ func (drt *DagRuntime) GetSubComponentParameterValue(componentName string, param
 	var err error
 	subComponentsRuntime, ok := drt.subComponentRumtimes[componentName]
 	if !ok {
-		err := fmt.Errorf("cannot get the value of parameter[%s] from component[%s], because there is no component named [%s] in dag[%s]",
-			paramName, drt.CompoentFullName+"."+componentName, componentName, drt.CompoentFullName)
+		err := fmt.Errorf("cannot get the value of parameter[%s] from component[%s], because there is no runtime for that component",
+			paramName, drt.CompoentFullName+"."+componentName)
 		return nil, err
 	} else {
 		// 对于同一个节点的多次运行，其 parameter 的值都是一样的。
@@ -576,7 +577,7 @@ func (drt *DagRuntime) GetSubComponentParameterValue(componentName string, param
 }
 
 func (drt *DagRuntime) GetSubComponentArtifactPaths(componentName string, artName string) (string, error) {
-	var value string
+	var value []string
 	subComponents, ok := drt.subComponentRumtimes[componentName]
 	if !ok {
 		err := fmt.Errorf("cannot get the value of parameter[%s] from component[%s], because there is no component named [%s] in dag[%s]",
@@ -589,10 +590,11 @@ func (drt *DagRuntime) GetSubComponentArtifactPaths(componentName string, artNam
 				return "", err
 			}
 
-			value = strings.Join([]string{value, p}, ",")
+			value = append(value, p)
 		}
 	}
-	return value, nil
+
+	return strings.Join(value, ","), nil
 }
 
 // processEventFromSubComponent 处理 stepRuntime 推送过来的 run 的事件
@@ -878,6 +880,8 @@ func (drt *DagRuntime) updateStatusAccordingSubComponentRuntimeStatus() string {
 		msg = fmt.Sprintf("update Compoent[%s]'s status to [%s] due to subcomponents[%s] cancelled",
 			drt.CompoentFullName, StatusRuntimeFailed, strings.Join(terminatedComponentNames, ","))
 	} else {
+		// 回填本节点的输出artifact
+		drt.ResolveAfterDone()
 		drt.updateStatus(StatusRuntimeSucceeded)
 	}
 

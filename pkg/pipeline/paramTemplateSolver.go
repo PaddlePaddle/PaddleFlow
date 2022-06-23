@@ -41,6 +41,8 @@ func fetchTemplate(tplString string) ([][]string, error) {
 		}
 	}
 
+	fmt.Println("matches", matches, "tplString", tplString)
+
 	return matches, nil
 }
 
@@ -310,7 +312,7 @@ func (ds *DependencySolver) resolveParameterTemplate(tplString string, subCompon
 
 	for index := range tpls {
 		tpl := tpls[index]
-		refComponentName, refvalue := parseTemplate(tpls[0][2])
+		refComponentName, refvalue := parseTemplate(tpl[2])
 		var value interface{}
 
 		// 1、 引用了父节点的输入parameter
@@ -333,7 +335,7 @@ func (ds *DependencySolver) resolveParameterTemplate(tplString string, subCompon
 			}
 		}
 
-		// 如果 tplstring 与 tpls[0] 不相等，说明其是模板拼接二程，此时会将参数值转化为字符串
+		// 如果 tplstring 与 tpls[0] 不相等，说明其是模板拼接而成，此时会将参数值转化为字符串
 		if tplString != tpls[0][0] {
 			valueString := fmt.Sprintf("%v", value)
 			tplString = strings.Replace(tplString, tpl[0], valueString, -1)
@@ -345,7 +347,7 @@ func (ds *DependencySolver) resolveParameterTemplate(tplString string, subCompon
 	return tplString, nil
 }
 
-func (ds *DependencySolver) resolveArtifactTemplate(componentName string, tplString string) (string, error) {
+func (ds *DependencySolver) resolveArtifactTemplate(tplString, componentName string) (string, error) {
 	tpls, err := fetchTemplate(tplString)
 	if err != nil {
 		return "", err
@@ -368,7 +370,7 @@ func (ds *DependencySolver) resolveArtifactTemplate(componentName string, tplStr
 			return "", err
 		}
 	} else {
-		// 2、 引用了上有节点的输出 artifact
+		// 2、 引用了上游节点或者子节点的输出 artifact
 		value, err = ds.GetSubComponentArtifactPaths(refComponentName, refvalue)
 		if err != nil {
 			return "", err
@@ -380,7 +382,7 @@ func (ds *DependencySolver) resolveArtifactTemplate(componentName string, tplStr
 
 func (ds *DependencySolver) ResolveBeforeRun(componentName string) error {
 	// 1. 解析 parameter 模版
-	subComponent, ok := ds.baseComponentRuntime.EntryPoints.GetSubComponet(componentName)
+	subComponent, ok := ds.getworkflowSouceDag().GetSubComponet(componentName)
 	if !ok {
 		err := fmt.Errorf("Dag Component[%s] has no subcomponent named [%s]", ds.CompoentFullName, componentName)
 		return err
@@ -396,7 +398,7 @@ func (ds *DependencySolver) ResolveBeforeRun(componentName string) error {
 				return err
 			}
 
-			ds.component.GetParameters()[name] = newValue
+			subComponent.GetParameters()[name] = newValue
 		}
 	}
 
@@ -409,7 +411,7 @@ func (ds *DependencySolver) ResolveBeforeRun(componentName string) error {
 			return err
 		}
 
-		ds.component.GetArtifacts().Input[name] = newValue
+		subComponent.GetArtifacts().Input[name] = newValue
 	}
 
 	// 输出artifact 无需解析： step 的输出artifact的中不会有模版，dag 的输出artifact 虽然有模版，但是需要在dag 所有的子节点都运行完成后才能解析。
@@ -417,8 +419,8 @@ func (ds *DependencySolver) ResolveBeforeRun(componentName string) error {
 	return nil
 }
 
-// ResolveAfterDone: 当dag运行成功时调用，解析输入artifact 模版
-func (ds *DependencySolver) ResolveAfterDone(componentName string) error {
+// ResolveAfterDone: 当dag运行成功时调用，解析输出artifact 模版
+func (ds *DependencySolver) ResolveAfterDone() error {
 	// 对于step 类型的节点，所有模版均在运行钱完成了解析
 	_, ok := ds.component.(*schema.WorkflowSourceStep)
 	if ok {
@@ -426,7 +428,7 @@ func (ds *DependencySolver) ResolveAfterDone(componentName string) error {
 	}
 
 	for name, value := range ds.component.GetArtifacts().Output {
-		newValue, err := ds.resolveArtifactTemplate(value, componentName)
+		newValue, err := ds.resolveArtifactTemplate(value, ds.DagRuntime.name)
 		if err != nil {
 			return err
 		} else {
