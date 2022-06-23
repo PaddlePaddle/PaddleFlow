@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
+	"reflect"
 
 	log "github.com/sirupsen/logrus"
 
@@ -46,4 +47,16 @@ func BindJSON(r *http.Request, data interface{}) error {
 		return err
 	}
 	return nil
+}
+
+func GetRequestIdFromRequest(req interface{}) (reqId string) {
+	// if panic, then return an empty reqId
+	defer func() {
+		err := recover()
+		if err != nil {
+			reqId = ""
+		}
+	}()
+	reqId = reflect.ValueOf(req).Elem().FieldByName("RequestID").String()
+	return
 }
