@@ -19,6 +19,7 @@ package pipeline
 import (
 	"context"
 	"fmt"
+	"reflect"
 
 	"github.com/sirupsen/logrus"
 
@@ -253,17 +254,34 @@ func (crt *baseComponentRuntime) updateStatus(status RuntimeStatus) error {
 }
 
 // 获取当次运行时循环参数的值
-func (crt *baseComponentRuntime) getPFLoopArgument() (interface{}, error) {
+func (crt *baseComponentRuntime) getPFLoopArgument() (value interface{}, err error) {
 	// LoopArgument 在创建 Runtime 之前便已经由其父节点resolve 了
+	value = nil
+	err = nil
+
 	if crt.component.GetLoopArgument() == nil {
 		return nil, nil
 	}
-	if len(crt.component.GetLoopArgument().([]interface{})) < crt.seq {
+	t := reflect.TypeOf(crt.component.GetLoopArgument())
+	if t.Kind() != reflect.Slice {
+		err := fmt.Errorf("the value of loopArgument should an instance of list")
+		return nil, err
+	}
+	v := reflect.ValueOf(crt.component.GetLoopArgument())
+
+	if v.Len() < crt.seq {
 		err := fmt.Errorf("inner error: the index of loop_argumetn is out of range")
 		return nil, err
 	}
 
-	return crt.component.GetLoopArgument().([]interface{})[crt.seq], nil
+	defer func() {
+		if info := recover(); info != nil {
+			err = fmt.Errorf("get LoopArgument for component[%s] failed", crt.name)
+		}
+	}()
+
+	value = v.Index(crt.seq).Interface()
+	return
 }
 
 // 获取系统变量

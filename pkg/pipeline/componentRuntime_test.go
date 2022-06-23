@@ -146,9 +146,22 @@ func TestGetFunc(t *testing.T) {
 
 func TestSetSysParam(t *testing.T) {
 	cp := mockBaseComponentRuntime()
-
+	cp.getComponent().UpdateLoopArguemt([]int{1, 2, 3, 4})
 	cp.setSysParams()
 
 	assert.Equal(t, "run-000001", cp.sysParams[SysParamNamePFRunID])
 	assert.Equal(t, "1", cp.sysParams[SysParamNamePFLoopArgument])
+}
+
+func TestCalculateCondition(t *testing.T) {
+	cp := mockBaseComponentRuntime()
+	cp.UpdateCondition("10 > 11")
+
+	result, _ := cp.CalculateCondition()
+	assert.False(t, result)
+
+	cp.UpdateCondition("10 < 11")
+
+	result, _ = cp.CalculateCondition()
+	assert.True(t, result)
 }

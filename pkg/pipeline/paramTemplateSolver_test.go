@@ -306,6 +306,8 @@ func mockStepRuntime(step *schema.WorkflowSourceStep) *StepRuntime {
 func TestResolveBeforeRun(t *testing.T) {
 	dr := mockDagRuntime()
 	dr.sysParams = map[string]string{"PF_LOOP_ARGUMENT": "10"}
+
+	dr.getComponent().UpdateLoopArguemt([]int{11, 12})
 	ds := NewDependencySolver(dr)
 
 	// step1: 主要测试父子间传递
@@ -316,7 +318,7 @@ func TestResolveBeforeRun(t *testing.T) {
 	assert.Equal(t, 10, params["s1p1"])
 	assert.Equal(t, "0_1", params["s1p2"])
 	assert.Equal(t, "st1", params["s1p3"])
-	assert.Equal(t, "10", params["s1p4"])
+	assert.Equal(t, 11, params["s1p4"])
 
 	inputs := dr.getworkflowSouceDag().EntryPoints["step1"].GetArtifacts().Input
 	assert.Equal(t, "./di1.txt", inputs["s1i1"])

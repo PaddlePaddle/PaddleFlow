@@ -274,7 +274,7 @@ func (isv *innerSolver) resolveLoopArugment() error {
 	}
 
 	t := reflect.TypeOf(newLoopArgument)
-	if t.Kind() == reflect.Slice {
+	if t.Kind() != reflect.Slice {
 		err := fmt.Errorf("the value of loop_argument for component[%s] should be an list or json list",
 			isv.componentFullName)
 		return err
@@ -319,7 +319,9 @@ func (ds *DependencySolver) resolveParameterTemplate(tplString string, subCompon
 			if err != nil {
 				// 2、引用了父节点的 loop_arugment
 				if refvalue == SysParamNamePFLoopArgument {
+					// 这里不能直接从 drt 的 sysParams 取的原因为，需要保留类型信息。 子节点可能用该值作为自己 循环参数。
 					value, err = ds.getPFLoopArgument()
+
 					if err != nil {
 						return "", err
 					}
