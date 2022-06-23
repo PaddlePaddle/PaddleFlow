@@ -1346,7 +1346,7 @@ func NewS3FileSystem(properties map[string]interface{}) (UnderFileStorage, error
 
 	endpoint = strings.TrimSuffix(endpoint, Delimiter)
 	bucket = strings.TrimSuffix(bucket, Delimiter)
-	ssl := strings.ToLower(endpoint) == "https"
+	ssl := strings.HasPrefix(endpoint, "https")
 	if region == "" {
 		region = AwsDefaultRegion
 	}
