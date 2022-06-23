@@ -73,7 +73,7 @@ func (e FsServerEmptyError) Error() string {
 	return fmt.Sprint("the server of fs is empty, please set the value of it")
 }
 
-var ReadFileFromFs = func(fsID, filePath string, logEntry *log.Entry) ([]byte, error) {
+func ReadFileFromFs(fsID, filePath string, logEntry *log.Entry) ([]byte, error) {
 	fsHandle, err := NewFsHandlerWithServer(fsID, logEntry)
 	if err != nil {
 		logEntry.Errorf("NewFsHandler failed. err: %v", err)

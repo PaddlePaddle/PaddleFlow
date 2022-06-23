@@ -26,6 +26,7 @@ const (
 	SFTPType             = "sftp"
 	MockType             = "mock"
 	CFSType              = "cfs"
+	GlusterfsType        = "glusterfs"
 
 	// common
 	Owner = "owner"
@@ -34,6 +35,7 @@ const (
 	// local properties and root path
 	RootKey = "root"
 	SubPath = "subpath"
+	Type    = "type"
 
 	// HDFS properties
 	NameNodeAddress = "dfs.namenode.address"
@@ -50,11 +52,12 @@ const (
 	KeyTabData             = "kerberos.keytab.data"
 
 	// S3 properties
-	AccessKey = "accessKey"
-	SecretKey = "secretKey"
-	Endpoint  = "endpoint"
-	Bucket    = "bucket"
-	Region    = "region"
+	AccessKey          = "accessKey"
+	SecretKey          = "secretKey"
+	Endpoint           = "endpoint"
+	Bucket             = "bucket"
+	Region             = "region"
+	InsecureSkipVerify = "insecureSkipVerify"
 
 	// sftp properties
 	Address  = "address"

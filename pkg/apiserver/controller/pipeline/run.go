@@ -14,13 +14,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package run
+package pipeline
 
 import (
+	"database/sql"
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"time"
 
+	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
 	"gorm.io/gorm"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -46,13 +49,16 @@ type CreateRunRequest struct {
 	Entry       string                 `json:"entry,omitempty"`      // optional
 	Parameters  map[string]interface{} `json:"parameters,omitempty"` // optional
 	DockerEnv   string                 `json:"dockerEnv,omitempty"`  // optional
-	// run workflow source. priority: RunYamlRaw > PipelineID > RunYamlPath
+	// run workflow source. priority: RunYamlRaw > PipelineID + PipelineDetailID > RunYamlPath
 	// 为了防止字符串或者不同的http客户端对run.yaml
 	// 格式中的特殊字符串做特殊过滤处理导致yaml文件不正确，因此采用runYamlRaw采用base64编码传输
-	Disabled    string `json:"disabled,omitempty"`    // optional
-	RunYamlRaw  string `json:"runYamlRaw,omitempty"`  // optional. one of 3 sources of run. high priority
-	PipelineID  string `json:"pipelineID,omitempty"`  // optional. one of 3 sources of run. medium priority
-	RunYamlPath string `json:"runYamlPath,omitempty"` // optional. one of 3 sources of run. low priority
+	Disabled         string `json:"disabled,omitempty"`         // optional
+	RunYamlRaw       string `json:"runYamlRaw,omitempty"`       // optional. one of 3 sources of run. high priority
+	PipelineID       string `json:"pipelineID,omitempty"`       // optional. one of 3 sources of run. medium priority
+	PipelineDetailID string `json:"pipelineDetailID,omitempty"` // optional. one of 3 sources of run. medium priority
+	RunYamlPath      string `json:"runYamlPath,omitempty"`      // optional. one of 3 sources of run. low priority
+	ScheduleID       string `json:"scheduleID"`
+	ScheduledAt      string `json:"scheduledAt"`
 }
 
 type CreateRunByJsonRequest struct {
@@ -104,15 +110,19 @@ type CreateRunResponse struct {
 }
 
 type RunBrief struct {
-	ID           string `json:"runID"`
-	Name         string `json:"name"`
-	Source       string `json:"source"` // pipelineID or yamlPath
-	UserName     string `json:"username"`
-	FsName       string `json:"fsname"`
-	Message      string `json:"runMsg"`
-	Status       string `json:"status"`
-	CreateTime   string `json:"createTime"`
-	ActivateTime string `json:"activateTime"`
+	ID            string `json:"runID"`
+	Name          string `json:"name"`
+	Source        string `json:"source"` // pipelineID or yamlPath
+	UserName      string `json:"username"`
+	FsName        string `json:"fsname"`
+	Description   string `json:"description"`
+	ScheduleID    string `json:"scheduleID"`
+	Message       string `json:"runMsg"`
+	Status        string `json:"status"`
+	ScheduledTime string `json:"scheduledTime"`
+	CreateTime    string `json:"createTime"`
+	ActivateTime  string `json:"activateTime"`
+	UpdateTime    string `json:"updateTime"`
 }
 
 type ListRunResponse struct {
@@ -126,10 +136,19 @@ func (b *RunBrief) modelToListResp(run models.Run) {
 	b.Source = run.Source
 	b.UserName = run.UserName
 	b.FsName = run.FsName
+	b.Description = run.Description
+	b.ScheduleID = run.ScheduleID
 	b.Message = run.Message
 	b.Status = run.Status
 	b.CreateTime = run.CreateTime
 	b.ActivateTime = run.ActivateTime
+	b.UpdateTime = run.UpdateTime
+
+	if run.ScheduledAt.Valid {
+		b.ScheduledTime = run.ScheduledAt.Time.Format("2006-01-02 15:04:05")
+	} else {
+		b.ScheduledTime = ""
+	}
 }
 
 func buildWorkflowSource(userName string, req CreateRunRequest, fsID string) (schema.WorkflowSource, string, string, error) {
@@ -156,18 +175,31 @@ func buildWorkflowSource(userName string, req CreateRunRequest, fsID string) (sc
 			return schema.WorkflowSource{}, "", "", err
 		}
 	} else if req.PipelineID != "" { // medium priority: wfs in pipeline
-		ppl, err := models.GetPipelineByID(req.PipelineID)
+		hasAuth, _, err := CheckPipelinePermission(userName, req.PipelineID)
 		if err != nil {
-			logger.Logger().Errorf("GetPipelineByID[%s] failed. err:%v", req.PipelineID, err)
+			logger.Logger().Errorf("buildWorkflowSource for pipeline[%s] failed. err:%v", req.PipelineID, err)
+			return schema.WorkflowSource{}, "", "", err
+		} else if !hasAuth {
+			err := common.NoAccessError(userName, common.ResourceTypePipeline, req.PipelineID)
+			logger.Logger().Errorf("buildWorkflowSource for pipeline[%s] failed. err:%v", req.PipelineID, err)
 			return schema.WorkflowSource{}, "", "", err
 		}
-		if !common.IsRootUser(userName) && ppl.UserName != userName {
-			err := common.NoAccessError(userName, common.ResourceTypePipeline, ppl.ID)
-			logger.Logger().Errorf("buildWorkflowSource[%s] failed. err:%v", req.PipelineID, err)
+
+		// query pipeline detail
+		var pplDetail models.PipelineDetail
+		if req.PipelineDetailID == "" {
+			pplDetail, err = models.GetLastPipelineDetail(req.PipelineID)
 			return schema.WorkflowSource{}, "", "", err
+		} else {
+			pplDetail, err = models.GetPipelineDetail(req.PipelineID, req.PipelineDetailID)
+			if err != nil {
+				logger.Logger().Errorf("get detail[%s] of pipeline[%s]. err: %v", req.PipelineDetailID, req.PipelineID, err)
+				return schema.WorkflowSource{}, "", "", err
+			}
 		}
-		runYaml = ppl.PipelineYaml
-		source = ppl.ID
+
+		runYaml = pplDetail.PipelineYaml
+		source = fmt.Sprintf("%s-%s", req.PipelineID, req.PipelineDetailID)
 	} else { // low priority: wfs in fs, read from runYamlPath
 		if fsID == "" {
 			err := fmt.Errorf("can not get runYaml without fs")
@@ -543,6 +575,19 @@ func CreateRun(userName string, request *CreateRunRequest) (CreateRunResponse, e
 		logger.Logger().Errorf("create run failed as run name illegal. error:%v", err)
 		return CreateRunResponse{}, err
 	}
+
+	scheduledAt := sql.NullTime{}
+	if request.ScheduledAt == "" {
+		scheduledAt = sql.NullTime{Valid: false}
+	} else {
+		scheduledAt.Valid = true
+		scheduledAt.Time, err = time.ParseInLocation("2006-01-02 15:04:05", request.ScheduledAt, time.Local)
+		if err != nil {
+			errMsg := fmt.Sprintf("scheduledAt[%s] format not correct, should be YYYY-MM-DD hh-mm-ss", request.ScheduledAt)
+			return CreateRunResponse{}, fmt.Errorf(errMsg)
+		}
+	}
+
 	// create run in db after run.yaml validated
 	run := models.Run{
 		ID:             "", // to be back filled according to db pk
@@ -557,6 +602,8 @@ func CreateRun(userName string, request *CreateRunRequest) (CreateRunResponse, e
 		WorkflowSource: wfs, // DockerEnv has not been replaced. done in func handleImageAndStartWf
 		Entry:          request.Entry,
 		Disabled:       request.Disabled,
+		ScheduleID:     request.ScheduleID,
+		ScheduledAt:    scheduledAt,
 		Status:         common.StatusRunInitiating,
 	}
 	response, err := ValidateAndStartRun(run, *request)
@@ -654,7 +701,7 @@ func ValidateAndStartRun(run models.Run, req interface{}) (CreateRunResponse, er
 	return response, nil
 }
 
-func ListRun(ctx *logger.RequestContext, marker string, maxKeys int, userFilter, fsFilter, runFilter, nameFilter []string) (ListRunResponse, error) {
+func ListRun(ctx *logger.RequestContext, marker string, maxKeys int, userFilter, fsFilter, runFilter, nameFilter, statusFilter, scheduleIDFilter []string) (ListRunResponse, error) {
 	ctx.Logging().Debugf("begin list run.")
 	var pk int64
 	var err error
@@ -672,7 +719,7 @@ func ListRun(ctx *logger.RequestContext, marker string, maxKeys int, userFilter,
 		userFilter = []string{ctx.UserName}
 	}
 	// model list
-	runList, err := models.ListRun(ctx.Logging(), pk, maxKeys, userFilter, fsFilter, runFilter, nameFilter)
+	runList, err := models.ListRun(ctx.Logging(), pk, maxKeys, userFilter, fsFilter, runFilter, nameFilter, statusFilter, scheduleIDFilter)
 	if err != nil {
 		ctx.Logging().Errorf("models list run failed. err:[%s]", err.Error())
 		ctx.ErrorCode = common.InternalError
@@ -716,77 +763,65 @@ func isLastRunPk(ctx *logger.RequestContext, pk int64) bool {
 	return false
 }
 
-func GetRunByID(ctx *logger.RequestContext, runID string) (models.Run, error) {
-	ctx.Logging().Debugf("begin get run by id. runID:%s", runID)
-	run, err := models.GetRunByID(ctx.Logging(), runID)
+func GetRunByID(logEntry *log.Entry, userName string, runID string) (models.Run, error) {
+	logEntry.Debugf("begin get run by id. runID:%s", runID)
+	run, err := models.GetRunByID(logEntry, runID)
 	if err != nil {
-		ctx.ErrorCode = common.RunNotFound
-		ctx.Logging().Errorln(err.Error())
-		return models.Run{}, common.NotFoundError(common.ResourceTypeRun, runID)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			err = common.NotFoundError(common.ResourceTypeRun, runID)
+		}
+		logEntry.Errorln(err.Error())
+		return models.Run{}, err
 	}
-	if !common.IsRootUser(ctx.UserName) && ctx.UserName != run.UserName {
-		err := common.NoAccessError(ctx.UserName, common.ResourceTypeRun, runID)
-		ctx.ErrorCode = common.AccessDenied
-		ctx.Logging().Errorln(err.Error())
+
+	if !common.IsRootUser(userName) && userName != run.UserName {
+		err := common.NoAccessError(userName, common.ResourceTypeRun, runID)
+		logEntry.Errorln(err.Error())
 		return models.Run{}, err
 	}
 	return run, nil
 }
 
-func StopRun(ctx *logger.RequestContext, runID string, request UpdateRunRequest) error {
-	ctx.Logging().Debugf("begin stop run. runID:%s", runID)
-	// check run exist
-	run, err := GetRunByID(ctx, runID)
+func StopRun(logEntry *log.Entry, userName, runID string, request UpdateRunRequest) error {
+	logEntry.Debugf("begin stop run. runID:%s", runID)
+	// check run exist && check user access right
+	run, err := GetRunByID(logEntry, userName, runID)
 	if err != nil {
-		ctx.Logging().Errorf("stop run[%s] failed when getting run. error: %v", runID, err)
+		logEntry.Errorf("stop run[%s] failed when getting run. error: %v", runID, err)
 		return err
 	}
-	// check user access right
-	if !common.IsRootUser(ctx.UserName) && ctx.UserName != run.UserName {
-		ctx.ErrorCode = common.AccessDenied
-		ctx.Logging().Errorf("non-admin user[%s] has no access to stop run[%s]", ctx.UserName, runID)
-		return err
-	}
+
 	// check run current status
 	if run.Status == common.StatusRunTerminating && !request.StopForce ||
 		common.IsRunFinalStatus(run.Status) {
 		err := fmt.Errorf("cannot stop run[%s] as run is already in status[%s]", runID, run.Status)
-		ctx.ErrorCode = common.ActionNotAllowed
-		ctx.Logging().Errorln(err.Error())
+		logEntry.Errorln(err.Error())
 		return err
 	}
 
 	wf, exist := wfMap[runID]
 	if !exist {
-		ctx.ErrorCode = common.InternalError
 		err := fmt.Errorf("run[%s]'s workflow ptr is lost", runID)
-		ctx.Logging().Errorln(err.Error())
+		logEntry.Errorln(err.Error())
 		return err
 	}
-	if err := models.UpdateRunStatus(ctx.Logging(), runID, common.StatusRunTerminating); err != nil {
-		ctx.ErrorCode = common.InternalError
-		return errors.New("stop run failed updating db")
+	if err := models.UpdateRunStatus(logEntry, runID, common.StatusRunTerminating); err != nil {
+		err = fmt.Errorf("stop run[%s] failed updating db, %s", runID, err.Error())
 	}
 	wf.Stop(request.StopForce)
-	ctx.Logging().Debugf("close run succeed. runID:%s", runID)
+	logEntry.Debugf("stop run succeed. runID:%s", runID)
 	return nil
 }
 
 func RetryRun(ctx *logger.RequestContext, runID string) error {
 	ctx.Logging().Debugf("begin retry run. runID:%s\n", runID)
-	// check run exist
-	run, err := GetRunByID(ctx, runID)
+	// check run exist && check user access right
+	run, err := GetRunByID(ctx.Logging(), ctx.UserName, runID)
 	if err != nil {
 		ctx.Logging().Errorf("retry run[%s] failed when getting run. error: %v\n", runID, err)
 		return err
 	}
-	// check user access right
 
-	if !common.IsRootUser(ctx.UserName) && ctx.UserName != run.UserName {
-		ctx.ErrorCode = common.AccessDenied
-		ctx.Logging().Errorf("non-admin user[%s] has no access to retry run[%s]\n", ctx.UserName, runID)
-		return err
-	}
 	// check run current status. If already succeeded or running/pending, no need to retry this run.
 	// only failed or terminated runs can retry
 	if !(run.Status == common.StatusRunFailed || run.Status == common.StatusRunTerminated) {
@@ -807,26 +842,16 @@ func RetryRun(ctx *logger.RequestContext, runID string) error {
 
 func DeleteRun(ctx *logger.RequestContext, id string, request *DeleteRunRequest) error {
 	ctx.Logging().Debugf("begin delete run: %s", id)
-	run, err := models.GetRunByID(ctx.Logging(), id)
+
+	// check run exist && check user access right
+	run, err := GetRunByID(ctx.Logging(), ctx.UserName, id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			ctx.ErrorCode = common.RunNotFound
-			err := fmt.Errorf("delete run[%s] failed. not exist", id)
-			ctx.Logging().Errorf(err.Error())
-			return err
-		} else {
-			ctx.ErrorCode = common.InternalError
-			ctx.Logging().Errorf("delete run[%s] failed. err:%v", id, err)
-			return err
-		}
-	}
-	// check permission
-	if !common.IsRootUser(ctx.UserName) && ctx.UserName != run.UserName {
-		ctx.ErrorCode = common.AccessDenied
-		err := fmt.Errorf("delete run[%s] failed. Access denied", id)
-		ctx.Logging().Errorln(err.Error())
+		ctx.ErrorCode = common.InternalError
+		err := fmt.Errorf("delete run[%s] failed when getting run, %s", id, err.Error())
+		ctx.Logging().Errorf(err.Error())
 		return err
 	}
+
 	// check final status
 	if !common.IsRunFinalStatus(run.Status) {
 		ctx.ErrorCode = common.ActionNotAllowed
@@ -838,7 +863,7 @@ func DeleteRun(ctx *logger.RequestContext, id string, request *DeleteRunRequest)
 	runCacheIDList := run.GetRunCacheIDList()
 	if request.CheckCache && len(runCacheIDList) > 0 {
 		// 由于cache当前正要删除的Run的其他Run可能已经被删除了，所以需要检查实际存在的Run有哪些
-		if runCachedList, _ := models.ListRun(ctx.Logging(), 0, 0, nil, nil, runCacheIDList, nil); len(runCachedList) > 0 {
+		if runCachedList, _ := models.ListRun(ctx.Logging(), 0, 0, nil, nil, runCacheIDList, nil, nil, nil); len(runCachedList) > 0 {
 			// 为了错误信息更友好，把实际还存在的Run的ID打印出来
 			runExistIDList := make([]string, 0, len(runCachedList))
 			for _, runCached := range runCachedList {

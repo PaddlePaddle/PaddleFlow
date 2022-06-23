@@ -58,6 +58,7 @@ func (j *JobSync) add(obj interface{}) {
 	parentJobID := j.getParentJobID(jobObj)
 	jobInfo := &JobSyncInfo{
 		ID:          jobObj.GetName(),
+		Namespace:   jobObj.GetNamespace(),
 		ParentJobID: parentJobID,
 		GVK:         jobObj.GroupVersionKind(),
 		Status:      jobStatus,
@@ -101,6 +102,7 @@ func (j *JobSync) update(old, new interface{}) {
 	}
 	jobInfo := &JobSyncInfo{
 		ID:          newObj.GetName(),
+		Namespace:   newObj.GetNamespace(),
 		ParentJobID: j.getParentJobID(newObj),
 		GVK:         newObj.GroupVersionKind(),
 		Status:      jobStatus,
@@ -129,6 +131,7 @@ func (j *JobSync) delete(obj interface{}) {
 	}
 	jobInfo := &JobSyncInfo{
 		ID:          jobObj.GetName(),
+		Namespace:   jobObj.GetNamespace(),
 		ParentJobID: j.getParentJobID(jobObj),
 		GVK:         jobObj.GroupVersionKind(),
 		Status:      statusInfo.Status,
