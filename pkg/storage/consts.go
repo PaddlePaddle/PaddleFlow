@@ -39,17 +39,8 @@ const (
 	NodeName      = "nodename"
 	Address       = "address"
 	UserName      = "user_name"
-	FsName        = "name"
 	UserROOT      = "root"
-	GrantFsType   = "fs"
 
 	ASC  = "asc"
 	DESC = "desc"
-
-	MAXListFileSystems = 1000
-
-	FsPrefix  = "fs-"
-	FsNameNum = 8
-
-	TimeFormat = "2006-01-02 15:04:05"
 )

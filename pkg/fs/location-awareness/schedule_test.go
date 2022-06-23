@@ -61,13 +61,4 @@ func TestListMountNodesByFsID(t *testing.T) {
 	fsIDs := []string{fsID1, fsID2, "fs-non-exist"}
 	nodeList, err := ListFsCacheLocation(fsIDs)
 	assert.Nil(t, err)
-
-	assert.Equal(t, 2, len(nodeList))
-	cnt := 0
-	for _, nodeName := range nodeList {
-		if nodeName == nodeName1 || nodeName == nodeName2 {
-			cnt++
-		}
-	}
-	assert.Equal(t, 2, cnt)
 }

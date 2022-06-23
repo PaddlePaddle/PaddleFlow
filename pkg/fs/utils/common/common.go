@@ -86,10 +86,12 @@ func GetKubeletDataPath() string {
 }
 
 func GetPodUIDFromTargetPath(targetPath string) string {
+	// target path: /data/lib/kubelet/pods/cb0b4bb0-98de-4cd5-9d73-146a226dcf93/volumes/kubernetes.io~csi/pfs-fs-root-mxy-default-pv/mount
 	prefix := GetKubeletDataPath()
 	if !strings.HasSuffix(prefix, "/") {
 		prefix += "/"
 	}
+	prefix += "pods/"
 	items := strings.Split(strings.TrimPrefix(targetPath, prefix), "/")
 	if len(items) > 0 {
 		return items[0]
