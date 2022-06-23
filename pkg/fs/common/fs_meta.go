@@ -26,6 +26,7 @@ const (
 	SFTPType             = "sftp"
 	MockType             = "mock"
 	CFSType              = "cfs"
+	GlusterfsType        = "glusterfs"
 
 	// common
 	Owner = "owner"
