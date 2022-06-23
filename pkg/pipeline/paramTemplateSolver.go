@@ -80,6 +80,10 @@ func NewInnerSolver(cp schema.Component, fullName string, config *runConfig) *in
 	}
 }
 
+func (isv *innerSolver) setSysParams(params map[string]string) {
+	isv.sysParams = params
+}
+
 // resloveParameterTemplate: 将字符串中 sysParam 和 parameter 模板替换成真实值
 // PS: 在 替换 loop_arguments 中的引用模板时，需要保留原始的类型信息，所以增加了 transToString 这个参数，表明是否要将对应 parameter 强转成 string
 func (isv *innerSolver) resloveParameterTemplate(tpl []string, fieldType string) (interface{}, error) {
@@ -122,15 +126,15 @@ func (isv *innerSolver) resolveArtifactTemplate(tpl []string, fieldType string, 
 			return tpl[0], nil
 		}
 	}
+	path, err := isv.GetArtifactPath(refParamName)
+	if err != nil {
+		err = fmt.Errorf("cannot reslove template[%s] as Artifact for component[%s]: %v",
+			tpl[0], isv.componentFullName, err.Error())
+		return "", err
 
+	}
 	if fieldType != FieldCondition && fieldType != FieldLoopArguemt {
-		result, err = isv.GetArtifactPath(refParamName)
-		if err != nil {
-			err = fmt.Errorf("cannot reslove template[%s] as Artifact for component[%s]: %v",
-				tpl[0], isv.componentFullName, err.Error())
-			return "", err
-
-		}
+		result = path
 	} else {
 		var maxSize int
 		if fieldType == FieldCondition {
@@ -138,8 +142,11 @@ func (isv *innerSolver) resolveArtifactTemplate(tpl []string, fieldType string, 
 		} else {
 			maxSize = LoopArgumentArtifactMaxSize
 		}
-
-		result, err = GetArtifactContent(refParamName, maxSize, isv.fsID, isv.logger)
+		fmt.Println(path)
+		fmt.Println(maxSize)
+		fmt.Println(isv.fsID)
+		fmt.Println(isv.logger)
+		result, err = GetArtifactContent(path, maxSize, isv.fsID, isv.logger)
 		if err != nil {
 			err = fmt.Errorf("failed to resolve template[%s] for component[%s], because cannot read the content from artifact[%s]",
 				tpl[0], isv.componentFullName, refParamName)
@@ -161,7 +168,7 @@ func (isv *innerSolver) resolveTemplate(tplString string, fieldType string, forC
 		return tplString, err
 	}
 
-	if (fieldType == FieldLoopArguemt || fieldType == FieldCondition) && tplString != tpls[0][0] {
+	if fieldType == FieldLoopArguemt && tplString != tpls[0][0] {
 		err := fmt.Errorf("paraTemplate[%s] for component[%s]'s loop_argument or condition field cannot join with other string",
 			tplString, isv.componentFullName)
 		return "", err
@@ -186,10 +193,11 @@ func (isv *innerSolver) resolveTemplate(tplString string, fieldType string, forC
 			if err != nil {
 				err = fmt.Errorf("cannot not resolve Template[%s] for component[%s] in %s field.",
 					tpl[0], isv.componentFullName, fieldType)
+				return "", err
 			}
 		}
 
-		if fieldType == FieldCondition || fieldType == FieldLoopArguemt {
+		if fieldType == FieldLoopArguemt {
 			return value, nil
 		} else {
 			valueString := fmt.Sprintf("%v", value)
@@ -201,10 +209,11 @@ func (isv *innerSolver) resolveTemplate(tplString string, fieldType string, forC
 }
 
 // resolveEnv: 替换 env 字段的中的template
-func (isv *innerSolver) resolveEnv(forCache bool) error {
+func (isv *innerSolver) resolveEnv() error {
 	// 调用方需要保证此时的 component 是一个Step
 	for name, value := range isv.Component.(*schema.WorkflowSourceStep).Env {
-		newValue, err := isv.resolveTemplate(value, FieldEnv, forCache)
+		// env 支持因为 平台内置参数模板，当前step的parameter模板
+		newValue, err := isv.resolveTemplate(value, FieldEnv, false)
 		if err != nil {
 			return err
 		}

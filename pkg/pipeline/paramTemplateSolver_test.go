@@ -17,12 +17,17 @@ limitations under the License.
 package pipeline
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
 	"testing"
 
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/fs"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -46,21 +51,50 @@ func mockComponentForInnerSolver() *schema.WorkflowSourceStep {
 				"out1": "out1.txt",
 			},
 		},
-		Command:      "cat {{p1}} && cat {{in2}} >> {{out1}} && echo {{PF_RUN_ID}} ",
-		Condition:    "p1 > {{PF_LOOP_ARGUMENT}}",
+		Command:      "echo {{p1}} && cat {{in2}} >> {{out1}} && echo {{PF_RUN_ID}} ",
+		Condition:    "{{p1}} > 10",
 		LoopArgument: "{{p2}}",
 		Env: map[string]string{
 			"e1": "{{p1}}",
 			"e2": "0_{{p1}}_{{p3}}_4",
-			"e3": "e3",
+			"e3": "e3_{{PF_RUN_ID}}_{{p2}}",
 		},
 	}
 }
 
+func mockArtInJsonFormat(artPath string) {
+	handler.NewFsHandlerWithServer = handler.MockerNewFsHandlerWithServer
+	handler.NewFsHandlerWithServer("xx", logger.LoggerForRun("innersolve"))
+
+	a := []int{10, 12, 13, 14}
+	s, err := json.Marshal(a)
+	if err != nil {
+		panic(err)
+	}
+
+	testFsMeta := common.FSMeta{
+		UfsType: common.LocalType,
+		SubPath: "./mock_fs_handler",
+	}
+	fsClient, err := fs.NewFSClientForTest(testFsMeta)
+
+	writerCloser, err := fsClient.Create(artPath)
+	if err != nil {
+		panic(err)
+	}
+
+	defer writerCloser.Close()
+
+	_, err = writerCloser.Write(s)
+	if err != nil {
+		panic(err)
+	}
+
+}
 func TestResolveLoopArgument(t *testing.T) {
 
 	component := mockComponentForInnerSolver()
-	is := NewInnerSolver(component, "step1", &runConfig{})
+	is := NewInnerSolver(component, "step1", &runConfig{fsID: "xx", logger: logger.LoggerForRun("innersolver")})
 
 	fmt.Println(component.GetLoopArgument())
 	err := is.resolveLoopArugment()
@@ -94,5 +128,83 @@ func TestResolveLoopArgument(t *testing.T) {
 	component.UpdateLoopArguemt("{{p1}}")
 	is = NewInnerSolver(component, "step1", &runConfig{})
 	err = is.resolveLoopArugment()
+	assert.NotNil(t, err)
+
+	//  测试输入artifact
+	mockArtInJsonFormat("./a.txt")
+
+	component.UpdateLoopArguemt("{{in1}}")
+	is = NewInnerSolver(component, "step1", &runConfig{fsID: "xx", logger: logger.LoggerForRun("innersolver")})
+	err = is.resolveLoopArugment()
+	assert.Nil(t, err)
+
+	typeInfo = reflect.TypeOf(component.GetLoopArgument())
+	isSplice = strings.HasPrefix(typeInfo.String(), "[]")
+	assert.True(t, isSplice)
+
+	loop_0 := component.GetLoopArgument().([]interface{})[0]
+	loop0String := fmt.Sprintf("%v", loop_0)
+	assert.Equal(t, loop0String, "10")
+}
+
+func TestResolveCondition(t *testing.T) {
+	component := mockComponentForInnerSolver()
+	is := NewInnerSolver(component, "step1", &runConfig{})
+	err := is.resolveCondition()
+
+	assert.Nil(t, err)
+	assert.Equal(t, "1 > 10", component.GetCondition())
+
+	// 测试artifact
+	mockArtInJsonFormat("./a.txt")
+
+	component.UpdateCondition("b{{in1}}_{{p1}} == 10")
+	is = NewInnerSolver(component, "step1", &runConfig{fsID: "xx", logger: logger.LoggerForRun("innersolver")})
+	err = is.resolveCondition()
+	assert.Nil(t, err)
+
+	assert.Equal(t, "b[10,12,13,14]_1 == 10", component.GetCondition())
+
+	// 测试异常情况
+	component.UpdateCondition("{{in5}} == 10")
+	is = NewInnerSolver(component, "step1", &runConfig{fsID: "xx", logger: logger.LoggerForRun("innersolver")})
+	err = is.resolveCondition()
+
+	assert.NotNil(t, err)
+}
+
+func TestResolveCommand(t *testing.T) {
+	component := mockComponentForInnerSolver()
+	is := NewInnerSolver(component, "step1", &runConfig{})
+	is.setSysParams(map[string]string{"PF_RUN_ID": "abc"})
+
+	err := is.resolveCommand(true)
+	assert.Nil(t, err)
+
+	fmt.Println(component.Command)
+	assert.Equal(t, component.Command, "echo 1 && cat ./b.txt >> {{out1}} && echo abc ")
+
+	err = is.resolveCommand(false)
+	assert.Nil(t, err)
+
+	fmt.Println(component.Command)
+	assert.Equal(t, component.Command, "echo 1 && cat ./b.txt >> out1.txt && echo abc ")
+}
+
+func TestResolveEnv(t *testing.T) {
+	component := mockComponentForInnerSolver()
+	is := NewInnerSolver(component, "step1", &runConfig{})
+	is.setSysParams(map[string]string{"PF_RUN_ID": "abc"})
+
+	err := is.resolveEnv()
+	assert.Nil(t, err)
+
+	env := component.Env
+	assert.Equal(t, "1", env["e1"])
+	assert.Equal(t, "0_1_abcdefg_4", env["e2"])
+	assert.Equal(t, "e3_abc_[1 2 3 4]", env["e3"])
+
+	component.Env["e4"] = "{{in1}}"
+	err = is.resolveEnv()
 	assert.NotNil(t, err)
 }
