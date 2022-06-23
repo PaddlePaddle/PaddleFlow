@@ -32,6 +32,8 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 // data init for sqllite
@@ -95,6 +97,7 @@ func InitDatabase(dbConf *config.DatabaseConfig, gormConf *gorm.Config, logLevel
 	}
 	sqlDB.SetConnMaxLifetime(time.Hour * time.Duration(*dbConf.ConnMaxLifetimeInHours))
 	log.Debugf("InitDatabase success.dbConf:%v", dbConf)
+	storage.InitStores(db)
 	return db, nil
 }
 
@@ -105,12 +108,13 @@ func InitMockDB() {
 		Logger: logger.Default.LogMode(logger.Info),
 	})
 	if err != nil {
-		log.Fatalf("InitMockDB open db error: %v", err)
+		log.Fatalf("initMockDB open db error: %v", err)
 	}
 	if err := createDatabaseTables(db); err != nil {
-		log.Fatalf("InitMockDB createDatabaseTables error[%s]", err.Error())
+		log.Fatalf("initMockDB createDatabaseTables error[%s]", err.Error())
 	}
 	database.DB = db
+	storage.InitStores(db)
 }
 
 func initSQLiteDB(dbConf *config.DatabaseConfig, gormConf *gorm.Config) *gorm.DB {
@@ -188,6 +192,8 @@ func initMysqlDB(dbConf *config.DatabaseConfig, gormConf *gorm.Config) *gorm.DB 
 func createDatabaseTables(db *gorm.DB) error {
 	return db.AutoMigrate(
 		&models.Pipeline{},
+		&models.PipelineDetail{},
+		&models.Schedule{},
 		&models.RunCache{},
 		&models.ArtifactEvent{},
 		&models.User{},
@@ -202,10 +208,9 @@ func createDatabaseTables(db *gorm.DB) error {
 		&models.JobLabel{},
 		&models.ClusterInfo{},
 		&models.Image{},
-		&models.FileSystem{},
-		&models.Link{},
-		&models.FSCacheConfig{},
-		&models.FSCache{},
-		&models.FsMount{},
+		&model.FileSystem{},
+		&model.Link{},
+		&model.FSCacheConfig{},
+		&model.FSCache{},
 	)
 }

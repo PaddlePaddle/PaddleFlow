@@ -17,35 +17,9 @@ limitations under the License.
 package location_awareness
 
 import (
-	"errors"
-
-	log "github.com/sirupsen/logrus"
-
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"fmt"
 )
 
 func ListFsCacheLocation(fsIDs []string) ([]string, error) {
-	if len(fsIDs) == 0 {
-		log.Errorf("ListFsCacheLocation IDs empty")
-		return nil, errors.New("fsIDS empty")
-	}
-	nodesMap := make(map[string]struct{}, 0)
-
-	for _, fsID := range fsIDs {
-		nodeNames, err := models.ListMountNodesByID(fsID)
-		if err != nil {
-			log.Errorf("ListMountNodesByID[%s] err: %v", fsID, err)
-			return nil, err
-		}
-		for _, nodeName := range nodeNames {
-			nodesMap[nodeName] = struct{}{}
-		}
-	}
-
-	nodes := make([]string, 0)
-	for nodeName, _ := range nodesMap {
-		nodes = append(nodes, nodeName)
-	}
-
-	return nodes, nil
+	return nil, fmt.Errorf("not implemented")
 }

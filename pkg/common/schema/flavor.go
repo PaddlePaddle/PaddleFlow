@@ -44,6 +44,8 @@ type Flavour struct {
 
 func EmptyResourceInfo() *ResourceInfo {
 	return &ResourceInfo{
+		CPU:             "0",
+		Mem:             "0",
 		ScalarResources: make(ScalarResourcesType),
 	}
 }

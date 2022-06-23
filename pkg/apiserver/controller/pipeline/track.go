@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package run
+package pipeline
 
 import (
 	"errors"
@@ -101,7 +101,7 @@ func LogArtifactEvent(req schema.LogRunArtifactRequest) error {
 	return nil
 }
 
-// -------------CRUD-----------------//
+//-------------CRUD-----------------//
 func GetRunCache(ctx *logger.RequestContext, id string) (models.RunCache, error) {
 	ctx.Logging().Debugf("begin get run_cache by id:%s", id)
 	cache, err := models.GetRunCache(ctx.Logging(), id)
@@ -211,7 +211,7 @@ func DeleteRunCache(ctx *logger.RequestContext, id string) error {
 	return nil
 }
 
-// ---------------------artifact_event---------------------//
+//---------------------artifact_event---------------------//
 func DeleteArtifactEvent(ctx *logger.RequestContext, username, fsname, runID, artifactPath string) error {
 	ctx.Logging().Debugf("begin delete artifact_event. username:%s, fsname:%s, runID:%s, artifactPath:%s", username, fsname, runID, artifactPath)
 	err := models.DeleteArtifactEvent(ctx.Logging(), username, fsname, runID, artifactPath)

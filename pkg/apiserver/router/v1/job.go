@@ -152,7 +152,7 @@ func (jr *JobRouter) CreateDistributedJob(w http.ResponseWriter, r *http.Request
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
-	request.UserName = ctx.UserName
+
 	response, err := job.CreateDistributedJob(&ctx, &request)
 	if err != nil {
 		ctx.Logging().Errorf("create job failed. job request:%v error:%s", request, err.Error())
@@ -183,6 +183,7 @@ func (jr *JobRouter) CreateWorkflowJob(w http.ResponseWriter, r *http.Request) {
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
+	request.CommonJobInfo.UserName = ctx.UserName
 	log.Debugf("create workflow job request:%+v", request)
 	if err := validateWorkflowJob(&ctx, &request); err != nil {
 		ctx.Logging().Errorf("validate job request failed. request:%v error:%s", request, err.Error())

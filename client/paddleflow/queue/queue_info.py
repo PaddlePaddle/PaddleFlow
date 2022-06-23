@@ -20,7 +20,7 @@ class QueueInfo(object):
     """the class of queue info"""   
 
     def __init__(self, name, status, namespace, clusterName, quotaType,
-                    maxResources, minResources, location, schedulingPolicy, createTime, updateTime):
+                    maxResources, minResources, usedResources, idleResources, location, schedulingPolicy, createTime, updateTime):
         """init """
         self.name = name
         self.namespace = namespace
@@ -29,6 +29,8 @@ class QueueInfo(object):
         self.quotaType = quotaType
         self.maxResources = maxResources
         self.minResources = minResources
+        self.usedResources = usedResources
+        self.idleResources = idleResources
         self.location = location
         self.schedulingPolicy = schedulingPolicy
         self.createTime = createTime

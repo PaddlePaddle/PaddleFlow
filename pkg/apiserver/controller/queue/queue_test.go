@@ -107,6 +107,16 @@ func TestCreateQueue(t *testing.T) {
 func TestGetQueueByName(t *testing.T) {
 	TestCreateQueue(t)
 
+	rts := &runtime.KubeRuntime{}
+	var p2 = gomonkey.ApplyPrivateMethod(reflect.TypeOf(rts), "Init", func() error {
+		return nil
+	})
+	defer p2.Reset()
+
+	var p3 = gomonkey.ApplyPrivateMethod(reflect.TypeOf(rts), "GetQueueUsedQuota", func(*models.Queue) (*schema.ResourceInfo, error) {
+		return schema.EmptyResourceInfo(), nil
+	})
+	defer p3.Reset()
 	ctx := &logger.RequestContext{UserName: MockRootUser}
 	if queue, err := GetQueueByName(ctx, MockQueueName); err != nil {
 		t.Error(err)
@@ -149,10 +159,7 @@ func TestCloseAndDeleteQueue(t *testing.T) {
 	})
 	defer p3.Reset()
 
-	err := CloseQueue(ctx, MockQueueName)
-	assert.Nil(t, err)
-
-	err = DeleteQueue(ctx, MockQueueName)
+	err := DeleteQueue(ctx, MockQueueName)
 	assert.Nil(t, err)
 }
 

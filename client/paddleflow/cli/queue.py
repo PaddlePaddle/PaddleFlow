@@ -246,6 +246,10 @@ def _print_queue_info(queue, out_format):
         print_output([[queue.maxResources]], ['max resources'], out_format, table_format='grid')
     if queue.minResources:
         print_output([[queue.minResources]], ['min resources'], out_format, table_format='grid')
+    if queue.usedResources:
+        print_output([[queue.usedResources]], ['used resources'], out_format, table_format='grid')
+    if queue.idleResources:
+        print_output([[queue.idleResources]], ['idle resources'], out_format, table_format='grid')
     if queue.schedulingPolicy:
         print_output([[queue.schedulingPolicy]], ['scheduling policy'], out_format, table_format='grid')
     if queue.location:

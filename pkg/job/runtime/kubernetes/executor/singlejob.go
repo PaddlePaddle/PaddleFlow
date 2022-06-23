@@ -173,7 +173,7 @@ func (sp *SingleJob) fillContainer(container *v1.Container, podName string) erro
 	// fill env
 	container.Env = sp.appendEnvIfAbsent(container.Env, sp.generateEnvVars())
 	// fill volumeMount
-	container.VolumeMounts = sp.appendMountIfAbsent(container.VolumeMounts, sp.generateVolumeMount())
+	container.VolumeMounts = appendMountsIfAbsent(container.VolumeMounts, generateVolumeMounts(sp.FileSystems))
 
 	log.Debugf("fillContainer completed: pod[%s]-container[%s]", podName, container.Name)
 	return nil
