@@ -206,7 +206,10 @@ func NewLocalMountFileSystem(properties map[string]interface{}) (UnderFileStorag
 	}
 	var args []string
 	var sourcePath string
-	os.MkdirAll(localMountPath, 0755)
+	err := os.MkdirAll(localMountPath, 0755)
+	if err != nil {
+		return nil, err
+	}
 	localPath, err := ioutil.TempDir(localMountPath, "*")
 	if err != nil {
 		log.Errorf("create temp dir all path[%s] failed: %v", localPath, err)
