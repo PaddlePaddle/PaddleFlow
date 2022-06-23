@@ -273,8 +273,8 @@ func (isv *innerSolver) resolveLoopArugment() error {
 		newLoopArgument = loopValue
 	}
 
-	typeOfNewLoopArg := reflect.TypeOf(newLoopArgument)
-	if !strings.HasPrefix(typeOfNewLoopArg.String(), "[]") {
+	t := reflect.TypeOf(newLoopArgument)
+	if t.Kind() == reflect.Slice {
 		err := fmt.Errorf("the value of loop_argument for component[%s] should be an list or json list",
 			isv.componentFullName)
 		return err
@@ -319,7 +319,10 @@ func (ds *DependencySolver) resolveParameterTemplate(tplString string, subCompon
 			if err != nil {
 				// 2、引用了父节点的 loop_arugment
 				if refvalue == SysParamNamePFLoopArgument {
-					value = ds.sysParams[SysParamNamePFLoopArgument]
+					value, err = ds.getPFLoopArgument()
+					if err != nil {
+						return "", err
+					}
 				} else {
 					err := fmt.Errorf("cannot resolve the template[%s] for component[%s]", tpl[0], subFullName)
 					return "", err
