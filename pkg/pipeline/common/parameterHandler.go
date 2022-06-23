@@ -337,7 +337,7 @@ func (s *StepParamChecker) resolveRefParam(componentName, param, fieldType strin
 	reg := regexp.MustCompile(pattern)
 	matches := reg.FindAllStringSubmatch(param, -1)
 	for _, row := range matches {
-		if len(row) != 5 {
+		if len(row) != 4 {
 			return MismatchRegexError(param, pattern)
 		}
 		refList := ParseParamName(row[2])
