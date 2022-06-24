@@ -25,8 +25,8 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 type Pipeline struct {
@@ -46,7 +46,7 @@ func (Pipeline) TableName() string {
 
 func CreatePipeline(logEntry *log.Entry, ppl *Pipeline, pplDetail *PipelineDetail) (pplID string, pplDetailID string, err error) {
 	logEntry.Debugf("begin create pipeline: %+v & pipeline detail: %+v", ppl, pplDetail)
-	err = WithTransaction(database.DB, func(tx *gorm.DB) error {
+	err = WithTransaction(storage.DB, func(tx *gorm.DB) error {
 		result := tx.Model(&Pipeline{}).Create(ppl)
 		if result.Error != nil {
 			logEntry.Errorf("create pipeline failed. pipeline:%+v, error:%v", ppl, result.Error)
@@ -83,7 +83,7 @@ func CreatePipeline(logEntry *log.Entry, ppl *Pipeline, pplDetail *PipelineDetai
 
 func UpdatePipeline(logEntry *log.Entry, ppl *Pipeline, pplDetail *PipelineDetail) (pplID string, pplDetailID string, err error) {
 	logEntry.Debugf("begin update pipeline: %+v and pipeline detail: %+v", ppl, pplDetail)
-	err = WithTransaction(database.DB, func(tx *gorm.DB) error {
+	err = WithTransaction(storage.DB, func(tx *gorm.DB) error {
 		// update desc by pk
 		result := tx.Model(&Pipeline{}).Where("pk = ?", ppl.Pk).Update("desc", ppl.Desc)
 		if result.Error != nil {
@@ -114,7 +114,7 @@ func UpdatePipeline(logEntry *log.Entry, ppl *Pipeline, pplDetail *PipelineDetai
 
 func GetPipelineByID(id string) (Pipeline, error) {
 	var ppl Pipeline
-	tx := database.DB.Model(&Pipeline{})
+	tx := storage.DB.Model(&Pipeline{})
 
 	if id != "" {
 		tx = tx.Where("id = ?", id)
@@ -126,13 +126,13 @@ func GetPipelineByID(id string) (Pipeline, error) {
 
 func GetPipeline(name, userName string) (Pipeline, error) {
 	var ppl Pipeline
-	result := database.DB.Model(&Pipeline{}).Where(&Pipeline{Name: name, UserName: userName}).Last(&ppl)
+	result := storage.DB.Model(&Pipeline{}).Where(&Pipeline{Name: name, UserName: userName}).Last(&ppl)
 	return ppl, result.Error
 }
 
 func ListPipeline(pk int64, maxKeys int, userFilter, nameFilter []string) ([]Pipeline, error) {
 	logger.Logger().Debugf("begin list pipeline. ")
-	tx := database.DB.Model(&Pipeline{}).Where("pk > ?", pk)
+	tx := storage.DB.Model(&Pipeline{}).Where("pk > ?", pk)
 	if len(userFilter) > 0 {
 		tx = tx.Where("user_name IN (?)", userFilter)
 	}
@@ -154,7 +154,7 @@ func ListPipeline(pk int64, maxKeys int, userFilter, nameFilter []string) ([]Pip
 
 func IsLastPipelinePk(logEntry *log.Entry, pk int64, userFilter, nameFilter []string) (bool, error) {
 	logger.Logger().Debugf("begin check isLastPipeline.")
-	tx := database.DB.Model(&Pipeline{})
+	tx := storage.DB.Model(&Pipeline{})
 	if len(userFilter) > 0 {
 		tx = tx.Where("user_name IN (?)", userFilter)
 	}
@@ -173,6 +173,6 @@ func IsLastPipelinePk(logEntry *log.Entry, pk int64, userFilter, nameFilter []st
 
 func DeletePipeline(logEntry *log.Entry, id string) error {
 	logEntry.Debugf("delete ppl: %s", id)
-	result := database.DB.Where("id = ?", id).Delete(&Pipeline{})
+	result := storage.DB.Where("id = ?", id).Delete(&Pipeline{})
 	return result.Error
 }

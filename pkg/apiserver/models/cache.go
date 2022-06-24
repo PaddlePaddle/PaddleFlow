@@ -24,7 +24,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 type RunCache struct {
@@ -60,7 +60,7 @@ func (c *RunCache) decode() {
 
 func CreateRunCache(logEntry *log.Entry, cache *RunCache) (string, error) {
 	logEntry.Debugf("begin create cache:%+v", cache)
-	err := WithTransaction(database.DB, func(tx *gorm.DB) error {
+	err := WithTransaction(storage.DB, func(tx *gorm.DB) error {
 		result := tx.Model(&RunCache{}).Create(cache)
 		if result.Error != nil {
 			logEntry.Errorf("create cache failed. cache:%v, error:%v", cache, result.Error)
@@ -81,7 +81,7 @@ func CreateRunCache(logEntry *log.Entry, cache *RunCache) (string, error) {
 
 func ListRunCacheByFirstFp(logEntry *log.Entry, firstFp, fsID, step, source string) ([]RunCache, error) {
 	var cacheList []RunCache
-	tx := database.DB.Model(&RunCache{}).Where(
+	tx := storage.DB.Model(&RunCache{}).Where(
 		"first_fp = ? and fs_id = ? and step = ? and source = ?",
 		firstFp, fsID, step, source).Order("created_at DESC").Find(&cacheList)
 	if tx.Error != nil {
@@ -94,7 +94,7 @@ func ListRunCacheByFirstFp(logEntry *log.Entry, firstFp, fsID, step, source stri
 
 func UpdateCache(logEntry *log.Entry, cacheID string, cache RunCache) error {
 	logEntry.Debugf("begin update cache. cacheID:%s, new cache:%v", cache.ID, cache)
-	tx := database.DB.Model(&RunCache{}).Where("id = ?", cacheID).Updates(cache)
+	tx := storage.DB.Model(&RunCache{}).Where("id = ?", cacheID).Updates(cache)
 	if tx.Error != nil {
 		logEntry.Errorf("update cache status failed. cacheID:%s, error:%v", cacheID, tx.Error)
 		return tx.Error
@@ -105,7 +105,7 @@ func UpdateCache(logEntry *log.Entry, cacheID string, cache RunCache) error {
 func GetRunCache(logEntry *log.Entry, cacheID string) (RunCache, error) {
 	logEntry.Debugf("begin get cache. cacheID:%s", cacheID)
 	var cache RunCache
-	tx := database.DB.Model(&RunCache{}).Where("id = ?", cacheID).First(&cache)
+	tx := storage.DB.Model(&RunCache{}).Where("id = ?", cacheID).First(&cache)
 	if tx.Error != nil {
 		logEntry.Errorf("get cache failed. cacheID:%s, error:%v", cacheID, tx.Error)
 		return RunCache{}, tx.Error
@@ -116,7 +116,7 @@ func GetRunCache(logEntry *log.Entry, cacheID string) (RunCache, error) {
 
 func DeleteRunCache(logEntry *log.Entry, cacheID string) error {
 	logEntry.Debugf("begin delete cache. cacheID:%s", cacheID)
-	tx := database.DB.Model(&RunCache{}).Unscoped().Where("id = ?", cacheID).Delete(&RunCache{})
+	tx := storage.DB.Model(&RunCache{}).Unscoped().Where("id = ?", cacheID).Delete(&RunCache{})
 	if tx.Error != nil {
 		logEntry.Errorf("delete cache failed. cacheID:%s, error:%v", cacheID, tx.Error)
 		return tx.Error
@@ -126,7 +126,7 @@ func DeleteRunCache(logEntry *log.Entry, cacheID string) error {
 
 func ListRunCache(logEntry *log.Entry, pk int64, maxKeys int, userFilter, fsFilter, runFilter []string) ([]RunCache, error) {
 	logEntry.Debugf("begin list cache")
-	tx := database.DB.Model(&RunCache{}).Where("pk > ?", pk)
+	tx := storage.DB.Model(&RunCache{}).Where("pk > ?", pk)
 	if len(userFilter) > 0 {
 		tx = tx.Where("user_name IN (?)", userFilter)
 	}
@@ -155,7 +155,7 @@ func ListRunCache(logEntry *log.Entry, pk int64, maxKeys int, userFilter, fsFilt
 func GetLastCacheForRun(logEntry *log.Entry, runID string) (RunCache, error) {
 	logEntry.Debugf("get last cache for run:%s", runID)
 	cache := RunCache{}
-	tx := database.DB.Model(&RunCache{}).Where(&RunCache{RunID: runID}).Last(&cache)
+	tx := storage.DB.Model(&RunCache{}).Where(&RunCache{RunID: runID}).Last(&cache)
 	if tx.Error != nil {
 		logEntry.Errorf("get last cache for run:%s failed. error:%v", runID, tx.Error)
 		return RunCache{}, tx.Error
@@ -166,7 +166,7 @@ func GetLastCacheForRun(logEntry *log.Entry, runID string) (RunCache, error) {
 func GetLastRunCache(logEntry *log.Entry) (RunCache, error) {
 	logEntry.Debugf("get last runCache")
 	runCache := RunCache{}
-	tx := database.DB.Model(&RunCache{}).Last(&runCache)
+	tx := storage.DB.Model(&RunCache{}).Last(&runCache)
 	if tx.Error != nil {
 		logEntry.Errorf("get last runCache failed. error:%s", tx.Error.Error())
 		return RunCache{}, tx.Error
@@ -177,7 +177,7 @@ func GetLastRunCache(logEntry *log.Entry) (RunCache, error) {
 func GetCacheCount(logEntry *log.Entry, runID string) (int64, error) {
 	logEntry.Debugf("get cache count. runID: %s", runID)
 	var count int64
-	query := database.DB.Model(&RunCache{})
+	query := storage.DB.Model(&RunCache{})
 	if runID != "" {
 		query = query.Where(&RunCache{RunID: runID})
 	}

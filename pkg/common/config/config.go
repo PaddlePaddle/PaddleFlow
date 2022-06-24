@@ -39,7 +39,7 @@ var (
 )
 
 type ServerConfig struct {
-	Database      DatabaseConfig            `yaml:"database"`
+	Storage       StorageConfig             `yaml:"database"`
 	Log           logger.LogConfig          `yaml:"log"`
 	ApiServer     ApiServerConfig           `yaml:"apiServer"`
 	Job           JobConfig                 `yaml:"job"`
@@ -50,7 +50,7 @@ type ServerConfig struct {
 	ImageConf     ImageConfig               `yaml:"imageRepository"`
 }
 
-type DatabaseConfig struct {
+type StorageConfig struct {
 	Driver                               string `yaml:"driver"`
 	Host                                 string `yaml:"host"`
 	Port                                 string `yaml:"port"`
