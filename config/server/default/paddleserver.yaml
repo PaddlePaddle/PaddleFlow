@@ -10,15 +10,15 @@ log:
 # trace log config
 traceLog:
   dir: ./
-    filePrefix: trace-log
-    level: INFO
-    maxKeepDays: 7
-    maxFileNum: 7
-    maxFileSizeInMB: 100
-    isCompress: true
-    # unit is s/m/h/d
-    timeout: 2h
-    maxCacheSize: 10000
+  filePrefix: trace-log
+  level: INFO
+  maxKeepDays: 7
+  maxFileNum: 7
+  maxFileSizeInMB: 100
+  isCompress: true
+  # unit is s/m/h/d
+  timeout: 2h
+  maxCacheSize: 10000
 
 apiServer:
   host: 0.0.0.0
