@@ -357,15 +357,15 @@ func TestListSchedule(t *testing.T) {
 	assert.Equal(t, resp.ScheduleID, "schedule-000005")
 
 	// test list
-	pipelineID := pplID1
 	marker := ""
 	maxKeys := 0
+	pplFilter := []string{}
 	pplDetailFilter := []string{}
 	userFilter := []string{}
 	scheduleFilter := []string{}
 	nameFilter := []string{}
 	statusFilter := []string{}
-	ListScheduleResp, err := ListSchedule(ctx, pipelineID, marker, maxKeys, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
+	ListScheduleResp, err := ListSchedule(ctx, marker, maxKeys, pplFilter, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
 	assert.Nil(t, err)
 	assert.Equal(t, 5, len(ListScheduleResp.ScheduleList))
 	assert.Equal(t, ListScheduleResp.ScheduleList[0].ID, "schedule-000001")
@@ -379,9 +379,34 @@ func TestListSchedule(t *testing.T) {
 	println("")
 	fmt.Printf("%s\n", b)
 
+	pplFilter = []string{"notExistPplID"}
+	ListScheduleResp, err = ListSchedule(ctx, marker, maxKeys, pplFilter, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
+	assert.Nil(t, err)
+	assert.Equal(t, 0, len(ListScheduleResp.ScheduleList))
+	assert.Equal(t, ListScheduleResp.IsTruncated, false)
+	assert.Equal(t, ListScheduleResp.NextMarker, "")
+	b, _ = json.Marshal(ListScheduleResp)
+	println("")
+	fmt.Printf("%s\n", b)
+
+	pplFilter = []string{pplID1}
+	ListScheduleResp, err = ListSchedule(ctx, marker, maxKeys, pplFilter, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
+	assert.Nil(t, err)
+	assert.Equal(t, 5, len(ListScheduleResp.ScheduleList))
+	assert.Equal(t, ListScheduleResp.ScheduleList[0].ID, "schedule-000001")
+	assert.Equal(t, ListScheduleResp.ScheduleList[1].ID, "schedule-000002")
+	assert.Equal(t, ListScheduleResp.ScheduleList[2].ID, "schedule-000003")
+	assert.Equal(t, ListScheduleResp.ScheduleList[3].ID, "schedule-000004")
+	assert.Equal(t, ListScheduleResp.ScheduleList[4].ID, "schedule-000005")
+	assert.Equal(t, ListScheduleResp.IsTruncated, false)
+	assert.Equal(t, ListScheduleResp.NextMarker, "")
+	b, _ = json.Marshal(ListScheduleResp)
+	println("")
+	fmt.Printf("%s\n", b)
+
 	// test list, 指定maxkeys
 	maxKeys = 2
-	ListScheduleResp, err = ListSchedule(ctx, pipelineID, marker, maxKeys, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
+	ListScheduleResp, err = ListSchedule(ctx, marker, maxKeys, pplFilter, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
 	assert.Nil(t, err)
 	assert.Equal(t, 2, len(ListScheduleResp.ScheduleList))
 	assert.Equal(t, ListScheduleResp.ScheduleList[0].ID, "schedule-000001")
@@ -395,7 +420,7 @@ func TestListSchedule(t *testing.T) {
 	// test list, 指定userfilter
 	maxKeys = 0
 	userFilter = []string{MockNormalUser, "another_user"}
-	ListScheduleResp, err = ListSchedule(ctx, pipelineID, marker, maxKeys, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
+	ListScheduleResp, err = ListSchedule(ctx, marker, maxKeys, pplFilter, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
 	assert.Nil(t, err)
 	assert.Equal(t, 2, len(ListScheduleResp.ScheduleList))
 	assert.Equal(t, ListScheduleResp.ScheduleList[0].ID, "schedule-000001")
@@ -408,7 +433,7 @@ func TestListSchedule(t *testing.T) {
 
 	// test list, 指定userfilter
 	userFilter = []string{MockRootUser}
-	ListScheduleResp, err = ListSchedule(ctx, pipelineID, marker, maxKeys, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
+	ListScheduleResp, err = ListSchedule(ctx, marker, maxKeys, pplFilter, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
 	assert.Nil(t, err)
 	assert.Equal(t, 3, len(ListScheduleResp.ScheduleList))
 	assert.Equal(t, ListScheduleResp.ScheduleList[0].ID, "schedule-000003")
@@ -423,7 +448,7 @@ func TestListSchedule(t *testing.T) {
 	// test list，user非root时，指定userfilter时会报错
 	ctx = &logger.RequestContext{UserName: MockNormalUser}
 	userFilter = []string{MockRootUser}
-	ListScheduleResp, err = ListSchedule(ctx, pipelineID, marker, maxKeys, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
+	ListScheduleResp, err = ListSchedule(ctx, marker, maxKeys, pplFilter, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
 	assert.NotNil(t, err)
 	assert.Equal(t, "only root user can set userFilter!", err.Error())
 	println("")
@@ -431,7 +456,7 @@ func TestListSchedule(t *testing.T) {
 
 	// test list, 普通用户不指定userfilter，只返回自己有权限的schedule
 	userFilter = []string{}
-	ListScheduleResp, err = ListSchedule(ctx, pipelineID, marker, maxKeys, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
+	ListScheduleResp, err = ListSchedule(ctx, marker, maxKeys, pplFilter, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
 	assert.Nil(t, err)
 	assert.Equal(t, 2, len(ListScheduleResp.ScheduleList))
 	assert.Equal(t, ListScheduleResp.ScheduleList[0].ID, "schedule-000001")
@@ -447,7 +472,7 @@ func TestListSchedule(t *testing.T) {
 	// 注意不存在匹配记录时，istruncated = false
 	ctx = &logger.RequestContext{UserName: MockRootUser}
 	pplDetailFilter = []string{"2", "notExistPplDetailID"}
-	ListScheduleResp, err = ListSchedule(ctx, pipelineID, marker, maxKeys, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
+	ListScheduleResp, err = ListSchedule(ctx, marker, maxKeys, pplFilter, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
 	assert.Nil(t, err)
 	assert.Equal(t, 0, len(ListScheduleResp.ScheduleList))
 	assert.Equal(t, ListScheduleResp.IsTruncated, false)
@@ -456,7 +481,7 @@ func TestListSchedule(t *testing.T) {
 
 	// 传入存在的ppldetail, 正确过滤
 	pplDetailFilter = []string{"1"}
-	ListScheduleResp, err = ListSchedule(ctx, pipelineID, marker, maxKeys, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
+	ListScheduleResp, err = ListSchedule(ctx, marker, maxKeys, pplFilter, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
 	assert.Nil(t, err)
 	assert.Equal(t, 5, len(ListScheduleResp.ScheduleList))
 	assert.Equal(t, ListScheduleResp.ScheduleList[0].ID, "schedule-000001")
@@ -472,7 +497,7 @@ func TestListSchedule(t *testing.T) {
 	// 先测试不能匹配前缀，传入不存在的scheduleID不会报错
 	// 注意不存在匹配记录时，istruncated = false
 	scheduleFilter = []string{"schedule-000", "schedule-hahah"}
-	ListScheduleResp, err = ListSchedule(ctx, pipelineID, marker, maxKeys, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
+	ListScheduleResp, err = ListSchedule(ctx, marker, maxKeys, pplFilter, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
 	assert.Nil(t, err)
 	assert.Equal(t, 0, len(ListScheduleResp.ScheduleList))
 	assert.Equal(t, ListScheduleResp.IsTruncated, false)
@@ -481,7 +506,7 @@ func TestListSchedule(t *testing.T) {
 
 	// 传入存在的scheduleID, 正确过滤
 	scheduleFilter = []string{"schedule-000001", "schedule-000002"}
-	ListScheduleResp, err = ListSchedule(ctx, pipelineID, marker, maxKeys, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
+	ListScheduleResp, err = ListSchedule(ctx, marker, maxKeys, pplFilter, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
 	assert.Nil(t, err)
 	assert.Equal(t, 2, len(ListScheduleResp.ScheduleList))
 	assert.Equal(t, ListScheduleResp.ScheduleList[0].ID, "schedule-000001")
@@ -495,7 +520,7 @@ func TestListSchedule(t *testing.T) {
 	// 注意不存在匹配记录时，istruncated = false
 	scheduleFilter = []string{}
 	nameFilter = []string{"schedule_", "schedule_asdd"}
-	ListScheduleResp, err = ListSchedule(ctx, pipelineID, marker, maxKeys, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
+	ListScheduleResp, err = ListSchedule(ctx, marker, maxKeys, pplFilter, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
 	assert.Nil(t, err)
 	assert.Equal(t, 0, len(ListScheduleResp.ScheduleList))
 	assert.Equal(t, ListScheduleResp.IsTruncated, false)
@@ -504,7 +529,7 @@ func TestListSchedule(t *testing.T) {
 
 	// 传入存在的schedule name, 正确过滤
 	nameFilter = []string{"schedule_2", "schedule_4"}
-	ListScheduleResp, err = ListSchedule(ctx, pipelineID, marker, maxKeys, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
+	ListScheduleResp, err = ListSchedule(ctx, marker, maxKeys, pplFilter, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
 	assert.Nil(t, err)
 	assert.Equal(t, 2, len(ListScheduleResp.ScheduleList))
 	assert.Equal(t, ListScheduleResp.ScheduleList[0].ID, "schedule-000002")
@@ -518,7 +543,7 @@ func TestListSchedule(t *testing.T) {
 	// 注意不存在匹配记录时，istruncated = false
 	nameFilter = []string{}
 	statusFilter = []string{models.ScheduleStatusSuccess, "notExistStatus"}
-	ListScheduleResp, err = ListSchedule(ctx, pipelineID, marker, maxKeys, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
+	ListScheduleResp, err = ListSchedule(ctx, marker, maxKeys, pplFilter, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
 	assert.Nil(t, err)
 	assert.Equal(t, 0, len(ListScheduleResp.ScheduleList))
 	assert.Equal(t, ListScheduleResp.IsTruncated, false)
@@ -527,7 +552,7 @@ func TestListSchedule(t *testing.T) {
 
 	// 传入存在的schedule status, 正确过滤
 	statusFilter = []string{models.ScheduleStatusRunning}
-	ListScheduleResp, err = ListSchedule(ctx, pipelineID, marker, maxKeys, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
+	ListScheduleResp, err = ListSchedule(ctx, marker, maxKeys, pplFilter, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
 	assert.Nil(t, err)
 	assert.Equal(t, 5, len(ListScheduleResp.ScheduleList))
 	assert.Equal(t, ListScheduleResp.ScheduleList[0].ID, "schedule-000001")

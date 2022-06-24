@@ -56,6 +56,7 @@ const (
 	QueryKeyStatusFilter    = "statusFilter"
 	QueryKeyUserFilter      = "userFilter"
 	QueryKeyFsFilter        = "fsFilter"
+	QueryKeyPplFilter       = "pplFilter"
 	QueryKeyPplDetailFilter = "pplDetailFilter"
 	QueryKeyNameFilter      = "nameFilter"
 	QueryKeyRunFilter       = "runFilter"

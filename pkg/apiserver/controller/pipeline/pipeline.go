@@ -537,7 +537,7 @@ func DeletePipeline(ctx *logger.RequestContext, pipelineID string) error {
 	}
 
 	// 需要判断是否有周期调度运行中（单次任务不影响，因为run会直接保存yaml）
-	scheduleList, err := models.ListSchedule(ctx.Logging(), pipelineID, 0, 0, []string{}, []string{}, []string{}, []string{}, models.ScheduleNotFinalStatusList)
+	scheduleList, err := models.ListSchedule(ctx.Logging(), 0, 0, []string{pipelineID}, []string{}, []string{}, []string{}, []string{}, models.ScheduleNotFinalStatusList)
 	if err != nil {
 		ctx.ErrorCode = common.InternalError
 		errMsg := fmt.Sprintf("models list schedule failed. err:[%s]", err.Error())
@@ -589,7 +589,7 @@ func DeletePipelineDetail(ctx *logger.RequestContext, pipelineID string, pipelin
 	}
 
 	// 需要判断是否有周期调度运行中（单次任务不影响，因为run会直接保存yaml）
-	scheduleList, err := models.ListSchedule(ctx.Logging(), pipelineID, 0, 0, []string{pipelineDetailID}, []string{}, []string{}, []string{}, models.ScheduleNotFinalStatusList)
+	scheduleList, err := models.ListSchedule(ctx.Logging(), 0, 0, []string{pipelineID}, []string{pipelineDetailID}, []string{}, []string{}, []string{}, models.ScheduleNotFinalStatusList)
 	if err != nil {
 		ctx.ErrorCode = common.InternalError
 		errMsg := fmt.Sprintf("models list schedule for pipeline[%s] detail[%s] failed. err:[%s]", pipelineID, pipelineDetailID, err.Error())

@@ -323,7 +323,7 @@ func SendSingnal(opType, scheduleID string) error {
 	return nil
 }
 
-func ListSchedule(ctx *logger.RequestContext, pipelineID, marker string, maxKeys int, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter []string) (ListScheduleResponse, error) {
+func ListSchedule(ctx *logger.RequestContext, marker string, maxKeys int, pplFilter, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter []string) (ListScheduleResponse, error) {
 	ctx.Logging().Debugf("begin list schedule.")
 	var pk int64
 	var err error
@@ -350,7 +350,7 @@ func ListSchedule(ctx *logger.RequestContext, pipelineID, marker string, maxKeys
 	}
 
 	// model list
-	scheduleList, err := models.ListSchedule(ctx.Logging(), pipelineID, pk, maxKeys, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
+	scheduleList, err := models.ListSchedule(ctx.Logging(), pk, maxKeys, pplFilter, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
 	if err != nil {
 		ctx.Logging().Errorf("models list schedule failed. err:[%s]", err.Error())
 		ctx.ErrorCode = common.InternalError
@@ -362,7 +362,7 @@ func ListSchedule(ctx *logger.RequestContext, pipelineID, marker string, maxKeys
 	listScheduleResponse.IsTruncated = false
 	if len(scheduleList) > 0 {
 		schedule := scheduleList[len(scheduleList)-1]
-		isLastPk, err := models.IsLastSchedulePk(ctx.Logging(), schedule.Pk, pipelineID, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
+		isLastPk, err := models.IsLastSchedulePk(ctx.Logging(), schedule.Pk, pplFilter, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
 		if err != nil {
 			ctx.ErrorCode = common.InternalError
 			errMsg := fmt.Sprintf("get last schedule Pk failed. err:[%s]", err.Error())
