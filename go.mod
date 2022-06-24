@@ -33,6 +33,7 @@ require (
 	github.com/kubernetes-csi/drivers v1.0.2
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-isatty v0.0.13
+	github.com/mitchellh/gox v1.0.1 // indirect
 	github.com/mitchellh/mapstructure v1.4.1
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.0.1 // indirect
@@ -75,6 +76,7 @@ require (
 	k8s.io/code-generator v0.19.6
 	k8s.io/utils v0.0.0-20210707171843-4b05e18ac7d9
 	sigs.k8s.io/yaml v1.3.0 // indirect
+	src.techknowlogick.com/xgo v1.4.1-0.20220601210906-a4d65f32910b // indirect
 	volcano.sh/apis v1.3.0-k8s1.18.3-alpha.3
 )
 
