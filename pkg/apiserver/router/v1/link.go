@@ -107,7 +107,7 @@ func (lr *LinkRouter) createLink(w http.ResponseWriter, r *http.Request) {
 	if errPersist := linkService.PersistLinksMeta(linkModel.FsID); errPersist != nil {
 		ctx.Logging().Errorf("persist links meta with err[%v]", errPersist)
 		ctx.ErrorCode = common.LinkMetaPersistError
-		err := storage.LinkStore.DeleteLinkWithFsIDAndFsPath(common.ID(linkRequest.Username, linkRequest.FsName), linkRequest.FsPath)
+		err := storage.Filesystem.DeleteLinkWithFsIDAndFsPath(common.ID(linkRequest.Username, linkRequest.FsName), linkRequest.FsPath)
 		if err != nil {
 			ctx.Logging().Errorf("delete link err with fsID[%s] and fsPath[%s]", common.ID(linkRequest.Username, linkRequest.FsName), linkRequest.FsPath)
 			ctx.ErrorCode = common.LinkModelError
@@ -165,7 +165,7 @@ func validateCreateLink(ctx *logger.RequestContext, req *api.CreateLinkRequest) 
 		return err
 	}
 
-	fileSystemModel, err := storage.FsStore.GetFileSystemWithFsID(fsID)
+	fileSystemModel, err := storage.Filesystem.GetFileSystemWithFsID(fsID)
 	if err != nil {
 		ctx.Logging().Errorf("GetFileSystemWithFsID error[%v]", err)
 		ctx.ErrorCode = common.LinkModelError
@@ -184,7 +184,7 @@ func validateCreateLink(ctx *logger.RequestContext, req *api.CreateLinkRequest) 
 	}
 
 	// check fsName with fsPath is exist
-	linkModel, err := storage.LinkStore.LinkWithFsIDAndFsPath(fsID, req.FsPath)
+	linkModel, err := storage.Filesystem.LinkWithFsIDAndFsPath(fsID, req.FsPath)
 	if err != nil {
 		ctx.Logging().Errorf("create link failed error[%v]", err)
 		ctx.ErrorCode = common.FileSystemDataBaseError
@@ -372,7 +372,7 @@ func checkLinkProperties(fsType string, req *api.CreateLinkRequest) error {
 
 // checkLinkPath duplicate and nesting of the same storage link directory is not supported
 func checkLinkPath(fsPath, fsID string) error {
-	linkList, err := storage.LinkStore.FsNameLinks(fsID)
+	linkList, err := storage.Filesystem.FsNameLinks(fsID)
 	if err != nil {
 		return err
 	}
@@ -440,7 +440,7 @@ func validateDeleteLink(ctx *logger.RequestContext, req *api.DeleteLinkRequest) 
 	}
 
 	fsID := common.ID(req.Username, req.FsName)
-	link, err := storage.LinkStore.LinkWithFsIDAndFsPath(fsID, req.FsPath)
+	link, err := storage.Filesystem.LinkWithFsIDAndFsPath(fsID, req.FsPath)
 	if err != nil {
 		ctx.Logging().Errorf("link with fsID and fsPath error: %v", err)
 		ctx.ErrorCode = common.LinkModelError
@@ -481,7 +481,7 @@ func (lr *LinkRouter) getLink(w http.ResponseWriter, r *http.Request) {
 	realUserName := getRealUserName(&ctx, username)
 	fsID := common.ID(realUserName, fsName)
 
-	_, err = storage.FsStore.GetFileSystemWithFsID(fsID)
+	_, err = storage.Filesystem.GetFileSystemWithFsID(fsID)
 	if err != nil {
 		ctx.Logging().Errorf("GetLink check fs existence failed: [%v]", err)
 		if errors.Is(err, gorm.ErrRecordNotFound) {

@@ -107,7 +107,7 @@ func (pr *PFSRouter) updateFSCacheConfig(w http.ResponseWriter, r *http.Request)
 	req.FsID = common.ID(realUserName, fsName)
 
 	// validate fs_cache_config existence
-	if _, err := storage.CacheConfigStore.GetFSCacheConfig(ctx.Logging(), req.FsID); err != nil {
+	if _, err := storage.Filesystem.GetFSCacheConfig(ctx.Logging(), req.FsID); err != nil {
 		ctx.Logging().Errorf("UpdateFSCacheConfig[%s] models.GetFSCacheConfig err:%s", fsName, err.Error())
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			common.RenderErrWithMessage(w, ctx.RequestID, common.RecordNotFound, err.Error())

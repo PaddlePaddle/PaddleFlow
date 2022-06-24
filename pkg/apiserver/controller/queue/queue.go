@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	log "github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 	"volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
@@ -32,6 +33,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 const defaultQueueName = "default"
@@ -485,7 +487,7 @@ func validateQueueResource(rResource schema.ResourceInfo, qResource *schema.Reso
 func GetQueueByName(ctx *logger.RequestContext, queueName string) (GetQueueResponse, error) {
 	ctx.Logging().Debugf("begin get queue by name. queueName:%s", queueName)
 
-	if !models.HasAccessToResource(ctx, common.ResourceTypeQueue, queueName) {
+	if !storage.Auth.HasAccessToResource(ctx, common.ResourceTypeQueue, queueName) {
 		ctx.ErrorCode = common.ActionNotAllowed
 		ctx.Logging().Errorf("get queueName[%s] failed. error: access denied.", queueName)
 		return GetQueueResponse{}, fmt.Errorf("get queueName[%s] failed.\n", queueName)
@@ -590,5 +592,35 @@ func DeleteQueue(ctx *logger.RequestContext, queueName string) error {
 	}
 
 	ctx.Logging().Debugf("queue is deleting. queueName:%s", queueName)
+	return nil
+}
+
+// InitDefaultQueue init default queue for single cluster environment
+func InitDefaultQueue() error {
+	log.Info("starting init data for single cluster: initDefaultQueue")
+	if defaultQueue, err := models.GetQueueByName(config.DefaultQueueName); err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		log.Errorf("GetQueueByName %s failed, err: %v", config.DefaultQueueName, err)
+		return err
+	} else if err == nil {
+		log.Infof("default queue[%+v] has been created", defaultQueue)
+		return nil
+	}
+	ctx := &logger.RequestContext{UserName: common.UserRoot}
+	// create default cluster
+	defaultQueue := &CreateQueueRequest{
+		Name:        config.DefaultQueueName,
+		Namespace:   config.DefaultNamespace,
+		ClusterName: config.DefaultClusterName,
+		QuotaType:   schema.TypeVolcanoCapabilityQuota,
+		MaxResources: schema.ResourceInfo{
+			CPU: "20",
+			Mem: "20Gi",
+		},
+	}
+	_, err := CreateQueue(ctx, defaultQueue)
+	if err != nil {
+		log.Errorf("create default queue[%+v] failed, err: %v", defaultQueue, err)
+		return err
+	}
 	return nil
 }
