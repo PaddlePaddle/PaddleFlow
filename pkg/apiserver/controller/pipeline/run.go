@@ -262,7 +262,7 @@ func getWorkFlowSourceByJson(request *CreateRunByJsonRequest, bodyMap map[string
 		}
 		var err error
 		// 将interface转为具体的Dag或Step
-		resComponents, err = parser.ParseNodes(componentMap)
+		resComponents, err = parser.ParseComponents(componentMap)
 		if err != nil {
 			logger.Logger().Errorf(err.Error())
 			return schema.WorkflowSource{}, err
@@ -291,7 +291,7 @@ func getWorkFlowSourceByJson(request *CreateRunByJsonRequest, bodyMap map[string
 		logger.Logger().Errorf(err.Error())
 		return schema.WorkflowSource{}, err
 	}
-	parsedEntryPoints, err := parser.ParseNodes(entryComponentsMap)
+	parsedEntryPoints, err := parser.ParseComponents(entryComponentsMap)
 	if err != nil {
 		logger.Logger().Errorf(err.Error())
 		return schema.WorkflowSource{}, err
@@ -319,7 +319,7 @@ func getWorkFlowSourceByJson(request *CreateRunByJsonRequest, bodyMap map[string
 			logger.Logger().Errorf(err.Error())
 			return schema.WorkflowSource{}, err
 		}
-		parsedComponents, err := parser.ParseNodes(postComponentsMap)
+		parsedComponents, err := parser.ParseComponents(postComponentsMap)
 		if err != nil {
 			logger.Logger().Errorf(err.Error())
 			return schema.WorkflowSource{}, err

@@ -1,5 +1,7 @@
 name: myproject
 
+disabled: disStep
+
 docker_env: random:int
 
 entry_points:
@@ -9,6 +11,9 @@ entry_points:
       min: -10
       max: 10
       num: 5
+      pString: {"type": "string", "default":"dictparam"}
+      pFloat: {"type": "float", "default": 0.66}
+      pPath: {"type": "path", "default": "/path/to/anywhere"}
     artifacts:
       output:
       - random_int
@@ -97,6 +102,9 @@ entry_points:
     artifacts:
       input:
         loop_args: "{{split-by-threshold.less}}"
+  
+  disStep:
+    command: "echo dis"
 
 
 components:
@@ -148,3 +156,10 @@ components:
       PF_JOB_PRIORITY: high
       PF_JOB_QUEUE_NAME: qdh
       PF_JOB_TYPE: vcjob
+
+cache:
+  enable: false
+  max_expired_time: 400
+  fs_scope: "/path/to/run,/path/to/run2"
+
+parallelism: 5

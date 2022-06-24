@@ -503,7 +503,7 @@ func CheckDictParam(dict DictParam, paramName string, realVal interface{}) (inte
 		if !ok {
 			return nil, InvalidParamTypeError(realVal, ParamTypePath)
 		}
-		pattern := `^[a-zA-Z0-9/_-]+$`
+		pattern := `^[.a-zA-Z0-9/_-]+$`
 		reg := regexp.MustCompile(pattern)
 		matched := reg.Match([]byte(realValStr))
 		if !matched {
