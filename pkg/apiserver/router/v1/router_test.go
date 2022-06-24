@@ -32,11 +32,12 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/user"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/middleware"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database/dbinit"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 var mockUserName = "mockUser"
@@ -107,13 +108,13 @@ func CreateTestUser(ctx *logger.RequestContext, username, password string) (stri
 		fmt.Printf("CreateTestUser failed EncodePassWord. err:%v\n", err)
 		return "", err
 	}
-	root := models.User{
-		UserInfo: models.UserInfo{
+	root := model.User{
+		UserInfo: model.UserInfo{
 			Name:     username,
 			Password: encrypted,
 		},
 	}
-	err = models.CreateUser(ctx, &root)
+	err = storage.Auth.CreateUser(ctx, &root)
 	if err != nil {
 		fmt.Printf("CreateTestUser failed creating user. err:%v\n", err)
 		return "", err

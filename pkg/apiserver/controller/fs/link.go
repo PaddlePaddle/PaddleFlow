@@ -104,7 +104,7 @@ func (s *LinkService) CreateLink(ctx *logger.RequestContext, req *CreateLinkRequ
 		UserName:      req.Username,
 	}
 
-	err := storage.LinkStore.CreateLink(&link)
+	err := storage.Filesystem.CreateLink(&link)
 	if err != nil {
 		ctx.Logging().Errorf("create link[%v] in db failed: %v", link, err)
 		ctx.ErrorCode = common.LinkModelError
@@ -115,7 +115,7 @@ func (s *LinkService) CreateLink(ctx *logger.RequestContext, req *CreateLinkRequ
 
 // DeleteLink the function which performs the operation of delete file system link
 func (s *LinkService) DeleteLink(ctx *logger.RequestContext, req *DeleteLinkRequest) error {
-	err := storage.LinkStore.DeleteLinkWithFsIDAndFsPath(common.ID(req.Username, req.FsName), req.FsPath)
+	err := storage.Filesystem.DeleteLinkWithFsIDAndFsPath(common.ID(req.Username, req.FsName), req.FsPath)
 	if err != nil {
 		ctx.Logging().Errorf("delete link failed error[%v]", err)
 		ctx.ErrorCode = common.FileSystemDataBaseError
@@ -135,13 +135,13 @@ func (s *LinkService) GetLink(req *GetLinkRequest) ([]model.Link, string, error)
 	var items []model.Link
 	var err error
 	if req.FsPath == "" {
-		items, err = storage.LinkStore.ListLink(int(limit), marker, req.FsID)
+		items, err = storage.Filesystem.ListLink(int(limit), marker, req.FsID)
 		if err != nil {
 			log.Errorf("list links models err[%v]", err)
 			return nil, "", err
 		}
 	} else {
-		items, err = storage.LinkStore.GetLinkWithFsIDAndPath(req.FsID, req.FsPath)
+		items, err = storage.Filesystem.GetLinkWithFsIDAndPath(req.FsID, req.FsPath)
 		if err != nil {
 			log.Errorf("get link models err[%v]", err)
 			return nil, "", err
@@ -165,7 +165,7 @@ func (s *LinkService) PersistLinksMeta(fsID string) error {
 	unlock := s.FsLock(fsID)
 	defer unlock()
 
-	links, err := storage.LinkStore.FsNameLinks(fsID)
+	links, err := storage.Filesystem.FsNameLinks(fsID)
 	if err != nil {
 		log.Errorf("get links err[%v] with fsID[%s]", err, fsID)
 		return err
@@ -205,7 +205,7 @@ func (s *LinkService) PersistLinksMeta(fsID string) error {
 }
 
 func writeLinksMeta(encodedLinksMeta string, fsID string) error {
-	fs, err := storage.FsStore.GetFileSystemWithFsID(fsID)
+	fs, err := storage.Filesystem.GetFileSystemWithFsID(fsID)
 	if err != nil {
 		log.Errorf("GetFileSystemWithFsID error[%v]", err)
 		return err

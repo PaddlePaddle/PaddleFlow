@@ -129,8 +129,8 @@ func initSQLiteDB(dbConf *config.DatabaseConfig, gormConf *gorm.Config) *gorm.DB
 		return nil
 	}
 	// init root user to db, can not be modified by config file currently
-	rootUser := models.User{
-		UserInfo: models.UserInfo{
+	rootUser := model.User{
+		UserInfo: model.UserInfo{
 			Name:     rootUserName,
 			Password: rootUserPassword,
 		},
@@ -196,12 +196,12 @@ func createDatabaseTables(db *gorm.DB) error {
 		&models.Schedule{},
 		&models.RunCache{},
 		&models.ArtifactEvent{},
-		&models.User{},
+		&model.User{},
 		&models.Run{},
 		&models.RunJob{},
 		&models.Queue{},
 		&models.Flavour{},
-		&models.Grant{},
+		&model.Grant{},
 		&models.Job{},
 		&models.JobTask{},
 		&models.JobLabel{},
