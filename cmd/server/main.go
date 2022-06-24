@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 	"net/http"
 	"os"
 	"os/signal"
@@ -18,14 +16,16 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/cmd/server/flag"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/cluster"
-	job2 "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/job"
+	jobCtrl "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/job"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/pipeline"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/queue"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
-	v1 "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/v1"
-	config "github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
+	router "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/v1"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/version"
 )
 
@@ -82,7 +82,7 @@ func act(c *cli.Context) error {
 
 func start() error {
 	Router := chi.NewRouter()
-	v1.RegisterRouters(Router, false)
+	router.RegisterRouters(Router, false)
 	log.Infof("server addr:%s", fmt.Sprintf(":%d", ServerConf.ApiServer.Port))
 	HttpSvr := &http.Server{
 		Addr:    fmt.Sprintf(":%d", ServerConf.ApiServer.Port),
@@ -101,8 +101,8 @@ func start() error {
 	globalScheduler := pipeline.GetGlobalScheduler()
 	go globalScheduler.Start()
 
-	go job2.WSManager.SendGroupData()
-	go job2.WSManager.GetGroupData()
+	go jobCtrl.WSManager.SendGroupData()
+	go jobCtrl.WSManager.GetGroupData()
 
 	go func() {
 		if err := HttpSvr.ListenAndServe(); err != nil && errors.Is(err, http.ErrServerClosed) {

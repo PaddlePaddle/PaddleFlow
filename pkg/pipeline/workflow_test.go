@@ -18,7 +18,6 @@ package pipeline
 
 import (
 	"fmt"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 	"reflect"
 	"regexp"
 	"testing"
@@ -31,6 +30,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	pplcommon "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 )
 
 const (

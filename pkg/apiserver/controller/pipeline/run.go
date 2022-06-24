@@ -21,7 +21,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	errors2 "github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -33,6 +32,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
+	errors2 "github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/pipeline"

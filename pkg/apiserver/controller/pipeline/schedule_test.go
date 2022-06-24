@@ -20,7 +20,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 	"os"
 	"testing"
 	"time"
@@ -33,6 +32,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 )
 
 const (

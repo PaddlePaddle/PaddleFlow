@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 	"io/ioutil"
 	"mime/multipart"
 	"net/http"
@@ -38,6 +37,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 )
 
 var mockUserName = "mockUser"

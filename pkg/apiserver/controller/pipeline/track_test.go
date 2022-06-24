@@ -18,13 +18,13 @@ package pipeline
 
 import (
 	"fmt"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 )
 
 func printNum(done chan bool, n int) {

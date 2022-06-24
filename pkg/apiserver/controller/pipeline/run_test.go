@@ -17,7 +17,6 @@ limitations under the License.
 package pipeline
 
 import (
-	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -27,6 +26,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/pipeline"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 )
 
 const (

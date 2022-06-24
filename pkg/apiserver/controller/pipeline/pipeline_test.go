@@ -19,7 +19,6 @@ package pipeline
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 	"os"
 	"testing"
 
@@ -32,6 +31,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	pkgPipeline "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 )
 
 // 测试创建pipeline

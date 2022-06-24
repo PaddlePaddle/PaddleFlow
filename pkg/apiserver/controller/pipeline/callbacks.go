@@ -19,7 +19,6 @@ package pipeline
 import (
 	"database/sql"
 	"fmt"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 	"strings"
 	"time"
 
@@ -29,6 +28,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/pipeline"

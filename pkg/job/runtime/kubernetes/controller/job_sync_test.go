@@ -18,7 +18,6 @@ package controller
 
 import (
 	"context"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 	"net/http/httptest"
 	"testing"
 	"time"
@@ -41,6 +40,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 )
 
 func newFakeJobSyncController() *JobSync {
