@@ -243,7 +243,7 @@ func mockWorkflowDagForDs() *schema.WorkflowSourceDag {
 				Parameters: map[string]interface{}{
 					"s1p1": 10,
 					"s1p2": "{{PF_PARENT.dp1}}_{{PF_PARENT.dp2}}",
-					"s1p3": "st1",
+					"s1p3": "st1_{{PF_RUN_ID}}",
 					"s1p4": "{{PF_PARENT.PF_LOOP_ARGUMENT}}",
 				},
 				Artifacts: schema.Artifacts{
@@ -305,7 +305,7 @@ func mockStepRuntime(step *schema.WorkflowSourceStep) *StepRuntime {
 
 func TestResolveBeforeRun(t *testing.T) {
 	dr := mockDagRuntime()
-	dr.sysParams = map[string]string{"PF_LOOP_ARGUMENT": "10"}
+	dr.sysParams = map[string]string{"PF_LOOP_ARGUMENT": "10", "PF_RUN_ID": "run-001"}
 
 	dr.getComponent().UpdateLoopArguemt([]int{11, 12})
 	ds := NewDependencySolver(dr)
@@ -317,7 +317,7 @@ func TestResolveBeforeRun(t *testing.T) {
 	params := dr.getworkflowSouceDag().EntryPoints["step1"].GetParameters()
 	assert.Equal(t, 10, params["s1p1"])
 	assert.Equal(t, "0_1", params["s1p2"])
-	assert.Equal(t, "st1", params["s1p3"])
+	assert.Equal(t, "st1_run-001", params["s1p3"])
 	assert.Equal(t, 11, params["s1p4"])
 
 	inputs := dr.getworkflowSouceDag().EntryPoints["step1"].GetArtifacts().Input
@@ -351,7 +351,7 @@ func TestResolveBeforeRun(t *testing.T) {
 
 func TestResolveAfterDone(t *testing.T) {
 	dr := mockDagRuntime()
-	dr.sysParams = map[string]string{"PF_LOOP_ARGUMENT": "10"}
+	dr.sysParams = map[string]string{"PF_LOOP_ARGUMENT": "10", "PF_RUN_ID": "run-001"}
 	ds := NewDependencySolver(dr)
 
 	err := ds.ResolveBeforeRun("step1")

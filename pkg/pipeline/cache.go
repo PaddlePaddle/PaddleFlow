@@ -115,7 +115,7 @@ type conservativeCacheCalculator struct {
 
 // 调用方应该保证在启用了 cache 功能的情况下才会调用NewConservativeCacheCalculator
 func NewConservativeCacheCalculator(step StepRuntime, cacheConfig schema.Cache) (CacheCalculator, error) {
-	fsHandler, err := handler.NewFsHandlerWithServer(step.fsID, step.logger)
+	fsHandler, err := handler.NewFsHandlerWithServer(step.fsID, step.runConfig.logger)
 
 	if err != nil {
 		errMsg := fmt.Errorf("init fsHandler failed: %s", err.Error())

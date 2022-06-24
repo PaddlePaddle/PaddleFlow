@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
@@ -63,22 +64,55 @@ var mockCbs = WorkflowCallbacks{
 
 // 测试updateJob接口（用于计算fingerprint）
 func TestUpdateJobForFingerPrint(t *testing.T) {
+	handler.NewFsHandlerWithServer = handler.MockerNewFsHandlerWithServer
 	testCase := loadcase(runYamlPath)
 	wfs, err := schema.GetWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
 	rf := mockRunConfigForComponentRuntime()
+	rf.WorkflowSource = &wfs
+	rf.callbacks = mockCbs
+
+	extra := GetExtra()
+	wfptr, err := NewWorkflow(wfs, rf.runID, "", map[string]interface{}{}, extra, rf.callbacks)
+	assert.Nil(t, err)
+
+	wfs = wfptr.Source
 
 	sortedSteps, err := common.TopologicalSort(wfs.EntryPoints.EntryPoints)
 	assert.Nil(t, err)
 
 	failctx, _ := context.WithCancel(context.Background())
+	dr := NewDagRuntime("", &wfs.EntryPoints, 0, context.Background(), failctx, make(chan<- WorkflowEvent), rf, "0")
+	dr.setSysParams()
+
+	ds := NewDependencySolver(dr)
 	for _, stepName := range sortedSteps {
+		err := ds.ResolveBeforeRun(stepName)
+		assert.Nil(t, err)
+
 		st := wfs.EntryPoints.EntryPoints[stepName].(*schema.WorkflowSourceStep)
 		srt := NewStepRuntime(st.Name, st, 0, context.Background(), failctx,
 			make(chan<- WorkflowEvent), rf, "dag-11")
+		srt.setSysParams()
+
+		dr.subComponentRumtimes[stepName] = append(dr.subComponentRumtimes[stepName], srt)
+
+		// dict Param 没有做替换
+		if stepName == "main" {
+			for name, _ := range srt.GetParameters() {
+				if name == "p3" {
+					srt.GetParameters()[name] = "dictparam"
+				} else if name == "p4" {
+					srt.GetParameters()[name] = 0.66
+				} else if name == "p5" {
+					srt.GetParameters()[name] = "/path/to/anywhere"
+				}
+			}
+		}
+
 		forCacheFingerprint := true
-		err := srt.updateJob(forCacheFingerprint)
+		err = srt.updateJob(forCacheFingerprint)
 		assert.Nil(t, err)
 
 		if stepName == "data-preprocess" {
@@ -91,11 +125,6 @@ func TestUpdateJobForFingerPrint(t *testing.T) {
 			assert.Contains(t, srt.job.Job().Artifacts.Output, "validate_data")
 			assert.Equal(t, "", srt.job.Job().Artifacts.Output["train_data"])
 			assert.Equal(t, "", srt.job.Job().Artifacts.Output["validate_data"])
-
-			assert.Contains(t, srt.job.Job().Env, "PF_OUTPUT_ARTIFACT_TRAIN_DATA")
-			assert.Contains(t, srt.job.Job().Env, "PF_OUTPUT_ARTIFACT_VALIDATE_DATA")
-			assert.Equal(t, "", srt.job.Job().Env["PF_OUTPUT_ARTIFACT_TRAIN_DATA"])
-			assert.Equal(t, "", srt.job.Job().Env["PF_OUTPUT_ARTIFACT_VALIDATE_DATA"])
 
 			expectedCommand := "python data_preprocess.py --input ./LINK/mybos_dir/data --output ./data/pre --validate {{ validate_data }} --stepname data-preprocess"
 			assert.Equal(t, expectedCommand, srt.job.Job().Command)
@@ -117,18 +146,13 @@ func TestUpdateJobForFingerPrint(t *testing.T) {
 			assert.Contains(t, srt.job.Job().Artifacts.Output, "train_model")
 			assert.Equal(t, "", srt.job.Job().Artifacts.Output["train_model"])
 
-			assert.Contains(t, srt.job.Job().Env, "PF_INPUT_ARTIFACT_TRAIN_DATA")
-			assert.Contains(t, srt.job.Job().Env, "PF_OUTPUT_ARTIFACT_TRAIN_MODEL")
-			assert.Equal(t, "", srt.job.Job().Env["PF_INPUT_ARTIFACT_TRAIN_DATA"])
-			assert.Equal(t, "", srt.job.Job().Env["PF_OUTPUT_ARTIFACT_TRAIN_MODEL"])
-
 			expectedCommand := "python train.py -r 0.1 -d ./data/pre --output ./data/model"
 			assert.Equal(t, expectedCommand, srt.job.Job().Command)
 		}
 		if stepName == "validate" {
-			assert.Equal(t, 2, len(srt.job.Job().Parameters))
+			assert.Equal(t, 4, len(srt.job.Job().Parameters))
 			assert.Contains(t, srt.job.Job().Parameters, "refSystem")
-			assert.Equal(t, runID, srt.job.Job().Parameters["refSystem"])
+			assert.Equal(t, "run-000001", srt.job.Job().Parameters["refSystem"])
 
 			assert.Equal(t, 4, len(srt.job.Job().Env)) // 4 env
 			assert.Contains(t, srt.job.Job().Env, "PF_JOB_QUEUE")
@@ -154,29 +178,67 @@ func TestUpdateJobForFingerPrint(t *testing.T) {
 
 // // 测试updateJob接口（cache命中失败后，替换用于节点运行）
 func TestUpdateJob(t *testing.T) {
+	handler.NewFsHandlerWithServer = handler.MockerNewFsHandlerWithServer
 	testCase := loadcase(runYamlPath)
 	wfs, err := schema.GetWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
+	rf := mockRunConfigForComponentRuntime()
+	rf.WorkflowSource = &wfs
+	rf.callbacks = mockCbs
+
+	extra := GetExtra()
+	wfptr, err := NewWorkflow(wfs, rf.runID, "", map[string]interface{}{}, extra, rf.callbacks)
+	assert.Nil(t, err)
+
+	wfs = wfptr.Source
+
 	sortedSteps, err := common.TopologicalSort(wfs.EntryPoints.EntryPoints)
 	assert.Nil(t, err)
-	rf := mockRunConfigForComponentRuntime()
+
 	sysNum := len(common.SysParamNameList)
 
 	failctx, _ := context.WithCancel(context.Background())
+	dr := NewDagRuntime("", &wfs.EntryPoints, 0, context.Background(), failctx, make(chan<- WorkflowEvent), rf, "0")
+	dr.setSysParams()
+
+	ds := NewDependencySolver(dr)
 
 	for _, stepName := range sortedSteps {
+		err := ds.ResolveBeforeRun(stepName)
+		assert.Nil(t, err)
+
 		st := wfs.EntryPoints.EntryPoints[stepName].(*schema.WorkflowSourceStep)
 		srt := NewStepRuntime(st.Name, st, 0, context.Background(), failctx,
 			make(chan<- WorkflowEvent), rf, "dag-11")
+		srt.setSysParams()
+
+		dr.subComponentRumtimes[stepName] = append(dr.subComponentRumtimes[stepName], srt)
+
+		err = srt.generateOutputArtifactPath()
+		assert.Nil(t, err)
+
 		forCacheFingerprint := false
-		err := srt.updateJob(forCacheFingerprint)
+		// dict Param 没有做替换
+		if stepName == "main" {
+			for name, _ := range srt.GetParameters() {
+				if name == "p3" {
+					srt.GetParameters()[name] = "dictparam"
+				} else if name == "p4" {
+					srt.GetParameters()[name] = 0.66
+				} else if name == "p5" {
+					srt.GetParameters()[name] = "/path/to/anywhere"
+				}
+			}
+		}
+
+		err = srt.updateJob(forCacheFingerprint)
 
 		assert.Nil(t, err)
 
-		OutatfTrainData := "./.pipeline/stepTestRunID/myproject/data-preprocess/train_data"
-		OutatfValidateData := "./.pipeline/stepTestRunID/myproject/data-preprocess/validate_data"
-		OutatfTrainModel := "./.pipeline/stepTestRunID/myproject/main/train_model"
+		OutatfTrainData := "./.pipeline/run-000001/myproject/data-preprocess-0/train_data"
+		OutatfValidateData := "./.pipeline/run-000001/myproject/data-preprocess-0/validate_data"
+		OutatfTrainModel := "./.pipeline/run-000001/myproject/main-0/train_model"
 		if stepName == "data-preprocess" {
 			assert.Equal(t, 2, len(srt.job.Job().Parameters))
 
@@ -197,6 +259,7 @@ func TestUpdateJob(t *testing.T) {
 			assert.Equal(t, expectedCommand, srt.job.Job().Command)
 		}
 		if stepName == "main" {
+
 			assert.Equal(t, 7, len(srt.job.Job().Parameters))
 			assert.Contains(t, srt.job.Job().Parameters, "data_file")
 			assert.Equal(t, "./data/pre", srt.job.Job().Parameters["data_file"])
@@ -223,9 +286,9 @@ func TestUpdateJob(t *testing.T) {
 			assert.Equal(t, expectedCommand, srt.job.Job().Command)
 		}
 		if stepName == "validate" {
-			assert.Equal(t, 2, len(srt.job.Job().Parameters))
+			assert.Equal(t, 4, len(srt.job.Job().Parameters))
 			assert.Contains(t, srt.job.Job().Parameters, "refSystem")
-			assert.Equal(t, runID, srt.job.Job().Parameters["refSystem"])
+			assert.Equal(t, "run-000001", srt.job.Job().Parameters["refSystem"])
 
 			assert.Equal(t, 4+sysNum+2, len(srt.job.Job().Env)) // 4 env + 6 sys param + 2 artifact
 			assert.Contains(t, srt.job.Job().Env, "PF_JOB_QUEUE")
@@ -251,6 +314,7 @@ func TestUpdateJob(t *testing.T) {
 
 // 测试checkCached接口（用于计算fingerprint）
 func TestCheckCached(t *testing.T) {
+	handler.NewFsHandlerWithServer = handler.MockerNewFsHandlerWithServer
 	testCase := loadcase(runYamlPath)
 	wfs, err := schema.GetWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
@@ -269,12 +333,15 @@ func TestCheckCached(t *testing.T) {
 	}
 
 	rf := mockRunConfigForComponentRuntime()
+	rf.WorkflowSource = &wfs
+	rf.callbacks = mockCbs
 
 	failctx, _ := context.WithCancel(context.Background())
 
 	st := wfs.EntryPoints.EntryPoints["data-preprocess"].(*schema.WorkflowSourceStep)
 	srt := NewStepRuntime(st.Name, st, 0, context.Background(), failctx,
 		make(chan<- WorkflowEvent), rf, "dag-11")
+	srt.setSysParams()
 
 	patches := gomonkey.ApplyMethod(reflect.TypeOf(srt.job), "Validate", func(_ *PaddleFlowJob) error {
 		return nil
@@ -298,7 +365,7 @@ func TestCheckCached(t *testing.T) {
 
 	// first fingerprint 查询返回非空，但是second fingerprint不一致
 	updateTime := time.Now().Add(time.Second * time.Duration(-1*100))
-	mockCbs.ListCacheCb = func(firstFp, fsID, yamlPath string) ([]models.RunCache, error) {
+	rf.callbacks.ListCacheCb = func(firstFp, fsID, yamlPath string) ([]models.RunCache, error) {
 		return []models.RunCache{
 			models.RunCache{FirstFp: "1111", SecondFp: "3333", RunID: "run-000027", JobID: "job-xxx",
 				UpdatedAt: updateTime, ExpiredTime: "-1"},
@@ -315,7 +382,7 @@ func TestCheckCached(t *testing.T) {
 
 	// first fingerprint 查询返回非空，但是cache已经过时
 	updateTime = time.Now().Add(time.Second * time.Duration(-1*500))
-	mockCbs.ListCacheCb = func(firstFp, fsID, yamlPath string) ([]models.RunCache, error) {
+	rf.callbacks.ListCacheCb = func(firstFp, fsID, yamlPath string) ([]models.RunCache, error) {
 		return []models.RunCache{
 			models.RunCache{FirstFp: "1111", SecondFp: "2222", RunID: "run-000027", UpdatedAt: updateTime, ExpiredTime: "300"},
 		}, nil
@@ -330,7 +397,7 @@ func TestCheckCached(t *testing.T) {
 
 	// first fingerprint 查询返回非空，且命中expired time为-1的cache记录
 	updateTime = time.Now().Add(time.Second * time.Duration(-1*100))
-	mockCbs.ListCacheCb = func(firstFp, fsID, yamlPath string) ([]models.RunCache, error) {
+	rf.callbacks.ListCacheCb = func(firstFp, fsID, yamlPath string) ([]models.RunCache, error) {
 		return []models.RunCache{
 			models.RunCache{FirstFp: "1111", SecondFp: "2222", RunID: "run-000027", JobID: "job-001",
 				UpdatedAt: updateTime, ExpiredTime: "-1"},
@@ -347,7 +414,7 @@ func TestCheckCached(t *testing.T) {
 
 	// first fingerprint 查询返回非空，且命中expired time不为-1，但依然有效的cache记录
 	updateTime = time.Now().Add(time.Second * time.Duration(-1*100))
-	mockCbs.ListCacheCb = func(firstFp, fsID, yamlPath string) ([]models.RunCache, error) {
+	rf.callbacks.ListCacheCb = func(firstFp, fsID, yamlPath string) ([]models.RunCache, error) {
 		return []models.RunCache{
 			models.RunCache{FirstFp: "1111", SecondFp: "2222", RunID: "run-000027", JobID: "job-001",
 				UpdatedAt: updateTime, ExpiredTime: "300"},

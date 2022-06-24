@@ -312,12 +312,18 @@ func (ds *DependencySolver) resolveParameterTemplate(tplString string, subCompon
 		tpl := tpls[index]
 		refComponentName, refvalue := parseTemplate(tpl[2])
 		var value interface{}
-
-		// 1、 引用了父节点的输入parameter
-		if refComponentName == PF_PARENT {
+		// 1、系统变量
+		if refComponentName == "" {
+			value, err = parseSysParamerterTemplate(refvalue, ds.sysParams)
+			if err != nil {
+				err = fmt.Errorf("cannot resolve template[%v] in component[%s] as sysParam", tpl, subComponentName)
+				return "", err
+			}
+		} else if refComponentName == PF_PARENT {
+			// 2、 引用了父节点的输入parameter
 			value, err = ds.component.GetParameterValue(refvalue)
 			if err != nil {
-				// 2、引用了父节点的 loop_arugment
+				// 3、引用了父节点的 loop_arugment
 				if refvalue == SysParamNamePFLoopArgument {
 					// 这里不能直接从 drt 的 sysParams 取的原因为，需要保留类型信息。 子节点可能用该值作为自己 循环参数。
 					value, err = ds.getPFLoopArgument()
@@ -331,7 +337,7 @@ func (ds *DependencySolver) resolveParameterTemplate(tplString string, subCompon
 				}
 			}
 		} else {
-			// 3、 引用了上有节点的输出parameter
+			// 4、 引用了上有节点的输出parameter
 			value, err = ds.GetSubComponentParameterValue(refComponentName, refvalue)
 			if err != nil {
 				return "", err

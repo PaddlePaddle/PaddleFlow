@@ -88,10 +88,9 @@ func mockBaseJob() BaseJob {
 	arts := mockArtifact()
 
 	env := map[string]string{
-		"PF_RUN_ID":  "124",
-		"PF_FS_ID":   "123545",
-		"PF_USER_ID": "457",
-		"num":        "1200",
+		"PF_RUN_ID": "124",
+		"PF_FS_ID":  "123545",
+		"num":       "1200",
 	}
 	return BaseJob{
 		ID:         "1234",
