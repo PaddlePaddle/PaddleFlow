@@ -279,7 +279,7 @@ func validateWorkflowForPipeline(pipelineYaml string) (name string, err error) {
 	}
 
 	// todo：这里为了校验，还要传特殊的run name（validatePipeline），可以想办法简化校验逻辑
-	wfPtr, err := pipeline.NewWorkflow(wfs, "validatePipeline", "", param, extra, wfCbs)
+	wfPtr, err := pipeline.NewWorkflow(wfs, "validatePipeline", param, extra, wfCbs)
 	if err != nil {
 		logger.Logger().Errorf("NewWorkflow for pipeline[%s] failed. err:%v", wfs.Name, err)
 		return "", err

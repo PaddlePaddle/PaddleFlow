@@ -126,7 +126,7 @@ func TestUpdateJob(t *testing.T) {
 	assert.Nil(t, err)
 
 	extra := GetExtra()
-	wf, err := NewWorkflow(wfs, "stepTestRunID", "", nil, extra, mockCbs)
+	wf, err := NewWorkflow(wfs, "stepTestRunID", nil, extra, mockCbs)
 	if err != nil {
 		t.Errorf("new workflow failed: %s", err.Error())
 	}
@@ -225,7 +225,7 @@ func TestUpdateJobWithCache(t *testing.T) {
 	assert.Nil(t, err)
 
 	extra := GetExtra()
-	wf, err := NewWorkflow(wfs, "stepTestRunID", "", nil, extra, mockCbs)
+	wf, err := NewWorkflow(wfs, "stepTestRunID", nil, extra, mockCbs)
 	if err != nil {
 		t.Errorf("new workflow failed: %s", err.Error())
 	}
@@ -344,7 +344,7 @@ func TestCheckCached(t *testing.T) {
 	}
 
 	extra := GetExtra()
-	wf, err := NewWorkflow(wfs, runID, "", nil, extra, mockCbs)
+	wf, err := NewWorkflow(wfs, runID, nil, extra, mockCbs)
 	if err != nil {
 		t.Errorf("new workflow failed: %s", err.Error())
 	}
@@ -380,7 +380,7 @@ func TestCheckCached(t *testing.T) {
 		}, nil
 	}
 
-	wf, err = NewWorkflow(wfs, runID, "", nil, extra, mockCbs)
+	wf, err = NewWorkflow(wfs, runID, nil, extra, mockCbs)
 	if err != nil {
 		t.Errorf("new workflow failed: %s", err.Error())
 	}
@@ -400,7 +400,7 @@ func TestCheckCached(t *testing.T) {
 		}, nil
 	}
 
-	wf, err = NewWorkflow(wfs, runID, "", nil, extra, mockCbs)
+	wf, err = NewWorkflow(wfs, runID, nil, extra, mockCbs)
 	if err != nil {
 		t.Errorf("new workflow failed: %s", err.Error())
 	}
@@ -420,7 +420,7 @@ func TestCheckCached(t *testing.T) {
 		}, nil
 	}
 
-	wf, err = NewWorkflow(wfs, runID, "", nil, extra, mockCbs)
+	wf, err = NewWorkflow(wfs, runID, nil, extra, mockCbs)
 	if err != nil {
 		t.Errorf("new workflow failed: %s", err.Error())
 	}
@@ -440,7 +440,7 @@ func TestCheckCached(t *testing.T) {
 		}, nil
 	}
 
-	wf, err = NewWorkflow(wfs, runID, "", nil, extra, mockCbs)
+	wf, err = NewWorkflow(wfs, runID, nil, extra, mockCbs)
 	if err != nil {
 		t.Errorf("new workflow failed: %s", err.Error())
 	}

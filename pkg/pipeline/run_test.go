@@ -36,7 +36,7 @@ func TestStartWithPostProcess(t *testing.T) {
 
 	// fmt.Printf("\n %+v \n", wfs)
 	extra := GetExtra()
-	wf, err := NewWorkflow(wfs, "", "", nil, extra, mockCbs)
+	wf, err := NewWorkflow(wfs, "", nil, extra, mockCbs)
 	assert.Nil(t, err)
 
 	wf.runtime.entryPoints["data-preprocess"].job.(*PaddleFlowJob).Status = schema.StatusJobSucceeded
@@ -78,7 +78,7 @@ func TestStopWithPostProcess(t *testing.T) {
 
 	// fmt.Printf("\n %+v \n", wfs)
 	extra := GetExtra()
-	wf, err := NewWorkflow(wfs, "", "", nil, extra, mockCbs)
+	wf, err := NewWorkflow(wfs, "", nil, extra, mockCbs)
 	assert.Nil(t, err)
 
 	time.Sleep(time.Millisecond * 10)
@@ -119,7 +119,7 @@ func TestStopEntry(t *testing.T) {
 
 	// fmt.Printf("\n %+v \n", wfs)
 	extra := GetExtra()
-	wf, err := NewWorkflow(wfs, "", "", nil, extra, mockCbs)
+	wf, err := NewWorkflow(wfs, "", nil, extra, mockCbs)
 	assert.Nil(t, err)
 
 	time.Sleep(time.Millisecond * 10)
@@ -165,7 +165,7 @@ func TestRestartEntry(t *testing.T) {
 
 	// fmt.Printf("\n %+v \n", wfs)
 	extra := GetExtra()
-	wf, err := NewWorkflow(wfs, "", "", nil, extra, mockCbs)
+	wf, err := NewWorkflow(wfs, "", nil, extra, mockCbs)
 	assert.Nil(t, err)
 	wf.runtime.entryPoints["data-preprocess"].job.(*PaddleFlowJob).Status = schema.StatusJobSucceeded
 	wf.runtime.entryPoints["data-preprocess"].done = true
@@ -190,7 +190,7 @@ func TestRestartPost(t *testing.T) {
 
 	// fmt.Printf("\n %+v \n", wfs)
 	extra := GetExtra()
-	wf, err := NewWorkflow(wfs, "", "", nil, extra, mockCbs)
+	wf, err := NewWorkflow(wfs, "", nil, extra, mockCbs)
 	assert.Nil(t, err)
 
 	wf.runtime.entryPoints["data-preprocess"].job.(*PaddleFlowJob).Status = schema.StatusJobSucceeded
@@ -214,7 +214,7 @@ func TestFailFast(t *testing.T) {
 
 	fmt.Printf("\n %+v \n", wfs)
 	extra := GetExtra()
-	wf, err := NewWorkflow(wfs, "", "", nil, extra, mockCbs)
+	wf, err := NewWorkflow(wfs, "", nil, extra, mockCbs)
 	assert.Nil(t, err)
 
 	go wf.runtime.Start()

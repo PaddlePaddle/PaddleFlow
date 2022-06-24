@@ -1009,7 +1009,7 @@ func newWorkflowByRun(run models.Run) (*pipeline.Workflow, error) {
 		pplcommon.WfExtraInfoKeyUserName: run.UserName,
 		pplcommon.WfExtraInfoKeyFsName:   run.FsName,
 	}
-	wfPtr, err := pipeline.NewWorkflow(run.WorkflowSource, run.ID, run.Entry, run.Parameters, extraInfo, workflowCallbacks)
+	wfPtr, err := pipeline.NewWorkflow(run.WorkflowSource, run.ID, run.Parameters, extraInfo, workflowCallbacks)
 	if err != nil {
 		logger.LoggerForRun(run.ID).Warnf("NewWorkflow by run[%s] failed. error:%v\n", run.ID, err)
 		return nil, err
