@@ -74,7 +74,7 @@ func TestUpdateJobForFingerPrint(t *testing.T) {
 	rf.callbacks = mockCbs
 
 	extra := GetExtra()
-	wfptr, err := NewWorkflow(wfs, rf.runID, "", map[string]interface{}{}, extra, rf.callbacks)
+	wfptr, err := NewWorkflow(wfs, rf.runID, map[string]interface{}{}, extra, rf.callbacks)
 	assert.Nil(t, err)
 
 	wfs = wfptr.Source
@@ -97,20 +97,6 @@ func TestUpdateJobForFingerPrint(t *testing.T) {
 		srt.setSysParams()
 
 		dr.subComponentRumtimes[stepName] = append(dr.subComponentRumtimes[stepName], srt)
-
-		// dict Param 没有做替换
-		if stepName == "main" {
-			for name, _ := range srt.GetParameters() {
-				if name == "p3" {
-					srt.GetParameters()[name] = "dictparam"
-				} else if name == "p4" {
-					srt.GetParameters()[name] = 0.66
-				} else if name == "p5" {
-					srt.GetParameters()[name] = "/path/to/anywhere"
-				}
-			}
-		}
-
 		forCacheFingerprint := true
 		err = srt.updateJob(forCacheFingerprint)
 		assert.Nil(t, err)
@@ -188,7 +174,7 @@ func TestUpdateJob(t *testing.T) {
 	rf.callbacks = mockCbs
 
 	extra := GetExtra()
-	wfptr, err := NewWorkflow(wfs, rf.runID, "", map[string]interface{}{}, extra, rf.callbacks)
+	wfptr, err := NewWorkflow(wfs, rf.runID, map[string]interface{}{}, extra, rf.callbacks)
 	assert.Nil(t, err)
 
 	wfs = wfptr.Source
@@ -219,19 +205,6 @@ func TestUpdateJob(t *testing.T) {
 		assert.Nil(t, err)
 
 		forCacheFingerprint := false
-		// dict Param 没有做替换
-		if stepName == "main" {
-			for name, _ := range srt.GetParameters() {
-				if name == "p3" {
-					srt.GetParameters()[name] = "dictparam"
-				} else if name == "p4" {
-					srt.GetParameters()[name] = 0.66
-				} else if name == "p5" {
-					srt.GetParameters()[name] = "/path/to/anywhere"
-				}
-			}
-		}
-
 		err = srt.updateJob(forCacheFingerprint)
 
 		assert.Nil(t, err)
