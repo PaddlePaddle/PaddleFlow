@@ -135,7 +135,7 @@ func CreatePipeline(ctx *logger.RequestContext, request CreatePipelineRequest) (
 	}
 
 	fsID, err := CheckFsAndGetID(ctx.UserName, request.UserName, request.FsName)
-	if err == nil {
+	if err != nil {
 		ctx.ErrorCode = common.InvalidArguments
 		ctx.Logging().Errorf(err.Error())
 		return CreatePipelineResponse{}, err
@@ -232,7 +232,7 @@ func UpdatePipeline(ctx *logger.RequestContext, request UpdatePipelineRequest, p
 	}
 
 	fsID, err := CheckFsAndGetID(ctx.UserName, request.UserName, request.FsName)
-	if err == nil {
+	if err != nil {
 		ctx.ErrorCode = common.InvalidArguments
 		ctx.Logging().Errorf(err.Error())
 		return UpdatePipelineResponse{}, err

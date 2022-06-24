@@ -201,7 +201,7 @@ func CreateSchedule(ctx *logger.RequestContext, request *CreateScheduleRequest) 
 
 	// 校验Fs参数，并生成FsConfig对象
 	_, err := CheckFsAndGetID(ctx.UserName, request.UserName, request.FsName)
-	if err == nil {
+	if err != nil {
 		ctx.ErrorCode = common.InvalidArguments
 		ctx.Logging().Errorf(err.Error())
 		return CreateScheduleResponse{}, err

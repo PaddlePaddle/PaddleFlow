@@ -124,9 +124,13 @@ func TestCreateSchedule(t *testing.T) {
 	patch1 := gomonkey.ApplyFunc(SendSingnal, func(string, string) error {
 		return nil
 	})
+	patch2 := gomonkey.ApplyFunc(CheckFsAndGetID, func(string, string, string) (string, error) {
+		return "", nil
+	})
 
 	defer patch.Reset()
 	defer patch1.Reset()
+	defer patch2.Reset()
 
 	// 创建 pipeline & pipelineDetail
 	_, _, _, _ = insertPipeline(t, ctx.Logging())
@@ -316,9 +320,13 @@ func TestListSchedule(t *testing.T) {
 	patch1 := gomonkey.ApplyFunc(SendSingnal, func(string, string) error {
 		return nil
 	})
+	patch2 := gomonkey.ApplyFunc(CheckFsAndGetID, func(string, string, string) (string, error) {
+		return "", nil
+	})
 
 	defer patch.Reset()
 	defer patch1.Reset()
+	defer patch2.Reset()
 
 	// 普通用户创建两个周期调度
 	resp, err := CreateSchedule(ctx, &createScheduleReq)
@@ -560,9 +568,13 @@ func TestGetSchedule(t *testing.T) {
 	patch1 := gomonkey.ApplyFunc(SendSingnal, func(string, string) error {
 		return nil
 	})
+	patch2 := gomonkey.ApplyFunc(CheckFsAndGetID, func(string, string, string) (string, error) {
+		return "", nil
+	})
 
 	defer patch.Reset()
 	defer patch1.Reset()
+	defer patch2.Reset()
 
 	// 普通用户创建一个周期调度
 	resp, err := CreateSchedule(ctx, &createScheduleReq)
@@ -653,9 +665,13 @@ func TestStopSchedule(t *testing.T) {
 	patch1 := gomonkey.ApplyFunc(SendSingnal, func(string, string) error {
 		return nil
 	})
+	patch2 := gomonkey.ApplyFunc(CheckFsAndGetID, func(string, string, string) (string, error) {
+		return "", nil
+	})
 
 	defer patch.Reset()
 	defer patch1.Reset()
+	defer patch2.Reset()
 
 	// 创建 pipeline & pipelineDetail
 	pplID1, _, pplDetailID1, _ := insertPipeline(t, ctx.Logging())
@@ -742,9 +758,13 @@ func TestDeleteSchedule(t *testing.T) {
 	patch1 := gomonkey.ApplyFunc(SendSingnal, func(string, string) error {
 		return nil
 	})
+	patch2 := gomonkey.ApplyFunc(CheckFsAndGetID, func(string, string, string) (string, error) {
+		return "", nil
+	})
 
 	defer patch.Reset()
 	defer patch1.Reset()
+	defer patch2.Reset()
 
 	// 创建 pipeline & pipelineDetail
 	pplID1, _, pplDetailID1, _ := insertPipeline(t, ctx.Logging())

@@ -68,6 +68,12 @@ func TestCreatePipeline(t *testing.T) {
 	})
 	defer patch1.Reset()
 
+	patch2 := gomonkey.ApplyFunc(CheckFsAndGetID, func(string, string, string) (string, error) {
+		return "", nil
+	})
+
+	defer patch2.Reset()
+
 	// 创建失败: desc长度超过1024
 	createPplReq.Desc = strings.Repeat("a", util.MaxDescLength+1)
 	_, err = CreatePipeline(ctx, createPplReq)
@@ -155,6 +161,12 @@ func TestUpdatePipeline(t *testing.T) {
 		return &pkgPipeline.Workflow{}, nil
 	})
 	defer patch1.Reset()
+
+	patch2 := gomonkey.ApplyFunc(CheckFsAndGetID, func(string, string, string) (string, error) {
+		return "", nil
+	})
+
+	defer patch2.Reset()
 
 	// test update 失败，pipeline没有创建，不能更新
 	resp, err := UpdatePipeline(ctx, updatePplReq, pipelineID)
