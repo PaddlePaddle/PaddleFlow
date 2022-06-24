@@ -52,21 +52,22 @@ type CreateScheduleResponse struct {
 }
 
 type ScheduleBrief struct {
-	ID          string                 `json:"scheduleID"`
-	Name        string                 `json:"name"`
-	Desc        string                 `json:"desc"`
-	PipelineID  string                 `json:"pipelineID"`
-	UserName    string                 `json:"username"`
-	FsConfig    models.FsConfig        `json:"fsConfig"`
-	Crontab     string                 `json:"crontab"`
-	Options     models.ScheduleOptions `json:"options"`
-	StartTime   string                 `json:"startTime"`
-	EndTime     string                 `json:"endTime"`
-	CreateTime  string                 `json:"createTime"`
-	UpdateTime  string                 `json:"updateTime"`
-	NextRunTime string                 `json:"nextRunTime"`
-	Message     string                 `json:"scheduleMsg"`
-	Status      string                 `json:"status"`
+	ID               string                 `json:"scheduleID"`
+	Name             string                 `json:"name"`
+	Desc             string                 `json:"desc"`
+	PipelineID       string                 `json:"pipelineID"`
+	PipelineDetailID string                 `json:"pipelineDetailID"`
+	UserName         string                 `json:"username"`
+	FsConfig         models.FsConfig        `json:"fsConfig"`
+	Crontab          string                 `json:"crontab"`
+	Options          models.ScheduleOptions `json:"options"`
+	StartTime        string                 `json:"startTime"`
+	EndTime          string                 `json:"endTime"`
+	CreateTime       string                 `json:"createTime"`
+	UpdateTime       string                 `json:"updateTime"`
+	NextRunTime      string                 `json:"nextRunTime"`
+	Message          string                 `json:"scheduleMsg"`
+	Status           string                 `json:"status"`
 }
 
 type ListScheduleResponse struct {
@@ -84,6 +85,7 @@ func (b *ScheduleBrief) updateFromScheduleModel(schedule models.Schedule) (err e
 	b.Name = schedule.Name
 	b.Desc = schedule.Desc
 	b.PipelineID = schedule.PipelineID
+	b.PipelineDetailID = schedule.PipelineDetailID
 	b.UserName = schedule.UserName
 	b.Crontab = schedule.Crontab
 	b.CreateTime = schedule.CreatedAt.Format("2006-01-02 15:04:05")
