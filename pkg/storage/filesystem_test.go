@@ -38,6 +38,17 @@ func TestGetFsInfo(t *testing.T) {
 	}
 	err := Filesystem.CreatFileSystem(&fs)
 	assert.Nil(t, err)
+
+	// has filesystem but no fs_cache_config
+	fsInfo, err := Filesystem.GetFsInfo(mockFsID)
+	assert.Nil(t, err)
+	assert.Equal(t, fs.ID, fsInfo.ID)
+	assert.Equal(t, fs.Type, fsInfo.Type)
+	assert.Equal(t, fs.SubPath, fsInfo.SubPath)
+	assert.Equal(t, "", fsInfo.CacheDir)
+	assert.Equal(t, "", fsInfo.MetaDriver)
+
+	// has filesystem and fs_cache_config
 	fsCache := model.FSCacheConfig{
 		FsID:       mockFsID,
 		CacheDir:   "/data/paddleflow-fs/mnt",
@@ -46,7 +57,7 @@ func TestGetFsInfo(t *testing.T) {
 	err = Filesystem.CreateFSCacheConfig(&fsCache)
 	assert.Nil(t, err)
 
-	fsInfo, err := Filesystem.GetFsInfo(mockFsID)
+	fsInfo, err = Filesystem.GetFsInfo(mockFsID)
 	assert.Nil(t, err)
 	assert.Equal(t, fs.ID, fsInfo.ID)
 	assert.Equal(t, fs.Type, fsInfo.Type)
