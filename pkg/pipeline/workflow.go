@@ -41,7 +41,6 @@ type BaseWorkflow struct {
 	Name         string                                `json:"name,omitempty"`
 	RunID        string                                `json:"runId,omitempty"`
 	Desc         string                                `json:"desc,omitempty"`
-	Entry        string                                `json:"entry,omitempty"`
 	Params       map[string]interface{}                `json:"params,omitempty"`
 	Extra        map[string]string                     `json:"extra,omitempty"` // 可以存放一些ID，fsId，userId等
 	Source       schema.WorkflowSource                 `json:"-"`               // Yaml string
@@ -52,7 +51,7 @@ type BaseWorkflow struct {
 	postProcess  map[string]*schema.WorkflowSourceStep `json:"-"`
 }
 
-func NewBaseWorkflow(wfSource schema.WorkflowSource, runID, entry string, params map[string]interface{}, extra map[string]string) BaseWorkflow {
+func NewBaseWorkflow(wfSource schema.WorkflowSource, runID string, params map[string]interface{}, extra map[string]string) BaseWorkflow {
 	// Todo: 设置默认值
 	bwf := BaseWorkflow{
 		RunID:       runID,
@@ -61,7 +60,6 @@ func NewBaseWorkflow(wfSource schema.WorkflowSource, runID, entry string, params
 		Params:      params,
 		Extra:       extra,
 		Source:      wfSource,
-		Entry:       entry,
 		postProcess: wfSource.PostProcess,
 	}
 
@@ -878,7 +876,6 @@ func (bwf *BaseWorkflow) checkDisabled() ([]string, error) {
 	for k, v := range bwf.Source.PostProcess {
 		postComponents[k] = v
 	}
-	logger.Logger().Errorf("inin")
 	for _, disFullName := range disabledComponents {
 		_, ok := tempMap[disFullName]
 		if ok {
@@ -931,7 +928,6 @@ func (bwf *BaseWorkflow) checkDisabled() ([]string, error) {
 
 		// 再检查父节点是否有引用（输出Artifact引用）
 		if len(components[disName].GetArtifacts().Output) > 0 {
-			logger.Logger().Errorf("inin")
 			disNameList := strings.Split(disFullName, ".")
 			if len(disNameList) > 1 {
 				//该节点有父节点
@@ -1000,9 +996,9 @@ type WorkflowCallbacks struct {
 }
 
 // 实例化一个Workflow，并返回
-func NewWorkflow(wfSource schema.WorkflowSource, runID, entry string, params map[string]interface{}, extra map[string]string,
+func NewWorkflow(wfSource schema.WorkflowSource, runID string, params map[string]interface{}, extra map[string]string,
 	callbacks WorkflowCallbacks) (*Workflow, error) {
-	baseWorkflow := NewBaseWorkflow(wfSource, runID, entry, params, extra)
+	baseWorkflow := NewBaseWorkflow(wfSource, runID, params, extra)
 
 	wf := &Workflow{
 		BaseWorkflow: baseWorkflow,

@@ -86,7 +86,7 @@ func TestNewBaseWorkflowByOnlyRunYaml(t *testing.T) {
 	assert.Nil(t, err)
 
 	extra := GetExtra()
-	bwf := NewBaseWorkflow(wfs, "", "", nil, extra)
+	bwf := NewBaseWorkflow(wfs, "", nil, extra)
 	if err := bwf.validate(); err != nil {
 		t.Errorf("validate failed. error: %v", err)
 	}
@@ -118,7 +118,7 @@ func TestNewBaseWorkflowWithCircle(t *testing.T) {
 	assert.Nil(t, err)
 
 	extra := GetExtra()
-	bwf := NewBaseWorkflow(wfs, "", "", nil, extra)
+	bwf := NewBaseWorkflow(wfs, "", nil, extra)
 	_, err = bwf.topologicalSort(bwf.Source.EntryPoints)
 	assert.NotNil(t, err)
 }
@@ -130,7 +130,7 @@ func TestTopologicalSort_noCircle(t *testing.T) {
 	assert.Nil(t, err)
 
 	extra := GetExtra()
-	bwf := NewBaseWorkflow(wfs, "", "", nil, extra)
+	bwf := NewBaseWorkflow(wfs, "", nil, extra)
 	fmt.Println(bwf.Source.EntryPoints)
 	result, err := bwf.topologicalSort(bwf.Source.EntryPoints)
 	assert.Nil(t, err)
@@ -155,7 +155,7 @@ func TestCreateNewWorkflowRunDisabled_success(t *testing.T) {
 
 	fmt.Printf("\n %+v \n", wfs)
 	extra := GetExtra()
-	wf, err := NewWorkflow(wfs, "", "", nil, extra, mockCbs)
+	wf, err := NewWorkflow(wfs, "", nil, extra, mockCbs)
 	assert.Nil(t, err)
 
 	time.Sleep(time.Millisecond * 10)
@@ -184,7 +184,7 @@ func TestCreateNewWorkflowRun_success(t *testing.T) {
 
 	fmt.Printf("\n %+v \n", wfs)
 	extra := GetExtra()
-	wf, err := NewWorkflow(wfs, "", "", nil, extra, mockCbs)
+	wf, err := NewWorkflow(wfs, "", nil, extra, mockCbs)
 	assert.Nil(t, err)
 
 	// 先是mock data-preprocess节点返回true
@@ -223,7 +223,7 @@ func TestCreateNewWorkflowRun_failed(t *testing.T) {
 	assert.Nil(t, err)
 
 	extra := GetExtra()
-	wf, err := NewWorkflow(wfs, "", "", nil, extra, mockCbs)
+	wf, err := NewWorkflow(wfs, "", nil, extra, mockCbs)
 	assert.Nil(t, err)
 
 	patch1 := gomonkey.ApplyMethod(reflect.TypeOf(wf.runtime.entryPoints["data-preprocess"].job), "Started", func(_ *PaddleFlowJob) bool {
@@ -270,7 +270,7 @@ func TestStopWorkflowRun(t *testing.T) {
 	assert.Nil(t, err)
 
 	extra := GetExtra()
-	wf, err := NewWorkflow(wfs, "", "", nil, extra, mockCbs)
+	wf, err := NewWorkflow(wfs, "", nil, extra, mockCbs)
 	assert.Nil(t, err)
 
 	patch1 := gomonkey.ApplyMethod(reflect.TypeOf(wf.runtime.entryPoints["data-preprocess"].job), "Succeeded", func(_ *PaddleFlowJob) bool {
@@ -351,7 +351,7 @@ func TestValidateWorkflow_WrongParam(t *testing.T) {
 	assert.Nil(t, err)
 
 	extra := GetExtra()
-	bwf := NewBaseWorkflow(wfs, "", "", nil, extra)
+	bwf := NewBaseWorkflow(wfs, "", nil, extra)
 	err = bwf.validate()
 	assert.NotNil(t, err)
 	assert.Equal(t, "invalid reference param {{ data-preprocess.xxxinvalid }} in step[main]: parameter[xxxinvalid] not exist", err.Error())
@@ -368,7 +368,7 @@ func TestWorkflowParamDuplicate(t *testing.T) {
 	assert.Nil(t, err)
 
 	extra := GetExtra()
-	bwf := NewBaseWorkflow(wfs, "", "", nil, extra)
+	bwf := NewBaseWorkflow(wfs, "", nil, extra)
 	err = bwf.validate()
 	assert.Nil(t, err)
 
@@ -406,7 +406,7 @@ func TestValidateWorkflowParam(t *testing.T) {
 	assert.Nil(t, err)
 
 	extra := GetExtra()
-	bwf := NewBaseWorkflow(wfs, "", "", nil, extra)
+	bwf := NewBaseWorkflow(wfs, "", nil, extra)
 	err = bwf.validate()
 	assert.Nil(t, err)
 	assert.Equal(t, bwf.Source.EntryPoints["validate"].Parameters["refSystem"].(string), "{{ PF_RUN_ID }}")
@@ -455,7 +455,7 @@ func TestValidateWorkflow__DictParam(t *testing.T) {
 	assert.Nil(t, err)
 
 	extra := GetExtra()
-	bwf := NewBaseWorkflow(wfs, "", "", nil, extra)
+	bwf := NewBaseWorkflow(wfs, "", nil, extra)
 	err = bwf.validate()
 	assert.Nil(t, err)
 	// assert.Equal(t, "dictparam", bwf.Source.EntryPoints["main"].Parameters["p3"])
@@ -560,7 +560,7 @@ func TestValidateWorkflowPassingParam(t *testing.T) {
 
 	// not exist in source yaml
 	extra := GetExtra()
-	bwf := NewBaseWorkflow(wfs, "", "", nil, extra)
+	bwf := NewBaseWorkflow(wfs, "", nil, extra)
 	bwf.Params = map[string]interface{}{
 		"p1": "correct",
 	}
@@ -609,7 +609,7 @@ func TestValidateWorkflowArtifacts(t *testing.T) {
 	assert.Nil(t, err)
 
 	extra := GetExtra()
-	bwf := NewBaseWorkflow(wfs, "", "", nil, extra)
+	bwf := NewBaseWorkflow(wfs, "", nil, extra)
 	err = bwf.validate()
 	assert.Nil(t, err)
 	assert.Equal(t, "{{ data-preprocess.train_data }}", bwf.Source.EntryPoints["main"].Artifacts.Input["train_data"])
@@ -635,7 +635,7 @@ func TestValidateWorkflowDisabled(t *testing.T) {
 	assert.Nil(t, err)
 
 	extra := GetExtra()
-	bwf := NewBaseWorkflow(wfs, "", "", nil, extra)
+	bwf := NewBaseWorkflow(wfs, "", nil, extra)
 	err = bwf.validate()
 	assert.Nil(t, err)
 	assert.Equal(t, "", bwf.Source.Disabled)
@@ -672,7 +672,7 @@ func TestValidateWorkflowCache(t *testing.T) {
 
 	// 校验节点cache配置为空时，能够使用全局配置替换
 	extra := GetExtra()
-	bwf := NewBaseWorkflow(wfs, "", "", nil, extra)
+	bwf := NewBaseWorkflow(wfs, "", nil, extra)
 	err = bwf.validate()
 	assert.Nil(t, err)
 	assert.Equal(t, bwf.Source.Cache.Enable, false)
@@ -714,7 +714,7 @@ func TestValidateWorkflowWithoutFs(t *testing.T) {
 	// 校验 WfExtraInfoKeyFsID 和 WfExtraInfoKeyFsName，不能同时为空字符串
 	extra := GetExtra()
 	extra[pplcommon.WfExtraInfoKeyFsID] = ""
-	bwf := NewBaseWorkflow(wfs, "", "", nil, extra)
+	bwf := NewBaseWorkflow(wfs, "", nil, extra)
 	err = bwf.validate()
 	assert.NotNil(t, err)
 	assert.Equal(t, "check extra failed: FsID[] and FsName[mockFsname] can only both be empty or unempty", err.Error())
@@ -722,20 +722,20 @@ func TestValidateWorkflowWithoutFs(t *testing.T) {
 	// 校验不使用Fs时，不能使用fs相关的系统参数
 	extra[pplcommon.WfExtraInfoKeyFsName] = ""
 	wfs.EntryPoints["data-preprocess"].Parameters["wrongParam"] = "{{ PF_FS_ID }}"
-	bwf = NewBaseWorkflow(wfs, "", "", nil, extra)
+	bwf = NewBaseWorkflow(wfs, "", nil, extra)
 	err = bwf.validate()
 	assert.NotNil(t, err)
 	assert.Equal(t, "cannot use sysParam[PF_FS_ID] template in step[data-preprocess] for pipeline run with no Fs mounted", err.Error())
 
 	wfs.EntryPoints["data-preprocess"].Parameters["wrongParam"] = "{{ PF_FS_NAME }}"
-	bwf = NewBaseWorkflow(wfs, "", "", nil, extra)
+	bwf = NewBaseWorkflow(wfs, "", nil, extra)
 	err = bwf.validate()
 	assert.NotNil(t, err)
 	assert.Equal(t, "cannot use sysParam[PF_FS_NAME] template in step[data-preprocess] for pipeline run with no Fs mounted", err.Error())
 
 	// 校验不使用Fs时，全局cache中的fs_scope字段一定为空
 	delete(wfs.EntryPoints["data-preprocess"].Parameters, "wrongParam")
-	bwf = NewBaseWorkflow(wfs, "", "", nil, extra)
+	bwf = NewBaseWorkflow(wfs, "", nil, extra)
 	err = bwf.validate()
 	assert.NotNil(t, err)
 	assert.Equal(t, "fs_scope of global cache should be empty if Fs is not used!", err.Error())
@@ -743,7 +743,7 @@ func TestValidateWorkflowWithoutFs(t *testing.T) {
 	// 校验不使用Fs时，节点cache中的fs_scope字段一定为空
 	// 下面case会报错，是因为parse workflow的时候，会将global cache配置，作为每个节点的cache默认配置
 	// 所以只修改global cache配置的fs_scope并不够
-	bwf = NewBaseWorkflow(wfs, "", "", nil, extra)
+	bwf = NewBaseWorkflow(wfs, "", nil, extra)
 	bwf.Source.Cache.FsScope = ""
 	err = bwf.validate()
 	assert.NotNil(t, err)
@@ -760,7 +760,7 @@ func TestValidateWorkflowWithoutFs(t *testing.T) {
 	// 校验不使用Fs时，不能定义artifact
 	// 因为input artifact一定引用上游的outputAtf，所以只需要测试没法定义outputAtf即可
 	wfs.EntryPoints["data-preprocess"].Artifacts.Output["Atf1"] = ""
-	bwf = NewBaseWorkflow(wfs, "", "", nil, extra)
+	bwf = NewBaseWorkflow(wfs, "", nil, extra)
 	err = bwf.validate()
 	assert.NotNil(t, err)
 	pattern = regexp.MustCompile("cannot define artifact in step[[a-zA-Z-]+] with no Fs mounted")
@@ -773,7 +773,7 @@ func TestRestartWorkflow(t *testing.T) {
 	assert.Nil(t, err)
 
 	extra := GetExtra()
-	wf, err := NewWorkflow(wfs, "", "", nil, extra, mockCbs)
+	wf, err := NewWorkflow(wfs, "", nil, extra, mockCbs)
 	assert.Nil(t, err)
 
 	runtimeView := schema.RuntimeView{
@@ -809,7 +809,7 @@ func TestRestartWorkflow_from1completed(t *testing.T) {
 	assert.Nil(t, err)
 
 	extra := GetExtra()
-	wf, err := NewWorkflow(wfs, "", "", nil, extra, mockCbs)
+	wf, err := NewWorkflow(wfs, "", nil, extra, mockCbs)
 	assert.Nil(t, err)
 
 	runtimeView := schema.RuntimeView{
@@ -844,7 +844,7 @@ func TestCheckPostProcess(t *testing.T) {
 	assert.Nil(t, err)
 
 	extra := GetExtra()
-	bwf := NewBaseWorkflow(wfs, "", "", nil, extra)
+	bwf := NewBaseWorkflow(wfs, "", nil, extra)
 	err = bwf.validate()
 	assert.NotNil(t, err)
 	assert.Equal(t, "post_process can only has 1 step at most", err.Error())
@@ -854,6 +854,6 @@ func TestCheckPostProcess(t *testing.T) {
 	assert.Nil(t, err)
 
 	extra = GetExtra()
-	_, err = NewWorkflow(wfs, "", "", nil, extra, mockCbs)
+	_, err = NewWorkflow(wfs, "", nil, extra, mockCbs)
 	assert.Nil(t, err)
 }

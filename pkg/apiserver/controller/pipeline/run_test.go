@@ -17,6 +17,8 @@ limitations under the License.
 package pipeline
 
 import (
+	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -203,33 +205,43 @@ func TestNewWorkflowByRun(t *testing.T) {
 	var err error
 	run, err := getMockFullRun()
 	assert.Nil(t, err)
-	_, err = newWorkflowByRun(run)
+	wf, err := newWorkflowByRun(run)
 	assert.Nil(t, err)
 
-	// run1, err := getMockFullRun()
-	// assert.Nil(t, err)
-	// run1.WorkflowSource.Disabled = "square-loop.square"
-	// _, err = newWorkflowByRun(run1)
-	// assert.NotNil(t, err)
-	// assert.Equal(t, "disabled component[square] is refered by [square-loop]", err.Error())
+	text, _ := json.Marshal(wf.BaseWorkflow.Source)
+	fmt.Println(string(text))
 
-	// run1.WorkflowSource.Disabled = "process-negetive.condition2.show"
-	// _, err = newWorkflowByRun(run1)
-	// assert.NotNil(t, err)
-	// assert.Equal(t, "disabled component[show] is refered by [abs]", err.Error())
+	run1, err := getMockFullRun()
+	assert.Nil(t, err)
+	run1.WorkflowSource.Disabled = "square-loop.square"
+	_, err = newWorkflowByRun(run1)
+	assert.NotNil(t, err)
+	assert.Equal(t, "disabled component[square] is refered by [square-loop]", err.Error())
 
-	// run2, err := getMockFullRun()
-	// assert.Nil(t, err)
-	// run2.Parameters = map[string]interface{}{
-	// 	"square-loop.noComp.noParam": "1",
-	// }
-	// _, err = newWorkflowByRun(run2)
-	// assert.NotNil(t, err)
-	// assert.Equal(t, "component [noComp] not exist", err.Error())
-	// run2.Parameters = map[string]interface{}{
-	// 	"square-loop.square.num": 3,
-	// }
-	// _, err = newWorkflowByRun(run2)
-	// assert.Nil(t, err)
+	run1.WorkflowSource.Disabled = "process-negetive.condition2.show"
+	_, err = newWorkflowByRun(run1)
+	assert.NotNil(t, err)
+	assert.Equal(t, "disabled component[show] is refered by [abs]", err.Error())
 
+	run2, err := getMockFullRun()
+	assert.Nil(t, err)
+	run2.Parameters = map[string]interface{}{
+		"square-loop.noComp.noParam": "1",
+	}
+	_, err = newWorkflowByRun(run2)
+	assert.NotNil(t, err)
+	assert.Equal(t, "component [noComp] not exist", err.Error())
+	run2.Parameters = map[string]interface{}{
+		"square-loop.square.num": 3,
+	}
+	_, err = newWorkflowByRun(run2)
+	assert.Nil(t, err)
+
+	run2.Parameters = map[string]interface{}{
+		"randint.pString": "str",
+		"randint.pFloat":  1.1,
+		"randint.pPath":   "testcase/run.yaml",
+	}
+	_, err = newWorkflowByRun(run2)
+	assert.Nil(t, err)
 }

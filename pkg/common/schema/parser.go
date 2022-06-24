@@ -51,7 +51,7 @@ func (p *Parser) ParseWorkflowSource(bodyMap map[string]interface{}, wfs *Workfl
 			if !ok {
 				return fmt.Errorf("[entry_points/entryPoints] of workflow should be map[string]interface{} type")
 			}
-			entryPointsMap, err := p.ParseNodes(value)
+			entryPointsMap, err := p.ParseComponents(value)
 			if err != nil {
 				return fmt.Errorf("parse [entry_points/entryPoints] failed, error: %s", err.Error())
 			}
@@ -64,7 +64,7 @@ func (p *Parser) ParseWorkflowSource(bodyMap map[string]interface{}, wfs *Workfl
 			if !ok {
 				return fmt.Errorf("[components] of workflow should be map[string]interface{} type")
 			}
-			componentsMap, err := p.ParseNodes(value)
+			componentsMap, err := p.ParseComponents(value)
 			if err != nil {
 				return fmt.Errorf("parse [components] failed, error: %s", err.Error())
 			}
@@ -118,7 +118,7 @@ func (p *Parser) ParseWorkflowSource(bodyMap map[string]interface{}, wfs *Workfl
 			if !ok {
 				return fmt.Errorf("[post_process/postProcess] of workflow should be map[string]interface{} type")
 			}
-			postMap, err := p.ParseNodes(value)
+			postMap, err := p.ParseComponents(value)
 			if err != nil {
 				return fmt.Errorf("parse [post_process/postProcess] failed, error: %s", err.Error())
 			}
@@ -137,27 +137,27 @@ func (p *Parser) ParseWorkflowSource(bodyMap map[string]interface{}, wfs *Workfl
 	return nil
 }
 
-func (p *Parser) ParseNodes(entryPoints map[string]interface{}) (map[string]Component, error) {
-	nodes := map[string]Component{}
-	for name, node := range entryPoints {
-		nodeMap := node.(map[string]interface{})
-		if p.IsDag(nodeMap) {
-			dagNode := WorkflowSourceDag{}
-			if err := p.ParseDag(nodeMap, &dagNode); err != nil {
+func (p *Parser) ParseComponents(entryPoints map[string]interface{}) (map[string]Component, error) {
+	components := map[string]Component{}
+	for name, component := range entryPoints {
+		compMap := component.(map[string]interface{})
+		if p.IsDag(compMap) {
+			dagComp := WorkflowSourceDag{}
+			if err := p.ParseDag(compMap, &dagComp); err != nil {
 				return nil, err
 			}
-			dagNode.Name = name
-			nodes[name] = &dagNode
+			dagComp.Name = name
+			components[name] = &dagComp
 		} else {
-			stepNode := WorkflowSourceStep{}
-			if err := p.ParseStep(nodeMap, &stepNode); err != nil {
+			stepComp := WorkflowSourceStep{}
+			if err := p.ParseStep(compMap, &stepComp); err != nil {
 				return nil, err
 			}
-			stepNode.Name = name
-			nodes[name] = &stepNode
+			stepComp.Name = name
+			components[name] = &stepComp
 		}
 	}
-	return nodes, nil
+	return components, nil
 }
 
 func (p *Parser) ParseStep(params map[string]interface{}, step *WorkflowSourceStep) error {
@@ -371,31 +371,31 @@ func (p *Parser) ParseCache(cacheMap map[string]interface{}, cache *Cache) error
 }
 
 // 该函数用于给生成给WorkflowSourceDag的各个字段赋值，但不会进行默认值填充，不会进行全局参数对局部参数的替换
-func (p *Parser) ParseDag(params map[string]interface{}, dagNode *WorkflowSourceDag) error {
+func (p *Parser) ParseDag(params map[string]interface{}, dagComp *WorkflowSourceDag) error {
 	for key, value := range params {
 		switch key {
 		case "loopArgument":
 			fallthrough
 		case "loop_argument":
-			dagNode.LoopArgument = value
+			dagComp.LoopArgument = value
 		case "condition":
 			value, ok := value.(string)
 			if !ok {
 				return fmt.Errorf("[condition] in dag should be string type")
 			}
-			dagNode.Condition = value
+			dagComp.Condition = value
 		case "parameters":
 			value, ok := value.(map[string]interface{})
 			if !ok {
 				return fmt.Errorf("[parameters] in dag should be map type")
 			}
-			dagNode.Parameters = value
+			dagComp.Parameters = value
 		case "deps":
 			value, ok := value.(string)
 			if !ok {
 				return fmt.Errorf("[deps] in dag should be string type")
 			}
-			dagNode.Deps = value
+			dagComp.Deps = value
 		case "artifacts":
 			artifacts := Artifacts{}
 			value, ok := value.(map[string]interface{})
@@ -436,7 +436,7 @@ func (p *Parser) ParseDag(params map[string]interface{}, dagNode *WorkflowSource
 					return fmt.Errorf("[artifacts] of dag has no attribute [%s]", atfKey)
 				}
 			}
-			dagNode.Artifacts = artifacts
+			dagComp.Artifacts = artifacts
 		case "entryPoints":
 			fallthrough
 		case "entry_points":
@@ -444,11 +444,11 @@ func (p *Parser) ParseDag(params map[string]interface{}, dagNode *WorkflowSource
 			if !ok {
 				return fmt.Errorf("[entry_points/entryPoints] of dag should be map type")
 			}
-			entryPoints, err := p.ParseNodes(value)
+			entryPoints, err := p.ParseComponents(value)
 			if err != nil {
 				return err
 			}
-			dagNode.EntryPoints = entryPoints
+			dagComp.EntryPoints = entryPoints
 		case "type":
 			value, ok := value.(string)
 			if !ok {
@@ -464,8 +464,8 @@ func (p *Parser) ParseDag(params map[string]interface{}, dagNode *WorkflowSource
 	return nil
 }
 
-func (p *Parser) IsDag(node map[string]interface{}) bool {
-	if _, ok := node["entry_points"]; ok {
+func (p *Parser) IsDag(comp map[string]interface{}) bool {
+	if _, ok := comp["entry_points"]; ok {
 		return true
 	}
 	return false

@@ -59,7 +59,7 @@ func TestCreatePipeline(t *testing.T) {
 	})
 	defer patch.Reset()
 
-	patch1 := gomonkey.ApplyFunc(pkgPipeline.NewWorkflow, func(wfSource schema.WorkflowSource, runID, entry string, params map[string]interface{}, extra map[string]string,
+	patch1 := gomonkey.ApplyFunc(pkgPipeline.NewWorkflow, func(wfSource schema.WorkflowSource, runID string, params map[string]interface{}, extra map[string]string,
 		callbacks pkgPipeline.WorkflowCallbacks) (*pkgPipeline.Workflow, error) {
 		return &pkgPipeline.Workflow{}, nil
 	})
@@ -128,7 +128,7 @@ func TestUpdatePipeline(t *testing.T) {
 	})
 	defer patch.Reset()
 
-	patch1 := gomonkey.ApplyFunc(pkgPipeline.NewWorkflow, func(wfSource schema.WorkflowSource, runID, entry string, params map[string]interface{}, extra map[string]string,
+	patch1 := gomonkey.ApplyFunc(pkgPipeline.NewWorkflow, func(wfSource schema.WorkflowSource, runID string, params map[string]interface{}, extra map[string]string,
 		callbacks pkgPipeline.WorkflowCallbacks) (*pkgPipeline.Workflow, error) {
 		return &pkgPipeline.Workflow{}, nil
 	})
