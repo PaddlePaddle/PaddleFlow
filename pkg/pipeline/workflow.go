@@ -876,7 +876,6 @@ func (bwf *BaseWorkflow) checkDisabled() ([]string, error) {
 	for k, v := range bwf.Source.PostProcess {
 		postComponents[k] = v
 	}
-	logger.Logger().Errorf("inin")
 	for _, disFullName := range disabledComponents {
 		_, ok := tempMap[disFullName]
 		if ok {
@@ -929,7 +928,6 @@ func (bwf *BaseWorkflow) checkDisabled() ([]string, error) {
 
 		// 再检查父节点是否有引用（输出Artifact引用）
 		if len(components[disName].GetArtifacts().Output) > 0 {
-			logger.Logger().Errorf("inin")
 			disNameList := strings.Split(disFullName, ".")
 			if len(disNameList) > 1 {
 				//该节点有父节点

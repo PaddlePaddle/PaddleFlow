@@ -66,6 +66,7 @@ func StringsContain(items []string, item string) bool {
 	return false
 }
 
+// 1.4.3后，Checker承担了Parameters的处理任务，如dict形式的param替换为实际值、请求的参数替换节点参数
 type StepParamChecker struct {
 	Components    map[string]schema.Component // 需要传入相关的所有 step，以判断依赖是否合法
 	SysParams     map[string]string           // sysParams 的值和 step 相关，需要传入
@@ -157,10 +158,11 @@ func (s *StepParamChecker) Check(currentComponent string, isOuterComp bool) erro
 		if err = s.checkName(currentComponent, FieldParameters, paramName); err != nil {
 			return err
 		}
-		err = s.checkParamValue(currentComponent, paramName, paramVal, FieldParameters)
+		realVal, err := s.solveParamValue(currentComponent, paramName, paramVal, FieldParameters)
 		if err != nil {
 			return err
 		}
+		component.GetParameters()[paramName] = realVal
 	}
 
 	// 2. input artifact 校验
@@ -176,7 +178,7 @@ func (s *StepParamChecker) Check(currentComponent string, isOuterComp bool) erro
 				return fmt.Errorf("check input artifact [%s] in step[%s] failed: %s", inputAtfName, currentComponent, err.Error())
 			}
 
-			err = s.checkParamValue(currentComponent, inputAtfName, inputAtfVal, FieldInputArtifacts)
+			_, err = s.solveParamValue(currentComponent, inputAtfName, inputAtfVal, FieldInputArtifacts)
 			if err != nil {
 				return err
 			}
@@ -200,7 +202,7 @@ func (s *StepParamChecker) Check(currentComponent string, isOuterComp bool) erro
 				return fmt.Errorf("check output artifact [%s] in step[%s] failed: %s", outArtValue, currentComponent, err.Error())
 			}
 
-			err = s.checkParamValue(currentComponent, outAtfName, outArtValue, FieldOutputArtifacts)
+			_, err = s.solveParamValue(currentComponent, outAtfName, outArtValue, FieldOutputArtifacts)
 			if err != nil {
 				return err
 			}
@@ -222,14 +224,14 @@ func (s *StepParamChecker) Check(currentComponent string, isOuterComp bool) erro
 			if err = s.checkName(currentComponent, FieldEnv, envName); err != nil {
 				return err
 			}
-			err = s.checkParamValue(currentComponent, envName, envVal, FieldEnv)
+			_, err = s.solveParamValue(currentComponent, envName, envVal, FieldEnv)
 			if err != nil {
 				return err
 			}
 		}
 
 		// 5. command 校验/更新
-		err = s.checkParamValue(currentComponent, "command", step.Command, FieldCommand)
+		_, err = s.solveParamValue(currentComponent, "command", step.Command, FieldCommand)
 		if err != nil {
 			return err
 		}
@@ -300,29 +302,32 @@ func (s *StepParamChecker) checkName(step, fieldType, name string) error {
 
 // 该函数主要处理parameter, command, env，input artifact四类参数
 // schema中已经限制了input artifact，command, env只能为string，此处再判断类型用于兜底
-func (s *StepParamChecker) checkParamValue(compName string, paramName string, param interface{}, fieldType string) error {
+func (s *StepParamChecker) solveParamValue(compName string, paramName string, param interface{}, fieldType string) (interface{}, error) {
 	if fieldType == FieldCommand || fieldType == FieldEnv || fieldType == FieldInputArtifacts {
 		_, ok := param.(string)
 		if !ok {
-			return fmt.Errorf("value of %s[%s] invalid: should be string", fieldType, paramName)
+			return nil, fmt.Errorf("value of %s[%s] invalid: should be string", fieldType, paramName)
 		}
 	}
 
 	// 参数值检查
 	switch param.(type) {
 	case float32, float64, int, int64:
-		return nil
+		return param, nil
 	case string:
-		return s.resolveRefParam(compName, param.(string), fieldType)
+		if err := s.resolveRefParam(compName, param.(string), fieldType); err != nil {
+			return nil, err
+		} else {
+			return param, nil
+		}
 	case map[string]interface{}:
 		dictParam := DictParam{}
 		if err := dictParam.From(param); err != nil {
-			return fmt.Errorf("invalid dict parameter[%s]", param)
+			return nil, fmt.Errorf("invalid dict parameter[%s]", param)
 		}
-		_, err := CheckDictParam(dictParam, paramName, nil)
-		return err
+		return CheckDictParam(dictParam, paramName, nil)
 	default:
-		return UnsupportedParamTypeError(param, paramName)
+		return nil, UnsupportedParamTypeError(param, paramName)
 	}
 }
 

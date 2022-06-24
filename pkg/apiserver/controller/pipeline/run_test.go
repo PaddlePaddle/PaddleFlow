@@ -17,6 +17,8 @@ limitations under the License.
 package pipeline
 
 import (
+	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -203,8 +205,11 @@ func TestNewWorkflowByRun(t *testing.T) {
 	var err error
 	run, err := getMockFullRun()
 	assert.Nil(t, err)
-	_, err = newWorkflowByRun(run)
+	wf, err := newWorkflowByRun(run)
 	assert.Nil(t, err)
+
+	text, _ := json.Marshal(wf.BaseWorkflow.Source)
+	fmt.Println(string(text))
 
 	run1, err := getMockFullRun()
 	assert.Nil(t, err)
