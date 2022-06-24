@@ -2,7 +2,6 @@ package errors
 
 import (
 	"encoding/json"
-	"github.com/google/martian/log"
 	"github.com/sirupsen/logrus"
 )
 
@@ -25,7 +24,6 @@ func GetErrorCode(err error) string {
 	byteErr, _ := json.Marshal(err)
 	var gormErr GormErr
 	if err := json.Unmarshal(byteErr, &gormErr); err != nil {
-		log.Errorf("unmarshal gorm error[%s] failed: %v", string(byteErr), err)
 		return ErrorUnknown
 	}
 	switch gormErr.Number {

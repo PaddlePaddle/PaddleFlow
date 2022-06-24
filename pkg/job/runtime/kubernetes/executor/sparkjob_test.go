@@ -88,7 +88,7 @@ status:
 			Name: "normal",
 			// Command: "sleep 200",
 			Image: "mockImage",
-			Env: map[string]string{
+			Env:   map[string]string{
 				// "PF_JOB_MODE":           "PS",
 				// "PF_FS_ID":              "fs-name_1",
 				// "PF_JOB_CLUSTER_ID":     "testClusterID",
