@@ -39,7 +39,7 @@ var (
 )
 
 type ServerConfig struct {
-	Storage       StorageConfig             `yaml:"storage"`
+	Storage       StorageConfig             `yaml:"database"`
 	Log           logger.LogConfig          `yaml:"log"`
 	ApiServer     ApiServerConfig           `yaml:"apiServer"`
 	Job           JobConfig                 `yaml:"job"`
