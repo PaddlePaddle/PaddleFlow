@@ -27,10 +27,10 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	pplcommon "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 type Run struct {
@@ -201,7 +201,7 @@ func (r *Run) initAllPFRuntime() error {
 
 func CreateRun(logEntry *log.Entry, run *Run) (string, error) {
 	logEntry.Debugf("begin create run:%+v", run)
-	err := WithTransaction(database.DB, func(tx *gorm.DB) error {
+	err := WithTransaction(storage.DB, func(tx *gorm.DB) error {
 		result := tx.Model(&Run{}).Create(run)
 		if result.Error != nil {
 			logEntry.Errorf("create run failed. run:%v, error:%s",
@@ -225,7 +225,7 @@ func CreateRun(logEntry *log.Entry, run *Run) (string, error) {
 
 func UpdateRunStatus(logEntry *log.Entry, runID, status string) error {
 	logEntry.Debugf("begin update run status. runID:%s, status:%s", runID, status)
-	tx := database.DB.Model(&Run{}).Where("id = ?", runID).Update("status", status)
+	tx := storage.DB.Model(&Run{}).Where("id = ?", runID).Update("status", status)
 	if tx.Error != nil {
 		logEntry.Errorf("update run status failed. runID:%s, error:%s",
 			runID, tx.Error.Error())
@@ -236,7 +236,7 @@ func UpdateRunStatus(logEntry *log.Entry, runID, status string) error {
 
 func UpdateRun(logEntry *log.Entry, runID string, run Run) error {
 	logEntry.Debugf("begin update run. runID:%s", runID)
-	tx := database.DB.Model(&Run{}).Where("id = ?", runID).Updates(run)
+	tx := storage.DB.Model(&Run{}).Where("id = ?", runID).Updates(run)
 	if tx.Error != nil {
 		logEntry.Errorf("update run failed. runID:%s, error:%s",
 			runID, tx.Error.Error())
@@ -247,14 +247,14 @@ func UpdateRun(logEntry *log.Entry, runID string, run Run) error {
 
 func DeleteRun(logEntry *log.Entry, runID string) error {
 	logEntry.Debugf("begin delete run. runID:%s", runID)
-	err := WithTransaction(database.DB, func(tx *gorm.DB) error {
-		result := database.DB.Model(&RunJob{}).Where("run_id = ?", runID).Delete(&RunJob{})
+	err := WithTransaction(storage.DB, func(tx *gorm.DB) error {
+		result := storage.DB.Model(&RunJob{}).Where("run_id = ?", runID).Delete(&RunJob{})
 		if result.Error != nil {
 			logEntry.Errorf("delete run_job before deleting run failed. runID:%s, error:%s",
 				runID, result.Error.Error())
 			return result.Error
 		}
-		result = database.DB.Model(&Run{}).Where("id = ?", runID).Delete(&Run{})
+		result = storage.DB.Model(&Run{}).Where("id = ?", runID).Delete(&Run{})
 		if result.Error != nil {
 			logEntry.Errorf("delete run failed. runID:%s, error:%s",
 				runID, result.Error.Error())
@@ -268,7 +268,7 @@ func DeleteRun(logEntry *log.Entry, runID string) error {
 func GetRunByID(logEntry *log.Entry, runID string) (Run, error) {
 	logEntry.Debugf("begin get run. runID:%s", runID)
 	var run Run
-	tx := database.DB.Model(&Run{}).Where("id = ?", runID).First(&run)
+	tx := storage.DB.Model(&Run{}).Where("id = ?", runID).First(&run)
 	if tx.Error != nil {
 		logEntry.Errorf("get run failed. runID:%s, error:%s",
 			runID, tx.Error.Error())
@@ -282,7 +282,7 @@ func GetRunByID(logEntry *log.Entry, runID string) (Run, error) {
 
 func ListRun(logEntry *log.Entry, pk int64, maxKeys int, userFilter, fsFilter, runFilter, nameFilter, statusFilter, scheduleIdFilter []string) ([]Run, error) {
 	logEntry.Debugf("begin list run. ")
-	tx := database.DB.Model(&Run{}).Where("pk > ?", pk)
+	tx := storage.DB.Model(&Run{}).Where("pk > ?", pk)
 	if len(userFilter) > 0 {
 		tx = tx.Where("user_name IN (?)", userFilter)
 	}
@@ -322,7 +322,7 @@ func ListRun(logEntry *log.Entry, pk int64, maxKeys int, userFilter, fsFilter, r
 func GetLastRun(logEntry *log.Entry) (Run, error) {
 	logEntry.Debugf("get last run. ")
 	run := Run{}
-	tx := database.DB.Model(&Run{}).Last(&run)
+	tx := storage.DB.Model(&Run{}).Last(&run)
 	if tx.Error != nil {
 		logEntry.Errorf("get last run failed. error:%s", tx.Error.Error())
 		return Run{}, tx.Error
@@ -335,7 +335,7 @@ func GetLastRun(logEntry *log.Entry) (Run, error) {
 
 func CountRun(logEntry *log.Entry, pk int64, maxKeys int, userFilter, fsFilter, runFilter, nameFilter, statusFilter, scheduleIdFilter []string) (count int64, err error) {
 	logEntry.Debugf("begin count run. ")
-	tx := database.DB.Model(&Run{}).Where("pk > ?", pk)
+	tx := storage.DB.Model(&Run{}).Where("pk > ?", pk)
 	if len(userFilter) > 0 {
 		tx = tx.Where("user_name IN (?)", userFilter)
 	}
@@ -370,7 +370,7 @@ func CountRun(logEntry *log.Entry, pk int64, maxKeys int, userFilter, fsFilter, 
 func ListRunsByStatus(logEntry *log.Entry, statusList []string) ([]Run, error) {
 	logEntry.Debugf("begin list runs by status [%v]", statusList)
 	runList := make([]Run, 0)
-	tx := database.DB.Model(&Run{}).Where("status IN (?)", statusList).Find(&runList)
+	tx := storage.DB.Model(&Run{}).Where("status IN (?)", statusList).Find(&runList)
 	if tx.Error != nil {
 		logEntry.Errorf("list runs by status [%v] failed. error:%s", statusList, tx.Error.Error())
 		return runList, tx.Error

@@ -23,8 +23,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database/dbinit"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 )
 
 func printNum(done chan bool, n int) {
@@ -48,7 +48,7 @@ func TestFuncVarPassByValue(t *testing.T) {
 }
 
 func TestLogCache(t *testing.T) {
-	dbinit.InitMockDB()
+	driver.InitMockDB()
 	req := schema.LogRunCacheRequest{
 		FirstFp:     "ddddd",
 		SecondFp:    "ddddd",

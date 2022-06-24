@@ -22,7 +22,6 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	utils "github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
@@ -135,7 +134,7 @@ func DeleteFileSystemCacheConfig(ctx *logger.RequestContext, fsID string) error 
 		ctx.Logging().Errorf("GetFileSystemCacheConfig fs[%s] err:%v", fsID, err)
 		return err
 	}
-	if err := storage.Filesystem.DeleteFSCacheConfig(database.DB, fsID); err != nil {
+	if err := storage.Filesystem.DeleteFSCacheConfig(storage.DB, fsID); err != nil {
 		ctx.Logging().Errorf("delete fs cache config failed error[%v]", err)
 		ctx.ErrorCode = common.FileSystemDataBaseError
 		return err

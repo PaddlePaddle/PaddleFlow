@@ -23,10 +23,10 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database/dbinit"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 )
 
 var extArgoWorkflowYaml = `
@@ -83,7 +83,7 @@ func TestWorkflowJob(t *testing.T) {
 	defer server.Close()
 	dynamicClient := newFakeDynamicClient(server)
 	// mock db
-	dbinit.InitMockDB()
+	driver.InitMockDB()
 	// create kubernetes resource with dynamic client
 	tests := []struct {
 		caseName string

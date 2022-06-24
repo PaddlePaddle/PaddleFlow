@@ -10,9 +10,9 @@ import (
 	"gorm.io/gorm/clause"
 	v1 "k8s.io/api/core/v1"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 const (
@@ -65,7 +65,7 @@ func (task *JobTask) AfterFind(*gorm.DB) error {
 
 func GetJobTaskByID(id string) (JobTask, error) {
 	var taskStatus JobTask
-	tx := database.DB.Table(JobTaskTableName).Where("id = ?", id).First(&taskStatus)
+	tx := storage.DB.Table(JobTaskTableName).Where("id = ?", id).First(&taskStatus)
 	if tx.Error != nil {
 		logger.LoggerForJob(id).Errorf("get job task status failed, err %v", tx.Error.Error())
 		return JobTask{}, tx.Error
@@ -78,7 +78,7 @@ func UpdateTask(task *JobTask) error {
 		return fmt.Errorf("JobTask is nil")
 	}
 	// TODO: change update task logic
-	tx := database.DB.Table(JobTaskTableName).Clauses(clause.OnConflict{
+	tx := storage.DB.Table(JobTaskTableName).Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "id"}},
 		DoUpdates: clause.AssignmentColumns([]string{"status", "message", "ext_runtime_status", "deleted_at"}),
 	}).Create(task)
@@ -87,7 +87,7 @@ func UpdateTask(task *JobTask) error {
 
 func ListByJobID(jobID string) ([]JobTask, error) {
 	var jobList []JobTask
-	err := database.DB.Table(JobTaskTableName).Where("job_id = ?", jobID).Find(&jobList).Error
+	err := storage.DB.Table(JobTaskTableName).Where("job_id = ?", jobID).Find(&jobList).Error
 	if err != nil {
 		return nil, err
 	}

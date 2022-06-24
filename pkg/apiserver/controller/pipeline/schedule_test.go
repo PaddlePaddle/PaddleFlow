@@ -31,8 +31,8 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database/dbinit"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 )
 
 const (
@@ -99,7 +99,7 @@ func insertPipeline(t *testing.T, logEntry *log.Entry) (pplID1, pplID2, pplDetai
 
 // 测试创建schedule
 func TestCreateSchedule(t *testing.T) {
-	dbinit.InitMockDB()
+	driver.InitMockDB()
 	ctx := &logger.RequestContext{UserName: MockNormalUser}
 	createScheduleReq := CreateScheduleRequest{
 		Name:              "schedule_1",
@@ -257,7 +257,7 @@ func TestCreateSchedule(t *testing.T) {
 }
 
 func TestListSchedule(t *testing.T) {
-	dbinit.InitMockDB()
+	driver.InitMockDB()
 	ctx := &logger.RequestContext{UserName: MockRootUser}
 
 	pplID1, _, pplDetailID1, _ := insertPipeline(t, ctx.Logging())
@@ -302,7 +302,7 @@ func TestGetSchedule(t *testing.T) {
 }
 
 func TestStopSchedule(t *testing.T) {
-	dbinit.InitMockDB()
+	driver.InitMockDB()
 	ctx := &logger.RequestContext{UserName: MockNormalUser}
 
 	patch := gomonkey.ApplyFunc(handler.ReadFileFromFs, func(fsID, runYamlPath string, logEntry *log.Entry) ([]byte, error) {
@@ -377,7 +377,7 @@ func TestStopSchedule(t *testing.T) {
 }
 
 func TestDeleteSchedule(t *testing.T) {
-	dbinit.InitMockDB()
+	driver.InitMockDB()
 	ctx := &logger.RequestContext{UserName: MockNormalUser}
 
 	patch := gomonkey.ApplyFunc(handler.ReadFileFromFs, func(fsID, runYamlPath string, logEntry *log.Entry) ([]byte, error) {
