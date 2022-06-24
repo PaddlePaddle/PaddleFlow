@@ -117,7 +117,7 @@ func SplitFilter(strFilter string, splitter string, toStrip bool) (filterList []
 	splitRes := strings.Split(strFilter, splitter)
 	if toStrip {
 		for index, _ := range splitRes {
-			trimItem := strings.TrimSpace(filterList[index])
+			trimItem := strings.TrimSpace(splitRes[index])
 			if trimItem != "" {
 				filterList = append(filterList, trimItem)
 			}
