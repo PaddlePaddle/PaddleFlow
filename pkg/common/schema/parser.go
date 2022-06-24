@@ -130,6 +130,8 @@ func (p *Parser) ParseWorkflowSource(bodyMap map[string]interface{}, wfs *Workfl
 				}
 				wfs.PostProcess[postkey] = postValue
 			}
+		default:
+			return fmt.Errorf("workflow has no attribute [%s]", key)
 		}
 	}
 	return nil
