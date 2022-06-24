@@ -80,11 +80,11 @@ func (p *Parser) ParseWorkflowSource(bodyMap map[string]interface{}, wfs *Workfl
 			}
 			wfs.Cache = cache
 		case "parallelism":
-			value, ok := value.(int)
+			value, ok := value.(int64)
 			if !ok {
 				return fmt.Errorf("[parallelism] of workflow should be int type")
 			}
-			wfs.Parallelism = value
+			wfs.Parallelism = int(value)
 		case "disabled":
 			value, ok := value.(string)
 			if !ok {
