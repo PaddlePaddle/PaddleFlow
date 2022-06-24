@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 	"io/ioutil"
 	"mime/multipart"
 	"net/http"
@@ -34,7 +35,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/middleware"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database/dbinit"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
@@ -83,7 +83,7 @@ func prepareDBAndAPI(t *testing.T) (*chi.Mux, string) {
 		},
 	}
 
-	dbinit.InitMockDB()
+	driver.InitMockDB()
 	rootCtx := &logger.RequestContext{UserName: MockRootUser}
 
 	token, err := CreateTestUser(rootCtx, MockRootUser, MockPassword)

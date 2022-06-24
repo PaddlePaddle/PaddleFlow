@@ -19,13 +19,13 @@ package user
 import (
 	"errors"
 	"fmt"
+	errors2 "github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 	"regexp"
 	"strings"
 
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
@@ -119,7 +119,7 @@ func CreateUser(ctx *logger.RequestContext, userName, password string) (*CreateU
 	}
 	if err := storage.Auth.CreateUser(ctx, &user); err != nil {
 		ctx.Logging().Errorln("models create user failed.")
-		if database.GetErrorCode(err) == database.ErrorKeyIsDuplicated {
+		if errors2.GetErrorCode(err) == errors2.ErrorKeyIsDuplicated {
 			ctx.ErrorCode = common.UserNameDuplicated
 		} else {
 			ctx.ErrorCode = common.InternalError

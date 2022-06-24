@@ -18,6 +18,7 @@ package controller
 
 import (
 	"context"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 	"net/http/httptest"
 	"testing"
 	"time"
@@ -38,7 +39,6 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database/dbinit"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
@@ -150,7 +150,7 @@ func TestJobSyncVCJob(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			dbinit.InitMockDB()
+			driver.InitMockDB()
 			err := models.CreateJob(&models.Job{ID: test.newObj.GetName()})
 			assert.Equal(t, nil, err)
 
@@ -310,7 +310,7 @@ func TestJobSyncPod(t *testing.T) {
 		},
 	}
 
-	dbinit.InitMockDB()
+	driver.InitMockDB()
 	err := models.CreateJob(&models.Job{
 		ID:     jobName,
 		Name:   jobName,

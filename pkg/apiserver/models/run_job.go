@@ -24,10 +24,10 @@ import (
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 type RunJob struct {
@@ -60,7 +60,7 @@ type RunJob struct {
 
 func CreateRunJobs(logEntry *log.Entry, jobs map[string]schema.JobView, runID string) error {
 	logEntry.Debugf("begin create run_jobs by jobMap: %v", jobs)
-	err := WithTransaction(database.DB, func(tx *gorm.DB) error {
+	err := WithTransaction(storage.DB, func(tx *gorm.DB) error {
 		for name, job := range jobs {
 			runJob := RunJob{
 				ID:       job.JobID,
@@ -82,7 +82,7 @@ func CreateRunJobs(logEntry *log.Entry, jobs map[string]schema.JobView, runID st
 
 func UpdateRunJob(logEntry *log.Entry, runID string, stepName string, runJob RunJob) error {
 	logEntry.Debugf("begin update run_job. run_job run_id: %s, step_name: %s", runID, stepName)
-	tx := database.DB.Model(&RunJob{}).Where("run_id = ?", runID).Where("step_name = ?", stepName).Updates(runJob)
+	tx := storage.DB.Model(&RunJob{}).Where("run_id = ?", runID).Where("step_name = ?", stepName).Updates(runJob)
 	if tx.Error != nil {
 		logEntry.Errorf("update run_job failed. run_id: [%s], step_name: [%s], error: %s",
 			runID, stepName, tx.Error.Error())
@@ -94,7 +94,7 @@ func UpdateRunJob(logEntry *log.Entry, runID string, stepName string, runJob Run
 func GetRunJobsOfRun(logEntry *log.Entry, runID string) ([]RunJob, error) {
 	logEntry.Debugf("begin to get run_jobs of run with runID[%s].", runID)
 	var runJobs []RunJob
-	tx := database.DB.Model(&RunJob{}).Where("run_id = ?", runID).Find(&runJobs)
+	tx := storage.DB.Model(&RunJob{}).Where("run_id = ?", runID).Find(&runJobs)
 	if tx.Error != nil {
 		logEntry.Errorf("get run_jobs of run with runID[%s] failed. error:%s", runID, tx.Error.Error())
 		return []RunJob{}, tx.Error

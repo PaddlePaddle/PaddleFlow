@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 	"testing"
 
 	"github.com/go-chi/chi"
@@ -8,7 +9,6 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database/dbinit"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 )
 
@@ -21,7 +21,7 @@ func prepareDBAndAPIForUser(t *testing.T, userName string) (*chi.Mux, string) {
 			TokenExpirationHour: -1,
 		},
 	}
-	dbinit.InitMockDB()
+	driver.InitMockDB()
 	if userName == "" {
 		userName = MockRootUser
 	}

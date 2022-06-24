@@ -17,11 +17,11 @@ limitations under the License.
 package user
 
 import (
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database/dbinit"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 )
 
@@ -33,7 +33,7 @@ const (
 )
 
 func TestCreateUser(t *testing.T) {
-	dbinit.InitMockDB()
+	driver.InitMockDB()
 	ctx := &logger.RequestContext{UserName: MockRootUser}
 
 	// bad case
@@ -46,7 +46,7 @@ func TestCreateUser(t *testing.T) {
 }
 
 func TestUpdateUser(t *testing.T) {
-	dbinit.InitMockDB()
+	driver.InitMockDB()
 	ctx := &logger.RequestContext{UserName: MockRootUser}
 
 	resp, err := CreateUser(ctx, MockUser1, MockPW)

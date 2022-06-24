@@ -18,12 +18,12 @@ package flavour
 
 import (
 	"fmt"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database/dbinit"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
 
@@ -55,7 +55,7 @@ func initCluster(t *testing.T) {
 }
 
 func TestListFlavour(t *testing.T) {
-	dbinit.InitMockDB()
+	driver.InitMockDB()
 
 	initCluster(t)
 	// insert flavour
@@ -97,7 +97,7 @@ func TestListFlavour(t *testing.T) {
 }
 
 func TestCreateFlavour(t *testing.T) {
-	dbinit.InitMockDB()
+	driver.InitMockDB()
 	initCluster(t)
 	createFlavourReq := CreateFlavourRequest{
 		Name: MockFlavourName,

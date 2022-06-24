@@ -19,6 +19,7 @@ package queue
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 	"reflect"
 	"testing"
 
@@ -28,7 +29,6 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database/dbinit"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
@@ -61,7 +61,7 @@ func TestCreateQueue(t *testing.T) {
 	err := config.InitConfigFromYaml(ServerConf, "../../../../config/server/default/paddleserver.yaml")
 	config.GlobalServerConfig = ServerConf
 
-	dbinit.InitMockDB()
+	driver.InitMockDB()
 	ctx := &logger.RequestContext{UserName: MockRootUser}
 
 	assert.Nil(t, models.CreateCluster(&clusterInfo))
@@ -165,7 +165,7 @@ func TestCloseAndDeleteQueue(t *testing.T) {
 
 // TestMarshalJSONForTime test for time format
 func TestMarshalJSONForTime(t *testing.T) {
-	dbinit.InitMockDB()
+	driver.InitMockDB()
 	queue := models.Queue{
 		Name: "mockQueueName",
 	}

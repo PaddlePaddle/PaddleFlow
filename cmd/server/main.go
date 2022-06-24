@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 	"net/http"
 	"os"
 	"os/signal"
@@ -22,8 +24,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	v1 "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/v1"
 	config "github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database/dbinit"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/version"
@@ -51,11 +51,11 @@ func Main(args []string) error {
 	}
 
 	compoundFlags := [][]cli.Flag{
+		logger.LogFlags(&ServerConf.Log),
 		flag.ApiServerFlags(&ServerConf.ApiServer),
 		flag.JobFlags(&ServerConf.Job),
 		flag.FilesystemFlags(&ServerConf.Fs),
-		logger.LogFlags(&ServerConf.Log),
-		database.DatabaseFlags(&ServerConf.Database),
+		flag.StorageFlags(&ServerConf.Storage),
 	}
 
 	app := &cli.App{
@@ -148,7 +148,7 @@ func initClusterAndQueue(serverConf *config.ServerConfig) error {
 		return nil
 	}
 	log.Info("init data for single cluster is starting")
-	if database.DB == nil {
+	if storage.DB == nil {
 		err := fmt.Errorf("please ensure call this function after db is inited")
 		log.Errorf("init failed, err: %v", err)
 		return err
@@ -167,39 +167,36 @@ func initClusterAndQueue(serverConf *config.ServerConfig) error {
 }
 
 func setup() {
-	err := logger.InitStandardFileLogger(&ServerConf.Log)
-	if err != nil {
+	if err := logger.InitStandardFileLogger(&ServerConf.Log); err != nil {
 		log.Errorf("InitStandardFileLogger err: %v", err)
 		gracefullyExit(err)
 	}
 
 	log.Infof("The final server config is: %s ", config.PrettyFormat(ServerConf))
 
-	dbConf := &ServerConf.Database
-
-	database.DB, err = dbinit.InitDatabase(&config.DatabaseConfig{
+	dbConf := &ServerConf.Storage
+	if err := driver.InitStorage(&config.StorageConfig{
 		Driver:   dbConf.Driver,
 		Host:     dbConf.Host,
 		Port:     dbConf.Port,
 		User:     dbConf.User,
 		Password: dbConf.Password,
 		Database: dbConf.Database,
-	}, nil, ServerConf.Log.Level)
-	if err != nil {
+	}, ServerConf.Log.Level); err != nil {
 		log.Errorf("init database err: %v", err)
 		gracefullyExit(err)
 	}
 
-	if err = newAndStartJobManager(); err != nil {
+	if err := newAndStartJobManager(); err != nil {
 		log.Errorf("create pfjob manager failed, err %v", err)
 		gracefullyExit(err)
 	}
 
-	if err = config.InitDefaultPV(ServerConf.Fs.DefaultPVPath); err != nil {
+	if err := config.InitDefaultPV(ServerConf.Fs.DefaultPVPath); err != nil {
 		log.Errorf("InitDefaultPV err %v", err)
 		gracefullyExit(err)
 	}
-	if err = config.InitDefaultPVC(ServerConf.Fs.DefaultPVCPath); err != nil {
+	if err := config.InitDefaultPVC(ServerConf.Fs.DefaultPVCPath); err != nil {
 		log.Errorf("InitDefaultPVC err %v", err)
 		gracefullyExit(err)
 	}

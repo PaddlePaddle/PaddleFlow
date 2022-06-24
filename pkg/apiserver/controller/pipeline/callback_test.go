@@ -19,6 +19,7 @@ package pipeline
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 	"io/ioutil"
 	"testing"
 
@@ -26,7 +27,6 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database/dbinit"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
@@ -56,7 +56,7 @@ func loadCase(casePath string) []byte {
 }
 
 func TestGetJobByRun(t *testing.T) {
-	dbinit.InitMockDB()
+	driver.InitMockDB()
 	ctx := &logger.RequestContext{UserName: MockRootUser}
 	run := getMockRunWithRuntime()
 	runID, err := models.CreateRun(ctx.Logging(), &run)

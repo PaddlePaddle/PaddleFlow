@@ -22,7 +22,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 type ArtifactEvent struct {
@@ -57,7 +57,7 @@ func (a *ArtifactEvent) decode() error {
 
 func CreateArtifactEvent(logEntry *log.Entry, artifact ArtifactEvent) error {
 	logEntry.Debugf("begin create artifact: %+v", artifact)
-	tx := database.DB.Model(&ArtifactEvent{}).Create(&artifact)
+	tx := storage.DB.Model(&ArtifactEvent{}).Create(&artifact)
 	if tx.Error != nil {
 		logEntry.Errorf("create artifact: %v failed. error:%v", artifact, tx.Error)
 		return tx.Error
@@ -68,7 +68,7 @@ func CreateArtifactEvent(logEntry *log.Entry, artifact ArtifactEvent) error {
 func CountArtifactEvent(logEntry *log.Entry, fsID, artifactPath string) (int64, error) {
 	logEntry.Debugf("get artifact count. fsID:%s, artifactPath: %s", fsID, artifactPath)
 	var count int64
-	tx := database.DB.Model(&ArtifactEvent{}).Where(&ArtifactEvent{FsID: fsID, ArtifactPath: artifactPath}).Count(&count)
+	tx := storage.DB.Model(&ArtifactEvent{}).Where(&ArtifactEvent{FsID: fsID, ArtifactPath: artifactPath}).Count(&count)
 	if tx.Error != nil {
 		logEntry.Errorf("get artifact count failed. error:%s", tx.Error.Error())
 		return 0, tx.Error
@@ -79,7 +79,7 @@ func CountArtifactEvent(logEntry *log.Entry, fsID, artifactPath string) (int64, 
 func GetArtifactEvent(logEntry *log.Entry, runID, fsID, artifactPath string) (ArtifactEvent, error) {
 	logEntry.Debugf("begin get artifact. runID:%s, fsID:%s, artifactPath:%s", runID, fsID, artifactPath)
 	var artifact ArtifactEvent
-	tx := database.DB.Model(&ArtifactEvent{}).Where(&ArtifactEvent{RunID: runID, FsID: fsID, ArtifactPath: artifactPath}).Last(&artifact)
+	tx := storage.DB.Model(&ArtifactEvent{}).Where(&ArtifactEvent{RunID: runID, FsID: fsID, ArtifactPath: artifactPath}).Last(&artifact)
 	if tx.Error != nil {
 		logEntry.Errorf("get artifact failed. runID:%s, fsID:%s, artifactPath:%s. error:%v", runID, fsID, artifactPath, tx.Error)
 		return ArtifactEvent{}, tx.Error
@@ -93,7 +93,7 @@ func GetArtifactEvent(logEntry *log.Entry, runID, fsID, artifactPath string) (Ar
 
 func UpdateArtifactEvent(logEntry *log.Entry, fsID, artifactPath string, artifact ArtifactEvent) error {
 	logEntry.Debugf("begin update artifact. fsID:%s, artifactPath:%s", fsID, artifactPath)
-	tx := database.DB.Model(&ArtifactEvent{}).Where("fs_id = ? AND artifact_path = ?", fsID, artifactPath).Updates(artifact)
+	tx := storage.DB.Model(&ArtifactEvent{}).Where("fs_id = ? AND artifact_path = ?", fsID, artifactPath).Updates(artifact)
 	if tx.Error != nil {
 		logEntry.Errorf("update artifact failed. fsID:%s, artifactPath:%s, error:%s",
 			fsID, artifactPath, tx.Error.Error())
@@ -104,7 +104,7 @@ func UpdateArtifactEvent(logEntry *log.Entry, fsID, artifactPath string, artifac
 
 func DeleteArtifactEvent(logEntry *log.Entry, username, fsname, runID, artifactPath string) error {
 	logEntry.Debugf("begin delete artifact_event username:%s, fsname:%s, runID:%s, artifactPath:%s", username, fsname, runID, artifactPath)
-	tx := database.DB.Model(&ArtifactEvent{}).Unscoped().Where(
+	tx := storage.DB.Model(&ArtifactEvent{}).Unscoped().Where(
 		&ArtifactEvent{UserName: username, FsName: fsname, RunID: runID, ArtifactPath: artifactPath}).Delete(&ArtifactEvent{})
 	if tx.Error != nil {
 		logEntry.Errorf("delete artifact failed. username:%s, fsname:%s, runID:%s, artifactPath:%s. error:%v",
@@ -117,7 +117,7 @@ func DeleteArtifactEvent(logEntry *log.Entry, username, fsname, runID, artifactP
 func ListArtifactEvent(logEntry *log.Entry, pk int64, maxKeys int, userFilter, fsFilter, runFilter, typeFilter, pathFilter []string) ([]ArtifactEvent, error) {
 	logEntry.Debugf("begin list artifact. Filters: user{%v}, fs{%v}, run{%v}, type{%v}, path{%v}",
 		userFilter, fsFilter, runFilter, typeFilter, pathFilter)
-	tx := database.DB.Model(&ArtifactEvent{}).Where("pk > ?", pk)
+	tx := storage.DB.Model(&ArtifactEvent{}).Where("pk > ?", pk)
 	if len(userFilter) > 0 {
 		tx = tx.Where("user_name IN (?)", userFilter)
 	}
@@ -156,7 +156,7 @@ func ListArtifactEvent(logEntry *log.Entry, pk int64, maxKeys int, userFilter, f
 func GetLastArtifactEvent(logEntry *log.Entry) (ArtifactEvent, error) {
 	logEntry.Debugf("get last ArtifactEvent")
 	art := ArtifactEvent{}
-	tx := database.DB.Model(&ArtifactEvent{}).Last(&art)
+	tx := storage.DB.Model(&ArtifactEvent{}).Last(&art)
 	if tx.Error != nil {
 		logEntry.Errorf("get last ArtifactEvent failed. error:%s", tx.Error.Error())
 		return ArtifactEvent{}, tx.Error

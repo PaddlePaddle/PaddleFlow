@@ -17,6 +17,7 @@ limitations under the License.
 package executor
 
 import (
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 	"net/http/httptest"
 	"testing"
 
@@ -27,7 +28,6 @@ import (
 	sparkapp "github.com/PaddlePaddle/PaddleFlow/pkg/apis/spark-operator/sparkoperator.k8s.io/v1beta2"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database/dbinit"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
@@ -196,7 +196,7 @@ func TestSparkApp_CreateJob(t *testing.T) {
 	defer server.Close()
 	dynamicClient := newFakeDynamicClient(server)
 	// mock db
-	dbinit.InitMockDB()
+	driver.InitMockDB()
 	// create kubernetes resource with dynamic client
 	tests := []struct {
 		caseName string

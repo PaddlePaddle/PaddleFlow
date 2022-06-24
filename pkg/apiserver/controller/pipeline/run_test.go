@@ -17,13 +17,13 @@ limitations under the License.
 package pipeline
 
 import (
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database/dbinit"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/pipeline"
@@ -75,7 +75,7 @@ func getMockRun2() models.Run {
 }
 
 func TestListRunSuccess(t *testing.T) {
-	dbinit.InitMockDB()
+	driver.InitMockDB()
 	ctx1 := &logger.RequestContext{UserName: MockRootUser}
 	ctx2 := &logger.RequestContext{UserName: MockUserID2}
 	var err error
@@ -104,7 +104,7 @@ func TestListRunSuccess(t *testing.T) {
 }
 
 func TestGetRunSuccess(t *testing.T) {
-	dbinit.InitMockDB()
+	driver.InitMockDB()
 	ctx := &logger.RequestContext{UserName: MockRootUser}
 	var err error
 	// test no runtime
@@ -120,7 +120,7 @@ func TestGetRunSuccess(t *testing.T) {
 }
 
 func TestGetRunFail(t *testing.T) {
-	dbinit.InitMockDB()
+	driver.InitMockDB()
 	var err error
 	ctx := &logger.RequestContext{UserName: MockRootUser}
 	run1 := getMockRun1()
@@ -139,7 +139,7 @@ func TestGetRunFail(t *testing.T) {
 }
 
 func TestCallback(t *testing.T) {
-	dbinit.InitMockDB()
+	driver.InitMockDB()
 	var err error
 	ctx := &logger.RequestContext{UserName: MockRootUser}
 

@@ -17,13 +17,13 @@ limitations under the License.
 package executor
 
 import (
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database/dbinit"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
@@ -83,7 +83,7 @@ func TestWorkflowJob(t *testing.T) {
 	defer server.Close()
 	dynamicClient := newFakeDynamicClient(server)
 	// mock db
-	dbinit.InitMockDB()
+	driver.InitMockDB()
 	// create kubernetes resource with dynamic client
 	tests := []struct {
 		caseName string

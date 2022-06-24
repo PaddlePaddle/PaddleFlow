@@ -140,7 +140,7 @@ data:
               - name: ps-name
                 image: registry.baidubce.com/paddlecloud/demo-wide-and-deep:v1
   paddleserver.yaml: |2
-      database:
+      storage:
           driver: sqlite
           host: 127.0.0.1
           port: 3306

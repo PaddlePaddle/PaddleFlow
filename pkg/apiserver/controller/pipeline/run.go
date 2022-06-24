@@ -21,6 +21,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	errors2 "github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -32,7 +33,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/pipeline"
@@ -790,7 +790,7 @@ func InitAndResumeRuns() (*handler.ImageHandler, error) {
 func resumeActiveRuns() error {
 	runList, err := models.ListRunsByStatus(logger.Logger(), common.RunActiveStatus)
 	if err != nil {
-		if database.GetErrorCode(err) == database.ErrorRecordNotFound {
+		if errors2.GetErrorCode(err) == errors2.ErrorRecordNotFound {
 			logger.LoggerForRun("").Infof("ResumeActiveRuns: no active runs to resume")
 			return nil
 		} else {

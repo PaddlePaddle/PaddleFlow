@@ -18,6 +18,7 @@ package controller
 
 import (
 	"context"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 	"net/http/httptest"
 	"testing"
 	"time"
@@ -37,7 +38,6 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database/dbinit"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	commonschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
@@ -150,7 +150,7 @@ func TestQueueSync(t *testing.T) {
 		},
 	}
 
-	dbinit.InitMockDB()
+	driver.InitMockDB()
 	c := newFakeQueueSyncController()
 	stopCh := make(chan struct{})
 	defer close(stopCh)
