@@ -2,6 +2,7 @@ package errors
 
 import (
 	"encoding/json"
+	"github.com/google/martian/log"
 	"github.com/sirupsen/logrus"
 )
 
@@ -23,7 +24,10 @@ type GormErr struct {
 func GetErrorCode(err error) string {
 	byteErr, _ := json.Marshal(err)
 	var gormErr GormErr
-	json.Unmarshal(byteErr, &gormErr)
+	if err := json.Unmarshal(byteErr, &gormErr); err != nil {
+		log.Errorf("unmarshal gorm error[%s] failed: %v", string(byteErr), err)
+		return ErrorUnknown
+	}
 	switch gormErr.Number {
 	case ErrNoDuplicateEntry:
 		logrus.Errorf("database key is duplicated. err:%s", gormErr.Message)

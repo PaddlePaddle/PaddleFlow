@@ -260,7 +260,7 @@ func CloseQueue(queueName string) error {
 
 func DeleteQueue(queueName string) error {
 	log.Infof("begin delete queue. queueName:%s", queueName)
-	storage.DB.Transaction(func(tx *gorm.DB) error {
+	return storage.DB.Transaction(func(tx *gorm.DB) error {
 		t := tx.Table("queue").Unscoped().Where("name = ?", queueName).Delete(&Queue{})
 		if t.Error != nil {
 			log.Errorf("delete queue failed. queueName:%s, error:%s",
@@ -276,8 +276,6 @@ func DeleteQueue(queueName string) error {
 		}
 		return nil
 	})
-
-	return nil
 }
 
 func IsQueueExist(queueName string) bool {
