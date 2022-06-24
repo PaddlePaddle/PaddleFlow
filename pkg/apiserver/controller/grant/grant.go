@@ -22,7 +22,7 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
+	gormErrors "github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
@@ -130,7 +130,7 @@ func CreateGrant(ctx *logger.RequestContext, grantInfo CreateGrantRequest) (*Cre
 	err := storage.Auth.CreateGrant(ctx, &grant)
 	if err != nil {
 		ctx.Logging().Errorf("create grant failed. error:%s", err.Error())
-		if database.GetErrorCode(err) == database.ErrorKeyIsDuplicated {
+		if gormErrors.GetErrorCode(err) == gormErrors.ErrorKeyIsDuplicated {
 			ctx.ErrorCode = common.QueueNameDuplicated
 		} else {
 			ctx.ErrorCode = common.InternalError

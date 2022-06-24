@@ -23,8 +23,8 @@ import (
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 const (
@@ -96,7 +96,7 @@ func generateDeletedUuidStr() string {
 
 func CreateCluster(clusterInfo *ClusterInfo) error {
 	log.Debugf("begin create cluster, cluster name:%s", clusterInfo.Name)
-	tx := database.DB.Table("cluster_info").Create(clusterInfo)
+	tx := storage.DB.Table("cluster_info").Create(clusterInfo)
 	if tx.Error != nil {
 		log.Errorf("create cluster failed. queue:%v, error:%s",
 			clusterInfo.Name, tx.Error.Error())
@@ -110,7 +110,7 @@ func ListCluster(pk int64, maxKeys int, clusterNameList []string, clusterStatus 
 	log.Debugf("list cluster, pk: %d, maxKeys: %d", pk, maxKeys)
 
 	var clusterList []ClusterInfo
-	query := database.DB.Table("cluster_info").Where("deleted_at = '' AND pk > ?", pk)
+	query := storage.DB.Table("cluster_info").Where("deleted_at = '' AND pk > ?", pk)
 
 	if len(clusterNameList) > 0 {
 		query = query.Where(" name in ?", clusterNameList)
@@ -135,7 +135,7 @@ func GetLastCluster() (ClusterInfo, error) {
 	log.Debugf("model get last cluster. ")
 
 	clusterInfo := ClusterInfo{}
-	tx := database.DB.Table("cluster_info").Where("deleted_at = ''").Last(&clusterInfo)
+	tx := storage.DB.Table("cluster_info").Where("deleted_at = ''").Last(&clusterInfo)
 	if tx.Error != nil {
 		log.Errorf("get last cluster failed. error:%s", tx.Error.Error())
 		return ClusterInfo{}, tx.Error
@@ -147,7 +147,7 @@ func GetClusterByName(clusterName string) (ClusterInfo, error) {
 	log.Debugf("start to get cluster. clusterName: %s", clusterName)
 
 	var clusterInfo ClusterInfo
-	tx := database.DB.Table("cluster_info").Where("name = ? AND deleted_at = ''", clusterName)
+	tx := storage.DB.Table("cluster_info").Where("name = ? AND deleted_at = ''", clusterName)
 	tx = tx.First(&clusterInfo)
 
 	if tx.Error != nil {
@@ -163,7 +163,7 @@ func GetClusterById(clusterId string) (ClusterInfo, error) {
 	log.Debugf("start to get cluster. clusterId: %s", clusterId)
 
 	var clusterInfo ClusterInfo
-	tx := database.DB.Table("cluster_info").Where("id = ? AND deleted_at = '' ", clusterId)
+	tx := storage.DB.Table("cluster_info").Where("id = ? AND deleted_at = '' ", clusterId)
 	tx = tx.First(&clusterInfo)
 
 	if tx.Error != nil {
@@ -197,7 +197,7 @@ func DeleteCluster(clusterName string) error {
 
 func UpdateCluster(clusterId string, clusterInfo *ClusterInfo) error {
 	log.Debugf("start to update cluster. clusterId:%s", clusterId)
-	err := database.DB.Table("cluster_info").Where("id = ?", clusterId).Updates(clusterInfo).Error
+	err := storage.DB.Table("cluster_info").Where("id = ?", clusterId).Updates(clusterInfo).Error
 	if err != nil {
 		log.Errorf("update cluster failed. clusterId:%s, error:%s",
 			clusterId, err.Error())
@@ -207,7 +207,7 @@ func UpdateCluster(clusterId string, clusterInfo *ClusterInfo) error {
 }
 
 func ActiveClusters() []ClusterInfo {
-	db := database.DB.Table("cluster_info").Where("deleted_at = '' ")
+	db := storage.DB.Table("cluster_info").Where("deleted_at = '' ")
 
 	var clusterList []ClusterInfo
 	err := db.Find(&clusterList).Error

@@ -21,13 +21,13 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database/dbinit"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 )
 
 func TestListMountNodesByFsID(t *testing.T) {
-	dbinit.InitMockDB()
+	driver.InitMockDB()
 
 	fsID1, fsID2, cacheDir1, cacheDir2, nodeName1, nodeName2, clusterID :=
 		"fs-root-1", "fs-root-2", "/mnt/fs-root-1/storage", "/mnt/fs-root-2/storage", "node1", "node2", ""

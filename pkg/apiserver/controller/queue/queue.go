@@ -28,7 +28,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
+	gormErrors "github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
@@ -277,7 +277,7 @@ func CreateQueue(ctx *logger.RequestContext, request *CreateQueueRequest) (Creat
 	err = models.CreateQueue(&queueInfo)
 	if err != nil {
 		ctx.Logging().Errorf("create request failed. error:%s", err.Error())
-		if database.GetErrorCode(err) == database.ErrorKeyIsDuplicated {
+		if gormErrors.GetErrorCode(err) == gormErrors.ErrorKeyIsDuplicated {
 			ctx.ErrorCode = common.QueueNameDuplicated
 		} else {
 			ctx.ErrorCode = common.InternalError
