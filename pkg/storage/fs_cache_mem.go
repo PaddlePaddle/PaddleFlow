@@ -18,93 +18,16 @@ package storage
 
 import (
 	"errors"
-	"fmt"
 	"sync"
-
-	"gorm.io/gorm"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
-
-// FsCacheStoreInterface currently has two implementations: DB and memory
-// use newMemFSCache() or newDBFSCache(db *gorm.DB) to initiate
-type FsCacheStoreInterface interface {
-	Add(value *model.FSCache) error
-	Get(fsID string, cacheID string) (*model.FSCache, error)
-	Delete(fsID, cacheID string) error
-	List(fsID, cacheID string) ([]model.FSCache, error)
-	Update(value *model.FSCache) (int64, error)
-}
-
-func NewFsCacheStore(db *gorm.DB) FsCacheStoreInterface {
-	// default use db storage, mem used in the future maybe as the cache for db
-	return newDBFSCache(db)
-}
 
 func newMemFSCache() *MemFSCache {
 	m := new(MemFSCache)
 	m.fsCacheMap = newFSCacheMap()
 	return m
 }
-
-func newDBFSCache(db *gorm.DB) FsCacheStoreInterface {
-	n := new(DBFSCache)
-	n.db = db
-	return n
-}
-
-// ============================================= DB implementation ============================================= //
-
-type DBFSCache struct {
-	db *gorm.DB
-}
-
-func (f *DBFSCache) Add(value *model.FSCache) error {
-	return f.db.Create(value).Error
-}
-
-func (f *DBFSCache) Get(fsID string, cacheID string) (*model.FSCache, error) {
-	var fsCache model.FSCache
-	tx := f.db.Where(&model.FSCache{FsID: fsID, CacheID: cacheID}).First(&fsCache)
-	if tx.Error != nil {
-		return nil, tx.Error
-	}
-	return &fsCache, nil
-}
-
-func (f *DBFSCache) Delete(fsID, cacheID string) error {
-	result := f.db
-	if fsID != "" {
-		result.Where(fmt.Sprintf(QueryEqualWithParam, FsID), fsID)
-	}
-	if cacheID != "" {
-		result.Where(fmt.Sprintf(QueryEqualWithParam, FsCacheID), cacheID)
-	}
-	// todo:// change to soft delete , update deleteAt = xx
-	return result.Delete(&model.FSCache{}).Error
-}
-
-func (f *DBFSCache) List(fsID, cacheID string) ([]model.FSCache, error) {
-	if fsID != "" {
-		f.db.Where(fmt.Sprintf(QueryEqualWithParam, FsID), fsID)
-	}
-	if cacheID != "" {
-		f.db.Where(fmt.Sprintf(QueryEqualWithParam, FsCacheID), cacheID)
-	}
-	var fsCaches []model.FSCache
-	err := f.db.Find(&fsCaches).Error
-	if err != nil {
-		return nil, err
-	}
-	return fsCaches, nil
-}
-
-func (f *DBFSCache) Update(value *model.FSCache) (int64, error) {
-	result := f.db.Where(&model.FSCache{FsID: value.FsID, CacheID: value.CacheID}).Updates(value)
-	return result.RowsAffected, result.Error
-}
-
-// ============================================= memory implementation ============================================= //
 
 type ConcurrentFSCacheMap struct {
 	sync.RWMutex
@@ -189,6 +112,9 @@ type MemFSCache struct {
 }
 
 func (mem *MemFSCache) Add(value *model.FSCache) error {
+	if value.CacheID == "" {
+		value.CacheID = model.CacheID(value.ClusterID, value.NodeName, value.CacheDir)
+	}
 	mem.fsCacheMap.Put(value.FsID, value)
 	return nil
 }
@@ -213,6 +139,20 @@ func (mem *MemFSCache) List(fsID, cacheID string) ([]model.FSCache, error) {
 	return retMap, nil
 }
 
+func (mem *MemFSCache) ListNodes(fsIDs []string) ([]string, error) {
+	nodeList := make([]string, 0)
+	for _, fsID := range fsIDs {
+		cacheMap := mem.fsCacheMap.GetBatch(fsID)
+		for _, cache := range cacheMap {
+			nodeList = append(nodeList, cache.NodeName)
+		}
+	}
+	return nodeList, nil
+}
+
 func (mem *MemFSCache) Update(value *model.FSCache) (int64, error) {
+	//if value.CacheID == "" {
+	//	value.CacheID = model.CacheID(value.ClusterID, value.NodeName, value.CacheDir)
+	//}
 	return 0, nil
 }
