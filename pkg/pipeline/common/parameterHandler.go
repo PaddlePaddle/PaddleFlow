@@ -314,7 +314,7 @@ func (s *StepParamChecker) checkParamValue(compName string, paramName string, pa
 		return nil
 	case string:
 		return s.resolveRefParam(compName, param.(string), fieldType)
-	case map[interface{}]interface{}:
+	case map[string]interface{}:
 		dictParam := DictParam{}
 		if err := dictParam.From(param); err != nil {
 			return fmt.Errorf("invalid dict parameter[%s]", param)
@@ -445,7 +445,7 @@ func (s *StepParamChecker) refParamExist(currentCompName, refCompName, refParamN
 			return fmt.Errorf("invalid reference param {{ %s.%s }} in step[%s]: parameter[%s] not exist", refCompName, refParamName, currentCompName, refParamName)
 		}
 	default:
-		return fmt.Errorf("only parameters can use upstream parameters and only input artifacts can use upstream output artifacts")
+		return fmt.Errorf("component [%s] refer [%s] invalid, only parameters can use upstream parameters and only input artifacts can use upstream output artifacts", currentCompName, refCompName)
 	}
 
 	return nil
