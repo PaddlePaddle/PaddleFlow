@@ -41,6 +41,7 @@ type Job interface {
 	Terminated() bool
 	Skipped() bool
 	NotEnded() bool
+	JobID() string
 }
 
 func NewBaseJob(name string) *BaseJob {
@@ -274,6 +275,10 @@ func (pfj *PaddleFlowJob) Started() bool {
 
 func (pfj *PaddleFlowJob) Job() BaseJob {
 	return pfj.BaseJob
+}
+
+func (pfj *PaddleFlowJob) JobID() string {
+	return pfj.ID
 }
 
 // ----------------------------------------------------------------------------

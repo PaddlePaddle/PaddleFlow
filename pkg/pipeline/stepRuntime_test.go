@@ -15,6 +15,8 @@ import (
 	pplcommon "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
+
+	apicommon "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 )
 
 func loadcase(casePath string) []byte {
@@ -48,15 +50,25 @@ func GetExtra() map[string]string {
 	return extra
 }
 
+var updateRuntimeCalled = false
+
+var LogCacheCbCalled = false
+
+var ListCacheCbCalled = false
+
 var mockCbs = WorkflowCallbacks{
 	UpdateRuntimeCb: func(runID string, event interface{}) (int64, bool) {
 		fmt.Println("UpdateRunCb: ", event)
+		updateRuntimeCalled = true
 		return 1, true
 	},
 	LogCacheCb: func(req schema.LogRunCacheRequest) (string, error) {
+		ListCacheCbCalled = true
+
 		return "cch-000027", nil
 	},
 	ListCacheCb: func(firstFp, fsID, yamlPath string) ([]models.RunCache, error) {
+		ListCacheCbCalled = true
 		return []models.RunCache{models.RunCache{RunID: "run-000027", JobID: "job-1"},
 			models.RunCache{RunID: "run-000028", JobID: "job-2"}}, nil
 	},
@@ -292,7 +304,7 @@ func TestCheckCached(t *testing.T) {
 	wfs, err := schema.GetWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
-	mockCbs.GetJobCb = func(runID string, stepName string) (schema.JobView, error) {
+	mockCbs.GetJobCb = func(jobID string, stepName string) (schema.JobView, error) {
 		outAtfs := map[string]string{
 			"train_data":    "way/to/train_data",
 			"validate_data": "way/to/validate_data",
@@ -400,4 +412,149 @@ func TestCheckCached(t *testing.T) {
 	cacheFound, err = srt.checkCached()
 	assert.Nil(t, err)
 	assert.Equal(t, true, cacheFound)
+}
+
+func mockToListenEvent(ec chan WorkflowEvent, ep *WorkflowEvent) {
+	*ep = <-ec
+	fmt.Println("hahahahahahahahahahah+++++++++")
+}
+
+func TestNewStepRuntimeWithStatus(t *testing.T) {
+	handler.NewFsHandlerWithServer = handler.MockerNewFsHandlerWithServer
+	testCase := loadcase(runYamlPath)
+	wfs, err := schema.GetWorkflowSource([]byte(testCase))
+	assert.Nil(t, err)
+
+	rf := mockRunConfigForComponentRuntime()
+	rf.WorkflowSource = &wfs
+	rf.callbacks = mockCbs
+
+	extra := GetExtra()
+	wfptr, err := NewWorkflow(wfs, rf.runID, map[string]interface{}{}, extra, rf.callbacks)
+	assert.Nil(t, err)
+
+	wfs = wfptr.Source
+
+	failctx, _ := context.WithCancel(context.Background())
+	dr := NewDagRuntime("", &wfs.EntryPoints, 0, context.Background(), failctx, make(chan<- WorkflowEvent), rf, "0")
+	dr.setSysParams()
+
+	updateRuntimeCalled = false
+	eventChan := make(chan WorkflowEvent)
+	ep := &WorkflowEvent{}
+	go mockToListenEvent(eventChan, ep)
+
+	st := wfs.EntryPoints.EntryPoints["data-preprocess"]
+	srt := newStepRuntimeWithStatus("data-preprocess", st.(*schema.WorkflowSourceStep), 0, context.Background(), failctx,
+		eventChan, rf, "dag-11", StatusRuntimeFailed, "failed hahah")
+
+	assert.True(t, updateRuntimeCalled)
+
+	time.Sleep(time.Millisecond * 100)
+
+	assert.True(t, ep.isJobUpdate())
+	assert.True(t, srt.done)
+
+	assert.Equal(t, ep.Message, "failed hahah")
+
+	fmt.Println(ep.Extra[apicommon.WfEventKeyRunID])
+	assert.Equal(t, ep.Extra[apicommon.WfEventKeyRunID], "run-000001")
+}
+
+func TestExecute(t *testing.T) {
+	handler.NewFsHandlerWithServer = handler.MockerNewFsHandlerWithServer
+	testCase := loadcase(runYamlPath)
+	wfs, err := schema.GetWorkflowSource([]byte(testCase))
+	assert.Nil(t, err)
+
+	rf := mockRunConfigForComponentRuntime()
+	rf.WorkflowSource = &wfs
+	rf.callbacks = mockCbs
+
+	extra := GetExtra()
+	wfptr, err := NewWorkflow(wfs, rf.runID, map[string]interface{}{}, extra, rf.callbacks)
+	assert.Nil(t, err)
+
+	wfs = wfptr.Source
+
+	failctx, _ := context.WithCancel(context.Background())
+	dr := NewDagRuntime("", &wfs.EntryPoints, 0, context.Background(), failctx, make(chan<- WorkflowEvent), rf, "0")
+	dr.setSysParams()
+
+	updateRuntimeCalled = false
+	eventChan := make(chan WorkflowEvent)
+	// ep := &WorkflowEvent{}
+	// go mockToListenEvent(eventChan, ep)
+
+	st := wfs.EntryPoints.EntryPoints["data-preprocess"].(*schema.WorkflowSourceStep)
+	st.Artifacts.Input = map[string]string{}
+	st.GetArtifacts().Input["abc"] = "./abc"
+	srt := NewStepRuntime("data-preprocess", st, 0, context.Background(), failctx,
+		eventChan, rf, "dag-11")
+	srt.setSysParams()
+
+	// 1、没有开启cache
+	patches := gomonkey.ApplyMethod(reflect.TypeOf(srt.job), "Validate", func(_ *PaddleFlowJob) error {
+		return nil
+	})
+	defer patches.Reset()
+
+	patch1 := gomonkey.ApplyMethod(reflect.TypeOf(srt.job), "Start", func(_ *PaddleFlowJob) (string, error) {
+		return "job-001", nil
+	})
+	defer patch1.Reset()
+
+	artifactLoged := false
+	srt.runConfig.callbacks.LogArtifactCb = func(req schema.LogRunArtifactRequest) error {
+		artifactLoged = true
+		return nil
+	}
+
+	srt.parallelismManager.increase()
+	srt.Execute()
+
+	assert.Equal(t, artifactLoged, true)
+
+	srt.updateStatus(StatusRuntimeCancelled)
+	assert.Equal(t, srt.parallelismManager.CurrentParallelism(), 0)
+
+	// 2、开启了cache， 且命中的情况
+
+	st.Cache.Enable = true
+	srt = NewStepRuntime("data-preprocess", st, 0, context.Background(), failctx,
+		eventChan, rf, "dag-11")
+
+	cacheCaculator, err := NewCacheCalculator(*srt, wfs.Cache)
+	patch12 := gomonkey.ApplyMethod(reflect.TypeOf(cacheCaculator), "CalculateFirstFingerprint", func(_ *conservativeCacheCalculator) (string, error) {
+		return "1111", nil
+	})
+	defer patch12.Reset()
+
+	patch22 := gomonkey.ApplyMethod(reflect.TypeOf(cacheCaculator), "CalculateSecondFingerprint", func(_ *conservativeCacheCalculator) (string, error) {
+		return "2222", nil
+	})
+	defer patch22.Reset()
+
+	rf.callbacks.GetJobCb = func(jobID string, stepName string) (schema.JobView, error) {
+		outAtfs := map[string]string{
+			"train_data":    "way/to/train_data",
+			"validate_data": "way/to/validate_data",
+		}
+		return schema.JobView{Artifacts: schema.Artifacts{Output: outAtfs}, Status: StatusRuntimeSucceeded}, nil
+	}
+
+	updateTime := time.Now().Add(time.Second * time.Duration(-1*100))
+	rf.callbacks.ListCacheCb = func(firstFp, fsID, yamlPath string) ([]models.RunCache, error) {
+		return []models.RunCache{
+			models.RunCache{FirstFp: "1111", SecondFp: "2222", RunID: "run-000027", JobID: "job-001",
+				UpdatedAt: updateTime, ExpiredTime: "-1"},
+		}, nil
+	}
+
+	fmt.Println("1222/++++++++++++++++++")
+	srt.parallelismManager.increase()
+	srt.Execute()
+
+	assert.Equal(t, srt.status, StatusRuntimeSucceeded)
+	assert.Equal(t, srt.parallelismManager.CurrentParallelism(), 0)
 }

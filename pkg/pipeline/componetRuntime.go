@@ -32,7 +32,7 @@ type RuntimeStatus = schema.JobStatus
 
 var (
 	StatusRuntimeInit        RuntimeStatus = schema.StatusJobInit
-	StatusRunttimePending    RuntimeStatus = schema.StatusJobPending
+	StatusRuntimePending     RuntimeStatus = schema.StatusJobPending
 	StatusRuntimeRunning     RuntimeStatus = schema.StatusJobRunning
 	StatusRuntimeFailed      RuntimeStatus = schema.StatusJobFailed
 	StatusRuntimeSucceeded   RuntimeStatus = schema.StatusJobSucceeded
@@ -318,20 +318,22 @@ func (crt *baseComponentRuntime) CalculateCondition() (bool, error) {
 
 func (crt *baseComponentRuntime) syncToApiServerAndParent(wv WfEventValue, view schema.ComponentView, msg string) {
 	extra := map[string]interface{}{
-		common.WfEventKeyRunID:         crt.runID,
-		common.WfEventKeyPK:            crt.pk,
-		common.WfEventKeyStatus:        crt.status,
-		common.WfEventKeyView:          view,
-		common.WfEventKeyComponentName: crt.component.GetName(),
+		common.WfEventKeyRunID:  crt.runID,
+		common.WfEventKeyStatus: crt.status,
+		common.WfEventKeyView:   view,
 	}
-
 	event := NewWorkflowEvent(wv, msg, extra)
-
 	// 调用回调函数，将信息同步至 apiserver
-	crt.callback(event)
 
+	crt.callback(event)
+	fmt.Println("callback")
 	// 将事件冒泡给父节点
-	crt.sendEventToParent <- *event
+	// 这里使用协程
+	go func() {
+		crt.sendEventToParent <- *event
+	}()
+
+	fmt.Println("event")
 }
 
 func (crt *baseComponentRuntime) callback(event *WorkflowEvent) {

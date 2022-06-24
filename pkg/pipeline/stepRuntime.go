@@ -65,7 +65,6 @@ func NewStepRuntime(fullName string, step *schema.WorkflowSourceStep, seq int, c
 	job := NewPaddleFlowJob(jobName, srt.DockerEnv, srt.receiveEventChildren)
 	srt.job = job
 
-	srt.updateStatus(StatusRunttimePending)
 	srt.logger.Debugf("step[%s] of runid[%s] before starting job: param[%s], env[%s], command[%s], artifacts[%s], deps[%s]",
 		srt.getName(), srt.runID, step.Parameters, step.Env, step.Command, step.Artifacts, step.Deps)
 
@@ -86,23 +85,29 @@ func newStepRuntimeWithStatus(fullName string, step *schema.WorkflowSourceStep, 
 	srt.updateStatus(status)
 
 	view := srt.newJobView(msg)
+
 	srt.syncToApiServerAndParent(WfEventJobUpdate, view, msg)
+
 	return srt
 }
 
-func (srt *StepRuntime) syncToApiServerAndParent(wv WfEventValue, view schema.ComponentView, msg string) {
-	if srt.done {
-		defer srt.paramllelismLock.Unlock()
-		srt.paramllelismLock.Lock()
-
-		if !srt.paramllelismFlag {
-			srt.parallelismManager.decrease()
-			srt.paramllelismFlag = true
-			srt.logger.Debugf("step[%s] has finished, and current parallelism is %d", srt.name, srt.parallelismManager.CurrentParallelism())
-		}
+func (srt *StepRuntime) updateStatus(status RuntimeStatus) error {
+	err := srt.baseComponentRuntime.updateStatus(status)
+	if err != nil {
+		// 目前，只有在处于 终态时再次更新状态时才会报err
+		srt.logger.Error(err.Error())
+		return err
 	}
 
-	srt.baseComponentRuntime.syncToApiServerAndParent(wv, view, msg)
+	defer srt.paramllelismLock.Unlock()
+	srt.paramllelismLock.Lock()
+	if srt.done {
+		srt.parallelismManager.decrease()
+		srt.logger.Debugf("step[%s] has finished, and current parallelism is %d", srt.name,
+			srt.parallelismManager.CurrentParallelism())
+	}
+
+	return nil
 }
 
 func (srt *StepRuntime) processStartAbnormalStatus(msg string, status RuntimeStatus) {
@@ -116,11 +121,13 @@ func (srt *StepRuntime) processStartAbnormalStatus(msg string, status RuntimeSta
 
 func (srt *StepRuntime) Start() {
 	// 如果达到并行Job上限，将会Block
+	srt.parallelismManager.increase()
 
 	// TODO: 此时是否需要同步至数据库？
+	srt.logger.Debugf("begin to run step[%s], and current parallelism is %d", srt.name,
+		srt.parallelismManager.CurrentParallelism())
 
-	srt.parallelismManager.increase()
-	srt.logger.Debugf("begin to run step[%s], and current parallelism is %d", srt.name, srt.parallelismManager.CurrentParallelism())
+	srt.setSysParams()
 
 	// 1、计算 condition
 	conditon, err := srt.CalculateCondition()
@@ -161,28 +168,33 @@ func (srt *StepRuntime) Start() {
 func (srt *StepRuntime) Restart(view schema.JobView) (restarted bool, err error) {
 	restarted = false
 	err = nil
+	srt.logger.Infof("begin to restart step[%s]", srt.name)
 
 	if view.Status == StatusRuntimeSucceeded {
 		return
 	}
 
+	restarted = true
+	srt.setSysParams()
+
+	if view.Status == StatusRuntimeRunning {
+		return srt.restartWithRunning(view)
+	}
+
+	// 这条支线只有当前节点为 postProcess 节点才会走
+	return srt.restartWithAbnormalStatus(view)
+}
+
+func (srt *StepRuntime) restartWithRunning(view schema.JobView) (bool, error) {
 	defer srt.processJobLock.Unlock()
 	srt.processJobLock.Lock()
 
-	go srt.Listen()
-
-	if view.Status == StatusRuntimeRunning {
-		err = srt.restartWithRunning(view)
-	} else {
-		// 这条支线只有当前节点为 postProcess 节点才会走
-		srt.restartWithAbnormalStatus(view)
-		restarted = true
+	if srt.status != "" {
+		// 此时说明其余的协程正在处理当前的运行时，因此直接退出当前协程
+		err := fmt.Errorf("inner error: cannot restart step[%s], because it's already in status[%s], "+
+			"maybe multi gorutine process this step", srt.name, srt.status)
+		return false, err
 	}
-	return
-}
-
-func (srt *StepRuntime) restartWithRunning(view schema.JobView) (err error) {
-	err = nil
 
 	srt.parallelismManager.increase()
 	srt.logger.Infof("Watch Job [%s] again", view.JobID)
@@ -190,16 +202,15 @@ func (srt *StepRuntime) restartWithRunning(view schema.JobView) (err error) {
 	srt.job = NewPaddleFlowJobWithJobView(view, srt.getWorkFlowStep().DockerEnv,
 		srt.receiveEventChildren)
 
+	go srt.Listen()
 	go srt.job.Watch()
-	return
+	return true, nil
 }
 
-func (srt *StepRuntime) restartWithAbnormalStatus(view schema.JobView) {
-	srt.logger.Infof("restart step[%s]", srt.name)
-	srt.updateStatus(StatusRunttimePending)
-
+func (srt *StepRuntime) restartWithAbnormalStatus(view schema.JobView) (bool, error) {
 	srt.Start()
-	return
+	go srt.Listen()
+	return true, nil
 }
 
 func (srt *StepRuntime) Listen() {
@@ -283,23 +294,23 @@ func (srt *StepRuntime) updateJob(forCacheFingerprint bool) error {
 	return nil
 }
 
-func (st *StepRuntime) logInputArtifact() {
-	for atfName, atfValue := range st.getComponent().GetArtifacts().Input {
+func (srt *StepRuntime) logInputArtifact() {
+	for atfName, atfValue := range srt.getComponent().GetArtifacts().Input {
 		req := schema.LogRunArtifactRequest{
-			RunID:        st.runID,
-			FsID:         st.fsID,
-			FsName:       st.fsName,
-			UserName:     st.userName,
+			RunID:        srt.runID,
+			FsID:         srt.fsID,
+			FsName:       srt.fsName,
+			UserName:     srt.userName,
 			ArtifactPath: atfValue,
-			Step:         st.CompoentFullName,
-			JobID:        st.job.Job().ID,
+			Step:         srt.getWorkFlowStep().Name,
+			JobID:        srt.job.Job().ID,
 			ArtifactName: atfName,
 			Type:         schema.ArtifactTypeInput,
 		}
 		for i := 0; i < 3; i++ {
-			st.logger.Infof("callback log input artifact [%+v]s", req)
-			if err := st.callbacks.LogArtifactCb(req); err != nil {
-				st.logger.Errorf("callback log input artifact [%+v] failed. err:%s", req, err.Error())
+			srt.logger.Infof("callback log input artifact [%+v]s", req)
+			if err := srt.callbacks.LogArtifactCb(req); err != nil {
+				srt.logger.Errorf("callback log input artifact [%+v] failed. err:%s", req, err.Error())
 				continue
 			}
 			break
@@ -307,23 +318,23 @@ func (st *StepRuntime) logInputArtifact() {
 	}
 }
 
-func (st *StepRuntime) logOutputArtifact() {
-	for atfName, atfValue := range st.component.(*schema.WorkflowSourceStep).Artifacts.Output {
+func (srt *StepRuntime) logOutputArtifact() {
+	for atfName, atfValue := range srt.component.(*schema.WorkflowSourceStep).Artifacts.Output {
 		req := schema.LogRunArtifactRequest{
-			RunID:        st.runID,
-			FsID:         st.fsID,
-			FsName:       st.fsName,
-			UserName:     st.userName,
+			RunID:        srt.runID,
+			FsID:         srt.fsID,
+			FsName:       srt.fsName,
+			UserName:     srt.userName,
 			ArtifactPath: atfValue,
-			Step:         st.CompoentFullName,
-			JobID:        st.job.Job().ID,
+			Step:         srt.getWorkFlowStep().Name,
+			JobID:        srt.job.Job().ID,
 			ArtifactName: atfName,
 			Type:         schema.ArtifactTypeOutput,
 		}
 		for i := 0; i < 3; i++ {
-			st.logger.Infof("callback log output artifact [%+v]", req)
-			if err := st.callbacks.LogArtifactCb(req); err != nil {
-				st.logger.Errorf("callback log out artifact [%+v] failed. err:%s", req, err.Error())
+			srt.logger.Infof("callback log output artifact [%+v]", req)
+			if err := srt.callbacks.LogArtifactCb(req); err != nil {
+				srt.logger.Errorf("callback log out artifact [%+v] failed. err:%s", req, err.Error())
 				continue
 			}
 			break
@@ -376,10 +387,13 @@ func (srt *StepRuntime) checkCached() (cacheFound bool, err error) {
 		return false, err
 	}
 
+	fmt.Println("secondFingerprint++++++++++++++++++++", srt.secondFingerprint)
+
 	cacheFound = false
 	var cacheRunID string
 	var cacheJobID string
 	for _, runCache := range runCacheList {
+		fmt.Println("unCache.SecondFp++++++++++++++++++++", runCache.SecondFp)
 		if srt.secondFingerprint == runCache.SecondFp {
 			if runCache.ExpiredTime == CacheExpiredTimeNever {
 				cacheFound = true
@@ -494,16 +508,16 @@ func (srt *StepRuntime) startJob() (err error) {
 	defer srt.processJobLock.Unlock()
 	srt.processJobLock.Lock()
 
-	// 如果 job 已经处于终态， 则无需创建Job
-	if srt.done {
-		return
+	if srt.status != "" {
+		// 此时说明其余的协程正在处理或者已经处理完当前的运行时，因此直接退出当前协程
+		err = fmt.Errorf("inner error: cannot restart step[%s], because it's already in status[%s]",
+			srt.name, srt.status)
+		return err
 	}
 
 	// todo: 正式运行前，需要将更新后的参数更新到数据库中（通过传递workflow event到runtime即可）
 	_, err = srt.job.Start()
 	if err != nil {
-		// 异常处理，塞event，不返回error是因为统一通过channel与run沟通
-		// todo：要不要改成WfEventJobUpdate的event？
 		err = fmt.Errorf("start job for step[%s] with runid[%s] failed: [%s]", srt.name, srt.runID, err.Error())
 		return err
 	}
@@ -516,8 +530,9 @@ func (srt *StepRuntime) Execute() {
 	logMsg := fmt.Sprintf("start execute step[%s] with runid[%s]", srt.name, srt.runID)
 	srt.logger.Infof(logMsg)
 
+	fmt.Println("Enable+++++++", srt.Cache.Enable)
 	// 1、 查看是否命中cache
-	if srt.Cache.Enable {
+	if srt.getWorkFlowStep().Cache.Enable {
 		cachedFound, err := srt.checkCached()
 		if err != nil {
 			logMsg = fmt.Sprintf("check cache for step[%s] with runid[%s] failed: [%s]", srt.name, srt.runID, err.Error())
@@ -526,6 +541,7 @@ func (srt *StepRuntime) Execute() {
 			return
 		}
 
+		fmt.Println("cachedFound+++++++", cachedFound)
 		if cachedFound {
 			for {
 				jobView, err := srt.callbacks.GetJobCb(srt.CacheJobID, srt.componentFullName)
@@ -612,6 +628,18 @@ func (srt *StepRuntime) Execute() {
 func (srt *StepRuntime) stop(msg string) {
 	defer srt.processJobLock.Unlock()
 	srt.processJobLock.Lock()
+
+	if srt.done {
+		srt.logger.Warnf("stepRuntime[%s] is already in status[%s], cannot stoped it", srt.name, srt.status)
+	}
+
+	if srt.job.JobID() == "" {
+		// 此时说明还没有创建job，因此直接将状态置为 failed，并通过事件进行同步即可
+		srt.updateStatus(StatusRuntimeTerminated)
+		view := srt.newJobView("msg")
+		srt.syncToApiServerAndParent(WfEventJobStopErr, view, msg)
+		return
+	}
 
 	logMsg := fmt.Sprintf("begin to stop step[%s] with msg: %s", srt.name, msg)
 	srt.logger.Infof(logMsg)
