@@ -151,7 +151,7 @@ func initTraceLogger() error {
 		MaxFileNum:      10,
 		MaxFileSizeInMB: 1,
 		IsCompress:      false,
-		Timeout:         time.Second * 2,
+		Timeout:         "2s",
 		MaxCacheSize:    3,
 	}
 
