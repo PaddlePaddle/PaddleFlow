@@ -371,3 +371,13 @@ spec:
             path: /var/lib/kubelet/plugins/pfs-csi
             type: DirectoryOrCreate
           name: socket-dir
+---
+apiVersion: storage.k8s.io/v1
+kind: CSIDriver
+metadata:
+  name: paddleflowstorage
+spec:
+  attachRequired: false
+  podInfoOnMount: false
+  volumeLifecycleModes:
+    - Persistent
