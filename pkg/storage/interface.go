@@ -25,6 +25,8 @@ import (
 )
 
 var (
+	DB *gorm.DB
+
 	Filesystem FileSystemStoreInterface
 	FsCache    FsCacheStoreInterface
 	Auth       AuthStoreInterface

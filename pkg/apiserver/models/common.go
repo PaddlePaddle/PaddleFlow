@@ -25,7 +25,6 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
@@ -87,6 +86,6 @@ func initMockDB() {
 		&ClusterInfo{},
 		&Image{},
 	)
-	database.DB = db
+	storage.DB = db
 	storage.InitStores(db)
 }
