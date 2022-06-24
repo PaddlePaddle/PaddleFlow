@@ -18,7 +18,6 @@ package models
 
 import (
 	"encoding/json"
-	"fmt"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -154,7 +153,7 @@ func GetClusterByName(clusterName string) (ClusterInfo, error) {
 	if tx.Error != nil {
 		log.Errorf("get cluster failed. clusterName: %s, error:%s",
 			clusterName, tx.Error.Error())
-		return ClusterInfo{}, fmt.Errorf("get cluster by clusterName[%s] failed", clusterName)
+		return ClusterInfo{}, tx.Error
 	}
 
 	return clusterInfo, nil

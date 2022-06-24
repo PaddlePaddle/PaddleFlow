@@ -91,6 +91,12 @@ func JobFlags(jobConf *config.JobConfig) []cli.Flag {
 			Usage:       "skip clean failed job",
 			Destination: &jobConf.Reclaim.SkipCleanFailedJob,
 		},
+		&cli.BoolFlag{
+			Name:        "is-single-cluster",
+			Value:       jobConf.IsSingleCluster,
+			Usage:       "init a cluster named 'default' by default in single cluster mode",
+			Destination: &jobConf.IsSingleCluster,
+		},
 	}
 }
 

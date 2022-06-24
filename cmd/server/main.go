@@ -15,11 +15,13 @@ import (
 	_ "go.uber.org/automaxprocs"
 
 	"github.com/PaddlePaddle/PaddleFlow/cmd/server/flag"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/cluster"
 	job2 "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/job"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/pipeline"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/queue"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	v1 "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/v1"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
+	config "github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database/dbinit"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
@@ -139,6 +141,31 @@ func initConfig() error {
 	return nil
 }
 
+// initClusterAndQueue init cluster and queue by default name
+func initClusterAndQueue(serverConf *config.ServerConfig) error {
+	if !serverConf.Job.IsSingleCluster {
+		log.Info("IsSingleCluster is false, pass init cluster and queue")
+		return nil
+	}
+	log.Info("init data for single cluster is starting")
+	if database.DB == nil {
+		err := fmt.Errorf("please ensure call this function after db is inited")
+		log.Errorf("init failed, err: %v", err)
+		return err
+	}
+	if err := cluster.InitDefaultCluster(); err != nil {
+		log.Errorf("initDefaultCluster failed, err: %v", err)
+		return err
+	}
+	if err := queue.InitDefaultQueue(); err != nil {
+		log.Errorf("initDefaultQueue failed, err: %v", err)
+		return err
+	}
+	log.Info("init data for single cluster completed")
+
+	return nil
+}
+
 func setup() {
 	err := logger.InitStandardFileLogger(&ServerConf.Log)
 	if err != nil {
@@ -179,6 +206,12 @@ func setup() {
 }
 
 func newAndStartJobManager() error {
+	err := initClusterAndQueue(ServerConf)
+	if err != nil {
+		log.Errorf("init singlecluster data failed, err: %v", err)
+		gracefullyExit(err)
+	}
+
 	runtimeMgr, err := job.NewJobManagerImpl()
 	if err != nil {
 		log.Errorf("new job manager failed, error: %v", err)
