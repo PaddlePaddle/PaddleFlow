@@ -24,6 +24,7 @@ import (
 	cron "github.com/robfig/cron/v3"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/fs"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
@@ -159,6 +160,28 @@ func validateScheduleTime(startTime, endTime string, currentTime time.Time) (sta
 	return startAt, endAt, nil
 }
 
+func CheckFsAndGetID(userName, fsUserName, fsName string) (fsID string, err error) {
+	if fsUserName != "" {
+		fsID = common.ID(fsUserName, fsName)
+	} else {
+		fsID = common.ID(userName, fsName)
+	}
+
+	fsService := fs.GetFileSystemService()
+	hasPermission, err := fsService.HasFsPermission(userName, fsID)
+	if err != nil {
+		err := fmt.Errorf("check permission of user[%s] fsID[%s] failed, err: %v", userName, fsID, err)
+		return fsID, err
+	}
+
+	if !hasPermission {
+		err := fmt.Errorf("user[%s] has no permission to fsName[%s] with fsUser[%s]", userName, fsName, fsUserName)
+		return fsID, err
+	}
+
+	return fsID, nil
+}
+
 func CreateSchedule(ctx *logger.RequestContext, request *CreateScheduleRequest) (CreateScheduleResponse, error) {
 	// check schedule name pattern
 	if !schema.CheckReg(request.Name, common.RegPatternScheduleName) {
@@ -177,7 +200,7 @@ func CreateSchedule(ctx *logger.RequestContext, request *CreateScheduleRequest) 
 	}
 
 	// 校验Fs参数，并生成FsConfig对象
-	_, err := common.CheckFsAndGetID(ctx.UserName, request.UserName, request.FsName)
+	_, err := CheckFsAndGetID(ctx.UserName, request.UserName, request.FsName)
 	if err == nil {
 		ctx.ErrorCode = common.InvalidArguments
 		ctx.Logging().Errorf(err.Error())
