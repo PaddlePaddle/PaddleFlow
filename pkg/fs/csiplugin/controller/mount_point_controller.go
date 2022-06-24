@@ -354,8 +354,8 @@ func (m *MountPointController) pvAddedUpdated(obj interface{}) {
 }
 
 func getPFSParameters(params map[string]string) pvParams {
-	fsID := params[schema.FSID]
-	server := params[schema.PFSServer]
+	fsID := params[schema.PfsFsID]
+	server := params[schema.PfsServer]
 	return pvParams{
 		fsID:   fsID,
 		server: server,

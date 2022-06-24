@@ -32,11 +32,6 @@ import (
 	mountUtil "github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/mount"
 )
 
-const (
-	pfsFSID   = "pfs.fs.id"
-	pfsServer = "pfs.server"
-)
-
 type nodeServer struct {
 	nodeId string
 	*csicommon.DefaultNodeServer
@@ -69,8 +64,8 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context,
 	}
 
 	volumeContext := req.GetVolumeContext()
-	fsID := volumeContext[pfsFSID]
-	server := volumeContext[pfsServer]
+	fsID := volumeContext[schema.PfsFsID]
+	server := volumeContext[schema.PfsServer]
 	volumeID := req.VolumeId
 
 	mountInfo := mount.GetMountInfo(fsID, server, req.GetReadonly())

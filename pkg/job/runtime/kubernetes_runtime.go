@@ -48,6 +48,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime/kubernetes/controller"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime/kubernetes/executor"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 type KubeRuntime struct {
@@ -575,9 +576,9 @@ func (kr *KubeRuntime) DeleteObject(namespace, name string, gvk k8sschema.GroupV
 	return nil
 }
 
-func (kr *KubeRuntime) CreatePV(namespace, fsId string) (string, error) {
+func (kr *KubeRuntime) CreatePV(namespace, fsID string) (string, error) {
 	pv := config.DefaultPV
-	pv.Name = schema.ConcatenatePVName(namespace, fsId)
+	pv.Name = schema.ConcatenatePVName(namespace, fsID)
 	// check pv existence
 	if _, err := kr.getPersistentVolume(pv.Name, metav1.GetOptions{}); err == nil {
 		return pv.Name, nil
@@ -594,19 +595,38 @@ func (kr *KubeRuntime) CreatePV(namespace, fsId string) (string, error) {
 		log.Errorf(err.Error())
 		return "", err
 	}
-	cva := newPV.Spec.CSI.VolumeAttributes
-	if _, ok := cva[schema.FSID]; ok {
-		newPV.Spec.CSI.VolumeAttributes[schema.FSID] = fsId
-		newPV.Spec.CSI.VolumeHandle = pv.Name
-	}
-	if _, ok := cva[schema.PFSServer]; ok {
-		newPV.Spec.CSI.VolumeAttributes[schema.PFSServer] = config.GetServiceAddress()
+	if err := buildPV(newPV, fsID); err != nil {
+		log.Errorf(err.Error())
+		return "", err
 	}
 	// create pv in k8s
 	if _, err := kr.createPersistentVolume(newPV); err != nil {
 		return "", err
 	}
 	return pv.Name, nil
+}
+
+func buildPV(pv *apiv1.PersistentVolume, fsID string) error {
+	// filesystem
+	fsInfo, err := storage.Filesystem.GetFsInfo(fsID)
+	if err != nil {
+		retErr := fmt.Errorf("create PV get fsInfo[%s] err: %v", fsID, err)
+		log.Errorf(retErr.Error())
+		return err
+	}
+	fsStr, err := json.Marshal(fsInfo)
+	if err != nil {
+		retErr := fmt.Errorf("create PV json.marshal fsInfo[%s] err: %v", fsID, err)
+		log.Errorf(retErr.Error())
+		return err
+	}
+
+	// set VolumeAttributes
+	pv.Spec.CSI.VolumeHandle = pv.Name
+	pv.Spec.CSI.VolumeAttributes[schema.PfsServer] = config.GetServiceAddress()
+	pv.Spec.CSI.VolumeAttributes[schema.PfsFsID] = fsID
+	pv.Spec.CSI.VolumeAttributes[schema.PfsFsInfo] = string(fsStr)
+	return nil
 }
 
 func (kr *KubeRuntime) CreatePVC(namespace, fsId, pv string) error {
