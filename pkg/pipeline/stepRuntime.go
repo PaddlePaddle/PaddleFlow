@@ -228,12 +228,6 @@ func (srt *StepRuntime) Listen() {
 	}
 }
 
-func (st *StepRuntime) update(done bool, submitted bool, job Job) {
-	st.done = done
-	st.submitted = submitted
-	st.job = job
-}
-
 func (srt *StepRuntime) updateJob(forCacheFingerprint bool) error {
 	// 替换command, envs, parameter 与 artifact 已经在创建Step前便已经替换完成
 	// 这个为啥要在这里替换，而不是在runtime初始化的时候呢？ 计算cache 需要进行的替换和运行时进行的替换有些许不同
@@ -690,7 +684,7 @@ func (srt *StepRuntime) processEventFromJob(event WorkflowEvent) {
 func (srt *StepRuntime) newJobView(msg string) schema.JobView {
 	return schema.JobView{}
 
-	step := srt.getComponent().(*schema.WorkflowSourceStep)
+	step := srt.getWorkFlowStep()
 	params := map[string]string{}
 	for name, value := range step.GetParameters() {
 		params[name] = fmt.Sprintf("%v", value)
