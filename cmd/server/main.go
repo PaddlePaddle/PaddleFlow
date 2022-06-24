@@ -179,7 +179,7 @@ func setup() {
 	}
 
 	// init trace logger config
-	trace_logger.InitTraceLogger(ServerConf.TraceLog)
+	err = trace_logger.InitTraceLogger(ServerConf.TraceLog)
 	if err != nil {
 		log.Errorf("InitTraceLogger err: %v", err)
 		gracefullyExit(err)
