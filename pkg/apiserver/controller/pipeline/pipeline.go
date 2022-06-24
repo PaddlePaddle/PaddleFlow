@@ -25,6 +25,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/pipeline"
@@ -116,8 +117,34 @@ func (pdb *PipelineDetailBrief) updateFromPipelineDetailModel(pipelineDetail mod
 	pdb.UpdateTime = pipelineDetail.UpdatedAt.Format("2006-01-02 15:04:05")
 }
 
-// todo: 是否需要校验pipeline名称格式
-func CreatePipeline(ctx *logger.RequestContext, request CreatePipelineRequest, fsID string) (CreatePipelineResponse, error) {
+func CreatePipeline(ctx *logger.RequestContext, request CreatePipelineRequest) (CreatePipelineResponse, error) {
+	// 校验desc长度
+	if len(request.Desc) > util.MaxDescLength {
+		ctx.ErrorCode = common.InvalidArguments
+		errMsg := fmt.Sprintf("desc too long, should be less than %d", util.MaxDescLength)
+		ctx.Logging().Errorf(errMsg)
+		return CreatePipelineResponse{}, fmt.Errorf(errMsg)
+	}
+
+	// check user grant to fs
+	if request.FsName == "" {
+		ctx.ErrorCode = common.InvalidArguments
+		errMsg := fmt.Sprint("create pipeline failed. fsname shall not be empty")
+		ctx.Logging().Errorf(errMsg)
+		return CreatePipelineResponse{}, fmt.Errorf(errMsg)
+	}
+
+	fsID, err := common.CheckFsAndGetID(ctx.UserName, request.UserName, request.FsName)
+	if err == nil {
+		ctx.ErrorCode = common.InvalidArguments
+		ctx.Logging().Errorf(err.Error())
+		return CreatePipelineResponse{}, err
+	}
+
+	if request.YamlPath == "" {
+		request.YamlPath = "./run.yaml"
+	}
+
 	// read run.yaml
 	pipelineYaml, err := handler.ReadFileFromFs(fsID, request.YamlPath, ctx.Logging())
 	if err != nil {
@@ -128,6 +155,7 @@ func CreatePipeline(ctx *logger.RequestContext, request CreatePipelineRequest, f
 	}
 
 	// validate pipeline and get name of pipeline
+	// 此处同样会校验pipeline name格式（正则表达式为：`^[A-Za-z_][A-Za-z0-9_]{1,49}$`）
 	pplName, err := validateWorkflowForPipeline(string(pipelineYaml))
 	if err != nil {
 		ctx.ErrorCode = common.MalformedYaml
@@ -186,7 +214,34 @@ func CreatePipeline(ctx *logger.RequestContext, request CreatePipelineRequest, f
 	return response, nil
 }
 
-func UpdatePipeline(ctx *logger.RequestContext, request UpdatePipelineRequest, pipelineID, fsID string) (UpdatePipelineResponse, error) {
+func UpdatePipeline(ctx *logger.RequestContext, request UpdatePipelineRequest, pipelineID string) (UpdatePipelineResponse, error) {
+	// 校验desc长度
+	if len(request.Desc) > util.MaxDescLength {
+		ctx.ErrorCode = common.InvalidArguments
+		errMsg := fmt.Sprintf("desc too long, should be less than %d", util.MaxDescLength)
+		ctx.Logging().Errorf(errMsg)
+		return UpdatePipelineResponse{}, fmt.Errorf(errMsg)
+	}
+
+	// check user grant to fs
+	if request.FsName == "" {
+		ctx.ErrorCode = common.InvalidArguments
+		errMsg := fmt.Sprint("update pipeline failed. fsname shall not be empty")
+		ctx.Logging().Errorf(errMsg)
+		return UpdatePipelineResponse{}, fmt.Errorf(errMsg)
+	}
+
+	fsID, err := common.CheckFsAndGetID(ctx.UserName, request.UserName, request.FsName)
+	if err == nil {
+		ctx.ErrorCode = common.InvalidArguments
+		ctx.Logging().Errorf(err.Error())
+		return UpdatePipelineResponse{}, err
+	}
+
+	if request.YamlPath == "" {
+		request.YamlPath = "./run.yaml"
+	}
+
 	// read run.yaml
 	pipelineYaml, err := handler.ReadFileFromFs(fsID, request.YamlPath, ctx.Logging())
 	if err != nil {

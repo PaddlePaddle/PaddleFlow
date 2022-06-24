@@ -25,6 +25,7 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
@@ -167,8 +168,22 @@ func CreateSchedule(ctx *logger.RequestContext, request *CreateScheduleRequest) 
 		return CreateScheduleResponse{}, err
 	}
 
-	// 生成FsConfig对象
-	// todo:增加判断fs是否存在
+	// 校验desc长度
+	if len(request.Desc) > util.MaxDescLength {
+		ctx.ErrorCode = common.InvalidArguments
+		errMsg := fmt.Sprintf("desc too long, should be less than %d", util.MaxDescLength)
+		ctx.Logging().Errorf(errMsg)
+		return CreateScheduleResponse{}, fmt.Errorf(errMsg)
+	}
+
+	// 校验Fs参数，并生成FsConfig对象
+	_, err := common.CheckFsAndGetID(ctx.UserName, request.UserName, request.FsName)
+	if err == nil {
+		ctx.ErrorCode = common.InvalidArguments
+		ctx.Logging().Errorf(err.Error())
+		return CreateScheduleResponse{}, err
+	}
+
 	fsConfig := models.FsConfig{FsName: request.FsName, UserName: request.UserName}
 	StrFsConfig, err := fsConfig.Encode(ctx.Logging())
 	if err != nil {

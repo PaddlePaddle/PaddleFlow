@@ -26,6 +26,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/fs"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 )
@@ -241,4 +242,26 @@ func IsDNS1123Label(value string) []string {
 		errs = append(errs, dns1123LabelErrMsg+" (regex used for validation is '"+DNS1123LabelFmt+"')")
 	}
 	return errs
+}
+
+func CheckFsAndGetID(userName, fsUserName, fsName string) (fsID string, err error) {
+	if fsUserName != "" {
+		fsID = ID(fsUserName, fsName)
+	} else {
+		fsID = ID(userName, fsName)
+	}
+
+	fsService := fs.GetFileSystemService()
+	hasPermission, err := fsService.HasFsPermission(userName, fsID)
+	if err != nil {
+		err := fmt.Errorf("check permission of user[%s] fsID[%s] failed, err: %v", userName, fsID, err)
+		return fsID, err
+	}
+
+	if !hasPermission {
+		err := fmt.Errorf("user[%s] has no permission to fsName[%s] with fsUser[%s]", userName, fsName, fsUserName)
+		return fsID, err
+	}
+
+	return fsID, nil
 }

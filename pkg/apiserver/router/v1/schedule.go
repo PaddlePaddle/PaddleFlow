@@ -18,7 +18,6 @@ package v1
 
 import (
 	"net/http"
-	"strings"
 
 	"github.com/go-chi/chi"
 	log "github.com/sirupsen/logrus"
@@ -76,29 +75,29 @@ func (sr *ScheduleRouter) listSchedule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userNames, fsNames := r.URL.Query().Get(util.QueryKeyUserFilter), r.URL.Query().Get(util.QueryKeyFsFilter)
+	userNames, pplDetailIDs := r.URL.Query().Get(util.QueryKeyUserFilter), r.URL.Query().Get(util.QueryKeyPplDetailFilter)
 	scheduleIDs, names := r.URL.Query().Get(util.QueryKeyScheduleFilter), r.URL.Query().Get(util.QueryKeyNameFilter)
 	statuses := r.URL.Query().Get(util.QueryKeyStatusFilter)
-	userFilter, fsFilter, scheduleFilter, nameFilter, statusFilter := make([]string, 0), make([]string, 0), make([]string, 0), make([]string, 0), make([]string, 0)
+	userFilter, pplDetailFilter, scheduleFilter, nameFilter, statusFilter := make([]string, 0), make([]string, 0), make([]string, 0), make([]string, 0), make([]string, 0)
 	if userNames != "" {
-		userFilter = strings.Split(userNames, common.SeparatorComma)
+		userFilter = util.SplitFilter(userNames, common.SeparatorComma, true)
 	}
-	if fsNames != "" {
-		fsFilter = strings.Split(fsNames, common.SeparatorComma)
+	if pplDetailIDs != "" {
+		pplDetailFilter = util.SplitFilter(pplDetailIDs, common.SeparatorComma, true)
 	}
 	if scheduleIDs != "" {
-		scheduleFilter = strings.Split(scheduleIDs, common.SeparatorComma)
+		scheduleFilter = util.SplitFilter(scheduleIDs, common.SeparatorComma, true)
 	}
 	if names != "" {
-		nameFilter = strings.Split(names, common.SeparatorComma)
+		nameFilter = util.SplitFilter(names, common.SeparatorComma, true)
 	}
 	if statuses != "" {
-		statusFilter = strings.Split(statuses, common.SeparatorComma)
+		statusFilter = util.SplitFilter(statuses, common.SeparatorComma, true)
 	}
 	logger.LoggerForRequest(&ctx).Debugf(
-		"user[%s] ListSchedule pipelineID[%s], marker:[%s] maxKeys:[%d] userFilter:%v fsFilter:%v scheduleFilter:%v nameFilter:%v statusFilter:%v",
-		ctx.UserName, pipelineID, marker, maxKeys, userFilter, fsFilter, scheduleFilter, nameFilter, statusFilter)
-	listScheduleResponse, err := pipeline.ListSchedule(&ctx, pipelineID, marker, maxKeys, userFilter, fsFilter, scheduleFilter, nameFilter, statusFilter)
+		"user[%s] ListSchedule pipelineID[%s], marker:[%s] maxKeys:[%d] pplDetailFilter:%v userFilter:%v scheduleFilter:%v nameFilter:%v statusFilter:%v",
+		ctx.UserName, pipelineID, marker, maxKeys, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
+	listScheduleResponse, err := pipeline.ListSchedule(&ctx, pipelineID, marker, maxKeys, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
 	if err != nil {
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
@@ -123,10 +122,10 @@ func (sr *ScheduleRouter) getSchedule(w http.ResponseWriter, r *http.Request) {
 	runIDs, RunStatuses := r.URL.Query().Get(util.QueryKeyRunFilter), r.URL.Query().Get(util.QueryKeyStatusFilter)
 	runFilter, RunStatusFilter := make([]string, 0), make([]string, 0)
 	if RunStatuses != "" {
-		RunStatusFilter = strings.Split(RunStatuses, common.SeparatorComma)
+		RunStatusFilter = util.SplitFilter(RunStatuses, common.SeparatorComma, true)
 	}
 	if runIDs != "" {
-		runFilter = strings.Split(runIDs, common.SeparatorComma)
+		runFilter = util.SplitFilter(runIDs, common.SeparatorComma, true)
 	}
 
 	logger.LoggerForRequest(&ctx).Debugf(
