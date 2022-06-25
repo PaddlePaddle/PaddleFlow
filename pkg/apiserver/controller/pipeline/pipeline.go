@@ -129,7 +129,7 @@ func CreatePipeline(ctx *logger.RequestContext, request CreatePipelineRequest) (
 	// check user grant to fs
 	if request.FsName == "" {
 		ctx.ErrorCode = common.InvalidArguments
-		errMsg := fmt.Sprint("create pipeline failed. fsname shall not be empty")
+		errMsg := "create pipeline failed. fsname shall not be empty"
 		ctx.Logging().Errorf(errMsg)
 		return CreatePipelineResponse{}, fmt.Errorf(errMsg)
 	}
@@ -226,7 +226,7 @@ func UpdatePipeline(ctx *logger.RequestContext, request UpdatePipelineRequest, p
 	// check user grant to fs
 	if request.FsName == "" {
 		ctx.ErrorCode = common.InvalidArguments
-		errMsg := fmt.Sprint("update pipeline failed. fsname shall not be empty")
+		errMsg := "update pipeline failed. fsname shall not be empty"
 		ctx.Logging().Errorf(errMsg)
 		return UpdatePipelineResponse{}, fmt.Errorf(errMsg)
 	}

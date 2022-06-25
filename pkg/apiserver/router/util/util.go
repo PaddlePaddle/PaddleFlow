@@ -117,8 +117,8 @@ func GetQueryMaxKeys(ctx *logger.RequestContext, r *http.Request) (int, error) {
 func SplitFilter(strFilter string, splitter string, toStrip bool) (filterList []string) {
 	splitRes := strings.Split(strFilter, splitter)
 	if toStrip {
-		for index, _ := range splitRes {
-			trimItem := strings.TrimSpace(splitRes[index])
+		for _, item := range splitRes {
+			trimItem := strings.TrimSpace(item)
 			if trimItem != "" {
 				filterList = append(filterList, trimItem)
 			}
