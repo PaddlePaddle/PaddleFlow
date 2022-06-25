@@ -294,6 +294,9 @@ func (srt *StepRuntime) updateJob(forCacheFingerprint bool) error {
 		newEnvs[envName] = envVal
 	}
 
+	// PF_LOOP_ARGUMENT 在计算定 firstFingerprint 时需要加进去
+	newEnvs[SysParamNamePFLoopArgument] = srt.sysParams[SysParamNamePFLoopArgument]
+
 	// 对于 cache 相关场景，下面的信息无需添加到环境变量中
 	if !forCacheFingerprint {
 		sysParams := srt.sysParams

@@ -278,10 +278,10 @@ func mockWorkflowDagForDs() *schema.WorkflowSourceDag {
 
 func mockDagRuntime() *DagRuntime {
 	bcr := baseComponentRuntime{
-		runConfig:        mockRunconfigForDepRsl(),
-		component:        mockWorkflowDagForDs(),
-		name:             "dag1-0",
-		CompoentFullName: "dag1",
+		runConfig:         mockRunconfigForDepRsl(),
+		component:         mockWorkflowDagForDs(),
+		name:              "dag1-0",
+		componentFullName: "dag1",
 	}
 
 	return &DagRuntime{
@@ -292,10 +292,10 @@ func mockDagRuntime() *DagRuntime {
 
 func mockStepRuntime(step *schema.WorkflowSourceStep) *StepRuntime {
 	bcr := baseComponentRuntime{
-		runConfig:        mockRunconfigForDepRsl(),
-		component:        step,
-		name:             "dag1.step1-0",
-		CompoentFullName: "dag1.step1",
+		runConfig:         mockRunconfigForDepRsl(),
+		component:         step,
+		name:              "dag1.step1-0",
+		componentFullName: "dag1.step1",
 	}
 
 	return &StepRuntime{

@@ -72,6 +72,7 @@ type componentRuntime interface {
 	isCancelled() bool
 	isSkipped() bool
 	isTerminated() bool
+	updateStatus(RuntimeStatus) error
 
 	getComponent() schema.Component
 	getFullName() string
@@ -130,7 +131,7 @@ type baseComponentRuntime struct {
 	component schema.Component
 
 	// 类似根目录，由其所有祖先组件名加上自身名字组成，名字与名字之间以"." 分隔
-	CompoentFullName string
+	componentFullName string
 
 	// runtime 的名字，由 componentFullName 和 seq 组成
 	name string
@@ -176,7 +177,7 @@ func NewBaseComponentRuntime(fullname string, component schema.Component, seq in
 
 	cr := &baseComponentRuntime{
 		name:                 fmt.Sprintf("%s-%d", fullname, seq),
-		CompoentFullName:     fullname,
+		componentFullName:    fullname,
 		component:            component,
 		seq:                  seq,
 		ctx:                  ctx,
@@ -195,7 +196,6 @@ func NewBaseComponentRuntime(fullname string, component schema.Component, seq in
 
 // 判断当前节点是否被 disabled
 func (crt *baseComponentRuntime) isDisabled() bool {
-	fmt.Println("Disabled===========")
 	for _, name := range crt.GetDisabled() {
 		fmt.Println("Disabled steps", name)
 		fmt.Println("component name", crt.getComponent().GetName())
@@ -243,7 +243,7 @@ func (crt *baseComponentRuntime) getComponent() schema.Component {
 func (crt *baseComponentRuntime) updateStatus(status RuntimeStatus) error {
 	if crt.done {
 		err := fmt.Errorf("cannot update the status of runtime[%s] for node[%s]，because the status of it is [%s]",
-			crt.component.GetName(), crt.CompoentFullName, crt.status)
+			crt.component.GetName(), crt.componentFullName, crt.status)
 		crt.logger.Errorln(err.Error())
 		return err
 	}
@@ -315,6 +315,10 @@ func (crt *baseComponentRuntime) setSysParams() error {
 
 func (crt *baseComponentRuntime) CalculateCondition() (bool, error) {
 	crt.resolveCondition()
+	if crt.GetCondition() == "" {
+		return false, nil
+	}
+
 	cc := NewConditionCalculator(crt.component.GetCondition())
 	return cc.calculate()
 }
@@ -329,14 +333,11 @@ func (crt *baseComponentRuntime) syncToApiServerAndParent(wv WfEventValue, view 
 	// 调用回调函数，将信息同步至 apiserver
 
 	crt.callback(event)
-	fmt.Println("callback")
 	// 将事件冒泡给父节点
 	// 这里使用协程
 	go func() {
 		crt.sendEventToParent <- *event
 	}()
-
-	fmt.Println("event")
 }
 
 func (crt *baseComponentRuntime) callback(event *WorkflowEvent) {
@@ -350,7 +351,7 @@ func (crt *baseComponentRuntime) callback(event *WorkflowEvent) {
 }
 
 func (crt *baseComponentRuntime) getFullName() string {
-	return crt.CompoentFullName
+	return crt.componentFullName
 }
 
 func (crt *baseComponentRuntime) getName() string {

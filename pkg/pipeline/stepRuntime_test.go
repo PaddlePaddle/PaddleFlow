@@ -416,7 +416,6 @@ func TestCheckCached(t *testing.T) {
 
 func mockToListenEvent(ec chan WorkflowEvent, ep *WorkflowEvent) {
 	*ep = <-ec
-	fmt.Println("hahahahahahahahahahah+++++++++")
 }
 
 func TestNewStepRuntimeWithStatus(t *testing.T) {
