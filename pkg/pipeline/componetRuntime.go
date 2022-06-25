@@ -195,8 +195,11 @@ func NewBaseComponentRuntime(fullname string, component schema.Component, seq in
 
 // 判断当前节点是否被 disabled
 func (crt *baseComponentRuntime) isDisabled() bool {
-	for _, fullName := range crt.GetDisabled() {
-		if fullName == crt.CompoentFullName {
+	fmt.Println("Disabled===========")
+	for _, name := range crt.GetDisabled() {
+		fmt.Println("Disabled steps", name)
+		fmt.Println("component name", crt.getComponent().GetName())
+		if name == crt.getComponent().GetName() {
 			return true
 		}
 	}

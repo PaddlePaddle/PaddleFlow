@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"io/ioutil"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
+	apicommon "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
@@ -15,8 +17,6 @@ import (
 	pplcommon "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
-
-	apicommon "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 )
 
 func loadcase(casePath string) []byte {
@@ -445,8 +445,10 @@ func TestNewStepRuntimeWithStatus(t *testing.T) {
 	go mockToListenEvent(eventChan, ep)
 
 	st := wfs.EntryPoints.EntryPoints["data-preprocess"]
+	fmt.Println("hahahah")
 	srt := newStepRuntimeWithStatus("data-preprocess", st.(*schema.WorkflowSourceStep), 0, context.Background(), failctx,
 		eventChan, rf, "dag-11", StatusRuntimeFailed, "failed hahah")
+	fmt.Println("123")
 
 	assert.True(t, updateRuntimeCalled)
 
@@ -557,4 +559,323 @@ func TestExecute(t *testing.T) {
 
 	assert.Equal(t, srt.status, StatusRuntimeSucceeded)
 	assert.Equal(t, srt.parallelismManager.CurrentParallelism(), 0)
+}
+
+func TestProcessEventFromJob(t *testing.T) {
+	handler.NewFsHandlerWithServer = handler.MockerNewFsHandlerWithServer
+	testCase := loadcase(runYamlPath)
+	wfs, err := schema.GetWorkflowSource([]byte(testCase))
+	assert.Nil(t, err)
+
+	rf := mockRunConfigForComponentRuntime()
+	rf.WorkflowSource = &wfs
+	rf.callbacks = mockCbs
+
+	extra := GetExtra()
+	wfptr, err := NewWorkflow(wfs, rf.runID, map[string]interface{}{}, extra, rf.callbacks)
+	assert.Nil(t, err)
+
+	wfs = wfptr.Source
+
+	failctx, _ := context.WithCancel(context.Background())
+	dr := NewDagRuntime("", &wfs.EntryPoints, 0, context.Background(), failctx, make(chan<- WorkflowEvent), rf, "0")
+	dr.setSysParams()
+
+	Runcalled := false
+	rf.callbacks.UpdateRuntimeCb = func(id string, event interface{}) (int64, bool) {
+		Runcalled = true
+		return 123, true
+	}
+
+	eventChan := make(chan WorkflowEvent)
+	ep := &WorkflowEvent{}
+	go func(eventChan chan WorkflowEvent, ep *WorkflowEvent) {
+		for {
+			*ep = <-eventChan
+		}
+	}(eventChan, ep)
+
+	st := wfs.EntryPoints.EntryPoints["data-preprocess"].(*schema.WorkflowSourceStep)
+	st.Artifacts.Input = map[string]string{}
+	st.GetArtifacts().Input["abc"] = "./abc"
+	srt := NewStepRuntime("data-preprocess", st, 0, context.Background(), failctx,
+		eventChan, rf, "dag-11")
+	srt.setSysParams()
+
+	event := NewWorkflowEvent(WfEventJobWatchErr, "Watch error", map[string]interface{}{})
+	srt.processEventFromJob(*event)
+
+	time.Sleep(time.Millisecond * 100)
+	assert.True(t, Runcalled)
+
+	assert.Equal(t, ep.Message, "")
+
+	event = NewWorkflowEvent(WfEventJobUpdate, "Running", map[string]interface{}{
+		apicommon.WfEventKeyStatus: StatusRuntimeRunning,
+	})
+
+	Runcalled = false
+	srt.processEventFromJob(*event)
+	time.Sleep(time.Millisecond * 100)
+	assert.True(t, Runcalled)
+	assert.Equal(t, ep.Message, "Running")
+
+	artifactLoged := false
+	srt.runConfig.callbacks.LogArtifactCb = func(req schema.LogRunArtifactRequest) error {
+		artifactLoged = true
+		return nil
+	}
+
+	event = NewWorkflowEvent(WfEventJobUpdate, "succeeded", map[string]interface{}{
+		apicommon.WfEventKeyStatus: StatusRuntimeSucceeded,
+	})
+
+	Runcalled = false
+	srt.increase()
+	srt.processEventFromJob(*event)
+	time.Sleep(time.Millisecond * 100)
+
+	assert.True(t, Runcalled)
+	assert.Equal(t, ep.Message, "succeeded")
+	assert.True(t, srt.done)
+	assert.True(t, artifactLoged)
+
+}
+
+func TestStart(t *testing.T) {
+	handler.NewFsHandlerWithServer = handler.MockerNewFsHandlerWithServer
+	testCase := loadcase(runYamlPath)
+	wfs, err := schema.GetWorkflowSource([]byte(testCase))
+	assert.Nil(t, err)
+
+	extra := GetExtra()
+	rf := mockRunConfigForComponentRuntime()
+	rf.callbacks = mockCbs
+	wfptr, err := NewWorkflow(wfs, rf.runID, map[string]interface{}{}, extra, rf.callbacks)
+	assert.Nil(t, err)
+
+	wfs = wfptr.Source
+
+	rf.WorkflowSource = &wfptr.Source
+
+	failctx, _ := context.WithCancel(context.Background())
+	dr := NewDagRuntime("", &wfs.EntryPoints, 0, context.Background(), failctx, make(chan<- WorkflowEvent), rf, "0")
+	dr.setSysParams()
+
+	eventChan := make(chan WorkflowEvent)
+	ep := &WorkflowEvent{}
+	go func(eventChan chan WorkflowEvent, ep *WorkflowEvent) {
+		for {
+			*ep = <-eventChan
+		}
+	}(eventChan, ep)
+
+	st := wfs.EntryPoints.EntryPoints["data-preprocess"].(*schema.WorkflowSourceStep)
+	st.Artifacts.Input = map[string]string{}
+	st.GetArtifacts().Input["abc"] = "./abc"
+	srt := NewStepRuntime("data-preprocess", st, 0, context.Background(), failctx,
+		eventChan, rf, "dag-11")
+	srt.setSysParams()
+
+	st.Condition = "10 > 11"
+
+	executed := false
+	patch22 := gomonkey.ApplyMethod(reflect.TypeOf(srt), "Execute", func(_ *StepRuntime) {
+		executed = true
+		srt.parallelismManager.decrease()
+	})
+	defer patch22.Reset()
+
+	srt.status = ""
+	srt.Start()
+
+	time.Sleep(time.Millisecond * 100)
+
+	assert.True(t, executed)
+	assert.Equal(t, ep.Message, "")
+
+	st.Condition = "10 > 9"
+	executed = false
+
+	srt.status = ""
+	srt.Start()
+	time.Sleep(time.Millisecond * 100)
+
+	assert.False(t, executed)
+	assert.Equal(t, ep.Extra[apicommon.WfEventKeyStatus], StatusRuntimeSkipped)
+	assert.True(t, srt.isSkipped())
+	assert.True(t, strings.Contains(ep.Message, "condition"))
+	assert.Equal(t, srt.parallelismManager.CurrentParallelism(), 0)
+
+	// +++++++++ 测试disabled 的情况
+	*ep = WorkflowEvent{}
+	executed = false
+	st.Condition = "10 < 9"
+	wfptr.Source.Disabled = st.Name
+
+	srt.status = ""
+	srt.done = false
+	srt.Start()
+	time.Sleep(time.Millisecond * 100)
+
+	assert.False(t, executed)
+	assert.Equal(t, ep.Extra[apicommon.WfEventKeyStatus], StatusRuntimeSkipped)
+	assert.True(t, srt.isSkipped())
+	assert.True(t, strings.Contains(ep.Message, "disabled"))
+	assert.Equal(t, srt.parallelismManager.CurrentParallelism(), 0)
+}
+
+func TestRestart(t *testing.T) {
+	handler.NewFsHandlerWithServer = handler.MockerNewFsHandlerWithServer
+	testCase := loadcase(runYamlPath)
+	wfs, err := schema.GetWorkflowSource([]byte(testCase))
+	assert.Nil(t, err)
+
+	extra := GetExtra()
+	rf := mockRunConfigForComponentRuntime()
+	rf.callbacks = mockCbs
+	wfptr, err := NewWorkflow(wfs, rf.runID, map[string]interface{}{}, extra, rf.callbacks)
+	assert.Nil(t, err)
+
+	wfs = wfptr.Source
+
+	rf.WorkflowSource = &wfptr.Source
+
+	failctx, _ := context.WithCancel(context.Background())
+	dr := NewDagRuntime("", &wfs.EntryPoints, 0, context.Background(), failctx, make(chan<- WorkflowEvent), rf, "0")
+	dr.setSysParams()
+
+	eventChan := make(chan WorkflowEvent)
+	ep := &WorkflowEvent{}
+	go func(eventChan chan WorkflowEvent, ep *WorkflowEvent) {
+		for {
+			*ep = <-eventChan
+		}
+	}(eventChan, ep)
+
+	st := wfs.EntryPoints.EntryPoints["data-preprocess"].(*schema.WorkflowSourceStep)
+	srt := NewStepRuntime("data-preprocess", st, 0, context.Background(), failctx,
+		eventChan, rf, "dag-11")
+	srt.setSysParams()
+
+	jobView := schema.JobView{
+		Status: StatusRuntimeSucceeded,
+	}
+
+	restarted, err := srt.Restart(jobView)
+
+	assert.Nil(t, err)
+	assert.False(t, restarted)
+	assert.Equal(t, 0, srt.parallelismManager.CurrentParallelism())
+
+	jobView = schema.JobView{
+		Status: StatusRuntimeRunning,
+	}
+
+	listened := false
+	gomonkey.ApplyMethod(reflect.TypeOf(srt), "Listen", func(_ *StepRuntime) {
+		listened = true
+	})
+
+	watched := false
+	gomonkey.ApplyMethod(reflect.TypeOf(srt.job), "Watch", func(_ *PaddleFlowJob) error {
+		watched = true
+		return nil
+	})
+
+	srt.done = false
+	srt.status = ""
+	restarted, err = srt.Restart(jobView)
+	time.Sleep(time.Millisecond * 100)
+
+	assert.Nil(t, err)
+	assert.True(t, restarted)
+	assert.True(t, listened)
+	assert.True(t, watched)
+	assert.Equal(t, 1, srt.parallelismManager.CurrentParallelism())
+	assert.Equal(t, srt.status, StatusRuntimeRunning)
+
+	srt.done = false
+	srt.status = ""
+	jobView = schema.JobView{
+		Status: StatusRuntimeFailed,
+	}
+	started := false
+	gomonkey.ApplyMethod(reflect.TypeOf(srt), "Listen", func(_ *StepRuntime) {
+		started = true
+	})
+
+	restarted, err = srt.Restart(jobView)
+	time.Sleep(time.Millisecond * 100)
+
+	assert.Nil(t, err)
+	assert.True(t, restarted)
+	assert.True(t, listened)
+	assert.True(t, started)
+}
+
+func TestStop(t *testing.T) {
+	handler.NewFsHandlerWithServer = handler.MockerNewFsHandlerWithServer
+	testCase := loadcase(runYamlPath)
+	wfs, err := schema.GetWorkflowSource([]byte(testCase))
+	assert.Nil(t, err)
+
+	extra := GetExtra()
+	rf := mockRunConfigForComponentRuntime()
+	rf.callbacks = mockCbs
+	wfptr, err := NewWorkflow(wfs, rf.runID, map[string]interface{}{}, extra, rf.callbacks)
+	assert.Nil(t, err)
+
+	wfs = wfptr.Source
+
+	rf.WorkflowSource = &wfptr.Source
+
+	failctx, _ := context.WithCancel(context.Background())
+	dr := NewDagRuntime("", &wfs.EntryPoints, 0, context.Background(), failctx, make(chan<- WorkflowEvent), rf, "0")
+	dr.setSysParams()
+
+	eventChan := make(chan WorkflowEvent)
+	ep := &WorkflowEvent{}
+	go func(eventChan chan WorkflowEvent, ep *WorkflowEvent) {
+		for {
+			*ep = <-eventChan
+		}
+	}(eventChan, ep)
+
+	st := wfs.EntryPoints.EntryPoints["data-preprocess"].(*schema.WorkflowSourceStep)
+	srt := NewStepRuntime("data-preprocess", st, 0, context.Background(), failctx,
+		eventChan, rf, "dag-11")
+	srt.setSysParams()
+
+	srt.done = false
+	srt.increase()
+	srt.stop("stop without jobid")
+	time.Sleep(time.Millisecond * 100)
+
+	assert.Equal(t, srt.status, StatusRuntimeFailed)
+	assert.True(t, strings.Contains(ep.Message, "jobid"))
+	fmt.Println("+++++ ", ep.Message)
+	assert.Equal(t, 0, srt.CurrentParallelism())
+
+	srt.done = true
+	srt.job.(*PaddleFlowJob).ID = "12334"
+	ep = &WorkflowEvent{}
+	srt.stop("stop")
+	time.Sleep(time.Millisecond * 100)
+	assert.Equal(t, ep.Message, "")
+	assert.Equal(t, 0, srt.CurrentParallelism())
+
+	srt.done = false
+	ep = &WorkflowEvent{}
+	stoped := false
+	gomonkey.ApplyMethod(reflect.TypeOf(srt.job), "Stop", func(_ *PaddleFlowJob) error {
+		stoped = true
+		return nil
+	})
+
+	srt.stop("stop normal")
+	assert.Equal(t, srt.status, StatusRuntimeFailed)
+	assert.Equal(t, ep.Message, "")
+	assert.Equal(t, 0, srt.CurrentParallelism())
+	assert.True(t, stoped)
 }

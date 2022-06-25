@@ -82,7 +82,9 @@ func newStepRuntimeWithStatus(fullName string, step *schema.WorkflowSourceStep, 
 	failureOpitonsCtx context.Context, eventChannel chan<- WorkflowEvent, config *runConfig,
 	ParentDagID string, status RuntimeStatus, msg string) *StepRuntime {
 	srt := NewStepRuntime(fullName, step, seq, ctx, failureOpitonsCtx, eventChannel, config, ParentDagID)
-	srt.updateStatus(status)
+
+	// 此时由于 stepRuntime 并不会运行，不会占坑，所以不需要降低并发度
+	srt.baseComponentRuntime.updateStatus(status)
 
 	view := srt.newJobView(msg)
 
@@ -170,11 +172,11 @@ func (srt *StepRuntime) Restart(view schema.JobView) (restarted bool, err error)
 	err = nil
 	srt.logger.Infof("begin to restart step[%s]", srt.name)
 
-	if view.Status == StatusRuntimeSucceeded {
+	restarted, err = srt.needRestart(view)
+	if !restarted || err != nil {
 		return
 	}
 
-	restarted = true
 	srt.setSysParams()
 
 	if view.Status == StatusRuntimeRunning {
@@ -183,6 +185,26 @@ func (srt *StepRuntime) Restart(view schema.JobView) (restarted bool, err error)
 
 	// 这条支线只有当前节点为 postProcess 节点才会走
 	return srt.restartWithAbnormalStatus(view)
+}
+
+func (srt StepRuntime) needRestart(view schema.JobView) (bool, error) {
+	defer srt.processJobLock.Unlock()
+	srt.processJobLock.Lock()
+
+	if srt.status != "" {
+		// 此时说明其余的协程正在处理当前的运行时，因此直接退出当前协程
+		err := fmt.Errorf("inner error: cannot restart step[%s], because it's already in status[%s], "+
+			"maybe multi gorutine process this step", srt.name, srt.status)
+		return false, err
+	}
+
+	if view.Status == StatusRuntimeSucceeded {
+		// 此处不直接调用的原因是此时不需要降低 workflowruntime 的并发数
+		srt.baseComponentRuntime.updateStatus(StatusRuntimeSucceeded)
+		return false, nil
+	}
+
+	return true, nil
 }
 
 func (srt *StepRuntime) restartWithRunning(view schema.JobView) (bool, error) {
@@ -629,14 +651,11 @@ func (srt *StepRuntime) stop(msg string) {
 	defer srt.processJobLock.Unlock()
 	srt.processJobLock.Lock()
 
-	if srt.done {
-		srt.logger.Warnf("stepRuntime[%s] is already in status[%s], cannot stoped it", srt.name, srt.status)
-	}
-
 	if srt.job.JobID() == "" {
 		// 此时说明还没有创建job，因此直接将状态置为 failed，并通过事件进行同步即可
-		srt.updateStatus(StatusRuntimeTerminated)
-		view := srt.newJobView("msg")
+		srt.updateStatus(StatusRuntimeFailed)
+		msg = fmt.Sprintf("cannot stop stepruntime[%s] because cannot find it's jobid", srt.name)
+		view := srt.newJobView(msg)
 		srt.syncToApiServerAndParent(WfEventJobStopErr, view, msg)
 		return
 	}

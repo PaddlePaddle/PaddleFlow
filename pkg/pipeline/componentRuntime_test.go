@@ -66,7 +66,7 @@ func mockRunConfigForComponentRuntime() *runConfig {
 		userName:           "xiaoming",
 		logger:             logger.LoggerForRun("componentRunt"),
 		runID:              "run-000001",
-		parallelismManager: NewParallelismManager(5),
+		parallelismManager: NewParallelismManager(50),
 	}
 }
 
