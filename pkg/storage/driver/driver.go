@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package dbinit
+package driver
 
 import (
 	"fmt"
@@ -31,74 +31,84 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
-// data init for sqllite
 const (
+	Mysql  = "mysql"
+	Sqlite = "sqlite"
+	// data init for sqllite
 	dsn              = "file:paddleflow.db?cache=shared&mode=rwc"
 	rootUserName     = "root"
 	rootUserPassword = "$2a$10$1qdSQN5wMl3FtXoxw7mKpuxBqIuP0eYXTBM9CBn5H4KubM/g5Hrb6%"
 )
 
-func InitDatabase(dbConf *config.DatabaseConfig, gormConf *gorm.Config, logLevel string) (*gorm.DB, error) {
-	if gormConf == nil {
-		gormConf = &gorm.Config{
-			NamingStrategy: schema.NamingStrategy{
-				TablePrefix:   "",
-				SingularTable: true,
-			},
-		}
+func InitStorage(conf *config.StorageConfig, logLevel string) error {
+	driver := strings.ToLower(conf.Driver)
+	gormConf := getGormConf(logLevel)
+	switch driver {
+	case Mysql:
+		storage.DB = initMysqlDB(conf, gormConf)
+	default:
+		// 若配置文件没有设置，则默认使用SQLLite
+		storage.DB = initSQLiteDB(gormConf)
 	}
 
-	gormLogger := logger.Default
+	if storage.DB == nil {
+		panic(fmt.Errorf("Init database DB error\n"))
+	}
+	if err := setSqlDBConns(conf); err != nil {
+		return err
+	}
+
+	log.Debugf("InitStorage success.dbConf:%v", conf)
+	storage.InitStores(storage.DB)
+	return nil
+}
+
+func getGormConf(logLevel string) *gorm.Config {
+	gormConf := &gorm.Config{
+		NamingStrategy: schema.NamingStrategy{
+			TablePrefix:   "",
+			SingularTable: true,
+		},
+		Logger: logger.Default,
+	}
+
 	if level, err := log.ParseLevel(logLevel); err != nil {
 		log.Warningf("Parse log level error[%s], using logger.Default as gormLogger.", err.Error())
-	} else if level == log.DebugLevel {
-		gormLogger = gormLogger.LogMode(logger.Info)
+	} else if level == log.DebugLevel || level == log.TraceLevel {
+		gormConf.Logger.LogMode(logger.Info)
 	}
-	gormConf.Logger = gormLogger
+	return gormConf
+}
 
-	var db *gorm.DB
-	if strings.EqualFold(dbConf.Driver, "mysql") {
-		db = initMysqlDB(dbConf, gormConf)
-	} else {
-		// 若配置文件没有设置，则默认使用SQLLite
-		db = initSQLiteDB(dbConf, gormConf)
-	}
-
-	if db == nil {
-		panic(fmt.Errorf("Init database db error\n"))
-	}
-
-	sqlDB, err := db.DB()
+func setSqlDBConns(conf *config.StorageConfig) error {
+	sqlDB, err := storage.DB.DB()
 	if err != nil {
-		log.Fatalf("Get db.DB error[%s]", err.Error())
-		return nil, err
+		log.Fatalf("Get DB.DB error[%s]", err.Error())
+		return err
 	}
 
-	if dbConf.MaxIdleConns == nil {
-		dbConf.MaxIdleConns = new(int)
-		*dbConf.MaxIdleConns = 5
+	if conf.MaxIdleConns == nil {
+		conf.MaxIdleConns = new(int)
+		*conf.MaxIdleConns = 5
 	}
-	sqlDB.SetMaxIdleConns(*dbConf.MaxIdleConns)
+	sqlDB.SetMaxIdleConns(*conf.MaxIdleConns)
 
-	if dbConf.MaxOpenConns == nil {
-		dbConf.MaxOpenConns = new(int)
-		*dbConf.MaxOpenConns = 10
+	if conf.MaxOpenConns == nil {
+		conf.MaxOpenConns = new(int)
+		*conf.MaxOpenConns = 10
 	}
-	sqlDB.SetMaxOpenConns(*dbConf.MaxOpenConns)
+	sqlDB.SetMaxOpenConns(*conf.MaxOpenConns)
 
-	if dbConf.ConnMaxLifetimeInHours == nil {
-		dbConf.ConnMaxLifetimeInHours = new(int)
-		*dbConf.ConnMaxLifetimeInHours = 1
+	if conf.ConnMaxLifetimeInHours == nil {
+		conf.ConnMaxLifetimeInHours = new(int)
+		*conf.ConnMaxLifetimeInHours = 1
 	}
-	sqlDB.SetConnMaxLifetime(time.Hour * time.Duration(*dbConf.ConnMaxLifetimeInHours))
-	log.Debugf("InitDatabase success.dbConf:%v", dbConf)
-	storage.InitStores(db)
-	return db, nil
+	sqlDB.SetConnMaxLifetime(time.Hour * time.Duration(*conf.ConnMaxLifetimeInHours))
+	return nil
 }
 
 func InitMockDB() {
@@ -113,11 +123,11 @@ func InitMockDB() {
 	if err := createDatabaseTables(db); err != nil {
 		log.Fatalf("initMockDB createDatabaseTables error[%s]", err.Error())
 	}
-	database.DB = db
+	storage.DB = db
 	storage.InitStores(db)
 }
 
-func initSQLiteDB(dbConf *config.DatabaseConfig, gormConf *gorm.Config) *gorm.DB {
+func initSQLiteDB(gormConf *gorm.Config) *gorm.DB {
 	db, err := gorm.Open(sqlite.Open(dsn), gormConf)
 	if err != nil {
 		log.Fatalf("initSQLiteDB error[%s]", err.Error())
@@ -177,7 +187,7 @@ func initSQLiteDB(dbConf *config.DatabaseConfig, gormConf *gorm.Config) *gorm.DB
 	return db
 }
 
-func initMysqlDB(dbConf *config.DatabaseConfig, gormConf *gorm.Config) *gorm.DB {
+func initMysqlDB(dbConf *config.StorageConfig, gormConf *gorm.Config) *gorm.DB {
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8&parseTime=True&loc=Local",
 		dbConf.User, dbConf.Password, dbConf.Host, dbConf.Port, dbConf.Database)
 	db, err := gorm.Open(mysql.Open(dsn), gormConf)

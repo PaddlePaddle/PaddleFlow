@@ -28,7 +28,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/pipeline"
@@ -253,7 +253,7 @@ func handleImageCallbackFunc(imageInfo handler.ImageInfo, err error) error {
 		}
 		_, err := models.GetImage(logEntry, imageInfo.PFImageID)
 		if err != nil {
-			if database.GetErrorCode(err) == database.ErrorRecordNotFound {
+			if errors.GetErrorCode(err) == errors.ErrorRecordNotFound {
 				// image not in db. save image info to db
 				logEntry.Debugf("image handler cb store new image[%s] with url[%s]\n", imageInfo.PFImageID, imageUrl)
 				if err := models.CreateImage(logEntry, &image); err != nil {

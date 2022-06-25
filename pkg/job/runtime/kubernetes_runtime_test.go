@@ -37,10 +37,10 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database/dbinit"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 )
 
 const (
@@ -110,7 +110,7 @@ func TestKubeRuntimeJob(t *testing.T) {
 			},
 		},
 	}
-	dbinit.InitMockDB()
+	driver.InitMockDB()
 	config.GlobalServerConfig = &config.ServerConfig{}
 	err := models.CreateJob(&models.Job{
 		ID: testJobID,

@@ -25,7 +25,6 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
 
@@ -38,7 +37,7 @@ func TestGetFSCacheStore(t *testing.T) {
 
 func TestDBFSCache(t *testing.T) {
 	initMockDB()
-	dbfs := newDBFSCache(database.DB)
+	dbfs := newDBFSCache(DB)
 	fsCache1 := new(model.FSCache)
 	fsCache1.CacheDir = "cachedir"
 	fsCache1.CacheID = "cacheID1"
@@ -93,6 +92,6 @@ func initMockDB() {
 	); err != nil {
 		log.Fatalf("InitMockDB createDatabaseTables error[%s]", err.Error())
 	}
-	database.DB = db
+	DB = db
 	InitStores(db)
 }

@@ -30,7 +30,6 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	fsCommon "github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/common"
@@ -159,7 +158,7 @@ func (s *FileSystemService) GetFileSystem(username, fsName string) (model.FileSy
 
 // DeleteFileSystem the function which performs the operation of delete file system
 func (s *FileSystemService) DeleteFileSystem(ctx *logger.RequestContext, fsID string) error {
-	return models.WithTransaction(database.DB, func(tx *gorm.DB) error {
+	return models.WithTransaction(storage.DB, func(tx *gorm.DB) error {
 		if err := storage.Filesystem.DeleteFileSystem(tx, fsID); err != nil {
 			ctx.Logging().Errorf("delete fs[%s] failed error[%v]", fsID, err)
 			ctx.ErrorCode = common.FileSystemDataBaseError

@@ -30,17 +30,17 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database/dbinit"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	pkgPipeline "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 )
 
 // 测试创建pipeline
 // yaml结构校验跟run相同，所以此处略过
 // todo: fs路径不存在 & 访问权限(需要挂载，不好测试)
 func TestCreatePipeline(t *testing.T) {
-	dbinit.InitMockDB()
+	driver.InitMockDB()
 	ctx := &logger.RequestContext{UserName: MockRootUser}
 
 	pwd, err := os.Getwd()
@@ -133,7 +133,7 @@ func TestCreatePipeline(t *testing.T) {
 // 测试更新pipeline
 // todo: fs路径不存在 & 访问权限
 func TestUpdatePipeline(t *testing.T) {
-	dbinit.InitMockDB()
+	driver.InitMockDB()
 	ctx := &logger.RequestContext{UserName: "normalUser"}
 
 	createPplReq := CreatePipelineRequest{
@@ -252,7 +252,7 @@ func TestUpdatePipeline(t *testing.T) {
 // 测试list pipeline
 // todo：测试marker不为空
 func TestListPipeline(t *testing.T) {
-	dbinit.InitMockDB()
+	driver.InitMockDB()
 	ctx := &logger.RequestContext{UserName: MockRootUser}
 
 	_, _, _, _ = insertPipeline(t, ctx.Logging())
@@ -347,7 +347,7 @@ func TestListPipeline(t *testing.T) {
 
 // todo：测试marker不为空
 func TestGetPipeline(t *testing.T) {
-	dbinit.InitMockDB()
+	driver.InitMockDB()
 	ctx := &logger.RequestContext{UserName: MockRootUser}
 
 	ppl1 := models.Pipeline{
@@ -463,7 +463,7 @@ func TestGetPipeline(t *testing.T) {
 }
 
 func TestGetPipelineDetail(t *testing.T) {
-	dbinit.InitMockDB()
+	driver.InitMockDB()
 	ctx := &logger.RequestContext{UserName: MockRootUser}
 
 	ppl1 := models.Pipeline{
@@ -552,7 +552,7 @@ func TestGetPipelineDetail(t *testing.T) {
 
 // todo: 测试有schedule在运行的场景（不能删除）
 func TestDeletePipeline(t *testing.T) {
-	dbinit.InitMockDB()
+	driver.InitMockDB()
 	ctx := &logger.RequestContext{UserName: MockRootUser}
 
 	// 创建pipeline前，test delete pipeline 失败，pipeline id不存在
@@ -671,7 +671,7 @@ func TestDeletePipeline(t *testing.T) {
 
 // todo: 测试有schedule在运行的场景（不能删除）
 func TestDeletePipelineDetail(t *testing.T) {
-	dbinit.InitMockDB()
+	driver.InitMockDB()
 	ctx := &logger.RequestContext{UserName: MockRootUser}
 
 	ppl1 := models.Pipeline{

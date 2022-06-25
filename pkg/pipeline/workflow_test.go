@@ -28,9 +28,9 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database/dbinit"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	pplcommon "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 )
 
 const (
@@ -803,7 +803,7 @@ func TestRestartWorkflow(t *testing.T) {
 }
 
 func TestRestartWorkflow_from1completed(t *testing.T) {
-	dbinit.InitMockDB()
+	driver.InitMockDB()
 	testCase := loadcase(runYamlPath)
 	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
@@ -839,7 +839,7 @@ func TestRestartWorkflow_from1completed(t *testing.T) {
 }
 
 func TestCheckPostProcess(t *testing.T) {
-	dbinit.InitMockDB()
+	driver.InitMockDB()
 	wfs, err := loadTwoPostCaseSource()
 	assert.Nil(t, err)
 
