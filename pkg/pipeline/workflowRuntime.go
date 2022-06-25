@@ -107,54 +107,44 @@ func (wfr *WorkflowRuntime) Restart(entryPointView schema.RuntimeView,
 		EntryPoints: entryPointView,
 	}
 
-	wfr.entryPoints.updateStatus(StatusRuntimeRunning)
-
-	entryPointRestarted, err := wfr.entryPoints.Restart(dagView)
+	// 2. 这一部分没有意义
+	need, err := wfr.entryPoints.needRestart(&dagView)
 	if err != nil {
-		errMsg := fmt.Sprintf("restart entryPoints failed: %s", err.Error())
-		wfr.logger.Errorf(errMsg)
 		wfr.status = common.StatusRunFailed
-		wfr.callback(errMsg)
-		return err
+		wfr.callback("cannot decide to whether to restart entryPoints")
 	}
 
-	// 2、处理 PostProcess
-	// - 如果此时的 entryPoint 不为终态，则 PostProcess 还没有开始运行，此时，
-	// PostProcess 节点会在 entryPoint 处于终态时，由 processEvent 函数驱动
-	// 因此我们在此处只需关注 entryPoint 已经处于终态（主要值 succeede， 其余终态entryPoint 都会重启）的情况。
-	if !entryPointRestarted {
-		for name, step := range wfr.WorkflowSource.PostProcess {
-			failureOptionsCtx, _ := context.WithCancel(context.Background())
-			postProcess := NewStepRuntime(name, step, 0, wfr.postProcessPointsCtx, failureOptionsCtx, wfr.EventChan,
-				wfr.runConfig, "")
-			wfr.postProcess = postProcess
-		}
+	// 只有在 不需要重启 entryPoint 的时候才需要重启 postProcess。
+	// 当 entryPoint 需要重启的时候，postProcess 节点，无论如何都需要重新运行一次，此时应该有 processEvent 函数触发
+	if need {
+		go wfr.entryPoints.Restart(dagView)
 
-		// 如果没有 postProcess, 则说明 run 已经运行成功了
-		if wfr.postProcess == nil {
-			wfr.status = string(StatusRuntimeSucceeded)
-			msg := fmt.Sprintf("there is no need to restart, because it is already success")
-			wfr.logger.Infof(msg)
-			wfr.callback(msg)
-		}
-
-		for _, view := range postProcessView {
-
-			postProcessRestarted, err := wfr.postProcess.Restart(view)
-			if err != nil {
-				errMsg := fmt.Sprintf("restart postProcess failed: %s", err.Error())
-				wfr.logger.Errorf(errMsg)
-				wfr.status = common.StatusRunFailed
-				wfr.callback(errMsg)
-				return err
+		// 如果此时有 postProcess 的节点有对应的job 存在，此时应该尝试终止该job(不保证终止成功), 任务终止相关的信息不会同步值 workflowRuntime，
+		// 也不会同步至数据库
+		if wfr.runConfig.WorkflowSource.PostProcess != nil {
+			for name, view := range postProcessView {
+				if view.Status == StatusRuntimeRunning && view.JobID != "" {
+					failureOptionsCtx, _ := context.WithCancel(context.Background())
+					postProcess := NewStepRuntime(name, wfr.WorkflowSource.PostProcess[name], 0, wfr.postProcessPointsCtx,
+						failureOptionsCtx, make(chan<- WorkflowEvent), wfr.runConfig, "")
+					go postProcess.StopByView(view)
+				}
 			}
+		}
 
-			// 如果没有重启，则说明 postProcess 已经运行成功了。
-			if !postProcessRestarted {
-				wfr.status = string(StatusRuntimeSucceeded)
-				msg := fmt.Sprintf("there is no need to restart, because it is already success")
-				wfr.logger.Infof(msg)
-				wfr.callback(msg)
+	} else {
+		// 理论上不会存在这种情况，因为此时的run 的状态应该是 succeeded
+		if wfr.runConfig.WorkflowSource.PostProcess == nil {
+			return nil
+		} else {
+			for name, step := range wfr.WorkflowSource.PostProcess {
+				failureOptionsCtx, _ := context.WithCancel(context.Background())
+				postProcess := NewStepRuntime(name, step, 0, wfr.postProcessPointsCtx, failureOptionsCtx, wfr.EventChan,
+					wfr.runConfig, "")
+				wfr.postProcess = postProcess
+
+				view := postProcessView[name]
+				wfr.postProcess.Restart(view)
 			}
 		}
 	}

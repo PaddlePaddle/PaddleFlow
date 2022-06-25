@@ -78,6 +78,7 @@ type componentRuntime interface {
 	getFullName() string
 	getName() string
 	getSeq() int
+	getStatus() RuntimeStatus
 
 	Start()
 
@@ -242,8 +243,8 @@ func (crt *baseComponentRuntime) getComponent() schema.Component {
 // 更新节点状态
 func (crt *baseComponentRuntime) updateStatus(status RuntimeStatus) error {
 	if crt.done {
-		err := fmt.Errorf("cannot update the status of runtime[%s] for node[%s]，because the status of it is [%s]",
-			crt.component.GetName(), crt.componentFullName, crt.status)
+		err := fmt.Errorf("cannot update the status of runtime[%s]，because the status of it is [%s]",
+			crt.name, crt.status)
 		crt.logger.Errorln(err.Error())
 		return err
 	}
@@ -365,4 +366,8 @@ func (crt *baseComponentRuntime) Start() {
 
 func (crt *baseComponentRuntime) getSeq() int {
 	return crt.seq
+}
+
+func (crt *baseComponentRuntime) getStatus() RuntimeStatus {
+	return crt.status
 }

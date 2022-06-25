@@ -77,6 +77,7 @@ type Component interface {
 	UpdateCondition(string)
 	UpdateLoopArguemt(interface{})
 	UpdateName(name string)
+	UpdateDeps(deps string)
 }
 
 type WorkflowSourceStep struct {
@@ -140,6 +141,10 @@ func (s *WorkflowSourceStep) UpdateName(name string) {
 
 func (s *WorkflowSourceStep) UpdateLoopArguemt(loopArgument interface{}) {
 	s.LoopArgument = loopArgument
+}
+
+func (s *WorkflowSourceStep) UpdateDeps(deps string) {
+	s.Deps = deps
 }
 
 // 获取 artifact 的路径
@@ -248,6 +253,10 @@ func (d *WorkflowSourceDag) UpdateCondition(condition string) {
 
 func (d *WorkflowSourceDag) UpdateLoopArguemt(loopArgument interface{}) {
 	d.LoopArgument = loopArgument
+}
+
+func (d *WorkflowSourceDag) UpdateDeps(deps string) {
+	d.Deps = deps
 }
 
 func (d *WorkflowSourceDag) GetSubComponet(subComponentName string) (Component, bool) {

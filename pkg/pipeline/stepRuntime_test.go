@@ -724,7 +724,7 @@ func TestStart(t *testing.T) {
 	assert.Equal(t, srt.parallelismManager.CurrentParallelism(), 0)
 }
 
-func TestRestart(t *testing.T) {
+func TestStepRestart(t *testing.T) {
 	handler.NewFsHandlerWithServer = handler.MockerNewFsHandlerWithServer
 	testCase := loadcase(runYamlPath)
 	wfs, err := schema.GetWorkflowSource([]byte(testCase))
@@ -761,14 +761,16 @@ func TestRestart(t *testing.T) {
 		Status: StatusRuntimeSucceeded,
 	}
 
-	restarted, err := srt.Restart(jobView)
+	srt.Restart(jobView)
+	time.Sleep(time.Microsecond * 100)
+	assert.True(t, strings.Contains(ep.Message, "no restart required"))
 
 	assert.Nil(t, err)
-	assert.False(t, restarted)
 	assert.Equal(t, 0, srt.parallelismManager.CurrentParallelism())
 
 	jobView = schema.JobView{
 		Status: StatusRuntimeRunning,
+		JobID:  "123",
 	}
 
 	listened := false
@@ -784,11 +786,9 @@ func TestRestart(t *testing.T) {
 
 	srt.done = false
 	srt.status = ""
-	restarted, err = srt.Restart(jobView)
+	srt.Restart(jobView)
 	time.Sleep(time.Millisecond * 100)
 
-	assert.Nil(t, err)
-	assert.True(t, restarted)
 	assert.True(t, listened)
 	assert.True(t, watched)
 	assert.Equal(t, 1, srt.parallelismManager.CurrentParallelism())
@@ -804,12 +804,8 @@ func TestRestart(t *testing.T) {
 		started = true
 	})
 
-	restarted, err = srt.Restart(jobView)
-	time.Sleep(time.Millisecond * 100)
-
+	srt.Restart(jobView)
 	assert.Nil(t, err)
-	assert.True(t, restarted)
-	assert.True(t, listened)
 	assert.True(t, started)
 }
 

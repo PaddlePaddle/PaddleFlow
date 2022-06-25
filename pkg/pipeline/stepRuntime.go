@@ -167,27 +167,39 @@ func (srt *StepRuntime) Start() {
 // 如果 jobView 中的状态为 Succeeded, 则直接返回，无需重启
 // 如果 jobView 中的状态为 Running, 则进入监听即可
 // 否则 创建一个新的job并开始调度执行
-func (srt *StepRuntime) Restart(view schema.JobView) (restarted bool, err error) {
-	restarted = false
-	err = nil
+func (srt *StepRuntime) Restart(view schema.JobView) {
 	srt.logger.Infof("begin to restart step[%s]", srt.name)
 
-	restarted, err = srt.needRestart(view)
-	if !restarted || err != nil {
+	need, err := srt.needRestart(view)
+	if err != nil {
+		msg := fmt.Sprintf("cannot decide to whether to restart step[%s]: %s", srt.name, err.Error())
+		srt.logger.Errorf(msg)
+
+		// 此时没有占坑，不需要降低并发度
+		srt.baseComponentRuntime.updateStatus(StatusRuntimeFailed)
+		view := srt.newJobView(msg)
+		srt.syncToApiServerAndParent(WfEventJobUpdate, view, msg)
+		return
+	}
+	if !need {
+		msg := fmt.Sprintf("step [%s] is already in status[%s], no restart required", srt.name, view.Status)
+		srt.updateStatus(view.Status)
+		srt.syncToApiServerAndParent(WfEventJobUpdate, view, msg)
 		return
 	}
 
 	srt.setSysParams()
 
-	if view.Status == StatusRuntimeRunning {
-		return srt.restartWithRunning(view)
+	if view.Status != StatusRuntimeFailed && view.StartTime != string(StatusRuntimeTerminated) && view.JobID != "" {
+		srt.restartWithRunning(view)
+		return
 	}
 
 	// 这条支线只有当前节点为 postProcess 节点才会走
-	return srt.restartWithAbnormalStatus(view)
+	srt.restartWithAbnormalStatus(view)
 }
 
-func (srt StepRuntime) needRestart(view schema.JobView) (bool, error) {
+func (srt *StepRuntime) needRestart(view schema.JobView) (bool, error) {
 	defer srt.processJobLock.Unlock()
 	srt.processJobLock.Lock()
 
@@ -198,7 +210,7 @@ func (srt StepRuntime) needRestart(view schema.JobView) (bool, error) {
 		return false, err
 	}
 
-	if view.Status == StatusRuntimeSucceeded {
+	if view.Status == StatusRuntimeSucceeded || view.Status == StatusRuntimeSkipped {
 		// 此处不直接调用的原因是此时不需要降低 workflowruntime 的并发数
 		srt.baseComponentRuntime.updateStatus(StatusRuntimeSucceeded)
 		return false, nil
@@ -207,15 +219,17 @@ func (srt StepRuntime) needRestart(view schema.JobView) (bool, error) {
 	return true, nil
 }
 
-func (srt *StepRuntime) restartWithRunning(view schema.JobView) (bool, error) {
+func (srt *StepRuntime) restartWithRunning(view schema.JobView) {
 	defer srt.processJobLock.Unlock()
 	srt.processJobLock.Lock()
 
 	if srt.status != "" {
 		// 此时说明其余的协程正在处理当前的运行时，因此直接退出当前协程
-		err := fmt.Errorf("inner error: cannot restart step[%s], because it's already in status[%s], "+
+		msg := fmt.Sprintf("inner error: cannot restart step[%s], because it's already in status[%s], "+
 			"maybe multi gorutine process this step", srt.name, srt.status)
-		return false, err
+		srt.updateStatus(StatusRuntimeFailed)
+		view := srt.newJobView(msg)
+		srt.syncToApiServerAndParent(WfEventJobUpdate, view, msg)
 	}
 
 	srt.parallelismManager.increase()
@@ -226,13 +240,12 @@ func (srt *StepRuntime) restartWithRunning(view schema.JobView) (bool, error) {
 
 	go srt.Listen()
 	go srt.job.Watch()
-	return true, nil
+	return
 }
 
-func (srt *StepRuntime) restartWithAbnormalStatus(view schema.JobView) (bool, error) {
+func (srt *StepRuntime) restartWithAbnormalStatus(view schema.JobView) {
 	srt.Start()
 	go srt.Listen()
-	return true, nil
 }
 
 func (srt *StepRuntime) Listen() {
@@ -732,8 +745,6 @@ func (srt *StepRuntime) processEventFromJob(event WorkflowEvent) {
 }
 
 func (srt *StepRuntime) newJobView(msg string) schema.JobView {
-	return schema.JobView{}
-
 	step := srt.getWorkFlowStep()
 	params := map[string]string{}
 	for name, value := range step.GetParameters() {
@@ -762,4 +773,13 @@ func (srt *StepRuntime) newJobView(msg string) schema.JobView {
 	}
 
 	return view
+}
+
+func (srt *StepRuntime) StopByView(view schema.JobView) {
+	// 通过此函数终止的任务，相关信息不会网上冒泡
+	srt.job.(*PaddleFlowJob).SetJobID(view.JobID)
+	err := srt.job.Stop()
+	if err != nil {
+		srt.logger.Errorf("stop job[%s] failed", err.Error())
+	}
 }

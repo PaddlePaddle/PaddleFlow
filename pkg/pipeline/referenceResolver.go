@@ -67,5 +67,8 @@ func (rr *referenceSolver) resolveComponentReference(component schema.Component)
 		referencedInputArtifact[name] = value
 	}
 
+	// 使用 reference 节点的 deps 取代 refereneced 节点 deps 字段
+	referencedComponent.UpdateDeps(step.Deps)
+
 	return referencedComponent, nil
 }
