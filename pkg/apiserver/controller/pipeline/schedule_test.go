@@ -294,7 +294,7 @@ func TestCreateSchedule(t *testing.T) {
 // todo: 测试marker不为空
 func TestListSchedule(t *testing.T) {
 	driver.InitMockDB()
-	ctx := &logger.RequestContext{UserName: MockRootUser}
+	ctx := &logger.RequestContext{UserName: MockNormalUser}
 
 	pplID1, _, pplDetailID1, _ := insertPipeline(t, ctx.Logging())
 
@@ -567,7 +567,7 @@ func TestListSchedule(t *testing.T) {
 
 // todo: 测试使用marker，以及maxKeys，runFilter, statusFilter 等参数过滤 run列表
 func TestGetSchedule(t *testing.T) {
-	dbinit.InitMockDB()
+	driver.InitMockDB()
 	ctx := &logger.RequestContext{UserName: MockNormalUser}
 	pplID1, _, pplDetailID1, _ := insertPipeline(t, ctx.Logging())
 
