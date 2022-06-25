@@ -127,7 +127,7 @@ func validateScheduleTime(startTime, endTime string, currentTime time.Time) (sta
 		startAt.Valid = true
 		startAt.Time, err = time.ParseInLocation("2006-01-02 15:04:05", startTime, time.Local)
 		if err != nil {
-			errMsg := fmt.Sprintf("starttime[%s] format not correct, should be YYYY-MM-DD hh-mm-ss", startTime)
+			errMsg := fmt.Sprintf("starttime[%s] format not correct, should be YYYY-MM-DD hh:mm:ss", startTime)
 			return startAt, endAt, fmt.Errorf(errMsg)
 		}
 
@@ -144,7 +144,7 @@ func validateScheduleTime(startTime, endTime string, currentTime time.Time) (sta
 		endAt.Valid = true
 		endAt.Time, err = time.ParseInLocation("2006-01-02 15:04:05", endTime, time.Local)
 		if err != nil {
-			errMsg := fmt.Sprintf("endtime[%s] format not correct, should be YYYY-MM-DD hh-mm-ss", endTime)
+			errMsg := fmt.Sprintf("endtime[%s] format not correct, should be YYYY-MM-DD hh:mm:ss", endTime)
 			return startAt, endAt, fmt.Errorf(errMsg)
 		}
 
@@ -483,6 +483,7 @@ func StopSchedule(ctx *logger.RequestContext, scheduleID string) error {
 	return nil
 }
 
+// todo: 支持 StopRun
 func DeleteSchedule(ctx *logger.RequestContext, scheduleID string) error {
 	ctx.Logging().Debugf("begin delete schedule: %s", scheduleID)
 	// check schedule exist && user access right

@@ -190,7 +190,7 @@ func TestCreateSchedule(t *testing.T) {
 	createScheduleReq.StartTime = startTime.Add(48 * time.Hour).Format("20060102 15:04:05")
 	resp, err = CreateSchedule(ctx, &createScheduleReq)
 	assert.NotNil(t, err)
-	assert.Equal(t, fmt.Errorf("create schedule failed, starttime[%s] format not correct, should be YYYY-MM-DD hh-mm-ss", createScheduleReq.StartTime), err)
+	assert.Equal(t, fmt.Errorf("create schedule failed, starttime[%s] format not correct, should be YYYY-MM-DD hh:mm:ss", createScheduleReq.StartTime), err)
 
 	// 失败，start time 时间早于当前时间
 	startTime = time.Now()
@@ -204,7 +204,7 @@ func TestCreateSchedule(t *testing.T) {
 	createScheduleReq.EndTime = time.Now().Add(48 * time.Hour).Format("20060102 15:04:05")
 	resp, err = CreateSchedule(ctx, &createScheduleReq)
 	assert.NotNil(t, err)
-	assert.Equal(t, fmt.Errorf("create schedule failed, endtime[%s] format not correct, should be YYYY-MM-DD hh-mm-ss", createScheduleReq.EndTime), err)
+	assert.Equal(t, fmt.Errorf("create schedule failed, endtime[%s] format not correct, should be YYYY-MM-DD hh:mm:ss", createScheduleReq.EndTime), err)
 
 	// 失败，end time 时间早于当前时间
 	endTime := time.Now()

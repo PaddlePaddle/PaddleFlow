@@ -161,7 +161,7 @@ func (sr *ScheduleRouter) deleteSchedule(w http.ResponseWriter, r *http.Request)
 	scheduleID := chi.URLParam(r, util.ParamKeyScheduleID)
 	logger.LoggerForRequest(&ctx).Debugf("delete schedule id:%v", scheduleID)
 
-	err := pipeline.StopSchedule(&ctx, scheduleID)
+	err := pipeline.DeleteSchedule(&ctx, scheduleID)
 	if err != nil {
 		ctx.Logging().Errorf("delete schedule: %s failed. error:%s", scheduleID, err.Error())
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
