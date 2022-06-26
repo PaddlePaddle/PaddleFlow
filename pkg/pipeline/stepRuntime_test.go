@@ -116,7 +116,6 @@ func TestUpdateJobForFingerPrint(t *testing.T) {
 		if stepName == "data-preprocess" {
 			assert.Equal(t, 2, len(srt.job.Job().Parameters))
 
-			fmt.Println(srt.job.Job().Env)
 			assert.Equal(t, 3, len(srt.job.Job().Env)) // 2 env
 
 			assert.Contains(t, srt.job.Job().Artifacts.Output, "train_data")
@@ -227,7 +226,6 @@ func TestUpdateJob(t *testing.T) {
 		if stepName == "data-preprocess" {
 			assert.Equal(t, 2, len(srt.job.Job().Parameters))
 
-			fmt.Println(srt.job.Job().Env)
 			assert.Equal(t, 2+sysNum+2, len(srt.job.Job().Env)) // 4 env + 6 sys param + 2 artifact
 
 			assert.Contains(t, srt.job.Job().Artifacts.Output, "train_data")
@@ -444,10 +442,8 @@ func TestNewStepRuntimeWithStatus(t *testing.T) {
 	go mockToListenEvent(eventChan, ep)
 
 	st := wfs.EntryPoints.EntryPoints["data-preprocess"]
-	fmt.Println("hahahah")
 	srt := newStepRuntimeWithStatus("data-preprocess", st.(*schema.WorkflowSourceStep), 0, context.Background(), failctx,
 		eventChan, rf, "dag-11", StatusRuntimeFailed, "failed hahah")
-	fmt.Println("123")
 
 	assert.True(t, updateRuntimeCalled)
 
@@ -457,8 +453,6 @@ func TestNewStepRuntimeWithStatus(t *testing.T) {
 	assert.True(t, srt.done)
 
 	assert.Equal(t, ep.Message, "failed hahah")
-
-	fmt.Println(ep.Extra[apicommon.WfEventKeyRunID])
 	assert.Equal(t, ep.Extra[apicommon.WfEventKeyRunID], "run-000001")
 }
 
@@ -552,7 +546,6 @@ func TestExecute(t *testing.T) {
 		}, nil
 	}
 
-	fmt.Println("1222/++++++++++++++++++")
 	srt.parallelismManager.increase()
 	srt.Execute()
 
@@ -844,18 +837,17 @@ func TestStop(t *testing.T) {
 
 	srt.done = false
 	srt.increase()
-	srt.stop("stop without jobid")
+	srt.stopWithMsg("stop without jobid")
 	time.Sleep(time.Millisecond * 100)
 
 	assert.Equal(t, srt.status, StatusRuntimeFailed)
 	assert.True(t, strings.Contains(ep.Message, "jobid"))
-	fmt.Println("+++++ ", ep.Message)
 	assert.Equal(t, 0, srt.CurrentParallelism())
 
 	srt.done = true
 	srt.job.(*PaddleFlowJob).ID = "12334"
 	ep = &WorkflowEvent{}
-	srt.stop("stop")
+	srt.stopWithMsg("stop")
 	time.Sleep(time.Millisecond * 100)
 	assert.Equal(t, ep.Message, "")
 	assert.Equal(t, 0, srt.CurrentParallelism())
@@ -868,7 +860,7 @@ func TestStop(t *testing.T) {
 		return nil
 	})
 
-	srt.stop("stop normal")
+	srt.stopWithMsg("stop normal")
 	assert.Equal(t, srt.status, StatusRuntimeFailed)
 	assert.Equal(t, ep.Message, "")
 	assert.Equal(t, 0, srt.CurrentParallelism())

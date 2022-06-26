@@ -111,13 +111,15 @@ func (wfr *WorkflowRuntime) Restart(entryPointView schema.RuntimeView,
 	need, err := wfr.entryPoints.needRestart(&dagView)
 	if err != nil {
 		wfr.status = common.StatusRunFailed
-		wfr.callback("cannot decide to whether to restart entryPoints")
+		wfr.callback("cannot decide to whether to restart entryPoints: " + err.Error())
 	}
+
+	// 无论 need 是否为True， 调用 Restart 函数来更新 entrypoing 的状态
+	go wfr.entryPoints.Restart(dagView)
 
 	// 只有在 不需要重启 entryPoint 的时候才需要重启 postProcess。
 	// 当 entryPoint 需要重启的时候，postProcess 节点，无论如何都需要重新运行一次，此时应该有 processEvent 函数触发
 	if need {
-		go wfr.entryPoints.Restart(dagView)
 
 		// 如果此时有 postProcess 的节点有对应的job 存在，此时应该尝试终止该job(不保证终止成功), 任务终止相关的信息不会同步值 workflowRuntime，
 		// 也不会同步至数据库
@@ -150,7 +152,6 @@ func (wfr *WorkflowRuntime) Restart(entryPointView schema.RuntimeView,
 	}
 
 	go wfr.Listen()
-
 	return nil
 }
 
@@ -195,7 +196,7 @@ func (wfr *WorkflowRuntime) Stop(force bool) error {
 			// 如果在创建 stepRuntime时，直接给定状态为 Cancelled
 			for name, step := range wfr.WorkflowSource.PostProcess {
 				failureOptionsCtx, _ := context.WithCancel(context.Background())
-				newStepRuntimeWithStatus(name, step, 0, wfr.postProcessPointsCtx, failureOptionsCtx,
+				wfr.postProcess = newStepRuntimeWithStatus(name, step, 0, wfr.postProcessPointsCtx, failureOptionsCtx,
 					wfr.EventChan, wfr.runConfig, "", StatusRuntimeCancelled, "reveice termination signal")
 			}
 		}
@@ -233,6 +234,7 @@ func (wfr *WorkflowRuntime) schedulePostProcess() {
 	defer wfr.scheduleLock.Unlock()
 	wfr.scheduleLock.Lock()
 
+	wfr.logger.Debugf("begin to start postProcess")
 	if wfr.postProcess != nil {
 		wfr.logger.Warningf("the postProcess step[%s] has been scheduled", wfr.postProcess.name)
 		return
@@ -287,9 +289,19 @@ func (wfr *WorkflowRuntime) updateStatusAccordingComponentStatus() {
 	// - 有step为 cancelled 状态，要么是因为有节点失败了，要么是用户终止了 Run
 	// - 另外skipped 状态的节点也视作运行成功（目前运行所有step都skip，此时run也是为succeeded）
 	// - 如果有 Step 的状态为 terminated，但是 run 的状态不为 terminating, 则说明改step 是意外终止，此时 run 的状态应该Failed
-
-	if !wfr.entryPoints.isDone() || (wfr.postProcess != nil && !wfr.postProcess.isDone()) {
+	if wfr.IsCompleted() {
+		wfr.logger.Errorf("cannot update status for run, because it is already in status[%s]", wfr.status)
 		return
+	}
+
+	if !wfr.entryPoints.isDone() {
+		return
+	}
+
+	if wfr.WorkflowSource.PostProcess != nil {
+		if wfr.postProcess == nil || !wfr.postProcess.isDone() {
+			return
+		}
 	}
 
 	hasFailedComponent := wfr.entryPoints.isFailed() ||

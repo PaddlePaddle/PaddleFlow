@@ -159,6 +159,7 @@ func (srt *StepRuntime) Start() {
 
 	// 监听channel, 及时除了时间
 	go srt.Listen()
+	go srt.Stop()
 
 	srt.Execute()
 }
@@ -239,38 +240,35 @@ func (srt *StepRuntime) restartWithRunning(view schema.JobView) {
 		srt.receiveEventChildren)
 
 	go srt.Listen()
+	go srt.Stop()
 	go srt.job.Watch()
 	return
 }
 
 func (srt *StepRuntime) restartWithAbnormalStatus(view schema.JobView) {
 	srt.Start()
-	go srt.Listen()
 }
 
 func (srt *StepRuntime) Listen() {
-	for {
-		select {
-		case event := <-srt.receiveEventChildren:
-			if srt.done {
-				return
-			}
-			srt.processEventFromJob(event)
-		case <-srt.ctx.Done():
-			if srt.done {
-				return
-			}
-			srt.stop("receive stop signall")
-		case <-srt.failureOpitonsCtx.Done():
-			if srt.done {
-				return
-			}
-			srt.stop("stop by failureOptions, some component has been failed")
-		}
+	event := <-srt.receiveEventChildren
+	if srt.done {
+		return
+	}
+	srt.processEventFromJob(event)
+}
 
+func (srt *StepRuntime) Stop() {
+	select {
+	case <-srt.ctx.Done():
 		if srt.done {
 			return
 		}
+		srt.stopWithMsg("receive stop signall")
+	case <-srt.failureOpitonsCtx.Done():
+		if srt.done {
+			return
+		}
+		srt.stopWithMsg("stop by failureOptions, some component has been failed")
 	}
 }
 
@@ -425,13 +423,10 @@ func (srt *StepRuntime) checkCached() (cacheFound bool, err error) {
 		return false, err
 	}
 
-	fmt.Println("secondFingerprint++++++++++++++++++++", srt.secondFingerprint)
-
 	cacheFound = false
 	var cacheRunID string
 	var cacheJobID string
 	for _, runCache := range runCacheList {
-		fmt.Println("unCache.SecondFp++++++++++++++++++++", runCache.SecondFp)
 		if srt.secondFingerprint == runCache.SecondFp {
 			if runCache.ExpiredTime == CacheExpiredTimeNever {
 				cacheFound = true
@@ -568,7 +563,6 @@ func (srt *StepRuntime) Execute() {
 	logMsg := fmt.Sprintf("start execute step[%s] with runid[%s]", srt.name, srt.runID)
 	srt.logger.Infof(logMsg)
 
-	fmt.Println("Enable+++++++", srt.Cache.Enable)
 	// 1、 查看是否命中cache
 	if srt.getWorkFlowStep().Cache.Enable {
 		cachedFound, err := srt.checkCached()
@@ -579,7 +573,6 @@ func (srt *StepRuntime) Execute() {
 			return
 		}
 
-		fmt.Println("cachedFound+++++++", cachedFound)
 		if cachedFound {
 			for {
 				jobView, err := srt.callbacks.GetJobCb(srt.CacheJobID, srt.componentFullName)
@@ -663,7 +656,7 @@ func (srt *StepRuntime) Execute() {
 	srt.logInputArtifact()
 }
 
-func (srt *StepRuntime) stop(msg string) {
+func (srt *StepRuntime) stopWithMsg(msg string) {
 	defer srt.processJobLock.Unlock()
 	srt.processJobLock.Lock()
 

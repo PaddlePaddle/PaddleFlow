@@ -120,7 +120,6 @@ func TestGetReadyComponent(t *testing.T) {
 	assert.Nil(t, err)
 
 	readyNames := drt.getReadyComponent()
-	fmt.Println("readyNames", readyNames)
 
 	assert.Equal(t, len(readyNames), 2)
 	_, ok := readyNames["randint"]
@@ -250,7 +249,6 @@ func TestDagRuntimeStart(t *testing.T) {
 	time.Sleep(time.Millisecond * 100)
 
 	assert.True(t, drt.isSkipped())
-	fmt.Println("hahah", ep.Message)
 	assert.True(t, strings.Contains(ep.Message, "disabled"))
 }
 
@@ -274,8 +272,6 @@ func TestScheduleSubComponent(t *testing.T) {
 		dagStarted = true
 	})
 	defer patch2.Reset()
-
-	fmt.Println("param", drt.parallelismManager.CurrentParallelism())
 
 	drt.scheduleSubComponent(true)
 	time.Sleep(time.Millisecond * 100)
@@ -400,11 +396,7 @@ func TestUpdateStatusAccordingSubComponentRuntimeStatus(t *testing.T) {
 	drt.updateStatus(StatusRuntimeTerminating)
 	drt3.updateStatus(StatusRuntimeTerminated)
 
-	fmt.Println(12344)
-	msg := drt.updateStatusAccordingSubComponentRuntimeStatus()
-	fmt.Println(123444, msg)
-	fmt.Println("drt3-status", drt3.status)
-	fmt.Println("drt2-status", drt2.status)
+	drt.updateStatusAccordingSubComponentRuntimeStatus()
 
 	assert.Equal(t, drt.status, StatusRuntimeTerminated)
 
@@ -454,7 +446,6 @@ func TestDagRunRestart(t *testing.T) {
 	time.Sleep(time.Millisecond * 100)
 
 	assert.Equal(t, drt.status, StatusRuntimeFailed)
-	fmt.Println(123333, ep.Message)
 	assert.True(t, strings.Contains(ep.Message, "cannot decide"))
 
 	drt.done = false
@@ -648,8 +639,6 @@ func TestDagRunRestart(t *testing.T) {
 	stepStarted = false
 	listened = false
 
-	fmt.Println(1233445)
-	fmt.Printf("\n\n\n\n")
 	drt.status = StatusRuntimeInit
 	drt.Restart(dagView)
 	go mockToListenEvent(eventChan, ep)
@@ -696,7 +685,6 @@ func TestProcessEventFromSubComponent(t *testing.T) {
 	event := NewWorkflowEvent(WfEventJobUpdate, "hahaha", map[string]interface{}{})
 	drt.processEventFromSubComponent(*event)
 
-	fmt.Printf("/n/n/n/n/n/n")
 	go mockToListenEvent(eventChan, ep)
 	time.Sleep(time.Millisecond * 500)
 	assert.Equal(t, ep.Message, "")

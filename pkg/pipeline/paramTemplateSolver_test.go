@@ -96,7 +96,6 @@ func TestResolveLoopArgument(t *testing.T) {
 	component := mockComponentForInnerSolver()
 	is := NewInnerSolver(component, "step1", &runConfig{fsID: "xx", logger: logger.LoggerForRun("innersolver")})
 
-	fmt.Println(component.GetLoopArgument())
 	err := is.resolveLoopArugment()
 	assert.Nil(t, err)
 
@@ -181,13 +180,11 @@ func TestResolveCommand(t *testing.T) {
 	err := is.resolveCommand(true)
 	assert.Nil(t, err)
 
-	fmt.Println(component.Command)
 	assert.Equal(t, component.Command, "echo 1 && cat ./b.txt >> {{out1}} && echo abc ")
 
 	err = is.resolveCommand(false)
 	assert.Nil(t, err)
 
-	fmt.Println(component.Command)
 	assert.Equal(t, component.Command, "echo 1 && cat ./b.txt >> out1.txt && echo abc ")
 }
 
