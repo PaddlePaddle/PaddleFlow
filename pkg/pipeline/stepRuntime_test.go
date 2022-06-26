@@ -762,7 +762,7 @@ func TestStepRestart(t *testing.T) {
 	}
 
 	srt.Restart(jobView)
-	time.Sleep(time.Microsecond * 100)
+	time.Sleep(time.Millisecond * 1000)
 	assert.True(t, strings.Contains(ep.Message, "no restart required"))
 
 	assert.Nil(t, err)

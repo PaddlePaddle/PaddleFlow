@@ -70,6 +70,7 @@ func mockerDagRuntime(ec chan WorkflowEvent) (*DagRuntime, error) {
 }
 
 func TestNewDagRuntimeWithStatus(t *testing.T) {
+
 	handler.NewFsHandlerWithServer = handler.MockerNewFsHandlerWithServer
 	testCase := loadcase(runYamlPath)
 	wfs, err := schema.GetWorkflowSource([]byte(testCase))
@@ -214,7 +215,7 @@ func TestCreateAndStartSubComponentRuntime(t *testing.T) {
 	drt.getworkflowSouceDag().EntryPoints["square-loop"].UpdateLoopArguemt([]int{1, 2, 3})
 	drt.createAndStartSubComponentRuntime("square-loop", drt.getworkflowSouceDag().EntryPoints["square-loop"], map[int]int{})
 
-	time.Sleep(time.Microsecond * 100)
+	time.Sleep(time.Millisecond * 100)
 	assert.True(t, dagStarted)
 	assert.Len(t, drt.subComponentRumtimes, 2)
 	assert.Len(t, drt.subComponentRumtimes["square-loop"], 3)
@@ -236,7 +237,7 @@ func TestDagRuntimeStart(t *testing.T) {
 	// 这里只测试 condition 为true 和 disable 的情况，因此节点正常调度不能被mock
 	drt.UpdateCondition("10 < 11")
 	drt.Start()
-	time.Sleep(time.Microsecond * 100)
+	time.Sleep(time.Millisecond * 100)
 
 	assert.True(t, drt.isSkipped())
 	assert.True(t, strings.Contains(ep.Message, "is false"))
@@ -246,7 +247,7 @@ func TestDagRuntimeStart(t *testing.T) {
 		0, drt.ctx, drt.failureOpitonsCtx, eventChan, drt.runConfig, drt.ID)
 	drt2.Start()
 	go mockToListenEvent(eventChan, ep)
-	time.Sleep(time.Microsecond * 100)
+	time.Sleep(time.Millisecond * 100)
 
 	assert.True(t, drt.isSkipped())
 	fmt.Println("hahah", ep.Message)
@@ -277,7 +278,7 @@ func TestScheduleSubComponent(t *testing.T) {
 	fmt.Println("param", drt.parallelismManager.CurrentParallelism())
 
 	drt.scheduleSubComponent(true)
-	time.Sleep(time.Microsecond * 100)
+	time.Sleep(time.Millisecond * 100)
 
 	assert.Len(t, drt.subComponentRumtimes, 2)
 	assert.Len(t, drt.subComponentRumtimes["randint"], 1)
@@ -298,7 +299,7 @@ func TestScheduleSubComponent(t *testing.T) {
 
 	drt.updateStatus(StatusRuntimeRunning)
 	drt.scheduleSubComponent(true)
-	time.Sleep(time.Microsecond * 100)
+	time.Sleep(time.Millisecond * 100)
 
 	assert.Len(t, drt.subComponentRumtimes, 4)
 	assert.Len(t, drt.subComponentRumtimes["split-by-threshold"], 1)
@@ -450,7 +451,7 @@ func TestDagRunRestart(t *testing.T) {
 	go mockToListenEvent(eventChan, ep)
 
 	drt.Restart(dagView)
-	time.Sleep(time.Microsecond * 100)
+	time.Sleep(time.Millisecond * 100)
 
 	assert.Equal(t, drt.status, StatusRuntimeFailed)
 	fmt.Println(123333, ep.Message)
@@ -461,7 +462,7 @@ func TestDagRunRestart(t *testing.T) {
 
 	drt.Restart(dagView)
 	go mockToListenEvent(eventChan, ep)
-	time.Sleep(time.Microsecond * 100)
+	time.Sleep(time.Millisecond * 100)
 
 	assert.Equal(t, drt.status, StatusRuntimeSucceeded)
 	assert.True(t, strings.Contains(ep.Message, "already in status"))
@@ -553,7 +554,7 @@ func TestDagRunRestart(t *testing.T) {
 
 	drt.Restart(dagView)
 	go mockToListenEvent(eventChan, ep)
-	time.Sleep(time.Microsecond * 100)
+	time.Sleep(time.Millisecond * 100)
 
 	assert.Equal(t, drt.status, StatusRuntimeSucceeded)
 	assert.True(t, strings.Contains(ep.Message, "already in status"))
@@ -586,7 +587,7 @@ func TestDagRunRestart(t *testing.T) {
 
 	drt.Restart(dagView)
 	go mockToListenEvent(eventChan, ep)
-	time.Sleep(time.Microsecond * 100)
+	time.Sleep(time.Millisecond * 100)
 
 	assert.Equal(t, drt.status, StatusRuntimeRunning)
 	assert.True(t, stepStarted)
@@ -652,7 +653,7 @@ func TestDagRunRestart(t *testing.T) {
 	drt.status = StatusRuntimeInit
 	drt.Restart(dagView)
 	go mockToListenEvent(eventChan, ep)
-	time.Sleep(time.Microsecond * 100)
+	time.Sleep(time.Millisecond * 100)
 
 	assert.Equal(t, drt.status, StatusRuntimeRunning)
 	assert.True(t, stepStarted)
@@ -684,7 +685,7 @@ func TestProcessEventFromSubComponent(t *testing.T) {
 	defer patch2.Reset()
 
 	go mockToListenEvent(eventChan, ep)
-	time.Sleep(time.Microsecond * 100)
+	time.Sleep(time.Millisecond * 100)
 
 	assert.Equal(t, ep.Message, "")
 	assert.False(t, failed)
@@ -697,7 +698,7 @@ func TestProcessEventFromSubComponent(t *testing.T) {
 
 	fmt.Printf("/n/n/n/n/n/n")
 	go mockToListenEvent(eventChan, ep)
-	time.Sleep(time.Microsecond * 500)
+	time.Sleep(time.Millisecond * 500)
 	assert.Equal(t, ep.Message, "")
 	assert.Equal(t, ep.Event, WfEventDagUpdate)
 	assert.False(t, failed)
@@ -706,7 +707,7 @@ func TestProcessEventFromSubComponent(t *testing.T) {
 	drt.processEventFromSubComponent(*event)
 
 	go mockToListenEvent(eventChan, ep)
-	time.Sleep(time.Microsecond * 100)
+	time.Sleep(time.Millisecond * 100)
 	assert.True(t, failed)
 
 	failed = false
@@ -716,7 +717,7 @@ func TestProcessEventFromSubComponent(t *testing.T) {
 	drt.processEventFromSubComponent(*event)
 
 	go mockToListenEvent(eventChan, ep)
-	time.Sleep(time.Microsecond * 100)
+	time.Sleep(time.Millisecond * 100)
 	assert.True(t, failed)
 }
 
@@ -766,7 +767,7 @@ func TestProcessFailureOptions(t *testing.T) {
 	drt.WorkflowSource.FailureOptions.Strategy = "continue"
 
 	drt.ProcessFailureOptions(*event, false)
-	time.Sleep(time.Microsecond * 100)
+	time.Sleep(time.Millisecond * 100)
 
 	assert.Len(t, drt.subComponentRumtimes, 2)
 	assert.Contains(t, drt.subComponentRumtimes, "sum")
@@ -775,7 +776,7 @@ func TestProcessFailureOptions(t *testing.T) {
 	drt.subComponentRumtimes = map[string][]componentRuntime{}
 	drt.subComponentRumtimes["square-loop"] = append(drt.subComponentRumtimes["square-loop"], drt3)
 	drt.ProcessFailureOptions(*event, false)
-	time.Sleep(time.Microsecond * 100)
+	time.Sleep(time.Millisecond * 100)
 
 	assert.Len(t, drt.subComponentRumtimes, 7)
 }
