@@ -749,7 +749,7 @@ func (drt *DagRuntime) processEventFromSubComponent(event WorkflowEvent) error {
 
 	// 判断事件类型是否为 failureOptionstriggered 类型，是的话，执行 processFailureOptions
 	if event.isFailureOptionsTriggered() {
-		drt.ProcessFailureOptions(event)
+		drt.ProcessFailureOptions(event, false)
 	} else {
 		// 判断节点处于异常状态： Failed 和 Terminated（但是 dag 状态不是terminated 也不是terminating），是的话，则开始执行 FailureOptions 相关的逻辑
 		status, ok := event.Extra[common.WfEventKeyStatus]
@@ -759,13 +759,15 @@ func (drt *DagRuntime) processEventFromSubComponent(event WorkflowEvent) error {
 			isUnexpectedTerminated := subRuntimeStatus == StatusRuntimeTerminated && drt.status != StatusRuntimeTerminating
 
 			if isFailed || isUnexpectedTerminated {
-				drt.ProcessFailureOptions(event)
+				drt.ProcessFailureOptions(event, true)
 			}
 		}
 	}
 
 	StatusMsg := drt.updateStatusAccordingSubComponentRuntimeStatus()
+	fmt.Println(1111, StatusMsg)
 	view := drt.newView(StatusMsg)
+	fmt.Println("22222222222222")
 	drt.syncToApiServerAndParent(WfEventDagUpdate, view, StatusMsg)
 
 	// 如果 dagRuntime 未处于终态，则需要判断是否有新的子节点可以运行
@@ -870,7 +872,7 @@ func (drt *DagRuntime) ProcessFailureOptionsWithFailFast() {
 	}
 }
 
-func (drt *DagRuntime) ProcessFailureOptions(event WorkflowEvent) {
+func (drt *DagRuntime) ProcessFailureOptions(event WorkflowEvent, needSync bool) {
 	drt.logger.Infof("begin to process failure options. trigger event is: %v", event)
 	name, ok := event.Extra[common.WfEventKeyComponentName]
 
@@ -889,9 +891,10 @@ func (drt *DagRuntime) ProcessFailureOptions(event WorkflowEvent) {
 	component := drt.subComponentRumtimes[componentName][0].getComponent()
 
 	// 通过时间通知其父节点处理开始处理 failureOptions
-
-	drt.syncToApiServerAndParent(WfEventFailureOptionsTriggered, schema.DagView{}, fmt.Sprintf("failure options triggered by event: %v", event))
-
+	if needSync {
+		drt.syncToApiServerAndParent(WfEventFailureOptionsTriggered, schema.DagView{},
+			fmt.Sprintf("failure options triggered by event: %v", event))
+	}
 	// 策略的合法性由 workflow 保证
 	if drt.FailureOptions.Strategy == schema.FailureStrategyContinue {
 		drt.ProcessFailureOptionsWithContinue(component)
