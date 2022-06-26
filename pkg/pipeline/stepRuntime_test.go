@@ -117,7 +117,7 @@ func TestUpdateJobForFingerPrint(t *testing.T) {
 			assert.Equal(t, 2, len(srt.job.Job().Parameters))
 
 			fmt.Println(srt.job.Job().Env)
-			assert.Equal(t, 2, len(srt.job.Job().Env)) // 2 env
+			assert.Equal(t, 3, len(srt.job.Job().Env)) // 2 env
 
 			assert.Contains(t, srt.job.Job().Artifacts.Output, "train_data")
 			assert.Contains(t, srt.job.Job().Artifacts.Output, "validate_data")
@@ -134,7 +134,7 @@ func TestUpdateJobForFingerPrint(t *testing.T) {
 			assert.Equal(t, "0.66", srt.job.Job().Parameters["p4"])
 			assert.Equal(t, "/path/to/anywhere", srt.job.Job().Parameters["p5"])
 
-			assert.Equal(t, 5, len(srt.job.Job().Env)) // 5 env
+			assert.Equal(t, 6, len(srt.job.Job().Env)) // 5 env
 
 			// input artifact 替换为上游节点的output artifact
 			// 实际运行中上游节点的output artifact一定是非空的（因为已经运行了），但是在这个测试case里，上游节点没有生成output artifact，所以是空字符串
@@ -152,7 +152,7 @@ func TestUpdateJobForFingerPrint(t *testing.T) {
 			assert.Contains(t, srt.job.Job().Parameters, "refSystem")
 			assert.Equal(t, "run-000001", srt.job.Job().Parameters["refSystem"])
 
-			assert.Equal(t, 4, len(srt.job.Job().Env)) // 4 env
+			assert.Equal(t, 5, len(srt.job.Job().Env)) // 4 env
 			assert.Contains(t, srt.job.Job().Env, "PF_JOB_QUEUE")
 			assert.Contains(t, srt.job.Job().Env, "PF_JOB_PRIORITY")
 			assert.Contains(t, srt.job.Job().Env, "test_env_1")

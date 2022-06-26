@@ -59,6 +59,13 @@ func mockerDagRuntime(ec chan WorkflowEvent) (*DagRuntime, error) {
 	failctx, _ := context.WithCancel(context.Background())
 	drt := NewDagRuntime("PF-EntryPoint", &wfs.EntryPoints, 0, context.Background(), failctx,
 		ec, rf, "0")
+
+	var srt *StepRuntime
+	patch2 := gomonkey.ApplyMethod(reflect.TypeOf(srt), "Start", func(_ *StepRuntime) {
+		fmt.Println("param", drt.parallelismManager.CurrentParallelism())
+	})
+	defer patch2.Reset()
+
 	return drt, nil
 }
 
@@ -99,7 +106,7 @@ func TestGenerateSubComponentFullName(t *testing.T) {
 	assert.Nil(t, err)
 
 	fullName := drt.generateSubComponentFullName("step1")
-	assert.Equal(t, "step1", fullName)
+	assert.Equal(t, "PF-EntryPoint.step1", fullName)
 
 	drt.componentFullName = "entrypoint"
 	fullName = drt.generateSubComponentFullName("step1")
@@ -211,11 +218,11 @@ func TestCreateAndStartSubComponentRuntime(t *testing.T) {
 	assert.True(t, dagStarted)
 	assert.Len(t, drt.subComponentRumtimes, 2)
 	assert.Len(t, drt.subComponentRumtimes["square-loop"], 3)
-	assert.Equal(t, drt.subComponentRumtimes["square-loop"][0].getFullName(), "square-loop")
-	assert.Equal(t, drt.subComponentRumtimes["square-loop"][0].getName(), "square-loop-0")
+	assert.Equal(t, drt.subComponentRumtimes["square-loop"][0].getFullName(), "PF-EntryPoint.square-loop")
+	assert.Equal(t, drt.subComponentRumtimes["square-loop"][0].getName(), "PF-EntryPoint.square-loop-0")
 
-	assert.Equal(t, drt.subComponentRumtimes["square-loop"][1].getFullName(), "square-loop")
-	assert.Equal(t, drt.subComponentRumtimes["square-loop"][2].getName(), "square-loop-2")
+	assert.Equal(t, drt.subComponentRumtimes["square-loop"][1].getFullName(), "PF-EntryPoint.square-loop")
+	assert.Equal(t, drt.subComponentRumtimes["square-loop"][2].getName(), "PF-EntryPoint.square-loop-2")
 }
 
 func TestDagRuntimeStart(t *testing.T) {
@@ -468,6 +475,11 @@ func TestDagRunRestart(t *testing.T) {
 	})
 	defer patch1.Reset()
 
+	patch2 := gomonkey.ApplyMethod(reflect.TypeOf(srt), "Start", func(_ *StepRuntime) {
+		fmt.Println("param", drt.parallelismManager.CurrentParallelism())
+	})
+	defer patch2.Reset()
+
 	listened := false
 	patch3 := gomonkey.ApplyMethod(reflect.TypeOf(drt), "Listen", func(_ *DagRuntime) {
 		listened = true
@@ -658,11 +670,18 @@ func TestProcessEventFromSubComponent(t *testing.T) {
 	ep := &WorkflowEvent{}
 
 	failed := false
-	patch1 := gomonkey.ApplyMethod(reflect.TypeOf(drt), "ProcessFailureOptions", func(_ *DagRuntime, _ WorkflowEvent) {
-		failed = true
+	patch1 := gomonkey.ApplyMethod(reflect.TypeOf(drt), "ProcessFailureOptions",
+		func(_ *DagRuntime, _ WorkflowEvent, _ bool) {
+			failed = true
+			fmt.Println("param", drt.parallelismManager.CurrentParallelism())
+		})
+	defer patch1.Reset()
+
+	var srt *StepRuntime
+	patch2 := gomonkey.ApplyMethod(reflect.TypeOf(srt), "Start", func(_ *StepRuntime) {
 		fmt.Println("param", drt.parallelismManager.CurrentParallelism())
 	})
-	defer patch1.Reset()
+	defer patch2.Reset()
 
 	go mockToListenEvent(eventChan, ep)
 	time.Sleep(time.Microsecond * 100)
@@ -702,9 +721,16 @@ func TestProcessEventFromSubComponent(t *testing.T) {
 }
 
 func TestAllDownStream(t *testing.T) {
+
 	eventChan := make(chan WorkflowEvent)
 	drt, err := mockerDagRuntime(eventChan)
 	assert.Nil(t, err)
+
+	var srt *StepRuntime
+	patch2 := gomonkey.ApplyMethod(reflect.TypeOf(srt), "Start", func(_ *StepRuntime) {
+		fmt.Println("param", drt.parallelismManager.CurrentParallelism())
+	})
+	defer patch2.Reset()
 
 	cp := drt.getworkflowSouceDag().EntryPoints["disStep"]
 	downs := drt.getAllDownstreamComponents(cp)

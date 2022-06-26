@@ -106,7 +106,7 @@ func TestResolveLoopArgument(t *testing.T) {
 
 	component = mockComponentForInnerSolver()
 	component.UpdateLoopArguemt("{{step1.p4}}")
-	is = NewInnerSolver(component, "step1", &runConfig{})
+	is = NewInnerSolver(component, "step1", &runConfig{logger: logger.LoggerForRun("NewInnerSolver")})
 	err = is.resolveLoopArugment()
 	assert.Nil(t, err)
 
@@ -116,7 +116,7 @@ func TestResolveLoopArgument(t *testing.T) {
 
 	component = mockComponentForInnerSolver()
 	component.UpdateLoopArguemt("{{p5}}")
-	is = NewInnerSolver(component, "step1", &runConfig{})
+	is = NewInnerSolver(component, "step1", &runConfig{logger: logger.LoggerForRun("NewInnerSolver")})
 	err = is.resolveLoopArugment()
 	assert.Nil(t, err)
 
@@ -126,7 +126,7 @@ func TestResolveLoopArgument(t *testing.T) {
 
 	component = mockComponentForInnerSolver()
 	component.UpdateLoopArguemt("{{p1}}")
-	is = NewInnerSolver(component, "step1", &runConfig{})
+	is = NewInnerSolver(component, "step1", &runConfig{logger: logger.LoggerForRun("NewInnerSolver")})
 	err = is.resolveLoopArugment()
 	assert.NotNil(t, err)
 
@@ -149,7 +149,7 @@ func TestResolveLoopArgument(t *testing.T) {
 
 func TestResolveCondition(t *testing.T) {
 	component := mockComponentForInnerSolver()
-	is := NewInnerSolver(component, "step1", &runConfig{})
+	is := NewInnerSolver(component, "step1", &runConfig{logger: logger.LoggerForRun("NewInnerSolver")})
 	err := is.resolveCondition()
 
 	assert.Nil(t, err)
@@ -175,7 +175,7 @@ func TestResolveCondition(t *testing.T) {
 
 func TestResolveCommand(t *testing.T) {
 	component := mockComponentForInnerSolver()
-	is := NewInnerSolver(component, "step1", &runConfig{})
+	is := NewInnerSolver(component, "step1", &runConfig{logger: logger.LoggerForRun("NewInnerSolver")})
 	is.setSysParams(map[string]string{"PF_RUN_ID": "abc"})
 
 	err := is.resolveCommand(true)
@@ -193,7 +193,7 @@ func TestResolveCommand(t *testing.T) {
 
 func TestResolveEnv(t *testing.T) {
 	component := mockComponentForInnerSolver()
-	is := NewInnerSolver(component, "step1", &runConfig{})
+	is := NewInnerSolver(component, "step1", &runConfig{logger: logger.LoggerForRun("NewInnerSolver")})
 	is.setSysParams(map[string]string{"PF_RUN_ID": "abc"})
 
 	err := is.resolveEnv()

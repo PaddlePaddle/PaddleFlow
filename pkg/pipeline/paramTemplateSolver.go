@@ -159,6 +159,7 @@ func (isv *innerSolver) resolveArtifactTemplate(tpl []string, fieldType string, 
 
 // resolveEnv: 将字符串中给定模板替换成具体值
 func (isv *innerSolver) resolveTemplate(tplString string, fieldType string, forCache bool) (interface{}, error) {
+	isv.logger.Debugf("begin to resolve template for component[%s] is field[%s]", isv.componentFullName, fieldType)
 	tpls, err := fetchTemplate(tplString)
 	if err != nil {
 		return "", err
