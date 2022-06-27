@@ -1375,7 +1375,11 @@ func NewS3FileSystem(properties map[string]interface{}) (UnderFileStorage, error
 		Region:           aws.String(region),
 		Endpoint:         aws.String(endpoint),
 		DisableSSL:       aws.Bool(!ssl),
-		S3ForcePathStyle: aws.Bool(true),
+		S3ForcePathStyle: aws.Bool(false),
+	}
+
+	if properties[fsCommon.S3ForcePathStyle] == "true" {
+		awsConfig.S3ForcePathStyle = aws.Bool(true)
 	}
 
 	if properties[fsCommon.InsecureSkipVerify] == "true" {
