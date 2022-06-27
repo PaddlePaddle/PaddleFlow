@@ -38,16 +38,17 @@ func (sp *SingleJob) validateJob() error {
 	if err := sp.KubeJob.validateJob(); err != nil {
 		return err
 	}
-	if sp.KubeJob.Namespace == "" {
-		return fmt.Errorf("namespace is empty")
+	if !sp.IsCustomYaml {
+		if sp.Namespace == "" {
+			return fmt.Errorf("namespace is empty")
+		}
+		if sp.Image == "" {
+			return fmt.Errorf("spark image is not defined")
+		}
+		if sp.Command == "" {
+			return fmt.Errorf("command is empty")
+		}
 	}
-	if sp.KubeJob.Image == "" {
-		return fmt.Errorf("image is empty")
-	}
-	if sp.KubeJob.Command == "" {
-		return fmt.Errorf("command is empty")
-	}
-
 	return nil
 }
 
@@ -75,10 +76,6 @@ func (sp *SingleJob) patchSinglePodVariable(pod *v1.Pod, jobID string) error {
 
 // CreateJob creates a job
 func (sp *SingleJob) CreateJob() (string, error) {
-	if err := sp.validateJob(); err != nil {
-		log.Errorf("validate job failed, err: %v", err)
-		return "", err
-	}
 	jobID := sp.GetID()
 	log.Debugf("begin create job jobID:[%s]", jobID)
 
@@ -89,13 +86,14 @@ func (sp *SingleJob) CreateJob() (string, error) {
 			return "", err
 		}
 	}
+	if err := sp.validateJob(); err != nil {
+		log.Errorf("validate job failed, err: %v", err)
+		return "", err
+	}
 
-	// paddleflow won't patch any param to job if it is workflow type
-	if sp.JobType != schema.TypeWorkflow {
-		if err := sp.patchSinglePodVariable(singlePod, jobID); err != nil {
-			log.Errorf("failed to patch single pod variable, err=%v", err)
-			return "", err
-		}
+	if err := sp.patchSinglePodVariable(singlePod, jobID); err != nil {
+		log.Errorf("failed to patch single pod variable, err=%v", err)
+		return "", err
 	}
 
 	log.Debugf("begin submit job jobID:[%s], singlePod:[%v]", jobID, singlePod)
@@ -163,7 +161,7 @@ func (sp *SingleJob) fillContainer(container *v1.Container, podName string) erro
 		if sp.Command == "" {
 			return errors.EmptyJobCommandError()
 		}
-		container.Command = []string{"bash", "-c", sp.fixContainerCommand(sp.Command)}
+		container.Command = []string{"sh", "-c", sp.fixContainerCommand(sp.Command)}
 	}
 
 	// container.Args would be passed

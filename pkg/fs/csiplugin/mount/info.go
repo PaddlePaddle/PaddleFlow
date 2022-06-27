@@ -23,6 +23,8 @@ import (
 type Info struct {
 	Server       string
 	FSID         string
+	FsInfoStr    string
+	FsCacheStr   string
 	TargetPath   string
 	LocalPath    string
 	UsernameRoot string
@@ -33,12 +35,14 @@ type Info struct {
 	ReadOnly     bool
 }
 
-func GetMountInfo(id, server string, readOnly bool) Info {
+func GetMountInfo(id, server, fsInfo, fsCache string, readOnly bool) Info {
 	return Info{
-		FSID:     id,
-		Server:   server,
-		UID:      csiCommon.GetDefaultUID(),
-		GID:      csiCommon.GetDefaultGID(),
-		ReadOnly: readOnly,
+		FSID:       id,
+		Server:     server,
+		FsInfoStr:  fsInfo,
+		FsCacheStr: fsCache,
+		UID:        csiCommon.GetDefaultUID(),
+		GID:        csiCommon.GetDefaultGID(),
+		ReadOnly:   readOnly,
 	}
 }
