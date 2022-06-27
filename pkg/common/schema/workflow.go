@@ -78,6 +78,10 @@ type Component interface {
 	UpdateLoopArguemt(interface{})
 	UpdateName(name string)
 	UpdateDeps(deps string)
+
+	InitInputArtifacts()
+	InitOutputArtifacts()
+	InitParameters()
 }
 
 type WorkflowSourceStep struct {
@@ -145,6 +149,18 @@ func (s *WorkflowSourceStep) UpdateLoopArguemt(loopArgument interface{}) {
 
 func (s *WorkflowSourceStep) UpdateDeps(deps string) {
 	s.Deps = deps
+}
+
+func (s *WorkflowSourceStep) InitOutputArtifacts() {
+	s.Artifacts.Output = map[string]string{}
+}
+
+func (s *WorkflowSourceStep) InitInputArtifacts() {
+	s.Artifacts.Input = map[string]string{}
+}
+
+func (s *WorkflowSourceStep) InitParameters() {
+	s.Parameters = map[string]interface{}{}
 }
 
 // 获取 artifact 的路径
@@ -311,6 +327,18 @@ func (d *WorkflowSourceDag) GetOutputArtifactPath(artName string) (string, error
 	}
 
 	return path, nil
+}
+
+func (d *WorkflowSourceDag) InitOutputArtifacts() {
+	d.Artifacts.Output = map[string]string{}
+}
+
+func (d *WorkflowSourceDag) InitInputArtifacts() {
+	d.Artifacts.Input = map[string]string{}
+}
+
+func (d *WorkflowSourceDag) InitParameters() {
+	d.Parameters = map[string]interface{}{}
 }
 
 type Reference struct {
@@ -530,9 +558,6 @@ func (wfs *WorkflowSource) ProcessRuntimeComponents(components map[string]Compon
 			if step.Env == nil {
 				step.Env = map[string]string{}
 			}
-			if step.Parameters == nil {
-				step.Parameters = map[string]interface{}{}
-			}
 
 			// Reference节点不用替换
 			if step.Reference.Component == "" {
@@ -570,6 +595,16 @@ func (wfs *WorkflowSource) ProcessRuntimeComponents(components map[string]Compon
 					return err
 				}
 			}
+		}
+
+		if component.GetArtifacts().Input == nil {
+			component.InitInputArtifacts()
+		}
+		if component.GetArtifacts().Output == nil {
+			component.InitOutputArtifacts()
+		}
+		if component.GetParameters() == nil {
+			component.InitParameters()
 		}
 	}
 	return nil

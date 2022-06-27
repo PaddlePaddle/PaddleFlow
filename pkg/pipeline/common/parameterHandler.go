@@ -114,7 +114,7 @@ func (s *StepParamChecker) checkDuplication(currentComponent string) error {
 		outputAtfNameUpper := strings.ToUpper(outputAtfName)
 		_, ok := m[outputAtfNameUpper]
 		if ok {
-			return fmt.Errorf("outputAtf name[%s] has already existed in params/artifacts of step[%s] (these names are case-insensitive)",
+			return fmt.Errorf("outputAtf name[%s] has already existed in params/artifacts of component[%s] (these names are case-insensitive)",
 				outputAtfName, currentComponent)
 		} else {
 			m[outputAtfNameUpper] = ""
@@ -450,7 +450,7 @@ func (s *StepParamChecker) refParamExist(currentCompName, refCompName, refParamN
 			return fmt.Errorf("invalid reference param {{ %s.%s }} in step[%s]: parameter[%s] not exist", refCompName, refParamName, currentCompName, refParamName)
 		}
 	default:
-		return fmt.Errorf("component [%s] refer [%s] invalid, only parameters can use upstream parameters and only input artifacts can use upstream output artifacts", currentCompName, refCompName)
+		return fmt.Errorf("component [%s] refer [%s.%s] invalid, only parameters can use upstream parameters and only input artifacts can use upstream output artifacts", currentCompName, refCompName, refParamName)
 	}
 
 	return nil

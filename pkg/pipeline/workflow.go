@@ -301,7 +301,7 @@ func (bwf *BaseWorkflow) validate() error {
 
 	// 8. 检查FailureOption
 	if err := bwf.checkFailureOption(); err != nil {
-		bwf.log().Errorf("check failue_option failed. err: %s", err.Error())
+		bwf.log().Errorf("check failure_option failed. err: %s", err.Error())
 		return err
 	}
 	return nil
@@ -519,7 +519,7 @@ func (bwf *BaseWorkflow) checkCache() error {
 	if bwf.Extra[WfExtraInfoKeyFsID] == "" && bwf.Source.Cache.FsScope != "" {
 		return fmt.Errorf("fs_scope of global cache should be empty if Fs is not used!")
 	}
-	if err := bwf.checkStepCache(bwf.Source.Components); err != nil {
+	if err := bwf.checkStepCache(bwf.Source.EntryPoints.EntryPoints); err != nil {
 		return err
 	}
 	return nil
@@ -528,7 +528,9 @@ func (bwf *BaseWorkflow) checkCache() error {
 func (bwf *BaseWorkflow) checkStepCache(components map[string]schema.Component) error {
 	for name, component := range components {
 		if dag, ok := component.(*schema.WorkflowSourceDag); ok {
-			return bwf.checkStepCache(dag.EntryPoints)
+			if err := bwf.checkStepCache(dag.EntryPoints); err != nil {
+				return err
+			}
 		} else if step, ok := component.(*schema.WorkflowSourceStep); ok {
 			if step.Reference.Component == "" {
 				if step.Cache.MaxExpiredTime == "" {
@@ -590,10 +592,14 @@ func (bwf *BaseWorkflow) replaceRunParam(param string, val interface{}) error {
 				return fmt.Errorf("cannont find component to replace param with [%s]", param)
 			}
 		}
-	} else if len(nodesAndParam) == 0 {
+	} else if len(nodesAndParam) == 1 {
 		paramName := nodesAndParam[0]
-		if err := replaceAllNodeParam(bwf.Source.EntryPoints.EntryPoints, paramName, val); err != nil {
+		ok, err := replaceAllNodeParam(bwf.Source.EntryPoints.EntryPoints, paramName, val)
+		if err != nil {
 			return err
+		}
+		if !ok {
+			return fmt.Errorf("param[%s] not exist", paramName)
 		}
 	} else {
 		return fmt.Errorf("empty component list")
@@ -661,34 +667,41 @@ func replaceNodeParam(nodes map[string]schema.Component, nodesAndParam []string,
 	return true, nil
 }
 
-func replaceAllNodeParam(entryPoints map[string]schema.Component, paramName string, value interface{}) error {
+func replaceAllNodeParam(entryPoints map[string]schema.Component, paramName string, value interface{}) (bool, error) {
+	// ok用于判断是否有过替换操作，如果遍历所有节点都没有替换，那最外层需要报错
+	isReplace := false
+
 	for _, node := range entryPoints {
 		if dag, ok := node.(*schema.WorkflowSourceDag); ok {
 			if orgVal, ok := dag.Parameters[paramName]; ok {
 				dictParam := DictParam{}
 				if err := dictParam.From(orgVal); err == nil {
 					if _, err := CheckDictParam(dictParam, paramName, value); err != nil {
-						return err
+						return false, err
 					}
 				}
 				dag.Parameters[paramName] = value
+				isReplace = true
 			}
-			if err := replaceAllNodeParam(dag.EntryPoints, paramName, value); err != nil {
-				return err
+			isReplaceSub, err := replaceAllNodeParam(dag.EntryPoints, paramName, value)
+			if err != nil {
+				return false, err
 			}
+			isReplace = isReplace || isReplaceSub
 		} else if step, ok := node.(*schema.WorkflowSourceStep); ok {
 			if orgVal, ok := step.Parameters[paramName]; ok {
 				dictParam := DictParam{}
 				if err := dictParam.From(orgVal); err == nil {
 					if _, err := CheckDictParam(dictParam, paramName, value); err != nil {
-						return err
+						return false, err
 					}
 				}
 				step.Parameters[paramName] = value
+				isReplace = true
 			}
 		}
 	}
-	return nil
+	return isReplace, nil
 }
 
 func (bwf *BaseWorkflow) checkSteps() error {
