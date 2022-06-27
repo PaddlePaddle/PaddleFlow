@@ -86,6 +86,7 @@ data:
           volumeAttributes:
             pfs.fs.id: $(pfs.fs.id)
             pfs.fs.info: $(pfs.fs.info)
+            pfs.fs.cache: $(pfs.fs.cache)
             pfs.server: $(pfs.server)
           volumeHandle: pfs-$(pfs.fs.id)-$(namespace)-pv
   default_pvc.yaml: |2-
