@@ -72,7 +72,7 @@ paddleflow_server_port = 8999
 
 ### 配置文件地址
 
-配置文件的地址建议放在`${HOME}/.paddleflow/`目录下，文件名即为`config`。例如：`work`账号即放置在`/home/work/.paddleflow/paddleflow.ini`
+配置文件的地址建议放在`${HOME}/.paddleflow/`目录下，文件名即为`paddleflow.ini`。例如：`work`账号即放置在`/home/work/.paddleflow/paddleflow.ini`
 。用户也可自行选择路径，后续的使用过程中则需要通过`--pf_config`指定config文件的地址。
 
 ## 用户管理
