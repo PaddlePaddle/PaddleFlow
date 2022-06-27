@@ -55,7 +55,7 @@ type CreateRunRequest struct {
 	PipelineID  string `json:"pipelineID,omitempty"`  // optional. one of 3 sources of run. medium priority
 	RunYamlPath string `json:"runYamlPath,omitempty"` // optional. one of 3 sources of run. low priority
 	// request id for trace logger
-	RequestId string `json:"-"`
+	RequestID string `json:"-"`
 }
 
 type CreateRunByJsonRequest struct {
@@ -75,7 +75,7 @@ type CreateRunByJsonRequest struct {
 	FailureOptions schema.FailureOptions `json:"failureOptions,omitempty"` // optional
 	Env            map[string]string     `json:"env,omitempty"`            // optional
 	// request id for trace logger
-	RequestId string `json:"-"`
+	RequestID string `json:"-"`
 }
 
 // used for API CreateRunJson to unmarshal steps in entryPoints and postProcess
@@ -142,7 +142,7 @@ func (b *RunBrief) modelToListResp(run models.Run) {
 func buildWorkflowSource(userName string, req CreateRunRequest, fsID string) (schema.WorkflowSource, string, string, error) {
 	var source, runYaml string
 
-	requestId := req.RequestId
+	requestId := req.RequestID
 	trace_logger.Key(requestId).Infof("retrieve source and runYaml")
 	// retrieve source and runYaml
 	if req.RunYamlRaw != "" { // high priority: wfs delivered by request
@@ -410,7 +410,7 @@ func CreateRun(userName string, request *CreateRunRequest) (CreateRunResponse, e
 	// TODO:// validate flavour
 	// TODO:// validate queue
 
-	requestId := request.RequestId
+	requestId := request.RequestID
 
 	trace_logger.Key(requestId).Infof("build workflow source for run: %+v", request)
 	wfs, source, runYaml, err := buildWorkflowSource(userName, *request, fsID)
@@ -497,9 +497,9 @@ func CreateRunByJson(userName string, request *CreateRunByJsonRequest, bodyMap m
 
 func ValidateAndStartRun(run models.Run, req interface{}) (CreateRunResponse, error) {
 	// get request id from req interface
-	requestId := common.GetRequestIdFromRequest(req)
+	requestId := common.GetRequestIDFromRequest(req)
 	if requestId == "" {
-		errMsg := "get request id failed"
+		errMsg := "get requestID failed"
 		logger.Logger().Errorf("encode run failed. error:%s", errMsg)
 		return CreateRunResponse{}, errors.New(errMsg)
 	}

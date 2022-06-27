@@ -68,7 +68,7 @@ func (rr *RunRouter) createRun(w http.ResponseWriter, r *http.Request) {
 
 	ctx := common.GetRequestContext(r)
 	var createRunInfo run.CreateRunRequest
-	createRunInfo.RequestId = ctx.RequestID
+	createRunInfo.RequestID = ctx.RequestID
 	if err := common.BindJSON(r, &createRunInfo); err != nil {
 		logger.LoggerForRequest(&ctx).Errorf(
 			"create run failed parsing request body:%+v. error:%s", r.Body, err.Error())
