@@ -306,7 +306,7 @@ CREATE TABLE IF NOT EXISTS `run_cache` (
     `deleted_at` datetime(3) DEFAULT NULL,
     PRIMARY KEY (`pk`),
     UNIQUE KEY (`id`),
-    INDEX (`step`),
+    INDEX (`job_id`),
     INDEX (`fs_id`),
     INDEX (`strategy`)
 ) ENGINE=InnoDB DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
