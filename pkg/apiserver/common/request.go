@@ -18,6 +18,7 @@ package common
 
 import (
 	"encoding/json"
+	"go/types"
 	"io/ioutil"
 	"net/http"
 	"reflect"
@@ -57,6 +58,12 @@ func GetRequestIDFromRequest(req interface{}) (reqId string) {
 			reqId = ""
 		}
 	}()
-	reqId = reflect.ValueOf(req).Elem().FieldByName(FieldNameRequestID).String()
+
+	switch req.(type) {
+	case types.Pointer:
+		reqId = reflect.ValueOf(req).Elem().FieldByName(FieldNameRequestID).String()
+	default:
+		reqId = reflect.ValueOf(req).FieldByName(FieldNameRequestID).String()
+	}
 	return
 }

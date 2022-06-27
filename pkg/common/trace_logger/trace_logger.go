@@ -113,6 +113,8 @@ func InitTraceLogger(config TraceLoggerConfig) error {
 	}
 
 	m.debug = config.Debug
+
+	manager = m
 	return nil
 }
 
