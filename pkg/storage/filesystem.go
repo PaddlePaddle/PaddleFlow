@@ -163,14 +163,3 @@ func (fss *FilesystemStore) GetFSCacheConfig(fsID string) (model.FSCacheConfig, 
 	}
 	return fsCacheConfig, nil
 }
-
-// ============================================================= table filesystem left-join fs_cache_config ============================================================= //
-
-func (fss *FilesystemStore) GetFsInfo(fsID string) (model.FsInfo, error) {
-	var fsInfo model.FsInfo
-	tx := fss.db.Model(&model.FileSystem{}).Select("filesystem.*", "fs_cache_config.cache_dir", "fs_cache_config.debug",
-		"fs_cache_config.quota", "fs_cache_config.meta_driver", "fs_cache_config.block_size").
-		Where(&model.FileSystem{Model: model.Model{ID: fsID}}).
-		Joins("left join fs_cache_config on fs_cache_config.fs_id = filesystem.id").Scan(&fsInfo)
-	return fsInfo, tx.Error
-}

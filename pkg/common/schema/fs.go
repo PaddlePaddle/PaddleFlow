@@ -27,9 +27,10 @@ const (
 	FSIDFormat      = "$(pfs.fs.id)"
 	NameSpaceFormat = "$(namespace)"
 
-	PfsFsID   = "pfs.fs.id"
-	PfsFsInfo = "pfs.fs.info"
-	PfsServer = "pfs.server"
+	PfsFsID    = "pfs.fs.id"
+	PfsFsInfo  = "pfs.fs.info"
+	PfsFsCache = "pfs.fs.cache"
+	PfsServer  = "pfs.server"
 
 	PodMntDir = "/home/paddleflow/mnt"
 

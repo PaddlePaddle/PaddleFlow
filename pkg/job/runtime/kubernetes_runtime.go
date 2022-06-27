@@ -608,15 +608,28 @@ func (kr *KubeRuntime) CreatePV(namespace, fsID string) (string, error) {
 
 func buildPV(pv *apiv1.PersistentVolume, fsID string) error {
 	// filesystem
-	fsInfo, err := storage.Filesystem.GetFsInfo(fsID)
+	fs, err := storage.Filesystem.GetFileSystemWithFsID(fsID)
 	if err != nil {
-		retErr := fmt.Errorf("create PV get fsInfo[%s] err: %v", fsID, err)
+		retErr := fmt.Errorf("create PV get fs[%s] err: %v", fsID, err)
 		log.Errorf(retErr.Error())
 		return err
 	}
-	fsStr, err := json.Marshal(fsInfo)
+	fsStr, err := json.Marshal(fs)
 	if err != nil {
-		retErr := fmt.Errorf("create PV json.marshal fsInfo[%s] err: %v", fsID, err)
+		retErr := fmt.Errorf("create PV json.marshal fs[%s] err: %v", fsID, err)
+		log.Errorf(retErr.Error())
+		return err
+	}
+	// fs_cache_config
+	fsCacheConfig, err := storage.Filesystem.GetFSCacheConfig(fsID)
+	if err != nil {
+		retErr := fmt.Errorf("create PV get fsCacheConfig[%s] err: %v", fsID, err)
+		log.Errorf(retErr.Error())
+		return err
+	}
+	fsCacheConfigStr, err := json.Marshal(fsCacheConfig)
+	if err != nil {
+		retErr := fmt.Errorf("create PV json.marshal fsCacheConfig[%s] err: %v", fsID, err)
 		log.Errorf(retErr.Error())
 		return err
 	}
@@ -626,6 +639,7 @@ func buildPV(pv *apiv1.PersistentVolume, fsID string) error {
 	pv.Spec.CSI.VolumeAttributes[schema.PfsServer] = config.GetServiceAddress()
 	pv.Spec.CSI.VolumeAttributes[schema.PfsFsID] = fsID
 	pv.Spec.CSI.VolumeAttributes[schema.PfsFsInfo] = string(fsStr)
+	pv.Spec.CSI.VolumeAttributes[schema.PfsFsCache] = string(fsCacheConfigStr)
 	return nil
 }
 
