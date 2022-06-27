@@ -222,7 +222,7 @@ func TestUpdateJob(t *testing.T) {
 
 		OutatfTrainData := "./.pipeline/run-000001/myproject/data-preprocess-0-06d43c4461214f6e3dd81b46eab9c276/train_data"
 		OutatfValidateData := "./.pipeline/run-000001/myproject/data-preprocess-0-06d43c4461214f6e3dd81b46eab9c276/validate_data"
-		OutatfTrainModel := "./.pipeline/run-000001/myproject/main-0-06d43c4461214f6e3dd81b46eab9c276/train_model"
+		OutatfTrainModel := "./.pipeline/run-000001/myproject/main-0-fad58de7366495db4650cfefac2fcd61/train_model"
 		if stepName == "data-preprocess" {
 			assert.Equal(t, 2, len(srt.job.Job().Parameters))
 

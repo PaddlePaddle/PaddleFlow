@@ -218,20 +218,22 @@ func (rj *RunJob) Trans2JobView() schema.JobView {
 		newEndTime = rj.UpdateTime
 	}
 	return schema.JobView{
-		JobID:      rj.ID,
-		Name:       rj.Name,
-		Command:    rj.Command,
-		Parameters: newParameters,
-		Env:        newEnv,
-		StartTime:  rj.ActivateTime,
-		EndTime:    newEndTime,
-		Seq:        rj.Seq,
-		Status:     rj.Status,
-		DockerEnv:  rj.DockerEnv,
-		Artifacts:  rj.Artifacts,
-		Cache:      rj.Cache,
-		JobMessage: rj.Message,
-		CacheRunID: rj.CacheRunID,
+		JobID:       rj.ID,
+		Name:        rj.Name,
+		StepName:    rj.StepName,
+		ParentDagID: rj.ParentDagID,
+		Seq:         rj.Seq,
+		Command:     rj.Command,
+		Parameters:  newParameters,
+		Env:         newEnv,
+		StartTime:   rj.ActivateTime,
+		EndTime:     newEndTime,
+		Status:      rj.Status,
+		DockerEnv:   rj.DockerEnv,
+		Artifacts:   rj.Artifacts,
+		Cache:       rj.Cache,
+		JobMessage:  rj.Message,
+		CacheRunID:  rj.CacheRunID,
 	}
 }
 

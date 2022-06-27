@@ -30,7 +30,9 @@ type JobView struct {
 	PK          int64             `json:"-"`
 	JobID       string            `json:"jobID"`
 	Name        string            `json:"name"`
-	StepName    string            `json:"-"`
+	StepName    string            `json:"stepName"`
+	ParentDagID string            `json:"parentDagID"`
+	Seq         int               `json:"-"`
 	Command     string            `json:"command"`
 	Parameters  map[string]string `json:"parameters"`
 	Env         map[string]string `json:"env"`
@@ -44,8 +46,6 @@ type JobView struct {
 	JobMessage  string            `json:"jobMessage"`
 	CacheRunID  string            `json:"cacheRunID"`
 	CacheJobID  string            `json:"cacheJobID"`
-	ParentDagID string            `json:"-"`
-	Seq         int               `json:"-"`
 }
 
 func (j JobView) GetComponentName() string {
@@ -72,7 +72,9 @@ type DagView struct {
 	PK          int64                      `json:"-"`
 	DagID       string                     `json:"id"`
 	Name        string                     `json:"name"`
-	DagName     string                     `json:"-"`
+	DagName     string                     `json:"dagName"`
+	ParentDagID string                     `json:"parentDagID"`
+	Seq         int                        `json:"-"`
 	Deps        string                     `json:"deps"`
 	Parameters  map[string]string          `json:"parameters"`
 	Artifacts   Artifacts                  `json:"artifacts"`
@@ -81,8 +83,6 @@ type DagView struct {
 	Status      JobStatus                  `json:"status"`
 	Message     string                     `json:"message"`
 	EntryPoints map[string][]ComponentView `json:"entryPoints"`
-	ParentDagID string                     `json:"-"`
-	Seq         int                        `json:"-"`
 }
 
 func (d DagView) GetComponentName() string {

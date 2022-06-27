@@ -161,7 +161,7 @@ func TestRestartEntry(t *testing.T) {
 	assert.Nil(t, err)
 
 	var srt *StepRuntime
-	patch2 := gomonkey.ApplyMethod(reflect.TypeOf(srt), "Restart", func(srt *StepRuntime, _ schema.JobView) {
+	patch2 := gomonkey.ApplyMethod(reflect.TypeOf(srt), "Restart", func(srt *StepRuntime, _ *schema.JobView) {
 		srt.parallelismManager.increase()
 		srt.updateStatus(StatusRuntimeSucceeded)
 		srt.sendEventToParent <- *NewWorkflowEvent(WfEventJobUpdate, "succeeded", map[string]interface{}{
@@ -173,7 +173,7 @@ func TestRestartEntry(t *testing.T) {
 	defer patch2.Reset()
 
 	var drt *DagRuntime
-	patch3 := gomonkey.ApplyMethod(reflect.TypeOf(drt), "Restart", func(drt *DagRuntime, _ schema.DagView) {
+	patch3 := gomonkey.ApplyMethod(reflect.TypeOf(drt), "Restart", func(drt *DagRuntime, _ *schema.DagView) {
 		drt.updateStatus(StatusRuntimeRunning)
 		drt.sendEventToParent <- *NewWorkflowEvent(WfEventJobUpdate, "succeeded", map[string]interface{}{
 			common.WfEventKeyComponentName: drt.getComponent().GetName(),
@@ -203,7 +203,7 @@ func TestRestartEntry(t *testing.T) {
 	assert.Equal(t, StatusRuntimeRunning, wfr.entryPoints.status)
 	assert.Nil(t, wfr.postProcess)
 
-	patch5 := gomonkey.ApplyMethod(reflect.TypeOf(drt), "Restart", func(drt *DagRuntime, _ schema.DagView) {
+	patch5 := gomonkey.ApplyMethod(reflect.TypeOf(drt), "Restart", func(drt *DagRuntime, _ *schema.DagView) {
 		drt.updateStatus(StatusRuntimeSucceeded)
 		drt.sendEventToParent <- *NewWorkflowEvent(WfEventJobUpdate, "succeeded", map[string]interface{}{
 			common.WfEventKeyComponentName: drt.getComponent().GetName(),

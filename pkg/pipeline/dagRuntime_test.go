@@ -461,7 +461,7 @@ func TestDagRunRestart(t *testing.T) {
 	// 测试根据 dagView 开始调度dag
 	stepStarted := false
 	var srt *StepRuntime
-	patch1 := gomonkey.ApplyMethod(reflect.TypeOf(srt), "Restart", func(_ *StepRuntime, _ schema.JobView) {
+	patch1 := gomonkey.ApplyMethod(reflect.TypeOf(srt), "Restart", func(_ *StepRuntime, _ *schema.JobView) {
 		stepStarted = true
 		fmt.Println("param", drt.parallelismManager.CurrentParallelism())
 	})

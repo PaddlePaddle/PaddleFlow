@@ -162,7 +162,7 @@ func (r *Run) validateRuntimeAndPostProcess() error {
 		step, ok := r.WorkflowSource.PostProcess[job.StepName]
 		if ok && job.ParentDagID == "" {
 			jobView := job.ParseJobView(step)
-			r.PostProcess[job.StepName] = jobView
+			r.PostProcess[job.StepName] = &jobView
 		} else {
 			runtimeJobs = append(runtimeJobs, job)
 		}
@@ -195,7 +195,9 @@ func (r *Run) initRuntime(jobs []RunJob, dags []RunDag) {
 	// 处理jobs，根据parentID，在对应的dagView（若为空，则改为runtimeView）中，添加对应的JobView
 	// 处理dags，方法同上
 	for _, comp := range comps {
+
 		parentID := comp.GetParentDagID()
+		logger.Logger().Debugf("in runtimeView tree, parentID is: %s", parentID)
 		compName := comp.GetComponentName()
 		if parentID == "" {
 			runtimeView[compName] = append(runtimeView[compName], comp)
@@ -209,6 +211,7 @@ func (r *Run) initRuntime(jobs []RunJob, dags []RunDag) {
 	r.Runtime = runtimeView
 }
 
+// 补全ComponentView中的Deps
 func ProcessRuntimeView(componentViews map[string][]schema.ComponentView, components map[string]schema.Component) {
 	for compName, comp := range components {
 		compViewList := componentViews[compName]
