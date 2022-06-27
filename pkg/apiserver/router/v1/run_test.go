@@ -76,8 +76,11 @@ func TestGetRunRouter(t *testing.T) {
 	run1.ID, err = models.CreateRun(ctxroot.Logging(), &run1)
 	assert.Nil(t, err)
 
-	patch := gomonkey.ApplyMethodReturn(reflect.TypeOf(run1), "decode", nil)
-	defer patch.Reset()
+	runTemp := &models.Run{}
+	p1 := gomonkey.ApplyPrivateMethod(reflect.TypeOf(runTemp), "decode", func() error {
+		return nil
+	})
+	defer p1.Reset()
 	url := baseUrl + "/run/" + run1.ID
 	result, err := PerformGetRequest(router, url)
 	assert.Nil(t, err)
@@ -103,6 +106,12 @@ func TestListRunRouter(t *testing.T) {
 	run2.ID, err = models.CreateRun(ctx2.Logging(), &run2)
 	run3UnderUser1 := getMockRun1_3()
 	run1.ID, err = models.CreateRun(ctxroot.Logging(), &run3UnderUser1)
+
+	runTemp := &models.Run{}
+	p1 := gomonkey.ApplyPrivateMethod(reflect.TypeOf(runTemp), "decode", func() error {
+		return nil
+	})
+	defer p1.Reset()
 
 	result, err := PerformGetRequest(router, runUrl)
 	assert.Nil(t, err)
