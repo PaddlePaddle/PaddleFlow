@@ -19,7 +19,6 @@ package storage
 import (
 	"fmt"
 
-	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
@@ -133,23 +132,17 @@ func (fss *FilesystemStore) GetLinkWithFsIDAndPath(fsID, fsPath string) ([]model
 
 // ============================================================= table fs_cache_config ============================================================= //
 
-func (fss *FilesystemStore) CreateFSCacheConfig(logEntry *log.Entry, fsCacheConfig *model.FSCacheConfig) error {
-	logEntry.Debugf("begin create fsCacheConfig:%+v", fsCacheConfig)
+func (fss *FilesystemStore) CreateFSCacheConfig(fsCacheConfig *model.FSCacheConfig) error {
 	err := fss.db.Model(&model.FSCacheConfig{}).Create(fsCacheConfig).Error
 	if err != nil {
-		logEntry.Errorf("create fsCacheConfig failed. fsCacheConfig:%v, error:%s",
-			fsCacheConfig, err.Error())
 		return err
 	}
 	return nil
 }
 
-func (fss *FilesystemStore) UpdateFSCacheConfig(logEntry *log.Entry, fsCacheConfig model.FSCacheConfig) error {
-	logEntry.Debugf("begin update fsCacheConfig fsCacheConfig. fsID:%s", fsCacheConfig.FsID)
+func (fss *FilesystemStore) UpdateFSCacheConfig(fsCacheConfig model.FSCacheConfig) error {
 	tx := fss.db.Model(&model.FSCacheConfig{}).Where(&model.FSCacheConfig{FsID: fsCacheConfig.FsID}).Updates(fsCacheConfig)
 	if tx.Error != nil {
-		logEntry.Errorf("update fsCacheConfig failed. fsCacheConfig.ID:%s, error:%s",
-			fsCacheConfig.FsID, tx.Error.Error())
 		return tx.Error
 	}
 	return nil
@@ -162,13 +155,10 @@ func (fss *FilesystemStore) DeleteFSCacheConfig(tx *gorm.DB, fsID string) error 
 	return tx.Model(&model.FSCacheConfig{}).Unscoped().Where(&model.FSCacheConfig{FsID: fsID}).Delete(&model.FSCacheConfig{}).Error
 }
 
-func (fss *FilesystemStore) GetFSCacheConfig(logEntry *log.Entry, fsID string) (model.FSCacheConfig, error) {
-	logEntry.Debugf("begin get fsCacheConfig. fsID:%s", fsID)
+func (fss *FilesystemStore) GetFSCacheConfig(fsID string) (model.FSCacheConfig, error) {
 	var fsCacheConfig model.FSCacheConfig
 	tx := fss.db.Model(&model.FSCacheConfig{}).Where(&model.FSCacheConfig{FsID: fsID}).First(&fsCacheConfig)
 	if tx.Error != nil {
-		logEntry.Errorf("get fsCacheConfig failed. fsID:%s, error:%s",
-			fsID, tx.Error.Error())
 		return model.FSCacheConfig{}, tx.Error
 	}
 	return fsCacheConfig, nil
