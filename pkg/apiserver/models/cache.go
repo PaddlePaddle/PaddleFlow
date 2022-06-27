@@ -24,7 +24,6 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
@@ -82,7 +81,7 @@ func CreateRunCache(logEntry *log.Entry, cache *RunCache) (string, error) {
 
 func ListRunCacheByFirstFp(logEntry *log.Entry, firstFp, fsID, source string) ([]RunCache, error) {
 	var cacheList []RunCache
-	tx := database.DB.Model(&RunCache{}).Where(
+	tx := storage.DB.Model(&RunCache{}).Where(
 		"first_fp = ? and fs_id = ? and source = ?",
 		firstFp, fsID, source).Order("created_at DESC").Find(&cacheList)
 	if tx.Error != nil {

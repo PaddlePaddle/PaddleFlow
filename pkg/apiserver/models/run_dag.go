@@ -23,9 +23,9 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -54,7 +54,7 @@ type RunDag struct {
 
 func CreateRunDag(logEntry *log.Entry, runDag *RunDag) (int64, error) {
 	logEntry.Debugf("begin create run_dag model: %v", runDag)
-	err := WithTransaction(database.DB, func(tx *gorm.DB) error {
+	err := WithTransaction(storage.DB, func(tx *gorm.DB) error {
 		result := tx.Model(&RunDag{}).Create(&runDag)
 		if result.Error != nil {
 			logEntry.Errorf("create run_dag failed. run_dag: %v, error: %s",
@@ -68,7 +68,7 @@ func CreateRunDag(logEntry *log.Entry, runDag *RunDag) (int64, error) {
 
 func UpdateRunDag(logEntry *log.Entry, pk int64, runDag RunDag) error {
 	logEntry.Debugf("begin update run_dag")
-	tx := database.DB.Model(&RunDag{}).Where("pk = ?", pk).Updates(runDag)
+	tx := storage.DB.Model(&RunDag{}).Where("pk = ?", pk).Updates(runDag)
 	if tx.Error != nil {
 		logEntry.Errorf("update run_dag failed. pk: %v, run_dag: %v, error: %s",
 			pk, runDag, tx.Error.Error())
@@ -151,7 +151,7 @@ func (rd *RunDag) Encode() error {
 func GetRunDagsOfRun(logEntry *log.Entry, runID string) ([]RunDag, error) {
 	logEntry.Debugf("begin to get run_dags of run with runID[%s].", runID)
 	var runDags []RunDag
-	tx := database.DB.Model(&RunDag{}).Where("run_id = ?", runID).Find(&runDags)
+	tx := storage.DB.Model(&RunDag{}).Where("run_id = ?", runID).Find(&runDags)
 	if tx.Error != nil {
 		logEntry.Errorf("get run_dags of run with runID[%s] failed. error:%s", runID, tx.Error.Error())
 		return []RunDag{}, tx.Error
