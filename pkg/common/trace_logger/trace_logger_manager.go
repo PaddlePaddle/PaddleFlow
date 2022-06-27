@@ -148,6 +148,7 @@ type defaultTraceLogger struct {
 	trace   Trace
 	key     string
 	manager TraceLoggerManager
+	showLog bool
 }
 
 func (d *defaultTraceLogger) saveOneLog(level logrus.Level, format string, args ...interface{}) {
@@ -158,7 +159,11 @@ func (d *defaultTraceLogger) saveOneLog(level logrus.Level, format string, args 
 		Level: level,
 		Time:  time.Now(),
 	}
-	//fmt.Println(log.String())
+
+	if d.showLog {
+		fmt.Println(log.String())
+	}
+
 	d.trace.Logs = append(d.trace.Logs, log)
 
 	// call update trace after every log
@@ -235,6 +240,8 @@ type DefaultTraceLoggerManager struct {
 	timeout      time.Duration
 	maxCacheSize int
 
+	debug bool
+
 	// auto delete
 	autoDeleteFlag       bool
 	autoDeleteLock       sync.Mutex
@@ -275,6 +282,7 @@ func (d *DefaultTraceLoggerManager) NewTraceLogger() TraceLogger {
 	return &defaultTraceLogger{
 		trace:   Trace{},
 		manager: d,
+		showLog: d.debug,
 	}
 }
 
