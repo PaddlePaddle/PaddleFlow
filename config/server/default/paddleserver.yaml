@@ -19,6 +19,8 @@ traceLog:
   # unit is s/m/h/d
   timeout: 2h
   maxCacheSize: 10000
+  syncInterval: 30s
+  deleteInterval: 10s
 
 apiServer:
   host: 0.0.0.0

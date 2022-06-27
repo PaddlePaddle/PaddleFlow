@@ -17,11 +17,10 @@ limitations under the License.
 package config
 
 import (
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/trace_logger"
-	apiv1 "k8s.io/api/core/v1"
-
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/trace_logger"
+	apiv1 "k8s.io/api/core/v1"
 )
 
 var (
