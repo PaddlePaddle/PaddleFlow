@@ -761,6 +761,7 @@ func (srt *StepRuntime) newJobView(msg string) schema.JobView {
 		ParentDagID: srt.parentDagID,
 		CacheRunID:  srt.CacheRunID,
 		CacheJobID:  srt.CacheJobID,
+		StepName:    srt.getComponent().GetName(),
 		PK:          srt.pk,
 		Seq:         srt.seq,
 	}

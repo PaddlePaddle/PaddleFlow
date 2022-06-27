@@ -50,10 +50,6 @@ func NewWorkflowRuntime(rc *runConfig) *WorkflowRuntime {
 
 	EventChan := make(chan WorkflowEvent)
 
-	// 对于 EntryPoint 所代表的名字，此时应该没有名字的。
-	entryPoint := NewDagRuntime("", &rc.WorkflowSource.EntryPoints, 0, entryCtx, failureOptionsCtx,
-		EventChan, rc, "")
-
 	wfr := &WorkflowRuntime{
 		runConfig:            rc,
 		entryPointsCtx:       entryCtx,
@@ -61,15 +57,27 @@ func NewWorkflowRuntime(rc *runConfig) *WorkflowRuntime {
 		postProcessPointsCtx: postCtx,
 		postProcessctxCancel: postCtxCancel,
 		EventChan:            EventChan,
-		entryPoints:          entryPoint,
 		scheduleLock:         sync.Mutex{},
 	}
 
+	epName := wfr.generateEntryPointFullName()
+	entryPoints := NewDagRuntime(epName, &rc.WorkflowSource.EntryPoints, 0, entryCtx, failureOptionsCtx,
+		EventChan, rc, "")
+
+	wfr.entryPoints = entryPoints
 	wfr.status = common.StatusRunPending
 
 	wfr.callback("finished init, update status to pending")
 
 	return wfr
+}
+
+func (wfr *WorkflowRuntime) generateEntryPointFullName() string {
+	return wfr.WorkflowSource.Name + ".entry_points"
+}
+
+func (wfr *WorkflowRuntime) generatePostProcessFullName(name string) string {
+	return wfr.WorkflowSource.Name + ".post_process." + name
 }
 
 // 运行
@@ -127,7 +135,8 @@ func (wfr *WorkflowRuntime) Restart(entryPointView schema.RuntimeView,
 			for name, view := range postProcessView {
 				if view.Status == StatusRuntimeRunning && view.JobID != "" {
 					failureOptionsCtx, _ := context.WithCancel(context.Background())
-					postProcess := NewStepRuntime(name, wfr.WorkflowSource.PostProcess[name], 0, wfr.postProcessPointsCtx,
+					postName := wfr.generatePostProcessFullName(name)
+					postProcess := NewStepRuntime(postName, wfr.WorkflowSource.PostProcess[name], 0, wfr.postProcessPointsCtx,
 						failureOptionsCtx, make(chan<- WorkflowEvent), wfr.runConfig, "")
 					go postProcess.StopByView(view)
 				}
@@ -141,7 +150,8 @@ func (wfr *WorkflowRuntime) Restart(entryPointView schema.RuntimeView,
 		} else {
 			for name, step := range wfr.WorkflowSource.PostProcess {
 				failureOptionsCtx, _ := context.WithCancel(context.Background())
-				postProcess := NewStepRuntime(name, step, 0, wfr.postProcessPointsCtx, failureOptionsCtx, wfr.EventChan,
+				postName := wfr.generatePostProcessFullName(name)
+				postProcess := NewStepRuntime(postName, step, 0, wfr.postProcessPointsCtx, failureOptionsCtx, wfr.EventChan,
 					wfr.runConfig, "")
 				wfr.postProcess = postProcess
 
@@ -196,7 +206,8 @@ func (wfr *WorkflowRuntime) Stop(force bool) error {
 			// 如果在创建 stepRuntime时，直接给定状态为 Cancelled
 			for name, step := range wfr.WorkflowSource.PostProcess {
 				failureOptionsCtx, _ := context.WithCancel(context.Background())
-				wfr.postProcess = newStepRuntimeWithStatus(name, step, 0, wfr.postProcessPointsCtx, failureOptionsCtx,
+				postName := wfr.generatePostProcessFullName(name)
+				wfr.postProcess = newStepRuntimeWithStatus(postName, step, 0, wfr.postProcessPointsCtx, failureOptionsCtx,
 					wfr.EventChan, wfr.runConfig, "", StatusRuntimeCancelled, "reveice termination signal")
 			}
 		}
@@ -241,7 +252,8 @@ func (wfr *WorkflowRuntime) schedulePostProcess() {
 	} else if len(wfr.WorkflowSource.PostProcess) != 0 {
 		for name, step := range wfr.WorkflowSource.PostProcess {
 			failureOptionsCtx, _ := context.WithCancel(context.Background())
-			postProcess := NewStepRuntime(name, step, 0, wfr.postProcessPointsCtx, failureOptionsCtx, wfr.EventChan,
+			postName := wfr.generatePostProcessFullName(name)
+			postProcess := NewStepRuntime(postName, step, 0, wfr.postProcessPointsCtx, failureOptionsCtx, wfr.EventChan,
 				wfr.runConfig, "")
 			wfr.postProcess = postProcess
 		}
