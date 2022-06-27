@@ -76,7 +76,7 @@ func TestGetRunRouter(t *testing.T) {
 	run1.ID, err = models.CreateRun(ctxroot.Logging(), &run1)
 	assert.Nil(t, err)
 
-	patch := gomonkey.ApplyMethodReturn(reflect.TypeOf(run1), "Decode", nil)
+	patch := gomonkey.ApplyMethodReturn(reflect.TypeOf(run1), "decode", nil)
 	defer patch.Reset()
 	url := baseUrl + "/run/" + run1.ID
 	result, err := PerformGetRequest(router, url)
