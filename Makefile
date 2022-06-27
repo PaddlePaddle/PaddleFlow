@@ -29,6 +29,8 @@ LD_FLAGS    = " \
 
 # make, make all
 all: prepare compile package
+all-macOS: prepare build-macOS package
+all-linux: prepare build-linux package
 
 # make prepare, download dependencies
 prepare: gomod
@@ -44,6 +46,18 @@ compile: build
 
 build:
 	CGO_ENABLED=1 $(GOBUILD) -ldflags ${LD_FLAGS} -trimpath -o $(HOMEDIR)/paddleflow $(HOMEDIR)/cmd/server/main.go
+	$(GOBUILD) -ldflags ${LD_FLAGS} -trimpath -o $(HOMEDIR)/pfs-fuse     $(HOMEDIR)/cmd/fs/fuse/main.go
+	$(GOBUILD) -ldflags ${LD_FLAGS} -trimpath -o $(HOMEDIR)/csi-plugin   $(HOMEDIR)/cmd/fs/csi-plugin/main.go
+	$(GOBUILD) -ldflags ${LD_FLAGS} -trimpath -o $(HOMEDIR)/cache-worker $(HOMEDIR)/cmd/fs/location-awareness/cache-worker/main.go
+
+build-macOS:
+	GOOS=darwin CGO_ENABLED=0 $(GOBUILD) -ldflags ${LD_FLAGS} -trimpath -o $(HOMEDIR)/paddleflow $(HOMEDIR)/cmd/server/main.go
+	$(GOBUILD) -ldflags ${LD_FLAGS} -trimpath -o $(HOMEDIR)/pfs-fuse     $(HOMEDIR)/cmd/fs/fuse/main.go
+	$(GOBUILD) -ldflags ${LD_FLAGS} -trimpath -o $(HOMEDIR)/csi-plugin   $(HOMEDIR)/cmd/fs/csi-plugin/main.go
+	$(GOBUILD) -ldflags ${LD_FLAGS} -trimpath -o $(HOMEDIR)/cache-worker $(HOMEDIR)/cmd/fs/location-awareness/cache-worker/main.go
+
+build-linux:
+	GOARCH=amd64 GOOS=linux CGO_ENABLED=1 $(GOBUILD) -ldflags ${LD_FLAGS} -trimpath -o $(HOMEDIR)/paddleflow $(HOMEDIR)/cmd/server/main.go
 	$(GOBUILD) -ldflags ${LD_FLAGS} -trimpath -o $(HOMEDIR)/pfs-fuse     $(HOMEDIR)/cmd/fs/fuse/main.go
 	$(GOBUILD) -ldflags ${LD_FLAGS} -trimpath -o $(HOMEDIR)/csi-plugin   $(HOMEDIR)/cmd/fs/csi-plugin/main.go
 	$(GOBUILD) -ldflags ${LD_FLAGS} -trimpath -o $(HOMEDIR)/cache-worker $(HOMEDIR)/cmd/fs/location-awareness/cache-worker/main.go

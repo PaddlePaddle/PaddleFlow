@@ -33,10 +33,11 @@ require (
 	github.com/kubernetes-csi/drivers v1.0.2
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-isatty v0.0.13
+	github.com/mitchellh/gox v1.0.1 // indirect
 	github.com/mitchellh/mapstructure v1.4.1
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.0.1 // indirect
-	github.com/orcaman/concurrent-map v1.0.0 // indirect
+	github.com/orcaman/concurrent-map v1.0.0
 	github.com/paddleflow/paddle-operator v0.3.1
 	github.com/panjf2000/ants/v2 v2.4.8
 	github.com/pkg/errors v0.9.1
@@ -53,7 +54,7 @@ require (
 	github.com/syndtr/goleveldb v1.0.0
 	github.com/urfave/cli/v2 v2.4.0
 	github.com/vbauerster/mpb/v7 v7.4.1
-	github.com/viney-shih/go-lock v1.1.2 // indirect
+	github.com/viney-shih/go-lock v1.1.2
 	github.com/xujiajun/nutsdb v0.8.0
 	go.uber.org/automaxprocs v1.4.0
 	golang.org/x/crypto v0.0.0-20210711020723-a769d52b0f97
@@ -76,6 +77,7 @@ require (
 	k8s.io/code-generator v0.19.6
 	k8s.io/utils v0.0.0-20210707171843-4b05e18ac7d9
 	sigs.k8s.io/yaml v1.3.0 // indirect
+	src.techknowlogick.com/xgo v1.4.1-0.20220601210906-a4d65f32910b // indirect
 	volcano.sh/apis v1.3.0-k8s1.18.3-alpha.3
 )
 

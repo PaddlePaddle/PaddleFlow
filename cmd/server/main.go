@@ -4,10 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/trace_logger"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/go-chi/chi"
 	log "github.com/sirupsen/logrus"
@@ -30,6 +33,27 @@ import (
 )
 
 var ServerConf *config.ServerConfig
+
+// auto delete durations
+const (
+	AutoDeleteDuration = time.Minute * 1
+	AutoSyncDuration   = time.Minute * 10
+)
+
+// DeleteFunc delete function for trace log
+var DeleteFunc trace_logger.DeleteMethod = func(key string) bool {
+	// get run from db
+	run, err := models.GetRunByID(log.NewEntry(log.StandardLogger()), key)
+	if err != nil {
+		// if not found, delete trace log
+		return true
+	}
+	// if run is not finished, keep trace log
+	if common.IsRunFinalStatus(run.Status) {
+		return true
+	}
+	return false
+}
 
 func main() {
 	if err := Main(os.Args); err != nil {
@@ -104,6 +128,23 @@ func start() error {
 	go jobCtrl.WSManager.SendGroupData()
 	go jobCtrl.WSManager.GetGroupData()
 
+	tlConfig := ServerConf.TraceLog
+	// enable auto delete and sync for trace log
+	if err = trace_logger.AutoDelete(
+		trace_logger.ParseTimeWithDefault(tlConfig.DeleteInterval, AutoDeleteDuration),
+		DeleteFunc,
+	); err != nil {
+		log.Errorf("auto delete trace log failed. error: %v", err)
+		return err
+	}
+
+	if err = trace_logger.AutoSync(
+		trace_logger.ParseTimeWithDefault(tlConfig.SyncInterval, AutoSyncDuration),
+	); err != nil {
+		log.Errorf("auto sync trace log failed. error: %v", err)
+		return err
+	}
+
 	go func() {
 		if err := HttpSvr.ListenAndServe(); err != nil && errors.Is(err, http.ErrServerClosed) {
 			log.Infof("listen: %s", err)
@@ -169,6 +210,13 @@ func initClusterAndQueue(serverConf *config.ServerConfig) error {
 func setup() {
 	if err := logger.InitStandardFileLogger(&ServerConf.Log); err != nil {
 		log.Errorf("InitStandardFileLogger err: %v", err)
+		gracefullyExit(err)
+	}
+
+	// init trace logger config
+	err = trace_logger.InitTraceLogger(ServerConf.TraceLog)
+	if err != nil {
+		log.Errorf("InitTraceLogger err: %v", err)
 		gracefullyExit(err)
 	}
 
