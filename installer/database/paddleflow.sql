@@ -98,6 +98,7 @@ CREATE TABLE IF NOT EXISTS `job_task` (
     `job_id` varchar(60) NOT NULL,
     `namespace` varchar(64) NOT NULL,
     `name` varchar(512) NOT NULL,
+    `node_name` varchar(512) DEFAULT NULL,
     `member_role` varchar(64) DEFAULT NULL,
     `status` varchar(32) DEFAULT NULL,
     `message` text DEFAULT NULL,
