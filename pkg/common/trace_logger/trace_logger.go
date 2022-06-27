@@ -60,6 +60,8 @@ type TraceLoggerConfig struct {
 	MaxCacheSize    int    `yaml:"maxCacheSize"`
 	SyncInterval    string `yaml:"syncInterval"`
 	DeleteInterval  string `yaml:"deleteInterval"`
+	StdOutput       bool   `yaml:"stdOutput"`
+	Debug           bool   `yaml:"debug"`
 }
 
 func ParseTime(timeStr string) (time.Duration, error) {
@@ -111,7 +113,7 @@ func InitTraceLogger(config TraceLoggerConfig) error {
 		m.maxCacheSize = config.MaxCacheSize
 	}
 
-	manager = m
+	m.debug = config.Debug
 	return nil
 }
 
