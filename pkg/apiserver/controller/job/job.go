@@ -883,7 +883,7 @@ func validateEmptyFieldInSingle(request *CreateSingleJobRequest) []string {
 }
 
 func validateMembers(ctx *logger.RequestContext, members []MemberSpec, schePolicy SchedulingPolicy) error {
-	if members == nil || len(members) == 0 {
+	if len(members) == 0 {
 		err := fmt.Errorf("request.Members is empty")
 		ctx.Logging().Errorf("create distributed job failed. error: %s", err.Error())
 		ctx.ErrorCode = common.RequiredFieldEmpty
