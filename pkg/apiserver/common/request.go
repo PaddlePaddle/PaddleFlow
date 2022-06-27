@@ -49,7 +49,7 @@ func BindJSON(r *http.Request, data interface{}) error {
 	return nil
 }
 
-func GetRequestIdFromRequest(req interface{}) (reqId string) {
+func GetRequestIDFromRequest(req interface{}) (reqId string) {
 	// if panic, then return an empty reqId
 	defer func() {
 		err := recover()
@@ -57,6 +57,6 @@ func GetRequestIdFromRequest(req interface{}) (reqId string) {
 			reqId = ""
 		}
 	}()
-	reqId = reflect.ValueOf(req).Elem().FieldByName("RequestID").String()
+	reqId = reflect.ValueOf(req).Elem().FieldByName(FieldNameRequestID).String()
 	return
 }
