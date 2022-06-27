@@ -32,11 +32,6 @@ import (
 	mountUtil "github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/mount"
 )
 
-const (
-	pfsFSID   = "pfs.fs.id"
-	pfsServer = "pfs.server"
-)
-
 type nodeServer struct {
 	nodeId string
 	*csicommon.DefaultNodeServer
@@ -68,12 +63,15 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context,
 		}
 	}
 
-	volumeContext := req.GetVolumeContext()
-	fsID := volumeContext[pfsFSID]
-	server := volumeContext[pfsServer]
 	volumeID := req.VolumeId
+	volumeContext := req.GetVolumeContext()
+	fsID := volumeContext[schema.PfsFsID]
+	server := volumeContext[schema.PfsServer]
+	fsInfoStr := volumeContext[schema.PfsFsInfo]
+	fsCacheStr := volumeContext[schema.PfsFsCache]
 
-	mountInfo := mount.GetMountInfo(fsID, server, req.GetReadonly())
+	mountInfo := mount.GetMountInfo(fsID, server, fsInfoStr, fsCacheStr, req.GetReadonly())
+	log.Infof("Node publish mountInfo [%+v]", mountInfo)
 	// root credentials for pfs-fuse
 	mountInfo.UsernameRoot, mountInfo.PasswordRoot = ns.credentialInfo.usernameRoot, ns.credentialInfo.passwordRoot
 	mountInfo.TargetPath = targetPath

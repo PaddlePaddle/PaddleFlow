@@ -15,6 +15,7 @@ spec:
     fsType: ext4
     volumeAttributes:
       pfs.fs.id: $(pfs.fs.id)
-      pfs.user.name: $(pfs.user.name)
+      pfs.fs.info: $(pfs.fs.info)
+      pfs.fs.cache: $(pfs.fs.cache)
       pfs.server: $(pfs.server)
     volumeHandle: pfs-$(pfs.fs.id)-$(namespace)-pv
