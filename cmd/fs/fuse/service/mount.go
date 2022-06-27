@@ -40,6 +40,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/client"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/base"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/cache"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/fuse"
@@ -49,6 +50,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 	mountUtil "github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/mount"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/metric"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
 
 var opts *libfuse.MountOptions
@@ -241,6 +243,21 @@ func InitVFS(c *cli.Context, registry *prometheus.Registry) error {
 				},
 			}
 		}
+	} else if c.String(schema.FuseKeyFsInfo) != "" {
+		fsInfoStr := c.String(schema.FuseKeyFsInfo)
+		fsInfo := model.FileSystem{}
+		if err := json.Unmarshal([]byte(fsInfoStr), &fsInfo); err != nil {
+			retErr := fmt.Errorf("fs info [%s] unmashal err: %v", fsInfoStr, err)
+			log.Errorf(retErr.Error())
+			return err
+		}
+		fsMeta.ID = fsInfo.ID
+		fsMeta.Name = fsInfo.Name
+		fsMeta.ServerAddress = fsInfo.ServerAddress
+		fsMeta.SubPath = fsInfo.SubPath
+		fsMeta.Properties = fsInfo.PropertiesMap
+		fsMeta.UfsType = fsInfo.Type
+		fsMeta.Type = "fs"
 	} else if c.String("config") != "" {
 		reader, err := os.Open(c.String("config"))
 		if err != nil {
