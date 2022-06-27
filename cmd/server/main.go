@@ -208,6 +208,7 @@ func initClusterAndQueue(serverConf *config.ServerConfig) error {
 }
 
 func setup() {
+	var err error
 	if err := logger.InitStandardFileLogger(&ServerConf.Log); err != nil {
 		log.Errorf("InitStandardFileLogger err: %v", err)
 		gracefullyExit(err)

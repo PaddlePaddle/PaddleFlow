@@ -75,11 +75,9 @@ func (rr *RunRouter) createRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// create run
-	response, err := pipeline.CreateRun(ctx.UserName, &createRunInfo)
 	// add trace logger
 	trace_logger.Key(ctx.RequestID).Infof("creating run for request:%+v", createRunInfo)
-
+	// create run
 	response, err := pipeline.CreateRun(ctx.UserName, &createRunInfo)
 	if err != nil {
 		errMsg := fmt.Sprintf(
