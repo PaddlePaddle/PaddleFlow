@@ -44,7 +44,7 @@ type JobView struct {
 	JobMessage  string            `json:"jobMessage"`
 	CacheRunID  string            `json:"cacheRunID"`
 	CacheJobID  string            `json:"cacheJobID"`
-	ParentDagID string            `json:"-"`
+	ParentDagID string            `json:"parentDagID"`
 	Seq         int               `json:"-"`
 }
 
@@ -81,7 +81,7 @@ type DagView struct {
 	Status      JobStatus                  `json:"status"`
 	Message     string                     `json:"message"`
 	EntryPoints map[string][]ComponentView `json:"entryPoints"`
-	ParentDagID string                     `json:"-"`
+	ParentDagID string                     `json:"parentDagID"`
 	Seq         int                        `json:"-"`
 }
 
