@@ -28,6 +28,7 @@ import (
 	"gopkg.in/natefinch/lumberjack.v2"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -48,15 +49,50 @@ var (
 )
 
 type TraceLoggerConfig struct {
-	Dir             string        `yaml:"dir"`
-	FilePrefix      string        `yaml:"filePrefix"`
-	Level           string        `yaml:"level"`
-	MaxKeepDays     int           `yaml:"maxKeepDays"`
-	MaxFileNum      int           `yaml:"maxFileNum"`
-	MaxFileSizeInMB int           `yaml:"maxFileSizeInMB"`
-	IsCompress      bool          `yaml:"isCompress"`
-	Timeout         time.Duration `yaml:"timeout"`
-	MaxCacheSize    int           `yaml:"maxCacheSize"`
+	Dir             string `yaml:"dir"`
+	FilePrefix      string `yaml:"filePrefix"`
+	Level           string `yaml:"level"`
+	MaxKeepDays     int    `yaml:"maxKeepDays"`
+	MaxFileNum      int    `yaml:"maxFileNum"`
+	MaxFileSizeInMB int    `yaml:"maxFileSizeInMB"`
+	IsCompress      bool   `yaml:"isCompress"`
+	Timeout         string `yaml:"timeout"`
+	MaxCacheSize    int    `yaml:"maxCacheSize"`
+	SyncInterval    string `yaml:"syncInterval"`
+	DeleteInterval  string `yaml:"deleteInterval"`
+	Debug           bool   `yaml:"debug"`
+}
+
+func ParseTime(timeStr string) (time.Duration, error) {
+	timeStr = strings.TrimSpace(timeStr)
+	if timeStr == "" {
+		return 0, fmt.Errorf("timeStr is empty")
+	}
+	unit := timeStr[len(timeStr)-1:]
+	timeVal, err := strconv.Atoi(timeStr[:len(timeStr)-1])
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse time: %w", err)
+	}
+	switch strings.ToLower(unit) {
+	case "s":
+		return time.Duration(timeVal) * time.Second, nil
+	case "m":
+		return time.Duration(timeVal) * time.Minute, nil
+	case "h":
+		return time.Duration(timeVal) * time.Hour, nil
+	case "d":
+		return time.Duration(timeVal) * time.Hour * 24, nil
+	default:
+		return 0, fmt.Errorf("unknown time unit: %s", unit)
+	}
+}
+
+func ParseTimeWithDefault(timeStr string, defaultTime time.Duration) time.Duration {
+	res, err := ParseTime(timeStr)
+	if err != nil {
+		return defaultTime
+	}
+	return res
 }
 
 func InitTraceLogger(config TraceLoggerConfig) error {
@@ -67,12 +103,16 @@ func InitTraceLogger(config TraceLoggerConfig) error {
 	}
 	logger = l
 	m := NewDefaultTraceLoggerManager()
-	if config.Timeout > 0 {
-		m.timeout = config.Timeout
+	duration, err := ParseTime(config.Timeout)
+	if err != nil {
+		return fmt.Errorf("failed to parse timeout: %w", err)
 	}
+	m.timeout = duration
 	if config.MaxCacheSize > 0 {
 		m.maxCacheSize = config.MaxCacheSize
 	}
+
+	m.debug = config.Debug
 
 	manager = m
 	return nil

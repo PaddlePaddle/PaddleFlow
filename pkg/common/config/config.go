@@ -17,10 +17,10 @@ limitations under the License.
 package config
 
 import (
-	apiv1 "k8s.io/api/core/v1"
-
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/trace_logger"
+	apiv1 "k8s.io/api/core/v1"
 )
 
 var (
@@ -41,6 +41,7 @@ var (
 type ServerConfig struct {
 	Storage       StorageConfig             `yaml:"database"`
 	Log           logger.LogConfig          `yaml:"log"`
+	TraceLog      trace_logger.TraceLoggerConfig `yaml:"traceLog"`
 	ApiServer     ApiServerConfig           `yaml:"apiServer"`
 	Job           JobConfig                 `yaml:"job"`
 	Fs            FsServerConf              `yaml:"fs"`

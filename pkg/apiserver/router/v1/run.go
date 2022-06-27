@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/trace_logger"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -66,6 +67,7 @@ func (rr *RunRouter) AddRouter(r chi.Router) {
 func (rr *RunRouter) createRun(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
 	var createRunInfo pipeline.CreateRunRequest
+	createRunInfo.RequestID = ctx.RequestID
 	if err := common.BindJSON(r, &createRunInfo); err != nil {
 		logger.LoggerForRequest(&ctx).Errorf(
 			"create run failed parsing request body:%+v. error:%s", r.Body, err.Error())
@@ -75,12 +77,19 @@ func (rr *RunRouter) createRun(w http.ResponseWriter, r *http.Request) {
 
 	// create run
 	response, err := pipeline.CreateRun(ctx.UserName, &createRunInfo)
+	// add trace logger
+	trace_logger.Key(ctx.RequestID).Infof("creating run for request:%+v", createRunInfo)
+
+	response, err := pipeline.CreateRun(ctx.UserName, &createRunInfo)
 	if err != nil {
-		logger.LoggerForRequest(&ctx).Errorf(
+		errMsg := fmt.Sprintf(
 			"create run failed. createRunInfo:%v error:%s", createRunInfo, err.Error())
+		logger.LoggerForRequest(&ctx).Errorf(errMsg)
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
+
+	trace_logger.Key(response.RunID).Infof("create run complete")
 	common.Render(w, http.StatusCreated, response)
 }
 

@@ -18,8 +18,10 @@ package common
 
 import (
 	"encoding/json"
+	"go/types"
 	"io/ioutil"
 	"net/http"
+	"reflect"
 
 	log "github.com/sirupsen/logrus"
 
@@ -46,4 +48,22 @@ func BindJSON(r *http.Request, data interface{}) error {
 		return err
 	}
 	return nil
+}
+
+func GetRequestIDFromRequest(req interface{}) (reqId string) {
+	// if panic, then return an empty reqId
+	defer func() {
+		err := recover()
+		if err != nil {
+			reqId = ""
+		}
+	}()
+
+	switch req.(type) {
+	case types.Pointer:
+		reqId = reflect.ValueOf(req).Elem().FieldByName(FieldNameRequestID).String()
+	default:
+		reqId = reflect.ValueOf(req).FieldByName(FieldNameRequestID).String()
+	}
+	return
 }

@@ -34,7 +34,7 @@ type PFServiceError struct {
 func (b *PFServiceError) Error() string {
 	ret := "[Code: " + b.Code
 	ret += "; Message: " + b.Message
-	ret += "; RequestId: " + b.RequestId + "]"
+	ret += "; RequestID: " + b.RequestId + "]"
 	return ret
 }
 
