@@ -17,66 +17,49 @@ limitations under the License.
 package location_awareness
 
 import (
-	"crypto/md5"
-	"encoding/hex"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database/dbinit"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 )
 
-func getMountID(clusterID, nodeName, mountPoint string) string {
-	hash := md5.Sum([]byte(clusterID + nodeName + mountPoint))
-	return hex.EncodeToString(hash[:])
-}
-
 func TestListMountNodesByFsID(t *testing.T) {
-	dbinit.InitMockDB()
+	driver.InitMockDB()
 
-	fsID1, fsID2, mountPoint1, mountPoint2, nodeName1, nodeName2, clusterID :=
+	fsID1, fsID2, cacheDir1, cacheDir2, nodeName1, nodeName2, clusterID :=
 		"fs-root-1", "fs-root-2", "/mnt/fs-root-1/storage", "/mnt/fs-root-2/storage", "node1", "node2", ""
-	fsMount := &models.FsMount{
-		FsID:       fsID1,
-		MountPoint: mountPoint1,
-		MountID:    getMountID(clusterID, nodeName1, mountPoint1),
-		NodeName:   nodeName1,
-		ClusterID:  clusterID,
+	cache := &model.FSCache{
+		FsID:      fsID1,
+		CacheDir:  cacheDir1,
+		NodeName:  nodeName1,
+		ClusterID: clusterID,
 	}
-	err := fsMount.Add(fsMount)
+	err := storage.FsCache.Add(cache)
 	assert.Nil(t, err)
 
-	fsMount = &models.FsMount{
-		FsID:       fsID1,
-		MountPoint: mountPoint1,
-		MountID:    getMountID(clusterID, nodeName2, mountPoint1),
-		NodeName:   nodeName2,
-		ClusterID:  clusterID,
+	cache = &model.FSCache{
+		FsID:      fsID1,
+		CacheDir:  cacheDir1,
+		NodeName:  nodeName2,
+		ClusterID: clusterID,
 	}
-	err = fsMount.Add(fsMount)
+	err = storage.FsCache.Add(cache)
 	assert.Nil(t, err)
 
-	fsMount = &models.FsMount{
-		FsID:       fsID2,
-		MountPoint: mountPoint2,
-		MountID:    getMountID(clusterID, nodeName1, mountPoint2),
-		NodeName:   nodeName1,
-		ClusterID:  clusterID,
+	cache = &model.FSCache{
+		FsID:      fsID2,
+		CacheDir:  cacheDir2,
+		NodeName:  nodeName1,
+		ClusterID: clusterID,
 	}
-	err = fsMount.Add(fsMount)
+	err = storage.FsCache.Add(cache)
 	assert.Nil(t, err)
 
 	fsIDs := []string{fsID1, fsID2, "fs-non-exist"}
 	nodeList, err := ListFsCacheLocation(fsIDs)
 	assert.Nil(t, err)
-
 	assert.Equal(t, 2, len(nodeList))
-	cnt := 0
-	for _, nodeName := range nodeList {
-		if nodeName == nodeName1 || nodeName == nodeName2 {
-			cnt++
-		}
-	}
-	assert.Equal(t, 2, cnt)
 }

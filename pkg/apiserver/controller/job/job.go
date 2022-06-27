@@ -19,6 +19,7 @@ package job
 import (
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 
 	"github.com/ghodss/yaml"
 	log "github.com/sirupsen/logrus"
@@ -26,6 +27,7 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/flavour"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/fs"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
@@ -123,7 +125,7 @@ func CreateSingleJob(ctx *logger.RequestContext, request *CreateSingleJobRequest
 		return nil, err
 	}
 	// validate FileSystem
-	if err := validateFileSystem(request.FileSystem, request.UserName); err != nil {
+	if err := validateFileSystem(&request.JobSpec, request.UserName); err != nil {
 		return nil, err
 	}
 	// parse job template
@@ -210,13 +212,6 @@ func patchFromJobSpec(conf *schema.Conf, jobSpec *JobSpec, userName string) erro
 		log.Errorf("get flavour failed when create job, err:%v", err)
 		return err
 	}
-	// FileSystem
-	if jobSpec.FileSystem.Name != "" {
-		fsID := common.ID(userName, jobSpec.FileSystem.Name)
-		// todo to be removed if not used
-		conf.SetFS(fsID)
-	}
-	// todo ExtraFileSystem
 	return nil
 }
 
@@ -262,6 +257,7 @@ func CreateDistributedJob(ctx *logger.RequestContext, request *CreateDisJobReque
 		ctx.Logging().Errorln(err.Error())
 		return nil, err
 	}
+	request.UserName = ctx.UserName
 	var err error
 	templateJson, err := newExtensionTemplateJson(request.ExtensionTemplate)
 	if err != nil {
@@ -392,8 +388,9 @@ func patchDistributedConf(conf *schema.Conf, request *CreateDisJobRequest) error
 func newCollectiveMembers(request *CreateDisJobRequest) ([]models.Member, error) {
 	members := make([]models.Member, 0)
 	for _, reqMem := range request.Members {
+		reqMem.UserName = request.UserName
 		// validate FileSystem
-		if err := validateFileSystem(reqMem.FileSystem, request.UserName); err != nil {
+		if err := validateFileSystem(&reqMem.JobSpec, request.UserName); err != nil {
 			return nil, err
 		}
 		if reqMem.Role == string(schema.RoleWorker) {
@@ -412,8 +409,9 @@ func newCollectiveMembers(request *CreateDisJobRequest) ([]models.Member, error)
 func newPSMembers(request *CreateDisJobRequest) ([]models.Member, error) {
 	members := make([]models.Member, 0)
 	for _, reqMember := range request.Members {
+		reqMember.UserName = request.UserName
 		// validate FileSystem
-		if err := validateFileSystem(reqMember.FileSystem, request.UserName); err != nil {
+		if err := validateFileSystem(&reqMember.JobSpec, request.UserName); err != nil {
 			return nil, err
 		}
 
@@ -441,28 +439,31 @@ func newMember(member MemberSpec, role schema.MemberRole) (models.Member, error)
 		log.Errorf("member with invalid replicas %d", member.Replicas)
 		return models.Member{}, fmt.Errorf("invalid replicas %d", member.Replicas)
 	}
+
+	conf := schema.Conf{
+		Name: member.Name,
+		// 存储资源
+		FileSystem:      member.FileSystem,
+		ExtraFileSystem: member.ExtraFileSystems,
+		// 计算资源
+		Flavour:  f,
+		Priority: member.SchedulingPolicy.Priority,
+		QueueID:  member.SchedulingPolicy.QueueID,
+		// 运行时需要的参数
+		Labels:      member.Labels,
+		Annotations: member.Annotations,
+		Env:         member.Env,
+		Command:     member.Command,
+		Image:       member.Image,
+		Port:        member.Port,
+		Args:        member.Args,
+	}
+
 	return models.Member{
 		ID:       member.ID,
 		Role:     role,
 		Replicas: member.Replicas,
-		Conf: schema.Conf{
-			Name: member.Name,
-			// 存储资源
-			FileSystem:      member.FileSystem,
-			ExtraFileSystem: member.ExtraFileSystems,
-			// 计算资源
-			Flavour:  f,
-			Priority: member.SchedulingPolicy.Priority,
-			QueueID:  member.SchedulingPolicy.QueueID,
-			// 运行时需要的参数
-			Labels:      member.Labels,
-			Annotations: member.Annotations,
-			Env:         member.Env,
-			Command:     member.Command,
-			Image:       member.Image,
-			Port:        member.Port,
-			Args:        member.Args,
-		},
+		Conf:     conf,
 	}, nil
 }
 
@@ -697,14 +698,43 @@ func getRuntimeByQueue(ctx *logger.RequestContext, queueID string) (runtime.Runt
 	return runtimeSvc, nil
 }
 
-func validateFileSystem(fs schema.FileSystem, userName string) error {
-	if fs.Name == "" {
-		return nil
+func validateFileSystem(jobSpec *JobSpec, userName string) error {
+	fsService := fs.GetFileSystemService()
+	fsName := jobSpec.FileSystem.Name
+	if fsName != "" {
+		jobSpec.FileSystem.MountPath = filepath.Clean(jobSpec.FileSystem.MountPath)
+		if jobSpec.FileSystem.MountPath == "/" {
+			err := fmt.Errorf("mountPath cannot be `/` in fileSystem[%s]", fsName)
+			log.Errorf("validateFileSystem failed, err: %v", err)
+			return err
+		}
+		fileSystem, err := fsService.GetFileSystem(userName, fsName)
+		if err != nil {
+			log.Errorf("get filesystem by userName[%s] fsName[%s] failed, err: %v", userName, fsName, err)
+			return fmt.Errorf("find file system %s failed, err: %v", fsName, err)
+		}
+		jobSpec.FileSystem.ID = fileSystem.ID
 	}
-	fsID := common.ID(userName, fs.Name)
-	if _, err := models.GetFileSystemWithFsID(fsID); err != nil {
-		log.Errorf("get filesystem %s failed, err: %v", fsID, err)
-		return fmt.Errorf("find file system %s failed, err: %v", fs.Name, err)
+
+	for index, fs := range jobSpec.ExtraFileSystems {
+		if fs.Name == "" {
+			log.Errorf("name of fileSystem %v is null", fs)
+			return fmt.Errorf("name of fileSystem %v is null", fs)
+		}
+		jobSpec.ExtraFileSystems[index].MountPath = filepath.Clean(fs.MountPath)
+		if jobSpec.ExtraFileSystems[index].MountPath == "/" {
+			err := fmt.Errorf("mountPath cannot be `/` in fileSystem[%s]", fs.Name)
+			log.Errorf("validateFileSystem failed, err: %v", err)
+			return err
+		}
+
+		fileSystem, err := fsService.GetFileSystem(userName, fs.Name)
+		if err != nil {
+			log.Errorf("get filesystem by userName[%s] fsName[%s] failed, err: %v", userName, fs.Name, err)
+			return fmt.Errorf("find file system %s failed, err: %v", fs.Name, err)
+		}
+		jobSpec.ExtraFileSystems[index].ID = fileSystem.ID
 	}
+
 	return nil
 }

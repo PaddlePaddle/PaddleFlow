@@ -18,10 +18,12 @@ package ufs
 
 import (
 	"bytes"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -107,10 +109,12 @@ func (fs *s3FileSystem) list(name, continuationToken string, limit int, recursiv
 	limit_ := int64(limit)
 	fullPath := fs.getFullPath(name)
 	request := &s3.ListObjectsV2Input{
-		Bucket:            &fs.bucket,
-		Prefix:            &fullPath,
-		ContinuationToken: &continuationToken,
-		MaxKeys:           &limit_,
+		Bucket:  &fs.bucket,
+		Prefix:  &fullPath,
+		MaxKeys: &limit_,
+	}
+	if continuationToken != "" {
+		request.ContinuationToken = &continuationToken
 	}
 	if !recursive {
 		delim := Delimiter
@@ -827,7 +831,7 @@ func (fs *s3FileSystem) openForWrite(fh *s3FileHandle) error {
 }
 
 // Directory handling
-func (fs *s3FileSystem) ReadDir(name string) ([]base.DirEntry, error) {
+func (fs *s3FileSystem) ReadDir(name string) ([]DirEntry, error) {
 	log.Tracef("s3 readDir: name[%s]", name)
 	name = toS3Path(name)
 	name = toDirPath(name)
@@ -837,18 +841,36 @@ func (fs *s3FileSystem) ReadDir(name string) ([]base.DirEntry, error) {
 		log.Debugf("s3 readDir: name[%s] iterate err: %v", name, err)
 		return nil, err
 	}
-	stream := make([]base.DirEntry, 0)
+	stream := make([]DirEntry, 0)
 	for finfo := range ch {
-		mode := syscall.S_IFREG | 0666
-		if finfo.IsDir {
-			mode = int(utils.StatModeToFileMode(syscall.S_IFDIR | 0777))
-		}
 		if finfo.Name == "." {
 			continue
 		}
+		mtime := int64(finfo.Mtime)
+		size := finfo.Size
+		mode := syscall.S_IFREG | 0666
+		isDir := finfo.IsDir
+		fileType := uint8(TypeFile)
+		if isDir {
+			fileType = TypeDirectory
+			mode = syscall.S_IFDIR | 0755
+			size = 4096
+		}
+		uid := uint32(utils.LookupUser(Owner))
+		gid := uint32(utils.LookupGroup(Group))
 		subName := strings.TrimSuffix(finfo.Name, Delimiter)
-		stream = append(stream, base.DirEntry{
-			Mode: uint32(mode),
+		stream = append(stream, DirEntry{
+			Attr: &Attr{
+				Type:      fileType,
+				Size:      uint64(size),
+				Mode:      uint32(mode),
+				Mtime:     mtime,
+				Atimensec: uint32(mtime),
+				Mtimensec: uint32(mtime),
+				Ctimensec: uint32(mtime),
+				Uid:       uid,
+				Gid:       gid,
+			},
 			Name: subName,
 		})
 	}
@@ -1342,7 +1364,7 @@ func NewS3FileSystem(properties map[string]interface{}) (UnderFileStorage, error
 
 	endpoint = strings.TrimSuffix(endpoint, Delimiter)
 	bucket = strings.TrimSuffix(bucket, Delimiter)
-	ssl := strings.ToLower(endpoint) == "https"
+	ssl := strings.HasPrefix(endpoint, "https")
 	if region == "" {
 		region = AwsDefaultRegion
 	}
@@ -1353,8 +1375,23 @@ func NewS3FileSystem(properties map[string]interface{}) (UnderFileStorage, error
 		Region:           aws.String(region),
 		Endpoint:         aws.String(endpoint),
 		DisableSSL:       aws.Bool(!ssl),
-		S3ForcePathStyle: aws.Bool(true),
+		S3ForcePathStyle: aws.Bool(false),
 	}
+
+	if properties[fsCommon.S3ForcePathStyle] == "true" {
+		awsConfig.S3ForcePathStyle = aws.Bool(true)
+	}
+
+	if properties[fsCommon.InsecureSkipVerify] == "true" {
+		awsConfig.HTTPClient = &http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{
+					InsecureSkipVerify: true,
+				},
+			},
+		}
+	}
+
 	if accessKey != "" && secretKey != "" {
 		secretKey, err := common.AesDecrypt(secretKey, common.AESEncryptKey)
 		if err != nil {

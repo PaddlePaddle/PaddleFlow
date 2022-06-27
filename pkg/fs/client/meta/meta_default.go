@@ -378,6 +378,7 @@ func (m *DefaultMeta) Readdir(ctx *Context, inode Ino, entries *[]*Entry) syscal
 	name := m.inodeHandle.InoToPath(inode)
 	ufs, isLink, _, path := m.GetUFS(name)
 	dirs, err := ufs.ReadDir(path)
+	parentInode := m.inodeHandle.toInode(inode)
 	if err != nil {
 		log.Errorf("[vfs] ReadDir failed: %v", err)
 		return utils.ToSyscallErrno(err)
@@ -388,8 +389,7 @@ func (m *DefaultMeta) Readdir(ctx *Context, inode Ino, entries *[]*Entry) syscal
 			dir := pathlib.Dir(key.(string))
 			linkUfs := value.(ufslib.UnderFileStorage)
 			if pathlib.Clean("/"+name) == pathlib.Clean("/"+dir) {
-				entry := base.DirEntry{
-					Mode: uint32(os.ModeSymlink),
+				entry := ufslib.DirEntry{
 					Name: pathlib.Base(key.(string)),
 				}
 				attr, err := linkUfs.GetAttr("")
@@ -397,7 +397,7 @@ func (m *DefaultMeta) Readdir(ctx *Context, inode Ino, entries *[]*Entry) syscal
 					// TODO: 获取link文件报错，暂不往上抛出
 					log.Errorf("getAttr : name[%s] failed: [%v]", key.(string), err)
 				}
-				entry.Mode = uint32(os.ModeSymlink | attr.Mode)
+				entry.Attr.Mode = uint32(os.ModeSymlink | attr.Mode)
 				// 如果原位置已有文件，默认展示Link文件覆盖原来的文件，unlink后可见
 				exist := false
 				for i, dirEntry := range dirs {
@@ -420,8 +420,41 @@ func (m *DefaultMeta) Readdir(ctx *Context, inode Ino, entries *[]*Entry) syscal
 		entry := &Entry{
 			Ino:  m.PathToIno(dir.Name),
 			Name: dir.Name,
-			Attr: &Attr{Mode: dir.Mode},
+			Attr: &Attr{
+				Type:      dir.Attr.Type,
+				Mode:      dir.Attr.Mode,
+				Uid:       dir.Attr.Uid,
+				Gid:       dir.Attr.Gid,
+				Rdev:      dir.Attr.Rdev,
+				Atime:     dir.Attr.Atime,
+				Mtime:     dir.Attr.Mtime,
+				Ctime:     dir.Attr.Ctime,
+				Atimensec: dir.Attr.Atimensec,
+				Mtimensec: dir.Attr.Mtimensec,
+				Ctimensec: dir.Attr.Ctimensec,
+				Nlink:     dir.Attr.Nlink,
+				Size:      dir.Attr.Size,
+				Blksize:   dir.Attr.Blksize,
+				Block:     dir.Attr.Block,
+			},
 		}
+
+		isDir := false
+		if dir.Attr.Type == TypeDirectory {
+			isDir = true
+		}
+		var newInode Ino
+		parentInode.RLock()
+		if parentInode.child[dir.Name] == 0 {
+			parentInode.RUnlock()
+			newNode := parentInode.NewChild(dir.Name, isDir)
+			newInode = newNode.inode
+			parentInode.AddChild(dir.Name, newNode)
+		} else {
+			parentInode.RUnlock()
+			newInode = m.inodeHandle.toInode(parentInode.child[dir.Name]).inode
+		}
+		entry.Ino = newInode
 		*entries = append(*entries, entry)
 	}
 	return syscall.F_OK

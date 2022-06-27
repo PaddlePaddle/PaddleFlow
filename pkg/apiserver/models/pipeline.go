@@ -18,102 +18,123 @@ package models
 
 import (
 	"fmt"
+	"strconv"
 	"time"
 
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 type Pipeline struct {
-	Pk           int64          `json:"-"                    gorm:"primaryKey;autoIncrement;not null"`
-	ID           string         `json:"pipelineID"           gorm:"type:varchar(60);not null;uniqueIndex"`
-	Name         string         `json:"name"                 gorm:"type:varchar(60);not null;uniqueIndex:idx_fs_name"`
-	FsID         string         `json:"-"                    gorm:"type:varchar(60);not null;uniqueIndex:idx_fs_name;uniqueIndex:idx_fs_md5"`
-	FsName       string         `json:"fsname"               gorm:"type:varchar(60);not null"`
-	UserName     string         `json:"username"             gorm:"type:varchar(60);not null"`
-	PipelineYaml string         `json:"pipelineYaml"         gorm:"type:text;size:65535"`
-	PipelineMd5  string         `json:"pipelineMd5"          gorm:"type:varchar(32);not null;uniqueIndex:idx_fs_md5"`
-	CreateTime   string         `json:"createTime,omitempty" gorm:"-"`
-	UpdateTime   string         `json:"updateTime,omitempty" gorm:"-"`
-	CreatedAt    time.Time      `json:"-"`
-	UpdatedAt    time.Time      `json:"-"`
-	DeletedAt    gorm.DeletedAt `json:"-"                    gorm:"index"`
+	Pk        int64          `json:"-"                    gorm:"primaryKey;autoIncrement;not null"`
+	ID        string         `json:"pipelineID"           gorm:"type:varchar(60);not null;uniqueIndex"`
+	Name      string         `json:"name"                 gorm:"type:varchar(60);not null;index:idx_fs_name"`
+	Desc      string         `json:"desc"                 gorm:"type:varchar(1024);not null"`
+	UserName  string         `json:"username"             gorm:"type:varchar(60);not null;index:idx_fs_name"`
+	CreatedAt time.Time      `json:"-"`
+	UpdatedAt time.Time      `json:"-"`
+	DeletedAt gorm.DeletedAt `json:"-"`
 }
 
 func (Pipeline) TableName() string {
 	return "pipeline"
 }
 
-func (p *Pipeline) Decode() error {
-	// format time
-	p.CreateTime = p.CreatedAt.Format("2006-01-02 15:04:05")
-	p.UpdateTime = p.UpdatedAt.Format("2006-01-02 15:04:05")
-	return nil
-}
-
-func CreatePipeline(logEntry *log.Entry, ppl *Pipeline) (string, error) {
-	logEntry.Debugf("begin create pipeline: %+v", ppl)
-	err := WithTransaction(database.DB, func(tx *gorm.DB) error {
+func CreatePipeline(logEntry *log.Entry, ppl *Pipeline, pplDetail *PipelineDetail) (pplID string, pplDetailID string, err error) {
+	logEntry.Debugf("begin create pipeline: %+v & pipeline detail: %+v", ppl, pplDetail)
+	err = WithTransaction(storage.DB, func(tx *gorm.DB) error {
 		result := tx.Model(&Pipeline{}).Create(ppl)
 		if result.Error != nil {
 			logEntry.Errorf("create pipeline failed. pipeline:%+v, error:%v", ppl, result.Error)
 			return result.Error
 		}
-		ppl.ID = common.PrefixPipeline + fmt.Sprintf("%06d", ppl.Pk)
-		logEntry.Debugf("created ppl with pk[%d], pplID[%s]", ppl.Pk, ppl.ID)
 		// update ID by pk
-		result = tx.Model(&Pipeline{}).Where(&Pipeline{Pk: ppl.Pk}).Update("id", ppl.ID)
+		ppl.ID = common.PrefixPipeline + fmt.Sprintf("%06d", ppl.Pk)
+		result = tx.Model(&Pipeline{}).Where("pk = ?", ppl.Pk).Update("id", ppl.ID)
 		if result.Error != nil {
-			logEntry.Errorf("back filling pplID failed. pk[%d], error:%v", ppl.Pk, result.Error)
+			logEntry.Errorf("backfilling pplID to pipeline[%d] failed. error:%v", ppl.Pk, result.Error)
 			return result.Error
 		}
+
+		var pplDetailCount int64
+		tx = tx.Unscoped().Model(&PipelineDetail{}).Where("pipeline_id = ?", ppl.ID).Count(&pplDetailCount)
+		if tx.Error != nil {
+			logger.Logger().Errorf("count pipeline detail failed. pipelineID[%s]. error:%s",
+				ppl.ID, tx.Error.Error())
+			return tx.Error
+		}
+		pplDetail.ID = strconv.FormatInt(pplDetailCount+1, 10)
+		pplDetail.PipelineID = ppl.ID
+		result = tx.Model(&PipelineDetail{}).Create(pplDetail)
+		if result.Error != nil {
+			logEntry.Errorf("create pipeline detail failed. pipeline detail:%+v, error:%v", pplDetail, result.Error)
+			return result.Error
+		}
+
+		logEntry.Infof("created ppl with pk[%d], pplID[%s], pplDetailPk[%d], pplDetailID[%s]", ppl.Pk, ppl.ID, pplDetail.Pk, pplDetail.ID)
 		return nil
 	})
-	return ppl.ID, err
+	return ppl.ID, pplDetail.ID, err
 }
 
-func CountPipelineByNameInFs(name, fsID string) (int64, error) {
-	var count int64
-	result := database.DB.Model(&Pipeline{}).Where(&Pipeline{Name: name, FsID: fsID}).Count(&count)
-	return count, result.Error
-}
+func UpdatePipeline(logEntry *log.Entry, ppl *Pipeline, pplDetail *PipelineDetail) (pplID string, pplDetailID string, err error) {
+	logEntry.Debugf("begin update pipeline: %+v and pipeline detail: %+v", ppl, pplDetail)
+	err = WithTransaction(storage.DB, func(tx *gorm.DB) error {
+		// update desc by pk
+		result := tx.Model(&Pipeline{}).Where("pk = ?", ppl.Pk).Update("desc", ppl.Desc)
+		if result.Error != nil {
+			logEntry.Errorf("update desc to pipeline[%d] failed. error:%v", ppl.Pk, result.Error)
+			return result.Error
+		}
 
-func CountPipelineByMd5InFs(md5, fsID string) (int64, error) {
-	var count int64
-	result := database.DB.Model(&Pipeline{}).Where(&Pipeline{PipelineMd5: md5, FsID: fsID}).Count(&count)
-	return count, result.Error
-}
+		var pplDetailCount int64
+		tx = tx.Unscoped().Model(&PipelineDetail{}).Where("pipeline_id = ?", ppl.ID).Count(&pplDetailCount)
+		if tx.Error != nil {
+			logger.Logger().Errorf("count pipeline detail failed. pipelineID[%s]. error:%s",
+				ppl.ID, tx.Error.Error())
+			return tx.Error
+		}
 
-func GetPipelineByMd5AndFs(md5, fsID string) (Pipeline, error) {
-	var ppl Pipeline
-	result := database.DB.Model(&Pipeline{}).Where(&Pipeline{FsID: fsID, PipelineMd5: md5}).Last(&ppl)
-	return ppl, result.Error
+		pplDetail.ID = strconv.FormatInt(pplDetailCount+1, 10)
+		pplDetail.PipelineID = ppl.ID
+		result = tx.Create(pplDetail)
+		if result.Error != nil {
+			logEntry.Errorf("update pipeline failed. pipeline detail:%+v, error:%v", pplDetail, result.Error)
+			return result.Error
+		}
+		logEntry.Debugf("updated ppl with pplID[%s], new pplDetailPk[%d], pplDetailID[%s]", pplDetail.PipelineID, pplDetail.Pk, pplDetail.ID)
+		return nil
+	})
+	return pplDetail.PipelineID, pplDetail.ID, err
 }
 
 func GetPipelineByID(id string) (Pipeline, error) {
 	var ppl Pipeline
-	result := database.DB.Model(&Pipeline{}).Where(&Pipeline{ID: id}).Last(&ppl)
+	tx := storage.DB.Model(&Pipeline{})
+
+	if id != "" {
+		tx = tx.Where("id = ?", id)
+	}
+
+	result := tx.Last(&ppl)
 	return ppl, result.Error
 }
 
-func GetPipelineByNameAndFs(fsID, name string) (Pipeline, error) {
+func GetPipeline(name, userName string) (Pipeline, error) {
 	var ppl Pipeline
-	result := database.DB.Model(&Pipeline{}).Where(&Pipeline{FsID: fsID, Name: name}).Last(&ppl)
+	result := storage.DB.Model(&Pipeline{}).Where(&Pipeline{Name: name, UserName: userName}).Last(&ppl)
 	return ppl, result.Error
 }
 
-func ListPipeline(pk int64, maxKeys int, userFilter, fsFilter, nameFilter []string) ([]Pipeline, error) {
-	logger.Logger().Debugf("begin list run. ")
-	tx := database.DB.Model(&Pipeline{}).Where("pk > ?", pk)
+func ListPipeline(pk int64, maxKeys int, userFilter, nameFilter []string) ([]Pipeline, error) {
+	logger.Logger().Debugf("begin list pipeline. ")
+	tx := storage.DB.Model(&Pipeline{}).Where("pk > ?", pk)
 	if len(userFilter) > 0 {
 		tx = tx.Where("user_name IN (?)", userFilter)
-	}
-	if len(fsFilter) > 0 {
-		tx = tx.Where("fs_name IN (?)", fsFilter)
 	}
 	if len(nameFilter) > 0 {
 		tx = tx.Where("name IN (?)", nameFilter)
@@ -124,25 +145,34 @@ func ListPipeline(pk int64, maxKeys int, userFilter, fsFilter, nameFilter []stri
 	var pplList []Pipeline
 	tx = tx.Find(&pplList)
 	if tx.Error != nil {
-		logger.Logger().Errorf("list run failed. Filters: user{%v}, fs{%v}, name{%v}. error:%s",
-			userFilter, fsFilter, nameFilter, tx.Error.Error())
+		logger.Logger().Errorf("list pipeline failed. pk:%d, maxKeys:%d, Filters: user{%v}, name{%v}. error:%s",
+			pk, maxKeys, userFilter, nameFilter, tx.Error.Error())
 		return []Pipeline{}, tx.Error
 	}
 	return pplList, nil
 }
 
-func GetLastPipeline(logEntry *log.Entry) (Pipeline, error) {
-	logEntry.Debugf("get last ppl. ")
-	ppl := Pipeline{}
-	tx := database.DB.Model(&Pipeline{}).Last(&ppl)
-	if tx.Error != nil {
-		logEntry.Errorf("get last ppl failed. error:%s", tx.Error.Error())
-		return Pipeline{}, tx.Error
+func IsLastPipelinePk(logEntry *log.Entry, pk int64, userFilter, nameFilter []string) (bool, error) {
+	logger.Logger().Debugf("begin check isLastPipeline.")
+	tx := storage.DB.Model(&Pipeline{})
+	if len(userFilter) > 0 {
+		tx = tx.Where("user_name IN (?)", userFilter)
 	}
-	return ppl, nil
+	if len(nameFilter) > 0 {
+		tx = tx.Where("name IN (?)", nameFilter)
+	}
+
+	ppl := Pipeline{}
+	tx = tx.Last(&ppl)
+	if tx.Error != nil {
+		logEntry.Errorf("get last ppl failed. Filters: user{%v}, name{%v}, error:%s", userFilter, nameFilter, tx.Error.Error())
+		return false, tx.Error
+	}
+	return pk == ppl.Pk, nil
 }
 
-func HardDeletePipeline(logEntry *log.Entry, id string) error {
+func DeletePipeline(logEntry *log.Entry, id string) error {
 	logEntry.Debugf("delete ppl: %s", id)
-	return database.DB.Unscoped().Where("id = ?", id).Delete(&Pipeline{}).Error
+	result := storage.DB.Where("id = ?", id).Delete(&Pipeline{})
+	return result.Error
 }

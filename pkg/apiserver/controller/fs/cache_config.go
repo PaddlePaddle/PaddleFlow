@@ -22,10 +22,10 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	utils "github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 type UpdateFileSystemCacheRequest struct {
@@ -40,8 +40,8 @@ type UpdateFileSystemCacheRequest struct {
 	ExtraConfig         map[string]string      `json:"extraConfig"`
 }
 
-func (req *UpdateFileSystemCacheRequest) toModel() models.FSCacheConfig {
-	return models.FSCacheConfig{
+func (req *UpdateFileSystemCacheRequest) toModel() model.FSCacheConfig {
+	return model.FSCacheConfig{
 		FsID:                   req.FsID,
 		CacheDir:               req.CacheDir,
 		Quota:                  req.Quota,
@@ -60,7 +60,7 @@ type CreateFileSystemCacheRequest struct {
 	UpdateFileSystemCacheRequest
 }
 
-func (req *CreateFileSystemCacheRequest) toModel() models.FSCacheConfig {
+func (req *CreateFileSystemCacheRequest) toModel() model.FSCacheConfig {
 	return req.UpdateFileSystemCacheRequest.toModel()
 }
 
@@ -78,7 +78,7 @@ type FileSystemCacheResponse struct {
 	UpdateTime          string                 `json:"updateTime,omitempty"`
 }
 
-func (resp *FileSystemCacheResponse) fromModel(config models.FSCacheConfig) {
+func (resp *FileSystemCacheResponse) fromModel(config model.FSCacheConfig) {
 	resp.CacheDir = config.CacheDir
 	resp.Quota = config.Quota
 	resp.MetaDriver = config.MetaDriver
@@ -94,7 +94,7 @@ func (resp *FileSystemCacheResponse) fromModel(config models.FSCacheConfig) {
 
 func CreateFileSystemCacheConfig(ctx *logger.RequestContext, req CreateFileSystemCacheRequest) error {
 	cacheConfig := req.toModel()
-	err := models.CreateFSCacheConfig(ctx.Logging(), &cacheConfig)
+	err := storage.Filesystem.CreateFSCacheConfig(ctx.Logging(), &cacheConfig)
 	if err != nil {
 		ctx.Logging().Errorf("CreateFSCacheConfig fs[%s] err:%v", cacheConfig.FsID, err)
 		return err
@@ -104,7 +104,7 @@ func CreateFileSystemCacheConfig(ctx *logger.RequestContext, req CreateFileSyste
 
 func UpdateFileSystemCacheConfig(ctx *logger.RequestContext, req UpdateFileSystemCacheRequest) error {
 	cacheConfig := req.toModel()
-	err := models.UpdateFSCacheConfig(ctx.Logging(), cacheConfig)
+	err := storage.Filesystem.UpdateFSCacheConfig(ctx.Logging(), cacheConfig)
 	if err != nil {
 		ctx.Logging().Errorf("UpdateFSCacheConfig fs[%s] err:%v", cacheConfig.FsID, err)
 		return err
@@ -113,7 +113,7 @@ func UpdateFileSystemCacheConfig(ctx *logger.RequestContext, req UpdateFileSyste
 }
 
 func GetFileSystemCacheConfig(ctx *logger.RequestContext, fsID string) (FileSystemCacheResponse, error) {
-	fsCacheConfig, err := models.GetFSCacheConfig(ctx.Logging(), fsID)
+	fsCacheConfig, err := storage.Filesystem.GetFSCacheConfig(ctx.Logging(), fsID)
 	if err != nil {
 		ctx.Logging().Errorf("GetFileSystemCacheConfig fs[%s] err:%v", fsID, err)
 		return FileSystemCacheResponse{}, err
@@ -124,7 +124,7 @@ func GetFileSystemCacheConfig(ctx *logger.RequestContext, fsID string) (FileSyst
 }
 
 func DeleteFileSystemCacheConfig(ctx *logger.RequestContext, fsID string) error {
-	_, err := models.GetFSCacheConfig(ctx.Logging(), fsID)
+	_, err := storage.Filesystem.GetFSCacheConfig(ctx.Logging(), fsID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			ctx.ErrorCode = common.RecordNotFound
@@ -134,7 +134,7 @@ func DeleteFileSystemCacheConfig(ctx *logger.RequestContext, fsID string) error 
 		ctx.Logging().Errorf("GetFileSystemCacheConfig fs[%s] err:%v", fsID, err)
 		return err
 	}
-	if err := models.DeleteFSCacheConfig(database.DB, fsID); err != nil {
+	if err := storage.Filesystem.DeleteFSCacheConfig(storage.DB, fsID); err != nil {
 		ctx.Logging().Errorf("delete fs cache config failed error[%v]", err)
 		ctx.ErrorCode = common.FileSystemDataBaseError
 		return err

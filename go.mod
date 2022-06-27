@@ -42,11 +42,12 @@ require (
 	github.com/prometheus/client_golang v1.11.0
 	github.com/prometheus/client_model v0.2.0
 	github.com/rifflock/lfshook v0.0.0-20180920164130-b9218ef580f5
+	github.com/robfig/cron/v3 v3.0.1
 	github.com/shirou/gopsutil/v3 v3.20.10
 	github.com/sirupsen/logrus v1.8.1
 	github.com/smallnest/chanx v1.0.0
 	github.com/spf13/pflag v1.0.5
-	github.com/stretchr/testify v1.7.0
+	github.com/stretchr/testify v1.7.1
 	github.com/syndtr/goleveldb v1.0.0
 	github.com/urfave/cli/v2 v2.4.0
 	github.com/vbauerster/mpb/v7 v7.4.1
