@@ -35,9 +35,7 @@ from paddleflow.cli.cluster import cluster
 from paddleflow.cli.flavour import flavour
 from paddleflow.common.util import get_default_config_path
 
-DEFAULT_PADDLEFLOW_PORT = 8080
-DEFAULT_FS_HTTP_PORT = 8081
-DEFAULT_FS_RPC_PORT = 8082
+DEFAULT_PADDLEFLOW_PORT = 8999
 
 @click.group()
 @click.option('--pf_config', help='the path of default config.')
@@ -64,15 +62,15 @@ def cli(ctx, pf_config=None, output=OutputFormat.table.name):
     if 'password' not in config['user'] or 'name' not in config['user']:
         click.echo("no name or password conf['user'] in %s" % config_file, err=True)
         sys.exit(1)
-    if 'paddleflow_server' not in config['server']:
-        click.echo("no paddleflow_server in %s" % config_file, err=True)
+    if 'paddleflow_server_host' not in config['server']:
+        click.echo("no paddleflow_server_host in %s" % config_file, err=True)
         sys.exit(1)
-    paddleflow_server = config['server']['paddleflow_server']
-    if 'paddleflow_port' in config['server']:
-        paddleflow_port = config['server']['paddleflow_port']
+    paddleflow_server_host = config['server']['paddleflow_server_host']
+    if 'paddleflow_server_port' in config['server']:
+        paddleflow_server_port = config['server']['paddleflow_server_port']
     else:
-        paddleflow_port = DEFAULT_PADDLEFLOW_PORT
-    ctx.obj['client'] = Client(paddleflow_server, config['user']['name'], config['user']['password'], paddleflow_port)
+        paddleflow_server_port = DEFAULT_PADDLEFLOW_PORT
+    ctx.obj['client'] = Client(paddleflow_server_host, config['user']['name'], config['user']['password'], paddleflow_server_port)
     name = config['user']['name']
     password = config['user']['password']
     ctx.obj['client'].login(name, password)

@@ -62,6 +62,7 @@ type TaskSyncInfo struct {
 	Name       string
 	Namespace  string
 	JobID      string
+	NodeName   string
 	MemberRole commonschema.MemberRole
 	Status     commonschema.TaskStatus
 	Message    string
@@ -314,7 +315,7 @@ func (j *JobSync) syncTaskStatus(taskSyncInfo *TaskSyncInfo) error {
 	namespace := taskSyncInfo.Namespace
 	_, err := models.GetJobByID(taskSyncInfo.JobID)
 	if err != nil {
-		log.Infof("update task %s/%s status failed, job %s for task not found", namespace, name, taskSyncInfo.JobID)
+		log.Warnf("update task %s/%s status failed, job %s for task not found", namespace, name, taskSyncInfo.JobID)
 		return err
 	}
 
@@ -324,6 +325,7 @@ func (j *JobSync) syncTaskStatus(taskSyncInfo *TaskSyncInfo) error {
 		JobID:            taskSyncInfo.JobID,
 		Name:             taskSyncInfo.Name,
 		Namespace:        taskSyncInfo.Namespace,
+		NodeName:         taskSyncInfo.NodeName,
 		MemberRole:       taskSyncInfo.MemberRole,
 		Status:           taskSyncInfo.Status,
 		Message:          taskSyncInfo.Message,
