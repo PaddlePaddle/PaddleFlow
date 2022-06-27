@@ -59,7 +59,7 @@ type TraceLoggerConfig struct {
 	Timeout         string `yaml:"timeout"`
 	MaxCacheSize    int    `yaml:"maxCacheSize"`
 	SyncInterval    string `yaml:"syncInterval"`
-	DeleteInterval  string `yaml:"syncInterval"`
+	DeleteInterval  string `yaml:"deleteInterval"`
 }
 
 func ParseTime(timeStr string) (time.Duration, error) {
