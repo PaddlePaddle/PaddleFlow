@@ -28,7 +28,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 const (
@@ -187,7 +187,7 @@ func (Schedule) TableName() string {
 
 func CreateSchedule(logEntry *log.Entry, schedule Schedule) (scheduleID string, err error) {
 	logEntry.Debugf("begin create schedule:%+v", schedule)
-	err = WithTransaction(database.DB, func(tx *gorm.DB) error {
+	err = WithTransaction(storage.DB, func(tx *gorm.DB) error {
 		result := tx.Model(&Schedule{}).Create(&schedule)
 		if result.Error != nil {
 			logEntry.Errorf("create schedule failed. schedule:%v, error:%s",
@@ -212,7 +212,7 @@ func CreateSchedule(logEntry *log.Entry, schedule Schedule) (scheduleID string, 
 
 func ListSchedule(logEntry *log.Entry, pipelineID string, pk int64, maxKeys int, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter []string) ([]Schedule, error) {
 	logEntry.Debugf("begin list schedule. ")
-	tx := database.DB.Model(&Schedule{}).Where("pk > ?", pk).Where("pipeline_id = ?", pipelineID)
+	tx := storage.DB.Model(&Schedule{}).Where("pk > ?", pk).Where("pipeline_id = ?", pipelineID)
 
 	if len(pplDetailFilter) > 0 {
 		tx = tx.Where("pipeline_detail_id IN (?)", pplDetailFilter)
@@ -247,7 +247,7 @@ func ListSchedule(logEntry *log.Entry, pipelineID string, pk int64, maxKeys int,
 func IsLastSchedulePk(logEntry *log.Entry, pk int64, pipelineID string, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter []string) (bool, error) {
 	logEntry.Debugf("get last schedule for ppl[%s], Filters: pplDetail[%v], user[%v], schedule[%v], name[%v], status[%v]",
 		pipelineID, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
-	tx := database.DB.Model(&Schedule{}).Where("pipeline_id = ?", pipelineID)
+	tx := storage.DB.Model(&Schedule{}).Where("pipeline_id = ?", pipelineID)
 
 	if len(pplDetailFilter) > 0 {
 		tx = tx.Where("pipeline_detail_id IN (?)", pplDetailFilter)
@@ -299,7 +299,7 @@ func GetSchedule(logEntry *log.Entry, scheduleID string) (Schedule, error) {
 	logEntry.Debugf("begin to get schedule of ID[%s]", scheduleID)
 
 	var schedule Schedule
-	result := database.DB.Model(&Schedule{}).Where("id = ?", scheduleID).First(&schedule)
+	result := storage.DB.Model(&Schedule{}).Where("id = ?", scheduleID).First(&schedule)
 	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			errMsg := fmt.Sprintf("schedule[%s] not found!", scheduleID)
@@ -321,7 +321,7 @@ func GetSchedulesByStatus(logEntry *log.Entry, status string) (schedules []Sched
 	}
 
 	logEntry.Debugf("begin to get schedules of status[%s]", status)
-	result := database.DB.Model(&Schedule{}).Where("status = ?", status).Find(&schedules)
+	result := storage.DB.Model(&Schedule{}).Where("status = ?", status).Find(&schedules)
 	if result.Error != nil {
 		errMsg := fmt.Sprintf("get schedules failed: error:%s", result.Error.Error())
 		logEntry.Errorf(errMsg)
@@ -333,7 +333,7 @@ func GetSchedulesByStatus(logEntry *log.Entry, status string) (schedules []Sched
 
 func UpdateScheduleStatus(logEntry *log.Entry, scheduleID, status string) error {
 	logEntry.Debugf("begin update schedule status. scheduleID:%s, status:%s", scheduleID, status)
-	tx := database.DB.Model(&Schedule{}).Where("id = ?", scheduleID).Update("status", status)
+	tx := storage.DB.Model(&Schedule{}).Where("id = ?", scheduleID).Update("status", status)
 	if tx.Error != nil {
 		logEntry.Errorf("update schedule status failed. scheduleID:%s, error:%s",
 			scheduleID, tx.Error.Error())
@@ -344,7 +344,7 @@ func UpdateScheduleStatus(logEntry *log.Entry, scheduleID, status string) error 
 
 func DeleteSchedule(logEntry *log.Entry, scheduleID string) error {
 	logEntry.Debugf("begin delete schedule. scheduleID:%s", scheduleID)
-	result := database.DB.Model(&Schedule{}).Where("id = ?", scheduleID).Delete(&Schedule{})
+	result := storage.DB.Model(&Schedule{}).Where("id = ?", scheduleID).Delete(&Schedule{})
 	if result.Error != nil {
 		logEntry.Errorf("delete schedule failed. scheduleID:%s, error:%s",
 			scheduleID, result.Error.Error())
@@ -530,7 +530,7 @@ func GetAvailableSchedule(logEntry *log.Entry, checkCatchup bool) (killMap map[s
 		}
 
 		if to_update {
-			result := database.DB.Model(&schedule).Save(schedule)
+			result := storage.DB.Model(&schedule).Save(schedule)
 			if result.Error != nil {
 				errMsg := fmt.Sprintf("update schedule[%s] of pipeline detail[%s] failed, error:%v",
 					schedule.ID, schedule.PipelineDetailID, result.Error)
@@ -566,7 +566,7 @@ func GetNextGlobalWakeupTime(logEntry *log.Entry) (*time.Time, error) {
 	logEntry.Debugf("begin to get next wakeup time after[%s]", currentTime.Format("01-02-2006 15:04:05"))
 
 	var schedules []Schedule
-	result := database.DB.Model(&Schedule{}).Where("status = ?", ScheduleStatusRunning).Find(&schedules)
+	result := storage.DB.Model(&Schedule{}).Where("status = ?", ScheduleStatusRunning).Find(&schedules)
 	if result.Error != nil {
 		errMsg := fmt.Sprintf("search running schedules failed. error:%s", result.Error.Error())
 		logEntry.Errorf(errMsg)

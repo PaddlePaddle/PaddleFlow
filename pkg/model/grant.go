@@ -14,8 +14,25 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package database
+package model
 
-import "gorm.io/gorm"
+import (
+	"time"
 
-var DB *gorm.DB
+	"gorm.io/gorm"
+)
+
+type Grant struct {
+	Pk           int64          `json:"-" gorm:"primaryKey;autoIncrement"`
+	ID           string         `json:"grantID" gorm:"uniqueIndex"`
+	UserName     string         `json:"userName"`
+	ResourceType string         `json:"resourceType"`
+	ResourceID   string         `json:"resourceID"`
+	CreatedAt    time.Time      `json:"createTime"`
+	UpdatedAt    time.Time      `json:"updateTime,omitempty"`
+	DeletedAt    gorm.DeletedAt `json:"-" gorm:"index"`
+}
+
+func (Grant) TableName() string {
+	return "grant"
+}

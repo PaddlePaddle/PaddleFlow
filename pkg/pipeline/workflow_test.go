@@ -23,9 +23,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database/dbinit"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	pplcommon "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 )
 
 func loadTwoPostCaseSource() (schema.WorkflowSource, error) {
@@ -500,7 +500,7 @@ func TestValidateWorkflowWithoutFs(t *testing.T) {
 }
 
 func TestCheckPostProcess(t *testing.T) {
-	dbinit.InitMockDB()
+	driver.InitMockDB()
 	wfs, err := loadTwoPostCaseSource()
 	assert.Nil(t, err)
 

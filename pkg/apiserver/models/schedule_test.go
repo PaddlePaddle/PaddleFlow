@@ -21,7 +21,7 @@ import (
 	"testing"
 	"time"
 
-	cron "github.com/robfig/cron/v3"
+	"github.com/robfig/cron/v3"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 )

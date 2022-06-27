@@ -23,9 +23,11 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database/dbinit"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 )
 
 const (
@@ -50,7 +52,7 @@ var clusterInfo = models.ClusterInfo{
 }
 
 func TestCreateGrant(t *testing.T) {
-	dbinit.InitMockDB()
+	driver.InitMockDB()
 	ctx := &logger.RequestContext{UserName: MockRootUser}
 	// mock queue & cluster
 	assert.Nil(t, models.CreateCluster(&clusterInfo))
@@ -62,12 +64,12 @@ func TestCreateGrant(t *testing.T) {
 		ClusterId: cluser.ID,
 	})
 	assert.Nil(t, err)
-	// mock user
-	mockUser := &models.User{
-		UserInfo: models.UserInfo{
+	// momodeler
+	mockUser := &model.User{
+		UserInfo: model.UserInfo{
 			Name: MockUserName, Password: "fake",
 		}}
-	err = models.CreateUser(ctx, mockUser)
+	err = storage.Auth.CreateUser(ctx, mockUser)
 	assert.Nil(t, err)
 
 	// case start

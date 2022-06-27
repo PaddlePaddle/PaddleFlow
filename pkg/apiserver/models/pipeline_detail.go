@@ -19,11 +19,11 @@ package models
 import (
 	"time"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
-
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
+
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 type PipelineDetail struct {
@@ -47,7 +47,7 @@ func (PipelineDetail) TableName() string {
 
 func ListPipelineDetail(pipelineID string, pk int64, maxKeys int, fsFilter []string) ([]PipelineDetail, error) {
 	logger.Logger().Debugf("begin list pipeline detail. ")
-	tx := database.DB.Model(&PipelineDetail{}).Where("pk > ?", pk).Where("pipeline_id = ?", pipelineID)
+	tx := storage.DB.Model(&PipelineDetail{}).Where("pk > ?", pk).Where("pipeline_id = ?", pipelineID)
 	if len(fsFilter) > 0 {
 		tx = tx.Where("fs_name IN (?)", fsFilter)
 	}
@@ -68,7 +68,7 @@ func ListPipelineDetail(pipelineID string, pk int64, maxKeys int, fsFilter []str
 func IsLastPipelineDetailPk(logEntry *log.Entry, pipelineID string, pk int64, fsFilter []string) (bool, error) {
 	logEntry.Debugf("get last ppl detail for ppl[%s], Filters: fs{%v}", pipelineID, fsFilter)
 	pplDetail := PipelineDetail{}
-	tx := database.DB.Model(&PipelineDetail{}).Where("pipeline_id = ?", pipelineID)
+	tx := storage.DB.Model(&PipelineDetail{}).Where("pipeline_id = ?", pipelineID)
 	if len(fsFilter) > 0 {
 		tx = tx.Where("fs_name IN (?)", fsFilter)
 	}
@@ -84,7 +84,7 @@ func IsLastPipelineDetailPk(logEntry *log.Entry, pipelineID string, pk int64, fs
 
 func CountPipelineDetail(pipelineID string) (int64, error) {
 	logger.Logger().Debugf("begin to count pipeline detail for pipeline[%s].", pipelineID)
-	tx := database.DB.Model(&PipelineDetail{}).Where("pipeline_id = ?", pipelineID)
+	tx := storage.DB.Model(&PipelineDetail{}).Where("pipeline_id = ?", pipelineID)
 
 	var count int64
 	tx = tx.Count(&count)
@@ -98,7 +98,7 @@ func CountPipelineDetail(pipelineID string) (int64, error) {
 
 func GetPipelineDetails(pipelineID string) ([]PipelineDetail, error) {
 	pplDetailList := []PipelineDetail{}
-	tx := database.DB.Model(&PipelineDetail{})
+	tx := storage.DB.Model(&PipelineDetail{})
 
 	if pipelineID != "" {
 		tx.Where("pipeline_id = ?", pipelineID)
@@ -110,20 +110,20 @@ func GetPipelineDetails(pipelineID string) ([]PipelineDetail, error) {
 
 func GetPipelineDetail(pipelineID string, pipelineDetailID string) (PipelineDetail, error) {
 	pplDetail := PipelineDetail{}
-	tx := database.DB.Model(&PipelineDetail{}).Where("pipeline_id = ?", pipelineID).Where("id = ?", pipelineDetailID).Last(&pplDetail)
+	tx := storage.DB.Model(&PipelineDetail{}).Where("pipeline_id = ?", pipelineID).Where("id = ?", pipelineDetailID).Last(&pplDetail)
 	return pplDetail, tx.Error
 }
 
 func GetLastPipelineDetail(pipelineID string) (PipelineDetail, error) {
 	pplDetail := PipelineDetail{}
-	tx := database.DB.Model(&PipelineDetail{}).Where("pipeline_id = ?", pipelineID).Last(&pplDetail)
+	tx := storage.DB.Model(&PipelineDetail{}).Where("pipeline_id = ?", pipelineID).Last(&pplDetail)
 	return pplDetail, tx.Error
 }
 
 func DeletePipelineDetail(logEntry *log.Entry, pipelineID string, pipelineDetailID string) error {
 	logEntry.Debugf("delete pipeline[%s] detailID[%s]", pipelineID, pipelineDetailID)
 
-	tx := database.DB
+	tx := storage.DB
 	result := tx.Model(&PipelineDetail{}).Where("pipeline_id = ?", pipelineID).Where("id = ?", pipelineDetailID).Delete(&PipelineDetail{})
 	return result.Error
 }

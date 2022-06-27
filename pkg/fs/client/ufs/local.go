@@ -23,7 +23,6 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/hanwen/go-fuse/v2/fuse/nodefs"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/base"
@@ -129,7 +128,7 @@ func (fs *localFileSystem) Create(name string, flags uint32, mode uint32) (fd ba
 }
 
 // Directory handling
-func (fs *localFileSystem) ReadDir(name string) (stream []base.DirEntry, err error) {
+func (fs *localFileSystem) ReadDir(name string) (stream []DirEntry, err error) {
 	// What other ways beyond O_RDONLY are there to open
 	// directories?
 	ofile, err := os.Open(fs.GetPath(name))
@@ -138,7 +137,7 @@ func (fs *localFileSystem) ReadDir(name string) (stream []base.DirEntry, err err
 		return nil, err
 	}
 	want := 500
-	output := make([]base.DirEntry, 0, want)
+	output := make([]DirEntry, 0, want)
 	for {
 		infos, err := ofile.Readdir(want)
 		for i := range infos {
@@ -147,15 +146,11 @@ func (fs *localFileSystem) ReadDir(name string) (stream []base.DirEntry, err err
 				continue
 			}
 			n := infos[i].Name()
-			d := base.DirEntry{
+			d := DirEntry{
 				Name: n,
 			}
-			if s := fuse.ToStatT(infos[i]); s != nil {
-				d.Mode = uint32(s.Mode)
-				d.Ino = s.Ino
-			} else {
-				log.Printf("ReadDir entry %q for %q has no stat info", n, name)
-			}
+			attr := sysToAttr(infos[i])
+			d.Attr = &attr
 			output = append(output, d)
 		}
 		if len(infos) < want || err == io.EOF {

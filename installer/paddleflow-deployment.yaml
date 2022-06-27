@@ -113,6 +113,68 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
 
 ---
+# ServiceAccount for paddleflow-server
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: paddleflow-server
+  namespace: paddleflow
+
+---
+# ClusterRole for paddleflow-server
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: paddleflow-server
+rules:
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  - apiGroups: [ "" ]
+    resources: [ "pods" ]
+    verbs: [ "create", "get", "list", "watch", "update", "bind", "delete" ]
+  - apiGroups: [ "" ]
+    resources: [ "persistentvolumeclaims" ]
+    verbs: [ "get", "list", "watch", "create" ]
+  - apiGroups: [ "" ]
+    resources: [ "persistentvolumes" ]
+    verbs: [ "get", "list", "watch", "create" ]
+  - apiGroups: [""]
+    resources: ["nodes", "nodes/proxy"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["sparkoperator.k8s.io"]
+    resources: ["sparkapplications", "sparkapplications/status", "scheduledsparkapplications", "scheduledsparkapplications/status" ]
+    verbs: ["create", "delete", "get", "list", "watch", "update"]
+  - apiGroups: ["batch.paddlepaddle.org"]
+    resources: ["paddlejobs", "paddlejobs/finalizers", "paddlejobs/status"]
+    verbs: ["create", "delete", "get", "list", "watch", "update"]
+  - apiGroups: ["scheduling.incubator.k8s.io", "scheduling.volcano.sh"]
+    resources: ["podgroups", "queues", "queues/status", "elasticresourcequotas", "elasticresourcequotas/status"]
+    verbs: ["create", "delete", "get", "list", "watch", "update"]
+  - apiGroups: ["bus.volcano.sh"]
+    resources: ["commands"]
+    verbs: ["create", "delete", "get", "list", "watch", "update"]
+  - apiGroups: ["batch.volcano.sh"]
+    resources: ["jobs", "jobs/status", "jobs/finalizers"]
+    verbs: ["create", "delete", "get", "list", "watch", "update"]
+  - apiGroups: ["argoproj.io"]
+    resources: ["workflowtemplates", "workflowtemplates/finalizers", "clusterworkflowtemplates", "clusterworkflowtemplates/finalizers"]
+    verbs: ["create", "delete", "get", "list", "watch", "update"]
+---
+# ClusterRoleBinding for paddleflow-server
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: paddleflow-server
+subjects:
+  - kind: ServiceAccount
+    name: paddleflow-server
+    namespace: paddleflow
+roleRef:
+  kind: ClusterRole
+  name: paddleflow-server
+  apiGroup: rbac.authorization.k8s.io
+---
 kind: Service
 apiVersion: v1
 metadata:
@@ -161,7 +223,8 @@ data:
           fsType: ext4
           volumeAttributes:
             pfs.fs.id: $(pfs.fs.id)
-            pfs.user.name: $(pfs.user.name)
+            pfs.fs.info: $(pfs.fs.info)
+            pfs.fs.cache: $(pfs.fs.cache)
             pfs.server: $(pfs.server)
           volumeHandle: pfs-$(pfs.fs.id)-$(namespace)-pv
   default_pvc.yaml: |2-
@@ -260,6 +323,7 @@ data:
         scalarResourceArray:
           - "nvidia.com/gpu"
         defaultJobYamlDir: "./config/server/default/job"
+        isSingleCluster: true
 
       pipeline: pipeline
 
@@ -570,6 +634,8 @@ spec:
       dnsPolicy: ClusterFirst
       restartPolicy: Always
       schedulerName: default-scheduler
+      serviceAccount: paddleflow-server
+      serviceAccountName: paddleflow-server
       securityContext:
         runAsGroup: 1000
         runAsUser: 1000
@@ -10150,3 +10216,13 @@ spec:
           jsonPath: .spec.hardwareTypes
   conversion:
     strategy: None
+---
+apiVersion: storage.k8s.io/v1
+kind: CSIDriver
+metadata:
+  name: paddleflowstorage
+spec:
+  attachRequired: false
+  podInfoOnMount: false
+  volumeLifecycleModes:
+    - Persistent

@@ -48,6 +48,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime/kubernetes/controller"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime/kubernetes/executor"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 type KubeRuntime struct {
@@ -77,17 +78,25 @@ func (kr *KubeRuntime) Name() string {
 
 func (kr *KubeRuntime) BuildConfig() (*rest.Config, error) {
 	var cfg *rest.Config
-	// decode credential base64 string to []byte
-	configBytes, decodeErr := base64.StdEncoding.DecodeString(kr.cluster.ClientOpt.Config)
-	if decodeErr != nil {
-		err := fmt.Errorf("decode cluster[%s] credential base64 string error! msg: %s",
-			kr.cluster.Name, decodeErr.Error())
-		return nil, err
-	}
-	cfg, err := clientcmd.RESTConfigFromKubeConfig(configBytes)
-	if err != nil {
-		log.Errorf("Failed to build kube config from kubeConfBytes[%s], err:[%v]", string(configBytes[:]), err)
-		return nil, err
+	var err error
+	if len(kr.cluster.ClientOpt.Config) == 0 {
+		if cfg, err = clientcmd.BuildConfigFromFlags("", ""); err != nil {
+			log.Errorf("Failed to build rest.config by BuildConfigFromFlags, err:[%v]", err)
+			return nil, err
+		}
+	} else {
+		// decode credential base64 string to []byte
+		configBytes, decodeErr := base64.StdEncoding.DecodeString(kr.cluster.ClientOpt.Config)
+		if decodeErr != nil {
+			err := fmt.Errorf("decode cluster[%s] credential base64 string error! msg: %s",
+				kr.cluster.Name, decodeErr.Error())
+			return nil, err
+		}
+		cfg, err = clientcmd.RESTConfigFromKubeConfig(configBytes)
+		if err != nil {
+			log.Errorf("Failed to build rest.config from kubeConfBytes[%s], err:[%v]", string(configBytes[:]), err)
+			return nil, err
+		}
 	}
 
 	// set qps, burst
@@ -567,9 +576,9 @@ func (kr *KubeRuntime) DeleteObject(namespace, name string, gvk k8sschema.GroupV
 	return nil
 }
 
-func (kr *KubeRuntime) CreatePV(namespace, fsId string) (string, error) {
+func (kr *KubeRuntime) CreatePV(namespace, fsID string) (string, error) {
 	pv := config.DefaultPV
-	pv.Name = schema.ConcatenatePVName(namespace, fsId)
+	pv.Name = schema.ConcatenatePVName(namespace, fsID)
 	// check pv existence
 	if _, err := kr.getPersistentVolume(pv.Name, metav1.GetOptions{}); err == nil {
 		return pv.Name, nil
@@ -586,19 +595,52 @@ func (kr *KubeRuntime) CreatePV(namespace, fsId string) (string, error) {
 		log.Errorf(err.Error())
 		return "", err
 	}
-	cva := newPV.Spec.CSI.VolumeAttributes
-	if _, ok := cva[schema.FSID]; ok {
-		newPV.Spec.CSI.VolumeAttributes[schema.FSID] = fsId
-		newPV.Spec.CSI.VolumeHandle = pv.Name
-	}
-	if _, ok := cva[schema.PFSServer]; ok {
-		newPV.Spec.CSI.VolumeAttributes[schema.PFSServer] = config.GetServiceAddress()
+	if err := buildPV(newPV, fsID); err != nil {
+		log.Errorf(err.Error())
+		return "", err
 	}
 	// create pv in k8s
 	if _, err := kr.createPersistentVolume(newPV); err != nil {
 		return "", err
 	}
 	return pv.Name, nil
+}
+
+func buildPV(pv *apiv1.PersistentVolume, fsID string) error {
+	// filesystem
+	fs, err := storage.Filesystem.GetFileSystemWithFsID(fsID)
+	if err != nil {
+		retErr := fmt.Errorf("create PV get fs[%s] err: %v", fsID, err)
+		log.Errorf(retErr.Error())
+		return err
+	}
+	fsStr, err := json.Marshal(fs)
+	if err != nil {
+		retErr := fmt.Errorf("create PV json.marshal fs[%s] err: %v", fsID, err)
+		log.Errorf(retErr.Error())
+		return err
+	}
+	// fs_cache_config
+	fsCacheConfig, err := storage.Filesystem.GetFSCacheConfig(fsID)
+	if err != nil {
+		retErr := fmt.Errorf("create PV get fsCacheConfig[%s] err: %v", fsID, err)
+		log.Errorf(retErr.Error())
+		return err
+	}
+	fsCacheConfigStr, err := json.Marshal(fsCacheConfig)
+	if err != nil {
+		retErr := fmt.Errorf("create PV json.marshal fsCacheConfig[%s] err: %v", fsID, err)
+		log.Errorf(retErr.Error())
+		return err
+	}
+
+	// set VolumeAttributes
+	pv.Spec.CSI.VolumeHandle = pv.Name
+	pv.Spec.CSI.VolumeAttributes[schema.PfsServer] = config.GetServiceAddress()
+	pv.Spec.CSI.VolumeAttributes[schema.PfsFsID] = fsID
+	pv.Spec.CSI.VolumeAttributes[schema.PfsFsInfo] = string(fsStr)
+	pv.Spec.CSI.VolumeAttributes[schema.PfsFsCache] = string(fsCacheConfigStr)
+	return nil
 }
 
 func (kr *KubeRuntime) CreatePVC(namespace, fsId, pv string) error {
