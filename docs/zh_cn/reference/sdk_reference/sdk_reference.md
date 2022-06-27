@@ -25,7 +25,7 @@ ret, response = client.login('username', 'password')
 
 |字段名称 | 字段类型 | 字段含义
 |:---:|:---:|:---:|
-|username| string (required)| 用户名称
+|user_name| string (required)| 用户名称
 |password| string (required) | 用户密码
 
 #### 接口返回说明
