@@ -220,9 +220,9 @@ func TestUpdateJob(t *testing.T) {
 
 		assert.Nil(t, err)
 
-		OutatfTrainData := "./.pipeline/run-000001/myproject/data-preprocess-0/train_data"
-		OutatfValidateData := "./.pipeline/run-000001/myproject/data-preprocess-0/validate_data"
-		OutatfTrainModel := "./.pipeline/run-000001/myproject/main-0/train_model"
+		OutatfTrainData := "./.pipeline/run-000001/myproject/data-preprocess-0-06d43c4461214f6e3dd81b46eab9c276/train_data"
+		OutatfValidateData := "./.pipeline/run-000001/myproject/data-preprocess-0-06d43c4461214f6e3dd81b46eab9c276/validate_data"
+		OutatfTrainModel := "./.pipeline/run-000001/myproject/main-0-06d43c4461214f6e3dd81b46eab9c276/train_model"
 		if stepName == "data-preprocess" {
 			assert.Equal(t, 2, len(srt.job.Job().Parameters))
 
@@ -754,7 +754,7 @@ func TestStepRestart(t *testing.T) {
 		Status: StatusRuntimeSucceeded,
 	}
 
-	srt.Restart(jobView)
+	srt.Restart(&jobView)
 	time.Sleep(time.Millisecond * 1000)
 	assert.True(t, strings.Contains(ep.Message, "no restart required"))
 
@@ -779,7 +779,7 @@ func TestStepRestart(t *testing.T) {
 
 	srt.done = false
 	srt.status = ""
-	srt.Restart(jobView)
+	srt.Restart(&jobView)
 	time.Sleep(time.Millisecond * 100)
 
 	assert.True(t, listened)
@@ -797,7 +797,7 @@ func TestStepRestart(t *testing.T) {
 		started = true
 	})
 
-	srt.Restart(jobView)
+	srt.Restart(&jobView)
 	assert.Nil(t, err)
 	assert.True(t, started)
 }

@@ -123,7 +123,7 @@ func (wfr *WorkflowRuntime) Restart(entryPointView schema.RuntimeView,
 	}
 
 	// 无论 need 是否为True， 调用 Restart 函数来更新 entrypoing 的状态
-	go wfr.entryPoints.Restart(dagView)
+	go wfr.entryPoints.Restart(&dagView)
 
 	// 只有在 不需要重启 entryPoint 的时候才需要重启 postProcess。
 	// 当 entryPoint 需要重启的时候，postProcess 节点，无论如何都需要重新运行一次，此时应该有 processEvent 函数触发

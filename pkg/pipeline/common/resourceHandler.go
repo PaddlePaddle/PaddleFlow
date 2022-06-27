@@ -17,6 +17,7 @@ limitations under the License.
 package common
 
 import (
+	"crypto/md5"
 	"fmt"
 	"os"
 
@@ -51,9 +52,15 @@ func NewResourceHandler(runID string, fsID string, logger *log.Entry) (ResourceH
 	return resourceHandler, nil
 }
 
-func (resourceHandler *ResourceHandler) GenerateOutAtfPath(pplName string, stepName string, outatfName string, toInit bool) (string, error) {
+func (resourceHandler *ResourceHandler) GenerateOutAtfPath(pplName string, stepName, fullName string, seq int, outatfName string, toInit bool) (string, error) {
 	pipelineDir := "./.pipeline"
-	outatfDir := fmt.Sprintf("%s/%s/%s/%s", pipelineDir, resourceHandler.pplRunID, pplName, stepName)
+
+	fmt.Println(12345, fullName)
+	md5sum := md5.Sum([]byte(fullName))
+	fmt.Println(23456, string(md5sum[:]))
+	fmt.Printf("hahahah: %x", md5sum)
+	outatfDir := fmt.Sprintf("%s/%s/%s/%s-%d-%x", pipelineDir, resourceHandler.pplRunID, pplName, stepName,
+		seq, md5sum)
 	outatfPath := fmt.Sprintf("%s/%s", outatfDir, outatfName)
 
 	if toInit {

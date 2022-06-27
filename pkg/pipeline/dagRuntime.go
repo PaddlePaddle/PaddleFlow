@@ -306,7 +306,7 @@ func (drt *DagRuntime) scheduleSubComponent(mustSchedule bool) {
 	defer drt.processSubComponentLock.Unlock()
 	drt.processSubComponentLock.Lock()
 	for subComponentName, subComponent := range readyComponent {
-		drt.logger.Infof("begin to schedule subcompoent[%s] of component[%s]", subComponentName, drt.name)
+		drt.logger.Infof("begin to schedule subcomponent[%s] of component[%s]", subComponentName, drt.name)
 		// 如果此时收到了终止信号，则无需调度子节点
 		if drt.ctx.Err() != nil || drt.failureOpitonsCtx.Err() != nil {
 			drt.logger.Infof("componentRuntime[%s] receives temination signal, so it's subComponent wouldn't be scheduled anymore",
@@ -361,9 +361,9 @@ func (drt *DagRuntime) Listen() {
 
 // 重新执行
 // TODO
-func (drt *DagRuntime) Restart(dagView schema.DagView) {
+func (drt *DagRuntime) Restart(dagView *schema.DagView) {
 	drt.logger.Infof("restart dag[%s]", drt.name)
-	need, err := drt.needRestart(&dagView)
+	need, err := drt.needRestart(dagView)
 	if err != nil {
 		msg := fmt.Sprintf("cannot decide to whether to restart step[%s]: %s", drt.name, err.Error())
 		drt.logger.Errorf(msg)
@@ -382,7 +382,7 @@ func (drt *DagRuntime) Restart(dagView schema.DagView) {
 		msg := fmt.Sprintf("dag [%s] is already in status[%s], no restart required", drt.name, drt.status)
 		drt.logger.Debugf(msg)
 		dagView.EntryPoints = make(map[string][]schema.ComponentView)
-		drt.syncToApiServerAndParent(WfEventDagUpdate, dagView, msg)
+		drt.syncToApiServerAndParent(WfEventDagUpdate, *dagView, msg)
 		return
 	}
 
@@ -510,30 +510,16 @@ func (drt *DagRuntime) needRestart(dagView *schema.DagView) (bool, error) {
 	return false, nil
 }
 
-func (drt *DagRuntime) updateSubCompoentRuntimeByView(dagView schema.DagView) {
-	for name, views := range dagView.EntryPoints {
-		for _, view := range views {
-			status := view.GetStatus()
-			if status != StatusRuntimeRunning || status != StatusRuntimeSucceeded || status != StatusRuntimeSkipped {
-				continue
-			} else {
-				subRuntime := drt.CreateSubRuntimeAccordingView(view, name)
-				drt.subComponentRumtimes[name] = append(drt.subComponentRumtimes[name], subRuntime)
-			}
-		}
-	}
-}
-
 func (drt *DagRuntime) CreateSubRuntimeAccordingView(view schema.ComponentView, name string) componentRuntime {
-	JobView, ok := view.(schema.JobView)
+	JobView, ok := view.(*schema.JobView)
 	if ok {
 		return drt.creatStepRuntimeAccordingView(JobView, name)
 	}
 
-	return drt.createDagRuntimeAccordingView(view.(schema.DagView), name)
+	return drt.createDagRuntimeAccordingView(view.(*schema.DagView), name)
 }
 
-func (drt *DagRuntime) creatStepRuntimeAccordingView(view schema.JobView, name string) componentRuntime {
+func (drt *DagRuntime) creatStepRuntimeAccordingView(view *schema.JobView, name string) componentRuntime {
 	fullName := drt.generateSubComponentFullName(name)
 
 	ctxAndcc := drt.getfailureOptionsCtxAndCF(name)
@@ -544,7 +530,7 @@ func (drt *DagRuntime) creatStepRuntimeAccordingView(view schema.JobView, name s
 	return srt
 }
 
-func (drt *DagRuntime) createDagRuntimeAccordingView(view schema.DagView, name string) componentRuntime {
+func (drt *DagRuntime) createDagRuntimeAccordingView(view *schema.DagView, name string) componentRuntime {
 	fullName := drt.generateSubComponentFullName(name)
 
 	ctxAndcc := drt.getfailureOptionsCtxAndCF(name)
@@ -556,18 +542,7 @@ func (drt *DagRuntime) createDagRuntimeAccordingView(view schema.DagView, name s
 	return sDrt
 }
 
-func (drt *DagRuntime) getViewAccordingSeq(views []schema.ComponentView, seq int) (view schema.ComponentView, err error) {
-	for _, v := range views {
-		if v.GetSeq() == seq {
-			return v, nil
-		}
-	}
-
-	err = fmt.Errorf("cannot get view with seq[%d]", seq)
-	return schema.DagView{}, err
-}
-
-func (drt *DagRuntime) scheduleSubComponentAccordingView(dagView schema.DagView) (hasSchedule bool, err error) {
+func (drt *DagRuntime) scheduleSubComponentAccordingView(dagView *schema.DagView) (hasSchedule bool, err error) {
 	hasSchedule = false
 	err = nil
 
@@ -648,9 +623,9 @@ func (drt *DagRuntime) scheduleSubComponentAccordingView(dagView schema.DagView)
 			}
 
 			if isStep {
-				go runtime.(*StepRuntime).Restart(view.(schema.JobView))
+				go runtime.(*StepRuntime).Restart(view.(*schema.JobView))
 			} else {
-				go runtime.(*DagRuntime).Restart(view.(schema.DagView))
+				go runtime.(*DagRuntime).Restart(view.(*schema.DagView))
 			}
 		}
 

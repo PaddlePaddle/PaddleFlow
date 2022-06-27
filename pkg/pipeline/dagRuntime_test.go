@@ -442,7 +442,7 @@ func TestDagRunRestart(t *testing.T) {
 	ep := &WorkflowEvent{}
 	go mockToListenEvent(eventChan, ep)
 
-	drt.Restart(dagView)
+	drt.Restart(&dagView)
 	time.Sleep(time.Millisecond * 100)
 
 	assert.Equal(t, drt.status, StatusRuntimeFailed)
@@ -451,7 +451,7 @@ func TestDagRunRestart(t *testing.T) {
 	drt.done = false
 	drt.status = StatusRuntimeInit
 
-	drt.Restart(dagView)
+	drt.Restart(&dagView)
 	go mockToListenEvent(eventChan, ep)
 	time.Sleep(time.Millisecond * 100)
 
@@ -484,54 +484,54 @@ func TestDagRunRestart(t *testing.T) {
 	dagView = schema.DagView{
 		EntryPoints: map[string][]schema.ComponentView{
 			"randint": []schema.ComponentView{
-				schema.JobView{
+				&schema.JobView{
 					Status:   StatusRuntimeSucceeded,
 					Seq:      0,
 					StepName: "randint",
 				},
 			},
 			"sum": []schema.ComponentView{
-				schema.JobView{
+				&schema.JobView{
 					Status:   StatusRuntimeSucceeded,
 					Seq:      0,
 					StepName: "sum",
 				},
 			},
 			"square-loop": []schema.ComponentView{
-				schema.DagView{
+				&schema.DagView{
 					Seq:     0,
 					Status:  StatusRuntimeSucceeded,
 					DagName: "square-loop",
 				},
-				schema.DagView{
+				&schema.DagView{
 					Seq:     1,
 					Status:  StatusRuntimeSucceeded,
 					DagName: "square-loop",
 				},
 			},
 			"split-by-threshold": []schema.ComponentView{
-				schema.JobView{
+				&schema.JobView{
 					Status:   StatusRuntimeSucceeded,
 					Seq:      0,
 					StepName: "split-by-threshold",
 				},
 			},
 			"process-positive": []schema.ComponentView{
-				schema.DagView{
+				&schema.DagView{
 					Seq:     0,
 					Status:  StatusRuntimeSucceeded,
 					DagName: "process-positive",
 				},
 			},
 			"process-negetive": []schema.ComponentView{
-				schema.DagView{
+				&schema.DagView{
 					Status:  StatusRuntimeSucceeded,
 					Seq:     0,
 					DagName: "process-negetive",
 				},
 			},
 			"disStep": []schema.ComponentView{
-				schema.JobView{
+				&schema.JobView{
 					Status:   StatusRuntimeSkipped,
 					Seq:      0,
 					StepName: "disStep",
@@ -543,7 +543,7 @@ func TestDagRunRestart(t *testing.T) {
 	drt.done = false
 	drt.status = StatusRuntimeInit
 
-	drt.Restart(dagView)
+	drt.Restart(&dagView)
 	go mockToListenEvent(eventChan, ep)
 	time.Sleep(time.Millisecond * 100)
 
@@ -557,14 +557,14 @@ func TestDagRunRestart(t *testing.T) {
 	dagView = schema.DagView{
 		EntryPoints: map[string][]schema.ComponentView{
 			"randint": []schema.ComponentView{
-				schema.JobView{
+				&schema.JobView{
 					Status:   StatusRuntimeSucceeded,
 					Seq:      0,
 					StepName: "randint",
 				},
 			},
 			"disStep": []schema.ComponentView{
-				schema.JobView{
+				&schema.JobView{
 					Status:   StatusRuntimeFailed,
 					Seq:      0,
 					StepName: "disStep",
@@ -576,7 +576,7 @@ func TestDagRunRestart(t *testing.T) {
 	drt.done = false
 	drt.status = StatusRuntimeInit
 
-	drt.Restart(dagView)
+	drt.Restart(&dagView)
 	go mockToListenEvent(eventChan, ep)
 	time.Sleep(time.Millisecond * 100)
 
@@ -590,40 +590,40 @@ func TestDagRunRestart(t *testing.T) {
 	dagView = schema.DagView{
 		EntryPoints: map[string][]schema.ComponentView{
 			"randint": []schema.ComponentView{
-				schema.JobView{
+				&schema.JobView{
 					Status:   StatusRuntimeSucceeded,
 					Seq:      0,
 					StepName: "randint",
 				},
 			},
 			"square-loop": []schema.ComponentView{
-				schema.DagView{
+				&schema.DagView{
 					Seq:     0,
 					Status:  StatusRuntimeSucceeded,
 					DagName: "square-loop",
 				},
-				schema.DagView{
+				&schema.DagView{
 					Seq:     1,
 					Status:  StatusRuntimeFailed,
 					DagName: "square-loop",
 				},
 			},
 			"split-by-threshold": []schema.ComponentView{
-				schema.JobView{
+				&schema.JobView{
 					Status:   StatusRuntimeSucceeded,
 					Seq:      0,
 					StepName: "split-by-threshold",
 				},
 			},
 			"process-positive": []schema.ComponentView{
-				schema.DagView{
+				&schema.DagView{
 					Seq:     0,
 					Status:  StatusRuntimeSucceeded,
 					DagName: "process-positive",
 				},
 			},
 			"process-negetive": []schema.ComponentView{
-				schema.DagView{
+				&schema.DagView{
 					Status:  StatusRuntimeSucceeded,
 					Seq:     0,
 					DagName: "process-negetive",
@@ -640,7 +640,7 @@ func TestDagRunRestart(t *testing.T) {
 	listened = false
 
 	drt.status = StatusRuntimeInit
-	drt.Restart(dagView)
+	drt.Restart(&dagView)
 	go mockToListenEvent(eventChan, ep)
 	time.Sleep(time.Millisecond * 100)
 

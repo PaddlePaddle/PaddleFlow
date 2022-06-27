@@ -168,7 +168,7 @@ func (srt *StepRuntime) Start() {
 // 如果 jobView 中的状态为 Succeeded, 则直接返回，无需重启
 // 如果 jobView 中的状态为 Running, 则进入监听即可
 // 否则 创建一个新的job并开始调度执行
-func (srt *StepRuntime) Restart(view schema.JobView) {
+func (srt *StepRuntime) Restart(view *schema.JobView) {
 	srt.logger.Infof("begin to restart step[%s]", srt.name)
 
 	need, err := srt.needRestart(view)
@@ -200,7 +200,7 @@ func (srt *StepRuntime) Restart(view schema.JobView) {
 	srt.restartWithAbnormalStatus(view)
 }
 
-func (srt *StepRuntime) needRestart(view schema.JobView) (bool, error) {
+func (srt *StepRuntime) needRestart(view *schema.JobView) (bool, error) {
 	defer srt.processJobLock.Unlock()
 	srt.processJobLock.Lock()
 
@@ -220,7 +220,7 @@ func (srt *StepRuntime) needRestart(view schema.JobView) (bool, error) {
 	return true, nil
 }
 
-func (srt *StepRuntime) restartWithRunning(view schema.JobView) {
+func (srt *StepRuntime) restartWithRunning(view *schema.JobView) {
 	defer srt.processJobLock.Unlock()
 	srt.processJobLock.Lock()
 
@@ -245,7 +245,7 @@ func (srt *StepRuntime) restartWithRunning(view schema.JobView) {
 	return
 }
 
-func (srt *StepRuntime) restartWithAbnormalStatus(view schema.JobView) {
+func (srt *StepRuntime) restartWithAbnormalStatus(view *schema.JobView) {
 	srt.Start()
 }
 
@@ -523,7 +523,8 @@ func (srt *StepRuntime) generateOutputArtifactPath() (err error) {
 	}
 
 	for artName, _ := range srt.GetArtifacts().Output {
-		artPath, err := rh.GenerateOutAtfPath(srt.runConfig.WorkflowSource.Name, srt.name, artName, true)
+		artPath, err := rh.GenerateOutAtfPath(srt.runConfig.WorkflowSource.Name, srt.getComponent().GetName(),
+			srt.componentFullName, srt.seq, artName, true)
 		if err != nil {
 			err = fmt.Errorf("cannot generate output artifact[%s] for step[%s] path: %s",
 				artName, srt.name, err.Error())
@@ -769,7 +770,7 @@ func (srt *StepRuntime) newJobView(msg string) schema.JobView {
 	return view
 }
 
-func (srt *StepRuntime) StopByView(view schema.JobView) {
+func (srt *StepRuntime) StopByView(view *schema.JobView) {
 	// 通过此函数终止的任务，相关信息不会网上冒泡
 	srt.job.(*PaddleFlowJob).SetJobID(view.JobID)
 	err := srt.job.Stop()

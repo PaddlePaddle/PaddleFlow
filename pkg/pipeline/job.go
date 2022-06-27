@@ -81,7 +81,7 @@ func NewPaddleFlowJob(name, image string, eventChannel chan<- WorkflowEvent) *Pa
 	}
 }
 
-func NewPaddleFlowJobWithJobView(view schema.JobView, image string, eventChannel chan<- WorkflowEvent) *PaddleFlowJob {
+func NewPaddleFlowJobWithJobView(view *schema.JobView, image string, eventChannel chan<- WorkflowEvent) *PaddleFlowJob {
 	pfj := PaddleFlowJob{
 		BaseJob: BaseJob{
 			ID:         view.JobID,

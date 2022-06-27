@@ -195,7 +195,7 @@ func TestRestartEntry(t *testing.T) {
 	defer patch4.Reset()
 
 	// 测试都需要重启的情况
-	go wfr.Restart(map[string][]schema.ComponentView{}, map[string]schema.JobView{})
+	go wfr.Restart(map[string][]schema.ComponentView{}, map[string]*schema.JobView{})
 	go wfr.Listen()
 
 	time.Sleep(time.Millisecond * 100)
@@ -219,21 +219,21 @@ func TestRestartEntry(t *testing.T) {
 	// entrypoint 无需重启，postProcess 需要重启
 	views := map[string][]schema.ComponentView{
 		"data-preprocess": []schema.ComponentView{
-			schema.JobView{
+			&schema.JobView{
 				Status:   StatusRuntimeSucceeded,
 				Seq:      0,
 				StepName: "data-preprocess",
 			},
 		},
 		"main": []schema.ComponentView{
-			schema.JobView{
+			&schema.JobView{
 				Status:   StatusRuntimeSucceeded,
 				Seq:      0,
 				StepName: "main",
 			},
 		},
 		"validate": []schema.ComponentView{
-			schema.JobView{
+			&schema.JobView{
 				Status:   StatusRuntimeSucceeded,
 				Seq:      0,
 				StepName: "validate",
@@ -241,7 +241,7 @@ func TestRestartEntry(t *testing.T) {
 		},
 	}
 
-	go wfr.Restart(views, map[string]schema.JobView{})
+	go wfr.Restart(views, map[string]*schema.JobView{})
 	go wfr.Listen()
 	time.Sleep(time.Millisecond * 100)
 
