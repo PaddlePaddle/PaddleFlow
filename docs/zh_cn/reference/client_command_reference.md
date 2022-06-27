@@ -62,13 +62,13 @@ paddleflow [options] [<submodule> <verb> <parameters> [options]]
 name = 账户名
 password = 账户密码
 [server]
-# paddleflow server 地址
-paddleflow_server = 127.0.0.1
+# paddleflow server 主机地址
+paddleflow_server_host = 127.0.0.1
 # paddleflow server 端口
-paddleflow_port = 8080         
+paddleflow_server_port = 8999         
 ```
 
-其中，`paddleflow_port`,不是必须填写选择，如果用户在使用过程中没有调整过`paddleflow server`服务的端口，则不需要进行填写。 `paddleflow cli` 会使用默认端口进行初始化操作。
+其中，`paddleflow_server_port`,不是必须填写选择，如果用户在使用过程中没有调整过`paddleflow server`服务的端口，则不需要进行填写。 `paddleflow cli` 会使用默认端口进行初始化操作。
 
 ### 配置文件地址
 
