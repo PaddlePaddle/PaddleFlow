@@ -19,16 +19,13 @@ package models
 import (
 	"testing"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
-	glogger "gorm.io/gorm/logger"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 var (
@@ -36,24 +33,8 @@ var (
 	mockRootUserName = "root"
 )
 
-func InitFakeDB() {
-	db, err := gorm.Open(sqlite.Open("file::memory:"), &gorm.Config{
-		Logger: glogger.Default.LogMode(glogger.Info),
-	})
-	if err != nil {
-		log.Fatalf("The fake DB doesn't create successfully. Fail fast. error: %v", err)
-	}
-	// Create tables
-	db.AutoMigrate(
-		&Grant{},
-		&Queue{},
-		&ClusterInfo{},
-	)
-	database.DB = db
-}
-
 func TestCreateQueue(t *testing.T) {
-	InitFakeDB()
+	initMockDB()
 
 	cluster1 := ClusterInfo{
 		Name:          "cluster1",
@@ -112,7 +93,7 @@ func TestCreateQueue(t *testing.T) {
 }
 
 func TestUpdateQueue(t *testing.T) {
-	InitFakeDB()
+	initMockDB()
 
 	cluster1 := ClusterInfo{
 		Name:          "cluster1",
@@ -186,11 +167,11 @@ func TestListQueue(t *testing.T) {
 	ctx := &logger.RequestContext{UserName: mockUserName}
 
 	// init grant
-	grantModel := &Grant{ID: "fakeID", UserName: mockUserName, ResourceID: "queue1", ResourceType: GrantFsType}
-	if err := CreateGrant(ctx, grantModel); err != nil {
+	grantModel := &model.Grant{ID: "fakeID", UserName: mockUserName, ResourceID: "queue1", ResourceType: GrantFsType}
+	if err := storage.Auth.CreateGrant(ctx, grantModel); err != nil {
 		t.Error(err)
 	}
-	grants, err := ListGrant(ctx, 0, 0, mockUserName)
+	grants, err := storage.Auth.ListGrant(ctx, 0, 0, mockUserName)
 	if err != nil {
 		t.Error(err)
 	}

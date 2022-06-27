@@ -17,17 +17,21 @@ limitations under the License.
 package v1
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 	"strings"
 	"testing"
 
+	"github.com/agiledragon/gomonkey/v2"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/pipeline"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	pkgPipeline "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline"
 )
 
 func TestCreatePipeline(t *testing.T) {
@@ -39,11 +43,18 @@ func TestCreatePipeline(t *testing.T) {
 		FsName:   "mockFsName",
 		UserName: "",
 		YamlPath: "../../../../example/wide_and_deep/run.yaml",
-		Name:     "mockPplName",
 	}
 
-	pipeline.ValidateWorkflowForPipeline = func(ppl models.Pipeline) error { return nil }
-	handler.ReadFileFromFs = func(fsID, runYamlPath string, logEntry *log.Entry) ([]byte, error) { return os.ReadFile(runYamlPath) }
+	patch := gomonkey.ApplyFunc(pkgPipeline.NewWorkflow, func(wfSource schema.WorkflowSource, runID, entry string, params map[string]interface{}, extra map[string]string,
+		callbacks pkgPipeline.WorkflowCallbacks) (*pkgPipeline.Workflow, error) {
+		return &pkgPipeline.Workflow{}, nil
+	})
+	defer patch.Reset()
+
+	patch1 := gomonkey.ApplyFunc(handler.ReadFileFromFs, func(fsID, runYamlPath string, logEntry *log.Entry) ([]byte, error) {
+		return os.ReadFile(runYamlPath)
+	})
+	defer patch1.Reset()
 
 	result, err := PerformPostRequest(router, pplUrl, createPplReq)
 	assert.Nil(t, err)
@@ -51,6 +62,9 @@ func TestCreatePipeline(t *testing.T) {
 	createPplRsp := pipeline.CreatePipelineResponse{}
 	err = ParseBody(result.Body, &createPplRsp)
 	assert.Nil(t, err)
-	assert.Equal(t, createPplRsp.Name, createPplReq.Name)
-	assert.True(t, strings.Contains(createPplRsp.ID, "ppl-"))
+	assert.True(t, strings.Contains(createPplRsp.PipelineID, "ppl-"))
+
+	b, _ := json.Marshal(createPplRsp)
+	println("")
+	fmt.Printf("%s\n", b)
 }

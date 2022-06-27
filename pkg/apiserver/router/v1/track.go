@@ -26,7 +26,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/run"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/pipeline"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 )
@@ -61,7 +61,7 @@ func (tr *TrackRouter) AddRouter(r chi.Router) {
 func (tr *TrackRouter) getRunCache(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
 	id := chi.URLParam(r, util.ParamKeyRunCacheID)
-	cacheInfo, err := run.GetRunCache(&ctx, id)
+	cacheInfo, err := pipeline.GetRunCache(&ctx, id)
 	if err != nil {
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
@@ -115,7 +115,7 @@ func (tr *TrackRouter) listRunCache(w http.ResponseWriter, r *http.Request) {
 	logger.LoggerForRequest(&ctx).Debugf(
 		"user[%s] ListRunCache marker:[%s] maxKeys:[%d] userFilter:%v fsFilter:%v runFilter:%v",
 		ctx.UserName, marker, maxKeys, userFilter, fsFilter, runFilter)
-	listRunCacheResponse, err := run.ListRunCache(&ctx, marker, maxKeys, userFilter, fsFilter, runFilter)
+	listRunCacheResponse, err := pipeline.ListRunCache(&ctx, marker, maxKeys, userFilter, fsFilter, runFilter)
 	if err != nil {
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
@@ -138,7 +138,7 @@ func (tr *TrackRouter) listRunCache(w http.ResponseWriter, r *http.Request) {
 func (tr *TrackRouter) deleteRunCache(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
 	id := chi.URLParam(r, util.ParamKeyRunCacheID)
-	err := run.DeleteRunCache(&ctx, id)
+	err := pipeline.DeleteRunCache(&ctx, id)
 	if err != nil {
 		ctx.Logging().Errorf("delete run_cache: %s failed. error:%s", id, err.Error())
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
@@ -202,7 +202,7 @@ func (tr *TrackRouter) listArtifactEvent(w http.ResponseWriter, r *http.Request)
 	logger.LoggerForRequest(&ctx).Debugf(
 		"user[%s] ListArtifactEvent marker:[%s] maxKeys:[%d] userFilter:%v, fsFilter:%v, runFilter:%v, typeFilter:%v, pathFilter:%v",
 		ctx.UserName, marker, maxKeys, userFilter, fsFilter, runFilter, typeFilter, pathFilter)
-	listArtifactEventResponse, err := run.ListArtifactEvent(&ctx, marker, maxKeys, userFilter, fsFilter, runFilter, typeFilter, pathFilter)
+	listArtifactEventResponse, err := pipeline.ListArtifactEvent(&ctx, marker, maxKeys, userFilter, fsFilter, runFilter, typeFilter, pathFilter)
 	if err != nil {
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
@@ -245,7 +245,7 @@ func (tr *TrackRouter) deleteArtifactEvent(w http.ResponseWriter, r *http.Reques
 		}
 	}
 	// service
-	err := run.DeleteArtifactEvent(&ctx, username, fsname, runID, artifactPath)
+	err := pipeline.DeleteArtifactEvent(&ctx, username, fsname, runID, artifactPath)
 	if err != nil {
 		ctx.Logging().Errorf("delete artifact_event failed. error:%s", err.Error())
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())

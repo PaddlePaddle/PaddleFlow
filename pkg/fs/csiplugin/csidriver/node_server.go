@@ -88,14 +88,13 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context,
 func (ns *nodeServer) NodeUnpublishVolume(ctx context.Context,
 	req *csi.NodeUnpublishVolumeRequest) (*csi.NodeUnpublishVolumeResponse, error) {
 
-	targetPath := req.GetTargetPath()
-	volumeID := req.VolumeId
 	mountInfo := mount.Info{
 		UsernameRoot: ns.credentialInfo.usernameRoot,
 		PasswordRoot: ns.credentialInfo.passwordRoot,
+		TargetPath:   req.GetTargetPath(),
 	}
-	if err := mount.PodUnmount(volumeID, targetPath, mountInfo); err != nil {
-		log.Errorf("[UMount]: volumeID[%s] and targetPath[%s] with err: %s", volumeID, targetPath, err.Error())
+	if err := mount.PodUnmount(req.VolumeId, mountInfo); err != nil {
+		log.Errorf("[UMount]: volumeID[%s] and targetPath[%s] with err: %s", req.VolumeId, mountInfo.TargetPath, err.Error())
 		return nil, err
 	}
 
