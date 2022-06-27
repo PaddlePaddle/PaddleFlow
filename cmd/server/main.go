@@ -123,13 +123,19 @@ func start() error {
 	go job2.WSManager.SendGroupData()
 	go job2.WSManager.GetGroupData()
 
+	tlConfig := ServerConf.TraceLog
 	// enable auto delete and sync for trace log
-	if err = trace_logger.AutoDelete(AutoDeleteDuration, DeleteFunc); err != nil {
+	if err = trace_logger.AutoDelete(
+		trace_logger.ParseTimeWithDefault(tlConfig.DeleteInterval, AutoDeleteDuration),
+		DeleteFunc,
+	); err != nil {
 		log.Errorf("auto delete trace log failed. error: %v", err)
 		return err
 	}
 
-	if err = trace_logger.AutoSync(AutoSyncDuration); err != nil {
+	if err = trace_logger.AutoSync(
+		trace_logger.ParseTimeWithDefault(tlConfig.SyncInterval, AutoSyncDuration),
+	); err != nil {
 		log.Errorf("auto sync trace log failed. error: %v", err)
 		return err
 	}
