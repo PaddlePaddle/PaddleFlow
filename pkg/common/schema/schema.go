@@ -30,7 +30,7 @@ type JobView struct {
 	PK          int64             `json:"-"`
 	JobID       string            `json:"jobID"`
 	Name        string            `json:"name"`
-	StepName    string            `json:"-"`
+	StepName    string            `json:"stepName"`
 	Command     string            `json:"command"`
 	Parameters  map[string]string `json:"parameters"`
 	Env         map[string]string `json:"env"`
@@ -72,7 +72,7 @@ type DagView struct {
 	PK          int64                      `json:"-"`
 	DagID       string                     `json:"id"`
 	Name        string                     `json:"name"`
-	DagName     string                     `json:"-"`
+	DagName     string                     `json:"dagName"`
 	Deps        string                     `json:"deps"`
 	Parameters  map[string]string          `json:"parameters"`
 	Artifacts   Artifacts                  `json:"artifacts"`
