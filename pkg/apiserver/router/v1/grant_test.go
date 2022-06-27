@@ -23,14 +23,14 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
 
 func TestGrantRouter(t *testing.T) {
 	r := DebugChiRouter()
 	// test create grant
 	testServer := httptest.NewServer(r)
-	grant := models.Grant{UserName: mockUserName, ResourceType: "mockRT"}
+	grant := model.Grant{UserName: mockUserName, ResourceType: "mockRT"}
 	req := NewHttpRecorder(testServer.URL, "/grant", http.MethodPost, grant)
 	res, err := http.DefaultClient.Do(req)
 	assert.NoError(t, err)

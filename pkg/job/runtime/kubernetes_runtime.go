@@ -35,10 +35,12 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"volcano.sh/apis/pkg/apis/batch/v1alpha1"
 	busv1alpha1 "volcano.sh/apis/pkg/apis/bus/v1alpha1"
 	"volcano.sh/apis/pkg/apis/helpers"
 	schedulingv1beta1 "volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
@@ -61,23 +63,39 @@ func NewKubeRuntime(cluster schema.Cluster) RuntimeService {
 	return kr
 }
 
+func getFileSystem(jobConf schema.Conf, tasks []models.Member) []schema.FileSystem {
+	fileSystems := jobConf.GetAllFileSystem()
+	for _, task := range tasks {
+		fileSystems = append(fileSystems, task.Conf.GetAllFileSystem()...)
+	}
+	return fileSystems
+}
+
 func (kr *KubeRuntime) Name() string {
 	return fmt.Sprintf("kubernetes runtime for cluster: %s", kr.cluster.Name)
 }
 
 func (kr *KubeRuntime) BuildConfig() (*rest.Config, error) {
 	var cfg *rest.Config
-	// decode credential base64 string to []byte
-	configBytes, decodeErr := base64.StdEncoding.DecodeString(kr.cluster.ClientOpt.Config)
-	if decodeErr != nil {
-		err := fmt.Errorf("decode cluster[%s] credential base64 string error! msg: %s",
-			kr.cluster.Name, decodeErr.Error())
-		return nil, err
-	}
-	cfg, err := clientcmd.RESTConfigFromKubeConfig(configBytes)
-	if err != nil {
-		log.Errorf("Failed to build kube config from kubeConfBytes[%s], err:[%v]", string(configBytes[:]), err)
-		return nil, err
+	var err error
+	if len(kr.cluster.ClientOpt.Config) == 0 {
+		if cfg, err = clientcmd.BuildConfigFromFlags("", ""); err != nil {
+			log.Errorf("Failed to build rest.config by BuildConfigFromFlags, err:[%v]", err)
+			return nil, err
+		}
+	} else {
+		// decode credential base64 string to []byte
+		configBytes, decodeErr := base64.StdEncoding.DecodeString(kr.cluster.ClientOpt.Config)
+		if decodeErr != nil {
+			err := fmt.Errorf("decode cluster[%s] credential base64 string error! msg: %s",
+				kr.cluster.Name, decodeErr.Error())
+			return nil, err
+		}
+		cfg, err = clientcmd.RESTConfigFromKubeConfig(configBytes)
+		if err != nil {
+			log.Errorf("Failed to build rest.config from kubeConfBytes[%s], err:[%v]", string(configBytes[:]), err)
+			return nil, err
+		}
 	}
 
 	// set qps, burst
@@ -110,13 +128,16 @@ func (kr *KubeRuntime) Init() error {
 func (kr *KubeRuntime) SubmitJob(jobInfo *api.PFJob) error {
 	log.Infof("submit job[%v] to cluster[%s] queue[%s]", jobInfo.ID, kr.cluster.ID, jobInfo.QueueID)
 	// prepare kubernetes storage
-	if len(jobInfo.FSID) != 0 {
-		pvName, err := kr.CreatePV(jobInfo.Namespace, jobInfo.FSID, jobInfo.UserName)
+	jobFileSystems := getFileSystem(jobInfo.Conf, jobInfo.Tasks)
+	for _, fs := range jobFileSystems {
+		fsID := common.ID(jobInfo.UserName, fs.Name)
+		pvName, err := kr.CreatePV(jobInfo.Namespace, fsID)
 		if err != nil {
 			log.Errorf("create pv for job[%s] failed, err: %v", jobInfo.ID, err)
 			return err
 		}
-		err = kr.CreatePVC(jobInfo.Namespace, jobInfo.FSID, pvName)
+		log.Infof("SubmitJob CreatePV fsID=%s pvName=%s", fsID, pvName)
+		err = kr.CreatePVC(jobInfo.Namespace, fsID, pvName)
 		if err != nil {
 			log.Errorf("create pvc for job[%s] failed, err: %v", jobInfo.ID, err)
 			return err
@@ -464,6 +485,43 @@ func (kr *KubeRuntime) updateElasticResourceQuota(q *models.Queue) error {
 	return nil
 }
 
+func (kr *KubeRuntime) GetQueueUsedQuota(q *models.Queue) (*schema.ResourceInfo, error) {
+	log.Infof("get used quota for queue %s, namespace %s", q.Name, q.Namespace)
+
+	fieldSelector := fmt.Sprintf(
+		"status.phase!=Succeeded,status.phase!=Failed,status.phase!=Unknown,spec.schedulerName=%s",
+		config.GlobalServerConfig.Job.SchedulerName)
+	// TODO: add label selector
+	listOpts := metav1.ListOptions{
+		FieldSelector: fieldSelector,
+	}
+	podList, err := kr.listPods(q.Namespace, listOpts)
+	if err != nil || podList == nil {
+		log.Errorf("get queue used quota failed, err: %v", err)
+		return nil, fmt.Errorf("get queue used quota failed, err: %v", err)
+	}
+	usedResource := schema.EmptyResourceInfo()
+	for idx := range podList.Items {
+		if isAllocatedPod(&podList.Items[idx], q.Name) {
+			podRes := k8s.CalcPodResources(&podList.Items[idx])
+			*usedResource = usedResource.Add(*podRes)
+		}
+	}
+	return usedResource, nil
+}
+
+func isAllocatedPod(pod *v1.Pod, queueName string) bool {
+	log.Debugf("pod name %s/%s, nodeName: %s, phase: %s, annotations: %v\n",
+		pod.Namespace, pod.Name, pod.Spec.NodeName, pod.Status.Phase, pod.Annotations)
+	if pod.Annotations == nil || pod.Annotations[v1alpha1.QueueNameKey] != queueName {
+		return false
+	}
+	if pod.Spec.NodeName != "" {
+		return true
+	}
+	return false
+}
+
 func (kr *KubeRuntime) CreateObject(obj *unstructured.Unstructured) error {
 	if obj == nil {
 		return fmt.Errorf("create kubernetes resource failed, object is nil")
@@ -517,12 +575,12 @@ func (kr *KubeRuntime) DeleteObject(namespace, name string, gvk k8sschema.GroupV
 	return nil
 }
 
-func (kr *KubeRuntime) CreatePV(namespace, fsId, userName string) (string, error) {
+func (kr *KubeRuntime) CreatePV(namespace, fsId string) (string, error) {
 	pv := config.DefaultPV
 	pv.Name = schema.ConcatenatePVName(namespace, fsId)
 	// check pv existence
 	if _, err := kr.getPersistentVolume(pv.Name, metav1.GetOptions{}); err == nil {
-		return "", nil
+		return pv.Name, nil
 	} else if !k8serrors.IsNotFound(err) {
 		return "", err
 	}

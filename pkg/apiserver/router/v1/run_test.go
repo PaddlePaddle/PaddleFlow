@@ -23,7 +23,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/run"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/pipeline"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
@@ -103,7 +103,7 @@ func TestListRunRouter(t *testing.T) {
 	result, err := PerformGetRequest(router, runUrl)
 	assert.Nil(t, err)
 	assert.Equal(t, http.StatusOK, result.Code)
-	runRsp := run.ListRunResponse{}
+	runRsp := pipeline.ListRunResponse{}
 	err = ParseBody(result.Body, &runRsp)
 	assert.Nil(t, err)
 	assert.Equal(t, 3, len(runRsp.RunList))

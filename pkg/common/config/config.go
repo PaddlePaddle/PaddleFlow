@@ -30,10 +30,16 @@ var (
 
 	DefaultRunYamlPath    = "./run.yaml"
 	serverDefaultConfPath = "./config/server/default/paddleserver.yaml"
+	// DefaultClusterName for default cluster in single cluster
+	DefaultClusterName = "default-cluster"
+	// DefaultQueueName for default queue in single cluster
+	DefaultQueueName = "default-queue"
+	// DefaultNamespace for default namespace of default queue in single cluster
+	DefaultNamespace = "default"
 )
 
 type ServerConfig struct {
-	Database      DatabaseConfig            `yaml:"database"`
+	Storage       StorageConfig             `yaml:"database"`
 	Log           logger.LogConfig          `yaml:"log"`
 	ApiServer     ApiServerConfig           `yaml:"apiServer"`
 	Job           JobConfig                 `yaml:"job"`
@@ -44,7 +50,7 @@ type ServerConfig struct {
 	ImageConf     ImageConfig               `yaml:"imageRepository"`
 }
 
-type DatabaseConfig struct {
+type StorageConfig struct {
 	Driver                               string `yaml:"driver"`
 	Host                                 string `yaml:"host"`
 	Port                                 string `yaml:"port"`
@@ -74,8 +80,11 @@ type JobConfig struct {
 	QueueExpireTime   int `yaml:"queueExpireTime"`
 	QueueCacheSize    int `yaml:"queueCacheSize"`
 	JobLoopPeriod     int `yaml:"jobLoopPeriod"`
+	// SyncClusterQueue defines whether aware cluster resource or not, such as queue
+	SyncClusterQueue bool `yaml:"syncClusterQueue"`
 	// DefaultJobYamlDir is directory that stores default template yaml files for job
 	DefaultJobYamlDir string `yaml:"defaultJobYamlDir"`
+	IsSingleCluster   bool   `yaml:"isSingleCluster"`
 }
 
 type FsServerConf struct {

@@ -34,6 +34,7 @@ job:
   scalarResourceArray:
     - "nvidia.com/gpu"
   defaultJobYamlDir: "./config/server/default/job"
+  isSingleCluster: true
 
 pipeline: pipeline
 

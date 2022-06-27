@@ -25,9 +25,9 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 const flavourTableName = "flavour"
@@ -87,7 +87,7 @@ func (flavour *Flavour) AfterFind(*gorm.DB) error {
 		// only single query is necessary, function of list query by join table cluster_info
 		log.Debugf("query flavour[%s] in db, fill clusterName by clusterID[%s]", flavour.Name, flavour.ClusterID)
 		var cluster ClusterInfo
-		result := database.DB.Where(&ClusterInfo{Model: Model{ID: flavour.ClusterID}}).First(&cluster)
+		result := storage.DB.Where(&ClusterInfo{Model: Model{ID: flavour.ClusterID}}).First(&cluster)
 		if result.Error != nil {
 			log.Errorf("flavour[%s] query cluster by clusterId[%s] failed: %v", flavour.Name, flavour.ClusterID, result.Error)
 			return result.Error
@@ -117,7 +117,7 @@ func CreateFlavour(flavour *Flavour) error {
 		flavour.ID = uuid.GenerateID(common.PrefixFlavour)
 	}
 	flavour.CreatedAt = time.Now()
-	tx := database.DB.Table(flavourTableName).Create(flavour)
+	tx := storage.DB.Table(flavourTableName).Create(flavour)
 	if tx.Error != nil {
 		log.Errorf("create flavour failed. flavour:%v, error:%s", flavour, tx.Error.Error())
 		return tx.Error
@@ -129,7 +129,7 @@ func CreateFlavour(flavour *Flavour) error {
 // DeleteFlavour delete flavour
 func DeleteFlavour(flavourName string) error {
 	log.Infof("begin delete flavour, flavour name:%s", flavourName)
-	t := database.DB.Table(flavourTableName).Unscoped().Where("name = ?", flavourName).Delete(&Flavour{})
+	t := storage.DB.Table(flavourTableName).Unscoped().Where("name = ?", flavourName).Delete(&Flavour{})
 	if t.Error != nil {
 		log.Errorf("delete flavour failed. flavour name:%s, error:%v", flavourName, t.Error)
 		return t.Error
@@ -141,7 +141,7 @@ func DeleteFlavour(flavourName string) error {
 func GetFlavour(flavourName string) (Flavour, error) {
 	log.Debugf("begin get flavour, flavour name:%s", flavourName)
 	var flavour Flavour
-	tx := database.DB.Table(flavourTableName)
+	tx := storage.DB.Table(flavourTableName)
 	result := tx.Where("name = ?", flavourName).First(&flavour)
 	if result.Error != nil {
 		log.Errorf("get flavour failed. flavour name:%s, error:%s", flavourName, result.Error.Error())
@@ -156,7 +156,7 @@ func ListFlavour(pk int64, maxKeys int, clusterID, queryKey string) ([]Flavour, 
 	log.Debugf("list flavour, pk: %d, maxKeys: %d, clusterID: %s", pk, maxKeys, clusterID)
 
 	var flavours []Flavour
-	query := database.DB.Table(flavourTableName).Where("flavour.pk > ?", pk).Select(flavourSelectColumn).Joins(flavourJoinCluster)
+	query := storage.DB.Table(flavourTableName).Where("flavour.pk > ?", pk).Select(flavourSelectColumn).Joins(flavourJoinCluster)
 
 	if clusterID != "" {
 		query.Where("`flavour`.`cluster_id` = ? or `flavour`.`cluster_id` = ''", clusterID)
@@ -183,7 +183,7 @@ func ListFlavour(pk int64, maxKeys int, clusterID, queryKey string) ([]Flavour, 
 // UpdateFlavour update flavour
 func UpdateFlavour(flavour *Flavour) error {
 	flavour.UpdatedAt = time.Now()
-	tx := database.DB.Model(flavour).Updates(flavour)
+	tx := storage.DB.Model(flavour).Updates(flavour)
 	return tx.Error
 }
 
@@ -191,7 +191,7 @@ func UpdateFlavour(flavour *Flavour) error {
 func GetLastFlavour() (Flavour, error) {
 	log.Debugf("get last flavour.")
 	flavour := Flavour{}
-	tx := database.DB.Table(flavourTableName).Last(&flavour)
+	tx := storage.DB.Table(flavourTableName).Last(&flavour)
 	if tx.Error != nil {
 		log.Errorf("get last flavour failed. error:%s", tx.Error.Error())
 		return Flavour{}, tx.Error

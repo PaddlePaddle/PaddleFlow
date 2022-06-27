@@ -229,7 +229,9 @@ func (pj *PaddleJob) patchPdjTask(resourceSpec *paddlev1.ResourceSpec, task mode
 		resourceSpec.Template.Spec.Containers = []v1.Container{{}}
 	}
 	pj.fillContainerInTasks(&resourceSpec.Template.Spec.Containers[0], task)
-
+	// append into container.VolumeMounts
+	taskFs := task.Conf.GetAllFileSystem()
+	resourceSpec.Template.Spec.Volumes = appendVolumesIfAbsent(resourceSpec.Template.Spec.Volumes, generateVolumes(taskFs))
 	return nil
 }
 
