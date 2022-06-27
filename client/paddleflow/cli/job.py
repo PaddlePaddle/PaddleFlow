@@ -47,7 +47,6 @@ def job():
 
 @job.command(context_settings=dict(max_content_width=2000), cls=command_required_option_from_option())
 @click.argument('jobid')
-@click.option('-fl', '--fieldlist', help="show the specificed field list")
 @click.pass_context
 def show(ctx, jobid, fieldlist=None):
     """
@@ -63,12 +62,12 @@ def show(ctx, jobid, fieldlist=None):
         sys.exit(1)
     valid, response = client.show_job(jobid)
     if valid:
-        _print_job(response, output_format, fieldlist)
+        _print_job(response, output_format)
     else:
         click.echo("show job failed with message[%s]" % response)
 
 
-def _print_job(job_info, out_format, fieldlist):
+def _print_job(job_info, out_format):
     """
     _print_job
     """
@@ -82,15 +81,36 @@ def _print_job(job_info, out_format, fieldlist):
                         "command": job_info.command, "args": job_info.args_list, "port": job_info.port,
                         "extensionTemplate": job_info.extension_template, "framework": job_info.framework,
                         "members": job_info.member_list}
-    if fieldlist:
-        headers = [field_dict[i] for i in fieldlist.split(",")]
-    else:
-        headers = ['job id', 'job name', 'queue', 'status', 'accept time', 'start time', 'finish time']
-    if fieldlist:
-        data = [[field_value_dict[i]] for i in fieldlist.split(",")]
-    else:
-        data = [[job_info.job_id, job_info.job_name, job_info.queue, job_info.status, job_info.accept_time, job_info.start_time, job_info.finish_time]]
+    # print job basic info
+    headers = ['job id', 'job name', 'queue', 'priority', 'status', 'accept time', 'start time', 'finish time']
+    data = [[job_info.job_id, job_info.job_name, job_info.queue, job_info.priority.lower(), job_info.status,
+            job_info.accept_time, job_info.start_time, job_info.finish_time]]
     print_output(data, headers, out_format, table_format='grid')
+    print("job config and runtime info: ")
+    # print job fs
+    headers = ['flavour', 'fs', 'extraFS', 'labels', 'annotations', 'image', 'command', 'args',  'port']
+    data = [[job_info.flavour, job_info.fs, job_info.extra_fs_list, job_info.labels, job_info.annotations,
+            job_info.image, job_info.command, job_info.args_list, job_info.port]]
+    # print distributed job config
+    if job_info.member_list:
+        headers.extend(['framework', 'members'])
+        data[0].extend([job_info.framework, job_info.member_list])
+    if job_info.extension_template is dict:
+        headers.append('extensionTemplate')
+        data[0].append(job_info.extension_template)
+    # print job runtime info
+    headers.append('message')
+    data[0].append(job_info.message)
+    if job_info.runtime:
+        headers.append('runtime')
+        data[0].append(job_info.runtime)
+    if job_info.distributed_runtime:
+        headers.append('distributed runtime')
+        data[0].append(job_info.distributed_runtime)
+    if job_info.workflow_runtime:
+        headers.append('workflow runtime')
+        data[0].append(job_info.workflow_runtime)
+    print_output(data, headers, "json", table_format='grid')
 
 
 @job.command()

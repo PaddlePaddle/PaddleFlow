@@ -31,6 +31,7 @@ type JobTask struct {
 	LogURL               string            `json:"logURL"`
 	ExtRuntimeStatusJSON string            `json:"extRuntimeStatus" gorm:"column:ext_runtime_status;default:'{}'"`
 	ExtRuntimeStatus     interface{}       `json:"-" gorm:"-"` // k8s:v1.PodStatus
+	NodeName             string            `json:"nodeName"`
 	CreatedAt            time.Time         `json:"-"`
 	StartedAt            sql.NullTime      `json:"-"`
 	UpdatedAt            time.Time         `json:"-"`
@@ -80,7 +81,7 @@ func UpdateTask(task *JobTask) error {
 	// TODO: change update task logic
 	tx := storage.DB.Table(JobTaskTableName).Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "id"}},
-		DoUpdates: clause.AssignmentColumns([]string{"status", "message", "ext_runtime_status", "deleted_at"}),
+		DoUpdates: clause.AssignmentColumns([]string{"status", "message", "ext_runtime_status", "node_name", "deleted_at"}),
 	}).Create(task)
 	return tx.Error
 }

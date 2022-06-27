@@ -23,6 +23,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	k8sschema "k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
@@ -291,30 +292,30 @@ func (j *JobSync) updatePodStatus(obj interface{}, action schema.ActionType) {
 		return
 	}
 	log.Debugf("pod %s/%s belongs to job %s", namespace, name, jobName)
-	status, err := k8s.ConvertToStatus(obj, k8s.PodGVK)
-	if err != nil {
-		log.Errorf("get status from pod %s/%s failed, err: %v", namespace, name, err)
+	pod := &v1.Pod{}
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(podObj.Object, pod); err != nil {
+		log.Errorf("convert unstructured object [%+v] to pod failed. error: %s", podObj.Object, err.Error())
 		return
 	}
 	// TODO: get role name from pod
 
 	// convert to task status
-	podStatus := status.(*v1.PodStatus)
-	taskStatus, err := k8s.GetTaskStatus(podStatus)
+	taskStatus, err := k8s.GetTaskStatus(&pod.Status)
 	if err != nil {
 		log.Errorf("convert to task status for pod %s/%s failed, err: %v", namespace, name, err)
 		return
 	}
-	message := k8s.GetTaskMessage(podStatus)
+	message := k8s.GetTaskMessage(&pod.Status)
 
 	taskInfo := &TaskSyncInfo{
 		ID:        string(uid),
 		Name:      name,
 		Namespace: namespace,
 		JobID:     jobName,
+		NodeName:  pod.Spec.NodeName,
 		Status:    taskStatus,
 		Message:   message,
-		PodStatus: status,
+		PodStatus: pod.Status,
 		Action:    action,
 	}
 	j.taskQueue.Add(taskInfo)
@@ -330,16 +331,18 @@ func getJobByTask(obj *unstructured.Unstructured) string {
 	name := obj.GetName()
 	namespace := obj.GetNamespace()
 	labels := obj.GetLabels()
-	// get job name for single job
-	if labels != nil && labels[schema.JobOwnerLabel] == schema.JobOwnerValue {
-		return name
+	ownerReferences := obj.GetOwnerReferences()
+
+	if len(ownerReferences) == 0 {
+		// get job name for single job
+		if labels != nil && labels[schema.JobOwnerLabel] == schema.JobOwnerValue {
+			return name
+		} else {
+			log.Debugf("pod %s/%s not belong to paddlefow job, skip it.", namespace, name)
+			return ""
+		}
 	}
 	// get job name for distributed job
-	ownerReferences := obj.GetOwnerReferences()
-	if len(ownerReferences) == 0 {
-		log.Debugf("pod %s/%s not belong to paddlefow job, skip it.", namespace, name)
-		return ""
-	}
 	ownerReference := ownerReferences[0]
 	gvk := k8sschema.FromAPIVersionAndKind(ownerReference.APIVersion, ownerReference.Kind)
 	_, find := k8s.GVKJobStatusMap[gvk]
