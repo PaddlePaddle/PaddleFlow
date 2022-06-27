@@ -211,6 +211,7 @@ func (r *Run) initRuntime(jobs []RunJob, dags []RunDag) {
 	r.Runtime = runtimeView
 }
 
+// 补全ComponentView中的Deps
 func ProcessRuntimeView(componentViews map[string][]schema.ComponentView, components map[string]schema.Component) {
 	for compName, comp := range components {
 		compViewList := componentViews[compName]
