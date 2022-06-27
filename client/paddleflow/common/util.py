@@ -23,13 +23,13 @@ def get_default_config_path():
     """
     home_path = os.getenv('HOME')
     config_dir = os.path.join(home_path, '.paddleflow')
-    config_file = os.path.join(config_dir, 'config')
+    config_file = os.path.join(config_dir, 'paddleflow.ini')
     if not os.path.exists(config_dir):
         os.makedirs(config_dir)
     if not os.path.exists(config_file):
         fo = open(config_file, "w")
         fo.write("[user]\nname = root\npassword = paddleflow"
-                 "\n[server]\n# paddleflow server 地址\npaddleflow_server = 127.0.0.1\n# paddleflow server 端口"
-                 "\npaddleflow_port = 8999\n")
+                 "\n[server]\n# paddleflow server 地址\npaddleflow_server_host = 127.0.0.1\n# paddleflow server 端口"
+                 "\npaddleflow_server_port = 8999\n")
         fo.close()
     return config_file
