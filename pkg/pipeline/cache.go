@@ -26,7 +26,6 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
-	. "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 )
 
 // 为了序列化，所有字段名均需大写开头
@@ -115,7 +114,7 @@ type conservativeCacheCalculator struct {
 
 // 调用方应该保证在启用了 cache 功能的情况下才会调用NewConservativeCacheCalculator
 func NewConservativeCacheCalculator(step StepRuntime, cacheConfig schema.Cache) (CacheCalculator, error) {
-	fsHandler, err := handler.NewFsHandlerWithServer(step.fsID, step.logger)
+	fsHandler, err := handler.NewFsHandlerWithServer(step.fsID, step.runConfig.logger)
 
 	if err != nil {
 		errMsg := fmt.Errorf("init fsHandler failed: %s", err.Error())
@@ -136,15 +135,13 @@ func (cc *conservativeCacheCalculator) generateFirstCacheKey() error {
 	job := cc.step.job.Job()
 
 	// 去除系统环境变量
-	envWithoutSystmeEnv := DeleteSystemParamEnv(job.Env)
-
 	cacheKey := conservativeFirstCacheKey{
 		DockerEnv:       cc.step.job.(*PaddleFlowJob).Image,
 		Parameters:      job.Parameters,
 		Command:         job.Command,
 		InputArtifacts:  job.Artifacts.Input,
 		OutputArtifacts: job.Artifacts.Output,
-		Env:             envWithoutSystmeEnv,
+		Env:             job.Env,
 	}
 
 	logMsg := fmt.Sprintf("FirstCacheKey: \nDockerEnv: %s, Parameters: %s, Command: %s, InputArtifacts: %s, OutputArtifacts: %s, Env: %s", cc.step.job.(*PaddleFlowJob).Image, job.Parameters, job.Command, job.Artifacts.Input, job.Artifacts.Output, cacheKey.Env)

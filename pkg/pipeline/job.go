@@ -41,6 +41,7 @@ type Job interface {
 	Terminated() bool
 	Skipped() bool
 	NotEnded() bool
+	JobID() string
 }
 
 func NewBaseJob(name string) *BaseJob {
@@ -274,6 +275,19 @@ func (pfj *PaddleFlowJob) Started() bool {
 
 func (pfj *PaddleFlowJob) Job() BaseJob {
 	return pfj.BaseJob
+}
+
+func (pfj *PaddleFlowJob) JobID() string {
+	return pfj.ID
+}
+
+func (pfj *PaddleFlowJob) SetJobID(id string) error {
+	if pfj.ID != "" {
+		return fmt.Errorf("cannot set ID for job with id[%s]", id)
+	}
+
+	pfj.ID = id
+	return nil
 }
 
 // ----------------------------------------------------------------------------

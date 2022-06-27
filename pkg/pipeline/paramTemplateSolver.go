@@ -142,10 +142,7 @@ func (isv *innerSolver) resolveArtifactTemplate(tpl []string, fieldType string, 
 		} else {
 			maxSize = LoopArgumentArtifactMaxSize
 		}
-		fmt.Println(path)
-		fmt.Println(maxSize)
-		fmt.Println(isv.fsID)
-		fmt.Println(isv.logger)
+
 		result, err = GetArtifactContent(path, maxSize, isv.fsID, isv.logger)
 		if err != nil {
 			err = fmt.Errorf("failed to resolve template[%s] for component[%s], because cannot read the content from artifact[%s]",
@@ -159,6 +156,7 @@ func (isv *innerSolver) resolveArtifactTemplate(tpl []string, fieldType string, 
 
 // resolveEnv: 将字符串中给定模板替换成具体值
 func (isv *innerSolver) resolveTemplate(tplString string, fieldType string, forCache bool) (interface{}, error) {
+	isv.logger.Debugf("begin to resolve template for component[%s] is field[%s]", isv.componentFullName, fieldType)
 	tpls, err := fetchTemplate(tplString)
 	if err != nil {
 		return "", err
@@ -312,12 +310,18 @@ func (ds *DependencySolver) resolveParameterTemplate(tplString string, subCompon
 		tpl := tpls[index]
 		refComponentName, refvalue := parseTemplate(tpl[2])
 		var value interface{}
-
-		// 1、 引用了父节点的输入parameter
-		if refComponentName == PF_PARENT {
+		// 1、系统变量
+		if refComponentName == "" {
+			value, err = parseSysParamerterTemplate(refvalue, ds.sysParams)
+			if err != nil {
+				err = fmt.Errorf("cannot resolve template[%v] in component[%s] as sysParam", tpl, subComponentName)
+				return "", err
+			}
+		} else if refComponentName == PF_PARENT {
+			// 2、 引用了父节点的输入parameter
 			value, err = ds.component.GetParameterValue(refvalue)
 			if err != nil {
-				// 2、引用了父节点的 loop_arugment
+				// 3、引用了父节点的 loop_arugment
 				if refvalue == SysParamNamePFLoopArgument {
 					// 这里不能直接从 drt 的 sysParams 取的原因为，需要保留类型信息。 子节点可能用该值作为自己 循环参数。
 					value, err = ds.getPFLoopArgument()
@@ -331,7 +335,7 @@ func (ds *DependencySolver) resolveParameterTemplate(tplString string, subCompon
 				}
 			}
 		} else {
-			// 3、 引用了上有节点的输出parameter
+			// 4、 引用了上有节点的输出parameter
 			value, err = ds.GetSubComponentParameterValue(refComponentName, refvalue)
 			if err != nil {
 				return "", err
@@ -387,7 +391,7 @@ func (ds *DependencySolver) ResolveBeforeRun(componentName string) error {
 	// 1. 解析 parameter 模版
 	subComponent, ok := ds.getworkflowSouceDag().GetSubComponet(componentName)
 	if !ok {
-		err := fmt.Errorf("Dag Component[%s] has no subcomponent named [%s]", ds.CompoentFullName, componentName)
+		err := fmt.Errorf("Dag Component[%s] has no subcomponent named [%s]", ds.componentFullName, componentName)
 		return err
 	}
 

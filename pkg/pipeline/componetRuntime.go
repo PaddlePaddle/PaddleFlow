@@ -32,7 +32,7 @@ type RuntimeStatus = schema.JobStatus
 
 var (
 	StatusRuntimeInit        RuntimeStatus = schema.StatusJobInit
-	StatusRunttimePending    RuntimeStatus = schema.StatusJobPending
+	StatusRuntimePending     RuntimeStatus = schema.StatusJobPending
 	StatusRuntimeRunning     RuntimeStatus = schema.StatusJobRunning
 	StatusRuntimeFailed      RuntimeStatus = schema.StatusJobFailed
 	StatusRuntimeSucceeded   RuntimeStatus = schema.StatusJobSucceeded
@@ -72,11 +72,13 @@ type componentRuntime interface {
 	isCancelled() bool
 	isSkipped() bool
 	isTerminated() bool
+	updateStatus(RuntimeStatus) error
 
 	getComponent() schema.Component
 	getFullName() string
 	getName() string
 	getSeq() int
+	getStatus() RuntimeStatus
 
 	Start()
 
@@ -130,7 +132,7 @@ type baseComponentRuntime struct {
 	component schema.Component
 
 	// 类似根目录，由其所有祖先组件名加上自身名字组成，名字与名字之间以"." 分隔
-	CompoentFullName string
+	componentFullName string
 
 	// runtime 的名字，由 componentFullName 和 seq 组成
 	name string
@@ -176,7 +178,7 @@ func NewBaseComponentRuntime(fullname string, component schema.Component, seq in
 
 	cr := &baseComponentRuntime{
 		name:                 fmt.Sprintf("%s-%d", fullname, seq),
-		CompoentFullName:     fullname,
+		componentFullName:    fullname,
 		component:            component,
 		seq:                  seq,
 		ctx:                  ctx,
@@ -195,8 +197,8 @@ func NewBaseComponentRuntime(fullname string, component schema.Component, seq in
 
 // 判断当前节点是否被 disabled
 func (crt *baseComponentRuntime) isDisabled() bool {
-	for _, fullName := range crt.GetDisabled() {
-		if fullName == crt.CompoentFullName {
+	for _, name := range crt.GetDisabled() {
+		if name == crt.getComponent().GetName() {
 			return true
 		}
 	}
@@ -239,8 +241,8 @@ func (crt *baseComponentRuntime) getComponent() schema.Component {
 // 更新节点状态
 func (crt *baseComponentRuntime) updateStatus(status RuntimeStatus) error {
 	if crt.done {
-		err := fmt.Errorf("cannot update the status of runtime[%s] for node[%s]，because the status of it is [%s]",
-			crt.component.GetName(), crt.CompoentFullName, crt.status)
+		err := fmt.Errorf("cannot update the status of runtime[%s]，because the status of it is [%s]",
+			crt.name, crt.status)
 		crt.logger.Errorln(err.Error())
 		return err
 	}
@@ -312,26 +314,29 @@ func (crt *baseComponentRuntime) setSysParams() error {
 
 func (crt *baseComponentRuntime) CalculateCondition() (bool, error) {
 	crt.resolveCondition()
+	if crt.GetCondition() == "" {
+		return false, nil
+	}
+
 	cc := NewConditionCalculator(crt.component.GetCondition())
 	return cc.calculate()
 }
 
 func (crt *baseComponentRuntime) syncToApiServerAndParent(wv WfEventValue, view schema.ComponentView, msg string) {
 	extra := map[string]interface{}{
-		common.WfEventKeyRunID:         crt.runID,
-		common.WfEventKeyPK:            crt.pk,
-		common.WfEventKeyStatus:        crt.status,
-		common.WfEventKeyView:          view,
-		common.WfEventKeyComponentName: crt.component.GetName(),
+		common.WfEventKeyRunID:  crt.runID,
+		common.WfEventKeyStatus: crt.status,
+		common.WfEventKeyView:   view,
 	}
-
 	event := NewWorkflowEvent(wv, msg, extra)
-
 	// 调用回调函数，将信息同步至 apiserver
-	crt.callback(event)
 
+	crt.callback(event)
 	// 将事件冒泡给父节点
-	crt.sendEventToParent <- *event
+	// 这里使用协程
+	go func() {
+		crt.sendEventToParent <- *event
+	}()
 }
 
 func (crt *baseComponentRuntime) callback(event *WorkflowEvent) {
@@ -345,7 +350,7 @@ func (crt *baseComponentRuntime) callback(event *WorkflowEvent) {
 }
 
 func (crt *baseComponentRuntime) getFullName() string {
-	return crt.CompoentFullName
+	return crt.componentFullName
 }
 
 func (crt *baseComponentRuntime) getName() string {
@@ -359,4 +364,8 @@ func (crt *baseComponentRuntime) Start() {
 
 func (crt *baseComponentRuntime) getSeq() int {
 	return crt.seq
+}
+
+func (crt *baseComponentRuntime) getStatus() RuntimeStatus {
+	return crt.status
 }

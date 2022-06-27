@@ -96,7 +96,6 @@ func TestResolveLoopArgument(t *testing.T) {
 	component := mockComponentForInnerSolver()
 	is := NewInnerSolver(component, "step1", &runConfig{fsID: "xx", logger: logger.LoggerForRun("innersolver")})
 
-	fmt.Println(component.GetLoopArgument())
 	err := is.resolveLoopArugment()
 	assert.Nil(t, err)
 
@@ -106,7 +105,7 @@ func TestResolveLoopArgument(t *testing.T) {
 
 	component = mockComponentForInnerSolver()
 	component.UpdateLoopArguemt("{{step1.p4}}")
-	is = NewInnerSolver(component, "step1", &runConfig{})
+	is = NewInnerSolver(component, "step1", &runConfig{logger: logger.LoggerForRun("NewInnerSolver")})
 	err = is.resolveLoopArugment()
 	assert.Nil(t, err)
 
@@ -116,7 +115,7 @@ func TestResolveLoopArgument(t *testing.T) {
 
 	component = mockComponentForInnerSolver()
 	component.UpdateLoopArguemt("{{p5}}")
-	is = NewInnerSolver(component, "step1", &runConfig{})
+	is = NewInnerSolver(component, "step1", &runConfig{logger: logger.LoggerForRun("NewInnerSolver")})
 	err = is.resolveLoopArugment()
 	assert.Nil(t, err)
 
@@ -126,7 +125,7 @@ func TestResolveLoopArgument(t *testing.T) {
 
 	component = mockComponentForInnerSolver()
 	component.UpdateLoopArguemt("{{p1}}")
-	is = NewInnerSolver(component, "step1", &runConfig{})
+	is = NewInnerSolver(component, "step1", &runConfig{logger: logger.LoggerForRun("NewInnerSolver")})
 	err = is.resolveLoopArugment()
 	assert.NotNil(t, err)
 
@@ -149,7 +148,7 @@ func TestResolveLoopArgument(t *testing.T) {
 
 func TestResolveCondition(t *testing.T) {
 	component := mockComponentForInnerSolver()
-	is := NewInnerSolver(component, "step1", &runConfig{})
+	is := NewInnerSolver(component, "step1", &runConfig{logger: logger.LoggerForRun("NewInnerSolver")})
 	err := is.resolveCondition()
 
 	assert.Nil(t, err)
@@ -175,25 +174,23 @@ func TestResolveCondition(t *testing.T) {
 
 func TestResolveCommand(t *testing.T) {
 	component := mockComponentForInnerSolver()
-	is := NewInnerSolver(component, "step1", &runConfig{})
+	is := NewInnerSolver(component, "step1", &runConfig{logger: logger.LoggerForRun("NewInnerSolver")})
 	is.setSysParams(map[string]string{"PF_RUN_ID": "abc"})
 
 	err := is.resolveCommand(true)
 	assert.Nil(t, err)
 
-	fmt.Println(component.Command)
 	assert.Equal(t, component.Command, "echo 1 && cat ./b.txt >> {{out1}} && echo abc ")
 
 	err = is.resolveCommand(false)
 	assert.Nil(t, err)
 
-	fmt.Println(component.Command)
 	assert.Equal(t, component.Command, "echo 1 && cat ./b.txt >> out1.txt && echo abc ")
 }
 
 func TestResolveEnv(t *testing.T) {
 	component := mockComponentForInnerSolver()
-	is := NewInnerSolver(component, "step1", &runConfig{})
+	is := NewInnerSolver(component, "step1", &runConfig{logger: logger.LoggerForRun("NewInnerSolver")})
 	is.setSysParams(map[string]string{"PF_RUN_ID": "abc"})
 
 	err := is.resolveEnv()
@@ -243,7 +240,7 @@ func mockWorkflowDagForDs() *schema.WorkflowSourceDag {
 				Parameters: map[string]interface{}{
 					"s1p1": 10,
 					"s1p2": "{{PF_PARENT.dp1}}_{{PF_PARENT.dp2}}",
-					"s1p3": "st1",
+					"s1p3": "st1_{{PF_RUN_ID}}",
 					"s1p4": "{{PF_PARENT.PF_LOOP_ARGUMENT}}",
 				},
 				Artifacts: schema.Artifacts{
@@ -278,10 +275,10 @@ func mockWorkflowDagForDs() *schema.WorkflowSourceDag {
 
 func mockDagRuntime() *DagRuntime {
 	bcr := baseComponentRuntime{
-		runConfig:        mockRunconfigForDepRsl(),
-		component:        mockWorkflowDagForDs(),
-		name:             "dag1-0",
-		CompoentFullName: "dag1",
+		runConfig:         mockRunconfigForDepRsl(),
+		component:         mockWorkflowDagForDs(),
+		name:              "dag1-0",
+		componentFullName: "dag1",
 	}
 
 	return &DagRuntime{
@@ -292,10 +289,10 @@ func mockDagRuntime() *DagRuntime {
 
 func mockStepRuntime(step *schema.WorkflowSourceStep) *StepRuntime {
 	bcr := baseComponentRuntime{
-		runConfig:        mockRunconfigForDepRsl(),
-		component:        step,
-		name:             "dag1.step1-0",
-		CompoentFullName: "dag1.step1",
+		runConfig:         mockRunconfigForDepRsl(),
+		component:         step,
+		name:              "dag1.step1-0",
+		componentFullName: "dag1.step1",
 	}
 
 	return &StepRuntime{
@@ -305,7 +302,7 @@ func mockStepRuntime(step *schema.WorkflowSourceStep) *StepRuntime {
 
 func TestResolveBeforeRun(t *testing.T) {
 	dr := mockDagRuntime()
-	dr.sysParams = map[string]string{"PF_LOOP_ARGUMENT": "10"}
+	dr.sysParams = map[string]string{"PF_LOOP_ARGUMENT": "10", "PF_RUN_ID": "run-001"}
 
 	dr.getComponent().UpdateLoopArguemt([]int{11, 12})
 	ds := NewDependencySolver(dr)
@@ -317,7 +314,7 @@ func TestResolveBeforeRun(t *testing.T) {
 	params := dr.getworkflowSouceDag().EntryPoints["step1"].GetParameters()
 	assert.Equal(t, 10, params["s1p1"])
 	assert.Equal(t, "0_1", params["s1p2"])
-	assert.Equal(t, "st1", params["s1p3"])
+	assert.Equal(t, "st1_run-001", params["s1p3"])
 	assert.Equal(t, 11, params["s1p4"])
 
 	inputs := dr.getworkflowSouceDag().EntryPoints["step1"].GetArtifacts().Input
@@ -351,7 +348,7 @@ func TestResolveBeforeRun(t *testing.T) {
 
 func TestResolveAfterDone(t *testing.T) {
 	dr := mockDagRuntime()
-	dr.sysParams = map[string]string{"PF_LOOP_ARGUMENT": "10"}
+	dr.sysParams = map[string]string{"PF_LOOP_ARGUMENT": "10", "PF_RUN_ID": "run-001"}
 	ds := NewDependencySolver(dr)
 
 	err := ds.ResolveBeforeRun("step1")
