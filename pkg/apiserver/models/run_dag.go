@@ -108,6 +108,7 @@ func (rd *RunDag) Trans2DagView() schema.DagView {
 	return schema.DagView{
 		DagID:       rd.ID,
 		Name:        rd.Name,
+		DagName:     rd.DagName,
 		Parameters:  newParameters,
 		Seq:         rd.Seq,
 		StartTime:   rd.ActivateTime,

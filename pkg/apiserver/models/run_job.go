@@ -220,6 +220,7 @@ func (rj *RunJob) Trans2JobView() schema.JobView {
 	return schema.JobView{
 		JobID:      rj.ID,
 		Name:       rj.Name,
+		StepName:   rj.StepName,
 		Command:    rj.Command,
 		Parameters: newParameters,
 		Env:        newEnv,
