@@ -58,9 +58,11 @@ type TraceLoggerConfig struct {
 	IsCompress      bool   `yaml:"isCompress"`
 	Timeout         string `yaml:"timeout"`
 	MaxCacheSize    int    `yaml:"maxCacheSize"`
+	SyncInterval    string `yaml:"syncInterval"`
+	DeleteInterval  string `yaml:"syncInterval"`
 }
 
-func parseTime(timeStr string) (time.Duration, error) {
+func ParseTime(timeStr string) (time.Duration, error) {
 	timeStr = strings.TrimSpace(timeStr)
 	if timeStr == "" {
 		return 0, fmt.Errorf("timeStr is empty")
@@ -84,6 +86,14 @@ func parseTime(timeStr string) (time.Duration, error) {
 	}
 }
 
+func ParseTimeWithDefault(timeStr string, defaultTime time.Duration) time.Duration {
+	res, err := ParseTime(timeStr)
+	if err != nil {
+		return defaultTime
+	}
+	return res
+}
+
 func InitTraceLogger(config TraceLoggerConfig) error {
 	l := logrus.New()
 	// set logger formatter to json
@@ -92,11 +102,11 @@ func InitTraceLogger(config TraceLoggerConfig) error {
 	}
 	logger = l
 	m := NewDefaultTraceLoggerManager()
-	if duration, err := parseTime(config.Timeout); err == nil {
-		m.timeout = duration
-	} else {
+	duration, err := ParseTime(config.Timeout)
+	if err != nil {
 		return fmt.Errorf("failed to parse timeout: %w", err)
 	}
+	m.timeout = duration
 	if config.MaxCacheSize > 0 {
 		m.maxCacheSize = config.MaxCacheSize
 	}
