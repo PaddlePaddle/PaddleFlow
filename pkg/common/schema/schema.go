@@ -108,7 +108,7 @@ func (d DagView) GetSeq() int {
 // RuntimeView is view of run responded to user, while workflowRuntime is for pipeline engine to process
 type RuntimeView map[string][]ComponentView
 
-type PostProcessView map[string]JobView
+type PostProcessView map[string]*JobView
 
 type LogRunCacheRequest struct {
 	FirstFp     string `json:"firstFp"`

@@ -162,7 +162,7 @@ func (r *Run) validateRuntimeAndPostProcess() error {
 		step, ok := r.WorkflowSource.PostProcess[job.StepName]
 		if ok && job.ParentDagID == "" {
 			jobView := job.ParseJobView(step)
-			r.PostProcess[job.StepName] = jobView
+			r.PostProcess[job.StepName] = &jobView
 		} else {
 			runtimeJobs = append(runtimeJobs, job)
 		}
