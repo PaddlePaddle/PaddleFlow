@@ -60,7 +60,6 @@ type TraceLoggerConfig struct {
 	MaxCacheSize    int    `yaml:"maxCacheSize"`
 	SyncInterval    string `yaml:"syncInterval"`
 	DeleteInterval  string `yaml:"deleteInterval"`
-	StdOutput       bool   `yaml:"stdOutput"`
 	Debug           bool   `yaml:"debug"`
 }
 
