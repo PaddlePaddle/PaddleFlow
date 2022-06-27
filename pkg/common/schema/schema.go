@@ -27,6 +27,7 @@ type ComponentView interface {
 
 // JobView is view of job info responded to user, while Job is for pipeline and job engine to process
 type JobView struct {
+	PK          int64             `json:"-"`
 	JobID       string            `json:"jobID"`
 	Name        string            `json:"name"`
 	StepName    string            `json:"-"`
@@ -43,8 +44,7 @@ type JobView struct {
 	JobMessage  string            `json:"jobMessage"`
 	CacheRunID  string            `json:"cacheRunID"`
 	CacheJobID  string            `json:"cacheJobID"`
-	ParentDagID string            `json:"parentDagID"`
-	PK          int64             `json:"-"`
+	ParentDagID string            `json:"-"`
 	Seq         int               `json:"-"`
 }
 
@@ -69,20 +69,20 @@ func (j JobView) GetSeq() int {
 }
 
 type DagView struct {
-	DagID       string
-	Name        string
-	DagName     string `json:"-"`
-	Deps        string
-	Parameters  map[string]string
-	Artifacts   Artifacts
-	StartTime   string
-	EndTime     string
-	Status      JobStatus
-	Message     string
-	EntryPoints map[string][]ComponentView
-	ParentDagID string
-	PK          int64 `json:"'-"`
-	Seq         int   `json:"-"`
+	PK          int64                      `json:"-"`
+	DagID       string                     `json:"id"`
+	Name        string                     `json:"name"`
+	DagName     string                     `json:"-"`
+	Deps        string                     `json:"deps"`
+	Parameters  map[string]string          `json:"parameters"`
+	Artifacts   Artifacts                  `json:"artifacts"`
+	StartTime   string                     `json:"startTime"`
+	EndTime     string                     `json:"endTime"`
+	Status      JobStatus                  `json:"status"`
+	Message     string                     `json:"message"`
+	EntryPoints map[string][]ComponentView `json:"entryPoints"`
+	ParentDagID string                     `json:"-"`
+	Seq         int                        `json:"-"`
 }
 
 func (d DagView) GetComponentName() string {
