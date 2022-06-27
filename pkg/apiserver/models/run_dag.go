@@ -117,6 +117,7 @@ func (rd *RunDag) Trans2DagView() schema.DagView {
 		Status:      rd.Status,
 		Artifacts:   rd.Artifacts,
 		Message:     rd.Message,
+		EntryPoints: map[string][]schema.ComponentView{},
 	}
 }
 
