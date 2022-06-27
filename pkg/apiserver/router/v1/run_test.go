@@ -18,8 +18,10 @@ package v1
 
 import (
 	"net/http"
+	"reflect"
 	"testing"
 
+	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
@@ -74,6 +76,8 @@ func TestGetRunRouter(t *testing.T) {
 	run1.ID, err = models.CreateRun(ctxroot.Logging(), &run1)
 	assert.Nil(t, err)
 
+	patch := gomonkey.ApplyMethodReturn(reflect.TypeOf(run1), "Decode", nil)
+	defer patch.Reset()
 	url := baseUrl + "/run/" + run1.ID
 	result, err := PerformGetRequest(router, url)
 	assert.Nil(t, err)

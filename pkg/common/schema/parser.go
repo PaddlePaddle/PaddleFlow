@@ -242,11 +242,16 @@ func (p *Parser) ParseStep(params map[string]interface{}, step *WorkflowSourceSt
 			}
 			// 设置在env里的变量优先级最高，如果在Step里设置了如queue、flavour等需要填充到env的字段，会直接被env中对应的值覆盖
 			for envKey, envValue := range value {
-				envValue, ok := envValue.(string)
-				if !ok {
-					return fmt.Errorf("value of [env] should be string type")
+				resEnv := ""
+				switch envValue := envValue.(type) {
+				case string:
+					resEnv = envValue
+				case int64:
+					resEnv = strconv.FormatInt(envValue, 10)
+				default:
+					return fmt.Errorf("values in [env] should be string type")
 				}
-				step.Env[envKey] = envValue
+				step.Env[envKey] = resEnv
 			}
 		case "dockerEnv":
 			fallthrough
