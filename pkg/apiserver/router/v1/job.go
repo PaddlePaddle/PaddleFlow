@@ -27,7 +27,6 @@ import (
 	"github.com/go-chi/chi"
 	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
-	"gorm.io/gorm"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/job"
@@ -105,14 +104,6 @@ func (jr *JobRouter) CreateSingleJob(w http.ResponseWriter, r *http.Request) {
 
 	request.CommonJobInfo.UserName = ctx.UserName
 
-	// validate Job
-	if err := validateSingleJob(&ctx, &request); err != nil {
-		ctx.ErrorCode = common.JobInvalidField
-		ctx.Logging().Errorf("validate job request failed. request:%v error:%s", request, err.Error())
-		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
-		return
-	}
-
 	response, err := job.CreateSingleJob(&ctx, &request)
 	if err != nil {
 		ctx.ErrorCode = common.JobCreateFailed
@@ -146,15 +137,9 @@ func (jr *JobRouter) CreateDistributedJob(w http.ResponseWriter, r *http.Request
 	}
 	log.Debugf("create distributed job request:%+v", request)
 
-	// validate Job
-	if err := validateDistributedJob(&ctx, &request); err != nil {
-		ctx.Logging().Errorf("validate job request failed. request:%v error:%s", request, err.Error())
-		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
-		return
-	}
-
 	response, err := job.CreateDistributedJob(&ctx, &request)
 	if err != nil {
+		ctx.ErrorCode = common.JobCreateFailed
 		ctx.Logging().Errorf("create job failed. job request:%v error:%s", request, err.Error())
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
@@ -185,189 +170,16 @@ func (jr *JobRouter) CreateWorkflowJob(w http.ResponseWriter, r *http.Request) {
 	}
 	request.CommonJobInfo.UserName = ctx.UserName
 	log.Debugf("create workflow job request:%+v", request)
-	if err := validateWorkflowJob(&ctx, &request); err != nil {
-		ctx.Logging().Errorf("validate job request failed. request:%v error:%s", request, err.Error())
-		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
-		return
-	}
 
 	response, err := job.CreateWorkflowJob(&ctx, &request)
 	if err != nil {
+		ctx.ErrorCode = common.JobCreateFailed
 		ctx.Logging().Errorf("create job failed. job request:%v error:%s", request, err.Error())
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
 	ctx.Logging().Debugf("CreateJob job:%v", string(config.PrettyFormat(response)))
 	common.Render(w, http.StatusOK, response)
-}
-
-func validateSingleJob(ctx *logger.RequestContext, request *job.CreateSingleJobRequest) error {
-	// validate job id
-	if request.ID != "" {
-		// check namespace format
-		if errStr := common.IsDNS1123Label(request.ID); len(errStr) != 0 {
-			return fmt.Errorf("ID[%s] of Job is invalid, err: %s", request.ID, strings.Join(errStr, ","))
-		}
-	}
-	// ensure required fields
-	emptyFields := validateEmptyField(request)
-	if len(emptyFields) != 0 {
-		emptyFieldStr := strings.Join(emptyFields, ",")
-		err := fmt.Errorf("required fields in {%s} are empty, please fill it", emptyFieldStr)
-		ctx.Logging().Errorf("create single job failed. error: %s", err.Error())
-		ctx.ErrorCode = common.RequiredFieldEmpty
-		return err
-	}
-	// SchedulingPolicy
-	if err := checkPriority(&request.SchedulingPolicy, nil); err != nil {
-		ctx.Logging().Errorf("Failed to check priority: %v", err)
-		ctx.ErrorCode = common.JobInvalidField
-		return err
-	}
-	if err := validateQueue(ctx, &request.SchedulingPolicy); err != nil {
-		ctx.Logging().Errorf("validate queue failed. error: %s", err.Error())
-		return err
-	}
-	return nil
-}
-
-// checkPriority check priority and fill parent's priority if schedulingPolicy.Priority is empty
-func checkPriority(schedulingPolicy, parentSP *job.SchedulingPolicy) error {
-	priority := strings.ToUpper(schedulingPolicy.Priority)
-	// check job priority
-	if priority == "" {
-		if parentSP != nil {
-			priority = strings.ToUpper(parentSP.Priority)
-		} else {
-			priority = schema.EnvJobNormalPriority
-		}
-	}
-	if priority != schema.EnvJobLowPriority &&
-		priority != schema.EnvJobNormalPriority && priority != schema.EnvJobHighPriority {
-		return errors.InvalidJobPriorityError(priority)
-	}
-	schedulingPolicy.Priority = priority
-	return nil
-}
-
-func validateEmptyField(request *job.CreateSingleJobRequest) []string {
-	var emptyFields []string
-	if request.CommonJobInfo.SchedulingPolicy.Queue == "" {
-		emptyFields = append(emptyFields, "queue")
-	}
-	if request.Image == "" {
-		emptyFields = append(emptyFields, "image")
-	}
-
-	return emptyFields
-}
-
-func validateDistributedJob(ctx *logger.RequestContext, request *job.CreateDisJobRequest) error {
-	// validate job id
-	if request.ID != "" {
-		// check namespace format
-		if errStr := common.IsDNS1123Label(request.ID); len(errStr) != 0 {
-			return fmt.Errorf("ID[%s] of Job is invalid, err: %s", request.ID, strings.Join(errStr, ","))
-		}
-	}
-	switch request.Framework {
-	case schema.FrameworkSpark, schema.FrameworkPaddle:
-		break
-	case schema.FrameworkTF, schema.FrameworkMPI:
-		ctx.Logging().Errorf("framework: %s will be supported in the future", request.Framework)
-		ctx.ErrorCode = common.JobInvalidField
-		return fmt.Errorf("framework: %s will be supported in the future", request.Framework)
-	default:
-		ctx.Logging().Errorf("invalid framework: %s", request.Framework)
-		ctx.ErrorCode = common.JobInvalidField
-		return fmt.Errorf("invalid framework: %s", request.Framework)
-	}
-	// check job priority
-	if err := checkPriority(&request.SchedulingPolicy, nil); err != nil {
-		ctx.Logging().Errorf("Failed to check priority: %v", err)
-		ctx.ErrorCode = common.JobInvalidField
-		return err
-	}
-
-	// request.SchedulingPolicy and request.Members[x].SchedulingPolicy should be the same
-	if err := validateQueue(ctx, &request.SchedulingPolicy); err != nil {
-		ctx.Logging().Errorf("validate queue failed. error: %s", err.Error())
-		return err
-	}
-	queueName := request.SchedulingPolicy.Queue
-
-	if request.Members == nil || len(request.Members) == 0 {
-		err := fmt.Errorf("request.Members is empty")
-		ctx.Logging().Errorf("create distributed job failed. error: %s", err.Error())
-		ctx.ErrorCode = common.RequiredFieldEmpty
-		return err
-	}
-	for _, member := range request.Members {
-		// validate queue
-		mQueueName := member.SchedulingPolicy.Queue
-		if mQueueName != queueName {
-			if mQueueName == "" {
-				// set value by default as request.SchedulingPolicy.Queue
-				member.SchedulingPolicy.Queue = queueName
-			} else {
-				err := fmt.Errorf("schedulingPolicy.Queue should be the same, there are %s and %s", queueName, mQueueName)
-				ctx.Logging().Errorf("create distributed job failed. error: %s", err.Error())
-				ctx.ErrorCode = common.JobInvalidField
-				return err
-			}
-		}
-		member.SchedulingPolicy.QueueID = request.SchedulingPolicy.QueueID
-		// check members priority
-		if err := checkPriority(&member.SchedulingPolicy, &request.SchedulingPolicy); err != nil {
-			ctx.Logging().Errorf("Failed to check priority: %v", err)
-			ctx.ErrorCode = common.JobInvalidField
-			return err
-		}
-	}
-
-	return nil
-}
-
-// validateQueue validate queue and set queueID in request.SchedulingPolicy
-func validateQueue(ctx *logger.RequestContext, schedulingPolicy *job.SchedulingPolicy) error {
-	queueName := schedulingPolicy.Queue
-	if queueName == "" {
-		ctx.Logging().Errorf("queue is empty")
-		ctx.ErrorCode = common.JobInvalidField
-		return fmt.Errorf("queue is empty")
-	}
-	queue, err := models.GetQueueByName(queueName)
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			ctx.ErrorCode = common.JobInvalidField
-			log.Errorf("validate queue failed when create job. error: %s", err.Error())
-			return fmt.Errorf("queue not found")
-		}
-		ctx.ErrorCode = common.InternalError
-		log.Errorf("Get queue failed when creating job, err=%v", err)
-		return err
-	}
-
-	schedulingPolicy.QueueID = queue.ID
-	return nil
-}
-
-func validateWorkflowJob(ctx *logger.RequestContext, request *job.CreateWfJobRequest) error {
-	// validate job id
-	if request.ID != "" {
-		// check namespace format
-		if errStr := common.IsDNS1123Label(request.ID); len(errStr) != 0 {
-			return fmt.Errorf("ID[%s] of Job is invalid, err: %s", request.ID, strings.Join(errStr, ","))
-		}
-	}
-	if request.ExtensionTemplate == nil {
-		ctx.ErrorCode = common.RequiredFieldEmpty
-		err := fmt.Errorf("ExtensionTemplate for workflow job is needed, and now is empty")
-		ctx.Logging().Errorf("create workflow job failed. error: %s", err.Error())
-		return err
-	}
-	// todo(zhongzichao)
-	return nil
 }
 
 // DeleteJob delete job
