@@ -201,7 +201,7 @@ func TestCallback(t *testing.T) {
 }
 
 func TestNewWorkflowByRun(t *testing.T) {
-	dbinit.InitMockDB()
+	driver.InitMockDB()
 	var err error
 	run, err := getMockFullRun()
 	assert.Nil(t, err)
