@@ -1033,8 +1033,16 @@ func (drt *DagRuntime) newView(msg string) schema.DagView {
 		paramters[name] = fmt.Sprintf("%v", value)
 	}
 
+	var name string
+	if drt.seq == 0 {
+		name = fmt.Sprintf("%s-%s", drt.runID, drt.getComponent().GetName())
+	} else {
+		name = fmt.Sprintf("%s-%s-%d", drt.runID, drt.getComponent().GetName(), drt.seq)
+	}
+
 	// DAGID 在写库时生成，因此，此处并不会传递该参数, EntryPoints 在运行子节点时会同步至数据库，因此此处不包含这两个字段
 	return schema.DagView{
+		Name:        name,
 		DagName:     drt.getComponent().GetName(),
 		Deps:        deps,
 		Parameters:  paramters,
