@@ -24,6 +24,11 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/base"
 )
 
+const (
+	TypeFile      = 1 // type for regular file
+	TypeDirectory = 2 // type for directory
+)
+
 // under file storage interface, copy from pathfs.FileSystem,
 // and remove api OnMount and OnUnmount
 type UnderFileStorage interface {
@@ -68,7 +73,7 @@ type UnderFileStorage interface {
 	Create(name string, flags uint32, mode uint32) (fd base.FileHandle, err error)
 
 	// Directory handling
-	ReadDir(name string) (stream []base.DirEntry, err error)
+	ReadDir(name string) (stream []DirEntry, err error)
 
 	// Symlinks.
 	Symlink(value string, linkName string) error
@@ -87,6 +92,33 @@ type withCloser struct {
 }
 
 type Creator func(properties map[string]interface{}) (UnderFileStorage, error)
+
+type DirEntry struct {
+	Attr *Attr
+	// Name is the basename of the file in the directory.
+	Name string
+}
+
+type Ino uint64
+
+// Attr represents attributes of a node.
+type Attr struct {
+	Type      uint8  // type of a node
+	Mode      uint32 // permission mode
+	Uid       uint32 // owner id
+	Gid       uint32 // group id of owner
+	Rdev      uint64 // device number
+	Atime     int64  // last access time
+	Mtime     int64  // last modified time
+	Ctime     int64  // last change time for meta
+	Atimensec uint32 // nanosecond part of atime
+	Mtimensec uint32 // nanosecond part of mtime
+	Ctimensec uint32 // nanosecond part of ctime
+	Nlink     uint64 // number of links (sub-directories or hardlinks)
+	Size      uint64 // size of regular file
+	Blksize   int64  // 目录默认4096 文件为0
+	Block     int64  // 文件size的大小/512
+}
 
 var ufs = make(map[string]Creator)
 

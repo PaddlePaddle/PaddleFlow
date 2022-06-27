@@ -24,7 +24,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/hanwen/go-fuse/v2/fuse/nodefs"
 	log "github.com/sirupsen/logrus"
 
@@ -129,27 +128,23 @@ func (fs *localMount) Create(name string, flags uint32, mode uint32) (fd base.Fi
 }
 
 // Directory handling
-func (fs *localMount) ReadDir(name string) (stream []base.DirEntry, err error) {
+func (fs *localMount) ReadDir(name string) (stream []DirEntry, err error) {
 	entries, err := os.ReadDir(fs.GetPath(name))
 	if err != nil {
 		return nil, err
 	}
-	output := make([]base.DirEntry, 0, len(entries))
+	output := make([]DirEntry, 0, len(entries))
 	for _, entry := range entries {
 		fInfo, err := entry.Info()
 		if err != nil {
 			log.Debugf("ReadDir name[%s] entry[%v] Info() failed: %v", name, entry, err)
 			continue
 		}
-		d := base.DirEntry{
+		d := DirEntry{
 			Name: entry.Name(),
 		}
-		if s := fuse.ToStatT(fInfo); s != nil {
-			d.Mode = uint32(s.Mode)
-			d.Ino = s.Ino
-		} else {
-			log.Debugf("ReadDir name[%s], fInfo[%v] ToStatT is nil", name, fInfo)
-		}
+		attr := sysToAttr(fInfo)
+		d.Attr = &attr
 		output = append(output, d)
 	}
 	return output, nil
