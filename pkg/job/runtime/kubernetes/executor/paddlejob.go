@@ -60,16 +60,12 @@ func (pj *PaddleJob) CreateJob() (string, error) {
 	}
 
 	var err error
-	// paddleflow won't patch any param to job if it is workflow type
-	if pj.JobType != schema.TypeWorkflow {
-		// patch .metadata field
-		pj.patchMetadata(&pdj.ObjectMeta, pj.ID)
-		// patch .spec field
-		err = pj.patchPaddleJobSpec(&pdj.Spec)
-		if err != nil {
-			log.Errorf("build job spec failed, err %v", err)
-			return "", err
-		}
+	// patch .metadata field
+	pj.patchMetadata(&pdj.ObjectMeta, pj.ID)
+	// patch .spec field
+	if err = pj.patchPaddleJobSpec(&pdj.Spec); err != nil {
+		log.Errorf("build job spec failed, err %v", err)
+		return "", err
 	}
 
 	// create job on cluster
