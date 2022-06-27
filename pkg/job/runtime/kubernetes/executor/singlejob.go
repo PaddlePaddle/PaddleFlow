@@ -76,10 +76,6 @@ func (sp *SingleJob) patchSinglePodVariable(pod *v1.Pod, jobID string) error {
 
 // CreateJob creates a job
 func (sp *SingleJob) CreateJob() (string, error) {
-	if err := sp.validateJob(); err != nil {
-		log.Errorf("validate job failed, err: %v", err)
-		return "", err
-	}
 	jobID := sp.GetID()
 	log.Debugf("begin create job jobID:[%s]", jobID)
 
@@ -89,6 +85,10 @@ func (sp *SingleJob) CreateJob() (string, error) {
 			log.Errorf("create job failed, err %v", err)
 			return "", err
 		}
+	}
+	if err := sp.validateJob(); err != nil {
+		log.Errorf("validate job failed, err: %v", err)
+		return "", err
 	}
 
 	if err := sp.patchSinglePodVariable(singlePod, jobID); err != nil {
