@@ -18,6 +18,7 @@ package mount
 
 import (
 	"fmt"
+	"path"
 	"strconv"
 	"strings"
 	"sync"
@@ -264,7 +265,7 @@ func defaultCacheConfig(fsID string) common.FsCacheConfig {
 
 func completeCacheConfig(config *common.FsCacheConfig, fsID string) {
 	if config.CacheDir == "" {
-		config.CacheDir = schema.DefaultCacheDir(fsID)
+		config.CacheDir = path.Join(csiconfig.HostMntDir, fsID)
 	}
 	if config.MetaDriver == "" {
 		config.MetaDriver = schema.FsMetaDefault
@@ -406,7 +407,7 @@ func buildMountContainer(pod *v1.Pod, mountInfo pfs.MountInfo, cacheConf common.
 			Name: VolumesKeyMount,
 			VolumeSource: corev1.VolumeSource{
 				HostPath: &corev1.HostPathVolumeSource{
-					Path: schema.HostMntDir,
+					Path: csiconfig.HostMntDir,
 					Type: &typeDir,
 				},
 			},
