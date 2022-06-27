@@ -37,10 +37,12 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database/dbinit"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 )
 
 const (
@@ -110,7 +112,7 @@ func TestKubeRuntimeJob(t *testing.T) {
 			},
 		},
 	}
-	dbinit.InitMockDB()
+	driver.InitMockDB()
 	config.GlobalServerConfig = &config.ServerConfig{}
 	err := models.CreateJob(&models.Job{
 		ID: testJobID,
@@ -204,6 +206,7 @@ func TestKubeRuntimePVAndPVC(t *testing.T) {
 	kubeRuntime := &KubeRuntime{
 		clientset: client,
 	}
+	driver.InitMockDB()
 
 	config.DefaultPV = &apiv1.PersistentVolume{
 		ObjectMeta: metav1.ObjectMeta{
@@ -214,9 +217,8 @@ func TestKubeRuntimePVAndPVC(t *testing.T) {
 				CSI: &apiv1.CSIPersistentVolumeSource{
 					FSType: "ext4",
 					VolumeAttributes: map[string]string{
-						"pfs.fs.id":     "$(pfs.fs.id)",
-						"pfs.user.name": "$(pfs.user.name)",
-						"pfs.server":    "$(pfs.server)",
+						"pfs.fs.id":  "$(pfs.fs.id)",
+						"pfs.server": "$(pfs.server)",
 					},
 					VolumeHandle: "pfs-$(pfs.fs.id)-$(namespace)-pv",
 				},
@@ -241,6 +243,23 @@ func TestKubeRuntimePVAndPVC(t *testing.T) {
 
 	namespace := "default"
 	fsID := "fs-test"
+	fs := model.FileSystem{
+		Model: model.Model{
+			ID: fsID,
+		},
+		Type:    "s3",
+		SubPath: "elsie",
+	}
+	err := storage.Filesystem.CreatFileSystem(&fs)
+	assert.Nil(t, err)
+	fsCache := model.FSCacheConfig{
+		FsID:       fsID,
+		CacheDir:   "/data/paddleflow-fs/mnt",
+		MetaDriver: "nutsdb",
+	}
+	err = storage.Filesystem.CreateFSCacheConfig(&fsCache)
+	assert.Nil(t, err)
+
 	pvc := fmt.Sprintf("pfs-%s-pvc", fsID)
 	// create pv
 	pv, err := kubeRuntime.CreatePV(namespace, fsID)

@@ -22,7 +22,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 type JobLabel struct {
@@ -47,7 +47,7 @@ func ListJobIDByLabels(labels map[string]string) ([]string, error) {
 		item := k + "=" + v
 		labelsListStr = append(labelsListStr, item)
 	}
-	err := database.DB.Table("job_label").Where("label IN (?)", labelsListStr).Find(&jobLabels).Error
+	err := storage.DB.Table("job_label").Where("label IN (?)", labelsListStr).Find(&jobLabels).Error
 	if err != nil {
 		log.Errorf("list jobID by labels failed, error:[%s]", err.Error())
 		return nil, err

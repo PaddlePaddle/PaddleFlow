@@ -24,9 +24,9 @@ import (
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 type RunJob struct {
@@ -61,7 +61,7 @@ type RunJob struct {
 
 func CreateRunJob(logEntry *log.Entry, runJob *RunJob) (int64, error) {
 	logEntry.Debugf("begin create run_job, model: %v", runJob)
-	err := WithTransaction(database.DB, func(tx *gorm.DB) error {
+	err := WithTransaction(storage.DB, func(tx *gorm.DB) error {
 		result := tx.Model(&RunJob{}).Create(&runJob)
 		if result.Error != nil {
 			logEntry.Errorf("create run_job failed. run_job: %v, error: %s",
@@ -75,7 +75,7 @@ func CreateRunJob(logEntry *log.Entry, runJob *RunJob) (int64, error) {
 
 func UpdateRunJob(logEntry *log.Entry, pk int64, runJob RunJob) error {
 	logEntry.Debugf("begin update run_job. run_job pk = %d", pk)
-	tx := database.DB.Model(&RunJob{}).Where("pk = ?", pk).Updates(runJob)
+	tx := storage.DB.Model(&RunJob{}).Where("pk = ?", pk).Updates(runJob)
 	if tx.Error != nil {
 		logEntry.Errorf("update run_job failed, error: %s", tx.Error.Error())
 		return tx.Error
@@ -86,7 +86,7 @@ func UpdateRunJob(logEntry *log.Entry, pk int64, runJob RunJob) error {
 func GetRunJobsOfRun(logEntry *log.Entry, runID string) ([]RunJob, error) {
 	logEntry.Debugf("begin to get run_jobs of run with runID[%s].", runID)
 	var runJobs []RunJob
-	tx := database.DB.Model(&RunJob{}).Where("run_id = ?", runID).Find(&runJobs)
+	tx := storage.DB.Model(&RunJob{}).Where("run_id = ?", runID).Find(&runJobs)
 	if tx.Error != nil {
 		logEntry.Errorf("get run_jobs of run with runID[%s] failed. error:%s", runID, tx.Error.Error())
 		return []RunJob{}, tx.Error
@@ -104,7 +104,7 @@ func GetRunJobsOfRun(logEntry *log.Entry, runID string) ([]RunJob, error) {
 func GetRunJob(logEntry *log.Entry, jobID string) (RunJob, error) {
 	logEntry.Debugf("begin to get run_job with jobID[%s].", jobID)
 	var runJob RunJob
-	tx := database.DB.Model(&RunJob{}).Where("id = ?", jobID).Find(&runJob)
+	tx := storage.DB.Model(&RunJob{}).Where("id = ?", jobID).Find(&runJob)
 	if tx.Error != nil {
 		logEntry.Errorf("get run_job with jobID[%s] failed. error:%s", jobID, tx.Error.Error())
 		return RunJob{}, tx.Error

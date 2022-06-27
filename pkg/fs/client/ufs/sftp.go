@@ -282,15 +282,14 @@ func (fs *sftpFileSystem) Create(name string, flags uint32, mode uint32) (fd bas
 }
 
 // Directory handling
-func (fs *sftpFileSystem) ReadDir(name string) (stream []base.DirEntry, err error) {
+func (fs *sftpFileSystem) ReadDir(name string) (stream []DirEntry, err error) {
 	files, err := fs.sc.sftpClient.ReadDir(fs.GetPath(name))
-
-	allAttrs := make([]base.DirEntry, len(files))
-
+	allAttrs := make([]DirEntry, len(files))
 	for i, fileInfo := range files {
-		allAttrs[i] = base.DirEntry{
+		attr := fs.sysSFTPToAttr(fileInfo)
+		allAttrs[i] = DirEntry{
 			Name: fileInfo.Name(),
-			Mode: uint32(fileInfo.Mode()),
+			Attr: &attr,
 		}
 	}
 	return allAttrs, nil

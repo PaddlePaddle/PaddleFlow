@@ -58,6 +58,7 @@ const (
 	Bucket             = "bucket"
 	Region             = "region"
 	InsecureSkipVerify = "insecureSkipVerify"
+	S3ForcePathStyle   = "s3ForcePathStyle"
 
 	// sftp properties
 	Address  = "address"
