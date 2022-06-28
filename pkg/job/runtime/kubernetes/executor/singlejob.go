@@ -157,7 +157,7 @@ func (sp *SingleJob) fillContainer(container *v1.Container, podName string) erro
 		container.Image = sp.Image
 	}
 	// fill command
-	if len(container.Command) == 0 && sp.IsCustomYaml || !sp.IsCustomYaml {
+	if !sp.IsCustomYaml {
 		if sp.Command == "" {
 			return errors.EmptyJobCommandError()
 		}
