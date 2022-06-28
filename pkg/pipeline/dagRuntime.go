@@ -702,6 +702,7 @@ func (drt *DagRuntime) processEventFromSubComponent(event WorkflowEvent) error {
 	} else {
 		// 判断节点处于异常状态： Failed 和 Terminated（但是 dag 状态不是terminated 也不是terminating），是的话，则开始执行 FailureOptions 相关的逻辑
 		status, ok := event.Extra[common.WfEventKeyStatus]
+		fmt.Println(1233, event.Message)
 		if ok {
 			subRuntimeStatus := status.(schema.JobStatus)
 			isFailed := subRuntimeStatus == StatusRuntimeFailed

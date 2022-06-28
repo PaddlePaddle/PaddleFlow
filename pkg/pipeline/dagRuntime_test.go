@@ -699,7 +699,9 @@ func TestProcessEventFromSubComponent(t *testing.T) {
 	assert.True(t, failed)
 
 	failed = false
-	event = NewWorkflowEvent(WfEventJobUpdate, "hahaha", map[string]interface{}{
+	drt.done = false
+	drt.updateStatus(StatusRuntimeInit)
+	event = NewWorkflowEvent(WfEventJobUpdate, "hahaha222", map[string]interface{}{
 		apicommon.WfEventKeyStatus: StatusRuntimeFailed,
 	})
 	drt.processEventFromSubComponent(*event)
