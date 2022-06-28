@@ -326,8 +326,15 @@ func (crt *baseComponentRuntime) syncToApiServerAndParent(wv WfEventValue, view 
 	extra := map[string]interface{}{
 		common.WfEventKeyRunID:  crt.runID,
 		common.WfEventKeyStatus: crt.status,
-		common.WfEventKeyView:   view,
 	}
+
+	jobView, ok := view.(*schema.JobView)
+	if ok {
+		extra[common.WfEventKeyView] = jobView
+	} else {
+		extra[common.WfEventKeyView] = view.(*schema.DagView)
+	}
+
 	event := NewWorkflowEvent(wv, msg, extra)
 	// 调用回调函数，将信息同步至 apiserver
 
