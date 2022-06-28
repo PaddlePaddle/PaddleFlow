@@ -93,7 +93,7 @@ func (d DagView) GetParentDagID() string {
 	return d.ParentDagID
 }
 
-func (d DagView) SetDeps(deps string) {
+func (d *DagView) SetDeps(deps string) {
 	d.Deps = deps
 }
 
