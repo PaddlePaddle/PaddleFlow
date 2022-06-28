@@ -655,12 +655,6 @@ func (srt *StepRuntime) Execute() {
 		return
 	}
 
-	msg := fmt.Sprintf("create job with id[%s]", srt.job.JobID())
-	view := srt.newJobView(msg)
-	srt.syncToApiServerAndParent(WfEventJobUpdate, &view, msg)
-
-	fmt.Printf("++++++ after sync, pk of srt[%s] is %d, %d", srt.name, srt.pk, srt.baseComponentRuntime.pk)
-
 	srt.logger.Debugf("step[%s] of runid[%s]: jobID[%s]", srt.name, srt.runID, srt.job.(*PaddleFlowJob).ID)
 
 	srt.logInputArtifact()
@@ -740,11 +734,12 @@ func (srt *StepRuntime) processEventFromJob(event WorkflowEvent) {
 			}
 		}
 		srt.updateStatus(extra["status"].(RuntimeStatus))
+
+		fmt.Println("before callback", srt.name, srt.pk, srt.baseComponentRuntime.pk)
 		view := srt.newJobView(event.Message)
 		srt.syncToApiServerAndParent(WfEventJobUpdate, &view, event.Message)
+		fmt.Println("after callback", srt.name, srt.pk, srt.baseComponentRuntime.pk)
 
-		// ++++++++++ just for debug,
-		srt.syncToApiServerAndParent(WfEventJobUpdate, &view, event.Message)
 	}
 }
 
