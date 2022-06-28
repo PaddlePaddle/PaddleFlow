@@ -21,8 +21,8 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"time"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/trace_logger"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
@@ -506,18 +506,23 @@ func CreateRunByJson(userName string, request *CreateRunByJsonRequest, bodyMap m
 		}
 	}
 
+	requestId := request.RequestID
+
+	trace_logger.Key(requestId).Infof("get workflow source for run: %+v", request)
 	wfs, err := getWorkFlowSourceByReq(request, bodyMap)
 	if err != nil {
 		logger.Logger().Errorf("get WorkFlowSource by request failed. error:%v", err)
 		return CreateRunResponse{}, err
 	}
 
+	trace_logger.Key(requestId).Infof("get source and yaml for run: %+v", request)
 	source, runYaml, err := getSourceAndYaml(wfs)
 	if err != nil {
 		logger.Logger().Errorf("get source and yaml by workflowsource failed. error:%v", err)
 		return CreateRunResponse{}, err
 	}
 
+	trace_logger.Key(requestId).Infof("check name reg pattern: %s", wfs.Name)
 	// check name pattern
 	if wfs.Name != "" && !schema.CheckReg(wfs.Name, common.RegPatternRunName) {
 		err := common.InvalidNamePatternError(wfs.Name, common.ResourceTypeRun, common.RegPatternRunName)
@@ -538,6 +543,7 @@ func CreateRunByJson(userName string, request *CreateRunByJsonRequest, bodyMap m
 		Disabled:       request.Disabled,
 		Status:         common.StatusRunInitiating,
 	}
+	trace_logger.Key(requestId).Infof("validate and start run: %+v", run)
 	response, err := ValidateAndStartRun(run, *request)
 	return response, err
 }

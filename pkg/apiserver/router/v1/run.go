@@ -67,7 +67,9 @@ func (rr *RunRouter) AddRouter(r chi.Router) {
 func (rr *RunRouter) createRun(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
 	var createRunInfo pipeline.CreateRunRequest
+	// add requestID to req
 	createRunInfo.RequestID = ctx.RequestID
+
 	if err := common.BindJSON(r, &createRunInfo); err != nil {
 		logger.LoggerForRequest(&ctx).Errorf(
 			"create run failed parsing request body:%+v. error:%s", r.Body, err.Error())
@@ -126,6 +128,9 @@ func (rr *RunRouter) createRunByJson(w http.ResponseWriter, r *http.Request) {
 	r.Body = ioutil.NopCloser(bytes.NewBuffer(bodyBytes))
 
 	createRunByJsonInfo := pipeline.CreateRunByJsonRequest{}
+	// add requestID to req
+	createRunByJsonInfo.RequestID = ctx.RequestID
+
 	if err := common.BindJSON(r, &createRunByJsonInfo); err != nil {
 		logger.LoggerForRequest(&ctx).Errorf(
 			"create run by json failed parsing request body:%+v. error:%s", r.Body, err.Error())
@@ -133,6 +138,7 @@ func (rr *RunRouter) createRunByJson(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	trace_logger.Key(ctx.RequestID).Infof("creating run by json for request:%+v", createRunByJsonInfo)
 	// create run
 	response, err := pipeline.CreateRunByJson(ctx.UserName, &createRunByJsonInfo, bodyMap)
 	if err != nil {
