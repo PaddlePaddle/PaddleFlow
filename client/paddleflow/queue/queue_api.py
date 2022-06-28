@@ -62,6 +62,32 @@ class QueueServiceApi(object):
         return True, None
 
     @classmethod
+    def update_queue(self, host, queuename, maxResources, minResources=None, schedulingPolicy=None,
+                        location=None, header=None):
+        """
+        update queue
+        """
+        if not header:
+            raise PaddleFlowSDKException("InvalidRequest", "paddleflow should login first")
+        body = {}
+        if maxResources:
+            body['maxResources'] = maxResources
+        if minResources:
+            body['minResources'] = minResources
+        if schedulingPolicy:
+            body['schedulingPolicy'] = schedulingPolicy
+        if location:
+            body['location'] = location
+        response = api_client.call_api(method="PUT", url=parse.urljoin(host, api.PADDLE_FLOW_QUEUE+ "/%s" % queuename),
+                                        headers=header, json=body)
+        if not response:
+            raise PaddleFlowSDKException("Connection Error", "update queue failed due to HTTPError")
+        data = json.loads(response.text)
+        if 'message' in data:
+            return False, data['message']
+        return True, None
+
+    @classmethod
     def grant_queue(self, host, username, queuename, header=None):
         """
         grant queue
@@ -204,19 +230,3 @@ class QueueServiceApi(object):
                 grantinfo = GrantInfo(grant['userName'], grant['resourceID'])
                 grantList.append(grantinfo)
         return True, grantList
-
-    @classmethod
-    def flavour(self, host, header=None):
-        """
-        list flavour
-        """
-        if not header:
-            raise PaddleFlowSDKException("InvalidRequest", "paddleflow should login first")
-        response = api_client.call_api(method="GET", url=parse.urljoin(host, api.PADDLE_FLOW_FLAVOUR),
-                                    headers=header)
-        if not response:
-            raise PaddleFlowSDKException("Connection Error", "list flavour failed due to HTTPError")
-        data = json.loads(response.text)
-        if 'message' in data:
-            return False, data['message']
-        return True, data

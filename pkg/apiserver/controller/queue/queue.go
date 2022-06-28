@@ -251,11 +251,20 @@ func CreateQueue(ctx *logger.RequestContext, request *CreateQueueRequest) (Creat
 		request.Location = make(map[string]string)
 	}
 	if request.QuotaType == schema.TypeElasticQuota {
-		if _, exist := request.Location[v1beta1.ElasticQuotaParentKey]; !exist {
-			request.Location[v1beta1.ElasticQuotaParentKey] = defaultRootEQuotaName
-		}
-		if _, exist := request.Location[v1beta1.QuotaTypeKey]; !exist {
+		// check the hierarchy of elastic quota
+		eQuotaType := request.Location[v1beta1.QuotaTypeKey]
+		switch eQuotaType {
+		case "", v1beta1.QuotaTypeLogical:
 			request.Location[v1beta1.QuotaTypeKey] = v1beta1.QuotaTypeLogical
+			// set parent elastic quota
+			if _, exist := request.Location[v1beta1.ElasticQuotaParentKey]; !exist {
+				request.Location[v1beta1.ElasticQuotaParentKey] = defaultRootEQuotaName
+			}
+		case v1beta1.QuotaTypePhysical:
+			// delete parent for physical elastic quota
+			delete(request.Location, v1beta1.ElasticQuotaParentKey)
+		default:
+			return CreateQueueResponse{}, fmt.Errorf("the type of elastic quota %s is not suppported", eQuotaType)
 		}
 	}
 
@@ -386,22 +395,31 @@ func UpdateQueue(ctx *logger.RequestContext, request *UpdateQueueRequest) (Updat
 	}
 
 	// validate Location
-	newLocation := make(map[string]string)
 	if len(request.Location) != 0 {
 		updateClusterRequired = true
-		for k, location := range request.Location {
-			newLocation[k] = location
+		// check the hierarchy of elastic quota
+		if queueInfo.QuotaType == schema.TypeElasticQuota {
+			_, exist := request.Location[v1beta1.QuotaTypeKey]
+			if exist {
+				err = fmt.Errorf("the isolaction type of elastic quota cannot be changed")
+				ctx.Logging().Errorf("update queue failed. error: %s", err.Error())
+				ctx.ErrorCode = common.InvalidArguments
+				return UpdateQueueResponse{}, err
+			}
+			// remove parent for physical elastic quota
+			if queueInfo.Location[v1beta1.QuotaTypeKey] == v1beta1.QuotaTypePhysical {
+				delete(request.Location, v1beta1.ElasticQuotaParentKey)
+				delete(queueInfo.Location, v1beta1.ElasticQuotaParentKey)
+			}
 		}
-	} else if request.Location != nil {
-		updateClusterRequired = true
-		log.Debugf("queue %s Location is set nil", request.Name)
-	}
-	if queueInfo.QuotaType == schema.TypeElasticQuota {
-		newLocation[v1beta1.ElasticQuotaParentKey] = queueInfo.Location[v1beta1.ElasticQuotaParentKey]
-		newLocation[v1beta1.QuotaTypeKey] = queueInfo.Location[v1beta1.QuotaTypeKey]
-	}
-	if updateClusterRequired {
-		queueInfo.Location = newLocation
+		for key, value := range request.Location {
+			if len(value) == 0 {
+				// remove location when value is empty
+				delete(queueInfo.Location, key)
+			} else {
+				queueInfo.Location[key] = value
+			}
+		}
 	}
 
 	// validate scheduling policy
