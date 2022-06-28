@@ -56,7 +56,7 @@ func (j JobView) GetParentDagID() string {
 	return j.ParentDagID
 }
 
-func (j JobView) SetDeps(deps string) {
+func (j *JobView) SetDeps(deps string) {
 	j.Deps = deps
 }
 

@@ -505,7 +505,7 @@ func (bwf *BaseWorkflow) checkCache() error {
 		校验yaml中cache各相关字段
 	*/
 
-	logger.Logger().Info("debug: maxExpiredTime is [%s]", bwf.Source.Cache.MaxExpiredTime)
+	logger.Logger().Infof("debug: maxExpiredTime is [%s]", bwf.Source.Cache.MaxExpiredTime)
 	// 校验MaxExpiredTime，必须能够转换成数字。如果没传，默认为-1
 	if bwf.Source.Cache.MaxExpiredTime == "" {
 		bwf.Source.Cache.MaxExpiredTime = CacheExpiredTimeNever
@@ -1023,6 +1023,7 @@ func NewWorkflow(wfSource schema.WorkflowSource, runID string, params map[string
 	if err := wf.validate(); err != nil {
 		return nil, err
 	}
+	logger.Logger().Infof("debug: after, entryPoint: %v", wf.Source.EntryPoints.EntryPoints)
 	logger.Logger().Infof("debug: after validate, %v", wf.Source.Cache)
 	if err := wf.newWorkflowRuntime(); err != nil {
 		return nil, err
