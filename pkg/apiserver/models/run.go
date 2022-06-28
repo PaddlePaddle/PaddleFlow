@@ -237,14 +237,17 @@ func (r *Run) initRuntime(jobs []RunJob, dags []RunDag) error {
 
 // 补全ComponentView中的Deps
 func ProcessRuntimeView(componentViews map[string][]schema.ComponentView, components map[string]schema.Component) {
+	logger.Logger().Info("debug: inin ProcessRuntimeView")
 	for compName, comp := range components {
 		compViewList := componentViews[compName]
 		deps := strings.Join(comp.GetDeps(), ",")
+		logger.Logger().Info("debug: inin for 111")
 		for i, compView := range compViewList {
+			logger.Logger().Info("debug: inin for 222")
 			// 信息补全
 			compView.SetDeps(deps)
 			compViewList[i] = compView
-
+			logger.Logger().Infof("debug: after set deps is: %s", compViewList[i].GetDeps())
 			if dagView, ok := compView.(*schema.DagView); ok {
 				dag := comp.(*schema.WorkflowSourceDag)
 				ProcessRuntimeView(dagView.EntryPoints, dag.EntryPoints)
