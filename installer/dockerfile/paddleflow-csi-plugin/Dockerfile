@@ -1,4 +1,4 @@
-FROM paddleflow/pfs-csi:base
+FROM paddleflow/alpine:3.13-shanghai-tz
 
 RUN echo "Asia/shanghai" > /etc/timezone
 ENV WORKDIR /home/paddleflow
