@@ -494,7 +494,7 @@ func (srt *StepRuntime) logCache() error {
 		SecondFp:    srt.secondFingerprint,
 		Source:      srt.pplSource,
 		RunID:       srt.runID,
-		Step:        srt.name,
+		Step:        srt.getComponent().GetName(),
 		JobID:       srt.job.Job().ID,
 		FsID:        srt.fsID,
 		FsName:      srt.fsName,
@@ -503,6 +503,9 @@ func (srt *StepRuntime) logCache() error {
 		Strategy:    CacheStrategyConservative,
 	}
 
+	srt.logger.Infof("++++++++++++++++++++++ cache of step: %v", srt.getWorkFlowStep().Cache)
+	srt.logger.Infof("++++++++++++++++++++++ cache of workflowSource: %v", srt.WorkflowSource.Cache)
+	srt.logger.Infof("++++++++++++++++++++++ expiredTime in LogRunCacheRequest: %v", req.ExpiredTime)
 	// logcache失败，不影响job正常结束，但是把cache失败添加日志
 	_, err := srt.callbacks.LogCacheCb(req)
 	if err != nil {
