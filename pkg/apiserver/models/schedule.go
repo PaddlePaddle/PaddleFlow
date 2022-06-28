@@ -210,10 +210,13 @@ func CreateSchedule(logEntry *log.Entry, schedule Schedule) (scheduleID string, 
 	return schedule.ID, err
 }
 
-func ListSchedule(logEntry *log.Entry, pipelineID string, pk int64, maxKeys int, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter []string) ([]Schedule, error) {
-	logEntry.Debugf("begin list schedule. ")
-	tx := storage.DB.Model(&Schedule{}).Where("pk > ?", pk).Where("pipeline_id = ?", pipelineID)
+func ListSchedule(logEntry *log.Entry, pk int64, maxKeys int, pplFilter, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter []string) ([]Schedule, error) {
+	logEntry.Debugf("begin list schedule.")
+	tx := storage.DB.Model(&Schedule{}).Where("pk > ?", pk)
 
+	if len(pplFilter) > 0 {
+		tx = tx.Where("pipeline_id IN (?)", pplFilter)
+	}
 	if len(pplDetailFilter) > 0 {
 		tx = tx.Where("pipeline_detail_id IN (?)", pplDetailFilter)
 	}
@@ -244,10 +247,14 @@ func ListSchedule(logEntry *log.Entry, pipelineID string, pk int64, maxKeys int,
 	return scheduleList, nil
 }
 
-func IsLastSchedulePk(logEntry *log.Entry, pk int64, pipelineID string, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter []string) (bool, error) {
-	logEntry.Debugf("get last schedule for ppl[%s], Filters: pplDetail[%v], user[%v], schedule[%v], name[%v], status[%v]",
-		pipelineID, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
-	tx := storage.DB.Model(&Schedule{}).Where("pipeline_id = ?", pipelineID)
+func IsLastSchedulePk(logEntry *log.Entry, pk int64, pplFilter, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter []string) (bool, error) {
+	logEntry.Debugf("get last schedule, Filters: ppl[%v], pplDetail[%v], user[%v], schedule[%v], name[%v], status[%v]",
+		pplFilter, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
+	tx := storage.DB.Model(&Schedule{})
+
+	if len(pplFilter) > 0 {
+		tx = tx.Where("pipeline_id IN (?)", pplFilter)
+	}
 
 	if len(pplDetailFilter) > 0 {
 		tx = tx.Where("pipeline_detail_id IN (?)", pplDetailFilter)
@@ -268,7 +275,7 @@ func IsLastSchedulePk(logEntry *log.Entry, pk int64, pipelineID string, pplDetai
 	schedule := Schedule{}
 	tx = tx.Last(&schedule)
 	if tx.Error != nil {
-		logEntry.Errorf("get last schedule for pipeline[%s] failed. error:%s", pipelineID, tx.Error.Error())
+		logEntry.Errorf("get last schedule failed. error:%s", tx.Error.Error())
 		return false, tx.Error
 	}
 
