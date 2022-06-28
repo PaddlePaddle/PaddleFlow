@@ -352,7 +352,7 @@ type Cache struct {
 }
 
 type FailureOptions struct {
-	Strategy string `yaml:"strategy"`
+	Strategy string `yaml:"strategy"     json:"strategy"`
 }
 
 type WorkflowSource struct {

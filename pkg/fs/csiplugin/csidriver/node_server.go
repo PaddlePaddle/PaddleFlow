@@ -65,21 +65,21 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context,
 
 	volumeID := req.VolumeId
 	volumeContext := req.GetVolumeContext()
-	fsID := volumeContext[schema.PfsFsID]
-	server := volumeContext[schema.PfsServer]
-	fsInfoStr := volumeContext[schema.PfsFsInfo]
-	fsCacheStr := volumeContext[schema.PfsFsCache]
 
-	mountInfo := mount.GetMountInfo(fsID, server, fsInfoStr, fsCacheStr, req.GetReadonly())
+	mountInfo, err := mount.ProcessMountInfo(volumeContext[schema.PfsFsID], volumeContext[schema.PfsServer],
+		volumeContext[schema.PfsFsInfo], volumeContext[schema.PfsFsCache], req.GetReadonly())
+	if err != nil {
+		log.Errorf("ProcessMountInfo err: %v", err)
+		return nil, status.Error(codes.Internal, err.Error())
+	}
 	log.Infof("Node publish mountInfo [%+v]", mountInfo)
 	// root credentials for pfs-fuse
 	mountInfo.UsernameRoot, mountInfo.PasswordRoot = ns.credentialInfo.usernameRoot, ns.credentialInfo.passwordRoot
 	mountInfo.TargetPath = targetPath
 	if err := mountVolume(volumeID, mountInfo, req.GetReadonly()); err != nil {
-		log.Errorf("mount filesystem[%s] with server[%s] failed: %v", fsID, server, err)
+		log.Errorf("mount filesystem[%s] failed: %v", volumeContext[schema.PfsFsID], err)
 		return &csi.NodePublishVolumeResponse{}, status.Error(codes.Internal, err.Error())
 	}
-
 	return &csi.NodePublishVolumeResponse{}, nil
 }
 
@@ -124,7 +124,7 @@ func mountVolume(volumeID string, mountInfo mount.Info, readOnly bool) error {
 		log.Errorf("MountThroughPod err: %v", err)
 		return err
 	}
-	return bindMountVolume(schema.GetBindSource(mountInfo.FSID), mountInfo.TargetPath, readOnly)
+	return bindMountVolume(schema.GetBindSource(mountInfo.FsID), mountInfo.TargetPath, readOnly)
 }
 
 func bindMountVolume(sourcePath, mountPath string, readOnly bool) error {

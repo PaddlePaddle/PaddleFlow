@@ -18,7 +18,6 @@ package v1
 
 import (
 	"net/http"
-	"strings"
 
 	"github.com/go-chi/chi"
 	log "github.com/sirupsen/logrus"
@@ -67,25 +66,9 @@ func (pr *PipelineRouter) createPipeline(w http.ResponseWriter, r *http.Request)
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
-	if createPplReq.FsName == "" {
-		logger.LoggerForRequest(&ctx).Errorf(
-			"create pipeline failed. fsname shall not be empty")
-		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, "create pipeline failed. fsname in request body shall not be empty")
-		return
-	}
-	if createPplReq.YamlPath == "" {
-		createPplReq.YamlPath = "./run.yaml"
-	}
-
-	// check user grant to fs
-	fsID, err := getFsIDAndCheckPermission(&ctx, createPplReq.UserName, createPplReq.FsName)
-	if err != nil {
-		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
-		return
-	}
 
 	// create in service
-	response, err := pipeline.CreatePipeline(&ctx, createPplReq, fsID)
+	response, err := pipeline.CreatePipeline(&ctx, createPplReq)
 	if err != nil {
 		logger.LoggerForRequest(&ctx).Errorf(
 			"create pipeline failed. createPplReq:%v error:%v", createPplReq, err)
@@ -123,10 +106,10 @@ func (pr *PipelineRouter) listPipeline(w http.ResponseWriter, r *http.Request) {
 	userNames, pipelineNames := r.URL.Query().Get(util.QueryKeyUserFilter), r.URL.Query().Get(util.QueryKeyNameFilter)
 	userFilter, nameFilter := make([]string, 0), make([]string, 0)
 	if userNames != "" {
-		userFilter = strings.Split(userNames, common.SeparatorComma)
+		userFilter = util.SplitFilter(userNames, common.SeparatorComma, true)
 	}
 	if pipelineNames != "" {
-		nameFilter = strings.Split(pipelineNames, common.SeparatorComma)
+		nameFilter = util.SplitFilter(pipelineNames, common.SeparatorComma, true)
 	}
 	logger.LoggerForRequest(&ctx).Debugf(
 		"user[%s] listPipeline marker:[%s] maxKeys:[%d] userFilter:[%v]",
@@ -162,25 +145,9 @@ func (pr *PipelineRouter) updatePipeline(w http.ResponseWriter, r *http.Request)
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
-	if updatePplReq.FsName == "" {
-		logger.LoggerForRequest(&ctx).Errorf(
-			"update pipeline failed. fsname shall not be empty")
-		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, "update pipeline failed. fsname in request body shall not be empty")
-		return
-	}
-	if updatePplReq.YamlPath == "" {
-		updatePplReq.YamlPath = "./run.yaml"
-	}
-
-	// check user grant to fs
-	fsID, err := getFsIDAndCheckPermission(&ctx, updatePplReq.UserName, updatePplReq.FsName)
-	if err != nil {
-		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
-		return
-	}
 
 	// update in service
-	response, err := pipeline.UpdatePipeline(&ctx, updatePplReq, pipelineID, fsID)
+	response, err := pipeline.UpdatePipeline(&ctx, updatePplReq, pipelineID)
 	if err != nil {
 		logger.LoggerForRequest(&ctx).Errorf(
 			"update pipeline failed. updatePplReq:%v error:%v", updatePplReq, err)
@@ -216,7 +183,7 @@ func (pr *PipelineRouter) getPipeline(w http.ResponseWriter, r *http.Request) {
 	fsNames := r.URL.Query().Get(util.QueryKeyFsFilter)
 	fsFilter := make([]string, 0)
 	if fsNames != "" {
-		fsFilter = strings.Split(fsNames, common.SeparatorComma)
+		fsFilter = util.SplitFilter(fsNames, common.SeparatorComma, true)
 	}
 
 	logger.LoggerForRequest(&ctx).Debugf(

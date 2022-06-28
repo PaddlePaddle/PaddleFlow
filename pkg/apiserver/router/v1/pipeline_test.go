@@ -56,6 +56,12 @@ func TestCreatePipeline(t *testing.T) {
 	})
 	defer patch1.Reset()
 
+	patch2 := gomonkey.ApplyFunc(pipeline.CheckFsAndGetID, func(string, string, string) (string, error) {
+		return "", nil
+	})
+
+	defer patch2.Reset()
+
 	result, err := PerformPostRequest(router, pplUrl, createPplReq)
 	assert.Nil(t, err)
 	assert.Equal(t, http.StatusCreated, result.Code)

@@ -32,12 +32,14 @@ const (
 	PfsFsCache = "pfs.fs.cache"
 	PfsServer  = "pfs.server"
 
-	PodMntDir = "/home/paddleflow/mnt"
+	FusePodMntDir = "/home/paddleflow/mnt"
 
 	FsMetaDefault = "default"
 	FsMetaMemory  = "mem"
 	FsMetaLevelDB = "leveldb"
 	FsMetaNutsDB  = "nutsdb"
+
+	FuseKeyFsInfo = "fs-info"
 )
 
 func IsValidFsMetaDriver(metaDriver string) bool {
@@ -50,7 +52,7 @@ func IsValidFsMetaDriver(metaDriver string) bool {
 }
 
 func GetBindSource(fsID string) string {
-	return path.Join(PodMntDir, fsID, "storage")
+	return path.Join(FusePodMntDir, fsID, "storage")
 }
 
 func ConcatenatePVName(namespace, fsID string) string {

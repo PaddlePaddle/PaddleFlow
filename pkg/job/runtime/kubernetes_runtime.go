@@ -638,8 +638,8 @@ func buildPV(pv *apiv1.PersistentVolume, fsID string) error {
 	pv.Spec.CSI.VolumeHandle = pv.Name
 	pv.Spec.CSI.VolumeAttributes[schema.PfsServer] = config.GetServiceAddress()
 	pv.Spec.CSI.VolumeAttributes[schema.PfsFsID] = fsID
-	pv.Spec.CSI.VolumeAttributes[schema.PfsFsInfo] = string(fsStr)
-	pv.Spec.CSI.VolumeAttributes[schema.PfsFsCache] = string(fsCacheConfigStr)
+	pv.Spec.CSI.VolumeAttributes[schema.PfsFsInfo] = base64.StdEncoding.EncodeToString(fsStr)
+	pv.Spec.CSI.VolumeAttributes[schema.PfsFsCache] = base64.StdEncoding.EncodeToString(fsCacheConfigStr)
 	return nil
 }
 
@@ -688,7 +688,7 @@ func (kr *KubeRuntime) getPersistentVolume(name string, getOptions metav1.GetOpt
 }
 
 func (kr *KubeRuntime) createPersistentVolumeClaim(namespace string, pvc *apiv1.PersistentVolumeClaim) (*apiv1.
-	PersistentVolumeClaim, error) {
+PersistentVolumeClaim, error) {
 	return kr.clientset.CoreV1().PersistentVolumeClaims(namespace).Create(context.TODO(), pvc, metav1.CreateOptions{})
 }
 
@@ -698,7 +698,7 @@ func (kr *KubeRuntime) DeletePersistentVolumeClaim(namespace string, name string
 }
 
 func (kr *KubeRuntime) getPersistentVolumeClaim(namespace, name string, getOptions metav1.GetOptions) (*apiv1.
-	PersistentVolumeClaim, error) {
+PersistentVolumeClaim, error) {
 	return kr.clientset.CoreV1().PersistentVolumeClaims(namespace).Get(context.TODO(), name, getOptions)
 }
 
