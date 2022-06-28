@@ -153,6 +153,8 @@ func (drt *DagRuntime) getReadyComponent() map[string]schema.Component {
 			readyComponent[name] = subComponent
 		}
 	}
+
+	drt.logger.Infof("get ready component[%v]", readyComponent)
 	return readyComponent
 }
 
@@ -716,6 +718,9 @@ func (drt *DagRuntime) processEventFromSubComponent(event WorkflowEvent) error {
 	drt.syncToApiServerAndParent(WfEventDagUpdate, &view, StatusMsg)
 
 	// 如果 dagRuntime 未处于终态，则需要判断是否有新的子节点可以运行
+	if !drt.done {
+		drt.scheduleSubComponent(true)
+	}
 
 	return nil
 }

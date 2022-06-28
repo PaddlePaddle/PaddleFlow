@@ -24,8 +24,6 @@ import (
 	"strings"
 
 	"github.com/Knetic/govaluate"
-	. "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
-
 	"github.com/sirupsen/logrus"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
