@@ -62,11 +62,11 @@ func TestKubeRuntimePVAndPVC(t *testing.T) {
 
 	mountInfo, err := ProcessMountInfo(fs.ID, "server", fsBase64, fsCacheBase64, false)
 	assert.Nil(t, err)
-	assert.Equal(t, mountInfo.FsBase64Str, fsBase64)
-	assert.Equal(t, mountInfo.FsCacheConfig.CacheDir, fsCache.CacheDir)
-	assert.Equal(t, mountInfo.FsCacheConfig.FsID, fsCache.FsID)
-	assert.Equal(t, mountInfo.FsCacheConfig.MetaDriver, fsCache.MetaDriver)
-	assert.Equal(t, mountInfo.FsCacheConfig.BlockSize, fsCache.BlockSize)
+	assert.Equal(t, fsBase64, mountInfo.FsBase64Str)
+	assert.Equal(t, fsCache.CacheDir, mountInfo.FsCacheConfig.CacheDir)
+	assert.Equal(t, fsCache.FsID, mountInfo.FsCacheConfig.FsID)
+	assert.Equal(t, fsCache.MetaDriver, mountInfo.FsCacheConfig.MetaDriver)
+	assert.Equal(t, fsCache.BlockSize, mountInfo.FsCacheConfig.BlockSize)
 	fmt.Printf("\nmountInfo: %+v\n", mountInfo)
 
 	// no cache config
@@ -78,10 +78,10 @@ func TestKubeRuntimePVAndPVC(t *testing.T) {
 	fmt.Printf("\nfsCacheBase64: %s\n", fsCacheBase64)
 	mountInfo, err = ProcessMountInfo(fs.ID, "server", fsBase64, fsCacheBase64, false)
 	assert.Nil(t, err)
-	assert.Equal(t, mountInfo.FsBase64Str, fsBase64)
-	assert.Equal(t, mountInfo.FsCacheConfig.CacheDir, fsCache.CacheDir)
-	assert.Equal(t, mountInfo.FsCacheConfig.FsID, fsCache.FsID)
-	assert.Equal(t, mountInfo.FsCacheConfig.MetaDriver, fsCache.MetaDriver)
-	assert.Equal(t, mountInfo.FsCacheConfig.BlockSize, fsCache.BlockSize)
+	assert.Equal(t, "", mountInfo.FsCacheConfig.CacheDir)
+	assert.Equal(t, "", mountInfo.FsCacheConfig.FsID)
+	assert.Equal(t, "default", mountInfo.FsCacheConfig.MetaDriver)
+	assert.Equal(t, 0, mountInfo.FsCacheConfig.BlockSize)
+	assert.Equal(t, false, mountInfo.FsCacheConfig.Debug)
 	fmt.Printf("\nmountInfo: %+v\n", mountInfo)
 }
