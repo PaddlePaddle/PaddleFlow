@@ -17,32 +17,74 @@ limitations under the License.
 package mount
 
 import (
-	csiCommon "github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/common"
+	"encoding/base64"
+	"encoding/json"
+	"path"
+
+	log "github.com/sirupsen/logrus"
+
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csiconfig"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
 
 type Info struct {
-	Server       string
-	FSID         string
-	FsInfoStr    string
-	FsCacheStr   string
-	TargetPath   string
-	LocalPath    string
-	UsernameRoot string
-	PasswordRoot string
-	ClusterID    string
-	UID          int
-	GID          int
-	ReadOnly     bool
+	Server        string
+	FsID          string
+	FsInfoStr     string
+	FsCacheConfig model.FSCacheConfig
+	TargetPath    string
+	LocalPath     string
+	UsernameRoot  string
+	PasswordRoot  string
+	ClusterID     string
+	UID           int
+	GID           int
+	ReadOnly      bool
 }
 
-func GetMountInfo(id, server, fsInfo, fsCache string, readOnly bool) Info {
+func ProcessMountInfo(id, server, fsInfoBase64, fsCacheBase64 string, readOnly bool) (Info, error) {
+	// fs info
+	fsInfoByte, err := base64.StdEncoding.DecodeString(fsInfoBase64)
+	if err != nil {
+		log.Errorf("base64 dcoding PfsFsInfo err: %v", err)
+		return Info{}, err
+	}
+	fs := model.FileSystem{}
+	if err := json.Unmarshal(fsInfoByte, &fs); err != nil {
+		log.Errorf("json unmarshal fs [%s] err: %v", string(fsInfoByte), err)
+		return Info{}, err
+	}
+	fsInfoStr := string(fsInfoByte)
+	// fs cache config
+	fsCacheByte, err := base64.StdEncoding.DecodeString(fsCacheBase64)
+	if err != nil {
+		log.Errorf("base64 dcoding PfsFsCache err: %v", err)
+		return Info{}, err
+	}
+	cacheConfig := model.FSCacheConfig{}
+	if err := json.Unmarshal(fsCacheByte, &cacheConfig); err != nil {
+		log.Errorf("json unmarshal cacheConfig [%s] err: %v", string(fsCacheByte), err)
+		return Info{}, err
+	}
+	completeCacheConfig(&cacheConfig, id)
 	return Info{
-		FSID:       id,
-		Server:     server,
-		FsInfoStr:  fsInfo,
-		FsCacheStr: fsCache,
-		UID:        csiCommon.GetDefaultUID(),
-		GID:        csiCommon.GetDefaultGID(),
-		ReadOnly:   readOnly,
+		FsID:          id,
+		Server:        server,
+		FsInfoStr:     fsInfoStr,
+		FsCacheConfig: cacheConfig,
+		UID:           common.GetDefaultUID(),
+		GID:           common.GetDefaultGID(),
+		ReadOnly:      readOnly,
+	}, nil
+}
+
+func completeCacheConfig(config *model.FSCacheConfig, fsID string) {
+	if config.CacheDir == "" {
+		config.CacheDir = path.Join(csiconfig.HostMntDir, fsID)
+	}
+	if config.MetaDriver == "" {
+		config.MetaDriver = schema.FsMetaDefault
 	}
 }
