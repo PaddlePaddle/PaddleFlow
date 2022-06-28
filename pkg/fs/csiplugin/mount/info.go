@@ -19,6 +19,8 @@ package mount
 import (
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
+	common2 "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"path"
 
 	log "github.com/sirupsen/logrus"
@@ -46,29 +48,19 @@ type Info struct {
 
 func ProcessMountInfo(id, server, fsInfoBase64, fsCacheBase64 string, readOnly bool) (Info, error) {
 	// fs info
-	fsInfoByte, err := base64.StdEncoding.DecodeString(fsInfoBase64)
+	fsInfoStr, err := processFsInfo(fsInfoBase64)
 	if err != nil {
-		log.Errorf("base64 dcoding PfsFsInfo err: %v", err)
-		return Info{}, err
+		retErr := fmt.Errorf("fs[%s] process fs info err: %v", id, err)
+		log.Errorf(retErr.Error())
+		return Info{}, retErr
 	}
-	fs := model.FileSystem{}
-	if err := json.Unmarshal(fsInfoByte, &fs); err != nil {
-		log.Errorf("json unmarshal fs [%s] err: %v", string(fsInfoByte), err)
-		return Info{}, err
-	}
-	fsInfoStr := string(fsInfoByte)
 	// fs cache config
-	fsCacheByte, err := base64.StdEncoding.DecodeString(fsCacheBase64)
+	cacheConfig, err := processCacheConfig(id, fsInfoBase64)
 	if err != nil {
-		log.Errorf("base64 dcoding PfsFsCache err: %v", err)
-		return Info{}, err
+		retErr := fmt.Errorf("fs[%s] process fs cacheConfig err: %v", id, err)
+		log.Errorf(retErr.Error())
+		return Info{}, retErr
 	}
-	cacheConfig := model.FSCacheConfig{}
-	if err := json.Unmarshal(fsCacheByte, &cacheConfig); err != nil {
-		log.Errorf("json unmarshal cacheConfig [%s] err: %v", string(fsCacheByte), err)
-		return Info{}, err
-	}
-	completeCacheConfig(&cacheConfig, id)
 	return Info{
 		FsID:          id,
 		Server:        server,
@@ -80,11 +72,48 @@ func ProcessMountInfo(id, server, fsInfoBase64, fsCacheBase64 string, readOnly b
 	}, nil
 }
 
-func completeCacheConfig(config *model.FSCacheConfig, fsID string) {
-	if config.CacheDir == "" {
-		config.CacheDir = path.Join(csiconfig.HostMntDir, fsID)
+func processFsInfo(fsInfoBase64 string) (string, error) {
+	fsInfoByte, err := base64.StdEncoding.DecodeString(fsInfoBase64)
+	if err != nil {
+		log.Errorf("base64 dcoding PfsFsInfo err: %v", err)
+		return "", err
 	}
-	if config.MetaDriver == "" {
-		config.MetaDriver = schema.FsMetaDefault
+	fs := model.FileSystem{}
+	if err := json.Unmarshal(fsInfoByte, &fs); err != nil {
+		log.Errorf("json unmarshal fs [%s] err: %v", string(fsInfoByte), err)
+		return "", err
 	}
+	if fs.ID == "" {
+		fs.ID = common2.ID(fs.UserName, fs.Name)
+	}
+	if fs.ID == "" ||
+		fs.Type == "" ||
+		fs.ServerAddress == "" {
+		err := fmt.Errorf("processFsInfo failed as id or type of server address empty")
+		log.Errorf(err.Error())
+		return "", err
+	}
+	return string(fsInfoByte), nil
+}
+
+func processCacheConfig(fsID, fsCacheBase64 string) (model.FSCacheConfig, error) {
+	fsCacheByte, err := base64.StdEncoding.DecodeString(fsCacheBase64)
+	if err != nil {
+		retErr := fmt.Errorf("fs[%s] base64 decoding PfsFsCache err: %v", fsID, err)
+		log.Errorf(retErr.Error())
+		return model.FSCacheConfig{}, retErr
+	}
+	cacheConfig := model.FSCacheConfig{}
+	if err := json.Unmarshal(fsCacheByte, &cacheConfig); err != nil {
+		retErr := fmt.Errorf("fs[%s] unmarshal cacheConfig [%s] err: %v", fsID, string(fsCacheByte), err)
+		log.Errorf(retErr.Error())
+		return model.FSCacheConfig{}, retErr
+	}
+	if cacheConfig.CacheDir == "" {
+		cacheConfig.CacheDir = path.Join(csiconfig.HostMntDir, fsID)
+	}
+	if cacheConfig.MetaDriver == "" {
+		cacheConfig.MetaDriver = schema.FsMetaDefault
+	}
+	return cacheConfig, nil
 }
