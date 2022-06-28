@@ -20,8 +20,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+
 	log "github.com/sirupsen/logrus"
 
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
@@ -100,6 +102,9 @@ func processCacheConfig(fsID, fsCacheBase64 string) (model.FSCacheConfig, error)
 		retErr := fmt.Errorf("fs[%s] unmarshal cacheConfig [%s] err: %v", fsID, string(fsCacheByte), err)
 		log.Errorf(retErr.Error())
 		return model.FSCacheConfig{}, retErr
+	}
+	if cacheConfig.MetaDriver == "" {
+		cacheConfig.MetaDriver = schema.FsMetaDefault
 	}
 	return cacheConfig, nil
 }
