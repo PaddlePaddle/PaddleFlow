@@ -659,6 +659,8 @@ func (srt *StepRuntime) Execute() {
 	view := srt.newJobView(msg)
 	srt.syncToApiServerAndParent(WfEventJobUpdate, &view, msg)
 
+	fmt.Printf("++++++ after sync, pk of srt[%s] is %d, %d", srt.name, srt.pk, srt.baseComponentRuntime.pk)
+
 	srt.logger.Debugf("step[%s] of runid[%s]: jobID[%s]", srt.name, srt.runID, srt.job.(*PaddleFlowJob).ID)
 
 	srt.logInputArtifact()
@@ -776,7 +778,7 @@ func (srt *StepRuntime) newJobView(msg string) schema.JobView {
 		Seq:         srt.seq,
 	}
 
-	srt.logger.Infof("+++++++++ create jobView for component[%s] with pk[%d]", srt.getName(), srt.pk)
+	srt.logger.Infof("+++++++++ create jobView for component[%s] with pk[%d], %d", srt.getName(), srt.pk, srt.baseComponentRuntime.pk)
 
 	return view
 }
