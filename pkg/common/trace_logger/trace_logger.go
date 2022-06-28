@@ -170,8 +170,8 @@ func SyncAll() error {
 	return manager.SyncAll()
 }
 
-func LoadAll(path string) error {
-	return manager.LoadAll(path)
+func LoadAll(path string, prefix ...string) error {
+	return manager.LoadAll(path, prefix...)
 }
 
 func ClearAll() error {

@@ -128,21 +128,34 @@ func start() error {
 	go jobCtrl.WSManager.SendGroupData()
 	go jobCtrl.WSManager.GetGroupData()
 
-	tlConfig := ServerConf.TraceLog
+	traceLoggerConfig := ServerConf.TraceLog
+
+	// recover local trace log
+	err = trace_logger.LoadAll(traceLoggerConfig.Dir, traceLoggerConfig.FilePrefix)
+	// if no file exist, omit err
+	if err != nil && !os.IsExist(err) {
+		errMsg := fmt.Errorf("load local trace log failed. error: %w", err)
+		log.Error(errMsg.Error())
+		return errMsg
+	}
+	err = nil
+
 	// enable auto delete and sync for trace log
 	if err = trace_logger.AutoDelete(
-		trace_logger.ParseTimeWithDefault(tlConfig.DeleteInterval, AutoDeleteDuration),
+		trace_logger.ParseTimeWithDefault(traceLoggerConfig.DeleteInterval, AutoDeleteDuration),
 		DeleteFunc,
 	); err != nil {
-		log.Errorf("auto delete trace log failed. error: %v", err)
-		return err
+		errMsg := fmt.Errorf("enable auto delete for trace log failed: %w", err)
+		log.Errorf(errMsg.Error())
+		return errMsg
 	}
 
 	if err = trace_logger.AutoSync(
-		trace_logger.ParseTimeWithDefault(tlConfig.SyncInterval, AutoSyncDuration),
+		trace_logger.ParseTimeWithDefault(traceLoggerConfig.SyncInterval, AutoSyncDuration),
 	); err != nil {
-		log.Errorf("auto sync trace log failed. error: %v", err)
-		return err
+		errMsg := fmt.Errorf("enable auto sync for trace log failed: %w", err)
+		log.Errorf(errMsg.Error())
+		return errMsg
 	}
 
 	go func() {
