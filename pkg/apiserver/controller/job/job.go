@@ -708,7 +708,7 @@ func validateDistributedJob(ctx *logger.RequestContext, request *CreateDisJobReq
 		return fmt.Errorf("invalid framework: %s", request.Framework)
 	}
 
-	if len(request.ExtensionTemplate) == 0 {
+	if len(request.ExtensionTemplate) != 0 {
 		log.Infof("RequestID[%s]: request.ExtensionTemplate is not empty, pass validate members", ctx.RequestID)
 		return nil
 	}
