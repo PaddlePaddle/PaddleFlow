@@ -20,12 +20,8 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"path"
-
 	log "github.com/sirupsen/logrus"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csiconfig"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
@@ -104,12 +100,6 @@ func processCacheConfig(fsID, fsCacheBase64 string) (model.FSCacheConfig, error)
 		retErr := fmt.Errorf("fs[%s] unmarshal cacheConfig [%s] err: %v", fsID, string(fsCacheByte), err)
 		log.Errorf(retErr.Error())
 		return model.FSCacheConfig{}, retErr
-	}
-	if cacheConfig.CacheDir == "" {
-		cacheConfig.CacheDir = path.Join(csiconfig.HostMntDir, fsID)
-	}
-	if cacheConfig.MetaDriver == "" {
-		cacheConfig.MetaDriver = schema.FsMetaDefault
 	}
 	return cacheConfig, nil
 }
