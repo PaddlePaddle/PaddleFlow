@@ -84,6 +84,9 @@ func (rr *RunRouter) createRun(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		errMsg := fmt.Sprintf(
 			"create run failed. createRunInfo:%v error:%s", createRunInfo, err.Error())
+		if response.RunID != "" {
+			trace_logger.Key(response.RunID).Errorf(errMsg)
+		}
 		logger.LoggerForRequest(&ctx).Errorf(errMsg)
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
@@ -142,6 +145,9 @@ func (rr *RunRouter) createRunByJson(w http.ResponseWriter, r *http.Request) {
 	// create run
 	response, err := pipeline.CreateRunByJson(ctx.UserName, &createRunByJsonInfo, bodyMap)
 	if err != nil {
+		if response.RunID != "" {
+			trace_logger.Key(response.RunID).Errorf("create run fail: %s", err)
+		}
 		logger.LoggerForRequest(&ctx).Errorf(
 			"create run by json failed. createRunByJsonInfo:%v error:%s", createRunByJsonInfo, err.Error())
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())

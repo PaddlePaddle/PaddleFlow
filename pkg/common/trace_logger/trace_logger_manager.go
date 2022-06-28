@@ -26,11 +26,14 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"github.com/emirpasic/gods/trees/binaryheap"
 	"github.com/orcaman/concurrent-map"
 	"github.com/sirupsen/logrus"
 	"github.com/viney-shih/go-lock"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -43,7 +46,6 @@ const (
 	NoTraceError       = "no trace has been set"
 	LogLevelStringSize = 4
 	MaxCacheSize       = 10000
-	MaxIterationCount  = 5
 	CacheLoadFactor    = 0.75
 	DefaultTimeout     = time.Hour * 2
 )
@@ -53,6 +55,8 @@ var (
 	_ TraceLogger        = (*defaultTraceLogger)(nil)
 	_ TraceLoggerManager = (*DefaultTraceLoggerManager)(nil)
 )
+
+// heap comparator
 
 // define interface
 
@@ -130,7 +134,7 @@ type TraceLoggerManager interface {
 	Key(key string) TraceLogger
 
 	SyncAll() error
-	LoadAll(path string) error
+	LoadAll(path string, maxLoadNum int, prefix ...string) error
 	ClearAll() error
 	DeleteUnusedCache(timeout time.Duration, method ...DeleteMethod) error
 
@@ -318,8 +322,7 @@ func (d *DefaultTraceLoggerManager) SetTraceToCache(key string, trace Trace) (er
 	})
 
 	// delete outdated trace
-	// run it in a goroutine to avoid deadlock
-	//fmt.Println("maxCacheSize:", d.maxCacheSize, d.cache.Count())
+	// fmt.Println("maxCacheSize:", d.maxCacheSize, d.cache.Count())
 	if d.cache.Count() >= d.maxCacheSize {
 		logrus.Debugf("cache size is too large, start auto delete")
 		d.evictCache()
@@ -331,6 +334,7 @@ func (d *DefaultTraceLoggerManager) SetTraceToCache(key string, trace Trace) (er
 // will decrease cache size until it is less than maxCacheSize
 func (d *DefaultTraceLoggerManager) evictCache() {
 
+	// use try lock to avoid deadlock
 	success := d.evictLock.TryLock()
 	// if not get evictLock, omit evictCache
 	if !success {
@@ -341,31 +345,47 @@ func (d *DefaultTraceLoggerManager) evictCache() {
 	if d.cache.Count() < d.maxCacheSize {
 		return // do not delete if cache is not full
 	}
+
+	// sync all before evict
+	errTmp := d.SyncAll()
+	if errTmp != nil {
+		logrus.Warnf("sync failed before evict: %v", errTmp)
+	}
+
 	newSize := int(float64(d.maxCacheSize) * CacheLoadFactor)
 	numberToBeDeleted := d.cache.Count() - newSize
 
 	iter := d.cache.IterBuffered()
 
 	timeout := d.timeout
-	count := MaxIterationCount
 
-loop:
-	// loop to delete outdated trace
-	// if one loop do not reach the goal, then half the timeout, and try again
-	for count > 0 {
-		ddl := time.Now().Add(-timeout)
-		for x := range iter {
-			if numberToBeDeleted <= 0 {
-				break loop
-			}
-			k, v := x.Key, x.Val.(Trace)
-			if v.UpdateTime.Before(ddl) {
-				d.removeKey(k)
-				numberToBeDeleted--
-			}
+	runHeap := binaryheap.NewWithStringComparator()
+	ddl := time.Now().Add(-timeout)
+
+	for x := range iter {
+		if numberToBeDeleted <= 0 {
+			break
 		}
-		count--
-		timeout /= 2
+		k, v := x.Key, x.Val.(Trace)
+
+		if v.UpdateTime.Before(ddl) {
+			d.removeKey(k)
+			numberToBeDeleted--
+		} else {
+			// add it to heap
+			runHeap.Push(k)
+		}
+	}
+
+	// if deletion not done, remove item with smaller key
+	for ; numberToBeDeleted > 0; numberToBeDeleted-- {
+		x, ok := runHeap.Pop()
+		// no more value, then break
+		if !ok {
+			break
+		}
+		key := x.(string)
+		d.removeKey(key)
 	}
 
 }
@@ -387,8 +407,9 @@ func (d *DefaultTraceLoggerManager) SyncAll() error {
 	return nil
 }
 
+// TODO: load on run, read last file
 // LoadAll will load all the trace from the file, and replace local cache
-func (d *DefaultTraceLoggerManager) LoadAll(path string) (err error) {
+func (d *DefaultTraceLoggerManager) LoadAll(path string, maxLoadNum int, prefixes ...string) (err error) {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
@@ -399,22 +420,57 @@ func (d *DefaultTraceLoggerManager) LoadAll(path string) (err error) {
 		return fmt.Errorf("failed to get file stat: %v", err)
 	}
 
+	var prefix string
+	if len(prefixes) > 0 {
+		prefix = prefixes[0]
+	}
+
 	// if is a directory, open the files in the directory
 	if stat.IsDir() {
 		filesEntries, err := os.ReadDir(path)
+
+		// new file info slice
+		fileInfos := make([]fs.FileInfo, 0, len(filesEntries))
+
 		if err != nil {
 			return fmt.Errorf("failed to read dir: %v", err)
 		}
+
 		for _, fileEntry := range filesEntries {
-			if !fileEntry.IsDir() {
-				err := d.loadFromFile(filepath.Join(path, fileEntry.Name()))
+			if !fileEntry.IsDir() && fileEntry.Name() != "." && fileEntry.Name() != ".." && strings.HasPrefix(fileEntry.Name(), prefix) {
+				info, err := fileEntry.Info()
 				if err != nil {
-					return err
+					return fmt.Errorf("failed to read file: %v", err)
 				}
+
+				// add it to slice
+				fileInfos = append(fileInfos, info)
 			}
 		}
+
+		// read in order
+		size := len(fileInfos)
+
+		// sort in descending order
+		sort.Slice(fileInfos, func(i, j int) bool {
+			return fileInfos[i].ModTime().After(fileInfos[j].ModTime())
+		})
+
+		for _, fileInfo := range fileInfos {
+			if size >= d.maxCacheSize {
+				break
+			}
+
+			count, err := d.loadFromFile(filepath.Join(path, fileInfo.Name()))
+			if err != nil {
+				return err
+			}
+
+			size += count
+		}
+
 	} else {
-		err := d.loadFromFile(path)
+		_, err := d.loadFromFile(path)
 		if err != nil {
 			return err
 		}
@@ -423,7 +479,7 @@ func (d *DefaultTraceLoggerManager) LoadAll(path string) (err error) {
 	return nil
 }
 
-func (d *DefaultTraceLoggerManager) loadFromFile(filePath string) (err error) {
+func (d *DefaultTraceLoggerManager) loadFromFile(filePath string) (count int, err error) {
 
 	file, err := os.Open(filePath)
 	defer func() {
@@ -434,7 +490,7 @@ func (d *DefaultTraceLoggerManager) loadFromFile(filePath string) (err error) {
 	}()
 
 	if err != nil {
-		return fmt.Errorf("read log file fail: %w", err)
+		return count, fmt.Errorf("read log file fail: %w", err)
 	}
 	scanner := bufio.NewScanner(file)
 
@@ -444,7 +500,7 @@ func (d *DefaultTraceLoggerManager) loadFromFile(filePath string) (err error) {
 		log := traceLog{}
 		err = json.Unmarshal(jsonBytes, &log)
 		if err != nil {
-			return fmt.Errorf("parse log fail: %w", err)
+			return count, fmt.Errorf("parse log fail: %w", err)
 		}
 		d.cache.Upsert(log.Key, log, func(exist bool, valueInMap interface{}, newValue interface{}) interface{} {
 			val := Trace{}
@@ -456,9 +512,10 @@ func (d *DefaultTraceLoggerManager) loadFromFile(filePath string) (err error) {
 			val.UpdateTime = time.Now()
 			return val
 		})
+		count++
 	}
 
-	return nil
+	return count, nil
 }
 
 func (d *DefaultTraceLoggerManager) AutoDelete(duration time.Duration, methods ...DeleteMethod) error {
