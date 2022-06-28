@@ -19,7 +19,6 @@ package mount
 import (
 	"encoding/json"
 	"fmt"
-	"path"
 	"strconv"
 	"strings"
 	"sync"
@@ -80,8 +79,8 @@ func PodUnmount(volumeID string, mountInfo Info) error {
 	}
 
 	mountInfo.Server = pod.Annotations[AnnoKeyServer]
-	mountInfo.FSID = pod.Annotations[AnnoKeyFsID]
-	if mountInfo.Server == "" || mountInfo.FSID == "" {
+	mountInfo.FsID = pod.Annotations[AnnoKeyFsID]
+	if mountInfo.Server == "" || mountInfo.FsID == "" {
 		log.Errorf("PodUnmount: pod[%s] annotations[%v] missing field", pod.Name, pod.Annotations)
 		return fmt.Errorf("PodUnmount: pod[%s] annotations[%v] missing field", pod.Name, pod.Annotations)
 	}
@@ -141,7 +140,7 @@ func createOrUpdatePod(volumeID string, mountInfo Info) error {
 			return addRef(k8sClient, oldPod, mountInfo.TargetPath)
 		}
 	}
-	return status.Errorf(codes.Internal, "Mount %v failed: mount pod %s has been deleting for 1 min", mountInfo.FSID, podName)
+	return status.Errorf(codes.Internal, "Mount %v failed: mount pod %s has been deleting for 1 min", mountInfo.FsID, podName)
 }
 
 func addRef(c k8s.Client, pod *k8sCore.Pod, targetPath string) error {
@@ -197,41 +196,24 @@ func patchPodAnnotation(c k8s.Client, pod *k8sCore.Pod, annotation map[string]st
 }
 
 func createMountPod(k8sClient k8s.Client, volumeID string, mountInfo Info) error {
-	// get config
-	cacheConfig := model.FSCacheConfig{}
-	if err := json.Unmarshal([]byte(mountInfo.FsCacheStr), &cacheConfig); err != nil {
-		retErr := fmt.Errorf("fs cache config [%s] unmashal err: %v", mountInfo.FsCacheStr, err)
-		log.Errorf(retErr.Error())
-		return err
-	}
-	completeCacheConfig(&cacheConfig, mountInfo.FSID)
-	mountPod, err := buildMountPod(volumeID, mountInfo, cacheConfig)
+	mountPod, err := buildMountPod(volumeID, mountInfo)
 	if err != nil {
-		log.Errorf("createMount: buildMountPod[%s] err: %v", mountInfo.FSID, err)
+		log.Errorf("createMount: buildMountPod[%s] err: %v", mountInfo.FsID, err)
 		return err
 	}
 	_, err = k8sClient.CreatePod(mountPod)
 	if err != nil {
-		log.Errorf("createMount: Create pod for fsID %s err: %v", mountInfo.FSID, err)
+		log.Errorf("createMount: Create pod for fsID %s err: %v", mountInfo.FsID, err)
 		return err
 	}
 	return nil
 }
 
-func completeCacheConfig(config *model.FSCacheConfig, fsID string) {
-	if config.CacheDir == "" {
-		config.CacheDir = path.Join(csiconfig.HostMntDir, fsID)
-	}
-	if config.MetaDriver == "" {
-		config.MetaDriver = schema.FsMetaDefault
-	}
-}
-
-func buildMountPod(volumeID string, mountInfo Info, cacheConf model.FSCacheConfig) (*k8sCore.Pod, error) {
+func buildMountPod(volumeID string, mountInfo Info) (*k8sCore.Pod, error) {
 	pod := csiconfig.GeneratePodTemplate()
 	pod.Name = GeneratePodNameByVolumeID(volumeID)
-	buildMountContainer(pod, mountInfo, cacheConf)
-	buildCacheWorkerContainer(pod, mountInfo, cacheConf)
+	buildMountContainer(pod, mountInfo)
+	buildCacheWorkerContainer(pod, mountInfo)
 	anno, err := buildAnnotation(pod, mountInfo.TargetPath)
 	if err != nil {
 		return nil, err
@@ -315,8 +297,8 @@ func getErrContainerLog(K8sClient k8s.Client, podName string) (log string, err e
 	return
 }
 
-func buildCacheWorkerContainer(pod *k8sCore.Pod, mountInfo Info, cacheConf model.FSCacheConfig) {
-	cmd := getCacheWorkerCmd(mountInfo, cacheConf)
+func buildCacheWorkerContainer(pod *k8sCore.Pod, mountInfo Info) {
+	cmd := getCacheWorkerCmd(mountInfo)
 	pod.Spec.Containers[1].Command = []string{"sh", "-c", cmd}
 	mp := k8sCore.MountPropagationBidirectional
 	volumeMounts := []k8sCore.VolumeMount{
@@ -334,8 +316,8 @@ func buildCacheWorkerContainer(pod *k8sCore.Pod, mountInfo Info, cacheConf model
 	pod.Spec.Containers[1].VolumeMounts = volumeMounts
 }
 
-func buildMountContainer(pod *k8sCore.Pod, mountInfo Info, cacheConf model.FSCacheConfig) {
-	cmd := getMountCmd(mountInfo, cacheConf)
+func buildMountContainer(pod *k8sCore.Pod, mountInfo Info) {
+	cmd := getMountCmd(mountInfo)
 	pod.Spec.Containers[0].Command = []string{"sh", "-c", cmd}
 	statCmd := "stat -c %i " + FusePodMountPoint
 	pod.Spec.Containers[0].ReadinessProbe = &k8sCore.Probe{
@@ -354,7 +336,7 @@ func buildMountContainer(pod *k8sCore.Pod, mountInfo Info, cacheConf model.FSCac
 	}
 	pod.Annotations = make(map[string]string)
 	pod.Annotations[AnnoKeyServer] = mountInfo.Server
-	pod.Annotations[AnnoKeyFsID] = mountInfo.FSID
+	pod.Annotations[AnnoKeyFsID] = mountInfo.FsID
 
 	typeDir := k8sCore.HostPathDirectoryOrCreate
 	volumes := []k8sCore.Volume{
@@ -362,7 +344,7 @@ func buildMountContainer(pod *k8sCore.Pod, mountInfo Info, cacheConf model.FSCac
 			Name: VolumesKeyDataCache,
 			VolumeSource: k8sCore.VolumeSource{
 				HostPath: &k8sCore.HostPathVolumeSource{
-					Path: cacheConf.CacheDir + DataCacheDir,
+					Path: mountInfo.FsCacheConfig.CacheDir + DataCacheDir,
 					Type: &typeDir,
 				},
 			},
@@ -371,7 +353,7 @@ func buildMountContainer(pod *k8sCore.Pod, mountInfo Info, cacheConf model.FSCac
 			Name: VolumesKeyMetaCache,
 			VolumeSource: k8sCore.VolumeSource{
 				HostPath: &k8sCore.HostPathVolumeSource{
-					Path: cacheConf.CacheDir + MetaCacheDir,
+					Path: mountInfo.FsCacheConfig.CacheDir + MetaCacheDir,
 					Type: &typeDir,
 				},
 			},
@@ -401,7 +383,7 @@ func buildMountContainer(pod *k8sCore.Pod, mountInfo Info, cacheConf model.FSCac
 		{
 			Name:             VolumesKeyMount,
 			MountPath:        schema.FusePodMntDir,
-			SubPath:          mountInfo.FSID,
+			SubPath:          mountInfo.FsID,
 			MountPropagation: &mp,
 		},
 	}
@@ -409,7 +391,8 @@ func buildMountContainer(pod *k8sCore.Pod, mountInfo Info, cacheConf model.FSCac
 	pod.Spec.Containers[0].VolumeMounts = volumeMounts
 }
 
-func getMountCmd(mountInfo Info, cacheConf model.FSCacheConfig) string {
+func getMountCmd(mountInfo Info) string {
+	cacheConf := mountInfo.FsCacheConfig
 	mkdir := "mkdir -p " + FusePodMountPoint + ";"
 	pfsMountPath := "/home/paddleflow/pfs-fuse mount "
 	mountPath := "--mount-point=" + FusePodMountPoint + " "
@@ -432,16 +415,16 @@ func getMountCmd(mountInfo Info, cacheConf model.FSCacheConfig) string {
 	return cmd
 }
 
-func getCacheWorkerCmd(mountInfo Info, cacheConf model.FSCacheConfig) string {
+func getCacheWorkerCmd(mountInfo Info) string {
 	options := []string{
 		"--server=" + mountInfo.Server,
 		"--username=" + mountInfo.UsernameRoot,
 		"--password=" + mountInfo.PasswordRoot,
 		"--podCachePath=" + FusePodCachePath,
-		"--cacheDir=" + cacheConf.CacheDir,
+		"--cacheDir=" + mountInfo.FsCacheConfig.CacheDir,
 		"--nodename=" + csiconfig.NodeName,
 		"--clusterID=" + mountInfo.ClusterID,
-		"--fsID=" + mountInfo.FSID,
+		"--fsID=" + mountInfo.FsID,
 	}
 	return CacheWorkerBin + " " + strings.Join(options, " ")
 }
