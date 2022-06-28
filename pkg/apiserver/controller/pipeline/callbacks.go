@@ -170,7 +170,7 @@ func UpdateRuntimeDagByWfEvent(id string, event interface{}) (int64, bool) {
 		return 0, false
 	}
 
-	runtimeDag, ok := wfEvent.Extra[common.WfEventKeyView].(schema.DagView)
+	runtimeDag, ok := wfEvent.Extra[common.WfEventKeyView].(*schema.DagView)
 	if !ok {
 		logging.Errorf("get dag in update dag cb failed")
 		return 0, false
@@ -179,7 +179,7 @@ func UpdateRuntimeDagByWfEvent(id string, event interface{}) (int64, bool) {
 	dagName := runtimeDag.DagName
 	pk := runtimeDag.PK
 
-	runDag := models.ParseRunDag(&runtimeDag)
+	runDag := models.ParseRunDag(runtimeDag)
 	runDag.Encode()
 	if pk <= 0 {
 		// 如果pk小于等于0，则需要在数据库创建job记录
@@ -220,7 +220,7 @@ func UpdateRuntimeJobByWfEvent(id string, event interface{}) (int64, bool) {
 		return 0, false
 	}
 
-	runtimeJob, ok := wfEvent.Extra[common.WfEventKeyView].(schema.JobView)
+	runtimeJob, ok := wfEvent.Extra[common.WfEventKeyView].(*schema.JobView)
 	if !ok {
 		logging.Errorf("get job in update job cb failed")
 		return 0, false
@@ -229,8 +229,9 @@ func UpdateRuntimeJobByWfEvent(id string, event interface{}) (int64, bool) {
 	stepName := runtimeJob.StepName
 	pk := runtimeJob.PK
 
-	logging.Infof("debug: job to save in db is: %v", runtimeJob.Cache)
-	runJob := models.ParseRunJob(&runtimeJob)
+	logging.Infof("debug: job to save in db is: %v", runtimeJob)
+	logging.Infof("debug: job with PK %d", pk)
+	runJob := models.ParseRunJob(runtimeJob)
 	runJob.Encode()
 	if pk <= 0 {
 		// 如果pk小于等于0，则需要在数据库创建job记录
@@ -257,7 +258,7 @@ func UpdateRuntimeJobByWfEvent(id string, event interface{}) (int64, bool) {
 	return pk, true
 }
 
-func updateRunCache(logging *logrus.Entry, runtimeJob schema.JobView, runID string) error {
+func updateRunCache(logging *logrus.Entry, runtimeJob *schema.JobView, runID string) error {
 	var runCached models.Run
 	if runtimeJob.CacheRunID != "" {
 		var err error
