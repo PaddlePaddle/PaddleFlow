@@ -841,7 +841,8 @@ func validateQueue(ctx *logger.RequestContext, schedulingPolicy *SchedulingPolic
 			ctx.ErrorCode = common.InternalError
 		}
 		ctx.ErrorCode = common.InternalError
-		log.Errorf("Get queue failed when creating job, err=%v", err)
+		err = fmt.Errorf("get queue failed when creating job, err=%v", err)
+		log.Error(err)
 		return err
 	}
 	schedulingPolicy.QueueID = queue.ID
