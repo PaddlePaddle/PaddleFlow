@@ -20,7 +20,9 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"gorm.io/gorm"
 	"strings"
 
 	"github.com/jinzhu/copier"
@@ -612,7 +614,7 @@ func buildPV(pv *apiv1.PersistentVolume, fsID string) error {
 	if err != nil {
 		retErr := fmt.Errorf("create PV get fs[%s] err: %v", fsID, err)
 		log.Errorf(retErr.Error())
-		return err
+		return retErr
 	}
 	fsStr, err := json.Marshal(fs)
 	if err != nil {
@@ -622,10 +624,10 @@ func buildPV(pv *apiv1.PersistentVolume, fsID string) error {
 	}
 	// fs_cache_config
 	fsCacheConfig, err := storage.Filesystem.GetFSCacheConfig(fsID)
-	if err != nil {
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		retErr := fmt.Errorf("create PV get fsCacheConfig[%s] err: %v", fsID, err)
 		log.Errorf(retErr.Error())
-		return err
+		return retErr
 	}
 	fsCacheConfigStr, err := json.Marshal(fsCacheConfig)
 	if err != nil {
