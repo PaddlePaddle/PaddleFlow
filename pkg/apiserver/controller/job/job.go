@@ -20,15 +20,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	"github.com/ghodss/yaml"
 	log "github.com/sirupsen/logrus"
-	"gorm.io/gorm"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/flavour"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/fs"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
@@ -69,9 +70,12 @@ type CommonJobInfo struct {
 
 // SchedulingPolicy indicate queueID/priority
 type SchedulingPolicy struct {
-	Queue    string `json:"queue"`
-	QueueID  string `json:"-"`
-	Priority string `json:"priority,omitempty"`
+	Queue        string              `json:"queue"`
+	QueueID      string              `json:"-"`
+	MaxResources schema.ResourceInfo `json:"-"`
+	ClusterId    string              `json:"-"`
+	Namespace    string              `json:"-"`
+	Priority     string              `json:"priority,omitempty"`
 }
 
 // JobSpec the spec fields for jobs
@@ -114,21 +118,17 @@ func CreateSingleJob(ctx *logger.RequestContext, request *CreateSingleJobRequest
 		return nil, err
 	}
 
-	f, err := flavour.GetFlavourWithCheck(request.Flavour)
-	if err != nil {
-		log.Errorf("get flavour failed, err:%v", err)
+	// validate single Job
+	if err := validateSingleJob(ctx, request); err != nil {
+		ctx.ErrorCode = common.JobInvalidField
+		ctx.Logging().Errorf("validate job request failed. request:%v error:%s", request, err.Error())
 		return nil, err
 	}
 	templateJson, err := newExtensionTemplateJson(request.ExtensionTemplate)
 	if err != nil {
-		log.Errorf("parse extension template failed, err=%v", err)
+		ctx.Logging().Errorf("parse extension template failed, job[%v], err=%v", request, err)
 		return nil, err
 	}
-	// validate FileSystem
-	if err := validateFileSystem(&request.JobSpec, request.UserName); err != nil {
-		return nil, err
-	}
-	// parse job template
 
 	// new job conf and set values
 	conf := schema.Conf{
@@ -137,7 +137,7 @@ func CreateSingleJob(ctx *logger.RequestContext, request *CreateSingleJobRequest
 		FileSystem:      request.FileSystem,
 		ExtraFileSystem: request.ExtraFileSystems,
 		// 计算资源
-		Flavour:  f,
+		Flavour:  request.Flavour,
 		Priority: request.SchedulingPolicy.Priority,
 		// 运行时需要的参数
 		Labels:      request.Labels,
@@ -221,30 +221,12 @@ func patchFromCommonInfo(conf *schema.Conf, commonJobInfo *CommonJobInfo) error 
 	conf.Labels = commonJobInfo.Labels
 	conf.Annotations = commonJobInfo.Annotations
 	// info in SchedulingPolicy: queue,Priority,ClusterId,Namespace
-	queueName := commonJobInfo.SchedulingPolicy.Queue
-	queue, err := models.GetQueueByName(queueName)
-	if err != nil {
-		log.Errorf("Get queue by id failed when creating job %s failed, err=%v", commonJobInfo.Name, err)
-		if err == gorm.ErrRecordNotFound {
-			return fmt.Errorf("queue not found by id %s", queueName)
-		}
-		return err
-	}
-	// distributed Job would pass check flavour and queue, because conf is just constructed without flavour.
-	// flavour would be check in function newMembers
-	if !schema.IsEmptyResource(conf.Flavour.ResourceInfo) {
-		if err = IsEnoughQueueCapacity(conf.Flavour, queue.MaxResources); err != nil {
-			log.Errorf("patch Job from commonInfo failed, err:=%v", err)
-			return err
-		}
-	}
-	queueID := commonJobInfo.SchedulingPolicy.QueueID
-	conf.SetQueueID(queueID)
-	conf.SetQueueName(queueName)
-	conf.SetPriority(commonJobInfo.SchedulingPolicy.Priority)
-
-	conf.SetClusterID(queue.ClusterId)
-	conf.SetNamespace(queue.Namespace)
+	schedulingPolicy := commonJobInfo.SchedulingPolicy
+	conf.SetQueueID(schedulingPolicy.QueueID)
+	conf.SetQueueName(schedulingPolicy.Queue)
+	conf.SetPriority(schedulingPolicy.Priority)
+	conf.SetClusterID(schedulingPolicy.ClusterId)
+	conf.SetNamespace(schedulingPolicy.Namespace)
 
 	return nil
 }
@@ -255,6 +237,11 @@ func CreateDistributedJob(ctx *logger.RequestContext, request *CreateDisJobReque
 	if err := CheckPermission(ctx); err != nil {
 		ctx.ErrorCode = common.ActionNotAllowed
 		ctx.Logging().Errorln(err.Error())
+		return nil, err
+	}
+	// validate Job
+	if err := validateDistributedJob(ctx, request); err != nil {
+		ctx.Logging().Errorf("validate job request failed. request:%v error:%s", request, err.Error())
 		return nil, err
 	}
 	request.UserName = ctx.UserName
@@ -472,6 +459,10 @@ func CreateWorkflowJob(ctx *logger.RequestContext, request *CreateWfJobRequest) 
 	if err := CheckPermission(ctx); err != nil {
 		ctx.ErrorCode = common.ActionNotAllowed
 		ctx.Logging().Errorln(err.Error())
+		return nil, err
+	}
+	if err := validateWorkflowJob(ctx, request); err != nil {
+		ctx.Logging().Errorf("validate job request failed. request:%v error:%s", request, err.Error())
 		return nil, err
 	}
 
@@ -698,6 +689,244 @@ func getRuntimeByQueue(ctx *logger.RequestContext, queueID string) (runtime.Runt
 	return runtimeSvc, nil
 }
 
+func validateDistributedJob(ctx *logger.RequestContext, request *CreateDisJobRequest) error {
+	if err := validateCommonJobInfo(ctx, &request.CommonJobInfo); err != nil {
+		log.Errorf("validateCommonJobInfo failed, err: %v", err)
+		return err
+	}
+
+	switch request.Framework {
+	case schema.FrameworkSpark, schema.FrameworkPaddle:
+		break
+	case schema.FrameworkTF, schema.FrameworkMPI:
+		ctx.Logging().Errorf("framework: %s will be supported in the future", request.Framework)
+		ctx.ErrorCode = common.JobInvalidField
+		return fmt.Errorf("framework: %s will be supported in the future", request.Framework)
+	default:
+		ctx.Logging().Errorf("invalid framework: %s", request.Framework)
+		ctx.ErrorCode = common.JobInvalidField
+		return fmt.Errorf("invalid framework: %s", request.Framework)
+	}
+
+	if len(request.ExtensionTemplate) == 0 {
+		log.Infof("RequestID[%s]: request.ExtensionTemplate is not empty, pass validate members", ctx.RequestID)
+		return nil
+	}
+
+	if err := validateMembers(ctx, request.Members, request.SchedulingPolicy); err != nil {
+		ctx.Logging().Errorf("RequestID[%s]: validate members failed, err: %v", ctx.RequestID, err)
+		return err
+	}
+
+	return nil
+}
+
+func validateWorkflowJob(ctx *logger.RequestContext, request *CreateWfJobRequest) error {
+	if err := validateCommonJobInfo(ctx, &request.CommonJobInfo); err != nil {
+		log.Errorf("WorkflowJob validateCommonJobInfo failed, err: %v", err)
+		return err
+	}
+
+	if request.ExtensionTemplate == nil {
+		ctx.ErrorCode = common.RequiredFieldEmpty
+		err := fmt.Errorf("ExtensionTemplate for workflow job is needed, and now is empty")
+		ctx.Logging().Errorf("create workflow job failed. error: %s", err.Error())
+		return err
+	}
+	return nil
+}
+
+func validateSingleJob(ctx *logger.RequestContext, request *CreateSingleJobRequest) error {
+	// ensure required fields
+	emptyFields := validateEmptyFieldInSingle(request)
+	if len(emptyFields) != 0 {
+		emptyFieldStr := strings.Join(emptyFields, ",")
+		err := fmt.Errorf("required fields in {%s} are empty, please fill it", emptyFieldStr)
+		ctx.Logging().Errorf("create single job failed. error: %s", err.Error())
+		ctx.ErrorCode = common.RequiredFieldEmpty
+		return err
+	}
+	if err := validateCommonJobInfo(ctx, &request.CommonJobInfo); err != nil {
+		log.Errorf("validateCommonJobInfo failed, err: %v", err)
+		return err
+	}
+
+	if err := validateJobSpec(ctx, &request.JobSpec); err != nil {
+		log.Errorf("validateCommonJobInfo failed, err: %v", err)
+		return err
+	}
+
+	if err := validateSingleJobResource(request.Flavour, request.SchedulingPolicy); err != nil {
+		log.Errorf("validateSingleJobResource failed, err: %v", err)
+		return err
+	}
+
+	return nil
+}
+
+func validateSingleJobResource(flavour schema.Flavour, schedulingPolicy SchedulingPolicy) error {
+	if schema.IsEmptyResource(schedulingPolicy.MaxResources) {
+		err := fmt.Errorf("schedulingPolicy.MaxResources[%v] is empty", schedulingPolicy.MaxResources)
+		log.Errorf("validateSingleJobResource failed, err: %v", err)
+		return err
+	}
+	return IsEnoughQueueCapacity(flavour, schedulingPolicy.MaxResources)
+}
+
+func validateJobSpec(ctx *logger.RequestContext, requestJobSpec *JobSpec) error {
+	port := requestJobSpec.Port
+	if port != 0 && !(port > 0 && port < common.JobPortMaximums) {
+		err := fmt.Errorf("port must be in range [0, %d], but got %d", common.JobPortMaximums, port)
+		ctx.Logging().Errorf("validate job failed, err: %v", err)
+		return err
+	}
+	// validate FileSystem
+	if err := validateFileSystem(requestJobSpec, ctx.UserName); err != nil {
+		ctx.Logging().Errorf("validateFileSystem failed, requestJobSpec[%v], err: %v", requestJobSpec, err)
+		return err
+	}
+	var err error
+	requestJobSpec.Flavour, err = flavour.GetFlavourWithCheck(requestJobSpec.Flavour)
+	if err != nil {
+		log.Errorf("get flavour failed, err:%v", err)
+		return err
+	}
+
+	return nil
+}
+
+func validateCommonJobInfo(ctx *logger.RequestContext, requestCommonJobInfo *CommonJobInfo) error {
+	// validate job id
+	if requestCommonJobInfo.ID != "" {
+		// check namespace format
+		if errStr := common.IsDNS1123Label(requestCommonJobInfo.ID); len(errStr) != 0 {
+			err := fmt.Errorf("ID[%s] of Job is invalid, err: %s", requestCommonJobInfo.ID, strings.Join(errStr, ","))
+			ctx.Logging().Errorf("validate Job id failed, err: %v", err)
+			return err
+		}
+	}
+	if requestCommonJobInfo.Name != "" && len(requestCommonJobInfo.Name) > common.JobNameMaxLength {
+		err := fmt.Errorf("length of jobName[%s] must be no more than %d characters",
+			requestCommonJobInfo.Name, common.JobNameMaxLength)
+		ctx.Logging().Errorf("validate Job name failed, err: %v", err)
+		return err
+	}
+	if err := validateQueue(ctx, &requestCommonJobInfo.SchedulingPolicy); err != nil {
+		ctx.Logging().Errorf("validate queue failed. error: %s", err.Error())
+		return err
+	}
+	// SchedulingPolicy
+	if err := checkPriority(&requestCommonJobInfo.SchedulingPolicy, nil); err != nil {
+		ctx.Logging().Errorf("Failed to check priority: %v", err)
+		ctx.ErrorCode = common.JobInvalidField
+		return err
+	}
+
+	return nil
+}
+
+// validateQueue validate queue and set queueID in request.SchedulingPolicy
+func validateQueue(ctx *logger.RequestContext, schedulingPolicy *SchedulingPolicy) error {
+	queueName := schedulingPolicy.Queue
+	if queueName == "" {
+		ctx.Logging().Errorf("queue is empty")
+		ctx.ErrorCode = common.JobInvalidField
+		return fmt.Errorf("queue is empty")
+	}
+	queue, err := models.GetQueueByName(queueName)
+	if err != nil {
+		if errors.GetErrorCode(err) == errors.ErrorKeyIsDuplicated {
+			ctx.ErrorCode = common.QueueNameDuplicated
+		} else {
+			ctx.ErrorCode = common.InternalError
+		}
+		ctx.ErrorCode = common.InternalError
+		log.Errorf("Get queue failed when creating job, err=%v", err)
+		return err
+	}
+	schedulingPolicy.QueueID = queue.ID
+	schedulingPolicy.MaxResources = queue.MaxResources
+	schedulingPolicy.ClusterId = queue.ClusterId
+	schedulingPolicy.Namespace = queue.Namespace
+	return nil
+}
+
+// checkPriority check priority and fill parent's priority if schedulingPolicy.Priority is empty
+func checkPriority(schedulingPolicy, parentSP *SchedulingPolicy) error {
+	priority := strings.ToUpper(schedulingPolicy.Priority)
+	// check job priority
+	if priority == "" {
+		if parentSP != nil {
+			priority = strings.ToUpper(parentSP.Priority)
+		} else {
+			priority = schema.EnvJobNormalPriority
+		}
+	}
+	if priority != schema.EnvJobLowPriority &&
+		priority != schema.EnvJobNormalPriority && priority != schema.EnvJobHighPriority {
+		return errors.InvalidJobPriorityError(priority)
+	}
+	schedulingPolicy.Priority = priority
+	return nil
+}
+
+func validateEmptyFieldInSingle(request *CreateSingleJobRequest) []string {
+	var emptyFields []string
+	if request.CommonJobInfo.SchedulingPolicy.Queue == "" {
+		emptyFields = append(emptyFields, "queue")
+	}
+	if request.Image == "" {
+		emptyFields = append(emptyFields, "image")
+	}
+
+	return emptyFields
+}
+
+func validateMembers(ctx *logger.RequestContext, members []MemberSpec, schePolicy SchedulingPolicy) error {
+	if len(members) == 0 {
+		err := fmt.Errorf("request.Members is empty")
+		ctx.Logging().Errorf("create distributed job failed. error: %s", err.Error())
+		ctx.ErrorCode = common.RequiredFieldEmpty
+		return err
+	}
+	// todo(zhongzichao) calculate total member resource, and compare with queue.MaxResource
+	for index, member := range members {
+		// validate queue
+		var err error
+		if members[index], err = validateMembersQueue(ctx, member, schePolicy); err != nil {
+			ctx.Logging().Errorf("Failed to check Members' Queue: %v", err)
+			ctx.ErrorCode = common.JobInvalidField
+			return err
+		}
+		// check members priority
+		if err = checkPriority(&members[index].SchedulingPolicy, &schePolicy); err != nil {
+			ctx.Logging().Errorf("Failed to check priority: %v", err)
+			ctx.ErrorCode = common.JobInvalidField
+			return err
+		}
+
+	}
+	// todo(zhongzichao) validate queue and total-member-resource
+	return nil
+}
+
+func validateMembersQueue(ctx *logger.RequestContext, member MemberSpec, schePolicy SchedulingPolicy) (MemberSpec, error) {
+	queueName := schePolicy.Queue
+
+	mQueueName := member.SchedulingPolicy.Queue
+	if mQueueName != "" && mQueueName != queueName {
+		err := fmt.Errorf("schedulingPolicy.Queue should be the same, there are %s and %s", queueName, mQueueName)
+		ctx.Logging().Errorf("create distributed job failed. error: %s", err.Error())
+		ctx.ErrorCode = common.JobInvalidField
+		return member, err
+	}
+	member.SchedulingPolicy.QueueID = schePolicy.QueueID
+	member.SchedulingPolicy.Namespace = schePolicy.Namespace
+	member.SchedulingPolicy.ClusterId = schePolicy.ClusterId
+	member.SchedulingPolicy.MaxResources = schePolicy.MaxResources
+	return member, nil
+}
+
 func validateFileSystem(jobSpec *JobSpec, userName string) error {
 	fsService := fs.GetFileSystemService()
 	fsName := jobSpec.FileSystem.Name
@@ -715,7 +944,7 @@ func validateFileSystem(jobSpec *JobSpec, userName string) error {
 		}
 		jobSpec.FileSystem.ID = fileSystem.ID
 	}
-
+	// todo(zhongzichao) check all fs whether has 'contains' relationship
 	for index, fs := range jobSpec.ExtraFileSystems {
 		if fs.Name == "" {
 			log.Errorf("name of fileSystem %v is null", fs)

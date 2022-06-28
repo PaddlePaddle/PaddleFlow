@@ -76,6 +76,7 @@ type RuntimeInfo struct {
 	Namespace string `json:"namespace,omitempty"`
 	ID        string `json:"id,omitempty"`
 	Status    string `json:"status,omitempty"`
+	NodeName  string `json:"nodeName"`
 }
 
 type DistributedRuntimeInfo struct {
@@ -232,22 +233,11 @@ func convertJobToResponse(job models.Job, runtimeFlag bool) (GetJobResponse, err
 	switch job.Type {
 	case string(schema.TypeSingle):
 		if runtimeFlag && job.RuntimeInfo != nil {
-			k8sMeta, err := parseK8sMeta(job.RuntimeInfo)
-			if err != nil {
-				log.Errorf("parse single job[%s] runtimeinfo job meta failed, error:[%s]", job.ID, err.Error())
+			runtimes, err := getTaskRuntime(job.ID)
+			if err != nil || len(runtimes) < 1 {
 				return response, err
 			}
-			statusByte, err := json.Marshal(job.RuntimeInfo.(map[string]interface{})["status"])
-			if err != nil {
-				log.Errorf("parse single job[%s] status failed, error:[%s]", job.ID, err.Error())
-				return response, err
-			}
-			response.Runtime = &RuntimeInfo{
-				ID:        string(k8sMeta.UID),
-				Name:      k8sMeta.Name,
-				Namespace: k8sMeta.Namespace,
-				Status:    string(statusByte),
-			}
+			response.Runtime = &runtimes[0]
 		}
 		var jobSpec JobSpec
 		if err := json.Unmarshal([]byte(job.ConfigJson), &jobSpec); err != nil {
@@ -347,6 +337,7 @@ func getTaskRuntime(jobID string) ([]RuntimeInfo, error) {
 			Name:      task.Name,
 			Namespace: task.Namespace,
 			Status:    task.ExtRuntimeStatusJSON,
+			NodeName:  task.NodeName,
 		}
 		runtimes = append(runtimes, runtime)
 	}

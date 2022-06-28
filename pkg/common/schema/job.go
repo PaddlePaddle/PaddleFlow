@@ -175,6 +175,7 @@ type PFJobConf interface {
 	GetClusterID() string
 	GetUserName() string
 
+	// Deprecated
 	GetFS() string
 	SetFS(string)
 
@@ -286,6 +287,7 @@ func (c *Conf) SetUserName(userName string) {
 	c.Env[EnvJobUserName] = userName
 }
 
+// Deprecated
 func (c *Conf) GetFS() string {
 	c.preCheckEnv()
 	return c.Env[EnvJobFsID]

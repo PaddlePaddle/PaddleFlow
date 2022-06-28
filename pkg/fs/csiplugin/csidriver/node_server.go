@@ -17,6 +17,7 @@ limitations under the License.
 package csidriver
 
 import (
+	"encoding/base64"
 	"os"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
@@ -30,11 +31,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/mount"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/io"
 	mountUtil "github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/mount"
-)
-
-const (
-	pfsFSID   = "pfs.fs.id"
-	pfsServer = "pfs.server"
 )
 
 type nodeServer struct {
@@ -68,12 +64,25 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context,
 		}
 	}
 
-	volumeContext := req.GetVolumeContext()
-	fsID := volumeContext[pfsFSID]
-	server := volumeContext[pfsServer]
 	volumeID := req.VolumeId
+	volumeContext := req.GetVolumeContext()
+	fsID := volumeContext[schema.PfsFsID]
+	server := volumeContext[schema.PfsServer]
+	fsInfoByte, err := base64.StdEncoding.DecodeString(volumeContext[schema.PfsFsInfo])
+	if err != nil {
+		log.Errorf("base64 dcoding PfsFsInfo err: %v", err)
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	fsInfoStr := string(fsInfoByte)
+	fsCacheByte, err := base64.StdEncoding.DecodeString(volumeContext[schema.PfsFsCache])
+	if err != nil {
+		log.Errorf("base64 dcoding PfsFsCache err: %v", err)
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	fsCacheStr := string(fsCacheByte)
 
-	mountInfo := mount.GetMountInfo(fsID, server, req.GetReadonly())
+	mountInfo := mount.GetMountInfo(fsID, server, fsInfoStr, fsCacheStr, req.GetReadonly())
+	log.Infof("Node publish mountInfo [%+v]", mountInfo)
 	// root credentials for pfs-fuse
 	mountInfo.UsernameRoot, mountInfo.PasswordRoot = ns.credentialInfo.usernameRoot, ns.credentialInfo.passwordRoot
 	mountInfo.TargetPath = targetPath

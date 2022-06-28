@@ -33,7 +33,7 @@ from paddleflow.flavour import FlavouriceApi
 
 class Client(object):
     """Client class """
-    def __init__(self, paddleflow_server, username, password, paddleflow_port=8080):
+    def __init__(self, paddleflow_server_host, username, password, paddleflow_server_port=8999):
         """
         :param paddleflow_server: the address of paddleflow server
         :type paddleflow_server: str
@@ -45,9 +45,9 @@ class Client(object):
         self.user_id = username
         self.header = None
         self.password = password
-        if paddleflow_server is None or paddleflow_server.strip() == "":
+        if paddleflow_server_host is None or paddleflow_server_host.strip() == "":
             raise PaddleFlowSDKException("InvalidServer", "paddleflow server should not be none or empty")
-        self.paddleflow_server = "http://%s:%s" % (paddleflow_server, paddleflow_port)
+        self.paddleflow_server = "http://%s:%s" % (paddleflow_server_host, paddleflow_server_port)
 
     def login(self, user_name, password):
         """

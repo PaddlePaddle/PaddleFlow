@@ -412,7 +412,7 @@ func (fs *hdfsFileSystem) Create(name string, flags, mode uint32) (fd base.FileH
 }
 
 // Directory handling
-func (fs *hdfsFileSystem) ReadDir(name string) (stream []base.DirEntry, err error) {
+func (fs *hdfsFileSystem) ReadDir(name string) (stream []DirEntry, err error) {
 	fs.Lock()
 	defer fs.Unlock()
 	log.Tracef("hdfs readdir: name[%s]", name)
@@ -421,12 +421,13 @@ func (fs *hdfsFileSystem) ReadDir(name string) (stream []base.DirEntry, err erro
 		return nil, err
 	}
 
-	allAttrs := make([]base.DirEntry, len(files))
+	allAttrs := make([]DirEntry, len(files))
 
 	for i, fileInfo := range files {
-		allAttrs[i] = base.DirEntry{
+		attr := fs.sysHdfsToAttr(fileInfo)
+		allAttrs[i] = DirEntry{
 			Name: fileInfo.Name(),
-			Mode: uint32(fileInfo.Mode()),
+			Attr: &attr,
 		}
 	}
 	return allAttrs, nil

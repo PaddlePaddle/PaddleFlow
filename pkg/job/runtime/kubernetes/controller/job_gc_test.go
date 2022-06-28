@@ -79,7 +79,10 @@ func newFakeGCController() *JobGarbageCollector {
 		DiscoveryClient: fakeDiscovery,
 		ClusterInfo:     &commonschema.Cluster{Name: "test-cluster"},
 	}
-	ctrl.Initialize(opt)
+	err := ctrl.Initialize(opt)
+	if err != nil {
+		panic("init fake gc controller failed")
+	}
 	return ctrl
 }
 
