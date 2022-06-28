@@ -453,7 +453,7 @@ func CreateRun(userName string, request *CreateRunRequest) (CreateRunResponse, e
 		scheduledAt.Valid = true
 		scheduledAt.Time, err = time.ParseInLocation("2006-01-02 15:04:05", request.ScheduledAt, time.Local)
 		if err != nil {
-			errMsg := fmt.Sprintf("scheduledAt[%s] format not correct, should be YYYY-MM-DD hh-mm-ss", request.ScheduledAt)
+			errMsg := fmt.Sprintf("scheduledAt[%s] format not correct, should be YYYY-MM-DD hh:mm:ss", request.ScheduledAt)
 			return CreateRunResponse{}, fmt.Errorf(errMsg)
 		}
 	}

@@ -19,7 +19,6 @@ package pipeline
 import (
 	"errors"
 	"fmt"
-	. "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 	"regexp"
 	"strconv"
 
@@ -28,6 +27,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	. "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 )
 
 // ----------------------------------------------------------------------------
@@ -199,13 +199,13 @@ func (bwf *BaseWorkflow) checkRunYaml() error {
 	variableChecker := VariableChecker{}
 
 	if err := variableChecker.CheckVarName(bwf.Source.Name); err != nil {
-		return fmt.Errorf("format of pipeline name[%s] in run[%s] invalid", bwf.Source.Name, bwf.RunID)
+		return fmt.Errorf("check pipelineName[%s] in run[%s] failed: %s", bwf.Source.Name, bwf.RunID, err.Error())
 	}
 
 	for stepName := range bwf.Source.EntryPoints {
 		err := variableChecker.CheckStepName(stepName)
 		if err != nil {
-			return fmt.Errorf("format of stepName[%s] in run[%s] invalid", stepName, bwf.RunID)
+			return fmt.Errorf("check stepName[%s] in run[%s] failed: %s", stepName, bwf.RunID, err.Error())
 		}
 	}
 
