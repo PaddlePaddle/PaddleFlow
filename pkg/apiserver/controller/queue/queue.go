@@ -433,7 +433,7 @@ func UpdateQueue(ctx *logger.RequestContext, request *UpdateQueueRequest) (Updat
 		for _, policy := range request.SchedulingPolicy {
 			if strings.HasSuffix(policy, "-") {
 				// remove old scheduling policy
-				sp := strings.TrimLeft(policy, "-")
+				sp := strings.TrimRight(policy, "-")
 				delete(schedulingPolicy, sp)
 			} else {
 				schedulingPolicy[policy] = struct{}{}
