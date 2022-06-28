@@ -357,13 +357,14 @@ func (crt *baseComponentRuntime) callback(event *WorkflowEvent) {
 		pk = view.(*schema.DagView).PK
 	}
 
-	crt.logger.Infof("+++++++++ callback for component[%s] with pk[%d]", view.GetComponentName(), pk)
+	crt.logger.Infof("+++++++++ callback for component[%s] with pk[%d]", crt.getName(), pk)
 	// ++++++++++++++ debug
 
 	for i := 0; i < 3; i++ {
 		crt.logger.Infof("callback event [%+v]", event)
 		if pk, success := crt.callbacks.UpdateRuntimeCb(crt.runID, event); success {
 			crt.logger.Infof("++++++++ pk return by callback: %d", pk)
+
 			crt.pk = pk
 			break
 		}
