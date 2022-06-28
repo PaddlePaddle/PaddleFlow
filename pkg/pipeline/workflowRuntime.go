@@ -36,8 +36,7 @@ type WorkflowRuntime struct {
 	postProcess          *StepRuntime
 	status               string
 	EventChan            chan WorkflowEvent
-
-	pk int64
+	pk                   int64
 
 	// 主要用于避免在调度节点的同时遇到终止任务的情况
 	scheduleLock sync.Mutex

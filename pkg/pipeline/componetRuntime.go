@@ -361,7 +361,7 @@ func (crt *baseComponentRuntime) callback(event *WorkflowEvent) {
 	// ++++++++++++++ debug
 
 	for i := 0; i < 3; i++ {
-		crt.logger.Infof("callback event [%+v]", event)
+		crt.logger.Infof("callback event [%v]", *event)
 		if pk, success := crt.callbacks.UpdateRuntimeCb(crt.runID, event); success {
 			crt.logger.Infof("++++++++ pk return by callback for component[%s]: %d", crt.componentFullName, pk)
 			crt.pk = pk
