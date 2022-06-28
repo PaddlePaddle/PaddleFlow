@@ -148,6 +148,61 @@ def create(ctx, name, namespace, clustername, maxcpu, maxmem, maxscalar=None, mi
         sys.exit(1)
 
 
+@queue.command(context_settings=dict(max_content_width=2000), cls=command_required_option_from_option())
+@click.argument('name')
+@click.option('--maxcpu', help='the max cpu resource of queue, e.g. --maxcpu 10')
+@click.option('--maxmem', help='the max memory resource of queue, e.g. --maxmem 10Gi')
+@click.option('--maxscalar', help='the max scalar resource of queue, e.g. --maxscalar a=b,c=d')
+@click.option('--mincpu', help='the min cpu resource of queue, e.g. --mincpu 10')
+@click.option('--minmem', help='the min memory resource of queue, e.g. --minmem 10Gi')
+@click.option('--minscalar', help='the min scalar resource of queue, e.g. --minscalar a=b,c=d')
+@click.option('--policy', help='the scheduling policy for job on queue, e.g. --policy priority,weight')
+@click.option('--location', help='the node location of queue, such as Kubernetes is node labels, e.g. --location label1=value1,label2=value2')
+@click.pass_context
+def update(ctx, name, maxcpu=None, maxmem=None, maxscalar=None, mincpu=None, minmem=None, minscalar=None, policy=None, location=None):
+    """ update queue.\n
+    NAME: the name of queue.
+    """
+    client = ctx.obj['client']
+    if not name:
+        click.echo('queue create must provide name.', err=True)
+        sys.exit(1)
+    maxresources = {}
+    if maxcpu:
+        maxresources['cpu'] = maxcpu
+    if maxmem:
+        maxresources['mem'] = maxmem
+    if maxscalar:
+        args = maxscalar.split(',')
+        maxresources['scalarResources'] = dict([item.split('=') for item in args])
+    # get min resources from user
+    minresources = {}
+    if mincpu:
+        minresources["cpu"] = mincpu
+    if minmem:
+        minresources['mem'] = minmem
+    if minscalar:
+        args = minscalar.split(',')
+        minresources['scalarResources'] = dict([item.split('=') for item in args])
+    # get scheduling policy from optional argument
+    schedulingPolicy = None
+    if policy:
+        schedulingPolicy = policy.split(',')
+    # get queue location from optional argument
+    locationDict = None
+    if location:
+        args = location.split(',')
+        locationDict = dict([item.split("=") for item in args])
+
+    valid, response = client.update_queue(name, maxresources, minresources,
+                                       schedulingPolicy, locationDict)
+    if valid:
+        click.echo("queue[%s] update success " % name)
+    else:
+        click.echo("queue update failed with message[%s]" % response)
+        sys.exit(1)
+
+
 @queue.command()
 @click.argument('queuename')
 @click.pass_context
@@ -239,34 +294,32 @@ def _print_queues(queues, out_format):
 
 def _print_queue_info(queue, out_format):
     """print queue info"""
-    headers = ['name', 'namespace', 'status', 'cluster name', 'create time', 'update time']
-    data = [[queue.name, queue.namespace, queue.status, queue.clusterName, queue.createTime, queue.updateTime]]
+    headers = ['name', 'namespace', 'status', 'quota type', 'cluster name', 'create time', 'update time']
+    data = [[queue.name, queue.namespace, queue.status, queue.quotaType, queue.clusterName, queue.createTime, queue.updateTime]]
     print_output(data, headers, out_format, table_format='grid')
-    if queue.maxResources:
-        print_output([[queue.maxResources]], ['max resources'], out_format, table_format='grid')
+    print("queue info: ")
+    headers = ['max resources']
+    data = [[queue.maxResources]]
     if queue.minResources:
-        print_output([[queue.minResources]], ['min resources'], out_format, table_format='grid')
+        headers.append('min resources')
+        data[0].append(queue.minResources)
     if queue.usedResources:
-        print_output([[queue.usedResources]], ['used resources'], out_format, table_format='grid')
+        headers.append('used resources')
+        data[0].append(queue.usedResources)
     if queue.idleResources:
-        print_output([[queue.idleResources]], ['idle resources'], out_format, table_format='grid')
+        headers.append('idle resources')
+        data[0].append(queue.idleResources)
     if queue.schedulingPolicy:
-        print_output([[queue.schedulingPolicy]], ['scheduling policy'], out_format, table_format='grid')
+        headers.append('scheduling policy')
+        data[0].append(queue.schedulingPolicy)
     if queue.location:
-        print_output([[queue.location]], ['location'], out_format, table_format='grid')
+        headers.append('location')
+        data[0].append(queue.location)
+    print_output(data, headers, "json", table_format='grid')
 
 
 def _print_grants(grants, out_format):
     """print grant info"""
     headers = ['user name', 'queue name']
     data = [[grant.username, grant.resourceName] for grant in grants]
-    print_output(data, headers, out_format, table_format='grid')
-
-
-def _print_flavour_info(res, out_format):
-    """print flavour list"""
-    headers = ['name', 'cpu', 'mem', 'scalarResources']
-    data = []
-    for i in res:
-        data.append([i.get('name', ''), i.get('cpu', ''), i.get('mem', ''), i.get('scalarResources', None),])
     print_output(data, headers, out_format, table_format='grid')
