@@ -44,6 +44,18 @@ func CreateJob(conf schema.PFJobConf) (string, error) {
 		return "", err
 	}
 	jobConf := conf.(*schema.Conf)
+	// add fs
+	if jobConf.GetFS() != "" {
+		fsID := jobConf.GetFS()
+		fsIDSplit := strings.Split(fsID, "-")
+		fsName := fsIDSplit[len(fsIDSplit)-1]
+		jobConf.FileSystem = schema.FileSystem{
+			ID:        jobConf.GetFS(),
+			Name:      fsName,
+			MountPath: schema.DefaultFSMountPath,
+		}
+	}
+
 	jobInfo := &models.Job{
 		ID:       generateJobID(conf.GetName()),
 		Type:     string(conf.Type()),

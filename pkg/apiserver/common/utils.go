@@ -45,6 +45,9 @@ const (
 	dns1123LabelErrMsg    = "a lowercase RFC 1123 label must consist of lower case alphanumeric characters or '-'," +
 		" and must start and end with an alphanumeric character"
 
+	JobNameMaxLength = 512
+	JobPortMaximums  = 65535
+
 	HDFS                          = "hdfs"
 	HDFSWithKerberos              = "hdfsWithKerberos"
 	S3                            = "s3"

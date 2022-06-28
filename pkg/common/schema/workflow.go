@@ -62,13 +62,13 @@ func (atf *Artifacts) ValidateOutputMapByList() error {
 }
 
 type WorkflowSourceStep struct {
-	Parameters map[string]interface{} `yaml:"parameters"`
-	Command    string                 `yaml:"command"`
-	Deps       string                 `yaml:"deps"`
-	Artifacts  Artifacts              `yaml:"artifacts"`
-	Env        map[string]string      `yaml:"env"`
-	DockerEnv  string                 `yaml:"docker_env"`
-	Cache      Cache                  `yaml:"cache"`
+	Parameters map[string]interface{} `yaml:"parameters"    json:"parameters"`
+	Command    string                 `yaml:"command"       json:"command"`
+	Deps       string                 `yaml:"deps"          json:"deps"`
+	Artifacts  Artifacts              `yaml:"artifacts"     json:"artifacts"`
+	Env        map[string]string      `yaml:"env"           json:"env"`
+	DockerEnv  string                 `yaml:"docker_env"    json:"dockerEnv"`
+	Cache      Cache                  `yaml:"cache"         json:"cache"`
 }
 
 func (s *WorkflowSourceStep) GetDeps() []string {
@@ -91,18 +91,18 @@ type Cache struct {
 }
 
 type FailureOptions struct {
-	Strategy string `yaml:"strategy"`
+	Strategy string `yaml:"strategy"     json:"strategy"`
 }
 
 type WorkflowSource struct {
-	Name           string                         `yaml:"name"`
-	DockerEnv      string                         `yaml:"docker_env"`
-	EntryPoints    map[string]*WorkflowSourceStep `yaml:"entry_points"`
-	Cache          Cache                          `yaml:"cache"`
-	Parallelism    int                            `yaml:"parallelism"`
-	Disabled       string                         `yaml:"disabled"`
-	FailureOptions FailureOptions                 `yaml:"failure_options"`
-	PostProcess    map[string]*WorkflowSourceStep `yaml:"post_process"`
+	Name           string                         `yaml:"name"            json:"name"`
+	DockerEnv      string                         `yaml:"docker_env"      json:"dockerEnv"`
+	EntryPoints    map[string]*WorkflowSourceStep `yaml:"entry_points"    json:"entryPoints"`
+	Cache          Cache                          `yaml:"cache"           json:"cache"`
+	Parallelism    int                            `yaml:"parallelism"     json:"parallelism"`
+	Disabled       string                         `yaml:"disabled"        json:"disabled"`
+	FailureOptions FailureOptions                 `yaml:"failure_options" json:"failureOptions"`
+	PostProcess    map[string]*WorkflowSourceStep `yaml:"post_process"    json:"postProcess"`
 }
 
 func (wfs *WorkflowSource) GetDisabled() []string {
