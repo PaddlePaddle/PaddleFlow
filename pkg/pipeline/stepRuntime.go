@@ -720,11 +720,9 @@ func (srt *StepRuntime) processEventFromJob(event WorkflowEvent) {
 		// 对于 WatchErr, 目前不需要传递父节点
 		view := srt.newJobView(ErrMsg)
 		extra := map[string]interface{}{
-			common.WfEventKeyRunID:         srt.runID,
-			common.WfEventKeyPK:            srt.pk,
-			common.WfEventKeyStatus:        srt.status,
-			common.WfEventKeyView:          view,
-			common.WfEventKeyComponentName: srt.getComponent().GetName(),
+			common.WfEventKeyRunID:  srt.runID,
+			common.WfEventKeyStatus: srt.status,
+			common.WfEventKeyView:   view,
 		}
 		event.Extra = extra
 		srt.callbacks.UpdateRuntimeCb(srt.runID, event)
@@ -741,6 +739,9 @@ func (srt *StepRuntime) processEventFromJob(event WorkflowEvent) {
 		}
 		srt.updateStatus(extra["status"].(RuntimeStatus))
 		view := srt.newJobView(event.Message)
+		srt.syncToApiServerAndParent(WfEventJobUpdate, &view, event.Message)
+
+		// ++++++++++ just for debug,
 		srt.syncToApiServerAndParent(WfEventJobUpdate, &view, event.Message)
 	}
 }
@@ -774,6 +775,8 @@ func (srt *StepRuntime) newJobView(msg string) schema.JobView {
 		PK:          srt.pk,
 		Seq:         srt.seq,
 	}
+
+	srt.logger.Infof("+++++++++ create jobView for component[%s] with pk[%d]", srt.getName(), srt.pk)
 
 	return view
 }
