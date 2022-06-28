@@ -505,9 +505,6 @@ func (srt *StepRuntime) logCache() error {
 		Strategy:    CacheStrategyConservative,
 	}
 
-	srt.logger.Infof("++++++++++++++++++++++ cache of step: %v", srt.getWorkFlowStep().Cache)
-	srt.logger.Infof("++++++++++++++++++++++ cache of workflowSource: %v", srt.WorkflowSource.Cache)
-	srt.logger.Infof("++++++++++++++++++++++ expiredTime in LogRunCacheRequest: %v", req.ExpiredTime)
 	// logcache失败，不影响job正常结束，但是把cache失败添加日志
 	_, err := srt.callbacks.LogCacheCb(req)
 	if err != nil {
@@ -773,6 +770,7 @@ func (srt *StepRuntime) newJobView(msg string) schema.JobView {
 		CacheRunID:  srt.CacheRunID,
 		CacheJobID:  srt.CacheJobID,
 		StepName:    srt.getComponent().GetName(),
+		Cache:       srt.Cache,
 		PK:          srt.pk,
 		Seq:         srt.seq,
 	}

@@ -223,7 +223,6 @@ func (drt *DagRuntime) createAndStartSubComponentRuntime(subComponentName string
 
 		var subRuntime componentRuntime
 		if isStep {
-			drt.logger.Infof("+++++++++++++ step before NewStepRuntime: %v", step)
 			subRuntime = NewStepRuntime(subFullName, step, index, drt.ctx, ctxAndCc.ctx,
 				drt.receiveEventChildren, drt.runConfig, drt.ID)
 		} else {

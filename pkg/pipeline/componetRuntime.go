@@ -347,6 +347,19 @@ func (crt *baseComponentRuntime) syncToApiServerAndParent(wv WfEventValue, view 
 }
 
 func (crt *baseComponentRuntime) callback(event *WorkflowEvent) {
+	// ++++++++++++++ debug
+	view := event.Extra[common.WfEventKeyView].(schema.ComponentView)
+	var pk int64
+	jobView, ok := view.(*schema.JobView)
+	if ok {
+		pk = jobView.PK
+	} else {
+		pk = view.(*schema.DagView).PK
+	}
+
+	crt.logger.Infof("+++++++++ callback for component[%s] with pk[%d]", view.GetComponentName(), pk)
+	// ++++++++++++++ debug
+
 	for i := 0; i < 3; i++ {
 		crt.logger.Infof("callback event [%+v]", event)
 		if pk, success := crt.callbacks.UpdateRuntimeCb(crt.runID, event); success {
