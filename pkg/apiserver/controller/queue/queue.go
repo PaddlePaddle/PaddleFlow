@@ -424,8 +424,26 @@ func UpdateQueue(ctx *logger.RequestContext, request *UpdateQueueRequest) (Updat
 
 	// validate scheduling policy
 	if len(request.SchedulingPolicy) != 0 {
-		log.Warningf("todo queue.SchedulingPolicy havn't been validated yet")
-		queueInfo.SchedulingPolicy = request.SchedulingPolicy
+		log.Debug("update queue scheduling policy")
+		// TODO: change the data type of schedulingPolicy to map[string]interface{}
+		schedulingPolicy := make(map[string]struct{})
+		for _, policy := range queueInfo.SchedulingPolicy {
+			schedulingPolicy[policy] = struct{}{}
+		}
+		for _, policy := range request.SchedulingPolicy {
+			if strings.HasSuffix(policy, "-") {
+				// remove old scheduling policy
+				sp := strings.TrimLeft(policy, "-")
+				delete(schedulingPolicy, sp)
+			} else {
+				schedulingPolicy[policy] = struct{}{}
+			}
+		}
+		sp := []string{}
+		for policy, _ := range schedulingPolicy {
+			sp = append(sp, policy)
+		}
+		queueInfo.SchedulingPolicy = sp
 	}
 
 	// init runtimeSvc if updateCluster is necessary
