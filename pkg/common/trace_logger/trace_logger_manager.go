@@ -134,7 +134,7 @@ type TraceLoggerManager interface {
 	Key(key string) TraceLogger
 
 	SyncAll() error
-	LoadAll(path string, maxLoadNum int, prefix ...string) error
+	LoadAll(path string, prefix ...string) error
 	ClearAll() error
 	DeleteUnusedCache(timeout time.Duration, method ...DeleteMethod) error
 
@@ -407,9 +407,8 @@ func (d *DefaultTraceLoggerManager) SyncAll() error {
 	return nil
 }
 
-// TODO: load on run, read last file
 // LoadAll will load all the trace from the file, and replace local cache
-func (d *DefaultTraceLoggerManager) LoadAll(path string, maxLoadNum int, prefixes ...string) (err error) {
+func (d *DefaultTraceLoggerManager) LoadAll(path string, prefixes ...string) (err error) {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
@@ -417,7 +416,7 @@ func (d *DefaultTraceLoggerManager) LoadAll(path string, maxLoadNum int, prefixe
 	d.clearCache()
 	stat, err := os.Stat(path)
 	if err != nil {
-		return fmt.Errorf("failed to get file stat: %v", err)
+		return fmt.Errorf("failed to get file stat: %w", err)
 	}
 
 	var prefix string
@@ -433,14 +432,17 @@ func (d *DefaultTraceLoggerManager) LoadAll(path string, maxLoadNum int, prefixe
 		fileInfos := make([]fs.FileInfo, 0, len(filesEntries))
 
 		if err != nil {
-			return fmt.Errorf("failed to read dir: %v", err)
+			return fmt.Errorf("failed to read dir: %w", err)
 		}
 
 		for _, fileEntry := range filesEntries {
-			if !fileEntry.IsDir() && fileEntry.Name() != "." && fileEntry.Name() != ".." && strings.HasPrefix(fileEntry.Name(), prefix) {
+			if !fileEntry.IsDir() &&
+				fileEntry.Name() != "." &&
+				fileEntry.Name() != ".." &&
+				strings.HasPrefix(fileEntry.Name(), prefix) {
 				info, err := fileEntry.Info()
 				if err != nil {
-					return fmt.Errorf("failed to read file: %v", err)
+					return fmt.Errorf("failed to read file: %w", err)
 				}
 
 				// add it to slice
@@ -485,7 +487,7 @@ func (d *DefaultTraceLoggerManager) loadFromFile(filePath string) (count int, er
 	defer func() {
 		err1 := file.Close()
 		if err1 != nil {
-			err = fmt.Errorf("failed to close file: %v", err1)
+			err = fmt.Errorf("failed to close file: %w", err1)
 		}
 	}()
 
