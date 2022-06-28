@@ -20,7 +20,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	common2 "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"path"
 
 	log "github.com/sirupsen/logrus"
@@ -82,9 +81,6 @@ func processFsInfo(fsInfoBase64 string) (string, error) {
 	if err := json.Unmarshal(fsInfoByte, &fs); err != nil {
 		log.Errorf("json unmarshal fs [%s] err: %v", string(fsInfoByte), err)
 		return "", err
-	}
-	if fs.ID == "" {
-		fs.ID = common2.ID(fs.UserName, fs.Name)
 	}
 	if fs.ID == "" ||
 		fs.Type == "" ||
