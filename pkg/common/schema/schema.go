@@ -21,6 +21,7 @@ type ComponentView interface {
 	GetParentDagID() string
 	GetStatus() JobStatus
 	GetSeq() int
+	GetDeps() string
 
 	SetDeps(string)
 }
@@ -60,6 +61,10 @@ func (j *JobView) SetDeps(deps string) {
 	j.Deps = deps
 }
 
+func (j JobView) GetDeps() string {
+	return j.Deps
+}
+
 func (j JobView) GetStatus() JobStatus {
 	return j.Status
 }
@@ -95,6 +100,10 @@ func (d DagView) GetParentDagID() string {
 
 func (d *DagView) SetDeps(deps string) {
 	d.Deps = deps
+}
+
+func (d DagView) GetDeps() string {
+	return d.Deps
 }
 
 func (d DagView) GetStatus() JobStatus {
