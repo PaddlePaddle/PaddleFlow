@@ -499,7 +499,7 @@ func (srt *StepRuntime) logCache() error {
 		FsID:        srt.fsID,
 		FsName:      srt.fsName,
 		UserName:    srt.userName,
-		ExpiredTime: srt.Cache.MaxExpiredTime,
+		ExpiredTime: srt.getWorkFlowStep().Cache.MaxExpiredTime,
 		Strategy:    CacheStrategyConservative,
 	}
 
