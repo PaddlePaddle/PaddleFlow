@@ -88,7 +88,7 @@ func newStepRuntimeWithStatus(fullName string, step *schema.WorkflowSourceStep, 
 
 	view := srt.newJobView(msg)
 
-	srt.syncToApiServerAndParent(WfEventJobUpdate, view, msg)
+	srt.syncToApiServerAndParent(WfEventJobUpdate, &view, msg)
 
 	return srt
 }
@@ -118,7 +118,7 @@ func (srt *StepRuntime) processStartAbnormalStatus(msg string, status RuntimeSta
 
 	view := srt.newJobView(msg)
 
-	srt.syncToApiServerAndParent(WfEventJobUpdate, view, msg)
+	srt.syncToApiServerAndParent(WfEventJobUpdate, &view, msg)
 }
 
 func (srt *StepRuntime) Start() {
@@ -179,7 +179,7 @@ func (srt *StepRuntime) Restart(view *schema.JobView) {
 		// 此时没有占坑，不需要降低并发度
 		srt.baseComponentRuntime.updateStatus(StatusRuntimeFailed)
 		view := srt.newJobView(msg)
-		srt.syncToApiServerAndParent(WfEventJobUpdate, view, msg)
+		srt.syncToApiServerAndParent(WfEventJobUpdate, &view, msg)
 		return
 	}
 	if !need {
@@ -230,7 +230,7 @@ func (srt *StepRuntime) restartWithRunning(view *schema.JobView) {
 			"maybe multi gorutine process this step", srt.name, srt.status)
 		srt.updateStatus(StatusRuntimeFailed)
 		view := srt.newJobView(msg)
-		srt.syncToApiServerAndParent(WfEventJobUpdate, view, msg)
+		srt.syncToApiServerAndParent(WfEventJobUpdate, &view, msg)
 	}
 
 	srt.parallelismManager.increase()
@@ -666,7 +666,7 @@ func (srt *StepRuntime) stopWithMsg(msg string) {
 		srt.updateStatus(StatusRuntimeFailed)
 		msg = fmt.Sprintf("cannot stop stepruntime[%s] because cannot find it's jobid", srt.name)
 		view := srt.newJobView(msg)
-		srt.syncToApiServerAndParent(WfEventJobStopErr, view, msg)
+		srt.syncToApiServerAndParent(WfEventJobStopErr, &view, msg)
 		return
 	}
 
@@ -689,7 +689,7 @@ func (srt *StepRuntime) stopWithMsg(msg string) {
 			srt.logger.Errorf(ErrMsg)
 
 			view := srt.newJobView(ErrMsg)
-			srt.syncToApiServerAndParent(WfEventJobStopErr, view, ErrMsg)
+			srt.syncToApiServerAndParent(WfEventJobStopErr, &view, ErrMsg)
 
 			tryCount += 1
 			time.Sleep(time.Second * 3)
@@ -734,7 +734,7 @@ func (srt *StepRuntime) processEventFromJob(event WorkflowEvent) {
 		}
 		srt.updateStatus(extra["status"].(RuntimeStatus))
 		view := srt.newJobView(event.Message)
-		srt.syncToApiServerAndParent(WfEventJobUpdate, view, event.Message)
+		srt.syncToApiServerAndParent(WfEventJobUpdate, &view, event.Message)
 	}
 }
 

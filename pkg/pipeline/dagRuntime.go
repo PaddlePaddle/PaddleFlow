@@ -299,7 +299,7 @@ func (drt *DagRuntime) scheduleSubComponent(mustSchedule bool) {
 
 		drt.updateStatus(StatusRuntimeFailed)
 		dagView := drt.newView(err.Error())
-		drt.syncToApiServerAndParent(WfEventDagUpdate, dagView, err.Error())
+		drt.syncToApiServerAndParent(WfEventDagUpdate, &dagView, err.Error())
 		return
 	}
 
@@ -382,7 +382,7 @@ func (drt *DagRuntime) Restart(dagView *schema.DagView) {
 		msg := fmt.Sprintf("dag [%s] is already in status[%s], no restart required", drt.name, drt.status)
 		drt.logger.Debugf(msg)
 		dagView.EntryPoints = make(map[string][]schema.ComponentView)
-		drt.syncToApiServerAndParent(WfEventDagUpdate, *dagView, msg)
+		drt.syncToApiServerAndParent(WfEventDagUpdate, dagView, msg)
 		return
 	}
 
@@ -713,7 +713,7 @@ func (drt *DagRuntime) processEventFromSubComponent(event WorkflowEvent) error {
 
 	StatusMsg := drt.updateStatusAccordingSubComponentRuntimeStatus()
 	view := drt.newView(StatusMsg)
-	drt.syncToApiServerAndParent(WfEventDagUpdate, view, StatusMsg)
+	drt.syncToApiServerAndParent(WfEventDagUpdate, &view, StatusMsg)
 
 	// 如果 dagRuntime 未处于终态，则需要判断是否有新的子节点可以运行
 
@@ -837,7 +837,7 @@ func (drt *DagRuntime) ProcessFailureOptions(event WorkflowEvent, needSync bool)
 
 	// 通过时间通知其父节点处理开始处理 failureOptions
 	if needSync {
-		drt.syncToApiServerAndParent(WfEventFailureOptionsTriggered, schema.DagView{},
+		drt.syncToApiServerAndParent(WfEventFailureOptionsTriggered, &schema.DagView{},
 			fmt.Sprintf("failure options triggered by event: %v", event))
 	}
 	// 策略的合法性由 workflow 保证
@@ -871,7 +871,7 @@ func (drt *DagRuntime) CancellNotReadyComponent(subComponent schema.Component, r
 func (drt *DagRuntime) processStartAbnormalStatus(msg string, status RuntimeStatus) {
 	drt.updateStatus(status)
 	dagView := drt.newView(msg)
-	drt.syncToApiServerAndParent(WfEventDagUpdate, dagView, msg)
+	drt.syncToApiServerAndParent(WfEventDagUpdate, &dagView, msg)
 }
 
 // processSubRuntimeError： 处理调度子节点失败的情况，通过调用processEventFromSubComponent()函数来进行同步
