@@ -17,7 +17,6 @@ limitations under the License.
 package storage
 
 import (
-	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
@@ -54,10 +53,10 @@ type FileSystemStoreInterface interface {
 	ListLink(limit int, marker, fsID string) ([]model.Link, error)
 	GetLinkWithFsIDAndPath(fsID, fsPath string) ([]model.Link, error)
 	// fs_cache_config
-	CreateFSCacheConfig(logEntry *log.Entry, fsCacheConfig *model.FSCacheConfig) error
-	UpdateFSCacheConfig(logEntry *log.Entry, fsCacheConfig model.FSCacheConfig) error
+	CreateFSCacheConfig(fsCacheConfig *model.FSCacheConfig) error
+	UpdateFSCacheConfig(fsCacheConfig model.FSCacheConfig) error
 	DeleteFSCacheConfig(tx *gorm.DB, fsID string) error
-	GetFSCacheConfig(logEntry *log.Entry, fsID string) (model.FSCacheConfig, error)
+	GetFSCacheConfig(fsID string) (model.FSCacheConfig, error)
 }
 
 // FsCacheStoreInterface currently has two implementations: DB and memory

@@ -32,7 +32,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 // createFSCacheConfig handles requests of creating filesystem cache config
@@ -107,15 +106,17 @@ func (pr *PFSRouter) updateFSCacheConfig(w http.ResponseWriter, r *http.Request)
 	req.FsID = common.ID(realUserName, fsName)
 
 	// validate fs_cache_config existence
-	if _, err := storage.Filesystem.GetFSCacheConfig(ctx.Logging(), req.FsID); err != nil {
-		ctx.Logging().Errorf("UpdateFSCacheConfig[%s] models.GetFSCacheConfig err:%s", fsName, err.Error())
+	if _, err := api.GetFileSystemCacheConfig(&ctx, req.FsID); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			common.RenderErrWithMessage(w, ctx.RequestID, common.RecordNotFound, err.Error())
+			ctx.ErrorCode = common.RecordNotFound
 		} else {
-			common.RenderErrWithMessage(w, ctx.RequestID, common.InternalError, err.Error())
+			ctx.ErrorCode = common.InternalError
 		}
+		logger.LoggerForRequest(&ctx).Errorf("validate fs_cache_config[%s] failed. error:%v", req.FsID, err)
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
+
 	// validate can be modified
 	if err := fsCheckCanModify(&ctx, req.FsID); err != nil {
 		ctx.Logging().Errorf("checkCanModifyFs[%s] err: %v", req.FsID, err)
