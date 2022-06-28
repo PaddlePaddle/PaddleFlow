@@ -26,6 +26,7 @@ package trace_logger
 
 import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
+	"github.com/stretchr/testify/assert"
 	testing "testing"
 	"time"
 )
@@ -48,49 +49,59 @@ func TestTraceLogger(t *testing.T) {
 
 	key1 := uuid.GenerateIDWithLength("key", 4)
 	t.Logf("log key %s", key1)
-	err = testFunc1(key1)
+	err = testFunc1(t, key1)
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
-	t.Logf("cache: %s\n", manager)
+	assert.Condition(t, func() bool {
+		_, ok := manager.GetTraceFromCache(key1)
+		return ok
+	})
+
+	t.Logf("cache: \n%s\n", manager)
 
 	key2 := uuid.GenerateIDWithLength("key", 4)
 	t.Logf("log key %s", key2)
-	err = testFunc1(key2)
+	err = testFunc1(t, key2)
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
-	t.Logf("cache: %s\n", manager)
+	assert.Condition(t, func() bool {
+		_, ok := manager.GetTraceFromCache(key1)
+		return ok
+	})
+	assert.Condition(t, func() bool {
+		_, ok := manager.GetTraceFromCache(key2)
+		return ok
+	})
+
+	t.Logf("cache: \n%s\n", manager)
 
 	key3 := uuid.GenerateIDWithLength("key", 4)
 	t.Logf("log key %s", key3)
-	err = testFunc1(key3)
+	err = testFunc1(t, key3)
 	if err != nil {
 		t.Error(err)
 		return
 	}
 
-	key4 := uuid.GenerateIDWithLength("key", 4)
-	t.Logf("log key %s", key4)
-	err = testFunc1(key4)
-	if err != nil {
-		t.Error(err)
-		return
-	}
+	assert.Condition(t, func() bool {
+		_, ok := manager.GetTraceFromCache(key3)
+		return ok
+	})
 
-	key5 := uuid.GenerateIDWithLength("key", 4)
-	t.Logf("log key %s", key5)
-	err = testFunc1(key5)
-	if err != nil {
-		t.Error(err)
-		return
-	}
+	// must be deleted one
+	assert.Condition(t, func() bool {
+		_, ok1 := manager.GetTraceFromCache(key1)
+		_, ok2 := manager.GetTraceFromCache(key2)
+		return !(ok1 && ok2)
+	})
 
-	t.Logf("cache: %s\n", manager)
+	t.Logf("cache: \n%s\n", manager)
 
 	t.Logf("sync all")
 	err = manager.SyncAll()
@@ -101,19 +112,19 @@ func TestTraceLogger(t *testing.T) {
 
 	t.Logf("wait for 6s")
 	<-time.After(6 * time.Second)
-	t.Logf("cache: %s\n", manager)
+	t.Logf("cache: \n%s\n", manager)
 
-	t.Logf("sync all")
-	err = manager.SyncAll()
-	if err != nil {
-		t.Error(err)
-		return
-	}
+	assert.Condition(t, func() bool {
+		_, ok1 := manager.GetTraceFromCache(key1)
+		_, ok2 := manager.GetTraceFromCache(key2)
+		_, ok3 := manager.GetTraceFromCache(key3)
+		return !(ok1 && ok2 && ok3)
+	})
 
 	// test clear
 	t.Logf("clear all")
 	_ = manager.ClearAll()
-	t.Logf("cache: %s\n", manager)
+	t.Logf("cache: \n%s\n", manager)
 
 	// load from disk
 	t.Logf("load all")
@@ -122,7 +133,17 @@ func TestTraceLogger(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	t.Logf("cache: %s\n", manager)
+
+	t.Logf("cache: \n%s\n", manager)
+	trace, _ := manager.GetTraceFromCache(key3)
+	assert.Condition(t, func() bool {
+		_, ok1 := manager.GetTraceFromCache(key1)
+		_, ok2 := manager.GetTraceFromCache(key2)
+		_, ok3 := manager.GetTraceFromCache(key3)
+		return ok1 && ok2 && ok3
+	})
+
+	t.Logf("key3 %s: %s\n", key3, trace)
 
 	/*
 		logger.key("key1").logf("test1")
@@ -152,41 +173,31 @@ func initTraceLogger() error {
 		MaxFileSizeInMB: 1,
 		IsCompress:      false,
 		Timeout:         "2s",
-		MaxCacheSize:    3,
+		MaxCacheSize:    2,
 	}
 
 	return InitTraceLogger(conf)
 
 }
-func test() {
-	Key("key1").Infof("test1")
-	UpdateKey("key1", "key2")
-	Key("key2").Warnf("test3")
 
-	//cache := gcache.New(10000).LRU().Expiration(time.Second * 2).Build()
-}
-
-func testFunc1(key string) error {
+func testFunc1(t *testing.T, key string) error {
 	tmpKey := uuid.GenerateIDWithLength("tmp", 4)
 	Key(tmpKey).Infof("test1")
 	Key(tmpKey).Errorf("test2")
+	assert.Condition(t, func() bool {
+		_, ok := GetTraceFromCache(tmpKey)
+		return !ok
+	})
 	err := UpdateKey(tmpKey, key)
 	if err != nil {
 		return err
 	}
 	Key(key).Warnf("test3")
-	<-time.After(2 * time.Second)
-	Key(key).Infof("test4")
-	Key(key).Infof("test5")
-	Key(key).Infof("test6")
-	Key(key).Infof("test7")
-	Key(key).Infof("test8")
-	Key(key).Infof("test9")
-	Key(key).Infof("test10")
-	Key(key).Infof("test11")
-	Key(key).Infof("test12")
-	Key(key).Infof("test13")
-	Key(key).Infof("test14")
+	assert.Condition(t, func() bool {
+		_, ok := GetTraceFromCache(key)
+		return ok
+	})
+
 	return nil
 }
 

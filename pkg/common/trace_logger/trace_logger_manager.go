@@ -292,6 +292,9 @@ func (d *DefaultTraceLoggerManager) NewTraceLogger() TraceLogger {
 
 func (d *DefaultTraceLoggerManager) GetTraceFromCache(key string) (Trace, bool) {
 	val, ok := d.cache.Get(key)
+	if !ok {
+		return Trace{}, false
+	}
 	return val.(Trace), ok
 }
 
@@ -311,6 +314,15 @@ func (d *DefaultTraceLoggerManager) SetTraceToCache(key string, trace Trace) (er
 	//		err = fmt.Errorf("%v", err1)
 	//	}
 	//}()
+	// delete outdated trace
+	// fmt.Println("maxCacheSize:", d.maxCacheSize, d.cache.Count())
+
+	// if reach max count after insertion, evict first
+	newCount := d.cache.Count() + 1
+	if newCount > d.maxCacheSize {
+		logrus.Debugf("cache size is too large, start auto delete")
+		d.evictCache()
+	}
 
 	d.cache.Upsert(key, trace, func(exist bool, valueInMap interface{}, newValue interface{}) interface{} {
 		// if trace exists, copy last synced index to new trace
@@ -321,12 +333,6 @@ func (d *DefaultTraceLoggerManager) SetTraceToCache(key string, trace Trace) (er
 		return newVal
 	})
 
-	// delete outdated trace
-	// fmt.Println("maxCacheSize:", d.maxCacheSize, d.cache.Count())
-	if d.cache.Count() >= d.maxCacheSize {
-		logrus.Debugf("cache size is too large, start auto delete")
-		d.evictCache()
-	}
 	return
 }
 
@@ -393,7 +399,10 @@ func (d *DefaultTraceLoggerManager) evictCache() {
 func (d *DefaultTraceLoggerManager) SyncAll() error {
 	d.lock.RLock()
 	defer d.lock.RUnlock()
+	return d.sync()
+}
 
+func (d *DefaultTraceLoggerManager) sync() error {
 	// iter all traces in cache, and sync them
 	iter := d.cache.IterBuffered()
 
@@ -559,6 +568,13 @@ func (d *DefaultTraceLoggerManager) DeleteUnusedCache(timeout time.Duration, met
 	if len(methods) > 0 {
 		method = methods[0]
 	}
+
+	err := d.sync()
+	if err != nil {
+		logrus.Warnf("sync failed: %v", err)
+		err = nil
+	}
+
 	d.deleteTraceFromCacheBefore(timeout, method)
 	// delete unused key
 	d.deleteUnusedTmpKey(timeout)
