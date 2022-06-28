@@ -22,6 +22,7 @@ import (
 
 	"github.com/urfave/cli/v2"
 
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/fuse"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/meta"
 )
@@ -47,6 +48,11 @@ func BasicFlags() []cli.Flag {
 			Name:  "config",
 			Value: "",
 			Usage: "filesystem config",
+		},
+		&cli.StringFlag{
+			Name:  schema.FuseKeyFsInfo,
+			Value: "",
+			Usage: "filesystem config in json string",
 		},
 		&cli.StringFlag{
 			Name:  "local-root",

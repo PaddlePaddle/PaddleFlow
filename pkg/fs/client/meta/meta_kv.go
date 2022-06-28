@@ -529,6 +529,10 @@ func (m *kvMeta) Readdir(ctx *Context, inode Ino, entries *[]*Entry) syscall.Err
 				ino:  en.Ino,
 				mode: en.Attr.Mode,
 			}
+			attrCache_ := &attrCacheItem{}
+			attrCache_.attr = *en.Attr
+			expire := time.Now().Add(m.attrTimeOut).Unix()
+			m.putAttr(m.InoToPath(en.Ino), *attrCache_, expire)
 			entriesCache = append(entriesCache, entry)
 		}
 
