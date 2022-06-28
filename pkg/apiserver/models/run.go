@@ -168,7 +168,9 @@ func (r *Run) validateRuntimeAndPostProcess() error {
 		}
 	}
 
-	r.initRuntime(runtimeJobs, runDags)
+	if err := r.initRuntime(runtimeJobs, runDags); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -207,12 +209,8 @@ func (r *Run) initRuntime(jobs []RunJob, dags []RunDag) error {
 	}
 
 	// 去掉最外层的DagView，使得RuntimeView显示得更友好
-	runtimeViewErrMsg := "runtimeView sturcture is invalid"
+	runtimeViewErrMsg := "runtime view sturcture is invalid"
 	resView := map[string][]schema.ComponentView{}
-	if len(runtimeView) != 1 {
-		logger.Logger().Errorf(runtimeViewErrMsg)
-		return fmt.Errorf(runtimeViewErrMsg)
-	}
 	for _, outerDagList := range runtimeView {
 		if len(outerDagList) != 1 {
 			logger.Logger().Errorf(runtimeViewErrMsg)
