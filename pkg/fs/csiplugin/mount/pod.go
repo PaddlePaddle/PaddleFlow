@@ -397,7 +397,7 @@ func getMountCmd(mountInfo Info) string {
 	pfsMountPath := "/home/paddleflow/pfs-fuse mount "
 	mountPath := "--mount-point=" + FusePodMountPoint + " "
 	options := []string{
-		"--fs-info=" + mountInfo.FsInfoStr,
+		"--fs-info=" + mountInfo.FsBase64Str,
 		"--user-name=" + mountInfo.UsernameRoot,
 		"--password=" + mountInfo.PasswordRoot,
 		"--block-size=" + strconv.Itoa(cacheConf.BlockSize),
