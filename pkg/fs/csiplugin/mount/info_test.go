@@ -68,4 +68,20 @@ func TestKubeRuntimePVAndPVC(t *testing.T) {
 	assert.Equal(t, mountInfo.FsCacheConfig.MetaDriver, fsCache.MetaDriver)
 	assert.Equal(t, mountInfo.FsCacheConfig.BlockSize, fsCache.BlockSize)
 	fmt.Printf("\nmountInfo: %+v\n", mountInfo)
+
+	// no cache config
+	fsCache = model.FSCacheConfig{}
+	fsCacheStr, err = json.Marshal(fsCache)
+	assert.Nil(t, err)
+	fmt.Printf("\nfsCacheStr: %s\n", fsCacheStr)
+	fsCacheBase64 = base64.StdEncoding.EncodeToString(fsCacheStr)
+	fmt.Printf("\nfsCacheBase64: %s\n", fsCacheBase64)
+	mountInfo, err = ProcessMountInfo(fs.ID, "server", fsBase64, fsCacheBase64, false)
+	assert.Nil(t, err)
+	assert.Equal(t, mountInfo.FsBase64Str, fsBase64)
+	assert.Equal(t, mountInfo.FsCacheConfig.CacheDir, fsCache.CacheDir)
+	assert.Equal(t, mountInfo.FsCacheConfig.FsID, fsCache.FsID)
+	assert.Equal(t, mountInfo.FsCacheConfig.MetaDriver, fsCache.MetaDriver)
+	assert.Equal(t, mountInfo.FsCacheConfig.BlockSize, fsCache.BlockSize)
+	fmt.Printf("\nmountInfo: %+v\n", mountInfo)
 }
