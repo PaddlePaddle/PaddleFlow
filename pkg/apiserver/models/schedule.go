@@ -275,7 +275,7 @@ func IsLastSchedulePk(logEntry *log.Entry, pk int64, pplFilter, pplDetailFilter,
 	schedule := Schedule{}
 	tx = tx.Last(&schedule)
 	if tx.Error != nil {
-		logEntry.Errorf("get last schedule for failed. error:%s", tx.Error.Error())
+		logEntry.Errorf("get last schedule failed. error:%s", tx.Error.Error())
 		return false, tx.Error
 	}
 
