@@ -254,7 +254,7 @@ func UpdateRuntimeJobByWfEvent(id string, event interface{}) (int64, bool) {
 	if err := updateRunCache(logging, runtimeJob, runID); err != nil {
 		return 0, false
 	}
-
+	logging.Infof("debug: job's PK returning is : %v", pk)
 	return pk, true
 }
 
