@@ -246,6 +246,9 @@ func ProcessRuntimeView(componentViews map[string][]schema.ComponentView, compon
 		logger.Logger().Infof("debug: deps is: %s", deps)
 		for i, compView := range compViewList {
 			// 信息补全
+			_, ok1 := compView.(*schema.DagView)
+			_, ok2 := compView.(*schema.JobView)
+			logger.Logger().Infof("debug: *dagView [%v], *JobView [%v]", ok1, ok2)
 			compView.SetDeps(deps)
 			logger.Logger().Infof("debug: after set deps is: %s", compView.GetDeps())
 			logger.Logger().Infof("debug: after set deps is: %s", compViewList[i].GetDeps())
