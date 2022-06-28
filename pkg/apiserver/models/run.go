@@ -173,7 +173,7 @@ func (r *Run) validateRuntimeAndPostProcess() error {
 	return nil
 }
 
-func (r *Run) initRuntime(jobs []RunJob, dags []RunDag) {
+func (r *Run) initRuntime(jobs []RunJob, dags []RunDag) error {
 
 	// runtimeView
 	runtimeView := map[string][]schema.ComponentView{}
@@ -206,9 +206,33 @@ func (r *Run) initRuntime(jobs []RunJob, dags []RunDag) {
 		}
 	}
 
+	// 去掉最外层的DagView，使得RuntimeView显示得更友好
+	runtimeViewErrMsg := "runtimeView sturcture is invalid"
+	resView := map[string][]schema.ComponentView{}
+	if len(runtimeView) != 1 {
+		logger.Logger().Errorf(runtimeViewErrMsg)
+		return fmt.Errorf(runtimeViewErrMsg)
+	}
+	for _, outerDagList := range runtimeView {
+		if len(outerDagList) != 1 {
+			logger.Logger().Errorf(runtimeViewErrMsg)
+			return fmt.Errorf(runtimeViewErrMsg)
+		}
+		outerDag, ok := outerDagList[0].(*schema.DagView)
+		if !ok {
+			logger.Logger().Errorf(runtimeViewErrMsg)
+			return fmt.Errorf(runtimeViewErrMsg)
+		}
+		for name, compList := range outerDag.EntryPoints {
+			resView[name] = compList
+		}
+	}
+
 	// 此时已拿到RuntimeView树，但是信息不全，需要用wfs补全
-	ProcessRuntimeView(runtimeView, r.WorkflowSource.EntryPoints.EntryPoints)
+	ProcessRuntimeView(resView, r.WorkflowSource.EntryPoints.EntryPoints)
+
 	r.Runtime = runtimeView
+	return nil
 }
 
 // 补全ComponentView中的Deps
