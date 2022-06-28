@@ -505,6 +505,7 @@ func (bwf *BaseWorkflow) checkCache() error {
 		校验yaml中cache各相关字段
 	*/
 
+	logger.Logger().Info("debug: maxExpiredTime is [%s]", bwf.Source.Cache.MaxExpiredTime)
 	// 校验MaxExpiredTime，必须能够转换成数字。如果没传，默认为-1
 	if bwf.Source.Cache.MaxExpiredTime == "" {
 		bwf.Source.Cache.MaxExpiredTime = CacheExpiredTimeNever
