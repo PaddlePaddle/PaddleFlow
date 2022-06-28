@@ -734,11 +734,12 @@ func (srt *StepRuntime) processEventFromJob(event WorkflowEvent) {
 			}
 		}
 		srt.updateStatus(extra["status"].(RuntimeStatus))
+
+		fmt.Println("before callback", srt.name, srt.pk, srt.baseComponentRuntime.pk)
 		view := srt.newJobView(event.Message)
 		srt.syncToApiServerAndParent(WfEventJobUpdate, &view, event.Message)
+		fmt.Println("after callback", srt.name, srt.pk, srt.baseComponentRuntime.pk)
 
-		// ++++++++++ just for debug,
-		srt.syncToApiServerAndParent(WfEventJobUpdate, &view, event.Message)
 	}
 }
 

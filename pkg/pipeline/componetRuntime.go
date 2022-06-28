@@ -328,6 +328,8 @@ func (crt *baseComponentRuntime) syncToApiServerAndParent(wv WfEventValue, view 
 		common.WfEventKeyStatus: crt.status,
 	}
 
+	fmt.Println("before callback", crt.name, crt.pk)
+
 	jobView, ok := view.(*schema.JobView)
 	if ok {
 		extra[common.WfEventKeyView] = jobView
@@ -339,6 +341,9 @@ func (crt *baseComponentRuntime) syncToApiServerAndParent(wv WfEventValue, view 
 	// 调用回调函数，将信息同步至 apiserver
 
 	crt.callback(event)
+
+	fmt.Println("after callback", crt.name, crt.pk)
+
 	// 将事件冒泡给父节点
 	// 这里使用协程
 	go func() {
