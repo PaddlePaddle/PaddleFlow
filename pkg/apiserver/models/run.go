@@ -231,7 +231,7 @@ func (r *Run) initRuntime(jobs []RunJob, dags []RunDag) error {
 	// 此时已拿到RuntimeView树，但是信息不全，需要用wfs补全
 	ProcessRuntimeView(resView, r.WorkflowSource.EntryPoints.EntryPoints)
 
-	r.Runtime = runtimeView
+	r.Runtime = resView
 	return nil
 }
 
