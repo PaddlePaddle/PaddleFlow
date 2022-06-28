@@ -411,10 +411,12 @@ func (srt *StepRuntime) checkCached() (cacheFound bool, err error) {
 	}
 	if len(runCacheList) == 0 {
 		// 这里不能直接返回，因为还要计算secondFingerprint，用来在节点运行成功时，记录到数据库
-		logMsg := fmt.Sprintf("cache list empty for step[%s] in runid[%s], with first fingerprint[%s]", srt.name, srt.runID, srt.firstFingerprint)
+		logMsg := fmt.Sprintf("cache list empty for step[%s] in runid[%s], with first fingerprint[%s]",
+			srt.name, srt.runID, srt.firstFingerprint)
 		srt.logger.Infof(logMsg)
 	} else {
-		logMsg := fmt.Sprintf("cache list length(%d) for step[%s] in runid[%s], with first fingerprint[%s]", len(runCacheList), srt.name, srt.runID, srt.firstFingerprint)
+		logMsg := fmt.Sprintf("cache list length(%d) for step[%s] in runid[%s], with first fingerprint[%s]",
+			len(runCacheList), srt.name, srt.runID, srt.firstFingerprint)
 		srt.logger.Infof(logMsg)
 	}
 
@@ -655,6 +657,11 @@ func (srt *StepRuntime) Execute() {
 		srt.processStartAbnormalStatus(err.Error(), schema.StatusJobFailed)
 		return
 	}
+
+	msg := fmt.Sprintf("create job with id[%s]", srt.job.JobID())
+	view := srt.newJobView(msg)
+	srt.syncToApiServerAndParent(WfEventJobUpdate, &view, msg)
+
 	srt.logger.Debugf("step[%s] of runid[%s]: jobID[%s]", srt.name, srt.runID, srt.job.(*PaddleFlowJob).ID)
 
 	srt.logInputArtifact()
