@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/agiledragon/gomonkey/v2"
@@ -28,6 +29,7 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	pkgPipeline "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline"
@@ -36,6 +38,7 @@ import (
 
 // 测试创建pipeline
 // yaml结构校验跟run相同，所以此处略过
+// todo: fs路径不存在 & 访问权限(需要挂载，不好测试)
 func TestCreatePipeline(t *testing.T) {
 	driver.InitMockDB()
 	ctx := &logger.RequestContext{UserName: MockRootUser}
@@ -55,7 +58,7 @@ func TestCreatePipeline(t *testing.T) {
 	}
 
 	patch := gomonkey.ApplyFunc(handler.ReadFileFromFs, func(fsID, runYamlPath string, logEntry *log.Entry) ([]byte, error) {
-		return os.ReadFile(runYamlPath)
+		return os.ReadFile("../../../../example/wide_and_deep/run.yaml")
 	})
 	defer patch.Reset()
 
@@ -65,8 +68,28 @@ func TestCreatePipeline(t *testing.T) {
 	})
 	defer patch1.Reset()
 
+	patch2 := gomonkey.ApplyFunc(CheckFsAndGetID, func(string, string, string) (string, error) {
+		return "", nil
+	})
+
+	defer patch2.Reset()
+
+	// 创建失败: desc长度超过1024
+	createPplReq.Desc = strings.Repeat("a", util.MaxDescLength+1)
+	_, err = CreatePipeline(ctx, createPplReq)
+	assert.NotNil(t, err)
+	assert.Equal(t, fmt.Errorf("desc too long, should be less than %d", util.MaxDescLength), err)
+
+	// 创建失败: fsname为空
+	createPplReq.Desc = "pipeline test"
+	createPplReq.FsName = ""
+	_, err = CreatePipeline(ctx, createPplReq)
+	assert.NotNil(t, err)
+	assert.Equal(t, fmt.Errorf("create pipeline failed. fsname shall not be empty"), err)
+
 	// create 成功
-	resp, err := CreatePipeline(ctx, createPplReq, MockFsID)
+	createPplReq.FsName = MockFsName
+	resp, err := CreatePipeline(ctx, createPplReq)
 	assert.Nil(t, err)
 
 	// test get success
@@ -76,6 +99,7 @@ func TestCreatePipeline(t *testing.T) {
 	assert.Equal(t, len(getPplResp.PipelineDetails.PipelineDetailList), 1)
 	assert.Equal(t, getPplResp.PipelineDetails.PipelineDetailList[0].PipelineID, "ppl-000001")
 	assert.Equal(t, getPplResp.PipelineDetails.PipelineDetailList[0].ID, "1")
+	assert.Equal(t, getPplResp.PipelineDetails.PipelineDetailList[0].YamlPath, createPplReq.YamlPath)
 
 	fmt.Printf("=========================\n=========================\n")
 	b, _ := json.Marshal(getPplResp.Pipeline)
@@ -85,13 +109,15 @@ func TestCreatePipeline(t *testing.T) {
 	fmt.Printf("\n=========================\n=========================\n")
 
 	// test create 失败，重复创建
-	_, err = CreatePipeline(ctx, createPplReq, MockFsID)
+	_, err = CreatePipeline(ctx, createPplReq)
 	assert.NotNil(t, err)
 	assert.Equal(t, fmt.Errorf("CreatePipeline failed: user[root] already has pipeline[distribute_wide_and_deep], cannot create again, use update instead!"), err)
 
 	// 更改用户名后，创建成功
+	// 而且yamlPath不传，使用默认的./run.yaml
+	createPplReq.YamlPath = ""
 	ctx = &logger.RequestContext{UserName: "another_user"}
-	resp, err = CreatePipeline(ctx, createPplReq, MockFsID)
+	resp, err = CreatePipeline(ctx, createPplReq)
 	assert.Nil(t, err)
 
 	// test get success
@@ -101,9 +127,11 @@ func TestCreatePipeline(t *testing.T) {
 	assert.Equal(t, len(getPplResp.PipelineDetails.PipelineDetailList), 1)
 	assert.Equal(t, getPplResp.PipelineDetails.PipelineDetailList[0].PipelineID, "ppl-000002")
 	assert.Equal(t, getPplResp.PipelineDetails.PipelineDetailList[0].ID, "1")
+	assert.Equal(t, getPplResp.PipelineDetails.PipelineDetailList[0].YamlPath, "./run.yaml")
 }
 
 // 测试更新pipeline
+// todo: fs路径不存在 & 访问权限
 func TestUpdatePipeline(t *testing.T) {
 	driver.InitMockDB()
 	ctx := &logger.RequestContext{UserName: "normalUser"}
@@ -134,13 +162,19 @@ func TestUpdatePipeline(t *testing.T) {
 	})
 	defer patch1.Reset()
 
+	patch2 := gomonkey.ApplyFunc(CheckFsAndGetID, func(string, string, string) (string, error) {
+		return "", nil
+	})
+
+	defer patch2.Reset()
+
 	// test update 失败，pipeline没有创建，不能更新
-	resp, err := UpdatePipeline(ctx, updatePplReq, pipelineID, MockFsID)
+	resp, err := UpdatePipeline(ctx, updatePplReq, pipelineID)
 	assert.NotNil(t, err)
 	assert.Equal(t, fmt.Errorf("update pipeline[ppl-000001] failed. err:pipeline[ppl-000001] not exist"), err)
 
 	// create 成功
-	createPplResp, err := CreatePipeline(ctx, createPplReq, MockFsID)
+	createPplResp, err := CreatePipeline(ctx, createPplReq)
 	assert.Nil(t, err)
 
 	// test get success
@@ -151,27 +185,41 @@ func TestUpdatePipeline(t *testing.T) {
 	assert.Equal(t, getPplResp.PipelineDetails.PipelineDetailList[0].PipelineID, "ppl-000001")
 	assert.Equal(t, getPplResp.PipelineDetails.PipelineDetailList[0].ID, "1")
 
+	// update 失败: desc长度超过1024
+	updatePplReq.Desc = strings.Repeat("a", util.MaxDescLength+1)
+	resp, err = UpdatePipeline(ctx, updatePplReq, pipelineID)
+	assert.NotNil(t, err)
+	assert.Equal(t, fmt.Errorf("desc too long, should be less than %d", util.MaxDescLength), err)
+
+	// update 失败: fsname为空
+	updatePplReq.Desc = "pipeline test"
+	updatePplReq.FsName = ""
+	_, err = UpdatePipeline(ctx, updatePplReq, pipelineID)
+	assert.NotNil(t, err)
+	assert.Equal(t, fmt.Errorf("update pipeline failed. fsname shall not be empty"), err)
+
 	// update 失败，yaml name 与 pipeline记录中的 name 不一样
+	updatePplReq.FsName = MockFsName
 	updatePplReq.YamlPath = "../../../../example/pipeline/base_pipeline/run.yaml"
-	resp, err = UpdatePipeline(ctx, updatePplReq, pipelineID, MockFsID)
+	resp, err = UpdatePipeline(ctx, updatePplReq, pipelineID)
 	assert.NotNil(t, err)
 	assert.Equal(t, fmt.Errorf("update pipeline failed, pplname[base_pipeline] in yaml not the same as [distribute_wide_and_deep] of pipeline[ppl-000001]"), err)
 
 	// update 成功
 	updatePplReq.YamlPath = "../../../../example/wide_and_deep/run.yaml"
-	resp, err = UpdatePipeline(ctx, updatePplReq, pipelineID, MockFsID)
+	resp, err = UpdatePipeline(ctx, updatePplReq, pipelineID)
 	assert.Nil(t, err)
 	assert.Equal(t, createPplResp.PipelineID, resp.PipelineID)
 
 	// 其他用户，update失败
 	ctx = &logger.RequestContext{UserName: "anotherUser"}
-	resp, err = UpdatePipeline(ctx, updatePplReq, pipelineID, MockFsID)
+	resp, err = UpdatePipeline(ctx, updatePplReq, pipelineID)
 	assert.NotNil(t, err)
 	assert.Equal(t, fmt.Errorf("update pipeline[ppl-000001] failed. Access denied for user[anotherUser]"), err)
 
 	// root用户，update成功
 	ctx = &logger.RequestContext{UserName: MockRootUser}
-	resp, err = UpdatePipeline(ctx, updatePplReq, pipelineID, MockFsID)
+	resp, err = UpdatePipeline(ctx, updatePplReq, pipelineID)
 	assert.Nil(t, err)
 	assert.Equal(t, createPplResp.PipelineID, resp.PipelineID)
 
@@ -243,7 +291,7 @@ func TestListPipeline(t *testing.T) {
 	println("")
 	fmt.Printf("%s\n", b)
 
-	// test list,
+	// test list, 指定userfilter为root
 	resp, err = ListPipeline(ctx, "", 10, []string{"root"}, []string{})
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(resp.PipelineList))
@@ -265,7 +313,7 @@ func TestListPipeline(t *testing.T) {
 	println("")
 	fmt.Printf("%s\n", b)
 
-	// 再测试精确匹配前缀，能够生效
+	// nameFilter必须精确匹配，不支持模糊匹配
 	resp, err = ListPipeline(ctx, "", 1, []string{}, []string{"ppl1"})
 	assert.Nil(t, err)
 	assert.Equal(t, 1, len(resp.PipelineList))
@@ -481,7 +529,7 @@ func TestGetPipelineDetail(t *testing.T) {
 	b, _ = json.Marshal(resp)
 	fmt.Printf("\n%s\n", b)
 
-	// test get pipeline detail 失败, detailPk 不存在
+	// test get pipeline detail 失败, detailID 不存在
 	ctx = &logger.RequestContext{UserName: MockRootUser}
 	resp, err = GetPipelineDetail(ctx, "ppl-000001", "3")
 	assert.NotNil(t, err)
