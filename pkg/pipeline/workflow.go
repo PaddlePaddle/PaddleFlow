@@ -1034,6 +1034,7 @@ func (wf *Workflow) newWorkflowRuntime() error {
 	} else if parallelism > WfParallelismMaximum {
 		parallelism = WfParallelismMaximum
 	}
+	logger.LoggerForRun(wf.RunID).Infof("debug: wf.source is: %v", wf.Source)
 	logger.LoggerForRun(wf.RunID).Debugf("initializing [%d] parallelism jobs", parallelism)
 	runConf := NewRunConfig(&wf.Source, wf.Extra[WfExtraInfoKeyFsID], wf.Extra[WfExtraInfoKeyFsName], wf.Extra[WfExtraInfoKeyUserName], wf.RunID,
 		logger.LoggerForRun(wf.RunID), wf.callbacks, wf.Extra[WfExtraInfoKeySource])
