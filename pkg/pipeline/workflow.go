@@ -1048,45 +1048,6 @@ func (wf *Workflow) newWorkflowRuntime() error {
 	return nil
 }
 
-// set workflow runtime when server resuming
-// func (wf *Workflow) SetWorkflowRuntime(runtime schema.RuntimeView, postProcess schema.PostProcessView) error {
-// 	wf.setRuntimeSteps(runtime, wf.runtime.entryPoints)
-// 	wf.setRuntimeSteps(postProcess, wf.runtime.postProcess)
-// 	return nil
-// }
-
-// func (wf *Workflow) setRuntimeSteps(runtime map[string]schema.JobView, steps map[string]*StepRuntime) {
-// 	for name, step := range steps {
-// 		jobView, ok := runtime[name]
-// 		if !ok {
-// 			continue
-// 		}
-// 		paddleflowJob := PaddleFlowJob{
-// 			BaseJob: BaseJob{
-// 				Id:         jobView.JobID,
-// 				Name:       jobView.JobName,
-// 				Command:    jobView.Command,
-// 				Parameters: jobView.Parameters,
-// 				Artifacts:  jobView.Artifacts,
-// 				Env:        jobView.Env,
-// 				StartTime:  jobView.StartTime,
-// 				EndTime:    jobView.EndTime,
-// 				Status:     jobView.Status,
-// 			},
-// 			Image: wf.Source.DockerEnv,
-// 		}
-// 		stepDone := false
-// 		if !paddleflowJob.NotEnded() {
-// 			stepDone = true
-// 		}
-// 		submitted := false
-// 		if jobView.JobID != "" {
-// 			submitted = true
-// 		}
-// 		step.update(stepDone, submitted, &paddleflowJob)
-// 	}
-// }
-
 // Start to run a workflow
 func (wf *Workflow) Start() {
 	wf.runtime.Start()

@@ -425,10 +425,6 @@ func (wfs *WorkflowSource) GetComponent(components map[string]Component, absolut
 	}
 }
 
-func (wfs *WorkflowSource) checkRefered(components map[string]Component, absoluteName string) {
-
-}
-
 func (wfs *WorkflowSource) componentsHasStep(referComp string, subNames string) (map[string]Component, string, bool) {
 	// 在前面已经校验过递归reference因此不会有递归出现，但后续可能会允许递归
 	// TODO: 如果有递归reference的情况，这里会出现死循环，需要升级
@@ -449,17 +445,6 @@ func (wfs *WorkflowSource) componentsHasStep(referComp string, subNames string) 
 			return nil, "", false
 		}
 	}
-}
-
-func parseArtifactsOfSteps(steps map[string]*WorkflowSourceStep) (map[string]*WorkflowSourceStep, error) {
-	res := map[string]*WorkflowSourceStep{}
-	for stepName, step := range steps {
-		if err := step.Artifacts.ValidateOutputMapByList(); err != nil {
-			return map[string]*WorkflowSourceStep{}, fmt.Errorf("validate artifacts failed")
-		}
-		res[stepName] = step
-	}
-	return res, nil
 }
 
 // 将yaml解析为map
