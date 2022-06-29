@@ -250,11 +250,13 @@ func (srt *StepRuntime) restartWithAbnormalStatus(view *schema.JobView) {
 }
 
 func (srt *StepRuntime) Listen() {
-	event := <-srt.receiveEventChildren
-	if srt.done {
-		return
+	for {
+		event := <-srt.receiveEventChildren
+		if srt.done {
+			return
+		}
+		srt.processEventFromJob(event)
 	}
-	srt.processEventFromJob(event)
 }
 
 func (srt *StepRuntime) Stop() {
