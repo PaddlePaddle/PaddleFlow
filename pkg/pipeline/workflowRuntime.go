@@ -66,7 +66,8 @@ func NewWorkflowRuntime(rc *runConfig) *WorkflowRuntime {
 	wfr.entryPoints = entryPoints
 	wfr.status = common.StatusRunPending
 
-	wfr.callback("finished init, update status to pending")
+	// TODO： 此时是否需要与父节点以及 apiserver 进行同步？
+	// wfr.callback("finished init, update status to pending")
 
 	return wfr
 }
