@@ -226,7 +226,7 @@ func getPaddleJobStatus(phase paddlejobv1.PaddleJobPhase) (schema.JobStatus, str
 		status = schema.StatusJobFailed
 		msg = "paddle job is failed"
 	default:
-		return status, "", fmt.Errorf("unexpected paddlejob status: %s", phase)
+		return status, msg, fmt.Errorf("unexpected paddlejob status: %s", phase)
 	}
 	return status, msg, nil
 }
@@ -269,7 +269,7 @@ func getSingleJobStatus(jobStatus *v1.PodStatus) (schema.JobStatus, string, erro
 		status = schema.StatusJobFailed
 		msg = getSingleJobMessage(jobStatus)
 	default:
-		return status, "", fmt.Errorf("unexpected single job status: %s", jobStatus.Phase)
+		return status, msg, fmt.Errorf("unexpected single job status: %s", jobStatus.Phase)
 	}
 	return status, msg, nil
 }
