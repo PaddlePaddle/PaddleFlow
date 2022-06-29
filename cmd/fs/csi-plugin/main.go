@@ -72,8 +72,6 @@ func init() {
 	for i := range pod.Spec.Containers {
 		if pod.Spec.Containers[i].Name == CsiContainerName {
 			csiconfig.MountImage = pod.Spec.Containers[i].Image
-			// csiconfig.ContainerResource = pod.Spec.Containers[i].Resources
-			return
 		}
 	}
 	for _, v := range pod.Spec.Volumes {
