@@ -19,6 +19,7 @@ package util
 import (
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
@@ -30,6 +31,7 @@ const (
 
 	DefaultMaxKeys = 50
 	ListPageMax    = 1000
+	MaxDescLength  = 1024
 
 	ParamKeyQueueName        = "queueName"
 	ParamKeyRunID            = "runID"
@@ -49,25 +51,27 @@ const (
 	QueryKeyMarker  = "marker"
 	QueryKeyMaxKeys = "maxKeys"
 
-	QueryKeyPipelineID     = "pipelineID"
-	QueryKeyScheduleFilter = "scheduleFilter"
-	QueryKeyStatusFilter   = "statusFilter"
-	QueryKeyUserFilter     = "userFilter"
-	QueryKeyFsFilter       = "fsFilter"
-	QueryKeyNameFilter     = "nameFilter"
-	QueryKeyRunFilter      = "runFilter"
-	QueryKeyTypeFilter     = "typeFilter"
-	QueryKeyPathFilter     = "pathFilter"
-	QueryKeyUser           = "user"
-	QueryKeyName           = "name"
-	QueryKeyUserName       = "username"
-	QueryResourceType      = "resourceType"
-	QueryResourceID        = "resourceID"
-	QueryKeyStatus         = "status"
-	QueryKeyTimestamp      = "timestamp"
-	QueryKeyStartTime      = "startTime"
-	QueryKeyQueue          = "queue"
-	QueryKeyLabels         = "labels"
+	QueryKeyPipelineID      = "pipelineID"
+	QueryKeyScheduleFilter  = "scheduleFilter"
+	QueryKeyStatusFilter    = "statusFilter"
+	QueryKeyUserFilter      = "userFilter"
+	QueryKeyFsFilter        = "fsFilter"
+	QueryKeyPplFilter       = "pplFilter"
+	QueryKeyPplDetailFilter = "pplDetailFilter"
+	QueryKeyNameFilter      = "nameFilter"
+	QueryKeyRunFilter       = "runFilter"
+	QueryKeyTypeFilter      = "typeFilter"
+	QueryKeyPathFilter      = "pathFilter"
+	QueryKeyUser            = "user"
+	QueryKeyName            = "name"
+	QueryKeyUserName        = "username"
+	QueryResourceType       = "resourceType"
+	QueryResourceID         = "resourceID"
+	QueryKeyStatus          = "status"
+	QueryKeyTimestamp       = "timestamp"
+	QueryKeyStartTime       = "startTime"
+	QueryKeyQueue           = "queue"
+	QueryKeyLabels          = "labels"
 
 	ParamKeyClusterName   = "clusterName"
 	ParamKeyClusterNames  = "clusterNames"
@@ -108,4 +112,18 @@ func GetQueryMaxKeys(ctx *logger.RequestContext, r *http.Request) (int, error) {
 		}
 	}
 	return maxKeys, nil
+}
+
+func SplitFilter(strFilter string, splitter string, toStrip bool) (filterList []string) {
+	splitRes := strings.Split(strFilter, splitter)
+	if toStrip {
+		for _, item := range splitRes {
+			trimItem := strings.TrimSpace(item)
+			if trimItem != "" {
+				filterList = append(filterList, trimItem)
+			}
+		}
+	}
+
+	return filterList
 }

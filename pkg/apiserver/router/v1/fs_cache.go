@@ -64,7 +64,7 @@ func (pr *PFSRouter) createFSCacheConfig(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	// validate request
-	if err := validateCacheConfigRequest(&ctx, &createRequest.UpdateFileSystemCacheRequest); err != nil {
+	if err := validateCacheConfigCreate(&ctx, &createRequest.UpdateFileSystemCacheRequest); err != nil {
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
@@ -75,6 +75,41 @@ func (pr *PFSRouter) createFSCacheConfig(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	common.RenderStatus(w, http.StatusCreated)
+}
+
+func validateCacheConfigCreate(ctx *logger.RequestContext, req *api.UpdateFileSystemCacheRequest) error {
+	// meta driver
+	if req.MetaDriver == "" {
+		req.MetaDriver = schema.FsMetaDefault
+	}
+	if !schema.IsValidFsMetaDriver(req.MetaDriver) {
+		ctx.ErrorCode = common.InvalidArguments
+		err := fmt.Errorf("fs meta driver[%s] not valid", req.MetaDriver)
+		ctx.Logging().Errorf("validate fs cache config fsID[%s] err: %v", req.FsID, err)
+		return err
+	}
+	// BlockSize
+	if req.BlockSize < 0 {
+		ctx.ErrorCode = common.InvalidArguments
+		err := fmt.Errorf("fs data cache blockSize[%d] should not be negative", req.BlockSize)
+		ctx.Logging().Errorf("validate fs cache config fsID[%s] err: %v", req.FsID, err)
+		return err
+	}
+	// cacheDir must be absolute path or ""
+	if req.CacheDir != "" && !filepath.IsAbs(req.CacheDir) {
+		ctx.ErrorCode = common.InvalidArguments
+		err := fmt.Errorf("fs cacheDir[%s] should be empty or an absolute path", req.CacheDir)
+		ctx.Logging().Errorf("validate fs cache config fsID[%s] err: %v", req.FsID, err)
+		return err
+	}
+	// must assign cacheDir when cache in use
+	if (req.BlockSize > 0 || req.MetaDriver != schema.FsMetaDefault) && req.CacheDir == "" {
+		ctx.ErrorCode = common.InvalidArguments
+		err := fmt.Errorf("fs cacheDir[%s] should be an absolute path when cache in use", req.CacheDir)
+		ctx.Logging().Errorf("validate fs cache config fsID[%s] err: %v", req.FsID, err)
+		return err
+	}
+	return nil
 }
 
 // updateFSCacheConfig
@@ -106,7 +141,8 @@ func (pr *PFSRouter) updateFSCacheConfig(w http.ResponseWriter, r *http.Request)
 	req.FsID = common.ID(realUserName, fsName)
 
 	// validate fs_cache_config existence
-	if _, err := api.GetFileSystemCacheConfig(&ctx, req.FsID); err != nil {
+	prev, err := api.GetFileSystemCacheConfig(&ctx, req.FsID)
+	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			ctx.ErrorCode = common.RecordNotFound
 		} else {
@@ -124,7 +160,7 @@ func (pr *PFSRouter) updateFSCacheConfig(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	// validate request
-	if err := validateCacheConfigRequest(&ctx, &req); err != nil {
+	if err := validateCacheConfigUpdate(&ctx, req, prev); err != nil {
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
@@ -137,14 +173,7 @@ func (pr *PFSRouter) updateFSCacheConfig(w http.ResponseWriter, r *http.Request)
 	common.RenderStatus(w, http.StatusOK)
 }
 
-func validateCacheConfigRequest(ctx *logger.RequestContext, req *api.UpdateFileSystemCacheRequest) error {
-	// cacheDir must be absolute path
-	if req.CacheDir != "" && !filepath.IsAbs(req.CacheDir) {
-		ctx.ErrorCode = common.InvalidArguments
-		err := fmt.Errorf("fs cacheDir[%s] should be an absolute path", req.CacheDir)
-		ctx.Logging().Errorf("validate fs cache config fsID[%s] err: %v", req.FsID, err)
-		return err
-	}
+func validateCacheConfigUpdate(ctx *logger.RequestContext, req api.UpdateFileSystemCacheRequest, prev api.FileSystemCacheResponse) error {
 	// meta driver
 	if req.MetaDriver != "" && !schema.IsValidFsMetaDriver(req.MetaDriver) {
 		ctx.ErrorCode = common.InvalidArguments
@@ -159,7 +188,34 @@ func validateCacheConfigRequest(ctx *logger.RequestContext, req *api.UpdateFileS
 		ctx.Logging().Errorf("validate fs cache config fsID[%s] err: %v", req.FsID, err)
 		return err
 	}
+	// cacheDir must be absolute path or ""
+	if req.CacheDir != "" && !filepath.IsAbs(req.CacheDir) {
+		ctx.ErrorCode = common.InvalidArguments
+		err := fmt.Errorf("fs cacheDir[%s] should be empty or an absolute path", req.CacheDir)
+		ctx.Logging().Errorf("validate fs cache config fsID[%s] err: %v", req.FsID, err)
+		return err
+	}
+	// must have cacheDir when cache in use
+	if needCacheDir(req, prev) && req.CacheDir == "" && prev.CacheDir == "" {
+		ctx.ErrorCode = common.InvalidArguments
+		err := fmt.Errorf("fs cacheDir[%s] should be an absolute path when using meta/data cache", req.CacheDir)
+		ctx.Logging().Errorf("validate fs cache config fsID[%s] err: %v", req.FsID, err)
+		return err
+	}
 	return nil
+}
+
+func needCacheDir(req api.UpdateFileSystemCacheRequest, prev api.FileSystemCacheResponse) bool {
+	if req.MetaDriver != "" && req.MetaDriver != schema.FsMetaDefault {
+		return true
+	}
+	if req.BlockSize > 0 {
+		return true
+	}
+	if prev.MetaDriver != schema.FsMetaDefault || prev.BlockSize > 0 {
+		return true
+	}
+	return false
 }
 
 // getFSCacheConfig
