@@ -96,7 +96,7 @@ func SparkAppStatus(obj interface{}) (StatusInfo, error) {
 		return StatusInfo{}, err
 	}
 	jobStatus := status.(*sparkoperatorv1beta2.SparkApplicationStatus)
-	state, err := getSparkJobStatus(jobStatus.AppState.State)
+	state, msg, err := getSparkJobStatus(jobStatus.AppState.State)
 	if err != nil {
 		log.Errorf("convert VCJob status to JobStatus failed, err: %v", err)
 		return StatusInfo{}, err
@@ -105,26 +105,31 @@ func SparkAppStatus(obj interface{}) (StatusInfo, error) {
 	return StatusInfo{
 		OriginStatus: string(jobStatus.AppState.State),
 		Status:       state,
-		Message:      jobStatus.AppState.ErrorMessage,
+		Message:      msg,
 	}, nil
 }
 
-func getSparkJobStatus(state sparkoperatorv1beta2.ApplicationStateType) (schema.JobStatus, error) {
+func getSparkJobStatus(state sparkoperatorv1beta2.ApplicationStateType) (schema.JobStatus, string, error) {
 	status := schema.JobStatus("")
+	msg := ""
 	switch state {
 	case sparkoperatorv1beta2.NewState, sparkoperatorv1beta2.SubmittedState:
 		status = schema.StatusJobPending
+		msg = "spark application is pending"
 	case sparkoperatorv1beta2.RunningState, sparkoperatorv1beta2.SucceedingState, sparkoperatorv1beta2.FailingState,
 		sparkoperatorv1beta2.InvalidatingState, sparkoperatorv1beta2.PendingRerunState:
 		status = schema.StatusJobRunning
+		msg = "spark application is running"
 	case sparkoperatorv1beta2.CompletedState:
 		status = schema.StatusJobSucceeded
+		msg = "spark application is succeeded"
 	case sparkoperatorv1beta2.FailedState, sparkoperatorv1beta2.FailedSubmissionState, sparkoperatorv1beta2.UnknownState:
 		status = schema.StatusJobFailed
+		msg = "spark application is failed"
 	default:
-		return status, fmt.Errorf("unexpected spark application status: %s", state)
+		return status, msg, fmt.Errorf("unexpected spark application status: %s", state)
 	}
-	return status, nil
+	return status, msg, nil
 }
 
 // VCJobStatus get vc job status, message from interface{}, and covert to JobStatus
@@ -204,6 +209,7 @@ func getPaddleJobStatus(phase paddlejobv1.PaddleJobPhase) (schema.JobStatus, str
 	switch phase {
 	case paddlejobv1.Starting, paddlejobv1.Pending:
 		status = schema.StatusJobPending
+		msg = "paddle job is pending"
 	case paddlejobv1.Running, paddlejobv1.Restarting, paddlejobv1.Completing, paddlejobv1.Scaling:
 		status = schema.StatusJobRunning
 		msg = "paddle job is running"
@@ -252,6 +258,7 @@ func getSingleJobStatus(jobStatus *v1.PodStatus) (schema.JobStatus, string, erro
 	switch jobStatus.Phase {
 	case v1.PodPending:
 		status = schema.StatusJobPending
+		msg = "job is pending"
 	case v1.PodRunning:
 		status = schema.StatusJobRunning
 		msg = "job is running"
