@@ -245,6 +245,7 @@ func getWorkFlowSourceByReq(request *CreateRunByJsonRequest, bodyMap map[string]
 		logger.Logger().Errorf(err.Error())
 		return schema.WorkflowSource{}, err
 	}
+
 	if request.Env == nil {
 		request.Env = map[string]string{}
 	}
@@ -583,7 +584,7 @@ func ValidateAndStartRun(run models.Run, req interface{}) (CreateRunResponse, er
 	_ = trace_logger.UpdateKey(requestId, runID)
 	trace_logger.Key(runID).Infof("create run in db success")
 
-	trace_logger.Key("runId").Infof("run yaml and req to wfs")
+	trace_logger.Key(runID).Infof("run yaml and req to wfs")
 	// to wfs again to revise previous wf replacement
 	wfs, err := runYamlAndReqToWfs(run.RunYaml, req)
 	if err != nil {

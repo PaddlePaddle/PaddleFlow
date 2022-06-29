@@ -49,18 +49,18 @@ var (
 )
 
 type TraceLoggerConfig struct {
-	Dir             string `yaml:"dir"`
-	FilePrefix      string `yaml:"filePrefix"`
-	Level           string `yaml:"level"`
-	MaxKeepDays     int    `yaml:"maxKeepDays"`
-	MaxFileNum      int    `yaml:"maxFileNum"`
-	MaxFileSizeInMB int    `yaml:"maxFileSizeInMB"`
-	IsCompress      bool   `yaml:"isCompress"`
-	Timeout         string `yaml:"timeout"`
-	MaxCacheSize    int    `yaml:"maxCacheSize"`
-	SyncInterval    string `yaml:"syncInterval"`
-	DeleteInterval  string `yaml:"deleteInterval"`
-	Debug           bool   `yaml:"debug"`
+	Dir             string `yaml:"dir"`             // Dir log file dir
+	FilePrefix      string `yaml:"filePrefix"`      // FilePrefix log file prefix
+	Level           string `yaml:"level"`           // Level log level
+	MaxKeepDays     int    `yaml:"maxKeepDays"`     // MaxKeepDays max keep days for log rotation
+	MaxFileNum      int    `yaml:"maxFileNum"`      // MaxFileNum max file num for log rotation
+	MaxFileSizeInMB int    `yaml:"maxFileSizeInMB"` // MaxFileSizeInMB max file size in MB for log rotation
+	IsCompress      bool   `yaml:"isCompress"`      // IsCompress is compress log file
+	Timeout         string `yaml:"timeout"`         // Timeout for local cache
+	MaxCacheSize    int    `yaml:"maxCacheSize"`    // MaxCacheSize max local cache size, evict when cache size exceed this value
+	SyncInterval    string `yaml:"syncInterval"`    // SyncInterval auto syncs interval
+	DeleteInterval  string `yaml:"deleteInterval"`  // DeleteInterval auto delete interval
+	Debug           bool   `yaml:"debug"`           // Debug is debug mode, print log to stdout if set true
 }
 
 func ParseTime(timeStr string) (time.Duration, error) {

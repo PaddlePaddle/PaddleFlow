@@ -209,7 +209,6 @@ func CreateRun(logEntry *log.Entry, run *Run) (string, error) {
 			return result.Error
 		}
 
-		// TODO: run id
 		run.ID = common.PrefixRun + fmt.Sprintf("%06d", run.Pk)
 		logEntry.Debugf("created run with pk[%d], runID[%s]", run.Pk, run.ID)
 		// update ID
