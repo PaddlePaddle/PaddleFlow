@@ -41,7 +41,6 @@ func mockFSCache() model.FSCacheConfig {
 	return model.FSCacheConfig{
 		FsID:       mockFsID,
 		CacheDir:   "/abs/path",
-		Quota:      444,
 		MetaDriver: "nutsdb",
 		BlockSize:  666,
 	}
@@ -51,7 +50,6 @@ func buildUpdateReq(model model.FSCacheConfig) fs.UpdateFileSystemCacheRequest {
 	return fs.UpdateFileSystemCacheRequest{
 		FsID:       model.FsID,
 		CacheDir:   model.CacheDir,
-		Quota:      model.Quota,
 		MetaDriver: "nutsdb",
 		BlockSize:  model.BlockSize,
 	}
@@ -98,7 +96,7 @@ func TestFSCacheConfigRouter(t *testing.T) {
 	assert.Equal(t, cacheConf.MetaDriver, cacheRsp.MetaDriver)
 	assert.Equal(t, cacheConf.CacheDir, cacheRsp.CacheDir)
 	assert.Equal(t, cacheConf.BlockSize, cacheRsp.BlockSize)
-	assert.Equal(t, cacheConf.Quota, cacheRsp.Quota)
+	assert.Equal(t, cacheConf.BlockSize, cacheRsp.BlockSize)
 	// test fsToName()
 	assert.Equal(t, createRep.Username, cacheRsp.Username)
 
@@ -109,7 +107,7 @@ func TestFSCacheConfigRouter(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, result.Code)
 
 	// test update success
-	updateReq.Quota = 333
+	updateReq.BlockSize = 333
 	updateReq.CacheDir = "/newPath"
 	result, err = PerformPutRequest(router, urlWithFsID, updateReq)
 	assert.Nil(t, err)
@@ -120,7 +118,7 @@ func TestFSCacheConfigRouter(t *testing.T) {
 	assert.Equal(t, http.StatusOK, result.Code)
 	err = ParseBody(result.Body, &cacheRsp)
 	assert.Nil(t, err)
-	assert.Equal(t, updateReq.Quota, cacheRsp.Quota)
+	assert.Equal(t, updateReq.BlockSize, cacheRsp.BlockSize)
 	assert.Equal(t, updateReq.CacheDir, cacheRsp.CacheDir)
 
 	// test update failure
