@@ -193,3 +193,7 @@ func AutoSync(duration time.Duration) error {
 func CancelAutoSync() error {
 	return manager.CancelAutoSync()
 }
+
+func GetTraceFromCache(key string) (Trace, bool) {
+	return manager.GetTraceFromCache(key)
+}
