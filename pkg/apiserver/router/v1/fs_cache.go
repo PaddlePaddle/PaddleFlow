@@ -95,10 +95,17 @@ func validateCacheConfigCreate(ctx *logger.RequestContext, req *api.UpdateFileSy
 		ctx.Logging().Errorf("validate fs cache config fsID[%s] err: %v", req.FsID, err)
 		return err
 	}
-	// cacheDir must be absolute path
-	if (req.BlockSize > 0 || req.MetaDriver != schema.FsMetaDefault) && !filepath.IsAbs(req.CacheDir) {
+	// cacheDir must be absolute path or ""
+	if req.CacheDir != "" && !filepath.IsAbs(req.CacheDir) {
 		ctx.ErrorCode = common.InvalidArguments
-		err := fmt.Errorf("fs cacheDir[%s] should be an absolute path", req.CacheDir)
+		err := fmt.Errorf("fs cacheDir[%s] should be empty or an absolute path", req.CacheDir)
+		ctx.Logging().Errorf("validate fs cache config fsID[%s] err: %v", req.FsID, err)
+		return err
+	}
+	// must assign cacheDir when cache in use
+	if (req.BlockSize > 0 || req.MetaDriver != schema.FsMetaDefault) && req.CacheDir == "" {
+		ctx.ErrorCode = common.InvalidArguments
+		err := fmt.Errorf("fs cacheDir[%s] should be an absolute path when cache in use", req.CacheDir)
 		ctx.Logging().Errorf("validate fs cache config fsID[%s] err: %v", req.FsID, err)
 		return err
 	}
@@ -181,8 +188,15 @@ func validateCacheConfigUpdate(ctx *logger.RequestContext, req api.UpdateFileSys
 		ctx.Logging().Errorf("validate fs cache config fsID[%s] err: %v", req.FsID, err)
 		return err
 	}
-	// cacheDir must be absolute path
-	if needCacheDir(req, prev) && prev.CacheDir == "" && !filepath.IsAbs(req.CacheDir) {
+	// cacheDir must be absolute path or ""
+	if req.CacheDir != "" && !filepath.IsAbs(req.CacheDir) {
+		ctx.ErrorCode = common.InvalidArguments
+		err := fmt.Errorf("fs cacheDir[%s] should be empty or an absolute path", req.CacheDir)
+		ctx.Logging().Errorf("validate fs cache config fsID[%s] err: %v", req.FsID, err)
+		return err
+	}
+	// must have cacheDir when cache in use
+	if needCacheDir(req, prev) && req.CacheDir == "" && prev.CacheDir == "" {
 		ctx.ErrorCode = common.InvalidArguments
 		err := fmt.Errorf("fs cacheDir[%s] should be an absolute path when using meta/data cache", req.CacheDir)
 		ctx.Logging().Errorf("validate fs cache config fsID[%s] err: %v", req.FsID, err)
