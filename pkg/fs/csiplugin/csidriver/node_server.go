@@ -32,11 +32,6 @@ import (
 	mountUtil "github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/mount"
 )
 
-const (
-	pfsFSID   = "pfs.fs.id"
-	pfsServer = "pfs.server"
-)
-
 type nodeServer struct {
 	nodeId string
 	*csicommon.DefaultNodeServer
@@ -68,34 +63,36 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context,
 		}
 	}
 
-	volumeContext := req.GetVolumeContext()
-	fsID := volumeContext[pfsFSID]
-	server := volumeContext[pfsServer]
 	volumeID := req.VolumeId
+	volumeContext := req.GetVolumeContext()
 
-	mountInfo := mount.GetMountInfo(fsID, server, req.GetReadonly())
+	mountInfo, err := mount.ProcessMountInfo(volumeContext[schema.PfsFsID], volumeContext[schema.PfsServer],
+		volumeContext[schema.PfsFsInfo], volumeContext[schema.PfsFsCache], req.GetReadonly())
+	if err != nil {
+		log.Errorf("ProcessMountInfo err: %v", err)
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	log.Infof("Node publish mountInfo [%+v]", mountInfo)
 	// root credentials for pfs-fuse
 	mountInfo.UsernameRoot, mountInfo.PasswordRoot = ns.credentialInfo.usernameRoot, ns.credentialInfo.passwordRoot
 	mountInfo.TargetPath = targetPath
 	if err := mountVolume(volumeID, mountInfo, req.GetReadonly()); err != nil {
-		log.Errorf("mount filesystem[%s] with server[%s] failed: %v", fsID, server, err)
+		log.Errorf("mount filesystem[%s] failed: %v", volumeContext[schema.PfsFsID], err)
 		return &csi.NodePublishVolumeResponse{}, status.Error(codes.Internal, err.Error())
 	}
-
 	return &csi.NodePublishVolumeResponse{}, nil
 }
 
 func (ns *nodeServer) NodeUnpublishVolume(ctx context.Context,
 	req *csi.NodeUnpublishVolumeRequest) (*csi.NodeUnpublishVolumeResponse, error) {
 
-	targetPath := req.GetTargetPath()
-	volumeID := req.VolumeId
 	mountInfo := mount.Info{
 		UsernameRoot: ns.credentialInfo.usernameRoot,
 		PasswordRoot: ns.credentialInfo.passwordRoot,
+		TargetPath:   req.GetTargetPath(),
 	}
-	if err := mount.PodUnmount(volumeID, targetPath, mountInfo); err != nil {
-		log.Errorf("[UMount]: volumeID[%s] and targetPath[%s] with err: %s", volumeID, targetPath, err.Error())
+	if err := mount.PodUnmount(req.VolumeId, mountInfo); err != nil {
+		log.Errorf("[UMount]: volumeID[%s] and targetPath[%s] with err: %s", req.VolumeId, mountInfo.TargetPath, err.Error())
 		return nil, err
 	}
 
@@ -127,7 +124,7 @@ func mountVolume(volumeID string, mountInfo mount.Info, readOnly bool) error {
 		log.Errorf("MountThroughPod err: %v", err)
 		return err
 	}
-	return bindMountVolume(schema.GetBindSource(mountInfo.FSID), mountInfo.TargetPath, readOnly)
+	return bindMountVolume(schema.GetBindSource(mountInfo.FsID), mountInfo.TargetPath, readOnly)
 }
 
 func bindMountVolume(sourcePath, mountPath string, readOnly bool) error {

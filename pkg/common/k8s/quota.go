@@ -32,6 +32,16 @@ func SubQuota(r *schema.Resource, pod *v1.Pod) error {
 	return nil
 }
 
+// CalcPodResources calculate pod minimum resource
+func CalcPodResources(pod *v1.Pod) *schema.ResourceInfo {
+	podRes := schema.EmptyResourceInfo()
+	for _, c := range pod.Spec.Containers {
+		res := NewResourceInfo(c.Resources.Requests)
+		*podRes = podRes.Add(*res)
+	}
+	return podRes
+}
+
 // NewResourceInfo create a new resource object from resource list
 func NewResourceInfo(rl v1.ResourceList) *schema.ResourceInfo {
 	r := schema.EmptyResourceInfo()

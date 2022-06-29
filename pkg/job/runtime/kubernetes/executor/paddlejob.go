@@ -60,16 +60,12 @@ func (pj *PaddleJob) CreateJob() (string, error) {
 	}
 
 	var err error
-	// paddleflow won't patch any param to job if it is workflow type
-	if pj.JobType != schema.TypeWorkflow {
-		// patch .metadata field
-		pj.patchMetadata(&pdj.ObjectMeta, pj.ID)
-		// patch .spec field
-		err = pj.patchPaddleJobSpec(&pdj.Spec)
-		if err != nil {
-			log.Errorf("build job spec failed, err %v", err)
-			return "", err
-		}
+	// patch .metadata field
+	pj.patchMetadata(&pdj.ObjectMeta, pj.ID)
+	// patch .spec field
+	if err = pj.patchPaddleJobSpec(&pdj.Spec); err != nil {
+		log.Errorf("build job spec failed, err %v", err)
+		return "", err
 	}
 
 	// create job on cluster
@@ -229,7 +225,9 @@ func (pj *PaddleJob) patchPdjTask(resourceSpec *paddlev1.ResourceSpec, task mode
 		resourceSpec.Template.Spec.Containers = []v1.Container{{}}
 	}
 	pj.fillContainerInTasks(&resourceSpec.Template.Spec.Containers[0], task)
-
+	// append into container.VolumeMounts
+	taskFs := task.Conf.GetAllFileSystem()
+	resourceSpec.Template.Spec.Volumes = appendVolumesIfAbsent(resourceSpec.Template.Spec.Volumes, generateVolumes(taskFs))
 	return nil
 }
 

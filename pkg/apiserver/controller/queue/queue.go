@@ -22,16 +22,18 @@ import (
 	"strings"
 
 	log "github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 	"volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
+	gormErrors "github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 const defaultQueueName = "default"
@@ -249,11 +251,20 @@ func CreateQueue(ctx *logger.RequestContext, request *CreateQueueRequest) (Creat
 		request.Location = make(map[string]string)
 	}
 	if request.QuotaType == schema.TypeElasticQuota {
-		if _, exist := request.Location[v1beta1.ElasticQuotaParentKey]; !exist {
-			request.Location[v1beta1.ElasticQuotaParentKey] = defaultRootEQuotaName
-		}
-		if _, exist := request.Location[v1beta1.QuotaTypeKey]; !exist {
+		// check the hierarchy of elastic quota
+		eQuotaType := request.Location[v1beta1.QuotaTypeKey]
+		switch eQuotaType {
+		case "", v1beta1.QuotaTypeLogical:
 			request.Location[v1beta1.QuotaTypeKey] = v1beta1.QuotaTypeLogical
+			// set parent elastic quota
+			if _, exist := request.Location[v1beta1.ElasticQuotaParentKey]; !exist {
+				request.Location[v1beta1.ElasticQuotaParentKey] = defaultRootEQuotaName
+			}
+		case v1beta1.QuotaTypePhysical:
+			// delete parent for physical elastic quota
+			delete(request.Location, v1beta1.ElasticQuotaParentKey)
+		default:
+			return CreateQueueResponse{}, fmt.Errorf("the type of elastic quota %s is not suppported", eQuotaType)
 		}
 	}
 
@@ -275,7 +286,7 @@ func CreateQueue(ctx *logger.RequestContext, request *CreateQueueRequest) (Creat
 	err = models.CreateQueue(&queueInfo)
 	if err != nil {
 		ctx.Logging().Errorf("create request failed. error:%s", err.Error())
-		if database.GetErrorCode(err) == database.ErrorKeyIsDuplicated {
+		if gormErrors.GetErrorCode(err) == gormErrors.ErrorKeyIsDuplicated {
 			ctx.ErrorCode = common.QueueNameDuplicated
 		} else {
 			ctx.ErrorCode = common.InternalError
@@ -384,28 +395,55 @@ func UpdateQueue(ctx *logger.RequestContext, request *UpdateQueueRequest) (Updat
 	}
 
 	// validate Location
-	newLocation := make(map[string]string)
 	if len(request.Location) != 0 {
 		updateClusterRequired = true
-		for k, location := range request.Location {
-			newLocation[k] = location
+		// check the hierarchy of elastic quota
+		if queueInfo.QuotaType == schema.TypeElasticQuota {
+			_, exist := request.Location[v1beta1.QuotaTypeKey]
+			if exist {
+				err = fmt.Errorf("the isolaction type of elastic quota cannot be changed")
+				ctx.Logging().Errorf("update queue failed. error: %s", err.Error())
+				ctx.ErrorCode = common.InvalidArguments
+				return UpdateQueueResponse{}, err
+			}
+			// remove parent for physical elastic quota
+			if queueInfo.Location[v1beta1.QuotaTypeKey] == v1beta1.QuotaTypePhysical {
+				delete(request.Location, v1beta1.ElasticQuotaParentKey)
+				delete(queueInfo.Location, v1beta1.ElasticQuotaParentKey)
+			}
 		}
-	} else if request.Location != nil {
-		updateClusterRequired = true
-		log.Debugf("queue %s Location is set nil", request.Name)
-	}
-	if queueInfo.QuotaType == schema.TypeElasticQuota {
-		newLocation[v1beta1.ElasticQuotaParentKey] = queueInfo.Location[v1beta1.ElasticQuotaParentKey]
-		newLocation[v1beta1.QuotaTypeKey] = queueInfo.Location[v1beta1.QuotaTypeKey]
-	}
-	if updateClusterRequired {
-		queueInfo.Location = newLocation
+		for key, value := range request.Location {
+			if len(value) == 0 {
+				// remove location when value is empty
+				delete(queueInfo.Location, key)
+			} else {
+				queueInfo.Location[key] = value
+			}
+		}
 	}
 
 	// validate scheduling policy
 	if len(request.SchedulingPolicy) != 0 {
-		log.Warningf("todo queue.SchedulingPolicy havn't been validated yet")
-		queueInfo.SchedulingPolicy = request.SchedulingPolicy
+		log.Debug("update queue scheduling policy")
+		// TODO: change the data type of schedulingPolicy to map[string]interface{}
+		schedulingPolicy := make(map[string]struct{})
+		for _, policy := range queueInfo.SchedulingPolicy {
+			schedulingPolicy[policy] = struct{}{}
+		}
+		for _, policy := range request.SchedulingPolicy {
+			if strings.HasSuffix(policy, "-") {
+				// remove old scheduling policy
+				sp := strings.TrimRight(policy, "-")
+				delete(schedulingPolicy, sp)
+			} else {
+				schedulingPolicy[policy] = struct{}{}
+			}
+		}
+		sp := []string{}
+		for policy, _ := range schedulingPolicy {
+			sp = append(sp, policy)
+		}
+		queueInfo.SchedulingPolicy = sp
 	}
 
 	// init runtimeSvc if updateCluster is necessary
@@ -485,7 +523,7 @@ func validateQueueResource(rResource schema.ResourceInfo, qResource *schema.Reso
 func GetQueueByName(ctx *logger.RequestContext, queueName string) (GetQueueResponse, error) {
 	ctx.Logging().Debugf("begin get queue by name. queueName:%s", queueName)
 
-	if !models.HasAccessToResource(ctx, common.ResourceTypeQueue, queueName) {
+	if !storage.Auth.HasAccessToResource(ctx, common.ResourceTypeQueue, queueName) {
 		ctx.ErrorCode = common.ActionNotAllowed
 		ctx.Logging().Errorf("get queueName[%s] failed. error: access denied.", queueName)
 		return GetQueueResponse{}, fmt.Errorf("get queueName[%s] failed.\n", queueName)
@@ -497,54 +535,49 @@ func GetQueueByName(ctx *logger.RequestContext, queueName string) (GetQueueRespo
 		return GetQueueResponse{}, fmt.Errorf("queueName[%s] is not found.\n", queueName)
 	}
 
+	clusterInfo, err := models.GetClusterById(queue.ClusterId)
+	if err != nil {
+		ctx.Logging().Errorf("get clusterInfo by ClusterId %s failed. error: %s",
+			queue.ClusterId, err.Error())
+		return GetQueueResponse{}, err
+	}
+	usedResource := schema.EmptyResourceInfo()
+	if clusterInfo.Status == models.ClusterStatusOnLine {
+		runtimeSvc, err := runtime.GetOrCreateRuntime(clusterInfo)
+		if err != nil {
+			ctx.ErrorCode = common.InternalError
+			ctx.Logging().Errorf("get queue used quota failed. queueName:[%s] error:[%s]", queueName, err.Error())
+			return GetQueueResponse{}, fmt.Errorf("get queue used quota failed, error: %v", err)
+		}
+		switch clusterInfo.ClusterType {
+		case schema.KubernetesType:
+			kubeRuntime := runtimeSvc.(*runtime.KubeRuntime)
+			usedResource, err = kubeRuntime.GetQueueUsedQuota(&queue)
+			if err != nil {
+				ctx.ErrorCode = common.InternalError
+				ctx.Logging().Errorf("get queue used quota failed. queueName:[%s] error:[%s]", queueName, err.Error())
+				return GetQueueResponse{}, fmt.Errorf("get queue used quota failed, error: %v", err)
+			}
+		default:
+			ctx.Logging().Warnf("cannot get queue used quota for cluster type %s", clusterInfo.ClusterType)
+		}
+	}
+
+	if usedResource == nil {
+		usedResource = schema.EmptyResourceInfo()
+	}
+	maxResource := queue.MaxResources
+	idleResource, err := maxResource.Sub(*usedResource)
+	if err != nil {
+		return GetQueueResponse{}, fmt.Errorf("get queue idle quota failed, error: %v", err)
+	}
+	queue.IdleResources = &idleResource
+	queue.UsedResources = usedResource
+
 	getQueueResponse := GetQueueResponse{
 		Queue: queue,
 	}
-
 	return getQueueResponse, nil
-}
-
-func CloseQueue(ctx *logger.RequestContext, queueName string) error {
-	ctx.Logging().Debugf("begin stop queue. queueName:%s", queueName)
-	if !common.IsRootUser(ctx.UserName) {
-		ctx.ErrorCode = common.OnlyRootAllowed
-		ctx.Logging().Errorln("close queue failed. error: admin is needed.")
-		return errors.New("close queue failed")
-	}
-
-	queue, err := models.GetQueueByName(queueName)
-	if err != nil {
-		ctx.ErrorCode = common.QueueNameNotFound
-		return fmt.Errorf("queueName[%s] is not found.\n", queueName)
-	}
-
-	clusterInfo, err := models.GetClusterById(queue.ClusterId)
-	if err != nil {
-		ctx.Logging().Errorf("get clusterInfo by ClusterId %s failed. error: %s", queue.ClusterId, err.Error())
-		return err
-	}
-
-	runtimeSvc, err := runtime.GetOrCreateRuntime(clusterInfo)
-	if err != nil {
-		ctx.ErrorCode = common.InternalError
-		ctx.Logging().Errorf("close queue failed. queueName:[%s] error:[%s]", queueName, err.Error())
-		return errors.New("close queue failed")
-	}
-	err = runtimeSvc.CloseQueue(&queue)
-	if err != nil {
-		ctx.ErrorCode = common.InternalError
-		ctx.Logging().Errorf("close queue failed. queueName:[%s] error:[%s]", queueName, err.Error())
-		return errors.New("close queue failed")
-	}
-
-	err = models.CloseQueue(queueName)
-	if err != nil {
-		ctx.ErrorCode = common.InternalError
-		ctx.Logging().Errorf("close queue update db failed. queueName:[%s] error:[%s]", queueName, err.Error())
-		return errors.New("close queue failed")
-	}
-	ctx.Logging().Debugf("close queue succeed. queueName:%s", queueName)
-	return nil
 }
 
 func DeleteQueue(ctx *logger.RequestContext, queueName string) error {
@@ -595,5 +628,35 @@ func DeleteQueue(ctx *logger.RequestContext, queueName string) error {
 	}
 
 	ctx.Logging().Debugf("queue is deleting. queueName:%s", queueName)
+	return nil
+}
+
+// InitDefaultQueue init default queue for single cluster environment
+func InitDefaultQueue() error {
+	log.Info("starting init data for single cluster: initDefaultQueue")
+	if defaultQueue, err := models.GetQueueByName(config.DefaultQueueName); err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		log.Errorf("GetQueueByName %s failed, err: %v", config.DefaultQueueName, err)
+		return err
+	} else if err == nil {
+		log.Infof("default queue[%+v] has been created", defaultQueue)
+		return nil
+	}
+	ctx := &logger.RequestContext{UserName: common.UserRoot}
+	// create default cluster
+	defaultQueue := &CreateQueueRequest{
+		Name:        config.DefaultQueueName,
+		Namespace:   config.DefaultNamespace,
+		ClusterName: config.DefaultClusterName,
+		QuotaType:   schema.TypeVolcanoCapabilityQuota,
+		MaxResources: schema.ResourceInfo{
+			CPU: "20",
+			Mem: "20Gi",
+		},
+	}
+	_, err := CreateQueue(ctx, defaultQueue)
+	if err != nil {
+		log.Errorf("create default queue[%+v] failed, err: %v", defaultQueue, err)
+		return err
+	}
 	return nil
 }

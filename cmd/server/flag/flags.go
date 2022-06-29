@@ -29,6 +29,65 @@ func ApiServerFlags(apiConf *config.ApiServerConfig) []cli.Flag {
 	}
 }
 
+func StorageFlags(dbConf *config.StorageConfig) []cli.Flag {
+	return []cli.Flag{
+		&cli.StringFlag{
+			Name:        "db-configPath",
+			Value:       dbConf.Driver,
+			Usage:       "driver",
+			Destination: &dbConf.Driver,
+		},
+		&cli.StringFlag{
+			Name:        "db-host",
+			Value:       dbConf.Host,
+			Usage:       "host",
+			Destination: &dbConf.Host,
+		},
+		&cli.StringFlag{
+			Name:        "db-port",
+			Value:       dbConf.Port,
+			Usage:       "port",
+			Destination: &dbConf.Port,
+		},
+		&cli.StringFlag{
+			Name:        "db-user",
+			Value:       dbConf.User,
+			Usage:       "user",
+			Destination: &dbConf.User,
+		},
+		&cli.StringFlag{
+			Name:        "db-password",
+			Value:       dbConf.Password,
+			Usage:       "password",
+			Destination: &dbConf.Password,
+		},
+		&cli.StringFlag{
+			Name:        "db-database",
+			Value:       dbConf.Database,
+			Usage:       "database",
+			Destination: &dbConf.Database,
+		},
+		&cli.IntFlag{
+			Name:        "db-connect-timeout-in-seconds",
+			Value:       dbConf.ConnectTimeoutInSeconds,
+			Usage:       "db connect timeout in seconds",
+			Destination: &dbConf.ConnectTimeoutInSeconds,
+		},
+		&cli.IntFlag{
+			Name:        "db-lock-timeout-in-milliseconds",
+			Value:       dbConf.LockTimeoutInMilliseconds,
+			Usage:       "db lock timeout in milliseconds",
+			Destination: &dbConf.LockTimeoutInMilliseconds,
+		},
+		&cli.IntFlag{
+			Name:        "db-idle-transaction-timeout-in-milliseconds",
+			Value:       dbConf.IdleTransactionTimeoutInMilliseconds,
+			Usage:       "db idle transaction timeout in milliseconds",
+			Destination: &dbConf.IdleTransactionTimeoutInMilliseconds,
+		},
+	}
+}
+
 func JobFlags(jobConf *config.JobConfig) []cli.Flag {
 	return []cli.Flag{
 		&cli.IntFlag{
@@ -54,6 +113,12 @@ func JobFlags(jobConf *config.JobConfig) []cli.Flag {
 			Value:       jobConf.JobLoopPeriod,
 			Usage:       "loop period for job manager processing job",
 			Destination: &jobConf.JobLoopPeriod,
+		},
+		&cli.BoolFlag{
+			Name:        "sync-cluster-queue",
+			Value:       jobConf.SyncClusterQueue,
+			Usage:       "sync cluster queues",
+			Destination: &jobConf.SyncClusterQueue,
 		},
 		&cli.IntFlag{
 			Name:        "failed-job-ttl-seconds",
@@ -84,6 +149,12 @@ func JobFlags(jobConf *config.JobConfig) []cli.Flag {
 			Value:       jobConf.Reclaim.SkipCleanFailedJob,
 			Usage:       "skip clean failed job",
 			Destination: &jobConf.Reclaim.SkipCleanFailedJob,
+		},
+		&cli.BoolFlag{
+			Name:        "is-single-cluster",
+			Value:       jobConf.IsSingleCluster,
+			Usage:       "init a cluster named 'default' by default in single cluster mode",
+			Destination: &jobConf.IsSingleCluster,
 		},
 	}
 }

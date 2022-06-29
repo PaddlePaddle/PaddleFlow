@@ -31,22 +31,28 @@ var (
 
 	DefaultRunYamlPath    = "./run.yaml"
 	serverDefaultConfPath = "./config/server/default/paddleserver.yaml"
+	// DefaultClusterName for default cluster in single cluster
+	DefaultClusterName = "default-cluster"
+	// DefaultQueueName for default queue in single cluster
+	DefaultQueueName = "default-queue"
+	// DefaultNamespace for default namespace of default queue in single cluster
+	DefaultNamespace = "default"
 )
 
 type ServerConfig struct {
-	Database      DatabaseConfig                 `yaml:"database"`
-	Log           logger.LogConfig               `yaml:"log"`
-	TraceLog      trace_logger.TraceLoggerConfig `yaml:"traceLog"`
-	ApiServer     ApiServerConfig                `yaml:"apiServer"`
-	Job           JobConfig                      `yaml:"job"`
-	Fs            FsServerConf                   `yaml:"fs"`
-	NamespaceList []string                       `yaml:"namespaceList"`
-	Flavour       []schema.Flavour               `yaml:"flavour"`
-	FlavourMap    map[string]schema.Flavour      `yaml:"-"`
-	ImageConf     ImageConfig                    `yaml:"imageRepository"`
+	Storage       StorageConfig             `yaml:"database"`
+	Log           logger.LogConfig          `yaml:"log"`
+  TraceLog      trace_logger.TraceLoggerConfig `yaml:"traceLog"`
+	ApiServer     ApiServerConfig           `yaml:"apiServer"`
+	Job           JobConfig                 `yaml:"job"`
+	Fs            FsServerConf              `yaml:"fs"`
+	NamespaceList []string                  `yaml:"namespaceList"`
+	Flavour       []schema.Flavour          `yaml:"flavour"`
+	FlavourMap    map[string]schema.Flavour `yaml:"-"`
+	ImageConf     ImageConfig               `yaml:"imageRepository"`
 }
 
-type DatabaseConfig struct {
+type StorageConfig struct {
 	Driver                               string `yaml:"driver"`
 	Host                                 string `yaml:"host"`
 	Port                                 string `yaml:"port"`
@@ -76,8 +82,11 @@ type JobConfig struct {
 	QueueExpireTime   int `yaml:"queueExpireTime"`
 	QueueCacheSize    int `yaml:"queueCacheSize"`
 	JobLoopPeriod     int `yaml:"jobLoopPeriod"`
+	// SyncClusterQueue defines whether aware cluster resource or not, such as queue
+	SyncClusterQueue bool `yaml:"syncClusterQueue"`
 	// DefaultJobYamlDir is directory that stores default template yaml files for job
 	DefaultJobYamlDir string `yaml:"defaultJobYamlDir"`
+	IsSingleCluster   bool   `yaml:"isSingleCluster"`
 }
 
 type FsServerConf struct {

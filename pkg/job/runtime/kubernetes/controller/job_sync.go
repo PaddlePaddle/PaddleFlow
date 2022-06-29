@@ -42,6 +42,7 @@ const (
 
 type JobSyncInfo struct {
 	ID          string
+	Namespace   string
 	ParentJobID string
 	GVK         schema.GroupVersionKind
 	Status      commonschema.JobStatus
@@ -61,6 +62,7 @@ type TaskSyncInfo struct {
 	Name       string
 	Namespace  string
 	JobID      string
+	NodeName   string
 	MemberRole commonschema.MemberRole
 	Status     commonschema.TaskStatus
 	Message    string
@@ -212,8 +214,13 @@ func (j *JobSync) doCreateAction(jobSyncInfo *JobSyncInfo) error {
 		}
 		jobType, framework := k8s.GetJobTypeAndFramework(jobSyncInfo.GVK)
 		job := &models.Job{
-			ID:          jobSyncInfo.ID,
-			Type:        string(jobType),
+			ID:   jobSyncInfo.ID,
+			Type: string(jobType),
+			Config: &commonschema.Conf{
+				Env: map[string]string{
+					commonschema.EnvJobNamespace: jobSyncInfo.Namespace,
+				},
+			},
 			Framework:   framework,
 			QueueID:     parentJob.QueueID,
 			Status:      jobSyncInfo.Status,
@@ -308,7 +315,7 @@ func (j *JobSync) syncTaskStatus(taskSyncInfo *TaskSyncInfo) error {
 	namespace := taskSyncInfo.Namespace
 	_, err := models.GetJobByID(taskSyncInfo.JobID)
 	if err != nil {
-		log.Infof("update task %s/%s status failed, job %s for task not found", namespace, name, taskSyncInfo.JobID)
+		log.Warnf("update task %s/%s status failed, job %s for task not found", namespace, name, taskSyncInfo.JobID)
 		return err
 	}
 
@@ -318,6 +325,7 @@ func (j *JobSync) syncTaskStatus(taskSyncInfo *TaskSyncInfo) error {
 		JobID:            taskSyncInfo.JobID,
 		Name:             taskSyncInfo.Name,
 		Namespace:        taskSyncInfo.Namespace,
+		NodeName:         taskSyncInfo.NodeName,
 		MemberRole:       taskSyncInfo.MemberRole,
 		Status:           taskSyncInfo.Status,
 		Message:          taskSyncInfo.Message,

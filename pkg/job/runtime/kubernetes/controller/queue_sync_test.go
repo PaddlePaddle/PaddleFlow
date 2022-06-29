@@ -37,8 +37,9 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database/dbinit"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
+	commonschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 )
 
 func newFakeQueueSyncController() *QueueSync {
@@ -54,6 +55,7 @@ func newFakeQueueSyncController() *QueueSync {
 		DynamicClient:   dynamicClient,
 		DynamicFactory:  dynamicinformer.NewDynamicSharedInformerFactory(dynamicClient, 0),
 		DiscoveryClient: fakeDiscovery,
+		ClusterInfo:     &commonschema.Cluster{Name: "test-cluster"},
 	}
 	err := ctrl.Initialize(opt)
 	if err != nil {
@@ -148,7 +150,7 @@ func TestQueueSync(t *testing.T) {
 		},
 	}
 
-	dbinit.InitMockDB()
+	driver.InitMockDB()
 	c := newFakeQueueSyncController()
 	stopCh := make(chan struct{})
 	defer close(stopCh)
@@ -174,8 +176,8 @@ func TestQueueSync(t *testing.T) {
 			unNewObj := &unstructured.Unstructured{Object: newObj}
 			unNewObj.SetGroupVersionKind(test.gvk)
 
-			c.updateQueue(unOldObj, unNewObj)
-			c.deleteQueue(unNewObj)
+			c.update(unOldObj, unNewObj)
+			c.delete(unNewObj)
 		})
 	}
 	time.Sleep(2 * time.Second)

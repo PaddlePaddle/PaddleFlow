@@ -62,6 +62,32 @@ class QueueServiceApi(object):
         return True, None
 
     @classmethod
+    def update_queue(self, host, queuename, maxResources, minResources=None, schedulingPolicy=None,
+                        location=None, header=None):
+        """
+        update queue
+        """
+        if not header:
+            raise PaddleFlowSDKException("InvalidRequest", "paddleflow should login first")
+        body = {}
+        if maxResources:
+            body['maxResources'] = maxResources
+        if minResources:
+            body['minResources'] = minResources
+        if schedulingPolicy:
+            body['schedulingPolicy'] = schedulingPolicy
+        if location:
+            body['location'] = location
+        response = api_client.call_api(method="PUT", url=parse.urljoin(host, api.PADDLE_FLOW_QUEUE+ "/%s" % queuename),
+                                        headers=header, json=body)
+        if not response:
+            raise PaddleFlowSDKException("Connection Error", "update queue failed due to HTTPError")
+        data = json.loads(response.text)
+        if 'message' in data:
+            return False, data['message']
+        return True, None
+
+    @classmethod
     def grant_queue(self, host, username, queuename, header=None):
         """
         grant queue
@@ -151,7 +177,7 @@ class QueueServiceApi(object):
         if len(data['queueList']):
             for queue in data['queueList']:
                 queueinfo = QueueInfo(queue['name'], queue['status'], queue['namespace'], queue['clusterName'], queue['quotaType'],
-                                      queue['maxResources'], queue['minResources'], None, None,
+                                      queue['maxResources'], queue['minResources'], None, None, None, None,
                                       queue['createTime'], queue['updateTime'])
                 queueList.append(queueinfo)
         return True, queueList, data.get('nextMarker', None)
@@ -171,8 +197,8 @@ class QueueServiceApi(object):
         if 'message' in data:
             return False, data['message']
         queueInfo = QueueInfo(data['name'], data['status'], data['namespace'], data['clusterName'], data['quotaType'],
-                              data['maxResources'], data.get('minResources'), data.get('location'),
-                              data.get('schedulingPolicy'), data['createTime'], data['updateTime'])
+                              data['maxResources'], data.get('minResources'), data['usedResources'], data['idleResources'],
+                              data.get('location'), data.get('schedulingPolicy'), data['createTime'], data['updateTime'])
         return True, queueInfo
         
     @classmethod
@@ -204,19 +230,3 @@ class QueueServiceApi(object):
                 grantinfo = GrantInfo(grant['userName'], grant['resourceID'])
                 grantList.append(grantinfo)
         return True, grantList
-
-    @classmethod
-    def flavour(self, host, header=None):
-        """
-        list flavour
-        """
-        if not header:
-            raise PaddleFlowSDKException("InvalidRequest", "paddleflow should login first")
-        response = api_client.call_api(method="GET", url=parse.urljoin(host, api.PADDLE_FLOW_FLAVOUR),
-                                    headers=header)
-        if not response:
-            raise PaddleFlowSDKException("Connection Error", "list flavour failed due to HTTPError")
-        data = json.loads(response.text)
-        if 'message' in data:
-            return False, data['message']
-        return True, data

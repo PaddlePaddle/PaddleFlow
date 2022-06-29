@@ -18,14 +18,12 @@ package v1
 
 import (
 	"net/http"
-	"strings"
 
 	"github.com/go-chi/chi"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/pipeline"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 )
@@ -40,8 +38,11 @@ func (pr *PipelineRouter) AddRouter(r chi.Router) {
 	log.Info("add pipeline router")
 	r.Post("/pipeline", pr.createPipeline)
 	r.Get("/pipeline", pr.listPipeline)
+	r.Post("/pipeline/{pipelineID}", pr.updatePipeline)
 	r.Get("/pipeline/{pipelineID}", pr.getPipeline)
 	r.Delete("/pipeline/{pipelineID}", pr.deletePipeline)
+	r.Get("/pipeline/{pipelineID}/{pipelineDetailID}", pr.getPipelineDetail)
+	r.Delete("/pipeline/{pipelineID}/{pipelineDetailID}", pr.deletePipelineDtail)
 }
 
 // createPipeline
@@ -65,26 +66,7 @@ func (pr *PipelineRouter) createPipeline(w http.ResponseWriter, r *http.Request)
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
-	if createPplReq.FsName == "" {
-		logger.LoggerForRequest(&ctx).Errorf(
-			"create pipeline failed. fsname shall not be empty")
-		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, "create pipeline failed. fsname in request body shall not be empty")
-		return
-	}
-	if createPplReq.YamlPath == "" {
-		createPplReq.YamlPath = "./run.yaml"
-	}
-	// check grant
-	if !common.IsRootUser(ctx.UserName) {
-		fsID := common.ID(ctx.UserName, createPplReq.FsName)
-		if !models.HasAccessToResource(&ctx, common.ResourceTypeFs, fsID) {
-			ctx.ErrorCode = common.AccessDenied
-			err := common.NoAccessError(ctx.UserName, common.ResourceTypeFs, fsID)
-			ctx.Logging().Errorf("access denied creating pipeline. error: %v", err)
-			common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
-			return
-		}
-	}
+
 	// create in service
 	response, err := pipeline.CreatePipeline(&ctx, createPplReq)
 	if err != nil {
@@ -94,31 +76,6 @@ func (pr *PipelineRouter) createPipeline(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	common.Render(w, http.StatusCreated, response)
-}
-
-// getPipeline
-// @Summary 通过ID获取工作流
-// @Description  通过ID获取工作流
-// @Id getPipeline
-// @tags Pipeline
-// @Accept  json
-// @Produce json
-// @Param pipelineID path string true "工作流ID"
-// @Success 201 {object} models.Pipeline "工作流结构体"
-// @Failure 400 {object} common.ErrorResponse "400"
-// @Failure 500 {object} common.ErrorResponse "500"
-// @Router /pipeline/{pipelineID} [GET]
-func (pr *PipelineRouter) getPipeline(w http.ResponseWriter, r *http.Request) {
-	pipelineID := chi.URLParam(r, util.ParamKeyPipelineID)
-	ctx := common.GetRequestContext(r)
-	ppl, err := pipeline.GetPipelineByID(&ctx, pipelineID)
-	if err != nil {
-		logger.LoggerForRequest(&ctx).Errorf(
-			"GetPipeline[%s] failed. error:%v", pipelineID, err)
-		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
-		return
-	}
-	common.Render(w, http.StatusOK, ppl)
 }
 
 // listPipeline
@@ -146,26 +103,98 @@ func (pr *PipelineRouter) listPipeline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userNames, fsNames, pipelineNames := r.URL.Query().Get(util.QueryKeyUserFilter), r.URL.Query().Get(util.QueryKeyFsFilter), r.URL.Query().Get(util.QueryKeyNameFilter)
-	userFilter, fsFilter, nameFilter := make([]string, 0), make([]string, 0), make([]string, 0)
+	userNames, pipelineNames := r.URL.Query().Get(util.QueryKeyUserFilter), r.URL.Query().Get(util.QueryKeyNameFilter)
+	userFilter, nameFilter := make([]string, 0), make([]string, 0)
 	if userNames != "" {
-		userFilter = strings.Split(userNames, common.SeparatorComma)
-	}
-	if fsNames != "" {
-		fsFilter = strings.Split(fsNames, common.SeparatorComma)
+		userFilter = util.SplitFilter(userNames, common.SeparatorComma, true)
 	}
 	if pipelineNames != "" {
-		nameFilter = strings.Split(pipelineNames, common.SeparatorComma)
+		nameFilter = util.SplitFilter(pipelineNames, common.SeparatorComma, true)
 	}
 	logger.LoggerForRequest(&ctx).Debugf(
-		"user[%s] ListRun marker:[%s] maxKeys:[%d] userFilter:[%v] fsFilter:[%v]",
-		ctx.UserName, marker, maxKeys, userFilter, fsFilter)
-	listRunResponse, err := pipeline.ListPipeline(&ctx, marker, maxKeys, userFilter, fsFilter, nameFilter)
+		"user[%s] listPipeline marker:[%s] maxKeys:[%d] userFilter:[%v]",
+		ctx.UserName, marker, maxKeys, userFilter)
+	listPipelineResponse, err := pipeline.ListPipeline(&ctx, marker, maxKeys, userFilter, nameFilter)
 	if err != nil {
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
-	common.Render(w, http.StatusOK, listRunResponse)
+	common.Render(w, http.StatusOK, listPipelineResponse)
+}
+
+// updatePipeline
+// @Summary 创建工作流
+// @Description 创建工作流
+// @Id updatePipeline
+// @tags Pipeline
+// @Accept  json
+// @Produce json
+// @Param request body pipeline.UpdatePipelineRequest true "创建工作流请求"
+// @Success 201 {object} pipeline.UpdatePipelineResponse "创建工作流响应"
+// @Failure 400 {object} common.ErrorResponse "400"
+// @Failure 500 {object} common.ErrorResponse "500"
+// @Router /pipeline [POST]
+func (pr *PipelineRouter) updatePipeline(w http.ResponseWriter, r *http.Request) {
+	ctx := common.GetRequestContext(r)
+	pipelineID := chi.URLParam(r, util.ParamKeyPipelineID)
+
+	var updatePplReq pipeline.UpdatePipelineRequest
+	if err := common.BindJSON(r, &updatePplReq); err != nil {
+		logger.LoggerForRequest(&ctx).Errorf(
+			"update pipeline failed parsing request body:%+v. error:%v", r.Body, err)
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+
+	// update in service
+	response, err := pipeline.UpdatePipeline(&ctx, updatePplReq, pipelineID)
+	if err != nil {
+		logger.LoggerForRequest(&ctx).Errorf(
+			"update pipeline failed. updatePplReq:%v error:%v", updatePplReq, err)
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+	common.Render(w, http.StatusCreated, response)
+}
+
+// getPipeline
+// @Summary 通过ID获取pipeline，以及pipeline details
+// @Description  通过ID获取pipeline，以及pipeline details
+// @Id getPipeline
+// @tags Pipeline
+// @Accept  json
+// @Produce json
+// @Param pipelineID path string true "工作流ID"
+// @Success 201 {object} models.Pipeline "工作流结构体"
+// @Failure 400 {object} common.ErrorResponse "400"
+// @Failure 500 {object} common.ErrorResponse "500"
+// @Router /pipeline/{pipelineID} [GET]
+func (pr *PipelineRouter) getPipeline(w http.ResponseWriter, r *http.Request) {
+	pipelineID := chi.URLParam(r, util.ParamKeyPipelineID)
+
+	ctx := common.GetRequestContext(r)
+	maxKeys, err := util.GetQueryMaxKeys(&ctx, r)
+	if err != nil {
+		common.RenderErrWithMessage(w, ctx.RequestID, common.InvalidURI, err.Error())
+		return
+	}
+
+	marker := r.URL.Query().Get(util.QueryKeyMarker)
+	fsNames := r.URL.Query().Get(util.QueryKeyFsFilter)
+	fsFilter := make([]string, 0)
+	if fsNames != "" {
+		fsFilter = util.SplitFilter(fsNames, common.SeparatorComma, true)
+	}
+
+	logger.LoggerForRequest(&ctx).Debugf(
+		"user[%s] getPipeline marker:[%s] maxKeys:[%d] fsFilter:[%v]",
+		ctx.UserName, marker, maxKeys, fsFilter)
+	getPipelineResponse, err := pipeline.GetPipeline(&ctx, pipelineID, marker, maxKeys, fsFilter)
+	if err != nil {
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+	common.Render(w, http.StatusOK, getPipelineResponse)
 }
 
 // DeletePipeline
@@ -186,6 +215,59 @@ func (pr *PipelineRouter) deletePipeline(w http.ResponseWriter, r *http.Request)
 	err := pipeline.DeletePipeline(&ctx, pipelineID)
 	if err != nil {
 		ctx.Logging().Errorf("delete pipeline failed.  error:%s", err.Error())
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+	common.RenderStatus(w, http.StatusOK)
+}
+
+// getPipelineDetail
+// @Summary 通过ID获取pipeline detail，以及pipeline信息
+// @Description 通过ID获取pipeline detail，以及pipeline信息
+// @Id getPipeline
+// @tags Pipeline
+// @Accept  json
+// @Produce json
+// @Param pipelineID path string true "工作流ID"
+// @Success 201 {object} models.Pipeline "工作流结构体"
+// @Failure 400 {object} common.ErrorResponse "400"
+// @Failure 500 {object} common.ErrorResponse "500"
+// @Router /pipeline/{pipelineID}/{detailID} [GET]
+func (pr *PipelineRouter) getPipelineDetail(w http.ResponseWriter, r *http.Request) {
+	ctx := common.GetRequestContext(r)
+	pipelineID := chi.URLParam(r, util.ParamKeyPipelineID)
+	pipelineDetailID := chi.URLParam(r, util.ParamKeyPipelineDetailID)
+
+	logger.LoggerForRequest(&ctx).Debugf(
+		"user[%s] get Pipeline detail:[%s], pipelineID[%s]", ctx.UserName, pipelineDetailID, pipelineID)
+	pplDetail, err := pipeline.GetPipelineDetail(&ctx, pipelineID, pipelineDetailID)
+	if err != nil {
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
+		return
+	}
+	common.Render(w, http.StatusOK, pplDetail)
+}
+
+// DeletePipelineDetail
+// @Summary 删除pipeline detail
+// @Description 删除pipeline detail
+// @Id DeletePipeline
+// @tags Pipeline
+// @Accept  json
+// @Produce json
+// @Param pipelineID path string true "工作流ID"
+// @Success 200 {string} string "删除工作流的响应码"
+// @Failure 400 {object} common.ErrorResponse "400"
+// @Failure 500 {object} common.ErrorResponse "500"
+// @Router /pipeline/{pipelineID} [DELETE]
+func (pr *PipelineRouter) deletePipelineDtail(w http.ResponseWriter, r *http.Request) {
+	ctx := common.GetRequestContext(r)
+	pipelineID := chi.URLParam(r, util.ParamKeyPipelineID)
+	pipelineDetailID := chi.URLParam(r, util.ParamKeyPipelineDetailID)
+
+	err := pipeline.DeletePipelineDetail(&ctx, pipelineID, pipelineDetailID)
+	if err != nil {
+		ctx.Logging().Errorf("delete pipeline[%s] detail[%s] failed. error:%s", pipelineID, pipelineDetailID, err.Error())
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}

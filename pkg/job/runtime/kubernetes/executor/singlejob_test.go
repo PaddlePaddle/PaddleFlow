@@ -25,10 +25,10 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database/dbinit"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 )
 
 var (
@@ -105,7 +105,7 @@ func TestSinglePod_CreateJob(t *testing.T) {
 	defer server.Close()
 	dynamicClient := newFakeDynamicClient(server)
 	// mock db
-	dbinit.InitMockDB()
+	driver.InitMockDB()
 	// create kubernetes resource with dynamic client
 	tests := []struct {
 		caseName string

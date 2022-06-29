@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -26,9 +26,9 @@ import (
 	"strings"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/middleware"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 const (
@@ -86,10 +86,12 @@ func GetKubeletDataPath() string {
 }
 
 func GetPodUIDFromTargetPath(targetPath string) string {
+	// target path: /data/lib/kubelet/pods/cb0b4bb0-98de-4cd5-9d73-146a226dcf93/volumes/kubernetes.io~csi/pfs-fs-root-mxy-default-pv/mount
 	prefix := GetKubeletDataPath()
 	if !strings.HasSuffix(prefix, "/") {
 		prefix += "/"
 	}
+	prefix += "pods/"
 	items := strings.Split(strings.TrimPrefix(targetPath, prefix), "/")
 	if len(items) > 0 {
 		return items[0]
@@ -179,7 +181,7 @@ func GetMountPointCheckIntervalTime() int {
 }
 
 func GetRootToken(ctx *logger.RequestContext) (string, error) {
-	u, err := models.GetUserByName(ctx, common.RootKey)
+	u, err := storage.Auth.GetUserByName(ctx, common.RootKey)
 	if err != nil {
 		return "", err
 	}

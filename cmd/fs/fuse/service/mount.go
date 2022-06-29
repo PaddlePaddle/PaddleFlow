@@ -40,6 +40,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/client"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/base"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/cache"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/fuse"
@@ -47,6 +48,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/meta"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/vfs"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
+	csiMount "github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/mount"
 	mountUtil "github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/mount"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/metric"
 )
@@ -241,6 +243,20 @@ func InitVFS(c *cli.Context, registry *prometheus.Registry) error {
 				},
 			}
 		}
+	} else if c.String(schema.FuseKeyFsInfo) != "" {
+		fs, err := csiMount.ProcessFsInfo(c.String(schema.FuseKeyFsInfo))
+		if err != nil {
+			retErr := fmt.Errorf("InitVFS process fs info[%s] err: %v", c.String(schema.FuseKeyFsInfo), err)
+			log.Errorf(retErr.Error())
+			return retErr
+		}
+		fsMeta.ID = fs.ID
+		fsMeta.Name = fs.Name
+		fsMeta.ServerAddress = fs.ServerAddress
+		fsMeta.SubPath = fs.SubPath
+		fsMeta.Properties = fs.PropertiesMap
+		fsMeta.UfsType = fs.Type
+		fsMeta.Type = "fs"
 	} else if c.String("config") != "" {
 		reader, err := os.Open(c.String("config"))
 		if err != nil {

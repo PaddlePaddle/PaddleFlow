@@ -19,44 +19,43 @@ package v1
 import (
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/fs"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
-func mockFS() models.FileSystem {
-	return models.FileSystem{
-		Model:    models.Model{ID: mockFsID},
+func mockFS() model.FileSystem {
+	return model.FileSystem{
+		Model:    model.Model{ID: mockFsID},
 		UserName: MockRootUser,
 		Name:     mockFsName,
 	}
 }
 
-func mockFSCache() models.FSCacheConfig {
-	return models.FSCacheConfig{
+func mockFSCache() model.FSCacheConfig {
+	return model.FSCacheConfig{
 		FsID:       mockFsID,
 		CacheDir:   "/abs/path",
-		Quota:      444,
 		MetaDriver: "nutsdb",
 		BlockSize:  666,
 	}
 }
 
-func buildUpdateReq(model models.FSCacheConfig) fs.UpdateFileSystemCacheRequest {
+func buildUpdateReq(model model.FSCacheConfig) fs.UpdateFileSystemCacheRequest {
 	return fs.UpdateFileSystemCacheRequest{
 		FsID:       model.FsID,
 		CacheDir:   model.CacheDir,
-		Quota:      model.Quota,
 		MetaDriver: "nutsdb",
 		BlockSize:  model.BlockSize,
 	}
 }
 
-func buildCreateReq(model models.FSCacheConfig) fs.CreateFileSystemCacheRequest {
+func buildCreateReq(model model.FSCacheConfig) fs.CreateFileSystemCacheRequest {
 	req := fs.CreateFileSystemCacheRequest{
 		Username:                     MockRootUser,
 		FsName:                       mockFsName,
@@ -79,7 +78,7 @@ func TestFSCacheConfigRouter(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, result.Code)
 
 	// test create success
-	err = models.CreatFileSystem(&mockFs)
+	err = storage.Filesystem.CreatFileSystem(&mockFs)
 	assert.Nil(t, err)
 
 	result, err = PerformPostRequest(router, url, createRep)
@@ -97,7 +96,7 @@ func TestFSCacheConfigRouter(t *testing.T) {
 	assert.Equal(t, cacheConf.MetaDriver, cacheRsp.MetaDriver)
 	assert.Equal(t, cacheConf.CacheDir, cacheRsp.CacheDir)
 	assert.Equal(t, cacheConf.BlockSize, cacheRsp.BlockSize)
-	assert.Equal(t, cacheConf.Quota, cacheRsp.Quota)
+	assert.Equal(t, cacheConf.BlockSize, cacheRsp.BlockSize)
 	// test fsToName()
 	assert.Equal(t, createRep.Username, cacheRsp.Username)
 
@@ -108,7 +107,7 @@ func TestFSCacheConfigRouter(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, result.Code)
 
 	// test update success
-	updateReq.Quota = 333
+	updateReq.BlockSize = 333
 	updateReq.CacheDir = "/newPath"
 	result, err = PerformPutRequest(router, urlWithFsID, updateReq)
 	assert.Nil(t, err)
@@ -119,7 +118,7 @@ func TestFSCacheConfigRouter(t *testing.T) {
 	assert.Equal(t, http.StatusOK, result.Code)
 	err = ParseBody(result.Body, &cacheRsp)
 	assert.Nil(t, err)
-	assert.Equal(t, updateReq.Quota, cacheRsp.Quota)
+	assert.Equal(t, updateReq.BlockSize, cacheRsp.BlockSize)
 	assert.Equal(t, updateReq.CacheDir, cacheRsp.CacheDir)
 
 	// test update failure
@@ -132,11 +131,12 @@ func TestFSCacheConfigRouter(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, http.StatusBadRequest, result.Code)
 
-	// delte
+	// delete
 	result, err = PerformDeleteRequest(router, urlWithFsID)
 	assert.Nil(t, err)
 	assert.Equal(t, http.StatusOK, result.Code)
 
+	time.Sleep(3 * time.Second)
 	result, err = PerformDeleteRequest(router, urlWithFsID)
 	assert.Nil(t, err)
 	assert.Equal(t, http.StatusNotFound, result.Code)
@@ -176,17 +176,17 @@ func TestFSCacheReportRouter(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, http.StatusOK, result.Code)
 
-	var cache []models.FSCache
-	tx := database.DB.Where(&models.FSCache{FsID: common.ID(MockRootUser, mockFsName)}).Find(&cache)
-	assert.Equal(t, int64(1), tx.RowsAffected)
-	assert.Equal(t, 100, cache[0].UsedSize)
+	cacheList, err := storage.FsCache.List(common.ID(MockRootUser, mockFsName), "")
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(cacheList))
 
 	req.UsedSize = 200
 	result, err = PerformPostRequest(router, url, req)
 	assert.Nil(t, err)
 	assert.Equal(t, http.StatusOK, result.Code)
 
-	tx = database.DB.Where(&models.FSCache{FsID: common.ID(MockRootUser, mockFsName)}).Find(&cache)
-	assert.Equal(t, int64(1), tx.RowsAffected)
-	assert.Equal(t, 200, cache[0].UsedSize)
+	cacheList, err = storage.FsCache.List(common.ID(MockRootUser, mockFsName), "")
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(cacheList))
+	assert.Equal(t, 200, cacheList[0].UsedSize)
 }
