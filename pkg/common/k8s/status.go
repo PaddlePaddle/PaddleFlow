@@ -135,7 +135,7 @@ func VCJobStatus(obj interface{}) (StatusInfo, error) {
 		return StatusInfo{}, err
 	}
 	jobStatus := status.(*batchv1alpha1.JobStatus)
-	state, err := getVCJobStatus(jobStatus.State.Phase)
+	state, msg, err := getVCJobStatus(jobStatus.State.Phase)
 	if err != nil {
 		log.Errorf("convert VCJob status to JobStatus failed, err: %v", err)
 		return StatusInfo{}, err
@@ -145,29 +145,36 @@ func VCJobStatus(obj interface{}) (StatusInfo, error) {
 	return StatusInfo{
 		OriginStatus: string(jobStatus.State.Phase),
 		Status:       state,
-		Message:      jobStatus.State.Message,
+		Message:      msg,
 	}, nil
 }
 
-func getVCJobStatus(phase batchv1alpha1.JobPhase) (schema.JobStatus, error) {
+func getVCJobStatus(phase batchv1alpha1.JobPhase) (schema.JobStatus, string, error) {
 	status := schema.JobStatus("")
+	msg := ""
 	switch phase {
 	case batchv1alpha1.Pending:
 		status = schema.StatusJobPending
+		msg = "job is pending"
 	case batchv1alpha1.Running, batchv1alpha1.Restarting, batchv1alpha1.Completing:
 		status = schema.StatusJobRunning
+		msg = "job is running"
 	case batchv1alpha1.Terminating, batchv1alpha1.Aborting:
 		status = schema.StatusJobTerminating
+		msg = "job is terminating"
 	case batchv1alpha1.Completed:
 		status = schema.StatusJobSucceeded
+		msg = "job is succeeded"
 	case batchv1alpha1.Aborted:
 		status = schema.StatusJobTerminated
+		msg = "job is terminated"
 	case batchv1alpha1.Failed, batchv1alpha1.Terminated:
 		status = schema.StatusJobFailed
+		msg = "job is failed"
 	default:
-		return status, fmt.Errorf("unexpected vcjob status: %s", phase)
+		return status, msg, fmt.Errorf("unexpected vcjob status: %s", phase)
 	}
-	return status, nil
+	return status, msg, nil
 }
 
 // PaddleJobStatus get paddle job status, message from interface{}, and covert to JobStatus
