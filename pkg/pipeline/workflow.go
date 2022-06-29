@@ -504,11 +504,9 @@ func (bwf *BaseWorkflow) checkCache() error {
 		校验yaml中cache各相关字段
 	*/
 
-	logger.Logger().Infof("debug: maxExpiredTime is [%s]", bwf.Source.Cache.MaxExpiredTime)
 	// 校验MaxExpiredTime，必须能够转换成数字。如果没传，默认为-1
 	if bwf.Source.Cache.MaxExpiredTime == "" {
 		bwf.Source.Cache.MaxExpiredTime = CacheExpiredTimeNever
-		logger.Logger().Infof("debug: now cache is %v", bwf.Source.Cache)
 	}
 	_, err := strconv.Atoi(bwf.Source.Cache.MaxExpiredTime)
 	if err != nil {
@@ -1018,12 +1016,9 @@ func NewWorkflow(wfSource schema.WorkflowSource, runID string, params map[string
 		BaseWorkflow: baseWorkflow,
 		callbacks:    callbacks,
 	}
-	logger.Logger().Infof("debug: before validate, %v", wf.Source.Cache)
 	if err := wf.validate(); err != nil {
 		return nil, err
 	}
-	logger.Logger().Infof("debug: after, entryPoint: %v", wf.Source.EntryPoints.EntryPoints)
-	logger.Logger().Infof("debug: after validate, %v", wf.Source.Cache)
 	if err := wf.newWorkflowRuntime(); err != nil {
 		return nil, err
 	}
@@ -1038,7 +1033,6 @@ func (wf *Workflow) newWorkflowRuntime() error {
 	} else if parallelism > WfParallelismMaximum {
 		parallelism = WfParallelismMaximum
 	}
-	logger.LoggerForRun(wf.RunID).Infof("debug: wf.source is: %v", wf.Source)
 	logger.LoggerForRun(wf.RunID).Debugf("initializing [%d] parallelism jobs", parallelism)
 	runConf := NewRunConfig(&wf.Source, wf.Extra[WfExtraInfoKeyFsID], wf.Extra[WfExtraInfoKeyFsName], wf.Extra[WfExtraInfoKeyUserName], wf.RunID,
 		logger.LoggerForRun(wf.RunID), wf.callbacks, wf.Extra[WfExtraInfoKeySource])

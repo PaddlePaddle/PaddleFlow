@@ -353,25 +353,6 @@ func getWorkFlowSourceByJson(request *CreateRunByJsonRequest, bodyMap map[string
 	return wfs, nil
 }
 
-func transCacheMap(cacheMap map[string]interface{}) error {
-	// Enable字段的Json和Yaml形式一样，无需赋值
-	// MaxExpiredTime赋值
-	if value, ok := cacheMap["maxExpiredTime"]; ok {
-		if err := unstructured.SetNestedField(cacheMap, value, schema.CacheAttributeMaxExpiredTime); err != nil {
-			return err
-		}
-		delete(cacheMap, "maxExpiredTime")
-	}
-	// FsScope赋值
-	if value, ok := cacheMap["fsScope"]; ok {
-		if err := unstructured.SetNestedField(cacheMap, value, schema.CacheAttributeFsScope); err != nil {
-			return err
-		}
-		delete(cacheMap, "maxExpiredTime")
-	}
-	return nil
-}
-
 // 该函数主要完成CreateRunJson接口中，各类变量的全局替换操作
 func processRunJsonComponents(components map[string]schema.Component, request *CreateRunByJsonRequest,
 	bodyMap map[string]interface{}, componentsMap map[string]interface{}) error {
