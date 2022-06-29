@@ -167,7 +167,7 @@ func (drt *DagRuntime) resolveReference(subComponentName string, subComponent sc
 		return err
 	}
 
-	drt.logger.Debugf("after resolve reference, component[%s] is:\n %v", subFullName, newComponent)
+	drt.logger.Infof("after resolve reference, component[%s] is:\n %v", subFullName, newComponent)
 	drt.component.(*schema.WorkflowSourceDag).EntryPoints[subComponentName] = newComponent
 
 	return nil
@@ -178,7 +178,7 @@ func (drt *DagRuntime) resolveReference(subComponentName string, subComponent sc
 func (drt *DagRuntime) createAndStartSubComponentRuntime(subComponentName string, subComponent schema.Component,
 	exceptSeq map[int]int) {
 	subFullName := drt.generateSubComponentFullName(subComponentName)
-	drt.logger.Debugf("begin to create runtime for component[%s]:\n%v", subFullName, subComponent)
+	drt.logger.Infof("begin to create runtime for component[%s]:\n%v", subFullName, subComponent)
 
 	// 如果已经有子节点对应的 runtime, 则说明该节点已经被调度过了
 	// PS: 理论上不会出现在这种情况，用于兜底
@@ -246,7 +246,7 @@ func (drt *DagRuntime) getworkflowSouceDag() *schema.WorkflowSourceDag {
 // 开始执行 runtime
 // 不返回error，直接通过 event 向上冒泡
 func (drt *DagRuntime) Start() {
-	drt.logger.Debugf("begin to run dagp[%s]", drt.name)
+	drt.logger.Infof("begin to run dagp[%s]", drt.name)
 
 	drt.updateStatus(StatusRuntimeRunning)
 	drt.startTime = time.Now().Format("2006-01-02 15:04:05")
@@ -354,7 +354,7 @@ func (drt *DagRuntime) Listen() {
 		}
 		if err := drt.processEventFromSubComponent(event); err != nil {
 			// how to read event?
-			drt.logger.Debugf("process event failed %s", err.Error())
+			drt.logger.Infof("process event failed %s", err.Error())
 		}
 	}
 }
@@ -381,7 +381,7 @@ func (drt *DagRuntime) Restart(dagView *schema.DagView) {
 		}
 
 		msg := fmt.Sprintf("dag [%s] is already in status[%s], no restart required", drt.name, drt.status)
-		drt.logger.Debugf(msg)
+		drt.logger.Infof(msg)
 		dagView.EntryPoints = make(map[string][]schema.ComponentView)
 		drt.syncToApiServerAndParent(WfEventDagUpdate, dagView, msg)
 		return
@@ -434,7 +434,7 @@ func (drt *DagRuntime) needRestart(dagView *schema.DagView) (bool, error) {
 	}
 
 	if len(dagView.EntryPoints) != len(drt.getworkflowSouceDag().EntryPoints) {
-		drt.logger.Debugf("dag[%s] need restart because len(dagView.EntryPoints)[%d]"+
+		drt.logger.Infof("dag[%s] need restart because len(dagView.EntryPoints)[%d]"+
 			" != len(drt.getworkflowSouceDag().EntryPoints[%d])", drt.name, len(dagView.EntryPoints),
 			len(drt.getworkflowSouceDag().EntryPoints))
 		return true, nil
@@ -458,7 +458,7 @@ func (drt *DagRuntime) needRestart(dagView *schema.DagView) (bool, error) {
 		for _, view := range views {
 			status := view.GetStatus()
 			if status != StatusRuntimeSucceeded && status != StatusRuntimeSkipped {
-				drt.logger.Debugf("dag[%s.%d] need restart because status of view[%s] is %s",
+				drt.logger.Infof("dag[%s.%d] need restart because status of view[%s] is %s",
 					view.GetComponentName(), view.GetSeq(), view.GetComponentName(), status)
 				return true, nil
 			}
@@ -496,7 +496,7 @@ func (drt *DagRuntime) needRestart(dagView *schema.DagView) (bool, error) {
 		if lp != nil {
 			v := reflect.ValueOf(lp)
 			if len(views) < v.Len() {
-				drt.logger.Debugf("dag[%s] need restart because the num of views[%d] is less than loop_argument[%d]",
+				drt.logger.Infof("dag[%s] need restart because the num of views[%d] is less than loop_argument[%d]",
 					drt.name, len(views), v.Len())
 				return true, nil
 			}
@@ -506,7 +506,7 @@ func (drt *DagRuntime) needRestart(dagView *schema.DagView) (bool, error) {
 			// 这里需要创建 runtime 的原因是在解析上下游参数依赖的时候需要用到
 			runtime := drt.CreateSubRuntimeAccordingView(view, name)
 			drt.subComponentRumtimes[name] = append(drt.subComponentRumtimes[name], runtime)
-			drt.logger.Debugf("recreated runtime for component[%s]", runtime.getName())
+			drt.logger.Infof("recreated runtime for component[%s]", runtime.getName())
 		}
 	}
 
@@ -554,7 +554,7 @@ func (drt *DagRuntime) scheduleSubComponentAccordingView(dagView *schema.DagView
 		err = fmt.Errorf("get topo sort failed: %s", err.Error())
 		return
 	}
-	drt.logger.Debugf("toposort in dag[%s] is %v", drt.name, sorted)
+	drt.logger.Infof("toposort in dag[%s] is %v", drt.name, sorted)
 
 	defer drt.processSubComponentLock.Unlock()
 	drt.processSubComponentLock.Lock()
@@ -583,7 +583,7 @@ func (drt *DagRuntime) scheduleSubComponentAccordingView(dagView *schema.DagView
 			continue
 		}
 
-		drt.logger.Debugf("begin to restart subcomponent[%s] for dag[%s]", name, drt.name)
+		drt.logger.Infof("begin to restart subcomponent[%s] for dag[%s]", name, drt.name)
 
 		// 1、判断当前节点的处理方式： 1）状态恢复， 2）重新运行
 		needRecover := false
@@ -615,13 +615,13 @@ func (drt *DagRuntime) scheduleSubComponentAccordingView(dagView *schema.DagView
 
 			runtime := drt.CreateSubRuntimeAccordingView(view, name)
 			drt.subComponentRumtimes[name] = append(drt.subComponentRumtimes[name], runtime)
-			drt.logger.Debugf("recreated runtime for component[%s] with status[%s]",
+			drt.logger.Infof("recreated runtime for component[%s] with status[%s]",
 				runtime.getName(), runtime.getStatus())
 
 			if status == StatusRuntimeRunning {
 				hasSchedule = true
 			} else {
-				drt.logger.Debugf("component[%s] don't need restart, because it's already in status[%s]",
+				drt.logger.Infof("component[%s] don't need restart, because it's already in status[%s]",
 					runtime.getName(), runtime.getStatus())
 			}
 
@@ -692,7 +692,7 @@ func (drt *DagRuntime) GetSubComponentArtifactPaths(componentName string, artNam
 // 4. 如果有 job 的状态异常，将会走 FailureOptions 的处理逻辑
 func (drt *DagRuntime) processEventFromSubComponent(event WorkflowEvent) error {
 	if drt.isDone() {
-		drt.logger.Debugf("workflow has completed. skip event")
+		drt.logger.Infof("workflow has completed. skip event")
 		return nil
 	}
 	drt.logger.Infof("process event: [%+v]", event)
@@ -1049,7 +1049,7 @@ func (drt *DagRuntime) stopByCtx() {
 func (drt *DagRuntime) Stop() {
 	select {
 	case <-drt.ctx.Done():
-		drt.logger.Debugf("dag[%s] receive termination signal, begin to stop it", drt.name)
+		drt.logger.Infof("dag[%s] receive termination signal, begin to stop it", drt.name)
 		if drt.done {
 			return
 		}
@@ -1057,7 +1057,7 @@ func (drt *DagRuntime) Stop() {
 		drt.stopByCtx()
 
 	case <-drt.failureOpitonsCtx.Done():
-		drt.logger.Debugf("dag[%s] eceive failureOptions signal, begin to stop it", drt.name)
+		drt.logger.Infof("dag[%s] receive failureOptions signal, begin to stop it", drt.name)
 		if drt.done {
 			return
 		}

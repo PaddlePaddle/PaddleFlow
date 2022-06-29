@@ -156,7 +156,7 @@ func (isv *innerSolver) resolveArtifactTemplate(tpl []string, fieldType string, 
 
 // resolveEnv: 将字符串中给定模板替换成具体值
 func (isv *innerSolver) resolveTemplate(tplString string, fieldType string, forCache bool) (interface{}, error) {
-	isv.logger.Debugf("begin to resolve template for component[%s] is field[%s]", isv.componentFullName, fieldType)
+	isv.logger.Debugf("begin to resolve template for component[%s] with field[%s]", isv.componentFullName, fieldType)
 	tpls, err := fetchTemplate(tplString)
 	if err != nil {
 		return "", err
@@ -218,7 +218,7 @@ func (isv *innerSolver) resolveEnv() error {
 		isv.Component.(*schema.WorkflowSourceStep).Env[name] = newValue.(string)
 	}
 
-	isv.logger.Debugf("after resolve template, the command of component[%s] is: %v",
+	isv.logger.Infof("after resolve template, the command of component[%s] is: %v",
 		isv.Component.GetName(), isv.Component.(*schema.WorkflowSourceStep).Env)
 	return nil
 }
@@ -233,7 +233,7 @@ func (isv *innerSolver) resolveCommand(forCache bool) error {
 
 	isv.Component.(*schema.WorkflowSourceStep).Command = newCommand.(string)
 
-	isv.logger.Debugf("after resolve template, the command of component[%s] is: %v",
+	isv.logger.Infof("after resolve template, the command of component[%s] is: %v",
 		isv.Component.GetName(), newCommand)
 	return nil
 }
@@ -246,7 +246,7 @@ func (isv *innerSolver) resolveCondition() error {
 	}
 
 	isv.Component.UpdateCondition(newCondition.(string))
-	isv.logger.Debugf("after resolve template, the condition of component[%s] is: %v",
+	isv.logger.Infof("after resolve template, the condition of component[%s] is: %v",
 		isv.Component.GetName(), newCondition)
 	return nil
 }
@@ -286,7 +286,7 @@ func (isv *innerSolver) resolveLoopArugment() error {
 		return err
 	}
 
-	isv.logger.Debugf("after resolve template, the loop_arguemnt of component[%s] is: %v",
+	isv.logger.Infof("after resolve template, the loop_arguemnt of component[%s] is: %v",
 		isv.Component.GetName(), newLoopArgument)
 	isv.Component.UpdateLoopArguemt(newLoopArgument)
 	return nil
@@ -431,7 +431,7 @@ func (ds *DependencySolver) ResolveBeforeRun(componentName string) error {
 		subComponent.GetArtifacts().Input[name] = newValue
 	}
 
-	ds.logger.Debugf("component[%s] after resolve dependece: %v", componentName, subComponent)
+	ds.logger.Infof("component[%s] after resolve dependece: %v", componentName, subComponent)
 
 	// 输出artifact 无需解析： step 的输出artifact的中不会有模版，dag 的输出artifact 虽然有模版，但是需要在dag 所有的子节点都运行完成后才能解析。
 
