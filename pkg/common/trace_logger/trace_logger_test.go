@@ -160,7 +160,6 @@ func TestTraceLogger(t *testing.T) {
 		logger.commit("key1")
 	*/
 
-	return
 }
 
 func initTraceLogger() error {
@@ -198,13 +197,5 @@ func testFunc1(t *testing.T, key string) error {
 		return ok
 	})
 
-	return nil
-}
-
-func testFunc2(key string) error {
-	tmpKey := uuid.GenerateIDWithLength("tmp", 4)
-	Key(tmpKey).Infof("tmp test1")
-	Key(tmpKey).Errorf("tmp test2")
-	Key(tmpKey).Errorf("tmp test3")
 	return nil
 }

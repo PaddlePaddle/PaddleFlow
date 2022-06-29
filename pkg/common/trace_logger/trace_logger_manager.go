@@ -85,7 +85,7 @@ func (t traceLog) String() string {
 func (t Trace) String() string {
 	lines := make([]string, len(t.Logs))
 	for i, traceLog := range t.Logs {
-		lines[i] = fmt.Sprintf("%s", traceLog)
+		lines[i] = traceLog.String()
 	}
 	return strings.Join(lines, "\n")
 }
@@ -572,7 +572,6 @@ func (d *DefaultTraceLoggerManager) DeleteUnusedCache(timeout time.Duration, met
 	err := d.sync()
 	if err != nil {
 		logrus.Warnf("sync failed: %v", err)
-		err = nil
 	}
 
 	d.deleteTraceFromCacheBefore(timeout, method)
