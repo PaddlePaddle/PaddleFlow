@@ -437,6 +437,7 @@ func getSourceAndYaml(wfs schema.WorkflowSource) (string, string, error) {
 
 func runYamlAndReqToWfs(runYaml string, req interface{}) (schema.WorkflowSource, error) {
 	// parse yaml -> WorkflowSource
+	logger.Logger().Infof("debug: run yaml is :\n %s", runYaml)
 	wfs, err := schema.GetWorkflowSource([]byte(runYaml))
 	if err != nil {
 		logger.Logger().Errorf("get WorkflowSource by yaml failed. yaml: %s \n, err:%v", runYaml, err)

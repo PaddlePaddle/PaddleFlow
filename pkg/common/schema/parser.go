@@ -140,7 +140,10 @@ func (p *Parser) ParseWorkflowSource(bodyMap map[string]interface{}, wfs *Workfl
 func (p *Parser) ParseComponents(entryPoints map[string]interface{}) (map[string]Component, error) {
 	components := map[string]Component{}
 	for name, component := range entryPoints {
-		compMap := component.(map[string]interface{})
+		compMap, ok := component.(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("component should be map type")
+		}
 		if p.IsDag(compMap) {
 			dagComp := WorkflowSourceDag{}
 			if err := p.ParseDag(compMap, &dagComp); err != nil {
