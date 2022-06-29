@@ -229,8 +229,6 @@ func UpdateRuntimeJobByWfEvent(id string, event interface{}) (int64, bool) {
 	stepName := runtimeJob.StepName
 	pk := runtimeJob.PK
 
-	logging.Infof("debug: job to save in db is: %v", runtimeJob)
-	logging.Infof("debug: job with PK %d", pk)
 	runJob := models.ParseRunJob(runtimeJob)
 	runJob.Encode()
 	if pk <= 0 {
@@ -254,7 +252,6 @@ func UpdateRuntimeJobByWfEvent(id string, event interface{}) (int64, bool) {
 	if err := updateRunCache(logging, runtimeJob, runID); err != nil {
 		return 0, false
 	}
-	logging.Infof("debug: job's PK returning is : %v", pk)
 	return pk, true
 }
 

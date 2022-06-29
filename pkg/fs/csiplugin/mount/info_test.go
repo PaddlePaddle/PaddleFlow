@@ -3,7 +3,6 @@ package mount
 import (
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"testing"
 	"time"
 
@@ -40,9 +39,7 @@ func TestKubeRuntimePVAndPVC(t *testing.T) {
 	assert.Nil(t, err)
 	fsStr, err := json.Marshal(fs)
 	assert.Nil(t, err)
-	fmt.Printf("\nfsStr: %s\n", fsStr)
 	fsBase64 := base64.StdEncoding.EncodeToString(fsStr)
-	fmt.Printf("\nfsBase64: %s\n", fsBase64)
 
 	fsCache := model.FSCacheConfig{
 		FsID:       fs.ID,
@@ -56,16 +53,25 @@ func TestKubeRuntimePVAndPVC(t *testing.T) {
 	assert.Nil(t, err)
 	fsCacheStr, err := json.Marshal(fsCache)
 	assert.Nil(t, err)
-	fmt.Printf("\nfsCacheStr: %s\n", fsCacheStr)
 	fsCacheBase64 := base64.StdEncoding.EncodeToString(fsCacheStr)
-	fmt.Printf("\nfsCacheBase64: %s\n", fsCacheBase64)
 
 	mountInfo, err := ProcessMountInfo(fs.ID, "server", fsBase64, fsCacheBase64, false)
+	assert.Equal(t, fsBase64, mountInfo.FsBase64Str)
+	assert.Equal(t, fsCache.CacheDir, mountInfo.FsCacheConfig.CacheDir)
+	assert.Equal(t, fsCache.FsID, mountInfo.FsCacheConfig.FsID)
+	assert.Equal(t, fsCache.MetaDriver, mountInfo.FsCacheConfig.MetaDriver)
+	assert.Equal(t, fsCache.BlockSize, mountInfo.FsCacheConfig.BlockSize)
+
+	// no cache config
+	fsCache = model.FSCacheConfig{}
+	fsCacheStr, err = json.Marshal(fsCache)
 	assert.Nil(t, err)
-	assert.Equal(t, mountInfo.FsBase64Str, fsBase64)
-	assert.Equal(t, mountInfo.FsCacheConfig.CacheDir, fsCache.CacheDir)
-	assert.Equal(t, mountInfo.FsCacheConfig.FsID, fsCache.FsID)
-	assert.Equal(t, mountInfo.FsCacheConfig.MetaDriver, fsCache.MetaDriver)
-	assert.Equal(t, mountInfo.FsCacheConfig.BlockSize, fsCache.BlockSize)
-	fmt.Printf("\nmountInfo: %+v\n", mountInfo)
+	fsCacheBase64 = base64.StdEncoding.EncodeToString(fsCacheStr)
+	mountInfo, err = ProcessMountInfo(fs.ID, "server", fsBase64, fsCacheBase64, false)
+	assert.Nil(t, err)
+	assert.Equal(t, "", mountInfo.FsCacheConfig.CacheDir)
+	assert.Equal(t, "", mountInfo.FsCacheConfig.FsID)
+	assert.Equal(t, "default", mountInfo.FsCacheConfig.MetaDriver)
+	assert.Equal(t, 0, mountInfo.FsCacheConfig.BlockSize)
+	assert.Equal(t, false, mountInfo.FsCacheConfig.Debug)
 }
