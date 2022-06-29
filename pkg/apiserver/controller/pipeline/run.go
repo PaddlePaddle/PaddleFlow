@@ -588,6 +588,7 @@ func ValidateAndStartRun(run models.Run, req interface{}) (CreateRunResponse, er
 		logger.Logger().Errorf("encode run failed. error:%s", err.Error())
 		return CreateRunResponse{}, err
 	}
+
 	// validate workflow in func NewWorkflow
 	if _, err := newWorkflowByRun(run); err != nil {
 		logger.Logger().Errorf("validateAndInitWorkflow. err:%v", err)
