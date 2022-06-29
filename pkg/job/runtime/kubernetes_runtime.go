@@ -20,11 +20,13 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/jinzhu/copier"
 	log "github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 	apiv1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -612,26 +614,26 @@ func buildPV(pv *apiv1.PersistentVolume, fsID string) error {
 	if err != nil {
 		retErr := fmt.Errorf("create PV get fs[%s] err: %v", fsID, err)
 		log.Errorf(retErr.Error())
-		return err
+		return retErr
 	}
 	fsStr, err := json.Marshal(fs)
 	if err != nil {
 		retErr := fmt.Errorf("create PV json.marshal fs[%s] err: %v", fsID, err)
 		log.Errorf(retErr.Error())
-		return err
+		return retErr
 	}
 	// fs_cache_config
 	fsCacheConfig, err := storage.Filesystem.GetFSCacheConfig(fsID)
-	if err != nil {
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		retErr := fmt.Errorf("create PV get fsCacheConfig[%s] err: %v", fsID, err)
 		log.Errorf(retErr.Error())
-		return err
+		return retErr
 	}
 	fsCacheConfigStr, err := json.Marshal(fsCacheConfig)
 	if err != nil {
 		retErr := fmt.Errorf("create PV json.marshal fsCacheConfig[%s] err: %v", fsID, err)
 		log.Errorf(retErr.Error())
-		return err
+		return retErr
 	}
 
 	// set VolumeAttributes
@@ -688,7 +690,7 @@ func (kr *KubeRuntime) getPersistentVolume(name string, getOptions metav1.GetOpt
 }
 
 func (kr *KubeRuntime) createPersistentVolumeClaim(namespace string, pvc *apiv1.PersistentVolumeClaim) (*apiv1.
-PersistentVolumeClaim, error) {
+	PersistentVolumeClaim, error) {
 	return kr.clientset.CoreV1().PersistentVolumeClaims(namespace).Create(context.TODO(), pvc, metav1.CreateOptions{})
 }
 
@@ -698,7 +700,7 @@ func (kr *KubeRuntime) DeletePersistentVolumeClaim(namespace string, name string
 }
 
 func (kr *KubeRuntime) getPersistentVolumeClaim(namespace, name string, getOptions metav1.GetOptions) (*apiv1.
-PersistentVolumeClaim, error) {
+	PersistentVolumeClaim, error) {
 	return kr.clientset.CoreV1().PersistentVolumeClaims(namespace).Get(context.TODO(), name, getOptions)
 }
 

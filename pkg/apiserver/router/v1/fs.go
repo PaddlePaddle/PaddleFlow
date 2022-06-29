@@ -176,12 +176,6 @@ func validateCreateFileSystem(ctx *logger.RequestContext, req *api.CreateFileSys
 		return err
 	}
 
-	err = checkFsDir(fileSystemType, req.Url, req.Properties)
-	if err != nil {
-		ctx.Logging().Errorf("check fs dir err[%v] with url[%s]", err, req.Url)
-		ctx.ErrorCode = common.InvalidFileSystemURL
-		return err
-	}
 	if fileSystemType == common.Mock {
 		return nil
 	}
@@ -552,18 +546,4 @@ func getRealUserName(ctx *logger.RequestContext,
 		return username
 	}
 	return ctx.UserName
-}
-
-func getFsIDAndCheckPermission(ctx *logger.RequestContext,
-	username, fsName string) (string, error) {
-	// check permission
-	var fsID string
-	// concatenate fsID
-	if common.IsRootUser(ctx.UserName) && username != "" {
-		// root user can select fs under other users
-		fsID = common.ID(username, fsName)
-	} else {
-		fsID = common.ID(ctx.UserName, fsName)
-	}
-	return fsID, nil
 }
