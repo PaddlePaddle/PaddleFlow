@@ -275,35 +275,36 @@ func CreateDistributedJob(ctx *logger.RequestContext, request *CreateDisJobReque
 		return nil, err
 	}
 	// set roles for members
-
-	jobMode, err := validateJobMode(ctx, request)
-	if err != nil || jobMode == "" {
-		log.Errorf("create members failed, err=%v", err)
-		return nil, err
-	}
-	switch jobMode {
-	case schema.EnvJobModeCollective:
-		// validate replicas
-		if request.Members[0].Replicas < 2 {
-			ctx.ErrorCode = common.JobInvalidField
-			ctx.Logging().Errorln("replicas must be greater than 1")
-			return nil, fmt.Errorf("replicas must be greater than 1")
-		}
-		conf.SetEnv(schema.EnvJobMode, schema.EnvJobModeCollective)
-		if jobInfo.Members, err = newCollectiveMembers(request); err != nil {
-			log.Errorf("create job with collective members failed, err=%v", err)
+	if len(request.ExtensionTemplate) == 0 {
+		jobMode, err := validateJobMode(ctx, request)
+		if err != nil || jobMode == "" {
+			log.Errorf("create members failed, err=%v", err)
 			return nil, err
 		}
-	case schema.EnvJobModePS:
-		conf.SetEnv(schema.EnvJobMode, schema.EnvJobModePS)
-		if jobInfo.Members, err = newPSMembers(request); err != nil {
-			ctx.ErrorCode = common.JobInvalidField
-			log.Errorf("create job with ps members failed, err=%v", err)
-			return nil, err
+		switch jobMode {
+		case schema.EnvJobModeCollective:
+			// validate replicas
+			if request.Members[0].Replicas < 2 {
+				ctx.ErrorCode = common.JobInvalidField
+				ctx.Logging().Errorln("replicas must be greater than 1")
+				return nil, fmt.Errorf("replicas must be greater than 1")
+			}
+			conf.SetEnv(schema.EnvJobMode, schema.EnvJobModeCollective)
+			if jobInfo.Members, err = newCollectiveMembers(request); err != nil {
+				log.Errorf("create job with collective members failed, err=%v", err)
+				return nil, err
+			}
+		case schema.EnvJobModePS:
+			conf.SetEnv(schema.EnvJobMode, schema.EnvJobModePS)
+			if jobInfo.Members, err = newPSMembers(request); err != nil {
+				ctx.ErrorCode = common.JobInvalidField
+				log.Errorf("create job with ps members failed, err=%v", err)
+				return nil, err
+			}
+		default:
+			log.Errorf("invalid members number, cannot recognize job mode %s", jobMode)
+			return nil, fmt.Errorf("invalid job mode %s", jobMode)
 		}
-	default:
-		log.Errorf("invalid members number, cannot recognize job mode %s", jobMode)
-		return nil, fmt.Errorf("invalid job mode %s", jobMode)
 	}
 
 	jobInfo.Config = &conf
