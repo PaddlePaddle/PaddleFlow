@@ -460,7 +460,7 @@ func (d *DefaultTraceLoggerManager) LoadAll(path string, prefixes ...string) (er
 		}
 
 		// read in order
-		size := len(fileInfos)
+		size := 0
 
 		// sort in descending order
 		sort.Slice(fileInfos, func(i, j int) bool {

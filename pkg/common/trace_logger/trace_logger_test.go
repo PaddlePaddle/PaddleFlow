@@ -128,7 +128,7 @@ func TestTraceLogger(t *testing.T) {
 
 	// load from disk
 	t.Logf("load all")
-	err = manager.LoadAll("./")
+	err = manager.LoadAll("./", "trace_log")
 	if err != nil {
 		t.Error(err)
 		return
@@ -144,21 +144,6 @@ func TestTraceLogger(t *testing.T) {
 	})
 
 	t.Logf("key3 %s: %s\n", key3, trace)
-
-	/*
-		logger.key("key1").logf("test1")
-
-		logger.update("key1", "key2")
-
-
-		logger.key("key1").logf("test1")
-		logger.logf("key1", "test1")
-
-		logger.key("key2").logf("test1")
-		logger.key("key2").logf("test1")
-		logger.key("key2").logf("test1")
-		logger.commit("key1")
-	*/
 
 }
 
