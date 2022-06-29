@@ -424,61 +424,6 @@ func processRunJsonComponents(components map[string]schema.Component, request *C
 	return nil
 }
 
-// Used for API CreateRunJson, validates step by request and run params like cache, dockerEnv, env, and returns steps.
-func parseRunSteps(steps map[string]*RunStep, request *CreateRunByJsonRequest) map[string]*schema.WorkflowSourceStep {
-	workFlowSourceSteps := make(map[string]*schema.WorkflowSourceStep)
-	for pointName, step := range steps {
-		if step.Env == nil {
-			step.Env = make(map[string]string)
-		}
-		step.Env[schema.EnvJobType] = step.JobType
-		step.Env[schema.EnvJobQueueName] = step.Queue
-		step.Env[schema.EnvJobFlavour] = step.Flavour
-
-		// 对于每一个全局环境变量，检查节点是否有设置对应环境变量，如果没有则使用全局的
-		for globalKey, globalValue := range request.Env {
-			value, ok := step.Env[globalKey]
-			if !ok || value == "" {
-				step.Env[globalKey] = globalValue
-			}
-		}
-		// DockerEnv字段替换检查
-		if step.DockerEnv == "" {
-			step.DockerEnv = request.DockerEnv
-		}
-
-		artifacts := parseArtifacts(step.Artifacts)
-
-		workFlowSourceStep := schema.WorkflowSourceStep{
-			Command:    step.Command,
-			Deps:       step.Deps,
-			Env:        step.Env,
-			Artifacts:  artifacts,
-			Cache:      step.Cache,
-			DockerEnv:  step.DockerEnv,
-			Parameters: step.Parameters,
-		}
-		workFlowSourceSteps[pointName] = &workFlowSourceStep
-	}
-	return workFlowSourceSteps
-}
-
-// transform artifacts in Json to common artifacts used in wfs
-func parseArtifacts(atf ArtifactsJson) schema.Artifacts {
-	outputAritfacts := map[string]string{}
-	outputList := []string{}
-	for _, outputName := range atf.Output {
-		outputAritfacts[outputName] = ""
-		outputList = append(outputList, outputName)
-	}
-	res := schema.Artifacts{
-		Input:      atf.Input,
-		Output:     outputAritfacts,
-		OutputList: outputList,
-	}
-	return res
-}
-
 func getSourceAndYaml(wfs schema.WorkflowSource) (string, string, error) {
 	yamlByte, err := yaml.Marshal(wfs)
 	if err != nil {
@@ -492,6 +437,7 @@ func getSourceAndYaml(wfs schema.WorkflowSource) (string, string, error) {
 
 func runYamlAndReqToWfs(runYaml string, req interface{}) (schema.WorkflowSource, error) {
 	// parse yaml -> WorkflowSource
+	logger.Logger().Infof("debug: run yaml is :\n %s", runYaml)
 	wfs, err := schema.GetWorkflowSource([]byte(runYaml))
 	if err != nil {
 		logger.Logger().Errorf("get WorkflowSource by yaml failed. yaml: %s \n, err:%v", runYaml, err)
@@ -643,6 +589,7 @@ func ValidateAndStartRun(run models.Run, req interface{}) (CreateRunResponse, er
 		logger.Logger().Errorf("encode run failed. error:%s", err.Error())
 		return CreateRunResponse{}, err
 	}
+
 	// validate workflow in func NewWorkflow
 	if _, err := newWorkflowByRun(run); err != nil {
 		logger.Logger().Errorf("validateAndInitWorkflow. err:%v", err)

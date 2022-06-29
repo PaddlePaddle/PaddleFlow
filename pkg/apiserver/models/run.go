@@ -204,7 +204,11 @@ func (r *Run) initRuntime(jobs []RunJob, dags []RunDag) error {
 		if parentID == "" {
 			runtimeView[compName] = append(runtimeView[compName], comp)
 		} else {
-			dagMap[parentID].EntryPoints[compName] = append(dagMap[parentID].EntryPoints[compName], comp)
+			dag, ok := dagMap[parentID]
+			if !ok {
+				return fmt.Errorf("dag with parentDagID [%s] is not exist", parentID)
+			}
+			dag.EntryPoints[compName] = append(dag.EntryPoints[compName], comp)
 		}
 	}
 
