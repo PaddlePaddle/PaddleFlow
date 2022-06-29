@@ -16,7 +16,11 @@ limitations under the License.
 
 package schema
 
-import "path"
+import (
+	"path"
+
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csiconfig"
+)
 
 const (
 	FSIDFormat      = "$(pfs.fs.id)"
@@ -44,7 +48,7 @@ func IsValidFsMetaDriver(metaDriver string) bool {
 }
 
 func DefaultCacheDir(fsID string) string {
-	return path.Join(HostMntDir, fsID)
+	return path.Join(csiconfig.HostMntDir, fsID)
 }
 
 func GetBindSource(fsID string) string {
