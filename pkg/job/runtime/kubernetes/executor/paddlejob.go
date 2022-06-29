@@ -40,7 +40,7 @@ func (pj *PaddleJob) validateJob() error {
 	if err := pj.KubeJob.validateJob(); err != nil {
 		return err
 	}
-	if len(pj.JobMode) == 0 {
+	if len(pj.JobMode) == 0 && !pj.IsCustomYaml {
 		// patch default value
 		pj.JobMode = schema.EnvJobModeCollective
 	}
@@ -49,13 +49,17 @@ func (pj *PaddleJob) validateJob() error {
 }
 
 func (pj *PaddleJob) CreateJob() (string, error) {
-	if err := pj.validateJob(); err != nil {
-		log.Errorf("validate %s job failed, err %v", pj.JobType, err)
-		return "", err
-	}
 	pdj := &paddlev1.PaddleJob{}
 	if err := pj.createJobFromYaml(pdj); err != nil {
-		log.Errorf("create job failed, err %v", err)
+		log.Errorf("create job[%s] failed, err %v", pj.ID, err)
+		return "", err
+	}
+	if err := pj.validateJob(); err != nil {
+		log.Errorf("validate [%s]type job[%s] failed, err %v", pj.JobType, pj.ID, err)
+		return "", err
+	}
+	if err := pj.validateJob(); err != nil {
+		log.Errorf("validate %s job failed, err %v", pj.JobType, err)
 		return "", err
 	}
 
@@ -108,6 +112,11 @@ func (pj *PaddleJob) patchPaddleJobSpec(pdjSpec *paddlev1.PaddleJobSpec) error {
 	// way of communicate between pods, choose one in Service/PodIP
 	if len(pdjSpec.Intranet) == 0 {
 		pdjSpec.Intranet = paddlev1.PodIP
+	}
+
+	if pj.IsCustomYaml {
+		log.Infof("%s job %s/%s using custom yaml, pass the patch from tasks", pj.JobType, pj.Namespace, pj.Name)
+		return nil
 	}
 
 	var err error
