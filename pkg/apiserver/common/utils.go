@@ -62,7 +62,7 @@ const (
 	HDFSSplit          = 3
 	S3Split            = 3
 	S3EndpointSplit    = 2
-	S3SplitLen         = 4
+	S3SplitLen         = 3
 	LocalSplit         = 2
 	CFSSplit           = 3
 	ServerAddressSplit = 2
