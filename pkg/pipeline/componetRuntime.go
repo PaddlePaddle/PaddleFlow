@@ -176,9 +176,10 @@ type baseComponentRuntime struct {
 func NewBaseComponentRuntime(fullname string, component schema.Component, seq int, ctx context.Context, failureOpitonsCtx context.Context,
 	eventChannel chan<- WorkflowEvent, config *runConfig, parentDagID string) *baseComponentRuntime {
 
+	// TODO: name 和 compoentFullName 保留一个就好
 	cr := &baseComponentRuntime{
 		name:                 fmt.Sprintf("%s-%d", fullname, seq),
-		componentFullName:    fullname,
+		componentFullName:    fmt.Sprintf("%s-%d", fullname, seq),
 		component:            component,
 		seq:                  seq,
 		ctx:                  ctx,
@@ -309,6 +310,9 @@ func (crt *baseComponentRuntime) setSysParams() error {
 
 	crt.innerSolver.setSysParams(crt.sysParams)
 
+	crt.logger.Debugf("the sysParams for component[%s] is %v",
+		crt.name, crt.sysParams)
+
 	return nil
 }
 
@@ -317,6 +321,9 @@ func (crt *baseComponentRuntime) CalculateCondition() (bool, error) {
 	if crt.GetCondition() == "" {
 		return false, nil
 	}
+
+	crt.logger.Debugf("before to calculate the condition of component[%s] : %s",
+		crt.name, crt.GetCondition())
 
 	cc := NewConditionCalculator(crt.component.GetCondition())
 	return cc.calculate()
@@ -327,8 +334,6 @@ func (crt *baseComponentRuntime) syncToApiServerAndParent(wv WfEventValue, view 
 		common.WfEventKeyRunID:  crt.runID,
 		common.WfEventKeyStatus: crt.status,
 	}
-
-	fmt.Println("before callback", crt.name, crt.pk)
 
 	jobView, ok := view.(*schema.JobView)
 	if ok {
@@ -342,8 +347,6 @@ func (crt *baseComponentRuntime) syncToApiServerAndParent(wv WfEventValue, view 
 
 	crt.callback(event)
 
-	fmt.Println("after callback", crt.name, crt.pk)
-
 	// 将事件冒泡给父节点
 	// 这里使用协程
 	go func() {
@@ -352,25 +355,10 @@ func (crt *baseComponentRuntime) syncToApiServerAndParent(wv WfEventValue, view 
 }
 
 func (crt *baseComponentRuntime) callback(event *WorkflowEvent) {
-	// ++++++++++++++ debug
-	view := event.Extra[common.WfEventKeyView].(schema.ComponentView)
-	var pk int64
-	jobView, ok := view.(*schema.JobView)
-	if ok {
-		pk = jobView.PK
-	} else {
-		pk = view.(*schema.DagView).PK
-	}
-
-	crt.logger.Infof("+++++++++ callback for component[%s] with pk[%d]", crt.getName(), pk)
-	// ++++++++++++++ debug
-
 	for i := 0; i < 3; i++ {
 		crt.logger.Infof("callback event [%v]", *event)
 		if pk, success := crt.callbacks.UpdateRuntimeCb(crt.runID, event); success {
-			crt.logger.Infof("++++++++ pk return by callback for component[%s]: %d", crt.componentFullName, pk)
 			crt.pk = pk
-			crt.logger.Infof("++++++++ pk return by callback for component[%s]: %d,  %d", crt.componentFullName, pk, crt.pk)
 			break
 		}
 	}

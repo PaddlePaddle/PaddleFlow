@@ -211,6 +211,8 @@ func (srt *StepRuntime) needRestart(view *schema.JobView) (bool, error) {
 		return false, err
 	}
 
+	srt.pk = view.PK
+
 	if view.Status == StatusRuntimeSucceeded || view.Status == StatusRuntimeSkipped {
 		// 此处不直接调用的原因是此时不需要降低 workflowruntime 的并发数
 		srt.baseComponentRuntime.updateStatus(StatusRuntimeSucceeded)
@@ -735,13 +737,10 @@ func (srt *StepRuntime) processEventFromJob(event WorkflowEvent) {
 				srt.logOutputArtifact()
 			}
 		}
-		srt.updateStatus(extra["status"].(RuntimeStatus))
 
-		fmt.Println("before callback", srt.name, srt.pk, srt.baseComponentRuntime.pk)
+		srt.updateStatus(extra["status"].(RuntimeStatus))
 		view := srt.newJobView(event.Message)
 		srt.syncToApiServerAndParent(WfEventJobUpdate, &view, event.Message)
-		fmt.Println("after callback", srt.name, srt.pk, srt.baseComponentRuntime.pk)
-
 	}
 }
 
@@ -774,8 +773,6 @@ func (srt *StepRuntime) newJobView(msg string) schema.JobView {
 		PK:          srt.pk,
 		Seq:         srt.seq,
 	}
-
-	srt.logger.Infof("+++++++++ create jobView for component[%s] with pk[%d], %d", srt.getName(), srt.pk, srt.baseComponentRuntime.pk)
 
 	return view
 }

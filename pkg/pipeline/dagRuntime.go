@@ -294,14 +294,12 @@ func (drt *DagRuntime) scheduleSubComponent(mustSchedule bool) {
 	// 1、获取可以进行调度的节点
 	readyComponent := drt.getReadyComponent()
 
-	// 如果 mustSchedule 为True, 说明此时必须要调度某些子节点运行，否则便是有bug
+	// 如果 mustSchedule 为True, 说明此时必须要调度某些子节点运行，否则便是有bug， 此时，直接终止本次运行
 	if len(readyComponent) == 0 && mustSchedule {
 		err := fmt.Errorf("cannot find any ready subComponent for Component[%s] while mustSchedule is True", drt.componentFullName)
 		drt.logger.Errorln(err.Error())
 
-		drt.updateStatus(StatusRuntimeFailed)
-		dagView := drt.newView(err.Error())
-		drt.syncToApiServerAndParent(WfEventDagUpdate, &dagView, err.Error())
+		drt.ctx.Done()
 		return
 	}
 
@@ -365,6 +363,7 @@ func (drt *DagRuntime) Listen() {
 // TODO
 func (drt *DagRuntime) Restart(dagView *schema.DagView) {
 	drt.logger.Infof("restart dag[%s]", drt.name)
+
 	need, err := drt.needRestart(dagView)
 	if err != nil {
 		msg := fmt.Sprintf("cannot decide to whether to restart step[%s]: %s", drt.name, err.Error())
@@ -427,6 +426,8 @@ func (drt *DagRuntime) needRestart(dagView *schema.DagView) (bool, error) {
 			"maybe multi gorutine process this dag", drt.name, drt.status)
 		return false, err
 	}
+
+	drt.pk = dagView.PK
 
 	if dagView.Status == StatusRuntimeSucceeded || dagView.Status == StatusRuntimeSkipped {
 		return false, nil
@@ -1016,9 +1017,9 @@ func (drt *DagRuntime) newView(msg string) schema.DagView {
 
 	var name string
 	if drt.seq == 0 {
-		name = fmt.Sprintf("%s-%s", drt.runID, drt.getComponent().GetName())
+		name = fmt.Sprintf("dag-%s-%s", drt.runID, drt.getComponent().GetName())
 	} else {
-		name = fmt.Sprintf("%s-%s-%d", drt.runID, drt.getComponent().GetName(), drt.seq)
+		name = fmt.Sprintf("dag-%s-%s-%d", drt.runID, drt.getComponent().GetName(), drt.seq)
 	}
 
 	// DAGID 在写库时生成，因此，此处并不会传递该参数, EntryPoints 在运行子节点时会同步至数据库，因此此处不包含这两个字段
