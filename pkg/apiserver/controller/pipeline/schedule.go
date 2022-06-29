@@ -24,7 +24,9 @@ import (
 	cron "github.com/robfig/cron/v3"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/fs"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
@@ -50,21 +52,22 @@ type CreateScheduleResponse struct {
 }
 
 type ScheduleBrief struct {
-	ID          string                 `json:"scheduleID"`
-	Name        string                 `json:"name"`
-	Desc        string                 `json:"desc"`
-	PipelineID  string                 `json:"pipelineID"`
-	UserName    string                 `json:"username"`
-	FsConfig    models.FsConfig        `json:"fsConfig"`
-	Crontab     string                 `json:"crontab"`
-	Options     models.ScheduleOptions `json:"options"`
-	StartTime   string                 `json:"startTime"`
-	EndTime     string                 `json:"endTime"`
-	CreateTime  string                 `json:"createTime"`
-	UpdateTime  string                 `json:"updateTime"`
-	NextRunTime string                 `json:"nextRunTime"`
-	Message     string                 `json:"scheduleMsg"`
-	Status      string                 `json:"status"`
+	ID               string                 `json:"scheduleID"`
+	Name             string                 `json:"name"`
+	Desc             string                 `json:"desc"`
+	PipelineID       string                 `json:"pipelineID"`
+	PipelineDetailID string                 `json:"pipelineDetailID"`
+	UserName         string                 `json:"username"`
+	FsConfig         models.FsConfig        `json:"fsConfig"`
+	Crontab          string                 `json:"crontab"`
+	Options          models.ScheduleOptions `json:"options"`
+	StartTime        string                 `json:"startTime"`
+	EndTime          string                 `json:"endTime"`
+	CreateTime       string                 `json:"createTime"`
+	UpdateTime       string                 `json:"updateTime"`
+	NextRunTime      string                 `json:"nextRunTime"`
+	Message          string                 `json:"scheduleMsg"`
+	Status           string                 `json:"status"`
 }
 
 type ListScheduleResponse struct {
@@ -82,6 +85,7 @@ func (b *ScheduleBrief) updateFromScheduleModel(schedule models.Schedule) (err e
 	b.Name = schedule.Name
 	b.Desc = schedule.Desc
 	b.PipelineID = schedule.PipelineID
+	b.PipelineDetailID = schedule.PipelineDetailID
 	b.UserName = schedule.UserName
 	b.Crontab = schedule.Crontab
 	b.CreateTime = schedule.CreatedAt.Format("2006-01-02 15:04:05")
@@ -123,7 +127,7 @@ func validateScheduleTime(startTime, endTime string, currentTime time.Time) (sta
 		startAt.Valid = true
 		startAt.Time, err = time.ParseInLocation("2006-01-02 15:04:05", startTime, time.Local)
 		if err != nil {
-			errMsg := fmt.Sprintf("starttime[%s] format not correct, should be YYYY-MM-DD hh-mm-ss", startTime)
+			errMsg := fmt.Sprintf("starttime[%s] format not correct, should be YYYY-MM-DD hh:mm:ss", startTime)
 			return startAt, endAt, fmt.Errorf(errMsg)
 		}
 
@@ -140,7 +144,7 @@ func validateScheduleTime(startTime, endTime string, currentTime time.Time) (sta
 		endAt.Valid = true
 		endAt.Time, err = time.ParseInLocation("2006-01-02 15:04:05", endTime, time.Local)
 		if err != nil {
-			errMsg := fmt.Sprintf("endtime[%s] format not correct, should be YYYY-MM-DD hh-mm-ss", endTime)
+			errMsg := fmt.Sprintf("endtime[%s] format not correct, should be YYYY-MM-DD hh:mm:ss", endTime)
 			return startAt, endAt, fmt.Errorf(errMsg)
 		}
 
@@ -158,6 +162,28 @@ func validateScheduleTime(startTime, endTime string, currentTime time.Time) (sta
 	return startAt, endAt, nil
 }
 
+func CheckFsAndGetID(userName, fsUserName, fsName string) (fsID string, err error) {
+	if fsUserName != "" {
+		fsID = common.ID(fsUserName, fsName)
+	} else {
+		fsID = common.ID(userName, fsName)
+	}
+
+	fsService := fs.GetFileSystemService()
+	hasPermission, err := fsService.HasFsPermission(userName, fsID)
+	if err != nil {
+		err := fmt.Errorf("check permission of user[%s] fsID[%s] failed, err: %v", userName, fsID, err)
+		return fsID, err
+	}
+
+	if !hasPermission {
+		err := fmt.Errorf("user[%s] has no permission to fsName[%s] with fsUser[%s]", userName, fsName, fsUserName)
+		return fsID, err
+	}
+
+	return fsID, nil
+}
+
 func CreateSchedule(ctx *logger.RequestContext, request *CreateScheduleRequest) (CreateScheduleResponse, error) {
 	// check schedule name pattern
 	if !schema.CheckReg(request.Name, common.RegPatternScheduleName) {
@@ -167,8 +193,22 @@ func CreateSchedule(ctx *logger.RequestContext, request *CreateScheduleRequest) 
 		return CreateScheduleResponse{}, err
 	}
 
-	// 生成FsConfig对象
-	// todo:增加判断fs是否存在
+	// 校验desc长度
+	if len(request.Desc) > util.MaxDescLength {
+		ctx.ErrorCode = common.InvalidArguments
+		errMsg := fmt.Sprintf("desc too long, should be less than %d", util.MaxDescLength)
+		ctx.Logging().Errorf(errMsg)
+		return CreateScheduleResponse{}, fmt.Errorf(errMsg)
+	}
+
+	// 校验Fs参数，并生成FsConfig对象
+	_, err := CheckFsAndGetID(ctx.UserName, request.UserName, request.FsName)
+	if err != nil {
+		ctx.ErrorCode = common.InvalidArguments
+		ctx.Logging().Errorf(err.Error())
+		return CreateScheduleResponse{}, err
+	}
+
 	fsConfig := models.FsConfig{FsName: request.FsName, UserName: request.UserName}
 	StrFsConfig, err := fsConfig.Encode(ctx.Logging())
 	if err != nil {
@@ -285,7 +325,7 @@ func SendSingnal(opType, scheduleID string) error {
 	return nil
 }
 
-func ListSchedule(ctx *logger.RequestContext, pipelineID, marker string, maxKeys int, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter []string) (ListScheduleResponse, error) {
+func ListSchedule(ctx *logger.RequestContext, marker string, maxKeys int, pplFilter, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter []string) (ListScheduleResponse, error) {
 	ctx.Logging().Debugf("begin list schedule.")
 	var pk int64
 	var err error
@@ -312,7 +352,7 @@ func ListSchedule(ctx *logger.RequestContext, pipelineID, marker string, maxKeys
 	}
 
 	// model list
-	scheduleList, err := models.ListSchedule(ctx.Logging(), pipelineID, pk, maxKeys, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
+	scheduleList, err := models.ListSchedule(ctx.Logging(), pk, maxKeys, pplFilter, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
 	if err != nil {
 		ctx.Logging().Errorf("models list schedule failed. err:[%s]", err.Error())
 		ctx.ErrorCode = common.InternalError
@@ -324,7 +364,7 @@ func ListSchedule(ctx *logger.RequestContext, pipelineID, marker string, maxKeys
 	listScheduleResponse.IsTruncated = false
 	if len(scheduleList) > 0 {
 		schedule := scheduleList[len(scheduleList)-1]
-		isLastPk, err := models.IsLastSchedulePk(ctx.Logging(), schedule.Pk, pipelineID, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
+		isLastPk, err := models.IsLastSchedulePk(ctx.Logging(), schedule.Pk, pplFilter, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
 		if err != nil {
 			ctx.ErrorCode = common.InternalError
 			errMsg := fmt.Sprintf("get last schedule Pk failed. err:[%s]", err.Error())
@@ -443,6 +483,7 @@ func StopSchedule(ctx *logger.RequestContext, scheduleID string) error {
 	return nil
 }
 
+// todo: 支持 StopRun
 func DeleteSchedule(ctx *logger.RequestContext, scheduleID string) error {
 	ctx.Logging().Debugf("begin delete schedule: %s", scheduleID)
 	// check schedule exist && user access right

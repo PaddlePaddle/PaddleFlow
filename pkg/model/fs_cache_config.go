@@ -38,9 +38,11 @@ type FSCacheConfig struct {
 	NodeTaintTolerationMap  map[string]interface{} `json:"nodeTaintToleration" gorm:"-"`
 	ExtraConfigJson         string                 `json:"-"                   gorm:"column:extra_config;type:text;default:'{}'"`
 	ExtraConfigMap          map[string]string      `json:"extraConfig"         gorm:"-"`
-	CreatedAt               time.Time              `json:"createTime"`
-	UpdatedAt               time.Time              `json:"updateTime,omitempty"`
-	DeletedAt               gorm.DeletedAt         `json:"deleteTime,omitempty"`
+	CreateTime              string                 `json:"createTime"           gorm:"-"`
+	UpdateTime              string                 `json:"updateTime,omitempty" gorm:"-"`
+	CreatedAt               time.Time              `json:"-"`
+	UpdatedAt               time.Time              `json:"-"`
+	DeletedAt               gorm.DeletedAt         `json:"-"`
 }
 
 func (s *FSCacheConfig) TableName() string {
@@ -69,7 +71,8 @@ func (s *FSCacheConfig) AfterFind(*gorm.DB) error {
 			return err
 		}
 	}
-
+	s.CreateTime = s.CreatedAt.Format(TimeFormat)
+	s.UpdateTime = s.UpdatedAt.Format(TimeFormat)
 	return nil
 }
 
