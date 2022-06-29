@@ -547,17 +547,3 @@ func getRealUserName(ctx *logger.RequestContext,
 	}
 	return ctx.UserName
 }
-
-func getFsIDAndCheckPermission(ctx *logger.RequestContext,
-	username, fsName string) (string, error) {
-	// check permission
-	var fsID string
-	// concatenate fsID
-	if common.IsRootUser(ctx.UserName) && username != "" {
-		// root user can select fs under other users
-		fsID = common.ID(username, fsName)
-	} else {
-		fsID = common.ID(ctx.UserName, fsName)
-	}
-	return fsID, nil
-}
