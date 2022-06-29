@@ -153,7 +153,7 @@ func (pr *PFSRouter) updateFSCacheConfig(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	// validate request
-	if err := validateCacheConfigUpdate(&ctx, &req, prev); err != nil {
+	if err := validateCacheConfigUpdate(&ctx, req, prev); err != nil {
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
@@ -166,7 +166,7 @@ func (pr *PFSRouter) updateFSCacheConfig(w http.ResponseWriter, r *http.Request)
 	common.RenderStatus(w, http.StatusOK)
 }
 
-func validateCacheConfigUpdate(ctx *logger.RequestContext, req *api.UpdateFileSystemCacheRequest, prev api.FileSystemCacheResponse) error {
+func validateCacheConfigUpdate(ctx *logger.RequestContext, req api.UpdateFileSystemCacheRequest, prev api.FileSystemCacheResponse) error {
 	// meta driver
 	if req.MetaDriver != "" && !schema.IsValidFsMetaDriver(req.MetaDriver) {
 		ctx.ErrorCode = common.InvalidArguments
@@ -191,7 +191,7 @@ func validateCacheConfigUpdate(ctx *logger.RequestContext, req *api.UpdateFileSy
 	return nil
 }
 
-func needCacheDir(req *api.UpdateFileSystemCacheRequest, prev api.FileSystemCacheResponse) bool {
+func needCacheDir(req api.UpdateFileSystemCacheRequest, prev api.FileSystemCacheResponse) bool {
 	if req.MetaDriver != "" && req.MetaDriver != schema.FsMetaDefault {
 		return true
 	}
