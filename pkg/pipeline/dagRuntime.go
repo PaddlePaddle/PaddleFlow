@@ -720,7 +720,7 @@ func (drt *DagRuntime) processEventFromSubComponent(event WorkflowEvent) error {
 
 	// 如果 dagRuntime 未处于终态，则需要判断是否有新的子节点可以运行
 	if !drt.done {
-		drt.scheduleSubComponent(true)
+		drt.scheduleSubComponent(false)
 	}
 
 	return nil
