@@ -128,7 +128,7 @@ func TestTraceLogger(t *testing.T) {
 
 	// load from disk
 	t.Logf("load all")
-	err = manager.LoadAll("/Users/alex/BAIDU/PaddleFlow/tmp")
+	err = manager.LoadAll("./")
 	if err != nil {
 		t.Error(err)
 		return
@@ -165,7 +165,7 @@ func TestTraceLogger(t *testing.T) {
 
 func initTraceLogger() error {
 	conf := TraceLoggerConfig{
-		Dir:             "/Users/alex/BAIDU/PaddleFlow/tmp",
+		Dir:             "./",
 		FilePrefix:      "trace_log",
 		Level:           "debug",
 		MaxKeepDays:     2,
