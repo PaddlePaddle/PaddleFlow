@@ -506,10 +506,7 @@ func (j *KubeJob) patchMetadata(metadata *metav1.ObjectMeta, name string) {
 }
 
 func (j *KubeJob) isNeedPatch(v string) bool {
-	if !j.IsCustomYaml {
-		return true
-	}
-	return false
+	return !j.IsCustomYaml
 }
 
 func (j *KubeJob) CreateJob() (string, error) {
