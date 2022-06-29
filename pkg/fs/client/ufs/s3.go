@@ -853,7 +853,7 @@ func (fs *s3FileSystem) ReadDir(name string) ([]DirEntry, error) {
 		fileType := uint8(TypeFile)
 		if isDir {
 			fileType = TypeDirectory
-			mode = syscall.S_IFDIR | 0755
+			mode = syscall.S_IFDIR | 0777
 			size = 4096
 		}
 		uid := uint32(utils.LookupUser(Owner))
