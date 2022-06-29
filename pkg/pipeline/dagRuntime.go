@@ -184,7 +184,7 @@ func (drt *DagRuntime) createAndStartSubComponentRuntime(subComponentName string
 	// PS: 理论上不会出现在这种情况，用于兜底
 	_, ok := drt.subComponentRumtimes[subComponentName]
 	if ok && len(exceptSeq) == 0 {
-		drt.logger.Errorf("component [%s] has been scheduled", subComponentName)
+		drt.logger.Errorf("component[%s] has been scheduled", subComponentName)
 		return
 	}
 	// 1. 获取 loop_arguemnt, 确定需要创建多少次runtime
