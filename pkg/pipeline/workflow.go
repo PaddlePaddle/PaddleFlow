@@ -593,11 +593,19 @@ func (bwf *BaseWorkflow) replaceRunParam(param string, val interface{}) error {
 		}
 	} else if len(nodesAndParam) == 1 {
 		paramName := nodesAndParam[0]
-		ok, err := replaceAllNodeParam(bwf.Source.EntryPoints.EntryPoints, paramName, val)
+		ok1, err := replaceAllNodeParam(bwf.Source.EntryPoints.EntryPoints, paramName, val)
 		if err != nil {
 			return err
 		}
-		if !ok {
+		postMap := map[string]schema.Component{}
+		for name, component := range bwf.Source.PostProcess {
+			postMap[name] = component
+		}
+		ok2, err := replaceAllNodeParam(postMap, paramName, val)
+		if err != nil {
+			return err
+		}
+		if !ok1 && !ok2 {
 			return fmt.Errorf("param[%s] not exist", paramName)
 		}
 	} else {
