@@ -132,7 +132,7 @@ func start() error {
 
 	// recover local trace log
 	err = trace_logger.LoadAll(traceLoggerConfig.Dir, traceLoggerConfig.FilePrefix)
-	// if no file exist, omit err
+	// if error is NotExistErr, omit it
 	if err != nil && !os.IsExist(err) {
 		errMsg := fmt.Errorf("load local trace log failed. error: %w", err)
 		log.Error(errMsg.Error())

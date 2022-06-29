@@ -39,16 +39,16 @@ var (
 )
 
 type ServerConfig struct {
-	Storage       StorageConfig             `yaml:"database"`
-	Log           logger.LogConfig          `yaml:"log"`
+	Storage       StorageConfig                  `yaml:"database"`
+	Log           logger.LogConfig               `yaml:"log"`
 	TraceLog      trace_logger.TraceLoggerConfig `yaml:"traceLog"`
-	ApiServer     ApiServerConfig           `yaml:"apiServer"`
-	Job           JobConfig                 `yaml:"job"`
-	Fs            FsServerConf              `yaml:"fs"`
-	NamespaceList []string                  `yaml:"namespaceList"`
-	Flavour       []schema.Flavour          `yaml:"flavour"`
-	FlavourMap    map[string]schema.Flavour `yaml:"-"`
-	ImageConf     ImageConfig               `yaml:"imageRepository"`
+	ApiServer     ApiServerConfig                `yaml:"apiServer"`
+	Job           JobConfig                      `yaml:"job"`
+	Fs            FsServerConf                   `yaml:"fs"`
+	NamespaceList []string                       `yaml:"namespaceList"`
+	Flavour       []schema.Flavour               `yaml:"flavour"`
+	FlavourMap    map[string]schema.Flavour      `yaml:"-"`
+	ImageConf     ImageConfig                    `yaml:"imageRepository"`
 }
 
 type StorageConfig struct {

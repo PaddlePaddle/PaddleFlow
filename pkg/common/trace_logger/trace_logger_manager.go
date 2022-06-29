@@ -79,7 +79,7 @@ type traceLog struct {
 func (t traceLog) String() string {
 	timeStr := t.Time.Format("2006-01-02 15:04:05.06")
 	level := strings.ToUpper(t.Level.String()[:LogLevelStringSize])
-	return fmt.Sprintf("[%s] [%s] %s %s", level, t.Key, timeStr, t.Msg)
+	return fmt.Sprintf("[%s] [%s] %s %s", timeStr, level, t.Key, t.Msg)
 }
 
 func (t Trace) String() string {
@@ -279,7 +279,7 @@ func (d *DefaultTraceLoggerManager) StoreTraceToFile(trace Trace) {
 func (d *DefaultTraceLoggerManager) storeTraceLogToFile(traceLog traceLog) {
 	d.l.WithFields(map[string]interface{}{
 		"key": traceLog.Key,
-	}).WithTime(traceLog.Time).WithTime(traceLog.Time).Log(traceLog.Level, traceLog.Msg)
+	}).WithTime(traceLog.Time).Log(traceLog.Level, traceLog.Msg)
 }
 
 func (d *DefaultTraceLoggerManager) NewTraceLogger() TraceLogger {
@@ -564,6 +564,7 @@ func (d *DefaultTraceLoggerManager) CancelAutoDelete() error {
 
 func (d *DefaultTraceLoggerManager) DeleteUnusedCache(timeout time.Duration, methods ...DeleteMethod) error {
 	d.lock.Lock()
+	defer d.lock.Unlock()
 	method := DefaultDeleteMethod
 	if len(methods) > 0 {
 		method = methods[0]
@@ -577,7 +578,6 @@ func (d *DefaultTraceLoggerManager) DeleteUnusedCache(timeout time.Duration, met
 	d.deleteTraceFromCacheBefore(timeout, method)
 	// delete unused key
 	d.deleteUnusedTmpKey(timeout)
-	d.lock.Unlock()
 	return nil
 }
 
@@ -585,7 +585,7 @@ func (d *DefaultTraceLoggerManager) deleteTraceFromCacheBefore(timeout time.Dura
 
 	ddl := time.Now().Add(-timeout)
 
-	// delete all the trace Logs before the timeBefore
+	// delete all the trace Logs before the ddl
 	iter := d.cache.IterBuffered()
 	for x := range iter {
 		k, v := x.Key, x.Val.(Trace)
