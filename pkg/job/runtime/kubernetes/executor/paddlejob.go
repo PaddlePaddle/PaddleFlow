@@ -51,11 +51,11 @@ func (pj *PaddleJob) validateJob() error {
 func (pj *PaddleJob) CreateJob() (string, error) {
 	pdj := &paddlev1.PaddleJob{}
 	if err := pj.createJobFromYaml(pdj); err != nil {
-		log.Errorf("create job failed, err %v", err)
+		log.Errorf("create job[%s] failed, err %v", pj.ID, err)
 		return "", err
 	}
 	if err := pj.validateJob(); err != nil {
-		log.Errorf("validate %s job failed, err %v", pj.JobType, err)
+		log.Errorf("validate [%s]type job[%s] failed, err %v", pj.JobType, pj.ID, err)
 		return "", err
 	}
 

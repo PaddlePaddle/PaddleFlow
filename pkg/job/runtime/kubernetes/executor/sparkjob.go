@@ -94,7 +94,7 @@ func (sj *SparkJob) patchSparkSpec(jobApp *sparkapp.SparkApplication, jobID stri
 		log.Infof("%s job %s/%s using custom yaml, pass the patch from tasks", sj.JobType, sj.Namespace, sj.Name)
 		return nil
 	}
-
+	// when job is not using custom yaml, patch from tasks
 	// image
 	jobApp.Spec.Image = &sj.Image
 
