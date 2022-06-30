@@ -142,9 +142,9 @@ func bindMountVolume(sourcePath, mountPath string, readOnly bool) error {
 	isMountPoint, err := mountUtil.IsMountPoint(sourcePath)
 	if err != nil {
 		log.Errorf("bind source %s has err :%v. unmounting ...", sourcePath, err)
-		err := mountUtil.ForceUnmount(sourcePath)
+		err := mountUtil.ManualUnmount(sourcePath)
 		if err != nil {
-			log.Errorf("force unmount mountPoint[%s] failed: %v", sourcePath, err)
+			log.Errorf("unmount mountPoint[%s] failed: %v", sourcePath, err)
 			return err
 		}
 		log.Infof("bind source %s unmounted", sourcePath)
@@ -165,9 +165,9 @@ func bindMountVolume(sourcePath, mountPath string, readOnly bool) error {
 	isMountPoint, err = mountUtil.IsMountPoint(mountPath)
 	if err != nil {
 		log.Errorf("bind target %s has err :%v. unmounting ...", mountPath, err)
-		err := mountUtil.ForceUnmount(mountPath)
+		err := mountUtil.ManualUnmount(mountPath)
 		if err != nil {
-			log.Errorf("force unmount mountPoint[%s] failed: %v", mountPath, err)
+			log.Errorf("unmount mountPoint[%s] failed: %v", mountPath, err)
 			return err
 		}
 		// check again

@@ -122,7 +122,7 @@ func createOrUpdatePod(volumeID string, mountInfo Info) error {
 			if k8sErrors.IsNotFound(errGetPod) {
 				// mount pod not exist, create
 				log.Infof("createOrAddRef: Need to create pod %s.", podName)
-				if createPodErr := createFusePod(k8sClient, volumeID, mountInfo); createPodErr != nil {
+				if createPodErr := createMountPod(k8sClient, volumeID, mountInfo); createPodErr != nil {
 					return createPodErr
 				}
 			} else {
@@ -195,22 +195,22 @@ func patchPodAnnotation(c k8s.Client, pod *k8sCore.Pod, annotation map[string]st
 	return nil
 }
 
-func createFusePod(k8sClient k8s.Client, volumeID string, mountInfo Info) error {
-	fusePod, err := buildFusePod(volumeID, mountInfo)
+func createMountPod(k8sClient k8s.Client, volumeID string, mountInfo Info) error {
+	fusePod, err := buildMountPod(volumeID, mountInfo)
 	if err != nil {
-		log.Errorf("buildFusePod[%s] err: %v", mountInfo.FsID, err)
+		log.Errorf("buildMountPod[%s] err: %v", mountInfo.FsID, err)
 		return err
 	}
-	log.Debugf("creating fuse pod: %+v", *fusePod)
+	log.Debugf("\ncreating mount pod: %+v\n", *fusePod)
 	_, err = k8sClient.CreatePod(fusePod)
 	if err != nil {
-		log.Errorf("createFusePod for fsID %s err: %v", mountInfo.FsID, err)
+		log.Errorf("createMountPod for fsID %s err: %v", mountInfo.FsID, err)
 		return err
 	}
 	return nil
 }
 
-func buildFusePod(volumeID string, mountInfo Info) (*k8sCore.Pod, error) {
+func buildMountPod(volumeID string, mountInfo Info) (*k8sCore.Pod, error) {
 	pod := csiconfig.GeneratePodTemplate()
 	pod.Name = GeneratePodNameByVolumeID(volumeID)
 	buildMountContainer(pod, mountInfo)
