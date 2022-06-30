@@ -68,9 +68,8 @@ type ApiServerConfig struct {
 }
 
 type JobConfig struct {
-	Reclaim             ReclaimConfig `yaml:"reclaim"`
-	SchedulerName       string        `yaml:"schedulerName"`
-	ScalarResourceArray []string      `yaml:"scalarResourceArray"`
+	Reclaim       ReclaimConfig `yaml:"reclaim"`
+	SchedulerName string        `yaml:"schedulerName"`
 	// period second for job manager
 	ClusterSyncPeriod int `yaml:"clusterSyncPeriod"`
 	QueueExpireTime   int `yaml:"queueExpireTime"`

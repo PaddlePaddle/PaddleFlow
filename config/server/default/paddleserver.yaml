@@ -28,8 +28,6 @@ job:
   clusterSyncPeriod: 30
   queueSyncPeriod: 30
   jobLoopPeriod: 5
-  scalarResourceArray:
-    - "nvidia.com/gpu"
   defaultJobYamlDir: "./config/server/default/job"
   isSingleCluster: true
 
