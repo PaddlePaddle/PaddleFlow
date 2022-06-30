@@ -823,14 +823,14 @@ func (drt *DagRuntime) ProcessFailureOptionsWithFailFast() {
 	defer drt.processSubComponentLock.Unlock()
 	drt.processSubComponentLock.Lock()
 
-	for name, component := range drt.getworkflowSouceDag().EntryPoints {
+	for name, _ := range drt.getworkflowSouceDag().EntryPoints {
 		_, ok := drt.subComponentRumtimes[name]
 		if ok {
 			drt.getfailureOptionsCtxAndCF(name).cancel()
 		}
-
-		drt.CancellNotReadyComponent(component, "receive failure options signal")
 	}
+
+	drt.cancellAllNotReadySubComponent("receive failure options signal")
 }
 
 func (drt *DagRuntime) ProcessFailureOptions(event WorkflowEvent, needSync bool) {
