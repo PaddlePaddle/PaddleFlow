@@ -14,12 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-/**
- * @Author: kiritoxkiriko
- * @Date: 2022/6/16
- * @Description:
- */
-
 package trace_logger
 
 import (
