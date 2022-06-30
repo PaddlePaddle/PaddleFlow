@@ -939,18 +939,8 @@ func handleImageAndStartWf(run models.Run, isResume bool) error {
 		return models.UpdateRun(logEntry, run.ID,
 			models.Run{DockerEnv: run.WorkflowSource.DockerEnv, Status: common.StatusRunPending})
 	} else {
-		imageIDs, err := models.ListImageIDsByFsID(logEntry, run.FsID)
-		if err != nil {
-			logEntry.Errorf("create run failed ListImageIDsByFsID[%s]. error:%s\n", run.FsID, err.Error())
-			return updateRunStatusAndMsg(run.ID, common.StatusRunFailed, err.Error())
-		}
-		if err := handler.PFImageHandler.HandleImage(run.WorkflowSource.DockerEnv, run.ID, run.FsID,
-			imageIDs, logEntry, handleImageCallbackFunc); err != nil {
-			logEntry.Errorf("handle image failed. error:%s\n", err.Error())
-			return updateRunStatusAndMsg(run.ID, common.StatusRunFailed, err.Error())
-		}
+		return fmt.Errorf("image as tar file is not supported for now")
 	}
-	return nil
 }
 
 func newWorkflowByRun(run models.Run) (*pipeline.Workflow, error) {

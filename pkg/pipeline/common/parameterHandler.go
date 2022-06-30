@@ -311,11 +311,11 @@ func (s *StepParamChecker) solveParamValue(compName string, paramName string, pa
 	}
 
 	// 参数值检查
-	switch param.(type) {
+	switch param := param.(type) {
 	case float32, float64, int, int64:
 		return param, nil
 	case string:
-		if err := s.resolveRefParam(compName, param.(string), fieldType); err != nil {
+		if err := s.resolveRefParam(compName, param, fieldType); err != nil {
 			return nil, err
 		} else {
 			return param, nil
