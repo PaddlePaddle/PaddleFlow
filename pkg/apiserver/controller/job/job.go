@@ -24,6 +24,7 @@ import (
 
 	"github.com/ghodss/yaml"
 	log "github.com/sirupsen/logrus"
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/flavour"
@@ -883,7 +884,8 @@ func validateMembers(ctx *logger.RequestContext, members []MemberSpec, schePolic
 		ctx.ErrorCode = common.RequiredFieldEmpty
 		return err
 	}
-	// todo(zhongzichao) calculate total member resource, and compare with queue.MaxResource
+	// calculate total member resource, and compare with queue.MaxResource
+	sumResource := schema.EmptyResourceInfo()
 	for index, member := range members {
 		// validate queue
 		var err error
@@ -898,10 +900,82 @@ func validateMembers(ctx *logger.RequestContext, members []MemberSpec, schePolic
 			ctx.ErrorCode = common.JobInvalidField
 			return err
 		}
-
+		// sum = sum + member.Replicas * member.Flavour.ResourceInfo
+		memberRes, err := MultiplyResourceInfo(member.Replicas, member.Flavour.ResourceInfo)
+		*sumResource = sumResource.Add(memberRes)
 	}
-	// todo(zhongzichao) validate queue and total-member-resource
+	// validate queue and total-member-resource
+	if !sumResource.LessEqual(schePolicy.MaxResources) {
+		errMsg := fmt.Sprintf("the flavour[%+v] is larger than queue's [%+v]", sumResource, schePolicy.MaxResources)
+		log.Errorf(errMsg)
+		return fmt.Errorf(errMsg)
+	}
 	return nil
+}
+
+// MultiplyResourceInfo return member.Replicas * member.Flavour.ResourceInfo
+func MultiplyResourceInfo(replicas int, flavourRes schema.ResourceInfo) (schema.ResourceInfo, error) {
+	if err := schema.ValidateResource(flavourRes, []string{}); err != nil {
+		log.Errorf("Failed to check members.Flavour: %v", err)
+		return schema.ResourceInfo{}, err
+	}
+	// cpu
+	cpuQuantity, err := multiplyQuantity(replicas, flavourRes.CPU)
+	if err != nil {
+		log.Errorf("Failed to multiply cpu %s Quantity, err: %v", flavourRes.CPU, err)
+		return schema.ResourceInfo{}, err
+	}
+	flavourRes.CPU = cpuQuantity.String()
+	// memory
+	memQuantity, err := multiplyQuantity(replicas, flavourRes.Mem)
+	if err != nil {
+		log.Errorf("Failed to multiply mem %s Quantity, err: %v", flavourRes.Mem, err)
+		return schema.ResourceInfo{}, err
+	}
+	flavourRes.Mem = memQuantity.String()
+	// gpu
+	for resName, resString := range flavourRes.ScalarResources {
+		quantity, err := multiplyQuantity(replicas, resString)
+		if err != nil {
+			log.Errorf("Failed to multiply %s Quantity, err: %v", resString, err)
+			return schema.ResourceInfo{}, err
+		}
+		flavourRes.ScalarResources[resName] = quantity.String()
+	}
+	return flavourRes, nil
+}
+
+// multiplyQuantity to be removed to schema pkg, multiply resource info by replicas
+func multiplyQuantity(replicas int, resourceString string) (resource.Quantity, error) {
+	res, err := resource.ParseQuantity(resourceString)
+	if err != nil {
+		log.Errorf("Failed to create resource by string %s, err: %v", resourceString, err)
+		return resource.Quantity{}, err
+	}
+	isNegative := false
+	if replicas < 0 {
+		replicas = ^(replicas - 1)
+		isNegative = !isNegative
+	}
+	if res.IsZero() {
+		return resource.Quantity{}, nil
+	}
+
+	x := 1
+	sum := resource.Quantity{}
+	for x <= replicas {
+		//确定2的多少倍，指数级增长
+		if x&replicas != 0 {
+			sum.Add(res)
+		}
+		res.Add(res)
+		x += x
+	}
+
+	if isNegative {
+		sum.Neg()
+	}
+	return sum, nil
 }
 
 func validateMembersQueue(ctx *logger.RequestContext, member MemberSpec, schePolicy SchedulingPolicy) (MemberSpec, error) {
