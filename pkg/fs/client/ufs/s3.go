@@ -273,7 +273,6 @@ func (fs *s3FileSystem) isDirExist(name string) error {
 	var errList error
 	var fsInfos []base.FileInfo
 	var wg sync.WaitGroup
-	var object *s3.HeadObjectOutput
 	var errObject error
 	// todo: 用chan实现，不需要等待全部返回后在继续
 	wg.Add(2)
@@ -287,7 +286,7 @@ func (fs *s3FileSystem) isDirExist(name string) error {
 			Bucket: &fs.bucket,
 			Key:    &path,
 		}
-		object, errObject = fs.s3.HeadObject(request)
+		_, errObject = fs.s3.HeadObject(request)
 	}()
 	wg.Wait()
 	if len(fsInfos) > 0 || errObject == nil {
