@@ -218,7 +218,7 @@ func (isv *innerSolver) resolveEnv() error {
 		isv.Component.(*schema.WorkflowSourceStep).Env[name] = newValue.(string)
 	}
 
-	isv.logger.Infof("after resolve template, the command of component[%s] is: %v",
+	isv.logger.Infof("after resolve template, the env of component[%s] is: %v",
 		isv.Component.GetName(), isv.Component.(*schema.WorkflowSourceStep).Env)
 	return nil
 }
@@ -431,7 +431,7 @@ func (ds *DependencySolver) ResolveBeforeRun(componentName string) error {
 		}
 
 		subComponent.GetArtifacts().Input[name] = newValue
-		ds.logger.Infof("after dependency solver, the value of parameter[%s] for component[%s] is %v",
+		ds.logger.Infof("after dependency solver, the value of artifact[%s] for component[%s] is %v",
 			componentName, name, newValue)
 	}
 	// 输出artifact 无需解析： step 的输出artifact的中不会有模版，dag 的输出artifact 虽然有模版，但是需要在dag 所有的子节点都运行完成后才能解析。

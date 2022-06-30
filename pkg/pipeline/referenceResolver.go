@@ -17,6 +17,8 @@ limitations under the License.
 package pipeline
 
 import (
+	"fmt"
+
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
 
@@ -45,6 +47,8 @@ func (rr *referenceSolver) resolveComponentReference(component schema.Component)
 		return component, nil
 	}
 
+	fmt.Println(step.Reference.Component)
+
 	// 被引用节点名
 	referencedComponentName := step.Reference.Component
 	referencedComponent := rr.WorkflowSource.Components[referencedComponentName]
@@ -71,4 +75,8 @@ func (rr *referenceSolver) resolveComponentReference(component schema.Component)
 	referencedComponent.UpdateDeps(step.Deps)
 
 	return referencedComponent, nil
+}
+
+func (rr *referenceSolver) ResolveComponentReference(component schema.Component) (schema.Component, error) {
+	return rr.resolveComponentReference(component)
 }
