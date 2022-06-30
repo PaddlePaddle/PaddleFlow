@@ -243,6 +243,12 @@ func getWorkFlowSourceByJson(request *CreateRunByJsonRequest, bodyMap map[string
 		delete(bodyMap, key)
 	}
 
+	// 将字段名由Json风格改为Yaml风格
+	p := schema.Parser{}
+	if err := p.TransJsonMap2Yaml(bodyMap); err != nil {
+		return schema.WorkflowSource{}, err
+	}
+
 	// 获取yaml版的Wfs
 	wfs, err := schema.GetWorkflowSourceByMap(bodyMap)
 	if err != nil {
@@ -285,43 +291,51 @@ func ParseJsonGlobalEnv(jsonAttrMap map[string]interface{}) (map[string]string, 
 	for key, value := range jsonAttrMap {
 		switch key {
 		case "flavour":
-			value, ok := value.(string)
-			if !ok {
-				return nil, fmt.Errorf("[flavour] should be string type")
-			}
-			if _, ok := resMap["flavour"]; !ok {
-				resMap["flavour"] = value
+			if value != nil {
+				value, ok := value.(string)
+				if !ok {
+					return nil, fmt.Errorf("[flavour] should be string type")
+				}
+				if _, ok := resMap["flavour"]; !ok {
+					resMap["flavour"] = value
+				}
 			}
 		case "queue":
-			value, ok := value.(string)
-			if !ok {
-				return nil, fmt.Errorf("[queue] should be string type")
-			}
-			if _, ok := resMap["queue"]; !ok {
-				resMap["queue"] = value
+			if value != nil {
+				value, ok := value.(string)
+				if !ok {
+					return nil, fmt.Errorf("[queue] should be string type")
+				}
+				if _, ok := resMap["queue"]; !ok {
+					resMap["queue"] = value
+				}
 			}
 		case "jobType":
-			value, ok := value.(string)
-			if !ok {
-				return nil, fmt.Errorf("[jobType] should be string type")
-			}
-			if _, ok := resMap["jobType"]; !ok {
-				resMap["jobType"] = value
+			if value != nil {
+				value, ok := value.(string)
+				if !ok {
+					return nil, fmt.Errorf("[jobType] should be string type")
+				}
+				if _, ok := resMap["jobType"]; !ok {
+					resMap["jobType"] = value
+				}
 			}
 		case "env":
-			value, ok := value.(map[string]interface{})
-			if !ok {
-				return nil, fmt.Errorf("[env] should be map type")
-			}
-			for envKey, envValue := range value {
-				envValue := envValue.(string)
+			if value != nil {
+				value, ok := value.(map[string]interface{})
 				if !ok {
-					return nil, fmt.Errorf("value of env should be string type")
+					return nil, fmt.Errorf("[env] should be map type")
 				}
-				resMap[envKey] = envValue
+				for envKey, envValue := range value {
+					envValue := envValue.(string)
+					if !ok {
+						return nil, fmt.Errorf("value of env should be string type")
+					}
+					resMap[envKey] = envValue
+				}
 			}
 		default:
-			return nil, fmt.Errorf("[%s] can not be handled in CreatRunJson")
+			return nil, fmt.Errorf("[%s] can not be handled in CreatRunJson", key)
 		}
 	}
 	return resMap, nil
