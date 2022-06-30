@@ -28,43 +28,48 @@ import (
 )
 
 type Info struct {
-	Server        string
-	FsID          string
-	FsBase64Str   string
-	FsCacheConfig model.FSCacheConfig
-	TargetPath    string
-	LocalPath     string
-	UsernameRoot  string
-	PasswordRoot  string
-	ClusterID     string
-	UID           int
-	GID           int
-	ReadOnly      bool
+	Server                string
+	FsID                  string
+	FsBase64Str           string
+	IndependentMountPoint bool
+	FsCacheConfig         model.FSCacheConfig
+	TargetPath            string
+	LocalPath             string
+	UsernameRoot          string
+	PasswordRoot          string
+	ClusterID             string
+	UID                   int
+	GID                   int
+	ReadOnly              bool
 }
 
 func ProcessMountInfo(id, server, fsInfoBase64, fsCacheBase64 string, readOnly bool) (Info, error) {
 	// fs info
-	_, err := ProcessFsInfo(fsInfoBase64)
+	fs, err := ProcessFsInfo(fsInfoBase64)
 	if err != nil {
 		retErr := fmt.Errorf("fs[%s] process fs info err: %v", id, err)
 		log.Errorf(retErr.Error())
 		return Info{}, retErr
 	}
 	// fs cache config
-	cacheConfig, err := processCacheConfig(id, fsCacheBase64)
-	if err != nil {
-		retErr := fmt.Errorf("fs[%s] process fs cacheConfig err: %v", id, err)
-		log.Errorf(retErr.Error())
-		return Info{}, retErr
+	cacheConfig := model.FSCacheConfig{}
+	if !fs.IndependentMountPoint {
+		cacheConfig, err = processCacheConfig(id, fsCacheBase64)
+		if err != nil {
+			retErr := fmt.Errorf("fs[%s] process fs cacheConfig err: %v", id, err)
+			log.Errorf(retErr.Error())
+			return Info{}, retErr
+		}
 	}
 	return Info{
-		FsID:          id,
-		Server:        server,
-		FsBase64Str:   fsInfoBase64,
-		FsCacheConfig: cacheConfig,
-		UID:           common.GetDefaultUID(),
-		GID:           common.GetDefaultGID(),
-		ReadOnly:      readOnly,
+		FsID:                  id,
+		Server:                server,
+		FsBase64Str:           fsInfoBase64,
+		IndependentMountPoint: fs.IndependentMountPoint,
+		FsCacheConfig:         cacheConfig,
+		UID:                   common.GetDefaultUID(),
+		GID:                   common.GetDefaultGID(),
+		ReadOnly:              readOnly,
 	}, nil
 }
 

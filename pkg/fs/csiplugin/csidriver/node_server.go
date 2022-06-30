@@ -18,14 +18,13 @@ package csidriver
 
 import (
 	"fmt"
-	"os"
-
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/kubernetes-csi/drivers/pkg/csi-common"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"os"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/mount"
@@ -119,17 +118,47 @@ func (ns *nodeServer) NodeExpandVolume(ctx context.Context,
 }
 
 func mountVolume(volumeID string, mountInfo mount.Info, readOnly bool) error {
-	log.Infof("mountVolume mountInfo:%+v, readOnly:%t", mountInfo, readOnly)
-	// business pods use a separate source path
-	if err := mount.PodMount(volumeID, mountInfo); err != nil {
-		log.Errorf("MountThroughPod err: %v", err)
-		return err
-	}
-	if err := bindMountVolume(schema.GetBindSource(mountInfo.FsID), mountInfo.TargetPath, readOnly); err != nil {
-		log.Errorf("mountVolume[%s] of fs[%s] failed when bindMountVolume, err: %v", volumeID, mountInfo.FsID, err)
-		return err
+	log.Infof("mountVolume: indepedentMp:%t, mountInfo:%+v, readOnly:%t", mountInfo.IndependentMountPoint, mountInfo, readOnly)
+	if !mountInfo.IndependentMountPoint {
+		// business pods use a separate source path
+		if err := mount.PodMount(volumeID, mountInfo); err != nil {
+			log.Errorf("MountThroughPod err: %v", err)
+			return err
+		}
+		if err := bindMountVolume(schema.GetBindSource(mountInfo.FsID), mountInfo.TargetPath, readOnly); err != nil {
+			log.Errorf("mountVolume[%s] of fs[%s] failed when bindMountVolume, err: %v", volumeID, mountInfo.FsID, err)
+			return err
+		}
+	} else {
+		cmdName, args := getIndependentMountCmd(mountInfo)
+		log.Debugf("independent mount cmd: %s, args: %v", cmdName, args)
+		output, err := mountUtil.ExecCmdWithTimeout(cmdName, args)
+		if err != nil {
+			log.Logger.Error("exec mount failed: [%v], output[%v]", err, string(output))
+			return err
+		}
 	}
 	return nil
+}
+
+func getIndependentMountCmd(mountInfo mount.Info) (string, []string) {
+	cacheConf := mountInfo.FsCacheConfig
+	pfsFuse := "/home/paddleflow/pfs-fuse mount "
+	args := []string{
+		"--mount-point=" + mountInfo.TargetPath,
+		"--fs-info=" + mountInfo.FsBase64Str,
+		"--user-name=" + mountInfo.UsernameRoot,
+		"--password=" + mountInfo.PasswordRoot,
+		"--block-size=0",
+		"--meta-cache-driver=default",
+	}
+	if cacheConf.Debug {
+		args = append(args, "--log-level=trace")
+	}
+	if mountInfo.ReadOnly {
+		args = append(args, "--mount-options=ro")
+	}
+	return pfsFuse, args
 }
 
 func bindMountVolume(sourcePath, mountPath string, readOnly bool) error {

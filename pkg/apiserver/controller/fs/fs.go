@@ -60,10 +60,11 @@ func GetFileSystemService() *FileSystemService {
 }
 
 type CreateFileSystemRequest struct {
-	Name       string            `json:"name"`
-	Url        string            `json:"url"`
-	Properties map[string]string `json:"properties"`
-	Username   string            `json:"username"`
+	Name                  string            `json:"name"`
+	Url                   string            `json:"url"`
+	Properties            map[string]string `json:"properties"`
+	Username              string            `json:"username"`
+	IndependentMountPoint bool              `json:"independentMountPoint"`
 }
 
 type ListFileSystemRequest struct {
@@ -93,11 +94,6 @@ type GetFileSystemResponse struct {
 	Properties    map[string]string `json:"properties"`
 }
 
-type CreateFileSystemClaimsRequest struct {
-	Namespaces []string `json:"namespaces"`
-	FsIDs      []string `json:"fsIDs"`
-}
-
 type CreateFileSystemResponse struct {
 	FsName string `json:"fsName"`
 	FsID   string `json:"fsID"`
@@ -111,13 +107,14 @@ type ListFileSystemResponse struct {
 }
 
 type FileSystemResponse struct {
-	Id            string            `json:"id"`
-	Name          string            `json:"name"`
-	ServerAddress string            `json:"serverAddress"`
-	Type          string            `json:"type"`
-	SubPath       string            `json:"subPath"`
-	Username      string            `json:"username"`
-	Properties    map[string]string `json:"properties"`
+	Id                    string            `json:"id"`
+	Name                  string            `json:"name"`
+	ServerAddress         string            `json:"serverAddress"`
+	Type                  string            `json:"type"`
+	SubPath               string            `json:"subPath"`
+	Username              string            `json:"username"`
+	Properties            map[string]string `json:"properties"`
+	IndependentMountPoint bool              `json:"independentMountPoint"`
 }
 
 type CreateFileSystemClaimsResponse struct {
@@ -128,12 +125,13 @@ type CreateFileSystemClaimsResponse struct {
 func (s *FileSystemService) CreateFileSystem(ctx *logger.RequestContext, req *CreateFileSystemRequest) (model.FileSystem, error) {
 	fsType, serverAddress, subPath := common.InformationFromURL(req.Url, req.Properties)
 	fs := model.FileSystem{
-		Name:          req.Name,
-		PropertiesMap: req.Properties,
-		ServerAddress: serverAddress,
-		Type:          fsType,
-		SubPath:       subPath,
-		UserName:      req.Username,
+		Name:                  req.Name,
+		PropertiesMap:         req.Properties,
+		ServerAddress:         serverAddress,
+		Type:                  fsType,
+		SubPath:               subPath,
+		UserName:              req.Username,
+		IndependentMountPoint: req.IndependentMountPoint,
 	}
 	fs.ID = common.ID(req.Username, req.Name)
 
