@@ -4,18 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/trace_logger"
-	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
-	"time"
-
+	"github.com/PaddlePaddle/PaddleFlow/pkg/trace_logger"
 	"github.com/go-chi/chi"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 	_ "go.uber.org/automaxprocs"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/PaddlePaddle/PaddleFlow/cmd/server/flag"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/cluster"
@@ -33,27 +30,6 @@ import (
 )
 
 var ServerConf *config.ServerConfig
-
-// auto delete durations
-const (
-	AutoDeleteDuration = time.Minute * 1
-	AutoSyncDuration   = time.Minute * 10
-)
-
-// DeleteFunc delete function for trace log
-var DeleteFunc trace_logger.DeleteMethod = func(key string) bool {
-	// get run from db
-	run, err := models.GetRunByID(log.NewEntry(log.StandardLogger()), key)
-	if err != nil {
-		// if not found, delete trace log
-		return true
-	}
-	// if run is not finished, keep trace log
-	if common.IsRunFinalStatus(run.Status) {
-		return true
-	}
-	return false
-}
 
 func main() {
 	if err := Main(os.Args); err != nil {
@@ -128,32 +104,9 @@ func start() error {
 	go jobCtrl.WSManager.SendGroupData()
 	go jobCtrl.WSManager.GetGroupData()
 
-	traceLoggerConfig := ServerConf.TraceLog
-
-	// recover local trace log
-	err = trace_logger.LoadAll(traceLoggerConfig.Dir, traceLoggerConfig.FilePrefix)
-	// if error is NotExistErr, omit it
-	if err != nil && !os.IsExist(err) {
-		errMsg := fmt.Errorf("load local trace log failed. error: %w", err)
-		log.Error(errMsg.Error())
-		return errMsg
-	}
-	err = nil
-
-	// enable auto delete and sync for trace log
-	if err = trace_logger.AutoDelete(
-		trace_logger.ParseTimeWithDefault(traceLoggerConfig.DeleteInterval, AutoDeleteDuration),
-		DeleteFunc,
-	); err != nil {
-		errMsg := fmt.Errorf("enable auto delete for trace log failed: %w", err)
-		log.Errorf(errMsg.Error())
-		return errMsg
-	}
-
-	if err = trace_logger.AutoSync(
-		trace_logger.ParseTimeWithDefault(traceLoggerConfig.SyncInterval, AutoSyncDuration),
-	); err != nil {
-		errMsg := fmt.Errorf("enable auto sync for trace log failed: %w", err)
+	err = trace_logger.Start(ServerConf.TraceLog)
+	if err != nil {
+		errMsg := fmt.Errorf("start trace logger failed. error: %w", err)
 		log.Errorf(errMsg.Error())
 		return errMsg
 	}
@@ -228,9 +181,9 @@ func setup() {
 	}
 
 	// init trace logger config
-	err = trace_logger.InitTraceLogger(ServerConf.TraceLog)
+	err = trace_logger.Init(ServerConf.TraceLog)
 	if err != nil {
-		log.Errorf("InitTraceLogger err: %v", err)
+		log.Errorf("InitTraceLoggerManager err: %v", err)
 		gracefullyExit(err)
 	}
 

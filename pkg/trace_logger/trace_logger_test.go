@@ -160,7 +160,7 @@ func initTraceLogger() error {
 		MaxCacheSize:    2,
 	}
 
-	return InitTraceLogger(conf)
+	return InitTraceLoggerManager(conf)
 
 }
 

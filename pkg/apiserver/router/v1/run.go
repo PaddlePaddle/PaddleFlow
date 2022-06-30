@@ -20,7 +20,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/trace_logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/trace_logger"
 	"io/ioutil"
 	"net/http"
 	"strings"

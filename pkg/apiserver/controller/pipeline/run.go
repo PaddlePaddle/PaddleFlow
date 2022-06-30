@@ -21,7 +21,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/trace_logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/trace_logger"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -800,7 +800,7 @@ func DeleteRun(ctx *logger.RequestContext, id string, request *DeleteRunRequest)
 	if run.FsID != "" {
 		resourceHandler, err := pipeline.NewResourceHandler(id, run.FsID, ctx.Logging())
 		if err != nil {
-			ctx.Logging().Errorf("delete run[%s] failed. Init handler failed. err: %v", id, err.Error())
+			ctx.Logging().Errorf("delete run[%s] failed. InitTraceLoggerManager handler failed. err: %v", id, err.Error())
 			ctx.ErrorCode = common.InternalError
 			return err
 		}
