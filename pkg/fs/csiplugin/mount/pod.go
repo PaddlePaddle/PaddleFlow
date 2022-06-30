@@ -196,13 +196,13 @@ func patchPodAnnotation(c k8s.Client, pod *k8sCore.Pod, annotation map[string]st
 }
 
 func createMountPod(k8sClient k8s.Client, volumeID string, mountInfo Info) error {
-	fusePod, err := buildMountPod(volumeID, mountInfo)
+	mountPod, err := buildMountPod(volumeID, mountInfo)
 	if err != nil {
 		log.Errorf("buildMountPod[%s] err: %v", mountInfo.FsID, err)
 		return err
 	}
-	log.Debugf("\ncreating mount pod: %+v\n", *fusePod)
-	_, err = k8sClient.CreatePod(fusePod)
+	log.Debugf("\ncreating mount pod: %+v\n", *mountPod)
+	_, err = k8sClient.CreatePod(mountPod)
 	if err != nil {
 		log.Errorf("createMountPod for fsID %s err: %v", mountInfo.FsID, err)
 		return err
