@@ -343,41 +343,6 @@ func (p *Parser) ParseStep(params map[string]interface{}, step *WorkflowSourceSt
 	return nil
 }
 
-func (p *Parser) ParseCache(cacheMap map[string]interface{}, cache *Cache) error {
-	for cacheKey, cacheValue := range cacheMap {
-		switch cacheKey {
-		case "enable":
-			cacheValue, ok := cacheValue.(bool)
-			if !ok {
-				return fmt.Errorf("[cache.enable] should be bool type")
-			}
-			cache.Enable = cacheValue
-		case "maxExpiredTime":
-			fallthrough
-		case "max_expired_time":
-			switch cacheValue := cacheValue.(type) {
-			case string:
-				cache.MaxExpiredTime = cacheValue
-			case int64:
-				cache.MaxExpiredTime = strconv.FormatInt(cacheValue, 10)
-			default:
-				return fmt.Errorf("[cache.max_expired_time/maxExpiredTime] should be string/int64 type")
-			}
-		case "fsScope":
-			fallthrough
-		case "fs_scope":
-			cacheValue, ok := cacheValue.(string)
-			if !ok {
-				return fmt.Errorf("[cache.fs_scope/fsScope] should be string type")
-			}
-			cache.FsScope = cacheValue
-		default:
-			return fmt.Errorf("[cache] has no attribute [%s]", cacheKey)
-		}
-	}
-	return nil
-}
-
 // 该函数用于给生成给WorkflowSourceDag的各个字段赋值，但不会进行默认值填充，不会进行全局参数对局部参数的替换
 func (p *Parser) ParseDag(params map[string]interface{}, dagComp *WorkflowSourceDag) error {
 	for key, value := range params {
@@ -472,9 +437,94 @@ func (p *Parser) ParseDag(params map[string]interface{}, dagComp *WorkflowSource
 	return nil
 }
 
+func (p *Parser) ParseCache(cacheMap map[string]interface{}, cache *Cache) error {
+	for cacheKey, cacheValue := range cacheMap {
+		switch cacheKey {
+		case "enable":
+			cacheValue, ok := cacheValue.(bool)
+			if !ok {
+				return fmt.Errorf("[cache.enable] should be bool type")
+			}
+			cache.Enable = cacheValue
+		case "maxExpiredTime":
+			fallthrough
+		case "max_expired_time":
+			switch cacheValue := cacheValue.(type) {
+			case string:
+				cache.MaxExpiredTime = cacheValue
+			case int64:
+				cache.MaxExpiredTime = strconv.FormatInt(cacheValue, 10)
+			default:
+				return fmt.Errorf("[cache.max_expired_time/maxExpiredTime] should be string/int64 type")
+			}
+		case "fsScope":
+			fallthrough
+		case "fs_scope":
+			cacheValue, ok := cacheValue.(string)
+			if !ok {
+				return fmt.Errorf("[cache.fs_scope/fsScope] should be string type")
+			}
+			cache.FsScope = cacheValue
+		default:
+			return fmt.Errorf("[cache] has no attribute [%s]", cacheKey)
+		}
+	}
+	return nil
+}
+
 func (p *Parser) IsDag(comp map[string]interface{}) bool {
 	if _, ok := comp["entry_points"]; ok {
 		return true
 	}
 	return false
+}
+
+func (p *Parser) TransJsonMap2Yaml(jsonMap map[string]interface{}) error {
+	for key, value := range jsonMap {
+		switch key {
+		case "dockerEnv":
+			jsonMap["docker_env"] = value
+			delete(jsonMap, "dockerEnv")
+		case "entryPoints":
+			if err := p.transJsonSubMap2Yaml(value, "entryPoints"); err != nil {
+				return err
+			}
+			jsonMap["entry_points"] = value
+			delete(jsonMap, "entryPoints")
+		case "failureOptions":
+			jsonMap["failure_options"] = value
+			delete(jsonMap, "failureOptions")
+		case "postProcess":
+			if err := p.transJsonSubMap2Yaml(value, "postProcess"); err != nil {
+				return err
+			}
+			jsonMap["post_process"] = value
+			delete(jsonMap, "postProcess")
+		case "loopArgument":
+			jsonMap["loop_argument"] = value
+			delete(jsonMap, "loopArgument")
+		case "component":
+			if err := p.transJsonSubMap2Yaml(value, "component"); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (p *Parser) transJsonSubMap2Yaml(value interface{}, filedType string) error {
+	compsMap, ok := value.(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("value of [%s] should be map type", filedType)
+	}
+	for _, comp := range compsMap {
+		compMap, ok := comp.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("each components in [%s] should be map type", filedType)
+		}
+		if err := p.TransJsonMap2Yaml(compMap); err != nil {
+			return err
+		}
+	}
+	return nil
 }

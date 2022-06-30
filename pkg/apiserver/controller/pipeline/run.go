@@ -243,6 +243,12 @@ func getWorkFlowSourceByJson(request *CreateRunByJsonRequest, bodyMap map[string
 		delete(bodyMap, key)
 	}
 
+	// 将字段名由Json风格改为Yaml风格
+	p := schema.Parser{}
+	if err := p.TransJsonMap2Yaml(bodyMap); err != nil {
+		return schema.WorkflowSource{}, err
+	}
+
 	// 获取yaml版的Wfs
 	wfs, err := schema.GetWorkflowSourceByMap(bodyMap)
 	if err != nil {
