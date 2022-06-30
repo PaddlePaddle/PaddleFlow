@@ -467,16 +467,20 @@ func RunYaml2Map(runYaml []byte) (map[string]interface{}, error) {
 
 // 该函数除了将yaml解析为wfs，还进行了全局参数替换操作
 func GetWorkflowSource(runYaml []byte) (WorkflowSource, error) {
-	wfs := WorkflowSource{
-		FailureOptions: FailureOptions{Strategy: FailureStrategyFailFast},
-	}
-	p := Parser{}
 	yamlMap, err := RunYaml2Map(runYaml)
 	if err != nil {
 		logger.Logger().Errorf(err.Error())
 		return WorkflowSource{}, err
 	}
 
+	return GetWorkflowSourceByMap(yamlMap)
+}
+
+func GetWorkflowSourceByMap(yamlMap map[string]interface{}) (WorkflowSource, error) {
+	wfs := WorkflowSource{
+		FailureOptions: FailureOptions{Strategy: FailureStrategyFailFast},
+	}
+	p := Parser{}
 	if err := p.ParseWorkflowSource(yamlMap, &wfs); err != nil {
 		logger.Logger().Errorf(err.Error())
 		return WorkflowSource{}, err
@@ -520,7 +524,6 @@ func GetWorkflowSource(runYaml []byte) (WorkflowSource, error) {
 			return WorkflowSource{}, err
 		}
 	}
-
 	return wfs, nil
 }
 
