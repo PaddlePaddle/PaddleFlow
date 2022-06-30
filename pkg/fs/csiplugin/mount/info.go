@@ -53,7 +53,7 @@ func ProcessMountInfo(id, server, fsInfoBase64, fsCacheBase64 string, readOnly b
 	}
 	// fs cache config
 	cacheConfig := model.FSCacheConfig{}
-	if !fs.IndependentMountPoint {
+	if !fs.IndependentMP {
 		cacheConfig, err = processCacheConfig(id, fsCacheBase64)
 		if err != nil {
 			retErr := fmt.Errorf("fs[%s] process fs cacheConfig err: %v", id, err)
@@ -65,7 +65,7 @@ func ProcessMountInfo(id, server, fsInfoBase64, fsCacheBase64 string, readOnly b
 		FsID:                  id,
 		Server:                server,
 		FsBase64Str:           fsInfoBase64,
-		IndependentMountPoint: fs.IndependentMountPoint,
+		IndependentMountPoint: fs.IndependentMP,
 		FsCacheConfig:         cacheConfig,
 		UID:                   common.GetDefaultUID(),
 		GID:                   common.GetDefaultGID(),

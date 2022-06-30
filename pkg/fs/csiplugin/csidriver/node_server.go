@@ -135,7 +135,7 @@ func mountVolume(volumeID string, mountInfo mount.Info, readOnly bool) error {
 		log.Debugf("independent mount cmd: %s, args: %v", cmdName, args)
 		output, err := mountUtil.ExecCmdWithTimeout(cmdName, args)
 		if err != nil {
-			log.Logger.Error("exec mount failed: [%v], output[%v]", err, string(output))
+			log.Errorf("exec mount failed: [%v], output[%v]", err, string(output))
 			return err
 		}
 	}
