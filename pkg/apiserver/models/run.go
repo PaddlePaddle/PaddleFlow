@@ -106,8 +106,12 @@ func (r *Run) decode() error {
 
 	// 由于在所有获取Run的函数中，都需要进行decode，因此Runtime和PostProcess的赋值也在decode中进行
 	if err := r.validateRuntimeAndPostProcess(); err != nil {
+		logger.Logger().Errorf("validateRuntimeAndPostProcess in run decode failed, error: %", err.Error())
 		return err
 	}
+	logger.Logger().Infof("debug: validateRuntimeAndPostProcess finish")
+	res, _ := json.Marshal(r.Runtime)
+	logger.Logger().Infof("debug: %s", res)
 
 	// decode param
 	if len(r.ParametersJson) > 0 {
@@ -197,9 +201,7 @@ func (r *Run) initRuntime(jobs []RunJob, dags []RunDag) error {
 	// 处理jobs，根据parentID，在对应的dagView（若为空，则改为runtimeView）中，添加对应的JobView
 	// 处理dags，方法同上
 	for _, comp := range comps {
-
 		parentID := comp.GetParentDagID()
-		logger.Logger().Debugf("in runtimeView tree, parentID is: %s", parentID)
 		compName := comp.GetComponentName()
 		if parentID == "" {
 			runtimeView[compName] = append(runtimeView[compName], comp)
