@@ -154,7 +154,7 @@ func bindMountVolume(sourcePath, mountPath string, readOnly bool) error {
 		return mpNotValidErr
 	}
 	// bind mount path
-	if !isMountPoint {
+	if isMountPoint, _ := mountUtil.IsMountPoint(mountPath); !isMountPoint {
 		output, err := mountUtil.ExecMountBind(sourcePath, mountPath, readOnly)
 		if err != nil {
 			log.Errorf("exec mount bind failed: %v, output[%s]", err, string(output))
