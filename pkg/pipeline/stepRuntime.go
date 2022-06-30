@@ -65,7 +65,7 @@ func NewStepRuntime(fullName string, step *schema.WorkflowSourceStep, seq int, c
 	job := NewPaddleFlowJob(jobName, srt.DockerEnv, srt.receiveEventChildren)
 	srt.job = job
 
-	srt.logger.Debugf("step[%s] of runid[%s] before starting job: param[%s], env[%s], command[%s], artifacts[%s], deps[%s]",
+	srt.logger.Infof("step[%s] of runid[%s] before starting job: param[%s], env[%s], command[%s], artifacts[%s], deps[%s]",
 		srt.getName(), srt.runID, step.Parameters, step.Env, step.Command, step.Artifacts, step.Deps)
 
 	return srt
@@ -105,7 +105,7 @@ func (srt *StepRuntime) updateStatus(status RuntimeStatus) error {
 	srt.paramllelismLock.Lock()
 	if srt.done {
 		srt.parallelismManager.decrease()
-		srt.logger.Debugf("step[%s] has finished, and current parallelism is %d", srt.name,
+		srt.logger.Infof("step[%s] has finished, and current parallelism is %d", srt.name,
 			srt.parallelismManager.CurrentParallelism())
 	}
 
@@ -126,7 +126,7 @@ func (srt *StepRuntime) Start() {
 	srt.parallelismManager.increase()
 
 	// TODO: 此时是否需要同步至数据库？
-	srt.logger.Debugf("begin to run step[%s], and current parallelism is %d", srt.name,
+	srt.logger.Infof("begin to run step[%s], and current parallelism is %d", srt.name,
 		srt.parallelismManager.CurrentParallelism())
 
 	srt.setSysParams()
@@ -210,6 +210,8 @@ func (srt *StepRuntime) needRestart(view *schema.JobView) (bool, error) {
 			"maybe multi gorutine process this step", srt.name, srt.status)
 		return false, err
 	}
+
+	srt.pk = view.PK
 
 	if view.Status == StatusRuntimeSucceeded || view.Status == StatusRuntimeSkipped {
 		// 此处不直接调用的原因是此时不需要降低 workflowruntime 的并发数
@@ -327,7 +329,7 @@ func (srt *StepRuntime) updateJob(forCacheFingerprint bool) error {
 	}
 
 	srt.job.Update(srt.getWorkFlowStep().Command, params, newEnvs, &artifacts)
-	srt.logger.Debugf("step[%s] after resolve template: param[%s], artifacts[%s], command[%s], env[%s]",
+	srt.logger.Infof("step[%s] after resolve template: param[%s], artifacts[%s], command[%s], env[%s]",
 		srt.componentFullName, params, artifacts, srt.getWorkFlowStep().Command, newEnvs)
 	return nil
 }
@@ -657,7 +659,7 @@ func (srt *StepRuntime) Execute() {
 		return
 	}
 
-	srt.logger.Debugf("step[%s] of runid[%s]: jobID[%s]", srt.name, srt.runID, srt.job.(*PaddleFlowJob).ID)
+	srt.logger.Infof("step[%s] of runid[%s]: jobID[%s]", srt.name, srt.runID, srt.job.(*PaddleFlowJob).ID)
 
 	srt.logInputArtifact()
 }
@@ -735,13 +737,10 @@ func (srt *StepRuntime) processEventFromJob(event WorkflowEvent) {
 				srt.logOutputArtifact()
 			}
 		}
-		srt.updateStatus(extra["status"].(RuntimeStatus))
 
-		fmt.Println("before callback", srt.name, srt.pk, srt.baseComponentRuntime.pk)
+		srt.updateStatus(extra["status"].(RuntimeStatus))
 		view := srt.newJobView(event.Message)
 		srt.syncToApiServerAndParent(WfEventJobUpdate, &view, event.Message)
-		fmt.Println("after callback", srt.name, srt.pk, srt.baseComponentRuntime.pk)
-
 	}
 }
 
@@ -774,8 +773,6 @@ func (srt *StepRuntime) newJobView(msg string) schema.JobView {
 		PK:          srt.pk,
 		Seq:         srt.seq,
 	}
-
-	srt.logger.Infof("+++++++++ create jobView for component[%s] with pk[%d], %d", srt.getName(), srt.pk, srt.baseComponentRuntime.pk)
 
 	return view
 }
