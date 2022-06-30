@@ -331,8 +331,9 @@ func (crt *baseComponentRuntime) CalculateCondition() (bool, error) {
 
 func (crt *baseComponentRuntime) syncToApiServerAndParent(wv WfEventValue, view schema.ComponentView, msg string) {
 	extra := map[string]interface{}{
-		common.WfEventKeyRunID:  crt.runID,
-		common.WfEventKeyStatus: crt.status,
+		common.WfEventKeyRunID:         crt.runID,
+		common.WfEventKeyStatus:        crt.status,
+		common.WfEventKeyComponentName: crt.getComponent().GetName(),
 	}
 
 	jobView, ok := view.(*schema.JobView)

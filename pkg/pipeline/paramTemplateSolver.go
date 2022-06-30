@@ -416,6 +416,8 @@ func (ds *DependencySolver) ResolveBeforeRun(componentName string) error {
 			}
 
 			subComponent.GetParameters()[name] = newValue
+			ds.logger.Infof("after dependency solver, the value of parameter[%s] for component[%s] is %v",
+				componentName, name, newValue)
 		}
 	}
 
@@ -429,10 +431,9 @@ func (ds *DependencySolver) ResolveBeforeRun(componentName string) error {
 		}
 
 		subComponent.GetArtifacts().Input[name] = newValue
+		ds.logger.Infof("after dependency solver, the value of parameter[%s] for component[%s] is %v",
+			componentName, name, newValue)
 	}
-
-	ds.logger.Infof("component[%s] after resolve dependece: %v", componentName, subComponent)
-
 	// 输出artifact 无需解析： step 的输出artifact的中不会有模版，dag 的输出artifact 虽然有模版，但是需要在dag 所有的子节点都运行完成后才能解析。
 
 	return nil
