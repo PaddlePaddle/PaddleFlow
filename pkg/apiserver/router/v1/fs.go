@@ -169,12 +169,6 @@ func validateCreateFileSystem(ctx *logger.RequestContext, req *api.CreateFileSys
 		ctx.ErrorCode = common.InvalidFileSystemProperties
 		return err
 	}
-	err = checkFsDir(fileSystemType, req.Url, req.Properties)
-	if err != nil {
-		ctx.Logging().Errorf("check fs dir err[%v] with url[%s]", err, req.Url)
-		ctx.ErrorCode = common.InvalidFileSystemURL
-		return err
-	}
 	if fileSystemType == common.Mock {
 		return nil
 	}
