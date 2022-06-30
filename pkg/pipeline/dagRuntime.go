@@ -225,10 +225,15 @@ func (drt *DagRuntime) createAndStartSubComponentRuntime(subComponentName string
 
 		var subRuntime componentRuntime
 		if isStep {
-			subRuntime = NewStepRuntime(subFullName, step, index, drt.ctx, ctxAndCc.ctx,
+			// 这里需要对 step 进行复制， 避免多个stepRuntime 使用了同一个 component， 导致并发问题
+			newStep := *step
+			newStepPrt := &(newStep)
+			subRuntime = NewStepRuntime(subFullName, newStepPrt, index, drt.ctx, ctxAndCc.ctx,
 				drt.receiveEventChildren, drt.runConfig, drt.ID)
 		} else {
-			subRuntime = NewDagRuntime(subFullName, dag, index, drt.ctx, ctxAndCc.ctx,
+			newDag := *dag
+			newDagPrt := &newDag
+			subRuntime = NewDagRuntime(subFullName, newDagPrt, index, drt.ctx, ctxAndCc.ctx,
 				drt.receiveEventChildren, drt.runConfig, drt.ID)
 		}
 		drt.subComponentRumtimes[subComponentName] = append(drt.subComponentRumtimes[subComponentName], subRuntime)
@@ -527,7 +532,9 @@ func (drt *DagRuntime) creatStepRuntimeAccordingView(view *schema.JobView, name 
 
 	ctxAndcc := drt.getfailureOptionsCtxAndCF(name)
 
-	srt := NewStepRuntime(fullName, drt.getworkflowSouceDag().EntryPoints[name].(*schema.WorkflowSourceStep),
+	step := *drt.getworkflowSouceDag().EntryPoints[name].(*schema.WorkflowSourceStep)
+	stepPtr := &step
+	srt := NewStepRuntime(fullName, stepPtr,
 		view.Seq, drt.ctx, ctxAndcc.ctx, drt.receiveEventChildren, drt.runConfig, drt.ID)
 
 	return srt
@@ -538,7 +545,9 @@ func (drt *DagRuntime) createDagRuntimeAccordingView(view *schema.DagView, name 
 
 	ctxAndcc := drt.getfailureOptionsCtxAndCF(name)
 
-	sDrt := NewDagRuntime(fullName, drt.getworkflowSouceDag().EntryPoints[name].(*schema.WorkflowSourceDag),
+	dag := *drt.getworkflowSouceDag().EntryPoints[name].(*schema.WorkflowSourceDag)
+	dagPtr := &dag
+	sDrt := NewDagRuntime(fullName, dagPtr,
 		view.Seq, drt.ctx, ctxAndcc.ctx, drt.receiveEventChildren, drt.runConfig, drt.ID)
 
 	sDrt.updateStatus(view.GetStatus())
@@ -829,6 +838,9 @@ func (drt *DagRuntime) ProcessFailureOptions(event WorkflowEvent, needSync bool)
 	name, ok := event.Extra[common.WfEventKeyComponentName]
 
 	if !ok {
+		for n, v := range event.Extra {
+			drt.logger.Infof("DEBUG:++++++, workflowEvnet, key: %s \nvalue:%s", n, v)
+		}
 		errMsg := fmt.Sprintf("cannot get the Component info of event[%v] for dagRuntime[%s], begin to cancell all not ready step",
 			drt.runID, event)
 		drt.logger.Errorf(errMsg)
