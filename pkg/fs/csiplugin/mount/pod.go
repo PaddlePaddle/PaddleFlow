@@ -297,28 +297,9 @@ func getErrContainerLog(K8sClient k8s.Client, podName string) (log string, err e
 	return
 }
 
-func buildCacheWorkerContainer(pod *k8sCore.Pod, mountInfo Info) {
-	cmd := getCacheWorkerCmd(mountInfo)
-	pod.Spec.Containers[1].Command = []string{"sh", "-c", cmd}
-	mp := k8sCore.MountPropagationBidirectional
-	volumeMounts := []k8sCore.VolumeMount{
-		{
-			Name:             VolumesKeyDataCache,
-			MountPath:        FusePodCachePath + DataCacheDir,
-			MountPropagation: &mp,
-		},
-		{
-			Name:             VolumesKeyMetaCache,
-			MountPath:        FusePodCachePath + MetaCacheDir,
-			MountPropagation: &mp,
-		},
-	}
-	pod.Spec.Containers[1].VolumeMounts = volumeMounts
-}
-
 func buildMountContainer(pod *k8sCore.Pod, mountInfo Info) {
 	mkdir := "mkdir -p " + FusePodMountPoint + ";"
-	cmd := mkdir + mountInfo.MountCmd + strings.Join(mountInfo.MountArgs, " ")
+	cmd := mkdir + mountInfo.MountCmd + " " + strings.Join(mountInfo.MountArgs, " ")
 	pod.Spec.Containers[0].Command = []string{"sh", "-c", cmd}
 	statCmd := "stat -c %i " + FusePodMountPoint
 	pod.Spec.Containers[0].ReadinessProbe = &k8sCore.Probe{
@@ -390,6 +371,25 @@ func buildMountContainer(pod *k8sCore.Pod, mountInfo Info) {
 	}
 	pod.Spec.Volumes = volumes
 	pod.Spec.Containers[0].VolumeMounts = volumeMounts
+}
+
+func buildCacheWorkerContainer(pod *k8sCore.Pod, mountInfo Info) {
+	cmd := getCacheWorkerCmd(mountInfo)
+	pod.Spec.Containers[1].Command = []string{"sh", "-c", cmd}
+	mp := k8sCore.MountPropagationBidirectional
+	volumeMounts := []k8sCore.VolumeMount{
+		{
+			Name:             VolumesKeyDataCache,
+			MountPath:        FusePodCachePath + DataCacheDir,
+			MountPropagation: &mp,
+		},
+		{
+			Name:             VolumesKeyMetaCache,
+			MountPath:        FusePodCachePath + MetaCacheDir,
+			MountPropagation: &mp,
+		},
+	}
+	pod.Spec.Containers[1].VolumeMounts = volumeMounts
 }
 
 func getCacheWorkerCmd(mountInfo Info) string {
