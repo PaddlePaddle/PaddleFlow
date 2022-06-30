@@ -335,7 +335,7 @@ func ParseJsonGlobalEnv(jsonAttrMap map[string]interface{}) (map[string]string, 
 				}
 			}
 		default:
-			return nil, fmt.Errorf("[%s] can not be handled in CreatRunJson")
+			return nil, fmt.Errorf("[%s] can not be handled in CreatRunJson", key)
 		}
 	}
 	return resMap, nil
