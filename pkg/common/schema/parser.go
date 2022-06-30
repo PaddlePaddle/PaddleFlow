@@ -507,6 +507,16 @@ func (p *Parser) TransJsonMap2Yaml(jsonMap map[string]interface{}) error {
 			if err := p.transJsonSubMap2Yaml(value, "component"); err != nil {
 				return err
 			}
+		case "cache":
+			cacheMap, ok := value.(map[string]interface{})
+			if !ok {
+				return fmt.Errorf("[cache] should be map type")
+			}
+			cacheMap["max_expired_time"] = cacheMap["maxExpiredTime"]
+			delete(cacheMap, "maxExpiredTime")
+
+			cacheMap["fs_scope"] = cacheMap["fsScope"]
+			delete(cacheMap, "fsScope")
 		}
 	}
 	return nil
@@ -515,7 +525,7 @@ func (p *Parser) TransJsonMap2Yaml(jsonMap map[string]interface{}) error {
 func (p *Parser) transJsonSubMap2Yaml(value interface{}, filedType string) error {
 	compsMap, ok := value.(map[string]interface{})
 	if !ok {
-		return fmt.Errorf("value of [%s] should be map type", filedType)
+		return fmt.Errorf("[%s] should be map type", filedType)
 	}
 	for _, comp := range compsMap {
 		compMap, ok := comp.(map[string]interface{})
