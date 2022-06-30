@@ -57,6 +57,7 @@ type DagRuntime struct {
 	processSubComponentLock sync.Mutex
 
 	failureOptionsCtxAndCancels map[string]CtxAndCancel
+	hasFailureOptionsTriggered  bool
 }
 
 func generateDagID(runID string) string {
@@ -822,6 +823,11 @@ func (drt *DagRuntime) ProcessFailureOptionsWithContinue(component schema.Compon
 func (drt *DagRuntime) ProcessFailureOptionsWithFailFast() {
 	defer drt.processSubComponentLock.Unlock()
 	drt.processSubComponentLock.Lock()
+	if drt.hasFailureOptionsTriggered {
+		return
+	}
+
+	drt.hasFailureOptionsTriggered = true
 
 	for name, _ := range drt.getworkflowSouceDag().EntryPoints {
 		_, ok := drt.subComponentRumtimes[name]
@@ -834,9 +840,14 @@ func (drt *DagRuntime) ProcessFailureOptionsWithFailFast() {
 }
 
 func (drt *DagRuntime) ProcessFailureOptions(event WorkflowEvent, needSync bool) {
+	if drt.hasFailureOptionsTriggered {
+		return
+	}
+
+	drt.hasFailureOptionsTriggered = true
+
 	drt.logger.Infof("begin to process failure options. trigger event is: %v", event)
 	name, ok := event.Extra[common.WfEventKeyComponentName]
-
 	if !ok {
 		for n, v := range event.Extra {
 			drt.logger.Infof("DEBUG:++++++, workflowEvnet, key: %s \nvalue:%s", n, v)
