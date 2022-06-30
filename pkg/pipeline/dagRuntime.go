@@ -160,18 +160,18 @@ func (drt *DagRuntime) getReadyComponent() map[string]schema.Component {
 }
 
 // resolveReference: 主要用于解析 reference 字段
-func (drt *DagRuntime) resolveReference(subComponentName string, subComponent schema.Component) error {
+func (drt *DagRuntime) resolveReference(subComponentName string, subComponent schema.Component) (schema.Component, error) {
 	subFullName := drt.generateSubComponentFullName(subComponentName)
+	drt.logger.Debugf("begin to resolve reference for subcomponent[%s", subFullName)
 
 	newComponent, err := drt.referenceSolver.resolveComponentReference(subComponent)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	drt.logger.Infof("after resolve reference, component[%s] is:\n %v", subFullName, newComponent)
 	drt.component.(*schema.WorkflowSourceDag).EntryPoints[subComponentName] = newComponent
 
-	return nil
+	return newComponent, nil
 }
 
 // createAndStartSubComponentRuntime: 创建并运行子节点 runtime
@@ -179,7 +179,7 @@ func (drt *DagRuntime) resolveReference(subComponentName string, subComponent sc
 func (drt *DagRuntime) createAndStartSubComponentRuntime(subComponentName string, subComponent schema.Component,
 	exceptSeq map[int]int) {
 	subFullName := drt.generateSubComponentFullName(subComponentName)
-	drt.logger.Infof("begin to create runtime for component[%s]:\n%v", subFullName, subComponent)
+	drt.logger.Infof("begin to create runtime for component[%s]: %v", subFullName)
 
 	// 如果已经有子节点对应的 runtime, 则说明该节点已经被调度过了
 	// PS: 理论上不会出现在这种情况，用于兜底
@@ -252,7 +252,7 @@ func (drt *DagRuntime) getworkflowSouceDag() *schema.WorkflowSourceDag {
 // 开始执行 runtime
 // 不返回error，直接通过 event 向上冒泡
 func (drt *DagRuntime) Start() {
-	drt.logger.Infof("begin to run dagp[%s]", drt.name)
+	drt.logger.Infof("begin to run dag[%s]", drt.name)
 
 	drt.updateStatus(StatusRuntimeRunning)
 	drt.startTime = time.Now().Format("2006-01-02 15:04:05")
@@ -302,7 +302,8 @@ func (drt *DagRuntime) scheduleSubComponent(mustSchedule bool) {
 
 	// 如果 mustSchedule 为True, 说明此时必须要调度某些子节点运行，否则便是有bug， 此时，直接终止本次运行
 	if len(readyComponent) == 0 && mustSchedule {
-		err := fmt.Errorf("cannot find any ready subComponent for Component[%s] while mustSchedule is True", drt.componentFullName)
+		err := fmt.Errorf("cannot find any ready subComponent for Component[%s] while mustSchedule is True",
+			drt.componentFullName)
 		drt.logger.Errorln(err.Error())
 
 		drt.ctx.Done()
@@ -328,7 +329,7 @@ func (drt *DagRuntime) scheduleSubComponent(mustSchedule bool) {
 		}
 
 		// 2. Component 替换： 主要是处理 reference 字段
-		err := drt.resolveReference(subComponentName, subComponent)
+		newSubCp, err := drt.resolveReference(subComponentName, subComponent)
 		if err != nil {
 			drt.logger.Errorln(err.Error())
 
@@ -341,12 +342,12 @@ func (drt *DagRuntime) scheduleSubComponent(mustSchedule bool) {
 		err = drt.DependencySolver.ResolveBeforeRun(subComponentName)
 		if err != nil {
 			drt.logger.Errorln(err.Error())
-			drt.processSubRuntimeError(err, subComponent, StatusRuntimeFailed)
+			drt.processSubRuntimeError(err, newSubCp, StatusRuntimeFailed)
 			continue
 		}
 
 		// 4. 创建 runtime 并运行 runtime
-		drt.createAndStartSubComponentRuntime(subComponentName, subComponent, map[int]int{})
+		drt.createAndStartSubComponentRuntime(subComponentName, newSubCp, map[int]int{})
 	}
 }
 
@@ -472,12 +473,14 @@ func (drt *DagRuntime) needRestart(dagView *schema.DagView) (bool, error) {
 
 		component := drt.getworkflowSouceDag().EntryPoints[name]
 		// 替换 reference 字段
-		err := drt.resolveReference(name, component)
+		newCp, err := drt.resolveReference(name, component)
 		if err != nil {
 			drt.logger.Errorln(err.Error())
 			drt.processSubRuntimeError(err, component, StatusRuntimeFailed)
 			return false, err
 		}
+
+		component = newCp
 
 		// 替换 parameter 与 artifact 中的模板
 		err = drt.DependencySolver.ResolveBeforeRun(name)

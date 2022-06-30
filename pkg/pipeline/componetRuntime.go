@@ -284,6 +284,8 @@ func (crt *baseComponentRuntime) getPFLoopArgument() (value interface{}, err err
 	}()
 
 	value = v.Index(crt.seq).Interface()
+
+	crt.logger.Infof("the PF_LOOP_ARG of component is : %v", value)
 	return
 }
 
@@ -310,7 +312,7 @@ func (crt *baseComponentRuntime) setSysParams() error {
 
 	crt.innerSolver.setSysParams(crt.sysParams)
 
-	crt.logger.Debugf("the sysParams for component[%s] is %v",
+	crt.logger.Infof("the sysParams for component[%s] is %v",
 		crt.name, crt.sysParams)
 
 	return nil
