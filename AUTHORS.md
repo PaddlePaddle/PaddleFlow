@@ -9,6 +9,7 @@
 | D0m021ng         | Zezhao Dong       |
 | ElsieFan         | Jiangxun Fan      |
 | HaozhengAN       | Haozheng An       |
+| kiritoxkiriko    | Xinmeng Wang      |
 | loleek           | Kai Deng          |
 | luoyuedong       | YueDong Luo       |
 | mikemoto         | Xianyuan Mo       |
@@ -17,4 +18,3 @@
 | stonekim         | Kuan Shi          |
 | tornado404       | Zichao Zhong      |
 | xiangyuelin      | xiangyuelin       |
-| kiritoxkiriko    | Xinmeng Wang      |
