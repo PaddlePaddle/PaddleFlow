@@ -397,14 +397,10 @@ func (ds *DependencySolver) resolveArtifactTemplate(tplString, componentName str
 	return value, nil
 }
 
-func (ds *DependencySolver) ResolveBeforeRun(componentName string) error {
+func (ds *DependencySolver) ResolveBeforeRun(subComponent schema.Component) error {
+	//
 	// 1. 解析 parameter 模版
-	subComponent, ok := ds.getworkflowSouceDag().GetSubComponet(componentName)
-	if !ok {
-		err := fmt.Errorf("Dag Component[%s] has no subcomponent named [%s]", ds.componentFullName, componentName)
-		return err
-	}
-
+	componentName := subComponent.GetName()
 	for name, value := range subComponent.GetParameters() {
 		valueString, ok := value.(string)
 		if !ok {

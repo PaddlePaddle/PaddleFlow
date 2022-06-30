@@ -308,7 +308,7 @@ func TestResolveBeforeRun(t *testing.T) {
 	ds := NewDependencySolver(dr)
 
 	// step1: 主要测试父子间传递
-	err := ds.ResolveBeforeRun("step1")
+	err := ds.ResolveBeforeRun(dr.getworkflowSouceDag().EntryPoints["step1"])
 	assert.Nil(t, err)
 
 	params := dr.getworkflowSouceDag().EntryPoints["step1"].GetParameters()
@@ -325,7 +325,7 @@ func TestResolveBeforeRun(t *testing.T) {
 	dr.subComponentRumtimes["step1"] = []componentRuntime{}
 	dr.subComponentRumtimes["step1"] = append(dr.subComponentRumtimes["step1"], stepRuntime1)
 
-	err = ds.ResolveBeforeRun("step2")
+	err = ds.ResolveBeforeRun(dr.getworkflowSouceDag().EntryPoints["step2"])
 	assert.Nil(t, err)
 
 	params = dr.getworkflowSouceDag().EntryPoints["step2"].GetParameters()
@@ -338,11 +338,11 @@ func TestResolveBeforeRun(t *testing.T) {
 	assert.Equal(t, "./s1o1.txt", inputs["s2i2"])
 
 	// 测试异常情况
-	err = ds.ResolveBeforeRun("step3")
+	err = ds.ResolveBeforeRun(dr.getworkflowSouceDag().EntryPoints["step3"])
 	assert.NotNil(t, err)
 
 	dr.getworkflowSouceDag().EntryPoints["step2"].GetArtifacts().Input["s203"] = "{{PF_PARENT.do2}}"
-	err = ds.ResolveBeforeRun("step3")
+	err = ds.ResolveBeforeRun(dr.getworkflowSouceDag().EntryPoints["step3"])
 	assert.NotNil(t, err)
 }
 
@@ -351,7 +351,7 @@ func TestResolveAfterDone(t *testing.T) {
 	dr.sysParams = map[string]string{"PF_LOOP_ARGUMENT": "10", "PF_RUN_ID": "run-001"}
 	ds := NewDependencySolver(dr)
 
-	err := ds.ResolveBeforeRun("step1")
+	err := ds.ResolveBeforeRun(dr.getworkflowSouceDag().EntryPoints["step1"])
 	assert.Nil(t, err)
 
 	stepRuntime1 := mockStepRuntime(dr.getworkflowSouceDag().EntryPoints["step1"].(*schema.WorkflowSourceStep))
@@ -359,7 +359,7 @@ func TestResolveAfterDone(t *testing.T) {
 	dr.subComponentRumtimes["step1"] = append(dr.subComponentRumtimes["step1"], stepRuntime1)
 	dr.subComponentRumtimes["step1"] = append(dr.subComponentRumtimes["step1"], stepRuntime1)
 
-	err = ds.ResolveBeforeRun("step2")
+	err = ds.ResolveBeforeRun(dr.getworkflowSouceDag().EntryPoints["step2"])
 	assert.Nil(t, err)
 
 	stepRuntime2 := mockStepRuntime(dr.getworkflowSouceDag().EntryPoints["step2"].(*schema.WorkflowSourceStep))

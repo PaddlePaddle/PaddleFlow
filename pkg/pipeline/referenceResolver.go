@@ -51,7 +51,8 @@ func (rr *referenceSolver) resolveComponentReference(component schema.Component)
 
 	// 被引用节点名
 	referencedComponentName := step.Reference.Component
-	referencedComponent := rr.WorkflowSource.Components[referencedComponentName]
+
+	referencedComponent := rr.WorkflowSource.Components[referencedComponentName].DeepCopy()
 	referencedComponent.UpdateName(component.GetName())
 
 	// 递归的解析 reference 字段
@@ -75,8 +76,4 @@ func (rr *referenceSolver) resolveComponentReference(component schema.Component)
 	referencedComponent.UpdateDeps(step.Deps)
 
 	return referencedComponent, nil
-}
-
-func (rr *referenceSolver) ResolveComponentReference(component schema.Component) (schema.Component, error) {
-	return rr.resolveComponentReference(component)
 }

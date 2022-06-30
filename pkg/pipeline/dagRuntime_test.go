@@ -250,6 +250,7 @@ func TestDagRuntimeStart(t *testing.T) {
 
 	assert.True(t, drt.isSkipped())
 	assert.True(t, strings.Contains(ep.Message, "disabled"))
+
 }
 
 func TestScheduleSubComponent(t *testing.T) {

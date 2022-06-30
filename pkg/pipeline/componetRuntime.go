@@ -48,6 +48,13 @@ type parallelismManager struct {
 }
 
 func NewParallelismManager(parallelism int) *parallelismManager {
+	// 用于兜底
+	if parallelism <= 0 {
+		parallelism = WfParallelismDefault
+	} else if parallelism > WfParallelismMaximum {
+		parallelism = WfParallelismMaximum
+	}
+
 	return &parallelismManager{
 		ch: make(chan struct{}, parallelism),
 	}
@@ -286,7 +293,7 @@ func (crt *baseComponentRuntime) getPFLoopArgument() (value interface{}, err err
 	value = v.Index(crt.seq).Interface()
 
 	crt.logger.Infof("++++++++ seq[%d], loop_args : %v", crt.seq, v)
-	crt.logger.Infof("the PF_LOOP_ARG of component is : %v", value)
+	crt.logger.Infof("the PF_LOOP_ARG of component[%s] is : %v", crt.name, value)
 	return
 }
 
