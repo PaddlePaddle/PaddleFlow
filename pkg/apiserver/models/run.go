@@ -231,14 +231,16 @@ func (r *Run) initRuntime(jobs []RunJob, dags []RunDag) error {
 	}
 
 	// 此时已拿到RuntimeView树，但是信息不全，需要用wfs补全
-	ProcessRuntimeView(resView, r.WorkflowSource.EntryPoints.EntryPoints)
+	if err := ProcessRuntimeView(resView, r.WorkflowSource.EntryPoints.EntryPoints); err != nil {
+		return nil
+	}
 
 	r.Runtime = resView
 	return nil
 }
 
 // 补全ComponentView中的Deps
-func ProcessRuntimeView(componentViews map[string][]schema.ComponentView, components map[string]schema.Component) {
+func ProcessRuntimeView(componentViews map[string][]schema.ComponentView, components map[string]schema.Component) error {
 	for compName, comp := range components {
 		compViewList := componentViews[compName]
 		deps := strings.Join(comp.GetDeps(), ",")
@@ -246,11 +248,17 @@ func ProcessRuntimeView(componentViews map[string][]schema.ComponentView, compon
 			// 信息补全
 			compView.SetDeps(deps)
 			if dagView, ok := compView.(*schema.DagView); ok {
-				dag := comp.(*schema.WorkflowSourceDag)
-				ProcessRuntimeView(dagView.EntryPoints, dag.EntryPoints)
+				dag, ok := comp.(*schema.WorkflowSourceDag)
+				if !ok {
+					return fmt.Errorf("runtimeView's sturcture is not suitable to WorkflowSource")
+				}
+				if err := ProcessRuntimeView(dagView.EntryPoints, dag.EntryPoints); err != nil {
+					return err
+				}
 			}
 		}
 	}
+	return nil
 }
 
 func CreateRun(logEntry *log.Entry, run *Run) (string, error) {

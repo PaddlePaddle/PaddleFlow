@@ -430,8 +430,31 @@ func getSourceAndYaml(wfs schema.WorkflowSource) (string, string, error) {
 		logger.Logger().Errorf("marshal workFlowSource to yaml faild. err: %v", err)
 		return "", "", err
 	}
-	runYaml := string(yamlByte)
-	source := common.GetMD5Hash(yamlByte)
+	// 由于wfs中的EntryPoints字段的类型为WorkflowSourceDag，而非map，因此直接marshal得到的yaml格式有误，不可用
+	// 需要将yaml转成map，进行处理后再转回yaml
+	yamlMap, err := schema.RunYaml2Map(yamlByte)
+	if err != nil {
+		return "", "", err
+	}
+
+	// 提取 entry_points
+	entryPointsMap, ok, err := unstructured.NestedFieldNoCopy(yamlMap, "entry_points", "entry_points")
+	if err != nil {
+		return "", "", fmt.Errorf("get entry_points map from yamlMap failed, error: %s", err.Error())
+	}
+	if !ok {
+		logger.Logger().Warnf("runYaml Map doesn't have entry_points")
+	}
+	if err := unstructured.SetNestedField(yamlMap, entryPointsMap, "entry_points"); err != nil {
+		return "", "", err
+	}
+	resYamlByte, err := yaml.Marshal(yamlMap)
+	if err != nil {
+		return "", "", err
+	}
+
+	runYaml := string(resYamlByte)
+	source := common.GetMD5Hash(resYamlByte)
 	return source, runYaml, nil
 }
 

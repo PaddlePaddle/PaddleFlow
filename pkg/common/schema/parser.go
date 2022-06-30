@@ -170,7 +170,7 @@ func (p *Parser) ParseStep(params map[string]interface{}, step *WorkflowSourceSt
 			fallthrough
 		case "loop_argument":
 			step.LoopArgument = value
-		case "conditon":
+		case "condition":
 			value, ok := value.(string)
 			if !ok {
 				return fmt.Errorf("[condition] in step should be string type")
