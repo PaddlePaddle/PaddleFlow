@@ -85,7 +85,7 @@ type Component interface {
 }
 
 type WorkflowSourceStep struct {
-	Name         string
+	Name         string                 `yaml:"-"`
 	LoopArgument interface{}            `yaml:"loop_argument"`
 	Condition    string                 `yaml:"condition"`
 	Parameters   map[string]interface{} `yaml:"parameters"`
@@ -213,7 +213,7 @@ func (s *WorkflowSourceStep) GetOutputArtifactPath(artName string) (string, erro
 }
 
 type WorkflowSourceDag struct {
-	Name         string
+	Name         string                 `yaml:"-"`
 	LoopArgument interface{}            `yaml:"loop_argument"`
 	Condition    string                 `yaml:"condition"`
 	Parameters   map[string]interface{} `yaml:"parameters"`
