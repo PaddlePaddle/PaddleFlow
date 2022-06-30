@@ -18,9 +18,7 @@ package config
 
 import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/trace_logger"
-	apiv1 "k8s.io/api/core/v1"
+  "github.com/PaddlePaddle/PaddleFlow/pkg/common/trace_logger"
 )
 
 var (
@@ -39,16 +37,13 @@ var (
 )
 
 type ServerConfig struct {
-	Storage       StorageConfig                  `yaml:"database"`
-	Log           logger.LogConfig               `yaml:"log"`
-	TraceLog      trace_logger.TraceLoggerConfig `yaml:"traceLog"`
-	ApiServer     ApiServerConfig                `yaml:"apiServer"`
-	Job           JobConfig                      `yaml:"job"`
-	Fs            FsServerConf                   `yaml:"fs"`
-	NamespaceList []string                       `yaml:"namespaceList"`
-	Flavour       []schema.Flavour               `yaml:"flavour"`
-	FlavourMap    map[string]schema.Flavour      `yaml:"-"`
-	ImageConf     ImageConfig                    `yaml:"imageRepository"`
+	Storage   StorageConfig    `yaml:"database"`
+	Log       logger.LogConfig `yaml:"log"`
+  TraceLog      trace_logger.TraceLoggerConfig `yaml:"traceLog"`
+	ApiServer ApiServerConfig  `yaml:"apiServer"`
+	Job       JobConfig        `yaml:"job"`
+	Fs        FsServerConf     `yaml:"fs"`
+	ImageConf ImageConfig      `yaml:"imageRepository"`
 }
 
 type StorageConfig struct {
@@ -73,9 +68,8 @@ type ApiServerConfig struct {
 }
 
 type JobConfig struct {
-	Reclaim             ReclaimConfig `yaml:"reclaim"`
-	SchedulerName       string        `yaml:"schedulerName"`
-	ScalarResourceArray []string      `yaml:"scalarResourceArray"`
+	Reclaim       ReclaimConfig `yaml:"reclaim"`
+	SchedulerName string        `yaml:"schedulerName"`
 	// period second for job manager
 	ClusterSyncPeriod int `yaml:"clusterSyncPeriod"`
 	QueueExpireTime   int `yaml:"queueExpireTime"`

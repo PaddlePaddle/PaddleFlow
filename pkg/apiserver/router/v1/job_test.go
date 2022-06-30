@@ -23,7 +23,6 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/job"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
@@ -70,32 +69,6 @@ func TestCreateJob(t *testing.T) {
 	initQueue(t, mockUserName)
 
 	flavourName := initFlavour(t)
-	config.GlobalServerConfig.FlavourMap = map[string]schema.Flavour{
-		flavourName: {
-			Name: flavourName,
-			ResourceInfo: schema.ResourceInfo{
-				CPU: "1",
-				Mem: "100M",
-			},
-		},
-		"cpu": {
-			Name: "cpu",
-			ResourceInfo: schema.ResourceInfo{
-				CPU: "1",
-				Mem: "100M",
-			},
-		},
-		"gpu": {
-			Name: "gpu",
-			ResourceInfo: schema.ResourceInfo{
-				CPU: "1",
-				Mem: "100M",
-				ScalarResources: schema.ScalarResourcesType{
-					"nvidia.com/gpu": "500M",
-				},
-			},
-		},
-	}
 	ctx := &logger.RequestContext{UserName: "testusername"}
 	tests := []struct {
 		name         string

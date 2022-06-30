@@ -282,11 +282,7 @@ func TestKubeRuntimeNodeResource(t *testing.T) {
 	}
 
 	config.GlobalServerConfig = &config.ServerConfig{
-		Job: config.JobConfig{
-			ScalarResourceArray: []string{
-				"",
-			},
-		},
+		Job: config.JobConfig{},
 	}
 	namespace := "default"
 	nodeName := "node1"

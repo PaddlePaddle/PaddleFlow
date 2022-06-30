@@ -20,7 +20,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
 
@@ -45,12 +44,6 @@ func CalcPodResources(pod *v1.Pod) *schema.ResourceInfo {
 // NewResourceInfo create a new resource object from resource list
 func NewResourceInfo(rl v1.ResourceList) *schema.ResourceInfo {
 	r := schema.EmptyResourceInfo()
-	scalarResourceArray := config.GlobalServerConfig.Job.ScalarResourceArray
-
-	scalarResourceMap := make(map[string]bool)
-	for _, resourceName := range scalarResourceArray {
-		scalarResourceMap[resourceName] = true
-	}
 
 	for rName, rQuant := range rl {
 		switch rName {
@@ -59,8 +52,7 @@ func NewResourceInfo(rl v1.ResourceList) *schema.ResourceInfo {
 		case v1.ResourceMemory:
 			r.Mem = rQuant.String()
 		default:
-			_, found := scalarResourceMap[string(rName)]
-			if IsScalarResourceName(rName) && found {
+			if IsScalarResourceName(rName) {
 				r.SetScalar(schema.ResourceName(rName), rQuant.String())
 			}
 		}
@@ -71,12 +63,6 @@ func NewResourceInfo(rl v1.ResourceList) *schema.ResourceInfo {
 // NewResource create a new resource object from resource list
 func NewResource(rl v1.ResourceList) *schema.Resource {
 	r := schema.EmptyResource()
-	scalarResourceArray := config.GlobalServerConfig.Job.ScalarResourceArray
-
-	scalarResourceMap := make(map[string]bool)
-	for _, resourceName := range scalarResourceArray {
-		scalarResourceMap[resourceName] = true
-	}
 
 	for rName, rQuant := range rl {
 		switch rName {
@@ -88,8 +74,7 @@ func NewResource(rl v1.ResourceList) *schema.Resource {
 			r.Storage += float64(rQuant.Value())
 		default:
 			// NOTE: When converting this back to k8s resource, we need record the format as well as / 1000
-			_, found := scalarResourceMap[string(rName)]
-			if IsScalarResourceName(rName) && found {
+			if IsScalarResourceName(rName) {
 				r.AddScalar(schema.ResourceName(rName), float64(rQuant.Value()))
 			}
 		}
