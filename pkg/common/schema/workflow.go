@@ -644,7 +644,6 @@ func getComponentRecursively(components map[string]Component, names []string) (C
 			}
 		}
 	}
-	return nil, nil
 }
 
 func (wfs *WorkflowSource) TransToRunYamlRaw() (runYamlRaw string, err error) {

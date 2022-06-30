@@ -223,18 +223,6 @@ func (bwf *BaseWorkflow) checkLoopArgument(component schema.Component) error {
 	return nil
 }
 
-func (bwf *BaseWorkflow) getComponents() (map[string]*schema.WorkflowSourceDag, map[string]*schema.WorkflowSourceStep) {
-	/*
-		根据传入的entry，获取此次run需要运行的step集合
-		注意：此处返回的map中，每个schema.WorkflowSourceStep元素都是以指针形式返回（与BaseWorkflow中Source参数中的step指向相同的类对象），后续对与元素内容的修改，会直接同步到BaseWorkflow中Source参数
-	*/
-
-	runtimeSteps := map[string]*schema.WorkflowSourceStep{}
-	runtimeDags := map[string]*schema.WorkflowSourceDag{}
-	bwf.recursiveGetComponents(bwf.Source.EntryPoints.EntryPoints, "", runtimeDags, runtimeSteps)
-	return runtimeDags, runtimeSteps
-}
-
 func (bwf *BaseWorkflow) recursiveGetComponents(components map[string]schema.Component, prefix string, dags map[string]*schema.WorkflowSourceDag, steps map[string]*schema.WorkflowSourceStep) {
 	for name, component := range components {
 		var absoluteName string
@@ -904,7 +892,8 @@ func (bwf *BaseWorkflow) checkDisabled() ([]string, error) {
 		tempMap[disFullName] = 1
 		components1, name1, ok1 := bwf.Source.GetComponent(bwf.Source.EntryPoints.EntryPoints, disFullName)
 		components2, name2, ok2 := bwf.Source.GetComponent(postComponents, disFullName)
-		components, disName := map[string]schema.Component{}, ""
+		components := map[string]schema.Component{}
+		disName := ""
 		if ok1 {
 			components, disName = components1, name1
 		} else if ok2 {
@@ -954,7 +943,8 @@ func (bwf *BaseWorkflow) checkDisabled() ([]string, error) {
 				disParentFullName := strings.Join(disNameList[:len(disNameList)-1], ".")
 				components1, name1, ok1 := bwf.Source.GetComponent(bwf.Source.EntryPoints.EntryPoints, disParentFullName)
 				components2, name2, ok2 := bwf.Source.GetComponent(postComponents, disParentFullName)
-				parentComponents, parentName := map[string]schema.Component{}, ""
+				parentComponents := map[string]schema.Component{}
+				parentName := ""
 				if ok1 {
 					parentComponents, parentName = components1, name1
 				} else if ok2 {
