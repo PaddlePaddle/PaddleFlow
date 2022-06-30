@@ -169,10 +169,6 @@ data:
         k8sServiceName: "10.156.28.13"
         K8sServicePort: 8999
 
-      namespaceList:
-        - "default"
-        - "paddleflow"
-
       job:
         reclaim:
           isCleanJob: true
@@ -182,8 +178,6 @@ data:
         schedulerName: volcano
         clusterSyncPeriod: 30
         jobLoopPeriod: 5
-        scalarResourceArray:
-          - "nvidia.com/gpu"
         defaultJobYamlDir: "./config/server/default/job"
         isSingleCluster: true
 
@@ -196,24 +190,6 @@ data:
         password: ""
         concurrency: 10
         removeLocalImage: true
-
-      flavour:
-        - name: cpu1
-          cpu: 1
-          mem: 1Gi
-        - name: cpu2
-          cpu: 2
-          mem: 2G
-        - name: mem8gpu1
-          cpu: 4
-          mem: 8Gi
-          scalarResources:
-            "nvidia.com/gpu": "1"
-        - name: mem8gpu8
-          cpu: 1
-          mem: 8Gi
-          scalarResources:
-            "nvidia.com/gpu": "8"
   single.yaml: |-
     apiVersion: v1
     kind: Pod

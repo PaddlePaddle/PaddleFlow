@@ -17,6 +17,7 @@ limitations under the License.
 package csidriver
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
@@ -124,7 +125,11 @@ func mountVolume(volumeID string, mountInfo mount.Info, readOnly bool) error {
 		log.Errorf("MountThroughPod err: %v", err)
 		return err
 	}
-	return bindMountVolume(schema.GetBindSource(mountInfo.FsID), mountInfo.TargetPath, readOnly)
+	if err := bindMountVolume(schema.GetBindSource(mountInfo.FsID), mountInfo.TargetPath, readOnly); err != nil {
+		log.Errorf("mountVolume[%s] of fs[%s] failed when bindMountVolume, err: %v", volumeID, mountInfo.FsID, err)
+		return err
+	}
+	return nil
 }
 
 func bindMountVolume(sourcePath, mountPath string, readOnly bool) error {
@@ -133,7 +138,48 @@ func bindMountVolume(sourcePath, mountPath string, readOnly bool) error {
 		log.Errorf("mkdir volume bindMountPath[%s] failed: %v", mountPath, err)
 		return err
 	}
-	if ok, _ := mountUtil.IsMountPoint(mountPath); !ok {
+	// check bind source
+	isMountPoint, err := mountUtil.IsMountPoint(sourcePath)
+	if err != nil {
+		log.Errorf("bind source %s has err :%v. unmounting ...", sourcePath, err)
+		err := mountUtil.ManualUnmount(sourcePath)
+		if err != nil {
+			log.Errorf("unmount mountPoint[%s] failed: %v", sourcePath, err)
+			return err
+		}
+		log.Infof("bind source %s unmounted", sourcePath)
+		// check again
+		isMountPoint, err = mountUtil.IsMountPoint(sourcePath)
+		if err != nil {
+			err := fmt.Errorf("unmount bind source %s failed: %v", sourcePath, err)
+			log.Errorf(err.Error())
+			return err
+		}
+	}
+	if !isMountPoint {
+		err := fmt.Errorf("bindMountVolume failed as sourcePath %s is not a valid mountpoint. Please check fuse pod", sourcePath)
+		log.Errorf(err.Error())
+		return err
+	}
+	// check bind target
+	isMountPoint, err = mountUtil.IsMountPoint(mountPath)
+	if err != nil {
+		log.Errorf("bind target %s has err :%v. unmounting ...", mountPath, err)
+		err := mountUtil.ManualUnmount(mountPath)
+		if err != nil {
+			log.Errorf("unmount mountPoint[%s] failed: %v", mountPath, err)
+			return err
+		}
+		// check again
+		isMountPoint, err = mountUtil.IsMountPoint(mountPath)
+		if err != nil {
+			err := fmt.Errorf("unmount bind target %s failed: %v", mountPath, err)
+			log.Errorf(err.Error())
+			return err
+		}
+		log.Infof("bind target %s unmounted", mountPath)
+	}
+	if !isMountPoint {
 		output, err := mountUtil.ExecMountBind(sourcePath, mountPath, readOnly)
 		if err != nil {
 			log.Errorf("exec mount bind failed: %v, output[%s]", err, string(output))
