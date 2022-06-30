@@ -95,7 +95,6 @@ func UpdateRuntimeByWfEvent(id string, event interface{}) (int64, bool) {
 		logging.Errorf("event type invalid in cb")
 		return 0, false
 	}
-	return 0, false
 }
 
 func UpdateRunByWfEvent(id string, event interface{}) (int64, bool) {
