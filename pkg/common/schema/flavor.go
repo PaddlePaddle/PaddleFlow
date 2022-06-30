@@ -178,6 +178,10 @@ func (q *quantities) sub(q2 *quantities) (*quantities, error) {
 }
 
 func isValidScalarResource(r string, scalarResourcesType []string) bool {
+	// TODO: get scalarResourcesType from cluster
+	if len(scalarResourcesType) == 0 {
+		return true
+	}
 	for _, sr := range scalarResourcesType {
 		if strings.EqualFold(r, sr) {
 			return true
