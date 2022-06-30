@@ -823,14 +823,14 @@ func (drt *DagRuntime) ProcessFailureOptionsWithFailFast() {
 	defer drt.processSubComponentLock.Unlock()
 	drt.processSubComponentLock.Lock()
 
-	for name, component := range drt.getworkflowSouceDag().EntryPoints {
+	for name, _ := range drt.getworkflowSouceDag().EntryPoints {
 		_, ok := drt.subComponentRumtimes[name]
 		if ok {
 			drt.getfailureOptionsCtxAndCF(name).cancel()
 		}
-
-		drt.CancellNotReadyComponent(component, "receive failure options signal")
 	}
+
+	drt.cancellAllNotReadySubComponent("receive failure options signal")
 }
 
 func (drt *DagRuntime) ProcessFailureOptions(event WorkflowEvent, needSync bool) {
@@ -995,6 +995,7 @@ func (drt *DagRuntime) updateStatusAccordingSubComponentRuntimeStatus() string {
 			drt.componentFullName, StatusRuntimeFailed, strings.Join(terminatedComponentNames, ","))
 	} else {
 		// 回填本节点的输出artifact
+		msg = fmt.Sprintf("all subDag or subStep run succeeded: %s", strings.Join(succeededComponentNames, ","))
 		drt.ResolveAfterDone()
 		drt.updateStatus(StatusRuntimeSucceeded)
 	}
