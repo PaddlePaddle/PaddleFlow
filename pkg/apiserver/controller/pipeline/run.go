@@ -229,144 +229,109 @@ func buildWorkflowSource(userName string, req CreateRunRequest, fsID string) (sc
 
 // Used for API CreateRunJson, get wfs by json request.
 func getWorkFlowSourceByJson(request *CreateRunByJsonRequest, bodyMap map[string]interface{}) (schema.WorkflowSource, error) {
-	if request.Env == nil {
-		request.Env = map[string]string{}
+	// Json接口有，但Yaml接口没有的字段
+	JsonAttrMap := map[string]interface{}{
+		"flavour": nil,
+		"jobType": nil,
+		"queue":   nil,
+		"env":     nil,
 	}
 
-	// 将全局的JobType、Queue、Flavour写入全局环境变量中
-	if _, ok := request.Env[schema.EnvJobType]; !ok {
-		request.Env[schema.EnvJobType] = request.JobType
-	}
-	if _, ok := request.Env[schema.EnvJobQueueName]; !ok {
-		request.Env[schema.EnvJobQueueName] = request.Queue
-	}
-	if _, ok := request.Env[schema.EnvJobFlavour]; !ok {
-		request.Env[schema.EnvJobFlavour] = request.Flavour
+	// 先把Json接口有，但是Yaml接口没有的参数提取出来保存
+	for key := range JsonAttrMap {
+		JsonAttrMap[key] = bodyMap[key]
+		delete(bodyMap, key)
 	}
 
-	parser := schema.Parser{}
-
-	// 处理components，非必须
-	components, ok, err := unstructured.NestedFieldCopy(bodyMap, "components")
+	// 获取yaml版的Wfs
+	wfs, err := schema.GetWorkflowSourceByMap(bodyMap)
 	if err != nil {
-		logger.Logger().Errorf(err.Error())
+		logger.Logger().Errorf("get workflowSource in json failed, error: %s", err.Error())
 		return schema.WorkflowSource{}, err
 	}
-	resComponents := map[string]schema.Component{}
-	if ok {
-		componentMap, ok := components.(map[string]interface{})
-		if !ok {
-			err := fmt.Errorf("components should be map type")
-			logger.Logger().Errorf(err.Error())
-			return schema.WorkflowSource{}, err
-		}
-		var err error
-		// 将interface转为具体的Dag或Step
-		resComponents, err = parser.ParseComponents(componentMap)
-		if err != nil {
-			logger.Logger().Errorf(err.Error())
-			return schema.WorkflowSource{}, err
-		}
-		// 进行DockerEnv、Cache等参数的全局替换
-		if err := processRunJsonComponents(resComponents, request, bodyMap, componentMap); err != nil {
-			logger.Logger().Errorf(err.Error())
-			return schema.WorkflowSource{}, err
-		}
-	}
 
-	//处理EntryPoints，流程同上
-	entryComponents, ok, err := unstructured.NestedFieldCopy(bodyMap, "entryPoints")
+	globalEnvMap, err := ParseJsonGlobalEnv(JsonAttrMap)
 	if err != nil {
-		logger.Logger().Errorf(err.Error())
 		return schema.WorkflowSource{}, err
 	}
-	if !ok {
-		err := fmt.Errorf("missing entryPoints in request")
-		logger.Logger().Errorf(err.Error())
-		return schema.WorkflowSource{}, err
-	}
-	entryComponentsMap, ok := entryComponents.(map[string]interface{})
-	if !ok {
-		err := fmt.Errorf("entryPoints should be map type")
-		logger.Logger().Errorf(err.Error())
-		return schema.WorkflowSource{}, err
-	}
-	parsedEntryPoints, err := parser.ParseComponents(entryComponentsMap)
-	if err != nil {
+
+	// 处理components, entryPoints, postProcess
+	// 全局Env替换节点Env，节点Env的优先级更高
+	if err := processRunJsonComponents(wfs.Components, globalEnvMap); err != nil {
 		logger.Logger().Errorf(err.Error())
 		return schema.WorkflowSource{}, err
 	}
 
-	if err := processRunJsonComponents(parsedEntryPoints, request, bodyMap, entryComponentsMap); err != nil {
+	if err := processRunJsonComponents(wfs.EntryPoints.EntryPoints, globalEnvMap); err != nil {
 		logger.Logger().Errorf(err.Error())
 		return schema.WorkflowSource{}, err
 	}
-	entryPoints := schema.WorkflowSourceDag{
-		EntryPoints: parsedEntryPoints,
-	}
 
-	// 处理postProcess，非必须，流程同上
-	postComponents, ok, err := unstructured.NestedFieldCopy(bodyMap, "postProcess")
-	if err != nil {
+	postMap := map[string]schema.Component{}
+	for k, v := range wfs.PostProcess {
+		postMap[k] = v
+	}
+	if err := processRunJsonComponents(postMap, globalEnvMap); err != nil {
 		logger.Logger().Errorf(err.Error())
 		return schema.WorkflowSource{}, err
 	}
-	postProcess := map[string]*schema.WorkflowSourceStep{}
-	if ok {
-		postComponentsMap, ok := postComponents.(map[string]interface{})
-		if !ok {
-			err := fmt.Errorf("postProcess should be map type")
-			logger.Logger().Errorf(err.Error())
-			return schema.WorkflowSource{}, err
-		}
-		parsedComponents, err := parser.ParseComponents(postComponentsMap)
-		if err != nil {
-			logger.Logger().Errorf(err.Error())
-			return schema.WorkflowSource{}, err
-		}
-		if err := processRunJsonComponents(parsedComponents, request, bodyMap, postComponentsMap); err != nil {
-			logger.Logger().Errorf(err.Error())
-			return schema.WorkflowSource{}, err
-		}
-		for k, v := range parsedComponents {
-			postProcess[k] = v.(*schema.WorkflowSourceStep)
-			// 由于上面processRunJsonComponents将PostProcess中的Cache进行了全局替换，这里将其还原为空值
-			postProcess[k].Cache = schema.Cache{}
-		}
-	}
 
-	failureOptions := schema.FailureOptions{Strategy: schema.FailureStrategyFailFast}
-	if request.FailureOptions.Strategy != "" {
-		failureOptions.Strategy = request.FailureOptions.Strategy
-	}
-	wfs := schema.WorkflowSource{
-		Name:           request.Name,
-		DockerEnv:      request.DockerEnv,
-		Cache:          request.Cache,
-		Parallelism:    request.Parallelism,
-		EntryPoints:    entryPoints,
-		PostProcess:    postProcess,
-		Components:     resComponents,
-		Disabled:       request.Disabled,
-		FailureOptions: failureOptions,
-	}
 	return wfs, nil
 }
 
-// 该函数主要完成CreateRunJson接口中，各类变量的全局替换操作
-func processRunJsonComponents(components map[string]schema.Component, request *CreateRunByJsonRequest,
-	bodyMap map[string]interface{}, componentsMap map[string]interface{}) error {
-	for name, component := range components {
-		if dag, ok := component.(*schema.WorkflowSourceDag); ok {
-			subComponent, ok, err := unstructured.NestedFieldCopy(componentsMap, name, "entryPoints")
-			if err != nil || !ok {
-				return fmt.Errorf("get subComponent [%s] failed, err: %s", name, err.Error())
-			}
-			subComponentMap, ok := subComponent.(map[string]interface{})
+func ParseJsonGlobalEnv(jsonAttrMap map[string]interface{}) (map[string]string, error) {
+	resMap := map[string]string{}
+
+	for key, value := range jsonAttrMap {
+		switch key {
+		case "flavour":
+			value, ok := value.(string)
 			if !ok {
-				return fmt.Errorf("get subComponentMap [%s] failed, component cannot trans to map", name)
+				return nil, fmt.Errorf("[flavour] should be string type")
 			}
-			if err := processRunJsonComponents(dag.EntryPoints, request, bodyMap, subComponentMap); err != nil {
+			if _, ok := resMap["flavour"]; !ok {
+				resMap["flavour"] = value
+			}
+		case "queue":
+			value, ok := value.(string)
+			if !ok {
+				return nil, fmt.Errorf("[queue] should be string type")
+			}
+			if _, ok := resMap["queue"]; !ok {
+				resMap["queue"] = value
+			}
+		case "jobType":
+			value, ok := value.(string)
+			if !ok {
+				return nil, fmt.Errorf("[jobType] should be string type")
+			}
+			if _, ok := resMap["jobType"]; !ok {
+				resMap["jobType"] = value
+			}
+		case "env":
+			value, ok := value.(map[string]interface{})
+			if !ok {
+				return nil, fmt.Errorf("[env] should be map type")
+			}
+			for envKey, envValue := range value {
+				envValue := envValue.(string)
+				if !ok {
+					return nil, fmt.Errorf("value of env should be string type")
+				}
+				resMap[envKey] = envValue
+			}
+		default:
+			return nil, fmt.Errorf("[%s] can not be handled in CreatRunJson")
+		}
+	}
+	return resMap, nil
+}
+
+// 该函数主要完成CreateRunJson接口中，各类变量的全局替换操作
+func processRunJsonComponents(components map[string]schema.Component, envMap map[string]string) error {
+	for _, component := range components {
+		if dag, ok := component.(*schema.WorkflowSourceDag); ok {
+			if err := processRunJsonComponents(dag.EntryPoints, envMap); err != nil {
 				return err
 			}
 		} else if step, ok := component.(*schema.WorkflowSourceStep); ok {
@@ -379,46 +344,15 @@ func processRunJsonComponents(components map[string]schema.Component, request *C
 			// Reference节点无需替换
 			if step.Reference.Component == "" {
 				// 对于每一个全局环境变量，检查节点是否有设置对应环境变量，如果没有则使用全局的
-				for globalKey, globalValue := range request.Env {
+				for globalKey, globalValue := range envMap {
 					value, ok := step.Env[globalKey]
 					if !ok || value == "" {
 						step.Env[globalKey] = globalValue
 					}
 				}
-				// DockerEnv字段替换检查
-				if step.DockerEnv == "" {
-					step.DockerEnv = request.DockerEnv
-				}
-
-				// 检查是否需要全局Cache替换（节点Cache字段优先级大于全局Cache字段）
-				componentCache, ok, err := unstructured.NestedFieldCopy(componentsMap, name, "cache")
-				if err != nil {
-					return fmt.Errorf("check componentCache failed")
-				}
-				componentCacheMap := map[string]interface{}{}
-				if ok {
-					componentCacheMap, ok = componentCache.(map[string]interface{})
-					if !ok {
-						return fmt.Errorf("get componentCacheMap failed")
-					}
-				}
-
-				globalCache, ok, err := unstructured.NestedFieldCopy(bodyMap, "cache")
-				if err != nil {
-					return fmt.Errorf("check globalCache failed")
-				}
-				globalCacheMap := map[string]interface{}{}
-				if ok {
-					globalCacheMap, ok = globalCache.(map[string]interface{})
-					if !ok {
-						return fmt.Errorf("get globalCacheMap failed")
-					}
-				}
-
-				if err := schema.ProcessStepCacheByMap(&step.Cache, globalCacheMap, componentCacheMap); err != nil {
-					return err
-				}
 			}
+		} else {
+			return fmt.Errorf("component is not dag or step")
 		}
 	}
 	return nil
