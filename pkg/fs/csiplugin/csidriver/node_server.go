@@ -139,22 +139,47 @@ func bindMountVolume(sourcePath, mountPath string, readOnly bool) error {
 		return err
 	}
 	// check bind source
-	mpNotValidErr := fmt.Errorf("bindMountVolume failed as sourcePath %s is not a valid mountpoint. Please check fuse pod", sourcePath)
 	isMountPoint, err := mountUtil.IsMountPoint(sourcePath)
-	if isMountPoint && err != nil {
-		log.Errorf("bind source %s is mountpoint but has err :%v. unmounting ...", sourcePath, err)
+	if err != nil {
+		log.Errorf("bind source %s has err :%v. unmounting ...", sourcePath, err)
 		err := mountUtil.ForceUnmount(sourcePath)
 		if err != nil {
 			log.Errorf("force unmount mountPoint[%s] failed: %v", sourcePath, err)
 			return err
 		}
 		log.Infof("bind source %s unmounted", sourcePath)
-		return mpNotValidErr
-	} else if !isMountPoint {
-		return mpNotValidErr
+		// check again
+		isMountPoint, err = mountUtil.IsMountPoint(sourcePath)
+		if err != nil {
+			err := fmt.Errorf("unmount bind source %s failed: %v", sourcePath, err)
+			log.Errorf(err.Error())
+			return err
+		}
 	}
-	// bind mount path
-	if isMountPoint, _ := mountUtil.IsMountPoint(mountPath); !isMountPoint {
+	if !isMountPoint {
+		err := fmt.Errorf("bindMountVolume failed as sourcePath %s is not a valid mountpoint. Please check fuse pod", sourcePath)
+		log.Errorf(err.Error())
+		return err
+	}
+	// check bind target
+	isMountPoint, err = mountUtil.IsMountPoint(mountPath)
+	if err != nil {
+		log.Errorf("bind target %s has err :%v. unmounting ...", mountPath, err)
+		err := mountUtil.ForceUnmount(mountPath)
+		if err != nil {
+			log.Errorf("force unmount mountPoint[%s] failed: %v", mountPath, err)
+			return err
+		}
+		// check again
+		isMountPoint, err = mountUtil.IsMountPoint(mountPath)
+		if err != nil {
+			err := fmt.Errorf("unmount bind target %s failed: %v", mountPath, err)
+			log.Errorf(err.Error())
+			return err
+		}
+		log.Infof("bind target %s unmounted", mountPath)
+	}
+	if !isMountPoint {
 		output, err := mountUtil.ExecMountBind(sourcePath, mountPath, readOnly)
 		if err != nil {
 			log.Errorf("exec mount bind failed: %v, output[%s]", err, string(output))
