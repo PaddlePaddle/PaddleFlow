@@ -119,8 +119,8 @@ func (ns *nodeServer) NodeExpandVolume(ctx context.Context,
 }
 
 func mountVolume(volumeID string, mountInfo mount.Info, readOnly bool) error {
-	log.Infof("mountVolume: indepedentMp:%t, mountInfo:%+v, readOnly:%t", mountInfo.IndependentMountPoint, mountInfo, readOnly)
-	if !mountInfo.IndependentMountPoint {
+	log.Infof("mountVolume: indepedentMp:%t, mountInfo:%+v, readOnly:%t", mountInfo.IndependentMountProcess, mountInfo, readOnly)
+	if !mountInfo.IndependentMountProcess {
 		// business pods use a separate source path
 		if err := mount.PodMount(volumeID, mountInfo); err != nil {
 			log.Errorf("MountThroughPod err: %v", err)
@@ -131,35 +131,14 @@ func mountVolume(volumeID string, mountInfo mount.Info, readOnly bool) error {
 			return err
 		}
 	} else {
-		cmdName, args := getIndependentMountCmd(mountInfo)
-		log.Debugf("independent mount cmd: %s, args: %v", cmdName, args)
-		output, err := mountUtil.ExecCmdWithTimeout(cmdName, args)
+		log.Debugf("independent mount cmd: %s, args: %v", mountInfo.MountCmd, mountInfo.MountArgs)
+		output, err := mountUtil.ExecCmdWithTimeout(mountInfo.MountCmd, mountInfo.MountArgs)
 		if err != nil {
 			log.Errorf("exec mount failed: [%v], output[%v]", err, string(output))
 			return err
 		}
 	}
 	return nil
-}
-
-func getIndependentMountCmd(mountInfo mount.Info) (string, []string) {
-	cacheConf := mountInfo.FsCacheConfig
-	pfsFuse := "/home/paddleflow/pfs-fuse mount "
-	args := []string{
-		"--mount-point=" + mountInfo.TargetPath,
-		"--fs-info=" + mountInfo.FsBase64Str,
-		"--user-name=" + mountInfo.UsernameRoot,
-		"--password=" + mountInfo.PasswordRoot,
-		"--block-size=0",
-		"--meta-cache-driver=default",
-	}
-	if cacheConf.Debug {
-		args = append(args, "--log-level=trace")
-	}
-	if mountInfo.ReadOnly {
-		args = append(args, "--mount-options=ro")
-	}
-	return pfsFuse, args
 }
 
 func bindMountVolume(sourcePath, mountPath string, readOnly bool) error {

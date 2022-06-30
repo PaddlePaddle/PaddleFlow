@@ -60,11 +60,11 @@ func GetFileSystemService() *FileSystemService {
 }
 
 type CreateFileSystemRequest struct {
-	Name          string            `json:"name"`
-	Url           string            `json:"url"`
-	Properties    map[string]string `json:"properties"`
-	Username      string            `json:"username"`
-	IndependentMP bool              `json:"independentMP"`
+	Name                    string            `json:"name"`
+	Url                     string            `json:"url"`
+	Properties              map[string]string `json:"properties"`
+	Username                string            `json:"username"`
+	IndependentMountProcess bool              `json:"independentMountProcess"`
 }
 
 type ListFileSystemRequest struct {
@@ -125,13 +125,13 @@ type CreateFileSystemClaimsResponse struct {
 func (s *FileSystemService) CreateFileSystem(ctx *logger.RequestContext, req *CreateFileSystemRequest) (model.FileSystem, error) {
 	fsType, serverAddress, subPath := common.InformationFromURL(req.Url, req.Properties)
 	fs := model.FileSystem{
-		Name:          req.Name,
-		PropertiesMap: req.Properties,
-		ServerAddress: serverAddress,
-		Type:          fsType,
-		SubPath:       subPath,
-		UserName:      req.Username,
-		IndependentMP: req.IndependentMP,
+		Name:                    req.Name,
+		PropertiesMap:           req.Properties,
+		ServerAddress:           serverAddress,
+		Type:                    fsType,
+		SubPath:                 subPath,
+		UserName:                req.Username,
+		IndependentMountProcess: req.IndependentMountProcess,
 	}
 	fs.ID = common.ID(req.Username, req.Name)
 

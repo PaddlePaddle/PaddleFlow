@@ -19,7 +19,6 @@ package mount
 import (
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -318,7 +317,8 @@ func buildCacheWorkerContainer(pod *k8sCore.Pod, mountInfo Info) {
 }
 
 func buildMountContainer(pod *k8sCore.Pod, mountInfo Info) {
-	cmd := getMountCmd(mountInfo)
+	mkdir := "mkdir -p " + FusePodMountPoint + ";"
+	cmd := mkdir + mountInfo.MountCmd + strings.Join(mountInfo.MountArgs, " ")
 	pod.Spec.Containers[0].Command = []string{"sh", "-c", cmd}
 	statCmd := "stat -c %i " + FusePodMountPoint
 	pod.Spec.Containers[0].ReadinessProbe = &k8sCore.Probe{
@@ -390,30 +390,6 @@ func buildMountContainer(pod *k8sCore.Pod, mountInfo Info) {
 	}
 	pod.Spec.Volumes = volumes
 	pod.Spec.Containers[0].VolumeMounts = volumeMounts
-}
-
-func getMountCmd(mountInfo Info) string {
-	cacheConf := mountInfo.FsCacheConfig
-	mkdir := "mkdir -p " + FusePodMountPoint + ";"
-	pfsMountPath := "/home/paddleflow/pfs-fuse mount "
-	mountPath := "--mount-point=" + FusePodMountPoint + " "
-	options := []string{
-		"--fs-info=" + mountInfo.FsBase64Str,
-		"--user-name=" + mountInfo.UsernameRoot,
-		"--password=" + mountInfo.PasswordRoot,
-		"--block-size=" + strconv.Itoa(cacheConf.BlockSize),
-		"--data-cache-path=" + FusePodCachePath + DataCacheDir,
-		"--meta-cache-path=" + FusePodCachePath + MetaCacheDir,
-		"--meta-cache-driver=" + cacheConf.MetaDriver,
-	}
-	if cacheConf.Debug {
-		options = append(options, "--log-level=trace")
-	}
-	if mountInfo.ReadOnly {
-		options = append(options, "--mount-options=ro")
-	}
-	cmd := mkdir + pfsMountPath + mountPath + strings.Join(options, " ")
-	return cmd
 }
 
 func getCacheWorkerCmd(mountInfo Info) string {

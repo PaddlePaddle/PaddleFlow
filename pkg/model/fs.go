@@ -30,14 +30,14 @@ const (
 // FileSystem defined file system model, which can be used to create file system
 type FileSystem struct {
 	Model
-	Name           string            `json:"name"`
-	Type           string            `json:"type"`
-	ServerAddress  string            `json:"serverAddress"`
-	SubPath        string            `json:"subPath" gorm:"column:subpath"`
-	PropertiesJson string            `json:"-" gorm:"column:properties;type:text;default:'{}'"`
-	PropertiesMap  map[string]string `json:"properties" gorm:"-"`
-	UserName       string            `json:"userName"`
-	IndependentMP  bool              `json:"independentMP" gorm:"column:independent_mp"`
+	Name                    string            `json:"name"`
+	Type                    string            `json:"type"`
+	ServerAddress           string            `json:"serverAddress"`
+	SubPath                 string            `json:"subPath" gorm:"column:subpath"`
+	PropertiesJson          string            `json:"-" gorm:"column:properties;type:text;default:'{}'"`
+	PropertiesMap           map[string]string `json:"properties" gorm:"-"`
+	UserName                string            `json:"userName"`
+	IndependentMountProcess bool              `json:"independentMountProcess"`
 }
 
 func (FileSystem) TableName() string {

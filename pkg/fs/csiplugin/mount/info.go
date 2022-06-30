@@ -20,6 +20,8 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"strconv"
+
 	log "github.com/sirupsen/logrus"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
@@ -28,19 +30,21 @@ import (
 )
 
 type Info struct {
-	Server                string
-	FsID                  string
-	FsBase64Str           string
-	IndependentMountPoint bool
-	FsCacheConfig         model.FSCacheConfig
-	TargetPath            string
-	LocalPath             string
-	UsernameRoot          string
-	PasswordRoot          string
-	ClusterID             string
-	UID                   int
-	GID                   int
-	ReadOnly              bool
+	Server                  string
+	FsID                    string
+	FsBase64Str             string
+	IndependentMountProcess bool
+	MountCmd                string
+	MountArgs               []string
+	FsCacheConfig           model.FSCacheConfig
+	TargetPath              string
+	LocalPath               string
+	UsernameRoot            string
+	PasswordRoot            string
+	ClusterID               string
+	UID                     int
+	GID                     int
+	ReadOnly                bool
 }
 
 func ProcessMountInfo(id, server, fsInfoBase64, fsCacheBase64 string, readOnly bool) (Info, error) {
@@ -53,7 +57,7 @@ func ProcessMountInfo(id, server, fsInfoBase64, fsCacheBase64 string, readOnly b
 	}
 	// fs cache config
 	cacheConfig := model.FSCacheConfig{}
-	if !fs.IndependentMP {
+	if !fs.IndependentMountProcess {
 		cacheConfig, err = processCacheConfig(id, fsCacheBase64)
 		if err != nil {
 			retErr := fmt.Errorf("fs[%s] process fs cacheConfig err: %v", id, err)
@@ -61,16 +65,18 @@ func ProcessMountInfo(id, server, fsInfoBase64, fsCacheBase64 string, readOnly b
 			return Info{}, retErr
 		}
 	}
-	return Info{
-		FsID:                  id,
-		Server:                server,
-		FsBase64Str:           fsInfoBase64,
-		IndependentMountPoint: fs.IndependentMP,
-		FsCacheConfig:         cacheConfig,
-		UID:                   common.GetDefaultUID(),
-		GID:                   common.GetDefaultGID(),
-		ReadOnly:              readOnly,
-	}, nil
+	info := Info{
+		FsID:                    id,
+		Server:                  server,
+		FsBase64Str:             fsInfoBase64,
+		IndependentMountProcess: fs.IndependentMountProcess,
+		FsCacheConfig:           cacheConfig,
+		UID:                     common.GetDefaultUID(),
+		GID:                     common.GetDefaultGID(),
+		ReadOnly:                readOnly,
+	}
+	info.fillingMountCmd()
+	return info, nil
 }
 
 func ProcessFsInfo(fsInfoBase64 string) (model.FileSystem, error) {
@@ -111,4 +117,37 @@ func processCacheConfig(fsID, fsCacheBase64 string) (model.FSCacheConfig, error)
 		cacheConfig.MetaDriver = schema.FsMetaDefault
 	}
 	return cacheConfig, nil
+}
+
+func (m *Info) fillingMountCmd() {
+	m.MountCmd = "/home/paddleflow/pfs-fuse mount "
+	args := []string{
+		"--fs-info=" + m.FsBase64Str,
+		"--user-name=" + m.UsernameRoot,
+		"--password=" + m.PasswordRoot,
+	}
+	if m.ReadOnly {
+		args = append(args, "--mount-options=ro")
+	}
+	if m.IndependentMountProcess {
+		processArgs := []string{
+			"--mount-point=" + m.TargetPath,
+			"--block-size=0",
+			"--meta-cache-driver=default",
+		}
+		m.MountArgs = append(args, processArgs...)
+		return
+	}
+	cacheConf := m.FsCacheConfig
+	if cacheConf.Debug {
+		args = append(args, "--log-level=trace")
+	}
+	cacheArgs := []string{
+		"--mount-point=" + FusePodMountPoint,
+		"--block-size=" + strconv.Itoa(cacheConf.BlockSize),
+		"--meta-cache-driver=" + cacheConf.MetaDriver,
+		"--data-cache-path=" + FusePodCachePath + DataCacheDir,
+		"--meta-cache-path=" + FusePodCachePath + MetaCacheDir,
+	}
+	m.MountArgs = append(args, cacheArgs...)
 }
