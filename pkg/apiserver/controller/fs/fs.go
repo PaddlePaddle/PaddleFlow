@@ -107,14 +107,14 @@ type ListFileSystemResponse struct {
 }
 
 type FileSystemResponse struct {
-	Id            string            `json:"id"`
-	Name          string            `json:"name"`
-	ServerAddress string            `json:"serverAddress"`
-	Type          string            `json:"type"`
-	SubPath       string            `json:"subPath"`
-	Username      string            `json:"username"`
-	Properties    map[string]string `json:"properties"`
-	IndependentMP bool              `json:"independentMP"`
+	Id                      string            `json:"id"`
+	Name                    string            `json:"name"`
+	ServerAddress           string            `json:"serverAddress"`
+	Type                    string            `json:"type"`
+	SubPath                 string            `json:"subPath"`
+	Username                string            `json:"username"`
+	Properties              map[string]string `json:"properties"`
+	IndependentMountProcess bool              `json:"independentMountProcess"`
 }
 
 type CreateFileSystemClaimsResponse struct {
