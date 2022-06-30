@@ -24,7 +24,7 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/fuse"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/meta"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/kv"
 )
 
 func BasicFlags() []cli.Flag {
@@ -76,7 +76,7 @@ func CacheFlags(fuseConf *fuse.FuseConfig) []cli.Flag {
 		},
 		&cli.StringFlag{
 			Name:  "meta-cache-driver",
-			Value: meta.DefaultName,
+			Value: kv.Mem,
 			Usage: "meta cache driver, e.g. mem, leveldb",
 		},
 		&cli.StringFlag{
@@ -91,12 +91,12 @@ func CacheFlags(fuseConf *fuse.FuseConfig) []cli.Flag {
 		},
 		&cli.DurationFlag{
 			Name:  "meta-cache-expire",
-			Value: 10 * time.Second,
+			Value: 2 * time.Second,
 			Usage: "meta cache expire",
 		},
 		&cli.DurationFlag{
 			Name:  "entry-cache-expire",
-			Value: 10 * time.Second,
+			Value: 2 * time.Second,
 			Usage: "entry cache expire",
 		},
 		&cli.IntFlag{
