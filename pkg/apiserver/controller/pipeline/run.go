@@ -41,6 +41,16 @@ import (
 
 var wfMap = make(map[string]*pipeline.Workflow, 0)
 
+const (
+	JsonFsName      = "fsName"
+	JsonUserName    = "userName"
+	JsonDescription = "description"
+	JsonFlavour     = "flavour"
+	JsonQueue       = "queue"
+	JsonJobType     = "jobType"
+	JsonEnv         = "env"
+)
+
 type CreateRunRequest struct {
 	FsName      string                 `json:"fsname"`
 	UserName    string                 `json:"username,omitempty"`   // optional, only for root user
@@ -64,9 +74,6 @@ type CreateRunRequest struct {
 type CreateRunByJsonRequest struct {
 	FsName      string `json:"fsName"`
 	UserName    string `json:"userName"` // optional, only for root user
-	DockerEnv   string `json:"dockerEnv"`
-	Name        string `json:"name"`
-	Disabled    string `json:"disabled"`
 	Description string `json:"description"`
 }
 
@@ -221,17 +228,18 @@ func buildWorkflowSource(userName string, req CreateRunRequest, fsID string) (sc
 }
 
 // Used for API CreateRunJson, get wfs by json request.
-func getWorkFlowSourceByJson(request *CreateRunByJsonRequest, bodyMap map[string]interface{}) (schema.WorkflowSource, error) {
+func getWorkFlowSourceByJson(bodyMap map[string]interface{}) (schema.WorkflowSource, error) {
 	// Json接口有，但runYaml没有的字段
 	JsonAttrMap := map[string]interface{}{
-		"flavour": nil,
-		"jobType": nil,
-		"queue":   nil,
-		"env":     nil,
+		JsonFlavour: nil,
+		JsonJobType: nil,
+		JsonQueue:   nil,
+		JsonEnv:     nil,
 
 		//这两个字段，之前已经处理过，后续阶段无需处理，只需剔除即可
-		"fsName":   nil,
-		"userName": nil,
+		JsonDescription: nil,
+		JsonFsName:      nil,
+		JsonUserName:    nil,
 	}
 
 	// 先把Json接口有，但是Yaml接口没有的参数提取出来保存
@@ -287,7 +295,7 @@ func ParseJsonGlobalEnv(jsonAttrMap map[string]interface{}) (map[string]string, 
 
 	for key, value := range jsonAttrMap {
 		switch key {
-		case "flavour":
+		case JsonFlavour:
 			if value != nil {
 				value, ok := value.(string)
 				if !ok {
@@ -297,7 +305,7 @@ func ParseJsonGlobalEnv(jsonAttrMap map[string]interface{}) (map[string]string, 
 					resMap[schema.EnvJobFlavour] = value
 				}
 			}
-		case "queue":
+		case JsonQueue:
 			if value != nil {
 				value, ok := value.(string)
 				if !ok {
@@ -307,7 +315,7 @@ func ParseJsonGlobalEnv(jsonAttrMap map[string]interface{}) (map[string]string, 
 					resMap[schema.EnvJobQueueName] = value
 				}
 			}
-		case "jobType":
+		case JsonJobType:
 			if value != nil {
 				value, ok := value.(string)
 				if !ok {
@@ -317,17 +325,7 @@ func ParseJsonGlobalEnv(jsonAttrMap map[string]interface{}) (map[string]string, 
 					resMap[schema.EnvJobType] = value
 				}
 			}
-		case "fsName":
-			if value != nil {
-				value, ok := value.(string)
-				if !ok {
-					return nil, fmt.Errorf("[fsName] should be string type")
-				}
-				if _, ok := resMap[schema.EnvJobFsID]; !ok {
-					resMap[schema.EnvJobType] = value
-				}
-			}
-		case "env":
+		case JsonEnv:
 			if value != nil {
 				value, ok := value.(map[string]interface{})
 				if !ok {
@@ -413,7 +411,7 @@ func getSourceAndYaml(wfs schema.WorkflowSource) (string, string, error) {
 	return source, runYaml, nil
 }
 
-func runYamlAndReqToWfs(runYaml string, req interface{}) (schema.WorkflowSource, error) {
+func runYamlAndReqToWfs(runYaml string, req CreateRunRequest) (schema.WorkflowSource, error) {
 	// parse yaml -> WorkflowSource
 	logger.Logger().Infof("debug: run yaml is :\n %s", runYaml)
 	wfs, err := schema.GetWorkflowSource([]byte(runYaml))
@@ -423,34 +421,16 @@ func runYamlAndReqToWfs(runYaml string, req interface{}) (schema.WorkflowSource,
 	}
 
 	// replace name & dockerEnv & disabled by request
-	switch req := req.(type) {
-	case CreateRunRequest:
-		if req.Name != "" {
-			wfs.Name = req.Name
-		}
-		if req.DockerEnv != "" {
-			wfs.DockerEnv = req.DockerEnv
-		}
-		if req.Disabled != "" {
-			wfs.Disabled = req.Disabled
-		}
-		return wfs, nil
-	case CreateRunByJsonRequest:
-		if req.Name != "" {
-			wfs.Name = req.Name
-		}
-		if req.DockerEnv != "" {
-			wfs.DockerEnv = req.DockerEnv
-		}
-		if req.Disabled != "" {
-			wfs.Disabled = req.Disabled
-		}
-		return wfs, nil
-	default:
-		err := fmt.Errorf("can't handle request type [%v]", req)
-		return schema.WorkflowSource{}, err
+	if req.Name != "" {
+		wfs.Name = req.Name
 	}
-
+	if req.DockerEnv != "" {
+		wfs.DockerEnv = req.DockerEnv
+	}
+	if req.Disabled != "" {
+		wfs.Disabled = req.Disabled
+	}
+	return wfs, nil
 }
 
 func CreateRun(userName string, request *CreateRunRequest) (CreateRunResponse, error) {
@@ -515,18 +495,33 @@ func CreateRun(userName string, request *CreateRunRequest) (CreateRunResponse, e
 	return response, err
 }
 
-func CreateRunByJson(userName string, request *CreateRunByJsonRequest, bodyMap map[string]interface{}) (CreateRunResponse, error) {
+func CreateRunByJson(userName string, bodyMap map[string]interface{}) (CreateRunResponse, error) {
+	// 从request body中提取部分信息，这些信息与workflow没有直接关联
+	var reqFsName string
+	var reqUserName string
+	var reqDescription string
+
+	if _, ok := bodyMap[JsonFsName].(string); ok {
+		reqFsName = bodyMap[JsonFsName].(string)
+	}
+	if _, ok := bodyMap[JsonUserName].(string); ok {
+		reqUserName = bodyMap[JsonUserName].(string)
+	}
+	if _, ok := bodyMap[JsonDescription].(string); ok {
+		reqDescription = bodyMap[JsonDescription].(string)
+	}
+
 	var fsID string
-	if request.FsName != "" {
-		if common.IsRootUser(userName) && request.UserName != "" {
+	if reqFsName != "" {
+		if common.IsRootUser(userName) && reqUserName != "" {
 			// root user can select fs under other users
-			fsID = common.ID(request.UserName, request.FsName)
+			fsID = common.ID(reqUserName, reqFsName)
 		} else {
-			fsID = common.ID(userName, request.FsName)
+			fsID = common.ID(userName, reqFsName)
 		}
 	}
 
-	wfs, err := getWorkFlowSourceByJson(request, bodyMap)
+	wfs, err := getWorkFlowSourceByJson(bodyMap)
 	if err != nil {
 		logger.Logger().Errorf("get WorkFlowSource by request failed. error:%v", err)
 		return CreateRunResponse{}, err
@@ -550,19 +545,19 @@ func CreateRunByJson(userName string, request *CreateRunByJsonRequest, bodyMap m
 		Name:           wfs.Name,
 		Source:         source,
 		UserName:       userName,
-		FsName:         request.FsName,
+		FsName:         reqFsName,
 		FsID:           fsID,
-		Description:    request.Description,
+		Description:    reqDescription,
 		RunYaml:        runYaml,
 		WorkflowSource: wfs, // DockerEnv has not been replaced. done in func handleImageAndStartWf
-		Disabled:       request.Disabled,
+		Disabled:       wfs.Disabled,
 		Status:         common.StatusRunInitiating,
 	}
-	response, err := ValidateAndStartRun(run, *request)
+	response, err := ValidateAndStartRun(run, CreateRunRequest{})
 	return response, err
 }
 
-func ValidateAndStartRun(run models.Run, req interface{}) (CreateRunResponse, error) {
+func ValidateAndStartRun(run models.Run, req CreateRunRequest) (CreateRunResponse, error) {
 	if err := run.Encode(); err != nil {
 		logger.Logger().Errorf("encode run failed. error:%s", err.Error())
 		return CreateRunResponse{}, err
