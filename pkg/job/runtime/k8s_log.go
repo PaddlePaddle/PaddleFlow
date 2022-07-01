@@ -71,7 +71,7 @@ func getKubernetesLogs(client kubernetes.Interface, jobLogRequest schema.JobLogR
 	listOptions := metav1.ListOptions{
 		LabelSelector: labels.SelectorFromSet(labelMap).String(),
 	}
-	podList, err := getPodList(client, jobLogRequest.Namespace, listOptions)
+	podList, err := GetPodList(client, jobLogRequest.Namespace, listOptions)
 	if err != nil {
 		log.Errorf("job[%s] get pod list failed", jobLogRequest.JobID)
 		return schema.JobLogInfo{}, err
@@ -181,7 +181,7 @@ func getPod(client kubernetes.Interface, namespace, name string, getOptions meta
 	return client.CoreV1().Pods(namespace).Get(context.TODO(), name, getOptions)
 }
 
-func getPodList(client kubernetes.Interface, namespace string, listOptions metav1.ListOptions) (*apiv1.PodList, error) {
+func GetPodList(client kubernetes.Interface, namespace string, listOptions metav1.ListOptions) (*apiv1.PodList, error) {
 	return client.CoreV1().Pods(namespace).List(context.TODO(), listOptions)
 }
 

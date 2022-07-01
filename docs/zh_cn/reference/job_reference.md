@@ -10,7 +10,7 @@ paddleflow基本的操作命令可以帮助您更好的上手使用，本页面�
 
 ## 单作业任务管理
 
-`paddleflow job` 提供了`create`,`show`, `list`, `delete`, `stop`五种不同的方法。 五种不同操作的示例如下：
+`paddleflow job` 提供了`create`,`show`, `list`, `delete`, `stop`, `update`六种不同的方法。 六种不同操作的示例如下：
 
 ```bash
 paddleflow job list -s(--status) status -t(--timestamp) timestamp  -st(--starttime) starttime -q(--queue) queue -l(--labels) k=v -m(--maxkeys) maxkeys -mk(--marker) marker -fl(--fieldlist) f1,f2 //列出所有的作业 （通过status 列出指定状态的作业;通过timestamp 列出该时间戳后有更新的作业；通过starttime 列出该启动时间后的作业；通过queue 列出该队列下的作业；通过labels 列出具有该标签的作业；通过maxkeys列出指定数量的作业；从marker列出作业；通过fieldlist 列出作业的指定列信息）
@@ -18,6 +18,7 @@ paddleflow job show jobid -fl(--fieldlist) f1,f2 // 展示一个作业的详细�
 paddleflow job delete jobid  //删除一个作业
 paddleflow job create jobtype:required（必须）作业类型(single, distributed, workflow) jsonpath:required(必须) 提交作业的配置文件 // 创建作业
 paddleflow job stop jobid  // 停止一个作业
+paddleflow job update jobid -p(--priority) priority -l(--labels) k=v -a(--annotations) k=v // 修改一个作业(通过priority 修改作业优先级；通过labels 修改作业的标签；通过annotations 修改作业的注释)
 ```
 ### 相关参数说明
 
@@ -104,7 +105,13 @@ FileSystem
 |subPath| string (optional)|需要挂在存储的子路径
 |readOnly| bool (optional)|挂载之后的存储权限
 
+update方法
+```bash
+priority参数修改作业为指定优先级（High、Normal、Low）
+labels参数修改作业为指定标签
+annotations参数修改作业为指定注释
 
+```
 
 
 
@@ -159,6 +166,12 @@ job[job-id] delete success
 
 ```bash
 job[job-id] stop success
+```
+
+作业任务修改：用户输入```paddleflow job update jobid -p High```，界面上显示
+
+```bash
+job[job-id] update success
 ```
 
 
@@ -357,4 +370,22 @@ ret, response = client.delete_job("jobid")
 |ret| bool| 操作成功返回True，失败返回False
 |response| -| 失败返回失败message，成功返回None
 
+
+### 修改作业
+```python
+ret, response = client.update_job()
+```
+
+#### 接口入参说明
+|字段名称 | 字段类型 | 字段含义
+|:---:|:---:|:---:|
+|jobid| string (required)|作业id
+|job_request| JobRequest (required)|作业修改所需参数，目前只支持priority，labels，annotations的修改
+
+
+#### 接口返回说明
+|字段名称 | 字段类型 | 字段含义
+|:---:|:---:|:---:|
+|ret| bool| 操作成功返回True，失败返回False
+|response| -| 失败返回失败message，成功返回None
 

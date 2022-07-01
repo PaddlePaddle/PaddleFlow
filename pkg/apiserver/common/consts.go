@@ -61,4 +61,16 @@ const (
 	LogPageSizeMax     = 100
 	LogPageSizeDefault = 100
 	LogPageNoDefault   = 1
+
+	MetricJobCpuUsageRate    = "job_cpu_usage_rate"
+	MetricJobMemoryUsage     = "job_memory_usage"
+	MetricJobDiskUsage       = "job_disk_usage"
+	MetricJobNetReceiveBytes = "job_net_receive_bytes"
+	MetricJobNetSendBytes    = "job_net_send_bytes"
+	MetricJobDiskReadRate    = "job_disk_read_rate"
+	MetricJobDiskWriteRate   = "job_disk_write_rate"
+	MetricJobGpuUtil         = "job_gpu_util"
+	MetricJobGpuMemoryUtil   = "job_gpu_memory_util"
+
+	PodID = "podID"
 )

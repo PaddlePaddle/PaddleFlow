@@ -36,7 +36,7 @@ type GetRunLogRequest struct {
 }
 
 type GetRunLogResponse struct {
-	SubmitLog schema.LogInfo      `json:"submitLog"`
+	SubmitLog string              `json:"submitLog"`
 	RunLog    []schema.JobLogInfo `json:"runLog"`
 	RunID     string              `json:"runID"`
 }
@@ -67,8 +67,9 @@ func GetRunLog(ctx *logger.RequestContext, runID string, request GetRunLogReques
 	}
 
 	response := &GetRunLogResponse{
-		RunID:  runID,
-		RunLog: make([]schema.JobLogInfo, 0),
+		RunID:     runID,
+		RunLog:    make([]schema.JobLogInfo, 0),
+		SubmitLog: "",
 	}
 	if len(jobList) == 0 {
 		return response, nil
@@ -100,6 +101,7 @@ func GetRunLog(ctx *logger.RequestContext, runID string, request GetRunLogReques
 		}
 		response.RunLog = append(response.RunLog, jobLogInfo)
 	}
+	// TODO response.SubmitLog = JobLogManager.ReadLog(runID)
 	return response, nil
 }
 

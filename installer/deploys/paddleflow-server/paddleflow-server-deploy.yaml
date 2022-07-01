@@ -428,6 +428,7 @@ spec:
             - containerPort: 8999
               name: port-0
               protocol: TCP
+            - containerPort: 8231
           resources: {}
           securityContext:
             privileged: false

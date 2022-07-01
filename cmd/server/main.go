@@ -9,6 +9,8 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/monitor"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/metric"
 	"github.com/go-chi/chi"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
@@ -187,6 +189,14 @@ func setup() {
 		gracefullyExit(err)
 	}
 
+	if err := initPrometheusClient(ServerConf.Monitor.Server); err != nil {
+		log.Errorf("")
+		gracefullyExit(err)
+	}
+
+	metric.Init()
+	_ = metric.StartJobMetricsService(ServerConf.Monitor.ExporterServicePort)
+
 	if err := newAndStartJobManager(); err != nil {
 		log.Errorf("create pfjob manager failed, err %v", err)
 		gracefullyExit(err)
@@ -216,6 +226,11 @@ func newAndStartJobManager() error {
 	}
 	go runtimeMgr.Start(models.ActiveClusters, models.ListQueueJob)
 	return nil
+}
+
+func initPrometheusClient(address string) error {
+	err := monitor.NewClientAPI(address)
+	return err
 }
 
 func gracefullyExit(err error) {
