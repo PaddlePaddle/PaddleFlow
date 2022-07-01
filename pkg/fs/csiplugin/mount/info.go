@@ -20,8 +20,9 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"strconv"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/common"
@@ -128,7 +129,6 @@ func processCacheConfig(fsID, fsCacheBase64 string) (model.FSCacheConfig, error)
 
 func (m *Info) fillingMountCmd() {
 	baseArgs := []string{
-		"mount",
 		"--fs-info=" + m.FsBase64Str,
 		"--user-name=" + m.UsernameRoot,
 		"--password=" + m.PasswordRoot,
@@ -138,24 +138,22 @@ func (m *Info) fillingMountCmd() {
 	}
 	if m.IndependentMountProcess {
 		m.MountCmd = fileMountSh
-		processArgs := []string{
-			"--mount-point=" + m.TargetPath,
-			"--block-size=0",
-			"--meta-cache-driver=default",
-		}
-		m.MountArgs = append(baseArgs, processArgs...)
+		m.MountArgs = append(baseArgs, "--mount-point="+m.TargetPath)
 	} else {
 		m.MountCmd = filePfsFuse
-		cacheArgs := []string{
-			"--mount-point=" + FusePodMountPoint,
-			"--block-size=" + strconv.Itoa(m.FsCacheConfig.BlockSize),
-			"--meta-cache-driver=" + m.FsCacheConfig.MetaDriver,
-			"--data-cache-path=" + FusePodCachePath + DataCacheDir,
-			"--meta-cache-path=" + FusePodCachePath + MetaCacheDir,
+		m.MountArgs = []string{"mount", "--mount-point=" + FusePodMountPoint}
+		m.MountArgs = append(m.MountArgs, baseArgs...)
+		if m.FsCacheConfig.CacheDir != "" {
+			cacheArgs := []string{
+				"--block-size=" + strconv.Itoa(m.FsCacheConfig.BlockSize),
+				"--meta-cache-driver=" + m.FsCacheConfig.MetaDriver,
+				"--data-cache-path=" + FusePodCachePath + DataCacheDir,
+				"--meta-cache-path=" + FusePodCachePath + MetaCacheDir,
+			}
+			m.MountArgs = append(m.MountArgs, cacheArgs...)
 		}
 		if m.FsCacheConfig.Debug {
-			cacheArgs = append(cacheArgs, "--log-level=trace")
+			m.MountArgs = append(m.MountArgs, "--log-level=trace")
 		}
-		m.MountArgs = append(baseArgs, cacheArgs...)
 	}
 }
