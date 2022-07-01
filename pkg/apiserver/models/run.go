@@ -106,7 +106,7 @@ func (r *Run) decode() error {
 
 	// 由于在所有获取Run的函数中，都需要进行decode，因此Runtime和PostProcess的赋值也在decode中进行
 	if err := r.validateRuntimeAndPostProcess(); err != nil {
-		logger.Logger().Errorf("validateRuntimeAndPostProcess in run decode failed, error: %", err.Error())
+		logger.Logger().Errorf("validateRuntimeAndPostProcess in run decode failed, error: %s", err.Error())
 		return err
 	}
 	logger.Logger().Infof("debug: validateRuntimeAndPostProcess finish")
