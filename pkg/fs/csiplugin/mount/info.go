@@ -20,6 +20,8 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"strconv"
+
 	log "github.com/sirupsen/logrus"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
@@ -27,45 +29,62 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
 
+const (
+	fileMountSh = "/home/paddleflow/mount.sh"
+	filePfsFuse = "/home/paddleflow/pfs-fuse"
+)
+
 type Info struct {
-	Server        string
-	FsID          string
-	FsBase64Str   string
-	FsCacheConfig model.FSCacheConfig
-	TargetPath    string
-	LocalPath     string
-	UsernameRoot  string
-	PasswordRoot  string
-	ClusterID     string
-	UID           int
-	GID           int
-	ReadOnly      bool
+	Server                  string
+	FsID                    string
+	FsBase64Str             string
+	IndependentMountProcess bool
+	MountCmd                string
+	MountArgs               []string
+	FsCacheConfig           model.FSCacheConfig
+	TargetPath              string
+	LocalPath               string
+	UsernameRoot            string
+	PasswordRoot            string
+	ClusterID               string
+	UID                     int
+	GID                     int
+	ReadOnly                bool
 }
 
-func ProcessMountInfo(id, server, fsInfoBase64, fsCacheBase64 string, readOnly bool) (Info, error) {
+func ProcessMountInfo(username, password, targetPath, fsID, server, fsInfoBase64, fsCacheBase64 string, readOnly bool) (Info, error) {
 	// fs info
-	_, err := ProcessFsInfo(fsInfoBase64)
+	fs, err := ProcessFsInfo(fsInfoBase64)
 	if err != nil {
-		retErr := fmt.Errorf("fs[%s] process fs info err: %v", id, err)
+		retErr := fmt.Errorf("fs[%s] process fs info err: %v", fsID, err)
 		log.Errorf(retErr.Error())
 		return Info{}, retErr
 	}
 	// fs cache config
-	cacheConfig, err := processCacheConfig(id, fsCacheBase64)
-	if err != nil {
-		retErr := fmt.Errorf("fs[%s] process fs cacheConfig err: %v", id, err)
-		log.Errorf(retErr.Error())
-		return Info{}, retErr
+	cacheConfig := model.FSCacheConfig{}
+	if !fs.IndependentMountProcess {
+		cacheConfig, err = processCacheConfig(fsID, fsCacheBase64)
+		if err != nil {
+			retErr := fmt.Errorf("fs[%s] process fs cacheConfig err: %v", fsID, err)
+			log.Errorf(retErr.Error())
+			return Info{}, retErr
+		}
 	}
-	return Info{
-		FsID:          id,
-		Server:        server,
-		FsBase64Str:   fsInfoBase64,
-		FsCacheConfig: cacheConfig,
-		UID:           common.GetDefaultUID(),
-		GID:           common.GetDefaultGID(),
-		ReadOnly:      readOnly,
-	}, nil
+	info := Info{
+		UsernameRoot:            username,
+		PasswordRoot:            password,
+		TargetPath:              targetPath,
+		FsID:                    fsID,
+		Server:                  server,
+		FsBase64Str:             fsInfoBase64,
+		IndependentMountProcess: fs.IndependentMountProcess,
+		FsCacheConfig:           cacheConfig,
+		UID:                     common.GetDefaultUID(),
+		GID:                     common.GetDefaultGID(),
+		ReadOnly:                readOnly,
+	}
+	info.fillingMountCmd()
+	return info, nil
 }
 
 func ProcessFsInfo(fsInfoBase64 string) (model.FileSystem, error) {
@@ -106,4 +125,35 @@ func processCacheConfig(fsID, fsCacheBase64 string) (model.FSCacheConfig, error)
 		cacheConfig.MetaDriver = schema.FsMetaDefault
 	}
 	return cacheConfig, nil
+}
+
+func (m *Info) fillingMountCmd() {
+	baseArgs := []string{
+		"--fs-info=" + m.FsBase64Str,
+		"--user-name=" + m.UsernameRoot,
+		"--password=" + m.PasswordRoot,
+	}
+	if m.ReadOnly {
+		baseArgs = append(baseArgs, "--mount-options=ro")
+	}
+	if m.IndependentMountProcess {
+		m.MountCmd = fileMountSh
+		m.MountArgs = append(baseArgs, "--mount-point="+m.TargetPath)
+	} else {
+		m.MountCmd = filePfsFuse
+		m.MountArgs = []string{"mount", "--mount-point=" + FusePodMountPoint}
+		m.MountArgs = append(m.MountArgs, baseArgs...)
+		if m.FsCacheConfig.CacheDir != "" {
+			cacheArgs := []string{
+				"--block-size=" + strconv.Itoa(m.FsCacheConfig.BlockSize),
+				"--meta-cache-driver=" + m.FsCacheConfig.MetaDriver,
+				"--data-cache-path=" + FusePodCachePath + DataCacheDir,
+				"--meta-cache-path=" + FusePodCachePath + MetaCacheDir,
+			}
+			m.MountArgs = append(m.MountArgs, cacheArgs...)
+		}
+		if m.FsCacheConfig.Debug {
+			m.MountArgs = append(m.MountArgs, "--log-level=trace")
+		}
+	}
 }

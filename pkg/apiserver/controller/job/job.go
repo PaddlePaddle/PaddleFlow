@@ -29,8 +29,10 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/flavour"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/fs"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
@@ -72,7 +74,7 @@ type CommonJobInfo struct {
 type SchedulingPolicy struct {
 	Queue        string              `json:"queue"`
 	QueueID      string              `json:"-"`
-	MaxResources schema.ResourceInfo `json:"-"`
+	MaxResources *resources.Resource `json:"-"`
 	ClusterId    string              `json:"-"`
 	Namespace    string              `json:"-"`
 	Priority     string              `json:"priority,omitempty"`
@@ -766,11 +768,6 @@ func validateSingleJob(ctx *logger.RequestContext, request *CreateSingleJobReque
 }
 
 func validateSingleJobResource(flavour schema.Flavour, schedulingPolicy SchedulingPolicy) error {
-	if schema.IsEmptyResource(schedulingPolicy.MaxResources) {
-		err := fmt.Errorf("schedulingPolicy.MaxResources[%v] is empty", schedulingPolicy.MaxResources)
-		log.Errorf("validateSingleJobResource failed, err: %v", err)
-		return err
-	}
 	return IsEnoughQueueCapacity(flavour, schedulingPolicy.MaxResources)
 }
 
@@ -828,12 +825,10 @@ func validateCommonJobInfo(ctx *logger.RequestContext, requestCommonJobInfo *Com
 
 // validateQueue validate queue and set queueID in request.SchedulingPolicy
 func validateQueue(ctx *logger.RequestContext, schedulingPolicy *SchedulingPolicy) error {
-	queueName := schedulingPolicy.Queue
-	if queueName == "" {
-		ctx.Logging().Errorf("queue is empty")
-		ctx.ErrorCode = common.JobInvalidField
-		return fmt.Errorf("queue is empty")
+	if schedulingPolicy.Queue == "" {
+		schedulingPolicy.Queue = config.DefaultQueueName
 	}
+	queueName := schedulingPolicy.Queue
 	queue, err := models.GetQueueByName(queueName)
 	if err != nil {
 		if errors.GetErrorCode(err) == errors.ErrorKeyIsDuplicated {
@@ -874,9 +869,6 @@ func checkPriority(schedulingPolicy, parentSP *SchedulingPolicy) error {
 
 func validateEmptyFieldInSingle(request *CreateSingleJobRequest) []string {
 	var emptyFields []string
-	if request.CommonJobInfo.SchedulingPolicy.Queue == "" {
-		emptyFields = append(emptyFields, "queue")
-	}
 	if request.Image == "" {
 		emptyFields = append(emptyFields, "image")
 	}

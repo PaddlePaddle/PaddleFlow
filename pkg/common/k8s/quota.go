@@ -20,10 +20,10 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	pfResources "github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 )
 
-func SubQuota(r *schema.Resource, pod *v1.Pod) error {
+func SubQuota(r *pfResources.Resource, pod *v1.Pod) error {
 	for _, container := range pod.Spec.Containers {
 		containerQuota := NewResource(container.Resources.Requests)
 		r.Sub(containerQuota)
@@ -32,80 +32,58 @@ func SubQuota(r *schema.Resource, pod *v1.Pod) error {
 }
 
 // CalcPodResources calculate pod minimum resource
-func CalcPodResources(pod *v1.Pod) *schema.ResourceInfo {
-	podRes := schema.EmptyResourceInfo()
+func CalcPodResources(pod *v1.Pod) *pfResources.Resource {
+	podRes := pfResources.EmptyResource()
+	if pod == nil {
+		return podRes
+	}
 	for _, c := range pod.Spec.Containers {
-		res := NewResourceInfo(c.Resources.Requests)
-		*podRes = podRes.Add(*res)
+		res := NewResource(c.Resources.Requests)
+		podRes.Add(res)
 	}
 	return podRes
 }
 
-// NewResourceInfo create a new resource object from resource list
-func NewResourceInfo(rl v1.ResourceList) *schema.ResourceInfo {
-	r := schema.EmptyResourceInfo()
-
+func NewResource(rl v1.ResourceList) *pfResources.Resource {
+	r := pfResources.EmptyResource()
 	for rName, rQuant := range rl {
 		switch rName {
 		case v1.ResourceCPU:
-			r.CPU = rQuant.String()
+			r.SetResources(pfResources.ResCPU, rQuant.MilliValue())
 		case v1.ResourceMemory:
-			r.Mem = rQuant.String()
-		default:
-			if IsScalarResourceName(rName) {
-				r.SetScalar(schema.ResourceName(rName), rQuant.String())
-			}
-		}
-	}
-	return r
-}
-
-// NewResource create a new resource object from resource list
-func NewResource(rl v1.ResourceList) *schema.Resource {
-	r := schema.EmptyResource()
-
-	for rName, rQuant := range rl {
-		switch rName {
-		case v1.ResourceCPU:
-			r.MilliCPU += float64(rQuant.MilliValue())
-		case v1.ResourceMemory:
-			r.Memory += float64(rQuant.Value())
+			r.SetResources(pfResources.ResMemory, rQuant.Value())
 		case v1.ResourceEphemeralStorage:
-			r.Storage += float64(rQuant.Value())
+			r.SetResources(pfResources.ResStorage, rQuant.Value())
 		default:
-			// NOTE: When converting this back to k8s resource, we need record the format as well as / 1000
 			if IsScalarResourceName(rName) {
-				r.AddScalar(schema.ResourceName(rName), float64(rQuant.Value()))
+				r.SetResources(string(rName), rQuant.Value())
 			}
 		}
 	}
 	return r
-}
-
-func NewKubeResourceList(r *schema.ResourceInfo) v1.ResourceList {
-	resourceList := v1.ResourceList{}
-	resourceList[v1.ResourceCPU] = resource.MustParse(r.CPU)
-	resourceList[v1.ResourceMemory] = resource.MustParse(r.Mem)
-	for k, v := range r.ScalarResources {
-		resourceList[v1.ResourceName(k)] = resource.MustParse(v)
-	}
-	return resourceList
 }
 
 // NewResourceList create a new resource object from resource list
-func NewResourceList(r *schema.Resource) v1.ResourceList {
+func NewResourceList(r *pfResources.Resource) v1.ResourceList {
 	resourceList := v1.ResourceList{}
-	cpuQuantity := resource.NewMilliQuantity(int64(r.MilliCPU), resource.BinarySI)
-	memoryQuantity := resource.NewQuantity(int64(r.Memory), resource.BinarySI)
-	storageQuantity := resource.NewQuantity(int64(r.Storage), resource.BinarySI)
-
-	resourceList[v1.ResourceCPU] = *cpuQuantity
-	resourceList[v1.ResourceMemory] = *memoryQuantity
-	resourceList[v1.ResourceStorage] = *storageQuantity
-
-	for resourceName, RQuant := range r.ScalarResources {
-		quantity := resource.NewQuantity(int64(RQuant), resource.BinarySI)
-		resourceList[v1.ResourceName(resourceName)] = *quantity
+	if r == nil {
+		return resourceList
+	}
+	for resourceName, RQuant := range r.Resources {
+		rName := v1.ResourceName("")
+		var quantity *resource.Quantity
+		switch resourceName {
+		case pfResources.ResCPU:
+			quantity = resource.NewMilliQuantity(int64(RQuant), resource.DecimalSI)
+			rName = v1.ResourceCPU
+		case pfResources.ResMemory:
+			quantity = resource.NewQuantity(int64(RQuant), resource.BinarySI)
+			rName = v1.ResourceMemory
+		default:
+			quantity = resource.NewQuantity(int64(RQuant), resource.BinarySI)
+			rName = v1.ResourceName(resourceName)
+		}
+		resourceList[rName] = *quantity
 	}
 	return resourceList
 }

@@ -17,6 +17,7 @@ limitations under the License.
 package storage
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"gorm.io/gorm"
@@ -133,6 +134,7 @@ func (fss *FilesystemStore) GetLinkWithFsIDAndPath(fsID, fsPath string) ([]model
 // ============================================================= table fs_cache_config ============================================================= //
 
 func (fss *FilesystemStore) CreateFSCacheConfig(fsCacheConfig *model.FSCacheConfig) error {
+	fmt.Println("create fs cscahe", *fsCacheConfig)
 	err := fss.db.Model(&model.FSCacheConfig{}).Create(fsCacheConfig).Error
 	if err != nil {
 		return err
@@ -140,7 +142,24 @@ func (fss *FilesystemStore) CreateFSCacheConfig(fsCacheConfig *model.FSCacheConf
 	return nil
 }
 
-func (fss *FilesystemStore) UpdateFSCacheConfig(fsCacheConfig model.FSCacheConfig) error {
+func (fss *FilesystemStore) UpdateFSCacheConfig(fsCacheConfig *model.FSCacheConfig) error {
+	nodeAffinityMap, err := json.Marshal(&fsCacheConfig.NodeAffinityMap)
+	if err != nil {
+		return err
+	}
+	fsCacheConfig.NodeAffinityJson = string(nodeAffinityMap)
+
+	nodeTaintMap, err := json.Marshal(&fsCacheConfig.NodeTaintTolerationMap)
+	if err != nil {
+		return err
+	}
+	fsCacheConfig.NodeTaintTolerationJson = string(nodeTaintMap)
+
+	extraConfigMap, err := json.Marshal(&fsCacheConfig.ExtraConfigMap)
+	if err != nil {
+		return err
+	}
+	fsCacheConfig.ExtraConfigJson = string(extraConfigMap)
 	tx := fss.db.Model(&model.FSCacheConfig{}).Where(&model.FSCacheConfig{FsID: fsCacheConfig.FsID}).Updates(fsCacheConfig)
 	if tx.Error != nil {
 		return tx.Error
