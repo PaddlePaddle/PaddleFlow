@@ -295,6 +295,8 @@ func (drt *DagRuntime) Start() {
 		return
 	}
 
+	view := drt.newView("begin to run")
+	drt.syncToApiServerAndParent(WfEventDagUpdate, &view, "begin to run")
 	// 监听子节点已经父节点传递过来的事件或者信号
 	go drt.Listen()
 	go drt.Stop()
@@ -581,6 +583,9 @@ func (drt *DagRuntime) scheduleSubComponentAccordingView(dagView *schema.DagView
 	}
 
 	drt.updateStatus(StatusRuntimeRunning)
+
+	view := drt.newView("begin to restart dag")
+	drt.syncToApiServerAndParent(WfEventDagUpdate, &view, "begin to restart dag")
 
 	// 这里需要重置 subComponentRumtimes 原因是在 needRestarted 函数中，并没有保存完整的view信息
 	drt.subComponentRumtimes = map[string][]componentRuntime{}
