@@ -1025,13 +1025,13 @@ func NewWorkflow(wfSource schema.WorkflowSource, runID string, params map[string
 
 // 初始化 workflow runtime
 func (wf *Workflow) newWorkflowRuntime() error {
-	parallelism := wf.Source.Parallelism
-	if parallelism <= 0 {
-		parallelism = WfParallelismDefault
-	} else if parallelism > WfParallelismMaximum {
-		parallelism = WfParallelismMaximum
+	if wf.Source.Parallelism <= 0 {
+		wf.Source.Parallelism = WfParallelismDefault
+	} else if wf.Source.Parallelism > WfParallelismMaximum {
+		wf.Source.Parallelism = WfParallelismMaximum
 	}
-	logger.LoggerForRun(wf.RunID).Debugf("initializing [%d] parallelism jobs", parallelism)
+
+	logger.LoggerForRun(wf.RunID).Debugf("initializing [%d] parallelism jobs", wf.Source.Parallelism)
 	runConf := NewRunConfig(&wf.Source, wf.Extra[WfExtraInfoKeyFsID], wf.Extra[WfExtraInfoKeyFsName], wf.Extra[WfExtraInfoKeyUserName], wf.RunID,
 		logger.LoggerForRun(wf.RunID), wf.callbacks, wf.Extra[WfExtraInfoKeySource])
 	wf.runtime = NewWorkflowRuntime(runConf)

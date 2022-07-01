@@ -48,6 +48,13 @@ type parallelismManager struct {
 }
 
 func NewParallelismManager(parallelism int) *parallelismManager {
+	// 用于兜底
+	if parallelism <= 0 {
+		parallelism = WfParallelismDefault
+	} else if parallelism > WfParallelismMaximum {
+		parallelism = WfParallelismMaximum
+	}
+
 	return &parallelismManager{
 		ch: make(chan struct{}, parallelism),
 	}
@@ -267,7 +274,8 @@ func (crt *baseComponentRuntime) getPFLoopArgument() (value interface{}, err err
 	}
 	t := reflect.TypeOf(crt.component.GetLoopArgument())
 	if t.Kind() != reflect.Slice {
-		err := fmt.Errorf("the value of loopArgument should an instance of list")
+		err := fmt.Errorf("the value of loopArgument should an instance of list, and current value is: %v",
+			crt.component.GetLoopArgument())
 		return nil, err
 	}
 	v := reflect.ValueOf(crt.component.GetLoopArgument())
@@ -286,7 +294,7 @@ func (crt *baseComponentRuntime) getPFLoopArgument() (value interface{}, err err
 	value = v.Index(crt.seq).Interface()
 
 	crt.logger.Infof("++++++++ seq[%d], loop_args : %v", crt.seq, v)
-	crt.logger.Infof("the PF_LOOP_ARG of component is : %v", value)
+	crt.logger.Infof("the PF_LOOP_ARG of component[%s] is : %v", crt.name, value)
 	return
 }
 

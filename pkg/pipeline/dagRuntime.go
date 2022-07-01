@@ -155,7 +155,7 @@ func (drt *DagRuntime) getReadyComponent() map[string]schema.Component {
 		}
 	}
 
-	drt.logger.Infof("get ready component[%v]", readyComponent)
+	drt.logger.Infof("get ready subComponent[%v] for dag[%s]", readyComponent, drt.name)
 	return readyComponent
 }
 
@@ -179,7 +179,7 @@ func (drt *DagRuntime) resolveReference(subComponentName string, subComponent sc
 func (drt *DagRuntime) createAndStartSubComponentRuntime(subComponentName string, subComponent schema.Component,
 	exceptSeq map[int]int) {
 	subFullName := drt.generateSubComponentFullName(subComponentName)
-	drt.logger.Infof("begin to create runtime for component[%s]: %v", subFullName)
+	drt.logger.Infof("begin to create runtime for component[%s]", subFullName)
 
 	// 如果已经有子节点对应的 runtime, 则说明该节点已经被调度过了
 	// PS: 理论上不会出现在这种情况，用于兜底
@@ -188,18 +188,29 @@ func (drt *DagRuntime) createAndStartSubComponentRuntime(subComponentName string
 		drt.logger.Errorf("component[%s] has been scheduled", subComponentName)
 		return
 	}
+
+	// 1. 获取 新的副本，避免循环结构的多次运行访问了同一个对象, 因为子节点是以指针形式存储的
+	newSubComponent := subComponent.DeepCopy()
+
+	// 2. 替换上下游参数模板
+	err := drt.DependencySolver.ResolveBeforeRun(newSubComponent)
+	if err != nil {
+		drt.logger.Errorln(err.Error())
+		drt.processSubRuntimeError(err, newSubComponent, StatusRuntimeFailed)
+	}
+
 	// 1. 获取 loop_arguemnt, 确定需要创建多少次runtime
-	isv := NewInnerSolver(subComponent, subFullName, drt.runConfig)
-	err := isv.resolveLoopArugment()
+	isv := NewInnerSolver(newSubComponent, subFullName, drt.runConfig)
+	err = isv.resolveLoopArugment()
 	if err != nil {
 		err := fmt.Errorf("cannot get the value of loop_arugment for component[%s]", subFullName)
 		drt.logger.Errorln(err.Error())
-		drt.processSubRuntimeError(err, subComponent, StatusRuntimeFailed)
+		drt.processSubRuntimeError(err, newSubComponent, StatusRuntimeFailed)
 		return
 	}
 
 	var ll int
-	lp := subComponent.GetLoopArgument()
+	lp := newSubComponent.GetLoopArgument()
 	if lp != nil {
 		v := reflect.ValueOf(lp)
 		ll = v.Len()
@@ -207,7 +218,7 @@ func (drt *DagRuntime) createAndStartSubComponentRuntime(subComponentName string
 			err := fmt.Errorf("component[%s] wouldn't be scheduled, because the lenth of it's loop_argument is 0",
 				subFullName)
 			drt.logger.Errorln(err.Error())
-			drt.processSubRuntimeError(err, subComponent, StatusRuntimeSkipped)
+			drt.processSubRuntimeError(err, newSubComponent, StatusRuntimeSkipped)
 			return
 		}
 	} else {
@@ -216,9 +227,9 @@ func (drt *DagRuntime) createAndStartSubComponentRuntime(subComponentName string
 
 	// 同一个节点的多次运行，共享同一个 failureOptionsCtx
 	ctxAndCc := drt.getfailureOptionsCtxAndCF(subComponentName)
-
 	step, isStep := subComponent.(*schema.WorkflowSourceStep)
 	dag, _ := subComponent.(*schema.WorkflowSourceDag)
+
 	for index := 0; index < ll; index++ {
 		if _, ok := exceptSeq[index]; ok {
 			continue
@@ -226,16 +237,12 @@ func (drt *DagRuntime) createAndStartSubComponentRuntime(subComponentName string
 
 		var subRuntime componentRuntime
 		if isStep {
-			// 这里需要对 step 进行复制， 避免多个stepRuntime 使用了同一个 component， 导致并发问题
-			newStep := *step
-			newStepPrt := &(newStep)
-			subRuntime = NewStepRuntime(subFullName, newStepPrt, index, drt.ctx, ctxAndCc.ctx,
-				drt.receiveEventChildren, drt.runConfig, drt.ID)
+			// 这里需要对 step 进行复制， 避免多个subRuntime 使用了同一个 component， 导致并发问题
+			subRuntime = NewStepRuntime(subFullName, step.DeepCopy().(*schema.WorkflowSourceStep), index,
+				drt.ctx, ctxAndCc.ctx, drt.receiveEventChildren, drt.runConfig, drt.ID)
 		} else {
-			newDag := *dag
-			newDagPrt := &newDag
-			subRuntime = NewDagRuntime(subFullName, newDagPrt, index, drt.ctx, ctxAndCc.ctx,
-				drt.receiveEventChildren, drt.runConfig, drt.ID)
+			subRuntime = NewDagRuntime(subFullName, dag.DeepCopy().(*schema.WorkflowSourceDag), index,
+				drt.ctx, ctxAndCc.ctx, drt.receiveEventChildren, drt.runConfig, drt.ID)
 		}
 		drt.subComponentRumtimes[subComponentName] = append(drt.subComponentRumtimes[subComponentName], subRuntime)
 
@@ -338,14 +345,7 @@ func (drt *DagRuntime) scheduleSubComponent(mustSchedule bool) {
 			continue
 		}
 
-		// 3. 替换子节点 parameter，artifact 字段中的模板
-		err = drt.DependencySolver.ResolveBeforeRun(subComponentName)
-		if err != nil {
-			drt.logger.Errorln(err.Error())
-			drt.processSubRuntimeError(err, newSubCp, StatusRuntimeFailed)
-			continue
-		}
-
+		// tiahuan
 		// 4. 创建 runtime 并运行 runtime
 		drt.createAndStartSubComponentRuntime(subComponentName, newSubCp, map[int]int{})
 	}
@@ -483,7 +483,7 @@ func (drt *DagRuntime) needRestart(dagView *schema.DagView) (bool, error) {
 		component = newCp
 
 		// 替换 parameter 与 artifact 中的模板
-		err = drt.DependencySolver.ResolveBeforeRun(name)
+		err = drt.DependencySolver.ResolveBeforeRun(component)
 		if err != nil {
 			drt.logger.Errorln("ResolveBeforeRun failed:", err.Error())
 			drt.processSubRuntimeError(err, component, StatusRuntimeFailed)
@@ -536,7 +536,7 @@ func (drt *DagRuntime) creatStepRuntimeAccordingView(view *schema.JobView, name 
 
 	ctxAndcc := drt.getfailureOptionsCtxAndCF(name)
 
-	step := *drt.getworkflowSouceDag().EntryPoints[name].(*schema.WorkflowSourceStep)
+	step := *drt.getworkflowSouceDag().EntryPoints[name].DeepCopy().(*schema.WorkflowSourceStep)
 	stepPtr := &step
 	srt := NewStepRuntime(fullName, stepPtr,
 		view.Seq, drt.ctx, ctxAndcc.ctx, drt.receiveEventChildren, drt.runConfig, drt.ID)
@@ -549,7 +549,7 @@ func (drt *DagRuntime) createDagRuntimeAccordingView(view *schema.DagView, name 
 
 	ctxAndcc := drt.getfailureOptionsCtxAndCF(name)
 
-	dag := *drt.getworkflowSouceDag().EntryPoints[name].(*schema.WorkflowSourceDag)
+	dag := *drt.getworkflowSouceDag().EntryPoints[name].DeepCopy().(*schema.WorkflowSourceDag)
 	dagPtr := &dag
 	sDrt := NewDagRuntime(fullName, dagPtr,
 		view.Seq, drt.ctx, ctxAndcc.ctx, drt.receiveEventChildren, drt.runConfig, drt.ID)
@@ -613,7 +613,7 @@ func (drt *DagRuntime) scheduleSubComponentAccordingView(dagView *schema.DagView
 			continue
 		}
 
-		component := drt.getworkflowSouceDag().EntryPoints[name]
+		component := drt.getworkflowSouceDag().EntryPoints[name].DeepCopy()
 
 		// exceptSeq 的value 无实义，仿set
 		exceptSeq := map[int]int{}

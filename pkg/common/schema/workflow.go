@@ -82,6 +82,9 @@ type Component interface {
 	InitInputArtifacts()
 	InitOutputArtifacts()
 	InitParameters()
+
+	// 用于 deepCopy, 避免复用时出现问题
+	DeepCopy() Component
 }
 
 type WorkflowSourceStep struct {
@@ -212,6 +215,11 @@ func (s *WorkflowSourceStep) GetOutputArtifactPath(artName string) (string, erro
 	return path, nil
 }
 
+func (s *WorkflowSourceStep) DeepCopy() Component {
+	ns := *s
+	return &ns
+}
+
 type WorkflowSourceDag struct {
 	Name         string                 `yaml:"-"`
 	LoopArgument interface{}            `yaml:"loop_argument"`
@@ -339,6 +347,11 @@ func (d *WorkflowSourceDag) InitInputArtifacts() {
 
 func (d *WorkflowSourceDag) InitParameters() {
 	d.Parameters = map[string]interface{}{}
+}
+
+func (d *WorkflowSourceDag) DeepCopy() Component {
+	nd := *d
+	return &nd
 }
 
 type Reference struct {

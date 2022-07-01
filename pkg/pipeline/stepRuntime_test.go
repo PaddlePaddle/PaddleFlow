@@ -100,7 +100,7 @@ func TestUpdateJobForFingerPrint(t *testing.T) {
 
 	ds := NewDependencySolver(dr)
 	for _, stepName := range sortedSteps {
-		err := ds.ResolveBeforeRun(stepName)
+		err := ds.ResolveBeforeRun(dr.getworkflowSouceDag().EntryPoints[stepName])
 		assert.Nil(t, err)
 
 		st := wfs.EntryPoints.EntryPoints[stepName].(*schema.WorkflowSourceStep)
@@ -202,7 +202,7 @@ func TestUpdateJob(t *testing.T) {
 	ds := NewDependencySolver(dr)
 
 	for _, stepName := range sortedSteps {
-		err := ds.ResolveBeforeRun(stepName)
+		err := ds.ResolveBeforeRun(dr.getworkflowSouceDag().EntryPoints[stepName])
 		assert.Nil(t, err)
 
 		st := wfs.EntryPoints.EntryPoints[stepName].(*schema.WorkflowSourceStep)
