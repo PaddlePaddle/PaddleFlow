@@ -24,7 +24,11 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 )
+
+// ResourceName is the name identifying various resources in a ResourceList.
+type ResourceName string
 
 // ScalarResourcesType is the type of scalar resources
 type ScalarResourcesType map[ResourceName]string
@@ -48,6 +52,18 @@ func EmptyResourceInfo() *ResourceInfo {
 		Mem:             "0",
 		ScalarResources: make(ScalarResourcesType),
 	}
+}
+
+func (r ResourceInfo) ToMap() map[string]string {
+	res := make(map[string]string)
+	res[resources.ResCPU] = r.CPU
+	res[resources.ResMemory] = r.Mem
+	if r.ScalarResources != nil {
+		for key, value := range r.ScalarResources {
+			res[string(key)] = value
+		}
+	}
+	return res
 }
 
 // SetScalar sets a resource by a scalar value of this resource.

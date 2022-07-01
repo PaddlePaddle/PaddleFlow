@@ -27,35 +27,36 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 type Job struct {
-	Pk                int64            `json:"-" gorm:"primaryKey;autoIncrement"`
-	ID                string           `json:"jobID" gorm:"type:varchar(60);index:idx_id,unique;NOT NULL"`
-	Name              string           `json:"jobName" gorm:"type:varchar(512);default:''"`
-	UserName          string           `json:"userName" gorm:"NOT NULL"`
-	QueueID           string           `json:"queueID" gorm:"NOT NULL"`
-	Type              string           `json:"type" gorm:"type:varchar(20);NOT NULL"`
-	ConfigJson        string           `json:"-" gorm:"column:config;type:text"`
-	Config            *schema.Conf     `json:"config" gorm:"-"`
-	RuntimeInfoJson   string           `json:"-" gorm:"column:runtime_info;default:'{}'"`
-	RuntimeInfo       interface{}      `json:"runtimeInfo" gorm:"-"`
-	Status            schema.JobStatus `json:"status" gorm:"type:varchar(32);"`
-	Message           string           `json:"message"`
-	ResourceJson      string           `json:"-" gorm:"column:resource;type:text;default:'{}'"`
-	Resource          *schema.Resource `json:"resource" gorm:"-"`
-	Framework         schema.Framework `json:"framework" gorm:"type:varchar(30)"`
-	MembersJson       string           `json:"-" gorm:"column:members;type:text"`
-	Members           []Member         `json:"members" gorm:"-"`
-	ExtensionTemplate string           `json:"-" gorm:"type:text"`
-	ParentJob         string           `json:"-" gorm:"type:varchar(60)"`
-	CreatedAt         time.Time        `json:"createTime"`
-	ActivatedAt       sql.NullTime     `json:"activateTime"`
-	UpdatedAt         time.Time        `json:"updateTime,omitempty"`
-	DeletedAt         string           `json:"-" gorm:"index:idx_id"`
+	Pk                int64               `json:"-" gorm:"primaryKey;autoIncrement"`
+	ID                string              `json:"jobID" gorm:"type:varchar(60);index:idx_id,unique;NOT NULL"`
+	Name              string              `json:"jobName" gorm:"type:varchar(512);default:''"`
+	UserName          string              `json:"userName" gorm:"NOT NULL"`
+	QueueID           string              `json:"queueID" gorm:"NOT NULL"`
+	Type              string              `json:"type" gorm:"type:varchar(20);NOT NULL"`
+	ConfigJson        string              `json:"-" gorm:"column:config;type:text"`
+	Config            *schema.Conf        `json:"config" gorm:"-"`
+	RuntimeInfoJson   string              `json:"-" gorm:"column:runtime_info;default:'{}'"`
+	RuntimeInfo       interface{}         `json:"runtimeInfo" gorm:"-"`
+	Status            schema.JobStatus    `json:"status" gorm:"type:varchar(32);"`
+	Message           string              `json:"message"`
+	ResourceJson      string              `json:"-" gorm:"column:resource;type:text;default:'{}'"`
+	Resource          *resources.Resource `json:"resource" gorm:"-"`
+	Framework         schema.Framework    `json:"framework" gorm:"type:varchar(30)"`
+	MembersJson       string              `json:"-" gorm:"column:members;type:text"`
+	Members           []Member            `json:"members" gorm:"-"`
+	ExtensionTemplate string              `json:"-" gorm:"type:text"`
+	ParentJob         string              `json:"-" gorm:"type:varchar(60)"`
+	CreatedAt         time.Time           `json:"createTime"`
+	ActivatedAt       sql.NullTime        `json:"activateTime"`
+	UpdatedAt         time.Time           `json:"updateTime,omitempty"`
+	DeletedAt         string              `json:"-" gorm:"index:idx_id"`
 }
 
 type Member struct {

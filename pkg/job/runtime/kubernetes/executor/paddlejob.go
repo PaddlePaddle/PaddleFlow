@@ -252,13 +252,13 @@ func (pj *PaddleJob) patchMinResource(pdjSpec *paddlev1.PaddleJobSpec) {
 	workerRequests := pdjSpec.Worker.Template.Spec.Containers[0].Resources.Requests
 	workerReplicas := pdjSpec.Worker.Replicas
 	workerResource := k8s.NewResource(workerRequests)
-	workerResource.Multi(float64(workerReplicas))
+	workerResource.Multi(workerReplicas)
 
 	if pdjSpec.PS != nil {
 		psRequests := pdjSpec.PS.Template.Spec.Containers[0].Resources.Requests
 		psReplicas := pdjSpec.PS.Replicas
 		psResource := k8s.NewResource(psRequests)
-		psResource.Multi(float64(psReplicas))
+		psResource.Multi(psReplicas)
 		workerResource.Add(psResource)
 	}
 
