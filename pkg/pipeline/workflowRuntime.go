@@ -312,15 +312,15 @@ func (wfr *WorkflowRuntime) updateStatusAccordingComponentStatus() {
 		return
 	}
 
-	fmt.Println("++++++++++++", 222222222)
+	fmt.Println("++++++++++++", 2222222)
 
-	if wfr.WorkflowSource.PostProcess != nil || len(wfr.WorkflowSource.PostProcess) != 0 {
+	if len(wfr.WorkflowSource.PostProcess) != 0 {
 		if wfr.postProcess == nil || !wfr.postProcess.isDone() {
 			return
 		}
 	}
 
-	fmt.Println("++++++++++++", 333333333)
+	fmt.Println("++++++++++++", 3333333)
 	hasFailedComponent := wfr.entryPoints.isFailed() ||
 		(wfr.postProcess != nil && wfr.postProcess.isFailed())
 	hasTerminatedComponent := wfr.entryPoints.isTerminated() ||
