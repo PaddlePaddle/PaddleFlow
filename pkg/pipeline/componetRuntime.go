@@ -274,7 +274,8 @@ func (crt *baseComponentRuntime) getPFLoopArgument() (value interface{}, err err
 	}
 	t := reflect.TypeOf(crt.component.GetLoopArgument())
 	if t.Kind() != reflect.Slice {
-		err := fmt.Errorf("the value of loopArgument should an instance of list")
+		err := fmt.Errorf("the value of loopArgument should an instance of list, and current value is: %v",
+			crt.component.GetLoopArgument())
 		return nil, err
 	}
 	v := reflect.ValueOf(crt.component.GetLoopArgument())
