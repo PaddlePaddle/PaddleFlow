@@ -248,7 +248,7 @@ func (wfr *WorkflowRuntime) schedulePostProcess() {
 
 	wfr.logger.Debugf("begin to start postProcess")
 	if wfr.postProcess != nil {
-		wfr.logger.Warningf("the postProcess step[%s] has been scheduled", wfr.postProcess.name)
+		wfr.logger.Warningf("the postProcess step[%s] has been scheduled", wfr.postProcess.fullName)
 		return
 	} else if len(wfr.WorkflowSource.PostProcess) != 0 {
 		for name, step := range wfr.WorkflowSource.PostProcess {
@@ -258,7 +258,7 @@ func (wfr *WorkflowRuntime) schedulePostProcess() {
 				wfr.runConfig, "")
 			wfr.postProcess = postProcess
 		}
-		msg := fmt.Sprintf("begin to execute postProcess step [%s]", wfr.postProcess.name)
+		msg := fmt.Sprintf("begin to execute postProcess step [%s]", wfr.postProcess.fullName)
 		wfr.logger.Infof(msg)
 		wfr.postProcess.Start()
 	} else {

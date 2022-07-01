@@ -140,7 +140,6 @@ func TestGetFunc(t *testing.T) {
 	assert.Equal(t, 1, cp.getSeq())
 
 	cp.seq = 0
-	assert.Equal(t, "step1-0", cp.getName())
 	assert.Equal(t, "step1", cp.getFullName())
 }
 

@@ -106,12 +106,12 @@ func TestGenerateSubComponentFullName(t *testing.T) {
 	drt, err := mockerDagRuntime(eventChan)
 	assert.Nil(t, err)
 
-	fullName := drt.generateSubComponentFullName("step1")
+	fullName := drt.generateSubComponentFullName("step1", 0)
 	assert.Equal(t, "PF-EntryPoint.step1", fullName)
 
-	drt.componentFullName = "entrypoint"
-	fullName = drt.generateSubComponentFullName("step1")
-	assert.Equal(t, "entrypoint.step1", fullName)
+	drt.fullName = "entrypoint"
+	fullName = drt.generateSubComponentFullName("step1", 1)
+	assert.Equal(t, "entrypoint.step1.1", fullName)
 }
 
 func TestGetReadyComponent(t *testing.T) {
@@ -219,10 +219,7 @@ func TestCreateAndStartSubComponentRuntime(t *testing.T) {
 	assert.Len(t, drt.subComponentRumtimes, 2)
 	assert.Len(t, drt.subComponentRumtimes["square-loop"], 3)
 	assert.Equal(t, drt.subComponentRumtimes["square-loop"][0].getFullName(), "PF-EntryPoint.square-loop")
-	assert.Equal(t, drt.subComponentRumtimes["square-loop"][0].getName(), "PF-EntryPoint.square-loop-0")
-
-	assert.Equal(t, drt.subComponentRumtimes["square-loop"][1].getFullName(), "PF-EntryPoint.square-loop")
-	assert.Equal(t, drt.subComponentRumtimes["square-loop"][2].getName(), "PF-EntryPoint.square-loop-2")
+	assert.Equal(t, drt.subComponentRumtimes["square-loop"][1].getFullName(), "PF-EntryPoint.square-loop.1")
 }
 
 func TestDagRuntimeStart(t *testing.T) {
@@ -436,6 +433,7 @@ func TestDagRunRestart(t *testing.T) {
 	drt.updateStatus(StatusRuntimePending)
 	drt.getworkflowSouceDag().EntryPoints["process-positive"].UpdateLoopArguemt([]int{})
 	drt.getworkflowSouceDag().EntryPoints["square-loop"].UpdateLoopArguemt([]int{1, 2})
+	drt.WorkflowSource.Components["process-negetive"].UpdateLoopArguemt([]int{1})
 	dagView := schema.DagView{
 		Status: StatusRuntimeSucceeded,
 	}
@@ -543,7 +541,6 @@ func TestDagRunRestart(t *testing.T) {
 
 	drt.done = false
 	drt.status = StatusRuntimeInit
-
 	drt.Restart(&dagView)
 	go mockToListenEvent(eventChan, ep)
 	time.Sleep(time.Millisecond * 100)
@@ -641,6 +638,9 @@ func TestDagRunRestart(t *testing.T) {
 	listened = false
 
 	drt.status = StatusRuntimeInit
+	drt.subComponentRumtimes = map[string][]componentRuntime{}
+
+	fmt.Printf("\n\n\n\n\n\n")
 	drt.Restart(&dagView)
 	go mockToListenEvent(eventChan, ep)
 	time.Sleep(time.Millisecond * 100)
@@ -650,7 +650,6 @@ func TestDagRunRestart(t *testing.T) {
 	assert.True(t, listened)
 	assert.Len(t, drt.subComponentRumtimes, 6)
 	assert.Len(t, drt.subComponentRumtimes["square-loop"], 2)
-
 }
 
 func TestProcessEventFromSubComponent(t *testing.T) {
@@ -764,8 +763,11 @@ func TestProcessFailureOptions(t *testing.T) {
 	assert.Contains(t, drt.subComponentRumtimes, "sum")
 
 	drt.WorkflowSource.FailureOptions.Strategy = "failed"
+	drt.hasFailureOptionsTriggered = false
 	drt.subComponentRumtimes = map[string][]componentRuntime{}
 	drt.subComponentRumtimes["square-loop"] = append(drt.subComponentRumtimes["square-loop"], drt3)
+
+	fmt.Printf("\n\n\n\n\n\n\n")
 	drt.ProcessFailureOptions(*event, false)
 	time.Sleep(time.Millisecond * 100)
 

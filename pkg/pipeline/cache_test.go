@@ -132,7 +132,7 @@ func mockRunConfigWithLogger() *runConfig {
 func mockStep() StepRuntime {
 	job := mockPaddleFlowJob()
 	bcr := baseComponentRuntime{
-		name:      "predict.defe-1",
+		fullName:  "predict.defe-1",
 		runConfig: mockRunConfigWithLogger(),
 	}
 

@@ -67,16 +67,16 @@ func parseSysParamerterTemplate(tpl string, sysParams map[string]string) (string
 // 用于解析 component 内部的引用模版，如env，condition，conditon，loop_argument 等字段中 parameter/artifact 模版
 type innerSolver struct {
 	schema.Component
-	componentFullName string
-	sysParams         map[string]string
+	fullName  string
+	sysParams map[string]string
 	*runConfig
 }
 
 func NewInnerSolver(cp schema.Component, fullName string, config *runConfig) *innerSolver {
 	return &innerSolver{
-		Component:         cp,
-		componentFullName: fullName,
-		runConfig:         config,
+		Component: cp,
+		fullName:  fullName,
+		runConfig: config,
 	}
 }
 
@@ -99,7 +99,7 @@ func (isv *innerSolver) resloveParameterTemplate(tpl []string, fieldType string)
 		value2, err := isv.Component.GetParameterValue(refParamName)
 		if err != nil {
 			err := fmt.Errorf("cannot parse Template[%s] in component[%s] as Parameter or SysParameter: %v",
-				tpl[0], isv.componentFullName, err.Error())
+				tpl[0], isv.fullName, err.Error())
 			return "", err
 		}
 
@@ -129,7 +129,7 @@ func (isv *innerSolver) resolveArtifactTemplate(tpl []string, fieldType string, 
 	path, err := isv.GetArtifactPath(refParamName)
 	if err != nil {
 		err = fmt.Errorf("cannot reslove template[%s] as Artifact for component[%s]: %v",
-			tpl[0], isv.componentFullName, err.Error())
+			tpl[0], isv.fullName, err.Error())
 		return "", err
 
 	}
@@ -146,7 +146,7 @@ func (isv *innerSolver) resolveArtifactTemplate(tpl []string, fieldType string, 
 		result, err = GetArtifactContent(path, maxSize, isv.fsID, isv.logger)
 		if err != nil {
 			err = fmt.Errorf("failed to resolve template[%s] for component[%s], because cannot read the content from artifact[%s]",
-				tpl[0], isv.componentFullName, refParamName)
+				tpl[0], isv.fullName, refParamName)
 			return "", err
 		}
 	}
@@ -156,7 +156,7 @@ func (isv *innerSolver) resolveArtifactTemplate(tpl []string, fieldType string, 
 
 // resolveEnv: 将字符串中给定模板替换成具体值
 func (isv *innerSolver) resolveTemplate(tplString string, fieldType string, forCache bool) (interface{}, error) {
-	isv.logger.Debugf("begin to resolve template for component[%s] with field[%s]", isv.componentFullName, fieldType)
+	isv.logger.Debugf("begin to resolve template for component[%s] with field[%s]", isv.fullName, fieldType)
 	tpls, err := fetchTemplate(tplString)
 	if err != nil {
 		return "", err
@@ -168,7 +168,7 @@ func (isv *innerSolver) resolveTemplate(tplString string, fieldType string, forC
 
 	if fieldType == FieldLoopArguemt && tplString != tpls[0][0] {
 		err := fmt.Errorf("paraTemplate[%s] for component[%s]'s loop_argument or condition field cannot join with other string",
-			tplString, isv.componentFullName)
+			tplString, isv.fullName)
 		return "", err
 	}
 	for index := range tpls {
@@ -182,7 +182,7 @@ func (isv *innerSolver) resolveTemplate(tplString string, fieldType string, forC
 			// env 字段中只允许引用parameter/sysParameter 模板
 			if fieldType == FieldEnv {
 				err = fmt.Errorf("cannot not resolve Template[%s] for component[%s] in env field. "+
-					"only support parameter template in env field", tpl[0], isv.componentFullName)
+					"only support parameter template in env field", tpl[0], isv.fullName)
 				return "", err
 			}
 
@@ -190,7 +190,7 @@ func (isv *innerSolver) resolveTemplate(tplString string, fieldType string, forC
 			value, err = isv.resolveArtifactTemplate(tpl, fieldType, forCache)
 			if err != nil {
 				err = fmt.Errorf("cannot not resolve Template[%s] for component[%s] in %s field.",
-					tpl[0], isv.componentFullName, fieldType)
+					tpl[0], isv.fullName, fieldType)
 				return "", err
 			}
 		}
@@ -282,7 +282,7 @@ func (isv *innerSolver) resolveLoopArugment() error {
 	t := reflect.TypeOf(newLoopArgument)
 	if t.Kind() != reflect.Slice {
 		err := fmt.Errorf("the value of loop_argument for component[%s] should be an list or json list",
-			isv.componentFullName)
+			isv.fullName)
 		return err
 	}
 
@@ -305,7 +305,7 @@ func NewDependencySolver(dr *DagRuntime) *DependencySolver {
 }
 
 func (ds *DependencySolver) resolveParameterTemplate(tplString string, subComponentName string) (interface{}, error) {
-	subFullName := ds.generateSubComponentFullName(subComponentName)
+	subFullName := ds.generateSubComponentFullName(subComponentName, 0)
 
 	tpls, err := fetchTemplate(tplString)
 	if err != nil {
@@ -423,6 +423,8 @@ func (ds *DependencySolver) ResolveBeforeRun(subComponent schema.Component) erro
 		// 输入 artifact 必然引用其余节点的 输出artifact
 		newValue, err := ds.resolveArtifactTemplate(value, componentName)
 		if err != nil {
+			err = fmt.Errorf("resolver artifact template[%s] for artifact[%s] of component[%s] failed",
+				value, name, componentName)
 			return err
 		}
 
@@ -444,7 +446,7 @@ func (ds *DependencySolver) ResolveAfterDone() error {
 	}
 
 	for name, value := range ds.component.GetArtifacts().Output {
-		newValue, err := ds.resolveArtifactTemplate(value, ds.DagRuntime.name)
+		newValue, err := ds.resolveArtifactTemplate(value, ds.DagRuntime.fullName)
 		if err != nil {
 			return err
 		} else {
