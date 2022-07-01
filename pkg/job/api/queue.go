@@ -22,7 +22,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 )
 
 // QueueID is UID type, serves as unique ID for each queue
@@ -54,9 +54,9 @@ type QueueInfo struct {
 	Permissions []string
 
 	// Resource range of queue
-	Max  *schema.Resource
-	Min  *schema.Resource
-	Used *schema.Resource
+	Max  *resources.Resource
+	Min  *resources.Resource
+	Used *resources.Resource
 }
 
 func NewQueueInfo(q models.Queue) *QueueInfo {
