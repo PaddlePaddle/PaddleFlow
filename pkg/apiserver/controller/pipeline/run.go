@@ -62,19 +62,12 @@ type CreateRunRequest struct {
 }
 
 type CreateRunByJsonRequest struct {
-	FsName         string                `json:"fsName"`
-	UserName       string                `json:"userName,omitempty"` // optional, only for root user
-	Description    string                `json:"desc,omitempty"`     // optional
-	Disabled       string                `json:"disabled,omitempty"` // optional
-	Name           string                `json:"name"`
-	DockerEnv      string                `json:"dockerEnv,omitempty"`      // optional
-	Parallelism    int                   `json:"parallelism,omitempty"`    // optional
-	Cache          schema.Cache          `json:"cache,omitempty"`          // optional
-	Queue          string                `json:"queue,omitempty"`          // optional
-	Flavour        string                `json:"flavour,omitempty"`        // optional
-	JobType        string                `json:"jobType,omitempty"`        // optional
-	FailureOptions schema.FailureOptions `json:"failureOptions,omitempty"` // optional
-	Env            map[string]string     `json:"env,omitempty"`            // optional
+	FsName      string `json:"fsName"`
+	UserName    string `json:"userName"` // optional, only for root user
+	DockerEnv   string `json:"dockerEnv"`
+	Name        string `json:"name"`
+	Disabled    string `json:"disabled"`
+	Description string `json:"description"`
 }
 
 // used for API CreateRunJson to unmarshal steps in entryPoints and postProcess
@@ -229,12 +222,16 @@ func buildWorkflowSource(userName string, req CreateRunRequest, fsID string) (sc
 
 // Used for API CreateRunJson, get wfs by json request.
 func getWorkFlowSourceByJson(request *CreateRunByJsonRequest, bodyMap map[string]interface{}) (schema.WorkflowSource, error) {
-	// Json接口有，但Yaml接口没有的字段
+	// Json接口有，但runYaml没有的字段
 	JsonAttrMap := map[string]interface{}{
 		"flavour": nil,
 		"jobType": nil,
 		"queue":   nil,
 		"env":     nil,
+
+		//这两个字段，之前已经处理过，后续阶段无需处理，只需剔除即可
+		"fsName":   nil,
+		"userName": nil,
 	}
 
 	// 先把Json接口有，但是Yaml接口没有的参数提取出来保存
@@ -317,6 +314,16 @@ func ParseJsonGlobalEnv(jsonAttrMap map[string]interface{}) (map[string]string, 
 					return nil, fmt.Errorf("[jobType] should be string type")
 				}
 				if _, ok := resMap[schema.EnvJobType]; !ok {
+					resMap[schema.EnvJobType] = value
+				}
+			}
+		case "fsName":
+			if value != nil {
+				value, ok := value.(string)
+				if !ok {
+					return nil, fmt.Errorf("[fsName] should be string type")
+				}
+				if _, ok := resMap[schema.EnvJobFsID]; !ok {
 					resMap[schema.EnvJobType] = value
 				}
 			}
