@@ -139,24 +139,22 @@ func (m *Info) fillingMountCmd() {
 	}
 	if m.IndependentMountProcess {
 		m.MountCmd = fileMountSh
-		processArgs := []string{
-			"--mount-point=" + m.TargetPath,
-			"--block-size=0",
-			"--meta-cache-driver=default",
-		}
-		m.MountArgs = append(baseArgs, processArgs...)
+		m.MountArgs = append(baseArgs, "--mount-point="+m.TargetPath)
 	} else {
 		m.MountCmd = filePfsFuse
-		cacheArgs := []string{
-			"--mount-point=" + FusePodMountPoint,
-			"--block-size=" + strconv.Itoa(m.FsCacheConfig.BlockSize),
-			"--meta-cache-driver=" + m.FsCacheConfig.MetaDriver,
-			"--data-cache-path=" + FusePodCachePath + DataCacheDir,
-			"--meta-cache-path=" + FusePodCachePath + MetaCacheDir,
+		baseArgs = append(baseArgs, "--mount-point="+FusePodMountPoint)
+		if m.FsCacheConfig.CacheDir != "" {
+			cacheArgs := []string{
+				"--block-size=" + strconv.Itoa(m.FsCacheConfig.BlockSize),
+				"--meta-cache-driver=" + m.FsCacheConfig.MetaDriver,
+				"--data-cache-path=" + FusePodCachePath + DataCacheDir,
+				"--meta-cache-path=" + FusePodCachePath + MetaCacheDir,
+			}
+			baseArgs = append(baseArgs, cacheArgs...)
 		}
 		if m.FsCacheConfig.Debug {
-			cacheArgs = append(cacheArgs, "--log-level=trace")
+			baseArgs = append(baseArgs, "--log-level=trace")
 		}
-		m.MountArgs = append(baseArgs, cacheArgs...)
+		m.MountArgs = baseArgs
 	}
 }
