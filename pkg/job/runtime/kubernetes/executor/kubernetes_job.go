@@ -472,6 +472,10 @@ func (j *KubeJob) appendVolumeIfAbsent(vSlice []corev1.Volume, element corev1.Vo
 func (j *KubeJob) fixContainerCommand(command string) string {
 	command = strings.TrimPrefix(command, "bash -c")
 	command = strings.TrimPrefix(command, "sh -c")
+	if len(j.FileSystems) != 0 {
+		workdir := filepath.Join(schema.DefaultFSMountPath, j.FileSystems[0].ID)
+		command = fmt.Sprintf("%s %s;%s", "cd", workdir, command)
+	}
 	return command
 }
 
