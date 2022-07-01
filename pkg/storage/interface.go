@@ -54,7 +54,7 @@ type FileSystemStoreInterface interface {
 	GetLinkWithFsIDAndPath(fsID, fsPath string) ([]model.Link, error)
 	// fs_cache_config
 	CreateFSCacheConfig(fsCacheConfig *model.FSCacheConfig) error
-	UpdateFSCacheConfig(fsCacheConfig model.FSCacheConfig) error
+	UpdateFSCacheConfig(fsCacheConfig *model.FSCacheConfig) error
 	DeleteFSCacheConfig(tx *gorm.DB, fsID string) error
 	GetFSCacheConfig(fsID string) (model.FSCacheConfig, error)
 }
