@@ -267,14 +267,35 @@ func (fs *s3FileSystem) getDefaultDirAttr(name string) (*base.FileInfo, error) {
 
 func (fs *s3FileSystem) isDirExist(name string) error {
 	name = toDirPath(name)
+	path := fs.getFullPath(name)
 	// when s3 prefix/dir has no s3 object key, cannot be list
 	// thus list object under it to check existence
-	fInfos, _, err := fs.list(name, "", 1, true)
-	if err != nil {
-		log.Debugf("s3 isDirExist: fs.list name[%s] err:%v", name, err)
-		return err
+	var errList error
+	var fsInfos []base.FileInfo
+	var wg sync.WaitGroup
+	var errObject error
+	// todo: 用chan实现，不需要等待全部返回后在继续
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		fsInfos, _, errList = fs.list(name, "", 1, true)
+	}()
+	go func() {
+		defer wg.Done()
+		request := &s3.HeadObjectInput{
+			Bucket: &fs.bucket,
+			Key:    &path,
+		}
+		_, errObject = fs.s3.HeadObject(request)
+	}()
+	wg.Wait()
+	if len(fsInfos) > 0 || errObject == nil {
+		return nil
 	}
-	if len(fInfos) == 0 {
+	if errList != nil {
+		return errList
+	}
+	if len(fsInfos) == 0 {
 		return syscall.ENOENT
 	}
 	return nil
