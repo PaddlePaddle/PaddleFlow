@@ -46,6 +46,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime/kubernetes/controller"
@@ -488,7 +489,7 @@ func (kr *KubeRuntime) updateElasticResourceQuota(q *models.Queue) error {
 	return nil
 }
 
-func (kr *KubeRuntime) GetQueueUsedQuota(q *models.Queue) (*schema.ResourceInfo, error) {
+func (kr *KubeRuntime) GetQueueUsedQuota(q *models.Queue) (*resources.Resource, error) {
 	log.Infof("get used quota for queue %s, namespace %s", q.Name, q.Namespace)
 
 	fieldSelector := fmt.Sprintf(
@@ -503,11 +504,11 @@ func (kr *KubeRuntime) GetQueueUsedQuota(q *models.Queue) (*schema.ResourceInfo,
 		log.Errorf("get queue used quota failed, err: %v", err)
 		return nil, fmt.Errorf("get queue used quota failed, err: %v", err)
 	}
-	usedResource := schema.EmptyResourceInfo()
+	usedResource := resources.EmptyResource()
 	for idx := range podList.Items {
 		if isAllocatedPod(&podList.Items[idx], q.Name) {
 			podRes := k8s.CalcPodResources(&podList.Items[idx])
-			*usedResource = usedResource.Add(*podRes)
+			usedResource.Add(podRes)
 		}
 	}
 	return usedResource, nil
@@ -712,7 +713,7 @@ func (kr *KubeRuntime) listPods(namespace string, listOptions metav1.ListOptions
 	return kr.clientset.CoreV1().Pods(namespace).List(context.TODO(), listOptions)
 }
 
-func (kr *KubeRuntime) getNodeQuotaListImpl(subQuotaFn func(r *schema.Resource, pod *apiv1.Pod) error) (schema.QuotaSummary, []schema.NodeQuotaInfo, error) {
+func (kr *KubeRuntime) getNodeQuotaListImpl(subQuotaFn func(r *resources.Resource, pod *apiv1.Pod) error) (schema.QuotaSummary, []schema.NodeQuotaInfo, error) {
 	result := []schema.NodeQuotaInfo{}
 	summary := schema.QuotaSummary{
 		TotalQuota: *k8s.NewResource(v1.ResourceList{}),

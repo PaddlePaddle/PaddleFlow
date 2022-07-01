@@ -30,6 +30,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	gormErrors "github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
@@ -540,7 +541,15 @@ func GetQueueByName(ctx *logger.RequestContext, queueName string) (GetQueueRespo
 			queue.ClusterId, err.Error())
 		return GetQueueResponse{}, err
 	}
-	usedResource := schema.EmptyResourceInfo()
+
+	// calculate the idle resource of queue
+	maxResource, err := resources.NewResourceFromMap(queue.MaxResources.ToMap())
+	if err != nil {
+		ctx.Logging().Errorf("convert the maxResources of queue %s failed. error: %s",
+			queue.Name, err.Error())
+		return GetQueueResponse{}, err
+	}
+	usedResource := resources.EmptyResource()
 	if clusterInfo.Status == models.ClusterStatusOnLine {
 		runtimeSvc, err := runtime.GetOrCreateRuntime(clusterInfo)
 		if err != nil {
@@ -561,16 +570,9 @@ func GetQueueByName(ctx *logger.RequestContext, queueName string) (GetQueueRespo
 			ctx.Logging().Warnf("cannot get queue used quota for cluster type %s", clusterInfo.ClusterType)
 		}
 	}
-
-	if usedResource == nil {
-		usedResource = schema.EmptyResourceInfo()
-	}
-	maxResource := queue.MaxResources
-	idleResource, err := maxResource.Sub(*usedResource)
-	if err != nil {
-		return GetQueueResponse{}, fmt.Errorf("get queue idle quota failed, error: %v", err)
-	}
-	queue.IdleResources = &idleResource
+	idleResource := maxResource.Clone()
+	idleResource.Sub(usedResource)
+	queue.IdleResources = idleResource
 	queue.UsedResources = usedResource
 
 	getQueueResponse := GetQueueResponse{
