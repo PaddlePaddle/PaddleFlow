@@ -902,6 +902,11 @@ func validateMembers(ctx *logger.RequestContext, members []MemberSpec, schePolic
 		}
 		// sum = sum + member.Replicas * member.Flavour.ResourceInfo
 		memberRes, err := MultiplyResourceInfo(member.Replicas, member.Flavour.ResourceInfo)
+		if err != nil {
+			ctx.Logging().Errorf("Failed to multiply replicas=%d and resourceInfo=%v, err: %v", member.Replicas, member.Flavour.ResourceInfo, err)
+			ctx.ErrorCode = common.JobInvalidField
+			return err
+		}
 		*sumResource = sumResource.Add(memberRes)
 	}
 	// validate queue and total-member-resource
