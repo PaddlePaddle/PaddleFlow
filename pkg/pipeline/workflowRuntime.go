@@ -311,7 +311,7 @@ func (wfr *WorkflowRuntime) updateStatusAccordingComponentStatus() {
 		return
 	}
 
-	if wfr.WorkflowSource.PostProcess != nil {
+	if wfr.WorkflowSource.PostProcess != nil || len(wfr.WorkflowSource.PostProcess) != 0 {
 		if wfr.postProcess == nil || !wfr.postProcess.isDone() {
 			return
 		}
@@ -336,7 +336,7 @@ func (wfr *WorkflowRuntime) updateStatusAccordingComponentStatus() {
 		wfr.status = common.StatusRunSucceeded
 	}
 
-	wfr.logger.Debugf("workflow %s finished with status[%s]", wfr.WorkflowSource.Name, wfr.status)
+	wfr.logger.Infof("workflow %s finished with status[%s]", wfr.WorkflowSource.Name, wfr.status)
 	return
 }
 
