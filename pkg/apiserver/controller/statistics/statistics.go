@@ -76,12 +76,12 @@ func GetJobStatistics(ctx *logger.RequestContext, jobID string) (*JobStatisticsR
 	for _, value := range metricNameList {
 		result, err := queryResourceMetric(ctxP, jobID, value)
 		if err != nil {
-			ctx.Logging().Errorln("query metric[%s] failed, error: %s", value, err.Error())
+			ctx.Logging().Errorf("query metric[%s] failed, error: %s", value, err.Error())
 			return nil, err
 		}
 		err = convertResultToResponse(result, response)
 		if err != nil {
-			ctx.Logging().Errorln("convert metric[%s] result to response failed, error: %s", value, err.Error())
+			ctx.Logging().Errorf("convert metric[%s] result to response failed, error: %s", value, err.Error())
 			return nil, err
 		}
 	}
@@ -119,12 +119,12 @@ func GetJobDetailStatistics(ctx *logger.RequestContext, jobID string, start, end
 	for _, value := range metricNameList {
 		result, err := queryRangeResourceMetric(ctxP, jobID, value, start, end, step)
 		if err != nil {
-			ctx.Logging().Errorln("query range metric[%s] failed, error: %s", value, err.Error())
+			ctx.Logging().Errorf("query range metric[%s] failed, error: %s", value, err.Error())
 			return nil, err
 		}
 		err = convertResultToDetailResponse(result, response)
 		if err != nil {
-			ctx.Logging().Errorln("convert metric[%s] result to detail response failed, error: %s", value, err.Error())
+			ctx.Logging().Errorf("convert metric[%s] result to detail response failed, error: %s", value, err.Error())
 			return nil, err
 		}
 	}
