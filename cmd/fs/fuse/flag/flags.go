@@ -158,6 +158,11 @@ func LinkFlags() []cli.Flag {
 			Value: "",
 			Usage: "fs path for link",
 		},
+		&cli.BoolFlag{
+			Name:  "skip-check-links",
+			Value: true,
+			Usage: "skip check links",
+		},
 		&cli.IntFlag{
 			Name:  "link-update-interval",
 			Value: 15,
