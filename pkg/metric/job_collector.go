@@ -58,7 +58,10 @@ func (j *JobCollector) Describe(ch chan<- *prometheus.Desc) {
 }
 
 func (j *JobCollector) Collect(ch chan<- prometheus.Metric) {
-	j.CollectPodMetrics(common.MetricJobCpuUsageRate)
+	err := j.CollectPodMetrics(common.MetricJobCpuUsageRate)
+	if err != nil {
+		log.Errorf("collect podMetrics[%s] failed, error:[%s]", common.MetricJobCpuUsageRate, err.Error())
+	}
 	j.CpuUsageRate.Collect(ch)
 }
 
