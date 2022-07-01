@@ -23,6 +23,83 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+var marshalTestCases = []struct {
+	name string
+	res  Resource
+	err  error
+}{
+	{
+		name: "resource with 10 milli cpu",
+		res: Resource{
+			Resources: map[string]Quantity{
+				"cpu":            10,
+				"mem":            1024 * 1000,
+				"nvidia.com/gpu": 2,
+			},
+		},
+		err: nil,
+	},
+	{
+		name: "resource with 1 cpu",
+		res: Resource{
+			Resources: map[string]Quantity{
+				"cpu":            1000,
+				"mem":            1024 * 1024 * 1024,
+				"nvidia.com/gpu": 2,
+			},
+		},
+		err: nil,
+	},
+	{
+		name: "resource with 1k cpu",
+		res: Resource{
+			Resources: map[string]Quantity{
+				"cpu":            1000 * 1000,
+				"mem":            1024 * 1000 * 1000,
+				"nvidia.com/gpu": 2,
+			},
+		},
+		err: nil,
+	},
+}
+
+var unmarshalTestCases = []struct {
+	name         string
+	resourceJSON string
+	err          error
+}{
+	{
+		name:         "resource with null string",
+		resourceJSON: `{"cpu":"","mem":""}`,
+		err:          nil,
+	},
+	{
+		name:         "resource with zero string",
+		resourceJSON: `{"cpu":"0","mem":"1Ki"}`,
+		err:          nil,
+	},
+	{
+		name:         "resource with 10 milli cpu",
+		resourceJSON: `{"cpu":"10m","mem":"1Mi"}`,
+		err:          nil,
+	},
+	{
+		name:         "resource with 1 cpu",
+		resourceJSON: `{"cpu":"1","mem":"1M"}`,
+		err:          nil,
+	},
+	{
+		name:         "resource with 1k cpu",
+		resourceJSON: `{"cpu":"1k","mem":"1Gi"}`,
+		err:          nil,
+	},
+	{
+		name:         "resource with 1G mem",
+		resourceJSON: `{"cpu":"1","mem":"1G"}`,
+		err:          nil,
+	},
+}
+
 func TestNewResourceFromInfo(t *testing.T) {
 	testCases := []struct {
 		name         string
@@ -102,51 +179,53 @@ func TestNewResourceFromInfo(t *testing.T) {
 	}
 }
 
-func TestResource_UnmarshalJSON(t *testing.T) {
-	testCases := []struct {
-		name         string
-		resourceJSON string
-		err          error
-	}{
-		{
-			name:         "resource with null string",
-			resourceJSON: `{"cpu":"","mem":""}`,
-			err:          nil,
-		},
-		{
-			name:         "resource with zero string",
-			resourceJSON: `{"cpu":"0","mem":"1Ki"}`,
-			err:          nil,
-		},
-		{
-			name:         "resource with 10 milli cpu",
-			resourceJSON: `{"cpu":"10m","mem":"1Mi"}`,
-			err:          nil,
-		},
-		{
-			name:         "resource with 1 cpu",
-			resourceJSON: `{"cpu":"1","mem":"1M"}`,
-			err:          nil,
-		},
-		{
-			name:         "resource with 1k cpu",
-			resourceJSON: `{"cpu":"1k","mem":"1Gi"}`,
-			err:          nil,
-		},
-		{
-			name:         "resource with 1G mem",
-			resourceJSON: `{"cpu":"1","mem":"1G"}`,
-			err:          nil,
-		},
+func TestResource_MarshalJSON(t *testing.T) {
+	for _, test := range marshalTestCases {
+		t.Run(test.name, func(t *testing.T) {
+			r, err := json.Marshal(test.res)
+			assert.Equal(t, test.err, err)
+			if err == nil {
+				t.Logf("resource info: %s", string(r))
+			}
+		})
 	}
+}
 
-	for _, test := range testCases {
+func TestResource_UnmarshalJSON(t *testing.T) {
+	for _, test := range unmarshalTestCases {
 		t.Run(test.name, func(t *testing.T) {
 			r := EmptyResource()
 			err := json.Unmarshal([]byte(test.resourceJSON), r)
 			assert.Equal(t, test.err, err)
 			if err == nil {
 				t.Logf("resource info: %v", r)
+			}
+		})
+	}
+}
+
+func BenchmarkResource_MarshalJSON(b *testing.B) {
+	for _, test := range marshalTestCases {
+		b.Run(test.name, func(b *testing.B) {
+			for n := 0; n < b.N; n++ {
+				_, err := json.Marshal(test.res)
+				if err != nil {
+					b.Logf("marshal resource failed, err: %v", err)
+				}
+			}
+		})
+	}
+}
+
+func BenchmarkResource_UnmarshalJSON(b *testing.B) {
+	for _, test := range unmarshalTestCases {
+		b.Run(test.name, func(b *testing.B) {
+			for n := 0; n < b.N; n++ {
+				res := EmptyResource()
+				err := json.Unmarshal([]byte(test.resourceJSON), res)
+				if err != nil {
+					b.Logf("unmarshal resource failed, err: %v", err)
+				}
 			}
 		})
 	}

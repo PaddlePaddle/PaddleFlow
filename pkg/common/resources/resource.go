@@ -39,15 +39,6 @@ func EmptyResource() *Resource {
 	}
 }
 
-func NewResourceFromInfo(cpu, mem string, scalarResources map[string]string) (*Resource, error) {
-	if scalarResources == nil {
-		scalarResources = make(map[string]string)
-	}
-	scalarResources[ResCPU] = cpu
-	scalarResources[ResMemory] = mem
-	return NewResourceFromMap(scalarResources)
-}
-
 func NewResourceFromMap(resourceInfo map[string]string) (*Resource, error) {
 	r := EmptyResource()
 	for key, strVal := range resourceInfo {
@@ -146,14 +137,13 @@ func (r *Resource) SetResources(name string, value int64) {
 
 // Clone Return a deep copy of the resource it is called on.
 func (r *Resource) Clone() *Resource {
-	ret := EmptyResource()
+	res := EmptyResource()
 	if r != nil {
-		for k, v := range r.Resources {
-			ret.Resources[k] = v
+		for rName, rQuantity := range r.Resources {
+			res.Resources[rName] = rQuantity
 		}
-		return ret
 	}
-	return nil
+	return res
 }
 
 // Add additional resource to the base and updating the base resource
@@ -163,8 +153,8 @@ func (r *Resource) Add(rr *Resource) {
 		if rr == nil {
 			return
 		}
-		for k, v := range rr.Resources {
-			r.Resources[k] = r.Resources[k].add(v)
+		for rName, rQuantity := range rr.Resources {
+			r.Resources[rName] = r.Resources[rName].add(rQuantity)
 		}
 	}
 }
@@ -176,8 +166,8 @@ func (r *Resource) Sub(rr *Resource) {
 		if rr == nil {
 			return
 		}
-		for k, v := range rr.Resources {
-			r.Resources[k] = r.Resources[k].sub(v)
+		for rName, rQuantity := range rr.Resources {
+			r.Resources[rName] = r.Resources[rName].sub(rQuantity)
 		}
 	}
 }
@@ -185,23 +175,23 @@ func (r *Resource) Sub(rr *Resource) {
 // Multi multiples the resource with ratio provided
 func (r *Resource) Multi(ratio int) {
 	if r != nil {
-		for k, v := range r.Resources {
-			r.Resources[k] = v.multi(ratio)
+		for rName, rQuantity := range r.Resources {
+			r.Resources[rName] = rQuantity.multi(ratio)
 		}
 	}
 }
 
 // LessEqual returns true if this quantity is less than or equal to the other.
-func (r *Resource) LessEqual(r2 *Resource) bool {
+func (r *Resource) LessEqual(rr *Resource) bool {
 	if r == nil || r.Resources == nil || len(r.Resources) == 0 {
 		return true
 	}
-	if r2 == nil || r2.Resources == nil || len(r2.Resources) == 0 {
+	if rr == nil || rr.Resources == nil || len(rr.Resources) == 0 {
 		return false
 	}
-	// it permits q2 has more resource types than r, we just check all keys in r
-	for k, v := range r.Resources {
-		if v.cmp(r2.Resources[k]) > 0 {
+	// it permits rr has more resource types than r, we just check all keys in r
+	for rName, rQuantity := range r.Resources {
+		if rQuantity.cmp(rr.Resources[rName]) > 0 {
 			return false
 		}
 	}
