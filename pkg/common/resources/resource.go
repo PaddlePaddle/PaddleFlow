@@ -22,9 +22,9 @@ import (
 )
 
 const (
-	ResourceCPU     = "cpu"
-	ResourceMemory  = "mem"
-	ResourceStorage = "storage"
+	ResCPU     = "cpu"
+	ResMemory  = "mem"
+	ResStorage = "storage"
 )
 
 // Resource is a struct that contains the information of a resource.
@@ -43,8 +43,8 @@ func NewResourceFromInfo(cpu, mem string, scalarResources map[string]string) (*R
 	if scalarResources == nil {
 		scalarResources = make(map[string]string)
 	}
-	scalarResources[ResourceCPU] = cpu
-	scalarResources[ResourceMemory] = mem
+	scalarResources[ResCPU] = cpu
+	scalarResources[ResMemory] = mem
 	return NewResourceFromMap(scalarResources)
 }
 
@@ -54,7 +54,7 @@ func NewResourceFromMap(resourceInfo map[string]string) (*Resource, error) {
 		var intValue Quantity
 		var err error
 		switch key {
-		case ResourceCPU:
+		case ResCPU:
 			intValue, err = ParseMilliQuantity(strVal)
 		default:
 			intValue, err = ParseQuantity(strVal)
@@ -83,11 +83,11 @@ func (r Resource) MarshalJSON() ([]byte, error) {
 	}
 	for key, val := range r.Resources {
 		switch key {
-		case ResourceCPU:
+		case ResCPU:
 			res.CPU = val.MilliString()
-		case ResourceMemory:
+		case ResMemory:
 			res.Mem = val.MemString()
-		case ResourceStorage:
+		case ResStorage:
 			res.Storage = val.MemString()
 		default:
 			res.ScalarResources[key] = val.String()
@@ -110,10 +110,10 @@ func (r *Resource) UnmarshalJSON(value []byte) error {
 	if err != nil {
 		return err
 	}
-	res.ScalarResources[ResourceCPU] = res.CPU
-	res.ScalarResources[ResourceMemory] = res.Mem
+	res.ScalarResources[ResCPU] = res.CPU
+	res.ScalarResources[ResMemory] = res.Mem
 	if res.Storage != "" {
-		res.ScalarResources[ResourceStorage] = res.Storage
+		res.ScalarResources[ResStorage] = res.Storage
 	}
 	rr, err := NewResourceFromMap(res.ScalarResources)
 	if err != nil {
@@ -127,9 +127,9 @@ func (r Resource) String() string {
 	msg := ""
 	for rName, rValue := range r.Resources {
 		switch rName {
-		case ResourceCPU:
+		case ResCPU:
 			msg += fmt.Sprintf("%s: %s, ", rName, rValue.MilliString())
-		case ResourceMemory:
+		case ResMemory:
 			msg += fmt.Sprintf("%s: %s, ", rName, rValue.MemString())
 		default:
 			msg += fmt.Sprintf("%s: %s, ", rName, rValue.String())

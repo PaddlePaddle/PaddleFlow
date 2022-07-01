@@ -50,11 +50,11 @@ func NewResource(rl v1.ResourceList) *pfResources.Resource {
 	for rName, rQuant := range rl {
 		switch rName {
 		case v1.ResourceCPU:
-			r.SetResources(pfResources.ResourceCPU, rQuant.MilliValue())
+			r.SetResources(pfResources.ResCPU, rQuant.MilliValue())
 		case v1.ResourceMemory:
-			r.SetResources(pfResources.ResourceMemory, rQuant.Value())
+			r.SetResources(pfResources.ResMemory, rQuant.Value())
 		case v1.ResourceEphemeralStorage:
-			r.SetResources(pfResources.ResourceStorage, rQuant.Value())
+			r.SetResources(pfResources.ResStorage, rQuant.Value())
 		default:
 			if IsScalarResourceName(rName) {
 				r.SetResources(string(rName), rQuant.Value())
@@ -98,12 +98,12 @@ func NewResourceList(r *pfResources.Resource) v1.ResourceList {
 	resourceList := v1.ResourceList{}
 	for resourceName, RQuant := range r.Resources {
 		rName := v1.ResourceName("")
-		quantity := &resource.Quantity{}
+		var quantity *resource.Quantity
 		switch resourceName {
-		case pfResources.ResourceCPU:
+		case pfResources.ResCPU:
 			quantity = resource.NewMilliQuantity(int64(RQuant), resource.DecimalSI)
 			rName = v1.ResourceCPU
-		case pfResources.ResourceMemory:
+		case pfResources.ResMemory:
 			quantity = resource.NewQuantity(int64(RQuant), resource.BinarySI)
 			rName = v1.ResourceMemory
 		default:

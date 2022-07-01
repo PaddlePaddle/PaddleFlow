@@ -56,8 +56,8 @@ func EmptyResourceInfo() *ResourceInfo {
 
 func (r ResourceInfo) ToMap() map[string]string {
 	res := make(map[string]string)
-	res[resources.ResourceCPU] = r.CPU
-	res[resources.ResourceMemory] = r.Mem
+	res[resources.ResCPU] = r.CPU
+	res[resources.ResMemory] = r.Mem
 	if r.ScalarResources != nil {
 		for key, value := range r.ScalarResources {
 			res[string(key)] = value
