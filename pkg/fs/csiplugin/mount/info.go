@@ -129,7 +129,6 @@ func processCacheConfig(fsID, fsCacheBase64 string) (model.FSCacheConfig, error)
 
 func (m *Info) fillingMountCmd() {
 	baseArgs := []string{
-		"mount",
 		"--fs-info=" + m.FsBase64Str,
 		"--user-name=" + m.UsernameRoot,
 		"--password=" + m.PasswordRoot,
@@ -142,7 +141,8 @@ func (m *Info) fillingMountCmd() {
 		m.MountArgs = append(baseArgs, "--mount-point="+m.TargetPath)
 	} else {
 		m.MountCmd = filePfsFuse
-		baseArgs = append(baseArgs, "--mount-point="+FusePodMountPoint)
+		m.MountArgs = []string{"mount", "--mount-point=" + FusePodMountPoint}
+		m.MountArgs = append(m.MountArgs, baseArgs...)
 		if m.FsCacheConfig.CacheDir != "" {
 			cacheArgs := []string{
 				"--block-size=" + strconv.Itoa(m.FsCacheConfig.BlockSize),
@@ -150,11 +150,10 @@ func (m *Info) fillingMountCmd() {
 				"--data-cache-path=" + FusePodCachePath + DataCacheDir,
 				"--meta-cache-path=" + FusePodCachePath + MetaCacheDir,
 			}
-			baseArgs = append(baseArgs, cacheArgs...)
+			m.MountArgs = append(m.MountArgs, cacheArgs...)
 		}
 		if m.FsCacheConfig.Debug {
-			baseArgs = append(baseArgs, "--log-level=trace")
+			m.MountArgs = append(m.MountArgs, "--log-level=trace")
 		}
-		m.MountArgs = baseArgs
 	}
 }
