@@ -37,13 +37,13 @@ type JobCollector struct {
 
 func newJobCollectManager() *JobCollector {
 	cpuUsageRate := prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "job_cpu_usage_rate",
-		Help: "job cpu usage rate",
+		Name: common.MetricJobCpuUsageRate,
+		Help: common.MetricJobCpuUsageRate,
 	}, []string{"jobID", "pod"},
 	)
 	memoryUsage := prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "job_memory_usage",
-		Help: "job memory usage",
+		Name: common.MetricJobMemoryUsage,
+		Help: common.MetricJobMemoryUsage,
 	}, []string{"jobID", "pod"},
 	)
 	return &JobCollector{
