@@ -83,7 +83,6 @@ type componentRuntime interface {
 
 	getComponent() schema.Component
 	getFullName() string
-	getName() string
 	getSeq() int
 	getStatus() RuntimeStatus
 
@@ -139,10 +138,7 @@ type baseComponentRuntime struct {
 	component schema.Component
 
 	// 类似根目录，由其所有祖先组件名加上自身名字组成，名字与名字之间以"." 分隔
-	componentFullName string
-
-	// runtime 的名字，由 componentFullName 和 seq 组成
-	name string
+	fullName string
 
 	// 表明节点的第几次运行， 从 0 开始计算
 	seq int
@@ -185,8 +181,7 @@ func NewBaseComponentRuntime(fullname string, component schema.Component, seq in
 
 	// TODO: name 和 compoentFullName 保留一个就好
 	cr := &baseComponentRuntime{
-		name:                 fmt.Sprintf("%s-%d", fullname, seq),
-		componentFullName:    fmt.Sprintf("%s-%d", fullname, seq),
+		fullName:             fullname,
 		component:            component,
 		seq:                  seq,
 		ctx:                  ctx,
@@ -250,7 +245,7 @@ func (crt *baseComponentRuntime) getComponent() schema.Component {
 func (crt *baseComponentRuntime) updateStatus(status RuntimeStatus) error {
 	if crt.done {
 		err := fmt.Errorf("cannot update the status of runtime[%s]，because the status of it is [%s]",
-			crt.name, crt.status)
+			crt.fullName, crt.status)
 		crt.logger.Errorln(err.Error())
 		return err
 	}
@@ -287,14 +282,14 @@ func (crt *baseComponentRuntime) getPFLoopArgument() (value interface{}, err err
 
 	defer func() {
 		if info := recover(); info != nil {
-			err = fmt.Errorf("get LoopArgument for component[%s] failed", crt.name)
+			err = fmt.Errorf("get LoopArgument for component[%s] failed", crt.fullName)
 		}
 	}()
 
 	value = v.Index(crt.seq).Interface()
 
 	crt.logger.Infof("++++++++ seq[%d], loop_args : %v", crt.seq, v)
-	crt.logger.Infof("the PF_LOOP_ARG of component[%s] is : %v", crt.name, value)
+	crt.logger.Infof("the PF_LOOP_ARG of component[%s] is : %v", crt.fullName, value)
 	return
 }
 
@@ -322,7 +317,7 @@ func (crt *baseComponentRuntime) setSysParams() error {
 	crt.innerSolver.setSysParams(crt.sysParams)
 
 	crt.logger.Infof("the sysParams for component[%s] is %v",
-		crt.name, crt.sysParams)
+		crt.fullName, crt.sysParams)
 
 	return nil
 }
@@ -334,7 +329,7 @@ func (crt *baseComponentRuntime) CalculateCondition() (bool, error) {
 	}
 
 	crt.logger.Debugf("before to calculate the condition of component[%s] : %s",
-		crt.name, crt.GetCondition())
+		crt.fullName, crt.GetCondition())
 
 	cc := NewConditionCalculator(crt.component.GetCondition())
 	return cc.calculate()
@@ -377,11 +372,7 @@ func (crt *baseComponentRuntime) callback(event *WorkflowEvent) {
 }
 
 func (crt *baseComponentRuntime) getFullName() string {
-	return crt.componentFullName
-}
-
-func (crt *baseComponentRuntime) getName() string {
-	return crt.name
+	return crt.fullName
 }
 
 // 主要是为了实现 ComponentRuntime 接口，无实际意义

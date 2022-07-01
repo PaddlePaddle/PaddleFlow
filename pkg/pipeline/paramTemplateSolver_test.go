@@ -275,10 +275,9 @@ func mockWorkflowDagForDs() *schema.WorkflowSourceDag {
 
 func mockDagRuntime() *DagRuntime {
 	bcr := baseComponentRuntime{
-		runConfig:         mockRunconfigForDepRsl(),
-		component:         mockWorkflowDagForDs(),
-		name:              "dag1-0",
-		componentFullName: "dag1",
+		runConfig: mockRunconfigForDepRsl(),
+		component: mockWorkflowDagForDs(),
+		fullName:  "dag1",
 	}
 
 	return &DagRuntime{
@@ -289,10 +288,9 @@ func mockDagRuntime() *DagRuntime {
 
 func mockStepRuntime(step *schema.WorkflowSourceStep) *StepRuntime {
 	bcr := baseComponentRuntime{
-		runConfig:         mockRunconfigForDepRsl(),
-		component:         step,
-		name:              "dag1.step1-0",
-		componentFullName: "dag1.step1",
+		runConfig: mockRunconfigForDepRsl(),
+		component: step,
+		fullName:  "dag1.step1",
 	}
 
 	return &StepRuntime{
@@ -336,14 +334,6 @@ func TestResolveBeforeRun(t *testing.T) {
 	inputs = dr.getworkflowSouceDag().EntryPoints["step2"].GetArtifacts().Input
 	assert.Equal(t, "./di1.txt", inputs["s2i1"])
 	assert.Equal(t, "./s1o1.txt", inputs["s2i2"])
-
-	// 测试异常情况
-	err = ds.ResolveBeforeRun(dr.getworkflowSouceDag().EntryPoints["step3"])
-	assert.NotNil(t, err)
-
-	dr.getworkflowSouceDag().EntryPoints["step2"].GetArtifacts().Input["s203"] = "{{PF_PARENT.do2}}"
-	err = ds.ResolveBeforeRun(dr.getworkflowSouceDag().EntryPoints["step3"])
-	assert.NotNil(t, err)
 }
 
 func TestResolveAfterDone(t *testing.T) {
