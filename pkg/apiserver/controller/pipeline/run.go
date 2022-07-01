@@ -296,8 +296,8 @@ func ParseJsonGlobalEnv(jsonAttrMap map[string]interface{}) (map[string]string, 
 				if !ok {
 					return nil, fmt.Errorf("[flavour] should be string type")
 				}
-				if _, ok := resMap["flavour"]; !ok {
-					resMap["flavour"] = value
+				if _, ok := resMap[schema.EnvJobFlavour]; !ok {
+					resMap[schema.EnvJobFlavour] = value
 				}
 			}
 		case "queue":
@@ -306,8 +306,8 @@ func ParseJsonGlobalEnv(jsonAttrMap map[string]interface{}) (map[string]string, 
 				if !ok {
 					return nil, fmt.Errorf("[queue] should be string type")
 				}
-				if _, ok := resMap["queue"]; !ok {
-					resMap["queue"] = value
+				if _, ok := resMap[schema.EnvJobQueueName]; !ok {
+					resMap[schema.EnvJobQueueName] = value
 				}
 			}
 		case "jobType":
@@ -316,8 +316,8 @@ func ParseJsonGlobalEnv(jsonAttrMap map[string]interface{}) (map[string]string, 
 				if !ok {
 					return nil, fmt.Errorf("[jobType] should be string type")
 				}
-				if _, ok := resMap["jobType"]; !ok {
-					resMap["jobType"] = value
+				if _, ok := resMap[schema.EnvJobType]; !ok {
+					resMap[schema.EnvJobType] = value
 				}
 			}
 		case "env":
