@@ -31,6 +31,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
@@ -72,7 +73,7 @@ type CommonJobInfo struct {
 type SchedulingPolicy struct {
 	Queue        string              `json:"queue"`
 	QueueID      string              `json:"-"`
-	MaxResources schema.ResourceInfo `json:"-"`
+	MaxResources *resources.Resource `json:"-"`
 	ClusterId    string              `json:"-"`
 	Namespace    string              `json:"-"`
 	Priority     string              `json:"priority,omitempty"`
@@ -766,11 +767,6 @@ func validateSingleJob(ctx *logger.RequestContext, request *CreateSingleJobReque
 }
 
 func validateSingleJobResource(flavour schema.Flavour, schedulingPolicy SchedulingPolicy) error {
-	if schema.IsEmptyResource(schedulingPolicy.MaxResources) {
-		err := fmt.Errorf("schedulingPolicy.MaxResources[%v] is empty", schedulingPolicy.MaxResources)
-		log.Errorf("validateSingleJobResource failed, err: %v", err)
-		return err
-	}
 	return IsEnoughQueueCapacity(flavour, schedulingPolicy.MaxResources)
 }
 

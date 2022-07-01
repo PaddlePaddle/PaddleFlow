@@ -21,7 +21,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	pfResources "github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
 
 func SubQuota(r *pfResources.Resource, pod *v1.Pod) error {
@@ -64,38 +63,12 @@ func NewResource(rl v1.ResourceList) *pfResources.Resource {
 	return r
 }
 
-// NewResourceInfo create a new resource object from resource list
-func NewResourceInfo(rl v1.ResourceList) *schema.ResourceInfo {
-	r := schema.EmptyResourceInfo()
-
-	for rName, rQuant := range rl {
-		switch rName {
-		case v1.ResourceCPU:
-			r.CPU = rQuant.String()
-		case v1.ResourceMemory:
-			r.Mem = rQuant.String()
-		default:
-			if IsScalarResourceName(rName) {
-				r.SetScalar(schema.ResourceName(rName), rQuant.String())
-			}
-		}
-	}
-	return r
-}
-
-func NewKubeResourceList(r *schema.ResourceInfo) v1.ResourceList {
-	resourceList := v1.ResourceList{}
-	resourceList[v1.ResourceCPU] = resource.MustParse(r.CPU)
-	resourceList[v1.ResourceMemory] = resource.MustParse(r.Mem)
-	for k, v := range r.ScalarResources {
-		resourceList[v1.ResourceName(k)] = resource.MustParse(v)
-	}
-	return resourceList
-}
-
 // NewResourceList create a new resource object from resource list
 func NewResourceList(r *pfResources.Resource) v1.ResourceList {
 	resourceList := v1.ResourceList{}
+	if r == nil {
+		return resourceList
+	}
 	for resourceName, RQuant := range r.Resources {
 		rName := v1.ResourceName("")
 		var quantity *resource.Quantity
