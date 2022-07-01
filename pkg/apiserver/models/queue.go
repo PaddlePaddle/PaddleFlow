@@ -26,6 +26,7 @@ import (
 	"gorm.io/gorm/clause"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
@@ -59,8 +60,8 @@ type Queue struct {
 	Status              string         `json:"status"`
 	DeletedAt           gorm.DeletedAt `json:"-" gorm:"index"`
 
-	UsedResources *schema.ResourceInfo `json:"usedResources,omitempty" gorm:"-"`
-	IdleResources *schema.ResourceInfo `json:"idleResources,omitempty" gorm:"-"`
+	UsedResources *resources.Resource `json:"usedResources,omitempty" gorm:"-"`
+	IdleResources *resources.Resource `json:"idleResources,omitempty" gorm:"-"`
 }
 
 func (Queue) TableName() string {
