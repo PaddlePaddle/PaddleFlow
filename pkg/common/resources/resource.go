@@ -131,8 +131,41 @@ func (r Resource) String() string {
 
 func (r *Resource) SetResources(name string, value int64) {
 	if r != nil {
-		r.Resources[name] = r.Resources[name].add(Quantity(value))
+		r.Resources[name] = Quantity(value)
 	}
+}
+
+func (r *Resource) DelResources(name string) {
+	if r != nil {
+		delete(r.Resources, name)
+	}
+}
+
+func (r *Resource) CPU() Quantity {
+	if r != nil && r.Resources != nil {
+		return r.Resources[ResCPU]
+	}
+	return 0
+}
+
+func (r *Resource) Memory() Quantity {
+	if r != nil && r.Resources != nil {
+		return r.Resources[ResMemory]
+	}
+	return 0
+}
+
+func (r *Resource) IsNegative() bool {
+	isNegative := false
+	if r != nil {
+		for _, rQuantity := range r.Resources {
+			if rQuantity < 0 {
+				isNegative = true
+				break
+			}
+		}
+	}
+	return isNegative
 }
 
 // Clone Return a deep copy of the resource it is called on.

@@ -321,7 +321,7 @@ func (kr *KubeRuntime) CreateQueue(q *models.Queue) error {
 }
 
 func (kr *KubeRuntime) createVCQueue(q *models.Queue) error {
-	capability := k8s.NewKubeResourceList(&q.MaxResources)
+	capability := k8s.NewResourceList(q.MaxResources)
 	log.Debugf("CreateQueue resourceList[%v]", capability)
 
 	queue := &schedulingv1beta1.Queue{
@@ -344,8 +344,8 @@ func (kr *KubeRuntime) createVCQueue(q *models.Queue) error {
 }
 
 func (kr *KubeRuntime) createElasticResourceQuota(q *models.Queue) error {
-	maxResources := k8s.NewKubeResourceList(&q.MaxResources)
-	minResources := k8s.NewKubeResourceList(&q.MinResources)
+	maxResources := k8s.NewResourceList(q.MaxResources)
+	minResources := k8s.NewResourceList(q.MinResources)
 	log.Debugf("Elastic resource quota max resources:%v,  min resources %v", maxResources, minResources)
 
 	equota := &schedulingv1beta1.ElasticResourceQuota{
@@ -436,7 +436,7 @@ func (kr *KubeRuntime) UpdateQueue(q *models.Queue) error {
 }
 
 func (kr *KubeRuntime) updateVCQueue(q *models.Queue) error {
-	capability := k8s.NewKubeResourceList(&q.MaxResources)
+	capability := k8s.NewResourceList(q.MaxResources)
 	log.Debugf("UpdateQueue resourceList[%v]", capability)
 	object, err := executor.Get("", q.Name, k8s.VCQueueGVK, kr.dynamicClientOpt)
 	if err != nil {
@@ -457,8 +457,8 @@ func (kr *KubeRuntime) updateVCQueue(q *models.Queue) error {
 }
 
 func (kr *KubeRuntime) updateElasticResourceQuota(q *models.Queue) error {
-	maxResources := k8s.NewKubeResourceList(&q.MaxResources)
-	minResources := k8s.NewKubeResourceList(&q.MinResources)
+	maxResources := k8s.NewResourceList(q.MaxResources)
+	minResources := k8s.NewResourceList(q.MinResources)
 	log.Debugf("Elastic resource quota max resources:%v,  min resources %v", maxResources, minResources)
 	object, err := executor.Get("", q.Name, k8s.EQuotaGVK, kr.dynamicClientOpt)
 	if err != nil {

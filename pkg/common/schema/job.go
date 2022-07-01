@@ -425,6 +425,7 @@ func (c *Conf) preCheckEnv() {
 // GetAllFileSystem combine FileSystem and ExtraFileSystem to a slice
 func (c *Conf) GetAllFileSystem() []FileSystem {
 	var fileSystems []FileSystem
+	// c.FileSystem should be the first one
 	if c.FileSystem.Name != "" {
 		fileSystems = append([]FileSystem{}, c.FileSystem)
 	}
