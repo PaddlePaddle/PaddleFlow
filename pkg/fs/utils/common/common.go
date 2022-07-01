@@ -45,6 +45,7 @@ const (
 	DefaultGIDEnv             = "DEFAULT_GID_ENV"
 	K8SConfigPathEnv          = "K8S_CONFIG_PATH"
 	K8SClientTimeoutEnv       = "K8S_CLIENT_TIMEOUT"
+	Glusterfs                 = "glusterfs"
 
 	DefaultKubeletDataPath       = "/var/lib/kubelet"
 	DefaultCheckIntervalTime     = 15

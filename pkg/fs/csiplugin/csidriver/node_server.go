@@ -66,17 +66,15 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context,
 
 	volumeID := req.VolumeId
 	volumeContext := req.GetVolumeContext()
-
-	mountInfo, err := mount.ProcessMountInfo(volumeContext[schema.PfsFsID], volumeContext[schema.PfsServer],
-		volumeContext[schema.PfsFsInfo], volumeContext[schema.PfsFsCache], req.GetReadonly())
+	fsID, server, fsInfoBase64, fsCacheBase64 := volumeContext[schema.PfsFsID], volumeContext[schema.PfsServer],
+		volumeContext[schema.PfsFsInfo], volumeContext[schema.PfsFsCache]
+	username, password, targetPath := ns.credentialInfo.usernameRoot, ns.credentialInfo.passwordRoot, targetPath
+	mountInfo, err := mount.ProcessMountInfo(username, password, targetPath, fsID, server, fsInfoBase64, fsCacheBase64, req.GetReadonly())
 	if err != nil {
 		log.Errorf("ProcessMountInfo err: %v", err)
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 	log.Infof("Node publish mountInfo [%+v]", mountInfo)
-	// root credentials for pfs-fuse
-	mountInfo.UsernameRoot, mountInfo.PasswordRoot = ns.credentialInfo.usernameRoot, ns.credentialInfo.passwordRoot
-	mountInfo.TargetPath = targetPath
 	if err := mountVolume(volumeID, mountInfo, req.GetReadonly()); err != nil {
 		log.Errorf("mount filesystem[%s] failed: %v", volumeContext[schema.PfsFsID], err)
 		return &csi.NodePublishVolumeResponse{}, status.Error(codes.Internal, err.Error())
