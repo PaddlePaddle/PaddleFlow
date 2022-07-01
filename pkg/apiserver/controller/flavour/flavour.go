@@ -217,7 +217,7 @@ func GetFlavourWithCheck(reqFlavour schema.Flavour) (schema.Flavour, error) {
 		if schema.IsEmptyResource(reqFlavour.ResourceInfo) {
 			reqFlavour.ResourceInfo = schema.ResourceInfo{
 				CPU: "1",
-				Mem: "1G",
+				Mem: "1Gi",
 			}
 		}
 		if err := schema.ValidateResource(reqFlavour.ResourceInfo, []string{}); err != nil {
