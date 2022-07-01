@@ -71,12 +71,6 @@ type CreateRunRequest struct {
 	ScheduledAt      string `json:"scheduledAt"`
 }
 
-type CreateRunByJsonRequest struct {
-	FsName      string `json:"fsName"`
-	UserName    string `json:"userName"` // optional, only for root user
-	Description string `json:"description"`
-}
-
 // used for API CreateRunJson to unmarshal steps in entryPoints and postProcess
 type RunStep struct {
 	Parameters map[string]interface{} `json:"parameters"`
@@ -236,7 +230,7 @@ func getWorkFlowSourceByJson(bodyMap map[string]interface{}) (schema.WorkflowSou
 		JsonQueue:   nil,
 		JsonEnv:     nil,
 
-		//这两个字段，之前已经处理过，后续阶段无需处理，只需剔除即可
+		//这3个字段，之前已经处理过，后续阶段无需处理，只需剔除即可
 		JsonDescription: nil,
 		JsonFsName:      nil,
 		JsonUserName:    nil,
@@ -261,6 +255,7 @@ func getWorkFlowSourceByJson(bodyMap map[string]interface{}) (schema.WorkflowSou
 		return schema.WorkflowSource{}, err
 	}
 
+	// 再处理Json接口特有的参数
 	globalEnvMap, err := ParseJsonGlobalEnv(JsonAttrMap)
 	if err != nil {
 		return schema.WorkflowSource{}, err
@@ -339,8 +334,6 @@ func ParseJsonGlobalEnv(jsonAttrMap map[string]interface{}) (map[string]string, 
 					resMap[envKey] = envValue
 				}
 			}
-		default:
-			return nil, fmt.Errorf("[%s] can not be handled in CreatRunJson", key)
 		}
 	}
 	return resMap, nil
