@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/PaddlePaddle/PaddleFlow/pkg/monitor"
 	"github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 	log "github.com/sirupsen/logrus"
@@ -29,7 +30,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/job/monitor"
 )
 
 var metricNameList = [...]string{common.MetricJobCpuUsageRate, common.MetricJobMemoryUsage, common.MetricJobDiskUsage,
@@ -76,12 +76,12 @@ func GetJobStatistics(ctx *logger.RequestContext, jobID string) (*JobStatisticsR
 	for _, value := range metricNameList {
 		result, err := queryResourceMetric(ctxP, jobID, value)
 		if err != nil {
-			ctx.Logging().Errorln(fmt.Sprintf("query metric[%s] failed, error: %s", value, err.Error()))
+			ctx.Logging().Errorln("query metric[%s] failed, error: %s", value, err.Error())
 			return nil, err
 		}
 		err = convertResultToResponse(result, response)
 		if err != nil {
-			ctx.Logging().Errorln(fmt.Sprintf("convert metric[%s] result to response failed, error: %s", value, err.Error()))
+			ctx.Logging().Errorln("convert metric[%s] result to response failed, error: %s", value, err.Error())
 			return nil, err
 		}
 	}
@@ -119,12 +119,12 @@ func GetJobDetailStatistics(ctx *logger.RequestContext, jobID string, start, end
 	for _, value := range metricNameList {
 		result, err := queryRangeResourceMetric(ctxP, jobID, value, start, end, step)
 		if err != nil {
-			ctx.Logging().Errorln(fmt.Sprintf("query range metric[%s] failed, error: %s", value, err.Error()))
+			ctx.Logging().Errorln("query range metric[%s] failed, error: %s", value, err.Error())
 			return nil, err
 		}
 		err = convertResultToDetailResponse(result, response)
 		if err != nil {
-			ctx.Logging().Errorln(fmt.Sprintf("convert metric[%s] result to detail response failed, error: %s", value, err.Error()))
+			ctx.Logging().Errorln("convert metric[%s] result to detail response failed, error: %s", value, err.Error())
 			return nil, err
 		}
 	}

@@ -21,6 +21,7 @@ import (
 	"net/http"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 )
@@ -41,7 +42,7 @@ func StartJobMetricsService(port int) string {
 			EnableOpenMetrics: true,
 		},
 	))
-	prometheus.MustRegister(prometheus.NewBuildInfoCollector())
+	prometheus.MustRegister(collectors.NewBuildInfoCollector())
 	metricsAddr := fmt.Sprintf(":%d", port)
 	go func() {
 		if err := http.ListenAndServe(metricsAddr, mx); err != nil {

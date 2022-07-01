@@ -9,8 +9,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/job/monitor"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/metric"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/monitor"
 	"github.com/go-chi/chi"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
@@ -190,7 +190,7 @@ func setup() {
 	}
 
 	if err := initPrometheusClient(ServerConf.Monitor.Server); err != nil {
-		log.Errorf("")
+		log.Errorf("create prometheus client failed, err %v", err)
 		gracefullyExit(err)
 	}
 

@@ -20,6 +20,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/PaddlePaddle/PaddleFlow/pkg/monitor"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/model"
 	log "github.com/sirupsen/logrus"
@@ -27,7 +28,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/job/monitor"
 )
 
 type JobCollector struct {
