@@ -46,3 +46,22 @@ func TestGetWorkflowSource(t *testing.T) {
 	text, _ := json.Marshal(wfs)
 	fmt.Println(string(text))
 }
+
+func TestDagDeepCopy(t *testing.T) {
+	wfs, err := GetWorkflowSource(loadCase(runYamlPath))
+	assert.Nil(t, err)
+
+	loop := wfs.EntryPoints.EntryPoints["square-loop"]
+	loop2 := loop.DeepCopy()
+
+	assert.Equal(t, loop, loop2)
+
+	isSame := loop == loop2
+	assert.False(t, isSame)
+
+	loop.UpdateLoopArguemt([]int{1, 3, 4})
+	assert.NotEqual(t, loop.GetLoopArgument(), loop2.GetLoopArgument())
+
+	fmt.Println("in loop:", loop.GetLoopArgument())
+	fmt.Println("in loop2:", loop2.GetLoopArgument())
+}

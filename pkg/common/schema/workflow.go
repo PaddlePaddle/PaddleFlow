@@ -45,19 +45,37 @@ const (
 )
 
 type Artifacts struct {
-	Input      map[string]string `yaml:"input"       json:"input"`
-	Output     map[string]string `yaml:"-"           json:"output"`
-	OutputList []string          `yaml:"output"      json:"-"`
+	Input  map[string]string `yaml:"input"       json:"input"`
+	Output map[string]string `yaml:"-"           json:"output"`
 }
 
-func (atf *Artifacts) ValidateOutputMapByList() error {
-	if atf.Output == nil {
-		atf.Output = make(map[string]string)
+func (art *Artifacts) ValidateOutputMapByList() error {
+	if art.Output == nil {
+		art.Output = make(map[string]string)
 	}
-	for _, outputName := range atf.OutputList {
-		atf.Output[outputName] = ""
+	for _, outputName := range art.Output {
+		art.Output[outputName] = ""
 	}
 	return nil
+}
+
+func (art *Artifacts) DeepCopy() *Artifacts {
+	input := map[string]string{}
+	output := map[string]string{}
+
+	for name, value := range art.Input {
+		input[name] = value
+	}
+
+	for name, value := range art.Output {
+		output[name] = value
+	}
+
+	nArt := &Artifacts{
+		Input:  input,
+		Output: output,
+	}
+	return nArt
 }
 
 type Component interface {
@@ -216,8 +234,31 @@ func (s *WorkflowSourceStep) GetOutputArtifactPath(artName string) (string, erro
 }
 
 func (s *WorkflowSourceStep) DeepCopy() Component {
-	ns := *s
-	return &ns
+	params := map[string]interface{}{}
+	for name, value := range s.Parameters {
+		params[name] = value
+	}
+
+	env := map[string]string{}
+	for name, value := range s.Env {
+		env[name] = value
+	}
+
+	ns := &WorkflowSourceStep{
+		Name:         s.Name,
+		LoopArgument: s.LoopArgument,
+		Condition:    s.Condition,
+		Parameters:   params,
+		Command:      s.Command,
+		Deps:         s.Deps,
+		Env:          env,
+		Artifacts:    *s.Artifacts.DeepCopy(),
+		DockerEnv:    s.DockerEnv,
+		Cache:        s.Cache,
+		Reference:    s.Reference,
+	}
+
+	return ns
 }
 
 type WorkflowSourceDag struct {
@@ -349,9 +390,40 @@ func (d *WorkflowSourceDag) InitParameters() {
 	d.Parameters = map[string]interface{}{}
 }
 
+/*
+
+type WorkflowSourceDag struct {
+	Name         string                 `yaml:"-"`
+	LoopArgument interface{}            `yaml:"loop_argument"`
+	Condition    string                 `yaml:"condition"`
+	Parameters   map[string]interface{} `yaml:"parameters"`
+	Deps         string                 `yaml:"deps"`
+	Artifacts    Artifacts              `yaml:"artifacts"`
+	EntryPoints  map[string]Component   `yaml:"entry_points"`
+}
+*/
 func (d *WorkflowSourceDag) DeepCopy() Component {
-	nd := *d
-	return &nd
+	params := map[string]interface{}{}
+	for name, value := range d.Parameters {
+		params[name] = value
+	}
+
+	ep := map[string]Component{}
+	for name, value := range d.EntryPoints {
+		ep[name] = value.DeepCopy()
+	}
+
+	nd := &WorkflowSourceDag{
+		Name:         d.Name,
+		LoopArgument: d.LoopArgument,
+		Condition:    d.Condition,
+		Parameters:   params,
+		Deps:         d.Deps,
+		Artifacts:    *d.Artifacts.DeepCopy(),
+		EntryPoints:  ep,
+	}
+
+	return nd
 }
 
 type Reference struct {

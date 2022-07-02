@@ -288,7 +288,6 @@ func (crt *baseComponentRuntime) getPFLoopArgument() (value interface{}, err err
 
 	value = v.Index(crt.seq).Interface()
 
-	crt.logger.Infof("++++++++ seq[%d], loop_args : %v", crt.seq, v)
 	crt.logger.Infof("the PF_LOOP_ARG of component[%s] is : %v", crt.fullName, value)
 	return
 }

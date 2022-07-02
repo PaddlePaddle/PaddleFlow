@@ -299,6 +299,11 @@ func TestScheduleSubComponent(t *testing.T) {
 	assert.Len(t, drt.subComponentRumtimes["split-by-threshold"], 1)
 	assert.Len(t, drt.subComponentRumtimes["square-loop"], 3)
 	assert.True(t, dagStarted)
+
+	v1, err := drt.subComponentRumtimes["square-loop"][0].(*DagRuntime).getPFLoopArgument()
+	v2, err := drt.subComponentRumtimes["square-loop"][1].(*DagRuntime).getPFLoopArgument()
+	assert.Equal(t, v1, 1)
+	assert.Equal(t, v2, 2)
 }
 
 func TestUpdateStatusAccordingSubComponentRuntimeStatus(t *testing.T) {
