@@ -46,7 +46,7 @@ const (
 
 type Artifacts struct {
 	Input  map[string]string `yaml:"input"       json:"input"`
-	Output map[string]string `yaml:"-"           json:"output"`
+	Output map[string]string `yaml:"output"      json:"output"`
 }
 
 func (art *Artifacts) ValidateOutputMapByList() error {

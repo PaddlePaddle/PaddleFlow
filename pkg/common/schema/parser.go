@@ -133,10 +133,10 @@ func (p *Parser) ParseWorkflowSource(bodyMap map[string]interface{}, wfs *Workfl
 		case "fsMount":
 			fallthrough
 		case "fs_mount":
-			// value, ok := value.(map[string]interface{})
-			// if !ok {
-			// 	return fmt.Errorf("[fs_mount/fsMount] of workflow should be map[string]interface{} type")
-			// }
+			value, ok := value.(map[string]interface{})
+			if !ok {
+				return fmt.Errorf("[fs_mount/fsMount] of workflow should be map[string]interface{} type")
+			}
 
 		default:
 			return fmt.Errorf("workflow has no attribute [%s]", key)
@@ -481,6 +481,34 @@ func (p *Parser) ParseCache(cacheMap map[string]interface{}, cache *Cache) error
 }
 
 func (p *Parser) ParseFsOptions(fsMap map[string]interface{}, fs *FsOptions) error {
+	for key, value := range fsMap {
+		switch key {
+		case "globalFs":
+			fallthrough
+		case "global_fs":
+			value, ok := value.(string)
+			if !ok {
+				return fmt.Errorf("[fs_options.global_fs] should be string type")
+			}
+			fs.GlobalFs = value
+		case "fsMount":
+			fallthrough
+		case "fs_mount":
+			value, ok := value.([]interface{})
+			if !ok {
+				return fmt.Errorf("[fs_options.fs_mount] should be list type")
+			}
+			for _, m := range value {
+				mapValue, ok := m.(map[string]interface{})
+				if !ok {
+					return fmt.Errorf("mount info in [fs_options.fs_mount] should be map type")
+				}
+				fs.FsMount = append(fs.FsMount, mapValue)
+			}
+		default:
+			return fmt.Errorf("[fs_options] has no attribute [%s]", key)
+		}
+	}
 	return nil
 }
 
