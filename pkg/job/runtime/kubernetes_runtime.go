@@ -20,11 +20,13 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/jinzhu/copier"
 	log "github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 	apiv1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -44,6 +46,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime/kubernetes/controller"
@@ -318,7 +321,7 @@ func (kr *KubeRuntime) CreateQueue(q *models.Queue) error {
 }
 
 func (kr *KubeRuntime) createVCQueue(q *models.Queue) error {
-	capability := k8s.NewKubeResourceList(&q.MaxResources)
+	capability := k8s.NewResourceList(q.MaxResources)
 	log.Debugf("CreateQueue resourceList[%v]", capability)
 
 	queue := &schedulingv1beta1.Queue{
@@ -341,8 +344,8 @@ func (kr *KubeRuntime) createVCQueue(q *models.Queue) error {
 }
 
 func (kr *KubeRuntime) createElasticResourceQuota(q *models.Queue) error {
-	maxResources := k8s.NewKubeResourceList(&q.MaxResources)
-	minResources := k8s.NewKubeResourceList(&q.MinResources)
+	maxResources := k8s.NewResourceList(q.MaxResources)
+	minResources := k8s.NewResourceList(q.MinResources)
 	log.Debugf("Elastic resource quota max resources:%v,  min resources %v", maxResources, minResources)
 
 	equota := &schedulingv1beta1.ElasticResourceQuota{
@@ -433,7 +436,7 @@ func (kr *KubeRuntime) UpdateQueue(q *models.Queue) error {
 }
 
 func (kr *KubeRuntime) updateVCQueue(q *models.Queue) error {
-	capability := k8s.NewKubeResourceList(&q.MaxResources)
+	capability := k8s.NewResourceList(q.MaxResources)
 	log.Debugf("UpdateQueue resourceList[%v]", capability)
 	object, err := executor.Get("", q.Name, k8s.VCQueueGVK, kr.dynamicClientOpt)
 	if err != nil {
@@ -454,8 +457,8 @@ func (kr *KubeRuntime) updateVCQueue(q *models.Queue) error {
 }
 
 func (kr *KubeRuntime) updateElasticResourceQuota(q *models.Queue) error {
-	maxResources := k8s.NewKubeResourceList(&q.MaxResources)
-	minResources := k8s.NewKubeResourceList(&q.MinResources)
+	maxResources := k8s.NewResourceList(q.MaxResources)
+	minResources := k8s.NewResourceList(q.MinResources)
 	log.Debugf("Elastic resource quota max resources:%v,  min resources %v", maxResources, minResources)
 	object, err := executor.Get("", q.Name, k8s.EQuotaGVK, kr.dynamicClientOpt)
 	if err != nil {
@@ -486,7 +489,7 @@ func (kr *KubeRuntime) updateElasticResourceQuota(q *models.Queue) error {
 	return nil
 }
 
-func (kr *KubeRuntime) GetQueueUsedQuota(q *models.Queue) (*schema.ResourceInfo, error) {
+func (kr *KubeRuntime) GetQueueUsedQuota(q *models.Queue) (*resources.Resource, error) {
 	log.Infof("get used quota for queue %s, namespace %s", q.Name, q.Namespace)
 
 	fieldSelector := fmt.Sprintf(
@@ -501,11 +504,11 @@ func (kr *KubeRuntime) GetQueueUsedQuota(q *models.Queue) (*schema.ResourceInfo,
 		log.Errorf("get queue used quota failed, err: %v", err)
 		return nil, fmt.Errorf("get queue used quota failed, err: %v", err)
 	}
-	usedResource := schema.EmptyResourceInfo()
+	usedResource := resources.EmptyResource()
 	for idx := range podList.Items {
 		if isAllocatedPod(&podList.Items[idx], q.Name) {
 			podRes := k8s.CalcPodResources(&podList.Items[idx])
-			*usedResource = usedResource.Add(*podRes)
+			usedResource.Add(podRes)
 		}
 	}
 	return usedResource, nil
@@ -612,26 +615,26 @@ func buildPV(pv *apiv1.PersistentVolume, fsID string) error {
 	if err != nil {
 		retErr := fmt.Errorf("create PV get fs[%s] err: %v", fsID, err)
 		log.Errorf(retErr.Error())
-		return err
+		return retErr
 	}
 	fsStr, err := json.Marshal(fs)
 	if err != nil {
 		retErr := fmt.Errorf("create PV json.marshal fs[%s] err: %v", fsID, err)
 		log.Errorf(retErr.Error())
-		return err
+		return retErr
 	}
 	// fs_cache_config
 	fsCacheConfig, err := storage.Filesystem.GetFSCacheConfig(fsID)
-	if err != nil {
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		retErr := fmt.Errorf("create PV get fsCacheConfig[%s] err: %v", fsID, err)
 		log.Errorf(retErr.Error())
-		return err
+		return retErr
 	}
 	fsCacheConfigStr, err := json.Marshal(fsCacheConfig)
 	if err != nil {
 		retErr := fmt.Errorf("create PV json.marshal fsCacheConfig[%s] err: %v", fsID, err)
 		log.Errorf(retErr.Error())
-		return err
+		return retErr
 	}
 
 	// set VolumeAttributes
@@ -688,7 +691,7 @@ func (kr *KubeRuntime) getPersistentVolume(name string, getOptions metav1.GetOpt
 }
 
 func (kr *KubeRuntime) createPersistentVolumeClaim(namespace string, pvc *apiv1.PersistentVolumeClaim) (*apiv1.
-PersistentVolumeClaim, error) {
+	PersistentVolumeClaim, error) {
 	return kr.clientset.CoreV1().PersistentVolumeClaims(namespace).Create(context.TODO(), pvc, metav1.CreateOptions{})
 }
 
@@ -698,7 +701,7 @@ func (kr *KubeRuntime) DeletePersistentVolumeClaim(namespace string, name string
 }
 
 func (kr *KubeRuntime) getPersistentVolumeClaim(namespace, name string, getOptions metav1.GetOptions) (*apiv1.
-PersistentVolumeClaim, error) {
+	PersistentVolumeClaim, error) {
 	return kr.clientset.CoreV1().PersistentVolumeClaims(namespace).Get(context.TODO(), name, getOptions)
 }
 
@@ -710,7 +713,7 @@ func (kr *KubeRuntime) listPods(namespace string, listOptions metav1.ListOptions
 	return kr.clientset.CoreV1().Pods(namespace).List(context.TODO(), listOptions)
 }
 
-func (kr *KubeRuntime) getNodeQuotaListImpl(subQuotaFn func(r *schema.Resource, pod *apiv1.Pod) error) (schema.QuotaSummary, []schema.NodeQuotaInfo, error) {
+func (kr *KubeRuntime) getNodeQuotaListImpl(subQuotaFn func(r *resources.Resource, pod *apiv1.Pod) error) (schema.QuotaSummary, []schema.NodeQuotaInfo, error) {
 	result := []schema.NodeQuotaInfo{}
 	summary := schema.QuotaSummary{
 		TotalQuota: *k8s.NewResource(v1.ResourceList{}),

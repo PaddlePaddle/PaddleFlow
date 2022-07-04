@@ -29,8 +29,10 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/flavour"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/fs"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
@@ -72,7 +74,7 @@ type CommonJobInfo struct {
 type SchedulingPolicy struct {
 	Queue        string              `json:"queue"`
 	QueueID      string              `json:"-"`
-	MaxResources schema.ResourceInfo `json:"-"`
+	MaxResources *resources.Resource `json:"-"`
 	ClusterId    string              `json:"-"`
 	Namespace    string              `json:"-"`
 	Priority     string              `json:"priority,omitempty"`
@@ -275,35 +277,36 @@ func CreateDistributedJob(ctx *logger.RequestContext, request *CreateDisJobReque
 		return nil, err
 	}
 	// set roles for members
-
-	jobMode, err := validateJobMode(ctx, request)
-	if err != nil || jobMode == "" {
-		log.Errorf("create members failed, err=%v", err)
-		return nil, err
-	}
-	switch jobMode {
-	case schema.EnvJobModeCollective:
-		// validate replicas
-		if request.Members[0].Replicas < 2 {
-			ctx.ErrorCode = common.JobInvalidField
-			ctx.Logging().Errorln("replicas must be greater than 1")
-			return nil, fmt.Errorf("replicas must be greater than 1")
-		}
-		conf.SetEnv(schema.EnvJobMode, schema.EnvJobModeCollective)
-		if jobInfo.Members, err = newCollectiveMembers(request); err != nil {
-			log.Errorf("create job with collective members failed, err=%v", err)
+	if len(request.ExtensionTemplate) == 0 {
+		jobMode, err := validateJobMode(ctx, request)
+		if err != nil || jobMode == "" {
+			log.Errorf("create members failed, err=%v", err)
 			return nil, err
 		}
-	case schema.EnvJobModePS:
-		conf.SetEnv(schema.EnvJobMode, schema.EnvJobModePS)
-		if jobInfo.Members, err = newPSMembers(request); err != nil {
-			ctx.ErrorCode = common.JobInvalidField
-			log.Errorf("create job with ps members failed, err=%v", err)
-			return nil, err
+		switch jobMode {
+		case schema.EnvJobModeCollective:
+			// validate replicas
+			if request.Members[0].Replicas < 2 {
+				ctx.ErrorCode = common.JobInvalidField
+				ctx.Logging().Errorln("replicas must be greater than 1")
+				return nil, fmt.Errorf("replicas must be greater than 1")
+			}
+			conf.SetEnv(schema.EnvJobMode, schema.EnvJobModeCollective)
+			if jobInfo.Members, err = newCollectiveMembers(request); err != nil {
+				log.Errorf("create job with collective members failed, err=%v", err)
+				return nil, err
+			}
+		case schema.EnvJobModePS:
+			conf.SetEnv(schema.EnvJobMode, schema.EnvJobModePS)
+			if jobInfo.Members, err = newPSMembers(request); err != nil {
+				ctx.ErrorCode = common.JobInvalidField
+				log.Errorf("create job with ps members failed, err=%v", err)
+				return nil, err
+			}
+		default:
+			log.Errorf("invalid members number, cannot recognize job mode %s", jobMode)
+			return nil, fmt.Errorf("invalid job mode %s", jobMode)
 		}
-	default:
-		log.Errorf("invalid members number, cannot recognize job mode %s", jobMode)
-		return nil, fmt.Errorf("invalid job mode %s", jobMode)
 	}
 
 	jobInfo.Config = &conf
@@ -708,7 +711,7 @@ func validateDistributedJob(ctx *logger.RequestContext, request *CreateDisJobReq
 		return fmt.Errorf("invalid framework: %s", request.Framework)
 	}
 
-	if len(request.ExtensionTemplate) == 0 {
+	if len(request.ExtensionTemplate) != 0 {
 		log.Infof("RequestID[%s]: request.ExtensionTemplate is not empty, pass validate members", ctx.RequestID)
 		return nil
 	}
@@ -765,11 +768,6 @@ func validateSingleJob(ctx *logger.RequestContext, request *CreateSingleJobReque
 }
 
 func validateSingleJobResource(flavour schema.Flavour, schedulingPolicy SchedulingPolicy) error {
-	if schema.IsEmptyResource(schedulingPolicy.MaxResources) {
-		err := fmt.Errorf("schedulingPolicy.MaxResources[%v] is empty", schedulingPolicy.MaxResources)
-		log.Errorf("validateSingleJobResource failed, err: %v", err)
-		return err
-	}
 	return IsEnoughQueueCapacity(flavour, schedulingPolicy.MaxResources)
 }
 
@@ -827,12 +825,10 @@ func validateCommonJobInfo(ctx *logger.RequestContext, requestCommonJobInfo *Com
 
 // validateQueue validate queue and set queueID in request.SchedulingPolicy
 func validateQueue(ctx *logger.RequestContext, schedulingPolicy *SchedulingPolicy) error {
-	queueName := schedulingPolicy.Queue
-	if queueName == "" {
-		ctx.Logging().Errorf("queue is empty")
-		ctx.ErrorCode = common.JobInvalidField
-		return fmt.Errorf("queue is empty")
+	if schedulingPolicy.Queue == "" {
+		schedulingPolicy.Queue = config.DefaultQueueName
 	}
+	queueName := schedulingPolicy.Queue
 	queue, err := models.GetQueueByName(queueName)
 	if err != nil {
 		if errors.GetErrorCode(err) == errors.ErrorKeyIsDuplicated {
@@ -841,7 +837,8 @@ func validateQueue(ctx *logger.RequestContext, schedulingPolicy *SchedulingPolic
 			ctx.ErrorCode = common.InternalError
 		}
 		ctx.ErrorCode = common.InternalError
-		log.Errorf("Get queue failed when creating job, err=%v", err)
+		err = fmt.Errorf("get queue failed when creating job, err=%v", err)
+		log.Error(err)
 		return err
 	}
 	schedulingPolicy.QueueID = queue.ID
@@ -872,9 +869,6 @@ func checkPriority(schedulingPolicy, parentSP *SchedulingPolicy) error {
 
 func validateEmptyFieldInSingle(request *CreateSingleJobRequest) []string {
 	var emptyFields []string
-	if request.CommonJobInfo.SchedulingPolicy.Queue == "" {
-		emptyFields = append(emptyFields, "queue")
-	}
 	if request.Image == "" {
 		emptyFields = append(emptyFields, "image")
 	}

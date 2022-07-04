@@ -18,9 +18,6 @@ fs:
   k8sServiceName: "paddleflow-server"
   K8sServicePort: 8083
 
-namespaceList:
-  - "default"
-
 job:
   reclaim:
     isCleanJob: true
@@ -31,8 +28,6 @@ job:
   clusterSyncPeriod: 30
   queueSyncPeriod: 30
   jobLoopPeriod: 5
-  scalarResourceArray:
-    - "nvidia.com/gpu"
   defaultJobYamlDir: "./config/server/default/job"
   isSingleCluster: true
 
@@ -45,13 +40,3 @@ imageRepository:
   password: ""
   concurrency: 10
   removeLocalImage: true
-
-flavour:
-  - name: flavour1
-    cpu: 1
-    mem: 1Gi
-  - name: flavour2
-    cpu: 1
-    mem: 1Gi
-    scalarResources:
-      "nvidia.com/gpu": "1"

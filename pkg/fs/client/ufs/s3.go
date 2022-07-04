@@ -267,17 +267,58 @@ func (fs *s3FileSystem) getDefaultDirAttr(name string) (*base.FileInfo, error) {
 
 func (fs *s3FileSystem) isDirExist(name string) error {
 	name = toDirPath(name)
+	path := fs.getFullPath(name)
 	// when s3 prefix/dir has no s3 object key, cannot be list
 	// thus list object under it to check existence
-	fInfos, _, err := fs.list(name, "", 1, true)
-	if err != nil {
-		log.Debugf("s3 isDirExist: fs.list name[%s] err:%v", name, err)
-		return err
+	dirChan := make(chan []base.FileInfo, 1)
+	objectChan := make(chan s3.HeadObjectOutput, 1)
+	errObjectChan := make(chan error, 1)
+	errDirChan := make(chan error, 1)
+	go func() {
+		dirs, _, err := fs.list(name, "", 1, true)
+		if err != nil {
+			errDirChan <- err
+			return
+		}
+		dirChan <- dirs
+	}()
+	go func() {
+		request := &s3.HeadObjectInput{
+			Bucket: &fs.bucket,
+			Key:    &path,
+		}
+		object, err := fs.s3.HeadObject(request)
+		if err != nil {
+			errObjectChan <- err
+			return
+		}
+		objectChan <- *object
+	}()
+
+	var objectNotFound bool
+	var listDirsEmpty bool
+	for {
+		select {
+		case resp := <-errDirChan:
+			return resp
+		case resp := <-errObjectChan:
+			if !isNotExistErr(resp) {
+				log.Errorf("isDirExist object err: %v", resp)
+				return resp
+			}
+			objectNotFound = true
+		case <-objectChan:
+			return nil
+		case resp := <-dirChan:
+			if len(resp) > 0 {
+				return nil
+			}
+			listDirsEmpty = true
+		}
+		if listDirsEmpty && objectNotFound {
+			return syscall.ENOENT
+		}
 	}
-	if len(fInfos) == 0 {
-		return syscall.ENOENT
-	}
-	return nil
 }
 
 // object_path may point to an object or a directory, we need to distinguish between

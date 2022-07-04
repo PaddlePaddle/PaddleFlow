@@ -30,6 +30,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime/kubernetes/executor"
@@ -113,8 +114,8 @@ func TestGetQueueByName(t *testing.T) {
 	})
 	defer p2.Reset()
 
-	var p3 = gomonkey.ApplyPrivateMethod(reflect.TypeOf(rts), "GetQueueUsedQuota", func(*models.Queue) (*schema.ResourceInfo, error) {
-		return schema.EmptyResourceInfo(), nil
+	var p3 = gomonkey.ApplyPrivateMethod(reflect.TypeOf(rts), "GetQueueUsedQuota", func(*models.Queue) (*resources.Resource, error) {
+		return resources.EmptyResource(), nil
 	})
 	defer p3.Reset()
 	ctx := &logger.RequestContext{UserName: MockRootUser}

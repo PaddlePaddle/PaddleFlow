@@ -176,12 +176,6 @@ func validateCreateFileSystem(ctx *logger.RequestContext, req *api.CreateFileSys
 		return err
 	}
 
-	err = checkFsDir(fileSystemType, req.Url, req.Properties)
-	if err != nil {
-		ctx.Logging().Errorf("check fs dir err[%v] with url[%s]", err, req.Url)
-		ctx.ErrorCode = common.InvalidFileSystemURL
-		return err
-	}
 	if fileSystemType == common.Mock {
 		return nil
 	}
@@ -484,13 +478,14 @@ func (pr *PFSRouter) getFileSystem(w http.ResponseWriter, r *http.Request) {
 
 func fsResponseFromModel(fsModel model.FileSystem) *api.FileSystemResponse {
 	return &api.FileSystemResponse{
-		Id:            fsModel.ID,
-		Name:          fsModel.Name,
-		ServerAddress: fsModel.ServerAddress,
-		Type:          fsModel.Type,
-		SubPath:       fsModel.SubPath,
-		Username:      fsModel.UserName,
-		Properties:    fsModel.PropertiesMap,
+		Id:                      fsModel.ID,
+		Name:                    fsModel.Name,
+		ServerAddress:           fsModel.ServerAddress,
+		Type:                    fsModel.Type,
+		SubPath:                 fsModel.SubPath,
+		Username:                fsModel.UserName,
+		Properties:              fsModel.PropertiesMap,
+		IndependentMountProcess: fsModel.IndependentMountProcess,
 	}
 }
 
