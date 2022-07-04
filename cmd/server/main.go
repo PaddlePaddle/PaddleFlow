@@ -26,6 +26,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/trace_logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/version"
 )
 
@@ -104,6 +105,13 @@ func start() error {
 	go jobCtrl.WSManager.SendGroupData()
 	go jobCtrl.WSManager.GetGroupData()
 
+	err = trace_logger.Start(ServerConf.TraceLog)
+	if err != nil {
+		errMsg := fmt.Errorf("start trace logger failed. error: %w", err)
+		log.Errorf(errMsg.Error())
+		return errMsg
+	}
+
 	go func() {
 		if err := HttpSvr.ListenAndServe(); err != nil && errors.Is(err, http.ErrServerClosed) {
 			log.Infof("listen: %s", err)
@@ -167,8 +175,16 @@ func initClusterAndQueue(serverConf *config.ServerConfig) error {
 }
 
 func setup() {
+	var err error
 	if err := logger.InitStandardFileLogger(&ServerConf.Log); err != nil {
 		log.Errorf("InitStandardFileLogger err: %v", err)
+		gracefullyExit(err)
+	}
+
+	// init trace logger config
+	err = trace_logger.Init(ServerConf.TraceLog)
+	if err != nil {
+		log.Errorf("InitTraceLoggerManager err: %v", err)
 		gracefullyExit(err)
 	}
 

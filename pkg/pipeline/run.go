@@ -19,12 +19,12 @@ package pipeline
 import (
 	"context"
 	"fmt"
-	. "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 	"strings"
 	"sync"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	. "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 )
 
 type StatusToSteps struct {
