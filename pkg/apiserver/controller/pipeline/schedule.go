@@ -18,10 +18,12 @@ package pipeline
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
 	cron "github.com/robfig/cron/v3"
+	"gorm.io/gorm"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/fs"
@@ -273,6 +275,21 @@ func CreateSchedule(ctx *logger.RequestContext, request *CreateScheduleRequest) 
 		ctx.ErrorCode = common.AccessDenied
 		err := common.NoAccessError(ctx.UserName, common.ResourceTypePipeline, request.PipelineID)
 		return CreateScheduleResponse{}, err
+	}
+
+	// 校验schedule是否存在，一个用户不能创建同名schedule
+	_, err = models.GetScheduleByName(ctx.Logging(), request.Name, ctx.UserName)
+	if err == nil {
+		ctx.ErrorCode = common.DuplicatedName
+		errMsg := fmt.Sprintf("CreateSchedule failed: user[%s] already has schedule with name[%s]", ctx.UserName, request.Name)
+		ctx.Logging().Errorf(errMsg)
+		return CreateScheduleResponse{}, fmt.Errorf(errMsg)
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		ctx.ErrorCode = common.InternalError
+		errMsg := fmt.Sprintf("CreateSchedule failed: %s", err)
+		ctx.Logging().Errorf(errMsg)
+		return CreateScheduleResponse{}, fmt.Errorf(errMsg)
 	}
 
 	// create schedule in db after run.yaml validated

@@ -320,6 +320,18 @@ func GetSchedule(logEntry *log.Entry, scheduleID string) (Schedule, error) {
 	return schedule, nil
 }
 
+func GetScheduleByName(logEntry *log.Entry, name, userName string) (Schedule, error) {
+	logEntry.Debugf("begin to get schedule of name[%s], userName[%s]", name, userName)
+
+	var schedule Schedule
+	result := storage.DB.Model(&Schedule{}).Where("name = ?", name).Where("user_name = ?", userName).First(&schedule)
+	if result.Error != nil {
+		return Schedule{}, result.Error
+	}
+
+	return schedule, nil
+}
+
 func GetSchedulesByStatus(logEntry *log.Entry, status string) (schedules []Schedule, err error) {
 	if !checkScheduleStatus(status) {
 		errMsg := fmt.Sprintf("get schedules failed: status[%s] invalid!", status)

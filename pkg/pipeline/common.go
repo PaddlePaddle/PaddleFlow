@@ -268,7 +268,7 @@ func (s *StepParamSolver) solveOutputArtifactValue(stepName string, paramName st
 		存在三种场景:
 		1. 用于计算Cache fingerprint: 此时output atf应该替换为为空字符串
 		2. cache命中后更新参数值: 此时cacheOutputArtifacts非空，使用该map内的output atf值进行替换
-		3. cache命中失败后, 用于job运行: output atf值由平台生成，路径格式为 ./pipeline/{{PF_RUNID}}/{{pplName}}/{{stepName}}/{{outputAtfName}}
+		3. cache命中失败后, 用于job运行: output atf值由平台生成，路径格式为 ./.pipeline/{{PF_RUNID}}/{{pplName}}/{{stepName}}/{{outputAtfName}}
 	*/
 	if s.forCacheFingerprint {
 		return "", nil
