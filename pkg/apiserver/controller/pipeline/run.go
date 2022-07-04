@@ -21,7 +21,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/trace_logger"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -38,6 +37,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/pipeline"
 	pplcommon "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/trace_logger"
 )
 
 var wfMap = make(map[string]*pipeline.Workflow, 0)

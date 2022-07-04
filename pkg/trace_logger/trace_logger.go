@@ -18,13 +18,14 @@ package trace_logger
 
 import (
 	"fmt"
-	"github.com/sirupsen/logrus"
-	"gopkg.in/natefinch/lumberjack.v2"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/sirupsen/logrus"
+	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 // initFileLogger

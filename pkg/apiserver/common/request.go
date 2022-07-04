@@ -18,9 +18,10 @@ package common
 
 import (
 	"encoding/json"
-	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"net/http"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 )
