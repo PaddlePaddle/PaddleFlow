@@ -80,12 +80,12 @@ func PodUnmount(volumeID string, mountInfo Info) error {
 		return nil
 	}
 
-	mountInfo.Server = pod.Annotations[AnnoKeyServer]
-	mountInfo.FsID = pod.Annotations[AnnoKeyFsID]
-	if mountInfo.Server == "" || mountInfo.FsID == "" {
-		log.Errorf("PodUnmount: pod[%s] annotations[%v] missing field", pod.Name, pod.Annotations)
-		return fmt.Errorf("PodUnmount: pod[%s] annotations[%v] missing field", pod.Name, pod.Annotations)
-	}
+	//mountInfo.Server = pod.Annotations[AnnoKeyServer]
+	//mountInfo.FsID = pod.Annotations[AnnoKeyFsID]
+	//if mountInfo.Server == "" || mountInfo.FsID == "" {
+	//	log.Errorf("PodUnmount: pod[%s] annotations[%v] missing field", pod.Name, pod.Annotations)
+	//	return fmt.Errorf("PodUnmount: pod[%s] annotations[%v] missing field", pod.Name, pod.Annotations)
+	//}
 
 	workPodUID := utils.GetPodUIDFromTargetPath(mountInfo.TargetPath)
 	if workPodUID != "" {
@@ -228,7 +228,9 @@ func buildMountPod(volumeID string, mountInfo Info) (*k8sCore.Pod, error) {
 	if err != nil {
 		return nil, err
 	}
-	anno[AnnoKeyFsID] = mountInfo.FsID // debug info
+	// debug info
+	anno[AnnoKeyFsID] = mountInfo.FsID
+	anno[AnnoKeyServer] = mountInfo.Server
 	pod.ObjectMeta.Annotations = anno
 	return pod, nil
 }

@@ -26,6 +26,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/trace_logger"
 )
 
 type GetRunLogRequest struct {
@@ -101,7 +102,12 @@ func GetRunLog(ctx *logger.RequestContext, runID string, request GetRunLogReques
 		}
 		response.RunLog = append(response.RunLog, jobLogInfo)
 	}
-	// TODO response.SubmitLog = JobLogManager.ReadLog(runID)
+	trace, ok := trace_logger.GetTraceFromCache(runID)
+	if !ok {
+		ctx.Logging().Warnf("get trace log failed. runID[%s]", runID)
+	} else {
+		response.SubmitLog = trace.String()
+	}
 	return response, nil
 }
 
