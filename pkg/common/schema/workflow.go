@@ -390,18 +390,6 @@ func (d *WorkflowSourceDag) InitParameters() {
 	d.Parameters = map[string]interface{}{}
 }
 
-/*
-
-type WorkflowSourceDag struct {
-	Name         string                 `yaml:"-"`
-	LoopArgument interface{}            `yaml:"loop_argument"`
-	Condition    string                 `yaml:"condition"`
-	Parameters   map[string]interface{} `yaml:"parameters"`
-	Deps         string                 `yaml:"deps"`
-	Artifacts    Artifacts              `yaml:"artifacts"`
-	EntryPoints  map[string]Component   `yaml:"entry_points"`
-}
-*/
 func (d *WorkflowSourceDag) DeepCopy() Component {
 	params := map[string]interface{}{}
 	for name, value := range d.Parameters {
