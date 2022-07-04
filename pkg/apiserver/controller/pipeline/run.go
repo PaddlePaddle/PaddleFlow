@@ -156,7 +156,7 @@ func (b *RunBrief) modelToListResp(run models.Run) {
 
 func buildWorkflowSource(ctx logger.RequestContext, req CreateRunRequest, fsID string) (schema.WorkflowSource, string, string, error) {
 	var source, runYaml, requestId, userName string
-	requestId, runYaml, userName = ctx.RequestID, req.RunYamlRaw, ctx.UserName
+	requestId, userName = ctx.RequestID, ctx.UserName
 
 	trace_logger.Key(requestId).Infof("retrieve source and runYaml")
 	// retrieve source and runYaml
