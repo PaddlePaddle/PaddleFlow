@@ -21,10 +21,12 @@ package trace_logger
 
 import (
 	go_fmt "fmt"
+	"os"
+
+	log "github.com/sirupsen/logrus"
+
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
-	log "github.com/sirupsen/logrus"
-	"os"
 )
 
 // DeleteFunc delete function for trace log

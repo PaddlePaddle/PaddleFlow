@@ -4,15 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/trace_logger"
-	"github.com/go-chi/chi"
-	log "github.com/sirupsen/logrus"
-	"github.com/urfave/cli/v2"
-	_ "go.uber.org/automaxprocs"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+
+	"github.com/go-chi/chi"
+	log "github.com/sirupsen/logrus"
+	"github.com/urfave/cli/v2"
+	_ "go.uber.org/automaxprocs"
 
 	"github.com/PaddlePaddle/PaddleFlow/cmd/server/flag"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/cluster"
@@ -26,6 +26,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/trace_logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/version"
 )
 

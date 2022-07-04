@@ -20,10 +20,6 @@ import (
 	"bufio"
 	"encoding/json"
 	go_fmt "fmt"
-	"github.com/emirpasic/gods/trees/binaryheap"
-	"github.com/orcaman/concurrent-map"
-	"github.com/sirupsen/logrus"
-	"github.com/viney-shih/go-lock"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -31,7 +27,11 @@ import (
 	"strings"
 	"sync"
 	"time"
-	// log "github.com/sirupsen/logrus"
+
+	"github.com/emirpasic/gods/trees/binaryheap"
+	"github.com/orcaman/concurrent-map"
+	"github.com/sirupsen/logrus"
+	"github.com/viney-shih/go-lock"
 )
 
 // define errors

@@ -19,10 +19,11 @@ package trace_logger
 // TODO: file part is not ready
 
 import (
+	"testing"
+	"time"
+
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
 	"github.com/stretchr/testify/assert"
-	testing "testing"
-	"time"
 )
 
 func TestTraceLogger(t *testing.T) {

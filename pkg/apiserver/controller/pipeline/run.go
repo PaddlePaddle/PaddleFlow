@@ -60,8 +60,6 @@ type CreateRunRequest struct {
 	RunYamlPath      string `json:"runYamlPath,omitempty"`      // optional. one of 3 sources of run. low priority
 	ScheduleID       string `json:"scheduleID"`
 	ScheduledAt      string `json:"scheduledAt"`
-	// request id for trace logger
-	RequestID string `json:"-"`
 }
 
 type CreateRunByJsonRequest struct {
@@ -80,8 +78,6 @@ type CreateRunByJsonRequest struct {
 	JobType        string                `json:"jobType,omitempty"`        // optional
 	FailureOptions schema.FailureOptions `json:"failureOptions,omitempty"` // optional
 	Env            map[string]string     `json:"env,omitempty"`            // optional
-	// request id for trace logger
-	RequestID string `json:"-"`
 }
 
 // used for API CreateRunJson to unmarshal steps in entryPoints and postProcess
@@ -158,10 +154,10 @@ func (b *RunBrief) modelToListResp(run models.Run) {
 	}
 }
 
-func buildWorkflowSource(userName string, req CreateRunRequest, fsID string) (schema.WorkflowSource, string, string, error) {
-	var source, runYaml string
+func buildWorkflowSource(ctx logger.RequestContext, req CreateRunRequest, fsID string) (schema.WorkflowSource, string, string, error) {
+	var source, runYaml, requestId, userName string
+	requestId, runYaml = ctx.RequestID, req.RunYamlRaw
 
-	requestId := req.RequestID
 	trace_logger.Key(requestId).Infof("retrieve source and runYaml")
 	// retrieve source and runYaml
 	if req.RunYamlRaw != "" { // high priority: wfs delivered by request
@@ -428,9 +424,11 @@ func runYamlAndReqToWfs(runYaml string, req interface{}) (schema.WorkflowSource,
 
 }
 
-func CreateRun(userName string, request *CreateRunRequest) (CreateRunResponse, error) {
+func CreateRun(ctx logger.RequestContext, request *CreateRunRequest) (CreateRunResponse, error) {
 	// concatenate fsID
-	var fsID string
+	var fsID, userName, requestId string
+	userName, requestId = ctx.UserName, ctx.RequestID
+
 	if request.FsName != "" {
 		if common.IsRootUser(userName) && request.UserName != "" {
 			// root user can select fs under other users
@@ -443,10 +441,8 @@ func CreateRun(userName string, request *CreateRunRequest) (CreateRunResponse, e
 	// TODO:// validate flavour
 	// TODO:// validate queue
 
-	requestId := request.RequestID
-
 	trace_logger.Key(requestId).Infof("build workflow source for run: %+v", request)
-	wfs, source, runYaml, err := buildWorkflowSource(userName, *request, fsID)
+	wfs, source, runYaml, err := buildWorkflowSource(ctx, *request, fsID)
 	if err != nil {
 		logger.Logger().Errorf("buildWorkflowSource failed. error:%v", err)
 		return CreateRunResponse{}, err
@@ -492,12 +488,14 @@ func CreateRun(userName string, request *CreateRunRequest) (CreateRunResponse, e
 	}
 
 	trace_logger.Key(requestId).Infof("validate and start run: %+v", run)
-	response, err := ValidateAndStartRun(run, *request)
+	response, err := ValidateAndStartRun(ctx, run, *request)
 	return response, err
 }
 
-func CreateRunByJson(userName string, request *CreateRunByJsonRequest, bodyMap map[string]interface{}) (CreateRunResponse, error) {
-	var fsID string
+func CreateRunByJson(ctx logger.RequestContext, request *CreateRunByJsonRequest, bodyMap map[string]interface{}) (CreateRunResponse, error) {
+	var fsID, userName string
+	userName, requestId := ctx.UserName, ctx.RequestID
+
 	if request.FsName != "" {
 		if common.IsRootUser(userName) && request.UserName != "" {
 			// root user can select fs under other users
@@ -506,8 +504,6 @@ func CreateRunByJson(userName string, request *CreateRunByJsonRequest, bodyMap m
 			fsID = common.ID(userName, request.FsName)
 		}
 	}
-
-	requestId := request.RequestID
 
 	trace_logger.Key(requestId).Infof("get workflow source for run: %+v", request)
 	wfs, err := getWorkFlowSourceByReq(request, bodyMap)
@@ -545,13 +541,13 @@ func CreateRunByJson(userName string, request *CreateRunByJsonRequest, bodyMap m
 		Status:         common.StatusRunInitiating,
 	}
 	trace_logger.Key(requestId).Infof("validate and start run: %+v", run)
-	response, err := ValidateAndStartRun(run, *request)
+	response, err := ValidateAndStartRun(ctx, run, *request)
 	return response, err
 }
 
-func ValidateAndStartRun(run models.Run, req interface{}) (CreateRunResponse, error) {
+func ValidateAndStartRun(ctx logger.RequestContext, run models.Run, req interface{}) (CreateRunResponse, error) {
 	// get request id from req interface
-	requestId := common.GetRequestIDFromRequest(req)
+	requestId := ctx.RequestID
 	if requestId == "" {
 		errMsg := "get requestID failed"
 		logger.Logger().Errorf("encode run failed. error:%s", errMsg)

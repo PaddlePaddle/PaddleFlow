@@ -61,6 +61,4 @@ const (
 	LogPageSizeMax     = 100
 	LogPageSizeDefault = 100
 	LogPageNoDefault   = 1
-
-	FieldNameRequestID = "RequestID"
 )
