@@ -18,6 +18,7 @@ package job
 
 import (
 	"fmt"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -53,7 +54,7 @@ func CreateJob(conf schema.PFJobConf) (string, error) {
 		jobConf.FileSystem = schema.FileSystem{
 			ID:        jobConf.GetFS(),
 			Name:      fsName,
-			MountPath: schema.DefaultFSMountPath,
+			MountPath: filepath.Join(schema.DefaultFSMountPath, fsID),
 		}
 	}
 
