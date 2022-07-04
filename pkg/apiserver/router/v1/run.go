@@ -19,7 +19,7 @@ package v1
 import (
 	"bytes"
 	"encoding/json"
-	go_fmt "fmt"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -81,7 +81,7 @@ func (rr *RunRouter) createRun(w http.ResponseWriter, r *http.Request) {
 	// create run
 	response, err := pipeline.CreateRun(ctx, &createRunInfo)
 	if err != nil {
-		errMsg := go_fmt.Sprintf(
+		errMsg := fmt.Sprintf(
 			"create run failed. createRunInfo:%v error:%s", createRunInfo, err.Error())
 
 		// if run id has generated, log err msg
@@ -252,7 +252,7 @@ func (rr *RunRouter) updateRun(w http.ResponseWriter, r *http.Request) {
 	request := pipeline.UpdateRunRequest{}
 	bodyBytes, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		err = go_fmt.Errorf("get body err: %v", err)
+		err = fmt.Errorf("get body err: %v", err)
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
@@ -277,7 +277,7 @@ func (rr *RunRouter) updateRun(w http.ResponseWriter, r *http.Request) {
 		err = pipeline.RetryRun(&ctx, runID)
 	default:
 		ctx.ErrorCode = common.InvalidURI
-		err = go_fmt.Errorf("invalid action[%s] for UpdateRun", action)
+		err = fmt.Errorf("invalid action[%s] for UpdateRun", action)
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}

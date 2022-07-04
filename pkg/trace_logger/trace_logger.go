@@ -17,7 +17,7 @@ limitations under the License.
 package trace_logger
 
 import (
-	go_fmt "fmt"
+	"fmt"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/natefinch/lumberjack.v2"
 	"os"
@@ -74,12 +74,12 @@ type TraceLoggerConfig struct {
 func ParseTimeUnit(timeStr string) (time.Duration, error) {
 	timeStr = strings.TrimSpace(timeStr)
 	if timeStr == "" {
-		return 0, go_fmt.Errorf("timeStr is empty")
+		return 0, fmt.Errorf("timeStr is empty")
 	}
 	unit := timeStr[len(timeStr)-1:]
 	timeVal, err := strconv.Atoi(timeStr[:len(timeStr)-1])
 	if err != nil {
-		return 0, go_fmt.Errorf("failed to parse time: %w", err)
+		return 0, fmt.Errorf("failed to parse time: %w", err)
 	}
 	switch strings.ToLower(unit) {
 	case "s":
@@ -91,7 +91,7 @@ func ParseTimeUnit(timeStr string) (time.Duration, error) {
 	case "d":
 		return time.Duration(timeVal) * time.Hour * 24, nil
 	default:
-		return 0, go_fmt.Errorf("unknown time unit: %s", unit)
+		return 0, fmt.Errorf("unknown time unit: %s", unit)
 	}
 }
 
@@ -140,13 +140,13 @@ func InitTraceLoggerManager(config TraceLoggerConfig) error {
 	l := logrus.New()
 	// set logger formatter to json
 	if err := initFileLogger(l, &config); err != nil {
-		return go_fmt.Errorf("failed to init file logger: %w", err)
+		return fmt.Errorf("failed to init file logger: %w", err)
 	}
 	logger = l
 	timeout, err := ParseTimeUnit(config.Timeout)
 	m := NewDefaultTraceLoggerManager(config.MaxCacheSize, timeout, config.Debug)
 	if err != nil {
-		return go_fmt.Errorf("failed to parse timeout: %w", err)
+		return fmt.Errorf("failed to parse timeout: %w", err)
 	}
 
 	manager = m
@@ -156,13 +156,13 @@ func InitTraceLoggerManager(config TraceLoggerConfig) error {
 func initFileLogger(logger *logrus.Logger, logConf *TraceLoggerConfig) error {
 	hostname, err := os.Hostname()
 	if err != nil {
-		err = go_fmt.Errorf("failed to get hostname: %w", err)
+		err = fmt.Errorf("failed to get hostname: %w", err)
 		return err
 	}
 
 	// init lumberjack logger
 	logPath := filepath.Join(logConf.Dir, strings.ReplaceAll(logConf.FilePrefix, hostNameHolder, hostname))
-	go_fmt.Printf("logPath:%s\n", logPath)
+	fmt.Printf("logPath:%s\n", logPath)
 	writer := &lumberjack.Logger{
 		Filename:   logPath,
 		MaxSize:    logConf.MaxFileSizeInMB,
@@ -173,7 +173,7 @@ func initFileLogger(logger *logrus.Logger, logConf *TraceLoggerConfig) error {
 	}
 	level, err := logrus.ParseLevel(logConf.Level)
 	if err != nil {
-		err = go_fmt.Errorf("failed to parse logger level: %w", err)
+		err = fmt.Errorf("failed to parse logger level: %w", err)
 		return err
 	}
 

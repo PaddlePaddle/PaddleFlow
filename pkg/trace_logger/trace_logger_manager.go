@@ -19,7 +19,7 @@ package trace_logger
 import (
 	"bufio"
 	"encoding/json"
-	go_fmt "fmt"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -72,7 +72,7 @@ type traceLog struct {
 func (t traceLog) String() string {
 	timeStr := t.Time.Format(LogStringFormat)
 	level := strings.ToUpper(t.Level.String()[:LogLevelStringSize])
-	return go_fmt.Sprintf("[%s] [%s] %s %s", timeStr, level, t.Key, t.Msg)
+	return fmt.Sprintf("[%s] [%s] %s %s", timeStr, level, t.Key, t.Msg)
 }
 
 func (t Trace) String() string {
@@ -152,13 +152,13 @@ func (d *defaultTraceLogger) saveOneLog(level logrus.Level, format string, args 
 
 	log := traceLog{
 		Key:   d.key,
-		Msg:   go_fmt.Sprintf(format, args...),
+		Msg:   fmt.Sprintf(format, args...),
 		Level: level,
 		Time:  time.Now(),
 	}
 
 	if d.showLog {
-		go_fmt.Println(log.String())
+		fmt.Println(log.String())
 	}
 
 	d.trace.Logs = append(d.trace.Logs, log)
@@ -199,7 +199,7 @@ func (d *defaultTraceLogger) UpdateTraceWithKey(key string) error {
 func (d *defaultTraceLogger) UpdateTrace() error {
 	d.trace.UpdateTime = time.Now()
 	if d.key == "" {
-		return go_fmt.Errorf("no key has been set")
+		return fmt.Errorf("no key has been set")
 	}
 	return d.manager.SetTraceToCache(d.key, d.trace)
 }
@@ -306,11 +306,11 @@ func (d *DefaultTraceLoggerManager) SetTraceToCache(key string, trace Trace) (er
 
 	//defer func() {
 	//	if err1 := recover(); err1 != nil {
-	//		err = go_fmt.Errorf("%v", err1)
+	//		err = fmt.Errorf("%v", err1)
 	//	}
 	//}()
 	// delete outdated trace
-	// go_fmt.Println("maxCacheSize:", d.maxCacheSize, d.cache.Count())
+	// fmt.Println("maxCacheSize:", d.maxCacheSize, d.cache.Count())
 
 	// if reach max count after insertion, evict first
 	newCount := d.cache.Count() + 1
@@ -420,7 +420,7 @@ func (d *DefaultTraceLoggerManager) LoadAll(path string, prefixes ...string) (er
 	d.clearCache()
 	stat, err := os.Stat(path)
 	if err != nil {
-		return go_fmt.Errorf("failed to get file stat: %w", err)
+		return fmt.Errorf("failed to get file stat: %w", err)
 	}
 
 	var prefix string
@@ -436,7 +436,7 @@ func (d *DefaultTraceLoggerManager) LoadAll(path string, prefixes ...string) (er
 		fileInfos := make([]fs.FileInfo, 0, len(filesEntries))
 
 		if err != nil {
-			return go_fmt.Errorf("failed to read dir: %w", err)
+			return fmt.Errorf("failed to read dir: %w", err)
 		}
 
 		for _, fileEntry := range filesEntries {
@@ -446,7 +446,7 @@ func (d *DefaultTraceLoggerManager) LoadAll(path string, prefixes ...string) (er
 				strings.HasPrefix(fileEntry.Name(), prefix) {
 				info, err := fileEntry.Info()
 				if err != nil {
-					return go_fmt.Errorf("failed to read file: %w", err)
+					return fmt.Errorf("failed to read file: %w", err)
 				}
 
 				// add it to slice
@@ -491,12 +491,12 @@ func (d *DefaultTraceLoggerManager) loadFromFile(filePath string) (count int, er
 	defer func() {
 		err1 := file.Close()
 		if err1 != nil {
-			err = go_fmt.Errorf("failed to close file: %w", err1)
+			err = fmt.Errorf("failed to close file: %w", err1)
 		}
 	}()
 
 	if err != nil {
-		return count, go_fmt.Errorf("read log file fail: %w", err)
+		return count, fmt.Errorf("read log file fail: %w", err)
 	}
 	scanner := bufio.NewScanner(file)
 
@@ -506,7 +506,7 @@ func (d *DefaultTraceLoggerManager) loadFromFile(filePath string) (count int, er
 		log := traceLog{}
 		err = json.Unmarshal(jsonBytes, &log)
 		if err != nil {
-			return count, go_fmt.Errorf("parse log fail: %w", err)
+			return count, fmt.Errorf("parse log fail: %w", err)
 		}
 		d.cache.Upsert(log.Key, log, func(exist bool, valueInMap interface{}, newValue interface{}) interface{} {
 			val := Trace{}
@@ -528,7 +528,7 @@ func (d *DefaultTraceLoggerManager) AutoDelete(duration time.Duration, methods .
 	d.autoDeleteLock.Lock()
 	defer d.autoDeleteLock.Unlock()
 	if d.autoDeleteFlag {
-		return go_fmt.Errorf("auto delete has started")
+		return fmt.Errorf("auto delete has started")
 	}
 
 	go func() {
@@ -551,7 +551,7 @@ func (d *DefaultTraceLoggerManager) CancelAutoDelete() error {
 	defer d.autoDeleteLock.Unlock()
 
 	if !d.autoDeleteFlag {
-		return go_fmt.Errorf("auto delete has not started")
+		return fmt.Errorf("auto delete has not started")
 	}
 	d.autoDeleteCancelChan <- struct{}{}
 	return nil
@@ -634,7 +634,7 @@ func (d *DefaultTraceLoggerManager) UpdateKey(key string, newKey string) error {
 	// delete tmp key map
 	val, ok := d.tmpKeyMap.LoadAndDelete(key)
 	if !ok {
-		return go_fmt.Errorf("key %s not found", key)
+		return fmt.Errorf("key %s not found", key)
 	}
 
 	// update tmp key
@@ -656,7 +656,7 @@ func (d *DefaultTraceLoggerManager) AutoSync(duration time.Duration) error {
 	d.autoSyncLock.Lock()
 	defer d.autoSyncLock.Unlock()
 	if d.autoSyncFlag {
-		return go_fmt.Errorf("auto sync has started")
+		return fmt.Errorf("auto sync has started")
 	}
 
 	go func() {
@@ -679,7 +679,7 @@ func (d *DefaultTraceLoggerManager) CancelAutoSync() error {
 	defer d.autoSyncLock.Unlock()
 
 	if !d.autoSyncFlag {
-		return go_fmt.Errorf("auto sync has not started")
+		return fmt.Errorf("auto sync has not started")
 	}
 	d.autoSyncCancelChan <- struct{}{}
 	return nil

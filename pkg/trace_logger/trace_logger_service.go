@@ -20,7 +20,7 @@ trace_logger is a tool to record trace log.
 package trace_logger
 
 import (
-	go_fmt "fmt"
+	"fmt"
 	"os"
 
 	log "github.com/sirupsen/logrus"
@@ -56,7 +56,7 @@ func Start(config TraceLoggerConfig) error {
 	err = LoadAll(config.Dir, config.FilePrefix)
 	// if error is NotExistErr, omit it
 	if err != nil && !os.IsExist(err) {
-		errMsg := go_fmt.Errorf("load local trace log failed. error: %w", err)
+		errMsg := fmt.Errorf("load local trace log failed. error: %w", err)
 		return errMsg
 	}
 	err = nil
@@ -67,7 +67,7 @@ func Start(config TraceLoggerConfig) error {
 		duration,
 		DeleteFunc,
 	); err != nil {
-		errMsg := go_fmt.Errorf("enable auto delete for trace log failed: %w", err)
+		errMsg := fmt.Errorf("enable auto delete for trace log failed: %w", err)
 		return errMsg
 	}
 
@@ -76,7 +76,7 @@ func Start(config TraceLoggerConfig) error {
 		duration,
 	); err != nil {
 		_ = CancelAutoDelete()
-		errMsg := go_fmt.Errorf("enable auto sync for trace log failed: %w", err)
+		errMsg := fmt.Errorf("enable auto sync for trace log failed: %w", err)
 		return errMsg
 	}
 	return nil
