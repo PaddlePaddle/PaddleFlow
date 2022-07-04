@@ -447,6 +447,7 @@ type FsOptions struct {
 }
 
 type FsMount struct {
+	FsID      string `yaml:"-"             json:"-"`
 	FsName    string `yaml:"fs_name"       json:"fsName"`
 	FsID      string `yaml:"-"             json:"-"`
 	MountPath string `yaml:"mount_path"    json:"mountPath"`

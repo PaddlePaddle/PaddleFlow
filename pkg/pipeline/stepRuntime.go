@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -133,7 +134,7 @@ func (srt *StepRuntime) Start() {
 	// 1、计算 condition
 	conditon, err := srt.CalculateCondition()
 	if err != nil {
-		errMsg := fmt.Sprintf("caculate the condition field for component[%s] faild:\n%s",
+		errMsg := fmt.Sprintf("caculate the condition field for step[%s] faild:\n%s",
 			srt.getFullName(), err.Error())
 
 		srt.logger.Errorf(errMsg)
@@ -142,7 +143,7 @@ func (srt *StepRuntime) Start() {
 	}
 
 	if conditon {
-		skipMsg := fmt.Sprintf("the result of condition for Component [%s] is true, skip running", srt.getFullName())
+		skipMsg := fmt.Sprintf("the result of condition for step[%s] is true, skip running", srt.getFullName())
 		srt.logger.Infoln(skipMsg)
 		srt.processStartAbnormalStatus(skipMsg, StatusRuntimeSkipped)
 		return
@@ -150,7 +151,7 @@ func (srt *StepRuntime) Start() {
 
 	// 判断节点是否被 disabled
 	if srt.isDisabled() {
-		skipMsg := fmt.Sprintf("Component [%s] is disabled, skip running", srt.getFullName())
+		skipMsg := fmt.Sprintf("step[%s] is disabled, skip running", srt.getFullName())
 		srt.logger.Infoln(skipMsg)
 		srt.processStartAbnormalStatus(skipMsg, StatusRuntimeSkipped)
 		return
@@ -271,7 +272,7 @@ func (srt *StepRuntime) Stop() {
 		if srt.done {
 			return
 		}
-		srt.stopWithMsg("stop by failureOptions, some component has been failed")
+		srt.stopWithMsg("stop by failureOptions, some other component has been failed")
 	}
 }
 
@@ -327,7 +328,7 @@ func (srt *StepRuntime) updateJob(forCacheFingerprint bool) error {
 		}
 	}
 
-	srt.job.Update(srt.getWorkFlowStep().Command, params, newEnvs, &artifacts)
+	srt.job.Update(srt.getWorkFlowStep().Command, params, newEnvs, &artifacts, srt.getWorkFlowStep().FsMount)
 	srt.logger.Infof("step[%s] after resolve template: param[%s], artifacts[%s], command[%s], env[%s]",
 		srt.fullName, params, artifacts, srt.getWorkFlowStep().Command, newEnvs)
 	return nil
@@ -337,8 +338,8 @@ func (srt *StepRuntime) logInputArtifact() {
 	for atfName, atfValue := range srt.getComponent().GetArtifacts().Input {
 		req := schema.LogRunArtifactRequest{
 			RunID:        srt.runID,
-			FsID:         srt.fsID,
-			FsName:       srt.fsName,
+			FsID:         srt.GlobalFsID,
+			FsName:       srt.GloablFsName,
 			UserName:     srt.userName,
 			ArtifactPath: atfValue,
 			Step:         srt.getWorkFlowStep().Name,
@@ -361,8 +362,8 @@ func (srt *StepRuntime) logOutputArtifact() {
 	for atfName, atfValue := range srt.component.(*schema.WorkflowSourceStep).Artifacts.Output {
 		req := schema.LogRunArtifactRequest{
 			RunID:        srt.runID,
-			FsID:         srt.fsID,
-			FsName:       srt.fsName,
+			FsID:         srt.GlobalFsID,
+			FsName:       srt.GloablFsName,
 			UserName:     srt.userName,
 			ArtifactPath: atfValue,
 			Step:         srt.getWorkFlowStep().Name,
@@ -408,7 +409,7 @@ func (srt *StepRuntime) checkCached() (cacheFound bool, err error) {
 		return false, err
 	}
 
-	runCacheList, err := srt.callbacks.ListCacheCb(srt.firstFingerprint, srt.fsID, srt.pplSource)
+	runCacheList, err := srt.callbacks.ListCacheCb(srt.firstFingerprint, srt.GlobalFsID, srt.pplSource)
 	if err != nil {
 		return false, err
 	}
@@ -469,7 +470,7 @@ func (srt *StepRuntime) checkCached() (cacheFound bool, err error) {
 		for name, _ := range srt.GetArtifacts().Output {
 			value, ok := jobView.Artifacts.Output[name]
 			if !ok {
-				err := fmt.Errorf("cannot get the output Artifact[%s] path for component[%s] from cache job[%s] of run[%s]",
+				err := fmt.Errorf("cannot get the output Artifact[%s] path for step[%s] from cache job[%s] of run[%s]",
 					name, srt.fullName, jobView.JobID, srt.CacheRunID)
 				return false, err
 			}
@@ -504,8 +505,8 @@ func (srt *StepRuntime) logCache() error {
 		RunID:       srt.runID,
 		Step:        srt.getComponent().GetName(),
 		JobID:       srt.job.Job().ID,
-		FsID:        srt.fsID,
-		FsName:      srt.fsName,
+		FsID:        srt.GlobalFsID,
+		FsName:      srt.GloablFsName,
 		UserName:    srt.userName,
 		ExpiredTime: srt.getWorkFlowStep().Cache.MaxExpiredTime,
 		Strategy:    CacheStrategyConservative,
@@ -526,7 +527,7 @@ func (srt *StepRuntime) logCache() error {
 }
 
 func (srt *StepRuntime) generateOutputArtifactPath() (err error) {
-	rh, err := NewResourceHandler(srt.runID, srt.fsID, srt.logger)
+	rh, err := NewResourceHandler(srt.runID, srt.GlobalFsID, srt.logger)
 	if err != nil {
 		err = fmt.Errorf("cannot generate output artifact's path for step[%s]: %s", srt.fullName, err.Error())
 		return err
@@ -545,6 +546,42 @@ func (srt *StepRuntime) generateOutputArtifactPath() (err error) {
 		srt.GetArtifacts().Output[artName] = artPath
 	}
 	return
+}
+
+func (srt *StepRuntime) GenerateFsMountForArtifact() (err error) {
+	if srt.GloablFsName == "" {
+		return nil
+	}
+
+	// 为输入aritfact 生成 FsMount
+	for _, paths := range srt.getWorkFlowStep().GetArtifacts().Input {
+		// 内存的for循环主要是考虑 输入artifact 来自于循环结构
+		for _, path := range strings.Split(paths, ",") {
+			path = strings.TrimSpace(path)
+
+			fsMount := schema.FsMount{
+				FsName:    srt.runConfig.GloablFsName,
+				MountPath: strings.Join([]string{ArtMountDir, path}, "/"),
+				SubPath:   path,
+				Readonly:  true,
+			}
+			srt.getWorkFlowStep().FsMount = append(srt.getWorkFlowStep().FsMount, fsMount)
+		}
+	}
+
+	// 为输出artifact 生成 FsMount
+	for _, path := range srt.getWorkFlowStep().GetArtifacts().Output {
+		fsMount := schema.FsMount{
+			FsName:    srt.runConfig.GloablFsName,
+			MountPath: strings.Join([]string{ArtMountDir, path}, "/"),
+			SubPath:   path,
+			Readonly:  false,
+		}
+		srt.getWorkFlowStep().FsMount = append(srt.getWorkFlowStep().FsMount, fsMount)
+	}
+
+	srt.logger.Debugf("after GenerateFsMountForArtifact, FsMount is %s", srt.getWorkFlowStep().FsMount)
+	return nil
 }
 
 func (srt *StepRuntime) startJob() (err error) {
@@ -636,6 +673,9 @@ func (srt *StepRuntime) Execute() {
 			return
 		}
 	}
+
+	// 3、根据 artifact 更新 FsMount 信息
+	srt.GenerateFsMountForArtifact()
 
 	// 节点运行前，先替换参数（参数替换逻辑与check Cache的参数替换逻辑不一样，多了一步替换output artifact，并利用output artifact参数替换command以及添加到env）
 	forCacheFingerprint := false

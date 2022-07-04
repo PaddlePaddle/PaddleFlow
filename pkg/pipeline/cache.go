@@ -50,6 +50,11 @@ type conservativeFirstCacheKey struct {
 	Parameters      map[string]string `json:",omitempty"`
 	InputArtifacts  map[string]string `json:",omitempty"`
 	OutputArtifacts map[string]string `json:",omitempty"`
+	FsMount         []schema.FsMount  `json:",omitempty"`
+}
+
+type PathToModTime struct {
+	ModTime map[string]string `json:"omitempty"`
 }
 
 // 用于计算保守策略的第二层 fingerprint 的结构
@@ -58,7 +63,7 @@ type conservativeSecondCacheKey struct {
 	InputArtifactsModTime map[string]string `json:",omitempty"`
 
 	// Fs 上的文件名与其 modTime 之间的映射关系
-	FsScopeModTime map[string]string `json:",omitempty"`
+	FsScopeModTime map[string]PathToModTime `json:",omitempty"`
 }
 
 func calculateFingerprint(cacheKey interface{}) (fingerprint string, err error) {
@@ -105,7 +110,6 @@ func NewAggressiveCacheCalculator(step StepRuntime, cacheConfig schema.Cache) (C
 }
 
 type conservativeCacheCalculator struct {
-	fsHandler      *handler.FsHandler
 	step           StepRuntime
 	cacheConfig    schema.Cache
 	firstCacheKey  *conservativeFirstCacheKey
@@ -114,18 +118,9 @@ type conservativeCacheCalculator struct {
 
 // 调用方应该保证在启用了 cache 功能的情况下才会调用NewConservativeCacheCalculator
 func NewConservativeCacheCalculator(step StepRuntime, cacheConfig schema.Cache) (CacheCalculator, error) {
-	fsHandler, err := handler.NewFsHandlerWithServer(step.fsID, step.runConfig.logger)
-
-	if err != nil {
-		errMsg := fmt.Errorf("init fsHandler failed: %s", err.Error())
-		step.logger.Errorln(errMsg)
-		return nil, err
-	}
-
 	calculator := conservativeCacheCalculator{
 		step:        step,
 		cacheConfig: cacheConfig,
-		fsHandler:   fsHandler,
 	}
 	return &calculator, nil
 }
@@ -142,9 +137,12 @@ func (cc *conservativeCacheCalculator) generateFirstCacheKey() error {
 		InputArtifacts:  job.Artifacts.Input,
 		OutputArtifacts: job.Artifacts.Output,
 		Env:             job.Env,
+		FsMount:         cc.step.getWorkFlowStep().FsMount,
 	}
 
-	logMsg := fmt.Sprintf("FirstCacheKey: \nDockerEnv: %s, Parameters: %s, Command: %s, InputArtifacts: %s, OutputArtifacts: %s, Env: %s", cc.step.job.(*PaddleFlowJob).Image, job.Parameters, job.Command, job.Artifacts.Input, job.Artifacts.Output, cacheKey.Env)
+	logMsg := fmt.Sprintf("FirstCacheKey: \nDockerEnv: %s, Parameters: %s, Command: %s, InputArtifacts: %s, "+
+		"OutputArtifacts: %s, Env: %s, FsMount: %s", cc.step.job.(*PaddleFlowJob).Image, job.Parameters,
+		job.Command, job.Artifacts.Input, job.Artifacts.Output, cacheKey.Env, cacheKey.FsMount)
 	cc.step.logger.Debugf(logMsg)
 
 	cc.firstCacheKey = &cacheKey
@@ -169,29 +167,57 @@ func (cc *conservativeCacheCalculator) CalculateFirstFingerprint() (fingerprint 
 	return firstFingerprint, err
 }
 
-func (cc *conservativeCacheCalculator) getFsScopeModTime() (map[string]string, error) {
-	fsScopeMtimeMap := map[string]string{}
-
-	FsScope := strings.TrimSpace(cc.cacheConfig.FsScope)
-	for _, path := range strings.Split(FsScope, ",") {
-		path = strings.TrimSpace(path)
-		if path == "" {
-			continue
-		}
-
-		mtime, err := cc.fsHandler.LastModTime(path)
+func (cc *conservativeCacheCalculator) getFsScopeModTime() (map[string]PathToModTime, error) {
+	// 注意， FsScope 的合法性需要由调用方保证
+	smt := map[string]PathToModTime{}
+	for _, scope := range cc.cacheConfig.FsScope {
+		fsHandler, err := handler.NewFsHandlerWithServer(scope.FsID, cc.step.runConfig.logger)
 		if err != nil {
-			err = fmt.Errorf("get the mtime of fsScope file[%s] failed: %s", path, err.Error())
-			cc.step.logger.Errorln(err.Error())
-			return map[string]string{}, err
+			errMsg := fmt.Errorf("init fsHandler failed: %s", err.Error())
+			cc.step.logger.Errorln(errMsg)
+			return nil, err
 		}
-		fsScopeMtimeMap[path] = fmt.Sprintf("%d", mtime.UnixNano())
-	}
 
-	return fsScopeMtimeMap, nil
+		pathToMT := PathToModTime{}
+
+		FsScope := strings.TrimSpace(scope.Path)
+		if FsScope == "" {
+			FsScope = "/"
+		}
+
+		for _, path := range strings.Split(FsScope, ",") {
+			path = strings.TrimSpace(path)
+			if path == "" {
+				continue
+			}
+
+			mtime, err := fsHandler.LastModTime(path)
+			if err != nil {
+				err = fmt.Errorf("get the mtime of fsScope file[%s] failed: %s", path, err.Error())
+				cc.step.logger.Errorln(err.Error())
+				return nil, err
+			}
+			pathToMT.ModTime[path] = fmt.Sprintf("%d", mtime.UnixNano())
+		}
+
+		smt[scope.FsID] = pathToMT
+	}
+	return smt, nil
 }
 
 func (cc *conservativeCacheCalculator) getInputArtifactModTime() (map[string]string, error) {
+	if cc.step.GlobalFsID == "" {
+		cc.step.logger.Info("there must be no input artifact because global fsId is empty")
+		return map[string]string{}, nil
+	}
+
+	fsHandler, err := handler.NewFsHandlerWithServer(cc.step.GlobalFsID, cc.step.runConfig.logger)
+	if err != nil {
+		errMsg := fmt.Errorf("init fsHandler failed: %s", err.Error())
+		cc.step.logger.Errorln(errMsg)
+		return nil, err
+	}
+
 	inArt := cc.step.job.Job().Artifacts.Input
 
 	inArtMtimeMap := map[string]string{}
@@ -206,7 +232,7 @@ func (cc *conservativeCacheCalculator) getInputArtifactModTime() (map[string]str
 			return map[string]string{}, err
 		}
 
-		mtime, err := cc.fsHandler.LastModTime(path)
+		mtime, err := fsHandler.LastModTime(path)
 		if err != nil {
 			err = fmt.Errorf("get the mtime of inputArtfact[%s] failed: %s", name, err.Error())
 			return map[string]string{}, err
