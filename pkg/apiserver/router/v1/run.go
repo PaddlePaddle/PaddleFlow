@@ -33,6 +33,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/pipeline"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/trace_logger"
 )
 
 type RunRouter struct{}
@@ -65,7 +66,9 @@ func (rr *RunRouter) AddRouter(r chi.Router) {
 // @Router /run [POST]
 func (rr *RunRouter) createRun(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
+	requestId := ctx.RequestID
 	var createRunInfo pipeline.CreateRunRequest
+
 	if err := common.BindJSON(r, &createRunInfo); err != nil {
 		logger.LoggerForRequest(&ctx).Errorf(
 			"create run failed parsing request body:%+v. error:%s", r.Body, err.Error())
@@ -73,14 +76,24 @@ func (rr *RunRouter) createRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// add trace logger
+	trace_logger.Key(requestId).Infof("creating run for request:%+v", createRunInfo)
 	// create run
-	response, err := pipeline.CreateRun(ctx.UserName, &createRunInfo)
+	response, err := pipeline.CreateRun(ctx, &createRunInfo)
 	if err != nil {
-		logger.LoggerForRequest(&ctx).Errorf(
+		errMsg := fmt.Sprintf(
 			"create run failed. createRunInfo:%v error:%s", createRunInfo, err.Error())
+
+		// if run id has generated, log err msg
+		if response.RunID != "" {
+			trace_logger.Key(response.RunID).Errorf(errMsg)
+		}
+		logger.LoggerForRequest(&ctx).Errorf(errMsg)
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
+
+	trace_logger.Key(response.RunID).Infof("create run complete")
 	common.Render(w, http.StatusCreated, response)
 }
 
@@ -119,6 +132,7 @@ func (rr *RunRouter) createRunByJson(w http.ResponseWriter, r *http.Request) {
 	r.Body = ioutil.NopCloser(bytes.NewBuffer(bodyBytes))
 
 	createRunByJsonInfo := pipeline.CreateRunByJsonRequest{}
+
 	if err := common.BindJSON(r, &createRunByJsonInfo); err != nil {
 		logger.LoggerForRequest(&ctx).Errorf(
 			"create run by json failed parsing request body:%+v. error:%s", r.Body, err.Error())
@@ -126,9 +140,13 @@ func (rr *RunRouter) createRunByJson(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	trace_logger.Key(ctx.RequestID).Infof("creating run by json for request:%+v", createRunByJsonInfo)
 	// create run
-	response, err := pipeline.CreateRunByJson(ctx.UserName, &createRunByJsonInfo, bodyMap)
+	response, err := pipeline.CreateRunByJson(ctx, &createRunByJsonInfo, bodyMap)
 	if err != nil {
+		if response.RunID != "" {
+			trace_logger.Key(response.RunID).Errorf("create run fail: %s", err)
+		}
 		logger.LoggerForRequest(&ctx).Errorf(
 			"create run by json failed. createRunByJsonInfo:%v error:%s", createRunByJsonInfo, err.Error())
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())

@@ -37,6 +37,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/pipeline"
 	pplcommon "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/trace_logger"
 )
 
 var wfMap = make(map[string]*pipeline.Workflow, 0)
@@ -153,8 +154,11 @@ func (b *RunBrief) modelToListResp(run models.Run) {
 	}
 }
 
-func buildWorkflowSource(userName string, req CreateRunRequest, fsID string) (schema.WorkflowSource, string, string, error) {
-	var source, runYaml string
+func buildWorkflowSource(ctx logger.RequestContext, req CreateRunRequest, fsID string) (schema.WorkflowSource, string, string, error) {
+	var source, runYaml, requestId, userName string
+	requestId, userName = ctx.RequestID, ctx.UserName
+
+	trace_logger.Key(requestId).Infof("retrieve source and runYaml")
 	// retrieve source and runYaml
 	if req.RunYamlRaw != "" { // high priority: wfs delivered by request
 		// base64 decode
@@ -221,6 +225,7 @@ func buildWorkflowSource(userName string, req CreateRunRequest, fsID string) (sc
 		runYaml = string(runYamlByte)
 	}
 	// to wfs
+	trace_logger.Key(requestId).Infof("run yaml and req to wfs")
 	wfs, err := runYamlAndReqToWfs(runYaml, req)
 	if err != nil {
 		logger.Logger().Errorf("runYamlAndReqToWfs failed. err:%v", err)
@@ -236,6 +241,7 @@ func getWorkFlowSourceByReq(request *CreateRunByJsonRequest, bodyMap map[string]
 		logger.Logger().Errorf(err.Error())
 		return schema.WorkflowSource{}, err
 	}
+
 	if request.Env == nil {
 		request.Env = map[string]string{}
 	}
@@ -418,9 +424,11 @@ func runYamlAndReqToWfs(runYaml string, req interface{}) (schema.WorkflowSource,
 
 }
 
-func CreateRun(userName string, request *CreateRunRequest) (CreateRunResponse, error) {
+func CreateRun(ctx logger.RequestContext, request *CreateRunRequest) (CreateRunResponse, error) {
 	// concatenate fsID
-	var fsID string
+	var fsID, userName, requestId string
+	userName, requestId = ctx.UserName, ctx.RequestID
+
 	if request.FsName != "" {
 		if common.IsRootUser(userName) && request.UserName != "" {
 			// root user can select fs under other users
@@ -433,12 +441,14 @@ func CreateRun(userName string, request *CreateRunRequest) (CreateRunResponse, e
 	// TODO:// validate flavour
 	// TODO:// validate queue
 
-	wfs, source, runYaml, err := buildWorkflowSource(userName, *request, fsID)
+	trace_logger.Key(requestId).Infof("build workflow source for run: %+v", request)
+	wfs, source, runYaml, err := buildWorkflowSource(ctx, *request, fsID)
 	if err != nil {
 		logger.Logger().Errorf("buildWorkflowSource failed. error:%v", err)
 		return CreateRunResponse{}, err
 	}
 
+	trace_logger.Key(requestId).Infof("check name reg pattern: %s", wfs.Name)
 	// check name pattern
 	if wfs.Name != "" && !schema.CheckReg(wfs.Name, common.RegPatternRunName) {
 		err := common.InvalidNamePatternError(wfs.Name, common.ResourceTypeRun, common.RegPatternRunName)
@@ -476,12 +486,16 @@ func CreateRun(userName string, request *CreateRunRequest) (CreateRunResponse, e
 		ScheduledAt:    scheduledAt,
 		Status:         common.StatusRunInitiating,
 	}
-	response, err := ValidateAndStartRun(run, *request)
+
+	trace_logger.Key(requestId).Infof("validate and start run: %+v", run)
+	response, err := ValidateAndStartRun(ctx, run, *request)
 	return response, err
 }
 
-func CreateRunByJson(userName string, request *CreateRunByJsonRequest, bodyMap map[string]interface{}) (CreateRunResponse, error) {
-	var fsID string
+func CreateRunByJson(ctx logger.RequestContext, request *CreateRunByJsonRequest, bodyMap map[string]interface{}) (CreateRunResponse, error) {
+	var fsID, userName, requestId string
+	userName, requestId = ctx.UserName, ctx.RequestID
+
 	if request.FsName != "" {
 		if common.IsRootUser(userName) && request.UserName != "" {
 			// root user can select fs under other users
@@ -491,18 +505,21 @@ func CreateRunByJson(userName string, request *CreateRunByJsonRequest, bodyMap m
 		}
 	}
 
+	trace_logger.Key(requestId).Infof("get workflow source for run: %+v", request)
 	wfs, err := getWorkFlowSourceByReq(request, bodyMap)
 	if err != nil {
 		logger.Logger().Errorf("get WorkFlowSource by request failed. error:%v", err)
 		return CreateRunResponse{}, err
 	}
 
+	trace_logger.Key(requestId).Infof("get source and yaml for run: %+v", request)
 	source, runYaml, err := getSourceAndYaml(wfs)
 	if err != nil {
 		logger.Logger().Errorf("get source and yaml by workflowsource failed. error:%v", err)
 		return CreateRunResponse{}, err
 	}
 
+	trace_logger.Key(requestId).Infof("check name reg pattern: %s", wfs.Name)
 	// check name pattern
 	if wfs.Name != "" && !schema.CheckReg(wfs.Name, common.RegPatternRunName) {
 		err := common.InvalidNamePatternError(wfs.Name, common.ResourceTypeRun, common.RegPatternRunName)
@@ -523,26 +540,47 @@ func CreateRunByJson(userName string, request *CreateRunByJsonRequest, bodyMap m
 		Disabled:       request.Disabled,
 		Status:         common.StatusRunInitiating,
 	}
-	response, err := ValidateAndStartRun(run, *request)
+	trace_logger.Key(requestId).Infof("validate and start run: %+v", run)
+	response, err := ValidateAndStartRun(ctx, run, *request)
 	return response, err
 }
 
-func ValidateAndStartRun(run models.Run, req interface{}) (CreateRunResponse, error) {
+func ValidateAndStartRun(ctx logger.RequestContext, run models.Run, req interface{}) (CreateRunResponse, error) {
+	// get request id from req interface
+	requestId := ctx.RequestID
+	if requestId == "" {
+		errMsg := "get requestID failed"
+		logger.Logger().Errorf("encode run failed. error:%s", errMsg)
+		return CreateRunResponse{}, errors.New(errMsg)
+	}
+
+	trace_logger.Key(requestId).Infof("encode run")
 	if err := run.Encode(); err != nil {
 		logger.Logger().Errorf("encode run failed. error:%s", err.Error())
 		return CreateRunResponse{}, err
 	}
+
+	trace_logger.Key(requestId).Infof("validate and init workflow")
 	// validate workflow in func NewWorkflow
 	if _, err := newWorkflowByRun(run); err != nil {
 		logger.Logger().Errorf("validateAndInitWorkflow. err:%v", err)
 		return CreateRunResponse{}, err
 	}
+
+	// generate run id here
+	trace_logger.Key(requestId).Infof("create run in db")
 	// create run in db and update run's ID by pk
 	runID, err := models.CreateRun(logger.Logger(), &run)
 	if err != nil {
 		logger.Logger().Errorf("create run failed inserting db. error:%s", err.Error())
 		return CreateRunResponse{}, err
 	}
+
+	// update trace logger key
+	_ = trace_logger.UpdateKey(requestId, runID)
+	trace_logger.Key(runID).Infof("create run in db success")
+
+	trace_logger.Key(runID).Infof("run yaml and req to wfs")
 	// to wfs again to revise previous wf replacement
 	wfs, err := runYamlAndReqToWfs(run.RunYaml, req)
 	if err != nil {
@@ -560,6 +598,8 @@ func ValidateAndStartRun(run models.Run, req interface{}) (CreateRunResponse, er
 			}
 		}
 	}()
+
+	trace_logger.Key(runID).Infof("handle image and start wf: %+v", run)
 	// handler image
 	if err := handleImageAndStartWf(run, false); err != nil {
 		logger.Logger().Errorf("create run[%s] failed handleImageAndStartWf[%s-%s]. error:%s\n", runID, wfs.DockerEnv, run.FsID, err.Error())
@@ -756,7 +796,7 @@ func DeleteRun(ctx *logger.RequestContext, id string, request *DeleteRunRequest)
 	if run.FsID != "" {
 		resourceHandler, err := pipeline.NewResourceHandler(id, run.FsID, ctx.Logging())
 		if err != nil {
-			ctx.Logging().Errorf("delete run[%s] failed. Init handler failed. err: %v", id, err.Error())
+			ctx.Logging().Errorf("delete run[%s] failed. InitTraceLoggerManager handler failed. err: %v", id, err.Error())
 			ctx.ErrorCode = common.InternalError
 			return err
 		}
@@ -845,14 +885,17 @@ func resumeRun(run models.Run) error {
 func handleImageAndStartWf(run models.Run, isResume bool) error {
 	logEntry := logger.LoggerForRun(run.ID)
 	logEntry.Debugf("start handleImageAndStartWf isResume:%t, run:%+v", isResume, run)
+	trace_logger.Key(run.ID).Debugf("start handleImageAndStartWf isResume:%t, run:%+v", isResume, run)
 	if !handler.NeedHandleImage(run.WorkflowSource.DockerEnv) {
 		// init workflow and start
+		trace_logger.Key(run.ID).Infof("init workflow and start")
 		wfPtr, err := newWorkflowByRun(run)
 		if err != nil {
 			logEntry.Errorf("newWorkflowByRun failed. err:%v\n", err)
 			return updateRunStatusAndMsg(run.ID, common.StatusRunFailed, err.Error())
 		}
 		if !isResume {
+			trace_logger.Key(run.ID).Infof("start workflow with image url")
 			err := models.UpdateRun(logEntry, run.ID,
 				models.Run{DockerEnv: run.WorkflowSource.DockerEnv, Status: common.StatusRunPending})
 			if err != nil {
@@ -863,6 +906,7 @@ func handleImageAndStartWf(run models.Run, isResume bool) error {
 			logEntry.Debugf("workflow started, run:%+v", run)
 		} else {
 			// set runtime and restart
+			trace_logger.Key(run.ID).Infof("resume workflow, set runtime and restart")
 			if err := wfPtr.SetWorkflowRuntime(run.Runtime, run.PostProcess); err != nil {
 				logEntry.Errorf("SetWorkflowRuntime for run[%s] failed. error:%v\n", run.ID, err)
 				return err
@@ -887,11 +931,14 @@ func handleImageAndStartWf(run models.Run, isResume bool) error {
 		}
 		return nil
 	} else {
+		trace_logger.Key(run.ID).Infof("start workflow with tar file")
+		trace_logger.Key(run.ID).Infof("list image ids by fs id %s", run.FsID)
 		imageIDs, err := models.ListImageIDsByFsID(logEntry, run.FsID)
 		if err != nil {
 			logEntry.Errorf("create run failed ListImageIDsByFsID[%s]. error:%s\n", run.FsID, err.Error())
 			return updateRunStatusAndMsg(run.ID, common.StatusRunFailed, err.Error())
 		}
+		trace_logger.Key(run.ID).Infof("handle images: %v", imageIDs)
 		if err := handler.PFImageHandler.HandleImage(run.WorkflowSource.DockerEnv, run.ID, run.FsID,
 			imageIDs, logEntry, handleImageCallbackFunc); err != nil {
 			logEntry.Errorf("handle image failed. error:%s\n", err.Error())
