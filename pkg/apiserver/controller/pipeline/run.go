@@ -156,7 +156,7 @@ func (b *RunBrief) modelToListResp(run models.Run) {
 
 func buildWorkflowSource(ctx logger.RequestContext, req CreateRunRequest, fsID string) (schema.WorkflowSource, string, string, error) {
 	var source, runYaml, requestId, userName string
-	requestId, runYaml = ctx.RequestID, req.RunYamlRaw
+	requestId, runYaml, userName = ctx.RequestID, req.RunYamlRaw, ctx.UserName
 
 	trace_logger.Key(requestId).Infof("retrieve source and runYaml")
 	// retrieve source and runYaml
@@ -493,8 +493,8 @@ func CreateRun(ctx logger.RequestContext, request *CreateRunRequest) (CreateRunR
 }
 
 func CreateRunByJson(ctx logger.RequestContext, request *CreateRunByJsonRequest, bodyMap map[string]interface{}) (CreateRunResponse, error) {
-	var fsID, userName string
-	userName, requestId := ctx.UserName, ctx.RequestID
+	var fsID, userName, requestId string
+	userName, requestId = ctx.UserName, ctx.RequestID
 
 	if request.FsName != "" {
 		if common.IsRootUser(userName) && request.UserName != "" {
