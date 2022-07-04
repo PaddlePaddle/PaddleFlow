@@ -134,7 +134,7 @@ func (srt *StepRuntime) Start() {
 	// 1、计算 condition
 	conditon, err := srt.CalculateCondition()
 	if err != nil {
-		errMsg := fmt.Sprintf("caculate the condition field for component[%s] faild:\n%s",
+		errMsg := fmt.Sprintf("caculate the condition field for step[%s] faild:\n%s",
 			srt.getFullName(), err.Error())
 
 		srt.logger.Errorf(errMsg)
@@ -143,7 +143,7 @@ func (srt *StepRuntime) Start() {
 	}
 
 	if conditon {
-		skipMsg := fmt.Sprintf("the result of condition for Component [%s] is true, skip running", srt.getFullName())
+		skipMsg := fmt.Sprintf("the result of condition for step[%s] is true, skip running", srt.getFullName())
 		srt.logger.Infoln(skipMsg)
 		srt.processStartAbnormalStatus(skipMsg, StatusRuntimeSkipped)
 		return
@@ -151,7 +151,7 @@ func (srt *StepRuntime) Start() {
 
 	// 判断节点是否被 disabled
 	if srt.isDisabled() {
-		skipMsg := fmt.Sprintf("Component [%s] is disabled, skip running", srt.getFullName())
+		skipMsg := fmt.Sprintf("step[%s] is disabled, skip running", srt.getFullName())
 		srt.logger.Infoln(skipMsg)
 		srt.processStartAbnormalStatus(skipMsg, StatusRuntimeSkipped)
 		return
@@ -272,7 +272,7 @@ func (srt *StepRuntime) Stop() {
 		if srt.done {
 			return
 		}
-		srt.stopWithMsg("stop by failureOptions, some component has been failed")
+		srt.stopWithMsg("stop by failureOptions, some other component has been failed")
 	}
 }
 
@@ -470,7 +470,7 @@ func (srt *StepRuntime) checkCached() (cacheFound bool, err error) {
 		for name, _ := range srt.GetArtifacts().Output {
 			value, ok := jobView.Artifacts.Output[name]
 			if !ok {
-				err := fmt.Errorf("cannot get the output Artifact[%s] path for component[%s] from cache job[%s] of run[%s]",
+				err := fmt.Errorf("cannot get the output Artifact[%s] path for step[%s] from cache job[%s] of run[%s]",
 					name, srt.fullName, jobView.JobID, srt.CacheRunID)
 				return false, err
 			}
@@ -554,14 +554,19 @@ func (srt *StepRuntime) GenerateFsMountForArtifact() (err error) {
 	}
 
 	// 为输入aritfact 生成 FsMount
-	for _, path := range srt.getWorkFlowStep().GetArtifacts().Input {
-		fsMount := schema.FsMount{
-			FsName:    srt.runConfig.GloablFsName,
-			MountPath: strings.Join([]string{ArtMountDir, path}, "/"),
-			SubPath:   path,
-			Readonly:  true,
+	for _, paths := range srt.getWorkFlowStep().GetArtifacts().Input {
+		// 内存的for循环主要是考虑 输入artifact 来自于循环结构
+		for _, path := range strings.Split(paths, ",") {
+			path = strings.TrimSpace(path)
+
+			fsMount := schema.FsMount{
+				FsName:    srt.runConfig.GloablFsName,
+				MountPath: strings.Join([]string{ArtMountDir, path}, "/"),
+				SubPath:   path,
+				Readonly:  true,
+			}
+			srt.getWorkFlowStep().FsMount = append(srt.getWorkFlowStep().FsMount, fsMount)
 		}
-		srt.getWorkFlowStep().FsMount = append(srt.getWorkFlowStep().FsMount, fsMount)
 	}
 
 	// 为输出artifact 生成 FsMount
