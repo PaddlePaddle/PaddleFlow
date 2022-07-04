@@ -73,9 +73,7 @@ class LogServiceApi(object):
                                   has_next_page=task['logInfo']['hasNextPage'], truncated=task['logInfo']['truncated'],
                                   pagesize=pagesize, pageno=pageno, log_content=task['logInfo']['logContent'])
                 loginfo_list.append(loginfo)
-        log_info_dict = {}
-        log_info_dict['submitLog'] = data['submitLog']
-        log_info_dict['runLog'] = loginfo_list
+        log_info_dict = {'submitLog': data['submitLog'], 'runLog': loginfo_list}
         return True, log_info_dict
 
 

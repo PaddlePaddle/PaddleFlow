@@ -66,22 +66,12 @@ def show(ctx, runid, jobid=None, pagesize=None, pageno=None, logfileposition=Non
 
 def _print_run_log(loginfo, out_format):
     """print run log """
-    data = []
-    run_loginfo = loginfo['runLog']
     submit_loginfo = loginfo['submitLog']
-    data.append(["submit log:"])
-    data.append([submit_loginfo])
-    data.append([""])
-    data.append(["run log:"])
+    data = [["submit log:"], [submit_loginfo], [""], ["run log:"]]
+    run_loginfo = loginfo['runLog']
     for index, item in enumerate(run_loginfo):
-        line = []
-        line.append("runid:" + item.runid)
-        line.append("jobid:" + item.jobid)
-        line.append("taskid:" + item.taskid)
-        line.append("has_next_page:" + str(item.has_next_page))
-        line.append("truncated:" + str(item.truncated))
-        line.append("page_no:" + str(item.pageno))
-        line.append("page_size:" + str(item.pagesize))
+        line = ["runid:" + item.runid, "jobid:" + item.jobid, "taskid:" + item.taskid, "has_next_page:" + str(item.has_next_page),
+                "truncated:" + str(item.truncated), "page_no:" + str(item.pageno), "page_size:" + str(item.pagesize)]
         line_log = []
         line_log.append(item.log_content)
         data.append(line)
