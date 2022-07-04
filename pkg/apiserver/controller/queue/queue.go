@@ -30,6 +30,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	gormErrors "github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
@@ -227,20 +228,34 @@ func CreateQueue(ctx *logger.RequestContext, request *CreateQueueRequest) (Creat
 	}
 
 	// check request max resources and min resources
-	if err = schema.ValidateResourceNonNegative(request.MaxResources, []string{}); err != nil {
+	maxResources, err := resources.NewResourceFromMap(request.MaxResources.ToMap())
+	if err != nil {
 		ctx.Logging().Errorf("create queue failed. error: %s", err.Error())
 		ctx.ErrorCode = common.InvalidComputeResource
 		return CreateQueueResponse{}, err
 	}
+	if maxResources.IsNegative() {
+		err = fmt.Errorf("queue maxResources[%v] has negative value", request.MaxResources)
+		ctx.Logging().Errorf("create queue failed. error: %s", err.Error())
+		ctx.ErrorCode = common.InvalidComputeResource
+		return CreateQueueResponse{}, err
+	}
+	minResources := resources.EmptyResource()
 	if request.QuotaType == schema.TypeElasticQuota {
 		// check min resources for elastic queue
-		if err = schema.ValidateResourceNonNegative(request.MinResources, []string{}); err != nil {
+		minResources, err = resources.NewResourceFromMap(request.MinResources.ToMap())
+		if err != nil {
 			ctx.Logging().Errorf("create queue failed. error: %s", err.Error())
 			ctx.ErrorCode = common.InvalidComputeResource
 			return CreateQueueResponse{}, err
 		}
-
-		if !request.MinResources.LessEqual(request.MaxResources) {
+		if minResources.IsNegative() {
+			err = fmt.Errorf("queue minResources[%v] has negative value", request.MinResources)
+			ctx.Logging().Errorf("create queue failed. error: %s", err.Error())
+			ctx.ErrorCode = common.InvalidComputeResource
+			return CreateQueueResponse{}, err
+		}
+		if !minResources.LessEqual(maxResources) {
 			ctx.Logging().Errorf("create queue failed. error: maxResources less than minResources")
 			ctx.ErrorCode = common.InvalidComputeResource
 			return CreateQueueResponse{}, fmt.Errorf("maxResources less than minResources")
@@ -277,8 +292,8 @@ func CreateQueue(ctx *logger.RequestContext, request *CreateQueueRequest) (Creat
 		Namespace:        request.Namespace,
 		QuotaType:        request.QuotaType,
 		ClusterId:        clusterInfo.ID,
-		MaxResources:     request.MaxResources,
-		MinResources:     request.MinResources,
+		MaxResources:     maxResources,
+		MinResources:     minResources,
 		Location:         request.Location,
 		SchedulingPolicy: request.SchedulingPolicy,
 		Status:           schema.StatusQueueCreating,
@@ -370,13 +385,13 @@ func UpdateQueue(ctx *logger.RequestContext, request *UpdateQueueRequest) (Updat
 	var updateClusterRequired, resourceUpdated bool
 
 	// validate MaxResource or MinResource
-	if resourceUpdated, err = validateQueueResource(request.MaxResources, &queueInfo.MaxResources); err != nil {
+	if resourceUpdated, err = validateQueueResource(request.MaxResources, queueInfo.MaxResources); err != nil {
 		ctx.Logging().Errorf("update queue maxResources failed. error: %s", err.Error())
 		ctx.ErrorCode = common.InvalidComputeResource
 		return UpdateQueueResponse{}, err
 	}
 	if queueInfo.QuotaType == schema.TypeElasticQuota {
-		minResUpdated, err := validateQueueResource(request.MinResources, &queueInfo.MinResources)
+		minResUpdated, err := validateQueueResource(request.MinResources, queueInfo.MinResources)
 		if err != nil {
 			ctx.Logging().Errorf("update queue minResources failed. error: %s", err.Error())
 			ctx.ErrorCode = common.InvalidComputeResource
@@ -488,31 +503,49 @@ func UpdateQueue(ctx *logger.RequestContext, request *UpdateQueueRequest) (Updat
 	return response, nil
 }
 
-func validateQueueResource(rResource schema.ResourceInfo, qResource *schema.ResourceInfo) (bool, error) {
+func validateQueueResource(rResource schema.ResourceInfo, qResource *resources.Resource) (bool, error) {
 	needUpdate := false
+	if qResource == nil {
+		return needUpdate, fmt.Errorf("queue resource is null")
+	}
 	if rResource.CPU != "" {
 		needUpdate = true
-		qResource.CPU = rResource.CPU
+		cpu, err := resources.ParseMilliQuantity(rResource.CPU)
+		if err != nil {
+			log.Errorf("parse cpu resource failed, err=%v", err)
+			return needUpdate, err
+		}
+		qResource.SetResources(resources.ResCPU, int64(cpu))
+
 	}
 	if rResource.Mem != "" {
 		needUpdate = true
-		qResource.Mem = rResource.Mem
-	}
-	if qResource.ScalarResources == nil {
-		qResource.ScalarResources = make(schema.ScalarResourcesType)
+		mem, err := resources.ParseQuantity(rResource.Mem)
+		if err != nil {
+			log.Errorf("parse memory resource failed, err=%v", err)
+			return needUpdate, err
+		}
+		qResource.SetResources(resources.ResMemory, int64(mem))
 	}
 	if len(rResource.ScalarResources) != 0 {
 		needUpdate = true
-		for resourceName, res := range rResource.ScalarResources {
-			qResource.ScalarResources[resourceName] = res
-		}
-	} else if rResource.ScalarResources != nil {
-		needUpdate = true
-		qResource.ScalarResources = make(schema.ScalarResourcesType)
-		log.Debugf("scalarResources %v is set nil", rResource)
-	}
+		for rName, rValue := range rResource.ScalarResources {
+			if rValue == "" {
+				// remove empty resource
+				qResource.DelResources(string(rName))
+			} else {
+				rQuantity, err := resources.ParseQuantity(rValue)
+				if err != nil {
+					log.Errorf("parse resource failed, err=%v", err)
+					return needUpdate, err
+				}
+				qResource.SetResources(string(rName), int64(rQuantity))
 
-	if err := schema.ValidateResourceNonNegative(*qResource, []string{}); err != nil {
+			}
+		}
+	}
+	if qResource.IsNegative() {
+		err := fmt.Errorf("queue resource[%v] has negative value", qResource)
 		log.Errorf("validate resourceInfo failed, err=%v", err)
 		return needUpdate, err
 	}
@@ -540,7 +573,9 @@ func GetQueueByName(ctx *logger.RequestContext, queueName string) (GetQueueRespo
 			queue.ClusterId, err.Error())
 		return GetQueueResponse{}, err
 	}
-	usedResource := schema.EmptyResourceInfo()
+
+	// calculate the idle resource of queue
+	usedResource := resources.EmptyResource()
 	if clusterInfo.Status == models.ClusterStatusOnLine {
 		runtimeSvc, err := runtime.GetOrCreateRuntime(clusterInfo)
 		if err != nil {
@@ -561,16 +596,9 @@ func GetQueueByName(ctx *logger.RequestContext, queueName string) (GetQueueRespo
 			ctx.Logging().Warnf("cannot get queue used quota for cluster type %s", clusterInfo.ClusterType)
 		}
 	}
-
-	if usedResource == nil {
-		usedResource = schema.EmptyResourceInfo()
-	}
-	maxResource := queue.MaxResources
-	idleResource, err := maxResource.Sub(*usedResource)
-	if err != nil {
-		return GetQueueResponse{}, fmt.Errorf("get queue idle quota failed, error: %v", err)
-	}
-	queue.IdleResources = &idleResource
+	idleResource := queue.MaxResources.Clone()
+	idleResource.Sub(usedResource)
+	queue.IdleResources = idleResource
 	queue.UsedResources = usedResource
 
 	getQueueResponse := GetQueueResponse{

@@ -32,13 +32,11 @@ var (
 )
 
 const (
-	PodTypeKey     = "app.kubernetes.io/name"
-	PodMount       = "pfs-mount"
-	PodCacheWorker = "cache-worker"
+	PodTypeKey = "app.kubernetes.io/name"
+	PodMount   = "pfs-mount"
 )
 
 func GeneratePodTemplate() *corev1.Pod {
-	isPrivileged := true
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: Namespace,
@@ -48,24 +46,7 @@ func GeneratePodTemplate() *corev1.Pod {
 			Annotations: make(map[string]string),
 		},
 		Spec: corev1.PodSpec{
-			Containers: []corev1.Container{
-				{
-					Name:  PodMount,
-					Image: MountImage,
-					SecurityContext: &corev1.SecurityContext{
-						Privileged: &isPrivileged,
-					},
-					Env: []corev1.EnvVar{},
-				},
-				{
-					Name:  PodCacheWorker,
-					Image: MountImage,
-					SecurityContext: &corev1.SecurityContext{
-						Privileged: &isPrivileged,
-					},
-					Env: []corev1.EnvVar{},
-				},
-			},
+			Containers:         []corev1.Container{},
 			NodeName:           NodeName,
 			HostNetwork:        CSIPod.Spec.HostNetwork,
 			HostAliases:        CSIPod.Spec.HostAliases,

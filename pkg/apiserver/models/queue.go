@@ -26,6 +26,7 @@ import (
 	"gorm.io/gorm/clause"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
@@ -48,9 +49,9 @@ type Queue struct {
 	ClusterName     string              `json:"clusterName" gorm:"column:cluster_name;->"`
 	QuotaType       string              `json:"quotaType"`
 	RawMinResources string              `json:"-" gorm:"column:min_resources;default:'{}'"`
-	MinResources    schema.ResourceInfo `json:"minResources" gorm:"-"`
+	MinResources    *resources.Resource `json:"minResources" gorm:"-"`
 	RawMaxResources string              `json:"-" gorm:"column:max_resources;default:'{}'"`
-	MaxResources    schema.ResourceInfo `json:"maxResources" gorm:"-"`
+	MaxResources    *resources.Resource `json:"maxResources" gorm:"-"`
 	RawLocation     string              `json:"-" gorm:"column:location;type:text;default:'{}'"`
 	Location        map[string]string   `json:"location" gorm:"-"`
 	// 任务调度策略
@@ -59,8 +60,8 @@ type Queue struct {
 	Status              string         `json:"status"`
 	DeletedAt           gorm.DeletedAt `json:"-" gorm:"index"`
 
-	UsedResources *schema.ResourceInfo `json:"usedResources,omitempty" gorm:"-"`
-	IdleResources *schema.ResourceInfo `json:"idleResources,omitempty" gorm:"-"`
+	UsedResources *resources.Resource `json:"usedResources,omitempty" gorm:"-"`
+	IdleResources *resources.Resource `json:"idleResources,omitempty" gorm:"-"`
 }
 
 func (Queue) TableName() string {
@@ -82,20 +83,16 @@ func (queue Queue) MarshalJSON() ([]byte, error) {
 
 func (queue *Queue) AfterFind(*gorm.DB) error {
 	if queue.RawMinResources != "" {
-		queue.MinResources = schema.ResourceInfo{
-			ScalarResources: make(schema.ScalarResourcesType),
-		}
-		if err := json.Unmarshal([]byte(queue.RawMinResources), &queue.MinResources); err != nil {
+		queue.MinResources = resources.EmptyResource()
+		if err := json.Unmarshal([]byte(queue.RawMinResources), queue.MinResources); err != nil {
 			log.Errorf("json Unmarshal MinResources[%s] failed: %v", queue.RawMinResources, err)
 			return err
 		}
 	}
 
 	if queue.RawMaxResources != "" {
-		queue.MaxResources = schema.ResourceInfo{
-			ScalarResources: make(schema.ScalarResourcesType),
-		}
-		if err := json.Unmarshal([]byte(queue.RawMaxResources), &queue.MaxResources); err != nil {
+		queue.MaxResources = resources.EmptyResource()
+		if err := json.Unmarshal([]byte(queue.RawMaxResources), queue.MaxResources); err != nil {
 			log.Errorf("json Unmarshal MinResources[%s] failed: %v", queue.RawMaxResources, err)
 			return err
 		}
@@ -133,19 +130,23 @@ func (queue *Queue) AfterFind(*gorm.DB) error {
 // BeforeSave is the callback methods for saving file system
 func (queue *Queue) BeforeSave(*gorm.DB) error {
 	log.Debugf("queue[%s] BeforeSave, queue:%#v", queue.Name, queue)
-	minResourcesJson, err := json.Marshal(queue.MinResources)
-	if err != nil {
-		log.Errorf("json Marshal MinResources[%v] failed: %v", queue.MinResources, err)
-		return err
+	if queue.MinResources != nil {
+		minResourcesJson, err := json.Marshal(queue.MinResources)
+		if err != nil {
+			log.Errorf("json Marshal MinResources[%v] failed: %v", queue.MinResources, err)
+			return err
+		}
+		queue.RawMinResources = string(minResourcesJson)
 	}
-	queue.RawMinResources = string(minResourcesJson)
 
-	maxResourcesJson, err := json.Marshal(queue.MaxResources)
-	if err != nil {
-		log.Errorf("json Marshal MaxResources[%v] failed: %v", queue.MaxResources, err)
-		return err
+	if queue.MaxResources != nil {
+		maxResourcesJson, err := json.Marshal(queue.MaxResources)
+		if err != nil {
+			log.Errorf("json Marshal MaxResources[%v] failed: %v", queue.MaxResources, err)
+			return err
+		}
+		queue.RawMaxResources = string(maxResourcesJson)
 	}
-	queue.RawMaxResources = string(maxResourcesJson)
 
 	if len(queue.Location) != 0 {
 		locationJson, err := json.Marshal(queue.Location)
@@ -225,7 +226,7 @@ func UpdateQueueStatus(queueName string, queueStatus string) error {
 	return nil
 }
 
-func UpdateQueueInfo(name, status string, max, min *schema.ResourceInfo) error {
+func UpdateQueueInfo(name, status string, max, min *resources.Resource) error {
 	queue, err := GetQueueByName(name)
 	if err != nil {
 		return err
@@ -234,10 +235,10 @@ func UpdateQueueInfo(name, status string, max, min *schema.ResourceInfo) error {
 		queue.Status = status
 	}
 	if max != nil {
-		queue.MaxResources = *max
+		queue.MaxResources = max
 	}
 	if min != nil {
-		queue.MinResources = *min
+		queue.MinResources = min
 	}
 	tx := storage.DB.Table("queue").Where("name = ?", name).Updates(&queue)
 	if tx.Error != nil {

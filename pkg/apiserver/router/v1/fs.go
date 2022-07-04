@@ -478,13 +478,14 @@ func (pr *PFSRouter) getFileSystem(w http.ResponseWriter, r *http.Request) {
 
 func fsResponseFromModel(fsModel model.FileSystem) *api.FileSystemResponse {
 	return &api.FileSystemResponse{
-		Id:            fsModel.ID,
-		Name:          fsModel.Name,
-		ServerAddress: fsModel.ServerAddress,
-		Type:          fsModel.Type,
-		SubPath:       fsModel.SubPath,
-		Username:      fsModel.UserName,
-		Properties:    fsModel.PropertiesMap,
+		Id:                      fsModel.ID,
+		Name:                    fsModel.Name,
+		ServerAddress:           fsModel.ServerAddress,
+		Type:                    fsModel.Type,
+		SubPath:                 fsModel.SubPath,
+		Username:                fsModel.UserName,
+		Properties:              fsModel.PropertiesMap,
+		IndependentMountProcess: fsModel.IndependentMountProcess,
 	}
 }
 

@@ -104,7 +104,7 @@ func CreateFileSystemCacheConfig(ctx *logger.RequestContext, req CreateFileSyste
 
 func UpdateFileSystemCacheConfig(ctx *logger.RequestContext, req UpdateFileSystemCacheRequest) error {
 	cacheConfig := req.toModel()
-	err := storage.Filesystem.UpdateFSCacheConfig(cacheConfig)
+	err := storage.Filesystem.UpdateFSCacheConfig(&cacheConfig)
 	if err != nil {
 		ctx.Logging().Errorf("UpdateFSCacheConfig fs[%s] err:%v", cacheConfig.FsID, err)
 		return err

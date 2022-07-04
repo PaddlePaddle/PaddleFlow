@@ -16,6 +16,8 @@ limitations under the License.
 
 package schema
 
+import "github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
+
 const (
 	LocalType      = "Local"
 	KubernetesType = "Kubernetes"
@@ -36,4 +38,16 @@ type Cluster struct {
 
 	// ClientOpt defines client config for cluster
 	ClientOpt ClientOptions
+}
+
+type NodeQuotaInfo struct {
+	NodeName    string             `json:"nodeName"`
+	Schedulable bool               `json:"schedulable"`
+	Total       resources.Resource `json:"total"`
+	Idle        resources.Resource `json:"idle"`
+}
+
+type QuotaSummary struct {
+	TotalQuota resources.Resource `json:"total"`
+	IdleQuota  resources.Resource `json:"idle"`
 }

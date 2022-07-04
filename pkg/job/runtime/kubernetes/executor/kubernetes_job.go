@@ -366,7 +366,7 @@ func (j *KubeJob) fillPodSpec(podSpec *corev1.PodSpec, task *models.Member) {
 // fillContainerInVcJob fill container in job task, only called by vcjob
 func (j *KubeJob) fillContainerInVcJob(container *corev1.Container, flavour schema.Flavour, command string) {
 	container.Image = j.Image
-	container.Command = []string{"sh", "-c", j.fixContainerCommand(command)}
+	container.Command = []string{"sh", "-c", j.fixContainerCommand(command, j.FileSystems)}
 	container.Resources = j.generateResourceRequirements(flavour)
 	container.VolumeMounts = j.appendMountIfAbsent(container.VolumeMounts, j.generateVolumeMount())
 	container.Env = j.generateEnvVars()
@@ -378,7 +378,7 @@ func (j *KubeJob) fillContainerInTasks(container *corev1.Container, task models.
 		container.Image = task.Image
 	}
 	if j.isNeedPatch(task.Command) {
-		container.Command = []string{"sh", "-c", j.fixContainerCommand(task.Command)}
+		container.Command = []string{"sh", "-c", j.fixContainerCommand(task.Command, task.GetAllFileSystem())}
 	}
 	if !j.IsCustomYaml && len(task.Args) > 0 {
 		container.Args = task.Args
@@ -469,9 +469,13 @@ func (j *KubeJob) appendVolumeIfAbsent(vSlice []corev1.Volume, element corev1.Vo
 	return vSlice
 }
 
-func (j *KubeJob) fixContainerCommand(command string) string {
+func (j *KubeJob) fixContainerCommand(command string, fileSystems []schema.FileSystem) string {
 	command = strings.TrimPrefix(command, "bash -c")
 	command = strings.TrimPrefix(command, "sh -c")
+	if len(fileSystems) != 0 {
+		workdir := filepath.Join(schema.DefaultFSMountPath, fileSystems[0].ID)
+		command = fmt.Sprintf("%s %s;%s", "cd", workdir, command)
+	}
 	return command
 }
 
