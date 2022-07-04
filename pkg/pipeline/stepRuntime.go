@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -327,7 +328,7 @@ func (srt *StepRuntime) updateJob(forCacheFingerprint bool) error {
 		}
 	}
 
-	srt.job.Update(srt.getWorkFlowStep().Command, params, newEnvs, &artifacts)
+	srt.job.Update(srt.getWorkFlowStep().Command, params, newEnvs, &artifacts, srt.getWorkFlowStep().FsMount)
 	srt.logger.Infof("step[%s] after resolve template: param[%s], artifacts[%s], command[%s], env[%s]",
 		srt.fullName, params, artifacts, srt.getWorkFlowStep().Command, newEnvs)
 	return nil
@@ -337,8 +338,8 @@ func (srt *StepRuntime) logInputArtifact() {
 	for atfName, atfValue := range srt.getComponent().GetArtifacts().Input {
 		req := schema.LogRunArtifactRequest{
 			RunID:        srt.runID,
-			FsID:         srt.fsID,
-			FsName:       srt.fsName,
+			FsID:         srt.GlobalFsID,
+			FsName:       srt.GloablFsName,
 			UserName:     srt.userName,
 			ArtifactPath: atfValue,
 			Step:         srt.getWorkFlowStep().Name,
@@ -361,8 +362,8 @@ func (srt *StepRuntime) logOutputArtifact() {
 	for atfName, atfValue := range srt.component.(*schema.WorkflowSourceStep).Artifacts.Output {
 		req := schema.LogRunArtifactRequest{
 			RunID:        srt.runID,
-			FsID:         srt.fsID,
-			FsName:       srt.fsName,
+			FsID:         srt.GlobalFsID,
+			FsName:       srt.GloablFsName,
 			UserName:     srt.userName,
 			ArtifactPath: atfValue,
 			Step:         srt.getWorkFlowStep().Name,
@@ -408,7 +409,7 @@ func (srt *StepRuntime) checkCached() (cacheFound bool, err error) {
 		return false, err
 	}
 
-	runCacheList, err := srt.callbacks.ListCacheCb(srt.firstFingerprint, srt.fsID, srt.pplSource)
+	runCacheList, err := srt.callbacks.ListCacheCb(srt.firstFingerprint, srt.GlobalFsID, srt.pplSource)
 	if err != nil {
 		return false, err
 	}
@@ -504,8 +505,8 @@ func (srt *StepRuntime) logCache() error {
 		RunID:       srt.runID,
 		Step:        srt.getComponent().GetName(),
 		JobID:       srt.job.Job().ID,
-		FsID:        srt.fsID,
-		FsName:      srt.fsName,
+		FsID:        srt.GlobalFsID,
+		FsName:      srt.GloablFsName,
 		UserName:    srt.userName,
 		ExpiredTime: srt.getWorkFlowStep().Cache.MaxExpiredTime,
 		Strategy:    CacheStrategyConservative,
@@ -526,7 +527,7 @@ func (srt *StepRuntime) logCache() error {
 }
 
 func (srt *StepRuntime) generateOutputArtifactPath() (err error) {
-	rh, err := NewResourceHandler(srt.runID, srt.fsID, srt.logger)
+	rh, err := NewResourceHandler(srt.runID, srt.GlobalFsID, srt.logger)
 	if err != nil {
 		err = fmt.Errorf("cannot generate output artifact's path for step[%s]: %s", srt.fullName, err.Error())
 		return err
@@ -545,6 +546,37 @@ func (srt *StepRuntime) generateOutputArtifactPath() (err error) {
 		srt.GetArtifacts().Output[artName] = artPath
 	}
 	return
+}
+
+func (srt *StepRuntime) GenerateFsMountForArtifact() (err error) {
+	if srt.GloablFsName == "" {
+		return nil
+	}
+
+	// 为输入aritfact 生成 FsMount
+	for _, path := range srt.getWorkFlowStep().GetArtifacts().Input {
+		fsMount := schema.FsMount{
+			FsName:    srt.runConfig.GloablFsName,
+			MountPath: strings.Join([]string{ArtMountDir, path}, "/"),
+			SubPath:   path,
+			Readonly:  true,
+		}
+		srt.getWorkFlowStep().FsMount = append(srt.getWorkFlowStep().FsMount, fsMount)
+	}
+
+	// 为输出artifact 生成 FsMount
+	for _, path := range srt.getWorkFlowStep().GetArtifacts().Output {
+		fsMount := schema.FsMount{
+			FsName:    srt.runConfig.GloablFsName,
+			MountPath: strings.Join([]string{ArtMountDir, path}, "/"),
+			SubPath:   path,
+			Readonly:  false,
+		}
+		srt.getWorkFlowStep().FsMount = append(srt.getWorkFlowStep().FsMount, fsMount)
+	}
+
+	srt.logger.Debugf("after GenerateFsMountForArtifact, FsMount is %s", srt.getWorkFlowStep().FsMount)
+	return nil
 }
 
 func (srt *StepRuntime) startJob() (err error) {
@@ -636,6 +668,9 @@ func (srt *StepRuntime) Execute() {
 			return
 		}
 	}
+
+	// 3、根据 artifact 更新 FsMount 信息
+	srt.GenerateFsMountForArtifact()
 
 	// 节点运行前，先替换参数（参数替换逻辑与check Cache的参数替换逻辑不一样，多了一步替换output artifact，并利用output artifact参数替换command以及添加到env）
 	forCacheFingerprint := false

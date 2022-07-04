@@ -100,9 +100,9 @@ type runConfig struct {
 	*schema.WorkflowSource
 
 	// 2. 来自于请求体中的信息
-	fsID     string
-	fsName   string
-	userName string
+	GlobalFsID   string
+	GloablFsName string
+	userName     string
 
 	// pipelineID or yamlPath or md5sum of yamlRaw
 	pplSource string
@@ -121,10 +121,10 @@ func NewRunConfig(workflowSource *schema.WorkflowSource, fsID, fsName, userName,
 	return &runConfig{
 		WorkflowSource: workflowSource,
 
-		fsID:      fsID,
-		fsName:    fsName,
-		userName:  userName,
-		pplSource: pplSource,
+		GlobalFsID:   fsID,
+		GloablFsName: fsName,
+		userName:     userName,
+		pplSource:    pplSource,
 
 		runID:              runID,
 		logger:             logger,
@@ -296,8 +296,8 @@ func (crt *baseComponentRuntime) getPFLoopArgument() (value interface{}, err err
 func (crt *baseComponentRuntime) setSysParams() error {
 	crt.sysParams = map[string]string{
 		SysParamNamePFRunID:    crt.runID,
-		SysParamNamePFFsID:     crt.fsID,
-		SysParamNamePFFsName:   crt.fsName,
+		SysParamNamePFFsID:     crt.GlobalFsID,
+		SysParamNamePFFsName:   crt.GloablFsName,
 		SysParamNamePFStepName: crt.component.GetName(),
 		SysParamNamePFUserName: crt.userName,
 	}

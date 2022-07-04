@@ -29,7 +29,7 @@ import (
 
 type Job interface {
 	Job() BaseJob
-	Update(cmd string, params map[string]string, envs map[string]string, artifacts *schema.Artifacts) error
+	Update(cmd string, params map[string]string, envs map[string]string, artifacts *schema.Artifacts, FsMount []schema.FsMount) error
 	Validate() error
 	Start() (string, error)
 	Stop() error
@@ -70,6 +70,7 @@ type BaseJob struct {
 type PaddleFlowJob struct {
 	BaseJob
 	Image        string
+	FsMount      []schema.FsMount
 	eventChannel chan<- WorkflowEvent
 }
 
@@ -105,7 +106,8 @@ func NewPaddleFlowJobWithJobView(view *schema.JobView, image string, eventChanne
 }
 
 // 发起作业接口
-func (pfj *PaddleFlowJob) Update(cmd string, params map[string]string, envs map[string]string, artifacts *schema.Artifacts) error {
+func (pfj *PaddleFlowJob) Update(cmd string, params map[string]string, envs map[string]string,
+	artifacts *schema.Artifacts, fsMount []schema.FsMount) error {
 	if cmd != "" {
 		pfj.Command = cmd
 	}
@@ -122,7 +124,73 @@ func (pfj *PaddleFlowJob) Update(cmd string, params map[string]string, envs map[
 		pfj.Artifacts = *artifacts
 	}
 
+	if fsMount != nil && len(fsMount) != 0 {
+		pfj.FsMount = fsMount
+	}
+
 	return nil
+}
+
+// 生成job 的conf 信息
+func (pfj *PaddleFlowJob) generateJobConf() schema.Conf {
+	/*
+			type Conf struct {
+			Name string `json:"name"`
+			// 存储资源
+			FileSystem      FileSystem   `json:"fileSystem,omitempty"`
+			ExtraFileSystem []FileSystem `json:"extraFileSystem,omitempty"`
+			// 计算资源
+			Flavour  Flavour `json:"flavour,omitempty"`
+			Priority string  `json:"priority"`
+			QueueID  string  `json:"queueID"`
+			// 运行时需要的参数
+			Labels      map[string]string `json:"labels"`
+			Annotations map[string]string `json:"annotations"`
+			Env         map[string]string `json:"env,omitempty"`
+			Command     string            `json:"command,omitempty"`
+			Image       string            `json:"image"`
+			Port        int               `json:"port,omitempty"`
+			Args        []string          `json:"args,omitempty"`
+		}
+	*/
+	efs := []schema.FileSystem{}
+	for _, fsMount := range pfj.FsMount {
+		fs := schema.FileSystem{
+			ID:        fsMount.FsID,
+			Name:      fsMount.FsName,
+			SubPath:   fsMount.SubPath,
+			MountPath: fsMount.SubPath,
+		}
+		efs = append(efs, fs)
+	}
+
+	flavour := schema.Flavour{}
+	if _, ok := pfj.Env["PF_JOB_FLAVOUR"]; ok {
+		flavour.Name = pfj.Env["PF_JOB_FLAVOUR"]
+	}
+
+	priority := ""
+	if _, ok := pfj.Env["PF_JOB_PRIORITY"]; ok {
+		priority = pfj.Env["PF_JOB_PRIORITY"]
+	}
+
+	queueName := ""
+	if _, ok := pfj.Env["PF_JOB_QUEUE_NAME"]; ok {
+		queueName = pfj.Env["PF_JOB_QUEUE_NAME"]
+	}
+
+	conf := schema.Conf{
+		Name:            pfj.Name,
+		Env:             pfj.Env,
+		Command:         pfj.Command,
+		Image:           pfj.Image,
+		ExtraFileSystem: efs,
+		Flavour:         flavour,
+		Priority:        priority,
+		QueueName:       queueName,
+	}
+
+	return conf
 }
 
 // 校验job参数
@@ -130,12 +198,7 @@ func (pfj *PaddleFlowJob) Validate() error {
 	var err error
 
 	// 调用job子系统接口进行校验
-	conf := schema.Conf{
-		Name:    pfj.Name,
-		Env:     pfj.Env,
-		Command: pfj.Command,
-		Image:   pfj.Image,
-	}
+	conf := pfj.generateJobConf()
 
 	err = job.ValidateJob(&conf)
 	if err != nil {
@@ -151,12 +214,7 @@ func (pfj *PaddleFlowJob) Start() (string, error) {
 	var err error
 
 	// 调用job子系统接口发起运行
-	conf := schema.Conf{
-		Name:    pfj.Name,
-		Env:     pfj.Env,
-		Command: pfj.Command,
-		Image:   pfj.Image,
-	}
+	conf := pfj.generateJobConf()
 
 	pfj.ID, err = job.CreateJob(&conf)
 	if err != nil {

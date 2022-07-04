@@ -76,6 +76,9 @@ const (
 
 	// dagID 中随机码的位数
 	DagIDRandCodeNum = 16
+
+	// artifact 挂载路径的父目录
+	ArtMountDir = "/tmp"
 )
 
 var SysParamNameList []string = []string{

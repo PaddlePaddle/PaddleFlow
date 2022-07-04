@@ -143,7 +143,7 @@ func (isv *innerSolver) resolveArtifactTemplate(tpl []string, fieldType string, 
 			maxSize = LoopArgumentArtifactMaxSize
 		}
 
-		result, err = GetArtifactContent(path, maxSize, isv.fsID, isv.logger)
+		result, err = GetArtifactContent(path, maxSize, isv.GlobalFsID, isv.logger)
 		if err != nil {
 			err = fmt.Errorf("failed to resolve template[%s] for component[%s], because cannot read the content from artifact[%s]",
 				tpl[0], isv.fullName, refParamName)
