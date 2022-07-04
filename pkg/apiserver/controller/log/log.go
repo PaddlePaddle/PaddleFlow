@@ -68,8 +68,8 @@ func GetRunLog(ctx *logger.RequestContext, runID string, request GetRunLogReques
 	}
 
 	response := &GetRunLogResponse{
-		RunID:     runID,
-		RunLog:    make([]schema.JobLogInfo, 0),
+		RunID:  runID,
+		RunLog: make([]schema.JobLogInfo, 0),
 	}
 	if len(jobList) == 0 {
 		return response, nil
