@@ -75,7 +75,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context,
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 	log.Infof("Node publish mountInfo [%+v]", mountInfo)
-	if err := mountVolume(volumeID, mountInfo, req.GetReadonly()); err != nil {
+	if err = mountVolume(volumeID, mountInfo, req.GetReadonly()); err != nil {
 		log.Errorf("mount filesystem[%s] failed: %v", volumeContext[schema.PfsFsID], err)
 		return &csi.NodePublishVolumeResponse{}, status.Error(codes.Internal, err.Error())
 	}
@@ -86,9 +86,7 @@ func (ns *nodeServer) NodeUnpublishVolume(ctx context.Context,
 	req *csi.NodeUnpublishVolumeRequest) (*csi.NodeUnpublishVolumeResponse, error) {
 
 	mountInfo := mount.Info{
-		UsernameRoot: ns.credentialInfo.usernameRoot,
-		PasswordRoot: ns.credentialInfo.passwordRoot,
-		TargetPath:   req.GetTargetPath(),
+		TargetPath: req.GetTargetPath(),
 	}
 	if err := mount.PodUnmount(req.VolumeId, mountInfo); err != nil {
 		log.Errorf("[UMount]: volumeID[%s] and targetPath[%s] with err: %s", req.VolumeId, mountInfo.TargetPath, err.Error())
@@ -117,7 +115,7 @@ func (ns *nodeServer) NodeExpandVolume(ctx context.Context,
 }
 
 func mountVolume(volumeID string, mountInfo mount.Info, readOnly bool) error {
-	log.Infof("mountVolume: indepedentMp:%t, mountInfo:%+v, readOnly:%t", mountInfo.IndependentMountProcess, mountInfo, readOnly)
+	log.Infof("mountVolume: indepedentMp:%t, readOnly:%t", mountInfo.IndependentMountProcess, readOnly)
 	if !mountInfo.IndependentMountProcess {
 		// business pods use a separate source path
 		if err := mount.PodMount(volumeID, mountInfo); err != nil {
