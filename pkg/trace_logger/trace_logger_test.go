@@ -22,8 +22,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
 )
 
 func TestTraceLogger(t *testing.T) {
