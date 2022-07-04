@@ -42,7 +42,7 @@ import (
 var wfMap = make(map[string]*pipeline.Workflow, 0)
 
 const (
-	JsonFsName      = "fsName"
+	JsonFsOptions   = "fsOptions"
 	JsonUserName    = "userName"
 	JsonDescription = "description"
 	JsonFlavour     = "flavour"
@@ -232,7 +232,6 @@ func getWorkFlowSourceByJson(bodyMap map[string]interface{}) (schema.WorkflowSou
 
 		//这3个字段，之前已经处理过，后续阶段无需处理，只需剔除即可
 		JsonDescription: nil,
-		JsonFsName:      nil,
 		JsonUserName:    nil,
 	}
 
@@ -427,24 +426,34 @@ func runYamlAndReqToWfs(runYaml string, req CreateRunRequest) (schema.WorkflowSo
 }
 
 func CreateRun(userName string, request *CreateRunRequest) (CreateRunResponse, error) {
-	// concatenate fsID
-	var fsID string
+	// concatenate globalFsID
+	var globalFsID string
 	if request.GlobalFs != "" {
 		if common.IsRootUser(userName) && request.UserName != "" {
 			// root user can select fs under other users
-			fsID = common.ID(request.UserName, request.GlobalFs)
+			globalFsID = common.ID(request.UserName, request.GlobalFs)
 		} else {
-			fsID = common.ID(userName, request.GlobalFs)
+			globalFsID = common.ID(userName, request.GlobalFs)
 		}
 	}
 	// todo://增加root用户判断fs是否存在
 	// TODO:// validate flavour
 	// TODO:// validate queue
 
-	wfs, source, runYaml, err := buildWorkflowSource(userName, *request, fsID)
+	wfs, source, runYaml, err := buildWorkflowSource(userName, *request, globalFsID)
 	if err != nil {
 		logger.Logger().Errorf("buildWorkflowSource failed. error:%v", err)
 		return CreateRunResponse{}, err
+	}
+
+	// 如果request里面的fsID为空，那么需要判断yaml（通过PipelineID或Raw上传的）中有无指定GlobalFs，有则生成fsID
+	if request.GlobalFs == "" && wfs.FsOptions.GlobalFs != "" {
+		if common.IsRootUser(userName) && request.UserName != "" {
+			// root user can select fs under other users
+			globalFsID = common.ID(request.UserName, wfs.FsOptions.GlobalFs)
+		} else {
+			globalFsID = common.ID(userName, wfs.FsOptions.GlobalFs)
+		}
 	}
 
 	// check name pattern
@@ -473,7 +482,7 @@ func CreateRun(userName string, request *CreateRunRequest) (CreateRunResponse, e
 		Source:         source,
 		UserName:       userName,
 		GlobalFs:       request.GlobalFs,
-		FsID:           fsID,
+		GlobalFsID:     globalFsID,
 		Description:    request.Description,
 		Parameters:     request.Parameters,
 		RunYaml:        runYaml,
@@ -488,14 +497,21 @@ func CreateRun(userName string, request *CreateRunRequest) (CreateRunResponse, e
 	return response, err
 }
 
-func CreateRunByJson(userName string, bodyMap map[string]interface{}) (CreateRunResponse, error) {
+func CreateRunByJson(ctxUserName string, bodyMap map[string]interface{}) (CreateRunResponse, error) {
 	// 从request body中提取部分信息，这些信息与workflow没有直接关联
 	var reqFsName string
 	var reqUserName string
 	var reqDescription string
 
-	if _, ok := bodyMap[JsonFsName].(string); ok {
-		reqFsName = bodyMap[JsonFsName].(string)
+	parser := schema.Parser{}
+	fsMap, ok := bodyMap[JsonFsOptions].(map[string]interface{})
+	if ok {
+		fsOptions := schema.FsOptions{}
+		if err := parser.ParseFsOptions(fsMap, &fsOptions); err != nil {
+			logger.Logger().Errorf("check fsOptions failed, error: %s", err.Error())
+			return CreateRunResponse{}, err
+		}
+		reqFsName = fsOptions.GlobalFs
 	}
 	if _, ok := bodyMap[JsonUserName].(string); ok {
 		reqUserName = bodyMap[JsonUserName].(string)
@@ -504,14 +520,14 @@ func CreateRunByJson(userName string, bodyMap map[string]interface{}) (CreateRun
 		reqDescription = bodyMap[JsonDescription].(string)
 	}
 
-	var fsID string
+	var globalFsID string
+	userName := ctxUserName
 	if reqFsName != "" {
-		if common.IsRootUser(userName) && reqUserName != "" {
+		if common.IsRootUser(ctxUserName) && reqUserName != "" {
 			// root user can select fs under other users
-			fsID = common.ID(reqUserName, reqFsName)
-		} else {
-			fsID = common.ID(userName, reqFsName)
+			userName = reqUserName
 		}
+		globalFsID = common.ID(userName, reqFsName)
 	}
 
 	wfs, err := getWorkFlowSourceByJson(bodyMap)
@@ -537,9 +553,9 @@ func CreateRunByJson(userName string, bodyMap map[string]interface{}) (CreateRun
 		ID:             "", // to be back filled according to db pk
 		Name:           wfs.Name,
 		Source:         source,
-		UserName:       userName,
+		UserName:       ctxUserName,
 		GlobalFs:       reqFsName,
-		FsID:           fsID,
+		GlobalFsID:     globalFsID,
 		Description:    reqDescription,
 		RunYaml:        runYaml,
 		WorkflowSource: wfs, // DockerEnv has not been replaced. done in func handleImageAndStartWf
@@ -586,7 +602,7 @@ func ValidateAndStartRun(run models.Run, req CreateRunRequest) (CreateRunRespons
 	}()
 	// handler image
 	if err := handleImageAndStartWf(run, false); err != nil {
-		logger.Logger().Errorf("create run[%s] failed handleImageAndStartWf[%s-%s]. error:%s\n", runID, wfs.DockerEnv, run.FsID, err.Error())
+		logger.Logger().Errorf("create run[%s] failed handleImageAndStartWf[%s-%s]. error:%s\n", runID, wfs.DockerEnv, run.GlobalFsID, err.Error())
 	}
 	logger.Logger().Debugf("create run successful. runID:%s\n", runID)
 	response := CreateRunResponse{
@@ -772,8 +788,8 @@ func DeleteRun(ctx *logger.RequestContext, id string, request *DeleteRunRequest)
 	}
 
 	// 删除pipeline run outputAtf (只有Fs不为空，才需要清理artifact。因为不使用Fs时，不允许定义outputAtf)
-	if run.FsID != "" {
-		resourceHandler, err := pplcommon.NewResourceHandler(id, run.FsID, ctx.Logging())
+	if run.GlobalFsID != "" {
+		resourceHandler, err := pplcommon.NewResourceHandler(id, run.GlobalFsID, ctx.Logging())
 		if err != nil {
 			ctx.Logging().Errorf("delete run[%s] failed. Init handler failed. err: %v", id, err.Error())
 			ctx.ErrorCode = common.InternalError
@@ -855,7 +871,7 @@ func resumeRun(run models.Run) error {
 	run.WorkflowSource = wfs
 	if err := handleImageAndStartWf(run, true); err != nil {
 		logger.LoggerForRun(run.ID).Errorf("resume run[%s] failed handleImageAndStartWf. DockerEnv[%s] fsID[%s]. error:%s\n",
-			run.ID, run.WorkflowSource.DockerEnv, run.FsID, err.Error())
+			run.ID, run.WorkflowSource.DockerEnv, run.GlobalFsID, err.Error())
 	}
 	return nil
 }
@@ -889,7 +905,7 @@ func handleImageAndStartWf(run models.Run, isResume bool) error {
 func newWorkflowByRun(run models.Run) (*pipeline.Workflow, error) {
 	extraInfo := map[string]string{
 		pplcommon.WfExtraInfoKeySource:   run.Source,
-		pplcommon.WfExtraInfoKeyFsID:     run.FsID,
+		pplcommon.WfExtraInfoKeyFsID:     run.GlobalFsID,
 		pplcommon.WfExtraInfoKeyUserName: run.UserName,
 		pplcommon.WfExtraInfoKeyFsName:   run.GlobalFs,
 	}

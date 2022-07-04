@@ -317,7 +317,11 @@ func (p *Parser) ParseStep(params map[string]interface{}, step *WorkflowSourceSt
 				if !ok {
 					return fmt.Errorf("mount info in [fs_mount] should be map type")
 				}
-				step.FsMount = append(step.FsMount, mapValue)
+				fsMount := FsMount{}
+				if err := p.ParseFsMount(mapValue, &fsMount); err != nil {
+					return fmt.Errorf("parse [fs_mount] in step failed, error: %s", err.Error())
+				}
+				step.FsMount = append(step.FsMount, fsMount)
 			}
 		case "type":
 			value, ok := value.(string)
@@ -486,13 +490,50 @@ func (p *Parser) ParseCache(cacheMap map[string]interface{}, cache *Cache) error
 		case "fsScope":
 			fallthrough
 		case "fs_scope":
-			cacheValue, ok := cacheValue.(string)
+			cacheValue, ok := cacheValue.([]interface{})
 			if !ok {
 				return fmt.Errorf("[cache.fs_scope/fsScope] should be string type")
 			}
-			cache.FsScope = cacheValue
+			fsScopeList := []FsScope{}
+			for _, m := range cacheValue {
+				fsScopeMap, ok := m.(map[string]interface{})
+				if !ok {
+					return fmt.Errorf("each info in [fs_scope] should be map type")
+				}
+				fsScope := FsScope{}
+				if err := p.ParseFsScope(fsScopeMap, &fsScope); err != nil {
+					return fmt.Errorf("parse fs_scope in [cache] failed, error: %s", err.Error())
+				}
+
+				fsScopeList = append(fsScopeList, fsScope)
+			}
+			cache.FsScope = append(fsScopeList, cache.FsScope...)
 		default:
 			return fmt.Errorf("[cache] has no attribute [%s]", cacheKey)
+		}
+	}
+	return nil
+}
+
+func (p *Parser) ParseFsScope(fsMap map[string]interface{}, fs *FsScope) error {
+	for key, value := range fsMap {
+		switch key {
+		case "fsName":
+			fallthrough
+		case "fs_name":
+			value, ok := value.(string)
+			if !ok {
+				return fmt.Errorf("[fs_name] should be string type")
+			}
+			fs.FsName = value
+		case "path":
+			value, ok := value.(string)
+			if !ok {
+				return fmt.Errorf("[path] should be string type")
+			}
+			fs.Path = value
+		default:
+			return fmt.Errorf("[fs_scope] has no attribute [%s]", key)
 		}
 	}
 	return nil
@@ -512,19 +553,63 @@ func (p *Parser) ParseFsOptions(fsMap map[string]interface{}, fs *FsOptions) err
 		case "fsMount":
 			fallthrough
 		case "fs_mount":
-			// value, ok := value.([]interface{})
-			// if !ok {
-			// 	return fmt.Errorf("[fs_options.fs_mount] should be list type")
-			// }
-			// for _, m := range value {
-			// 	mapValue, ok := m.(map[string]interface{})
-			// 	if !ok {
-			// 		return fmt.Errorf("mount info in [fs_options.fs_mount] should be map type")
-			// 	}
-			// 	fs.FsMount = append(fs.FsMount, mapValue)
-			// }
+			value, ok := value.([]interface{})
+			if !ok {
+				return fmt.Errorf("[fs_options.fs_mount] should be list type")
+			}
+			for _, m := range value {
+				mapValue, ok := m.(map[string]interface{})
+				if !ok {
+					return fmt.Errorf("each mount info in [fs_options.fs_mount] should be map type")
+				}
+				fsMount := FsMount{}
+				if err := p.ParseFsMount(mapValue, &fsMount); err != nil {
+					return fmt.Errorf("parse fs_mount in [fs_options] failed, error: %s", err.Error())
+				}
+				fs.FsMount = append(fs.FsMount, fsMount)
+			}
 		default:
 			return fmt.Errorf("[fs_options] has no attribute [%s]", key)
+		}
+	}
+	return nil
+}
+
+func (p *Parser) ParseFsMount(fsMap map[string]interface{}, fs *FsMount) error {
+	for key, value := range fsMap {
+		switch key {
+		case "fsName":
+			fallthrough
+		case "fs_name":
+			value, ok := value.(string)
+			if !ok {
+				return fmt.Errorf("[fs_name] should be string type")
+			}
+			fs.FsName = value
+		case "mountPath":
+			fallthrough
+		case "mount_path":
+			value, ok := value.(string)
+			if !ok {
+				return fmt.Errorf("[mount_path] should be string type")
+			}
+			fs.FsName = value
+		case "subPath":
+			fallthrough
+		case "sub_path":
+			value, ok := value.(string)
+			if !ok {
+				return fmt.Errorf("[sub_path] should be string type")
+			}
+			fs.FsName = value
+		case "readonly":
+			value, ok := value.(bool)
+			if !ok {
+				return fmt.Errorf("[readonly] should be bool type")
+			}
+			fs.Readonly = value
+		default:
+			return fmt.Errorf("[fs_mount] has no attribute [%s]", key)
 		}
 	}
 	return nil
@@ -575,6 +660,19 @@ func (p *Parser) TransJsonMap2Yaml(jsonMap map[string]interface{}) error {
 
 			cacheMap["fs_scope"] = cacheMap["fsScope"]
 			delete(cacheMap, "fsScope")
+		case "fsOptions":
+			if err := p.transJsonSubMap2Yaml(value, "fsOptions"); err != nil {
+				return err
+			}
+			jsonMap["fs_options"] = value
+			delete(jsonMap, "fsOptions")
+
+		case "fsMount":
+			jsonMap["fs_mount"] = value
+			delete(jsonMap, "fsMount")
+		case "globalFs":
+			jsonMap["global_fs"] = value
+			delete(jsonMap, "globalFs")
 		}
 	}
 	return nil
