@@ -130,6 +130,14 @@ func (p *Parser) ParseWorkflowSource(bodyMap map[string]interface{}, wfs *Workfl
 				}
 				wfs.PostProcess[postkey] = postValue
 			}
+		case "fsMount":
+			fallthrough
+		case "fs_mount":
+			// value, ok := value.(map[string]interface{})
+			// if !ok {
+			// 	return fmt.Errorf("[fs_mount/fsMount] of workflow should be map[string]interface{} type")
+			// }
+
 		default:
 			return fmt.Errorf("workflow has no attribute [%s]", key)
 		}
@@ -469,6 +477,10 @@ func (p *Parser) ParseCache(cacheMap map[string]interface{}, cache *Cache) error
 			return fmt.Errorf("[cache] has no attribute [%s]", cacheKey)
 		}
 	}
+	return nil
+}
+
+func (p *Parser) ParseFsOptions(fsMap map[string]interface{}, fs *FsOptions) error {
 	return nil
 }
 

@@ -36,7 +36,7 @@ func getMockRun1() models.Run {
 		ID:       MockRunID1,
 		Name:     MockRunName1,
 		UserName: MockRootUser,
-		FsName:   MockFsName1,
+		GlobalFs: MockFsName1,
 		FsID:     common.ID(MockRootUser, MockFsName1),
 		Status:   common.StatusRunPending,
 	}
@@ -48,7 +48,7 @@ func getMockRun1_3() models.Run {
 		ID:       MockRunID3,
 		Name:     "",
 		UserName: MockRootUser,
-		FsName:   MockFsName1,
+		GlobalFs: MockFsName1,
 		FsID:     common.ID(MockRootUser, MockFsName1),
 		Status:   common.StatusRunPending,
 	}
@@ -60,7 +60,7 @@ func getMockRun2() models.Run {
 		ID:       MockRunID2,
 		Name:     MockRunName2,
 		UserName: MockNormalUser,
-		FsName:   MockFsName2,
+		GlobalFs: MockFsName2,
 		FsID:     common.ID(MockNormalUser, MockFsName2),
 		Status:   common.StatusRunPending,
 	}

@@ -39,7 +39,7 @@ type Run struct {
 	Source         string                 `gorm:"type:varchar(256);not null"        json:"source"` // pipelineID or yamlPath
 	UserName       string                 `gorm:"type:varchar(60);not null"         json:"username"`
 	FsID           string                 `gorm:"type:varchar(60);not null"         json:"-"`
-	FsName         string                 `gorm:"type:varchar(60);not null"         json:"fsname"`
+	GlobalFs       string                 `gorm:"type:varchar(60);not null"         json:"globalFs"`
 	Description    string                 `gorm:"type:text;size:65535;not null"     json:"description"`
 	ParametersJson string                 `gorm:"type:text;size:65535;not null"     json:"-"`
 	Parameters     map[string]interface{} `gorm:"-"                                 json:"parameters"`

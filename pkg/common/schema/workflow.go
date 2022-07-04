@@ -440,6 +440,11 @@ type FailureOptions struct {
 	Strategy string `yaml:"strategy"     json:"strategy"`
 }
 
+type FsOptions struct {
+	GlobalFs string                     `yaml:"global_fs"    json:"globalFs"`
+	FsMount  [](map[string]interface{}) `yaml:"fs_mount"    json:"fsMount"`
+}
+
 type WorkflowSource struct {
 	Name           string                         `yaml:"name"`
 	DockerEnv      string                         `yaml:"docker_env"`
@@ -450,6 +455,7 @@ type WorkflowSource struct {
 	Disabled       string                         `yaml:"disabled"`
 	FailureOptions FailureOptions                 `yaml:"failure_options"`
 	PostProcess    map[string]*WorkflowSourceStep `yaml:"post_process"`
+	FsOptions      FsOptions                      `yaml:"fs_options"`
 }
 
 func (wfs *WorkflowSource) GetDisabled() []string {

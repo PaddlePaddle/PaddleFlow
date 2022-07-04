@@ -52,7 +52,7 @@ const (
 )
 
 type CreateRunRequest struct {
-	FsName      string                 `json:"fsname"`
+	GlobalFs    string                 `json:"globalFs"`
 	UserName    string                 `json:"username,omitempty"`   // optional, only for root user
 	Name        string                 `json:"name,omitempty"`       // optional
 	Description string                 `json:"desc,omitempty"`       // optional
@@ -129,7 +129,7 @@ func (b *RunBrief) modelToListResp(run models.Run) {
 	b.Name = run.Name
 	b.Source = run.Source
 	b.UserName = run.UserName
-	b.FsName = run.FsName
+	b.FsName = run.GlobalFs
 	b.Description = run.Description
 	b.ScheduleID = run.ScheduleID
 	b.Message = run.Message
@@ -429,12 +429,12 @@ func runYamlAndReqToWfs(runYaml string, req CreateRunRequest) (schema.WorkflowSo
 func CreateRun(userName string, request *CreateRunRequest) (CreateRunResponse, error) {
 	// concatenate fsID
 	var fsID string
-	if request.FsName != "" {
+	if request.GlobalFs != "" {
 		if common.IsRootUser(userName) && request.UserName != "" {
 			// root user can select fs under other users
-			fsID = common.ID(request.UserName, request.FsName)
+			fsID = common.ID(request.UserName, request.GlobalFs)
 		} else {
-			fsID = common.ID(userName, request.FsName)
+			fsID = common.ID(userName, request.GlobalFs)
 		}
 	}
 	// todo://增加root用户判断fs是否存在
@@ -472,7 +472,7 @@ func CreateRun(userName string, request *CreateRunRequest) (CreateRunResponse, e
 		Name:           wfs.Name,
 		Source:         source,
 		UserName:       userName,
-		FsName:         request.FsName,
+		GlobalFs:       request.GlobalFs,
 		FsID:           fsID,
 		Description:    request.Description,
 		Parameters:     request.Parameters,
@@ -538,7 +538,7 @@ func CreateRunByJson(userName string, bodyMap map[string]interface{}) (CreateRun
 		Name:           wfs.Name,
 		Source:         source,
 		UserName:       userName,
-		FsName:         reqFsName,
+		GlobalFs:       reqFsName,
 		FsID:           fsID,
 		Description:    reqDescription,
 		RunYaml:        runYaml,
@@ -891,7 +891,7 @@ func newWorkflowByRun(run models.Run) (*pipeline.Workflow, error) {
 		pplcommon.WfExtraInfoKeySource:   run.Source,
 		pplcommon.WfExtraInfoKeyFsID:     run.FsID,
 		pplcommon.WfExtraInfoKeyUserName: run.UserName,
-		pplcommon.WfExtraInfoKeyFsName:   run.FsName,
+		pplcommon.WfExtraInfoKeyFsName:   run.GlobalFs,
 	}
 	wfPtr, err := pipeline.NewWorkflow(run.WorkflowSource, run.ID, run.Parameters, extraInfo, workflowCallbacks)
 	if err != nil {

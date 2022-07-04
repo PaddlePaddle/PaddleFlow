@@ -40,7 +40,7 @@ func TestCreatePipeline(t *testing.T) {
 
 	pplUrl := baseUrl + "/pipeline"
 	createPplReq := pipeline.CreatePipelineRequest{
-		FsName:   "mockFsName",
+		GlobalFs: "mockFsName",
 		UserName: "",
 		YamlPath: "../../../../example/wide_and_deep/run.yaml",
 	}
