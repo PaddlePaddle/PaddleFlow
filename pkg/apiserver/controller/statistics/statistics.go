@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/consts"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/monitor"
 	"github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
@@ -32,9 +33,9 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
 
-var metricNameList = [...]string{common.MetricJobCpuUsageRate, common.MetricJobMemoryUsage, common.MetricJobDiskUsage,
-	common.MetricJobNetReceiveBytes, common.MetricJobNetSendBytes, common.MetricJobDiskReadRate,
-	common.MetricJobDiskWriteRate, common.MetricJobGpuUtil, common.MetricJobGpuMemoryUtil}
+var metricNameList = [...]string{consts.MetricJobCpuUsageRate, consts.MetricJobMemoryUsage, consts.MetricJobDiskUsage,
+	consts.MetricJobNetReceiveBytes, consts.MetricJobNetSendBytes, consts.MetricJobDiskReadRate,
+	consts.MetricJobDiskWriteRate, consts.MetricJobGpuUtil, consts.MetricJobGpuMemoryUtil}
 
 type JobStatisticsResponse struct {
 	CpuUsageRate    float64 `json:"cpu_usage_rate"`
@@ -187,23 +188,23 @@ func convertResultToResponse(result model.Value, response *JobStatisticsResponse
 	data := result.(model.Vector)
 	if len(data) > 0 {
 		switch data[0].Metric[model.MetricNameLabel] {
-		case common.MetricJobCpuUsageRate:
+		case consts.MetricJobCpuUsageRate:
 			response.CpuUsageRate = float64(data[0].Value)
-		case common.MetricJobMemoryUsage:
+		case consts.MetricJobMemoryUsage:
 			response.MemoryUsage = data[0].Value.String()
-		case common.MetricJobDiskUsage:
+		case consts.MetricJobDiskUsage:
 			response.DiskUsageBytes = float64(data[0].Value)
-		case common.MetricJobNetReceiveBytes:
+		case consts.MetricJobNetReceiveBytes:
 			response.NetReceiveBytes = float64(data[0].Value)
-		case common.MetricJobNetSendBytes:
+		case consts.MetricJobNetSendBytes:
 			response.NetSendBytes = float64(data[0].Value)
-		case common.MetricJobDiskReadRate:
+		case consts.MetricJobDiskReadRate:
 			response.DiskReadRate = float64(data[0].Value)
-		case common.MetricJobDiskWriteRate:
+		case consts.MetricJobDiskWriteRate:
 			response.DiskWriteRate = float64(data[0].Value)
-		case common.MetricJobGpuUtil:
+		case consts.MetricJobGpuUtil:
 			response.GpuUtil = float64(data[0].Value)
-		case common.MetricJobGpuMemoryUtil:
+		case consts.MetricJobGpuMemoryUtil:
 			response.GpuMemoryUtil = float64(data[0].Value)
 		}
 	}

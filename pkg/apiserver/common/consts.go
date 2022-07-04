@@ -62,17 +62,5 @@ const (
 	LogPageSizeDefault = 100
 	LogPageNoDefault   = 1
 
-	MetricJobCpuUsageRate    = "job_cpu_usage_rate"
-	MetricJobMemoryUsage     = "job_memory_usage"
-	MetricJobDiskUsage       = "job_disk_usage"
-	MetricJobNetReceiveBytes = "job_net_receive_bytes"
-	MetricJobNetSendBytes    = "job_net_send_bytes"
-	MetricJobDiskReadRate    = "job_disk_read_rate"
-	MetricJobDiskWriteRate   = "job_disk_write_rate"
-	MetricJobGpuUtil         = "job_gpu_util"
-	MetricJobGpuMemoryUtil   = "job_gpu_memory_util"
-
-	QueryCPUUsageRateSql = "sum(rate(container_cpu_usage_seconds_total{image!=\"\"，pod=~\".*job.*\"}[1m])) by (pod) / sum(container_spec_cpu_quota{image!=\"\"，pod=~\".*job.*\"} / 100000) by (pod)"
-
 	PodID = "podID"
 )

@@ -20,12 +20,12 @@ import (
 	"context"
 	"time"
 
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/consts"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/monitor"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/model"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
@@ -37,13 +37,13 @@ type JobCollector struct {
 
 func newJobCollectManager() *JobCollector {
 	cpuUsageRate := prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: common.MetricJobCpuUsageRate,
-		Help: common.MetricJobCpuUsageRate,
+		Name: consts.MetricJobCpuUsageRate,
+		Help: consts.MetricJobCpuUsageRate,
 	}, []string{"jobID", "pod"},
 	)
 	memoryUsage := prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: common.MetricJobMemoryUsage,
-		Help: common.MetricJobMemoryUsage,
+		Name: consts.MetricJobMemoryUsage,
+		Help: consts.MetricJobMemoryUsage,
 	}, []string{"jobID", "pod"},
 	)
 	return &JobCollector{
@@ -58,9 +58,9 @@ func (j *JobCollector) Describe(ch chan<- *prometheus.Desc) {
 }
 
 func (j *JobCollector) Collect(ch chan<- prometheus.Metric) {
-	err := j.CollectPodMetrics(common.MetricJobCpuUsageRate)
+	err := j.CollectPodMetrics(consts.MetricJobCpuUsageRate)
 	if err != nil {
-		log.Errorf("collect podMetrics[%s] failed, error:[%s]", common.MetricJobCpuUsageRate, err.Error())
+		log.Errorf("collect podMetrics[%s] failed, error:[%s]", consts.MetricJobCpuUsageRate, err.Error())
 		return
 	}
 	j.CpuUsageRate.Collect(ch)
@@ -105,8 +105,8 @@ func callPrometheusAPI(metricName, jobID string) (model.Value, error) {
 
 func getQuerySql(metricName string) string {
 	switch metricName {
-	case common.MetricJobCpuUsageRate:
-		querySql := common.QueryCPUUsageRateSql
+	case consts.MetricJobCpuUsageRate:
+		querySql := QueryCPUUsageRateSql
 		return querySql
 		// TODO add more metric sql
 	default:
