@@ -425,22 +425,22 @@ func runYamlAndReqToWfs(runYaml string, req CreateRunRequest) (schema.WorkflowSo
 	return wfs, nil
 }
 
-func CreateRun(userName string, request *CreateRunRequest) (CreateRunResponse, error) {
+func CreateRun(ctxUserName string, request *CreateRunRequest) (CreateRunResponse, error) {
 	// concatenate globalFsID
 	var globalFsID string
+	userName := ctxUserName
 	if request.GlobalFs != "" {
-		if common.IsRootUser(userName) && request.UserName != "" {
+		if common.IsRootUser(ctxUserName) && request.UserName != "" {
 			// root user can select fs under other users
-			globalFsID = common.ID(request.UserName, request.GlobalFs)
-		} else {
-			globalFsID = common.ID(userName, request.GlobalFs)
+			userName = request.UserName
 		}
+		globalFsID = common.ID(userName, request.GlobalFs)
 	}
 	// todo://增加root用户判断fs是否存在
 	// TODO:// validate flavour
 	// TODO:// validate queue
 
-	wfs, source, runYaml, err := buildWorkflowSource(userName, *request, globalFsID)
+	wfs, source, runYaml, err := buildWorkflowSource(ctxUserName, *request, globalFsID)
 	if err != nil {
 		logger.Logger().Errorf("buildWorkflowSource failed. error:%v", err)
 		return CreateRunResponse{}, err
@@ -448,11 +448,11 @@ func CreateRun(userName string, request *CreateRunRequest) (CreateRunResponse, e
 
 	// 如果request里面的fsID为空，那么需要判断yaml（通过PipelineID或Raw上传的）中有无指定GlobalFs，有则生成fsID
 	if request.GlobalFs == "" && wfs.FsOptions.GlobalFs != "" {
-		if common.IsRootUser(userName) && request.UserName != "" {
+		if common.IsRootUser(ctxUserName) && request.UserName != "" {
 			// root user can select fs under other users
 			globalFsID = common.ID(request.UserName, wfs.FsOptions.GlobalFs)
 		} else {
-			globalFsID = common.ID(userName, wfs.FsOptions.GlobalFs)
+			globalFsID = common.ID(ctxUserName, wfs.FsOptions.GlobalFs)
 		}
 	}
 
@@ -480,7 +480,7 @@ func CreateRun(userName string, request *CreateRunRequest) (CreateRunResponse, e
 		ID:             "", // to be back filled according to db pk
 		Name:           wfs.Name,
 		Source:         source,
-		UserName:       userName,
+		UserName:       ctxUserName,
 		GlobalFs:       request.GlobalFs,
 		GlobalFsID:     globalFsID,
 		Description:    request.Description,
@@ -493,7 +493,7 @@ func CreateRun(userName string, request *CreateRunRequest) (CreateRunResponse, e
 		ScheduledAt:    scheduledAt,
 		Status:         common.StatusRunInitiating,
 	}
-	response, err := ValidateAndStartRun(run, *request)
+	response, err := ValidateAndStartRun(run, userName, *request)
 	return response, err
 }
 
@@ -562,11 +562,17 @@ func CreateRunByJson(ctxUserName string, bodyMap map[string]interface{}) (Create
 		Disabled:       wfs.Disabled,
 		Status:         common.StatusRunInitiating,
 	}
-	response, err := ValidateAndStartRun(run, CreateRunRequest{})
+	response, err := ValidateAndStartRun(run, userName, CreateRunRequest{})
 	return response, err
 }
 
-func ValidateAndStartRun(run models.Run, req CreateRunRequest) (CreateRunResponse, error) {
+func ValidateAndStartRun(run models.Run, userName string, req CreateRunRequest) (CreateRunResponse, error) {
+	// 给所有Step的fsMount和fsScope的fsID赋值
+	if err := run.WorkflowSource.ProcessFs(userName); err != nil {
+		logger.Logger().Errorf("process fs failed. error: %s", err.Error())
+		return CreateRunResponse{}, err
+	}
+
 	if err := run.Encode(); err != nil {
 		logger.Logger().Errorf("encode run failed. error:%s", err.Error())
 		return CreateRunResponse{}, err

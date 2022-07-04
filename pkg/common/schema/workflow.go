@@ -448,6 +448,7 @@ type FsOptions struct {
 
 type FsMount struct {
 	FsName    string `yaml:"fs_name"       json:"fsName"`
+	FsID      string `yaml:"-"             json:"-"`
 	MountPath string `yaml:"mount_path"    json:"mountPath"`
 	SubPath   string `yaml:"sub_path"      json:"subPath"`
 	Readonly  bool   `yaml:"readonly"      json:"readonly"`
@@ -825,4 +826,50 @@ func (wfs *WorkflowSource) TransToRunYamlRaw() (runYamlRaw string, err error) {
 
 	runYamlRaw = base64.StdEncoding.EncodeToString(runYaml)
 	return
+}
+
+// 给所有Step的fsMount和fsScope的fsID赋值
+func (wfs *WorkflowSource) ProcessFs(userName string) error {
+	if err := processFsByUserName(wfs.EntryPoints.EntryPoints, userName); err != nil {
+		return err
+	}
+
+	if err := processFsByUserName(wfs.Components, userName); err != nil {
+		return err
+	}
+
+	postMap := map[string]Component{}
+	for k, v := range wfs.PostProcess {
+		postMap[k] = v
+	}
+	if err := processFsByUserName(postMap, userName); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func processFsByUserName(compMap map[string]Component, userName string) error {
+	for _, comp := range compMap {
+		if dag, ok := comp.(*WorkflowSourceDag); ok {
+			if err := processFsByUserName(dag.EntryPoints, userName); err != nil {
+				return err
+			}
+		} else if step, ok := comp.(*WorkflowSourceStep); ok {
+			for _, mount := range step.FsMount {
+				if mount.FsName != "" {
+					mount.FsID = "fs-" + userName + "-" + mount.FsName
+				}
+			}
+
+			for _, scope := range step.Cache.FsScope {
+				if scope.FsName != "" {
+					scope.FsID = "fs-" + userName + "-" + scope.FsName
+				}
+			}
+		} else {
+			return fmt.Errorf("component not dag or step")
+		}
+	}
+	return nil
 }
