@@ -54,7 +54,7 @@ func InitStandardFileLogger(logConf *LogConfig) error {
 func InitFileLogger(logger *log.Logger, logConf *LogConfig) error {
 	hostname, err := os.Hostname()
 	if err != nil {
-		fmt.Println(fmt.Sprintf("failed to get hostname: %v", err))
+		err = fmt.Errorf("failed to get hostname: %w", err)
 		return err
 	}
 
@@ -70,7 +70,7 @@ func InitFileLogger(logger *log.Logger, logConf *LogConfig) error {
 	}
 	level, err := log.ParseLevel(logConf.Level)
 	if err != nil {
-		fmt.Errorf("failed to parse logger level: %v\n", err)
+		err = fmt.Errorf("failed to parse logger level: %w", err)
 		return err
 	}
 	logger.SetLevel(level)
