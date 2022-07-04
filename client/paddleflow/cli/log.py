@@ -56,7 +56,7 @@ def show(ctx, runid, jobid=None, pagesize=None, pageno=None, logfileposition=Non
         sys.exit(1)
     valid, response = client.show_log(runid, jobid, pagesize, pageno, logfileposition)
     if valid:
-        if jobid is None:
+        if jobid is None and len(response['runLog']) > 0:
             response['runLog'] = [response['runLog'][0]]
         _print_run_log(response, output_format)
     else:

@@ -71,7 +71,7 @@ func TestKubeRuntimePVAndPVC(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, "", mountInfo.FsCacheConfig.CacheDir)
 	assert.Equal(t, "", mountInfo.FsCacheConfig.FsID)
-	assert.Equal(t, "default", mountInfo.FsCacheConfig.MetaDriver)
+	assert.Equal(t, "", mountInfo.FsCacheConfig.MetaDriver)
 	assert.Equal(t, 0, mountInfo.FsCacheConfig.BlockSize)
 	assert.Equal(t, false, mountInfo.FsCacheConfig.Debug)
 }
