@@ -61,6 +61,7 @@ func (j *JobCollector) Collect(ch chan<- prometheus.Metric) {
 	err := j.CollectPodMetrics(common.MetricJobCpuUsageRate)
 	if err != nil {
 		log.Errorf("collect podMetrics[%s] failed, error:[%s]", common.MetricJobCpuUsageRate, err.Error())
+		return
 	}
 	j.CpuUsageRate.Collect(ch)
 }
@@ -73,12 +74,9 @@ func (j *JobCollector) CollectPodMetrics(metricName string) error {
 			log.Errorf("job[%s] get pod name list error %s", value.ID, err.Error())
 			return err
 		}
-		ctxP, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		query := getQuerySql(metricName)
-		result, _, err := monitor.PrometheusClientAPI.Query(ctxP, query, time.Now())
+		result, err := callPrometheusAPI(metricName, value.ID)
 		if err != nil {
-			log.Errorf("job[%s] prometheus query range api error %s", value.ID, err.Error())
+			log.Errorf("call prometheus query api error %s", err.Error())
 			return err
 		}
 		data := result.(model.Vector)
@@ -93,10 +91,22 @@ func (j *JobCollector) CollectPodMetrics(metricName string) error {
 	return nil
 }
 
+func callPrometheusAPI(metricName, jobID string) (model.Value, error) {
+	ctxP, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	query := getQuerySql(metricName)
+	result, _, err := monitor.PrometheusClientAPI.Query(ctxP, query, time.Now())
+	if err != nil {
+		log.Errorf("job[%s] prometheus query range api error %s", jobID, err.Error())
+		return nil, err
+	}
+	return result, nil
+}
+
 func getQuerySql(metricName string) string {
 	switch metricName {
 	case common.MetricJobCpuUsageRate:
-		querySql := "sum(rate(container_cpu_usage_seconds_total{image!=\"\"，pod=~\".*job.*\"}[1m])) by (pod) * 100"
+		querySql := common.QueryCPUUsageRateSql
 		return querySql
 		// TODO add more metric sql
 	default:
@@ -107,6 +117,7 @@ func getQuerySql(metricName string) string {
 func getPodNameList(podNameList *[]string, job models.Job) error {
 	names, err := getTaskName(job.ID)
 	if err != nil {
+		log.Errorf("get job[%s] tasks failed, error:[%s]", job.ID, err.Error())
 		return err
 	}
 	*podNameList = append(*podNameList, names...)

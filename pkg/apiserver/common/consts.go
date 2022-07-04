@@ -72,5 +72,7 @@ const (
 	MetricJobGpuUtil         = "job_gpu_util"
 	MetricJobGpuMemoryUtil   = "job_gpu_memory_util"
 
+	QueryCPUUsageRateSql = "sum(rate(container_cpu_usage_seconds_total{image!=\"\"，pod=~\".*job.*\"}[1m])) by (pod) / sum(container_spec_cpu_quota{image!=\"\"，pod=~\".*job.*\"} / 100000) by (pod)"
+
 	PodID = "podID"
 )
