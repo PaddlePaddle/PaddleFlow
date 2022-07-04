@@ -117,6 +117,7 @@ type WorkflowSourceStep struct {
 	DockerEnv    string                 `yaml:"docker_env"`
 	Cache        Cache                  `yaml:"cache"`
 	Reference    Reference              `yaml:"reference"`
+	FsMount      []FsMount              `yaml:"fs_mount"`
 }
 
 func (s *WorkflowSourceStep) GetName() string {
@@ -419,9 +420,14 @@ type Reference struct {
 }
 
 type Cache struct {
-	Enable         bool   `yaml:"enable"           json:"enable"`
-	MaxExpiredTime string `yaml:"max_expired_time" json:"maxExpiredTime"` // seconds
-	FsScope        string `yaml:"fs_scope"         json:"fsScope"`        // seperated by ","
+	Enable         bool      `yaml:"enable"           json:"enable"`
+	MaxExpiredTime string    `yaml:"max_expired_time" json:"maxExpiredTime"` // seconds
+	FsScope        []FsScope `yaml:"fs_scope"         json:"fsScope"`        // seperated by ","
+}
+
+type FsScope struct {
+	FsName string `yaml:"fs_name"       json:"fsName"`
+	Path   string `yaml:"path"          json:"path"`
 }
 
 type FailureOptions struct {
@@ -429,8 +435,15 @@ type FailureOptions struct {
 }
 
 type FsOptions struct {
-	GlobalFs string                     `yaml:"global_fs"    json:"globalFs"`
-	FsMount  [](map[string]interface{}) `yaml:"fs_mount"    json:"fsMount"`
+	GlobalFs string    `yaml:"global_fs"    json:"globalFs"`
+	FsMount  []FsMount `yaml:"fs_mount"     json:"fsMount"`
+}
+
+type FsMount struct {
+	FsName    string `yaml:"fs_name"       json:"fsName"`
+	MountPath string `yaml:"mount_path"    json:"mountPath"`
+	SubPath   string `yaml:"sub_path"      json:"subPath"`
+	Readonly  bool   `yaml:"readonly"      json:"readonly"`
 }
 
 type WorkflowSource struct {
