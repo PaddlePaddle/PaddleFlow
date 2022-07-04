@@ -41,18 +41,12 @@ var (
 type ServerConfig struct {
 	Storage   StorageConfig                  `yaml:"database"`
 	Log       logger.LogConfig               `yaml:"log"`
-	ApiServer ApiServerConfig                `yaml:"apiServer"`
-	Job       JobConfig                      `yaml:"job"`
-	Fs        FsServerConf                   `yaml:"fs"`
-	ImageConf ImageConfig                    `yaml:"imageRepository"`
-	Monitor   PrometheusConfig               `yaml:"monitor"`
-	Storage   StorageConfig                  `yaml:"database"`
-	Log       logger.LogConfig               `yaml:"log"`
 	TraceLog  trace_logger.TraceLoggerConfig `yaml:"traceLog"`
 	ApiServer ApiServerConfig                `yaml:"apiServer"`
 	Job       JobConfig                      `yaml:"job"`
 	Fs        FsServerConf                   `yaml:"fs"`
 	ImageConf ImageConfig                    `yaml:"imageRepository"`
+	Monitor   PrometheusConfig               `yaml:"monitor"`
 }
 
 type StorageConfig struct {
