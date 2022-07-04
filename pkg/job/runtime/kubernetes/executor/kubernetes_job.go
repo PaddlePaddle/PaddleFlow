@@ -545,16 +545,31 @@ func GetPodGroupName(jobID string) string {
 		log.Errorf("get job %s failed, err %v", jobID, err)
 		return ""
 	}
-	runtimeInfo := job.RuntimeInfo.(map[string]interface{})
-	jobObj := &unstructured.Unstructured{}
-	if err = runtime.DefaultUnstructuredConverter.FromUnstructured(runtimeInfo, jobObj); err != nil {
-		log.Errorf("convert obj to unstructed.Unstructed failed, err %v", err)
-		return ""
+
+	// TODO: remove job type TypeVcJob
+	if job.Type == string(schema.TypeVcJob) {
+		return jobID
 	}
-	anno := jobObj.GetAnnotations()
 	pgName := ""
-	if anno != nil {
-		pgName = anno[schedulingv1beta1.KubeGroupNameAnnotationKey]
+	switch job.Framework {
+	case schema.FrameworkPaddle:
+		pgName = jobID
+	case schema.FrameworkSpark:
+		pgName = fmt.Sprintf("spark-%s-pg", jobID)
+	case schema.FrameworkStandalone, "":
+		runtimeInfo := job.RuntimeInfo.(map[string]interface{})
+		jobObj := &unstructured.Unstructured{}
+		if err = runtime.DefaultUnstructuredConverter.FromUnstructured(runtimeInfo, jobObj); err != nil {
+			log.Errorf("convert obj to unstructed.Unstructed failed, err %v", err)
+			return ""
+		}
+		anno := jobObj.GetAnnotations()
+		if anno != nil {
+			pgName = anno[schedulingv1beta1.KubeGroupNameAnnotationKey]
+		}
+	default:
+		log.Warningf("the framework[%s] of job is not supported", job.Framework)
+		pgName = jobID
 	}
 	return pgName
 }

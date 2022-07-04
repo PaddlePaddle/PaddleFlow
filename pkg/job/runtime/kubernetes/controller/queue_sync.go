@@ -236,7 +236,7 @@ func (qs *QueueSync) update(old, new interface{}) {
 	case k8s.VCQueueGVK:
 		oldQ := oldQueue.(*v1beta1.Queue)
 		newQ := queue.(*v1beta1.Queue)
-		if reflect.DeepEqual(oldQ.Spec, newQ.Spec) {
+		if reflect.DeepEqual(oldQ.Spec, newQ.Spec) && oldQ.Status.State == newQ.Status.State {
 			return
 		}
 		msg = fmt.Sprintf("old queue: %v, new queue: %v", oldQ.Spec, newQ.Spec)
@@ -246,7 +246,7 @@ func (qs *QueueSync) update(old, new interface{}) {
 	case k8s.EQuotaGVK:
 		oldEquota := oldQueue.(*v1beta1.ElasticResourceQuota)
 		newEquota := queue.(*v1beta1.ElasticResourceQuota)
-		if reflect.DeepEqual(oldEquota.Spec, newEquota.Spec) {
+		if reflect.DeepEqual(oldEquota.Spec, newEquota.Spec) && oldEquota.Status.IsLeaf == newEquota.Status.IsLeaf {
 			return
 		}
 		msg = fmt.Sprintf("old queue: %v, new queue: %v", oldEquota.Spec, newEquota.Spec)
