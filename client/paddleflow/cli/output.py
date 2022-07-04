@@ -29,6 +29,7 @@ class OutputFormat(Enum):
     """Enumerated class with the allowed output format constants."""
     table = "table"
     json = "json"
+    text = "text"
 
 
 def print_output(data: Union[list, dict], headers: list, output_format: str, table_format: str = "simple"):
@@ -55,5 +56,13 @@ def print_output(data: Union[list, dict], headers: list, output_format: str, tab
             for row in data:
                 output.append(dict(zip(headers, row)))
         click.echo(json.dumps(output, indent=4))
+    elif output_format == OutputFormat.text.name:
+        output = ''
+        for index, item in enumerate(data):
+            for i in item:
+                output += i + ' \t'
+            if index != len(data) - 1:
+                output += '\n'
+        click.echo(output)
     else:
         raise NotImplementedError("Unknown Output Format: {}".format(output_format))
