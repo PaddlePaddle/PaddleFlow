@@ -163,6 +163,7 @@ func CreateSingleJob(ctx *logger.RequestContext, request *CreateSingleJobRequest
 		UserName:          request.UserName,
 		QueueID:           request.SchedulingPolicy.QueueID,
 		Status:            schema.StatusJobInit,
+		Framework:         schema.FrameworkStandalone,
 		Config:            &conf,
 		ExtensionTemplate: templateJson,
 	}
