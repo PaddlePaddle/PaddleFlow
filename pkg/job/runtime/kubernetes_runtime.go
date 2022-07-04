@@ -194,7 +194,8 @@ func (kr *KubeRuntime) UpdateJob(jobInfo *api.PFJob) error {
 		}
 	}
 	// update labels and annotations
-	if jobInfo.Labels != nil || jobInfo.Annotations != nil {
+	if (jobInfo.Labels != nil && len(jobInfo.Labels) != 0) ||
+		(jobInfo.Annotations != nil && len(jobInfo.Annotations) != 0) {
 		patchJSON := struct {
 			metav1.ObjectMeta `json:"metadata,omitempty"`
 		}{
