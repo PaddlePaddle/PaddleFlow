@@ -883,7 +883,8 @@ func validateMembers(ctx *logger.RequestContext, members []MemberSpec, schePolic
 		ctx.ErrorCode = common.RequiredFieldEmpty
 		return err
 	}
-	// todo(zhongzichao) calculate total member resource, and compare with queue.MaxResource
+	// calculate total member resource, and compare with queue.MaxResource
+	sumResource := resources.EmptyResource()
 	for index, member := range members {
 		// validate queue
 		var err error
@@ -898,9 +899,21 @@ func validateMembers(ctx *logger.RequestContext, members []MemberSpec, schePolic
 			ctx.ErrorCode = common.JobInvalidField
 			return err
 		}
-
+		// sum = sum + member.Replicas * member.Flavour.ResourceInfo
+		memberRes, err := resources.NewResourceFromMap(member.Flavour.ResourceInfo.ToMap())
+		if err != nil {
+			ctx.Logging().Errorf("Failed to multiply replicas=%d and resourceInfo=%v, err: %v", member.Replicas, member.Flavour.ResourceInfo, err)
+			ctx.ErrorCode = common.JobInvalidField
+			return err
+		}
+		sumResource.Add(memberRes)
 	}
-	// todo(zhongzichao) validate queue and total-member-resource
+	// validate queue and total-member-resource
+	if !sumResource.LessEqual(schePolicy.MaxResources) {
+		errMsg := fmt.Sprintf("the flavour[%+v] is larger than queue's [%+v]", sumResource, schePolicy.MaxResources)
+		log.Errorf(errMsg)
+		return fmt.Errorf(errMsg)
+	}
 	return nil
 }
 
