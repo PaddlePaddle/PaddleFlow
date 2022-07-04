@@ -58,7 +58,7 @@ def list(ctx, username=None, maxsize=100):
 @click.argument('url')
 @click.option('-u', '--username', help='Create fs by username, only useful for root.')
 @click.option('-o', '--o', multiple=True, help="""
-Create file-sysystem properties example and rules:   
+Create file-system properties example and rules:   
 SFTP: 
   -o user: sftp user [required] 
   -o password: sftp password [required] 
@@ -66,10 +66,15 @@ SFTP:
   
 S3:   
   -o endpoint: s3 endpoint [required] 
-  -o region: s3 regin [not required] 
+  -o region: s3 region [not required] 
   -o accessKey: s3 accessKey [required]
   -o secretKey: s3 secretKey [required]
-  Example: -o endpoint=your-endpoint -o region=your-regin 
+  -o s3ForcePathStyle: set this to `true` to force the request to use path-style addressing
+  -o insecureSkipVerify: insecureSkipVerify controls whether a client verifies the server's certificate chain and host
+   name. If insecureSkipVerify is `true`, crypto/tls accepts any certificate presented by the server and any host name in 
+   that certificate. In this mode, TLS is susceptible to machine-in-the-middle attacks unless custom verification is 
+   used.
+  Example: -o endpoint=your-endpoint -o region=your-region 
  
 HDFS:  
   -o user: hdfs user name [required] 
@@ -333,7 +338,7 @@ def deletefscache(ctx, fsname, username=None):
 @click.argument('url')
 @click.option('-u', '--username', help='Create link by username.')
 @click.option('-o', '--o', multiple=True, help="""
-Create file-sysystem link properties example and rules:   
+Create file-system link properties example and rules:   
 SFTP: 
   -o user: sftp user [required] 
   -o password: sftp password [required] 
@@ -344,7 +349,12 @@ S3:
   -o region: s3 regin [not required] 
   -o accessKey: s3 accessKey [required]
   -o secretKey: s3 secretKey [required]
-  Example: -o endpoint=your-endpoint -o region=your-regin 
+  -o s3ForcePathStyle: set this to `true` to force the request to use path-style addressing
+  -o insecureSkipVerify: insecureSkipVerify controls whether a client verifies the server's certificate chain and host
+   name. If insecureSkipVerify is `true`, crypto/tls accepts any certificate presented by the server and any host name in 
+   that certificate. In this mode, TLS is susceptible to machine-in-the-middle attacks unless custom verification is 
+   used.
+  Example: -o endpoint=your-endpoint -o region=your-region 
  
 HDFS:  
   -o user: hdfs user name [required] 
