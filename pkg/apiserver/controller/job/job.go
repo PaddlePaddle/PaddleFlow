@@ -907,6 +907,7 @@ func validateMembers(ctx *logger.RequestContext, members []MemberSpec, schePolic
 			ctx.ErrorCode = common.JobInvalidField
 			return err
 		}
+		memberRes.Multi(member.Replicas)
 		sumResource.Add(memberRes)
 	}
 	// validate queue and total-member-resource
