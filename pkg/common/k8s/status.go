@@ -56,11 +56,11 @@ func ConvertToStatus(obj interface{}, gvk k8sschema.GroupVersionKind) (interface
 	status, ok, unerr := unstructured.NestedFieldCopy(jobObj.Object, "status")
 	if !ok {
 		if unerr != nil {
-			log.Error(unerr, "NestedFieldCopy unstructured to status error")
+			log.Errorf("NestedFieldCopy unstructured to status error: %v", unerr)
 			return realStatus, unerr
 		}
 		log.Info("NestedFieldCopy unstructured to status error: Status is not found in job")
-		return realStatus, fmt.Errorf("get status from unstructured object failed")
+		return realStatus, nil
 	}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(status.(map[string]interface{}), realStatus); err != nil {
 		log.Errorf("convert unstructured object [%+v] to %s status failed. error: %s", obj, gvk.String(), err.Error())
