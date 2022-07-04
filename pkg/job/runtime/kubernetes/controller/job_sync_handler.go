@@ -40,19 +40,17 @@ const (
 
 func (j *JobSync) add(obj interface{}) {
 	jobObj := obj.(*unstructured.Unstructured)
-	// get job id
-	labels := jobObj.GetLabels()
-	jobID := labels[schema.JobIDLabel]
-	// get job status
 	gvk := jobObj.GroupVersionKind()
+
+	log.Infof("begin add %s job. jobName: %s, namespace: %s", gvk.String(), jobObj.GetName(), jobObj.GetNamespace())
+	// get job status
 	getStatusFunc := k8s.GVKJobStatusMap[gvk]
 	statusInfo, err := getStatusFunc(obj)
 	if err != nil {
 		return
 	}
 	jobStatus := statusInfo.Status
-	log.Infof("add %s job. jobName: %s, namespace: %s, jobID: %s, status: %s",
-		gvk.String(), jobObj.GetName(), jobObj.GetNamespace(), jobID, jobStatus)
+
 	if jobStatus == "" {
 		jobStatus = schema.StatusJobPending
 	}
@@ -68,6 +66,8 @@ func (j *JobSync) add(obj interface{}) {
 		Action:      schema.Create,
 	}
 	j.jobQueue.Add(jobInfo)
+	log.Infof("add %s job enqueue. jobID: %s, status: %s, message: %s", gvk.String(),
+		jobInfo.ID, jobInfo.Status, jobInfo.Message)
 }
 
 func (j *JobSync) update(old, new interface{}) {
