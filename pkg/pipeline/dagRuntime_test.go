@@ -107,11 +107,11 @@ func TestGenerateSubComponentFullName(t *testing.T) {
 	assert.Nil(t, err)
 
 	fullName := drt.generateSubRuntimeName("step1", 0)
-	assert.Equal(t, "PF-EntryPoint.step1", fullName)
+	assert.Equal(t, "a.entrypoint.step1", fullName)
 
-	drt.fullName = "entrypoint"
+	drt.runtimeName = "entrypoint"
 	fullName = drt.generateSubRuntimeName("step1", 1)
-	assert.Equal(t, "entrypoint.step1-1", fullName)
+	assert.Equal(t, "a.entrypoint.step1-1", fullName)
 }
 
 func TestGetReadyComponent(t *testing.T) {
@@ -223,8 +223,8 @@ func TestCreateAndStartSubComponentRuntime(t *testing.T) {
 	assert.True(t, dagStarted)
 	assert.Len(t, drt.subComponentRumtimes, 2)
 	assert.Len(t, drt.subComponentRumtimes["square-loop"], 3)
-	assert.Equal(t, drt.subComponentRumtimes["square-loop"][0].getFullName(), "PF-EntryPoint.square-loop")
-	assert.Equal(t, drt.subComponentRumtimes["square-loop"][1].getName(), "PF-EntryPoint.square-loop.1")
+	assert.Equal(t, drt.subComponentRumtimes["square-loop"][0].getFullName(), "a.entrypoint.square-loop")
+	assert.Equal(t, drt.subComponentRumtimes["square-loop"][1].getName(), "a.entrypoint.square-loop-1")
 }
 
 func TestDagRuntimeStart(t *testing.T) {

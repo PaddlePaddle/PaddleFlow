@@ -253,7 +253,7 @@ func (crt *baseComponentRuntime) getComponent() schema.Component {
 func (crt *baseComponentRuntime) updateStatus(status RuntimeStatus) error {
 	if crt.done {
 		err := fmt.Errorf("cannot update the status of runtime[%s]，because the status of it is [%s]",
-			crt.fullName, crt.status)
+			crt.name, crt.status)
 		crt.logger.Errorln(err.Error())
 		return err
 	}
@@ -278,7 +278,7 @@ func (crt *baseComponentRuntime) getPFLoopArgument() (value interface{}, err err
 	t := reflect.TypeOf(crt.component.GetLoopArgument())
 	if t.Kind() != reflect.Slice {
 		err := fmt.Errorf("the value of loopArgument for %s[%s] should an instance of list, and current value is: %v",
-			crt.getComponent().GetType(), crt.fullName, crt.component.GetLoopArgument())
+			crt.getComponent().GetType(), crt.name, crt.component.GetLoopArgument())
 		return nil, err
 	}
 	v := reflect.ValueOf(crt.component.GetLoopArgument())
@@ -290,13 +290,13 @@ func (crt *baseComponentRuntime) getPFLoopArgument() (value interface{}, err err
 
 	defer func() {
 		if info := recover(); info != nil {
-			err = fmt.Errorf("get LoopArgument for %s[%s] failed", crt.getComponent().GetType(), crt.fullName)
+			err = fmt.Errorf("get LoopArgument for %s[%s] failed", crt.getComponent().GetType(), crt.name)
 		}
 	}()
 
 	value = v.Index(crt.seq).Interface()
 
-	crt.logger.Infof("the PF_LOOP_ARG of %s[%s] is : %v", crt.getComponent().GetType(), crt.fullName, value)
+	crt.logger.Infof("the PF_LOOP_ARG of %s[%s] is : %v", crt.getComponent().GetType(), crt.name, value)
 	return
 }
 
@@ -332,7 +332,7 @@ func (crt *baseComponentRuntime) setSysParams() error {
 	crt.innerSolver.setSysParams(crt.sysParams)
 
 	crt.logger.Infof("the sysParams for %s[%s] is %v", crt.getComponent().GetType(),
-		crt.fullName, crt.sysParams)
+		crt.name, crt.sysParams)
 
 	return nil
 }
@@ -344,7 +344,7 @@ func (crt *baseComponentRuntime) CalculateCondition() (bool, error) {
 	}
 
 	crt.logger.Debugf("before to calculate the condition of %s[%s] : %s", crt.getComponent().GetType(),
-		crt.fullName, crt.GetCondition())
+		crt.name, crt.GetCondition())
 
 	cc := NewConditionCalculator(crt.component.GetCondition())
 	return cc.calculate()

@@ -72,6 +72,9 @@ var mockCbs = WorkflowCallbacks{
 		return []models.RunCache{models.RunCache{RunID: "run-000027", JobID: "job-1"},
 			models.RunCache{RunID: "run-000028", JobID: "job-2"}}, nil
 	},
+	LogArtifactCb: func(req schema.LogRunArtifactRequest) error {
+		return nil
+	},
 }
 
 // 测试updateJob接口（用于计算fingerprint）
@@ -220,9 +223,9 @@ func TestUpdateJob(t *testing.T) {
 
 		assert.Nil(t, err)
 
-		OutatfTrainData := "./.pipeline/run-000001/myproject/data-preprocess-0-06d43c4461214f6e3dd81b46eab9c276/train_data"
-		OutatfValidateData := "./.pipeline/run-000001/myproject/data-preprocess-0-06d43c4461214f6e3dd81b46eab9c276/validate_data"
-		OutatfTrainModel := "./.pipeline/run-000001/myproject/main-0-fad58de7366495db4650cfefac2fcd61/train_model"
+		OutatfTrainData := ".pipeline/run-000001/myproject/data-preprocess-0-2578f927d74c8ef09add007179d6d227/train_data"
+		OutatfValidateData := ".pipeline/run-000001/myproject/data-preprocess-0-2578f927d74c8ef09add007179d6d227/validate_data"
+		OutatfTrainModel := ".pipeline/run-000001/myproject/main-0-d85d2ce5c2b131b6efc68069a4f18c9b/train_model"
 		if stepName == "data-preprocess" {
 			assert.Equal(t, 2, len(srt.job.Job().Parameters))
 
@@ -235,8 +238,8 @@ func TestUpdateJob(t *testing.T) {
 
 			assert.Contains(t, srt.job.Job().Env, "PF_OUTPUT_ARTIFACT_TRAIN_DATA")
 			assert.Contains(t, srt.job.Job().Env, "PF_OUTPUT_ARTIFACT_VALIDATE_DATA")
-			assert.Equal(t, OutatfTrainData, srt.job.Job().Env["PF_OUTPUT_ARTIFACT_TRAIN_DATA"])
-			assert.Equal(t, OutatfValidateData, srt.job.Job().Env["PF_OUTPUT_ARTIFACT_VALIDATE_DATA"])
+			assert.Equal(t, common.ArtMountDir+"/"+OutatfTrainData, srt.job.Job().Env["PF_OUTPUT_ARTIFACT_TRAIN_DATA"])
+			assert.Equal(t, common.ArtMountDir+"/"+OutatfValidateData, srt.job.Job().Env["PF_OUTPUT_ARTIFACT_VALIDATE_DATA"])
 
 			expectedCommand := fmt.Sprintf("python data_preprocess.py --input ./LINK/mybos_dir/data --output ./data/pre --validate %s --stepname data-preprocess", OutatfValidateData)
 			assert.Equal(t, expectedCommand, srt.job.Job().Command)
@@ -250,7 +253,7 @@ func TestUpdateJob(t *testing.T) {
 			assert.Equal(t, "0.66", srt.job.Job().Parameters["p4"])
 			assert.Equal(t, "/path/to/anywhere", srt.job.Job().Parameters["p5"])
 
-			assert.Equal(t, 5+6+2, len(srt.job.Job().Env)) // 5 env + 6 sys param + 2 artifact
+			assert.Equal(t, 5+7+2, len(srt.job.Job().Env)) // 5 env + 6 sys param + 2 artifact
 
 			// input artifact 替换为上游节点的output artifact
 			// 实际运行中上游节点的output artifact一定是非空的（因为已经运行了），但是在这个测试case里，上游节点没有生成output artifact，所以是空字符串
@@ -262,8 +265,8 @@ func TestUpdateJob(t *testing.T) {
 
 			assert.Contains(t, srt.job.Job().Env, "PF_INPUT_ARTIFACT_TRAIN_DATA")
 			assert.Contains(t, srt.job.Job().Env, "PF_OUTPUT_ARTIFACT_TRAIN_MODEL")
-			assert.Equal(t, OutatfTrainData, srt.job.Job().Env["PF_INPUT_ARTIFACT_TRAIN_DATA"])
-			assert.Equal(t, OutatfTrainModel, srt.job.Job().Env["PF_OUTPUT_ARTIFACT_TRAIN_MODEL"])
+			assert.Equal(t, common.ArtMountDir+"/"+OutatfTrainData, srt.job.Job().Env["PF_INPUT_ARTIFACT_TRAIN_DATA"])
+			assert.Equal(t, common.ArtMountDir+"/"+OutatfTrainModel, srt.job.Job().Env["PF_OUTPUT_ARTIFACT_TRAIN_MODEL"])
 
 			expectedCommand := "python train.py -r 0.1 -d ./data/pre --output ./data/model"
 			assert.Equal(t, expectedCommand, srt.job.Job().Command)

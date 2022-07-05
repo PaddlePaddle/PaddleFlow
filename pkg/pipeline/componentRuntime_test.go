@@ -67,6 +67,7 @@ func mockRunConfigForComponentRuntime() *runConfig {
 		logger:             logger.LoggerForRun("componentRunt"),
 		runID:              "run-000001",
 		parallelismManager: NewParallelismManager(50),
+		callbacks:          mockCbs,
 	}
 }
 
@@ -140,7 +141,7 @@ func TestGetFunc(t *testing.T) {
 	assert.Equal(t, 1, cp.getSeq())
 
 	cp.seq = 0
-	assert.Equal(t, "step1", cp.getName())
+	assert.Equal(t, "a.entrypoint.step1", cp.getName())
 }
 
 func TestSetSysParam(t *testing.T) {
