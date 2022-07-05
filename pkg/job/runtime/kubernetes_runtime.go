@@ -714,6 +714,10 @@ func (kr *KubeRuntime) ListPods(namespace string, listOptions metav1.ListOptions
 	return kr.clientset.CoreV1().Pods(namespace).List(context.TODO(), listOptions)
 }
 
+func (kr *KubeRuntime) DeletePod(namespace, name string) error {
+	return kr.clientset.CoreV1().Pods(namespace).Delete(context.TODO(), name, metav1.DeleteOptions{})
+}
+
 func (kr *KubeRuntime) getNodeQuotaListImpl(subQuotaFn func(r *resources.Resource, pod *apiv1.Pod) error) (schema.QuotaSummary, []schema.NodeQuotaInfo, error) {
 	result := []schema.NodeQuotaInfo{}
 	summary := schema.QuotaSummary{

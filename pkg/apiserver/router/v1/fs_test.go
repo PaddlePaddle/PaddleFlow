@@ -32,6 +32,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
+	k8sCore "k8s.io/api/core/v1"
 )
 
 func Test_validateCreateFileSystem(t *testing.T) {
@@ -469,8 +470,8 @@ func TestCreateFSAndDeleteFs(t *testing.T) {
 	})
 	defer p1.Reset()
 
-	var p2 = gomonkey.ApplyFunc(fs.CheckFsMounted, func(cnm map[*runtime.KubeRuntime][]string, fsID string) (bool, error) {
-		return false, nil
+	var p2 = gomonkey.ApplyFunc(fs.CheckFsMounted, func(cnm map[*runtime.KubeRuntime][]string, fsID string) (bool, map[*runtime.KubeRuntime][]k8sCore.Pod, error) {
+		return false, nil, nil
 	})
 
 	deleteUrl := fsUrl + "/" + mockFsName
@@ -481,8 +482,8 @@ func TestCreateFSAndDeleteFs(t *testing.T) {
 	p2.Reset()
 
 	// test fs mounted
-	p2 = gomonkey.ApplyFunc(fs.CheckFsMounted, func(cnm map[*runtime.KubeRuntime][]string, fsID string) (bool, error) {
-		return true, nil
+	p2 = gomonkey.ApplyFunc(fs.CheckFsMounted, func(cnm map[*runtime.KubeRuntime][]string, fsID string) (bool, map[*runtime.KubeRuntime][]k8sCore.Pod, error) {
+		return true, nil, nil
 	})
 	defer p2.Reset()
 	result, err = PerformPostRequest(router, fsUrl, createFsReq)
