@@ -322,8 +322,15 @@ func DeletePvPvc(cnm map[*runtime.KubeRuntime][]string, fsID string) error {
 		for _, ns := range namespaces {
 			// delete pvc manually. pv will be deleted automatically
 			if err := k8sRuntime.DeletePersistentVolumeClaim(ns, schema.ConcatenatePVCName(fsID), k8sMeta.DeleteOptions{}); err != nil && !k8sErrors.IsNotFound(err) {
-				log.Errorf("delete pvc[%s/%s] err: %v", ns, schema.ConcatenatePVCName(fsID), err)
-				return fmt.Errorf("delete pvc[%s-%s] err: %v", ns, schema.ConcatenatePVCName(fsID), err)
+				err := fmt.Errorf("delete pvc[%s/%s] err: %v", ns, schema.ConcatenatePVCName(fsID), err)
+				log.Errorf(err.Error())
+				return err
+			}
+			// delete pv in case pv not deleted
+			if err := k8sRuntime.DeletePersistentVolume(schema.ConcatenatePVName(ns, fsID), k8sMeta.DeleteOptions{}); err != nil && !k8sErrors.IsNotFound(err) {
+				err := fmt.Errorf("delete pv[%s] err: %v", schema.ConcatenatePVName(ns, fsID), err)
+				log.Errorf(err.Error())
+				return err
 			}
 		}
 	}

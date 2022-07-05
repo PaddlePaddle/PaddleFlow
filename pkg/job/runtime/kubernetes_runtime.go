@@ -683,8 +683,8 @@ func (kr *KubeRuntime) createPersistentVolume(pv *apiv1.PersistentVolume) (*apiv
 	return kr.clientset.CoreV1().PersistentVolumes().Create(context.TODO(), pv, metav1.CreateOptions{})
 }
 
-func (kr *KubeRuntime) deletePersistentVolume(name string, deleteOptions *metav1.DeleteOptions) error {
-	return kr.clientset.CoreV1().PersistentVolumes().Delete(context.TODO(), name, *deleteOptions)
+func (kr *KubeRuntime) DeletePersistentVolume(name string, deleteOptions metav1.DeleteOptions) error {
+	return kr.clientset.CoreV1().PersistentVolumes().Delete(context.TODO(), name, deleteOptions)
 }
 
 func (kr *KubeRuntime) getPersistentVolume(name string, getOptions metav1.GetOptions) (*apiv1.PersistentVolume, error) {
