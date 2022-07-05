@@ -480,10 +480,14 @@ func TestCreateFSAndDeleteFs(t *testing.T) {
 
 	p2.Reset()
 
+	// test fs mounted
 	p2 = gomonkey.ApplyFunc(fs.CheckFsMounted, func(cnm map[*runtime.KubeRuntime][]string, fsID string) (bool, error) {
 		return true, nil
 	})
 	defer p2.Reset()
+	result, err = PerformPostRequest(router, fsUrl, createFsReq)
+	assert.Nil(t, err)
+	assert.Equal(t, http.StatusCreated, result.Code)
 
 	deleteUrl = fsUrl + "/" + mockFsName
 	result, err = PerformDeleteRequest(router, deleteUrl)
