@@ -48,10 +48,6 @@ const (
 	MetaCacheDir      = "/meta-cache"
 	CacheWorkerBin    = "/home/paddleflow/cache-worker"
 
-	AnnoKeyMTime  = "modifiedTime"
-	AnnoKeyServer = "server"
-	AnnoKeyFsID   = "fsID"
-
 	ContainerNameCacheWorker = "cache-worker"
 	ContainerNamePfsMount    = "pfs-mount"
 )
@@ -80,12 +76,9 @@ func PodUnmount(volumeID string, mountInfo Info) error {
 		return nil
 	}
 
-	mountInfo.Server = pod.Annotations[AnnoKeyServer]
-	mountInfo.FsID = pod.Annotations[AnnoKeyFsID]
-	if mountInfo.Server == "" || mountInfo.FsID == "" {
-		log.Errorf("PodUnmount: pod[%s] annotations[%v] missing field", pod.Name, pod.Annotations)
-		return fmt.Errorf("PodUnmount: pod[%s] annotations[%v] missing field", pod.Name, pod.Annotations)
-	}
+	//mountInfo.Server = pod.Annotations[AnnoKeyServer]
+	//mountInfo.FsID = pod.Labels[AnnoKeyFsID]
+	//log.Debugf("PodUnmount: pod[%s] annotations[%v] missing field", pod.Name, pod.Annotations)
 
 	workPodUID := utils.GetPodUIDFromTargetPath(mountInfo.TargetPath)
 	if workPodUID != "" {
@@ -170,7 +163,7 @@ func removeRef(c k8s.Client, pod *k8sCore.Pod, workPodUID string) error {
 		return nil
 	}
 	delete(annotation, workPodUID)
-	annotation[AnnoKeyMTime] = time.Now().Format(model.TimeFormat)
+	annotation[schema.AnnoKeyMTime] = time.Now().Format(model.TimeFormat)
 	if err := patchPodAnnotation(c, pod, annotation); err != nil {
 		retErr := fmt.Errorf("mount_pod removeRef: patch pod[%s] annotation:%+v err:%v", pod.Name, annotation, err)
 		log.Errorf(retErr.Error())
@@ -228,8 +221,11 @@ func buildMountPod(volumeID string, mountInfo Info) (*k8sCore.Pod, error) {
 	if err != nil {
 		return nil, err
 	}
-	anno[AnnoKeyFsID] = mountInfo.FsID // debug info
+	// debug info
+	anno[schema.AnnoKeyServer] = mountInfo.Server
 	pod.ObjectMeta.Annotations = anno
+	// label for pod list
+	pod.Labels = map[string]string{schema.LabelKeyFsID: mountInfo.FsID}
 	return pod, nil
 }
 
@@ -245,7 +241,7 @@ func buildAnnotation(pod *k8sCore.Pod, targetPath string) (map[string]string, er
 		return nil, err
 	}
 	annotation[workPodUID] = targetPath
-	annotation[AnnoKeyMTime] = time.Now().Format(model.TimeFormat)
+	annotation[schema.AnnoKeyMTime] = time.Now().Format(model.TimeFormat)
 	return annotation, nil
 }
 

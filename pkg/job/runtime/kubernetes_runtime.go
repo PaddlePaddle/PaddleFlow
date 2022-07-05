@@ -194,7 +194,8 @@ func (kr *KubeRuntime) UpdateJob(jobInfo *api.PFJob) error {
 		}
 	}
 	// update labels and annotations
-	if jobInfo.Labels != nil || jobInfo.Annotations != nil {
+	if (jobInfo.Labels != nil && len(jobInfo.Labels) != 0) ||
+		(jobInfo.Annotations != nil && len(jobInfo.Annotations) != 0) {
 		patchJSON := struct {
 			metav1.ObjectMeta `json:"metadata,omitempty"`
 		}{
@@ -499,7 +500,7 @@ func (kr *KubeRuntime) GetQueueUsedQuota(q *models.Queue) (*resources.Resource, 
 	listOpts := metav1.ListOptions{
 		FieldSelector: fieldSelector,
 	}
-	podList, err := kr.listPods(q.Namespace, listOpts)
+	podList, err := kr.ListPods(q.Namespace, listOpts)
 	if err != nil || podList == nil {
 		log.Errorf("get queue used quota failed, err: %v", err)
 		return nil, fmt.Errorf("get queue used quota failed, err: %v", err)
@@ -709,7 +710,7 @@ func (kr *KubeRuntime) listNodes(listOptions metav1.ListOptions) (*v1.NodeList, 
 	return kr.clientset.CoreV1().Nodes().List(context.TODO(), listOptions)
 }
 
-func (kr *KubeRuntime) listPods(namespace string, listOptions metav1.ListOptions) (*v1.PodList, error) {
+func (kr *KubeRuntime) ListPods(namespace string, listOptions metav1.ListOptions) (*v1.PodList, error) {
 	return kr.clientset.CoreV1().Pods(namespace).List(context.TODO(), listOptions)
 }
 
@@ -736,7 +737,7 @@ func (kr *KubeRuntime) getNodeQuotaListImpl(subQuotaFn func(r *resources.Resourc
 		fieldSelector := "status.phase!=Succeeded,status.phase!=Failed," +
 			"status.phase!=Unknown,spec.nodeName=" + nodeName
 
-		pods, _ := kr.listPods("", metav1.ListOptions{
+		pods, _ := kr.ListPods("", metav1.ListOptions{
 			FieldSelector: fieldSelector,
 		})
 		for _, pod := range pods.Items {
