@@ -50,6 +50,8 @@ type RunJob struct {
 	Cache          schema.Cache      `gorm:"-"                                  json:"cache"`
 	CacheJson      string            `gorm:"type:text;size:65535;not null"      json:"-"`
 	CacheRunID     string            `gorm:"type:varchar(60);not null"          json:"cache_run_id"`
+	FsMount        []schema.FsMount  `gorm:"-"                                  json:"fsMount"`
+	FsMountJson    string            `gorm:"type:text;size:65535;not null"      json:"-"`
 	CreateTime     string            `gorm:"-"                                  json:"createTime"`
 	ActivateTime   string            `gorm:"-"                                  json:"activateTime"`
 	UpdateTime     string            `gorm:"-"                                  json:"updateTime,omitempty"`
@@ -231,10 +233,11 @@ func (rj *RunJob) Trans2JobView() schema.JobView {
 		EndTime:     newEndTime,
 		Status:      rj.Status,
 		DockerEnv:   rj.DockerEnv,
-		Artifacts:   rj.Artifacts,
+		Artifacts:   *rj.Artifacts.DeepCopy(),
 		Cache:       rj.Cache,
 		JobMessage:  rj.Message,
 		CacheRunID:  rj.CacheRunID,
+		FsMount:     rj.FsMount,
 	}
 }
 
