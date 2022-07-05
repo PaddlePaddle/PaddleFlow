@@ -76,7 +76,7 @@ func mockBaseComponentRuntime() *baseComponentRuntime {
 
 	failureOptionsctx, _ := context.WithCancel(context.Background())
 
-	return NewBaseComponentRuntime("step1", ws, 0, context.Background(), failureOptionsctx,
+	return NewBaseComponentRuntime("a.entrypoint.step1", "a.entrypoint.step1", ws, 0, context.Background(), failureOptionsctx,
 		make(chan WorkflowEvent), rf, "0")
 }
 

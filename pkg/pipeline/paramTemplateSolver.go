@@ -305,7 +305,7 @@ func NewDependencySolver(dr *DagRuntime) *DependencySolver {
 }
 
 func (ds *DependencySolver) resolveParameterTemplate(tplString string, subComponentName string) (interface{}, error) {
-	subFullName := ds.generateSubComponentFullName(subComponentName, 0)
+	subFullName := ds.generateSubRuntimeName(subComponentName, 0)
 	subComponent := ds.DagRuntime.getworkflowSouceDag().EntryPoints[subComponentName]
 
 	tpls, err := fetchTemplate(tplString)

@@ -54,9 +54,9 @@ func generateJobName(runID, stepName string, seq int) string {
 	return fmt.Sprintf("%s-%s-%d", runID, stepName, seq)
 }
 
-func NewStepRuntime(fullName string, step *schema.WorkflowSourceStep, seq int, ctx context.Context,
+func NewStepRuntime(name, fullName string, step *schema.WorkflowSourceStep, seq int, ctx context.Context,
 	failureOpitonsCtx context.Context, eventChannel chan<- WorkflowEvent, config *runConfig, ParentDagID string) *StepRuntime {
-	cr := NewBaseComponentRuntime(fullName, step, seq, ctx, failureOpitonsCtx, eventChannel, config, ParentDagID)
+	cr := NewBaseComponentRuntime(name, fullName, step, seq, ctx, failureOpitonsCtx, eventChannel, config, ParentDagID)
 	srt := &StepRuntime{
 		baseComponentRuntime: cr,
 	}
@@ -66,7 +66,7 @@ func NewStepRuntime(fullName string, step *schema.WorkflowSourceStep, seq int, c
 	srt.job = job
 
 	srt.logger.Infof("step[%s] of runid[%s] before starting job: param[%s], env[%s], command[%s], artifacts[%s], deps[%s]",
-		srt.getFullName(), srt.runID, step.Parameters, step.Env, step.Command, step.Artifacts, step.Deps)
+		srt.getName(), srt.runID, step.Parameters, step.Env, step.Command, step.Artifacts, step.Deps)
 
 	return srt
 }
@@ -78,10 +78,10 @@ func (srt *StepRuntime) getWorkFlowStep() *schema.WorkflowSourceStep {
 
 // NewStepRuntimeWithStaus: 在创建Runtime 的同时，指定runtime的状态
 // 主要用于重启或者父节点调度子节点的失败时调用， 将相关信息通过evnet 的方式同步给其父节点， 并同步至数据库中
-func newStepRuntimeWithStatus(fullName string, step *schema.WorkflowSourceStep, seq int, ctx context.Context,
+func newStepRuntimeWithStatus(name, fullName string, step *schema.WorkflowSourceStep, seq int, ctx context.Context,
 	failureOpitonsCtx context.Context, eventChannel chan<- WorkflowEvent, config *runConfig,
 	ParentDagID string, status RuntimeStatus, msg string) *StepRuntime {
-	srt := NewStepRuntime(fullName, step, seq, ctx, failureOpitonsCtx, eventChannel, config, ParentDagID)
+	srt := NewStepRuntime(name, fullName, step, seq, ctx, failureOpitonsCtx, eventChannel, config, ParentDagID)
 
 	// 此时由于 stepRuntime 并不会运行，不会占坑，所以不需要降低并发度
 	srt.baseComponentRuntime.updateStatus(status)
@@ -139,7 +139,7 @@ func (srt *StepRuntime) Start() {
 	conditon, err := srt.CalculateCondition()
 	if err != nil {
 		errMsg := fmt.Sprintf("caculate the condition field for step[%s] faild:\n%s",
-			srt.getFullName(), err.Error())
+			srt.getName(), err.Error())
 
 		srt.logger.Errorf(errMsg)
 		srt.processStartAbnormalStatus(errMsg, StatusRuntimeFailed)
@@ -147,7 +147,7 @@ func (srt *StepRuntime) Start() {
 	}
 
 	if conditon {
-		skipMsg := fmt.Sprintf("the result of condition for step[%s] is true, skip running", srt.getFullName())
+		skipMsg := fmt.Sprintf("the result of condition for step[%s] is true, skip running", srt.getName())
 		srt.logger.Infoln(skipMsg)
 		srt.processStartAbnormalStatus(skipMsg, StatusRuntimeSkipped)
 		return
@@ -155,7 +155,7 @@ func (srt *StepRuntime) Start() {
 
 	// 判断节点是否被 disabled
 	if srt.isDisabled() {
-		skipMsg := fmt.Sprintf("step[%s] is disabled, skip running", srt.getFullName())
+		skipMsg := fmt.Sprintf("step[%s] is disabled, skip running", srt.getName())
 		srt.logger.Infoln(skipMsg)
 		srt.processStartAbnormalStatus(skipMsg, StatusRuntimeSkipped)
 		return

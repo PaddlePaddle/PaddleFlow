@@ -57,7 +57,7 @@ func mockerDagRuntime(ec chan WorkflowEvent) (*DagRuntime, error) {
 	updateRuntimeCalled = false
 
 	failctx, _ := context.WithCancel(context.Background())
-	drt := NewDagRuntime("PF-EntryPoint", &wfs.EntryPoints, 0, context.Background(), failctx,
+	drt := NewDagRuntime("a.entrypoint", "a.entrypoint", &wfs.EntryPoints, 0, context.Background(), failctx,
 		ec, rf, "0")
 
 	var srt *StepRuntime
@@ -91,7 +91,7 @@ func TestNewDagRuntimeWithStatus(t *testing.T) {
 	go mockToListenEvent(eventChan, ep)
 
 	failctx, _ := context.WithCancel(context.Background())
-	dr := newDagRuntimeWithStatus("", &wfs.EntryPoints, 0, context.Background(), failctx,
+	dr := newDagRuntimeWithStatus("a.entrypoint", "a.entrypoint", &wfs.EntryPoints, 0, context.Background(), failctx,
 		eventChan, rf, "0", StatusRuntimeCancelled, "cancel")
 
 	time.Sleep(time.Millisecond * 100)
@@ -106,12 +106,12 @@ func TestGenerateSubComponentFullName(t *testing.T) {
 	drt, err := mockerDagRuntime(eventChan)
 	assert.Nil(t, err)
 
-	fullName := drt.generateSubComponentFullName("step1", 0)
+	fullName := drt.generateSubRuntimeName("step1", 0)
 	assert.Equal(t, "PF-EntryPoint.step1", fullName)
 
 	drt.fullName = "entrypoint"
-	fullName = drt.generateSubComponentFullName("step1", 1)
-	assert.Equal(t, "entrypoint.step1.1", fullName)
+	fullName = drt.generateSubRuntimeName("step1", 1)
+	assert.Equal(t, "entrypoint.step1-1", fullName)
 }
 
 func TestGetReadyComponent(t *testing.T) {
@@ -129,10 +129,12 @@ func TestGetReadyComponent(t *testing.T) {
 	assert.True(t, ok)
 
 	st := drt.getworkflowSouceDag().EntryPoints["randint"].(*schema.WorkflowSourceStep)
-	srt := NewStepRuntime("randint", st, 0, drt.ctx, drt.failureOpitonsCtx, drt.receiveEventChildren, drt.runConfig, drt.ID)
+	srt := NewStepRuntime("a.entrypoint.randint", "a.entrypoint.randint", st, 0, drt.ctx, drt.failureOpitonsCtx,
+		drt.receiveEventChildren, drt.runConfig, drt.ID)
 	drt.subComponentRumtimes["randint"] = append(drt.subComponentRumtimes["randint"], srt)
 
-	srt2 := NewStepRuntime("disStep", st, 0, drt.ctx, drt.failureOpitonsCtx, drt.receiveEventChildren, drt.runConfig, drt.ID)
+	srt2 := NewStepRuntime("a.entrypoint.disStep", "a.entrypoint.disStep", st, 0, drt.ctx, drt.failureOpitonsCtx,
+		drt.receiveEventChildren, drt.runConfig, drt.ID)
 	drt.subComponentRumtimes["disStep"] = append(drt.subComponentRumtimes["randint"], srt2)
 	srt.increase()
 	srt2.updateStatus(StatusRuntimeRunning)
@@ -163,7 +165,8 @@ func TestGetReadyComponent(t *testing.T) {
 
 	// 测试循环结构
 	drt.getworkflowSouceDag().EntryPoints["square-loop"].UpdateLoopArguemt([]int{1, 2})
-	drt2 := NewDagRuntime("square-loop", drt.getworkflowSouceDag().EntryPoints["square-loop"].(*schema.WorkflowSourceDag),
+	drt2 := NewDagRuntime("a.entrypoint.square-loop", "a.entrypoint.square-loop",
+		drt.getworkflowSouceDag().EntryPoints["square-loop"].(*schema.WorkflowSourceDag),
 		0, drt.ctx, drt.failureOpitonsCtx, drt.receiveEventChildren, drt.runConfig, drt.ID)
 	drt.subComponentRumtimes["square-loop"] = append(drt.subComponentRumtimes["square-loop"], drt2)
 
@@ -174,7 +177,8 @@ func TestGetReadyComponent(t *testing.T) {
 	readyNames = drt.getReadyComponent()
 	assert.Equal(t, len(readyNames), 0)
 
-	drt3 := NewDagRuntime("square-loop", drt.getworkflowSouceDag().EntryPoints["square-loop"].(*schema.WorkflowSourceDag),
+	drt3 := NewDagRuntime("a.entrypoint.square-loop-1", "a.entrypoint.square-loop",
+		drt.getworkflowSouceDag().EntryPoints["square-loop"].(*schema.WorkflowSourceDag),
 		0, drt.ctx, drt.failureOpitonsCtx, drt.receiveEventChildren, drt.runConfig, drt.ID)
 	drt.subComponentRumtimes["square-loop"] = append(drt.subComponentRumtimes["square-loop"], drt3)
 	drt3.updateStatus(StatusRuntimeSucceeded)
@@ -191,7 +195,8 @@ func TestCreateAndStartSubComponentRuntime(t *testing.T) {
 	assert.Nil(t, err)
 
 	st := drt.getworkflowSouceDag().EntryPoints["randint"].(*schema.WorkflowSourceStep)
-	srt := NewStepRuntime("randint", st, 0, drt.ctx, drt.failureOpitonsCtx, drt.receiveEventChildren, drt.runConfig, drt.ID)
+	srt := NewStepRuntime("a.entrypoint.randint", "a.entrypoint.randint", st, 0, drt.ctx, drt.failureOpitonsCtx,
+		drt.receiveEventChildren, drt.runConfig, drt.ID)
 	drt.subComponentRumtimes["randint"] = append(drt.subComponentRumtimes["randint"], srt)
 
 	stepStarted := false
@@ -219,7 +224,7 @@ func TestCreateAndStartSubComponentRuntime(t *testing.T) {
 	assert.Len(t, drt.subComponentRumtimes, 2)
 	assert.Len(t, drt.subComponentRumtimes["square-loop"], 3)
 	assert.Equal(t, drt.subComponentRumtimes["square-loop"][0].getFullName(), "PF-EntryPoint.square-loop")
-	assert.Equal(t, drt.subComponentRumtimes["square-loop"][1].getFullName(), "PF-EntryPoint.square-loop.1")
+	assert.Equal(t, drt.subComponentRumtimes["square-loop"][1].getName(), "PF-EntryPoint.square-loop.1")
 }
 
 func TestDagRuntimeStart(t *testing.T) {
@@ -239,7 +244,8 @@ func TestDagRuntimeStart(t *testing.T) {
 	assert.True(t, strings.Contains(ep.Message, "is false"))
 
 	drt.WorkflowSource.Disabled = "square-loop"
-	drt2 := NewDagRuntime("square-loop", drt.getworkflowSouceDag().EntryPoints["square-loop"].(*schema.WorkflowSourceDag),
+	drt2 := NewDagRuntime("a.entrypoint.square-loop", "a.entrypoint.square-loop",
+		drt.getworkflowSouceDag().EntryPoints["square-loop"].(*schema.WorkflowSourceDag),
 		0, drt.ctx, drt.failureOpitonsCtx, eventChan, drt.runConfig, drt.ID)
 	drt2.Start()
 	go mockToListenEvent(eventChan, ep)
@@ -315,12 +321,14 @@ func TestUpdateStatusAccordingSubComponentRuntimeStatus(t *testing.T) {
 	assert.Equal(t, drt.status, StatusRuntimeRunning)
 
 	st := drt.getworkflowSouceDag().EntryPoints["randint"].(*schema.WorkflowSourceStep)
-	srt := NewStepRuntime("randint", st, 0, drt.ctx, drt.failureOpitonsCtx, drt.receiveEventChildren, drt.runConfig, drt.ID)
+	srt := NewStepRuntime("a.entrypoint.randint", "a.entrypoint.randint", st, 0, drt.ctx, drt.failureOpitonsCtx,
+		drt.receiveEventChildren, drt.runConfig, drt.ID)
 	drt.subComponentRumtimes["randint"] = append(drt.subComponentRumtimes["randint"], srt)
 	srt.increase()
 	srt.updateStatus(StatusRuntimeSucceeded)
 
-	srt2 := NewStepRuntime("disStep", st, 0, drt.ctx, drt.failureOpitonsCtx, drt.receiveEventChildren, drt.runConfig, drt.ID)
+	srt2 := NewStepRuntime("a.entrypoint.disStep", "a.entrypoint.disStep", st, 0, drt.ctx, drt.failureOpitonsCtx,
+		drt.receiveEventChildren, drt.runConfig, drt.ID)
 	drt.subComponentRumtimes["disStep"] = append(drt.subComponentRumtimes["randint"], srt2)
 	srt2.increase()
 	srt2.updateStatus(StatusRuntimeRunning)
@@ -334,32 +342,37 @@ func TestUpdateStatusAccordingSubComponentRuntimeStatus(t *testing.T) {
 	srt2.updateStatus(StatusRuntimeSucceeded)
 
 	drt.getworkflowSouceDag().EntryPoints["square-loop"].UpdateLoopArguemt([]int{1})
-	drt2 := NewDagRuntime("square-loop", drt.getworkflowSouceDag().EntryPoints["square-loop"].(*schema.WorkflowSourceDag),
+	drt2 := NewDagRuntime("a.entrypoint.square-loop", "a.entrypoint.square-loop",
+		drt.getworkflowSouceDag().EntryPoints["square-loop"].(*schema.WorkflowSourceDag),
 		0, drt.ctx, drt.failureOpitonsCtx, drt.receiveEventChildren, drt.runConfig, drt.ID)
 	drt.subComponentRumtimes["square-loop"] = append(drt.subComponentRumtimes["square-loop"], drt2)
 	drt2.updateStatus(StatusRuntimeSucceeded)
 
 	st3 := drt.getworkflowSouceDag().EntryPoints["sum"].(*schema.WorkflowSourceStep)
-	srt3 := NewStepRuntime("sum", st3, 0, drt.ctx, drt.failureOpitonsCtx, drt.receiveEventChildren, drt.runConfig, drt.ID)
+	srt3 := NewStepRuntime("a.entrypoint.sum", "a.entrypoint.sum", st3, 0, drt.ctx, drt.failureOpitonsCtx,
+		drt.receiveEventChildren, drt.runConfig, drt.ID)
 	drt.subComponentRumtimes["sum"] = append(drt.subComponentRumtimes["sum"], srt3)
 	srt3.increase()
 	srt3.updateStatus(StatusRuntimeSucceeded)
 
 	st4 := drt.getworkflowSouceDag().EntryPoints["process-negetive"].(*schema.WorkflowSourceStep)
-	srt4 := NewStepRuntime("process-negetive", st4, 0, drt.ctx, drt.failureOpitonsCtx, drt.receiveEventChildren, drt.runConfig, drt.ID)
+	srt4 := NewStepRuntime("a.entrypoint.process-negetive", "a.entrypoint.process-negetive", st4, 0, drt.ctx,
+		drt.failureOpitonsCtx, drt.receiveEventChildren, drt.runConfig, drt.ID)
 	drt.subComponentRumtimes["process-negetive"] = append(drt.subComponentRumtimes["process-negetive"], srt4)
 	srt4.increase()
 	srt4.updateStatus(StatusRuntimeSucceeded)
 
 	drt.getworkflowSouceDag().EntryPoints["process-positive"].UpdateLoopArguemt([]int{})
 	st5 := drt.getworkflowSouceDag().EntryPoints["process-positive"].(*schema.WorkflowSourceDag)
-	srt5 := NewDagRuntime("process-positive", st5, 0, drt.ctx, drt.failureOpitonsCtx, drt.receiveEventChildren, drt.runConfig, drt.ID)
+	srt5 := NewDagRuntime("a.entrypoint.process-positive", "a.entrypoint.process-positive",
+		st5, 0, drt.ctx, drt.failureOpitonsCtx, drt.receiveEventChildren, drt.runConfig, drt.ID)
 	drt.subComponentRumtimes["process-positive"] = append(drt.subComponentRumtimes["process-positive"], srt5)
 	srt5.increase()
 	srt5.updateStatus(StatusRuntimeSucceeded)
 
 	st6 := drt.getworkflowSouceDag().EntryPoints["split-by-threshold"].(*schema.WorkflowSourceStep)
-	srt6 := NewStepRuntime("split-by-threshold", st6, 0, drt.ctx, drt.failureOpitonsCtx, drt.receiveEventChildren, drt.runConfig, drt.ID)
+	srt6 := NewStepRuntime("a.entrypoint.split-by-threshold", "a.entrypoint.split-by-threshold", st6, 0, drt.ctx,
+		drt.failureOpitonsCtx, drt.receiveEventChildren, drt.runConfig, drt.ID)
 	drt.subComponentRumtimes["split-by-threshold"] = append(drt.subComponentRumtimes["split-by-threshold"], srt6)
 	srt6.increase()
 	srt6.updateStatus(StatusRuntimeSucceeded)
@@ -373,7 +386,8 @@ func TestUpdateStatusAccordingSubComponentRuntimeStatus(t *testing.T) {
 	drt.updateStatusAccordingSubComponentRuntimeStatus()
 	assert.Equal(t, drt.status, StatusRuntimeRunning)
 
-	drt3 := NewDagRuntime("square-loop", drt.getworkflowSouceDag().EntryPoints["square-loop"].(*schema.WorkflowSourceDag),
+	drt3 := NewDagRuntime("a.entrypoint.square-loop", "a.entrypoint.square-loop",
+		drt.getworkflowSouceDag().EntryPoints["square-loop"].(*schema.WorkflowSourceDag),
 		1, drt.ctx, drt.failureOpitonsCtx, drt.receiveEventChildren, drt.runConfig, drt.ID)
 	drt.subComponentRumtimes["square-loop"] = append(drt.subComponentRumtimes["square-loop"], drt3)
 	drt3.updateStatus(StatusRuntimeSucceeded)
@@ -756,7 +770,8 @@ func TestProcessFailureOptions(t *testing.T) {
 	drt, err := mockerDagRuntime(eventChan)
 	assert.Nil(t, err)
 
-	drt3 := NewDagRuntime("square-loop", drt.getworkflowSouceDag().EntryPoints["square-loop"].(*schema.WorkflowSourceDag),
+	drt3 := NewDagRuntime("a.entrypoint.square-loop", "a.entrypoint.square-loop",
+		drt.getworkflowSouceDag().EntryPoints["square-loop"].(*schema.WorkflowSourceDag),
 		1, drt.ctx, drt.failureOpitonsCtx, drt.receiveEventChildren, drt.runConfig, drt.ID)
 	drt.subComponentRumtimes["square-loop"] = append(drt.subComponentRumtimes["square-loop"], drt3)
 
