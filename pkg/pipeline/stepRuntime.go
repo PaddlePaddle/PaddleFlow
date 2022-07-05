@@ -109,6 +109,10 @@ func (srt *StepRuntime) updateStatus(status RuntimeStatus) error {
 			srt.parallelismManager.CurrentParallelism())
 	}
 
+	if srt.status == schema.StatusJobSucceeded {
+		srt.logOutputArtifact()
+	}
+
 	return nil
 }
 
@@ -788,10 +792,6 @@ func (srt *StepRuntime) processEventFromJob(event WorkflowEvent) {
 			logMsg = fmt.Sprintf("receive watch update of job[%s] step[%s] with runid[%s], with errmsg:[%s], extra[%s]",
 				srt.job.(*PaddleFlowJob).ID, srt.fullName, srt.runID, event.Message, event.Extra)
 			srt.logger.Infof(logMsg)
-
-			if extra["status"] == schema.StatusJobSucceeded {
-				srt.logOutputArtifact()
-			}
 		}
 
 		srt.updateStatus(extra["status"].(RuntimeStatus))
@@ -808,6 +808,9 @@ func (srt *StepRuntime) newJobView(msg string) schema.JobView {
 	}
 
 	job := srt.job.Job()
+
+	art := srt.getWorkFlowStep().GetArtifacts()
+	newArt := (&art).DeepCopy()
 
 	view := schema.JobView{
 		JobID:       job.ID,
@@ -828,6 +831,7 @@ func (srt *StepRuntime) newJobView(msg string) schema.JobView {
 		Cache:       srt.Cache,
 		PK:          srt.pk,
 		Seq:         srt.seq,
+		Artifacts:   *newArt,
 	}
 
 	return view
