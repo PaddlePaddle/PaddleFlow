@@ -41,6 +41,7 @@ const (
 	LogLevelStringSize = 4
 	CacheLoadFactor    = 0.75
 	LogStringFormat    = "2006-01-02 15:04:05.06"
+	LogrusPrefix       = "[trace_logger]"
 )
 
 // assert implements
@@ -287,6 +288,7 @@ func (d *DefaultTraceLoggerManager) NewTraceLogger() TraceLogger {
 
 func (d *DefaultTraceLoggerManager) GetTraceFromCache(key string) (Trace, bool) {
 	val, ok := d.cache.Get(key)
+	logrus.Debugf(LogrusPrefix+"cache: %s", d.String())
 	if !ok {
 		return Trace{}, false
 	}
@@ -315,7 +317,7 @@ func (d *DefaultTraceLoggerManager) SetTraceToCache(key string, trace Trace) (er
 	// if reach max count after insertion, evict first
 	newCount := d.cache.Count() + 1
 	if newCount > d.maxCacheSize {
-		logrus.Debugf("cache size is too large, start auto delete")
+		logrus.Debugf(LogrusPrefix + "cache size is too large, evict cache")
 		d.evictCache()
 	}
 
@@ -350,7 +352,7 @@ func (d *DefaultTraceLoggerManager) evictCache() {
 	// sync all before evict
 	errTmp := d.SyncAll()
 	if errTmp != nil {
-		logrus.Warnf("sync failed before evict: %v", errTmp)
+		logrus.Warnf(LogrusPrefix+"sync failed before evict: %v", errTmp)
 	}
 
 	newSize := int(float64(d.maxCacheSize) * CacheLoadFactor)
@@ -370,6 +372,7 @@ func (d *DefaultTraceLoggerManager) evictCache() {
 		k, v := x.Key, x.Val.(Trace)
 
 		if v.UpdateTime.Before(ddl) {
+			logrus.Infof(LogrusPrefix+"evict key: %s", k)
 			d.removeKey(k)
 			numberToBeDeleted--
 		} else {
@@ -386,6 +389,7 @@ func (d *DefaultTraceLoggerManager) evictCache() {
 			break
 		}
 		key := x.(string)
+		logrus.Infof(LogrusPrefix+"evict key: %s", key)
 		d.removeKey(key)
 	}
 
@@ -537,7 +541,7 @@ func (d *DefaultTraceLoggerManager) AutoDelete(duration time.Duration, methods .
 			case <-d.autoDeleteCancelChan:
 				return
 			case <-time.After(duration):
-				logrus.Debug("auto deleting")
+				logrus.Infof(LogrusPrefix + "auto deleting...")
 				_ = d.DeleteUnusedCache(d.timeout, methods...)
 			}
 		}
@@ -570,13 +574,13 @@ func (d *DefaultTraceLoggerManager) DeleteUnusedCache(timeout time.Duration, met
 		logrus.Warnf("sync failed: %v", err)
 	}
 
-	d.deleteTraceFromCacheBefore(timeout, method)
+	d.deleteExpiredCache(timeout, method)
 	// delete unused key
 	d.deleteUnusedTmpKey(timeout)
 	return nil
 }
 
-func (d *DefaultTraceLoggerManager) deleteTraceFromCacheBefore(timeout time.Duration, method DeleteMethod) {
+func (d *DefaultTraceLoggerManager) deleteExpiredCache(timeout time.Duration, method DeleteMethod) {
 
 	ddl := time.Now().Add(-timeout)
 
@@ -585,6 +589,7 @@ func (d *DefaultTraceLoggerManager) deleteTraceFromCacheBefore(timeout time.Dura
 	for x := range iter {
 		k, v := x.Key, x.Val.(Trace)
 		if v.UpdateTime.Before(ddl) && method(k) {
+			logrus.Infof(LogrusPrefix+"delete expired cache: %s", k)
 			d.removeKey(k)
 		}
 	}
@@ -609,6 +614,7 @@ func (d *DefaultTraceLoggerManager) deleteUnusedTmpKey(timeout time.Duration) {
 		if traceLogger.GetKey() == "" {
 			updateTime := traceLogger.GetTrace().UpdateTime
 			if updateTime.Before(time.Now().Add(-timeout)) {
+				logrus.Infof(LogrusPrefix+"delete unused tmp key: %s", tmpKey)
 				d.tmpKeyMap.Delete(tmpKey)
 			}
 		}
@@ -665,7 +671,7 @@ func (d *DefaultTraceLoggerManager) AutoSync(duration time.Duration) error {
 			case <-d.autoSyncCancelChan:
 				return
 			case <-time.After(duration):
-				logrus.Debug("auto syncing")
+				logrus.Infof(LogrusPrefix + "auto syncing")
 				_ = d.SyncAll()
 			}
 		}
