@@ -71,7 +71,8 @@ func isValidScalarResource(r string, scalarResourcesType []string) bool {
 	return false
 }
 
-// CheckReg todo remove this function to util
+// CheckReg
+// TODO: remove this function to util
 func CheckReg(str, pattern string) bool {
 	reg, err := regexp.Compile(pattern)
 	if err != nil {
