@@ -462,9 +462,8 @@ func TestCreateFSAndDeleteFs(t *testing.T) {
 	result, err := PerformPostRequest(router, fsUrl, createFsReq)
 	assert.Nil(t, err)
 	assert.Equal(t, http.StatusCreated, result.Code)
-
 	// test delete fs successful
-	var p1 = gomonkey.ApplyMethod(reflect.TypeOf(fs.FileSystemService{}), "CheckFsMountedAndCleanResources",
+	var p1 = gomonkey.ApplyMethod(reflect.TypeOf(fs.GetFileSystemService()), "CheckFsMountedAndCleanResources",
 		func(_ *fs.FileSystemService, fsID string) (bool, error) {
 			return false, nil
 		})
@@ -476,7 +475,7 @@ func TestCreateFSAndDeleteFs(t *testing.T) {
 	p1.Reset()
 
 	// test fs mounted
-	p1 = gomonkey.ApplyMethod(reflect.TypeOf(fs.FileSystemService{}), "CheckFsMountedAndCleanResources",
+	p1 = gomonkey.ApplyMethod(reflect.TypeOf(fs.GetFileSystemService()), "CheckFsMountedAndCleanResources",
 		func(_ *fs.FileSystemService, fsID string) (bool, error) {
 			return true, nil
 		})
