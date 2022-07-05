@@ -341,6 +341,7 @@ CREATE TABLE IF NOT EXISTS `filesystem` (
     `type` varchar(50) NOT NULL COMMENT 'file system type',
     `subpath` varchar(1024) NOT NULL COMMENT 'subpath',
     `user_name` varchar(256) NOT NULL,
+    `independent_mount_process` tinyint(1) NOT NULL default 0 COMMENT 'csi mount use independent mount process',
     `created_at` datetime NOT NULL,
     `updated_at` datetime NOT NULL,
     `properties` TEXT,

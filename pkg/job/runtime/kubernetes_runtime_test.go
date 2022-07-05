@@ -38,6 +38,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
@@ -149,9 +150,11 @@ func TestKubeRuntimeVCQueue(t *testing.T) {
 		Name:      "test_queue_name",
 		Namespace: "default",
 		QuotaType: schema.TypeVolcanoCapabilityQuota,
-		MaxResources: schema.ResourceInfo{
-			CPU: "20",
-			Mem: "20Gi",
+		MaxResources: &resources.Resource{
+			Resources: map[string]resources.Quantity{
+				"cpu": 20 * 1000,
+				"mem": 20 * 1024 * 1024 * 1024,
+			},
 		},
 	}
 	// create vc queue
@@ -181,13 +184,17 @@ func TestKubeRuntimeElasticQuota(t *testing.T) {
 		Name:      "test_queue_name",
 		Namespace: "default",
 		QuotaType: schema.TypeElasticQuota,
-		MaxResources: schema.ResourceInfo{
-			CPU: "20",
-			Mem: "20Gi",
+		MaxResources: &resources.Resource{
+			Resources: map[string]resources.Quantity{
+				"cpu": 20 * 1000,
+				"mem": 20 * 1024 * 1024 * 1024,
+			},
 		},
-		MinResources: schema.ResourceInfo{
-			CPU: "10",
-			Mem: "10Gi",
+		MinResources: &resources.Resource{
+			Resources: map[string]resources.Quantity{
+				"cpu": 10 * 1000,
+				"mem": 10 * 1024 * 1024 * 1024,
+			},
 		},
 	}
 	// create elastic quota
@@ -282,11 +289,7 @@ func TestKubeRuntimeNodeResource(t *testing.T) {
 	}
 
 	config.GlobalServerConfig = &config.ServerConfig{
-		Job: config.JobConfig{
-			ScalarResourceArray: []string{
-				"",
-			},
-		},
+		Job: config.JobConfig{},
 	}
 	namespace := "default"
 	nodeName := "node1"

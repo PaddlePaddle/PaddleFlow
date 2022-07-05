@@ -103,7 +103,8 @@ func validateCacheConfigCreate(ctx *logger.RequestContext, req *api.UpdateFileSy
 		return err
 	}
 	// must assign cacheDir when cache in use
-	if (req.BlockSize > 0 || req.MetaDriver != schema.FsMetaDefault) && req.CacheDir == "" {
+	if (req.BlockSize > 0 || req.MetaDriver == schema.FsMetaLevelDB || req.MetaDriver == schema.FsMetaNutsDB) &&
+		req.CacheDir == "" {
 		ctx.ErrorCode = common.InvalidArguments
 		err := fmt.Errorf("fs cacheDir[%s] should be an absolute path when cache in use", req.CacheDir)
 		ctx.Logging().Errorf("validate fs cache config fsID[%s] err: %v", req.FsID, err)
@@ -206,13 +207,13 @@ func validateCacheConfigUpdate(ctx *logger.RequestContext, req api.UpdateFileSys
 }
 
 func needCacheDir(req api.UpdateFileSystemCacheRequest, prev api.FileSystemCacheResponse) bool {
-	if req.MetaDriver != "" && req.MetaDriver != schema.FsMetaDefault {
+	if req.MetaDriver == schema.FsMetaLevelDB || req.MetaDriver == schema.FsMetaNutsDB {
 		return true
 	}
 	if req.BlockSize > 0 {
 		return true
 	}
-	if prev.MetaDriver != schema.FsMetaDefault || prev.BlockSize > 0 {
+	if prev.MetaDriver == schema.FsMetaLevelDB || prev.MetaDriver == schema.FsMetaNutsDB || prev.BlockSize > 0 {
 		return true
 	}
 	return false

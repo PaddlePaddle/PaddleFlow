@@ -203,9 +203,10 @@ type Conf struct {
 	FileSystem      FileSystem   `json:"fileSystem,omitempty"`
 	ExtraFileSystem []FileSystem `json:"extraFileSystem,omitempty"`
 	// 计算资源
-	Flavour  Flavour `json:"flavour,omitempty"`
-	Priority string  `json:"priority"`
-	QueueID  string  `json:"queueID"`
+	Flavour   Flavour `json:"flavour,omitempty"`
+	Priority  string  `json:"priority"`
+	QueueID   string  `json:"queueID"`
+	QueueName string  `json:"queueName,omitempty"`
 	// 运行时需要的参数
 	Labels      map[string]string `json:"labels"`
 	Annotations map[string]string `json:"annotations"`
@@ -252,24 +253,20 @@ func (c *Conf) GetImage() string {
 }
 
 func (c *Conf) GetPriority() string {
-	c.preCheckEnv()
-	return c.Env[EnvJobPriority]
+	return c.Priority
 }
 
 func (c *Conf) SetPriority(pc string) {
-	c.preCheckEnv()
-	c.Env[EnvJobPriority] = pc
+	c.Priority = pc
 }
 
 func (c *Conf) GetQueueName() string {
-	c.preCheckEnv()
-	return c.Env[EnvJobQueueName]
+	return c.QueueName
 }
 
 // SetQueueName set queue name
 func (c *Conf) SetQueueName(queueName string) {
-	c.preCheckEnv()
-	c.Env[EnvJobQueueName] = queueName
+	c.QueueName = queueName
 }
 
 func (c *Conf) GetClusterName() string {
@@ -425,6 +422,7 @@ func (c *Conf) preCheckEnv() {
 // GetAllFileSystem combine FileSystem and ExtraFileSystem to a slice
 func (c *Conf) GetAllFileSystem() []FileSystem {
 	var fileSystems []FileSystem
+	// c.FileSystem should be the first one
 	if c.FileSystem.Name != "" {
 		fileSystems = append([]FileSystem{}, c.FileSystem)
 	}

@@ -180,7 +180,7 @@ func validateUpdateFlavour(ctx *logger.RequestContext, request *flavour.UpdateFl
 	}
 
 	if request.ScalarResources != nil {
-		err := schema.ValidateScalarResourceInfo(request.ScalarResources, config.GlobalServerConfig.Job.ScalarResourceArray)
+		err := schema.ValidateScalarResourceInfo(request.ScalarResources, []string{})
 		if err != nil {
 			ctx.Logging().Errorf("create flavour failed. error: %v", err)
 			ctx.ErrorCode = common.FlavourInvalidField
@@ -261,7 +261,7 @@ func validateCreateFlavour(ctx *logger.RequestContext, request *flavour.CreateFl
 		Mem:             request.Mem,
 		ScalarResources: request.ScalarResources,
 	}
-	if err := schema.ValidateResource(resourceInfo, config.GlobalServerConfig.Job.ScalarResourceArray); err != nil {
+	if err := schema.ValidateResource(resourceInfo, []string{}); err != nil {
 		ctx.Logging().Errorf("create flavour failed. error: %s", err.Error())
 		ctx.ErrorCode = common.FlavourInvalidField
 		return err
