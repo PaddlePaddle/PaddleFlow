@@ -26,6 +26,7 @@ import (
 	"os"
 	"os/signal"
 	"path"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -67,7 +68,7 @@ var logConf = logger.LogConfig{
 
 func CmdMount() *cli.Command {
 	compoundFlags := [][]cli.Flag{
-		flag.MountFlags(),
+		flag.MountFlags(fuse.FuseConf),
 		flag.LinkFlags(),
 		flag.BasicFlags(),
 		flag.CacheFlags(fuse.FuseConf),
@@ -345,7 +346,6 @@ func InitVFS(c *cli.Context, registry *prometheus.Registry) error {
 		MaxReadAhead: c.Int("data-read-ahead-size"),
 		Expire:       c.Duration("data-cache-expire"),
 		Config: kv.Config{
-			Driver:    kv.NutsDB,
 			CachePath: c.String("data-cache-path"),
 		},
 	}
@@ -360,6 +360,13 @@ func InitVFS(c *cli.Context, registry *prometheus.Registry) error {
 	}
 	vfsConfig := vfs.InitConfig(vfsOptions...)
 
+	properties := fsMeta.Properties
+	if properties[common.FileMode] == "" {
+		properties[common.FileMode] = strconv.Itoa(fuse.FuseConf.FileMode)
+	}
+	if properties[common.DirMode] == "" {
+		properties[common.DirMode] = strconv.Itoa(fuse.FuseConf.DirMode)
+	}
 	if _, err := vfs.InitVFS(fsMeta, links, true, vfsConfig, registry); err != nil {
 		log.Errorf("init vfs failed: %v", err)
 		return err

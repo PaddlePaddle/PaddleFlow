@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi"
@@ -166,6 +167,7 @@ func validateCreateFileSystem(ctx *logger.RequestContext, req *api.CreateFileSys
 	if err != nil {
 		ctx.Logging().Errorf("check properties err[%v] with properties[%v]", err, req.Properties)
 		ctx.ErrorCode = common.InvalidFileSystemProperties
+		ctx.ErrorMessage = err.Error()
 		return err
 	}
 
@@ -208,6 +210,16 @@ func checkStorageConnectivity(fsMeta fsCommon.FSMeta) error {
 }
 
 func checkProperties(fsType string, req *api.CreateFileSystemRequest) error {
+	if req.Properties[fsCommon.FileMode] != "" {
+		if _, err := strconv.Atoi(req.Properties[fsCommon.FileMode]); err != nil {
+			return err
+		}
+	}
+	if req.Properties[fsCommon.DirMode] != "" {
+		if _, err := strconv.Atoi(req.Properties[fsCommon.DirMode]); err != nil {
+			return err
+		}
+	}
 	switch fsType {
 	case common.HDFS:
 		if req.Properties[fsCommon.KeyTabData] != "" {

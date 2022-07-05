@@ -26,6 +26,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -54,12 +55,14 @@ const (
 	TmpPath          = "./tmp/pfs/"
 	MaxFileSize      = 5 * 1024 * 1024 * 1024 * 1024 // s3: support upto 5 TiB file size
 	// mpu
-	MPURetryTimes  = 2
-	MPUThreshold   = 200 * 1024 * 1024      // customized for performance
-	MPUChunkSize   = 1 * 1024 * 1024 * 1024 // chunk size 1 GiB
-	MPUMinPartSize = 5 * 1024 * 1024        // s3: Each part must be at least 5 MB ~ 5 GB in size (except for the last part)
-	MPUMaxPartSize = 5 * 1024 * 1024 * 1024 // s3: Each part must be at least 5 MB ~ 5 GB in size (except for the last part)
-	MPUMaxPartNum  = 10000                  // s3: between 1~10,000
+	MPURetryTimes   = 2
+	MPUThreshold    = 200 * 1024 * 1024      // customized for performance
+	MPUChunkSize    = 1 * 1024 * 1024 * 1024 // chunk size 1 GiB
+	MPUMinPartSize  = 5 * 1024 * 1024        // s3: Each part must be at least 5 MB ~ 5 GB in size (except for the last part)
+	MPUMaxPartSize  = 5 * 1024 * 1024 * 1024 // s3: Each part must be at least 5 MB ~ 5 GB in size (except for the last part)
+	MPUMaxPartNum   = 10000                  // s3: between 1~10,000
+	DefaultDirMode  = 0755
+	DefaultFileMode = 0644
 )
 
 var Owner string
@@ -68,6 +71,8 @@ var Group string
 type s3FileSystem struct {
 	bucket      string
 	subpath     string // bucket:subpath/name
+	dirMode     int
+	fileMode    int
 	sess        *session.Session
 	s3          *s3.S3
 	defaultTime time.Time
@@ -236,7 +241,7 @@ func (fs *s3FileSystem) getRootDirAttr() *base.FileInfo {
 	// 参考bosfs的做法，启动时记录一个默认时间，目录时间属性频繁变化会导致tar压缩目录失败。
 	aTime := fuse.UtimeToTimespec(&fs.defaultTime)
 	var perm uint32
-	perm = syscall.S_IFDIR | 0777
+	perm = uint32(syscall.S_IFDIR | fs.dirMode)
 	uid := uint32(utils.LookupUser(Owner))
 	gid := uint32(utils.LookupGroup(Group))
 
@@ -358,12 +363,12 @@ func (fs *s3FileSystem) GetAttr(name string) (*base.FileInfo, error) {
 
 	size := *response.ContentLength
 	isDir := strings.HasSuffix(path, Delimiter)
-	mode := syscall.S_IFREG | 0666
+	mode := syscall.S_IFREG | fs.fileMode
 
 	// if empty directory, s3 will return size=0
 	if isDir {
 		size = 4096
-		mode = syscall.S_IFDIR | 0777
+		mode = syscall.S_IFDIR | fs.dirMode
 	}
 
 	uid := uint32(utils.LookupUser(Owner))
@@ -889,12 +894,12 @@ func (fs *s3FileSystem) ReadDir(name string) ([]DirEntry, error) {
 		}
 		mtime := int64(finfo.Mtime)
 		size := finfo.Size
-		mode := syscall.S_IFREG | 0666
+		mode := syscall.S_IFREG | fs.fileMode
 		isDir := finfo.IsDir
 		fileType := uint8(TypeFile)
 		if isDir {
 			fileType = TypeDirectory
-			mode = syscall.S_IFDIR | 0755
+			mode = syscall.S_IFDIR | fs.dirMode
 			size = 4096
 		}
 		uid := uint32(utils.LookupUser(Owner))
@@ -1402,6 +1407,16 @@ func NewS3FileSystem(properties map[string]interface{}) (UnderFileStorage, error
 	bucket := properties[fsCommon.Bucket].(string)
 	region := properties[fsCommon.Region].(string)
 	subpath := properties[fsCommon.SubPath].(string)
+	dirMode_ := properties[fsCommon.DirMode].(string)
+	fileMode_ := properties[fsCommon.FileMode].(string)
+	dirMode, err := strconv.Atoi(dirMode_)
+	if err != nil {
+		return nil, err
+	}
+	fileMode, err := strconv.Atoi(fileMode_)
+	if err != nil {
+		return nil, err
+	}
 
 	endpoint = strings.TrimSuffix(endpoint, Delimiter)
 	bucket = strings.TrimSuffix(bucket, Delimiter)
@@ -1449,6 +1464,8 @@ func NewS3FileSystem(properties map[string]interface{}) (UnderFileStorage, error
 	fs := &s3FileSystem{
 		bucket:      bucket,
 		subpath:     tidySubpath(subpath),
+		dirMode:     dirMode,
+		fileMode:    fileMode,
 		sess:        sess,
 		s3:          s3.New(sess),
 		defaultTime: time.Now(),
