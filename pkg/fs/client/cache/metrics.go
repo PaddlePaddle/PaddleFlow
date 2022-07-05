@@ -1,8 +1,9 @@
 package cache
 
 import (
-	"github.com/PaddlePaddle/PaddleFlow/pkg/monitor"
 	"github.com/prometheus/client_golang/prometheus"
+
+	"github.com/PaddlePaddle/PaddleFlow/pkg/monitor"
 )
 
 func registerMetrics() {

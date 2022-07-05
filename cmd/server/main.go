@@ -9,7 +9,6 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/monitor"
 	"github.com/go-chi/chi"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
@@ -25,6 +24,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/monitor"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/trace_logger"

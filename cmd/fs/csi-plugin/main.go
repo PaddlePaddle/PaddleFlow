@@ -20,7 +20,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/monitor"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 
@@ -30,6 +29,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csiconfig"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csidriver"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/k8s"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/monitor"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/version"
 )
 
