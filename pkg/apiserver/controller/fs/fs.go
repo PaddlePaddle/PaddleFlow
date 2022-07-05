@@ -293,7 +293,7 @@ func checkFsMounted(cnm map[*runtime.KubeRuntime][]string, fsID string) (bool, m
 		pods, err := k8sRuntime.ListPods(schema.MountPodNamespace, listOptions)
 		if err != nil {
 			log.Errorf("list mount pods failed: %v", err)
-			return false, clusterPodMap, err
+			return false, nil, err
 		}
 		clusterPodMap[k8sRuntime] = pods.Items
 
