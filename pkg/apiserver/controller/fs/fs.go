@@ -319,6 +319,7 @@ func DeleteMountPods(podMap map[*runtime.KubeRuntime][]k8sCore.Pod) error {
 			}
 		}
 	}
+	return nil
 }
 
 func DeletePvPvc(cnm map[*runtime.KubeRuntime][]string, fsID string) error {
