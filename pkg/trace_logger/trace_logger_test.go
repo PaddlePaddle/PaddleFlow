@@ -16,8 +16,6 @@ limitations under the License.
 
 package trace_logger
 
-// TODO: file part is not ready
-
 import (
 	"testing"
 	"time"
