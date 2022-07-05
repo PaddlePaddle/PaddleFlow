@@ -126,6 +126,7 @@ type TraceLoggerManager interface {
 	SetTraceToCache(key string, trace Trace) error
 	UpdateKey(key string, newKey string) error
 	Key(key string) TraceLogger
+	KeyWithUpdate(key string) TraceLogger
 
 	SyncAll() error
 	LoadAll(path string, prefix ...string) error
@@ -654,6 +655,17 @@ func (d *DefaultTraceLoggerManager) Key(key string) TraceLogger {
 	// use load or store
 	val, _ := d.tmpKeyMap.LoadOrStore(key, d.NewTraceLogger())
 	traceLogger = val.(TraceLogger)
+	return traceLogger
+}
+
+func (d *DefaultTraceLoggerManager) KeyWithUpdate(key string) TraceLogger {
+	var traceLogger TraceLogger
+	// use load or store
+	val, loaded := d.tmpKeyMap.LoadOrStore(key, d.NewTraceLogger())
+	traceLogger = val.(TraceLogger)
+	if !loaded {
+		traceLogger.SetKey(key)
+	}
 	return traceLogger
 }
 

@@ -28,6 +28,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/trace_logger"
 )
 
 const (
@@ -179,6 +180,7 @@ func (m *JobManagerImpl) Run(runtimeService runtime.RuntimeService, stopCh <-cha
 }
 
 func (m *JobManagerImpl) JobProcessLoop(jobSubmit func(*api.PFJob) error, stopCh <-chan struct{}, queueJobs *api.QueueJob) {
+	// TODO: add trace log support
 	find := false
 	var jobInfo *api.PFJob
 	var msg string
@@ -203,6 +205,7 @@ func (m *JobManagerImpl) JobProcessLoop(jobSubmit func(*api.PFJob) error, stopCh
 					if err != nil {
 						// new job failed, update db and skip this job
 						msg = err.Error()
+						trace_logger.Key()
 						jobStatus = schema.StatusJobFailed
 					} else {
 						msg = "submit job to cluster successfully."

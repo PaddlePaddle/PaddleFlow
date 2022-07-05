@@ -26,6 +26,8 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"gopkg.in/natefinch/lumberjack.v2"
+
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 )
 
 // initFileLogger
@@ -200,6 +202,12 @@ func Key(key string) TraceLogger {
 	return manager.Key(key)
 }
 
+// KeyWithUpdate same behavior as Key method, but the key will be updated to newKey after the logger is created.
+// i.e. KeyWithUpdate behave same as Key(key1) + UpdateKey(key1, key1)
+func KeyWithUpdate(key string) TraceLogger {
+	return manager.KeyWithUpdate(key)
+}
+
 // UpdateKey this function will update the key of the trace logger.
 func UpdateKey(oldKey, newKey string) error {
 	return manager.UpdateKey(oldKey, newKey)
@@ -235,4 +243,32 @@ func CancelAutoSync() error {
 
 func GetTraceFromCache(key string) (Trace, bool) {
 	return manager.GetTraceFromCache(key)
+}
+
+// GetJobTracesByRunID for run and job relation mapping
+func GetJobTracesByRunID(runID string) ([]Trace, bool) {
+	var jobTraces []Trace
+	jobs, err := models.GetJobsByRunID(runID, "")
+	if err != nil {
+		logrus.Errorf(LogrusPrefix+"failed to get jobs by runID: %s, err: %s", runID, err.Error())
+	}
+	// if empty return
+	if len(jobs) == 0 {
+		return jobTraces, false
+	}
+	jobTraces = make([]Trace, 0, len(jobs))
+
+	for _, job := range jobs {
+		jobTrace, ok := GetTraceFromCache(job.ID)
+		if !ok {
+			continue
+		}
+		jobTraces = append(jobTraces, jobTrace)
+	}
+
+	// double check if jobTraces is empty
+	if len(jobTraces) == 0 {
+		return jobTraces, false
+	}
+	return jobTraces, true
 }
