@@ -29,10 +29,8 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/fs"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	fsCommon "github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
-	k8sCore "k8s.io/api/core/v1"
 )
 
 func Test_validateCreateFileSystem(t *testing.T) {
@@ -465,27 +463,24 @@ func TestCreateFSAndDeleteFs(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, http.StatusCreated, result.Code)
 
-	var p1 = gomonkey.ApplyFunc(fs.DeletePvPvc, func(cnm map[*runtime.KubeRuntime][]string, fsID string) error {
-		return nil
-	})
-	defer p1.Reset()
-
-	var p2 = gomonkey.ApplyFunc(fs.CheckFsMounted, func(cnm map[*runtime.KubeRuntime][]string, fsID string) (bool, map[*runtime.KubeRuntime][]k8sCore.Pod, error) {
-		return false, nil, nil
-	})
-
+	// test delete fs successful
+	var p1 = gomonkey.ApplyMethod(reflect.TypeOf(fs.FileSystemService{}), "CheckFsMountedAndCleanResources",
+		func(_ *fs.FileSystemService, fsID string) (bool, error) {
+			return false, nil
+		})
 	deleteUrl := fsUrl + "/" + mockFsName
 	result, err = PerformDeleteRequest(router, deleteUrl)
 	assert.Nil(t, err)
 	assert.Equal(t, http.StatusOK, result.Code)
 
-	p2.Reset()
+	p1.Reset()
 
 	// test fs mounted
-	p2 = gomonkey.ApplyFunc(fs.CheckFsMounted, func(cnm map[*runtime.KubeRuntime][]string, fsID string) (bool, map[*runtime.KubeRuntime][]k8sCore.Pod, error) {
-		return true, nil, nil
-	})
-	defer p2.Reset()
+	p1 = gomonkey.ApplyMethod(reflect.TypeOf(fs.FileSystemService{}), "CheckFsMountedAndCleanResources",
+		func(_ *fs.FileSystemService, fsID string) (bool, error) {
+			return true, nil
+		})
+	defer p1.Reset()
 	result, err = PerformPostRequest(router, fsUrl, createFsReq)
 	assert.Nil(t, err)
 	assert.Equal(t, http.StatusCreated, result.Code)

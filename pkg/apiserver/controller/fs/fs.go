@@ -169,30 +169,15 @@ func (s *FileSystemService) GetFileSystem(username, fsName string) (model.FileSy
 
 // DeleteFileSystem the function which performs the operation of delete file system
 func (s *FileSystemService) DeleteFileSystem(ctx *logger.RequestContext, fsID string) error {
-	cnm, err := getClusterNamespaceMap()
+	isMounted, err := s.CheckFsMountedAndCleanResources(fsID)
 	if err != nil {
-		err := fmt.Errorf("DeleteFileSystem getClusterNamespaceMap err: %v", err)
-		log.Errorf(err.Error())
+		ctx.Logging().Errorf("CheckFsMountedAndCleanResources with fsID[%s] err: %v", fsID, err)
 		return err
 	}
-
-	mounted, mountPodMap, err := CheckFsMounted(cnm, fsID)
-	if err != nil {
-		ctx.Logging().Errorf("CheckFsMounted fsID[%s] err: %v", fsID, err)
-		return err
-	}
-	if mounted {
-		err := fmt.Errorf("fs[%s] currently mounted. cannot be deleted", fsID)
+	if isMounted {
+		err := fmt.Errorf("fs[%s] is mounted. deletion is not allowed", fsID)
 		ctx.Logging().Errorf(err.Error())
 		ctx.ErrorCode = common.ActionNotAllowed
-		return err
-	}
-	if err := DeleteMountPods(mountPodMap); err != nil {
-		ctx.Logging().Errorf("delete mount pods with fsID[%s] err: %v", fsID, err)
-		return err
-	}
-	if err := DeletePvPvc(cnm, fsID); err != nil {
-		ctx.Logging().Errorf("delete PvPvc with fsID[%s] err: %v", fsID, err)
 		return err
 	}
 
@@ -221,6 +206,37 @@ func (s *FileSystemService) DeleteFileSystem(ctx *logger.RequestContext, fsID st
 		}
 		return nil
 	})
+}
+
+func (s *FileSystemService) CheckFsMountedAndCleanResources(fsID string) (bool, error) {
+	cnm, err := getClusterNamespaceMap()
+	if err != nil {
+		err := fmt.Errorf("DeleteFileSystem getClusterNamespaceMap err: %v", err)
+		log.Errorf(err.Error())
+		return false, err
+	}
+
+	mounted, mountPodMap, err := checkFsMounted(cnm, fsID)
+	if err != nil {
+		err := fmt.Errorf("check fs mounted fsID[%s] err: %v", fsID, err)
+		log.Errorf(err.Error())
+		return false, err
+	}
+	if mounted {
+		log.Infof("fs[%s] currently mounted. cannot be modified or deleted", fsID)
+		return true, nil
+	}
+	if err := deleteMountPods(mountPodMap); err != nil {
+		err := fmt.Errorf("delete mount pods with fsID[%s] err: %v", fsID, err)
+		log.Errorf(err.Error())
+		return false, err
+	}
+	if err := deletePvPvc(cnm, fsID); err != nil {
+		err := fmt.Errorf("delete pv/pvc with fsID[%s] err: %v", fsID, err)
+		log.Errorf(err.Error())
+		return false, err
+	}
+	return false, nil
 }
 
 func getClusterNamespaceMap() (map[*runtime.KubeRuntime][]string, error) {
@@ -268,7 +284,7 @@ func getClusterNamespaceMap() (map[*runtime.KubeRuntime][]string, error) {
 	return cnm, nil
 }
 
-func CheckFsMounted(cnm map[*runtime.KubeRuntime][]string, fsID string) (bool, map[*runtime.KubeRuntime][]k8sCore.Pod, error) {
+func checkFsMounted(cnm map[*runtime.KubeRuntime][]string, fsID string) (bool, map[*runtime.KubeRuntime][]k8sCore.Pod, error) {
 	clusterPodMap := make(map[*runtime.KubeRuntime][]k8sCore.Pod)
 	isMounted := false
 	for k8sRuntime, _ := range cnm {
@@ -300,15 +316,15 @@ func CheckFsMounted(cnm map[*runtime.KubeRuntime][]string, fsID string) (bool, m
 			}
 		}
 	}
-	log.Debugf("CheckFsMounted[%s] isMounted[%t], clusterPodsMap: %+v", fsID, isMounted, clusterPodMap)
+	log.Debugf("checkFsMounted[%s] isMounted[%t], clusterPodsMap: %+v", fsID, isMounted, clusterPodMap)
 	return isMounted, clusterPodMap, nil
 }
 
-func DeleteMountPods(podMap map[*runtime.KubeRuntime][]k8sCore.Pod) error {
+func deleteMountPods(podMap map[*runtime.KubeRuntime][]k8sCore.Pod) error {
 	for k8sRuntime, pods := range podMap {
 		for _, po := range pods {
 			if err := k8sRuntime.DeletePod(schema.MountPodNamespace, po.Name); err != nil {
-				err := fmt.Errorf("DeleteMountPods [%s] failed: %v", po.Name, err)
+				err := fmt.Errorf("deleteMountPods [%s] failed: %v", po.Name, err)
 				log.Errorf(err.Error())
 				return err
 			}
@@ -317,7 +333,7 @@ func DeleteMountPods(podMap map[*runtime.KubeRuntime][]k8sCore.Pod) error {
 	return nil
 }
 
-func DeletePvPvc(cnm map[*runtime.KubeRuntime][]string, fsID string) error {
+func deletePvPvc(cnm map[*runtime.KubeRuntime][]string, fsID string) error {
 	for k8sRuntime, namespaces := range cnm {
 		for _, ns := range namespaces {
 			// delete pvc manually. pv will be deleted automatically
