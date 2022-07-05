@@ -431,7 +431,7 @@ type Cache struct {
 
 type FsScope struct {
 	FsName string `yaml:"fs_name"       json:"fsName"`
-	FsID   string `yaml:"-"             json:"-"`
+	FsID   string `yaml:"-"             json:"fsID"`
 	Path   string `yaml:"path"          json:"path"`
 }
 
