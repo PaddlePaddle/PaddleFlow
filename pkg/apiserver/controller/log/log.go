@@ -71,6 +71,15 @@ func GetRunLog(ctx *logger.RequestContext, runID string, request GetRunLogReques
 		RunID:  runID,
 		RunLog: make([]schema.JobLogInfo, 0),
 	}
+
+	// get submit log first
+	trace, ok := trace_logger.GetTraceFromCache(runID)
+	if !ok {
+		ctx.Logging().Warnf("get trace log failed. runID[%s]", runID)
+	} else {
+		response.SubmitLog = trace.String()
+	}
+
 	if len(jobList) == 0 {
 		return response, nil
 	}
@@ -101,15 +110,6 @@ func GetRunLog(ctx *logger.RequestContext, runID string, request GetRunLogReques
 		}
 		response.RunLog = append(response.RunLog, jobLogInfo)
 	}
-	ctx.Logging().Infof("get trace log from cache. runID[%s]", runID)
-	trace, ok := trace_logger.GetTraceFromCache(runID)
-	if !ok {
-		ctx.Logging().Warnf("get trace log failed. runID[%s]", runID)
-	} else {
-		response.SubmitLog = trace.String()
-		ctx.Logging().Infof("runID[%s], trace: %s", runID, response.SubmitLog)
-	}
-
 	return response, nil
 }
 
