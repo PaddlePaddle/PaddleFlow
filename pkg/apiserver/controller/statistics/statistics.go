@@ -160,7 +160,7 @@ func convertResultToDetailResponse(result model.Value, response *JobDetailStatis
 }
 
 func queryResourceMetric(ctx context.Context, jobID, metricName string) (model.Value, error) {
-	queryPromql := fmt.Sprintf("avg(%s[jobID=%s]) without (podID)", metricName, jobID)
+	queryPromql := fmt.Sprintf("avg(%s{jobID=\"%s\"}) without (podID)", metricName, jobID)
 	result, _, err := monitor.PrometheusClientAPI.Query(ctx, queryPromql, time.Now())
 	if err != nil {
 		log.Errorf("job[%s] prometheus query api error %s", jobID, err.Error())
@@ -170,7 +170,7 @@ func queryResourceMetric(ctx context.Context, jobID, metricName string) (model.V
 }
 
 func queryRangeResourceMetric(ctx context.Context, jobID, metricName string, start, end, step int64) (model.Value, error) {
-	queryPromql := fmt.Sprintf("%s[jobID=%s]", metricName, jobID)
+	queryPromql := fmt.Sprintf("%s{jobID=\"%s\"}", metricName, jobID)
 	r := v1.Range{
 		Start: time.Unix(start, 0),
 		End:   time.Unix(end, 0),
