@@ -132,7 +132,7 @@ func (m *Info) fillingMountCmd() {
 	}
 	if m.IndependentMountProcess {
 		m.MountCmd = fileMountSh
-		m.MountArgs = append(baseArgs, "--mount-point="+m.TargetPath)
+		m.MountArgs = append(baseArgs, "--mount-point="+m.TargetPath, "--fs-id="+m.FsID)
 	} else {
 		m.MountCmd = filePfsFuse
 		m.MountArgs = []string{"mount", "--mount-point=" + FusePodMountPoint, "--fs-id=" + m.FsID}
