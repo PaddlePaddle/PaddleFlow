@@ -313,6 +313,14 @@ func (crt *baseComponentRuntime) setSysParams() error {
 		crt.sysParams[SysParamNamePFLoopArgument] = fmt.Sprintf("%v", pfLoopArugment)
 	}
 
+	if crt.getComponent().GetType() == "step" {
+		if len(crt.getComponent().(*schema.WorkflowSourceStep).FsMount) == 0 {
+			crt.sysParams[SysParamNamePFMountPath] = "None"
+		} else {
+			crt.sysParams[SysParamNamePFMountPath] = ""
+		}
+	}
+
 	crt.innerSolver.setSysParams(crt.sysParams)
 
 	crt.logger.Infof("the sysParams for %s[%s] is %v", crt.getComponent().GetType(),
