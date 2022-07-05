@@ -17,13 +17,7 @@ limitations under the License.
 package statistics
 
 import (
-	"context"
 	"fmt"
-	"time"
-
-	"github.com/prometheus/client_golang/api/prometheus/v1"
-	"github.com/prometheus/common/model"
-	log "github.com/sirupsen/logrus"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
@@ -31,6 +25,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/monitor"
+	"github.com/prometheus/common/model"
 )
 
 var metricNameList = [...]string{consts.MetricCpuUsageRate, consts.MetricMemoryUsage, consts.MetricDiskUsage,
@@ -66,16 +61,19 @@ type MetricInfo struct {
 
 func GetJobStatistics(ctx *logger.RequestContext, jobID string) (*JobStatisticsResponse, error) {
 	response := &JobStatisticsResponse{}
-	_, err := models.GetJobByID(jobID)
+	clusterType, _, err := getClusterTypeByJob(ctx, jobID)
 	if err != nil {
-		ctx.ErrorCode = common.JobNotFound
-		ctx.Logging().Errorln(err.Error())
-		return nil, common.NotFoundError(common.ResourceTypeJob, jobID)
+		ctx.Logging().Errorf("get metric type failed, error: %s", err.Error())
+		return nil, err
 	}
-	ctxP, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
+	metric, err := getMetricByType(clusterType)
+	if err != nil {
+		ctx.Logging().Errorf("get metric by type[%s] failed, error: %s", clusterType, err.Error())
+		return nil, err
+	}
+
 	for _, value := range metricNameList {
-		result, err := queryResourceMetric(ctxP, jobID, value)
+		result, err := metric.GetJobStatisticsMetric(value, jobID)
 		if err != nil {
 			ctx.Logging().Errorf("query metric[%s] failed, error: %s", value, err.Error())
 			return nil, err
@@ -96,11 +94,10 @@ func GetJobDetailStatistics(ctx *logger.RequestContext, jobID string, start, end
 		TaskNameMap: make(map[string]int),
 	}
 
-	job, err := models.GetJobByID(jobID)
+	clusterType, job, err := getClusterTypeByJob(ctx, jobID)
 	if err != nil {
-		ctx.ErrorCode = common.JobNotFound
-		ctx.Logging().Errorln(err.Error())
-		return nil, common.NotFoundError(common.ResourceTypeJob, jobID)
+		ctx.Logging().Errorf("get metric type failed, error: %s", err.Error())
+		return nil, err
 	}
 
 	if start == 0 {
@@ -115,10 +112,15 @@ func GetJobDetailStatistics(ctx *logger.RequestContext, jobID string, start, end
 			end = start + 60*10
 		}
 	}
-	ctxP, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
+
+	metric, err := getMetricByType(clusterType)
+	if err != nil {
+		ctx.Logging().Errorf("get metric by type[%s] failed, error: %s", clusterType, err.Error())
+		return nil, err
+	}
+
 	for _, value := range metricNameList {
-		result, err := queryRangeResourceMetric(ctxP, jobID, value, start, end, step)
+		result, err := metric.GetJobDetailMetric(value, jobID, start, end, step)
 		if err != nil {
 			ctx.Logging().Errorf("query range metric[%s] failed, error: %s", value, err.Error())
 			return nil, err
@@ -132,8 +134,44 @@ func GetJobDetailStatistics(ctx *logger.RequestContext, jobID string, start, end
 	return response, nil
 }
 
+func getMetricByType(metricType string) (monitor.MetricInterface, error) {
+	var metric monitor.MetricInterface
+	switch metricType {
+	case schema.KubernetesType:
+		metric = monitor.NewKubernetesMetric(monitor.PrometheusClientAPI)
+	default:
+		return nil, fmt.Errorf("metric type[%s] is not support", metricType)
+	}
+	return metric, nil
+}
+
+func getClusterTypeByJob(ctx *logger.RequestContext, jobID string) (string, *models.Job, error) {
+	job, err := models.GetJobByID(jobID)
+	if err != nil {
+		ctx.ErrorCode = common.JobNotFound
+		ctx.Logging().Errorln(err.Error())
+		return "", nil, common.NotFoundError(common.ResourceTypeJob, jobID)
+	}
+	queue, err := models.GetQueueByID(job.QueueID)
+	if err != nil {
+		ctx.ErrorCode = common.QueueNameNotFound
+		ctx.Logging().Errorln(err.Error())
+		return "", nil, common.NotFoundError(common.ResourceTypeQueue, job.QueueID)
+	}
+	cluster, err := models.GetClusterById(queue.ClusterId)
+	if err != nil {
+		ctx.ErrorCode = common.ClusterNotFound
+		ctx.Logging().Errorln(err.Error())
+		return "", nil, common.NotFoundError(common.ResourceTypeCluster, queue.ClusterId)
+	}
+	return cluster.ClusterType, &job, nil
+}
+
 func convertResultToDetailResponse(result model.Value, response *JobDetailStatisticsResponse) error {
-	data := result.(model.Matrix)
+	data, ok := result.(model.Matrix)
+	if !ok {
+		return fmt.Errorf("convert result to matrix failed")
+	}
 	for _, value := range data {
 		taskValues := make([][2]float64, 1)
 		for _, rangeValue := range value.Values {
@@ -159,33 +197,11 @@ func convertResultToDetailResponse(result model.Value, response *JobDetailStatis
 	return nil
 }
 
-func queryResourceMetric(ctx context.Context, jobID, metricName string) (model.Value, error) {
-	queryPromql := fmt.Sprintf("avg(%s{jobID=\"%s\"}) without (podID)", metricName, jobID)
-	result, _, err := monitor.PrometheusClientAPI.Query(ctx, queryPromql, time.Now())
-	if err != nil {
-		log.Errorf("job[%s] prometheus query api error %s", jobID, err.Error())
-		return nil, err
-	}
-	return result, nil
-}
-
-func queryRangeResourceMetric(ctx context.Context, jobID, metricName string, start, end, step int64) (model.Value, error) {
-	queryPromql := fmt.Sprintf("%s{jobID=\"%s\"}", metricName, jobID)
-	r := v1.Range{
-		Start: time.Unix(start, 0),
-		End:   time.Unix(end, 0),
-		Step:  time.Duration(step) * time.Second,
-	}
-	result, _, err := monitor.PrometheusClientAPI.QueryRange(ctx, queryPromql, r)
-	if err != nil {
-		log.Errorf("job[%s] prometheus query range api error %s", jobID, err.Error())
-		return nil, err
-	}
-	return result, nil
-}
-
 func convertResultToResponse(result model.Value, response *JobStatisticsResponse) error {
-	data := result.(model.Vector)
+	data, ok := result.(model.Vector)
+	if !ok {
+		return fmt.Errorf("convert result to vector failed")
+	}
 	if len(data) > 0 {
 		switch data[0].Metric[model.MetricNameLabel] {
 		case consts.MetricCpuUsageRate:

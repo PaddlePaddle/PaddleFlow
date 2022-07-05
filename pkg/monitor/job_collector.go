@@ -78,7 +78,11 @@ func (j *JobCollector) CollectPodMetrics(metricName string) error {
 			log.Errorf("call prometheus query api error %s", err.Error())
 			return err
 		}
-		data := result.(model.Vector)
+		data, ok := result.(model.Vector)
+		if !ok {
+			log.Errorf("convert result to vector failed")
+			return err
+		}
 		for _, metric := range data {
 			for _, podName := range podNameList {
 				if podName == string(metric.Metric["pod"]) {
