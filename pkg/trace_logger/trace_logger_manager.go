@@ -288,7 +288,6 @@ func (d *DefaultTraceLoggerManager) NewTraceLogger() TraceLogger {
 
 func (d *DefaultTraceLoggerManager) GetTraceFromCache(key string) (Trace, bool) {
 	val, ok := d.cache.Get(key)
-	logrus.Debugf(LogrusPrefix+"cache: %s", d.String())
 	if !ok {
 		return Trace{}, false
 	}
@@ -372,7 +371,7 @@ func (d *DefaultTraceLoggerManager) evictCache() {
 		k, v := x.Key, x.Val.(Trace)
 
 		if v.UpdateTime.Before(ddl) {
-			logrus.Infof(LogrusPrefix+"evict key: %s", k)
+			logrus.Debugf(LogrusPrefix+"evict key: %s", k)
 			d.removeKey(k)
 			numberToBeDeleted--
 		} else {
@@ -389,7 +388,7 @@ func (d *DefaultTraceLoggerManager) evictCache() {
 			break
 		}
 		key := x.(string)
-		logrus.Infof(LogrusPrefix+"evict key: %s", key)
+		logrus.Debugf(LogrusPrefix+"evict key: %s", key)
 		d.removeKey(key)
 	}
 
@@ -589,7 +588,7 @@ func (d *DefaultTraceLoggerManager) deleteExpiredCache(timeout time.Duration, me
 	for x := range iter {
 		k, v := x.Key, x.Val.(Trace)
 		if v.UpdateTime.Before(ddl) && method(k) {
-			logrus.Infof(LogrusPrefix+"delete expired cache: %s", k)
+			logrus.Debugf(LogrusPrefix+"delete expired cache: %s", k)
 			d.removeKey(k)
 		}
 	}
@@ -614,7 +613,7 @@ func (d *DefaultTraceLoggerManager) deleteUnusedTmpKey(timeout time.Duration) {
 		if traceLogger.GetKey() == "" {
 			updateTime := traceLogger.GetTrace().UpdateTime
 			if updateTime.Before(time.Now().Add(-timeout)) {
-				logrus.Infof(LogrusPrefix+"delete unused tmp key: %s", tmpKey)
+				logrus.Debugf(LogrusPrefix+"delete unused tmp key: %s", tmpKey)
 				d.tmpKeyMap.Delete(tmpKey)
 			}
 		}
