@@ -137,11 +137,19 @@ func (s *Scheduler) Start() {
 		}
 
 		if toUpdate {
-			logger.Logger().Infof("update nextWakeupTime, origin:[%s], new:[%s]", nextWakeupTime.Format("2006-01-02 15:04:05"), tmpNextWakeupTime.Format("2006-01-02 15:04:05"))
+			logger.Logger().Infof("update nextWakeupTime, origin:[%s], new:[%s]", s.formatTime(nextWakeupTime), s.formatTime(tmpNextWakeupTime))
 			nextWakeupTime = tmpNextWakeupTime
 			timeout = s.getTimeout(nextWakeupTime)
 			toUpdate = false
 		}
+	}
+}
+
+func (s *Scheduler) formatTime(timeToFormat *time.Time) string {
+	if timeToFormat == nil {
+		return "None"
+	} else {
+		return timeToFormat.Format("2006-01-02 15:04:05")
 	}
 }
 

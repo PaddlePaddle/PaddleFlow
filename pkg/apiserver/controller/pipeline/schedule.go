@@ -18,10 +18,12 @@ package pipeline
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
 	cron "github.com/robfig/cron/v3"
+	"gorm.io/gorm"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/fs"
@@ -275,6 +277,21 @@ func CreateSchedule(ctx *logger.RequestContext, request *CreateScheduleRequest) 
 		return CreateScheduleResponse{}, err
 	}
 
+	// 校验schedule是否存在，一个用户不能创建同名schedule
+	_, err = models.GetScheduleByName(ctx.Logging(), request.Name, ctx.UserName)
+	if err == nil {
+		ctx.ErrorCode = common.DuplicatedName
+		errMsg := fmt.Sprintf("CreateSchedule failed: user[%s] already has schedule with name[%s]", ctx.UserName, request.Name)
+		ctx.Logging().Errorf(errMsg)
+		return CreateScheduleResponse{}, fmt.Errorf(errMsg)
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		ctx.ErrorCode = common.InternalError
+		errMsg := fmt.Sprintf("CreateSchedule failed: %s", err)
+		ctx.Logging().Errorf(errMsg)
+		return CreateScheduleResponse{}, fmt.Errorf(errMsg)
+	}
+
 	// create schedule in db after run.yaml validated
 	schedule := models.Schedule{
 		ID:               "", // to be back filled according to db pk
@@ -342,7 +359,7 @@ func ListSchedule(ctx *logger.RequestContext, marker string, maxKeys int, pplFil
 	// 只有root用户才能设置userFilter，否则只能查询当前普通用户创建的schedule列表
 	if !common.IsRootUser(ctx.UserName) {
 		if len(userFilter) != 0 {
-			ctx.ErrorCode = common.InternalError
+			ctx.ErrorCode = common.InvalidArguments
 			errMsg := fmt.Sprint("only root user can set userFilter!")
 			ctx.Logging().Errorf(errMsg)
 			return ListScheduleResponse{}, fmt.Errorf(errMsg)
@@ -391,6 +408,7 @@ func ListSchedule(ctx *logger.RequestContext, marker string, maxKeys int, pplFil
 		scheduleBrief := ScheduleBrief{}
 		err := scheduleBrief.updateFromScheduleModel(schedule)
 		if err != nil {
+			ctx.ErrorCode = common.InternalError
 			return ListScheduleResponse{}, err
 		}
 		listScheduleResponse.ScheduleList = append(listScheduleResponse.ScheduleList, scheduleBrief)
@@ -431,13 +449,15 @@ func GetSchedule(ctx *logger.RequestContext, scheduleID string,
 	scheduleIDFilter := []string{scheduleID}
 	listRunResponse, err := ListRun(ctx, marker, maxKeys, userFilter, fsFilter, runFilter, nameFilter, statusFilter, scheduleIDFilter)
 	if err != nil {
-		ctx.Logging().Errorf("list run for schedule[%s] failed. err:[%s]", scheduleID, err.Error())
 		ctx.ErrorCode = common.InternalError
+		ctx.Logging().Errorf("list run for schedule[%s] failed. err:[%s]", scheduleID, err.Error())
+		return GetScheduleResponse{}, err
 	}
 
 	getScheduleResponse := GetScheduleResponse{ListRunResponse: listRunResponse}
 	err = getScheduleResponse.ScheduleBrief.updateFromScheduleModel(schedule)
 	if err != nil {
+		ctx.ErrorCode = common.InternalError
 		return GetScheduleResponse{}, err
 	}
 
