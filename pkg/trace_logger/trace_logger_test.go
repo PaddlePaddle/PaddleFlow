@@ -25,6 +25,11 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
 )
 
+const (
+	FilePath = "/tmp"
+	FileName = "trace_log"
+)
+
 func TestTraceLogger(t *testing.T) {
 	// init logger
 	var err error
@@ -43,7 +48,7 @@ func TestTraceLogger(t *testing.T) {
 
 	key1 := uuid.GenerateIDWithLength("key", 4)
 	t.Logf("log key %s", key1)
-	err = testFunc1(t, key1)
+	err = traceLoggerTest1(t, key1)
 	if err != nil {
 		t.Error(err)
 		return
@@ -58,7 +63,7 @@ func TestTraceLogger(t *testing.T) {
 
 	key2 := uuid.GenerateIDWithLength("key", 4)
 	t.Logf("log key %s", key2)
-	err = testFunc1(t, key2)
+	err = traceLoggerTest1(t, key2)
 	if err != nil {
 		t.Error(err)
 		return
@@ -77,7 +82,7 @@ func TestTraceLogger(t *testing.T) {
 
 	key3 := uuid.GenerateIDWithLength("key", 4)
 	t.Logf("log key %s", key3)
-	err = testFunc1(t, key3)
+	err = traceLoggerTest1(t, key3)
 	if err != nil {
 		t.Error(err)
 		return
@@ -137,14 +142,23 @@ func TestTraceLogger(t *testing.T) {
 		return ok1 && ok2 && ok3
 	})
 
+	// test traceLoggerTest2
+	key4 := uuid.GenerateIDWithLength("key", 4)
+	t.Logf("log key %s", key4)
+	err = traceLoggerTest2(t, key4)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
 	t.Logf("key3 %s: %s\n", key3, trace)
 
 }
 
 func initTraceLogger() error {
 	conf := TraceLoggerConfig{
-		Dir:             "./",
-		FilePrefix:      "trace_log",
+		Dir:             FilePath,
+		FilePrefix:      FileName,
 		Level:           "debug",
 		MaxKeepDays:     2,
 		MaxFileNum:      10,
@@ -158,7 +172,7 @@ func initTraceLogger() error {
 
 }
 
-func testFunc1(t *testing.T, key string) error {
+func traceLoggerTest1(t *testing.T, key string) error {
 	tmpKey := uuid.GenerateIDWithLength("tmp", 4)
 	Key(tmpKey).Infof("test1")
 	Key(tmpKey).Errorf("test2")
@@ -176,5 +190,21 @@ func testFunc1(t *testing.T, key string) error {
 		return ok
 	})
 
+	return nil
+}
+
+func traceLoggerTest2(t *testing.T, key string) error {
+	KeyWithUpdate(key).Infof("test1")
+	KeyWithUpdate(key).Errorf("test2")
+	assert.Condition(t, func() bool {
+		_, ok := GetTraceFromCache(key)
+		return ok
+	})
+
+	Key(key).Warnf("test3")
+	assert.Condition(t, func() bool {
+		_, ok := GetTraceFromCache(key)
+		return ok
+	})
 	return nil
 }
