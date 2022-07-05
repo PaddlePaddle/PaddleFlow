@@ -314,7 +314,7 @@ func checkFsMounted(cnm map[*runtime.KubeRuntime][]string, fsID string) (bool, m
 func deleteMountPods(podMap map[*runtime.KubeRuntime][]k8sCore.Pod) error {
 	for k8sRuntime, pods := range podMap {
 		for _, po := range pods {
-			if err := k8sRuntime.DeletePod(schema.MountPodNamespace, po.Name); err != nil {
+			if err := k8sRuntime.DeletePod(schema.MountPodNamespace, po.Name); err != nil && !k8sErrors.IsNotFound(err) {
 				err := fmt.Errorf("deleteMountPods [%s] failed: %v", po.Name, err)
 				log.Errorf(err.Error())
 				return err
