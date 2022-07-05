@@ -220,6 +220,7 @@ func (rj *RunJob) Trans2JobView() schema.JobView {
 	return schema.JobView{
 		JobID:       rj.ID,
 		Name:        rj.Name,
+		Type:        "step",
 		StepName:    rj.StepName,
 		ParentDagID: rj.ParentDagID,
 		Seq:         rj.Seq,

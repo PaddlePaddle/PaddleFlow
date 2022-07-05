@@ -19,6 +19,7 @@ package schema
 import (
 	"fmt"
 	"strconv"
+	"strings"
 )
 
 type Parser struct {
@@ -328,7 +329,8 @@ func (p *Parser) ParseStep(params map[string]interface{}, step *WorkflowSourceSt
 			if !ok {
 				return fmt.Errorf("[type] of step should be string type")
 			}
-			if value != "step" {
+			valueLower := strings.ToLower(value)
+			if valueLower != "step" {
 				return fmt.Errorf("set [type] as [%s] in step", value)
 			}
 		case "flavour":
@@ -457,7 +459,8 @@ func (p *Parser) ParseDag(params map[string]interface{}, dagComp *WorkflowSource
 			if !ok {
 				return fmt.Errorf("[type] of dag should be string type")
 			}
-			if value != "dag" {
+			valueLower := strings.ToLower(value)
+			if valueLower != "dag" {
 				return fmt.Errorf("set [type] as [%s] in dag", value)
 			}
 		default:

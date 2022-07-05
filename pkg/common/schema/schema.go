@@ -31,6 +31,7 @@ type JobView struct {
 	PK          int64             `json:"-"`
 	JobID       string            `json:"jobID"`
 	Name        string            `json:"name"`
+	Type        string            `json:"type"`
 	StepName    string            `json:"stepName"`
 	ParentDagID string            `json:"parentDagID"`
 	Seq         int               `json:"-"`
@@ -77,6 +78,7 @@ type DagView struct {
 	PK          int64                      `json:"-"`
 	DagID       string                     `json:"id"`
 	Name        string                     `json:"name"`
+	Type        string                     `json:"type"`
 	DagName     string                     `json:"dagName"`
 	ParentDagID string                     `json:"parentDagID"`
 	Seq         int                        `json:"-"`

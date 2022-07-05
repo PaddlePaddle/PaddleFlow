@@ -245,10 +245,7 @@ func (s *WorkflowSourceStep) DeepCopy() Component {
 		env[name] = value
 	}
 
-	fsMount := []FsMount{}
-	for _, fs := range s.FsMount {
-		fsMount = append(fsMount, fs)
-	}
+	fsMount := append(s.FsMount, []FsMount{}...)
 
 	ns := &WorkflowSourceStep{
 		Name:         s.Name,
@@ -270,6 +267,7 @@ func (s *WorkflowSourceStep) DeepCopy() Component {
 
 type WorkflowSourceDag struct {
 	Name         string                 `yaml:"-"`
+	Type         string                 `yaml:"-"`
 	LoopArgument interface{}            `yaml:"loop_argument"`
 	Condition    string                 `yaml:"condition"`
 	Parameters   map[string]interface{} `yaml:"parameters"`
