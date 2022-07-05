@@ -320,6 +320,7 @@ CREATE TABLE IF NOT EXISTS `artifact_event` (
     `fs_name` varchar(60) NOT NULL,
     `artifact_path` varchar(256) NOT NULL,
     `step` varchar(256) Not Null,
+    `job_id` varchar(60) NOT NULL,
     `artifact_name` varchar(32) Not Null,
     `type` varchar(16) Not Null,
     `meta` text,

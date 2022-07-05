@@ -34,6 +34,7 @@ type ArtifactEvent struct {
 	UserName     string         `json:"username"             gorm:"type:varchar(60);not null"`
 	ArtifactPath string         `json:"artifactPath"         gorm:"type:varchar(256);not null"`
 	Step         string         `json:"step"                 gorm:"type:varchar(256);not null"`
+	JobID        string         `json:"jobID"                gorm:"type:varchar(60);not null"`
 	Type         string         `json:"type"                 gorm:"type:varchar(16);not null"`
 	ArtifactName string         `json:"artifactName"         gorm:"type:varchar(32);not null"`
 	Meta         string         `json:"meta"                 gorm:"type:text;size:65535"`

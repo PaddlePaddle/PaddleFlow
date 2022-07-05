@@ -60,6 +60,7 @@ func logArtifactReqToModel(req schema.LogRunArtifactRequest) models.ArtifactEven
 		UserName:     req.UserName,
 		ArtifactPath: req.ArtifactPath,
 		Step:         req.Step,
+		JobID:        req.JobID,
 		Type:         req.Type,
 		ArtifactName: req.ArtifactName,
 		Meta:         req.Meta,
