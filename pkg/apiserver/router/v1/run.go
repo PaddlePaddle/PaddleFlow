@@ -30,9 +30,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/run"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/pipeline"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/trace_logger"
 )
 
 type RunRouter struct{}
@@ -65,7 +66,9 @@ func (rr *RunRouter) AddRouter(r chi.Router) {
 // @Router /run [POST]
 func (rr *RunRouter) createRun(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
-	var createRunInfo run.CreateRunRequest
+	requestId := ctx.RequestID
+	var createRunInfo pipeline.CreateRunRequest
+
 	if err := common.BindJSON(r, &createRunInfo); err != nil {
 		logger.LoggerForRequest(&ctx).Errorf(
 			"create run failed parsing request body:%+v. error:%s", r.Body, err.Error())
@@ -73,14 +76,24 @@ func (rr *RunRouter) createRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// add trace logger
+	trace_logger.Key(requestId).Infof("creating run for request:%+v", createRunInfo)
 	// create run
-	response, err := run.CreateRun(ctx.UserName, &createRunInfo)
+	response, err := pipeline.CreateRun(ctx, &createRunInfo)
 	if err != nil {
-		logger.LoggerForRequest(&ctx).Errorf(
+		errMsg := fmt.Sprintf(
 			"create run failed. createRunInfo:%v error:%s", createRunInfo, err.Error())
+
+		// if run id has generated, log err msg
+		if response.RunID != "" {
+			trace_logger.Key(response.RunID).Errorf(errMsg)
+		}
+		logger.LoggerForRequest(&ctx).Errorf(errMsg)
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
+
+	trace_logger.Key(response.RunID).Infof("create run complete")
 	common.Render(w, http.StatusCreated, response)
 }
 
@@ -118,7 +131,8 @@ func (rr *RunRouter) createRunByJson(w http.ResponseWriter, r *http.Request) {
 	// 保证body下一次能够读取
 	r.Body = ioutil.NopCloser(bytes.NewBuffer(bodyBytes))
 
-	createRunByJsonInfo := run.CreateRunByJsonRequest{}
+	createRunByJsonInfo := pipeline.CreateRunByJsonRequest{}
+
 	if err := common.BindJSON(r, &createRunByJsonInfo); err != nil {
 		logger.LoggerForRequest(&ctx).Errorf(
 			"create run by json failed parsing request body:%+v. error:%s", r.Body, err.Error())
@@ -126,9 +140,13 @@ func (rr *RunRouter) createRunByJson(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	trace_logger.Key(ctx.RequestID).Infof("creating run by json for request:%+v", createRunByJsonInfo)
 	// create run
-	response, err := run.CreateRunByJson(ctx.UserName, &createRunByJsonInfo, bodyMap)
+	response, err := pipeline.CreateRunByJson(ctx, &createRunByJsonInfo, bodyMap)
 	if err != nil {
+		if response.RunID != "" {
+			trace_logger.Key(response.RunID).Errorf("create run fail: %s", err)
+		}
 		logger.LoggerForRequest(&ctx).Errorf(
 			"create run by json failed. createRunByJsonInfo:%v error:%s", createRunByJsonInfo, err.Error())
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
@@ -181,7 +199,7 @@ func (rr *RunRouter) listRun(w http.ResponseWriter, r *http.Request) {
 	logger.LoggerForRequest(&ctx).Debugf(
 		"user[%s] ListRun marker:[%s] maxKeys:[%d] userFilter:%v fsFilter:%v runFilter:%v nameFilter:%v",
 		ctx.UserName, marker, maxKeys, userFilter, fsFilter, runFilter, nameFilter)
-	listRunResponse, err := run.ListRun(&ctx, marker, maxKeys, userFilter, fsFilter, runFilter, nameFilter)
+	listRunResponse, err := pipeline.ListRun(&ctx, marker, maxKeys, userFilter, fsFilter, runFilter, nameFilter, nil, nil)
 	if err != nil {
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
@@ -204,7 +222,7 @@ func (rr *RunRouter) listRun(w http.ResponseWriter, r *http.Request) {
 func (rr *RunRouter) getRunByID(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
 	runID := chi.URLParam(r, util.ParamKeyRunID)
-	runInfo, err := run.GetRunByID(&ctx, runID)
+	runInfo, err := pipeline.GetRunByID(ctx.Logging(), ctx.UserName, runID)
 	if err != nil {
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
@@ -231,7 +249,7 @@ func (rr *RunRouter) updateRun(w http.ResponseWriter, r *http.Request) {
 	action := r.URL.Query().Get(util.QueryKeyAction)
 	logger.LoggerForRequest(&ctx).Debugf("StopRun id:%v", runID)
 	var err error
-	request := run.UpdateRunRequest{}
+	request := pipeline.UpdateRunRequest{}
 	bodyBytes, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		err = fmt.Errorf("get body err: %v", err)
@@ -251,9 +269,12 @@ func (rr *RunRouter) updateRun(w http.ResponseWriter, r *http.Request) {
 
 	switch action {
 	case util.QueryActionStop:
-		err = run.StopRun(&ctx, runID, request)
+		err = pipeline.StopRun(ctx.Logging(), ctx.UserName, runID, request)
+		if err != nil {
+			ctx.ErrorCode = common.InternalError
+		}
 	case util.QueryActionRetry:
-		err = run.RetryRun(&ctx, runID)
+		err = pipeline.RetryRun(&ctx, runID)
 	default:
 		ctx.ErrorCode = common.InvalidURI
 		err = fmt.Errorf("invalid action[%s] for UpdateRun", action)
@@ -282,7 +303,7 @@ func (rr *RunRouter) updateRun(w http.ResponseWriter, r *http.Request) {
 func (rr *RunRouter) deleteRun(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
 	runID := chi.URLParam(r, util.ParamKeyRunID)
-	request := run.DeleteRunRequest{
+	request := pipeline.DeleteRunRequest{
 		CheckCache: true, // 默认为true
 	}
 	// 不能多次读取r.body，因此没法验证完body长度后再调用BindJson
@@ -303,7 +324,7 @@ func (rr *RunRouter) deleteRun(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	err = run.DeleteRun(&ctx, runID, &request)
+	err = pipeline.DeleteRun(&ctx, runID, &request)
 	if err != nil {
 		ctx.Logging().Errorf("delete run: %s failed. error:%s", runID, err.Error())
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())

@@ -22,8 +22,9 @@ import (
 
 	"github.com/urfave/cli/v2"
 
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/fuse"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/meta"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/kv"
 )
 
 func BasicFlags() []cli.Flag {
@@ -49,6 +50,11 @@ func BasicFlags() []cli.Flag {
 			Usage: "filesystem config",
 		},
 		&cli.StringFlag{
+			Name:  schema.FuseKeyFsInfo,
+			Value: "",
+			Usage: "filesystem config in json string",
+		},
+		&cli.StringFlag{
 			Name:  "local-root",
 			Value: "",
 			Usage: "local root for fs",
@@ -70,7 +76,7 @@ func CacheFlags(fuseConf *fuse.FuseConfig) []cli.Flag {
 		},
 		&cli.StringFlag{
 			Name:  "meta-cache-driver",
-			Value: meta.DefaultName,
+			Value: kv.Mem,
 			Usage: "meta cache driver, e.g. mem, leveldb",
 		},
 		&cli.StringFlag{
@@ -85,12 +91,12 @@ func CacheFlags(fuseConf *fuse.FuseConfig) []cli.Flag {
 		},
 		&cli.DurationFlag{
 			Name:  "meta-cache-expire",
-			Value: 10 * time.Second,
+			Value: 2 * time.Second,
 			Usage: "meta cache expire",
 		},
 		&cli.DurationFlag{
 			Name:  "entry-cache-expire",
-			Value: 10 * time.Second,
+			Value: 2 * time.Second,
 			Usage: "entry cache expire",
 		},
 		&cli.IntFlag{
@@ -151,6 +157,11 @@ func LinkFlags() []cli.Flag {
 			Name:  "link-path",
 			Value: "",
 			Usage: "fs path for link",
+		},
+		&cli.BoolFlag{
+			Name:  "skip-check-links",
+			Value: true,
+			Usage: "skip check links",
 		},
 		&cli.IntFlag{
 			Name:  "link-update-interval",

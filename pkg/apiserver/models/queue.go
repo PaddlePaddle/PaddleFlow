@@ -26,9 +26,11 @@ import (
 	"gorm.io/gorm/clause"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 const (
@@ -47,9 +49,9 @@ type Queue struct {
 	ClusterName     string              `json:"clusterName" gorm:"column:cluster_name;->"`
 	QuotaType       string              `json:"quotaType"`
 	RawMinResources string              `json:"-" gorm:"column:min_resources;default:'{}'"`
-	MinResources    schema.ResourceInfo `json:"minResources" gorm:"-"`
+	MinResources    *resources.Resource `json:"minResources" gorm:"-"`
 	RawMaxResources string              `json:"-" gorm:"column:max_resources;default:'{}'"`
-	MaxResources    schema.ResourceInfo `json:"maxResources" gorm:"-"`
+	MaxResources    *resources.Resource `json:"maxResources" gorm:"-"`
 	RawLocation     string              `json:"-" gorm:"column:location;type:text;default:'{}'"`
 	Location        map[string]string   `json:"location" gorm:"-"`
 	// 任务调度策略
@@ -57,6 +59,9 @@ type Queue struct {
 	SchedulingPolicy    []string       `json:"schedulingPolicy,omitempty" gorm:"-"`
 	Status              string         `json:"status"`
 	DeletedAt           gorm.DeletedAt `json:"-" gorm:"index"`
+
+	UsedResources *resources.Resource `json:"usedResources,omitempty" gorm:"-"`
+	IdleResources *resources.Resource `json:"idleResources,omitempty" gorm:"-"`
 }
 
 func (Queue) TableName() string {
@@ -78,20 +83,16 @@ func (queue Queue) MarshalJSON() ([]byte, error) {
 
 func (queue *Queue) AfterFind(*gorm.DB) error {
 	if queue.RawMinResources != "" {
-		queue.MinResources = schema.ResourceInfo{
-			ScalarResources: make(schema.ScalarResourcesType),
-		}
-		if err := json.Unmarshal([]byte(queue.RawMinResources), &queue.MinResources); err != nil {
+		queue.MinResources = resources.EmptyResource()
+		if err := json.Unmarshal([]byte(queue.RawMinResources), queue.MinResources); err != nil {
 			log.Errorf("json Unmarshal MinResources[%s] failed: %v", queue.RawMinResources, err)
 			return err
 		}
 	}
 
 	if queue.RawMaxResources != "" {
-		queue.MaxResources = schema.ResourceInfo{
-			ScalarResources: make(schema.ScalarResourcesType),
-		}
-		if err := json.Unmarshal([]byte(queue.RawMaxResources), &queue.MaxResources); err != nil {
+		queue.MaxResources = resources.EmptyResource()
+		if err := json.Unmarshal([]byte(queue.RawMaxResources), queue.MaxResources); err != nil {
 			log.Errorf("json Unmarshal MinResources[%s] failed: %v", queue.RawMaxResources, err)
 			return err
 		}
@@ -116,7 +117,7 @@ func (queue *Queue) AfterFind(*gorm.DB) error {
 		// only single query is necessary, function of list query by join table cluster_info
 		log.Debugf("queue[%s] ClusterName is nil, query db to get cluster", queue.Name)
 		var cluster ClusterInfo
-		db := database.DB.Table("cluster_info").Where("id = ?", queue.ClusterId).Where("deleted_at = '' ")
+		db := storage.DB.Table("cluster_info").Where("id = ?", queue.ClusterId).Where("deleted_at = '' ")
 		if err := db.First(&cluster).Error; err != nil {
 			log.Errorf("queue[%s] query cluster by clusterId[%s] failed: %v", queue.Name, queue.ClusterId, err)
 			return err
@@ -129,19 +130,23 @@ func (queue *Queue) AfterFind(*gorm.DB) error {
 // BeforeSave is the callback methods for saving file system
 func (queue *Queue) BeforeSave(*gorm.DB) error {
 	log.Debugf("queue[%s] BeforeSave, queue:%#v", queue.Name, queue)
-	minResourcesJson, err := json.Marshal(queue.MinResources)
-	if err != nil {
-		log.Errorf("json Marshal MinResources[%v] failed: %v", queue.MinResources, err)
-		return err
+	if queue.MinResources != nil {
+		minResourcesJson, err := json.Marshal(queue.MinResources)
+		if err != nil {
+			log.Errorf("json Marshal MinResources[%v] failed: %v", queue.MinResources, err)
+			return err
+		}
+		queue.RawMinResources = string(minResourcesJson)
 	}
-	queue.RawMinResources = string(minResourcesJson)
 
-	maxResourcesJson, err := json.Marshal(queue.MaxResources)
-	if err != nil {
-		log.Errorf("json Marshal MaxResources[%v] failed: %v", queue.MaxResources, err)
-		return err
+	if queue.MaxResources != nil {
+		maxResourcesJson, err := json.Marshal(queue.MaxResources)
+		if err != nil {
+			log.Errorf("json Marshal MaxResources[%v] failed: %v", queue.MaxResources, err)
+			return err
+		}
+		queue.RawMaxResources = string(maxResourcesJson)
 	}
-	queue.RawMaxResources = string(maxResourcesJson)
 
 	if len(queue.Location) != 0 {
 		locationJson, err := json.Marshal(queue.Location)
@@ -173,7 +178,7 @@ func CreateQueue(queue *Queue) error {
 		queue.ID = uuid.GenerateID(common.PrefixQueue)
 	}
 
-	tx := database.DB.Table("queue").Create(queue)
+	tx := storage.DB.Table("queue").Create(queue)
 	if tx.Error != nil {
 		log.Errorf("create queue failed. queue:%v, error:%s",
 			queue, tx.Error.Error())
@@ -187,7 +192,7 @@ func CreateOrUpdateQueue(queue *Queue) error {
 	if queue.ID == "" {
 		queue.ID = uuid.GenerateID(common.PrefixQueue)
 	}
-	tx := database.DB.Table("queue").Clauses(clause.OnConflict{
+	tx := storage.DB.Table("queue").Clauses(clause.OnConflict{
 		Columns: []clause.Column{{Name: "name"}},
 		DoUpdates: clause.AssignmentColumns([]string{"status", "namespace", "cluster_id",
 			"max_resources", "min_resources", "location"}),
@@ -202,7 +207,7 @@ func CreateOrUpdateQueue(queue *Queue) error {
 
 func UpdateQueue(queue *Queue) error {
 	log.Debugf("update queue:[%s], queue:%#v", queue.Name, queue)
-	tx := database.DB.Model(queue).Updates(queue)
+	tx := storage.DB.Model(queue).Updates(queue)
 	return tx.Error
 }
 
@@ -212,7 +217,7 @@ func UpdateQueueStatus(queueName string, queueStatus string) error {
 		log.Errorf("Invalid queue status. queueName:[%s] queueStatus:[%s]", queueName, queueStatus)
 		return fmt.Errorf("Invalid queue status. queueName:[%s] queueStatus:[%s]\n", queueName, queueStatus)
 	}
-	tx := database.DB.Table("queue").Where("name = ?", queueName).Update("status", strings.ToLower(queueStatus))
+	tx := storage.DB.Table("queue").Where("name = ?", queueName).Update("status", strings.ToLower(queueStatus))
 	if tx.Error != nil {
 		log.Errorf("update queue status failed. queueName:[%s], queueStatus:[%s] error:[%s]",
 			queueName, queueStatus, tx.Error.Error())
@@ -221,7 +226,7 @@ func UpdateQueueStatus(queueName string, queueStatus string) error {
 	return nil
 }
 
-func UpdateQueueInfo(name, status string, max, min *schema.ResourceInfo) error {
+func UpdateQueueInfo(name, status string, max, min *resources.Resource) error {
 	queue, err := GetQueueByName(name)
 	if err != nil {
 		return err
@@ -230,12 +235,12 @@ func UpdateQueueInfo(name, status string, max, min *schema.ResourceInfo) error {
 		queue.Status = status
 	}
 	if max != nil {
-		queue.MaxResources = *max
+		queue.MaxResources = max
 	}
 	if min != nil {
-		queue.MinResources = *min
+		queue.MinResources = min
 	}
-	tx := database.DB.Table("queue").Where("name = ?", name).Updates(&queue)
+	tx := storage.DB.Table("queue").Where("name = ?", name).Updates(&queue)
 	if tx.Error != nil {
 		log.Errorf("update queue failed, err %v", tx.Error)
 		return tx.Error
@@ -245,7 +250,7 @@ func UpdateQueueInfo(name, status string, max, min *schema.ResourceInfo) error {
 
 func CloseQueue(queueName string) error {
 	log.Debugf("begin close queue. queueName:%s", queueName)
-	tx := database.DB.Table("queue").Where("name = ?", queueName).Update("status", schema.StatusQueueClosed)
+	tx := storage.DB.Table("queue").Where("name = ?", queueName).Update("status", schema.StatusQueueClosed)
 	if tx.Error != nil {
 		log.Errorf("close queue failed. queueName:%s, error:%s",
 			queueName, tx.Error.Error())
@@ -256,7 +261,7 @@ func CloseQueue(queueName string) error {
 
 func DeleteQueue(queueName string) error {
 	log.Infof("begin delete queue. queueName:%s", queueName)
-	database.DB.Transaction(func(tx *gorm.DB) error {
+	return storage.DB.Transaction(func(tx *gorm.DB) error {
 		t := tx.Table("queue").Unscoped().Where("name = ?", queueName).Delete(&Queue{})
 		if t.Error != nil {
 			log.Errorf("delete queue failed. queueName:%s, error:%s",
@@ -264,7 +269,7 @@ func DeleteQueue(queueName string) error {
 			return t.Error
 		}
 		t = tx.Table("grant").Unscoped().Where("resource_id = ?",
-			queueName).Where("resource_type = ?", common.ResourceTypeQueue).Delete(&Grant{})
+			queueName).Where("resource_type = ?", common.ResourceTypeQueue).Delete(&model.Grant{})
 		if t.Error != nil {
 			log.Errorf("delete queue failed. queueName:%s, error:%s",
 				queueName, tx.Error.Error())
@@ -272,14 +277,12 @@ func DeleteQueue(queueName string) error {
 		}
 		return nil
 	})
-
-	return nil
 }
 
 func IsQueueExist(queueName string) bool {
 	log.Debugf("begin check queue exist. queueName:%s", queueName)
 	var queueCount int64
-	tx := database.DB.Table("queue").Where("name = ?", queueName).Count(&queueCount)
+	tx := storage.DB.Table("queue").Where("name = ?", queueName).Count(&queueCount)
 	if tx.Error != nil {
 		log.Errorf("count queue failed. queueName:%s, error:%s",
 			queueName, tx.Error.Error())
@@ -295,7 +298,7 @@ func GetQueueByName(queueName string) (Queue, error) {
 	log.Debugf("begin get queue. queueName:%s", queueName)
 
 	var queue Queue
-	tx := database.DB.Table("queue").Where("name = ?", queueName)
+	tx := storage.DB.Table("queue").Where("name = ?", queueName)
 	tx = tx.First(&queue)
 	if tx.Error != nil {
 		log.Errorf("get queue failed. queueName:%s, error:%s",
@@ -309,7 +312,7 @@ func GetQueueByID(queueID string) (Queue, error) {
 	log.Debugf("begin get queue. queueID:%s", queueID)
 
 	var queue Queue
-	tx := database.DB.Table("queue").Where("id = ?", queueID)
+	tx := storage.DB.Table("queue").Where("id = ?", queueID)
 	tx = tx.First(&queue)
 	if tx.Error != nil {
 		log.Errorf("get queue failed. queueID:%s, error:%s",
@@ -322,7 +325,7 @@ func GetQueueByID(queueID string) (Queue, error) {
 func ListQueue(pk int64, maxKeys int, queueName string, userName string) ([]Queue, error) {
 	log.Debugf("begin list queue. ")
 	var tx *gorm.DB
-	tx = database.DB.Table("queue").Select(queueSelectColumn).Joins(queueJoinCluster).Where("queue.pk > ?", pk)
+	tx = storage.DB.Table("queue").Select(queueSelectColumn).Joins(queueJoinCluster).Where("queue.pk > ?", pk)
 	if !common.IsRootUser(userName) {
 		tx = tx.Joins("join `grant` on `grant`.resource_id = queue.name").Where(
 			"`grant`.user_name = ?", userName)
@@ -346,7 +349,7 @@ func ListQueue(pk int64, maxKeys int, queueName string, userName string) ([]Queu
 func GetLastQueue() (Queue, error) {
 	log.Debugf("get last queue.")
 	queue := Queue{}
-	tx := database.DB.Table("queue").Last(&queue)
+	tx := storage.DB.Table("queue").Last(&queue)
 	if tx.Error != nil {
 		log.Errorf("get last queue failed. error:%s", tx.Error.Error())
 		return Queue{}, tx.Error
@@ -355,7 +358,7 @@ func GetLastQueue() (Queue, error) {
 }
 
 func ListQueuesByCluster(clusterID string) []Queue {
-	db := database.DB.Table("queue").Where("cluster_id = ?", clusterID)
+	db := storage.DB.Table("queue").Where("cluster_id = ?", clusterID)
 
 	var queues []Queue
 	err := db.Find(&queues).Error

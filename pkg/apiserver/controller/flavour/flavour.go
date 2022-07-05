@@ -24,7 +24,6 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
 
@@ -215,7 +214,13 @@ func IsLastFlavourPk(pk int64) bool {
 // GetFlavourWithCheck get req.Flavour and check if it is valid, if exists in db, return it
 func GetFlavourWithCheck(reqFlavour schema.Flavour) (schema.Flavour, error) {
 	if reqFlavour.Name == "" || reqFlavour.Name == customFlavour {
-		if err := schema.ValidateResource(reqFlavour.ResourceInfo, config.GlobalServerConfig.Job.ScalarResourceArray); err != nil {
+		if schema.IsEmptyResource(reqFlavour.ResourceInfo) {
+			reqFlavour.ResourceInfo = schema.ResourceInfo{
+				CPU: "1",
+				Mem: "1Gi",
+			}
+		}
+		if err := schema.ValidateResource(reqFlavour.ResourceInfo, []string{}); err != nil {
 			log.Errorf("validate resource info failed, err:%v", err)
 			return schema.Flavour{}, err
 		}

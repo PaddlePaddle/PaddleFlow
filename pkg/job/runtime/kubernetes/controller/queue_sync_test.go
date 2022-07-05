@@ -37,9 +37,9 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database/dbinit"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	commonschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 )
 
 func newFakeQueueSyncController() *QueueSync {
@@ -144,13 +144,10 @@ func TestQueueSync(t *testing.T) {
 			Reclaim: config.ReclaimConfig{
 				CleanJob: true,
 			},
-			ScalarResourceArray: []string{
-				"nvidia.com/gpu",
-			},
 		},
 	}
 
-	dbinit.InitMockDB()
+	driver.InitMockDB()
 	c := newFakeQueueSyncController()
 	stopCh := make(chan struct{})
 	defer close(stopCh)

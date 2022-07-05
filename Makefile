@@ -71,6 +71,7 @@ package:
 	mv $(HOMEDIR)/pfs-fuse     $(OUTDIR)/bin
 	mv $(HOMEDIR)/csi-plugin   $(OUTDIR)/bin
 	mv $(HOMEDIR)/cache-worker $(OUTDIR)/bin
+	mv $(HOMEDIR)/pkg/fs/utils/mount/mount.sh $(OUTDIR)/bin
 
 # make clean
 clean:

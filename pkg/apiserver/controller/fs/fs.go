@@ -24,16 +24,18 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
-	k8score "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	k8smeta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sCore "k8s.io/api/core/v1"
+	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
+	k8sMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	fsCommon "github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 const (
@@ -58,10 +60,11 @@ func GetFileSystemService() *FileSystemService {
 }
 
 type CreateFileSystemRequest struct {
-	Name       string            `json:"name"`
-	Url        string            `json:"url"`
-	Properties map[string]string `json:"properties"`
-	Username   string            `json:"username"`
+	Name                    string            `json:"name"`
+	Url                     string            `json:"url"`
+	Properties              map[string]string `json:"properties"`
+	Username                string            `json:"username"`
+	IndependentMountProcess bool              `json:"independentMountProcess"`
 }
 
 type ListFileSystemRequest struct {
@@ -91,11 +94,6 @@ type GetFileSystemResponse struct {
 	Properties    map[string]string `json:"properties"`
 }
 
-type CreateFileSystemClaimsRequest struct {
-	Namespaces []string `json:"namespaces"`
-	FsIDs      []string `json:"fsIDs"`
-}
-
 type CreateFileSystemResponse struct {
 	FsName string `json:"fsName"`
 	FsID   string `json:"fsID"`
@@ -109,80 +107,127 @@ type ListFileSystemResponse struct {
 }
 
 type FileSystemResponse struct {
-	Id            string            `json:"id"`
-	Name          string            `json:"name"`
-	ServerAddress string            `json:"serverAddress"`
-	Type          string            `json:"type"`
-	SubPath       string            `json:"subPath"`
-	Username      string            `json:"username"`
-	Properties    map[string]string `json:"properties"`
+	Id                      string            `json:"id"`
+	Name                    string            `json:"name"`
+	ServerAddress           string            `json:"serverAddress"`
+	Type                    string            `json:"type"`
+	SubPath                 string            `json:"subPath"`
+	Username                string            `json:"username"`
+	Properties              map[string]string `json:"properties"`
+	IndependentMountProcess bool              `json:"independentMountProcess"`
 }
 
 type CreateFileSystemClaimsResponse struct {
 	Message string `json:"message"`
 }
 
+func (s *FileSystemService) HasFsPermission(username, fsID string) (bool, error) {
+	fsName, owner := fsCommon.FsIDToFsNameUsername(fsID)
+	fs, err := s.GetFileSystem(owner, fsName)
+	if err != nil {
+		return false, err
+	}
+	if common.IsRootUser(username) || fs.UserName == username {
+		return true, nil
+	} else {
+		return false, nil
+	}
+}
+
 // CreateFileSystem the function which performs the operation of creating FileSystem
-func (s *FileSystemService) CreateFileSystem(ctx *logger.RequestContext, req *CreateFileSystemRequest) (models.FileSystem, error) {
+func (s *FileSystemService) CreateFileSystem(ctx *logger.RequestContext, req *CreateFileSystemRequest) (model.FileSystem, error) {
 	fsType, serverAddress, subPath := common.InformationFromURL(req.Url, req.Properties)
-	fs := models.FileSystem{
-		Name:          req.Name,
-		PropertiesMap: req.Properties,
-		ServerAddress: serverAddress,
-		Type:          fsType,
-		SubPath:       subPath,
-		UserName:      req.Username,
+	fs := model.FileSystem{
+		Name:                    req.Name,
+		PropertiesMap:           req.Properties,
+		ServerAddress:           serverAddress,
+		Type:                    fsType,
+		SubPath:                 subPath,
+		UserName:                req.Username,
+		IndependentMountProcess: req.IndependentMountProcess,
 	}
 	fs.ID = common.ID(req.Username, req.Name)
 
-	err := models.CreatFileSystem(&fs)
+	err := storage.Filesystem.CreatFileSystem(&fs)
 	if err != nil {
 		log.Errorf("create file system[%v] in db failed: %v", fs, err)
 		ctx.ErrorCode = common.FileSystemDataBaseError
-		return models.FileSystem{}, err
+		return model.FileSystem{}, err
 	}
 	return fs, nil
 }
 
 // GetFileSystem the function which performs the operation of getting file system detail
-func (s *FileSystemService) GetFileSystem(username, fsName string) (models.FileSystem, error) {
-	modelsFs, err := models.GetFileSystemWithFsID(common.ID(username, fsName))
+func (s *FileSystemService) GetFileSystem(username, fsName string) (model.FileSystem, error) {
+	modelsFs, err := storage.Filesystem.GetFileSystemWithFsID(common.ID(username, fsName))
 	if err != nil {
 		log.Errorf("get filesystem[%s] under username[%s] err[%v]", fsName, username, err)
-		return models.FileSystem{}, err
+		return model.FileSystem{}, err
 	}
 	return modelsFs, err
 }
 
 // DeleteFileSystem the function which performs the operation of delete file system
 func (s *FileSystemService) DeleteFileSystem(ctx *logger.RequestContext, fsID string) error {
-	return models.WithTransaction(database.DB, func(tx *gorm.DB) error {
-		if err := models.DeleteFileSystem(tx, fsID); err != nil {
-			ctx.Logging().Errorf("delete fs[%s] failed error[%v]", fsID, err)
+	// TODO check filesystem not in use
+	cnm, err := getClusterNamespaceMap()
+	if err != nil {
+		err := fmt.Errorf("DeleteFileSystem getClusterNamespaceMap err: %v", err)
+		log.Errorf(err.Error())
+		return err
+	}
+
+	mounted, err := CheckFsMounted(cnm, fsID)
+	if err != nil {
+		ctx.Logging().Errorf("CheckFsMounted fsID[%s] err: %v", fsID, err)
+		return err
+	}
+	if mounted {
+		err := fmt.Errorf("fs[%s] currently mounted. cannot be deleted", fsID)
+		ctx.Logging().Errorf(err.Error())
+		ctx.ErrorCode = common.ActionNotAllowed
+		return err
+	}
+
+	if err := DeletePvPvc(cnm, fsID); err != nil {
+		ctx.Logging().Errorf("delete PvPvc with fsID[%s] err: %v", fsID, err)
+		return err
+	}
+
+	// delete filesystem, links, cache config in DB
+	return models.WithTransaction(storage.DB, func(tx *gorm.DB) error {
+		// delete filesystem
+		if err := storage.Filesystem.DeleteFileSystem(tx, fsID); err != nil {
+			ctx.Logging().Errorf("delete fs[%s] err: %v", fsID, err)
 			ctx.ErrorCode = common.FileSystemDataBaseError
 			return err
 		}
-		// delete cache config if exist
-		if err := models.DeleteFSCacheConfig(tx, fsID); err != nil {
+		// delete link if exists
+		if err := storage.Filesystem.DeleteLinkWithFsID(tx, fsID); err != nil {
+			ctx.Logging().Errorf("delete links with fsID[%s] err: %v", fsID, err)
+			ctx.ErrorCode = common.FileSystemDataBaseError
+			return err
+		}
+		// delete cache config if exists
+		if err := storage.Filesystem.DeleteFSCacheConfig(tx, fsID); err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return nil
 			}
-			ctx.Logging().Errorf("delete fs[%s] cache config failed error[%v]", fsID, err)
+			ctx.Logging().Errorf("delete cache config with fsID[%s] err: %v", fsID, err)
 			ctx.ErrorCode = common.FileSystemDataBaseError
-			return err
-		}
-		if err := DeletePvPvc(fsID); err != nil {
-			ctx.Logging().Errorf("delete deletePvPvc for fs[%s] err: %v", fsID, err)
 			return err
 		}
 		return nil
 	})
 }
 
-func DeletePvPvc(fsID string) error {
+func getClusterNamespaceMap() (map[*runtime.KubeRuntime][]string, error) {
+	cnm := make(map[*runtime.KubeRuntime][]string)
 	clusters, err := models.ListCluster(0, 0, nil, "")
 	if err != nil {
-		return fmt.Errorf("list clusters failed")
+		err := fmt.Errorf("list clusters err: %v", err)
+		log.Errorf("getClusterNamespaceMap failed: %v", err)
+		return nil, err
 	}
 	for _, cluster := range clusters {
 		if cluster.ClusterType != schema.KubernetesType {
@@ -191,31 +236,68 @@ func DeletePvPvc(fsID string) error {
 		}
 		runtimeSvc, err := runtime.GetOrCreateRuntime(cluster)
 		if err != nil {
-			log.Errorf("DeletePvPvc: cluster[%s] GetOrCreateRuntime err: %v", cluster.Name, err)
-			return err
+			err := fmt.Errorf("getClusterNamespaceMap: cluster[%s] GetOrCreateRuntime err: %v", cluster.Name, err)
+			log.Errorf(err.Error())
+			return nil, err
 		}
 		k8sRuntime := runtimeSvc.(*runtime.KubeRuntime)
 		namespaces := cluster.NamespaceList
 		if len(namespaces) == 0 { // cluster has no namespace restrictions. iterate all namespaces
-			nsList, err := k8sRuntime.ListNamespaces(k8smeta.ListOptions{})
+			nsList, err := k8sRuntime.ListNamespaces(k8sMeta.ListOptions{})
 			if err != nil {
-				log.Errorf("DeletePvPvc: cluster[%s] ListNamespaces err: %v", cluster.Name, err)
-				return err
+				err := fmt.Errorf("getClusterNamespaceMap: cluster[%s] ListNamespaces err: %v", cluster.Name, err)
+				log.Errorf(err.Error())
+				return nil, err
 			}
 			if nsList == nil {
-				log.Errorf("DeletePvPvc: cluster[%s] ListNamespaces nil", cluster.Name)
-				return fmt.Errorf("clust[%s] namespace list nil", cluster.Name)
+				err := fmt.Errorf("getClusterNamespaceMap: cluster[%s] ListNamespaces nil", cluster.Name)
+				log.Errorf(err.Error())
+				return nil, err
 			}
 			for _, ns := range nsList.Items {
-				if ns.Status.Phase == k8score.NamespaceActive {
+				if ns.Status.Phase == k8sCore.NamespaceActive {
 					namespaces = append(namespaces, ns.Name)
 				}
 			}
-			log.Debugf("clust[%s] all namespaces: %v", cluster.Name, namespaces)
+			cnm[k8sRuntime] = namespaces
+			log.Debugf("cluster[%s] namespaces: %v", cluster.Name, namespaces)
 		}
+	}
+	return cnm, nil
+}
+
+func CheckFsMounted(cnm map[*runtime.KubeRuntime][]string, fsID string) (bool, error) {
+	for k8sRuntime, _ := range cnm {
+		listOptions := k8sMeta.ListOptions{
+			LabelSelector: fmt.Sprintf(schema.LabelKeyFsID + "=" + fsID),
+		}
+		pods, err := k8sRuntime.ListPods(schema.MountPodNamespace, listOptions)
+		if err != nil {
+			log.Errorf("list mount pods failed: %v", err)
+			return false, err
+		}
+
+		for _, po := range pods.Items {
+			if po.Annotations != nil {
+				for key, targetPath := range po.Annotations {
+					if key != schema.AnnoKeyServer &&
+						key != schema.AnnoKeyMTime {
+						log.Debugf("fs[%s] is mounted in pod[%s] with target path[%s]",
+							fsID, po.Name, targetPath)
+						return true, nil
+					}
+				}
+			}
+		}
+	}
+	return false, nil
+}
+
+func DeletePvPvc(cnm map[*runtime.KubeRuntime][]string, fsID string) error {
+	for k8sRuntime, namespaces := range cnm {
 		for _, ns := range namespaces {
 			// delete pvc manually. pv will be deleted automatically
-			if err := k8sRuntime.DeletePersistentVolumeClaim(ns, schema.ConcatenatePVCName(fsID), k8smeta.DeleteOptions{}); err != nil && !k8serrors.IsNotFound(err) {
+			if err := k8sRuntime.DeletePersistentVolumeClaim(ns, schema.ConcatenatePVCName(fsID), k8sMeta.DeleteOptions{}); err != nil && !k8sErrors.IsNotFound(err) {
 				log.Errorf("delete pvc[%s/%s] err: %v", ns, schema.ConcatenatePVCName(fsID), err)
 				return fmt.Errorf("delete pvc[%s-%s] err: %v", ns, schema.ConcatenatePVCName(fsID), err)
 			}
@@ -225,7 +307,7 @@ func DeletePvPvc(fsID string) error {
 }
 
 // ListFileSystem the function which performs the operation of list file systems
-func (s *FileSystemService) ListFileSystem(ctx *logger.RequestContext, req *ListFileSystemRequest) ([]models.FileSystem, string, error) {
+func (s *FileSystemService) ListFileSystem(ctx *logger.RequestContext, req *ListFileSystemRequest) ([]model.FileSystem, string, error) {
 	limit := req.MaxKeys + 1
 	marker := req.Marker
 	if req.Marker == "" {
@@ -236,7 +318,7 @@ func (s *FileSystemService) ListFileSystem(ctx *logger.RequestContext, req *List
 		listUserName = ""
 	}
 
-	items, err := models.ListFileSystem(int(limit), listUserName, marker, req.FsName)
+	items, err := storage.Filesystem.ListFileSystem(int(limit), listUserName, marker, req.FsName)
 	if err != nil {
 		ctx.Logging().Errorf("list file systems err[%v]", err)
 		ctx.ErrorCode = common.FileSystemDataBaseError
@@ -245,7 +327,7 @@ func (s *FileSystemService) ListFileSystem(ctx *logger.RequestContext, req *List
 
 	itemsLen := len(items)
 	if itemsLen == 0 {
-		return []models.FileSystem{}, "", err
+		return []model.FileSystem{}, "", err
 	}
 	if itemsLen > int(req.MaxKeys) {
 		return items[:len(items)-1], items[len(items)-1].UpdatedAt.Format(TimeFormat), err

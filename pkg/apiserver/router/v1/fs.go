@@ -22,22 +22,22 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
-	"time"
 
 	"github.com/go-chi/chi"
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
-	k8smeta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sMeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	api "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/fs"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	fuse "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/fs"
 	fsCommon "github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/k8s"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 type PFSRouter struct{}
@@ -59,10 +59,6 @@ func (pr *PFSRouter) AddRouter(r chi.Router) {
 	r.Get("/fsCache/{fsName}", pr.getFSCacheConfig)
 	r.Delete("/fsCache/{fsName}", pr.deleteFSCacheConfig)
 	r.Post("/fsCache/report", pr.fsCacheReport)
-	// fs mount
-	r.Post("/fsMount", pr.createFsMount)
-	r.Delete("/fsMount/{fsName}", pr.deleteFsMount)
-	r.Get("/fsMount", pr.listFsMount)
 }
 
 var URLPrefix = map[string]bool{
@@ -180,12 +176,6 @@ func validateCreateFileSystem(ctx *logger.RequestContext, req *api.CreateFileSys
 		return err
 	}
 
-	err = checkFsDir(fileSystemType, req.Url, req.Properties)
-	if err != nil {
-		ctx.Logging().Errorf("check fs dir err[%v] with url[%s]", err, req.Url)
-		ctx.ErrorCode = common.InvalidFileSystemURL
-		return err
-	}
 	if fileSystemType == common.Mock {
 		return nil
 	}
@@ -300,7 +290,7 @@ func checkPVCExist(pvc, namespace string) bool {
 		log.Errorf("checkPVCExist: Get k8s client failed: %v", err)
 		return false
 	}
-	if _, err := k8sClient.GetPersistentVolumeClaim(namespace, pvc, k8smeta.GetOptions{}); err != nil {
+	if _, err := k8sClient.GetPersistentVolumeClaim(namespace, pvc, k8sMeta.GetOptions{}); err != nil {
 		log.Errorf("check namespace[%s] pvc[%s] exist failed: %v", namespace, pvc, err)
 		return false
 	}
@@ -344,7 +334,7 @@ func checkURLFormat(fsType, url string, properties map[string]string) error {
 }
 
 func checkFSNameDuplicate(fsID string) error {
-	_, err := models.GetFileSystemWithFsID(fsID)
+	_, err := storage.Filesystem.GetFileSystemWithFsID(fsID)
 	if err == gorm.ErrRecordNotFound {
 		return nil
 	}
@@ -370,7 +360,7 @@ func checkFsDir(fsType, url string, properties map[string]string) error {
 		inputIPs = strings.Split(properties[fsCommon.Endpoint], ",")
 		subPath = "/" + strings.SplitAfterN(url, "/", 4)[3]
 	}
-	fsList, err := models.GetSimilarityAddressList(fsType, inputIPs)
+	fsList, err := storage.Filesystem.GetSimilarityAddressList(fsType, inputIPs)
 	if err != nil {
 		return err
 	}
@@ -428,7 +418,7 @@ func (pr *PFSRouter) listFileSystem(w http.ResponseWriter, r *http.Request) {
 	common.Render(w, http.StatusOK, response)
 }
 
-func getListResult(fsModel []models.FileSystem, nextMarker, marker string) *api.ListFileSystemResponse {
+func getListResult(fsModel []model.FileSystem, nextMarker, marker string) *api.ListFileSystemResponse {
 	var FsLists []*api.FileSystemResponse
 	for _, FSData := range fsModel {
 		FsList := fsResponseFromModel(FSData)
@@ -486,15 +476,16 @@ func (pr *PFSRouter) getFileSystem(w http.ResponseWriter, r *http.Request) {
 	common.Render(w, http.StatusOK, response)
 }
 
-func fsResponseFromModel(fsModel models.FileSystem) *api.FileSystemResponse {
+func fsResponseFromModel(fsModel model.FileSystem) *api.FileSystemResponse {
 	return &api.FileSystemResponse{
-		Id:            fsModel.ID,
-		Name:          fsModel.Name,
-		ServerAddress: fsModel.ServerAddress,
-		Type:          fsModel.Type,
-		SubPath:       fsModel.SubPath,
-		Username:      fsModel.UserName,
-		Properties:    fsModel.PropertiesMap,
+		Id:                      fsModel.ID,
+		Name:                    fsModel.Name,
+		ServerAddress:           fsModel.ServerAddress,
+		Type:                    fsModel.Type,
+		SubPath:                 fsModel.SubPath,
+		Username:                fsModel.UserName,
+		Properties:              fsModel.PropertiesMap,
+		IndependentMountProcess: fsModel.IndependentMountProcess,
 	}
 }
 
@@ -535,7 +526,7 @@ func (pr *PFSRouter) deleteFileSystem(w http.ResponseWriter, r *http.Request) {
 
 func fsCheckCanModify(ctx *logger.RequestContext, fsID string) error {
 	// check fs exist
-	if _, err := models.GetFileSystemWithFsID(fsID); err != nil {
+	if _, err := storage.Filesystem.GetFileSystemWithFsID(fsID); err != nil {
 		ctx.Logging().Errorf("get filesystem[%s] err: %v", fsID, err)
 		var errRet error
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -547,25 +538,6 @@ func fsCheckCanModify(ctx *logger.RequestContext, fsID string) error {
 		}
 		return errRet
 	}
-	// check fs not mounted
-	if err := checkFsNoMount(fsID); err != nil {
-		ctx.ErrorCode = common.ActionNotAllowed
-		return err
-	}
-	return nil
-}
-
-func checkFsNoMount(fsID string) error {
-	fsMount := &models.FsMount{FsID: fsID}
-	marker := time.Now().Format(models.TimeFormat)
-	listMount, err := fsMount.ListMount(fsMount, 1, marker)
-	if err != nil {
-		err := fmt.Errorf("list mount for fs[%s] error: %v", fsID, err)
-		return err
-	}
-	if len(listMount) != 0 {
-		return common.FsBeingUsedError(fsID)
-	}
 	return nil
 }
 
@@ -575,18 +547,4 @@ func getRealUserName(ctx *logger.RequestContext,
 		return username
 	}
 	return ctx.UserName
-}
-
-func getFsIDAndCheckPermission(ctx *logger.RequestContext,
-	username, fsName string) (string, error) {
-	// check permission
-	var fsID string
-	// concatenate fsID
-	if common.IsRootUser(ctx.UserName) && username != "" {
-		// root user can select fs under other users
-		fsID = common.ID(username, fsName)
-	} else {
-		fsID = common.ID(ctx.UserName, fsName)
-	}
-	return fsID, nil
 }

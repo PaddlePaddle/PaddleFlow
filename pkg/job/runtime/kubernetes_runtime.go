@@ -20,11 +20,13 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/jinzhu/copier"
 	log "github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 	apiv1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -35,17 +37,21 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"volcano.sh/apis/pkg/apis/batch/v1alpha1"
 	busv1alpha1 "volcano.sh/apis/pkg/apis/bus/v1alpha1"
 	"volcano.sh/apis/pkg/apis/helpers"
 	schedulingv1beta1 "volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime/kubernetes/controller"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime/kubernetes/executor"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 type KubeRuntime struct {
@@ -61,23 +67,39 @@ func NewKubeRuntime(cluster schema.Cluster) RuntimeService {
 	return kr
 }
 
+func getFileSystem(jobConf schema.Conf, tasks []models.Member) []schema.FileSystem {
+	fileSystems := jobConf.GetAllFileSystem()
+	for _, task := range tasks {
+		fileSystems = append(fileSystems, task.Conf.GetAllFileSystem()...)
+	}
+	return fileSystems
+}
+
 func (kr *KubeRuntime) Name() string {
 	return fmt.Sprintf("kubernetes runtime for cluster: %s", kr.cluster.Name)
 }
 
 func (kr *KubeRuntime) BuildConfig() (*rest.Config, error) {
 	var cfg *rest.Config
-	// decode credential base64 string to []byte
-	configBytes, decodeErr := base64.StdEncoding.DecodeString(kr.cluster.ClientOpt.Config)
-	if decodeErr != nil {
-		err := fmt.Errorf("decode cluster[%s] credential base64 string error! msg: %s",
-			kr.cluster.Name, decodeErr.Error())
-		return nil, err
-	}
-	cfg, err := clientcmd.RESTConfigFromKubeConfig(configBytes)
-	if err != nil {
-		log.Errorf("Failed to build kube config from kubeConfBytes[%s], err:[%v]", string(configBytes[:]), err)
-		return nil, err
+	var err error
+	if len(kr.cluster.ClientOpt.Config) == 0 {
+		if cfg, err = clientcmd.BuildConfigFromFlags("", ""); err != nil {
+			log.Errorf("Failed to build rest.config by BuildConfigFromFlags, err:[%v]", err)
+			return nil, err
+		}
+	} else {
+		// decode credential base64 string to []byte
+		configBytes, decodeErr := base64.StdEncoding.DecodeString(kr.cluster.ClientOpt.Config)
+		if decodeErr != nil {
+			err := fmt.Errorf("decode cluster[%s] credential base64 string error! msg: %s",
+				kr.cluster.Name, decodeErr.Error())
+			return nil, err
+		}
+		cfg, err = clientcmd.RESTConfigFromKubeConfig(configBytes)
+		if err != nil {
+			log.Errorf("Failed to build rest.config from kubeConfBytes[%s], err:[%v]", string(configBytes[:]), err)
+			return nil, err
+		}
 	}
 
 	// set qps, burst
@@ -110,13 +132,16 @@ func (kr *KubeRuntime) Init() error {
 func (kr *KubeRuntime) SubmitJob(jobInfo *api.PFJob) error {
 	log.Infof("submit job[%v] to cluster[%s] queue[%s]", jobInfo.ID, kr.cluster.ID, jobInfo.QueueID)
 	// prepare kubernetes storage
-	if len(jobInfo.FSID) != 0 {
-		pvName, err := kr.CreatePV(jobInfo.Namespace, jobInfo.FSID, jobInfo.UserName)
+	jobFileSystems := getFileSystem(jobInfo.Conf, jobInfo.Tasks)
+	for _, fs := range jobFileSystems {
+		fsID := common.ID(jobInfo.UserName, fs.Name)
+		pvName, err := kr.CreatePV(jobInfo.Namespace, fsID)
 		if err != nil {
 			log.Errorf("create pv for job[%s] failed, err: %v", jobInfo.ID, err)
 			return err
 		}
-		err = kr.CreatePVC(jobInfo.Namespace, jobInfo.FSID, pvName)
+		log.Infof("SubmitJob CreatePV fsID=%s pvName=%s", fsID, pvName)
+		err = kr.CreatePVC(jobInfo.Namespace, fsID, pvName)
 		if err != nil {
 			log.Errorf("create pvc for job[%s] failed, err: %v", jobInfo.ID, err)
 			return err
@@ -169,7 +194,8 @@ func (kr *KubeRuntime) UpdateJob(jobInfo *api.PFJob) error {
 		}
 	}
 	// update labels and annotations
-	if jobInfo.Labels != nil || jobInfo.Annotations != nil {
+	if (jobInfo.Labels != nil && len(jobInfo.Labels) != 0) ||
+		(jobInfo.Annotations != nil && len(jobInfo.Annotations) != 0) {
 		patchJSON := struct {
 			metav1.ObjectMeta `json:"metadata,omitempty"`
 		}{
@@ -296,7 +322,7 @@ func (kr *KubeRuntime) CreateQueue(q *models.Queue) error {
 }
 
 func (kr *KubeRuntime) createVCQueue(q *models.Queue) error {
-	capability := k8s.NewKubeResourceList(&q.MaxResources)
+	capability := k8s.NewResourceList(q.MaxResources)
 	log.Debugf("CreateQueue resourceList[%v]", capability)
 
 	queue := &schedulingv1beta1.Queue{
@@ -319,8 +345,8 @@ func (kr *KubeRuntime) createVCQueue(q *models.Queue) error {
 }
 
 func (kr *KubeRuntime) createElasticResourceQuota(q *models.Queue) error {
-	maxResources := k8s.NewKubeResourceList(&q.MaxResources)
-	minResources := k8s.NewKubeResourceList(&q.MinResources)
+	maxResources := k8s.NewResourceList(q.MaxResources)
+	minResources := k8s.NewResourceList(q.MinResources)
 	log.Debugf("Elastic resource quota max resources:%v,  min resources %v", maxResources, minResources)
 
 	equota := &schedulingv1beta1.ElasticResourceQuota{
@@ -411,7 +437,7 @@ func (kr *KubeRuntime) UpdateQueue(q *models.Queue) error {
 }
 
 func (kr *KubeRuntime) updateVCQueue(q *models.Queue) error {
-	capability := k8s.NewKubeResourceList(&q.MaxResources)
+	capability := k8s.NewResourceList(q.MaxResources)
 	log.Debugf("UpdateQueue resourceList[%v]", capability)
 	object, err := executor.Get("", q.Name, k8s.VCQueueGVK, kr.dynamicClientOpt)
 	if err != nil {
@@ -432,8 +458,8 @@ func (kr *KubeRuntime) updateVCQueue(q *models.Queue) error {
 }
 
 func (kr *KubeRuntime) updateElasticResourceQuota(q *models.Queue) error {
-	maxResources := k8s.NewKubeResourceList(&q.MaxResources)
-	minResources := k8s.NewKubeResourceList(&q.MinResources)
+	maxResources := k8s.NewResourceList(q.MaxResources)
+	minResources := k8s.NewResourceList(q.MinResources)
 	log.Debugf("Elastic resource quota max resources:%v,  min resources %v", maxResources, minResources)
 	object, err := executor.Get("", q.Name, k8s.EQuotaGVK, kr.dynamicClientOpt)
 	if err != nil {
@@ -462,6 +488,43 @@ func (kr *KubeRuntime) updateElasticResourceQuota(q *models.Queue) error {
 		return err
 	}
 	return nil
+}
+
+func (kr *KubeRuntime) GetQueueUsedQuota(q *models.Queue) (*resources.Resource, error) {
+	log.Infof("get used quota for queue %s, namespace %s", q.Name, q.Namespace)
+
+	fieldSelector := fmt.Sprintf(
+		"status.phase!=Succeeded,status.phase!=Failed,status.phase!=Unknown,spec.schedulerName=%s",
+		config.GlobalServerConfig.Job.SchedulerName)
+	// TODO: add label selector
+	listOpts := metav1.ListOptions{
+		FieldSelector: fieldSelector,
+	}
+	podList, err := kr.ListPods(q.Namespace, listOpts)
+	if err != nil || podList == nil {
+		log.Errorf("get queue used quota failed, err: %v", err)
+		return nil, fmt.Errorf("get queue used quota failed, err: %v", err)
+	}
+	usedResource := resources.EmptyResource()
+	for idx := range podList.Items {
+		if isAllocatedPod(&podList.Items[idx], q.Name) {
+			podRes := k8s.CalcPodResources(&podList.Items[idx])
+			usedResource.Add(podRes)
+		}
+	}
+	return usedResource, nil
+}
+
+func isAllocatedPod(pod *v1.Pod, queueName string) bool {
+	log.Debugf("pod name %s/%s, nodeName: %s, phase: %s, annotations: %v\n",
+		pod.Namespace, pod.Name, pod.Spec.NodeName, pod.Status.Phase, pod.Annotations)
+	if pod.Annotations == nil || pod.Annotations[v1alpha1.QueueNameKey] != queueName {
+		return false
+	}
+	if pod.Spec.NodeName != "" {
+		return true
+	}
+	return false
 }
 
 func (kr *KubeRuntime) CreateObject(obj *unstructured.Unstructured) error {
@@ -517,12 +580,12 @@ func (kr *KubeRuntime) DeleteObject(namespace, name string, gvk k8sschema.GroupV
 	return nil
 }
 
-func (kr *KubeRuntime) CreatePV(namespace, fsId, userName string) (string, error) {
+func (kr *KubeRuntime) CreatePV(namespace, fsID string) (string, error) {
 	pv := config.DefaultPV
-	pv.Name = schema.ConcatenatePVName(namespace, fsId)
+	pv.Name = schema.ConcatenatePVName(namespace, fsID)
 	// check pv existence
 	if _, err := kr.getPersistentVolume(pv.Name, metav1.GetOptions{}); err == nil {
-		return "", nil
+		return pv.Name, nil
 	} else if !k8serrors.IsNotFound(err) {
 		return "", err
 	}
@@ -536,19 +599,52 @@ func (kr *KubeRuntime) CreatePV(namespace, fsId, userName string) (string, error
 		log.Errorf(err.Error())
 		return "", err
 	}
-	cva := newPV.Spec.CSI.VolumeAttributes
-	if _, ok := cva[schema.FSID]; ok {
-		newPV.Spec.CSI.VolumeAttributes[schema.FSID] = fsId
-		newPV.Spec.CSI.VolumeHandle = pv.Name
-	}
-	if _, ok := cva[schema.PFSServer]; ok {
-		newPV.Spec.CSI.VolumeAttributes[schema.PFSServer] = config.GetServiceAddress()
+	if err := buildPV(newPV, fsID); err != nil {
+		log.Errorf(err.Error())
+		return "", err
 	}
 	// create pv in k8s
 	if _, err := kr.createPersistentVolume(newPV); err != nil {
 		return "", err
 	}
 	return pv.Name, nil
+}
+
+func buildPV(pv *apiv1.PersistentVolume, fsID string) error {
+	// filesystem
+	fs, err := storage.Filesystem.GetFileSystemWithFsID(fsID)
+	if err != nil {
+		retErr := fmt.Errorf("create PV get fs[%s] err: %v", fsID, err)
+		log.Errorf(retErr.Error())
+		return retErr
+	}
+	fsStr, err := json.Marshal(fs)
+	if err != nil {
+		retErr := fmt.Errorf("create PV json.marshal fs[%s] err: %v", fsID, err)
+		log.Errorf(retErr.Error())
+		return retErr
+	}
+	// fs_cache_config
+	fsCacheConfig, err := storage.Filesystem.GetFSCacheConfig(fsID)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		retErr := fmt.Errorf("create PV get fsCacheConfig[%s] err: %v", fsID, err)
+		log.Errorf(retErr.Error())
+		return retErr
+	}
+	fsCacheConfigStr, err := json.Marshal(fsCacheConfig)
+	if err != nil {
+		retErr := fmt.Errorf("create PV json.marshal fsCacheConfig[%s] err: %v", fsID, err)
+		log.Errorf(retErr.Error())
+		return retErr
+	}
+
+	// set VolumeAttributes
+	pv.Spec.CSI.VolumeHandle = pv.Name
+	pv.Spec.CSI.VolumeAttributes[schema.PfsServer] = config.GetServiceAddress()
+	pv.Spec.CSI.VolumeAttributes[schema.PfsFsID] = fsID
+	pv.Spec.CSI.VolumeAttributes[schema.PfsFsInfo] = base64.StdEncoding.EncodeToString(fsStr)
+	pv.Spec.CSI.VolumeAttributes[schema.PfsFsCache] = base64.StdEncoding.EncodeToString(fsCacheConfigStr)
+	return nil
 }
 
 func (kr *KubeRuntime) CreatePVC(namespace, fsId, pv string) error {
@@ -614,11 +710,11 @@ func (kr *KubeRuntime) listNodes(listOptions metav1.ListOptions) (*v1.NodeList, 
 	return kr.clientset.CoreV1().Nodes().List(context.TODO(), listOptions)
 }
 
-func (kr *KubeRuntime) listPods(namespace string, listOptions metav1.ListOptions) (*v1.PodList, error) {
+func (kr *KubeRuntime) ListPods(namespace string, listOptions metav1.ListOptions) (*v1.PodList, error) {
 	return kr.clientset.CoreV1().Pods(namespace).List(context.TODO(), listOptions)
 }
 
-func (kr *KubeRuntime) getNodeQuotaListImpl(subQuotaFn func(r *schema.Resource, pod *apiv1.Pod) error) (schema.QuotaSummary, []schema.NodeQuotaInfo, error) {
+func (kr *KubeRuntime) getNodeQuotaListImpl(subQuotaFn func(r *resources.Resource, pod *apiv1.Pod) error) (schema.QuotaSummary, []schema.NodeQuotaInfo, error) {
 	result := []schema.NodeQuotaInfo{}
 	summary := schema.QuotaSummary{
 		TotalQuota: *k8s.NewResource(v1.ResourceList{}),
@@ -641,7 +737,7 @@ func (kr *KubeRuntime) getNodeQuotaListImpl(subQuotaFn func(r *schema.Resource, 
 		fieldSelector := "status.phase!=Succeeded,status.phase!=Failed," +
 			"status.phase!=Unknown,spec.nodeName=" + nodeName
 
-		pods, _ := kr.listPods("", metav1.ListOptions{
+		pods, _ := kr.ListPods("", metav1.ListOptions{
 			FieldSelector: fieldSelector,
 		})
 		for _, pod := range pods.Items {

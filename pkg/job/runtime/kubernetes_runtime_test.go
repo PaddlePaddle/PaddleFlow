@@ -37,10 +37,13 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database/dbinit"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 )
 
 const (
@@ -110,7 +113,7 @@ func TestKubeRuntimeJob(t *testing.T) {
 			},
 		},
 	}
-	dbinit.InitMockDB()
+	driver.InitMockDB()
 	config.GlobalServerConfig = &config.ServerConfig{}
 	err := models.CreateJob(&models.Job{
 		ID: testJobID,
@@ -147,9 +150,11 @@ func TestKubeRuntimeVCQueue(t *testing.T) {
 		Name:      "test_queue_name",
 		Namespace: "default",
 		QuotaType: schema.TypeVolcanoCapabilityQuota,
-		MaxResources: schema.ResourceInfo{
-			CPU: "20",
-			Mem: "20Gi",
+		MaxResources: &resources.Resource{
+			Resources: map[string]resources.Quantity{
+				"cpu": 20 * 1000,
+				"mem": 20 * 1024 * 1024 * 1024,
+			},
 		},
 	}
 	// create vc queue
@@ -179,13 +184,17 @@ func TestKubeRuntimeElasticQuota(t *testing.T) {
 		Name:      "test_queue_name",
 		Namespace: "default",
 		QuotaType: schema.TypeElasticQuota,
-		MaxResources: schema.ResourceInfo{
-			CPU: "20",
-			Mem: "20Gi",
+		MaxResources: &resources.Resource{
+			Resources: map[string]resources.Quantity{
+				"cpu": 20 * 1000,
+				"mem": 20 * 1024 * 1024 * 1024,
+			},
 		},
-		MinResources: schema.ResourceInfo{
-			CPU: "10",
-			Mem: "10Gi",
+		MinResources: &resources.Resource{
+			Resources: map[string]resources.Quantity{
+				"cpu": 10 * 1000,
+				"mem": 10 * 1024 * 1024 * 1024,
+			},
 		},
 	}
 	// create elastic quota
@@ -204,6 +213,7 @@ func TestKubeRuntimePVAndPVC(t *testing.T) {
 	kubeRuntime := &KubeRuntime{
 		clientset: client,
 	}
+	driver.InitMockDB()
 
 	config.DefaultPV = &apiv1.PersistentVolume{
 		ObjectMeta: metav1.ObjectMeta{
@@ -214,9 +224,8 @@ func TestKubeRuntimePVAndPVC(t *testing.T) {
 				CSI: &apiv1.CSIPersistentVolumeSource{
 					FSType: "ext4",
 					VolumeAttributes: map[string]string{
-						"pfs.fs.id":     "$(pfs.fs.id)",
-						"pfs.user.name": "$(pfs.user.name)",
-						"pfs.server":    "$(pfs.server)",
+						"pfs.fs.id":  "$(pfs.fs.id)",
+						"pfs.server": "$(pfs.server)",
 					},
 					VolumeHandle: "pfs-$(pfs.fs.id)-$(namespace)-pv",
 				},
@@ -241,10 +250,26 @@ func TestKubeRuntimePVAndPVC(t *testing.T) {
 
 	namespace := "default"
 	fsID := "fs-test"
-	userName := "test"
+	fs := model.FileSystem{
+		Model: model.Model{
+			ID: fsID,
+		},
+		Type:    "s3",
+		SubPath: "elsie",
+	}
+	err := storage.Filesystem.CreatFileSystem(&fs)
+	assert.Nil(t, err)
+	fsCache := model.FSCacheConfig{
+		FsID:       fsID,
+		CacheDir:   "/data/paddleflow-fs/mnt",
+		MetaDriver: "nutsdb",
+	}
+	err = storage.Filesystem.CreateFSCacheConfig(&fsCache)
+	assert.Nil(t, err)
+
 	pvc := fmt.Sprintf("pfs-%s-pvc", fsID)
 	// create pv
-	pv, err := kubeRuntime.CreatePV(namespace, fsID, userName)
+	pv, err := kubeRuntime.CreatePV(namespace, fsID)
 	assert.Equal(t, nil, err)
 	// create pvc
 	err = kubeRuntime.CreatePVC(namespace, fsID, pv)
@@ -264,11 +289,7 @@ func TestKubeRuntimeNodeResource(t *testing.T) {
 	}
 
 	config.GlobalServerConfig = &config.ServerConfig{
-		Job: config.JobConfig{
-			ScalarResourceArray: []string{
-				"",
-			},
-		},
+		Job: config.JobConfig{},
 	}
 	namespace := "default"
 	nodeName := "node1"

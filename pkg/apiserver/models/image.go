@@ -22,7 +22,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 type Image struct {
@@ -43,7 +43,7 @@ func (Image) TableName() string {
 
 func CreateImage(logEntry *log.Entry, image *Image) error {
 	logEntry.Debugf("begin create image.")
-	tx := database.DB.Model(&Image{}).Create(image)
+	tx := storage.DB.Model(&Image{}).Create(image)
 	if tx.Error != nil {
 		logEntry.Errorf("create image failed. ID:%s, error:%s",
 			image.ID, tx.Error.Error())
@@ -55,7 +55,7 @@ func CreateImage(logEntry *log.Entry, image *Image) error {
 func ListImageIDsByFsID(logEntry *log.Entry, fsID string) ([]string, error) {
 	logEntry.Debugf("begin list image by fs[%s].", fsID)
 	var imageIDs []string
-	tx := database.DB.Model(&Image{}).Select("image_id").Where("fs_id = ?", fsID).Find(&imageIDs)
+	tx := storage.DB.Model(&Image{}).Select("image_id").Where("fs_id = ?", fsID).Find(&imageIDs)
 	if tx.Error != nil {
 		logEntry.Errorf("list imageIDs by fs[%s] failed. error:%s",
 			fsID, tx.Error.Error())
@@ -67,7 +67,7 @@ func ListImageIDsByFsID(logEntry *log.Entry, fsID string) ([]string, error) {
 func GetImage(logEntry *log.Entry, PFImageID string) (Image, error) {
 	logEntry.Debugf("begin GetImage")
 	var image Image
-	tx := database.DB.Model(&Image{}).Where("id = ?", PFImageID).Find(&image)
+	tx := storage.DB.Model(&Image{}).Where("id = ?", PFImageID).Find(&image)
 	if tx.Error != nil {
 		logEntry.Errorf("GetImage[%s] failed. error:%s",
 			PFImageID, tx.Error.Error())
@@ -79,7 +79,7 @@ func GetImage(logEntry *log.Entry, PFImageID string) (Image, error) {
 func GetUrlByPFImageID(logEntry *log.Entry, PFImageID string) (string, error) {
 	logEntry.Debugf("begin GetUrlByPFImageID[%s].", PFImageID)
 	var url string
-	tx := database.DB.Model(&Image{}).Select("url").Where("id =", PFImageID).Find(&url)
+	tx := storage.DB.Model(&Image{}).Select("url").Where("id =", PFImageID).Find(&url)
 	if tx.Error != nil {
 		logEntry.Errorf("GetUrlByPFImageID[%s] failed. error:%s",
 			PFImageID, tx.Error.Error())
@@ -90,7 +90,7 @@ func GetUrlByPFImageID(logEntry *log.Entry, PFImageID string) (string, error) {
 
 func UpdateImage(logEntry *log.Entry, PFImageID string, image Image) error {
 	logEntry.Debugf("begin UpdateImage[%s]", PFImageID)
-	tx := database.DB.Model(&Image{}).Where("id = ?", PFImageID).Updates(image)
+	tx := storage.DB.Model(&Image{}).Where("id = ?", PFImageID).Updates(image)
 	if tx.Error != nil {
 		logEntry.Errorf("UpdateImage[%s] failed. error:%s",
 			PFImageID, tx.Error.Error())

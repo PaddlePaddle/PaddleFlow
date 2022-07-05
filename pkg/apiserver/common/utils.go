@@ -33,9 +33,10 @@ import (
 const (
 	RegPatternQueueName    = "^[a-z0-9][a-z0-9-]{0,8}[a-z0-9]$"
 	RegPatternUserName     = "^[A-Za-z0-9-]{4,16}$"
-	RegPatternRunName      = "^[A-Za-z0-9_][A-Za-z0-9-_]{1,49}[A-Za-z0-9_]$"
+	RegPatternRunName      = "^[A-Za-z_][A-Za-z0-9_]{1,49}$"
+	RegPatternPipelineName = "^[A-Za-z_][A-Za-z0-9_]{1,49}$"
+	RegPatternScheduleName = "^[A-Za-z_][A-Za-z0-9_]{1,49}$"
 	RegPatternResource     = "^[1-9][0-9]*([numkMGTPE]|Ki|Mi|Gi|Ti|Pi|Ei)?$"
-	RegPatternPipelineName = "^[A-Za-z0-9_][A-Za-z0-9-_]{1,49}[A-Za-z0-9_]$"
 	RegPatternClusterName  = "^[A-Za-z0-9_][A-Za-z0-9-_]{0,253}[A-Za-z0-9_]$"
 
 	// DNS1123LabelMaxLength is a label's max length in DNS (RFC 1123)
@@ -43,6 +44,9 @@ const (
 	DNS1123LabelFmt       = "[a-z0-9]([-a-z0-9]*[a-z0-9])?"
 	dns1123LabelErrMsg    = "a lowercase RFC 1123 label must consist of lower case alphanumeric characters or '-'," +
 		" and must start and end with an alphanumeric character"
+
+	JobNameMaxLength = 512
+	JobPortMaximums  = 65535
 
 	HDFS                          = "hdfs"
 	HDFSWithKerberos              = "hdfsWithKerberos"
@@ -58,7 +62,7 @@ const (
 	HDFSSplit          = 3
 	S3Split            = 3
 	S3EndpointSplit    = 2
-	S3SplitLen         = 4
+	S3SplitLen         = 3
 	LocalSplit         = 2
 	CFSSplit           = 3
 	ServerAddressSplit = 2

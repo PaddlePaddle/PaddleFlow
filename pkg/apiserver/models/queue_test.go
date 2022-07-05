@@ -19,16 +19,14 @@ package models
 import (
 	"testing"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
-	glogger "gorm.io/gorm/logger"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 var (
@@ -36,24 +34,8 @@ var (
 	mockRootUserName = "root"
 )
 
-func InitFakeDB() {
-	db, err := gorm.Open(sqlite.Open("file::memory:"), &gorm.Config{
-		Logger: glogger.Default.LogMode(glogger.Info),
-	})
-	if err != nil {
-		log.Fatalf("The fake DB doesn't create successfully. Fail fast. error: %v", err)
-	}
-	// Create tables
-	db.AutoMigrate(
-		&Grant{},
-		&Queue{},
-		&ClusterInfo{},
-	)
-	database.DB = db
-}
-
 func TestCreateQueue(t *testing.T) {
-	InitFakeDB()
+	initMockDB()
 
 	cluster1 := ClusterInfo{
 		Name:          "cluster1",
@@ -72,39 +54,41 @@ func TestCreateQueue(t *testing.T) {
 	}
 	assert.NotEmpty(t, cluster1.ID)
 
+	r1, err := resources.NewResourceFromMap(map[string]string{
+		"cpu":            "10",
+		"mem":            "100G",
+		"nvidia.com/gpu": "500",
+	})
+	assert.Equal(t, nil, err)
+
+	r2, err := resources.NewResourceFromMap(map[string]string{
+		"cpu":            "20",
+		"mem":            "200G",
+		"nvidia.com/gpu": "200",
+	})
+	assert.Equal(t, nil, err)
+
 	queue1 := Queue{
-		Name:      "queue1",
-		Namespace: "paddleflow",
-		ClusterId: cluster1.ID,
-		QuotaType: schema.TypeVolcanoCapabilityQuota,
-		MaxResources: schema.ResourceInfo{
-			CPU: "10",
-			Mem: "100G",
-			ScalarResources: schema.ScalarResourcesType{
-				"nvidia.com/gpu": "500",
-			},
-		},
+		Name:             "queue1",
+		Namespace:        "paddleflow",
+		ClusterId:        cluster1.ID,
+		QuotaType:        schema.TypeVolcanoCapabilityQuota,
+		MaxResources:     r1,
 		SchedulingPolicy: []string{"s1", "s2"},
 		Status:           schema.StatusQueueCreating,
 	}
 
 	queue2 := Queue{
-		Name:      "queue2",
-		Namespace: "paddleflow",
-		ClusterId: "cluster1.ID",
-		QuotaType: schema.TypeVolcanoCapabilityQuota,
-		MaxResources: schema.ResourceInfo{
-			CPU: "20",
-			Mem: "200G",
-			ScalarResources: schema.ScalarResourcesType{
-				"nvidia.com/gpu": "200",
-			},
-		},
+		Name:             "queue2",
+		Namespace:        "paddleflow",
+		ClusterId:        "cluster1.ID",
+		QuotaType:        schema.TypeVolcanoCapabilityQuota,
+		MaxResources:     r2,
 		SchedulingPolicy: []string{"s1", "s2"},
 		Status:           schema.StatusQueueCreating,
 	}
 
-	err := CreateQueue(&queue1)
+	err = CreateQueue(&queue1)
 	assert.Equal(t, nil, err)
 
 	err = CreateQueue(&queue2)
@@ -112,7 +96,7 @@ func TestCreateQueue(t *testing.T) {
 }
 
 func TestUpdateQueue(t *testing.T) {
-	InitFakeDB()
+	initMockDB()
 
 	cluster1 := ClusterInfo{
 		Name:          "cluster1",
@@ -131,52 +115,54 @@ func TestUpdateQueue(t *testing.T) {
 	}
 	assert.NotEmpty(t, cluster1.ID)
 
+	r1, err := resources.NewResourceFromMap(map[string]string{
+		"cpu":            "10",
+		"mem":            "100G",
+		"nvidia.com/gpu": "500",
+	})
+	assert.Equal(t, nil, err)
+
+	r2, err := resources.NewResourceFromMap(map[string]string{
+		"cpu":            "1",
+		"mem":            "10G",
+		"nvidia.com/gpu": "500",
+	})
+	assert.Equal(t, nil, err)
+
+	r3, err := resources.NewResourceFromMap(map[string]string{
+		"cpu":            "10",
+		"mem":            "100G",
+		"nvidia.com/gpu": "5",
+	})
+	assert.Equal(t, nil, err)
+
 	queue1 := Queue{
-		Name:      "queue1",
-		Namespace: "paddleflow",
-		ClusterId: cluster1.ID,
-		QuotaType: schema.TypeVolcanoCapabilityQuota,
-		MaxResources: schema.ResourceInfo{
-			CPU: "10",
-			Mem: "100G",
-			ScalarResources: schema.ScalarResourcesType{
-				"nvidia.com/gpu": "500",
-			},
-		},
+		Name:             "queue1",
+		Namespace:        "paddleflow",
+		ClusterId:        cluster1.ID,
+		QuotaType:        schema.TypeVolcanoCapabilityQuota,
+		MaxResources:     r1,
 		SchedulingPolicy: []string{"s1", "s2"},
 		Status:           schema.StatusQueueCreating,
 	}
 
 	queue2 := Queue{
-		Name:      "queue2",
-		Namespace: "paddleflow",
-		ClusterId: "cluster1.ID",
-		QuotaType: schema.TypeVolcanoCapabilityQuota,
-		MaxResources: schema.ResourceInfo{
-			CPU: "20",
-			Mem: "200G",
-			ScalarResources: schema.ScalarResourcesType{
-				"nvidia.com/gpu": "200",
-			},
-		},
+		Name:             "queue2",
+		Namespace:        "paddleflow",
+		ClusterId:        "cluster1.ID",
+		QuotaType:        schema.TypeVolcanoCapabilityQuota,
+		MaxResources:     r2,
 		SchedulingPolicy: []string{"s1", "s2"},
 		Status:           schema.StatusQueueCreating,
 	}
 
-	err := CreateQueue(&queue1)
+	err = CreateQueue(&queue1)
 	assert.Equal(t, nil, err)
 
 	err = CreateQueue(&queue2)
 	assert.Equal(t, nil, err)
 
-	queue1.MaxResources = schema.ResourceInfo{
-		CPU: "1",
-		Mem: "10G",
-		ScalarResources: schema.ScalarResourcesType{
-			"nvidia.com/gpu": "5",
-		},
-	}
-
+	queue1.MaxResources = r3
 	err = UpdateQueue(&queue1)
 	assert.NoError(t, err)
 }
@@ -186,11 +172,11 @@ func TestListQueue(t *testing.T) {
 	ctx := &logger.RequestContext{UserName: mockUserName}
 
 	// init grant
-	grantModel := &Grant{ID: "fakeID", UserName: mockUserName, ResourceID: "queue1", ResourceType: GrantFsType}
-	if err := CreateGrant(ctx, grantModel); err != nil {
+	grantModel := &model.Grant{ID: "fakeID", UserName: mockUserName, ResourceID: "queue1", ResourceType: GrantFsType}
+	if err := storage.Auth.CreateGrant(ctx, grantModel); err != nil {
 		t.Error(err)
 	}
-	grants, err := ListGrant(ctx, 0, 0, mockUserName)
+	grants, err := storage.Auth.ListGrant(ctx, 0, 0, mockUserName)
 	if err != nil {
 		t.Error(err)
 	}

@@ -28,9 +28,9 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/database/dbinit"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	pplcommon "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 )
 
 const (
@@ -49,7 +49,7 @@ var mockCbs = WorkflowCallbacks{
 		return "cch-000027", nil
 	},
 	ListCacheCb: func(firstFp, fsID, step, yamlPath string) ([]models.RunCache, error) {
-		return []models.RunCache{models.RunCache{RunID: "run-000027"}, models.RunCache{RunID: "run-000028"}}, nil
+		return []models.RunCache{{RunID: "run-000027"}, {RunID: "run-000028"}}, nil
 	},
 }
 
@@ -437,7 +437,7 @@ func TestValidateWorkflowParam(t *testing.T) {
 	bwf.Source.EntryPoints["main"].Parameters["invalid-name"] = "xxx"
 	err = bwf.validate()
 	assert.NotNil(t, err)
-	errMsg := "check parameters[invalid-name] in step[main] failed: format of variable name[invalid-name] invalid, should be in ^[a-zA-Z_$][a-zA-Z_$0-9]*$"
+	errMsg := "check parameters[invalid-name] in step[main] failed: format of variable name[invalid-name] invalid, should be in ^[A-Za-z_][A-Za-z0-9_]{1,49}$"
 	assert.Equal(t, err.Error(), errMsg)
 
 	// validate param name
@@ -445,7 +445,7 @@ func TestValidateWorkflowParam(t *testing.T) {
 	bwf.Source.EntryPoints["main"].Env["invalid-name"] = "xxx"
 	err = bwf.validate()
 	assert.NotNil(t, err)
-	errMsg = "check env[invalid-name] in step[main] failed: format of variable name[invalid-name] invalid, should be in ^[a-zA-Z_$][a-zA-Z_$0-9]*$"
+	errMsg = "check env[invalid-name] in step[main] failed: format of variable name[invalid-name] invalid, should be in ^[A-Za-z_][A-Za-z0-9_]{1,49}$"
 	assert.Equal(t, err.Error(), errMsg)
 }
 
@@ -803,7 +803,7 @@ func TestRestartWorkflow(t *testing.T) {
 }
 
 func TestRestartWorkflow_from1completed(t *testing.T) {
-	dbinit.InitMockDB()
+	driver.InitMockDB()
 	testCase := loadcase(runYamlPath)
 	wfs, err := schema.ParseWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
@@ -839,7 +839,7 @@ func TestRestartWorkflow_from1completed(t *testing.T) {
 }
 
 func TestCheckPostProcess(t *testing.T) {
-	dbinit.InitMockDB()
+	driver.InitMockDB()
 	wfs, err := loadTwoPostCaseSource()
 	assert.Nil(t, err)
 

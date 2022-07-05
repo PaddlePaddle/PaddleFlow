@@ -40,7 +40,7 @@ func (pj *PaddleJob) validateJob() error {
 	if err := pj.KubeJob.validateJob(); err != nil {
 		return err
 	}
-	if len(pj.JobMode) == 0 {
+	if len(pj.JobMode) == 0 && !pj.IsCustomYaml {
 		// patch default value
 		pj.JobMode = schema.EnvJobModeCollective
 	}
@@ -49,27 +49,27 @@ func (pj *PaddleJob) validateJob() error {
 }
 
 func (pj *PaddleJob) CreateJob() (string, error) {
+	pdj := &paddlev1.PaddleJob{}
+	if err := pj.createJobFromYaml(pdj); err != nil {
+		log.Errorf("create job[%s] failed, err %v", pj.ID, err)
+		return "", err
+	}
+	if err := pj.validateJob(); err != nil {
+		log.Errorf("validate [%s]type job[%s] failed, err %v", pj.JobType, pj.ID, err)
+		return "", err
+	}
 	if err := pj.validateJob(); err != nil {
 		log.Errorf("validate %s job failed, err %v", pj.JobType, err)
 		return "", err
 	}
-	pdj := &paddlev1.PaddleJob{}
-	if err := pj.createJobFromYaml(pdj); err != nil {
-		log.Errorf("create job failed, err %v", err)
-		return "", err
-	}
 
 	var err error
-	// paddleflow won't patch any param to job if it is workflow type
-	if pj.JobType != schema.TypeWorkflow {
-		// patch .metadata field
-		pj.patchMetadata(&pdj.ObjectMeta, pj.ID)
-		// patch .spec field
-		err = pj.patchPaddleJobSpec(&pdj.Spec)
-		if err != nil {
-			log.Errorf("build job spec failed, err %v", err)
-			return "", err
-		}
+	// patch .metadata field
+	pj.patchMetadata(&pdj.ObjectMeta, pj.ID)
+	// patch .spec field
+	if err = pj.patchPaddleJobSpec(&pdj.Spec); err != nil {
+		log.Errorf("build job spec failed, err %v", err)
+		return "", err
 	}
 
 	// create job on cluster
@@ -112,6 +112,11 @@ func (pj *PaddleJob) patchPaddleJobSpec(pdjSpec *paddlev1.PaddleJobSpec) error {
 	// way of communicate between pods, choose one in Service/PodIP
 	if len(pdjSpec.Intranet) == 0 {
 		pdjSpec.Intranet = paddlev1.PodIP
+	}
+
+	if pj.IsCustomYaml {
+		log.Infof("%s job %s/%s using custom yaml, pass the patch from tasks", pj.JobType, pj.Namespace, pj.Name)
+		return nil
 	}
 
 	var err error
@@ -229,7 +234,9 @@ func (pj *PaddleJob) patchPdjTask(resourceSpec *paddlev1.ResourceSpec, task mode
 		resourceSpec.Template.Spec.Containers = []v1.Container{{}}
 	}
 	pj.fillContainerInTasks(&resourceSpec.Template.Spec.Containers[0], task)
-
+	// append into container.VolumeMounts
+	taskFs := task.Conf.GetAllFileSystem()
+	resourceSpec.Template.Spec.Volumes = appendVolumesIfAbsent(resourceSpec.Template.Spec.Volumes, generateVolumes(taskFs))
 	return nil
 }
 
@@ -245,13 +252,13 @@ func (pj *PaddleJob) patchMinResource(pdjSpec *paddlev1.PaddleJobSpec) {
 	workerRequests := pdjSpec.Worker.Template.Spec.Containers[0].Resources.Requests
 	workerReplicas := pdjSpec.Worker.Replicas
 	workerResource := k8s.NewResource(workerRequests)
-	workerResource.Multi(float64(workerReplicas))
+	workerResource.Multi(workerReplicas)
 
 	if pdjSpec.PS != nil {
 		psRequests := pdjSpec.PS.Template.Spec.Containers[0].Resources.Requests
 		psReplicas := pdjSpec.PS.Replicas
 		psResource := k8s.NewResource(psRequests)
-		psResource.Multi(float64(psReplicas))
+		psResource.Multi(psReplicas)
 		workerResource.Add(psResource)
 	}
 

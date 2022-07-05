@@ -18,6 +18,7 @@ package job
 
 import (
 	"fmt"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -29,9 +30,11 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
 	_ "github.com/PaddlePaddle/PaddleFlow/pkg/job/queue/sortpolicy"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 func CreateJob(conf schema.PFJobConf) (string, error) {
@@ -43,6 +46,18 @@ func CreateJob(conf schema.PFJobConf) (string, error) {
 		return "", err
 	}
 	jobConf := conf.(*schema.Conf)
+	// add fs
+	if jobConf.GetFS() != "" {
+		fsID := jobConf.GetFS()
+		fsIDSplit := strings.Split(fsID, "-")
+		fsName := fsIDSplit[len(fsIDSplit)-1]
+		jobConf.FileSystem = schema.FileSystem{
+			ID:        jobConf.GetFS(),
+			Name:      fsName,
+			MountPath: filepath.Join(schema.DefaultFSMountPath, fsID),
+		}
+	}
+
 	jobInfo := &models.Job{
 		ID:       generateJobID(conf.GetName()),
 		Type:     string(conf.Type()),
@@ -280,7 +295,7 @@ func ValidateQueue(conf schema.PFJobConf, userName, queueName string) error {
 	conf.SetNamespace(queue.Namespace)
 	conf.SetClusterID(cluster.ID)
 	// check whether user has access to queue or not
-	if !models.HasAccessToResource(ctx, common.ResourceTypeQueue, queueName) {
+	if !storage.Auth.HasAccessToResource(ctx, common.ResourceTypeQueue, queueName) {
 		return common.NoAccessError(userName, common.ResourceTypeQueue, queueName)
 	}
 	return nil
@@ -335,15 +350,20 @@ func StopJobByID(jobID string) error {
 }
 
 // IsEnoughQueueCapacity validate queue matching flavor
-func IsEnoughQueueCapacity(flavourValue schema.Flavour, queueResource schema.ResourceInfo) error {
-	if schema.IsEmptyResource(flavourValue.ResourceInfo) {
-		err := fmt.Errorf("flavour[%v] cpu or memory is empty", flavourValue)
+func IsEnoughQueueCapacity(flavourValue schema.Flavour, queueResource *resources.Resource) error {
+	fResources, err := resources.NewResourceFromMap(flavourValue.ToMap())
+	if err != nil {
 		log.Errorf("isEnoughQueueCapacity failed, err: %v", err)
 		return err
 	}
+	if fResources.CPU() == 0 || fResources.Memory() == 0 {
+		err = fmt.Errorf("flavour[%v] cpu or memory is empty", flavourValue)
+		log.Errorf("isEnoughQueueCapacity failed, err: %v", err)
+		return err
 
+	}
 	// all field in flavour must be less equal than queue's
-	if !flavourValue.ResourceInfo.LessEqual(queueResource) {
+	if !fResources.LessEqual(queueResource) {
 		errMsg := fmt.Sprintf("the flavour[%+v] is larger than queue's [%+v]", flavourValue, queueResource)
 		log.Errorf(errMsg)
 		return fmt.Errorf(errMsg)

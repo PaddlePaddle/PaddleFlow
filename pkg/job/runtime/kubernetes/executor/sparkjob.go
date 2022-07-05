@@ -73,30 +73,11 @@ func (sj *SparkJob) patchSparkAppVariable(jobApp *sparkapp.SparkApplication) err
 		return err
 	}
 
-	// volumes
-	jobApp.Spec.Volumes = sj.appendVolumeIfAbsent(jobApp.Spec.Volumes, sj.generateVolume())
 	log.Debugf("jobApp: %v, driver=%v, executor=%v", jobApp, jobApp.Spec.Driver, jobApp.Spec.Executor)
 	return nil
 }
 
 func (sj *SparkJob) patchSparkSpec(jobApp *sparkapp.SparkApplication, jobID string) error {
-	// image
-	if sj.isNeedPatch(sj.Image) {
-		jobApp.Spec.Image = &sj.Image
-	}
-
-	// mainAppFile, mainClass and arguments
-	if (sj.IsCustomYaml && jobApp.Spec.MainApplicationFile == nil || !sj.IsCustomYaml) && len(sj.SparkMainFile) > 0 {
-		sparkMainFile := sj.SparkMainFile
-		jobApp.Spec.MainApplicationFile = &sparkMainFile
-	}
-
-	if (sj.IsCustomYaml && jobApp.Spec.MainClass == nil || !sj.IsCustomYaml) && len(sj.SparkMainClass) != 0 {
-		jobApp.Spec.MainClass = &sj.SparkMainClass
-	}
-	if (sj.IsCustomYaml && len(jobApp.Spec.Arguments) == 0 || !sj.IsCustomYaml) && len(sj.SparkArguments) > 0 {
-		jobApp.Spec.Arguments = []string{sj.SparkArguments}
-	}
 	// BatchScheduler && BatchSchedulerOptions
 	schedulerName := config.GlobalServerConfig.Job.SchedulerName
 	jobApp.Spec.BatchScheduler = &schedulerName
@@ -109,8 +90,31 @@ func (sj *SparkJob) patchSparkSpec(jobApp *sparkapp.SparkApplication, jobID stri
 		jobApp.Spec.BatchSchedulerOptions.PriorityClassName = &priorityClass
 	}
 
+	if sj.IsCustomYaml {
+		log.Infof("%s job %s/%s using custom yaml, pass the patch from tasks", sj.JobType, sj.Namespace, sj.Name)
+		return nil
+	}
+	// when job is not using custom yaml, patch from tasks
+	// image
+	jobApp.Spec.Image = &sj.Image
+
+	// mainAppFile, mainClass and arguments
+	if len(sj.SparkMainFile) > 0 {
+		sparkMainFile := sj.SparkMainFile
+		jobApp.Spec.MainApplicationFile = &sparkMainFile
+	}
+
+	if len(sj.SparkMainClass) != 0 {
+		jobApp.Spec.MainClass = &sj.SparkMainClass
+	}
+
+	if len(sj.SparkArguments) > 0 {
+		jobApp.Spec.Arguments = []string{sj.SparkArguments}
+	}
+
 	// resource of driver and executor
 	var driverFlavour, executorFlavour schema.Flavour
+	var taskFileSystem []schema.FileSystem
 	for _, task := range sj.Tasks {
 		if task.Role == schema.RoleDriver {
 			driverFlavour = task.Flavour
@@ -118,9 +122,18 @@ func (sj *SparkJob) patchSparkSpec(jobApp *sparkapp.SparkApplication, jobID stri
 		} else if task.Role == schema.RoleExecutor {
 			executorFlavour = task.Flavour
 			sj.patchSparkSpecExecutor(jobApp, task)
+		} else {
+			err := fmt.Errorf("unknown type[%s] in task[%v]", task.Role, task)
+			log.Errorf("patchSparkSpec failed, err: %v", err)
+			return err
 		}
+		taskFileSystem = append(taskFileSystem, task.Conf.GetAllFileSystem()...)
 	}
 	fillGPUSpec(driverFlavour, executorFlavour, jobApp)
+
+	// volumes
+	jobApp.Spec.Volumes = appendVolumesIfAbsent(jobApp.Spec.Volumes, generateVolumes(taskFileSystem))
+
 	return nil
 }
 
@@ -137,7 +150,10 @@ func (sj *SparkJob) patchPodByTask(podSpec *sparkapp.SparkPodSpec, task models.M
 	}
 	podSpec.Env = append(podSpec.Env, sj.generateEnvVars()...)
 
-	podSpec.VolumeMounts = sj.appendMountIfAbsent(podSpec.VolumeMounts, sj.generateVolumeMount())
+	taskFileSystems := task.Conf.GetAllFileSystem()
+	if len(taskFileSystems) != 0 {
+		podSpec.VolumeMounts = appendMountsIfAbsent(podSpec.VolumeMounts, generateVolumeMounts(taskFileSystems))
+	}
 }
 
 func (sj *SparkJob) patchSparkSpecDriver(jobApp *sparkapp.SparkApplication, task models.Member) {

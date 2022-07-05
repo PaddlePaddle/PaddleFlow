@@ -20,7 +20,7 @@ import (
 	apiv1 "k8s.io/api/core/v1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/trace_logger"
 )
 
 var (
@@ -30,21 +30,25 @@ var (
 
 	DefaultRunYamlPath    = "./run.yaml"
 	serverDefaultConfPath = "./config/server/default/paddleserver.yaml"
+	// DefaultClusterName for default cluster in single cluster
+	DefaultClusterName = "default-cluster"
+	// DefaultQueueName for default queue in single cluster
+	DefaultQueueName = "default-queue"
+	// DefaultNamespace for default namespace of default queue in single cluster
+	DefaultNamespace = "default"
 )
 
 type ServerConfig struct {
-	Database      DatabaseConfig            `yaml:"database"`
-	Log           logger.LogConfig          `yaml:"log"`
-	ApiServer     ApiServerConfig           `yaml:"apiServer"`
-	Job           JobConfig                 `yaml:"job"`
-	Fs            FsServerConf              `yaml:"fs"`
-	NamespaceList []string                  `yaml:"namespaceList"`
-	Flavour       []schema.Flavour          `yaml:"flavour"`
-	FlavourMap    map[string]schema.Flavour `yaml:"-"`
-	ImageConf     ImageConfig               `yaml:"imageRepository"`
+	Storage   StorageConfig                  `yaml:"database"`
+	Log       logger.LogConfig               `yaml:"log"`
+	TraceLog  trace_logger.TraceLoggerConfig `yaml:"traceLog"`
+	ApiServer ApiServerConfig                `yaml:"apiServer"`
+	Job       JobConfig                      `yaml:"job"`
+	Fs        FsServerConf                   `yaml:"fs"`
+	ImageConf ImageConfig                    `yaml:"imageRepository"`
 }
 
-type DatabaseConfig struct {
+type StorageConfig struct {
 	Driver                               string `yaml:"driver"`
 	Host                                 string `yaml:"host"`
 	Port                                 string `yaml:"port"`
@@ -66,9 +70,8 @@ type ApiServerConfig struct {
 }
 
 type JobConfig struct {
-	Reclaim             ReclaimConfig `yaml:"reclaim"`
-	SchedulerName       string        `yaml:"schedulerName"`
-	ScalarResourceArray []string      `yaml:"scalarResourceArray"`
+	Reclaim       ReclaimConfig `yaml:"reclaim"`
+	SchedulerName string        `yaml:"schedulerName"`
 	// period second for job manager
 	ClusterSyncPeriod int `yaml:"clusterSyncPeriod"`
 	QueueExpireTime   int `yaml:"queueExpireTime"`
@@ -78,6 +81,7 @@ type JobConfig struct {
 	SyncClusterQueue bool `yaml:"syncClusterQueue"`
 	// DefaultJobYamlDir is directory that stores default template yaml files for job
 	DefaultJobYamlDir string `yaml:"defaultJobYamlDir"`
+	IsSingleCluster   bool   `yaml:"isSingleCluster"`
 }
 
 type FsServerConf struct {

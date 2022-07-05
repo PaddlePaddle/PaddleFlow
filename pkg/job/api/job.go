@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
 
@@ -47,7 +48,7 @@ type PFJob struct {
 	// ClusterID and QueueID of job
 	ClusterID    ClusterID
 	QueueID      QueueID
-	Resource     *schema.Resource
+	Resource     *resources.Resource
 	Priority     int32
 	MinAvailable int32
 	// PriorityClassName defines job info on cluster

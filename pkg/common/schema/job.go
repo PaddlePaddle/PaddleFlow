@@ -175,6 +175,7 @@ type PFJobConf interface {
 	GetClusterID() string
 	GetUserName() string
 
+	// Deprecated
 	GetFS() string
 	SetFS(string)
 
@@ -202,9 +203,10 @@ type Conf struct {
 	FileSystem      FileSystem   `json:"fileSystem,omitempty"`
 	ExtraFileSystem []FileSystem `json:"extraFileSystem,omitempty"`
 	// 计算资源
-	Flavour  Flavour `json:"flavour,omitempty"`
-	Priority string  `json:"priority"`
-	QueueID  string  `json:"queueID"`
+	Flavour   Flavour `json:"flavour,omitempty"`
+	Priority  string  `json:"priority"`
+	QueueID   string  `json:"queueID"`
+	QueueName string  `json:"queueName,omitempty"`
 	// 运行时需要的参数
 	Labels      map[string]string `json:"labels"`
 	Annotations map[string]string `json:"annotations"`
@@ -215,7 +217,9 @@ type Conf struct {
 	Args        []string          `json:"args,omitempty"`
 }
 
+// FileSystem indicate PaddleFlow
 type FileSystem struct {
+	ID        string `json:"id,omitempty"`
 	Name      string `json:"name"`
 	MountPath string `json:"mountPath,omitempty"`
 	SubPath   string `json:"subPath,omitempty"`
@@ -235,10 +239,12 @@ func (c *Conf) GetCommand() string {
 }
 
 func (c *Conf) GetWorkerCommand() string {
+	c.preCheckEnv()
 	return c.Env[EnvJobWorkerCommand]
 }
 
 func (c *Conf) GetPSCommand() string {
+	c.preCheckEnv()
 	return c.Env[EnvJobPServerCommand]
 }
 
@@ -247,29 +253,29 @@ func (c *Conf) GetImage() string {
 }
 
 func (c *Conf) GetPriority() string {
-	return c.Env[EnvJobPriority]
+	return c.Priority
 }
 
 func (c *Conf) SetPriority(pc string) {
-	c.preCheckEnv()
-	c.Env[EnvJobPriority] = pc
+	c.Priority = pc
 }
 
 func (c *Conf) GetQueueName() string {
-	return c.Env[EnvJobQueueName]
+	return c.QueueName
 }
 
 // SetQueueName set queue name
 func (c *Conf) SetQueueName(queueName string) {
-	c.preCheckEnv()
-	c.Env[EnvJobQueueName] = queueName
+	c.QueueName = queueName
 }
 
 func (c *Conf) GetClusterName() string {
+	c.preCheckEnv()
 	return c.Env[EnvJobClusterName]
 }
 
 func (c *Conf) GetUserName() string {
+	c.preCheckEnv()
 	return c.Env[EnvJobUserName]
 }
 
@@ -278,7 +284,9 @@ func (c *Conf) SetUserName(userName string) {
 	c.Env[EnvJobUserName] = userName
 }
 
+// Deprecated
 func (c *Conf) GetFS() string {
+	c.preCheckEnv()
 	return c.Env[EnvJobFsID]
 }
 
@@ -289,10 +297,12 @@ func (c *Conf) SetFS(fsID string) {
 }
 
 func (c *Conf) GetYamlPath() string {
+	c.preCheckEnv()
 	return c.Env[EnvJobYamlPath]
 }
 
 func (c *Conf) GetNamespace() string {
+	c.preCheckEnv()
 	return c.Env[EnvJobNamespace]
 }
 
@@ -302,38 +312,47 @@ func (c *Conf) SetNamespace(ns string) {
 }
 
 func (c *Conf) Type() JobType {
+	c.preCheckEnv()
 	return JobType(c.Env[EnvJobType])
 }
 
 func (c *Conf) GetJobMode() string {
+	c.preCheckEnv()
 	return c.Env[EnvJobMode]
 }
 
 func (c *Conf) GetJobReplicas() string {
+	c.preCheckEnv()
 	return c.Env[EnvJobReplicas]
 }
 
 func (c *Conf) GetWorkerReplicas() string {
+	c.preCheckEnv()
 	return c.Env[EnvJobWorkerReplicas]
 }
 
 func (c *Conf) GetPSReplicas() string {
+	c.preCheckEnv()
 	return c.Env[EnvJobPServerReplicas]
 }
 
 func (c *Conf) GetJobExecutorReplicas() string {
+	c.preCheckEnv()
 	return c.Env[EnvJobExecutorReplicas]
 }
 
 func (c *Conf) GetFlavour() string {
+	c.preCheckEnv()
 	return c.Env[EnvJobFlavour]
 }
 
 func (c *Conf) GetPSFlavour() string {
+	c.preCheckEnv()
 	return c.Env[EnvJobPServerFlavour]
 }
 
 func (c *Conf) GetWorkerFlavour() string {
+	c.preCheckEnv()
 	return c.Env[EnvJobWorkerFlavour]
 }
 
@@ -366,6 +385,7 @@ func (c *Conf) SetQueueID(id string) {
 }
 
 func (c *Conf) GetClusterID() string {
+	c.preCheckEnv()
 	return c.Env[EnvJobClusterID]
 }
 
@@ -397,6 +417,17 @@ func (c *Conf) preCheckEnv() {
 	if c.Env == nil {
 		c.Env = make(map[string]string)
 	}
+}
+
+// GetAllFileSystem combine FileSystem and ExtraFileSystem to a slice
+func (c *Conf) GetAllFileSystem() []FileSystem {
+	var fileSystems []FileSystem
+	// c.FileSystem should be the first one
+	if c.FileSystem.Name != "" {
+		fileSystems = append([]FileSystem{}, c.FileSystem)
+	}
+	fileSystems = append(fileSystems, c.ExtraFileSystem...)
+	return fileSystems
 }
 
 /**
