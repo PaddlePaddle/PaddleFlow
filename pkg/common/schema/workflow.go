@@ -829,7 +829,7 @@ func (wfs *WorkflowSource) TransToRunYamlRaw() (runYamlRaw string, err error) {
 }
 
 // 给所有Step的fsMount和fsScope的fsID赋值
-func (wfs *WorkflowSource) ValidateFsAndGetAllIDs(userName string) ([]string, error) {
+func (wfs *WorkflowSource) ProcessFsAndGetAllIDs(userName string) ([]string, error) {
 	// 用map记录所有需要返回的ID，去重
 	fsIDMap := map[string]int{}
 	if err := processFsByUserName(wfs.EntryPoints.EntryPoints, userName, fsIDMap); err != nil {

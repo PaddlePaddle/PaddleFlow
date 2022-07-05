@@ -502,11 +502,8 @@ func (bwf *BaseWorkflow) checkCache() error {
 		return fmt.Errorf("MaxExpiredTime[%s] of cache not correct", bwf.Source.Cache.MaxExpiredTime)
 	}
 
-	// 校验FsScope。计算目录通过逗号分隔。
-	// 此处不校验path格式是否valid，以及path是否存在（如果不valid或者不存在，在计算cache，查询FsScope更新时间时，会获取失败）
-	if bwf.Extra[WfExtraInfoKeyFsID] == "" && bwf.Source.Cache.FsScope != "" {
-		return fmt.Errorf("fs_scope of global cache should be empty if Fs is not used!")
-	}
+	// FsScope 由于涉及到 Fs权限校验，FsID填充等操作，不便在此进行，在此前已经完成校验
+
 	if err := bwf.checkStepCache(bwf.Source.EntryPoints.EntryPoints); err != nil {
 		return err
 	}
@@ -527,10 +524,6 @@ func (bwf *BaseWorkflow) checkStepCache(components map[string]schema.Component) 
 				_, err := strconv.Atoi(step.Cache.MaxExpiredTime)
 				if err != nil {
 					return fmt.Errorf("MaxExpiredTime[%s] of cache in step[%s] not correct", step.Cache.MaxExpiredTime, name)
-				}
-
-				if bwf.Extra[WfExtraInfoKeyFsID] == "" && step.Cache.FsScope != "" {
-					return fmt.Errorf("fs_scope of cache in step[%s] should be empty if Fs is not used!", name)
 				}
 			}
 		} else {
