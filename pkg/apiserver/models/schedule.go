@@ -87,8 +87,8 @@ type Schedule struct {
 }
 
 type FsConfig struct {
-	FsName   string `json:"fsName"`
-	UserName string `json:"userName"`
+	GlobalFsName string `json:"globalFsName"`
+	UserName     string `json:"userName"`
 }
 
 func DecodeFsConfig(strConfig string) (fc FsConfig, err error) {

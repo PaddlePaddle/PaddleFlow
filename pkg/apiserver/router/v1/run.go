@@ -130,7 +130,7 @@ func (rr *RunRouter) createRunByJson(w http.ResponseWriter, r *http.Request) {
 
 	trace_logger.Key(ctx.RequestID).Infof("creating run by json for request body map:%+v", bodyMap)
 	// create run
-	response, err := pipeline.CreateRunByJson(ctx.UserName, bodyMap)
+	response, err := pipeline.CreateRunByJson(ctx, bodyMap)
 	if err != nil {
 		if response.RunID != "" {
 			trace_logger.Key(response.RunID).Errorf("create run fail: %s", err)

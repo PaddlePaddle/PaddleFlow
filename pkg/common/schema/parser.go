@@ -545,14 +545,14 @@ func (p *Parser) ParseFsScope(fsMap map[string]interface{}, fs *FsScope) error {
 func (p *Parser) ParseFsOptions(fsMap map[string]interface{}, fs *FsOptions) error {
 	for key, value := range fsMap {
 		switch key {
-		case "globalFs":
+		case "globalFsName":
 			fallthrough
-		case "global_fs":
+		case "global_fs_name":
 			value, ok := value.(string)
 			if !ok {
-				return fmt.Errorf("[fs_options.global_fs] should be string type")
+				return fmt.Errorf("[fs_options.global_fs_name] should be string type")
 			}
-			fs.GlobalFs = value
+			fs.GlobalFsName = value
 		case "fsMount":
 			fallthrough
 		case "fs_mount":
@@ -669,13 +669,12 @@ func (p *Parser) TransJsonMap2Yaml(jsonMap map[string]interface{}) error {
 			}
 			jsonMap["fs_options"] = value
 			delete(jsonMap, "fsOptions")
-
 		case "fsMount":
 			jsonMap["fs_mount"] = value
 			delete(jsonMap, "fsMount")
-		case "globalFs":
-			jsonMap["global_fs"] = value
-			delete(jsonMap, "globalFs")
+		case "globalFsName":
+			jsonMap["global_fs_name"] = value
+			delete(jsonMap, "globalFsName")
 		}
 	}
 	return nil

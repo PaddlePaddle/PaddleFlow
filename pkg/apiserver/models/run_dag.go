@@ -88,7 +88,7 @@ func ParseRunDag(dagView *schema.DagView) RunDag {
 		Name:         dagView.Name,
 		ParentDagID:  dagView.ParentDagID,
 		Parameters:   newParameters,
-		Artifacts:    dagView.Artifacts,
+		Artifacts:    *dagView.Artifacts.DeepCopy(),
 		Seq:          dagView.Seq,
 		Status:       dagView.Status,
 		Message:      dagView.Message,
@@ -116,7 +116,7 @@ func (rd *RunDag) Trans2DagView() schema.DagView {
 		StartTime:   rd.ActivateTime,
 		EndTime:     newEndTime,
 		Status:      rd.Status,
-		Artifacts:   rd.Artifacts,
+		Artifacts:   *rd.Artifacts.DeepCopy(),
 		Message:     rd.Message,
 		EntryPoints: map[string][]schema.ComponentView{},
 	}

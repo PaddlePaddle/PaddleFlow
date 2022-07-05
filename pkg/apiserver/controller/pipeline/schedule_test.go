@@ -51,7 +51,7 @@ func insertPipeline(t *testing.T, logEntry *log.Entry) (pplID1, pplID2, pplDetai
 	}
 	pplDetail1 := models.PipelineDetail{
 		FsID:         "user1-fsname",
-		FsName:       "fsname",
+		GlobalFsName: "fsname",
 		YamlPath:     "./run.yml",
 		PipelineYaml: "ddddd",
 		PipelineMd5:  "md5_1",
@@ -65,7 +65,7 @@ func insertPipeline(t *testing.T, logEntry *log.Entry) (pplID1, pplID2, pplDetai
 	}
 	pplDetail2 := models.PipelineDetail{
 		FsID:         "root-fsname2",
-		FsName:       "fsname2",
+		GlobalFsName: "fsname2",
 		YamlPath:     "./run.yml",
 		PipelineYaml: "ddddd",
 		PipelineMd5:  "md5_2",
@@ -114,7 +114,7 @@ func TestCreateSchedule(t *testing.T) {
 		ConcurrencyPolicy: "suspend",
 		ExpireInterval:    100,
 		Catchup:           true,
-		GlobalFs:          MockFsName,
+		GlobalFsName:      MockFsName,
 		UserName:          "",
 	}
 
@@ -310,7 +310,7 @@ func TestListSchedule(t *testing.T) {
 		ConcurrencyPolicy: "suspend",
 		ExpireInterval:    100,
 		Catchup:           true,
-		GlobalFs:          MockFsName,
+		GlobalFsName:      MockFsName,
 		UserName:          MockNormalUser,
 	}
 
@@ -583,7 +583,7 @@ func TestGetSchedule(t *testing.T) {
 		ConcurrencyPolicy: "suspend",
 		ExpireInterval:    100,
 		Catchup:           true,
-		GlobalFs:          MockFsName,
+		GlobalFsName:      MockFsName,
 		UserName:          MockNormalUser,
 	}
 
@@ -714,7 +714,7 @@ func TestStopSchedule(t *testing.T) {
 		ConcurrencyPolicy: "suspend",
 		ExpireInterval:    100,
 		Catchup:           true,
-		GlobalFs:          MockFsName,
+		GlobalFsName:      MockFsName,
 		UserName:          "",
 	}
 
@@ -807,7 +807,7 @@ func TestDeleteSchedule(t *testing.T) {
 		ConcurrencyPolicy: "suspend",
 		ExpireInterval:    100,
 		Catchup:           true,
-		GlobalFs:          MockFsName,
+		GlobalFsName:      MockFsName,
 		UserName:          "",
 	}
 

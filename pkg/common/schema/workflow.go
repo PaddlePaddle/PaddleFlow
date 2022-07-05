@@ -440,8 +440,8 @@ type FailureOptions struct {
 }
 
 type FsOptions struct {
-	GlobalFs string    `yaml:"global_fs"    json:"globalFs"`
-	FsMount  []FsMount `yaml:"fs_mount"     json:"fsMount"`
+	GlobalFsName string    `yaml:"global_fs_name"    json:"globalFsName"`
+	FsMount      []FsMount `yaml:"fs_mount"     json:"fsMount"`
 }
 
 type FsMount struct {

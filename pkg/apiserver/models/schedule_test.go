@@ -41,7 +41,7 @@ func insertPipeline(t *testing.T, logEntry *log.Entry) (pplID1, pplID2, pplDetai
 	}
 	pplDetail1 := PipelineDetail{
 		FsID:         "user1-fsname",
-		FsName:       "fsname",
+		GlobalFsName: "fsname",
 		YamlPath:     "./run.yml",
 		PipelineYaml: "ddddd",
 		PipelineMd5:  "md5_1",
@@ -55,7 +55,7 @@ func insertPipeline(t *testing.T, logEntry *log.Entry) (pplID1, pplID2, pplDetai
 	}
 	pplDetail2 := PipelineDetail{
 		FsID:         "root-fsname2",
-		FsName:       "fsname2",
+		GlobalFsName: "fsname2",
 		YamlPath:     "./run.yml",
 		PipelineYaml: "ddddd",
 		PipelineMd5:  "md5_2",
@@ -94,7 +94,7 @@ func TestCatchup(t *testing.T) {
 	logEntry := log.WithFields(log.Fields{})
 	pplID1, _, pplDetailID1, _ := insertPipeline(t, logEntry)
 
-	fsConfig := FsConfig{FsName: "fsname", UserName: "user1"}
+	fsConfig := FsConfig{GlobalFsName: "fsname", UserName: "user1"}
 	StrFsConfig, err := fsConfig.Encode(logEntry)
 	assert.Nil(t, err)
 
@@ -205,7 +205,7 @@ func TestExpireInterval(t *testing.T) {
 	strOptions, err := scheduleOptions.Encode(logEntry)
 	assert.Nil(t, err)
 
-	fsConfig := FsConfig{FsName: "fsname", UserName: "user1"}
+	fsConfig := FsConfig{GlobalFsName: "fsname", UserName: "user1"}
 	StrFsConfig, err := fsConfig.Encode(logEntry)
 	assert.Nil(t, err)
 
@@ -270,7 +270,7 @@ func TestConcurrency(t *testing.T) {
 	strOptions, err := scheduleOptions.Encode(logEntry)
 	assert.Nil(t, err)
 
-	fsConfig := FsConfig{FsName: "fsname", UserName: "user1"}
+	fsConfig := FsConfig{GlobalFsName: "fsname", UserName: "user1"}
 	StrFsConfig, err := fsConfig.Encode(logEntry)
 	assert.Nil(t, err)
 
@@ -433,7 +433,7 @@ func TestScheduleTime(t *testing.T) {
 	strOptions, err := scheduleOptions.Encode(logEntry)
 	assert.Nil(t, err)
 
-	fsConfig := FsConfig{FsName: "fsname", UserName: "user1"}
+	fsConfig := FsConfig{GlobalFsName: "fsname", UserName: "user1"}
 	StrFsConfig, err := fsConfig.Encode(logEntry)
 	assert.Nil(t, err)
 
