@@ -147,6 +147,13 @@ func (rj *RunJob) Encode() error {
 	}
 	rj.EnvJson = string(envJson)
 
+	fsMountJson, err := json.Marshal(rj.FsMount)
+	if err != nil {
+		logger.Logger().Errorf("encode run job fsMount failed. error: %v", err)
+		return err
+	}
+	rj.FsMountJson = string(fsMountJson)
+
 	if rj.ActivateTime != "" {
 		activatedAt := sql.NullTime{}
 		activatedAt.Time, err = time.ParseInLocation("2006-01-02 15:04:05", rj.ActivateTime, time.Local)
@@ -194,6 +201,14 @@ func (rj *RunJob) decode() error {
 		rj.Env = env
 	}
 
+	if len(rj.FsMountJson) > 0 {
+		fsMount := []schema.FsMount{}
+		if err := json.Unmarshal([]byte(rj.FsMountJson), &fsMount); err != nil {
+			logger.Logger().Errorf("decode run job fsMount failed. error: %v", err)
+		}
+		rj.FsMount = fsMount
+	}
+
 	// format time
 	rj.CreateTime = rj.CreatedAt.Format("2006-01-02 15:04:05")
 	rj.UpdateTime = rj.UpdatedAt.Format("2006-01-02 15:04:05")
@@ -219,6 +234,8 @@ func (rj *RunJob) Trans2JobView() schema.JobView {
 	if rj.Status == schema.StatusJobCancelled || rj.Status == schema.StatusJobFailed || rj.Status == schema.StatusJobSucceeded || rj.Status == schema.StatusJobSkipped {
 		newEndTime = rj.UpdateTime
 	}
+	newFsMount := append(rj.FsMount, []schema.FsMount{}...)
+
 	return schema.JobView{
 		JobID:       rj.ID,
 		Name:        rj.Name,
@@ -237,7 +254,7 @@ func (rj *RunJob) Trans2JobView() schema.JobView {
 		Cache:       rj.Cache,
 		JobMessage:  rj.Message,
 		CacheRunID:  rj.CacheRunID,
-		FsMount:     rj.FsMount,
+		FsMount:     newFsMount,
 	}
 }
 
@@ -258,13 +275,15 @@ func ParseRunJob(jobView *schema.JobView) RunJob {
 		newEnv[k] = v
 	}
 
+	newFsMount := append(jobView.FsMount, []schema.FsMount{}...)
+
 	return RunJob{
 		ID:           jobView.JobID,
 		Name:         jobView.Name,
 		ParentDagID:  jobView.ParentDagID,
 		Command:      jobView.Command,
 		Parameters:   newParameters,
-		Artifacts:    jobView.Artifacts,
+		Artifacts:    *jobView.Artifacts.DeepCopy(),
 		Env:          newEnv,
 		DockerEnv:    jobView.DockerEnv,
 		Seq:          jobView.Seq,
@@ -273,5 +292,6 @@ func ParseRunJob(jobView *schema.JobView) RunJob {
 		Cache:        jobView.Cache,
 		CacheRunID:   jobView.CacheRunID,
 		ActivateTime: jobView.StartTime,
+		FsMount:      newFsMount,
 	}
 }
