@@ -127,6 +127,7 @@ func processCacheConfig(fsID, fsCacheBase64 string) (model.FSCacheConfig, error)
 func (m *Info) fillingMountCmd() {
 	baseArgs := []string{
 		"--fs-info=" + m.FsBase64Str,
+		"--fs-id=", m.FsID,
 	}
 	if m.ReadOnly {
 		baseArgs = append(baseArgs, "--mount-options=ro")
