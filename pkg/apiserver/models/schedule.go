@@ -69,7 +69,7 @@ type Schedule struct {
 	Pk               int64          `gorm:"primaryKey;autoIncrement;not null" json:"-"`
 	ID               string         `gorm:"type:varchar(60);not null"         json:"scheduleID"`
 	Name             string         `gorm:"type:varchar(60);not null"         json:"name"`
-	Desc             string         `gorm:"type:varchar(1024);not null"       json:"desc"`
+	Desc             string         `gorm:"type:varchar(256);not null"       json:"desc"`
 	PipelineID       string         `gorm:"type:varchar(60);not null"         json:"pipelineID"`
 	PipelineDetailID string         `gorm:"type:varchar(60);not null"         json:"pipelineDetailID"`
 	UserName         string         `gorm:"type:varchar(60);not null"         json:"username"`
@@ -320,6 +320,18 @@ func GetSchedule(logEntry *log.Entry, scheduleID string) (Schedule, error) {
 	return schedule, nil
 }
 
+func GetScheduleByName(logEntry *log.Entry, name, userName string) (Schedule, error) {
+	logEntry.Debugf("begin to get schedule of name[%s], userName[%s]", name, userName)
+
+	var schedule Schedule
+	result := storage.DB.Model(&Schedule{}).Where("name = ?", name).Where("user_name = ?", userName).First(&schedule)
+	if result.Error != nil {
+		return Schedule{}, result.Error
+	}
+
+	return schedule, nil
+}
+
 func GetSchedulesByStatus(logEntry *log.Entry, status string) (schedules []Schedule, err error) {
 	if !checkScheduleStatus(status) {
 		errMsg := fmt.Sprintf("get schedules failed: status[%s] invalid!", status)
@@ -358,6 +370,40 @@ func DeleteSchedule(logEntry *log.Entry, scheduleID string) error {
 		return result.Error
 	}
 	return nil
+}
+
+// ------ job / fs模块需要的函数 ------
+
+func GetUsedFsIDs() ([]string, error) {
+	tx := storage.DB.Model(&Schedule{}).Select("id", "user_name", "fs_config").Where("status = ?", ScheduleStatusRunning)
+	var scheduleList []Schedule
+	tx = tx.Find(&scheduleList)
+	if tx.Error != nil {
+		return []string{}, tx.Error
+	}
+
+	fsIDMap := map[string]int{}
+	for _, schedule := range scheduleList {
+		fsConfig, err := DecodeFsConfig(schedule.FsConfig)
+		if err != nil {
+			return []string{}, err
+		}
+
+		var fsID string
+		if fsConfig.UserName != "" {
+			fsID = common.ID(fsConfig.UserName, fsConfig.FsName)
+		} else {
+			fsID = common.ID(schedule.UserName, fsConfig.FsName)
+		}
+
+		fsIDMap[fsID] = 1
+	}
+
+	result := []string{}
+	for key, _ := range fsIDMap {
+		result = append(result, key)
+	}
+	return result, nil
 }
 
 // ------ 周期调度逻辑需要的函数 ------

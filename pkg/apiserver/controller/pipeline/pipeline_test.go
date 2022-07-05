@@ -74,7 +74,7 @@ func TestCreatePipeline(t *testing.T) {
 
 	defer patch2.Reset()
 
-	// 创建失败: desc长度超过1024
+	// 创建失败: desc长度超过256
 	createPplReq.Desc = strings.Repeat("a", util.MaxDescLength+1)
 	_, err = CreatePipeline(ctx, createPplReq)
 	assert.NotNil(t, err)
@@ -185,7 +185,7 @@ func TestUpdatePipeline(t *testing.T) {
 	assert.Equal(t, getPplResp.PipelineDetails.PipelineDetailList[0].PipelineID, "ppl-000001")
 	assert.Equal(t, getPplResp.PipelineDetails.PipelineDetailList[0].ID, "1")
 
-	// update 失败: desc长度超过1024
+	// update 失败: desc长度超过256
 	updatePplReq.Desc = strings.Repeat("a", util.MaxDescLength+1)
 	resp, err = UpdatePipeline(ctx, updatePplReq, pipelineID)
 	assert.NotNil(t, err)
