@@ -495,7 +495,7 @@ func (p *Parser) ParseCache(cacheMap map[string]interface{}, cache *Cache) error
 		case "fs_scope":
 			cacheValue, ok := cacheValue.([]interface{})
 			if !ok {
-				return fmt.Errorf("[cache.fs_scope/fsScope] should be string type")
+				return fmt.Errorf("[cache.fs_scope/fsScope] should be list type")
 			}
 			fsScopeList := []FsScope{}
 			for _, m := range cacheValue {

@@ -248,7 +248,8 @@ func (s *StepParamChecker) checkReference(comp schema.Component) error {
 		if refName != "" {
 			if len(step.Artifacts.Output) > 0 || len(step.Command) > 0 || len(step.Condition) > 0 ||
 				len(step.DockerEnv) > 0 || len(step.Env) > 0 || step.LoopArgument != nil ||
-				len(step.Cache.FsScope) > 0 || len(step.Cache.MaxExpiredTime) > 0 || step.Cache.Enable {
+				len(step.Cache.FsScope) > 0 || len(step.Cache.MaxExpiredTime) > 0 || step.Cache.Enable ||
+				len(step.FsMount) > 0 {
 				return fmt.Errorf("reference step can only have deps, parameters, input artifacts, reference")
 			}
 
