@@ -54,15 +54,7 @@ func (fss *FilesystemStore) DeleteFileSystem(tx *gorm.DB, id string) error {
 	if tx == nil {
 		tx = fss.db
 	}
-	return tx.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Delete(&model.FileSystem{Model: model.Model{ID: id}}).Error; err != nil {
-			return err
-		}
-		if err := tx.Where(fmt.Sprintf(QueryEqualWithParam, FsID), id).Delete(&model.Link{}).Error; err != nil {
-			return err
-		}
-		return nil
-	})
+	return tx.Delete(&model.FileSystem{Model: model.Model{ID: id}}).Error
 }
 
 // ListFileSystem get file systems with marker and limit sort by create_at desc
@@ -109,6 +101,14 @@ func (fss *FilesystemStore) LinkWithFsIDAndFsPath(fsID, fsPath string) (model.Li
 	var link model.Link
 	result := fss.db.Where(&model.Link{FsID: fsID, FsPath: fsPath}).Find(&link)
 	return link, result.Error
+}
+
+// DeleteLinkWithFsID delete all filesystem links associated with fsID
+func (fss *FilesystemStore) DeleteLinkWithFsID(tx *gorm.DB, fsID string) error {
+	if tx == nil {
+		tx = fss.db
+	}
+	return tx.Where(fmt.Sprintf(QueryEqualWithParam, FsID), fsID).Delete(&model.Link{}).Error
 }
 
 // DeleteLinkWithFsIDAndFsPath delete a file system link

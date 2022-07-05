@@ -49,6 +49,7 @@ type FileSystemStoreInterface interface {
 	CreateLink(link *model.Link) error
 	FsNameLinks(fsID string) ([]model.Link, error)
 	LinkWithFsIDAndFsPath(fsID, fsPath string) (model.Link, error)
+	DeleteLinkWithFsID(tx *gorm.DB, id string) error
 	DeleteLinkWithFsIDAndFsPath(fsID, fsPath string) error
 	ListLink(limit int, marker, fsID string) ([]model.Link, error)
 	GetLinkWithFsIDAndPath(fsID, fsPath string) ([]model.Link, error)
