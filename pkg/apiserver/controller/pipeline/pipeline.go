@@ -148,7 +148,7 @@ func CreatePipeline(ctx *logger.RequestContext, request CreatePipelineRequest) (
 	// read run.yaml
 	pipelineYaml, err := handler.ReadFileFromFs(fsID, request.YamlPath, ctx.Logging())
 	if err != nil {
-		ctx.ErrorCode = common.IOOperationFailure
+		ctx.ErrorCode = common.InvalidArguments
 		errMsg := fmt.Sprintf("readFileFromFs[%s] from fs[%s] failed. err:%v", request.YamlPath, fsID, err)
 		ctx.Logging().Errorf(errMsg)
 		return CreatePipelineResponse{}, fmt.Errorf(errMsg)
@@ -245,7 +245,7 @@ func UpdatePipeline(ctx *logger.RequestContext, request UpdatePipelineRequest, p
 	// read run.yaml
 	pipelineYaml, err := handler.ReadFileFromFs(fsID, request.YamlPath, ctx.Logging())
 	if err != nil {
-		ctx.ErrorCode = common.IOOperationFailure
+		ctx.ErrorCode = common.InvalidArguments
 		errMsg := fmt.Sprintf("readFileFromFs[%s] from fs[%s] failed. err:%v", request.YamlPath, fsID, err)
 		ctx.Logging().Errorf(errMsg)
 		return UpdatePipelineResponse{}, fmt.Errorf(errMsg)
@@ -262,7 +262,7 @@ func UpdatePipeline(ctx *logger.RequestContext, request UpdatePipelineRequest, p
 
 	hasAuth, ppl, err := CheckPipelinePermission(ctx.UserName, pipelineID)
 	if err != nil {
-		ctx.ErrorCode = common.InternalError
+		ctx.ErrorCode = common.InvalidArguments
 		errMsg := fmt.Sprintf("update pipeline[%s] failed. err:%v", pipelineID, err)
 		ctx.Logging().Errorf(errMsg)
 		return UpdatePipelineResponse{}, fmt.Errorf(errMsg)
@@ -366,7 +366,7 @@ func ListPipeline(ctx *logger.RequestContext, marker string, maxKeys int, userFi
 	// 只有root用户才能设置userFilter，否则只能查询当前普通用户创建的pipeline列表
 	if !common.IsRootUser(ctx.UserName) {
 		if len(userFilter) != 0 {
-			ctx.ErrorCode = common.InternalError
+			ctx.ErrorCode = common.InvalidArguments
 			errMsg := fmt.Sprint("only root user can set userFilter!")
 			ctx.Logging().Errorf(errMsg)
 			return ListPipelineResponse{}, fmt.Errorf(errMsg)
@@ -427,7 +427,11 @@ func GetPipeline(ctx *logger.RequestContext, pipelineID, marker string, maxKeys 
 	// query pipeline
 	ppl, err := models.GetPipelineByID(pipelineID)
 	if err != nil {
-		ctx.ErrorCode = common.InternalError
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			ctx.ErrorCode = common.InvalidArguments
+		} else {
+			ctx.ErrorCode = common.InternalError
+		}
 		errMsg := fmt.Sprintf("get pipeline[%s] failed, err: %v", pipelineID, err)
 		ctx.Logging().Errorf(errMsg)
 		return GetPipelineResponse{}, fmt.Errorf(errMsg)
@@ -544,7 +548,7 @@ func DeletePipeline(ctx *logger.RequestContext, pipelineID string) error {
 		ctx.Logging().Errorf(errMsg)
 		return fmt.Errorf(errMsg)
 	} else if len(scheduleList) > 0 {
-		ctx.ErrorCode = common.InternalError
+		ctx.ErrorCode = common.ActionNotAllowed
 		errMsg := fmt.Sprintf("delete pipeline[%s] failed, there are running schedules, pls stop first", pipelineID)
 		ctx.Logging().Errorf(errMsg)
 		return fmt.Errorf(errMsg)
@@ -582,7 +586,7 @@ func DeletePipelineDetail(ctx *logger.RequestContext, pipelineID string, pipelin
 		ctx.Logging().Errorf(errMsg)
 		return fmt.Errorf(errMsg)
 	} else if count == 1 {
-		ctx.ErrorCode = common.InternalError
+		ctx.ErrorCode = common.ActionNotAllowed
 		errMsg := fmt.Sprintf("delete pipeline[%s] detail[%s] failed. only one pipeline detail left, pls delete pipeline instead", pipelineID, pipelineDetailID)
 		ctx.Logging().Errorf(errMsg)
 		return fmt.Errorf(errMsg)
@@ -596,7 +600,7 @@ func DeletePipelineDetail(ctx *logger.RequestContext, pipelineID string, pipelin
 		ctx.Logging().Errorf(errMsg)
 		return fmt.Errorf(errMsg)
 	} else if len(scheduleList) > 0 {
-		ctx.ErrorCode = common.InternalError
+		ctx.ErrorCode = common.ActionNotAllowed
 		errMsg := fmt.Sprintf("delete pipeline[%s] detail[%s] failed, there are running schedules, pls stop first", pipelineDetailID, pipelineID)
 		ctx.Logging().Errorf(errMsg)
 		return fmt.Errorf(errMsg)

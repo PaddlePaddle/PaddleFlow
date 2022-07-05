@@ -147,7 +147,7 @@ func TestCreateSchedule(t *testing.T) {
 	assert.NotNil(t, err)
 	assert.Equal(t, fmt.Errorf("name[%s] for [schedule] does not compile with regex rule[^[A-Za-z_][A-Za-z0-9_]{1,49}$]", createScheduleReq.Name), err)
 
-	// 失败: desc长度超过1024
+	// 失败: desc长度超过256
 	createScheduleReq.Name = "schedule_1"
 	createScheduleReq.Desc = strings.Repeat("a", util.MaxDescLength+1)
 	resp, err = CreateSchedule(ctx, &createScheduleReq)
