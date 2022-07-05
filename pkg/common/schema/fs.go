@@ -40,6 +40,12 @@ const (
 	FsMetaNutsDB  = "nutsdb"
 
 	FuseKeyFsInfo = "fs-info"
+
+	AnnoKeyMTime  = "modifiedTime"
+	AnnoKeyServer = "server"
+	LabelKeyFsID  = "fsID"
+
+	MountPodNamespace = "paddleflow"
 )
 
 func IsValidFsMetaDriver(metaDriver string) bool {

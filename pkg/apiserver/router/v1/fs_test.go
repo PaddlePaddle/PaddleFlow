@@ -17,6 +17,7 @@ limitations under the License.
 package v1
 
 import (
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
 	"net/http"
 	"os"
 	"reflect"
@@ -463,13 +464,29 @@ func TestCreateFSAndDeleteFs(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, http.StatusCreated, result.Code)
 
-	var p1 = gomonkey.ApplyFunc(fs.DeletePvPvc, func(fsID string) error {
+	var p1 = gomonkey.ApplyFunc(fs.DeletePvPvc, func(cnm map[*runtime.KubeRuntime][]string, fsID string) error {
 		return nil
 	})
 	defer p1.Reset()
+
+	var p2 = gomonkey.ApplyFunc(fs.CheckFsMounted, func(cnm map[*runtime.KubeRuntime][]string, fsID string) (bool, error) {
+		return false, nil
+	})
 
 	deleteUrl := fsUrl + "/" + mockFsName
 	result, err = PerformDeleteRequest(router, deleteUrl)
 	assert.Nil(t, err)
 	assert.Equal(t, http.StatusOK, result.Code)
+
+	p2.Reset()
+
+	p2 = gomonkey.ApplyFunc(fs.CheckFsMounted, func(cnm map[*runtime.KubeRuntime][]string, fsID string) (bool, error) {
+		return true, nil
+	})
+	defer p2.Reset()
+
+	deleteUrl = fsUrl + "/" + mockFsName
+	result, err = PerformDeleteRequest(router, deleteUrl)
+	assert.Nil(t, err)
+	assert.Equal(t, http.StatusForbidden, result.Code)
 }
