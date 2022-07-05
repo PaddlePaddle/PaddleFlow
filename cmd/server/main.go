@@ -204,14 +204,6 @@ func setup() {
 		gracefullyExit(err)
 	}
 
-	if err := initPrometheusClient(ServerConf.Monitor.Server); err != nil {
-		log.Errorf("create prometheus client failed, err %v", err)
-		gracefullyExit(err)
-	}
-
-	monitor.Init()
-	_ = monitor.StartJobMetricsService(ServerConf.Monitor.ExporterServicePort)
-
 	if err := newAndStartJobManager(); err != nil {
 		log.Errorf("create pfjob manager failed, err %v", err)
 		gracefullyExit(err)
@@ -225,6 +217,14 @@ func setup() {
 		log.Errorf("InitDefaultPVC err %v", err)
 		gracefullyExit(err)
 	}
+
+	if err := initPrometheusClient(ServerConf.Monitor.Server); err != nil {
+		log.Errorf("create prometheus client failed, err %v", err)
+		gracefullyExit(err)
+	}
+
+	monitor.Init()
+	_ = monitor.StartJobMetricsService(ServerConf.Monitor.ExporterServicePort)
 }
 
 func newAndStartJobManager() error {

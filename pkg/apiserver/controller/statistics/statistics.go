@@ -33,9 +33,9 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/monitor"
 )
 
-var metricNameList = [...]string{consts.MetricJobCpuUsageRate, consts.MetricJobMemoryUsage, consts.MetricJobDiskUsage,
-	consts.MetricJobNetReceiveBytes, consts.MetricJobNetSendBytes, consts.MetricJobDiskReadRate,
-	consts.MetricJobDiskWriteRate, consts.MetricJobGpuUtil, consts.MetricJobGpuMemoryUtil}
+var metricNameList = [...]string{consts.MetricCpuUsageRate, consts.MetricMemoryUsage, consts.MetricDiskUsage,
+	consts.MetricNetReceiveBytes, consts.MetricNetSendBytes, consts.MetricDiskReadRate,
+	consts.MetricDiskWriteRate, consts.MetricGpuUtil, consts.MetricGpuMemoryUtil}
 
 type JobStatisticsResponse struct {
 	CpuUsageRate    float64 `json:"cpu_usage_rate"`
@@ -188,23 +188,23 @@ func convertResultToResponse(result model.Value, response *JobStatisticsResponse
 	data := result.(model.Vector)
 	if len(data) > 0 {
 		switch data[0].Metric[model.MetricNameLabel] {
-		case consts.MetricJobCpuUsageRate:
+		case consts.MetricCpuUsageRate:
 			response.CpuUsageRate = float64(data[0].Value)
-		case consts.MetricJobMemoryUsage:
+		case consts.MetricMemoryUsage:
 			response.MemoryUsage = data[0].Value.String()
-		case consts.MetricJobDiskUsage:
+		case consts.MetricDiskUsage:
 			response.DiskUsageBytes = float64(data[0].Value)
-		case consts.MetricJobNetReceiveBytes:
+		case consts.MetricNetReceiveBytes:
 			response.NetReceiveBytes = float64(data[0].Value)
-		case consts.MetricJobNetSendBytes:
+		case consts.MetricNetSendBytes:
 			response.NetSendBytes = float64(data[0].Value)
-		case consts.MetricJobDiskReadRate:
+		case consts.MetricDiskReadRate:
 			response.DiskReadRate = float64(data[0].Value)
-		case consts.MetricJobDiskWriteRate:
+		case consts.MetricDiskWriteRate:
 			response.DiskWriteRate = float64(data[0].Value)
-		case consts.MetricJobGpuUtil:
+		case consts.MetricGpuUtil:
 			response.GpuUtil = float64(data[0].Value)
-		case consts.MetricJobGpuMemoryUtil:
+		case consts.MetricGpuMemoryUtil:
 			response.GpuMemoryUtil = float64(data[0].Value)
 		}
 	}
