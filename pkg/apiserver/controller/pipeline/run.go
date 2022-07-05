@@ -569,7 +569,7 @@ func CreateRunByJson(ctxUserName string, bodyMap map[string]interface{}) (Create
 
 func ValidateAndStartRun(run models.Run, userName string, req CreateRunRequest) (CreateRunResponse, error) {
 	// 给所有Step的fsMount和fsScope的fsID赋值
-	fsIDs, err := run.WorkflowSource.ValidateFsAndGetAllIDs(userName)
+	fsIDs, err := run.WorkflowSource.ProcessFsAndGetAllIDs(userName)
 	if err != nil {
 		logger.Logger().Errorf("process fs failed. error: %s", err.Error())
 		return CreateRunResponse{}, err
