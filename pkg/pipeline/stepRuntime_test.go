@@ -95,7 +95,7 @@ func TestUpdateJobForFingerPrint(t *testing.T) {
 	assert.Nil(t, err)
 
 	failctx, _ := context.WithCancel(context.Background())
-	dr := NewDagRuntime("", &wfs.EntryPoints, 0, context.Background(), failctx, make(chan<- WorkflowEvent), rf, "0")
+	dr := NewDagRuntime("a.entrypoint.da1", "a.entrypoint.da1", &wfs.EntryPoints, 0, context.Background(), failctx, make(chan<- WorkflowEvent), rf, "0")
 	dr.setSysParams()
 
 	ds := NewDependencySolver(dr)
@@ -104,7 +104,7 @@ func TestUpdateJobForFingerPrint(t *testing.T) {
 		assert.Nil(t, err)
 
 		st := wfs.EntryPoints.EntryPoints[stepName].(*schema.WorkflowSourceStep)
-		srt := NewStepRuntime(st.Name, st, 0, context.Background(), failctx,
+		srt := NewStepRuntime("a.entrypoint."+st.Name, "a.entrypoint."+st.Name, st, 0, context.Background(), failctx,
 			make(chan<- WorkflowEvent), rf, "dag-11")
 		srt.setSysParams()
 
@@ -196,7 +196,7 @@ func TestUpdateJob(t *testing.T) {
 	sysNum := len(common.SysParamNameList)
 
 	failctx, _ := context.WithCancel(context.Background())
-	dr := NewDagRuntime("", &wfs.EntryPoints, 0, context.Background(), failctx, make(chan<- WorkflowEvent), rf, "0")
+	dr := NewDagRuntime("a.entrypoint.da", "a.entrypoint.da", &wfs.EntryPoints, 0, context.Background(), failctx, make(chan<- WorkflowEvent), rf, "0")
 	dr.setSysParams()
 
 	ds := NewDependencySolver(dr)
@@ -206,7 +206,7 @@ func TestUpdateJob(t *testing.T) {
 		assert.Nil(t, err)
 
 		st := wfs.EntryPoints.EntryPoints[stepName].(*schema.WorkflowSourceStep)
-		srt := NewStepRuntime(st.Name, st, 0, context.Background(), failctx,
+		srt := NewStepRuntime("a.entrypoint."+st.Name, "a.entrypoint."+st.Name, st, 0, context.Background(), failctx,
 			make(chan<- WorkflowEvent), rf, "dag-11")
 		srt.setSysParams()
 
@@ -322,7 +322,7 @@ func TestCheckCached(t *testing.T) {
 	failctx, _ := context.WithCancel(context.Background())
 
 	st := wfs.EntryPoints.EntryPoints["data-preprocess"].(*schema.WorkflowSourceStep)
-	srt := NewStepRuntime(st.Name, st, 0, context.Background(), failctx,
+	srt := NewStepRuntime("a.entrypoint."+st.Name, "a.entrypoint."+st.Name, st, 0, context.Background(), failctx,
 		make(chan<- WorkflowEvent), rf, "dag-11")
 	srt.setSysParams()
 
@@ -356,7 +356,7 @@ func TestCheckCached(t *testing.T) {
 	}
 
 	st = wfs.EntryPoints.EntryPoints["data-preprocess"].(*schema.WorkflowSourceStep)
-	srt = NewStepRuntime(st.Name, st, 0, context.Background(), failctx,
+	srt = NewStepRuntime("a.entrypoint."+st.Name, "a.entrypoint."+st.Name, st, 0, context.Background(), failctx,
 		make(chan<- WorkflowEvent), rf, "dag-11")
 
 	cacheFound, err = srt.checkCached()
@@ -372,7 +372,7 @@ func TestCheckCached(t *testing.T) {
 	}
 
 	st = wfs.EntryPoints.EntryPoints["data-preprocess"].(*schema.WorkflowSourceStep)
-	srt = NewStepRuntime(st.Name, st, 0, context.Background(), failctx,
+	srt = NewStepRuntime("a.entrypoint."+st.Name, "a.entrypoint."+st.Name, st, 0, context.Background(), failctx,
 		make(chan<- WorkflowEvent), rf, "dag-11")
 	cacheFound, err = srt.checkCached()
 	assert.Nil(t, err)
@@ -388,7 +388,7 @@ func TestCheckCached(t *testing.T) {
 	}
 
 	st = wfs.EntryPoints.EntryPoints["data-preprocess"].(*schema.WorkflowSourceStep)
-	srt = NewStepRuntime(st.Name, st, 0, context.Background(), failctx,
+	srt = NewStepRuntime("a.entrypoint."+st.Name, "a.entrypoint."+st.Name, st, 0, context.Background(), failctx,
 		make(chan<- WorkflowEvent), rf, "dag-11")
 
 	cacheFound, err = srt.checkCached()
@@ -405,7 +405,7 @@ func TestCheckCached(t *testing.T) {
 	}
 
 	st = wfs.EntryPoints.EntryPoints["data-preprocess"].(*schema.WorkflowSourceStep)
-	srt = NewStepRuntime(st.Name, st, 0, context.Background(), failctx,
+	srt = NewStepRuntime("a.entrypoint."+st.Name, "a.entrypoint."+st.Name, st, 0, context.Background(), failctx,
 		make(chan<- WorkflowEvent), rf, "dag-11")
 	cacheFound, err = srt.checkCached()
 	assert.Nil(t, err)
@@ -433,7 +433,7 @@ func TestNewStepRuntimeWithStatus(t *testing.T) {
 	wfs = wfptr.Source
 
 	failctx, _ := context.WithCancel(context.Background())
-	dr := NewDagRuntime("", &wfs.EntryPoints, 0, context.Background(), failctx, make(chan<- WorkflowEvent), rf, "0")
+	dr := NewDagRuntime("a.entrypoint.da", "a.entrypoint.da", &wfs.EntryPoints, 0, context.Background(), failctx, make(chan<- WorkflowEvent), rf, "0")
 	dr.setSysParams()
 
 	updateRuntimeCalled = false
@@ -442,7 +442,7 @@ func TestNewStepRuntimeWithStatus(t *testing.T) {
 	go mockToListenEvent(eventChan, ep)
 
 	st := wfs.EntryPoints.EntryPoints["data-preprocess"]
-	srt := newStepRuntimeWithStatus("data-preprocess", st.(*schema.WorkflowSourceStep), 0, context.Background(), failctx,
+	srt := newStepRuntimeWithStatus("a.entrypoint.data-preprocess", "a.entrypoint.data-preprocess", st.(*schema.WorkflowSourceStep), 0, context.Background(), failctx,
 		eventChan, rf, "dag-11", StatusRuntimeFailed, "failed hahah")
 
 	assert.True(t, updateRuntimeCalled)
@@ -473,7 +473,7 @@ func TestExecute(t *testing.T) {
 	wfs = wfptr.Source
 
 	failctx, _ := context.WithCancel(context.Background())
-	dr := NewDagRuntime("", &wfs.EntryPoints, 0, context.Background(), failctx, make(chan<- WorkflowEvent), rf, "0")
+	dr := NewDagRuntime("a.entrypoint.da", "a.entrypoint.da", &wfs.EntryPoints, 0, context.Background(), failctx, make(chan<- WorkflowEvent), rf, "0")
 	dr.setSysParams()
 
 	updateRuntimeCalled = false
@@ -484,7 +484,7 @@ func TestExecute(t *testing.T) {
 	st := wfs.EntryPoints.EntryPoints["data-preprocess"].(*schema.WorkflowSourceStep)
 	st.Artifacts.Input = map[string]string{}
 	st.GetArtifacts().Input["abc"] = "./abc"
-	srt := NewStepRuntime("data-preprocess", st, 0, context.Background(), failctx,
+	srt := NewStepRuntime("a.entrypoint.data-preprocess", "a.entrypoint.data-preprocess", st, 0, context.Background(), failctx,
 		eventChan, rf, "dag-11")
 	srt.setSysParams()
 
@@ -516,7 +516,7 @@ func TestExecute(t *testing.T) {
 	// 2、开启了cache， 且命中的情况
 
 	st.Cache.Enable = true
-	srt = NewStepRuntime("data-preprocess", st, 0, context.Background(), failctx,
+	srt = NewStepRuntime("a.entrypoint.data-preprocess", "a.entrypoint.data-preprocess", st, 0, context.Background(), failctx,
 		eventChan, rf, "dag-11")
 
 	cacheCaculator, err := NewCacheCalculator(*srt, wfs.Cache)
@@ -570,7 +570,7 @@ func TestProcessEventFromJob(t *testing.T) {
 	wfs = wfptr.Source
 
 	failctx, _ := context.WithCancel(context.Background())
-	dr := NewDagRuntime("", &wfs.EntryPoints, 0, context.Background(), failctx, make(chan<- WorkflowEvent), rf, "0")
+	dr := NewDagRuntime("a.entrypoint.da", "a.entrypoint.da", &wfs.EntryPoints, 0, context.Background(), failctx, make(chan<- WorkflowEvent), rf, "0")
 	dr.setSysParams()
 
 	Runcalled := false
@@ -590,7 +590,7 @@ func TestProcessEventFromJob(t *testing.T) {
 	st := wfs.EntryPoints.EntryPoints["data-preprocess"].(*schema.WorkflowSourceStep)
 	st.Artifacts.Input = map[string]string{}
 	st.GetArtifacts().Input["abc"] = "./abc"
-	srt := NewStepRuntime("data-preprocess", st, 0, context.Background(), failctx,
+	srt := NewStepRuntime("a.entrypoint.data-preprocess", "a.entrypoint.data-preprocess", st, 0, context.Background(), failctx,
 		eventChan, rf, "dag-11")
 	srt.setSysParams()
 
@@ -651,7 +651,7 @@ func TestStart(t *testing.T) {
 	rf.WorkflowSource = &wfptr.Source
 
 	failctx, _ := context.WithCancel(context.Background())
-	dr := NewDagRuntime("", &wfs.EntryPoints, 0, context.Background(), failctx, make(chan<- WorkflowEvent), rf, "0")
+	dr := NewDagRuntime("a.entrypoint.da1", "a.entrypoint.da1", &wfs.EntryPoints, 0, context.Background(), failctx, make(chan<- WorkflowEvent), rf, "0")
 	dr.setSysParams()
 
 	eventChan := make(chan WorkflowEvent)
@@ -665,7 +665,7 @@ func TestStart(t *testing.T) {
 	st := wfs.EntryPoints.EntryPoints["data-preprocess"].(*schema.WorkflowSourceStep)
 	st.Artifacts.Input = map[string]string{}
 	st.GetArtifacts().Input["abc"] = "./abc"
-	srt := NewStepRuntime("data-preprocess", st, 0, context.Background(), failctx,
+	srt := NewStepRuntime("a.entrypoint.data-preprocess", "a.entrypoint.data-preprocess", st, 0, context.Background(), failctx,
 		eventChan, rf, "dag-11")
 	srt.setSysParams()
 
@@ -734,7 +734,7 @@ func TestStepRestart(t *testing.T) {
 	rf.WorkflowSource = &wfptr.Source
 
 	failctx, _ := context.WithCancel(context.Background())
-	dr := NewDagRuntime("", &wfs.EntryPoints, 0, context.Background(), failctx, make(chan<- WorkflowEvent), rf, "0")
+	dr := NewDagRuntime("a.entrypoint.da1", "a.entrypoint.da1", &wfs.EntryPoints, 0, context.Background(), failctx, make(chan<- WorkflowEvent), rf, "0")
 	dr.setSysParams()
 
 	eventChan := make(chan WorkflowEvent)
@@ -746,7 +746,7 @@ func TestStepRestart(t *testing.T) {
 	}(eventChan, ep)
 
 	st := wfs.EntryPoints.EntryPoints["data-preprocess"].(*schema.WorkflowSourceStep)
-	srt := NewStepRuntime("data-preprocess", st, 0, context.Background(), failctx,
+	srt := NewStepRuntime("a.entrypoint.data-preprocess", "a.entrypoint.data-preprocess", st, 0, context.Background(), failctx,
 		eventChan, rf, "dag-11")
 	srt.setSysParams()
 
@@ -819,7 +819,7 @@ func TestStop(t *testing.T) {
 	rf.WorkflowSource = &wfptr.Source
 
 	failctx, _ := context.WithCancel(context.Background())
-	dr := NewDagRuntime("", &wfs.EntryPoints, 0, context.Background(), failctx, make(chan<- WorkflowEvent), rf, "0")
+	dr := NewDagRuntime("a.entrypoint.da", "a.entrypoint.da", &wfs.EntryPoints, 0, context.Background(), failctx, make(chan<- WorkflowEvent), rf, "0")
 	dr.setSysParams()
 
 	eventChan := make(chan WorkflowEvent)
@@ -831,7 +831,7 @@ func TestStop(t *testing.T) {
 	}(eventChan, ep)
 
 	st := wfs.EntryPoints.EntryPoints["data-preprocess"].(*schema.WorkflowSourceStep)
-	srt := NewStepRuntime("data-preprocess", st, 0, context.Background(), failctx,
+	srt := NewStepRuntime("a.entrypoint.data-preprocess", "a.entrypoint.data-preprocess", st, 0, context.Background(), failctx,
 		eventChan, rf, "dag-11")
 	srt.setSysParams()
 

@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/sirupsen/logrus"
 
@@ -180,11 +181,12 @@ type baseComponentRuntime struct {
 	parentDagID string
 }
 
-func NewBaseComponentRuntime(fullname string, component schema.Component, seq int, ctx context.Context, failureOpitonsCtx context.Context,
+func NewBaseComponentRuntime(name, fullname string, component schema.Component, seq int, ctx context.Context, failureOpitonsCtx context.Context,
 	eventChannel chan<- WorkflowEvent, config *runConfig, parentDagID string) *baseComponentRuntime {
 
 	// TODO: name 和 compoentFullName 保留一个就好
 	cr := &baseComponentRuntime{
+		name:                 name,
 		componentFullName:    fullname,
 		component:            component,
 		seq:                  seq,
@@ -204,8 +206,10 @@ func NewBaseComponentRuntime(fullname string, component schema.Component, seq in
 
 // 判断当前节点是否被 disabled
 func (crt *baseComponentRuntime) isDisabled() bool {
+	crtNameWithoutPrefix := strings.Join(strings.Split(crt.componentFullName, ".")[2:], ".")
+
 	for _, name := range crt.GetDisabled() {
-		if name == crt.getComponent().GetName() {
+		if name == crtNameWithoutPrefix {
 			return true
 		}
 	}

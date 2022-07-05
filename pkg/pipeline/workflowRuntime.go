@@ -60,7 +60,7 @@ func NewWorkflowRuntime(rc *runConfig) *WorkflowRuntime {
 	}
 
 	epName := wfr.generateEntryPointFullName()
-	entryPoints := NewDagRuntime(epName, &rc.WorkflowSource.EntryPoints, 0, entryCtx, failureOptionsCtx,
+	entryPoints := NewDagRuntime(epName, epName, &rc.WorkflowSource.EntryPoints, 0, entryCtx, failureOptionsCtx,
 		EventChan, rc, "")
 
 	wfr.entryPoints = entryPoints
@@ -137,7 +137,7 @@ func (wfr *WorkflowRuntime) Restart(entryPointView schema.RuntimeView,
 				if view.Status == StatusRuntimeRunning && view.JobID != "" {
 					failureOptionsCtx, _ := context.WithCancel(context.Background())
 					postName := wfr.generatePostProcessFullName(name)
-					postProcess := NewStepRuntime(postName, wfr.WorkflowSource.PostProcess[name], 0, wfr.postProcessPointsCtx,
+					postProcess := NewStepRuntime(postName, postName, wfr.WorkflowSource.PostProcess[name], 0, wfr.postProcessPointsCtx,
 						failureOptionsCtx, make(chan<- WorkflowEvent), wfr.runConfig, "")
 					go postProcess.StopByView(view)
 				}
@@ -152,7 +152,7 @@ func (wfr *WorkflowRuntime) Restart(entryPointView schema.RuntimeView,
 			for name, step := range wfr.WorkflowSource.PostProcess {
 				failureOptionsCtx, _ := context.WithCancel(context.Background())
 				postName := wfr.generatePostProcessFullName(name)
-				postProcess := NewStepRuntime(postName, step, 0, wfr.postProcessPointsCtx, failureOptionsCtx, wfr.EventChan,
+				postProcess := NewStepRuntime(postName, postName, step, 0, wfr.postProcessPointsCtx, failureOptionsCtx, wfr.EventChan,
 					wfr.runConfig, "")
 				wfr.postProcess = postProcess
 
@@ -191,8 +191,8 @@ func (wfr *WorkflowRuntime) Stop(force bool) error {
 		wfr.callback("receive termination signal, update status to terminating")
 
 		failureOptionsCtx, _ := context.WithCancel(context.Background())
-
-		newDagRuntimeWithStatus("", wfr.entryPoints.getworkflowSouceDag(), 0, wfr.entryPointsCtx,
+		epName := wfr.generateEntryPointFullName()
+		newDagRuntimeWithStatus(epName, epName, wfr.entryPoints.getworkflowSouceDag(), 0, wfr.entryPointsCtx,
 			failureOptionsCtx, wfr.EventChan, wfr.runConfig, "", StatusRuntimeCancelled,
 			"reveice termination signal")
 	}
@@ -208,7 +208,7 @@ func (wfr *WorkflowRuntime) Stop(force bool) error {
 			for name, step := range wfr.WorkflowSource.PostProcess {
 				failureOptionsCtx, _ := context.WithCancel(context.Background())
 				postName := wfr.generatePostProcessFullName(name)
-				wfr.postProcess = newStepRuntimeWithStatus(postName, step, 0, wfr.postProcessPointsCtx, failureOptionsCtx,
+				wfr.postProcess = newStepRuntimeWithStatus(postName, postName, step, 0, wfr.postProcessPointsCtx, failureOptionsCtx,
 					wfr.EventChan, wfr.runConfig, "", StatusRuntimeCancelled, "reveice termination signal")
 			}
 		}
@@ -254,7 +254,7 @@ func (wfr *WorkflowRuntime) schedulePostProcess() {
 		for name, step := range wfr.WorkflowSource.PostProcess {
 			failureOptionsCtx, _ := context.WithCancel(context.Background())
 			postName := wfr.generatePostProcessFullName(name)
-			postProcess := NewStepRuntime(postName, step, 0, wfr.postProcessPointsCtx, failureOptionsCtx, wfr.EventChan,
+			postProcess := NewStepRuntime(postName, postName, step, 0, wfr.postProcessPointsCtx, failureOptionsCtx, wfr.EventChan,
 				wfr.runConfig, "")
 			wfr.postProcess = postProcess
 		}
