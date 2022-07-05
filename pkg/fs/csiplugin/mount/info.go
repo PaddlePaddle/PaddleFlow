@@ -135,7 +135,7 @@ func (m *Info) fillingMountCmd() {
 		m.MountArgs = append(baseArgs, "--mount-point="+m.TargetPath)
 	} else {
 		m.MountCmd = filePfsFuse
-		m.MountArgs = []string{"mount", "--mount-point=" + FusePodMountPoint, "--fs-id=", m.FsID}
+		m.MountArgs = []string{"mount", "--mount-point=" + FusePodMountPoint, "--fs-id=" + m.FsID}
 		m.MountArgs = append(m.MountArgs, baseArgs...)
 		if m.FsCacheConfig.FsID != "" {
 			cacheArgs := []string{
