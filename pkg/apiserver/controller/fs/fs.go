@@ -269,11 +269,6 @@ func getClusterNamespaceMap() (map[*runtime.KubeRuntime][]string, error) {
 }
 
 func CheckFsMounted(cnm map[*runtime.KubeRuntime][]string, fsID string) (bool, map[*runtime.KubeRuntime][]k8sCore.Pod, error) {
-	if cnm == nil || len(cnm) == 0 {
-		log.Debugf("CheckFsMounted[%s] cluster map is empty. no fs mounted", fsID)
-		return false, nil, nil
-	}
-
 	clusterPodMap := make(map[*runtime.KubeRuntime][]k8sCore.Pod)
 	isMounted := false
 	for k8sRuntime, _ := range cnm {
@@ -305,7 +300,7 @@ func CheckFsMounted(cnm map[*runtime.KubeRuntime][]string, fsID string) (bool, m
 			}
 		}
 	}
-	log.Debugf("CheckFsMounted[%s] cluster map is empty * 2. no fs mounted", fsID)
+	log.Debugf("CheckFsMounted[%s] isMounted[%t], clusterPodsMap: %+v", fsID, isMounted, clusterPodMap)
 	return isMounted, clusterPodMap, nil
 }
 
