@@ -288,6 +288,7 @@ func (d *DefaultTraceLoggerManager) NewTraceLogger() TraceLogger {
 
 func (d *DefaultTraceLoggerManager) GetTraceFromCache(key string) (Trace, bool) {
 	val, ok := d.cache.Get(key)
+	logrus.Debugf(LogrusPrefix+"cache: %s", d.String())
 	if !ok {
 		return Trace{}, false
 	}
