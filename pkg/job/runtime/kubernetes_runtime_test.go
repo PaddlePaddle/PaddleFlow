@@ -278,7 +278,7 @@ func TestKubeRuntimePVAndPVC(t *testing.T) {
 	err = kubeRuntime.DeletePersistentVolumeClaim(namespace, pvc, metav1.DeleteOptions{})
 	assert.Equal(t, nil, err)
 	// delete pv
-	err = kubeRuntime.deletePersistentVolume(pv, &metav1.DeleteOptions{})
+	err = kubeRuntime.DeletePersistentVolume(pv, metav1.DeleteOptions{})
 	assert.Equal(t, nil, err)
 }
 

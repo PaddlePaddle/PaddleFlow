@@ -31,7 +31,7 @@ const (
 
 	DefaultMaxKeys = 50
 	ListPageMax    = 1000
-	MaxDescLength  = 1024
+	MaxDescLength  = 256
 
 	ParamKeyQueueName        = "queueName"
 	ParamKeyRunID            = "runID"
