@@ -41,6 +41,7 @@ const (
 	LogLevelStringSize = 4
 	CacheLoadFactor    = 0.75
 	LogStringFormat    = "2006-01-02 15:04:05.06"
+	LogrusPrefix       = "[trace_logger]"
 )
 
 // assert implements
