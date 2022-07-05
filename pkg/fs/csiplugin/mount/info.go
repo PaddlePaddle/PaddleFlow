@@ -20,6 +20,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"strconv"
 
 	log "github.com/sirupsen/logrus"
@@ -135,21 +136,24 @@ func (m *Info) fillingMountCmd() {
 		m.MountArgs = append(baseArgs, "--mount-point="+m.TargetPath)
 	} else {
 		m.MountCmd = filePfsFuse
-		m.MountArgs = []string{"mount", "--mount-point=" + FusePodMountPoint, "--fs-id=", m.FsID}
+		m.MountArgs = []string{"mount", "--mount-point=" + FusePodMountPoint}
 		m.MountArgs = append(m.MountArgs, baseArgs...)
 		if m.FsCacheConfig.FsID != "" {
-			cacheArgs := []string{
-				"--block-size=" + strconv.Itoa(m.FsCacheConfig.BlockSize),
-				"--meta-cache-driver=" + m.FsCacheConfig.MetaDriver,
-				"--data-cache-path=" + FusePodCachePath + DataCacheDir,
-				"--meta-cache-path=" + FusePodCachePath + MetaCacheDir,
+			// data cache
+			if m.FsCacheConfig.BlockSize > 0 {
+				m.MountArgs = append(m.MountArgs, "--block-size="+strconv.Itoa(m.FsCacheConfig.BlockSize),
+					"--data-cache-path="+FusePodCachePath+DataCacheDir)
+			}
+			// meta cache
+			m.MountArgs = append(m.MountArgs, "--meta-cache-driver="+m.FsCacheConfig.MetaDriver)
+			if m.FsCacheConfig.MetaDriver == schema.FsMetaLevelDB || m.FsCacheConfig.MetaDriver == schema.FsMetaNutsDB {
+				m.MountArgs = append(m.MountArgs, "--meta-cache-path="+FusePodCachePath+MetaCacheDir)
 			}
 			if m.FsCacheConfig.ExtraConfigMap != nil {
 				for configName, item := range m.FsCacheConfig.ExtraConfigMap {
-					cacheArgs = append(cacheArgs, fmt.Sprintf("--%s=%s", configName, item))
+					m.MountArgs = append(m.MountArgs, fmt.Sprintf("--%s=%s", configName, item))
 				}
 			}
-			m.MountArgs = append(m.MountArgs, cacheArgs...)
 		}
 		if m.FsCacheConfig.Debug {
 			m.MountArgs = append(m.MountArgs, "--log-level=trace")
