@@ -162,13 +162,13 @@ func (s *FileSystemService) DeleteFileSystem(ctx *logger.RequestContext, fsID st
 	return models.WithTransaction(storage.DB, func(tx *gorm.DB) error {
 		// delete filesystem
 		if err := storage.Filesystem.DeleteFileSystem(tx, fsID); err != nil {
-			ctx.Logging().Errorf("delete fs[%s] failed error[%v]", fsID, err)
+			ctx.Logging().Errorf("delete fs[%s] err: %v", fsID, err)
 			ctx.ErrorCode = common.FileSystemDataBaseError
 			return err
 		}
 		// delete link if exists
 		if err := storage.Filesystem.DeleteLinkWithFsID(tx, fsID); err != nil {
-			ctx.Logging().Errorf("delete fs[%s] failed error[%v]", fsID, err)
+			ctx.Logging().Errorf("delete links with fsID[%s] err: %v", fsID, err)
 			ctx.ErrorCode = common.FileSystemDataBaseError
 			return err
 		}
@@ -177,12 +177,12 @@ func (s *FileSystemService) DeleteFileSystem(ctx *logger.RequestContext, fsID st
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return nil
 			}
-			ctx.Logging().Errorf("delete fs[%s] cache config failed error[%v]", fsID, err)
+			ctx.Logging().Errorf("delete cache config with fsID[%s] err: %v", fsID, err)
 			ctx.ErrorCode = common.FileSystemDataBaseError
 			return err
 		}
 		if err := DeletePvPvc(fsID); err != nil {
-			ctx.Logging().Errorf("delete deletePvPvc for fs[%s] err: %v", fsID, err)
+			ctx.Logging().Errorf("delete PvPvc with fsID[%s] err: %v", fsID, err)
 			return err
 		}
 		return nil
