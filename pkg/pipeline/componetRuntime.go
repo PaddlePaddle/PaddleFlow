@@ -83,6 +83,7 @@ type componentRuntime interface {
 
 	getComponent() schema.Component
 	getFullName() string
+	getName() string
 	getSeq() int
 	getStatus() RuntimeStatus
 
@@ -137,8 +138,11 @@ func NewRunConfig(workflowSource *schema.WorkflowSource, fsID, fsName, userName,
 type baseComponentRuntime struct {
 	component schema.Component
 
+	// runtime 的名字，由其所有的祖先runtime的名字以及 component 的名，和 seq 组合而来
+	name string
+
 	// 类似根目录，由其所有祖先组件名加上自身名字组成，名字与名字之间以"." 分隔
-	fullName string
+	componentFullName string
 
 	// 表明节点的第几次运行， 从 0 开始计算
 	seq int
@@ -181,7 +185,7 @@ func NewBaseComponentRuntime(fullname string, component schema.Component, seq in
 
 	// TODO: name 和 compoentFullName 保留一个就好
 	cr := &baseComponentRuntime{
-		fullName:             fullname,
+		componentFullName:    fullname,
 		component:            component,
 		seq:                  seq,
 		ctx:                  ctx,
@@ -378,8 +382,12 @@ func (crt *baseComponentRuntime) callback(event *WorkflowEvent) {
 	}
 }
 
+func (crt *baseComponentRuntime) getName() string {
+	return crt.name
+}
+
 func (crt *baseComponentRuntime) getFullName() string {
-	return crt.fullName
+	return crt.componentFullName
 }
 
 // 主要是为了实现 ComponentRuntime 接口，无实际意义

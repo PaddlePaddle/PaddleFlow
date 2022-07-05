@@ -334,7 +334,7 @@ func (drt *DagRuntime) scheduleSubComponent(mustSchedule bool) {
 			return
 		}
 
-		drt.logger.Infof("begin to schedule sub%s[%s] of %s[%s]",
+		drt.logger.Infof("begin to schedule sub%s[%s] of dag[%s]",
 			subComponent.GetType(), subComponentName, drt.fullName)
 
 		// 如果此时的状态为 terminating 或者处于终态， 也不应该在调度子节点

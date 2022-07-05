@@ -594,7 +594,7 @@ func (srt *StepRuntime) GenerateFsMountForArtifact() (err error) {
 		srt.getWorkFlowStep().FsMount = append(srt.getWorkFlowStep().FsMount, fsMount)
 	}
 
-	srt.logger.Debugf("after GenerateFsMountForArtifact, FsMount is %s", srt.getWorkFlowStep().FsMount)
+	srt.logger.Debugf("after GenerateFsMountForArtifact, FsMount is %v", srt.getWorkFlowStep().FsMount)
 	return nil
 }
 
