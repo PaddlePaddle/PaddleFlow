@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/fs"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
@@ -436,7 +437,7 @@ func CreateRun(ctxUserName string, request *CreateRunRequest) (CreateRunResponse
 		}
 		globalFsID = common.ID(userName, request.GlobalFs)
 	}
-	// todo://增加root用户判断fs是否存在
+
 	// TODO:// validate flavour
 	// TODO:// validate queue
 
@@ -568,9 +569,27 @@ func CreateRunByJson(ctxUserName string, bodyMap map[string]interface{}) (Create
 
 func ValidateAndStartRun(run models.Run, userName string, req CreateRunRequest) (CreateRunResponse, error) {
 	// 给所有Step的fsMount和fsScope的fsID赋值
-	if err := run.WorkflowSource.ProcessFs(userName); err != nil {
+	fsIDs, err := run.WorkflowSource.ValidateFsAndGetAllIDs(userName)
+	if err != nil {
 		logger.Logger().Errorf("process fs failed. error: %s", err.Error())
 		return CreateRunResponse{}, err
+	}
+
+	//检查fs权限
+	fsIDs = append(fsIDs, run.GlobalFsID)
+	for _, id := range fsIDs {
+		fsService := fs.GetFileSystemService()
+		hasPermission, err := fsService.HasFsPermission(run.UserName, id)
+		if err != nil {
+			logger.Logger().Errorf("check fs permission failed with userName[%s] and fsID[%s]. error: %s",
+				run.UserName, id, err.Error())
+			return CreateRunResponse{}, err
+		}
+		if !hasPermission {
+			err := fmt.Errorf("user[%s] has no permission to fs[%s]", run.UserName, id)
+			logger.Logger().Errorf(err.Error())
+			return CreateRunResponse{}, err
+		}
 	}
 
 	if err := run.Encode(); err != nil {

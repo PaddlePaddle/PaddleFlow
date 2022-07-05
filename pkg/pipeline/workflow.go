@@ -245,6 +245,7 @@ func (bwf *BaseWorkflow) recursiveGetComponents(components map[string]schema.Com
 // validate BaseWorkflow 校验合法性
 func (bwf *BaseWorkflow) validate() error {
 	// 1. 检查Components/Reference，不包括parameters校验
+	// 必须要先检查递归，否则后续的Disable的检查会有死循环的可能
 	if err := bwf.checkComponents(); err != nil {
 		bwf.log().Errorf("check components failed, err: %s", err.Error())
 		return err

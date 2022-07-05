@@ -449,7 +449,6 @@ type FsOptions struct {
 type FsMount struct {
 	FsID      string `yaml:"-"             json:"-"`
 	FsName    string `yaml:"fs_name"       json:"fsName"`
-	FsID      string `yaml:"-"             json:"-"`
 	MountPath string `yaml:"mount_path"    json:"mountPath"`
 	SubPath   string `yaml:"sub_path"      json:"subPath"`
 	Readonly  bool   `yaml:"readonly"      json:"readonly"`
@@ -830,42 +829,61 @@ func (wfs *WorkflowSource) TransToRunYamlRaw() (runYamlRaw string, err error) {
 }
 
 // 给所有Step的fsMount和fsScope的fsID赋值
-func (wfs *WorkflowSource) ProcessFs(userName string) error {
-	if err := processFsByUserName(wfs.EntryPoints.EntryPoints, userName); err != nil {
-		return err
+func (wfs *WorkflowSource) ValidateFsAndGetAllIDs(userName string) ([]string, error) {
+	// 用map记录所有需要返回的ID，去重
+	fsIDMap := map[string]int{}
+	if err := processFsByUserName(wfs.EntryPoints.EntryPoints, userName, fsIDMap); err != nil {
+		return []string{}, err
 	}
 
-	if err := processFsByUserName(wfs.Components, userName); err != nil {
-		return err
+	if err := processFsByUserName(wfs.Components, userName, fsIDMap); err != nil {
+		return []string{}, err
 	}
 
 	postMap := map[string]Component{}
 	for k, v := range wfs.PostProcess {
 		postMap[k] = v
 	}
-	if err := processFsByUserName(postMap, userName); err != nil {
-		return err
+	if err := processFsByUserName(postMap, userName, fsIDMap); err != nil {
+		return []string{}, err
 	}
 
-	return nil
+	resFsIDList := []string{}
+	for id := range fsIDMap {
+		resFsIDList = append(resFsIDList, id)
+	}
+
+	return resFsIDList, nil
 }
 
-func processFsByUserName(compMap map[string]Component, userName string) error {
+func processFsByUserName(compMap map[string]Component, userName string, fsIDMap map[string]int) error {
 	for _, comp := range compMap {
 		if dag, ok := comp.(*WorkflowSourceDag); ok {
-			if err := processFsByUserName(dag.EntryPoints, userName); err != nil {
+			if err := processFsByUserName(dag.EntryPoints, userName, fsIDMap); err != nil {
 				return err
 			}
 		} else if step, ok := comp.(*WorkflowSourceStep); ok {
+			fsNameSet := map[string]int{}
 			for _, mount := range step.FsMount {
-				if mount.FsName != "" {
-					mount.FsID = "fs-" + userName + "-" + mount.FsName
+				if mount.FsName == "" {
+					return fmt.Errorf("[fs_name] in fs_mount must be set")
 				}
+				mount.FsID = "fs-" + userName + "-" + mount.FsName
+
+				// 下面用来检查FsScope中的FsName是否都在FsMount中
+				fsNameSet[mount.FsName] = 1
+				fsIDMap[mount.FsID] = 1
 			}
 
 			for _, scope := range step.Cache.FsScope {
-				if scope.FsName != "" {
-					scope.FsID = "fs-" + userName + "-" + scope.FsName
+				if scope.FsName == "" {
+					return fmt.Errorf("[fs_name] in fs_scope must be set")
+				}
+				scope.FsID = "fs-" + userName + "-" + scope.FsName
+
+				// 检查FsScope中的FsName是否都在FsMount中
+				if _, ok := fsNameSet[scope.FsName]; !ok {
+					return fmt.Errorf("[fs_name] in fs_scope must also be in fs_mount")
 				}
 			}
 		} else {
