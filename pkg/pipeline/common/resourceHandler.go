@@ -52,9 +52,9 @@ func NewResourceHandler(runID string, fsID string, logger *log.Entry) (ResourceH
 	return resourceHandler, nil
 }
 
-func (resourceHandler *ResourceHandler) GenerateOutAtfPath(pplName string, stepName, fullName string, seq int, outatfName string, toInit bool) (string, error) {
-	pipelineDir := "./.pipeline"
-	md5sum := md5.Sum([]byte(fullName))
+func (resourceHandler *ResourceHandler) GenerateOutAtfPath(pplName string, stepName, runtimeName string, seq int, outatfName string, toInit bool) (string, error) {
+	pipelineDir := ".pipeline"
+	md5sum := md5.Sum([]byte(runtimeName))
 	outatfDir := fmt.Sprintf("%s/%s/%s/%s-%d-%x", pipelineDir, resourceHandler.pplRunID, pplName, stepName,
 		seq, md5sum)
 	outatfPath := fmt.Sprintf("%s/%s", outatfDir, outatfName)
