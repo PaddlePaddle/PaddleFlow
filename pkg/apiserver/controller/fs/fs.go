@@ -286,7 +286,6 @@ func getClusterNamespaceMap() (map[*runtime.KubeRuntime][]string, error) {
 
 func checkFsMounted(cnm map[*runtime.KubeRuntime][]string, fsID string) (bool, map[*runtime.KubeRuntime][]k8sCore.Pod, error) {
 	clusterPodMap := make(map[*runtime.KubeRuntime][]k8sCore.Pod)
-	isMounted := false
 	for k8sRuntime, _ := range cnm {
 		listOptions := k8sMeta.ListOptions{
 			LabelSelector: fmt.Sprintf(schema.LabelKeyFsID + "=" + fsID),
@@ -298,26 +297,18 @@ func checkFsMounted(cnm map[*runtime.KubeRuntime][]string, fsID string) (bool, m
 		}
 		clusterPodMap[k8sRuntime] = pods.Items
 
-		if isMounted {
-			continue
-		}
-
 		for _, po := range pods.Items {
 			for key, targetPath := range po.Annotations {
 				if key != schema.AnnoKeyMTime {
 					log.Debugf("fs[%s] is mounted in pod[%s] with target path[%s]",
 						fsID, po.Name, targetPath)
-					isMounted = true
-					break
+					return true, nil, nil
 				}
-			}
-			if isMounted {
-				break
 			}
 		}
 	}
-	log.Debugf("checkFsMounted[%s] isMounted[%t], clusterPodsMap: %+v", fsID, isMounted, clusterPodMap)
-	return isMounted, clusterPodMap, nil
+	log.Debugf("fs[%s] is not mounted, clusterPodMap: %+v", fsID, clusterPodMap)
+	return false, clusterPodMap, nil
 }
 
 func deleteMountPods(podMap map[*runtime.KubeRuntime][]k8sCore.Pod) error {
