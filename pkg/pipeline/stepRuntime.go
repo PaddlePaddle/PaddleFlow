@@ -321,10 +321,10 @@ func (srt *StepRuntime) updateJob(forCacheFingerprint bool) error {
 
 		// artifact 也添加到环境变量中
 		for atfName, atfValue := range srt.GetArtifacts().Input {
-			newEnvs[GetInputArtifactEnvName(atfName)] = atfValue
+			newEnvs[GetInputArtifactEnvName(atfName)] = srt.generateOutArtPathForJob(atfValue)
 		}
 		for atfName, atfValue := range srt.GetArtifacts().Output {
-			newEnvs[GetOutputArtifactEnvName(atfName)] = atfValue
+			newEnvs[GetOutputArtifactEnvName(atfName)] = srt.generateOutArtPathForJob(atfValue)
 		}
 	}
 
@@ -526,7 +526,7 @@ func (srt *StepRuntime) logCache() error {
 
 }
 
-func (srt *StepRuntime) generateOutputArtifactPath() (err error) {
+func (srt *StepRuntime) generateOutArtPathOnFs() (err error) {
 	rh, err := NewResourceHandler(srt.runID, srt.GlobalFsID, srt.logger)
 	if err != nil {
 		err = fmt.Errorf("cannot generate output artifact's path for step[%s]: %s", srt.fullName, err.Error())
@@ -546,6 +546,16 @@ func (srt *StepRuntime) generateOutputArtifactPath() (err error) {
 		srt.GetArtifacts().Output[artName] = artPath
 	}
 	return
+}
+
+func (srt *StepRuntime) generateOutArtPathForJob(paths string) string {
+	pathsForJob := []string{}
+
+	for _, path := range strings.Split(paths, ",") {
+		path = strings.TrimSpace(path)
+		pathsForJob = append(pathsForJob, strings.Join([]string{ArtMountDir, path}, "/"))
+	}
+	return strings.Join(pathsForJob, ",")
 }
 
 func (srt *StepRuntime) GenerateFsMountForArtifact() (err error) {
@@ -666,7 +676,7 @@ func (srt *StepRuntime) Execute() {
 
 	// 2、更新outputArtifact 的path
 	if len(srt.GetArtifacts().Output) != 0 {
-		err := srt.generateOutputArtifactPath()
+		err := srt.generateOutArtPathOnFs()
 		if err != nil {
 			srt.logger.Error(err.Error())
 			srt.processStartAbnormalStatus(err.Error(), StatusRuntimeFailed)

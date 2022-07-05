@@ -212,7 +212,7 @@ func TestUpdateJob(t *testing.T) {
 
 		dr.subComponentRumtimes[stepName] = append(dr.subComponentRumtimes[stepName], srt)
 
-		err = srt.generateOutputArtifactPath()
+		err = srt.generateOutArtPathOnFs()
 		assert.Nil(t, err)
 
 		forCacheFingerprint := false
