@@ -20,6 +20,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/PaddlePaddle/PaddleFlow/pkg/monitor"
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 
@@ -29,7 +30,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csiconfig"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csidriver"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/k8s"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/metric"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/version"
 )
 
@@ -96,7 +96,7 @@ func main() {
 	compoundFlags := [][]cli.Flag{
 		logger.LogFlags(&logConf),
 		flag.CsiPluginFlags(),
-		metric.MetricsFlags(),
+		monitor.MetricsFlags(),
 	}
 
 	app := &cli.App{

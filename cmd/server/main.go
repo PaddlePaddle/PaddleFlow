@@ -9,7 +9,6 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/metric"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/monitor"
 	"github.com/go-chi/chi"
 	log "github.com/sirupsen/logrus"
@@ -210,8 +209,8 @@ func setup() {
 		gracefullyExit(err)
 	}
 
-	metric.Init()
-	_ = metric.StartJobMetricsService(ServerConf.Monitor.ExporterServicePort)
+	monitor.Init()
+	_ = monitor.StartJobMetricsService(ServerConf.Monitor.ExporterServicePort)
 
 	if err := newAndStartJobManager(); err != nil {
 		log.Errorf("create pfjob manager failed, err %v", err)

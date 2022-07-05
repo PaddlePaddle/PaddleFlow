@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package metric
+package monitor
 
 const (
 	QueryCPUUsageRateSql = "sum(rate(container_cpu_usage_seconds_total{image!=\"\"，pod=~\".*job.*\"}[1m])) by (pod) / sum(container_spec_cpu_quota{image!=\"\"，pod=~\".*job.*\"} / 100000) by (pod)"

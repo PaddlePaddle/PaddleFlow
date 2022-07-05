@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package metric
+package monitor
 
 import (
 	"context"
@@ -27,7 +27,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/consts"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/monitor"
 )
 
 type JobCollector struct {
@@ -95,7 +94,7 @@ func callPrometheusAPI(metricName, jobID string) (model.Value, error) {
 	ctxP, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	query := getQuerySql(metricName)
-	result, _, err := monitor.PrometheusClientAPI.Query(ctxP, query, time.Now())
+	result, _, err := PrometheusClientAPI.Query(ctxP, query, time.Now())
 	if err != nil {
 		log.Errorf("job[%s] prometheus query range api error %s", jobID, err.Error())
 		return nil, err

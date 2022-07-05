@@ -29,7 +29,7 @@ func NewClientAPI(address string) error {
 		Address: address,
 	})
 	if err != nil {
-		log.Errorf("new prometheus client failed, err: %v", err)
+		log.Errorf("init prometheus client failed, err: %v", err)
 		return err
 	}
 	v1api := v1.NewAPI(client)
