@@ -17,6 +17,7 @@ limitations under the License.
 package storage
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"gorm.io/gorm"
@@ -53,15 +54,7 @@ func (fss *FilesystemStore) DeleteFileSystem(tx *gorm.DB, id string) error {
 	if tx == nil {
 		tx = fss.db
 	}
-	return tx.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Delete(&model.FileSystem{Model: model.Model{ID: id}}).Error; err != nil {
-			return err
-		}
-		if err := tx.Where(fmt.Sprintf(QueryEqualWithParam, FsID), id).Delete(&model.Link{}).Error; err != nil {
-			return err
-		}
-		return nil
-	})
+	return tx.Delete(&model.FileSystem{Model: model.Model{ID: id}}).Error
 }
 
 // ListFileSystem get file systems with marker and limit sort by create_at desc
@@ -110,6 +103,14 @@ func (fss *FilesystemStore) LinkWithFsIDAndFsPath(fsID, fsPath string) (model.Li
 	return link, result.Error
 }
 
+// DeleteLinkWithFsID delete all filesystem links associated with fsID
+func (fss *FilesystemStore) DeleteLinkWithFsID(tx *gorm.DB, fsID string) error {
+	if tx == nil {
+		tx = fss.db
+	}
+	return tx.Where(fmt.Sprintf(QueryEqualWithParam, FsID), fsID).Delete(&model.Link{}).Error
+}
+
 // DeleteLinkWithFsIDAndFsPath delete a file system link
 func (fss *FilesystemStore) DeleteLinkWithFsIDAndFsPath(fsID, fsPath string) error {
 	result := fss.db.Where(fmt.Sprintf(QueryEqualWithParam, FsID), fsID).Where(fmt.Sprintf(QueryEqualWithParam, FsPath), fsPath).Delete(&model.Link{})
@@ -133,6 +134,7 @@ func (fss *FilesystemStore) GetLinkWithFsIDAndPath(fsID, fsPath string) ([]model
 // ============================================================= table fs_cache_config ============================================================= //
 
 func (fss *FilesystemStore) CreateFSCacheConfig(fsCacheConfig *model.FSCacheConfig) error {
+	fmt.Println("create fs cscahe", *fsCacheConfig)
 	err := fss.db.Model(&model.FSCacheConfig{}).Create(fsCacheConfig).Error
 	if err != nil {
 		return err
@@ -140,7 +142,24 @@ func (fss *FilesystemStore) CreateFSCacheConfig(fsCacheConfig *model.FSCacheConf
 	return nil
 }
 
-func (fss *FilesystemStore) UpdateFSCacheConfig(fsCacheConfig model.FSCacheConfig) error {
+func (fss *FilesystemStore) UpdateFSCacheConfig(fsCacheConfig *model.FSCacheConfig) error {
+	nodeAffinityMap, err := json.Marshal(&fsCacheConfig.NodeAffinityMap)
+	if err != nil {
+		return err
+	}
+	fsCacheConfig.NodeAffinityJson = string(nodeAffinityMap)
+
+	nodeTaintMap, err := json.Marshal(&fsCacheConfig.NodeTaintTolerationMap)
+	if err != nil {
+		return err
+	}
+	fsCacheConfig.NodeTaintTolerationJson = string(nodeTaintMap)
+
+	extraConfigMap, err := json.Marshal(&fsCacheConfig.ExtraConfigMap)
+	if err != nil {
+		return err
+	}
+	fsCacheConfig.ExtraConfigJson = string(extraConfigMap)
 	tx := fss.db.Model(&model.FSCacheConfig{}).Where(&model.FSCacheConfig{FsID: fsCacheConfig.FsID}).Updates(fsCacheConfig)
 	if tx.Error != nil {
 		return tx.Error

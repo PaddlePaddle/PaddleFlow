@@ -33,6 +33,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	commonschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
 
@@ -46,8 +47,8 @@ type QueueSyncInfo struct {
 	Labels      map[string]string
 	Status      string
 	QuotaType   string
-	MaxResource *commonschema.ResourceInfo
-	MinResource *commonschema.ResourceInfo
+	MaxResource *resources.Resource
+	MinResource *resources.Resource
 	Action      commonschema.ActionType
 	Message     string
 	RetryTimes  int
@@ -151,11 +152,11 @@ func (qs *QueueSync) syncQueueInfo(qsInfo *QueueSyncInfo) error {
 			ClusterId:    qs.opt.ClusterInfo.ID,
 			Status:       qsInfo.Status,
 			QuotaType:    qsInfo.QuotaType,
-			MaxResources: *qsInfo.MaxResource,
+			MaxResources: qsInfo.MaxResource,
 			Location:     qsInfo.Labels,
 		}
 		if qsInfo.MinResource != nil {
-			queue.MinResources = *qsInfo.MinResource
+			queue.MinResources = qsInfo.MinResource
 		}
 		err = models.CreateOrUpdateQueue(queue)
 	case commonschema.Update, commonschema.Delete:
@@ -186,15 +187,15 @@ func (qs *QueueSync) add(obj interface{}) {
 	switch gvk {
 	case k8s.VCQueueGVK:
 		vcQueue := queue.(*v1beta1.Queue)
-		qSyncInfo.MaxResource = k8s.NewResourceInfo(vcQueue.Spec.Capability)
+		qSyncInfo.MaxResource = k8s.NewResource(vcQueue.Spec.Capability)
 		// set queue status
 		qSyncInfo.Status = getVCQueueStatus(vcQueue.Status.State)
 		qSyncInfo.QuotaType = commonschema.TypeVolcanoCapabilityQuota
 		qSyncInfo.Namespace = "default"
 	case k8s.EQuotaGVK:
 		eQuota := queue.(*v1beta1.ElasticResourceQuota)
-		qSyncInfo.MaxResource = k8s.NewResourceInfo(eQuota.Spec.Max)
-		qSyncInfo.MinResource = k8s.NewResourceInfo(eQuota.Spec.Min)
+		qSyncInfo.MaxResource = k8s.NewResource(eQuota.Spec.Max)
+		qSyncInfo.MinResource = k8s.NewResource(eQuota.Spec.Min)
 		// set queue status
 		qSyncInfo.Status = getEQuotaStatus(eQuota.Status)
 		qSyncInfo.QuotaType = commonschema.TypeElasticQuota
@@ -235,22 +236,22 @@ func (qs *QueueSync) update(old, new interface{}) {
 	case k8s.VCQueueGVK:
 		oldQ := oldQueue.(*v1beta1.Queue)
 		newQ := queue.(*v1beta1.Queue)
-		if reflect.DeepEqual(oldQ.Spec, newQ.Spec) {
+		if reflect.DeepEqual(oldQ.Spec, newQ.Spec) && oldQ.Status.State == newQ.Status.State {
 			return
 		}
 		msg = fmt.Sprintf("old queue: %v, new queue: %v", oldQ.Spec, newQ.Spec)
-		qSyncInfo.MaxResource = k8s.NewResourceInfo(newQ.Spec.Capability)
+		qSyncInfo.MaxResource = k8s.NewResource(newQ.Spec.Capability)
 		// set queue status
 		qSyncInfo.Status = getVCQueueStatus(newQ.Status.State)
 	case k8s.EQuotaGVK:
 		oldEquota := oldQueue.(*v1beta1.ElasticResourceQuota)
 		newEquota := queue.(*v1beta1.ElasticResourceQuota)
-		if reflect.DeepEqual(oldEquota.Spec, newEquota.Spec) {
+		if reflect.DeepEqual(oldEquota.Spec, newEquota.Spec) && oldEquota.Status.IsLeaf == newEquota.Status.IsLeaf {
 			return
 		}
 		msg = fmt.Sprintf("old queue: %v, new queue: %v", oldEquota.Spec, newEquota.Spec)
-		qSyncInfo.MaxResource = k8s.NewResourceInfo(newEquota.Spec.Max)
-		qSyncInfo.MinResource = k8s.NewResourceInfo(newEquota.Spec.Min)
+		qSyncInfo.MaxResource = k8s.NewResource(newEquota.Spec.Max)
+		qSyncInfo.MinResource = k8s.NewResource(newEquota.Spec.Min)
 		qSyncInfo.Status = getEQuotaStatus(newEquota.Status)
 	default:
 		log.Warnf("quota type %s for queue is not supported", gvk.String())

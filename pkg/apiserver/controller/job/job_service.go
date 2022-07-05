@@ -18,6 +18,7 @@ package job
 
 import (
 	"fmt"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -29,6 +30,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
 	_ "github.com/PaddlePaddle/PaddleFlow/pkg/job/queue/sortpolicy"
@@ -52,7 +54,7 @@ func CreateJob(conf schema.PFJobConf) (string, error) {
 		jobConf.FileSystem = schema.FileSystem{
 			ID:        jobConf.GetFS(),
 			Name:      fsName,
-			MountPath: schema.DefaultFSMountPath,
+			MountPath: filepath.Join(schema.DefaultFSMountPath, fsID),
 		}
 	}
 
@@ -348,15 +350,20 @@ func StopJobByID(jobID string) error {
 }
 
 // IsEnoughQueueCapacity validate queue matching flavor
-func IsEnoughQueueCapacity(flavourValue schema.Flavour, queueResource schema.ResourceInfo) error {
-	if schema.IsEmptyResource(flavourValue.ResourceInfo) {
-		err := fmt.Errorf("flavour[%v] cpu or memory is empty", flavourValue)
+func IsEnoughQueueCapacity(flavourValue schema.Flavour, queueResource *resources.Resource) error {
+	fResources, err := resources.NewResourceFromMap(flavourValue.ToMap())
+	if err != nil {
 		log.Errorf("isEnoughQueueCapacity failed, err: %v", err)
 		return err
 	}
+	if fResources.CPU() == 0 || fResources.Memory() == 0 {
+		err = fmt.Errorf("flavour[%v] cpu or memory is empty", flavourValue)
+		log.Errorf("isEnoughQueueCapacity failed, err: %v", err)
+		return err
 
+	}
 	// all field in flavour must be less equal than queue's
-	if !flavourValue.ResourceInfo.LessEqual(queueResource) {
+	if !fResources.LessEqual(queueResource) {
 		errMsg := fmt.Sprintf("the flavour[%+v] is larger than queue's [%+v]", flavourValue, queueResource)
 		log.Errorf(errMsg)
 		return fmt.Errorf(errMsg)

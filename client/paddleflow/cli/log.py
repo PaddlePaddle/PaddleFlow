@@ -50,12 +50,14 @@ def show(ctx, runid, jobid=None, pagesize=None, pageno=None, logfileposition=Non
 
     """
     client = ctx.obj['client']
-    output_format = ctx.obj['output']
+    output_format = 'text'
     if not runid:
         click.echo('log show must provide runid.', err=True)
         sys.exit(1)
     valid, response = client.show_log(runid, jobid, pagesize, pageno, logfileposition)
     if valid:
+        if jobid is None and len(response['runLog']) > 0:
+            response['runLog'] = [response['runLog'][0]]
         _print_run_log(response, output_format)
     else:
         click.echo("show run log failed with message[%s]" % response)
@@ -64,19 +66,16 @@ def show(ctx, runid, jobid=None, pagesize=None, pageno=None, logfileposition=Non
 
 def _print_run_log(loginfo, out_format):
     """print run log """
-    headers = [
-        'run id', 'job id', 'task id', 'has next page', 'truncated', 'page no', 'page size', 'log content'
-    ]
-    data = []
-    for item in loginfo:
-        line = []
-        line.append(item.runid)
-        line.append(item.jobid)
-        line.append(item.taskid)
-        line.append(item.has_next_page)
-        line.append(item.truncated)
-        line.append(item.pageno)
-        line.append(item.pagesize)
-        line.append(item.log_content)
+    submit_loginfo = loginfo['submitLog']
+    data = [["submit log:"], [submit_loginfo], [""], ["run log:"]]
+    run_loginfo = loginfo['runLog']
+    for index, item in enumerate(run_loginfo):
+        line = ["runid:" + item.runid, "jobid:" + item.jobid, "taskid:" + item.taskid, "has_next_page:" + str(item.has_next_page),
+                "truncated:" + str(item.truncated), "page_no:" + str(item.pageno), "page_size:" + str(item.pagesize)]
+        line_log = []
+        line_log.append(item.log_content)
         data.append(line)
-    print_output(data, headers, out_format, table_format='grid')
+        data.append(line_log)
+        if index != len(run_loginfo) - 1:
+            data.append(['\n'])
+    print_output(data, [], out_format)

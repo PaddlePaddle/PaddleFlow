@@ -7,6 +7,21 @@ log:
   maxFileSizeInMB: 100
   isCompress: true
 
+# trace log config
+traceLog:
+  dir: ./
+  filePrefix: trace-log
+  level: INFO
+  maxKeepDays: 7
+  maxFileNum: 7
+  maxFileSizeInMB: 100
+  isCompress: true
+  # unit is s/m/h/d
+  timeout: 2h
+  maxCacheSize: 10000
+  syncInterval: 30s
+  deleteInterval: 10s
+
 apiServer:
   host: 0.0.0.0
   port: 8083
@@ -18,9 +33,6 @@ fs:
   k8sServiceName: "paddleflow-server"
   K8sServicePort: 8083
 
-namespaceList:
-  - "default"
-
 job:
   reclaim:
     isCleanJob: true
@@ -31,8 +43,6 @@ job:
   clusterSyncPeriod: 30
   queueSyncPeriod: 30
   jobLoopPeriod: 5
-  scalarResourceArray:
-    - "nvidia.com/gpu"
   defaultJobYamlDir: "./config/server/default/job"
   isSingleCluster: true
 
@@ -45,13 +55,3 @@ imageRepository:
   password: ""
   concurrency: 10
   removeLocalImage: true
-
-flavour:
-  - name: flavour1
-    cpu: 1
-    mem: 1Gi
-  - name: flavour2
-    cpu: 1
-    mem: 1Gi
-    scalarResources:
-      "nvidia.com/gpu": "1"

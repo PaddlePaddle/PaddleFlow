@@ -55,7 +55,7 @@ func TestKubeRuntimePVAndPVC(t *testing.T) {
 	assert.Nil(t, err)
 	fsCacheBase64 := base64.StdEncoding.EncodeToString(fsCacheStr)
 
-	mountInfo, err := ProcessMountInfo(fs.ID, "server", fsBase64, fsCacheBase64, false)
+	mountInfo, err := ProcessMountInfo(fs.UserName, "pass", "target", fs.ID, "server", fsBase64, fsCacheBase64, false)
 	assert.Equal(t, fsBase64, mountInfo.FsBase64Str)
 	assert.Equal(t, fsCache.CacheDir, mountInfo.FsCacheConfig.CacheDir)
 	assert.Equal(t, fsCache.FsID, mountInfo.FsCacheConfig.FsID)
@@ -67,11 +67,11 @@ func TestKubeRuntimePVAndPVC(t *testing.T) {
 	fsCacheStr, err = json.Marshal(fsCache)
 	assert.Nil(t, err)
 	fsCacheBase64 = base64.StdEncoding.EncodeToString(fsCacheStr)
-	mountInfo, err = ProcessMountInfo(fs.ID, "server", fsBase64, fsCacheBase64, false)
+	mountInfo, err = ProcessMountInfo(fs.UserName, "pass", "target", fs.ID, "server", fsBase64, fsCacheBase64, false)
 	assert.Nil(t, err)
 	assert.Equal(t, "", mountInfo.FsCacheConfig.CacheDir)
 	assert.Equal(t, "", mountInfo.FsCacheConfig.FsID)
-	assert.Equal(t, "default", mountInfo.FsCacheConfig.MetaDriver)
+	assert.Equal(t, "", mountInfo.FsCacheConfig.MetaDriver)
 	assert.Equal(t, 0, mountInfo.FsCacheConfig.BlockSize)
 	assert.Equal(t, false, mountInfo.FsCacheConfig.Debug)
 }

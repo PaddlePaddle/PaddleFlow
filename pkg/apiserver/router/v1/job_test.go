@@ -23,8 +23,8 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/job"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
 
@@ -42,11 +42,11 @@ var (
 		Namespace: "paddleflow",
 		ClusterId: MockClusterID,
 		QuotaType: schema.TypeVolcanoCapabilityQuota,
-		MaxResources: schema.ResourceInfo{
-			CPU: "10",
-			Mem: "1000",
-			ScalarResources: schema.ScalarResourcesType{
-				"nvidia.com/gpu": "500",
+		MaxResources: &resources.Resource{
+			Resources: map[string]resources.Quantity{
+				"cpu":            10 * 1000,
+				"mem":            1000,
+				"nvidia.com/gpu": 500,
 			},
 		},
 		SchedulingPolicy: []string{"s1", "s2"},
@@ -70,32 +70,6 @@ func TestCreateJob(t *testing.T) {
 	initQueue(t, mockUserName)
 
 	flavourName := initFlavour(t)
-	config.GlobalServerConfig.FlavourMap = map[string]schema.Flavour{
-		flavourName: {
-			Name: flavourName,
-			ResourceInfo: schema.ResourceInfo{
-				CPU: "1",
-				Mem: "100M",
-			},
-		},
-		"cpu": {
-			Name: "cpu",
-			ResourceInfo: schema.ResourceInfo{
-				CPU: "1",
-				Mem: "100M",
-			},
-		},
-		"gpu": {
-			Name: "gpu",
-			ResourceInfo: schema.ResourceInfo{
-				CPU: "1",
-				Mem: "100M",
-				ScalarResources: schema.ScalarResourcesType{
-					"nvidia.com/gpu": "500M",
-				},
-			},
-		},
-	}
 	ctx := &logger.RequestContext{UserName: "testusername"}
 	tests := []struct {
 		name         string

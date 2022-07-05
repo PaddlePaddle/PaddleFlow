@@ -144,9 +144,6 @@ func TestQueueSync(t *testing.T) {
 			Reclaim: config.ReclaimConfig{
 				CleanJob: true,
 			},
-			ScalarResourceArray: []string{
-				"nvidia.com/gpu",
-			},
 		},
 	}
 

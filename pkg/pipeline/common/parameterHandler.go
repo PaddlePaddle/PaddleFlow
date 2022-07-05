@@ -265,7 +265,7 @@ func (s *StepParamChecker) checkReference(comp schema.Component) error {
 				}
 				// 如果对应的被引用节点的参数为dict形式，则Reference节点的参数类型需要符合dict中Type的要求
 				switch referedParam.(type) {
-				case map[interface{}]interface{}:
+				case map[string]interface{}:
 					refDictParam := DictParam{}
 					if err := refDictParam.From(referedParam); err != nil {
 						return fmt.Errorf("invalid dict parameter[%s]", referedParam)

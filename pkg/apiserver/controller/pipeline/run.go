@@ -38,6 +38,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/pipeline"
 	pplcommon "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/trace_logger"
 )
 
 var wfMap = make(map[string]*pipeline.Workflow, 0)
@@ -146,8 +147,11 @@ func (b *RunBrief) modelToListResp(run models.Run) {
 	}
 }
 
-func buildWorkflowSource(userName string, req CreateRunRequest, fsID string) (schema.WorkflowSource, string, string, error) {
-	var source, runYaml string
+func buildWorkflowSource(ctx logger.RequestContext, req CreateRunRequest, fsID string) (schema.WorkflowSource, string, string, error) {
+	var source, runYaml, requestId, userName string
+	requestId, userName = ctx.RequestID, ctx.UserName
+
+	trace_logger.Key(requestId).Infof("retrieve source and runYaml")
 	// retrieve source and runYaml
 	if req.RunYamlRaw != "" { // high priority: wfs delivered by request
 		// base64 decode
@@ -214,6 +218,7 @@ func buildWorkflowSource(userName string, req CreateRunRequest, fsID string) (sc
 		runYaml = string(runYamlByte)
 	}
 	// to wfs
+	trace_logger.Key(requestId).Infof("run yaml and req to wfs")
 	wfs, err := runYamlAndReqToWfs(runYaml, req)
 	if err != nil {
 		logger.Logger().Errorf("runYamlAndReqToWfs failed. err:%v", err)
@@ -426,22 +431,26 @@ func runYamlAndReqToWfs(runYaml string, req CreateRunRequest) (schema.WorkflowSo
 	return wfs, nil
 }
 
-func CreateRun(ctxUserName string, request *CreateRunRequest) (CreateRunResponse, error) {
+func CreateRun(ctx logger.RequestContext, request *CreateRunRequest) (CreateRunResponse, error) {
 	// concatenate globalFsID
-	var globalFsID string
-	userName := ctxUserName
+	globalFsID := ""
+	requestId := ctx.RequestID
+	ctxUserName := ctx.UserName // 这是实际发送请求的用户，由Token决定，全局不会改变
+	userName := ctxUserName     // 这是进行后续fs操作的用户，root用户可以设置为其他普通用户
+	if common.IsRootUser(ctxUserName) && request.UserName != "" {
+		// root user can select fs under other users
+		userName = request.UserName
+	}
+
 	if request.GlobalFs != "" {
-		if common.IsRootUser(ctxUserName) && request.UserName != "" {
-			// root user can select fs under other users
-			userName = request.UserName
-		}
 		globalFsID = common.ID(userName, request.GlobalFs)
 	}
 
 	// TODO:// validate flavour
 	// TODO:// validate queue
 
-	wfs, source, runYaml, err := buildWorkflowSource(ctxUserName, *request, globalFsID)
+	trace_logger.Key(requestId).Infof("build workflow source for run: %+v", request)
+	wfs, source, runYaml, err := buildWorkflowSource(ctx, *request, globalFsID)
 	if err != nil {
 		logger.Logger().Errorf("buildWorkflowSource failed. error:%v", err)
 		return CreateRunResponse{}, err
@@ -449,14 +458,10 @@ func CreateRun(ctxUserName string, request *CreateRunRequest) (CreateRunResponse
 
 	// 如果request里面的fsID为空，那么需要判断yaml（通过PipelineID或Raw上传的）中有无指定GlobalFs，有则生成fsID
 	if request.GlobalFs == "" && wfs.FsOptions.GlobalFs != "" {
-		if common.IsRootUser(ctxUserName) && request.UserName != "" {
-			// root user can select fs under other users
-			globalFsID = common.ID(request.UserName, wfs.FsOptions.GlobalFs)
-		} else {
-			globalFsID = common.ID(ctxUserName, wfs.FsOptions.GlobalFs)
-		}
+		globalFsID = common.ID(userName, wfs.FsOptions.GlobalFs)
 	}
 
+	trace_logger.Key(requestId).Infof("check name reg pattern: %s", wfs.Name)
 	// check name pattern
 	if wfs.Name != "" && !schema.CheckReg(wfs.Name, common.RegPatternRunName) {
 		err := common.InvalidNamePatternError(wfs.Name, common.ResourceTypeRun, common.RegPatternRunName)
@@ -494,11 +499,14 @@ func CreateRun(ctxUserName string, request *CreateRunRequest) (CreateRunResponse
 		ScheduledAt:    scheduledAt,
 		Status:         common.StatusRunInitiating,
 	}
-	response, err := ValidateAndStartRun(run, userName, *request)
+	trace_logger.Key(requestId).Infof("validate and start run: %+v", run)
+	response, err := ValidateAndStartRun(ctx, run, userName, *request)
 	return response, err
 }
 
-func CreateRunByJson(ctxUserName string, bodyMap map[string]interface{}) (CreateRunResponse, error) {
+func CreateRunByJson(ctx logger.RequestContext, bodyMap map[string]interface{}) (CreateRunResponse, error) {
+	requestId := ctx.RequestID
+
 	// 从request body中提取部分信息，这些信息与workflow没有直接关联
 	var reqFsName string
 	var reqUserName string
@@ -521,8 +529,9 @@ func CreateRunByJson(ctxUserName string, bodyMap map[string]interface{}) (Create
 		reqDescription = bodyMap[JsonDescription].(string)
 	}
 
-	var globalFsID string
-	userName := ctxUserName
+	globalFsID := ""
+	ctxUserName := ctx.UserName // 这是实际发送请求的用户，由Token决定，全局不会改变
+	userName := ctxUserName     // 这是进行后续fs操作的用户，root用户可以设置为其他普通用户
 	if reqFsName != "" {
 		if common.IsRootUser(ctxUserName) && reqUserName != "" {
 			// root user can select fs under other users
@@ -531,18 +540,21 @@ func CreateRunByJson(ctxUserName string, bodyMap map[string]interface{}) (Create
 		globalFsID = common.ID(userName, reqFsName)
 	}
 
+	trace_logger.Key(requestId).Infof("get workflow source for run: %+v", bodyMap)
 	wfs, err := getWorkFlowSourceByJson(bodyMap)
 	if err != nil {
 		logger.Logger().Errorf("get WorkFlowSource by request failed. error:%v", err)
 		return CreateRunResponse{}, err
 	}
 
+	trace_logger.Key(requestId).Infof("get source and yaml for run: %+v", bodyMap)
 	source, runYaml, err := getSourceAndYaml(wfs)
 	if err != nil {
 		logger.Logger().Errorf("get source and yaml by workflowsource failed. error:%v", err)
 		return CreateRunResponse{}, err
 	}
 
+	trace_logger.Key(requestId).Infof("check name reg pattern: %s", wfs.Name)
 	// check name pattern
 	if wfs.Name != "" && !schema.CheckReg(wfs.Name, common.RegPatternRunName) {
 		err := common.InvalidNamePatternError(wfs.Name, common.ResourceTypeRun, common.RegPatternRunName)
@@ -563,11 +575,19 @@ func CreateRunByJson(ctxUserName string, bodyMap map[string]interface{}) (Create
 		Disabled:       wfs.Disabled,
 		Status:         common.StatusRunInitiating,
 	}
-	response, err := ValidateAndStartRun(run, userName, CreateRunRequest{})
+	trace_logger.Key(requestId).Infof("validate and start run: %+v", run)
+	response, err := ValidateAndStartRun(ctx, run, userName, CreateRunRequest{})
 	return response, err
 }
 
-func ValidateAndStartRun(run models.Run, userName string, req CreateRunRequest) (CreateRunResponse, error) {
+func ValidateAndStartRun(ctx logger.RequestContext, run models.Run, userName string, req CreateRunRequest) (CreateRunResponse, error) {
+	requestId := ctx.RequestID
+	if requestId == "" {
+		errMsg := "get requestID failed"
+		logger.Logger().Errorf("validate and start run failed. error:%s", errMsg)
+		return CreateRunResponse{}, errors.New(errMsg)
+	}
+
 	// 给所有Step的fsMount和fsScope的fsID赋值
 	fsIDs, err := run.WorkflowSource.ProcessFsAndGetAllIDs(userName)
 	if err != nil {
@@ -592,22 +612,33 @@ func ValidateAndStartRun(run models.Run, userName string, req CreateRunRequest) 
 		}
 	}
 
+	trace_logger.Key(requestId).Infof("encode run")
 	if err := run.Encode(); err != nil {
 		logger.Logger().Errorf("encode run failed. error:%s", err.Error())
 		return CreateRunResponse{}, err
 	}
 
+	trace_logger.Key(requestId).Infof("validate and init workflow")
 	// validate workflow in func NewWorkflow
 	if _, err := newWorkflowByRun(run); err != nil {
 		logger.Logger().Errorf("validateAndInitWorkflow. err:%v", err)
 		return CreateRunResponse{}, err
 	}
+
+	// generate run id here
+	trace_logger.Key(requestId).Infof("create run in db")
 	// create run in db and update run's ID by pk
 	runID, err := models.CreateRun(logger.Logger(), &run)
 	if err != nil {
 		logger.Logger().Errorf("create run failed inserting db. error:%s", err.Error())
 		return CreateRunResponse{}, err
 	}
+
+	// update trace logger key
+	_ = trace_logger.UpdateKey(requestId, runID)
+	trace_logger.Key(runID).Infof("create run in db success")
+
+	trace_logger.Key(runID).Infof("run yaml and req to wfs")
 	// to wfs again to revise previous wf replacement
 	wfs, err := runYamlAndReqToWfs(run.RunYaml, req)
 	if err != nil {
@@ -625,6 +656,8 @@ func ValidateAndStartRun(run models.Run, userName string, req CreateRunRequest) 
 			}
 		}
 	}()
+
+	trace_logger.Key(runID).Infof("handle image and start wf: %+v", run)
 	// handler image
 	if err := handleImageAndStartWf(run, false); err != nil {
 		logger.Logger().Errorf("create run[%s] failed handleImageAndStartWf[%s-%s]. error:%s\n", runID, wfs.DockerEnv, run.GlobalFsID, err.Error())
@@ -816,7 +849,7 @@ func DeleteRun(ctx *logger.RequestContext, id string, request *DeleteRunRequest)
 	if run.GlobalFsID != "" {
 		resourceHandler, err := pplcommon.NewResourceHandler(id, run.GlobalFsID, ctx.Logging())
 		if err != nil {
-			ctx.Logging().Errorf("delete run[%s] failed. Init handler failed. err: %v", id, err.Error())
+			ctx.Logging().Errorf("delete run[%s] failed. InitTraceLoggerManager handler failed. err: %v", id, err.Error())
 			ctx.ErrorCode = common.InternalError
 			return err
 		}
@@ -905,8 +938,10 @@ func resumeRun(run models.Run) error {
 func handleImageAndStartWf(run models.Run, isResume bool) error {
 	logEntry := logger.LoggerForRun(run.ID)
 	logEntry.Debugf("start handleImageAndStartWf isResume:%t, run:%+v", isResume, run)
+	trace_logger.Key(run.ID).Debugf("start handleImageAndStartWf isResume:%t, run:%+v", isResume, run)
 	if !handler.NeedHandleImage(run.WorkflowSource.DockerEnv) {
 		// init workflow and start
+		trace_logger.Key(run.ID).Infof("init workflow and start")
 		wfPtr, err := newWorkflowByRun(run)
 		if err != nil {
 			logEntry.Errorf("newWorkflowByRun failed. err:%v\n", err)
@@ -914,9 +949,12 @@ func handleImageAndStartWf(run models.Run, isResume bool) error {
 		}
 		if !isResume {
 			// start workflow with image url
+			trace_logger.Key(run.ID).Infof("start workflow with image url")
 			wfPtr.Start()
 			logEntry.Debugf("workflow started, run:%+v", run)
 		} else {
+			// set runtime and restart
+			trace_logger.Key(run.ID).Infof("resume workflow, set runtime and restart")
 			wfPtr.Restart(run.Runtime, run.PostProcess)
 			logEntry.Debugf("workflow restarted, run:%+v", run)
 		}
