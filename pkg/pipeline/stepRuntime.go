@@ -325,10 +325,14 @@ func (srt *StepRuntime) updateJob(forCacheFingerprint bool) error {
 
 		// artifact 也添加到环境变量中
 		for atfName, atfValue := range srt.GetArtifacts().Input {
-			newEnvs[GetInputArtifactEnvName(atfName)] = srt.generateOutArtPathForJob(atfValue)
+			// TODO: job ready 替换成下面被注释的代码
+			// newEnvs[GetInputArtifactEnvName(atfName)] = srt.generateOutArtPathForJob(atfValue)
+			newEnvs[GetInputArtifactEnvName(atfName)] = atfValue
 		}
 		for atfName, atfValue := range srt.GetArtifacts().Output {
-			newEnvs[GetOutputArtifactEnvName(atfName)] = srt.generateOutArtPathForJob(atfValue)
+			// TODO: job ready 替换成下面被注释的代码
+			// newEnvs[GetOutputArtifactEnvName(atfName)] = srt.generateOutArtPathForJob(atfValue)
+			newEnvs[GetInputArtifactEnvName(atfName)] = atfValue
 		}
 	}
 

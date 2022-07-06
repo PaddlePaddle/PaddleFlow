@@ -140,6 +140,7 @@ func (pfj *PaddleFlowJob) generateJobConf() schema.Conf {
 			Name:      fsMount.FsName,
 			SubPath:   fsMount.SubPath,
 			MountPath: fsMount.MountPath,
+			ReadOnly:  fsMount.Readonly,
 		}
 		efs = append(efs, fs)
 	}
@@ -195,9 +196,6 @@ func (pfj *PaddleFlowJob) Start() (string, error) {
 
 	// 调用job子系统接口发起运行
 	conf := pfj.generateJobConf()
-
-	fmt.Printf("+++++++ the conf for job is: \n\n\n%v\n", conf)
-
 	pfj.ID, err = job.CreateJob(&conf)
 	if err != nil {
 		return "", err
