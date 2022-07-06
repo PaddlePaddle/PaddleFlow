@@ -19,6 +19,7 @@ package job
 import (
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/ghodss/yaml"
@@ -26,7 +27,10 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/flavour"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/fs"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
@@ -254,6 +258,107 @@ func checkJobSpec(ctx *logger.RequestContext, jobSpec *JobSpec) error {
 	return nil
 }
 
+// validateQueue validate queue and set queueID in request.SchedulingPolicy
+func validateQueue(ctx *logger.RequestContext, schedulingPolicy *SchedulingPolicy) error {
+	if schedulingPolicy.Queue == "" {
+		schedulingPolicy.Queue = config.DefaultQueueName
+	}
+	queueName := schedulingPolicy.Queue
+	queue, err := models.GetQueueByName(queueName)
+	if err != nil {
+		if errors.GetErrorCode(err) == errors.ErrorKeyIsDuplicated {
+			ctx.ErrorCode = common.QueueNameDuplicated
+		} else {
+			ctx.ErrorCode = common.InternalError
+		}
+		ctx.ErrorCode = common.InternalError
+		err = fmt.Errorf("get queue failed when creating job, err=%v", err)
+		log.Error(err)
+		return err
+	}
+	schedulingPolicy.QueueID = queue.ID
+	schedulingPolicy.MaxResources = queue.MaxResources
+	schedulingPolicy.ClusterId = queue.ClusterId
+	schedulingPolicy.Namespace = queue.Namespace
+	return nil
+}
+
+// checkPriority check priority and fill parent's priority if schedulingPolicy.Priority is empty
+func checkPriority(schedulingPolicy, parentSP *SchedulingPolicy) error {
+	priority := strings.ToUpper(schedulingPolicy.Priority)
+	// check job priority
+	if priority == "" {
+		if parentSP != nil {
+			priority = strings.ToUpper(parentSP.Priority)
+		} else {
+			priority = schema.EnvJobNormalPriority
+		}
+	}
+	if priority != schema.EnvJobLowPriority &&
+		priority != schema.EnvJobNormalPriority && priority != schema.EnvJobHighPriority {
+		return errors.InvalidJobPriorityError(priority)
+	}
+	schedulingPolicy.Priority = priority
+	return nil
+}
+
+func validateMembersQueue(ctx *logger.RequestContext, member MemberSpec, schePolicy SchedulingPolicy) (MemberSpec, error) {
+	queueName := schePolicy.Queue
+
+	mQueueName := member.SchedulingPolicy.Queue
+	if mQueueName != "" && mQueueName != queueName {
+		err := fmt.Errorf("schedulingPolicy.Queue should be the same, there are %s and %s", queueName, mQueueName)
+		ctx.Logging().Errorf("create distributed job failed. error: %s", err.Error())
+		ctx.ErrorCode = common.JobInvalidField
+		return member, err
+	}
+	member.SchedulingPolicy.QueueID = schePolicy.QueueID
+	member.SchedulingPolicy.Namespace = schePolicy.Namespace
+	member.SchedulingPolicy.ClusterId = schePolicy.ClusterId
+	member.SchedulingPolicy.MaxResources = schePolicy.MaxResources
+	return member, nil
+}
+
+func validateFileSystem(jobSpec *JobSpec, userName string) error {
+	fsService := fs.GetFileSystemService()
+	fsName := jobSpec.FileSystem.Name
+	if fsName != "" {
+		jobSpec.FileSystem.MountPath = filepath.Clean(jobSpec.FileSystem.MountPath)
+		if jobSpec.FileSystem.MountPath == "/" {
+			err := fmt.Errorf("mountPath cannot be `/` in fileSystem[%s]", fsName)
+			log.Errorf("validateFileSystem failed, err: %v", err)
+			return err
+		}
+		fileSystem, err := fsService.GetFileSystem(userName, fsName)
+		if err != nil {
+			log.Errorf("get filesystem by userName[%s] fsName[%s] failed, err: %v", userName, fsName, err)
+			return fmt.Errorf("find file system %s failed, err: %v", fsName, err)
+		}
+		jobSpec.FileSystem.ID = fileSystem.ID
+	}
+	// todo(zhongzichao) check all fs whether has 'contains' relationship
+	for index, fs := range jobSpec.ExtraFileSystems {
+		if fs.Name == "" {
+			log.Errorf("name of fileSystem %v is null", fs)
+			return fmt.Errorf("name of fileSystem %v is null", fs)
+		}
+		jobSpec.ExtraFileSystems[index].MountPath = filepath.Clean(fs.MountPath)
+		if jobSpec.ExtraFileSystems[index].MountPath == "/" {
+			err := fmt.Errorf("mountPath cannot be `/` in fileSystem[%s]", fs.Name)
+			log.Errorf("validateFileSystem failed, err: %v", err)
+			return err
+		}
+
+		fileSystem, err := fsService.GetFileSystem(userName, fs.Name)
+		if err != nil {
+			log.Errorf("get filesystem by userName[%s] fsName[%s] failed, err: %v", userName, fs.Name, err)
+			return fmt.Errorf("find file system %s failed, err: %v", fs.Name, err)
+		}
+		jobSpec.ExtraFileSystems[index].ID = fileSystem.ID
+	}
+	return nil
+}
+
 func checkEmptyField(request *JobSpec) []string {
 	var emptyFields []string
 	if request.Image == "" {
@@ -316,6 +421,7 @@ func getFrameworkRoles(framework schema.Framework) map[schema.MemberRole]int {
 	return roles
 }
 
+// buildJob build a models job
 func buildJob(request *CreateJobInfo) (*models.Job, error) {
 	log.Debugf("begin build job with info: %#v", request)
 	// build main job config
@@ -370,7 +476,7 @@ func buildMainConf(request *CreateJobInfo) *schema.Conf {
 	}
 
 	// fields in request.CommonJobInfo
-	patchFromCommonInfo(conf, &request.CommonJobInfo)
+	buildCommonInfo(conf, &request.CommonJobInfo)
 	// set scheduling priority
 	if request.SchedulingPolicy.Priority != "" {
 		conf.Priority = request.SchedulingPolicy.Priority
@@ -385,13 +491,13 @@ func buildMembers(request *CreateJobInfo) []models.Member {
 	log.Infof("build merbers for framework %s with mode %s", request.Framework, request.Mode)
 	for _, reqMember := range request.Members {
 		member := newMember(reqMember, schema.MemberRole(reqMember.Role))
-		patchFromCommonInfo(&member.Conf, &request.CommonJobInfo)
+		buildCommonInfo(&member.Conf, &request.CommonJobInfo)
 		members = append(members, member)
 	}
 	return members
 }
 
-func patchFromCommonInfo(conf *schema.Conf, commonJobInfo *CommonJobInfo) error {
+func buildCommonInfo(conf *schema.Conf, commonJobInfo *CommonJobInfo) {
 	log.Debugf("patch envs for job %s", commonJobInfo.Name)
 	// basic fields required
 	conf.Labels = commonJobInfo.Labels
@@ -403,8 +509,6 @@ func patchFromCommonInfo(conf *schema.Conf, commonJobInfo *CommonJobInfo) error 
 	conf.SetPriority(schedulingPolicy.Priority)
 	conf.SetClusterID(schedulingPolicy.ClusterId)
 	conf.SetNamespace(schedulingPolicy.Namespace)
-
-	return nil
 }
 
 // newMember convert request.Member to models.member
@@ -449,4 +553,77 @@ func newExtensionTemplateJson(extensionTemplate map[string]interface{}) (string,
 		yamlExtensionTemplate = string(bytes)
 	}
 	return yamlExtensionTemplate, nil
+}
+
+// CreateWorkflowJob handler for creating job
+func CreateWorkflowJob(ctx *logger.RequestContext, request *CreateWfJobRequest) (*CreateJobResponse, error) {
+	if err := CheckPermission(ctx); err != nil {
+		ctx.ErrorCode = common.ActionNotAllowed
+		ctx.Logging().Errorln(err.Error())
+		return nil, err
+	}
+	if err := validateWorkflowJob(ctx, request); err != nil {
+		ctx.Logging().Errorf("validate job request failed. request:%v error:%s", request, err.Error())
+		return nil, err
+	}
+
+	var templateJson string
+	if request.ExtensionTemplate == nil {
+		return nil, fmt.Errorf("ExtensionTemplate for workflow job is needed")
+	}
+	var err error
+	templateJson, err = newExtensionTemplateJson(request.ExtensionTemplate)
+	if err != nil {
+		log.Errorf("parse extension template failed, err=%v", err)
+		return nil, err
+	}
+
+	// TODO: get workflow job conf
+	conf := schema.Conf{
+		Name:        request.Name,
+		Labels:      request.Labels,
+		Annotations: request.Annotations,
+		Priority:    request.SchedulingPolicy.Priority,
+	}
+	// validate queue
+	if err := ValidateQueue(&conf, ctx.UserName, request.SchedulingPolicy.Queue); err != nil {
+		msg := fmt.Sprintf("valiate queue for workflow job failed, err: %v", err)
+		log.Errorf(msg)
+		return nil, fmt.Errorf(msg)
+	}
+	conf.SetEnv(schema.EnvJobQueueName, request.SchedulingPolicy.Queue)
+
+	// create workflow job
+	jobInfo := &models.Job{
+		ID:                request.ID,
+		Name:              request.Name,
+		Type:              string(schema.TypeWorkflow),
+		UserName:          conf.GetUserName(),
+		QueueID:           conf.GetQueueID(),
+		Status:            schema.StatusJobInit,
+		Config:            &conf,
+		ExtensionTemplate: templateJson,
+	}
+
+	if err := models.CreateJob(jobInfo); err != nil {
+		log.Errorf("create job[%s] in database faield, err: %v", conf.GetName(), err)
+		return nil, fmt.Errorf("create job[%s] in database faield, err: %v", conf.GetName(), err)
+	}
+	log.Infof("create job[%s] successful.", jobInfo.ID)
+	return &CreateJobResponse{ID: jobInfo.ID}, nil
+}
+
+func validateWorkflowJob(ctx *logger.RequestContext, request *CreateWfJobRequest) error {
+	if err := validateCommonJobInfo(ctx, &request.CommonJobInfo); err != nil {
+		log.Errorf("WorkflowJob validateCommonJobInfo failed, err: %v", err)
+		return err
+	}
+
+	if request.ExtensionTemplate == nil {
+		ctx.ErrorCode = common.RequiredFieldEmpty
+		err := fmt.Errorf("ExtensionTemplate for workflow job is needed, and now is empty")
+		ctx.Logging().Errorf("create workflow job failed. error: %s", err.Error())
+		return err
+	}
+	return nil
 }
