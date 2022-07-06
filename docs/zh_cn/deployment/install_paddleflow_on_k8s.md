@@ -117,10 +117,10 @@ curl -sSL https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14
 #### 2.3.3 安装volcano
 ```shell
 # For x86_64:
-kubectl apply -f https://raw.githubusercontent.com/volcano-sh/volcano/v1.3.0/installer/volcano-development.yaml
+kubectl apply -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.2/installer/deploys/volcano/pf-volcano-deploy.yaml
 
 # For arm64:
-kubectl apply -f https://raw.githubusercontent.com/volcano-sh/volcano/v1.3.0/installer/volcano-development-arm64.yaml
+todo
 ```
 
 ### 手动初始化数据

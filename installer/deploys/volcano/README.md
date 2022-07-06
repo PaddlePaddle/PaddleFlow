@@ -5,10 +5,10 @@
 ```shell
 # todo(使用pf版volcano,替换image, volcano-scheduler-pf.conf)
 # For x86_64:
-kubectl apply -f https://raw.githubusercontent.com/volcano-sh/volcano/v1.3.0/installer/volcano-development.yaml
+kubectl apply -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.2/installer/deploys/volcano/pf-volcano-deploy.yaml
 
 # For arm64:
-kubectl apply -f https://raw.githubusercontent.com/volcano-sh/volcano/v1.3.0/installer/volcano-development-arm64.yaml
+todo
 ```
 
 
