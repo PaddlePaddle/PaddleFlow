@@ -245,7 +245,7 @@ func (r *Run) initRuntime(jobs []RunJob, dags []RunDag) error {
 	logger.Logger().Infof("debug: resRuntime: %s", res)
 
 	// 此时已拿到RuntimeView树，但是信息不全，需要用wfs补全
-	if err := ProcessRuntimeView(resView, r.WorkflowSource.EntryPoints.EntryPoints); err != nil {
+	if err := r.ProcessRuntimeView(resView, r.WorkflowSource.EntryPoints.EntryPoints); err != nil {
 		logger.Logger().Infof("debug: err: %s", err.Error())
 		return err
 	}
@@ -258,19 +258,40 @@ func (r *Run) initRuntime(jobs []RunJob, dags []RunDag) error {
 }
 
 // 补全ComponentView中的Deps
-func ProcessRuntimeView(componentViews map[string][]schema.ComponentView, components map[string]schema.Component) error {
+func (r *Run) ProcessRuntimeView(componentViews map[string][]schema.ComponentView, components map[string]schema.Component) error {
 	for compName, comp := range components {
 		compViewList := componentViews[compName]
 		deps := strings.Join(comp.GetDeps(), ",")
 		for _, compView := range compViewList {
 			// 信息补全
 			compView.SetDeps(deps)
+
+			// 如果View为Dag类型，则继续遍历，补全子节点View的信息
 			if dagView, ok := compView.(*schema.DagView); ok {
 				dag, ok := comp.(*schema.WorkflowSourceDag)
 				if !ok {
-					return fmt.Errorf("runtimeView's sturcture is not suitable to WorkflowSource")
+					// 如果是Wfs中对应的节点是Step，且为reference节点，那就去Components中寻找信息
+					step, ok := comp.(*schema.WorkflowSourceStep)
+					if !ok {
+						return fmt.Errorf("component is not Dag or Job")
+					}
+					for {
+						if step.Reference.Component == "" {
+							return fmt.Errorf("runtimeView's sturcture is not suitable to WorkflowSource")
+						}
+						refComp, ok := r.WorkflowSource.Components[step.Reference.Component]
+						if !ok {
+							return fmt.Errorf("reference in step is not exist")
+						}
+						if refDag, ok := refComp.(*schema.WorkflowSourceDag); ok {
+							dag = refDag
+							break
+						} else if refStep, ok := refComp.(*schema.WorkflowSourceStep); ok {
+							step = refStep
+						}
+					}
 				}
-				if err := ProcessRuntimeView(dagView.EntryPoints, dag.EntryPoints); err != nil {
+				if err := r.ProcessRuntimeView(dagView.EntryPoints, dag.EntryPoints); err != nil {
 					return err
 				}
 			}
