@@ -47,12 +47,12 @@ func CreatePFJob(ctx *logger.RequestContext, request *CreateJobInfo) (*CreateJob
 		ctx.Logging().Errorln(err.Error())
 		return nil, err
 	}
+	request.UserName = ctx.UserName
 	// validate Job
 	if err := validateJob(ctx, request); err != nil {
 		ctx.Logging().Errorf("validate job request failed. request:%v error:%s", request, err.Error())
 		return nil, err
 	}
-	request.UserName = ctx.UserName
 
 	// build job from request
 	jobInfo, err := buildJob(request)
@@ -80,7 +80,7 @@ func validateJob(ctx *logger.RequestContext, request *CreateJobInfo) error {
 	}
 
 	// check job framework
-	jobType := schema.TypeSingle
+	var jobType = schema.TypeSingle
 	switch request.Framework {
 	case schema.FrameworkSpark, schema.FrameworkPaddle:
 		jobType = schema.TypeDistributed
@@ -145,6 +145,12 @@ func validateJobMembers(ctx *logger.RequestContext, request *CreateJobInfo) erro
 		err := checkPort(member.Port)
 		if err != nil {
 			ctx.Logging().Errorf("Failed to check Members' Port: %v", err)
+			ctx.ErrorCode = common.JobInvalidField
+			return err
+		}
+		// check filesystem
+		if err = validateFileSystem(&member.JobSpec, request.UserName); err != nil {
+			ctx.Logging().Errorf("Failed to check Members' FS or ExtraFS: %v", err)
 			ctx.ErrorCode = common.JobInvalidField
 			return err
 		}
@@ -308,11 +314,6 @@ func buildMembers(request *CreateJobInfo) ([]models.Member, error) {
 	log.Infof("build merbers for framework %s with mode %s", request.Framework, request.Mode)
 	for _, reqMember := range request.Members {
 		reqMember.UserName = request.UserName
-		// validate FileSystem
-		if err := validateFileSystem(&reqMember.JobSpec, request.UserName); err != nil {
-			return nil, err
-		}
-
 		var member models.Member
 		var err error
 		member, err = newMember(reqMember, schema.MemberRole(reqMember.Role))
