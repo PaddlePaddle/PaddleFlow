@@ -74,6 +74,8 @@ S3:
    name. If insecureSkipVerify is `true`, crypto/tls accepts any certificate presented by the server and any host name in 
    that certificate. In this mode, TLS is susceptible to machine-in-the-middle attacks unless custom verification is 
    used.
+  -o dir-mode: Permission bits for directories. (default: 0755)
+  -o file-mode: Permission bits for files. (default: 0644)
   Example: -o endpoint=your-endpoint -o region=your-region 
  
 HDFS:  
@@ -349,6 +351,13 @@ S3:
   -o region: s3 regin [not required] 
   -o accessKey: s3 accessKey [required]
   -o secretKey: s3 secretKey [required]
+  -o s3ForcePathStyle: set this to `true` to force the request to use path-style addressing
+  -o insecureSkipVerify: insecureSkipVerify controls whether a client verifies the server's certificate chain and host
+   name. If insecureSkipVerify is `true`, crypto/tls accepts any certificate presented by the server and any host name in 
+   that certificate. In this mode, TLS is susceptible to machine-in-the-middle attacks unless custom verification is 
+   used.
+  -o dir-mode: Permission bits for directories. (default: 0755)
+  -o file-mode: Permission bits for files. (default: 0644)
   Example: -o endpoint=your-endpoint -o region=your-regin 
  
 HDFS:  
