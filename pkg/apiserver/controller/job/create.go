@@ -17,8 +17,11 @@ limitations under the License.
 package job
 
 import (
+	"encoding/json"
 	"fmt"
+	"strings"
 
+	"github.com/ghodss/yaml"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
@@ -113,6 +116,36 @@ func validateJob(ctx *logger.RequestContext, request *CreateJobInfo) error {
 	return nil
 }
 
+func validateCommonJobInfo(ctx *logger.RequestContext, requestCommonJobInfo *CommonJobInfo) error {
+	// validate job id
+	if requestCommonJobInfo.ID != "" {
+		// check namespace format
+		if errStr := common.IsDNS1123Label(requestCommonJobInfo.ID); len(errStr) != 0 {
+			err := fmt.Errorf("ID[%s] of Job is invalid, err: %s", requestCommonJobInfo.ID, strings.Join(errStr, ","))
+			ctx.Logging().Errorf("validate Job id failed, err: %v", err)
+			return err
+		}
+	}
+	if requestCommonJobInfo.Name != "" && len(requestCommonJobInfo.Name) > common.JobNameMaxLength {
+		err := fmt.Errorf("length of jobName[%s] must be no more than %d characters",
+			requestCommonJobInfo.Name, common.JobNameMaxLength)
+		ctx.Logging().Errorf("validate Job name failed, err: %v", err)
+		return err
+	}
+	if err := validateQueue(ctx, &requestCommonJobInfo.SchedulingPolicy); err != nil {
+		ctx.Logging().Errorf("validate queue failed. error: %s", err.Error())
+		return err
+	}
+	// SchedulingPolicy
+	if err := checkPriority(&requestCommonJobInfo.SchedulingPolicy, nil); err != nil {
+		ctx.Logging().Errorf("Failed to check priority: %v", err)
+		ctx.ErrorCode = common.JobInvalidField
+		return err
+	}
+
+	return nil
+}
+
 func validateJobMembers(ctx *logger.RequestContext, request *CreateJobInfo) error {
 	if len(request.Members) == 0 {
 		err := fmt.Errorf("request.Members is empty")
@@ -160,11 +193,23 @@ func validateJobMembers(ctx *logger.RequestContext, request *CreateJobInfo) erro
 			ctx.ErrorCode = common.JobInvalidField
 			return err
 		}
+		member.Flavour, err = flavour.GetFlavourWithCheck(member.Flavour)
+		if err != nil {
+			log.Errorf("get flavour failed, err:%v", err)
+			return err
+		}
+		request.Members[index].Flavour.ResourceInfo = member.Flavour.ResourceInfo
 		// sum = sum + member.Replicas * member.Flavour.ResourceInfo
 		memberRes, err := resources.NewResourceFromMap(member.Flavour.ResourceInfo.ToMap())
 		if err != nil {
 			ctx.Logging().Errorf("Failed to multiply replicas=%d and resourceInfo=%v, err: %v", member.Replicas, member.Flavour.ResourceInfo, err)
 			ctx.ErrorCode = common.JobInvalidField
+			return err
+		}
+		ctx.Logging().Debugf("member resource info %v", member.Flavour.ResourceInfo)
+		if memberRes.CPU() == 0 || memberRes.Memory() == 0 {
+			err = fmt.Errorf("flavour[%v] cpu or memory is empty", memberRes)
+			ctx.Logging().Errorf("Failed to check flavour: %v", err)
 			return err
 		}
 		memberRes.Multi(member.Replicas)
@@ -192,18 +237,29 @@ func checkJobSpec(ctx *logger.RequestContext, jobSpec *JobSpec) error {
 		ctx.Logging().Errorf("validate job failed, err: %v", err)
 		return err
 	}
+	// ensure required fields
+	emptyFields := checkEmptyField(jobSpec)
+	if len(emptyFields) != 0 {
+		emptyFieldStr := strings.Join(emptyFields, ",")
+		err := fmt.Errorf("required fields in {%s} are empty, please fill it", emptyFieldStr)
+		ctx.Logging().Errorf("create single job failed. error: %s", err.Error())
+		ctx.ErrorCode = common.RequiredFieldEmpty
+		return err
+	}
 	// validate FileSystem
 	if err := validateFileSystem(jobSpec, ctx.UserName); err != nil {
 		ctx.Logging().Errorf("validateFileSystem failed, requestJobSpec[%v], err: %v", jobSpec, err)
 		return err
 	}
-	var err error
-	jobSpec.Flavour, err = flavour.GetFlavourWithCheck(jobSpec.Flavour)
-	if err != nil {
-		log.Errorf("get flavour failed, err:%v", err)
-		return err
-	}
 	return nil
+}
+
+func checkEmptyField(request *JobSpec) []string {
+	var emptyFields []string
+	if request.Image == "" {
+		emptyFields = append(emptyFields, "image")
+	}
+	return emptyFields
 }
 
 func checkMemberRole(framework schema.Framework, roles map[schema.MemberRole]int) (string, error) {
@@ -262,20 +318,8 @@ func getFrameworkRoles(framework schema.Framework) map[schema.MemberRole]int {
 
 func buildJob(request *CreateJobInfo) (*models.Job, error) {
 	log.Debugf("begin build job with info: %#v", request)
-	conf := &schema.Conf{
-		Name:        request.Name,
-		Labels:      request.Labels,
-		Annotations: request.Annotations,
-		Priority:    request.SchedulingPolicy.Priority,
-	}
-	// fields in request.CommonJobInfo
-	patchFromCommonInfo(conf, &request.CommonJobInfo)
-	// set scheduling priority
-	if request.SchedulingPolicy.Priority != "" {
-		conf.Priority = request.SchedulingPolicy.Priority
-	}
-	// TODO: remove job mode
-	conf.SetEnv(schema.EnvJobMode, request.Mode)
+	// build main job config
+	conf := buildMainConf(request)
 	// convert job members if necessary
 	var members []models.Member
 	var templateJson string
@@ -305,6 +349,37 @@ func buildJob(request *CreateJobInfo) (*models.Job, error) {
 	return jobInfo, nil
 }
 
+func buildMainConf(request *CreateJobInfo) *schema.Conf {
+	conf := &schema.Conf{
+		Name:        request.Name,
+		Labels:      request.Labels,
+		Annotations: request.Annotations,
+		Priority:    request.SchedulingPolicy.Priority,
+	}
+	// TODO: adjust code logic
+	if request.Type == schema.TypeSingle && len(request.Members) == 1 {
+		// build conf for single job
+		conf.FileSystem = request.Members[0].FileSystem
+		conf.ExtraFileSystem = request.Members[0].ExtraFileSystems
+		conf.Flavour = request.Members[0].Flavour
+		conf.Env = request.Members[0].Env
+		conf.Image = request.Members[0].Image
+		conf.Command = request.Members[0].Command
+		conf.Port = request.Members[0].Port
+		conf.Args = request.Members[0].Args
+	}
+
+	// fields in request.CommonJobInfo
+	patchFromCommonInfo(conf, &request.CommonJobInfo)
+	// set scheduling priority
+	if request.SchedulingPolicy.Priority != "" {
+		conf.Priority = request.SchedulingPolicy.Priority
+	}
+	// TODO: remove job mode
+	conf.SetEnv(schema.EnvJobMode, request.Mode)
+	return conf
+}
+
 func buildMembers(request *CreateJobInfo) []models.Member {
 	members := make([]models.Member, 0)
 	log.Infof("build merbers for framework %s with mode %s", request.Framework, request.Mode)
@@ -314,6 +389,22 @@ func buildMembers(request *CreateJobInfo) []models.Member {
 		members = append(members, member)
 	}
 	return members
+}
+
+func patchFromCommonInfo(conf *schema.Conf, commonJobInfo *CommonJobInfo) error {
+	log.Debugf("patch envs for job %s", commonJobInfo.Name)
+	// basic fields required
+	conf.Labels = commonJobInfo.Labels
+	conf.Annotations = commonJobInfo.Annotations
+	// info in SchedulingPolicy: queue,Priority,ClusterId,Namespace
+	schedulingPolicy := commonJobInfo.SchedulingPolicy
+	conf.SetQueueID(schedulingPolicy.QueueID)
+	conf.SetQueueName(schedulingPolicy.Queue)
+	conf.SetPriority(schedulingPolicy.Priority)
+	conf.SetClusterID(schedulingPolicy.ClusterId)
+	conf.SetNamespace(schedulingPolicy.Namespace)
+
+	return nil
 }
 
 // newMember convert request.Member to models.member
@@ -343,4 +434,19 @@ func newMember(member MemberSpec, role schema.MemberRole) models.Member {
 		Replicas: member.Replicas,
 		Conf:     conf,
 	}
+}
+
+// newExtensionTemplateJson parse extensionTemplate
+func newExtensionTemplateJson(extensionTemplate map[string]interface{}) (string, error) {
+	yamlExtensionTemplate := ""
+	if extensionTemplate != nil && len(extensionTemplate) > 0 {
+		extensionTemplateJSON, err := json.Marshal(&extensionTemplate)
+		bytes, err := yaml.JSONToYAML(extensionTemplateJSON)
+		if err != nil {
+			log.Errorf("Failed to parse extension template to yaml: %v", err)
+			return "", err
+		}
+		yamlExtensionTemplate = string(bytes)
+	}
+	return yamlExtensionTemplate, nil
 }

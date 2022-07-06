@@ -17,12 +17,10 @@ limitations under the License.
 package job
 
 import (
-	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"strings"
 
-	"github.com/ghodss/yaml"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
@@ -42,6 +40,23 @@ import (
 type CreateSingleJobRequest struct {
 	CommonJobInfo `json:",inline"`
 	JobSpec       `json:",inline"`
+}
+
+func (sj CreateSingleJobRequest) ToJobInfo() *CreateJobInfo {
+	return &CreateJobInfo{
+		CommonJobInfo: sj.CommonJobInfo,
+		Framework:     schema.FrameworkStandalone,
+		Type:          schema.TypeSingle,
+		Members: []MemberSpec{
+			{
+				CommonJobInfo: sj.CommonJobInfo,
+				JobSpec:       sj.JobSpec,
+				Role:          string(schema.RoleWorker),
+				Replicas:      1,
+			},
+		},
+		ExtensionTemplate: sj.JobSpec.ExtensionTemplate,
+	}
 }
 
 // CreateDisJobRequest convey request for create distributed job
@@ -122,6 +137,7 @@ type CreateJobResponse struct {
 }
 
 // CreateSingleJob handler for creating job
+// Deprecated
 func CreateSingleJob(ctx *logger.RequestContext, request *CreateSingleJobRequest) (*CreateJobResponse, error) {
 	if err := CheckPermission(ctx); err != nil {
 		ctx.ErrorCode = common.ActionNotAllowed
@@ -189,21 +205,7 @@ func CreateSingleJob(ctx *logger.RequestContext, request *CreateSingleJobRequest
 	return response, nil
 }
 
-// newExtensionTemplateJson parse extensionTemplate
-func newExtensionTemplateJson(extensionTemplate map[string]interface{}) (string, error) {
-	yamlExtensionTemplate := ""
-	if extensionTemplate != nil && len(extensionTemplate) > 0 {
-		extensionTemplateJSON, err := json.Marshal(&extensionTemplate)
-		bytes, err := yaml.JSONToYAML(extensionTemplateJSON)
-		if err != nil {
-			log.Errorf("Failed to parse extension template to yaml: %v", err)
-			return "", err
-		}
-		yamlExtensionTemplate = string(bytes)
-	}
-	return yamlExtensionTemplate, nil
-}
-
+// Deprecated
 func patchSingleConf(conf *schema.Conf, request *CreateSingleJobRequest) error {
 	log.Debugf("patchSingleConf conf=%#v, request=%#v", conf, request)
 	if err := patchFromJobSpec(conf, &request.JobSpec, request.UserName); err != nil {
@@ -217,6 +219,7 @@ func patchSingleConf(conf *schema.Conf, request *CreateSingleJobRequest) error {
 	return nil
 }
 
+// Deprecated
 func patchFromJobSpec(conf *schema.Conf, jobSpec *JobSpec, userName string) error {
 	var err error
 	conf.Flavour, err = flavour.GetFlavourWithCheck(jobSpec.Flavour)
@@ -224,22 +227,6 @@ func patchFromJobSpec(conf *schema.Conf, jobSpec *JobSpec, userName string) erro
 		log.Errorf("get flavour failed when create job, err:%v", err)
 		return err
 	}
-	return nil
-}
-
-func patchFromCommonInfo(conf *schema.Conf, commonJobInfo *CommonJobInfo) error {
-	log.Debugf("patch envs for job %s", commonJobInfo.Name)
-	// basic fields required
-	conf.Labels = commonJobInfo.Labels
-	conf.Annotations = commonJobInfo.Annotations
-	// info in SchedulingPolicy: queue,Priority,ClusterId,Namespace
-	schedulingPolicy := commonJobInfo.SchedulingPolicy
-	conf.SetQueueID(schedulingPolicy.QueueID)
-	conf.SetQueueName(schedulingPolicy.Queue)
-	conf.SetPriority(schedulingPolicy.Priority)
-	conf.SetClusterID(schedulingPolicy.ClusterId)
-	conf.SetNamespace(schedulingPolicy.Namespace)
-
 	return nil
 }
 
@@ -493,6 +480,7 @@ func validateWorkflowJob(ctx *logger.RequestContext, request *CreateWfJobRequest
 	return nil
 }
 
+// Deprecated
 func validateSingleJob(ctx *logger.RequestContext, request *CreateSingleJobRequest) error {
 	// ensure required fields
 	emptyFields := validateEmptyFieldInSingle(request)
@@ -521,10 +509,12 @@ func validateSingleJob(ctx *logger.RequestContext, request *CreateSingleJobReque
 	return nil
 }
 
+// Deprecated
 func validateSingleJobResource(flavour schema.Flavour, schedulingPolicy SchedulingPolicy) error {
 	return IsEnoughQueueCapacity(flavour, schedulingPolicy.MaxResources)
 }
 
+// Deprecated
 func validateJobSpec(ctx *logger.RequestContext, requestJobSpec *JobSpec) error {
 	port := requestJobSpec.Port
 	if port != 0 && !(port > 0 && port < common.JobPortMaximums) {
@@ -541,36 +531,6 @@ func validateJobSpec(ctx *logger.RequestContext, requestJobSpec *JobSpec) error 
 	requestJobSpec.Flavour, err = flavour.GetFlavourWithCheck(requestJobSpec.Flavour)
 	if err != nil {
 		log.Errorf("get flavour failed, err:%v", err)
-		return err
-	}
-
-	return nil
-}
-
-func validateCommonJobInfo(ctx *logger.RequestContext, requestCommonJobInfo *CommonJobInfo) error {
-	// validate job id
-	if requestCommonJobInfo.ID != "" {
-		// check namespace format
-		if errStr := common.IsDNS1123Label(requestCommonJobInfo.ID); len(errStr) != 0 {
-			err := fmt.Errorf("ID[%s] of Job is invalid, err: %s", requestCommonJobInfo.ID, strings.Join(errStr, ","))
-			ctx.Logging().Errorf("validate Job id failed, err: %v", err)
-			return err
-		}
-	}
-	if requestCommonJobInfo.Name != "" && len(requestCommonJobInfo.Name) > common.JobNameMaxLength {
-		err := fmt.Errorf("length of jobName[%s] must be no more than %d characters",
-			requestCommonJobInfo.Name, common.JobNameMaxLength)
-		ctx.Logging().Errorf("validate Job name failed, err: %v", err)
-		return err
-	}
-	if err := validateQueue(ctx, &requestCommonJobInfo.SchedulingPolicy); err != nil {
-		ctx.Logging().Errorf("validate queue failed. error: %s", err.Error())
-		return err
-	}
-	// SchedulingPolicy
-	if err := checkPriority(&requestCommonJobInfo.SchedulingPolicy, nil); err != nil {
-		ctx.Logging().Errorf("Failed to check priority: %v", err)
-		ctx.ErrorCode = common.JobInvalidField
 		return err
 	}
 
@@ -621,6 +581,7 @@ func checkPriority(schedulingPolicy, parentSP *SchedulingPolicy) error {
 	return nil
 }
 
+// Deprecated
 func validateEmptyFieldInSingle(request *CreateSingleJobRequest) []string {
 	var emptyFields []string
 	if request.Image == "" {
