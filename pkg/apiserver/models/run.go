@@ -220,6 +220,7 @@ func (r *Run) initRuntime(jobs []RunJob, dags []RunDag) error {
 		}
 		res, _ := json.Marshal(runtimeView)
 		logger.Logger().Infof("debug: runtime: %s", res)
+		logger.Logger().Infof("debug: compName: %s", comp.GetComponentName())
 	}
 
 	// 去掉最外层的DagView，使得RuntimeView显示得更友好
