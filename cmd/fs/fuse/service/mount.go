@@ -51,7 +51,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 	csiMount "github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/mount"
 	mountUtil "github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/mount"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/metric"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/monitor"
 )
 
 var opts *libfuse.MountOptions
@@ -74,7 +74,7 @@ func CmdMount() *cli.Command {
 		flag.CacheFlags(fuse.FuseConf),
 		flag.UserFlags(fuse.FuseConf),
 		logger.LogFlags(&logConf),
-		metric.MetricsFlags(),
+		monitor.MetricsFlags(),
 	}
 	return &cli.Command{
 		Name:      "mount",
@@ -138,7 +138,7 @@ func setup(c *cli.Context) error {
 		return err
 	}
 	signalHandle(mountPoint)
-	go metric.UpdateBaseMetrics()
+	go monitor.UpdateBaseMetrics()
 	// whether start metrics server
 	if c.Bool("metrics-service-on") {
 		metricsAddr := exposeMetricsService(c.String("server"), c.Int("metrics-service-port"))

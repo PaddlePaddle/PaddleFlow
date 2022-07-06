@@ -14,33 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package metric
+package monitor
 
 import (
-	"github.com/urfave/cli/v2"
+	"github.com/prometheus/common/model"
 )
 
-func MetricsFlags() []cli.Flag {
-	return []cli.Flag{
-		&cli.BoolFlag{
-			Name:  "pprof-enable",
-			Value: false,
-			Usage: "enable go pprof",
-		},
-		&cli.IntFlag{
-			Name:  "pprof-port",
-			Value: 6060,
-			Usage: "pprof port",
-		},
-		&cli.BoolFlag{
-			Name:  "metrics-service-on",
-			Value: false,
-			Usage: "whether to start metrics service",
-		},
-		&cli.IntFlag{
-			Name:  "metrics-service-port",
-			Value: 8993,
-			Usage: "metrics service port",
-		},
-	}
+type MetricInterface interface {
+	GetJobAvgMetrics(metricName, jobID string) (model.Value, error)
+	GetJobSequenceMetrics(metricName, jobID string, start, end, step int64) (model.Value, error)
 }

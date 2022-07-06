@@ -107,7 +107,6 @@ func GetRunLog(ctx *logger.RequestContext, runID string, request GetRunLogReques
 	} else {
 		response.SubmitLog = trace.String()
 	}
-
 	return response, nil
 }
 
