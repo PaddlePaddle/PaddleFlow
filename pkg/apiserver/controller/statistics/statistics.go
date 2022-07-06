@@ -19,13 +19,14 @@ package statistics
 import (
 	"fmt"
 
+	"github.com/prometheus/common/model"
+
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/consts"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/monitor"
-	"github.com/prometheus/common/model"
 )
 
 var metricNameList = [...]string{consts.MetricCpuUsageRate, consts.MetricMemoryUsage, consts.MetricDiskUsage,
@@ -73,7 +74,7 @@ func GetJobStatistics(ctx *logger.RequestContext, jobID string) (*JobStatisticsR
 	}
 
 	for _, value := range metricNameList {
-		result, err := metric.GetJobStatisticsMetric(value, jobID)
+		result, err := metric.GetJobAvgMetrics(value, jobID)
 		if err != nil {
 			ctx.Logging().Errorf("query metric[%s] failed, error: %s", value, err.Error())
 			return nil, err
@@ -120,7 +121,7 @@ func GetJobDetailStatistics(ctx *logger.RequestContext, jobID string, start, end
 	}
 
 	for _, value := range metricNameList {
-		result, err := metric.GetJobDetailMetric(value, jobID, start, end, step)
+		result, err := metric.GetJobSequenceMetrics(value, jobID, start, end, step)
 		if err != nil {
 			ctx.Logging().Errorf("query range metric[%s] failed, error: %s", value, err.Error())
 			return nil, err

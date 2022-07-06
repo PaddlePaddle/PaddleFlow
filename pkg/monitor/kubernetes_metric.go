@@ -36,7 +36,7 @@ func NewKubernetesMetric(clientAPI v1.API) MetricInterface {
 	}
 }
 
-func (km *KubernetesMetric) GetJobStatisticsMetric(metricName, jobID string) (model.Value, error) {
+func (km *KubernetesMetric) GetJobAvgMetrics(metricName, jobID string) (model.Value, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	queryPromql := fmt.Sprintf("avg(%s{jobID=\"%s\"}) without (podID)", metricName, jobID)
@@ -48,7 +48,7 @@ func (km *KubernetesMetric) GetJobStatisticsMetric(metricName, jobID string) (mo
 	return result, nil
 }
 
-func (km *KubernetesMetric) GetJobDetailMetric(metricName, jobID string, start, end, step int64) (model.Value, error) {
+func (km *KubernetesMetric) GetJobSequenceMetrics(metricName, jobID string, start, end, step int64) (model.Value, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	queryPromql := fmt.Sprintf("%s{jobID=\"%s\"}", metricName, jobID)
