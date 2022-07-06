@@ -225,7 +225,7 @@ func (drt *DagRuntime) createAndStartSubComponentRuntime(subComponentName string
 		v := reflect.ValueOf(lp)
 		ll = v.Len()
 		if ll == 0 {
-			err := fmt.Errorf("%s[%s] wouldn't be scheduled, because the lenth of it's loop_argument is 0",
+			err := fmt.Errorf("%s[%s] wouldn't be scheduled, because the length of it's loop_argument is 0",
 				newSubComponent.GetType(), subName)
 			drt.logger.Errorln(err.Error())
 			drt.processSubRuntimeError(err, newSubComponent, StatusRuntimeSkipped)
@@ -875,9 +875,6 @@ func (drt *DagRuntime) ProcessFailureOptions(event WorkflowEvent, needSync bool)
 	drt.logger.Infof("begin to process failure options. trigger event is: %v", event)
 	name, ok := event.Extra[common.WfEventKeyComponentName]
 	if !ok {
-		for n, v := range event.Extra {
-			drt.logger.Infof("DEBUG:++++++, workflowEvnet, key: %s \nvalue:%s", n, v)
-		}
 		errMsg := fmt.Sprintf("cannot get the subStep or subDag info form event[%v] for dagRuntime[%s], begin to cancell all not ready step",
 			drt.runID, event)
 		drt.logger.Errorf(errMsg)
