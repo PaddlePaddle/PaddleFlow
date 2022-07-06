@@ -832,7 +832,7 @@ func (srt *StepRuntime) newJobView(msg string) schema.JobView {
 		CacheRunID:  srt.CacheRunID,
 		CacheJobID:  srt.CacheJobID,
 		StepName:    srt.getComponent().GetName(),
-		Cache:       srt.Cache,
+		Cache:       srt.getWorkFlowStep().Cache,
 		PK:          srt.pk,
 		Seq:         srt.seq,
 		Artifacts:   *newArt,
