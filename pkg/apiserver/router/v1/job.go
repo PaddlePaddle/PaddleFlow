@@ -137,7 +137,7 @@ func (jr *JobRouter) CreateDistributedJob(w http.ResponseWriter, r *http.Request
 	}
 	log.Debugf("create distributed job request:%+v", request)
 
-	response, err := job.CreateDistributedJob(&ctx, &request)
+	response, err := job.CreatePFJob(&ctx, request.ToJobInfo())
 	if err != nil {
 		ctx.ErrorCode = common.JobCreateFailed
 		ctx.Logging().Errorf("create job failed. job request:%v error:%s", request, err.Error())

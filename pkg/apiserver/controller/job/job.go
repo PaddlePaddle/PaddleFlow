@@ -52,6 +52,15 @@ type CreateDisJobRequest struct {
 	ExtensionTemplate map[string]interface{} `json:"extensionTemplate"`
 }
 
+func (ds CreateDisJobRequest) ToJobInfo() *CreateJobInfo {
+	return &CreateJobInfo{
+		CommonJobInfo:     ds.CommonJobInfo,
+		Framework:         ds.Framework,
+		Members:           ds.Members,
+		ExtensionTemplate: ds.ExtensionTemplate,
+	}
+}
+
 // CreateWfJobRequest convey request for create workflow job
 type CreateWfJobRequest struct {
 	CommonJobInfo     `json:",inline"`
@@ -235,6 +244,7 @@ func patchFromCommonInfo(conf *schema.Conf, commonJobInfo *CommonJobInfo) error 
 }
 
 // CreateDistributedJob handler for creating job
+// Deprecated
 func CreateDistributedJob(ctx *logger.RequestContext, request *CreateDisJobRequest) (*CreateJobResponse, error) {
 	log.Debugf("CreateDistributedJob request=%#v", request)
 	if err := CheckPermission(ctx); err != nil {
@@ -325,6 +335,7 @@ func CreateDistributedJob(ctx *logger.RequestContext, request *CreateDisJobReque
 	return response, nil
 }
 
+// Deprecated
 func validateJobMode(ctx *logger.RequestContext, request *CreateDisJobRequest) (string, error) {
 	if len(request.Members) == 1 && (request.Members[0].Role == string(schema.RolePWorker) ||
 		request.Members[0].Role == string(schema.RoleWorker)) {
@@ -341,6 +352,7 @@ func validateJobMode(ctx *logger.RequestContext, request *CreateDisJobRequest) (
 		len(request.Members))
 }
 
+// Deprecated
 func isPSMode(members []MemberSpec) bool {
 	if len(members) != 2 {
 		return false
@@ -364,6 +376,7 @@ func isPSMode(members []MemberSpec) bool {
 	return false
 }
 
+// Deprecated
 func patchDistributedConf(conf *schema.Conf, request *CreateDisJobRequest) error {
 	log.Debugf("patchSingleConf conf=%#v, request=%#v", conf, request)
 	// fields in request.CommonJobInfo
@@ -376,6 +389,7 @@ func patchDistributedConf(conf *schema.Conf, request *CreateDisJobRequest) error
 	return nil
 }
 
+// Deprecated
 func newCollectiveMembers(request *CreateDisJobRequest) ([]models.Member, error) {
 	members := make([]models.Member, 0)
 	for _, reqMem := range request.Members {
@@ -397,6 +411,7 @@ func newCollectiveMembers(request *CreateDisJobRequest) ([]models.Member, error)
 	return members, nil
 }
 
+// Deprecated
 func newPSMembers(request *CreateDisJobRequest) ([]models.Member, error) {
 	members := make([]models.Member, 0)
 	for _, reqMember := range request.Members {
@@ -417,45 +432,6 @@ func newPSMembers(request *CreateDisJobRequest) ([]models.Member, error) {
 		members = append(members, member)
 	}
 	return members, nil
-}
-
-// newMember create models.member from request.Member
-func newMember(member MemberSpec, role schema.MemberRole) (models.Member, error) {
-	f, err := flavour.GetFlavourWithCheck(member.Flavour)
-	if err != nil {
-		log.Errorf("get flavour failed, err:%v", err)
-		return models.Member{}, err
-	}
-	if member.Replicas < 1 {
-		log.Errorf("member with invalid replicas %d", member.Replicas)
-		return models.Member{}, fmt.Errorf("invalid replicas %d", member.Replicas)
-	}
-
-	conf := schema.Conf{
-		Name: member.Name,
-		// 存储资源
-		FileSystem:      member.FileSystem,
-		ExtraFileSystem: member.ExtraFileSystems,
-		// 计算资源
-		Flavour:  f,
-		Priority: member.SchedulingPolicy.Priority,
-		QueueID:  member.SchedulingPolicy.QueueID,
-		// 运行时需要的参数
-		Labels:      member.Labels,
-		Annotations: member.Annotations,
-		Env:         member.Env,
-		Command:     member.Command,
-		Image:       member.Image,
-		Port:        member.Port,
-		Args:        member.Args,
-	}
-
-	return models.Member{
-		ID:       member.ID,
-		Role:     role,
-		Replicas: member.Replicas,
-		Conf:     conf,
-	}, nil
 }
 
 // CreateWorkflowJob handler for creating job
@@ -693,6 +669,7 @@ func getRuntimeByQueue(ctx *logger.RequestContext, queueID string) (runtime.Runt
 	return runtimeSvc, nil
 }
 
+// Deprecated
 func validateDistributedJob(ctx *logger.RequestContext, request *CreateDisJobRequest) error {
 	if err := validateCommonJobInfo(ctx, &request.CommonJobInfo); err != nil {
 		log.Errorf("validateCommonJobInfo failed, err: %v", err)
@@ -877,6 +854,7 @@ func validateEmptyFieldInSingle(request *CreateSingleJobRequest) []string {
 	return emptyFields
 }
 
+// Deprecated
 func validateMembers(ctx *logger.RequestContext, members []MemberSpec, schePolicy SchedulingPolicy) error {
 	if len(members) == 0 {
 		err := fmt.Errorf("request.Members is empty")
