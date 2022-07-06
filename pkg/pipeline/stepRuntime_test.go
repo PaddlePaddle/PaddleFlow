@@ -703,7 +703,7 @@ func TestStart(t *testing.T) {
 	assert.True(t, strings.Contains(ep.Message, "condition"))
 	assert.Equal(t, srt.parallelismManager.CurrentParallelism(), 0)
 
-	// +++++++++ 测试disabled 的情况
+	// 测试disabled 的情况
 	*ep = WorkflowEvent{}
 	executed = false
 	st.Condition = "10 < 9"
