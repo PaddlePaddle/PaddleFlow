@@ -104,7 +104,7 @@ func (jr *JobRouter) CreateSingleJob(w http.ResponseWriter, r *http.Request) {
 
 	request.CommonJobInfo.UserName = ctx.UserName
 
-	response, err := job.CreateSingleJob(&ctx, &request)
+	response, err := job.CreatePFJob(&ctx, request.ToJobInfo())
 	if err != nil {
 		ctx.ErrorCode = common.JobCreateFailed
 		ctx.Logging().Errorf("create job failed. job request:%v error:%s", request, err.Error())
