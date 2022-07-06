@@ -133,33 +133,13 @@ func (pfj *PaddleFlowJob) Update(cmd string, params map[string]string, envs map[
 
 // 生成job 的conf 信息
 func (pfj *PaddleFlowJob) generateJobConf() schema.Conf {
-	/*
-			type Conf struct {
-			Name string `json:"name"`
-			// 存储资源
-			FileSystem      FileSystem   `json:"fileSystem,omitempty"`
-			ExtraFileSystem []FileSystem `json:"extraFileSystem,omitempty"`
-			// 计算资源
-			Flavour  Flavour `json:"flavour,omitempty"`
-			Priority string  `json:"priority"`
-			QueueID  string  `json:"queueID"`
-			// 运行时需要的参数
-			Labels      map[string]string `json:"labels"`
-			Annotations map[string]string `json:"annotations"`
-			Env         map[string]string `json:"env,omitempty"`
-			Command     string            `json:"command,omitempty"`
-			Image       string            `json:"image"`
-			Port        int               `json:"port,omitempty"`
-			Args        []string          `json:"args,omitempty"`
-		}
-	*/
 	efs := []schema.FileSystem{}
 	for _, fsMount := range pfj.FsMount {
 		fs := schema.FileSystem{
 			ID:        fsMount.FsID,
 			Name:      fsMount.FsName,
 			SubPath:   fsMount.SubPath,
-			MountPath: fsMount.SubPath,
+			MountPath: fsMount.MountPath,
 		}
 		efs = append(efs, fs)
 	}
@@ -215,6 +195,8 @@ func (pfj *PaddleFlowJob) Start() (string, error) {
 
 	// 调用job子系统接口发起运行
 	conf := pfj.generateJobConf()
+
+	fmt.Printf("+++++++ the conf for job is: \n\n\n%v\n", conf)
 
 	pfj.ID, err = job.CreateJob(&conf)
 	if err != nil {
