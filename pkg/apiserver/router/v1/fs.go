@@ -522,7 +522,7 @@ func (pr *PFSRouter) deleteFileSystem(w http.ResponseWriter, r *http.Request) {
 	realUserName := getRealUserName(&ctx, username)
 	fsID := common.ID(realUserName, fsName)
 
-	if err := fsCheckCanModify(&ctx, fsID); err != nil {
+	if err := fsExistsForModify(&ctx, fsID); err != nil {
 		ctx.Logging().Errorf("checkCanModifyFs[%s] err: %v", fsID, err)
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
@@ -536,7 +536,7 @@ func (pr *PFSRouter) deleteFileSystem(w http.ResponseWriter, r *http.Request) {
 	common.RenderStatus(w, http.StatusOK)
 }
 
-func fsCheckCanModify(ctx *logger.RequestContext, fsID string) error {
+func fsExistsForModify(ctx *logger.RequestContext, fsID string) error {
 	// check fs exist
 	if _, err := storage.Filesystem.GetFileSystemWithFsID(fsID); err != nil {
 		ctx.Logging().Errorf("get filesystem[%s] err: %v", fsID, err)
