@@ -154,10 +154,14 @@ func (r *Run) validateRuntimeAndPostProcess() error {
 	if err != nil {
 		return err
 	}
+	res, _ := json.Marshal(runJobs)
+	logger.Logger().Infof("debug: runJobs: %s", res)
 	runDags, err := GetRunDagsOfRun(logging, r.ID)
 	if err != nil {
 		return err
 	}
+	res, _ = json.Marshal(runDags)
+	logger.Logger().Infof("debug: runDags: %s", res)
 
 	// 先将post节点从runJobs中剔除
 	// TODO: 后续版本，如果支持了复杂结构的PostProcess，那么建议在step和dag表中添加 type 字段，用于区分该节点属于EntryPoints还是PostProcess
