@@ -80,6 +80,8 @@ func ProcessMountInfo(username, password, targetPath, fsID, server, fsInfoBase64
 		UsernameRoot:            username,
 		PasswordRoot:            password,
 		TargetPath:              targetPath,
+		ServerAddress:           fs.ServerAddress,
+		SubPath:                 fs.SubPath,
 		FsID:                    fsID,
 		Server:                  server,
 		FsBase64Str:             fsInfoBase64,
