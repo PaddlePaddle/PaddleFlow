@@ -632,7 +632,7 @@ func (p *Parser) TransJsonMap2Yaml(jsonMap map[string]interface{}) error {
 			jsonMap["docker_env"] = value
 			delete(jsonMap, "dockerEnv")
 		case "entryPoints":
-			if err := p.transJsonSubMap2Yaml(value, "entryPoints"); err != nil {
+			if err := p.transJsonSubComp2Yaml(value, "entryPoints"); err != nil {
 				return err
 			}
 			jsonMap["entry_points"] = value
@@ -641,7 +641,7 @@ func (p *Parser) TransJsonMap2Yaml(jsonMap map[string]interface{}) error {
 			jsonMap["failure_options"] = value
 			delete(jsonMap, "failureOptions")
 		case "postProcess":
-			if err := p.transJsonSubMap2Yaml(value, "postProcess"); err != nil {
+			if err := p.transJsonSubComp2Yaml(value, "postProcess"); err != nil {
 				return err
 			}
 			jsonMap["post_process"] = value
@@ -650,7 +650,7 @@ func (p *Parser) TransJsonMap2Yaml(jsonMap map[string]interface{}) error {
 			jsonMap["loop_argument"] = value
 			delete(jsonMap, "loopArgument")
 		case "component":
-			if err := p.transJsonSubMap2Yaml(value, "component"); err != nil {
+			if err := p.transJsonSubComp2Yaml(value, "component"); err != nil {
 				return err
 			}
 		case "cache":
@@ -664,23 +664,17 @@ func (p *Parser) TransJsonMap2Yaml(jsonMap map[string]interface{}) error {
 			cacheMap["fs_scope"] = cacheMap["fsScope"]
 			delete(cacheMap, "fsScope")
 		case "fsOptions":
-			if err := p.transJsonSubMap2Yaml(value, "fsOptions"); err != nil {
+			if err := p.transJsonFsOptions2Yaml(value); err != nil {
 				return err
 			}
 			jsonMap["fs_options"] = value
 			delete(jsonMap, "fsOptions")
-		case "fsMount":
-			jsonMap["fs_mount"] = value
-			delete(jsonMap, "fsMount")
-		case "globalFsName":
-			jsonMap["global_fs_name"] = value
-			delete(jsonMap, "globalFsName")
 		}
 	}
 	return nil
 }
 
-func (p *Parser) transJsonSubMap2Yaml(value interface{}, filedType string) error {
+func (p *Parser) transJsonSubComp2Yaml(value interface{}, filedType string) error {
 	compsMap, ok := value.(map[string]interface{})
 	if !ok {
 		return fmt.Errorf("[%s] should be map type", filedType)
@@ -692,6 +686,47 @@ func (p *Parser) transJsonSubMap2Yaml(value interface{}, filedType string) error
 		}
 		if err := p.TransJsonMap2Yaml(compMap); err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+func (p *Parser) transJsonFsOptions2Yaml(value interface{}) error {
+	fsOptMap, ok := value.(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("[fsOptions] should be map type")
+	}
+	for key, value := range fsOptMap {
+		switch key {
+		case "fsMount":
+			mountList, ok := value.([]interface{})
+			if !ok {
+				return fmt.Errorf("[fsMount] should be list type")
+			}
+			for _, mount := range mountList {
+				mountMap, ok := mount.(map[string]interface{})
+				if !ok {
+					return fmt.Errorf("each mount info in [fsMount] should be map type")
+				}
+				for mountKey, mountValue := range mountMap {
+					switch mountKey {
+					case "fsName":
+						mountMap["fs_name"] = mountValue
+						delete(fsOptMap, "fsName")
+					case "mountPath":
+						mountMap["mount_path"] = mountValue
+						delete(fsOptMap, "mountPath")
+					case "subPath":
+						mountMap["sub_path"] = mountValue
+						delete(fsOptMap, "subPath")
+					}
+				}
+			}
+			fsOptMap["fs_mount"] = mountList
+			delete(fsOptMap, "fsMount")
+		case "globalFsName":
+			fsOptMap["global_fs_name"] = value
+			delete(fsOptMap, "globalFsName")
 		}
 	}
 	return nil
