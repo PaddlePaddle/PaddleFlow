@@ -241,7 +241,8 @@ func TestUpdateJob(t *testing.T) {
 			assert.Equal(t, common.ArtMountDir+"/"+OutatfTrainData, srt.job.Job().Env["PF_OUTPUT_ARTIFACT_TRAIN_DATA"])
 			assert.Equal(t, common.ArtMountDir+"/"+OutatfValidateData, srt.job.Job().Env["PF_OUTPUT_ARTIFACT_VALIDATE_DATA"])
 
-			expectedCommand := fmt.Sprintf("python data_preprocess.py --input ./LINK/mybos_dir/data --output ./data/pre --validate %s --stepname data-preprocess", OutatfValidateData)
+			expectedCommand := fmt.Sprintf("python data_preprocess.py --input ./LINK/mybos_dir/data --output ./data/pre --validate %s --stepname data-preprocess",
+				common.ArtMountDir+"/"+OutatfValidateData)
 			assert.Equal(t, expectedCommand, srt.job.Job().Command)
 		}
 		if stepName == "main" {
