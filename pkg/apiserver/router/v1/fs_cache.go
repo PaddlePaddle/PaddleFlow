@@ -289,7 +289,7 @@ func (pr *PFSRouter) deleteFSCacheConfig(w http.ResponseWriter, r *http.Request)
 		} else {
 			ctx.ErrorCode = common.InternalError
 		}
-		logger.LoggerForRequest(&ctx).Errorf("validate fs_cache_config[%s] failed. error:%v", req.FsID, err)
+		logger.LoggerForRequest(&ctx).Errorf("validate fs_cache_config[%s] failed. error:%v", fsID, err)
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
