@@ -146,8 +146,8 @@ func (srt *StepRuntime) Start() {
 		return
 	}
 
-	if conditon {
-		skipMsg := fmt.Sprintf("the result of condition for step[%s] is true, skip running", srt.getName())
+	if !conditon {
+		skipMsg := fmt.Sprintf("the result of condition for step[%s] is false, skip running", srt.getName())
 		srt.logger.Infoln(skipMsg)
 		srt.processStartAbnormalStatus(skipMsg, StatusRuntimeSkipped)
 		return
@@ -832,7 +832,7 @@ func (srt *StepRuntime) newJobView(msg string) schema.JobView {
 		CacheRunID:  srt.CacheRunID,
 		CacheJobID:  srt.CacheJobID,
 		StepName:    srt.getComponent().GetName(),
-		Cache:       srt.Cache,
+		Cache:       srt.getWorkFlowStep().Cache,
 		PK:          srt.pk,
 		Seq:         srt.seq,
 		Artifacts:   *newArt,
