@@ -68,10 +68,10 @@ kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/rele
 #### 2.3.3 安装volcano
 ```shell
 # For x86_64:
-kubectl apply -f https://raw.githubusercontent.com/volcano-sh/volcano/master/installer/volcano-development.yaml
+kubectl apply -f https://raw.githubusercontent.com/volcano-sh/volcano/v1.3.0/installer/volcano-development.yaml
 
 # For arm64:
-kubectl apply -f https://raw.githubusercontent.com/volcano-sh/volcano/master/installer/volcano-development-arm64.yaml
+kubectl apply -f https://raw.githubusercontent.com/volcano-sh/volcano/v1.3.0/installer/volcano-development-arm64.yaml
 ```
 ### 手动初始化数据
 release1.4.2版本需要手动初始化数据,数据初始化操作可在任意环境完成，**要求为能访问paddleflow server所在的目前集群**，流程如下：
@@ -101,7 +101,7 @@ paddleflow_port = 8999
 ```
 
 #### step2. 注册集群
-**准备集群证书:** 将待注册集群的k3s config文件放到安装好PaddleFlow客户端的机器上，例如/tmp/config. k3s证书通常位于机器中的`/etc/rancher/k3s/k3s.yaml`
+**准备集群证书:** k3s证书通常位于机器中的`/etc/rancher/k3s/k3s.yaml`. 将`k3s.yaml`文件复制到安装好PaddleFlow客户端的机器上，例如/tmp/config. 
 
 > 在rancher的k3s部署命令后，k3s.yaml内的`endpoint`通常为`127.0.0.1`，但paddleflow-server默认为容器内部署，无法访问，因此需要修改证书中的`endpoint`为`step1`中的paddleflow_server地址
 

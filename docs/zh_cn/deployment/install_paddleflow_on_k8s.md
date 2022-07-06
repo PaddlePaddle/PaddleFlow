@@ -117,10 +117,10 @@ curl -sSL https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14
 #### 2.3.3 安装volcano
 ```shell
 # For x86_64:
-kubectl apply -f https://raw.githubusercontent.com/volcano-sh/volcano/master/installer/volcano-development.yaml
+kubectl apply -f https://raw.githubusercontent.com/volcano-sh/volcano/v1.3.0/installer/volcano-development.yaml
 
 # For arm64:
-kubectl apply -f https://raw.githubusercontent.com/volcano-sh/volcano/master/installer/volcano-development-arm64.yaml
+kubectl apply -f https://raw.githubusercontent.com/volcano-sh/volcano/v1.3.0/installer/volcano-development-arm64.yaml
 ```
 
 ### 手动初始化数据
@@ -154,7 +154,7 @@ paddleflow_port = 8999
 
 #### step2. 注册集群
 
-**准备集群证书:** 将待注册集群的k8s config文件放到安装好PaddleFlow客户端的机器上，例如/tmp/config
+**准备集群证书:** k8s证书通常位于`~/.kube/config`. 将config文件拷贝到安装好PaddleFlow客户端的机器上，例如`/tmp/config`.
 
 ```shell
 # 待注册集群的k8s config文件路径
