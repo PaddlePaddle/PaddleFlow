@@ -185,7 +185,7 @@ func TestResolveCommand(t *testing.T) {
 	err = is.resolveCommand(false)
 	assert.Nil(t, err)
 
-	assert.Equal(t, component.Command, "echo 1 && cat /tmp/./b.txt >> out1.txt && echo abc ")
+	assert.Equal(t, component.Command, "echo 1 && cat /tmp/./b.txt >> /tmp/out1.txt && echo abc ")
 }
 
 func TestResolveEnv(t *testing.T) {
