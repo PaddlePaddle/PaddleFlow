@@ -67,7 +67,7 @@ func StringsContain(items []string, item string) bool {
 }
 
 // 1.4.3后，Checker承担了Parameters的处理任务，如dict形式的param替换为实际值、请求的参数替换节点参数
-type StepParamChecker struct {
+type ComponentParamChecker struct {
 	Components    map[string]schema.Component // 需要传入相关的所有 step，以判断依赖是否合法
 	SysParams     map[string]string           // sysParams 的值和 step 相关，需要传入
 	DisabledSteps []string                    // 被disabled的节点列表
@@ -75,7 +75,7 @@ type StepParamChecker struct {
 	CompTempletes map[string]schema.Component // 对应WorkflowSource中的Components的内容
 }
 
-func (s *StepParamChecker) checkDuplication(currentComponent string) error {
+func (s *ComponentParamChecker) checkDuplication(currentComponent string) error {
 	/*
 		currentStep内，parameter, input/output artifact是否有重复的参数名
 		这里的重名检查是大小写不敏感的，如"param"和"ParAm"会被认为重名
@@ -124,7 +124,7 @@ func (s *StepParamChecker) checkDuplication(currentComponent string) error {
 	return nil
 }
 
-func (s *StepParamChecker) Check(currentComponent string, isOuterComp bool) error {
+func (s *ComponentParamChecker) Check(currentComponent string, isOuterComp bool) error {
 	/*
 		1. 如果没有用到Fs，不能用Fs相关系统参数，以及inputAtf，outputAtf机制
 		2. 先检查参数名是否有重复（parameter，artifact）
@@ -175,7 +175,7 @@ func (s *StepParamChecker) Check(currentComponent string, isOuterComp bool) erro
 			variableChecker := VariableChecker{}
 			err = variableChecker.CheckRefUpstreamStep(inputAtfVal)
 			if err != nil {
-				return fmt.Errorf("check input artifact [%s] in step[%s] failed: %s", inputAtfName, currentComponent, err.Error())
+				return fmt.Errorf("check input artifact [%s] in component[%s] failed: %s", inputAtfName, currentComponent, err.Error())
 			}
 
 			_, err = s.solveParamValue(currentComponent, inputAtfName, inputAtfVal, FieldInputArtifacts)
@@ -188,7 +188,7 @@ func (s *StepParamChecker) Check(currentComponent string, isOuterComp bool) erro
 	// 3. output artifacts 由平台生成路径，所以在校验时，不会对其值进行校验（即使非空迟早也会被替换）
 	// 如果不使用Fs，不能定义outputAtf。
 	if !s.UseFs && len(component.GetArtifacts().Output) > 0 {
-		return fmt.Errorf("cannot define artifact in step[%s] with no Fs mounted", currentComponent)
+		return fmt.Errorf("cannot define artifact in component[%s] with no Fs mounted", currentComponent)
 	}
 	if dag, ok := component.(*schema.WorkflowSourceDag); ok {
 		for outAtfName, outArtValue := range dag.Artifacts.Output {
@@ -199,7 +199,7 @@ func (s *StepParamChecker) Check(currentComponent string, isOuterComp bool) erro
 			// 虽然这里不是引用上游节点，而是子节点，但是规则相同，因此可以复用
 			err = variableChecker.CheckRefUpstreamStep(outArtValue)
 			if err != nil {
-				return fmt.Errorf("check output artifact [%s] in step[%s] failed: %s", outArtValue, currentComponent, err.Error())
+				return fmt.Errorf("check output artifact [%s] in dag[%s] failed: %s", outArtValue, currentComponent, err.Error())
 			}
 
 			_, err = s.solveParamValue(currentComponent, outAtfName, outArtValue, FieldOutputArtifacts)
@@ -240,7 +240,7 @@ func (s *StepParamChecker) Check(currentComponent string, isOuterComp bool) erro
 }
 
 // 对reference节点进行检查
-func (s *StepParamChecker) checkReference(comp schema.Component) error {
+func (s *ComponentParamChecker) checkReference(comp schema.Component) error {
 	// Reference节点的parameters的keys要是被引用节点的子集
 	// Reference节点的input artifact的keys要和被引用节点的一样
 	if step, ok := comp.(*schema.WorkflowSourceStep); ok {
@@ -292,7 +292,7 @@ func (s *StepParamChecker) checkReference(comp schema.Component) error {
 	return nil
 }
 
-func (s *StepParamChecker) checkName(step, fieldType, name string) error {
+func (s *ComponentParamChecker) checkName(step, fieldType, name string) error {
 	variableChecker := VariableChecker{}
 	err := variableChecker.CheckVarName(name)
 	if err != nil {
@@ -303,7 +303,7 @@ func (s *StepParamChecker) checkName(step, fieldType, name string) error {
 
 // 该函数主要处理parameter, command, env，input artifact四类参数
 // schema中已经限制了input artifact，command, env只能为string，此处再判断类型用于兜底
-func (s *StepParamChecker) solveParamValue(compName string, paramName string, param interface{}, fieldType string) (interface{}, error) {
+func (s *ComponentParamChecker) solveParamValue(compName string, paramName string, param interface{}, fieldType string) (interface{}, error) {
 	if fieldType == FieldCommand || fieldType == FieldEnv || fieldType == FieldInputArtifacts {
 		_, ok := param.(string)
 		if !ok {
@@ -337,7 +337,7 @@ func (s *StepParamChecker) solveParamValue(compName string, paramName string, pa
 // input artifacts 只能引用上游 outputArtifact
 // env 支持平台内置参数替换，上游step的parameter依赖替换，当前step的parameter替换
 // command 支持平台内置参数替换，上游step的parameter依赖替换，当前step的parameter替换，当前step内input artifact、当前step内output artifact替换
-func (s *StepParamChecker) resolveRefParam(componentName, param, fieldType string) error {
+func (s *ComponentParamChecker) resolveRefParam(componentName, param, fieldType string) error {
 	// regular expression must match case {{ xxx }} like {{ <step-name>.<param_name> }} or {{ PS_RUN_ID }}
 	pattern := RegExpIncludingTpl
 	reg := regexp.MustCompile(pattern)
@@ -398,7 +398,7 @@ func ParseParamName(paramName string) []string {
 	return paramStrList
 }
 
-func (s *StepParamChecker) refParamExist(currentCompName, refCompName, refParamName, fieldType string) error {
+func (s *ComponentParamChecker) refParamExist(currentCompName, refCompName, refParamName, fieldType string) error {
 	/*
 		env, command只能引用当前节点的param, input/output artifacts
 		param 只做上游step的 param 依赖替换

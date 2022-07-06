@@ -19,6 +19,7 @@ package common
 import (
 	"fmt"
 	"regexp"
+	"strings"
 )
 
 type VariableChecker struct {
@@ -39,8 +40,8 @@ func (VariableChecker *VariableChecker) CheckStepName(stepName string) error {
 	// 和CheckVarName的区别在于，step的名称不可以包含下划线(_)，而可以包含中划线(-)
 	pattern := `^[a-zA-Z][a-zA-Z0-9-]*$`
 	reg := regexp.MustCompile(pattern)
-	if !reg.MatchString(stepName) {
-		err := fmt.Errorf("format of variable name[%s] invalid, should be in ^[a-zA-Z][a-zA-Z0-9-]*$", stepName)
+	if !reg.MatchString(stepName) || strings.HasPrefix(stepName, "PF_") {
+		err := fmt.Errorf("format of variable name[%s] invalid, should be in ^[a-zA-Z][a-zA-Z0-9-]*$ and not start with \"PF_\"", stepName)
 		return err
 	}
 	return nil

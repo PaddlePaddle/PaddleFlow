@@ -118,6 +118,15 @@ func (rr *RunRouter) createRunByJson(w http.ResponseWriter, r *http.Request) {
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
+
+	// 检查 json 请求体的格式
+	if !json.Valid(bodyBytes) {
+		errMsg := "request body json format invalid"
+		logger.LoggerForRequest(&ctx).Errorf(errMsg)
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, errMsg)
+		return
+	}
+
 	bodyUnstructured := unstructured.Unstructured{}
 	if err := bodyUnstructured.UnmarshalJSON(bodyBytes); err != nil && !runtime.IsMissingKind(err) {
 		// MissingKindErr不影响Json的解析
