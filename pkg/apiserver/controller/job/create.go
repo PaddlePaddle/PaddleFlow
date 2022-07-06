@@ -128,7 +128,7 @@ func validateJobMembers(ctx *logger.RequestContext, request *CreateJobInfo) erro
 		// validate member role and replicas
 		memberRole := schema.MemberRole(member.Role)
 		_, find := frameworkRoles[memberRole]
-		if !find || member.Role == "" {
+		if !find {
 			err := fmt.Errorf("the role[%s] for framework %s is not supported", member.Role, request.Framework)
 			ctx.ErrorCode = common.JobInvalidField
 			ctx.Logging().Errorf("Failed to check Members' role, err: %v", err)
@@ -141,16 +141,10 @@ func validateJobMembers(ctx *logger.RequestContext, request *CreateJobInfo) erro
 			return err
 		}
 		frameworkRoles[memberRole] = frameworkRoles[memberRole] + member.Replicas
-		// validate port
-		err := checkPort(member.Port)
+		// TODO: move more check to checkJobSpec
+		err := checkJobSpec(ctx, &request.Members[index].JobSpec)
 		if err != nil {
-			ctx.Logging().Errorf("Failed to check Members' Port: %v", err)
-			ctx.ErrorCode = common.JobInvalidField
-			return err
-		}
-		// check filesystem
-		if err = validateFileSystem(&member.JobSpec, request.UserName); err != nil {
-			ctx.Logging().Errorf("Failed to check Members' FS or ExtraFS: %v", err)
+			ctx.Logging().Errorf("Failed to check Members: %v", err)
 			ctx.ErrorCode = common.JobInvalidField
 			return err
 		}
@@ -163,13 +157,6 @@ func validateJobMembers(ctx *logger.RequestContext, request *CreateJobInfo) erro
 		// check members priority
 		if err = checkPriority(&request.Members[index].SchedulingPolicy, &request.SchedulingPolicy); err != nil {
 			ctx.Logging().Errorf("Failed to check priority: %v", err)
-			ctx.ErrorCode = common.JobInvalidField
-			return err
-		}
-		// check flavour
-		member.Flavour, err = flavour.GetFlavourWithCheck(member.Flavour)
-		if err != nil {
-			ctx.Logging().Errorf("Failed to check Flavour: %v", err)
 			ctx.ErrorCode = common.JobInvalidField
 			return err
 		}
@@ -198,9 +185,22 @@ func validateJobMembers(ctx *logger.RequestContext, request *CreateJobInfo) erro
 	return nil
 }
 
-func checkPort(port int) error {
+func checkJobSpec(ctx *logger.RequestContext, jobSpec *JobSpec) error {
+	port := jobSpec.Port
 	if port != 0 && !(port > 0 && port < common.JobPortMaximums) {
 		err := fmt.Errorf("port must be in range [0, %d], but got %d", common.JobPortMaximums, port)
+		ctx.Logging().Errorf("validate job failed, err: %v", err)
+		return err
+	}
+	// validate FileSystem
+	if err := validateFileSystem(jobSpec, ctx.UserName); err != nil {
+		ctx.Logging().Errorf("validateFileSystem failed, requestJobSpec[%v], err: %v", jobSpec, err)
+		return err
+	}
+	var err error
+	jobSpec.Flavour, err = flavour.GetFlavourWithCheck(jobSpec.Flavour)
+	if err != nil {
+		log.Errorf("get flavour failed, err:%v", err)
 		return err
 	}
 	return nil
