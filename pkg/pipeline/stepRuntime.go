@@ -146,8 +146,8 @@ func (srt *StepRuntime) Start() {
 		return
 	}
 
-	if conditon {
-		skipMsg := fmt.Sprintf("the result of condition for step[%s] is true, skip running", srt.getName())
+	if !conditon {
+		skipMsg := fmt.Sprintf("the result of condition for step[%s] is false, skip running", srt.getName())
 		srt.logger.Infoln(skipMsg)
 		srt.processStartAbnormalStatus(skipMsg, StatusRuntimeSkipped)
 		return

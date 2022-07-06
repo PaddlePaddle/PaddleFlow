@@ -290,7 +290,7 @@ func (drt *DagRuntime) Start() {
 		return
 	}
 
-	if conditon {
+	if !conditon {
 		skipMsg := fmt.Sprintf("the result of condition for  dag[%s] is false, skip running", drt.name)
 		drt.logger.Infoln(skipMsg)
 		drt.processStartAbnormalStatus(skipMsg, StatusRuntimeSkipped)
