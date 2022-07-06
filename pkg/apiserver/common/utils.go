@@ -55,6 +55,7 @@ const (
 	SFTP                          = "sftp"
 	Mock                          = "mock"
 	CFS                           = "cfs"
+	Glusterfs                     = "glusterfs"
 	IPDomainOrIPDomainPortPattern = "^([a-zA-Z0-9][-a-zA-Z0-9]{0,62}(\\.[a-zA-Z0-9][-a-zA-Z0-9]{0,62})+)" +
 		"(:([1-9]|[1-9]\\d{1,3}|[1-5]\\d{4}|6[0-4]\\d{3}|65[0-4]\\d{2}|655[0-2]\\d|6553[0-5]))?$"
 
@@ -157,6 +158,10 @@ func InformationFromURL(url string, properties map[string]string) (fileSystemTyp
 	case CFS:
 		serverAddress = urlSplit[ServerAddressSplit]
 		subPath = "/" + SubPathFromUrl(urlSplit, CFSSplit)
+	case Glusterfs:
+		glusterfsInfo := strings.Split(urlSplit[ServerAddressSplit], ":")
+		serverAddress = glusterfsInfo[0]
+		subPath = glusterfsInfo[1]
 	default:
 		return
 	}
