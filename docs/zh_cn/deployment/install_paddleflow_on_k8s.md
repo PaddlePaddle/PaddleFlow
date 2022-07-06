@@ -176,7 +176,7 @@ paddleflow cluster create ${clustername} ${endpoint} Kubernetes -c ${k8sconfigpa
 ```shell
 paddleflow queue create 队列名称 命名空间 集群名（可直接引用步骤2中的clustername） CPU上限 mem上限 --maxscalar 扩展资源，多个资源逗号分隔 --mincpu 最小CPU资源 --minmem 最小内存资源 --minscalar 最小扩展资源
 
-export QUEUENAME=default-queue
+export QUEUENAME=cpu-queue
 export QUEUENAMESPACE=default
 export QUEUEMaxCPU=100
 export QUEUEMaxMEM=100G
