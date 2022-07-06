@@ -65,8 +65,8 @@ func NewStepRuntime(name, fullName string, step *schema.WorkflowSourceStep, seq 
 	job := NewPaddleFlowJob(jobName, srt.DockerEnv, srt.receiveEventChildren)
 	srt.job = job
 
-	srt.logger.Infof("step[%s] of runid[%s] before starting job: param[%s], env[%s], command[%s], artifacts[%s], deps[%s]",
-		srt.getName(), srt.runID, step.Parameters, step.Env, step.Command, step.Artifacts, step.Deps)
+	srt.logger.Infof("step[%s] of runid[%s] before starting job: param[%s], env[%s], command[%s], artifacts[%s], deps[%s], FsMount[%v]",
+		srt.getName(), srt.runID, step.Parameters, step.Env, step.Command, step.Artifacts, step.Deps, step.FsMount)
 
 	return srt
 }
@@ -333,8 +333,8 @@ func (srt *StepRuntime) updateJob(forCacheFingerprint bool) error {
 	}
 
 	srt.job.Update(srt.getWorkFlowStep().Command, params, newEnvs, &artifacts, srt.getWorkFlowStep().FsMount)
-	srt.logger.Infof("step[%s] after resolve template: param[%s], artifacts[%s], command[%s], env[%s]",
-		srt.name, params, artifacts, srt.getWorkFlowStep().Command, newEnvs)
+	srt.logger.Infof("step[%s] after resolve template: param[%s], artifacts[%s], command[%s], env[%s]， FsMount[%v]",
+		srt.name, params, artifacts, srt.getWorkFlowStep().Command, newEnvs, srt.getWorkFlowStep().FsMount)
 	return nil
 }
 
@@ -594,7 +594,7 @@ func (srt *StepRuntime) GenerateFsMountForArtifact() (err error) {
 		srt.getWorkFlowStep().FsMount = append(srt.getWorkFlowStep().FsMount, fsMount)
 	}
 
-	srt.logger.Debugf("after GenerateFsMountForArtifact, FsMount is %v", srt.getWorkFlowStep().FsMount)
+	srt.logger.Infof("after GenerateFsMountForArtifact, FsMount is %v", srt.getWorkFlowStep().FsMount)
 	return nil
 }
 
