@@ -897,7 +897,7 @@ func resumeActiveRuns() error {
 	}
 	go func() {
 		for _, run := range runList {
-			logger.LoggerForRun(run.ID).Debugf("ResumeActiveRuns: run[%s] with status[%s] begins to resume\n", run.ID, run.Status)
+			logger.LoggerForRun(run.ID).Infof("ResumeActiveRuns: run[%s] with status[%s] begins to resume\n", run.ID, run.Status)
 			if err := resumeRun(run); err != nil {
 				logger.LoggerForRun(run.ID).Warnf("ResumeActiveRuns: run[%s] with status[%s] failed to resume. skipped.", run.ID, run.Status)
 			}
