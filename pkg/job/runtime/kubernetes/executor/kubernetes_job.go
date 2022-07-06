@@ -492,7 +492,7 @@ func (j *KubeJob) getWorkDir(task *models.Member) string {
 		envs = task.Env
 	}
 	// check workdir if exist
-	hasWorkDir := len(fileSystems) != 0 && envs[schema.EnvJobWorkDir] != "null"
+	hasWorkDir := len(fileSystems) != 0 && strings.ToUpper(envs[schema.EnvMountPath]) != "NONE"
 	if !hasWorkDir {
 		return ""
 	}

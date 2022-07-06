@@ -40,6 +40,7 @@ const (
 	EnvIsCustomYaml = "PF_IS_CUSTOM_YAML"
 	// EnvJobWorkDir The working directory of the job, `null` means command without a working directory
 	EnvJobWorkDir = "PF_WORK_DIR"
+	EnvMountPath  = "PF_MOUNT_PATH"
 
 	// EnvJobModePS env
 	EnvJobModePS          = "PS"
