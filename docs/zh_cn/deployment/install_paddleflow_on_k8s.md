@@ -136,6 +136,8 @@ release1.4.2版本需要手动初始化数据，流程如下：
 
 ```shell
 pip3 install https://github.com/PaddlePaddle/PaddleFlow/releases/download/v0.14.2/PaddleFlow-1.4.2-py3-none-any.whl
+# 如果whl包的下载速度过慢,可尝试执行`curl -O https://mirror.ghproxy.com/https://github.com/PaddlePaddle/PaddleFlow/releases/download/v0.14.2/PaddleFlow-1.4.2-py3-none-any.whl` 下载到本地
+# 再执行`pip3 install PaddleFlow-1.4.2-py3-none-any.whl`
 ```
 
 创建配置文件~/.paddleflow/config ，写入如下内容：

@@ -8,8 +8,10 @@ PaddleFlow部署分为客户端和服务端两个部分。
 
 **安装**PaddleFlow客户端有两种方式：
 
-1. 从[release](https://github.com/PaddlePaddle/PaddleFlow/releases)下载最新版, 执行`pip3 install PaddleFlow-1.4.2-py3-none-any.whl`
+1. 从[release](https://github.com/PaddlePaddle/PaddleFlow/releases) 下载最新版, 执行`pip3 install PaddleFlow-1.4.2-py3-none-any.whl`
 2. 通过编译包安装，编译包有两处来源，分别是分支的最新产出、执行编译命令`cd client && python3 setup.py bdist_wheel`。得到编译包后执行`pip3 install PaddleFlow-1.4.2-py3-none-any.whl`
+
+> 如果步骤1中whl包的下载速度过慢,可尝试执行`curl -O https://mirror.ghproxy.com/https://github.com/PaddlePaddle/PaddleFlow/releases/download/v0.14.2/PaddleFlow-1.4.2-py3-none-any.whl` 下载到本地
 
 **卸载**PaddleFlow
 
