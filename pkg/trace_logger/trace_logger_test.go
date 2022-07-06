@@ -28,8 +28,8 @@ import (
 )
 
 const (
-	FilePath = "/tmp"
-	FileName = "trace_log"
+	FilePath   = "/tmp"
+	FilePrefix = "trace_log"
 )
 
 func TestTraceLogger(t *testing.T) {
@@ -129,7 +129,7 @@ func TestTraceLogger(t *testing.T) {
 
 	// load from disk
 	t.Logf("load all")
-	err = manager.LoadAll("./", "trace_log")
+	err = manager.LoadAll(FilePath, FilePrefix)
 	if err != nil {
 		t.Error(err)
 		return
@@ -160,7 +160,7 @@ func TestTraceLogger(t *testing.T) {
 func initTraceLogger() error {
 	conf := TraceLoggerConfig{
 		Dir:             FilePath,
-		FilePrefix:      FileName,
+		FilePrefix:      FilePrefix,
 		Level:           "debug",
 		MaxKeepDays:     2,
 		MaxFileNum:      10,
