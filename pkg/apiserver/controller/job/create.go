@@ -57,17 +57,17 @@ func CreatePFJob(ctx *logger.RequestContext, request *CreateJobInfo) (*CreateJob
 	// build job from request
 	jobInfo, err := buildJob(request)
 	if err != nil {
-		log.Errorf("patch envs when creating job %s failed, err=%v", request.CommonJobInfo.Name, err)
+		ctx.Logging().Errorf("patch envs when creating job %s failed, err=%v", request.CommonJobInfo.Name, err)
 		return nil, err
 	}
 
-	log.Debugf("create distributed job %#v", jobInfo)
+	ctx.Logging().Debugf("create distributed job %#v", jobInfo)
 	if err = models.CreateJob(jobInfo); err != nil {
-		log.Errorf("create job[%s] in database faield, err: %v", jobInfo.Config.GetName(), err)
+		ctx.Logging().Errorf("create job[%s] in database faield, err: %v", jobInfo.Config.GetName(), err)
 		return nil, fmt.Errorf("create job[%s] in database faield, err: %v", jobInfo.Config.GetName(), err)
 	}
 
-	log.Infof("create job[%s] successful.", jobInfo.ID)
+	ctx.Logging().Infof("create job[%s] successful.", jobInfo.ID)
 	return &CreateJobResponse{
 		ID: jobInfo.ID,
 	}, nil
@@ -281,11 +281,7 @@ func buildJob(request *CreateJobInfo) (*models.Job, error) {
 	var templateJson string
 	var err error
 	if len(request.ExtensionTemplate) == 0 {
-		members, err = buildMembers(request)
-		if err != nil {
-			log.Errorf("create job with ps members failed, err: %v", err)
-			return nil, err
-		}
+		members = buildMembers(request)
 	} else {
 		templateJson, err = newExtensionTemplateJson(request.ExtensionTemplate)
 		if err != nil {
@@ -309,26 +305,19 @@ func buildJob(request *CreateJobInfo) (*models.Job, error) {
 	return jobInfo, nil
 }
 
-func buildMembers(request *CreateJobInfo) ([]models.Member, error) {
+func buildMembers(request *CreateJobInfo) []models.Member {
 	members := make([]models.Member, 0)
 	log.Infof("build merbers for framework %s with mode %s", request.Framework, request.Mode)
 	for _, reqMember := range request.Members {
-		reqMember.UserName = request.UserName
-		var member models.Member
-		var err error
-		member, err = newMember(reqMember, schema.MemberRole(reqMember.Role))
-		if err != nil {
-			log.Errorf("create ps members failed, err: %v", err)
-			return nil, err
-		}
+		member := newMember(reqMember, schema.MemberRole(reqMember.Role))
 		patchFromCommonInfo(&member.Conf, &request.CommonJobInfo)
 		members = append(members, member)
 	}
-	return members, nil
+	return members
 }
 
 // newMember convert request.Member to models.member
-func newMember(member MemberSpec, role schema.MemberRole) (models.Member, error) {
+func newMember(member MemberSpec, role schema.MemberRole) models.Member {
 	conf := schema.Conf{
 		Name: member.Name,
 		// 存储资源
@@ -353,5 +342,5 @@ func newMember(member MemberSpec, role schema.MemberRole) (models.Member, error)
 		Role:     role,
 		Replicas: member.Replicas,
 		Conf:     conf,
-	}, nil
+	}
 }
