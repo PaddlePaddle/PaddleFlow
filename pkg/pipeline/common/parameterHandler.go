@@ -199,7 +199,7 @@ func (s *ComponentParamChecker) Check(currentComponent string, isOuterComp bool)
 			// 虽然这里不是引用上游节点，而是子节点，但是规则相同，因此可以复用
 			err = variableChecker.CheckRefUpstreamStep(outArtValue)
 			if err != nil {
-				return fmt.Errorf("check output artifact [%s] in dag[%s] failed: %s", outArtValue, currentComponent, err.Error())
+				return fmt.Errorf("check output artifact value [%s] in dag[%s] failed: %s", outArtValue, currentComponent, err.Error())
 			}
 
 			_, err = s.solveParamValue(currentComponent, outAtfName, outArtValue, FieldOutputArtifacts)

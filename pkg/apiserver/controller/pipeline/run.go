@@ -243,7 +243,7 @@ func getWorkFlowSourceByJson(bodyMap map[string]interface{}) (schema.WorkflowSou
 		JsonQueue:   nil,
 		JsonEnv:     nil,
 
-		//这3个字段，之前已经处理过，后续阶段无需处理，只需剔除即可
+		//这2个字段，之前已经处理过，后续的Json解析逻辑无需处理，只需剔除即可
 		JsonDescription: nil,
 		JsonUserName:    nil,
 	}
