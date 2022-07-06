@@ -241,12 +241,18 @@ func (r *Run) initRuntime(jobs []RunJob, dags []RunDag) error {
 		}
 	}
 
+	res, _ = json.Marshal(resView)
+	logger.Logger().Infof("debug: resRuntime: %s", res)
+
 	// 此时已拿到RuntimeView树，但是信息不全，需要用wfs补全
 	if err := ProcessRuntimeView(resView, r.WorkflowSource.EntryPoints.EntryPoints); err != nil {
 		return nil
 	}
 
 	r.Runtime = resView
+	res, _ = json.Marshal(r.Runtime)
+	logger.Logger().Infof("debug: r.Runtime: %s", res)
+
 	return nil
 }
 

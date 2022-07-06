@@ -31,7 +31,7 @@ import (
 
 type RunDag struct {
 	Pk             int64             `gorm:"primaryKey;autoIncrement;not null"  json:"-"`
-	ID             string            `gorm:"type:varchar(60);not null"          json:"jobID"`
+	ID             string            `gorm:"type:varchar(60);not null"          json:"dagID"`
 	RunID          string            `gorm:"type:varchar(60);not null"          json:"runID"`
 	ParentDagID    string            `gorm:"type:varchar(60);not null"          json:"parentDagID"`
 	Name           string            `gorm:"type:varchar(60);not null"          json:"name"`
