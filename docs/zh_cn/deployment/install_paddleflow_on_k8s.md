@@ -117,8 +117,81 @@ curl -sSL https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14
 #### 2.3.3 安装volcano
 ```shell
 # For x86_64:
-kubectl apply -f https://raw.githubusercontent.com/volcano-sh/volcano/master/installer/volcano-development.yaml
+kubectl apply -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.2/installer/deploys/volcano/pf-volcano-deploy.yaml
 
 # For arm64:
-kubectl apply -f https://raw.githubusercontent.com/volcano-sh/volcano/master/installer/volcano-development-arm64.yaml
+todo
+```
+
+### 手动初始化数据
+release1.4.2版本需要手动初始化数据，流程如下：
+1. 安装并配置客户端
+2. 注册一个集群到PaddleFlow
+3. 注册一个队列到PaddleFlow
+4. 验证集群和队列是否注册成功
+
+#### step1. 安装并配置客户端
+
+数据初始化操作可在任意环境完成，要求为能访问paddleflow server所在的目前集群
+
+```shell
+pip3 install https://github.com/PaddlePaddle/PaddleFlow/releases/download/v0.14.2/PaddleFlow-1.4.2-py3-none-any.whl
+# 如果whl包的下载速度过慢,可尝试执行`curl -O https://mirror.ghproxy.com/https://github.com/PaddlePaddle/PaddleFlow/releases/download/v0.14.2/PaddleFlow-1.4.2-py3-none-any.whl` 下载到本地
+# 再执行`pip3 install PaddleFlow-1.4.2-py3-none-any.whl`
+```
+
+创建配置文件~/.paddleflow/config ，写入如下内容：
+
+```shell
+[user]
+name = root
+# paddleflow的root密码,默认为paddleflow
+password = 
+[server]
+# paddleflow server 地址，例如 paddleflow_server = mock.paddleflow.net
+paddleflow_server = 127.0.0.1
+# paddleflow server 端口,默认为8999
+paddleflow_port = 8999
+```
+
+#### step2. 注册集群
+
+**准备集群证书:** k8s证书通常位于`~/.kube/config`. 将config文件拷贝到安装好PaddleFlow客户端的机器上，例如`/tmp/config`.
+
+```shell
+# 待注册集群的k8s config文件路径
+export k8sconfigpath=/tmp/config
+# 集群名称
+export clustername=default-cluster
+# endpoint 可以在证书文件中找到，格式为ip地址
+export endpoint=127.0.0.1
+export k8sversion=1.16
+paddleflow cluster create ${clustername} ${endpoint} Kubernetes -c ${k8sconfigpath} --version ${k8sversion} --source CCE --status online
+```
+
+#### step3. 注册队列
+
+创建队列命令
+
+```shell
+paddleflow queue create 队列名称 命名空间 集群名（可直接引用步骤2中的clustername） CPU上限 mem上限 --maxscalar 扩展资源，多个资源逗号分隔 --mincpu 最小CPU资源 --minmem 最小内存资源 --minscalar 最小扩展资源
+
+export QUEUENAME=ppl-queue
+export QUEUENAMESPACE=default
+export QUEUEMaxCPU=100
+export QUEUEMaxMEM=100G
+export QUEUEMinCPU=10
+export QUEUEMinMEM=10G
+
+# 无GPU示例，注册volcano原生queue
+paddleflow queue create ${QUEUENAME} ${QUEUENAMESPACE} ${clustername} ${QUEUEMaxCPU} ${QUEUEMaxMEM}  --quota volcanoCapabilityQuota
+# 有GPU示例
+paddleflow queue create ${QUEUENAME} ${QUEUENAMESPACE} ${clustername} ${QUEUEMaxCPU} ${QUEUEMaxMEM} --maxscalar  nvidia.com/gpu=1 --mincpu ${QUEUEMinCPU} --minmem ${QUEUEMinMEM} --minscalar nvidia.com/gpu=1 --quota volcanoCapabilityQuota
+```
+
+#### step4. 验证
+
+```shell
+paddleflow cluster list
+paddleflow queue list
 ```
