@@ -80,7 +80,7 @@ func validateJob(ctx *logger.RequestContext, request *CreateJobInfo) error {
 	}
 
 	// check job framework
-	var jobType = schema.TypeSingle
+	var jobType schema.JobType
 	switch request.Framework {
 	case schema.FrameworkSpark, schema.FrameworkPaddle:
 		jobType = schema.TypeDistributed
