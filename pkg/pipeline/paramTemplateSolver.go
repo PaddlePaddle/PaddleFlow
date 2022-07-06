@@ -284,7 +284,12 @@ func (isv *innerSolver) resolveLoopArugment() error {
 	if valueString, ok := newLoopArgument.(string); ok {
 		var loopValue interface{}
 
-		json.Unmarshal([]byte(valueString), &loopValue)
+		err := json.Unmarshal([]byte(valueString), &loopValue)
+		if err != nil {
+			err := fmt.Errorf("the value of loop_argument for %s[%s] should be an list or json list, and now is: %v",
+				isv.Component.GetType(), isv.runtimeName, newLoopArgument)
+			return err
+		}
 		newLoopArgument = loopValue
 	}
 
