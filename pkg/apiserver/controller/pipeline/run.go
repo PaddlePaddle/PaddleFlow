@@ -360,12 +360,9 @@ func processRunJsonComponents(components map[string]schema.Component, envMap map
 			}
 			// Reference节点无需替换
 			if step.Reference.Component == "" {
-				// 对于每一个全局环境变量，检查节点是否有设置对应环境变量，如果没有则使用全局的
+				// 全局Env与节点Env合并，全局优先级高于节点
 				for globalKey, globalValue := range envMap {
-					value, ok := step.Env[globalKey]
-					if !ok || value == "" {
-						step.Env[globalKey] = globalValue
-					}
+					step.Env[globalKey] = globalValue
 				}
 			}
 		} else {
