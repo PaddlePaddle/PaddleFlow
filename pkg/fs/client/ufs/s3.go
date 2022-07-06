@@ -1407,15 +1407,25 @@ func NewS3FileSystem(properties map[string]interface{}) (UnderFileStorage, error
 	bucket := properties[fsCommon.Bucket].(string)
 	region := properties[fsCommon.Region].(string)
 	subpath := properties[fsCommon.SubPath].(string)
-	dirMode_ := properties[fsCommon.DirMode].(string)
-	fileMode_ := properties[fsCommon.FileMode].(string)
-	dirMode, err := strconv.Atoi(dirMode_)
-	if err != nil {
-		return nil, err
+	dirMode_, ok := properties[fsCommon.DirMode].(string)
+	var dirMode, fileMode int
+	var err error
+	if ok {
+		dirMode, err = strconv.Atoi(dirMode_)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		dirMode = DefaultDirMode
 	}
-	fileMode, err := strconv.Atoi(fileMode_)
-	if err != nil {
-		return nil, err
+	fileMode_, ok := properties[fsCommon.FileMode].(string)
+	if ok {
+		fileMode, err = strconv.Atoi(fileMode_)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		fileMode = DefaultFileMode
 	}
 
 	endpoint = strings.TrimSuffix(endpoint, Delimiter)
