@@ -264,6 +264,17 @@ func ListQueueJob(queueID string, status []schema.JobStatus) []Job {
 	return jobs
 }
 
+func ListJobByStatus(status schema.JobStatus) []Job {
+	db := storage.DB.Table("job").Where("status = ?", status).Where("deleted_at = ''")
+
+	var jobs []Job
+	if err := db.Find(&jobs).Error; err != nil {
+		log.Errorf("get collect jobs failed, error:%s", err.Error())
+		return []Job{}
+	}
+	return jobs
+}
+
 func GetJobsByRunID(runID string, jobID string) ([]Job, error) {
 	var jobList []Job
 	query := storage.DB.Table("job").Where("id like ?", "job-"+runID+"-%").Where("deleted_at = ''")
