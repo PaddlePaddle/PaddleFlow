@@ -160,14 +160,14 @@ func (p *Parser) ParseComponents(entryPoints map[string]interface{}) (map[string
 		if p.IsDag(compMap) {
 			dagComp := WorkflowSourceDag{}
 			if err := p.ParseDag(compMap, &dagComp); err != nil {
-				return nil, err
+				return nil, fmt.Errorf("parse dag[%s] failed, %v", name, err)
 			}
 			dagComp.Name = name
 			components[name] = &dagComp
 		} else {
 			stepComp := WorkflowSourceStep{}
 			if err := p.ParseStep(compMap, &stepComp); err != nil {
-				return nil, err
+				return nil, fmt.Errorf("parse step[%s] failed, %v", name, err)
 			}
 			stepComp.Name = name
 			components[name] = &stepComp

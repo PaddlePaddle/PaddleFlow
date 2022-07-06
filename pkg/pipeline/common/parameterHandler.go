@@ -148,7 +148,7 @@ func (s *ComponentParamChecker) Check(currentComponent string, isOuterComp bool)
 
 	// Reference节点检查
 	if err := s.checkReference(component); err != nil {
-		return fmt.Errorf("check reference failed, error: %s", err.Error())
+		return fmt.Errorf("check reference failed, only outer components can be refered, error: %s", err.Error())
 	}
 
 	// 1. parameter 校验

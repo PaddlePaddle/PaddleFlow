@@ -398,6 +398,9 @@ func (bwf *BaseWorkflow) checkRunYaml() error {
 	if err := bwf.checkTopoSort(bwf.Source.EntryPoints.EntryPoints); err != nil {
 		return err
 	}
+	if err := bwf.checkTopoSort(bwf.Source.Components); err != nil {
+		return err
+	}
 
 	return nil
 }

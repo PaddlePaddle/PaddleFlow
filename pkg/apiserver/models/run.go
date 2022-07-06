@@ -202,6 +202,8 @@ func (r *Run) initRuntime(jobs []RunJob, dags []RunDag) error {
 		comps = append(comps, &jobView)
 	}
 
+	res, _ := json.Marshal(comps)
+	logger.Logger().Infof("debug: all comps: %s", res)
 	// 处理jobs，根据parentID，在对应的dagView（若为空，则改为runtimeView）中，添加对应的JobView
 	// 处理dags，方法同上
 	for _, comp := range comps {
@@ -216,6 +218,8 @@ func (r *Run) initRuntime(jobs []RunJob, dags []RunDag) error {
 			}
 			dag.EntryPoints[compName] = append(dag.EntryPoints[compName], comp)
 		}
+		res, _ := json.Marshal(runtimeView)
+		logger.Logger().Infof("debug: runtime: %s", res)
 	}
 
 	// 去掉最外层的DagView，使得RuntimeView显示得更友好
