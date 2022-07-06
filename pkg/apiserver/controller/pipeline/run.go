@@ -217,6 +217,13 @@ func buildWorkflowSource(ctx logger.RequestContext, req CreateRunRequest, fsID s
 		source = runYamlPath
 		runYaml = string(runYamlByte)
 	}
+
+	// 检查 yaml 格式
+	if err := yaml.UnmarshalStrict([]byte(runYaml), map[interface{}]interface{}{}); err != nil {
+		logger.Logger().Errorf("runYaml format invalid. err:%v", err)
+		return schema.WorkflowSource{}, "", "", err
+	}
+
 	// to wfs
 	trace_logger.Key(requestId).Infof("run yaml and req to wfs")
 	wfs, err := runYamlAndReqToWfs(runYaml, req)
@@ -236,7 +243,7 @@ func getWorkFlowSourceByJson(bodyMap map[string]interface{}) (schema.WorkflowSou
 		JsonQueue:   nil,
 		JsonEnv:     nil,
 
-		//这3个字段，之前已经处理过，后续阶段无需处理，只需剔除即可
+		//这2个字段，之前已经处理过，后续的Json解析逻辑无需处理，只需剔除即可
 		JsonDescription: nil,
 		JsonUserName:    nil,
 	}

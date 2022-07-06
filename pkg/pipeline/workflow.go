@@ -398,6 +398,9 @@ func (bwf *BaseWorkflow) checkRunYaml() error {
 	if err := bwf.checkTopoSort(bwf.Source.EntryPoints.EntryPoints); err != nil {
 		return err
 	}
+	if err := bwf.checkTopoSort(bwf.Source.Components); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -746,7 +749,7 @@ func (bwf *BaseWorkflow) checkSteps() error {
 			outerTmplComps[name] = step
 		}
 	}
-	innerTmplParamChecker := StepParamChecker{
+	innerTmplParamChecker := ComponentParamChecker{
 		Components:    innerTmplComps,
 		SysParams:     sysParamNameMap,
 		UseFs:         useFs,
@@ -758,7 +761,7 @@ func (bwf *BaseWorkflow) checkSteps() error {
 			return err
 		}
 	}
-	outerTmplParamChecker := StepParamChecker{
+	outerTmplParamChecker := ComponentParamChecker{
 		Components:    outerTmplComps,
 		SysParams:     sysParamNameMap,
 		UseFs:         useFs,
@@ -782,7 +785,7 @@ func (bwf *BaseWorkflow) checkSteps() error {
 	for name, step := range bwf.postProcess {
 		runComponents[name] = step
 	}
-	runParamChecker := StepParamChecker{
+	runParamChecker := ComponentParamChecker{
 		Components:    runComponents,
 		SysParams:     sysParamNameMap,
 		UseFs:         useFs,

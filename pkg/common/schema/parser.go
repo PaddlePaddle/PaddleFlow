@@ -160,14 +160,14 @@ func (p *Parser) ParseComponents(entryPoints map[string]interface{}) (map[string
 		if p.IsDag(compMap) {
 			dagComp := WorkflowSourceDag{}
 			if err := p.ParseDag(compMap, &dagComp); err != nil {
-				return nil, err
+				return nil, fmt.Errorf("parse dag[%s] failed, %v", name, err)
 			}
 			dagComp.Name = name
 			components[name] = &dagComp
 		} else {
 			stepComp := WorkflowSourceStep{}
 			if err := p.ParseStep(compMap, &stepComp); err != nil {
-				return nil, err
+				return nil, fmt.Errorf("parse step[%s] failed, %v", name, err)
 			}
 			stepComp.Name = name
 			components[name] = &stepComp
@@ -216,17 +216,27 @@ func (p *Parser) ParseStep(params map[string]interface{}, step *WorkflowSourceSt
 			for atfKey, atfValue := range value {
 				switch atfKey {
 				case "output":
-					atfValue, ok := atfValue.([]interface{})
-					if !ok {
-						return fmt.Errorf("[artifacts.output] in step should be list of string type")
-					}
 					atfMap := map[string]string{}
-					for _, atfName := range atfValue {
-						atfName, ok := atfName.(string)
-						if !ok {
-							return fmt.Errorf("[artifacts.output] in step should be list of string type")
+					switch atfValue := atfValue.(type) {
+					case []interface{}:
+						for _, atfName := range atfValue {
+							atfName, ok := atfName.(string)
+							if !ok {
+								return fmt.Errorf("[artifacts.output] in step should be list of string type")
+							}
+							atfMap[atfName] = ""
 						}
-						atfMap[atfName] = ""
+					case map[string]interface{}:
+						// 这个Case除了给用户提供灵活的写法外，更主要的目的是适配Json接口，因为Json转Yaml会得到map格式的artifacts.output
+						for atfName, atfPath := range atfValue {
+							atfPath, ok := atfPath.(string)
+							if !ok || atfPath != "" {
+								return fmt.Errorf("[artifacts.output] with map type must use empty string(\"\") value, list type is recomended")
+							}
+							atfMap[atfName] = ""
+						}
+					default:
+						return fmt.Errorf("[artifact.output] should be map type with empty string(\"\") value or list type")
 					}
 					artifacts.Output = atfMap
 				case "input":
