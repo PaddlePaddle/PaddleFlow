@@ -178,8 +178,9 @@ func TestCallback(t *testing.T) {
 	event1 := pipeline.WorkflowEvent{
 		Event: pipeline.WfEventRunUpdate,
 		Extra: map[string]interface{}{
-			common.WfEventKeyRunID:  run1.ID,
-			common.WfEventKeyStatus: common.StatusRunRunning,
+			common.WfEventKeyRunID:     run1.ID,
+			common.WfEventKeyStatus:    common.StatusRunRunning,
+			common.WfEventKeyStartTime: "2022-07-07 13:15:04",
 		},
 	}
 	f := UpdateRuntimeFunc
