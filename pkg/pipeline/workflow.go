@@ -849,6 +849,33 @@ func (bwf *BaseWorkflow) checkPostProcess() error {
 		if postStep.Cache.Enable {
 			return fmt.Errorf("step [%s] in post_process should not use cache", name)
 		}
+
+		if postStep.Condition != "" {
+			return fmt.Errorf("step [%s] in post_process should not have condition", name)
+		}
+
+		if postStep.LoopArgument != nil {
+			return fmt.Errorf("step [%s] in post_process should not have loop_argument", name)
+		}
+
+		// postProcess必须是step，不能是dag
+		if postStep.Reference.Component != "" {
+			for {
+				refComp, ok := bwf.Source.Components[postStep.Reference.Component]
+				if !ok {
+					return fmt.Errorf("reference[%s] of step [%s] in post_process is not exist", postStep.Reference.Component, name)
+				}
+				if step, ok := refComp.(*schema.WorkflowSourceStep); ok {
+					if step.Reference.Component != "" {
+						continue
+					} else {
+						break
+					}
+				} else {
+					return fmt.Errorf("component in post_process should be a step, not dag")
+				}
+			}
+		}
 	}
 
 	return nil
