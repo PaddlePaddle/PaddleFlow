@@ -366,7 +366,8 @@ func (j *KubeJob) fillPodSpec(podSpec *corev1.PodSpec, task *models.Member) {
 // fillContainerInVcJob fill container in job task, only called by vcjob
 func (j *KubeJob) fillContainerInVcJob(container *corev1.Container, flavour schema.Flavour, command string) {
 	container.Image = j.Image
-	container.Command = []string{"sh", "-c", j.fixContainerCommand(command, j.FileSystems)}
+	workDir := j.getWorkDir(nil)
+	container.Command = j.generateContainerCommand(j.Command, workDir)
 	container.Resources = j.generateResourceRequirements(flavour)
 	container.VolumeMounts = j.appendMountIfAbsent(container.VolumeMounts, j.generateVolumeMount())
 	container.Env = j.generateEnvVars()
@@ -378,7 +379,8 @@ func (j *KubeJob) fillContainerInTasks(container *corev1.Container, task models.
 		container.Image = task.Image
 	}
 	if j.isNeedPatch(task.Command) {
-		container.Command = []string{"sh", "-c", j.fixContainerCommand(task.Command, task.GetAllFileSystem())}
+		workDir := j.getWorkDir(&task)
+		container.Command = j.generateContainerCommand(task.Command, workDir)
 	}
 	if !j.IsCustomYaml && len(task.Args) > 0 {
 		container.Args = task.Args
@@ -469,14 +471,46 @@ func (j *KubeJob) appendVolumeIfAbsent(vSlice []corev1.Volume, element corev1.Vo
 	return vSlice
 }
 
-func (j *KubeJob) fixContainerCommand(command string, fileSystems []schema.FileSystem) string {
+// generateContainerCommand if task is not nil, prefer to using info in task, otherwise using job's
+func (j *KubeJob) generateContainerCommand(command string, workdir string) []string {
 	command = strings.TrimPrefix(command, "bash -c")
 	command = strings.TrimPrefix(command, "sh -c")
-	if len(fileSystems) != 0 {
-		workdir := filepath.Join(schema.DefaultFSMountPath, fileSystems[0].ID)
+
+	if workdir != "" {
 		command = fmt.Sprintf("%s %s;%s", "cd", workdir, command)
 	}
-	return command
+
+	commands := []string{"sh", "-c", command}
+	return commands
+}
+
+func (j *KubeJob) getWorkDir(task *models.Member) string {
+	// prepare fs and envs
+	fileSystems := j.FileSystems
+	envs := j.Env
+	if task != nil {
+		fileSystems = task.Conf.GetAllFileSystem()
+		envs = task.Env
+	}
+	if len(envs) == 0 {
+		envs = make(map[string]string)
+	}
+	// check workdir, which exist only if there is more than one file system and env.'EnvMountPath' is not NONE
+	hasWorkDir := len(fileSystems) != 0 && strings.ToUpper(envs[schema.EnvMountPath]) != "NONE"
+	if !hasWorkDir {
+		return ""
+	}
+
+	workdir := ""
+	mountPath := filepath.Clean(fileSystems[0].MountPath)
+	log.Infof("getWorkDir by hasWorkDir: true,mountPath: %s, task: %v", mountPath, task)
+	if mountPath != "." {
+		workdir = mountPath
+	} else {
+		workdir = filepath.Join(schema.DefaultFSMountPath, fileSystems[0].ID)
+	}
+	envs[schema.EnvJobWorkDir] = workdir
+	return workdir
 }
 
 func (j *KubeJob) generateResourceRequirements(flavour schema.Flavour) corev1.ResourceRequirements {
@@ -787,7 +821,7 @@ func generateVolumeMounts(fileSystems []schema.FileSystem) []corev1.VolumeMount 
 	for _, fs := range fileSystems {
 		log.Debugf("generateVolumeMounts walking fileSystem %+v", fs)
 		mountPath := filepath.Clean(fs.MountPath)
-		if mountPath == "" {
+		if mountPath == "." {
 			mountPath = filepath.Join(schema.DefaultFSMountPath, fs.ID)
 		}
 		volumeMount := corev1.VolumeMount{
@@ -835,6 +869,7 @@ func appendVolumesIfAbsent(volumes []corev1.Volume, newElements []corev1.Volume)
 // otherwise,
 // `VolumeMounts = appendMountsIfAbsent(VolumeMounts, generateVolumeMounts(kubeJob.FileSystems))`
 func appendMountsIfAbsent(volumeMounts []corev1.VolumeMount, newElements []corev1.VolumeMount) []corev1.VolumeMount {
+	log.Infof("appendMountsIfAbsent volumeMounts=%+v, newElements=%+v", volumeMounts, newElements)
 	if volumeMounts == nil {
 		volumeMounts = []corev1.VolumeMount{}
 	}
