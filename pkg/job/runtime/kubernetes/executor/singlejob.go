@@ -162,7 +162,7 @@ func (sp *SingleJob) fillContainer(container *v1.Container, podName string) erro
 			return errors.EmptyJobCommandError()
 		}
 		workDir := sp.getWorkDir(nil)
-		container.Command = []string{"sh", "-c", sp.generateContainerCommand(sp.Command, workDir)}
+		container.Command = sp.generateContainerCommand(sp.Command, workDir)
 	}
 
 	// container.Args would be passed

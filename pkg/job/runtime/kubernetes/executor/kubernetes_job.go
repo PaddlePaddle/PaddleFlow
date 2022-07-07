@@ -367,7 +367,7 @@ func (j *KubeJob) fillPodSpec(podSpec *corev1.PodSpec, task *models.Member) {
 func (j *KubeJob) fillContainerInVcJob(container *corev1.Container, flavour schema.Flavour, command string) {
 	container.Image = j.Image
 	workDir := j.getWorkDir(nil)
-	container.Command = []string{"sh", "-c", j.generateContainerCommand(j.Command, workDir)}
+	container.Command = j.generateContainerCommand(j.Command, workDir)
 	container.Resources = j.generateResourceRequirements(flavour)
 	container.VolumeMounts = j.appendMountIfAbsent(container.VolumeMounts, j.generateVolumeMount())
 	container.Env = j.generateEnvVars()
@@ -380,8 +380,7 @@ func (j *KubeJob) fillContainerInTasks(container *corev1.Container, task models.
 	}
 	if j.isNeedPatch(task.Command) {
 		workDir := j.getWorkDir(&task)
-		command := j.generateContainerCommand(task.Command, workDir)
-		container.Command = []string{"sh", "-c", command}
+		container.Command = j.generateContainerCommand(task.Command, workDir)
 	}
 	if !j.IsCustomYaml && len(task.Args) > 0 {
 		container.Args = task.Args
@@ -473,14 +472,16 @@ func (j *KubeJob) appendVolumeIfAbsent(vSlice []corev1.Volume, element corev1.Vo
 }
 
 // generateContainerCommand if task is not nil, prefer to using info in task, otherwise using job's
-func (j *KubeJob) generateContainerCommand(command string, workdir string) string {
+func (j *KubeJob) generateContainerCommand(command string, workdir string) []string {
 	command = strings.TrimPrefix(command, "bash -c")
 	command = strings.TrimPrefix(command, "sh -c")
 
 	if workdir != "" {
 		command = fmt.Sprintf("%s %s;%s", "cd", workdir, command)
 	}
-	return command
+
+	commands := []string{"sh", "-c", command}
+	return commands
 }
 
 func (j *KubeJob) getWorkDir(task *models.Member) string {
