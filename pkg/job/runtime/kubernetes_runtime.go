@@ -683,8 +683,8 @@ func (kr *KubeRuntime) createPersistentVolume(pv *apiv1.PersistentVolume) (*apiv
 	return kr.clientset.CoreV1().PersistentVolumes().Create(context.TODO(), pv, metav1.CreateOptions{})
 }
 
-func (kr *KubeRuntime) deletePersistentVolume(name string, deleteOptions *metav1.DeleteOptions) error {
-	return kr.clientset.CoreV1().PersistentVolumes().Delete(context.TODO(), name, *deleteOptions)
+func (kr *KubeRuntime) DeletePersistentVolume(name string, deleteOptions metav1.DeleteOptions) error {
+	return kr.clientset.CoreV1().PersistentVolumes().Delete(context.TODO(), name, deleteOptions)
 }
 
 func (kr *KubeRuntime) getPersistentVolume(name string, getOptions metav1.GetOptions) (*apiv1.PersistentVolume, error) {
@@ -712,6 +712,10 @@ func (kr *KubeRuntime) listNodes(listOptions metav1.ListOptions) (*v1.NodeList, 
 
 func (kr *KubeRuntime) ListPods(namespace string, listOptions metav1.ListOptions) (*v1.PodList, error) {
 	return kr.clientset.CoreV1().Pods(namespace).List(context.TODO(), listOptions)
+}
+
+func (kr *KubeRuntime) DeletePod(namespace, name string) error {
+	return kr.clientset.CoreV1().Pods(namespace).Delete(context.TODO(), name, metav1.DeleteOptions{})
 }
 
 func (kr *KubeRuntime) getNodeQuotaListImpl(subQuotaFn func(r *resources.Resource, pod *apiv1.Pod) error) (schema.QuotaSummary, []schema.NodeQuotaInfo, error) {

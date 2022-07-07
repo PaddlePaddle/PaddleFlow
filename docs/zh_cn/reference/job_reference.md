@@ -357,4 +357,3 @@ ret, response = client.delete_job("jobid")
 |ret| bool| 操作成功返回True，失败返回False
 |response| -| 失败返回失败message，成功返回None
 
-

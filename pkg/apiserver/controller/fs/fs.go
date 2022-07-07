@@ -169,28 +169,15 @@ func (s *FileSystemService) GetFileSystem(username, fsName string) (model.FileSy
 
 // DeleteFileSystem the function which performs the operation of delete file system
 func (s *FileSystemService) DeleteFileSystem(ctx *logger.RequestContext, fsID string) error {
-	// TODO check filesystem not in use
-	cnm, err := getClusterNamespaceMap()
+	isMounted, err := s.CheckFsMountedAndCleanResources(fsID)
 	if err != nil {
-		err := fmt.Errorf("DeleteFileSystem getClusterNamespaceMap err: %v", err)
-		log.Errorf(err.Error())
+		ctx.Logging().Errorf("CheckFsMountedAndCleanResources with fsID[%s] err: %v", fsID, err)
 		return err
 	}
-
-	mounted, err := CheckFsMounted(cnm, fsID)
-	if err != nil {
-		ctx.Logging().Errorf("CheckFsMounted fsID[%s] err: %v", fsID, err)
-		return err
-	}
-	if mounted {
-		err := fmt.Errorf("fs[%s] currently mounted. cannot be deleted", fsID)
+	if isMounted {
+		err := fmt.Errorf("fs[%s] is mounted. deletion is not allowed", fsID)
 		ctx.Logging().Errorf(err.Error())
 		ctx.ErrorCode = common.ActionNotAllowed
-		return err
-	}
-
-	if err := DeletePvPvc(cnm, fsID); err != nil {
-		ctx.Logging().Errorf("delete PvPvc with fsID[%s] err: %v", fsID, err)
 		return err
 	}
 
@@ -219,6 +206,52 @@ func (s *FileSystemService) DeleteFileSystem(ctx *logger.RequestContext, fsID st
 		}
 		return nil
 	})
+}
+
+func (s *FileSystemService) CheckFsMountedAndCleanResources(fsID string) (bool, error) {
+	// check fs used for pipeline scheduled jobs
+	jobFsIDs, err := models.GetUsedFsIDs()
+	if err != nil {
+		err := fmt.Errorf("DeleteFileSystem GetUsedFsIDs for schecule failed: %v", err)
+		log.Errorf(err.Error())
+		return false, err
+	}
+	for _, fsInUse := range jobFsIDs {
+		if fsInUse == fsID {
+			log.Infof("fs[%s] is in use of pipeline scheduled jobs", fsID)
+			return true, nil
+		}
+	}
+
+	// check k8s mount pods
+	cnm, err := getClusterNamespaceMap()
+	if err != nil {
+		err := fmt.Errorf("DeleteFileSystem getClusterNamespaceMap err: %v", err)
+		log.Errorf(err.Error())
+		return false, err
+	}
+
+	mounted, mountPodMap, err := checkFsMounted(cnm, fsID)
+	if err != nil {
+		err := fmt.Errorf("check fs mounted fsID[%s] err: %v", fsID, err)
+		log.Errorf(err.Error())
+		return false, err
+	}
+	if mounted {
+		log.Infof("fs[%s] currently mounted. cannot be modified or deleted", fsID)
+		return true, nil
+	}
+	if err := deleteMountPods(mountPodMap); err != nil {
+		err := fmt.Errorf("delete mount pods with fsID[%s] err: %v", fsID, err)
+		log.Errorf(err.Error())
+		return false, err
+	}
+	if err := deletePvPvc(cnm, fsID); err != nil {
+		err := fmt.Errorf("delete pv/pvc with fsID[%s] err: %v", fsID, err)
+		log.Errorf(err.Error())
+		return false, err
+	}
+	return false, nil
 }
 
 func getClusterNamespaceMap() (map[*runtime.KubeRuntime][]string, error) {
@@ -266,7 +299,8 @@ func getClusterNamespaceMap() (map[*runtime.KubeRuntime][]string, error) {
 	return cnm, nil
 }
 
-func CheckFsMounted(cnm map[*runtime.KubeRuntime][]string, fsID string) (bool, error) {
+func checkFsMounted(cnm map[*runtime.KubeRuntime][]string, fsID string) (bool, map[*runtime.KubeRuntime][]k8sCore.Pod, error) {
+	clusterPodMap := make(map[*runtime.KubeRuntime][]k8sCore.Pod)
 	for k8sRuntime, _ := range cnm {
 		listOptions := k8sMeta.ListOptions{
 			LabelSelector: fmt.Sprintf(schema.LabelKeyFsID + "=" + fsID),
@@ -274,32 +308,51 @@ func CheckFsMounted(cnm map[*runtime.KubeRuntime][]string, fsID string) (bool, e
 		pods, err := k8sRuntime.ListPods(schema.MountPodNamespace, listOptions)
 		if err != nil {
 			log.Errorf("list mount pods failed: %v", err)
-			return false, err
+			return false, nil, err
 		}
+		clusterPodMap[k8sRuntime] = pods.Items
 
 		for _, po := range pods.Items {
-			if po.Annotations != nil {
-				for key, targetPath := range po.Annotations {
-					if key != schema.AnnoKeyServer &&
-						key != schema.AnnoKeyMTime {
-						log.Debugf("fs[%s] is mounted in pod[%s] with target path[%s]",
-							fsID, po.Name, targetPath)
-						return true, nil
-					}
+			for key, targetPath := range po.Annotations {
+				if key != schema.AnnoKeyMTime {
+					log.Debugf("fs[%s] is mounted in pod[%s] with target path[%s]",
+						fsID, po.Name, targetPath)
+					return true, nil, nil
 				}
 			}
 		}
 	}
-	return false, nil
+	log.Debugf("fs[%s] is not mounted, clusterPodMap: %+v", fsID, clusterPodMap)
+	return false, clusterPodMap, nil
 }
 
-func DeletePvPvc(cnm map[*runtime.KubeRuntime][]string, fsID string) error {
+func deleteMountPods(podMap map[*runtime.KubeRuntime][]k8sCore.Pod) error {
+	for k8sRuntime, pods := range podMap {
+		for _, po := range pods {
+			if err := k8sRuntime.DeletePod(schema.MountPodNamespace, po.Name); err != nil && !k8sErrors.IsNotFound(err) {
+				err := fmt.Errorf("deleteMountPods [%s] failed: %v", po.Name, err)
+				log.Errorf(err.Error())
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func deletePvPvc(cnm map[*runtime.KubeRuntime][]string, fsID string) error {
 	for k8sRuntime, namespaces := range cnm {
 		for _, ns := range namespaces {
 			// delete pvc manually. pv will be deleted automatically
 			if err := k8sRuntime.DeletePersistentVolumeClaim(ns, schema.ConcatenatePVCName(fsID), k8sMeta.DeleteOptions{}); err != nil && !k8sErrors.IsNotFound(err) {
-				log.Errorf("delete pvc[%s/%s] err: %v", ns, schema.ConcatenatePVCName(fsID), err)
-				return fmt.Errorf("delete pvc[%s-%s] err: %v", ns, schema.ConcatenatePVCName(fsID), err)
+				err := fmt.Errorf("delete pvc[%s/%s] err: %v", ns, schema.ConcatenatePVCName(fsID), err)
+				log.Errorf(err.Error())
+				return err
+			}
+			// delete pv in case pv not deleted
+			if err := k8sRuntime.DeletePersistentVolume(schema.ConcatenatePVName(ns, fsID), k8sMeta.DeleteOptions{}); err != nil && !k8sErrors.IsNotFound(err) {
+				err := fmt.Errorf("delete pv[%s] err: %v", schema.ConcatenatePVName(ns, fsID), err)
+				log.Errorf(err.Error())
+				return err
 			}
 		}
 	}

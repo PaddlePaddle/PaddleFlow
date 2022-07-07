@@ -147,7 +147,7 @@ func TestCreateSchedule(t *testing.T) {
 	assert.NotNil(t, err)
 	assert.Equal(t, fmt.Errorf("name[%s] for [schedule] does not compile with regex rule[^[A-Za-z_][A-Za-z0-9_]{1,49}$]", createScheduleReq.Name), err)
 
-	// 失败: desc长度超过1024
+	// 失败: desc长度超过256
 	createScheduleReq.Name = "schedule_1"
 	createScheduleReq.Desc = strings.Repeat("a", util.MaxDescLength+1)
 	resp, err = CreateSchedule(ctx, &createScheduleReq)
@@ -177,6 +177,11 @@ func TestCreateSchedule(t *testing.T) {
 	getScheduleResp, err := GetSchedule(ctx, resp.ScheduleID, "", 0, nil, nil)
 	assert.Nil(t, err)
 	assert.Equal(t, getScheduleResp.Options.ConcurrencyPolicy, "suspend")
+
+	// 失败，同一个用户不支持创建同名schedule
+	resp, err = CreateSchedule(ctx, &createScheduleReq)
+	assert.NotNil(t, err)
+	assert.Equal(t, fmt.Errorf("CreateSchedule failed: user[%s] already has schedule with name[%s]", MockNormalUser, createScheduleReq.Name), err)
 
 	// 失败，corrency expire interval < 0,
 	createScheduleReq.ExpireInterval = -1
@@ -235,6 +240,7 @@ func TestCreateSchedule(t *testing.T) {
 	createScheduleReq.StartTime = ""
 	createScheduleReq.EndTime = startTime.Add(48 * time.Hour).Format("2006-01-02 15:04:05")
 	createScheduleReq.Crontab = "* */3 * * *"
+	createScheduleReq.Name = "schedule_2"
 	resp, err = CreateSchedule(ctx, &createScheduleReq)
 	assert.Nil(t, err)
 	assert.Equal(t, resp.ScheduleID, "schedule-000002")
@@ -253,6 +259,7 @@ func TestCreateSchedule(t *testing.T) {
 	createScheduleReq.StartTime = startTime.Format("2006-01-02 15:04:05")
 	createScheduleReq.EndTime = endTime.Format("2006-01-02 15:04:05")
 	createScheduleReq.Crontab = "* */3 * * *"
+	createScheduleReq.Name = "schedule_3"
 	resp, err = CreateSchedule(ctx, &createScheduleReq)
 	assert.Nil(t, err)
 	assert.Equal(t, resp.ScheduleID, "schedule-000003")
@@ -287,6 +294,7 @@ func TestCreateSchedule(t *testing.T) {
 	// 成功: root用户
 	createScheduleReq.PipelineDetailID = "1"
 	resp, err = CreateSchedule(ctx, &createScheduleReq)
+	createScheduleReq.Name = "schedule_4"
 	assert.Nil(t, err)
 	assert.Equal(t, resp.ScheduleID, "schedule-000004")
 }
@@ -608,6 +616,7 @@ func TestGetSchedule(t *testing.T) {
 
 	// root用户创建一个周期调度
 	ctx = &logger.RequestContext{UserName: MockRootUser}
+	createScheduleReq.Name = "schedule_2"
 	resp, err = CreateSchedule(ctx, &createScheduleReq)
 	assert.Nil(t, err)
 	assert.Equal(t, resp.ScheduleID, "schedule-000002")
@@ -723,12 +732,14 @@ func TestStopSchedule(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, createResp1.ScheduleID, "schedule-000001")
 
+	createScheduleReq.Name = "schedule_2"
 	createResp2, err := CreateSchedule(ctx, &createScheduleReq)
 	assert.Nil(t, err)
 	assert.Equal(t, createResp2.ScheduleID, "schedule-000002")
 
 	// root 用户创建一个schedule
 	ctx = &logger.RequestContext{UserName: MockRootUser}
+	createScheduleReq.Name = "schedule_3"
 	createResp3, err := CreateSchedule(ctx, &createScheduleReq)
 	assert.Nil(t, err)
 	assert.Equal(t, createResp3.ScheduleID, "schedule-000003")
@@ -816,10 +827,12 @@ func TestDeleteSchedule(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, createResp1.ScheduleID, "schedule-000001")
 
+	createScheduleReq.Name = "schedule_2"
 	createResp2, err := CreateSchedule(ctx, &createScheduleReq)
 	assert.Nil(t, err)
 	assert.Equal(t, createResp2.ScheduleID, "schedule-000002")
 
+	createScheduleReq.Name = "schedule_3"
 	createResp3, err := CreateSchedule(ctx, &createScheduleReq)
 	assert.Nil(t, err)
 	assert.Equal(t, createResp3.ScheduleID, "schedule-000003")
@@ -832,6 +845,7 @@ func TestDeleteSchedule(t *testing.T) {
 
 	// root用户创建一个schedule
 	ctx = &logger.RequestContext{UserName: MockRootUser}
+	createScheduleReq.Name = "schedule_4"
 	createResp4, err := CreateSchedule(ctx, &createScheduleReq)
 	assert.Nil(t, err)
 	assert.Equal(t, createResp4.ScheduleID, "schedule-000004")

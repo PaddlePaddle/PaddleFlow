@@ -38,6 +38,9 @@ const (
 	// EnvJobYamlPath Additional configuration for a specific job
 	EnvJobYamlPath  = "PF_JOB_YAML_PATH"
 	EnvIsCustomYaml = "PF_IS_CUSTOM_YAML"
+	// EnvJobWorkDir The working directory of the job, `null` means command without a working directory
+	EnvJobWorkDir = "PF_WORK_DIR"
+	EnvMountPath  = "PF_MOUNT_PATH"
 
 	// EnvJobModePS env
 	EnvJobModePS          = "PS"
@@ -166,6 +169,10 @@ type PFJobConf interface {
 	GetCommand() string
 	GetImage() string
 
+	GetFileSystem() FileSystem
+	GetExtraFS() []FileSystem
+	GetArgs() []string
+
 	GetPriority() string
 	SetPriority(string)
 
@@ -238,6 +245,18 @@ func (c *Conf) GetCommand() string {
 	return c.Command
 }
 
+func (c *Conf) GetFileSystem() FileSystem {
+	return c.FileSystem
+}
+
+func (c *Conf) GetExtraFS() []FileSystem {
+	return c.ExtraFileSystem
+}
+
+func (c *Conf) GetArgs() []string {
+	return c.Args
+}
+
 func (c *Conf) GetWorkerCommand() string {
 	c.preCheckEnv()
 	return c.Env[EnvJobWorkerCommand]
@@ -291,6 +310,7 @@ func (c *Conf) GetFS() string {
 }
 
 // SetFS sets the filesystem id
+// Deprecated
 func (c *Conf) SetFS(fsID string) {
 	c.preCheckEnv()
 	c.Env[EnvJobFsID] = fsID
