@@ -10,9 +10,9 @@
 - 查看工作流运行日志
 # 2.安装PaddleFlow客户端和初始化
 ## 基于kubernetes
-[基于K8s PaddleFlow客户端安装和初始化](docs/zh_cn/deployment/install_paddleflow_on_k8s.md)
+[基于K8s PaddleFlow客户端安装和初始化](../deployment/install_paddleflow_on_k8s.md)
 ## 基于k3s
-[基于K3s PaddleFlow客户端安装和初始化](docs/zh_cn/deployment/install_paddleflow_on_k3s.md)
+[基于K3s PaddleFlow客户端安装和初始化](../deployment/install_paddleflow_on_k3s.md)
 # 3.新增账号（可跳过）
 ```shell
 ## 3.1新增用户user123，密码 passwd123456
