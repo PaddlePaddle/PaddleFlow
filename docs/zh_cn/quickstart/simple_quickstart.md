@@ -19,7 +19,7 @@
 paddleflow user add user123 passwd123456
 ## 3.2查看是否增加成功
 paddleflow user list 
-## 33.更改paddleflow默认配置文件的用户名密码，默认在~/.paddleflow/config文件中
+## 3.3更改paddleflow默认配置文件的用户名密码，默认在~/.paddleflow/config文件中
 ```
 # 4.初始化工作区（三选一）
 确保本地和PaddleFlow网络互通，可通过curl测试连通性
@@ -28,6 +28,7 @@ curl http://paddleflow-host:8999
 ```
 ## 4.1 初始化本地文件（训练数据和代码在本地文件系统中）
 本地文件系统当前PaddleFlow为了保障安全性，使用SFTP协议进行传输数据，因此首先确认文件所在机器是否已经开启了SSHD，如果没有则需要安装。
+
 1.创建本地工作区
 ```shell
 mkdir /home/work/paddleflow/workspace/project1/ ##可按需自己规划
