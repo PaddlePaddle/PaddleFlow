@@ -1,5 +1,5 @@
 # 安装PaddleFlow服务端
-## 1.基于在kubernetes快速安装（二选一）
+## 1.基于kubernetes快速安装（二选一）
 1. 创建一个具有写权限的sqlite数据库文件,默认位于`/mnt/paddleflow.db`. 若需更换路径,请等待后续支持的shell部署脚本
 
 ```shell
@@ -196,3 +196,5 @@ paddleflow queue create ${QUEUENAME} ${QUEUENAMESPACE} ${clustername} ${QUEUEMax
 paddleflow cluster list
 paddleflow queue list
 ```
+# 快速上手
+[快速上手](../quickstart/simple_quickstart.md)
