@@ -184,7 +184,6 @@ type baseComponentRuntime struct {
 func NewBaseComponentRuntime(name, fullname string, component schema.Component, seq int, ctx context.Context, failureOpitonsCtx context.Context,
 	eventChannel chan<- WorkflowEvent, config *runConfig, parentDagID string) *baseComponentRuntime {
 
-	// TODO: name 和 compoentFullName 保留一个就好
 	cr := &baseComponentRuntime{
 		name:                 name,
 		componentFullName:    fullname,
@@ -304,8 +303,6 @@ func (crt *baseComponentRuntime) getPFLoopArgument() (value interface{}, err err
 func (crt *baseComponentRuntime) setSysParams() error {
 	crt.sysParams = map[string]string{
 		SysParamNamePFRunID:    crt.runID,
-		SysParamNamePFFsID:     crt.GlobalFsID,
-		SysParamNamePFFsName:   crt.GloablFsName,
 		SysParamNamePFStepName: crt.component.GetName(),
 		SysParamNamePFUserName: crt.userName,
 	}

@@ -134,16 +134,11 @@ func (isv *innerSolver) resolveArtifactTemplate(tpl []string, fieldType string, 
 
 	}
 	if fieldType != FieldCondition && fieldType != FieldLoopArguemt {
-		/*
-			ps := []string{}
-			for _, p := range strings.Split(path, ",") {
-				ps = append(ps, strings.Join([]string{ArtMountDir, p}, "/"))
-			}
-			result = strings.Join(ps, ",")
-		*/
-
-		// TODO: 待 job 适配后，更改使用上面注释部分的代码
-		result = path
+		ps := []string{}
+		for _, p := range strings.Split(path, ",") {
+			ps = append(ps, strings.Join([]string{ArtMountDir, p}, "/"))
+		}
+		result = strings.Join(ps, ",")
 	} else {
 		var maxSize int
 		if fieldType == FieldCondition {

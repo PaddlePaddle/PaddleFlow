@@ -357,9 +357,6 @@ func (s *ComponentParamChecker) resolveRefParam(componentName, param, fieldType 
 		if len(refComponent) == 0 {
 			// 分别替换系统参数，如{{PF_RUN_ID}}；当前step parameter；当前step的input artifact；当前step的output artifact
 			// 只有param，env，command三类变量需要处理
-			if !s.UseFs && (refParamName == SysParamNamePFFsID || refParamName == SysParamNamePFFsName) {
-				return fmt.Errorf("cannot use sysParam[%s] template in component[%s] for pipeline run with no Fs mounted", refParamName, componentName)
-			}
 
 			var ok bool
 			_, ok = s.SysParams[refParamName]

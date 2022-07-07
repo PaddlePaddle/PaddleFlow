@@ -145,16 +145,6 @@ func (pfj *PaddleFlowJob) generateJobConf() schema.Conf {
 		efs = append(efs, fs)
 	}
 
-	flavour := schema.Flavour{}
-	if _, ok := pfj.Env["PF_JOB_FLAVOUR"]; ok {
-		flavour.Name = pfj.Env["PF_JOB_FLAVOUR"]
-	}
-
-	priority := ""
-	if _, ok := pfj.Env["PF_JOB_PRIORITY"]; ok {
-		priority = pfj.Env["PF_JOB_PRIORITY"]
-	}
-
 	queueName := ""
 	if _, ok := pfj.Env["PF_JOB_QUEUE_NAME"]; ok {
 		queueName = pfj.Env["PF_JOB_QUEUE_NAME"]
@@ -166,8 +156,6 @@ func (pfj *PaddleFlowJob) generateJobConf() schema.Conf {
 		Command:         pfj.Command,
 		Image:           pfj.Image,
 		ExtraFileSystem: efs,
-		Flavour:         flavour,
-		Priority:        priority,
 		QueueName:       queueName,
 	}
 
@@ -181,7 +169,7 @@ func (pfj *PaddleFlowJob) Validate() error {
 	// 调用job子系统接口进行校验
 	conf := pfj.generateJobConf()
 
-	err = job.ValidateJob(&conf)
+	err = job.ValidatePPLJob(&conf)
 	if err != nil {
 		return err
 	}
@@ -196,7 +184,7 @@ func (pfj *PaddleFlowJob) Start() (string, error) {
 
 	// 调用job子系统接口发起运行
 	conf := pfj.generateJobConf()
-	pfj.ID, err = job.CreateJob(&conf)
+	pfj.ID, err = job.CreatePPLJob(&conf)
 	if err != nil {
 		return "", err
 	}

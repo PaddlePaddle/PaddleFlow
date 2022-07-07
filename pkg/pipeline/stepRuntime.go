@@ -325,14 +325,10 @@ func (srt *StepRuntime) updateJob(forCacheFingerprint bool) error {
 
 		// artifact 也添加到环境变量中
 		for atfName, atfValue := range srt.GetArtifacts().Input {
-			// TODO: job ready 替换成下面被注释的代码
-			// newEnvs[GetInputArtifactEnvName(atfName)] = srt.generateOutArtPathForJob(atfValue)
-			newEnvs[GetInputArtifactEnvName(atfName)] = atfValue
+			newEnvs[GetInputArtifactEnvName(atfName)] = srt.generateOutArtPathForJob(atfValue)
 		}
 		for atfName, atfValue := range srt.GetArtifacts().Output {
-			// TODO: job ready 替换成下面被注释的代码
-			// newEnvs[GetOutputArtifactEnvName(atfName)] = srt.generateOutArtPathForJob(atfValue)
-			newEnvs[GetInputArtifactEnvName(atfName)] = atfValue
+			newEnvs[GetOutputArtifactEnvName(atfName)] = srt.generateOutArtPathForJob(atfValue)
 		}
 	}
 
@@ -578,6 +574,7 @@ func (srt *StepRuntime) GenerateFsMountForArtifact() (err error) {
 			path = strings.TrimSpace(path)
 
 			fsMount := schema.FsMount{
+				FsID:      srt.runConfig.GlobalFsID,
 				FsName:    srt.runConfig.GloablFsName,
 				MountPath: strings.Join([]string{ArtMountDir, path}, "/"),
 				SubPath:   path,
