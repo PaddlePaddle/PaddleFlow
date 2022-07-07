@@ -254,7 +254,7 @@ func TestUpdateJob(t *testing.T) {
 			assert.Equal(t, "0.66", srt.job.Job().Parameters["p4"])
 			assert.Equal(t, "/path/to/anywhere", srt.job.Job().Parameters["p5"])
 
-			assert.Equal(t, 5+7+2, len(srt.job.Job().Env)) // 5 env + 6 sys param + 2 artifact
+			assert.Equal(t, 5+5+2, len(srt.job.Job().Env)) // 5 env + 5 sys param + 2 artifact
 
 			// input artifact 替换为上游节点的output artifact
 			// 实际运行中上游节点的output artifact一定是非空的（因为已经运行了），但是在这个测试case里，上游节点没有生成output artifact，所以是空字符串
@@ -673,7 +673,7 @@ func TestStart(t *testing.T) {
 		eventChan, rf, "dag-11")
 	srt.setSysParams()
 
-	st.Condition = "10 > 11"
+	st.Condition = "10 < 11"
 
 	executed := false
 	patch22 := gomonkey.ApplyMethod(reflect.TypeOf(srt), "Execute", func(_ *StepRuntime) {
@@ -690,7 +690,7 @@ func TestStart(t *testing.T) {
 	assert.True(t, executed)
 	assert.Equal(t, ep.Message, "")
 
-	st.Condition = "10 > 9"
+	st.Condition = "10 < 9"
 	executed = false
 
 	srt.status = ""
@@ -706,7 +706,7 @@ func TestStart(t *testing.T) {
 	// 测试disabled 的情况
 	*ep = WorkflowEvent{}
 	executed = false
-	st.Condition = "10 < 9"
+	st.Condition = "10 > 9"
 	wfptr.Source.Disabled = st.Name
 
 	srt.status = ""
