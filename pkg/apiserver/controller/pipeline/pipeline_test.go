@@ -51,10 +51,10 @@ func TestCreatePipeline(t *testing.T) {
 	fmt.Println(pwd)
 
 	createPplReq := CreatePipelineRequest{
-		GlobalFsName: MockFsName,
-		UserName:     "",
-		YamlPath:     "../../../../example/wide_and_deep/run.yaml",
-		Desc:         "pipeline test",
+		FsName:   MockFsName,
+		UserName: "",
+		YamlPath: "../../../../example/wide_and_deep/run.yaml",
+		Desc:     "pipeline test",
 	}
 
 	patch := gomonkey.ApplyFunc(handler.ReadFileFromFs, func(fsID, runYamlPath string, logEntry *log.Entry) ([]byte, error) {
@@ -82,13 +82,13 @@ func TestCreatePipeline(t *testing.T) {
 
 	// 创建失败: fsname为空
 	createPplReq.Desc = "pipeline test"
-	createPplReq.GlobalFsName = ""
+	createPplReq.FsName = ""
 	_, err = CreatePipeline(ctx, createPplReq)
 	assert.NotNil(t, err)
 	assert.Equal(t, fmt.Errorf("create pipeline failed. fsname shall not be empty"), err)
 
 	// create 成功
-	createPplReq.GlobalFsName = MockFsName
+	createPplReq.FsName = MockFsName
 	resp, err := CreatePipeline(ctx, createPplReq)
 	assert.Nil(t, err)
 
@@ -137,10 +137,10 @@ func TestUpdatePipeline(t *testing.T) {
 	ctx := &logger.RequestContext{UserName: "normalUser"}
 
 	createPplReq := CreatePipelineRequest{
-		GlobalFsName: MockFsName,
-		UserName:     "",
-		YamlPath:     "../../../../example/wide_and_deep/run.yaml",
-		Desc:         "pipeline test",
+		FsName:   MockFsName,
+		UserName: "",
+		YamlPath: "../../../../example/wide_and_deep/run.yaml",
+		Desc:     "pipeline test",
 	}
 
 	pipelineID := "ppl-000001"

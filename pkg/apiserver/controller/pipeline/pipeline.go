@@ -33,10 +33,10 @@ import (
 )
 
 type CreatePipelineRequest struct {
-	GlobalFsName string `json:"globalFsName"`
-	YamlPath     string `json:"yamlPath"` // optional, use "./run.yaml" if not specified
-	UserName     string `json:"username"` // optional, only for root user
-	Desc         string `json:"desc"`     // optional
+	FsName   string `json:"fsName"`
+	YamlPath string `json:"yamlPath"` // optional, use "./run.yaml" if not specified
+	UserName string `json:"username"` // optional, only for root user
+	Desc     string `json:"desc"`     // optional
 }
 
 type CreatePipelineResponse struct {
@@ -127,14 +127,14 @@ func CreatePipeline(ctx *logger.RequestContext, request CreatePipelineRequest) (
 	}
 
 	// check user grant to fs
-	if request.GlobalFsName == "" {
+	if request.FsName == "" {
 		ctx.ErrorCode = common.InvalidArguments
 		errMsg := "create pipeline failed. fsname shall not be empty"
 		ctx.Logging().Errorf(errMsg)
 		return CreatePipelineResponse{}, fmt.Errorf(errMsg)
 	}
 
-	fsID, err := CheckFsAndGetID(ctx.UserName, request.UserName, request.GlobalFsName)
+	fsID, err := CheckFsAndGetID(ctx.UserName, request.UserName, request.FsName)
 	if err != nil {
 		ctx.ErrorCode = common.InvalidArguments
 		ctx.Logging().Errorf(err.Error())
@@ -190,7 +190,7 @@ func CreatePipeline(ctx *logger.RequestContext, request CreatePipelineRequest) (
 	yamlMd5 := common.GetMD5Hash(pipelineYaml)
 	pplDetail := models.PipelineDetail{
 		GlobalFsID:   fsID,
-		GlobalFsName: request.GlobalFsName,
+		GlobalFsName: request.FsName,
 		YamlPath:     request.YamlPath,
 		PipelineYaml: string(pipelineYaml),
 		PipelineMd5:  yamlMd5,

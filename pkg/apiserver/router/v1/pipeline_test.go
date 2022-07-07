@@ -40,9 +40,9 @@ func TestCreatePipeline(t *testing.T) {
 
 	pplUrl := baseUrl + "/pipeline"
 	createPplReq := pipeline.CreatePipelineRequest{
-		GlobalFsName: "mockFsName",
-		UserName:     "",
-		YamlPath:     "../../../../example/wide_and_deep/run.yaml",
+		FsName:   "mockFsName",
+		UserName: "",
+		YamlPath: "../../../../example/wide_and_deep/run.yaml",
 	}
 
 	patch := gomonkey.ApplyFunc(pkgPipeline.NewWorkflow, func(wfSource schema.WorkflowSource, runID string, params map[string]interface{}, extra map[string]string,
