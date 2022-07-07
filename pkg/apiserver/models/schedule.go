@@ -391,9 +391,9 @@ func GetUsedFsIDs() ([]string, error) {
 
 		var fsID string
 		if fsConfig.UserName != "" {
-			fsID = common.ID(fsConfig.UserName, fsConfig.FsName)
+			fsID = common.ID(fsConfig.UserName, fsConfig.GlobalFsName)
 		} else {
-			fsID = common.ID(schedule.UserName, fsConfig.FsName)
+			fsID = common.ID(schedule.UserName, fsConfig.GlobalFsName)
 		}
 
 		fsIDMap[fsID] = 1
