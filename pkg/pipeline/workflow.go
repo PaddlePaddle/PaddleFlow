@@ -276,7 +276,7 @@ func (bwf *BaseWorkflow) validate() error {
 	}
 
 	// 6. runtimeSteps和postProcess 中的 parameter artifact env command 是否合法
-	if err := bwf.checkSteps(); err != nil {
+	if err := bwf.checkComps(); err != nil {
 		bwf.log().Errorf("check steps err:%s", err.Error())
 		return err
 	}
@@ -696,7 +696,7 @@ func replaceAllNodeParam(entryPoints map[string]schema.Component, paramName stri
 	return isReplace, nil
 }
 
-func (bwf *BaseWorkflow) checkSteps() error {
+func (bwf *BaseWorkflow) checkComps() error {
 	/*
 		该函数检查了Components、EntryPoints、PostProcess
 

@@ -189,7 +189,7 @@ func CreatePipeline(ctx *logger.RequestContext, request CreatePipelineRequest) (
 
 	yamlMd5 := common.GetMD5Hash(pipelineYaml)
 	pplDetail := models.PipelineDetail{
-		FsID:         fsID,
+		GlobalFsID:   fsID,
 		GlobalFsName: request.GlobalFsName,
 		YamlPath:     request.YamlPath,
 		PipelineYaml: string(pipelineYaml),
@@ -285,7 +285,7 @@ func UpdatePipeline(ctx *logger.RequestContext, request UpdatePipelineRequest, p
 	yamlMd5 := common.GetMD5Hash(pipelineYaml)
 	pplDetail := models.PipelineDetail{
 		PipelineID:   pipelineID,
-		FsID:         fsID,
+		GlobalFsID:   fsID,
 		GlobalFsName: request.GlobalFsName,
 		YamlPath:     request.YamlPath,
 		PipelineYaml: string(pipelineYaml),
