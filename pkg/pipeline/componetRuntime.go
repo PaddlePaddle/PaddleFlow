@@ -340,7 +340,7 @@ func (crt *baseComponentRuntime) setSysParams() error {
 func (crt *baseComponentRuntime) CalculateCondition() (bool, error) {
 	crt.resolveCondition()
 	if crt.GetCondition() == "" {
-		return false, nil
+		return true, nil
 	}
 
 	crt.logger.Debugf("before to calculate the condition of %s[%s] : %s", crt.getComponent().GetType(),
