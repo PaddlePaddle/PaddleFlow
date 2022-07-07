@@ -25,6 +25,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/fuse"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/kv"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/ufs"
 )
 
 func BasicFlags() []cli.Flag {
@@ -124,7 +125,7 @@ func CacheFlags(fuseConf *fuse.FuseConfig) []cli.Flag {
 	}
 }
 
-func MountFlags() []cli.Flag {
+func MountFlags(fuseConf *fuse.FuseConfig) []cli.Flag {
 	return []cli.Flag{
 		&cli.StringFlag{
 			Name:    "mount-point",
@@ -142,6 +143,18 @@ func MountFlags() []cli.Flag {
 			Name:  "disable-xattrs",
 			Value: true,
 			Usage: "kernel does not issue anyXAttr operations at all",
+		},
+		&cli.IntFlag{
+			Name:        "dir-mode",
+			Value:       ufs.DefaultDirMode,
+			Usage:       "Permission bits for directories, only effective for S3 file system. (default: 0755)",
+			Destination: &fuseConf.DirMode,
+		},
+		&cli.IntFlag{
+			Name:        "file-mode",
+			Value:       ufs.DefaultFileMode,
+			Usage:       "Permission bits for files, only effective for S3 file system. (default: 0644)",
+			Destination: &fuseConf.FileMode,
 		},
 	}
 }

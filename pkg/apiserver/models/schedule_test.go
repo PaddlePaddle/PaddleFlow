@@ -88,6 +88,100 @@ func insertPipeline(t *testing.T, logEntry *log.Entry) (pplID1, pplID2, pplDetai
 	return pplID1, pplID2, pplDetailID1, pplDetailID2
 }
 
+// ------ job / fs模块需要的函数 ------
+func TestGetUsedFsIDs(t *testing.T) {
+	initMockDB()
+	logEntry := log.WithFields(log.Fields{})
+	pplID1, _, pplDetailID1, _ := insertPipeline(t, logEntry)
+
+	fsConfig := FsConfig{FsName: "fsname", UserName: "user1"}
+	StrFsConfig, err := fsConfig.Encode(logEntry)
+	assert.Nil(t, err)
+
+	schedule := Schedule{
+		ID:               "", // to be back filled according to db pk
+		Name:             "schedule1",
+		Desc:             "schedule1",
+		PipelineID:       pplID1,
+		PipelineDetailID: pplDetailID1,
+		UserName:         MockRootUser,
+		FsConfig:         StrFsConfig,
+		Crontab:          "*/5 * * * *",
+		Options:          "{}",
+		Status:           ScheduleStatusRunning,
+		StartAt:          sql.NullTime{},
+		EndAt:            sql.NullTime{},
+		NextRunAt:        time.Now(),
+	}
+
+	// 创建schedule前，查询返回为空
+	fsIDList, err := GetUsedFsIDs()
+	assert.Nil(t, err)
+	assert.Equal(t, len(fsIDList), 0)
+
+	// 创建 running 状态的schedule
+	schedID, err := CreateSchedule(logEntry, schedule)
+	assert.Nil(t, err)
+	assert.Equal(t, schedID, "schedule-000001")
+
+	fsIDList, err = GetUsedFsIDs()
+	assert.Nil(t, err)
+	assert.Equal(t, len(fsIDList), 1)
+	print(fsIDList)
+
+	// fsconfig中不包含user，使用默认的“”
+	fsConfig = FsConfig{FsName: "fsname"}
+	StrFsConfig, err = fsConfig.Encode(logEntry)
+	assert.Nil(t, err)
+
+	schedule.FsConfig = StrFsConfig
+	schedID, err = CreateSchedule(logEntry, schedule)
+	assert.Nil(t, err)
+	assert.Equal(t, schedID, "schedule-000002")
+
+	fsIDList, err = GetUsedFsIDs()
+	assert.Nil(t, err)
+	assert.Equal(t, len(fsIDList), 2)
+	print(fsIDList)
+
+	// 创建 success 状态的schedule
+	fsConfig = FsConfig{FsName: "fsname", UserName: "another_user"}
+	StrFsConfig, err = fsConfig.Encode(logEntry)
+	assert.Nil(t, err)
+
+	schedule.FsConfig = StrFsConfig
+	schedule.Status = ScheduleStatusSuccess
+	schedID, err = CreateSchedule(logEntry, schedule)
+	assert.Nil(t, err)
+	assert.Equal(t, schedID, "schedule-000003")
+
+	fsIDList, err = GetUsedFsIDs()
+	assert.Nil(t, err)
+	assert.Equal(t, len(fsIDList), 2)
+
+	// 创建 failed 状态的schedule
+	schedule.Status = ScheduleStatusFailed
+	schedID, err = CreateSchedule(logEntry, schedule)
+	assert.Nil(t, err)
+	assert.Equal(t, schedID, "schedule-000004")
+
+	fsIDList, err = GetUsedFsIDs()
+	assert.Nil(t, err)
+	assert.Equal(t, len(fsIDList), 2)
+
+	// 创建 terminated 状态的schedule
+	schedule.Status = ScheduleStatusTerminated
+	schedID, err = CreateSchedule(logEntry, schedule)
+	assert.Nil(t, err)
+	assert.Equal(t, schedID, "schedule-000005")
+
+	fsIDList, err = GetUsedFsIDs()
+	assert.Nil(t, err)
+	assert.Equal(t, len(fsIDList), 2)
+}
+
+// ------ 周期调度逻辑需要的函数 ------
+
 // 测试创建schedule catchup 参数
 func TestCatchup(t *testing.T) {
 	initMockDB()

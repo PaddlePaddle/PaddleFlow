@@ -8,8 +8,11 @@ touch /mnt/paddleflow.db && chmod 666 /mnt/paddleflow.db
 2. 部署
 
 ```shell
-# For x86:
+# Kubernetes version >= v1.18
 kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.2/installer/paddleflow-deployment.yaml
+# Kubernetes version < v1.18
+kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.2/installer/paddleflow-deployment-before-v1-18.yaml
+# For x86: todo
 # For arm64: todo
 ```
 
@@ -50,8 +53,11 @@ sed -e "s/sqlite/${DB_DRIVER}/g"  -e "s/host: 127.0.0.1/host: ${DB_HOST}/g"  -e 
 1. 部署
 
 ```shell
-# For x86_64:
+# Kubernetes version >= v1.18
 kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.2/installer/deploys/paddleflow-csi-plugin/paddleflow-csi-plugin-deploy.yaml
+# Kubernetes version < v1.18
+kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.2/installer/deploys/paddleflow-csi-plugin/paddleflow-csi-plugin-deploy-before-v1-18.yaml
+# For x86_64: todo
 # For arm64: todo
 ```
 

@@ -26,6 +26,7 @@ import (
 	"os"
 	"os/signal"
 	"path"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -50,7 +51,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 	csiMount "github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/mount"
 	mountUtil "github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/mount"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/metric"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/monitor"
 )
 
 var opts *libfuse.MountOptions
@@ -67,13 +68,13 @@ var logConf = logger.LogConfig{
 
 func CmdMount() *cli.Command {
 	compoundFlags := [][]cli.Flag{
-		flag.MountFlags(),
+		flag.MountFlags(fuse.FuseConf),
 		flag.LinkFlags(),
 		flag.BasicFlags(),
 		flag.CacheFlags(fuse.FuseConf),
 		flag.UserFlags(fuse.FuseConf),
 		logger.LogFlags(&logConf),
-		metric.MetricsFlags(),
+		monitor.MetricsFlags(),
 	}
 	return &cli.Command{
 		Name:      "mount",
@@ -137,7 +138,7 @@ func setup(c *cli.Context) error {
 		return err
 	}
 	signalHandle(mountPoint)
-	go metric.UpdateBaseMetrics()
+	go monitor.UpdateBaseMetrics()
 	// whether start metrics server
 	if c.Bool("metrics-service-on") {
 		metricsAddr := exposeMetricsService(c.String("server"), c.Int("metrics-service-port"))
@@ -345,7 +346,6 @@ func InitVFS(c *cli.Context, registry *prometheus.Registry) error {
 		MaxReadAhead: c.Int("data-read-ahead-size"),
 		Expire:       c.Duration("data-cache-expire"),
 		Config: kv.Config{
-			Driver:    kv.NutsDB,
 			CachePath: c.String("data-cache-path"),
 		},
 	}
@@ -360,6 +360,13 @@ func InitVFS(c *cli.Context, registry *prometheus.Registry) error {
 	}
 	vfsConfig := vfs.InitConfig(vfsOptions...)
 
+	properties := fsMeta.Properties
+	if properties[common.FileMode] == "" {
+		properties[common.FileMode] = strconv.Itoa(fuse.FuseConf.FileMode)
+	}
+	if properties[common.DirMode] == "" {
+		properties[common.DirMode] = strconv.Itoa(fuse.FuseConf.DirMode)
+	}
 	if _, err := vfs.InitVFS(fsMeta, links, true, vfsConfig, registry); err != nil {
 		log.Errorf("init vfs failed: %v", err)
 		return err
