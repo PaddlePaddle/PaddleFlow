@@ -156,7 +156,7 @@ func TestValidateWorkflowParam(t *testing.T) {
 	bwf.Source.EntryPoints.EntryPoints["main"].GetParameters()["invalidRef"] = "{{ validate.refSystem }}"
 	err = bwf.validate()
 	assert.NotNil(t, err)
-	assert.Equal(t, err.Error(), "invalid reference param {{ validate.refSystem }} in component[main]: step[validate] not in deps")
+	assert.Equal(t, err.Error(), "invalid reference param {{ validate.refSystem }} in component[main]: component[validate] not in deps")
 
 	// ref from downstream
 	bwf.Source.EntryPoints.EntryPoints["main"].GetParameters()["invalidRef"] = "{{ .refSystem }}"
