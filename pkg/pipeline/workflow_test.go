@@ -91,7 +91,7 @@ func TestValidateWorkflow_WrongParam(t *testing.T) {
 	bwf := NewBaseWorkflow(wfs, "", nil, extra)
 	err = bwf.validate()
 	assert.NotNil(t, err)
-	assert.Equal(t, "invalid reference param {{ data-preprocess.xxxinvalid }} in step[main]: parameter[xxxinvalid] not exist", err.Error())
+	assert.Equal(t, "invalid reference param {{ data-preprocess.xxxinvalid }} in component[main]: parameter[xxxinvalid] not exist", err.Error())
 }
 
 func TestWorkflowParamDuplicate(t *testing.T) {
@@ -156,7 +156,7 @@ func TestValidateWorkflowParam(t *testing.T) {
 	bwf.Source.EntryPoints.EntryPoints["main"].GetParameters()["invalidRef"] = "{{ validate.refSystem }}"
 	err = bwf.validate()
 	assert.NotNil(t, err)
-	assert.Equal(t, err.Error(), "invalid reference param {{ validate.refSystem }} in step[main]: step[validate] not in deps")
+	assert.Equal(t, err.Error(), "invalid reference param {{ validate.refSystem }} in component[main]: step[validate] not in deps")
 
 	// ref from downstream
 	bwf.Source.EntryPoints.EntryPoints["main"].GetParameters()["invalidRef"] = "{{ .refSystem }}"
@@ -169,7 +169,7 @@ func TestValidateWorkflowParam(t *testing.T) {
 	bwf.Source.EntryPoints.EntryPoints["main"].GetParameters()["invalid-name"] = "xxx"
 	err = bwf.validate()
 	assert.NotNil(t, err)
-	errMsg := "check parameters[invalid-name] in step[main] failed: format of variable name[invalid-name] invalid, should be in ^[A-Za-z_][A-Za-z0-9_]{1,49}$"
+	errMsg := "check parameters[invalid-name] in component[main] failed: format of variable name[invalid-name] invalid, should be in ^[A-Za-z_][A-Za-z0-9_]{1,49}$"
 	assert.Equal(t, err.Error(), errMsg)
 
 	// validate param name
@@ -177,7 +177,7 @@ func TestValidateWorkflowParam(t *testing.T) {
 	bwf.Source.EntryPoints.EntryPoints["main"].(*schema.WorkflowSourceStep).Env["invalid-name"] = "xxx"
 	err = bwf.validate()
 	assert.NotNil(t, err)
-	errMsg = "check env[invalid-name] in step[main] failed: format of variable name[invalid-name] invalid, should be in ^[A-Za-z_][A-Za-z0-9_]{1,49}$"
+	errMsg = "check env[invalid-name] in component[main] failed: format of variable name[invalid-name] invalid, should be in ^[A-Za-z_][A-Za-z0-9_]{1,49}$"
 	assert.Equal(t, err.Error(), errMsg)
 }
 
@@ -331,7 +331,7 @@ func TestValidateWorkflowPassingParam(t *testing.T) {
 		"model": "{{ step1.param }}",
 	}
 	err = bwf.validate()
-	assert.Equal(t, "invalid reference param {{ step1.param }} in step[main]: step[step1] not in deps", err.Error())
+	assert.Equal(t, "invalid reference param {{ step1.param }} in component[main]: component[step1] not in deps", err.Error())
 }
 
 func TestValidateWorkflowArtifacts(t *testing.T) {
@@ -350,13 +350,13 @@ func TestValidateWorkflowArtifacts(t *testing.T) {
 	bwf.Source.EntryPoints.EntryPoints["main"].GetArtifacts().Input["wrongdata"] = "{{ xxxx }}"
 	err = bwf.validate()
 	assert.NotNil(t, err)
-	assert.Equal(t, "check input artifact [wrongdata] in step[main] failed: format of value[{{ xxxx }}] invalid, should be like {{XX-XX.XX_XX}}", err.Error())
+	assert.Equal(t, "check input artifact [wrongdata] in component[main] failed: format of value[{{ xxxx }}] invalid, should be like {{XX-XX.XX_XX}}", err.Error())
 
 	// 上游 output artifact 不存在
 	bwf.Source.EntryPoints.EntryPoints["main"].GetArtifacts().Input["wrongdata"] = "{{ data-preprocess.noexist_data }}"
 	err = bwf.validate()
 	assert.NotNil(t, err)
-	assert.Equal(t, "invalid reference param {{ data-preprocess.noexist_data }} in step[main]: output artifact[noexist_data] not exist", err.Error())
+	assert.Equal(t, "invalid reference param {{ data-preprocess.noexist_data }} in component[main]: output artifact[noexist_data] not exist", err.Error())
 	delete(bwf.Source.EntryPoints.EntryPoints["main"].GetArtifacts().Input, "wrongdata")
 }
 
@@ -458,13 +458,13 @@ func TestValidateWorkflowWithoutFs(t *testing.T) {
 	bwf = NewBaseWorkflow(wfs, "", nil, extra)
 	err = bwf.validate()
 	assert.NotNil(t, err)
-	assert.Equal(t, "cannot use sysParam[PF_FS_ID] template in step[data-preprocess] for pipeline run with no Fs mounted", err.Error())
+	assert.Equal(t, "unsupported SysParamName[PF_FS_ID] for param[{{ PF_FS_ID }}] of filedType[parameters]", err.Error())
 
 	wfs.EntryPoints.EntryPoints["data-preprocess"].GetParameters()["wrongParam"] = "{{ PF_FS_NAME }}"
 	bwf = NewBaseWorkflow(wfs, "", nil, extra)
 	err = bwf.validate()
 	assert.NotNil(t, err)
-	assert.Equal(t, "cannot use sysParam[PF_FS_NAME] template in step[data-preprocess] for pipeline run with no Fs mounted", err.Error())
+	assert.Equal(t, "unsupported SysParamName[PF_FS_NAME] for param[{{ PF_FS_NAME }}] of filedType[parameters]", err.Error())
 	delete(wfs.EntryPoints.EntryPoints["data-preprocess"].GetParameters(), "wrongParam")
 
 	// 校验不使用Fs时，不能定义artifact
