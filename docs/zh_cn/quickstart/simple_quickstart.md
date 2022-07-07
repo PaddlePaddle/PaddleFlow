@@ -83,7 +83,7 @@ paddleflow log show run-0000xx
 paddleflow log show run-0000xx -j job-run-0000xx-train-b5a91ac2
 ```
 # 9.其他所有命令行参考
-点击[命令行操作说明](docs/zh_cn/reference/client_command_reference.md) 获取所有操作命令和示例。
+点击[命令行操作说明](../reference/client_command_reference.md) 获取所有操作命令和示例。
 
 
 
