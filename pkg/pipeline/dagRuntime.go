@@ -281,7 +281,7 @@ func (drt *DagRuntime) Start() {
 	drt.setSysParams()
 
 	// 2、替换 condition，loop_argument 中的模板，将其替换成具体真实值
-	conditon, err := drt.CalculateCondition()
+	condition, err := drt.CalculateCondition()
 	if err != nil {
 		errMsg := fmt.Sprintf("caculate the condition field for dag[%s] faild:\n%s",
 			drt.name, err.Error())
@@ -290,7 +290,7 @@ func (drt *DagRuntime) Start() {
 		return
 	}
 
-	if !conditon {
+	if !condition {
 		skipMsg := fmt.Sprintf("the result of condition for  dag[%s] is false, skip running", drt.name)
 		drt.logger.Infoln(skipMsg)
 		drt.processStartAbnormalStatus(skipMsg, StatusRuntimeSkipped)

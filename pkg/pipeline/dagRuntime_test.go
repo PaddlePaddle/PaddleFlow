@@ -235,8 +235,8 @@ func TestDagRuntimeStart(t *testing.T) {
 	ep := &WorkflowEvent{}
 	go mockToListenEvent(eventChan, ep)
 
-	// 这里只测试 condition 为true 和 disable 的情况，因此节点正常调度不能被mock
-	drt.UpdateCondition("10 < 11")
+	// 这里只测试 condition 为false 和 disable 的情况，因此节点正常调度不能被mock
+	drt.UpdateCondition("10 > 11")
 	drt.Start()
 	time.Sleep(time.Millisecond * 100)
 
@@ -251,7 +251,7 @@ func TestDagRuntimeStart(t *testing.T) {
 	go mockToListenEvent(eventChan, ep)
 	time.Sleep(time.Millisecond * 100)
 
-	assert.True(t, drt.isSkipped())
+	assert.True(t, drt2.isSkipped())
 	assert.True(t, strings.Contains(ep.Message, "disabled"))
 
 }
