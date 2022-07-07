@@ -44,7 +44,6 @@ type StepRuntime struct {
 
 	// 为了避免有多个协程同时将 stepRuntime 置为 终态，导致错误的降低了并发数
 	paramllelismLock sync.Mutex
-	paramllelismFlag bool
 }
 
 func generateJobName(runID, stepName string, seq int) string {
@@ -327,6 +326,7 @@ func (srt *StepRuntime) updateJob(forCacheFingerprint bool) error {
 		for atfName, atfValue := range srt.GetArtifacts().Input {
 			newEnvs[GetInputArtifactEnvName(atfName)] = srt.generateOutArtPathForJob(atfValue)
 		}
+
 		for atfName, atfValue := range srt.GetArtifacts().Output {
 			newEnvs[GetOutputArtifactEnvName(atfName)] = srt.generateOutArtPathForJob(atfValue)
 		}
