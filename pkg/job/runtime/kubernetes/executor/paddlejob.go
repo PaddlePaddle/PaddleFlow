@@ -146,9 +146,10 @@ func (pj *PaddleJob) StopJobByID(jobID string) error {
 
 // patchPdjPsSpec fill paddleJob spec in ps mode
 func (pj *PaddleJob) patchPdjPsSpec(pdjSpec *paddlev1.PaddleJobSpec) error {
+	log.Infof("patch PaddleJobSpec for pserver mode, id=%s, name=%s, spec: %v", pj.ID, pj.Name, pdjSpec)
 	// ps and worker
 	if pdjSpec.PS == nil || pdjSpec.Worker == nil {
-		return fmt.Errorf("paddlejob[%s] must be contain ps and worker, actually exist null", pj.Name)
+		return fmt.Errorf("paddlejob id[%s] must be contain ps and worker, actually exist null", pj.ID)
 	}
 	for _, task := range pj.Tasks {
 		if task.Role != schema.RoleWorker && task.Role != schema.RolePWorker {
@@ -179,9 +180,12 @@ func (pj *PaddleJob) patchPdjPsSpec(pdjSpec *paddlev1.PaddleJobSpec) error {
 
 // patchPdjCollectiveSpec fill paddleJob spec in collective mode
 func (pj *PaddleJob) patchPdjCollectiveSpec(pdjSpec *paddlev1.PaddleJobSpec) error {
+	log.Infof("patch PaddleJobSpec for collective mode, id=%s, name=%s, spec: %v", pj.ID, pj.Name, pdjSpec)
 	// set ps nil at first
 	pdjSpec.PS = nil
-
+	if pdjSpec.Worker == nil {
+		return fmt.Errorf("paddlejob id[%s] must be contain worker, actually exist null", pj.ID)
+	}
 	worker := pdjSpec.Worker
 	for _, task := range pj.Tasks {
 		if task.Role != schema.RoleWorker && task.Role != schema.RolePWorker {
