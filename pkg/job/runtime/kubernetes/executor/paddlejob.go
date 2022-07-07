@@ -146,9 +146,15 @@ func (pj *PaddleJob) StopJobByID(jobID string) error {
 
 // patchPdjPsSpec fill paddleJob spec in ps mode
 func (pj *PaddleJob) patchPdjPsSpec(pdjSpec *paddlev1.PaddleJobSpec) error {
+	log.Infof("patch PaddleJobSpec for pserver mode, spec: %v", pdjSpec)
 	// ps and worker
-	if pdjSpec.PS == nil || pdjSpec.Worker == nil {
-		return fmt.Errorf("paddlejob[%s] must be contain ps and worker, actually exist null", pj.Name)
+	if pdjSpec.PS == nil {
+		log.Debugf("the PS of paddleJobSpec is nil, JobID: %s, JobName: %s", pj.ID, pj.Name)
+		pdjSpec.PS = &paddlev1.ResourceSpec{}
+	}
+	if pdjSpec.Worker == nil {
+		log.Debugf("the worker of paddleJobSpec is nil, JobID: %s, JobName: %s", pj.ID, pj.Name)
+		pdjSpec.Worker = &paddlev1.ResourceSpec{}
 	}
 	for _, task := range pj.Tasks {
 		if task.Role != schema.RoleWorker && task.Role != schema.RolePWorker {
@@ -179,9 +185,13 @@ func (pj *PaddleJob) patchPdjPsSpec(pdjSpec *paddlev1.PaddleJobSpec) error {
 
 // patchPdjCollectiveSpec fill paddleJob spec in collective mode
 func (pj *PaddleJob) patchPdjCollectiveSpec(pdjSpec *paddlev1.PaddleJobSpec) error {
+	log.Infof("patch PaddleJobSpec for collective mode, spec: %v", pdjSpec)
 	// set ps nil at first
 	pdjSpec.PS = nil
-
+	if pdjSpec.Worker == nil {
+		log.Debugf("the worker of paddleJobSpec is nil, JobID: %s, JobName: %s", pj.ID, pj.Name)
+		pdjSpec.Worker = &paddlev1.ResourceSpec{}
+	}
 	worker := pdjSpec.Worker
 	for _, task := range pj.Tasks {
 		if task.Role != schema.RoleWorker && task.Role != schema.RolePWorker {
