@@ -19,6 +19,7 @@ package pipeline
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -572,11 +573,12 @@ func (srt *StepRuntime) GenerateFsMountForArtifact() (err error) {
 		// 内存的for循环主要是考虑 输入artifact 来自于循环结构
 		for _, path := range strings.Split(paths, ",") {
 			path = strings.TrimSpace(path)
+			dir := filepath.Dir(path)
 
 			fsMount := schema.FsMount{
 				FsID:      srt.runConfig.GlobalFsID,
 				FsName:    srt.runConfig.GloablFsName,
-				MountPath: strings.Join([]string{ArtMountDir, path}, "/"),
+				MountPath: strings.Join([]string{ArtMountDir, dir}, "/"),
 				SubPath:   path,
 				Readonly:  true,
 			}
@@ -586,9 +588,11 @@ func (srt *StepRuntime) GenerateFsMountForArtifact() (err error) {
 
 	// 为输出artifact 生成 FsMount
 	for _, path := range srt.getWorkFlowStep().GetArtifacts().Output {
+		dir := filepath.Dir(path)
 		fsMount := schema.FsMount{
+			FsID:      srt.runConfig.GlobalFsID,
 			FsName:    srt.runConfig.GloablFsName,
-			MountPath: strings.Join([]string{ArtMountDir, path}, "/"),
+			MountPath: strings.Join([]string{ArtMountDir, dir}, "/"),
 			SubPath:   path,
 			Readonly:  false,
 		}
