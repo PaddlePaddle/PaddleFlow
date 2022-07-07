@@ -459,12 +459,17 @@ func (s *ComponentParamChecker) refParamExist(currentCompName, refCompName, refP
 	case FieldInputArtifacts:
 		fallthrough
 	case FieldOutputArtifacts:
+		// 这里的Output Artfacts仅适用于Dag
+		if refComponent.GetCondition() != "" {
+			return fmt.Errorf("invalid reference param {{ %s.%s }} in component[%s]: component[%s] has condition so its param and output artifacts can't be refered",
+				refCompName, refParamName, currentCompName, refCompName)
+		}
 		if _, ok := refComponent.GetArtifacts().Output[refParamName]; !ok {
-			return fmt.Errorf("invalid reference param {{ %s.%s }} in step[%s]: output artifact[%s] not exist", refCompName, refParamName, currentCompName, refParamName)
+			return fmt.Errorf("invalid reference param {{ %s.%s }} in component[%s]: output artifact[%s] not exist", refCompName, refParamName, currentCompName, refParamName)
 		}
 	case FieldParameters:
 		if _, ok := refComponent.GetParameters()[refParamName]; !ok {
-			return fmt.Errorf("invalid reference param {{ %s.%s }} in step[%s]: parameter[%s] not exist", refCompName, refParamName, currentCompName, refParamName)
+			return fmt.Errorf("invalid reference param {{ %s.%s }} in component[%s]: parameter[%s] not exist", refCompName, refParamName, currentCompName, refParamName)
 		}
 	default:
 		return fmt.Errorf("component [%s] refer [%s.%s] invalid, only parameters can use upstream parameters and only input artifacts can use upstream output artifacts", currentCompName, refCompName, refParamName)
