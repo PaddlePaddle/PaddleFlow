@@ -439,6 +439,22 @@ func (s *ComponentParamChecker) refParamExist(currentCompName, refCompName, refP
 		return fmt.Errorf("invalid reference param {{ %s.%s }} in step[%s]: step[%s] not exist", refCompName, refParamName, currentCompName, absoluteRefCompName)
 	}
 
+	// 如果refComponent是reference节点（设置了reference.component）的话，则需要找到对应的Component再进行下面的检查
+	// 在此之前已经做过检查，确保：1. reference节点的parameter为被引用Component的子集，2. reference节点的input artifacts与被引用Component相等
+	if step, ok := refComponent.(*schema.WorkflowSourceStep); ok && step.Reference.Component != "" {
+		for {
+			refTemp, ok := s.CompTempletes[step.Reference.Component]
+			if !ok {
+				return fmt.Errorf("reference.component [%s] in step[%s] is not exist", step.Reference.Component, step.Name)
+			}
+			if tempStep, ok := refTemp.(*schema.WorkflowSourceStep); ok && tempStep.Reference.Component != "" {
+				step = tempStep
+			} else {
+				refComponent = refTemp
+			}
+		}
+	}
+
 	switch fieldType {
 	case FieldInputArtifacts:
 		fallthrough
