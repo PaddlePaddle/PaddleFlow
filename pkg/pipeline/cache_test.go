@@ -47,12 +47,12 @@ func TestCalculateFingerprint(t *testing.T) {
 		Env:            map[string]string{"name": "xiaodu", "value": "123"},
 		Parameters:     map[string]string{"name": "xiaodu", "value": "456"},
 		InputArtifacts: map[string]string{"model": "/pf/model"},
-		FsMount: []FsMountForCache{
-			FsMountForCache{
+		FsMount: []schema.FsMount{
+			schema.FsMount{
 				FsID:      "123",
 				MountPath: "/abc",
 			},
-			FsMountForCache{
+			schema.FsMount{
 				FsID:      "456",
 				MountPath: "/def",
 			},
@@ -71,12 +71,12 @@ func TestCalculateFingerprint(t *testing.T) {
 		Env:            map[string]string{"value": "123", "name": "xiaodu"},
 		Parameters:     map[string]string{"name": "xiaodu", "value": "456"},
 		InputArtifacts: map[string]string{"model": "/pf/model"},
-		FsMount: []FsMountForCache{
-			FsMountForCache{
+		FsMount: []schema.FsMount{
+			schema.FsMount{
 				FsID:      "456",
 				MountPath: "/abc",
 			},
-			FsMountForCache{
+			schema.FsMount{
 				FsID:      "123",
 				MountPath: "/def",
 			},
