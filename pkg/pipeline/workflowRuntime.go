@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
@@ -37,6 +38,7 @@ type WorkflowRuntime struct {
 	status               string
 	EventChan            chan WorkflowEvent
 	pk                   int64
+	startTime            string
 
 	// 主要用于避免在调度节点的同时遇到终止任务的情况
 	scheduleLock sync.Mutex
@@ -91,6 +93,8 @@ func (wfr *WorkflowRuntime) Start() error {
 		wfr.logger.Warningf("the status of run is %s, so it won't start run", wfr.status)
 	} else {
 		wfr.status = common.StatusRunRunning
+		wfr.startTime = time.Now().Format("2006-01-02 15:04:05")
+
 		wfr.callback("begin to running, update status to running")
 
 		go wfr.Listen()
@@ -107,6 +111,7 @@ func (wfr *WorkflowRuntime) Restart(entryPointView schema.RuntimeView,
 	wfr.scheduleLock.Lock()
 
 	wfr.status = common.StatusRunRunning
+	wfr.startTime = time.Now().Format("2006-01-02 15:04:05")
 	msg := fmt.Sprintf("restart run[%s], and update status to [%s]", wfr.runID, wfr.status)
 	wfr.logger.Infof(msg)
 	wfr.callback(msg)
@@ -342,8 +347,9 @@ func (wfr *WorkflowRuntime) updateStatusAccordingComponentStatus() {
 
 func (wfr *WorkflowRuntime) callback(msg string) {
 	extra := map[string]interface{}{
-		common.WfEventKeyRunID:  wfr.runID,
-		common.WfEventKeyStatus: wfr.status,
+		common.WfEventKeyRunID:     wfr.runID,
+		common.WfEventKeyStatus:    wfr.status,
+		common.WfEventKeyStartTime: wfr.startTime,
 	}
 
 	wfEvent := NewWorkflowEvent(WfEventRunUpdate, msg, extra)

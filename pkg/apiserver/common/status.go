@@ -32,6 +32,7 @@ const (
 	WfEventKeyStatus        = "status"
 	WfEventKeyView          = "runtime"
 	WfEventKeyComponentName = "componentName"
+	WfEventKeyStartTime     = "startTime"
 )
 
 var (
