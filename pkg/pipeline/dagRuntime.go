@@ -931,12 +931,15 @@ func (drt *DagRuntime) processSubRuntimeError(err error, cp schema.Component, st
 	componentName := cp.GetName()
 	name := drt.generateSubRuntimeName(componentName, 0)
 	fullName := drt.generateSubComponentFullName(componentName)
+
+	// 将 loop_argument 置为nil，方便更新dag状态时使用
+	cp.UpdateLoopArguemt(nil)
+
 	step, ok := cp.(*schema.WorkflowSourceStep)
 
 	ctxAndCc := drt.getfailureOptionsCtxAndCF(componentName)
 
 	var crt componentRuntime
-	// 使用协程 是为了避免主线程
 	if ok {
 		crt = newStepRuntimeWithStatus(name, fullName, step, 0, drt.ctx, ctxAndCc.ctx, drt.receiveEventChildren,
 			drt.runConfig, drt.ID, status, err.Error())
@@ -1018,7 +1021,7 @@ func (drt *DagRuntime) updateStatusAccordingSubComponentRuntimeStatus() string {
 		} else {
 			drt.updateStatus(StatusRuntimeTerminated)
 			msg = fmt.Sprintf("update dag[%s]'s status to [%s] due to subSteps or subDags[%s] terminated",
-				drt.name, StatusRuntimeFailed, strings.Join(terminatedComponentNames, ","))
+				drt.name, StatusRuntimeTerminated, strings.Join(terminatedComponentNames, ","))
 		}
 	} else if len(cancelledComponentNames) != 0 {
 		// 如果节点的状态是 cancelled，只有两种情况：
@@ -1026,7 +1029,7 @@ func (drt *DagRuntime) updateStatusAccordingSubComponentRuntimeStatus() string {
 		// 2、收到终止信号
 		drt.updateStatus(StatusRuntimeTerminated)
 		msg = fmt.Sprintf("update dag[%s]'s status to [%s] due to subSteps or subDags[%s] cancelled",
-			drt.name, StatusRuntimeFailed, strings.Join(terminatedComponentNames, ","))
+			drt.name, StatusRuntimeTerminated, strings.Join(terminatedComponentNames, ","))
 	} else {
 		// 回填本节点的输出artifact
 		msg = fmt.Sprintf("all subDag or subStep run succeeded: %s", strings.Join(succeededComponentNames, ","))
