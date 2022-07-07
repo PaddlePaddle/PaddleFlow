@@ -1,6 +1,6 @@
 # 1.快速上手说明
 通过PaddleFlow提供的例子运行简单的工作流，开启PaddleFlow之旅！
-在开始之前确认[PaddleFlow服务端部署安装](docs/zh_cn/deployment/install_paddleflow_on_k8s.md) 完成
+在开始之前确认[PaddleFlow服务端部署安装](docs/zh_cn/deployment/how_to_install_paddleflow) 完成
 - （必须）安装PaddleFlow客户端， 初始化计算资源，包含（集群、队列初始化），默认使用PaddleFlow管理员用户
 - （可选）用默认管理员新增账号
 - （必须）初始化本地工作区并注册到PaddleFlow
