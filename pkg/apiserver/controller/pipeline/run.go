@@ -601,13 +601,17 @@ func ValidateAndStartRun(ctx logger.RequestContext, run models.Run, userName str
 	}
 
 	//检查fs权限
-	fsIDs = append(fsIDs, run.GlobalFsID)
+	if run.GlobalFsID != "" {
+		fsIDs = append(fsIDs, run.GlobalFsID)
+	}
+
 	for _, id := range fsIDs {
 		fsService := fs.GetFileSystemService()
 		hasPermission, err := fsService.HasFsPermission(run.UserName, id)
 		if err != nil {
-			logger.Logger().Errorf("check fs permission failed with userName[%s] and fsID[%s]. error: %s",
+			err := fmt.Errorf("check fs permission failed with userName[%s] and fsID[%s]. error: %s",
 				run.UserName, id, err.Error())
+			logger.Logger().Errorf(err.Error())
 			return CreateRunResponse{}, err
 		}
 		if !hasPermission {
