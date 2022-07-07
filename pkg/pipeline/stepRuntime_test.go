@@ -802,6 +802,7 @@ func TestStepRestart(t *testing.T) {
 	})
 
 	srt.Restart(&jobView)
+	time.Sleep(time.Millisecond * 100)
 	assert.Nil(t, err)
 	assert.True(t, started)
 }
