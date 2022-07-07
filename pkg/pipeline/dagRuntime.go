@@ -719,7 +719,6 @@ func (drt *DagRuntime) GetSubComponentArtifactPaths(componentName string, artNam
 }
 
 // processEventFromSubComponent 处理 stepRuntime 推送过来的 run 的事件
-// TODO: 进一步完善具体的逻辑
 // 对于异常处理的情况
 // 1. 提交失败，job id\status 都为空，视为 job 失败，更新 run message 字段
 // 2. watch 失败，状态不更新，更新 run message 字段；等 job 恢复服务之后，job watch 恢复，run 自动恢复调度

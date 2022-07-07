@@ -142,8 +142,15 @@ func (wfr *WorkflowRuntime) Restart(entryPointView schema.RuntimeView,
 				if view.Status == StatusRuntimeRunning && view.JobID != "" {
 					failureOptionsCtx, _ := context.WithCancel(context.Background())
 					postName := wfr.generatePostProcessFullName(name)
-					postProcess := NewStepRuntime(postName, postName, wfr.WorkflowSource.PostProcess[name], 0, wfr.postProcessPointsCtx,
-						failureOptionsCtx, make(chan<- WorkflowEvent), wfr.runConfig, "")
+
+					step := wfr.WorkflowSource.PostProcess[name]
+					postStep, err := NewReferenceSolver(wfr.WorkflowSource).resolveComponentReference(step)
+					if err != nil {
+						newStepRuntimeWithStatus(postName, postName, step, 0, wfr.postProcessPointsCtx, failureOptionsCtx,
+							wfr.EventChan, wfr.runConfig, "", StatusRuntimeFailed, err.Error())
+					}
+					postProcess := NewStepRuntime(postName, postName, postStep.(*schema.WorkflowSourceStep), 0,
+						wfr.postProcessPointsCtx, failureOptionsCtx, make(chan<- WorkflowEvent), wfr.runConfig, "")
 					go postProcess.StopByView(view)
 				}
 			}
@@ -157,8 +164,13 @@ func (wfr *WorkflowRuntime) Restart(entryPointView schema.RuntimeView,
 			for name, step := range wfr.WorkflowSource.PostProcess {
 				failureOptionsCtx, _ := context.WithCancel(context.Background())
 				postName := wfr.generatePostProcessFullName(name)
-				postProcess := NewStepRuntime(postName, postName, step, 0, wfr.postProcessPointsCtx, failureOptionsCtx, wfr.EventChan,
-					wfr.runConfig, "")
+				postStep, err := NewReferenceSolver(wfr.WorkflowSource).resolveComponentReference(step)
+				if err != nil {
+					newStepRuntimeWithStatus(postName, postName, step, 0, wfr.postProcessPointsCtx, failureOptionsCtx,
+						wfr.EventChan, wfr.runConfig, "", StatusRuntimeFailed, err.Error())
+				}
+				postProcess := NewStepRuntime(postName, postName, postStep.(*schema.WorkflowSourceStep), 0,
+					wfr.postProcessPointsCtx, failureOptionsCtx, wfr.EventChan, wfr.runConfig, "")
 				wfr.postProcess = postProcess
 
 				view := postProcessView[name]
@@ -259,7 +271,14 @@ func (wfr *WorkflowRuntime) schedulePostProcess() {
 		for name, step := range wfr.WorkflowSource.PostProcess {
 			failureOptionsCtx, _ := context.WithCancel(context.Background())
 			postName := wfr.generatePostProcessFullName(name)
-			postProcess := NewStepRuntime(postName, postName, step, 0, wfr.postProcessPointsCtx, failureOptionsCtx, wfr.EventChan,
+
+			postStep, err := NewReferenceSolver(wfr.WorkflowSource).resolveComponentReference(step)
+			if err != nil {
+				newStepRuntimeWithStatus(postName, postName, step, 0, wfr.postProcessPointsCtx, failureOptionsCtx,
+					wfr.EventChan, wfr.runConfig, "", StatusRuntimeFailed, err.Error())
+			}
+
+			postProcess := NewStepRuntime(postName, postName, postStep.(*schema.WorkflowSourceStep), 0, wfr.postProcessPointsCtx, failureOptionsCtx, wfr.EventChan,
 				wfr.runConfig, "")
 			wfr.postProcess = postProcess
 		}

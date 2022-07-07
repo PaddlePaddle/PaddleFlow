@@ -22,9 +22,7 @@ type ViewType string
 const (
 	// 如果有增加新的系统变量，记得需要同步更新 SysParamNameList
 	SysParamNamePFRunID        = "PF_RUN_ID"
-	SysParamNamePFFsID         = "PF_FS_ID"
 	SysParamNamePFStepName     = "PF_STEP_NAME"
-	SysParamNamePFFsName       = "PF_FS_NAME"
 	SysParamNamePFUserName     = "PF_USER_NAME"
 	SysParamNamePFLoopArgument = "PF_LOOP_ARGUMENT"
 	SysParamNamePFMountPath    = "PF_MOUNT_PATH"
@@ -84,9 +82,7 @@ const (
 
 var SysParamNameList []string = []string{
 	SysParamNamePFRunID,
-	SysParamNamePFFsID,
 	SysParamNamePFStepName,
-	SysParamNamePFFsName,
 	SysParamNamePFUserName,
 	SysParamNamePFLoopArgument,
 	SysParamNamePFMountPath,
