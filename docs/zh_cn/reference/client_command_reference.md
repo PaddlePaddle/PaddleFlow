@@ -1,8 +1,9 @@
+@[toc]目录
 # PaddleFlow命令参考
 
 PaddleFlow基本的操作命令可以帮助您更好的上手使用，本页面提供所有的命令的详细参考
 PaddleFlow-cli 是基于PaddleFlow python-sdk 上层封装的命令行工具。支持用户管理(`user`)、队列管理(`queue`)、 存储管理(`fs`)以及工作流(`run`)的命令行操作。
-[toc]
+
 ## 环境依赖
 
 * python_requires >= 3.6.1
