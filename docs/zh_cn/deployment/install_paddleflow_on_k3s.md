@@ -146,3 +146,5 @@ paddleflow queue create ${QUEUENAME} ${QUEUENAMESPACE} ${clustername} ${QUEUEMax
 paddleflow cluster list
 paddleflow queue list
 ```
+# 快速上手
+[快速上手](../quickstart/simple_quickstart.md)
