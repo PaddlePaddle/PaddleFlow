@@ -408,9 +408,9 @@ func (bwf *BaseWorkflow) checkRunYaml() error {
 func (bwf *BaseWorkflow) checkAllComponentName(components map[string]schema.Component) error {
 	variableChecker := VariableChecker{}
 	for name, component := range components {
-		err := variableChecker.CheckStepName(name)
+		err := variableChecker.CheckCompName(name)
 		if err != nil {
-			return fmt.Errorf("format of stepName[%s] in run[%s] invalid", name, bwf.RunID)
+			return err
 		}
 		if dag, ok := component.(*schema.WorkflowSourceDag); ok {
 			if err := bwf.checkAllComponentName(dag.EntryPoints); err != nil {

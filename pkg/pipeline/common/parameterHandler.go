@@ -292,11 +292,11 @@ func (s *ComponentParamChecker) checkReference(comp schema.Component) error {
 	return nil
 }
 
-func (s *ComponentParamChecker) checkName(step, fieldType, name string) error {
+func (s *ComponentParamChecker) checkName(comp, fieldType, name string) error {
 	variableChecker := VariableChecker{}
 	err := variableChecker.CheckVarName(name)
 	if err != nil {
-		return fmt.Errorf("check %s[%s] in step[%s] failed: %s", fieldType, name, step, err.Error())
+		return fmt.Errorf("check %s[%s] in component[%s] failed: %s", fieldType, name, comp, err.Error())
 	}
 	return nil
 }
@@ -358,7 +358,7 @@ func (s *ComponentParamChecker) resolveRefParam(componentName, param, fieldType 
 			// 分别替换系统参数，如{{PF_RUN_ID}}；当前step parameter；当前step的input artifact；当前step的output artifact
 			// 只有param，env，command三类变量需要处理
 			if !s.UseFs && (refParamName == SysParamNamePFFsID || refParamName == SysParamNamePFFsName) {
-				return fmt.Errorf("cannot use sysParam[%s] template in step[%s] for pipeline run with no Fs mounted", refParamName, componentName)
+				return fmt.Errorf("cannot use sysParam[%s] template in component[%s] for pipeline run with no Fs mounted", refParamName, componentName)
 			}
 
 			var ok bool
@@ -423,7 +423,7 @@ func (s *ComponentParamChecker) refParamExist(currentCompName, refCompName, refP
 		absoluteRefCompName = currentCompName + "." + refCompName
 	default:
 		if !StringsContain(curComponent.GetDeps(), refCompName) {
-			return fmt.Errorf("invalid reference param {{ %s.%s }} in step[%s]: step[%s] not in deps", refCompName, refParamName, currentCompName, refCompName)
+			return fmt.Errorf("invalid reference param {{ %s.%s }} in component[%s]: component[%s] not in deps", refCompName, refParamName, currentCompName, refCompName)
 		}
 
 		refCompNameList := strings.Split(currentCompName, ".")
@@ -436,19 +436,41 @@ func (s *ComponentParamChecker) refParamExist(currentCompName, refCompName, refP
 
 	refComponent, ok := s.Components[absoluteRefCompName]
 	if !ok {
-		return fmt.Errorf("invalid reference param {{ %s.%s }} in step[%s]: step[%s] not exist", refCompName, refParamName, currentCompName, absoluteRefCompName)
+		return fmt.Errorf("invalid reference param {{ %s.%s }} in component[%s]: component[%s] not exist", refCompName, refParamName, currentCompName, absoluteRefCompName)
+	}
+
+	// 如果refComponent是reference节点（设置了reference.component）的话，则需要找到对应的Component再进行下面的检查
+	// 在此之前已经做过检查，确保：1. reference节点的parameter为被引用Component的子集，2. reference节点的input artifacts与被引用Component相等
+	if step, ok := refComponent.(*schema.WorkflowSourceStep); ok && step.Reference.Component != "" {
+		for {
+			refTemp, ok := s.CompTempletes[step.Reference.Component]
+			if !ok {
+				return fmt.Errorf("reference.component [%s] in component[%s] is not exist", step.Reference.Component, step.Name)
+			}
+			if tempStep, ok := refTemp.(*schema.WorkflowSourceStep); ok && tempStep.Reference.Component != "" {
+				step = tempStep
+			} else {
+				refComponent = refTemp
+				break
+			}
+		}
 	}
 
 	switch fieldType {
 	case FieldInputArtifacts:
 		fallthrough
 	case FieldOutputArtifacts:
+		// 这里的Output Artfacts仅适用于Dag
+		if refComponent.GetCondition() != "" {
+			return fmt.Errorf("invalid reference param {{ %s.%s }} in component[%s]: component[%s] has condition so its param and output artifacts can't be refered",
+				refCompName, refParamName, currentCompName, refCompName)
+		}
 		if _, ok := refComponent.GetArtifacts().Output[refParamName]; !ok {
-			return fmt.Errorf("invalid reference param {{ %s.%s }} in step[%s]: output artifact[%s] not exist", refCompName, refParamName, currentCompName, refParamName)
+			return fmt.Errorf("invalid reference param {{ %s.%s }} in component[%s]: output artifact[%s] not exist", refCompName, refParamName, currentCompName, refParamName)
 		}
 	case FieldParameters:
 		if _, ok := refComponent.GetParameters()[refParamName]; !ok {
-			return fmt.Errorf("invalid reference param {{ %s.%s }} in step[%s]: parameter[%s] not exist", refCompName, refParamName, currentCompName, refParamName)
+			return fmt.Errorf("invalid reference param {{ %s.%s }} in component[%s]: parameter[%s] not exist", refCompName, refParamName, currentCompName, refParamName)
 		}
 	default:
 		return fmt.Errorf("component [%s] refer [%s.%s] invalid, only parameters can use upstream parameters and only input artifacts can use upstream output artifacts", currentCompName, refCompName, refParamName)
