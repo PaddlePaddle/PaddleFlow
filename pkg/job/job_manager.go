@@ -183,9 +183,8 @@ func (m *JobManagerImpl) JobProcessLoop(jobSubmit func(*api.PFJob) error, stopCh
 	// TODO: add trace log support
 	find := false
 	var jobInfo *api.PFJob
-	var msg, jobID string
+	var msg string
 	var jobStatus schema.JobStatus
-	jobID = jobInfo.ID
 	for {
 		select {
 		case <-stopCh:
@@ -206,15 +205,16 @@ func (m *JobManagerImpl) JobProcessLoop(jobSubmit func(*api.PFJob) error, stopCh
 					if err != nil {
 						// new job failed, update db and skip this job
 						msg = err.Error()
-						trace_logger.KeyWithUpdate(jobID).Errorf("new job failed, err: %s", msg)
+						trace_logger.KeyWithUpdate(jobInfo.ID).Errorf("new job failed, err: %s", msg)
 						jobStatus = schema.StatusJobFailed
 					} else {
 						msg = "submit job to cluster successfully."
-						trace_logger.KeyWithUpdate(jobID).Infof(msg)
+						trace_logger.KeyWithUpdate(jobInfo.ID).Infof(msg)
 						jobStatus = schema.StatusJobPending
 					}
 					// new job failed, update db and skip this job
 					if dbErr := models.UpdateJobStatus(jobInfo.ID, msg, jobStatus); dbErr != nil {
+						trace_logger.KeyWithUpdate(jobInfo.ID).Errorf("update job status failed, err: %v", dbErr)
 						log.Errorf("update job[%s] status to [%s] failed, err: %v", jobInfo.ID, schema.StatusJobFailed, dbErr)
 					}
 				}
