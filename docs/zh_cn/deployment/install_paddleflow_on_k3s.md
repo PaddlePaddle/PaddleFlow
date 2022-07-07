@@ -119,6 +119,10 @@ paddleflow cluster create ${clustername} ${endpoint} Kubernetes -c ${k8sconfigpa
 ```
 
 #### step3. 注册队列
+移除队列校验器. 由于当前版本使用开源版本volcano,队列的删除行为会被拦截,为保证PaddleFlow功能的正常使用,需禁用该拦截器,执行如下命令
+```shell
+kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io volcano-admission-service-queues-validate
+```
 
 创建队列命令
 
