@@ -237,6 +237,7 @@ func TestDagRuntimeStart(t *testing.T) {
 
 	// 这里只测试 condition 为false 和 disable 的情况，因此节点正常调度不能被mock
 	drt.UpdateCondition("10 > 11")
+
 	drt.Start()
 	time.Sleep(time.Millisecond * 100)
 
