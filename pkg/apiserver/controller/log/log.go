@@ -18,6 +18,8 @@ package log
 
 import (
 	"errors"
+	"fmt"
+	"strings"
 
 	"gorm.io/gorm"
 
@@ -73,11 +75,23 @@ func GetRunLog(ctx *logger.RequestContext, runID string, request GetRunLogReques
 	}
 
 	// get submit log first
-	trace, ok := trace_logger.GetTraceFromCache(runID)
+	traces, ok := trace_logger.GetTracesByRunIDOrJobID(runID, request.JobID)
 	if !ok {
-		ctx.Logging().Warnf("get trace log failed. runID[%s]", runID)
+		var runInfo, jobInfo string
+		if runID != "" {
+			runInfo = fmt.Sprintf(" runID[%s]", runID)
+		}
+		if request.JobID != "" {
+			jobInfo = fmt.Sprintf(" jobID[%s]", request.JobID)
+		}
+		msg := fmt.Sprintf("get trace log failed.%s%s", runInfo, jobInfo)
+		ctx.Logging().Warnf(msg)
 	} else {
-		response.SubmitLog = trace.String()
+		traceStrs := make([]string, 0, len(traces))
+		for _, t := range traces {
+			traceStrs = append(traceStrs, t.String())
+		}
+		response.SubmitLog = strings.Join(traceStrs, "\n")
 	}
 
 	if len(jobList) == 0 {
