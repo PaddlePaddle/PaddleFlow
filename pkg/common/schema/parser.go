@@ -112,6 +112,7 @@ func (p *Parser) ParseWorkflowSource(bodyMap map[string]interface{}, wfs *Workfl
 					return fmt.Errorf("[failure_options/failureOptions] has no attribute [%s]", optKey)
 				}
 			}
+			wfs.FailureOptions = options
 		case "postProcess":
 			fallthrough
 		case "post_process":
