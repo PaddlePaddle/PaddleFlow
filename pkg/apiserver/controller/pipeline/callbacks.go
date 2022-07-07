@@ -108,15 +108,24 @@ func UpdateRunByWfEvent(id string, event interface{}) (int64, bool) {
 		logging.Errorf("event type[%s] invalid for run[%s] callback", pipeline.WfEventRunUpdate, id)
 		return 0, false
 	}
-	runID := wfEvent.Extra[common.WfEventKeyRunID].(string)
-	if id != runID {
+	runID, ok := wfEvent.Extra[common.WfEventKeyRunID].(string)
+	if !ok || id != runID {
 		logging.Errorf("event id[%s] mismatch with runID[%s]", id, runID)
 		return 0, false
 	}
-	status := wfEvent.Extra[common.WfEventKeyStatus].(string)
+	status, ok := wfEvent.Extra[common.WfEventKeyStatus].(string)
+	if !ok {
+		logging.Errorf("get run status from extra in callback failed")
+		return 0, false
+	}
 	if common.IsRunFinalStatus(status) {
 		logging.Debugf("run[%s] has reached final status[%s]", runID, status)
 		delete(wfMap, runID)
+	}
+	startTime, ok := wfEvent.Extra[common.WfEventKeyStartTime].(string)
+	if !ok {
+		logging.Errorf("get run startTime from extra in callback failed")
+		return 0, false
 	}
 
 	prevRun, err := models.GetRunByID(logging, runID)
@@ -132,9 +141,13 @@ func UpdateRunByWfEvent(id string, event interface{}) (int64, bool) {
 	}
 
 	activatedAt := sql.NullTime{}
-	if prevRun.Status == common.StatusRunPending {
-		activatedAt.Time = time.Now()
+	if startTime != "" {
+		activatedAt.Time, err = time.ParseInLocation("2006-01-02 15:04:05", startTime, time.Local)
 		activatedAt.Valid = true
+		if err != nil {
+			logging.Errorf("encode run activateTime failed. error: %v", err)
+			return 0, false
+		}
 	}
 
 	updateRun := models.Run{

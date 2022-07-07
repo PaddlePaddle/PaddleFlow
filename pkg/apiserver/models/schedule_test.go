@@ -40,7 +40,7 @@ func insertPipeline(t *testing.T, logEntry *log.Entry) (pplID1, pplID2, pplDetai
 		UserName: "user1",
 	}
 	pplDetail1 := PipelineDetail{
-		FsID:         "user1-fsname",
+		GlobalFsID:   "user1-fsname",
 		GlobalFsName: "fsname",
 		YamlPath:     "./run.yml",
 		PipelineYaml: "ddddd",
@@ -54,7 +54,7 @@ func insertPipeline(t *testing.T, logEntry *log.Entry) (pplID1, pplID2, pplDetai
 		UserName: "root",
 	}
 	pplDetail2 := PipelineDetail{
-		FsID:         "root-fsname2",
+		GlobalFsID:   "root-fsname2",
 		GlobalFsName: "fsname2",
 		YamlPath:     "./run.yml",
 		PipelineYaml: "ddddd",

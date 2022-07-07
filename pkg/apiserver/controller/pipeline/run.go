@@ -58,7 +58,6 @@ type CreateRunRequest struct {
 	UserName     string                 `json:"username,omitempty"`   // optional, only for root user
 	Name         string                 `json:"name,omitempty"`       // optional
 	Description  string                 `json:"desc,omitempty"`       // optional
-	Entry        string                 `json:"entry,omitempty"`      // optional
 	Parameters   map[string]interface{} `json:"parameters,omitempty"` // optional
 	DockerEnv    string                 `json:"dockerEnv,omitempty"`  // optional
 	// run workflow source. priority: RunYamlRaw > PipelineID + PipelineDetailID > RunYamlPath
@@ -497,7 +496,6 @@ func CreateRun(ctx logger.RequestContext, request *CreateRunRequest) (CreateRunR
 		Parameters:     request.Parameters,
 		RunYaml:        runYaml,
 		WorkflowSource: wfs, // DockerEnv has not been replaced. done in func handleImageAndStartWf
-		Entry:          request.Entry,
 		Disabled:       request.Disabled,
 		ScheduleID:     request.ScheduleID,
 		ScheduledAt:    scheduledAt,
