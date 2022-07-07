@@ -292,11 +292,11 @@ func (s *ComponentParamChecker) checkReference(comp schema.Component) error {
 	return nil
 }
 
-func (s *ComponentParamChecker) checkName(step, fieldType, name string) error {
+func (s *ComponentParamChecker) checkName(comp, fieldType, name string) error {
 	variableChecker := VariableChecker{}
 	err := variableChecker.CheckVarName(name)
 	if err != nil {
-		return fmt.Errorf("check %s[%s] in step[%s] failed: %s", fieldType, name, step, err.Error())
+		return fmt.Errorf("check %s[%s] in component[%s] failed: %s", fieldType, name, comp, err.Error())
 	}
 	return nil
 }
@@ -358,7 +358,7 @@ func (s *ComponentParamChecker) resolveRefParam(componentName, param, fieldType 
 			// 分别替换系统参数，如{{PF_RUN_ID}}；当前step parameter；当前step的input artifact；当前step的output artifact
 			// 只有param，env，command三类变量需要处理
 			if !s.UseFs && (refParamName == SysParamNamePFFsID || refParamName == SysParamNamePFFsName) {
-				return fmt.Errorf("cannot use sysParam[%s] template in step[%s] for pipeline run with no Fs mounted", refParamName, componentName)
+				return fmt.Errorf("cannot use sysParam[%s] template in component[%s] for pipeline run with no Fs mounted", refParamName, componentName)
 			}
 
 			var ok bool
@@ -423,7 +423,7 @@ func (s *ComponentParamChecker) refParamExist(currentCompName, refCompName, refP
 		absoluteRefCompName = currentCompName + "." + refCompName
 	default:
 		if !StringsContain(curComponent.GetDeps(), refCompName) {
-			return fmt.Errorf("invalid reference param {{ %s.%s }} in step[%s]: step[%s] not in deps", refCompName, refParamName, currentCompName, refCompName)
+			return fmt.Errorf("invalid reference param {{ %s.%s }} in component[%s]: component[%s] not in deps", refCompName, refParamName, currentCompName, refCompName)
 		}
 
 		refCompNameList := strings.Split(currentCompName, ".")
@@ -436,7 +436,7 @@ func (s *ComponentParamChecker) refParamExist(currentCompName, refCompName, refP
 
 	refComponent, ok := s.Components[absoluteRefCompName]
 	if !ok {
-		return fmt.Errorf("invalid reference param {{ %s.%s }} in step[%s]: step[%s] not exist", refCompName, refParamName, currentCompName, absoluteRefCompName)
+		return fmt.Errorf("invalid reference param {{ %s.%s }} in component[%s]: component[%s] not exist", refCompName, refParamName, currentCompName, absoluteRefCompName)
 	}
 
 	// 如果refComponent是reference节点（设置了reference.component）的话，则需要找到对应的Component再进行下面的检查
@@ -445,12 +445,13 @@ func (s *ComponentParamChecker) refParamExist(currentCompName, refCompName, refP
 		for {
 			refTemp, ok := s.CompTempletes[step.Reference.Component]
 			if !ok {
-				return fmt.Errorf("reference.component [%s] in step[%s] is not exist", step.Reference.Component, step.Name)
+				return fmt.Errorf("reference.component [%s] in component[%s] is not exist", step.Reference.Component, step.Name)
 			}
 			if tempStep, ok := refTemp.(*schema.WorkflowSourceStep); ok && tempStep.Reference.Component != "" {
 				step = tempStep
 			} else {
 				refComponent = refTemp
+				break
 			}
 		}
 	}
