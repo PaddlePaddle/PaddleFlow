@@ -42,31 +42,6 @@ type aggressiveFirstCacheKey struct {
 type aggressiveSecondCacheKey struct {
 }
 
-type FsMountForCache struct {
-	FsID      string `json:"fsID"`
-	FsName    string `json:"fsName"`
-	MountPath string `json:"mountPath"`
-	SubPath   string `json:"subPath"`
-	Readonly  bool   `json:"readonly"`
-}
-
-func TransFsMountToForCache(fms []schema.FsMount) []FsMountForCache {
-	fcs := []FsMountForCache{}
-	for _, fm := range fms {
-		fc := FsMountForCache{
-			FsID:      fm.FsID,
-			FsName:    fm.FsName,
-			MountPath: fm.MountPath,
-			SubPath:   fm.MountPath,
-			Readonly:  fm.Readonly,
-		}
-
-		fcs = append(fcs, fc)
-	}
-
-	return fcs
-}
-
 // 用于计算保守策略的第一层 fingerprint 的结构
 type conservativeFirstCacheKey struct {
 	DockerEnv       string
@@ -75,7 +50,7 @@ type conservativeFirstCacheKey struct {
 	Parameters      map[string]string `json:",omitempty"`
 	InputArtifacts  map[string]string `json:",omitempty"`
 	OutputArtifacts map[string]string `json:",omitempty"`
-	FsMount         []FsMountForCache `json:",omitempty"`
+	FsMount         []schema.FsMount  `json:",omitempty"`
 }
 
 type PathToModTime struct {
@@ -162,7 +137,7 @@ func (cc *conservativeCacheCalculator) generateFirstCacheKey() error {
 		InputArtifacts:  job.Artifacts.Input,
 		OutputArtifacts: job.Artifacts.Output,
 		Env:             job.Env,
-		FsMount:         TransFsMountToForCache(cc.step.getWorkFlowStep().FsMount),
+		FsMount:         cc.step.getWorkFlowStep().FsMount,
 	}
 
 	logMsg := fmt.Sprintf("FirstCacheKey: \nDockerEnv: %s, Parameters: %s, Command: %s, InputArtifacts: %s, "+
