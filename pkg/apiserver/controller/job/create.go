@@ -273,8 +273,13 @@ func validateQueue(ctx *logger.RequestContext, schedulingPolicy *SchedulingPolic
 		}
 		ctx.ErrorCode = common.InternalError
 		err = fmt.Errorf("get queue failed when creating job, err=%v", err)
-		log.Error(err)
+		ctx.Logging().Error(err)
 		return err
+	}
+	if queue.Status != schema.StatusQueueOpen {
+		errMsg := fmt.Sprintf("queue[%s] status is %s, and only queue with open status can submit jobs", queueName, queue.Status)
+		ctx.Logging().Errorf(errMsg)
+		return fmt.Errorf(errMsg)
 	}
 	schedulingPolicy.QueueID = queue.ID
 	schedulingPolicy.MaxResources = queue.MaxResources
@@ -626,4 +631,94 @@ func validateWorkflowJob(ctx *logger.RequestContext, request *CreateWfJobRequest
 		return err
 	}
 	return nil
+}
+
+// CreatePPLJob create a run job, used by pipeline
+func CreatePPLJob(conf schema.PFJobConf) (string, error) {
+	createJobInfo, err := jobConfToCreateJobInfo(conf)
+	if err != nil {
+		log.Errorf("convert job config to CreateJobInfo failed. err: %s", err)
+		return "", err
+	}
+	ctx := &logger.RequestContext{
+		UserName: createJobInfo.UserName,
+	}
+	jobResponse, err := CreatePFJob(ctx, createJobInfo)
+	if err != nil {
+		log.Errorf("create pipeline job failed. err: %s", err)
+		return "", err
+	}
+	return jobResponse.ID, nil
+}
+
+func ValidatePPLJob(conf schema.PFJobConf) error {
+	createJobInfo, err := jobConfToCreateJobInfo(conf)
+	if err != nil {
+		log.Errorf("convert job config to CreateJobInfo failed. err: %s", err)
+		return err
+	}
+	// pipeline job check
+	if len(createJobInfo.Name) == 0 {
+		return errors.EmptyJobNameError()
+	}
+	if len(createJobInfo.UserName) == 0 {
+		return errors.EmptyUserNameError()
+	}
+	ctx := &logger.RequestContext{
+		UserName: createJobInfo.UserName,
+	}
+	return validateJob(ctx, createJobInfo)
+}
+
+func jobConfToCreateJobInfo(conf schema.PFJobConf) (*CreateJobInfo, error) {
+	commonJobInfo := CommonJobInfo{
+		ID:   generateJobID(conf.GetName()),
+		Name: conf.GetName(),
+		SchedulingPolicy: SchedulingPolicy{
+			Queue:    conf.GetQueueName(),
+			Priority: conf.GetPriority(),
+		},
+		UserName: conf.GetUserName(),
+	}
+	jobSpec := JobSpec{
+		Flavour: schema.Flavour{
+			Name: conf.GetFlavour(),
+		},
+		FileSystem:       conf.GetFileSystem(),
+		ExtraFileSystems: conf.GetExtraFS(),
+		Image:            conf.GetImage(),
+		Env:              conf.GetEnv(),
+		Command:          conf.GetCommand(),
+		Args:             conf.GetArgs(),
+	}
+
+	jobType := conf.Type()
+	var err error
+	var framework schema.Framework
+	switch jobType {
+	case schema.TypeSingle:
+		framework = schema.FrameworkStandalone
+	case schema.TypeDistributed:
+		err = fmt.Errorf("distributed job is not implemented")
+	default:
+		err = fmt.Errorf("job type %s is not support", jobType)
+	}
+	if err != nil {
+		log.Errorf("check pipeline job type failed, err: %v", err)
+		return nil, err
+	}
+
+	return &CreateJobInfo{
+		CommonJobInfo: commonJobInfo,
+		Type:          conf.Type(),
+		Framework:     framework,
+		Members: []MemberSpec{
+			{
+				CommonJobInfo: commonJobInfo,
+				JobSpec:       jobSpec,
+				Role:          string(schema.RoleWorker),
+				Replicas:      1,
+			},
+		},
+	}, nil
 }
