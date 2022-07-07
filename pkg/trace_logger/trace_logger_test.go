@@ -16,7 +16,10 @@ limitations under the License.
 
 package trace_logger
 
+// TODO: file part is not ready
+
 import (
+	"os"
 	"testing"
 	"time"
 
@@ -26,33 +29,28 @@ import (
 )
 
 const (
+	FilePrefix = "trace_log"
+)
+
+var (
 	FilePath = "/tmp"
-	FileName = "trace_log"
 )
 
 func TestTraceLogger(t *testing.T) {
 	// init logger
 	var err error
-	err = initTraceLogger()
-	if err != nil {
-		t.Error(err)
-		return
-	}
+
+	err = initTestTraceLogger()
+	assert.Equal(t, nil, err)
 
 	// start auto delete
 	err = AutoDelete(2 * time.Second)
-	if err != nil {
-		t.Error(err)
-		return
-	}
+	assert.Equal(t, nil, err)
 
 	key1 := uuid.GenerateIDWithLength("key", 4)
 	t.Logf("log key %s", key1)
 	err = traceLoggerTest1(t, key1)
-	if err != nil {
-		t.Error(err)
-		return
-	}
+	assert.Equal(t, nil, err)
 
 	assert.Condition(t, func() bool {
 		_, ok := manager.GetTraceFromCache(key1)
@@ -64,10 +62,7 @@ func TestTraceLogger(t *testing.T) {
 	key2 := uuid.GenerateIDWithLength("key", 4)
 	t.Logf("log key %s", key2)
 	err = traceLoggerTest1(t, key2)
-	if err != nil {
-		t.Error(err)
-		return
-	}
+	assert.Equal(t, nil, err)
 
 	assert.Condition(t, func() bool {
 		_, ok := manager.GetTraceFromCache(key1)
@@ -83,10 +78,7 @@ func TestTraceLogger(t *testing.T) {
 	key3 := uuid.GenerateIDWithLength("key", 4)
 	t.Logf("log key %s", key3)
 	err = traceLoggerTest1(t, key3)
-	if err != nil {
-		t.Error(err)
-		return
-	}
+	assert.Equal(t, nil, err)
 
 	assert.Condition(t, func() bool {
 		_, ok := manager.GetTraceFromCache(key3)
@@ -104,10 +96,7 @@ func TestTraceLogger(t *testing.T) {
 
 	t.Logf("sync all")
 	err = manager.SyncAll()
-	if err != nil {
-		t.Error(err)
-		return
-	}
+	assert.Equal(t, nil, err)
 
 	t.Logf("wait for 6s")
 	<-time.After(6 * time.Second)
@@ -122,16 +111,14 @@ func TestTraceLogger(t *testing.T) {
 
 	// test clear
 	t.Logf("clear all")
-	_ = manager.ClearAll()
+	err = manager.ClearAll()
+	assert.Equal(t, nil, err)
 	t.Logf("cache: \n%s\n", manager)
 
 	// load from disk
 	t.Logf("load all")
-	err = manager.LoadAll("./", "trace_log")
-	if err != nil {
-		t.Error(err)
-		return
-	}
+	err = manager.LoadAll(FilePath, FilePrefix)
+	assert.Equal(t, nil, err)
 
 	t.Logf("cache: \n%s\n", manager)
 	trace, _ := manager.GetTraceFromCache(key3)
@@ -146,19 +133,18 @@ func TestTraceLogger(t *testing.T) {
 	key4 := uuid.GenerateIDWithLength("key", 4)
 	t.Logf("log key %s", key4)
 	err = traceLoggerTest2(t, key4)
-	if err != nil {
-		t.Error(err)
-		return
-	}
+	assert.Equal(t, nil, err)
 
 	t.Logf("key3 %s: %s\n", key3, trace)
-
 }
 
-func initTraceLogger() error {
+func initTestTraceLogger() error {
+	if err := createTmpDir(); err != nil {
+		return err
+	}
 	conf := TraceLoggerConfig{
 		Dir:             FilePath,
-		FilePrefix:      FileName,
+		FilePrefix:      FilePrefix,
 		Level:           "debug",
 		MaxKeepDays:     2,
 		MaxFileNum:      10,
@@ -172,6 +158,15 @@ func initTraceLogger() error {
 
 }
 
+func createTmpDir() error {
+	tmpDir, err := os.MkdirTemp("", "")
+	if err != nil {
+		return err
+	}
+	FilePath = tmpDir
+	return nil
+}
+
 func traceLoggerTest1(t *testing.T, key string) error {
 	tmpKey := uuid.GenerateIDWithLength("tmp", 4)
 	Key(tmpKey).Infof("test1")
@@ -181,9 +176,7 @@ func traceLoggerTest1(t *testing.T, key string) error {
 		return !ok
 	})
 	err := UpdateKey(tmpKey, key)
-	if err != nil {
-		return err
-	}
+	assert.Equal(t, nil, err)
 	Key(key).Warnf("test3")
 	assert.Condition(t, func() bool {
 		_, ok := GetTraceFromCache(key)

@@ -3,7 +3,7 @@ package cache
 import (
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/metric"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/monitor"
 )
 
 func registerMetrics() {
@@ -33,8 +33,8 @@ var (
 		Name: "blockcache_hit_rate",
 		Help: "cache hit rate out of all read",
 	}, func() float64 {
-		hitCnt := metric.GetMetricValue(cacheHits)
-		missCnt := metric.GetMetricValue(cacheMiss)
+		hitCnt := monitor.GetMetricValue(cacheHits)
+		missCnt := monitor.GetMetricValue(cacheMiss)
 		return hitCnt / (hitCnt + missCnt)
 	})
 	cacheWrites = prometheus.NewCounter(prometheus.CounterOpts{

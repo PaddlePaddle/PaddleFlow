@@ -31,7 +31,7 @@ const (
 
 	DefaultMaxKeys = 50
 	ListPageMax    = 1000
-	MaxDescLength  = 1024
+	MaxDescLength  = 256
 
 	ParamKeyQueueName        = "queueName"
 	ParamKeyRunID            = "runID"
@@ -98,6 +98,10 @@ const (
 	ParamKeyPageNo          = "pageNo"
 	ParamKeyPageSize        = "pageSize"
 	ParamKeyLogFilePosition = "logFilePosition"
+
+	ParamKeyStart = "start"
+	ParamKeyEnd   = "end"
+	ParamKeyStep  = "step"
 )
 
 func GetQueryMaxKeys(ctx *logger.RequestContext, r *http.Request) (int, error) {

@@ -45,7 +45,9 @@ func (sr *ScheduleRouter) AddRouter(r chi.Router) {
 
 func (sr *ScheduleRouter) createSchedule(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
-	var createScheduleInfo pipeline.CreateScheduleRequest
+
+	// 默认catchup为true
+	createScheduleInfo := pipeline.CreateScheduleRequest{Catchup: true}
 	if err := common.BindJSON(r, &createScheduleInfo); err != nil {
 		logger.LoggerForRequest(&ctx).Errorf(
 			"create schedule failed parsing request body:%+v. error:%s", r.Body, err.Error())
