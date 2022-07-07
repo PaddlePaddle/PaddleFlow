@@ -660,8 +660,8 @@ func (p *Parser) TransJsonMap2Yaml(jsonMap map[string]interface{}) error {
 		case "loopArgument":
 			jsonMap["loop_argument"] = value
 			delete(jsonMap, "loopArgument")
-		case "component":
-			if err := p.transJsonSubComp2Yaml(value, "component"); err != nil {
+		case "components":
+			if err := p.transJsonSubComp2Yaml(value, "components"); err != nil {
 				return err
 			}
 		case "cache":
@@ -680,6 +680,9 @@ func (p *Parser) TransJsonMap2Yaml(jsonMap map[string]interface{}) error {
 			}
 			jsonMap["fs_options"] = value
 			delete(jsonMap, "fsOptions")
+		case "jobType":
+			jsonMap["job_type"] = value
+			delete(jsonMap, "jobType")
 		}
 	}
 	return nil

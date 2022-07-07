@@ -830,11 +830,11 @@ func (wfs *WorkflowSource) TransToRunYamlRaw() (runYamlRaw string, err error) {
 func (wfs *WorkflowSource) ProcessFsAndGetAllIDs(userName string) ([]string, error) {
 	// 用map记录所有需要返回的ID，去重
 	fsIDMap := map[string]int{}
-	if err := processFsByUserName(wfs.EntryPoints.EntryPoints, userName, fsIDMap); err != nil {
+	if err := wfs.processFsByUserName(wfs.EntryPoints.EntryPoints, userName, fsIDMap); err != nil {
 		return []string{}, err
 	}
 
-	if err := processFsByUserName(wfs.Components, userName, fsIDMap); err != nil {
+	if err := wfs.processFsByUserName(wfs.Components, userName, fsIDMap); err != nil {
 		return []string{}, err
 	}
 
@@ -842,7 +842,7 @@ func (wfs *WorkflowSource) ProcessFsAndGetAllIDs(userName string) ([]string, err
 	for k, v := range wfs.PostProcess {
 		postMap[k] = v
 	}
-	if err := processFsByUserName(postMap, userName, fsIDMap); err != nil {
+	if err := wfs.processFsByUserName(postMap, userName, fsIDMap); err != nil {
 		return []string{}, err
 	}
 
@@ -854,21 +854,23 @@ func (wfs *WorkflowSource) ProcessFsAndGetAllIDs(userName string) ([]string, err
 	return resFsIDList, nil
 }
 
-func processFsByUserName(compMap map[string]Component, userName string, fsIDMap map[string]int) error {
+func (wfs *WorkflowSource) processFsByUserName(compMap map[string]Component, userName string, fsIDMap map[string]int) error {
 	for _, comp := range compMap {
 		if dag, ok := comp.(*WorkflowSourceDag); ok {
-			if err := processFsByUserName(dag.EntryPoints, userName, fsIDMap); err != nil {
+			if err := wfs.processFsByUserName(dag.EntryPoints, userName, fsIDMap); err != nil {
 				return err
 			}
 		} else if step, ok := comp.(*WorkflowSourceStep); ok {
+			// 下面用来检查FsScope中的FsName是否都在FsMount中
 			fsNameSet := map[string]int{}
+			fsNameSet[wfs.FsOptions.GlobalFsName] = 1
+
 			for _, mount := range step.FsMount {
 				if mount.FsName == "" {
 					return fmt.Errorf("[fs_name] in fs_mount must be set")
 				}
 				mount.FsID = "fs-" + userName + "-" + mount.FsName
 
-				// 下面用来检查FsScope中的FsName是否都在FsMount中
 				fsNameSet[mount.FsName] = 1
 				fsIDMap[mount.FsID] = 1
 			}

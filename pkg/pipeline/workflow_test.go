@@ -473,7 +473,7 @@ func TestValidateWorkflowWithoutFs(t *testing.T) {
 	bwf = NewBaseWorkflow(wfs, "", nil, extra)
 	err = bwf.validate()
 	assert.NotNil(t, err)
-	pattern := regexp.MustCompile("cannot define artifact in step[[a-zA-Z-]+] with no Fs mounted")
+	pattern := regexp.MustCompile("cannot define artifact in component[[a-zA-Z-]+] with no Fs mounted")
 	assert.Regexp(t, pattern, err.Error())
 }
 

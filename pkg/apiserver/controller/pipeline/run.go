@@ -431,6 +431,9 @@ func runYamlAndReqToWfs(runYaml string, req CreateRunRequest) (schema.WorkflowSo
 	if req.Disabled != "" {
 		wfs.Disabled = req.Disabled
 	}
+	if req.GlobalFsName != "" {
+		wfs.FsOptions.GlobalFsName = req.GlobalFsName
+	}
 	return wfs, nil
 }
 

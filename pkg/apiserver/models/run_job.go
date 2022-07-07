@@ -50,6 +50,7 @@ type RunJob struct {
 	Cache          schema.Cache      `gorm:"-"                                  json:"cache"`
 	CacheJson      string            `gorm:"type:text;size:65535;not null"      json:"-"`
 	CacheRunID     string            `gorm:"type:varchar(60);not null"          json:"cache_run_id"`
+	CacheJobID     string            `gorm:"type:varchar(60);not null"          json:"cache_job_id"`
 	FsMount        []schema.FsMount  `gorm:"-"                                  json:"fsMount"`
 	FsMountJson    string            `gorm:"type:text;size:65535;not null"      json:"-"`
 	CreateTime     string            `gorm:"-"                                  json:"createTime"`
@@ -254,6 +255,7 @@ func (rj *RunJob) Trans2JobView() schema.JobView {
 		Cache:       rj.Cache,
 		JobMessage:  rj.Message,
 		CacheRunID:  rj.CacheRunID,
+		CacheJobID:  rj.CacheJobID,
 		FsMount:     newFsMount,
 	}
 }
@@ -291,6 +293,7 @@ func ParseRunJob(jobView *schema.JobView) RunJob {
 		Message:      jobView.JobMessage,
 		Cache:        jobView.Cache,
 		CacheRunID:   jobView.CacheRunID,
+		CacheJobID:   jobView.CacheJobID,
 		ActivateTime: jobView.StartTime,
 		FsMount:      newFsMount,
 	}
