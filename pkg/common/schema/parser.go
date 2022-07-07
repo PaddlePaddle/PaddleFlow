@@ -607,7 +607,7 @@ func (p *Parser) ParseFsMount(fsMap map[string]interface{}, fs *FsMount) error {
 			if !ok {
 				return fmt.Errorf("[mount_path] should be string type")
 			}
-			fs.FsName = value
+			fs.MountPath = value
 		case "subPath":
 			fallthrough
 		case "sub_path":
@@ -615,7 +615,7 @@ func (p *Parser) ParseFsMount(fsMap map[string]interface{}, fs *FsMount) error {
 			if !ok {
 				return fmt.Errorf("[sub_path] should be string type")
 			}
-			fs.FsName = value
+			fs.SubPath = value
 		case "readonly":
 			value, ok := value.(bool)
 			if !ok {
