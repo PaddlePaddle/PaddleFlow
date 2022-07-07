@@ -32,7 +32,7 @@ PaddleFlow的部署主要分为客户端和服务端，其中客户端主要用�
 里面包含PaddleFlow客户端和服务的部署方式
 # 快速上手
 ## 1.快速上手
-[快速上手](docs/zh_cn/quickstart/simple_quickstart.md)
+点击[快速上手](docs/zh_cn/quickstart/simple_quickstart.md) 开启PaddleFlow之旅
 ## 2.命令行参考
 点击[命令行操作说明](docs/zh_cn/reference/client_command_reference.md) 获取所有操作命令和示例。
 ## 3.python sdk参考
