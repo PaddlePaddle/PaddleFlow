@@ -599,26 +599,26 @@ func (bwf *BaseWorkflow) replaceRunParam(param string, val interface{}) error {
 	return nil
 }
 
-func replaceNodeParam(nodes map[string]schema.Component, nodesAndParam []string, value interface{}) (bool, error) {
-	if len(nodesAndParam) > 2 {
-		node, ok := nodes[nodesAndParam[0]]
+func replaceNodeParam(nodes map[string]schema.Component, compsAndParam []string, value interface{}) (bool, error) {
+	if len(compsAndParam) > 2 {
+		node, ok := nodes[compsAndParam[0]]
 		if !ok {
-			return false, fmt.Errorf("component [%s] not exist", nodesAndParam[0])
+			return false, fmt.Errorf("component [%s] not exist", compsAndParam[0])
 		}
 		dag, ok := node.(*schema.WorkflowSourceDag)
 		if !ok {
-			return false, fmt.Errorf("replace param by request failed, node name list error")
+			return false, fmt.Errorf("replace param by request failed, component [%s] should be a step, not dag", compsAndParam[0])
 		}
-		ok, err := replaceNodeParam(dag.EntryPoints, nodesAndParam[1:], value)
+		ok, err := replaceNodeParam(dag.EntryPoints, compsAndParam[1:], value)
 		if err != nil {
 			return false, err
 		}
 		if !ok {
 			return false, nil
 		}
-	} else if len(nodesAndParam) == 2 {
-		nodeName := nodesAndParam[0]
-		paramName := nodesAndParam[1]
+	} else if len(compsAndParam) == 2 {
+		nodeName := compsAndParam[0]
+		paramName := compsAndParam[1]
 
 		comp, ok := nodes[nodeName]
 		if !ok {

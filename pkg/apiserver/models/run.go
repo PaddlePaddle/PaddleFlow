@@ -153,14 +153,10 @@ func (r *Run) validateRuntimeAndPostProcess() error {
 	if err != nil {
 		return err
 	}
-	res, _ := json.Marshal(runJobs)
-	logger.Logger().Infof("debug: runJobs: %s", res)
 	runDags, err := GetRunDagsOfRun(logging, r.ID)
 	if err != nil {
 		return err
 	}
-	res, _ = json.Marshal(runDags)
-	logger.Logger().Infof("debug: runDags: %s", res)
 
 	// 先将post节点从runJobs中剔除
 	// TODO: 后续版本，如果支持了复杂结构的PostProcess，那么建议在step和dag表中添加 type 字段，用于区分该节点属于EntryPoints还是PostProcess
@@ -201,8 +197,6 @@ func (r *Run) initRuntime(jobs []RunJob, dags []RunDag) error {
 		comps = append(comps, &jobView)
 	}
 
-	res, _ := json.Marshal(comps)
-	logger.Logger().Infof("debug: all comps: %s", res)
 	// 处理jobs，根据parentID，在对应的dagView（若为空，则改为runtimeView）中，添加对应的JobView
 	// 处理dags，方法同上
 	for _, comp := range comps {
@@ -217,9 +211,6 @@ func (r *Run) initRuntime(jobs []RunJob, dags []RunDag) error {
 			}
 			dag.EntryPoints[compName] = append(dag.EntryPoints[compName], comp)
 		}
-		res, _ := json.Marshal(runtimeView)
-		logger.Logger().Infof("debug: runtime: %s", res)
-		logger.Logger().Infof("debug: compName: %s", comp.GetComponentName())
 	}
 
 	// 去掉最外层的DagView，使得RuntimeView显示得更友好
@@ -240,9 +231,6 @@ func (r *Run) initRuntime(jobs []RunJob, dags []RunDag) error {
 		}
 	}
 
-	res, _ = json.Marshal(resView)
-	logger.Logger().Infof("debug: resRuntime: %s", res)
-
 	// 此时已拿到RuntimeView树，但是信息不全，需要用wfs补全
 	if err := r.ProcessRuntimeView(resView, r.WorkflowSource.EntryPoints.EntryPoints); err != nil {
 		logger.Logger().Infof("debug: err: %s", err.Error())
@@ -250,9 +238,6 @@ func (r *Run) initRuntime(jobs []RunJob, dags []RunDag) error {
 	}
 
 	r.Runtime = resView
-	res, _ = json.Marshal(r.Runtime)
-	logger.Logger().Infof("debug: resRuntime: %s", res)
-
 	return nil
 }
 
