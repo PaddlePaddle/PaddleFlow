@@ -86,6 +86,7 @@ func GetRunLog(ctx *logger.RequestContext, runID string, request GetRunLogReques
 		}
 		msg := fmt.Sprintf("get trace log failed.%s%s", runInfo, jobInfo)
 		ctx.Logging().Warnf(msg)
+		response.SubmitLog = msg
 	} else {
 		traceStrs := make([]string, 0, len(traces))
 		for _, t := range traces {
