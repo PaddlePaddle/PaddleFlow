@@ -579,7 +579,7 @@ func (srt *StepRuntime) GenerateFsMountForArtifact() (err error) {
 				FsID:      srt.runConfig.GlobalFsID,
 				FsName:    srt.runConfig.GloablFsName,
 				MountPath: strings.Join([]string{ArtMountDir, dir}, "/"),
-				SubPath:   path,
+				SubPath:   dir,
 				Readonly:  true,
 			}
 			srt.getWorkFlowStep().FsMount = append(srt.getWorkFlowStep().FsMount, fsMount)
@@ -593,7 +593,7 @@ func (srt *StepRuntime) GenerateFsMountForArtifact() (err error) {
 			FsID:      srt.runConfig.GlobalFsID,
 			FsName:    srt.runConfig.GloablFsName,
 			MountPath: strings.Join([]string{ArtMountDir, dir}, "/"),
-			SubPath:   path,
+			SubPath:   dir,
 			Readonly:  false,
 		}
 		srt.getWorkFlowStep().FsMount = append(srt.getWorkFlowStep().FsMount, fsMount)

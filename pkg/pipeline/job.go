@@ -256,7 +256,7 @@ func (pfj *PaddleFlowJob) Watch() error {
 				"jobid":     pfj.ID,
 				"message":   jobInstance.Message,
 			}
-			wfe := NewWorkflowEvent(WfEventJobUpdate, "", extra)
+			wfe := NewWorkflowEvent(WfEventJobUpdate, jobInstance.Message, extra)
 			pfj.eventChannel <- *wfe
 			pfj.Status = jobInstance.Status
 			pfj.Message = jobInstance.Message
