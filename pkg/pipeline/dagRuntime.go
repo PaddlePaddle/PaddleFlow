@@ -940,13 +940,28 @@ func (drt *DagRuntime) processSubRuntimeError(err error, cp schema.Component, st
 	ctxAndCc := drt.getfailureOptionsCtxAndCF(componentName)
 
 	var crt componentRuntime
-	if ok {
-		crt = newStepRuntimeWithStatus(name, fullName, step, 0, drt.ctx, ctxAndCc.ctx, drt.receiveEventChildren,
-			drt.runConfig, drt.ID, status, err.Error())
+
+	var ll int
+	lp := cp.GetLoopArgument()
+	if lp != nil {
+		v := reflect.ValueOf(lp)
+		ll = v.Len()
+		if ll == 0 {
+			ll = 1
+		}
 	} else {
-		dag := cp.(*schema.WorkflowSourceDag)
-		crt = newDagRuntimeWithStatus(name, fullName, dag, 0, drt.ctx, ctxAndCc.ctx, drt.receiveEventChildren,
-			drt.runConfig, drt.ID, status, err.Error())
+		ll = 1
+	}
+
+	for i := 0; i < ll; i++ {
+		if ok {
+			crt = newStepRuntimeWithStatus(name, fullName, step, 0, drt.ctx, ctxAndCc.ctx, drt.receiveEventChildren,
+				drt.runConfig, drt.ID, status, err.Error())
+		} else {
+			dag := cp.(*schema.WorkflowSourceDag)
+			crt = newDagRuntimeWithStatus(name, fullName, dag, 0, drt.ctx, ctxAndCc.ctx, drt.receiveEventChildren,
+				drt.runConfig, drt.ID, status, err.Error())
+		}
 	}
 	drt.subComponentRumtimes[componentName] = append(drt.subComponentRumtimes[componentName], crt)
 }
