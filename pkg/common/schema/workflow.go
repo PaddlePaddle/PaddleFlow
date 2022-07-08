@@ -78,6 +78,7 @@ func (art *Artifacts) DeepCopy() *Artifacts {
 	return nArt
 }
 
+// Component包括Dag和Step，有Struct WorkflowSourceStep 和 WorkflowSourceDag实现了该接口
 type Component interface {
 	GetDeps() []string
 	GetArtifacts() Artifacts

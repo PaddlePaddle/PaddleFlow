@@ -19,7 +19,6 @@ package pipeline
 import (
 	"database/sql"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -30,7 +29,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/fs"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
@@ -252,12 +250,6 @@ func getWorkFlowSourceByJson(bodyMap map[string]interface{}) (schema.WorkflowSou
 	for key := range JsonAttrMap {
 		JsonAttrMap[key] = bodyMap[key]
 		delete(bodyMap, key)
-	}
-
-	// 将字段名由Json风格改为Yaml风格
-	p := schema.Parser{}
-	if err := p.TransJsonMap2Yaml(bodyMap); err != nil {
-		return schema.WorkflowSource{}, err
 	}
 
 	// 获取yaml版的Wfs
@@ -498,7 +490,7 @@ func CreateRun(ctx logger.RequestContext, request *CreateRunRequest) (CreateRunR
 		ID:             "", // to be back filled according to db pk
 		Name:           wfs.Name,
 		Source:         source,
-		UserName:       ctxUserName,
+		UserName:       userName,
 		GlobalFsName:   globalFsName,
 		GlobalFsID:     globalFsID,
 		Description:    request.Description,
@@ -524,6 +516,11 @@ func CreateRunByJson(ctx logger.RequestContext, bodyMap map[string]interface{}) 
 	var reqDescription string
 
 	parser := schema.Parser{}
+	// 将字段名由Json风格改为Yaml风格
+	if err := parser.TransJsonMap2Yaml(bodyMap); err != nil {
+		return CreateRunResponse{}, err
+	}
+
 	fsMap, ok := bodyMap[JsonFsOptions].(map[string]interface{})
 	if ok {
 		fsOptions := schema.FsOptions{}
@@ -577,7 +574,7 @@ func CreateRunByJson(ctx logger.RequestContext, bodyMap map[string]interface{}) 
 		ID:             "", // to be back filled according to db pk
 		Name:           wfs.Name,
 		Source:         source,
-		UserName:       ctxUserName,
+		UserName:       userName,
 		GlobalFsName:   reqGlobalFsName,
 		GlobalFsID:     globalFsID,
 		Description:    reqDescription,
@@ -598,39 +595,7 @@ func ValidateAndStartRun(ctx logger.RequestContext, run models.Run, userName str
 		logger.Logger().Errorf("validate and start run failed. error:%s", errMsg)
 		return CreateRunResponse{}, errors.New(errMsg)
 	}
-	logger.Logger().Infof("debug: fsName before process fs is [%s]", run.GlobalFsName)
 
-	// 给所有Step的fsMount和fsScope的fsID赋值
-	fsIDs, err := run.WorkflowSource.ProcessFsAndGetAllIDs(userName)
-	if err != nil {
-		logger.Logger().Errorf("process fs failed. error: %s", err.Error())
-		return CreateRunResponse{}, err
-	}
-
-	//检查fs权限
-	if run.GlobalFsID != "" {
-		fsIDs = append(fsIDs, run.GlobalFsID)
-	}
-	res, _ := json.Marshal(run.WorkflowSource.EntryPoints)
-	logger.Logger().Infof("debug: fsMount before check fs is [%s]", res)
-
-	for _, id := range fsIDs {
-		fsService := fs.GetFileSystemService()
-		hasPermission, err := fsService.HasFsPermission(run.UserName, id)
-		if err != nil {
-			err := fmt.Errorf("check fs permission failed with userName[%s] and fsID[%s]. error: %s",
-				run.UserName, id, err.Error())
-			logger.Logger().Errorf(err.Error())
-			return CreateRunResponse{}, err
-		}
-		if !hasPermission {
-			err := fmt.Errorf("user[%s] has no permission to fs[%s]", run.UserName, id)
-			logger.Logger().Errorf(err.Error())
-			return CreateRunResponse{}, err
-		}
-	}
-
-	logger.Logger().Infof("debug: fsName before encode fs is [%s]", run.GlobalFsName)
 	trace_logger.Key(requestId).Infof("encode run")
 	if err := run.Encode(); err != nil {
 		logger.Logger().Errorf("encode run failed. error:%s", err.Error())
@@ -656,14 +621,6 @@ func ValidateAndStartRun(ctx logger.RequestContext, run models.Run, userName str
 	_ = trace_logger.UpdateKey(requestId, runID)
 	trace_logger.Key(runID).Infof("create run in db success")
 
-	trace_logger.Key(runID).Infof("run yaml and req to wfs")
-	// to wfs again to revise previous wf replacement
-	// wfs, err := runYamlAndReqToWfs(run.RunYaml, req)
-	// if err != nil {
-	// 	logger.Logger().Errorf("runYamlAndReqToWfs failed. err:%v", err)
-	// 	return CreateRunResponse{}, err
-	// }
-	// run.WorkflowSource = wfs
 	defer func() {
 		if info := recover(); info != nil {
 			errmsg := fmt.Sprintf("StartWf failed, %v", info)
