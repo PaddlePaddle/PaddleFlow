@@ -19,11 +19,16 @@ package monitor
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 	log "github.com/sirupsen/logrus"
+
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/consts"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
 
 type KubernetesMetric struct {
@@ -36,22 +41,61 @@ func NewKubernetesMetric(clientAPI v1.API) MetricInterface {
 	}
 }
 
-func (km *KubernetesMetric) GetJobAvgMetrics(metricName, jobID string) (model.Value, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	queryPromql := fmt.Sprintf("avg(%s{jobID=\"%s\"}) without (podID)", metricName, jobID)
-	result, _, err := km.PrometheusClientAPI.Query(ctx, queryPromql, time.Now())
+func (km *KubernetesMetric) GetJobAvgMetrics(metricName, jobID string) (float64, error) {
+	job, err := models.GetJobByID(jobID)
 	if err != nil {
-		log.Errorf("job[%s] prometheus query api error %s", jobID, err.Error())
-		return nil, err
+		log.Errorf("job[%s] find error %s", jobID, err.Error())
+		return 0.0, err
 	}
-	return result, nil
+	var start int64 = 0
+	var end int64 = 0
+	if job.ActivatedAt.Valid {
+		start = job.ActivatedAt.Time.Unix()
+	} else {
+		return 0.0, nil
+	}
+	if schema.IsImmutableJobStatus(job.Status) {
+		end = job.UpdatedAt.Unix()
+	} else {
+		end = time.Now().Unix()
+	}
+	result, err := km.GetJobSequenceMetrics(metricName, jobID, start, end, 30)
+	if err != nil {
+		log.Errorf("job[%s] get prometheus sequence data error %s", jobID, err.Error())
+		return 0.0, err
+	}
+	data, ok := result.(model.Matrix)
+	if !ok {
+		return 0.0, fmt.Errorf("convert result to matrix failed")
+	}
+	sum := 0.0
+	count := 0
+	for _, value := range data {
+		for _, rangeValue := range value.Values {
+			sum += float64(rangeValue.Value)
+			count += 1
+		}
+	}
+	if count != 0 {
+		return sum / float64(count), nil
+	}
+	return sum, nil
 }
 
 func (km *KubernetesMetric) GetJobSequenceMetrics(metricName, jobID string, start, end, step int64) (model.Value, error) {
+	tasks, err := models.ListByJobID(jobID)
+	if err != nil {
+		log.Errorf("job[%s] get task error %s", jobID, err.Error())
+		return nil, err
+	}
+	podNameList := make([]string, 0)
+	for _, task := range tasks {
+		podNameList = append(podNameList, task.Name)
+	}
+	podNames := strings.Join(podNameList, "|")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	queryPromql := fmt.Sprintf("%s{jobID=\"%s\"}", metricName, jobID)
+	queryPromql := getQuerySqlByMetric(metricName, podNames)
 	r := v1.Range{
 		Start: time.Unix(start, 0),
 		End:   time.Unix(end, 0),
@@ -63,4 +107,29 @@ func (km *KubernetesMetric) GetJobSequenceMetrics(metricName, jobID string, star
 		return nil, err
 	}
 	return result, nil
+}
+
+func getQuerySqlByMetric(metricName, podNames string) string {
+	switch metricName {
+	case consts.MetricCpuUsageRate:
+		return fmt.Sprintf(QueryCPUUsageRateQl, podNames, podNames)
+	case consts.MetricMemoryUsage:
+		return fmt.Sprintf(QueryMEMUsageRateQl, podNames, podNames)
+	case consts.MetricDiskUsage:
+		return fmt.Sprintf(QueryDiskUsageQl, podNames)
+	case consts.MetricNetReceiveBytes:
+		return fmt.Sprintf(QueryNetReceiveQl, podNames)
+	case consts.MetricNetSendBytes:
+		return fmt.Sprintf(QueryNetTransmitQl, podNames)
+	case consts.MetricDiskReadRate:
+		return fmt.Sprintf(QueryDiskReadQl, podNames)
+	case consts.MetricDiskWriteRate:
+		return fmt.Sprintf(QueryDiskWriteQl, podNames)
+	case consts.MetricGpuUtil:
+		return fmt.Sprintf(QueryGpuUtilQl, podNames)
+	case consts.MetricGpuMemoryUtil:
+		return fmt.Sprintf(QueryGpuMemUtilQl, podNames)
+	default:
+		return ""
+	}
 }

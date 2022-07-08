@@ -92,6 +92,12 @@ func (sr *StatisticsRouter) getJobDetailStatistics(writer http.ResponseWriter, r
 			return
 		}
 	}
+	err = validateStatisticsParam(start, end, step)
+	if err != nil {
+		ctx.Logging().Errorf("invalid request param, error:%s.", err.Error())
+		common.RenderErrWithMessage(writer, ctx.RequestID, common.InvalidURI, err.Error())
+		return
+	}
 	response, err := statistics.GetJobDetailStatistics(&ctx, jobID, start, end, step)
 	if err != nil {
 		ctx.Logging().Errorf("jobID[%s] get detail statistics data failed. error:%s.", jobID, err.Error())
@@ -99,4 +105,20 @@ func (sr *StatisticsRouter) getJobDetailStatistics(writer http.ResponseWriter, r
 		return
 	}
 	common.Render(writer, http.StatusOK, response)
+}
+
+func validateStatisticsParam(start, end, step int64) error {
+	if start > end {
+		return common.InvalidStartEndParams()
+	}
+	if step <= 0 {
+		return common.InvalidStatisticsParams("step")
+	}
+	if start < 0 {
+		return common.InvalidStatisticsParams("start")
+	}
+	if end < 0 {
+		return common.InvalidStatisticsParams("end")
+	}
+	return nil
 }

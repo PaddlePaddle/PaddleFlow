@@ -397,3 +397,11 @@ func ConnectionClosedError() error {
 func FsBeingUsedError(fsID string) error {
 	return fmt.Errorf("fs[%s] is being used and cannot be deleted/modified", fsID)
 }
+
+func InvalidStatisticsParams(param string) error {
+	return fmt.Errorf("Invalid params, %s should to be greater than 0", param)
+}
+
+func InvalidStartEndParams() error {
+	return fmt.Errorf("Invalid params, start should not to be greater than end")
+}

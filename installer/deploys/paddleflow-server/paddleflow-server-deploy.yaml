@@ -190,6 +190,10 @@ data:
         password: ""
         concurrency: 10
         removeLocalImage: true
+
+      monitor:
+        server: ""
+        exporterServicePort: 8321
   single.yaml: |-
     apiVersion: v1
     kind: Pod
