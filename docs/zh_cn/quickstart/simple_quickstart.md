@@ -29,11 +29,13 @@ curl http://paddleflow-host:8999
 ```
 ## 4.1 初始化本地文件（训练数据和代码在本地文件系统中）
 本地文件系统当前PaddleFlow为了保障安全性，使用SFTP协议进行传输数据，因此首先确认文件所在机器是否已经开启了SSHD，如果没有则需要安装。
-
+### 4.1.1 初始化工作区
 1.创建本地工作区
 ```shell
 mkdir /home/work/paddleflow/workspace/project1/ ##可按需自己规划
 ```
+> 后续步骤要深度依赖这个工作区目录，请做好合理规划
+
 2.注册工作区到PaddleFlow中
 ```shell
 paddleflow fs create yourworkspace sftp://your-desktop-ip:22/home/work/paddleflow/workspace/project1 -o user=username -o password=xx
@@ -43,19 +45,49 @@ paddleflow fs create yourworkspace sftp://your-desktop-ip:22/home/work/paddleflo
 ```shell
 paddleflow fs show yourworkspace
 ```
+### 4.1.2 PaddleFlow客户端和服务端在不同的机器上（确保客户端与服务端连通性）
+1.创建本地工作区（同4.1.1操作所有步骤）
+2.继续执行4.4（目的是将本地的代码和文件可被服务端访问，如若跳过提交作业则会报文件或目录不存在导致作业训练失败）
+
 ## 4.2 初始化S3（训练数据和代码在对象存储中）
+1.创建本地工作区
+```shell
+mkdir /home/work/paddleflow/workspace/project1/ ##可按需自己规划
+```
+> 后续步骤要深度依赖这个工作区目录，请做好合理规划
+
+2.注册bucket到PaddleFlow中
 ```shell
 paddleflow fs create s3fs s3://your-bucket-name/s3path -o endpoint=s3.bj.bcebos.com -o region=bj -o accessKey=your-ak
 -o secretKey=your-sk
 ## 注意：对象存储的创建的其他参数可以通过paddleflow fs create --help查看
 ```
+3.检查注册是否成功
+```shell
+paddleflow fs show yourworkspace
+```
+4.执行4.4
+> 目的是本地工作区可以访问s3空间，将本地IDE开发的代码、数据等相关文件自动同步到S3中，如果代码和数据已经存在，则此步可跳过直接执行章节6
 
 ## 4.3 初始化HDFS（训练数据和代码在HDFS中）
+1.创建本地工作区
+```shell
+mkdir /home/work/paddleflow/workspace/project1/ ##可按需自己规划
+```
+> 后续步骤要深度依赖这个工作区目录，请做好合理规划
+2.注册HDFS对应的目录到PaddleFlow中
 ```shell
 paddleflow fs create hdfsfs hdfs://hdfs.serverAddresses/hdfs.subPath -o user=your-hdfs-user -o userGroup=your-hdfs-group
 ## 注意：paddleflow也支持hdfsWithKerberos的创建方式，具体参数可以通过paddleflow fs create --help查看
 ```
-## 4.4 将创建好的工作区挂载到本地
+3.检查注册是否成功
+```shell
+paddleflow fs show yourworkspace
+```
+4.执行4.4
+> 目的是本地工作区可以访问HDFS空间，将本地IDE开发的代码、数据等相关文件自动同步到HDFS中，如果代码和数据已经存在，则此步可跳过直接执行章节6
+
+## 4.4 将创建好的工作区挂载到本地（如果是4.1.1的使用方式，请跳过本小节）
 以 x86 架构的 Linux 系统为例，下载文件名包含pfs-fuse的二进制包，在终端依次执行以下命令。
 
 1.下载客户端到当前目录
