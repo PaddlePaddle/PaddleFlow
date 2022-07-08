@@ -23,8 +23,11 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	pplcommon "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 )
 
@@ -414,6 +417,8 @@ func TestValidateWorkflowCache(t *testing.T) {
 
 	assert.Equal(t, bwf.Source.EntryPoints.EntryPoints["data-preprocess"].(*schema.WorkflowSourceStep).Cache.Enable, bwf.Source.Cache.Enable)
 	assert.Equal(t, bwf.Source.EntryPoints.EntryPoints["data-preprocess"].(*schema.WorkflowSourceStep).Cache.MaxExpiredTime, bwf.Source.Cache.MaxExpiredTime)
+
+	bwf.Source.Cache.FsScope[0].FsID = "fs-mockUser-xd"
 	assert.Equal(t, bwf.Source.EntryPoints.EntryPoints["data-preprocess"].(*schema.WorkflowSourceStep).Cache.FsScope, bwf.Source.Cache.FsScope)
 
 	// 全局 + 节点的cache MaxExpiredTime 设置失败
@@ -478,7 +483,6 @@ func TestValidateWorkflowWithoutFs(t *testing.T) {
 }
 
 func TestCheckPostProcess(t *testing.T) {
-	driver.InitMockDB()
 	wfs, err := loadTwoPostCaseSource()
 	assert.Nil(t, err)
 
@@ -506,4 +510,21 @@ func TestFsOptions(t *testing.T) {
 	assert.Equal(t, wfs.FsOptions.FsMount[0].FsName, "abc")
 	assert.Equal(t, wfs.EntryPoints.EntryPoints["main"].(*schema.WorkflowSourceStep).FsMount[0].FsName, "abc")
 	assert.Equal(t, wfs.EntryPoints.EntryPoints["main"].(*schema.WorkflowSourceStep).Cache.FsScope[0].FsName, "xd")
+}
+
+func TestMain(m *testing.M) {
+	driver.InitMockDB()
+	fs := model.FileSystem{}
+	fs.ID = common.ID("mockUser", "mockFs")
+	_ = storage.Filesystem.CreatFileSystem(&fs)
+
+	fs = model.FileSystem{}
+	fs.ID = common.ID("mockUser", "abc")
+	_ = storage.Filesystem.CreatFileSystem(&fs)
+
+	fs = model.FileSystem{}
+	fs.ID = common.ID("mockUser", "xd")
+	_ = storage.Filesystem.CreatFileSystem(&fs)
+
+	m.Run()
 }

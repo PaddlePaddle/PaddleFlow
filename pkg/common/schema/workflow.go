@@ -575,6 +575,7 @@ func GetWorkflowSource(runYaml []byte) (WorkflowSource, error) {
 	return GetWorkflowSourceByMap(yamlMap)
 }
 
+// 由Map解析得到一个Wfs，该Map中的key需要是下划线格式
 func GetWorkflowSourceByMap(yamlMap map[string]interface{}) (WorkflowSource, error) {
 	wfs := WorkflowSource{
 		FailureOptions: FailureOptions{Strategy: FailureStrategyFailFast},
