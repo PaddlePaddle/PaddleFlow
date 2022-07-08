@@ -491,6 +491,7 @@ func CreateRun(ctx logger.RequestContext, request *CreateRunRequest) (CreateRunR
 		}
 	}
 
+	logger.Logger().Infof("debug: fsName before run model is [%s]", globalFsName)
 	// create run in db after run.yaml validated
 	run := models.Run{
 		ID:             "", // to be back filled according to db pk
@@ -596,6 +597,7 @@ func ValidateAndStartRun(ctx logger.RequestContext, run models.Run, userName str
 		logger.Logger().Errorf("validate and start run failed. error:%s", errMsg)
 		return CreateRunResponse{}, errors.New(errMsg)
 	}
+	logger.Logger().Infof("debug: fsName before process fs is [%s]", run.GlobalFsName)
 
 	// 给所有Step的fsMount和fsScope的fsID赋值
 	fsIDs, err := run.WorkflowSource.ProcessFsAndGetAllIDs(userName)
@@ -625,12 +627,13 @@ func ValidateAndStartRun(ctx logger.RequestContext, run models.Run, userName str
 		}
 	}
 
+	logger.Logger().Infof("debug: fsName before encode fs is [%s]", run.GlobalFsName)
 	trace_logger.Key(requestId).Infof("encode run")
 	if err := run.Encode(); err != nil {
 		logger.Logger().Errorf("encode run failed. error:%s", err.Error())
 		return CreateRunResponse{}, err
 	}
-
+	logger.Logger().Infof("debug: fsName before validate fs is [%s]", run.GlobalFsName)
 	trace_logger.Key(requestId).Infof("validate and init workflow")
 	// validate workflow in func NewWorkflow
 	if _, err := newWorkflowByRun(run); err != nil {
@@ -980,6 +983,7 @@ func newWorkflowByRun(run models.Run) (*pipeline.Workflow, error) {
 		pplcommon.WfExtraInfoKeyUserName: run.UserName,
 		pplcommon.WfExtraInfoKeyFsName:   run.GlobalFsName,
 	}
+	logger.LoggerForRun(run.ID).Infof("debug: fsname in extra is [%s]", extraInfo[pplcommon.WfExtraInfoKeyFsName])
 	wfPtr, err := pipeline.NewWorkflow(run.WorkflowSource, run.ID, run.Parameters, extraInfo, workflowCallbacks)
 	if err != nil {
 		logger.LoggerForRun(run.ID).Warnf("NewWorkflow by run[%s] failed. error:%v\n", run.ID, err)
