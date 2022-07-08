@@ -358,11 +358,6 @@ func validateFileSystem(userName string, requestFs *schema.FileSystem) error {
 		log.Debugf("mountPath is %s, changes to .", requestFs.MountPath)
 		mountPath = filepath.Join(schema.DefaultFSMountPath, requestFs.ID)
 	}
-	if !filepath.IsAbs(mountPath) {
-		err := fmt.Errorf("mountPath must be absolute path in fs[%v]", requestFs)
-		log.Errorf("validateFileSystem failed, err: %v", err)
-		return err
-	}
 	fileSystem, err := storage.Filesystem.GetFileSystemWithFsID(fsID)
 
 	if err != nil {
