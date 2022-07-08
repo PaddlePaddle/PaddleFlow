@@ -350,17 +350,17 @@ func validateFileSystem(userName string, fs *schema.FileSystem) error {
 		// generate fsID by fsName if fsID is nil
 		fsID = common.ID(userName, fsName)
 	}
+	if fs.MountPath == "" {
+		log.Debugf("mountPath is %s, changes to .", fs.MountPath)
+		fs.MountPath = filepath.Join(schema.DefaultFSMountPath, fs.ID)
+	}
 	mountPath := filepath.Clean(fs.MountPath)
-	if mountPath == "/" || fs.MountPath == "." || fs.MountPath == ".." {
+	if mountPath == "/" || mountPath == "." || mountPath == ".." {
 		err := fmt.Errorf("mountPath cannot be `/` or `.` in fsName[%s] fsID[%s]", fsName, fsID)
 		log.Errorf("validateFileSystem failed, err: %v", err)
 		return err
 	}
-	// if fs.MountPath is nil, it would be . after filepath.Clean()
-	if mountPath == "." {
-		log.Debugf("mountPath is %s, changes to .", fs.MountPath)
-		mountPath = filepath.Join(schema.DefaultFSMountPath, fs.ID)
-	}
+
 	fileSystem, err := storage.Filesystem.GetFileSystemWithFsID(fsID)
 	if err != nil {
 		log.Errorf("get filesystem by userName[%s] fsName[%s] fsID[%s] failed, err: %v", userName, fsName, fsID, err)
