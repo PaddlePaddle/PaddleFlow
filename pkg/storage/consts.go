@@ -37,6 +37,7 @@ const (
 	FsCacheID     = "cache_id"
 	FsPath        = "fs_path"
 	NodeName      = "nodename"
+	ClusterID     = "cluster_id"
 	Address       = "address"
 	UserName      = "user_name"
 	UserROOT      = "root"

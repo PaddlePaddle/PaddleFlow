@@ -65,7 +65,7 @@ type FileSystemStoreInterface interface {
 type FsCacheStoreInterface interface {
 	Add(value *model.FSCache) error
 	Get(fsID string, cacheID string) (*model.FSCache, error)
-	Delete(fsID, cacheID string) error
+	Delete(fsID, nodeName, ClusterID string) error
 	List(fsID, cacheID string) ([]model.FSCache, error)
 	ListNodes(fsID []string) ([]string, error)
 	Update(value *model.FSCache) (int64, error)

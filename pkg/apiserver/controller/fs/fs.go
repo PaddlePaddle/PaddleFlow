@@ -33,7 +33,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	fsCommon "github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/common"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/mount"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
@@ -242,6 +241,12 @@ func (s *FileSystemService) CheckFsMountedAndCleanResources(fsID string) (bool, 
 		log.Infof("fs[%s] currently mounted. cannot be modified or deleted", fsID)
 		return true, nil
 	}
+
+	if err := removeCache(fsID, "", ""); err != nil {
+		err := fmt.Errorf("removeCache fs[%s] err: %v", fsID, err)
+		log.Errorf(err.Error())
+		return false, err
+	}
 	if err := deleteMountPods(mountPodMap); err != nil {
 		err := fmt.Errorf("delete mount pods with fsID[%s] err: %v", fsID, err)
 		log.Errorf(err.Error())
@@ -330,25 +335,9 @@ func checkFsMounted(cnm map[*runtime.KubeRuntime][]string, fsID string) (bool, m
 func deleteMountPods(podMap map[*runtime.KubeRuntime][]k8sCore.Pod) error {
 	for k8sRuntime, pods := range podMap {
 		for _, po := range pods {
-			// get cache paths
-			cachePaths := make([]string, 0)
-			if len(po.Spec.Containers) == 2 {
-				for _, v := range po.Spec.Volumes {
-					if v.Name == schema.VolumesKeyMetaCache ||
-						v.Name == schema.VolumesKeyDataCache {
-						cachePaths = append(cachePaths, v.HostPath.Path)
-					}
-				}
-			}
 			// delete pod
 			if err := k8sRuntime.DeletePod(schema.MountPodNamespace, po.Name); err != nil && !k8sErrors.IsNotFound(err) {
 				err := fmt.Errorf("deleteMountPods [%s] failed: %v", po.Name, err)
-				log.Errorf(err.Error())
-				return err
-			}
-			// delete cache paths
-			if err := mount.CleanUpMountPoints(cachePaths); err != nil {
-				err := fmt.Errorf("CleanUpMountPoints [%v] failed: %v", cachePaths, err)
 				log.Errorf(err.Error())
 				return err
 			}

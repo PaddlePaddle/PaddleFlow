@@ -69,7 +69,7 @@ func (cm *ConcurrentFSCacheMap) Put(key string, value *model.FSCache) {
 	if v, ok := cm.value[key]; ok {
 		tempV = v
 	}
-	tempV[value.CacheID] = value
+	tempV[value.NodeName] = value
 	cm.value[key] = tempV
 	cm.Unlock()
 }
@@ -94,14 +94,14 @@ func (cm *ConcurrentFSCacheMap) Delete(key1, key2 string) error {
 	return err
 }
 
-func (cm *ConcurrentFSCacheMap) Update(key, value *model.FSCache) (has bool, err error) {
+func (cm *ConcurrentFSCacheMap) Update(key string, value *model.FSCache) (has bool, err error) {
 	cm.Lock()
 	defer cm.Unlock()
-	if v1, ok := cm.value[value.FsID]; ok {
-		_, ok = v1[value.CacheID]
+	if v1, ok := cm.value[key]; ok {
+		_, ok = v1[value.NodeName]
 		if ok {
 			has = true
-			v1[value.CacheID] = value
+			v1[value.NodeName] = value
 		}
 	}
 	return has, nil
@@ -123,8 +123,8 @@ func (mem *MemFSCache) Get(fsID string, cacheID string) (*model.FSCache, error) 
 	return mem.fsCacheMap.Get(fsID, cacheID), nil
 }
 
-func (mem *MemFSCache) Delete(fsID, cacheID string) error {
-	return mem.fsCacheMap.Delete(fsID, cacheID)
+func (mem *MemFSCache) Delete(fsID, nodeName, clusterID string) error {
+	return mem.fsCacheMap.Delete(fsID, nodeName)
 }
 
 func (mem *MemFSCache) List(fsID, cacheID string) ([]model.FSCache, error) {
@@ -151,8 +151,15 @@ func (mem *MemFSCache) ListNodes(fsIDs []string) ([]string, error) {
 }
 
 func (mem *MemFSCache) Update(value *model.FSCache) (int64, error) {
-	//if value.CacheID == "" {
-	//	value.CacheID = model.CacheID(value.ClusterID, value.NodeName, value.CacheDir)
-	//}
-	return 0, nil
+	if value.CacheID == "" {
+		value.CacheID = model.CacheID(value.ClusterID, value.NodeName, value.CacheDir)
+	}
+	has, err := mem.fsCacheMap.Update(value.FsID, value)
+	if err != nil {
+		return 0, err
+	}
+	if !has {
+		return 0, nil
+	}
+	return 1, nil
 }
