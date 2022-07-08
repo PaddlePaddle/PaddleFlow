@@ -75,8 +75,32 @@ func GetRunLog(ctx *logger.RequestContext, runID string, request GetRunLogReques
 	}
 
 	// get submit log first
-	traces, ok := trace_logger.GetTracesByRunIDOrJobID(runID, request.JobID)
-	if !ok {
+	// if jobid is empty return submit log and run job log
+	var traces []trace_logger.Trace
+	if request.JobID == "" {
+		trace, ok := trace_logger.GetTraceFromCache(runID)
+		if ok {
+			traces = append(traces, trace)
+			// get run job logs
+			for _, job := range jobList {
+				trace, ok := trace_logger.GetTraceFromCache(job.ID)
+				if ok {
+					traces = append(traces, trace)
+				}
+			}
+		}
+	} else {
+		// get run job logs
+		for _, job := range jobList {
+			trace, ok := trace_logger.GetTraceFromCache(job.ID)
+			if ok {
+				traces = append(traces, trace)
+			}
+		}
+	}
+
+	// set submit log
+	if len(traces) == 0 {
 		var runInfo, jobInfo string
 		if runID != "" {
 			runInfo = fmt.Sprintf(" runID[%s]", runID)

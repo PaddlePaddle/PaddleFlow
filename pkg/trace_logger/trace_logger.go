@@ -245,21 +245,29 @@ func GetTraceFromCache(key string) (Trace, bool) {
 	return manager.GetTraceFromCache(key)
 }
 
-// GetTracesByRunIDOrJobID return the traces by run or job id, if not found, return nil, false
+// GetTracesByRunIDAndJobID return the traces by run or job id, if not found, return nil, false
 // it will return related run and job log for runID, and related job log for jobID,
 // it will omit empty IDs
-func GetTracesByRunIDOrJobID(runID, jobID string) ([]Trace, bool) {
+func GetTracesByRunIDAndJobID(runID, jobID string) ([]Trace, bool) {
 	traces := make([]Trace, 0)
 	// update key
 	if runID != "" {
-		runTrace, _ := manager.GetTraceFromCache(runID)
-		traces = append(traces, runTrace)
-		runJobTraces, _ := GetJobTracesByRunID(runID)
-		traces = append(traces, runJobTraces...)
+		runTrace, ok := manager.GetTraceFromCache(runID)
+		if ok {
+			traces = append(traces, runTrace)
+		}
+
+		runJobTraces, ok := GetJobTracesByRunID(runID)
+		if ok {
+			traces = append(traces, runJobTraces...)
+		}
+
 	}
 	if jobID != "" {
-		jobTraces, _ := manager.GetTraceFromCache(runID)
-		traces = append(traces, jobTraces)
+		jobTraces, ok := manager.GetTraceFromCache(runID)
+		if ok {
+			traces = append(traces, jobTraces)
+		}
 	}
 	if len(traces) == 0 {
 		return nil, false

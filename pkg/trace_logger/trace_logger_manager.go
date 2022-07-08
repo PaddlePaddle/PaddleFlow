@@ -292,7 +292,9 @@ func (d *DefaultTraceLoggerManager) GetTraceFromCache(key string) (Trace, bool) 
 	if !ok {
 		return Trace{}, false
 	}
-	return val.(Trace), ok
+	trace := val.(Trace)
+	logrus.Debugf(LogrusPrefix+"get trace from cache [%s]: %s", key, trace)
+	return trace, ok
 }
 
 func (d *DefaultTraceLoggerManager) GetAllTraceFromCache() []Trace {
