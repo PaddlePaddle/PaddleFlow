@@ -45,28 +45,33 @@ paddleflow fs show yourworkspace
 ```
 ## 4.2 初始化S3（训练数据和代码在对象存储中）
 ```shell
-paddleflow fs create s3workspace s3://your-bucket-name/s3path -o endpoint=s3.bj.bcebos.com -o region=bj -o accessKey=your-ak
+paddleflow fs create s3fs s3://your-bucket-name/s3path -o endpoint=s3.bj.bcebos.com -o region=bj -o accessKey=your-ak
 -o secretKey=your-sk
 ## 注意：对象存储的创建的其他参数可以通过paddleflow fs create --help查看
 ```
 
 ## 4.3 初始化HDFS（训练数据和代码在HDFS中）
 ```shell
-paddleflow fs create hdfsworkspace hdfs://hdfs.serverAddresses/hdfs.subPath -o user=your-hdfs-user -o userGroup=your-hdfs-group
+paddleflow fs create hdfsfs hdfs://hdfs.serverAddresses/hdfs.subPath -o user=your-hdfs-user -o userGroup=your-hdfs-group
 ## 注意：paddleflow也支持hdfsWithKerberos的创建方式，具体参数可以通过paddleflow fs create --help查看
 ```
-## 4.4 将创建好的fs挂载到本地
+## 4.4 将创建好的工作区挂载到本地
 以 x86 架构的 Linux 系统为例，下载文件名包含pfs-fuse的二进制包，在终端依次执行以下命令。
 
 1.下载客户端到当前目录
-
 ```shell
 wget "https://github.com/PaddlePaddle/PaddleFlow/releases/download/v0.14.2/pfs-fuse"
 ```
-2.将当前pfs-fuse二进制的文件地址写入环境变量fuse_env中
+2.将当前pfs-fuse二进制的本地路径写入环境变量fuse_env中
 ```shell
 export fuse_env=your-pfs-fuse-path
 ```
+3.执行挂载命令，将工作区挂载到本地
+```shell
+paddleflow fs mount yourworkspace mountpath
+## yourworkspace是刚刚创建的本地工作区的名称，mountpath则是要选择挂载的路径，其他参考可以通过paddleflow fs mount --help查看
+```
+如果出现```mount success```则挂载成功，挂载失败可以通过提示的日志路径查看具体日志报错
 
 # 5.下载示例到工作区
 以本地文件系统为例，下载[example](https://github.com/PaddlePaddle/PaddleFlow/tree/release-0.14.2/example) 代码
