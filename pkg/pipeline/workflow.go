@@ -78,7 +78,20 @@ func (bwf *BaseWorkflow) log() *logrus.Entry {
 }
 
 func (bwf *BaseWorkflow) checkCompAttrs() error {
-	return bwf.checkAttrRecursively(bwf.Source.EntryPoints.EntryPoints)
+	if err := bwf.checkAttrRecursively(bwf.Source.EntryPoints.EntryPoints); err != nil {
+		return err
+	}
+	if err := bwf.checkAttrRecursively(bwf.Source.Components); err != nil {
+		return err
+	}
+	postMap := map[string]schema.Component{}
+	for k, v := range bwf.Source.PostProcess {
+		postMap[k] = v
+	}
+	if err := bwf.checkAttrRecursively(postMap); err != nil {
+		return err
+	}
+	return nil
 }
 
 // 校验Deps, Condition, LoopArguments
@@ -97,6 +110,7 @@ func (bwf *BaseWorkflow) checkAttrRecursively(components map[string]schema.Compo
 			return err
 		}
 
+		// loopArgument
 		if err := bwf.checkLoopArgument(component); err != nil {
 			logger.LoggerForRun(bwf.RunID).Errorf("check loopArgument failed, error: %s", err.Error())
 			return err
@@ -106,6 +120,14 @@ func (bwf *BaseWorkflow) checkAttrRecursively(components map[string]schema.Compo
 			if err := bwf.checkAttrRecursively(dag.EntryPoints); err != nil {
 				return err
 			}
+		} else if step, ok := component.(*schema.WorkflowSourceStep); ok {
+			// step 特有的参数检查
+			// dockerEnv
+			if strings.HasSuffix(step.DockerEnv, ".tar") {
+				return fmt.Errorf("image as tar file is not supported for now")
+			}
+		} else {
+			return fmt.Errorf("component is not dag or step")
 		}
 	}
 	return nil

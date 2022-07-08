@@ -640,7 +640,6 @@ func ValidateAndStartRun(ctx logger.RequestContext, run models.Run, userName str
 	runID, err := models.CreateRun(logger.Logger(), &run)
 	if err != nil {
 		logger.Logger().Errorf("create run failed inserting db. error:%s", err.Error())
-		return CreateRunResponse{}, err
 	}
 
 	// update trace logger key
@@ -947,30 +946,27 @@ func handleImageAndStartWf(run models.Run, isResume bool) error {
 	logEntry := logger.LoggerForRun(run.ID)
 	logEntry.Debugf("start handleImageAndStartWf isResume:%t, run:%+v", isResume, run)
 	trace_logger.Key(run.ID).Debugf("start handleImageAndStartWf isResume:%t, run:%+v", isResume, run)
-	if !handler.NeedHandleImage(run.WorkflowSource) {
-		// init workflow and start
-		trace_logger.Key(run.ID).Infof("init workflow and start")
-		wfPtr, err := newWorkflowByRun(run)
-		if err != nil {
-			logEntry.Errorf("newWorkflowByRun failed. err:%v\n", err)
-			return updateRunStatusAndMsg(run.ID, common.StatusRunFailed, err.Error())
-		}
-		if !isResume {
-			// start workflow with image url
-			trace_logger.Key(run.ID).Infof("start workflow with image url")
-			wfPtr.Start()
-			logEntry.Debugf("workflow started, run:%+v", run)
-		} else {
-			// set runtime and restart
-			trace_logger.Key(run.ID).Infof("resume workflow, set runtime and restart")
-			wfPtr.Restart(run.Runtime, run.PostProcess)
-			logEntry.Debugf("workflow restarted, run:%+v", run)
-		}
-		return models.UpdateRun(logEntry, run.ID,
-			models.Run{DockerEnv: run.WorkflowSource.DockerEnv, Status: common.StatusRunPending})
-	} else {
-		return fmt.Errorf("image as tar file is not supported for now")
+	// 由于目前不支持.tar形式的dockerEnv，因此dockerEnv的检查已迁移至Validate
+	// init workflow and start
+	trace_logger.Key(run.ID).Infof("init workflow and start")
+	wfPtr, err := newWorkflowByRun(run)
+	if err != nil {
+		logEntry.Errorf("newWorkflowByRun failed. err:%v\n", err)
+		return updateRunStatusAndMsg(run.ID, common.StatusRunFailed, err.Error())
 	}
+	if !isResume {
+		// start workflow with image url
+		trace_logger.Key(run.ID).Infof("start workflow with image url")
+		wfPtr.Start()
+		logEntry.Debugf("workflow started, run:%+v", run)
+	} else {
+		// set runtime and restart
+		trace_logger.Key(run.ID).Infof("resume workflow, set runtime and restart")
+		wfPtr.Restart(run.Runtime, run.PostProcess)
+		logEntry.Debugf("workflow restarted, run:%+v", run)
+	}
+	return models.UpdateRun(logEntry, run.ID,
+		models.Run{DockerEnv: run.WorkflowSource.DockerEnv, Status: common.StatusRunPending})
 }
 
 func newWorkflowByRun(run models.Run) (*pipeline.Workflow, error) {
