@@ -18,7 +18,6 @@ package pipeline
 
 import (
 	"database/sql"
-	"fmt"
 	"strings"
 	"time"
 
@@ -56,22 +55,10 @@ func GetJobByRun(jobID string, fullComponentName string) (schema.JobView, error)
 		logging.Errorf("get run_job failed in get job cb, err: %v", err)
 		return schema.JobView{}, err
 	}
-	run, err := models.GetRunByID(logging, job.RunID)
-	if err != nil {
-		logging.Errorf("get run failed in get job cb, err: %v", err)
-		return schema.JobView{}, err
+	mockStep := schema.WorkflowSourceStep{
+		Deps: "",
 	}
-	comp, err := run.WorkflowSource.GetComponentByFullName(fullComponentName)
-	if err != nil {
-		logging.Errorf("get Step source failed, err: %v", err)
-		return schema.JobView{}, err
-	}
-	var resJob schema.JobView
-	if step, ok := comp.(*schema.WorkflowSourceStep); ok {
-		resJob = job.ParseJobView(step)
-	} else {
-		return schema.JobView{}, fmt.Errorf("the component with fullName is not step")
-	}
+	resJob := job.ParseJobView(&mockStep)
 	return resJob, nil
 }
 
