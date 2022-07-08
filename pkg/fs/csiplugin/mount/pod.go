@@ -167,10 +167,14 @@ func PodMount(volumeID string, mountInfo pfs.MountInfo) error {
 	}
 	token := loginResponse.Authorization
 	// validate fs
-	if _, err := getFs(mountInfo.FSID, httpClient, token); err != nil {
+	resp, err := getFs(mountInfo.FSID, httpClient, token)
+	if err != nil {
 		log.Errorf("PodMount: validate fs exist [%s] err: %v", mountInfo.FSID, err)
 		return err
 	}
+	mountInfo.Type = resp.Type
+	mountInfo.ServerAddress = resp.ServerAddress
+	mountInfo.SubPath = resp.SubPath
 	// create mount pod or add ref in server db
 	if err := createOrAddRef(httpClient, token, volumeID, mountInfo); err != nil {
 		log.Errorf("PodMount: info: %+v err: %v", mountInfo, err)
@@ -438,22 +442,30 @@ func buildMountContainer(pod *v1.Pod, mountInfo pfs.MountInfo, cacheConf common.
 
 func getMountCmd(mountInfo pfs.MountInfo, cacheConf common.FsCacheConfig) string {
 	mkdir := "mkdir -p " + MountPoint + ";"
-	pfsMountPath := "/home/paddleflow/pfs-fuse mount "
-	mountPath := "--mount-point=" + MountPoint + " "
-	options := []string{
-		"--server=" + mountInfo.Server,
-		"--user-name=" + mountInfo.UsernameRoot,
-		"--password=" + mountInfo.PasswordRoot,
-		"--block-size=" + strconv.Itoa(cacheConf.BlockSize),
-		"--fs-id=" + mountInfo.FSID,
-		"--data-cache-path=" + CachePath + DataCacheDir,
-		"--meta-cache-path=" + CachePath + MetaCacheDir,
-		"--meta-cache-driver=" + cacheConf.MetaDriver,
+	var cmd string
+	if mountInfo.Type == common.GlusterfsType {
+		mountCmd := "mount -t glusterfs " + strings.Join([]string{mountInfo.ServerAddress, mountInfo.SubPath}, ":") +
+			MountPoint + ";"
+		sleep := "while true; sleep 1; done;"
+		cmd = mkdir + mountCmd + sleep
+	} else {
+		pfsMountPath := "/home/paddleflow/pfs-fuse mount "
+		mountPath := "--mount-point=" + MountPoint + " "
+		options := []string{
+			"--server=" + mountInfo.Server,
+			"--user-name=" + mountInfo.UsernameRoot,
+			"--password=" + mountInfo.PasswordRoot,
+			"--block-size=" + strconv.Itoa(cacheConf.BlockSize),
+			"--fs-id=" + mountInfo.FSID,
+			"--data-cache-path=" + CachePath + DataCacheDir,
+			"--meta-cache-path=" + CachePath + MetaCacheDir,
+			"--meta-cache-driver=" + cacheConf.MetaDriver,
+		}
+		if cacheConf.Debug {
+			options = append(options, "--log-level=trace")
+		}
+		cmd = mkdir + pfsMountPath + mountPath + strings.Join(options, " ")
 	}
-	if cacheConf.Debug {
-		options = append(options, "--log-level=trace")
-	}
-	cmd := mkdir + pfsMountPath + mountPath + strings.Join(options, " ")
 	return cmd
 }
 
