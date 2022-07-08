@@ -242,8 +242,8 @@ func (s *FileSystemService) CheckFsMountedAndCleanResources(fsID string) (bool, 
 		return true, nil
 	}
 
-	if err := removeFsCache(fsID, "", ""); err != nil {
-		err := fmt.Errorf("removeFsCache fs[%s] err: %v", fsID, err)
+	if err := removeFsCache(fsID); err != nil {
+		err := fmt.Errorf("removeFsCache[%s] err: %v", fsID, err)
 		log.Errorf(err.Error())
 		return false, err
 	}
