@@ -209,6 +209,21 @@ func (s *FileSystemService) DeleteFileSystem(ctx *logger.RequestContext, fsID st
 }
 
 func (s *FileSystemService) CheckFsMountedAndCleanResources(fsID string) (bool, error) {
+	// check fs used for pipeline scheduled jobs
+	jobFsIDs, err := models.GetUsedFsIDs()
+	if err != nil {
+		err := fmt.Errorf("DeleteFileSystem GetUsedFsIDs for schecule failed: %v", err)
+		log.Errorf(err.Error())
+		return false, err
+	}
+	for _, fsInUse := range jobFsIDs {
+		if fsInUse == fsID {
+			log.Infof("fs[%s] is in use of pipeline scheduled jobs", fsID)
+			return true, nil
+		}
+	}
+
+	// check k8s mount pods
 	cnm, err := getClusterNamespaceMap()
 	if err != nil {
 		err := fmt.Errorf("DeleteFileSystem getClusterNamespaceMap err: %v", err)

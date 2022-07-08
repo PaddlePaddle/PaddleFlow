@@ -161,7 +161,8 @@ func (sp *SingleJob) fillContainer(container *v1.Container, podName string) erro
 		if sp.Command == "" {
 			return errors.EmptyJobCommandError()
 		}
-		container.Command = []string{"sh", "-c", sp.fixContainerCommand(sp.Command, sp.FileSystems)}
+		workDir := sp.getWorkDir(nil)
+		container.Command = sp.generateContainerCommand(sp.Command, workDir)
 	}
 
 	// container.Args would be passed
