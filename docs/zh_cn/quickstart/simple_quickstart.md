@@ -43,7 +43,7 @@ paddleflow fs create yourworkspace sftp://your-desktop-ip:22/home/work/paddleflo
 paddleflow fs show yourworkspace
 ```
 ## 4.2 初始化S3（训练数据和代码在对象存储中）
-待补充
+待补充，S3的数据
 
 ## 4.3 初始化HDFS（训练数据和代码在HDFS中）
 待补充
