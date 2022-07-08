@@ -38,9 +38,7 @@ import (
 )
 
 const (
-	VolumesKeyMount     = "pfs-mount"
-	VolumesKeyDataCache = "data-cache"
-	VolumesKeyMetaCache = "meta-cache"
+	VolumesKeyMount = "pfs-mount"
 
 	FusePodMountPoint = schema.FusePodMntDir + "/storage"
 	FusePodCachePath  = "/home/paddleflow/pfs-cache"
@@ -364,39 +362,52 @@ func buildMountContainer(pod *k8sCore.Pod, mountInfo Info) k8sCore.Container {
 }
 
 func getCacheVolumes(mountInfo Info) ([]k8sCore.Volume, []k8sCore.VolumeMount) {
+	volumes := make([]k8sCore.Volume, 0)
+	volumeMounts := make([]k8sCore.VolumeMount, 0)
 	typeDir := k8sCore.HostPathDirectoryOrCreate
-	volumes := []k8sCore.Volume{
-		{
-			Name: VolumesKeyDataCache,
+	mpBi := k8sCore.MountPropagationBidirectional
+
+	// data cache
+	if mountInfo.FsCacheConfig.BlockSize > 0 {
+		dataCacheVolume := k8sCore.Volume{
+			Name: schema.VolumesKeyDataCache,
 			VolumeSource: k8sCore.VolumeSource{
 				HostPath: &k8sCore.HostPathVolumeSource{
 					Path: mountInfo.FsCacheConfig.CacheDir + DataCacheDir,
 					Type: &typeDir,
 				},
 			},
-		},
-		{
-			Name: VolumesKeyMetaCache,
+		}
+		volumes = append(volumes, dataCacheVolume)
+
+		dataCacheVM := k8sCore.VolumeMount{
+			Name:             schema.VolumesKeyDataCache,
+			MountPath:        FusePodCachePath + DataCacheDir,
+			MountPropagation: &mpBi,
+		}
+		volumeMounts = append(volumeMounts, dataCacheVM)
+	}
+
+	// meta cache
+	if mountInfo.FsCacheConfig.MetaDriver == schema.FsMetaNutsDB ||
+		mountInfo.FsCacheConfig.MetaDriver == schema.FsMetaLevelDB {
+		metaCacheVolume := k8sCore.Volume{
+			Name: schema.VolumesKeyMetaCache,
 			VolumeSource: k8sCore.VolumeSource{
 				HostPath: &k8sCore.HostPathVolumeSource{
 					Path: mountInfo.FsCacheConfig.CacheDir + MetaCacheDir,
 					Type: &typeDir,
 				},
 			},
-		},
-	}
-	mp := k8sCore.MountPropagationBidirectional
-	volumeMounts := []k8sCore.VolumeMount{
-		{
-			Name:             VolumesKeyDataCache,
-			MountPath:        FusePodCachePath + DataCacheDir,
-			MountPropagation: &mp,
-		},
-		{
-			Name:             VolumesKeyMetaCache,
+		}
+		volumes = append(volumes, metaCacheVolume)
+
+		metaCacheVM := k8sCore.VolumeMount{
+			Name:             schema.VolumesKeyMetaCache,
 			MountPath:        FusePodCachePath + MetaCacheDir,
-			MountPropagation: &mp,
-		},
+			MountPropagation: &mpBi,
+		}
+		volumeMounts = append(volumeMounts, metaCacheVM)
 	}
 	return volumes, volumeMounts
 }
@@ -407,12 +418,12 @@ func buildCacheWorkerContainer(mountInfo Info) k8sCore.Container {
 	mp := k8sCore.MountPropagationBidirectional
 	volumeMounts := []k8sCore.VolumeMount{
 		{
-			Name:             VolumesKeyDataCache,
+			Name:             schema.VolumesKeyDataCache,
 			MountPath:        FusePodCachePath + DataCacheDir,
 			MountPropagation: &mp,
 		},
 		{
-			Name:             VolumesKeyMetaCache,
+			Name:             schema.VolumesKeyMetaCache,
 			MountPath:        FusePodCachePath + MetaCacheDir,
 			MountPropagation: &mp,
 		},
