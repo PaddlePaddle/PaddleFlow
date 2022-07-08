@@ -42,8 +42,8 @@ const (
 func GetExtra() map[string]string {
 	var extra = map[string]string{
 		pplcommon.WfExtraInfoKeySource:   "./testcase/run.yaml",
-		pplcommon.WfExtraInfoKeyFsID:     "mockFsID",
-		pplcommon.WfExtraInfoKeyFsName:   "mockFsname",
+		pplcommon.WfExtraInfoKeyFsID:     "fs-mockUser-mockFs",
+		pplcommon.WfExtraInfoKeyFsName:   "mockFs",
 		pplcommon.WfExtraInfoKeyUserName: "mockUser",
 	}
 

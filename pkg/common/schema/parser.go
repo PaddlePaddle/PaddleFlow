@@ -26,7 +26,6 @@ type Parser struct {
 }
 
 // 该函数将请求体解析成WorkflowSource，
-// 同时该函数完成了将JobType、Queue、Flavour填充到环境变量的工作，以及将Output Artifact从List转为Map，
 // 该函数未完成全局替换操作
 func (p *Parser) ParseWorkflowSource(bodyMap map[string]interface{}, wfs *WorkflowSource) error {
 	for key, value := range bodyMap {
@@ -37,24 +36,20 @@ func (p *Parser) ParseWorkflowSource(bodyMap map[string]interface{}, wfs *Workfl
 				return fmt.Errorf("[name] of workflow should be string type")
 			}
 			wfs.Name = value
-		case "dockerEnv":
-			fallthrough
 		case "docker_env":
 			value, ok := value.(string)
 			if !ok {
-				return fmt.Errorf("[docker_env/dockerEnv] of workflow should be string type")
+				return fmt.Errorf("[docker_env] of workflow should be string type")
 			}
 			wfs.DockerEnv = value
-		case "entryPoints":
-			fallthrough
 		case "entry_points":
 			value, ok := value.(map[string]interface{})
 			if !ok {
-				return fmt.Errorf("[entry_points/entryPoints] of workflow should be map[string]interface{} type")
+				return fmt.Errorf("[entry_points] of workflow should be map[string]interface{} type")
 			}
 			entryPointsMap, err := p.ParseComponents(value)
 			if err != nil {
-				return fmt.Errorf("parse [entry_points/entryPoints] failed, error: %s", err.Error())
+				return fmt.Errorf("parse [entry_points] failed, error: %s", err.Error())
 			}
 			entryPoints := WorkflowSourceDag{
 				EntryPoints: entryPointsMap,
@@ -92,12 +87,10 @@ func (p *Parser) ParseWorkflowSource(bodyMap map[string]interface{}, wfs *Workfl
 				return fmt.Errorf("[disabled] of workflow should be string type")
 			}
 			wfs.Disabled = value
-		case "failureOptions":
-			fallthrough
 		case "failure_options":
 			value, ok := value.(map[string]interface{})
 			if !ok {
-				return fmt.Errorf("[failure_options/failureOptions] of workflow should be map[string]interface{} type")
+				return fmt.Errorf("[failure_options] of workflow should be map[string]interface{} type")
 			}
 			options := FailureOptions{}
 			for optKey, optValue := range value {
@@ -105,39 +98,35 @@ func (p *Parser) ParseWorkflowSource(bodyMap map[string]interface{}, wfs *Workfl
 				case "strategy":
 					optValue, ok := optValue.(string)
 					if !ok {
-						return fmt.Errorf("[failure_options/failureOptions.strategy] of workflow should be string type")
+						return fmt.Errorf("[failure_options.strategy] of workflow should be string type")
 					}
 					options.Strategy = optValue
 				default:
-					return fmt.Errorf("[failure_options/failureOptions] has no attribute [%s]", optKey)
+					return fmt.Errorf("[failure_options] has no attribute [%s]", optKey)
 				}
 			}
 			wfs.FailureOptions = options
-		case "postProcess":
-			fallthrough
 		case "post_process":
 			value, ok := value.(map[string]interface{})
 			if !ok {
-				return fmt.Errorf("[post_process/postProcess] of workflow should be map[string]interface{} type")
+				return fmt.Errorf("[post_process] of workflow should be map[string]interface{} type")
 			}
 			postMap, err := p.ParseComponents(value)
 			if err != nil {
-				return fmt.Errorf("parse [post_process/postProcess] failed, error: %s", err.Error())
+				return fmt.Errorf("parse [post_process] failed, error: %s", err.Error())
 			}
 			wfs.PostProcess = map[string]*WorkflowSourceStep{}
 			for postkey, postValue := range postMap {
 				postValue, ok := postValue.(*WorkflowSourceStep)
 				if !ok {
-					return fmt.Errorf("[post_process/postProcess] can only have step")
+					return fmt.Errorf("[post_process] can only have step")
 				}
 				wfs.PostProcess[postkey] = postValue
 			}
-		case "fsOptions":
-			fallthrough
 		case "fs_options":
 			value, ok := value.(map[string]interface{})
 			if !ok {
-				return fmt.Errorf("[fs_options/fsOptions] of workflow should be map[string]interface{} type")
+				return fmt.Errorf("[fs_options] of workflow should be map[string]interface{} type")
 			}
 			fsOptions := FsOptions{}
 			if err := p.ParseFsOptions(value, &fsOptions); err != nil {
@@ -180,8 +169,6 @@ func (p *Parser) ParseComponents(entryPoints map[string]interface{}) (map[string
 func (p *Parser) ParseStep(params map[string]interface{}, step *WorkflowSourceStep) error {
 	for key, value := range params {
 		switch key {
-		case "loopArgument":
-			fallthrough
 		case "loop_argument":
 			step.LoopArgument = value
 		case "condition":
@@ -280,12 +267,10 @@ func (p *Parser) ParseStep(params map[string]interface{}, step *WorkflowSourceSt
 				}
 				step.Env[envKey] = resEnv
 			}
-		case "dockerEnv":
-			fallthrough
 		case "docker_env":
 			value, ok := value.(string)
 			if !ok {
-				return fmt.Errorf("[docker_env/dockerEnv] in step should be string type")
+				return fmt.Errorf("[docker_env] in step should be string type")
 			}
 			step.DockerEnv = value
 		case "cache":
@@ -317,8 +302,6 @@ func (p *Parser) ParseStep(params map[string]interface{}, step *WorkflowSourceSt
 				}
 			}
 			step.Reference = reference
-		case "fsMount":
-			fallthrough
 		case "fs_mount":
 			value, ok := value.([]interface{})
 			if !ok {
@@ -344,41 +327,6 @@ func (p *Parser) ParseStep(params map[string]interface{}, step *WorkflowSourceSt
 			if valueLower != "step" {
 				return fmt.Errorf("set [type] as [%s] in step", value)
 			}
-		case "flavour":
-			value, ok := value.(string)
-			if !ok {
-				return fmt.Errorf("[flavour] of step should be string type")
-			}
-			if step.Env == nil {
-				step.Env = map[string]string{}
-			}
-			if _, ok := step.Env[EnvJobFlavour]; !ok {
-				step.Env[EnvJobFlavour] = value
-			}
-		case "jobType":
-			fallthrough
-		case "job_type":
-			value, ok := value.(string)
-			if !ok {
-				return fmt.Errorf("[job_type/jobType] of step should be string type")
-			}
-			if step.Env == nil {
-				step.Env = map[string]string{}
-			}
-			if _, ok := step.Env[EnvJobType]; !ok {
-				step.Env[EnvJobType] = value
-			}
-		case "queue":
-			value, ok := value.(string)
-			if !ok {
-				return fmt.Errorf("[queue] of step should be string type")
-			}
-			if step.Env == nil {
-				step.Env = map[string]string{}
-			}
-			if _, ok := step.Env[EnvJobQueueName]; !ok {
-				step.Env[EnvJobQueueName] = value
-			}
 		default:
 			return fmt.Errorf("step has no attribute [%s]", key)
 		}
@@ -390,8 +338,6 @@ func (p *Parser) ParseStep(params map[string]interface{}, step *WorkflowSourceSt
 func (p *Parser) ParseDag(params map[string]interface{}, dagComp *WorkflowSourceDag) error {
 	for key, value := range params {
 		switch key {
-		case "loopArgument":
-			fallthrough
 		case "loop_argument":
 			dagComp.LoopArgument = value
 		case "condition":
@@ -453,12 +399,10 @@ func (p *Parser) ParseDag(params map[string]interface{}, dagComp *WorkflowSource
 				}
 			}
 			dagComp.Artifacts = artifacts
-		case "entryPoints":
-			fallthrough
 		case "entry_points":
 			value, ok := value.(map[string]interface{})
 			if !ok {
-				return fmt.Errorf("[entry_points/entryPoints] of dag should be map type")
+				return fmt.Errorf("[entry_points] of dag should be map type")
 			}
 			entryPoints, err := p.ParseComponents(value)
 			if err != nil {
@@ -490,8 +434,6 @@ func (p *Parser) ParseCache(cacheMap map[string]interface{}, cache *Cache) error
 				return fmt.Errorf("[cache.enable] should be bool type")
 			}
 			cache.Enable = cacheValue
-		case "maxExpiredTime":
-			fallthrough
 		case "max_expired_time":
 			switch cacheValue := cacheValue.(type) {
 			case string:
@@ -499,14 +441,12 @@ func (p *Parser) ParseCache(cacheMap map[string]interface{}, cache *Cache) error
 			case int64:
 				cache.MaxExpiredTime = strconv.FormatInt(cacheValue, 10)
 			default:
-				return fmt.Errorf("[cache.max_expired_time/maxExpiredTime] should be string/int64 type")
+				return fmt.Errorf("[cache.max_expired_time] should be string/int64 type")
 			}
-		case "fsScope":
-			fallthrough
 		case "fs_scope":
 			cacheValue, ok := cacheValue.([]interface{})
 			if !ok {
-				return fmt.Errorf("[cache.fs_scope/fsScope] should be list type")
+				return fmt.Errorf("[cache.fs_scope] should be list type")
 			}
 			fsScopeList := []FsScope{}
 			for _, m := range cacheValue {
@@ -521,6 +461,7 @@ func (p *Parser) ParseCache(cacheMap map[string]interface{}, cache *Cache) error
 
 				fsScopeList = append(fsScopeList, fsScope)
 			}
+			// 这里这样使用append是为了让后解析的FsScope列表中的元素，排在前面
 			cache.FsScope = append(fsScopeList, cache.FsScope...)
 		default:
 			return fmt.Errorf("[cache] has no attribute [%s]", cacheKey)
@@ -532,8 +473,6 @@ func (p *Parser) ParseCache(cacheMap map[string]interface{}, cache *Cache) error
 func (p *Parser) ParseFsScope(fsMap map[string]interface{}, fs *FsScope) error {
 	for key, value := range fsMap {
 		switch key {
-		case "fsName":
-			fallthrough
 		case "fs_name":
 			value, ok := value.(string)
 			if !ok {
@@ -556,16 +495,12 @@ func (p *Parser) ParseFsScope(fsMap map[string]interface{}, fs *FsScope) error {
 func (p *Parser) ParseFsOptions(fsMap map[string]interface{}, fs *FsOptions) error {
 	for key, value := range fsMap {
 		switch key {
-		case "globalFsName":
-			fallthrough
 		case "global_fs_name":
 			value, ok := value.(string)
 			if !ok {
 				return fmt.Errorf("[fs_options.global_fs_name] should be string type")
 			}
 			fs.GlobalFsName = value
-		case "fsMount":
-			fallthrough
 		case "fs_mount":
 			value, ok := value.([]interface{})
 			if !ok {
@@ -592,24 +527,18 @@ func (p *Parser) ParseFsOptions(fsMap map[string]interface{}, fs *FsOptions) err
 func (p *Parser) ParseFsMount(fsMap map[string]interface{}, fs *FsMount) error {
 	for key, value := range fsMap {
 		switch key {
-		case "fsName":
-			fallthrough
 		case "fs_name":
 			value, ok := value.(string)
 			if !ok {
 				return fmt.Errorf("[fs_name] should be string type")
 			}
 			fs.FsName = value
-		case "mountPath":
-			fallthrough
 		case "mount_path":
 			value, ok := value.(string)
 			if !ok {
 				return fmt.Errorf("[mount_path] should be string type")
 			}
 			fs.MountPath = value
-		case "subPath":
-			fallthrough
 		case "sub_path":
 			value, ok := value.(string)
 			if !ok {
@@ -664,26 +593,85 @@ func (p *Parser) TransJsonMap2Yaml(jsonMap map[string]interface{}) error {
 			if err := p.transJsonSubComp2Yaml(value, "components"); err != nil {
 				return err
 			}
+		case "fsMount":
+			p.transJsonFsMount2Yaml(value)
+			jsonMap["fs_mount"] = value
+			delete(jsonMap, "fsMount")
 		case "cache":
-			cacheMap, ok := value.(map[string]interface{})
-			if !ok {
-				return fmt.Errorf("[cache] should be map type")
-			}
-			cacheMap["max_expired_time"] = cacheMap["maxExpiredTime"]
-			delete(cacheMap, "maxExpiredTime")
-
-			cacheMap["fs_scope"] = cacheMap["fsScope"]
-			delete(cacheMap, "fsScope")
+			p.transJsonCache2Yaml(value)
+			jsonMap["cache"] = value
 		case "fsOptions":
 			if err := p.transJsonFsOptions2Yaml(value); err != nil {
 				return err
 			}
 			jsonMap["fs_options"] = value
 			delete(jsonMap, "fsOptions")
-		case "jobType":
-			jsonMap["job_type"] = value
-			delete(jsonMap, "jobType")
 		}
+	}
+	return nil
+}
+
+func (p *Parser) transJsonCache2Yaml(value interface{}) error {
+	cacheMap, ok := value.(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("[cache] should be map type")
+	}
+	for cacheKey, cacheValue := range cacheMap {
+		switch cacheKey {
+		case "maxExpiredTime":
+			cacheMap["max_expired_time"] = cacheValue
+			delete(cacheMap, "maxExpiredTime")
+		case "fsScope":
+			scopeList, ok := cacheValue.([]interface{})
+			if !ok {
+				return fmt.Errorf("fsScope should be list type")
+			}
+			for i, scope := range scopeList {
+				scopeMap, ok := scope.(map[string]interface{})
+				if !ok {
+					fmt.Errorf("each scope in [fsScope] should be map type")
+				}
+				for scopeKey, scopeValue := range scopeMap {
+					switch scopeKey {
+					case "fsName":
+						scopeMap["fs_name"] = scopeValue
+						delete(scopeMap, "fsName")
+					}
+				}
+				scopeList[i] = scopeMap
+			}
+
+			cacheMap["fs_scope"] = scopeList
+			delete(cacheMap, "fsScope")
+		}
+	}
+	return nil
+}
+
+func (p *Parser) transJsonFsMount2Yaml(value interface{}) error {
+	mountList, ok := value.([]interface{})
+	if !ok {
+		return fmt.Errorf("[fsMount] should be list type")
+	}
+	for i, mount := range mountList {
+		mountMap, ok := mount.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("each mount info in [fsMount] should map type")
+		}
+		for mountKey, mountValue := range mountMap {
+			switch mountKey {
+			case "fsName":
+				mountMap["fs_name"] = mountValue
+				delete(mountMap, "fsName")
+			case "mountPath":
+				mountMap["mount_path"] = mountValue
+				delete(mountMap, "mountPath")
+			case "subPath":
+				mountMap["sub_path"] = mountValue
+				delete(mountMap, "subPath")
+			}
+		}
+		mountList[i] = mountMap
 	}
 	return nil
 }
@@ -713,30 +701,8 @@ func (p *Parser) transJsonFsOptions2Yaml(value interface{}) error {
 	for key, value := range fsOptMap {
 		switch key {
 		case "fsMount":
-			mountList, ok := value.([]interface{})
-			if !ok {
-				return fmt.Errorf("[fsMount] should be list type")
-			}
-			for _, mount := range mountList {
-				mountMap, ok := mount.(map[string]interface{})
-				if !ok {
-					return fmt.Errorf("each mount info in [fsMount] should be map type")
-				}
-				for mountKey, mountValue := range mountMap {
-					switch mountKey {
-					case "fsName":
-						mountMap["fs_name"] = mountValue
-						delete(fsOptMap, "fsName")
-					case "mountPath":
-						mountMap["mount_path"] = mountValue
-						delete(fsOptMap, "mountPath")
-					case "subPath":
-						mountMap["sub_path"] = mountValue
-						delete(fsOptMap, "subPath")
-					}
-				}
-			}
-			fsOptMap["fs_mount"] = mountList
+			p.transJsonFsMount2Yaml(value)
+			fsOptMap["fs_mount"] = value
 			delete(fsOptMap, "fsMount")
 		case "globalFsName":
 			fsOptMap["global_fs_name"] = value

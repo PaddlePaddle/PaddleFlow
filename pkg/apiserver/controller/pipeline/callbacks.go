@@ -48,7 +48,7 @@ var (
 	LogArtifactFunc   func(req schema.LogRunArtifactRequest) error                         = LogArtifactEvent
 )
 
-func GetJobByRun(jobID string, fullComponentName string) (schema.JobView, error) {
+func GetJobByRun(jobID string) (schema.JobView, error) {
 	logging := logger.Logger()
 	job, err := models.GetRunJob(logging, jobID)
 	if err != nil {

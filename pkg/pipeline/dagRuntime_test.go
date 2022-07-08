@@ -27,6 +27,7 @@ import (
 	apicommon "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
 )
@@ -70,7 +71,7 @@ func mockerDagRuntime(ec chan WorkflowEvent) (*DagRuntime, error) {
 }
 
 func TestNewDagRuntimeWithStatus(t *testing.T) {
-
+	driver.InitMockDB()
 	handler.NewFsHandlerWithServer = handler.MockerNewFsHandlerWithServer
 	testCase := loadcase(runYamlPath)
 	wfs, err := schema.GetWorkflowSource([]byte(testCase))
