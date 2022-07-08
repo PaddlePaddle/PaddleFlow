@@ -219,7 +219,7 @@ func (r *Run) initRuntime(jobs []RunJob, dags []RunDag) error {
 	for _, outerDagList := range runtimeView {
 		if len(outerDagList) == 1 {
 			outerDag, ok := outerDagList[0].(*schema.DagView)
-			if !ok {
+			if ok {
 				for name, compList := range outerDag.EntryPoints {
 					resView[name] = compList
 				}
