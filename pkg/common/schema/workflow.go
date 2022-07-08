@@ -866,7 +866,7 @@ func (wfs *WorkflowSource) processFsByUserName(compMap map[string]Component, use
 			fsNameSet := map[string]int{}
 			fsNameSet[wfs.FsOptions.GlobalFsName] = 1
 
-			for _, mount := range step.FsMount {
+			for i, mount := range step.FsMount {
 				if mount.FsName == "" {
 					return fmt.Errorf("[fs_name] in fs_mount must be set")
 				}
@@ -874,10 +874,11 @@ func (wfs *WorkflowSource) processFsByUserName(compMap map[string]Component, use
 
 				fsNameSet[mount.FsName] = 1
 				fsIDMap[mount.FsID] = 1
+				step.FsMount[i] = mount
 				logger.Logger().Infof("debug: after process,  FsID is %s", mount.FsID)
 			}
 			logger.Logger().Infof("debug: after process,  step fsMount is %v", step.FsMount)
-			for _, scope := range step.Cache.FsScope {
+			for i, scope := range step.Cache.FsScope {
 				if scope.FsName == "" {
 					return fmt.Errorf("[fs_name] in fs_scope must be set")
 				}
@@ -887,6 +888,7 @@ func (wfs *WorkflowSource) processFsByUserName(compMap map[string]Component, use
 				if _, ok := fsNameSet[scope.FsName]; !ok {
 					return fmt.Errorf("[fs_name] in fs_scope must also be in fs_mount")
 				}
+				step.Cache.FsScope[i] = scope
 			}
 		} else {
 			return fmt.Errorf("component not dag or step")
