@@ -955,11 +955,11 @@ func (drt *DagRuntime) processSubRuntimeError(err error, cp schema.Component, st
 
 	for i := 0; i < ll; i++ {
 		if ok {
-			crt = newStepRuntimeWithStatus(name, fullName, step, 0, drt.ctx, ctxAndCc.ctx, drt.receiveEventChildren,
+			crt = newStepRuntimeWithStatus(name, fullName, step, i, drt.ctx, ctxAndCc.ctx, drt.receiveEventChildren,
 				drt.runConfig, drt.ID, status, err.Error())
 		} else {
 			dag := cp.(*schema.WorkflowSourceDag)
-			crt = newDagRuntimeWithStatus(name, fullName, dag, 0, drt.ctx, ctxAndCc.ctx, drt.receiveEventChildren,
+			crt = newDagRuntimeWithStatus(name, fullName, dag, i, drt.ctx, ctxAndCc.ctx, drt.receiveEventChildren,
 				drt.runConfig, drt.ID, status, err.Error())
 		}
 	}
@@ -1089,10 +1089,10 @@ func (drt *DagRuntime) newView(msg string) schema.DagView {
 	}
 
 	var name string
-	if drt.seq == 0 {
+	if drt.loopSeq == 0 {
 		name = fmt.Sprintf("dag-%s-%s", drt.runID, drt.getComponent().GetName())
 	} else {
-		name = fmt.Sprintf("dag-%s-%s-%d", drt.runID, drt.getComponent().GetName(), drt.seq)
+		name = fmt.Sprintf("dag-%s-%s-%d", drt.runID, drt.getComponent().GetName(), drt.loopSeq)
 	}
 
 	// DAGID 在写库时生成，因此，此处并不会传递该参数, EntryPoints 在运行子节点时会同步至数据库，因此此处不包含这两个字段
@@ -1108,7 +1108,7 @@ func (drt *DagRuntime) newView(msg string) schema.DagView {
 		Status:      drt.status,
 		Message:     msg,
 		ParentDagID: drt.parentDagID,
-		Seq:         drt.seq,
+		Seq:         drt.loopSeq,
 		PK:          drt.pk,
 	}
 }

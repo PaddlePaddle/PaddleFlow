@@ -465,6 +465,7 @@ func (srt *StepRuntime) checkCached() (cacheFound bool, err error) {
 
 	if cacheFound {
 		jobView, err := srt.callbacks.GetJobCb(cacheJobID, srt.getWorkFlowStep().GetName())
+		srt.logger.Infof("the jobView for cache is: %v", jobView)
 		if err != nil {
 			return false, err
 		}
@@ -538,7 +539,7 @@ func (srt *StepRuntime) generateOutArtPathOnFs() (err error) {
 
 	for artName, _ := range srt.GetArtifacts().Output {
 		artPath, err := rh.GenerateOutAtfPath(srt.runConfig.WorkflowSource.Name, srt.getComponent().GetName(),
-			srt.name, srt.seq, artName, true)
+			srt.name, srt.loopSeq, artName, true)
 		if err != nil {
 			err = fmt.Errorf("cannot generate output artifact[%s] for step[%s] path: %s",
 				artName, srt.name, err.Error())
@@ -834,7 +835,7 @@ func (srt *StepRuntime) newJobView(msg string) schema.JobView {
 		StepName:    srt.getComponent().GetName(),
 		Cache:       srt.getWorkFlowStep().Cache,
 		PK:          srt.pk,
-		Seq:         srt.seq,
+		Seq:         srt.loopSeq,
 		Artifacts:   *newArt,
 		FsMount:     srt.getWorkFlowStep().FsMount,
 	}
