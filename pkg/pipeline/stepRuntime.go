@@ -313,16 +313,14 @@ func (srt *StepRuntime) updateJob(forCacheFingerprint bool) error {
 		newEnvs[envName] = envVal
 	}
 
-	// PF_LOOP_ARGUMENT 在计算定 firstFingerprint 时需要加进去
-	newEnvs[SysParamNamePFLoopArgument] = srt.sysParams[SysParamNamePFLoopArgument]
+	// 在进行 job 校验时，需要这部分参数
+	sysParams := srt.sysParams
+	for integratedParam, integratedParamVal := range sysParams {
+		newEnvs[integratedParam] = integratedParamVal
+	}
 
 	// 对于 cache 相关场景，下面的信息无需添加到环境变量中
 	if !forCacheFingerprint {
-		sysParams := srt.sysParams
-		for integratedParam, integratedParamVal := range sysParams {
-			newEnvs[integratedParam] = integratedParamVal
-		}
-
 		// artifact 也添加到环境变量中
 		for atfName, atfValue := range srt.GetArtifacts().Input {
 			newEnvs[GetInputArtifactEnvName(atfName)] = srt.generateOutArtPathForJob(atfValue)
