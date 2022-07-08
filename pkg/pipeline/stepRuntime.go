@@ -402,7 +402,7 @@ func (srt *StepRuntime) checkCached() (cacheFound bool, err error) {
 		return false, err
 	}
 
-	cacheCaculator, err := NewCacheCalculator(*srt, srt.Cache)
+	cacheCaculator, err := NewCacheCalculator(*srt, srt.getWorkFlowStep().Cache)
 	if err != nil {
 		return false, err
 	}

@@ -173,7 +173,7 @@ func (cc *conservativeCacheCalculator) CalculateFirstFingerprint() (fingerprint 
 func (cc *conservativeCacheCalculator) getFsScopeModTime() (map[string]PathToModTime, error) {
 	// 注意， FsScope 的合法性需要由调用方保证
 	smt := map[string]PathToModTime{}
-	for _, scope := range cc.step.Cache.FsScope {
+	for _, scope := range cc.cacheConfig.FsScope {
 		cc.step.logger.Infof("begin to get the modtime of scope: %v", scope)
 		fsHandler, err := handler.NewFsHandlerWithServer(scope.FsID, cc.step.runConfig.logger)
 		if err != nil {
