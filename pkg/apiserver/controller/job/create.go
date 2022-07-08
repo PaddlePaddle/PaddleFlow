@@ -162,38 +162,10 @@ func validateJobMembers(ctx *logger.RequestContext, request *CreateJobInfo) erro
 	// calculate total member resource, and compare with queue.MaxResource
 	sumResource := resources.EmptyResource()
 	for index, member := range request.Members {
-		// validate member role and replicas
-		memberRole := schema.MemberRole(member.Role)
-		_, find := frameworkRoles[memberRole]
-		if !find {
-			err := fmt.Errorf("the role[%s] for framework %s is not supported", member.Role, request.Framework)
-			ctx.ErrorCode = common.JobInvalidField
-			ctx.Logging().Errorf("Failed to check Members' role, err: %v", err)
-			return err
-		}
-		if member.Replicas < 1 {
-			err := fmt.Errorf("the repilcas of member is less than 1")
-			ctx.ErrorCode = common.JobInvalidField
-			ctx.Logging().Errorf("Failed to check Members' replicas, err: %v", err)
-			return err
-		}
-		frameworkRoles[memberRole] = frameworkRoles[memberRole] + member.Replicas
-		// TODO: move more check to checkJobSpec
-		err := checkJobSpec(ctx, &request.Members[index].JobSpec)
+		// validate member
+		err := validateMember(ctx, &request.Members[index], request.Framework, frameworkRoles, request.SchedulingPolicy)
 		if err != nil {
-			ctx.Logging().Errorf("Failed to check Members: %v", err)
-			ctx.ErrorCode = common.JobInvalidField
-			return err
-		}
-		// validate queue
-		if err = validateMembersQueue(ctx, &request.Members[index], request.SchedulingPolicy); err != nil {
-			ctx.Logging().Errorf("Failed to check Members' Queue: %v", err)
-			ctx.ErrorCode = common.JobInvalidField
-			return err
-		}
-		// check members priority
-		if err = checkPriority(&request.Members[index].SchedulingPolicy, &request.SchedulingPolicy); err != nil {
-			ctx.Logging().Errorf("Failed to check priority: %v", err)
+			ctx.Logging().Errorf("Failed to check member: %v", err)
 			ctx.ErrorCode = common.JobInvalidField
 			return err
 		}
@@ -230,6 +202,42 @@ func validateJobMembers(ctx *logger.RequestContext, request *CreateJobInfo) erro
 	request.Mode, err = checkMemberRole(request.Framework, frameworkRoles)
 	if err != nil {
 		ctx.Logging().Errorf("check member role for framework %s failed, err: %v", request.Framework, err)
+		return err
+	}
+	return nil
+}
+
+// validateMember validate member's fields
+func validateMember(ctx *logger.RequestContext, member *MemberSpec, framework schema.Framework,
+	frameworkRoles map[schema.MemberRole]int, schedulingPolicy SchedulingPolicy) error {
+	// validate member role and replicas
+	memberRole := schema.MemberRole(member.Role)
+	_, find := frameworkRoles[memberRole]
+	if !find {
+		err := fmt.Errorf("the role[%s] for framework %s is not supported", member.Role, framework)
+		ctx.Logging().Errorf("Failed to check Members' role, err: %v", err)
+		return err
+	}
+	if member.Replicas < 1 {
+		err := fmt.Errorf("the repilcas of member is less than 1")
+		ctx.Logging().Errorf("Failed to check Members' replicas, err: %v", err)
+		return err
+	}
+	frameworkRoles[memberRole] = frameworkRoles[memberRole] + member.Replicas
+	// TODO: move more check to checkJobSpec
+	err := checkJobSpec(ctx, &member.JobSpec)
+	if err != nil {
+		ctx.Logging().Errorf("Failed to check Members: %v", err)
+		return err
+	}
+	// validate queue
+	if err = validateMembersQueue(ctx, member, schedulingPolicy); err != nil {
+		ctx.Logging().Errorf("Failed to check Members' Queue: %v", err)
+		return err
+	}
+	// check members priority
+	if err = checkPriority(&member.SchedulingPolicy, &schedulingPolicy); err != nil {
+		ctx.Logging().Errorf("Failed to check priority: %v", err)
 		return err
 	}
 	return nil
