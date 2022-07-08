@@ -52,7 +52,7 @@ func (f *DBFSCache) Delete(fsID, cacheID string) error {
 	if cacheID != "" {
 		tx.Where(fmt.Sprintf(QueryEqualWithParam, cacheID), cacheID)
 	}
-	return tx.Delete(&model.FSCache{}).Error
+	return tx.Unscoped().Delete(&model.FSCache{}).Error
 }
 
 func (f *DBFSCache) List(fsID, cacheID string) ([]model.FSCache, error) {
