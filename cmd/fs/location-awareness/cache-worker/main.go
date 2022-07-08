@@ -110,7 +110,10 @@ func act(c *cli.Context) error {
 	nodName := c.String("nodename")
 	clusterID := c.String("clusterID")
 
-	userName, fsName := common.GetFsNameAndUserNameByFsID(fsID)
+	userName, fsName, err := common.GetFsNameAndUserNameByFsID(fsID)
+	if err != nil {
+		return err
+	}
 	cacheReportParams := api.CacheReportParams{
 		FsParams: api.FsParams{
 			FsName:   fsName,

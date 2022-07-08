@@ -27,13 +27,13 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/flavour"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/fs"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 // CreateJobInfo defines
@@ -162,41 +162,14 @@ func validateJobMembers(ctx *logger.RequestContext, request *CreateJobInfo) erro
 	// calculate total member resource, and compare with queue.MaxResource
 	sumResource := resources.EmptyResource()
 	for index, member := range request.Members {
-		// validate member role and replicas
-		memberRole := schema.MemberRole(member.Role)
-		_, find := frameworkRoles[memberRole]
-		if !find {
-			err := fmt.Errorf("the role[%s] for framework %s is not supported", member.Role, request.Framework)
-			ctx.ErrorCode = common.JobInvalidField
-			ctx.Logging().Errorf("Failed to check Members' role, err: %v", err)
-			return err
-		}
-		if member.Replicas < 1 {
-			err := fmt.Errorf("the repilcas of member is less than 1")
-			ctx.ErrorCode = common.JobInvalidField
-			ctx.Logging().Errorf("Failed to check Members' replicas, err: %v", err)
-			return err
-		}
-		frameworkRoles[memberRole] = frameworkRoles[memberRole] + member.Replicas
-		// TODO: move more check to checkJobSpec
-		err := checkJobSpec(ctx, &request.Members[index].JobSpec)
+		// validate member
+		err := validateMember(ctx, &request.Members[index], request.Framework, frameworkRoles, request.SchedulingPolicy)
 		if err != nil {
-			ctx.Logging().Errorf("Failed to check Members: %v", err)
+			ctx.Logging().Errorf("Failed to check member: %v", err)
 			ctx.ErrorCode = common.JobInvalidField
 			return err
 		}
-		// validate queue
-		if request.Members[index], err = validateMembersQueue(ctx, member, request.SchedulingPolicy); err != nil {
-			ctx.Logging().Errorf("Failed to check Members' Queue: %v", err)
-			ctx.ErrorCode = common.JobInvalidField
-			return err
-		}
-		// check members priority
-		if err = checkPriority(&request.Members[index].SchedulingPolicy, &request.SchedulingPolicy); err != nil {
-			ctx.Logging().Errorf("Failed to check priority: %v", err)
-			ctx.ErrorCode = common.JobInvalidField
-			return err
-		}
+		// TODO: use flavour point
 		member.Flavour, err = flavour.GetFlavourWithCheck(member.Flavour)
 		if err != nil {
 			log.Errorf("get flavour failed, err:%v", err)
@@ -234,6 +207,42 @@ func validateJobMembers(ctx *logger.RequestContext, request *CreateJobInfo) erro
 	return nil
 }
 
+// validateMember validate member's fields
+func validateMember(ctx *logger.RequestContext, member *MemberSpec, framework schema.Framework,
+	frameworkRoles map[schema.MemberRole]int, schedulingPolicy SchedulingPolicy) error {
+	// validate member role and replicas
+	memberRole := schema.MemberRole(member.Role)
+	_, find := frameworkRoles[memberRole]
+	if !find {
+		err := fmt.Errorf("the role[%s] for framework %s is not supported", member.Role, framework)
+		ctx.Logging().Errorf("Failed to check Members' role, err: %v", err)
+		return err
+	}
+	if member.Replicas < 1 {
+		err := fmt.Errorf("the repilcas of member is less than 1")
+		ctx.Logging().Errorf("Failed to check Members' replicas, err: %v", err)
+		return err
+	}
+	frameworkRoles[memberRole] = frameworkRoles[memberRole] + member.Replicas
+	// TODO: move more check to checkJobSpec
+	err := checkJobSpec(ctx, &member.JobSpec)
+	if err != nil {
+		ctx.Logging().Errorf("Failed to check Members: %v", err)
+		return err
+	}
+	// validate queue
+	if err = validateMembersQueue(ctx, member, schedulingPolicy); err != nil {
+		ctx.Logging().Errorf("Failed to check Members' Queue: %v", err)
+		return err
+	}
+	// check members priority
+	if err = checkPriority(&member.SchedulingPolicy, &schedulingPolicy); err != nil {
+		ctx.Logging().Errorf("Failed to check priority: %v", err)
+		return err
+	}
+	return nil
+}
+
 func checkJobSpec(ctx *logger.RequestContext, jobSpec *JobSpec) error {
 	port := jobSpec.Port
 	if port != 0 && !(port > 0 && port < common.JobPortMaximums) {
@@ -251,7 +260,7 @@ func checkJobSpec(ctx *logger.RequestContext, jobSpec *JobSpec) error {
 		return err
 	}
 	// validate FileSystem
-	if err := validateFileSystem(jobSpec, ctx.UserName); err != nil {
+	if err := validateFileSystems(jobSpec, ctx.UserName); err != nil {
 		ctx.Logging().Errorf("validateFileSystem failed, requestJobSpec[%v], err: %v", jobSpec, err)
 		return err
 	}
@@ -273,8 +282,13 @@ func validateQueue(ctx *logger.RequestContext, schedulingPolicy *SchedulingPolic
 		}
 		ctx.ErrorCode = common.InternalError
 		err = fmt.Errorf("get queue failed when creating job, err=%v", err)
-		log.Error(err)
+		ctx.Logging().Error(err)
 		return err
+	}
+	if queue.Status != schema.StatusQueueOpen {
+		errMsg := fmt.Sprintf("queue[%s] status is %s, and only queue with open status can submit jobs", queueName, queue.Status)
+		ctx.Logging().Errorf(errMsg)
+		return fmt.Errorf(errMsg)
 	}
 	schedulingPolicy.QueueID = queue.ID
 	schedulingPolicy.MaxResources = queue.MaxResources
@@ -302,7 +316,7 @@ func checkPriority(schedulingPolicy, parentSP *SchedulingPolicy) error {
 	return nil
 }
 
-func validateMembersQueue(ctx *logger.RequestContext, member MemberSpec, schePolicy SchedulingPolicy) (MemberSpec, error) {
+func validateMembersQueue(ctx *logger.RequestContext, member *MemberSpec, schePolicy SchedulingPolicy) error {
 	queueName := schePolicy.Queue
 
 	mQueueName := member.SchedulingPolicy.Queue
@@ -310,52 +324,62 @@ func validateMembersQueue(ctx *logger.RequestContext, member MemberSpec, schePol
 		err := fmt.Errorf("schedulingPolicy.Queue should be the same, there are %s and %s", queueName, mQueueName)
 		ctx.Logging().Errorf("create distributed job failed. error: %s", err.Error())
 		ctx.ErrorCode = common.JobInvalidField
-		return member, err
+		return err
 	}
 	member.SchedulingPolicy.QueueID = schePolicy.QueueID
 	member.SchedulingPolicy.Namespace = schePolicy.Namespace
 	member.SchedulingPolicy.ClusterId = schePolicy.ClusterId
 	member.SchedulingPolicy.MaxResources = schePolicy.MaxResources
-	return member, nil
+	return nil
 }
 
-func validateFileSystem(jobSpec *JobSpec, userName string) error {
-	fsService := fs.GetFileSystemService()
-	fsName := jobSpec.FileSystem.Name
-	if fsName != "" {
-		jobSpec.FileSystem.MountPath = filepath.Clean(jobSpec.FileSystem.MountPath)
-		if jobSpec.FileSystem.MountPath == "/" {
-			err := fmt.Errorf("mountPath cannot be `/` in fileSystem[%s]", fsName)
-			log.Errorf("validateFileSystem failed, err: %v", err)
+func validateFileSystems(jobSpec *JobSpec, userName string) error {
+	if jobSpec.FileSystem.Name != "" {
+		if err := validateFileSystem(userName, &jobSpec.FileSystem); err != nil {
+			err = fmt.Errorf("validateFileSystem failed, err: %v", err)
+			log.Error(err)
 			return err
 		}
-		fileSystem, err := fsService.GetFileSystem(userName, fsName)
-		if err != nil {
-			log.Errorf("get filesystem by userName[%s] fsName[%s] failed, err: %v", userName, fsName, err)
-			return fmt.Errorf("find file system %s failed, err: %v", fsName, err)
-		}
-		jobSpec.FileSystem.ID = fileSystem.ID
 	}
-	// todo(zhongzichao) check all fs whether has 'contains' relationship
-	for index, fs := range jobSpec.ExtraFileSystems {
-		if fs.Name == "" {
-			log.Errorf("name of fileSystem %v is null", fs)
-			return fmt.Errorf("name of fileSystem %v is null", fs)
-		}
-		jobSpec.ExtraFileSystems[index].MountPath = filepath.Clean(fs.MountPath)
-		if jobSpec.ExtraFileSystems[index].MountPath == "/" {
-			err := fmt.Errorf("mountPath cannot be `/` in fileSystem[%s]", fs.Name)
-			log.Errorf("validateFileSystem failed, err: %v", err)
-			return err
-		}
 
-		fileSystem, err := fsService.GetFileSystem(userName, fs.Name)
-		if err != nil {
-			log.Errorf("get filesystem by userName[%s] fsName[%s] failed, err: %v", userName, fs.Name, err)
-			return fmt.Errorf("find file system %s failed, err: %v", fs.Name, err)
+	for index, _ := range jobSpec.ExtraFileSystems {
+		if err := validateFileSystem(userName, &jobSpec.ExtraFileSystems[index]); err != nil {
+			err = fmt.Errorf("validate extraFileSystems failed, err: %v", err)
+			log.Error(err)
+			return err
 		}
-		jobSpec.ExtraFileSystems[index].ID = fileSystem.ID
 	}
+	return nil
+}
+
+func validateFileSystem(userName string, fs *schema.FileSystem) error {
+	fsName := fs.Name
+	fsID := fs.ID
+	if fsID == "" {
+		// generate fsID by fsName if fsID is nil
+		fsID = common.ID(userName, fsName)
+	}
+	if fs.MountPath == "" {
+		log.Debugf("mountPath is %s, changes to .", fs.MountPath)
+		fs.MountPath = filepath.Join(schema.DefaultFSMountPath, fs.ID)
+	}
+	mountPath := filepath.Clean(fs.MountPath)
+	if mountPath == "/" || mountPath == "." || mountPath == ".." {
+		err := fmt.Errorf("mountPath cannot be '/' or '.' or '..' in fsName[%s] fsID[%s]", fsName, fsID)
+		log.Errorf("validateFileSystem failed, err: %v", err)
+		return err
+	}
+
+	fileSystem, err := storage.Filesystem.GetFileSystemWithFsID(fsID)
+	if err != nil {
+		log.Errorf("get filesystem by userName[%s] fsName[%s] fsID[%s] failed, err: %v", userName, fsName, fsID, err)
+		return fmt.Errorf("find file system %s failed, err: %v", fsName, err)
+	}
+	// fill back
+	fs.ID = fileSystem.ID
+	fs.Name = fileSystem.Name
+	fs.MountPath = mountPath
+
 	return nil
 }
 
@@ -456,25 +480,23 @@ func buildJob(request *CreateJobInfo) (*models.Job, error) {
 }
 
 func buildMainConf(request *CreateJobInfo) *schema.Conf {
-	conf := &schema.Conf{
-		Name:        request.Name,
-		Labels:      request.Labels,
-		Annotations: request.Annotations,
-		Priority:    request.SchedulingPolicy.Priority,
+	var conf = &schema.Conf{
+		Name: request.Name,
 	}
-	// TODO: adjust code logic
 	if request.Type == schema.TypeSingle && len(request.Members) == 1 {
 		// build conf for single job
-		conf.FileSystem = request.Members[0].FileSystem
-		conf.ExtraFileSystem = request.Members[0].ExtraFileSystems
-		conf.Flavour = request.Members[0].Flavour
-		conf.Env = request.Members[0].Env
-		conf.Image = request.Members[0].Image
-		conf.Command = request.Members[0].Command
-		conf.Port = request.Members[0].Port
-		conf.Args = request.Members[0].Args
+		conf = &schema.Conf{
+			Name:            request.Name,
+			FileSystem:      request.Members[0].FileSystem,
+			ExtraFileSystem: request.Members[0].ExtraFileSystems,
+			Flavour:         request.Members[0].Flavour,
+			Env:             request.Members[0].Env,
+			Image:           request.Members[0].Image,
+			Command:         request.Members[0].Command,
+			Port:            request.Members[0].Port,
+			Args:            request.Members[0].Args,
+		}
 	}
-
 	// fields in request.CommonJobInfo
 	buildCommonInfo(conf, &request.CommonJobInfo)
 	// set scheduling priority
@@ -626,4 +648,94 @@ func validateWorkflowJob(ctx *logger.RequestContext, request *CreateWfJobRequest
 		return err
 	}
 	return nil
+}
+
+// CreatePPLJob create a run job, used by pipeline
+func CreatePPLJob(conf schema.PFJobConf) (string, error) {
+	createJobInfo, err := jobConfToCreateJobInfo(conf)
+	if err != nil {
+		log.Errorf("convert job config to CreateJobInfo failed. err: %s", err)
+		return "", err
+	}
+	ctx := &logger.RequestContext{
+		UserName: createJobInfo.UserName,
+	}
+	jobResponse, err := CreatePFJob(ctx, createJobInfo)
+	if err != nil {
+		log.Errorf("create pipeline job failed. err: %s", err)
+		return "", err
+	}
+	return jobResponse.ID, nil
+}
+
+func ValidatePPLJob(conf schema.PFJobConf) error {
+	createJobInfo, err := jobConfToCreateJobInfo(conf)
+	if err != nil {
+		log.Errorf("convert job config to CreateJobInfo failed. err: %s", err)
+		return err
+	}
+	// pipeline job check
+	if len(createJobInfo.Name) == 0 {
+		return errors.EmptyJobNameError()
+	}
+	if len(createJobInfo.UserName) == 0 {
+		return errors.EmptyUserNameError()
+	}
+	ctx := &logger.RequestContext{
+		UserName: createJobInfo.UserName,
+	}
+	return validateJob(ctx, createJobInfo)
+}
+
+func jobConfToCreateJobInfo(conf schema.PFJobConf) (*CreateJobInfo, error) {
+	commonJobInfo := CommonJobInfo{
+		ID:   generateJobID(conf.GetName()),
+		Name: conf.GetName(),
+		SchedulingPolicy: SchedulingPolicy{
+			Queue:    conf.GetQueueName(),
+			Priority: conf.GetPriority(),
+		},
+		UserName: conf.GetUserName(),
+	}
+	jobSpec := JobSpec{
+		Flavour: schema.Flavour{
+			Name: conf.GetFlavour(),
+		},
+		FileSystem:       conf.GetFileSystem(),
+		ExtraFileSystems: conf.GetExtraFS(),
+		Image:            conf.GetImage(),
+		Env:              conf.GetEnv(),
+		Command:          conf.GetCommand(),
+		Args:             conf.GetArgs(),
+	}
+
+	jobType := conf.Type()
+	var err error
+	var framework schema.Framework
+	switch jobType {
+	case schema.TypeSingle:
+		framework = schema.FrameworkStandalone
+	case schema.TypeDistributed:
+		err = fmt.Errorf("distributed job is not implemented")
+	default:
+		err = fmt.Errorf("job type %s is not support", jobType)
+	}
+	if err != nil {
+		log.Errorf("check pipeline job type failed, err: %v", err)
+		return nil, err
+	}
+
+	return &CreateJobInfo{
+		CommonJobInfo: commonJobInfo,
+		Type:          conf.Type(),
+		Framework:     framework,
+		Members: []MemberSpec{
+			{
+				CommonJobInfo: commonJobInfo,
+				JobSpec:       jobSpec,
+				Role:          string(schema.RoleWorker),
+				Replicas:      1,
+			},
+		},
+	}, nil
 }

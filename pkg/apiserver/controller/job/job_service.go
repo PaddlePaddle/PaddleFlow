@@ -37,6 +37,8 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
+// CreateJob
+// Deprecated
 func CreateJob(conf schema.PFJobConf) (string, error) {
 	log.Debugf("create job: %v", conf)
 	if err := ValidateJob(conf); err != nil {
@@ -234,6 +236,8 @@ func generateJobID(param string) string {
 	return uuid.GenerateID(fmt.Sprintf("%s-%s", schema.JobPrefix, param))
 }
 
+// ValidateJob
+// Deprecated
 func ValidateJob(conf schema.PFJobConf) error {
 	// check common config for job
 	if len(conf.GetName()) == 0 {
