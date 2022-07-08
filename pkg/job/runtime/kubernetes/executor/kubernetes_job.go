@@ -324,7 +324,7 @@ func (j *KubeJob) createJobFromYaml(jobEntity interface{}) error {
 	dec := yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
 	unstructuredObj := &unstructured.Unstructured{}
 
-	if _, _, err := dec.Decode(j.YamlTemplateContent, nil, unstructuredObj); err != nil {
+	if _, _, err := dec.Decode(j.YamlTemplateContent, &j.GroupVersionKind, unstructuredObj); err != nil {
 		log.Errorf("Decode from yamlFile[%s] failed! err:[%v]\n", string(j.YamlTemplateContent), err)
 		return err
 	}
