@@ -356,7 +356,7 @@ func validateFileSystem(userName string, fs *schema.FileSystem) error {
 	}
 	mountPath := filepath.Clean(fs.MountPath)
 	if mountPath == "/" || mountPath == "." || mountPath == ".." {
-		err := fmt.Errorf("mountPath cannot be `/` or `.` in fsName[%s] fsID[%s]", fsName, fsID)
+		err := fmt.Errorf("mountPath cannot be '/' or '.' or '..' in fsName[%s] fsID[%s]", fsName, fsID)
 		log.Errorf("validateFileSystem failed, err: %v", err)
 		return err
 	}
