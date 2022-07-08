@@ -45,9 +45,6 @@ const (
 	AnnoKeyMTime = "modifiedTime"
 
 	MountPodNamespace = "paddleflow"
-
-	VolumesKeyDataCache = "data-cache"
-	VolumesKeyMetaCache = "meta-cache"
 )
 
 func IsValidFsMetaDriver(metaDriver string) bool {

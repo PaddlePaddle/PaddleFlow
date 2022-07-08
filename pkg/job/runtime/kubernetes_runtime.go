@@ -714,10 +714,6 @@ func (kr *KubeRuntime) ListPods(namespace string, listOptions metav1.ListOptions
 	return kr.clientset.CoreV1().Pods(namespace).List(context.TODO(), listOptions)
 }
 
-func (kr *KubeRuntime) GetPod(namespace, name string) (*v1.Pod, error) {
-	return kr.clientset.CoreV1().Pods(namespace).Get(context.TODO(), name, metav1.GetOptions{})
-}
-
 func (kr *KubeRuntime) DeletePod(namespace, name string) error {
 	return kr.clientset.CoreV1().Pods(namespace).Delete(context.TODO(), name, metav1.DeleteOptions{})
 }
