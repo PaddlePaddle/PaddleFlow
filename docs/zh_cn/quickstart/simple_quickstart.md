@@ -9,6 +9,7 @@
 - 查看工作流运行详情
 - 查看工作流运行日志
 # 2.安装PaddleFlow客户端和初始化
+
 ## 基于kubernetes
 [基于K8s PaddleFlow客户端安装和初始化](../deployment/install_paddleflow_on_k8s.md)
 ## 基于k3s
@@ -43,10 +44,30 @@ paddleflow fs create yourworkspace sftp://your-desktop-ip:22/home/work/paddleflo
 paddleflow fs show yourworkspace
 ```
 ## 4.2 初始化S3（训练数据和代码在对象存储中）
-待补充，S3的数据
+```shell
+paddleflow fs create s3workspace s3://your-bucket-name/s3path -o endpoint=s3.bj.bcebos.com -o region=bj -o accessKey=your-ak
+-o secretKey=your-sk
+## 注意：对象存储的创建的其他参数可以通过paddleflow fs create --help查看
+```
 
 ## 4.3 初始化HDFS（训练数据和代码在HDFS中）
-待补充
+```shell
+paddleflow fs create hdfsworkspace hdfs://hdfs.serverAddresses/hdfs.subPath -o user=your-hdfs-user -o userGroup=your-hdfs-group
+## 注意：paddleflow也支持hdfsWithKerberos的创建方式，具体参数可以通过paddleflow fs create --help查看
+```
+## 4.4 将创建好的fs挂载到本地
+以 x86 架构的 Linux 系统为例，下载文件名包含pfs-fuse的二进制包，在终端依次执行以下命令。
+
+1.下载客户端到当前目录
+
+```shell
+wget "https://github.com/PaddlePaddle/PaddleFlow/releases/download/v0.14.2/pfs-fuse"
+```
+2.将当前pfs-fuse二进制的文件地址写入环境变量fuse_env中
+```shell
+export fuse_env=your-pfs-fuse-path
+```
+
 # 5.下载示例到工作区
 以本地文件系统为例，下载[example](https://github.com/PaddlePaddle/PaddleFlow/tree/release-0.14.2/example) 代码
 ```shell
@@ -85,7 +106,6 @@ paddleflow log show run-0000xx -j job-run-0000xx-train-b5a91ac2
 ```
 # 9.其他所有命令行参考
 点击[命令行操作说明](../reference/client_command_reference.md) 获取所有操作命令和示例。
-
 
 
 
