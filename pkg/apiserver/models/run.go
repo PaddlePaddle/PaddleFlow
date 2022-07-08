@@ -217,17 +217,19 @@ func (r *Run) initRuntime(jobs []RunJob, dags []RunDag) error {
 	runtimeViewErrMsg := "runtime view sturcture is invalid"
 	resView := map[string][]schema.ComponentView{}
 	for _, outerDagList := range runtimeView {
-		if len(outerDagList) != 1 {
+		if len(outerDagList) == 1 {
+			outerDag, ok := outerDagList[0].(*schema.DagView)
+			if !ok {
+				for name, compList := range outerDag.EntryPoints {
+					resView[name] = compList
+				}
+			} else {
+				// 这里是显示结构优化，如果调度测出现问题导致没有最外层Dag，那这里只会不优化，不报错
+				logger.Logger().Errorf(runtimeViewErrMsg)
+			}
+		} else {
+			// 这里是显示结构优化，如果调度测出现问题导致没有最外层Dag，那这里只会不优化，不报错
 			logger.Logger().Errorf(runtimeViewErrMsg)
-			return fmt.Errorf(runtimeViewErrMsg)
-		}
-		outerDag, ok := outerDagList[0].(*schema.DagView)
-		if !ok {
-			logger.Logger().Errorf(runtimeViewErrMsg)
-			return fmt.Errorf(runtimeViewErrMsg)
-		}
-		for name, compList := range outerDag.EntryPoints {
-			resView[name] = compList
 		}
 	}
 
