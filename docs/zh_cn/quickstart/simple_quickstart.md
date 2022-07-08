@@ -76,6 +76,7 @@ paddleflow fs show yourworkspace
 mkdir /home/work/paddleflow/workspace/project1/ ##可按需自己规划
 ```
 > 后续步骤要深度依赖这个工作区目录，请做好合理规划
+
 2.注册HDFS对应的目录到PaddleFlow中
 ```shell
 paddleflow fs create hdfsfs hdfs://hdfs.serverAddresses/hdfs.subPath -o user=your-hdfs-user -o userGroup=your-hdfs-group
