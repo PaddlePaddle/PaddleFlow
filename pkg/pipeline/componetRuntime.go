@@ -259,7 +259,9 @@ func (crt *baseComponentRuntime) updateStatus(status RuntimeStatus) error {
 
 	crt.status = status
 
-	if crt.status == StatusRuntimeCancelled || crt.status == StatusRuntimeFailed || crt.status == StatusRuntimeSucceeded || crt.status == StatusRuntimeSkipped {
+	if crt.status == StatusRuntimeCancelled || crt.status == StatusRuntimeFailed ||
+		crt.status == StatusRuntimeSucceeded || crt.status == StatusRuntimeSkipped ||
+		crt.status == StatusRuntimeTerminated {
 		crt.done = true
 	}
 	return nil
