@@ -47,8 +47,7 @@ func (km *KubernetesMetric) GetJobAvgMetrics(metricName, jobID string) (float64,
 		log.Errorf("job[%s] find error %s", jobID, err.Error())
 		return 0.0, err
 	}
-	var start int64 = 0
-	var end int64 = 0
+	var start, end int64
 	if job.ActivatedAt.Valid {
 		start = job.ActivatedAt.Time.Unix()
 	} else {
