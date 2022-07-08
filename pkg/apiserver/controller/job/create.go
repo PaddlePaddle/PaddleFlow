@@ -325,10 +325,12 @@ func validateMembersQueue(ctx *logger.RequestContext, member MemberSpec, schePol
 }
 
 func validateFileSystems(jobSpec *JobSpec, userName string) error {
-	if err := validateFileSystem(userName, &jobSpec.FileSystem); err != nil {
-		err = fmt.Errorf("validateFileSystem failed, err: %v", err)
-		log.Error(err)
-		return err
+	if jobSpec.FileSystem.Name != "" {
+		if err := validateFileSystem(userName, &jobSpec.FileSystem); err != nil {
+			err = fmt.Errorf("validateFileSystem failed, err: %v", err)
+			log.Error(err)
+			return err
+		}
 	}
 
 	for index, _ := range jobSpec.ExtraFileSystems {
@@ -341,33 +343,33 @@ func validateFileSystems(jobSpec *JobSpec, userName string) error {
 	return nil
 }
 
-func validateFileSystem(userName string, requestFs *schema.FileSystem) error {
-	fsName := requestFs.Name
-	fsID := requestFs.ID
+func validateFileSystem(userName string, fs *schema.FileSystem) error {
+	fsName := fs.Name
+	fsID := fs.ID
 	if fsID == "" {
 		// generate fsID by fsName if fsID is nil
 		fsID = common.ID(userName, fsName)
 	}
-	mountPath := filepath.Clean(requestFs.MountPath)
-	if mountPath == "/" {
+	mountPath := filepath.Clean(fs.MountPath)
+	if mountPath == "/" || fs.MountPath == "." || fs.MountPath == ".." {
 		err := fmt.Errorf("mountPath cannot be `/` or `.` in fsName[%s] fsID[%s]", fsName, fsID)
 		log.Errorf("validateFileSystem failed, err: %v", err)
 		return err
 	}
+	// if fs.MountPath is nil, it would be . after filepath.Clean()
 	if mountPath == "." {
-		log.Debugf("mountPath is %s, changes to .", requestFs.MountPath)
-		mountPath = filepath.Join(schema.DefaultFSMountPath, requestFs.ID)
+		log.Debugf("mountPath is %s, changes to .", fs.MountPath)
+		mountPath = filepath.Join(schema.DefaultFSMountPath, fs.ID)
 	}
 	fileSystem, err := storage.Filesystem.GetFileSystemWithFsID(fsID)
-
 	if err != nil {
 		log.Errorf("get filesystem by userName[%s] fsName[%s] fsID[%s] failed, err: %v", userName, fsName, fsID, err)
 		return fmt.Errorf("find file system %s failed, err: %v", fsName, err)
 	}
 	// fill back
-	requestFs.ID = fileSystem.ID
-	requestFs.Name = fileSystem.Name
-	requestFs.MountPath = mountPath
+	fs.ID = fileSystem.ID
+	fs.Name = fileSystem.Name
+	fs.MountPath = mountPath
 
 	return nil
 }
