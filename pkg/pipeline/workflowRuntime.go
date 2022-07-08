@@ -206,12 +206,7 @@ func (wfr *WorkflowRuntime) Stop(force bool) error {
 		// 2、 处理还没有开始运行的情况
 		wfr.status = common.StatusRunTerminating
 		wfr.callback("receive termination signal, update status to terminating")
-
-		failureOptionsCtx, _ := context.WithCancel(context.Background())
-		epName := wfr.generateEntryPointFullName()
-		newDagRuntimeWithStatus(epName, epName, wfr.entryPoints.getworkflowSouceDag(), 0, wfr.entryPointsCtx,
-			failureOptionsCtx, wfr.EventChan, wfr.runConfig, "", StatusRuntimeCancelled,
-			"reveice termination signal")
+		wfr.entryPoints.processStartAbnormalStatus("reveice termination signal", StatusRuntimeCancelled)
 	}
 
 	// 处理 PostProcess
@@ -318,6 +313,7 @@ func (wfr *WorkflowRuntime) processEvent(event WorkflowEvent) error {
 	return nil
 }
 
+// TODO: 并发状态下的状态一致性
 func (wfr *WorkflowRuntime) updateStatusAccordingComponentStatus() {
 	// 只有当所有的 节点都处于终态后，此函数才会更新 run 的状态
 	// 有failed step，run 状态为failed

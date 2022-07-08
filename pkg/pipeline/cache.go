@@ -26,6 +26,7 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 )
 
 // 为了序列化，所有字段名均需大写开头
@@ -129,6 +130,8 @@ func (cc *conservativeCacheCalculator) generateFirstCacheKey() error {
 	// 提取cacheKey 时需要剔除系统变量
 	job := cc.step.job.Job()
 
+	envWithoutSystmeEnv := common.DeleteSystemParamEnv(job.Env)
+
 	// 去除系统环境变量
 	cacheKey := conservativeFirstCacheKey{
 		DockerEnv:       cc.step.job.(*PaddleFlowJob).Image,
@@ -136,7 +139,7 @@ func (cc *conservativeCacheCalculator) generateFirstCacheKey() error {
 		Command:         job.Command,
 		InputArtifacts:  job.Artifacts.Input,
 		OutputArtifacts: job.Artifacts.Output,
-		Env:             job.Env,
+		Env:             envWithoutSystmeEnv,
 		FsMount:         cc.step.getWorkFlowStep().FsMount,
 	}
 
