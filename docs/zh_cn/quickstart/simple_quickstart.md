@@ -100,8 +100,8 @@ export fuse_env=your-pfs-fuse-path
 ```
 3.执行挂载命令，将工作区挂载到本地
 ```shell
-paddleflow fs mount yourworkspace mountpath
-## yourworkspace是刚刚创建的本地工作区的名称，mountpath则是要选择挂载的路径，其他参考可以通过paddleflow fs mount --help查看
+paddleflow fs mount yourworkspace  /home/work/paddleflow/workspace/project1/
+## yourworkspace是刚刚创建的本地工作区的名称，mountpath则是在上一个章节规划的工作区目录，其他参考可以通过paddleflow fs mount --help查看
 ```
 如果出现```mount success```则挂载成功，挂载失败可以通过提示的日志路径查看具体日志报错
 
