@@ -366,9 +366,11 @@ func processRunJsonComponents(components map[string]schema.Component, envMap map
 			}
 			// Reference节点无需替换
 			if step.Reference.Component == "" {
-				// 全局Env与节点Env合并，全局优先级高于节点
+				// 全局Env与节点Env合并，节点优先级高于全局
 				for globalKey, globalValue := range envMap {
-					step.Env[globalKey] = globalValue
+					if _, ok := step.Env[globalKey]; !ok {
+						step.Env[globalKey] = globalValue
+					}
 				}
 			}
 		} else {
@@ -440,6 +442,7 @@ func runYamlAndReqToWfs(runYaml string, req CreateRunRequest) (schema.WorkflowSo
 func CreateRun(ctx logger.RequestContext, request *CreateRunRequest) (CreateRunResponse, error) {
 	// concatenate globalFsID
 	globalFsID := ""
+	globalFsName := request.GlobalFsName
 	requestId := ctx.RequestID
 	ctxUserName := ctx.UserName // 这是实际发送请求的用户，由Token决定，全局不会改变
 	userName := ctxUserName     // 这是进行后续fs操作的用户，root用户可以设置为其他普通用户
@@ -448,8 +451,8 @@ func CreateRun(ctx logger.RequestContext, request *CreateRunRequest) (CreateRunR
 		userName = request.UserName
 	}
 
-	if request.GlobalFsName != "" {
-		globalFsID = common.ID(userName, request.GlobalFsName)
+	if globalFsName != "" {
+		globalFsID = common.ID(userName, globalFsName)
 	}
 
 	// TODO:// validate flavour
@@ -463,8 +466,9 @@ func CreateRun(ctx logger.RequestContext, request *CreateRunRequest) (CreateRunR
 	}
 
 	// 如果request里面的fsID为空，那么需要判断yaml（通过PipelineID或Raw上传的）中有无指定GlobalFs，有则生成fsID
-	if request.GlobalFsName == "" && wfs.FsOptions.GlobalFsName != "" {
+	if globalFsName == "" && wfs.FsOptions.GlobalFsName != "" {
 		globalFsID = common.ID(userName, wfs.FsOptions.GlobalFsName)
+		globalFsName = wfs.FsOptions.GlobalFsName
 	}
 
 	trace_logger.Key(requestId).Infof("check name reg pattern: %s", wfs.Name)
@@ -513,7 +517,7 @@ func CreateRunByJson(ctx logger.RequestContext, bodyMap map[string]interface{}) 
 	requestId := ctx.RequestID
 
 	// 从request body中提取部分信息，这些信息与workflow没有直接关联
-	var reqFsName string
+	var reqGlobalFsName string
 	var reqUserName string
 	var reqDescription string
 
@@ -525,7 +529,7 @@ func CreateRunByJson(ctx logger.RequestContext, bodyMap map[string]interface{}) 
 			logger.Logger().Errorf("check fsOptions failed, error: %s", err.Error())
 			return CreateRunResponse{}, err
 		}
-		reqFsName = fsOptions.GlobalFsName
+		reqGlobalFsName = fsOptions.GlobalFsName
 	}
 	if _, ok := bodyMap[JsonUserName].(string); ok {
 		reqUserName = bodyMap[JsonUserName].(string)
@@ -537,12 +541,12 @@ func CreateRunByJson(ctx logger.RequestContext, bodyMap map[string]interface{}) 
 	globalFsID := ""
 	ctxUserName := ctx.UserName // 这是实际发送请求的用户，由Token决定，全局不会改变
 	userName := ctxUserName     // 这是进行后续fs操作的用户，root用户可以设置为其他普通用户
-	if reqFsName != "" {
+	if reqGlobalFsName != "" {
 		if common.IsRootUser(ctxUserName) && reqUserName != "" {
 			// root user can select fs under other users
 			userName = reqUserName
 		}
-		globalFsID = common.ID(userName, reqFsName)
+		globalFsID = common.ID(userName, reqGlobalFsName)
 	}
 
 	trace_logger.Key(requestId).Infof("get workflow source for run: %+v", bodyMap)
@@ -572,7 +576,7 @@ func CreateRunByJson(ctx logger.RequestContext, bodyMap map[string]interface{}) 
 		Name:           wfs.Name,
 		Source:         source,
 		UserName:       ctxUserName,
-		GlobalFsName:   reqFsName,
+		GlobalFsName:   reqGlobalFsName,
 		GlobalFsID:     globalFsID,
 		Description:    reqDescription,
 		RunYaml:        runYaml,
