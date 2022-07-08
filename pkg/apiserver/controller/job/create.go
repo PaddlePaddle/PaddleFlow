@@ -27,13 +27,13 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/flavour"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/fs"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 // CreateJobInfo defines
@@ -251,7 +251,7 @@ func checkJobSpec(ctx *logger.RequestContext, jobSpec *JobSpec) error {
 		return err
 	}
 	// validate FileSystem
-	if err := validateFileSystem(jobSpec, ctx.UserName); err != nil {
+	if err := validateFileSystems(jobSpec, ctx.UserName); err != nil {
 		ctx.Logging().Errorf("validateFileSystem failed, requestJobSpec[%v], err: %v", jobSpec, err)
 		return err
 	}
@@ -324,43 +324,51 @@ func validateMembersQueue(ctx *logger.RequestContext, member MemberSpec, schePol
 	return member, nil
 }
 
-func validateFileSystem(jobSpec *JobSpec, userName string) error {
-	fsService := fs.GetFileSystemService()
-	fsName := jobSpec.FileSystem.Name
-	if fsName != "" {
-		jobSpec.FileSystem.MountPath = filepath.Clean(jobSpec.FileSystem.MountPath)
-		if jobSpec.FileSystem.MountPath == "/" {
-			err := fmt.Errorf("mountPath cannot be `/` in fileSystem[%s]", fsName)
-			log.Errorf("validateFileSystem failed, err: %v", err)
-			return err
-		}
-		fileSystem, err := fsService.GetFileSystem(userName, fsName)
-		if err != nil {
-			log.Errorf("get filesystem by userName[%s] fsName[%s] failed, err: %v", userName, fsName, err)
-			return fmt.Errorf("find file system %s failed, err: %v", fsName, err)
-		}
-		jobSpec.FileSystem.ID = fileSystem.ID
+func validateFileSystems(jobSpec *JobSpec, userName string) error {
+	if err := validateFileSystem(userName, &jobSpec.FileSystem); err != nil {
+		err = fmt.Errorf("validateFileSystem failed, err: %v", err)
+		log.Error(err)
+		return err
 	}
-	// todo(zhongzichao) check all fs whether has 'contains' relationship
-	for index, fs := range jobSpec.ExtraFileSystems {
-		if fs.Name == "" {
-			log.Errorf("name of fileSystem %v is null", fs)
-			return fmt.Errorf("name of fileSystem %v is null", fs)
-		}
-		jobSpec.ExtraFileSystems[index].MountPath = filepath.Clean(fs.MountPath)
-		if jobSpec.ExtraFileSystems[index].MountPath == "/" {
-			err := fmt.Errorf("mountPath cannot be `/` in fileSystem[%s]", fs.Name)
-			log.Errorf("validateFileSystem failed, err: %v", err)
-			return err
-		}
 
-		fileSystem, err := fsService.GetFileSystem(userName, fs.Name)
-		if err != nil {
-			log.Errorf("get filesystem by userName[%s] fsName[%s] failed, err: %v", userName, fs.Name, err)
-			return fmt.Errorf("find file system %s failed, err: %v", fs.Name, err)
+	for index, _ := range jobSpec.ExtraFileSystems {
+		if err := validateFileSystem(userName, &jobSpec.ExtraFileSystems[index]); err != nil {
+			err = fmt.Errorf("validate extraFileSystems failed, err: %v", err)
+			log.Error(err)
+			return err
 		}
-		jobSpec.ExtraFileSystems[index].ID = fileSystem.ID
 	}
+	return nil
+}
+
+func validateFileSystem(userName string, requestFs *schema.FileSystem) error {
+	fsName := requestFs.Name
+	fsID := requestFs.ID
+	if fsID == "" {
+		// generate fsID by fsName if fsID is nil
+		fsID = common.ID(userName, fsName)
+	}
+	mountPath := filepath.Clean(requestFs.MountPath)
+	if mountPath == "/" {
+		err := fmt.Errorf("mountPath cannot be `/` or `.` in fsName[%s] fsID[%s]", fsName, fsID)
+		log.Errorf("validateFileSystem failed, err: %v", err)
+		return err
+	}
+	if mountPath == "." {
+		log.Debugf("mountPath is %s, changes to .", requestFs.MountPath)
+		mountPath = filepath.Join(schema.DefaultFSMountPath, requestFs.ID)
+	}
+	fileSystem, err := storage.Filesystem.GetFileSystemWithFsID(fsID)
+
+	if err != nil {
+		log.Errorf("get filesystem by userName[%s] fsName[%s] fsID[%s] failed, err: %v", userName, fsName, fsID, err)
+		return fmt.Errorf("find file system %s failed, err: %v", fsName, err)
+	}
+	// fill back
+	requestFs.ID = fileSystem.ID
+	requestFs.Name = fileSystem.Name
+	requestFs.MountPath = mountPath
+
 	return nil
 }
 
