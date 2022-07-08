@@ -933,7 +933,7 @@ func (drt *DagRuntime) processSubRuntimeError(err error, cp schema.Component, st
 	fullName := drt.generateSubComponentFullName(componentName)
 
 	// 将 loop_argument 置为nil，方便更新dag状态时使用
-	cp.UpdateLoopArguemt(nil)
+	// cp.UpdateLoopArguemt(nil)
 
 	step, ok := cp.(*schema.WorkflowSourceStep)
 
@@ -973,10 +973,18 @@ func (drt *DagRuntime) updateStatusAccordingSubComponentRuntimeStatus() string {
 		cp := cps[0]
 		loop_argument := cp.getComponent().GetLoopArgument()
 		if loop_argument != nil {
-			// 2.2. 如果loop_argument 不能转换成 splice, 则该子节点的loop_argument 有问题，且必然已经被置为 failed 状态
+			// 2.2. 如果loop_argument 不能转换成 slice, 则说明在创建节点失败，是否还没有正式运行，
 			t := reflect.TypeOf(loop_argument)
 			if t.Kind() != reflect.Slice {
-				faieldComponentNames = append(faieldComponentNames, cps[0].getName())
+				if cp.isFailed() {
+					faieldComponentNames = append(faieldComponentNames, cp.getName())
+				} else if cp.isCancelled() {
+					cancelledComponentNames = append(cancelledComponentNames, cp.getName())
+				} else if cp.isSkipped() {
+					skippedComponentNames = append(skippedComponentNames, cp.getName())
+				} else if cp.isTerminated() {
+					terminatedComponentNames = append(terminatedComponentNames, cp.getName())
+				}
 			} else {
 				v := reflect.ValueOf(loop_argument)
 				if len(cps) != v.Len() && v.Len() != 0 {
