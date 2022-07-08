@@ -649,13 +649,12 @@ func ValidateAndStartRun(ctx logger.RequestContext, run models.Run, userName str
 
 	trace_logger.Key(runID).Infof("run yaml and req to wfs")
 	// to wfs again to revise previous wf replacement
-	wfs, err := runYamlAndReqToWfs(run.RunYaml, req)
-	if err != nil {
-		logger.Logger().Errorf("runYamlAndReqToWfs failed. err:%v", err)
-		return CreateRunResponse{}, err
-	}
-
-	run.WorkflowSource = wfs
+	// wfs, err := runYamlAndReqToWfs(run.RunYaml, req)
+	// if err != nil {
+	// 	logger.Logger().Errorf("runYamlAndReqToWfs failed. err:%v", err)
+	// 	return CreateRunResponse{}, err
+	// }
+	// run.WorkflowSource = wfs
 	defer func() {
 		if info := recover(); info != nil {
 			errmsg := fmt.Sprintf("StartWf failed, %v", info)
@@ -669,7 +668,7 @@ func ValidateAndStartRun(ctx logger.RequestContext, run models.Run, userName str
 	trace_logger.Key(runID).Infof("handle image and start wf: %+v", run)
 	// handler image
 	if err := handleImageAndStartWf(run, false); err != nil {
-		logger.Logger().Errorf("create run[%s] failed handleImageAndStartWf[%s-%s]. error:%s\n", runID, wfs.DockerEnv, run.GlobalFsID, err.Error())
+		logger.Logger().Errorf("create run[%s] failed handleImageAndStartWf[%s-%s]. error:%s\n", runID, run.WorkflowSource.DockerEnv, run.GlobalFsID, err.Error())
 	}
 	logger.Logger().Debugf("create run successful. runID:%s\n", runID)
 	response := CreateRunResponse{
@@ -948,7 +947,7 @@ func handleImageAndStartWf(run models.Run, isResume bool) error {
 	logEntry := logger.LoggerForRun(run.ID)
 	logEntry.Debugf("start handleImageAndStartWf isResume:%t, run:%+v", isResume, run)
 	trace_logger.Key(run.ID).Debugf("start handleImageAndStartWf isResume:%t, run:%+v", isResume, run)
-	if !handler.NeedHandleImage(run.WorkflowSource.DockerEnv) {
+	if !handler.NeedHandleImage(run.WorkflowSource) {
 		// init workflow and start
 		trace_logger.Key(run.ID).Infof("init workflow and start")
 		wfPtr, err := newWorkflowByRun(run)
