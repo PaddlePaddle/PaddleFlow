@@ -1077,6 +1077,9 @@ func (wf *Workflow) newWorkflowRuntime() error {
 		wf.Source.Parallelism = WfParallelismMaximum
 	}
 
+	res, _ := json.Marshal(wf.Source.EntryPoints)
+	logger.Logger().Infof("debug: fsMount before NewWorkflowRuntime is [%s]", res)
+
 	logger.LoggerForRun(wf.RunID).Debugf("initializing [%d] parallelism jobs", wf.Source.Parallelism)
 	runConf := NewRunConfig(&wf.Source, wf.Extra[WfExtraInfoKeyFsID], wf.Extra[WfExtraInfoKeyFsName], wf.Extra[WfExtraInfoKeyUserName], wf.RunID,
 		logger.LoggerForRun(wf.RunID), wf.callbacks, wf.Extra[WfExtraInfoKeySource])

@@ -19,6 +19,7 @@ package pipeline
 import (
 	"database/sql"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -610,6 +611,8 @@ func ValidateAndStartRun(ctx logger.RequestContext, run models.Run, userName str
 	if run.GlobalFsID != "" {
 		fsIDs = append(fsIDs, run.GlobalFsID)
 	}
+	res, _ := json.Marshal(run.WorkflowSource.EntryPoints)
+	logger.Logger().Infof("debug: fsMount before check fs is [%s]", res)
 
 	for _, id := range fsIDs {
 		fsService := fs.GetFileSystemService()
@@ -789,6 +792,8 @@ func StopRun(logEntry *log.Entry, userName, runID string, request UpdateRunReque
 	}
 	if err := models.UpdateRunStatus(logEntry, runID, common.StatusRunTerminating); err != nil {
 		err = fmt.Errorf("stop run[%s] failed updating db, %s", runID, err.Error())
+		logEntry.Errorln(err.Error())
+		return err
 	}
 	wf.Stop(request.StopForce)
 	logEntry.Debugf("stop run succeed. runID:%s", runID)
