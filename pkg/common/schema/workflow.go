@@ -686,17 +686,17 @@ func (wfs *WorkflowSource) ProcessRuntimeComponents(components map[string]Compon
 
 				// 合并全局 fs_mount 和节点 fs_mount
 				// 获取节点 fs_mount
-				componentFsMount, ok, err := unstructured.NestedFieldCopy(componentsMap, name, "fs_mount")
-				if err != nil {
-					return fmt.Errorf("check componentFsMount failed")
-				}
-				componentFsMountList := []interface{}{}
-				if ok {
-					componentFsMountList, ok = componentFsMount.([]interface{})
-					if !ok {
-						return fmt.Errorf("get componentFsMountList failed")
-					}
-				}
+				// componentFsMount, ok, err := unstructured.NestedFieldCopy(componentsMap, name, "fs_mount")
+				// if err != nil {
+				// 	return fmt.Errorf("check componentFsMount failed")
+				// }
+				// componentFsMountList := []interface{}{}
+				// if ok {
+				// 	componentFsMountList, ok = componentFsMount.([]interface{})
+				// 	if !ok {
+				// 		return fmt.Errorf("get componentFsMountList failed")
+				// 	}
+				// }
 
 				// 获取全局 fs_mount
 				globalFsMount, ok, err := unstructured.NestedFieldCopy(yamlMap, "fs_options", "fs_mount")
@@ -712,7 +712,7 @@ func (wfs *WorkflowSource) ProcessRuntimeComponents(components map[string]Compon
 				}
 
 				// fs_mount 合并
-				if err := ProcessStepFsMount(&step.FsMount, globalFsMountList, componentFsMountList); err != nil {
+				if err := ProcessStepFsMount(&step.FsMount, globalFsMountList); err != nil {
 					return err
 				}
 			}
@@ -744,7 +744,7 @@ func ProcessStepCacheByMap(cache *Cache, globalCacheMap map[string]interface{}, 
 	return nil
 }
 
-func ProcessStepFsMount(fsMountList *[]FsMount, globalFsMountList []interface{}, componentFsMountList []interface{}) error {
+func ProcessStepFsMount(fsMountList *[]FsMount, globalFsMountList []interface{}) error {
 	parser := Parser{}
 	for _, m := range globalFsMountList {
 		fsMountMap, ok := m.(map[string]interface{})
@@ -758,17 +758,17 @@ func ProcessStepFsMount(fsMountList *[]FsMount, globalFsMountList []interface{},
 		*fsMountList = append(*fsMountList, fsMount)
 	}
 
-	for _, m := range componentFsMountList {
-		fsMountMap, ok := m.(map[string]interface{})
-		if !ok {
-			return fmt.Errorf("each component mount info in [fs_mount] list should be map type")
-		}
-		fsMount := FsMount{}
-		if err := parser.ParseFsMount(fsMountMap, &fsMount); err != nil {
-			return fmt.Errorf("parse component fsMount failed, error: %s", err.Error())
-		}
-		*fsMountList = append(*fsMountList, fsMount)
-	}
+	// for _, m := range componentFsMountList {
+	// 	fsMountMap, ok := m.(map[string]interface{})
+	// 	if !ok {
+	// 		return fmt.Errorf("each component mount info in [fs_mount] list should be map type")
+	// 	}
+	// 	fsMount := FsMount{}
+	// 	if err := parser.ParseFsMount(fsMountMap, &fsMount); err != nil {
+	// 		return fmt.Errorf("parse component fsMount failed, error: %s", err.Error())
+	// 	}
+	// 	*fsMountList = append(*fsMountList, fsMount)
+	// }
 	return nil
 }
 
