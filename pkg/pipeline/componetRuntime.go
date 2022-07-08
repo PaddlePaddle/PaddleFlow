@@ -146,7 +146,7 @@ type baseComponentRuntime struct {
 	componentFullName string
 
 	// 表明节点的第几次运行， 从 0 开始计算
-	seq int
+	loopSeq int
 
 	// runtime 在数据库的主键值，方便在存库是使用，应该由 apiserver 的回调函数返回，不应该自行设置
 	pk int64
@@ -188,7 +188,7 @@ func NewBaseComponentRuntime(name, fullname string, component schema.Component, 
 		name:                 name,
 		componentFullName:    fullname,
 		component:            component,
-		seq:                  seq,
+		loopSeq:              seq,
 		ctx:                  ctx,
 		sendEventToParent:    eventChannel,
 		receiveEventChildren: make(chan WorkflowEvent),
@@ -284,7 +284,7 @@ func (crt *baseComponentRuntime) getPFLoopArgument() (value interface{}, err err
 	}
 	v := reflect.ValueOf(crt.component.GetLoopArgument())
 
-	if v.Len() < crt.seq {
+	if v.Len() < crt.loopSeq {
 		err := fmt.Errorf("inner error: the index of loop_argumetn is out of range")
 		return nil, err
 	}
@@ -295,7 +295,7 @@ func (crt *baseComponentRuntime) getPFLoopArgument() (value interface{}, err err
 		}
 	}()
 
-	value = v.Index(crt.seq).Interface()
+	value = v.Index(crt.loopSeq).Interface()
 
 	crt.logger.Infof("the PF_LOOP_ARG of %s[%s] is : %v", crt.getComponent().GetType(), crt.name, value)
 	return
@@ -337,7 +337,11 @@ func (crt *baseComponentRuntime) setSysParams() error {
 }
 
 func (crt *baseComponentRuntime) CalculateCondition() (bool, error) {
-	crt.resolveCondition()
+	err := crt.resolveCondition()
+	if err != nil {
+		return false, err
+	}
+
 	if crt.GetCondition() == "" {
 		return true, nil
 	}
@@ -399,7 +403,7 @@ func (crt *baseComponentRuntime) Start() {
 }
 
 func (crt *baseComponentRuntime) getSeq() int {
-	return crt.seq
+	return crt.loopSeq
 }
 
 func (crt *baseComponentRuntime) getStatus() RuntimeStatus {

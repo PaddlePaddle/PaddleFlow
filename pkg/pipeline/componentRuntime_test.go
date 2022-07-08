@@ -135,12 +135,12 @@ func TestGetFunc(t *testing.T) {
 	lp, _ := cp.getPFLoopArgument()
 	assert.Equal(t, lp, 1)
 
-	cp.seq = 1
+	cp.loopSeq = 1
 	lp, _ = cp.getPFLoopArgument()
 	assert.Equal(t, lp, 2)
 	assert.Equal(t, 1, cp.getSeq())
 
-	cp.seq = 0
+	cp.loopSeq = 0
 	assert.Equal(t, "a.entrypoint.step1", cp.getName())
 }
 
