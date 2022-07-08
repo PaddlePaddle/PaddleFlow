@@ -364,9 +364,14 @@ func buildMountContainer(pod *k8sCore.Pod, mountInfo Info) k8sCore.Container {
 }
 
 func getCacheVolumes(mountInfo Info) ([]k8sCore.Volume, []k8sCore.VolumeMount) {
+	volumes := make([]k8sCore.Volume, 0)
+	volumeMounts := make([]k8sCore.VolumeMount, 0)
 	typeDir := k8sCore.HostPathDirectoryOrCreate
-	volumes := []k8sCore.Volume{
-		{
+	mpBi := k8sCore.MountPropagationBidirectional
+
+	// data cache
+	if mountInfo.FsCacheConfig.BlockSize > 0 {
+		dataCacheVolume := k8sCore.Volume{
 			Name: VolumesKeyDataCache,
 			VolumeSource: k8sCore.VolumeSource{
 				HostPath: &k8sCore.HostPathVolumeSource{
@@ -374,8 +379,21 @@ func getCacheVolumes(mountInfo Info) ([]k8sCore.Volume, []k8sCore.VolumeMount) {
 					Type: &typeDir,
 				},
 			},
-		},
-		{
+		}
+		volumes = append(volumes, dataCacheVolume)
+
+		dataCacheVM := k8sCore.VolumeMount{
+			Name:             VolumesKeyDataCache,
+			MountPath:        FusePodCachePath + DataCacheDir,
+			MountPropagation: &mpBi,
+		}
+		volumeMounts = append(volumeMounts, dataCacheVM)
+	}
+
+	// meta cache
+	if mountInfo.FsCacheConfig.MetaDriver == schema.FsMetaNutsDB ||
+		mountInfo.FsCacheConfig.MetaDriver == schema.FsMetaLevelDB {
+		metaCacheVolume := k8sCore.Volume{
 			Name: VolumesKeyMetaCache,
 			VolumeSource: k8sCore.VolumeSource{
 				HostPath: &k8sCore.HostPathVolumeSource{
@@ -383,20 +401,15 @@ func getCacheVolumes(mountInfo Info) ([]k8sCore.Volume, []k8sCore.VolumeMount) {
 					Type: &typeDir,
 				},
 			},
-		},
-	}
-	mp := k8sCore.MountPropagationBidirectional
-	volumeMounts := []k8sCore.VolumeMount{
-		{
-			Name:             VolumesKeyDataCache,
-			MountPath:        FusePodCachePath + DataCacheDir,
-			MountPropagation: &mp,
-		},
-		{
+		}
+		volumes = append(volumes, metaCacheVolume)
+
+		metaCacheVM := k8sCore.VolumeMount{
 			Name:             VolumesKeyMetaCache,
 			MountPath:        FusePodCachePath + MetaCacheDir,
-			MountPropagation: &mp,
-		},
+			MountPropagation: &mpBi,
+		}
+		volumeMounts = append(volumeMounts, metaCacheVM)
 	}
 	return volumes, volumeMounts
 }
