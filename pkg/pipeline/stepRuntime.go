@@ -573,6 +573,7 @@ func (srt *StepRuntime) GenerateFsMountForArtifact() (err error) {
 		// 内存的for循环主要是考虑 输入artifact 来自于循环结构
 		for _, path := range strings.Split(paths, ",") {
 			path = strings.TrimSpace(path)
+			// TODO: 直接挂载 path 或者 对于dir 相同的只生成一个关在信息。
 			dir := filepath.Dir(path)
 
 			fsMount := schema.FsMount{

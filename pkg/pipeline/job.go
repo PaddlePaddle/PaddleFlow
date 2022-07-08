@@ -145,6 +145,11 @@ func (pfj *PaddleFlowJob) generateJobConf() schema.Conf {
 		efs = append(efs, fs)
 	}
 
+	priority := ""
+	if _, ok := pfj.Env["PF_JOB_PRIORITY"]; ok {
+		priority = pfj.Env["PF_JOB_PRIORITY"]
+	}
+
 	queueName := ""
 	if _, ok := pfj.Env["PF_JOB_QUEUE_NAME"]; ok {
 		queueName = pfj.Env["PF_JOB_QUEUE_NAME"]
@@ -157,6 +162,7 @@ func (pfj *PaddleFlowJob) generateJobConf() schema.Conf {
 		Image:           pfj.Image,
 		ExtraFileSystem: efs,
 		QueueName:       queueName,
+		Priority:        priority,
 	}
 
 	return conf
