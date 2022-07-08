@@ -207,8 +207,8 @@ type PFJobConf interface {
 type Conf struct {
 	Name string `json:"name"`
 	// 存储资源
-	FileSystem      FileSystem   `json:"fileSystem,omitempty"`
-	ExtraFileSystem []FileSystem `json:"extraFileSystem,omitempty"`
+	FileSystem      FileSystem   `json:"fs,omitempty"`
+	ExtraFileSystem []FileSystem `json:"extraFS,omitempty"`
 	// 计算资源
 	Flavour   Flavour `json:"flavour,omitempty"`
 	Priority  string  `json:"priority"`

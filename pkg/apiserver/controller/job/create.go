@@ -186,7 +186,7 @@ func validateJobMembers(ctx *logger.RequestContext, request *CreateJobInfo) erro
 			return err
 		}
 		// validate queue
-		if request.Members[index], err = validateMembersQueue(ctx, member, request.SchedulingPolicy); err != nil {
+		if err = validateMembersQueue(ctx, &request.Members[index], request.SchedulingPolicy); err != nil {
 			ctx.Logging().Errorf("Failed to check Members' Queue: %v", err)
 			ctx.ErrorCode = common.JobInvalidField
 			return err
@@ -197,6 +197,7 @@ func validateJobMembers(ctx *logger.RequestContext, request *CreateJobInfo) erro
 			ctx.ErrorCode = common.JobInvalidField
 			return err
 		}
+		// TODO: use flavour point
 		member.Flavour, err = flavour.GetFlavourWithCheck(member.Flavour)
 		if err != nil {
 			log.Errorf("get flavour failed, err:%v", err)
@@ -307,7 +308,7 @@ func checkPriority(schedulingPolicy, parentSP *SchedulingPolicy) error {
 	return nil
 }
 
-func validateMembersQueue(ctx *logger.RequestContext, member MemberSpec, schePolicy SchedulingPolicy) (MemberSpec, error) {
+func validateMembersQueue(ctx *logger.RequestContext, member *MemberSpec, schePolicy SchedulingPolicy) error {
 	queueName := schePolicy.Queue
 
 	mQueueName := member.SchedulingPolicy.Queue
@@ -315,13 +316,13 @@ func validateMembersQueue(ctx *logger.RequestContext, member MemberSpec, schePol
 		err := fmt.Errorf("schedulingPolicy.Queue should be the same, there are %s and %s", queueName, mQueueName)
 		ctx.Logging().Errorf("create distributed job failed. error: %s", err.Error())
 		ctx.ErrorCode = common.JobInvalidField
-		return member, err
+		return err
 	}
 	member.SchedulingPolicy.QueueID = schePolicy.QueueID
 	member.SchedulingPolicy.Namespace = schePolicy.Namespace
 	member.SchedulingPolicy.ClusterId = schePolicy.ClusterId
 	member.SchedulingPolicy.MaxResources = schePolicy.MaxResources
-	return member, nil
+	return nil
 }
 
 func validateFileSystems(jobSpec *JobSpec, userName string) error {
@@ -471,25 +472,23 @@ func buildJob(request *CreateJobInfo) (*models.Job, error) {
 }
 
 func buildMainConf(request *CreateJobInfo) *schema.Conf {
-	conf := &schema.Conf{
-		Name:        request.Name,
-		Labels:      request.Labels,
-		Annotations: request.Annotations,
-		Priority:    request.SchedulingPolicy.Priority,
+	var conf = &schema.Conf{
+		Name: request.Name,
 	}
-	// TODO: adjust code logic
 	if request.Type == schema.TypeSingle && len(request.Members) == 1 {
 		// build conf for single job
-		conf.FileSystem = request.Members[0].FileSystem
-		conf.ExtraFileSystem = request.Members[0].ExtraFileSystems
-		conf.Flavour = request.Members[0].Flavour
-		conf.Env = request.Members[0].Env
-		conf.Image = request.Members[0].Image
-		conf.Command = request.Members[0].Command
-		conf.Port = request.Members[0].Port
-		conf.Args = request.Members[0].Args
+		conf = &schema.Conf{
+			Name:            request.Name,
+			FileSystem:      request.Members[0].FileSystem,
+			ExtraFileSystem: request.Members[0].ExtraFileSystems,
+			Flavour:         request.Members[0].Flavour,
+			Env:             request.Members[0].Env,
+			Image:           request.Members[0].Image,
+			Command:         request.Members[0].Command,
+			Port:            request.Members[0].Port,
+			Args:            request.Members[0].Args,
+		}
 	}
-
 	// fields in request.CommonJobInfo
 	buildCommonInfo(conf, &request.CommonJobInfo)
 	// set scheduling priority
