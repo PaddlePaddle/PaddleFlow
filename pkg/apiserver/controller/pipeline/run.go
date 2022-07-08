@@ -497,7 +497,7 @@ func CreateRun(ctx logger.RequestContext, request *CreateRunRequest) (CreateRunR
 		Name:           wfs.Name,
 		Source:         source,
 		UserName:       ctxUserName,
-		GlobalFsName:   request.GlobalFsName,
+		GlobalFsName:   globalFsName,
 		GlobalFsID:     globalFsID,
 		Description:    request.Description,
 		Parameters:     request.Parameters,
