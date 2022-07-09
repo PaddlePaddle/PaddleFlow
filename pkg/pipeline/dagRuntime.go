@@ -351,7 +351,6 @@ func (drt *DagRuntime) scheduleSubComponent() {
 			continue
 		}
 
-		// tiahuan
 		// 4. 创建 runtime 并运行 runtime
 		drt.createAndStartSubComponentRuntime(subComponentName, newSubCp, map[int]int{})
 	}
@@ -924,6 +923,11 @@ func (drt *DagRuntime) processSubRuntimeError(err error, cp schema.Component, st
 	var ll int
 	lp := cp.GetLoopArgument()
 	if lp != nil {
+		t := reflect.TypeOf(lp)
+		if t.Kind() != reflect.Slice {
+			ll = 1
+		}
+
 		v := reflect.ValueOf(lp)
 		ll = v.Len()
 		if ll == 0 {
@@ -948,6 +952,7 @@ func (drt *DagRuntime) processSubRuntimeError(err error, cp schema.Component, st
 
 // updateStatusAccordingSubComponentRuntimeStatus: 根据子节点的状态来更新
 func (drt *DagRuntime) updateStatusAccordingSubComponentRuntimeStatus() string {
+	drt.logger.Infof("begin to update status for dag[%s]", drt.name)
 	// 1. 如果有子节点还没有调度，且节点本身的状态不为 Terminating， 则状态必定为running
 	if len(drt.subComponentRumtimes) != len(drt.getworkflowSouceDag().EntryPoints) {
 		if !drt.isTerminating() {
@@ -968,18 +973,10 @@ func (drt *DagRuntime) updateStatusAccordingSubComponentRuntimeStatus() string {
 		cp := cps[0]
 		loop_argument := cp.getComponent().GetLoopArgument()
 		if loop_argument != nil {
-			// 2.2. 如果loop_argument 不能转换成 slice, 则说明在创建节点失败，是否还没有正式运行，
+			// 2.2. 如果loop_argument 不能转换成 slice, 则说明在创建节点失败，是否还没有正式运行，此时直接在下方进行统计即可
 			t := reflect.TypeOf(loop_argument)
 			if t.Kind() != reflect.Slice {
-				if cp.isFailed() {
-					faieldComponentNames = append(faieldComponentNames, cp.getName())
-				} else if cp.isCancelled() {
-					cancelledComponentNames = append(cancelledComponentNames, cp.getName())
-				} else if cp.isSkipped() {
-					skippedComponentNames = append(skippedComponentNames, cp.getName())
-				} else if cp.isTerminated() {
-					terminatedComponentNames = append(terminatedComponentNames, cp.getName())
-				}
+				continue
 			} else {
 				v := reflect.ValueOf(loop_argument)
 				if len(cps) != v.Len() && v.Len() != 0 {
@@ -987,6 +984,7 @@ func (drt *DagRuntime) updateStatusAccordingSubComponentRuntimeStatus() string {
 					if !drt.isTerminating() {
 						drt.updateStatus(StatusRuntimeRunning)
 					}
+					fmt.Printf("+++++++++++++ hahahaha, cpName: %s\n", cp.getName())
 					return ""
 				}
 			}
