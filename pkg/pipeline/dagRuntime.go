@@ -114,9 +114,6 @@ func (drt *DagRuntime) generateSubComponentFullName(subComponentName string) str
 }
 
 func (drt *DagRuntime) getReadyComponent() map[string]schema.Component {
-	defer drt.processSubComponentLock.Unlock()
-	drt.processSubComponentLock.Lock()
-
 	readyComponent := map[string]schema.Component{}
 	for name, subComponent := range drt.getworkflowSouceDag().EntryPoints {
 		// 如果已经生成了对应的 Runtime，则说明对应该 Component 已经被调度了
@@ -272,6 +269,9 @@ func (drt *DagRuntime) getworkflowSouceDag() *schema.WorkflowSourceDag {
 func (drt *DagRuntime) Start() {
 	drt.logger.Infof("begin to run dag[%s]", drt.name)
 
+	defer drt.processSubComponentLock.Unlock()
+	drt.processSubComponentLock.Lock()
+
 	drt.updateStatus(StatusRuntimeRunning)
 	drt.startTime = time.Now().Format("2006-01-02 15:04:05")
 
@@ -320,8 +320,6 @@ func (drt *DagRuntime) scheduleSubComponent() {
 	// 1、获取可以进行调度的节点
 	readyComponent := drt.getReadyComponent()
 
-	defer drt.processSubComponentLock.Unlock()
-	drt.processSubComponentLock.Lock()
 	for subComponentName, subComponent := range readyComponent {
 		// 如果此时收到了终止信号，则无需调度子节点
 		if drt.ctx.Err() != nil || drt.failureOpitonsCtx.Err() != nil {
@@ -414,9 +412,15 @@ func (drt *DagRuntime) Restart(dagView *schema.DagView) {
 	go drt.Listen()
 	go drt.Stop()
 
-	// 4、根据节点依赖关系，来开始调度此时可运行的节点。
-	// 这里做一次调度的原因是，避免 3 中没有发起任何任务，导致永远监听不到信息，导致任务 hang 住的情况出现
-	drt.scheduleSubComponent()
+	// 4、如果此时没有子节点在运行，则直接调用Start()
+	if len(drt.subComponentRumtimes) == 0 {
+		drt.Start()
+	} else {
+		// 5、根据节点依赖关系，来开始调度此时可运行的节点。
+		// 这里做一次调度的原因是，避免 3 中没有发起任何任务，导致永远监听不到信息，导致任务 hang 住的情况出现
+		drt.scheduleSubComponent()
+	}
+
 	return
 }
 
@@ -704,6 +708,9 @@ func (drt *DagRuntime) GetSubComponentArtifactPaths(componentName string, artNam
 // 3. stop 失败，状态不更新，run message 字段；需要用户根据提示再次调用 stop
 // 4. 如果有 job 的状态异常，将会走 FailureOptions 的处理逻辑
 func (drt *DagRuntime) processEventFromSubComponent(event WorkflowEvent) error {
+	defer drt.processSubComponentLock.Unlock()
+	drt.processSubComponentLock.Lock()
+
 	if drt.isDone() {
 		drt.logger.Infof("workflow has completed. skip event")
 		return nil
@@ -801,9 +808,6 @@ func (drt *DagRuntime) getfailureOptionsCtxAndCF(subComponentName string) CtxAnd
 
 func (drt *DagRuntime) ProcessFailureOptionsWithContinue(component schema.Component) {
 	// 失败节点的所有下游节点都将会置为failed, 此时其所有的下游节点都是没有开始执行的，
-	defer drt.processSubComponentLock.Unlock()
-	drt.processSubComponentLock.Lock()
-
 	if drt.hasFailureOptionsTriggered {
 		drt.logger.Info("failure options was processed already")
 		return
@@ -830,8 +834,6 @@ func (drt *DagRuntime) ProcessFailureOptionsWithContinue(component schema.Compon
 }
 
 func (drt *DagRuntime) ProcessFailureOptionsWithFailFast() {
-	defer drt.processSubComponentLock.Unlock()
-	drt.processSubComponentLock.Lock()
 	if drt.hasFailureOptionsTriggered {
 		drt.logger.Info("failure options was processed already")
 		return
@@ -860,8 +862,6 @@ func (drt *DagRuntime) ProcessFailureOptions(event WorkflowEvent, needSync bool)
 		// 理论上不会出现这种情况，用户兜底
 		// 防止下游节点无法调度，导致任务被 hang 住，将所有还没有调度的节点置为 cancelled 状态
 		// 或者直接终止 run？ 又或者终止当前的 dagRuntime？
-		defer drt.processSubComponentLock.Unlock()
-		drt.processSubComponentLock.Lock()
 		drt.cancellAllNotReadySubComponent(errMsg)
 		return
 
@@ -1094,8 +1094,6 @@ func (drt *DagRuntime) newView(msg string) schema.DagView {
 // stopByCtx: 在监测到底 ctx 的信号后，开始终止逻辑
 func (drt *DagRuntime) stopByCtx() {
 	// 对于已经调度了节点，其本身也会监听 ctx 信号, 执行终止相关的逻辑，因此，此处只需要处理还未被调度的节点
-	defer drt.processSubComponentLock.Unlock()
-	drt.processSubComponentLock.Lock()
 	drt.cancellAllNotReadySubComponent("receive stop signall")
 }
 
@@ -1106,6 +1104,9 @@ func (drt *DagRuntime) Stop() {
 		if drt.done {
 			return
 		}
+		defer drt.processSubComponentLock.Unlock()
+		drt.processSubComponentLock.Lock()
+
 		drt.updateStatus(StatusRuntimeTerminating)
 		drt.stopByCtx()
 
@@ -1114,6 +1115,9 @@ func (drt *DagRuntime) Stop() {
 		if drt.done {
 			return
 		}
+		defer drt.processSubComponentLock.Unlock()
+		drt.processSubComponentLock.Lock()
+
 		drt.updateStatus(StatusRuntimeTerminating)
 
 		// 此时 failureOptions的策略必然是 fail_fast

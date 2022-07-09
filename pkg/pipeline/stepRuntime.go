@@ -42,9 +42,6 @@ type StepRuntime struct {
 
 	// 需要避免在终止的同时在 创建 job 的情况，导致数据不一致
 	processJobLock sync.Mutex
-
-	// 为了避免有多个协程同时将 stepRuntime 置为 终态，导致错误的降低了并发数
-	paramllelismLock sync.Mutex
 }
 
 func generateJobName(runID, stepName string, seq int) string {
@@ -101,8 +98,6 @@ func (srt *StepRuntime) updateStatus(status RuntimeStatus) error {
 		return err
 	}
 
-	defer srt.paramllelismLock.Unlock()
-	srt.paramllelismLock.Lock()
 	if srt.done {
 		srt.parallelismManager.decrease()
 		srt.logger.Infof("step[%s] has finished, and current parallelism is %d", srt.name,
@@ -127,6 +122,9 @@ func (srt *StepRuntime) processStartAbnormalStatus(msg string, status RuntimeSta
 
 func (srt *StepRuntime) Start() {
 	// 如果达到并行Job上限，将会Block
+	defer srt.processJobLock.Unlock()
+	srt.processJobLock.Lock()
+
 	srt.parallelismManager.increase()
 
 	// TODO: 此时是否需要同步至数据库？
@@ -607,14 +605,17 @@ func (srt *StepRuntime) GenerateFsMountForArtifact() (err error) {
 
 func (srt *StepRuntime) startJob() (err error) {
 	err = nil
-	defer srt.processJobLock.Unlock()
-	srt.processJobLock.Lock()
 
 	if srt.status != "" {
 		// 此时说明其余的协程正在处理或者已经处理完当前的运行时，因此直接退出当前协程
 		err = fmt.Errorf("inner error: cannot restart step[%s], because it's already in status[%s]",
 			srt.name, srt.status)
 		return err
+	}
+
+	if srt.ctx.Err() != nil || srt.failureOpitonsCtx.Err() != nil {
+		srt.logger.Infof("received  terminal or failureOpitons signal, wouldn't start job")
+		return
 	}
 
 	// todo: 正式运行前，需要将更新后的参数更新到数据库中（通过传递workflow event到runtime即可）
