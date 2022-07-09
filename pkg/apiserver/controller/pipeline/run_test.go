@@ -34,13 +34,13 @@ import (
 const (
 	MockRunID1   = "run-id_1"
 	MockRunName1 = "run-name_1"
-	MockFsID1    = "fs-id_1"
+	MockFsID1    = "fs-mockUser-mockFs"
 	MockRunID3   = "run-id_3"
 
 	MockRunID2   = "run-id_2"
 	MockRunName2 = "run-name_2"
 	MockUserID2  = "user-id_2"
-	MockFsID2    = "fs-id_2"
+	MockFsID2    = "fs-mockUser-mockFs"
 
 	runDagYamlPath = "./testcase/run_dag.yaml"
 )
@@ -90,9 +90,9 @@ func getMockFullRun() (models.Run, error) {
 	run := models.Run{
 		Name:           "full_run",
 		Source:         "run.yaml",
-		UserName:       "root",
-		GlobalFsID:     "fs-root-cyang14",
-		GlobalFsName:   "cyang14",
+		UserName:       "mockUser",
+		GlobalFsID:     "fs-mockUser-mockFs",
+		GlobalFsName:   "mockFs",
 		Description:    "desc",
 		Parameters:     map[string]interface{}{},
 		RunYaml:        string(runYaml),

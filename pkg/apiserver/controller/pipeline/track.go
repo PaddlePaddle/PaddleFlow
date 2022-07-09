@@ -41,6 +41,7 @@ func logCacheReqToModel(req schema.LogRunCacheRequest) models.RunCache {
 	return models.RunCache{
 		FirstFp:     req.FirstFp,
 		SecondFp:    req.SecondFp,
+		JobID:       req.JobID,
 		RunID:       req.RunID,
 		FsID:        req.FsID,
 		FsName:      req.FsName,

@@ -465,6 +465,7 @@ func (srt *StepRuntime) checkCached() (cacheFound bool, err error) {
 
 	if cacheFound {
 		jobView, err := srt.callbacks.GetJobCb(cacheJobID)
+		srt.logger.Infof("the jobView for cache is: %v", jobView)
 		if err != nil {
 			return false, err
 		}
