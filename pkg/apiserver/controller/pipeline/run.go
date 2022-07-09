@@ -604,8 +604,10 @@ func ValidateAndStartRun(ctx logger.RequestContext, run models.Run, userName str
 	logger.Logger().Infof("debug: fsName before validate fs is [%s]", run.GlobalFsName)
 	trace_logger.Key(requestId).Infof("validate and init workflow")
 	// validate workflow in func NewWorkflow
-	if _, err := newWorkflowByRun(run); err != nil {
+	wfPtr, err := newWorkflowByRun(run)
+	if err != nil {
 		logger.Logger().Errorf("validateAndInitWorkflow. err:%v", err)
+		ctx.ErrorCode = common.InvlidPipeline
 		return CreateRunResponse{}, err
 	}
 
@@ -633,7 +635,7 @@ func ValidateAndStartRun(ctx logger.RequestContext, run models.Run, userName str
 
 	trace_logger.Key(runID).Infof("handle image and start wf: %+v", run)
 	// handler image
-	if err := handleImageAndStartWf(run, false); err != nil {
+	if err := handleImageAndStartWf(run, wfPtr, false); err != nil {
 		logger.Logger().Errorf("create run[%s] failed handleImageAndStartWf[%s-%s]. error:%s\n", runID, run.WorkflowSource.DockerEnv, run.GlobalFsID, err.Error())
 	}
 	logger.Logger().Debugf("create run successful. runID:%s\n", runID)
@@ -903,7 +905,23 @@ func resumeRun(run models.Run) error {
 	}
 	// patch run.WorkflowSource to invoke func handleImageAndStartWf
 	run.WorkflowSource = wfs
-	if err := handleImageAndStartWf(run, true); err != nil {
+	wfPtr, err := newWorkflowByRun(run)
+	if err != nil {
+		logger.LoggerForRun(run.ID).Errorf("newWorkflowByRun failed. err:%v\n", err)
+		return updateRunStatusAndMsg(run.ID, common.StatusRunFailed, err.Error())
+	}
+
+	defer func() {
+		if info := recover(); info != nil {
+			errmsg := fmt.Sprintf("StartWf failed, %v", info)
+			logger.LoggerForRun(run.ID).Errorf(errmsg)
+			if err := updateRunStatusAndMsg(run.ID, common.StatusRunFailed, errmsg); err != nil {
+				logger.LoggerForRun(run.ID).Errorf("set run status as failed after StartWf panic failed")
+			}
+		}
+	}()
+
+	if err := handleImageAndStartWf(run, wfPtr, true); err != nil {
 		logger.LoggerForRun(run.ID).Errorf("resume run[%s] failed handleImageAndStartWf. DockerEnv[%s] fsID[%s]. error:%s\n",
 			run.ID, run.WorkflowSource.DockerEnv, run.GlobalFsID, err.Error())
 	}
@@ -911,18 +929,12 @@ func resumeRun(run models.Run) error {
 }
 
 // handleImageAndStartWf patch run.WorkflowSource before invoke this func!
-func handleImageAndStartWf(run models.Run, isResume bool) error {
+func handleImageAndStartWf(run models.Run, wfPtr *pipeline.Workflow, isResume bool) error {
 	logEntry := logger.LoggerForRun(run.ID)
 	logEntry.Debugf("start handleImageAndStartWf isResume:%t, run:%+v", isResume, run)
 	trace_logger.Key(run.ID).Debugf("start handleImageAndStartWf isResume:%t, run:%+v", isResume, run)
 	// 由于目前不支持.tar形式的dockerEnv，因此dockerEnv的检查已迁移至Validate
-	// init workflow and start
-	trace_logger.Key(run.ID).Infof("init workflow and start")
-	wfPtr, err := newWorkflowByRun(run)
-	if err != nil {
-		logEntry.Errorf("newWorkflowByRun failed. err:%v\n", err)
-		return updateRunStatusAndMsg(run.ID, common.StatusRunFailed, err.Error())
-	}
+
 	if !isResume {
 		// start workflow with image url
 		trace_logger.Key(run.ID).Infof("start workflow with image url")

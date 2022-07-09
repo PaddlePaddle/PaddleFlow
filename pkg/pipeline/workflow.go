@@ -340,19 +340,18 @@ func (bwf *BaseWorkflow) checkFs() error {
 	if !ok {
 		return fmt.Errorf("get userName failed when check fs")
 	}
-	fsIDs, err := bwf.Source.ProcessFsAndGetAllIDs(userName)
+	fsIDs, err := bwf.Source.ProcessFsAndGetAllIDs(userName, bwf.Extra[WfExtraInfoKeyFsName])
 	if err != nil {
 		logger.Logger().Errorf("process fs failed when check fs. error: %s", err.Error())
 		return err
 	}
 
 	globalFsID := bwf.Extra[WfExtraInfoKeyFsID]
-
-	//检查fs权限
 	if globalFsID != "" {
 		fsIDs = append(fsIDs, globalFsID)
 	}
 
+	//检查fs权限
 	for _, id := range fsIDs {
 		fsService := fs.GetFileSystemService()
 		hasPermission, err := fsService.HasFsPermission(userName, id)

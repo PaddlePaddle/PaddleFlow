@@ -19,8 +19,10 @@ package pipeline
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"testing"
 
+	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
@@ -102,6 +104,15 @@ func getMockFullRun() (models.Run, error) {
 	return run, nil
 }
 
+func newMockWorkflowByRun(run models.Run) (*pipeline.Workflow, error) {
+	bwfTemp := &pipeline.BaseWorkflow{}
+	p1 := gomonkey.ApplyPrivateMethod(reflect.TypeOf(bwfTemp), "checkFs", func() error {
+		return nil
+	})
+	defer p1.Reset()
+	return newWorkflowByRun(run)
+}
+
 func TestListRunSuccess(t *testing.T) {
 	driver.InitMockDB()
 	ctx1 := &logger.RequestContext{UserName: MockRootUser}
@@ -132,7 +143,7 @@ func TestListRunSuccess(t *testing.T) {
 }
 
 func TestGetRunSuccess(t *testing.T) {
-	driver.InitMockDB()
+	//driver.InitMockDB()
 	ctx := &logger.RequestContext{UserName: MockRootUser}
 	var err error
 	// test no runtime
@@ -206,7 +217,7 @@ func TestNewWorkflowByRun(t *testing.T) {
 	var err error
 	run, err := getMockFullRun()
 	assert.Nil(t, err)
-	wf, err := newWorkflowByRun(run)
+	wf, err := newMockWorkflowByRun(run)
 	assert.Nil(t, err)
 
 	text, _ := json.Marshal(wf.BaseWorkflow.Source)
@@ -215,12 +226,12 @@ func TestNewWorkflowByRun(t *testing.T) {
 	run1, err := getMockFullRun()
 	assert.Nil(t, err)
 	run1.WorkflowSource.Disabled = "square-loop.square"
-	_, err = newWorkflowByRun(run1)
+	_, err = newMockWorkflowByRun(run1)
 	assert.NotNil(t, err)
 	assert.Equal(t, "disabled component[square] is refered by [square-loop]", err.Error())
 
 	run1.WorkflowSource.Disabled = "process-negetive.condition2.show"
-	_, err = newWorkflowByRun(run1)
+	_, err = newMockWorkflowByRun(run1)
 	assert.NotNil(t, err)
 	assert.Equal(t, "disabled component[show] is refered by [abs]", err.Error())
 
@@ -229,13 +240,13 @@ func TestNewWorkflowByRun(t *testing.T) {
 	run2.Parameters = map[string]interface{}{
 		"square-loop.noComp.noParam": "1",
 	}
-	_, err = newWorkflowByRun(run2)
+	_, err = newMockWorkflowByRun(run2)
 	assert.NotNil(t, err)
 	assert.Equal(t, "component [noComp] not exist", err.Error())
 	run2.Parameters = map[string]interface{}{
 		"square-loop.square.num": 3,
 	}
-	_, err = newWorkflowByRun(run2)
+	_, err = newMockWorkflowByRun(run2)
 	assert.Nil(t, err)
 
 	run2.Parameters = map[string]interface{}{
@@ -243,6 +254,6 @@ func TestNewWorkflowByRun(t *testing.T) {
 		"randint.pFloat":  1.1,
 		"randint.pPath":   "testcase/run.yaml",
 	}
-	_, err = newWorkflowByRun(run2)
+	_, err = newMockWorkflowByRun(run2)
 	assert.Nil(t, err)
 }
