@@ -1105,14 +1105,14 @@ func NewWorkflow(wfSource schema.WorkflowSource, runID string, params map[string
 	if err := wf.validate(); err != nil {
 		return nil, err
 	}
-	if err := wf.newWorkflowRuntime(); err != nil {
+	if err := wf.NewWorkflowRuntime(); err != nil {
 		return nil, err
 	}
 	return wf, nil
 }
 
 // 初始化 workflow runtime
-func (wf *Workflow) newWorkflowRuntime() error {
+func (wf *Workflow) NewWorkflowRuntime() error {
 	if wf.Source.Parallelism <= 0 {
 		wf.Source.Parallelism = WfParallelismDefault
 	} else if wf.Source.Parallelism > WfParallelismMaximum {

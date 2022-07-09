@@ -972,8 +972,9 @@ func handleImageAndStartWf(run models.Run, wfPtr *pipeline.Workflow, isResume bo
 	trace_logger.Key(run.ID).Debugf("start handleImageAndStartWf isResume:%t, run:%+v", isResume, run)
 	// 由于目前不支持.tar形式的dockerEnv，因此dockerEnv的检查已迁移至Validate
 
-	wfMap[run.ID] = wfPtr
 	wfPtr.RunID = run.ID
+	wfPtr.NewWorkflowRuntime()
+	wfMap[run.ID] = wfPtr
 
 	if !isResume {
 		// start workflow with image url
