@@ -470,6 +470,8 @@ func (srt *StepRuntime) checkCached() (cacheFound bool, err error) {
 			return false, err
 		}
 
+		srt.logger.Infof("the jobView for cache is: %v", jobView)
+
 		forCacheFingerprint := false
 		for name, _ := range srt.GetArtifacts().Output {
 			value, ok := jobView.Artifacts.Output[name]
