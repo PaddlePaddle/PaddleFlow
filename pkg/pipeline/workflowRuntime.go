@@ -133,30 +133,7 @@ func (wfr *WorkflowRuntime) Restart(entryPointView schema.RuntimeView,
 
 	// 只有在 不需要重启 entryPoint 的时候才需要重启 postProcess。
 	// 当 entryPoint 需要重启的时候，postProcess 节点，无论如何都需要重新运行一次，此时应该有 processEvent 函数触发
-	if need {
-
-		// 如果此时有 postProcess 的节点有对应的job 存在，此时应该尝试终止该job(不保证终止成功), 任务终止相关的信息不会同步值 workflowRuntime，
-		// 也不会同步至数据库
-		if wfr.runConfig.WorkflowSource.PostProcess != nil {
-			for name, view := range postProcessView {
-				if view.Status == StatusRuntimeRunning && view.JobID != "" {
-					failureOptionsCtx, _ := context.WithCancel(context.Background())
-					postName := wfr.generatePostProcessFullName(name)
-
-					step := wfr.WorkflowSource.PostProcess[name]
-					postStep, err := NewReferenceSolver(wfr.WorkflowSource).resolveComponentReference(step)
-					if err != nil {
-						newStepRuntimeWithStatus(postName, postName, step, 0, wfr.postProcessPointsCtx, failureOptionsCtx,
-							wfr.EventChan, wfr.runConfig, "", StatusRuntimeFailed, err.Error())
-					}
-					postProcess := NewStepRuntime(postName, postName, postStep.(*schema.WorkflowSourceStep), 0,
-						wfr.postProcessPointsCtx, failureOptionsCtx, make(chan<- WorkflowEvent), wfr.runConfig, "")
-					go postProcess.StopByView(view)
-				}
-			}
-		}
-
-	} else {
+	if !need {
 		// 理论上不会存在这种情况，因为此时的run 的状态应该是 succeeded
 		if wfr.runConfig.WorkflowSource.PostProcess == nil {
 			return nil

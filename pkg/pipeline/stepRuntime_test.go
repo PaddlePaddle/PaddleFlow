@@ -89,7 +89,7 @@ func TestUpdateJobForFingerPrint(t *testing.T) {
 	rf.callbacks = mockCbs
 
 	extra := GetExtra()
-	wfptr, err := NewWorkflow(wfs, rf.runID, map[string]interface{}{}, extra, rf.callbacks)
+	wfptr, err := NewMockWorkflow(wfs, rf.runID, map[string]interface{}{}, extra, rf.callbacks)
 	assert.Nil(t, err)
 
 	wfs = wfptr.Source
@@ -188,7 +188,7 @@ func TestUpdateJob(t *testing.T) {
 	rf.callbacks = mockCbs
 
 	extra := GetExtra()
-	wfptr, err := NewWorkflow(wfs, rf.runID, map[string]interface{}{}, extra, rf.callbacks)
+	wfptr, err := NewMockWorkflow(wfs, rf.runID, map[string]interface{}{}, extra, rf.callbacks)
 	assert.Nil(t, err)
 
 	wfs = wfptr.Source
@@ -431,7 +431,7 @@ func TestNewStepRuntimeWithStatus(t *testing.T) {
 	rf.callbacks = mockCbs
 
 	extra := GetExtra()
-	wfptr, err := NewWorkflow(wfs, rf.runID, map[string]interface{}{}, extra, rf.callbacks)
+	wfptr, err := NewMockWorkflow(wfs, rf.runID, map[string]interface{}{}, extra, rf.callbacks)
 	assert.Nil(t, err)
 
 	wfs = wfptr.Source
@@ -471,7 +471,7 @@ func TestExecute(t *testing.T) {
 	rf.callbacks = mockCbs
 
 	extra := GetExtra()
-	wfptr, err := NewWorkflow(wfs, rf.runID, map[string]interface{}{}, extra, rf.callbacks)
+	wfptr, err := NewMockWorkflow(wfs, rf.runID, map[string]interface{}{}, extra, rf.callbacks)
 	assert.Nil(t, err)
 
 	wfs = wfptr.Source
@@ -568,7 +568,7 @@ func TestProcessEventFromJob(t *testing.T) {
 	rf.callbacks = mockCbs
 
 	extra := GetExtra()
-	wfptr, err := NewWorkflow(wfs, rf.runID, map[string]interface{}{}, extra, rf.callbacks)
+	wfptr, err := NewMockWorkflow(wfs, rf.runID, map[string]interface{}{}, extra, rf.callbacks)
 	assert.Nil(t, err)
 
 	wfs = wfptr.Source
@@ -647,7 +647,7 @@ func TestStart(t *testing.T) {
 	extra := GetExtra()
 	rf := mockRunConfigForComponentRuntime()
 	rf.callbacks = mockCbs
-	wfptr, err := NewWorkflow(wfs, rf.runID, map[string]interface{}{}, extra, rf.callbacks)
+	wfptr, err := NewMockWorkflow(wfs, rf.runID, map[string]interface{}{}, extra, rf.callbacks)
 	assert.Nil(t, err)
 
 	wfs = wfptr.Source
@@ -730,7 +730,7 @@ func TestStepRestart(t *testing.T) {
 	extra := GetExtra()
 	rf := mockRunConfigForComponentRuntime()
 	rf.callbacks = mockCbs
-	wfptr, err := NewWorkflow(wfs, rf.runID, map[string]interface{}{}, extra, rf.callbacks)
+	wfptr, err := NewMockWorkflow(wfs, rf.runID, map[string]interface{}{}, extra, rf.callbacks)
 	assert.Nil(t, err)
 
 	wfs = wfptr.Source
@@ -816,7 +816,7 @@ func TestStop(t *testing.T) {
 	extra := GetExtra()
 	rf := mockRunConfigForComponentRuntime()
 	rf.callbacks = mockCbs
-	wfptr, err := NewWorkflow(wfs, rf.runID, map[string]interface{}{}, extra, rf.callbacks)
+	wfptr, err := NewMockWorkflow(wfs, rf.runID, map[string]interface{}{}, extra, rf.callbacks)
 	assert.Nil(t, err)
 
 	wfs = wfptr.Source
