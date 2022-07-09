@@ -369,6 +369,12 @@ func processRunJsonComponents(componentMap map[string]interface{}, globalEnvMap 
 		if subMap, ok := compMap["entry_points"].(map[string]interface{}); ok {
 			processRunJsonComponents(subMap, globalEnvMap)
 		} else {
+			if ref, ok := compMap["reference"].(map[string]interface{}); ok {
+				if refComp, ok := ref["component"].(string); ok && refComp != "" {
+					// reference节点不需要进行下面的替换操作
+					continue
+				}
+			}
 			_, ok = compMap["env"]
 			if !ok {
 				if err := unstructured.SetNestedMap(compMap, map[string]interface{}{}, "env"); err != nil {
@@ -527,7 +533,8 @@ func CreateRun(ctx logger.RequestContext, request *CreateRunRequest) (CreateRunR
 		Description:    request.Description,
 		Parameters:     request.Parameters,
 		RunYaml:        runYaml,
-		WorkflowSource: wfs, // DockerEnv has not been replaced. done in func handleImageAndStartWf
+		WorkflowSource: wfs,
+		DockerEnv:      wfs.DockerEnv,
 		Disabled:       request.Disabled,
 		ScheduleID:     request.ScheduleID,
 		ScheduledAt:    scheduledAt,
@@ -610,7 +617,8 @@ func CreateRunByJson(ctx logger.RequestContext, bodyMap map[string]interface{}) 
 		GlobalFsID:     globalFsID,
 		Description:    reqDescription,
 		RunYaml:        runYaml,
-		WorkflowSource: wfs, // DockerEnv has not been replaced. done in func handleImageAndStartWf
+		WorkflowSource: wfs,
+		DockerEnv:      wfs.DockerEnv,
 		Disabled:       wfs.Disabled,
 		Status:         common.StatusRunInitiating,
 	}
@@ -654,6 +662,8 @@ func ValidateAndStartRun(ctx logger.RequestContext, run models.Run, userName str
 	_ = trace_logger.UpdateKey(requestId, runID)
 	trace_logger.Key(runID).Infof("create run in db success")
 
+	// 填充好RunID之后，需要
+
 	defer func() {
 		if info := recover(); info != nil {
 			errmsg := fmt.Sprintf("StartWf failed, %v", info)
@@ -666,8 +676,8 @@ func ValidateAndStartRun(ctx logger.RequestContext, run models.Run, userName str
 
 	trace_logger.Key(runID).Infof("handle image and start wf: %+v", run)
 	// handler image
-	if err := handleImageAndStartWf(run, wfPtr, false); err != nil {
-		logger.Logger().Errorf("create run[%s] failed handleImageAndStartWf[%s-%s]. error:%s\n", runID, run.WorkflowSource.DockerEnv, run.GlobalFsID, err.Error())
+	if err := StartWf(run, wfPtr); err != nil {
+		logger.Logger().Errorf("create run[%s] failed StartWf[%s-%s]. error:%s\n", runID, run.WorkflowSource.DockerEnv, run.GlobalFsID, err.Error())
 	}
 	logger.Logger().Debugf("create run successful. runID:%s\n", runID)
 	response := CreateRunResponse{
@@ -808,8 +818,8 @@ func RetryRun(ctx *logger.RequestContext, runID string) error {
 		return err
 	}
 
-	// resume
-	if err := resumeRun(run); err != nil {
+	// restart
+	if err := restartRun(run, false); err != nil {
 		ctx.Logging().Errorf("retry run[%s] failed resumeRun. run:%+v. error:%s\n",
 			runID, run, err.Error())
 	}
@@ -903,7 +913,7 @@ func resumeActiveRuns() error {
 	go func() {
 		for _, run := range runList {
 			logger.LoggerForRun(run.ID).Debugf("ResumeActiveRuns: run[%s] with status[%s] begins to resume\n", run.ID, run.Status)
-			if err := resumeRun(run); err != nil {
+			if err := restartRun(run, true); err != nil {
 				logger.LoggerForRun(run.ID).Warnf("ResumeActiveRuns: run[%s] with status[%s] failed to resume. skipped.", run.ID, run.Status)
 			}
 		}
@@ -911,7 +921,7 @@ func resumeActiveRuns() error {
 	return nil
 }
 
-func resumeRun(run models.Run) error {
+func restartRun(run models.Run, isResume bool) error {
 	if run.RunCachedIDs != "" {
 		// 由于非成功完成的Run也会被Cache，且重跑会直接对原始的Run记录进行修改，
 		// 因此被Cache的Run不能重跑
@@ -934,7 +944,7 @@ func resumeRun(run models.Run) error {
 	if run.Disabled != "" {
 		wfs.Disabled = run.Disabled
 	}
-	// patch run.WorkflowSource to invoke func handleImageAndStartWf
+	// patch run.WorkflowSource to invoke func RestartWf
 	run.WorkflowSource = wfs
 	wfPtr, err := newWorkflowByRun(run)
 	if err != nil {
@@ -952,41 +962,52 @@ func resumeRun(run models.Run) error {
 		}
 	}()
 
-	if err := handleImageAndStartWf(run, wfPtr, true); err != nil {
-		logger.LoggerForRun(run.ID).Errorf("resume run[%s] failed handleImageAndStartWf. DockerEnv[%s] fsID[%s]. error:%s\n",
+	if err := RestartWf(run, wfPtr, isResume); err != nil {
+		logger.LoggerForRun(run.ID).Errorf("resume run[%s] failed RestartWf. DockerEnv[%s] fsID[%s]. error:%s\n",
 			run.ID, run.WorkflowSource.DockerEnv, run.GlobalFsID, err.Error())
 	}
 	return nil
 }
 
-// handleImageAndStartWf patch run.WorkflowSource before invoke this func!
-func handleImageAndStartWf(run models.Run, wfPtr *pipeline.Workflow, isResume bool) error {
-	if run.ID == "" {
-		err := fmt.Errorf("run id missing before start wf")
-		logger.Logger().Errorf(err.Error())
-		return err
-	}
-
+func StartWf(run models.Run, wfPtr *pipeline.Workflow) error {
 	logEntry := logger.LoggerForRun(run.ID)
-	logEntry.Debugf("start handleImageAndStartWf isResume:%t, run:%+v", isResume, run)
-	trace_logger.Key(run.ID).Debugf("start handleImageAndStartWf isResume:%t, run:%+v", isResume, run)
-	// 由于目前不支持.tar形式的dockerEnv，因此dockerEnv的检查已迁移至Validate
+	logEntry.Debugf("StartWf run:%+v", run)
+	trace_logger.Key(run.ID).Debugf("StartWf run:%+v", run)
 
+	// 由于在数据库中创建Run记录之前，没有runID，因此这里需要重新填写好runID后，初始化Runtime，以及填写wfMap
 	wfPtr.RunID = run.ID
 	wfPtr.NewWorkflowRuntime()
 	wfMap[run.ID] = wfPtr
 
-	if !isResume {
-		// start workflow with image url
-		trace_logger.Key(run.ID).Infof("start workflow with image url")
-		wfPtr.Start()
-		logEntry.Debugf("workflow started, run:%+v", run)
-	} else {
-		// set runtime and restart
-		trace_logger.Key(run.ID).Infof("resume workflow, set runtime and restart")
-		wfPtr.Restart(run.Runtime, run.PostProcess)
-		logEntry.Debugf("workflow restarted, run:%+v", run)
+	trace_logger.Key(run.ID).Infof("start workflow with image url")
+	wfPtr.Start()
+	logEntry.Debugf("workflow started")
+
+	return models.UpdateRun(logEntry, run.ID,
+		models.Run{DockerEnv: run.WorkflowSource.DockerEnv, Status: common.StatusRunPending})
+}
+
+func RestartWf(run models.Run, wfPtr *pipeline.Workflow, isResume bool) error {
+	logEntry := logger.LoggerForRun(run.ID)
+	logEntry.Debugf("RestartWf run:%+v", run)
+	trace_logger.Key(run.ID).Debugf("RestartWf run:%+v", run)
+
+	// set runtime and restart
+	trace_logger.Key(run.ID).Infof("resume workflow, set runtime and restart")
+	entryPointDagView := &schema.DagView{}
+	if len(run.Runtime[""]) == 1 {
+		tempDagView, ok := run.Runtime[""][0].(*schema.DagView)
+		if ok {
+			entryPointDagView = tempDagView
+		}
 	}
+	if isResume {
+		wfPtr.Resume(entryPointDagView, run.PostProcess)
+	} else {
+		wfPtr.Restart(entryPointDagView, run.PostProcess)
+	}
+	logEntry.Debugf("workflow restarted, run:%+v", run)
+
 	return models.UpdateRun(logEntry, run.ID,
 		models.Run{DockerEnv: run.WorkflowSource.DockerEnv, Status: common.StatusRunPending})
 }
@@ -1008,6 +1029,10 @@ func newWorkflowByRun(run models.Run) (*pipeline.Workflow, error) {
 		err := fmt.Errorf("NewWorkflow ptr for run[%s] is nil", run.ID)
 		logger.LoggerForRun(run.ID).Errorln(err.Error())
 		return nil, err
+	}
+	// 如果此时没有runID的话，那么在后续有runID之后，需要：1. 填充wfMap 2. 初始化wf.runtime
+	if run.ID != "" {
+		wfMap[run.ID] = wfPtr
 	}
 	return wfPtr, nil
 }
