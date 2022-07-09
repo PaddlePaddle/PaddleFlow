@@ -49,7 +49,7 @@ func mockerDagRuntime(ec chan WorkflowEvent) (*DagRuntime, error) {
 	rf.callbacks = mockCbs
 
 	extra := GetExtra()
-	wfptr, err := NewWorkflow(wfs, rf.runID, map[string]interface{}{}, extra, rf.callbacks)
+	wfptr, err := NewMockWorkflow(wfs, rf.runID, map[string]interface{}{}, extra, rf.callbacks)
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +82,7 @@ func TestNewDagRuntimeWithStatus(t *testing.T) {
 	rf.callbacks = mockCbs
 
 	extra := GetExtra()
-	wfptr, err := NewWorkflow(wfs, rf.runID, map[string]interface{}{}, extra, rf.callbacks)
+	wfptr, err := NewMockWorkflow(wfs, rf.runID, map[string]interface{}{}, extra, rf.callbacks)
 	assert.Nil(t, err)
 
 	wfs = wfptr.Source

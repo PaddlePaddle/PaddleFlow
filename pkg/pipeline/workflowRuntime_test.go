@@ -38,7 +38,7 @@ func mockWorkflowRuntime() (*WorkflowRuntime, error) {
 	}
 
 	extra := GetExtra()
-	wf, err := NewWorkflow(wfs, "", nil, extra, mockCbs)
+	wf, err := NewMockWorkflow(wfs, "", nil, extra, mockCbs)
 	if err != nil {
 		return nil, err
 	}

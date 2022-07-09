@@ -843,12 +843,3 @@ func (srt *StepRuntime) newJobView(msg string) schema.JobView {
 
 	return view
 }
-
-func (srt *StepRuntime) StopByView(view *schema.JobView) {
-	// 通过此函数终止的任务，相关信息不会网上冒泡
-	srt.job.(*PaddleFlowJob).SetJobID(view.JobID)
-	err := srt.job.Stop()
-	if err != nil {
-		srt.logger.Errorf("stop job[%s] failed", err.Error())
-	}
-}
