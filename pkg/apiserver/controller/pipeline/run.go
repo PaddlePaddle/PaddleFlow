@@ -251,7 +251,7 @@ func getWorkFlowSourceByJson(bodyMap map[string]interface{}) (schema.WorkflowSou
 }
 
 func ProcessJsonAttr(bodyMap map[string]interface{}) error {
-	// Json接口有，但runYaml没有的字段
+	// Json接口特有的全局参数
 	JsonAttrMap := map[string]interface{}{
 		JsonFlavour: nil,
 		JsonJobType: nil,
@@ -263,13 +263,13 @@ func ProcessJsonAttr(bodyMap map[string]interface{}) error {
 		JsonUserName:    nil,
 	}
 
-	// 先把Json接口有，但是Yaml接口没有的参数提取出来保存
+	// 先把Json接口特有的全局参数提取出来保存
 	for key := range JsonAttrMap {
 		JsonAttrMap[key] = bodyMap[key]
 		delete(bodyMap, key)
 	}
 
-	// 再处理Json接口特有的参数
+	// 获取Json全局Env
 	globalEnvMap, err := ParseJsonGlobalEnv(JsonAttrMap)
 	if err != nil {
 		return err
@@ -961,14 +961,19 @@ func resumeRun(run models.Run) error {
 
 // handleImageAndStartWf patch run.WorkflowSource before invoke this func!
 func handleImageAndStartWf(run models.Run, wfPtr *pipeline.Workflow, isResume bool) error {
+	if run.ID == "" {
+		err := fmt.Errorf("run id missing before start wf")
+		logger.Logger().Errorf(err.Error())
+		return err
+	}
+
 	logEntry := logger.LoggerForRun(run.ID)
 	logEntry.Debugf("start handleImageAndStartWf isResume:%t, run:%+v", isResume, run)
 	trace_logger.Key(run.ID).Debugf("start handleImageAndStartWf isResume:%t, run:%+v", isResume, run)
 	// 由于目前不支持.tar形式的dockerEnv，因此dockerEnv的检查已迁移至Validate
 
-	if run.ID != "" {
-		wfMap[run.ID] = wfPtr
-	}
+	wfMap[run.ID] = wfPtr
+	wfPtr.RunID = run.ID
 
 	if !isResume {
 		// start workflow with image url
@@ -1002,9 +1007,6 @@ func newWorkflowByRun(run models.Run) (*pipeline.Workflow, error) {
 		err := fmt.Errorf("NewWorkflow ptr for run[%s] is nil", run.ID)
 		logger.LoggerForRun(run.ID).Errorln(err.Error())
 		return nil, err
-	}
-	if run.ID != "" { // validate has run.ID == "". do not record
-		wfMap[run.ID] = wfPtr
 	}
 	return wfPtr, nil
 }
