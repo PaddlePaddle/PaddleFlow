@@ -369,6 +369,12 @@ func processRunJsonComponents(componentMap map[string]interface{}, globalEnvMap 
 		if subMap, ok := compMap["entry_points"].(map[string]interface{}); ok {
 			processRunJsonComponents(subMap, globalEnvMap)
 		} else {
+			if ref, ok := compMap["reference"].(map[string]interface{}); ok {
+				if refComp, ok := ref["component"].(string); ok && refComp != "" {
+					// reference节点不需要进行下面的替换操作
+					continue
+				}
+			}
 			_, ok = compMap["env"]
 			if !ok {
 				if err := unstructured.SetNestedMap(compMap, map[string]interface{}{}, "env"); err != nil {
