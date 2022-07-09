@@ -193,11 +193,6 @@ func (srt *StepRuntime) Restart(view *schema.JobView) {
 
 	srt.setSysParams()
 
-	if view.Status != StatusRuntimeFailed && view.StartTime != string(StatusRuntimeTerminated) && view.JobID != "" {
-		srt.restartWithRunning(view)
-		return
-	}
-
 	// 这条支线只有当前节点为 postProcess 节点才会走
 	srt.restartWithAbnormalStatus(view)
 }
@@ -224,7 +219,7 @@ func (srt *StepRuntime) needRestart(view *schema.JobView) (bool, error) {
 	return true, nil
 }
 
-func (srt *StepRuntime) restartWithRunning(view *schema.JobView) {
+func (srt *StepRuntime) Resume(view *schema.JobView) {
 	defer srt.processJobLock.Unlock()
 	srt.processJobLock.Lock()
 
@@ -236,6 +231,35 @@ func (srt *StepRuntime) restartWithRunning(view *schema.JobView) {
 		view := srt.newJobView(msg)
 		srt.syncToApiServerAndParent(WfEventJobUpdate, &view, msg)
 	}
+
+	// 如果jobID 为空，说明此时还没有发起job， 因此重新Start
+	if view.JobID == "" {
+		go srt.Start()
+		return
+	}
+
+	// 从 jobView 获取必要信息： jobID， Parameter， Command，Parameters, 等，同步至数据库中需要
+	/*
+			type JobView struct {
+			JobID       string            `json:"jobID"`
+			Name        string            `json:"name"`
+			FsMount     []FsMount         `json:"fsMount"`
+			Status      JobStatus         `json:"status"`
+			Artifacts   Artifacts         `json:"artifacts"`
+			Cache       Cache             `json:"cache"`
+			JobMessage  string            `json:"jobMessage"`
+		}
+	*/
+	srt.pk = view.PK
+	srt.getWorkFlowStep().FsMount = view.FsMount
+
+	srt.setSysParams()
+
+	srt.parallelismManager.increase()
+	srt.logger.Infof("Watch Job [%s] again", view.JobID)
+	srt.updateStatus(StatusRuntimeRunning)
+	srt.job = NewPaddleFlowJobWithJobView(view, srt.getWorkFlowStep().DockerEnv,
+		srt.receiveEventChildren)
 
 	srt.parallelismManager.increase()
 	srt.logger.Infof("Watch Job [%s] again", view.JobID)

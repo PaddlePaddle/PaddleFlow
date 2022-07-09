@@ -107,6 +107,8 @@ func (wfr *WorkflowRuntime) Resume(entryPointView *schema.DagView, postProcessVi
 	defer wfr.scheduleLock.Unlock()
 	wfr.scheduleLock.Lock()
 
+	wfr.startTime = entryPointView.StartTime
+
 	// 1、如果 ep 未处于终态， 则需要重启ep
 	if !isRuntimeFinallyStatus(entryPointView.Status) {
 		go wfr.entryPoints.Resume(entryPointView)
@@ -114,7 +116,40 @@ func (wfr *WorkflowRuntime) Resume(entryPointView *schema.DagView, postProcessVi
 		return nil
 	}
 
-	// 2、判断是否有 postProcess 节点
+	// 2、判断是否有 postProcess 节点，有的话则需要判断其状态决定是否运行
+	if len(wfr.WorkflowSource.PostProcess) != 0 {
+		for name, view := range *postProcessView {
+			if !isRuntimeFinallyStatus(view.Status) {
+				step := wfr.WorkflowSource.PostProcess[name]
+				failureOptionsCtx, _ := context.WithCancel(context.Background())
+				postName := wfr.generatePostProcessFullName(name)
+				postStep, err := NewReferenceSolver(wfr.WorkflowSource).resolveComponentReference(step)
+				if err != nil {
+					newStepRuntimeWithStatus(postName, postName, step, 0, wfr.postProcessPointsCtx, failureOptionsCtx,
+						wfr.EventChan, wfr.runConfig, "", StatusRuntimeFailed, err.Error())
+				}
+
+				postProcess := NewStepRuntime(postName, postName, postStep.(*schema.WorkflowSourceStep), 0,
+					wfr.postProcessPointsCtx, failureOptionsCtx, wfr.EventChan, wfr.runConfig, "")
+				wfr.postProcess = postProcess
+
+				wfr.postProcess.Resume(view)
+			}
+		}
+
+		go wfr.Listen()
+		return nil
+	}
+
+	// 统计状态，同步至 Server
+	wfr.entryPoints.updateStatus(entryPointView.Status)
+	for _, view := range *postProcessView {
+		if len(wfr.WorkflowSource.PostProcess) != 0 {
+			wfr.postProcess.updateStatus(view.Status)
+		}
+	}
+	wfr.updateStatusAccordingComponentStatus()
+	wfr.callback("update status after resum")
 
 	return nil
 }
