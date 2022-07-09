@@ -103,8 +103,13 @@ func (wfr *WorkflowRuntime) Start() error {
 	return nil
 }
 
-// Restart 从 DB 中恢复重启
-func (wfr *WorkflowRuntime) Restart(entryPointView schema.RuntimeView,
+func (wfr *WorkflowRuntime) Resume(entryPointView schema.DagView, postProcessView schema.PostProcessView) error {
+	wfr.status = common.StatusRunRunning
+	return nil
+}
+
+// Restart: 重新运行
+func (wfr *WorkflowRuntime) Restart(entryPointView schema.DagView,
 	postProcessView schema.PostProcessView) error {
 	defer wfr.scheduleLock.Unlock()
 	wfr.scheduleLock.Lock()
