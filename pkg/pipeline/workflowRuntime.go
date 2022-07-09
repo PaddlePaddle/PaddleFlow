@@ -118,7 +118,7 @@ func (wfr *WorkflowRuntime) Resume(entryPointView *schema.DagView, postProcessVi
 
 	// 2、判断是否有 postProcess 节点，有的话则需要判断其状态决定是否运行
 	if len(wfr.WorkflowSource.PostProcess) != 0 {
-		for name, view := range *postProcessView {
+		for name, view := range postProcessView {
 			if !isRuntimeFinallyStatus(view.Status) {
 				step := wfr.WorkflowSource.PostProcess[name]
 				failureOptionsCtx, _ := context.WithCancel(context.Background())
@@ -143,7 +143,7 @@ func (wfr *WorkflowRuntime) Resume(entryPointView *schema.DagView, postProcessVi
 
 	// 统计状态，同步至 Server
 	wfr.entryPoints.updateStatus(entryPointView.Status)
-	for _, view := range *postProcessView {
+	for _, view := range postProcessView {
 		if len(wfr.WorkflowSource.PostProcess) != 0 {
 			wfr.postProcess.updateStatus(view.Status)
 		}
