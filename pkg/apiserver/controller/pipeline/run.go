@@ -234,7 +234,24 @@ func buildWorkflowSource(ctx logger.RequestContext, req CreateRunRequest, fsID s
 
 // Used for API CreateRunJson, get wfs by json request.
 func getWorkFlowSourceByJson(bodyMap map[string]interface{}) (schema.WorkflowSource, error) {
-	// Json接口有，但runYaml没有的字段
+	// 先处理Json特有的参数
+	if err := ProcessJsonAttr(bodyMap); err != nil {
+		logger.Logger().Errorf("process json attribute failed, error: %s", err.Error())
+		return schema.WorkflowSource{}, err
+	}
+
+	// 获取yaml版的Wfs
+	wfs, err := schema.GetWorkflowSourceByMap(bodyMap)
+	if err != nil {
+		logger.Logger().Errorf("get workflowSource in json failed, error: %s", err.Error())
+		return schema.WorkflowSource{}, err
+	}
+
+	return wfs, nil
+}
+
+func ProcessJsonAttr(bodyMap map[string]interface{}) error {
+	// Json接口特有的全局参数
 	JsonAttrMap := map[string]interface{}{
 		JsonFlavour: nil,
 		JsonJobType: nil,
@@ -246,47 +263,45 @@ func getWorkFlowSourceByJson(bodyMap map[string]interface{}) (schema.WorkflowSou
 		JsonUserName:    nil,
 	}
 
-	// 先把Json接口有，但是Yaml接口没有的参数提取出来保存
+	// 先把Json接口特有的全局参数提取出来保存
 	for key := range JsonAttrMap {
 		JsonAttrMap[key] = bodyMap[key]
 		delete(bodyMap, key)
 	}
 
-	// 获取yaml版的Wfs
-	wfs, err := schema.GetWorkflowSourceByMap(bodyMap)
-	if err != nil {
-		logger.Logger().Errorf("get workflowSource in json failed, error: %s", err.Error())
-		return schema.WorkflowSource{}, err
-	}
-
-	// 再处理Json接口特有的参数
+	// 获取Json全局Env
 	globalEnvMap, err := ParseJsonGlobalEnv(JsonAttrMap)
 	if err != nil {
-		return schema.WorkflowSource{}, err
+		return err
 	}
 
-	// 处理components, entryPoints, postProcess
+	// 处理components, entryPoints, postProcess中，Json特有的参数
 	// 全局Env替换节点Env，节点Env的优先级更高
-	if err := processRunJsonComponents(wfs.Components, globalEnvMap); err != nil {
+	entryPointsMap, ok := bodyMap["entry_points"].(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("get entry_points map failed")
+	}
+	if err := processRunJsonComponents(entryPointsMap, globalEnvMap); err != nil {
 		logger.Logger().Errorf(err.Error())
-		return schema.WorkflowSource{}, err
+		return err
 	}
 
-	if err := processRunJsonComponents(wfs.EntryPoints.EntryPoints, globalEnvMap); err != nil {
-		logger.Logger().Errorf(err.Error())
-		return schema.WorkflowSource{}, err
+	postProcessMap, ok := bodyMap["post_process"].(map[string]interface{})
+	if ok {
+		if err := processRunJsonComponents(postProcessMap, globalEnvMap); err != nil {
+			logger.Logger().Errorf(err.Error())
+			return err
+		}
 	}
 
-	postMap := map[string]schema.Component{}
-	for k, v := range wfs.PostProcess {
-		postMap[k] = v
+	componentMap, ok := bodyMap["components"].(map[string]interface{})
+	if ok {
+		if err := processRunJsonComponents(componentMap, globalEnvMap); err != nil {
+			logger.Logger().Errorf(err.Error())
+			return err
+		}
 	}
-	if err := processRunJsonComponents(postMap, globalEnvMap); err != nil {
-		logger.Logger().Errorf(err.Error())
-		return schema.WorkflowSource{}, err
-	}
-
-	return wfs, nil
+	return nil
 }
 
 func ParseJsonGlobalEnv(jsonAttrMap map[string]interface{}) (map[string]string, error) {
@@ -344,33 +359,49 @@ func ParseJsonGlobalEnv(jsonAttrMap map[string]interface{}) (map[string]string, 
 }
 
 // 该函数主要完成CreateRunJson接口中，各类变量的全局替换操作
-func processRunJsonComponents(components map[string]schema.Component, envMap map[string]string) error {
-	for _, component := range components {
-		if dag, ok := component.(*schema.WorkflowSourceDag); ok {
-			if err := processRunJsonComponents(dag.EntryPoints, envMap); err != nil {
-				return err
-			}
-		} else if step, ok := component.(*schema.WorkflowSourceStep); ok {
-			if step.Env == nil {
-				step.Env = map[string]string{}
-			}
-			if step.Parameters == nil {
-				step.Parameters = map[string]interface{}{}
-			}
-			// Reference节点无需替换
-			if step.Reference.Component == "" {
-				// 全局Env与节点Env合并，节点优先级高于全局
-				for globalKey, globalValue := range envMap {
-					if _, ok := step.Env[globalKey]; !ok {
-						step.Env[globalKey] = globalValue
-					}
+func processRunJsonComponents(componentMap map[string]interface{}, globalEnvMap map[string]string) error {
+	for _, comp := range componentMap {
+		compMap, ok := comp.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("component should be map type")
+		}
+
+		if subMap, ok := compMap["entry_points"].(map[string]interface{}); ok {
+			processRunJsonComponents(subMap, globalEnvMap)
+		} else {
+			_, ok = compMap["env"]
+			if !ok {
+				if err := unstructured.SetNestedMap(compMap, map[string]interface{}{}, "env"); err != nil {
+					return fmt.Errorf("initMap failed, error:%v", err)
 				}
 			}
-		} else {
-			return fmt.Errorf("component is not dag or step")
+			env, ok := compMap["env"].(map[string]interface{})
+			if !ok {
+				return fmt.Errorf("[env] in component should be map type")
+			}
+
+			transValue2Env(compMap, env, JsonFlavour, schema.EnvJobFlavour)
+			transValue2Env(compMap, env, JsonJobType, schema.EnvJobType)
+			transValue2Env(compMap, env, JsonQueue, schema.EnvJobQueueName)
+
+			for key, value := range globalEnvMap {
+				if _, ok := env[key]; !ok {
+					env[key] = value
+				}
+			}
 		}
+
 	}
 	return nil
+}
+
+func transValue2Env(compMap map[string]interface{}, env map[string]interface{}, attrStr, attrEnvStr string) {
+	if value, ok := compMap[attrStr].(string); ok {
+		if _, ok := env[schema.EnvJobFlavour]; !ok {
+			env[attrEnvStr] = value
+		}
+		delete(compMap, attrStr)
+	}
 }
 
 func getSourceAndYaml(wfs schema.WorkflowSource) (string, string, error) {
@@ -930,14 +961,19 @@ func resumeRun(run models.Run) error {
 
 // handleImageAndStartWf patch run.WorkflowSource before invoke this func!
 func handleImageAndStartWf(run models.Run, wfPtr *pipeline.Workflow, isResume bool) error {
+	if run.ID == "" {
+		err := fmt.Errorf("run id missing before start wf")
+		logger.Logger().Errorf(err.Error())
+		return err
+	}
+
 	logEntry := logger.LoggerForRun(run.ID)
 	logEntry.Debugf("start handleImageAndStartWf isResume:%t, run:%+v", isResume, run)
 	trace_logger.Key(run.ID).Debugf("start handleImageAndStartWf isResume:%t, run:%+v", isResume, run)
 	// 由于目前不支持.tar形式的dockerEnv，因此dockerEnv的检查已迁移至Validate
 
-	if run.ID != "" {
-		wfMap[run.ID] = wfPtr
-	}
+	wfMap[run.ID] = wfPtr
+	wfPtr.RunID = run.ID
 
 	if !isResume {
 		// start workflow with image url
@@ -971,9 +1007,6 @@ func newWorkflowByRun(run models.Run) (*pipeline.Workflow, error) {
 		err := fmt.Errorf("NewWorkflow ptr for run[%s] is nil", run.ID)
 		logger.LoggerForRun(run.ID).Errorln(err.Error())
 		return nil, err
-	}
-	if run.ID != "" { // validate has run.ID == "". do not record
-		wfMap[run.ID] = wfPtr
 	}
 	return wfPtr, nil
 }

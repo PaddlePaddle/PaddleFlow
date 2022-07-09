@@ -84,11 +84,9 @@ func (wfr *WorkflowRuntime) generatePostProcessFullName(name string) string {
 
 // 运行
 func (wfr *WorkflowRuntime) Start() error {
-	wfr.logger.Infof("++++begin to start execute run[%s]", wfr.runID)
 	defer wfr.scheduleLock.Unlock()
 
 	wfr.scheduleLock.Lock()
-	wfr.logger.Infof("+++++ begin to start execute run[%s]", wfr.runID)
 	// 处理正式运行前，便收到了 Stop 信号的场景
 	if wfr.status == common.StatusRunTerminating || wfr.IsCompleted() {
 		wfr.logger.Warningf("the status of run is %s, so it won't start run", wfr.status)
