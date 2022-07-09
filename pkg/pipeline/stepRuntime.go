@@ -186,20 +186,16 @@ func (srt *StepRuntime) Restart(view *schema.JobView) {
 	}
 	if !need {
 		msg := fmt.Sprintf("step [%s] is already in status[%s], no restart required", srt.name, view.Status)
-		srt.updateStatus(view.Status)
+		// 此处不直接调用的原因是此时不需要降低 workflowruntime 的并发数
+		srt.baseComponentRuntime.updateStatus(view.Status)
 		srt.syncToApiServerAndParent(WfEventJobUpdate, view, msg)
 		return
 	}
 
-	srt.setSysParams()
-
-	if view.Status != StatusRuntimeFailed && view.StartTime != string(StatusRuntimeTerminated) && view.JobID != "" {
-		srt.restartWithRunning(view)
-		return
-	}
+	srt.pk = view.PK
 
 	// 这条支线只有当前节点为 postProcess 节点才会走
-	srt.restartWithAbnormalStatus(view)
+	srt.Start()
 }
 
 func (srt *StepRuntime) needRestart(view *schema.JobView) (bool, error) {
@@ -213,18 +209,14 @@ func (srt *StepRuntime) needRestart(view *schema.JobView) (bool, error) {
 		return false, err
 	}
 
-	srt.pk = view.PK
-
 	if view.Status == StatusRuntimeSucceeded || view.Status == StatusRuntimeSkipped {
-		// 此处不直接调用的原因是此时不需要降低 workflowruntime 的并发数
-		srt.baseComponentRuntime.updateStatus(StatusRuntimeSucceeded)
 		return false, nil
 	}
 
 	return true, nil
 }
 
-func (srt *StepRuntime) restartWithRunning(view *schema.JobView) {
+func (srt *StepRuntime) Resume(view *schema.JobView) {
 	defer srt.processJobLock.Unlock()
 	srt.processJobLock.Lock()
 
@@ -237,20 +229,33 @@ func (srt *StepRuntime) restartWithRunning(view *schema.JobView) {
 		srt.syncToApiServerAndParent(WfEventJobUpdate, &view, msg)
 	}
 
+	// 如果jobID 为空，说明此时还没有发起job， 因此重新Start
+	if view.JobID == "" {
+		go srt.Start()
+		return
+	}
+
 	srt.parallelismManager.increase()
-	srt.logger.Infof("Watch Job [%s] again", view.JobID)
-	srt.updateStatus(StatusRuntimeRunning)
 	srt.job = NewPaddleFlowJobWithJobView(view, srt.getWorkFlowStep().DockerEnv,
 		srt.receiveEventChildren)
+
+	srt.pk = view.PK
+	srt.getWorkFlowStep().FsMount = view.FsMount
+	srt.updateStatus(view.Status)
+	srt.setSysParams()
+	srt.updateJob(false)
+
+	srt.job.(*PaddleFlowJob).SetJobID(view.JobID)
+	srt.logger.Infof("Watch Job [%s] again", srt.job.JobID)
+
+	msg := fmt.Sprintf("resume step[%s] with status[%s]", srt.name, string(srt.status))
+	newView := srt.newJobView(msg)
+	srt.syncToApiServerAndParent(WfEventJobUpdate, &newView, msg)
 
 	go srt.Listen()
 	go srt.Stop()
 	go srt.job.Watch()
 	return
-}
-
-func (srt *StepRuntime) restartWithAbnormalStatus(view *schema.JobView) {
-	srt.Start()
 }
 
 func (srt *StepRuntime) Listen() {
