@@ -654,6 +654,8 @@ func ValidateAndStartRun(ctx logger.RequestContext, run models.Run, userName str
 	_ = trace_logger.UpdateKey(requestId, runID)
 	trace_logger.Key(runID).Infof("create run in db success")
 
+	// 填充好RunID之后，需要
+
 	defer func() {
 		if info := recover(); info != nil {
 			errmsg := fmt.Sprintf("StartWf failed, %v", info)
@@ -972,6 +974,7 @@ func handleImageAndStartWf(run models.Run, wfPtr *pipeline.Workflow, isResume bo
 	trace_logger.Key(run.ID).Debugf("start handleImageAndStartWf isResume:%t, run:%+v", isResume, run)
 	// 由于目前不支持.tar形式的dockerEnv，因此dockerEnv的检查已迁移至Validate
 
+	// 由于在数据库中创建Run记录之前，没有runID，因此这里需要重新填写好runID后，初始化Runtime，以及填写wfMap
 	wfPtr.RunID = run.ID
 	wfPtr.NewWorkflowRuntime()
 	wfMap[run.ID] = wfPtr
@@ -1008,6 +1011,10 @@ func newWorkflowByRun(run models.Run) (*pipeline.Workflow, error) {
 		err := fmt.Errorf("NewWorkflow ptr for run[%s] is nil", run.ID)
 		logger.LoggerForRun(run.ID).Errorln(err.Error())
 		return nil, err
+	}
+	// 如果此时没有runID的话，那么在后续有runID之后，需要：1. 填充wfMap 2. 初始化wf.runtime
+	if run.ID != "" {
+		wfMap[run.ID] = wfPtr
 	}
 	return wfPtr, nil
 }

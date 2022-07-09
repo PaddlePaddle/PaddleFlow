@@ -103,21 +103,8 @@ func (wfr *WorkflowRuntime) Start() error {
 	return nil
 }
 
-<<<<<<< HEAD
-func (wfr *WorkflowRuntime) Resume(entryPointView *schema.DagView, postProcessView *schema.PostProcessView) error {
-	defer wfr.scheduleLock.Unlock()
-	wfr.scheduleLock.Lock()
-
-	// 1、如果 ep 未处于终态， 则需要重启ep
-	if !isRuntimeFinallyStatus(entryPointView.Status) {
-		go wfr.entryPoints.Resume(entryPointView)
-		go wfr.Listen()
-	}
-
-=======
 func (wfr *WorkflowRuntime) Resume(entryPointView schema.DagView, postProcessView schema.PostProcessView) error {
 	wfr.status = common.StatusRunRunning
->>>>>>> 6172648bbd61fbdbfb1d91d4a9ef3bb68d0b1687
 	return nil
 }
 
