@@ -42,7 +42,13 @@ const (
 	FailureStrategyContinue = "continue"
 
 	EnvDockerEnv = "dockerEnv"
+
+	FsPrefix = "fs"
 )
+
+func ID(userName, fsName string) string {
+	return FsPrefix + userName + "-" + fsName
+}
 
 type Artifacts struct {
 	Input  map[string]string `yaml:"input"       json:"input"`
@@ -804,15 +810,16 @@ func (wfs *WorkflowSource) TransToRunYamlRaw() (runYamlRaw string, err error) {
 }
 
 // 给所有Step的fsMount和fsScope的fsID赋值
-func (wfs *WorkflowSource) ProcessFsAndGetAllIDs(userName string) ([]string, error) {
+func (wfs *WorkflowSource) ProcessFsAndGetAllIDs(userName string, globalFsName string) ([]string, error) {
 	// 用map记录所有需要返回的ID，去重
 	fsIDMap := map[string]int{}
+
 	logger.Logger().Infof("debug: begin process FsID")
-	if err := wfs.processFsByUserName(wfs.EntryPoints.EntryPoints, userName, fsIDMap); err != nil {
+	if err := wfs.processFsByUserName(wfs.EntryPoints.EntryPoints, userName, fsIDMap, globalFsName); err != nil {
 		return []string{}, err
 	}
 
-	if err := wfs.processFsByUserName(wfs.Components, userName, fsIDMap); err != nil {
+	if err := wfs.processFsByUserName(wfs.Components, userName, fsIDMap, globalFsName); err != nil {
 		return []string{}, err
 	}
 
@@ -820,7 +827,7 @@ func (wfs *WorkflowSource) ProcessFsAndGetAllIDs(userName string) ([]string, err
 	for k, v := range wfs.PostProcess {
 		postMap[k] = v
 	}
-	if err := wfs.processFsByUserName(postMap, userName, fsIDMap); err != nil {
+	if err := wfs.processFsByUserName(postMap, userName, fsIDMap, globalFsName); err != nil {
 		return []string{}, err
 	}
 
@@ -832,22 +839,22 @@ func (wfs *WorkflowSource) ProcessFsAndGetAllIDs(userName string) ([]string, err
 	return resFsIDList, nil
 }
 
-func (wfs *WorkflowSource) processFsByUserName(compMap map[string]Component, userName string, fsIDMap map[string]int) error {
+func (wfs *WorkflowSource) processFsByUserName(compMap map[string]Component, userName string, fsIDMap map[string]int, globalFsName string) error {
 	for _, comp := range compMap {
 		if dag, ok := comp.(*WorkflowSourceDag); ok {
-			if err := wfs.processFsByUserName(dag.EntryPoints, userName, fsIDMap); err != nil {
+			if err := wfs.processFsByUserName(dag.EntryPoints, userName, fsIDMap, globalFsName); err != nil {
 				return err
 			}
 		} else if step, ok := comp.(*WorkflowSourceStep); ok {
-			// 下面用来检查FsScope中的FsName是否都在FsMount中
-			fsNameSet := map[string]int{}
+			// fsNameSet用来检查FsScope中的FsName是否都在FsMount中，或者是global_fs_name
+			fsNameSet := map[string]int{globalFsName: 1}
 			fsNameSet[wfs.FsOptions.GlobalFsName] = 1
 
 			for i, mount := range step.FsMount {
 				if mount.FsName == "" {
 					return fmt.Errorf("[fs_name] in fs_mount must be set")
 				}
-				mount.FsID = "fs-" + userName + "-" + mount.FsName
+				mount.FsID = ID(userName, mount.FsName)
 
 				fsNameSet[mount.FsName] = 1
 				fsIDMap[mount.FsID] = 1
@@ -859,7 +866,7 @@ func (wfs *WorkflowSource) processFsByUserName(compMap map[string]Component, use
 				if scope.FsName == "" {
 					return fmt.Errorf("[fs_name] in fs_scope must be set")
 				}
-				scope.FsID = "fs-" + userName + "-" + scope.FsName
+				scope.FsID = ID(userName, scope.FsName)
 
 				// 检查FsScope中的FsName是否都在FsMount中
 				if _, ok := fsNameSet[scope.FsName]; !ok {

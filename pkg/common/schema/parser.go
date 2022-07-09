@@ -262,6 +262,8 @@ func (p *Parser) ParseStep(params map[string]interface{}, step *WorkflowSourceSt
 					resEnv = envValue
 				case int64:
 					resEnv = strconv.FormatInt(envValue, 10)
+				case float64:
+					resEnv = strings.TrimRight(strconv.FormatFloat(envValue, 'f', 8, 64), "0")
 				default:
 					return fmt.Errorf("values in [env] should be string type")
 				}
