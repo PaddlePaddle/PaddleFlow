@@ -593,11 +593,7 @@ func GetWorkflowSourceByMap(yamlMap map[string]interface{}) (WorkflowSource, err
 	}
 
 	// 全局参数替换
-	entryPoints, ok := yamlMap["entry_points"]
-	if !ok {
-		return WorkflowSource{}, fmt.Errorf("get entry_points failed")
-	}
-	entryPointsMap, ok := entryPoints.(map[string]interface{})
+	entryPointsMap, ok := yamlMap["entry_points"].(map[string]interface{})
 	if !ok {
 		return WorkflowSource{}, fmt.Errorf("get entry_points map failed")
 	}
@@ -609,23 +605,15 @@ func GetWorkflowSourceByMap(yamlMap map[string]interface{}) (WorkflowSource, err
 	for k, v := range wfs.PostProcess {
 		postComponentsMap[k] = v
 	}
-	postProcess, ok := yamlMap["post_process"]
+	postProcessMap, ok := yamlMap["post_process"].(map[string]interface{})
 	if ok {
-		postProcessMap, ok := postProcess.(map[string]interface{})
-		if !ok {
-			return WorkflowSource{}, fmt.Errorf("get post_process map failed")
-		}
 		if err := wfs.ProcessRuntimeComponents(postComponentsMap, yamlMap, postProcessMap); err != nil {
 			return WorkflowSource{}, err
 		}
 	}
 
-	components, ok := yamlMap["components"]
+	componentMap, ok := yamlMap["components"].(map[string]interface{})
 	if ok {
-		componentMap, ok := components.(map[string]interface{})
-		if !ok {
-			return WorkflowSource{}, fmt.Errorf("get components map failed")
-		}
 		if err := wfs.ProcessRuntimeComponents(wfs.Components, yamlMap, componentMap); err != nil {
 			return WorkflowSource{}, err
 		}
