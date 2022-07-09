@@ -623,6 +623,12 @@ func (srt *StepRuntime) startJob() (err error) {
 		return err
 	}
 
+	err = srt.logCache()
+	if err != nil {
+		// 如果 cache 信息存储失败，只打印日志，不做额外处理
+		srt.logger.Errorf(err.Error())
+	}
+
 	return
 }
 
@@ -674,13 +680,6 @@ func (srt *StepRuntime) Execute() {
 					break
 				}
 			}
-		}
-
-		err = srt.logCache()
-		if err != nil {
-			srt.logger.Errorf(err.Error())
-			srt.processStartAbnormalStatus(err.Error(), schema.StatusJobFailed)
-			return
 		}
 	}
 
