@@ -729,6 +729,10 @@ func (wfs *WorkflowSource) ProcessRuntimeComponents(components map[string]Compon
 func ProcessStepCacheByMap(cache *Cache, globalCacheMap map[string]interface{}, componentCacheMap map[string]interface{}) error {
 	// 节点级别的Cache字段的优先级大于全局Cache字段
 	parser := Parser{}
+
+	// 由于ParseCache中会将节点级别的FsScope再次添加进当前节点的FsScope，因此这里先清空，避免重复
+	cache.FsScope = []FsScope{}
+
 	// 先将节点的Cache，用全局的Cache赋值，这样如果下面节点级别的Cache字段没有再次覆盖，那节点级别的Cache字段就会采用全局的值
 	if err := parser.ParseCache(globalCacheMap, cache); err != nil {
 		return err
