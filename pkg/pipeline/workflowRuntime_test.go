@@ -195,7 +195,7 @@ func TestRestartEntry(t *testing.T) {
 	defer patch4.Reset()
 
 	// 测试都需要重启的情况
-	go wfr.Restart(map[string][]schema.ComponentView{}, map[string]*schema.JobView{})
+	go wfr.Restart(&schema.DagView{}, map[string]*schema.JobView{})
 	go wfr.Listen()
 
 	time.Sleep(time.Millisecond * 100)
@@ -241,7 +241,12 @@ func TestRestartEntry(t *testing.T) {
 		},
 	}
 
-	go wfr.Restart(views, map[string]*schema.JobView{})
+	dagView := &schema.DagView{
+		EntryPoints: views,
+		Status:      StatusRuntimeSucceeded,
+	}
+
+	go wfr.Restart(dagView, map[string]*schema.JobView{})
 	go wfr.Listen()
 	time.Sleep(time.Millisecond * 100)
 

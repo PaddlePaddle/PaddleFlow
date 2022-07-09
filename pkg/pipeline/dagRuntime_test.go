@@ -783,7 +783,7 @@ func TestProcessFailureOptions(t *testing.T) {
 	})
 	drt.WorkflowSource.FailureOptions.Strategy = "continue"
 
-	drt.ProcessFailureOptions(*event, false)
+	drt.ProcessFailureOptions(*event)
 	time.Sleep(time.Millisecond * 100)
 
 	assert.Len(t, drt.subComponentRumtimes, 2)
@@ -795,7 +795,7 @@ func TestProcessFailureOptions(t *testing.T) {
 	drt.subComponentRumtimes["square-loop"] = append(drt.subComponentRumtimes["square-loop"], drt3)
 
 	fmt.Printf("\n\n\n\n\n\n\n")
-	drt.ProcessFailureOptions(*event, false)
+	drt.ProcessFailureOptions(*event)
 	time.Sleep(time.Millisecond * 100)
 
 	assert.Len(t, drt.subComponentRumtimes, 7)

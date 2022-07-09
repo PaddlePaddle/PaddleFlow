@@ -172,48 +172,13 @@ func (srt *StepRuntime) Start() {
 // 否则 创建一个新的job并开始调度执行
 func (srt *StepRuntime) Restart(view *schema.JobView) {
 	srt.logger.Infof("begin to restart step[%s]", srt.name)
-
-	need, err := srt.needRestart(view)
-	if err != nil {
-		msg := fmt.Sprintf("cannot decide to whether to restart step[%s]: %s", srt.name, err.Error())
-		srt.logger.Errorf(msg)
-
-		// 此时没有占坑，不需要降低并发度
-		srt.baseComponentRuntime.updateStatus(StatusRuntimeFailed)
-		view := srt.newJobView(msg)
-		srt.syncToApiServerAndParent(WfEventJobUpdate, &view, msg)
-		return
-	}
-	if !need {
-		msg := fmt.Sprintf("step [%s] is already in status[%s], no restart required", srt.name, view.Status)
-		// 此处不直接调用的原因是此时不需要降低 workflowruntime 的并发数
-		srt.baseComponentRuntime.updateStatus(view.Status)
-		srt.syncToApiServerAndParent(WfEventJobUpdate, view, msg)
-		return
-	}
+	defer srt.processJobLock.Unlock()
+	srt.processJobLock.Lock()
 
 	srt.pk = view.PK
 
 	// 这条支线只有当前节点为 postProcess 节点才会走
-	srt.Start()
-}
-
-func (srt *StepRuntime) needRestart(view *schema.JobView) (bool, error) {
-	defer srt.processJobLock.Unlock()
-	srt.processJobLock.Lock()
-
-	if srt.status != "" {
-		// 此时说明其余的协程正在处理当前的运行时，因此直接退出当前协程
-		err := fmt.Errorf("inner error: cannot restart step[%s], because it's already in status[%s], "+
-			"maybe multi gorutine process this step", srt.name, srt.status)
-		return false, err
-	}
-
-	if view.Status == StatusRuntimeSucceeded || view.Status == StatusRuntimeSkipped {
-		return false, nil
-	}
-
-	return true, nil
+	go srt.Start()
 }
 
 func (srt *StepRuntime) Resume(view *schema.JobView) {
