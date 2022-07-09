@@ -103,7 +103,7 @@ func (wfr *WorkflowRuntime) Start() error {
 	return nil
 }
 
-func (wfr *WorkflowRuntime) Resume(entryPointView *schema.DagView, postProcessView *schema.PostProcessView) error {
+func (wfr *WorkflowRuntime) Resume(entryPointView *schema.DagView, postProcessView schema.PostProcessView) error {
 	defer wfr.scheduleLock.Unlock()
 	wfr.scheduleLock.Lock()
 
@@ -166,45 +166,16 @@ func (wfr *WorkflowRuntime) Restart(entryPointView *schema.DagView,
 	wfr.logger.Infof(msg)
 	wfr.callback(msg)
 
-	// 1、处理entryPoint
-
-	// 2. 这一部分没有意义
-	need, err := wfr.entryPoints.needRestart(entryPointView)
-	if err != nil {
-		wfr.status = common.StatusRunFailed
-		wfr.callback("cannot decide to whether to restart entryPoints: " + err.Error())
+	if entryPointView.Status != StatusRuntimeSucceeded {
+		wfr.entryPoints.Restart(entryPointView)
+		go wfr.Listen()
+		return nil
+	} else {
+		// 此时 postPost节点的状态一定为 异常状态，直接重新调度 postProcess 即可
+		wfr.schedulePostProcess()
+		go wfr.Listen()
+		return nil
 	}
-
-	// 无论 need 是否为True， 调用 Restart 函数来更新 entrypoing 的状态
-	go wfr.entryPoints.Restart(entryPointView)
-
-	// 只有在 不需要重启 entryPoint 的时候才需要重启 postProcess。
-	// 当 entryPoint 需要重启的时候，postProcess 节点，无论如何都需要重新运行一次，此时应该有 processEvent 函数触发
-	if !need {
-		// 理论上不会存在这种情况，因为此时的run 的状态应该是 succeeded
-		if wfr.runConfig.WorkflowSource.PostProcess == nil {
-			return nil
-		} else {
-			for name, step := range wfr.WorkflowSource.PostProcess {
-				failureOptionsCtx, _ := context.WithCancel(context.Background())
-				postName := wfr.generatePostProcessFullName(name)
-				postStep, err := NewReferenceSolver(wfr.WorkflowSource).resolveComponentReference(step)
-				if err != nil {
-					newStepRuntimeWithStatus(postName, postName, step, 0, wfr.postProcessPointsCtx, failureOptionsCtx,
-						wfr.EventChan, wfr.runConfig, "", StatusRuntimeFailed, err.Error())
-				}
-				postProcess := NewStepRuntime(postName, postName, postStep.(*schema.WorkflowSourceStep), 0,
-					wfr.postProcessPointsCtx, failureOptionsCtx, wfr.EventChan, wfr.runConfig, "")
-				wfr.postProcess = postProcess
-
-				view := postProcessView[name]
-				wfr.postProcess.Restart(view)
-			}
-		}
-	}
-
-	go wfr.Listen()
-	return nil
 }
 
 // Stop 停止 Workflow
