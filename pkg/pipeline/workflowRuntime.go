@@ -84,10 +84,11 @@ func (wfr *WorkflowRuntime) generatePostProcessFullName(name string) string {
 
 // 运行
 func (wfr *WorkflowRuntime) Start() error {
+	wfr.logger.Infof("++++begin to start execute run[%s]", wfr.runID)
 	defer wfr.scheduleLock.Unlock()
 	wfr.scheduleLock.Lock()
+	wfr.logger.Infof("+++++ begin to start execute run[%s]", wfr.runID)
 
-	//
 	// 处理正式运行前，便收到了 Stop 信号的场景
 	if wfr.status == common.StatusRunTerminating || wfr.IsCompleted() {
 		wfr.logger.Warningf("the status of run is %s, so it won't start run", wfr.status)
@@ -232,9 +233,6 @@ func (wfr *WorkflowRuntime) IsCompleted() bool {
 }
 
 func (wfr *WorkflowRuntime) schedulePostProcess() {
-	defer wfr.scheduleLock.Unlock()
-	wfr.scheduleLock.Lock()
-
 	wfr.logger.Debugf("begin to start postProcess")
 	if wfr.postProcess != nil {
 		wfr.logger.Warningf("the postProcess step[%s] has been scheduled", wfr.postProcess.runtimeName)
@@ -280,6 +278,9 @@ func (wfr *WorkflowRuntime) processEvent(event WorkflowEvent) error {
 	// 2. 如果 entryPoints 处于终态，但是postProcess 还没有开始执行，此时则应该开始执行 PostProcess 节点
 	// 3. 如果 entryPoints 处于终态，且PostProcess 处于中间态，则只需做好信息同步即可
 	// 4. 如果 entryPoints 和 postProcess 均处于终态，则会更新 Run 的状态
+	defer wfr.scheduleLock.Unlock()
+	wfr.scheduleLock.Lock()
+
 	if wfr.entryPoints.isDone() {
 		wfr.schedulePostProcess()
 	}
