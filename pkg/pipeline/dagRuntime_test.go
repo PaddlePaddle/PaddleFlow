@@ -279,7 +279,7 @@ func TestScheduleSubComponent(t *testing.T) {
 	})
 	defer patch2.Reset()
 
-	drt.scheduleSubComponent(true)
+	drt.scheduleSubComponent()
 	time.Sleep(time.Millisecond * 100)
 
 	assert.Len(t, drt.subComponentRumtimes, 2)
@@ -294,13 +294,13 @@ func TestScheduleSubComponent(t *testing.T) {
 	drt.subComponentRumtimes["randint"][0].updateStatus(StatusRuntimeSucceeded)
 
 	drt.updateStatus(StatusRuntimeTerminating)
-	drt.scheduleSubComponent(true)
+	drt.scheduleSubComponent()
 	assert.Len(t, drt.subComponentRumtimes, 2)
 	assert.Len(t, drt.subComponentRumtimes["randint"], 1)
 	assert.Len(t, drt.subComponentRumtimes["disStep"], 1)
 
 	drt.updateStatus(StatusRuntimeRunning)
-	drt.scheduleSubComponent(true)
+	drt.scheduleSubComponent()
 	time.Sleep(time.Millisecond * 100)
 
 	assert.Len(t, drt.subComponentRumtimes, 4)

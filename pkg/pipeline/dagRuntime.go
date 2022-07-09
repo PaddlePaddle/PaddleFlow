@@ -311,24 +311,14 @@ func (drt *DagRuntime) Start() {
 	go drt.Stop()
 
 	// 开始调度子节点
-	drt.scheduleSubComponent(true)
+	drt.scheduleSubComponent()
 }
 
 // scheduleSubComponent: 调度子节点运行
 // 不返回error，直接通过 event 向上冒泡
-func (drt *DagRuntime) scheduleSubComponent(mustSchedule bool) {
+func (drt *DagRuntime) scheduleSubComponent() {
 	// 1、获取可以进行调度的节点
 	readyComponent := drt.getReadyComponent()
-
-	// 如果 mustSchedule 为True, 说明此时必须要调度某些子节点运行，否则便是有bug， 此时，直接终止本次运行
-	if len(readyComponent) == 0 && mustSchedule {
-		err := fmt.Errorf("cannot find any ready subStep or subDag for dag[%s] while mustSchedule is True",
-			drt.name)
-		drt.logger.Errorln(err.Error())
-
-		drt.ctx.Done()
-		return
-	}
 
 	defer drt.processSubComponentLock.Unlock()
 	drt.processSubComponentLock.Lock()
@@ -412,7 +402,7 @@ func (drt *DagRuntime) Restart(dagView *schema.DagView) {
 
 	// 2、 对于已经有处于 succeeded 、 running、 skipped 状态的runtime的节点，说明其一定是处于可调度的状态，
 	// 此时需要判断其对应的节点是否为 循环结构，是的话，可能有某几次运行失败，或者还没有来的及发起，此时我们需要补齐缺失的运行
-	hasSchedule, err := drt.scheduleSubComponentAccordingView(dagView)
+	err = drt.scheduleSubComponentAccordingView(dagView)
 	if err != nil {
 		err = fmt.Errorf("restart failed: %s", err.Error())
 		drt.logger.Error(err.Error())
@@ -427,14 +417,7 @@ func (drt *DagRuntime) Restart(dagView *schema.DagView) {
 
 	// 4、根据节点依赖关系，来开始调度此时可运行的节点。
 	// 这里做一次调度的原因是，避免 3 中没有发起任何任务，导致永远监听不到信息，导致任务 hang 住的情况出现
-	var mustSchedule bool
-	if hasSchedule {
-		mustSchedule = false
-	} else {
-		mustSchedule = true
-	}
-
-	drt.scheduleSubComponent(mustSchedule)
+	drt.scheduleSubComponent()
 	return
 }
 
@@ -575,8 +558,7 @@ func (drt *DagRuntime) createDagRuntimeAccordingView(view *schema.DagView, name 
 	return sDrt
 }
 
-func (drt *DagRuntime) scheduleSubComponentAccordingView(dagView *schema.DagView) (hasSchedule bool, err error) {
-	hasSchedule = false
+func (drt *DagRuntime) scheduleSubComponentAccordingView(dagView *schema.DagView) (err error) {
 	err = nil
 
 	sorted, err := TopologicalSort(drt.getworkflowSouceDag().EntryPoints)
@@ -651,9 +633,7 @@ func (drt *DagRuntime) scheduleSubComponentAccordingView(dagView *schema.DagView
 			drt.logger.Infof("recreated runtime for %s[%s] with status[%s]",
 				component.GetType(), runtime.getName(), runtime.getStatus())
 
-			if status == StatusRuntimeRunning {
-				hasSchedule = true
-			} else {
+			if status != StatusRuntimeRunning {
 				drt.logger.Infof("sub%s[%s] don't need restart, because it's already in status[%s]",
 					component.GetType(), runtime.getName(), runtime.getStatus())
 			}
@@ -754,7 +734,7 @@ func (drt *DagRuntime) processEventFromSubComponent(event WorkflowEvent) error {
 
 	// 如果 dagRuntime 未处于终态，则需要判断是否有新的子节点可以运行
 	if !drt.done {
-		drt.scheduleSubComponent(false)
+		drt.scheduleSubComponent()
 	}
 
 	return nil
