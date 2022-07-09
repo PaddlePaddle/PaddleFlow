@@ -103,7 +103,6 @@ func (wfr *WorkflowRuntime) Start() error {
 	return nil
 }
 
-<<<<<<< HEAD
 func (wfr *WorkflowRuntime) Resume(entryPointView *schema.DagView, postProcessView *schema.PostProcessView) error {
 	defer wfr.scheduleLock.Unlock()
 	wfr.scheduleLock.Lock()
@@ -112,21 +111,16 @@ func (wfr *WorkflowRuntime) Resume(entryPointView *schema.DagView, postProcessVi
 	if !isRuntimeFinallyStatus(entryPointView.Status) {
 		go wfr.entryPoints.Resume(entryPointView)
 		go wfr.Listen()
+		return nil
 	}
 
-=======
-func (wfr *WorkflowRuntime) Resume(entryPointView schema.DagView, postProcessView schema.PostProcessView) error {
-	wfr.status = common.StatusRunRunning
->>>>>>> 6172648bbd61fbdbfb1d91d4a9ef3bb68d0b1687
+	// 2、判断是否有 postProcess 节点
+
 	return nil
 }
 
 // Restart: 重新运行
-<<<<<<< HEAD
 func (wfr *WorkflowRuntime) Restart(entryPointView *schema.DagView,
-=======
-func (wfr *WorkflowRuntime) Restart(entryPointView schema.DagView,
->>>>>>> 6172648bbd61fbdbfb1d91d4a9ef3bb68d0b1687
 	postProcessView schema.PostProcessView) error {
 	defer wfr.scheduleLock.Unlock()
 	wfr.scheduleLock.Lock()
@@ -138,19 +132,16 @@ func (wfr *WorkflowRuntime) Restart(entryPointView schema.DagView,
 	wfr.callback(msg)
 
 	// 1、处理entryPoint
-	dagView := schema.DagView{
-		EntryPoints: entryPointView,
-	}
 
 	// 2. 这一部分没有意义
-	need, err := wfr.entryPoints.needRestart(&dagView)
+	need, err := wfr.entryPoints.needRestart(entryPointView)
 	if err != nil {
 		wfr.status = common.StatusRunFailed
 		wfr.callback("cannot decide to whether to restart entryPoints: " + err.Error())
 	}
 
 	// 无论 need 是否为True， 调用 Restart 函数来更新 entrypoing 的状态
-	go wfr.entryPoints.Restart(&dagView)
+	go wfr.entryPoints.Restart(entryPointView)
 
 	// 只有在 不需要重启 entryPoint 的时候才需要重启 postProcess。
 	// 当 entryPoint 需要重启的时候，postProcess 节点，无论如何都需要重新运行一次，此时应该有 processEvent 函数触发
