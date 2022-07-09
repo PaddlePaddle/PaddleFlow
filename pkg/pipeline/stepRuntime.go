@@ -211,7 +211,7 @@ func (srt *StepRuntime) Resume(view *schema.JobView) {
 	srt.updateJob(false)
 
 	srt.job.(*PaddleFlowJob).SetJobID(view.JobID)
-	srt.logger.Infof("Watch Job [%s] again", srt.job.JobID)
+	srt.logger.Infof("Watch Job [%s] again", srt.job.JobID())
 
 	msg := fmt.Sprintf("resume step[%s] with status[%s]", srt.name, string(srt.status))
 	newView := srt.newJobView(msg)

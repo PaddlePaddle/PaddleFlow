@@ -1135,10 +1135,13 @@ func (wf *Workflow) Start() {
 	wf.runtime.Start()
 }
 
+func (wf *Workflow) Resume(entryPointView *schema.DagView, postProcessView schema.PostProcessView) {
+	wf.runtime.Resume(entryPointView, postProcessView)
+}
+
 // Restart 从 DB 中恢复重启 workflow
 // Restart 调用逻辑：1. NewWorkflow 2. SetWorkflowRuntime 3. Restart
-func (wf *Workflow) Restart(entryPointView schema.RuntimeView,
-	postProcessView schema.PostProcessView) {
+func (wf *Workflow) Restart(entryPointView *schema.DagView, postProcessView schema.PostProcessView) {
 	wf.runtime.Restart(entryPointView, postProcessView)
 }
 

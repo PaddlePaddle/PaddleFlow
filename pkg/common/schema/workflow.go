@@ -259,6 +259,10 @@ func (s *WorkflowSourceStep) GetOutputArtifactPath(artName string) (string, erro
 	return path, nil
 }
 
+func (s *WorkflowSourceStep) GetLoopArgumentLength() int {
+	return getLoopArgumentLength(s.GetLoopArgument())
+}
+
 func (s *WorkflowSourceStep) DeepCopy() Component {
 	params := map[string]interface{}{}
 	for name, value := range s.Parameters {
@@ -336,6 +340,10 @@ func (d *WorkflowSourceDag) GetLoopArgument() interface{} {
 
 func (d *WorkflowSourceDag) GetType() string {
 	return "dag"
+}
+
+func (d *WorkflowSourceDag) GetLoopArgumentLength() int {
+	return getLoopArgumentLength(d.GetLoopArgument())
 }
 
 func (d *WorkflowSourceDag) UpdateName(name string) {
