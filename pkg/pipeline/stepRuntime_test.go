@@ -306,7 +306,7 @@ func TestCheckCached(t *testing.T) {
 	wfs, err := schema.GetWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
-	mockCbs.GetJobCb = func(jobID string, stepName string) (schema.JobView, error) {
+	mockCbs.GetJobCb = func(jobID string) (schema.JobView, error) {
 		outAtfs := map[string]string{
 			"train_data":    "way/to/train_data",
 			"validate_data": "way/to/validate_data",
@@ -534,7 +534,7 @@ func TestExecute(t *testing.T) {
 	})
 	defer patch22.Reset()
 
-	rf.callbacks.GetJobCb = func(jobID string, stepName string) (schema.JobView, error) {
+	rf.callbacks.GetJobCb = func(jobID string) (schema.JobView, error) {
 		outAtfs := map[string]string{
 			"train_data":    "way/to/train_data",
 			"validate_data": "way/to/validate_data",

@@ -464,7 +464,7 @@ func (srt *StepRuntime) checkCached() (cacheFound bool, err error) {
 	}
 
 	if cacheFound {
-		jobView, err := srt.callbacks.GetJobCb(cacheJobID, srt.getWorkFlowStep().GetName())
+		jobView, err := srt.callbacks.GetJobCb(cacheJobID)
 		srt.logger.Infof("the jobView for cache is: %v", jobView)
 		if err != nil {
 			return false, err
@@ -643,7 +643,7 @@ func (srt *StepRuntime) Execute() {
 
 		if cachedFound {
 			for {
-				jobView, err := srt.callbacks.GetJobCb(srt.CacheJobID, srt.name)
+				jobView, err := srt.callbacks.GetJobCb(srt.CacheJobID)
 				if err != nil {
 					// TODO: 此时是否应该继续运行，创建一个新的Job？
 					srt.logger.Errorf("get cache job info for step[%s] failed: %s", srt.name, err.Error())
