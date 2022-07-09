@@ -103,8 +103,21 @@ func (wfr *WorkflowRuntime) Start() error {
 	return nil
 }
 
-// Restart 从 DB 中恢复重启
-func (wfr *WorkflowRuntime) Restart(entryPointView schema.RuntimeView,
+func (wfr *WorkflowRuntime) Resume(entryPointView *schema.DagView, postProcessView *schema.PostProcessView) error {
+	defer wfr.scheduleLock.Unlock()
+	wfr.scheduleLock.Lock()
+
+	// 1、如果 ep 未处于终态， 则需要重启ep
+	if !isRuntimeFinallyStatus(entryPointView.Status) {
+		go wfr.entryPoints.Resume(entryPointView)
+		go wfr.Listen()
+	}
+
+	return nil
+}
+
+// Restart: 重新运行
+func (wfr *WorkflowRuntime) Restart(entryPointView *schema.DagView,
 	postProcessView schema.PostProcessView) error {
 	defer wfr.scheduleLock.Unlock()
 	wfr.scheduleLock.Lock()

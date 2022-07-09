@@ -43,6 +43,16 @@ var (
 	StatusRuntimeSkipped     RuntimeStatus = schema.StatusJobSkipped
 )
 
+func isRuntimeFinallyStatus(status RuntimeStatus) bool {
+	if status == StatusRuntimeCancelled || status == StatusRuntimeFailed ||
+		status == StatusRuntimeSucceeded || status == StatusRuntimeSkipped ||
+		status == StatusRuntimeTerminated {
+		return true
+	}
+
+	return false
+}
+
 // 管理并发信息
 type parallelismManager struct {
 	ch chan struct{}
@@ -259,9 +269,7 @@ func (crt *baseComponentRuntime) updateStatus(status RuntimeStatus) error {
 
 	crt.status = status
 
-	if crt.status == StatusRuntimeCancelled || crt.status == StatusRuntimeFailed ||
-		crt.status == StatusRuntimeSucceeded || crt.status == StatusRuntimeSkipped ||
-		crt.status == StatusRuntimeTerminated {
+	if isRuntimeFinallyStatus(crt.status) {
 		crt.done = true
 	}
 	return nil

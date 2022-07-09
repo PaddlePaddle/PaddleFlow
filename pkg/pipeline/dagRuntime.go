@@ -369,6 +369,10 @@ func (drt *DagRuntime) Listen() {
 	}
 }
 
+func (drt *DagRuntime) Resume(dagview *schema.DagView) {
+
+}
+
 // 重新执行
 // TODO
 func (drt *DagRuntime) Restart(dagView *schema.DagView) {
