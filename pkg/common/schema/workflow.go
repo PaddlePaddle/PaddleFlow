@@ -43,7 +43,7 @@ const (
 
 	EnvDockerEnv = "dockerEnv"
 
-	FsPrefix = "fs"
+	FsPrefix = "fs-"
 )
 
 func ID(userName, fsName string) string {

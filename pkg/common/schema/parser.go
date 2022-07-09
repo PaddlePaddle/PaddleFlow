@@ -254,7 +254,7 @@ func (p *Parser) ParseStep(params map[string]interface{}, step *WorkflowSourceSt
 			if step.Env == nil {
 				step.Env = map[string]string{}
 			}
-			// 设置在env里的变量优先级最高，如果在Step里设置了如queue、flavour等需要填充到env的字段，会直接被env中对应的值覆盖
+			// 设置在env里的变量优先级最高，通过其他字段设置的env变量，在这里会被覆盖值
 			for envKey, envValue := range value {
 				resEnv := ""
 				switch envValue := envValue.(type) {
