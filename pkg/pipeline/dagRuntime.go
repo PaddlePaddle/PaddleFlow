@@ -925,20 +925,8 @@ func (drt *DagRuntime) processSubRuntimeError(err error, cp schema.Component, st
 
 	var crt componentRuntime
 
-	var ll int
-	lp := cp.GetLoopArgument()
-	if lp != nil {
-		t := reflect.TypeOf(lp)
-		if t.Kind() != reflect.Slice {
-			ll = 1
-		}
-
-		v := reflect.ValueOf(lp)
-		ll = v.Len()
-		if ll == 0 {
-			ll = 1
-		}
-	} else {
+	ll := cp.GetLoopArgumentLength()
+	if ll == 0 {
 		ll = 1
 	}
 
