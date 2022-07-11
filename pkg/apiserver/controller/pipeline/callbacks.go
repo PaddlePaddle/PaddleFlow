@@ -181,6 +181,7 @@ func UpdateRuntimeDagByWfEvent(id string, event interface{}) (int64, bool) {
 	runDag := models.ParseRunDag(runtimeDag)
 	runDag.Encode()
 	if pk <= 0 {
+		logging.Infof("create run_dag with pk[%d]", pk)
 		// 如果pk小于等于0，则需要在数据库创建job记录
 		var err error
 		// dagView中没有保存DagName和RunID
@@ -192,8 +193,9 @@ func UpdateRuntimeDagByWfEvent(id string, event interface{}) (int64, bool) {
 			return 0, false
 		}
 	} else {
+		logging.Infof("update run_dag with pk[%d]", pk)
 		if err := models.UpdateRunDag(logging, pk, runDag); err != nil {
-			logging.Errorf("update run_job in callback failed")
+			logging.Errorf("update run_dag in callback failed")
 			return 0, false
 		}
 	}
