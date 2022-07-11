@@ -495,6 +495,7 @@ func (drt *DagRuntime) Restart(dagView *schema.DagView) {
 
 	drt.logger.Infof("pk in dagView for dag[%s]: %d", dagView.PK, drt.name)
 	drt.logger.Infof("DagID in dagView for dag[%s]: %d", dagView.DagID, drt.name)
+
 	drt.pk = dagView.PK
 	drt.ID = dagView.DagID
 	drt.startTime = dagView.StartTime
