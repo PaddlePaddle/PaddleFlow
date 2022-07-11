@@ -384,9 +384,9 @@ func (crt *baseComponentRuntime) syncToApiServerAndParent(wv WfEventValue, view 
 
 	// +++++ debug
 	if ok {
-		crt.logger.Infof("++++ pk after callback for component[%s]", jobView.PK, crt.name)
+		crt.logger.Infof("++++ pk after callback for component[%s]", crt.pk, crt.name)
 	} else {
-		crt.logger.Infof("++++ pk after callback component[%s]", view.(*schema.DagView).PK, crt.name)
+		crt.logger.Infof("++++ pk after callback component[%s]", crt.pk, crt.name)
 	}
 
 	// +++++ end

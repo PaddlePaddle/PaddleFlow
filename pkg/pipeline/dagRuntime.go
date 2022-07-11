@@ -395,7 +395,7 @@ func (drt *DagRuntime) Resume(dagView *schema.DagView) {
 			continue
 		}
 
-		if drt.ctx.Err() != nil || drt.failureOpitonsCtx != nil {
+		if drt.ctx.Err() != nil || drt.failureOpitonsCtx.Err() != nil {
 			drt.logger.Infof("received terminating signal, stop resume")
 			return
 		}
@@ -493,6 +493,7 @@ func (drt *DagRuntime) Restart(dagView *schema.DagView) {
 	defer drt.processSubComponentLock.Unlock()
 	drt.processSubComponentLock.Lock()
 
+	drt.logger.Infof("pk in dagView: %d", dagView.PK)
 	drt.pk = dagView.PK
 	drt.ID = dagView.DagID
 	drt.startTime = dagView.StartTime
@@ -937,8 +938,8 @@ func (drt *DagRuntime) processSubRuntimeError(err error, cp schema.Component, st
 			crt = newDagRuntimeWithStatus(name, fullName, dag, i, drt.ctx, ctxAndCc.ctx, drt.receiveEventChildren,
 				drt.runConfig, drt.ID, status, err.Error())
 		}
+		drt.subComponentRumtimes[componentName] = append(drt.subComponentRumtimes[componentName], crt)
 	}
-	drt.subComponentRumtimes[componentName] = append(drt.subComponentRumtimes[componentName], crt)
 }
 
 // updateStatusAccordingSubComponentRuntimeStatus: 根据子节点的状态来更新
