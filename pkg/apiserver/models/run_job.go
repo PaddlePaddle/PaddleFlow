@@ -238,6 +238,7 @@ func (rj *RunJob) Trans2JobView() schema.JobView {
 	newFsMount := append(rj.FsMount, []schema.FsMount{}...)
 
 	return schema.JobView{
+		PK:          rj.Pk,
 		JobID:       rj.ID,
 		Name:        rj.Name,
 		Type:        "step",

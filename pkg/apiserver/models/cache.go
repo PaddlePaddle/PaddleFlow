@@ -66,10 +66,17 @@ func CreateRunCache(logEntry *log.Entry, cache *RunCache) (string, error) {
 			logEntry.Errorf("create cache failed. cache:%v, error:%v", cache, result.Error)
 			return result.Error
 		}
+		return nil
+	})
+	if err != nil {
+		logEntry.Infof("debug: return at half transaction")
+		return cache.ID, err
+	}
+	err = WithTransaction(storage.DB, func(tx *gorm.DB) error {
 		cache.ID = common.PrefixCache + fmt.Sprintf("%06d", cache.Pk)
 		logEntry.Debugf("created cache with pk[%d], cacheID[%s]", cache.Pk, cache.ID)
 		// update ID by pk
-		result = tx.Model(&RunCache{}).Where("pk = ?", cache.Pk).Update("id", cache.ID)
+		result := tx.Model(&RunCache{}).Where("pk = ?", cache.Pk).Update("id", cache.ID)
 		if result.Error != nil {
 			logEntry.Errorf("back filling cacheID failed. pk[%d], error:%v", cache.Pk, result.Error)
 			return result.Error

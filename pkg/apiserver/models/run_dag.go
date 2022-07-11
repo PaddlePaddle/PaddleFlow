@@ -106,6 +106,7 @@ func (rd *RunDag) Trans2DagView() schema.DagView {
 		newEndTime = rd.UpdateTime
 	}
 	return schema.DagView{
+		PK:          rd.Pk,
 		DagID:       rd.ID,
 		Name:        rd.Name,
 		Type:        "dag",
