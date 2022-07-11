@@ -332,7 +332,7 @@ func (crt *baseComponentRuntime) setSysParams() error {
 		if len(crt.getComponent().(*schema.WorkflowSourceStep).FsMount) == 0 {
 			crt.sysParams[SysParamNamePFMountPath] = "None"
 		} else {
-			crt.sysParams[SysParamNamePFMountPath] = ""
+			crt.sysParams[SysParamNamePFMountPath] = crt.getComponent().(*schema.WorkflowSourceStep).Env[SysParamNamePFMountPath]
 		}
 	}
 
