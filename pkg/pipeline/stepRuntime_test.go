@@ -754,57 +754,22 @@ func TestStepRestart(t *testing.T) {
 		eventChan, rf, "dag-11")
 	srt.setSysParams()
 
+	patch2 := gomonkey.ApplyMethod(reflect.TypeOf(srt), "Start", func(srt *StepRuntime) {
+		srt.updateStatus(StatusRuntimeRunning)
+		fmt.Println("param", srt.parallelismManager.CurrentParallelism())
+	})
+	defer patch2.Reset()
+
 	jobView := schema.JobView{
-		Status: StatusRuntimeSucceeded,
-	}
-
-	srt.Restart(&jobView)
-	time.Sleep(time.Millisecond * 1000)
-	assert.True(t, strings.Contains(ep.Message, "no restart required"))
-
-	assert.Nil(t, err)
-	assert.Equal(t, 0, srt.parallelismManager.CurrentParallelism())
-
-	jobView = schema.JobView{
-		Status: StatusRuntimeRunning,
-		JobID:  "123",
-	}
-
-	listened := false
-	gomonkey.ApplyMethod(reflect.TypeOf(srt), "Listen", func(_ *StepRuntime) {
-		listened = true
-	})
-
-	watched := false
-	gomonkey.ApplyMethod(reflect.TypeOf(srt.job), "Watch", func(_ *PaddleFlowJob) error {
-		watched = true
-		return nil
-	})
-
-	srt.done = false
-	srt.status = ""
-	srt.Restart(&jobView)
-	time.Sleep(time.Millisecond * 100)
-
-	assert.True(t, listened)
-	assert.True(t, watched)
-	assert.Equal(t, 1, srt.parallelismManager.CurrentParallelism())
-	assert.Equal(t, srt.status, StatusRuntimeRunning)
-
-	srt.done = false
-	srt.status = ""
-	jobView = schema.JobView{
 		Status: StatusRuntimeFailed,
+		PK:     12,
 	}
-	started := false
-	gomonkey.ApplyMethod(reflect.TypeOf(srt), "Listen", func(_ *StepRuntime) {
-		started = true
-	})
 
 	srt.Restart(&jobView)
 	time.Sleep(time.Millisecond * 100)
-	assert.Nil(t, err)
-	assert.True(t, started)
+	assert.Equal(t, int64(12), srt.pk)
+
+	assert.Equal(t, StatusRuntimeRunning, srt.status)
 }
 
 func TestStop(t *testing.T) {

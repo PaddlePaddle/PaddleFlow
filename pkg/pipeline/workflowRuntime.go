@@ -172,6 +172,7 @@ func (wfr *WorkflowRuntime) Restart(entryPointView *schema.DagView,
 		return nil
 	} else {
 		// 此时 postPost节点的状态一定为 异常状态，直接重新调度 postProcess 即可
+		wfr.entryPoints.updateStatus(StatusRuntimeSucceeded)
 		wfr.schedulePostProcess()
 		go wfr.Listen()
 		return nil

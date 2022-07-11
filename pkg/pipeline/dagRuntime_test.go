@@ -455,54 +455,27 @@ func TestDagRunRestart(t *testing.T) {
 	drt.getworkflowSouceDag().EntryPoints["process-positive"].UpdateLoopArguemt([]int{})
 	drt.getworkflowSouceDag().EntryPoints["square-loop"].UpdateLoopArguemt([]int{1, 2})
 	drt.WorkflowSource.Components["process-negetive"].UpdateLoopArguemt([]int{1})
-	dagView := schema.DagView{
-		Status: StatusRuntimeSucceeded,
-	}
-
-	ep := &WorkflowEvent{}
-	go mockToListenEvent(eventChan, ep)
-
-	drt.Restart(&dagView)
-	time.Sleep(time.Millisecond * 100)
-
-	assert.Equal(t, drt.status, StatusRuntimeFailed)
-	assert.True(t, strings.Contains(ep.Message, "cannot decide"))
-
-	drt.done = false
-	drt.status = StatusRuntimeInit
-	drt.subComponentRumtimes = map[string][]componentRuntime{}
-
-	drt.Restart(&dagView)
-	go mockToListenEvent(eventChan, ep)
-	time.Sleep(time.Millisecond * 100)
-
-	assert.Equal(t, drt.status, StatusRuntimeSucceeded)
-	assert.True(t, strings.Contains(ep.Message, "already in status"))
+	drt.getworkflowSouceDag().EntryPoints["split-by-threshold"].UpdateLoopArguemt([]int{1, 2, 3})
 
 	// 测试根据 dagView 开始调度dag
 	stepStarted := false
 	var srt *StepRuntime
-	patch1 := gomonkey.ApplyMethod(reflect.TypeOf(srt), "Restart", func(_ *StepRuntime, _ *schema.JobView) {
+	patch1 := gomonkey.ApplyMethod(reflect.TypeOf(srt), "Restart", func(srt *StepRuntime, _ *schema.JobView) {
 		stepStarted = true
+		srt.updateStatus(StatusRuntimeRunning)
 		fmt.Println("param", drt.parallelismManager.CurrentParallelism())
 	})
 	defer patch1.Reset()
 
-	patch2 := gomonkey.ApplyMethod(reflect.TypeOf(srt), "Start", func(_ *StepRuntime) {
+	patch2 := gomonkey.ApplyMethod(reflect.TypeOf(srt), "Start", func(srt *StepRuntime) {
+		srt.updateStatus(StatusRuntimeRunning)
 		fmt.Println("param", drt.parallelismManager.CurrentParallelism())
 	})
 	defer patch2.Reset()
 
-	listened := false
-	patch3 := gomonkey.ApplyMethod(reflect.TypeOf(drt), "Listen", func(_ *DagRuntime) {
-		listened = true
-	})
-	defer patch3.Reset()
-
-	// 所有节点都运行成功的情况
-
+	// 一个节点失败，一个节点全部cancelled
 	drt.done = false
-	dagView = schema.DagView{
+	dagView := schema.DagView{
 		EntryPoints: map[string][]schema.ComponentView{
 			"randint": []schema.ComponentView{
 				&schema.JobView{
@@ -532,21 +505,30 @@ func TestDagRunRestart(t *testing.T) {
 			},
 			"split-by-threshold": []schema.ComponentView{
 				&schema.JobView{
-					Status:   StatusRuntimeSucceeded,
+					Status:   StatusRuntimeFailed,
 					Seq:      0,
+					StepName: "split-by-threshold",
+				},
+				&schema.JobView{
+					Status:   StatusRuntimeCancelled,
+					Seq:      1,
+					StepName: "split-by-threshold",
+				}, &schema.JobView{
+					Status:   StatusRuntimeFailed,
+					Seq:      2,
 					StepName: "split-by-threshold",
 				},
 			},
 			"process-positive": []schema.ComponentView{
 				&schema.DagView{
 					Seq:     0,
-					Status:  StatusRuntimeSucceeded,
+					Status:  StatusRuntimeCancelled,
 					DagName: "process-positive",
 				},
 			},
 			"process-negetive": []schema.ComponentView{
 				&schema.DagView{
-					Status:  StatusRuntimeSucceeded,
+					Status:  StatusRuntimeCancelled,
 					Seq:     0,
 					DagName: "process-negetive",
 				},
@@ -565,117 +547,21 @@ func TestDagRunRestart(t *testing.T) {
 	drt.status = StatusRuntimeInit
 	drt.subComponentRumtimes = map[string][]componentRuntime{}
 
+	fmt.Printf("\n\n\n\n\n")
 	drt.Restart(&dagView)
-	go mockToListenEvent(eventChan, ep)
-	time.Sleep(time.Millisecond * 100)
-
-	assert.Equal(t, drt.status, StatusRuntimeSucceeded)
-	assert.True(t, strings.Contains(ep.Message, "already in status"))
-	assert.False(t, stepStarted)
-	assert.False(t, listened)
-	assert.Len(t, drt.subComponentRumtimes, 7)
-
-	// 测试有节点失败的情况
-	dagView = schema.DagView{
-		EntryPoints: map[string][]schema.ComponentView{
-			"randint": []schema.ComponentView{
-				&schema.JobView{
-					Status:   StatusRuntimeSucceeded,
-					Seq:      0,
-					StepName: "randint",
-				},
-			},
-			"disStep": []schema.ComponentView{
-				&schema.JobView{
-					Status:   StatusRuntimeFailed,
-					Seq:      0,
-					StepName: "disStep",
-				},
-			},
-		},
-	}
-
-	drt.done = false
-	drt.status = StatusRuntimeInit
-	drt.subComponentRumtimes = map[string][]componentRuntime{}
-
-	drt.Restart(&dagView)
-	go mockToListenEvent(eventChan, ep)
 	time.Sleep(time.Millisecond * 100)
 
 	assert.Equal(t, drt.status, StatusRuntimeRunning)
 	assert.True(t, stepStarted)
-	assert.True(t, listened)
-	assert.Len(t, drt.subComponentRumtimes, 2)
-	assert.Equal(t, string(drt.subComponentRumtimes["disStep"][0].getStatus()), "")
+	assert.Len(t, drt.subComponentRumtimes, 5)
 
-	// 循环结构，其中一次失败的情况
-	dagView = schema.DagView{
-		EntryPoints: map[string][]schema.ComponentView{
-			"randint": []schema.ComponentView{
-				&schema.JobView{
-					Status:   StatusRuntimeSucceeded,
-					Seq:      0,
-					StepName: "randint",
-				},
-			},
-			"square-loop": []schema.ComponentView{
-				&schema.DagView{
-					Seq:     0,
-					Status:  StatusRuntimeSucceeded,
-					DagName: "square-loop",
-				},
-				&schema.DagView{
-					Seq:     1,
-					Status:  StatusRuntimeFailed,
-					DagName: "square-loop",
-				},
-			},
-			"split-by-threshold": []schema.ComponentView{
-				&schema.JobView{
-					Status:   StatusRuntimeSucceeded,
-					Seq:      0,
-					StepName: "split-by-threshold",
-				},
-			},
-			"process-positive": []schema.ComponentView{
-				&schema.DagView{
-					Seq:     0,
-					Status:  StatusRuntimeSucceeded,
-					DagName: "process-positive",
-				},
-			},
-			"process-negetive": []schema.ComponentView{
-				&schema.DagView{
-					Status:  StatusRuntimeSucceeded,
-					Seq:     0,
-					DagName: "process-negetive",
-				},
-			},
-		},
+	assert.NotContains(t, drt.subComponentRumtimes, "process-negetive")
+	assert.NotContains(t, drt.subComponentRumtimes, "process-positive")
+
+	assert.Len(t, drt.subComponentRumtimes["split-by-threshold"], 3)
+	for _, rt := range drt.subComponentRumtimes["split-by-threshold"] {
+		assert.Equal(t, rt.getStatus(), StatusRuntimeRunning)
 	}
-
-	drt.getworkflowSouceDag().EntryPoints["process-positive"].UpdateLoopArguemt([]int{})
-	drt.getworkflowSouceDag().EntryPoints["process-negetive"].UpdateLoopArguemt([]int{1})
-	drt.getworkflowSouceDag().EntryPoints["square-loop"].UpdateLoopArguemt([]int{1, 2})
-
-	stepStarted = false
-	listened = false
-
-	drt.status = StatusRuntimeInit
-	drt.subComponentRumtimes = map[string][]componentRuntime{}
-
-	fmt.Printf("\n\n\n\n\n\n")
-	drt.Restart(&dagView)
-	go mockToListenEvent(eventChan, ep)
-	time.Sleep(time.Millisecond * 100)
-
-	assert.Equal(t, drt.status, StatusRuntimeRunning)
-	assert.True(t, stepStarted)
-	assert.True(t, listened)
-	assert.Len(t, drt.subComponentRumtimes, 6)
-	assert.Len(t, drt.subComponentRumtimes["square-loop"], 2)
-
 }
 
 func TestProcessEventFromSubComponent(t *testing.T) {
@@ -687,7 +573,7 @@ func TestProcessEventFromSubComponent(t *testing.T) {
 
 	failed := false
 	patch1 := gomonkey.ApplyMethod(reflect.TypeOf(drt), "ProcessFailureOptions",
-		func(_ *DagRuntime, _ WorkflowEvent, _ bool) {
+		func(_ *DagRuntime, _ WorkflowEvent) {
 			failed = true
 			fmt.Println("param", drt.parallelismManager.CurrentParallelism())
 		})
@@ -783,7 +669,7 @@ func TestProcessFailureOptions(t *testing.T) {
 	})
 	drt.WorkflowSource.FailureOptions.Strategy = "continue"
 
-	drt.ProcessFailureOptions(*event, false)
+	drt.ProcessFailureOptions(*event)
 	time.Sleep(time.Millisecond * 100)
 
 	assert.Len(t, drt.subComponentRumtimes, 2)
@@ -795,7 +681,7 @@ func TestProcessFailureOptions(t *testing.T) {
 	drt.subComponentRumtimes["square-loop"] = append(drt.subComponentRumtimes["square-loop"], drt3)
 
 	fmt.Printf("\n\n\n\n\n\n\n")
-	drt.ProcessFailureOptions(*event, false)
+	drt.ProcessFailureOptions(*event)
 	time.Sleep(time.Millisecond * 100)
 
 	assert.Len(t, drt.subComponentRumtimes, 7)

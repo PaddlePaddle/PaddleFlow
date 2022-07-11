@@ -19,6 +19,7 @@ package schema
 import (
 	"encoding/base64"
 	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
@@ -84,6 +85,22 @@ func (art *Artifacts) DeepCopy() *Artifacts {
 	return nArt
 }
 
+func getLoopArgumentLength(lp interface{}) int {
+	if lp == nil {
+		return 0
+	}
+
+	t := reflect.TypeOf(lp)
+	if t.Kind() != reflect.Slice {
+		return 0
+	} else {
+		v := reflect.ValueOf(lp)
+		return v.Len()
+	}
+
+	return 0
+}
+
 // Component包括Dag和Step，有Struct WorkflowSourceStep 和 WorkflowSourceDag实现了该接口
 type Component interface {
 	GetDeps() []string
@@ -95,6 +112,7 @@ type Component interface {
 	GetParameterValue(paramName string) (interface{}, error)
 	GetCondition() string
 	GetLoopArgument() interface{}
+	GetLoopArgumentLength() int
 	GetType() string
 	GetName() string
 
@@ -241,6 +259,10 @@ func (s *WorkflowSourceStep) GetOutputArtifactPath(artName string) (string, erro
 	return path, nil
 }
 
+func (s *WorkflowSourceStep) GetLoopArgumentLength() int {
+	return getLoopArgumentLength(s.GetLoopArgument())
+}
+
 func (s *WorkflowSourceStep) DeepCopy() Component {
 	params := map[string]interface{}{}
 	for name, value := range s.Parameters {
@@ -318,6 +340,10 @@ func (d *WorkflowSourceDag) GetLoopArgument() interface{} {
 
 func (d *WorkflowSourceDag) GetType() string {
 	return "dag"
+}
+
+func (d *WorkflowSourceDag) GetLoopArgumentLength() int {
+	return getLoopArgumentLength(d.GetLoopArgument())
 }
 
 func (d *WorkflowSourceDag) UpdateName(name string) {
