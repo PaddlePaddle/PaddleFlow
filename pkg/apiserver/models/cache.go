@@ -60,29 +60,26 @@ func (c *RunCache) decode() {
 
 func CreateRunCache(logEntry *log.Entry, cache *RunCache) (string, error) {
 	logEntry.Debugf("begin create cache:%+v", cache)
-	err := WithTransaction(storage.DB, func(tx *gorm.DB) error {
-		result := tx.Model(&RunCache{}).Create(cache)
-		if result.Error != nil {
-			logEntry.Errorf("create cache failed. cache:%v, error:%v", cache, result.Error)
-			return result.Error
-		}
-		return nil
-	})
-	if err != nil {
-		logEntry.Infof("debug: return at half transaction")
-		return cache.ID, err
+	var err error
+	err = nil
+	for i := 0; i < 5 && err != nil; i++ {
+		err = WithTransaction(storage.DB, func(tx *gorm.DB) error {
+			result := tx.Model(&RunCache{}).Create(cache)
+			if result.Error != nil {
+				logEntry.Errorf("create cache failed. cache:%v, error:%v", cache, result.Error)
+				return result.Error
+			}
+			cache.ID = common.PrefixCache + fmt.Sprintf("%06d", cache.Pk)
+			logEntry.Debugf("created cache with pk[%d], cacheID[%s]", cache.Pk, cache.ID)
+			// update ID by pk
+			result = tx.Model(&RunCache{}).Where("pk = ?", cache.Pk).Update("id", cache.ID)
+			if result.Error != nil {
+				logEntry.Errorf("back filling cacheID failed. pk[%d], error:%v", cache.Pk, result.Error)
+				return result.Error
+			}
+			return nil
+		})
 	}
-	err = WithTransaction(storage.DB, func(tx *gorm.DB) error {
-		cache.ID = common.PrefixCache + fmt.Sprintf("%06d", cache.Pk)
-		logEntry.Debugf("created cache with pk[%d], cacheID[%s]", cache.Pk, cache.ID)
-		// update ID by pk
-		result := tx.Model(&RunCache{}).Where("pk = ?", cache.Pk).Update("id", cache.ID)
-		if result.Error != nil {
-			logEntry.Errorf("back filling cacheID failed. pk[%d], error:%v", cache.Pk, result.Error)
-			return result.Error
-		}
-		return nil
-	})
 	return cache.ID, err
 }
 

@@ -109,8 +109,6 @@ func (r *Run) decode() error {
 		return err
 	}
 	logger.Logger().Infof("debug: validateRuntimeAndPostProcess finish")
-	res, _ := json.Marshal(r.Runtime)
-	logger.Logger().Infof("debug: %s", res)
 
 	// decode param
 	if len(r.ParametersJson) > 0 {
@@ -217,7 +215,6 @@ func (r *Run) initRuntime(jobs []RunJob, dags []RunDag) error {
 
 	// 此时已拿到RuntimeView树，但是信息不全，需要用wfs补全
 	if err := r.ProcessRuntimeView(tempView, r.WorkflowSource.EntryPoints.EntryPoints); err != nil {
-		logger.Logger().Infof("debug: err: %s", err.Error())
 		return err
 	}
 
