@@ -395,7 +395,7 @@ func (drt *DagRuntime) Resume(dagView *schema.DagView) {
 			continue
 		}
 
-		if drt.ctx.Err() != nil || drt.failureOpitonsCtx != nil {
+		if drt.ctx.Err() != nil || drt.failureOpitonsCtx.Err() != nil {
 			drt.logger.Infof("received terminating signal, stop resume")
 			return
 		}
@@ -493,6 +493,7 @@ func (drt *DagRuntime) Restart(dagView *schema.DagView) {
 	defer drt.processSubComponentLock.Unlock()
 	drt.processSubComponentLock.Lock()
 
+	drt.logger.Infof("pk in dagView: %d", dagView.PK)
 	drt.pk = dagView.PK
 	drt.ID = dagView.DagID
 	drt.startTime = dagView.StartTime
