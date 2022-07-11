@@ -440,8 +440,6 @@ func (drt *DagRuntime) Resume(dagView *schema.DagView) {
 			runtime := drt.CreateSubRuntimeAccordingView(view, name)
 			runtime.updateStatus(status)
 
-			drt.logger.Info("123445")
-
 			drt.subComponentRumtimes[name] = append(drt.subComponentRumtimes[name], runtime)
 			drt.logger.Infof("recreated runtime for %s[%s] with status[%s]",
 				component.GetType(), runtime.getName(), runtime.getStatus())
@@ -953,6 +951,7 @@ func (drt *DagRuntime) updateStatusAccordingSubComponentRuntimeStatus() string {
 		}
 		return ""
 	}
+	drt.logger.Infof("++++ 11223344", drt.name)
 
 	terminatedComponentNames := []string{}
 	faieldComponentNames := []string{}
@@ -977,11 +976,14 @@ func (drt *DagRuntime) updateStatusAccordingSubComponentRuntimeStatus() string {
 					if !drt.isTerminating() {
 						drt.updateStatus(StatusRuntimeRunning)
 					}
-					fmt.Printf("+++++++++++++ hahahaha, cpName: %s\n", cp.getName())
+					drt.logger.Infof("+++++++++++++ hahahaha, cpName: %s\n", cp.getName())
+					drt.logger.Infof("len of cps: %d, len of lp: %d, ld:%v", len(cps), v.Len(), loop_argument)
 					return ""
 				}
 			}
 		}
+
+		drt.logger.Infof("++++ 6368", drt.name)
 
 		for index := range cps {
 			if cps[index].isFailed() {
@@ -1002,6 +1004,8 @@ func (drt *DagRuntime) updateStatusAccordingSubComponentRuntimeStatus() string {
 			}
 		}
 	}
+
+	drt.logger.Infof("++++ 6368", drt.name)
 	var msg string
 	if len(faieldComponentNames) != 0 {
 		drt.updateStatus(StatusRuntimeFailed)
