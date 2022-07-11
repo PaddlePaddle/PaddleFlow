@@ -494,6 +494,7 @@ func (drt *DagRuntime) Restart(dagView *schema.DagView) {
 	drt.processSubComponentLock.Lock()
 
 	drt.logger.Infof("pk in dagView: %d", dagView.PK)
+	drt.logger.Infof("DagID in dagView: %d", dagView.PK)
 	drt.pk = dagView.PK
 	drt.ID = dagView.DagID
 	drt.startTime = dagView.StartTime
