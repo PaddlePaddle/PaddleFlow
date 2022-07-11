@@ -947,12 +947,14 @@ func (drt *DagRuntime) updateStatusAccordingSubComponentRuntimeStatus() string {
 	drt.logger.Infof("begin to update status for dag[%s]", drt.name)
 	// 1. 如果有子节点还没有调度，且节点本身的状态不为 Terminating， 则状态必定为running
 	if len(drt.subComponentRumtimes) != len(drt.getworkflowSouceDag().EntryPoints) {
+		drt.logger.Debugf("the lengthn of subruntime[%d] != the component in entrypoint[%d], current dag is:",
+			len(drt.subComponentRumtimes), len(drt.getworkflowSouceDag().EntryPoints), drt.name)
+
 		if !drt.isTerminating() {
 			drt.updateStatus(StatusRuntimeRunning)
 		}
 		return ""
 	}
-	drt.logger.Infof("++++ 11223344", drt.name)
 
 	terminatedComponentNames := []string{}
 	faieldComponentNames := []string{}
@@ -977,14 +979,12 @@ func (drt *DagRuntime) updateStatusAccordingSubComponentRuntimeStatus() string {
 					if !drt.isTerminating() {
 						drt.updateStatus(StatusRuntimeRunning)
 					}
-					drt.logger.Infof("+++++++++++++ hahahaha, cpName: %s\n", cp.getName())
-					drt.logger.Infof("len of cps: %d, len of lp: %d, ld:%v", len(cps), v.Len(), loop_argument)
+					drt.logger.Debugf("cpname: %s, len of cps: %d, len of lp: %d, ld:%v",
+						cp.getName(), len(cps), v.Len(), loop_argument)
 					return ""
 				}
 			}
 		}
-
-		drt.logger.Infof("++++ 6368", drt.name)
 
 		for index := range cps {
 			if cps[index].isFailed() {
@@ -1006,7 +1006,6 @@ func (drt *DagRuntime) updateStatusAccordingSubComponentRuntimeStatus() string {
 		}
 	}
 
-	drt.logger.Infof("++++ 6368", drt.name)
 	var msg string
 	if len(faieldComponentNames) != 0 {
 		drt.updateStatus(StatusRuntimeFailed)
