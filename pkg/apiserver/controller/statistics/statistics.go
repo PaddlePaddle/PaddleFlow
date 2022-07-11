@@ -79,7 +79,7 @@ func GetJobStatistics(ctx *logger.RequestContext, jobID string) (*JobStatisticsR
 			ctx.Logging().Errorf("query metric[%s] failed, error: %s", value, err.Error())
 			return nil, err
 		}
-		err = convertResultToResponse(result, value, response)
+		err = convertResultToResponse(result, response, value)
 		if err != nil {
 			ctx.Logging().Errorf("convert metric[%s] result to response failed, error: %s", value, err.Error())
 			return nil, err
@@ -128,7 +128,7 @@ func GetJobDetailStatistics(ctx *logger.RequestContext, jobID string, start, end
 			ctx.Logging().Errorf("query range metric[%s] failed, error: %s", value, err.Error())
 			return nil, err
 		}
-		err = convertResultToDetailResponse(result, response, value)
+		err = convertResultToDetailResponse(ctx, result, response, value)
 		if err != nil {
 			ctx.Logging().Errorf("convert metric[%s] result to detail response failed, error: %s", value, err.Error())
 			return nil, err
@@ -170,9 +170,10 @@ func getClusterTypeByJob(ctx *logger.RequestContext, jobID string) (string, *mod
 	return cluster.ClusterType, &job, nil
 }
 
-func convertResultToDetailResponse(result model.Value, response *JobDetailStatisticsResponse, metricName string) error {
+func convertResultToDetailResponse(ctx *logger.RequestContext, result model.Value, response *JobDetailStatisticsResponse, metricName string) error {
 	data, ok := result.(model.Matrix)
 	if !ok {
+		ctx.Logging().Errorf("convert result to matrix failed")
 		return fmt.Errorf("convert result to matrix failed")
 	}
 	for _, value := range data {
@@ -200,7 +201,7 @@ func convertResultToDetailResponse(result model.Value, response *JobDetailStatis
 	return nil
 }
 
-func convertResultToResponse(result float64, metricName string, response *JobStatisticsResponse) error {
+func convertResultToResponse(result float64, response *JobStatisticsResponse, metricName string) error {
 	switch metricName {
 	case consts.MetricCpuUsageRate:
 		response.CpuUsageRate = result
