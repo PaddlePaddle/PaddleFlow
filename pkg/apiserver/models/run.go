@@ -213,25 +213,7 @@ func (r *Run) initRuntime(jobs []RunJob, dags []RunDag) error {
 		}
 	}
 
-	// 去掉最外层的DagView，使结构与WorkflowSource.EntryPoints.EntryPoints对齐，从而进行下面的信息补全
-	runtimeViewErrMsg := "runtime view sturcture is invalid"
-	tempView := map[string][]schema.ComponentView{}
-	for _, outerDagList := range runtimeView {
-		if len(outerDagList) == 1 {
-			outerDag, ok := outerDagList[0].(*schema.DagView)
-			if ok {
-				for name, compList := range outerDag.EntryPoints {
-					tempView[name] = compList
-				}
-			} else {
-				// 这里是显示结构优化，如果调度测出现问题导致没有最外层Dag，那这里只会不优化，不返回error
-				logger.Logger().Warnf(runtimeViewErrMsg)
-			}
-		} else {
-			// 这里是显示结构优化，如果调度测出现问题导致没有最外层Dag，那这里只会不优化，不返回error
-			logger.Logger().Warnf(runtimeViewErrMsg)
-		}
-	}
+	tempView := r.RemoveOuterDagView(runtimeView)
 
 	// 此时已拿到RuntimeView树，但是信息不全，需要用wfs补全
 	if err := r.ProcessRuntimeView(tempView, r.WorkflowSource.EntryPoints.EntryPoints); err != nil {
@@ -241,6 +223,31 @@ func (r *Run) initRuntime(jobs []RunJob, dags []RunDag) error {
 
 	r.Runtime = runtimeView
 	return nil
+}
+
+func (r *Run) RemoveOuterDagView(runtimeView map[string][]schema.ComponentView) map[string][]schema.ComponentView {
+	// 去掉最外层的DagView，使结构与WorkflowSource.EntryPoints.EntryPoints对齐，从而进行下面的信息补全
+	runtimeViewErrMsg := "runtime view sturcture is invalid"
+	resView := map[string][]schema.ComponentView{}
+	for _, outerDagList := range runtimeView {
+		if len(outerDagList) == 1 {
+			outerDag, ok := outerDagList[0].(*schema.DagView)
+			if ok {
+				for name, compList := range outerDag.EntryPoints {
+					resView[name] = compList
+				}
+			} else {
+				// 这里是显示结构优化，如果调度测出现问题导致没有最外层Dag，那这里只会不优化，不返回error
+				logger.Logger().Warnf(runtimeViewErrMsg)
+				return runtimeView
+			}
+		} else {
+			// 这里是显示结构优化，如果调度测出现问题导致没有最外层Dag，那这里只会不优化，不返回error
+			logger.Logger().Warnf(runtimeViewErrMsg)
+			return runtimeView
+		}
+	}
+	return resView
 }
 
 // 补全ComponentView中的Deps
