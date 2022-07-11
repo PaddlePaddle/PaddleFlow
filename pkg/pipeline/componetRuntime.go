@@ -371,9 +371,9 @@ func (crt *baseComponentRuntime) syncToApiServerAndParent(wv WfEventValue, view 
 	jobView, ok := view.(*schema.JobView)
 	if ok {
 		extra[common.WfEventKeyView] = jobView
-		crt.logger.Infof("++++ pk before callback for component[%s]", jobView.PK, crt.name)
+		crt.logger.Infof("++++ pk[%d] before callback for component[%s]", jobView.PK, crt.name)
 	} else {
-		crt.logger.Infof("++++ pk before callback component[%s]", view.(*schema.DagView).PK, crt.name)
+		crt.logger.Infof("++++ pk[%d] before callback component[%s]", view.(*schema.DagView).PK, crt.name)
 		extra[common.WfEventKeyView] = view.(*schema.DagView)
 	}
 
@@ -384,9 +384,9 @@ func (crt *baseComponentRuntime) syncToApiServerAndParent(wv WfEventValue, view 
 
 	// +++++ debug
 	if ok {
-		crt.logger.Infof("++++ pk after callback for component[%s]", crt.pk, crt.name)
+		crt.logger.Infof("++++ pk[%d] after callback for component[%s]", crt.pk, crt.name)
 	} else {
-		crt.logger.Infof("++++ pk after callback component[%s]", crt.pk, crt.name)
+		crt.logger.Infof("++++ pk[%d] after callback component[%s]", crt.pk, crt.name)
 	}
 
 	// +++++ end
