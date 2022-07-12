@@ -19,6 +19,7 @@ package pipeline
 import (
 	"database/sql"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -999,12 +1000,16 @@ func RestartWf(run models.Run, wfPtr *pipeline.Workflow, isResume bool) error {
 	// set runtime and restart
 	trace_logger.Key(run.ID).Infof("resume workflow, set runtime and restart")
 	entryPointDagView := &schema.DagView{}
+	res, _ := json.Marshal(run.Runtime)
+	logger.Logger().Infof("debug: runtimeview1 is: %s", res)
 	if len(run.Runtime[""]) == 1 {
 		tempDagView, ok := run.Runtime[""][0].(*schema.DagView)
 		if ok {
 			entryPointDagView = tempDagView
 		}
 	}
+	res, _ = json.Marshal(run.Runtime)
+	logger.Logger().Infof("debug: runtimeview2 is: %s", res)
 	if isResume {
 		wfPtr.Resume(entryPointDagView, run.PostProcess)
 	} else {
