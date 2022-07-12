@@ -981,7 +981,10 @@ func StartWf(run models.Run, wfPtr *pipeline.Workflow) error {
 
 	// 由于在数据库中创建Run记录之前，没有runID，因此这里需要重新填写好runID后，初始化Runtime，以及填写wfMap
 	wfPtr.RunID = run.ID
-	wfPtr.NewWorkflowRuntime()
+	if err := wfPtr.NewWorkflowRuntime(); err != nil {
+		logEntry.Errorf("StartWf failed, error: %s", err.Error())
+		return err
+	}
 	wfMap[run.ID] = wfPtr
 
 	trace_logger.Key(run.ID).Infof("start workflow with image url")

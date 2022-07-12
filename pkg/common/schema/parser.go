@@ -635,7 +635,7 @@ func (p *Parser) transJsonCache2Yaml(value interface{}) error {
 			for i, scope := range scopeList {
 				scopeMap, ok := scope.(map[string]interface{})
 				if !ok {
-					fmt.Errorf("each scope in [fsScope] should be map type")
+					return fmt.Errorf("each scope in [fsScope] should be map type")
 				}
 				for scopeKey, scopeValue := range scopeMap {
 					switch scopeKey {

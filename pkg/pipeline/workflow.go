@@ -422,7 +422,6 @@ func (bwf *BaseWorkflow) checkRecursion(component schema.Component, visited map[
 	} else {
 		return fmt.Errorf("component not dag or step")
 	}
-	return nil
 }
 
 // 校验extra字典
