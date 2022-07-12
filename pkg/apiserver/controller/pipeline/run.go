@@ -236,17 +236,22 @@ func buildWorkflowSource(ctx logger.RequestContext, req CreateRunRequest, fsID s
 // Used for API CreateRunJson, get wfs by json request.
 func getWorkFlowSourceByJson(bodyMap map[string]interface{}) (schema.WorkflowSource, error) {
 	// 先处理Json特有的参数
+	res, _ := json.Marshal(bodyMap)
+	logger.Logger().Infof("debug: before marshal in getwfs: %s", res)
 	if err := ProcessJsonAttr(bodyMap); err != nil {
 		logger.Logger().Errorf("process json attribute failed, error: %s", err.Error())
 		return schema.WorkflowSource{}, err
 	}
-
+	res, _ = json.Marshal(bodyMap)
+	logger.Logger().Infof("debug: after marshal in getwfs: %s", res)
 	// 获取yaml版的Wfs
 	wfs, err := schema.GetWorkflowSourceByMap(bodyMap)
 	if err != nil {
 		logger.Logger().Errorf("get workflowSource in json failed, error: %s", err.Error())
 		return schema.WorkflowSource{}, err
 	}
+	res, _ = json.Marshal(wfs)
+	logger.Logger().Infof("debug: after getwfs: %s", res)
 
 	return wfs, nil
 }
@@ -404,7 +409,7 @@ func processRunJsonComponents(componentMap map[string]interface{}, globalEnvMap 
 
 func transValue2Env(compMap map[string]interface{}, env map[string]interface{}, attrStr, attrEnvStr string) {
 	if value, ok := compMap[attrStr].(string); ok {
-		if _, ok := env[schema.EnvJobFlavour]; !ok {
+		if _, ok := env[attrEnvStr]; !ok {
 			env[attrEnvStr] = value
 		}
 		delete(compMap, attrStr)
