@@ -45,7 +45,7 @@ import (
 var wfMap = make(map[string]*pipeline.Workflow, 0)
 
 const (
-	JsonFsOptions   = "fsOptions"
+	JsonFsOptions   = "fs_options" //由于在获取BodyMap的FsOptions前已经转为下划线形式，因此这里为fs_options
 	JsonUserName    = "userName"
 	JsonDescription = "description"
 	JsonFlavour     = "flavour"
@@ -698,8 +698,8 @@ func checkFs(userName string, globalFsName string, wfs *schema.WorkflowSource) e
 		return err
 	}
 
-	globalFsID := common.ID(userName, globalFsName)
-	if globalFsID != "" {
+	if globalFsName != "" {
+		globalFsID := common.ID(userName, globalFsName)
 		fsIDs = append(fsIDs, globalFsID)
 	}
 
