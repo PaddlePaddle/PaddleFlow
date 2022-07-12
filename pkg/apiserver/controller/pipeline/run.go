@@ -1008,6 +1008,8 @@ func RestartWf(run models.Run, wfPtr *pipeline.Workflow, isResume bool) error {
 			entryPointDagView = tempDagView
 		}
 	}
+	res, _ := json.Marshal(run.Runtime)
+	logger.Logger().Infof("debug: runtimeview2 is: %s", res)
 	if isResume {
 		wfPtr.Resume(entryPointDagView, run.PostProcess)
 	} else {
