@@ -117,6 +117,11 @@ func (wfr *WorkflowRuntime) Resume(entryPointView *schema.DagView, postProcessVi
 		go wfr.entryPoints.Resume(entryPointView)
 		go wfr.Listen()
 		return nil
+	} else {
+		err := wfr.entryPoints.updateStatus(entryPointView.Status)
+		if err != nil {
+			wfr.logger.Errorf("update entrypoint status failed: %s", err.Error())
+		}
 	}
 
 	// 2、判断是否有 postProcess 节点，有的话则需要判断其状态决定是否运行
@@ -147,11 +152,6 @@ func (wfr *WorkflowRuntime) Resume(entryPointView *schema.DagView, postProcessVi
 	}
 
 	// 统计状态，同步至 Server
-	err := wfr.entryPoints.updateStatus(entryPointView.Status)
-	if err != nil {
-		wfr.logger.Errorf("update entrypoint status failed: %s", err.Error())
-	}
-
 	for _, view := range postProcessView {
 		if len(wfr.WorkflowSource.PostProcess) != 0 {
 			err := wfr.postProcess.updateStatus(view.Status)
