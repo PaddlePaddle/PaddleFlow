@@ -86,7 +86,7 @@ func (wfr *WorkflowRuntime) generatePostProcessFullName(name string) string {
 }
 
 // 运行
-func (wfr *WorkflowRuntime) Start() error {
+func (wfr *WorkflowRuntime) Start() {
 	defer wfr.scheduleLock.Unlock()
 
 	wfr.scheduleLock.Lock()
@@ -102,11 +102,9 @@ func (wfr *WorkflowRuntime) Start() error {
 		go wfr.Listen()
 		wfr.entryPoints.Start()
 	}
-
-	return nil
 }
 
-func (wfr *WorkflowRuntime) Resume(entryPointView *schema.DagView, postProcessView schema.PostProcessView) error {
+func (wfr *WorkflowRuntime) Resume(entryPointView *schema.DagView, postProcessView schema.PostProcessView) {
 	defer wfr.scheduleLock.Unlock()
 	wfr.scheduleLock.Lock()
 
@@ -116,7 +114,7 @@ func (wfr *WorkflowRuntime) Resume(entryPointView *schema.DagView, postProcessVi
 	if !isRuntimeFinallyStatus(entryPointView.Status) {
 		go wfr.entryPoints.Resume(entryPointView)
 		go wfr.Listen()
-		return nil
+		return
 	}
 
 	// 2、判断是否有 postProcess 节点，有的话则需要判断其状态决定是否运行
@@ -143,7 +141,7 @@ func (wfr *WorkflowRuntime) Resume(entryPointView *schema.DagView, postProcessVi
 		}
 
 		go wfr.Listen()
-		return nil
+		return
 	}
 
 	// 统计状态，同步至 Server
@@ -163,7 +161,7 @@ func (wfr *WorkflowRuntime) Resume(entryPointView *schema.DagView, postProcessVi
 	wfr.updateStatusAccordingComponentStatus()
 	wfr.callback("update status after resum")
 
-	return nil
+	return
 }
 
 // Restart: 重新运行

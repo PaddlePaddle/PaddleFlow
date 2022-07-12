@@ -179,7 +179,10 @@ func UpdateRuntimeDagByWfEvent(id string, event interface{}) (int64, bool) {
 	pk := runtimeDag.PK
 
 	runDag := models.ParseRunDag(runtimeDag)
-	runDag.Encode()
+	if err := runDag.Encode(); err != nil {
+		logging.Errorf("encode runDag failed, error: %s", err.Error())
+		return 0, false
+	}
 	if pk <= 0 {
 		logging.Infof("create run_dag with pk[%d]", pk)
 		// 如果pk小于等于0，则需要在数据库创建job记录
@@ -231,7 +234,10 @@ func UpdateRuntimeJobByWfEvent(id string, event interface{}) (int64, bool) {
 	pk := runtimeJob.PK
 
 	runJob := models.ParseRunJob(runtimeJob)
-	runJob.Encode()
+	if err := runJob.Encode(); err != nil {
+		logging.Errorf("encode runJob failed, error: %s", err.Error())
+		return 0, false
+	}
 	if pk <= 0 {
 		// 如果pk小于等于0，则需要在数据库创建job记录
 		var err error

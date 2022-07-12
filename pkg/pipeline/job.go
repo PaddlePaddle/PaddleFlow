@@ -123,7 +123,7 @@ func (pfj *PaddleFlowJob) Update(cmd string, params map[string]string, envs map[
 		pfj.Artifacts = *artifacts
 	}
 
-	if fsMount != nil && len(fsMount) != 0 {
+	if len(fsMount) != 0 {
 		pfj.FsMount = fsMount
 	}
 }
