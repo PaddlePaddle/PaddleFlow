@@ -109,7 +109,7 @@ type PipelineDetailBrief struct {
 func (pdb *PipelineDetailBrief) updateFromPipelineDetailModel(pipelineDetail models.PipelineDetail) {
 	pdb.ID = pipelineDetail.ID
 	pdb.PipelineID = pipelineDetail.PipelineID
-	pdb.GlobalFsName = pipelineDetail.GlobalFsName
+	pdb.GlobalFsName = pipelineDetail.FsName
 	pdb.YamlPath = pipelineDetail.YamlPath
 	pdb.PipelineYaml = pipelineDetail.PipelineYaml
 	pdb.UserName = pipelineDetail.UserName
@@ -189,8 +189,8 @@ func CreatePipeline(ctx *logger.RequestContext, request CreatePipelineRequest) (
 
 	yamlMd5 := common.GetMD5Hash(pipelineYaml)
 	pplDetail := models.PipelineDetail{
-		GlobalFsID:   fsID,
-		GlobalFsName: request.FsName,
+		FsID:         fsID,
+		FsName:       request.FsName,
 		YamlPath:     request.YamlPath,
 		PipelineYaml: string(pipelineYaml),
 		PipelineMd5:  yamlMd5,
@@ -285,8 +285,8 @@ func UpdatePipeline(ctx *logger.RequestContext, request UpdatePipelineRequest, p
 	yamlMd5 := common.GetMD5Hash(pipelineYaml)
 	pplDetail := models.PipelineDetail{
 		PipelineID:   pipelineID,
-		GlobalFsID:   fsID,
-		GlobalFsName: request.GlobalFsName,
+		FsID:         fsID,
+		FsName:       request.GlobalFsName,
 		YamlPath:     request.YamlPath,
 		PipelineYaml: string(pipelineYaml),
 		PipelineMd5:  yamlMd5,
