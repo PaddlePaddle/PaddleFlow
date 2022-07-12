@@ -16,12 +16,13 @@ limitations under the License.
 
 # !/usr/bin/env python3
 # -*- coding:utf8 -*-
-
 from typing import List
 
 
 class StatisticsJobInfo:
-    """the class of StatisticsJobInfo info"""
+    """
+    the class of StatisticsJobInfo info
+    """
     cpu_usage_rate: float
     memory_usage: float
     net_receive_bytes: int
@@ -46,6 +47,29 @@ class StatisticsJobInfo:
         self.gpu_util = gpu_util
         self.gpu_memory_util = gpu_memory_util
 
+    def __str__(self) -> str:
+        """ str """
+        return "StatisticsJobInfo: cpu_usage_rate: {}, memory_usage: {}, net_receive_bytes: {}, net_send_bytes: {}, " \
+               "disk_usage_bytes: {}, disk_read_rate: {}, disk_write_rate: {}, gpu_util: {}, gpu_memory_util: {}". \
+            format(self.cpu_usage_rate, self.memory_usage, self.net_receive_bytes, self.net_send_bytes,
+                   self.disk_usage_bytes, self.disk_read_rate, self.disk_write_rate, self.gpu_util,
+                   self.gpu_memory_util)
+
+    @staticmethod
+    def from_json(json_dict):
+        statistics_job_info = StatisticsJobInfo(
+            cpu_usage_rate=json_dict['cpu_usage_rate'],
+            memory_usage=json_dict['memory_usage'],
+            net_receive_bytes=json_dict['net_receive_bytes'],
+            net_send_bytes=json_dict['net_send_bytes'],
+            disk_usage_bytes=json_dict['disk_usage_bytes'],
+            disk_read_rate=json_dict['disk_read_rate'],
+            disk_write_rate=json_dict['disk_write_rate'],
+            gpu_util=json_dict['gpu_util'],
+            gpu_memory_util=json_dict['gpu_memory_util'],
+        )
+        return statistics_job_info
+
 
 class TaskInfo:
     metric: str
@@ -54,6 +78,9 @@ class TaskInfo:
     def __init__(self, metric: str, values: List[List]) -> None:
         self.metric = metric
         self.values = values
+
+    def __str__(self):
+        return "TaskInfo: metric: {}, values: {}".format(self.metric, self.values)
 
 
 class Result:
@@ -64,6 +91,9 @@ class Result:
         self.task_name = task_name
         self.task_info = task_info
 
+    def __str__(self):
+        return "Result: task_name: {}, task_info: {}".format(self.task_name, self.task_info)
+
 
 class StatisticsJobDetailInfo:
     """the class of StatisticsJobDetailInfo info"""
@@ -71,3 +101,26 @@ class StatisticsJobDetailInfo:
 
     def __init__(self, result: List[Result]) -> None:
         self.result = result
+
+    def __str__(self) -> str:
+        """ str """
+        return "StatisticsJobDetailInfo: result: {}".format(self.result)
+
+    @staticmethod
+    def from_json(json_dict):
+        statistics_job_detail_info = StatisticsJobDetailInfo(
+            result=[]
+        )
+        for result_json in json_dict['result']:
+            result = Result(
+                task_name=result_json['taskName'],
+                task_info=[]
+            )
+            for task_info_json in result_json['taskInfo']:
+                task_info = TaskInfo(
+                    metric=task_info_json['metric'],
+                    values=task_info_json['values']
+                )
+                result.task_info.append(task_info)
+            statistics_job_detail_info.result.append(result)
+        return statistics_job_detail_info

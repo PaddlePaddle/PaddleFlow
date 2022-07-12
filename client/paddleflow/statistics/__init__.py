@@ -16,3 +16,6 @@ limitations under the License.
 
 # !/usr/bin/env python3
 # -*- coding:utf8 -*-
+
+from .statistics_api import StatisticsServiceApi
+from .statistics_info import StatisticsJobInfo, StatisticsJobDetailInfo

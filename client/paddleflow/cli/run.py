@@ -13,7 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-#!/usr/bin/env python3
+# !/usr/bin/env python3
 # -*- coding:utf8 -*-
 
 import sys
@@ -25,6 +25,7 @@ import shutil
 import base64
 
 from paddleflow.cli.output import print_output, OutputFormat
+
 
 @click.group()
 def run():
@@ -45,7 +46,7 @@ def run():
 @click.option('-de', '--dockerenv', help='a global dockerEnv used by all steps which have no dockerEnv')
 @click.pass_context
 def create(ctx, fsname=None, name=None, desc=None, username=None, runyamlpath=None, runyamlraw=None,
-        param="", pipelineid=None, disabled=None, dockerenv=None):
+           param="", pipelineid=None, disabled=None, dockerenv=None):
     """create a new run.\n
     FSNAME: the name of the fs.
     """
@@ -57,12 +58,12 @@ def create(ctx, fsname=None, name=None, desc=None, username=None, runyamlpath=No
     if runyamlraw:
         with open(runyamlraw, 'rb') as f:
             runyamlraw = f.read()
-    
+
     if disabled is not None:
         disabled = ",".join(disabled)
 
     valid, response = client.create_run(fsname, username, name, desc, runyamlpath, runyamlraw, pipelineid,
-                            param_dict, disabled=disabled, dockerenv=dockerenv)
+                                        param_dict, disabled=disabled, dockerenv=dockerenv)
 
     if valid:
         click.echo("run[%s] create success with runid[%s]" % (fsname, response))
@@ -119,7 +120,7 @@ def status(ctx, runid):
 @run.command()
 @click.argument('runid')
 @click.option('-f', '--force', is_flag=True,
-    help="Whether to forcibly stop the task. Forcibly stop will also stop step in post_process")
+              help="Whether to forcibly stop the task. Forcibly stop will also stop step in post_process")
 @click.pass_context
 def stop(ctx, runid, force):
     """stop the run.\n
@@ -247,13 +248,13 @@ def delcache(ctx, cacheid):
 @click.option('-m', '--maxkeys', help="Max size of the listed artifactEventList.")
 @click.option('-mk', '--marker', help="next page.")
 @click.pass_context
-def artifact(ctx, userfilter=None, fsfilter=None, runfilter=None, typefilter=None, pathfilter=None, 
-                maxkeys=100, marker=None):
+def artifact(ctx, userfilter=None, fsfilter=None, runfilter=None, typefilter=None, pathfilter=None,
+             maxkeys=100, marker=None):
     """list artifact. \n"""
     client = ctx.obj['client']
     output_format = ctx.obj['output']
-    valid, response, nextmarker = client.artifact(userfilter, fsfilter, runfilter, typefilter, 
-                pathfilter, maxkeys, marker)
+    valid, response, nextmarker = client.artifact(userfilter, fsfilter, runfilter, typefilter,
+                                                  pathfilter, maxkeys, marker)
     if valid:
         if len(response):
             _print_artiface(response, output_format)
@@ -277,29 +278,29 @@ def _print_runlist(runlist, out_format):
 def _print_runcache(caches, out_format):
     """print cache list """
 
-    headers = ['cache id', 'run id', 'step', 'fsname', 'username', 'expired time', 
-                'create time', 'update time']
-    data = [[cache.cacheid, cache.runid, cache.step, cache.fsname, cache.username, 
-            cache.expiredtime, cache.createtime, cache.updatetime] for cache in caches]
+    headers = ['cache id', 'run id', 'step', 'fsname', 'username', 'expired time',
+               'create time', 'update time']
+    data = [[cache.cacheid, cache.runid, cache.step, cache.fsname, cache.username,
+             cache.expiredtime, cache.createtime, cache.updatetime] for cache in caches]
     print_output(data, headers, out_format, table_format='grid')
 
 
 def _print_runcache_info(cache, out_format):
     """print cache info """
 
-    headers = ['cache id', 'run id', 'step', 'fsname', 'username', 'expired time', 
-                'strategy', 'custom', 'create time', 'update time']
-    data = [[cache.cacheid, cache.runid, cache.step, cache.fsname, cache.username, cache.expiredtime, 
-            cache.strategy, cache.custom, cache.createtime, cache.updatetime]]
+    headers = ['cache id', 'run id', 'step', 'fsname', 'username', 'expired time',
+               'strategy', 'custom', 'create time', 'update time']
+    data = [[cache.cacheid, cache.runid, cache.step, cache.fsname, cache.username, cache.expiredtime,
+             cache.strategy, cache.custom, cache.createtime, cache.updatetime]]
     print_output(data, headers, out_format, table_format='grid')
     print_output([[cache.firstfp, cache.secondfp]], ['first fp', 'second fp'], out_format, table_format='grid')
 
 
 def _print_run(run, out_format):
     """ print run info"""
-    headers = ['run id', 'status', 'name', 'desc', 'entry', 'param', 'source', 'run msg', 
-    'create time', 'update time', 'activate time']
-    data = [[run.runId, run.status, run.name, run.description, run.entry, run.parameters, run.source, 
+    headers = ['run id', 'status', 'name', 'desc', 'entry', 'param', 'source', 'run msg',
+               'create time', 'update time', 'activate time']
+    data = [[run.runId, run.status, run.name, run.description, run.entry, run.parameters, run.source,
              run.runMsg, run.createTime, run.updateTime, run.activateTime]]
     print_output(data, headers, out_format, table_format='grid')
     if run.runYaml:
@@ -312,22 +313,21 @@ def _print_run(run, out_format):
     if run.runtime and len(run.runtime):
         print_output([], ["Runtime Details"], out_format)
         headers = ['job id', 'name', 'status', 'deps', 'start time', 'end time', 'dockerEnv']
-        data = [[job.jobId, job.name, job.status, job.deps, job.start_time, job.end_time, job.dockerEnv] 
+        data = [[job.jobId, job.name, job.status, job.deps, job.start_time, job.end_time, job.dockerEnv]
                 for job in run.runtime]
         print_output(data, headers, out_format, table_format='grid')
     if run.postProcess and len(run.postProcess):
         print_output([], ["PostProcess Details"], out_format)
         headers = ['job id', 'name', 'status', 'deps', 'start time', 'end time', 'dockerEnv']
-        data = [[job.jobId, job.name, job.status, job.deps, job.start_time, job.end_time, job.dockerEnv] 
+        data = [[job.jobId, job.name, job.status, job.deps, job.start_time, job.end_time, job.dockerEnv]
                 for job in run.postProcess]
         print_output(data, headers, out_format, table_format='grid')
 
 
 def _print_artiface(runs, out_format):
     """ print artifact info"""
-    headers = ['run id', 'fsname', 'username', 'artifact path', 'type', 'step', 'artifact name', 'meta',  
-            'create time', 'update time']
-    data = [[run.runid, run.fsname, run.username, run.artifactpath, run.type, run.step, run.artifactname, 
-            run.meta, run.createtime, run.updatetime] for run in runs]
+    headers = ['run id', 'fsname', 'username', 'artifact path', 'type', 'step', 'artifact name', 'meta',
+               'create time', 'update time']
+    data = [[run.runid, run.fsname, run.username, run.artifactpath, run.type, run.step, run.artifactname,
+             run.meta, run.createtime, run.updatetime] for run in runs]
     print_output(data, headers, out_format, table_format='grid')
-    
