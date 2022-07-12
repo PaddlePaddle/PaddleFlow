@@ -30,8 +30,15 @@ import (
 )
 
 type JobCollector struct {
-	CpuUsageRate *prometheus.GaugeVec
-	MemoryUsage  *prometheus.GaugeVec
+	CpuUsageRate     *prometheus.GaugeVec
+	MemoryUsage      *prometheus.GaugeVec
+	NetReceiveBytes  *prometheus.GaugeVec
+	NetTransmitBytes *prometheus.GaugeVec
+	DiskUsage        *prometheus.GaugeVec
+	DiskReadRate     *prometheus.GaugeVec
+	DiskWriteRate    *prometheus.GaugeVec
+	GpuUtil          *prometheus.GaugeVec
+	GpuMemUtil       *prometheus.GaugeVec
 }
 
 func newJobCollectManager() *JobCollector {
@@ -41,19 +48,68 @@ func newJobCollectManager() *JobCollector {
 	}, []string{"jobID", "pod"},
 	)
 	memoryUsage := prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: consts.MetricMemoryUsage,
-		Help: consts.MetricMemoryUsage,
+		Name: consts.MetricMemoryUsageRate,
+		Help: consts.MetricMemoryUsageRate,
+	}, []string{"jobID", "pod"},
+	)
+	netReceiveBytes := prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: consts.MetricNetReceiveBytes,
+		Help: consts.MetricNetReceiveBytes,
+	}, []string{"jobID", "pod"},
+	)
+	netTransmitBytes := prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: consts.MetricNetSendBytes,
+		Help: consts.MetricNetSendBytes,
+	}, []string{"jobID", "pod"},
+	)
+	diskUsage := prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: consts.MetricDiskUsage,
+		Help: consts.MetricDiskUsage,
+	}, []string{"jobID", "pod"},
+	)
+	diskReadRate := prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: consts.MetricDiskReadRate,
+		Help: consts.MetricDiskReadRate,
+	}, []string{"jobID", "pod"},
+	)
+	diskWriteRate := prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: consts.MetricDiskWriteRate,
+		Help: consts.MetricDiskWriteRate,
+	}, []string{"jobID", "pod"},
+	)
+	gpuUtil := prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: consts.MetricGpuUtil,
+		Help: consts.MetricGpuUtil,
+	}, []string{"jobID", "pod"},
+	)
+	gpuMemUtil := prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: consts.MetricGpuMemoryUtil,
+		Help: consts.MetricGpuMemoryUtil,
 	}, []string{"jobID", "pod"},
 	)
 	return &JobCollector{
-		CpuUsageRate: cpuUsageRate,
-		MemoryUsage:  memoryUsage,
+		CpuUsageRate:     cpuUsageRate,
+		MemoryUsage:      memoryUsage,
+		NetReceiveBytes:  netReceiveBytes,
+		NetTransmitBytes: netTransmitBytes,
+		DiskUsage:        diskUsage,
+		DiskReadRate:     diskReadRate,
+		DiskWriteRate:    diskWriteRate,
+		GpuUtil:          gpuUtil,
+		GpuMemUtil:       gpuMemUtil,
 	}
 }
 
 func (j *JobCollector) Describe(ch chan<- *prometheus.Desc) {
 	j.CpuUsageRate.Describe(ch)
 	j.MemoryUsage.Describe(ch)
+	j.NetReceiveBytes.Describe(ch)
+	j.NetTransmitBytes.Describe(ch)
+	j.DiskUsage.Describe(ch)
+	j.DiskReadRate.Describe(ch)
+	j.DiskWriteRate.Describe(ch)
+	j.GpuUtil.Describe(ch)
+	j.GpuMemUtil.Describe(ch)
 }
 
 func (j *JobCollector) Collect(ch chan<- prometheus.Metric) {
@@ -63,6 +119,54 @@ func (j *JobCollector) Collect(ch chan<- prometheus.Metric) {
 		return
 	}
 	j.CpuUsageRate.Collect(ch)
+	err = j.CollectPodMetrics(consts.MetricMemoryUsageRate)
+	if err != nil {
+		log.Errorf("collect podMetrics[%s] failed, error:[%s]", consts.MetricMemoryUsageRate, err.Error())
+		return
+	}
+	j.MemoryUsage.Collect(ch)
+	err = j.CollectPodMetrics(consts.MetricNetReceiveBytes)
+	if err != nil {
+		log.Errorf("collect podMetrics[%s] failed, error:[%s]", consts.MetricNetReceiveBytes, err.Error())
+		return
+	}
+	j.NetReceiveBytes.Collect(ch)
+	err = j.CollectPodMetrics(consts.MetricNetSendBytes)
+	if err != nil {
+		log.Errorf("collect podMetrics[%s] failed, error:[%s]", consts.MetricNetSendBytes, err.Error())
+		return
+	}
+	j.NetTransmitBytes.Collect(ch)
+	err = j.CollectPodMetrics(consts.MetricDiskUsage)
+	if err != nil {
+		log.Errorf("collect podMetrics[%s] failed, error:[%s]", consts.MetricDiskUsage, err.Error())
+		return
+	}
+	j.DiskUsage.Collect(ch)
+	err = j.CollectPodMetrics(consts.MetricDiskReadRate)
+	if err != nil {
+		log.Errorf("collect podMetrics[%s] failed, error:[%s]", consts.MetricDiskReadRate, err.Error())
+		return
+	}
+	j.DiskReadRate.Collect(ch)
+	err = j.CollectPodMetrics(consts.MetricDiskWriteRate)
+	if err != nil {
+		log.Errorf("collect podMetrics[%s] failed, error:[%s]", consts.MetricDiskWriteRate, err.Error())
+		return
+	}
+	j.DiskWriteRate.Collect(ch)
+	err = j.CollectPodMetrics(consts.MetricGpuUtil)
+	if err != nil {
+		log.Errorf("collect podMetrics[%s] failed, error:[%s]", consts.MetricGpuUtil, err.Error())
+		return
+	}
+	j.GpuUtil.Collect(ch)
+	err = j.CollectPodMetrics(consts.MetricGpuMemoryUtil)
+	if err != nil {
+		log.Errorf("collect podMetrics[%s] failed, error:[%s]", consts.MetricGpuMemoryUtil, err.Error())
+		return
+	}
+	j.GpuMemUtil.Collect(ch)
 }
 
 func (j *JobCollector) CollectPodMetrics(metricName string) error {
@@ -107,11 +211,35 @@ func callPrometheusAPI(metricName, jobID string) (model.Value, error) {
 }
 
 func getQuerySql(metricName string) string {
+	var querySql string
 	switch metricName {
 	case consts.MetricCpuUsageRate:
-		querySql := QueryCPUUsageRateSql
+		querySql = QueryCPUUsageRateQl
 		return querySql
-		// TODO add more metric sql
+	case consts.MetricMemoryUsageRate:
+		querySql = QueryMEMUsageRateQl
+		return querySql
+	case consts.MetricNetReceiveBytes:
+		querySql = QueryNetReceiveQl
+		return querySql
+	case consts.MetricNetSendBytes:
+		querySql = QueryNetTransmitQl
+		return querySql
+	case consts.MetricDiskUsage:
+		querySql = QueryDiskUsageQl
+		return querySql
+	case consts.MetricDiskReadRate:
+		querySql = QueryDiskReadQl
+		return querySql
+	case consts.MetricDiskWriteRate:
+		querySql = QueryDiskWriteQl
+		return querySql
+	case consts.MetricGpuUtil:
+		querySql = QueryGpuUtilQl
+		return querySql
+	case consts.MetricGpuMemoryUtil:
+		querySql = QueryGpuMemUtilQl
+		return querySql
 	default:
 		return ""
 	}
