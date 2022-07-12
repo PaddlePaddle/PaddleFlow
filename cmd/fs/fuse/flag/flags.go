@@ -77,7 +77,7 @@ func CacheFlags(fuseConf *fuse.FuseConfig) []cli.Flag {
 		},
 		&cli.StringFlag{
 			Name:  "meta-cache-driver",
-			Value: kv.Mem,
+			Value: kv.LevelDB,
 			Usage: "meta cache driver, e.g. mem, leveldb",
 		},
 		&cli.StringFlag{
@@ -87,22 +87,22 @@ func CacheFlags(fuseConf *fuse.FuseConfig) []cli.Flag {
 		},
 		&cli.DurationFlag{
 			Name:  "data-cache-expire",
-			Value: 15 * 60 * time.Second,
+			Value: 0,
 			Usage: "data cache expire",
 		},
 		&cli.DurationFlag{
 			Name:  "meta-cache-expire",
-			Value: 2 * time.Second,
+			Value: 5 * time.Second,
 			Usage: "meta cache expire",
 		},
 		&cli.DurationFlag{
 			Name:  "entry-cache-expire",
-			Value: 2 * time.Second,
+			Value: 5 * time.Second,
 			Usage: "entry cache expire",
 		},
 		&cli.IntFlag{
 			Name:  "block-size",
-			Value: 0,
+			Value: 20971520,
 			Usage: "block size",
 		},
 		&cli.IntFlag{
