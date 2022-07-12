@@ -81,7 +81,11 @@ func NewDagRuntime(name, fullName string, dag *schema.WorkflowSourceDag, seq int
 		failureOptionsCtxAndCancels: make(map[string]CtxAndCancel),
 	}
 
-	drt.updateStatus(StatusRuntimeInit)
+	err := drt.updateStatus(StatusRuntimeInit)
+	if err != nil {
+		// 理论上不会出现这种情况，主要是为了承接 err，对齐进行判断
+		drt.logger.Infof("update status for dag[%s] failed: %s", drt.name, err.Error())
+	}
 
 	ds := NewDependencySolver(drt)
 	drt.DependencySolver = ds
@@ -261,13 +265,23 @@ func (drt *DagRuntime) Start() {
 	defer drt.processSubComponentLock.Unlock()
 	drt.processSubComponentLock.Lock()
 
-	drt.updateStatus(StatusRuntimeRunning)
+	err := drt.updateStatus(StatusRuntimeRunning)
+	if err != nil {
+		// 理论上不会出现这种情况，主要是为了承接 err，对齐进行判断
+		drt.logger.Infof("update status for dag[%s] failed: %s", drt.name, err.Error())
+	}
+
 	drt.startTime = time.Now().Format("2006-01-02 15:04:05")
 
 	// TODO: 此时是否需要同步至数据库？
 
 	// 1、 更新系统变量
-	drt.setSysParams()
+	err = drt.setSysParams()
+	if err != nil {
+		errMsg := fmt.Sprintf("set the sysparams for dag[%s] failed: %s", drt.name, err.Error())
+		drt.logger.Errorln(errMsg)
+		drt.processStartAbnormalStatus(errMsg, StatusRuntimeFailed)
+	}
 
 	// 2、替换 condition，loop_argument 中的模板，将其替换成具体真实值
 	condition, err := drt.CalculateCondition()
@@ -368,7 +382,13 @@ func (drt *DagRuntime) Resume(dagView *schema.DagView) {
 	drt.pk = dagView.PK
 	drt.ID = dagView.DagID
 	drt.startTime = dagView.StartTime
-	drt.setSysParams()
+
+	err := drt.setSysParams()
+	if err != nil {
+		errMsg := fmt.Sprintf("set the sysparams for dag[%s] failed: %s", drt.name, err.Error())
+		drt.logger.Errorln(errMsg)
+		drt.processStartAbnormalStatus(errMsg, StatusRuntimeFailed)
+	}
 
 	// 如果dagview 的EntryPoint为一个空map， 则直接走 start 逻辑
 	if len(dagView.EntryPoints) == 0 {
@@ -377,7 +397,11 @@ func (drt *DagRuntime) Resume(dagView *schema.DagView) {
 		return
 	}
 
-	drt.updateStatus(dagView.Status)
+	err = drt.updateStatus(dagView.Status)
+	if err != nil {
+		// 理论上不会出现这种情况，主要是为了承接 err，对齐进行判断
+		drt.logger.Infof("update status for dag[%s] failed: %s", drt.name, err.Error())
+	}
 
 	// 相关校验逻辑由 parser 模块负责，此处不做校验
 	sorted, _ := TopologicalSort(drt.getworkflowSouceDag().EntryPoints)

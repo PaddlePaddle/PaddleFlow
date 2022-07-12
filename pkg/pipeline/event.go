@@ -33,7 +33,6 @@ const (
 	WfEventJobSubmitErr            WfEventValue = "JobSubmitErr"
 	WfEventJobWatchErr             WfEventValue = "JobWatchErr"
 	WfEventJobStopErr              WfEventValue = "JobStopErr"
-	wfEventRunSysError             WfEventValue = "SysError"
 )
 
 type WorkflowEvent struct {
