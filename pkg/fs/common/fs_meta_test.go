@@ -16,7 +16,11 @@ limitations under the License.
 
 package common
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
 
 func TestGetFsNameAndUserNameByFsID(t *testing.T) {
 	type args struct {
@@ -48,7 +52,8 @@ func TestGetFsNameAndUserNameByFsID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotUserName, gotFsName := GetFsNameAndUserNameByFsID(tt.args.fsID)
+			gotUserName, gotFsName, err := GetFsNameAndUserNameByFsID(tt.args.fsID)
+			assert.Nil(t, err)
 			if gotUserName != tt.wantUserName {
 				t.Errorf("GetFsNameAndUserNameByFsID() gotUserName = %v, want %v", gotUserName, tt.wantUserName)
 			}
