@@ -51,17 +51,16 @@ func NewBaseJob(name string) *BaseJob {
 }
 
 type BaseJob struct {
-	ID           string            `json:"jobID"`
-	Name         string            `json:"name"`       // step名字，不同run的不同step，必须拥有不同名字
-	Command      string            `json:"command"`    // 区别于step，是替换后的，可以直接运行
-	Parameters   map[string]string `json:"parameters"` // 区别于step，是替换后的，可以直接运行
-	Artifacts    schema.Artifacts  `json:"artifacts"`  // 区别于step，是替换后的，可以直接运行
-	Env          map[string]string `json:"env"`
-	StartTime    string            `json:"startTime"`
-	EndTime      string            `json:"endTime"`
-	Status       schema.JobStatus  `json:"status"`
-	Message      string            `json:"message"`
-	eventChannel chan<- WorkflowEvent
+	ID         string            `json:"jobID"`
+	Name       string            `json:"name"`       // step名字，不同run的不同step，必须拥有不同名字
+	Command    string            `json:"command"`    // 区别于step，是替换后的，可以直接运行
+	Parameters map[string]string `json:"parameters"` // 区别于step，是替换后的，可以直接运行
+	Artifacts  schema.Artifacts  `json:"artifacts"`  // 区别于step，是替换后的，可以直接运行
+	Env        map[string]string `json:"env"`
+	StartTime  string            `json:"startTime"`
+	EndTime    string            `json:"endTime"`
+	Status     schema.JobStatus  `json:"status"`
+	Message    string            `json:"message"`
 }
 
 // ----------------------------------------------------------------------------

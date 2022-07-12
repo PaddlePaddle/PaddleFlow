@@ -493,7 +493,9 @@ func (drt *DagRuntime) Restart(dagView *schema.DagView) {
 	defer drt.processSubComponentLock.Unlock()
 	drt.processSubComponentLock.Lock()
 
-	drt.logger.Infof("pk in dagView: %d", dagView.PK)
+	drt.logger.Infof("pk in dagView for dag[%s]: %d", drt.name, dagView.PK)
+	drt.logger.Infof("DagID in dagView for dag[%s]: %d", drt.name, dagView.DagID)
+
 	drt.pk = dagView.PK
 	drt.ID = dagView.DagID
 	drt.startTime = dagView.StartTime
@@ -722,6 +724,7 @@ func (drt *DagRuntime) processEventFromSubComponent(event WorkflowEvent) error {
 	drt.logger.Infof("process event: [%+v]", event)
 
 	// 判断事件类型是否为 failureOptionstriggered 类型，是的话，执行 processFailureOptions
+	// 只有当 策略为 FailFast 的时候才会接受到该事件
 	if event.isFailureOptionsTriggered() {
 		drt.ProcessFailureOptions(event)
 	} else {
@@ -811,14 +814,9 @@ func (drt *DagRuntime) getfailureOptionsCtxAndCF(subComponentName string) CtxAnd
 }
 
 func (drt *DagRuntime) ProcessFailureOptionsWithContinue(component schema.Component) {
+	// 对于 Continue 策略，需要支持多次触发（不同的分支节点都有可能会触发该策略）， 所以此处不设置标志位，也不对标志位进行判断
+
 	// 失败节点的所有下游节点都将会置为failed, 此时其所有的下游节点都是没有开始执行的，
-	if drt.hasFailureOptionsTriggered {
-		drt.logger.Info("failure options was processed already")
-		return
-	}
-
-	drt.hasFailureOptionsTriggered = true
-
 	needCancelComponentNames := drt.getAllDownstreamComponents(component)
 
 	for name, _ := range needCancelComponentNames {
@@ -947,7 +945,7 @@ func (drt *DagRuntime) updateStatusAccordingSubComponentRuntimeStatus() string {
 	drt.logger.Infof("begin to update status for dag[%s]", drt.name)
 	// 1. 如果有子节点还没有调度，且节点本身的状态不为 Terminating， 则状态必定为running
 	if len(drt.subComponentRumtimes) != len(drt.getworkflowSouceDag().EntryPoints) {
-		drt.logger.Debugf("the lengthn of subruntime[%d] != the component in entrypoint[%d], current dag is:",
+		drt.logger.Debugf("the lengthn of subruntime[%d] != the component in entrypoint[%d], current dag is: %s",
 			len(drt.subComponentRumtimes), len(drt.getworkflowSouceDag().EntryPoints), drt.name)
 
 		if !drt.isTerminating() {
