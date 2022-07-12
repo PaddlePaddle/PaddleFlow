@@ -61,8 +61,7 @@ func (c *RunCache) decode() {
 func CreateRunCache(logEntry *log.Entry, cache *RunCache) (string, error) {
 	logEntry.Debugf("begin create cache:%+v", cache)
 	var err error
-	err = nil
-	for i := 0; i < 5 && err != nil; i++ {
+	for i := 0; i < 5; i++ {
 		err = WithTransaction(storage.DB, func(tx *gorm.DB) error {
 			result := tx.Model(&RunCache{}).Create(cache)
 			if result.Error != nil {
@@ -79,6 +78,9 @@ func CreateRunCache(logEntry *log.Entry, cache *RunCache) (string, error) {
 			}
 			return nil
 		})
+		if err == nil {
+			break
+		}
 	}
 	return cache.ID, err
 }
