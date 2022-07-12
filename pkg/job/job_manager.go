@@ -18,6 +18,7 @@ package job
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/bluele/gcache"
@@ -44,11 +45,13 @@ type JobManagerImpl struct {
 	// activeClusters is a method for listing active clusters from db
 	activeClusters ActiveClustersFunc
 	// activeQueueJobs is a method for listing jobs on active queue
+	// deprecated
 	activeQueueJobs QueueJobsFunc
 	queueExpireTime time.Duration
 	queueCache      gcache.Cache
 
-	jobLoopPeriod time.Duration
+	listQueueInitJobs func(string) []models.Job
+	jobLoopPeriod     time.Duration
 	// clusterStatus contains cluster status
 	clusterStatus map[api.ClusterID]chan struct{}
 }
@@ -65,6 +68,7 @@ func (m *JobManagerImpl) Start(activeClusters ActiveClustersFunc, activeQueueJob
 	log.Infof("Start job manager!")
 	m.activeClusters = activeClusters
 	m.activeQueueJobs = activeQueueJobs
+	m.listQueueInitJobs = models.ListQueueInitJob
 	// init queue cache
 	cacheSize := config.GlobalServerConfig.Job.QueueCacheSize
 	if cacheSize < defaultCacheSize {
@@ -246,7 +250,7 @@ func (m *JobManagerImpl) submitQueueJob(jobSubmit func(*api.PFJob) error, queueI
 				return
 			}
 			// get init job from database
-			pfJobs := m.activeQueueJobs(string(queueID), []schema.JobStatus{schema.StatusJobInit})
+			pfJobs := m.listQueueInitJobs(string(queueID))
 			if len(pfJobs) == 0 {
 				log.Debugf("sleep %d second when not job on queue %s", m.jobLoopPeriod, queue.Name)
 				time.Sleep(m.jobLoopPeriod)
@@ -262,13 +266,20 @@ func (m *JobManagerImpl) submitQueueJob(jobSubmit func(*api.PFJob) error, queueI
 				jobQueue.Push(jobInfo)
 			}
 
-			log.Infof("Enter session to submit jobs in queue %s", queue.Name)
+			jobCount := len(pfJobs)
+			log.Infof("Entering submit %d jobs in queue %s", jobCount, queue.Name)
+			var wg = &sync.WaitGroup{}
 			startTime := time.Now()
 			for !jobQueue.Empty() {
 				job := jobQueue.Pop().(*api.PFJob)
-				m.submitJob(jobSubmit, job)
+				go func(wg *sync.WaitGroup) {
+					wg.Add(1)
+					defer wg.Done()
+					m.submitJob(jobSubmit, job)
+				}(wg)
 			}
-			log.Infof("Leaving submit jobs in queue %s, total elapsed time: %s", queue.Name, time.Since(startTime))
+			wg.Wait()
+			log.Infof("Leaving submit %d jobs in queue %s, total elapsed time: %s", jobCount, queue.Name, time.Since(startTime))
 		}
 	}
 }

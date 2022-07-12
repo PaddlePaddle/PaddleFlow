@@ -66,7 +66,7 @@ CREATE TABLE IF NOT EXISTS `job` (
     `type` varchar(20) NOT NULL,
     `config` mediumtext NOT NULL,
     `runtime_info` mediumtext DEFAULT NULL,
-    `status` varchar(32) DEFAULT NULL,
+    `status` varchar(32) DEFAULT NOT NULL,
     `message` text DEFAULT NULL,
     `resource` text DEFAULT NULL,
     `framework` varchar(30) DEFAULT NULL,
@@ -78,7 +78,8 @@ CREATE TABLE IF NOT EXISTS `job` (
     `updated_at` datetime(3) NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
     `deleted_at` varchar(64) DEFAULT '',
     PRIMARY KEY (`pk`),
-    UNIQUE KEY `job_id` (`id`, `deleted_at`)
+    UNIQUE KEY `job_id` (`id`, `deleted_at`),
+    INDEX KEY `status_queue_deleted` (`status`, `queue_id`, `deleted_at`),
 ) ENGINE=InnoDB DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
 
 CREATE TABLE IF NOT EXISTS `job_label` (
