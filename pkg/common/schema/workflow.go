@@ -18,7 +18,6 @@ package schema
 
 import (
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
@@ -887,8 +886,6 @@ func (wfs *WorkflowSource) processFsByUserName(compMap map[string]Component, use
 
 				// 检查FsScope中的FsName是否都在FsMount中
 				if _, ok := fsNameSet[scope.FsName]; !ok {
-					res, _ := json.Marshal(fsNameSet)
-					logger.Logger().Errorf("debug: fsNameSet is : %s", res)
 					return fmt.Errorf("fs_name [%s] in fs_scope must also be in fs_mount", scope.FsName)
 				}
 				step.Cache.FsScope[i] = scope
