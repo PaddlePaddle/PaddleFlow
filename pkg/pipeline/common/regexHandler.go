@@ -19,6 +19,7 @@ package common
 import (
 	"fmt"
 	"regexp"
+	"strings"
 )
 
 type VariableChecker struct {
@@ -35,12 +36,12 @@ func (variableChecker *VariableChecker) CheckVarName(varName string) error {
 	return nil
 }
 
-func (VariableChecker *VariableChecker) CheckStepName(stepName string) error {
-	// 和CheckVarName的区别在于，step的名称不可以包含下划线(_)，而可以包含中划线(-)
+func (VariableChecker *VariableChecker) CheckCompName(compName string) error {
+	// 和CheckVarName的区别在于，component的名称不可以包含下划线(_)，而可以包含中划线(-)
 	pattern := `^[a-zA-Z][a-zA-Z0-9-]*$`
 	reg := regexp.MustCompile(pattern)
-	if !reg.MatchString(stepName) {
-		err := fmt.Errorf("format of variable name[%s] invalid, should be in ^[a-zA-Z][a-zA-Z0-9-]*$", stepName)
+	if !reg.MatchString(compName) || strings.HasPrefix(compName, "PF_") {
+		err := fmt.Errorf("format of component name[%s] invalid, should be in ^[a-zA-Z][a-zA-Z0-9-]*$ and not start with \"PF_\"", compName)
 		return err
 	}
 	return nil
@@ -51,7 +52,18 @@ func (variableChecker *VariableChecker) CheckRefUpstreamStep(varValue string) er
 	pattern := RegExpUpstreamTpl
 	reg := regexp.MustCompile(pattern)
 	if !reg.MatchString(varValue) {
-		err := fmt.Errorf("format of value[%s] invalid, should be like {{XXX.XXX}}", varValue)
+		err := fmt.Errorf("format of value[%s] invalid, should be like {{XX-XX.XX_XX}}", varValue)
+		return err
+	}
+	return nil
+}
+
+// 检查是否使用了模板，如{{xxx}}
+func (variableChecker *VariableChecker) CheckRefCurArgument(varValue string) error {
+	pattern := RegExpIncludingCurTpl
+	reg := regexp.MustCompile(pattern)
+	if !reg.MatchString(varValue) {
+		err := fmt.Errorf("format of value[%s] invalid, should be like {{XX_XX}}", varValue)
 		return err
 	}
 	return nil

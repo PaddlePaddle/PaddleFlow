@@ -1,5 +1,5 @@
 {
-	"main": {
+	"main": [{
 		"jobID": "job-run-000059-main-b7a9a264",
 		"name": "run-000059-main",
 		"command": "echo hahaha",
@@ -38,8 +38,8 @@
 		},
 		"jobMessage": "",
 		"cacheRunID": ""
-	},
-	"nomain": {
+	}],
+	"nomain": [{
 		"jobID": "job-run-000059-nomain-465e402b",
 		"name": "run-000059-nomain",
 		"command": "echo 222",
@@ -78,5 +78,5 @@
 		},
 		"jobMessage": "",
 		"cacheRunID": ""
-	}
+	}]
 }
