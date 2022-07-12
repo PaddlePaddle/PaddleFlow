@@ -147,10 +147,17 @@ func (wfr *WorkflowRuntime) Resume(entryPointView *schema.DagView, postProcessVi
 	}
 
 	// 统计状态，同步至 Server
-	wfr.entryPoints.updateStatus(entryPointView.Status)
+	err := wfr.entryPoints.updateStatus(entryPointView.Status)
+	if err != nil {
+		wfr.logger.Errorf("update entrypoint status failed: %s", err.Error())
+	}
+
 	for _, view := range postProcessView {
 		if len(wfr.WorkflowSource.PostProcess) != 0 {
-			wfr.postProcess.updateStatus(view.Status)
+			err := wfr.postProcess.updateStatus(view.Status)
+			if err != nil {
+				wfr.logger.Errorf("update postProcess status failed: %s", err.Error())
+			}
 		}
 	}
 	wfr.updateStatusAccordingComponentStatus()
@@ -177,7 +184,10 @@ func (wfr *WorkflowRuntime) Restart(entryPointView *schema.DagView,
 		return nil
 	} else {
 		// 此时 postPost节点的状态一定为 异常状态，直接重新调度 postProcess 即可
-		wfr.entryPoints.updateStatus(StatusRuntimeSucceeded)
+		err := wfr.entryPoints.updateStatus(StatusRuntimeSucceeded)
+		if err != nil {
+			wfr.logger.Errorf("update postProcess status failed: %s", err.Error())
+		}
 		wfr.schedulePostProcess()
 		go wfr.Listen()
 		return nil

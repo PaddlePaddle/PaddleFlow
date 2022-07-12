@@ -560,9 +560,9 @@ func (srt *StepRuntime) generateOutArtPathForJob(paths string) string {
 	return strings.Join(pathsForJob, ",")
 }
 
-func (srt *StepRuntime) GenerateFsMountForArtifact() (err error) {
+func (srt *StepRuntime) GenerateFsMountForArtifact() {
 	if srt.GloablFsName == "" {
-		return nil
+		return
 	}
 
 	// 为输入aritfact 生成 FsMount
@@ -598,7 +598,7 @@ func (srt *StepRuntime) GenerateFsMountForArtifact() (err error) {
 	}
 
 	srt.logger.Infof("after GenerateFsMountForArtifact, FsMount is %v", srt.getWorkFlowStep().FsMount)
-	return nil
+	return
 }
 
 func (srt *StepRuntime) startJob() (err error) {

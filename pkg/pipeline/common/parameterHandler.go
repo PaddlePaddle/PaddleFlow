@@ -18,9 +18,11 @@ package common
 
 import (
 	"fmt"
+	"reflect"
 	"regexp"
 	"strings"
 
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/mitchellh/mapstructure"
 )
@@ -265,15 +267,18 @@ func (s *ComponentParamChecker) checkReference(comp schema.Component) error {
 					return fmt.Errorf("parameters in step with reference must be in refered component")
 				}
 				// 如果对应的被引用节点的参数为dict形式，则Reference节点的参数类型需要符合dict中Type的要求
-				switch referedParam.(type) {
+				switch referedParam := referedParam.(type) {
 				case map[string]interface{}:
+					logger.Logger().Infof("debug: dict param check in")
 					refDictParam := DictParam{}
 					if err := refDictParam.From(referedParam); err != nil {
-						return fmt.Errorf("invalid dict parameter[%s]", referedParam)
+						return fmt.Errorf("invalid dict parameter[%v]", referedParam)
 					}
 					if _, err := CheckDictParam(refDictParam, paramName, param); err != nil {
 						return fmt.Errorf("parameters in step with reference check dict param in refered param failed, error: %s", err.Error())
 					}
+				default:
+					logger.Logger().Infof("debug: dict param check type is : %s", reflect.TypeOf(referedParam))
 				}
 			}
 
