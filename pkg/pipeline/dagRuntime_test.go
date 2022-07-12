@@ -251,11 +251,9 @@ func TestDagRuntimeStart(t *testing.T) {
 		drt.getworkflowSouceDag().EntryPoints["square-loop"].(*schema.WorkflowSourceDag),
 		0, drt.ctx, drt.failureOpitonsCtx, eventChan, drt.runConfig, drt.ID)
 
-	fmt.Printf("\n\n\n\n\n\n\n")
 	drt2.Start()
 	go mockToListenEvent(eventChan, ep)
 	time.Sleep(time.Millisecond * 100)
-	fmt.Printf("\n\n\n\n\n\n\n")
 
 	assert.True(t, drt2.isSkipped())
 	assert.True(t, strings.Contains(ep.Message, "disabled"))
@@ -551,7 +549,6 @@ func TestDagRunRestart(t *testing.T) {
 	drt.status = StatusRuntimeInit
 	drt.subComponentRumtimes = map[string][]componentRuntime{}
 
-	fmt.Printf("\n\n\n\n\n")
 	drt.Restart(&dagView)
 	time.Sleep(time.Millisecond * 100)
 
@@ -684,7 +681,6 @@ func TestProcessFailureOptions(t *testing.T) {
 	drt.subComponentRumtimes = map[string][]componentRuntime{}
 	drt.subComponentRumtimes["square-loop"] = append(drt.subComponentRumtimes["square-loop"], drt3)
 
-	fmt.Printf("\n\n\n\n\n\n\n")
 	drt.ProcessFailureOptions(*event)
 	time.Sleep(time.Millisecond * 100)
 
