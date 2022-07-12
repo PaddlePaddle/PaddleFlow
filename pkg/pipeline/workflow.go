@@ -980,7 +980,7 @@ func (bwf *BaseWorkflow) checkDisabled() ([]string, error) {
 		tempMap[disFullName] = 1
 		components1, name1, ok1 := bwf.Source.GetComponent(bwf.Source.EntryPoints.EntryPoints, disFullName)
 		components2, name2, ok2 := bwf.Source.GetComponent(postComponents, disFullName)
-		components := map[string]schema.Component{}
+		var components map[string]schema.Component
 		disName := ""
 		if ok1 {
 			components, disName = components1, name1
@@ -1031,7 +1031,7 @@ func (bwf *BaseWorkflow) checkDisabled() ([]string, error) {
 				disParentFullName := strings.Join(disNameList[:len(disNameList)-1], ".")
 				components1, name1, ok1 := bwf.Source.GetComponent(bwf.Source.EntryPoints.EntryPoints, disParentFullName)
 				components2, name2, ok2 := bwf.Source.GetComponent(postComponents, disParentFullName)
-				parentComponents := map[string]schema.Component{}
+				var parentComponents map[string]schema.Component
 				parentName := ""
 				if ok1 {
 					parentComponents, parentName = components1, name1
