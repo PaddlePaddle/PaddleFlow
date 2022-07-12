@@ -29,7 +29,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
-	pplcommon "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
@@ -39,8 +38,8 @@ type Run struct {
 	Name           string                 `gorm:"type:varchar(60);not null"         json:"name"`
 	Source         string                 `gorm:"type:varchar(256);not null"        json:"source"` // pipelineID or yamlPath
 	UserName       string                 `gorm:"type:varchar(60);not null"         json:"username"`
-	FsID           string                 `gorm:"type:varchar(60);not null"         json:"-"`
-	FsName         string                 `gorm:"type:varchar(60);not null"         json:"fsname"`
+	GlobalFsID     string                 `gorm:"type:varchar(60);not null"         json:"-"`
+	GlobalFsName   string                 `gorm:"type:varchar(60);not null"         json:"globalFsName"`
 	Description    string                 `gorm:"type:text;size:65535;not null"     json:"description"`
 	ParametersJson string                 `gorm:"type:text;size:65535;not null"     json:"-"`
 	Parameters     map[string]interface{} `gorm:"-"                                 json:"parameters"`
@@ -50,7 +49,6 @@ type Run struct {
 	PostProcess    schema.PostProcessView `gorm:"-"                                 json:"postProcess"`
 	FailureOptions schema.FailureOptions  `gorm:"-"                                 json:"failureOptions"`
 	DockerEnv      string                 `gorm:"type:varchar(128);not null"        json:"dockerEnv"`
-	Entry          string                 `gorm:"type:varchar(256);not null"        json:"entry"`
 	Disabled       string                 `gorm:"type:text;size:65535;not null"     json:"disabled"`
 	ScheduleID     string                 `gorm:"type:varchar(60);not null"         json:"scheduleID"`
 	Message        string                 `gorm:"type:text;size:65535;not null"     json:"runMsg"`
@@ -97,7 +95,7 @@ func (r *Run) Encode() error {
 
 func (r *Run) decode() error {
 	// decode WorkflowSource
-	workflowSource, err := schema.ParseWorkflowSource([]byte(r.RunYaml))
+	workflowSource, err := schema.GetWorkflowSource([]byte(r.RunYaml))
 	if err != nil {
 		return err
 	}
@@ -107,8 +105,10 @@ func (r *Run) decode() error {
 
 	// 由于在所有获取Run的函数中，都需要进行decode，因此Runtime和PostProcess的赋值也在decode中进行
 	if err := r.validateRuntimeAndPostProcess(); err != nil {
+		logger.Logger().Errorf("validateRuntimeAndPostProcess in run decode failed, error: %s", err.Error())
 		return err
 	}
+	logger.Logger().Infof("debug: validateRuntimeAndPostProcess finish")
 
 	// decode param
 	if len(r.ParametersJson) > 0 {
@@ -139,6 +139,7 @@ func (r *Run) validateFailureOptions() {
 
 // validate runtime and postProcess
 func (r *Run) validateRuntimeAndPostProcess() error {
+	logging := logger.LoggerForRun(r.ID)
 	if r.Runtime == nil {
 		r.Runtime = schema.RuntimeView{}
 	}
@@ -146,55 +147,145 @@ func (r *Run) validateRuntimeAndPostProcess() error {
 		r.PostProcess = schema.PostProcessView{}
 	}
 	// 从数据库中获取该Run的所有Step发起的Job
-	runJobs, err := GetRunJobsOfRun(logger.LoggerForRun(r.ID), r.ID)
+	runJobs, err := GetRunJobsOfRun(logging, r.ID)
 	if err != nil {
 		return err
 	}
-	// 将所有run_job转换成JobView之后，赋值给Runtime和PostProcess
-	for _, job := range runJobs {
-		if step, ok := r.WorkflowSource.PostProcess[job.StepName]; ok {
-			jobView := job.ParseJobView(step)
-			r.PostProcess[job.StepName] = jobView
-		} else if step, ok := r.WorkflowSource.EntryPoints[job.StepName]; ok {
-			jobView := job.ParseJobView(step)
-			r.Runtime[job.StepName] = jobView
-		} else {
-			entryPointNames := []string{}
-			for name := range r.Runtime {
-				entryPointNames = append(entryPointNames, name)
-			}
-			postProcessNames := []string{}
-			for name := range r.PostProcess {
-				postProcessNames = append(postProcessNames, name)
-			}
-			return fmt.Errorf("cannot find step[%s] in either entry_points[%v]\nor post_process[%v]",
-				job.StepName, entryPointNames, postProcessNames)
-		}
-	}
-	// 初始化env中的PF_RUN_TIME
-	if err := r.initAllPFRuntime(); err != nil {
+	runDags, err := GetRunDagsOfRun(logging, r.ID)
+	if err != nil {
 		return err
 	}
+
+	// 先将post节点从runJobs中剔除
+	// TODO: 后续版本，如果支持了复杂结构的PostProcess，那么建议在step和dag表中添加 type 字段，用于区分该节点属于EntryPoints还是PostProcess
+	runtimeJobs := []RunJob{}
+	for _, job := range runJobs {
+		step, ok := r.WorkflowSource.PostProcess[job.StepName]
+		if ok && job.ParentDagID == "" {
+			jobView := job.ParseJobView(step)
+			r.PostProcess[job.StepName] = &jobView
+		} else {
+			runtimeJobs = append(runtimeJobs, job)
+		}
+	}
+
+	if err := r.initRuntime(runtimeJobs, runDags); err != nil {
+		return err
+	}
+
 	return nil
 }
 
-func (r *Run) initAllPFRuntime() error {
-	pfRuntimeGen := pplcommon.NewPFRuntimeGenerator(r.Runtime, r.WorkflowSource)
-	for name, step := range r.Runtime {
-		pfRuntimeJson, err := pfRuntimeGen.GetPFRuntime(name)
-		if err != nil {
-			return err
-		}
-		step.Env[pplcommon.SysParamNamePFRuntime] = pfRuntimeJson
-		r.Runtime[name] = step
+func (r *Run) initRuntime(jobs []RunJob, dags []RunDag) error {
+
+	// runtimeView
+	runtimeView := map[string][]schema.ComponentView{}
+
+	// 把dags由slice转为由ID为key，对应DagView为Value的map，方便后续操作
+	dagMap := map[string]*schema.DagView{}
+	comps := []schema.ComponentView{}
+	for _, dag := range dags {
+		dagView := dag.Trans2DagView()
+		dagMap[dag.ID] = &dagView
+		comps = append(comps, &dagView)
 	}
-	for name, step := range r.PostProcess {
-		pfRuntimeJson, err := pfRuntimeGen.GetPFRuntime(name)
-		if err != nil {
-			return err
+
+	for _, job := range jobs {
+		jobView := job.Trans2JobView()
+		comps = append(comps, &jobView)
+	}
+
+	// 处理jobs，根据parentID，在对应的dagView（若为空，则改为runtimeView）中，添加对应的JobView
+	// 处理dags，方法同上
+	for _, comp := range comps {
+		parentID := comp.GetParentDagID()
+		compName := comp.GetComponentName()
+		if parentID == "" {
+			runtimeView[compName] = append(runtimeView[compName], comp)
+		} else {
+			dag, ok := dagMap[parentID]
+			if !ok {
+				return fmt.Errorf("dag with parentDagID [%s] is not exist", parentID)
+			}
+			dag.EntryPoints[compName] = append(dag.EntryPoints[compName], comp)
 		}
-		step.Env[pplcommon.SysParamNamePFRuntime] = pfRuntimeJson
-		r.PostProcess[name] = step
+	}
+
+	tempView := r.RemoveOuterDagView(runtimeView)
+
+	// 此时已拿到RuntimeView树，但是信息不全，需要用wfs补全
+	if err := r.ProcessRuntimeView(tempView, r.WorkflowSource.EntryPoints.EntryPoints); err != nil {
+		return err
+	}
+
+	r.Runtime = runtimeView
+	return nil
+}
+
+func (r *Run) RemoveOuterDagView(runtimeView map[string][]schema.ComponentView) map[string][]schema.ComponentView {
+	// 去掉最外层的DagView，使结构与WorkflowSource.EntryPoints.EntryPoints对齐，从而进行下面的信息补全
+	runtimeViewErrMsg := "runtime view sturcture is invalid"
+	resView := map[string][]schema.ComponentView{}
+	for _, outerDagList := range runtimeView {
+		if len(outerDagList) == 1 {
+			outerDag, ok := outerDagList[0].(*schema.DagView)
+			if ok {
+				for name, compList := range outerDag.EntryPoints {
+					resView[name] = compList
+				}
+			} else {
+				// 这里是显示结构优化，如果调度测出现问题导致没有最外层Dag，那这里只会不优化，不返回error
+				logger.Logger().Warnf(runtimeViewErrMsg)
+				return runtimeView
+			}
+		} else {
+			// 这里是显示结构优化，如果调度测出现问题导致没有最外层Dag，那这里只会不优化，不返回error
+			logger.Logger().Warnf(runtimeViewErrMsg)
+			return runtimeView
+		}
+	}
+	return resView
+}
+
+// 补全ComponentView中的Deps
+func (r *Run) ProcessRuntimeView(componentViews map[string][]schema.ComponentView, components map[string]schema.Component) error {
+	for compName, comp := range components {
+		compViewList := componentViews[compName]
+		deps := strings.Join(comp.GetDeps(), ",")
+		for _, compView := range compViewList {
+			// 信息补全
+			compView.SetDeps(deps)
+
+			// 如果View为Dag类型，则继续遍历，补全子节点View的信息
+			if dagView, ok := compView.(*schema.DagView); ok {
+				dag, ok := comp.(*schema.WorkflowSourceDag)
+				if !ok {
+					// 如果是Wfs中对应的节点是Step，且为reference节点，那就去Components中寻找信息
+					step, ok := comp.(*schema.WorkflowSourceStep)
+					if !ok {
+						return fmt.Errorf("component is not Dag or Job")
+					}
+					for {
+						if step.Reference.Component == "" {
+							return fmt.Errorf("runtimeView's sturcture is not suitable to WorkflowSource")
+						}
+						refComp, ok := r.WorkflowSource.Components[step.Reference.Component]
+						if !ok {
+							return fmt.Errorf("reference in step is not exist")
+						}
+						if refDag, ok := refComp.(*schema.WorkflowSourceDag); ok {
+							dag = refDag
+							break
+						} else if refStep, ok := refComp.(*schema.WorkflowSourceStep); ok {
+							step = refStep
+						}
+					}
+				}
+				if err := r.ProcessRuntimeView(dagView.EntryPoints, dag.EntryPoints); err != nil {
+					return err
+				}
+			}
+		}
 	}
 	return nil
 }
@@ -288,7 +379,7 @@ func ListRun(logEntry *log.Entry, pk int64, maxKeys int, userFilter, fsFilter, r
 		tx = tx.Where("user_name IN (?)", userFilter)
 	}
 	if len(fsFilter) > 0 {
-		tx = tx.Where("fs_name IN (?)", fsFilter)
+		tx = tx.Where("global_fs_name IN (?)", fsFilter)
 	}
 	if len(runFilter) > 0 {
 		tx = tx.Where("id IN (?)", runFilter)
@@ -341,7 +432,7 @@ func CountRun(logEntry *log.Entry, pk int64, maxKeys int, userFilter, fsFilter, 
 		tx = tx.Where("user_name IN (?)", userFilter)
 	}
 	if len(fsFilter) > 0 {
-		tx = tx.Where("fs_name IN (?)", fsFilter)
+		tx = tx.Where("global_fs_name IN (?)", fsFilter)
 	}
 	if len(runFilter) > 0 {
 		tx = tx.Where("id IN (?)", runFilter)

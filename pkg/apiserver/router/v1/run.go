@@ -17,7 +17,6 @@ limitations under the License.
 package v1
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -119,6 +118,15 @@ func (rr *RunRouter) createRunByJson(w http.ResponseWriter, r *http.Request) {
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
+
+	// 检查 json 请求体的格式
+	if !json.Valid(bodyBytes) {
+		errMsg := "request body json format invalid"
+		logger.LoggerForRequest(&ctx).Errorf(errMsg)
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, errMsg)
+		return
+	}
+
 	bodyUnstructured := unstructured.Unstructured{}
 	if err := bodyUnstructured.UnmarshalJSON(bodyBytes); err != nil && !runtime.IsMissingKind(err) {
 		// MissingKindErr不影响Json的解析
@@ -128,27 +136,16 @@ func (rr *RunRouter) createRunByJson(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	bodyMap := bodyUnstructured.UnstructuredContent()
-	// 保证body下一次能够读取
-	r.Body = ioutil.NopCloser(bytes.NewBuffer(bodyBytes))
 
-	createRunByJsonInfo := pipeline.CreateRunByJsonRequest{}
-
-	if err := common.BindJSON(r, &createRunByJsonInfo); err != nil {
-		logger.LoggerForRequest(&ctx).Errorf(
-			"create run by json failed parsing request body:%+v. error:%s", r.Body, err.Error())
-		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
-		return
-	}
-
-	trace_logger.Key(ctx.RequestID).Infof("creating run by json for request:%+v", createRunByJsonInfo)
+	trace_logger.Key(ctx.RequestID).Infof("creating run by json for request body map:%+v", bodyMap)
 	// create run
-	response, err := pipeline.CreateRunByJson(ctx, &createRunByJsonInfo, bodyMap)
+	response, err := pipeline.CreateRunByJson(ctx, bodyMap)
 	if err != nil {
 		if response.RunID != "" {
 			trace_logger.Key(response.RunID).Errorf("create run fail: %s", err)
 		}
 		logger.LoggerForRequest(&ctx).Errorf(
-			"create run by json failed. createRunByJsonInfo:%v error:%s", createRunByJsonInfo, err.Error())
+			"create run by json failed. error:%s", err.Error())
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}

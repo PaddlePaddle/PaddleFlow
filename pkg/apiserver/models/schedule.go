@@ -93,8 +93,8 @@ func (Schedule) TableName() string {
 // ------- 存放周期调度用于发起run的fs相关配置 -------
 
 type FsConfig struct {
-	FsName   string `json:"fsName"`
-	UserName string `json:"userName"`
+	GlobalFsName string `json:"globalFsName"`
+	UserName     string `json:"userName"`
 }
 
 func DecodeFsConfig(strConfig string) (fc FsConfig, err error) {
@@ -395,9 +395,9 @@ func GetUsedFsIDs() ([]string, error) {
 
 		var fsID string
 		if fsConfig.UserName != "" {
-			fsID = common.ID(fsConfig.UserName, fsConfig.FsName)
+			fsID = common.ID(fsConfig.UserName, fsConfig.GlobalFsName)
 		} else {
-			fsID = common.ID(schedule.UserName, fsConfig.FsName)
+			fsID = common.ID(schedule.UserName, fsConfig.GlobalFsName)
 		}
 
 		fsIDMap[fsID] = 1
