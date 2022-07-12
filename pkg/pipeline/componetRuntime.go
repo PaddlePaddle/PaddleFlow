@@ -59,13 +59,6 @@ type parallelismManager struct {
 }
 
 func NewParallelismManager(parallelism int) *parallelismManager {
-	// 用于兜底
-	if parallelism <= 0 {
-		parallelism = WfParallelismDefault
-	} else if parallelism > WfParallelismMaximum {
-		parallelism = WfParallelismMaximum
-	}
-
 	return &parallelismManager{
 		ch: make(chan struct{}, parallelism),
 	}
