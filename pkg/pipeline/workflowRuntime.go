@@ -166,7 +166,7 @@ func (wfr *WorkflowRuntime) Resume(entryPointView *schema.DagView, postProcessVi
 
 // Restart: 重新运行
 func (wfr *WorkflowRuntime) Restart(entryPointView *schema.DagView,
-	postProcessView schema.PostProcessView) error {
+	postProcessView schema.PostProcessView) {
 	defer wfr.scheduleLock.Unlock()
 	wfr.scheduleLock.Lock()
 
@@ -179,7 +179,7 @@ func (wfr *WorkflowRuntime) Restart(entryPointView *schema.DagView,
 	if entryPointView.Status != StatusRuntimeSucceeded {
 		wfr.entryPoints.Restart(entryPointView)
 		go wfr.Listen()
-		return nil
+		return
 	} else {
 		// 此时 postPost节点的状态一定为 异常状态，直接重新调度 postProcess 即可
 		err := wfr.entryPoints.updateStatus(StatusRuntimeSucceeded)
@@ -188,7 +188,7 @@ func (wfr *WorkflowRuntime) Restart(entryPointView *schema.DagView,
 		}
 		wfr.schedulePostProcess()
 		go wfr.Listen()
-		return nil
+		return
 	}
 }
 
