@@ -266,17 +266,17 @@ func (m *JobManagerImpl) submitQueueJob(jobSubmit func(*api.PFJob) error, queueI
 				jobQueue.Push(jobInfo)
 			}
 
-			jobCount := len(pfJobs)
-			log.Infof("Entering submit %d jobs in queue %s", jobCount, queue.Name)
+			jobCount := jobQueue.Len()
 			var wg = &sync.WaitGroup{}
+			log.Infof("Entering submit %d jobs in queue %s", jobCount, queue.Name)
 			startTime := time.Now()
 			for !jobQueue.Empty() {
 				job := jobQueue.Pop().(*api.PFJob)
 				wg.Add(1)
-				go func(wg *sync.WaitGroup) {
+				go func() {
 					defer wg.Done()
 					m.submitJob(jobSubmit, job)
-				}(wg)
+				}()
 			}
 			wg.Wait()
 			log.Infof("Leaving submit %d jobs in queue %s, total elapsed time: %s", jobCount, queue.Name, time.Since(startTime))
