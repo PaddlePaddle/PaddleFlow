@@ -84,7 +84,10 @@ func NewDagRuntime(name, fullName string, dag *schema.WorkflowSourceDag, seq int
 	err := drt.updateStatus(StatusRuntimeInit)
 	if err != nil {
 		// 理论上不会出现这种情况，主要是为了承接 err，对齐进行判断
-		drt.logger.Infof("update status for dag[%s] failed: %s", drt.name, err.Error())
+		errMsg := fmt.Sprintf("update status for dag[%s] failed: %s", drt.name, err.Error())
+		drt.logger.Infof(errMsg)
+		drt.processStartAbnormalStatus(errMsg, StatusRuntimeFailed)
+		return nil
 	}
 
 	ds := NewDependencySolver(drt)
@@ -268,7 +271,10 @@ func (drt *DagRuntime) Start() {
 	err := drt.updateStatus(StatusRuntimeRunning)
 	if err != nil {
 		// 理论上不会出现这种情况，主要是为了承接 err，对齐进行判断
-		drt.logger.Infof("update status for dag[%s] failed: %s", drt.name, err.Error())
+		errMsg := fmt.Sprintf("update status for dag[%s] failed: %s", drt.name, err.Error())
+		drt.logger.Infof(errMsg)
+		drt.processStartAbnormalStatus(errMsg, StatusRuntimeFailed)
+		return
 	}
 
 	drt.startTime = time.Now().Format("2006-01-02 15:04:05")
@@ -281,6 +287,7 @@ func (drt *DagRuntime) Start() {
 		errMsg := fmt.Sprintf("set the sysparams for dag[%s] failed: %s", drt.name, err.Error())
 		drt.logger.Errorln(errMsg)
 		drt.processStartAbnormalStatus(errMsg, StatusRuntimeFailed)
+		return
 	}
 
 	// 2、替换 condition，loop_argument 中的模板，将其替换成具体真实值
@@ -388,6 +395,7 @@ func (drt *DagRuntime) Resume(dagView *schema.DagView) {
 		errMsg := fmt.Sprintf("set the sysparams for dag[%s] failed: %s", drt.name, err.Error())
 		drt.logger.Errorln(errMsg)
 		drt.processStartAbnormalStatus(errMsg, StatusRuntimeFailed)
+		return
 	}
 
 	// 如果dagview 的EntryPoint为一个空map， 则直接走 start 逻辑
@@ -400,7 +408,10 @@ func (drt *DagRuntime) Resume(dagView *schema.DagView) {
 	err = drt.updateStatus(dagView.Status)
 	if err != nil {
 		// 理论上不会出现这种情况，主要是为了承接 err，对齐进行判断
-		drt.logger.Infof("update status for dag[%s] failed: %s", drt.name, err.Error())
+		errMsg := fmt.Sprintf("update status for dag[%s] failed: %s", drt.name, err.Error())
+		drt.logger.Infof(errMsg)
+		drt.processStartAbnormalStatus(errMsg, StatusRuntimeFailed)
+		return
 	}
 
 	// 相关校验逻辑由 parser 模块负责，此处不做校验
@@ -462,7 +473,12 @@ func (drt *DagRuntime) Resume(dagView *schema.DagView) {
 			status := view.GetStatus()
 
 			runtime := drt.CreateSubRuntimeAccordingView(view, name)
-			runtime.updateStatus(status)
+			err := runtime.updateStatus(status)
+			if err != nil {
+				drt.logger.Errorln(err.Error())
+				drt.processSubRuntimeError(err, component, StatusRuntimeFailed)
+				continue
+			}
 
 			drt.subComponentRumtimes[name] = append(drt.subComponentRumtimes[name], runtime)
 			drt.logger.Infof("recreated runtime for %s[%s] with status[%s]",
@@ -518,12 +534,19 @@ func (drt *DagRuntime) Restart(dagView *schema.DagView) {
 	drt.processSubComponentLock.Lock()
 
 	drt.logger.Infof("pk in dagView for dag[%s]: %d", drt.name, dagView.PK)
-	drt.logger.Infof("DagID in dagView for dag[%s]: %d", drt.name, dagView.DagID)
+	drt.logger.Infof("DagID in dagView for dag[%s]: %s", drt.name, dagView.DagID)
 
 	drt.pk = dagView.PK
 	drt.ID = dagView.DagID
 	drt.startTime = dagView.StartTime
-	drt.setSysParams()
+
+	err := drt.setSysParams()
+	if err != nil {
+		errMsg := fmt.Sprintf("set the sysparams for dag[%s] failed: %s", drt.name, err.Error())
+		drt.logger.Errorln(errMsg)
+		drt.processStartAbnormalStatus(errMsg, StatusRuntimeFailed)
+		return
+	}
 
 	// 如果dagview 的EntryPoint为一个空map， 则直接走 start 逻辑
 	if len(dagView.EntryPoints) == 0 {
@@ -587,7 +610,14 @@ func (drt *DagRuntime) scheduleSubComponentAccordingView(dagView *schema.DagView
 	sorted, _ := TopologicalSort(drt.getworkflowSouceDag().EntryPoints)
 	drt.logger.Infof("toposort in dag[%s] is %v", drt.name, sorted)
 
-	drt.updateStatus(StatusRuntimeRunning)
+	err := drt.updateStatus(StatusRuntimeRunning)
+	if err != nil {
+		// 理论上不会出现这种情况，主要是为了承接 err，对齐进行判断
+		errMsg := fmt.Sprintf("update status for dag[%s] failed: %s", drt.name, err.Error())
+		drt.logger.Infof(errMsg)
+		drt.processStartAbnormalStatus(errMsg, StatusRuntimeFailed)
+		return
+	}
 
 	view := drt.newView("begin to restart")
 	drt.syncToApiServerAndParent(WfEventDagUpdate, &view, "begin to restart")
@@ -669,9 +699,19 @@ func (drt *DagRuntime) scheduleSubComponentAccordingView(dagView *schema.DagView
 			if status == StatusRuntimeSucceeded || status == StatusRuntimeSkipped {
 				// 对于step, 此时不能降低并发度
 				if isStep {
-					runtime.(*StepRuntime).baseComponentRuntime.updateStatus(view.GetStatus())
+					err := runtime.(*StepRuntime).baseComponentRuntime.updateStatus(view.GetStatus())
+					if err != nil {
+						drt.logger.Errorln(err.Error())
+						drt.processSubRuntimeError(err, component, StatusRuntimeFailed)
+						continue
+					}
 				} else {
-					runtime.updateStatus(view.GetStatus())
+					err := runtime.updateStatus(view.GetStatus())
+					if err != nil {
+						drt.logger.Errorln(err.Error())
+						drt.processSubRuntimeError(err, component, StatusRuntimeFailed)
+						continue
+					}
 				}
 
 				drt.logger.Infof("sub%s[%s] don't need restart, because it's already in status[%s]",
@@ -926,7 +966,9 @@ func (drt *DagRuntime) CancellNotReadyComponent(subComponent schema.Component, r
 }
 
 func (drt *DagRuntime) processStartAbnormalStatus(msg string, status RuntimeStatus) {
-	drt.updateStatus(status)
+	err := drt.updateStatus(status)
+	drt.logger.Errorf(err.Error())
+
 	dagView := drt.newView(msg)
 	drt.syncToApiServerAndParent(WfEventDagUpdate, &dagView, msg)
 }
@@ -966,6 +1008,10 @@ func (drt *DagRuntime) processSubRuntimeError(err error, cp schema.Component, st
 
 // updateStatusAccordingSubComponentRuntimeStatus: 根据子节点的状态来更新
 func (drt *DagRuntime) updateStatusAccordingSubComponentRuntimeStatus() string {
+	if drt.done {
+		return fmt.Sprintf("already in status[%s]", drt.status)
+	}
+
 	drt.logger.Infof("begin to update status for dag[%s]", drt.name)
 	// 1. 如果有子节点还没有调度，且节点本身的状态不为 Terminating， 则状态必定为running
 	if len(drt.subComponentRumtimes) != len(drt.getworkflowSouceDag().EntryPoints) {
@@ -973,7 +1019,14 @@ func (drt *DagRuntime) updateStatusAccordingSubComponentRuntimeStatus() string {
 			len(drt.subComponentRumtimes), len(drt.getworkflowSouceDag().EntryPoints), drt.name)
 
 		if !drt.isTerminating() {
-			drt.updateStatus(StatusRuntimeRunning)
+			err := drt.updateStatus(StatusRuntimeRunning)
+			if err != nil {
+				// 理论上不会出现这种情况，主要是为了承接 err，对齐进行判断
+				errMsg := fmt.Sprintf("update status for dag[%s] failed: %s", drt.name, err.Error())
+				drt.logger.Infof(errMsg)
+				drt.processStartAbnormalStatus(errMsg, StatusRuntimeFailed)
+				return errMsg
+			}
 		}
 		return ""
 	}
@@ -999,7 +1052,14 @@ func (drt *DagRuntime) updateStatusAccordingSubComponentRuntimeStatus() string {
 				if len(cps) != v.Len() && v.Len() != 0 {
 					// v.Len 为 0 时， 会有一个占位用户的 cp
 					if !drt.isTerminating() {
-						drt.updateStatus(StatusRuntimeRunning)
+						err := drt.updateStatus(StatusRuntimeRunning)
+						if err != nil {
+							// 理论上不会出现这种情况，主要是为了承接 err，对齐进行判断
+							errMsg := fmt.Sprintf("update status for dag[%s] failed: %s", drt.name, err.Error())
+							drt.logger.Infof(errMsg)
+							drt.processStartAbnormalStatus(errMsg, StatusRuntimeFailed)
+							return errMsg
+						}
 					}
 					drt.logger.Debugf("cpname: %s, len of cps: %d, len of lp: %d, ld:%v",
 						cp.getName(), len(cps), v.Len(), loop_argument)
@@ -1021,7 +1081,14 @@ func (drt *DagRuntime) updateStatusAccordingSubComponentRuntimeStatus() string {
 				skippedComponentNames = append(skippedComponentNames, cps[index].getName())
 			} else {
 				if !drt.isTerminating() {
-					drt.updateStatus(StatusRuntimeRunning)
+					err := drt.updateStatus(StatusRuntimeRunning)
+					if err != nil {
+						// 理论上不会出现这种情况，主要是为了承接 err，对齐进行判断
+						errMsg := fmt.Sprintf("update status for dag[%s] failed: %s", drt.name, err.Error())
+						drt.logger.Infof(errMsg)
+						drt.processStartAbnormalStatus(errMsg, StatusRuntimeFailed)
+						return errMsg
+					}
 				}
 				return ""
 			}
@@ -1029,17 +1096,18 @@ func (drt *DagRuntime) updateStatusAccordingSubComponentRuntimeStatus() string {
 	}
 
 	var msg string
+	var err error
 	if len(faieldComponentNames) != 0 {
-		drt.updateStatus(StatusRuntimeFailed)
+		err = drt.updateStatus(StatusRuntimeFailed)
 		msg = fmt.Sprintf("update dag[%s]'s status to [%s] due to subSteps or subDags[%s] faield",
 			drt.name, StatusRuntimeFailed, strings.Join(faieldComponentNames, ","))
 	} else if len(terminatedComponentNames) != 0 {
 		if drt.status != StatusRuntimeTerminating {
-			drt.updateStatus(StatusRuntimeFailed)
+			err = drt.updateStatus(StatusRuntimeFailed)
 			msg = fmt.Sprintf("update dag[%s]'s status to [%s] due to subSteps or subDags[%s] abnormally terminated",
 				drt.name, StatusRuntimeFailed, strings.Join(terminatedComponentNames, ","))
 		} else {
-			drt.updateStatus(StatusRuntimeTerminated)
+			err = drt.updateStatus(StatusRuntimeTerminated)
 			msg = fmt.Sprintf("update dag[%s]'s status to [%s] due to subSteps or subDags[%s] terminated",
 				drt.name, StatusRuntimeTerminated, strings.Join(terminatedComponentNames, ","))
 		}
@@ -1047,14 +1115,24 @@ func (drt *DagRuntime) updateStatusAccordingSubComponentRuntimeStatus() string {
 		// 如果节点的状态是 cancelled，只有两种情况：
 		// 1、有节点运行失败，触发了 FailureOptions 机制，这种情况在上面已经处理
 		// 2、收到终止信号
-		drt.updateStatus(StatusRuntimeTerminated)
+		err = drt.updateStatus(StatusRuntimeTerminated)
 		msg = fmt.Sprintf("update dag[%s]'s status to [%s] due to subSteps or subDags[%s] cancelled",
 			drt.name, StatusRuntimeTerminated, strings.Join(terminatedComponentNames, ","))
 	} else {
 		// 回填本节点的输出artifact
-		msg = fmt.Sprintf("all subDag or subStep run succeeded: %s", strings.Join(succeededComponentNames, ","))
-		drt.ResolveAfterDone()
-		drt.updateStatus(StatusRuntimeSucceeded)
+		names := append(succeededComponentNames, skippedComponentNames...)
+		msg = fmt.Sprintf("all subDag or subStep run succeeded or skipped: %s", strings.Join(names, ","))
+		err = drt.ResolveAfterDone()
+		if err != nil {
+			err = drt.updateStatus(StatusRuntimeFailed)
+		} else {
+			err = drt.updateStatus(StatusRuntimeSucceeded)
+		}
+	}
+
+	if err != nil {
+		// 理论上不会出现这种情况，为了保持完备性增加此处判断，因此此处只需打印日志即可
+		drt.logger.Errorf(err.Error())
 	}
 
 	if msg != "" {
@@ -1126,7 +1204,10 @@ func (drt *DagRuntime) Stop() {
 		defer drt.processSubComponentLock.Unlock()
 		drt.processSubComponentLock.Lock()
 
-		drt.updateStatus(StatusRuntimeTerminating)
+		err := drt.updateStatus(StatusRuntimeTerminating)
+		if err != nil {
+			drt.logger.Errorf(err.Error())
+		}
 		drt.stopByCtx()
 
 	case <-drt.failureOpitonsCtx.Done():
@@ -1137,7 +1218,10 @@ func (drt *DagRuntime) Stop() {
 		defer drt.processSubComponentLock.Unlock()
 		drt.processSubComponentLock.Lock()
 
-		drt.updateStatus(StatusRuntimeTerminating)
+		err := drt.updateStatus(StatusRuntimeTerminating)
+		if err != nil {
+			drt.logger.Errorf(err.Error())
+		}
 
 		// 此时 failureOptions的策略必然是 fail_fast
 		drt.ProcessFailureOptionsWithFailFast()

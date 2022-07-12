@@ -29,16 +29,18 @@ import (
 // 工作流运行时
 type WorkflowRuntime struct {
 	*runConfig
-	entryPointsCtx       context.Context
-	entryPointsctxCancel context.CancelFunc
-	postProcessPointsCtx context.Context
-	postProcessctxCancel context.CancelFunc
-	entryPoints          *DagRuntime
-	postProcess          *StepRuntime
-	status               string
-	EventChan            chan WorkflowEvent
-	pk                   int64
-	startTime            string
+	entryPointsCtx        context.Context
+	entryPointsctxCancel  context.CancelFunc
+	entryPointsFailCancel context.CancelFunc
+	postProcessPointsCtx  context.Context
+	postProcessctxCancel  context.CancelFunc
+	postProcessFailCancel context.CancelFunc
+	entryPoints           *DagRuntime
+	postProcess           *StepRuntime
+	status                string
+	EventChan             chan WorkflowEvent
+	pk                    int64
+	startTime             string
 
 	// 主要用于避免在调度节点的同时遇到终止任务的情况
 	scheduleLock sync.Mutex
@@ -47,18 +49,19 @@ type WorkflowRuntime struct {
 func NewWorkflowRuntime(rc *runConfig) *WorkflowRuntime {
 	entryCtx, entryCtxCancel := context.WithCancel(context.Background())
 	postCtx, postCtxCancel := context.WithCancel(context.Background())
-	failureOptionsCtx, _ := context.WithCancel(context.Background())
+	failureOptionsCtx, cancel := context.WithCancel(context.Background())
 
 	EventChan := make(chan WorkflowEvent)
 
 	wfr := &WorkflowRuntime{
-		runConfig:            rc,
-		entryPointsCtx:       entryCtx,
-		entryPointsctxCancel: entryCtxCancel,
-		postProcessPointsCtx: postCtx,
-		postProcessctxCancel: postCtxCancel,
-		EventChan:            EventChan,
-		scheduleLock:         sync.Mutex{},
+		runConfig:             rc,
+		entryPointsCtx:        entryCtx,
+		entryPointsctxCancel:  entryCtxCancel,
+		entryPointsFailCancel: cancel,
+		postProcessPointsCtx:  postCtx,
+		postProcessctxCancel:  postCtxCancel,
+		EventChan:             EventChan,
+		scheduleLock:          sync.Mutex{},
 	}
 
 	epName := wfr.generateEntryPointFullName()
@@ -121,7 +124,9 @@ func (wfr *WorkflowRuntime) Resume(entryPointView *schema.DagView, postProcessVi
 		for name, view := range postProcessView {
 			if !isRuntimeFinallyStatus(view.Status) {
 				step := wfr.WorkflowSource.PostProcess[name]
-				failureOptionsCtx, _ := context.WithCancel(context.Background())
+				failureOptionsCtx, cancel := context.WithCancel(context.Background())
+				wfr.postProcessFailCancel = cancel
+
 				postName := wfr.generatePostProcessFullName(name)
 				postStep, err := NewReferenceSolver(wfr.WorkflowSource).resolveComponentReference(step)
 				if err != nil {
@@ -214,7 +219,9 @@ func (wfr *WorkflowRuntime) Stop(force bool) error {
 		} else {
 			// 如果在创建 stepRuntime时，直接给定状态为 Cancelled
 			for name, step := range wfr.WorkflowSource.PostProcess {
-				failureOptionsCtx, _ := context.WithCancel(context.Background())
+				failureOptionsCtx, cancel := context.WithCancel(context.Background())
+				wfr.postProcessFailCancel = cancel
+
 				postName := wfr.generatePostProcessFullName(name)
 				wfr.postProcess = newStepRuntimeWithStatus(postName, postName, step, 0, wfr.postProcessPointsCtx, failureOptionsCtx,
 					wfr.EventChan, wfr.runConfig, "", StatusRuntimeCancelled, "reveice termination signal")
@@ -231,15 +238,14 @@ func (wfr *WorkflowRuntime) Status() string {
 
 func (wfr *WorkflowRuntime) Listen() {
 	for {
-		select {
-		case event := <-wfr.EventChan:
-			if err := wfr.processEvent(event); err != nil {
-				// how to read event?
-				wfr.logger.Debugf("process event failed %s", err.Error())
-			}
-			if wfr.IsCompleted() {
-				return
-			}
+		event := <-wfr.EventChan
+		if err := wfr.processEvent(event); err != nil {
+			// how to read event?
+			wfr.logger.Debugf("process event failed %s", err.Error())
+		}
+
+		if wfr.IsCompleted() {
+			return
 		}
 	}
 }
@@ -257,7 +263,9 @@ func (wfr *WorkflowRuntime) schedulePostProcess() {
 		return
 	} else if len(wfr.WorkflowSource.PostProcess) != 0 {
 		for name, step := range wfr.WorkflowSource.PostProcess {
-			failureOptionsCtx, _ := context.WithCancel(context.Background())
+			failureOptionsCtx, cancel := context.WithCancel(context.Background())
+			wfr.postProcessFailCancel = cancel
+
 			postName := wfr.generatePostProcessFullName(name)
 
 			postStep, err := NewReferenceSolver(wfr.WorkflowSource).resolveComponentReference(step)
