@@ -20,7 +20,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -94,20 +93,6 @@ type CacheCalculator interface {
 
 	// 计算 第二层 fingerprint
 	CalculateSecondFingerprint() (fingerprint string, err error)
-}
-
-type aggressiveCacheCalculator struct {
-	step           StepRuntime
-	cacheConfig    schema.Cache
-	firstCacheKey  aggressiveFirstCacheKey
-	secondCacheKey aggressiveSecondCacheKey
-}
-
-func NewAggressiveCacheCalculator(step StepRuntime, cacheConfig schema.Cache) (CacheCalculator, error) {
-	errMsg := "aggressive cache strategy is not supported now!!"
-	err := errors.New(errMsg)
-	step.logger.Errorln(errMsg)
-	return nil, err
 }
 
 type conservativeCacheCalculator struct {

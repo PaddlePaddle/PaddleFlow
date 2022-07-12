@@ -29,12 +29,12 @@ import (
 
 type Job interface {
 	Job() BaseJob
-	Update(cmd string, params map[string]string, envs map[string]string, artifacts *schema.Artifacts, FsMount []schema.FsMount) error
+	Update(cmd string, params map[string]string, envs map[string]string, artifacts *schema.Artifacts, FsMount []schema.FsMount)
 	Validate() error
 	Start() (string, error)
 	Stop() error
 	Check() (schema.JobStatus, error)
-	Watch() error
+	Watch()
 	Started() bool
 	Succeeded() bool
 	Failed() bool
@@ -106,7 +106,7 @@ func NewPaddleFlowJobWithJobView(view *schema.JobView, image string, eventChanne
 
 // 发起作业接口
 func (pfj *PaddleFlowJob) Update(cmd string, params map[string]string, envs map[string]string,
-	artifacts *schema.Artifacts, fsMount []schema.FsMount) error {
+	artifacts *schema.Artifacts, fsMount []schema.FsMount) {
 	if cmd != "" {
 		pfj.Command = cmd
 	}
@@ -126,8 +126,6 @@ func (pfj *PaddleFlowJob) Update(cmd string, params map[string]string, envs map[
 	if fsMount != nil && len(fsMount) != 0 {
 		pfj.FsMount = fsMount
 	}
-
-	return nil
 }
 
 // 生成job 的conf 信息
@@ -229,7 +227,7 @@ func (pfj *PaddleFlowJob) Check() (schema.JobStatus, error) {
 }
 
 // 同步watch作业接口
-func (pfj *PaddleFlowJob) Watch() error {
+func (pfj *PaddleFlowJob) Watch() {
 	const TryMax = 5
 	tryCount := 0
 	for {
@@ -273,7 +271,6 @@ func (pfj *PaddleFlowJob) Watch() error {
 		}
 		time.Sleep(time.Second * 3)
 	}
-	return nil
 }
 
 func (pfj *PaddleFlowJob) Succeeded() bool {

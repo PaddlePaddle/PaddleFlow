@@ -63,11 +63,6 @@ func (wfe *WorkflowEvent) isRunUpdate() bool {
 	return wfe.Event == WfEventRunUpdate
 }
 
-// 是否Dag更新事件
-func (wfe *WorkflowEvent) isDagUpdate() bool {
-	return wfe.Event == WfEventRunUpdate
-}
-
 // 是否Job Watch异常事件
 func (wfe *WorkflowEvent) isJobWatchErr() bool {
 	return wfe.Event == WfEventJobWatchErr

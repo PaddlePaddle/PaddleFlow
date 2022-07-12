@@ -33,7 +33,6 @@ import (
 
 type StepRuntime struct {
 	*baseComponentRuntime
-	submitted         bool // 表示是否从run中发过ready信号过来。如果pipeline服务宕机重启，run会从该字段判断是否需要再次发ready信号，触发运行
 	job               Job
 	firstFingerprint  string
 	secondFingerprint string
@@ -81,7 +80,10 @@ func newStepRuntimeWithStatus(name, fullName string, step *schema.WorkflowSource
 	srt := NewStepRuntime(name, fullName, step, seq, ctx, failureOpitonsCtx, eventChannel, config, ParentDagID)
 
 	// 此时由于 stepRuntime 并不会运行，不会占坑，所以不需要降低并发度
-	srt.baseComponentRuntime.updateStatus(status)
+	err := srt.baseComponentRuntime.updateStatus(status)
+	if err != nil {
+		config.logger.Errorf(err.Error())
+	}
 
 	view := srt.newJobView(msg)
 
@@ -112,8 +114,11 @@ func (srt *StepRuntime) updateStatus(status RuntimeStatus) error {
 }
 
 func (srt *StepRuntime) processStartAbnormalStatus(msg string, status RuntimeStatus) {
-	// 1、更新节点状态， 2、生成 event 将相关信息同步至父节点
-	srt.updateStatus(status)
+	// 1、更新节点状态，(更新失败，则说明已经处于终态，此时直接打log 就好) 2、生成 event 将相关信息同步至父节点
+	err := srt.updateStatus(status)
+	if err != nil {
+		srt.logger.Errorf(err.Error())
+	}
 
 	view := srt.newJobView(msg)
 
@@ -131,7 +136,13 @@ func (srt *StepRuntime) Start() {
 	srt.logger.Infof("begin to run step[%s], and current parallelism is %d", srt.name,
 		srt.parallelismManager.CurrentParallelism())
 
-	srt.setSysParams()
+	err := srt.setSysParams()
+	if err != nil {
+		errMsg := fmt.Sprintf("set the sysparams for dag[%s] failed: %s", srt.name, err.Error())
+		srt.logger.Errorln(errMsg)
+		srt.processStartAbnormalStatus(errMsg, StatusRuntimeFailed)
+		return
+	}
 
 	// 1、计算 condition
 	conditon, err := srt.CalculateCondition()
@@ -185,15 +196,6 @@ func (srt *StepRuntime) Resume(view *schema.JobView) {
 	defer srt.processJobLock.Unlock()
 	srt.processJobLock.Lock()
 
-	if srt.status != "" {
-		// 此时说明其余的协程正在处理当前的运行时，因此直接退出当前协程
-		msg := fmt.Sprintf("inner error: cannot restart step[%s], because it's already in status[%s], "+
-			"maybe multi gorutine process this step", srt.name, srt.status)
-		srt.updateStatus(StatusRuntimeFailed)
-		view := srt.newJobView(msg)
-		srt.syncToApiServerAndParent(WfEventJobUpdate, &view, msg)
-	}
-
 	// 如果jobID 为空，说明此时还没有发起job， 因此重新Start
 	if view.JobID == "" {
 		go srt.Start()
@@ -206,11 +208,35 @@ func (srt *StepRuntime) Resume(view *schema.JobView) {
 
 	srt.pk = view.PK
 	srt.getWorkFlowStep().FsMount = view.FsMount
-	srt.updateStatus(view.Status)
-	srt.setSysParams()
-	srt.updateJob(false)
+	err := srt.updateStatus(view.Status)
+	if err != nil {
+		errMsg := fmt.Sprintf("set the sysparams for dag[%s] failed: %s", srt.name, err.Error())
+		srt.logger.Errorln(errMsg)
+		srt.processStartAbnormalStatus(errMsg, StatusRuntimeFailed)
+		return
+	}
 
-	srt.job.(*PaddleFlowJob).SetJobID(view.JobID)
+	err = srt.setSysParams()
+	if err != nil {
+		srt.logger.Errorln(err.Error())
+		srt.processStartAbnormalStatus(err.Error(), StatusRuntimeFailed)
+		return
+	}
+
+	err = srt.updateJob(false)
+	if err != nil {
+		err := fmt.Errorf("update job for step[%s] failed: %s", srt.name, err.Error())
+		srt.processStartAbnormalStatus(err.Error(), StatusRuntimeFailed)
+		return
+	}
+
+	err = srt.job.(*PaddleFlowJob).SetJobID(view.JobID)
+	if err != nil {
+		err := fmt.Errorf("set jobid for step[%s] failed: %s", srt.name, err.Error())
+		srt.processStartAbnormalStatus(err.Error(), StatusRuntimeFailed)
+		return
+	}
+
 	srt.logger.Infof("Watch Job [%s] again", srt.job.JobID())
 
 	msg := fmt.Sprintf("resume step[%s] with status[%s]", srt.name, string(srt.status))
@@ -707,8 +733,14 @@ func (srt *StepRuntime) stopWithMsg(msg string) {
 
 	if srt.job.JobID() == "" {
 		// 此时说明还没有创建job，因此直接将状态置为 failed，并通过事件进行同步即可
-		srt.updateStatus(StatusRuntimeFailed)
-		msg = fmt.Sprintf("cannot stop stepruntime[%s] because cannot find it's jobid", srt.name)
+		var msg string
+		err := srt.updateStatus(StatusRuntimeFailed)
+		if err != nil {
+			msg = err.Error()
+		} else {
+			msg = fmt.Sprintf("cannot stop stepruntime[%s] because cannot find it's jobid", srt.name)
+		}
+
 		view := srt.newJobView(msg)
 		srt.syncToApiServerAndParent(WfEventJobStopErr, &view, msg)
 		return
@@ -771,7 +803,10 @@ func (srt *StepRuntime) processEventFromJob(event WorkflowEvent) {
 			srt.logger.Infof(logMsg)
 		}
 
-		srt.updateStatus(extra["status"].(RuntimeStatus))
+		err := srt.updateStatus(extra["status"].(RuntimeStatus))
+		if err != nil {
+			srt.logger.Errorf(err.Error())
+		}
 		view := srt.newJobView(event.Message)
 		srt.syncToApiServerAndParent(WfEventJobUpdate, &view, event.Message)
 	}
