@@ -162,41 +162,14 @@ func validateJobMembers(ctx *logger.RequestContext, request *CreateJobInfo) erro
 	// calculate total member resource, and compare with queue.MaxResource
 	sumResource := resources.EmptyResource()
 	for index, member := range request.Members {
-		// validate member role and replicas
-		memberRole := schema.MemberRole(member.Role)
-		_, find := frameworkRoles[memberRole]
-		if !find {
-			err := fmt.Errorf("the role[%s] for framework %s is not supported", member.Role, request.Framework)
-			ctx.ErrorCode = common.JobInvalidField
-			ctx.Logging().Errorf("Failed to check Members' role, err: %v", err)
-			return err
-		}
-		if member.Replicas < 1 {
-			err := fmt.Errorf("the repilcas of member is less than 1")
-			ctx.ErrorCode = common.JobInvalidField
-			ctx.Logging().Errorf("Failed to check Members' replicas, err: %v", err)
-			return err
-		}
-		frameworkRoles[memberRole] = frameworkRoles[memberRole] + member.Replicas
-		// TODO: move more check to checkJobSpec
-		err := checkJobSpec(ctx, &request.Members[index].JobSpec)
+		// validate member
+		err := validateMember(ctx, &request.Members[index], request.Framework, frameworkRoles, request.SchedulingPolicy)
 		if err != nil {
-			ctx.Logging().Errorf("Failed to check Members: %v", err)
+			ctx.Logging().Errorf("Failed to check member: %v", err)
 			ctx.ErrorCode = common.JobInvalidField
 			return err
 		}
-		// validate queue
-		if request.Members[index], err = validateMembersQueue(ctx, member, request.SchedulingPolicy); err != nil {
-			ctx.Logging().Errorf("Failed to check Members' Queue: %v", err)
-			ctx.ErrorCode = common.JobInvalidField
-			return err
-		}
-		// check members priority
-		if err = checkPriority(&request.Members[index].SchedulingPolicy, &request.SchedulingPolicy); err != nil {
-			ctx.Logging().Errorf("Failed to check priority: %v", err)
-			ctx.ErrorCode = common.JobInvalidField
-			return err
-		}
+		// TODO: use flavour point
 		member.Flavour, err = flavour.GetFlavourWithCheck(member.Flavour)
 		if err != nil {
 			log.Errorf("get flavour failed, err:%v", err)
@@ -229,6 +202,42 @@ func validateJobMembers(ctx *logger.RequestContext, request *CreateJobInfo) erro
 	request.Mode, err = checkMemberRole(request.Framework, frameworkRoles)
 	if err != nil {
 		ctx.Logging().Errorf("check member role for framework %s failed, err: %v", request.Framework, err)
+		return err
+	}
+	return nil
+}
+
+// validateMember validate member's fields
+func validateMember(ctx *logger.RequestContext, member *MemberSpec, framework schema.Framework,
+	frameworkRoles map[schema.MemberRole]int, schedulingPolicy SchedulingPolicy) error {
+	// validate member role and replicas
+	memberRole := schema.MemberRole(member.Role)
+	_, find := frameworkRoles[memberRole]
+	if !find {
+		err := fmt.Errorf("the role[%s] for framework %s is not supported", member.Role, framework)
+		ctx.Logging().Errorf("Failed to check Members' role, err: %v", err)
+		return err
+	}
+	if member.Replicas < 1 {
+		err := fmt.Errorf("the repilcas of member is less than 1")
+		ctx.Logging().Errorf("Failed to check Members' replicas, err: %v", err)
+		return err
+	}
+	frameworkRoles[memberRole] = frameworkRoles[memberRole] + member.Replicas
+	// TODO: move more check to checkJobSpec
+	err := checkJobSpec(ctx, &member.JobSpec)
+	if err != nil {
+		ctx.Logging().Errorf("Failed to check Members: %v", err)
+		return err
+	}
+	// validate queue
+	if err = validateMembersQueue(ctx, member, schedulingPolicy); err != nil {
+		ctx.Logging().Errorf("Failed to check Members' Queue: %v", err)
+		return err
+	}
+	// check members priority
+	if err = checkPriority(&member.SchedulingPolicy, &schedulingPolicy); err != nil {
+		ctx.Logging().Errorf("Failed to check priority: %v", err)
 		return err
 	}
 	return nil
@@ -307,7 +316,7 @@ func checkPriority(schedulingPolicy, parentSP *SchedulingPolicy) error {
 	return nil
 }
 
-func validateMembersQueue(ctx *logger.RequestContext, member MemberSpec, schePolicy SchedulingPolicy) (MemberSpec, error) {
+func validateMembersQueue(ctx *logger.RequestContext, member *MemberSpec, schePolicy SchedulingPolicy) error {
 	queueName := schePolicy.Queue
 
 	mQueueName := member.SchedulingPolicy.Queue
@@ -315,13 +324,13 @@ func validateMembersQueue(ctx *logger.RequestContext, member MemberSpec, schePol
 		err := fmt.Errorf("schedulingPolicy.Queue should be the same, there are %s and %s", queueName, mQueueName)
 		ctx.Logging().Errorf("create distributed job failed. error: %s", err.Error())
 		ctx.ErrorCode = common.JobInvalidField
-		return member, err
+		return err
 	}
 	member.SchedulingPolicy.QueueID = schePolicy.QueueID
 	member.SchedulingPolicy.Namespace = schePolicy.Namespace
 	member.SchedulingPolicy.ClusterId = schePolicy.ClusterId
 	member.SchedulingPolicy.MaxResources = schePolicy.MaxResources
-	return member, nil
+	return nil
 }
 
 func validateFileSystems(jobSpec *JobSpec, userName string) error {
@@ -471,25 +480,23 @@ func buildJob(request *CreateJobInfo) (*models.Job, error) {
 }
 
 func buildMainConf(request *CreateJobInfo) *schema.Conf {
-	conf := &schema.Conf{
-		Name:        request.Name,
-		Labels:      request.Labels,
-		Annotations: request.Annotations,
-		Priority:    request.SchedulingPolicy.Priority,
+	var conf = &schema.Conf{
+		Name: request.Name,
 	}
-	// TODO: adjust code logic
 	if request.Type == schema.TypeSingle && len(request.Members) == 1 {
 		// build conf for single job
-		conf.FileSystem = request.Members[0].FileSystem
-		conf.ExtraFileSystem = request.Members[0].ExtraFileSystems
-		conf.Flavour = request.Members[0].Flavour
-		conf.Env = request.Members[0].Env
-		conf.Image = request.Members[0].Image
-		conf.Command = request.Members[0].Command
-		conf.Port = request.Members[0].Port
-		conf.Args = request.Members[0].Args
+		conf = &schema.Conf{
+			Name:            request.Name,
+			FileSystem:      request.Members[0].FileSystem,
+			ExtraFileSystem: request.Members[0].ExtraFileSystems,
+			Flavour:         request.Members[0].Flavour,
+			Env:             request.Members[0].Env,
+			Image:           request.Members[0].Image,
+			Command:         request.Members[0].Command,
+			Port:            request.Members[0].Port,
+			Args:            request.Members[0].Args,
+		}
 	}
-
 	// fields in request.CommonJobInfo
 	buildCommonInfo(conf, &request.CommonJobInfo)
 	// set scheduling priority

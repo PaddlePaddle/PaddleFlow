@@ -37,7 +37,10 @@ type _Client struct {
 }
 
 func NewClient(fsID string, c *core.PaddleFlowClient, token string) (*_Client, error) {
-	userName, fsName := common.GetFsNameAndUserNameByFsID(fsID)
+	userName, fsName, err := common.GetFsNameAndUserNameByFsID(fsID)
+	if err != nil {
+		return nil, err
+	}
 	_client := _Client{
 		Uuid:       uuid.NewString(),
 		FsID:       fsID,
