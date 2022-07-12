@@ -93,11 +93,7 @@ func TopologicalSort(components map[string]schema.Component) ([]string, error) {
 			continue
 		}
 		for _, dep := range depsList {
-			if _, ok := unsorted[name]; ok {
-				unsorted[name] = append(unsorted[name], dep)
-			} else {
-				unsorted[name] = []string{dep}
-			}
+			unsorted[name] = append(unsorted[name], dep)
 		}
 	}
 

@@ -396,7 +396,9 @@ func (srt *StepRuntime) checkCached() (cacheFound bool, err error) {
 		return false, err
 	}
 
-	cacheCaculator, err := NewCacheCalculator(*srt, srt.getWorkFlowStep().Cache)
+	job := srt.job.(*PaddleFlowJob)
+	cacheCaculator, err := NewCacheCalculator(*job, srt.getWorkFlowStep().Cache, srt.logger, srt.getWorkFlowStep().FsMount,
+		srt.GlobalFsID)
 	if err != nil {
 		return false, err
 	}

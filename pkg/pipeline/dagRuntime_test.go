@@ -246,12 +246,16 @@ func TestDagRuntimeStart(t *testing.T) {
 	assert.True(t, strings.Contains(ep.Message, "is false"))
 
 	drt.WorkflowSource.Disabled = "square-loop"
+	drt.getworkflowSouceDag().EntryPoints["square-loop"].UpdateLoopArguemt([]int{1})
 	drt2 := NewDagRuntime("a.entrypoint.square-loop", "a.entrypoint.square-loop",
 		drt.getworkflowSouceDag().EntryPoints["square-loop"].(*schema.WorkflowSourceDag),
 		0, drt.ctx, drt.failureOpitonsCtx, eventChan, drt.runConfig, drt.ID)
+
+	fmt.Printf("\n\n\n\n\n\n\n")
 	drt2.Start()
 	go mockToListenEvent(eventChan, ep)
 	time.Sleep(time.Millisecond * 100)
+	fmt.Printf("\n\n\n\n\n\n\n")
 
 	assert.True(t, drt2.isSkipped())
 	assert.True(t, strings.Contains(ep.Message, "disabled"))
