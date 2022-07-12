@@ -97,8 +97,6 @@ func getLoopArgumentLength(lp interface{}) int {
 		v := reflect.ValueOf(lp)
 		return v.Len()
 	}
-
-	return 0
 }
 
 // Component包括Dag和Step，有Struct WorkflowSourceStep 和 WorkflowSourceDag实现了该接口
