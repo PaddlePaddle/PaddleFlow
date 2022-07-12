@@ -272,8 +272,8 @@ func (m *JobManagerImpl) submitQueueJob(jobSubmit func(*api.PFJob) error, queueI
 			startTime := time.Now()
 			for !jobQueue.Empty() {
 				job := jobQueue.Pop().(*api.PFJob)
+				wg.Add(1)
 				go func(wg *sync.WaitGroup) {
-					wg.Add(1)
 					defer wg.Done()
 					m.submitJob(jobSubmit, job)
 				}(wg)
