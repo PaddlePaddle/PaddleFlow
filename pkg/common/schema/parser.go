@@ -596,11 +596,15 @@ func (p *Parser) TransJsonMap2Yaml(jsonMap map[string]interface{}) error {
 				return err
 			}
 		case "fsMount":
-			p.transJsonFsMount2Yaml(value)
+			if err := p.transJsonFsMount2Yaml(value); err != nil {
+				return err
+			}
 			jsonMap["fs_mount"] = value
 			delete(jsonMap, "fsMount")
 		case "cache":
-			p.transJsonCache2Yaml(value)
+			if err := p.transJsonCache2Yaml(value); err != nil {
+				return err
+			}
 			jsonMap["cache"] = value
 		case "fsOptions":
 			if err := p.transJsonFsOptions2Yaml(value); err != nil {
@@ -703,7 +707,9 @@ func (p *Parser) transJsonFsOptions2Yaml(value interface{}) error {
 	for key, value := range fsOptMap {
 		switch key {
 		case "fsMount":
-			p.transJsonFsMount2Yaml(value)
+			if err := p.transJsonFsMount2Yaml(value); err != nil {
+				return err
+			}
 			fsOptMap["fs_mount"] = value
 			delete(fsOptMap, "fsMount")
 		case "globalFsName":
