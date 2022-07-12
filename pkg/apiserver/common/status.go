@@ -27,10 +27,12 @@ const (
 	StatusRunTerminating = "terminating"
 	StatusRunTerminated  = "terminated"
 
-	WfEventKeyRunID       = "runID"
-	WfEventKeyStatus      = "status"
-	WfEventKeyRuntime     = "runtime"
-	WfEventKeyPostProcess = "postProcess"
+	WfEventKeyRunID         = "runID"
+	WfEventKeyPK            = "pk"
+	WfEventKeyStatus        = "status"
+	WfEventKeyView          = "runtime"
+	WfEventKeyComponentName = "componentName"
+	WfEventKeyStartTime     = "startTime"
 )
 
 var (

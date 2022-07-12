@@ -18,8 +18,10 @@ package v1
 
 import (
 	"net/http"
+	"reflect"
 	"testing"
 
+	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
@@ -31,36 +33,36 @@ import (
 
 func getMockRun1() models.Run {
 	run1 := models.Run{
-		ID:       MockRunID1,
-		Name:     MockRunName1,
-		UserName: MockRootUser,
-		FsName:   MockFsName1,
-		FsID:     common.ID(MockRootUser, MockFsName1),
-		Status:   common.StatusRunPending,
+		ID:           MockRunID1,
+		Name:         MockRunName1,
+		UserName:     MockRootUser,
+		GlobalFsName: MockFsName1,
+		GlobalFsID:   common.ID(MockRootUser, MockFsName1),
+		Status:       common.StatusRunPending,
 	}
 	return run1
 }
 
 func getMockRun1_3() models.Run {
 	run1 := models.Run{
-		ID:       MockRunID3,
-		Name:     "",
-		UserName: MockRootUser,
-		FsName:   MockFsName1,
-		FsID:     common.ID(MockRootUser, MockFsName1),
-		Status:   common.StatusRunPending,
+		ID:           MockRunID3,
+		Name:         "",
+		UserName:     MockRootUser,
+		GlobalFsName: MockFsName1,
+		GlobalFsID:   common.ID(MockRootUser, MockFsName1),
+		Status:       common.StatusRunPending,
 	}
 	return run1
 }
 
 func getMockRun2() models.Run {
 	run2 := models.Run{
-		ID:       MockRunID2,
-		Name:     MockRunName2,
-		UserName: MockNormalUser,
-		FsName:   MockFsName2,
-		FsID:     common.ID(MockNormalUser, MockFsName2),
-		Status:   common.StatusRunPending,
+		ID:           MockRunID2,
+		Name:         MockRunName2,
+		UserName:     MockNormalUser,
+		GlobalFsName: MockFsName2,
+		GlobalFsID:   common.ID(MockNormalUser, MockFsName2),
+		Status:       common.StatusRunPending,
 	}
 	return run2
 }
@@ -74,6 +76,11 @@ func TestGetRunRouter(t *testing.T) {
 	run1.ID, err = models.CreateRun(ctxroot.Logging(), &run1)
 	assert.Nil(t, err)
 
+	runTemp := &models.Run{}
+	p1 := gomonkey.ApplyPrivateMethod(reflect.TypeOf(runTemp), "decode", func() error {
+		return nil
+	})
+	defer p1.Reset()
 	url := baseUrl + "/run/" + run1.ID
 	result, err := PerformGetRequest(router, url)
 	assert.Nil(t, err)
@@ -100,6 +107,12 @@ func TestListRunRouter(t *testing.T) {
 	run3UnderUser1 := getMockRun1_3()
 	run1.ID, err = models.CreateRun(ctxroot.Logging(), &run3UnderUser1)
 
+	runTemp := &models.Run{}
+	p1 := gomonkey.ApplyPrivateMethod(reflect.TypeOf(runTemp), "decode", func() error {
+		return nil
+	})
+	defer p1.Reset()
+
 	result, err := PerformGetRequest(router, runUrl)
 	assert.Nil(t, err)
 	assert.Equal(t, http.StatusOK, result.Code)
@@ -116,5 +129,5 @@ func TestListRunRouter(t *testing.T) {
 	err = ParseBody(result.Body, &runRsp)
 	assert.Nil(t, err)
 	assert.Equal(t, 2, len(runRsp.RunList))
-	assert.Equal(t, MockFsName1, runRsp.RunList[0].FsName)
+	assert.Equal(t, MockFsName1, runRsp.RunList[0].GlobalFsName)
 }

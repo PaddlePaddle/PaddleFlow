@@ -33,7 +33,7 @@ import (
 )
 
 type CreatePipelineRequest struct {
-	FsName   string `json:"fsname"`
+	FsName   string `json:"fsName"`
 	YamlPath string `json:"yamlPath"` // optional, use "./run.yaml" if not specified
 	UserName string `json:"username"` // optional, only for root user
 	Desc     string `json:"desc"`     // optional
@@ -46,10 +46,10 @@ type CreatePipelineResponse struct {
 }
 
 type UpdatePipelineRequest struct {
-	FsName   string `json:"fsname"`
-	YamlPath string `json:"yamlPath"` // optional, use "./run.yaml" if not specified
-	UserName string `json:"username"` // optional, only for root user
-	Desc     string `json:"desc"`     // optional
+	GlobalFsName string `json:"globalFsName"`
+	YamlPath     string `json:"yamlPath"` // optional, use "./run.yaml" if not specified
+	UserName     string `json:"username"` // optional, only for root user
+	Desc         string `json:"desc"`     // optional
 }
 
 type UpdatePipelineResponse struct {
@@ -98,7 +98,7 @@ func (pb *PipelineBrief) updateFromPipelineModel(pipeline models.Pipeline) {
 type PipelineDetailBrief struct {
 	ID           string `json:"pipelineDetailID"`
 	PipelineID   string `json:"pipelineID"`
-	FsName       string `json:"fsname"`
+	GlobalFsName string `json:"globalFsName"`
 	YamlPath     string `json:"yamlPath"`
 	PipelineYaml string `json:"pipelineYaml"`
 	UserName     string `json:"username"`
@@ -109,7 +109,7 @@ type PipelineDetailBrief struct {
 func (pdb *PipelineDetailBrief) updateFromPipelineDetailModel(pipelineDetail models.PipelineDetail) {
 	pdb.ID = pipelineDetail.ID
 	pdb.PipelineID = pipelineDetail.PipelineID
-	pdb.FsName = pipelineDetail.FsName
+	pdb.GlobalFsName = pipelineDetail.FsName
 	pdb.YamlPath = pipelineDetail.YamlPath
 	pdb.PipelineYaml = pipelineDetail.PipelineYaml
 	pdb.UserName = pipelineDetail.UserName
@@ -224,14 +224,14 @@ func UpdatePipeline(ctx *logger.RequestContext, request UpdatePipelineRequest, p
 	}
 
 	// check user grant to fs
-	if request.FsName == "" {
+	if request.GlobalFsName == "" {
 		ctx.ErrorCode = common.InvalidArguments
 		errMsg := "update pipeline failed. fsname shall not be empty"
 		ctx.Logging().Errorf(errMsg)
 		return UpdatePipelineResponse{}, fmt.Errorf(errMsg)
 	}
 
-	fsID, err := CheckFsAndGetID(ctx.UserName, request.UserName, request.FsName)
+	fsID, err := CheckFsAndGetID(ctx.UserName, request.UserName, request.GlobalFsName)
 	if err != nil {
 		ctx.ErrorCode = common.InvalidArguments
 		ctx.Logging().Errorf(err.Error())
@@ -286,7 +286,7 @@ func UpdatePipeline(ctx *logger.RequestContext, request UpdatePipelineRequest, p
 	pplDetail := models.PipelineDetail{
 		PipelineID:   pipelineID,
 		FsID:         fsID,
-		FsName:       request.FsName,
+		FsName:       request.GlobalFsName,
 		YamlPath:     request.YamlPath,
 		PipelineYaml: string(pipelineYaml),
 		PipelineMd5:  yamlMd5,
@@ -312,8 +312,7 @@ func UpdatePipeline(ctx *logger.RequestContext, request UpdatePipelineRequest, p
 // todo: 为了校验pipeline，需要准备的内容太多，需要简化校验逻辑
 func validateWorkflowForPipeline(pipelineYaml string) (name string, err error) {
 	// parse yaml -> WorkflowSource
-	// TODO： validate pipeline containing multiple ws's
-	wfs, err := schema.ParseWorkflowSource([]byte(pipelineYaml))
+	wfs, err := schema.GetWorkflowSource([]byte(pipelineYaml))
 	if err != nil {
 		logger.Logger().Errorf("get WorkflowSource by yaml failed. yaml: %s \n, err:%v", pipelineYaml, err)
 		return "", err
@@ -329,13 +328,13 @@ func validateWorkflowForPipeline(pipelineYaml string) (name string, err error) {
 
 	// validate
 	wfCbs := pipeline.WorkflowCallbacks{
-		UpdateRunCb: func(string, interface{}) bool { return true },
-		LogCacheCb:  LogCacheFunc,
-		ListCacheCb: ListCacheFunc,
+		UpdateRuntimeCb: func(string, interface{}) (int64, bool) { return 0, true },
+		LogCacheCb:      LogCacheFunc,
+		ListCacheCb:     ListCacheFunc,
 	}
 
 	// todo：这里为了校验，还要传特殊的run name（validatePipeline），可以想办法简化校验逻辑
-	wfPtr, err := pipeline.NewWorkflow(wfs, "validatePipeline", "", param, extra, wfCbs)
+	wfPtr, err := pipeline.NewWorkflow(wfs, "validatePipeline", param, extra, wfCbs)
 	if err != nil {
 		logger.Logger().Errorf("NewWorkflow for pipeline[%s] failed. err:%v", wfs.Name, err)
 		return "", err
