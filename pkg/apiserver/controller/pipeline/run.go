@@ -698,8 +698,8 @@ func checkFs(userName string, globalFsName string, wfs *schema.WorkflowSource) e
 		return err
 	}
 
-	globalFsID := common.ID(userName, globalFsName)
 	if globalFsName != "" {
+		globalFsID := common.ID(userName, globalFsName)
 		fsIDs = append(fsIDs, globalFsID)
 	}
 
