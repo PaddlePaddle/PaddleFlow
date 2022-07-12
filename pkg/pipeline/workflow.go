@@ -26,7 +26,6 @@ import (
 	"github.com/Knetic/govaluate"
 	"github.com/sirupsen/logrus"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/fs"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
@@ -315,12 +314,6 @@ func (bwf *BaseWorkflow) validate() error {
 		bwf.log().Errorf("check failure_option failed. err: %s", err.Error())
 		return err
 	}
-
-	// 9. 根据UserName、FsName，给每个FsMount和FsScope填充FsID，同时检查FsID是否存在
-	if err := bwf.checkFs(); err != nil {
-		bwf.log().Errorf("check fs failed. err: %s", err.Error())
-		return err
-	}
 	return nil
 }
 
@@ -333,41 +326,6 @@ func (bwf *BaseWorkflow) checkFailureOption() error {
 	default:
 		return fmt.Errorf("failure strategy should be [fail_fast] or [continue], setted by [%s]", bwf.Source.FailureOptions.Strategy)
 	}
-}
-
-func (bwf *BaseWorkflow) checkFs() error {
-	userName, ok := bwf.Extra[WfExtraInfoKeyUserName]
-	if !ok {
-		return fmt.Errorf("get userName failed when check fs")
-	}
-	fsIDs, err := bwf.Source.ProcessFsAndGetAllIDs(userName, bwf.Extra[WfExtraInfoKeyFsName])
-	if err != nil {
-		logger.Logger().Errorf("process fs failed when check fs. error: %s", err.Error())
-		return err
-	}
-
-	globalFsID := bwf.Extra[WfExtraInfoKeyFsID]
-	if globalFsID != "" {
-		fsIDs = append(fsIDs, globalFsID)
-	}
-
-	//检查fs权限
-	for _, id := range fsIDs {
-		fsService := fs.GetFileSystemService()
-		hasPermission, err := fsService.HasFsPermission(userName, id)
-		if err != nil {
-			err := fmt.Errorf("check fs permission failed with userName[%s] and fsID[%s]. error: %s",
-				userName, id, err.Error())
-			logger.Logger().Errorf(err.Error())
-			return err
-		}
-		if !hasPermission {
-			err := fmt.Errorf("user[%s] has no permission to fs[%s]", userName, id)
-			logger.Logger().Errorf(err.Error())
-			return err
-		}
-	}
-	return nil
 }
 
 func (bwf *BaseWorkflow) checkComponents() error {
@@ -1117,9 +1075,6 @@ func (wf *Workflow) NewWorkflowRuntime() error {
 	} else if wf.Source.Parallelism > WfParallelismMaximum {
 		wf.Source.Parallelism = WfParallelismMaximum
 	}
-
-	res, _ := json.Marshal(wf.Source.EntryPoints)
-	logger.Logger().Infof("debug: fsMount before NewWorkflowRuntime is [%s]", res)
 
 	logger.LoggerForRun(wf.RunID).Debugf("initializing [%d] parallelism jobs", wf.Source.Parallelism)
 	runConf := NewRunConfig(&wf.Source, wf.Extra[WfExtraInfoKeyFsID], wf.Extra[WfExtraInfoKeyFsName], wf.Extra[WfExtraInfoKeyUserName], wf.RunID,
