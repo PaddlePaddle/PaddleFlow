@@ -254,14 +254,19 @@ func (m *JobManagerImpl) submitQueueJob(jobSubmit func(*api.PFJob) error, queueI
 			}
 			// loop for submit queue jobs
 			for idx := range pfJobs {
-				jobQueue.Push(pfJobs[idx].ID)
+				jobInfo, err := api.NewJobInfo(&pfJobs[idx])
+				if err != nil {
+					log.Errorf("create paddleflow job %s failed, err: %v", jobInfo.ID, err)
+					continue
+				}
+				jobQueue.Push(jobInfo)
 			}
 
 			log.Infof("Enter session to submit jobs in queue %s", queue.Name)
 			startTime := time.Now()
 			for !jobQueue.Empty() {
-				jobID := jobQueue.Pop().(string)
-				m.submitJob(jobSubmit, jobID)
+				job := jobQueue.Pop().(*api.PFJob)
+				m.submitJob(jobSubmit, job)
 			}
 			log.Infof("Leaving submit jobs in queue %s, total elapsed time: %s", queue.Name, time.Since(startTime))
 		}
@@ -269,21 +274,16 @@ func (m *JobManagerImpl) submitQueueJob(jobSubmit func(*api.PFJob) error, queueI
 }
 
 // submitJob submit a job to cluster
-func (m *JobManagerImpl) submitJob(jobSubmit func(*api.PFJob) error, jobID string) {
-	job, err := models.GetJobByID(jobID)
+func (m *JobManagerImpl) submitJob(jobSubmit func(*api.PFJob) error, jobInfo *api.PFJob) {
+	job, err := models.GetJobByID(jobInfo.ID)
 	if err != nil {
-		log.Errorf("get job %s from database failed, err: %v", jobID, err)
+		log.Errorf("get job %s from database failed, err: %v", job.ID, err)
 		return
 	}
 	// check job status before create job on cluster
 	if job.Status == schema.StatusJobInit {
 		var jobStatus schema.JobStatus
 		var msg string
-		jobInfo, err := api.NewJobInfo(&job)
-		if err != nil {
-			log.Errorf("create paddleflow job %s failed, err: %v", jobID, err)
-			return
-		}
 		err = jobSubmit(jobInfo)
 		if err != nil {
 			// new job failed, update db and skip this job
@@ -299,7 +299,7 @@ func (m *JobManagerImpl) submitJob(jobSubmit func(*api.PFJob) error, jobID strin
 			log.Errorf("update job[%s] status to [%s] failed, err: %v", jobInfo.ID, schema.StatusJobFailed, dbErr)
 		}
 	} else {
-		log.Errorf("job %s is already submit to cluster, skip it", jobID)
+		log.Errorf("job %s is already submit to cluster, skip it", job.ID)
 	}
 }
 
