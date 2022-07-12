@@ -278,7 +278,7 @@ func (s *ComponentParamChecker) checkReference(comp schema.Component) error {
 						return fmt.Errorf("parameters in step with reference check dict param in refered param failed, error: %s", err.Error())
 					}
 				default:
-					logger.Logger().Infof("debug: dict param check type is : %s", reflect.TypeOf(referedParam))
+					logger.Logger().Infof("debug: dict param check type is : %s, name is : %s", reflect.TypeOf(referedParam), paramName)
 				}
 			}
 
