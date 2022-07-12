@@ -115,19 +115,19 @@ func TestGetUsedFsIDs(t *testing.T) {
 	}
 
 	// 创建schedule前，查询返回为空
-	fsIDList, err := GetUsedFsIDs()
+	fsIDMap, err := ScheduleUsedFsIDs()
 	assert.Nil(t, err)
-	assert.Equal(t, len(fsIDList), 0)
+	assert.Equal(t, 0, len(fsIDMap))
 
 	// 创建 running 状态的schedule
 	schedID, err := CreateSchedule(logEntry, schedule)
 	assert.Nil(t, err)
-	assert.Equal(t, schedID, "schedule-000001")
+	assert.Equal(t, "schedule-000001", schedID)
 
-	fsIDList, err = GetUsedFsIDs()
+	fsIDMap, err = ScheduleUsedFsIDs()
 	assert.Nil(t, err)
-	assert.Equal(t, len(fsIDList), 1)
-	print(fsIDList)
+	assert.Equal(t, 1, len(fsIDMap))
+	print(fsIDMap)
 
 	// fsconfig中不包含user，使用默认的“”
 	fsConfig = FsConfig{GlobalFsName: "fsname"}
@@ -139,10 +139,10 @@ func TestGetUsedFsIDs(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, schedID, "schedule-000002")
 
-	fsIDList, err = GetUsedFsIDs()
+	fsIDMap, err = ScheduleUsedFsIDs()
 	assert.Nil(t, err)
-	assert.Equal(t, len(fsIDList), 2)
-	print(fsIDList)
+	assert.Equal(t, 2, len(fsIDMap))
+	print(fsIDMap)
 
 	// 创建 success 状态的schedule
 	fsConfig = FsConfig{GlobalFsName: "fsname", UserName: "another_user"}
@@ -155,9 +155,9 @@ func TestGetUsedFsIDs(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, schedID, "schedule-000003")
 
-	fsIDList, err = GetUsedFsIDs()
+	fsIDMap, err = ScheduleUsedFsIDs()
 	assert.Nil(t, err)
-	assert.Equal(t, len(fsIDList), 2)
+	assert.Equal(t, 2, len(fsIDMap))
 
 	// 创建 failed 状态的schedule
 	schedule.Status = ScheduleStatusFailed
@@ -165,9 +165,9 @@ func TestGetUsedFsIDs(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, schedID, "schedule-000004")
 
-	fsIDList, err = GetUsedFsIDs()
+	fsIDMap, err = ScheduleUsedFsIDs()
 	assert.Nil(t, err)
-	assert.Equal(t, len(fsIDList), 2)
+	assert.Equal(t, 2, len(fsIDMap))
 
 	// 创建 terminated 状态的schedule
 	schedule.Status = ScheduleStatusTerminated
@@ -175,9 +175,9 @@ func TestGetUsedFsIDs(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, schedID, "schedule-000005")
 
-	fsIDList, err = GetUsedFsIDs()
+	fsIDMap, err = ScheduleUsedFsIDs()
 	assert.Nil(t, err)
-	assert.Equal(t, len(fsIDList), 2)
+	assert.Equal(t, 2, len(fsIDMap))
 }
 
 // ------ 周期调度逻辑需要的函数 ------
