@@ -191,16 +191,6 @@ func mockCacheConfig() schema.Cache {
 	}
 }
 
-func TestNewAggressiveCacheCalculator(t *testing.T) {
-	step := mockStep()
-	// fmt.Println(step)
-	cacheConfig := mockCacheConfig()
-
-	calculator, err := NewAggressiveCacheCalculator(step, cacheConfig)
-	assert.NotEqual(t, err, nil)
-	assert.Equal(t, calculator, nil)
-}
-
 func mockerNewConservativeCacheCalculator() (CacheCalculator, error) {
 	ServerConf := &config.ServerConfig{}
 	err := config.InitConfigFromYaml(ServerConf, "../../config/server/default/paddleserver.yaml")
@@ -211,7 +201,9 @@ func mockerNewConservativeCacheCalculator() (CacheCalculator, error) {
 	// TODO: mocker fsHandler ?
 	handler.NewFsHandlerWithServer = handler.MockerNewFsHandlerWithServer
 
-	calculator, err := NewConservativeCacheCalculator(step, cacheConfig)
+	job := step.job.(*PaddleFlowJob)
+	calculator, err := NewConservativeCacheCalculator(*job, cacheConfig, step.logger,
+		step.getWorkFlowStep().FsMount, step.GlobalFsID)
 	return calculator, err
 }
 
@@ -400,7 +392,9 @@ func TestNewCacheCalculator(t *testing.T) {
 	// TODO: mocker fsHandler ?
 	handler.NewFsHandlerWithServer = handler.MockerNewFsHandlerWithServer
 
-	calculator, err := NewCacheCalculator(step, cacheConfig)
+	job := step.job.(*PaddleFlowJob)
+	calculator, err := NewCacheCalculator(*job, cacheConfig, step.logger,
+		step.getWorkFlowStep().FsMount, step.GlobalFsID)
 	assert.Equal(t, err, nil)
 	_, ok := calculator.(CacheCalculator)
 	assert.Equal(t, ok, true)

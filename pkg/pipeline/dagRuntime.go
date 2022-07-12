@@ -967,7 +967,9 @@ func (drt *DagRuntime) CancellNotReadyComponent(subComponent schema.Component, r
 
 func (drt *DagRuntime) processStartAbnormalStatus(msg string, status RuntimeStatus) {
 	err := drt.updateStatus(status)
-	drt.logger.Errorf(err.Error())
+	if err != nil {
+		drt.logger.Errorf(err.Error())
+	}
 
 	dagView := drt.newView(msg)
 	drt.syncToApiServerAndParent(WfEventDagUpdate, &dagView, msg)

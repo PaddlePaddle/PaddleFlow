@@ -92,13 +92,8 @@ func TopologicalSort(components map[string]schema.Component) ([]string, error) {
 			unsorted[name] = nil
 			continue
 		}
-		for _, dep := range depsList {
-			if _, ok := unsorted[name]; ok {
-				unsorted[name] = append(unsorted[name], dep)
-			} else {
-				unsorted[name] = []string{dep}
-			}
-		}
+
+		unsorted[name] = append(unsorted[name], depsList...)
 	}
 
 	// 通过判断入度，每一轮寻找入度为0（没有parent节点）的节点，从unsorted中移除，并添加到sortedSteps中

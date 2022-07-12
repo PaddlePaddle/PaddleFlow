@@ -396,7 +396,9 @@ func (srt *StepRuntime) checkCached() (cacheFound bool, err error) {
 		return false, err
 	}
 
-	cacheCaculator, err := NewCacheCalculator(*srt, srt.getWorkFlowStep().Cache)
+	job := srt.job.(*PaddleFlowJob)
+	cacheCaculator, err := NewCacheCalculator(*job, srt.getWorkFlowStep().Cache, srt.logger, srt.getWorkFlowStep().FsMount,
+		srt.GlobalFsID)
 	if err != nil {
 		return false, err
 	}
@@ -558,9 +560,9 @@ func (srt *StepRuntime) generateOutArtPathForJob(paths string) string {
 	return strings.Join(pathsForJob, ",")
 }
 
-func (srt *StepRuntime) GenerateFsMountForArtifact() (err error) {
+func (srt *StepRuntime) GenerateFsMountForArtifact() {
 	if srt.GloablFsName == "" {
-		return nil
+		return
 	}
 
 	// 为输入aritfact 生成 FsMount
@@ -596,7 +598,7 @@ func (srt *StepRuntime) GenerateFsMountForArtifact() (err error) {
 	}
 
 	srt.logger.Infof("after GenerateFsMountForArtifact, FsMount is %v", srt.getWorkFlowStep().FsMount)
-	return nil
+	return
 }
 
 func (srt *StepRuntime) startJob() (err error) {
