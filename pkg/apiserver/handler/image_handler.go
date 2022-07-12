@@ -37,6 +37,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
 
 var PFImageHandler *ImageHandler
@@ -74,16 +75,47 @@ type ImageHandlerError struct {
 	errMsg string
 }
 
-func NeedHandleImage(dockerEnv string) bool {
-	envType := classifyEnvType(dockerEnv)
-	switch envType {
-	case TarFile:
-		return true
-	case RegistryUrl:
-		return false
-	default:
-		return false
+func CompsNeedHandleImage(comps map[string]schema.Component) bool {
+	for _, comp := range comps {
+		if dag, ok := comp.(*schema.WorkflowSourceDag); ok {
+			if need := CompsNeedHandleImage(dag.EntryPoints); need {
+				return true
+			}
+		} else {
+			step, ok := comp.(*schema.WorkflowSourceStep)
+			if !ok {
+				logger.Logger().Errorf("comp is not dag or step")
+				return false
+			}
+			envType := classifyEnvType(step.DockerEnv)
+			switch envType {
+			case TarFile:
+				return true
+			case RegistryUrl:
+				continue
+			default:
+				continue
+			}
+		}
 	}
+	return false
+}
+
+func NeedHandleImage(wfs schema.WorkflowSource) bool {
+	if need := CompsNeedHandleImage(wfs.Components); need {
+		return true
+	}
+	if need := CompsNeedHandleImage(wfs.EntryPoints.EntryPoints); need {
+		return true
+	}
+	postMap := map[string]schema.Component{}
+	for k, v := range wfs.PostProcess {
+		postMap[k] = v
+	}
+	if need := CompsNeedHandleImage(postMap); need {
+		return true
+	}
+	return false
 }
 
 func (e ImageHandlerError) Error() string {

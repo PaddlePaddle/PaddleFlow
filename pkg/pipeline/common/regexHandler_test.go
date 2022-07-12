@@ -17,6 +17,7 @@ limitations under the License.
 package common
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -24,6 +25,7 @@ import (
 
 func TestCheckVarName(t *testing.T) {
 	vc := VariableChecker{}
+	fmt.Println("123")
 
 	varName := "validName1_"
 	err := vc.CheckVarName(varName)
@@ -74,35 +76,35 @@ func TestCheckRefUpstreamStep(t *testing.T) {
 	refPattern = "{{step1.varName2.wrongPattern}}"
 	err = vc.CheckRefUpstreamStep(refPattern)
 	assert.NotNil(t, err)
-	assert.Equal(t, "format of value[{{step1.varName2.wrongPattern}}] invalid, should be like {{XXX.XXX}}", err.Error())
+	assert.Equal(t, "format of value[{{step1.varName2.wrongPattern}}] invalid, should be like {{XX-XX.XX_XX}}", err.Error())
 
 	refPattern = "{{wrongPattern}}"
 	err = vc.CheckRefUpstreamStep(refPattern)
 	assert.NotNil(t, err)
-	assert.Equal(t, "format of value[{{wrongPattern}}] invalid, should be like {{XXX.XXX}}", err.Error())
+	assert.Equal(t, "format of value[{{wrongPattern}}] invalid, should be like {{XX-XX.XX_XX}}", err.Error())
 
 	refPattern = "prefix{{step1.varName2}}"
 	err = vc.CheckRefUpstreamStep(refPattern)
 	assert.NotNil(t, err)
-	assert.Equal(t, "format of value[prefix{{step1.varName2}}] invalid, should be like {{XXX.XXX}}", err.Error())
+	assert.Equal(t, "format of value[prefix{{step1.varName2}}] invalid, should be like {{XX-XX.XX_XX}}", err.Error())
 
 	refPattern = "{{step1.varName2}}postfix"
 	err = vc.CheckRefUpstreamStep(refPattern)
 	assert.NotNil(t, err)
-	assert.Equal(t, "format of value[{{step1.varName2}}postfix] invalid, should be like {{XXX.XXX}}", err.Error())
+	assert.Equal(t, "format of value[{{step1.varName2}}postfix] invalid, should be like {{XX-XX.XX_XX}}", err.Error())
 
 	refPattern = "step1.varName2"
 	err = vc.CheckRefUpstreamStep(refPattern)
 	assert.NotNil(t, err)
-	assert.Equal(t, "format of value[step1.varName2] invalid, should be like {{XXX.XXX}}", err.Error())
+	assert.Equal(t, "format of value[step1.varName2] invalid, should be like {{XX-XX.XX_XX}}", err.Error())
 
 	refPattern = "{{step1.varName2"
 	err = vc.CheckRefUpstreamStep(refPattern)
 	assert.NotNil(t, err)
-	assert.Equal(t, "format of value[{{step1.varName2] invalid, should be like {{XXX.XXX}}", err.Error())
+	assert.Equal(t, "format of value[{{step1.varName2] invalid, should be like {{XX-XX.XX_XX}}", err.Error())
 
 	refPattern = "step1.varName2}}"
 	err = vc.CheckRefUpstreamStep(refPattern)
 	assert.NotNil(t, err)
-	assert.Equal(t, "format of value[step1.varName2}}] invalid, should be like {{XXX.XXX}}", err.Error())
+	assert.Equal(t, "format of value[step1.varName2}}] invalid, should be like {{XX-XX.XX_XX}}", err.Error())
 }

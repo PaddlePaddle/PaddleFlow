@@ -1,0 +1,171 @@
+name: myproject
+
+disabled: disStep
+
+docker_env: random:int
+
+entry_points:
+  randint:
+    command: "randint {{min}} {{max}} {{random_int}}"
+    parameters:
+      min: -10
+      max: 10
+      num: 5
+      pString: {"type": "string", "default":"dictparam"}
+      pFloat: {"type": "float", "default": 0.66}
+      pPath: {"type": "path", "default": "/path/to/anywhere"}
+    artifacts:
+      output:
+      - random_int
+    env:
+      PF_JOB_QUEUE: CPU-32G
+      PF_JOB_PRIORITY: high
+      PF_JOB_QUEUE_NAME: qdh
+      PF_JOB_TYPE: vcjob
+
+
+  square-loop:
+    deps: randint
+    loop_argument: "{{random_int}}"
+    artifacts:
+      output:
+        square_result: "{{square.result}}" 
+      input:
+        random_int: "{{randint.random_int}}"
+    entry_points:
+
+      square:
+        command: "echo  $(({{num}} * {{num}}))"
+        parameters:
+          num: "{{PF_PARENT.PF_LOOP_ARGUMENT}}"
+        artifacts:
+          output:
+          - result
+        env:
+          PF_JOB_QUEUE: CPU-32G
+          PF_JOB_PRIORITY: high
+          PF_JOB_QUEUE_NAME: qdh
+          PF_JOB_TYPE: vcjob
+
+  sum:
+    deps: square-loop
+    command: "python3 sum.py {{nums}}"
+    artifacts:
+      input:
+        "nums": "{{square-loop.square_result}}"
+    env:
+      PF_JOB_QUEUE: CPU-32G
+      PF_JOB_PRIORITY: high
+      PF_JOB_QUEUE_NAME: qdh
+      PF_JOB_TYPE: vcjob
+
+  split-by-threshold:
+    deps: randint
+    command: "python3 split.py 0 {{nums}}"
+    artifacts:
+      output:
+      - less
+      - greater
+      - all
+      input:
+        nums: "{{randint.random_int}}"
+    env:
+      PF_JOB_QUEUE: CPU-32G
+      PF_JOB_PRIORITY: high
+      PF_JOB_QUEUE_NAME: qdh
+      PF_JOB_TYPE: vcjob
+
+  
+  process-positive:
+    deps: split-by-threshold
+    artifacts:
+      input:
+        greater: "{{split-by-threshold.greater}}"
+    loop_argument: "{{greater}}"
+    entry_points:
+
+      condition1:
+        parameters:
+          pf_parent_loop_argument: "{{PF_PARENT.PF_LOOP_ARGUMENT}}"
+        condition: "{{pf_parent_loop_argument}} < 10"
+        entry_points:
+          show:
+            reference: 
+              component: show
+            parameters:
+              num: "{{PF_PARENT.pf_parent_loop_argument}}"
+
+  process-negetive:
+    deps: split-by-threshold
+    reference:
+      component: process-negetive
+    artifacts:
+      input:
+        loop_args: "{{split-by-threshold.less}}"
+  
+  disStep:
+    command: "echo dis"
+
+
+components:
+  process-negetive:
+    artifacts:
+      input:
+        loop_args: ""
+    loop_argument: "{{loop_args}}"
+    entry_points:
+      
+      condition2:
+        reference: 
+          component: condition2
+        parameters:
+          num: "{{PF_PARENT.PF_LOOP_ARGUMENT}}"
+
+  condition2:
+    parameters:
+      num: ""
+    condition: "{{num}} > -10"
+    entry_points:
+      show:
+        parameters:
+          num: "{{PF_PARENT.num}}"
+      abs:
+        command: "python3 abs.py {{num}}"
+        deps: show
+        parameters:
+          num: "{{PF_PARENT.num}}"
+          show_num: "{{show.num}}"
+        artifacts:
+          output:
+          - out
+        env:
+          PF_JOB_QUEUE: CPU-32G
+          PF_JOB_PRIORITY: high
+          PF_JOB_QUEUE_NAME: qdh
+          PF_JOB_TYPE: vcjob
+
+  show:
+    command: echo {{num}} >> {{out}}
+    parameters:
+      num: ""
+    artifacts:
+      output:
+      - out
+    env:
+      PF_JOB_QUEUE: CPU-32G
+      PF_JOB_PRIORITY: high
+      PF_JOB_QUEUE_NAME: qdh
+      PF_JOB_TYPE: vcjob
+
+cache:
+  enable: false
+  max_expired_time: 400
+  fs_scope: 
+  - {fs_name: "xd", path: "/path/to/run,/path/to/run2"}
+
+parallelism: 5
+
+fs_options:
+  global_fs_name: xd
+  fs_mount: 
+  - {fs_name: abc}
