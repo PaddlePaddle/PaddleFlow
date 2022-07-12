@@ -13,7 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-#!/usr/bin/env python3
+# !/usr/bin/env python3
 # -*- coding:utf8 -*-
 
 import os
@@ -33,9 +33,11 @@ from paddleflow.cli.run import run
 from paddleflow.cli.pipeline import pipeline
 from paddleflow.cli.cluster import cluster
 from paddleflow.cli.flavour import flavour
+from paddleflow.cli.statistics import statistics
 from paddleflow.common.util import get_default_config_path
 
 DEFAULT_PADDLEFLOW_PORT = 8999
+
 
 @click.group()
 @click.option('--pf_config', help='the path of default config.')
@@ -70,7 +72,8 @@ def cli(ctx, pf_config=None, output=OutputFormat.table.name):
         paddleflow_server_port = config['server']['paddleflow_server_port']
     else:
         paddleflow_server_port = DEFAULT_PADDLEFLOW_PORT
-    ctx.obj['client'] = Client(paddleflow_server_host, config['user']['name'], config['user']['password'], paddleflow_server_port)
+    ctx.obj['client'] = Client(paddleflow_server_host, config['user']['name'], config['user']['password'],
+                               paddleflow_server_port)
     name = config['user']['name']
     password = config['user']['password']
     ctx.obj['client'].login(name, password)
@@ -90,6 +93,7 @@ def main():
     cli.add_command(flavour)
     cli.add_command(log)
     cli.add_command(job)
+    cli.add_command(statistics)
     try:
         cli(obj={}, auto_envvar_prefix='paddleflow')
     except Exception as e:

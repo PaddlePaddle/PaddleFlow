@@ -23,7 +23,7 @@ from urllib import parse
 from paddleflow.common.exception.paddleflow_sdk_exception import PaddleFlowSDKException
 from paddleflow.utils import api_client
 from paddleflow.common import api
-from paddleflow.statistics.statistics_info import StatisticsJobInfo
+from paddleflow.statistics.statistics_info import StatisticsJobInfo, StatisticsJobDetailInfo
 
 
 class StatisticsServiceApi(object):
@@ -36,24 +36,28 @@ class StatisticsServiceApi(object):
         pass
 
     @classmethod
-    def get_statistics(cls, host, job_id, run_id=None, header=None):
+    def get_statistics(cls, host, job_id: str, run_id: str = None, header=None):
         """
-        get statistics info, job_id is not supported yet
-        @param host:
-        @param job_id:
-        @param run_id:
-        @param header:
-        @return:
+        get statistics info, run_id is not supported yet
+        @param host: host url
+        @param job_id: job id
+        @param run_id: not supported yet
+        @param header: request header
+        @return: success: bool, resp: StatisticsJobInfo
         """
         if not header:
             raise PaddleFlowSDKException("InvalidRequest", "paddleflow should login first")
 
+        # TODO: support run_id
+        if run_id:
+            raise PaddleFlowSDKException("InvalidRequest", "run_id is not supported yet")
+
         pram = {
-            "jobID": job_id,
+            "runID": run_id,
         }
 
         resp = api_client.call_api(method="GET",
-                                   url=parse.urljoin(host, api.PADDLE_FLOW_STATISTIC + "/job/%s" % run_id),
+                                   url=parse.urljoin(host, api.PADDLE_FLOW_STATISTIC + "/job/%s" % job_id),
                                    headers=header,
                                    params=pram)
         if not resp:
@@ -63,21 +67,51 @@ class StatisticsServiceApi(object):
         if 'message' in data:
             return False, data['message']
 
-        statistics_job_info = StatisticsJobInfo(
-            cpu_usage_rate=data['cpu_usage_rate'],
-            memory_usage=data['memory_usage'],
-            net_receive_bytes=data['net_receive_bytes'],
-            net_send_bytes=data['net_send_bytes'],
-            disk_usage_bytes=data['disk_usage_bytes'],
-            disk_read_rate=data['disk_read_rate'],
-            disk_write_rate=data['disk_write_rate'],
-            gpu_util=data['gpu_util'],
-            gpu_memory_util=data['gpu_memory_util'],
-        )
+        statistics_job_info = StatisticsJobInfo.from_json(data)
 
         return True, statistics_job_info
 
     @classmethod
-    def get_statistics_detail(cls, host, job_id, run_id=None, header=None):
-        # TODO: TBW
-        pass
+    def get_statistics_detail(cls, host, job_id: str, start: int = None, end: int = None,
+                              step: int = None, run_id: str = None, header=None):
+        """
+        get statistics detail info, run_id is not supported yet
+        @param host: host urls
+        @param job_id: job id
+        @param run_id: not support yet
+        @param header: request header
+        @param start: start time
+        @param end: end time
+        @param step: step of time query
+        @return: success: bool, resp: StatisticsDetailJobInfo
+        """
+        if not header:
+            raise PaddleFlowSDKException("InvalidRequest", "paddleflow should login first")
+
+        # TODO: support run_id
+        if run_id:
+            raise PaddleFlowSDKException("InvalidRequest", "run_id is not supported yet")
+
+        pram = {
+            "runID": run_id,
+            "start": start,
+            "end": end,
+            "step": step,
+        }
+
+        resp = api_client.call_api(method="GET",
+                                   url=parse.urljoin(host, api.PADDLE_FLOW_STATISTIC + "/jobDetail/%s" % job_id),
+                                   headers=header,
+                                   params=pram)
+
+        if not resp:
+            raise PaddleFlowSDKException("Connection Error", "status run failed due to HTTPError")
+
+        data = json.loads(resp.text)
+        # return error resp, return err
+        if 'message' in data:
+            return False, data['message']
+
+        print("resp:", resp.text)
+        statistics_job_detail_info = StatisticsJobDetailInfo.from_json(data)
+        return True, statistics_job_detail_info
