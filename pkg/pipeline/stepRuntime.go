@@ -58,7 +58,7 @@ func NewStepRuntime(name, fullName string, step *schema.WorkflowSourceStep, seq 
 	}
 
 	jobName := generateJobName(config.runID, step.GetName(), seq)
-	job := NewPaddleFlowJob(jobName, srt.DockerEnv, srt.receiveEventChildren)
+	job := NewPaddleFlowJob(jobName, srt.getWorkFlowStep().DockerEnv, srt.receiveEventChildren)
 	srt.job = job
 
 	srt.logger.Infof("step[%s] of runid[%s] before starting job: param[%s], env[%s], command[%s], artifacts[%s], deps[%s], FsMount[%v]",
