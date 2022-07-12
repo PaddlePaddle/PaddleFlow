@@ -374,19 +374,19 @@ func DeleteSchedule(logEntry *log.Entry, scheduleID string) error {
 
 // ------ job / fs模块需要的函数 ------
 
-func GetUsedFsIDs() ([]string, error) {
+func ScheduleUsedFsIDs() (map[string]bool, error) {
 	tx := storage.DB.Model(&Schedule{}).Select("id", "user_name", "fs_config").Where("status = ?", ScheduleStatusRunning)
 	var scheduleList []Schedule
 	tx = tx.Find(&scheduleList)
 	if tx.Error != nil {
-		return []string{}, tx.Error
+		return nil, tx.Error
 	}
 
-	fsIDMap := map[string]int{}
+	fsIDMap := make(map[string]bool, 0)
 	for _, schedule := range scheduleList {
 		fsConfig, err := DecodeFsConfig(schedule.FsConfig)
 		if err != nil {
-			return []string{}, err
+			return nil, err
 		}
 
 		var fsID string
@@ -396,14 +396,9 @@ func GetUsedFsIDs() ([]string, error) {
 			fsID = common.ID(schedule.UserName, fsConfig.GlobalFsName)
 		}
 
-		fsIDMap[fsID] = 1
+		fsIDMap[fsID] = true
 	}
-
-	result := []string{}
-	for key, _ := range fsIDMap {
-		result = append(result, key)
-	}
-	return result, nil
+	return fsIDMap, nil
 }
 
 // ------ 周期调度逻辑需要的函数 ------
