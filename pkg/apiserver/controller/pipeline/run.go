@@ -573,7 +573,7 @@ func CreateRun(ctx logger.RequestContext, request *CreateRunRequest, extra map[s
 		run.Message = extra[FinalRunMsg]
 
 		var runID string
-		_, runID, err = ValidateAndCreateRun(ctx, run, userName, *request)
+		_, runID, err = ValidateAndCreateRun(ctx, &run, userName, *request)
 		if err != nil {
 			logger.Logger().Errorf("create final run failed, error: %s", err.Error())
 			return CreateRunResponse{}, err
@@ -671,7 +671,7 @@ func CreateRunByJson(ctx logger.RequestContext, bodyMap map[string]interface{}) 
 	return response, err
 }
 
-func ValidateAndCreateRun(ctx logger.RequestContext, run models.Run, userName string, req CreateRunRequest) (*pipeline.Workflow, string, error) {
+func ValidateAndCreateRun(ctx logger.RequestContext, run *models.Run, userName string, req CreateRunRequest) (*pipeline.Workflow, string, error) {
 	requestId := ctx.RequestID
 	if requestId == "" {
 		errMsg := "get requestID failed"
@@ -692,7 +692,7 @@ func ValidateAndCreateRun(ctx logger.RequestContext, run models.Run, userName st
 
 	trace_logger.Key(requestId).Infof("validate and init workflow")
 	// validate workflow in func NewWorkflow
-	wfPtr, err := newWorkflowByRun(run)
+	wfPtr, err := newWorkflowByRun(*run)
 	if err != nil {
 		logger.Logger().Errorf("validateAndInitWorkflow. err:%v", err)
 		ctx.ErrorCode = common.InvlidPipeline
@@ -702,7 +702,7 @@ func ValidateAndCreateRun(ctx logger.RequestContext, run models.Run, userName st
 	// generate run id here
 	trace_logger.Key(requestId).Infof("create run in db")
 	// create run in db and update run's ID by pk
-	runID, err := models.CreateRun(logger.Logger(), &run)
+	runID, err := models.CreateRun(logger.Logger(), run)
 	if err != nil {
 		logger.Logger().Errorf("create run failed inserting db. error:%s", err.Error())
 		return nil, "", err
@@ -712,7 +712,7 @@ func ValidateAndCreateRun(ctx logger.RequestContext, run models.Run, userName st
 }
 
 func ValidateAndStartRun(ctx logger.RequestContext, run models.Run, userName string, req CreateRunRequest) (CreateRunResponse, error) {
-	wfPtr, runID, err := ValidateAndCreateRun(ctx, run, userName, req)
+	wfPtr, runID, err := ValidateAndCreateRun(ctx, &run, userName, req)
 	if err != nil {
 		return CreateRunResponse{}, err
 	}
@@ -739,7 +739,7 @@ func ValidateAndStartRun(ctx logger.RequestContext, run models.Run, userName str
 	if err := StartWf(run, wfPtr); err != nil {
 		logger.Logger().Errorf("create run[%s] failed StartWf[%s-%s]. error:%s\n", runID, run.WorkflowSource.DockerEnv, run.GlobalFsID, err.Error())
 	}
-	logger.Logger().Debugf("create run successful. runID:%s\n", runID)
+	logger.Logger().Debugf("create run successful. runID:%s", runID)
 	response := CreateRunResponse{
 		RunID: runID,
 	}
