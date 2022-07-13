@@ -72,8 +72,8 @@ class StatisticsServiceApi(object):
         return True, statistics_job_info
 
     @classmethod
-    def get_statistics_detail(cls, host, job_id: str, start: int = None, end: int = None,
-                              step: int = None, run_id: str = None, header=None):
+    def get_statistics_detail(cls, host, job_id: str, start=None, end=None,
+                              step=None, run_id=None, header=None):
         """
         get statistics detail info, run_id is not supported yet
         @param host: host urls
@@ -111,7 +111,5 @@ class StatisticsServiceApi(object):
         # return error resp, return err
         if 'message' in data:
             return False, data['message']
-
-        print("resp:", resp.text)
         statistics_job_detail_info = StatisticsJobDetailInfo.from_json(data)
         return True, statistics_job_detail_info
