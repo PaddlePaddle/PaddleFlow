@@ -45,13 +45,16 @@ import (
 var wfMap = make(map[string]*pipeline.Workflow, 0)
 
 const (
-	JsonFsOptions   = "fsOptions"
+	JsonFsOptions   = "fs_options" //由于在获取BodyMap的FsOptions前已经转为下划线形式，因此这里为fs_options
 	JsonUserName    = "userName"
 	JsonDescription = "description"
 	JsonFlavour     = "flavour"
 	JsonQueue       = "queue"
 	JsonJobType     = "jobType"
 	JsonEnv         = "env"
+
+	FinalRunStatus = "FINAL_RUN_STATUS"
+	FinalRunMsg    = "FINAL_RUN_MSG"
 )
 
 type CreateRunRequest struct {
@@ -188,7 +191,10 @@ func buildWorkflowSource(ctx logger.RequestContext, req CreateRunRequest, fsID s
 		var pplVersion models.PipelineVersion
 		if req.PipelineVersionID == "" {
 			pplVersion, err = models.GetLastPipelineVersion(req.PipelineID)
-			return schema.WorkflowSource{}, "", "", err
+			if err != nil {
+				logger.Logger().Errorf("get latest version[%s] of pipeline[%s]. err: %v", req.PipelineVersionID, req.PipelineID, err)
+				return schema.WorkflowSource{}, "", "", err
+			}
 		} else {
 			pplVersion, err = models.GetPipelineVersion(req.PipelineID, req.PipelineVersionID)
 			if err != nil {
@@ -469,8 +475,15 @@ func runYamlAndReqToWfs(runYaml string, req CreateRunRequest) (schema.WorkflowSo
 	return wfs, nil
 }
 
-func CreateRun(ctx logger.RequestContext, request *CreateRunRequest) (CreateRunResponse, error) {
-	// concatenate globalFsID
+func CreateRun(ctx logger.RequestContext, request *CreateRunRequest, extra map[string]string) (CreateRunResponse, error) {
+	/*
+		extra目前用于指定在数据库创建Run记录后，是否需要发起任务
+		extra中可用的key有: FINAL_RUN_STATUS, FINAL_RUN_MSG
+	*/
+	if extra == nil {
+		extra = map[string]string{}
+	}
+
 	globalFsID := ""
 	globalFsName := request.GlobalFsName
 	requestId := ctx.RequestID
@@ -521,7 +534,6 @@ func CreateRun(ctx logger.RequestContext, request *CreateRunRequest) (CreateRunR
 		}
 	}
 
-	logger.Logger().Infof("debug: fsName before run model is [%s]", globalFsName)
 	// create run in db after run.yaml validated
 	run := models.Run{
 		ID:             "", // to be back filled according to db pk
@@ -538,10 +550,42 @@ func CreateRun(ctx logger.RequestContext, request *CreateRunRequest) (CreateRunR
 		Disabled:       request.Disabled,
 		ScheduleID:     request.ScheduleID,
 		ScheduledAt:    scheduledAt,
-		Status:         common.StatusRunInitiating,
+		Status:         "", // to be filled later
+		Message:        "", // to be filld later
 	}
-	trace_logger.Key(requestId).Infof("validate and start run: %+v", run)
-	response, err := ValidateAndStartRun(ctx, run, userName, *request)
+
+	var response CreateRunResponse
+	if extra[FinalRunStatus] != "" {
+		isFinal := false
+		for _, status := range common.RunFinalStatus {
+			if status == extra[FinalRunStatus] {
+				isFinal = true
+				break
+			}
+		}
+		if !isFinal {
+			err := fmt.Errorf("create final run failed without final status")
+			logger.Logger().Errorf(err.Error())
+			return CreateRunResponse{}, err
+		}
+
+		run.Status = extra[FinalRunStatus]
+		run.Message = extra[FinalRunMsg]
+
+		var runID string
+		_, runID, err = ValidateAndCreateRun(ctx, &run, userName, *request)
+		if err != nil {
+			logger.Logger().Errorf("create final run failed, error: %s", err.Error())
+			return CreateRunResponse{}, err
+		}
+		response = CreateRunResponse{RunID: runID}
+	} else {
+		run.Status = common.StatusRunInitiating
+
+		trace_logger.Key(requestId).Infof("validate and start run: %+v", run)
+		response, err = ValidateAndStartRun(ctx, run, userName, *request)
+	}
+
 	return response, err
 }
 
@@ -627,47 +671,58 @@ func CreateRunByJson(ctx logger.RequestContext, bodyMap map[string]interface{}) 
 	return response, err
 }
 
-func ValidateAndStartRun(ctx logger.RequestContext, run models.Run, userName string, req CreateRunRequest) (CreateRunResponse, error) {
+func ValidateAndCreateRun(ctx logger.RequestContext, run *models.Run, userName string, req CreateRunRequest) (*pipeline.Workflow, string, error) {
 	requestId := ctx.RequestID
 	if requestId == "" {
 		errMsg := "get requestID failed"
 		logger.Logger().Errorf("validate and start run failed. error:%s", errMsg)
-		return CreateRunResponse{}, errors.New(errMsg)
+		return nil, "", errors.New(errMsg)
 	}
 
 	trace_logger.Key(requestId).Infof("encode run")
 	if err := run.Encode(); err != nil {
 		logger.Logger().Errorf("encode run failed. error:%s", err.Error())
-		return CreateRunResponse{}, err
+		return nil, "", err
 	}
 	logger.Logger().Infof("debug: fsName before validate fs is [%s]", run.GlobalFsName)
 
 	if err := checkFs(userName, run.GlobalFsName, &run.WorkflowSource); err != nil {
-		return CreateRunResponse{}, err
+		return nil, "", err
 	}
 
 	trace_logger.Key(requestId).Infof("validate and init workflow")
 	// validate workflow in func NewWorkflow
-	wfPtr, err := newWorkflowByRun(run)
+	wfPtr, err := newWorkflowByRun(*run)
 	if err != nil {
 		logger.Logger().Errorf("validateAndInitWorkflow. err:%v", err)
 		ctx.ErrorCode = common.InvlidPipeline
-		return CreateRunResponse{}, err
+		return nil, "", err
 	}
 
 	// generate run id here
 	trace_logger.Key(requestId).Infof("create run in db")
 	// create run in db and update run's ID by pk
-	runID, err := models.CreateRun(logger.Logger(), &run)
+	runID, err := models.CreateRun(logger.Logger(), run)
 	if err != nil {
 		logger.Logger().Errorf("create run failed inserting db. error:%s", err.Error())
+		return nil, "", err
 	}
+
+	return wfPtr, runID, nil
+}
+
+func ValidateAndStartRun(ctx logger.RequestContext, run models.Run, userName string, req CreateRunRequest) (CreateRunResponse, error) {
+	wfPtr, runID, err := ValidateAndCreateRun(ctx, &run, userName, req)
+	if err != nil {
+		return CreateRunResponse{}, err
+	}
+
+	// 在ValidateAndCreateRun已经校验过requestId非空
+	requestId := ctx.RequestID
 
 	// update trace logger key
 	_ = trace_logger.UpdateKey(requestId, runID)
 	trace_logger.Key(runID).Infof("create run in db success")
-
-	// 填充好RunID之后，需要
 
 	defer func() {
 		if info := recover(); info != nil {
@@ -684,7 +739,7 @@ func ValidateAndStartRun(ctx logger.RequestContext, run models.Run, userName str
 	if err := StartWf(run, wfPtr); err != nil {
 		logger.Logger().Errorf("create run[%s] failed StartWf[%s-%s]. error:%s\n", runID, run.WorkflowSource.DockerEnv, run.GlobalFsID, err.Error())
 	}
-	logger.Logger().Debugf("create run successful. runID:%s\n", runID)
+	logger.Logger().Debugf("create run successful. runID:%s", runID)
 	response := CreateRunResponse{
 		RunID: runID,
 	}
@@ -698,8 +753,8 @@ func checkFs(userName string, globalFsName string, wfs *schema.WorkflowSource) e
 		return err
 	}
 
-	globalFsID := common.ID(userName, globalFsName)
-	if globalFsID != "" {
+	if globalFsName != "" {
+		globalFsID := common.ID(userName, globalFsName)
 		fsIDs = append(fsIDs, globalFsID)
 	}
 

@@ -247,7 +247,7 @@ func (s *Scheduler) dealWithTimout(checkCatchup bool) (*time.Time, error) {
 				UserName:  schedule.UserName,
 				RequestID: uuid.NewString(),
 			}
-			_, err := CreateRun(ctx, &createRequest)
+			_, err := CreateRun(ctx, &createRequest, nil)
 			if err != nil {
 				logger.Logger().Errorf("create run for schedule[%s] in ScheduledAt[%s] failed, err:[%s]", scheduleID, nextRunAt.Format("2006-01-02 15:04:05"), err.Error())
 				continue

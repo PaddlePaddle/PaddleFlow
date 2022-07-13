@@ -62,5 +62,5 @@ const (
 	LogPageSizeDefault = 100
 	LogPageNoDefault   = 1
 
-	PodID = "podID"
+	Pod = "pod"
 )
