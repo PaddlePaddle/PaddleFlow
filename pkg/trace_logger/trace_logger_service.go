@@ -21,7 +21,6 @@ package trace_logger
 
 import (
 	"fmt"
-	"os"
 
 	log "github.com/sirupsen/logrus"
 
@@ -55,11 +54,11 @@ func Start(config TraceLoggerConfig) error {
 	// recover local trace log
 	err = LoadAll(config.Dir, config.FilePrefix)
 	// if error is NotExistErr, omit it
-	if err != nil && !os.IsExist(err) {
+	if err != nil {
 		errMsg := fmt.Errorf("load local trace log failed. error: %w", err)
-		return errMsg
+		log.Errorf("%s", errMsg.Error())
+		err = nil
 	}
-	err = nil
 
 	duration, _ := ParseTimeUnit(config.DeleteInterval)
 	// enable auto delete and sync for trace log
