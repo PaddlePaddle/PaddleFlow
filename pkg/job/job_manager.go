@@ -126,55 +126,6 @@ func (m *JobManagerImpl) stopClusterRuntime(clusterID api.ClusterID) {
 	runtime.PFRuntimeMap.Delete(clusterID)
 }
 
-// syncClusterJobs deprecated
-func (m *JobManagerImpl) syncClusterJobs(clusterID api.ClusterID, submitJobs *api.QueueJob, stopCh <-chan struct{}) {
-	for {
-		select {
-		case <-stopCh:
-			log.Infof("exit sync job cache for cluster[%s] loop...", clusterID)
-			return
-		default:
-			clusterQueues := models.ListQueuesByCluster(string(clusterID))
-			for _, queue := range clusterQueues {
-				if queue.Status != schema.StatusQueueOpen {
-					log.Infof("skip queue %s when status is not open", queue.Name)
-					continue
-				}
-				queueID := api.QueueID(queue.ID)
-				// construct job submit queue
-				if err := m.listQueueJobs(queueID, schema.StatusJobInit, submitJobs); err != nil {
-					log.Errorf("failed to list pending jobs on queue[%s] from cluster[%s], err: %v", queueID, clusterID, err)
-				}
-			}
-			time.Sleep(m.jobLoopPeriod)
-		}
-	}
-}
-
-// listQueueJobs deprecated
-func (m *JobManagerImpl) listQueueJobs(queueID api.QueueID, status schema.JobStatus, queueJobs *api.QueueJob) error {
-	if queueJobs == nil {
-		return nil
-	}
-	// check whether queue is exist or not
-	queue, find := m.GetQueue(queueID)
-	if !find {
-		log.Errorf("queue %s does not found", queueID)
-		return fmt.Errorf("queue %s does not found", queueID)
-	}
-
-	pfJobs := m.activeQueueJobs(string(queueID), []schema.JobStatus{status})
-	for idx := range pfJobs {
-		job, err := api.NewJobInfo(&pfJobs[idx])
-		if err != nil {
-			log.Errorf("new job failed, err: %v", err)
-			continue
-		}
-		queueJobs.Insert(queueID, job, queue)
-	}
-	return nil
-}
-
 func (m *JobManagerImpl) Run(runtimeService runtime.RuntimeService, stopCh <-chan struct{}, clusterID api.ClusterID) {
 	log.Infof("Start %s!", runtimeService.Name())
 	// start queue sync
@@ -184,11 +135,11 @@ func (m *JobManagerImpl) Run(runtimeService runtime.RuntimeService, stopCh <-cha
 	// start job gc
 	go runtimeService.GCJob(stopCh)
 	// submit job to cluster
-	go m.clusterJobProcessLoop(runtimeService.SubmitJob, clusterID, stopCh)
+	go m.jobProcessLoop(runtimeService.SubmitJob, clusterID, stopCh)
 }
 
-// clusterJobProcessLoop start job process on cluster
-func (m *JobManagerImpl) clusterJobProcessLoop(jobSubmit func(*api.PFJob) error, clusterID api.ClusterID, stopCh <-chan struct{}) {
+// jobProcessLoop start job process on cluster
+func (m *JobManagerImpl) jobProcessLoop(jobSubmit func(*api.PFJob) error, clusterID api.ClusterID, stopCh <-chan struct{}) {
 	queueStatus := make(map[api.QueueID]chan struct{})
 	for {
 		select {
@@ -308,50 +259,6 @@ func (m *JobManagerImpl) submitJob(jobSubmit func(*api.PFJob) error, jobInfo *ap
 		log.Infof("submit job %s to cluster elasped time %d", jobInfo.ID, time.Since(startTime))
 	} else {
 		log.Errorf("job %s is already submit to cluster, skip it", job.ID)
-	}
-}
-
-// JobProcessLoop deprecated
-func (m *JobManagerImpl) JobProcessLoop(jobSubmit func(*api.PFJob) error, stopCh <-chan struct{}, queueJobs *api.QueueJob) {
-	find := false
-	var jobInfo *api.PFJob
-	var msg string
-	var jobStatus schema.JobStatus
-	for {
-		select {
-		case <-stopCh:
-			log.Infof("exit job loop...")
-			return
-		default:
-			jobInfo, find = queueJobs.GetJob()
-			if find {
-				job, err := models.GetJobByID(jobInfo.ID)
-				if err != nil {
-					log.Errorf("get job %s from database failed, err: %v", jobInfo.ID, err)
-					queueJobs.DeleteMark(jobInfo.ID)
-					continue
-				}
-				// check job status before create job on cluster
-				if job.Status == schema.StatusJobInit {
-					err = jobSubmit(jobInfo)
-					if err != nil {
-						// new job failed, update db and skip this job
-						msg = err.Error()
-						jobStatus = schema.StatusJobFailed
-					} else {
-						msg = "submit job to cluster successfully."
-						jobStatus = schema.StatusJobPending
-					}
-					// new job failed, update db and skip this job
-					if dbErr := models.UpdateJobStatus(jobInfo.ID, msg, jobStatus); dbErr != nil {
-						log.Errorf("update job[%s] status to [%s] failed, err: %v", jobInfo.ID, schema.StatusJobFailed, dbErr)
-					}
-				}
-				queueJobs.DeleteMark(jobInfo.ID)
-			} else {
-				time.Sleep(time.Duration(config.GlobalServerConfig.Job.JobLoopPeriod) * time.Second)
-			}
-		}
 	}
 }
 
