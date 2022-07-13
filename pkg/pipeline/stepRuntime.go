@@ -849,7 +849,7 @@ func (srt *StepRuntime) newJobView(msg string) schema.JobView {
 		StepName:    srt.getComponent().GetName(),
 		Cache:       srt.getWorkFlowStep().Cache,
 		PK:          srt.pk,
-		Seq:         srt.loopSeq,
+		LoopSeq:     srt.loopSeq,
 		Artifacts:   *newArt,
 		FsMount:     srt.getWorkFlowStep().FsMount,
 	}

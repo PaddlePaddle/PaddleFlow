@@ -30,8 +30,8 @@ type PipelineDetail struct {
 	Pk           int64          `json:"-"                    gorm:"primaryKey;autoIncrement;not null"`
 	ID           string         `json:"pipelineDetailID"     gorm:"type:varchar(60);not null"`
 	PipelineID   string         `json:"pipelineID"           gorm:"type:varchar(60);not null"`
-	GlobalFsID   string         `json:"-"                    gorm:"type:varchar(60);not null"`
-	GlobalFsName string         `json:"globalFsName"         gorm:"type:varchar(60);not null"`
+	FsID         string         `json:"-"                    gorm:"type:varchar(60);not null"`
+	FsName       string         `json:"fsName"               gorm:"type:varchar(60);not null"`
 	YamlPath     string         `json:"yamlPath"             gorm:"type:text;size:65535;not null"`
 	PipelineYaml string         `json:"pipelineYaml"         gorm:"type:text;size:65535;not null"`
 	PipelineMd5  string         `json:"pipelineMd5"          gorm:"type:varchar(32);not null"`
@@ -49,7 +49,7 @@ func ListPipelineDetail(pipelineID string, pk int64, maxKeys int, fsFilter []str
 	logger.Logger().Debugf("begin list pipeline detail. ")
 	tx := storage.DB.Model(&PipelineDetail{}).Where("pk > ?", pk).Where("pipeline_id = ?", pipelineID)
 	if len(fsFilter) > 0 {
-		tx = tx.Where("global_fs_name IN (?)", fsFilter)
+		tx = tx.Where("fs_name IN (?)", fsFilter)
 	}
 
 	if maxKeys > 0 {
@@ -70,7 +70,7 @@ func IsLastPipelineDetailPk(logEntry *log.Entry, pipelineID string, pk int64, fs
 	pplDetail := PipelineDetail{}
 	tx := storage.DB.Model(&PipelineDetail{}).Where("pipeline_id = ?", pipelineID)
 	if len(fsFilter) > 0 {
-		tx = tx.Where("global_fs_name IN (?)", fsFilter)
+		tx = tx.Where("fs_name IN (?)", fsFilter)
 	}
 
 	tx = tx.Last(&pplDetail)

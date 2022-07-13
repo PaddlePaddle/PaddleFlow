@@ -19,10 +19,8 @@ package pipeline
 import (
 	"encoding/json"
 	"fmt"
-	"reflect"
 	"testing"
 
-	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
@@ -105,11 +103,11 @@ func getMockFullRun() (models.Run, error) {
 }
 
 func newMockWorkflowByRun(run models.Run) (*pipeline.Workflow, error) {
-	bwfTemp := &pipeline.BaseWorkflow{}
-	p1 := gomonkey.ApplyPrivateMethod(reflect.TypeOf(bwfTemp), "checkFs", func() error {
-		return nil
-	})
-	defer p1.Reset()
+	// bwfTemp := &pipeline.BaseWorkflow{}
+	// p1 := gomonkey.ApplyPrivateMethod(reflect.TypeOf(bwfTemp), "checkFs", func() error {
+	// 	return nil
+	// })
+	// defer p1.Reset()
 	return newWorkflowByRun(run)
 }
 

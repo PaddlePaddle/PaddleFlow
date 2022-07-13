@@ -46,10 +46,10 @@ type CreatePipelineResponse struct {
 }
 
 type UpdatePipelineRequest struct {
-	GlobalFsName string `json:"globalFsName"`
-	YamlPath     string `json:"yamlPath"` // optional, use "./run.yaml" if not specified
-	UserName     string `json:"username"` // optional, only for root user
-	Desc         string `json:"desc"`     // optional
+	FsName   string `json:"fsName"`
+	YamlPath string `json:"yamlPath"` // optional, use "./run.yaml" if not specified
+	UserName string `json:"username"` // optional, only for root user
+	Desc     string `json:"desc"`     // optional
 }
 
 type UpdatePipelineResponse struct {
@@ -109,7 +109,7 @@ type PipelineDetailBrief struct {
 func (pdb *PipelineDetailBrief) updateFromPipelineDetailModel(pipelineDetail models.PipelineDetail) {
 	pdb.ID = pipelineDetail.ID
 	pdb.PipelineID = pipelineDetail.PipelineID
-	pdb.GlobalFsName = pipelineDetail.GlobalFsName
+	pdb.GlobalFsName = pipelineDetail.FsName
 	pdb.YamlPath = pipelineDetail.YamlPath
 	pdb.PipelineYaml = pipelineDetail.PipelineYaml
 	pdb.UserName = pipelineDetail.UserName
@@ -189,8 +189,8 @@ func CreatePipeline(ctx *logger.RequestContext, request CreatePipelineRequest) (
 
 	yamlMd5 := common.GetMD5Hash(pipelineYaml)
 	pplDetail := models.PipelineDetail{
-		GlobalFsID:   fsID,
-		GlobalFsName: request.FsName,
+		FsID:         fsID,
+		FsName:       request.FsName,
 		YamlPath:     request.YamlPath,
 		PipelineYaml: string(pipelineYaml),
 		PipelineMd5:  yamlMd5,
@@ -224,14 +224,14 @@ func UpdatePipeline(ctx *logger.RequestContext, request UpdatePipelineRequest, p
 	}
 
 	// check user grant to fs
-	if request.GlobalFsName == "" {
+	if request.FsName == "" {
 		ctx.ErrorCode = common.InvalidArguments
 		errMsg := "update pipeline failed. fsname shall not be empty"
 		ctx.Logging().Errorf(errMsg)
 		return UpdatePipelineResponse{}, fmt.Errorf(errMsg)
 	}
 
-	fsID, err := CheckFsAndGetID(ctx.UserName, request.UserName, request.GlobalFsName)
+	fsID, err := CheckFsAndGetID(ctx.UserName, request.UserName, request.FsName)
 	if err != nil {
 		ctx.ErrorCode = common.InvalidArguments
 		ctx.Logging().Errorf(err.Error())
@@ -285,8 +285,8 @@ func UpdatePipeline(ctx *logger.RequestContext, request UpdatePipelineRequest, p
 	yamlMd5 := common.GetMD5Hash(pipelineYaml)
 	pplDetail := models.PipelineDetail{
 		PipelineID:   pipelineID,
-		GlobalFsID:   fsID,
-		GlobalFsName: request.GlobalFsName,
+		FsID:         fsID,
+		FsName:       request.FsName,
 		YamlPath:     request.YamlPath,
 		PipelineYaml: string(pipelineYaml),
 		PipelineMd5:  yamlMd5,

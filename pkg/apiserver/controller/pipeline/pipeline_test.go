@@ -145,10 +145,10 @@ func TestUpdatePipeline(t *testing.T) {
 
 	pipelineID := "ppl-000001"
 	updatePplReq := UpdatePipelineRequest{
-		GlobalFsName: MockFsName,
-		UserName:     "",
-		YamlPath:     "../../../../example/wide_and_deep/run.yaml",
-		Desc:         "pipeline test",
+		FsName:   MockFsName,
+		UserName: "",
+		YamlPath: "../../../../example/wide_and_deep/run.yaml",
+		Desc:     "pipeline test",
 	}
 
 	patch := gomonkey.ApplyFunc(handler.ReadFileFromFs, func(fsID, runYamlPath string, logEntry *log.Entry) ([]byte, error) {
@@ -193,13 +193,13 @@ func TestUpdatePipeline(t *testing.T) {
 
 	// update 失败: fsname为空
 	updatePplReq.Desc = "pipeline test"
-	updatePplReq.GlobalFsName = ""
+	updatePplReq.FsName = ""
 	_, err = UpdatePipeline(ctx, updatePplReq, pipelineID)
 	assert.NotNil(t, err)
 	assert.Equal(t, fmt.Errorf("update pipeline failed. fsname shall not be empty"), err)
 
 	// update 失败，yaml name 与 pipeline记录中的 name 不一样
-	updatePplReq.GlobalFsName = MockFsName
+	updatePplReq.FsName = MockFsName
 	updatePplReq.YamlPath = "../../../../example/pipeline/base_pipeline/run.yaml"
 	resp, err = UpdatePipeline(ctx, updatePplReq, pipelineID)
 	assert.NotNil(t, err)
@@ -356,8 +356,8 @@ func TestGetPipeline(t *testing.T) {
 		UserName: "user1",
 	}
 	pplDetail1 := models.PipelineDetail{
-		GlobalFsID:   "root-fsname",
-		GlobalFsName: "fsname",
+		FsID:         "root-fsname",
+		FsName:       "fsname",
 		YamlPath:     "./run.yml",
 		PipelineYaml: "ddddd",
 		PipelineMd5:  "md5_1",
@@ -365,8 +365,8 @@ func TestGetPipeline(t *testing.T) {
 	}
 
 	pplDetail2 := models.PipelineDetail{
-		GlobalFsID:   "root-fsname2",
-		GlobalFsName: "fsname2",
+		FsID:         "root-fsname2",
+		FsName:       "fsname2",
 		YamlPath:     "./run.yml",
 		PipelineYaml: "ddddd",
 		PipelineMd5:  "md5_2",
@@ -476,8 +476,8 @@ func TestGetPipelineDetail(t *testing.T) {
 	pplDetail1 := models.PipelineDetail{
 		Pk:           1,
 		PipelineID:   ppl1.ID,
-		GlobalFsID:   "root-fsname",
-		GlobalFsName: "fsname",
+		FsID:         "root-fsname",
+		FsName:       "fsname",
 		YamlPath:     "./run.yml",
 		PipelineYaml: "ddddd",
 		PipelineMd5:  "md5_1",
@@ -487,8 +487,8 @@ func TestGetPipelineDetail(t *testing.T) {
 	pplDetail2 := models.PipelineDetail{
 		Pk:           2,
 		PipelineID:   ppl1.ID,
-		GlobalFsID:   "root-fsname2",
-		GlobalFsName: "fsname2",
+		FsID:         "root-fsname2",
+		FsName:       "fsname2",
 		YamlPath:     "./run.yml",
 		PipelineYaml: "ddddd",
 		PipelineMd5:  "md5_2",
@@ -566,8 +566,8 @@ func TestDeletePipeline(t *testing.T) {
 		UserName: "user1",
 	}
 	pplDetail1 := models.PipelineDetail{
-		GlobalFsID:   "root-fsname",
-		GlobalFsName: "fsname",
+		FsID:         "root-fsname",
+		FsName:       "fsname",
 		YamlPath:     "./run.yml",
 		PipelineYaml: "ddddd",
 		PipelineMd5:  "md5_1",
@@ -580,8 +580,8 @@ func TestDeletePipeline(t *testing.T) {
 		UserName: "user2",
 	}
 	pplDetail2 := models.PipelineDetail{
-		GlobalFsID:   "root-fsname2",
-		GlobalFsName: "fsname2",
+		FsID:         "root-fsname2",
+		FsName:       "fsname2",
 		YamlPath:     "./run.yml",
 		PipelineYaml: "ddddd",
 		PipelineMd5:  "md5_2",
@@ -594,8 +594,8 @@ func TestDeletePipeline(t *testing.T) {
 		UserName: "root",
 	}
 	pplDetail3 := models.PipelineDetail{
-		GlobalFsID:   "root-fsname3",
-		GlobalFsName: "fsname3",
+		FsID:         "root-fsname3",
+		FsName:       "fsname3",
 		YamlPath:     "./run.yml",
 		PipelineYaml: "ddddd",
 		PipelineMd5:  "md5_3",
@@ -680,8 +680,8 @@ func TestDeletePipelineDetail(t *testing.T) {
 		UserName: "user1",
 	}
 	pplDetail1 := models.PipelineDetail{
-		GlobalFsID:   "user1-fsname",
-		GlobalFsName: "fsname",
+		FsID:         "user1-fsname",
+		FsName:       "fsname",
 		YamlPath:     "./run.yml",
 		PipelineYaml: "ddddd",
 		PipelineMd5:  "md5_1",
@@ -689,8 +689,8 @@ func TestDeletePipelineDetail(t *testing.T) {
 	}
 
 	pplDetail2 := models.PipelineDetail{
-		GlobalFsID:   "user1-fsname2",
-		GlobalFsName: "fsname2",
+		FsID:         "user1-fsname2",
+		FsName:       "fsname2",
 		YamlPath:     "./run.yml",
 		PipelineYaml: "ddddd",
 		PipelineMd5:  "md5_2",
@@ -698,8 +698,8 @@ func TestDeletePipelineDetail(t *testing.T) {
 	}
 
 	pplDetail3 := models.PipelineDetail{
-		GlobalFsID:   "user1-fsname3",
-		GlobalFsName: "fsname3",
+		FsID:         "user1-fsname3",
+		FsName:       "fsname3",
 		YamlPath:     "./run.yml",
 		PipelineYaml: "ddddd",
 		PipelineMd5:  "md5_3",
@@ -713,8 +713,8 @@ func TestDeletePipelineDetail(t *testing.T) {
 	}
 
 	pplDetail4 := models.PipelineDetail{
-		GlobalFsID:   "root-fsname4",
-		GlobalFsName: "fsname4",
+		FsID:         "root-fsname4",
+		FsName:       "fsname4",
 		YamlPath:     "./run.yml",
 		PipelineYaml: "ddddd",
 		PipelineMd5:  "md5_4",
@@ -722,8 +722,8 @@ func TestDeletePipelineDetail(t *testing.T) {
 	}
 
 	pplDetail5 := models.PipelineDetail{
-		GlobalFsID:   "root-fsname5",
-		GlobalFsName: "fsname5",
+		FsID:         "root-fsname5",
+		FsName:       "fsname5",
 		YamlPath:     "./run.yml",
 		PipelineYaml: "ddddd",
 		PipelineMd5:  "md5_5",
@@ -826,8 +826,8 @@ func TestDeletePipelineDetail(t *testing.T) {
 
 	// 删除detail后重新更新pipeline，确保detail_id是严格递增（包括被删除的部分）
 	pplDetail6 := models.PipelineDetail{
-		GlobalFsID:   "user1-fsname4",
-		GlobalFsName: "fsname4",
+		FsID:         "user1-fsname4",
+		FsName:       "fsname4",
 		YamlPath:     "./run.yml",
 		PipelineYaml: "ddddd",
 		PipelineMd5:  "md5_4",

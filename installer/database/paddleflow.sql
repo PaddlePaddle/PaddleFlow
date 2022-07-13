@@ -54,7 +54,8 @@ CREATE TABLE IF NOT EXISTS `queue` (
     `updated_at` datetime(3) DEFAULT NULL,
     `deleted_at` datetime(3) DEFAULT NULL,
     PRIMARY KEY (`pk`),
-    UNIQUE KEY `queue_name` (`name`)
+    UNIQUE KEY `queue_name` (`name`),
+    INDEX `cluster_id` (`cluster_id`)
 ) ENGINE=InnoDB DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
 
 CREATE TABLE IF NOT EXISTS `job` (
@@ -66,7 +67,7 @@ CREATE TABLE IF NOT EXISTS `job` (
     `type` varchar(20) NOT NULL,
     `config` mediumtext NOT NULL,
     `runtime_info` mediumtext DEFAULT NULL,
-    `status` varchar(32) DEFAULT NULL,
+    `status` varchar(32) NOT NULL,
     `message` text DEFAULT NULL,
     `resource` text DEFAULT NULL,
     `framework` varchar(30) DEFAULT NULL,
@@ -78,7 +79,8 @@ CREATE TABLE IF NOT EXISTS `job` (
     `updated_at` datetime(3) NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
     `deleted_at` varchar(64) DEFAULT '',
     PRIMARY KEY (`pk`),
-    UNIQUE KEY `job_id` (`id`, `deleted_at`)
+    UNIQUE KEY `job_id` (`id`, `deleted_at`),
+    INDEX `status_queue_deleted` (`queue_id`, `status`, `deleted_at`)
 ) ENGINE=InnoDB DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
 
 CREATE TABLE IF NOT EXISTS `job_label` (
@@ -167,7 +169,7 @@ CREATE TABLE IF NOT EXISTS `run` (
     `deleted_at` datetime(3) DEFAULT NULL,
     PRIMARY KEY (`pk`),
     UNIQUE KEY (`id`),
-    INDEX (`fs_id`),
+    INDEX (`global_fs_id`),
     INDEX (`status`)
 ) ENGINE=InnoDB DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
 
@@ -183,7 +185,7 @@ CREATE TABLE IF NOT EXISTS `run_job` (
     `artifacts_json` text,
     `env_json` text,
     `docker_env` varchar(128),
-    `seq` int NOT NULL,
+    `loop_seq` int NOT NULL,
     `status` varchar(32) DEFAULT NULL,
     `message` text,
     `cache_json` text,
@@ -208,7 +210,7 @@ CREATE TABLE IF NOT EXISTS `run_dag` (
     `dag_name` varchar(60) NOT NULL,
     `parameters_json` text,
     `artifacts_json` text,
-    `seq` int NOT NULL,
+    `loop_seq` int NOT NULL,
     `status` varchar(32) DEFAULT NULL,
     `message` text,
     `created_at` datetime(3) DEFAULT NULL,
@@ -255,8 +257,8 @@ CREATE TABLE IF NOT EXISTS `pipeline_detail` (
     `pk` bigint(20) NOT NULL AUTO_INCREMENT,
     `id` varchar(60) NOT NULL,
     `pipeline_id` varchar(60) NOT NULL,
-    `global_fs_id` varchar(60) NOT NULL,
-    `global_fs_name` varchar(60) NOT NULL,
+    `fs_id` varchar(60) NOT NULL,
+    `fs_name` varchar(60) NOT NULL,
     `yaml_path` text NOT NULL,
     `pipeline_yaml` text NOT NULL,
     `pipeline_md5` varchar(32) NOT NULL,

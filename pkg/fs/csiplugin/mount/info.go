@@ -20,16 +20,19 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"strconv"
+	"strings"
 
 	log "github.com/sirupsen/logrus"
 
+	common_ "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
 
 const (
+	mountName   = "mount"
 	fileMountSh = "/home/paddleflow/mount.sh"
 	filePfsFuse = "/home/paddleflow/pfs-fuse"
 )
@@ -40,6 +43,9 @@ type Info struct {
 	FsBase64Str             string
 	IndependentMountProcess bool
 	MountCmd                string
+	Type                    string
+	ServerAddress           string
+	SubPath                 string
 	MountArgs               []string
 	FsCacheConfig           model.FSCacheConfig
 	TargetPath              string
@@ -74,6 +80,8 @@ func ProcessMountInfo(username, password, targetPath, fsID, server, fsInfoBase64
 		UsernameRoot:            username,
 		PasswordRoot:            password,
 		TargetPath:              targetPath,
+		ServerAddress:           fs.ServerAddress,
+		SubPath:                 fs.SubPath,
 		FsID:                    fsID,
 		Server:                  server,
 		FsBase64Str:             fsInfoBase64,
@@ -81,9 +89,10 @@ func ProcessMountInfo(username, password, targetPath, fsID, server, fsInfoBase64
 		FsCacheConfig:           cacheConfig,
 		UID:                     common.GetDefaultUID(),
 		GID:                     common.GetDefaultGID(),
+		Type:                    fs.Type,
 		ReadOnly:                readOnly,
 	}
-	info.fillingMountCmd()
+	info.mountCmd()
 	return info, nil
 }
 
@@ -124,7 +133,7 @@ func processCacheConfig(fsID, fsCacheBase64 string) (model.FSCacheConfig, error)
 	return cacheConfig, nil
 }
 
-func (m *Info) fillingMountCmd() {
+func (m *Info) mountCmd() {
 	baseArgs := []string{
 		"--fs-info=" + m.FsBase64Str,
 		"--fs-id=", m.FsID,
@@ -132,7 +141,13 @@ func (m *Info) fillingMountCmd() {
 	if m.ReadOnly {
 		baseArgs = append(baseArgs, "--mount-options=ro")
 	}
-	if m.IndependentMountProcess {
+	if m.Type == common_.Glusterfs {
+		m.MountCmd = mountName
+		var args []string
+		args = append(args, "-t", m.Type)
+		args = append(args, strings.Join([]string{m.ServerAddress, m.SubPath}, ":"), m.TargetPath)
+		m.MountArgs = args
+	} else if m.IndependentMountProcess {
 		m.MountCmd = fileMountSh
 		m.MountArgs = append(baseArgs, "--mount-point="+m.TargetPath)
 	} else {
