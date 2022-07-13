@@ -46,6 +46,7 @@ type ServerConfig struct {
 	Job       JobConfig                      `yaml:"job"`
 	Fs        FsServerConf                   `yaml:"fs"`
 	ImageConf ImageConfig                    `yaml:"imageRepository"`
+	Monitor   PrometheusConfig               `yaml:"monitor"`
 }
 
 type StorageConfig struct {
@@ -108,4 +109,9 @@ type ImageConfig struct {
 	Password         string `yaml:"password"`
 	Concurrency      int    `yaml:"concurrency"`
 	RemoveLocalImage bool   `yaml:"removeLocalImage"`
+}
+
+type PrometheusConfig struct {
+	Server              string `yaml:"server"`
+	ExporterServicePort int    `yaml:"exporterServicePort"`
 }

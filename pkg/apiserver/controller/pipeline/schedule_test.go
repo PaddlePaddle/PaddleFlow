@@ -114,7 +114,7 @@ func TestCreateSchedule(t *testing.T) {
 		ConcurrencyPolicy: "suspend",
 		ExpireInterval:    100,
 		Catchup:           true,
-		FsName:            MockFsName,
+		GlobalFsName:      MockFsName,
 		UserName:          "",
 	}
 
@@ -318,7 +318,7 @@ func TestListSchedule(t *testing.T) {
 		ConcurrencyPolicy: "suspend",
 		ExpireInterval:    100,
 		Catchup:           true,
-		FsName:            MockFsName,
+		GlobalFsName:      MockFsName,
 		UserName:          MockNormalUser,
 	}
 
@@ -591,7 +591,7 @@ func TestGetSchedule(t *testing.T) {
 		ConcurrencyPolicy: "suspend",
 		ExpireInterval:    100,
 		Catchup:           true,
-		FsName:            MockFsName,
+		GlobalFsName:      MockFsName,
 		UserName:          MockNormalUser,
 	}
 
@@ -723,7 +723,7 @@ func TestStopSchedule(t *testing.T) {
 		ConcurrencyPolicy: "suspend",
 		ExpireInterval:    100,
 		Catchup:           true,
-		FsName:            MockFsName,
+		GlobalFsName:      MockFsName,
 		UserName:          "",
 	}
 
@@ -818,7 +818,7 @@ func TestDeleteSchedule(t *testing.T) {
 		ConcurrencyPolicy: "suspend",
 		ExpireInterval:    100,
 		Catchup:           true,
-		FsName:            MockFsName,
+		GlobalFsName:      MockFsName,
 		UserName:          "",
 	}
 

@@ -35,11 +35,15 @@ type FuseConfig struct {
 	RawOwner     bool
 	EntryTimeout int
 	AttrTimeout  int
+	DirMode      int
+	FileMode     int
 }
 
 var FuseConf = &FuseConfig{
 	EntryTimeout: 1,
 	AttrTimeout:  1,
+	DirMode:      0755,
+	FileMode:     0644,
 	Uid:          os.Getuid(),
 	Gid:          os.Getgid(),
 	RawOwner:     false,

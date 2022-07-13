@@ -24,6 +24,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/monitor"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/trace_logger"
@@ -216,6 +217,14 @@ func setup() {
 		log.Errorf("InitDefaultPVC err %v", err)
 		gracefullyExit(err)
 	}
+
+	if err := initPrometheusClient(ServerConf.Monitor.Server); err != nil {
+		log.Errorf("create prometheus client failed, err %v", err)
+		gracefullyExit(err)
+	}
+
+	monitor.Init()
+	_ = monitor.StartJobMetricsService(ServerConf.Monitor.ExporterServicePort)
 }
 
 func newAndStartJobManager() error {
@@ -232,6 +241,11 @@ func newAndStartJobManager() error {
 	}
 	go runtimeMgr.Start(models.ActiveClusters, models.ListQueueJob)
 	return nil
+}
+
+func initPrometheusClient(address string) error {
+	err := monitor.NewClientAPI(address)
+	return err
 }
 
 func gracefullyExit(err error) {

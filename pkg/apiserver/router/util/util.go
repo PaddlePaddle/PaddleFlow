@@ -98,6 +98,10 @@ const (
 	ParamKeyPageNo          = "pageNo"
 	ParamKeyPageSize        = "pageSize"
 	ParamKeyLogFilePosition = "logFilePosition"
+
+	ParamKeyStart = "start"
+	ParamKeyEnd   = "end"
+	ParamKeyStep  = "step"
 )
 
 func GetQueryMaxKeys(ctx *logger.RequestContext, r *http.Request) (int, error) {

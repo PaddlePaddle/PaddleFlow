@@ -295,6 +295,24 @@ data:
         maxFileNum: 7
         maxFileSizeInMB: 100
         isCompress: true
+    
+      traceLog:
+        dir: ./
+        filePrefix: trace-log
+        level: INFO
+        maxKeepDays: 7
+        maxFileNum: 7
+        maxFileSizeInMB: 100
+        isCompress: true
+        # time units: s/m/h/d (second/minute/hour/day)
+        timeout: 2h
+        # max size for trace logger local cache
+        maxCacheSize: 10000
+        # auto sync and delete interval for log file, and cache
+        syncInterval: 30s
+        deleteInterval: 10s
+        # if debug mode turn on, the trace log will be shown to stdout as well
+        debug: false
 
       apiServer:
         host: 0.0.0.0
