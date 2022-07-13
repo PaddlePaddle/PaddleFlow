@@ -34,15 +34,7 @@ var metricNameList = [...]string{consts.MetricCpuUsageRate, consts.MetricMemoryU
 	consts.MetricDiskWriteRate, consts.MetricGpuUtil, consts.MetricGpuMemoryUtil}
 
 type JobStatisticsResponse struct {
-	CpuUsageRate    float64 `json:"cpu_usage_rate"`
-	MemoryUsage     float64 `json:"memory_usage"`
-	NetReceiveBytes float64 `json:"net_receive_bytes"`
-	NetSendBytes    float64 `json:"net_send_bytes"`
-	DiskUsageBytes  float64 `json:"disk_usage_bytes"`
-	DiskReadRate    float64 `json:"disk_read_rate"`
-	DiskWriteRate   float64 `json:"disk_write_rate"`
-	GpuUtil         float64 `json:"gpu_util"`
-	GpuMemoryUtil   float64 `json:"gpu_memory_util"`
+	MetricsInfo map[string]float64 `json:"metricsInfo"`
 }
 
 type JobDetailStatisticsResponse struct {
@@ -61,7 +53,9 @@ type MetricInfo struct {
 }
 
 func GetJobStatistics(ctx *logger.RequestContext, jobID string) (*JobStatisticsResponse, error) {
-	response := &JobStatisticsResponse{}
+	response := &JobStatisticsResponse{
+		MetricsInfo: make(map[string]float64),
+	}
 	clusterType, _, err := getClusterTypeByJob(ctx, jobID)
 	if err != nil {
 		ctx.Logging().Errorf("get metric type failed, error: %s", err.Error())
@@ -79,11 +73,7 @@ func GetJobStatistics(ctx *logger.RequestContext, jobID string) (*JobStatisticsR
 			ctx.Logging().Errorf("query metric[%s] failed, error: %s", value, err.Error())
 			return nil, err
 		}
-		err = convertResultToResponse(result, response, value)
-		if err != nil {
-			ctx.Logging().Errorf("convert metric[%s] result to response failed, error: %s", value, err.Error())
-			return nil, err
-		}
+		response.MetricsInfo[value] = result
 	}
 
 	return response, nil
@@ -201,27 +191,3 @@ func convertResultToDetailResponse(ctx *logger.RequestContext, result model.Valu
 	return nil
 }
 
-func convertResultToResponse(result float64, response *JobStatisticsResponse, metricName string) error {
-	switch metricName {
-	case consts.MetricCpuUsageRate:
-		response.CpuUsageRate = result
-	case consts.MetricMemoryUsage:
-		response.MemoryUsage = result
-	case consts.MetricDiskUsage:
-		response.DiskUsageBytes = result
-	case consts.MetricNetReceiveBytes:
-		response.NetReceiveBytes = result
-	case consts.MetricNetSendBytes:
-		response.NetSendBytes = result
-	case consts.MetricDiskReadRate:
-		response.DiskReadRate = result
-	case consts.MetricDiskWriteRate:
-		response.DiskWriteRate = result
-	case consts.MetricGpuUtil:
-		response.GpuUtil = result
-	case consts.MetricGpuMemoryUtil:
-		response.GpuMemoryUtil = result
-	}
-	return nil
-
-}
