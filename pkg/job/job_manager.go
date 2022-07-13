@@ -183,27 +183,28 @@ func (m *JobManagerImpl) jobProcessLoop(jobSubmit func(*api.PFJob) error, cluste
 func (m *JobManagerImpl) submitQueueJob(jobSubmit func(*api.PFJob) error, queueID api.QueueID, stopCh <-chan struct{}) {
 	queue, find := m.GetQueue(queueID)
 	if !find {
-		log.Errorf("queue %s does not found", queue.Name)
+		log.Errorf("queue %s does not found", queueID)
 		return
 	}
 	// construct job submit queue
 	jobQueue := api.NewPriorityQueue(queue.JobOrderFn)
+	queueName := queue.Name
 	for {
 		select {
 		case <-stopCh:
-			log.Infof("exit submit job loop for queue[%s]...", queue.Name)
+			log.Infof("exit submit job loop for queue[%s]...", queueName)
 			return
 		default:
 			// check whether queue is exist or not
-			queue, find = m.GetQueue(queueID)
+			_, find = m.GetQueue(queueID)
 			if !find {
-				log.Errorf("queue %s does not found", queue.Name)
+				log.Errorf("queue %s does not found", queueName)
 				return
 			}
 			// get init job from database
 			pfJobs := m.listQueueInitJobs(string(queueID))
 			if len(pfJobs) == 0 {
-				log.Debugf("sleep %d second when not job on queue %s", m.jobLoopPeriod, queue.Name)
+				log.Debugf("sleep %d second when not job on queue %s", m.jobLoopPeriod, queueName)
 				time.Sleep(m.jobLoopPeriod)
 				continue
 			}
@@ -218,14 +219,14 @@ func (m *JobManagerImpl) submitQueueJob(jobSubmit func(*api.PFJob) error, queueI
 			}
 
 			jobCount := jobQueue.Len()
-			log.Infof("Entering submit %d jobs in queue %s", jobCount, queue.Name)
+			log.Infof("Entering submit %d jobs in queue %s", jobCount, queueName)
 			startTime := time.Now()
 			for !jobQueue.Empty() {
 				// get enqueue job
 				job := jobQueue.Pop().(*api.PFJob)
 				m.submitJob(jobSubmit, job)
 			}
-			log.Infof("Leaving submit %d jobs in queue %s, total elapsed time: %s", jobCount, queue.Name, time.Since(startTime))
+			log.Infof("Leaving submit %d jobs in queue %s, total elapsed time: %s", jobCount, queueName, time.Since(startTime))
 		}
 	}
 }
