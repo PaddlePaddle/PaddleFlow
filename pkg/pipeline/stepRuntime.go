@@ -25,10 +25,10 @@ import (
 	"sync"
 	"time"
 
-	. "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
-
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	. "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/trace_logger"
 )
 
 type StepRuntime struct {
@@ -174,7 +174,11 @@ func (srt *StepRuntime) Start() {
 	go srt.Listen()
 	go srt.Stop()
 
-	srt.Execute()
+	err = srt.Execute()
+	if err != nil {
+		errMsg := fmt.Sprintf("execute failed: %s", err)
+		trace_logger.Key(srt.runID).Errorf(errMsg)
+	}
 }
 
 // Restart: 根据 jobView 来重启step
@@ -616,7 +620,7 @@ func (srt *StepRuntime) startJob() (err error) {
 		return
 	}
 
-	// todo: 正式运行前，需要将更新后的参数更新到数据库中（通过传递workflow event到runtime即可）
+	// TODO: 正式运行前，需要将更新后的参数更新到数据库中（通过传递workflow event到runtime即可）
 	_, err = srt.job.Start()
 	if err != nil {
 		err = fmt.Errorf("start job for step[%s] with runid[%s] failed: [%s]", srt.name, srt.runID, err.Error())
@@ -633,7 +637,7 @@ func (srt *StepRuntime) startJob() (err error) {
 }
 
 // 运行步骤
-func (srt *StepRuntime) Execute() {
+func (srt *StepRuntime) Execute() error {
 	logMsg := fmt.Sprintf("start execute step[%s] with runid[%s]", srt.name, srt.runID)
 	srt.logger.Infof(logMsg)
 
@@ -645,7 +649,7 @@ func (srt *StepRuntime) Execute() {
 				srt.name, srt.runID, err.Error())
 			srt.logger.Errorf(logMsg)
 			srt.processStartAbnormalStatus(logMsg, schema.StatusJobFailed)
-			return
+			return fmt.Errorf("%s", logMsg)
 		}
 
 		if cachedFound {
@@ -666,7 +670,7 @@ func (srt *StepRuntime) Execute() {
 						srt.name, srt.runID, srt.CacheRunID)
 					srt.logger.Infoln(logMsg)
 					srt.processStartAbnormalStatus(logMsg, cacheStatus)
-					return
+					return fmt.Errorf("%s", logMsg)
 
 				} else if cacheStatus == schema.StatusJobInit || cacheStatus == schema.StatusJobPending ||
 					cacheStatus == schema.StatusJobRunning || cacheStatus == schema.StatusJobTerminating {
@@ -689,7 +693,7 @@ func (srt *StepRuntime) Execute() {
 		if err != nil {
 			srt.logger.Error(err.Error())
 			srt.processStartAbnormalStatus(err.Error(), StatusRuntimeFailed)
-			return
+			return fmt.Errorf("%w", err)
 		}
 	}
 
@@ -704,7 +708,7 @@ func (srt *StepRuntime) Execute() {
 			srt.name, srt.runID, err.Error())
 		srt.logger.Errorf(logMsg)
 		srt.processStartAbnormalStatus(logMsg, schema.StatusJobFailed)
-		return
+		return fmt.Errorf("%s", logMsg)
 	}
 
 	err = srt.job.Validate()
@@ -712,7 +716,7 @@ func (srt *StepRuntime) Execute() {
 		logMsg = fmt.Sprintf("validating step[%s] failed: [%s]", srt.name, err.Error())
 		srt.logger.Errorf(logMsg)
 		srt.processStartAbnormalStatus(logMsg, schema.StatusJobFailed)
-		return
+		return fmt.Errorf("%s", logMsg)
 	}
 
 	// todo: 正式运行前，需要将更新后的参数更新到数据库中（通过传递workflow event到runtime即可）
@@ -721,12 +725,13 @@ func (srt *StepRuntime) Execute() {
 		// 异常处理，塞event，不返回error是因为统一通过channel与run沟通
 		srt.logger.Errorf(err.Error())
 		srt.processStartAbnormalStatus(err.Error(), schema.StatusJobFailed)
-		return
+		return fmt.Errorf("%w", err)
 	}
 
 	srt.logger.Infof("step[%s] of runid[%s]: jobID[%s]", srt.name, srt.runID, srt.job.(*PaddleFlowJob).ID)
 
 	srt.logInputArtifact()
+	return nil
 }
 
 func (srt *StepRuntime) stopWithMsg(msg string) {
