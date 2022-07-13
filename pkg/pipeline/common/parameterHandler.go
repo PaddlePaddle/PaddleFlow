@@ -126,7 +126,7 @@ func (s *ComponentParamChecker) checkDuplication(currentComponent string) error 
 	return nil
 }
 
-func (s *ComponentParamChecker) Check(currentComponent string, isOuterComp bool) error {
+func (s *ComponentParamChecker) Check(currentComponent string, isComp bool) error {
 	/*
 		1. 如果没有用到Fs，不能用Fs相关系统参数，以及inputAtf，outputAtf机制
 		2. 先检查参数名是否有重复（parameter，artifact）
@@ -138,6 +138,12 @@ func (s *ComponentParamChecker) Check(currentComponent string, isOuterComp bool)
 		- command 支持平台内置参数替换，上游step的parameter依赖替换，当前step的parameter替换，当前step内input artifact、当前step内output artifact替换
 		4. 引用上游参数时，必须保证上游节点不在disabled列表中。
 	*/
+	isOuterComp := false
+	if isComp && !strings.Contains(currentComponent, ".") {
+		// 外层Component的校验逻辑特殊
+		isOuterComp = true
+	}
+
 	err := s.checkDuplication(currentComponent)
 	if err != nil {
 		return err
