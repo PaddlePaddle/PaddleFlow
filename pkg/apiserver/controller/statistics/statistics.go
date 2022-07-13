@@ -34,15 +34,7 @@ var metricNameList = [...]string{consts.MetricCpuUsageRate, consts.MetricMemoryU
 	consts.MetricDiskWriteRate, consts.MetricGpuUtil, consts.MetricGpuMemoryUtil}
 
 type JobStatisticsResponse struct {
-	CpuUsageRate    float64 `json:"cpu_usage_rate"`
-	MemoryUsage     string  `json:"memory_usage"`
-	NetReceiveBytes float64 `json:"net_receive_bytes"`
-	NetSendBytes    float64 `json:"net_send_bytes"`
-	DiskUsageBytes  float64 `json:"disk_usage_bytes"`
-	DiskReadRate    float64 `json:"disk_read_rate"`
-	DiskWriteRate   float64 `json:"disk_write_rate"`
-	GpuUtil         float64 `json:"gpu_util"`
-	GpuMemoryUtil   float64 `json:"gpu_memory_util"`
+	MetricsInfo map[string]float64 `json:"metricsInfo"`
 }
 
 type JobDetailStatisticsResponse struct {
@@ -61,7 +53,9 @@ type MetricInfo struct {
 }
 
 func GetJobStatistics(ctx *logger.RequestContext, jobID string) (*JobStatisticsResponse, error) {
-	response := &JobStatisticsResponse{}
+	response := &JobStatisticsResponse{
+		MetricsInfo: make(map[string]float64),
+	}
 	clusterType, _, err := getClusterTypeByJob(ctx, jobID)
 	if err != nil {
 		ctx.Logging().Errorf("get metric type failed, error: %s", err.Error())
@@ -79,11 +73,7 @@ func GetJobStatistics(ctx *logger.RequestContext, jobID string) (*JobStatisticsR
 			ctx.Logging().Errorf("query metric[%s] failed, error: %s", value, err.Error())
 			return nil, err
 		}
-		err = convertResultToResponse(result, response)
-		if err != nil {
-			ctx.Logging().Errorf("convert metric[%s] result to response failed, error: %s", value, err.Error())
-			return nil, err
-		}
+		response.MetricsInfo[value] = result
 	}
 
 	return response, nil
@@ -91,7 +81,7 @@ func GetJobStatistics(ctx *logger.RequestContext, jobID string) (*JobStatisticsR
 
 func GetJobDetailStatistics(ctx *logger.RequestContext, jobID string, start, end, step int64) (*JobDetailStatisticsResponse, error) {
 	response := &JobDetailStatisticsResponse{
-		Result:      make([]TaskStatistics, 1),
+		Result:      make([]TaskStatistics, 0),
 		TaskNameMap: make(map[string]int),
 	}
 
@@ -103,7 +93,9 @@ func GetJobDetailStatistics(ctx *logger.RequestContext, jobID string, start, end
 
 	if start == 0 {
 		if job.ActivatedAt.Valid {
-			start = job.UpdatedAt.Unix()
+			start = job.ActivatedAt.Time.Unix()
+		} else {
+			return response, nil
 		}
 	}
 	if end == 0 {
@@ -126,7 +118,7 @@ func GetJobDetailStatistics(ctx *logger.RequestContext, jobID string, start, end
 			ctx.Logging().Errorf("query range metric[%s] failed, error: %s", value, err.Error())
 			return nil, err
 		}
-		err = convertResultToDetailResponse(result, response)
+		err = convertResultToDetailResponse(ctx, result, response, value)
 		if err != nil {
 			ctx.Logging().Errorf("convert metric[%s] result to detail response failed, error: %s", value, err.Error())
 			return nil, err
@@ -168,19 +160,20 @@ func getClusterTypeByJob(ctx *logger.RequestContext, jobID string) (string, *mod
 	return cluster.ClusterType, &job, nil
 }
 
-func convertResultToDetailResponse(result model.Value, response *JobDetailStatisticsResponse) error {
+func convertResultToDetailResponse(ctx *logger.RequestContext, result model.Value, response *JobDetailStatisticsResponse, metricName string) error {
 	data, ok := result.(model.Matrix)
 	if !ok {
+		ctx.Logging().Errorf("convert result to matrix failed")
 		return fmt.Errorf("convert result to matrix failed")
 	}
 	for _, value := range data {
-		taskValues := make([][2]float64, 1)
+		taskValues := make([][2]float64, 0)
 		for _, rangeValue := range value.Values {
 			taskValues = append(taskValues, [2]float64{float64(rangeValue.Timestamp.Unix()), float64(rangeValue.Value)})
 		}
-		taskName := string(value.Metric[common.PodID])
+		taskName := string(value.Metric[common.Pod])
 		metricInfo := MetricInfo{
-			MetricName: string(value.Metric[model.MetricNameLabel]),
+			MetricName: metricName,
 			Values:     taskValues,
 		}
 		if _, ok := response.TaskNameMap[taskName]; ok {
@@ -188,43 +181,13 @@ func convertResultToDetailResponse(result model.Value, response *JobDetailStatis
 		} else {
 			task := TaskStatistics{
 				TaskName: taskName,
-				TaskInfo: make([]MetricInfo, 1),
+				TaskInfo: make([]MetricInfo, 0),
 			}
 			task.TaskInfo = append(task.TaskInfo, metricInfo)
-			response.Result = append(response.Result, task)
 			response.TaskNameMap[taskName] = len(response.Result)
+			response.Result = append(response.Result, task)
 		}
 	}
 	return nil
 }
 
-func convertResultToResponse(result model.Value, response *JobStatisticsResponse) error {
-	data, ok := result.(model.Vector)
-	if !ok {
-		return fmt.Errorf("convert result to vector failed")
-	}
-	if len(data) > 0 {
-		switch data[0].Metric[model.MetricNameLabel] {
-		case consts.MetricCpuUsageRate:
-			response.CpuUsageRate = float64(data[0].Value)
-		case consts.MetricMemoryUsage:
-			response.MemoryUsage = data[0].Value.String()
-		case consts.MetricDiskUsage:
-			response.DiskUsageBytes = float64(data[0].Value)
-		case consts.MetricNetReceiveBytes:
-			response.NetReceiveBytes = float64(data[0].Value)
-		case consts.MetricNetSendBytes:
-			response.NetSendBytes = float64(data[0].Value)
-		case consts.MetricDiskReadRate:
-			response.DiskReadRate = float64(data[0].Value)
-		case consts.MetricDiskWriteRate:
-			response.DiskWriteRate = float64(data[0].Value)
-		case consts.MetricGpuUtil:
-			response.GpuUtil = float64(data[0].Value)
-		case consts.MetricGpuMemoryUtil:
-			response.GpuMemoryUtil = float64(data[0].Value)
-		}
-	}
-	return nil
-
-}
