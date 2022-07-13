@@ -18,11 +18,9 @@ package pipeline
 
 import (
 	"database/sql"
-	"fmt"
 	"strings"
 	"time"
 
-	mapset "github.com/deckarep/golang-set"
 	"github.com/sirupsen/logrus"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
@@ -35,107 +33,108 @@ import (
 )
 
 var workflowCallbacks = pipeline.WorkflowCallbacks{
-	GetJobCb:      GetJobFunc,
-	UpdateRunCb:   UpdateRunFunc,
-	LogCacheCb:    LogCacheFunc,
-	ListCacheCb:   ListCacheFunc,
-	LogArtifactCb: LogArtifactFunc,
+	GetJobCb:        GetJobFunc,
+	UpdateRuntimeCb: UpdateRuntimeFunc,
+	LogCacheCb:      LogCacheFunc,
+	ListCacheCb:     ListCacheFunc,
+	LogArtifactCb:   LogArtifactFunc,
 }
 
 var (
-	GetJobFunc      func(runID string, stepName string) (schema.JobView, error)         = GetJobByRun
-	UpdateRunFunc   func(id string, event interface{}) bool                             = UpdateRunByWfEvent
-	LogCacheFunc    func(req schema.LogRunCacheRequest) (string, error)                 = LogCache
-	ListCacheFunc   func(firstFp, fsID, step, source string) ([]models.RunCache, error) = ListCacheByFirstFp
-	LogArtifactFunc func(req schema.LogRunArtifactRequest) error                        = LogArtifactEvent
+	GetJobFunc        func(jobID string) (schema.JobView, error)                    = GetJobByRun
+	UpdateRuntimeFunc func(id string, event interface{}) (int64, bool)              = UpdateRuntimeByWfEvent
+	LogCacheFunc      func(req schema.LogRunCacheRequest) (string, error)           = LogCache
+	ListCacheFunc     func(firstFp, fsID, source string) ([]models.RunCache, error) = ListCacheByFirstFp
+	LogArtifactFunc   func(req schema.LogRunArtifactRequest) error                  = LogArtifactEvent
 )
 
-func GetJobByRun(runID string, stepName string) (schema.JobView, error) {
-	logging := logger.LoggerForRun(runID)
-	var jobView schema.JobView
-
-	run, err := models.GetRunByID(logging, runID)
+func GetJobByRun(jobID string) (schema.JobView, error) {
+	logging := logger.Logger()
+	job, err := models.GetRunJob(logging, jobID)
 	if err != nil {
-		logging.Errorf("get Run by runID[%s] failed. Error: %v", runID, err)
-		return jobView, err
+		logging.Errorf("get run_job failed in get job cb, err: %v", err)
+		return schema.JobView{}, err
 	}
-
-	if jobViewRuntime, ok := run.Runtime[stepName]; ok {
-		return jobViewRuntime, nil
+	mockStep := schema.WorkflowSourceStep{
+		Deps: "",
 	}
-	if jobViewPostProcess, ok := run.PostProcess[stepName]; ok {
-		return jobViewPostProcess, nil
-	}
-
-	errMsg := fmt.Sprintf("get jobView from Run with stepName[%s] failed.", stepName)
-	logging.Errorf(errMsg)
-	return jobView, fmt.Errorf(errMsg)
+	resJob := job.ParseJobView(&mockStep)
+	return resJob, nil
 }
 
-func UpdateRunByWfEvent(id string, event interface{}) bool {
+func UpdateRuntimeByWfEvent(id string, event interface{}) (int64, bool) {
+	// TODO: 根据 event.enventType 字段判断更新的 View 类型（Job， DAG， Run）
+	// 如果没有传递 id 为空字符串，则说明此时对应的数据在 数据库中没有记录，需要新创建一条记录，否则更新相关记录就行
 	logging := logger.LoggerForRun(id)
 	wfEvent, ok := event.(*pipeline.WorkflowEvent)
 	if !ok {
 		logging.Errorf("event type-casting failed for run[%s]", id)
-		return false
+		return 0, false
+	}
+	switch wfEvent.Event {
+	case pipeline.WfEventRunUpdate:
+		return UpdateRunByWfEvent(id, event)
+	case pipeline.WfEventDagUpdate:
+		return UpdateRuntimeDagByWfEvent(id, event)
+	case pipeline.WfEventJobUpdate:
+		return UpdateRuntimeJobByWfEvent(id, event)
+	default:
+		logging.Errorf("event type invalid in cb")
+		return 0, false
+	}
+}
+
+func UpdateRunByWfEvent(id string, event interface{}) (int64, bool) {
+	logging := logger.LoggerForRun(id)
+	wfEvent, ok := event.(*pipeline.WorkflowEvent)
+	if !ok {
+		logging.Errorf("event type-casting failed for run[%s]", id)
+		return 0, false
 	}
 	if wfEvent.Event != pipeline.WfEventRunUpdate {
 		logging.Errorf("event type[%s] invalid for run[%s] callback", pipeline.WfEventRunUpdate, id)
-		return false
+		return 0, false
 	}
-	runID := wfEvent.Extra[common.WfEventKeyRunID].(string)
-	if id != runID {
+	runID, ok := wfEvent.Extra[common.WfEventKeyRunID].(string)
+	if !ok || id != runID {
 		logging.Errorf("event id[%s] mismatch with runID[%s]", id, runID)
-		return false
+		return 0, false
 	}
-	status := wfEvent.Extra[common.WfEventKeyStatus].(string)
-	runtime, ok := wfEvent.Extra[common.WfEventKeyRuntime].(schema.RuntimeView)
+	status, ok := wfEvent.Extra[common.WfEventKeyStatus].(string)
 	if !ok {
-		logging.Errorf("run[%s] malformat runtime", id)
-		return false
+		logging.Errorf("get run status from extra in callback failed")
+		return 0, false
 	}
-	postProcess, ok := wfEvent.Extra[common.WfEventKeyPostProcess].(schema.PostProcessView)
+	if common.IsRunFinalStatus(status) {
+		logging.Debugf("run[%s] has reached final status[%s]", runID, status)
+		delete(wfMap, runID)
+	}
+	startTime, ok := wfEvent.Extra[common.WfEventKeyStartTime].(string)
 	if !ok {
-		logging.Errorf("run[%s] malformat post process", id)
-		return false
+		logging.Errorf("get run startTime from extra in callback failed")
+		return 0, false
 	}
 
-	if err := updateRunCache(logging, runtime, runID); err != nil {
-		return false
-	}
-
-	logging.Debugf("workflow event update run[%s] status:%s message:%s, runtime:%v, post_porcess:%v",
-		id, status, wfEvent.Message, runtime, postProcess)
 	prevRun, err := models.GetRunByID(logging, runID)
 	if err != nil {
 		logging.Errorf("get run[%s] in db failed. error: %v", id, err)
-		return false
+		return 0, false
 	}
+
 	message := wfEvent.Message
 	if prevRun.Message != "" {
 		logging.Infof("skip run message:[%s], only keep the first message for run", message)
 		message = ""
 	}
-	runtimeJobs := map[string]schema.JobView{}
-	for name, job := range runtime {
-		runtimeJobs[name] = job
-	}
-	for name, job := range postProcess {
-		runtimeJobs[name] = job
-	}
-	activatedAt := sql.NullTime{}
-	if prevRun.Status == common.StatusRunPending {
-		activatedAt.Time = time.Now()
-		activatedAt.Valid = true
-		// 创建run_job记录
-		if err := models.CreateRunJobs(logging, runtimeJobs, id); err != nil {
-			return false
-		}
-	}
 
-	if err := updateRunJobs(id, runtimeJobs); err != nil {
-		logging.Errorf("run[%s] update run_job failed. error: %v", id, err)
-		return false
+	activatedAt := sql.NullTime{}
+	if startTime != "" {
+		activatedAt.Time, err = time.ParseInLocation("2006-01-02 15:04:05", startTime, time.Local)
+		activatedAt.Valid = true
+		if err != nil {
+			logging.Errorf("encode run activateTime failed. error: %v", err)
+			return 0, false
+		}
 	}
 
 	updateRun := models.Run{
@@ -143,52 +142,136 @@ func UpdateRunByWfEvent(id string, event interface{}) bool {
 		Message:     message,
 		ActivatedAt: activatedAt,
 	}
+
 	if err := models.UpdateRun(logging, runID, updateRun); err != nil {
-		logging.Errorf("update run[%s] in db failed. error: %v", id, err)
-		return false
+		logging.Errorf("update run in db failed. error: %v", err)
+		return 0, false
 	}
 
-	if common.IsRunFinalStatus(status) {
-		logging.Debugf("run[%s] has reached final status[%s]", runID, status)
-		delete(wfMap, runID)
-
-		// 给scheduler发concurrency channel信号
-		if prevRun.ScheduleID != "" {
-			globalScheduler := GetGlobalScheduler()
-			globalScheduler.ConcurrencyChannel <- prevRun.ScheduleID
-			logging.Debugf("send scheduleID[%s] to concurrency channel succeed.", prevRun.ScheduleID)
-		}
-	}
-	return true
+	return 0, true
 }
 
-func updateRunCache(logging *logrus.Entry, runtime schema.RuntimeView, runID string) error {
-	// 检查每个job的cache情况
-	// 多个job很可能cache同一个Run，所以用set来去重
-	cacheIdSet := mapset.NewSet()
-	for _, jobView := range runtime {
-		if jobView.CacheRunID != "" {
-			cacheIdSet.Add(jobView.CacheRunID)
+func UpdateRuntimeDagByWfEvent(id string, event interface{}) (int64, bool) {
+	logging := logger.LoggerForRun(id)
+	wfEvent, ok := event.(*pipeline.WorkflowEvent)
+	if !ok {
+		logging.Errorf("event type-casting failed in update dag callback")
+		return 0, false
+	}
+	if wfEvent.Event != pipeline.WfEventDagUpdate {
+		logging.Errorf("event type[%s] invalid in update dag callback", wfEvent.Event)
+		return 0, false
+	}
+
+	runID, ok := wfEvent.Extra[common.WfEventKeyRunID].(string)
+	if !ok || runID != id {
+		logging.Errorf("runid error(not equal) in callback")
+		return 0, false
+	}
+
+	runtimeDag, ok := wfEvent.Extra[common.WfEventKeyView].(*schema.DagView)
+	if !ok {
+		logging.Errorf("get dag in update dag cb failed")
+		return 0, false
+	}
+
+	dagName := runtimeDag.DagName
+	pk := runtimeDag.PK
+
+	runDag := models.ParseRunDag(runtimeDag)
+	if err := runDag.Encode(); err != nil {
+		logging.Errorf("encode runDag failed, error: %s", err.Error())
+		return 0, false
+	}
+	if pk <= 0 {
+		logging.Infof("create run_dag with pk[%d]", pk)
+		// 如果pk小于等于0，则需要在数据库创建job记录
+		var err error
+		// dagView中没有保存DagName和RunID
+		runDag.DagName = dagName
+		runDag.RunID = id
+		pk, err = models.CreateRunDag(logging, &runDag)
+		if err != nil {
+			logging.Errorf("create run_dag in callback faild")
+			return 0, false
+		}
+	} else {
+		logging.Infof("update run_dag with pk[%d]", pk)
+		if err := models.UpdateRunDag(logging, pk, runDag); err != nil {
+			logging.Errorf("update run_dag in callback failed")
+			return 0, false
 		}
 	}
 
-	// 一次性读取全部 Run，避免多次调用GetRunByID
-	cacheIdList := make([]string, 0, cacheIdSet.Cardinality())
-	for cacheId := range cacheIdSet.Iter() {
-		cacheIdList = append(cacheIdList, cacheId.(string))
+	return pk, true
+}
+
+func UpdateRuntimeJobByWfEvent(id string, event interface{}) (int64, bool) {
+	logging := logger.LoggerForRun(id)
+	wfEvent, ok := event.(*pipeline.WorkflowEvent)
+	if !ok {
+		logging.Errorf("event type-casting failed in update job callback")
+		return 0, false
 	}
-	runCachedList := make([]models.Run, 0)
-	if len(cacheIdList) > 0 {
+	if wfEvent.Event != pipeline.WfEventJobUpdate {
+		logging.Errorf("event type[%s] invalid in update job callback", wfEvent.Event)
+		return 0, false
+	}
+
+	runID, ok := wfEvent.Extra[common.WfEventKeyRunID].(string)
+	if !ok || runID != id {
+		logging.Errorf("runid error(not equal) in callback")
+		return 0, false
+	}
+
+	runtimeJob, ok := wfEvent.Extra[common.WfEventKeyView].(*schema.JobView)
+	if !ok {
+		logging.Errorf("get job in update job cb failed")
+		return 0, false
+	}
+
+	stepName := runtimeJob.StepName
+	pk := runtimeJob.PK
+
+	runJob := models.ParseRunJob(runtimeJob)
+	if err := runJob.Encode(); err != nil {
+		logging.Errorf("encode runJob failed, error: %s", err.Error())
+		return 0, false
+	}
+	if pk <= 0 {
+		// 如果pk小于等于0，则需要在数据库创建job记录
 		var err error
-		runCachedList, err = models.ListRun(logging, 0, 0, nil, nil, cacheIdList, nil, nil, nil)
+		// stepName, runID, jobView中没有
+		runJob.StepName = stepName
+		runJob.RunID = id
+		pk, err = models.CreateRunJob(logging, &runJob)
 		if err != nil {
-			logging.Errorf("update cacheIDs failed. Get runs[%v] failed. error: %v", cacheIdList, err)
-			return err
+			logging.Errorf("create run_job in callback faild")
+			return 0, false
+		}
+	} else {
+		if err := models.UpdateRunJob(logging, pk, runJob); err != nil {
+			logging.Errorf("update run_job in callback failed")
+			return 0, false
 		}
 	}
-	logging.Debugf("number of run cached by updating run is [%v]", len(runCachedList))
-	for _, runCached := range runCachedList {
-		// 检查这个当前run要cache的某个run，之前被哪些run已经cache了
+
+	if err := updateRunCache(logging, runtimeJob, runID); err != nil {
+		return 0, false
+	}
+	return pk, true
+}
+
+func updateRunCache(logging *logrus.Entry, runtimeJob *schema.JobView, runID string) error {
+	var runCached models.Run
+	if runtimeJob.CacheRunID != "" {
+		var err error
+		runCached, err = models.GetRunByID(logging, runtimeJob.CacheRunID)
+		if err != nil {
+			logging.Errorf("update cacheIDs failed. Get run[%v] failed. error: %v", runtimeJob.CacheRunID, err)
+			return err
+		}
+
 		runCacheIDList := runCached.GetRunCacheIDList()
 		newRun := true
 		for _, runCacheID := range runCacheIDList {
@@ -202,18 +285,6 @@ func updateRunCache(logging *logrus.Entry, runtime schema.RuntimeView, runID str
 			runCacheIDList = append(runCacheIDList, runID)
 			newRunCacheIDs := strings.Join(runCacheIDList, common.SeparatorComma)
 			models.UpdateRun(logging, runCached.ID, models.Run{RunCachedIDs: newRunCacheIDs})
-		}
-	}
-	return nil
-}
-
-func updateRunJobs(runID string, jobs map[string]schema.JobView) error {
-	logging := logger.Logger()
-	for name, job := range jobs {
-		runJob := models.ParseRunJob(&job)
-		runJob.Encode()
-		if err := models.UpdateRunJob(logging, runID, name, runJob); err != nil {
-			return err
 		}
 	}
 	return nil
@@ -297,7 +368,7 @@ func startWfWithImageUrl(runID, imageUrl string) error {
 		return updateRunStatusAndMsg(runID, common.StatusRunFailed, err.Error())
 	}
 	// patch WorkflowSource from RunYaml
-	wfs, err := schema.ParseWorkflowSource([]byte(run.RunYaml))
+	wfs, err := schema.GetWorkflowSource([]byte(run.RunYaml))
 	if err != nil {
 		logEntry.Errorf("get WorkflowSource by yaml failed. yaml: %s \n, err:%v", run.RunYaml, err)
 		return err

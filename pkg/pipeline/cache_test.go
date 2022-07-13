@@ -17,18 +17,19 @@ limitations under the License.
 package pipeline
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/fs"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
-	. "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
+	"github.com/stretchr/testify/assert"
+	// . "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 )
 
 func TestCalculateFingerprint(t *testing.T) {
@@ -42,11 +43,20 @@ func TestCalculateFingerprint(t *testing.T) {
 
 	firstCacheKey := conservativeFirstCacheKey{
 		DockerEnv:      "test:1",
-		StepName:       "predict",
 		Command:        "echo 123",
 		Env:            map[string]string{"name": "xiaodu", "value": "123"},
 		Parameters:     map[string]string{"name": "xiaodu", "value": "456"},
 		InputArtifacts: map[string]string{"model": "/pf/model"},
+		FsMount: []schema.FsMount{
+			schema.FsMount{
+				FsID:      "123",
+				MountPath: "/abc",
+			},
+			schema.FsMount{
+				FsID:      "456",
+				MountPath: "/def",
+			},
+		},
 	}
 
 	fp2, err := calculateFingerprint(&firstCacheKey)
@@ -57,25 +67,26 @@ func TestCalculateFingerprint(t *testing.T) {
 	// 测试参数顺序是否会导致fingerPrint 不一致
 	firstCacheKey2 := conservativeFirstCacheKey{
 		DockerEnv:      "test:1",
-		StepName:       "predict",
 		Command:        "echo 123",
 		Env:            map[string]string{"value": "123", "name": "xiaodu"},
 		Parameters:     map[string]string{"name": "xiaodu", "value": "456"},
 		InputArtifacts: map[string]string{"model": "/pf/model"},
+		FsMount: []schema.FsMount{
+			schema.FsMount{
+				FsID:      "456",
+				MountPath: "/abc",
+			},
+			schema.FsMount{
+				FsID:      "123",
+				MountPath: "/def",
+			},
+		},
 	}
 
 	fp3, err := calculateFingerprint(&firstCacheKey2)
 	fmt.Println(fp3)
 	assert.Equal(t, err, nil)
-	assert.Equal(t, fp3, fp2)
-
-	secondCacheKey := conservativeSecondCacheKey{
-		InputArtifactsModTime: map[string]string{"model": "167808930747383040", "data": "1028474101038"},
-		FsScopeModTime:        map[string]string{"/model": "167937484903", "data": "382033"},
-	}
-	fp4, err := calculateFingerprint(&secondCacheKey)
-	fmt.Println(fp4)
-	assert.Equal(t, err, nil)
+	assert.NotEqual(t, fp3, fp2)
 }
 
 func mockArtifact() schema.Artifacts {
@@ -89,13 +100,10 @@ func mockBaseJob() BaseJob {
 	arts := mockArtifact()
 
 	env := map[string]string{
-		"PF_RUN_ID":  "124",
-		"PF_FS_ID":   "123545",
-		"PF_USER_ID": "457",
-		"num":        "1200",
+		"num": "1200",
 	}
 	return BaseJob{
-		Id:         "1234",
+		ID:         "1234",
 		Name:       "run1-predict",
 		Command:    "python3 predict.py /class/model",
 		Parameters: map[string]string{"epoch": "1", "batch_size": "128"},
@@ -103,7 +111,6 @@ func mockBaseJob() BaseJob {
 		StartTime:  "2021-11-11:00:00:11",
 		EndTime:    "2021-11-21:00:00:11",
 		Status:     "init",
-		Deps:       "dataProcess",
 		Artifacts:  arts,
 	}
 }
@@ -125,36 +132,38 @@ func mockWorkflowSourceStep() schema.WorkflowSourceStep {
 		Env:        map[string]string{"num": "1200"},
 		Artifacts:  art,
 		DockerEnv:  "test.tar",
+		FsMount: []schema.FsMount{
+			schema.FsMount{
+				FsID:      "456",
+				MountPath: "/abc",
+			},
+			schema.FsMount{
+				FsID:      "123",
+				MountPath: "/abc",
+			},
+		},
 	}
 }
 
-func mockWorkflowRunTime() *WorkflowRuntime {
-	extra := map[string]string{
-		WfExtraInfoKeyFsID: "fs-root-sftpahz1",
-	}
-
-	baseWorkflow := BaseWorkflow{
-		Extra: extra,
-	}
-	workflow := &Workflow{
-		BaseWorkflow: baseWorkflow,
-	}
-
-	return &WorkflowRuntime{
-		wf: workflow,
+func mockRunConfigWithLogger() *runConfig {
+	return &runConfig{
+		logger:     logger.LoggerForRun("run-0000"),
+		GlobalFsID: "1234",
 	}
 }
 
-func mockStep() Step {
-	wfs := mockWorkflowSourceStep()
+func mockStep() StepRuntime {
 	job := mockPaddleFlowJob()
-	wfr := mockWorkflowRunTime()
+	step := mockWorkflowSourceStep()
+	bcr := baseComponentRuntime{
+		componentFullName: "predict.defe-1",
+		runConfig:         mockRunConfigWithLogger(),
+		component:         &step,
+	}
 
-	return Step{
-		name: "predict",
-		wfr:  wfr,
-		info: &wfs,
-		job:  &job,
+	return StepRuntime{
+		baseComponentRuntime: &bcr,
+		job:                  &job,
 	}
 }
 
@@ -162,17 +171,24 @@ func mockCacheConfig() schema.Cache {
 	return schema.Cache{
 		Enable:         true,
 		MaxExpiredTime: "167873037492",
-		FsScope:        "/a.txt, /b.txt",
+		FsScope: []schema.FsScope{
+			schema.FsScope{
+				FsID:   "123",
+				FsName: "abc",
+				Path:   "a.txt,b.txt",
+			},
+			schema.FsScope{
+				FsID:   "456",
+				FsName: "abc",
+				Path:   "c.txt,d.txt",
+			},
+			schema.FsScope{
+				FsID:   "789",
+				FsName: "abc",
+				Path:   "",
+			},
+		},
 	}
-}
-
-func TestNewAggressiveCacheCalculator(t *testing.T) {
-	step := mockStep()
-	cacheConfig := mockCacheConfig()
-
-	calculator, err := NewAggressiveCacheCalculator(step, cacheConfig)
-	assert.NotEqual(t, err, nil)
-	assert.Equal(t, calculator, nil)
 }
 
 func mockerNewConservativeCacheCalculator() (CacheCalculator, error) {
@@ -185,7 +201,9 @@ func mockerNewConservativeCacheCalculator() (CacheCalculator, error) {
 	// TODO: mocker fsHandler ?
 	handler.NewFsHandlerWithServer = handler.MockerNewFsHandlerWithServer
 
-	calculator, err := NewConservativeCacheCalculator(step, cacheConfig)
+	job := step.job.(*PaddleFlowJob)
+	calculator, err := NewConservativeCacheCalculator(*job, cacheConfig, step.logger,
+		step.getWorkFlowStep().FsMount, step.GlobalFsID)
 	return calculator, err
 }
 
@@ -212,9 +230,14 @@ func TestGenerateFirstCacheKey(t *testing.T) {
 	assert.Equal(t, cacheKey.Parameters, map[string]string{"epoch": "1", "batch_size": "128"})
 	assert.Equal(t, cacheKey.Env, map[string]string{"num": "1200"})
 	assert.Equal(t, cacheKey.Command, "python3 predict.py /class/model")
-	assert.Equal(t, cacheKey.StepName, "predict")
 	assert.Equal(t, cacheKey.InputArtifacts, arts.Input)
 	assert.Equal(t, cacheKey.OutputArtifacts, arts.Output)
+
+	cacheKeyJson, err := json.Marshal(calculator.(*conservativeCacheCalculator).firstCacheKey)
+	if err != nil {
+		panic(err)
+	}
+	assert.Contains(t, string(cacheKeyJson), "456")
 }
 
 func TestCalculateFirstFingerprint(t *testing.T) {
@@ -255,39 +278,43 @@ func CreatefileByFsClient(path string, isDir bool) error {
 }
 
 func TestGetFsScopeModTime(t *testing.T) {
+	handler.NewFsHandlerWithServer = handler.MockerNewFsHandlerWithServer
+	handler.NewFsHandlerWithServer("xx", logger.LoggerForRun("innersolve"))
+
 	calculator, err := mockerNewConservativeCacheCalculator()
 	assert.Equal(t, err, nil)
 
 	cacheConfig := mockCacheConfig()
-
-	for _, path := range strings.Split(cacheConfig.FsScope, ",") {
-		path = strings.TrimSpace(path)
-		if path == "" {
-			continue
+	for _, scope := range cacheConfig.FsScope {
+		for _, path := range strings.Split(scope.Path, ",") {
+			path = strings.TrimSpace(path)
+			if path == "" {
+				continue
+			}
+			err := CreatefileByFsClient(path, false)
+			assert.Equal(t, err, nil)
 		}
-		err := CreatefileByFsClient(path, false)
-		assert.Equal(t, err, nil)
 	}
 
 	fsScopeMap, err := calculator.(*conservativeCacheCalculator).getFsScopeModTime()
 	fmt.Println("fsScopeMap:", fsScopeMap)
 	assert.Equal(t, err, nil)
 
-	for _, path := range strings.Split(cacheConfig.FsScope, ",") {
-		path = strings.TrimSpace(path)
-		if path == "" {
-			continue
+	for _, scope := range cacheConfig.FsScope {
+		for _, path := range strings.Split(scope.Path, ",") {
+			path = strings.TrimSpace(path)
+			if path == "" {
+				continue
+			}
+			_, ok := fsScopeMap[scope.FsID].ModTime[path]
+			assert.Equal(t, ok, true)
 		}
-		_, ok := fsScopeMap[path]
-		assert.Equal(t, ok, true)
-	}
 
-	// 校验Fs_scope为空字符串时，不会添加默认的路径
-	fs_scope_bak := calculator.(*conservativeCacheCalculator).cacheConfig.FsScope
-	calculator.(*conservativeCacheCalculator).cacheConfig.FsScope = ""
-	fsScopeMap, _ = calculator.(*conservativeCacheCalculator).getFsScopeModTime()
-	assert.Equal(t, 0, len(fsScopeMap))
-	calculator.(*conservativeCacheCalculator).cacheConfig.FsScope = fs_scope_bak
+		if scope.FsID == "789" {
+			assert.Len(t, fsScopeMap[scope.FsID].ModTime, 1)
+			assert.Contains(t, fsScopeMap[scope.FsID].ModTime, "/")
+		}
+	}
 }
 
 func TestGetInputArtifactModTime(t *testing.T) {
@@ -329,13 +356,15 @@ func TestCalculateSecondFingerprint(t *testing.T) {
 
 	cacheConfig := mockCacheConfig()
 
-	for _, path := range strings.Split(cacheConfig.FsScope, ",") {
-		path = strings.TrimSpace(path)
-		if path == "" {
-			continue
+	for _, scope := range cacheConfig.FsScope {
+		for _, path := range strings.Split(scope.Path, ",") {
+			path = strings.TrimSpace(path)
+			if path == "" {
+				continue
+			}
+			err := CreatefileByFsClient(path, false)
+			assert.Equal(t, err, nil)
 		}
-		err := CreatefileByFsClient(path, false)
-		assert.Equal(t, err, nil)
 	}
 
 	fsScopeMap, err := calculator.(*conservativeCacheCalculator).getFsScopeModTime()
@@ -363,7 +392,9 @@ func TestNewCacheCalculator(t *testing.T) {
 	// TODO: mocker fsHandler ?
 	handler.NewFsHandlerWithServer = handler.MockerNewFsHandlerWithServer
 
-	calculator, err := NewCacheCalculator(step, cacheConfig)
+	job := step.job.(*PaddleFlowJob)
+	calculator, err := NewCacheCalculator(*job, cacheConfig, step.logger,
+		step.getWorkFlowStep().FsMount, step.GlobalFsID)
 	assert.Equal(t, err, nil)
 	_, ok := calculator.(CacheCalculator)
 	assert.Equal(t, ok, true)
