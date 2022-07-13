@@ -45,7 +45,7 @@ func TestCreatePipeline(t *testing.T) {
 		YamlPath: "../../../../example/wide_and_deep/run.yaml",
 	}
 
-	patch := gomonkey.ApplyFunc(pkgPipeline.NewWorkflow, func(wfSource schema.WorkflowSource, runID, entry string, params map[string]interface{}, extra map[string]string,
+	patch := gomonkey.ApplyFunc(pkgPipeline.NewWorkflow, func(wfSource schema.WorkflowSource, runID string, params map[string]interface{}, extra map[string]string,
 		callbacks pkgPipeline.WorkflowCallbacks) (*pkgPipeline.Workflow, error) {
 		return &pkgPipeline.Workflow{}, nil
 	})

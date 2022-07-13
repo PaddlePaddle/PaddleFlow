@@ -46,16 +46,8 @@ func getKubernetesLogs(client kubernetes.Interface, jobLogRequest schema.JobLogR
 		JobID: jobLogRequest.JobID,
 	}
 	labelSelector := metav1.LabelSelector{}
-	switch jobLogRequest.JobType {
-	case string(schema.TypeVcJob):
-		labelSelector.MatchLabels = map[string]string{
-			schema.VolcanoJobNameLabel: jobLogRequest.JobID,
-		}
-	case string(schema.TypeSparkJob):
-		labelSelector.MatchLabels = map[string]string{
-			schema.SparkAPPJobNameLabel: jobLogRequest.JobID,
-		}
-	case string(schema.TypePaddleJob):
+	switch schema.JobType(jobLogRequest.JobType) {
+	case schema.TypeSingle, schema.TypeDistributed, schema.TypeWorkflow:
 		labelSelector.MatchLabels = map[string]string{
 			schema.JobIDLabel: jobLogRequest.JobID,
 		}
