@@ -145,10 +145,10 @@ func TestUpdatePipeline(t *testing.T) {
 
 	pipelineID := "ppl-000001"
 	updatePplReq := UpdatePipelineRequest{
-		GlobalFsName: MockFsName,
-		UserName:     "",
-		YamlPath:     "../../../../example/wide_and_deep/run.yaml",
-		Desc:         "pipeline test",
+		FsName:   MockFsName,
+		UserName: "",
+		YamlPath: "../../../../example/wide_and_deep/run.yaml",
+		Desc:     "pipeline test",
 	}
 
 	patch := gomonkey.ApplyFunc(handler.ReadFileFromFs, func(fsID, runYamlPath string, logEntry *log.Entry) ([]byte, error) {
@@ -193,13 +193,13 @@ func TestUpdatePipeline(t *testing.T) {
 
 	// update 失败: fsname为空
 	updatePplReq.Desc = "pipeline test"
-	updatePplReq.GlobalFsName = ""
+	updatePplReq.FsName = ""
 	_, err = UpdatePipeline(ctx, updatePplReq, pipelineID)
 	assert.NotNil(t, err)
 	assert.Equal(t, fmt.Errorf("update pipeline failed. fsname shall not be empty"), err)
 
 	// update 失败，yaml name 与 pipeline记录中的 name 不一样
-	updatePplReq.GlobalFsName = MockFsName
+	updatePplReq.FsName = MockFsName
 	updatePplReq.YamlPath = "../../../../example/pipeline/base_pipeline/run.yaml"
 	resp, err = UpdatePipeline(ctx, updatePplReq, pipelineID)
 	assert.NotNil(t, err)
