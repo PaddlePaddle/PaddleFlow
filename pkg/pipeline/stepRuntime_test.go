@@ -9,14 +9,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/agiledragon/gomonkey/v2"
+	"github.com/stretchr/testify/assert"
+
 	apicommon "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 	pplcommon "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
-	"github.com/agiledragon/gomonkey/v2"
-	"github.com/stretchr/testify/assert"
 )
 
 func loadcase(casePath string) []byte {
@@ -464,6 +465,7 @@ func TestNewStepRuntimeWithStatus(t *testing.T) {
 }
 
 func TestExecute(t *testing.T) {
+
 	handler.NewFsHandlerWithServer = handler.MockerNewFsHandlerWithServer
 	testCase := loadcase(runYamlPath)
 	wfs, err := schema.GetWorkflowSource([]byte(testCase))
@@ -500,7 +502,6 @@ func TestExecute(t *testing.T) {
 		return nil
 	})
 	defer patches.Reset()
-
 	patch1 := gomonkey.ApplyMethod(reflect.TypeOf(srt.job), "Start", func(_ *PaddleFlowJob) (string, error) {
 		return "job-001", nil
 	})

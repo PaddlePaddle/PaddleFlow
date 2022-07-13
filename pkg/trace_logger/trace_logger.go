@@ -141,6 +141,13 @@ func fillDefaultValue(conf *TraceLoggerConfig) {
 	}
 }
 
+// init default logger
+func init() {
+	conf := TraceLoggerConfig{}
+	fillDefaultValue(&conf)
+	_ = InitTraceLoggerManager(conf)
+}
+
 func InitTraceLoggerManager(config TraceLoggerConfig) error {
 	l := logrus.New()
 	// set fileLogger formatter to json

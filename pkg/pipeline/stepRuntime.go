@@ -173,7 +173,6 @@ func (srt *StepRuntime) Start() {
 	// 监听channel, 及时除了时间
 	go srt.Listen()
 	go srt.Stop()
-
 	srt.Execute()
 }
 
