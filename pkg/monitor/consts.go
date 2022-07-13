@@ -17,5 +17,13 @@ limitations under the License.
 package monitor
 
 const (
-	QueryCPUUsageRateSql = "sum(rate(container_cpu_usage_seconds_total{image!=\"\"，pod=~\".*job.*\"}[1m])) by (pod) / sum(container_spec_cpu_quota{image!=\"\"，pod=~\".*job.*\"} / 100000) by (pod)"
+	QueryCPUUsageRateQl = "sum(rate(container_cpu_usage_seconds_total{image!=\"\", pod=~\"%s\"}[1m])) by (pod) / sum(container_spec_cpu_quota{image!=\"\", pod=~\"%s\"} / 100000) by (pod)"
+	QueryMEMUsageRateQl = "sum(container_memory_working_set_bytes{image!=\"\", pod=~\"%s\"}) by (pod) / sum(container_spec_memory_limit_bytes{image!=\"\", pod=~\"%s\"}) by (pod)"
+	QueryNetReceiveQl   = "sum(rate(container_network_receive_bytes_total{image!=\"\", pod=~\"%s\"}[1m])) by (pod)"
+	QueryNetTransmitQl  = "sum(rate(container_network_transmit_bytes_total{image!=\"\", pod=~\"%s\"}[1m])) by (pod)"
+	QueryDiskUsageQl    = "sum(container_fs_usage_bytes{image!=\"\", pod=~\"%s\"}) by (pod)"
+	QueryDiskReadQl     = "sum(rate(container_fs_reads_bytes_total{image!=\"\", pod=~\"%s\"}[1m])) by (pod)"
+	QueryDiskWriteQl    = "sum(rate(container_fs_writes_bytes_total{image!=\"\", pod=~\"%s\"}[1m])) by (pod)"
+	QueryGpuUtilQl      = "sum(rate(container_accelerator_duty_cycle{image!=\"\", pod=~\"%s\"}[1m])) by (pod)"
+	QueryGpuMemUtilQl   = "sum(rate(container_accelerator_memory_used_bytes{image!=\"\", pod=~\"%s\"}[1m])) by (pod)"
 )

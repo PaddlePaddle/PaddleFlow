@@ -142,8 +142,6 @@ class Client(object):
             raise PaddleFlowSDKException("InvalidNameSpace", "namesapce should not be none or empty")   
         if name is None or name.strip() == "":
             raise PaddleFlowSDKException("InvalidQueueName", "queuename should not be none or empty")
-        if clusterName is None or clusterName.strip() == "":
-            raise PaddleFlowSDKException("InvalidQueueClusterName", "clustername should not be none or empty")
         if maxResources is None or maxResources['cpu'] is None or maxResources['mem'] is None:
             raise PaddleFlowSDKException("InvalidQueueMaxResources", "queue maxResources cpu or mem should not be none or empty")
 
