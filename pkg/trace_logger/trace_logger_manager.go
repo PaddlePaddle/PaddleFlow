@@ -41,7 +41,6 @@ const (
 	LogLevelStringSize = 4
 	CacheLoadFactor    = 0.75
 	LogStringFormat    = "2006-01-02 15:04:05.06"
-	LogrusPrefix       = "[trace_logger]"
 )
 
 // assert implements
@@ -94,7 +93,7 @@ func (d *DefaultTraceLoggerManager) String() string {
 }
 
 type TraceLogger interface {
-	// logger interface
+	// fileLogger interface
 	Infof(format string, args ...interface{})
 	Debugf(format string, args ...interface{})
 	Warnf(format string, args ...interface{})
@@ -141,7 +140,7 @@ type TraceLoggerManager interface {
 }
 
 // define implementation
-// implementation for trace logger
+// implementation for trace fileLogger
 
 type defaultTraceLogger struct {
 	trace   Trace
@@ -223,13 +222,13 @@ func (d *defaultTraceLogger) GetTrace() Trace {
 	return d.trace
 }
 
-// implementation for trace logger manager
+// implementation for trace fileLogger manager
 
 type DefaultTraceLoggerManager struct {
 	// use more efficient map as local cache
 	// see https://github.com/orcaman/concurrent-map
 	cache cmap.ConcurrentMap
-	// save temp trace logger before call update key
+	// save temp trace fileLogger before call update key
 	tmpKeyMap sync.Map
 	l         *logrus.Logger
 
@@ -257,7 +256,7 @@ func NewDefaultTraceLoggerManager(cacheSize int, timeout time.Duration, debug bo
 	return &DefaultTraceLoggerManager{
 		cache:                cmap.New(),
 		tmpKeyMap:            sync.Map{},
-		l:                    logger,
+		l:                    fileLogger,
 		evictLock:            lock.NewCASMutex(),
 		timeout:              timeout,
 		debug:                debug,
@@ -293,7 +292,7 @@ func (d *DefaultTraceLoggerManager) GetTraceFromCache(key string) (Trace, bool) 
 		return Trace{}, false
 	}
 	trace := val.(Trace)
-	logrus.Debugf(LogrusPrefix+"get trace from cache [%s]: %s", key, trace)
+	logger.Debugf("get trace from cache [%s]: %s", key, trace)
 	return trace, ok
 }
 
@@ -319,7 +318,7 @@ func (d *DefaultTraceLoggerManager) SetTraceToCache(key string, trace Trace) (er
 	// if reach max count after insertion, evict first
 	newCount := d.cache.Count() + 1
 	if newCount > d.maxCacheSize {
-		logrus.Debugf(LogrusPrefix + "cache size is too large, evict cache")
+		logger.Debugf("cache size is too large, evict cache")
 		d.evictCache()
 	}
 
@@ -354,7 +353,7 @@ func (d *DefaultTraceLoggerManager) evictCache() {
 	// sync all before evict
 	errTmp := d.SyncAll()
 	if errTmp != nil {
-		logrus.Warnf(LogrusPrefix+"sync failed before evict: %v", errTmp)
+		logger.Warnf("sync failed before evict: %v", errTmp)
 	}
 
 	newSize := int(float64(d.maxCacheSize) * CacheLoadFactor)
@@ -374,7 +373,7 @@ func (d *DefaultTraceLoggerManager) evictCache() {
 		k, v := x.Key, x.Val.(Trace)
 
 		if v.UpdateTime.Before(ddl) {
-			logrus.Debugf(LogrusPrefix+"evict key: %s", k)
+			logger.Debugf("evict key: %s", k)
 			d.removeKey(k)
 			numberToBeDeleted--
 		} else {
@@ -391,7 +390,7 @@ func (d *DefaultTraceLoggerManager) evictCache() {
 			break
 		}
 		key := x.(string)
-		logrus.Debugf(LogrusPrefix+"evict key: %s", key)
+		logger.Debugf("evict key: %s", key)
 		d.removeKey(key)
 	}
 
@@ -543,7 +542,7 @@ func (d *DefaultTraceLoggerManager) AutoDelete(duration time.Duration, methods .
 			case <-d.autoDeleteCancelChan:
 				return
 			case <-time.After(duration):
-				logrus.Infof(LogrusPrefix + "auto deleting...")
+				logger.Infof("auto deleting...")
 				_ = d.DeleteUnusedCache(d.timeout, methods...)
 			}
 		}
@@ -591,7 +590,7 @@ func (d *DefaultTraceLoggerManager) deleteExpiredCache(timeout time.Duration, me
 	for x := range iter {
 		k, v := x.Key, x.Val.(Trace)
 		if v.UpdateTime.Before(ddl) && method(k) {
-			logrus.Debugf(LogrusPrefix+"delete expired cache: %s", k)
+			logger.Debugf("delete expired cache: %s", k)
 			d.removeKey(k)
 		}
 	}
@@ -612,11 +611,11 @@ func (d *DefaultTraceLoggerManager) deleteUnusedTmpKey(timeout time.Duration) {
 	d.tmpKeyMap.Range(func(key, value interface{}) bool {
 		tmpKey := key.(string)
 		traceLogger := value.(TraceLogger)
-		// if no key set, then this logger is temporary, and can be deleted
+		// if no key set, then this fileLogger is temporary, and can be deleted
 		if traceLogger.GetKey() == "" {
 			updateTime := traceLogger.GetTrace().UpdateTime
 			if updateTime.Before(time.Now().Add(-timeout)) {
-				logrus.Debugf(LogrusPrefix+"delete unused tmp key: %s", tmpKey)
+				logger.Debugf("delete unused tmp key: %s", tmpKey)
 				d.tmpKeyMap.Delete(tmpKey)
 			}
 		}
@@ -684,7 +683,7 @@ func (d *DefaultTraceLoggerManager) AutoSync(duration time.Duration) error {
 			case <-d.autoSyncCancelChan:
 				return
 			case <-time.After(duration):
-				logrus.Infof(LogrusPrefix + "auto syncing")
+				logger.Infof("auto syncing")
 				_ = d.SyncAll()
 			}
 		}

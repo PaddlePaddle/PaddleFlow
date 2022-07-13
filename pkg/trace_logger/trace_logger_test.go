@@ -37,7 +37,7 @@ var (
 )
 
 func TestTraceLogger(t *testing.T) {
-	// init logger
+	// init fileLogger
 	var err error
 
 	err = initTestTraceLogger()
