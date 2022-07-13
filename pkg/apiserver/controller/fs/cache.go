@@ -70,3 +70,12 @@ func removeFsCache(fsID string) error {
 	}
 	return nil
 }
+
+func removeFsCacheWithCacheID(cacheID string) error {
+	if err := storage.FsCache.Delete("", cacheID); err != nil {
+		err := fmt.Errorf("removeFsCacheWithCacheID[%s] failed: %v", cacheID, err)
+		log.Error(err.Error())
+		return err
+	}
+	return nil
+}

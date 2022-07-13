@@ -319,7 +319,7 @@ func checkFsMounted(cnm map[*runtime.KubeRuntime][]string, fsID string) (bool, m
 
 		for _, po := range pods.Items {
 			for key, targetPath := range po.Annotations {
-				if key != schema.AnnoKeyMTime {
+				if key != schema.AnnotationKeyMTime {
 					log.Debugf("fs[%s] is mounted in pod[%s] with target path[%s]",
 						fsID, po.Name, targetPath)
 					return true, nil, nil
@@ -337,6 +337,25 @@ func deleteMountPods(podMap map[*runtime.KubeRuntime][]k8sCore.Pod) error {
 			// delete pod
 			if err := k8sRuntime.DeletePod(schema.MountPodNamespace, po.Name); err != nil && !k8sErrors.IsNotFound(err) {
 				log.Errorf(fmt.Sprintf("deleteMountPods [%s] failed: %v", po.Name, err))
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func cleanFsCache(podMap map[*runtime.KubeRuntime][]k8sCore.Pod) error {
+	var err error
+	for _, pods := range podMap {
+		for _, pod := range pods {
+			cacheID := pod.Labels[schema.AnnotationKeyMTime]
+			if cacheID == "" {
+				log.Errorf("cacheId is empty with pod: %+v", pod)
+				continue
+			}
+			err = removeFsCacheWithCacheID(cacheID)
+			if err != nil {
+				log.Errorf("removeFsCacheWithCacheID error: %v", err)
 				return err
 			}
 		}

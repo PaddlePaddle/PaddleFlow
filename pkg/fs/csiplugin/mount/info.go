@@ -27,6 +27,7 @@ import (
 
 	common_ "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	fscommon "github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
@@ -46,6 +47,7 @@ type Info struct {
 	Type                    string
 	ServerAddress           string
 	SubPath                 string
+	Properties              map[string]string
 	MountArgs               []string
 	FsCacheConfig           model.FSCacheConfig
 	TargetPath              string
@@ -82,6 +84,7 @@ func ProcessMountInfo(username, password, targetPath, fsID, server, fsInfoBase64
 		TargetPath:              targetPath,
 		ServerAddress:           fs.ServerAddress,
 		SubPath:                 fs.SubPath,
+		Properties:              fs.PropertiesMap,
 		FsID:                    fsID,
 		Server:                  server,
 		FsBase64Str:             fsInfoBase64,
@@ -168,6 +171,20 @@ func (m *Info) mountCmd() {
 			if m.FsCacheConfig.ExtraConfigMap != nil {
 				for configName, item := range m.FsCacheConfig.ExtraConfigMap {
 					m.MountArgs = append(m.MountArgs, fmt.Sprintf("--%s=%s", configName, item))
+				}
+			}
+
+			// s3 default mount permission
+			if m.Type == common_.S3 {
+				if m.Properties[fscommon.FileMode] != "" {
+					m.MountArgs = append(m.MountArgs, fmt.Sprintf("--%s=%s", "file-mode", m.Properties[fscommon.FileMode]))
+				} else {
+					m.MountArgs = append(m.MountArgs, fmt.Sprintf("--%s=%s", "file-mode", "0666"))
+				}
+				if m.Properties[fscommon.DirMode] != "" {
+					m.MountArgs = append(m.MountArgs, fmt.Sprintf("--%s=%s", "dir-mode", m.Properties[fscommon.DirMode]))
+				} else {
+					m.MountArgs = append(m.MountArgs, fmt.Sprintf("--%s=%s", "file-mode", "0777"))
 				}
 			}
 		}

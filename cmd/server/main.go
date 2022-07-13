@@ -16,6 +16,7 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/cmd/server/flag"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/cluster"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/fs"
 	jobCtrl "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/job"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/pipeline"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/queue"
@@ -105,6 +106,11 @@ func start() error {
 
 	go jobCtrl.WSManager.SendGroupData()
 	go jobCtrl.WSManager.GetGroupData()
+
+	stopChan := make(chan struct{})
+	defer close(stopChan)
+	go fs.GetMountPodController(ServerConf.Fs.MountPodExpire,
+		ServerConf.Fs.CleanMountPodIntervalTime).CleanMountPodController(stopChan)
 
 	err = trace_logger.Start(ServerConf.TraceLog)
 	if err != nil {
