@@ -16,7 +16,12 @@ limitations under the License.
 
 package common
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+
+	log "github.com/sirupsen/logrus"
+)
 
 const (
 	LocalType            = "local"
@@ -94,15 +99,20 @@ type FSMeta struct {
 	Type string
 }
 
-func GetFsNameAndUserNameByFsID(fsID string) (userName string, fsName string) {
+func GetFsNameAndUserNameByFsID(fsID string) (userName, fsName string, err error) {
 	fsArray := strings.Split(fsID, "-")
-	// such as fs-root-v-xxxx
+	if len(fsArray) < 3 {
+		err = fmt.Errorf("fsID[%s] is not valid", fsID)
+		log.Error(err.Error())
+		return
+	}
 	if len(fsArray) > 3 {
+		// such as fs-root-v-xxxx
 		fsName = strings.Join(fsArray[2:len(fsArray)], "-")
 		userName = fsArray[1]
 		return
 	}
 	userName = strings.Join(fsArray[1:len(fsArray)-1], "")
 	fsName = fsArray[len(fsArray)-1]
-	return userName, fsName
+	return
 }
