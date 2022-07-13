@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS `queue` (
     `deleted_at` datetime(3) DEFAULT NULL,
     PRIMARY KEY (`pk`),
     UNIQUE KEY `queue_name` (`name`),
-    INDEX KEY `cluster_id` (`cluster_id`)
+    INDEX `cluster_id` (`cluster_id`)
 ) ENGINE=InnoDB DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
 
 CREATE TABLE IF NOT EXISTS `job` (
@@ -67,7 +67,7 @@ CREATE TABLE IF NOT EXISTS `job` (
     `type` varchar(20) NOT NULL,
     `config` mediumtext NOT NULL,
     `runtime_info` mediumtext DEFAULT NULL,
-    `status` varchar(32) DEFAULT NOT NULL,
+    `status` varchar(32) NOT NULL,
     `message` text DEFAULT NULL,
     `resource` text DEFAULT NULL,
     `framework` varchar(30) DEFAULT NULL,
@@ -80,7 +80,7 @@ CREATE TABLE IF NOT EXISTS `job` (
     `deleted_at` varchar(64) DEFAULT '',
     PRIMARY KEY (`pk`),
     UNIQUE KEY `job_id` (`id`, `deleted_at`),
-    INDEX KEY `status_queue_deleted` (`queue_id`, `status`, `deleted_at`)
+    INDEX `status_queue_deleted` (`queue_id`, `status`, `deleted_at`)
 ) ENGINE=InnoDB DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
 
 CREATE TABLE IF NOT EXISTS `job_label` (
