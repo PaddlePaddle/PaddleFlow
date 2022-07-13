@@ -94,10 +94,10 @@ func (cm *ConcurrentFSCacheMap) Delete(key1, key2 string) error {
 	return err
 }
 
-func (cm *ConcurrentFSCacheMap) Update(key, value *model.FSCache) (has bool, err error) {
+func (cm *ConcurrentFSCacheMap) Update(key string, value *model.FSCache) (has bool, err error) {
 	cm.Lock()
 	defer cm.Unlock()
-	if v1, ok := cm.value[value.FsID]; ok {
+	if v1, ok := cm.value[key]; ok {
 		_, ok = v1[value.CacheID]
 		if ok {
 			has = true
@@ -151,8 +151,15 @@ func (mem *MemFSCache) ListNodes(fsIDs []string) ([]string, error) {
 }
 
 func (mem *MemFSCache) Update(value *model.FSCache) (int64, error) {
-	//if value.CacheID == "" {
-	//	value.CacheID = model.CacheID(value.ClusterID, value.NodeName, value.CacheDir)
-	//}
-	return 0, nil
+	if value.CacheID == "" {
+		value.CacheID = model.CacheID(value.ClusterID, value.NodeName, value.CacheDir)
+	}
+	has, err := mem.fsCacheMap.Update(value.FsID, value)
+	if err != nil {
+		return 0, err
+	}
+	if !has {
+		return 0, nil
+	}
+	return 1, nil
 }

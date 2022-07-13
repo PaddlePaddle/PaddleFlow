@@ -210,17 +210,16 @@ func (s *FileSystemService) DeleteFileSystem(ctx *logger.RequestContext, fsID st
 
 func (s *FileSystemService) CheckFsMountedAndCleanResources(fsID string) (bool, error) {
 	// check fs used for pipeline scheduled jobs
-	jobFsIDs, err := models.GetUsedFsIDs()
+	jobMap, err := models.ScheduleUsedFsIDs()
 	if err != nil {
 		err := fmt.Errorf("DeleteFileSystem GetUsedFsIDs for schecule failed: %v", err)
 		log.Errorf(err.Error())
 		return false, err
 	}
-	for _, fsInUse := range jobFsIDs {
-		if fsInUse == fsID {
-			log.Infof("fs[%s] is in use of pipeline scheduled jobs", fsID)
-			return true, nil
-		}
+	_, exist := jobMap[fsID]
+	if exist {
+		log.Infof("fs[%s] is in use of pipeline scheduled jobs", fsID)
+		return true, nil
 	}
 
 	// check k8s mount pods
@@ -241,13 +240,19 @@ func (s *FileSystemService) CheckFsMountedAndCleanResources(fsID string) (bool, 
 		log.Infof("fs[%s] currently mounted. cannot be modified or deleted", fsID)
 		return true, nil
 	}
-	if err := deleteMountPods(mountPodMap); err != nil {
+
+	if err = removeFsCache(fsID); err != nil {
+		err := fmt.Errorf("removeFsCache[%s] err: %v", fsID, err)
+		log.Errorf(err.Error())
+		return false, err
+	}
+	if err = deleteMountPods(mountPodMap); err != nil {
 		err := fmt.Errorf("delete mount pods with fsID[%s] err: %v", fsID, err)
 		log.Errorf(err.Error())
 		return false, err
 	}
-	if err := deletePvPvc(cnm, fsID); err != nil {
-		err := fmt.Errorf("delete pv/pvc with fsID[%s] err: %v", fsID, err)
+	if err = deletePvPvc(cnm, fsID); err != nil {
+		err = fmt.Errorf("delete pv/pvc with fsID[%s] err: %v", fsID, err)
 		log.Errorf(err.Error())
 		return false, err
 	}
@@ -329,9 +334,9 @@ func checkFsMounted(cnm map[*runtime.KubeRuntime][]string, fsID string) (bool, m
 func deleteMountPods(podMap map[*runtime.KubeRuntime][]k8sCore.Pod) error {
 	for k8sRuntime, pods := range podMap {
 		for _, po := range pods {
+			// delete pod
 			if err := k8sRuntime.DeletePod(schema.MountPodNamespace, po.Name); err != nil && !k8sErrors.IsNotFound(err) {
-				err := fmt.Errorf("deleteMountPods [%s] failed: %v", po.Name, err)
-				log.Errorf(err.Error())
+				log.Errorf(fmt.Sprintf("deleteMountPods [%s] failed: %v", po.Name, err))
 				return err
 			}
 		}

@@ -63,12 +63,13 @@ func (pr *PFSRouter) AddRouter(r chi.Router) {
 }
 
 var URLPrefix = map[string]bool{
-	common.HDFS:  true,
-	common.Local: true,
-	common.S3:    true,
-	common.SFTP:  true,
-	common.Mock:  true,
-	common.CFS:   true,
+	common.HDFS:      true,
+	common.Local:     true,
+	common.S3:        true,
+	common.SFTP:      true,
+	common.Mock:      true,
+	common.CFS:       true,
+	common.Glusterfs: true,
 }
 
 const FsNameMaxLen = 100
