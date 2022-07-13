@@ -106,12 +106,7 @@ func start() error {
 	go jobCtrl.WSManager.SendGroupData()
 	go jobCtrl.WSManager.GetGroupData()
 
-	err = trace_logger.Start(ServerConf.TraceLog)
-	if err != nil {
-		errMsg := fmt.Errorf("start trace logger failed. error: %w", err)
-		log.Errorf(errMsg.Error())
-		return errMsg
-	}
+	trace_logger.Start(ServerConf.TraceLog)
 
 	go func() {
 		if err := HttpSvr.ListenAndServe(); err != nil && errors.Is(err, http.ErrServerClosed) {
