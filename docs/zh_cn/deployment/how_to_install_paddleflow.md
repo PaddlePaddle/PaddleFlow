@@ -33,11 +33,10 @@ PaddleFlow运行依赖以下几个组件：</br>
 - mysql (可选)
 
 ### 2.2 快速部署
-
+包含PaddleFlow客户端和服务端安装说明
 - [PaddleFlow On Kubernetes](install_paddleflow_on_k8s.md)
 
 - [PaddleFlow On K3s](install_paddleflow_on_k3s.md)
-
 
 ### 2.4 服务端部署包说明
 部署包位于installer下, 包结构如下：

@@ -1,4 +1,5 @@
-### 在kubernetes中安装paddleflow-server
+# 安装PaddleFlow服务端
+## 1.基于kubernetes快速安装（二选一）
 1. 创建一个具有写权限的sqlite数据库文件,默认位于`/mnt/paddleflow.db`. 若需更换路径,请等待后续支持的shell部署脚本
 
 ```shell
@@ -44,8 +45,8 @@ curl -sSL https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14
 > **注意**: 请将上述命令中 `{{KUBELET_DIR}}` 替换成 kubelet 当前的根目录路径。
 
 
-### 2.3 自定义安装
-#### 2.3.1 安装paddleflow-server
+## 2.自定义安装（二选一）
+### 2.1 安装paddleflow-server
 `paddleflow-server`支持多种数据库(`sqlite`,`mysql`)，其中`sqlite`仅用于快速部署和体验功能，不适合用于生产环境。
 - **指定用sqllite安装paddleflow-server**
 ```shell
@@ -76,7 +77,7 @@ sed -e "s/sqlite/${DB_DRIVER}/g"  -e "s/host: 127.0.0.1/host: ${DB_HOST}/g"  -e 
 # For arm64: todo
 ```
 
-#### 2.3.2 安装paddleflow-csi-plugin
+### 2.2 安装paddleflow-csi-plugin
 
 1. 检查 `kubelet root-dir` 路径
 
@@ -114,7 +115,7 @@ curl -sSL https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14
 
 > **注意**: 请将上述命令中 `{{KUBELET_DIR}}` 替换成 kubelet 当前的根目录路径。
 
-#### 2.3.3 安装volcano
+### 2.3 安装volcano
 ```shell
 # For x86_64:
 kubectl apply -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.2/installer/deploys/volcano/pf-volcano-deploy.yaml
@@ -122,15 +123,15 @@ kubectl apply -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/relea
 # For arm64:
 todo
 ```
-
-### 手动初始化数据
+# PaddleFlow客户端安装和初始化
+## 3.初始化数据（必须）
 release1.4.2版本需要手动初始化数据，流程如下：
 1. 安装并配置客户端
 2. 注册一个集群到PaddleFlow
 3. 注册一个队列到PaddleFlow
 4. 验证集群和队列是否注册成功
 
-#### step1. 安装并配置客户端
+### step1. 安装并配置客户端
 
 数据初始化操作可在任意环境完成，要求为能访问paddleflow server所在的目前集群
 
@@ -154,7 +155,7 @@ paddleflow_server = 127.0.0.1
 paddleflow_port = 8999
 ```
 
-#### step2. 注册集群
+### step2. 注册集群
 
 **准备集群证书:** k8s证书通常位于`~/.kube/config`. 将config文件拷贝到安装好PaddleFlow客户端的机器上，例如`/tmp/config`.
 
@@ -193,9 +194,11 @@ paddleflow queue create ${QUEUENAME} ${QUEUENAMESPACE} ${clustername} ${QUEUEMax
 paddleflow queue create ${QUEUENAME} ${QUEUENAMESPACE} ${clustername} ${QUEUEMaxCPU} ${QUEUEMaxMEM} --maxscalar  nvidia.com/gpu=1 --mincpu ${QUEUEMinCPU} --minmem ${QUEUEMinMEM} --minscalar nvidia.com/gpu=1 --quota volcanoCapabilityQuota
 ```
 
-#### step4. 验证
+### step4. 验证
 
 ```shell
 paddleflow cluster list
 paddleflow queue list
 ```
+# 快速上手
+[快速上手](../quickstart/simple_quickstart.md)

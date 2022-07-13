@@ -44,16 +44,19 @@ type FSMountParameter struct {
 }
 
 type MountInfo struct {
-	Server       string
-	FSID         string
-	TargetPath   string
-	LocalPath    string
-	UsernameRoot string
-	PasswordRoot string
-	ClusterID    string
-	UID          int
-	GID          int
-	Options      []string
+	Server        string
+	FSID          string
+	ServerAddress string
+	Type          string
+	SubPath       string
+	TargetPath    string
+	LocalPath     string
+	UsernameRoot  string
+	PasswordRoot  string
+	ClusterID     string
+	UID           int
+	GID           int
+	Options       []string
 }
 
 func (m *MountInfo) GetMountCmd() (string, []string) {

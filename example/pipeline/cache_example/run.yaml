@@ -8,9 +8,9 @@ entry_points:
       - validate_data
     cache:
       enable: true
-      fs_scope: cache_example/shells/data_artifact.sh
+      fs_scope: example/pipeline/cache_example/shells/data_artifact.sh
       max_expired_time: 300
-    command: bash -x cache_example/shells/data_artifact.sh {{data_path}} {{train_data}}
+    command: bash -x example/pipeline/cache_example/shells/data_artifact.sh {{data_path}} {{train_data}}
       {{validate_data}}
     docker_env: centos:centos7
     env:
@@ -20,7 +20,7 @@ entry_points:
       PF_JOB_TYPE: vcjob
       USER_ABC: 123_{{PF_USER_NAME}}
     parameters:
-      data_path: ./cache_example/data/
+      data_path: ./example/pipeline/cache_example/data/
 
   train:
     artifacts:
@@ -28,7 +28,7 @@ entry_points:
         train_data: '{{preprocess.train_data}}'
       output:
       - train_model
-    command: bash -x cache_example/shells/train.sh {{epoch}} {{train_data}} {{train_model}}
+    command: bash -x example/pipeline/cache_example/shells/train.sh {{epoch}} {{train_data}} {{train_model}}
     deps: preprocess
     env:
       PF_JOB_FLAVOUR: flavour1
@@ -46,7 +46,7 @@ entry_points:
     cache:
       enable: false
       max_expired_time: -1
-    command: bash cache_example/shells/validate.sh {{model}}
+    command: bash example/pipeline/cache_example/shells/validate.sh {{model}}
     deps: preprocess,train
     env:
       PF_JOB_FLAVOUR: flavour1
@@ -58,7 +58,7 @@ parallelism: 1
 
 cache:
   enable: true
-  fs_scope: cache_example/shells/train.sh,cache_example/shells/validate.sh,cache_example/shells/data_artifact.sh
+  fs_scope: example/pipeline/cache_example/shells/train.sh,example/pipeline/cache_example/shells/validate.sh,example/pipeline/cache_example/shells/data_artifact.sh
   max_expired_time: 600
 
 docker_env: nginx:1.7.9
