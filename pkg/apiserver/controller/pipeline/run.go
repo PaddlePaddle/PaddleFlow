@@ -61,16 +61,16 @@ type CreateRunRequest struct {
 	Description  string                 `json:"desc,omitempty"`       // optional
 	Parameters   map[string]interface{} `json:"parameters,omitempty"` // optional
 	DockerEnv    string                 `json:"dockerEnv,omitempty"`  // optional
-	// run workflow source. priority: RunYamlRaw > PipelineID + PipelineDetailID > RunYamlPath
+	// run workflow source. priority: RunYamlRaw > PipelineID + PipelineVersionID > RunYamlPath
 	// 为了防止字符串或者不同的http客户端对run.yaml
 	// 格式中的特殊字符串做特殊过滤处理导致yaml文件不正确，因此采用runYamlRaw采用base64编码传输
-	Disabled         string `json:"disabled,omitempty"`         // optional
-	RunYamlRaw       string `json:"runYamlRaw,omitempty"`       // optional. one of 3 sources of run. high priority
-	PipelineID       string `json:"pipelineID,omitempty"`       // optional. one of 3 sources of run. medium priority
-	PipelineDetailID string `json:"pipelineDetailID,omitempty"` // optional. one of 3 sources of run. medium priority
-	RunYamlPath      string `json:"runYamlPath,omitempty"`      // optional. one of 3 sources of run. low priority
-	ScheduleID       string `json:"scheduleID"`
-	ScheduledAt      string `json:"scheduledAt"`
+	Disabled          string `json:"disabled,omitempty"`          // optional
+	RunYamlRaw        string `json:"runYamlRaw,omitempty"`        // optional. one of 3 sources of run. high priority
+	PipelineID        string `json:"pipelineID,omitempty"`        // optional. one of 3 sources of run. medium priority
+	PipelineVersionID string `json:"pipelineVersionID,omitempty"` // optional. one of 3 sources of run. medium priority
+	RunYamlPath       string `json:"runYamlPath,omitempty"`       // optional. one of 3 sources of run. low priority
+	ScheduleID        string `json:"scheduleID"`
+	ScheduledAt       string `json:"scheduledAt"`
 }
 
 // used for API CreateRunJson to unmarshal steps in entryPoints and postProcess
@@ -184,21 +184,21 @@ func buildWorkflowSource(ctx logger.RequestContext, req CreateRunRequest, fsID s
 			return schema.WorkflowSource{}, "", "", err
 		}
 
-		// query pipeline detail
-		var pplDetail models.PipelineDetail
-		if req.PipelineDetailID == "" {
-			pplDetail, err = models.GetLastPipelineDetail(req.PipelineID)
+		// query pipeline version
+		var pplVersion models.PipelineVersion
+		if req.PipelineVersionID == "" {
+			pplVersion, err = models.GetLastPipelineVersion(req.PipelineID)
 			return schema.WorkflowSource{}, "", "", err
 		} else {
-			pplDetail, err = models.GetPipelineDetail(req.PipelineID, req.PipelineDetailID)
+			pplVersion, err = models.GetPipelineVersion(req.PipelineID, req.PipelineVersionID)
 			if err != nil {
-				logger.Logger().Errorf("get detail[%s] of pipeline[%s]. err: %v", req.PipelineDetailID, req.PipelineID, err)
+				logger.Logger().Errorf("get version[%s] of pipeline[%s]. err: %v", req.PipelineVersionID, req.PipelineID, err)
 				return schema.WorkflowSource{}, "", "", err
 			}
 		}
 
-		runYaml = pplDetail.PipelineYaml
-		source = fmt.Sprintf("%s-%s", req.PipelineID, req.PipelineDetailID)
+		runYaml = pplVersion.PipelineYaml
+		source = fmt.Sprintf("%s-%s", req.PipelineID, req.PipelineVersionID)
 	} else { // low priority: wfs in fs, read from runYamlPath
 		if fsID == "" {
 			err := fmt.Errorf("can not get runYaml without fs")

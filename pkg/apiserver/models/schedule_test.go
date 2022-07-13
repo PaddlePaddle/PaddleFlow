@@ -33,13 +33,13 @@ const (
 	MockFsID       = "root-mockFs"
 )
 
-func insertPipeline(t *testing.T, logEntry *log.Entry) (pplID1, pplID2, pplDetailID1, pplDetailID2 string) {
+func insertPipeline(t *testing.T, logEntry *log.Entry) (pplID1, pplID2, pplVersionID1, pplVersionID2 string) {
 	ppl1 := Pipeline{
 		Name:     "ppl1",
 		Desc:     "ppl1",
 		UserName: "user1",
 	}
-	pplDetail1 := PipelineDetail{
+	pplVersion1 := PipelineVersion{
 		FsID:         "user1-fsname",
 		FsName:       "fsname",
 		YamlPath:     "./run.yml",
@@ -53,7 +53,7 @@ func insertPipeline(t *testing.T, logEntry *log.Entry) (pplID1, pplID2, pplDetai
 		Desc:     "ppl2",
 		UserName: "root",
 	}
-	pplDetail2 := PipelineDetail{
+	pplVersion2 := PipelineVersion{
 		FsID:         "root-fsname2",
 		FsName:       "fsname2",
 		YamlPath:     "./run.yml",
@@ -63,55 +63,55 @@ func insertPipeline(t *testing.T, logEntry *log.Entry) (pplID1, pplID2, pplDetai
 	}
 
 	var err error
-	pplID1, pplDetailID1, err = CreatePipeline(logEntry, &ppl1, &pplDetail1)
+	pplID1, pplVersionID1, err = CreatePipeline(logEntry, &ppl1, &pplVersion1)
 	assert.Nil(t, err)
 	assert.Equal(t, ppl1.Pk, int64(1))
 	assert.Equal(t, pplID1, ppl1.ID)
 	assert.Equal(t, pplID1, "ppl-000001")
 
-	assert.Equal(t, pplDetail1.Pk, int64(1))
-	assert.Equal(t, pplDetailID1, pplDetail1.ID)
-	assert.Equal(t, pplDetailID1, "1")
-	assert.Equal(t, pplDetail1.PipelineID, ppl1.ID)
+	assert.Equal(t, pplVersion1.Pk, int64(1))
+	assert.Equal(t, pplVersionID1, pplVersion1.ID)
+	assert.Equal(t, pplVersionID1, "1")
+	assert.Equal(t, pplVersion1.PipelineID, ppl1.ID)
 
-	pplID2, pplDetailID2, err = CreatePipeline(logEntry, &ppl2, &pplDetail2)
+	pplID2, pplVersionID2, err = CreatePipeline(logEntry, &ppl2, &pplVersion2)
 	assert.Nil(t, err)
 	assert.Equal(t, ppl2.Pk, int64(2))
 	assert.Equal(t, pplID2, ppl2.ID)
 	assert.Equal(t, pplID2, "ppl-000002")
 
-	assert.Equal(t, pplDetail2.Pk, int64(2))
-	assert.Equal(t, pplDetailID2, pplDetail2.ID)
-	assert.Equal(t, pplDetailID2, "1")
-	assert.Equal(t, pplDetail2.PipelineID, ppl2.ID)
+	assert.Equal(t, pplVersion2.Pk, int64(2))
+	assert.Equal(t, pplVersionID2, pplVersion2.ID)
+	assert.Equal(t, pplVersionID2, "1")
+	assert.Equal(t, pplVersion2.PipelineID, ppl2.ID)
 
-	return pplID1, pplID2, pplDetailID1, pplDetailID2
+	return pplID1, pplID2, pplVersionID1, pplVersionID2
 }
 
 // ------ job / fs模块需要的函数 ------
 func TestGetUsedFsIDs(t *testing.T) {
 	initMockDB()
 	logEntry := log.WithFields(log.Fields{})
-	pplID1, _, pplDetailID1, _ := insertPipeline(t, logEntry)
+	pplID1, _, pplVersionID1, _ := insertPipeline(t, logEntry)
 
 	fsConfig := FsConfig{GlobalFsName: "fsname", UserName: "user1"}
 	StrFsConfig, err := fsConfig.Encode(logEntry)
 	assert.Nil(t, err)
 
 	schedule := Schedule{
-		ID:               "", // to be back filled according to db pk
-		Name:             "schedule1",
-		Desc:             "schedule1",
-		PipelineID:       pplID1,
-		PipelineDetailID: pplDetailID1,
-		UserName:         MockRootUser,
-		FsConfig:         StrFsConfig,
-		Crontab:          "*/5 * * * *",
-		Options:          "{}",
-		Status:           ScheduleStatusRunning,
-		StartAt:          sql.NullTime{},
-		EndAt:            sql.NullTime{},
-		NextRunAt:        time.Now(),
+		ID:                "", // to be back filled according to db pk
+		Name:              "schedule1",
+		Desc:              "schedule1",
+		PipelineID:        pplID1,
+		PipelineVersionID: pplVersionID1,
+		UserName:          MockRootUser,
+		FsConfig:          StrFsConfig,
+		Crontab:           "*/5 * * * *",
+		Options:           "{}",
+		Status:            ScheduleStatusRunning,
+		StartAt:           sql.NullTime{},
+		EndAt:             sql.NullTime{},
+		NextRunAt:         time.Now(),
 	}
 
 	// 创建schedule前，查询返回为空
@@ -186,26 +186,26 @@ func TestGetUsedFsIDs(t *testing.T) {
 func TestCatchup(t *testing.T) {
 	initMockDB()
 	logEntry := log.WithFields(log.Fields{})
-	pplID1, _, pplDetailID1, _ := insertPipeline(t, logEntry)
+	pplID1, _, pplVersionID1, _ := insertPipeline(t, logEntry)
 
 	fsConfig := FsConfig{GlobalFsName: "fsname", UserName: "user1"}
 	StrFsConfig, err := fsConfig.Encode(logEntry)
 	assert.Nil(t, err)
 
 	schedule := Schedule{
-		ID:               "", // to be back filled according to db pk
-		Name:             "schedule1",
-		Desc:             "schedule1",
-		PipelineID:       pplID1,
-		PipelineDetailID: pplDetailID1,
-		UserName:         "user1",
-		FsConfig:         StrFsConfig,
-		Crontab:          "*/5 * * * *",
-		Options:          "{}",
-		Status:           ScheduleStatusRunning,
-		StartAt:          sql.NullTime{},
-		EndAt:            sql.NullTime{},
-		NextRunAt:        time.Now(),
+		ID:                "", // to be back filled according to db pk
+		Name:              "schedule1",
+		Desc:              "schedule1",
+		PipelineID:        pplID1,
+		PipelineVersionID: pplVersionID1,
+		UserName:          "user1",
+		FsConfig:          StrFsConfig,
+		Crontab:           "*/5 * * * *",
+		Options:           "{}",
+		Status:            ScheduleStatusRunning,
+		StartAt:           sql.NullTime{},
+		EndAt:             sql.NullTime{},
+		NextRunAt:         time.Now(),
 	}
 	schedID, err := CreateSchedule(logEntry, schedule)
 	assert.Nil(t, err)
@@ -282,7 +282,7 @@ func TestCatchup(t *testing.T) {
 func TestExpireInterval(t *testing.T) {
 	initMockDB()
 	logEntry := log.WithFields(log.Fields{})
-	pplID1, _, pplDetailID1, _ := insertPipeline(t, logEntry)
+	pplID1, _, pplVersionID1, _ := insertPipeline(t, logEntry)
 
 	// 开启catchup，设置expireinterval = 60s（1min）, 同时设置开始的 NextRunAt 为 2min前，周期频率为1/min
 	// 有两次nextRunAt会被校验，最终第一次会被过滤掉，只有第二次才会被加进execMap
@@ -304,19 +304,19 @@ func TestExpireInterval(t *testing.T) {
 	assert.Nil(t, err)
 
 	schedule := Schedule{
-		ID:               "", // to be backfilled according to db pk
-		Name:             "schedule1",
-		Desc:             "schedule1",
-		PipelineID:       pplID1,
-		PipelineDetailID: pplDetailID1,
-		UserName:         "user1",
-		FsConfig:         StrFsConfig,
-		Crontab:          "*/1 * * * *",
-		Options:          strOptions,
-		Status:           ScheduleStatusRunning,
-		StartAt:          sql.NullTime{},
-		EndAt:            sql.NullTime{},
-		NextRunAt:        time.Now().Add(duration),
+		ID:                "", // to be backfilled according to db pk
+		Name:              "schedule1",
+		Desc:              "schedule1",
+		PipelineID:        pplID1,
+		PipelineVersionID: pplVersionID1,
+		UserName:          "user1",
+		FsConfig:          StrFsConfig,
+		Crontab:           "*/1 * * * *",
+		Options:           strOptions,
+		Status:            ScheduleStatusRunning,
+		StartAt:           sql.NullTime{},
+		EndAt:             sql.NullTime{},
+		NextRunAt:         time.Now().Add(duration),
 	}
 	log.Infof("start nextRunAt: %s", schedule.NextRunAt.Format("2006-01-02 15:04:05"))
 	schedID, err := CreateSchedule(logEntry, schedule)
@@ -347,7 +347,7 @@ func TestExpireInterval(t *testing.T) {
 func TestConcurrency(t *testing.T) {
 	initMockDB()
 	logEntry := log.WithFields(log.Fields{})
-	pplID1, _, pplDetailID1, _ := insertPipeline(t, logEntry)
+	pplID1, _, pplVersionID1, _ := insertPipeline(t, logEntry)
 
 	// 开启catchup，设置expireinterval = 0（没有expire限制）, 同时设置开始的 NextRunAt 为 2min前，周期频率为1/min
 	// concurrency = 1，且policy = suspend，所以只校验一次nextRunAt，并被加入execMap
@@ -369,19 +369,19 @@ func TestConcurrency(t *testing.T) {
 	assert.Nil(t, err)
 
 	schedule := Schedule{
-		ID:               "", // to be back filled according to db pk
-		Name:             "schedule1",
-		Desc:             "schedule1",
-		PipelineID:       pplID1,
-		PipelineDetailID: pplDetailID1,
-		UserName:         "user1",
-		FsConfig:         StrFsConfig,
-		Crontab:          "*/1 * * * *",
-		Options:          strOptions,
-		Status:           ScheduleStatusRunning,
-		StartAt:          sql.NullTime{},
-		EndAt:            sql.NullTime{},
-		NextRunAt:        time.Now().Add(duration),
+		ID:                "", // to be back filled according to db pk
+		Name:              "schedule1",
+		Desc:              "schedule1",
+		PipelineID:        pplID1,
+		PipelineVersionID: pplVersionID1,
+		UserName:          "user1",
+		FsConfig:          StrFsConfig,
+		Crontab:           "*/1 * * * *",
+		Options:           strOptions,
+		Status:            ScheduleStatusRunning,
+		StartAt:           sql.NullTime{},
+		EndAt:             sql.NullTime{},
+		NextRunAt:         time.Now().Add(duration),
 	}
 	log.Infof("start nextRunAt: %s", schedule.NextRunAt.Format("2006-01-02 15:04:05"))
 	schedID, err := CreateSchedule(logEntry, schedule)
@@ -506,7 +506,7 @@ func TestConcurrency(t *testing.T) {
 func TestScheduleTime(t *testing.T) {
 	initMockDB()
 	logEntry := log.WithFields(log.Fields{})
-	pplID1, _, pplDetailID1, _ := insertPipeline(t, logEntry)
+	pplID1, _, pplVersionID1, _ := insertPipeline(t, logEntry)
 
 	// 开启catchup，设置expireinterval = 0（没有expire限制）,
 	// concurrency = 0，且policy = suspend，即没有concurrency限制
@@ -532,19 +532,19 @@ func TestScheduleTime(t *testing.T) {
 	assert.Nil(t, err)
 
 	schedule := Schedule{
-		ID:               "", // to be back filled according to db pk
-		Name:             "schedule1",
-		Desc:             "schedule1",
-		PipelineID:       pplID1,
-		PipelineDetailID: pplDetailID1,
-		UserName:         "user1",
-		FsConfig:         StrFsConfig,
-		Crontab:          "*/1 * * * *",
-		Options:          strOptions,
-		Status:           ScheduleStatusRunning,
-		StartAt:          sql.NullTime{},
-		EndAt:            sql.NullTime{Time: time.Now().Add(endTimeDuration), Valid: true},
-		NextRunAt:        time.Now().Add(NextRunAtDuration),
+		ID:                "", // to be back filled according to db pk
+		Name:              "schedule1",
+		Desc:              "schedule1",
+		PipelineID:        pplID1,
+		PipelineVersionID: pplVersionID1,
+		UserName:          "user1",
+		FsConfig:          StrFsConfig,
+		Crontab:           "*/1 * * * *",
+		Options:           strOptions,
+		Status:            ScheduleStatusRunning,
+		StartAt:           sql.NullTime{},
+		EndAt:             sql.NullTime{Time: time.Now().Add(endTimeDuration), Valid: true},
+		NextRunAt:         time.Now().Add(NextRunAtDuration),
 	}
 	log.Infof("start nextRunAt: %s", schedule.NextRunAt.Format("2006-01-02 15:04:05"))
 	log.Infof("start endTime: %s", schedule.EndAt.Time.Format("2006-01-02 15:04:05"))

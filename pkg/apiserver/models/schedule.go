@@ -66,24 +66,24 @@ var ScheduleNotFinalStatusList = []string{
 }
 
 type Schedule struct {
-	Pk               int64          `gorm:"primaryKey;autoIncrement;not null" json:"-"`
-	ID               string         `gorm:"type:varchar(60);not null"         json:"scheduleID"`
-	Name             string         `gorm:"type:varchar(60);not null"         json:"name"`
-	Desc             string         `gorm:"type:varchar(256);not null"       json:"desc"`
-	PipelineID       string         `gorm:"type:varchar(60);not null"         json:"pipelineID"`
-	PipelineDetailID string         `gorm:"type:varchar(60);not null"         json:"pipelineDetailID"`
-	UserName         string         `gorm:"type:varchar(60);not null"         json:"username"`
-	FsConfig         string         `gorm:"type:varchar(1024);not null"       json:"fsConfig"`
-	Crontab          string         `gorm:"type:varchar(60);not null"         json:"crontab"`
-	Options          string         `gorm:"type:text;size:65535;not null"     json:"options"`
-	Message          string         `gorm:"type:text;size:65535;not null"     json:"scheduleMsg"`
-	Status           string         `gorm:"type:varchar(32);not null"         json:"status"`
-	StartAt          sql.NullTime   `                                         json:"-"`
-	EndAt            sql.NullTime   `                                         json:"-"`
-	NextRunAt        time.Time      `                                         json:"-"`
-	CreatedAt        time.Time      `                                         json:"-"`
-	UpdatedAt        time.Time      `                                         json:"-"`
-	DeletedAt        gorm.DeletedAt `                                         json:"-"`
+	Pk                int64          `gorm:"primaryKey;autoIncrement;not null" json:"-"`
+	ID                string         `gorm:"type:varchar(60);not null"         json:"scheduleID"`
+	Name              string         `gorm:"type:varchar(60);not null"         json:"name"`
+	Desc              string         `gorm:"type:varchar(256);not null"       json:"desc"`
+	PipelineID        string         `gorm:"type:varchar(60);not null"         json:"pipelineID"`
+	PipelineVersionID string         `gorm:"type:varchar(60);not null"         json:"pipelineVersionID"`
+	UserName          string         `gorm:"type:varchar(60);not null"         json:"username"`
+	FsConfig          string         `gorm:"type:varchar(1024);not null"       json:"fsConfig"`
+	Crontab           string         `gorm:"type:varchar(60);not null"         json:"crontab"`
+	Options           string         `gorm:"type:text;size:65535;not null"     json:"options"`
+	Message           string         `gorm:"type:text;size:65535;not null"     json:"scheduleMsg"`
+	Status            string         `gorm:"type:varchar(32);not null"         json:"status"`
+	StartAt           sql.NullTime   `                                         json:"-"`
+	EndAt             sql.NullTime   `                                         json:"-"`
+	NextRunAt         time.Time      `                                         json:"-"`
+	CreatedAt         time.Time      `                                         json:"-"`
+	UpdatedAt         time.Time      `                                         json:"-"`
+	DeletedAt         gorm.DeletedAt `                                         json:"-"`
 }
 
 func (Schedule) TableName() string {
@@ -214,15 +214,15 @@ func CreateSchedule(logEntry *log.Entry, schedule Schedule) (scheduleID string, 
 	return schedule.ID, err
 }
 
-func ListSchedule(logEntry *log.Entry, pk int64, maxKeys int, pplFilter, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter []string) ([]Schedule, error) {
+func ListSchedule(logEntry *log.Entry, pk int64, maxKeys int, pplFilter, pplVersionFilter, userFilter, scheduleFilter, nameFilter, statusFilter []string) ([]Schedule, error) {
 	logEntry.Debugf("begin list schedule.")
 	tx := storage.DB.Model(&Schedule{}).Where("pk > ?", pk)
 
 	if len(pplFilter) > 0 {
 		tx = tx.Where("pipeline_id IN (?)", pplFilter)
 	}
-	if len(pplDetailFilter) > 0 {
-		tx = tx.Where("pipeline_detail_id IN (?)", pplDetailFilter)
+	if len(pplVersionFilter) > 0 {
+		tx = tx.Where("pipeline_version_id IN (?)", pplVersionFilter)
 	}
 	if len(userFilter) > 0 {
 		tx = tx.Where("user_name IN (?)", userFilter)
@@ -243,25 +243,25 @@ func ListSchedule(logEntry *log.Entry, pk int64, maxKeys int, pplFilter, pplDeta
 	var scheduleList []Schedule
 	tx = tx.Find(&scheduleList)
 	if tx.Error != nil {
-		logEntry.Errorf("list schedule failed. Filters: pplDetail[%v], user{%v}, schedule{%v}, name{%v}, status{%v}. error:%s",
-			pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter, tx.Error.Error())
+		logEntry.Errorf("list schedule failed. Filters: pplVersion[%v], user{%v}, schedule{%v}, name{%v}, status{%v}. error:%s",
+			pplVersionFilter, userFilter, scheduleFilter, nameFilter, statusFilter, tx.Error.Error())
 		return []Schedule{}, tx.Error
 	}
 
 	return scheduleList, nil
 }
 
-func IsLastSchedulePk(logEntry *log.Entry, pk int64, pplFilter, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter []string) (bool, error) {
-	logEntry.Debugf("get last schedule, Filters: ppl[%v], pplDetail[%v], user[%v], schedule[%v], name[%v], status[%v]",
-		pplFilter, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
+func IsLastSchedulePk(logEntry *log.Entry, pk int64, pplFilter, pplVersionFilter, userFilter, scheduleFilter, nameFilter, statusFilter []string) (bool, error) {
+	logEntry.Debugf("get last schedule, Filters: ppl[%v], pplVersion[%v], user[%v], schedule[%v], name[%v], status[%v]",
+		pplFilter, pplVersionFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
 	tx := storage.DB.Model(&Schedule{})
 
 	if len(pplFilter) > 0 {
 		tx = tx.Where("pipeline_id IN (?)", pplFilter)
 	}
 
-	if len(pplDetailFilter) > 0 {
-		tx = tx.Where("pipeline_detail_id IN (?)", pplDetailFilter)
+	if len(pplVersionFilter) > 0 {
+		tx = tx.Where("pipeline_version_id IN (?)", pplVersionFilter)
 	}
 	if len(userFilter) > 0 {
 		tx = tx.Where("user_name IN (?)", userFilter)
@@ -444,7 +444,7 @@ func findExectableRunBeforeCurrentTime(logEntry *log.Entry, schedule Schedule, c
 	cronSchedule, err := cron.ParseStandard(schedule.Crontab)
 	if err != nil {
 		errMsg := fmt.Sprintf("parse crontab spec[%s] for schedule[%s] of pipeline detail[%s] failed, errMsg[%s]",
-			schedule.Crontab, schedule.ID, schedule.PipelineDetailID, err.Error())
+			schedule.Crontab, schedule.ID, schedule.PipelineVersionID, err.Error())
 		return time.Time{}, fmt.Errorf(errMsg)
 	}
 
@@ -590,7 +590,7 @@ func GetAvailableSchedule(logEntry *log.Entry, checkCatchup bool) (killMap map[s
 			result := storage.DB.Model(&schedule).Save(schedule)
 			if result.Error != nil {
 				errMsg := fmt.Sprintf("update schedule[%s] of pipeline detail[%s] failed, error:%v",
-					schedule.ID, schedule.PipelineDetailID, result.Error)
+					schedule.ID, schedule.PipelineVersionID, result.Error)
 				logEntry.Errorf(errMsg)
 				return nil, nil, nil, fmt.Errorf(errMsg)
 			}

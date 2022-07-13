@@ -40,9 +40,9 @@ type CreatePipelineRequest struct {
 }
 
 type CreatePipelineResponse struct {
-	PipelineID       string `json:"pipelineID"`
-	PipelineDetailID string `json:"pipelineDetailID"`
-	Name             string `json:"name"`
+	PipelineID        string `json:"pipelineID"`
+	PipelineVersionID string `json:"pipelineVersionID"`
+	Name              string `json:"name"`
 }
 
 type UpdatePipelineRequest struct {
@@ -53,8 +53,8 @@ type UpdatePipelineRequest struct {
 }
 
 type UpdatePipelineResponse struct {
-	PipelineID       string `json:"pipelineID"`
-	PipelineDetailID string `json:"pipelineDetailID"`
+	PipelineID        string `json:"pipelineID"`
+	PipelineVersionID string `json:"pipelineVersionID"`
 }
 
 type ListPipelineResponse struct {
@@ -63,18 +63,18 @@ type ListPipelineResponse struct {
 }
 
 type GetPipelineResponse struct {
-	Pipeline        PipelineBrief   `json:"pipeline"`
-	PipelineDetails PipelineDetails `json:"pplDetails"`
+	Pipeline         PipelineBrief    `json:"pipeline"`
+	PipelineVersions PipelineVersions `json:"pplVersions"`
 }
 
-type PipelineDetails struct {
+type PipelineVersions struct {
 	common.MarkerInfo
-	PipelineDetailList []PipelineDetailBrief `json:"pplDetailList"`
+	PipelineVersionList []PipelineVersionBrief `json:"pplVersionList"`
 }
 
-type GetPipelineDetailResponse struct {
-	Pipeline       PipelineBrief       `json:"pipeline"`
-	PipelineDetail PipelineDetailBrief `json:"pipelineDetail"`
+type GetPipelineVersionResponse struct {
+	Pipeline        PipelineBrief        `json:"pipeline"`
+	PipelineVersion PipelineVersionBrief `json:"pipelineVersion"`
 }
 
 type PipelineBrief struct {
@@ -95,8 +95,8 @@ func (pb *PipelineBrief) updateFromPipelineModel(pipeline models.Pipeline) {
 	pb.UpdateTime = pipeline.UpdatedAt.Format("2006-01-02 15:04:05")
 }
 
-type PipelineDetailBrief struct {
-	ID           string `json:"pipelineDetailID"`
+type PipelineVersionBrief struct {
+	ID           string `json:"pipelineVersionID"`
 	PipelineID   string `json:"pipelineID"`
 	GlobalFsName string `json:"globalFsName"`
 	YamlPath     string `json:"yamlPath"`
@@ -106,15 +106,15 @@ type PipelineDetailBrief struct {
 	UpdateTime   string `json:"updateTime"`
 }
 
-func (pdb *PipelineDetailBrief) updateFromPipelineDetailModel(pipelineDetail models.PipelineDetail) {
-	pdb.ID = pipelineDetail.ID
-	pdb.PipelineID = pipelineDetail.PipelineID
-	pdb.GlobalFsName = pipelineDetail.FsName
-	pdb.YamlPath = pipelineDetail.YamlPath
-	pdb.PipelineYaml = pipelineDetail.PipelineYaml
-	pdb.UserName = pipelineDetail.UserName
-	pdb.CreateTime = pipelineDetail.CreatedAt.Format("2006-01-02 15:04:05")
-	pdb.UpdateTime = pipelineDetail.UpdatedAt.Format("2006-01-02 15:04:05")
+func (pdb *PipelineVersionBrief) updateFromPipelineVersionModel(pipelineVersion models.PipelineVersion) {
+	pdb.ID = pipelineVersion.ID
+	pdb.PipelineID = pipelineVersion.PipelineID
+	pdb.GlobalFsName = pipelineVersion.FsName
+	pdb.YamlPath = pipelineVersion.YamlPath
+	pdb.PipelineYaml = pipelineVersion.PipelineYaml
+	pdb.UserName = pipelineVersion.UserName
+	pdb.CreateTime = pipelineVersion.CreatedAt.Format("2006-01-02 15:04:05")
+	pdb.UpdateTime = pipelineVersion.UpdatedAt.Format("2006-01-02 15:04:05")
 }
 
 func CreatePipeline(ctx *logger.RequestContext, request CreatePipelineRequest) (CreatePipelineResponse, error) {
@@ -188,7 +188,7 @@ func CreatePipeline(ctx *logger.RequestContext, request CreatePipelineRequest) (
 	}
 
 	yamlMd5 := common.GetMD5Hash(pipelineYaml)
-	pplDetail := models.PipelineDetail{
+	pplVersion := models.PipelineVersion{
 		FsID:         fsID,
 		FsName:       request.FsName,
 		YamlPath:     request.YamlPath,
@@ -197,7 +197,7 @@ func CreatePipeline(ctx *logger.RequestContext, request CreatePipelineRequest) (
 		UserName:     ctx.UserName,
 	}
 
-	pplID, pplDetailID, err := models.CreatePipeline(ctx.Logging(), &ppl, &pplDetail)
+	pplID, pplVersionID, err := models.CreatePipeline(ctx.Logging(), &ppl, &pplVersion)
 	if err != nil {
 		ctx.ErrorCode = common.InternalError
 		errMsg := fmt.Sprintf("create pipeline run failed inserting db. error:%s", err.Error())
@@ -207,9 +207,9 @@ func CreatePipeline(ctx *logger.RequestContext, request CreatePipelineRequest) (
 
 	ctx.Logging().Debugf("create pipeline[%s] successful", pplID)
 	response := CreatePipelineResponse{
-		PipelineID:       pplID,
-		PipelineDetailID: pplDetailID,
-		Name:             pplName,
+		PipelineID:        pplID,
+		PipelineVersionID: pplVersionID,
+		Name:              pplName,
 	}
 	return response, nil
 }
@@ -283,7 +283,7 @@ func UpdatePipeline(ctx *logger.RequestContext, request UpdatePipelineRequest, p
 
 	ppl.Desc = request.Desc
 	yamlMd5 := common.GetMD5Hash(pipelineYaml)
-	pplDetail := models.PipelineDetail{
+	pplVersion := models.PipelineVersion{
 		PipelineID:   pipelineID,
 		FsID:         fsID,
 		FsName:       request.GlobalFsName,
@@ -293,7 +293,7 @@ func UpdatePipeline(ctx *logger.RequestContext, request UpdatePipelineRequest, p
 		UserName:     ctx.UserName,
 	}
 
-	pplID, pplDetailID, err := models.UpdatePipeline(ctx.Logging(), &ppl, &pplDetail)
+	pplID, pplVersionID, err := models.UpdatePipeline(ctx.Logging(), &ppl, &pplVersion)
 	if err != nil {
 		ctx.ErrorCode = common.InternalError
 		errMsg := fmt.Sprintf("update pipeline failed inserting db. error:%s", err.Error())
@@ -301,10 +301,10 @@ func UpdatePipeline(ctx *logger.RequestContext, request UpdatePipelineRequest, p
 		return UpdatePipelineResponse{}, fmt.Errorf(errMsg)
 	}
 
-	ctx.Logging().Debugf("update pipeline[%s] successful, pplDetailID[%s]", pplID, pplDetailID)
+	ctx.Logging().Debugf("update pipeline[%s] successful, pplVersionID[%s]", pplID, pplVersionID)
 	response := UpdatePipelineResponse{
-		PipelineID:       pplID,
-		PipelineDetailID: pplDetailID,
+		PipelineID:        pplID,
+		PipelineVersionID: pplVersionID,
 	}
 	return response, nil
 }
@@ -444,7 +444,7 @@ func GetPipeline(ctx *logger.RequestContext, pipelineID, marker string, maxKeys 
 	}
 	getPipelineResponse.Pipeline.updateFromPipelineModel(ppl)
 
-	// query pipeline detail
+	// query pipeline version
 	var pk int64
 	if marker != "" {
 		pk, err = common.DecryptPk(marker)
@@ -456,71 +456,71 @@ func GetPipeline(ctx *logger.RequestContext, pipelineID, marker string, maxKeys 
 		}
 	}
 
-	pipelineDetailList, err := models.ListPipelineDetail(pipelineID, pk, maxKeys, fsFilter)
+	pipelineVersionList, err := models.ListPipelineVersion(pipelineID, pk, maxKeys, fsFilter)
 	if err != nil {
 		ctx.ErrorCode = common.InternalError
-		ctx.Logging().Errorf("get Pipeline detail[%s-%d-%d-%s]. err: %v", pipelineID, pk, maxKeys, fsFilter, err)
+		ctx.Logging().Errorf("get Pipeline version[%s-%d-%d-%s]. err: %v", pipelineID, pk, maxKeys, fsFilter, err)
 		return GetPipelineResponse{}, err
 	}
 
 	// get next marker
-	pipelineDetails := PipelineDetails{}
-	pipelineDetails.IsTruncated = false
-	if len(pipelineDetailList) > 0 {
-		pplDetail := pipelineDetailList[len(pipelineDetailList)-1]
-		isLastPPlDetailPk, err := models.IsLastPipelineDetailPk(ctx.Logging(), pipelineID, pplDetail.Pk, fsFilter)
+	pipelineVersions := PipelineVersions{}
+	pipelineVersions.IsTruncated = false
+	if len(pipelineVersionList) > 0 {
+		pplVersion := pipelineVersionList[len(pipelineVersionList)-1]
+		isLastPPlVersionPk, err := models.IsLastPipelineVersionPk(ctx.Logging(), pipelineID, pplVersion.Pk, fsFilter)
 		if err != nil {
 			ctx.ErrorCode = common.InternalError
-			errMsg := fmt.Sprintf("get last ppldetail for ppl[%s] failed. err:[%s]", pipelineID, err.Error())
+			errMsg := fmt.Sprintf("get last pplversion for ppl[%s] failed. err:[%s]", pipelineID, err.Error())
 			ctx.Logging().Errorf(errMsg)
 			return GetPipelineResponse{}, fmt.Errorf(errMsg)
 		}
 
-		if !isLastPPlDetailPk {
-			nextMarker, err := common.EncryptPk(pplDetail.Pk)
+		if !isLastPPlVersionPk {
+			nextMarker, err := common.EncryptPk(pplVersion.Pk)
 			if err != nil {
 				ctx.ErrorCode = common.InternalError
-				errMsg := fmt.Sprintf("EncryptPk error. pk:[%d] error:[%s]", pplDetail.Pk, err.Error())
+				errMsg := fmt.Sprintf("EncryptPk error. pk:[%d] error:[%s]", pplVersion.Pk, err.Error())
 				ctx.Logging().Errorf(errMsg)
 				return GetPipelineResponse{}, fmt.Errorf(errMsg)
 			}
-			pipelineDetails.NextMarker = nextMarker
-			pipelineDetails.IsTruncated = true
+			pipelineVersions.NextMarker = nextMarker
+			pipelineVersions.IsTruncated = true
 		}
 	}
-	pipelineDetails.MaxKeys = maxKeys
-	pipelineDetails.PipelineDetailList = []PipelineDetailBrief{}
-	for _, pplDetail := range pipelineDetailList {
-		pipelineDetailBrief := PipelineDetailBrief{}
-		pipelineDetailBrief.updateFromPipelineDetailModel(pplDetail)
-		pipelineDetails.PipelineDetailList = append(pipelineDetails.PipelineDetailList, pipelineDetailBrief)
+	pipelineVersions.MaxKeys = maxKeys
+	pipelineVersions.PipelineVersionList = []PipelineVersionBrief{}
+	for _, pplVersion := range pipelineVersionList {
+		pipelineVersionBrief := PipelineVersionBrief{}
+		pipelineVersionBrief.updateFromPipelineVersionModel(pplVersion)
+		pipelineVersions.PipelineVersionList = append(pipelineVersions.PipelineVersionList, pipelineVersionBrief)
 	}
 
-	getPipelineResponse.PipelineDetails = pipelineDetails
+	getPipelineResponse.PipelineVersions = pipelineVersions
 	return getPipelineResponse, nil
 }
 
-func GetPipelineDetail(ctx *logger.RequestContext, pipelineID string, pipelineDetailID string) (GetPipelineDetailResponse, error) {
-	ctx.Logging().Debugf("begin get pipeline detail.")
+func GetPipelineVersion(ctx *logger.RequestContext, pipelineID string, pipelineVersionID string) (GetPipelineVersionResponse, error) {
+	ctx.Logging().Debugf("begin get pipeline version.")
 
 	// query pipeline
-	hasAuth, ppl, pplDetail, err := CheckPipelineDetailPermission(ctx.UserName, pipelineID, pipelineDetailID)
+	hasAuth, ppl, pplVersion, err := CheckPipelineVersionPermission(ctx.UserName, pipelineID, pipelineVersionID)
 	if err != nil {
 		ctx.ErrorCode = common.InternalError
-		errMsg := fmt.Sprintf("get pipeline[%s] detail[%s] failed. err:%v", pipelineID, pipelineDetailID, err)
+		errMsg := fmt.Sprintf("get pipeline[%s] version[%s] failed. err:%v", pipelineID, pipelineVersionID, err)
 		ctx.Logging().Errorf(errMsg)
-		return GetPipelineDetailResponse{}, fmt.Errorf(errMsg)
+		return GetPipelineVersionResponse{}, fmt.Errorf(errMsg)
 	} else if !hasAuth {
 		ctx.ErrorCode = common.AccessDenied
-		errMsg := fmt.Sprintf("get pipeline[%s] detail[%s] failed. Access denied for user[%s]", pipelineID, pipelineDetailID, ctx.UserName)
+		errMsg := fmt.Sprintf("get pipeline[%s] version[%s] failed. Access denied for user[%s]", pipelineID, pipelineVersionID, ctx.UserName)
 		ctx.Logging().Errorf(errMsg)
-		return GetPipelineDetailResponse{}, fmt.Errorf(errMsg)
+		return GetPipelineVersionResponse{}, fmt.Errorf(errMsg)
 	}
 
-	getPipelineDetailResponse := GetPipelineDetailResponse{}
-	getPipelineDetailResponse.Pipeline.updateFromPipelineModel(ppl)
-	getPipelineDetailResponse.PipelineDetail.updateFromPipelineDetailModel(pplDetail)
-	return getPipelineDetailResponse, nil
+	getPipelineVersionResponse := GetPipelineVersionResponse{}
+	getPipelineVersionResponse.Pipeline.updateFromPipelineModel(ppl)
+	getPipelineVersionResponse.PipelineVersion.updateFromPipelineVersionModel(pplVersion)
+	return getPipelineVersionResponse, nil
 }
 
 func DeletePipeline(ctx *logger.RequestContext, pipelineID string) error {
@@ -562,52 +562,52 @@ func DeletePipeline(ctx *logger.RequestContext, pipelineID string) error {
 	return nil
 }
 
-func DeletePipelineDetail(ctx *logger.RequestContext, pipelineID string, pipelineDetailID string) error {
-	ctx.Logging().Debugf("begin delete pipeline detail[%s], with pipelineID[%s]", pipelineDetailID, pipelineID)
-	hasAuth, _, _, err := CheckPipelineDetailPermission(ctx.UserName, pipelineID, pipelineDetailID)
+func DeletePipelineVersion(ctx *logger.RequestContext, pipelineID string, pipelineVersionID string) error {
+	ctx.Logging().Debugf("begin delete pipeline version[%s], with pipelineID[%s]", pipelineVersionID, pipelineID)
+	hasAuth, _, _, err := CheckPipelineVersionPermission(ctx.UserName, pipelineID, pipelineVersionID)
 	if err != nil {
 		ctx.ErrorCode = common.InternalError
-		errMsg := fmt.Sprintf("delete pipeline[%s] detail[%s] failed. err:%v", pipelineID, pipelineDetailID, err)
+		errMsg := fmt.Sprintf("delete pipeline[%s] version[%s] failed. err:%v", pipelineID, pipelineVersionID, err)
 		ctx.Logging().Errorf(errMsg)
 		return fmt.Errorf(errMsg)
 	} else if !hasAuth {
 		ctx.ErrorCode = common.AccessDenied
-		errMsg := fmt.Sprintf("delete pipeline[%s] detail[%s] failed. Access denied for user[%s]", pipelineID, pipelineDetailID, ctx.UserName)
+		errMsg := fmt.Sprintf("delete pipeline[%s] version[%s] failed. Access denied for user[%s]", pipelineID, pipelineVersionID, ctx.UserName)
 		ctx.Logging().Errorf(errMsg)
 		return fmt.Errorf(errMsg)
 	}
 
-	// 如果只有一个pipeline detail的话，直接删除pipeline本身
-	count, err := models.CountPipelineDetail(pipelineID)
+	// 如果只有一个pipeline version的话，直接删除pipeline本身
+	count, err := models.CountPipelineVersion(pipelineID)
 	if err != nil {
 		ctx.ErrorCode = common.InternalError
-		errMsg := fmt.Sprintf("delete pipeline[%s] detail[%s] failed. err:%v", pipelineID, pipelineDetailID, err)
+		errMsg := fmt.Sprintf("delete pipeline[%s] version[%s] failed. err:%v", pipelineID, pipelineVersionID, err)
 		ctx.Logging().Errorf(errMsg)
 		return fmt.Errorf(errMsg)
 	} else if count == 1 {
 		ctx.ErrorCode = common.ActionNotAllowed
-		errMsg := fmt.Sprintf("delete pipeline[%s] detail[%s] failed. only one pipeline detail left, pls delete pipeline instead", pipelineID, pipelineDetailID)
+		errMsg := fmt.Sprintf("delete pipeline[%s] version[%s] failed. only one pipeline version left, pls delete pipeline instead", pipelineID, pipelineVersionID)
 		ctx.Logging().Errorf(errMsg)
 		return fmt.Errorf(errMsg)
 	}
 
 	// 需要判断是否有周期调度运行中（单次任务不影响，因为run会直接保存yaml）
-	scheduleList, err := models.ListSchedule(ctx.Logging(), 0, 0, []string{pipelineID}, []string{pipelineDetailID}, []string{}, []string{}, []string{}, models.ScheduleNotFinalStatusList)
+	scheduleList, err := models.ListSchedule(ctx.Logging(), 0, 0, []string{pipelineID}, []string{pipelineVersionID}, []string{}, []string{}, []string{}, models.ScheduleNotFinalStatusList)
 	if err != nil {
 		ctx.ErrorCode = common.InternalError
-		errMsg := fmt.Sprintf("models list schedule for pipeline[%s] detail[%s] failed. err:[%s]", pipelineID, pipelineDetailID, err.Error())
+		errMsg := fmt.Sprintf("models list schedule for pipeline[%s] version[%s] failed. err:[%s]", pipelineID, pipelineVersionID, err.Error())
 		ctx.Logging().Errorf(errMsg)
 		return fmt.Errorf(errMsg)
 	} else if len(scheduleList) > 0 {
 		ctx.ErrorCode = common.ActionNotAllowed
-		errMsg := fmt.Sprintf("delete pipeline[%s] detail[%s] failed, there are running schedules, pls stop first", pipelineDetailID, pipelineID)
+		errMsg := fmt.Sprintf("delete pipeline[%s] version[%s] failed, there are running schedules, pls stop first", pipelineVersionID, pipelineID)
 		ctx.Logging().Errorf(errMsg)
 		return fmt.Errorf(errMsg)
 	}
 
-	if err := models.DeletePipelineDetail(ctx.Logging(), pipelineID, pipelineDetailID); err != nil {
+	if err := models.DeletePipelineVersion(ctx.Logging(), pipelineID, pipelineVersionID); err != nil {
 		ctx.ErrorCode = common.InternalError
-		errMsg := fmt.Sprintf("delete pipeline[%s] detail[%s] failed. error:%s", pipelineID, pipelineDetailID, err.Error())
+		errMsg := fmt.Sprintf("delete pipeline[%s] version[%s] failed. error:%s", pipelineID, pipelineVersionID, err.Error())
 		ctx.Logging().Errorf(errMsg)
 		return fmt.Errorf(errMsg)
 	}
@@ -634,24 +634,24 @@ func CheckPipelinePermission(userName string, pipelineID string) (bool, models.P
 	return true, ppl, nil
 }
 
-func CheckPipelineDetailPermission(userName string, pipelineID string, pipelineDetailID string) (bool, models.Pipeline, models.PipelineDetail, error) {
+func CheckPipelineVersionPermission(userName string, pipelineID string, pipelineVersionID string) (bool, models.Pipeline, models.PipelineVersion, error) {
 	hasAuth, ppl, err := CheckPipelinePermission(userName, pipelineID)
 	if err != nil {
-		return false, models.Pipeline{}, models.PipelineDetail{}, err
+		return false, models.Pipeline{}, models.PipelineVersion{}, err
 	} else if !hasAuth {
-		return false, models.Pipeline{}, models.PipelineDetail{}, nil
+		return false, models.Pipeline{}, models.PipelineVersion{}, nil
 	}
 
-	pipelineDetail, err := models.GetPipelineDetail(pipelineID, pipelineDetailID)
+	pipelineVersion, err := models.GetPipelineVersion(pipelineID, pipelineVersionID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			errMsg := fmt.Sprintf("pipeline[%s] detail[%s] not exist", pipelineID, pipelineDetailID)
-			return false, models.Pipeline{}, models.PipelineDetail{}, fmt.Errorf(errMsg)
+			errMsg := fmt.Sprintf("pipeline[%s] version[%s] not exist", pipelineID, pipelineVersionID)
+			return false, models.Pipeline{}, models.PipelineVersion{}, fmt.Errorf(errMsg)
 		} else {
-			errMsg := fmt.Sprintf("get pipeline[%s] detail[%s] failed, err:[%s]", pipelineID, pipelineDetailID, err.Error())
-			return false, models.Pipeline{}, models.PipelineDetail{}, fmt.Errorf(errMsg)
+			errMsg := fmt.Sprintf("get pipeline[%s] version[%s] failed, err:[%s]", pipelineID, pipelineVersionID, err.Error())
+			return false, models.Pipeline{}, models.PipelineVersion{}, fmt.Errorf(errMsg)
 		}
 	}
 
-	return true, ppl, pipelineDetail, nil
+	return true, ppl, pipelineVersion, nil
 }
