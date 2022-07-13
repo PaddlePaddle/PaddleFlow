@@ -21,6 +21,6 @@ import (
 )
 
 type MetricInterface interface {
-	GetJobAvgMetrics(metricName, jobID string) (model.Value, error)
+	GetJobAvgMetrics(metricName, jobID string) (float64, error)
 	GetJobSequenceMetrics(metricName, jobID string, start, end, step int64) (model.Value, error)
 }
