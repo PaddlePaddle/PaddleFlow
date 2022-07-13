@@ -103,8 +103,6 @@ def create(ctx, name, namespace, maxcpu, maxmem, maxscalar=None, mincpu=None, mi
     if not namespace:
         click.echo('queue create must provide namespace.', err=True)
         sys.exit(1)
-    # if not clustername:
-    #     clustername = ""
     if not maxcpu:
         click.echo('queue create must provide maxcpu.', err=True)
         sys.exit(1)
