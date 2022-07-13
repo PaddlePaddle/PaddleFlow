@@ -78,7 +78,7 @@ func (rr *RunRouter) createRun(w http.ResponseWriter, r *http.Request) {
 	// add trace logger
 	trace_logger.Key(requestId).Infof("creating run for request:%+v", createRunInfo)
 	// create run
-	response, err := pipeline.CreateRun(ctx, &createRunInfo)
+	response, err := pipeline.CreateRun(ctx, &createRunInfo, nil)
 	if err != nil {
 		errMsg := fmt.Sprintf(
 			"create run failed. createRunInfo:%v error:%s", createRunInfo, err.Error())
