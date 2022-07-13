@@ -270,6 +270,7 @@ func ListQueueInitJob(queueID string) []Job {
 	var jobs []Job
 	err := db.Find(&jobs).Error
 	if err != nil {
+		log.Errorf("list init jobs in queue %s failed, err: %s", queueID, err.Error())
 		return []Job{}
 	}
 	return jobs

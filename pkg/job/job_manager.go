@@ -222,7 +222,7 @@ func (m *JobManagerImpl) clusterJobProcessLoop(jobSubmit func(*api.PFJob) error,
 					go m.submitQueueJob(jobSubmit, queueID, queueStatus[queueID])
 				}
 			}
-			time.Sleep(m.jobLoopPeriod)
+			time.Sleep(m.queueExpireTime)
 		}
 	}
 }
