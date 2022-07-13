@@ -38,6 +38,7 @@ type QueueInfo struct {
 	// ClusterID for queue
 	ClusterID ClusterID
 	Type      string
+	Status    string
 
 	// Priority for queue
 	Priority int32
@@ -64,6 +65,7 @@ func NewQueueInfo(q models.Queue) *QueueInfo {
 		UID:             QueueID(q.ID),
 		Name:            q.Name,
 		ClusterID:       ClusterID(q.ClusterId),
+		Status:          q.Status,
 		SortPolicyNames: q.SchedulingPolicy,
 		SortPolicies:    NewRegistry(q.SchedulingPolicy),
 	}

@@ -45,7 +45,7 @@ type CreateScheduleRequest struct {
 	ConcurrencyPolicy string `json:"concurrencyPolicy"` // optional, 默认 suspend
 	ExpireInterval    int    `json:"expireInterval"`    // optional, 默认 0, 表示不限制
 	Catchup           bool   `json:"catchup"`           // optional, 默认 false
-	FsName            string `json:"fsname"`            // optional
+	GlobalFsName      string `json:"globalFsName"`      // optional
 	UserName          string `json:"username"`          // optional, 只有root用户使用其他用户fsname时，需要指定对应username
 }
 
@@ -204,14 +204,14 @@ func CreateSchedule(ctx *logger.RequestContext, request *CreateScheduleRequest) 
 	}
 
 	// 校验Fs参数，并生成FsConfig对象
-	_, err := CheckFsAndGetID(ctx.UserName, request.UserName, request.FsName)
+	_, err := CheckFsAndGetID(ctx.UserName, request.UserName, request.GlobalFsName)
 	if err != nil {
 		ctx.ErrorCode = common.InvalidArguments
 		ctx.Logging().Errorf(err.Error())
 		return CreateScheduleResponse{}, err
 	}
 
-	fsConfig := models.FsConfig{FsName: request.FsName, UserName: request.UserName}
+	fsConfig := models.FsConfig{GlobalFsName: request.GlobalFsName, UserName: request.UserName}
 	StrFsConfig, err := fsConfig.Encode(ctx.Logging())
 	if err != nil {
 		ctx.ErrorCode = common.InvalidArguments

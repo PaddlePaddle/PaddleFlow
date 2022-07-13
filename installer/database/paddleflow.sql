@@ -54,7 +54,8 @@ CREATE TABLE IF NOT EXISTS `queue` (
     `updated_at` datetime(3) DEFAULT NULL,
     `deleted_at` datetime(3) DEFAULT NULL,
     PRIMARY KEY (`pk`),
-    UNIQUE KEY `queue_name` (`name`)
+    UNIQUE KEY `queue_name` (`name`),
+    INDEX `cluster_id` (`cluster_id`)
 ) ENGINE=InnoDB DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
 
 CREATE TABLE IF NOT EXISTS `job` (
@@ -66,7 +67,7 @@ CREATE TABLE IF NOT EXISTS `job` (
     `type` varchar(20) NOT NULL,
     `config` mediumtext NOT NULL,
     `runtime_info` mediumtext DEFAULT NULL,
-    `status` varchar(32) DEFAULT NULL,
+    `status` varchar(32) NOT NULL,
     `message` text DEFAULT NULL,
     `resource` text DEFAULT NULL,
     `framework` varchar(30) DEFAULT NULL,
@@ -78,7 +79,8 @@ CREATE TABLE IF NOT EXISTS `job` (
     `updated_at` datetime(3) NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
     `deleted_at` varchar(64) DEFAULT '',
     PRIMARY KEY (`pk`),
-    UNIQUE KEY `job_id` (`id`, `deleted_at`)
+    UNIQUE KEY `job_id` (`id`, `deleted_at`),
+    INDEX `status_queue_deleted` (`queue_id`, `status`, `deleted_at`)
 ) ENGINE=InnoDB DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
 
 CREATE TABLE IF NOT EXISTS `job_label` (
@@ -149,13 +151,12 @@ CREATE TABLE IF NOT EXISTS `run` (
     `name` varchar(60) NOT NULL,
     `source` varchar(256) NOT NULL,
     `user_name` varchar(60) NOT NULL,
-    `fs_id` varchar(60) NOT NULL,
-    `fs_name` varchar(60) NOT NULL,
+    `global_fs_id` varchar(60) NOT NULL,
+    `global_fs_name` varchar(60) NOT NULL,
     `description` text NOT NULL,
     `parameters_json` text NOT NULL,
     `run_yaml` text NOT NULL,
     `docker_env` varchar(128) NOT NULL,
-    `entry` varchar(256) NOT NULL,
     `disabled` text NOT NULL,
     `schedule_id` varchar(60) NOT NULL,
     `message` text NOT NULL,
@@ -168,7 +169,7 @@ CREATE TABLE IF NOT EXISTS `run` (
     `deleted_at` datetime(3) DEFAULT NULL,
     PRIMARY KEY (`pk`),
     UNIQUE KEY (`id`),
-    INDEX (`fs_id`),
+    INDEX (`global_fs_id`),
     INDEX (`status`)
 ) ENGINE=InnoDB DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
 
@@ -176,6 +177,7 @@ CREATE TABLE IF NOT EXISTS `run_job` (
     `pk` bigint(20) NOT NULL AUTO_INCREMENT,
     `id` varchar(60) NOT NULL,
     `run_id` varchar(60) NOT NULL,
+    `parent_dag_id` varchar(60) NOT NULL,
     `name` varchar(60) NOT NULL,
     `step_name` varchar(60) NOT NULL,
     `command` text,
@@ -183,10 +185,34 @@ CREATE TABLE IF NOT EXISTS `run_job` (
     `artifacts_json` text,
     `env_json` text,
     `docker_env` varchar(128),
+    `loop_seq` int NOT NULL,
     `status` varchar(32) DEFAULT NULL,
     `message` text,
     `cache_json` text,
     `cache_run_id` varchar(60),
+    `cache_job_id` varchar(60),
+    `fs_mount_json` text,
+    `created_at` datetime(3) DEFAULT NULL,
+    `activated_at` datetime(3) DEFAULT NULL,
+    `updated_at` datetime(3) DEFAULT NULL,
+    `deleted_at` datetime(3) DEFAULT NULL,
+    PRIMARY KEY (`pk`),
+    INDEX (`run_id`),
+    INDEX (`status`)
+)ENGINE=InnoDB DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
+
+CREATE TABLE IF NOT EXISTS `run_dag` (
+    `pk` bigint(20) NOT NULL AUTO_INCREMENT,
+    `id` varchar(60) NOT NULL,
+    `run_id` varchar(60) NOT NULL,
+    `parent_dag_id` varchar(60) NOT NULL,
+    `name` varchar(60) NOT NULL,
+    `dag_name` varchar(60) NOT NULL,
+    `parameters_json` text,
+    `artifacts_json` text,
+    `loop_seq` int NOT NULL,
+    `status` varchar(32) DEFAULT NULL,
+    `message` text,
     `created_at` datetime(3) DEFAULT NULL,
     `activated_at` datetime(3) DEFAULT NULL,
     `updated_at` datetime(3) DEFAULT NULL,
@@ -268,7 +294,7 @@ CREATE TABLE IF NOT EXISTS `schedule` (
 CREATE TABLE IF NOT EXISTS `run_cache` (
     `pk` bigint(20) NOT NULL AUTO_INCREMENT,
     `id` varchar(60) NOT NULL UNIQUE,
-    `step` varchar(256) NOT NULL,
+    `job_id` varchar(60) NOT NULL,
     `first_fp` varchar(256),
     `second_fp` varchar(256),
     `source` varchar(256) NOT NULL,
@@ -284,7 +310,7 @@ CREATE TABLE IF NOT EXISTS `run_cache` (
     `deleted_at` datetime(3) DEFAULT NULL,
     PRIMARY KEY (`pk`),
     UNIQUE KEY (`id`),
-    INDEX (`step`),
+    INDEX (`job_id`),
     INDEX (`fs_id`),
     INDEX (`strategy`)
 ) ENGINE=InnoDB DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
@@ -298,6 +324,7 @@ CREATE TABLE IF NOT EXISTS `artifact_event` (
     `fs_name` varchar(60) NOT NULL,
     `artifact_path` varchar(256) NOT NULL,
     `step` varchar(256) Not Null,
+    `job_id` varchar(60) NOT NULL,
     `artifact_name` varchar(32) Not Null,
     `type` varchar(16) Not Null,
     `meta` text,

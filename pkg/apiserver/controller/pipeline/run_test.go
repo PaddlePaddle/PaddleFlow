@@ -17,6 +17,8 @@ limitations under the License.
 package pipeline
 
 import (
+	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -32,46 +34,81 @@ import (
 const (
 	MockRunID1   = "run-id_1"
 	MockRunName1 = "run-name_1"
-	MockFsID1    = "fs-id_1"
+	MockFsID1    = "fs-mockUser-mockFs"
 	MockRunID3   = "run-id_3"
 
 	MockRunID2   = "run-id_2"
 	MockRunName2 = "run-name_2"
 	MockUserID2  = "user-id_2"
-	MockFsID2    = "fs-id_2"
+	MockFsID2    = "fs-mockUser-mockFs"
+
+	runDagYamlPath = "./testcase/run_dag.yaml"
 )
 
 func getMockRun1() models.Run {
 	run1 := models.Run{
-		ID:       MockRunID1,
-		Name:     MockRunName1,
-		UserName: MockRootUser,
-		FsID:     MockFsID1,
-		Status:   common.StatusRunPending,
+		ID:         MockRunID1,
+		Name:       MockRunName1,
+		UserName:   MockRootUser,
+		GlobalFsID: MockFsID1,
+		Status:     common.StatusRunPending,
+		RunYaml:    string(loadCase(runYamlPath)),
 	}
 	return run1
 }
 
 func getMockRun1_3() models.Run {
 	run1 := models.Run{
-		ID:       MockRunID3,
-		Name:     "run_without_runtime",
-		UserName: MockRootUser,
-		FsID:     MockFsID1,
-		Status:   common.StatusRunRunning,
+		ID:         MockRunID3,
+		Name:       "run_without_runtime",
+		UserName:   MockRootUser,
+		GlobalFsID: MockFsID1,
+		Status:     common.StatusRunRunning,
+		RunYaml:    string(loadCase(runYamlPath)),
 	}
 	return run1
 }
 
 func getMockRun2() models.Run {
 	run2 := models.Run{
-		ID:       MockRunID2,
-		Name:     MockRunName2,
-		UserName: MockUserID2,
-		FsID:     MockFsID2,
-		Status:   common.StatusRunPending,
+		ID:         MockRunID2,
+		Name:       MockRunName2,
+		UserName:   MockUserID2,
+		GlobalFsID: MockFsID2,
+		Status:     common.StatusRunPending,
+		RunYaml:    string(loadCase(runYamlPath)),
 	}
 	return run2
+}
+
+func getMockFullRun() (models.Run, error) {
+	runYaml := loadCase(runDagYamlPath)
+	wfs, err := schema.GetWorkflowSource(runYaml)
+	if err != nil {
+		return models.Run{}, err
+	}
+	run := models.Run{
+		Name:           "full_run",
+		Source:         "run.yaml",
+		UserName:       "mockUser",
+		GlobalFsID:     "fs-mockUser-mockFs",
+		GlobalFsName:   "mockFs",
+		Description:    "desc",
+		Parameters:     map[string]interface{}{},
+		RunYaml:        string(runYaml),
+		WorkflowSource: wfs,
+		Status:         common.StatusRunInitiating,
+	}
+	return run, nil
+}
+
+func newMockWorkflowByRun(run models.Run) (*pipeline.Workflow, error) {
+	// bwfTemp := &pipeline.BaseWorkflow{}
+	// p1 := gomonkey.ApplyPrivateMethod(reflect.TypeOf(bwfTemp), "checkFs", func() error {
+	// 	return nil
+	// })
+	// defer p1.Reset()
+	return newWorkflowByRun(run)
 }
 
 func TestListRunSuccess(t *testing.T) {
@@ -104,7 +141,7 @@ func TestListRunSuccess(t *testing.T) {
 }
 
 func TestGetRunSuccess(t *testing.T) {
-	driver.InitMockDB()
+	//driver.InitMockDB()
 	ctx := &logger.RequestContext{UserName: MockRootUser}
 	var err error
 	// test no runtime
@@ -147,18 +184,15 @@ func TestCallback(t *testing.T) {
 	run1 := getMockRun1()
 	run1.ID, err = models.CreateRun(ctx.Logging(), &run1)
 	assert.Nil(t, err)
-	runtimeView := schema.RuntimeView{}
-	postProcessView := schema.PostProcessView{}
 	event1 := pipeline.WorkflowEvent{
 		Event: pipeline.WfEventRunUpdate,
 		Extra: map[string]interface{}{
-			common.WfEventKeyRunID:       run1.ID,
-			common.WfEventKeyStatus:      common.StatusRunRunning,
-			common.WfEventKeyRuntime:     runtimeView,
-			common.WfEventKeyPostProcess: postProcessView,
+			common.WfEventKeyRunID:     run1.ID,
+			common.WfEventKeyStatus:    common.StatusRunRunning,
+			common.WfEventKeyStartTime: "2022-07-07 13:15:04",
 		},
 	}
-	f := UpdateRunFunc
+	f := UpdateRuntimeFunc
 	f(run1.ID, &event1)
 	updatedRun, err := models.GetRunByID(ctx.Logging(), run1.ID)
 	assert.Nil(t, err)
@@ -174,4 +208,50 @@ func TestCallback(t *testing.T) {
 	assert.Nil(t, err)
 	assert.False(t, updatedRun.ActivatedAt.Valid)
 	assert.Empty(t, updatedRun.ActivateTime)
+}
+
+func TestNewWorkflowByRun(t *testing.T) {
+	driver.InitMockDB()
+	var err error
+	run, err := getMockFullRun()
+	assert.Nil(t, err)
+	wf, err := newMockWorkflowByRun(run)
+	assert.Nil(t, err)
+
+	text, _ := json.Marshal(wf.BaseWorkflow.Source)
+	fmt.Println(string(text))
+
+	run1, err := getMockFullRun()
+	assert.Nil(t, err)
+	run1.WorkflowSource.Disabled = "square-loop.square"
+	_, err = newMockWorkflowByRun(run1)
+	assert.NotNil(t, err)
+	assert.Equal(t, "disabled component[square] is refered by [square-loop]", err.Error())
+
+	run1.WorkflowSource.Disabled = "process-negetive.condition2.show"
+	_, err = newMockWorkflowByRun(run1)
+	assert.NotNil(t, err)
+	assert.Equal(t, "disabled component[show] is refered by [abs]", err.Error())
+
+	run2, err := getMockFullRun()
+	assert.Nil(t, err)
+	run2.Parameters = map[string]interface{}{
+		"square-loop.noComp.noParam": "1",
+	}
+	_, err = newMockWorkflowByRun(run2)
+	assert.NotNil(t, err)
+	assert.Equal(t, "component [noComp] not exist", err.Error())
+	run2.Parameters = map[string]interface{}{
+		"square-loop.square.num": 3,
+	}
+	_, err = newMockWorkflowByRun(run2)
+	assert.Nil(t, err)
+
+	run2.Parameters = map[string]interface{}{
+		"randint.pString": "str",
+		"randint.pFloat":  1.1,
+		"randint.pPath":   "testcase/run.yaml",
+	}
+	_, err = newMockWorkflowByRun(run2)
+	assert.Nil(t, err)
 }

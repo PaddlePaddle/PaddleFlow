@@ -109,7 +109,7 @@ func callPrometheusAPI(metricName, jobID string) (model.Value, error) {
 func getQuerySql(metricName string) string {
 	switch metricName {
 	case consts.MetricCpuUsageRate:
-		querySql := QueryCPUUsageRateSql
+		querySql := QueryCPUUsageRateQl
 		return querySql
 		// TODO add more metric sql
 	default:

@@ -25,5 +25,5 @@ entry_points:
       PF_JOB_QUEUE: v100-16G
       PF_JOB_PRIORITY: high
       PF_JOB_FLAVOUR: v100-10
-      PF_PS_NUM: 1
-      PF_WORKER_NUM: 4
+      PF_PS_NUM: "1"
+      PF_WORKER_NUM: "4"
