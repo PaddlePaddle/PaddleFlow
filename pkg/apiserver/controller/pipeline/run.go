@@ -58,12 +58,12 @@ const (
 )
 
 type CreateRunRequest struct {
-	GlobalFsName string                 `json:"globalFsName"`
-	UserName     string                 `json:"username,omitempty"`   // optional, only for root user
-	Name         string                 `json:"name,omitempty"`       // optional
-	Description  string                 `json:"desc,omitempty"`       // optional
-	Parameters   map[string]interface{} `json:"parameters,omitempty"` // optional
-	DockerEnv    string                 `json:"dockerEnv,omitempty"`  // optional
+	FsName      string                 `json:"fsName"`
+	UserName    string                 `json:"username,omitempty"`   // optional, only for root user
+	Name        string                 `json:"name,omitempty"`       // optional
+	Description string                 `json:"desc,omitempty"`       // optional
+	Parameters  map[string]interface{} `json:"parameters,omitempty"` // optional
+	DockerEnv   string                 `json:"dockerEnv,omitempty"`  // optional
 	// run workflow source. priority: RunYamlRaw > PipelineID + PipelineDetailID > RunYamlPath
 	// 为了防止字符串或者不同的http客户端对run.yaml
 	// 格式中的特殊字符串做特殊过滤处理导致yaml文件不正确，因此采用runYamlRaw采用base64编码传输
@@ -113,7 +113,7 @@ type RunBrief struct {
 	Name          string `json:"name"`
 	Source        string `json:"source"` // pipelineID or yamlPath
 	UserName      string `json:"username"`
-	GlobalFsName  string `json:"globalFsName"`
+	FsName        string `json:"fsName"`
 	Description   string `json:"description"`
 	ScheduleID    string `json:"scheduleID"`
 	Message       string `json:"runMsg"`
@@ -134,7 +134,7 @@ func (b *RunBrief) modelToListResp(run models.Run) {
 	b.Name = run.Name
 	b.Source = run.Source
 	b.UserName = run.UserName
-	b.GlobalFsName = run.GlobalFsName
+	b.FsName = run.FsName
 	b.Description = run.Description
 	b.ScheduleID = run.ScheduleID
 	b.Message = run.Message
@@ -469,8 +469,8 @@ func runYamlAndReqToWfs(runYaml string, req CreateRunRequest) (schema.WorkflowSo
 	if req.Disabled != "" {
 		wfs.Disabled = req.Disabled
 	}
-	if req.GlobalFsName != "" {
-		wfs.FsOptions.GlobalFsName = req.GlobalFsName
+	if req.FsName != "" {
+		wfs.FsOptions.FsName = req.FsName
 	}
 	return wfs, nil
 }
@@ -484,8 +484,8 @@ func CreateRun(ctx logger.RequestContext, request *CreateRunRequest, extra map[s
 		extra = map[string]string{}
 	}
 
-	globalFsID := ""
-	globalFsName := request.GlobalFsName
+	fsID := ""
+	fsName := request.FsName
 	requestId := ctx.RequestID
 	ctxUserName := ctx.UserName // 这是实际发送请求的用户，由Token决定，全局不会改变
 	userName := ctxUserName     // 这是进行后续fs操作的用户，root用户可以设置为其他普通用户
@@ -494,24 +494,24 @@ func CreateRun(ctx logger.RequestContext, request *CreateRunRequest, extra map[s
 		userName = request.UserName
 	}
 
-	if globalFsName != "" {
-		globalFsID = common.ID(userName, globalFsName)
+	if fsName != "" {
+		fsID = common.ID(userName, fsName)
 	}
 
 	// TODO:// validate flavour
 	// TODO:// validate queue
 
 	trace_logger.Key(requestId).Infof("build workflow source for run: %+v", request)
-	wfs, source, runYaml, err := buildWorkflowSource(ctx, *request, globalFsID)
+	wfs, source, runYaml, err := buildWorkflowSource(ctx, *request, fsID)
 	if err != nil {
 		logger.Logger().Errorf("buildWorkflowSource failed. error:%v", err)
 		return CreateRunResponse{}, err
 	}
 
 	// 如果request里面的fsID为空，那么需要判断yaml（通过PipelineID或Raw上传的）中有无指定GlobalFs，有则生成fsID
-	if globalFsName == "" && wfs.FsOptions.GlobalFsName != "" {
-		globalFsID = common.ID(userName, wfs.FsOptions.GlobalFsName)
-		globalFsName = wfs.FsOptions.GlobalFsName
+	if fsName == "" && wfs.FsOptions.FsName != "" {
+		fsID = common.ID(userName, wfs.FsOptions.FsName)
+		fsName = wfs.FsOptions.FsName
 	}
 
 	trace_logger.Key(requestId).Infof("check name reg pattern: %s", wfs.Name)
@@ -540,8 +540,8 @@ func CreateRun(ctx logger.RequestContext, request *CreateRunRequest, extra map[s
 		Name:           wfs.Name,
 		Source:         source,
 		UserName:       userName,
-		GlobalFsName:   globalFsName,
-		GlobalFsID:     globalFsID,
+		FsName:         fsName,
+		GlobalFsID:     fsID,
 		Description:    request.Description,
 		Parameters:     request.Parameters,
 		RunYaml:        runYaml,
@@ -593,7 +593,7 @@ func CreateRunByJson(ctx logger.RequestContext, bodyMap map[string]interface{}) 
 	requestId := ctx.RequestID
 
 	// 从request body中提取部分信息，这些信息与workflow没有直接关联
-	var reqGlobalFsName string
+	var reqFsName string
 	var reqUserName string
 	var reqDescription string
 
@@ -610,7 +610,7 @@ func CreateRunByJson(ctx logger.RequestContext, bodyMap map[string]interface{}) 
 			logger.Logger().Errorf("check fsOptions failed, error: %s", err.Error())
 			return CreateRunResponse{}, err
 		}
-		reqGlobalFsName = fsOptions.GlobalFsName
+		reqFsName = fsOptions.FsName
 	}
 	if _, ok := bodyMap[JsonUserName].(string); ok {
 		reqUserName = bodyMap[JsonUserName].(string)
@@ -622,12 +622,12 @@ func CreateRunByJson(ctx logger.RequestContext, bodyMap map[string]interface{}) 
 	globalFsID := ""
 	ctxUserName := ctx.UserName // 这是实际发送请求的用户，由Token决定，全局不会改变
 	userName := ctxUserName     // 这是进行后续fs操作的用户，root用户可以设置为其他普通用户
-	if reqGlobalFsName != "" {
+	if reqFsName != "" {
 		if common.IsRootUser(ctxUserName) && reqUserName != "" {
 			// root user can select fs under other users
 			userName = reqUserName
 		}
-		globalFsID = common.ID(userName, reqGlobalFsName)
+		globalFsID = common.ID(userName, reqFsName)
 	}
 
 	trace_logger.Key(requestId).Infof("get workflow source for run: %+v", bodyMap)
@@ -657,7 +657,7 @@ func CreateRunByJson(ctx logger.RequestContext, bodyMap map[string]interface{}) 
 		Name:           wfs.Name,
 		Source:         source,
 		UserName:       userName,
-		GlobalFsName:   reqGlobalFsName,
+		FsName:         reqFsName,
 		GlobalFsID:     globalFsID,
 		Description:    reqDescription,
 		RunYaml:        runYaml,
@@ -684,9 +684,9 @@ func ValidateAndCreateRun(ctx logger.RequestContext, run *models.Run, userName s
 		logger.Logger().Errorf("encode run failed. error:%s", err.Error())
 		return nil, "", err
 	}
-	logger.Logger().Infof("debug: fsName before validate fs is [%s]", run.GlobalFsName)
+	logger.Logger().Infof("debug: fsName before validate fs is [%s]", run.FsName)
 
-	if err := checkFs(userName, run.GlobalFsName, &run.WorkflowSource); err != nil {
+	if err := checkFs(userName, run.FsName, &run.WorkflowSource); err != nil {
 		return nil, "", err
 	}
 
@@ -746,15 +746,15 @@ func ValidateAndStartRun(ctx logger.RequestContext, run models.Run, userName str
 	return response, nil
 }
 
-func checkFs(userName string, globalFsName string, wfs *schema.WorkflowSource) error {
-	fsIDs, err := wfs.ProcessFsAndGetAllIDs(userName, globalFsName)
+func checkFs(userName string, fsName string, wfs *schema.WorkflowSource) error {
+	fsIDs, err := wfs.ProcessFsAndGetAllIDs(userName, fsName)
 	if err != nil {
 		logger.Logger().Errorf("process fs failed when check fs. error: %s", err.Error())
 		return err
 	}
 
-	if globalFsName != "" {
-		globalFsID := common.ID(userName, globalFsName)
+	if fsName != "" {
+		globalFsID := common.ID(userName, fsName)
 		fsIDs = append(fsIDs, globalFsID)
 	}
 
@@ -1047,8 +1047,8 @@ func restartRun(run models.Run, isResume bool) error {
 		return updateRunStatusAndMsg(run.ID, common.StatusRunFailed, err.Error())
 	}
 
-	globalFsName, userName := fsCommon.FsIDToFsNameUsername(run.GlobalFsID)
-	if err := checkFs(userName, globalFsName, &run.WorkflowSource); err != nil {
+	fsName, userName := fsCommon.FsIDToFsNameUsername(run.GlobalFsID)
+	if err := checkFs(userName, fsName, &run.WorkflowSource); err != nil {
 		logger.LoggerForRun(run.ID).Errorf("check fs failed. err:%v\n", err)
 		return updateRunStatusAndMsg(run.ID, common.StatusRunFailed, err.Error())
 	}
@@ -1123,7 +1123,7 @@ func newWorkflowByRun(run models.Run) (*pipeline.Workflow, error) {
 		pplcommon.WfExtraInfoKeySource:   run.Source,
 		pplcommon.WfExtraInfoKeyFsID:     run.GlobalFsID,
 		pplcommon.WfExtraInfoKeyUserName: run.UserName,
-		pplcommon.WfExtraInfoKeyFsName:   run.GlobalFsName,
+		pplcommon.WfExtraInfoKeyFsName:   run.FsName,
 	}
 	logger.LoggerForRun(run.ID).Infof("debug: fsname in extra is [%s]", extraInfo[pplcommon.WfExtraInfoKeyFsName])
 	wfPtr, err := pipeline.NewWorkflow(run.WorkflowSource, run.ID, run.Parameters, extraInfo, workflowCallbacks)

@@ -92,7 +92,7 @@ func getMockFullRun() (models.Run, error) {
 		Source:         "run.yaml",
 		UserName:       "mockUser",
 		GlobalFsID:     "fs-mockUser-mockFs",
-		GlobalFsName:   "mockFs",
+		FsName:         "mockFs",
 		Description:    "desc",
 		Parameters:     map[string]interface{}{},
 		RunYaml:        string(runYaml),
