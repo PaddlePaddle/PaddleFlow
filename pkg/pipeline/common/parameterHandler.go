@@ -486,8 +486,14 @@ func (s *ComponentParamChecker) refParamExist(currentCompName, refCompName, refP
 			return fmt.Errorf("invalid reference param {{ %s.%s }} in component[%s]: output artifact[%s] not exist", refCompName, refParamName, currentCompName, refParamName)
 		}
 	case FieldParameters:
-		if _, ok := refComponent.GetParameters()[refParamName]; !ok {
-			return fmt.Errorf("invalid reference param {{ %s.%s }} in component[%s]: parameter[%s] not exist", refCompName, refParamName, currentCompName, refParamName)
+		if refCompName == PF_LOOP_ARGUMENT {
+			if refComponent.GetLoopArgument() == nil {
+				return fmt.Errorf("invalid reference param {{ %s.%s }} in component[%s]: loop_argument not exist", refCompName, refParamName, currentCompName)
+			}
+		} else {
+			if _, ok := refComponent.GetParameters()[refParamName]; !ok {
+				return fmt.Errorf("invalid reference param {{ %s.%s }} in component[%s]: parameter[%s] not exist", refCompName, refParamName, currentCompName, refParamName)
+			}
 		}
 	default:
 		return fmt.Errorf("component [%s] refer [%s.%s] invalid, only parameters can use upstream parameters and only input artifacts can use upstream output artifacts", currentCompName, refCompName, refParamName)
