@@ -265,7 +265,7 @@ func ListQueueJob(queueID string, status []schema.JobStatus) []Job {
 }
 
 func ListQueueInitJob(queueID string) []Job {
-	db := storage.DB.Table("job").Where("status = ?", schema.StatusJobInit).Where("queue_id = ?", queueID).Where("deleted_at = ''")
+	db := storage.DB.Table("job").Where("queue_id = ?", queueID).Where("status = ?", schema.StatusJobInit).Where("deleted_at = ''")
 
 	var jobs []Job
 	err := db.Find(&jobs).Error

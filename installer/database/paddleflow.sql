@@ -80,7 +80,7 @@ CREATE TABLE IF NOT EXISTS `job` (
     `deleted_at` varchar(64) DEFAULT '',
     PRIMARY KEY (`pk`),
     UNIQUE KEY `job_id` (`id`, `deleted_at`),
-    INDEX KEY `status_queue_deleted` (`status`, `queue_id`, `deleted_at`)
+    INDEX KEY `status_queue_deleted` (`queue_id`, `status`, `deleted_at`)
 ) ENGINE=InnoDB DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
 
 CREATE TABLE IF NOT EXISTS `job_label` (
