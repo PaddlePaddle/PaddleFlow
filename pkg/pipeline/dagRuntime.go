@@ -579,7 +579,7 @@ func (drt *DagRuntime) CreateSubRuntimeAccordingView(view schema.ComponentView, 
 }
 
 func (drt *DagRuntime) creatStepRuntimeAccordingView(view *schema.JobView, name string) componentRuntime {
-	runtimeName := drt.generateSubRuntimeName(name, view.Seq)
+	runtimeName := drt.generateSubRuntimeName(name, view.LoopSeq)
 	fullName := drt.generateSubComponentFullName(name)
 
 	ctxAndcc := drt.getfailureOptionsCtxAndCF(name)
@@ -587,13 +587,13 @@ func (drt *DagRuntime) creatStepRuntimeAccordingView(view *schema.JobView, name 
 	step := *drt.getworkflowSouceDag().EntryPoints[name].DeepCopy().(*schema.WorkflowSourceStep)
 	stepPtr := &step
 	srt := NewStepRuntime(runtimeName, fullName, stepPtr,
-		view.Seq, drt.ctx, ctxAndcc.ctx, drt.receiveEventChildren, drt.runConfig, drt.ID)
+		view.LoopSeq, drt.ctx, ctxAndcc.ctx, drt.receiveEventChildren, drt.runConfig, drt.ID)
 
 	return srt
 }
 
 func (drt *DagRuntime) createDagRuntimeAccordingView(view *schema.DagView, name string) componentRuntime {
-	runtimeName := drt.generateSubRuntimeName(name, view.Seq)
+	runtimeName := drt.generateSubRuntimeName(name, view.LoopSeq)
 	fullName := drt.generateSubComponentFullName(name)
 
 	ctxAndcc := drt.getfailureOptionsCtxAndCF(name)
@@ -601,7 +601,7 @@ func (drt *DagRuntime) createDagRuntimeAccordingView(view *schema.DagView, name 
 	dag := *drt.getworkflowSouceDag().EntryPoints[name].DeepCopy().(*schema.WorkflowSourceDag)
 	dagPtr := &dag
 	sDrt := NewDagRuntime(runtimeName, fullName, dagPtr,
-		view.Seq, drt.ctx, ctxAndcc.ctx, drt.receiveEventChildren, drt.runConfig, drt.ID)
+		view.LoopSeq, drt.ctx, ctxAndcc.ctx, drt.receiveEventChildren, drt.runConfig, drt.ID)
 
 	return sDrt
 }
@@ -1185,7 +1185,7 @@ func (drt *DagRuntime) newView(msg string) schema.DagView {
 		Status:      drt.status,
 		Message:     msg,
 		ParentDagID: drt.parentDagID,
-		Seq:         drt.loopSeq,
+		LoopSeq:     drt.loopSeq,
 		PK:          drt.pk,
 	}
 }

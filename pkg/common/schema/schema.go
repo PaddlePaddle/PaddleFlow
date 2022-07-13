@@ -34,7 +34,7 @@ type JobView struct {
 	Type        string            `json:"type"`
 	StepName    string            `json:"stepName"`
 	ParentDagID string            `json:"parentDagID"`
-	Seq         int               `json:"-"`
+	LoopSeq     int               `json:"-"`
 	Command     string            `json:"command"`
 	Parameters  map[string]string `json:"parameters"`
 	Env         map[string]string `json:"env"`
@@ -72,7 +72,7 @@ func (j JobView) GetStatus() JobStatus {
 }
 
 func (j JobView) GetSeq() int {
-	return j.Seq
+	return j.LoopSeq
 }
 
 type DagView struct {
@@ -82,7 +82,7 @@ type DagView struct {
 	Type        string                     `json:"type"`
 	DagName     string                     `json:"dagName"`
 	ParentDagID string                     `json:"parentDagID"`
-	Seq         int                        `json:"-"`
+	LoopSeq     int                        `json:"-"`
 	Deps        string                     `json:"deps"`
 	Parameters  map[string]string          `json:"parameters"`
 	Artifacts   Artifacts                  `json:"artifacts"`
@@ -114,7 +114,7 @@ func (d DagView) GetStatus() JobStatus {
 }
 
 func (d DagView) GetSeq() int {
-	return d.Seq
+	return d.LoopSeq
 }
 
 // RuntimeView is view of run responded to user, while workflowRuntime is for pipeline engine to process

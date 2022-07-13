@@ -221,21 +221,21 @@ func TestRestartEntry(t *testing.T) {
 		"data-preprocess": []schema.ComponentView{
 			&schema.JobView{
 				Status:   StatusRuntimeSucceeded,
-				Seq:      0,
+				LoopSeq:  0,
 				StepName: "data-preprocess",
 			},
 		},
 		"main": []schema.ComponentView{
 			&schema.JobView{
 				Status:   StatusRuntimeSucceeded,
-				Seq:      0,
+				LoopSeq:  0,
 				StepName: "main",
 			},
 		},
 		"validate": []schema.ComponentView{
 			&schema.JobView{
 				Status:   StatusRuntimeSucceeded,
-				Seq:      0,
+				LoopSeq:  0,
 				StepName: "validate",
 			},
 		},

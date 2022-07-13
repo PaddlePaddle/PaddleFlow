@@ -482,25 +482,25 @@ func TestDagRunRestart(t *testing.T) {
 			"randint": []schema.ComponentView{
 				&schema.JobView{
 					Status:   StatusRuntimeSucceeded,
-					Seq:      0,
+					LoopSeq:  0,
 					StepName: "randint",
 				},
 			},
 			"sum": []schema.ComponentView{
 				&schema.JobView{
 					Status:   StatusRuntimeSucceeded,
-					Seq:      0,
+					LoopSeq:  0,
 					StepName: "sum",
 				},
 			},
 			"square-loop": []schema.ComponentView{
 				&schema.DagView{
-					Seq:     0,
+					LoopSeq: 0,
 					Status:  StatusRuntimeSucceeded,
 					DagName: "square-loop",
 				},
 				&schema.DagView{
-					Seq:     1,
+					LoopSeq: 1,
 					Status:  StatusRuntimeSucceeded,
 					DagName: "square-loop",
 				},
@@ -508,22 +508,22 @@ func TestDagRunRestart(t *testing.T) {
 			"split-by-threshold": []schema.ComponentView{
 				&schema.JobView{
 					Status:   StatusRuntimeFailed,
-					Seq:      0,
+					LoopSeq:  0,
 					StepName: "split-by-threshold",
 				},
 				&schema.JobView{
 					Status:   StatusRuntimeCancelled,
-					Seq:      1,
+					LoopSeq:  1,
 					StepName: "split-by-threshold",
 				}, &schema.JobView{
 					Status:   StatusRuntimeFailed,
-					Seq:      2,
+					LoopSeq:  2,
 					StepName: "split-by-threshold",
 				},
 			},
 			"process-positive": []schema.ComponentView{
 				&schema.DagView{
-					Seq:     0,
+					LoopSeq: 0,
 					Status:  StatusRuntimeCancelled,
 					DagName: "process-positive",
 				},
@@ -531,14 +531,14 @@ func TestDagRunRestart(t *testing.T) {
 			"process-negetive": []schema.ComponentView{
 				&schema.DagView{
 					Status:  StatusRuntimeCancelled,
-					Seq:     0,
+					LoopSeq: 0,
 					DagName: "process-negetive",
 				},
 			},
 			"disStep": []schema.ComponentView{
 				&schema.JobView{
 					Status:   StatusRuntimeSkipped,
-					Seq:      0,
+					LoopSeq:  0,
 					StepName: "disStep",
 				},
 			},

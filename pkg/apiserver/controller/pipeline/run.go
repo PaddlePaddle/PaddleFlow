@@ -19,7 +19,6 @@ package pipeline
 import (
 	"database/sql"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -30,12 +29,14 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/fs"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	errors2 "github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	fsCommon "github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/pipeline"
 	pplcommon "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/trace_logger"
@@ -44,7 +45,7 @@ import (
 var wfMap = make(map[string]*pipeline.Workflow, 0)
 
 const (
-	JsonFsOptions   = "fsOptions"
+	JsonFsOptions   = "fs_options" //由于在获取BodyMap的FsOptions前已经转为下划线形式，因此这里为fs_options
 	JsonUserName    = "userName"
 	JsonDescription = "description"
 	JsonFlavour     = "flavour"
@@ -236,22 +237,16 @@ func buildWorkflowSource(ctx logger.RequestContext, req CreateRunRequest, fsID s
 // Used for API CreateRunJson, get wfs by json request.
 func getWorkFlowSourceByJson(bodyMap map[string]interface{}) (schema.WorkflowSource, error) {
 	// 先处理Json特有的参数
-	res, _ := json.Marshal(bodyMap)
-	logger.Logger().Infof("debug: before marshal in getwfs: %s", res)
 	if err := ProcessJsonAttr(bodyMap); err != nil {
 		logger.Logger().Errorf("process json attribute failed, error: %s", err.Error())
 		return schema.WorkflowSource{}, err
 	}
-	res, _ = json.Marshal(bodyMap)
-	logger.Logger().Infof("debug: after marshal in getwfs: %s", res)
 	// 获取yaml版的Wfs
 	wfs, err := schema.GetWorkflowSourceByMap(bodyMap)
 	if err != nil {
 		logger.Logger().Errorf("get workflowSource in json failed, error: %s", err.Error())
 		return schema.WorkflowSource{}, err
 	}
-	res, _ = json.Marshal(wfs)
-	logger.Logger().Infof("debug: after getwfs: %s", res)
 
 	return wfs, nil
 }
@@ -452,7 +447,6 @@ func getSourceAndYaml(wfs schema.WorkflowSource) (string, string, error) {
 
 func runYamlAndReqToWfs(runYaml string, req CreateRunRequest) (schema.WorkflowSource, error) {
 	// parse yaml -> WorkflowSource
-	logger.Logger().Infof("debug: run yaml is :\n %s", runYaml)
 	wfs, err := schema.GetWorkflowSource([]byte(runYaml))
 	if err != nil {
 		logger.Logger().Errorf("get WorkflowSource by yaml failed. yaml: %s \n, err:%v", runYaml, err)
@@ -647,6 +641,11 @@ func ValidateAndStartRun(ctx logger.RequestContext, run models.Run, userName str
 		return CreateRunResponse{}, err
 	}
 	logger.Logger().Infof("debug: fsName before validate fs is [%s]", run.GlobalFsName)
+
+	if err := checkFs(userName, run.GlobalFsName, &run.WorkflowSource); err != nil {
+		return CreateRunResponse{}, err
+	}
+
 	trace_logger.Key(requestId).Infof("validate and init workflow")
 	// validate workflow in func NewWorkflow
 	wfPtr, err := newWorkflowByRun(run)
@@ -690,6 +689,37 @@ func ValidateAndStartRun(ctx logger.RequestContext, run models.Run, userName str
 		RunID: runID,
 	}
 	return response, nil
+}
+
+func checkFs(userName string, globalFsName string, wfs *schema.WorkflowSource) error {
+	fsIDs, err := wfs.ProcessFsAndGetAllIDs(userName, globalFsName)
+	if err != nil {
+		logger.Logger().Errorf("process fs failed when check fs. error: %s", err.Error())
+		return err
+	}
+
+	if globalFsName != "" {
+		globalFsID := common.ID(userName, globalFsName)
+		fsIDs = append(fsIDs, globalFsID)
+	}
+
+	//检查fs权限
+	for _, id := range fsIDs {
+		fsService := fs.GetFileSystemService()
+		hasPermission, err := fsService.HasFsPermission(userName, id)
+		if err != nil {
+			err := fmt.Errorf("check fs permission failed with userName[%s] and fsID[%s]. error: %s",
+				userName, id, err.Error())
+			logger.Logger().Errorf(err.Error())
+			return err
+		}
+		if !hasPermission {
+			err := fmt.Errorf("user[%s] has no permission to fs[%s]", userName, id)
+			logger.Logger().Errorf(err.Error())
+			return err
+		}
+	}
+	return nil
 }
 
 func ListRun(ctx *logger.RequestContext, marker string, maxKeys int, userFilter, fsFilter, runFilter, nameFilter, statusFilter, scheduleIDFilter []string) (ListRunResponse, error) {
@@ -962,6 +992,12 @@ func restartRun(run models.Run, isResume bool) error {
 		return updateRunStatusAndMsg(run.ID, common.StatusRunFailed, err.Error())
 	}
 
+	globalFsName, userName := fsCommon.FsIDToFsNameUsername(run.GlobalFsID)
+	if err := checkFs(userName, globalFsName, &run.WorkflowSource); err != nil {
+		logger.LoggerForRun(run.ID).Errorf("check fs failed. err:%v\n", err)
+		return updateRunStatusAndMsg(run.ID, common.StatusRunFailed, err.Error())
+	}
+
 	defer func() {
 		if info := recover(); info != nil {
 			errmsg := fmt.Sprintf("StartWf failed, %v", info)
@@ -1008,16 +1044,14 @@ func RestartWf(run models.Run, wfPtr *pipeline.Workflow, isResume bool) error {
 	// set runtime and restart
 	trace_logger.Key(run.ID).Infof("resume workflow, set runtime and restart")
 	entryPointDagView := &schema.DagView{}
-	res, _ := json.Marshal(run.Runtime)
-	logger.Logger().Infof("debug: runtimeview1 is: %s", res)
+
 	if len(run.Runtime[""]) == 1 {
 		tempDagView, ok := run.Runtime[""][0].(*schema.DagView)
 		if ok {
 			entryPointDagView = tempDagView
 		}
 	}
-	res, _ = json.Marshal(run.Runtime)
-	logger.Logger().Infof("debug: runtimeview2 is: %s", res)
+
 	if isResume {
 		wfPtr.Resume(entryPointDagView, run.PostProcess)
 	} else {

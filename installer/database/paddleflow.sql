@@ -167,7 +167,7 @@ CREATE TABLE IF NOT EXISTS `run` (
     `deleted_at` datetime(3) DEFAULT NULL,
     PRIMARY KEY (`pk`),
     UNIQUE KEY (`id`),
-    INDEX (`fs_id`),
+    INDEX (`global_fs_id`),
     INDEX (`status`)
 ) ENGINE=InnoDB DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
 
@@ -183,7 +183,7 @@ CREATE TABLE IF NOT EXISTS `run_job` (
     `artifacts_json` text,
     `env_json` text,
     `docker_env` varchar(128),
-    `seq` int NOT NULL,
+    `loop_seq` int NOT NULL,
     `status` varchar(32) DEFAULT NULL,
     `message` text,
     `cache_json` text,
@@ -208,7 +208,7 @@ CREATE TABLE IF NOT EXISTS `run_dag` (
     `dag_name` varchar(60) NOT NULL,
     `parameters_json` text,
     `artifacts_json` text,
-    `seq` int NOT NULL,
+    `loop_seq` int NOT NULL,
     `status` varchar(32) DEFAULT NULL,
     `message` text,
     `created_at` datetime(3) DEFAULT NULL,
@@ -255,8 +255,8 @@ CREATE TABLE IF NOT EXISTS `pipeline_detail` (
     `pk` bigint(20) NOT NULL AUTO_INCREMENT,
     `id` varchar(60) NOT NULL,
     `pipeline_id` varchar(60) NOT NULL,
-    `global_fs_id` varchar(60) NOT NULL,
-    `global_fs_name` varchar(60) NOT NULL,
+    `fs_id` varchar(60) NOT NULL,
+    `fs_name` varchar(60) NOT NULL,
     `yaml_path` text NOT NULL,
     `pipeline_yaml` text NOT NULL,
     `pipeline_md5` varchar(32) NOT NULL,

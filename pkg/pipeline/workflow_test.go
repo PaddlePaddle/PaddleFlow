@@ -18,11 +18,9 @@ package pipeline
 
 import (
 	"fmt"
-	"reflect"
 	"regexp"
 	"testing"
 
-	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
@@ -44,20 +42,20 @@ func loadTwoPostCaseSource() (schema.WorkflowSource, error) {
 
 func NewMockWorkflow(wfSource schema.WorkflowSource, runID string, params map[string]interface{}, extra map[string]string,
 	callbacks WorkflowCallbacks) (*Workflow, error) {
-	bwfTemp := &BaseWorkflow{}
-	p1 := gomonkey.ApplyPrivateMethod(reflect.TypeOf(bwfTemp), "checkFs", func() error {
-		return nil
-	})
-	defer p1.Reset()
+	// bwfTemp := &BaseWorkflow{}
+	// p1 := gomonkey.ApplyPrivateMethod(reflect.TypeOf(bwfTemp), "checkFs", func() error {
+	// 	return nil
+	// })
+	// defer p1.Reset()
 	return NewWorkflow(wfSource, runID, params, extra, callbacks)
 }
 
 func mockValidate(bwf *BaseWorkflow) error {
-	bwfTemp := &BaseWorkflow{}
-	p1 := gomonkey.ApplyPrivateMethod(reflect.TypeOf(bwfTemp), "checkFs", func() error {
-		return nil
-	})
-	defer p1.Reset()
+	// bwfTemp := &BaseWorkflow{}
+	// p1 := gomonkey.ApplyPrivateMethod(reflect.TypeOf(bwfTemp), "checkFs", func() error {
+	// 	return nil
+	// })
+	// defer p1.Reset()
 	return bwf.validate()
 }
 

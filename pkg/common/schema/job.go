@@ -178,7 +178,6 @@ type PFJobConf interface {
 
 	GetQueueName() string
 	GetQueueID() string
-	GetClusterName() string
 	GetClusterID() string
 	GetUserName() string
 
@@ -207,11 +206,12 @@ type PFJobConf interface {
 type Conf struct {
 	Name string `json:"name"`
 	// 存储资源
-	FileSystem      FileSystem   `json:"fileSystem,omitempty"`
-	ExtraFileSystem []FileSystem `json:"extraFileSystem,omitempty"`
+	FileSystem      FileSystem   `json:"fs,omitempty"`
+	ExtraFileSystem []FileSystem `json:"extraFS,omitempty"`
 	// 计算资源
 	Flavour   Flavour `json:"flavour,omitempty"`
 	Priority  string  `json:"priority"`
+	ClusterID string  `json:"clusterID"`
 	QueueID   string  `json:"queueID"`
 	QueueName string  `json:"queueName,omitempty"`
 	// 运行时需要的参数
@@ -286,11 +286,6 @@ func (c *Conf) GetQueueName() string {
 // SetQueueName set queue name
 func (c *Conf) SetQueueName(queueName string) {
 	c.QueueName = queueName
-}
-
-func (c *Conf) GetClusterName() string {
-	c.preCheckEnv()
-	return c.Env[EnvJobClusterName]
 }
 
 func (c *Conf) GetUserName() string {
@@ -405,13 +400,11 @@ func (c *Conf) SetQueueID(id string) {
 }
 
 func (c *Conf) GetClusterID() string {
-	c.preCheckEnv()
-	return c.Env[EnvJobClusterID]
+	return c.ClusterID
 }
 
 func (c *Conf) SetClusterID(id string) {
-	c.preCheckEnv()
-	c.Env[EnvJobClusterID] = id
+	c.ClusterID = id
 }
 
 func (c *Conf) SetLabels(k, v string) {
