@@ -224,6 +224,7 @@ func (fh *FsHandler) LastModTime(path string) (time.Time, error) {
 			fh.log.Debugf("cannot get the latest mtime of path[%s] with fsId[%s]: %s", path, fh.fsID, err.Error())
 			return time.Time{}, err
 		} else {
+			fh.log.Debugf("++++++++++++++++++ modTime for Paths is: %v", pm.PTMap)
 			_, t := pm.LatesTime()
 			return t, nil
 		}
