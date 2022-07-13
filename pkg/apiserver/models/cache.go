@@ -34,7 +34,7 @@ type RunCache struct {
 	SecondFp    string         `json:"secondFp"             gorm:"type:varchar(256)"`
 	RunID       string         `json:"runID"                gorm:"type:varchar(60);not null"`
 	Source      string         `json:"source"               gorm:"type:varchar(256);not null"`
-	Step        string         `json:"step"                 gorm:"type:varchar(256);not null"`
+	JobID       string         `json:"jobID"                gorm:"type:varchar(60);not null"`
 	FsID        string         `json:"-"                    gorm:"type:varchar(60);not null"`
 	FsName      string         `json:"fsname"               gorm:"type:varchar(60);not null"`
 	UserName    string         `json:"username"             gorm:"type:varchar(60);not null"`
@@ -60,33 +60,39 @@ func (c *RunCache) decode() {
 
 func CreateRunCache(logEntry *log.Entry, cache *RunCache) (string, error) {
 	logEntry.Debugf("begin create cache:%+v", cache)
-	err := WithTransaction(storage.DB, func(tx *gorm.DB) error {
-		result := tx.Model(&RunCache{}).Create(cache)
-		if result.Error != nil {
-			logEntry.Errorf("create cache failed. cache:%v, error:%v", cache, result.Error)
-			return result.Error
+	var err error
+	for i := 0; i < 5; i++ {
+		err = WithTransaction(storage.DB, func(tx *gorm.DB) error {
+			result := tx.Model(&RunCache{}).Create(cache)
+			if result.Error != nil {
+				logEntry.Errorf("create cache failed. cache:%v, error:%v", cache, result.Error)
+				return result.Error
+			}
+			cache.ID = common.PrefixCache + fmt.Sprintf("%06d", cache.Pk)
+			logEntry.Debugf("created cache with pk[%d], cacheID[%s]", cache.Pk, cache.ID)
+			// update ID by pk
+			result = tx.Model(&RunCache{}).Where("pk = ?", cache.Pk).Update("id", cache.ID)
+			if result.Error != nil {
+				logEntry.Errorf("back filling cacheID failed. pk[%d], error:%v", cache.Pk, result.Error)
+				return result.Error
+			}
+			return nil
+		})
+		if err == nil {
+			break
 		}
-		cache.ID = common.PrefixCache + fmt.Sprintf("%06d", cache.Pk)
-		logEntry.Debugf("created cache with pk[%d], cacheID[%s]", cache.Pk, cache.ID)
-		// update ID by pk
-		result = tx.Model(&RunCache{}).Where("pk = ?", cache.Pk).Update("id", cache.ID)
-		if result.Error != nil {
-			logEntry.Errorf("back filling cacheID failed. pk[%d], error:%v", cache.Pk, result.Error)
-			return result.Error
-		}
-		return nil
-	})
+	}
 	return cache.ID, err
 }
 
-func ListRunCacheByFirstFp(logEntry *log.Entry, firstFp, fsID, step, source string) ([]RunCache, error) {
+func ListRunCacheByFirstFp(logEntry *log.Entry, firstFp, fsID, source string) ([]RunCache, error) {
 	var cacheList []RunCache
 	tx := storage.DB.Model(&RunCache{}).Where(
-		"first_fp = ? and fs_id = ? and step = ? and source = ?",
-		firstFp, fsID, step, source).Order("created_at DESC").Find(&cacheList)
+		"first_fp = ? and fs_id = ? and source = ?",
+		firstFp, fsID, source).Order("created_at DESC").Find(&cacheList)
 	if tx.Error != nil {
-		logEntry.Errorf("ListRunCacheByFirstFp failed. firstFp[%s] fsID[%s] step[%s] source[%s]. error:%v",
-			firstFp, fsID, step, source, tx.Error)
+		logEntry.Errorf("ListRunCacheByFirstFp failed. firstFp[%s] fsID[%s] source[%s]. error:%v",
+			firstFp, fsID, source, tx.Error)
 		return nil, tx.Error
 	}
 	return cacheList, nil

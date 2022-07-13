@@ -32,8 +32,8 @@ entry_points:
       PF_JOB_QUEUE: v100-16G
       PF_JOB_PRIORITY: high
       PF_JOB_FLAVOUR: v100-10
-      PF_PS_NUM: 1
-      PF_WORKER_NUM: 4
+      PF_PS_NUM: "1"
+      PF_WORKER_NUM: "4"
     artifacts:
       input:
         train_data: "{{ data-preprocess.train_data }}"
@@ -45,12 +45,14 @@ entry_points:
     parameters:
       report: "./data/report"
       refSystem: "{{ PF_RUN_ID }}"
-    command: "python validate.py --model {{ main.model }} --report {{report}}"
+      data_file: "{{main.data_file}}"
+      modelPath: "{{main.model}}"
+    command: "python validate.py --model {{ modelPath }} --report {{report}}"
     env:
       PF_JOB_QUEUE: CPU-32G
       PF_JOB_PRIORITY: low
       test_env_1: "{{report}}"
-      test_env_2: "{{ main.data_file}}_{{ PF_STEP_NAME }}"
+      test_env_2: "{{ data_file}}_{{ PF_STEP_NAME }}"
     artifacts:
       input:
         data: "{{ data-preprocess.validate_data }}"
@@ -60,13 +62,19 @@ post_process:
     command: "echo {{msg}}"
     parameters:
       msg: "hahaha"
-      runtime: "{{PF_RUN_TIME}}"
 
 cache:
   enable: false
   max_expired_time: 400
-  fs_scope: "/path/to/run,/path/to/run2"
+  fs_scope: 
+  - {fs_name: "xd", path: "/path/to/run,/path/to/run2"}
+  
 parallelism: 5
 
 failure_options:
   strategy: "fail_fast"
+
+fs_options:
+  global_fs_name: xd
+  fs_mount: 
+  - {fs_name: abc}

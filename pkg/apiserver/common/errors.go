@@ -31,6 +31,7 @@ const (
 	InvalidURI           = "InvalidURI"           // URI形式不正确。例如一些服务定义的关键词不匹配等。对于ID不匹配等问题，应定义更加具体的错误码，例如NoSuchKey。
 	MalformedJSON        = "MalformedJSON"        // JSON格式不合法
 	MalformedYaml        = "MalformedYaml"        // Yaml格式不合法
+	InvlidPipeline       = "InvalidPipeline"      // Pipeline校验不通过
 	InvalidVersion       = "InvalidVersion"       // URI的版本号不合法
 	FileTypeNotSupported = "FileTypeNotSupported" // 文件类型不支持
 	InvalidNamePattern   = "InvalidNamePattern"   // 命名格式不规范
@@ -396,4 +397,12 @@ func ConnectionClosedError() error {
 
 func FsBeingUsedError(fsID string) error {
 	return fmt.Errorf("fs[%s] is being used and cannot be deleted/modified", fsID)
+}
+
+func InvalidStatisticsParams(param string) error {
+	return fmt.Errorf("Invalid params, %s should to be greater than 0", param)
+}
+
+func InvalidStartEndParams() error {
+	return fmt.Errorf("Invalid params, start should not to be greater than end")
 }
