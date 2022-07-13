@@ -132,6 +132,11 @@ func (srt *StepRuntime) Start() {
 
 	srt.parallelismManager.increase()
 
+	if srt.ctx.Err() != nil || srt.failureOpitonsCtx.Err() != nil {
+		srt.logger.Infof("receive stop signal, step[%s] would't start")
+		return
+	}
+
 	// TODO: 此时是否需要同步至数据库？
 	srt.logger.Infof("begin to run step[%s], and current parallelism is %d", srt.name,
 		srt.parallelismManager.CurrentParallelism())

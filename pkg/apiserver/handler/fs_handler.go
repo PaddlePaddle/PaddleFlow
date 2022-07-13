@@ -203,6 +203,8 @@ func (fh *FsHandler) ModTime(path string) (time.Time, error) {
 	}
 
 	modTime := fileInfo.ModTime()
+
+	fh.log.Debugf("modTime of path[%s] is: %s", path, modTime)
 	return modTime, nil
 }
 
