@@ -160,9 +160,13 @@ func CreateQueue(ctx *logger.RequestContext, request *CreateQueueRequest) (Creat
 	}
 
 	if request.ClusterName == "" {
-		ctx.ErrorCode = common.ClusterNameNotFound
-		ctx.Logging().Errorln("create request failed. error: clusterName not found.")
-		return CreateQueueResponse{}, errors.New("clusterName not found")
+		if config.GlobalServerConfig.Job.IsSingleCluster {
+			request.ClusterName = config.DefaultClusterName
+		} else {
+			ctx.ErrorCode = common.ClusterNameNotFound
+			ctx.Logging().Errorln("create request failed. error: clusterName is not found.")
+			return CreateQueueResponse{}, errors.New("clusterName is not found")
+		}
 	}
 	clusterInfo, err := models.GetClusterByName(request.ClusterName)
 	if err != nil {
