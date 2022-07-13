@@ -407,7 +407,8 @@ func (s *ComponentParamChecker) refParamExist(currentCompName, refCompName, refP
 		input artifact 只做上游step的output artifact 依赖替换
 		PF_PARENT 为引用父节点的
 	*/
-	//针对PF_PARENT单独校验
+
+	// 针对PF_PARENT单独校验
 	if refCompName == PF_PARENT {
 		if len(strings.Split(currentCompName, ".")) < 2 {
 			return fmt.Errorf("PF_PARENT should used by a child component")
@@ -415,7 +416,6 @@ func (s *ComponentParamChecker) refParamExist(currentCompName, refCompName, refP
 		if fieldType != FieldInputArtifacts && fieldType != FieldParameters {
 			return fmt.Errorf("PF_PARENT can only used in parameters or input artifacts")
 		}
-		return nil
 	}
 
 	curComponent := s.Components[currentCompName]
@@ -429,15 +429,19 @@ func (s *ComponentParamChecker) refParamExist(currentCompName, refCompName, refP
 		}
 		absoluteRefCompName = currentCompName + "." + refCompName
 	default:
-		if !StringsContain(curComponent.GetDeps(), refCompName) {
-			return fmt.Errorf("invalid reference param {{ %s.%s }} in component[%s]: component[%s] not in deps", refCompName, refParamName, currentCompName, refCompName)
-		}
-
 		refCompNameList := strings.Split(currentCompName, ".")
-		if len(refCompNameList) > 1 {
-			absoluteRefCompName = strings.Join(refCompNameList[:len(refCompNameList)-1], ".") + "." + refCompName
+		if refCompName == PF_PARENT {
+			absoluteRefCompName = strings.Join(refCompNameList[:len(refCompNameList)-1], ".")
 		} else {
-			absoluteRefCompName = refCompName
+			if !StringsContain(curComponent.GetDeps(), refCompName) {
+				return fmt.Errorf("invalid reference param {{ %s.%s }} in component[%s]: component[%s] not in deps", refCompName, refParamName, currentCompName, refCompName)
+			}
+
+			if len(refCompNameList) > 1 {
+				absoluteRefCompName = strings.Join(refCompNameList[:len(refCompNameList)-1], ".") + "." + refCompName
+			} else {
+				absoluteRefCompName = refCompName
+			}
 		}
 	}
 
