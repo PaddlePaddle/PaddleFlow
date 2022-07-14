@@ -54,7 +54,7 @@ def print_output(data: Union[list, dict], headers: list, output_format: str, tab
         else:
             output = []
             # if list size is 1, then convert list to object
-            if len(data) <= 1:
+            if len(data) == 1:
                 output = dict(zip(headers, data[0]))
             else:
                 for row in data:
