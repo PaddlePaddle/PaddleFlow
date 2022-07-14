@@ -40,41 +40,32 @@ kind: SparkApplication
 metadata:
   creationTimestamp: null
   labels:
-	owner: paddleflow
-	paddleflow-job-id: job-normal-0c272d0a
+    owner: paddleflow
+    paddleflow-job-id: job-normal-0c272d0a
   name: job-normal-0c272d0a
   namespace: default
 spec:
-  batchScheduler: testSchedulerName
-  batchSchedulerOptions: {}
-  deps: {}
   driver:
-	coreLimit: "3"
-	cores: 3
-	memory: 3G
-	podName: normal
-	serviceAccount: spark
+    coreLimit: "3"
+    cores: 3
+    memory: 3G
+    podName: normal
+    serviceAccount: spark
   executor:
-	coreLimit: "2"
-	cores: 2
-	instances: 1
-	memory: 2Gi
+    coreLimit: "2"
+    cores: 2
+    instances: 1
+    memory: 2Gi
   image: mockImage
   imagePullPolicy: IfNotPresent
   mainApplicationFile: null
   mode: cluster
   restartPolicy:
-	onSubmissionFailureRetries: 3
-	onSubmissionFailureRetryInterval: 5
-	type: Never
+    onSubmissionFailureRetries: 3
+    onSubmissionFailureRetryInterval: 5
+    type: Never
   sparkVersion: 3.0.0
   type: Scala
-status:
-  applicationState:
-	state: ""
-  driverInfo: {}
-  lastSubmissionAttemptTime: null
-  terminationTime: null
 `
 	mockSparkJob = api.PFJob{
 		ID:        "job-normal-0c272d0a",
@@ -85,23 +76,9 @@ status:
 		UserName:  "root",
 		QueueID:   "mockQueueID",
 		Conf: schema.Conf{
-			Name: "normal",
-			// Command: "sleep 200",
+			Name:  "normal",
 			Image: "mockImage",
-			Env:   map[string]string{
-				// "PF_JOB_MODE":           "PS",
-				// "PF_FS_ID":              "fs-name_1",
-				// "PF_JOB_CLUSTER_ID":     "testClusterID",
-				// "PF_JOB_ID":             "",
-				// "PF_JOB_NAMESPACE":      "paddleflow",
-				// "PF_JOB_PRIORITY":       "NORMAL",
-				// "PF_JOB_QUEUE_ID":       "mockQueueID",
-				// "PF_JOB_FLAVOUR":        "cpu",
-				// "PF_JOB_WORKER_FLAVOUR": "cpu",
-				// "PF_JOB_WORKER_COMMAND": "sleep 3600",
-				// "PF_JOB_QUEUE_NAME":     "mockQueueName",
-				// "PF_USER_NAME": "root",
-			},
+			Env:   map[string]string{},
 		},
 		Tasks: []models.Member{
 			{
@@ -126,22 +103,12 @@ status:
 					Command: "sleep 200",
 					Image:   "mockImage",
 					Env: map[string]string{
-						// "PF_FS_ID":          "fs-name_1",
-						// "PF_JOB_CLUSTER_ID": "testClusterID",
-						// "PF_JOB_FLAVOUR":    "cpu",
-						// "PF_JOB_ID":         "",
-						// "PF_JOB_NAMESPACE":  "paddleflow",
-						// "PF_JOB_PRIORITY":   "NORMAL",
-						// "PF_JOB_QUEUE_ID":   "mockQueueID",
-						// "PF_JOB_QUEUE_NAME": "mockQueueName",
 						schema.EnvJobType: string(schema.TypeSparkJob),
-						// "PF_USER_NAME":      "root",
 					},
 					Flavour: schema.Flavour{Name: "", ResourceInfo: schema.ResourceInfo{CPU: "2", Mem: "2Gi"}},
 				},
 			},
 		},
-		// ExtensionTemplate: extensionPaddleYaml,
 	}
 	mockSparkJobWithYaml = api.PFJob{
 		ID:        "job-mock-000002",
@@ -179,7 +146,7 @@ status:
 				},
 			},
 		},
-		ExtensionTemplate: extensionPaddleYaml,
+		ExtensionTemplate: extensionSparkYaml,
 	}
 )
 
