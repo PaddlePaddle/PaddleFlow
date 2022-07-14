@@ -5,6 +5,8 @@ import click
 from paddleflow.cli.output import print_output, OutputFormat
 from paddleflow.statistics import StatisticsJobInfo, StatisticsJobDetailInfo
 
+#!/usr/bin/env python3
+# -*- coding:utf8 -*-
 
 @click.group()
 def statistics():
