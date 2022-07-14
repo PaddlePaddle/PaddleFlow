@@ -109,11 +109,7 @@ func start() error {
 
 	stopChan := make(chan struct{})
 	defer close(stopChan)
-	fsController := &fs.MountPodController{
-		MountPodExpire:            ServerConf.Fs.MountPodExpire,
-		CleanMountPodIntervalTime: ServerConf.Fs.CleanMountPodIntervalTime,
-	}
-	go fsController.CleanMountPodController(stopChan)
+	go fs.CleanMountPodController(ServerConf.Fs.MountPodExpire, ServerConf.Fs.CleanMountPodIntervalTime, stopChan)
 
 	err = trace_logger.Start(ServerConf.TraceLog)
 	if err != nil {

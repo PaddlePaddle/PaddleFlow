@@ -29,15 +29,10 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
 )
 
-type MountPodController struct {
-	MountPodExpire            time.Duration
-	CleanMountPodIntervalTime time.Duration
-}
-
-func (m *MountPodController) CleanMountPodController(stopChan chan struct{}) {
-	interval := m.CleanMountPodIntervalTime
+func CleanMountPodController(mountPodExpire, cleanMountPodIntervalTime time.Duration,
+	stopChan chan struct{}) {
 	for {
-		if err := cleanMountPod(m.MountPodExpire); err != nil {
+		if err := cleanMountPod(mountPodExpire); err != nil {
 			log.Errorf("clean mount pod err: %v", err)
 		}
 		select {
@@ -45,7 +40,7 @@ func (m *MountPodController) CleanMountPodController(stopChan chan struct{}) {
 			log.Info("mount pod controller stopped")
 			return
 		default:
-			time.Sleep(interval)
+			time.Sleep(cleanMountPodIntervalTime)
 		}
 	}
 }
@@ -79,11 +74,9 @@ func listNotUsedAndExpireMountPods(clusterMaps map[*runtime.KubeRuntime][]string
 	now_ := time.Now().Format(TimeFormat)
 	now, _ := time.Parse(TimeFormat, now_)
 	for k8sRuntime, _ := range clusterMaps {
-		k8sRuntime.Name()
 		listOptions := k8sMeta.ListOptions{
 			LabelSelector: fmt.Sprintf(csiconfig.PodTypeKey + "=" + csiconfig.PodMount),
 		}
-		// todo:: add timeout controller
 		pods, err := k8sRuntime.ListPods(schema.MountPodNamespace, listOptions)
 		if err != nil {
 			log.Errorf("list mount pods failed: %v", err)
