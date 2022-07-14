@@ -82,7 +82,6 @@ func (fs *PFS) Lookup(cancel <-chan struct{}, header *fuse.InHeader, name string
 		return fuse.Status(code)
 	}
 	fs.replyEntry(entry, out)
-	log.Infof("fuse lookup attr result %+v", out.Attr)
 	return fuse.OK
 }
 
@@ -100,7 +99,6 @@ func (fs *PFS) GetAttr(cancel <-chan struct{}, input *fuse.GetAttrIn, out *fuse.
 	if vfs.IsSpecialNode(meta.Ino(input.NodeId)) {
 		out.AttrValid = 3600
 	}
-	log.Infof("fuse get attr result %+v", out.Attr)
 	return fuse.OK
 }
 

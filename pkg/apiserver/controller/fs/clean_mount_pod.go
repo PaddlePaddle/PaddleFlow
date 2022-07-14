@@ -50,7 +50,7 @@ func GetMountPodController(mountPodExpire, cleanMountPodIntervalTime time.Durati
 }
 
 func (m *MountPodController) CleanMountPodController(stopChan chan struct{}) {
-	interval := m.CleanMountPodIntervalTime * time.Second
+	interval := m.CleanMountPodIntervalTime
 	for {
 		if err := cleanMountPod(m.MountPodExpire); err != nil {
 			log.Errorf("clean mount pod err: %v", err)
@@ -91,7 +91,8 @@ func cleanMountPod(mountPodExpire time.Duration) error {
 
 func listNotUsedAndExpireMountPods(clusterMaps map[*runtime.KubeRuntime][]string, mountPodExpire time.Duration) (map[*runtime.KubeRuntime][]k8sCore.Pod, error) {
 	clusterPodMap := make(map[*runtime.KubeRuntime][]k8sCore.Pod)
-	now := time.Now()
+	now_ := time.Now().Format("2006-01-02 15:04:05")
+	now, _ := time.Parse("2006-01-02 15:04:05", now_)
 	for k8sRuntime, _ := range clusterMaps {
 		k8sRuntime.Name()
 		listOptions := k8sMeta.ListOptions{
@@ -106,6 +107,7 @@ func listNotUsedAndExpireMountPods(clusterMaps map[*runtime.KubeRuntime][]string
 		var needToDelete bool
 		for _, pod := range pods.Items {
 			needToDelete = true
+			log.Debugf("list pod %+v", pod)
 			for key, _ := range pod.Annotations {
 				if key != schema.AnnotationKeyMTime {
 					needToDelete = false
@@ -117,9 +119,11 @@ func listNotUsedAndExpireMountPods(clusterMaps map[*runtime.KubeRuntime][]string
 						return nil, errParseTime
 					}
 					expireTime := modifyTime.Add(mountPodExpire)
+					log.Debugf("time fs modifyTime %v and expireTime %v and now %v", modifyTime, expireTime, now)
 					if expireTime.After(now) {
 						needToDelete = false
 					}
+					log.Debugf("needToDelete %v", needToDelete)
 				}
 			}
 			if needToDelete {
