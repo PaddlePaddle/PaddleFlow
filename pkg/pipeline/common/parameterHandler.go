@@ -407,12 +407,17 @@ func (s *ComponentParamChecker) refParamExist(currentCompName, refCompName, refP
 		input artifact 只做上游step的output artifact 依赖替换
 		PF_PARENT 为引用父节点的
 	*/
+	//针对PF_PARENT单独校验
 	if refCompName == PF_PARENT {
 		if len(strings.Split(currentCompName, ".")) < 2 {
 			return fmt.Errorf("PF_PARENT should used by a child component")
 		}
+		if fieldType != FieldInputArtifacts && fieldType != FieldParameters {
+			return fmt.Errorf("PF_PARENT can only used in parameters or input artifacts")
+		}
 		return nil
 	}
+
 	curComponent := s.Components[currentCompName]
 	// s.DisabledSteps和s.Components保存的是完整节点名称，即从跟节点到当前节点的完整路径，如A.BB.CCC
 	// 因此需要结合currentCompName（完整节点名称），对refCompName（相对节点名称）进行拓展

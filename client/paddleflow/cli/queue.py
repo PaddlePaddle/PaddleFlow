@@ -77,7 +77,6 @@ def show(ctx, queuename):
 @queue.command(context_settings=dict(max_content_width=2000), cls=command_required_option_from_option())
 @click.argument('name')
 @click.argument('namespace')
-@click.argument('clustername')
 @click.argument('maxcpu')
 @click.argument('maxmem')
 @click.option('--maxscalar', help='the max scalar resource of queue, e.g. --maxscalar a=b,c=d')
@@ -87,13 +86,13 @@ def show(ctx, queuename):
 @click.option('--policy', help='the scheduling policy for job on queue, e.g. --policy priority,weight')
 @click.option('--location', help='the node location of queue, such as Kubernetes is node labels, e.g. --location label1=value1,label2=value2')
 @click.option('--quota', help='the quota type of queue, such as elasticQuota, volcanoCapabilityQuota, default is elasticQuota')
+@click.option('--clustername', help='the owner cluster name of queue, e.g. --clustername default-cluster')
 @click.pass_context
-def create(ctx, name, namespace, clustername, maxcpu, maxmem, maxscalar=None, mincpu=None, minmem=None, minscalar=None,
-            policy=None, location=None, quota=None):
+def create(ctx, name, namespace, maxcpu, maxmem, maxscalar=None, mincpu=None, minmem=None, minscalar=None,
+            policy=None, location=None, quota=None, clustername=None):
     """ create queue.\n
     NAME: the name of queue.
     NAMESPACE: the namespace to which it belongs.
-    CLUSTERNAME: the cluster name.
     MAXCPU: the max CPU occupied by queue.
     MAXMEM: the max Memory occupied by queue.
     """
@@ -103,9 +102,6 @@ def create(ctx, name, namespace, clustername, maxcpu, maxmem, maxscalar=None, mi
         sys.exit(1)
     if not namespace:
         click.echo('queue create must provide namespace.', err=True)
-        sys.exit(1)
-    if not clustername:
-        click.echo('queue create must provide clustername.', err=True)
         sys.exit(1)
     if not maxcpu:
         click.echo('queue create must provide maxcpu.', err=True)
