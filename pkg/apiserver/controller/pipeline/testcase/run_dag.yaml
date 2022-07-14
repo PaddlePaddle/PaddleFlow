@@ -39,6 +39,8 @@ entry_points:
         parameters:
           num: "{{PF_PARENT.PF_LOOP_ARGUMENT}}"
         artifacts:
+          input:
+            in: "{{PF_PARENT.random_int}}"
           output:
           - result
         env:

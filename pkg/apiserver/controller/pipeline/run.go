@@ -541,7 +541,7 @@ func CreateRun(ctx logger.RequestContext, request *CreateRunRequest, extra map[s
 		Source:         source,
 		UserName:       userName,
 		FsName:         fsName,
-		GlobalFsID:     fsID,
+		FsID:           fsID,
 		Description:    request.Description,
 		Parameters:     request.Parameters,
 		RunYaml:        runYaml,
@@ -619,7 +619,7 @@ func CreateRunByJson(ctx logger.RequestContext, bodyMap map[string]interface{}) 
 		reqDescription = bodyMap[JsonDescription].(string)
 	}
 
-	globalFsID := ""
+	fsID := ""
 	ctxUserName := ctx.UserName // 这是实际发送请求的用户，由Token决定，全局不会改变
 	userName := ctxUserName     // 这是进行后续fs操作的用户，root用户可以设置为其他普通用户
 	if reqFsName != "" {
@@ -627,7 +627,7 @@ func CreateRunByJson(ctx logger.RequestContext, bodyMap map[string]interface{}) 
 			// root user can select fs under other users
 			userName = reqUserName
 		}
-		globalFsID = common.ID(userName, reqFsName)
+		fsID = common.ID(userName, reqFsName)
 	}
 
 	trace_logger.Key(requestId).Infof("get workflow source for run: %+v", bodyMap)
@@ -658,7 +658,7 @@ func CreateRunByJson(ctx logger.RequestContext, bodyMap map[string]interface{}) 
 		Source:         source,
 		UserName:       userName,
 		FsName:         reqFsName,
-		GlobalFsID:     globalFsID,
+		FsID:           fsID,
 		Description:    reqDescription,
 		RunYaml:        runYaml,
 		WorkflowSource: wfs,
@@ -737,7 +737,7 @@ func ValidateAndStartRun(ctx logger.RequestContext, run models.Run, userName str
 	trace_logger.Key(runID).Infof("handle image and start wf: %+v", run)
 	// handler image
 	if err := StartWf(run, wfPtr); err != nil {
-		logger.Logger().Errorf("create run[%s] failed StartWf[%s-%s]. error:%s\n", runID, run.WorkflowSource.DockerEnv, run.GlobalFsID, err.Error())
+		logger.Logger().Errorf("create run[%s] failed StartWf[%s-%s]. error:%s\n", runID, run.WorkflowSource.DockerEnv, run.FsID, err.Error())
 	}
 	logger.Logger().Debugf("create run successful. runID:%s", runID)
 	response := CreateRunResponse{
@@ -754,8 +754,8 @@ func checkFs(userName string, fsName string, wfs *schema.WorkflowSource) error {
 	}
 
 	if fsName != "" {
-		globalFsID := common.ID(userName, fsName)
-		fsIDs = append(fsIDs, globalFsID)
+		fsID := common.ID(userName, fsName)
+		fsIDs = append(fsIDs, fsID)
 	}
 
 	//检查fs权限
@@ -960,8 +960,8 @@ func DeleteRun(ctx *logger.RequestContext, id string, request *DeleteRunRequest)
 	}
 
 	// 删除pipeline run outputAtf (只有Fs不为空，才需要清理artifact。因为不使用Fs时，不允许定义outputAtf)
-	if run.GlobalFsID != "" {
-		resourceHandler, err := pplcommon.NewResourceHandler(id, run.GlobalFsID, ctx.Logging())
+	if run.FsID != "" {
+		resourceHandler, err := pplcommon.NewResourceHandler(id, run.FsID, ctx.Logging())
 		if err != nil {
 			ctx.Logging().Errorf("delete run[%s] failed. InitTraceLoggerManager handler failed. err: %v", id, err.Error())
 			ctx.ErrorCode = common.InternalError
@@ -1047,7 +1047,7 @@ func restartRun(run models.Run, isResume bool) error {
 		return updateRunStatusAndMsg(run.ID, common.StatusRunFailed, err.Error())
 	}
 
-	fsName, userName := fsCommon.FsIDToFsNameUsername(run.GlobalFsID)
+	fsName, userName := fsCommon.FsIDToFsNameUsername(run.FsID)
 	if err := checkFs(userName, fsName, &run.WorkflowSource); err != nil {
 		logger.LoggerForRun(run.ID).Errorf("check fs failed. err:%v\n", err)
 		return updateRunStatusAndMsg(run.ID, common.StatusRunFailed, err.Error())
@@ -1065,7 +1065,7 @@ func restartRun(run models.Run, isResume bool) error {
 
 	if err := RestartWf(run, wfPtr, isResume); err != nil {
 		logger.LoggerForRun(run.ID).Errorf("resume run[%s] failed RestartWf. DockerEnv[%s] fsID[%s]. error:%s\n",
-			run.ID, run.WorkflowSource.DockerEnv, run.GlobalFsID, err.Error())
+			run.ID, run.WorkflowSource.DockerEnv, run.FsID, err.Error())
 	}
 	return nil
 }
@@ -1121,7 +1121,7 @@ func RestartWf(run models.Run, wfPtr *pipeline.Workflow, isResume bool) error {
 func newWorkflowByRun(run models.Run) (*pipeline.Workflow, error) {
 	extraInfo := map[string]string{
 		pplcommon.WfExtraInfoKeySource:   run.Source,
-		pplcommon.WfExtraInfoKeyFsID:     run.GlobalFsID,
+		pplcommon.WfExtraInfoKeyFsID:     run.FsID,
 		pplcommon.WfExtraInfoKeyUserName: run.UserName,
 		pplcommon.WfExtraInfoKeyFsName:   run.FsName,
 	}

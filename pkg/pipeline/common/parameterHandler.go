@@ -482,8 +482,15 @@ func (s *ComponentParamChecker) refParamExist(currentCompName, refCompName, refP
 			return fmt.Errorf("invalid reference param {{ %s.%s }} in component[%s]: component[%s] has condition so its param and output artifacts can't be refered",
 				refCompName, refParamName, currentCompName, refCompName)
 		}
-		if _, ok := refComponent.GetArtifacts().Output[refParamName]; !ok {
-			return fmt.Errorf("invalid reference param {{ %s.%s }} in component[%s]: output artifact[%s] not exist", refCompName, refParamName, currentCompName, refParamName)
+		if refCompName == PF_PARENT {
+			// 如果input artifact使用了PF_PARENT
+			if _, ok := refComponent.GetArtifacts().Input[refParamName]; !ok {
+				return fmt.Errorf("invalid reference param {{ %s.%s }} in component[%s]: input artifact[%s] not exist", refCompName, refParamName, currentCompName, refParamName)
+			}
+		} else {
+			if _, ok := refComponent.GetArtifacts().Output[refParamName]; !ok {
+				return fmt.Errorf("invalid reference param {{ %s.%s }} in component[%s]: output artifact[%s] not exist", refCompName, refParamName, currentCompName, refParamName)
+			}
 		}
 	case FieldParameters:
 		if refParamName == PF_LOOP_ARGUMENT {
