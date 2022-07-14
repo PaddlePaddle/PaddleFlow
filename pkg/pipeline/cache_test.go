@@ -147,8 +147,8 @@ func mockWorkflowSourceStep() schema.WorkflowSourceStep {
 
 func mockRunConfigWithLogger() *runConfig {
 	return &runConfig{
-		logger:     logger.LoggerForRun("run-0000"),
-		GlobalFsID: "1234",
+		logger: logger.LoggerForRun("run-0000"),
+		fsID:   "1234",
 	}
 }
 
@@ -203,7 +203,7 @@ func mockerNewConservativeCacheCalculator() (CacheCalculator, error) {
 
 	job := step.job.(*PaddleFlowJob)
 	calculator, err := NewConservativeCacheCalculator(*job, cacheConfig, step.logger,
-		step.getWorkFlowStep().FsMount, step.GlobalFsID)
+		step.getWorkFlowStep().FsMount, step.fsID)
 	return calculator, err
 }
 
@@ -394,7 +394,7 @@ func TestNewCacheCalculator(t *testing.T) {
 
 	job := step.job.(*PaddleFlowJob)
 	calculator, err := NewCacheCalculator(*job, cacheConfig, step.logger,
-		step.getWorkFlowStep().FsMount, step.GlobalFsID)
+		step.getWorkFlowStep().FsMount, step.fsID)
 	assert.Equal(t, err, nil)
 	_, ok := calculator.(CacheCalculator)
 	assert.Equal(t, ok, true)
