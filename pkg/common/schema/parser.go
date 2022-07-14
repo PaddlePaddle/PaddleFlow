@@ -497,12 +497,12 @@ func (p *Parser) ParseFsScope(fsMap map[string]interface{}, fs *FsScope) error {
 func (p *Parser) ParseFsOptions(fsMap map[string]interface{}, fs *FsOptions) error {
 	for key, value := range fsMap {
 		switch key {
-		case "global_fs_name":
+		case "fs_name":
 			value, ok := value.(string)
 			if !ok {
-				return fmt.Errorf("[fs_options.global_fs_name] should be string type")
+				return fmt.Errorf("[fs_options.fs_name] should be string type")
 			}
-			fs.GlobalFsName = value
+			fs.FsName = value
 		case "fs_mount":
 			value, ok := value.([]interface{})
 			if !ok {
@@ -712,9 +712,9 @@ func (p *Parser) transJsonFsOptions2Yaml(value interface{}) error {
 			}
 			fsOptMap["fs_mount"] = value
 			delete(fsOptMap, "fsMount")
-		case "globalFsName":
-			fsOptMap["global_fs_name"] = value
-			delete(fsOptMap, "globalFsName")
+		case "fsName":
+			fsOptMap["fs_name"] = value
+			delete(fsOptMap, "fsName")
 		}
 	}
 	return nil

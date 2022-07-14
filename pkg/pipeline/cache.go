@@ -100,7 +100,7 @@ type conservativeCacheCalculator struct {
 	job            PaddleFlowJob
 	logger         *logrus.Entry
 	fsMount        []schema.FsMount
-	globalFsID     string
+	fsID           string
 	cacheConfig    schema.Cache
 	firstCacheKey  *conservativeFirstCacheKey
 	secondCacheKey *conservativeSecondCacheKey
@@ -108,13 +108,13 @@ type conservativeCacheCalculator struct {
 
 // 调用方应该保证在启用了 cache 功能的情况下才会调用NewConservativeCacheCalculator
 func NewConservativeCacheCalculator(job PaddleFlowJob, cacheConfig schema.Cache, logger *logrus.Entry,
-	FsMount []schema.FsMount, GlobalFsID string) (CacheCalculator, error) {
+	FsMount []schema.FsMount, fsID string) (CacheCalculator, error) {
 	calculator := conservativeCacheCalculator{
 		job:         job,
 		cacheConfig: cacheConfig,
 		logger:      logger,
 		fsMount:     FsMount,
-		globalFsID:  GlobalFsID,
+		fsID:        fsID,
 	}
 	return &calculator, nil
 }
@@ -203,12 +203,12 @@ func (cc *conservativeCacheCalculator) getFsScopeModTime() (map[string]PathToMod
 }
 
 func (cc *conservativeCacheCalculator) getInputArtifactModTime() (map[string]string, error) {
-	if cc.globalFsID == "" {
+	if cc.fsID == "" {
 		cc.logger.Info("there must be no input artifact because global fsId is empty")
 		return map[string]string{}, nil
 	}
 
-	fsHandler, err := handler.NewFsHandlerWithServer(cc.globalFsID, cc.logger)
+	fsHandler, err := handler.NewFsHandlerWithServer(cc.fsID, cc.logger)
 	if err != nil {
 		errMsg := fmt.Errorf("init fsHandler failed: %s", err.Error())
 		cc.logger.Errorln(errMsg)
@@ -287,7 +287,7 @@ func (cc *conservativeCacheCalculator) CalculateSecondFingerprint() (fingerprint
 
 // 调用方应该保证在启用了 cache 功能的情况下才会调用NewCacheCalculator
 func NewCacheCalculator(job PaddleFlowJob, cacheConfig schema.Cache, logger *logrus.Entry,
-	FsMount []schema.FsMount, GlobalFsID string) (CacheCalculator, error) {
+	FsMount []schema.FsMount, fsID string) (CacheCalculator, error) {
 	// TODO: 当支持多中 cache 策略时，做好分发的功能
-	return NewConservativeCacheCalculator(job, cacheConfig, logger, FsMount, GlobalFsID)
+	return NewConservativeCacheCalculator(job, cacheConfig, logger, FsMount, fsID)
 }

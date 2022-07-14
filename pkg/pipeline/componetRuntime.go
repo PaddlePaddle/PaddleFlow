@@ -105,7 +105,7 @@ type runConfig struct {
 	*schema.WorkflowSource
 
 	// 2. 来自于请求体中的信息
-	GlobalFsID   string
+	fsID         string
 	GloablFsName string
 	userName     string
 
@@ -126,7 +126,7 @@ func NewRunConfig(workflowSource *schema.WorkflowSource, fsID, fsName, userName,
 	return &runConfig{
 		WorkflowSource: workflowSource,
 
-		GlobalFsID:   fsID,
+		fsID:         fsID,
 		GloablFsName: fsName,
 		userName:     userName,
 		pplSource:    pplSource,
