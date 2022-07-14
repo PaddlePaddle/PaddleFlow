@@ -133,7 +133,7 @@ func (srt *StepRuntime) Start() {
 	srt.parallelismManager.increase()
 
 	if srt.ctx.Err() != nil || srt.failureOpitonsCtx.Err() != nil {
-		srt.logger.Infof("receive stop signal, step[%s] would't start")
+		srt.logger.Infof("receive stop signal, step[%s] would't start", srt.name)
 		return
 	}
 
