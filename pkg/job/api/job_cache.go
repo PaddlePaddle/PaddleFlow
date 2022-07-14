@@ -95,7 +95,7 @@ func (jq *JobQueues) Get(id QueueID) (*JobQueue, bool) {
 }
 
 func (jq *JobQueues) Insert(id QueueID, jobQueue *JobQueue) {
-	if jq.queueJobs != nil {
+	if jq.queueJobs != nil && jobQueue != nil {
 		jq.Lock()
 		defer jq.Unlock()
 		jq.queueJobs[id] = jobQueue
