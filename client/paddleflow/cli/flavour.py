@@ -122,7 +122,7 @@ def create(ctx, flavourname, cpu, memory, scalar=None, clustername=None):
 
     valid, response = client.add_flavour(name=flavourname, cpu=cpu, memory=memory, scalar_resources=scalar_resources, cluster_name=clustername)
     if valid:
-        click.echo("flavour[%s] create success " % name)
+        click.echo("flavour[%s] create success " % flavourname)
     else:
         click.echo("flavour create failed with message[%s]" % response)
         sys.exit(1)
@@ -131,7 +131,7 @@ def create(ctx, flavourname, cpu, memory, scalar=None, clustername=None):
 @flavour.command()
 @click.option('-n',"--flavourname", required=True)
 @click.pass_context
-def delete(ctx, flavour_name):
+def delete(ctx, flavourname):
     """ delete flavour.\n
     flavour_name: the name of flavour
     """
