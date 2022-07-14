@@ -77,6 +77,7 @@ func initMockDB() {
 		&model.User{},
 		&Run{},
 		&RunJob{},
+		&RunDag{},
 		&Queue{},
 		&Flavour{},
 		&model.Grant{},

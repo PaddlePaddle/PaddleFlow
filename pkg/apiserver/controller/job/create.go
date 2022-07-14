@@ -33,6 +33,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
@@ -608,12 +609,15 @@ func CreateWorkflowJob(ctx *logger.RequestContext, request *CreateWfJobRequest) 
 		Priority:    request.SchedulingPolicy.Priority,
 	}
 	// validate queue
-	if err := ValidateQueue(&conf, ctx.UserName, request.SchedulingPolicy.Queue); err != nil {
+	if err := validateQueue(ctx, &request.SchedulingPolicy); err != nil {
 		msg := fmt.Sprintf("valiate queue for workflow job failed, err: %v", err)
 		log.Errorf(msg)
 		return nil, fmt.Errorf(msg)
 	}
-	conf.SetEnv(schema.EnvJobQueueName, request.SchedulingPolicy.Queue)
+	conf.SetQueueID(request.SchedulingPolicy.QueueID)
+	conf.SetNamespace(request.SchedulingPolicy.Namespace)
+	conf.SetClusterID(request.SchedulingPolicy.ClusterId)
+	conf.SetQueueName(request.SchedulingPolicy.Queue)
 
 	// create workflow job
 	jobInfo := &models.Job{
@@ -738,4 +742,8 @@ func jobConfToCreateJobInfo(conf schema.PFJobConf) (*CreateJobInfo, error) {
 			},
 		},
 	}, nil
+}
+
+func generateJobID(param string) string {
+	return uuid.GenerateID(fmt.Sprintf("%s-%s", schema.JobPrefix, param))
 }
