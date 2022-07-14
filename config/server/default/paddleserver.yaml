@@ -53,3 +53,6 @@ imageRepository:
   password: ""
   concurrency: 10
   removeLocalImage: true
+
+monitor:
+  server: ""
