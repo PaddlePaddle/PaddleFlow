@@ -346,6 +346,9 @@ data:
         password: ""
         concurrency: 10
         removeLocalImage: true
+
+      monitor:
+        server: ""
   single.yaml: |-
     apiVersion: v1
     kind: Pod

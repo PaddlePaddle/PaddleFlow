@@ -223,8 +223,6 @@ func setup() {
 		gracefullyExit(err)
 	}
 
-	monitor.Init()
-	_ = monitor.StartJobMetricsService(ServerConf.Monitor.ExporterServicePort)
 }
 
 func newAndStartJobManager() error {
