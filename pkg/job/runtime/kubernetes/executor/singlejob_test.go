@@ -95,7 +95,7 @@ status: {}
 			},
 			Flavour: schema.Flavour{Name: "mockFlavourName", ResourceInfo: schema.ResourceInfo{CPU: "1", Mem: "1"}},
 		},
-		ExtensionTemplate: extensionPaddleYaml,
+		ExtensionTemplate: extensionTemplateYaml,
 	}
 )
 

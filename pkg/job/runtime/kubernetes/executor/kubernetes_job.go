@@ -328,6 +328,13 @@ func (j *KubeJob) createJobFromYaml(jobEntity interface{}) error {
 		log.Errorf("Decode from yamlFile[%s] failed! err:[%v]\n", string(j.YamlTemplateContent), err)
 		return err
 	}
+	parsedGVK := unstructuredObj.GroupVersionKind()
+	log.Debugf("unstructuredObj=%v, GroupVersionKind=[%v]", unstructuredObj, parsedGVK)
+	if parsedGVK.String() != j.GroupVersionKind.String() {
+		err := fmt.Errorf("expect GroupVersionKind is %s, but got %s", j.GroupVersionKind.String(), parsedGVK.String())
+		log.Errorf("Decode from yamlFile[%s] failed! err:[%v]\n", string(j.YamlTemplateContent), err)
+		return err
+	}
 
 	// convert unstructuredObj.Object into entity
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(unstructuredObj.Object, jobEntity); err != nil {
