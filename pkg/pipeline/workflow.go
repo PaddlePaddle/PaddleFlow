@@ -1089,8 +1089,8 @@ func (wf *Workflow) Start() {
 	wf.runtime.Start()
 }
 
-func (wf *Workflow) Resume(entryPointView *schema.DagView, postProcessView schema.PostProcessView) {
-	wf.runtime.Resume(entryPointView, postProcessView)
+func (wf *Workflow) Resume(entryPointView *schema.DagView, postProcessView schema.PostProcessView, runStatus string, stopForce bool) {
+	wf.runtime.Resume(entryPointView, postProcessView, runStatus, stopForce)
 }
 
 // Restart 从 DB 中恢复重启 workflow

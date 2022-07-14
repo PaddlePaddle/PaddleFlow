@@ -220,6 +220,10 @@ func (rr *RunRouter) getRunByID(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
 	runID := chi.URLParam(r, util.ParamKeyRunID)
 	runInfo, err := pipeline.GetRunByID(ctx.Logging(), ctx.UserName, runID)
+
+	// 优化RuntimeView结构，使显示结果更友好
+	runInfo.Runtime = runInfo.RemoveOuterDagView(runInfo.Runtime)
+
 	if err != nil {
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return

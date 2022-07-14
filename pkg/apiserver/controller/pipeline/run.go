@@ -19,6 +19,7 @@ package pipeline
 import (
 	"database/sql"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -903,6 +904,8 @@ func RetryRun(ctx *logger.RequestContext, runID string) error {
 		ctx.Logging().Errorf("retry run[%s] failed when getting run. error: %v\n", runID, err)
 		return err
 	}
+	res, _ := json.Marshal(run.Runtime)
+	ctx.Logging().Infof("debug: begin retry, runtime is: %s", res)
 
 	// check run current status. If already succeeded or running/pending, no need to retry this run.
 	// only failed or terminated runs can retry
@@ -1107,8 +1110,14 @@ func RestartWf(run models.Run, wfPtr *pipeline.Workflow, isResume bool) error {
 		}
 	}
 
+	res, _ := json.Marshal(run.Runtime)
+	logEntry.Infof("debug: runtime before restart is: %s", res)
+	res, _ = json.Marshal(entryPointDagView)
+	logEntry.Infof("debug: dagview before restart is: %s", res)
+
 	if isResume {
-		wfPtr.Resume(entryPointDagView, run.PostProcess)
+		wfPtr.Resume(entryPointDagView, run.PostProcess, run.Status, false)
+		// TODO: 临时先传false
 	} else {
 		wfPtr.Restart(entryPointDagView, run.PostProcess)
 	}
