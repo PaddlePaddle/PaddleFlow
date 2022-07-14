@@ -373,10 +373,10 @@ func (m *JobManagerImpl) pSubmitQueueJob(jobQueue *api.JobQueue, runtimeSvc runt
 			log.Infof("exit submit job loop for queue %s ...", name)
 			return
 		default:
+			startTime := time.Now()
 			job, ok := jobQueue.GetJob()
 			if ok {
 				log.Infof("Entering submit %s job in queue %s", job.ID, name)
-				startTime := time.Now()
 				// get enqueue job
 				m.submitJob(runtimeSvc.SubmitJob, job)
 				jobQueue.DeleteMark(job.ID)
