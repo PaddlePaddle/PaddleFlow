@@ -27,7 +27,8 @@ const (
 	SysParamNamePFLoopArgument = "PF_LOOP_ARGUMENT"
 	SysParamNamePFMountPath    = "PF_MOUNT_PATH"
 
-	PF_PARENT = "PF_PARENT"
+	PF_PARENT        = "PF_PARENT"
+	PF_LOOP_ARGUMENT = "PF_LOOP_ARGUMENT"
 
 	WfExtraInfoKeySource   = "Source" // pipelineID or yamlPath
 	WfExtraInfoKeyUserName = "UserName"
