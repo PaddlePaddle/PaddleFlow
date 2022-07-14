@@ -333,7 +333,6 @@ data:
           failedJobTTLSeconds: 3600
         schedulerName: volcano
         clusterSyncPeriod: 30
-        jobLoopPeriod: 5
         defaultJobYamlDir: "./config/server/default/job"
         isSingleCluster: true
 
