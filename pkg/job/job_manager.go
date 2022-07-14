@@ -356,6 +356,10 @@ func (m *JobManagerImpl) pJobProcessLoop() {
 }
 
 func (m *JobManagerImpl) pSubmitQueueJob(jobQueue *api.JobQueue, runtimeSvc runtime.RuntimeService) {
+	if jobQueue == nil || runtimeSvc == nil {
+		log.Infof("exit submit job loop, as jobQueue or runtimeSvc is nil")
+		return
+	}
 	name := jobQueue.GetName()
 	log.Infof("start submit job loop for queue: %s", name)
 	for {
