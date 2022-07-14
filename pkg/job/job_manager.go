@@ -29,6 +29,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/trace_logger"
 )
 
 const (
@@ -245,6 +246,7 @@ func (m *JobManagerImpl) submitQueueJob(jobSubmit func(*api.PFJob) error, queueI
 	}
 }
 
+// TODO: add trace logger support
 // submitJob submit a job to cluster
 func (m *JobManagerImpl) submitJob(jobSubmit func(*api.PFJob) error, jobInfo *api.PFJob) {
 	log.Infof("begin to submit job %s to cluster", jobInfo.ID)
@@ -263,14 +265,18 @@ func (m *JobManagerImpl) submitJob(jobSubmit func(*api.PFJob) error, jobInfo *ap
 			// new job failed, update db and skip this job
 			msg = fmt.Sprintf("submit job to cluster failed, err: %s", err)
 			log.Errorln(msg)
+			trace_logger.KeyWithUpdate(jobInfo.ID).Errorf(msg)
 			jobStatus = schema.StatusJobFailed
 		} else {
 			msg = "submit job to cluster successfully."
+			trace_logger.KeyWithUpdate(jobInfo.ID).Infof(msg)
 			jobStatus = schema.StatusJobPending
 		}
 		// new job failed, update db and skip this job
 		if dbErr := models.UpdateJobStatus(jobInfo.ID, msg, jobStatus); dbErr != nil {
-			log.Errorf("update job[%s] status to [%s] failed, err: %v", jobInfo.ID, schema.StatusJobFailed, dbErr)
+			errMsg := fmt.Sprintf("update job[%s] status to [%s] failed, err: %v", jobInfo.ID, schema.StatusJobFailed, dbErr)
+			log.Errorf(errMsg)
+			trace_logger.KeyWithUpdate(jobInfo.ID).Errorf(errMsg)
 		}
 		log.Infof("submit job %s to cluster elasped time %s", jobInfo.ID, time.Since(startTime))
 	} else {
