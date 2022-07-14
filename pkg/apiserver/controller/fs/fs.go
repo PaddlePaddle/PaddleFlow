@@ -241,8 +241,8 @@ func (s *FileSystemService) CheckFsMountedAndCleanResources(fsID string) (bool, 
 		return true, nil
 	}
 
-	if err = removeFsCache(fsID); err != nil {
-		err := fmt.Errorf("removeFsCache[%s] err: %v", fsID, err)
+	if err = removeFSCache(fsID); err != nil {
+		err := fmt.Errorf("removeFSCache[%s] err: %v", fsID, err)
 		log.Errorf(err.Error())
 		return false, err
 	}
@@ -353,9 +353,9 @@ func cleanFsCache(podMap map[*runtime.KubeRuntime][]k8sCore.Pod) error {
 				log.Errorf("cacheId is empty with pod: %+v", pod)
 				continue
 			}
-			err = removeFsCacheWithCacheID(cacheID)
+			err = removeFSCacheWithCacheID(cacheID)
 			if err != nil {
-				log.Errorf("removeFsCacheWithCacheID error: %v", err)
+				log.Errorf("removeFSCacheWithCacheID error: %v", err)
 				return err
 			}
 		}

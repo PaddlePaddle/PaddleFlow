@@ -18,7 +18,6 @@ package fs
 
 import (
 	"fmt"
-	"sync"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -33,20 +32,6 @@ import (
 type MountPodController struct {
 	MountPodExpire            time.Duration
 	CleanMountPodIntervalTime time.Duration
-}
-
-var mountPodSync sync.Once
-var mountPodController *MountPodController
-
-func GetMountPodController(mountPodExpire, cleanMountPodIntervalTime time.Duration) *MountPodController {
-	mountPodSync.Do(func() {
-		controller := MountPodController{
-			MountPodExpire:            mountPodExpire,
-			CleanMountPodIntervalTime: cleanMountPodIntervalTime,
-		}
-		mountPodController = &controller
-	})
-	return mountPodController
 }
 
 func (m *MountPodController) CleanMountPodController(stopChan chan struct{}) {
@@ -91,13 +76,14 @@ func cleanMountPod(mountPodExpire time.Duration) error {
 
 func listNotUsedAndExpireMountPods(clusterMaps map[*runtime.KubeRuntime][]string, mountPodExpire time.Duration) (map[*runtime.KubeRuntime][]k8sCore.Pod, error) {
 	clusterPodMap := make(map[*runtime.KubeRuntime][]k8sCore.Pod)
-	now_ := time.Now().Format("2006-01-02 15:04:05")
-	now, _ := time.Parse("2006-01-02 15:04:05", now_)
+	now_ := time.Now().Format(TimeFormat)
+	now, _ := time.Parse(TimeFormat, now_)
 	for k8sRuntime, _ := range clusterMaps {
 		k8sRuntime.Name()
 		listOptions := k8sMeta.ListOptions{
 			LabelSelector: fmt.Sprintf(csiconfig.PodTypeKey + "=" + csiconfig.PodMount),
 		}
+		// todo:: add timeout controller
 		pods, err := k8sRuntime.ListPods(schema.MountPodNamespace, listOptions)
 		if err != nil {
 			log.Errorf("list mount pods failed: %v", err)
@@ -113,7 +99,7 @@ func listNotUsedAndExpireMountPods(clusterMaps map[*runtime.KubeRuntime][]string
 					needToDelete = false
 					break
 				} else {
-					modifyTime, errParseTime := time.Parse("2006-01-02 15:04:05", pod.Annotations[key])
+					modifyTime, errParseTime := time.Parse(TimeFormat, pod.Annotations[key])
 					if errParseTime != nil {
 						log.Errorf("parse time err: %v", err)
 						return nil, errParseTime

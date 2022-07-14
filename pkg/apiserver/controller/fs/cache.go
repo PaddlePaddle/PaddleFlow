@@ -62,18 +62,18 @@ func ReportCache(ctx *logger.RequestContext, req CacheReportRequest) error {
 	return nil
 }
 
-func removeFsCache(fsID string) error {
+func removeFSCache(fsID string) error {
 	if err := storage.FsCache.Delete(fsID, ""); err != nil {
-		err := fmt.Errorf("removeFsCache[%s] failed: %v", fsID, err)
+		err := fmt.Errorf("removeFSCache[%s] failed: %v", fsID, err)
 		log.Error(err.Error())
 		return err
 	}
 	return nil
 }
 
-func removeFsCacheWithCacheID(cacheID string) error {
+func removeFSCacheWithCacheID(cacheID string) error {
 	if err := storage.FsCache.Delete("", cacheID); err != nil {
-		err := fmt.Errorf("removeFsCacheWithCacheID[%s] failed: %v", cacheID, err)
+		err := fmt.Errorf("removeFSCacheWithCacheID[%s] failed: %v", cacheID, err)
 		log.Error(err.Error())
 		return err
 	}
