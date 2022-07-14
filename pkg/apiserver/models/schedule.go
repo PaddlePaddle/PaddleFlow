@@ -86,9 +86,15 @@ type Schedule struct {
 	DeletedAt        gorm.DeletedAt `                                         json:"-"`
 }
 
+func (Schedule) TableName() string {
+	return "schedule"
+}
+
+// ------- 存放周期调度用于发起run的fs相关配置 -------
+
 type FsConfig struct {
-	GlobalFsName string `json:"globalFsName"`
-	UserName     string `json:"userName"`
+	FsName   string `json:"fsName"`
+	UserName string `json:"userName"`
 }
 
 func DecodeFsConfig(strConfig string) (fc FsConfig, err error) {
@@ -109,6 +115,8 @@ func (fc *FsConfig) Encode(logEntry *log.Entry) (string, error) {
 
 	return string(strConfig), nil
 }
+
+// ------- 存放周期调度相关的配置 -------
 
 type ScheduleOptions struct {
 	Catchup           bool   `json:"catchup"`
@@ -179,10 +187,6 @@ func (so *ScheduleOptions) Encode(logEntry *log.Entry) (string, error) {
 	}
 
 	return string(strOptions), nil
-}
-
-func (Schedule) TableName() string {
-	return "schedule"
 }
 
 func CreateSchedule(logEntry *log.Entry, schedule Schedule) (scheduleID string, err error) {
@@ -391,9 +395,9 @@ func ScheduleUsedFsIDs() (map[string]bool, error) {
 
 		var fsID string
 		if fsConfig.UserName != "" {
-			fsID = common.ID(fsConfig.UserName, fsConfig.GlobalFsName)
+			fsID = common.ID(fsConfig.UserName, fsConfig.FsName)
 		} else {
-			fsID = common.ID(schedule.UserName, fsConfig.GlobalFsName)
+			fsID = common.ID(schedule.UserName, fsConfig.FsName)
 		}
 
 		fsIDMap[fsID] = true
@@ -631,15 +635,17 @@ func GetNextGlobalWakeupTime(logEntry *log.Entry) (*time.Time, error) {
 			return nil, fmt.Errorf(errMsg)
 		}
 
-		count, err := CountActiveRunsForSchedule(logEntry, schedule.ID)
-		if err != nil {
-			errMsg := fmt.Sprintf("count notEnded runs for schedule[%s] failed. error:%s", schedule.ID, err.Error())
-			logEntry.Errorf(errMsg)
-			return nil, fmt.Errorf(errMsg)
-		}
+		if options.Concurrency > 0 && options.ConcurrencyPolicy == ConcurrencyPolicySuspend {
+			count, err := CountActiveRunsForSchedule(logEntry, schedule.ID)
+			if err != nil {
+				errMsg := fmt.Sprintf("count notEnded runs for schedule[%s] failed. error:%s", schedule.ID, err.Error())
+				logEntry.Errorf(errMsg)
+				return nil, fmt.Errorf(errMsg)
+			}
 
-		if int(count) >= options.Concurrency && options.ConcurrencyPolicy == ConcurrencyPolicySuspend {
-			continue
+			if int(count) >= options.Concurrency {
+				continue
+			}
 		}
 
 		// 计算nextWakeupTime，通过比较nextRunAt 和 EndAt
