@@ -1,5 +1,4 @@
 import traceback
-from collections import OrderedDict
 import sys
 
 import click
@@ -101,7 +100,7 @@ def _print_job_statistics_detail(job_statistics_detail_info: StatisticsJobDetail
     result = job_statistics_detail_info.result[0]
     headers = ['timestamp']
     data = []
-    ts_map = OrderedDict()
+    ts_map = {}
     try:
         for i, info in enumerate(result.task_info):
             headers.append(info.metric)
@@ -125,7 +124,7 @@ def _print_job_statistics_detail(job_statistics_detail_info: StatisticsJobDetail
         traceback.print_exc()
         raise e
 
-    for k, v in ts_map.items():
+    for k, v in sorted(ts_map.items(), key=lambda x: x[0]):
         v.insert(0, k)
         data.append(v)
 
