@@ -184,7 +184,7 @@ func (m *Info) mountCmd() {
 				if m.Properties[fscommon.DirMode] != "" {
 					m.MountArgs = append(m.MountArgs, fmt.Sprintf("--%s=%s", "dir-mode", m.Properties[fscommon.DirMode]))
 				} else {
-					m.MountArgs = append(m.MountArgs, fmt.Sprintf("--%s=%s", "file-mode", "0777"))
+					m.MountArgs = append(m.MountArgs, fmt.Sprintf("--%s=%s", "dir-mode", "0777"))
 				}
 			}
 		}
