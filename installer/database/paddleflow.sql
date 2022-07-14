@@ -161,6 +161,7 @@ CREATE TABLE IF NOT EXISTS `run` (
     `schedule_id` varchar(60) NOT NULL,
     `message` text NOT NULL,
     `status` varchar(32) DEFAULT NULL,
+    `stop_force` tinyint(1) DEFAULT 0,
     `run_cached_ids` text NOT NULL,
     `scheduled_at` datetime(3) DEFAULT NULL,
     `created_at` datetime(3) DEFAULT NULL,
