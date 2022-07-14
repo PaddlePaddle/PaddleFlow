@@ -20,7 +20,7 @@ def statistics():
 @click.option('-d', '--detail', is_flag=True, help="show detail statistics")
 @click.option('-s', '--start', help="start time")
 @click.option('-e', '--end', help="end time")
-@click.option('-t', '--step', help="step")
+@click.option('-st', '--step', help="step")
 def job(ctx, jobid, detail, start, end, step):
     """ show statistics info.\n
     JOBID: the id of job you want to show.
