@@ -62,7 +62,7 @@ func TestParallelismManager(t *testing.T) {
 func mockRunConfigForComponentRuntime() *runConfig {
 	return &runConfig{
 		GloablFsName:       "fs",
-		GlobalFsID:         "fs-fs",
+		fsID:               "fs-fs",
 		userName:           "xiaoming",
 		logger:             logger.LoggerForRun("componentRunt"),
 		runID:              "run-000001",

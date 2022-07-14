@@ -471,8 +471,8 @@ type FailureOptions struct {
 }
 
 type FsOptions struct {
-	GlobalFsName string    `yaml:"global_fs_name"    json:"globalFsName"`
-	FsMount      []FsMount `yaml:"fs_mount"     json:"fsMount"`
+	FsName  string    `yaml:"fs_name"      json:"fsName"`
+	FsMount []FsMount `yaml:"fs_mount"     json:"fsMount"`
 }
 
 type FsMount struct {
@@ -826,16 +826,16 @@ func (wfs *WorkflowSource) TransToRunYamlRaw() (runYamlRaw string, err error) {
 }
 
 // 给所有Step的fsMount和fsScope的fsID赋值
-func (wfs *WorkflowSource) ProcessFsAndGetAllIDs(userName string, globalFsName string) ([]string, error) {
+func (wfs *WorkflowSource) ProcessFsAndGetAllIDs(userName string, fsName string) ([]string, error) {
 	// 用map记录所有需要返回的ID，去重
 	fsIDMap := map[string]int{}
 
 	logger.Logger().Infof("debug: begin process FsID")
-	if err := wfs.processFsByUserName(wfs.EntryPoints.EntryPoints, userName, fsIDMap, globalFsName); err != nil {
+	if err := wfs.processFsByUserName(wfs.EntryPoints.EntryPoints, userName, fsIDMap, fsName); err != nil {
 		return []string{}, err
 	}
 
-	if err := wfs.processFsByUserName(wfs.Components, userName, fsIDMap, globalFsName); err != nil {
+	if err := wfs.processFsByUserName(wfs.Components, userName, fsIDMap, fsName); err != nil {
 		return []string{}, err
 	}
 
@@ -843,7 +843,7 @@ func (wfs *WorkflowSource) ProcessFsAndGetAllIDs(userName string, globalFsName s
 	for k, v := range wfs.PostProcess {
 		postMap[k] = v
 	}
-	if err := wfs.processFsByUserName(postMap, userName, fsIDMap, globalFsName); err != nil {
+	if err := wfs.processFsByUserName(postMap, userName, fsIDMap, fsName); err != nil {
 		return []string{}, err
 	}
 
@@ -855,16 +855,16 @@ func (wfs *WorkflowSource) ProcessFsAndGetAllIDs(userName string, globalFsName s
 	return resFsIDList, nil
 }
 
-func (wfs *WorkflowSource) processFsByUserName(compMap map[string]Component, userName string, fsIDMap map[string]int, globalFsName string) error {
+func (wfs *WorkflowSource) processFsByUserName(compMap map[string]Component, userName string, fsIDMap map[string]int, fsName string) error {
 	for _, comp := range compMap {
 		if dag, ok := comp.(*WorkflowSourceDag); ok {
-			if err := wfs.processFsByUserName(dag.EntryPoints, userName, fsIDMap, globalFsName); err != nil {
+			if err := wfs.processFsByUserName(dag.EntryPoints, userName, fsIDMap, fsName); err != nil {
 				return err
 			}
 		} else if step, ok := comp.(*WorkflowSourceStep); ok {
-			// fsNameSet用来检查FsScope中的FsName是否都在FsMount中，或者是global_fs_name
-			fsNameSet := map[string]int{globalFsName: 1}
-			fsNameSet[wfs.FsOptions.GlobalFsName] = 1
+			// fsNameSet用来检查FsScope中的FsName是否都在FsMount中，或者是fs_name
+			fsNameSet := map[string]int{fsName: 1}
+			fsNameSet[wfs.FsOptions.FsName] = 1
 
 			for i, mount := range step.FsMount {
 				if mount.FsName == "" {

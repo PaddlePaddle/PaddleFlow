@@ -340,7 +340,7 @@ func (srt *StepRuntime) logInputArtifact() {
 	for atfName, atfValue := range srt.getComponent().GetArtifacts().Input {
 		req := schema.LogRunArtifactRequest{
 			RunID:        srt.runID,
-			FsID:         srt.GlobalFsID,
+			FsID:         srt.fsID,
 			FsName:       srt.GloablFsName,
 			UserName:     srt.userName,
 			ArtifactPath: atfValue,
@@ -364,7 +364,7 @@ func (srt *StepRuntime) logOutputArtifact() {
 	for atfName, atfValue := range srt.component.(*schema.WorkflowSourceStep).Artifacts.Output {
 		req := schema.LogRunArtifactRequest{
 			RunID:        srt.runID,
-			FsID:         srt.GlobalFsID,
+			FsID:         srt.fsID,
 			FsName:       srt.GloablFsName,
 			UserName:     srt.userName,
 			ArtifactPath: atfValue,
@@ -403,7 +403,7 @@ func (srt *StepRuntime) checkCached() (cacheFound bool, err error) {
 
 	job := srt.job.(*PaddleFlowJob)
 	cacheCaculator, err := NewCacheCalculator(*job, srt.getWorkFlowStep().Cache, srt.logger, srt.getWorkFlowStep().FsMount,
-		srt.GlobalFsID)
+		srt.fsID)
 	if err != nil {
 		return false, err
 	}
@@ -413,7 +413,7 @@ func (srt *StepRuntime) checkCached() (cacheFound bool, err error) {
 		return false, err
 	}
 
-	runCacheList, err := srt.callbacks.ListCacheCb(srt.firstFingerprint, srt.GlobalFsID, srt.pplSource)
+	runCacheList, err := srt.callbacks.ListCacheCb(srt.firstFingerprint, srt.fsID, srt.pplSource)
 	if err != nil {
 		return false, err
 	}
@@ -512,7 +512,7 @@ func (srt *StepRuntime) logCache() error {
 		RunID:       srt.runID,
 		Step:        srt.getComponent().GetName(),
 		JobID:       srt.job.Job().ID,
-		FsID:        srt.GlobalFsID,
+		FsID:        srt.fsID,
 		FsName:      srt.GloablFsName,
 		UserName:    srt.userName,
 		ExpiredTime: srt.getWorkFlowStep().Cache.MaxExpiredTime,
@@ -534,7 +534,7 @@ func (srt *StepRuntime) logCache() error {
 }
 
 func (srt *StepRuntime) generateOutArtPathOnFs() (err error) {
-	rh, err := NewResourceHandler(srt.runID, srt.GlobalFsID, srt.logger)
+	rh, err := NewResourceHandler(srt.runID, srt.fsID, srt.logger)
 	if err != nil {
 		err = fmt.Errorf("cannot generate output artifact's path for step[%s]: %s", srt.name, err.Error())
 		return err
@@ -579,7 +579,7 @@ func (srt *StepRuntime) GenerateFsMountForArtifact() {
 			dir := filepath.Dir(path)
 
 			fsMount := schema.FsMount{
-				FsID:      srt.runConfig.GlobalFsID,
+				FsID:      srt.runConfig.fsID,
 				FsName:    srt.runConfig.GloablFsName,
 				MountPath: strings.Join([]string{ArtMountDir, dir}, "/"),
 				SubPath:   dir,
@@ -593,7 +593,7 @@ func (srt *StepRuntime) GenerateFsMountForArtifact() {
 	for _, path := range srt.getWorkFlowStep().GetArtifacts().Output {
 		dir := filepath.Dir(path)
 		fsMount := schema.FsMount{
-			FsID:      srt.runConfig.GlobalFsID,
+			FsID:      srt.runConfig.fsID,
 			FsName:    srt.runConfig.GloablFsName,
 			MountPath: strings.Join([]string{ArtMountDir, dir}, "/"),
 			SubPath:   dir,

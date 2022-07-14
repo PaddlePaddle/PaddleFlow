@@ -746,50 +746,29 @@ func (bwf *BaseWorkflow) checkComps() error {
 		useFs = false
 	}
 
-	// 这里独立构建一个sysParamNameMap，因为有可能bwf.Extra传递的系统变量，数量或者名称有误
-	// 这里只用于做校验，所以其值没有含义
+	// 这里独立构建一个sysParamNameMap，用于做校验，其value没有含义
 	sysParamNameMap := map[string]string{}
 	for _, name := range SysParamNameList {
 		sysParamNameMap[name] = ""
 	}
 
-	// 这里的为Components字段下（非EntryPoints）的Compoonents，且分为外层和内层的，两者校验逻辑有差异
-	innerTmplComps := map[string]schema.Component{}
-	outerTmplComps := map[string]schema.Component{}
+	tmplComps := map[string]schema.Component{}
 	for name, dag := range bwf.tmpDags {
-		if strings.Contains(name, ".") {
-			innerTmplComps[name] = dag
-		} else {
-			outerTmplComps[name] = dag
-		}
+		tmplComps[name] = dag
 	}
 	for name, step := range bwf.tmpSteps {
 		if strings.Contains(name, ".") {
-			innerTmplComps[name] = step
-		} else {
-			outerTmplComps[name] = step
+			tmplComps[name] = step
 		}
 	}
-	innerTmplParamChecker := ComponentParamChecker{
-		Components:    innerTmplComps,
+	tmplParamChecker := ComponentParamChecker{
+		Components:    tmplComps,
 		SysParams:     sysParamNameMap,
 		UseFs:         useFs,
 		CompTempletes: bwf.Source.Components,
 	}
-	for name, _ := range innerTmplComps {
-		if err := innerTmplParamChecker.Check(name, false); err != nil {
-			bwf.log().Errorln(err.Error())
-			return err
-		}
-	}
-	outerTmplParamChecker := ComponentParamChecker{
-		Components:    outerTmplComps,
-		SysParams:     sysParamNameMap,
-		UseFs:         useFs,
-		CompTempletes: bwf.Source.Components,
-	}
-	for name, _ := range outerTmplComps {
-		if err := outerTmplParamChecker.Check(name, true); err != nil {
+	for name, _ := range tmplComps {
+		if err := tmplParamChecker.Check(name, true); err != nil {
 			bwf.log().Errorln(err.Error())
 			return err
 		}
@@ -812,9 +791,7 @@ func (bwf *BaseWorkflow) checkComps() error {
 		UseFs:         useFs,
 		CompTempletes: bwf.Source.Components,
 	}
-	for _, component := range runComponents {
-		bwf.log().Debugln(component)
-	}
+
 	for name, _ := range runComponents {
 		isDisabled, err := bwf.Source.IsDisabled(name)
 		if err != nil {
