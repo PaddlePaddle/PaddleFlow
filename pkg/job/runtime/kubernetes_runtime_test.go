@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -44,6 +45,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/trace_logger"
 )
 
 const (
@@ -83,7 +85,31 @@ func newFakeDynamicClient(server *httptest.Server) *k8s.DynamicClientOption {
 	}
 }
 
+// init trace logger
+func initTestTraceLogger() error {
+	tmpDir, err := os.MkdirTemp("", "")
+	if err != nil {
+		return err
+	}
+	conf := trace_logger.TraceLoggerConfig{
+		Dir:             tmpDir,
+		FilePrefix:      "trace_logger",
+		Level:           "debug",
+		MaxKeepDays:     2,
+		MaxFileNum:      10,
+		MaxFileSizeInMB: 1,
+		IsCompress:      false,
+		Timeout:         "2s",
+		MaxCacheSize:    2,
+	}
+
+	return trace_logger.InitTraceLoggerManager(conf)
+}
+
 func TestKubeRuntimeJob(t *testing.T) {
+	if err := initTestTraceLogger(); !assert.Equal(t, nil, err) {
+		return
+	}
 	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
 	defer server.Close()
 	dynamicClient := newFakeDynamicClient(server)
