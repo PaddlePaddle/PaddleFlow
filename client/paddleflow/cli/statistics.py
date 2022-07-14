@@ -64,7 +64,7 @@ def _print_job_statistics(jobid, info: StatisticsJobInfo, output_format):
         return
     info = info.metrics_info
     headers = [
-        "job id"
+        "job id",
         "cpu usage rate",
         "memory usage",
         "net receive bytes",
