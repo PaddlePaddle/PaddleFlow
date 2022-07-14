@@ -25,7 +25,6 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -37,6 +36,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	locationAwareness "github.com/PaddlePaddle/PaddleFlow/pkg/fs/location-awareness"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
@@ -371,17 +371,23 @@ func (j *KubeJob) fillPodSpec(podSpec *corev1.PodSpec, task *models.Member) {
 
 // todo: to be removed
 // fillContainerInVcJob fill container in job task, only called by vcjob
-func (j *KubeJob) fillContainerInVcJob(container *corev1.Container, flavour schema.Flavour, command string) {
+func (j *KubeJob) fillContainerInVcJob(container *corev1.Container, flavour schema.Flavour, command string) error {
 	container.Image = j.Image
 	workDir := j.getWorkDir(nil)
 	container.Command = j.generateContainerCommand(j.Command, workDir)
-	container.Resources = j.generateResourceRequirements(flavour)
+	var err error
+	container.Resources, err = j.generateResourceRequirements(flavour)
+	if err != nil {
+		log.Errorf("generate resource requirements failed in vcjob, err: %v", err)
+		return err
+	}
 	container.VolumeMounts = j.appendMountIfAbsent(container.VolumeMounts, j.generateVolumeMount())
 	container.Env = j.generateEnvVars()
+	return nil
 }
 
 // fillContainerInTasks fill container in job task
-func (j *KubeJob) fillContainerInTasks(container *corev1.Container, task models.Member) {
+func (j *KubeJob) fillContainerInTasks(container *corev1.Container, task models.Member) error {
 	if j.isNeedPatch(container.Image) {
 		container.Image = task.Image
 	}
@@ -392,14 +398,19 @@ func (j *KubeJob) fillContainerInTasks(container *corev1.Container, task models.
 	if !j.IsCustomYaml && len(task.Args) > 0 {
 		container.Args = task.Args
 	}
-	container.Resources = j.generateResourceRequirements(task.Flavour)
-
+	var err error
+	container.Resources, err = j.generateResourceRequirements(task.Flavour)
+	if err != nil {
+		log.Errorf("fillContainerInTasks failed when generateResourceRequirements, err: %v", err)
+		return err
+	}
 	taskFs := task.Conf.GetAllFileSystem()
 	if len(taskFs) != 0 {
 		container.VolumeMounts = appendMountsIfAbsent(container.VolumeMounts, generateVolumeMounts(taskFs))
 	}
 
 	container.Env = j.appendEnvIfAbsent(container.Env, j.generateEnvVars())
+	return nil
 }
 
 // appendLabelsIfAbsent append labels if absent
@@ -520,25 +531,20 @@ func (j *KubeJob) getWorkDir(task *models.Member) string {
 	return workdir
 }
 
-func (j *KubeJob) generateResourceRequirements(flavour schema.Flavour) corev1.ResourceRequirements {
+func (j *KubeJob) generateResourceRequirements(flavour schema.Flavour) (corev1.ResourceRequirements, error) {
 	log.Infof("generateResourceRequirements by flavour:[%+v]", flavour)
+
+	flavourResource, err := resources.NewResourceFromMap(flavour.ToMap())
+	if err != nil {
+		log.Errorf("generateResourceRequirements by flavour:[%+v] error:%v", flavour, err)
+		return corev1.ResourceRequirements{}, err
+	}
 	resources := corev1.ResourceRequirements{
-		Requests: map[corev1.ResourceName]resource.Quantity{
-			corev1.ResourceCPU:    resource.MustParse(flavour.CPU),
-			corev1.ResourceMemory: resource.MustParse(flavour.Mem),
-		},
-		Limits: map[corev1.ResourceName]resource.Quantity{
-			corev1.ResourceCPU:    resource.MustParse(flavour.CPU),
-			corev1.ResourceMemory: resource.MustParse(flavour.Mem),
-		},
+		Requests: k8s.NewResourceList(flavourResource),
+		Limits:   k8s.NewResourceList(flavourResource),
 	}
 
-	for key, value := range flavour.ScalarResources {
-		resources.Requests[corev1.ResourceName(key)] = resource.MustParse(value)
-		resources.Limits[corev1.ResourceName(key)] = resource.MustParse(value)
-	}
-
-	return resources
+	return resources, nil
 }
 
 func (j *KubeJob) patchMetadata(metadata *metav1.ObjectMeta, name string) {
