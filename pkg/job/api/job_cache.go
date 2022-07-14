@@ -22,41 +22,46 @@ import (
 
 type QueueJob struct {
 	sync.RWMutex
+	StopCh   chan struct{}
+	Queue    *QueueInfo
 	jobExist sync.Map
-	jobMaps  map[QueueID]*PriorityQueue // Keyed by queueID
+	Jobs     *PriorityQueue
 }
 
-func NewEmptyQueueJobs() *QueueJob {
+func NewQueueJob(q *QueueInfo) *QueueJob {
 	return &QueueJob{
-		jobMaps: make(map[QueueID]*PriorityQueue),
+		StopCh: make(chan struct{}),
+		Queue:  q,
+		Jobs:   NewPriorityQueue(q.JobOrderFn),
+	}
+}
+
+func (qj *QueueJob) GetName() string {
+	return qj.Queue.Name
+}
+
+func (qj *QueueJob) Insert(job *PFJob) {
+	qj.Lock()
+	defer qj.Unlock()
+	if qj.Jobs != nil && job != nil {
+		if _, exist := qj.jobExist.Load(job.ID); !exist {
+			qj.jobExist.Store(job.ID, struct{}{})
+			qj.Jobs.Push(job)
+		}
 	}
 }
 
 func (qj *QueueJob) GetJob() (*PFJob, bool) {
-	qj.RLock()
-	defer qj.RUnlock()
-	// TODO: get job with fair schedule
-	for _, jobQueue := range qj.jobMaps {
-		if jobQueue.Empty() {
-			continue
+	if qj.Jobs != nil {
+		qj.RLock()
+		defer qj.RUnlock()
+		if qj.Jobs.Empty() {
+			return nil, false
 		} else {
-			return jobQueue.Pop().(*PFJob), true
+			return qj.Jobs.Pop().(*PFJob), true
 		}
 	}
 	return nil, false
-}
-
-func (qj *QueueJob) Insert(queueID QueueID, job *PFJob, q *QueueInfo) {
-	qj.Lock()
-	defer qj.Unlock()
-	if _, queueExists := qj.jobMaps[queueID]; !queueExists {
-		qj.jobMaps[queueID] = NewPriorityQueue(q.JobOrderFn)
-	}
-	if _, exist := qj.jobExist.Load(job.ID); !exist {
-		qj.jobExist.Store(job.ID, struct{}{})
-		jobQueue := qj.jobMaps[queueID]
-		jobQueue.Push(job)
-	}
 }
 
 func (qj *QueueJob) DeleteMark(jobID string) {
