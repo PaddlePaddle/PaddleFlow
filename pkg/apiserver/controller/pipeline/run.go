@@ -857,9 +857,6 @@ func GetRunByID(logEntry *log.Entry, userName string, runID string) (models.Run,
 		return models.Run{}, err
 	}
 
-	// 优化RuntimeView结构，使显示结果更友好
-	run.Runtime = run.RemoveOuterDagView(run.Runtime)
-
 	return run, nil
 }
 
