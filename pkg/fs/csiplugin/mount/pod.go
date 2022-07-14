@@ -159,7 +159,7 @@ func removeRef(c k8s.Client, pod *k8sCore.Pod, workPodUID string) error {
 		return nil
 	}
 	delete(annotation, workPodUID)
-	annotation[schema.AnnoKeyMTime] = time.Now().Format(model.TimeFormat)
+	annotation[schema.AnnotationKeyMTime] = time.Now().Format(model.TimeFormat)
 	if err := patchPodAnnotation(c, pod, annotation); err != nil {
 		retErr := fmt.Errorf("mount_pod removeRef: patch pod[%s] annotation:%+v err:%v", pod.Name, annotation, err)
 		log.Errorf(retErr.Error())
@@ -219,7 +219,9 @@ func buildMountPod(volumeID string, mountInfo Info) (*k8sCore.Pod, error) {
 	}
 	pod.ObjectMeta.Annotations = anno
 	// label for pod list
-	pod.Labels = map[string]string{schema.LabelKeyFsID: mountInfo.FsID}
+	pod.Labels[schema.LabelKeyFsID] = mountInfo.FsID
+	pod.Labels[schema.LabelCacheID] = model.CacheID(mountInfo.ClusterID,
+		csiconfig.NodeName, mountInfo.FsCacheConfig.CacheDir)
 	return pod, nil
 }
 
@@ -235,7 +237,7 @@ func buildAnnotation(pod *k8sCore.Pod, targetPath string) (map[string]string, er
 		return nil, err
 	}
 	annotation[workPodUID] = targetPath
-	annotation[schema.AnnoKeyMTime] = time.Now().Format(model.TimeFormat)
+	annotation[schema.AnnotationKeyMTime] = time.Now().Format(model.TimeFormat)
 	return annotation, nil
 }
 
