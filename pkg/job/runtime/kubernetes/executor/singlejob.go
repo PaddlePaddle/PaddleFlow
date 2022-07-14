@@ -167,8 +167,12 @@ func (sp *SingleJob) fillContainer(container *v1.Container, podName string) erro
 
 	// container.Args would be passed
 	// fill resource
-	container.Resources = sp.generateResourceRequirements(sp.Flavour)
-
+	var err error
+	container.Resources, err = sp.generateResourceRequirements(sp.Flavour)
+	if err != nil {
+		log.Errorf("generate resource requirements failed, err: %v", err)
+		return err
+	}
 	// fill env
 	container.Env = sp.appendEnvIfAbsent(container.Env, sp.generateEnvVars())
 	// fill volumeMount
