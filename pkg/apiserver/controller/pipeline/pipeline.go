@@ -46,10 +46,10 @@ type CreatePipelineResponse struct {
 }
 
 type UpdatePipelineRequest struct {
-	GlobalFsName string `json:"globalFsName"`
-	YamlPath     string `json:"yamlPath"` // optional, use "./run.yaml" if not specified
-	UserName     string `json:"username"` // optional, only for root user
-	Desc         string `json:"desc"`     // optional
+	FsName   string `json:"fsName"`
+	YamlPath string `json:"yamlPath"` // optional, use "./run.yaml" if not specified
+	UserName string `json:"username"` // optional, only for root user
+	Desc     string `json:"desc"`     // optional
 }
 
 type UpdatePipelineResponse struct {
@@ -98,7 +98,7 @@ func (pb *PipelineBrief) updateFromPipelineModel(pipeline models.Pipeline) {
 type PipelineDetailBrief struct {
 	ID           string `json:"pipelineDetailID"`
 	PipelineID   string `json:"pipelineID"`
-	GlobalFsName string `json:"globalFsName"`
+	FsName       string `json:"fsName"`
 	YamlPath     string `json:"yamlPath"`
 	PipelineYaml string `json:"pipelineYaml"`
 	UserName     string `json:"username"`
@@ -109,7 +109,7 @@ type PipelineDetailBrief struct {
 func (pdb *PipelineDetailBrief) updateFromPipelineDetailModel(pipelineDetail models.PipelineDetail) {
 	pdb.ID = pipelineDetail.ID
 	pdb.PipelineID = pipelineDetail.PipelineID
-	pdb.GlobalFsName = pipelineDetail.FsName
+	pdb.FsName = pipelineDetail.FsName
 	pdb.YamlPath = pipelineDetail.YamlPath
 	pdb.PipelineYaml = pipelineDetail.PipelineYaml
 	pdb.UserName = pipelineDetail.UserName
@@ -224,14 +224,14 @@ func UpdatePipeline(ctx *logger.RequestContext, request UpdatePipelineRequest, p
 	}
 
 	// check user grant to fs
-	if request.GlobalFsName == "" {
+	if request.FsName == "" {
 		ctx.ErrorCode = common.InvalidArguments
 		errMsg := "update pipeline failed. fsname shall not be empty"
 		ctx.Logging().Errorf(errMsg)
 		return UpdatePipelineResponse{}, fmt.Errorf(errMsg)
 	}
 
-	fsID, err := CheckFsAndGetID(ctx.UserName, request.UserName, request.GlobalFsName)
+	fsID, err := CheckFsAndGetID(ctx.UserName, request.UserName, request.FsName)
 	if err != nil {
 		ctx.ErrorCode = common.InvalidArguments
 		ctx.Logging().Errorf(err.Error())
@@ -286,7 +286,7 @@ func UpdatePipeline(ctx *logger.RequestContext, request UpdatePipelineRequest, p
 	pplDetail := models.PipelineDetail{
 		PipelineID:   pipelineID,
 		FsID:         fsID,
-		FsName:       request.GlobalFsName,
+		FsName:       request.FsName,
 		YamlPath:     request.YamlPath,
 		PipelineYaml: string(pipelineYaml),
 		PipelineMd5:  yamlMd5,

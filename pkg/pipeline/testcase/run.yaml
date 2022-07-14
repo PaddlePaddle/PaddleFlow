@@ -75,6 +75,6 @@ failure_options:
   strategy: "fail_fast"
 
 fs_options:
-  global_fs_name: xd
+  fs_name: xd
   fs_mount: 
   - {fs_name: abc}

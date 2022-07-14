@@ -33,36 +33,36 @@ import (
 
 func getMockRun1() models.Run {
 	run1 := models.Run{
-		ID:           MockRunID1,
-		Name:         MockRunName1,
-		UserName:     MockRootUser,
-		GlobalFsName: MockFsName1,
-		GlobalFsID:   common.ID(MockRootUser, MockFsName1),
-		Status:       common.StatusRunPending,
+		ID:       MockRunID1,
+		Name:     MockRunName1,
+		UserName: MockRootUser,
+		FsName:   MockFsName1,
+		FsID:     common.ID(MockRootUser, MockFsName1),
+		Status:   common.StatusRunPending,
 	}
 	return run1
 }
 
 func getMockRun1_3() models.Run {
 	run1 := models.Run{
-		ID:           MockRunID3,
-		Name:         "",
-		UserName:     MockRootUser,
-		GlobalFsName: MockFsName1,
-		GlobalFsID:   common.ID(MockRootUser, MockFsName1),
-		Status:       common.StatusRunPending,
+		ID:       MockRunID3,
+		Name:     "",
+		UserName: MockRootUser,
+		FsName:   MockFsName1,
+		FsID:     common.ID(MockRootUser, MockFsName1),
+		Status:   common.StatusRunPending,
 	}
 	return run1
 }
 
 func getMockRun2() models.Run {
 	run2 := models.Run{
-		ID:           MockRunID2,
-		Name:         MockRunName2,
-		UserName:     MockNormalUser,
-		GlobalFsName: MockFsName2,
-		GlobalFsID:   common.ID(MockNormalUser, MockFsName2),
-		Status:       common.StatusRunPending,
+		ID:       MockRunID2,
+		Name:     MockRunName2,
+		UserName: MockNormalUser,
+		FsName:   MockFsName2,
+		FsID:     common.ID(MockNormalUser, MockFsName2),
+		Status:   common.StatusRunPending,
 	}
 	return run2
 }
@@ -129,5 +129,5 @@ func TestListRunRouter(t *testing.T) {
 	err = ParseBody(result.Body, &runRsp)
 	assert.Nil(t, err)
 	assert.Equal(t, 2, len(runRsp.RunList))
-	assert.Equal(t, MockFsName1, runRsp.RunList[0].GlobalFsName)
+	assert.Equal(t, MockFsName1, runRsp.RunList[0].FsName)
 }
