@@ -32,7 +32,7 @@ import (
 )
 
 const (
-	defaultCacheSize  = 100
+	defaultCacheSize  = 500
 	defaultExpireTime = 30
 	defaultJobLoop    = 1
 )
@@ -82,6 +82,10 @@ func (m *JobManagerImpl) Start(activeClusters ActiveClustersFunc, activeQueueJob
 	if expireTime < defaultExpireTime {
 		expireTime = defaultExpireTime
 	}
+	clusterSyncTime := config.GlobalServerConfig.Job.ClusterSyncPeriod
+	if clusterSyncTime < defaultExpireTime {
+		clusterSyncTime = defaultExpireTime
+	}
 	jobLoopPeriod := config.GlobalServerConfig.Job.JobLoopPeriod
 	if jobLoopPeriod < defaultJobLoop {
 		jobLoopPeriod = defaultJobLoop
@@ -89,6 +93,7 @@ func (m *JobManagerImpl) Start(activeClusters ActiveClustersFunc, activeQueueJob
 	m.queueCache = gcache.New(cacheSize).LRU().Build()
 	m.queueExpireTime = time.Duration(expireTime) * time.Second
 	m.jobLoopPeriod = time.Duration(jobLoopPeriod) * time.Second
+	clusterSyncPeriod := time.Duration(clusterSyncTime) * time.Second
 
 	// submit job to cluster
 	go m.pJobProcessLoop()
@@ -121,7 +126,7 @@ func (m *JobManagerImpl) Start(activeClusters ActiveClustersFunc, activeQueueJob
 				go m.Run(runtimeSvc, cr.StopCh, clusterID)
 			}
 		}
-		time.Sleep(time.Duration(config.GlobalServerConfig.Job.ClusterSyncPeriod) * time.Second)
+		time.Sleep(clusterSyncPeriod)
 	}
 }
 
@@ -267,7 +272,7 @@ func (m *JobManagerImpl) submitJob(jobSubmit func(*api.PFJob) error, jobInfo *ap
 		if dbErr := models.UpdateJobStatus(jobInfo.ID, msg, jobStatus); dbErr != nil {
 			log.Errorf("update job[%s] status to [%s] failed, err: %v", jobInfo.ID, schema.StatusJobFailed, dbErr)
 		}
-		log.Infof("submit job %s to cluster elasped time %d", jobInfo.ID, time.Since(startTime))
+		log.Infof("submit job %s to cluster elasped time %s", jobInfo.ID, time.Since(startTime))
 	} else {
 		log.Errorf("job %s is already submit to cluster, skip it", job.ID)
 	}
