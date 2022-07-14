@@ -67,7 +67,7 @@ func cleanMountPod(mountPodExpire time.Duration) error {
 		log.Errorf(fmt.Sprintf("clean mount pods with err: %v", err))
 		return err
 	}
-	if err = cleanFsCache(deleteMountPodsMap); err != nil {
+	if err = cleanFSCache(deleteMountPodsMap); err != nil {
 		log.Errorf(fmt.Sprintf("clean fs cache with err: %v", err))
 		return err
 	}

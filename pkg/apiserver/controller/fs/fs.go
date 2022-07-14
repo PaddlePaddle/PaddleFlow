@@ -344,13 +344,13 @@ func deleteMountPods(podMap map[*runtime.KubeRuntime][]k8sCore.Pod) error {
 	return nil
 }
 
-func cleanFsCache(podMap map[*runtime.KubeRuntime][]k8sCore.Pod) error {
+func cleanFSCache(podMap map[*runtime.KubeRuntime][]k8sCore.Pod) error {
 	var err error
 	for _, pods := range podMap {
 		for _, pod := range pods {
 			cacheID := pod.Labels[schema.AnnotationKeyMTime]
 			if cacheID == "" {
-				log.Errorf("cacheId is empty with pod: %+v", pod)
+				log.Debugf("cacheId is empty with pod: %+v", pod)
 				continue
 			}
 			err = removeFSCacheWithCacheID(cacheID)
