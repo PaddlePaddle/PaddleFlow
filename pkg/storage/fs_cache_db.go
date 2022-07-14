@@ -48,7 +48,10 @@ func (f *DBFSCache) Get(fsID string, cacheID string) (*model.FSCache, error) {
 }
 
 func (f *DBFSCache) Delete(fsID, cacheID string) error {
-	tx := f.db.Where(fmt.Sprintf(QueryEqualWithParam, FsID), fsID)
+	tx := f.db
+	if fsID != "" {
+		tx = tx.Where(fmt.Sprintf(QueryEqualWithParam, FsID), fsID)
+	}
 	if cacheID != "" {
 		tx.Where(fmt.Sprintf(QueryEqualWithParam, cacheID), cacheID)
 	}
