@@ -25,5 +25,5 @@ const (
 	QueryDiskReadQl     = "sum(rate(container_fs_reads_bytes_total{image!=\"\", pod=~\"%s\"}[1m])) by (pod)"
 	QueryDiskWriteQl    = "sum(rate(container_fs_writes_bytes_total{image!=\"\", pod=~\"%s\"}[1m])) by (pod)"
 	QueryGpuUtilQl      = "sum(rate(container_accelerator_duty_cycle{image!=\"\", pod=~\"%s\"}[1m])) by (pod)"
-	QueryGpuMemUtilQl   = "sum(rate(container_accelerator_memory_used_bytes{image!=\"\", pod=~\"%s\"}[1m])) by (pod)"
+	QueryGpuMemUtilQl   = "sum(container_accelerator_memory_used_bytes{image!=\"\", pod=~\"%s\"}) by (pod) / sum(container_accelerator_memory_total_bytes{image!=\"\", pod=~\"%s\"}) by (pod)"
 )
