@@ -883,11 +883,17 @@ func StopRun(logEntry *log.Entry, userName, runID string, request UpdateRunReque
 		logEntry.Errorln(err.Error())
 		return err
 	}
-	if err := models.UpdateRunStatus(logEntry, runID, common.StatusRunTerminating); err != nil {
+
+	runUpdate := models.Run{
+		Status:    common.StatusRunTerminating,
+		StopForce: request.StopForce,
+	}
+	if err := models.UpdateRun(logEntry, runID, runUpdate); err != nil {
 		err = fmt.Errorf("stop run[%s] failed updating db, %s", runID, err.Error())
 		logEntry.Errorln(err.Error())
 		return err
 	}
+
 	wf.Stop(request.StopForce)
 	logEntry.Debugf("stop run succeed. runID:%s", runID)
 	return nil
@@ -1113,7 +1119,7 @@ func RestartWf(run models.Run, wfPtr *pipeline.Workflow, isResume bool) error {
 	logEntry.Infof("debug: dagview before restart is: %s", res)
 
 	if isResume {
-		wfPtr.Resume(entryPointDagView, run.PostProcess, run.Status, false)
+		wfPtr.Resume(entryPointDagView, run.PostProcess, run.Status, run.StopForce)
 		// TODO: 临时先传false
 	} else {
 		wfPtr.Restart(entryPointDagView, run.PostProcess)
