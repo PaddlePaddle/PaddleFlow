@@ -20,7 +20,7 @@ import (
 	"sync"
 )
 
-type QueueJob struct {
+type JobQueue struct {
 	sync.RWMutex
 	StopCh   chan struct{}
 	Queue    *QueueInfo
@@ -28,22 +28,26 @@ type QueueJob struct {
 	Jobs     *PriorityQueue
 }
 
-func NewQueueJob(q *QueueInfo) *QueueJob {
-	return &QueueJob{
+func NewJobQueue(q *QueueInfo) *JobQueue {
+	return &JobQueue{
 		StopCh: make(chan struct{}),
 		Queue:  q,
 		Jobs:   NewPriorityQueue(q.JobOrderFn),
 	}
 }
 
-func (qj *QueueJob) GetName() string {
-	return qj.Queue.Name
+func (qj *JobQueue) GetName() string {
+	name := ""
+	if qj.Queue != nil {
+		name = qj.Queue.Name
+	}
+	return name
 }
 
-func (qj *QueueJob) Insert(job *PFJob) {
-	qj.Lock()
-	defer qj.Unlock()
+func (qj *JobQueue) Insert(job *PFJob) {
 	if qj.Jobs != nil && job != nil {
+		qj.Lock()
+		defer qj.Unlock()
 		if _, exist := qj.jobExist.Load(job.ID); !exist {
 			qj.jobExist.Store(job.ID, struct{}{})
 			qj.Jobs.Push(job)
@@ -51,7 +55,7 @@ func (qj *QueueJob) Insert(job *PFJob) {
 	}
 }
 
-func (qj *QueueJob) GetJob() (*PFJob, bool) {
+func (qj *JobQueue) GetJob() (*PFJob, bool) {
 	if qj.Jobs != nil {
 		qj.RLock()
 		defer qj.RUnlock()
@@ -64,6 +68,6 @@ func (qj *QueueJob) GetJob() (*PFJob, bool) {
 	return nil, false
 }
 
-func (qj *QueueJob) DeleteMark(jobID string) {
+func (qj *JobQueue) DeleteMark(jobID string) {
 	qj.jobExist.Delete(jobID)
 }

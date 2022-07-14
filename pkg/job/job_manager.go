@@ -55,7 +55,7 @@ type JobManagerImpl struct {
 
 	// queueJobs jobs in queue
 	sync.RWMutex
-	queueJobs map[api.QueueID]*api.QueueJob
+	queueJobs map[api.QueueID]*api.JobQueue
 	// clusterRuntimes contains cluster status and runtime services
 	clusterRuntimes ClusterRuntimes
 }
@@ -63,7 +63,7 @@ type JobManagerImpl struct {
 func NewJobManagerImpl() (*JobManagerImpl, error) {
 	manager := &JobManagerImpl{
 		clusterRuntimes: NewClusterRuntimes(),
-		queueJobs:       make(map[api.QueueID]*api.QueueJob),
+		queueJobs:       make(map[api.QueueID]*api.JobQueue),
 	}
 	return manager, nil
 
@@ -339,15 +339,14 @@ func (m *JobManagerImpl) pJobProcessLoop() {
 				continue
 			}
 			m.Lock()
-			qJobCache, find := m.queueJobs[queueID]
+			jobQueue, find := m.queueJobs[queueID]
 			if !find {
-				jobCache := api.NewQueueJob(qInfo)
-				m.queueJobs[queueID] = jobCache
-				qJobCache = jobCache
-				go m.pSubmitQueueJob(jobCache, cQueue.RuntimeSvc)
+				jobQueue = api.NewJobQueue(qInfo)
+				m.queueJobs[queueID] = jobQueue
+				go m.pSubmitQueueJob(jobQueue, cQueue.RuntimeSvc)
 			}
 			m.Unlock()
-			qJobCache.Insert(pfJob)
+			jobQueue.Insert(pfJob)
 		}
 		elapsedTime := time.Since(startTime)
 		if elapsedTime < m.jobLoopPeriod {
@@ -357,7 +356,7 @@ func (m *JobManagerImpl) pJobProcessLoop() {
 	}
 }
 
-func (m *JobManagerImpl) pSubmitQueueJob(jobQueue *api.QueueJob, runtimeSvc runtime.RuntimeService) {
+func (m *JobManagerImpl) pSubmitQueueJob(jobQueue *api.JobQueue, runtimeSvc runtime.RuntimeService) {
 	name := jobQueue.GetName()
 	log.Infof("start submit job loop for queue: %s", name)
 	for {
