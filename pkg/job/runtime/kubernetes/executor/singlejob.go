@@ -23,7 +23,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
@@ -47,6 +46,9 @@ func (sp *SingleJob) validateJob() error {
 		}
 		if sp.Command == "" {
 			return fmt.Errorf("command is empty")
+		}
+		if schema.IsEmptyResource(sp.Flavour.ResourceInfo) {
+			return fmt.Errorf("flavour resource is empty")
 		}
 	}
 	return nil
@@ -148,22 +150,17 @@ func (sp *SingleJob) fillContainersInPod(pod *v1.Pod) error {
 // fill container for pod, and return err if exist error
 func (sp *SingleJob) fillContainer(container *v1.Container, podName string) error {
 	log.Debugf("fillContainer for job[%s]", podName)
+	if sp.IsCustomYaml {
+		log.Debugf("fillContainer passwd for job[%s] with custom yaml", podName)
+		return nil
+	}
 	// fill name
-	if sp.isNeedPatch(container.Name) {
-		container.Name = podName
-	}
+	container.Name = podName
 	// fill image
-	if sp.isNeedPatch(container.Image) {
-		container.Image = sp.Image
-	}
+	container.Image = sp.Image
 	// fill command
-	if !sp.IsCustomYaml {
-		if sp.Command == "" {
-			return errors.EmptyJobCommandError()
-		}
-		workDir := sp.getWorkDir(nil)
-		container.Command = sp.generateContainerCommand(sp.Command, workDir)
-	}
+	workDir := sp.getWorkDir(nil)
+	container.Command = sp.generateContainerCommand(sp.Command, workDir)
 
 	// container.Args would be passed
 	// fill resource

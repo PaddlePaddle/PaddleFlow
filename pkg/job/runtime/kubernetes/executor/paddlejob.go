@@ -58,10 +58,6 @@ func (pj *PaddleJob) CreateJob() (string, error) {
 		log.Errorf("validate [%s]type job[%s] failed, err %v", pj.JobType, pj.ID, err)
 		return "", err
 	}
-	if err := pj.validateJob(); err != nil {
-		log.Errorf("validate %s job failed, err %v", pj.JobType, err)
-		return "", err
-	}
 
 	var err error
 	// patch .metadata field
