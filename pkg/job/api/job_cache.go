@@ -71,3 +71,41 @@ func (qj *JobQueue) GetJob() (*PFJob, bool) {
 func (qj *JobQueue) DeleteMark(jobID string) {
 	qj.jobExist.Delete(jobID)
 }
+
+// JobQueues the collect of JobQueue
+type JobQueues struct {
+	sync.RWMutex
+	queueJobs map[QueueID]*JobQueue
+}
+
+func NewJobQueues() JobQueues {
+	return JobQueues{
+		queueJobs: make(map[QueueID]*JobQueue),
+	}
+}
+
+func (jq *JobQueues) Get(id QueueID) (*JobQueue, bool) {
+	if jq.queueJobs != nil {
+		jq.RLock()
+		defer jq.RUnlock()
+		q, find := jq.queueJobs[id]
+		return q, find
+	}
+	return nil, false
+}
+
+func (jq *JobQueues) Insert(id QueueID, jobQueue *JobQueue) {
+	if jq.queueJobs != nil {
+		jq.Lock()
+		defer jq.Unlock()
+		jq.queueJobs[id] = jobQueue
+	}
+}
+
+func (jq *JobQueues) Delete(id QueueID) {
+	if jq.queueJobs != nil {
+		jq.Lock()
+		defer jq.Unlock()
+		delete(jq.queueJobs, id)
+	}
+}

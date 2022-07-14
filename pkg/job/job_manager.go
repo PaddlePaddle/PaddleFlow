@@ -53,9 +53,8 @@ type JobManagerImpl struct {
 	listQueueInitJobs func(string) []models.Job
 	jobLoopPeriod     time.Duration
 
-	// queueJobs jobs in queue
-	sync.RWMutex
-	queueJobs map[api.QueueID]*api.JobQueue
+	// jobQueues contains JobQueue for jobs in queue
+	jobQueues api.JobQueues
 	// clusterRuntimes contains cluster status and runtime services
 	clusterRuntimes ClusterRuntimes
 }
@@ -63,7 +62,7 @@ type JobManagerImpl struct {
 func NewJobManagerImpl() (*JobManagerImpl, error) {
 	manager := &JobManagerImpl{
 		clusterRuntimes: NewClusterRuntimes(),
-		queueJobs:       make(map[api.QueueID]*api.JobQueue),
+		jobQueues:       api.NewJobQueues(),
 	}
 	return manager, nil
 
@@ -338,14 +337,14 @@ func (m *JobManagerImpl) pJobProcessLoop() {
 			if err != nil {
 				continue
 			}
-			m.Lock()
-			jobQueue, find := m.queueJobs[queueID]
+
+			jobQueue, find := m.jobQueues.Get(queueID)
 			if !find {
 				jobQueue = api.NewJobQueue(qInfo)
-				m.queueJobs[queueID] = jobQueue
+				m.jobQueues.Insert(queueID, jobQueue)
 				go m.pSubmitQueueJob(jobQueue, cQueue.RuntimeSvc)
 			}
-			m.Unlock()
+
 			jobQueue.Insert(pfJob)
 		}
 		elapsedTime := time.Since(startTime)
@@ -389,16 +388,12 @@ func (m *JobManagerImpl) stopClusterQueueSubmit(clusterID api.ClusterID) {
 }
 
 func (m *JobManagerImpl) stopQueueSubmit(queueID api.QueueID) {
-	m.RLock()
-	qc, find := m.queueJobs[queueID]
-	m.RUnlock()
+	qc, find := m.jobQueues.Get(queueID)
 	if find {
 		if qc.StopCh != nil {
 			close(qc.StopCh)
 		}
-		m.Lock()
-		delete(m.queueJobs, queueID)
-		m.Unlock()
+		m.jobQueues.Delete(queueID)
 	}
 }
 
