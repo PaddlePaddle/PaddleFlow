@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"os"
 	"strconv"
-	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
@@ -49,7 +48,7 @@ func initInternalNodes() {
 	log.Traceln("init() vfs internal nodes")
 	uid := uint32(os.Getuid())
 	gid := uint32(os.Getgid())
-	now := time.Now().Unix()
+	now := int64(0)
 	for _, v := range internalNodes {
 		v.attr.Type = meta.TypeFile
 		v.attr.Nlink = 1
