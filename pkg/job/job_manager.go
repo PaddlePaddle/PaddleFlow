@@ -218,7 +218,7 @@ func (m *JobManagerImpl) submitQueueJob(jobSubmit func(*api.PFJob) error, queueI
 			// get init job from database
 			pfJobs := m.listQueueInitJobs(string(queueID))
 			if len(pfJobs) == 0 {
-				log.Debugf("sleep %d second when not job on queue %s", m.jobLoopPeriod, queueName)
+				log.Debugf("sleep %s when no job on queue %s", m.jobLoopPeriod, queueName)
 				time.Sleep(m.jobLoopPeriod)
 				continue
 			}

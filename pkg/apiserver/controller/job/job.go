@@ -305,3 +305,9 @@ func getRuntimeByQueue(ctx *logger.RequestContext, queueID string) (runtime.Runt
 	}
 	return runtimeSvc, nil
 }
+
+// StopJobByID deprecated use StopJob
+func StopJobByID(jobID string) error {
+	logCtx := &logger.RequestContext{}
+	return StopJob(logCtx, jobID)
+}
