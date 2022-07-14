@@ -469,7 +469,7 @@ func (drt *DagRuntime) Resume(dagView *schema.DagView) {
 
 		component := drt.getworkflowSouceDag().EntryPoints[name].DeepCopy()
 
-		// 替换 reference, parameter, artifact, loop_argument 字段
+		// 替换 reference, parameter, input artifact, loop_argument 字段
 		component, err := drt.resolveSubComponent(name, component)
 		if err != nil {
 			drt.logger.Errorln(err.Error())
@@ -641,6 +641,14 @@ func (drt *DagRuntime) creatStepRuntimeAccordingView(view *schema.JobView, name 
 	srt := NewStepRuntime(runtimeName, fullName, stepPtr,
 		view.LoopSeq, drt.ctx, ctxAndcc.ctx, drt.receiveEventChildren, drt.runConfig, drt.ID)
 
+	// 如果 view 的状态是的成功的，则据此跟新 runtime 的 output Artifact 字段下游节点会使用
+	// 对于 command， env， condition 字段，此处可以不更新，因为不会再次写库
+	if view.Status == StatusRuntimeSucceeded {
+		for name, value := range view.Artifacts.Output {
+			srt.getComponent().GetArtifacts().Output[name] = value
+		}
+	}
+
 	return srt
 }
 
@@ -655,6 +663,11 @@ func (drt *DagRuntime) createDagRuntimeAccordingView(view *schema.DagView, name 
 	sDrt := NewDagRuntime(runtimeName, fullName, dagPtr,
 		view.LoopSeq, drt.ctx, ctxAndcc.ctx, drt.receiveEventChildren, drt.runConfig, drt.ID)
 
+	if view.Status == StatusRuntimeSucceeded {
+		for name, value := range view.Artifacts.Output {
+			sDrt.getComponent().GetArtifacts().Output[name] = value
+		}
+	}
 	return sDrt
 }
 
