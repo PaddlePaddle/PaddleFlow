@@ -94,7 +94,7 @@ func mockArtInJsonFormat(artPath string) {
 func TestResolveLoopArgument(t *testing.T) {
 
 	component := mockComponentForInnerSolver()
-	is := NewInnerSolver(component, "step1", &runConfig{GlobalFsID: "xx", logger: logger.LoggerForRun("innersolver")})
+	is := NewInnerSolver(component, "step1", &runConfig{fsID: "xx", logger: logger.LoggerForRun("innersolver")})
 
 	err := is.resolveLoopArugment()
 	assert.Nil(t, err)
@@ -133,7 +133,7 @@ func TestResolveLoopArgument(t *testing.T) {
 	mockArtInJsonFormat("./a.txt")
 
 	component.UpdateLoopArguemt("{{in1}}")
-	is = NewInnerSolver(component, "step1", &runConfig{GlobalFsID: "xx", logger: logger.LoggerForRun("innersolver")})
+	is = NewInnerSolver(component, "step1", &runConfig{fsID: "xx", logger: logger.LoggerForRun("innersolver")})
 	err = is.resolveLoopArugment()
 	assert.Nil(t, err)
 
@@ -158,7 +158,7 @@ func TestResolveCondition(t *testing.T) {
 	mockArtInJsonFormat("./a.txt")
 
 	component.UpdateCondition("b{{in1}}_{{p1}} == 10")
-	is = NewInnerSolver(component, "step1", &runConfig{GlobalFsID: "xx", logger: logger.LoggerForRun("innersolver")})
+	is = NewInnerSolver(component, "step1", &runConfig{fsID: "xx", logger: logger.LoggerForRun("innersolver")})
 	err = is.resolveCondition()
 	assert.Nil(t, err)
 
@@ -166,7 +166,7 @@ func TestResolveCondition(t *testing.T) {
 
 	// 测试异常情况
 	component.UpdateCondition("{{in5}} == 10")
-	is = NewInnerSolver(component, "step1", &runConfig{GlobalFsID: "xx", logger: logger.LoggerForRun("innersolver")})
+	is = NewInnerSolver(component, "step1", &runConfig{fsID: "xx", logger: logger.LoggerForRun("innersolver")})
 	err = is.resolveCondition()
 
 	assert.NotNil(t, err)
@@ -210,7 +210,7 @@ func TestResolveEnv(t *testing.T) {
 func mockRunconfigForDepRsl() *runConfig {
 	return &runConfig{
 		logger:       logger.LoggerForRun("depResolve"),
-		GlobalFsID:   "fs-xx",
+		fsID:         "fs-xx",
 		GloablFsName: "xx",
 		userName:     "aa",
 		runID:        "run-dep",

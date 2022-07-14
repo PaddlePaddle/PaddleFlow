@@ -338,7 +338,7 @@ func TestCheckCached(t *testing.T) {
 
 	job := srt.job.(*PaddleFlowJob)
 	cacheCaculator, err := NewCacheCalculator(*job, wfs.Cache, srt.logger, srt.getWorkFlowStep().FsMount,
-		srt.GlobalFsID)
+		srt.fsID)
 
 	patch1 := gomonkey.ApplyMethod(reflect.TypeOf(cacheCaculator), "CalculateFirstFingerprint", func(_ *conservativeCacheCalculator) (string, error) {
 		return "1111", nil
@@ -529,7 +529,7 @@ func TestExecute(t *testing.T) {
 
 	job := srt.job.(*PaddleFlowJob)
 	cacheCaculator, err := NewCacheCalculator(*job, wfs.Cache, srt.logger, srt.getWorkFlowStep().FsMount,
-		srt.GlobalFsID)
+		srt.fsID)
 	patch12 := gomonkey.ApplyMethod(reflect.TypeOf(cacheCaculator), "CalculateFirstFingerprint", func(_ *conservativeCacheCalculator) (string, error) {
 		return "1111", nil
 	})
