@@ -746,14 +746,12 @@ func (bwf *BaseWorkflow) checkComps() error {
 		useFs = false
 	}
 
-	// 这里独立构建一个sysParamNameMap，因为有可能bwf.Extra传递的系统变量，数量或者名称有误
-	// 这里只用于做校验，所以其值没有含义
+	// 这里独立构建一个sysParamNameMap，用于做校验，其value没有含义
 	sysParamNameMap := map[string]string{}
 	for _, name := range SysParamNameList {
 		sysParamNameMap[name] = ""
 	}
 
-	// 这里的为Components字段下（非EntryPoints）的Compoonents，且分为外层和内层的，两者校验逻辑有差异
 	tmplComps := map[string]schema.Component{}
 	for name, dag := range bwf.tmpDags {
 		tmplComps[name] = dag
@@ -793,9 +791,7 @@ func (bwf *BaseWorkflow) checkComps() error {
 		UseFs:         useFs,
 		CompTempletes: bwf.Source.Components,
 	}
-	for _, component := range runComponents {
-		bwf.log().Debugln(component)
-	}
+
 	for name, _ := range runComponents {
 		isDisabled, err := bwf.Source.IsDisabled(name)
 		if err != nil {

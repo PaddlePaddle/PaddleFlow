@@ -134,13 +134,13 @@ func (s *ComponentParamChecker) Check(currentComponent string, isComp bool) erro
 		- parameters 字段中变量可引用系统参数、及上游节点parameter
 		- input artifacts 只能引用上游 outputArtifact
 		- output artifact不会引用任何参数，值由平台自动生成
-		- env 支持平台内置参数替换，上游step的parameter依赖替换，当前step的parameter替换
-		- command 支持平台内置参数替换，上游step的parameter依赖替换，当前step的parameter替换，当前step内input artifact、当前step内output artifact替换
+		- env 支持平台内置参数替换，当前step的parameter替换
+		- command 支持平台内置参数替换，当前step的parameter替换，当前step内input artifact、当前step内output artifact替换
 		4. 引用上游参数时，必须保证上游节点不在disabled列表中。
 	*/
 	isOuterComp := false
 	if isComp && !strings.Contains(currentComponent, ".") {
-		// 外层Component的校验逻辑特殊
+		// 外层Component的校验逻辑特殊，所以这里判断当前Component是不是外层Component（template）
 		isOuterComp = true
 	}
 
@@ -160,9 +160,10 @@ func (s *ComponentParamChecker) Check(currentComponent string, isComp bool) erro
 	}
 
 	// 1. parameter 校验
-	// parameter不需要将dict类型的参数默认值提取出来，因为会在StepParamResolver中做了
+	// 这里的dict参数会将默认值提取出来，替换dict参数
 	// 另外命令行参数替换默认值，会在workflow.go中完成
 	for paramName, paramVal := range component.GetParameters() {
+		// 有input artifact就必须有output artifact，在output那里检查是否有使用Fs即可，这里无需检查
 		if err = s.checkName(currentComponent, FieldParameters, paramName); err != nil {
 			return err
 		}
