@@ -752,28 +752,6 @@ func (bwf *BaseWorkflow) checkComps() error {
 		sysParamNameMap[name] = ""
 	}
 
-	tmplComps := map[string]schema.Component{}
-	for name, dag := range bwf.tmpDags {
-		tmplComps[name] = dag
-	}
-	for name, step := range bwf.tmpSteps {
-		if strings.Contains(name, ".") {
-			tmplComps[name] = step
-		}
-	}
-	tmplParamChecker := ComponentParamChecker{
-		Components:    tmplComps,
-		SysParams:     sysParamNameMap,
-		UseFs:         useFs,
-		CompTempletes: bwf.Source.Components,
-	}
-	for name, _ := range tmplComps {
-		if err := tmplParamChecker.Check(name, true); err != nil {
-			bwf.log().Errorln(err.Error())
-			return err
-		}
-	}
-
 	// 同时检查entryPoints、postProcess
 	runComponents := map[string]schema.Component{}
 	for name, step := range bwf.runtimeSteps {
@@ -801,6 +779,28 @@ func (bwf *BaseWorkflow) checkComps() error {
 			continue
 		}
 		if err := runParamChecker.Check(name, false); err != nil {
+			bwf.log().Errorln(err.Error())
+			return err
+		}
+	}
+
+	tmplComps := map[string]schema.Component{}
+	for name, dag := range bwf.tmpDags {
+		tmplComps[name] = dag
+	}
+	for name, step := range bwf.tmpSteps {
+		if strings.Contains(name, ".") {
+			tmplComps[name] = step
+		}
+	}
+	tmplParamChecker := ComponentParamChecker{
+		Components:    tmplComps,
+		SysParams:     sysParamNameMap,
+		UseFs:         useFs,
+		CompTempletes: bwf.Source.Components,
+	}
+	for name, _ := range tmplComps {
+		if err := tmplParamChecker.Check(name, true); err != nil {
 			bwf.log().Errorln(err.Error())
 			return err
 		}
