@@ -111,12 +111,7 @@ func start() error {
 	defer close(stopChan)
 	go fs.CleanMountPodController(ServerConf.Fs.MountPodExpire, ServerConf.Fs.CleanMountPodIntervalTime, stopChan)
 
-	err = trace_logger.Start(ServerConf.TraceLog)
-	if err != nil {
-		errMsg := fmt.Errorf("start trace logger failed. error: %w", err)
-		log.Errorf(errMsg.Error())
-		return errMsg
-	}
+	trace_logger.Start(ServerConf.TraceLog)
 
 	go func() {
 		if err := HttpSvr.ListenAndServe(); err != nil && errors.Is(err, http.ErrServerClosed) {
@@ -228,8 +223,6 @@ func setup() {
 		gracefullyExit(err)
 	}
 
-	monitor.Init()
-	_ = monitor.StartJobMetricsService(ServerConf.Monitor.ExporterServicePort)
 }
 
 func newAndStartJobManager() error {
