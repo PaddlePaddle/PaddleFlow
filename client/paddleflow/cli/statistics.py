@@ -19,9 +19,9 @@ def statistics():
 @click.pass_context
 @click.argument('jobid')
 @click.option('-d', '--detail', is_flag=True, help="show detail statistics")
-@click.option('-s', '--start', help="start time")
-@click.option('-e', '--end', help="end time")
-@click.option('-st', '--step', help="step")
+@click.option('-s', '--start', help="start time", type=int)
+@click.option('-e', '--end', help="end time", type=int)
+@click.option('-st', '--step', help="step", type=int)
 def job(ctx, jobid, detail, start, end, step):
     """ show statistics info.\n
     JOBID: the id of job you want to show.
@@ -66,12 +66,8 @@ def _print_job_statistics(jobid, info: StatisticsJobInfo, output_format):
         click.echo("no data")
         return
     info = info.metrics_info
-    headers = [
-                  "job id"
-              ] + [k.replace("_", " ") for k in info]
-    data = [[
-                jobid,
-            ] + [v for v in info.values()]]
+    headers = [k.replace("_", " ") for k in info]
+    data = [[v for v in info.values()]]
 
     print_output(data, headers, output_format, table_format='grid')
 
@@ -88,7 +84,7 @@ def _print_job_statistics_detail(job_statistics_detail_info: StatisticsJobDetail
     ts_map = {}
     try:
         for i, info in enumerate(result.task_info):
-            headers.append(info.metric)
+            headers.append(info.metric.replace("_", " "))
             ts_set = set()
             # add metric to timestamp map
             for value in info.values:

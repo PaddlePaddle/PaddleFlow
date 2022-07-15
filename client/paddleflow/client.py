@@ -707,7 +707,7 @@ class Client(object):
         # check optional params
         if start is not None and int(start) < 0:
             raise PaddleFlowSDKException("InvalidStart", "start is not none and less than 0")
-        if end is not None and (start is None or int(end) <= int(start)):
+        if end is not None and (start is None or int(end) < int(start)):
             raise PaddleFlowSDKException("InvalidEnd", "end is not none and less than start")
         if step is not None and int(step) <= 0:
             raise PaddleFlowSDKException("InvalidStep", "step is not none and less than 0")
