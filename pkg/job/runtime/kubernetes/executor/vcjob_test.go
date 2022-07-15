@@ -23,6 +23,7 @@ import (
 	vcjob "volcano.sh/apis/pkg/apis/batch/v1alpha1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 )
@@ -148,18 +149,19 @@ func TestPatchVCJobVariable(t *testing.T) {
 		pfjob.JobMode = test.vcJobMode
 		// create Job
 		kubeJob := KubeJob{
-			ID:         test.caseName,
-			Name:       "randomName",
-			Namespace:  "namespace",
-			JobType:    schema.TypeVcJob,
-			JobMode:    test.vcJobMode,
-			Image:      pfjob.Conf.GetImage(),
-			Command:    pfjob.Conf.GetCommand(),
-			Env:        pfjob.Conf.GetEnv(),
-			VolumeName: pfjob.Conf.GetFS(),
-			PVCName:    "PVCName",
-			Priority:   pfjob.Conf.GetPriority(),
-			QueueName:  pfjob.Conf.GetQueueName(),
+			ID:               test.caseName,
+			Name:             "randomName",
+			Namespace:        "namespace",
+			JobType:          schema.TypeVcJob,
+			JobMode:          test.vcJobMode,
+			GroupVersionKind: k8s.VCJobGVK,
+			Image:            pfjob.Conf.GetImage(),
+			Command:          pfjob.Conf.GetCommand(),
+			Env:              pfjob.Conf.GetEnv(),
+			VolumeName:       pfjob.Conf.GetFS(),
+			PVCName:          "PVCName",
+			Priority:         pfjob.Conf.GetPriority(),
+			QueueName:        pfjob.Conf.GetQueueName(),
 			Tasks: []models.Member{{Conf: schema.Conf{Flavour: schema.Flavour{
 				ResourceInfo: schema.ResourceInfo{
 					CPU: "1",

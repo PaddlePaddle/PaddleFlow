@@ -17,6 +17,8 @@ limitations under the License.
 package config
 
 import (
+	"time"
+
 	apiv1 "k8s.io/api/core/v1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
@@ -90,8 +92,10 @@ type FsServerConf struct {
 	DefaultPVCPath    string `yaml:"defaultPVCPath"`
 	LinkMetaDirPrefix string `yaml:"linkMetaDirPrefix"`
 	// K8sServiceName K8sServicePort used to create pv/pvc with volumeAttributes point pfs-server pod
-	K8sServiceName string `yaml:"k8sServiceName"`
-	K8sServicePort int    `yaml:"k8sServicePort"`
+	K8sServiceName            string        `yaml:"k8sServiceName"`
+	K8sServicePort            int           `yaml:"k8sServicePort"`
+	MountPodExpire            time.Duration `yaml:"mountPodExpire"`
+	CleanMountPodIntervalTime time.Duration `yaml:"cleanMountPodIntervalTime"`
 }
 
 type ReclaimConfig struct {

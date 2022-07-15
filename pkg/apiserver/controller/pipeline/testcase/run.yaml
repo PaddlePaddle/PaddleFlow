@@ -44,6 +44,6 @@ cache:
 parallelism: 5
 
 fs_options:
-  global_fs_name: xd
+  fs_name: xd
   fs_mount: 
     - {fs_name: abc}
