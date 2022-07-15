@@ -793,9 +793,7 @@ func (bwf *BaseWorkflow) checkComps() error {
 		tmplComps[name] = dag
 	}
 	for name, step := range bwf.tmpSteps {
-		if strings.Contains(name, ".") {
-			tmplComps[name] = step
-		}
+		tmplComps[name] = step
 	}
 	tmplParamChecker := ComponentParamChecker{
 		Components:    tmplComps,
