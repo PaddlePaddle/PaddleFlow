@@ -1134,8 +1134,8 @@ func RestartWf(run models.Run, isResume bool) (string, error) {
 
 		// 创建新Run记录，拷贝runtime中的所有dag和job
 		run.Pk = 0
+		run.ID = ""
 		run.StopForce = false
-
 		if _, err := models.CreateRun(logEntry, &run); err != nil {
 			return "", err
 		}
