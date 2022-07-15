@@ -502,7 +502,7 @@ func (p *Parser) ParseFsOptions(fsMap map[string]interface{}, fs *FsOptions) err
 			if !ok {
 				return fmt.Errorf("[fs_options.fs_name] should be string type")
 			}
-			fs.FsName = value
+			fs.MainFs = value
 		case "fs_mount":
 			value, ok := value.([]interface{})
 			if !ok {
@@ -517,7 +517,7 @@ func (p *Parser) ParseFsOptions(fsMap map[string]interface{}, fs *FsOptions) err
 				if err := p.ParseFsMount(mapValue, &fsMount); err != nil {
 					return fmt.Errorf("parse fs_mount in [fs_options] failed, error: %s", err.Error())
 				}
-				fs.FsMount = append(fs.FsMount, fsMount)
+				fs.ExtraFs = append(fs.ExtraFs, fsMount)
 			}
 		default:
 			return fmt.Errorf("[fs_options] has no attribute [%s]", key)

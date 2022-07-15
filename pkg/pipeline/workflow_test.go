@@ -519,8 +519,8 @@ func TestFsOptions(t *testing.T) {
 	wfs, err := schema.GetWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
-	assert.Equal(t, len(wfs.FsOptions.FsMount), 1)
-	assert.Equal(t, wfs.FsOptions.FsMount[0].FsName, "abc")
+	assert.Equal(t, len(wfs.FsOptions.ExtraFs), 1)
+	assert.Equal(t, wfs.FsOptions.ExtraFs[0].FsName, "abc")
 	assert.Equal(t, wfs.EntryPoints.EntryPoints["main"].(*schema.WorkflowSourceStep).FsMount[0].FsName, "abc")
 	assert.Equal(t, wfs.EntryPoints.EntryPoints["main"].(*schema.WorkflowSourceStep).Cache.FsScope[0].FsName, "xd")
 }

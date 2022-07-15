@@ -475,7 +475,7 @@ func runYamlAndReqToWfs(runYaml string, req CreateRunRequest) (schema.WorkflowSo
 		wfs.Disabled = req.Disabled
 	}
 	if req.FsName != "" {
-		wfs.FsOptions.FsName = req.FsName
+		wfs.FsOptions.MainFs = req.FsName
 	}
 	return wfs, nil
 }
@@ -514,9 +514,9 @@ func CreateRun(ctx logger.RequestContext, request *CreateRunRequest, extra map[s
 	}
 
 	// 如果request里面的fsID为空，那么需要判断yaml（通过PipelineID或Raw上传的）中有无指定GlobalFs，有则生成fsID
-	if fsName == "" && wfs.FsOptions.FsName != "" {
-		fsID = common.ID(userName, wfs.FsOptions.FsName)
-		fsName = wfs.FsOptions.FsName
+	if fsName == "" && wfs.FsOptions.MainFs != "" {
+		fsID = common.ID(userName, wfs.FsOptions.MainFs)
+		fsName = wfs.FsOptions.MainFs
 	}
 
 	trace_logger.Key(requestId).Infof("check name reg pattern: %s", wfs.Name)
@@ -615,7 +615,7 @@ func CreateRunByJson(ctx logger.RequestContext, bodyMap map[string]interface{}) 
 			logger.Logger().Errorf("check fsOptions failed, error: %s", err.Error())
 			return CreateRunResponse{}, err
 		}
-		reqFsName = fsOptions.FsName
+		reqFsName = fsOptions.MainFs
 	}
 	if _, ok := bodyMap[JsonUserName].(string); ok {
 		reqUserName = bodyMap[JsonUserName].(string)
@@ -1182,13 +1182,13 @@ func RestartWf(run models.Run, isResume bool) (string, error) {
 	} else {
 		wfMap[run.ID] = wfPtr
 		wfPtr.Restart(entryPointDagView, run.PostProcess)
+		if err := models.UpdateRun(logEntry, run.ID,
+			models.Run{DockerEnv: run.WorkflowSource.DockerEnv, Status: common.StatusRunPending}); err != nil {
+			return "", err
+		}
 	}
 	logEntry.Debugf("workflow restarted, run:%+v", run)
 
-	if err := models.UpdateRun(logEntry, run.ID,
-		models.Run{DockerEnv: run.WorkflowSource.DockerEnv, Status: common.StatusRunPending}); err != nil {
-		return "", err
-	}
 	return run.ID, nil
 }
 
