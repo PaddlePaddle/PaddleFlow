@@ -422,7 +422,7 @@ func (drt *DagRuntime) resolveSubComponent(name string, cp schema.Component) (sc
 
 }
 func (drt *DagRuntime) Resume(dagView *schema.DagView) {
-	drt.logger.Infof("resume dag[%s]", drt.name)
+	drt.logger.Debugf("resume dag[%s] with dagView: \n%v", drt.name, dagView)
 
 	// 1、从 DagView 中获取必要的信息
 	defer drt.processSubComponentLock.Unlock()
@@ -432,6 +432,7 @@ func (drt *DagRuntime) Resume(dagView *schema.DagView) {
 	drt.ID = dagView.DagID
 	drt.startTime = dagView.StartTime
 
+	drt.logger.Debugf("++++: 1233:")
 	err := drt.setSysParams()
 	if err != nil {
 		errMsg := fmt.Sprintf("set the sysparams for dag[%s] failed: %s", drt.name, err.Error())
@@ -440,6 +441,7 @@ func (drt *DagRuntime) Resume(dagView *schema.DagView) {
 		return
 	}
 
+	drt.logger.Debugf("++++: 564:")
 	// 如果dagview 的EntryPoint为一个空map， 则直接走 start 逻辑
 	if len(dagView.EntryPoints) == 0 {
 		// 这里使用协程主要是为了避免死锁
@@ -447,6 +449,7 @@ func (drt *DagRuntime) Resume(dagView *schema.DagView) {
 		return
 	}
 
+	drt.logger.Debugf("++++: 69887:")
 	err = drt.updateStatus(dagView.Status)
 	if err != nil {
 		// 理论上不会出现这种情况，主要是为了承接 err，对齐进行判断
@@ -466,6 +469,8 @@ func (drt *DagRuntime) Resume(dagView *schema.DagView) {
 	failedCp := map[string][]int{}
 
 	for _, name := range sorted {
+		drt.logger.Debugf("++++: 38848:")
+
 		views, ok := dagView.EntryPoints[name]
 		if !ok {
 			// 说面当前节点还没有运行，在此处不进行处理
@@ -493,10 +498,13 @@ func (drt *DagRuntime) Resume(dagView *schema.DagView) {
 		exceptSeq := map[int]int{}
 		_, isStep := component.(*schema.WorkflowSourceStep)
 		for _, view := range views {
+			drt.logger.Debugf("++++: view: %s, seq: %d", view.GetName(), view.GetSeq())
 			exceptSeq[view.GetSeq()] = 1
 			status := view.GetStatus()
 
 			runtime := drt.CreateSubRuntimeAccordingView(view, name)
+
+			// TODO: 节点并发数控制
 			err := runtime.updateStatus(status)
 			if err != nil {
 				drt.logger.Errorln(err.Error())
@@ -511,18 +519,6 @@ func (drt *DagRuntime) Resume(dagView *schema.DagView) {
 				// 如果已经处于终态，则无需 resume, 也无需在向数据库同步
 				// 但是对于 failed 节点，需要处理failureOptions。 以避免子节点的状态同步问题
 				if runtime.isFailed() {
-					/*
-						msg := fmt.Sprintf("sub%s[%s] already in status[failed]", component.GetType(), runtime.getName())
-						extra := map[string]interface{}{
-							common.WfEventKeyRunID:         drt.runID,
-							common.WfEventKeyStatus:        drt.status,
-							common.WfEventKeyComponentName: drt.getComponent().GetName(),
-							common.WfEventKeyView:          view,
-						}
-
-						ev := NewWorkflowEvent(WfEventFailureOptionsTriggered, msg, extra)
-						drt.ProcessFailureOptions(*ev)
-					*/
 					failedCp[name] = append(failedCp[name], view.GetSeq())
 
 				} else {
@@ -540,6 +536,7 @@ func (drt *DagRuntime) Resume(dagView *schema.DagView) {
 			ll = 1
 		}
 
+		drt.logger.Debugf("++++: eefefefef454846e:")
 		if len(exceptSeq) < ll {
 			if cancelledMsg != "" {
 				// 如果存在被 cancelled 的节点，则所有还没有来得及被创建的runtime 都应该被置为 cancelled 状态
@@ -552,6 +549,8 @@ func (drt *DagRuntime) Resume(dagView *schema.DagView) {
 			}
 		}
 	}
+
+	drt.logger.Debugf("++++: eefefefefe:")
 
 	// 需要保证已经处于 running 状态 Runtime 占到坑，然后在处理还没有来得及调度的runtime
 	for name, exceptSeq := range exceptCpSeq {
@@ -574,6 +573,8 @@ func (drt *DagRuntime) Resume(dagView *schema.DagView) {
 		}
 	}
 
+	drt.logger.Debugf("++++: eefefefef454846e:44545648")
+
 	msg := drt.updateStatusAccordingSubComponentRuntimeStatus()
 	if drt.done {
 		view := drt.newView(msg)
@@ -581,6 +582,7 @@ func (drt *DagRuntime) Resume(dagView *schema.DagView) {
 		return
 	}
 
+	drt.logger.Debugf("++++: eefefefef454846e:44545648fefefefe")
 	// 避免子节点恰好都是终态的情况，导致没有step 运行，run 卡住的情况
 	drt.scheduleSubComponent()
 
