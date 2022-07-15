@@ -113,7 +113,7 @@ type MemFSCache struct {
 
 func (mem *MemFSCache) Add(value *model.FSCache) error {
 	if value.CacheID == "" {
-		value.CacheID = model.CacheID(value.ClusterID, value.NodeName, value.CacheDir)
+		value.CacheID = model.CacheID(value.ClusterID, value.NodeName, value.CacheDir, value.FsID)
 	}
 	mem.fsCacheMap.Put(value.FsID, value)
 	return nil
@@ -152,7 +152,7 @@ func (mem *MemFSCache) ListNodes(fsIDs []string) ([]string, error) {
 
 func (mem *MemFSCache) Update(value *model.FSCache) (int64, error) {
 	if value.CacheID == "" {
-		value.CacheID = model.CacheID(value.ClusterID, value.NodeName, value.CacheDir)
+		value.CacheID = model.CacheID(value.ClusterID, value.NodeName, value.CacheDir, value.FsID)
 	}
 	has, err := mem.fsCacheMap.Update(value.FsID, value)
 	if err != nil {
