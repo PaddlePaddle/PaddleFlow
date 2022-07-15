@@ -109,6 +109,10 @@ type CreateRunResponse struct {
 	RunID string `json:"runID"`
 }
 
+type UpdateRunResponse struct {
+	RunID string `json:"runID"`
+}
+
 type RunBrief struct {
 	ID            string `json:"runID"`
 	Name          string `json:"name"`
@@ -899,13 +903,13 @@ func StopRun(logEntry *log.Entry, userName, runID string, request UpdateRunReque
 	return nil
 }
 
-func RetryRun(ctx *logger.RequestContext, runID string) error {
+func RetryRun(ctx *logger.RequestContext, runID string) (string, error) {
 	ctx.Logging().Debugf("begin retry run. runID:%s\n", runID)
 	// check run exist && check user access right
 	run, err := GetRunByID(ctx.Logging(), ctx.UserName, runID)
 	if err != nil {
 		ctx.Logging().Errorf("retry run[%s] failed when getting run. error: %v\n", runID, err)
-		return err
+		return "", err
 	}
 	res, _ := json.Marshal(run.Runtime)
 	ctx.Logging().Infof("debug: begin retry, runtime is: %s", res)
@@ -916,16 +920,18 @@ func RetryRun(ctx *logger.RequestContext, runID string) error {
 		err := fmt.Errorf("run[%s] has status[%s], no need to retry", runID, run.Status)
 		ctx.ErrorCode = common.ActionNotAllowed
 		ctx.Logging().Errorln(err.Error())
-		return err
+		return "", err
 	}
 
 	// restart
-	if err := restartRun(run, false); err != nil {
+	newRunID, err := restartRun(run, false)
+	if err != nil {
 		ctx.Logging().Errorf("retry run[%s] failed resumeRun. run:%+v. error:%s\n",
 			runID, run, err.Error())
+		return "", err
 	}
 	ctx.Logging().Debugf("retry run[%s] successful", runID)
-	return nil
+	return newRunID, nil
 }
 
 func DeleteRun(ctx *logger.RequestContext, id string, request *DeleteRunRequest) error {
@@ -1014,7 +1020,7 @@ func resumeActiveRuns() error {
 	go func() {
 		for _, run := range runList {
 			logger.LoggerForRun(run.ID).Debugf("ResumeActiveRuns: run[%s] with status[%s] begins to resume\n", run.ID, run.Status)
-			if err := restartRun(run, true); err != nil {
+			if _, err := restartRun(run, true); err != nil {
 				logger.LoggerForRun(run.ID).Warnf("ResumeActiveRuns: run[%s] with status[%s] failed to resume. skipped.", run.ID, run.Status)
 			}
 		}
@@ -1022,20 +1028,20 @@ func resumeActiveRuns() error {
 	return nil
 }
 
-func restartRun(run models.Run, isResume bool) error {
+func restartRun(run models.Run, isResume bool) (string, error) {
 	if run.RunCachedIDs != "" {
 		// 由于非成功完成的Run也会被Cache，且重跑会直接对原始的Run记录进行修改，
 		// 因此被Cache的Run不能重跑
 		// TODO: 考虑将重跑逻辑又“直接修改Run记录”改为“根据该Run的设置，重新发起Run”
 		err := fmt.Errorf("can not retry run cached.")
 		logger.LoggerForRun(run.ID).Errorf(err.Error())
-		return err
+		return "", err
 	}
 
 	wfs, err := schema.GetWorkflowSource([]byte(run.RunYaml))
 	if err != nil {
 		logger.LoggerForRun(run.ID).Errorf("get WorkflowSource by yaml failed. yaml: %s \n, err:%v", run.RunYaml, err)
-		return err
+		return "", err
 	}
 
 	wfs.Name = run.Name
@@ -1045,18 +1051,12 @@ func restartRun(run models.Run, isResume bool) error {
 	if run.Disabled != "" {
 		wfs.Disabled = run.Disabled
 	}
-	// patch run.WorkflowSource to invoke func RestartWf
 	run.WorkflowSource = wfs
-	wfPtr, err := newWorkflowByRun(run)
-	if err != nil {
-		logger.LoggerForRun(run.ID).Errorf("newWorkflowByRun failed. err:%v\n", err)
-		return updateRunStatusAndMsg(run.ID, common.StatusRunFailed, err.Error())
-	}
 
 	fsName, userName := fsCommon.FsIDToFsNameUsername(run.FsID)
 	if err := checkFs(userName, fsName, &run.WorkflowSource); err != nil {
 		logger.LoggerForRun(run.ID).Errorf("check fs failed. err:%v\n", err)
-		return updateRunStatusAndMsg(run.ID, common.StatusRunFailed, err.Error())
+		return "", updateRunStatusAndMsg(run.ID, common.StatusRunFailed, err.Error())
 	}
 
 	defer func() {
@@ -1069,11 +1069,13 @@ func restartRun(run models.Run, isResume bool) error {
 		}
 	}()
 
-	if err := RestartWf(run, wfPtr, isResume); err != nil {
+	runID, err := RestartWf(run, isResume)
+	if err != nil {
 		logger.LoggerForRun(run.ID).Errorf("resume run[%s] failed RestartWf. DockerEnv[%s] fsID[%s]. error:%s\n",
 			run.ID, run.WorkflowSource.DockerEnv, run.FsID, err.Error())
+		return "", err
 	}
-	return nil
+	return runID, nil
 }
 
 func StartWf(run models.Run, wfPtr *pipeline.Workflow) error {
@@ -1097,15 +1099,77 @@ func StartWf(run models.Run, wfPtr *pipeline.Workflow) error {
 		models.Run{DockerEnv: run.WorkflowSource.DockerEnv, Status: common.StatusRunPending})
 }
 
-func RestartWf(run models.Run, wfPtr *pipeline.Workflow, isResume bool) error {
+func RestartWf(run models.Run, isResume bool) (string, error) {
 	logEntry := logger.LoggerForRun(run.ID)
 	logEntry.Debugf("RestartWf run:%+v", run)
 	trace_logger.Key(run.ID).Debugf("RestartWf run:%+v", run)
 
-	// set runtime and restart
-	trace_logger.Key(run.ID).Infof("resume workflow, set runtime and restart")
-	entryPointDagView := &schema.DagView{}
+	// 如果是restart
+	if !isResume {
+		// 获取所有job和dag
+		jobs, err := models.GetRunJobsOfRun(logEntry, run.ID)
+		if err != nil {
+			return "", err
+		}
+		dags, err := models.GetRunDagsOfRun(logEntry, run.ID)
+		if err != nil {
+			return "", err
+		}
 
+		// 剔除canceled的job、dag，剔除failed、termiated的job
+		newJobs := []models.RunJob{}
+		for _, job := range jobs {
+			if job.Status != schema.StatusJobCancelled &&
+				job.Status != schema.StatusJobFailed && job.Status != schema.StatusJobTerminated {
+				newJobs = append(newJobs, job)
+			}
+		}
+
+		newDags := []models.RunDag{}
+		for _, dag := range dags {
+			if dag.Status != schema.StatusJobCancelled {
+				newDags = append(newDags, dag)
+			}
+		}
+
+		// 创建新Run记录，拷贝runtime中的所有dag和job
+		run.Pk = 0
+		run.ID = ""
+		run.StopForce = false
+		if _, err := models.CreateRun(logEntry, &run); err != nil {
+			return "", err
+		}
+
+		for i, dag := range newDags {
+			dag.Pk = 0
+			dag.RunID = run.ID
+			if _, err := models.CreateRunDag(logEntry, &dag); err != nil {
+				return "", err
+			}
+			newDags[i] = dag
+		}
+
+		for i, job := range newJobs {
+			job.Pk = 0
+			job.RunID = run.ID
+			if _, err := models.CreateRunJob(logEntry, &job); err != nil {
+				return "", err
+			}
+			newJobs[i] = job
+		}
+
+		// 组装成runtime
+		if err := run.InitRuntime(newJobs, newDags); err != nil {
+			return "", err
+		}
+	}
+
+	wfPtr, err := newWorkflowByRun(run)
+	if err != nil {
+		return "", err
+	}
+
+	entryPointDagView := &schema.DagView{}
 	if len(run.Runtime[""]) == 1 {
 		tempDagView, ok := run.Runtime[""][0].(*schema.DagView)
 		if ok {
@@ -1113,21 +1177,19 @@ func RestartWf(run models.Run, wfPtr *pipeline.Workflow, isResume bool) error {
 		}
 	}
 
-	res, _ := json.Marshal(run.Runtime)
-	logEntry.Infof("debug: runtime before restart is: %s", res)
-	res, _ = json.Marshal(entryPointDagView)
-	logEntry.Infof("debug: dagview before restart is: %s", res)
-
 	if isResume {
 		wfPtr.Resume(entryPointDagView, run.PostProcess, run.Status, run.StopForce)
-		// TODO: 临时先传false
 	} else {
+		wfMap[run.ID] = wfPtr
 		wfPtr.Restart(entryPointDagView, run.PostProcess)
 	}
 	logEntry.Debugf("workflow restarted, run:%+v", run)
 
-	return models.UpdateRun(logEntry, run.ID,
-		models.Run{DockerEnv: run.WorkflowSource.DockerEnv, Status: common.StatusRunPending})
+	if err := models.UpdateRun(logEntry, run.ID,
+		models.Run{DockerEnv: run.WorkflowSource.DockerEnv, Status: common.StatusRunPending}); err != nil {
+		return "", err
+	}
+	return run.ID, nil
 }
 
 func newWorkflowByRun(run models.Run) (*pipeline.Workflow, error) {
