@@ -59,6 +59,7 @@ def print_output(data: Union[list, dict], headers: list, output_format: str, tab
             else:
                 for row in data:
                     output.append(dict(zip(headers, row)))
+        click.echo(json.dumps(output, indent=4))
     elif output_format == OutputFormat.text.name:
         output = ''
         for index, item in enumerate(data):
