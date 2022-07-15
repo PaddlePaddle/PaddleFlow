@@ -19,6 +19,7 @@ package pipeline
 import (
 	"database/sql"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -689,6 +690,9 @@ func ValidateAndCreateRun(ctx logger.RequestContext, run *models.Run, userName s
 	if err := checkFs(userName, run.FsName, &run.WorkflowSource); err != nil {
 		return nil, "", err
 	}
+
+	res, _ := json.Marshal(run.WorkflowSource)
+	logger.Logger().Infof("debug: before validate wfs is :%s", res)
 
 	trace_logger.Key(requestId).Infof("validate and init workflow")
 	// validate workflow in func NewWorkflow
