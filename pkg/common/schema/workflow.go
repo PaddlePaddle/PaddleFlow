@@ -45,6 +45,10 @@ const (
 	EnvDockerEnv = "dockerEnv"
 
 	FsPrefix = "fs-"
+
+	CompTypeComponents  = "components"
+	CompTypeEntryPoints = "entryPoints"
+	CompTypePostProcess = "postProcess"
 )
 
 func ID(userName, fsName string) string {
@@ -621,7 +625,7 @@ func GetWorkflowSourceByMap(yamlMap map[string]interface{}) (WorkflowSource, err
 	if !ok {
 		return WorkflowSource{}, fmt.Errorf("get entry_points map failed")
 	}
-	if err := wfs.ProcessRuntimeComponents(wfs.EntryPoints.EntryPoints, yamlMap, entryPointsMap); err != nil {
+	if err := wfs.ProcessRuntimeComponents(wfs.EntryPoints.EntryPoints, CompTypeEntryPoints, yamlMap, entryPointsMap); err != nil {
 		return WorkflowSource{}, err
 	}
 
@@ -631,14 +635,14 @@ func GetWorkflowSourceByMap(yamlMap map[string]interface{}) (WorkflowSource, err
 	}
 	postProcessMap, ok := yamlMap["post_process"].(map[string]interface{})
 	if ok {
-		if err := wfs.ProcessRuntimeComponents(postComponentsMap, yamlMap, postProcessMap); err != nil {
+		if err := wfs.ProcessRuntimeComponents(postComponentsMap, CompTypePostProcess, yamlMap, postProcessMap); err != nil {
 			return WorkflowSource{}, err
 		}
 	}
 
 	componentMap, ok := yamlMap["components"].(map[string]interface{})
 	if ok {
-		if err := wfs.ProcessRuntimeComponents(wfs.Components, yamlMap, componentMap); err != nil {
+		if err := wfs.ProcessRuntimeComponents(wfs.Components, CompTypeComponents, yamlMap, componentMap); err != nil {
 			return WorkflowSource{}, err
 		}
 	}
@@ -646,7 +650,8 @@ func GetWorkflowSourceByMap(yamlMap map[string]interface{}) (WorkflowSource, err
 }
 
 // 对Step的DockerEnv、Cache进行全局替换
-func (wfs *WorkflowSource) ProcessRuntimeComponents(components map[string]Component, yamlMap map[string]interface{}, componentsMap map[string]interface{}) error {
+func (wfs *WorkflowSource) ProcessRuntimeComponents(components map[string]Component, componentType string,
+	yamlMap map[string]interface{}, componentsMap map[string]interface{}) error {
 	for name, component := range components {
 		if dag, ok := component.(*WorkflowSourceDag); ok {
 			subComponent, ok, err := unstructured.NestedFieldCopy(componentsMap, name, "entry_points")
@@ -657,7 +662,7 @@ func (wfs *WorkflowSource) ProcessRuntimeComponents(components map[string]Compon
 			if !ok {
 				return fmt.Errorf("get subComponentMap failed")
 			}
-			if err := wfs.ProcessRuntimeComponents(dag.EntryPoints, yamlMap, subComponentMap); err != nil {
+			if err := wfs.ProcessRuntimeComponents(dag.EntryPoints, componentType, yamlMap, subComponentMap); err != nil {
 				return err
 			}
 		} else if step, ok := component.(*WorkflowSourceStep); ok {
@@ -686,22 +691,25 @@ func (wfs *WorkflowSource) ProcessRuntimeComponents(components map[string]Compon
 					}
 				}
 
-				// 获取全局Cache
-				globalCache, ok, err := unstructured.NestedFieldCopy(yamlMap, "cache")
-				if err != nil {
-					return fmt.Errorf("check globalCache failed")
-				}
-				globalCacheMap := map[string]interface{}{}
-				if ok {
-					globalCacheMap, ok = globalCache.(map[string]interface{})
-					if !ok {
-						return fmt.Errorf("get globalCacheMap failed")
+				// postProcess中不允许设置Cache
+				if componentType != CompTypePostProcess {
+					// 获取全局Cache
+					globalCache, ok, err := unstructured.NestedFieldCopy(yamlMap, "cache")
+					if err != nil {
+						return fmt.Errorf("check globalCache failed")
 					}
-				}
+					globalCacheMap := map[string]interface{}{}
+					if ok {
+						globalCacheMap, ok = globalCache.(map[string]interface{})
+						if !ok {
+							return fmt.Errorf("get globalCacheMap failed")
+						}
+					}
 
-				// Cache替换处理
-				if err := ProcessStepCacheByMap(&step.Cache, globalCacheMap, componentCacheMap); err != nil {
-					return err
+					// Cache替换处理
+					if err := ProcessStepCacheByMap(&step.Cache, globalCacheMap, componentCacheMap); err != nil {
+						return err
+					}
 				}
 
 				// 合并全局 fs_mount 和节点 fs_mount
