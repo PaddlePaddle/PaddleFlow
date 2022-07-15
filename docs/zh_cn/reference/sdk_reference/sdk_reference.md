@@ -1054,7 +1054,7 @@ ret, response = client.get_statistics_detail("job-run-000075-main-33a69d9b")
 |:---:|:---:|:---:|
 |ret| bool| 操作成功返回True，失败返回False
 |response| -| 失败返回失败message，StatisticsJobDetailInfo，参考下面的StatisticsJobDetailInfo结构
-|truncated| bool| 日志内容是否被截断，为true时则被截断，否则未截断
+|truncated| bool| 返回的统计信息否被截断，为true时则被截断，否则未截断
 
 response中具体StatisticsJobInfo结构如下：
 ```python
