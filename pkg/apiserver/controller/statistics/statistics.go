@@ -201,8 +201,8 @@ func convertResultToResponse(response *JobStatisticsResponse, result float64, me
 	case consts.MetricCpuUsageRate, consts.MetricMemoryUsageRate, consts.MetricGpuUtil, consts.MetricGpuMemoryUtil:
 		response.MetricsInfo[metricName] = fmt.Sprintf("%.2f%%", result*100)
 	case consts.MetricNetReceiveBytes, consts.MetricNetSendBytes, consts.MetricDiskReadRate, consts.MetricDiskWriteRate:
-		response.MetricsInfo[metricName] = fmt.Sprintf("%.2f(b/s)", result)
+		response.MetricsInfo[metricName] = fmt.Sprintf("%.2f(B/s)", result)
 	case consts.MetricDiskUsage, consts.MetricMemoryUsage, consts.MetricGpuMemoryUsage:
-		response.MetricsInfo[metricName] = fmt.Sprintf("%.2f(bytes)", result)
+		response.MetricsInfo[metricName] = fmt.Sprintf("%.2f(Bytes)", result)
 	}
 }
