@@ -1051,13 +1051,7 @@ func restartRun(run models.Run, isResume bool) (string, error) {
 	if run.Disabled != "" {
 		wfs.Disabled = run.Disabled
 	}
-	// patch run.WorkflowSource to invoke func RestartWf
 	run.WorkflowSource = wfs
-	wfPtr, err := newWorkflowByRun(run)
-	if err != nil {
-		logger.LoggerForRun(run.ID).Errorf("newWorkflowByRun failed. err:%v\n", err)
-		return "", updateRunStatusAndMsg(run.ID, common.StatusRunFailed, err.Error())
-	}
 
 	fsName, userName := fsCommon.FsIDToFsNameUsername(run.FsID)
 	if err := checkFs(userName, fsName, &run.WorkflowSource); err != nil {
@@ -1075,7 +1069,7 @@ func restartRun(run models.Run, isResume bool) (string, error) {
 		}
 	}()
 
-	runID, err := RestartWf(run, wfPtr, isResume)
+	runID, err := RestartWf(run, isResume)
 	if err != nil {
 		logger.LoggerForRun(run.ID).Errorf("resume run[%s] failed RestartWf. DockerEnv[%s] fsID[%s]. error:%s\n",
 			run.ID, run.WorkflowSource.DockerEnv, run.FsID, err.Error())
@@ -1104,14 +1098,12 @@ func StartWf(run models.Run, wfPtr *pipeline.Workflow) error {
 		models.Run{DockerEnv: run.WorkflowSource.DockerEnv, Status: common.StatusRunPending})
 }
 
-func RestartWf(run models.Run, wfPtr *pipeline.Workflow, isResume bool) (string, error) {
+func RestartWf(run models.Run, isResume bool) (string, error) {
 	logEntry := logger.LoggerForRun(run.ID)
 	logEntry.Debugf("RestartWf run:%+v", run)
 	trace_logger.Key(run.ID).Debugf("RestartWf run:%+v", run)
 
-	// set runtime and restart
-	trace_logger.Key(run.ID).Infof("resume workflow, set runtime and restart")
-
+	// 如果是restart
 	if !isResume {
 		// 获取所有job和dag
 		jobs, err := models.GetRunJobsOfRun(logEntry, run.ID)
@@ -1146,11 +1138,6 @@ func RestartWf(run models.Run, wfPtr *pipeline.Workflow, isResume bool) (string,
 		if _, err := models.CreateRun(logEntry, &run); err != nil {
 			return "", err
 		}
-		wfPtr, err = newWorkflowByRun(run)
-		if err != nil {
-			return "", err
-		}
-		wfMap[run.ID] = wfPtr
 
 		for i, dag := range newDags {
 			dag.Pk = 0
@@ -1176,6 +1163,11 @@ func RestartWf(run models.Run, wfPtr *pipeline.Workflow, isResume bool) (string,
 		}
 	}
 
+	wfPtr, err := newWorkflowByRun(run)
+	if err != nil {
+		return "", err
+	}
+
 	entryPointDagView := &schema.DagView{}
 	if len(run.Runtime[""]) == 1 {
 		tempDagView, ok := run.Runtime[""][0].(*schema.DagView)
@@ -1187,6 +1179,7 @@ func RestartWf(run models.Run, wfPtr *pipeline.Workflow, isResume bool) (string,
 	if isResume {
 		wfPtr.Resume(entryPointDagView, run.PostProcess, run.Status, run.StopForce)
 	} else {
+		wfMap[run.ID] = wfPtr
 		wfPtr.Restart(entryPointDagView, run.PostProcess)
 	}
 	logEntry.Debugf("workflow restarted, run:%+v", run)
