@@ -1058,6 +1058,8 @@ response中具体StatisticsJobInfo结构如下：
 ```python
 class StatisticsJobDetailInfo:
     result: List[Result]
+    # if returned result is truncated, this field is true, otherwise false
+    truncated: bool
 
 class Result:
     task_name: str
