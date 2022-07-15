@@ -82,28 +82,23 @@ def _print_job_statistics_detail(job_statistics_detail_info: StatisticsJobDetail
     headers = ['timestamp']
     data = []
     ts_map = {}
-    try:
-        for i, info in enumerate(result.task_info):
-            headers.append(info.metric.replace("_", " "))
-            ts_set = set()
-            # add metric to timestamp map
-            for value in info.values:
-                if not value[0] in ts_map:
-                    # add absent values to timestamp map
-                    ts_map[value[0]] = ["N/A" for _ in range(i)]
-                    ts_map[value[0]].append(value[1])
-                else:
-                    ts_map[value[0]].append(value[1])
-                ts_set.add(value[0])
+    for i, info in enumerate(result.task_info):
+        headers.append(info.metric.replace("_", " "))
+        ts_set = set()
+        # add metric to timestamp map
+        for value in info.values:
+            if not value[0] in ts_map:
+                # add absent values to timestamp map
+                ts_map[value[0]] = ["N/A" for _ in range(i)]
+                ts_map[value[0]].append(value[1])
+            else:
+                ts_map[value[0]].append(value[1])
+            ts_set.add(value[0])
 
-            # add absent values to timestamp map
-            for k in ts_map:
-                if k not in ts_set:
-                    ts_map[k].append("N/A")
-
-    except Exception as e:
-        traceback.print_exc()
-        raise e
+        # add absent values to timestamp map
+        for k in ts_map:
+            if k not in ts_set:
+                ts_map[k].append("N/A")
 
     for k, v in sorted(ts_map.items(), key=lambda x: x[0]):
         v.insert(0, k)
