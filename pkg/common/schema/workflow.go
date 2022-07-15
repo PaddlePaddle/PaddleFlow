@@ -471,8 +471,8 @@ type FailureOptions struct {
 }
 
 type FsOptions struct {
-	MainFs  FsMount   `yaml:"main_fs"      json:"mainFs"`
-	ExtraFs []FsMount `yaml:"extra_fs"     json:"extraFs"`
+	FsName  string    `yaml:"fs_name"      json:"fsName"`
+	FsMount []FsMount `yaml:"fs_mount"     json:"fsMount"`
 }
 
 type FsMount struct {
@@ -864,7 +864,7 @@ func (wfs *WorkflowSource) processFsByUserName(compMap map[string]Component, use
 		} else if step, ok := comp.(*WorkflowSourceStep); ok {
 			// fsNameSet用来检查FsScope中的FsName是否都在FsMount中，或者是fs_name
 			fsNameSet := map[string]int{fsName: 1}
-			fsNameSet[wfs.FsOptions.MainFs] = 1
+			fsNameSet[wfs.FsOptions.FsName] = 1
 
 			for i, mount := range step.FsMount {
 				if mount.FsName == "" {

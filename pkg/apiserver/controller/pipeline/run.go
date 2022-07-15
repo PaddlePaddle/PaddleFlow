@@ -1181,8 +1181,7 @@ func RestartWf(run models.Run, isResume bool) (string, error) {
 		wfPtr.Resume(entryPointDagView, run.PostProcess, run.Status, run.StopForce)
 	} else {
 		wfMap[run.ID] = wfPtr
-		if err := models.UpdateRun(logEntry, run.ID,
-			models.Run{DockerEnv: run.WorkflowSource.DockerEnv, Status: common.StatusRunPending}); err != nil {
+		if err := models.UpdateRunStatus(logEntry, run.ID, common.StatusRunPending); err != nil {
 			return "", err
 		}
 		wfPtr.Restart(entryPointDagView, run.PostProcess)
