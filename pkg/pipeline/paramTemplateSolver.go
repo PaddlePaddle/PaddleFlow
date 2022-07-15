@@ -449,7 +449,7 @@ func (ds *DependencySolver) ResolveBeforeRun(subComponent schema.Component) erro
 
 		subComponent.GetArtifacts().Input[name] = newValue
 		ds.logger.Infof("after dependency solver, the value of artifact[%s] for %s[%s] is %v",
-			subComponent.GetType(), componentName, name, newValue)
+			name, subComponent.GetType(), componentName, newValue)
 	}
 	// 输出artifact 无需解析： step 的输出artifact的中不会有模版，dag 的输出artifact 虽然有模版，但是需要在dag 所有的子节点都运行完成后才能解析。
 

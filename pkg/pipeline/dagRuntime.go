@@ -54,6 +54,9 @@ type DagRuntime struct {
 	// dagruntime 的全局唯一标识符
 	ID string
 
+	// 用于
+	dagViewName string
+
 	// 需要使用锁的原因： 避免在调度循环结构的时候，此时收到终止信号，出现一个协程在创建 runtime， 另一个协程在终止runtime的情况。
 	processSubComponentLock sync.Mutex
 
@@ -81,6 +84,8 @@ func NewDagRuntime(name, fullName string, dag *schema.WorkflowSourceDag, seq int
 		failureOptionsCtxAndCancels: make(map[string]CtxAndCancel),
 	}
 
+	drt.generateViewName()
+
 	err := drt.updateStatus(StatusRuntimeInit)
 	if err != nil {
 		// 理论上不会出现这种情况，主要是为了承接 err，对齐进行判断
@@ -94,6 +99,14 @@ func NewDagRuntime(name, fullName string, dag *schema.WorkflowSourceDag, seq int
 	drt.DependencySolver = ds
 
 	return drt
+}
+
+func (drt *DagRuntime) generateViewName() {
+	if drt.loopSeq == 0 {
+		drt.dagViewName = fmt.Sprintf("dag-%s-%s", drt.runID, drt.getComponent().GetName())
+	} else {
+		drt.dagViewName = fmt.Sprintf("dag-%s-%s-%d", drt.runID, drt.getComponent().GetName(), drt.loopSeq)
+	}
 }
 
 // NewDagRuntimeWithStatus: 在创建Runtime 的同时，指定runtime的状态
@@ -591,6 +604,7 @@ func (drt *DagRuntime) Restart(dagView *schema.DagView) {
 	drt.pk = dagView.PK
 	drt.ID = dagView.DagID
 	drt.startTime = dagView.StartTime
+	drt.dagViewName = dagView.GetName()
 
 	err := drt.setSysParams()
 	if err != nil {
@@ -1229,17 +1243,10 @@ func (drt *DagRuntime) newView(msg string) schema.DagView {
 		paramters[name] = fmt.Sprintf("%v", value)
 	}
 
-	var name string
-	if drt.loopSeq == 0 {
-		name = fmt.Sprintf("dag-%s-%s", drt.runID, drt.getComponent().GetName())
-	} else {
-		name = fmt.Sprintf("dag-%s-%s-%d", drt.runID, drt.getComponent().GetName(), drt.loopSeq)
-	}
-
 	// DAGID 在写库时生成，因此，此处并不会传递该参数, EntryPoints 在运行子节点时会同步至数据库，因此此处不包含这两个字段
 	return schema.DagView{
 		DagID:       drt.ID,
-		Name:        name,
+		Name:        drt.dagViewName,
 		DagName:     drt.getComponent().GetName(),
 		Deps:        deps,
 		Parameters:  paramters,
