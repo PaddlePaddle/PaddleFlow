@@ -1146,6 +1146,10 @@ func RestartWf(run models.Run, wfPtr *pipeline.Workflow, isResume bool) (string,
 		if _, err := models.CreateRun(logEntry, &run); err != nil {
 			return "", err
 		}
+		wfPtr, err = newWorkflowByRun(run)
+		if err != nil {
+			return "", err
+		}
 		wfMap[run.ID] = wfPtr
 
 		for i, dag := range newDags {
