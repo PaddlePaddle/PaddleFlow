@@ -1008,3 +1008,65 @@ class LogInfo(object):
         # 具体的日志内容
         self.log_content = log_content
 ```
+
+### 统计信息获取
+```python
+ret, response = client.get_statistics("job-run-000075-main-33a69d9b")
+```
+#### 接口入参说明
+| 字段名称  |        字段类型        | 字段含义
+|:-----:|:------------------:|:---:|
+| jobid | string (required)  |需要展示统计信息的jobid
+| runid | string (optional)  |需要展示统计信息的runid (尚未支持)
+
+
+
+#### 接口返回说明
+|字段名称 | 字段类型 | 字段含义
+|:---:|:---:|:---:|
+|ret| bool| 操作成功返回True，失败返回False
+|response| -| 失败返回失败message，成功返回StatisticsJobInfo，参考下面的StatisticsJobInfo结构
+
+response中具体StatisticsJobInfo结构如下：
+```python
+class StatisticsJobInfo:
+    metrics_info: Mapping[str, any]
+```
+
+### 统计信息详情获取
+```python
+ret, response = client.get_statistics_detail("job-run-000075-main-33a69d9b")
+```
+#### 接口入参说明
+| 字段名称  |       字段类型        | 字段含义
+|:-----:|:-----------------:|:---:|
+| jobid | string (required) |需要展示统计信息的jobid
+| runid | string (optional) |需要展示统计信息的runid (尚未支持)
+| start |  int (optional)   |需要展示统计信息的起始时间戳，单位为秒
+| end |  int (optional)   |需要展示统计信息的结束时间戳，单位为秒
+| step |  int (optional)   |需要展示统计信息的时间间隔，单位为秒
+
+
+
+#### 接口返回说明
+|字段名称 | 字段类型 | 字段含义
+|:---:|:---:|:---:|
+|ret| bool| 操作成功返回True，失败返回False
+|response| -| 失败返回失败message，StatisticsJobDetailInfo，参考下面的StatisticsJobDetailInfo结构
+
+response中具体StatisticsJobInfo结构如下：
+```python
+class StatisticsJobDetailInfo:
+    result: List[Result]
+
+class Result:
+    task_name: str
+    task_info: List[TaskInfo]
+
+class TaskInfo:
+    metric: str
+    values: List[List[any]]
+```
+
+
+
