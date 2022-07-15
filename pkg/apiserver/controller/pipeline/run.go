@@ -1073,6 +1073,7 @@ func restartRun(run models.Run, isResume bool) (string, error) {
 	if err != nil {
 		logger.LoggerForRun(run.ID).Errorf("resume run[%s] failed RestartWf. DockerEnv[%s] fsID[%s]. error:%s\n",
 			run.ID, run.WorkflowSource.DockerEnv, run.FsID, err.Error())
+		return "", err
 	}
 	return runID, nil
 }
