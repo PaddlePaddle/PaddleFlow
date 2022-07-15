@@ -170,14 +170,14 @@ func (r *Run) validateRuntimeAndPostProcess() error {
 		}
 	}
 
-	if err := r.initRuntime(runtimeJobs, runDags); err != nil {
+	if err := r.InitRuntime(runtimeJobs, runDags); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (r *Run) initRuntime(jobs []RunJob, dags []RunDag) error {
+func (r *Run) InitRuntime(jobs []RunJob, dags []RunDag) error {
 
 	// runtimeView
 	runtimeView := map[string][]schema.ComponentView{}

@@ -275,7 +275,7 @@ func (rr *RunRouter) updateRun(w http.ResponseWriter, r *http.Request) {
 			ctx.ErrorCode = common.InternalError
 		}
 	case util.QueryActionRetry:
-		err = pipeline.RetryRun(&ctx, runID)
+		runID, err = pipeline.RetryRun(&ctx, runID)
 	default:
 		ctx.ErrorCode = common.InvalidURI
 		err = fmt.Errorf("invalid action[%s] for UpdateRun", action)
@@ -286,7 +286,12 @@ func (rr *RunRouter) updateRun(w http.ResponseWriter, r *http.Request) {
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
-	common.RenderStatus(w, http.StatusOK)
+	if action == util.QueryActionRetry {
+		rsp := pipeline.UpdateRunResponse{RunID: runID}
+		common.Render(w, http.StatusOK, rsp)
+	} else {
+		common.RenderStatus(w, http.StatusOK)
+	}
 }
 
 // deleteRun
