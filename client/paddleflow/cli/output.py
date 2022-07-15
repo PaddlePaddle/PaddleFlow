@@ -53,12 +53,8 @@ def print_output(data: Union[list, dict], headers: list, output_format: str, tab
             output = data
         else:
             output = []
-            # if list size is 1, then convert list to object
-            if len(data) == 1:
-                output = dict(zip(headers, data[0]))
-            else:
-                for row in data:
-                    output.append(dict(zip(headers, row)))
+            for row in data:
+                output.append(dict(zip(headers, row)))
         click.echo(json.dumps(output, indent=4))
     elif output_format == OutputFormat.text.name:
         output = ''
