@@ -225,3 +225,35 @@ func GetTaskMessage(podStatus *v1.PodStatus) string {
 	}
 	return statusMessage.String()
 }
+
+func GetJobGVK(jobType commomschema.JobType, framework commomschema.Framework) (schema.GroupVersionKind, error) {
+	var gvk schema.GroupVersionKind
+	var err error
+	switch jobType {
+	case commomschema.TypeSingle:
+		gvk = PodGVK
+	case commomschema.TypeDistributed:
+		gvk, err = getDistributedJobGVK(framework)
+	case commomschema.TypeWorkflow:
+		gvk = ArgoWorkflowGVK
+	default:
+		err = fmt.Errorf("job type %s is not supported", jobType)
+	}
+	return gvk, err
+}
+
+func getDistributedJobGVK(framework commomschema.Framework) (schema.GroupVersionKind, error) {
+	var gvk schema.GroupVersionKind
+	var err error
+	switch framework {
+	case commomschema.FrameworkPaddle:
+		gvk = PaddleJobGVK
+	case commomschema.FrameworkSpark:
+		gvk = SparkAppGVK
+	case commomschema.FrameworkMPI, commomschema.FrameworkTF, commomschema.FrameworkPytorch:
+		err = fmt.Errorf("framework %s is not implemented", framework)
+	default:
+		err = fmt.Errorf("framework %s is not supported", framework)
+	}
+	return gvk, err
+}
