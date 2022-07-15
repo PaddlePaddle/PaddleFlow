@@ -348,7 +348,8 @@ func cleanFSCache(podMap map[*runtime.KubeRuntime][]k8sCore.Pod) error {
 	var err error
 	for _, pods := range podMap {
 		for _, pod := range pods {
-			cacheID := pod.Labels[schema.AnnotationKeyMTime]
+			cacheID := pod.Labels[schema.LabelCacheID]
+			log.Debugf("cacheID is %v", cacheID)
 			if cacheID == "" {
 				log.Debugf("cacheId is empty with pod: %+v", pod)
 				continue
