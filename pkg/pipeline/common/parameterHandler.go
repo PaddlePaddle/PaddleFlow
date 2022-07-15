@@ -323,6 +323,8 @@ func (s *ComponentParamChecker) solveParamValue(compName string, paramName strin
 		}
 	}
 
+	logger.Logger().Infof("debug: check param type, comp [%s] param [%s] type is : %s, value is %v", compName, paramName, reflect.TypeOf(param), param)
+
 	// 参数值检查
 	switch param := param.(type) {
 	case float32, float64, int, int64:
