@@ -1,11 +1,12 @@
-import traceback
 import sys
+import traceback
 
 import click
-from paddleflow.cli.output import print_output, OutputFormat
+from paddleflow.cli.output import print_output
 from paddleflow.statistics import StatisticsJobInfo, StatisticsJobDetailInfo
 
-#!/usr/bin/env python3
+
+# !/usr/bin/env python3
 # -*- coding:utf8 -*-
 
 @click.group()
@@ -66,29 +67,11 @@ def _print_job_statistics(jobid, info: StatisticsJobInfo, output_format):
         return
     info = info.metrics_info
     headers = [
-        "job id",
-        "cpu usage rate",
-        "memory usage",
-        "net receive bytes",
-        "net send bytes",
-        "disk usage bytes",
-        "disk read rate",
-        "disk write rate",
-        "gpu util",
-        "gpu memory util",
-    ]
+                  "job id"
+              ] + [k.replace("_", " ") for k in info]
     data = [[
-        jobid,
-        info.cpu_usage_rate,
-        info.memory_usage,
-        info.net_receive_bytes,
-        info.net_send_bytes,
-        info.disk_usage,
-        info.disk_read_rate,
-        info.disk_write_rate,
-        info.gpu_util,
-        info.gpu_memory_util,
-    ]]
+                jobid,
+            ] + [v for v in info.values()]]
 
     print_output(data, headers, output_format, table_format='grid')
 

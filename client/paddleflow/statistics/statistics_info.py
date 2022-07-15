@@ -16,13 +16,13 @@ limitations under the License.
 
 #!/usr/bin/env python3
 # -*- coding:utf8 -*-
-from typing import List
+from typing import List, Mapping
 
 
 class StatisticsJobInfo:
-    metrics_info: 'MetricsInfo'
+    metrics_info: Mapping[str, any]
 
-    def __init__(self, metric_info: 'MetricsInfo'):
+    def __init__(self, metric_info: Mapping[str, any]):
         self.metrics_info = metric_info
 
     @staticmethod
@@ -32,55 +32,8 @@ class StatisticsJobInfo:
         )
         if 'metricsInfo' in json_dic:
             metrics_info = json_dic['metricsInfo']
-            statistics_job_info.metrics_info = MetricsInfo(
-                cpu_usage_rate=metrics_info['cpu_usage_rate'],
-                memory_usage=metrics_info['memory_usage'],
-                net_receive_bytes=metrics_info['net_receive_bytes'],
-                net_send_bytes=metrics_info['net_send_bytes'],
-                disk_usage=metrics_info['disk_usage'],
-                disk_read_rate=metrics_info['disk_read_rate'],
-                disk_write_rate=metrics_info['disk_write_rate'],
-                gpu_util=metrics_info['gpu_util'],
-                gpu_memory_util=metrics_info['gpu_memory_util'],
-            )
+            statistics_job_info.metrics_info = metrics_info
         return statistics_job_info
-
-
-class MetricsInfo:
-    """
-    the class of StatisticsJobInfo info
-    """
-    cpu_usage_rate: float
-    memory_usage: float
-    net_receive_bytes: int
-    net_send_bytes: int
-    disk_usage: int
-    disk_read_rate: float
-    disk_write_rate: float
-    gpu_util: float
-    gpu_memory_util: float
-
-    def __init__(self, cpu_usage_rate: float, memory_usage: float, net_receive_bytes: int, net_send_bytes: int,
-                 disk_usage: int, disk_read_rate: float, disk_write_rate: float, gpu_util: float,
-                 gpu_memory_util: float) -> None:
-        """ init """
-        self.cpu_usage_rate = cpu_usage_rate
-        self.memory_usage = memory_usage
-        self.net_receive_bytes = net_receive_bytes
-        self.net_send_bytes = net_send_bytes
-        self.disk_usage = disk_usage
-        self.disk_read_rate = disk_read_rate
-        self.disk_write_rate = disk_write_rate
-        self.gpu_util = gpu_util
-        self.gpu_memory_util = gpu_memory_util
-
-    def __str__(self) -> str:
-        """ str """
-        return "StatisticsJobInfo: cpu_usage_rate: {}, memory_usage: {}, net_receive_bytes: {}, net_send_bytes: {}, " \
-               "disk_usage: {}, disk_read_rate: {}, disk_write_rate: {}, gpu_util: {}, gpu_memory_util: {}". \
-            format(self.cpu_usage_rate, self.memory_usage, self.net_receive_bytes, self.net_send_bytes,
-                   self.disk_usage, self.disk_read_rate, self.disk_write_rate, self.gpu_util,
-                   self.gpu_memory_util)
 
 
 class TaskInfo:
