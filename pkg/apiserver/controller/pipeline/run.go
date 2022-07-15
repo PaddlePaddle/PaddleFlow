@@ -1091,12 +1091,15 @@ func StartWf(run models.Run, wfPtr *pipeline.Workflow) error {
 	}
 	wfMap[run.ID] = wfPtr
 
+	if err := models.UpdateRunStatus(logEntry, run.ID, common.StatusRunPending); err != nil {
+		return err
+	}
+
 	trace_logger.Key(run.ID).Infof("start workflow with image url")
 	wfPtr.Start()
 	logEntry.Debugf("workflow started")
 
-	return models.UpdateRun(logEntry, run.ID,
-		models.Run{DockerEnv: run.WorkflowSource.DockerEnv, Status: common.StatusRunPending})
+	return nil
 }
 
 func RestartWf(run models.Run, isResume bool) (string, error) {
@@ -1181,14 +1184,13 @@ func RestartWf(run models.Run, isResume bool) (string, error) {
 		wfPtr.Resume(entryPointDagView, run.PostProcess, run.Status, run.StopForce)
 	} else {
 		wfMap[run.ID] = wfPtr
+		if err := models.UpdateRunStatus(logEntry, run.ID, common.StatusRunPending); err != nil {
+			return "", err
+		}
 		wfPtr.Restart(entryPointDagView, run.PostProcess)
 	}
 	logEntry.Debugf("workflow restarted, run:%+v", run)
 
-	if err := models.UpdateRun(logEntry, run.ID,
-		models.Run{DockerEnv: run.WorkflowSource.DockerEnv, Status: common.StatusRunPending}); err != nil {
-		return "", err
-	}
 	return run.ID, nil
 }
 
