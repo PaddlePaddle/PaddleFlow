@@ -82,6 +82,7 @@ def _print_job_statistics_detail(job_statistics_detail_info: StatisticsJobDetail
     headers = ['timestamp']
     data = []
     ts_map = {}
+
     for i, info in enumerate(result.task_info):
         headers.append(info.metric.replace("_", " "))
         ts_set = set()
