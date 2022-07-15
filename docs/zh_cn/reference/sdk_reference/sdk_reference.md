@@ -1065,7 +1065,7 @@ class StatisticsJobDetailInfo:
     truncated: bool
 
 class Result:
-    # 任务名称，目前该值为jobid
+    # 任务名称
     task_name: str
     # 任务指标的信息列表
     task_info: List[TaskInfo]
