@@ -1030,6 +1030,7 @@ ret, response = client.get_statistics("job-run-000075-main-33a69d9b")
 response中具体StatisticsJobInfo结构如下：
 ```python
 class StatisticsJobInfo:
+    # 指标信息的dict
     metrics_info: Mapping[str, any]
 ```
 
@@ -1053,20 +1054,26 @@ ret, response = client.get_statistics_detail("job-run-000075-main-33a69d9b")
 |:---:|:---:|:---:|
 |ret| bool| 操作成功返回True，失败返回False
 |response| -| 失败返回失败message，StatisticsJobDetailInfo，参考下面的StatisticsJobDetailInfo结构
+|truncated| bool| 日志内容是否被截断，为true时则被截断，否则未截断
 
 response中具体StatisticsJobInfo结构如下：
 ```python
 class StatisticsJobDetailInfo:
+    # 返回的结果信息列表
     result: List[Result]
-    # if returned result is truncated, this field is true, otherwise false
+    # 返回的结果是否被截断，如果是被截断过的，值为True
     truncated: bool
 
 class Result:
+    # 任务名称，目前该值为jobid
     task_name: str
+    # 任务指标的信息列表
     task_info: List[TaskInfo]
 
 class TaskInfo:
+    # 指标名称
     metric: str
+    # 指标值，返回的是list[timestamp, value]的list
     values: List[List[any]]
 ```
 
