@@ -803,6 +803,10 @@ func (bwf *BaseWorkflow) checkComps() error {
 		UseFs:         useFs,
 		CompTempletes: bwf.Source.Components,
 	}
+
+	res, _ := json.Marshal(tmplComps)
+	logger.Logger().Infof("debug: tmplComps is :%s", res)
+
 	for name, _ := range tmplComps {
 		if err := tmplParamChecker.Check(name, true); err != nil {
 			bwf.log().Errorln(err.Error())
