@@ -29,17 +29,18 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/monitor"
 )
 
-var metricNameList = [...]string{consts.MetricCpuUsageRate, consts.MetricMemoryUsage, consts.MetricDiskUsage,
-	consts.MetricNetReceiveBytes, consts.MetricNetSendBytes, consts.MetricDiskReadRate,
-	consts.MetricDiskWriteRate, consts.MetricGpuUtil, consts.MetricGpuMemoryUtil}
+var metricNameList = [...]string{consts.MetricCpuUsageRate, consts.MetricMemoryUsageRate, consts.MetricMemoryUsage, consts.MetricDiskUsage,
+	consts.MetricNetReceiveBytes, consts.MetricNetSendBytes, consts.MetricDiskReadRate, consts.MetricDiskWriteRate, consts.MetricGpuUtil,
+	consts.MetricGpuMemoryUtil, consts.MetricGpuMemoryUsage}
 
 type JobStatisticsResponse struct {
-	MetricsInfo map[string]float64 `json:"metricsInfo"`
+	MetricsInfo map[string]string `json:"metricsInfo"`
 }
 
 type JobDetailStatisticsResponse struct {
 	Result      []TaskStatistics `json:"result"`
 	TaskNameMap map[string]int   `json:"-"`
+	Truncated   bool             `json:"truncated"`
 }
 
 type TaskStatistics struct {
@@ -54,7 +55,7 @@ type MetricInfo struct {
 
 func GetJobStatistics(ctx *logger.RequestContext, jobID string) (*JobStatisticsResponse, error) {
 	response := &JobStatisticsResponse{
-		MetricsInfo: make(map[string]float64),
+		MetricsInfo: make(map[string]string),
 	}
 	clusterType, _, err := getClusterTypeByJob(ctx, jobID)
 	if err != nil {
@@ -73,7 +74,7 @@ func GetJobStatistics(ctx *logger.RequestContext, jobID string) (*JobStatisticsR
 			ctx.Logging().Errorf("query metric[%s] failed, error: %s", value, err.Error())
 			return nil, err
 		}
-		response.MetricsInfo[value] = result
+		convertResultToResponse(response, result, value)
 	}
 
 	return response, nil
@@ -168,6 +169,10 @@ func convertResultToDetailResponse(ctx *logger.RequestContext, result model.Valu
 	}
 	for _, value := range data {
 		taskValues := make([][2]float64, 0)
+		if len(value.Values) > common.StsMaxSeqData {
+			value.Values = value.Values[:common.StsMaxSeqData]
+			response.Truncated = true
+		}
 		for _, rangeValue := range value.Values {
 			taskValues = append(taskValues, [2]float64{float64(rangeValue.Timestamp.Unix()), float64(rangeValue.Value)})
 		}
@@ -191,3 +196,13 @@ func convertResultToDetailResponse(ctx *logger.RequestContext, result model.Valu
 	return nil
 }
 
+func convertResultToResponse(response *JobStatisticsResponse, result float64, metricName string) {
+	switch metricName {
+	case consts.MetricCpuUsageRate, consts.MetricMemoryUsageRate, consts.MetricGpuUtil, consts.MetricGpuMemoryUtil:
+		response.MetricsInfo[metricName] = fmt.Sprintf("%f%%", result*100)
+	case consts.MetricNetReceiveBytes, consts.MetricNetSendBytes, consts.MetricDiskReadRate, consts.MetricDiskWriteRate:
+		response.MetricsInfo[metricName] = fmt.Sprintf("%f(b/s)", result)
+	case consts.MetricDiskUsage, consts.MetricMemoryUsage, consts.MetricGpuMemoryUsage:
+		response.MetricsInfo[metricName] = fmt.Sprintf("%f(bytes)", result)
+	}
+}

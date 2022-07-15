@@ -112,8 +112,10 @@ func getQuerySqlByMetric(metricName, podNames string) string {
 	switch metricName {
 	case consts.MetricCpuUsageRate:
 		return fmt.Sprintf(QueryCPUUsageRateQl, podNames, podNames)
-	case consts.MetricMemoryUsage:
+	case consts.MetricMemoryUsageRate:
 		return fmt.Sprintf(QueryMEMUsageRateQl, podNames, podNames)
+	case consts.MetricMemoryUsage:
+		return fmt.Sprintf(QueryMEMUsageQl, podNames)
 	case consts.MetricDiskUsage:
 		return fmt.Sprintf(QueryDiskUsageQl, podNames)
 	case consts.MetricNetReceiveBytes:
@@ -128,6 +130,8 @@ func getQuerySqlByMetric(metricName, podNames string) string {
 		return fmt.Sprintf(QueryGpuUtilQl, podNames)
 	case consts.MetricGpuMemoryUtil:
 		return fmt.Sprintf(QueryGpuMemUtilQl, podNames, podNames)
+	case consts.MetricGpuMemoryUsage:
+		return fmt.Sprintf(QueryGpuMemUsageQl, podNames)
 	default:
 		return ""
 	}
