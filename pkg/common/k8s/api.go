@@ -253,7 +253,7 @@ func getDistributedJobGVK(framework commomschema.Framework) (schema.GroupVersion
 	case commomschema.FrameworkMPI, commomschema.FrameworkTF, commomschema.FrameworkPytorch:
 		err = fmt.Errorf("framework %s is not implemented", framework)
 	default:
-		err = fmt.Errorf("framework %$ is not supported", framework)
+		err = fmt.Errorf("framework %s is not supported", framework)
 	}
 	return gvk, err
 }
