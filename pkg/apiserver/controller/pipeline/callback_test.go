@@ -34,12 +34,12 @@ const runYamlPath = "./testcase/run.yaml"
 
 func getMockRunWithoutRuntime() models.Run {
 	run1 := models.Run{
-		ID:         MockRunID1,
-		Name:       "run_without_runtime",
-		UserName:   MockRootUser,
-		GlobalFsID: MockFsID1,
-		Status:     common.StatusRunRunning,
-		RunYaml:    string(loadCase(runYamlPath)),
+		ID:       MockRunID1,
+		Name:     "run_without_runtime",
+		UserName: MockRootUser,
+		FsID:     MockFsID1,
+		Status:   common.StatusRunRunning,
+		RunYaml:  string(loadCase(runYamlPath)),
 	}
 	return run1
 }

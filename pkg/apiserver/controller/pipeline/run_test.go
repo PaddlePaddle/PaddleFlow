@@ -47,36 +47,36 @@ const (
 
 func getMockRun1() models.Run {
 	run1 := models.Run{
-		ID:         MockRunID1,
-		Name:       MockRunName1,
-		UserName:   MockRootUser,
-		GlobalFsID: MockFsID1,
-		Status:     common.StatusRunPending,
-		RunYaml:    string(loadCase(runYamlPath)),
+		ID:       MockRunID1,
+		Name:     MockRunName1,
+		UserName: MockRootUser,
+		FsID:     MockFsID1,
+		Status:   common.StatusRunPending,
+		RunYaml:  string(loadCase(runYamlPath)),
 	}
 	return run1
 }
 
 func getMockRun1_3() models.Run {
 	run1 := models.Run{
-		ID:         MockRunID3,
-		Name:       "run_without_runtime",
-		UserName:   MockRootUser,
-		GlobalFsID: MockFsID1,
-		Status:     common.StatusRunRunning,
-		RunYaml:    string(loadCase(runYamlPath)),
+		ID:       MockRunID3,
+		Name:     "run_without_runtime",
+		UserName: MockRootUser,
+		FsID:     MockFsID1,
+		Status:   common.StatusRunRunning,
+		RunYaml:  string(loadCase(runYamlPath)),
 	}
 	return run1
 }
 
 func getMockRun2() models.Run {
 	run2 := models.Run{
-		ID:         MockRunID2,
-		Name:       MockRunName2,
-		UserName:   MockUserID2,
-		GlobalFsID: MockFsID2,
-		Status:     common.StatusRunPending,
-		RunYaml:    string(loadCase(runYamlPath)),
+		ID:       MockRunID2,
+		Name:     MockRunName2,
+		UserName: MockUserID2,
+		FsID:     MockFsID2,
+		Status:   common.StatusRunPending,
+		RunYaml:  string(loadCase(runYamlPath)),
 	}
 	return run2
 }
@@ -91,8 +91,8 @@ func getMockFullRun() (models.Run, error) {
 		Name:           "full_run",
 		Source:         "run.yaml",
 		UserName:       "mockUser",
-		GlobalFsID:     "fs-mockUser-mockFs",
-		GlobalFsName:   "mockFs",
+		FsID:           "fs-mockUser-mockFs",
+		FsName:         "mockFs",
 		Description:    "desc",
 		Parameters:     map[string]interface{}{},
 		RunYaml:        string(runYaml),

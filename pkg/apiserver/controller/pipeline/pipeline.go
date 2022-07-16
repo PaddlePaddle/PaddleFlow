@@ -98,7 +98,7 @@ func (pb *PipelineBrief) updateFromPipelineModel(pipeline models.Pipeline) {
 type PipelineVersionBrief struct {
 	ID           string `json:"pipelineVersionID"`
 	PipelineID   string `json:"pipelineID"`
-	GlobalFsName string `json:"globalFsName"`
+	FsName       string `json:"fsName"`
 	YamlPath     string `json:"yamlPath"`
 	PipelineYaml string `json:"pipelineYaml"`
 	UserName     string `json:"username"`
@@ -109,7 +109,7 @@ type PipelineVersionBrief struct {
 func (pdb *PipelineVersionBrief) updateFromPipelineVersionModel(pipelineVersion models.PipelineVersion) {
 	pdb.ID = pipelineVersion.ID
 	pdb.PipelineID = pipelineVersion.PipelineID
-	pdb.GlobalFsName = pipelineVersion.FsName
+	pdb.FsName = pipelineVersion.FsName
 	pdb.YamlPath = pipelineVersion.YamlPath
 	pdb.PipelineYaml = pipelineVersion.PipelineYaml
 	pdb.UserName = pipelineVersion.UserName

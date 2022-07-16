@@ -151,8 +151,8 @@ CREATE TABLE IF NOT EXISTS `run` (
     `name` varchar(60) NOT NULL,
     `source` varchar(256) NOT NULL,
     `user_name` varchar(60) NOT NULL,
-    `global_fs_id` varchar(60) NOT NULL,
-    `global_fs_name` varchar(60) NOT NULL,
+    `fs_id` varchar(60) NOT NULL,
+    `fs_name` varchar(60) NOT NULL,
     `description` text NOT NULL,
     `parameters_json` text NOT NULL,
     `run_yaml` text NOT NULL,
@@ -169,7 +169,7 @@ CREATE TABLE IF NOT EXISTS `run` (
     `deleted_at` datetime(3) DEFAULT NULL,
     PRIMARY KEY (`pk`),
     UNIQUE KEY (`id`),
-    INDEX (`global_fs_id`),
+    INDEX (`fs_id`),
     INDEX (`status`)
 ) ENGINE=InnoDB DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
 

@@ -36,68 +36,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 )
 
-const (
-	MockRootUser   = "root"
-	MockNormalUser = "user1"
-	MockFsName     = "mockFs"
-	MockFsID       = "root-mockFs"
-)
-
-func insertPipeline(t *testing.T, logEntry *log.Entry) (pplID1, pplID2, pplVersionID1, pplVersionID2 string) {
-	ppl1 := models.Pipeline{
-		Name:     "ppl1",
-		Desc:     "ppl1",
-		UserName: "user1",
-	}
-	pplVersion1 := models.PipelineVersion{
-		FsID:         "user1-fsname",
-		FsName:       "fsname",
-		YamlPath:     "./run.yml",
-		PipelineYaml: "ddddd",
-		PipelineMd5:  "md5_1",
-		UserName:     "user1",
-	}
-
-	ppl2 := models.Pipeline{
-		Name:     "ppl2",
-		Desc:     "ppl2",
-		UserName: "root",
-	}
-	pplVersion2 := models.PipelineVersion{
-		FsID:         "root-fsname2",
-		FsName:       "fsname2",
-		YamlPath:     "./run.yml",
-		PipelineYaml: "ddddd",
-		PipelineMd5:  "md5_2",
-		UserName:     "root",
-	}
-
-	var err error
-	pplID1, pplVersionID1, err = models.CreatePipeline(logEntry, &ppl1, &pplVersion1)
-	assert.Nil(t, err)
-	assert.Equal(t, ppl1.Pk, int64(1))
-	assert.Equal(t, pplID1, ppl1.ID)
-	assert.Equal(t, pplID1, "ppl-000001")
-
-	assert.Equal(t, pplVersion1.Pk, int64(1))
-	assert.Equal(t, pplVersionID1, pplVersion1.ID)
-	assert.Equal(t, pplVersionID1, "1")
-	assert.Equal(t, pplVersion1.PipelineID, ppl1.ID)
-
-	pplID2, pplVersionID2, err = models.CreatePipeline(logEntry, &ppl2, &pplVersion2)
-	assert.Nil(t, err)
-	assert.Equal(t, ppl2.Pk, int64(2))
-	assert.Equal(t, pplID2, ppl2.ID)
-	assert.Equal(t, pplID2, "ppl-000002")
-
-	assert.Equal(t, pplVersion2.Pk, int64(2))
-	assert.Equal(t, pplVersionID2, pplVersion2.ID)
-	assert.Equal(t, pplVersionID2, "1")
-	assert.Equal(t, pplVersion2.PipelineID, ppl2.ID)
-
-	return pplID1, pplID2, pplVersionID1, pplVersionID2
-}
-
 // 测试创建schedule
 func TestCreateSchedule(t *testing.T) {
 	driver.InitMockDB()
@@ -114,7 +52,7 @@ func TestCreateSchedule(t *testing.T) {
 		ConcurrencyPolicy: "suspend",
 		ExpireInterval:    100,
 		Catchup:           true,
-		GlobalFsName:      MockFsName,
+		FsName:            MockFsName,
 		UserName:          "",
 	}
 
@@ -318,7 +256,7 @@ func TestListSchedule(t *testing.T) {
 		ConcurrencyPolicy: "suspend",
 		ExpireInterval:    100,
 		Catchup:           true,
-		GlobalFsName:      MockFsName,
+		FsName:            MockFsName,
 		UserName:          MockNormalUser,
 	}
 
@@ -591,7 +529,7 @@ func TestGetSchedule(t *testing.T) {
 		ConcurrencyPolicy: "suspend",
 		ExpireInterval:    100,
 		Catchup:           true,
-		GlobalFsName:      MockFsName,
+		FsName:            MockFsName,
 		UserName:          MockNormalUser,
 	}
 
@@ -723,7 +661,7 @@ func TestStopSchedule(t *testing.T) {
 		ConcurrencyPolicy: "suspend",
 		ExpireInterval:    100,
 		Catchup:           true,
-		GlobalFsName:      MockFsName,
+		FsName:            MockFsName,
 		UserName:          "",
 	}
 
@@ -818,7 +756,7 @@ func TestDeleteSchedule(t *testing.T) {
 		ConcurrencyPolicy: "suspend",
 		ExpireInterval:    100,
 		Catchup:           true,
-		GlobalFsName:      MockFsName,
+		FsName:            MockFsName,
 		UserName:          "",
 	}
 
