@@ -406,10 +406,6 @@ func ScheduleUsedFsIDs() (map[string]bool, error) {
 
 // ------ 周期调度逻辑需要的函数 ------
 
-type SlidingWindow struct {
-	notEndedRuns []string
-}
-
 func getEarlierTime(time1, time2 time.Time) time.Time {
 	if time1.Before(time2) {
 		return time1
