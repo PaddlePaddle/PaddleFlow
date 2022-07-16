@@ -42,7 +42,7 @@ func (pr *PipelineRouter) AddRouter(r chi.Router) {
 	r.Get("/pipeline/{pipelineID}", pr.getPipeline)
 	r.Delete("/pipeline/{pipelineID}", pr.deletePipeline)
 	r.Get("/pipeline/{pipelineID}/{pipelineVersionID}", pr.getPipelineVersion)
-	r.Delete("/pipeline/{pipelineID}/{pipelineVersionID}", pr.deletePipelineDtail)
+	r.Delete("/pipeline/{pipelineID}/{pipelineVersionID}", pr.deletePipelineDetail)
 }
 
 // createPipeline
@@ -260,7 +260,7 @@ func (pr *PipelineRouter) getPipelineVersion(w http.ResponseWriter, r *http.Requ
 // @Failure 400 {object} common.ErrorResponse "400"
 // @Failure 500 {object} common.ErrorResponse "500"
 // @Router /pipeline/{pipelineID} [DELETE]
-func (pr *PipelineRouter) deletePipelineDtail(w http.ResponseWriter, r *http.Request) {
+func (pr *PipelineRouter) deletePipelineDetail(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
 	pipelineID := chi.URLParam(r, util.ParamKeyPipelineID)
 	pipelineVersionID := chi.URLParam(r, util.ParamKeyPipelineVersionID)
