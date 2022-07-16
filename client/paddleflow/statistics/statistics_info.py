@@ -38,7 +38,7 @@ class StatisticsJobInfo:
 
 class TaskInfo:
     metric: str
-    values: List[List]
+    values: List[List[any]]
 
     def __init__(self, metric: str, values: List[List]) -> None:
         self.metric = metric
