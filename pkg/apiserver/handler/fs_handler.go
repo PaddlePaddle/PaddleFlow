@@ -179,6 +179,10 @@ func (fh *FsHandler) Stat(path string) (os.FileInfo, error) {
 	return fileInfo, err
 }
 
+func (fh *FsHandler) IsDir(path string) (bool, error) {
+	return fh.fsClient.IsDir(path)
+}
+
 func (fh *FsHandler) Exist(path string) (bool, error) {
 	return fh.fsClient.Exist(path)
 }

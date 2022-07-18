@@ -313,12 +313,19 @@ func (bwf *BaseWorkflow) validate() error {
 		bwf.log().Errorf("check failure_option failed. err: %s", err.Error())
 		return err
 	}
+
+	if err := bwf.checkFS(); err != nil {
+		bwf.log().Errorf("check fs failed. err: %s", err.Error())
+		return err
+	}
+
 	return nil
 }
 
 // 检查fsScope的fsName是否在fsMount中，同时根据Username和FSName生成FSID
 func (bwf *BaseWorkflow) checkFS() error {
 	bwf.Source.ProcessFsMounts(bwf.Extra[WfExtraInfoKeyUserName], bwf.Extra[WfExtraInfoKeyFsName])
+	return nil
 }
 
 func (bwf *BaseWorkflow) checkFailureOption() error {

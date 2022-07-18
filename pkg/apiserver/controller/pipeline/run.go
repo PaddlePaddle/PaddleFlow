@@ -695,16 +695,17 @@ func ValidateAndCreateRun(ctx logger.RequestContext, run *models.Run, userName s
 		return nil, "", err
 	}
 
-	if err := checkFs(userName, run.FsName, &run.WorkflowSource); err != nil {
-		return nil, "", err
-	}
-
 	trace_logger.Key(requestId).Infof("validate and init workflow")
 	// validate workflow in func NewWorkflow
 	wfPtr, err := newWorkflowByRun(*run)
 	if err != nil {
 		logger.Logger().Errorf("validateAndInitWorkflow. err:%v", err)
 		ctx.ErrorCode = common.InvlidPipeline
+		return nil, "", err
+	}
+
+	// 这里对fs的检查依赖username和fs模块，因此无法在workflow.validate中完成
+	if err := checkFs(userName, run.FsName, &run.WorkflowSource); err != nil {
 		return nil, "", err
 	}
 
@@ -756,21 +757,32 @@ func ValidateAndStartRun(ctx logger.RequestContext, run models.Run, userName str
 }
 
 func checkFs(userName string, fsName string, wfs *schema.WorkflowSource) error {
-	fsNames, err := wfs.GetFsMounts(userName, fsName)
+	fsMounts, err := wfs.GetFsMounts()
 	if err != nil {
 		logger.Logger().Errorf("process fs failed when check fs. error: %s", err.Error())
 		return err
 	}
 
-	// 这个是全局的fsName
-	if fsName != "" {
-		fsNames = append(fsNames, fsName)
-	}
-
-	//检查fs权限
-	for _, fsName := range fsNames {
-		if _, err := CheckFsAndGetID(userName, "", fsName); err != nil {
+	for _, mount := range fsMounts {
+		// 检查fs权限
+		if _, err := CheckFsAndGetID(userName, "", mount.Name); err != nil {
 			return err
+		}
+
+		// 检查sub_path
+		if mount.SubPath != "" {
+			fsHandler, err := handler.NewFsHandlerWithServer(mount.ID, logger.Logger())
+			if err != nil {
+				return err
+			}
+
+			ok, err := fsHandler.IsDir(mount.SubPath)
+			if err != nil {
+				return err
+			}
+			if !ok {
+				return fmt.Errorf("[sub_path] with id[%s] is not dir", mount.ID)
+			}
 		}
 	}
 	return nil
