@@ -133,8 +133,8 @@ func (pfj *PaddleFlowJob) generateJobConf() schema.Conf {
 	efs := []schema.FileSystem{}
 	for _, fsMount := range pfj.FsMount {
 		fs := schema.FileSystem{
-			ID:        fsMount.FsID,
-			Name:      fsMount.FsName,
+			ID:        fsMount.ID,
+			Name:      fsMount.Name,
 			SubPath:   fsMount.SubPath,
 			MountPath: fsMount.MountPath,
 			ReadOnly:  fsMount.Readonly,
