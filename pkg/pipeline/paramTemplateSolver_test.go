@@ -183,23 +183,32 @@ func TestResolveCondition(t *testing.T) {
 
 func TestResolveCommand(t *testing.T) {
 	component := mockComponentForInnerSolver()
-	is := NewInnerSolver(component, "step1", &runConfig{logger: logger.LoggerForRun("NewInnerSolver")})
+	rc := runConfig{
+		logger: logger.LoggerForRun("NewInnerSolver"),
+		mainFS: &schema.FsMount{ID: "1234"},
+	}
+	is := NewInnerSolver(component, "step1", &rc)
 	is.setSysParams(map[string]string{"PF_RUN_ID": "abc"})
 
 	err := is.resolveCommand(true)
 	assert.Nil(t, err)
 
-	assert.Equal(t, component.Command, "echo 1 && cat /tmp/./b.txt >> {{out1}} && echo abc ")
+	assert.Equal(t, component.Command, "echo 1 && cat /home/paddleflow/storage/mnt/1234/./b.txt >> {{out1}} && echo abc ")
 
 	err = is.resolveCommand(false)
 	assert.Nil(t, err)
 
-	assert.Equal(t, component.Command, "echo 1 && cat /tmp/./b.txt >> /tmp/out1.txt && echo abc ")
+	assert.Equal(t, component.Command,
+		"echo 1 && cat /home/paddleflow/storage/mnt/1234/./b.txt >> /home/paddleflow/storage/mnt/1234/out1.txt && echo abc ")
 }
 
 func TestResolveEnv(t *testing.T) {
 	component := mockComponentForInnerSolver()
-	is := NewInnerSolver(component, "step1", &runConfig{logger: logger.LoggerForRun("NewInnerSolver")})
+	rc := runConfig{
+		logger: logger.LoggerForRun("NewInnerSolver"),
+		mainFS: &schema.FsMount{ID: "1234"},
+	}
+	is := NewInnerSolver(component, "step1", &rc)
 	is.setSysParams(map[string]string{"PF_RUN_ID": "abc"})
 
 	err := is.resolveEnv()

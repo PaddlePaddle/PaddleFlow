@@ -75,6 +75,6 @@ failure_options:
   strategy: "fail_fast"
 
 fs_options:
-  main_fs: {name: xd}
+  main_fs: {name: xd, mount_path: "/testcase"}
   extra_fs: 
   - {name: abc}

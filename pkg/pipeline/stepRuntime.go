@@ -548,7 +548,6 @@ func (srt *StepRuntime) generateOutArtPathOnFs() (err error) {
 
 			return err
 		}
-
 		srt.GetArtifacts().Output[artName] = artPath
 	}
 	return
