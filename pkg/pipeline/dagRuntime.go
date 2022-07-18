@@ -498,13 +498,6 @@ func (drt *DagRuntime) Resume(dagView *schema.DagView) {
 
 			runtime := drt.CreateSubRuntimeAccordingView(view, name)
 
-			// TODO: 节点并发数控制
-			err := runtime.updateStatus(status)
-			if err != nil {
-				drt.logger.Errorln(err.Error())
-				continue
-			}
-
 			drt.subComponentRumtimes[name] = append(drt.subComponentRumtimes[name], runtime)
 			drt.logger.Infof("recreated runtime for %s[%s] with status[%s]",
 				component.GetType(), runtime.getName(), runtime.getStatus())
