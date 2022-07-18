@@ -756,7 +756,7 @@ func ValidateAndStartRun(ctx logger.RequestContext, run models.Run, userName str
 }
 
 func checkFs(userName string, fsName string, wfs *schema.WorkflowSource) error {
-	fsNames, err := wfs.ProcessFsAndGetNames(userName, fsName)
+	fsNames, err := wfs.GetFsMounts(userName, fsName)
 	if err != nil {
 		logger.Logger().Errorf("process fs failed when check fs. error: %s", err.Error())
 		return err

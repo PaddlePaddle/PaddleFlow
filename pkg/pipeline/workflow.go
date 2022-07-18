@@ -316,6 +316,11 @@ func (bwf *BaseWorkflow) validate() error {
 	return nil
 }
 
+// 检查fsScope的fsName是否在fsMount中，同时根据Username和FSName生成FSID
+func (bwf *BaseWorkflow) checkFS() error {
+	bwf.Source.ProcessFsMounts(bwf.Extra[WfExtraInfoKeyUserName], bwf.Extra[WfExtraInfoKeyFsName])
+}
+
 func (bwf *BaseWorkflow) checkFailureOption() error {
 	switch bwf.Source.FailureOptions.Strategy {
 	case schema.FailureStrategyFailFast:

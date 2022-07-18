@@ -176,19 +176,19 @@ func mockCacheConfig() schema.Cache {
 		MaxExpiredTime: "167873037492",
 		FsScope: []schema.FsScope{
 			schema.FsScope{
-				FsID:   "123",
-				FsName: "abc",
-				Path:   "a.txt,b.txt",
+				ID:   "123",
+				Name: "abc",
+				Path: "a.txt,b.txt",
 			},
 			schema.FsScope{
-				FsID:   "456",
-				FsName: "abc",
-				Path:   "c.txt,d.txt",
+				ID:   "456",
+				Name: "abc",
+				Path: "c.txt,d.txt",
 			},
 			schema.FsScope{
-				FsID:   "789",
-				FsName: "abc",
-				Path:   "",
+				ID:   "789",
+				Name: "abc",
+				Path: "",
 			},
 		},
 	}
@@ -309,13 +309,13 @@ func TestGetFsScopeModTime(t *testing.T) {
 			if path == "" {
 				continue
 			}
-			_, ok := fsScopeMap[scope.FsID].ModTime[path]
+			_, ok := fsScopeMap[scope.ID].ModTime[path]
 			assert.Equal(t, ok, true)
 		}
 
-		if scope.FsID == "789" {
-			assert.Len(t, fsScopeMap[scope.FsID].ModTime, 1)
-			assert.Contains(t, fsScopeMap[scope.FsID].ModTime, "/")
+		if scope.ID == "789" {
+			assert.Len(t, fsScopeMap[scope.ID].ModTime, 1)
+			assert.Contains(t, fsScopeMap[scope.ID].ModTime, "/")
 		}
 	}
 }

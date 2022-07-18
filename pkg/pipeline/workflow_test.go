@@ -428,7 +428,7 @@ func TestValidateWorkflowCache(t *testing.T) {
 	assert.Equal(t, bwf.Source.Cache.Enable, false)
 	assert.Equal(t, bwf.Source.Cache.MaxExpiredTime, "400")
 	assert.Equal(t, len(bwf.Source.Cache.FsScope), 1)
-	assert.Equal(t, bwf.Source.Cache.FsScope[0].FsName, "xd")
+	assert.Equal(t, bwf.Source.Cache.FsScope[0].Name, "xd")
 
 	assert.Equal(t, bwf.Source.EntryPoints.EntryPoints["data-preprocess"].(*schema.WorkflowSourceStep).Cache.Enable, bwf.Source.Cache.Enable)
 	assert.Equal(t, bwf.Source.EntryPoints.EntryPoints["data-preprocess"].(*schema.WorkflowSourceStep).Cache.MaxExpiredTime, bwf.Source.Cache.MaxExpiredTime)
@@ -522,5 +522,5 @@ func TestFsOptions(t *testing.T) {
 	assert.Equal(t, len(wfs.FsOptions.ExtraFS), 1)
 	assert.Equal(t, wfs.FsOptions.ExtraFS[0].Name, "abc")
 	assert.Equal(t, wfs.EntryPoints.EntryPoints["main"].(*schema.WorkflowSourceStep).ExtraFS[0].Name, "abc")
-	assert.Equal(t, wfs.EntryPoints.EntryPoints["main"].(*schema.WorkflowSourceStep).Cache.FsScope[0].FsName, "xd")
+	assert.Equal(t, wfs.EntryPoints.EntryPoints["main"].(*schema.WorkflowSourceStep).Cache.FsScope[0].Name, "xd")
 }

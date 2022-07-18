@@ -157,7 +157,7 @@ func (cc *conservativeCacheCalculator) getFsScopeModTime() (map[string]PathToMod
 	smt := map[string]PathToModTime{}
 	for _, scope := range cc.cacheConfig.FsScope {
 		cc.logger.Infof("begin to get the modtime of scope: %v", scope)
-		fsHandler, err := handler.NewFsHandlerWithServer(scope.FsID, cc.logger)
+		fsHandler, err := handler.NewFsHandlerWithServer(scope.ID, cc.logger)
 		if err != nil {
 			errMsg := fmt.Errorf("init fsHandler failed: %s", err.Error())
 			cc.logger.Errorln(errMsg)
@@ -186,7 +186,7 @@ func (cc *conservativeCacheCalculator) getFsScopeModTime() (map[string]PathToMod
 			pathToMT.ModTime[path] = fmt.Sprintf("%d", mtime.UnixNano())
 		}
 
-		smt[scope.FsID] = pathToMT
+		smt[scope.ID] = pathToMT
 	}
 	return smt, nil
 }
