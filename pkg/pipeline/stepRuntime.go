@@ -19,7 +19,6 @@ package pipeline
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -340,8 +339,8 @@ func (srt *StepRuntime) logInputArtifact() {
 	for atfName, atfValue := range srt.getComponent().GetArtifacts().Input {
 		req := schema.LogRunArtifactRequest{
 			RunID:        srt.runID,
-			FsID:         srt.fsID,
-			FsName:       srt.GloablFsName,
+			FsID:         srt.runConfig.mainFs.FsID,
+			FsName:       srt.runConfig.mainFs.FsName,
 			UserName:     srt.userName,
 			ArtifactPath: atfValue,
 			Step:         srt.getWorkFlowStep().Name,
@@ -364,8 +363,8 @@ func (srt *StepRuntime) logOutputArtifact() {
 	for atfName, atfValue := range srt.component.(*schema.WorkflowSourceStep).Artifacts.Output {
 		req := schema.LogRunArtifactRequest{
 			RunID:        srt.runID,
-			FsID:         srt.fsID,
-			FsName:       srt.GloablFsName,
+			FsID:         srt.runConfig.mainFs.FsID,
+			FsName:       srt.runConfig.mainFs.FsName,
 			UserName:     srt.userName,
 			ArtifactPath: atfValue,
 			Step:         srt.getWorkFlowStep().Name,
@@ -402,8 +401,8 @@ func (srt *StepRuntime) checkCached() (cacheFound bool, err error) {
 	}
 
 	job := srt.job.(*PaddleFlowJob)
-	cacheCaculator, err := NewCacheCalculator(*job, srt.getWorkFlowStep().Cache, srt.logger, srt.getWorkFlowStep().FsMount,
-		srt.fsID)
+	cacheCaculator, err := NewCacheCalculator(*job, srt.getWorkFlowStep().Cache, srt.logger, srt.runConfig.mainFs,
+		srt.getWorkFlowStep().ExtraFs)
 	if err != nil {
 		return false, err
 	}
@@ -413,7 +412,7 @@ func (srt *StepRuntime) checkCached() (cacheFound bool, err error) {
 		return false, err
 	}
 
-	runCacheList, err := srt.callbacks.ListCacheCb(srt.firstFingerprint, srt.fsID, srt.pplSource)
+	runCacheList, err := srt.callbacks.ListCacheCb(srt.firstFingerprint, srt.runConfig.mainFs.FsID, srt.pplSource)
 	if err != nil {
 		return false, err
 	}
@@ -512,8 +511,8 @@ func (srt *StepRuntime) logCache() error {
 		RunID:       srt.runID,
 		Step:        srt.getComponent().GetName(),
 		JobID:       srt.job.Job().ID,
-		FsID:        srt.fsID,
-		FsName:      srt.GloablFsName,
+		FsID:        srt.runConfig.mainFs.FsID,
+		FsName:      srt.runConfig.mainFs.FsName,
 		UserName:    srt.userName,
 		ExpiredTime: srt.getWorkFlowStep().Cache.MaxExpiredTime,
 		Strategy:    CacheStrategyConservative,
@@ -534,15 +533,15 @@ func (srt *StepRuntime) logCache() error {
 }
 
 func (srt *StepRuntime) generateOutArtPathOnFs() (err error) {
-	rh, err := NewResourceHandler(srt.runID, srt.fsID, srt.logger)
+	rh, err := NewResourceHandler(srt.runID, srt.runConfig.mainFs.FsID, srt.logger)
 	if err != nil {
 		err = fmt.Errorf("cannot generate output artifact's path for step[%s]: %s", srt.name, err.Error())
 		return err
 	}
 
 	for artName, _ := range srt.GetArtifacts().Output {
-		artPath, err := rh.GenerateOutAtfPath(srt.runConfig.WorkflowSource.Name, srt.getComponent().GetName(),
-			srt.name, srt.loopSeq, artName, true)
+		artPath, err := rh.GenerateOutAtfPath(srt.runConfig.WorkflowSource.Name, srt.mainFs.SubPath,
+			srt.getComponent().GetName(), srt.name, srt.loopSeq, artName, true)
 		if err != nil {
 			err = fmt.Errorf("cannot generate output artifact[%s] for step[%s] path: %s",
 				artName, srt.name, err.Error())
@@ -563,47 +562,6 @@ func (srt *StepRuntime) generateOutArtPathForJob(paths string) string {
 		pathsForJob = append(pathsForJob, strings.Join([]string{ArtMountDir, path}, "/"))
 	}
 	return strings.Join(pathsForJob, ",")
-}
-
-func (srt *StepRuntime) GenerateFsMountForArtifact() {
-	if srt.GloablFsName == "" {
-		return
-	}
-
-	// 为输入aritfact 生成 FsMount
-	for _, paths := range srt.getWorkFlowStep().GetArtifacts().Input {
-		// 内存的for循环主要是考虑 输入artifact 来自于循环结构
-		for _, path := range strings.Split(paths, ",") {
-			path = strings.TrimSpace(path)
-			// TODO: 直接挂载 path 或者 对于dir 相同的只生成一个关在信息。
-			dir := filepath.Dir(path)
-
-			fsMount := schema.FsMount{
-				FsID:      srt.runConfig.fsID,
-				FsName:    srt.runConfig.GloablFsName,
-				MountPath: strings.Join([]string{ArtMountDir, dir}, "/"),
-				SubPath:   dir,
-				Readonly:  true,
-			}
-			srt.getWorkFlowStep().FsMount = append(srt.getWorkFlowStep().FsMount, fsMount)
-		}
-	}
-
-	// 为输出artifact 生成 FsMount
-	for _, path := range srt.getWorkFlowStep().GetArtifacts().Output {
-		dir := filepath.Dir(path)
-		fsMount := schema.FsMount{
-			FsID:      srt.runConfig.fsID,
-			FsName:    srt.runConfig.GloablFsName,
-			MountPath: strings.Join([]string{ArtMountDir, dir}, "/"),
-			SubPath:   dir,
-			Readonly:  false,
-		}
-		srt.getWorkFlowStep().FsMount = append(srt.getWorkFlowStep().FsMount, fsMount)
-	}
-
-	srt.logger.Infof("after GenerateFsMountForArtifact, FsMount is %v", srt.getWorkFlowStep().FsMount)
-	return
 }
 
 func (srt *StepRuntime) startJob() (err error) {
@@ -697,9 +655,6 @@ func (srt *StepRuntime) Execute() {
 			return
 		}
 	}
-
-	// 3、根据 artifact 更新 FsMount 信息
-	srt.GenerateFsMountForArtifact()
 
 	// 节点运行前，先替换参数（参数替换逻辑与check Cache的参数替换逻辑不一样，多了一步替换output artifact，并利用output artifact参数替换command以及添加到env）
 	forCacheFingerprint := false

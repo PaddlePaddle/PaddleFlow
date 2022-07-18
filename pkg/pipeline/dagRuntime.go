@@ -1021,7 +1021,7 @@ func (drt *DagRuntime) ProcessFailureOptions(event WorkflowEvent) {
 		drt.ProcessFailureOptionsWithContinue(component)
 	} else {
 		// 通过事件通知其父节点处理开始处理 failureOptions
-		drt.syncToApiServerAndParent(WfEventFailureOptionsTriggered, &schema.DagView{},
+		drt.syncToParent(WfEventFailureOptionsTriggered, &schema.DagView{},
 			fmt.Sprintf("failure options triggered by event: %v", event))
 
 		drt.ProcessFailureOptionsWithFailFast()

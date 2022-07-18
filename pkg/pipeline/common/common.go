@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"math/rand"
 	"strings"
+	"time"
 
 	"github.com/sirupsen/logrus"
 
@@ -123,4 +124,16 @@ func TopologicalSort(components map[string]schema.Component) ([]string, error) {
 		}
 	}
 	return sortedComponent, nil
+}
+
+func LatesTime(times []time.Time) time.Time {
+	latestTime := time.Time{}
+
+	for _, t := range times {
+		if latestTime.After(t) {
+			latestTime = t
+		}
+	}
+
+	return latestTime
 }

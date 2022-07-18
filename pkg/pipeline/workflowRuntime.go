@@ -109,6 +109,8 @@ func (wfr *WorkflowRuntime) Resume(entryPointView *schema.DagView, postProcessVi
 	defer wfr.scheduleLock.Unlock()
 	wfr.scheduleLock.Lock()
 
+	wfr.status = runStatus
+
 	wfr.startTime = entryPointView.StartTime
 
 	// 1、如果 ep 未处于终态， 则需要重启ep
