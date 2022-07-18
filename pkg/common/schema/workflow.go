@@ -825,7 +825,7 @@ func (wfs *WorkflowSource) TransToRunYamlRaw() (runYamlRaw string, err error) {
 	return
 }
 
-// 给所有Step的fsMount和fsScope的fsID赋值
+// 给所有Step的fsMount和fsScope的fsID赋值，并校验mount信息，如sub_path
 func (wfs *WorkflowSource) ProcessFsAndGetAllIDs(userName string, fsName string) ([]string, error) {
 	// 用map记录所有需要返回的ID，去重
 	fsIDMap := map[string]int{}
@@ -868,7 +868,7 @@ func (wfs *WorkflowSource) processFsByUserName(compMap map[string]Component, use
 
 			for i, mount := range step.ExtraFS {
 				if mount.Name == "" {
-					return fmt.Errorf("[fs_name] in fs_mount must be set")
+					return fmt.Errorf("[name] in [extra_fs] or [main_fs] must be set")
 				}
 				mount.ID = ID(userName, mount.Name)
 
@@ -886,7 +886,7 @@ func (wfs *WorkflowSource) processFsByUserName(compMap map[string]Component, use
 
 				// 检查FsScope中的FsName是否都在FsMount中
 				if _, ok := fsNameSet[scope.FsName]; !ok {
-					return fmt.Errorf("fs_name [%s] in fs_scope must also be in fs_mount", scope.FsName)
+					return fmt.Errorf("fs_name [%s] in fs_scope must also be in [extra_fs] or [main_fs]", scope.FsName)
 				}
 				step.Cache.FsScope[i] = scope
 			}
