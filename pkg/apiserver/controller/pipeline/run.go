@@ -475,7 +475,13 @@ func runYamlAndReqToWfs(runYaml string, req CreateRunRequest) (schema.WorkflowSo
 		wfs.Disabled = req.Disabled
 	}
 	if req.FsName != "" {
-		wfs.FsOptions.MainFS = req.FsName
+		if wfs.FsOptions.MainFS.Name == "" {
+			wfs.FsOptions.MainFS.Name = req.FsName
+		} else if req.FsName != wfs.FsOptions.MainFS.Name {
+			err := fmt.Errorf("[main_fs.name] should be same as fs_name in request")
+			return schema.WorkflowSource{}, err
+		}
+
 	}
 	return wfs, nil
 }
@@ -514,9 +520,9 @@ func CreateRun(ctx logger.RequestContext, request *CreateRunRequest, extra map[s
 	}
 
 	// 如果request里面的fsID为空，那么需要判断yaml（通过PipelineID或Raw上传的）中有无指定GlobalFs，有则生成fsID
-	if fsName == "" && wfs.FsOptions.MainFS != "" {
-		fsID = common.ID(userName, wfs.FsOptions.MainFS)
-		fsName = wfs.FsOptions.MainFS
+	if fsName == "" && wfs.FsOptions.MainFS.Name != "" {
+		fsID = common.ID(userName, wfs.FsOptions.MainFS.Name)
+		fsName = wfs.FsOptions.MainFS.Name
 	}
 
 	trace_logger.Key(requestId).Infof("check name reg pattern: %s", wfs.Name)
@@ -615,7 +621,7 @@ func CreateRunByJson(ctx logger.RequestContext, bodyMap map[string]interface{}) 
 			logger.Logger().Errorf("check fsOptions failed, error: %s", err.Error())
 			return CreateRunResponse{}, err
 		}
-		reqFsName = fsOptions.MainFS
+		reqFsName = fsOptions.MainFS.Name
 	}
 	if _, ok := bodyMap[JsonUserName].(string); ok {
 		reqUserName = bodyMap[JsonUserName].(string)
