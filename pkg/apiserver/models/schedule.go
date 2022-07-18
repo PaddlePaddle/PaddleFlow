@@ -74,7 +74,6 @@ type Schedule struct {
 	PipelineID       string         `gorm:"type:varchar(60);not null"         json:"pipelineID"`
 	PipelineDetailID string         `gorm:"type:varchar(60);not null"         json:"pipelineDetailID"`
 	UserName         string         `gorm:"type:varchar(60);not null"         json:"username"`
-	FsConfig         string         `gorm:"type:varchar(1024);not null"       json:"fsConfig"`
 	Crontab          string         `gorm:"type:varchar(60);not null"         json:"crontab"`
 	Options          string         `gorm:"type:text;size:65535;not null"     json:"options"`
 	Message          string         `gorm:"type:text;size:65535;not null"     json:"scheduleMsg"`
@@ -89,13 +88,6 @@ type Schedule struct {
 
 func (Schedule) TableName() string {
 	return "schedule"
-}
-
-// ------- 存放周期调度用于发起run的fs相关配置 -------
-
-type FsConfig struct {
-	FsName   string `json:"fsName"`
-	Username string `json:"username"`
 }
 
 // ------- 存放周期调度相关的配置 -------
@@ -361,31 +353,33 @@ func DeleteSchedule(logEntry *log.Entry, scheduleID string) error {
 // ------ job / fs模块需要的函数 ------
 
 func ScheduleUsedFsIDs() (map[string]bool, error) {
-	tx := storage.DB.Model(&Schedule{}).Select("pipeline_detail_id").Where("status = ?", ScheduleStatusRunning)
-	var scheduleList []Schedule
-	tx = tx.Find(&scheduleList)
+	type result struct {
+		Username     string
+		PipelineYaml string
+	}
+	results := []result{}
+	tx := storage.DB.Model(&Schedule{}).Select("schedule.user_name, pipeline_detail.pipeline_yaml").
+		Joins("left join pipeline_detail on schedule.pipeline_detail_id = pipeline_detail.id").
+		Where("schedule.status = ?", ScheduleStatusRunning).Find(&results)
+
 	if tx.Error != nil {
 		return nil, tx.Error
 	}
 
-	detailIDList := []string{}
-	for _, schedule := range scheduleList {
-		detailIDList = append(detailIDList, schedule.PipelineDetailID)
-	}
-
-	detailList := []PipelineDetail{}
-	tx = storage.DB.Model(&PipelineDetail{}).Select("pipeline_yaml").Where("id IN ?", detailIDList).Find(&detailList)
-
 	fsIDMap := make(map[string]bool, 0)
 
-	for _, pplDetail := range detailList {
-		wfs, err := schema.GetWorkflowSource([]byte(pplDetail.PipelineYaml))
+	for _, res := range results {
+		wfs, err := schema.GetWorkflowSource([]byte(res.PipelineYaml))
 		if err != nil {
 			return nil, err
 		}
 		mounts, err := wfs.GetFsMounts()
+		if err != nil {
+			return nil, err
+		}
 		for _, mount := range mounts {
-			mount.ID = ""
+			mount.ID = common.ID(res.Username, mount.Name)
+			fsIDMap[mount.ID] = true
 		}
 	}
 
