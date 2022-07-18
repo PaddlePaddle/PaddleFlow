@@ -87,6 +87,60 @@ func TestCalculateFingerprint(t *testing.T) {
 	fmt.Println(fp3)
 	assert.Equal(t, err, nil)
 	assert.NotEqual(t, fp3, fp2)
+
+	// 测试参数顺序是否会导致fingerPrint 不一致
+	firstCacheKey4 := conservativeFirstCacheKey{
+		DockerEnv:      "test:1",
+		Command:        "echo 123",
+		Env:            map[string]string{"value": "123", "name": "xiaodu"},
+		Parameters:     map[string]string{"name": "xiaodu", "value": "456"},
+		InputArtifacts: map[string]string{"model": "/pf/model"},
+		ExtraFS: []schema.FsMount{
+			schema.FsMount{
+				ID:        "456",
+				MountPath: "/abc",
+			},
+			schema.FsMount{
+				ID:        "123",
+				MountPath: "/def",
+			},
+		},
+		MainFS: schema.FsMount{
+			ID:        "456",
+			MountPath: "/abc",
+		},
+	}
+
+	fp4, err := calculateFingerprint(&firstCacheKey4)
+	fmt.Println(fp3)
+	assert.NotEqual(t, fp3, fp4)
+
+	// 测试参数顺序是否会导致fingerPrint 不一致
+	firstCacheKey5 := conservativeFirstCacheKey{
+		DockerEnv:      "test:1",
+		Command:        "echo 123",
+		Env:            map[string]string{"value": "123", "name": "xiaodu"},
+		Parameters:     map[string]string{"name": "xiaodu", "value": "456"},
+		InputArtifacts: map[string]string{"model": "/pf/model"},
+		ExtraFS: []schema.FsMount{
+			schema.FsMount{
+				ID:        "456",
+				MountPath: "/abc",
+			},
+			schema.FsMount{
+				ID:        "123",
+				MountPath: "/def",
+			},
+		},
+		MainFS: schema.FsMount{
+			ID:        "456",
+			MountPath: "/abc",
+		},
+	}
+
+	fp5, err := calculateFingerprint(&firstCacheKey5)
+	fmt.Println(fp5)
+	assert.NotEqual(t, fp5, fp4)
 }
 
 func mockArtifact() schema.Artifacts {
@@ -324,14 +378,18 @@ func TestGetInputArtifactModTime(t *testing.T) {
 	arts := mockArtifact()
 	calculator, err := mockerNewConservativeCacheCalculator()
 	assert.Equal(t, err, nil)
+	arts.Input["mutil"] = "m1.txt,m2.txt"
 
 	for _, path := range arts.Input {
 		path = strings.TrimSpace(path)
 		if path == "" {
 			continue
 		}
-		err := CreatefileByFsClient(path, true)
-		assert.Equal(t, err, nil)
+
+		for _, p := range strings.Split(path, ",") {
+			err := CreatefileByFsClient(p, true)
+			assert.Equal(t, err, nil)
+		}
 	}
 
 	inArtMap, err := calculator.(*conservativeCacheCalculator).getInputArtifactModTime()

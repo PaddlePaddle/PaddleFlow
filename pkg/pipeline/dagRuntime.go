@@ -419,8 +419,8 @@ func (drt *DagRuntime) resolveSubComponent(name string, cp schema.Component) (sc
 	}
 
 	return newCp, nil
-
 }
+
 func (drt *DagRuntime) Resume(dagView *schema.DagView) {
 	drt.logger.Debugf("resume dag[%s] with dagView: \n%v", drt.name, dagView)
 
@@ -525,6 +525,7 @@ func (drt *DagRuntime) Resume(dagView *schema.DagView) {
 						continue
 					}
 				}
+
 				if runtime.isFailed() {
 					failedCp[name] = append(failedCp[name], view.GetSeq())
 
