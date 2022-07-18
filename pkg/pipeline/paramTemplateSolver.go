@@ -133,12 +133,10 @@ func (isv *innerSolver) resolveArtifactTemplate(tpl []string, fieldType string, 
 		return "", err
 
 	}
+
 	if fieldType != FieldCondition && fieldType != FieldLoopArguemt {
-		ps := []string{}
-		for _, p := range strings.Split(path, ",") {
-			ps = append(ps, strings.Join([]string{ArtMountDir, p}, "/"))
-		}
-		result = strings.Join(ps, ",")
+		path = GetArtifactMountPath(isv.runConfig.mainFS, path)
+		return path, err
 	} else {
 		var maxSize int
 		if fieldType == FieldCondition {
@@ -147,7 +145,7 @@ func (isv *innerSolver) resolveArtifactTemplate(tpl []string, fieldType string, 
 			maxSize = LoopArgumentArtifactMaxSize
 		}
 
-		result, err = GetArtifactContent(path, maxSize, isv.fsID, isv.logger)
+		result, err = GetArtifactContent(path, maxSize, isv.runConfig.mainFS.ID, isv.logger)
 		if err != nil {
 			err = fmt.Errorf("failed to resolve template[%s] for %s[%s], because cannot read the content from artifact[%s]",
 				isv.Component.GetType(), tpl[0], isv.runtimeName, refParamName)
@@ -170,7 +168,7 @@ func (isv *innerSolver) resolveTemplate(tplString string, fieldType string, forC
 		return tplString, err
 	}
 
-	if fieldType == FieldLoopArguemt && tplString != tpls[0][0] {
+	if (fieldType == FieldLoopArguemt || fieldType == FieldCondition) && tplString != tpls[0][0] {
 		err := fmt.Errorf("paraTemplate[%s] for %s[%s]'s loop_argument or condition field cannot join with other string",
 			isv.Component.GetType(), tplString, isv.runtimeName)
 		return "", err

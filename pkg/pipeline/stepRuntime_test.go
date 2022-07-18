@@ -336,8 +336,7 @@ func TestCheckCached(t *testing.T) {
 	defer patches.Reset()
 
 	job := srt.job.(*PaddleFlowJob)
-	cacheCaculator, err := NewCacheCalculator(*job, wfs.Cache, srt.logger, srt.getWorkFlowStep().ExtraFS,
-		srt.fsID)
+	cacheCaculator, err := NewCacheCalculator(*job, wfs.Cache, srt.logger, srt.runConfig.mainFS, srt.getWorkFlowStep().ExtraFS)
 
 	patch1 := gomonkey.ApplyMethod(reflect.TypeOf(cacheCaculator), "CalculateFirstFingerprint", func(_ *conservativeCacheCalculator) (string, error) {
 		return "1111", nil
@@ -527,8 +526,7 @@ func TestExecute(t *testing.T) {
 		eventChan, rf, "dag-11")
 
 	job := srt.job.(*PaddleFlowJob)
-	cacheCaculator, err := NewCacheCalculator(*job, wfs.Cache, srt.logger, srt.getWorkFlowStep().ExtraFS,
-		srt.fsID)
+	cacheCaculator, err := NewCacheCalculator(*job, wfs.Cache, srt.logger, srt.runConfig.mainFS, srt.getWorkFlowStep().ExtraFS)
 	patch12 := gomonkey.ApplyMethod(reflect.TypeOf(cacheCaculator), "CalculateFirstFingerprint", func(_ *conservativeCacheCalculator) (string, error) {
 		return "1111", nil
 	})

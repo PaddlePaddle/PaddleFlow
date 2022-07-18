@@ -94,7 +94,11 @@ func mockArtInJsonFormat(artPath string) {
 func TestResolveLoopArgument(t *testing.T) {
 
 	component := mockComponentForInnerSolver()
-	is := NewInnerSolver(component, "step1", &runConfig{fsID: "xx", logger: logger.LoggerForRun("innersolver")})
+	rc := runConfig{
+		mainFS: &schema.FsMount{ID: "xx"},
+		logger: logger.LoggerForRun("innersolver"),
+	}
+	is := NewInnerSolver(component, "step1", &rc)
 
 	err := is.resolveLoopArugment()
 	assert.Nil(t, err)
@@ -133,7 +137,8 @@ func TestResolveLoopArgument(t *testing.T) {
 	mockArtInJsonFormat("./a.txt")
 
 	component.UpdateLoopArguemt("{{in1}}")
-	is = NewInnerSolver(component, "step1", &runConfig{fsID: "xx", logger: logger.LoggerForRun("innersolver")})
+
+	is = NewInnerSolver(component, "step1", &rc)
 	err = is.resolveLoopArugment()
 	assert.Nil(t, err)
 
@@ -158,7 +163,11 @@ func TestResolveCondition(t *testing.T) {
 	mockArtInJsonFormat("./a.txt")
 
 	component.UpdateCondition("b{{in1}}_{{p1}} == 10")
-	is = NewInnerSolver(component, "step1", &runConfig{fsID: "xx", logger: logger.LoggerForRun("innersolver")})
+	rc := runConfig{
+		mainFS: &schema.FsMount{ID: "xx"},
+		logger: logger.LoggerForRun("innersolver"),
+	}
+	is = NewInnerSolver(component, "step1", &rc)
 	err = is.resolveCondition()
 	assert.Nil(t, err)
 
@@ -166,7 +175,7 @@ func TestResolveCondition(t *testing.T) {
 
 	// 测试异常情况
 	component.UpdateCondition("{{in5}} == 10")
-	is = NewInnerSolver(component, "step1", &runConfig{fsID: "xx", logger: logger.LoggerForRun("innersolver")})
+	is = NewInnerSolver(component, "step1", &rc)
 	err = is.resolveCondition()
 
 	assert.NotNil(t, err)
@@ -208,12 +217,15 @@ func TestResolveEnv(t *testing.T) {
 
 // 测试 dependenceResolver
 func mockRunconfigForDepRsl() *runConfig {
+	mainFS := schema.FsMount{
+		ID:   "fs-xx",
+		Name: "xx",
+	}
 	return &runConfig{
-		logger:       logger.LoggerForRun("depResolve"),
-		fsID:         "fs-xx",
-		GloablFsName: "xx",
-		userName:     "aa",
-		runID:        "run-dep",
+		logger:   logger.LoggerForRun("depResolve"),
+		mainFS:   &mainFS,
+		userName: "aa",
+		runID:    "run-dep",
 	}
 }
 
