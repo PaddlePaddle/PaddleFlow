@@ -122,7 +122,7 @@ func TestExpireInterval(t *testing.T) {
 	strOptions, err := scheduleOptions.Encode(logEntry)
 	assert.Nil(t, err)
 
-	fsConfig := models.FsConfig{FsName: "fsname", UserName: "user1"}
+	fsConfig := models.FsConfig{FsName: "fsname", Username: "user1"}
 	StrFsConfig, err := fsConfig.Encode(logEntry)
 	assert.Nil(t, err)
 
@@ -209,7 +209,7 @@ func TestScheduleTime(t *testing.T) {
 	strOptions, err := scheduleOptions.Encode(logEntry)
 	assert.Nil(t, err)
 
-	fsConfig := models.FsConfig{FsName: "fsname", UserName: "user1"}
+	fsConfig := models.FsConfig{FsName: "fsname", Username: "user1"}
 	StrFsConfig, err := fsConfig.Encode(logEntry)
 	assert.Nil(t, err)
 
@@ -304,7 +304,7 @@ func TestConcurrency(t *testing.T) {
 	strOptions, err := scheduleOptions.Encode(logEntry)
 	assert.Nil(t, err)
 
-	fsConfig := models.FsConfig{FsName: "fsname", UserName: "user1"}
+	fsConfig := models.FsConfig{FsName: "fsname", Username: "user1"}
 	StrFsConfig, err := fsConfig.Encode(logEntry)
 	assert.Nil(t, err)
 

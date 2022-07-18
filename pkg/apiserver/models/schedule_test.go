@@ -93,7 +93,7 @@ func TestGetUsedFsIDs(t *testing.T) {
 	logEntry := log.WithFields(log.Fields{})
 	pplID1, _, pplVersionID1, _ := insertPipeline(t, logEntry)
 
-	fsConfig := FsConfig{FsName: "fsname", UserName: "user1"}
+	fsConfig := FsConfig{FsName: "fsname", Username: "user1"}
 	StrFsConfig, err := fsConfig.Encode(logEntry)
 	assert.Nil(t, err)
 
@@ -144,7 +144,7 @@ func TestGetUsedFsIDs(t *testing.T) {
 	print(fsIDMap)
 
 	// 创建 success 状态的schedule
-	fsConfig = FsConfig{FsName: "fsname", UserName: "another_user"}
+	fsConfig = FsConfig{FsName: "fsname", Username: "another_user"}
 	StrFsConfig, err = fsConfig.Encode(logEntry)
 	assert.Nil(t, err)
 

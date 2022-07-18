@@ -93,7 +93,7 @@ func (Schedule) TableName() string {
 
 type FsConfig struct {
 	FsName   string `json:"fsName"`
-	UserName string `json:"userName"`
+	Username string `json:"username"`
 }
 
 func DecodeFsConfig(strConfig string) (fc FsConfig, err error) {
@@ -393,8 +393,8 @@ func ScheduleUsedFsIDs() (map[string]bool, error) {
 		}
 
 		var fsID string
-		if fsConfig.UserName != "" {
-			fsID = common.ID(fsConfig.UserName, fsConfig.FsName)
+		if fsConfig.Username != "" {
+			fsID = common.ID(fsConfig.Username, fsConfig.FsName)
 		} else {
 			fsID = common.ID(schedule.UserName, fsConfig.FsName)
 		}
