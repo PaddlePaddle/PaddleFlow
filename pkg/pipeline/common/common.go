@@ -137,3 +137,28 @@ func LatesTime(times []time.Time) time.Time {
 
 	return latestTime
 }
+
+func GetFSMountPath(FS *schema.FsMount) string {
+	if FS.MountPath != "" {
+		return FS.MountPath
+	} else {
+		return fmt.Sprintf("/home/paddleflow/storage/mnt/%s", FS.ID)
+	}
+}
+
+func GetArtifactMountPath(mainFS *schema.FsMount, artifactPath string) string {
+	mountPath := GetFSMountPath(mainFS)
+	mountPath = strings.TrimRight(mountPath, "/")
+	subPath := strings.TrimRight(mainFS.SubPath, "/")
+
+	artMountPaths := []string{}
+	for _, path := range strings.Split(artifactPath, ",") {
+		if path == "" {
+			continue
+		}
+		artMountPath := strings.Replace(path, subPath, mountPath, 1)
+		artMountPaths = append(artMountPaths, artMountPath)
+	}
+
+	return strings.Join(artMountPaths, ",")
+}

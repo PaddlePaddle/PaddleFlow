@@ -29,7 +29,7 @@ import (
 
 type Job interface {
 	Job() BaseJob
-	Update(cmd string, params map[string]string, envs map[string]string, artifacts *schema.Artifacts, FsMount []schema.FsMount)
+	Update(cmd string, params map[string]string, envs map[string]string, artifacts *schema.Artifacts)
 	Validate() error
 	Start() (string, error)
 	Stop() error
@@ -69,15 +69,18 @@ type BaseJob struct {
 type PaddleFlowJob struct {
 	BaseJob
 	Image        string
-	FsMount      []schema.FsMount
+	mainFS       *schema.FsMount
+	extraFS      []schema.FsMount
 	eventChannel chan<- WorkflowEvent
 }
 
-func NewPaddleFlowJob(name, image string, eventChannel chan<- WorkflowEvent) *PaddleFlowJob {
+func NewPaddleFlowJob(name, image string, eventChannel chan<- WorkflowEvent, mainFS *schema.FsMount, extraFS []schema.FsMount) *PaddleFlowJob {
 	return &PaddleFlowJob{
 		BaseJob:      *NewBaseJob(name),
 		Image:        image,
 		eventChannel: eventChannel,
+		mainFS:       mainFS,
+		extraFS:      extraFS,
 	}
 }
 
@@ -106,7 +109,7 @@ func NewPaddleFlowJobWithJobView(view *schema.JobView, image string, eventChanne
 
 // 发起作业接口
 func (pfj *PaddleFlowJob) Update(cmd string, params map[string]string, envs map[string]string,
-	artifacts *schema.Artifacts, fsMount []schema.FsMount) {
+	artifacts *schema.Artifacts) {
 	if cmd != "" {
 		pfj.Command = cmd
 	}
@@ -122,16 +125,12 @@ func (pfj *PaddleFlowJob) Update(cmd string, params map[string]string, envs map[
 	if artifacts != nil {
 		pfj.Artifacts = *artifacts
 	}
-
-	if len(fsMount) != 0 {
-		pfj.FsMount = fsMount
-	}
 }
 
 // 生成job 的conf 信息
 func (pfj *PaddleFlowJob) generateJobConf() schema.Conf {
 	efs := []schema.FileSystem{}
-	for _, fsMount := range pfj.FsMount {
+	for _, fsMount := range pfj.extraFS {
 		fs := schema.FileSystem{
 			ID:        fsMount.ID,
 			Name:      fsMount.Name,

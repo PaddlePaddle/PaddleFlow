@@ -47,7 +47,7 @@ func TestCalculateFingerprint(t *testing.T) {
 		Env:            map[string]string{"name": "xiaodu", "value": "123"},
 		Parameters:     map[string]string{"name": "xiaodu", "value": "456"},
 		InputArtifacts: map[string]string{"model": "/pf/model"},
-		FsMount: []schema.FsMount{
+		extraFS: []schema.FsMount{
 			schema.FsMount{
 				ID:        "123",
 				MountPath: "/abc",
@@ -71,7 +71,7 @@ func TestCalculateFingerprint(t *testing.T) {
 		Env:            map[string]string{"value": "123", "name": "xiaodu"},
 		Parameters:     map[string]string{"name": "xiaodu", "value": "456"},
 		InputArtifacts: map[string]string{"model": "/pf/model"},
-		FsMount: []schema.FsMount{
+		extraFS: []schema.FsMount{
 			schema.FsMount{
 				ID:        "456",
 				MountPath: "/abc",
@@ -146,9 +146,12 @@ func mockWorkflowSourceStep() schema.WorkflowSourceStep {
 }
 
 func mockRunConfigWithLogger() *runConfig {
+	mainFS := schema.FsMount{
+		ID: "1234",
+	}
 	return &runConfig{
 		logger: logger.LoggerForRun("run-0000"),
-		fsID:   "1234",
+		mainFS: &mainFS,
 	}
 }
 
@@ -202,8 +205,8 @@ func mockerNewConservativeCacheCalculator() (CacheCalculator, error) {
 	handler.NewFsHandlerWithServer = handler.MockerNewFsHandlerWithServer
 
 	job := step.job.(*PaddleFlowJob)
-	calculator, err := NewConservativeCacheCalculator(*job, cacheConfig, step.logger,
-		step.getWorkFlowStep().ExtraFS, step.fsID)
+	calculator, err := NewConservativeCacheCalculator(*job, cacheConfig, step.logger, step.mainFS,
+		step.getWorkFlowStep().ExtraFS)
 	return calculator, err
 }
 
@@ -393,8 +396,8 @@ func TestNewCacheCalculator(t *testing.T) {
 	handler.NewFsHandlerWithServer = handler.MockerNewFsHandlerWithServer
 
 	job := step.job.(*PaddleFlowJob)
-	calculator, err := NewCacheCalculator(*job, cacheConfig, step.logger,
-		step.getWorkFlowStep().ExtraFS, step.fsID)
+	calculator, err := NewCacheCalculator(*job, cacheConfig, step.logger, step.mainFS,
+		step.getWorkFlowStep().ExtraFS)
 	assert.Equal(t, err, nil)
 	_, ok := calculator.(CacheCalculator)
 	assert.Equal(t, ok, true)

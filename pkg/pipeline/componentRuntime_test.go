@@ -60,12 +60,12 @@ func TestParallelismManager(t *testing.T) {
 // 测试 ComponentRuntime
 
 func mockRunConfigForComponentRuntime() *runConfig {
-	mainFs := schema.FsMount{
-		FsID:   "fs-fs",
-		FsName: "fs",
+	mainFS := schema.FsMount{
+		ID:   "fs-fs",
+		Name: "fs",
 	}
 	return &runConfig{
-		mainFs:             mainFs,
+		mainFS:             mainFS,
 		userName:           "xiaoming",
 		logger:             logger.LoggerForRun("componentRunt"),
 		runID:              "run-000001",
