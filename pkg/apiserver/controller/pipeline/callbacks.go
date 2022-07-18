@@ -148,6 +148,18 @@ func UpdateRunByWfEvent(id string, event interface{}) (int64, bool) {
 		return 0, false
 	}
 
+	if common.IsRunFinalStatus(status) {
+		logging.Debugf("run[%s] has reached final status[%s]", runID, status)
+		delete(wfMap, runID)
+
+		// 给scheduler发concurrency channel信号
+		if prevRun.ScheduleID != "" {
+			globalScheduler := GetGlobalScheduler()
+			globalScheduler.ConcurrencyChannel <- prevRun.ScheduleID
+			logging.Debugf("send scheduleID[%s] to concurrency channel succeed.", prevRun.ScheduleID)
+		}
+	}
+
 	return 0, true
 }
 
