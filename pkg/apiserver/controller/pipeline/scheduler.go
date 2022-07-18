@@ -287,7 +287,7 @@ func (s *Scheduler) generateRunListForSchedule(schedule models.Schedule, current
 }
 
 func (s *Scheduler) createRun(schedule models.Schedule, fsConfig models.FsConfig, nextRunAt time.Time, status, msg string) {
-	logger.Logger().Infof("start to create run in ScheduledAt[%s] for schedule[%s]", nextRunAt.Format("2006-01-02 15:04:05"), schedule.ID)
+	logger.Logger().Infof("start to create run in ScheduledAt[%s] for schedule[%s] with status[%s]", nextRunAt.Format("2006-01-02 15:04:05"), schedule.ID, status)
 	createRequest := CreateRunRequest{
 		FsName:            fsConfig.FsName,
 		UserName:          fsConfig.UserName,
@@ -333,6 +333,7 @@ func (s *Scheduler) processRunList(
 		status := common.StatusRunSkipped
 		runMsg := fmt.Sprintf("skip run of schedule[%s] with schedule time[%s], beyond expire interval[%d] before currentTime[%s]",
 			schedule.ID, expiredRunAt.Format("2006-01-02 15:04:05"), options.ExpireInterval, currentTime.Format("2006-01-02 15:04:05"))
+		logger.Logger().Info(runMsg)
 		s.createRun(schedule, fsConfig, expiredRunAt, status, runMsg)
 	}
 
@@ -343,6 +344,7 @@ func (s *Scheduler) processRunList(
 			status := common.StatusRunSkipped
 			runMsg := fmt.Sprintf("skip run of schedule[%s] with schedule time[%s], concurrency already reach[%d] in policy[%s]",
 				schedule.ID, skipRunAt.Format("2006-01-02 15:04:05"), options.Concurrency, options.ConcurrencyPolicy)
+			logger.Logger().Info(runMsg)
 			s.createRun(schedule, fsConfig, skipRunAt, status, runMsg)
 		}
 	}
@@ -359,6 +361,7 @@ func (s *Scheduler) processRunList(
 			status := common.StatusRunSkipped
 			runMsg := fmt.Sprintf("skip run of schedule[%s] with schedule time[%s], concurrency already reach[%d] in policy[%s]",
 				schedule.ID, skipRunAt.Format("2006-01-02 15:04:05"), options.Concurrency, options.ConcurrencyPolicy)
+			logger.Logger().Info(runMsg)
 			s.createRun(schedule, fsConfig, skipRunAt, status, runMsg)
 		}
 	}
@@ -369,7 +372,7 @@ func (s *Scheduler) processRunList(
 	}
 }
 
-func (s *Scheduler) updateScheduleAndWakeupTime(schedule models.Schedule, currentTime, nextRunAt time.Time) (nextWakeupTime *time.Time) {
+func (s *Scheduler) updateScheduleAndWakeupTime(schedule models.Schedule, currentTime, nextRunAt time.Time, nextWakeupTime *time.Time) *time.Time {
 	logger.Logger().Infof("before updateScheduleAndWakeupTime for schedule[%s], nextRunAt[%s], currentTime[%s]", schedule.ID, nextRunAt.Format("2006-01-02 15:04:05"), currentTime.Format("2006-01-02 15:04:05"))
 
 	// 更新 NextRunAt 字段
@@ -462,7 +465,12 @@ func (s *Scheduler) dealWithTimeout() (nextWakeupTime *time.Time, err error) {
 		s.processRunList(schedule, options, fsConfig, currentTime, expiredList, skipList, execList, stopCount, activeRuns)
 
 		// 更新数据库记录（如果nextRunAt，或者status字段有更新的话），以及更新 nextWakeupTime
-		nextWakeupTime = s.updateScheduleAndWakeupTime(schedule, currentTime, nextRunAt)
+		nextWakeupTime = s.updateScheduleAndWakeupTime(schedule, currentTime, nextRunAt, nextWakeupTime)
+		if nextWakeupTime == nil {
+			logger.Logger().Infof("after updateScheduleAndWakeupTime for schedule[%s], nextWakeupTime is nil", schedule.ID)
+		} else {
+			logger.Logger().Infof("after updateScheduleAndWakeupTime for schedule[%s], nextWakeupTime[%s]", schedule.ID, nextWakeupTime.Format("2006-01-02 15:04:05"))
+		}
 	}
 
 	return nextWakeupTime, err
