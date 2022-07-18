@@ -475,7 +475,7 @@ func (p *Parser) ParseCache(cacheMap map[string]interface{}, cache *Cache) error
 func (p *Parser) ParseFsScope(fsMap map[string]interface{}, fs *FsScope) error {
 	for key, value := range fsMap {
 		switch key {
-		case "fs_name":
+		case "name":
 			value, ok := value.(string)
 			if !ok {
 				return fmt.Errorf("[fs_name] should be string type")

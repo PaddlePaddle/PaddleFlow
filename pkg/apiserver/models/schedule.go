@@ -28,6 +28,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
@@ -95,25 +96,6 @@ func (Schedule) TableName() string {
 type FsConfig struct {
 	FsName   string `json:"fsName"`
 	Username string `json:"username"`
-}
-
-func DecodeFsConfig(strConfig string) (fc FsConfig, err error) {
-	if err := json.Unmarshal([]byte(strConfig), &fc); err != nil {
-		errMsg := fmt.Sprintf("decode fsConfig failed. error:%v", err)
-		return FsConfig{}, fmt.Errorf(errMsg)
-	}
-
-	return fc, nil
-}
-
-func (fc *FsConfig) Encode(logEntry *log.Entry) (string, error) {
-	strConfig, err := json.Marshal(fc)
-	if err != nil {
-		logEntry.Errorf("encode fsConfig failed. error:%v", err)
-		return "", err
-	}
-
-	return string(strConfig), nil
 }
 
 // ------- 存放周期调度相关的配置 -------
@@ -379,29 +361,34 @@ func DeleteSchedule(logEntry *log.Entry, scheduleID string) error {
 // ------ job / fs模块需要的函数 ------
 
 func ScheduleUsedFsIDs() (map[string]bool, error) {
-	tx := storage.DB.Model(&Schedule{}).Select("id", "user_name", "fs_config").Where("status = ?", ScheduleStatusRunning)
+	tx := storage.DB.Model(&Schedule{}).Select("pipeline_detail_id").Where("status = ?", ScheduleStatusRunning)
 	var scheduleList []Schedule
 	tx = tx.Find(&scheduleList)
 	if tx.Error != nil {
 		return nil, tx.Error
 	}
 
-	fsIDMap := make(map[string]bool, 0)
+	detailIDList := []string{}
 	for _, schedule := range scheduleList {
-		fsConfig, err := DecodeFsConfig(schedule.FsConfig)
+		detailIDList = append(detailIDList, schedule.PipelineDetailID)
+	}
+
+	detailList := []PipelineDetail{}
+	tx = storage.DB.Model(&PipelineDetail{}).Select("pipeline_yaml").Where("id IN ?", detailIDList).Find(&detailList)
+
+	fsIDMap := make(map[string]bool, 0)
+
+	for _, pplDetail := range detailList {
+		wfs, err := schema.GetWorkflowSource([]byte(pplDetail.PipelineYaml))
 		if err != nil {
 			return nil, err
 		}
+		mounts, err := wfs.GetFsMounts()
+		for _, mount := range mounts {
 
-		var fsID string
-		if fsConfig.Username != "" {
-			fsID = common.ID(fsConfig.Username, fsConfig.FsName)
-		} else {
-			fsID = common.ID(schedule.UserName, fsConfig.FsName)
 		}
-
-		fsIDMap[fsID] = true
 	}
+
 	return fsIDMap, nil
 }
 

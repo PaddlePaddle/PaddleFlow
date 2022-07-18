@@ -96,11 +96,6 @@ func (b *ScheduleBrief) updateFromScheduleModel(schedule models.Schedule) (err e
 	b.Message = schedule.Message
 	b.Status = schedule.Status
 
-	b.FsConfig, err = models.DecodeFsConfig(schedule.FsConfig)
-	if err != nil {
-		return err
-	}
-
 	b.Options, err = models.DecodeScheduleOptions(schedule.Options)
 	if err != nil {
 		return err

@@ -278,7 +278,6 @@ CREATE TABLE IF NOT EXISTS `schedule` (
     `pipeline_id` varchar(60) NOT NULL,
     `pipeline_detail_id` varchar(60) NOT NULL,
     `user_name` varchar(60) NOT NULL,
-    `fs_config` varchar(1024) NOT NULL,
     `crontab` varchar(60) NOT NULL,
     `options` text,
     `message` text,
