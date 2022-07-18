@@ -52,6 +52,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime/kubernetes/controller"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime/kubernetes/executor"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/trace_logger"
 )
 
 type KubeRuntime struct {
@@ -130,8 +131,14 @@ func (kr *KubeRuntime) Init() error {
 }
 
 func (kr *KubeRuntime) SubmitJob(jobInfo *api.PFJob) error {
-	log.Infof("submit job[%v] to cluster[%s] queue[%s]", jobInfo.ID, kr.cluster.ID, jobInfo.QueueID)
+	// add trace log point
+	jobID := jobInfo.ID
+	traceLogger := trace_logger.KeyWithUpdate(jobID)
+	msg := fmt.Sprintf("submit job[%v] to cluster[%s] queue[%s]", jobInfo.ID, kr.cluster.ID, jobInfo.QueueID)
+	log.Infof(msg)
+	traceLogger.Infof(msg)
 	// prepare kubernetes storage
+	traceLogger.Infof("prepare kubernetes storage")
 	jobFileSystems := getFileSystem(jobInfo.Conf, jobInfo.Tasks)
 	for _, fs := range jobFileSystems {
 		fsID := common.ID(jobInfo.UserName, fs.Name)
@@ -140,7 +147,9 @@ func (kr *KubeRuntime) SubmitJob(jobInfo *api.PFJob) error {
 			log.Errorf("create pv for job[%s] failed, err: %v", jobInfo.ID, err)
 			return err
 		}
-		log.Infof("SubmitJob CreatePV fsID=%s pvName=%s", fsID, pvName)
+		msg = fmt.Sprintf("SubmitJob CreatePV fsID=%s pvName=%s", fsID, pvName)
+		log.Infof(msg)
+		traceLogger.Infof(msg)
 		err = kr.CreatePVC(jobInfo.Namespace, fsID, pvName)
 		if err != nil {
 			log.Errorf("create pvc for job[%s] failed, err: %v", jobInfo.ID, err)
@@ -148,16 +157,19 @@ func (kr *KubeRuntime) SubmitJob(jobInfo *api.PFJob) error {
 		}
 	}
 	// submit job
+	traceLogger.Infof("new kube job")
 	job, err := executor.NewKubeJob(jobInfo, kr.dynamicClientOpt)
 	if err != nil {
 		log.Warnf("new kubernetes job[%s] failed, err: %v", jobInfo.ID, err)
 		return err
 	}
-	jobID, err := job.CreateJob()
+	traceLogger.Infof("create job")
+	jobID, err = job.CreateJob()
 	if err != nil {
 		log.Warnf("create kubernetes job[%s] failed, err: %v", jobInfo.Name, err)
 		return err
 	}
+
 	log.Debugf("submit job[%s] successful", jobID)
 	return nil
 }

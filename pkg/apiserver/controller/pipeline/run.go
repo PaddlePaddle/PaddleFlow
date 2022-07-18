@@ -30,7 +30,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/fs"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
@@ -47,7 +46,7 @@ var wfMap = make(map[string]*pipeline.Workflow, 0)
 
 const (
 	JsonFsOptions   = "fs_options" //由于在获取BodyMap的FsOptions前已经转为下划线形式，因此这里为fs_options
-	JsonUserName    = "userName"
+	JsonUserName    = "username"
 	JsonDescription = "description"
 	JsonFlavour     = "flavour"
 	JsonQueue       = "queue"
@@ -695,7 +694,6 @@ func ValidateAndCreateRun(ctx logger.RequestContext, run *models.Run, userName s
 		logger.Logger().Errorf("encode run failed. error:%s", err.Error())
 		return nil, "", err
 	}
-	logger.Logger().Infof("debug: fsName before validate fs is [%s]", run.FsName)
 
 	if err := checkFs(userName, run.FsName, &run.WorkflowSource); err != nil {
 		return nil, "", err
@@ -758,30 +756,20 @@ func ValidateAndStartRun(ctx logger.RequestContext, run models.Run, userName str
 }
 
 func checkFs(userName string, fsName string, wfs *schema.WorkflowSource) error {
-	fsIDs, err := wfs.ProcessFsAndGetAllIDs(userName, fsName)
+	fsNames, err := wfs.ProcessFsAndGetNames(userName, fsName)
 	if err != nil {
 		logger.Logger().Errorf("process fs failed when check fs. error: %s", err.Error())
 		return err
 	}
 
+	// 这个是全局的fsName
 	if fsName != "" {
-		fsID := common.ID(userName, fsName)
-		fsIDs = append(fsIDs, fsID)
+		fsNames = append(fsNames, fsName)
 	}
 
 	//检查fs权限
-	for _, id := range fsIDs {
-		fsService := fs.GetFileSystemService()
-		hasPermission, err := fsService.HasFsPermission(userName, id)
-		if err != nil {
-			err := fmt.Errorf("check fs permission failed with userName[%s] and fsID[%s]. error: %s",
-				userName, id, err.Error())
-			logger.Logger().Errorf(err.Error())
-			return err
-		}
-		if !hasPermission {
-			err := fmt.Errorf("user[%s] has no permission to fs[%s]", userName, id)
-			logger.Logger().Errorf(err.Error())
+	for _, fsName := range fsNames {
+		if _, err := CheckFsAndGetID(userName, "", fsName); err != nil {
 			return err
 		}
 	}
@@ -1207,7 +1195,6 @@ func newWorkflowByRun(run models.Run) (*pipeline.Workflow, error) {
 		pplcommon.WfExtraInfoKeyUserName: run.UserName,
 		pplcommon.WfExtraInfoKeyFsName:   run.FsName,
 	}
-	logger.LoggerForRun(run.ID).Infof("debug: fsname in extra is [%s]", extraInfo[pplcommon.WfExtraInfoKeyFsName])
 	wfPtr, err := pipeline.NewWorkflow(run.WorkflowSource, run.ID, run.Parameters, extraInfo, workflowCallbacks)
 	if err != nil {
 		logger.LoggerForRun(run.ID).Warnf("NewWorkflow by run[%s] failed. error:%v\n", run.ID, err)

@@ -58,10 +58,6 @@ func (pj *PaddleJob) CreateJob() (string, error) {
 		log.Errorf("validate [%s]type job[%s] failed, err %v", pj.JobType, pj.ID, err)
 		return "", err
 	}
-	if err := pj.validateJob(); err != nil {
-		log.Errorf("validate %s job failed, err %v", pj.JobType, err)
-		return "", err
-	}
 
 	var err error
 	// patch .metadata field
@@ -233,7 +229,10 @@ func (pj *PaddleJob) patchPdjTask(resourceSpec *paddlev1.ResourceSpec, task mode
 	if len(resourceSpec.Template.Spec.Containers) != 1 {
 		resourceSpec.Template.Spec.Containers = []v1.Container{{}}
 	}
-	pj.fillContainerInTasks(&resourceSpec.Template.Spec.Containers[0], task)
+	if err := pj.fillContainerInTasks(&resourceSpec.Template.Spec.Containers[0], task); err != nil {
+		log.Errorf("fill container in task failed, err=[%v]", err)
+		return err
+	}
 	// append into container.VolumeMounts
 	taskFs := task.Conf.GetAllFileSystem()
 	resourceSpec.Template.Spec.Volumes = appendVolumesIfAbsent(resourceSpec.Template.Spec.Volumes, generateVolumes(taskFs))

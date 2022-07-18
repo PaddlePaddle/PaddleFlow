@@ -19,6 +19,7 @@ package trace_logger
 // TODO: file part is not ready
 
 import (
+	"os"
 	"testing"
 	"time"
 
@@ -27,29 +28,29 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
 )
 
+const (
+	FilePrefix = "trace_log"
+)
+
+var (
+	FilePath = "/tmp"
+)
+
 func TestTraceLogger(t *testing.T) {
-	// init logger
+	// init fileLogger
 	var err error
-	err = initTraceLogger()
-	if err != nil {
-		t.Error(err)
-		return
-	}
+
+	err = initTestTraceLogger()
+	assert.Equal(t, nil, err)
 
 	// start auto delete
 	err = AutoDelete(2 * time.Second)
-	if err != nil {
-		t.Error(err)
-		return
-	}
+	assert.Equal(t, nil, err)
 
 	key1 := uuid.GenerateIDWithLength("key", 4)
 	t.Logf("log key %s", key1)
-	err = testFunc1(t, key1)
-	if err != nil {
-		t.Error(err)
-		return
-	}
+	err = traceLoggerTest1(t, key1)
+	assert.Equal(t, nil, err)
 
 	assert.Condition(t, func() bool {
 		_, ok := manager.GetTraceFromCache(key1)
@@ -60,11 +61,8 @@ func TestTraceLogger(t *testing.T) {
 
 	key2 := uuid.GenerateIDWithLength("key", 4)
 	t.Logf("log key %s", key2)
-	err = testFunc1(t, key2)
-	if err != nil {
-		t.Error(err)
-		return
-	}
+	err = traceLoggerTest1(t, key2)
+	assert.Equal(t, nil, err)
 
 	assert.Condition(t, func() bool {
 		_, ok := manager.GetTraceFromCache(key1)
@@ -79,11 +77,8 @@ func TestTraceLogger(t *testing.T) {
 
 	key3 := uuid.GenerateIDWithLength("key", 4)
 	t.Logf("log key %s", key3)
-	err = testFunc1(t, key3)
-	if err != nil {
-		t.Error(err)
-		return
-	}
+	err = traceLoggerTest1(t, key3)
+	assert.Equal(t, nil, err)
 
 	assert.Condition(t, func() bool {
 		_, ok := manager.GetTraceFromCache(key3)
@@ -101,10 +96,7 @@ func TestTraceLogger(t *testing.T) {
 
 	t.Logf("sync all")
 	err = manager.SyncAll()
-	if err != nil {
-		t.Error(err)
-		return
-	}
+	assert.Equal(t, nil, err)
 
 	t.Logf("wait for 6s")
 	<-time.After(6 * time.Second)
@@ -119,16 +111,14 @@ func TestTraceLogger(t *testing.T) {
 
 	// test clear
 	t.Logf("clear all")
-	_ = manager.ClearAll()
+	err = manager.ClearAll()
+	assert.Equal(t, nil, err)
 	t.Logf("cache: \n%s\n", manager)
 
 	// load from disk
 	t.Logf("load all")
-	err = manager.LoadAll("./", "trace_log")
-	if err != nil {
-		t.Error(err)
-		return
-	}
+	err = manager.LoadAll(FilePath, FilePrefix)
+	assert.Equal(t, nil, err)
 
 	t.Logf("cache: \n%s\n", manager)
 	trace, _ := manager.GetTraceFromCache(key3)
@@ -139,14 +129,22 @@ func TestTraceLogger(t *testing.T) {
 		return ok1 && ok2 && ok3
 	})
 
-	t.Logf("key3 %s: %s\n", key3, trace)
+	// test traceLoggerTest2
+	key4 := uuid.GenerateIDWithLength("key", 4)
+	t.Logf("log key %s", key4)
+	err = traceLoggerTest2(t, key4)
+	assert.Equal(t, nil, err)
 
+	t.Logf("key3 %s: %s\n", key3, trace)
 }
 
-func initTraceLogger() error {
+func initTestTraceLogger() error {
+	if err := createTmpDir(); err != nil {
+		return err
+	}
 	conf := TraceLoggerConfig{
-		Dir:             "./",
-		FilePrefix:      "trace_log",
+		Dir:             FilePath,
+		FilePrefix:      FilePrefix,
 		Level:           "debug",
 		MaxKeepDays:     2,
 		MaxFileNum:      10,
@@ -160,7 +158,16 @@ func initTraceLogger() error {
 
 }
 
-func testFunc1(t *testing.T, key string) error {
+func createTmpDir() error {
+	tmpDir, err := os.MkdirTemp("", "")
+	if err != nil {
+		return err
+	}
+	FilePath = tmpDir
+	return nil
+}
+
+func traceLoggerTest1(t *testing.T, key string) error {
 	tmpKey := uuid.GenerateIDWithLength("tmp", 4)
 	Key(tmpKey).Infof("test1")
 	Key(tmpKey).Errorf("test2")
@@ -169,14 +176,28 @@ func testFunc1(t *testing.T, key string) error {
 		return !ok
 	})
 	err := UpdateKey(tmpKey, key)
-	if err != nil {
-		return err
-	}
+	assert.Equal(t, nil, err)
 	Key(key).Warnf("test3")
 	assert.Condition(t, func() bool {
 		_, ok := GetTraceFromCache(key)
 		return ok
 	})
 
+	return nil
+}
+
+func traceLoggerTest2(t *testing.T, key string) error {
+	KeyWithUpdate(key).Infof("test1")
+	KeyWithUpdate(key).Errorf("test2")
+	assert.Condition(t, func() bool {
+		_, ok := GetTraceFromCache(key)
+		return ok
+	})
+
+	Key(key).Warnf("test3")
+	assert.Condition(t, func() bool {
+		_, ok := GetTraceFromCache(key)
+		return ok
+	})
 	return nil
 }

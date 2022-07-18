@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"time"
 
+	log "github.com/sirupsen/logrus"
+
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
@@ -82,6 +84,7 @@ func NewJobInfo(job *models.Job) (*PFJob, error) {
 	if job == nil {
 		return nil, fmt.Errorf("job is nil")
 	}
+	log.Debugf("starting NewJobInfo: %#v", job)
 	pfjob := &PFJob{
 		ID:                job.ID,
 		Name:              job.Name,
@@ -100,7 +103,7 @@ func NewJobInfo(job *models.Job) (*PFJob, error) {
 		Tasks:             job.Members,
 		ExtensionTemplate: job.ExtensionTemplate,
 	}
-
+	log.Debugf("gererated pfjob is: %#v", pfjob)
 	return pfjob, nil
 }
 
