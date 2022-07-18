@@ -49,11 +49,11 @@ func TestCalculateFingerprint(t *testing.T) {
 		InputArtifacts: map[string]string{"model": "/pf/model"},
 		FsMount: []schema.FsMount{
 			schema.FsMount{
-				FsID:      "123",
+				ID:        "123",
 				MountPath: "/abc",
 			},
 			schema.FsMount{
-				FsID:      "456",
+				ID:        "456",
 				MountPath: "/def",
 			},
 		},
@@ -73,11 +73,11 @@ func TestCalculateFingerprint(t *testing.T) {
 		InputArtifacts: map[string]string{"model": "/pf/model"},
 		FsMount: []schema.FsMount{
 			schema.FsMount{
-				FsID:      "456",
+				ID:        "456",
 				MountPath: "/abc",
 			},
 			schema.FsMount{
-				FsID:      "123",
+				ID:        "123",
 				MountPath: "/def",
 			},
 		},
@@ -132,13 +132,13 @@ func mockWorkflowSourceStep() schema.WorkflowSourceStep {
 		Env:        map[string]string{"num": "1200"},
 		Artifacts:  art,
 		DockerEnv:  "test.tar",
-		FsMount: []schema.FsMount{
+		ExtraFS: []schema.FsMount{
 			schema.FsMount{
-				FsID:      "456",
+				ID:        "456",
 				MountPath: "/abc",
 			},
 			schema.FsMount{
-				FsID:      "123",
+				ID:        "123",
 				MountPath: "/abc",
 			},
 		},
@@ -203,7 +203,7 @@ func mockerNewConservativeCacheCalculator() (CacheCalculator, error) {
 
 	job := step.job.(*PaddleFlowJob)
 	calculator, err := NewConservativeCacheCalculator(*job, cacheConfig, step.logger,
-		step.getWorkFlowStep().FsMount, step.fsID)
+		step.getWorkFlowStep().ExtraFS, step.fsID)
 	return calculator, err
 }
 
@@ -394,7 +394,7 @@ func TestNewCacheCalculator(t *testing.T) {
 
 	job := step.job.(*PaddleFlowJob)
 	calculator, err := NewCacheCalculator(*job, cacheConfig, step.logger,
-		step.getWorkFlowStep().FsMount, step.fsID)
+		step.getWorkFlowStep().ExtraFS, step.fsID)
 	assert.Equal(t, err, nil)
 	_, ok := calculator.(CacheCalculator)
 	assert.Equal(t, ok, true)

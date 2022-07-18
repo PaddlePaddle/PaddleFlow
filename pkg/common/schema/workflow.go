@@ -140,7 +140,7 @@ type WorkflowSourceStep struct {
 	DockerEnv    string                 `yaml:"docker_env"`
 	Cache        Cache                  `yaml:"cache"`
 	Reference    Reference              `yaml:"reference"`
-	FsMount      []FsMount              `yaml:"fs_mount"`
+	ExtraFS      []FsMount              `yaml:"extra_fs"`
 }
 
 func (s *WorkflowSourceStep) GetName() string {
@@ -272,7 +272,7 @@ func (s *WorkflowSourceStep) DeepCopy() Component {
 		env[name] = value
 	}
 
-	fsMount := append(s.FsMount, []FsMount{}...)
+	fsMount := append(s.ExtraFS, []FsMount{}...)
 
 	ns := &WorkflowSourceStep{
 		Name:         s.Name,
@@ -286,7 +286,7 @@ func (s *WorkflowSourceStep) DeepCopy() Component {
 		DockerEnv:    s.DockerEnv,
 		Cache:        s.Cache,
 		Reference:    s.Reference,
-		FsMount:      fsMount,
+		ExtraFS:      fsMount,
 	}
 
 	return ns
@@ -471,13 +471,13 @@ type FailureOptions struct {
 }
 
 type FsOptions struct {
-	FsName  string    `yaml:"fs_name"      json:"fsName"`
-	FsMount []FsMount `yaml:"fs_mount"     json:"fsMount"`
+	MainFS  FsMount   `yaml:"main_fs"      json:"mainFS"`
+	ExtraFS []FsMount `yaml:"extra_fs"     json:"extraFS"`
 }
 
 type FsMount struct {
-	FsID      string `yaml:"-"             json:"fsID"`
-	FsName    string `yaml:"fs_name"       json:"fsName"`
+	ID        string `yaml:"-"             json:"id"`
+	Name      string `yaml:"name"          json:"name"`
 	MountPath string `yaml:"mount_path"    json:"mountPath"`
 	SubPath   string `yaml:"sub_path"      json:"subPath"`
 	Readonly  bool   `yaml:"readonly"      json:"readonly"`
@@ -719,7 +719,7 @@ func (wfs *WorkflowSource) ProcessRuntimeComponents(components map[string]Compon
 				}
 
 				// fs_mount 合并
-				if err := ProcessStepFsMount(&step.FsMount, globalFsMountList); err != nil {
+				if err := ProcessStepFsMount(&step.ExtraFS, globalFsMountList); err != nil {
 					return err
 				}
 			}
@@ -825,7 +825,7 @@ func (wfs *WorkflowSource) TransToRunYamlRaw() (runYamlRaw string, err error) {
 	return
 }
 
-// 给所有Step的fsMount和fsScope的fsID赋值
+// 给所有Step的fsMount和fsScope的fsID赋值，并校验mount信息，如sub_path
 func (wfs *WorkflowSource) ProcessFsAndGetAllIDs(userName string, fsName string) ([]string, error) {
 	// 用map记录所有需要返回的ID，去重
 	fsIDMap := map[string]int{}
@@ -864,20 +864,20 @@ func (wfs *WorkflowSource) processFsByUserName(compMap map[string]Component, use
 		} else if step, ok := comp.(*WorkflowSourceStep); ok {
 			// fsNameSet用来检查FsScope中的FsName是否都在FsMount中，或者是fs_name
 			fsNameSet := map[string]int{fsName: 1}
-			fsNameSet[wfs.FsOptions.FsName] = 1
+			fsNameSet[wfs.FsOptions.MainFS.Name] = 1
 
-			for i, mount := range step.FsMount {
-				if mount.FsName == "" {
-					return fmt.Errorf("[fs_name] in fs_mount must be set")
+			for i, mount := range step.ExtraFS {
+				if mount.Name == "" {
+					return fmt.Errorf("[name] in [extra_fs] or [main_fs] must be set")
 				}
-				mount.FsID = ID(userName, mount.FsName)
+				mount.ID = ID(userName, mount.Name)
 
-				fsNameSet[mount.FsName] = 1
-				fsIDMap[mount.FsID] = 1
-				step.FsMount[i] = mount
-				logger.Logger().Infof("debug: after process,  FsID is %s", mount.FsID)
+				fsNameSet[mount.Name] = 1
+				fsIDMap[mount.ID] = 1
+				step.ExtraFS[i] = mount
+				logger.Logger().Infof("debug: after process,  FsID is %s", mount.ID)
 			}
-			logger.Logger().Infof("debug: after process,  step fsMount is %v", step.FsMount)
+			logger.Logger().Infof("debug: after process,  step fsMount is %v", step.ExtraFS)
 			for i, scope := range step.Cache.FsScope {
 				if scope.FsName == "" {
 					return fmt.Errorf("[fs_name] in fs_scope must be set")
@@ -886,7 +886,7 @@ func (wfs *WorkflowSource) processFsByUserName(compMap map[string]Component, use
 
 				// 检查FsScope中的FsName是否都在FsMount中
 				if _, ok := fsNameSet[scope.FsName]; !ok {
-					return fmt.Errorf("fs_name [%s] in fs_scope must also be in fs_mount", scope.FsName)
+					return fmt.Errorf("fs_name [%s] in fs_scope must also be in [extra_fs] or [main_fs]", scope.FsName)
 				}
 				step.Cache.FsScope[i] = scope
 			}

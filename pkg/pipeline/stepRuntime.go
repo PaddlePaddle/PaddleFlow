@@ -61,7 +61,7 @@ func NewStepRuntime(name, fullName string, step *schema.WorkflowSourceStep, seq 
 	srt.job = job
 
 	srt.logger.Infof("step[%s] of runid[%s] before starting job: param[%s], env[%s], command[%s], artifacts[%s], deps[%s], FsMount[%v]",
-		srt.getName(), srt.runID, step.Parameters, step.Env, step.Command, step.Artifacts, step.Deps, step.FsMount)
+		srt.getName(), srt.runID, step.Parameters, step.Env, step.Command, step.Artifacts, step.Deps, step.ExtraFS)
 
 	return srt
 }
@@ -211,7 +211,7 @@ func (srt *StepRuntime) Resume(view *schema.JobView) {
 		srt.receiveEventChildren)
 
 	srt.pk = view.PK
-	srt.getWorkFlowStep().FsMount = view.FsMount
+	srt.getWorkFlowStep().ExtraFS = view.FsMount
 	err := srt.updateStatus(view.Status)
 	if err != nil {
 		errMsg := fmt.Sprintf("set the sysparams for dag[%s] failed: %s", srt.name, err.Error())
@@ -329,9 +329,9 @@ func (srt *StepRuntime) updateJob(forCacheFingerprint bool) error {
 		}
 	}
 
-	srt.job.Update(srt.getWorkFlowStep().Command, params, newEnvs, &artifacts, srt.getWorkFlowStep().FsMount)
+	srt.job.Update(srt.getWorkFlowStep().Command, params, newEnvs, &artifacts, srt.getWorkFlowStep().ExtraFS)
 	srt.logger.Infof("step[%s] after resolve template: param[%s], artifacts[%s], command[%s], env[%s]， FsMount[%v]",
-		srt.name, params, artifacts, srt.getWorkFlowStep().Command, newEnvs, srt.getWorkFlowStep().FsMount)
+		srt.name, params, artifacts, srt.getWorkFlowStep().Command, newEnvs, srt.getWorkFlowStep().ExtraFS)
 	return nil
 }
 
@@ -806,7 +806,7 @@ func (srt *StepRuntime) newJobView(msg string) schema.JobView {
 		PK:          srt.pk,
 		LoopSeq:     srt.loopSeq,
 		Artifacts:   *newArt,
-		FsMount:     srt.getWorkFlowStep().FsMount,
+		FsMount:     srt.getWorkFlowStep().ExtraFS,
 	}
 
 	return view

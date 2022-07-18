@@ -304,21 +304,21 @@ func (p *Parser) ParseStep(params map[string]interface{}, step *WorkflowSourceSt
 				}
 			}
 			step.Reference = reference
-		case "fs_mount":
+		case "extra_fs":
 			value, ok := value.([]interface{})
 			if !ok {
-				return fmt.Errorf("[fs_mount] should be list type")
+				return fmt.Errorf("[extra_fs] should be list type")
 			}
 			for _, m := range value {
 				mapValue, ok := m.(map[string]interface{})
 				if !ok {
-					return fmt.Errorf("mount info in [fs_mount] should be map type")
+					return fmt.Errorf("mount info in [extra_fs] should be map type")
 				}
 				fsMount := FsMount{}
 				if err := p.ParseFsMount(mapValue, &fsMount); err != nil {
-					return fmt.Errorf("parse [fs_mount] in step failed, error: %s", err.Error())
+					return fmt.Errorf("parse [extra_fs] in step failed, error: %s", err.Error())
 				}
-				step.FsMount = append(step.FsMount, fsMount)
+				step.ExtraFS = append(step.ExtraFS, fsMount)
 			}
 		case "type":
 			value, ok := value.(string)
@@ -497,27 +497,31 @@ func (p *Parser) ParseFsScope(fsMap map[string]interface{}, fs *FsScope) error {
 func (p *Parser) ParseFsOptions(fsMap map[string]interface{}, fs *FsOptions) error {
 	for key, value := range fsMap {
 		switch key {
-		case "fs_name":
-			value, ok := value.(string)
+		case "main_fs":
+			value, ok := value.(map[string]interface{})
 			if !ok {
-				return fmt.Errorf("[fs_options.fs_name] should be string type")
+				return fmt.Errorf("[fs_options.main_fs] should be map type")
 			}
-			fs.FsName = value
-		case "fs_mount":
+			fsMount := FsMount{}
+			if err := p.ParseFsMount(value, &fsMount); err != nil {
+				return fmt.Errorf("parse [fs_options.main_fs] failed, error: %s", err.Error())
+			}
+			fs.MainFS = fsMount
+		case "extra_fs":
 			value, ok := value.([]interface{})
 			if !ok {
-				return fmt.Errorf("[fs_options.fs_mount] should be list type")
+				return fmt.Errorf("[fs_options.extra_fs] should be list type")
 			}
 			for _, m := range value {
 				mapValue, ok := m.(map[string]interface{})
 				if !ok {
-					return fmt.Errorf("each mount info in [fs_options.fs_mount] should be map type")
+					return fmt.Errorf("each mount info in [fs_options.extra_fs] should be map type")
 				}
 				fsMount := FsMount{}
 				if err := p.ParseFsMount(mapValue, &fsMount); err != nil {
-					return fmt.Errorf("parse fs_mount in [fs_options] failed, error: %s", err.Error())
+					return fmt.Errorf("parse [fs_options.extra_fs] failed, error: %s", err.Error())
 				}
-				fs.FsMount = append(fs.FsMount, fsMount)
+				fs.ExtraFS = append(fs.ExtraFS, fsMount)
 			}
 		default:
 			return fmt.Errorf("[fs_options] has no attribute [%s]", key)
@@ -529,12 +533,12 @@ func (p *Parser) ParseFsOptions(fsMap map[string]interface{}, fs *FsOptions) err
 func (p *Parser) ParseFsMount(fsMap map[string]interface{}, fs *FsMount) error {
 	for key, value := range fsMap {
 		switch key {
-		case "fs_name":
+		case "name":
 			value, ok := value.(string)
 			if !ok {
-				return fmt.Errorf("[fs_name] should be string type")
+				return fmt.Errorf("[name] should be string type")
 			}
-			fs.FsName = value
+			fs.Name = value
 		case "mount_path":
 			value, ok := value.(string)
 			if !ok {
@@ -547,14 +551,14 @@ func (p *Parser) ParseFsMount(fsMap map[string]interface{}, fs *FsMount) error {
 				return fmt.Errorf("[sub_path] should be string type")
 			}
 			fs.SubPath = value
-		case "readonly":
+		case "read_only":
 			value, ok := value.(bool)
 			if !ok {
-				return fmt.Errorf("[readonly] should be bool type")
+				return fmt.Errorf("[read_only] should be bool type")
 			}
 			fs.Readonly = value
 		default:
-			return fmt.Errorf("[fs_mount] has no attribute [%s]", key)
+			return fmt.Errorf("[main_fs] or each mount info in [extra_fs] has no attribute [%s]", key)
 		}
 	}
 	return nil
@@ -595,12 +599,12 @@ func (p *Parser) TransJsonMap2Yaml(jsonMap map[string]interface{}) error {
 			if err := p.transJsonSubComp2Yaml(value, "components"); err != nil {
 				return err
 			}
-		case "fsMount":
-			if err := p.transJsonFsMount2Yaml(value); err != nil {
+		case "extraFS":
+			if err := p.transJsonExtraFS2Yaml(value); err != nil {
 				return err
 			}
-			jsonMap["fs_mount"] = value
-			delete(jsonMap, "fsMount")
+			jsonMap["extra_fs"] = value
+			delete(jsonMap, "extraFS")
 		case "cache":
 			if err := p.transJsonCache2Yaml(value); err != nil {
 				return err
@@ -654,30 +658,37 @@ func (p *Parser) transJsonCache2Yaml(value interface{}) error {
 	return nil
 }
 
-func (p *Parser) transJsonFsMount2Yaml(value interface{}) error {
+func (p *Parser) transJsonExtraFS2Yaml(value interface{}) error {
 	mountList, ok := value.([]interface{})
 	if !ok {
-		return fmt.Errorf("[fsMount] should be list type")
+		return fmt.Errorf("[extraFS] should be list type")
 	}
 	for i, mount := range mountList {
-		mountMap, ok := mount.(map[string]interface{})
-		if !ok {
-			return fmt.Errorf("each mount info in [fsMount] should map type")
+		if err := p.transJsonFsMount2Yaml(mount); err != nil {
+			return err
 		}
-		for mountKey, mountValue := range mountMap {
-			switch mountKey {
-			case "fsName":
-				mountMap["fs_name"] = mountValue
-				delete(mountMap, "fsName")
-			case "mountPath":
-				mountMap["mount_path"] = mountValue
-				delete(mountMap, "mountPath")
-			case "subPath":
-				mountMap["sub_path"] = mountValue
-				delete(mountMap, "subPath")
-			}
+		mountList[i] = mount
+	}
+	return nil
+}
+
+func (p *Parser) transJsonFsMount2Yaml(value interface{}) error {
+	mountMap, ok := value.(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("[mainFS] or each mount info in [extraFS] should map type")
+	}
+	for mountKey, mountValue := range mountMap {
+		switch mountKey {
+		case "mountPath":
+			mountMap["mount_path"] = mountValue
+			delete(mountMap, "mountPath")
+		case "subPath":
+			mountMap["sub_path"] = mountValue
+			delete(mountMap, "subPath")
+		case "readOnly":
+			mountMap["read_only"] = mountValue
+			delete(mountMap, "readOnly")
 		}
-		mountList[i] = mountMap
 	}
 	return nil
 }
@@ -706,15 +717,18 @@ func (p *Parser) transJsonFsOptions2Yaml(value interface{}) error {
 	}
 	for key, value := range fsOptMap {
 		switch key {
-		case "fsMount":
+		case "extraFS":
+			if err := p.transJsonExtraFS2Yaml(value); err != nil {
+				return err
+			}
+			fsOptMap["extra_fs"] = value
+			delete(fsOptMap, "extraFS")
+		case "mainFS":
+			fsOptMap["main_fs"] = value
 			if err := p.transJsonFsMount2Yaml(value); err != nil {
 				return err
 			}
-			fsOptMap["fs_mount"] = value
-			delete(fsOptMap, "fsMount")
-		case "fsName":
-			fsOptMap["fs_name"] = value
-			delete(fsOptMap, "fsName")
+			delete(fsOptMap, "mainFS")
 		}
 	}
 	return nil
