@@ -235,13 +235,6 @@ func (srt *StepRuntime) Resume(view *schema.JobView) {
 		return
 	}
 
-	err = srt.job.(*PaddleFlowJob).SetJobID(view.JobID)
-	if err != nil {
-		err := fmt.Errorf("set jobid for step[%s] failed: %s", srt.name, err.Error())
-		srt.processStartAbnormalStatus(err.Error(), StatusRuntimeFailed)
-		return
-	}
-
 	srt.logger.Infof("Watch Job [%s] again", srt.job.JobID())
 
 	msg := fmt.Sprintf("resume step[%s] with status[%s]", srt.name, string(srt.status))
