@@ -914,6 +914,7 @@ func validateTemplateResources(spec *corev1.PodSpec) error {
 
 		if container.Resources.Requests.Cpu().IsZero() || container.Resources.Requests.Memory().IsZero() {
 			spec.Containers[index].Resources.Requests = resourcesList
+			spec.Containers[index].Resources.Limits = resourcesList
 			log.Warnf("podSpec %v container %d cpu is zero, Resources: %v", spec, index, spec.Containers[index].Resources.Requests)
 		}
 
