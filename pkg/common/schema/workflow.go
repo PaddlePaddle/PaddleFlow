@@ -45,6 +45,10 @@ const (
 	EnvDockerEnv = "dockerEnv"
 
 	FsPrefix = "fs-"
+
+	CompTypeComponents  = "components"
+	CompTypeEntryPoints = "entryPoints"
+	CompTypePostProcess = "postProcess"
 )
 
 func ID(userName, fsName string) string {
@@ -621,7 +625,7 @@ func GetWorkflowSourceByMap(yamlMap map[string]interface{}) (WorkflowSource, err
 	if !ok {
 		return WorkflowSource{}, fmt.Errorf("get entry_points map failed")
 	}
-	if err := wfs.ProcessRuntimeComponents(wfs.EntryPoints.EntryPoints, yamlMap, entryPointsMap); err != nil {
+	if err := wfs.ProcessRuntimeComponents(wfs.EntryPoints.EntryPoints, CompTypeEntryPoints, yamlMap, entryPointsMap); err != nil {
 		return WorkflowSource{}, err
 	}
 
@@ -631,14 +635,14 @@ func GetWorkflowSourceByMap(yamlMap map[string]interface{}) (WorkflowSource, err
 	}
 	postProcessMap, ok := yamlMap["post_process"].(map[string]interface{})
 	if ok {
-		if err := wfs.ProcessRuntimeComponents(postComponentsMap, yamlMap, postProcessMap); err != nil {
+		if err := wfs.ProcessRuntimeComponents(postComponentsMap, CompTypePostProcess, yamlMap, postProcessMap); err != nil {
 			return WorkflowSource{}, err
 		}
 	}
 
 	componentMap, ok := yamlMap["components"].(map[string]interface{})
 	if ok {
-		if err := wfs.ProcessRuntimeComponents(wfs.Components, yamlMap, componentMap); err != nil {
+		if err := wfs.ProcessRuntimeComponents(wfs.Components, CompTypeComponents, yamlMap, componentMap); err != nil {
 			return WorkflowSource{}, err
 		}
 	}
@@ -646,7 +650,8 @@ func GetWorkflowSourceByMap(yamlMap map[string]interface{}) (WorkflowSource, err
 }
 
 // 对Step的DockerEnv、Cache进行全局替换
-func (wfs *WorkflowSource) ProcessRuntimeComponents(components map[string]Component, yamlMap map[string]interface{}, componentsMap map[string]interface{}) error {
+func (wfs *WorkflowSource) ProcessRuntimeComponents(components map[string]Component, componentType string,
+	yamlMap map[string]interface{}, componentsMap map[string]interface{}) error {
 	for name, component := range components {
 		if dag, ok := component.(*WorkflowSourceDag); ok {
 			subComponent, ok, err := unstructured.NestedFieldCopy(componentsMap, name, "entry_points")
@@ -657,7 +662,7 @@ func (wfs *WorkflowSource) ProcessRuntimeComponents(components map[string]Compon
 			if !ok {
 				return fmt.Errorf("get subComponentMap failed")
 			}
-			if err := wfs.ProcessRuntimeComponents(dag.EntryPoints, yamlMap, subComponentMap); err != nil {
+			if err := wfs.ProcessRuntimeComponents(dag.EntryPoints, componentType, yamlMap, subComponentMap); err != nil {
 				return err
 			}
 		} else if step, ok := component.(*WorkflowSourceStep); ok {
@@ -686,22 +691,25 @@ func (wfs *WorkflowSource) ProcessRuntimeComponents(components map[string]Compon
 					}
 				}
 
-				// 获取全局Cache
-				globalCache, ok, err := unstructured.NestedFieldCopy(yamlMap, "cache")
-				if err != nil {
-					return fmt.Errorf("check globalCache failed")
-				}
-				globalCacheMap := map[string]interface{}{}
-				if ok {
-					globalCacheMap, ok = globalCache.(map[string]interface{})
-					if !ok {
-						return fmt.Errorf("get globalCacheMap failed")
+				// postProcess中不允许设置Cache
+				if componentType != CompTypePostProcess {
+					// 获取全局Cache
+					globalCache, ok, err := unstructured.NestedFieldCopy(yamlMap, "cache")
+					if err != nil {
+						return fmt.Errorf("check globalCache failed")
 					}
-				}
+					globalCacheMap := map[string]interface{}{}
+					if ok {
+						globalCacheMap, ok = globalCache.(map[string]interface{})
+						if !ok {
+							return fmt.Errorf("get globalCacheMap failed")
+						}
+					}
 
-				// Cache替换处理
-				if err := ProcessStepCacheByMap(&step.Cache, globalCacheMap, componentCacheMap); err != nil {
-					return err
+					// Cache替换处理
+					if err := ProcessStepCacheByMap(&step.Cache, globalCacheMap, componentCacheMap); err != nil {
+						return err
+					}
 				}
 
 				// 合并全局 fs_mount 和节点 fs_mount
@@ -826,16 +834,15 @@ func (wfs *WorkflowSource) TransToRunYamlRaw() (runYamlRaw string, err error) {
 }
 
 // 给所有Step的fsMount和fsScope的fsID赋值
-func (wfs *WorkflowSource) ProcessFsAndGetAllIDs(userName string, fsName string) ([]string, error) {
-	// 用map记录所有需要返回的ID，去重
-	fsIDMap := map[string]int{}
+func (wfs *WorkflowSource) ProcessFsAndGetNames(userName string, fsName string) ([]string, error) {
+	// 用map记录所有需要返回的fsName，去重
+	fsNameMap := map[string]int{}
 
-	logger.Logger().Infof("debug: begin process FsID")
-	if err := wfs.processFsByUserName(wfs.EntryPoints.EntryPoints, userName, fsIDMap, fsName); err != nil {
+	if err := wfs.processFsByUserName(wfs.EntryPoints.EntryPoints, userName, fsNameMap, fsName); err != nil {
 		return []string{}, err
 	}
 
-	if err := wfs.processFsByUserName(wfs.Components, userName, fsIDMap, fsName); err != nil {
+	if err := wfs.processFsByUserName(wfs.Components, userName, fsNameMap, fsName); err != nil {
 		return []string{}, err
 	}
 
@@ -843,28 +850,28 @@ func (wfs *WorkflowSource) ProcessFsAndGetAllIDs(userName string, fsName string)
 	for k, v := range wfs.PostProcess {
 		postMap[k] = v
 	}
-	if err := wfs.processFsByUserName(postMap, userName, fsIDMap, fsName); err != nil {
+	if err := wfs.processFsByUserName(postMap, userName, fsNameMap, fsName); err != nil {
 		return []string{}, err
 	}
 
-	resFsIDList := []string{}
-	for id := range fsIDMap {
-		resFsIDList = append(resFsIDList, id)
+	resFsNameList := []string{}
+	for id := range fsNameMap {
+		resFsNameList = append(resFsNameList, id)
 	}
 
-	return resFsIDList, nil
+	return resFsNameList, nil
 }
 
-func (wfs *WorkflowSource) processFsByUserName(compMap map[string]Component, userName string, fsIDMap map[string]int, fsName string) error {
+func (wfs *WorkflowSource) processFsByUserName(compMap map[string]Component, userName string, fsNameMap map[string]int, fsName string) error {
 	for _, comp := range compMap {
 		if dag, ok := comp.(*WorkflowSourceDag); ok {
-			if err := wfs.processFsByUserName(dag.EntryPoints, userName, fsIDMap, fsName); err != nil {
+			if err := wfs.processFsByUserName(dag.EntryPoints, userName, fsNameMap, fsName); err != nil {
 				return err
 			}
 		} else if step, ok := comp.(*WorkflowSourceStep); ok {
-			// fsNameSet用来检查FsScope中的FsName是否都在FsMount中，或者是fs_name
-			fsNameSet := map[string]int{fsName: 1}
-			fsNameSet[wfs.FsOptions.FsName] = 1
+			// fsNameChecker用来检查FsScope中的FsName是否都在FsMount中，或者是fs_name
+			fsNameChecker := map[string]int{fsName: 1}
+			fsNameChecker[wfs.FsOptions.FsName] = 1
 
 			for i, mount := range step.FsMount {
 				if mount.FsName == "" {
@@ -872,12 +879,10 @@ func (wfs *WorkflowSource) processFsByUserName(compMap map[string]Component, use
 				}
 				mount.FsID = ID(userName, mount.FsName)
 
-				fsNameSet[mount.FsName] = 1
-				fsIDMap[mount.FsID] = 1
+				fsNameChecker[mount.FsName] = 1
+				fsNameMap[mount.FsName] = 1
 				step.FsMount[i] = mount
-				logger.Logger().Infof("debug: after process,  FsID is %s", mount.FsID)
 			}
-			logger.Logger().Infof("debug: after process,  step fsMount is %v", step.FsMount)
 			for i, scope := range step.Cache.FsScope {
 				if scope.FsName == "" {
 					return fmt.Errorf("[fs_name] in fs_scope must be set")
@@ -885,7 +890,7 @@ func (wfs *WorkflowSource) processFsByUserName(compMap map[string]Component, use
 				scope.FsID = ID(userName, scope.FsName)
 
 				// 检查FsScope中的FsName是否都在FsMount中
-				if _, ok := fsNameSet[scope.FsName]; !ok {
+				if _, ok := fsNameChecker[scope.FsName]; !ok {
 					return fmt.Errorf("fs_name [%s] in fs_scope must also be in fs_mount", scope.FsName)
 				}
 				step.Cache.FsScope[i] = scope
