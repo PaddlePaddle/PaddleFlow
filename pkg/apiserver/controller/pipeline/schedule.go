@@ -211,7 +211,7 @@ func CreateSchedule(ctx *logger.RequestContext, request *CreateScheduleRequest) 
 		return CreateScheduleResponse{}, err
 	}
 
-	fsConfig := models.FsConfig{FsName: request.FsName, UserName: request.UserName}
+	fsConfig := models.FsConfig{FsName: request.FsName, Username: request.UserName}
 	StrFsConfig, err := fsConfig.Encode(ctx.Logging())
 	if err != nil {
 		ctx.ErrorCode = common.InvalidArguments
