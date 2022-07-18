@@ -43,7 +43,7 @@ func ReportCacheLoop(cacheReport api.CacheReportParams, podCachePath string, htt
 			log.Errorf("cache report failed with params[%+v] and err[%v]", cacheReport, err)
 		}
 		select {
-		case <-time.After(time.Duration(1+rand.Intn(3)) * time.Second):
+		case <-time.After(time.Duration(15+rand.Intn(10)) * time.Second):
 		}
 	}
 	return nil

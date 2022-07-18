@@ -221,7 +221,7 @@ func buildMountPod(volumeID string, mountInfo Info) (*k8sCore.Pod, error) {
 	// label for pod list
 	pod.Labels[schema.LabelKeyFsID] = mountInfo.FsID
 	pod.Labels[schema.LabelCacheID] = model.CacheID(mountInfo.ClusterID,
-		csiconfig.NodeName, mountInfo.FsCacheConfig.CacheDir)
+		csiconfig.NodeName, mountInfo.FsCacheConfig.CacheDir, mountInfo.FsID)
 	return pod, nil
 }
 
