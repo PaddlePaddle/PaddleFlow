@@ -385,7 +385,7 @@ func ScheduleUsedFsIDs() (map[string]bool, error) {
 		}
 		mounts, err := wfs.GetFsMounts()
 		for _, mount := range mounts {
-
+			mount.ID = ""
 		}
 	}
 

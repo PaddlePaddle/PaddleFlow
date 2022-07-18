@@ -478,7 +478,7 @@ func (p *Parser) ParseFsScope(fsMap map[string]interface{}, fs *FsScope) error {
 		case "name":
 			value, ok := value.(string)
 			if !ok {
-				return fmt.Errorf("[fs_name] should be string type")
+				return fmt.Errorf("[name] should be string type")
 			}
 			fs.Name = value
 		case "path":
