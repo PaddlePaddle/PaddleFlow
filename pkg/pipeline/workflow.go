@@ -313,6 +313,12 @@ func (bwf *BaseWorkflow) validate() error {
 		bwf.log().Errorf("check failure_option failed. err: %s", err.Error())
 		return err
 	}
+
+	if err := bwf.checkFS(); err != nil {
+		bwf.log().Errorf("check fs failed. err: %s", err.Error())
+		return err
+	}
+
 	return nil
 }
 

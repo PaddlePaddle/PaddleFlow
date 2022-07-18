@@ -833,32 +833,26 @@ func (wfs *WorkflowSource) TransToRunYamlRaw() (runYamlRaw string, err error) {
 	return
 }
 
-func (wfs *WorkflowSource) GetFsMounts(userName string, fsName string) ([]string, error) {
-	// 用map记录所有需要返回的fsName，去重
-	fsNameMap := map[string]int{}
+func (wfs *WorkflowSource) GetFsMounts() ([]FsMount, error) {
+	fsMountList := []FsMount{wfs.FsOptions.MainFS}
 
-	if err := wfs.processFsByUserName(wfs.EntryPoints.EntryPoints, userName, fsNameMap, fsName); err != nil {
-		return []string{}, err
+	if err := wfs.getFsMountsFromComps(wfs.EntryPoints.EntryPoints, &fsMountList); err != nil {
+		return []FsMount{}, err
 	}
 
-	if err := wfs.processFsByUserName(wfs.Components, userName, fsNameMap, fsName); err != nil {
-		return []string{}, err
+	if err := wfs.getFsMountsFromComps(wfs.Components, &fsMountList); err != nil {
+		return []FsMount{}, err
 	}
 
 	postMap := map[string]Component{}
 	for k, v := range wfs.PostProcess {
 		postMap[k] = v
 	}
-	if err := wfs.processFsByUserName(postMap, userName, fsNameMap, fsName); err != nil {
-		return []string{}, err
+	if err := wfs.getFsMountsFromComps(postMap, &fsMountList); err != nil {
+		return []FsMount{}, err
 	}
 
-	resFsNameList := []string{}
-	for id := range fsNameMap {
-		resFsNameList = append(resFsNameList, id)
-	}
-
-	return resFsNameList, nil
+	return fsMountList, nil
 }
 
 // 给所有Step的fsMount和fsScope的fsID赋值，并返回
@@ -883,6 +877,21 @@ func (wfs *WorkflowSource) ProcessFsMounts(userName string, fsName string) error
 	return nil
 }
 
+func (wfs *WorkflowSource) getFsMountsFromComps(compMap map[string]Component, mountList *[]FsMount) error {
+	for _, comp := range compMap {
+		if dag, ok := comp.(*WorkflowSourceDag); ok {
+			if err := wfs.getFsMountsFromComps(dag.EntryPoints, mountList); err != nil {
+				return err
+			}
+		} else if step, ok := comp.(*WorkflowSourceStep); ok {
+			*mountList = append(*mountList, step.ExtraFS...)
+		} else {
+			return fmt.Errorf("component not dag or step")
+		}
+	}
+	return nil
+}
+
 func (wfs *WorkflowSource) processFsByUserName(compMap map[string]Component, userName string, fsName string) error {
 	for _, comp := range compMap {
 		if dag, ok := comp.(*WorkflowSourceDag); ok {
@@ -897,6 +906,9 @@ func (wfs *WorkflowSource) processFsByUserName(compMap map[string]Component, use
 			for i, mount := range step.ExtraFS {
 				if mount.Name == "" {
 					return fmt.Errorf("[name] in [extra_fs] or [main_fs] must be set")
+				}
+				if strings.HasPrefix(mount.SubPath, "/") {
+					return fmt.Errorf("[sub_path] in [extra_fs] should not start with '/'")
 				}
 				mount.ID = ID(userName, mount.Name)
 
