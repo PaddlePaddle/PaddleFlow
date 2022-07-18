@@ -203,23 +203,6 @@ func CreateSchedule(ctx *logger.RequestContext, request *CreateScheduleRequest) 
 		return CreateScheduleResponse{}, fmt.Errorf(errMsg)
 	}
 
-	// 校验Fs参数，并生成FsConfig对象
-	_, err := CheckFsAndGetID(ctx.UserName, request.UserName, request.FsName)
-	if err != nil {
-		ctx.ErrorCode = common.InvalidArguments
-		ctx.Logging().Errorf(err.Error())
-		return CreateScheduleResponse{}, err
-	}
-
-	fsConfig := models.FsConfig{FsName: request.FsName, UserName: request.UserName}
-	StrFsConfig, err := fsConfig.Encode(ctx.Logging())
-	if err != nil {
-		ctx.ErrorCode = common.InvalidArguments
-		errMsg := fmt.Sprintf("create schedule failed, dump fsConfig[%v] error: %s", fsConfig, err.Error())
-		ctx.Logging().Errorf(errMsg)
-		return CreateScheduleResponse{}, fmt.Errorf(errMsg)
-	}
-
 	// 校验 & 生成options对象
 	options, err := models.NewScheduleOptions(ctx.Logging(), request.Catchup, request.ExpireInterval, request.Concurrency, request.ConcurrencyPolicy)
 	if err != nil {
@@ -300,7 +283,6 @@ func CreateSchedule(ctx *logger.RequestContext, request *CreateScheduleRequest) 
 		PipelineID:       request.PipelineID,
 		PipelineDetailID: request.PipelineDetailID,
 		UserName:         ctx.UserName,
-		FsConfig:         string(StrFsConfig),
 		Crontab:          request.Crontab,
 		Options:          string(StrOptions),
 		Status:           models.ScheduleStatusRunning,

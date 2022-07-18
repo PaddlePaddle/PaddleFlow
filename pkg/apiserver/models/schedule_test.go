@@ -94,10 +94,6 @@ func TestGetUsedFsIDs(t *testing.T) {
 	logEntry := log.WithFields(log.Fields{})
 	pplID1, _, pplDetailID1, _ := insertPipeline(t, logEntry)
 
-	fsConfig := FsConfig{FsName: "fsname", UserName: "user1"}
-	StrFsConfig, err := fsConfig.Encode(logEntry)
-	assert.Nil(t, err)
-
 	schedule := Schedule{
 		ID:               "", // to be back filled according to db pk
 		Name:             "schedule1",
@@ -105,7 +101,6 @@ func TestGetUsedFsIDs(t *testing.T) {
 		PipelineID:       pplID1,
 		PipelineDetailID: pplDetailID1,
 		UserName:         MockRootUser,
-		FsConfig:         StrFsConfig,
 		Crontab:          "*/5 * * * *",
 		Options:          "{}",
 		Status:           ScheduleStatusRunning,
@@ -129,12 +124,6 @@ func TestGetUsedFsIDs(t *testing.T) {
 	assert.Equal(t, 1, len(fsIDMap))
 	print(fsIDMap)
 
-	// fsconfig中不包含user，使用默认的“”
-	fsConfig = FsConfig{FsName: "fsname"}
-	StrFsConfig, err = fsConfig.Encode(logEntry)
-	assert.Nil(t, err)
-
-	schedule.FsConfig = StrFsConfig
 	schedID, err = CreateSchedule(logEntry, schedule)
 	assert.Nil(t, err)
 	assert.Equal(t, schedID, "schedule-000002")
@@ -145,11 +134,6 @@ func TestGetUsedFsIDs(t *testing.T) {
 	print(fsIDMap)
 
 	// 创建 success 状态的schedule
-	fsConfig = FsConfig{FsName: "fsname", UserName: "another_user"}
-	StrFsConfig, err = fsConfig.Encode(logEntry)
-	assert.Nil(t, err)
-
-	schedule.FsConfig = StrFsConfig
 	schedule.Status = ScheduleStatusSuccess
 	schedID, err = CreateSchedule(logEntry, schedule)
 	assert.Nil(t, err)
@@ -188,10 +172,6 @@ func TestCatchup(t *testing.T) {
 	logEntry := log.WithFields(log.Fields{})
 	pplID1, _, pplDetailID1, _ := insertPipeline(t, logEntry)
 
-	fsConfig := FsConfig{FsName: "fsname", UserName: "user1"}
-	StrFsConfig, err := fsConfig.Encode(logEntry)
-	assert.Nil(t, err)
-
 	schedule := Schedule{
 		ID:               "", // to be back filled according to db pk
 		Name:             "schedule1",
@@ -199,7 +179,6 @@ func TestCatchup(t *testing.T) {
 		PipelineID:       pplID1,
 		PipelineDetailID: pplDetailID1,
 		UserName:         "user1",
-		FsConfig:         StrFsConfig,
 		Crontab:          "*/5 * * * *",
 		Options:          "{}",
 		Status:           ScheduleStatusRunning,
@@ -299,10 +278,6 @@ func TestExpireInterval(t *testing.T) {
 	strOptions, err := scheduleOptions.Encode(logEntry)
 	assert.Nil(t, err)
 
-	fsConfig := FsConfig{FsName: "fsname", UserName: "user1"}
-	StrFsConfig, err := fsConfig.Encode(logEntry)
-	assert.Nil(t, err)
-
 	schedule := Schedule{
 		ID:               "", // to be backfilled according to db pk
 		Name:             "schedule1",
@@ -310,7 +285,6 @@ func TestExpireInterval(t *testing.T) {
 		PipelineID:       pplID1,
 		PipelineDetailID: pplDetailID1,
 		UserName:         "user1",
-		FsConfig:         StrFsConfig,
 		Crontab:          "*/1 * * * *",
 		Options:          strOptions,
 		Status:           ScheduleStatusRunning,
@@ -364,10 +338,6 @@ func TestConcurrency(t *testing.T) {
 	strOptions, err := scheduleOptions.Encode(logEntry)
 	assert.Nil(t, err)
 
-	fsConfig := FsConfig{FsName: "fsname", UserName: "user1"}
-	StrFsConfig, err := fsConfig.Encode(logEntry)
-	assert.Nil(t, err)
-
 	schedule := Schedule{
 		ID:               "", // to be back filled according to db pk
 		Name:             "schedule1",
@@ -375,7 +345,6 @@ func TestConcurrency(t *testing.T) {
 		PipelineID:       pplID1,
 		PipelineDetailID: pplDetailID1,
 		UserName:         "user1",
-		FsConfig:         StrFsConfig,
 		Crontab:          "*/1 * * * *",
 		Options:          strOptions,
 		Status:           ScheduleStatusRunning,
@@ -527,10 +496,6 @@ func TestScheduleTime(t *testing.T) {
 	strOptions, err := scheduleOptions.Encode(logEntry)
 	assert.Nil(t, err)
 
-	fsConfig := FsConfig{FsName: "fsname", UserName: "user1"}
-	StrFsConfig, err := fsConfig.Encode(logEntry)
-	assert.Nil(t, err)
-
 	schedule := Schedule{
 		ID:               "", // to be back filled according to db pk
 		Name:             "schedule1",
@@ -538,7 +503,6 @@ func TestScheduleTime(t *testing.T) {
 		PipelineID:       pplID1,
 		PipelineDetailID: pplDetailID1,
 		UserName:         "user1",
-		FsConfig:         StrFsConfig,
 		Crontab:          "*/1 * * * *",
 		Options:          strOptions,
 		Status:           ScheduleStatusRunning,
