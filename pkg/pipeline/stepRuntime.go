@@ -57,7 +57,8 @@ func NewStepRuntime(name, fullName string, step *schema.WorkflowSourceStep, seq 
 	}
 
 	jobName := generateJobName(config.runID, step.GetName(), seq)
-	job := NewPaddleFlowJob(jobName, srt.getWorkFlowStep().DockerEnv, srt.receiveEventChildren)
+	job := NewPaddleFlowJob(jobName, srt.getWorkFlowStep().DockerEnv, srt.receiveEventChildren,
+		srt.runConfig.mainFS, srt.getWorkFlowStep().ExtraFS)
 	srt.job = job
 
 	srt.logger.Infof("step[%s] of runid[%s] before starting job: param[%s], env[%s], command[%s], artifacts[%s], deps[%s], FsMount[%v]",
@@ -207,7 +208,7 @@ func (srt *StepRuntime) Resume(view *schema.JobView) {
 
 	srt.parallelismManager.increase()
 	srt.job = NewPaddleFlowJobWithJobView(view, srt.getWorkFlowStep().DockerEnv,
-		srt.receiveEventChildren)
+		srt.receiveEventChildren, srt.runConfig.mainFS, srt.getWorkFlowStep().ExtraFS)
 
 	srt.pk = view.PK
 	srt.getWorkFlowStep().ExtraFS = view.FsMount
@@ -320,15 +321,15 @@ func (srt *StepRuntime) updateJob(forCacheFingerprint bool) error {
 	if !forCacheFingerprint {
 		// artifact 也添加到环境变量中
 		for atfName, atfValue := range srt.GetArtifacts().Input {
-			newEnvs[GetInputArtifactEnvName(atfName)] = srt.generateOutArtPathForJob(atfValue)
+			newEnvs[GetInputArtifactEnvName(atfName)] = GetArtifactMountPath(srt.runConfig.mainFS, atfValue)
 		}
 
 		for atfName, atfValue := range srt.GetArtifacts().Output {
-			newEnvs[GetOutputArtifactEnvName(atfName)] = srt.generateOutArtPathForJob(atfValue)
+			newEnvs[GetOutputArtifactEnvName(atfName)] = GetArtifactMountPath(srt.runConfig.mainFS, atfValue)
 		}
 	}
 
-	srt.job.Update(srt.getWorkFlowStep().Command, params, newEnvs, &artifacts, srt.getWorkFlowStep().ExtraFS)
+	srt.job.Update(srt.getWorkFlowStep().Command, params, newEnvs, &artifacts)
 	srt.logger.Infof("step[%s] after resolve template: param[%s], artifacts[%s], command[%s], env[%s]， FsMount[%v]",
 		srt.name, params, artifacts, srt.getWorkFlowStep().Command, newEnvs, srt.getWorkFlowStep().ExtraFS)
 	return nil
@@ -338,8 +339,8 @@ func (srt *StepRuntime) logInputArtifact() {
 	for atfName, atfValue := range srt.getComponent().GetArtifacts().Input {
 		req := schema.LogRunArtifactRequest{
 			RunID:        srt.runID,
-			FsID:         srt.runConfig.mainFs.FsID,
-			FsName:       srt.runConfig.mainFs.FsName,
+			FsID:         srt.runConfig.mainFS.ID,
+			FsName:       srt.runConfig.mainFS.Name,
 			UserName:     srt.userName,
 			ArtifactPath: atfValue,
 			Step:         srt.getWorkFlowStep().Name,
@@ -362,8 +363,8 @@ func (srt *StepRuntime) logOutputArtifact() {
 	for atfName, atfValue := range srt.component.(*schema.WorkflowSourceStep).Artifacts.Output {
 		req := schema.LogRunArtifactRequest{
 			RunID:        srt.runID,
-			FsID:         srt.runConfig.mainFs.FsID,
-			FsName:       srt.runConfig.mainFs.FsName,
+			FsID:         srt.runConfig.mainFS.ID,
+			FsName:       srt.runConfig.mainFS.Name,
 			UserName:     srt.userName,
 			ArtifactPath: atfValue,
 			Step:         srt.getWorkFlowStep().Name,
@@ -400,8 +401,8 @@ func (srt *StepRuntime) checkCached() (cacheFound bool, err error) {
 	}
 
 	job := srt.job.(*PaddleFlowJob)
-	cacheCaculator, err := NewCacheCalculator(*job, srt.getWorkFlowStep().Cache, srt.logger, srt.runConfig.mainFs,
-		srt.getWorkFlowStep().ExtraFs)
+	cacheCaculator, err := NewCacheCalculator(*job, srt.getWorkFlowStep().Cache, srt.logger, srt.runConfig.mainFS,
+		srt.getWorkFlowStep().ExtraFS)
 	if err != nil {
 		return false, err
 	}
@@ -411,7 +412,7 @@ func (srt *StepRuntime) checkCached() (cacheFound bool, err error) {
 		return false, err
 	}
 
-	runCacheList, err := srt.callbacks.ListCacheCb(srt.firstFingerprint, srt.runConfig.mainFs.FsID, srt.pplSource)
+	runCacheList, err := srt.callbacks.ListCacheCb(srt.firstFingerprint, srt.runConfig.mainFS.ID, srt.pplSource)
 	if err != nil {
 		return false, err
 	}
@@ -510,8 +511,8 @@ func (srt *StepRuntime) logCache() error {
 		RunID:       srt.runID,
 		Step:        srt.getComponent().GetName(),
 		JobID:       srt.job.Job().ID,
-		FsID:        srt.runConfig.mainFs.FsID,
-		FsName:      srt.runConfig.mainFs.FsName,
+		FsID:        srt.runConfig.mainFS.ID,
+		FsName:      srt.runConfig.mainFS.Name,
 		UserName:    srt.userName,
 		ExpiredTime: srt.getWorkFlowStep().Cache.MaxExpiredTime,
 		Strategy:    CacheStrategyConservative,
@@ -532,14 +533,14 @@ func (srt *StepRuntime) logCache() error {
 }
 
 func (srt *StepRuntime) generateOutArtPathOnFs() (err error) {
-	rh, err := NewResourceHandler(srt.runID, srt.runConfig.mainFs.FsID, srt.logger)
+	rh, err := NewResourceHandler(srt.runID, srt.runConfig.mainFS.ID, srt.logger)
 	if err != nil {
 		err = fmt.Errorf("cannot generate output artifact's path for step[%s]: %s", srt.name, err.Error())
 		return err
 	}
 
 	for artName, _ := range srt.GetArtifacts().Output {
-		artPath, err := rh.GenerateOutAtfPath(srt.runConfig.WorkflowSource.Name, srt.mainFs.SubPath,
+		artPath, err := rh.GenerateOutAtfPath(srt.runConfig.WorkflowSource.Name, srt.mainFS.SubPath,
 			srt.getComponent().GetName(), srt.name, srt.loopSeq, artName, true)
 		if err != nil {
 			err = fmt.Errorf("cannot generate output artifact[%s] for step[%s] path: %s",

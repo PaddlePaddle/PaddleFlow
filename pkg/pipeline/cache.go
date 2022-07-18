@@ -38,7 +38,8 @@ type conservativeFirstCacheKey struct {
 	Parameters      map[string]string `json:",omitempty"`
 	InputArtifacts  map[string]string `json:",omitempty"`
 	OutputArtifacts map[string]string `json:",omitempty"`
-	FsMount         []schema.FsMount  `json:",omitempty"`
+	mainFS          schema.FsMount    `json:",omitempty"`
+	extraFS         []schema.FsMount  `json:",omitempty"`
 }
 
 type PathToModTime struct {
@@ -87,7 +88,7 @@ type conservativeCacheCalculator struct {
 	job            PaddleFlowJob
 	logger         *logrus.Entry
 	extraFs        []schema.FsMount
-	mainFs         schema.FsMount
+	mainFs         *schema.FsMount
 	cacheConfig    schema.Cache
 	firstCacheKey  *conservativeFirstCacheKey
 	secondCacheKey *conservativeSecondCacheKey
@@ -95,7 +96,7 @@ type conservativeCacheCalculator struct {
 
 // 调用方应该保证在启用了 cache 功能的情况下才会调用NewConservativeCacheCalculator
 func NewConservativeCacheCalculator(job PaddleFlowJob, cacheConfig schema.Cache, logger *logrus.Entry,
-	mainFs schema.FsMount, extraFs []schema.FsMount) (CacheCalculator, error) {
+	mainFs *schema.FsMount, extraFs []schema.FsMount) (CacheCalculator, error) {
 	calculator := conservativeCacheCalculator{
 		job:         job,
 		cacheConfig: cacheConfig,
@@ -111,7 +112,6 @@ func (cc *conservativeCacheCalculator) generateFirstCacheKey() error {
 	envWithoutSystmeEnv := common.DeleteSystemParamEnv(cc.job.Env)
 
 	// 去除系统环境变量
-	fsMount := append(cc.extraFs, cc.mainFs)
 	cacheKey := conservativeFirstCacheKey{
 		DockerEnv:       cc.job.Image,
 		Parameters:      cc.job.Parameters,
@@ -119,13 +119,14 @@ func (cc *conservativeCacheCalculator) generateFirstCacheKey() error {
 		InputArtifacts:  cc.job.Artifacts.Input,
 		OutputArtifacts: cc.job.Artifacts.Output,
 		Env:             envWithoutSystmeEnv,
-		FsMount:         fsMount,
+		extraFS:         cc.extraFs,
+		mainFS:          *cc.mainFs,
 	}
 
 	logMsg := fmt.Sprintf("FirstCacheKey: \nDockerEnv: %s, Parameters: %s, Command: %s, InputArtifacts: %s, "+
-		"OutputArtifacts: %s, Env: %s, FsMount: %v, JobName: %s", cc.job.Image, cc.job.Parameters,
+		"OutputArtifacts: %s, Env: %s, mainFS: %v, extraFS: %v,  JobName: %s", cc.job.Image, cc.job.Parameters,
 		cc.job.Command, cc.job.Artifacts.Input, cc.job.Artifacts.Output, cacheKey.Env,
-		cacheKey.FsMount, cc.job.Name)
+		cacheKey.mainFS, cacheKey.extraFS, cc.job.Name)
 
 	cc.logger.Debugf(logMsg)
 
@@ -191,12 +192,12 @@ func (cc *conservativeCacheCalculator) getFsScopeModTime() (map[string]PathToMod
 }
 
 func (cc *conservativeCacheCalculator) getInputArtifactModTime() (map[string]string, error) {
-	if cc.mainFs.FsID == "" {
+	if cc.mainFs.ID == "" {
 		cc.logger.Info("there must be no input artifact because global fsId is empty")
 		return map[string]string{}, nil
 	}
 
-	fsHandler, err := handler.NewFsHandlerWithServer(cc.mainFs.FsID, cc.logger)
+	fsHandler, err := handler.NewFsHandlerWithServer(cc.mainFs.ID, cc.logger)
 	if err != nil {
 		errMsg := fmt.Errorf("init fsHandler failed: %s", err.Error())
 		cc.logger.Errorln(errMsg)
@@ -281,7 +282,7 @@ func (cc *conservativeCacheCalculator) CalculateSecondFingerprint() (fingerprint
 
 // 调用方应该保证在启用了 cache 功能的情况下才会调用NewCacheCalculator
 func NewCacheCalculator(job PaddleFlowJob, cacheConfig schema.Cache, logger *logrus.Entry,
-	mainFs schema.FsMount, extraFs []schema.FsMount) (CacheCalculator, error) {
+	mainFs *schema.FsMount, extraFs []schema.FsMount) (CacheCalculator, error) {
 	// TODO: 当支持多中 cache 策略时，做好分发的功能
 	return NewConservativeCacheCalculator(job, cacheConfig, logger, mainFs, extraFs)
 }
