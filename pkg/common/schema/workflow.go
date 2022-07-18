@@ -834,11 +834,10 @@ func (wfs *WorkflowSource) TransToRunYamlRaw() (runYamlRaw string, err error) {
 }
 
 // 给所有Step的fsMount和fsScope的fsID赋值
-func (wfs *WorkflowSource) ProcessFsAndGetAllIDs(userName string, fsName string) ([]string, error) {
+func (wfs *WorkflowSource) ProcessFsAndGetNames(userName string, fsName string) ([]string, error) {
 	// 用map记录所有需要返回的fsName，去重
 	fsNameMap := map[string]int{}
 
-	logger.Logger().Infof("debug: begin process FsID")
 	if err := wfs.processFsByUserName(wfs.EntryPoints.EntryPoints, userName, fsNameMap, fsName); err != nil {
 		return []string{}, err
 	}
@@ -883,9 +882,7 @@ func (wfs *WorkflowSource) processFsByUserName(compMap map[string]Component, use
 				fsNameChecker[mount.FsName] = 1
 				fsNameMap[mount.FsName] = 1
 				step.FsMount[i] = mount
-				logger.Logger().Infof("debug: after process,  FsID is %s", mount.FsID)
 			}
-			logger.Logger().Infof("debug: after process,  step fsMount is %v", step.FsMount)
 			for i, scope := range step.Cache.FsScope {
 				if scope.FsName == "" {
 					return fmt.Errorf("[fs_name] in fs_scope must be set")

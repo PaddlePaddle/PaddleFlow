@@ -276,7 +276,6 @@ func (s *ComponentParamChecker) checkReference(comp schema.Component) error {
 				// 如果对应的被引用节点的参数为dict形式，则Reference节点的参数类型需要符合dict中Type的要求
 				switch referedParam := referedParam.(type) {
 				case map[string]interface{}:
-					logger.Logger().Infof("debug: dict param check in")
 					refDictParam := DictParam{}
 					if err := refDictParam.From(referedParam); err != nil {
 						return fmt.Errorf("invalid dict parameter[%v]", referedParam)
@@ -285,7 +284,7 @@ func (s *ComponentParamChecker) checkReference(comp schema.Component) error {
 						return fmt.Errorf("parameters in step with reference check dict param in refered param failed, error: %s", err.Error())
 					}
 				default:
-					logger.Logger().Infof("debug: dict param check type is : %s, name is : %s, value is : %v", reflect.TypeOf(referedParam), paramName, referedParam)
+					logger.Logger().Infof("dict param check type is : %s, name is : %s, value is : %v", reflect.TypeOf(referedParam), paramName, referedParam)
 				}
 			}
 
@@ -322,8 +321,6 @@ func (s *ComponentParamChecker) solveParamValue(compName string, paramName strin
 			return nil, fmt.Errorf("value of %s[%s] invalid: should be string", fieldType, paramName)
 		}
 	}
-
-	logger.Logger().Infof("debug: check param type, comp [%s] param [%s] type is : %s, value is %v", compName, paramName, reflect.TypeOf(param), param)
 
 	// 参数值检查
 	switch param := param.(type) {

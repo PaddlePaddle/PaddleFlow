@@ -19,7 +19,6 @@ package pipeline
 import (
 	"database/sql"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -684,14 +683,10 @@ func ValidateAndCreateRun(ctx logger.RequestContext, run *models.Run, userName s
 		logger.Logger().Errorf("encode run failed. error:%s", err.Error())
 		return nil, "", err
 	}
-	logger.Logger().Infof("debug: fsName before validate fs is [%s]", run.FsName)
 
 	if err := checkFs(userName, run.FsName, &run.WorkflowSource); err != nil {
 		return nil, "", err
 	}
-
-	res, _ := json.Marshal(run.WorkflowSource)
-	logger.Logger().Infof("debug: before validate wfs is :%s", res)
 
 	trace_logger.Key(requestId).Infof("validate and init workflow")
 	// validate workflow in func NewWorkflow
@@ -750,7 +745,7 @@ func ValidateAndStartRun(ctx logger.RequestContext, run models.Run, userName str
 }
 
 func checkFs(userName string, fsName string, wfs *schema.WorkflowSource) error {
-	fsNames, err := wfs.ProcessFsAndGetAllIDs(userName, fsName)
+	fsNames, err := wfs.ProcessFsAndGetNames(userName, fsName)
 	if err != nil {
 		logger.Logger().Errorf("process fs failed when check fs. error: %s", err.Error())
 		return err
@@ -1118,7 +1113,6 @@ func newWorkflowByRun(run models.Run) (*pipeline.Workflow, error) {
 		pplcommon.WfExtraInfoKeyUserName: run.UserName,
 		pplcommon.WfExtraInfoKeyFsName:   run.FsName,
 	}
-	logger.LoggerForRun(run.ID).Infof("debug: fsname in extra is [%s]", extraInfo[pplcommon.WfExtraInfoKeyFsName])
 	wfPtr, err := pipeline.NewWorkflow(run.WorkflowSource, run.ID, run.Parameters, extraInfo, workflowCallbacks)
 	if err != nil {
 		logger.LoggerForRun(run.ID).Warnf("NewWorkflow by run[%s] failed. error:%v\n", run.ID, err)
