@@ -23,6 +23,11 @@ import (
 	pfResources "github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 )
 
+const (
+	DefaultCpuRequest = 1
+	DefaultMemRequest = 1073741824 // 1Gi=1024*1024*1024B=1073741824B
+)
+
 func SubQuota(r *pfResources.Resource, pod *v1.Pod) error {
 	for _, container := range pod.Spec.Containers {
 		containerQuota := NewResource(container.Resources.Requests)
@@ -85,5 +90,12 @@ func NewResourceList(r *pfResources.Resource) v1.ResourceList {
 		}
 		resourceList[rName] = *quantity
 	}
+	return resourceList
+}
+
+func NewMinResourceList() v1.ResourceList {
+	resourceList := v1.ResourceList{}
+	resourceList[v1.ResourceCPU] = *resource.NewQuantity(DefaultCpuRequest, resource.DecimalSI)
+	resourceList[v1.ResourceMemory] = *resource.NewQuantity(DefaultMemRequest, resource.BinarySI)
 	return resourceList
 }
