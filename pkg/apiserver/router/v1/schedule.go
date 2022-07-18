@@ -76,18 +76,18 @@ func (sr *ScheduleRouter) listSchedule(w http.ResponseWriter, r *http.Request) {
 	}
 
 	userNames := r.URL.Query().Get(util.QueryKeyUserFilter)
-	pplIDs, pplDetailIDs := r.URL.Query().Get(util.QueryKeyPplFilter), r.URL.Query().Get(util.QueryKeyPplDetailFilter)
+	pplIDs, pplVersionIDs := r.URL.Query().Get(util.QueryKeyPplFilter), r.URL.Query().Get(util.QueryKeyPplVersionFilter)
 	scheduleIDs, names := r.URL.Query().Get(util.QueryKeyScheduleFilter), r.URL.Query().Get(util.QueryKeyNameFilter)
 	statuses := r.URL.Query().Get(util.QueryKeyStatusFilter)
-	userFilter, pplFilter, pplDetailFilter, scheduleFilter, nameFilter, statusFilter := make([]string, 0), make([]string, 0), make([]string, 0), make([]string, 0), make([]string, 0), make([]string, 0)
+	userFilter, pplFilter, pplVersionFilter, scheduleFilter, nameFilter, statusFilter := make([]string, 0), make([]string, 0), make([]string, 0), make([]string, 0), make([]string, 0), make([]string, 0)
 	if userNames != "" {
 		userFilter = util.SplitFilter(userNames, common.SeparatorComma, true)
 	}
 	if pplIDs != "" {
 		pplFilter = util.SplitFilter(pplIDs, common.SeparatorComma, true)
 	}
-	if pplDetailIDs != "" {
-		pplDetailFilter = util.SplitFilter(pplDetailIDs, common.SeparatorComma, true)
+	if pplVersionIDs != "" {
+		pplVersionFilter = util.SplitFilter(pplVersionIDs, common.SeparatorComma, true)
 	}
 	if scheduleIDs != "" {
 		scheduleFilter = util.SplitFilter(scheduleIDs, common.SeparatorComma, true)
@@ -99,9 +99,9 @@ func (sr *ScheduleRouter) listSchedule(w http.ResponseWriter, r *http.Request) {
 		statusFilter = util.SplitFilter(statuses, common.SeparatorComma, true)
 	}
 	logger.LoggerForRequest(&ctx).Debugf(
-		"user[%s] ListSchedule marker:[%s] maxKeys:[%d] pipelineID:%v pplDetailFilter:%v userFilter:%v scheduleFilter:%v nameFilter:%v statusFilter:%v",
-		ctx.UserName, marker, maxKeys, pplFilter, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
-	listScheduleResponse, err := pipeline.ListSchedule(&ctx, marker, maxKeys, pplFilter, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
+		"user[%s] ListSchedule marker:[%s] maxKeys:[%d] pipelineID:%v pplVersionFilter:%v userFilter:%v scheduleFilter:%v nameFilter:%v statusFilter:%v",
+		ctx.UserName, marker, maxKeys, pplFilter, pplVersionFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
+	listScheduleResponse, err := pipeline.ListSchedule(&ctx, marker, maxKeys, pplFilter, pplVersionFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
 	if err != nil {
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
