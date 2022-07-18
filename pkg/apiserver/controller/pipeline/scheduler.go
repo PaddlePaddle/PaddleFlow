@@ -233,7 +233,7 @@ func (s *Scheduler) dealWithTimout(checkCatchup bool) (*time.Time, error) {
 			logger.Logger().Infof("start to create run in ScheduledAt[%s] for schedule[%s]", nextRunAt.Format("2006-01-02 15:04:05"), scheduleID)
 			createRequest := CreateRunRequest{
 				FsName:           fsConfig.FsName,
-				UserName:         fsConfig.UserName,
+				UserName:         fsConfig.Username,
 				Name:             schedule.Name,
 				Description:      schedule.Desc,
 				PipelineID:       schedule.PipelineID,

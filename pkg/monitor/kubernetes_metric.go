@@ -127,7 +127,7 @@ func getQuerySqlByMetric(metricName, podNames string) string {
 	case consts.MetricGpuUtil:
 		return fmt.Sprintf(QueryGpuUtilQl, podNames)
 	case consts.MetricGpuMemoryUtil:
-		return fmt.Sprintf(QueryGpuMemUtilQl, podNames)
+		return fmt.Sprintf(QueryGpuMemUtilQl, podNames, podNames)
 	default:
 		return ""
 	}

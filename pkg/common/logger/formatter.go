@@ -73,6 +73,8 @@ func (f *Formatter) Format(entry *log.Entry) ([]byte, error) {
 		case bool:
 			s := strconv.FormatBool(v)
 			customFields += fmt.Sprintf("[%s:%s]", k, s)
+		case nil:
+			customFields += fmt.Sprintf("[%s]", k)
 		default:
 			customFields += fmt.Sprintf("[%s:%v]", k, v)
 		}
