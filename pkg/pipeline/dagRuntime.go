@@ -422,7 +422,7 @@ func (drt *DagRuntime) resolveSubComponent(name string, cp schema.Component) (sc
 
 }
 func (drt *DagRuntime) Resume(dagView *schema.DagView) {
-	drt.logger.Infof("resume dag[%s]", drt.name)
+	drt.logger.Debugf("resume dag[%s] with dagView: \n%v", drt.name, dagView)
 
 	// 1、从 DagView 中获取必要的信息
 	defer drt.processSubComponentLock.Unlock()
@@ -497,6 +497,8 @@ func (drt *DagRuntime) Resume(dagView *schema.DagView) {
 			status := view.GetStatus()
 
 			runtime := drt.CreateSubRuntimeAccordingView(view, name)
+
+			// TODO: 节点并发数控制
 			err := runtime.updateStatus(status)
 			if err != nil {
 				drt.logger.Errorln(err.Error())
@@ -510,19 +512,20 @@ func (drt *DagRuntime) Resume(dagView *schema.DagView) {
 			if runtime.isDone() {
 				// 如果已经处于终态，则无需 resume, 也无需在向数据库同步
 				// 但是对于 failed 节点，需要处理failureOptions。 以避免子节点的状态同步问题
+				if isStep {
+					err := runtime.(*StepRuntime).baseComponentRuntime.updateStatus(status)
+					if err != nil {
+						drt.logger.Errorln(err.Error())
+						continue
+					}
+				} else {
+					err := runtime.updateStatus(status)
+					if err != nil {
+						drt.logger.Errorln(err.Error())
+						continue
+					}
+				}
 				if runtime.isFailed() {
-					/*
-						msg := fmt.Sprintf("sub%s[%s] already in status[failed]", component.GetType(), runtime.getName())
-						extra := map[string]interface{}{
-							common.WfEventKeyRunID:         drt.runID,
-							common.WfEventKeyStatus:        drt.status,
-							common.WfEventKeyComponentName: drt.getComponent().GetName(),
-							common.WfEventKeyView:          view,
-						}
-
-						ev := NewWorkflowEvent(WfEventFailureOptionsTriggered, msg, extra)
-						drt.ProcessFailureOptions(*ev)
-					*/
 					failedCp[name] = append(failedCp[name], view.GetSeq())
 
 				} else {
