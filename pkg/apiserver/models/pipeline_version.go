@@ -28,10 +28,10 @@ import (
 
 type PipelineVersion struct {
 	Pk           int64          `json:"-"                    gorm:"primaryKey;autoIncrement;not null"`
-	ID           string         `json:"pipelineVersionID"     gorm:"type:varchar(60);not null"`
+	ID           string         `json:"pipelineVersionID"    gorm:"type:varchar(60);not null"`
 	PipelineID   string         `json:"pipelineID"           gorm:"type:varchar(60);not null"`
 	FsID         string         `json:"-"                    gorm:"type:varchar(60);not null"`
-	FsName       string         `json:"fsName"         gorm:"type:varchar(60);not null"`
+	FsName       string         `json:"fsName"               gorm:"type:varchar(60);not null"`
 	YamlPath     string         `json:"yamlPath"             gorm:"type:text;size:65535;not null"`
 	PipelineYaml string         `json:"pipelineYaml"         gorm:"type:text;size:65535;not null"`
 	PipelineMd5  string         `json:"pipelineMd5"          gorm:"type:varchar(32);not null"`

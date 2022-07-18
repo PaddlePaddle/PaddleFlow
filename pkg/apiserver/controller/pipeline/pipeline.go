@@ -200,7 +200,7 @@ func CreatePipeline(ctx *logger.RequestContext, request CreatePipelineRequest) (
 	pplID, pplVersionID, err := models.CreatePipeline(ctx.Logging(), &ppl, &pplVersion)
 	if err != nil {
 		ctx.ErrorCode = common.InternalError
-		errMsg := fmt.Sprintf("create pipeline run failed inserting db. error:%s", err.Error())
+		errMsg := fmt.Sprintf("create pipeline failed inserting db. error:%s", err.Error())
 		ctx.Logging().Errorf(errMsg)
 		return CreatePipelineResponse{}, fmt.Errorf(errMsg)
 	}

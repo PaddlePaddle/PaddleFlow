@@ -267,7 +267,7 @@ CREATE TABLE IF NOT EXISTS `pipeline_version` (
     `updated_at` datetime(3) DEFAULT NULL,
     `deleted_at` datetime(3) DEFAULT NULL,
     PRIMARY KEY (`pk`)
-    ) ENGINE=InnoDB DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
+) ENGINE=InnoDB DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
 
 CREATE TABLE IF NOT EXISTS `schedule` (
     `pk` bigint(20) NOT NULL AUTO_INCREMENT,
