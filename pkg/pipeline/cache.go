@@ -38,8 +38,8 @@ type conservativeFirstCacheKey struct {
 	Parameters      map[string]string `json:",omitempty"`
 	InputArtifacts  map[string]string `json:",omitempty"`
 	OutputArtifacts map[string]string `json:",omitempty"`
-	mainFS          schema.FsMount    `json:",omitempty"`
-	extraFS         []schema.FsMount  `json:",omitempty"`
+	MainFS          schema.FsMount    `json:",omitempty"`
+	ExtraFS         []schema.FsMount  `json:",omitempty"`
 }
 
 type PathToModTime struct {
@@ -87,8 +87,8 @@ type CacheCalculator interface {
 type conservativeCacheCalculator struct {
 	job            PaddleFlowJob
 	logger         *logrus.Entry
-	extraFs        []schema.FsMount
-	mainFs         *schema.FsMount
+	extraFS        []schema.FsMount
+	mainFS         *schema.FsMount
 	cacheConfig    schema.Cache
 	firstCacheKey  *conservativeFirstCacheKey
 	secondCacheKey *conservativeSecondCacheKey
@@ -101,8 +101,8 @@ func NewConservativeCacheCalculator(job PaddleFlowJob, cacheConfig schema.Cache,
 		job:         job,
 		cacheConfig: cacheConfig,
 		logger:      logger,
-		mainFs:      mainFs,
-		extraFs:     extraFs,
+		mainFS:      mainFs,
+		extraFS:     extraFs,
 	}
 	return &calculator, nil
 }
@@ -119,14 +119,14 @@ func (cc *conservativeCacheCalculator) generateFirstCacheKey() error {
 		InputArtifacts:  cc.job.Artifacts.Input,
 		OutputArtifacts: cc.job.Artifacts.Output,
 		Env:             envWithoutSystmeEnv,
-		extraFS:         cc.extraFs,
-		mainFS:          *cc.mainFs,
+		ExtraFS:         cc.extraFS,
+		MainFS:          *cc.mainFS,
 	}
 
 	logMsg := fmt.Sprintf("FirstCacheKey: \nDockerEnv: %s, Parameters: %s, Command: %s, InputArtifacts: %s, "+
 		"OutputArtifacts: %s, Env: %s, mainFS: %v, extraFS: %v,  JobName: %s", cc.job.Image, cc.job.Parameters,
 		cc.job.Command, cc.job.Artifacts.Input, cc.job.Artifacts.Output, cacheKey.Env,
-		cacheKey.mainFS, cacheKey.extraFS, cc.job.Name)
+		cacheKey.MainFS, cacheKey.ExtraFS, cc.job.Name)
 
 	cc.logger.Debugf(logMsg)
 
@@ -192,12 +192,12 @@ func (cc *conservativeCacheCalculator) getFsScopeModTime() (map[string]PathToMod
 }
 
 func (cc *conservativeCacheCalculator) getInputArtifactModTime() (map[string]string, error) {
-	if cc.mainFs.ID == "" {
+	if cc.mainFS.ID == "" {
 		cc.logger.Info("there must be no input artifact because global fsId is empty")
 		return map[string]string{}, nil
 	}
 
-	fsHandler, err := handler.NewFsHandlerWithServer(cc.mainFs.ID, cc.logger)
+	fsHandler, err := handler.NewFsHandlerWithServer(cc.mainFS.ID, cc.logger)
 	if err != nil {
 		errMsg := fmt.Errorf("init fsHandler failed: %s", err.Error())
 		cc.logger.Errorln(errMsg)
