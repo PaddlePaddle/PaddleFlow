@@ -60,7 +60,6 @@ type ScheduleBrief struct {
 	PipelineID       string                 `json:"pipelineID"`
 	PipelineDetailID string                 `json:"pipelineDetailID"`
 	UserName         string                 `json:"username"`
-	FsConfig         models.FsConfig        `json:"fsConfig"`
 	Crontab          string                 `json:"crontab"`
 	Options          models.ScheduleOptions `json:"options"`
 	StartTime        string                 `json:"startTime"`
