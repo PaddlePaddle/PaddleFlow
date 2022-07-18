@@ -53,7 +53,7 @@ func (f *DBFSCache) Delete(fsID, cacheID string) error {
 		tx = tx.Where(fmt.Sprintf(QueryEqualWithParam, FsID), fsID)
 	}
 	if cacheID != "" {
-		tx.Where(fmt.Sprintf(QueryEqualWithParam, cacheID), cacheID)
+		tx = tx.Where(fmt.Sprintf(QueryEqualWithParam, FsCacheID), cacheID)
 	}
 	return tx.Unscoped().Delete(&model.FSCache{}).Error
 }

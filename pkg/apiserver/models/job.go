@@ -276,6 +276,26 @@ func ListQueueInitJob(queueID string) []Job {
 	return jobs
 }
 
+func ListClusterJob(clusterID string, status schema.JobStatus) []Job {
+	var jobs []Job
+	queues := ListQueuesByCluster(clusterID)
+	if len(queues) == 0 {
+		return jobs
+	}
+	var queueIDs []string
+	for _, q := range queues {
+		queueIDs = append(queueIDs, q.ID)
+	}
+
+	db := storage.DB.Table("job").Where("queue_id in ?", queueIDs).Where("status = ?", status).Where("deleted_at = ''")
+	err := db.Find(&jobs).Error
+	if err != nil {
+		log.Errorf("list init jobs in cluster %s failed, err: %s", clusterID, err.Error())
+		return []Job{}
+	}
+	return jobs
+}
+
 func ListJobByStatus(status schema.JobStatus) []Job {
 	db := storage.DB.Table("job").Where("status = ?", status).Where("deleted_at = ''")
 

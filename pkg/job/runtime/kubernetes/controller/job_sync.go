@@ -22,6 +22,7 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -151,6 +152,7 @@ func (j *JobSync) Run(stopCh <-chan struct{}) {
 		return
 	}
 	log.Infof("Start %s controller for cluster [%s] successfully!", j.Name(), j.opt.ClusterInfo.Name)
+	j.preHandleTerminatingJob()
 	go wait.Until(j.runWorker, 0, stopCh)
 	go wait.Until(j.runTaskWorker, 0, stopCh)
 }
@@ -354,4 +356,26 @@ func responsibleForJob(obj interface{}) bool {
 	}
 	log.Debugf("responsible for skip job. jobName:[%s]", job.GetName())
 	return false
+}
+
+func (j *JobSync) preHandleTerminatingJob() {
+	jobs := models.ListClusterJob(j.opt.ClusterInfo.ID, commonschema.StatusJobTerminating)
+	for _, job := range jobs {
+		name := job.ID
+		namespace := job.Config.GetNamespace()
+		gvk, err := k8s.GetJobGVK(commonschema.JobType(job.Type), job.Framework)
+		if err != nil {
+			log.Warningf("get GroupVersionKind for job %s failed, err: %s", gvk.String(), err)
+			continue
+		}
+		log.Debugf("pre handle terminating job, get %s job %s/%s from cluster", gvk.String(), namespace, name)
+		_, err = executor.Get(namespace, name, gvk, j.opt)
+		if err != nil && k8serrors.IsNotFound(err) {
+			j.jobQueue.Add(&JobSyncInfo{
+				ID:     job.ID,
+				Action: commonschema.Delete,
+			})
+			log.Infof("pre handle terminating %s job enqueue, job name %s/%s", gvk.String(), namespace, name)
+		}
+	}
 }
