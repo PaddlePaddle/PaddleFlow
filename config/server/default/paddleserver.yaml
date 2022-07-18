@@ -41,8 +41,6 @@ job:
     failedJobTTLSeconds: 3600
   schedulerName: volcano
   clusterSyncPeriod: 30
-  queueSyncPeriod: 30
-  jobLoopPeriod: 5
   defaultJobYamlDir: "./config/server/default/job"
   isSingleCluster: true
 
@@ -55,3 +53,6 @@ imageRepository:
   password: ""
   concurrency: 10
   removeLocalImage: true
+
+monitor:
+  server: ""

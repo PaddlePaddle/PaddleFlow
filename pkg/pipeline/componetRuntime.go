@@ -103,7 +103,7 @@ type componentRuntime interface {
 type runConfig struct {
 	//  workflowSource 中的信息
 	*schema.WorkflowSource
-	mainFS   schema.FsMount
+	mainFS   *schema.FsMount
 	userName string
 
 	// pipelineID or yamlPath or md5sum of yamlRaw
@@ -118,7 +118,7 @@ type runConfig struct {
 	callbacks WorkflowCallbacks
 }
 
-func NewRunConfig(workflowSource *schema.WorkflowSource, mainFS schema.FsMount, userName, runID string, logger *logrus.Entry,
+func NewRunConfig(workflowSource *schema.WorkflowSource, mainFS *schema.FsMount, userName, runID string, logger *logrus.Entry,
 	callbacks WorkflowCallbacks, pplSource string) *runConfig {
 	return &runConfig{
 		WorkflowSource: workflowSource,

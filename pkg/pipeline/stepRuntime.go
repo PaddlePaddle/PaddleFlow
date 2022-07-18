@@ -24,10 +24,10 @@ import (
 	"sync"
 	"time"
 
-	. "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
-
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	. "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/trace_logger"
 )
 
 type StepRuntime struct {
@@ -178,7 +178,6 @@ func (srt *StepRuntime) Start() {
 	// 监听channel, 及时除了时间
 	go srt.Listen()
 	go srt.Stop()
-
 	srt.Execute()
 }
 
@@ -580,7 +579,7 @@ func (srt *StepRuntime) startJob() (err error) {
 		return
 	}
 
-	// todo: 正式运行前，需要将更新后的参数更新到数据库中（通过传递workflow event到runtime即可）
+	// TODO: 正式运行前，需要将更新后的参数更新到数据库中（通过传递workflow event到runtime即可）
 	_, err = srt.job.Start()
 	if err != nil {
 		err = fmt.Errorf("start job for step[%s] with runid[%s] failed: [%s]", srt.name, srt.runID, err.Error())
@@ -599,6 +598,13 @@ func (srt *StepRuntime) startJob() (err error) {
 // 运行步骤
 func (srt *StepRuntime) Execute() {
 	logMsg := fmt.Sprintf("start execute step[%s] with runid[%s]", srt.name, srt.runID)
+
+	// use closure to get latest log
+	defer func() {
+		if logMsg != "" {
+			trace_logger.KeyWithUpdate(srt.runID).Errorf(logMsg)
+		}
+	}()
 	srt.logger.Infof(logMsg)
 
 	// 1、 查看是否命中cache
@@ -651,7 +657,8 @@ func (srt *StepRuntime) Execute() {
 	if len(srt.GetArtifacts().Output) != 0 {
 		err := srt.generateOutArtPathOnFs()
 		if err != nil {
-			srt.logger.Error(err.Error())
+			logMsg = err.Error()
+			srt.logger.Error(logMsg)
 			srt.processStartAbnormalStatus(err.Error(), StatusRuntimeFailed)
 			return
 		}
@@ -680,7 +687,8 @@ func (srt *StepRuntime) Execute() {
 	err = srt.startJob()
 	if err != nil {
 		// 异常处理，塞event，不返回error是因为统一通过channel与run沟通
-		srt.logger.Errorf(err.Error())
+		logMsg = err.Error()
+		srt.logger.Errorf(logMsg)
 		srt.processStartAbnormalStatus(err.Error(), schema.StatusJobFailed)
 		return
 	}

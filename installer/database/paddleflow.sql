@@ -192,7 +192,7 @@ CREATE TABLE IF NOT EXISTS `run_job` (
     `cache_json` text,
     `cache_run_id` varchar(60),
     `cache_job_id` varchar(60),
-    `fs_mount_json` text,
+    `extra_fs_json` text,
     `created_at` datetime(3) DEFAULT NULL,
     `activated_at` datetime(3) DEFAULT NULL,
     `updated_at` datetime(3) DEFAULT NULL,

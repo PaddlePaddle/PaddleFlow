@@ -16,6 +16,7 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/cmd/server/flag"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/cluster"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/fs"
 	jobCtrl "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/job"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/pipeline"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/queue"
@@ -106,12 +107,11 @@ func start() error {
 	go jobCtrl.WSManager.SendGroupData()
 	go jobCtrl.WSManager.GetGroupData()
 
-	err = trace_logger.Start(ServerConf.TraceLog)
-	if err != nil {
-		errMsg := fmt.Errorf("start trace logger failed. error: %w", err)
-		log.Errorf(errMsg.Error())
-		return errMsg
-	}
+	stopChan := make(chan struct{})
+	defer close(stopChan)
+	go fs.CleanMountPodController(ServerConf.Fs.MountPodExpire, ServerConf.Fs.CleanMountPodIntervalTime, stopChan)
+
+	trace_logger.Start(ServerConf.TraceLog)
 
 	go func() {
 		if err := HttpSvr.ListenAndServe(); err != nil && errors.Is(err, http.ErrServerClosed) {
@@ -223,8 +223,6 @@ func setup() {
 		gracefullyExit(err)
 	}
 
-	monitor.Init()
-	_ = monitor.StartJobMetricsService(ServerConf.Monitor.ExporterServicePort)
 }
 
 func newAndStartJobManager() error {
