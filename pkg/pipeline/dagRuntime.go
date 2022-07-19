@@ -562,8 +562,8 @@ func (drt *DagRuntime) Resume(dagView *schema.DagView) {
 			msg := fmt.Sprintf("subStep or subDag[%s] already in status[failed]", name)
 			extra := map[string]interface{}{
 				common.WfEventKeyRunID:         drt.runID,
-				common.WfEventKeyStatus:        drt.status,
-				common.WfEventKeyComponentName: drt.getComponent().GetName(),
+				common.WfEventKeyStatus:        StatusRuntimeFailed,
+				common.WfEventKeyComponentName: name,
 			}
 
 			ev := NewWorkflowEvent(WfEventFailureOptionsTriggered, msg, extra)
