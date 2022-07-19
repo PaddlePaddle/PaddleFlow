@@ -41,7 +41,6 @@ type Run struct {
 	FsID           string                 `gorm:"type:varchar(60);not null"         json:"-"`
 	FsName         string                 `gorm:"type:varchar(60);not null"         json:"fsName"`
 	FsOptions      schema.FsOptions       `gorm:"-"                                 json:"fsOptions"`
-	FsOptionsJson  string                 `gorm:"type:text;size:65535;not null"     json:"-"`
 	Description    string                 `gorm:"type:text;size:65535;not null"     json:"description"`
 	ParametersJson string                 `gorm:"type:text;size:65535;not null"     json:"-"`
 	Parameters     map[string]interface{} `gorm:"-"                                 json:"parameters"`
@@ -93,13 +92,6 @@ func (r *Run) Encode() error {
 		}
 		r.ParametersJson = string(paramRaw)
 	}
-
-	fsOptionsJson, err := json.Marshal(r.FsOptions)
-	if err != nil {
-		logger.LoggerForRun(r.ID).Errorf("encode run fsOptionsJson failed. error:%v", err)
-		return err
-	}
-	r.FsOptionsJson = string(fsOptionsJson)
 	return nil
 }
 
@@ -129,14 +121,7 @@ func (r *Run) decode() error {
 		r.Parameters = param
 	}
 
-	if len(r.FsOptionsJson) > 0 {
-		fsOptions := schema.FsOptions{}
-		if err := json.Unmarshal([]byte(r.FsOptionsJson), &fsOptions); err != nil {
-			logger.LoggerForRun(r.ID).Errorf("decode run fsOptions failed. error:%v", err)
-			return err
-		}
-		r.FsOptions = fsOptions
-	}
+	r.FsOptions.MainFS = r.WorkflowSource.FsOptions.MainFS
 
 	// format time
 	r.CreateTime = r.CreatedAt.Format("2006-01-02 15:04:05")

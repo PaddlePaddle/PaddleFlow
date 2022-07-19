@@ -476,7 +476,7 @@ type FailureOptions struct {
 
 type FsOptions struct {
 	MainFS  FsMount   `yaml:"main_fs"      json:"mainFS"`
-	ExtraFS []FsMount `yaml:"extra_fs"     json:"extraFS"`
+	ExtraFS []FsMount `yaml:"extra_fs"     json:"extraFS,omitempty"`
 }
 
 type FsMount struct {
