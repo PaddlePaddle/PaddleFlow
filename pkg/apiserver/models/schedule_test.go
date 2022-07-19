@@ -18,6 +18,8 @@ package models
 
 import (
 	"database/sql"
+	"fmt"
+	"io/ioutil"
 	"testing"
 	"time"
 
@@ -33,17 +35,29 @@ const (
 	MockFsID       = "root-mockFs"
 )
 
+const runYamlPath = "../controller/pipeline/testcase/run_dag.yaml"
+
+func loadCase(casePath string) []byte {
+	data, err := ioutil.ReadFile(casePath)
+	if err != nil {
+		fmt.Println("File reading error", err)
+		return []byte{}
+	}
+	return data
+}
+
 func insertPipeline(t *testing.T, logEntry *log.Entry) (pplID1, pplID2, pplDetailID1, pplDetailID2 string) {
 	ppl1 := Pipeline{
 		Name:     "ppl1",
 		Desc:     "ppl1",
 		UserName: "user1",
 	}
+	yamlStr := string(loadCase(runYamlPath))
 	pplDetail1 := PipelineDetail{
 		FsID:         "user1-fsname",
 		FsName:       "fsname",
 		YamlPath:     "./run.yml",
-		PipelineYaml: "ddddd",
+		PipelineYaml: yamlStr,
 		PipelineMd5:  "md5_1",
 		UserName:     "user1",
 	}
@@ -57,7 +71,7 @@ func insertPipeline(t *testing.T, logEntry *log.Entry) (pplID1, pplID2, pplDetai
 		FsID:         "root-fsname2",
 		FsName:       "fsname2",
 		YamlPath:     "./run.yml",
-		PipelineYaml: "ddddd",
+		PipelineYaml: yamlStr,
 		PipelineMd5:  "md5_2",
 		UserName:     "root",
 	}

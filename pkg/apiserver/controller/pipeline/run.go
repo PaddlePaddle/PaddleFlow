@@ -765,23 +765,30 @@ func checkFs(userName string, fsName string, wfs *schema.WorkflowSource) error {
 
 	for _, mount := range fsMounts {
 		// 检查fs权限
-		if _, err := CheckFsAndGetID(userName, "", mount.Name); err != nil {
+		fsID, err := CheckFsAndGetID(userName, "", mount.Name)
+		if err != nil {
 			return err
 		}
 
 		// 检查sub_path
 		if mount.SubPath != "" {
-			fsHandler, err := handler.NewFsHandlerWithServer(mount.ID, logger.Logger())
+			fsHandler, err := handler.NewFsHandlerWithServer(fsID, logger.Logger())
 			if err != nil {
 				return err
 			}
 
-			ok, err := fsHandler.IsDir(mount.SubPath)
+			isExist, err := fsHandler.Exist(mount.SubPath)
 			if err != nil {
 				return err
 			}
-			if !ok {
-				return fmt.Errorf("[sub_path] with id[%s] is not dir", mount.ID)
+			if isExist {
+				ok, err := fsHandler.IsDir(mount.SubPath)
+				if err != nil {
+					return err
+				}
+				if !ok {
+					return fmt.Errorf("[sub_path] with id[%s] is not dir", mount.ID)
+				}
 			}
 		}
 	}
