@@ -29,9 +29,13 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/monitor"
 )
 
-var metricNameList = [...]string{consts.MetricCpuUsageRate, consts.MetricMemoryUsageRate, consts.MetricMemoryUsage, consts.MetricDiskUsage,
-	consts.MetricNetReceiveBytes, consts.MetricNetSendBytes, consts.MetricDiskReadRate, consts.MetricDiskWriteRate, consts.MetricGpuUtil,
-	consts.MetricGpuMemoryUtil, consts.MetricGpuMemoryUsage}
+var metricNameList = [...]string{
+	consts.MetricCpuUsageRate, consts.MetricMemoryUsageRate,
+	consts.MetricMemoryUsage, consts.MetricDiskUsage,
+	consts.MetricNetReceiveBytes, consts.MetricNetSendBytes,
+	consts.MetricDiskReadRate, consts.MetricDiskWriteRate,
+	consts.MetricGpuUtil, consts.MetricGpuMemoryUtil,
+	consts.MetricGpuMemoryUsage}
 
 type JobStatisticsResponse struct {
 	MetricsInfo map[string]string `json:"metricsInfo"`
