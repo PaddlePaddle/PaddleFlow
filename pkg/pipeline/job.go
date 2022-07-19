@@ -140,7 +140,7 @@ func (pfj *PaddleFlowJob) generateJobConf() schema.Conf {
 			Name:      pfj.mainFS.Name,
 			SubPath:   pfj.mainFS.SubPath,
 			MountPath: pfj.mainFS.MountPath,
-			ReadOnly:  pfj.mainFS.Readonly,
+			ReadOnly:  pfj.mainFS.ReadOnly,
 		}
 	}
 
@@ -151,7 +151,7 @@ func (pfj *PaddleFlowJob) generateJobConf() schema.Conf {
 			Name:      fsMount.Name,
 			SubPath:   fsMount.SubPath,
 			MountPath: fsMount.MountPath,
-			ReadOnly:  fsMount.Readonly,
+			ReadOnly:  fsMount.ReadOnly,
 		}
 		efs = append(efs, fs)
 	}
