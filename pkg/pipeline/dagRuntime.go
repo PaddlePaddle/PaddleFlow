@@ -499,9 +499,8 @@ func (drt *DagRuntime) Resume(dagView *schema.DagView) {
 			runtime := drt.CreateSubRuntimeAccordingView(view, name)
 
 			drt.subComponentRumtimes[name] = append(drt.subComponentRumtimes[name], runtime)
-			drt.logger.Infof("recreated runtime for %s[%s]", component.GetType(), runtime.getName())
 
-			if runtime.isDone() {
+			if isRuntimeFinallyStatus(status) {
 				// 如果已经处于终态，则无需 resume, 也无需在向数据库同步
 				// 但是对于 failed 节点，需要处理failureOptions。 以避免子节点的状态同步问题
 				if isStep {
@@ -522,12 +521,6 @@ func (drt *DagRuntime) Resume(dagView *schema.DagView) {
 					failedCp[name] = append(failedCp[name], view.GetSeq())
 				}
 			} else {
-				err := runtime.updateStatus(status)
-				if err != nil {
-					drt.logger.Errorln(err.Error())
-					continue
-				}
-
 				if isStep {
 					go runtime.(*StepRuntime).Resume(view.(*schema.JobView))
 				} else {
@@ -536,7 +529,7 @@ func (drt *DagRuntime) Resume(dagView *schema.DagView) {
 			}
 
 			drt.logger.Infof("recreated runtime for %s[%s] with status[%s]", component.GetType(), runtime.getName(),
-				runtime.getStatus())
+				status)
 		}
 
 		ll := component.GetLoopArgumentLength()
