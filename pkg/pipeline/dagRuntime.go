@@ -498,16 +498,9 @@ func (drt *DagRuntime) Resume(dagView *schema.DagView) {
 
 			runtime := drt.CreateSubRuntimeAccordingView(view, name)
 
-			// TODO: 节点并发数控制
-			err := runtime.updateStatus(status)
-			if err != nil {
-				drt.logger.Errorln(err.Error())
-				continue
-			}
-
 			drt.subComponentRumtimes[name] = append(drt.subComponentRumtimes[name], runtime)
 			drt.logger.Infof("recreated runtime for %s[%s] with status[%s]",
-				component.GetType(), runtime.getName(), runtime.getStatus())
+				component.GetType(), runtime.getName())
 
 			if runtime.isDone() {
 				// 如果已经处于终态，则无需 resume, 也无需在向数据库同步
@@ -528,13 +521,12 @@ func (drt *DagRuntime) Resume(dagView *schema.DagView) {
 
 				if runtime.isFailed() {
 					failedCp[name] = append(failedCp[name], view.GetSeq())
-
+				}
+			} else {
+				if isStep {
+					go runtime.(*StepRuntime).Resume(view.(*schema.JobView))
 				} else {
-					if isStep {
-						go runtime.(*StepRuntime).Resume(view.(*schema.JobView))
-					} else {
-						go runtime.(*DagRuntime).Resume(view.(*schema.DagView))
-					}
+					go runtime.(*DagRuntime).Resume(view.(*schema.DagView))
 				}
 			}
 		}

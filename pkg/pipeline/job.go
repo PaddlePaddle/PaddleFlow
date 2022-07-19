@@ -324,15 +324,6 @@ func (pfj *PaddleFlowJob) JobID() string {
 	return pfj.ID
 }
 
-func (pfj *PaddleFlowJob) SetJobID(id string) error {
-	if pfj.ID != "" {
-		return fmt.Errorf("cannot set ID for job with id[%s]", id)
-	}
-
-	pfj.ID = id
-	return nil
-}
-
 // ----------------------------------------------------------------------------
 // Local Process Job
 // ----------------------------------------------------------------------------
