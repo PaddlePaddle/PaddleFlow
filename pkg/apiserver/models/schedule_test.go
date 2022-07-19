@@ -137,7 +137,7 @@ func TestGetUsedFsIDs(t *testing.T) {
 	fsIDMap, err = ScheduleUsedFsIDs()
 	assert.Nil(t, err)
 	assert.Equal(t, 2, len(fsIDMap))
-	print(fsIDMap)
+	fmt.Print("debug: ", fsIDMap)
 
 	schedule.PipelineVersionID = pplVersionID2
 	schedule.PipelineID = pplID2
