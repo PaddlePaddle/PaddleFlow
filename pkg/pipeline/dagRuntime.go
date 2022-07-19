@@ -652,7 +652,7 @@ func (drt *DagRuntime) creatStepRuntimeAccordingView(view *schema.JobView, name 
 	srt := NewStepRuntime(runtimeName, fullName, stepPtr,
 		view.LoopSeq, drt.ctx, ctxAndcc.ctx, drt.receiveEventChildren, drt.runConfig, drt.ID)
 
-	// 如果 view 的状态是的成功的，则据此跟新 runtime 的 output Artifact 字段下游节点会使用
+	// 如果 view 的状态是的 succeeded 或者 running，则据此更新 runtime 的 output Artifact 字段下游节点会使用
 	// 对于 command， env， condition 字段，此处可以不更新，因为不会再次写库
 	if view.Status == StatusRuntimeSucceeded {
 		for name, value := range view.Artifacts.Output {
@@ -1080,6 +1080,7 @@ func (drt *DagRuntime) processSubRuntimeErrorWithSeq(msg string, cp schema.Compo
 		crt = newDagRuntimeWithStatus(name, fullName, dag, seq, drt.ctx, ctxAndCc.ctx, drt.receiveEventChildren,
 			drt.runConfig, drt.ID, status, msg)
 	}
+
 	drt.subComponentRumtimes[componentName] = append(drt.subComponentRumtimes[componentName], crt)
 }
 
@@ -1122,9 +1123,7 @@ func (drt *DagRuntime) updateStatusAccordingSubComponentRuntimeStatus() string {
 		if loop_argument != nil {
 			// 2.2. 如果loop_argument 不能转换成 slice, 则说明在创建节点失败，是否还没有正式运行，此时直接在下方进行统计即可
 			t := reflect.TypeOf(loop_argument)
-			if t.Kind() != reflect.Slice {
-				continue
-			} else {
+			if t.Kind() == reflect.Slice {
 				v := reflect.ValueOf(loop_argument)
 				if len(cps) != v.Len() && v.Len() != 0 {
 					// v.Len 为 0 时， 会有一个占位用户的 cp
