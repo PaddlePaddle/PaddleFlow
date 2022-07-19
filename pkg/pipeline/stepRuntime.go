@@ -211,7 +211,7 @@ func (srt *StepRuntime) Resume(view *schema.JobView) {
 		srt.receiveEventChildren, srt.runConfig.mainFS, srt.getWorkFlowStep().ExtraFS)
 
 	srt.pk = view.PK
-	srt.getWorkFlowStep().ExtraFS = view.FsMount
+	srt.getWorkFlowStep().ExtraFS = view.ExtraFS
 	err := srt.updateStatus(view.Status)
 	if err != nil {
 		errMsg := fmt.Sprintf("set the sysparams for dag[%s] failed: %s", srt.name, err.Error())
@@ -814,7 +814,7 @@ func (srt *StepRuntime) newJobView(msg string) schema.JobView {
 		PK:          srt.pk,
 		LoopSeq:     srt.loopSeq,
 		Artifacts:   *newArt,
-		FsMount:     srt.getWorkFlowStep().ExtraFS,
+		ExtraFS:     srt.getWorkFlowStep().ExtraFS,
 	}
 
 	return view

@@ -314,6 +314,7 @@ func (bwf *BaseWorkflow) validate() error {
 		return err
 	}
 
+	// 9. 检查mainFS、extraFS，并填充fsID
 	if err := bwf.checkFS(); err != nil {
 		bwf.log().Errorf("check fs failed. err: %s", err.Error())
 		return err

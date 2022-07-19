@@ -23,6 +23,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	pplcommon "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 )
@@ -432,6 +433,9 @@ func TestValidateWorkflowCache(t *testing.T) {
 
 	assert.Equal(t, bwf.Source.EntryPoints.EntryPoints["data-preprocess"].(*schema.WorkflowSourceStep).Cache.Enable, bwf.Source.Cache.Enable)
 	assert.Equal(t, bwf.Source.EntryPoints.EntryPoints["data-preprocess"].(*schema.WorkflowSourceStep).Cache.MaxExpiredTime, bwf.Source.Cache.MaxExpiredTime)
+	for _, scope := range bwf.Source.Cache.FsScope {
+		scope.ID = common.ID("mockUser", bwf.Source.Cache.FsScope[0].Name)
+	}
 	assert.Equal(t, bwf.Source.EntryPoints.EntryPoints["data-preprocess"].(*schema.WorkflowSourceStep).Cache.FsScope, bwf.Source.Cache.FsScope)
 
 	// 全局 + 节点的cache MaxExpiredTime 设置失败

@@ -40,7 +40,7 @@ type JobView struct {
 	Command     string            `json:"command"`
 	Parameters  map[string]string `json:"parameters"`
 	Env         map[string]string `json:"env"`
-	FsMount     []FsMount         `json:"fsMount"`
+	ExtraFS     []FsMount         `json:"extraFS"`
 	StartTime   string            `json:"startTime"`
 	EndTime     string            `json:"endTime"`
 	Status      JobStatus         `json:"status"`

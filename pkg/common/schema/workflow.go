@@ -857,6 +857,7 @@ func (wfs *WorkflowSource) GetFsMounts() ([]FsMount, error) {
 
 // 给所有Step的fsMount和fsScope的fsID赋值，并返回
 func (wfs *WorkflowSource) ProcessFsMounts(userName string, fsName string) error {
+	wfs.FsOptions.MainFS.ID = ID(userName, wfs.FsOptions.MainFS.Name)
 
 	if err := wfs.processFsByUserName(wfs.EntryPoints.EntryPoints, userName, fsName); err != nil {
 		return err
