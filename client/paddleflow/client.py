@@ -150,6 +150,14 @@ class Client(object):
         return QueueServiceApi.add_queue(self.paddleflow_server, name, namespace, clusterName, maxResources,
                minResources, schedulingPolicy, location, quotaType, self.header)
 
+    def update_queue(self, queuename, maxResources, minResources=None, schedulingPolicy=None, location=None):
+        """ update queue"""
+        self.pre_check()
+        if queuename is None or queuename.strip() == "":
+            raise PaddleFlowSDKException("InvalidQueueName", "queuename should not be none or empty")
+        return QueueServiceApi.update_queue(self.paddleflow_server, queuename, maxResources, minResources,
+                schedulingPolicy, location, self.header)
+
     def grant_queue(self, username, queuename):
         """ grant queue"""
         self.pre_check()
