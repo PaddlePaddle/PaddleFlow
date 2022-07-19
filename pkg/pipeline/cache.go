@@ -164,7 +164,12 @@ func (cc *conservativeCacheCalculator) getFsScopeModTime() (map[string]PathToMod
 			return nil, err
 		}
 
-		pathToMT := PathToModTime{ModTime: map[string]string{}}
+		var pathToMT PathToModTime
+		if _, ok := smt[scope.ID]; ok {
+			pathToMT = smt[scope.ID]
+		} else {
+			pathToMT = PathToModTime{ModTime: map[string]string{}}
+		}
 
 		FsScope := strings.TrimSpace(scope.Path)
 		if FsScope == "" {
