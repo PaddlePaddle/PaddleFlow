@@ -789,7 +789,7 @@ func checkFs(userName string, fsName string, wfs *schema.WorkflowSource) error {
 					return err
 				}
 				if !ok {
-					return fmt.Errorf("[sub_path] with id[%s] is not dir", mount.ID)
+					return fmt.Errorf("[sub_path] with id[%s] is not dir", fsID)
 				}
 			}
 		}
