@@ -293,7 +293,7 @@ CREATE TABLE IF NOT EXISTS `schedule` (
 
 CREATE TABLE IF NOT EXISTS `run_cache` (
     `pk` bigint(20) NOT NULL AUTO_INCREMENT,
-    `id` varchar(60) NOT NULL UNIQUE,
+    `id` varchar(60) NOT NULL,
     `job_id` varchar(60) NOT NULL,
     `first_fp` varchar(256),
     `second_fp` varchar(256),
@@ -309,7 +309,7 @@ CREATE TABLE IF NOT EXISTS `run_cache` (
     `updated_at` datetime(3) DEFAULT NULL,
     `deleted_at` datetime(3) DEFAULT NULL,
     PRIMARY KEY (`pk`),
-    UNIQUE KEY (`id`),
+    INDEX (`id`),
     INDEX (`job_id`),
     INDEX (`fs_id`),
     INDEX (`strategy`)
