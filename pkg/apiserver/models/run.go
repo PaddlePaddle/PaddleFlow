@@ -108,7 +108,6 @@ func (r *Run) decode() error {
 		logger.Logger().Errorf("validateRuntimeAndPostProcess in run decode failed, error: %s", err.Error())
 		return err
 	}
-	logger.Logger().Infof("debug: validateRuntimeAndPostProcess finish")
 
 	// decode param
 	if len(r.ParametersJson) > 0 {

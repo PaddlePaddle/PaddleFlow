@@ -29,7 +29,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/fs"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
@@ -46,7 +45,7 @@ var wfMap = make(map[string]*pipeline.Workflow, 0)
 
 const (
 	JsonFsOptions   = "fs_options" //由于在获取BodyMap的FsOptions前已经转为下划线形式，因此这里为fs_options
-	JsonUserName    = "userName"
+	JsonUserName    = "username"
 	JsonDescription = "description"
 	JsonFlavour     = "flavour"
 	JsonQueue       = "queue"
@@ -64,16 +63,16 @@ type CreateRunRequest struct {
 	Description string                 `json:"desc,omitempty"`       // optional
 	Parameters  map[string]interface{} `json:"parameters,omitempty"` // optional
 	DockerEnv   string                 `json:"dockerEnv,omitempty"`  // optional
-	// run workflow source. priority: RunYamlRaw > PipelineID + PipelineDetailID > RunYamlPath
+	// run workflow source. priority: RunYamlRaw > PipelineID + PipelineVersionID > RunYamlPath
 	// 为了防止字符串或者不同的http客户端对run.yaml
 	// 格式中的特殊字符串做特殊过滤处理导致yaml文件不正确，因此采用runYamlRaw采用base64编码传输
-	Disabled         string `json:"disabled,omitempty"`         // optional
-	RunYamlRaw       string `json:"runYamlRaw,omitempty"`       // optional. one of 3 sources of run. high priority
-	PipelineID       string `json:"pipelineID,omitempty"`       // optional. one of 3 sources of run. medium priority
-	PipelineDetailID string `json:"pipelineDetailID,omitempty"` // optional. one of 3 sources of run. medium priority
-	RunYamlPath      string `json:"runYamlPath,omitempty"`      // optional. one of 3 sources of run. low priority
-	ScheduleID       string `json:"scheduleID"`
-	ScheduledAt      string `json:"scheduledAt"`
+	Disabled          string `json:"disabled,omitempty"`          // optional
+	RunYamlRaw        string `json:"runYamlRaw,omitempty"`        // optional. one of 3 sources of run. high priority
+	PipelineID        string `json:"pipelineID,omitempty"`        // optional. one of 3 sources of run. medium priority
+	PipelineVersionID string `json:"pipelineVersionID,omitempty"` // optional. one of 3 sources of run. medium priority
+	RunYamlPath       string `json:"runYamlPath,omitempty"`       // optional. one of 3 sources of run. low priority
+	ScheduleID        string `json:"scheduleID"`
+	ScheduledAt       string `json:"scheduledAt"`
 }
 
 // used for API CreateRunJson to unmarshal steps in entryPoints and postProcess
@@ -187,24 +186,24 @@ func buildWorkflowSource(ctx logger.RequestContext, req CreateRunRequest, fsID s
 			return schema.WorkflowSource{}, "", "", err
 		}
 
-		// query pipeline detail
-		var pplDetail models.PipelineDetail
-		if req.PipelineDetailID == "" {
-			pplDetail, err = models.GetLastPipelineDetail(req.PipelineID)
+		// query pipeline version
+		var pplVersion models.PipelineVersion
+		if req.PipelineVersionID == "" {
+			pplVersion, err = models.GetLastPipelineVersion(req.PipelineID)
 			if err != nil {
-				logger.Logger().Errorf("get latest detail[%s] of pipeline[%s]. err: %v", req.PipelineDetailID, req.PipelineID, err)
+				logger.Logger().Errorf("get latest version[%s] of pipeline[%s]. err: %v", req.PipelineVersionID, req.PipelineID, err)
 				return schema.WorkflowSource{}, "", "", err
 			}
 		} else {
-			pplDetail, err = models.GetPipelineDetail(req.PipelineID, req.PipelineDetailID)
+			pplVersion, err = models.GetPipelineVersion(req.PipelineID, req.PipelineVersionID)
 			if err != nil {
-				logger.Logger().Errorf("get detail[%s] of pipeline[%s]. err: %v", req.PipelineDetailID, req.PipelineID, err)
+				logger.Logger().Errorf("get version[%s] of pipeline[%s]. err: %v", req.PipelineVersionID, req.PipelineID, err)
 				return schema.WorkflowSource{}, "", "", err
 			}
 		}
 
-		runYaml = pplDetail.PipelineYaml
-		source = fmt.Sprintf("%s-%s", req.PipelineID, req.PipelineDetailID)
+		runYaml = pplVersion.PipelineYaml
+		source = fmt.Sprintf("%s-%s", req.PipelineID, req.PipelineVersionID)
 	} else { // low priority: wfs in fs, read from runYamlPath
 		if fsID == "" {
 			err := fmt.Errorf("can not get runYaml without fs")
@@ -684,7 +683,6 @@ func ValidateAndCreateRun(ctx logger.RequestContext, run *models.Run, userName s
 		logger.Logger().Errorf("encode run failed. error:%s", err.Error())
 		return nil, "", err
 	}
-	logger.Logger().Infof("debug: fsName before validate fs is [%s]", run.FsName)
 
 	if err := checkFs(userName, run.FsName, &run.WorkflowSource); err != nil {
 		return nil, "", err
@@ -747,30 +745,20 @@ func ValidateAndStartRun(ctx logger.RequestContext, run models.Run, userName str
 }
 
 func checkFs(userName string, fsName string, wfs *schema.WorkflowSource) error {
-	fsIDs, err := wfs.ProcessFsAndGetAllIDs(userName, fsName)
+	fsNames, err := wfs.ProcessFsAndGetNames(userName, fsName)
 	if err != nil {
 		logger.Logger().Errorf("process fs failed when check fs. error: %s", err.Error())
 		return err
 	}
 
+	// 这个是全局的fsName
 	if fsName != "" {
-		fsID := common.ID(userName, fsName)
-		fsIDs = append(fsIDs, fsID)
+		fsNames = append(fsNames, fsName)
 	}
 
 	//检查fs权限
-	for _, id := range fsIDs {
-		fsService := fs.GetFileSystemService()
-		hasPermission, err := fsService.HasFsPermission(userName, id)
-		if err != nil {
-			err := fmt.Errorf("check fs permission failed with userName[%s] and fsID[%s]. error: %s",
-				userName, id, err.Error())
-			logger.Logger().Errorf(err.Error())
-			return err
-		}
-		if !hasPermission {
-			err := fmt.Errorf("user[%s] has no permission to fs[%s]", userName, id)
-			logger.Logger().Errorf(err.Error())
+	for _, fsName := range fsNames {
+		if _, err := CheckFsAndGetID(userName, "", fsName); err != nil {
 			return err
 		}
 	}
@@ -1125,7 +1113,6 @@ func newWorkflowByRun(run models.Run) (*pipeline.Workflow, error) {
 		pplcommon.WfExtraInfoKeyUserName: run.UserName,
 		pplcommon.WfExtraInfoKeyFsName:   run.FsName,
 	}
-	logger.LoggerForRun(run.ID).Infof("debug: fsname in extra is [%s]", extraInfo[pplcommon.WfExtraInfoKeyFsName])
 	wfPtr, err := pipeline.NewWorkflow(run.WorkflowSource, run.ID, run.Parameters, extraInfo, workflowCallbacks)
 	if err != nil {
 		logger.LoggerForRun(run.ID).Warnf("NewWorkflow by run[%s] failed. error:%v\n", run.ID, err)

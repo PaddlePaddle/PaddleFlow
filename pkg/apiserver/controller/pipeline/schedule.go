@@ -37,7 +37,7 @@ type CreateScheduleRequest struct {
 	Name              string `json:"name"`
 	Desc              string `json:"desc"` // optional
 	PipelineID        string `json:"pipelineID"`
-	PipelineDetailID  string `json:"pipelineDetailID"`
+	PipelineVersionID string `json:"pipelineVersionID"`
 	Crontab           string `json:"crontab"`
 	StartTime         string `json:"startTime"`         // optional
 	EndTime           string `json:"endTime"`           // optional
@@ -54,22 +54,22 @@ type CreateScheduleResponse struct {
 }
 
 type ScheduleBrief struct {
-	ID               string                 `json:"scheduleID"`
-	Name             string                 `json:"name"`
-	Desc             string                 `json:"desc"`
-	PipelineID       string                 `json:"pipelineID"`
-	PipelineDetailID string                 `json:"pipelineDetailID"`
-	UserName         string                 `json:"username"`
-	FsConfig         models.FsConfig        `json:"fsConfig"`
-	Crontab          string                 `json:"crontab"`
-	Options          models.ScheduleOptions `json:"options"`
-	StartTime        string                 `json:"startTime"`
-	EndTime          string                 `json:"endTime"`
-	CreateTime       string                 `json:"createTime"`
-	UpdateTime       string                 `json:"updateTime"`
-	NextRunTime      string                 `json:"nextRunTime"`
-	Message          string                 `json:"scheduleMsg"`
-	Status           string                 `json:"status"`
+	ID                string                 `json:"scheduleID"`
+	Name              string                 `json:"name"`
+	Desc              string                 `json:"desc"`
+	PipelineID        string                 `json:"pipelineID"`
+	PipelineVersionID string                 `json:"pipelineVersionID"`
+	UserName          string                 `json:"username"`
+	FsConfig          models.FsConfig        `json:"fsConfig"`
+	Crontab           string                 `json:"crontab"`
+	Options           models.ScheduleOptions `json:"options"`
+	StartTime         string                 `json:"startTime"`
+	EndTime           string                 `json:"endTime"`
+	CreateTime        string                 `json:"createTime"`
+	UpdateTime        string                 `json:"updateTime"`
+	NextRunTime       string                 `json:"nextRunTime"`
+	Message           string                 `json:"scheduleMsg"`
+	Status            string                 `json:"status"`
 }
 
 type ListScheduleResponse struct {
@@ -87,7 +87,7 @@ func (b *ScheduleBrief) updateFromScheduleModel(schedule models.Schedule) (err e
 	b.Name = schedule.Name
 	b.Desc = schedule.Desc
 	b.PipelineID = schedule.PipelineID
-	b.PipelineDetailID = schedule.PipelineDetailID
+	b.PipelineVersionID = schedule.PipelineVersionID
 	b.UserName = schedule.UserName
 	b.Crontab = schedule.Crontab
 	b.CreateTime = schedule.CreatedAt.Format("2006-01-02 15:04:05")
@@ -211,7 +211,7 @@ func CreateSchedule(ctx *logger.RequestContext, request *CreateScheduleRequest) 
 		return CreateScheduleResponse{}, err
 	}
 
-	fsConfig := models.FsConfig{FsName: request.FsName, UserName: request.UserName}
+	fsConfig := models.FsConfig{FsName: request.FsName, Username: request.UserName}
 	StrFsConfig, err := fsConfig.Encode(ctx.Logging())
 	if err != nil {
 		ctx.ErrorCode = common.InvalidArguments
@@ -264,8 +264,8 @@ func CreateSchedule(ctx *logger.RequestContext, request *CreateScheduleRequest) 
 		nextRunAt = cronSchedule.Next(currentTime)
 	}
 
-	// 校验用户对pplID pplDetailID是否有权限
-	hasAuth, _, _, err := CheckPipelineDetailPermission(ctx.UserName, request.PipelineID, request.PipelineDetailID)
+	// 校验用户对pplID pplVersionID是否有权限
+	hasAuth, _, _, err := CheckPipelineVersionPermission(ctx.UserName, request.PipelineID, request.PipelineVersionID)
 	if err != nil {
 		ctx.ErrorCode = common.InvalidArguments
 		errMsg := fmt.Sprintf("create schedule failed, %s", err.Error())
@@ -294,19 +294,19 @@ func CreateSchedule(ctx *logger.RequestContext, request *CreateScheduleRequest) 
 
 	// create schedule in db after run.yaml validated
 	schedule := models.Schedule{
-		ID:               "", // to be back filled according to db pk
-		Name:             request.Name,
-		Desc:             request.Desc,
-		PipelineID:       request.PipelineID,
-		PipelineDetailID: request.PipelineDetailID,
-		UserName:         ctx.UserName,
-		FsConfig:         string(StrFsConfig),
-		Crontab:          request.Crontab,
-		Options:          string(StrOptions),
-		Status:           models.ScheduleStatusRunning,
-		StartAt:          startAt,
-		EndAt:            endAt,
-		NextRunAt:        nextRunAt,
+		ID:                "", // to be back filled according to db pk
+		Name:              request.Name,
+		Desc:              request.Desc,
+		PipelineID:        request.PipelineID,
+		PipelineVersionID: request.PipelineVersionID,
+		UserName:          ctx.UserName,
+		FsConfig:          string(StrFsConfig),
+		Crontab:           request.Crontab,
+		Options:           string(StrOptions),
+		Status:            models.ScheduleStatusRunning,
+		StartAt:           startAt,
+		EndAt:             endAt,
+		NextRunAt:         nextRunAt,
 	}
 
 	scheduleID, err := models.CreateSchedule(ctx.Logging(), schedule)
@@ -342,7 +342,7 @@ func SendSingnal(opType, scheduleID string) error {
 	return nil
 }
 
-func ListSchedule(ctx *logger.RequestContext, marker string, maxKeys int, pplFilter, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter []string) (ListScheduleResponse, error) {
+func ListSchedule(ctx *logger.RequestContext, marker string, maxKeys int, pplFilter, pplVersionFilter, userFilter, scheduleFilter, nameFilter, statusFilter []string) (ListScheduleResponse, error) {
 	ctx.Logging().Debugf("begin list schedule.")
 	var pk int64
 	var err error
@@ -369,7 +369,7 @@ func ListSchedule(ctx *logger.RequestContext, marker string, maxKeys int, pplFil
 	}
 
 	// model list
-	scheduleList, err := models.ListSchedule(ctx.Logging(), pk, maxKeys, pplFilter, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
+	scheduleList, err := models.ListSchedule(ctx.Logging(), pk, maxKeys, pplFilter, pplVersionFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
 	if err != nil {
 		ctx.Logging().Errorf("models list schedule failed. err:[%s]", err.Error())
 		ctx.ErrorCode = common.InternalError
@@ -381,7 +381,7 @@ func ListSchedule(ctx *logger.RequestContext, marker string, maxKeys int, pplFil
 	listScheduleResponse.IsTruncated = false
 	if len(scheduleList) > 0 {
 		schedule := scheduleList[len(scheduleList)-1]
-		isLastPk, err := models.IsLastSchedulePk(ctx.Logging(), schedule.Pk, pplFilter, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
+		isLastPk, err := models.IsLastSchedulePk(ctx.Logging(), schedule.Pk, pplFilter, pplVersionFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
 		if err != nil {
 			ctx.ErrorCode = common.InternalError
 			errMsg := fmt.Sprintf("get last schedule Pk failed. err:[%s]", err.Error())
