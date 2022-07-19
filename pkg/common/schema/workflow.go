@@ -484,7 +484,7 @@ type FsMount struct {
 	Name      string `yaml:"name"          json:"name"`
 	MountPath string `yaml:"mount_path"    json:"mountPath"`
 	SubPath   string `yaml:"sub_path"      json:"subPath"`
-	Readonly  bool   `yaml:"readonly"      json:"readonly"`
+	ReadOnly  bool   `yaml:"read_only"     json:"readOnly"`
 }
 
 type WorkflowSource struct {

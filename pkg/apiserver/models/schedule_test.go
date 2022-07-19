@@ -33,9 +33,10 @@ const (
 	MockNormalUser = "user1"
 	MockFsName     = "mockFs"
 	MockFsID       = "root-mockFs"
-)
 
-const runYamlPath = "../controller/pipeline/testcase/run_dag.yaml"
+	runDagYamlPath = "../controller/pipeline/testcase/run_dag.yaml"
+	runYamlPath    = "../controller/pipeline/testcase/run.yaml"
+)
 
 func loadCase(casePath string) []byte {
 	data, err := ioutil.ReadFile(casePath)
@@ -52,16 +53,17 @@ func insertPipeline(t *testing.T, logEntry *log.Entry) (pplID1, pplID2, pplDetai
 		Desc:     "ppl1",
 		UserName: "user1",
 	}
-	yamlStr := string(loadCase(runYamlPath))
+	dagYamlStr := string(loadCase(runDagYamlPath))
 	pplDetail1 := PipelineDetail{
 		FsID:         "user1-fsname",
 		FsName:       "fsname",
 		YamlPath:     "./run.yml",
-		PipelineYaml: yamlStr,
+		PipelineYaml: dagYamlStr,
 		PipelineMd5:  "md5_1",
 		UserName:     "user1",
 	}
 
+	yamlStr := string(loadCase(runYamlPath))
 	ppl2 := Pipeline{
 		Name:     "ppl2",
 		Desc:     "ppl2",
@@ -106,7 +108,7 @@ func insertPipeline(t *testing.T, logEntry *log.Entry) (pplID1, pplID2, pplDetai
 func TestGetUsedFsIDs(t *testing.T) {
 	initMockDB()
 	logEntry := log.WithFields(log.Fields{})
-	pplID1, _, pplDetailID1, _ := insertPipeline(t, logEntry)
+	pplID1, pplID2, pplDetailID1, pplDetailID2 := insertPipeline(t, logEntry)
 
 	schedule := Schedule{
 		ID:               "", // to be back filled according to db pk
@@ -135,8 +137,11 @@ func TestGetUsedFsIDs(t *testing.T) {
 
 	fsIDMap, err = ScheduleUsedFsIDs()
 	assert.Nil(t, err)
-	assert.Equal(t, 1, len(fsIDMap))
+	assert.Equal(t, 2, len(fsIDMap))
 	print(fsIDMap)
+
+	schedule.PipelineDetailID = pplDetailID2
+	schedule.PipelineID = pplID2
 
 	schedID, err = CreateSchedule(logEntry, schedule)
 	assert.Nil(t, err)
@@ -144,7 +149,7 @@ func TestGetUsedFsIDs(t *testing.T) {
 
 	fsIDMap, err = ScheduleUsedFsIDs()
 	assert.Nil(t, err)
-	assert.Equal(t, 2, len(fsIDMap))
+	assert.Equal(t, 3, len(fsIDMap))
 	print(fsIDMap)
 
 	// 创建 success 状态的schedule
@@ -155,7 +160,7 @@ func TestGetUsedFsIDs(t *testing.T) {
 
 	fsIDMap, err = ScheduleUsedFsIDs()
 	assert.Nil(t, err)
-	assert.Equal(t, 2, len(fsIDMap))
+	assert.Equal(t, 3, len(fsIDMap))
 
 	// 创建 failed 状态的schedule
 	schedule.Status = ScheduleStatusFailed
@@ -165,7 +170,7 @@ func TestGetUsedFsIDs(t *testing.T) {
 
 	fsIDMap, err = ScheduleUsedFsIDs()
 	assert.Nil(t, err)
-	assert.Equal(t, 2, len(fsIDMap))
+	assert.Equal(t, 3, len(fsIDMap))
 
 	// 创建 terminated 状态的schedule
 	schedule.Status = ScheduleStatusTerminated
@@ -175,7 +180,7 @@ func TestGetUsedFsIDs(t *testing.T) {
 
 	fsIDMap, err = ScheduleUsedFsIDs()
 	assert.Nil(t, err)
-	assert.Equal(t, 2, len(fsIDMap))
+	assert.Equal(t, 3, len(fsIDMap))
 }
 
 // ------ 周期调度逻辑需要的函数 ------

@@ -381,6 +381,9 @@ func ScheduleUsedFsIDs() (map[string]bool, error) {
 			mount.ID = common.ID(res.Username, mount.Name)
 			fsIDMap[mount.ID] = true
 		}
+
+		mainFSID := common.ID(res.Username, wfs.FsOptions.MainFS.Name)
+		fsIDMap[mainFSID] = true
 	}
 
 	return fsIDMap, nil

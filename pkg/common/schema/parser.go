@@ -556,7 +556,7 @@ func (p *Parser) ParseFsMount(fsMap map[string]interface{}, fs *FsMount) error {
 			if !ok {
 				return fmt.Errorf("[read_only] should be bool type")
 			}
-			fs.Readonly = value
+			fs.ReadOnly = value
 		default:
 			return fmt.Errorf("[main_fs] or each mount info in [extra_fs] has no attribute [%s]", key)
 		}
