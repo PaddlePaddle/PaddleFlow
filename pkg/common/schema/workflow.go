@@ -714,7 +714,7 @@ func (wfs *WorkflowSource) ProcessRuntimeComponents(components map[string]Compon
 
 				// 合并全局 fs_mount 和节点 fs_mount
 				// 获取全局 fs_mount
-				globalFsMount, ok, err := unstructured.NestedFieldCopy(yamlMap, "fs_options", "fs_mount")
+				globalFsMount, ok, err := unstructured.NestedFieldCopy(yamlMap, "fs_options", "extra_fs")
 				if err != nil {
 					return fmt.Errorf("check globalFsMount failed")
 				}
