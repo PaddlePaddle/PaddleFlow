@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"time"
 
-	cron "github.com/robfig/cron/v3"
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 
@@ -67,23 +66,23 @@ var ScheduleNotFinalStatusList = []string{
 }
 
 type Schedule struct {
-	Pk               int64          `gorm:"primaryKey;autoIncrement;not null" json:"-"`
-	ID               string         `gorm:"type:varchar(60);not null"         json:"scheduleID"`
-	Name             string         `gorm:"type:varchar(60);not null"         json:"name"`
-	Desc             string         `gorm:"type:varchar(256);not null"       json:"desc"`
-	PipelineID       string         `gorm:"type:varchar(60);not null"         json:"pipelineID"`
-	PipelineDetailID string         `gorm:"type:varchar(60);not null"         json:"pipelineDetailID"`
-	UserName         string         `gorm:"type:varchar(60);not null"         json:"username"`
-	Crontab          string         `gorm:"type:varchar(60);not null"         json:"crontab"`
-	Options          string         `gorm:"type:text;size:65535;not null"     json:"options"`
-	Message          string         `gorm:"type:text;size:65535;not null"     json:"scheduleMsg"`
-	Status           string         `gorm:"type:varchar(32);not null"         json:"status"`
-	StartAt          sql.NullTime   `                                         json:"-"`
-	EndAt            sql.NullTime   `                                         json:"-"`
-	NextRunAt        time.Time      `                                         json:"-"`
-	CreatedAt        time.Time      `                                         json:"-"`
-	UpdatedAt        time.Time      `                                         json:"-"`
-	DeletedAt        gorm.DeletedAt `                                         json:"-"`
+	Pk                int64          `gorm:"primaryKey;autoIncrement;not null" json:"-"`
+	ID                string         `gorm:"type:varchar(60);not null"         json:"scheduleID"`
+	Name              string         `gorm:"type:varchar(60);not null"         json:"name"`
+	Desc              string         `gorm:"type:varchar(256);not null"       json:"desc"`
+	PipelineID        string         `gorm:"type:varchar(60);not null"         json:"pipelineID"`
+	PipelineVersionID string         `gorm:"type:varchar(60);not null"         json:"pipelineVersionID"`
+	UserName          string         `gorm:"type:varchar(60);not null"         json:"username"`
+	Crontab           string         `gorm:"type:varchar(60);not null"         json:"crontab"`
+	Options           string         `gorm:"type:text;size:65535;not null"     json:"options"`
+	Message           string         `gorm:"type:text;size:65535;not null"     json:"scheduleMsg"`
+	Status            string         `gorm:"type:varchar(32);not null"         json:"status"`
+	StartAt           sql.NullTime   `                                         json:"-"`
+	EndAt             sql.NullTime   `                                         json:"-"`
+	NextRunAt         time.Time      `                                         json:"-"`
+	CreatedAt         time.Time      `                                         json:"-"`
+	UpdatedAt         time.Time      `                                         json:"-"`
+	DeletedAt         gorm.DeletedAt `                                         json:"-"`
 }
 
 func (Schedule) TableName() string {
@@ -188,15 +187,15 @@ func CreateSchedule(logEntry *log.Entry, schedule Schedule) (scheduleID string, 
 	return schedule.ID, err
 }
 
-func ListSchedule(logEntry *log.Entry, pk int64, maxKeys int, pplFilter, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter []string) ([]Schedule, error) {
+func ListSchedule(logEntry *log.Entry, pk int64, maxKeys int, pplFilter, pplVersionFilter, userFilter, scheduleFilter, nameFilter, statusFilter []string) ([]Schedule, error) {
 	logEntry.Debugf("begin list schedule.")
 	tx := storage.DB.Model(&Schedule{}).Where("pk > ?", pk)
 
 	if len(pplFilter) > 0 {
 		tx = tx.Where("pipeline_id IN (?)", pplFilter)
 	}
-	if len(pplDetailFilter) > 0 {
-		tx = tx.Where("pipeline_detail_id IN (?)", pplDetailFilter)
+	if len(pplVersionFilter) > 0 {
+		tx = tx.Where("pipeline_version_id IN (?)", pplVersionFilter)
 	}
 	if len(userFilter) > 0 {
 		tx = tx.Where("user_name IN (?)", userFilter)
@@ -217,25 +216,25 @@ func ListSchedule(logEntry *log.Entry, pk int64, maxKeys int, pplFilter, pplDeta
 	var scheduleList []Schedule
 	tx = tx.Find(&scheduleList)
 	if tx.Error != nil {
-		logEntry.Errorf("list schedule failed. Filters: pplDetail[%v], user{%v}, schedule{%v}, name{%v}, status{%v}. error:%s",
-			pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter, tx.Error.Error())
+		logEntry.Errorf("list schedule failed. Filters: pplVersion[%v], user{%v}, schedule{%v}, name{%v}, status{%v}. error:%s",
+			pplVersionFilter, userFilter, scheduleFilter, nameFilter, statusFilter, tx.Error.Error())
 		return []Schedule{}, tx.Error
 	}
 
 	return scheduleList, nil
 }
 
-func IsLastSchedulePk(logEntry *log.Entry, pk int64, pplFilter, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter []string) (bool, error) {
-	logEntry.Debugf("get last schedule, Filters: ppl[%v], pplDetail[%v], user[%v], schedule[%v], name[%v], status[%v]",
-		pplFilter, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
+func IsLastSchedulePk(logEntry *log.Entry, pk int64, pplFilter, pplVersionFilter, userFilter, scheduleFilter, nameFilter, statusFilter []string) (bool, error) {
+	logEntry.Debugf("get last schedule, Filters: ppl[%v], pplVersion[%v], user[%v], schedule[%v], name[%v], status[%v]",
+		pplFilter, pplVersionFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
 	tx := storage.DB.Model(&Schedule{})
 
 	if len(pplFilter) > 0 {
 		tx = tx.Where("pipeline_id IN (?)", pplFilter)
 	}
 
-	if len(pplDetailFilter) > 0 {
-		tx = tx.Where("pipeline_detail_id IN (?)", pplDetailFilter)
+	if len(pplVersionFilter) > 0 {
+		tx = tx.Where("pipeline_version_id IN (?)", pplVersionFilter)
 	}
 	if len(userFilter) > 0 {
 		tx = tx.Where("user_name IN (?)", userFilter)
@@ -391,209 +390,12 @@ func ScheduleUsedFsIDs() (map[string]bool, error) {
 
 // ------ 周期调度逻辑需要的函数 ------
 
-func checkNextRunAt(nextRunAt, currentTime time.Time, endAt sql.NullTime) bool {
-	if nextRunAt.After(currentTime) {
-		return false
-	}
-	if endAt.Valid && nextRunAt.After(endAt.Time) {
-		return false
-	}
-
-	return true
-}
-
 func getEarlierTime(time1, time2 time.Time) time.Time {
 	if time1.Before(time2) {
 		return time1
 	} else {
 		return time2
 	}
-}
-
-// 先处理同时满足currentTime之前，而且schedule.EndAt之前的任务
-// 只需要处理 catchup == true 的case
-// - 如果catchup == false，即不需要catchup，则currentTime和schedule.EndAt前，所有miss的周期任务都被抛弃，不再发起
-func findExectableRunBeforeCurrentTime(logEntry *log.Entry, schedule Schedule, currentTime time.Time, checkCatchup bool, totalCount int, execMap map[string][]time.Time) (time.Time, error) {
-	options, err := DecodeScheduleOptions(schedule.Options)
-	if err != nil {
-		errMsg := fmt.Sprintf("decode options of schedule[%s] failed. error: %v", schedule.ID, err)
-		return time.Time{}, fmt.Errorf(errMsg)
-	}
-
-	cronSchedule, err := cron.ParseStandard(schedule.Crontab)
-	if err != nil {
-		errMsg := fmt.Sprintf("parse crontab spec[%s] for schedule[%s] of pipeline detail[%s] failed, errMsg[%s]",
-			schedule.Crontab, schedule.ID, schedule.PipelineDetailID, err.Error())
-		return time.Time{}, fmt.Errorf(errMsg)
-	}
-
-	catchup := true
-	if checkCatchup && options.Catchup == false {
-		catchup = false
-	}
-
-	logEntry.Infof("findExectableRunBeforeCurrentTime with catchup[%t], init totalCount[%d], schedule[%v]", catchup, totalCount, schedule)
-
-	nextRunAt := schedule.NextRunAt
-	expire_interval_durtion := time.Duration(options.ExpireInterval) * time.Second
-	for ; checkNextRunAt(nextRunAt, currentTime, schedule.EndAt); nextRunAt = cronSchedule.Next(nextRunAt) {
-		logEntry.Infof("start to check schedule[%s] at %s, with schedule.EndAt[%s]", schedule.ID, nextRunAt.Format("2006-01-02 15:04:05"), schedule.EndAt.Time.Format("2006-01-02 15:04:05"))
-
-		if catchup == false {
-			continue
-		}
-
-		if options.ExpireInterval != 0 && nextRunAt.Add(expire_interval_durtion).Before(currentTime) {
-			logEntry.Infof("skip nextRunAt[%s] of schedule[%s], beyond expire interval[%d] from currentTime[%s]",
-				nextRunAt.Format("2006-01-02 15:04:05"), schedule.ID, options.ExpireInterval, currentTime.Format("2006-01-02 15:04:05"))
-			continue
-		}
-
-		if options.Concurrency == 0 || totalCount < options.Concurrency {
-			execMap[schedule.ID] = append(execMap[schedule.ID], nextRunAt)
-			totalCount += 1
-		} else {
-			if options.ConcurrencyPolicy == ConcurrencyPolicySuspend {
-				// 直接跳出循环，不会继续更新nextRunAt
-				errMsg := fmt.Sprintf("concurrency of schedule with ID[%s] already reach[%d], so suspend", schedule.ID, options.Concurrency)
-				logEntry.Info(errMsg)
-				break
-			} else if options.ConcurrencyPolicy == ConcurrencyPolicyReplace {
-				// 停止该schedule最早的run，并发起新的run，更新next_run_at
-				execMap[schedule.ID] = append(execMap[schedule.ID], nextRunAt)
-				totalCount += 1
-			} else if options.ConcurrencyPolicy == ConcurrencyPolicySkip {
-				// 不跳出循环，会继续更新nextRunAt
-				errMsg := fmt.Sprintf("concurrency of schedule with ID[%s] already reach[%d], so skip", schedule.ID, options.Concurrency)
-				logEntry.Info(errMsg)
-			}
-		}
-	}
-
-	return nextRunAt, nil
-}
-
-func updateKillMap(logEntry *log.Entry, scheduleID string, notEndedCount, concurrency int, execMap map[string][]time.Time, killMap map[string][]string) error {
-	if notEndedCount+len(execMap[scheduleID]) > concurrency {
-		var stopCount int
-		if len(execMap[scheduleID]) >= concurrency {
-			execMap[scheduleID] = execMap[scheduleID][len(execMap[scheduleID])-concurrency:]
-			stopCount = int(notEndedCount)
-		} else {
-			stopCount = notEndedCount + len(execMap[scheduleID]) - concurrency
-		}
-
-		// 获取待停止的runid
-		notEndedList := []string{common.StatusRunInitiating, common.StatusRunPending, common.StatusRunRunning, common.StatusRunTerminating}
-		scheduleIDList := []string{scheduleID}
-		stopRunList, err := ListRun(logEntry, 0, stopCount, []string{}, []string{}, []string{}, []string{}, notEndedList, scheduleIDList)
-		if err != nil {
-			errMsg := fmt.Sprintf("get runs to stop for schedule[%s] failed, err: %s", scheduleID, err.Error())
-			logEntry.Error(errMsg)
-			return err
-		}
-		for _, run := range stopRunList {
-			killMap[scheduleID] = append(killMap[scheduleID], run.ID)
-		}
-	}
-
-	return nil
-}
-
-// 查询数据库
-// - 获取需要发起的周期调度，更新对应next_run_at
-// - 更新到达end_time的周期调度状态
-// - 获取下一个wakeup时间(如果不存在则是空指针)
-func GetAvailableSchedule(logEntry *log.Entry, checkCatchup bool) (killMap map[string][]string, execMap map[string][]time.Time, nextWakeupTime *time.Time, err error) {
-	// todo: 查询时，要添加for update锁，避免多个paddleFlow实例同时调度时，记录被同时update
-	execMap = map[string][]time.Time{}
-	killMap = map[string][]string{}
-	nextWakeupTime = nil
-
-	currentTime := time.Now()
-	logEntry.Infof("begin to search available schedule before [%s]", currentTime.Format("01-02-2006 15:04:05"))
-
-	schedules, err := GetSchedulesByStatus(logEntry, ScheduleStatusRunning)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-
-	for _, schedule := range schedules {
-		options, err := DecodeScheduleOptions(schedule.Options)
-		if err != nil {
-			errMsg := fmt.Sprintf("decode options[%s] of schedule of ID[%s] failed. error: %v", schedule.Options, schedule.ID, err)
-			logEntry.Errorf(errMsg)
-			return nil, nil, nil, fmt.Errorf(errMsg)
-		}
-
-		count, err := CountActiveRunsForSchedule(logEntry, schedule.ID)
-		if err != nil {
-			errMsg := fmt.Sprintf("count notEnded runs for schedule[%s] failed. error:%s", schedule.ID, err.Error())
-			logEntry.Errorf(errMsg)
-			return nil, nil, nil, fmt.Errorf(errMsg)
-		}
-
-		// 先处理同时满足currentTime之前，而且schedule.EndAt之前的任务
-		notEndedCount := int(count)
-		nextRunAt, err := findExectableRunBeforeCurrentTime(logEntry, schedule, currentTime, checkCatchup, notEndedCount, execMap)
-		if err != nil {
-			return nil, nil, nil, err
-		}
-
-		logEntry.Infof("after findExectableRunBeforeCurrentTime, execMap[%v], notEndedCount:[%d]", execMap, notEndedCount)
-
-		// Concurrency != 0，即存在并发度限制，而且ConcurrencyPolicy == replace时，有可能【待发起任务 + 运行中任务】>= concurrency
-		// 此时判断是否需要截取一部分待运行任务，以及停止一些已经启动的任务
-		if options.Concurrency != 0 && options.ConcurrencyPolicy == ConcurrencyPolicyReplace {
-			err = updateKillMap(logEntry, schedule.ID, notEndedCount, options.Concurrency, execMap, killMap)
-			if err != nil {
-				errMsg := fmt.Sprintf("getKillMap for schedule[%s] failed, err: %s", schedule.ID, err.Error())
-				return nil, nil, nil, fmt.Errorf(errMsg)
-			}
-		}
-
-		// 更新 NextRunAt 字段
-		to_update := false
-		if !nextRunAt.Equal(schedule.NextRunAt) {
-			schedule.NextRunAt = nextRunAt
-			to_update = true
-		}
-
-		// 更新 status 字段
-		if schedule.EndAt.Valid && nextRunAt.After(schedule.EndAt.Time) {
-			schedule.Status = ScheduleStatusSuccess
-			to_update = true
-		}
-
-		if to_update {
-			result := storage.DB.Model(&schedule).Save(schedule)
-			if result.Error != nil {
-				errMsg := fmt.Sprintf("update schedule[%s] of pipeline detail[%s] failed, error:%v",
-					schedule.ID, schedule.PipelineDetailID, result.Error)
-				logEntry.Errorf(errMsg)
-				return nil, nil, nil, fmt.Errorf(errMsg)
-			}
-		}
-
-		// 更新全局wakeup时间
-		// 1. 如果NextRunAt <= currentTime，证明目前schedule超过concurrency，而且concurrency是suspend，导致调度被阻塞，此时nextRunAt不能被纳入nextWakeupTime
-		// 2. 如果status是终止态，nextRunAt也不能被纳入nextWakeupTime
-		if schedule.Status == ScheduleStatusRunning && schedule.NextRunAt.After(currentTime) {
-			var earlierTime time.Time
-			if schedule.EndAt.Valid {
-				earlierTime = getEarlierTime(schedule.NextRunAt, schedule.EndAt.Time)
-			} else {
-				earlierTime = schedule.NextRunAt
-			}
-
-			if nextWakeupTime != nil {
-				earlierTime = getEarlierTime(earlierTime, *nextWakeupTime)
-			}
-			nextWakeupTime = &earlierTime
-		}
-	}
-
-	return killMap, execMap, nextWakeupTime, err
 }
 
 // 计算timeout先不加事务，虽然select和 CountActiveRunsForSchedule 是非原子性，因为只影响休眠时间的计算结果
@@ -654,8 +456,7 @@ func GetNextGlobalWakeupTime(logEntry *log.Entry) (*time.Time, error) {
 
 func CountActiveRunsForSchedule(logEntry *log.Entry, scheduleID string) (int64, error) {
 	// todo：加索引，或者schedule记录添加count字段，通过run更新状态时同时更新schedule count字段，减少扫表
-	notEndedList := []string{common.StatusRunInitiating, common.StatusRunPending, common.StatusRunRunning, common.StatusRunTerminating}
 	scheduleIDFilter := []string{scheduleID}
-	count, err := CountRun(logEntry, 0, 0, nil, nil, nil, nil, notEndedList, scheduleIDFilter)
+	count, err := CountRun(logEntry, 0, 0, nil, nil, nil, nil, common.RunActiveStatus, scheduleIDFilter)
 	return count, err
 }
