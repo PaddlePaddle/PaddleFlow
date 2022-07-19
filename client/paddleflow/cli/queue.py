@@ -164,7 +164,7 @@ def update(ctx, name, maxcpu=None, maxmem=None, maxscalar=None, mincpu=None, min
     """
     client = ctx.obj['client']
     if not name:
-        click.echo('queue create must provide name.', err=True)
+        click.echo('queue update must provide name.', err=True)
         sys.exit(1)
     maxresources = {}
     if maxcpu:
@@ -302,12 +302,6 @@ def _print_queue_info(queue, out_format):
     if queue.minResources:
         headers.append('min resources')
         data[0].append(queue.minResources)
-    if queue.usedResources:
-        headers.append('used resources')
-        data[0].append(queue.usedResources)
-    if queue.idleResources:
-        headers.append('idle resources')
-        data[0].append(queue.idleResources)
     if queue.schedulingPolicy:
         headers.append('scheduling policy')
         data[0].append(queue.schedulingPolicy)
