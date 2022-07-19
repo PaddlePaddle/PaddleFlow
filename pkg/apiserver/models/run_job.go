@@ -257,7 +257,7 @@ func (rj *RunJob) Trans2JobView() schema.JobView {
 		JobMessage:  rj.Message,
 		CacheRunID:  rj.CacheRunID,
 		CacheJobID:  rj.CacheJobID,
-		FsMount:     newFsMount,
+		ExtraFS:     newFsMount,
 	}
 }
 
@@ -278,7 +278,7 @@ func ParseRunJob(jobView *schema.JobView) RunJob {
 		newEnv[k] = v
 	}
 
-	newFsMount := append(jobView.FsMount, []schema.FsMount{}...)
+	newFsMount := append(jobView.ExtraFS, []schema.FsMount{}...)
 
 	return RunJob{
 		ID:           jobView.JobID,
