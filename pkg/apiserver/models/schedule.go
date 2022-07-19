@@ -357,8 +357,8 @@ func ScheduleUsedFsIDs() (map[string]bool, error) {
 		PipelineYaml string
 	}
 	results := []result{}
-	tx := storage.DB.Model(&Schedule{}).Select("schedule.user_name, pipeline_detail.pipeline_yaml").
-		Joins("left join pipeline_detail on schedule.pipeline_detail_id = pipeline_detail.id").
+	tx := storage.DB.Model(&Schedule{}).Select("schedule.user_name, pipeline_version.pipeline_yaml").
+		Joins("left join pipeline_version on schedule.pipeline_version_id = pipeline_version.id").
 		Where("schedule.status = ?", ScheduleStatusRunning).Find(&results)
 
 	if tx.Error != nil {
