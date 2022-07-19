@@ -340,14 +340,14 @@ func (bwf *BaseWorkflow) checkComponents() error {
 
 		// 递归检查
 		visited := map[string]int{name: 1}
-		if err := bwf.checkRecursion(comp, visited); err != nil {
+		if err := bwf.checkCyclicComp(comp, visited); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (bwf *BaseWorkflow) checkRecursion(component schema.Component, visited map[string]int) error {
+func (bwf *BaseWorkflow) checkCyclicComp(component schema.Component, visited map[string]int) error {
 	if step, ok := component.(*schema.WorkflowSourceStep); ok {
 		if step.Reference.Component != "" {
 			refComp, ok := bwf.Source.Components[step.Reference.Component]
@@ -357,21 +357,21 @@ func (bwf *BaseWorkflow) checkRecursion(component schema.Component, visited map[
 
 			// 如果visited已有将要reference的节点，则说明存在递归
 			if _, ok := visited[step.Reference.Component]; ok {
-				return fmt.Errorf("reference should not be recursive")
+				return fmt.Errorf("components reference is not acyclic")
 			} else {
 				visited[step.Reference.Component] = 1
 			}
-			return bwf.checkRecursion(refComp, visited)
+			if err := bwf.checkCyclicComp(refComp, visited); err != nil {
+				return err
+			}
+			delete(visited, step.Reference.Component)
+			return nil
 		} else {
 			return nil
 		}
 	} else if dag, ok := component.(*schema.WorkflowSourceDag); ok {
 		for _, comp := range dag.EntryPoints {
-			newVisitied := map[string]int{}
-			for k, v := range visited {
-				newVisitied[k] = v
-			}
-			if err := bwf.checkRecursion(comp, newVisitied); err != nil {
+			if err := bwf.checkCyclicComp(comp, visited); err != nil {
 				return err
 			}
 		}
