@@ -44,6 +44,7 @@ const (
 )
 
 func insertPipeline(t *testing.T, logEntry *log.Entry) (pplID1, pplID2, pplDetailID1, pplDetailID2 string) {
+
 	ppl1 := models.Pipeline{
 		Name:     "ppl1",
 		Desc:     "ppl1",
