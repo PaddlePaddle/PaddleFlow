@@ -152,11 +152,18 @@ func GetArtifactMountPath(mainFS *schema.FsMount, artifactPath string) string {
 	subPath := strings.TrimRight(mainFS.SubPath, "/")
 
 	artMountPaths := []string{}
+
 	for _, path := range strings.Split(artifactPath, ",") {
 		if path == "" {
 			continue
 		}
-		artMountPath := strings.Replace(path, subPath, mountPath, 1)
+
+		var artMountPath string
+		if subPath != "" {
+			artMountPath = strings.Replace(path, subPath, mountPath, 1)
+		} else {
+			artMountPath = fmt.Sprintf("%s/%s", mountPath, path)
+		}
 		artMountPaths = append(artMountPaths, artMountPath)
 	}
 

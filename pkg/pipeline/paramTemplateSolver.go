@@ -168,8 +168,8 @@ func (isv *innerSolver) resolveTemplate(tplString string, fieldType string, forC
 		return tplString, err
 	}
 
-	if (fieldType == FieldLoopArguemt || fieldType == FieldCondition) && tplString != tpls[0][0] {
-		err := fmt.Errorf("paraTemplate[%s] for %s[%s]'s loop_argument or condition field cannot join with other string",
+	if fieldType == FieldLoopArguemt && tplString != tpls[0][0] {
+		err := fmt.Errorf("paraTemplate[%s] for %s[%s]'s loop_argument field cannot join with other string",
 			isv.Component.GetType(), tplString, isv.runtimeName)
 		return "", err
 	}

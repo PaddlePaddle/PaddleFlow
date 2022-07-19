@@ -134,7 +134,7 @@ func TestCalculateFingerprint(t *testing.T) {
 		},
 		MainFS: schema.FsMount{
 			ID:        "456",
-			MountPath: "/abc",
+			MountPath: "/abcde",
 		},
 	}
 
@@ -378,7 +378,9 @@ func TestGetInputArtifactModTime(t *testing.T) {
 	arts := mockArtifact()
 	calculator, err := mockerNewConservativeCacheCalculator()
 	assert.Equal(t, err, nil)
+
 	arts.Input["mutil"] = "m1.txt,m2.txt"
+	calculator.(*conservativeCacheCalculator).job.Artifacts.Input["mutil"] = "m1.txt,m2.txt"
 
 	for _, path := range arts.Input {
 		path = strings.TrimSpace(path)
@@ -396,6 +398,7 @@ func TestGetInputArtifactModTime(t *testing.T) {
 	fmt.Println("inArtMTime:", inArtMap)
 	for name, _ := range arts.Input {
 		_, ok := inArtMap[name]
+		fmt.Println(name, ok, 123566)
 		assert.Equal(t, ok, true)
 	}
 }

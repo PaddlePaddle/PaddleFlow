@@ -61,8 +61,9 @@ func TestParallelismManager(t *testing.T) {
 
 func mockRunConfigForComponentRuntime() *runConfig {
 	mainFS := schema.FsMount{
-		ID:   "fs-fs",
-		Name: "fs",
+		ID:      "fs-fs",
+		Name:    "fs",
+		SubPath: "/testcase",
 	}
 	return &runConfig{
 		mainFS:             &mainFS,
