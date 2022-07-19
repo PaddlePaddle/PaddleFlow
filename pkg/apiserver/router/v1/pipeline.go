@@ -41,8 +41,8 @@ func (pr *PipelineRouter) AddRouter(r chi.Router) {
 	r.Post("/pipeline/{pipelineID}", pr.updatePipeline)
 	r.Get("/pipeline/{pipelineID}", pr.getPipeline)
 	r.Delete("/pipeline/{pipelineID}", pr.deletePipeline)
-	r.Get("/pipeline/{pipelineID}/{pipelineDetailID}", pr.getPipelineDetail)
-	r.Delete("/pipeline/{pipelineID}/{pipelineDetailID}", pr.deletePipelineDtail)
+	r.Get("/pipeline/{pipelineID}/{pipelineVersionID}", pr.getPipelineVersion)
+	r.Delete("/pipeline/{pipelineID}/{pipelineVersionID}", pr.deletePipelineVersion)
 }
 
 // createPipeline
@@ -158,8 +158,8 @@ func (pr *PipelineRouter) updatePipeline(w http.ResponseWriter, r *http.Request)
 }
 
 // getPipeline
-// @Summary 通过ID获取pipeline，以及pipeline details
-// @Description  通过ID获取pipeline，以及pipeline details
+// @Summary 通过ID获取pipeline，以及pipeline versions
+// @Description  通过ID获取pipeline，以及pipeline versions
 // @Id getPipeline
 // @tags Pipeline
 // @Accept  json
@@ -221,9 +221,9 @@ func (pr *PipelineRouter) deletePipeline(w http.ResponseWriter, r *http.Request)
 	common.RenderStatus(w, http.StatusOK)
 }
 
-// getPipelineDetail
-// @Summary 通过ID获取pipeline detail，以及pipeline信息
-// @Description 通过ID获取pipeline detail，以及pipeline信息
+// getPipelineVersion
+// @Summary 通过ID获取pipeline version，以及pipeline信息
+// @Description 通过ID获取pipeline version，以及pipeline信息
 // @Id getPipeline
 // @tags Pipeline
 // @Accept  json
@@ -232,25 +232,25 @@ func (pr *PipelineRouter) deletePipeline(w http.ResponseWriter, r *http.Request)
 // @Success 201 {object} models.Pipeline "工作流结构体"
 // @Failure 400 {object} common.ErrorResponse "400"
 // @Failure 500 {object} common.ErrorResponse "500"
-// @Router /pipeline/{pipelineID}/{detailID} [GET]
-func (pr *PipelineRouter) getPipelineDetail(w http.ResponseWriter, r *http.Request) {
+// @Router /pipeline/{pipelineID}/{versionID} [GET]
+func (pr *PipelineRouter) getPipelineVersion(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
 	pipelineID := chi.URLParam(r, util.ParamKeyPipelineID)
-	pipelineDetailID := chi.URLParam(r, util.ParamKeyPipelineDetailID)
+	pipelineVersionID := chi.URLParam(r, util.ParamKeyPipelineVersionID)
 
 	logger.LoggerForRequest(&ctx).Debugf(
-		"user[%s] get Pipeline detail:[%s], pipelineID[%s]", ctx.UserName, pipelineDetailID, pipelineID)
-	pplDetail, err := pipeline.GetPipelineDetail(&ctx, pipelineID, pipelineDetailID)
+		"user[%s] get Pipeline version:[%s], pipelineID[%s]", ctx.UserName, pipelineVersionID, pipelineID)
+	pplVersion, err := pipeline.GetPipelineVersion(&ctx, pipelineID, pipelineVersionID)
 	if err != nil {
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
-	common.Render(w, http.StatusOK, pplDetail)
+	common.Render(w, http.StatusOK, pplVersion)
 }
 
-// DeletePipelineDetail
-// @Summary 删除pipeline detail
-// @Description 删除pipeline detail
+// DeletePipelineVersion
+// @Summary 删除pipeline version
+// @Description 删除pipeline version
 // @Id DeletePipeline
 // @tags Pipeline
 // @Accept  json
@@ -260,14 +260,14 @@ func (pr *PipelineRouter) getPipelineDetail(w http.ResponseWriter, r *http.Reque
 // @Failure 400 {object} common.ErrorResponse "400"
 // @Failure 500 {object} common.ErrorResponse "500"
 // @Router /pipeline/{pipelineID} [DELETE]
-func (pr *PipelineRouter) deletePipelineDtail(w http.ResponseWriter, r *http.Request) {
+func (pr *PipelineRouter) deletePipelineVersion(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
 	pipelineID := chi.URLParam(r, util.ParamKeyPipelineID)
-	pipelineDetailID := chi.URLParam(r, util.ParamKeyPipelineDetailID)
+	pipelineVersionID := chi.URLParam(r, util.ParamKeyPipelineVersionID)
 
-	err := pipeline.DeletePipelineDetail(&ctx, pipelineID, pipelineDetailID)
+	err := pipeline.DeletePipelineVersion(&ctx, pipelineID, pipelineVersionID)
 	if err != nil {
-		ctx.Logging().Errorf("delete pipeline[%s] detail[%s] failed. error:%s", pipelineID, pipelineDetailID, err.Error())
+		ctx.Logging().Errorf("delete pipeline[%s] version[%s] failed. error:%s", pipelineID, pipelineVersionID, err.Error())
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}

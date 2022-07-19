@@ -255,7 +255,7 @@ CREATE TABLE IF NOT EXISTS `pipeline` (
     INDEX idx_fs_name (`user_name`, `name`)
 ) ENGINE=InnoDB DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
 
-CREATE TABLE IF NOT EXISTS `pipeline_detail` (
+CREATE TABLE IF NOT EXISTS `pipeline_version` (
     `pk` bigint(20) NOT NULL AUTO_INCREMENT,
     `id` varchar(60) NOT NULL,
     `pipeline_id` varchar(60) NOT NULL,
@@ -269,7 +269,7 @@ CREATE TABLE IF NOT EXISTS `pipeline_detail` (
     `updated_at` datetime(3) DEFAULT NULL,
     `deleted_at` datetime(3) DEFAULT NULL,
     PRIMARY KEY (`pk`)
-    ) ENGINE=InnoDB DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
+) ENGINE=InnoDB DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
 
 CREATE TABLE IF NOT EXISTS `schedule` (
     `pk` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -277,7 +277,7 @@ CREATE TABLE IF NOT EXISTS `schedule` (
     `name` varchar(60) NOT NULL,
     `desc` varchar(256) NOT NULL,
     `pipeline_id` varchar(60) NOT NULL,
-    `pipeline_detail_id` varchar(60) NOT NULL,
+    `pipeline_version_id` varchar(60) NOT NULL,
     `user_name` varchar(60) NOT NULL,
     `crontab` varchar(60) NOT NULL,
     `options` text,
