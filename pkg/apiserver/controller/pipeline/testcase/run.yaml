@@ -39,7 +39,7 @@ cache:
   enable: false
   max_expired_time: 400
   fs_scope: 
-    - {fs_name: "xd", path: "/path/to/run,/path/to/run2"}
+    - {name: "xd", path: "/path/to/run,/path/to/run2"}
 
 parallelism: 5
 
