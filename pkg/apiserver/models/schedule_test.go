@@ -110,18 +110,18 @@ func TestGetUsedFsIDs(t *testing.T) {
 	pplID1, pplID2, pplVersionID1, pplVersionID2 := insertPipeline(t, logEntry)
 
 	schedule := Schedule{
-		ID:               "", // to be back filled according to db pk
-		Name:             "schedule1",
-		Desc:             "schedule1",
-		PipelineID:       pplID1,
-		PipelineDetailID: pplVersionID1,
-		UserName:         MockRootUser,
-		Crontab:          "*/5 * * * *",
-		Options:          "{}",
-		Status:           ScheduleStatusRunning,
-		StartAt:          sql.NullTime{},
-		EndAt:            sql.NullTime{},
-		NextRunAt:        time.Now(),
+		ID:                "", // to be back filled according to db pk
+		Name:              "schedule1",
+		Desc:              "schedule1",
+		PipelineID:        pplID1,
+		PipelineVersionID: pplVersionID1,
+		UserName:          MockRootUser,
+		Crontab:           "*/5 * * * *",
+		Options:           "{}",
+		Status:            ScheduleStatusRunning,
+		StartAt:           sql.NullTime{},
+		EndAt:             sql.NullTime{},
+		NextRunAt:         time.Now(),
 	}
 
 	// 创建schedule前，查询返回为空
@@ -139,7 +139,7 @@ func TestGetUsedFsIDs(t *testing.T) {
 	assert.Equal(t, 2, len(fsIDMap))
 	print(fsIDMap)
 
-	schedule.PipelineDetailID = pplDetailID2
+	schedule.PipelineVersionID = pplVersionID2
 	schedule.PipelineID = pplID2
 
 	schedID, err = CreateSchedule(logEntry, schedule)
