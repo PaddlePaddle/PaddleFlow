@@ -834,7 +834,11 @@ func (wfs *WorkflowSource) TransToRunYamlRaw() (runYamlRaw string, err error) {
 }
 
 func (wfs *WorkflowSource) GetFsMounts() ([]FsMount, error) {
-	fsMountList := []FsMount{wfs.FsOptions.MainFS}
+	fsMountList := []FsMount{}
+
+	if wfs.FsOptions.MainFS.Name != "" {
+		fsMountList = append(fsMountList, wfs.FsOptions.MainFS)
+	}
 
 	if err := wfs.getFsMountsFromComps(wfs.EntryPoints.EntryPoints, &fsMountList); err != nil {
 		return []FsMount{}, err
