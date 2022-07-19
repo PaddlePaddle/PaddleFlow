@@ -55,7 +55,7 @@ type Run struct {
 	ScheduleID     string                 `gorm:"type:varchar(60);not null"         json:"scheduleID"`
 	Message        string                 `gorm:"type:text;size:65535;not null"     json:"runMsg"`
 	Status         string                 `gorm:"type:varchar(32);not null"         json:"status"` // StatusRun%%%
-	StopForce      bool                   `gorm:"type:tinyint(1);default:0"         json:"stopForce"`
+	StopForce      bool                   `gorm:"type:tinyint(1);default:0"         json:"-"`
 	RunCachedIDs   string                 `gorm:"type:text;size:65535;not null"     json:"runCachedIDs"`
 	ScheduledAt    sql.NullTime           `                                         json:"-"`
 	CreateTime     string                 `gorm:"-"                                 json:"createTime"`
