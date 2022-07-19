@@ -325,6 +325,10 @@ func (bwf *BaseWorkflow) validate() error {
 
 // 检查fsScope的fsName是否在fsMount中，同时根据Username和FSName生成FSID
 func (bwf *BaseWorkflow) checkFS() error {
+	if bwf.Source.FsOptions.MainFS.ReadOnly {
+		return fmt.Errorf("[read_only] in [main_fs] must be false")
+	}
+
 	bwf.Source.ProcessFsMounts(bwf.Extra[WfExtraInfoKeyUserName], bwf.Extra[WfExtraInfoKeyFsName])
 	return nil
 }

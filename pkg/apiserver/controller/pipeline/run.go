@@ -554,7 +554,6 @@ func CreateRun(ctx logger.RequestContext, request *CreateRunRequest, extra map[s
 		FsID:           fsID,
 		Description:    request.Description,
 		Parameters:     request.Parameters,
-		FsOptions:      wfs.FsOptions,
 		RunYaml:        runYaml,
 		WorkflowSource: wfs,
 		DockerEnv:      wfs.DockerEnv,
@@ -673,7 +672,6 @@ func CreateRunByJson(ctx logger.RequestContext, bodyMap map[string]interface{}) 
 		Description:    reqDescription,
 		RunYaml:        runYaml,
 		WorkflowSource: wfs,
-		FsOptions:      wfs.FsOptions,
 		DockerEnv:      wfs.DockerEnv,
 		Disabled:       wfs.Disabled,
 		Status:         common.StatusRunInitiating,
@@ -789,7 +787,7 @@ func checkFs(userName string, fsName string, wfs *schema.WorkflowSource) error {
 					return err
 				}
 				if !ok {
-					return fmt.Errorf("[sub_path] with id[%s] is not dir", mount.ID)
+					return fmt.Errorf("[sub_path] with id[%s] is not dir", fsID)
 				}
 			}
 		}
