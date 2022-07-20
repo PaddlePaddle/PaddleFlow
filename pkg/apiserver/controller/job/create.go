@@ -717,7 +717,8 @@ func jobConfToCreateJobInfo(conf schema.PFJobConf) (*CreateJobInfo, error) {
 	var err error
 	var framework schema.Framework
 	switch jobType {
-	case schema.TypeSingle:
+	case "", schema.TypeSingle, schema.TypeVcJob:
+		jobType = schema.TypeSingle
 		framework = schema.FrameworkStandalone
 	case schema.TypeDistributed:
 		err = fmt.Errorf("distributed job is not implemented")
@@ -731,7 +732,7 @@ func jobConfToCreateJobInfo(conf schema.PFJobConf) (*CreateJobInfo, error) {
 
 	return &CreateJobInfo{
 		CommonJobInfo: commonJobInfo,
-		Type:          conf.Type(),
+		Type:          jobType,
 		Framework:     framework,
 		Members: []MemberSpec{
 			{
