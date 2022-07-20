@@ -152,7 +152,7 @@ func TestLatestTime(t *testing.T) {
 	filepath.Walk("mock_fs_handler", pt.WalkFunc)
 	fmt.Println("PathToMtime: ", pt.PTMap)
 
-	p, lt := pt.LatesTime()
+	p, lt := pt.LatestTime()
 	fmt.Println("latest:", p, lt)
 
 	fsHandler := FsHandler{

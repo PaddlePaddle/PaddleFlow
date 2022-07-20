@@ -122,7 +122,7 @@ func TestExpireInterval(t *testing.T) {
 	strOptions, err := scheduleOptions.Encode(logEntry)
 	assert.Nil(t, err)
 
-	fsConfig := models.FsConfig{FsName: "fsname", Username: "user1"}
+	fsConfig := models.FsConfig{Username: "user1"}
 	StrFsConfig, err := fsConfig.Encode(logEntry)
 	assert.Nil(t, err)
 
@@ -149,7 +149,7 @@ func TestExpireInterval(t *testing.T) {
 	cronSchedule, err := cron.ParseStandard(schedule.Crontab)
 	assert.Nil(t, err)
 
-	patch1 := gomonkey.ApplyFunc(checkFs, func(string, string, *schema.WorkflowSource) error {
+	patch1 := gomonkey.ApplyFunc(checkFs, func(string, *schema.WorkflowSource) error {
 		return nil
 	})
 	patch2 := gomonkey.ApplyFunc(StartWf, func(models.Run, *pipeline.Workflow) error {
@@ -209,7 +209,7 @@ func TestScheduleTime(t *testing.T) {
 	strOptions, err := scheduleOptions.Encode(logEntry)
 	assert.Nil(t, err)
 
-	fsConfig := models.FsConfig{FsName: "fsname", Username: "user1"}
+	fsConfig := models.FsConfig{Username: "user1"}
 	StrFsConfig, err := fsConfig.Encode(logEntry)
 	assert.Nil(t, err)
 
@@ -238,7 +238,7 @@ func TestScheduleTime(t *testing.T) {
 	cronSchedule, err := cron.ParseStandard(schedule.Crontab)
 	assert.Nil(t, err)
 
-	patch1 := gomonkey.ApplyFunc(checkFs, func(string, string, *schema.WorkflowSource) error {
+	patch1 := gomonkey.ApplyFunc(checkFs, func(string, *schema.WorkflowSource) error {
 		return nil
 	})
 	patch2 := gomonkey.ApplyFunc(StartWf, func(models.Run, *pipeline.Workflow) error {
@@ -277,7 +277,7 @@ func TestConcurrency(t *testing.T) {
 	driver.InitMockDB()
 	logEntry := log.WithFields(log.Fields{})
 
-	patch1 := gomonkey.ApplyFunc(checkFs, func(string, string, *schema.WorkflowSource) error {
+	patch1 := gomonkey.ApplyFunc(checkFs, func(string, *schema.WorkflowSource) error {
 		return nil
 	})
 	patch2 := gomonkey.ApplyFunc(StartWf, func(models.Run, *pipeline.Workflow) error {
@@ -304,7 +304,7 @@ func TestConcurrency(t *testing.T) {
 	strOptions, err := scheduleOptions.Encode(logEntry)
 	assert.Nil(t, err)
 
-	fsConfig := models.FsConfig{FsName: "fsname", Username: "user1"}
+	fsConfig := models.FsConfig{Username: "user1"}
 	StrFsConfig, err := fsConfig.Encode(logEntry)
 	assert.Nil(t, err)
 

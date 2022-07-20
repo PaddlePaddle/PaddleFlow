@@ -292,7 +292,6 @@ func (s *Scheduler) createRun(schedule models.Schedule, fsConfig models.FsConfig
 	logger.Logger().Infof("start to create run in ScheduledAt[%s] for schedule[%s] with status[%s]",
 		s.formatTime(&nextRunAt), schedule.ID, status)
 	createRequest := CreateRunRequest{
-		FsName:            fsConfig.FsName,
 		UserName:          fsConfig.Username,
 		Name:              schedule.Name,
 		Description:       schedule.Desc,

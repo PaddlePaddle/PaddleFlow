@@ -104,9 +104,12 @@ func (wfr *WorkflowRuntime) Start() {
 	}
 }
 
-func (wfr *WorkflowRuntime) Resume(entryPointView *schema.DagView, postProcessView schema.PostProcessView) {
+func (wfr *WorkflowRuntime) Resume(entryPointView *schema.DagView, postProcessView schema.PostProcessView,
+	runStatus string, stopForce bool) {
 	defer wfr.scheduleLock.Unlock()
 	wfr.scheduleLock.Lock()
+
+	wfr.status = runStatus
 
 	wfr.startTime = entryPointView.StartTime
 
@@ -114,6 +117,11 @@ func (wfr *WorkflowRuntime) Resume(entryPointView *schema.DagView, postProcessVi
 	if !isRuntimeFinallyStatus(entryPointView.Status) {
 		go wfr.entryPoints.Resume(entryPointView)
 		go wfr.Listen()
+
+		if runStatus == string(StatusRuntimeTerminating) {
+			wfr.entryPointsCtx.Done()
+		}
+
 		return
 	} else {
 		err := wfr.entryPoints.updateStatus(entryPointView.Status)
@@ -145,6 +153,9 @@ func (wfr *WorkflowRuntime) Resume(entryPointView *schema.DagView, postProcessVi
 			}
 		}
 
+		if runStatus == string(StatusRuntimeTerminating) && stopForce {
+			wfr.postProcessPointsCtx.Done()
+		}
 		go wfr.Listen()
 		return
 	}

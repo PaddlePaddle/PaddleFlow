@@ -23,6 +23,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	pplcommon "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 )
@@ -428,10 +429,14 @@ func TestValidateWorkflowCache(t *testing.T) {
 	assert.Equal(t, bwf.Source.Cache.Enable, false)
 	assert.Equal(t, bwf.Source.Cache.MaxExpiredTime, "400")
 	assert.Equal(t, len(bwf.Source.Cache.FsScope), 1)
-	assert.Equal(t, bwf.Source.Cache.FsScope[0].FsName, "xd")
+	assert.Equal(t, bwf.Source.Cache.FsScope[0].Name, "xd")
 
 	assert.Equal(t, bwf.Source.EntryPoints.EntryPoints["data-preprocess"].(*schema.WorkflowSourceStep).Cache.Enable, bwf.Source.Cache.Enable)
 	assert.Equal(t, bwf.Source.EntryPoints.EntryPoints["data-preprocess"].(*schema.WorkflowSourceStep).Cache.MaxExpiredTime, bwf.Source.Cache.MaxExpiredTime)
+	for i, scope := range bwf.Source.Cache.FsScope {
+		scope.ID = common.ID("mockUser", bwf.Source.Cache.FsScope[0].Name)
+		bwf.Source.Cache.FsScope[i] = scope
+	}
 	assert.Equal(t, bwf.Source.EntryPoints.EntryPoints["data-preprocess"].(*schema.WorkflowSourceStep).Cache.FsScope, bwf.Source.Cache.FsScope)
 
 	// 全局 + 节点的cache MaxExpiredTime 设置失败
@@ -519,8 +524,8 @@ func TestFsOptions(t *testing.T) {
 	wfs, err := schema.GetWorkflowSource([]byte(testCase))
 	assert.Nil(t, err)
 
-	assert.Equal(t, len(wfs.FsOptions.FsMount), 1)
-	assert.Equal(t, wfs.FsOptions.FsMount[0].FsName, "abc")
-	assert.Equal(t, wfs.EntryPoints.EntryPoints["main"].(*schema.WorkflowSourceStep).FsMount[0].FsName, "abc")
-	assert.Equal(t, wfs.EntryPoints.EntryPoints["main"].(*schema.WorkflowSourceStep).Cache.FsScope[0].FsName, "xd")
+	assert.Equal(t, len(wfs.FsOptions.ExtraFS), 1)
+	assert.Equal(t, wfs.FsOptions.ExtraFS[0].Name, "abc")
+	assert.Equal(t, wfs.EntryPoints.EntryPoints["main"].(*schema.WorkflowSourceStep).ExtraFS[0].Name, "abc")
+	assert.Equal(t, wfs.EntryPoints.EntryPoints["main"].(*schema.WorkflowSourceStep).Cache.FsScope[0].Name, "xd")
 }

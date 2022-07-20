@@ -27,6 +27,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
@@ -89,10 +90,9 @@ func (Schedule) TableName() string {
 	return "schedule"
 }
 
-// ------- 存放周期调度用于发起run的fs相关配置 -------
+// ------- 存放周期调度相关的配置 -------
 
 type FsConfig struct {
-	FsName   string `json:"fsName"`
 	Username string `json:"username"`
 }
 
@@ -114,8 +114,6 @@ func (fc *FsConfig) Encode(logEntry *log.Entry) (string, error) {
 
 	return string(strConfig), nil
 }
-
-// ------- 存放周期调度相关的配置 -------
 
 type ScheduleOptions struct {
 	Catchup           bool   `json:"catchup"`
@@ -378,29 +376,51 @@ func DeleteSchedule(logEntry *log.Entry, scheduleID string) error {
 // ------ job / fs模块需要的函数 ------
 
 func ScheduleUsedFsIDs() (map[string]bool, error) {
-	tx := storage.DB.Model(&Schedule{}).Select("id", "user_name", "fs_config").Where("status = ?", ScheduleStatusRunning)
-	var scheduleList []Schedule
-	tx = tx.Find(&scheduleList)
+	type result struct {
+		UserName     string
+		FsConfig     string
+		PipelineYaml string
+	}
+	results := []result{}
+	tx := storage.DB.Model(&Schedule{}).Select("schedule.user_name, schedule.fs_config, pipeline_version.pipeline_yaml").
+		Joins("join pipeline_version on schedule.pipeline_version_id = pipeline_version.id and schedule.pipeline_id = pipeline_version.pipeline_id").
+		Where("schedule.status = ?", ScheduleStatusRunning).Find(&results)
+
 	if tx.Error != nil {
 		return nil, tx.Error
 	}
 
 	fsIDMap := make(map[string]bool, 0)
-	for _, schedule := range scheduleList {
-		fsConfig, err := DecodeFsConfig(schedule.FsConfig)
+
+	for _, res := range results {
+		wfs, err := schema.GetWorkflowSource([]byte(res.PipelineYaml))
+		if err != nil {
+			return nil, err
+		}
+		mounts, err := wfs.GetFsMounts()
+		if err != nil {
+			return nil, err
+		}
+		fsConfig, err := DecodeFsConfig(res.FsConfig)
 		if err != nil {
 			return nil, err
 		}
 
-		var fsID string
+		username := res.UserName
 		if fsConfig.Username != "" {
-			fsID = common.ID(fsConfig.Username, fsConfig.FsName)
-		} else {
-			fsID = common.ID(schedule.UserName, fsConfig.FsName)
+			username = fsConfig.Username
 		}
 
-		fsIDMap[fsID] = true
+		for _, mount := range mounts {
+			mount.ID = common.ID(username, mount.Name)
+			fsIDMap[mount.ID] = true
+		}
+		if wfs.FsOptions.MainFS.Name != "" {
+			mainFSID := common.ID(username, wfs.FsOptions.MainFS.Name)
+			fsIDMap[mainFSID] = true
+		}
 	}
+
 	return fsIDMap, nil
 }
 

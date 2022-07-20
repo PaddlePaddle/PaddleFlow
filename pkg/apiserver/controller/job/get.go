@@ -252,7 +252,7 @@ func convertJobToResponse(job models.Job, runtimeFlag bool) (GetJobResponse, err
 				log.Errorf("parse distributed job[%s] runtimeinfo job meta failed, error:[%s]", job.ID, err.Error())
 				return response, err
 			}
-			statusByte, err := json.Marshal(job.RuntimeInfo.(map[string]interface{})["status"])
+			statusByte, err := json.Marshal(job.RuntimeStatus)
 			if err != nil {
 				log.Errorf("parse distributed job[%s] status failed, error:[%s]", job.ID, err.Error())
 				return response, err
@@ -287,7 +287,7 @@ func convertJobToResponse(job models.Job, runtimeFlag bool) (GetJobResponse, err
 				log.Errorf("parse workflow job[%s] runtimeinfo job meta failed, error:[%s]", job.ID, err.Error())
 				return response, err
 			}
-			statusByte, err := json.Marshal(job.RuntimeInfo.(map[string]interface{})["status"])
+			statusByte, err := json.Marshal(job.RuntimeStatus)
 			if err != nil {
 				log.Errorf("parse workflow job[%s] status failed, error:[%s]", job.ID, err.Error())
 				return response, err

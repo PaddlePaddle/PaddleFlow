@@ -133,12 +133,10 @@ func (isv *innerSolver) resolveArtifactTemplate(tpl []string, fieldType string, 
 		return "", err
 
 	}
+
 	if fieldType != FieldCondition && fieldType != FieldLoopArguemt {
-		ps := []string{}
-		for _, p := range strings.Split(path, ",") {
-			ps = append(ps, strings.Join([]string{ArtMountDir, p}, "/"))
-		}
-		result = strings.Join(ps, ",")
+		path = GetArtifactMountPath(isv.runConfig.mainFS, path)
+		return path, err
 	} else {
 		var maxSize int
 		if fieldType == FieldCondition {
@@ -147,7 +145,7 @@ func (isv *innerSolver) resolveArtifactTemplate(tpl []string, fieldType string, 
 			maxSize = LoopArgumentArtifactMaxSize
 		}
 
-		result, err = GetArtifactContent(path, maxSize, isv.fsID, isv.logger)
+		result, err = GetArtifactContent(path, maxSize, isv.runConfig.mainFS.ID, isv.logger)
 		if err != nil {
 			err = fmt.Errorf("failed to resolve template[%s] for %s[%s], because cannot read the content from artifact[%s]",
 				isv.Component.GetType(), tpl[0], isv.runtimeName, refParamName)
@@ -171,7 +169,7 @@ func (isv *innerSolver) resolveTemplate(tplString string, fieldType string, forC
 	}
 
 	if fieldType == FieldLoopArguemt && tplString != tpls[0][0] {
-		err := fmt.Errorf("paraTemplate[%s] for %s[%s]'s loop_argument or condition field cannot join with other string",
+		err := fmt.Errorf("paraTemplate[%s] for %s[%s]'s loop_argument field cannot join with other string",
 			isv.Component.GetType(), tplString, isv.runtimeName)
 		return "", err
 	}
@@ -449,7 +447,7 @@ func (ds *DependencySolver) ResolveBeforeRun(subComponent schema.Component) erro
 
 		subComponent.GetArtifacts().Input[name] = newValue
 		ds.logger.Infof("after dependency solver, the value of artifact[%s] for %s[%s] is %v",
-			subComponent.GetType(), componentName, name, newValue)
+			name, subComponent.GetType(), componentName, newValue)
 	}
 	// 输出artifact 无需解析： step 的输出artifact的中不会有模版，dag 的输出artifact 虽然有模版，但是需要在dag 所有的子节点都运行完成后才能解析。
 

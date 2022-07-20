@@ -25,7 +25,6 @@ const (
 	SysParamNamePFStepName     = "PF_STEP_NAME"
 	SysParamNamePFUserName     = "PF_USER_NAME"
 	SysParamNamePFLoopArgument = "PF_LOOP_ARGUMENT"
-	SysParamNamePFMountPath    = "PF_MOUNT_PATH"
 
 	PF_PARENT        = "PF_PARENT"
 	PF_LOOP_ARGUMENT = "PF_LOOP_ARGUMENT"
@@ -86,5 +85,4 @@ var SysParamNameList []string = []string{
 	SysParamNamePFStepName,
 	SysParamNamePFUserName,
 	SysParamNamePFLoopArgument,
-	SysParamNamePFMountPath,
 }

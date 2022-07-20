@@ -55,7 +55,7 @@ func (pm *PathTimeMap) WalkFunc(path string, info iofs.FileInfo, err error) erro
 }
 
 // 获取最近的时间
-func (pm *PathTimeMap) LatesTime() (path string, latestTime time.Time) {
+func (pm *PathTimeMap) LatestTime() (path string, latestTime time.Time) {
 	path = ""
 	latestTime = time.Time{}
 
@@ -179,6 +179,10 @@ func (fh *FsHandler) Stat(path string) (os.FileInfo, error) {
 	return fileInfo, err
 }
 
+func (fh *FsHandler) IsDir(path string) (bool, error) {
+	return fh.fsClient.IsDir(path)
+}
+
 func (fh *FsHandler) Exist(path string) (bool, error) {
 	return fh.fsClient.Exist(path)
 }
@@ -203,6 +207,7 @@ func (fh *FsHandler) ModTime(path string) (time.Time, error) {
 	}
 
 	modTime := fileInfo.ModTime()
+	fh.log.Debugf("the modtime of path[%s] is :%s", path, modTime)
 	return modTime, nil
 }
 
@@ -223,7 +228,8 @@ func (fh *FsHandler) LastModTime(path string) (time.Time, error) {
 			fh.log.Debugf("cannot get the latest mtime of path[%s] with fsId[%s]: %s", path, fh.fsID, err.Error())
 			return time.Time{}, err
 		} else {
-			_, t := pm.LatesTime()
+			fh.log.Debugf("modTime for Paths is: %v", pm.PTMap)
+			_, t := pm.LatestTime()
 			return t, nil
 		}
 	}
