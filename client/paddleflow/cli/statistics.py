@@ -52,9 +52,11 @@ def _get_job_statistics(cli, output_format, jobid):
 
 
 def _get_job_statistics_detail(cli, output_format, jobid, start, end, step):
-    valid, response = cli.get_statistics_detail(jobid, start, end, step)
+    valid, response, truncated = cli.get_statistics_detail(jobid, start, end, step)
     if valid:
         _print_job_statistics_detail(response, output_format)
+        if truncated:
+            click.echo("results has been truncated due to server side limitation")
     else:
         click.echo("get job statistics detail failed with message[%s]" % response)
         sys.exit(1)

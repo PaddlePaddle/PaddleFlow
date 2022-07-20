@@ -126,7 +126,7 @@ func TopologicalSort(components map[string]schema.Component) ([]string, error) {
 	return sortedComponent, nil
 }
 
-func LatesTime(times []time.Time) time.Time {
+func LatestTime(times []time.Time) time.Time {
 	latestTime := time.Time{}
 
 	for _, t := range times {

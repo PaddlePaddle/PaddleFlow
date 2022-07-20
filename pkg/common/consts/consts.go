@@ -18,6 +18,7 @@ package consts
 
 const (
 	MetricCpuUsageRate    = "cpu_usage_rate"
+	MetricMemoryUsageRate = "memory_usage_rate"
 	MetricMemoryUsage     = "memory_usage"
 	MetricDiskUsage       = "disk_usage"
 	MetricNetReceiveBytes = "net_receive_bytes"
@@ -26,4 +27,5 @@ const (
 	MetricDiskWriteRate   = "disk_write_rate"
 	MetricGpuUtil         = "gpu_util"
 	MetricGpuMemoryUtil   = "gpu_memory_util"
+	MetricGpuMemoryUsage  = "gpu_memory_usage"
 )
