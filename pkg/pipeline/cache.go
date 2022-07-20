@@ -234,7 +234,7 @@ func (cc *conservativeCacheCalculator) getInputArtifactModTime() (map[string]str
 
 			pToMTime = append(pToMTime, mtime)
 		}
-		lastTime = common.LatesTime(pToMTime)
+		lastTime = common.LatestTime(pToMTime)
 		inArtMtimeMap[name] = fmt.Sprintf("%d", lastTime.UnixNano())
 	}
 
