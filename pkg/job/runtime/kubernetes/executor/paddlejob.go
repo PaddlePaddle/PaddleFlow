@@ -56,20 +56,18 @@ func (pj *PaddleJob) validateJob(pdj *paddlev1.PaddleJob) error {
 
 func (pj *PaddleJob) validateCustomYaml(pdj *paddlev1.PaddleJob) error {
 	log.Infof("validate custom yaml, pj: %v, pdj from yaml: %v", pj, pdj)
-	if pdj.Spec.PS != nil {
-		if err := validateTemplateResources(&pdj.Spec.PS.Template.Spec); err != nil {
-			err = fmt.Errorf("validate resource in extensionTemplate.PS failed, err %v", err)
-			log.Errorf("%v", err)
-			return err
+	resourceSpecs := []*paddlev1.ResourceSpec{pdj.Spec.PS, pdj.Spec.Worker}
+	for _, resourceSpec := range resourceSpecs {
+		if resourceSpec == nil {
+			continue
 		}
-	}
-	if pdj.Spec.Worker != nil {
-		if err := validateTemplateResources(&pdj.Spec.Worker.Template.Spec); err != nil {
+		if err := validateTemplateResources(&resourceSpec.Template.Spec); err != nil {
 			err = fmt.Errorf("validate resource in extensionTemplate.Worker failed, err %v", err)
 			log.Errorf("%v", err)
 			return err
 		}
 	}
+
 	return nil
 }
 
