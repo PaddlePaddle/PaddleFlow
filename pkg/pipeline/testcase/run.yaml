@@ -67,7 +67,7 @@ cache:
   enable: false
   max_expired_time: 400
   fs_scope: 
-  - {fs_name: "xd", path: "/path/to/run,/path/to/run2"}
+  - {name: "xd", path: "/path/to/run,/path/to/run2"}
   
 parallelism: 5
 
@@ -75,6 +75,6 @@ failure_options:
   strategy: "fail_fast"
 
 fs_options:
-  fs_name: xd
-  fs_mount: 
-  - {fs_name: abc}
+  main_fs: {name: xd, mount_path: "/testcase"}
+  extra_fs: 
+  - {name: abc}

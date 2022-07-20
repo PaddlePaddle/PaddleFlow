@@ -22,6 +22,8 @@ type ComponentView interface {
 	GetStatus() JobStatus
 	GetSeq() int
 	GetDeps() string
+	GetMsg() string
+	GetName() string
 
 	SetDeps(string)
 }
@@ -38,7 +40,7 @@ type JobView struct {
 	Command     string            `json:"command"`
 	Parameters  map[string]string `json:"parameters"`
 	Env         map[string]string `json:"env"`
-	FsMount     []FsMount         `json:"fsMount"`
+	ExtraFS     []FsMount         `json:"extraFS"`
 	StartTime   string            `json:"startTime"`
 	EndTime     string            `json:"endTime"`
 	Status      JobStatus         `json:"status"`
@@ -73,6 +75,14 @@ func (j JobView) GetStatus() JobStatus {
 
 func (j JobView) GetSeq() int {
 	return j.LoopSeq
+}
+
+func (j JobView) GetMsg() string {
+	return j.JobMessage
+}
+
+func (j JobView) GetName() string {
+	return j.Name
 }
 
 type DagView struct {
@@ -115,6 +125,14 @@ func (d DagView) GetStatus() JobStatus {
 
 func (d DagView) GetSeq() int {
 	return d.LoopSeq
+}
+
+func (d DagView) GetMsg() string {
+	return d.Message
+}
+
+func (d DagView) GetName() string {
+	return d.Name
 }
 
 // RuntimeView is view of run responded to user, while workflowRuntime is for pipeline engine to process

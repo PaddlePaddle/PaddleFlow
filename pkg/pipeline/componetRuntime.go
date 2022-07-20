@@ -101,18 +101,15 @@ type componentRuntime interface {
 // 2. 用户创建 Run 的请求体中 除 1 外的其余信息
 // 3. Apiserver 或者 Parser 动态生成的信息，如 runID 等
 type runConfig struct {
-	// 1. workflowSource 中的信息
+	//  workflowSource 中的信息
 	*schema.WorkflowSource
-
-	// 2. 来自于请求体中的信息
-	fsID         string
-	GloablFsName string
-	userName     string
+	mainFS   *schema.FsMount
+	userName string
 
 	// pipelineID or yamlPath or md5sum of yamlRaw
 	pplSource string
 
-	// 3. 由 ApiServer 或者 Parser 动态生成的信息
+	// 由 ApiServer 或者 Parser 动态生成的信息
 	runID  string
 	logger *logrus.Entry
 	*parallelismManager
@@ -121,15 +118,14 @@ type runConfig struct {
 	callbacks WorkflowCallbacks
 }
 
-func NewRunConfig(workflowSource *schema.WorkflowSource, fsID, fsName, userName, runID string, logger *logrus.Entry,
+func NewRunConfig(workflowSource *schema.WorkflowSource, mainFS *schema.FsMount, userName, runID string, logger *logrus.Entry,
 	callbacks WorkflowCallbacks, pplSource string) *runConfig {
 	return &runConfig{
 		WorkflowSource: workflowSource,
 
-		fsID:         fsID,
-		GloablFsName: fsName,
-		userName:     userName,
-		pplSource:    pplSource,
+		mainFS:    mainFS,
+		userName:  userName,
+		pplSource: pplSource,
 
 		runID:              runID,
 		logger:             logger,
@@ -321,14 +317,6 @@ func (crt *baseComponentRuntime) setSysParams() error {
 		crt.sysParams[SysParamNamePFLoopArgument] = fmt.Sprintf("%v", pfLoopArugment)
 	}
 
-	if crt.getComponent().GetType() == "step" {
-		if len(crt.getComponent().(*schema.WorkflowSourceStep).FsMount) == 0 {
-			crt.sysParams[SysParamNamePFMountPath] = "None"
-		} else {
-			crt.sysParams[SysParamNamePFMountPath] = crt.getComponent().(*schema.WorkflowSourceStep).Env[SysParamNamePFMountPath]
-		}
-	}
-
 	crt.innerSolver.setSysParams(crt.sysParams)
 
 	crt.logger.Infof("the sysParams for %s[%s] is %v", crt.getComponent().GetType(),
@@ -354,7 +342,7 @@ func (crt *baseComponentRuntime) CalculateCondition() (bool, error) {
 	return cc.calculate()
 }
 
-func (crt *baseComponentRuntime) syncToApiServerAndParent(wv WfEventValue, view schema.ComponentView, msg string) {
+func (crt *baseComponentRuntime) newEvent(wv WfEventValue, view schema.ComponentView, msg string) *WorkflowEvent {
 	extra := map[string]interface{}{
 		common.WfEventKeyRunID:         crt.runID,
 		common.WfEventKeyStatus:        crt.status,
@@ -369,12 +357,23 @@ func (crt *baseComponentRuntime) syncToApiServerAndParent(wv WfEventValue, view 
 	}
 
 	event := NewWorkflowEvent(wv, msg, extra)
+	return event
+}
+
+func (crt *baseComponentRuntime) syncToParent(wv WfEventValue, view schema.ComponentView, msg string) {
+	event := crt.newEvent(wv, view, msg)
+	go func() {
+		crt.sendEventToParent <- *event
+	}()
+}
+
+func (crt *baseComponentRuntime) syncToApiServerAndParent(wv WfEventValue, view schema.ComponentView, msg string) {
+	event := crt.newEvent(wv, view, msg)
 	// 调用回调函数，将信息同步至 apiserver
 
 	crt.callback(event)
 
 	// 将事件冒泡给父节点
-	// 这里使用协程
 	go func() {
 		crt.sendEventToParent <- *event
 	}()
