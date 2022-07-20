@@ -24,9 +24,9 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestCFS(t *testing.T) {
+func TestLocalMount(t *testing.T) {
 	os.MkdirAll("./mock", 0755)
-	fs := &cfsFileSystem{
+	fs := &localMount{
 		localPath: "./mock",
 	}
 	fs.Mkdir("data1", 0755)
