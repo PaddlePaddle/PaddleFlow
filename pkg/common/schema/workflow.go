@@ -454,6 +454,10 @@ func (d *WorkflowSourceDag) DeepCopy() Component {
 	return nd
 }
 
+type RunOptions struct {
+	StopForce bool
+}
+
 type Reference struct {
 	Component string
 }

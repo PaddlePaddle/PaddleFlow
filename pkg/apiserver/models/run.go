@@ -54,6 +54,8 @@ type Run struct {
 	ScheduleID     string                 `gorm:"type:varchar(60);not null"         json:"scheduleID"`
 	Message        string                 `gorm:"type:text;size:65535;not null"     json:"runMsg"`
 	Status         string                 `gorm:"type:varchar(32);not null"         json:"status"` // StatusRun%%%
+	RunOptions     schema.RunOptions      `gorm:"-"                                 json:"-"`
+	RunOptionsJson string                 `gorm:"type:text;size:65535;not null"     json:"-"`
 	StopForce      bool                   `gorm:"type:tinyint(1);default:0"         json:"-"`
 	RunCachedIDs   string                 `gorm:"type:text;size:65535;not null"     json:"runCachedIDs"`
 	ScheduledAt    sql.NullTime           `                                         json:"-"`
@@ -92,6 +94,13 @@ func (r *Run) Encode() error {
 		}
 		r.ParametersJson = string(paramRaw)
 	}
+
+	optionsJson, err := json.Marshal(r.RunOptions)
+	if err != nil {
+		logger.LoggerForRun(r.ID).Errorf("encode run options failed. error:%v", err)
+		return err
+	}
+	r.RunOptionsJson = string(optionsJson)
 	return nil
 }
 
@@ -120,6 +129,13 @@ func (r *Run) decode() error {
 		}
 		r.Parameters = param
 	}
+
+	runOptions := schema.RunOptions{}
+	if err := json.Unmarshal([]byte(r.RunOptionsJson), &runOptions); err != nil {
+		logger.LoggerForRun(r.ID).Errorf("decode run options failed. error:%v", err)
+		return err
+	}
+	r.RunOptions = runOptions
 
 	r.FsOptions.MainFS = r.WorkflowSource.FsOptions.MainFS
 

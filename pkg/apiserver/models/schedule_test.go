@@ -109,6 +109,10 @@ func TestGetUsedFsIDs(t *testing.T) {
 	logEntry := log.WithFields(log.Fields{})
 	pplID1, pplID2, pplVersionID1, pplVersionID2 := insertPipeline(t, logEntry)
 
+	fsConfig := FsConfig{Username: "user1"}
+	StrFsConfig, err := fsConfig.Encode(logEntry)
+	assert.Nil(t, err)
+
 	schedule := Schedule{
 		ID:                "", // to be back filled according to db pk
 		Name:              "schedule1",
@@ -116,6 +120,7 @@ func TestGetUsedFsIDs(t *testing.T) {
 		PipelineID:        pplID1,
 		PipelineVersionID: pplVersionID1,
 		UserName:          MockRootUser,
+		FsConfig:          StrFsConfig,
 		Crontab:           "*/5 * * * *",
 		Options:           "{}",
 		Status:            ScheduleStatusRunning,
@@ -139,6 +144,7 @@ func TestGetUsedFsIDs(t *testing.T) {
 	assert.Equal(t, 2, len(fsIDMap))
 	fmt.Print("debug: ", fsIDMap)
 
+	// 更换ppl和pplversion
 	schedule.PipelineVersionID = pplVersionID2
 	schedule.PipelineID = pplID2
 
@@ -151,33 +157,48 @@ func TestGetUsedFsIDs(t *testing.T) {
 	assert.Equal(t, 3, len(fsIDMap))
 	print(fsIDMap)
 
-	// 创建 success 状态的schedule
-	schedule.Status = ScheduleStatusSuccess
+	// fsconfig中不包含user，使用默认的“”
+	fsConfig = FsConfig{}
+	StrFsConfig, err = fsConfig.Encode(logEntry)
+	assert.Nil(t, err)
+	schedule.FsConfig = StrFsConfig
+
 	schedID, err = CreateSchedule(logEntry, schedule)
 	assert.Nil(t, err)
 	assert.Equal(t, schedID, "schedule-000003")
 
 	fsIDMap, err = ScheduleUsedFsIDs()
 	assert.Nil(t, err)
-	assert.Equal(t, 3, len(fsIDMap))
+	assert.Equal(t, 5, len(fsIDMap))
+	print(fsIDMap)
 
-	// 创建 failed 状态的schedule
-	schedule.Status = ScheduleStatusFailed
+	// 创建 success 状态的schedule
+	schedule.Status = ScheduleStatusSuccess
 	schedID, err = CreateSchedule(logEntry, schedule)
 	assert.Nil(t, err)
 	assert.Equal(t, schedID, "schedule-000004")
 
 	fsIDMap, err = ScheduleUsedFsIDs()
 	assert.Nil(t, err)
-	assert.Equal(t, 3, len(fsIDMap))
+	assert.Equal(t, 5, len(fsIDMap))
 
-	// 创建 terminated 状态的schedule
-	schedule.Status = ScheduleStatusTerminated
+	// 创建 failed 状态的schedule
+	schedule.Status = ScheduleStatusFailed
 	schedID, err = CreateSchedule(logEntry, schedule)
 	assert.Nil(t, err)
 	assert.Equal(t, schedID, "schedule-000005")
 
 	fsIDMap, err = ScheduleUsedFsIDs()
 	assert.Nil(t, err)
-	assert.Equal(t, 3, len(fsIDMap))
+	assert.Equal(t, 5, len(fsIDMap))
+
+	// 创建 terminated 状态的schedule
+	schedule.Status = ScheduleStatusTerminated
+	schedID, err = CreateSchedule(logEntry, schedule)
+	assert.Nil(t, err)
+	assert.Equal(t, schedID, "schedule-000006")
+
+	fsIDMap, err = ScheduleUsedFsIDs()
+	assert.Nil(t, err)
+	assert.Equal(t, 5, len(fsIDMap))
 }

@@ -122,6 +122,10 @@ func TestExpireInterval(t *testing.T) {
 	strOptions, err := scheduleOptions.Encode(logEntry)
 	assert.Nil(t, err)
 
+	fsConfig := models.FsConfig{Username: "user1"}
+	StrFsConfig, err := fsConfig.Encode(logEntry)
+	assert.Nil(t, err)
+
 	schedule := models.Schedule{
 		ID:                "", // to be backfilled according to db pk
 		Name:              "schedule1",
@@ -129,6 +133,7 @@ func TestExpireInterval(t *testing.T) {
 		PipelineID:        pplID1,
 		PipelineVersionID: pplVersionID1,
 		UserName:          "user1",
+		FsConfig:          StrFsConfig,
 		Crontab:           "*/1 * * * *",
 		Options:           strOptions,
 		Status:            models.ScheduleStatusRunning,
@@ -144,7 +149,7 @@ func TestExpireInterval(t *testing.T) {
 	cronSchedule, err := cron.ParseStandard(schedule.Crontab)
 	assert.Nil(t, err)
 
-	patch1 := gomonkey.ApplyFunc(checkFs, func(string, string, *schema.WorkflowSource) error {
+	patch1 := gomonkey.ApplyFunc(checkFs, func(string, *schema.WorkflowSource) error {
 		return nil
 	})
 	patch2 := gomonkey.ApplyFunc(StartWf, func(models.Run, *pipeline.Workflow) error {
@@ -204,6 +209,10 @@ func TestScheduleTime(t *testing.T) {
 	strOptions, err := scheduleOptions.Encode(logEntry)
 	assert.Nil(t, err)
 
+	fsConfig := models.FsConfig{Username: "user1"}
+	StrFsConfig, err := fsConfig.Encode(logEntry)
+	assert.Nil(t, err)
+
 	schedule := models.Schedule{
 		ID:                "", // to be back filled according to db pk
 		Name:              "schedule1",
@@ -211,6 +220,7 @@ func TestScheduleTime(t *testing.T) {
 		PipelineID:        pplID1,
 		PipelineVersionID: pplVersionID1,
 		UserName:          "user1",
+		FsConfig:          StrFsConfig,
 		Crontab:           "*/1 * * * *",
 		Options:           strOptions,
 		Status:            models.ScheduleStatusRunning,
@@ -228,7 +238,7 @@ func TestScheduleTime(t *testing.T) {
 	cronSchedule, err := cron.ParseStandard(schedule.Crontab)
 	assert.Nil(t, err)
 
-	patch1 := gomonkey.ApplyFunc(checkFs, func(string, string, *schema.WorkflowSource) error {
+	patch1 := gomonkey.ApplyFunc(checkFs, func(string, *schema.WorkflowSource) error {
 		return nil
 	})
 	patch2 := gomonkey.ApplyFunc(StartWf, func(models.Run, *pipeline.Workflow) error {
@@ -267,7 +277,7 @@ func TestConcurrency(t *testing.T) {
 	driver.InitMockDB()
 	logEntry := log.WithFields(log.Fields{})
 
-	patch1 := gomonkey.ApplyFunc(checkFs, func(string, string, *schema.WorkflowSource) error {
+	patch1 := gomonkey.ApplyFunc(checkFs, func(string, *schema.WorkflowSource) error {
 		return nil
 	})
 	patch2 := gomonkey.ApplyFunc(StartWf, func(models.Run, *pipeline.Workflow) error {
@@ -294,6 +304,10 @@ func TestConcurrency(t *testing.T) {
 	strOptions, err := scheduleOptions.Encode(logEntry)
 	assert.Nil(t, err)
 
+	fsConfig := models.FsConfig{Username: "user1"}
+	StrFsConfig, err := fsConfig.Encode(logEntry)
+	assert.Nil(t, err)
+
 	schedule := models.Schedule{
 		ID:                "", // to be back filled according to db pk
 		Name:              "schedule1",
@@ -301,6 +315,7 @@ func TestConcurrency(t *testing.T) {
 		PipelineID:        pplID1,
 		PipelineVersionID: pplVersionID1,
 		UserName:          "user1",
+		FsConfig:          StrFsConfig,
 		Crontab:           "*/1 * * * *",
 		Options:           strOptions,
 		Status:            models.ScheduleStatusRunning,
