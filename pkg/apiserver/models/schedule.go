@@ -377,11 +377,12 @@ func DeleteSchedule(logEntry *log.Entry, scheduleID string) error {
 
 func ScheduleUsedFsIDs() (map[string]bool, error) {
 	type result struct {
+		UserName     string
 		FsConfig     string
 		PipelineYaml string
 	}
 	results := []result{}
-	tx := storage.DB.Model(&Schedule{}).Select("schedule.fs_config, pipeline_version.pipeline_yaml").
+	tx := storage.DB.Model(&Schedule{}).Select("schedule.user_name, schedule.fs_config, pipeline_version.pipeline_yaml").
 		Joins("join pipeline_version on schedule.pipeline_version_id = pipeline_version.id and schedule.pipeline_id = pipeline_version.pipeline_id").
 		Where("schedule.status = ?", ScheduleStatusRunning).Find(&results)
 
@@ -404,12 +405,18 @@ func ScheduleUsedFsIDs() (map[string]bool, error) {
 		if err != nil {
 			return nil, err
 		}
+
+		username := res.UserName
+		if fsConfig.Username != "" {
+			username = fsConfig.Username
+		}
+
 		for _, mount := range mounts {
-			mount.ID = common.ID(fsConfig.Username, mount.Name)
+			mount.ID = common.ID(username, mount.Name)
 			fsIDMap[mount.ID] = true
 		}
 		if wfs.FsOptions.MainFS.Name != "" {
-			mainFSID := common.ID(fsConfig.Username, wfs.FsOptions.MainFS.Name)
+			mainFSID := common.ID(username, wfs.FsOptions.MainFS.Name)
 			fsIDMap[mainFSID] = true
 		}
 	}

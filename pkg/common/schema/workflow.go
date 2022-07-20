@@ -919,7 +919,7 @@ func (wfs *WorkflowSource) processFsByUserName(compMap map[string]Component, use
 
 			for i, mount := range step.ExtraFS {
 				if mount.Name == "" {
-					return fmt.Errorf("[name] in [extra_fs] or [main_fs] must be set")
+					return fmt.Errorf("[name] in [extra_fs] or [main_fs] must not be empty")
 				}
 				if strings.HasPrefix(mount.SubPath, "/") {
 					return fmt.Errorf("[sub_path] in [extra_fs] should not start with '/'")
