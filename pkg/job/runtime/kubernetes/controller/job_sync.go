@@ -42,15 +42,16 @@ const (
 )
 
 type JobSyncInfo struct {
-	ID          string
-	Namespace   string
-	ParentJobID string
-	GVK         schema.GroupVersionKind
-	Status      commonschema.JobStatus
-	Runtime     interface{}
-	Message     string
-	Action      commonschema.ActionType
-	RetryTimes  int
+	ID            string
+	Namespace     string
+	ParentJobID   string
+	GVK           schema.GroupVersionKind
+	Status        commonschema.JobStatus
+	RuntimeInfo   interface{}
+	RuntimeStatus interface{}
+	Message       string
+	Action        commonschema.ActionType
+	RetryTimes    int
 }
 
 func (js *JobSyncInfo) String() string {
@@ -223,12 +224,13 @@ func (j *JobSync) doCreateAction(jobSyncInfo *JobSyncInfo) error {
 					commonschema.EnvJobNamespace: jobSyncInfo.Namespace,
 				},
 			},
-			Framework:   framework,
-			QueueID:     parentJob.QueueID,
-			Status:      jobSyncInfo.Status,
-			Message:     jobSyncInfo.Message,
-			RuntimeInfo: jobSyncInfo.Runtime,
-			ParentJob:   jobSyncInfo.ParentJobID,
+			Framework:     framework,
+			QueueID:       parentJob.QueueID,
+			Status:        jobSyncInfo.Status,
+			Message:       jobSyncInfo.Message,
+			RuntimeInfo:   jobSyncInfo.RuntimeInfo,
+			RuntimeStatus: jobSyncInfo.RuntimeStatus,
+			ParentJob:     jobSyncInfo.ParentJobID,
 		}
 		if err = models.CreateJob(job); err != nil {
 			log.Errorf("craete job %v failed, err: %v", job, err)
@@ -240,8 +242,7 @@ func (j *JobSync) doCreateAction(jobSyncInfo *JobSyncInfo) error {
 
 func (j *JobSync) doDeleteAction(jobSyncInfo *JobSyncInfo) error {
 	log.Infof("do delete action, job sync info are as follows. %s", jobSyncInfo.String())
-	if _, err := models.UpdateJob(jobSyncInfo.ID, commonschema.StatusJobTerminated,
-		jobSyncInfo.Runtime, "job is terminated"); err != nil {
+	if _, err := models.UpdateJob(jobSyncInfo.ID, commonschema.StatusJobTerminated, jobSyncInfo.RuntimeInfo, jobSyncInfo.RuntimeStatus, "job is terminated"); err != nil {
 		log.Errorf("sync job status failed. jobID:[%s] err:[%s]", jobSyncInfo.ID, err.Error())
 		return err
 	}
@@ -252,7 +253,7 @@ func (j *JobSync) doUpdateAction(jobSyncInfo *JobSyncInfo) error {
 	log.Infof("do update action. jobID:[%s] action:[%s] status:[%s] message:[%s]",
 		jobSyncInfo.ID, jobSyncInfo.Action, jobSyncInfo.Status, jobSyncInfo.Message)
 
-	if _, err := models.UpdateJob(jobSyncInfo.ID, jobSyncInfo.Status, jobSyncInfo.Runtime, jobSyncInfo.Message); err != nil {
+	if _, err := models.UpdateJob(jobSyncInfo.ID, jobSyncInfo.Status, jobSyncInfo.RuntimeInfo, jobSyncInfo.RuntimeStatus, jobSyncInfo.Message); err != nil {
 		log.Errorf("update job failed. jobID:[%s] err:[%s]", jobSyncInfo.ID, err.Error())
 		return err
 	}

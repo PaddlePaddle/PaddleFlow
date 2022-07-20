@@ -67,6 +67,7 @@ CREATE TABLE IF NOT EXISTS `job` (
     `type` varchar(20) NOT NULL,
     `config` mediumtext NOT NULL,
     `runtime_info` mediumtext DEFAULT NULL,
+    `runtime_status` mediumtext DEFAULT NULL,
     `status` varchar(32) NOT NULL,
     `message` text DEFAULT NULL,
     `resource` text DEFAULT NULL,
