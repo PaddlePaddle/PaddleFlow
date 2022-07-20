@@ -239,9 +239,19 @@ func CreateSchedule(ctx *logger.RequestContext, request *CreateScheduleRequest) 
 	}
 
 	if request.UserName == "" {
-		checkFs(ctx.UserName, &wfs)
+		if err := checkFs(ctx.UserName, &wfs); err != nil {
+			ctx.ErrorCode = common.InvalidArguments
+			errMsg := fmt.Sprintf("create schedule failed, check fs error:[%s]", err.Error())
+			ctx.Logging().Errorf(errMsg)
+			return CreateScheduleResponse{}, fmt.Errorf(errMsg)
+		}
 	} else {
-		checkFs(request.UserName, &wfs)
+		if err := checkFs(request.UserName, &wfs); err != nil {
+			ctx.ErrorCode = common.InvalidArguments
+			errMsg := fmt.Sprintf("create schedule failed, check fs error:[%s]", err.Error())
+			ctx.Logging().Errorf(errMsg)
+			return CreateScheduleResponse{}, fmt.Errorf(errMsg)
+		}
 	}
 
 	StrOptions, err := options.Encode(ctx.Logging())
