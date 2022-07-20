@@ -268,7 +268,7 @@ func UpdateJob(jobID string, status schema.JobStatus, runtimeInfo, runtimeStatus
 		updatedJob.ActivatedAt.Valid = true
 	}
 	log.Debugf("update for job %s, updated content [%+v]", jobID, updatedJob)
-	tx := storage.DB.Debug().Table("job").Where("id = ?", jobID).Where("deleted_at = ''").Updates(&updatedJob)
+	tx := storage.DB.Table("job").Where("id = ?", jobID).Where("deleted_at = ''").Updates(&updatedJob)
 	if tx.Error != nil {
 		log.Errorf("update job failed, err %v", tx.Error)
 		return "", tx.Error
