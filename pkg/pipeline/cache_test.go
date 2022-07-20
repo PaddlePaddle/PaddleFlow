@@ -47,13 +47,13 @@ func TestCalculateFingerprint(t *testing.T) {
 		Env:            map[string]string{"name": "xiaodu", "value": "123"},
 		Parameters:     map[string]string{"name": "xiaodu", "value": "456"},
 		InputArtifacts: map[string]string{"model": "/pf/model"},
-		FsMount: []schema.FsMount{
+		ExtraFS: []schema.FsMount{
 			schema.FsMount{
-				FsID:      "123",
+				ID:        "123",
 				MountPath: "/abc",
 			},
 			schema.FsMount{
-				FsID:      "456",
+				ID:        "456",
 				MountPath: "/def",
 			},
 		},
@@ -71,13 +71,13 @@ func TestCalculateFingerprint(t *testing.T) {
 		Env:            map[string]string{"value": "123", "name": "xiaodu"},
 		Parameters:     map[string]string{"name": "xiaodu", "value": "456"},
 		InputArtifacts: map[string]string{"model": "/pf/model"},
-		FsMount: []schema.FsMount{
+		ExtraFS: []schema.FsMount{
 			schema.FsMount{
-				FsID:      "456",
+				ID:        "456",
 				MountPath: "/abc",
 			},
 			schema.FsMount{
-				FsID:      "123",
+				ID:        "123",
 				MountPath: "/def",
 			},
 		},
@@ -87,6 +87,60 @@ func TestCalculateFingerprint(t *testing.T) {
 	fmt.Println(fp3)
 	assert.Equal(t, err, nil)
 	assert.NotEqual(t, fp3, fp2)
+
+	// 测试参数顺序是否会导致fingerPrint 不一致
+	firstCacheKey4 := conservativeFirstCacheKey{
+		DockerEnv:      "test:1",
+		Command:        "echo 123",
+		Env:            map[string]string{"value": "123", "name": "xiaodu"},
+		Parameters:     map[string]string{"name": "xiaodu", "value": "456"},
+		InputArtifacts: map[string]string{"model": "/pf/model"},
+		ExtraFS: []schema.FsMount{
+			schema.FsMount{
+				ID:        "456",
+				MountPath: "/abc",
+			},
+			schema.FsMount{
+				ID:        "123",
+				MountPath: "/def",
+			},
+		},
+		MainFS: schema.FsMount{
+			ID:        "456",
+			MountPath: "/abc",
+		},
+	}
+
+	fp4, err := calculateFingerprint(&firstCacheKey4)
+	fmt.Println(fp3)
+	assert.NotEqual(t, fp3, fp4)
+
+	// 测试参数顺序是否会导致fingerPrint 不一致
+	firstCacheKey5 := conservativeFirstCacheKey{
+		DockerEnv:      "test:1",
+		Command:        "echo 123",
+		Env:            map[string]string{"value": "123", "name": "xiaodu"},
+		Parameters:     map[string]string{"name": "xiaodu", "value": "456"},
+		InputArtifacts: map[string]string{"model": "/pf/model"},
+		ExtraFS: []schema.FsMount{
+			schema.FsMount{
+				ID:        "456",
+				MountPath: "/abc",
+			},
+			schema.FsMount{
+				ID:        "123",
+				MountPath: "/def",
+			},
+		},
+		MainFS: schema.FsMount{
+			ID:        "456",
+			MountPath: "/abcde",
+		},
+	}
+
+	fp5, err := calculateFingerprint(&firstCacheKey5)
+	fmt.Println(fp5)
+	assert.NotEqual(t, fp5, fp4)
 }
 
 func mockArtifact() schema.Artifacts {
@@ -132,13 +186,13 @@ func mockWorkflowSourceStep() schema.WorkflowSourceStep {
 		Env:        map[string]string{"num": "1200"},
 		Artifacts:  art,
 		DockerEnv:  "test.tar",
-		FsMount: []schema.FsMount{
+		ExtraFS: []schema.FsMount{
 			schema.FsMount{
-				FsID:      "456",
+				ID:        "456",
 				MountPath: "/abc",
 			},
 			schema.FsMount{
-				FsID:      "123",
+				ID:        "123",
 				MountPath: "/abc",
 			},
 		},
@@ -146,9 +200,12 @@ func mockWorkflowSourceStep() schema.WorkflowSourceStep {
 }
 
 func mockRunConfigWithLogger() *runConfig {
+	mainFS := schema.FsMount{
+		ID: "1234",
+	}
 	return &runConfig{
 		logger: logger.LoggerForRun("run-0000"),
-		fsID:   "1234",
+		mainFS: &mainFS,
 	}
 }
 
@@ -173,19 +230,19 @@ func mockCacheConfig() schema.Cache {
 		MaxExpiredTime: "167873037492",
 		FsScope: []schema.FsScope{
 			schema.FsScope{
-				FsID:   "123",
-				FsName: "abc",
-				Path:   "a.txt,b.txt",
+				ID:   "123",
+				Name: "abc",
+				Path: "a.txt,b.txt",
 			},
 			schema.FsScope{
-				FsID:   "456",
-				FsName: "abc",
-				Path:   "c.txt,d.txt",
+				ID:   "456",
+				Name: "abc",
+				Path: "c.txt,d.txt",
 			},
 			schema.FsScope{
-				FsID:   "789",
-				FsName: "abc",
-				Path:   "",
+				ID:   "789",
+				Name: "abc",
+				Path: "",
 			},
 		},
 	}
@@ -202,8 +259,8 @@ func mockerNewConservativeCacheCalculator() (CacheCalculator, error) {
 	handler.NewFsHandlerWithServer = handler.MockerNewFsHandlerWithServer
 
 	job := step.job.(*PaddleFlowJob)
-	calculator, err := NewConservativeCacheCalculator(*job, cacheConfig, step.logger,
-		step.getWorkFlowStep().FsMount, step.fsID)
+	calculator, err := NewConservativeCacheCalculator(*job, cacheConfig, step.logger, step.mainFS,
+		step.getWorkFlowStep().ExtraFS)
 	return calculator, err
 }
 
@@ -306,13 +363,13 @@ func TestGetFsScopeModTime(t *testing.T) {
 			if path == "" {
 				continue
 			}
-			_, ok := fsScopeMap[scope.FsID].ModTime[path]
+			_, ok := fsScopeMap[scope.ID].ModTime[path]
 			assert.Equal(t, ok, true)
 		}
 
-		if scope.FsID == "789" {
-			assert.Len(t, fsScopeMap[scope.FsID].ModTime, 1)
-			assert.Contains(t, fsScopeMap[scope.FsID].ModTime, "/")
+		if scope.ID == "789" {
+			assert.Len(t, fsScopeMap[scope.ID].ModTime, 1)
+			assert.Contains(t, fsScopeMap[scope.ID].ModTime, "/")
 		}
 	}
 }
@@ -322,19 +379,26 @@ func TestGetInputArtifactModTime(t *testing.T) {
 	calculator, err := mockerNewConservativeCacheCalculator()
 	assert.Equal(t, err, nil)
 
+	arts.Input["mutil"] = "m1.txt,m2.txt"
+	calculator.(*conservativeCacheCalculator).job.Artifacts.Input["mutil"] = "m1.txt,m2.txt"
+
 	for _, path := range arts.Input {
 		path = strings.TrimSpace(path)
 		if path == "" {
 			continue
 		}
-		err := CreatefileByFsClient(path, true)
-		assert.Equal(t, err, nil)
+
+		for _, p := range strings.Split(path, ",") {
+			err := CreatefileByFsClient(p, true)
+			assert.Equal(t, err, nil)
+		}
 	}
 
 	inArtMap, err := calculator.(*conservativeCacheCalculator).getInputArtifactModTime()
 	fmt.Println("inArtMTime:", inArtMap)
 	for name, _ := range arts.Input {
 		_, ok := inArtMap[name]
+		fmt.Println(name, ok, 123566)
 		assert.Equal(t, ok, true)
 	}
 }
@@ -393,8 +457,8 @@ func TestNewCacheCalculator(t *testing.T) {
 	handler.NewFsHandlerWithServer = handler.MockerNewFsHandlerWithServer
 
 	job := step.job.(*PaddleFlowJob)
-	calculator, err := NewCacheCalculator(*job, cacheConfig, step.logger,
-		step.getWorkFlowStep().FsMount, step.fsID)
+	calculator, err := NewCacheCalculator(*job, cacheConfig, step.logger, step.mainFS,
+		step.getWorkFlowStep().ExtraFS)
 	assert.Equal(t, err, nil)
 	_, ok := calculator.(CacheCalculator)
 	assert.Equal(t, ok, true)

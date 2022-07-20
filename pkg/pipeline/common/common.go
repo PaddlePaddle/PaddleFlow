@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"math/rand"
 	"strings"
+	"time"
 
 	"github.com/sirupsen/logrus"
 
@@ -123,4 +124,48 @@ func TopologicalSort(components map[string]schema.Component) ([]string, error) {
 		}
 	}
 	return sortedComponent, nil
+}
+
+func LatestTime(times []time.Time) time.Time {
+	latestTime := time.Time{}
+
+	for _, t := range times {
+		if latestTime.After(t) {
+			latestTime = t
+		}
+	}
+
+	return latestTime
+}
+
+func GetFSMountPath(FS *schema.FsMount) string {
+	if FS.MountPath != "" {
+		return FS.MountPath
+	} else {
+		return fmt.Sprintf("/home/paddleflow/storage/mnt/%s", FS.ID)
+	}
+}
+
+func GetArtifactMountPath(mainFS *schema.FsMount, artifactPath string) string {
+	mountPath := GetFSMountPath(mainFS)
+	mountPath = strings.TrimRight(mountPath, "/")
+	subPath := strings.TrimRight(mainFS.SubPath, "/")
+
+	artMountPaths := []string{}
+
+	for _, path := range strings.Split(artifactPath, ",") {
+		if path == "" {
+			continue
+		}
+
+		var artMountPath string
+		if subPath != "" {
+			artMountPath = strings.Replace(path, subPath, mountPath, 1)
+		} else {
+			artMountPath = fmt.Sprintf("%s/%s", mountPath, path)
+		}
+		artMountPaths = append(artMountPaths, artMountPath)
+	}
+
+	return strings.Join(artMountPaths, ",")
 }

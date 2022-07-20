@@ -313,6 +313,23 @@ func (bwf *BaseWorkflow) validate() error {
 		bwf.log().Errorf("check failure_option failed. err: %s", err.Error())
 		return err
 	}
+
+	// 9. 检查mainFS、extraFS，并填充fsID
+	if err := bwf.checkFS(); err != nil {
+		bwf.log().Errorf("check fs failed. err: %s", err.Error())
+		return err
+	}
+
+	return nil
+}
+
+// 检查fsScope的fsName是否在fsMount中，同时根据Username和FSName生成FSID
+func (bwf *BaseWorkflow) checkFS() error {
+	if bwf.Source.FsOptions.MainFS.ReadOnly {
+		return fmt.Errorf("[read_only] in [main_fs] must be false")
+	}
+
+	bwf.Source.ProcessFsMounts(bwf.Extra[WfExtraInfoKeyUserName], bwf.Extra[WfExtraInfoKeyFsName])
 	return nil
 }
 
@@ -1052,7 +1069,7 @@ func (wf *Workflow) NewWorkflowRuntime() error {
 	}
 
 	logger.LoggerForRun(wf.RunID).Debugf("initializing [%d] parallelism jobs", wf.Source.Parallelism)
-	runConf := NewRunConfig(&wf.Source, wf.Extra[WfExtraInfoKeyFsID], wf.Extra[WfExtraInfoKeyFsName], wf.Extra[WfExtraInfoKeyUserName], wf.RunID,
+	runConf := NewRunConfig(&wf.Source, &wf.Source.FsOptions.MainFS, wf.Extra[WfExtraInfoKeyUserName], wf.RunID,
 		logger.LoggerForRun(wf.RunID), wf.callbacks, wf.Extra[WfExtraInfoKeySource])
 	wf.runtime = NewWorkflowRuntime(runConf)
 
@@ -1064,8 +1081,8 @@ func (wf *Workflow) Start() {
 	wf.runtime.Start()
 }
 
-func (wf *Workflow) Resume(entryPointView *schema.DagView, postProcessView schema.PostProcessView) {
-	wf.runtime.Resume(entryPointView, postProcessView)
+func (wf *Workflow) Resume(entryPointView *schema.DagView, postProcessView schema.PostProcessView, runStatus string, stopForce bool) {
+	wf.runtime.Resume(entryPointView, postProcessView, runStatus, stopForce)
 }
 
 // Restart 从 DB 中恢复重启 workflow

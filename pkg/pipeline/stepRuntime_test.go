@@ -103,6 +103,7 @@ func TestUpdateJobForFingerPrint(t *testing.T) {
 	dr.setSysParams()
 
 	ds := NewDependencySolver(dr)
+	sysNum := 4 // 系统变量数量
 	for _, stepName := range sortedSteps {
 		err := ds.ResolveBeforeRun(dr.getworkflowSouceDag().EntryPoints[stepName])
 		assert.Nil(t, err)
@@ -120,7 +121,7 @@ func TestUpdateJobForFingerPrint(t *testing.T) {
 		if stepName == "data-preprocess" {
 			assert.Equal(t, 2, len(srt.job.Job().Parameters))
 
-			assert.Equal(t, 7, len(srt.job.Job().Env)) // 2 env
+			assert.Equal(t, 2+sysNum, len(srt.job.Job().Env)) // 2 env
 
 			assert.Contains(t, srt.job.Job().Artifacts.Output, "train_data")
 			assert.Contains(t, srt.job.Job().Artifacts.Output, "validate_data")
@@ -137,7 +138,7 @@ func TestUpdateJobForFingerPrint(t *testing.T) {
 			assert.Equal(t, "0.66", srt.job.Job().Parameters["p4"])
 			assert.Equal(t, "/path/to/anywhere", srt.job.Job().Parameters["p5"])
 
-			assert.Equal(t, 5+5, len(srt.job.Job().Env)) // 5 env
+			assert.Equal(t, 5+sysNum, len(srt.job.Job().Env)) // 5 env
 
 			// input artifact 替换为上游节点的output artifact
 			// 实际运行中上游节点的output artifact一定是非空的（因为已经运行了），但是在这个测试case里，上游节点没有生成output artifact，所以是空字符串
@@ -155,7 +156,7 @@ func TestUpdateJobForFingerPrint(t *testing.T) {
 			assert.Contains(t, srt.job.Job().Parameters, "refSystem")
 			assert.Equal(t, "run-000001", srt.job.Job().Parameters["refSystem"])
 
-			assert.Equal(t, 4+5, len(srt.job.Job().Env)) // 4 env
+			assert.Equal(t, 4+sysNum, len(srt.job.Job().Env)) // 4 env
 			assert.Contains(t, srt.job.Job().Env, "PF_JOB_QUEUE")
 			assert.Contains(t, srt.job.Job().Env, "PF_JOB_PRIORITY")
 			assert.Contains(t, srt.job.Job().Env, "test_env_1")
@@ -225,8 +226,17 @@ func TestUpdateJob(t *testing.T) {
 		assert.Nil(t, err)
 
 		OutatfTrainData := ".pipeline/run-000001/myproject/data-preprocess-0-2578f927d74c8ef09add007179d6d227/train_data"
+		OutatfTrainDataMount := fmt.Sprintf("/home/paddleflow/storage/mnt/fs-fs/%s", OutatfTrainData)
+		OutatfTrainDataOnFS := fmt.Sprintf("/testcase/%s", OutatfTrainData)
+
 		OutatfValidateData := ".pipeline/run-000001/myproject/data-preprocess-0-2578f927d74c8ef09add007179d6d227/validate_data"
+		OutatfValidateDataMount := fmt.Sprintf("/home/paddleflow/storage/mnt/fs-fs/%s", OutatfValidateData)
+		OutatfValidateDataOnFS := fmt.Sprintf("/testcase/%s", OutatfValidateData)
+
 		OutatfTrainModel := ".pipeline/run-000001/myproject/main-0-d85d2ce5c2b131b6efc68069a4f18c9b/train_model"
+		OutatfTrainModelMount := fmt.Sprintf("/home/paddleflow/storage/mnt/fs-fs/%s", OutatfTrainModel)
+		OutatfTrainModelOnFS := fmt.Sprintf("/testcase/%s", OutatfTrainModel)
+
 		if stepName == "data-preprocess" {
 			assert.Equal(t, 2, len(srt.job.Job().Parameters))
 
@@ -234,16 +244,16 @@ func TestUpdateJob(t *testing.T) {
 
 			assert.Contains(t, srt.job.Job().Artifacts.Output, "train_data")
 			assert.Contains(t, srt.job.Job().Artifacts.Output, "validate_data")
-			assert.Equal(t, OutatfTrainData, srt.job.Job().Artifacts.Output["train_data"])
-			assert.Equal(t, OutatfValidateData, srt.job.Job().Artifacts.Output["validate_data"])
+			assert.Equal(t, OutatfTrainDataOnFS, srt.job.Job().Artifacts.Output["train_data"])
+			assert.Equal(t, OutatfValidateDataOnFS, srt.job.Job().Artifacts.Output["validate_data"])
 
 			assert.Contains(t, srt.job.Job().Env, "PF_OUTPUT_ARTIFACT_TRAIN_DATA")
 			assert.Contains(t, srt.job.Job().Env, "PF_OUTPUT_ARTIFACT_VALIDATE_DATA")
-			assert.Equal(t, common.ArtMountDir+"/"+OutatfTrainData, srt.job.Job().Env["PF_OUTPUT_ARTIFACT_TRAIN_DATA"])
-			assert.Equal(t, common.ArtMountDir+"/"+OutatfValidateData, srt.job.Job().Env["PF_OUTPUT_ARTIFACT_VALIDATE_DATA"])
+			assert.Equal(t, OutatfTrainDataMount, srt.job.Job().Env["PF_OUTPUT_ARTIFACT_TRAIN_DATA"])
+			assert.Equal(t, OutatfValidateDataMount, srt.job.Job().Env["PF_OUTPUT_ARTIFACT_VALIDATE_DATA"])
 
 			expectedCommand := fmt.Sprintf("python data_preprocess.py --input ./LINK/mybos_dir/data --output ./data/pre --validate %s --stepname data-preprocess",
-				common.ArtMountDir+"/"+OutatfValidateData)
+				OutatfValidateDataMount)
 			assert.Equal(t, expectedCommand, srt.job.Job().Command)
 		}
 		if stepName == "main" {
@@ -255,20 +265,20 @@ func TestUpdateJob(t *testing.T) {
 			assert.Equal(t, "0.66", srt.job.Job().Parameters["p4"])
 			assert.Equal(t, "/path/to/anywhere", srt.job.Job().Parameters["p5"])
 
-			assert.Equal(t, 5+5+2, len(srt.job.Job().Env)) // 5 env + 5 sys param + 2 artifact
+			assert.Equal(t, 5+sysNum+2, len(srt.job.Job().Env)) // 5 env + 5 sys param + 2 artifact
 
 			// input artifact 替换为上游节点的output artifact
 			// 实际运行中上游节点的output artifact一定是非空的（因为已经运行了），但是在这个测试case里，上游节点没有生成output artifact，所以是空字符串
 			assert.Contains(t, srt.job.Job().Artifacts.Input, "train_data")
-			assert.Equal(t, OutatfTrainData, srt.job.Job().Artifacts.Input["train_data"])
+			assert.Equal(t, OutatfTrainDataOnFS, srt.job.Job().Artifacts.Input["train_data"])
 
 			assert.Contains(t, srt.job.Job().Artifacts.Output, "train_model")
-			assert.Equal(t, OutatfTrainModel, srt.job.Job().Artifacts.Output["train_model"])
+			assert.Equal(t, OutatfTrainModelOnFS, srt.job.Job().Artifacts.Output["train_model"])
 
 			assert.Contains(t, srt.job.Job().Env, "PF_INPUT_ARTIFACT_TRAIN_DATA")
 			assert.Contains(t, srt.job.Job().Env, "PF_OUTPUT_ARTIFACT_TRAIN_MODEL")
-			assert.Equal(t, common.ArtMountDir+"/"+OutatfTrainData, srt.job.Job().Env["PF_INPUT_ARTIFACT_TRAIN_DATA"])
-			assert.Equal(t, common.ArtMountDir+"/"+OutatfTrainModel, srt.job.Job().Env["PF_OUTPUT_ARTIFACT_TRAIN_MODEL"])
+			assert.Equal(t, OutatfTrainDataMount, srt.job.Job().Env["PF_INPUT_ARTIFACT_TRAIN_DATA"])
+			assert.Equal(t, OutatfTrainModelMount, srt.job.Job().Env["PF_OUTPUT_ARTIFACT_TRAIN_MODEL"])
 
 			expectedCommand := "python train.py -r 0.1 -d ./data/pre --output ./data/model"
 			assert.Equal(t, expectedCommand, srt.job.Job().Command)
@@ -289,10 +299,10 @@ func TestUpdateJob(t *testing.T) {
 			assert.Equal(t, "./data/pre_validate", srt.job.Job().Env["test_env_2"])
 
 			assert.Contains(t, srt.job.Job().Artifacts.Input, "data")
-			assert.Equal(t, OutatfValidateData, srt.job.Job().Artifacts.Input["data"])
+			assert.Equal(t, OutatfValidateDataOnFS, srt.job.Job().Artifacts.Input["data"])
 
 			assert.Contains(t, srt.job.Job().Artifacts.Input, "model")
-			assert.Equal(t, OutatfTrainModel, srt.job.Job().Artifacts.Input["model"])
+			assert.Equal(t, OutatfTrainModelOnFS, srt.job.Job().Artifacts.Input["model"])
 
 			expectedCommand := "python validate.py --model ./data/model --report ./data/report"
 			assert.Equal(t, expectedCommand, srt.job.Job().Command)
@@ -337,8 +347,7 @@ func TestCheckCached(t *testing.T) {
 	defer patches.Reset()
 
 	job := srt.job.(*PaddleFlowJob)
-	cacheCaculator, err := NewCacheCalculator(*job, wfs.Cache, srt.logger, srt.getWorkFlowStep().FsMount,
-		srt.fsID)
+	cacheCaculator, err := NewCacheCalculator(*job, wfs.Cache, srt.logger, srt.runConfig.mainFS, srt.getWorkFlowStep().ExtraFS)
 
 	patch1 := gomonkey.ApplyMethod(reflect.TypeOf(cacheCaculator), "CalculateFirstFingerprint", func(_ *conservativeCacheCalculator) (string, error) {
 		return "1111", nil
@@ -528,8 +537,7 @@ func TestExecute(t *testing.T) {
 		eventChan, rf, "dag-11")
 
 	job := srt.job.(*PaddleFlowJob)
-	cacheCaculator, err := NewCacheCalculator(*job, wfs.Cache, srt.logger, srt.getWorkFlowStep().FsMount,
-		srt.fsID)
+	cacheCaculator, err := NewCacheCalculator(*job, wfs.Cache, srt.logger, srt.runConfig.mainFS, srt.getWorkFlowStep().ExtraFS)
 	patch12 := gomonkey.ApplyMethod(reflect.TypeOf(cacheCaculator), "CalculateFirstFingerprint", func(_ *conservativeCacheCalculator) (string, error) {
 		return "1111", nil
 	})
