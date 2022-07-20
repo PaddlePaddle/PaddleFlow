@@ -156,7 +156,6 @@ CREATE TABLE IF NOT EXISTS `run` (
     `fs_name` varchar(60) NOT NULL,
     `description` text NOT NULL,
     `parameters_json` text NOT NULL,
-    `fs_options_json` text NOT NULL,
     `run_yaml` text NOT NULL,
     `docker_env` varchar(128) NOT NULL,
     `disabled` text NOT NULL,

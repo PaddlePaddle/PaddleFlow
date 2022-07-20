@@ -921,6 +921,12 @@ func (bwf *BaseWorkflow) checkDisabled() ([]string, error) {
 	for k, v := range bwf.Source.PostProcess {
 		postComponents[k] = v
 	}
+
+	disabledMap := map[string]int{}
+	for _, compAbsName := range disabledComponents {
+		disabledMap[compAbsName] = 1
+	}
+
 	for _, disFullName := range disabledComponents {
 		_, ok := tempMap[disFullName]
 		if ok {
@@ -942,7 +948,9 @@ func (bwf *BaseWorkflow) checkDisabled() ([]string, error) {
 		// 检查被disabled的节点有没有被引用
 		// 先检查同级别的节点是否有引用
 		for compName, comp := range components {
-			if compName == disName {
+			_, ok := disabledMap[GetSiblingAbsoluteName(disFullName, compName)]
+			// 如果该节点为自身或disabled的节点，则不需要检查
+			if compName == disName || ok {
 				continue
 			}
 			// 检查输入Artifact引用
@@ -975,8 +983,10 @@ func (bwf *BaseWorkflow) checkDisabled() ([]string, error) {
 		// 再检查父节点是否有引用（输出Artifact引用）
 		if len(components[disName].GetArtifacts().Output) > 0 {
 			disNameList := strings.Split(disFullName, ".")
-			if len(disNameList) > 1 {
-				//该节点有父节点
+			disParentFullName := strings.Join(disNameList[:len(disNameList)-1], ".")
+			_, ok := disabledMap[disParentFullName]
+			if len(disNameList) > 1 && !ok {
+				// 如果该节点有父节点，且该父节点没有被disabled，才需要检查
 				disParentFullName := strings.Join(disNameList[:len(disNameList)-1], ".")
 				components1, name1, ok1 := bwf.Source.GetComponent(bwf.Source.EntryPoints.EntryPoints, disParentFullName)
 				components2, name2, ok2 := bwf.Source.GetComponent(postComponents, disParentFullName)
