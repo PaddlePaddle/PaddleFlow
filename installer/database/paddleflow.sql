@@ -171,7 +171,7 @@ CREATE TABLE IF NOT EXISTS `run` (
     `deleted_at` datetime(3) DEFAULT NULL,
     PRIMARY KEY (`pk`),
     UNIQUE KEY (`id`),
-    INDEX (`fs_id`),
+    INDEX (`fs_name`),
     INDEX (`status`)
 ) ENGINE=InnoDB DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
 
