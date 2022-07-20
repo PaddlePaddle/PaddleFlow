@@ -33,7 +33,7 @@ type SingleJob struct {
 	Flavour schema.Flavour
 }
 
-func (sp *SingleJob) validateJob() error {
+func (sp *SingleJob) validateJob(singlePod *v1.Pod) error {
 	if err := sp.KubeJob.validateJob(); err != nil {
 		return err
 	}
@@ -50,6 +50,21 @@ func (sp *SingleJob) validateJob() error {
 		if schema.IsEmptyResource(sp.Flavour.ResourceInfo) {
 			return fmt.Errorf("flavour resource is empty")
 		}
+	} else if err := sp.validateCustomYaml(singlePod); err != nil {
+		log.Errorf("validate custom yaml failed, err %v", err)
+		return err
+	}
+	return nil
+}
+
+func (sp *SingleJob) validateCustomYaml(singlePod *v1.Pod) error {
+	log.Infof("validate custom yaml for single pod: %v, pod from yaml: %v", sp, singlePod)
+	if singlePod.Spec.Containers == nil || len(singlePod.Spec.Containers) == 0 {
+		return fmt.Errorf("single pod has no containers")
+	}
+	if err := validateTemplateResources(&singlePod.Spec); err != nil {
+		log.Errorf("validate resources in extensionTemplate failed, err %v", err)
+		return err
 	}
 	return nil
 }
@@ -88,7 +103,7 @@ func (sp *SingleJob) CreateJob() (string, error) {
 			return "", err
 		}
 	}
-	if err := sp.validateJob(); err != nil {
+	if err := sp.validateJob(singlePod); err != nil {
 		log.Errorf("validate job failed, err: %v", err)
 		return "", err
 	}
@@ -151,7 +166,7 @@ func (sp *SingleJob) fillContainersInPod(pod *v1.Pod) error {
 func (sp *SingleJob) fillContainer(container *v1.Container, podName string) error {
 	log.Debugf("fillContainer for job[%s]", podName)
 	if sp.IsCustomYaml {
-		log.Debugf("fillContainer passwd for job[%s] with custom yaml", podName)
+		log.Debugf("fillContainer passed for job[%s] with custom yaml", podName)
 		return nil
 	}
 	// fill name
