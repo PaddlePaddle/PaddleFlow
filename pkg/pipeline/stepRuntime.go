@@ -642,7 +642,7 @@ func (srt *StepRuntime) Execute() {
 		}
 	}()
 	srt.logger.Infof(logMsg)
-
+	logMsg = ""
 	// 1、 查看是否命中cache
 	if srt.getWorkFlowStep().Cache.Enable {
 		cachedFound, err := srt.checkCached()
