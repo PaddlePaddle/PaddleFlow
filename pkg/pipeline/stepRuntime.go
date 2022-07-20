@@ -61,8 +61,9 @@ func NewStepRuntime(name, fullName string, step *schema.WorkflowSourceStep, seq 
 		srt.runConfig.mainFS, srt.getWorkFlowStep().ExtraFS)
 	srt.job = job
 
-	srt.logger.Infof("step[%s] of runid[%s] before starting job: param[%s], env[%s], command[%s], artifacts[%s], deps[%s], FsMount[%v]",
-		srt.getName(), srt.runID, step.Parameters, step.Env, step.Command, step.Artifacts, step.Deps, step.ExtraFS)
+	srt.logger.Infof("step[%s] of runid[%s] before starting job: param[%s], env[%s], command[%s], artifacts[%s], deps[%s], "+
+		"extraFS[%v]", srt.getName(), srt.runID, step.Parameters, step.Env, step.Command,
+		step.Artifacts, step.Deps, step.ExtraFS)
 
 	return srt
 }
@@ -211,7 +212,6 @@ func (srt *StepRuntime) Resume(view *schema.JobView) {
 		srt.receiveEventChildren, srt.runConfig.mainFS, srt.getWorkFlowStep().ExtraFS)
 
 	srt.pk = view.PK
-	srt.getWorkFlowStep().ExtraFS = view.ExtraFS
 	err := srt.updateStatus(view.Status)
 	if err != nil {
 		errMsg := fmt.Sprintf("set the sysparams for dag[%s] failed: %s", srt.name, err.Error())
@@ -225,6 +225,10 @@ func (srt *StepRuntime) Resume(view *schema.JobView) {
 		srt.logger.Errorln(err.Error())
 		srt.processStartAbnormalStatus(err.Error(), StatusRuntimeFailed)
 		return
+	}
+
+	for name, value := range view.Artifacts.Output {
+		srt.getComponent().GetArtifacts().Output[name] = value
 	}
 
 	err = srt.updateJob(false)
