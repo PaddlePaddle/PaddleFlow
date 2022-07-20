@@ -695,7 +695,7 @@ class Client(object):
         return StatisticsServiceApi.get_statistics(self.paddleflow_server, jobid, run_id=runid, header=self.header)
 
     def get_statistics_detail(self, jobid: str, start: int = None, end: int = None, step: int = None,
-                              runid: str = None):
+                              runid: str = None) :
         """
         get_statistics_detail
         """
@@ -712,5 +712,8 @@ class Client(object):
         if step is not None and int(step) <= 0:
             raise PaddleFlowSDKException("InvalidStep", "step is not none and less than 0")
 
-        return StatisticsServiceApi.get_statistics_detail(self.paddleflow_server, jobid, start, end, step, run_id=runid,
+        ret, res = StatisticsServiceApi.get_statistics_detail(self.paddleflow_server, jobid, start, end, step, run_id=runid,
                                                           header=self.header)
+        if not ret:
+            return ret, res, False
+        return ret, res, res.truncated
