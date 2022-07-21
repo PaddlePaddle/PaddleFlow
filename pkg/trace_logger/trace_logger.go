@@ -26,11 +26,13 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"gopkg.in/natefinch/lumberjack.v2"
+
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 )
 
 // initFileLogger
 /**
- * Copy from ../logger/file_logger.go
+ * Copy from ../fileLogger/file_logger.go
  * made some modification
  */
 
@@ -50,11 +52,13 @@ const (
 	DefaultMaxCacheSize    int    = 10000
 	DefaultSyncInterval    string = "10m"
 	DefaultDeleteInterval  string = "1m"
+	LogrusField                   = "trace_logger"
 )
 
 var (
-	logger  *logrus.Logger
-	manager TraceLoggerManager
+	fileLogger *logrus.Logger
+	logger     *logrus.Entry
+	manager    TraceLoggerManager
 )
 
 type TraceLoggerConfig struct {
@@ -137,13 +141,23 @@ func fillDefaultValue(conf *TraceLoggerConfig) {
 	}
 }
 
+// init default logger
+func init() {
+	conf := TraceLoggerConfig{}
+	fillDefaultValue(&conf)
+	_ = InitTraceLoggerManager(conf)
+}
+
 func InitTraceLoggerManager(config TraceLoggerConfig) error {
 	l := logrus.New()
-	// set logger formatter to json
+	// set fileLogger formatter to json
 	if err := initFileLogger(l, &config); err != nil {
-		return fmt.Errorf("failed to init file logger: %w", err)
+		return fmt.Errorf("failed to init file fileLogger: %w", err)
 	}
-	logger = l
+	// set file logger
+	fileLogger = l
+	// set logger entry
+	logger = logrus.WithField(LogrusField, nil)
 	timeout, err := ParseTimeUnit(config.Timeout)
 	m := NewDefaultTraceLoggerManager(config.MaxCacheSize, timeout, config.Debug)
 	if err != nil {
@@ -161,7 +175,7 @@ func initFileLogger(logger *logrus.Logger, logConf *TraceLoggerConfig) error {
 		return err
 	}
 
-	// init lumberjack logger
+	// init lumberjack fileLogger
 	logPath := filepath.Join(logConf.Dir, strings.ReplaceAll(logConf.FilePrefix, hostNameHolder, hostname))
 	fmt.Printf("logPath:%s\n", logPath)
 	writer := &lumberjack.Logger{
@@ -174,16 +188,16 @@ func initFileLogger(logger *logrus.Logger, logConf *TraceLoggerConfig) error {
 	}
 	level, err := logrus.ParseLevel(logConf.Level)
 	if err != nil {
-		err = fmt.Errorf("failed to parse logger level: %w", err)
+		err = fmt.Errorf("failed to parse fileLogger level: %w", err)
 		return err
 	}
 
-	// init logrus logger
+	// init logrus fileLogger
 	// don't report caller
 	logger.SetLevel(level)
 	logger.SetReportCaller(false)
 
-	// set lumberjack logger as logrus logger's output
+	// set lumberjack fileLogger as logrus fileLogger's output
 	// don't log it to stdout
 	logger.SetOutput(writer)
 
@@ -194,13 +208,19 @@ func initFileLogger(logger *logrus.Logger, logConf *TraceLoggerConfig) error {
 
 // add package wide function
 
-// Key this function will create a trace logger for every unique key, the logs will be saved to a same slice when use same trace logger.
+// Key this function will create a trace fileLogger for every unique key, the logs will be saved to a same slice when use same trace fileLogger.
 // A new key will be treated as temp key, logs will not be saved until the key is updated by UpdateKey.
 func Key(key string) TraceLogger {
 	return manager.Key(key)
 }
 
-// UpdateKey this function will update the key of the trace logger.
+// KeyWithUpdate same behavior as Key method, but the key will be updated to newKey after the fileLogger is created.
+// i.e. KeyWithUpdate behave same as Key(key1) + UpdateKey(key1, key1)
+func KeyWithUpdate(key string) TraceLogger {
+	return manager.KeyWithUpdate(key)
+}
+
+// UpdateKey this function will update the key of the trace fileLogger.
 func UpdateKey(oldKey, newKey string) error {
 	return manager.UpdateKey(oldKey, newKey)
 }
@@ -235,4 +255,62 @@ func CancelAutoSync() error {
 
 func GetTraceFromCache(key string) (Trace, bool) {
 	return manager.GetTraceFromCache(key)
+}
+
+// GetTracesByRunIDAndJobID return the traces by run or job id, if not found, return nil, false
+// it will return related run and job log for runID, and related job log for jobID,
+// it will omit empty IDs
+func GetTracesByRunIDAndJobID(runID, jobID string) ([]Trace, bool) {
+	traces := make([]Trace, 0)
+	// update key
+	if runID != "" {
+		runTrace, ok := manager.GetTraceFromCache(runID)
+		if ok {
+			traces = append(traces, runTrace)
+		}
+
+		runJobTraces, ok := GetJobTracesByRunID(runID)
+		if ok {
+			traces = append(traces, runJobTraces...)
+		}
+
+	}
+	if jobID != "" {
+		jobTraces, ok := manager.GetTraceFromCache(runID)
+		if ok {
+			traces = append(traces, jobTraces)
+		}
+	}
+	if len(traces) == 0 {
+		return nil, false
+	}
+	return traces, true
+}
+
+// GetJobTracesByRunID for run and job relation mapping
+func GetJobTracesByRunID(runID string) ([]Trace, bool) {
+	var jobTraces []Trace
+	jobs, err := models.GetJobsByRunID(runID, "")
+	if err != nil {
+		logger.Errorf("failed to get jobs by runID: %s, err: %s", runID, err.Error())
+	}
+	// if empty return
+	if len(jobs) == 0 {
+		return jobTraces, false
+	}
+	jobTraces = make([]Trace, 0, len(jobs))
+
+	for _, job := range jobs {
+		jobTrace, ok := GetTraceFromCache(job.ID)
+		if !ok {
+			continue
+		}
+		jobTraces = append(jobTraces, jobTrace)
+	}
+
+	// double check if jobTraces is empty
+	if len(jobTraces) == 0 {
+		return nil, false
+	}
+	return jobTraces, true
 }

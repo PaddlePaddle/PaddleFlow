@@ -17,7 +17,6 @@ limitations under the License.
 package v1
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -79,7 +78,7 @@ func (rr *RunRouter) createRun(w http.ResponseWriter, r *http.Request) {
 	// add trace logger
 	trace_logger.Key(requestId).Infof("creating run for request:%+v", createRunInfo)
 	// create run
-	response, err := pipeline.CreateRun(ctx, &createRunInfo)
+	response, err := pipeline.CreateRun(ctx, &createRunInfo, nil)
 	if err != nil {
 		errMsg := fmt.Sprintf(
 			"create run failed. createRunInfo:%v error:%s", createRunInfo, err.Error())
@@ -119,6 +118,15 @@ func (rr *RunRouter) createRunByJson(w http.ResponseWriter, r *http.Request) {
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
+
+	// 检查 json 请求体的格式
+	if !json.Valid(bodyBytes) {
+		errMsg := "request body json format invalid"
+		logger.LoggerForRequest(&ctx).Errorf(errMsg)
+		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, errMsg)
+		return
+	}
+
 	bodyUnstructured := unstructured.Unstructured{}
 	if err := bodyUnstructured.UnmarshalJSON(bodyBytes); err != nil && !runtime.IsMissingKind(err) {
 		// MissingKindErr不影响Json的解析
@@ -128,27 +136,16 @@ func (rr *RunRouter) createRunByJson(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	bodyMap := bodyUnstructured.UnstructuredContent()
-	// 保证body下一次能够读取
-	r.Body = ioutil.NopCloser(bytes.NewBuffer(bodyBytes))
 
-	createRunByJsonInfo := pipeline.CreateRunByJsonRequest{}
-
-	if err := common.BindJSON(r, &createRunByJsonInfo); err != nil {
-		logger.LoggerForRequest(&ctx).Errorf(
-			"create run by json failed parsing request body:%+v. error:%s", r.Body, err.Error())
-		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
-		return
-	}
-
-	trace_logger.Key(ctx.RequestID).Infof("creating run by json for request:%+v", createRunByJsonInfo)
+	trace_logger.Key(ctx.RequestID).Infof("creating run by json for request body map:%+v", bodyMap)
 	// create run
-	response, err := pipeline.CreateRunByJson(ctx, &createRunByJsonInfo, bodyMap)
+	response, err := pipeline.CreateRunByJson(ctx, bodyMap)
 	if err != nil {
 		if response.RunID != "" {
 			trace_logger.Key(response.RunID).Errorf("create run fail: %s", err)
 		}
 		logger.LoggerForRequest(&ctx).Errorf(
-			"create run by json failed. createRunByJsonInfo:%v error:%s", createRunByJsonInfo, err.Error())
+			"create run by json failed. error:%s", err.Error())
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
@@ -223,6 +220,10 @@ func (rr *RunRouter) getRunByID(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
 	runID := chi.URLParam(r, util.ParamKeyRunID)
 	runInfo, err := pipeline.GetRunByID(ctx.Logging(), ctx.UserName, runID)
+
+	// 优化RuntimeView结构，使显示结果更友好
+	runInfo.Runtime = runInfo.RemoveOuterDagView(runInfo.Runtime)
+
 	if err != nil {
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
@@ -274,7 +275,7 @@ func (rr *RunRouter) updateRun(w http.ResponseWriter, r *http.Request) {
 			ctx.ErrorCode = common.InternalError
 		}
 	case util.QueryActionRetry:
-		err = pipeline.RetryRun(&ctx, runID)
+		runID, err = pipeline.RetryRun(&ctx, runID)
 	default:
 		ctx.ErrorCode = common.InvalidURI
 		err = fmt.Errorf("invalid action[%s] for UpdateRun", action)
@@ -285,7 +286,12 @@ func (rr *RunRouter) updateRun(w http.ResponseWriter, r *http.Request) {
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
-	common.RenderStatus(w, http.StatusOK)
+	if action == util.QueryActionRetry {
+		rsp := pipeline.UpdateRunResponse{RunID: runID}
+		common.Render(w, http.StatusOK, rsp)
+	} else {
+		common.RenderStatus(w, http.StatusOK)
+	}
 }
 
 // deleteRun

@@ -19,7 +19,10 @@ limitations under the License.
 
 package ufs
 
-import "syscall"
+import (
+	"os"
+	"syscall"
+)
 
 func fillStat(nlink uint64, mode uint32, uid uint32, gid uint32, size int64, blksize int64, blocks int64, atime, mtime, ctime syscall.Timespec) syscall.Stat_t {
 	return syscall.Stat_t{
@@ -34,4 +37,76 @@ func fillStat(nlink uint64, mode uint32, uid uint32, gid uint32, size int64, blk
 		Mtim:    mtime,
 		Ctim:    ctime,
 	}
+}
+
+func (fs *hdfsFileSystem) sysHdfsToAttr(info os.FileInfo) (a Attr) {
+	st := fs.statFromFileInfo(info)
+	if info.IsDir() {
+		a.Type = TypeDirectory
+	} else {
+		a.Type = TypeFile
+	}
+	a.Mode = uint32(st.Mode)
+	a.Uid = st.Uid
+	a.Gid = st.Gid
+	a.Rdev = uint64(st.Rdev)
+	a.Atime = st.Atim.Sec
+	a.Mtime = st.Atim.Sec
+	a.Ctime = st.Atim.Sec
+	a.Atimensec = uint32(st.Atim.Nsec)
+	a.Mtimensec = uint32(st.Atim.Nsec)
+	a.Ctimensec = uint32(st.Atim.Nsec)
+	a.Nlink = uint64(st.Nlink)
+	a.Size = uint64(st.Size)
+	a.Blksize = int64(st.Blksize)
+	a.Block = st.Blocks
+	return a
+}
+
+func (fs *sftpFileSystem) sysSFTPToAttr(info os.FileInfo) (a Attr) {
+	st := fs.statFromFileInfo(info)
+	if info.IsDir() {
+		a.Type = TypeDirectory
+	} else {
+		a.Type = TypeFile
+	}
+	a.Mode = uint32(st.Mode)
+	a.Uid = st.Uid
+	a.Gid = st.Gid
+	a.Rdev = uint64(st.Rdev)
+	a.Atime = st.Atim.Sec
+	a.Mtime = st.Atim.Sec
+	a.Ctime = st.Atim.Sec
+	a.Atimensec = uint32(st.Atim.Nsec)
+	a.Mtimensec = uint32(st.Atim.Nsec)
+	a.Ctimensec = uint32(st.Atim.Nsec)
+	a.Nlink = uint64(st.Nlink)
+	a.Size = uint64(st.Size)
+	a.Blksize = int64(st.Blksize)
+	a.Block = st.Blocks
+	return a
+}
+
+func sysToAttr(info os.FileInfo) (a Attr) {
+	st := info.Sys().(*syscall.Stat_t)
+	if info.IsDir() {
+		a.Type = TypeDirectory
+	} else {
+		a.Type = TypeFile
+	}
+	a.Mode = uint32(st.Mode)
+	a.Uid = st.Uid
+	a.Gid = st.Gid
+	a.Rdev = uint64(st.Rdev)
+	a.Atime = st.Atim.Sec
+	a.Mtime = st.Atim.Sec
+	a.Ctime = st.Atim.Sec
+	a.Atimensec = uint32(st.Atim.Nsec)
+	a.Mtimensec = uint32(st.Atim.Nsec)
+	a.Ctimensec = uint32(st.Atim.Nsec)
+	a.Nlink = uint64(st.Nlink)
+	a.Size = uint64(st.Size)
+	a.Blksize = int64(st.Blksize)
+	a.Block = st.Blocks
+	return a
 }

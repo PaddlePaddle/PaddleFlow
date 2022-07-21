@@ -41,9 +41,9 @@ const (
 
 	FuseKeyFsInfo = "fs-info"
 
-	AnnoKeyMTime  = "modifiedTime"
-	AnnoKeyServer = "server"
-	LabelKeyFsID  = "fsID"
+	LabelKeyFsID       = "fsID"
+	LabelCacheID       = "cacheID"
+	AnnotationKeyMTime = "modifiedTime"
 
 	MountPodNamespace = "paddleflow"
 )

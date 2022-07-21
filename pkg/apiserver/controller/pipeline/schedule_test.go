@@ -36,68 +36,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 )
 
-const (
-	MockRootUser   = "root"
-	MockNormalUser = "user1"
-	MockFsName     = "mockFs"
-	MockFsID       = "root-mockFs"
-)
-
-func insertPipeline(t *testing.T, logEntry *log.Entry) (pplID1, pplID2, pplDetailID1, pplDetailID2 string) {
-	ppl1 := models.Pipeline{
-		Name:     "ppl1",
-		Desc:     "ppl1",
-		UserName: "user1",
-	}
-	pplDetail1 := models.PipelineDetail{
-		FsID:         "user1-fsname",
-		FsName:       "fsname",
-		YamlPath:     "./run.yml",
-		PipelineYaml: "ddddd",
-		PipelineMd5:  "md5_1",
-		UserName:     "user1",
-	}
-
-	ppl2 := models.Pipeline{
-		Name:     "ppl2",
-		Desc:     "ppl2",
-		UserName: "root",
-	}
-	pplDetail2 := models.PipelineDetail{
-		FsID:         "root-fsname2",
-		FsName:       "fsname2",
-		YamlPath:     "./run.yml",
-		PipelineYaml: "ddddd",
-		PipelineMd5:  "md5_2",
-		UserName:     "root",
-	}
-
-	var err error
-	pplID1, pplDetailID1, err = models.CreatePipeline(logEntry, &ppl1, &pplDetail1)
-	assert.Nil(t, err)
-	assert.Equal(t, ppl1.Pk, int64(1))
-	assert.Equal(t, pplID1, ppl1.ID)
-	assert.Equal(t, pplID1, "ppl-000001")
-
-	assert.Equal(t, pplDetail1.Pk, int64(1))
-	assert.Equal(t, pplDetailID1, pplDetail1.ID)
-	assert.Equal(t, pplDetailID1, "1")
-	assert.Equal(t, pplDetail1.PipelineID, ppl1.ID)
-
-	pplID2, pplDetailID2, err = models.CreatePipeline(logEntry, &ppl2, &pplDetail2)
-	assert.Nil(t, err)
-	assert.Equal(t, ppl2.Pk, int64(2))
-	assert.Equal(t, pplID2, ppl2.ID)
-	assert.Equal(t, pplID2, "ppl-000002")
-
-	assert.Equal(t, pplDetail2.Pk, int64(2))
-	assert.Equal(t, pplDetailID2, pplDetail2.ID)
-	assert.Equal(t, pplDetailID2, "1")
-	assert.Equal(t, pplDetail2.PipelineID, ppl2.ID)
-
-	return pplID1, pplID2, pplDetailID1, pplDetailID2
-}
-
 // 测试创建schedule
 func TestCreateSchedule(t *testing.T) {
 	driver.InitMockDB()
@@ -106,7 +44,7 @@ func TestCreateSchedule(t *testing.T) {
 		Name:              "schedule_1",
 		Desc:              "schedule test",
 		PipelineID:        "ppl-000001",
-		PipelineDetailID:  "1",
+		PipelineVersionID: "1",
 		Crontab:           "* */3 * * *",
 		StartTime:         "",
 		EndTime:           "",
@@ -114,7 +52,6 @@ func TestCreateSchedule(t *testing.T) {
 		ConcurrencyPolicy: "suspend",
 		ExpireInterval:    100,
 		Catchup:           true,
-		FsName:            MockFsName,
 		UserName:          "",
 	}
 
@@ -132,7 +69,7 @@ func TestCreateSchedule(t *testing.T) {
 	defer patch1.Reset()
 	defer patch2.Reset()
 
-	// 创建 pipeline & pipelineDetail
+	// 创建 pipeline & pipelineVersion
 	_, _, _, _ = insertPipeline(t, ctx.Logging())
 
 	// 失败: schedule名称格式不支持
@@ -147,7 +84,7 @@ func TestCreateSchedule(t *testing.T) {
 	assert.NotNil(t, err)
 	assert.Equal(t, fmt.Errorf("name[%s] for [schedule] does not compile with regex rule[^[A-Za-z_][A-Za-z0-9_]{1,49}$]", createScheduleReq.Name), err)
 
-	// 失败: desc长度超过1024
+	// 失败: desc长度超过256
 	createScheduleReq.Name = "schedule_1"
 	createScheduleReq.Desc = strings.Repeat("a", util.MaxDescLength+1)
 	resp, err = CreateSchedule(ctx, &createScheduleReq)
@@ -177,6 +114,11 @@ func TestCreateSchedule(t *testing.T) {
 	getScheduleResp, err := GetSchedule(ctx, resp.ScheduleID, "", 0, nil, nil)
 	assert.Nil(t, err)
 	assert.Equal(t, getScheduleResp.Options.ConcurrencyPolicy, "suspend")
+
+	// 失败，同一个用户不支持创建同名schedule
+	resp, err = CreateSchedule(ctx, &createScheduleReq)
+	assert.NotNil(t, err)
+	assert.Equal(t, fmt.Errorf("CreateSchedule failed: user[%s] already has schedule with name[%s]", MockNormalUser, createScheduleReq.Name), err)
 
 	// 失败，corrency expire interval < 0,
 	createScheduleReq.ExpireInterval = -1
@@ -235,6 +177,7 @@ func TestCreateSchedule(t *testing.T) {
 	createScheduleReq.StartTime = ""
 	createScheduleReq.EndTime = startTime.Add(48 * time.Hour).Format("2006-01-02 15:04:05")
 	createScheduleReq.Crontab = "* */3 * * *"
+	createScheduleReq.Name = "schedule_2"
 	resp, err = CreateSchedule(ctx, &createScheduleReq)
 	assert.Nil(t, err)
 	assert.Equal(t, resp.ScheduleID, "schedule-000002")
@@ -253,6 +196,7 @@ func TestCreateSchedule(t *testing.T) {
 	createScheduleReq.StartTime = startTime.Format("2006-01-02 15:04:05")
 	createScheduleReq.EndTime = endTime.Format("2006-01-02 15:04:05")
 	createScheduleReq.Crontab = "* */3 * * *"
+	createScheduleReq.Name = "schedule_3"
 	resp, err = CreateSchedule(ctx, &createScheduleReq)
 	assert.Nil(t, err)
 	assert.Equal(t, resp.ScheduleID, "schedule-000003")
@@ -275,18 +219,19 @@ func TestCreateSchedule(t *testing.T) {
 	createScheduleReq.PipelineID = "notExistID"
 	resp, err = CreateSchedule(ctx, &createScheduleReq)
 	assert.NotNil(t, err)
-	assert.Equal(t, fmt.Errorf("create schedule failed, pipeline[notExistID] not exist"), err)
+	assert.Equal(t, fmt.Errorf("create schedule failed, get PipelineVersion error:[record not found]"), err)
 
-	// 失败: pipelineDetailID不存在
+	// 失败: pipelineVersionID不存在
 	createScheduleReq.PipelineID = "ppl-000001"
-	createScheduleReq.PipelineDetailID = "2"
+	createScheduleReq.PipelineVersionID = "2"
 	resp, err = CreateSchedule(ctx, &createScheduleReq)
 	assert.NotNil(t, err)
-	assert.Equal(t, fmt.Errorf("create schedule failed, pipeline[ppl-000001] detail[2] not exist"), err)
+	assert.Equal(t, fmt.Errorf("create schedule failed, get PipelineVersion error:[record not found]"), err)
 
 	// 成功: root用户
-	createScheduleReq.PipelineDetailID = "1"
+	createScheduleReq.PipelineVersionID = "1"
 	resp, err = CreateSchedule(ctx, &createScheduleReq)
+	createScheduleReq.Name = "schedule_4"
 	assert.Nil(t, err)
 	assert.Equal(t, resp.ScheduleID, "schedule-000004")
 }
@@ -296,13 +241,13 @@ func TestListSchedule(t *testing.T) {
 	driver.InitMockDB()
 	ctx := &logger.RequestContext{UserName: MockNormalUser}
 
-	pplID1, _, pplDetailID1, _ := insertPipeline(t, ctx.Logging())
+	pplID1, _, pplVersionID1, _ := insertPipeline(t, ctx.Logging())
 
 	createScheduleReq := CreateScheduleRequest{
 		Name:              "schedule_1",
 		Desc:              "schedule test",
 		PipelineID:        pplID1,
-		PipelineDetailID:  pplDetailID1,
+		PipelineVersionID: pplVersionID1,
 		Crontab:           "* */3 * * *",
 		StartTime:         "",
 		EndTime:           "",
@@ -310,7 +255,6 @@ func TestListSchedule(t *testing.T) {
 		ConcurrencyPolicy: "suspend",
 		ExpireInterval:    100,
 		Catchup:           true,
-		FsName:            MockFsName,
 		UserName:          MockNormalUser,
 	}
 
@@ -360,12 +304,12 @@ func TestListSchedule(t *testing.T) {
 	marker := ""
 	maxKeys := 0
 	pplFilter := []string{}
-	pplDetailFilter := []string{}
+	pplVersionFilter := []string{}
 	userFilter := []string{}
 	scheduleFilter := []string{}
 	nameFilter := []string{}
 	statusFilter := []string{}
-	ListScheduleResp, err := ListSchedule(ctx, marker, maxKeys, pplFilter, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
+	ListScheduleResp, err := ListSchedule(ctx, marker, maxKeys, pplFilter, pplVersionFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
 	assert.Nil(t, err)
 	assert.Equal(t, 5, len(ListScheduleResp.ScheduleList))
 	assert.Equal(t, ListScheduleResp.ScheduleList[0].ID, "schedule-000001")
@@ -380,7 +324,7 @@ func TestListSchedule(t *testing.T) {
 	fmt.Printf("%s\n", b)
 
 	pplFilter = []string{"notExistPplID"}
-	ListScheduleResp, err = ListSchedule(ctx, marker, maxKeys, pplFilter, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
+	ListScheduleResp, err = ListSchedule(ctx, marker, maxKeys, pplFilter, pplVersionFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
 	assert.Nil(t, err)
 	assert.Equal(t, 0, len(ListScheduleResp.ScheduleList))
 	assert.Equal(t, ListScheduleResp.IsTruncated, false)
@@ -390,7 +334,7 @@ func TestListSchedule(t *testing.T) {
 	fmt.Printf("%s\n", b)
 
 	pplFilter = []string{pplID1}
-	ListScheduleResp, err = ListSchedule(ctx, marker, maxKeys, pplFilter, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
+	ListScheduleResp, err = ListSchedule(ctx, marker, maxKeys, pplFilter, pplVersionFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
 	assert.Nil(t, err)
 	assert.Equal(t, 5, len(ListScheduleResp.ScheduleList))
 	assert.Equal(t, ListScheduleResp.ScheduleList[0].ID, "schedule-000001")
@@ -406,7 +350,7 @@ func TestListSchedule(t *testing.T) {
 
 	// test list, 指定maxkeys
 	maxKeys = 2
-	ListScheduleResp, err = ListSchedule(ctx, marker, maxKeys, pplFilter, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
+	ListScheduleResp, err = ListSchedule(ctx, marker, maxKeys, pplFilter, pplVersionFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
 	assert.Nil(t, err)
 	assert.Equal(t, 2, len(ListScheduleResp.ScheduleList))
 	assert.Equal(t, ListScheduleResp.ScheduleList[0].ID, "schedule-000001")
@@ -420,7 +364,7 @@ func TestListSchedule(t *testing.T) {
 	// test list, 指定userfilter
 	maxKeys = 0
 	userFilter = []string{MockNormalUser, "another_user"}
-	ListScheduleResp, err = ListSchedule(ctx, marker, maxKeys, pplFilter, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
+	ListScheduleResp, err = ListSchedule(ctx, marker, maxKeys, pplFilter, pplVersionFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
 	assert.Nil(t, err)
 	assert.Equal(t, 2, len(ListScheduleResp.ScheduleList))
 	assert.Equal(t, ListScheduleResp.ScheduleList[0].ID, "schedule-000001")
@@ -433,7 +377,7 @@ func TestListSchedule(t *testing.T) {
 
 	// test list, 指定userfilter
 	userFilter = []string{MockRootUser}
-	ListScheduleResp, err = ListSchedule(ctx, marker, maxKeys, pplFilter, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
+	ListScheduleResp, err = ListSchedule(ctx, marker, maxKeys, pplFilter, pplVersionFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
 	assert.Nil(t, err)
 	assert.Equal(t, 3, len(ListScheduleResp.ScheduleList))
 	assert.Equal(t, ListScheduleResp.ScheduleList[0].ID, "schedule-000003")
@@ -448,7 +392,7 @@ func TestListSchedule(t *testing.T) {
 	// test list，user非root时，指定userfilter时会报错
 	ctx = &logger.RequestContext{UserName: MockNormalUser}
 	userFilter = []string{MockRootUser}
-	ListScheduleResp, err = ListSchedule(ctx, marker, maxKeys, pplFilter, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
+	ListScheduleResp, err = ListSchedule(ctx, marker, maxKeys, pplFilter, pplVersionFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
 	assert.NotNil(t, err)
 	assert.Equal(t, "only root user can set userFilter!", err.Error())
 	println("")
@@ -456,7 +400,7 @@ func TestListSchedule(t *testing.T) {
 
 	// test list, 普通用户不指定userfilter，只返回自己有权限的schedule
 	userFilter = []string{}
-	ListScheduleResp, err = ListSchedule(ctx, marker, maxKeys, pplFilter, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
+	ListScheduleResp, err = ListSchedule(ctx, marker, maxKeys, pplFilter, pplVersionFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
 	assert.Nil(t, err)
 	assert.Equal(t, 2, len(ListScheduleResp.ScheduleList))
 	assert.Equal(t, ListScheduleResp.ScheduleList[0].ID, "schedule-000001")
@@ -467,21 +411,21 @@ func TestListSchedule(t *testing.T) {
 	println("")
 	fmt.Printf("%s\n", b)
 
-	// test list, ppldetail filter
-	// 传入不存在的 ppldetail 不会报错
+	// test list, pplversion filter
+	// 传入不存在的 pplversion 不会报错
 	// 注意不存在匹配记录时，istruncated = false
 	ctx = &logger.RequestContext{UserName: MockRootUser}
-	pplDetailFilter = []string{"2", "notExistPplDetailID"}
-	ListScheduleResp, err = ListSchedule(ctx, marker, maxKeys, pplFilter, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
+	pplVersionFilter = []string{"2", "notExistPplVersionID"}
+	ListScheduleResp, err = ListSchedule(ctx, marker, maxKeys, pplFilter, pplVersionFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
 	assert.Nil(t, err)
 	assert.Equal(t, 0, len(ListScheduleResp.ScheduleList))
 	assert.Equal(t, ListScheduleResp.IsTruncated, false)
 	assert.Equal(t, ListScheduleResp.NextMarker, "")
 	b, _ = json.Marshal(ListScheduleResp)
 
-	// 传入存在的ppldetail, 正确过滤
-	pplDetailFilter = []string{"1"}
-	ListScheduleResp, err = ListSchedule(ctx, marker, maxKeys, pplFilter, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
+	// 传入存在的pplversion, 正确过滤
+	pplVersionFilter = []string{"1"}
+	ListScheduleResp, err = ListSchedule(ctx, marker, maxKeys, pplFilter, pplVersionFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
 	assert.Nil(t, err)
 	assert.Equal(t, 5, len(ListScheduleResp.ScheduleList))
 	assert.Equal(t, ListScheduleResp.ScheduleList[0].ID, "schedule-000001")
@@ -497,7 +441,7 @@ func TestListSchedule(t *testing.T) {
 	// 先测试不能匹配前缀，传入不存在的scheduleID不会报错
 	// 注意不存在匹配记录时，istruncated = false
 	scheduleFilter = []string{"schedule-000", "schedule-hahah"}
-	ListScheduleResp, err = ListSchedule(ctx, marker, maxKeys, pplFilter, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
+	ListScheduleResp, err = ListSchedule(ctx, marker, maxKeys, pplFilter, pplVersionFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
 	assert.Nil(t, err)
 	assert.Equal(t, 0, len(ListScheduleResp.ScheduleList))
 	assert.Equal(t, ListScheduleResp.IsTruncated, false)
@@ -506,7 +450,7 @@ func TestListSchedule(t *testing.T) {
 
 	// 传入存在的scheduleID, 正确过滤
 	scheduleFilter = []string{"schedule-000001", "schedule-000002"}
-	ListScheduleResp, err = ListSchedule(ctx, marker, maxKeys, pplFilter, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
+	ListScheduleResp, err = ListSchedule(ctx, marker, maxKeys, pplFilter, pplVersionFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
 	assert.Nil(t, err)
 	assert.Equal(t, 2, len(ListScheduleResp.ScheduleList))
 	assert.Equal(t, ListScheduleResp.ScheduleList[0].ID, "schedule-000001")
@@ -520,7 +464,7 @@ func TestListSchedule(t *testing.T) {
 	// 注意不存在匹配记录时，istruncated = false
 	scheduleFilter = []string{}
 	nameFilter = []string{"schedule_", "schedule_asdd"}
-	ListScheduleResp, err = ListSchedule(ctx, marker, maxKeys, pplFilter, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
+	ListScheduleResp, err = ListSchedule(ctx, marker, maxKeys, pplFilter, pplVersionFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
 	assert.Nil(t, err)
 	assert.Equal(t, 0, len(ListScheduleResp.ScheduleList))
 	assert.Equal(t, ListScheduleResp.IsTruncated, false)
@@ -529,7 +473,7 @@ func TestListSchedule(t *testing.T) {
 
 	// 传入存在的schedule name, 正确过滤
 	nameFilter = []string{"schedule_2", "schedule_4"}
-	ListScheduleResp, err = ListSchedule(ctx, marker, maxKeys, pplFilter, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
+	ListScheduleResp, err = ListSchedule(ctx, marker, maxKeys, pplFilter, pplVersionFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
 	assert.Nil(t, err)
 	assert.Equal(t, 2, len(ListScheduleResp.ScheduleList))
 	assert.Equal(t, ListScheduleResp.ScheduleList[0].ID, "schedule-000002")
@@ -543,7 +487,7 @@ func TestListSchedule(t *testing.T) {
 	// 注意不存在匹配记录时，istruncated = false
 	nameFilter = []string{}
 	statusFilter = []string{models.ScheduleStatusSuccess, "notExistStatus"}
-	ListScheduleResp, err = ListSchedule(ctx, marker, maxKeys, pplFilter, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
+	ListScheduleResp, err = ListSchedule(ctx, marker, maxKeys, pplFilter, pplVersionFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
 	assert.Nil(t, err)
 	assert.Equal(t, 0, len(ListScheduleResp.ScheduleList))
 	assert.Equal(t, ListScheduleResp.IsTruncated, false)
@@ -552,7 +496,7 @@ func TestListSchedule(t *testing.T) {
 
 	// 传入存在的schedule status, 正确过滤
 	statusFilter = []string{models.ScheduleStatusRunning}
-	ListScheduleResp, err = ListSchedule(ctx, marker, maxKeys, pplFilter, pplDetailFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
+	ListScheduleResp, err = ListSchedule(ctx, marker, maxKeys, pplFilter, pplVersionFilter, userFilter, scheduleFilter, nameFilter, statusFilter)
 	assert.Nil(t, err)
 	assert.Equal(t, 5, len(ListScheduleResp.ScheduleList))
 	assert.Equal(t, ListScheduleResp.ScheduleList[0].ID, "schedule-000001")
@@ -569,13 +513,13 @@ func TestListSchedule(t *testing.T) {
 func TestGetSchedule(t *testing.T) {
 	driver.InitMockDB()
 	ctx := &logger.RequestContext{UserName: MockNormalUser}
-	pplID1, _, pplDetailID1, _ := insertPipeline(t, ctx.Logging())
+	pplID1, _, pplVersionID1, _ := insertPipeline(t, ctx.Logging())
 
 	createScheduleReq := CreateScheduleRequest{
 		Name:              "schedule_1",
 		Desc:              "schedule test",
 		PipelineID:        pplID1,
-		PipelineDetailID:  pplDetailID1,
+		PipelineVersionID: pplVersionID1,
 		Crontab:           "* */3 * * *",
 		StartTime:         "",
 		EndTime:           "",
@@ -583,7 +527,6 @@ func TestGetSchedule(t *testing.T) {
 		ConcurrencyPolicy: "suspend",
 		ExpireInterval:    100,
 		Catchup:           true,
-		FsName:            MockFsName,
 		UserName:          MockNormalUser,
 	}
 
@@ -608,6 +551,7 @@ func TestGetSchedule(t *testing.T) {
 
 	// root用户创建一个周期调度
 	ctx = &logger.RequestContext{UserName: MockRootUser}
+	createScheduleReq.Name = "schedule_2"
 	resp, err = CreateSchedule(ctx, &createScheduleReq)
 	assert.Nil(t, err)
 	assert.Equal(t, resp.ScheduleID, "schedule-000002")
@@ -698,15 +642,15 @@ func TestStopSchedule(t *testing.T) {
 	defer patch1.Reset()
 	defer patch2.Reset()
 
-	// 创建 pipeline & pipelineDetail
-	pplID1, _, pplDetailID1, _ := insertPipeline(t, ctx.Logging())
+	// 创建 pipeline & pipelineVersion
+	pplID1, _, pplVersionID1, _ := insertPipeline(t, ctx.Logging())
 
 	// 连续创建2次schedule 成功
 	createScheduleReq := CreateScheduleRequest{
 		Name:              "schedule_1",
 		Desc:              "schedule test",
 		PipelineID:        pplID1,
-		PipelineDetailID:  pplDetailID1,
+		PipelineVersionID: pplVersionID1,
 		Crontab:           "* * * * */1",
 		StartTime:         "",
 		EndTime:           "",
@@ -714,7 +658,6 @@ func TestStopSchedule(t *testing.T) {
 		ConcurrencyPolicy: "suspend",
 		ExpireInterval:    100,
 		Catchup:           true,
-		FsName:            MockFsName,
 		UserName:          "",
 	}
 
@@ -723,12 +666,14 @@ func TestStopSchedule(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, createResp1.ScheduleID, "schedule-000001")
 
+	createScheduleReq.Name = "schedule_2"
 	createResp2, err := CreateSchedule(ctx, &createScheduleReq)
 	assert.Nil(t, err)
 	assert.Equal(t, createResp2.ScheduleID, "schedule-000002")
 
 	// root 用户创建一个schedule
 	ctx = &logger.RequestContext{UserName: MockRootUser}
+	createScheduleReq.Name = "schedule_3"
 	createResp3, err := CreateSchedule(ctx, &createScheduleReq)
 	assert.Nil(t, err)
 	assert.Equal(t, createResp3.ScheduleID, "schedule-000003")
@@ -791,15 +736,15 @@ func TestDeleteSchedule(t *testing.T) {
 	defer patch1.Reset()
 	defer patch2.Reset()
 
-	// 创建 pipeline & pipelineDetail
-	pplID1, _, pplDetailID1, _ := insertPipeline(t, ctx.Logging())
+	// 创建 pipeline & pipelineVersion
+	pplID1, _, pplVersionID1, _ := insertPipeline(t, ctx.Logging())
 
 	// 连续创建2次schedule 成功
 	createScheduleReq := CreateScheduleRequest{
 		Name:              "schedule_1",
 		Desc:              "schedule test",
 		PipelineID:        pplID1,
-		PipelineDetailID:  pplDetailID1,
+		PipelineVersionID: pplVersionID1,
 		Crontab:           "* * * * */1",
 		StartTime:         "",
 		EndTime:           "",
@@ -807,7 +752,6 @@ func TestDeleteSchedule(t *testing.T) {
 		ConcurrencyPolicy: "suspend",
 		ExpireInterval:    100,
 		Catchup:           true,
-		FsName:            MockFsName,
 		UserName:          "",
 	}
 
@@ -816,10 +760,12 @@ func TestDeleteSchedule(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, createResp1.ScheduleID, "schedule-000001")
 
+	createScheduleReq.Name = "schedule_2"
 	createResp2, err := CreateSchedule(ctx, &createScheduleReq)
 	assert.Nil(t, err)
 	assert.Equal(t, createResp2.ScheduleID, "schedule-000002")
 
+	createScheduleReq.Name = "schedule_3"
 	createResp3, err := CreateSchedule(ctx, &createScheduleReq)
 	assert.Nil(t, err)
 	assert.Equal(t, createResp3.ScheduleID, "schedule-000003")
@@ -832,6 +778,7 @@ func TestDeleteSchedule(t *testing.T) {
 
 	// root用户创建一个schedule
 	ctx = &logger.RequestContext{UserName: MockRootUser}
+	createScheduleReq.Name = "schedule_4"
 	createResp4, err := CreateSchedule(ctx, &createScheduleReq)
 	assert.Nil(t, err)
 	assert.Equal(t, createResp4.ScheduleID, "schedule-000004")

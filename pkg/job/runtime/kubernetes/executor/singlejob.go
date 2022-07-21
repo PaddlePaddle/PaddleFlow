@@ -23,7 +23,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
@@ -34,7 +33,7 @@ type SingleJob struct {
 	Flavour schema.Flavour
 }
 
-func (sp *SingleJob) validateJob() error {
+func (sp *SingleJob) validateJob(singlePod *v1.Pod) error {
 	if err := sp.KubeJob.validateJob(); err != nil {
 		return err
 	}
@@ -48,6 +47,24 @@ func (sp *SingleJob) validateJob() error {
 		if sp.Command == "" {
 			return fmt.Errorf("command is empty")
 		}
+		if schema.IsEmptyResource(sp.Flavour.ResourceInfo) {
+			return fmt.Errorf("flavour resource is empty")
+		}
+	} else if err := sp.validateCustomYaml(singlePod); err != nil {
+		log.Errorf("validate custom yaml failed, err %v", err)
+		return err
+	}
+	return nil
+}
+
+func (sp *SingleJob) validateCustomYaml(singlePod *v1.Pod) error {
+	log.Infof("validate custom yaml for single pod: %v, pod from yaml: %v", sp, singlePod)
+	if singlePod.Spec.Containers == nil || len(singlePod.Spec.Containers) == 0 {
+		return fmt.Errorf("single pod has no containers")
+	}
+	if err := validateTemplateResources(&singlePod.Spec); err != nil {
+		log.Errorf("validate resources in extensionTemplate failed, err %v", err)
+		return err
 	}
 	return nil
 }
@@ -86,7 +103,7 @@ func (sp *SingleJob) CreateJob() (string, error) {
 			return "", err
 		}
 	}
-	if err := sp.validateJob(); err != nil {
+	if err := sp.validateJob(singlePod); err != nil {
 		log.Errorf("validate job failed, err: %v", err)
 		return "", err
 	}
@@ -148,26 +165,26 @@ func (sp *SingleJob) fillContainersInPod(pod *v1.Pod) error {
 // fill container for pod, and return err if exist error
 func (sp *SingleJob) fillContainer(container *v1.Container, podName string) error {
 	log.Debugf("fillContainer for job[%s]", podName)
+	if sp.IsCustomYaml {
+		log.Debugf("fillContainer passed for job[%s] with custom yaml", podName)
+		return nil
+	}
 	// fill name
-	if sp.isNeedPatch(container.Name) {
-		container.Name = podName
-	}
+	container.Name = podName
 	// fill image
-	if sp.isNeedPatch(container.Image) {
-		container.Image = sp.Image
-	}
+	container.Image = sp.Image
 	// fill command
-	if !sp.IsCustomYaml {
-		if sp.Command == "" {
-			return errors.EmptyJobCommandError()
-		}
-		container.Command = []string{"sh", "-c", sp.fixContainerCommand(sp.Command, sp.FileSystems)}
-	}
+	workDir := sp.getWorkDir(nil)
+	container.Command = sp.generateContainerCommand(sp.Command, workDir)
 
 	// container.Args would be passed
 	// fill resource
-	container.Resources = sp.generateResourceRequirements(sp.Flavour)
-
+	var err error
+	container.Resources, err = sp.generateResourceRequirements(sp.Flavour)
+	if err != nil {
+		log.Errorf("generate resource requirements failed, err: %v", err)
+		return err
+	}
 	// fill env
 	container.Env = sp.appendEnvIfAbsent(container.Env, sp.generateEnvVars())
 	// fill volumeMount

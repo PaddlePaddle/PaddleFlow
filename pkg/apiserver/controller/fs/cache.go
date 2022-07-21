@@ -17,6 +17,10 @@ limitations under the License.
 package fs
 
 import (
+	"fmt"
+
+	log "github.com/sirupsen/logrus"
+
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
@@ -53,6 +57,24 @@ func ReportCache(ctx *logger.RequestContext, req CacheReportRequest) error {
 	if err != nil {
 		ctx.ErrorCode = common.InternalError
 		ctx.Logging().Errorf("ReportCache Create[%s] err:%v", fsCache.FsID, err)
+		return err
+	}
+	return nil
+}
+
+func removeFSCache(fsID string) error {
+	if err := storage.FsCache.Delete(fsID, ""); err != nil {
+		err := fmt.Errorf("removeFSCache[%s] failed: %v", fsID, err)
+		log.Error(err.Error())
+		return err
+	}
+	return nil
+}
+
+func removeFSCacheWithCacheID(cacheID string) error {
+	if err := storage.FsCache.Delete("", cacheID); err != nil {
+		err := fmt.Errorf("removeFSCacheWithCacheID[%s] failed: %v", cacheID, err)
+		log.Error(err.Error())
 		return err
 	}
 	return nil

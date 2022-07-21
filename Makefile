@@ -21,9 +21,9 @@ GIT_DATE    = `date "+%Y-%m-%d %H:%M:%S"`
 GIT_VERSION = `git --version`
 
 LD_FLAGS    = " \
-    -X 'paddleflow/pkg/version.GitVersion=${GIT_VERSION}' \
-    -X 'paddleflow/pkg/version.GitCommit=${GIT_COMMIT}' \
-    -X 'paddleflow/pkg/version.BuildDate=${GIT_DATE}' \
+    -X 'github.com/PaddlePaddle/PaddleFlow/pkg/version.GitVersion=${GIT_VERSION}' \
+    -X 'github.com/PaddlePaddle/PaddleFlow/pkg/version.GitCommit=${GIT_COMMIT}' \
+    -X 'github.com/PaddlePaddle/PaddleFlow/pkg/version.BuildDate=${GIT_DATE}' \
     '-extldflags=-static' \
     -w -s"
 

@@ -22,6 +22,7 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -41,15 +42,16 @@ const (
 )
 
 type JobSyncInfo struct {
-	ID          string
-	Namespace   string
-	ParentJobID string
-	GVK         schema.GroupVersionKind
-	Status      commonschema.JobStatus
-	Runtime     interface{}
-	Message     string
-	Action      commonschema.ActionType
-	RetryTimes  int
+	ID            string
+	Namespace     string
+	ParentJobID   string
+	GVK           schema.GroupVersionKind
+	Status        commonschema.JobStatus
+	RuntimeInfo   interface{}
+	RuntimeStatus interface{}
+	Message       string
+	Action        commonschema.ActionType
+	RetryTimes    int
 }
 
 func (js *JobSyncInfo) String() string {
@@ -151,6 +153,7 @@ func (j *JobSync) Run(stopCh <-chan struct{}) {
 		return
 	}
 	log.Infof("Start %s controller for cluster [%s] successfully!", j.Name(), j.opt.ClusterInfo.Name)
+	j.preHandleTerminatingJob()
 	go wait.Until(j.runWorker, 0, stopCh)
 	go wait.Until(j.runTaskWorker, 0, stopCh)
 }
@@ -221,12 +224,13 @@ func (j *JobSync) doCreateAction(jobSyncInfo *JobSyncInfo) error {
 					commonschema.EnvJobNamespace: jobSyncInfo.Namespace,
 				},
 			},
-			Framework:   framework,
-			QueueID:     parentJob.QueueID,
-			Status:      jobSyncInfo.Status,
-			Message:     jobSyncInfo.Message,
-			RuntimeInfo: jobSyncInfo.Runtime,
-			ParentJob:   jobSyncInfo.ParentJobID,
+			Framework:     framework,
+			QueueID:       parentJob.QueueID,
+			Status:        jobSyncInfo.Status,
+			Message:       jobSyncInfo.Message,
+			RuntimeInfo:   jobSyncInfo.RuntimeInfo,
+			RuntimeStatus: jobSyncInfo.RuntimeStatus,
+			ParentJob:     jobSyncInfo.ParentJobID,
 		}
 		if err = models.CreateJob(job); err != nil {
 			log.Errorf("craete job %v failed, err: %v", job, err)
@@ -238,8 +242,7 @@ func (j *JobSync) doCreateAction(jobSyncInfo *JobSyncInfo) error {
 
 func (j *JobSync) doDeleteAction(jobSyncInfo *JobSyncInfo) error {
 	log.Infof("do delete action, job sync info are as follows. %s", jobSyncInfo.String())
-	if _, err := models.UpdateJob(jobSyncInfo.ID, commonschema.StatusJobTerminated,
-		jobSyncInfo.Runtime, ""); err != nil {
+	if _, err := models.UpdateJob(jobSyncInfo.ID, commonschema.StatusJobTerminated, jobSyncInfo.RuntimeInfo, jobSyncInfo.RuntimeStatus, "job is terminated"); err != nil {
 		log.Errorf("sync job status failed. jobID:[%s] err:[%s]", jobSyncInfo.ID, err.Error())
 		return err
 	}
@@ -250,7 +253,7 @@ func (j *JobSync) doUpdateAction(jobSyncInfo *JobSyncInfo) error {
 	log.Infof("do update action. jobID:[%s] action:[%s] status:[%s] message:[%s]",
 		jobSyncInfo.ID, jobSyncInfo.Action, jobSyncInfo.Status, jobSyncInfo.Message)
 
-	if _, err := models.UpdateJob(jobSyncInfo.ID, jobSyncInfo.Status, jobSyncInfo.Runtime, jobSyncInfo.Message); err != nil {
+	if _, err := models.UpdateJob(jobSyncInfo.ID, jobSyncInfo.Status, jobSyncInfo.RuntimeInfo, jobSyncInfo.RuntimeStatus, jobSyncInfo.Message); err != nil {
 		log.Errorf("update job failed. jobID:[%s] err:[%s]", jobSyncInfo.ID, err.Error())
 		return err
 	}
@@ -354,4 +357,26 @@ func responsibleForJob(obj interface{}) bool {
 	}
 	log.Debugf("responsible for skip job. jobName:[%s]", job.GetName())
 	return false
+}
+
+func (j *JobSync) preHandleTerminatingJob() {
+	jobs := models.ListClusterJob(j.opt.ClusterInfo.ID, commonschema.StatusJobTerminating)
+	for _, job := range jobs {
+		name := job.ID
+		namespace := job.Config.GetNamespace()
+		gvk, err := k8s.GetJobGVK(commonschema.JobType(job.Type), job.Framework)
+		if err != nil {
+			log.Warningf("get GroupVersionKind for job %s failed, err: %s", gvk.String(), err)
+			continue
+		}
+		log.Debugf("pre handle terminating job, get %s job %s/%s from cluster", gvk.String(), namespace, name)
+		_, err = executor.Get(namespace, name, gvk, j.opt)
+		if err != nil && k8serrors.IsNotFound(err) {
+			j.jobQueue.Add(&JobSyncInfo{
+				ID:     job.ID,
+				Action: commonschema.Delete,
+			})
+			log.Infof("pre handle terminating %s job enqueue, job name %s/%s", gvk.String(), namespace, name)
+		}
+	}
 }

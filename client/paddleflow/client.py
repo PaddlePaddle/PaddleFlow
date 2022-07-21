@@ -22,6 +22,7 @@ from paddleflow.common.exception.paddleflow_sdk_exception import PaddleFlowSDKEx
 from paddleflow.common import api
 from paddleflow.job import JobServiceApi
 from paddleflow.log import LogServiceApi
+from paddleflow.statistics import StatisticsServiceApi
 from paddleflow.user import UserServiceApi
 from paddleflow.queue import QueueServiceApi
 from paddleflow.fs import FSServiceApi
@@ -31,8 +32,10 @@ from paddleflow.utils import api_client
 from paddleflow.cluster import ClusterServiceApi
 from paddleflow.flavour import FlavouriceApi
 
+
 class Client(object):
     """Client class """
+
     def __init__(self, paddleflow_server_host, username, password, paddleflow_server_port=8999):
         """
         :param paddleflow_server: the address of paddleflow server
@@ -73,7 +76,7 @@ class Client(object):
         data = json.loads(response.text)
         if 'message' in data:
             return False, data['message']
-    
+
         self.user_id = user_name
         self.password = password
         self.header = {
@@ -97,7 +100,7 @@ class Client(object):
         :return 
         true, None   if success 
         false, message   if failed
-        """ 
+        """
         self.pre_check()
         if user_name is None or user_name.strip() == "":
             raise PaddleFlowSDKException("InvalidUser", "user_name should not be none or empty")
@@ -114,7 +117,7 @@ class Client(object):
         :return 
         :true,None if success 
         :false, message if failed
-        """ 
+        """
         self.pre_check()
         if user_name is None or user_name.strip() == "":
             raise PaddleFlowSDKException("InvalidUser", "user_name should not be none or empty")
@@ -139,16 +142,15 @@ class Client(object):
         """ add queue"""
         self.pre_check()
         if namespace is None or namespace.strip() == "":
-            raise PaddleFlowSDKException("InvalidNameSpace", "namesapce should not be none or empty")   
+            raise PaddleFlowSDKException("InvalidNameSpace", "namesapce should not be none or empty")
         if name is None or name.strip() == "":
             raise PaddleFlowSDKException("InvalidQueueName", "queuename should not be none or empty")
-        if clusterName is None or clusterName.strip() == "":
-            raise PaddleFlowSDKException("InvalidQueueClusterName", "clustername should not be none or empty")
         if maxResources is None or maxResources['cpu'] is None or maxResources['mem'] is None:
-            raise PaddleFlowSDKException("InvalidQueueMaxResources", "queue maxResources cpu or mem should not be none or empty")
+            raise PaddleFlowSDKException("InvalidQueueMaxResources",
+                                         "queue maxResources cpu or mem should not be none or empty")
 
         return QueueServiceApi.add_queue(self.paddleflow_server, name, namespace, clusterName, maxResources,
-               minResources, schedulingPolicy, location, quotaType, self.header)
+                                         minResources, schedulingPolicy, location, quotaType, self.header)
 
     def update_queue(self, queuename, maxResources, minResources=None, schedulingPolicy=None, location=None):
         """ update queue"""
@@ -156,13 +158,13 @@ class Client(object):
         if queuename is None or queuename.strip() == "":
             raise PaddleFlowSDKException("InvalidQueueName", "queuename should not be none or empty")
         return QueueServiceApi.update_queue(self.paddleflow_server, queuename, maxResources, minResources,
-                schedulingPolicy, location, self.header)
+                                            schedulingPolicy, location, self.header)
 
     def grant_queue(self, username, queuename):
         """ grant queue"""
         self.pre_check()
         if username is None or username.strip() == "":
-            raise PaddleFlowSDKException("InvalidName", "name should not be none or empty")   
+            raise PaddleFlowSDKException("InvalidName", "name should not be none or empty")
         if queuename is None or queuename.strip() == "":
             raise PaddleFlowSDKException("InvalidQueueName", "queuename should not be none or empty")
         return QueueServiceApi.grant_queue(self.paddleflow_server, username, queuename, self.header)
@@ -171,7 +173,7 @@ class Client(object):
         """ grant queue"""
         self.pre_check()
         if username is None or username.strip() == "":
-            raise PaddleFlowSDKException("InvalidName", "name should not be none or empty")   
+            raise PaddleFlowSDKException("InvalidName", "name should not be none or empty")
         if queuename is None or queuename.strip() == "":
             raise PaddleFlowSDKException("InvalidQueueName", "queuename should not be none or empty")
         return QueueServiceApi.ungrant_queue(self.paddleflow_server, username, queuename, self.header)
@@ -185,10 +187,10 @@ class Client(object):
 
     def del_queue(self, queuename):
         """ delete queue"""
-        self.pre_check()   
+        self.pre_check()
         if queuename is None or queuename.strip() == "":
             raise PaddleFlowSDKException("InvalidQueueName", "queuename should not be none or empty")
-        return QueueServiceApi.del_queue(self.paddleflow_server, queuename, self.header)   
+        return QueueServiceApi.del_queue(self.paddleflow_server, queuename, self.header)
 
     def list_queue(self, maxsize=100, marker=None):
         """
@@ -205,7 +207,7 @@ class Client(object):
         if queuename is None or queuename.strip() == "":
             raise PaddleFlowSDKException("InvalidQueueName", "queuename should not be none or empty")
         return QueueServiceApi.show_queue(self.paddleflow_server, queuename, self.header)
-    
+
     def list_flavour(self, maxsize=100, marker=None, clustername="", key=""):
         """
         list flavour
@@ -233,7 +235,8 @@ class Client(object):
         if memory is None or memory.strip() == "":
             raise PaddleFlowSDKException("InvalidFlavourName", "memory should not be none or empty")
 
-        return FlavouriceApi.add_flavour(self.paddleflow_server, name, cpu=cpu, mem=memory, scalar_resources=scalar_resources,
+        return FlavouriceApi.add_flavour(self.paddleflow_server, name, cpu=cpu, mem=memory,
+                                         scalar_resources=scalar_resources,
                                          cluster_name=cluster_name, header=self.header)
 
     def del_flavour(self, flavourname):
@@ -250,8 +253,9 @@ class Client(object):
         self.pre_check()
         if name is None or name.strip() == "":
             raise PaddleFlowSDKException("InvalidFlavourName", "name should not be none or empty")
-        return FlavouriceApi.update_flavour(self.paddleflow_server, name, cpu=cpu, mem=memory, scalar_resources=scalar_resources,
-                                         cluster_name=cluster_name, header=self.header)
+        return FlavouriceApi.update_flavour(self.paddleflow_server, name, cpu=cpu, mem=memory,
+                                            scalar_resources=scalar_resources,
+                                            cluster_name=cluster_name, header=self.header)
 
     def add_fs(self, fsname, url, username=None, properties=None):
         """
@@ -262,7 +266,7 @@ class Client(object):
             raise PaddleFlowSDKException("InvalidFSName", "fsname should not be none or empty")
         if url is None or url.strip() == "":
             raise PaddleFlowSDKException("InvalidURL", "url should not be none or empty")
-        userinfo={'header': self.header, 'name': username, 'host': self.paddleflow_server}
+        userinfo = {'header': self.header, 'name': username, 'host': self.paddleflow_server}
         return FSServiceApi.add_fs(self.paddleflow_server, fsname, url, self.user_id, properties, userinfo)
 
     def show_fs(self, fsname, username=None):
@@ -272,9 +276,9 @@ class Client(object):
         self.pre_check()
         if fsname is None or fsname.strip() == "":
             raise PaddleFlowSDKException("InvalidFSName", "fsname should not be none or empty")
-        userinfo={'header': self.header, 'name': username, 'host': self.paddleflow_server}
+        userinfo = {'header': self.header, 'name': username, 'host': self.paddleflow_server}
         return FSServiceApi.show_fs(self.paddleflow_server, fsname, self.user_id, userinfo)
-    
+
     def delete_fs(self, fsname, username=None):
         """
         delete fs 
@@ -284,7 +288,7 @@ class Client(object):
             raise PaddleFlowSDKException("InvalidFSName", "fsname should not be none or empty")
         if username and username.strip() == "":
             raise PaddleFlowSDKException("InvalidUserName", "username should not be none or empty")
-        userinfo={'header': self.header, 'name': username, 'host': self.paddleflow_server}
+        userinfo = {'header': self.header, 'name': username, 'host': self.paddleflow_server}
         return FSServiceApi.delete_fs(self.paddleflow_server, fsname, self.user_id, userinfo)
 
     def list_fs(self, username=None, maxsize=100):
@@ -294,7 +298,7 @@ class Client(object):
         self.pre_check()
         if username and username.strip() == "":
             raise PaddleFlowSDKException("InvalidUserName", "username should not be none or empty")
-        userinfo={'header': self.header, 'name': username, 'host': self.paddleflow_server}
+        userinfo = {'header': self.header, 'name': username, 'host': self.paddleflow_server}
         return FSServiceApi.list_fs(self.paddleflow_server, self.user_id, userinfo, maxsize)
 
     def mount(self, fsname, path, mountOptions, username=None):
@@ -357,7 +361,7 @@ class Client(object):
             raise PaddleFlowSDKException("InvalidFSName", "fsname should not be none or empty")
         if username and username.strip() == "":
             raise PaddleFlowSDKException("InvalidUserName", "username should not be none or empty")
-        userinfo={'header': self.header, 'name': username, 'host': self.paddleflow_server}
+        userinfo = {'header': self.header, 'name': username, 'host': self.paddleflow_server}
         return FSServiceApi.delete_cache(self.paddleflow_server, fsname, userinfo)
 
     def add_link(self, fsname, fspath, url, username=None, properties=None):
@@ -371,7 +375,7 @@ class Client(object):
             raise PaddleFlowSDKException("InvalidURL", "url should not be none or empty")
         if fspath is None or fspath.strip() == "":
             raise PaddleFlowSDKException("InvalidFSPath", "fspath should not be none or empty")
-        userinfo={'header': self.header, 'name': username, 'host': self.paddleflow_server}
+        userinfo = {'header': self.header, 'name': username, 'host': self.paddleflow_server}
         return FSServiceApi.add_link(self.paddleflow_server, fsname, fspath, url, self.user_id, properties, userinfo)
 
     def delete_link(self, fsname, fspath, username=None):
@@ -385,9 +389,9 @@ class Client(object):
             raise PaddleFlowSDKException("InvalidUserName", "username should not be none or empty")
         if fspath is None or fspath.strip() == "":
             raise PaddleFlowSDKException("InvalidFSPath", "fspath should not be none or empty")
-        userinfo={'header': self.header, 'name': username, 'host': self.paddleflow_server}
+        userinfo = {'header': self.header, 'name': username, 'host': self.paddleflow_server}
         return FSServiceApi.delete_link(self.paddleflow_server, fsname, fspath, self.user_id, userinfo)
-    
+
     def list_link(self, fsname, username=None, maxsize=100):
         """
         list fs
@@ -397,9 +401,9 @@ class Client(object):
             raise PaddleFlowSDKException("InvalidFSName", "fsname should not be none or empty")
         if username and username.strip() == "":
             raise PaddleFlowSDKException("InvalidUserName", "username should not be none or empty")
-        userinfo={'header': self.header, 'name': username, 'host': self.paddleflow_server}
+        userinfo = {'header': self.header, 'name': username, 'host': self.paddleflow_server}
         return FSServiceApi.list_link(self.paddleflow_server, fsname, self.user_id, userinfo, maxsize)
-    
+
     def show_link(self, fsname, fspath, username=None):
         """
         show fs
@@ -409,22 +413,23 @@ class Client(object):
             raise PaddleFlowSDKException("InvalidFSName", "fsname should not be none or empty")
         if fspath is None or fspath.strip() == "":
             raise PaddleFlowSDKException("InvalidFSPath", "fspath should not be none or empty")
-        userinfo={'header': self.header, 'name': username, 'host': self.paddleflow_server}
+        userinfo = {'header': self.header, 'name': username, 'host': self.paddleflow_server}
         return FSServiceApi.show_link(self.paddleflow_server, fsname, fspath, self.user_id, userinfo)
 
-    def create_run(self, fsname=None, username=None, runname=None, desc=None, 
-                        runyamlpath=None, runyamlraw=None, pipelineid=None, param=None, disabled=None, dockerenv=None):
+    def create_run(self, fsname=None, username=None, runname=None, desc=None,
+                   runyamlpath=None, runyamlraw=None, pipelineid=None, param=None, disabled=None, dockerenv=None):
         """
         create run
         """
         self.pre_check()
         if username and username.strip() == "":
-            raise PaddleFlowSDKException("InvalidUserName", "username should not be none or empty") 
+            raise PaddleFlowSDKException("InvalidUserName", "username should not be none or empty")
         if runname and runname.strip() == "":
-            raise PaddleFlowSDKException("InvalidRunName", "runname should not be none or empty") 
-        return RunServiceApi.add_run(self.paddleflow_server, fsname, runname, desc, 
-                                        param, username, runyamlpath, runyamlraw, pipelineid, self.header, disabled, dockerenv)
-    
+            raise PaddleFlowSDKException("InvalidRunName", "runname should not be none or empty")
+        return RunServiceApi.add_run(self.paddleflow_server, fsname, runname, desc,
+                                     param, username, runyamlpath, runyamlraw, pipelineid, self.header, disabled,
+                                     dockerenv)
+
     def list_run(self, fsname=None, username=None, runid=None, runname=None, maxsize=100, marker=None):
         """
         list run
@@ -433,11 +438,11 @@ class Client(object):
         if fsname and fsname.strip() == "":
             raise PaddleFlowSDKException("InvalidFSName", "fsname should not be none or empty")
         if username and username.strip() == "":
-            raise PaddleFlowSDKException("InvalidUserName", "username should not be none or empty") 
-        if  runid and runid.strip() == "":
+            raise PaddleFlowSDKException("InvalidUserName", "username should not be none or empty")
+        if runid and runid.strip() == "":
             raise PaddleFlowSDKException("InvalidRunID", "runid should not be none or empty")
-        return RunServiceApi.list_run(self.paddleflow_server, fsname, 
-                                           username, runid, runname, self.header, maxsize, marker)
+        return RunServiceApi.list_run(self.paddleflow_server, fsname,
+                                      username, runid, runname, self.header, maxsize, marker)
 
     def status_run(self, runid):
         """
@@ -456,11 +461,11 @@ class Client(object):
         if runid is None or runid.strip() == "":
             raise PaddleFlowSDKException("InvalidRunID", "runid should not be none or empty")
         if not isinstance(force, bool):
-            raise PaddleFlowSDKException("InvalidParam", "the Parameter [force] should be an instance of bool")            
+            raise PaddleFlowSDKException("InvalidParam", "the Parameter [force] should be an instance of bool")
         return RunServiceApi.stop_run(self.paddleflow_server, runid, self.header, force)
 
     def create_cluster(self, clustername, endpoint, clustertype, credential=None,
-                        description=None, source=None, setting=None, status=None, namespacelist=None, version=None):
+                       description=None, source=None, setting=None, status=None, namespacelist=None, version=None):
         """
         create cluster
         """
@@ -471,17 +476,18 @@ class Client(object):
             raise PaddleFlowSDKException("InvalidEndpoint", "endpoint should not be none or empty")
         if clustertype is None or clustertype.strip() == "":
             raise PaddleFlowSDKException("InvalidClusterType", "clustertype should not be none or empty")
-        return ClusterServiceApi.create_cluster(self.paddleflow_server, clustername, endpoint, clustertype, 
-        credential, description, source, setting, status, namespacelist, version, self.header)
+        return ClusterServiceApi.create_cluster(self.paddleflow_server, clustername, endpoint, clustertype,
+                                                credential, description, source, setting, status, namespacelist,
+                                                version, self.header)
 
     def list_cluster(self, maxkeys=100, marker=None, clustername=None, clusterstatus=None):
         """
         list cluster
         """
         self.pre_check()
-        return ClusterServiceApi.list_cluster(self.paddleflow_server, maxkeys, marker, 
-        clustername, clusterstatus, self.header)
-    
+        return ClusterServiceApi.list_cluster(self.paddleflow_server, maxkeys, marker,
+                                              clustername, clusterstatus, self.header)
+
     def show_cluster(self, clustername):
         """
         status cluster
@@ -490,7 +496,7 @@ class Client(object):
         if clustername is None or clustername == "":
             raise PaddleFlowSDKException("InvalidClusterName", "clustername should not be none or empty")
         return ClusterServiceApi.show_cluster(self.paddleflow_server, clustername, self.header)
-    
+
     def delete_cluster(self, clustername):
         """
         delete cluster
@@ -501,15 +507,16 @@ class Client(object):
         return ClusterServiceApi.delete_cluster(self.paddleflow_server, clustername, self.header)
 
     def update_cluster(self, clustername, endpoint=None, credential=None, clustertype=None,
-                        description=None, source=None, setting=None, status=None, namespacelist=None, version=None):
+                       description=None, source=None, setting=None, status=None, namespacelist=None, version=None):
         """
         update cluster
         """
         self.pre_check()
         if clustername is None or clustername == "":
             raise PaddleFlowSDKException("InvalidClusterName", "clustername should not be none or empty")
-        return ClusterServiceApi.update_cluster(self.paddleflow_server, clustername, endpoint, credential, 
-        clustertype, description, source, setting, status, namespacelist, version, self.header)
+        return ClusterServiceApi.update_cluster(self.paddleflow_server, clustername, endpoint, credential,
+                                                clustertype, description, source, setting, status, namespacelist,
+                                                version, self.header)
 
     def list_cluster_resource(self, clustername=None):
         """
@@ -527,17 +534,17 @@ class Client(object):
             raise PaddleFlowSDKException("InvalidFsName", "fsname should not be none or empty")
         if yamlpath is None or yamlpath.strip() == "":
             raise PaddleFlowSDKException("InvalidYamlPath", "yamlpath should not be none or empty")
-        return PipelineServiceApi.create_pipeline(self.paddleflow_server, fsname, yamlpath, name, 
-                username, self.header)
+        return PipelineServiceApi.create_pipeline(self.paddleflow_server, fsname, yamlpath, name,
+                                                  username, self.header)
 
     def list_pipeline(self, userfilter=None, fsfilter=None, namefilter=None, maxkeys=None, marker=None):
         """
         list pipeline
         """
         self.pre_check()
-        return PipelineServiceApi.list_pipeline(self.paddleflow_server, userfilter, fsfilter, 
-                namefilter, maxkeys, marker, self.header)
-    
+        return PipelineServiceApi.list_pipeline(self.paddleflow_server, userfilter, fsfilter,
+                                                namefilter, maxkeys, marker, self.header)
+
     def show_pipeline(self, pipelineid):
         """
         status pipeline
@@ -546,7 +553,7 @@ class Client(object):
         if pipelineid is None or pipelineid == "":
             raise PaddleFlowSDKException("InvalidPipelineID", "pipelineid should not be none or empty")
         return PipelineServiceApi.show_pipeline(self.paddleflow_server, pipelineid, self.header)
-    
+
     def delete_pipeline(self, pipelineid):
         """
         delete pipeline
@@ -564,7 +571,7 @@ class Client(object):
         if runid is None or runid == "":
             raise PaddleFlowSDKException("InvalidRunID", "runid should not be none or empty")
         return RunServiceApi.retry_run(self.paddleflow_server, runid, self.header)
-    
+
     def delete_run(self, runid):
         """
         status run
@@ -574,25 +581,25 @@ class Client(object):
             raise PaddleFlowSDKException("InvalidRunID", "runid should not be none or empty")
         return RunServiceApi.delete_run(self.paddleflow_server, runid, self.header)
 
-    def artifact(self, userfilter=None, fsfilter=None, runfilter=None, typefilter=None, pathfilter=None, 
-                maxkeys=None, marker=None):
+    def artifact(self, userfilter=None, fsfilter=None, runfilter=None, typefilter=None, pathfilter=None,
+                 maxkeys=None, marker=None):
         """
         artifact
         """
         self.pre_check()
-        return RunServiceApi.artifact(self.paddleflow_server, userfilter, fsfilter, 
-                runfilter, typefilter, pathfilter, maxkeys, marker, self.header)
+        return RunServiceApi.artifact(self.paddleflow_server, userfilter, fsfilter,
+                                      runfilter, typefilter, pathfilter, maxkeys, marker, self.header)
 
-    def list_cache(self, userfilter=None, fsfilter=None, runfilter=None, 
-                maxkeys=None, marker=None):
+    def list_cache(self, userfilter=None, fsfilter=None, runfilter=None,
+                   maxkeys=None, marker=None):
         """
         list run cache
         """
         self.pre_check()
 
-        return RunServiceApi.list_runcache(self.paddleflow_server, userfilter, fsfilter, 
-                runfilter, maxkeys, marker, self.header)
-        
+        return RunServiceApi.list_runcache(self.paddleflow_server, userfilter, fsfilter,
+                                           runfilter, maxkeys, marker, self.header)
+
     def show_cache(self, cacheid):
         """
         status pipeline
@@ -601,7 +608,7 @@ class Client(object):
         if cacheid is None or cacheid == "":
             raise PaddleFlowSDKException("InvalidCacheID", "cacheid should not be none or empty")
         return RunServiceApi.show_runcache(self.paddleflow_server, cacheid, self.header)
-    
+
     def delete_cache(self, cacheid):
         """
         status pipeline
@@ -627,7 +634,8 @@ class Client(object):
         """
         self.pre_check()
         if job_type is None or (job_type != 'single' and job_type != 'distributed' and job_type != 'workflow'):
-            raise PaddleFlowSDKException("InvalidJobType", "job_type should not be none and should be single, distributed or workflow")
+            raise PaddleFlowSDKException("InvalidJobType",
+                                         "job_type should not be none and should be single, distributed or workflow")
         if job_request.queue is None or job_request.queue == '':
             raise PaddleFlowSDKException("InvalidJobRequest", "job_request queue should not be none or empty")
         return JobServiceApi.create_job(self.paddleflow_server, job_type, job_request, self.header)
@@ -641,12 +649,14 @@ class Client(object):
             raise PaddleFlowSDKException("InvalidJobID", "jobid should not be none or empty")
         return JobServiceApi.show_job(self.paddleflow_server, jobid, self.header)
 
-    def list_job(self, status=None, timestamp=None, start_time=None, queue=None, labels=None, maxkeys=None, marker=None):
+    def list_job(self, status=None, timestamp=None, start_time=None, queue=None, labels=None, maxkeys=None,
+                 marker=None):
         """
         list_job
         """
         self.pre_check()
-        return JobServiceApi.list_job(self.paddleflow_server, status, timestamp, start_time, queue, labels, maxkeys, marker, self.header)
+        return JobServiceApi.list_job(self.paddleflow_server, status, timestamp, start_time, queue, labels, maxkeys,
+                                      marker, self.header)
 
     def update_job(self, jobid, priority=None, labels=None, annotations=None):
         """
@@ -674,3 +684,36 @@ class Client(object):
         if jobid is None or jobid == "":
             raise PaddleFlowSDKException("InvalidJobID", "jobid should not be none or empty")
         return JobServiceApi.delete_job(self.paddleflow_server, jobid, self.header)
+
+    def get_statistics(self, jobid: str, runid: str = None):
+        """
+        get_statistics
+        """
+        self.pre_check()
+        if jobid is None or jobid == "":
+            raise PaddleFlowSDKException("InvalidJobID", "jobid should not be none or empty")
+        return StatisticsServiceApi.get_statistics(self.paddleflow_server, jobid, run_id=runid, header=self.header)
+
+    def get_statistics_detail(self, jobid: str, start: int = None, end: int = None, step: int = None,
+                              runid: str = None) :
+        """
+        get_statistics_detail
+        """
+        # prams check
+        self.pre_check()
+        if jobid is None or jobid == "":
+            raise PaddleFlowSDKException("InvalidJobID", "jobid should not be none or empty")
+
+        # check optional params
+        if start is not None and int(start) < 0:
+            raise PaddleFlowSDKException("InvalidStart", "start is not none and less than 0")
+        if end is not None and (start is None or int(end) < int(start)):
+            raise PaddleFlowSDKException("InvalidEnd", "end is not none and less than start")
+        if step is not None and int(step) <= 0:
+            raise PaddleFlowSDKException("InvalidStep", "step is not none and less than 0")
+
+        ret, res = StatisticsServiceApi.get_statistics_detail(self.paddleflow_server, jobid, start, end, step, run_id=runid,
+                                                          header=self.header)
+        if not ret:
+            return ret, res, False
+        return ret, res, res.truncated

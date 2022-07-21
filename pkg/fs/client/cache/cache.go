@@ -45,7 +45,7 @@ type DataCacheClient interface {
 }
 
 func NewDataCache(config Config) DataCacheClient {
-	if config.CachePath == "" || config.CachePath == "/" {
+	if config.CachePath == "" || config.CachePath == "/" || config.Expire == 0 {
 		return nil
 	}
 	config.CachePath = filepath.Join(config.CachePath, config.FsID)

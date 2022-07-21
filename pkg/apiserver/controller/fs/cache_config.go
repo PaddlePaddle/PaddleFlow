@@ -18,6 +18,7 @@ package fs
 
 import (
 	"errors"
+	"fmt"
 
 	"gorm.io/gorm"
 
@@ -92,10 +93,28 @@ func (resp *FileSystemCacheResponse) fromModel(config model.FSCacheConfig) {
 	resp.UpdateTime = config.UpdatedAt.Format("2006-01-02 15:04:05")
 }
 
-func CreateFileSystemCacheConfig(ctx *logger.RequestContext, req CreateFileSystemCacheRequest) error {
-	cacheConfig := req.toModel()
-	err := storage.Filesystem.CreateFSCacheConfig(&cacheConfig)
+func checkFsMountedAndCleanResource(ctx *logger.RequestContext, fsID string) error {
+	// check not fs mounted. if not mounted, clean up pods and pv/pvcs
+	isMounted, err := GetFileSystemService().CheckFsMountedAndCleanResources(fsID)
 	if err != nil {
+		ctx.Logging().Errorf("CheckFsMountedAndCleanResources failed: %v", err)
+		return err
+	}
+	if isMounted {
+		err := fmt.Errorf("fs[%s] is mounted. creation, modification or deletion is not allowed", fsID)
+		ctx.Logging().Errorf(err.Error())
+		ctx.ErrorCode = common.ActionNotAllowed
+		return err
+	}
+	return nil
+}
+
+func CreateFileSystemCacheConfig(ctx *logger.RequestContext, req CreateFileSystemCacheRequest) error {
+	if err := checkFsMountedAndCleanResource(ctx, req.FsID); err != nil {
+		return err
+	}
+	cacheConfig := req.toModel()
+	if err := storage.Filesystem.CreateFSCacheConfig(&cacheConfig); err != nil {
 		ctx.Logging().Errorf("CreateFSCacheConfig fs[%s] err:%v", cacheConfig.FsID, err)
 		return err
 	}
@@ -103,9 +122,11 @@ func CreateFileSystemCacheConfig(ctx *logger.RequestContext, req CreateFileSyste
 }
 
 func UpdateFileSystemCacheConfig(ctx *logger.RequestContext, req UpdateFileSystemCacheRequest) error {
+	if err := checkFsMountedAndCleanResource(ctx, req.FsID); err != nil {
+		return err
+	}
 	cacheConfig := req.toModel()
-	err := storage.Filesystem.UpdateFSCacheConfig(&cacheConfig)
-	if err != nil {
+	if err := storage.Filesystem.UpdateFSCacheConfig(&cacheConfig); err != nil {
 		ctx.Logging().Errorf("UpdateFSCacheConfig fs[%s] err:%v", cacheConfig.FsID, err)
 		return err
 	}
@@ -124,6 +145,9 @@ func GetFileSystemCacheConfig(ctx *logger.RequestContext, fsID string) (FileSyst
 }
 
 func DeleteFileSystemCacheConfig(ctx *logger.RequestContext, fsID string) error {
+	if err := checkFsMountedAndCleanResource(ctx, fsID); err != nil {
+		return err
+	}
 	_, err := storage.Filesystem.GetFSCacheConfig(fsID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {

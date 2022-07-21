@@ -48,15 +48,14 @@ func (f *DBFSCache) Get(fsID string, cacheID string) (*model.FSCache, error) {
 }
 
 func (f *DBFSCache) Delete(fsID, cacheID string) error {
-	result := f.db
+	tx := f.db
 	if fsID != "" {
-		result.Where(fmt.Sprintf(QueryEqualWithParam, FsID), fsID)
+		tx = tx.Where(fmt.Sprintf(QueryEqualWithParam, FsID), fsID)
 	}
 	if cacheID != "" {
-		result.Where(fmt.Sprintf(QueryEqualWithParam, FsCacheID), cacheID)
+		tx = tx.Where(fmt.Sprintf(QueryEqualWithParam, FsCacheID), cacheID)
 	}
-	// todo:// change to soft delete , update deleteAt = xx
-	return result.Delete(&model.FSCache{}).Error
+	return tx.Unscoped().Delete(&model.FSCache{}).Error
 }
 
 func (f *DBFSCache) List(fsID, cacheID string) ([]model.FSCache, error) {

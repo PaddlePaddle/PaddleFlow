@@ -46,12 +46,12 @@ func (c *FSCache) TableName() string {
 
 func (c *FSCache) BeforeSave(*gorm.DB) error {
 	if c.CacheID == "" {
-		c.CacheID = CacheID(c.ClusterID, c.NodeName, c.CacheDir)
+		c.CacheID = CacheID(c.ClusterID, c.NodeName, c.CacheDir, c.FsID)
 	}
 	return nil
 }
 
-func CacheID(clusterID, nodeName, CacheDir string) string {
-	hash := md5.Sum([]byte(clusterID + nodeName + CacheDir))
+func CacheID(clusterID, nodeName, CacheDir, fsID string) string {
+	hash := md5.Sum([]byte(clusterID + nodeName + CacheDir + fsID))
 	return hex.EncodeToString(hash[:])
 }

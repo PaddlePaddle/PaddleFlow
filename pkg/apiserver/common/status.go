@@ -26,11 +26,14 @@ const (
 	StatusRunFailed      = "failed"
 	StatusRunTerminating = "terminating"
 	StatusRunTerminated  = "terminated"
+	StatusRunSkipped     = "skipped"
 
-	WfEventKeyRunID       = "runID"
-	WfEventKeyStatus      = "status"
-	WfEventKeyRuntime     = "runtime"
-	WfEventKeyPostProcess = "postProcess"
+	WfEventKeyRunID         = "runID"
+	WfEventKeyPK            = "pk"
+	WfEventKeyStatus        = "status"
+	WfEventKeyView          = "runtime"
+	WfEventKeyComponentName = "componentName"
+	WfEventKeyStartTime     = "startTime"
 )
 
 var (
@@ -38,6 +41,7 @@ var (
 		StatusRunFailed,
 		StatusRunSucceeded,
 		StatusRunTerminated,
+		StatusRunSkipped,
 	}
 
 	RunActiveStatus = []string{
@@ -51,7 +55,8 @@ var (
 func IsRunFinalStatus(status string) bool {
 	if strings.EqualFold(status, StatusRunFailed) ||
 		strings.EqualFold(status, StatusRunSucceeded) ||
-		strings.EqualFold(status, StatusRunTerminated) {
+		strings.EqualFold(status, StatusRunTerminated) ||
+		strings.EqualFold(status, StatusRunSkipped) {
 		return true
 	}
 	return false

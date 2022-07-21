@@ -27,6 +27,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/mount"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/io"
@@ -116,7 +117,7 @@ func (ns *nodeServer) NodeExpandVolume(ctx context.Context,
 
 func mountVolume(volumeID string, mountInfo mount.Info, readOnly bool) error {
 	log.Infof("mountVolume: indepedentMp:%t, readOnly:%t", mountInfo.IndependentMountProcess, readOnly)
-	if !mountInfo.IndependentMountProcess {
+	if !mountInfo.IndependentMountProcess && mountInfo.Type != common.Glusterfs {
 		// business pods use a separate source path
 		if err := mount.PodMount(volumeID, mountInfo); err != nil {
 			log.Errorf("MountThroughPod err: %v", err)

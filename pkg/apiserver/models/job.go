@@ -44,6 +44,8 @@ type Job struct {
 	Config            *schema.Conf        `json:"config" gorm:"-"`
 	RuntimeInfoJson   string              `json:"-" gorm:"column:runtime_info;default:'{}'"`
 	RuntimeInfo       interface{}         `json:"runtimeInfo" gorm:"-"`
+	RuntimeStatusJson string              `json:"-" gorm:"column:runtime_status;default:'{}'"`
+	RuntimeStatus     interface{}         `json:"runtimeStatus" gorm:"-"`
 	Status            schema.JobStatus    `json:"status" gorm:"type:varchar(32);"`
 	Message           string              `json:"message"`
 	ResourceJson      string              `json:"-" gorm:"column:resource;type:text;default:'{}'"`
@@ -71,15 +73,19 @@ func (Job) TableName() string {
 }
 
 func (job *Job) BeforeSave(tx *gorm.DB) error {
-	if job.ID == "" {
-		job.ID = uuid.GenerateIDWithLength(schema.JobPrefix, uuid.JobIDLength)
-	}
 	if job.RuntimeInfo != nil {
 		infoJson, err := json.Marshal(job.RuntimeInfo)
 		if err != nil {
 			return err
 		}
 		job.RuntimeInfoJson = string(infoJson)
+	}
+	if job.RuntimeStatus != nil {
+		statusJson, err := json.Marshal(job.RuntimeStatus)
+		if err != nil {
+			return err
+		}
+		job.RuntimeStatusJson = string(statusJson)
 	}
 	if len(job.Members) != 0 {
 		infoJson, err := json.Marshal(job.Members)
@@ -115,6 +121,15 @@ func (job *Job) AfterFind(tx *gorm.DB) error {
 		}
 		job.RuntimeInfo = runtime
 	}
+	if len(job.RuntimeStatusJson) > 0 {
+		var runtimeStatus interface{}
+		err := json.Unmarshal([]byte(job.RuntimeStatusJson), &runtimeStatus)
+		if err != nil {
+			log.Errorf("job[%s] json unmarshal runtime status failed, error: %s", job.ID, err.Error())
+			return err
+		}
+		job.RuntimeStatus = runtimeStatus
+	}
 	if len(job.MembersJson) > 0 {
 		var members []Member
 		err := json.Unmarshal([]byte(job.MembersJson), &members)
@@ -138,6 +153,9 @@ func (job *Job) AfterFind(tx *gorm.DB) error {
 
 // CreateJob creates a new job
 func CreateJob(job *Job) error {
+	if job.ID == "" {
+		job.ID = uuid.GenerateIDWithLength(schema.JobPrefix, uuid.JobIDLength)
+	}
 	db := storage.DB
 	return db.Create(job).Error
 }
@@ -183,12 +201,13 @@ func UpdateJobStatus(jobId, errMessage string, newStatus schema.JobStatus) error
 	if err != nil {
 		return errors.JobIDNotFoundError(jobId)
 	}
-	job.Status, errMessage = jobStatusTransition(job.ID, job.Status, newStatus, errMessage)
+	updatedJob := Job{}
+	updatedJob.Status, errMessage = jobStatusTransition(job.ID, job.Status, newStatus, errMessage)
 	if errMessage != "" {
-		job.Message = errMessage
+		updatedJob.Message = errMessage
 	}
-	log.Infof("update job [%+v]", job)
-	tx := storage.DB.Model(&Job{}).Where("id = ?", jobId).Where("deleted_at = ''").Updates(job)
+	log.Infof("update for job %s, updated content [%+v]", jobId, updatedJob)
+	tx := storage.DB.Model(&Job{}).Where("id = ?", jobId).Where("deleted_at = ''").Updates(updatedJob)
 	if tx.Error != nil {
 		return tx.Error
 	}
@@ -228,29 +247,33 @@ func jobStatusTransition(jobID string, preStatus, newStatus schema.JobStatus, ms
 	return newStatus, msg
 }
 
-func UpdateJob(jobID string, status schema.JobStatus, info interface{}, message string) (schema.JobStatus, error) {
+func UpdateJob(jobID string, status schema.JobStatus, runtimeInfo, runtimeStatus interface{}, message string) (schema.JobStatus, error) {
 	job, err := GetUnscopedJobByID(jobID)
 	if err != nil {
 		return "", errors.JobIDNotFoundError(jobID)
 	}
-	job.Status, message = jobStatusTransition(jobID, job.Status, status, message)
-	if info != nil {
-		job.RuntimeInfo = info
+	updatedJob := Job{}
+	updatedJob.Status, message = jobStatusTransition(jobID, job.Status, status, message)
+	if runtimeInfo != nil {
+		updatedJob.RuntimeInfo = runtimeInfo
+	}
+	if runtimeStatus != nil {
+		updatedJob.RuntimeStatus = runtimeStatus
 	}
 	if message != "" {
-		job.Message = message
+		updatedJob.Message = message
 	}
-	if status == schema.StatusJobRunning {
-		job.ActivatedAt.Time = time.Now()
-		job.ActivatedAt.Valid = true
+	if status == schema.StatusJobRunning && !job.ActivatedAt.Valid {
+		updatedJob.ActivatedAt.Time = time.Now()
+		updatedJob.ActivatedAt.Valid = true
 	}
-	log.Debugf("update job [%+v]", job)
-	tx := storage.DB.Table("job").Where("id = ?", jobID).Where("deleted_at = ''").Updates(&job)
+	log.Debugf("update for job %s, updated content [%+v]", jobID, updatedJob)
+	tx := storage.DB.Table("job").Where("id = ?", jobID).Where("deleted_at = ''").Updates(&updatedJob)
 	if tx.Error != nil {
-		logger.LoggerForJob(jobID).Errorf("update job failed, err %v", tx.Error)
+		log.Errorf("update job failed, err %v", tx.Error)
 		return "", tx.Error
 	}
-	return job.Status, nil
+	return updatedJob.Status, nil
 }
 
 func ListQueueJob(queueID string, status []schema.JobStatus) []Job {
@@ -259,6 +282,49 @@ func ListQueueJob(queueID string, status []schema.JobStatus) []Job {
 	var jobs []Job
 	err := db.Find(&jobs).Error
 	if err != nil {
+		return []Job{}
+	}
+	return jobs
+}
+
+func ListQueueInitJob(queueID string) []Job {
+	db := storage.DB.Table("job").Where("queue_id = ?", queueID).Where("status = ?", schema.StatusJobInit).Where("deleted_at = ''")
+
+	var jobs []Job
+	err := db.Find(&jobs).Error
+	if err != nil {
+		log.Errorf("list init jobs in queue %s failed, err: %s", queueID, err.Error())
+		return []Job{}
+	}
+	return jobs
+}
+
+func ListClusterJob(clusterID string, status schema.JobStatus) []Job {
+	var jobs []Job
+	queues := ListQueuesByCluster(clusterID)
+	if len(queues) == 0 {
+		return jobs
+	}
+	var queueIDs []string
+	for _, q := range queues {
+		queueIDs = append(queueIDs, q.ID)
+	}
+
+	db := storage.DB.Table("job").Where("queue_id in ?", queueIDs).Where("status = ?", status).Where("deleted_at = ''")
+	err := db.Find(&jobs).Error
+	if err != nil {
+		log.Errorf("list init jobs in cluster %s failed, err: %s", clusterID, err.Error())
+		return []Job{}
+	}
+	return jobs
+}
+
+func ListJobByStatus(status schema.JobStatus) []Job {
+	db := storage.DB.Table("job").Where("status = ?", status).Where("deleted_at = ''")
+
+	var jobs []Job
+	if err := db.Find(&jobs).Error; err != nil {
+		log.Errorf("get collect jobs failed, error:%s", err.Error())
 		return []Job{}
 	}
 	return jobs

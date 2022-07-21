@@ -20,45 +20,92 @@ import (
 	"sync"
 )
 
-type QueueJob struct {
+type JobQueue struct {
 	sync.RWMutex
+	StopCh   chan struct{}
+	Queue    *QueueInfo
 	jobExist sync.Map
-	jobMaps  map[QueueID]*PriorityQueue // Keyed by queueID
+	Jobs     *PriorityQueue
 }
 
-func NewEmptyQueueJobs() *QueueJob {
-	return &QueueJob{
-		jobMaps: make(map[QueueID]*PriorityQueue),
+func NewJobQueue(q *QueueInfo) *JobQueue {
+	return &JobQueue{
+		StopCh: make(chan struct{}),
+		Queue:  q,
+		Jobs:   NewPriorityQueue(q.JobOrderFn),
 	}
 }
 
-func (qj *QueueJob) GetJob() (*PFJob, bool) {
-	qj.RLock()
-	defer qj.RUnlock()
-	// TODO: get job with fair schedule
-	for _, jobQueue := range qj.jobMaps {
-		if jobQueue.Empty() {
-			continue
+func (qj *JobQueue) GetName() string {
+	name := ""
+	if qj.Queue != nil {
+		name = qj.Queue.Name
+	}
+	return name
+}
+
+func (qj *JobQueue) Insert(job *PFJob) {
+	if qj.Jobs != nil && job != nil {
+		qj.Lock()
+		defer qj.Unlock()
+		if _, exist := qj.jobExist.Load(job.ID); !exist {
+			qj.jobExist.Store(job.ID, struct{}{})
+			qj.Jobs.Push(job)
+		}
+	}
+}
+
+func (qj *JobQueue) GetJob() (*PFJob, bool) {
+	if qj.Jobs != nil {
+		qj.RLock()
+		defer qj.RUnlock()
+		if qj.Jobs.Empty() {
+			return nil, false
 		} else {
-			return jobQueue.Pop().(*PFJob), true
+			return qj.Jobs.Pop().(*PFJob), true
 		}
 	}
 	return nil, false
 }
 
-func (qj *QueueJob) Insert(queueID QueueID, job *PFJob, q *QueueInfo) {
-	qj.Lock()
-	defer qj.Unlock()
-	if _, queueExists := qj.jobMaps[queueID]; !queueExists {
-		qj.jobMaps[queueID] = NewPriorityQueue(q.JobOrderFn)
-	}
-	if _, exist := qj.jobExist.Load(job.ID); !exist {
-		qj.jobExist.Store(job.ID, struct{}{})
-		jobQueue := qj.jobMaps[queueID]
-		jobQueue.Push(job)
+func (qj *JobQueue) DeleteMark(jobID string) {
+	qj.jobExist.Delete(jobID)
+}
+
+// JobQueues the collect of JobQueue
+type JobQueues struct {
+	sync.RWMutex
+	queueJobs map[QueueID]*JobQueue
+}
+
+func NewJobQueues() JobQueues {
+	return JobQueues{
+		queueJobs: make(map[QueueID]*JobQueue),
 	}
 }
 
-func (qj *QueueJob) DeleteMark(jobID string) {
-	qj.jobExist.Delete(jobID)
+func (jq *JobQueues) Get(id QueueID) (*JobQueue, bool) {
+	if jq.queueJobs != nil {
+		jq.RLock()
+		defer jq.RUnlock()
+		q, find := jq.queueJobs[id]
+		return q, find
+	}
+	return nil, false
+}
+
+func (jq *JobQueues) Insert(id QueueID, jobQueue *JobQueue) {
+	if jq.queueJobs != nil && jobQueue != nil {
+		jq.Lock()
+		defer jq.Unlock()
+		jq.queueJobs[id] = jobQueue
+	}
+}
+
+func (jq *JobQueues) Delete(id QueueID) {
+	if jq.queueJobs != nil {
+		jq.Lock()
+		defer jq.Unlock()
+		delete(jq.queueJobs, id)
+	}
 }

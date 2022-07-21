@@ -31,15 +31,15 @@ const (
 
 	DefaultMaxKeys = 50
 	ListPageMax    = 1000
-	MaxDescLength  = 1024
+	MaxDescLength  = 256
 
-	ParamKeyQueueName        = "queueName"
-	ParamKeyRunID            = "runID"
-	ParamKeyCheckCache       = "checkCache"
-	ParamKeyRunCacheID       = "runCacheID"
-	ParamKeyPipelineID       = "pipelineID"
-	ParamKeyPipelineDetailID = "pipelineDetailID"
-	ParamKeyScheduleID       = "scheduleID"
+	ParamKeyQueueName         = "queueName"
+	ParamKeyRunID             = "runID"
+	ParamKeyCheckCache        = "checkCache"
+	ParamKeyRunCacheID        = "runCacheID"
+	ParamKeyPipelineID        = "pipelineID"
+	ParamKeyPipelineVersionID = "pipelineVersionID"
+	ParamKeyScheduleID        = "scheduleID"
 
 	QueryKeyAction    = "action"
 	QueryActionStop   = "stop"
@@ -51,27 +51,27 @@ const (
 	QueryKeyMarker  = "marker"
 	QueryKeyMaxKeys = "maxKeys"
 
-	QueryKeyPipelineID      = "pipelineID"
-	QueryKeyScheduleFilter  = "scheduleFilter"
-	QueryKeyStatusFilter    = "statusFilter"
-	QueryKeyUserFilter      = "userFilter"
-	QueryKeyFsFilter        = "fsFilter"
-	QueryKeyPplFilter       = "pplFilter"
-	QueryKeyPplDetailFilter = "pplDetailFilter"
-	QueryKeyNameFilter      = "nameFilter"
-	QueryKeyRunFilter       = "runFilter"
-	QueryKeyTypeFilter      = "typeFilter"
-	QueryKeyPathFilter      = "pathFilter"
-	QueryKeyUser            = "user"
-	QueryKeyName            = "name"
-	QueryKeyUserName        = "username"
-	QueryResourceType       = "resourceType"
-	QueryResourceID         = "resourceID"
-	QueryKeyStatus          = "status"
-	QueryKeyTimestamp       = "timestamp"
-	QueryKeyStartTime       = "startTime"
-	QueryKeyQueue           = "queue"
-	QueryKeyLabels          = "labels"
+	QueryKeyPipelineID       = "pipelineID"
+	QueryKeyScheduleFilter   = "scheduleFilter"
+	QueryKeyStatusFilter     = "statusFilter"
+	QueryKeyUserFilter       = "userFilter"
+	QueryKeyFsFilter         = "fsFilter"
+	QueryKeyPplFilter        = "pplFilter"
+	QueryKeyPplVersionFilter = "pplVersionFilter"
+	QueryKeyNameFilter       = "nameFilter"
+	QueryKeyRunFilter        = "runFilter"
+	QueryKeyTypeFilter       = "typeFilter"
+	QueryKeyPathFilter       = "pathFilter"
+	QueryKeyUser             = "user"
+	QueryKeyName             = "name"
+	QueryKeyUserName         = "username"
+	QueryResourceType        = "resourceType"
+	QueryResourceID          = "resourceID"
+	QueryKeyStatus           = "status"
+	QueryKeyTimestamp        = "timestamp"
+	QueryKeyStartTime        = "startTime"
+	QueryKeyQueue            = "queue"
+	QueryKeyLabels           = "labels"
 
 	ParamKeyClusterName   = "clusterName"
 	ParamKeyClusterNames  = "clusterNames"
@@ -98,6 +98,10 @@ const (
 	ParamKeyPageNo          = "pageNo"
 	ParamKeyPageSize        = "pageSize"
 	ParamKeyLogFilePosition = "logFilePosition"
+
+	ParamKeyStart = "start"
+	ParamKeyEnd   = "end"
+	ParamKeyStep  = "step"
 )
 
 func GetQueryMaxKeys(ctx *logger.RequestContext, r *http.Request) (int, error) {

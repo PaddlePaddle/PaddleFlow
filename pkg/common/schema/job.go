@@ -38,6 +38,9 @@ const (
 	// EnvJobYamlPath Additional configuration for a specific job
 	EnvJobYamlPath  = "PF_JOB_YAML_PATH"
 	EnvIsCustomYaml = "PF_IS_CUSTOM_YAML"
+	// EnvJobWorkDir The working directory of the job, `null` means command without a working directory
+	EnvJobWorkDir = "PF_WORK_DIR"
+	EnvMountPath  = "PF_MOUNT_PATH"
 
 	// EnvJobModePS env
 	EnvJobModePS          = "PS"
@@ -166,12 +169,15 @@ type PFJobConf interface {
 	GetCommand() string
 	GetImage() string
 
+	GetFileSystem() FileSystem
+	GetExtraFS() []FileSystem
+	GetArgs() []string
+
 	GetPriority() string
 	SetPriority(string)
 
 	GetQueueName() string
 	GetQueueID() string
-	GetClusterName() string
 	GetClusterID() string
 	GetUserName() string
 
@@ -200,11 +206,12 @@ type PFJobConf interface {
 type Conf struct {
 	Name string `json:"name"`
 	// 存储资源
-	FileSystem      FileSystem   `json:"fileSystem,omitempty"`
-	ExtraFileSystem []FileSystem `json:"extraFileSystem,omitempty"`
+	FileSystem      FileSystem   `json:"fs,omitempty"`
+	ExtraFileSystem []FileSystem `json:"extraFS,omitempty"`
 	// 计算资源
 	Flavour   Flavour `json:"flavour,omitempty"`
 	Priority  string  `json:"priority"`
+	ClusterID string  `json:"clusterID"`
 	QueueID   string  `json:"queueID"`
 	QueueName string  `json:"queueName,omitempty"`
 	// 运行时需要的参数
@@ -238,6 +245,18 @@ func (c *Conf) GetCommand() string {
 	return c.Command
 }
 
+func (c *Conf) GetFileSystem() FileSystem {
+	return c.FileSystem
+}
+
+func (c *Conf) GetExtraFS() []FileSystem {
+	return c.ExtraFileSystem
+}
+
+func (c *Conf) GetArgs() []string {
+	return c.Args
+}
+
 func (c *Conf) GetWorkerCommand() string {
 	c.preCheckEnv()
 	return c.Env[EnvJobWorkerCommand]
@@ -269,11 +288,6 @@ func (c *Conf) SetQueueName(queueName string) {
 	c.QueueName = queueName
 }
 
-func (c *Conf) GetClusterName() string {
-	c.preCheckEnv()
-	return c.Env[EnvJobClusterName]
-}
-
 func (c *Conf) GetUserName() string {
 	c.preCheckEnv()
 	return c.Env[EnvJobUserName]
@@ -291,6 +305,7 @@ func (c *Conf) GetFS() string {
 }
 
 // SetFS sets the filesystem id
+// Deprecated
 func (c *Conf) SetFS(fsID string) {
 	c.preCheckEnv()
 	c.Env[EnvJobFsID] = fsID
@@ -385,13 +400,11 @@ func (c *Conf) SetQueueID(id string) {
 }
 
 func (c *Conf) GetClusterID() string {
-	c.preCheckEnv()
-	return c.Env[EnvJobClusterID]
+	return c.ClusterID
 }
 
 func (c *Conf) SetClusterID(id string) {
-	c.preCheckEnv()
-	c.Env[EnvJobClusterID] = id
+	c.ClusterID = id
 }
 
 func (c *Conf) SetLabels(k, v string) {

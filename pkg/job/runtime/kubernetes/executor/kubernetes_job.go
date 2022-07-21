@@ -25,7 +25,6 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -37,6 +36,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	locationAwareness "github.com/PaddlePaddle/PaddleFlow/pkg/fs/location-awareness"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
@@ -328,6 +328,13 @@ func (j *KubeJob) createJobFromYaml(jobEntity interface{}) error {
 		log.Errorf("Decode from yamlFile[%s] failed! err:[%v]\n", string(j.YamlTemplateContent), err)
 		return err
 	}
+	parsedGVK := unstructuredObj.GroupVersionKind()
+	log.Debugf("unstructuredObj=%v, GroupVersionKind=[%v]", unstructuredObj, parsedGVK)
+	if parsedGVK.String() != j.GroupVersionKind.String() {
+		err := fmt.Errorf("expect GroupVersionKind is %s, but got %s", j.GroupVersionKind.String(), parsedGVK.String())
+		log.Errorf("Decode from yamlFile[%s] failed! err:[%v]\n", string(j.YamlTemplateContent), err)
+		return err
+	}
 
 	// convert unstructuredObj.Object into entity
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(unstructuredObj.Object, jobEntity); err != nil {
@@ -364,33 +371,46 @@ func (j *KubeJob) fillPodSpec(podSpec *corev1.PodSpec, task *models.Member) {
 
 // todo: to be removed
 // fillContainerInVcJob fill container in job task, only called by vcjob
-func (j *KubeJob) fillContainerInVcJob(container *corev1.Container, flavour schema.Flavour, command string) {
+func (j *KubeJob) fillContainerInVcJob(container *corev1.Container, flavour schema.Flavour, command string) error {
 	container.Image = j.Image
-	container.Command = []string{"sh", "-c", j.fixContainerCommand(command, j.FileSystems)}
-	container.Resources = j.generateResourceRequirements(flavour)
+	workDir := j.getWorkDir(nil)
+	container.Command = j.generateContainerCommand(j.Command, workDir)
+	var err error
+	container.Resources, err = j.generateResourceRequirements(flavour)
+	if err != nil {
+		log.Errorf("generate resource requirements failed in vcjob, err: %v", err)
+		return err
+	}
 	container.VolumeMounts = j.appendMountIfAbsent(container.VolumeMounts, j.generateVolumeMount())
 	container.Env = j.generateEnvVars()
+	return nil
 }
 
 // fillContainerInTasks fill container in job task
-func (j *KubeJob) fillContainerInTasks(container *corev1.Container, task models.Member) {
+func (j *KubeJob) fillContainerInTasks(container *corev1.Container, task models.Member) error {
 	if j.isNeedPatch(container.Image) {
 		container.Image = task.Image
 	}
 	if j.isNeedPatch(task.Command) {
-		container.Command = []string{"sh", "-c", j.fixContainerCommand(task.Command, task.GetAllFileSystem())}
+		workDir := j.getWorkDir(&task)
+		container.Command = j.generateContainerCommand(task.Command, workDir)
 	}
 	if !j.IsCustomYaml && len(task.Args) > 0 {
 		container.Args = task.Args
 	}
-	container.Resources = j.generateResourceRequirements(task.Flavour)
-
+	var err error
+	container.Resources, err = j.generateResourceRequirements(task.Flavour)
+	if err != nil {
+		log.Errorf("fillContainerInTasks failed when generateResourceRequirements, err: %v", err)
+		return err
+	}
 	taskFs := task.Conf.GetAllFileSystem()
 	if len(taskFs) != 0 {
 		container.VolumeMounts = appendMountsIfAbsent(container.VolumeMounts, generateVolumeMounts(taskFs))
 	}
 
 	container.Env = j.appendEnvIfAbsent(container.Env, j.generateEnvVars())
+	return nil
 }
 
 // appendLabelsIfAbsent append labels if absent
@@ -469,35 +489,62 @@ func (j *KubeJob) appendVolumeIfAbsent(vSlice []corev1.Volume, element corev1.Vo
 	return vSlice
 }
 
-func (j *KubeJob) fixContainerCommand(command string, fileSystems []schema.FileSystem) string {
+// generateContainerCommand if task is not nil, prefer to using info in task, otherwise using job's
+func (j *KubeJob) generateContainerCommand(command string, workdir string) []string {
 	command = strings.TrimPrefix(command, "bash -c")
 	command = strings.TrimPrefix(command, "sh -c")
-	if len(fileSystems) != 0 {
-		workdir := filepath.Join(schema.DefaultFSMountPath, fileSystems[0].ID)
+
+	if workdir != "" {
 		command = fmt.Sprintf("%s %s;%s", "cd", workdir, command)
 	}
-	return command
+
+	commands := []string{"sh", "-c", command}
+	return commands
 }
 
-func (j *KubeJob) generateResourceRequirements(flavour schema.Flavour) corev1.ResourceRequirements {
+func (j *KubeJob) getWorkDir(task *models.Member) string {
+	// prepare fs and envs
+	fileSystems := j.FileSystems
+	envs := j.Env
+	if task != nil {
+		fileSystems = task.Conf.GetAllFileSystem()
+		envs = task.Env
+	}
+	if len(envs) == 0 {
+		envs = make(map[string]string)
+	}
+	// check workdir, which exist only if there is more than one file system and env.'EnvMountPath' is not NONE
+	hasWorkDir := len(fileSystems) != 0 && strings.ToUpper(envs[schema.EnvMountPath]) != "NONE"
+	if !hasWorkDir {
+		return ""
+	}
+
+	workdir := ""
+	mountPath := filepath.Clean(fileSystems[0].MountPath)
+	log.Infof("getWorkDir by hasWorkDir: true,mountPath: %s, task: %v", mountPath, task)
+	if mountPath != "." {
+		workdir = mountPath
+	} else {
+		workdir = filepath.Join(schema.DefaultFSMountPath, fileSystems[0].ID)
+	}
+	envs[schema.EnvJobWorkDir] = workdir
+	return workdir
+}
+
+func (j *KubeJob) generateResourceRequirements(flavour schema.Flavour) (corev1.ResourceRequirements, error) {
 	log.Infof("generateResourceRequirements by flavour:[%+v]", flavour)
+
+	flavourResource, err := resources.NewResourceFromMap(flavour.ToMap())
+	if err != nil {
+		log.Errorf("generateResourceRequirements by flavour:[%+v] error:%v", flavour, err)
+		return corev1.ResourceRequirements{}, err
+	}
 	resources := corev1.ResourceRequirements{
-		Requests: map[corev1.ResourceName]resource.Quantity{
-			corev1.ResourceCPU:    resource.MustParse(flavour.CPU),
-			corev1.ResourceMemory: resource.MustParse(flavour.Mem),
-		},
-		Limits: map[corev1.ResourceName]resource.Quantity{
-			corev1.ResourceCPU:    resource.MustParse(flavour.CPU),
-			corev1.ResourceMemory: resource.MustParse(flavour.Mem),
-		},
+		Requests: k8s.NewResourceList(flavourResource),
+		Limits:   k8s.NewResourceList(flavourResource),
 	}
 
-	for key, value := range flavour.ScalarResources {
-		resources.Requests[corev1.ResourceName(key)] = resource.MustParse(value)
-		resources.Limits[corev1.ResourceName(key)] = resource.MustParse(value)
-	}
-
-	return resources
+	return resources, nil
 }
 
 func (j *KubeJob) patchMetadata(metadata *metav1.ObjectMeta, name string) {
@@ -787,7 +834,7 @@ func generateVolumeMounts(fileSystems []schema.FileSystem) []corev1.VolumeMount 
 	for _, fs := range fileSystems {
 		log.Debugf("generateVolumeMounts walking fileSystem %+v", fs)
 		mountPath := filepath.Clean(fs.MountPath)
-		if mountPath == "" {
+		if mountPath == "." {
 			mountPath = filepath.Join(schema.DefaultFSMountPath, fs.ID)
 		}
 		volumeMount := corev1.VolumeMount{
@@ -835,6 +882,7 @@ func appendVolumesIfAbsent(volumes []corev1.Volume, newElements []corev1.Volume)
 // otherwise,
 // `VolumeMounts = appendMountsIfAbsent(VolumeMounts, generateVolumeMounts(kubeJob.FileSystems))`
 func appendMountsIfAbsent(volumeMounts []corev1.VolumeMount, newElements []corev1.VolumeMount) []corev1.VolumeMount {
+	log.Infof("appendMountsIfAbsent volumeMounts=%+v, newElements=%+v", volumeMounts, newElements)
 	if volumeMounts == nil {
 		volumeMounts = []corev1.VolumeMount{}
 	}
@@ -858,4 +906,18 @@ func appendMountsIfAbsent(volumeMounts []corev1.VolumeMount, newElements []corev
 		volumeMounts = append(volumeMounts, cur)
 	}
 	return volumeMounts
+}
+
+func validateTemplateResources(spec *corev1.PodSpec) error {
+	for index, container := range spec.Containers {
+		resourcesList := k8s.NewMinResourceList()
+
+		if container.Resources.Requests.Cpu().IsZero() || container.Resources.Requests.Memory().IsZero() {
+			spec.Containers[index].Resources.Requests = resourcesList
+			spec.Containers[index].Resources.Limits = resourcesList
+			log.Warnf("podSpec %v container %d cpu is zero, Resources: %v", spec, index, spec.Containers[index].Resources.Requests)
+		}
+
+	}
+	return nil
 }

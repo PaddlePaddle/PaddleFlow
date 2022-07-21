@@ -83,7 +83,7 @@ def _print_job(job_info, out_format):
                         "members": job_info.member_list}
     # print job basic info
     headers = ['job id', 'job name', 'queue', 'priority', 'status', 'accept time', 'start time', 'finish time']
-    data = [[job_info.job_id, job_info.job_name, job_info.queue, job_info.priority.lower(), job_info.status,
+    data = [[job_info.job_id, job_info.job_name, job_info.queue, job_info.priority, job_info.status,
             job_info.accept_time, job_info.start_time, job_info.finish_time]]
     print_output(data, headers, out_format, table_format='grid')
     print("job config and runtime info: ")

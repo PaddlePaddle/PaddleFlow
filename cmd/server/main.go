@@ -16,6 +16,7 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/cmd/server/flag"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/cluster"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/fs"
 	jobCtrl "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/job"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/pipeline"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/queue"
@@ -24,6 +25,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/monitor"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/trace_logger"
@@ -64,7 +66,7 @@ func Main(args []string) error {
 		Usage:                "pipeline/filesystem/job orchestration services for machine learning",
 		Version:              version.InfoStr(),
 		Copyright:            "Apache License 2.0",
-		HideHelpCommand:      true,
+		HideHelpCommand:      false,
 		EnableBashCompletion: true,
 		Flags:                flag.ExpandFlags(compoundFlags),
 		Action:               act,
@@ -105,12 +107,11 @@ func start() error {
 	go jobCtrl.WSManager.SendGroupData()
 	go jobCtrl.WSManager.GetGroupData()
 
-	err = trace_logger.Start(ServerConf.TraceLog)
-	if err != nil {
-		errMsg := fmt.Errorf("start trace logger failed. error: %w", err)
-		log.Errorf(errMsg.Error())
-		return errMsg
-	}
+	stopChan := make(chan struct{})
+	defer close(stopChan)
+	go fs.CleanMountPodController(ServerConf.Fs.MountPodExpire, ServerConf.Fs.CleanMountPodIntervalTime, stopChan)
+
+	trace_logger.Start(ServerConf.TraceLog)
 
 	go func() {
 		if err := HttpSvr.ListenAndServe(); err != nil && errors.Is(err, http.ErrServerClosed) {
@@ -216,6 +217,12 @@ func setup() {
 		log.Errorf("InitDefaultPVC err %v", err)
 		gracefullyExit(err)
 	}
+
+	if err := initPrometheusClient(ServerConf.Monitor.Server); err != nil {
+		log.Errorf("create prometheus client failed, err %v", err)
+		gracefullyExit(err)
+	}
+
 }
 
 func newAndStartJobManager() error {
@@ -232,6 +239,11 @@ func newAndStartJobManager() error {
 	}
 	go runtimeMgr.Start(models.ActiveClusters, models.ListQueueJob)
 	return nil
+}
+
+func initPrometheusClient(address string) error {
+	err := monitor.NewClientAPI(address)
+	return err
 }
 
 func gracefullyExit(err error) {

@@ -61,4 +61,8 @@ const (
 	LogPageSizeMax     = 100
 	LogPageSizeDefault = 100
 	LogPageNoDefault   = 1
+
+	Pod = "pod"
+
+	StsMaxSeqData = 1000
 )

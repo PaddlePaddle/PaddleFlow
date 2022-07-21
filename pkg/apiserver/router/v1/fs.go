@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi"
@@ -62,12 +63,13 @@ func (pr *PFSRouter) AddRouter(r chi.Router) {
 }
 
 var URLPrefix = map[string]bool{
-	common.HDFS:  true,
-	common.Local: true,
-	common.S3:    true,
-	common.SFTP:  true,
-	common.Mock:  true,
-	common.CFS:   true,
+	common.HDFS:      true,
+	common.Local:     true,
+	common.S3:        true,
+	common.SFTP:      true,
+	common.Mock:      true,
+	common.CFS:       true,
+	common.Glusterfs: true,
 }
 
 const FsNameMaxLen = 100
@@ -166,6 +168,7 @@ func validateCreateFileSystem(ctx *logger.RequestContext, req *api.CreateFileSys
 	if err != nil {
 		ctx.Logging().Errorf("check properties err[%v] with properties[%v]", err, req.Properties)
 		ctx.ErrorCode = common.InvalidFileSystemProperties
+		ctx.ErrorMessage = err.Error()
 		return err
 	}
 
@@ -208,6 +211,16 @@ func checkStorageConnectivity(fsMeta fsCommon.FSMeta) error {
 }
 
 func checkProperties(fsType string, req *api.CreateFileSystemRequest) error {
+	if req.Properties[fsCommon.FileMode] != "" {
+		if _, err := strconv.Atoi(req.Properties[fsCommon.FileMode]); err != nil {
+			return err
+		}
+	}
+	if req.Properties[fsCommon.DirMode] != "" {
+		if _, err := strconv.Atoi(req.Properties[fsCommon.DirMode]); err != nil {
+			return err
+		}
+	}
 	switch fsType {
 	case common.HDFS:
 		if req.Properties[fsCommon.KeyTabData] != "" {
@@ -510,7 +523,7 @@ func (pr *PFSRouter) deleteFileSystem(w http.ResponseWriter, r *http.Request) {
 	realUserName := getRealUserName(&ctx, username)
 	fsID := common.ID(realUserName, fsName)
 
-	if err := fsCheckCanModify(&ctx, fsID); err != nil {
+	if err := fsExistsForModify(&ctx, fsID); err != nil {
 		ctx.Logging().Errorf("checkCanModifyFs[%s] err: %v", fsID, err)
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
@@ -524,7 +537,7 @@ func (pr *PFSRouter) deleteFileSystem(w http.ResponseWriter, r *http.Request) {
 	common.RenderStatus(w, http.StatusOK)
 }
 
-func fsCheckCanModify(ctx *logger.RequestContext, fsID string) error {
+func fsExistsForModify(ctx *logger.RequestContext, fsID string) error {
 	// check fs exist
 	if _, err := storage.Filesystem.GetFileSystemWithFsID(fsID); err != nil {
 		ctx.Logging().Errorf("get filesystem[%s] err: %v", fsID, err)

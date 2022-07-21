@@ -19,6 +19,7 @@ package pipeline
 import (
 	"database/sql"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -35,6 +36,7 @@ import (
 	errors2 "github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	fsCommon "github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/pipeline"
 	pplcommon "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/trace_logger"
@@ -42,42 +44,36 @@ import (
 
 var wfMap = make(map[string]*pipeline.Workflow, 0)
 
+const (
+	JsonFsOptions   = "fs_options" //由于在获取BodyMap的FsOptions前已经转为下划线形式，因此这里为fs_options
+	JsonUserName    = "username"
+	JsonDescription = "description"
+	JsonFlavour     = "flavour"
+	JsonQueue       = "queue"
+	JsonJobType     = "jobType"
+	JsonEnv         = "env"
+
+	FinalRunStatus = "FINAL_RUN_STATUS"
+	FinalRunMsg    = "FINAL_RUN_MSG"
+)
+
 type CreateRunRequest struct {
-	FsName      string                 `json:"fsname"`
+	FsName      string                 `json:"fsName"`
 	UserName    string                 `json:"username,omitempty"`   // optional, only for root user
 	Name        string                 `json:"name,omitempty"`       // optional
 	Description string                 `json:"desc,omitempty"`       // optional
-	Entry       string                 `json:"entry,omitempty"`      // optional
 	Parameters  map[string]interface{} `json:"parameters,omitempty"` // optional
 	DockerEnv   string                 `json:"dockerEnv,omitempty"`  // optional
-	// run workflow source. priority: RunYamlRaw > PipelineID + PipelineDetailID > RunYamlPath
+	// run workflow source. priority: RunYamlRaw > PipelineID + PipelineVersionID > RunYamlPath
 	// 为了防止字符串或者不同的http客户端对run.yaml
 	// 格式中的特殊字符串做特殊过滤处理导致yaml文件不正确，因此采用runYamlRaw采用base64编码传输
-	Disabled         string `json:"disabled,omitempty"`         // optional
-	RunYamlRaw       string `json:"runYamlRaw,omitempty"`       // optional. one of 3 sources of run. high priority
-	PipelineID       string `json:"pipelineID,omitempty"`       // optional. one of 3 sources of run. medium priority
-	PipelineDetailID string `json:"pipelineDetailID,omitempty"` // optional. one of 3 sources of run. medium priority
-	RunYamlPath      string `json:"runYamlPath,omitempty"`      // optional. one of 3 sources of run. low priority
-	ScheduleID       string `json:"scheduleID"`
-	ScheduledAt      string `json:"scheduledAt"`
-}
-
-type CreateRunByJsonRequest struct {
-	FsName         string                `json:"fsName"`
-	UserName       string                `json:"userName,omitempty"` // optional, only for root user
-	Description    string                `json:"desc,omitempty"`     // optional
-	Disabled       string                `json:"disabled,omitempty"` // optional
-	Name           string                `json:"name"`
-	DockerEnv      string                `json:"dockerEnv,omitempty"`   // optional
-	Parallelism    int                   `json:"parallelism,omitempty"` // optional
-	EntryPoints    map[string]*RunStep   `json:"entryPoints"`
-	PostProcess    map[string]*RunStep   `json:"postProcess,omitempty"`    // optional
-	Cache          schema.Cache          `json:"cache,omitempty"`          // optional
-	Queue          string                `json:"queue,omitempty"`          // optional
-	Flavour        string                `json:"flavour,omitempty"`        // optional
-	JobType        string                `json:"jobType,omitempty"`        // optional
-	FailureOptions schema.FailureOptions `json:"failureOptions,omitempty"` // optional
-	Env            map[string]string     `json:"env,omitempty"`            // optional
+	Disabled          string `json:"disabled,omitempty"`          // optional
+	RunYamlRaw        string `json:"runYamlRaw,omitempty"`        // optional. one of 3 sources of run. high priority
+	PipelineID        string `json:"pipelineID,omitempty"`        // optional. one of 3 sources of run. medium priority
+	PipelineVersionID string `json:"pipelineVersionID,omitempty"` // optional. one of 3 sources of run. medium priority
+	RunYamlPath       string `json:"runYamlPath,omitempty"`       // optional. one of 3 sources of run. low priority
+	ScheduleID        string `json:"scheduleID"`
+	ScheduledAt       string `json:"scheduledAt"`
 }
 
 // used for API CreateRunJson to unmarshal steps in entryPoints and postProcess
@@ -112,12 +108,16 @@ type CreateRunResponse struct {
 	RunID string `json:"runID"`
 }
 
+type UpdateRunResponse struct {
+	RunID string `json:"runID"`
+}
+
 type RunBrief struct {
 	ID            string `json:"runID"`
 	Name          string `json:"name"`
 	Source        string `json:"source"` // pipelineID or yamlPath
 	UserName      string `json:"username"`
-	FsName        string `json:"fsname"`
+	FsName        string `json:"fsName"`
 	Description   string `json:"description"`
 	ScheduleID    string `json:"scheduleID"`
 	Message       string `json:"runMsg"`
@@ -169,8 +169,8 @@ func buildWorkflowSource(ctx logger.RequestContext, req CreateRunRequest, fsID s
 			return schema.WorkflowSource{}, "", "", err
 		}
 		runYaml = string(sDec)
-		wfs := schema.WorkflowSource{}
-		if err := yaml.Unmarshal([]byte(runYaml), &wfs); err != nil {
+		wfs, err := schema.GetWorkflowSource([]byte(runYaml))
+		if err != nil {
 			logger.Logger().Errorf("Unmarshal runYaml to get source failed. yaml: %s \n, err:%v", runYaml, err)
 			return schema.WorkflowSource{}, "", "", err
 		}
@@ -191,21 +191,24 @@ func buildWorkflowSource(ctx logger.RequestContext, req CreateRunRequest, fsID s
 			return schema.WorkflowSource{}, "", "", err
 		}
 
-		// query pipeline detail
-		var pplDetail models.PipelineDetail
-		if req.PipelineDetailID == "" {
-			pplDetail, err = models.GetLastPipelineDetail(req.PipelineID)
-			return schema.WorkflowSource{}, "", "", err
-		} else {
-			pplDetail, err = models.GetPipelineDetail(req.PipelineID, req.PipelineDetailID)
+		// query pipeline version
+		var pplVersion models.PipelineVersion
+		if req.PipelineVersionID == "" {
+			pplVersion, err = models.GetLastPipelineVersion(req.PipelineID)
 			if err != nil {
-				logger.Logger().Errorf("get detail[%s] of pipeline[%s]. err: %v", req.PipelineDetailID, req.PipelineID, err)
+				logger.Logger().Errorf("get latest version[%s] of pipeline[%s]. err: %v", req.PipelineVersionID, req.PipelineID, err)
+				return schema.WorkflowSource{}, "", "", err
+			}
+		} else {
+			pplVersion, err = models.GetPipelineVersion(req.PipelineID, req.PipelineVersionID)
+			if err != nil {
+				logger.Logger().Errorf("get version[%s] of pipeline[%s]. err: %v", req.PipelineVersionID, req.PipelineID, err)
 				return schema.WorkflowSource{}, "", "", err
 			}
 		}
 
-		runYaml = pplDetail.PipelineYaml
-		source = fmt.Sprintf("%s-%s", req.PipelineID, req.PipelineDetailID)
+		runYaml = pplVersion.PipelineYaml
+		source = fmt.Sprintf("%s-%s", req.PipelineID, req.PipelineVersionID)
 	} else { // low priority: wfs in fs, read from runYamlPath
 		if fsID == "" {
 			err := fmt.Errorf("can not get runYaml without fs")
@@ -224,6 +227,13 @@ func buildWorkflowSource(ctx logger.RequestContext, req CreateRunRequest, fsID s
 		source = runYamlPath
 		runYaml = string(runYamlByte)
 	}
+
+	// 检查 yaml 格式
+	if err := yaml.UnmarshalStrict([]byte(runYaml), map[interface{}]interface{}{}); err != nil {
+		logger.Logger().Errorf("runYaml format invalid. err:%v", err)
+		return schema.WorkflowSource{}, "", "", err
+	}
+
 	// to wfs
 	trace_logger.Key(requestId).Infof("run yaml and req to wfs")
 	wfs, err := runYamlAndReqToWfs(runYaml, req)
@@ -235,143 +245,180 @@ func buildWorkflowSource(ctx logger.RequestContext, req CreateRunRequest, fsID s
 }
 
 // Used for API CreateRunJson, get wfs by json request.
-func getWorkFlowSourceByReq(request *CreateRunByJsonRequest, bodyMap map[string]interface{}) (schema.WorkflowSource, error) {
-	if len(request.EntryPoints) == 0 {
-		err := fmt.Errorf("missing entryPoints")
-		logger.Logger().Errorf(err.Error())
+func getWorkFlowSourceByJson(bodyMap map[string]interface{}) (schema.WorkflowSource, error) {
+	// 先处理Json特有的参数
+	if err := ProcessJsonAttr(bodyMap); err != nil {
+		logger.Logger().Errorf("process json attribute failed, error: %s", err.Error())
+		return schema.WorkflowSource{}, err
+	}
+	// 获取yaml版的Wfs
+	wfs, err := schema.GetWorkflowSourceByMap(bodyMap)
+	if err != nil {
+		logger.Logger().Errorf("get workflowSource in json failed, error: %s", err.Error())
 		return schema.WorkflowSource{}, err
 	}
 
-	if request.Env == nil {
-		request.Env = map[string]string{}
-	}
-
-	request.Env[schema.EnvJobType] = request.JobType
-	request.Env[schema.EnvJobQueueName] = request.Queue
-	request.Env[schema.EnvJobFlavour] = request.Flavour
-
-	entryPoints := parseRunSteps(request.EntryPoints, request)
-	postProcess := parseRunSteps(request.PostProcess, request)
-	failureOptions := schema.FailureOptions{Strategy: schema.FailureStrategyFailFast}
-	if request.FailureOptions.Strategy != "" {
-		failureOptions.Strategy = request.FailureOptions.Strategy
-	}
-	wfs := schema.WorkflowSource{
-		Name:           request.Name,
-		DockerEnv:      request.DockerEnv,
-		Cache:          request.Cache,
-		Parallelism:    request.Parallelism,
-		EntryPoints:    entryPoints,
-		PostProcess:    postProcess,
-		Disabled:       request.Disabled,
-		FailureOptions: failureOptions,
-	}
-	if err := transCacheJson2Yaml(bodyMap); err != nil {
-		return schema.WorkflowSource{}, err
-	}
-	wfs.ValidateStepCacheByMap(bodyMap)
 	return wfs, nil
 }
 
-func transCacheJson2Yaml(bodyMap map[string]interface{}) error {
-	entryPoints, ok, err := unstructured.NestedFieldCopy(bodyMap, "entryPoints")
+func ProcessJsonAttr(bodyMap map[string]interface{}) error {
+	// Json接口特有的全局参数
+	JsonAttrMap := map[string]interface{}{
+		JsonFlavour: nil,
+		JsonJobType: nil,
+		JsonQueue:   nil,
+		JsonEnv:     nil,
+
+		//这2个字段，之前已经处理过，后续的Json解析逻辑无需处理，只需剔除即可
+		JsonDescription: nil,
+		JsonUserName:    nil,
+	}
+
+	// 先把Json接口特有的全局参数提取出来保存
+	for key := range JsonAttrMap {
+		JsonAttrMap[key] = bodyMap[key]
+		delete(bodyMap, key)
+	}
+
+	// 获取Json全局Env
+	globalEnvMap, err := ParseJsonGlobalEnv(JsonAttrMap)
 	if err != nil {
 		return err
 	}
+
+	// 处理components, entryPoints, postProcess中，Json特有的参数
+	// 全局Env替换节点Env，节点Env的优先级更高
+	entryPointsMap, ok := bodyMap["entry_points"].(map[string]interface{})
 	if !ok {
-		err := fmt.Errorf("no entryPoints in body of request")
+		return fmt.Errorf("get entry_points map failed")
+	}
+	if err := processRunJsonComponents(entryPointsMap, globalEnvMap); err != nil {
+		logger.Logger().Errorf(err.Error())
 		return err
 	}
-	entryPointsMap := entryPoints.(map[string]interface{})
-	for name, point := range entryPointsMap {
-		pointMap := point.(map[string]interface{})
-		// 检查用户是否有设置节点级别的Cache
-		cache, ok, err := unstructured.NestedFieldCopy(pointMap, "cache")
-		if err != nil {
+
+	postProcessMap, ok := bodyMap["post_process"].(map[string]interface{})
+	if ok {
+		if err := processRunJsonComponents(postProcessMap, globalEnvMap); err != nil {
+			logger.Logger().Errorf(err.Error())
 			return err
 		}
-		if ok {
-			cacheMap := cache.(map[string]interface{})
-			// Enable字段的Json和Yaml形式一样，无需赋值
-			// MaxExpiredTime赋值
-			if value, ok := cacheMap["maxExpiredTime"]; ok {
-				if err := unstructured.SetNestedField(cacheMap, value, schema.CacheAttributeMaxExpiredTime); err != nil {
-					return err
-				}
-			}
-			// FsScope赋值
-			if value, ok := cacheMap["fsScope"]; ok {
-				if err := unstructured.SetNestedField(cacheMap, value, schema.CacheAttributeFsScope); err != nil {
-					return err
-				}
-			}
-			if err := unstructured.SetNestedField(pointMap, cacheMap, "cache"); err != nil {
-				return err
-			}
-			if err := unstructured.SetNestedField(entryPointsMap, pointMap, name); err != nil {
-				return err
-			}
-		}
 	}
-	if err := unstructured.SetNestedField(bodyMap, entryPointsMap, schema.EntryPointsStr); err != nil {
-		return err
+
+	componentMap, ok := bodyMap["components"].(map[string]interface{})
+	if ok {
+		if err := processRunJsonComponents(componentMap, globalEnvMap); err != nil {
+			logger.Logger().Errorf(err.Error())
+			return err
+		}
 	}
 	return nil
 }
 
-// Used for API CreateRunJson, validates step by request and run params like cache, dockerEnv, env, and returns steps.
-func parseRunSteps(steps map[string]*RunStep, request *CreateRunByJsonRequest) map[string]*schema.WorkflowSourceStep {
-	workFlowSourceSteps := make(map[string]*schema.WorkflowSourceStep)
-	for pointName, step := range steps {
-		if step.Env == nil {
-			step.Env = make(map[string]string)
-		}
-		step.Env[schema.EnvJobType] = step.JobType
-		step.Env[schema.EnvJobQueueName] = step.Queue
-		step.Env[schema.EnvJobFlavour] = step.Flavour
+func ParseJsonGlobalEnv(jsonAttrMap map[string]interface{}) (map[string]string, error) {
+	resMap := map[string]string{}
 
-		// 对于每一个全局环境变量，检查节点是否有设置对应环境变量，如果没有则使用全局的
-		for globalKey, globalValue := range request.Env {
-			value, ok := step.Env[globalKey]
-			if !ok || value == "" {
-				step.Env[globalKey] = globalValue
+	for key, value := range jsonAttrMap {
+		switch key {
+		case JsonFlavour:
+			if value != nil {
+				value, ok := value.(string)
+				if !ok {
+					return nil, fmt.Errorf("[flavour] should be string type")
+				}
+				if _, ok := resMap[schema.EnvJobFlavour]; !ok {
+					resMap[schema.EnvJobFlavour] = value
+				}
+			}
+		case JsonQueue:
+			if value != nil {
+				value, ok := value.(string)
+				if !ok {
+					return nil, fmt.Errorf("[queue] should be string type")
+				}
+				if _, ok := resMap[schema.EnvJobQueueName]; !ok {
+					resMap[schema.EnvJobQueueName] = value
+				}
+			}
+		case JsonJobType:
+			if value != nil {
+				value, ok := value.(string)
+				if !ok {
+					return nil, fmt.Errorf("[jobType] should be string type")
+				}
+				if _, ok := resMap[schema.EnvJobType]; !ok {
+					resMap[schema.EnvJobType] = value
+				}
+			}
+		case JsonEnv:
+			if value != nil {
+				value, ok := value.(map[string]interface{})
+				if !ok {
+					return nil, fmt.Errorf("[env] should be map type")
+				}
+				for envKey, envValue := range value {
+					envValue := envValue.(string)
+					if !ok {
+						return nil, fmt.Errorf("value of env should be string type")
+					}
+					resMap[envKey] = envValue
+				}
 			}
 		}
-		// DockerEnv字段替换检查
-		if step.DockerEnv == "" {
-			step.DockerEnv = request.DockerEnv
-		}
-
-		artifacts := parseArtifacts(step.Artifacts)
-
-		workFlowSourceStep := schema.WorkflowSourceStep{
-			Command:    step.Command,
-			Deps:       step.Deps,
-			Env:        step.Env,
-			Artifacts:  artifacts,
-			Cache:      step.Cache,
-			DockerEnv:  step.DockerEnv,
-			Parameters: step.Parameters,
-		}
-		workFlowSourceSteps[pointName] = &workFlowSourceStep
 	}
-	return workFlowSourceSteps
+	return resMap, nil
 }
 
-// transform artifacts in Json to common artifacts used in wfs
-func parseArtifacts(atf ArtifactsJson) schema.Artifacts {
-	outputAritfacts := map[string]string{}
-	outputList := []string{}
-	for _, outputName := range atf.Output {
-		outputAritfacts[outputName] = ""
-		outputList = append(outputList, outputName)
+// 该函数主要完成CreateRunJson接口中，各类变量的全局替换操作
+func processRunJsonComponents(componentMap map[string]interface{}, globalEnvMap map[string]string) error {
+	for _, comp := range componentMap {
+		compMap, ok := comp.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("component should be map type")
+		}
+
+		if subMap, ok := compMap["entry_points"].(map[string]interface{}); ok {
+			processRunJsonComponents(subMap, globalEnvMap)
+		} else {
+			if ref, ok := compMap["reference"].(map[string]interface{}); ok {
+				if refComp, ok := ref["component"].(string); ok && refComp != "" {
+					// reference节点不需要进行下面的替换操作
+					continue
+				}
+			}
+			_, ok = compMap["env"]
+			if !ok {
+				if err := unstructured.SetNestedMap(compMap, map[string]interface{}{}, "env"); err != nil {
+					return fmt.Errorf("initMap failed, error:%v", err)
+				}
+			}
+			env, ok := compMap["env"].(map[string]interface{})
+			if !ok {
+				return fmt.Errorf("[env] in component should be map type")
+			}
+
+			transValue2Env(compMap, env, JsonFlavour, schema.EnvJobFlavour)
+			transValue2Env(compMap, env, JsonJobType, schema.EnvJobType)
+			transValue2Env(compMap, env, JsonQueue, schema.EnvJobQueueName)
+
+			for key, value := range globalEnvMap {
+				if _, ok := env[key]; !ok {
+					env[key] = value
+				}
+			}
+		}
+
 	}
-	res := schema.Artifacts{
-		Input:      atf.Input,
-		Output:     outputAritfacts,
-		OutputList: outputList,
+	return nil
+}
+
+func transValue2Env(compMap map[string]interface{}, env map[string]interface{}, attrStr, attrEnvStr string) {
+	if value, ok := compMap[attrStr].(string); ok {
+		if _, ok := env[attrEnvStr]; !ok {
+			env[attrEnvStr] = value
+		}
+		delete(compMap, attrStr)
 	}
-	return res
 }
 
 func getSourceAndYaml(wfs schema.WorkflowSource) (string, string, error) {
@@ -380,64 +427,87 @@ func getSourceAndYaml(wfs schema.WorkflowSource) (string, string, error) {
 		logger.Logger().Errorf("marshal workFlowSource to yaml faild. err: %v", err)
 		return "", "", err
 	}
-	runYaml := string(yamlByte)
-	source := common.GetMD5Hash(yamlByte)
+	// 由于wfs中的EntryPoints字段的类型为WorkflowSourceDag，而非map，因此直接marshal得到的yaml格式有误，不可用
+	// 需要将yaml转成map，进行处理后再转回yaml
+	yamlMap, err := schema.RunYaml2Map(yamlByte)
+	if err != nil {
+		return "", "", err
+	}
+
+	// 提取 entry_points
+	entryPointsMap, ok, err := unstructured.NestedFieldNoCopy(yamlMap, "entry_points", "entry_points")
+	if err != nil {
+		return "", "", fmt.Errorf("get entry_points map from yamlMap failed, error: %s", err.Error())
+	}
+	if !ok {
+		logger.Logger().Warnf("runYaml Map doesn't have entry_points")
+	}
+	if err := unstructured.SetNestedField(yamlMap, entryPointsMap, "entry_points"); err != nil {
+		return "", "", err
+	}
+	resYamlByte, err := yaml.Marshal(yamlMap)
+	if err != nil {
+		return "", "", err
+	}
+
+	runYaml := string(resYamlByte)
+	source := common.GetMD5Hash(resYamlByte)
 	return source, runYaml, nil
 }
 
-func runYamlAndReqToWfs(runYaml string, req interface{}) (schema.WorkflowSource, error) {
+func runYamlAndReqToWfs(runYaml string, req CreateRunRequest) (schema.WorkflowSource, error) {
 	// parse yaml -> WorkflowSource
-	wfs, err := schema.ParseWorkflowSource([]byte(runYaml))
+	wfs, err := schema.GetWorkflowSource([]byte(runYaml))
 	if err != nil {
 		logger.Logger().Errorf("get WorkflowSource by yaml failed. yaml: %s \n, err:%v", runYaml, err)
 		return schema.WorkflowSource{}, err
 	}
 
 	// replace name & dockerEnv & disabled by request
-	switch req := req.(type) {
-	case CreateRunRequest:
-		if req.Name != "" {
-			wfs.Name = req.Name
-		}
-		if req.DockerEnv != "" {
-			wfs.DockerEnv = req.DockerEnv
-		}
-		if req.Disabled != "" {
-			wfs.Disabled = req.Disabled
-		}
-		return wfs, nil
-	case CreateRunByJsonRequest:
-		if req.Name != "" {
-			wfs.Name = req.Name
-		}
-		if req.DockerEnv != "" {
-			wfs.DockerEnv = req.DockerEnv
-		}
-		if req.Disabled != "" {
-			wfs.Disabled = req.Disabled
-		}
-		return wfs, nil
-	default:
-		err := fmt.Errorf("can't handle request type [%v]", req)
-		return schema.WorkflowSource{}, err
+	if req.Name != "" {
+		wfs.Name = req.Name
 	}
+	if req.DockerEnv != "" {
+		wfs.DockerEnv = req.DockerEnv
+	}
+	if req.Disabled != "" {
+		wfs.Disabled = req.Disabled
+	}
+	if req.FsName != "" {
+		if wfs.FsOptions.MainFS.Name == "" {
+			wfs.FsOptions.MainFS.Name = req.FsName
+		} else if req.FsName != wfs.FsOptions.MainFS.Name {
+			err := fmt.Errorf("[main_fs.name] should be same as fs_name in request")
+			return schema.WorkflowSource{}, err
+		}
 
+	}
+	return wfs, nil
 }
 
-func CreateRun(ctx logger.RequestContext, request *CreateRunRequest) (CreateRunResponse, error) {
-	// concatenate fsID
-	var fsID, userName, requestId string
-	userName, requestId = ctx.UserName, ctx.RequestID
-
-	if request.FsName != "" {
-		if common.IsRootUser(userName) && request.UserName != "" {
-			// root user can select fs under other users
-			fsID = common.ID(request.UserName, request.FsName)
-		} else {
-			fsID = common.ID(userName, request.FsName)
-		}
+func CreateRun(ctx logger.RequestContext, request *CreateRunRequest, extra map[string]string) (CreateRunResponse, error) {
+	/*
+		extra目前用于指定在数据库创建Run记录后，是否需要发起任务
+		extra中可用的key有: FINAL_RUN_STATUS, FINAL_RUN_MSG
+	*/
+	if extra == nil {
+		extra = map[string]string{}
 	}
-	// todo://增加root用户判断fs是否存在
+
+	fsID := ""
+	fsName := request.FsName
+	requestId := ctx.RequestID
+	ctxUserName := ctx.UserName // 这是实际发送请求的用户，由Token决定，全局不会改变
+	userName := ctxUserName     // 这是进行后续fs操作的用户，root用户可以设置为其他普通用户
+	if common.IsRootUser(ctxUserName) && request.UserName != "" {
+		// root user can select fs under other users
+		userName = request.UserName
+	}
+
+	if fsName != "" {
+		fsID = common.ID(userName, fsName)
+	}
+
 	// TODO:// validate flavour
 	// TODO:// validate queue
 
@@ -446,6 +516,12 @@ func CreateRun(ctx logger.RequestContext, request *CreateRunRequest) (CreateRunR
 	if err != nil {
 		logger.Logger().Errorf("buildWorkflowSource failed. error:%v", err)
 		return CreateRunResponse{}, err
+	}
+
+	// 如果request里面的fsID为空，那么需要判断yaml（通过PipelineID或Raw上传的）中有无指定GlobalFs，有则生成fsID
+	if fsName == "" && wfs.FsOptions.MainFS.Name != "" {
+		fsID = common.ID(userName, wfs.FsOptions.MainFS.Name)
+		fsName = wfs.FsOptions.MainFS.Name
 	}
 
 	trace_logger.Key(requestId).Infof("check name reg pattern: %s", wfs.Name)
@@ -474,45 +550,104 @@ func CreateRun(ctx logger.RequestContext, request *CreateRunRequest) (CreateRunR
 		Name:           wfs.Name,
 		Source:         source,
 		UserName:       userName,
-		FsName:         request.FsName,
+		FsName:         fsName,
 		FsID:           fsID,
 		Description:    request.Description,
 		Parameters:     request.Parameters,
 		RunYaml:        runYaml,
-		WorkflowSource: wfs, // DockerEnv has not been replaced. done in func handleImageAndStartWf
-		Entry:          request.Entry,
+		WorkflowSource: wfs,
+		DockerEnv:      wfs.DockerEnv,
 		Disabled:       request.Disabled,
 		ScheduleID:     request.ScheduleID,
 		ScheduledAt:    scheduledAt,
-		Status:         common.StatusRunInitiating,
+		Status:         "", // to be filled later
+		Message:        "", // to be filld later
 	}
 
-	trace_logger.Key(requestId).Infof("validate and start run: %+v", run)
-	response, err := ValidateAndStartRun(ctx, run, *request)
+	var response CreateRunResponse
+	if extra[FinalRunStatus] != "" {
+		isFinal := false
+		for _, status := range common.RunFinalStatus {
+			if status == extra[FinalRunStatus] {
+				isFinal = true
+				break
+			}
+		}
+		if !isFinal {
+			err := fmt.Errorf("create final run failed without final status")
+			logger.Logger().Errorf(err.Error())
+			return CreateRunResponse{}, err
+		}
+
+		run.Status = extra[FinalRunStatus]
+		run.Message = extra[FinalRunMsg]
+
+		var runID string
+		_, runID, err = ValidateAndCreateRun(ctx, &run, userName, *request)
+		if err != nil {
+			logger.Logger().Errorf("create final run failed, error: %s", err.Error())
+			return CreateRunResponse{}, err
+		}
+		response = CreateRunResponse{RunID: runID}
+	} else {
+		run.Status = common.StatusRunInitiating
+
+		trace_logger.Key(requestId).Infof("validate and start run: %+v", run)
+		response, err = ValidateAndStartRun(ctx, run, userName, *request)
+	}
+
 	return response, err
 }
 
-func CreateRunByJson(ctx logger.RequestContext, request *CreateRunByJsonRequest, bodyMap map[string]interface{}) (CreateRunResponse, error) {
-	var fsID, userName, requestId string
-	userName, requestId = ctx.UserName, ctx.RequestID
+func CreateRunByJson(ctx logger.RequestContext, bodyMap map[string]interface{}) (CreateRunResponse, error) {
+	requestId := ctx.RequestID
 
-	if request.FsName != "" {
-		if common.IsRootUser(userName) && request.UserName != "" {
-			// root user can select fs under other users
-			fsID = common.ID(request.UserName, request.FsName)
-		} else {
-			fsID = common.ID(userName, request.FsName)
-		}
+	// 从request body中提取部分信息，这些信息与workflow没有直接关联
+	var reqFsName string
+	var reqUserName string
+	var reqDescription string
+
+	parser := schema.Parser{}
+	// 将字段名由Json风格改为Yaml风格
+	if err := parser.TransJsonMap2Yaml(bodyMap); err != nil {
+		return CreateRunResponse{}, err
 	}
 
-	trace_logger.Key(requestId).Infof("get workflow source for run: %+v", request)
-	wfs, err := getWorkFlowSourceByReq(request, bodyMap)
+	fsMap, ok := bodyMap[JsonFsOptions].(map[string]interface{})
+	if ok {
+		fsOptions := schema.FsOptions{}
+		if err := parser.ParseFsOptions(fsMap, &fsOptions); err != nil {
+			logger.Logger().Errorf("check fsOptions failed, error: %s", err.Error())
+			return CreateRunResponse{}, err
+		}
+		reqFsName = fsOptions.MainFS.Name
+	}
+	if _, ok := bodyMap[JsonUserName].(string); ok {
+		reqUserName = bodyMap[JsonUserName].(string)
+	}
+	if _, ok := bodyMap[JsonDescription].(string); ok {
+		reqDescription = bodyMap[JsonDescription].(string)
+	}
+
+	fsID := ""
+	ctxUserName := ctx.UserName // 这是实际发送请求的用户，由Token决定，全局不会改变
+	userName := ctxUserName     // 这是进行后续fs操作的用户，root用户可以设置为其他普通用户
+	if reqFsName != "" {
+		if common.IsRootUser(ctxUserName) && reqUserName != "" {
+			// root user can select fs under other users
+			userName = reqUserName
+		}
+		fsID = common.ID(userName, reqFsName)
+	}
+
+	trace_logger.Key(requestId).Infof("get workflow source for run: %+v", bodyMap)
+	wfs, err := getWorkFlowSourceByJson(bodyMap)
 	if err != nil {
 		logger.Logger().Errorf("get WorkFlowSource by request failed. error:%v", err)
 		return CreateRunResponse{}, err
 	}
 
-	trace_logger.Key(requestId).Infof("get source and yaml for run: %+v", request)
+	trace_logger.Key(requestId).Infof("get source and yaml for run: %+v", bodyMap)
 	source, runYaml, err := getSourceAndYaml(wfs)
 	if err != nil {
 		logger.Logger().Errorf("get source and yaml by workflowsource failed. error:%v", err)
@@ -532,63 +667,73 @@ func CreateRunByJson(ctx logger.RequestContext, request *CreateRunByJsonRequest,
 		Name:           wfs.Name,
 		Source:         source,
 		UserName:       userName,
-		FsName:         request.FsName,
+		FsName:         reqFsName,
 		FsID:           fsID,
-		Description:    request.Description,
+		Description:    reqDescription,
 		RunYaml:        runYaml,
-		WorkflowSource: wfs, // DockerEnv has not been replaced. done in func handleImageAndStartWf
-		Disabled:       request.Disabled,
+		WorkflowSource: wfs,
+		DockerEnv:      wfs.DockerEnv,
+		Disabled:       wfs.Disabled,
 		Status:         common.StatusRunInitiating,
 	}
 	trace_logger.Key(requestId).Infof("validate and start run: %+v", run)
-	response, err := ValidateAndStartRun(ctx, run, *request)
+	response, err := ValidateAndStartRun(ctx, run, userName, CreateRunRequest{})
 	return response, err
 }
 
-func ValidateAndStartRun(ctx logger.RequestContext, run models.Run, req interface{}) (CreateRunResponse, error) {
-	// get request id from req interface
+func ValidateAndCreateRun(ctx logger.RequestContext, run *models.Run, userName string, req CreateRunRequest) (*pipeline.Workflow, string, error) {
 	requestId := ctx.RequestID
 	if requestId == "" {
 		errMsg := "get requestID failed"
-		logger.Logger().Errorf("encode run failed. error:%s", errMsg)
-		return CreateRunResponse{}, errors.New(errMsg)
+		logger.Logger().Errorf("validate and start run failed. error:%s", errMsg)
+		return nil, "", errors.New(errMsg)
 	}
 
 	trace_logger.Key(requestId).Infof("encode run")
 	if err := run.Encode(); err != nil {
 		logger.Logger().Errorf("encode run failed. error:%s", err.Error())
-		return CreateRunResponse{}, err
+		return nil, "", err
 	}
 
 	trace_logger.Key(requestId).Infof("validate and init workflow")
 	// validate workflow in func NewWorkflow
-	if _, err := newWorkflowByRun(run); err != nil {
+	wfPtr, err := newWorkflowByRun(*run)
+	if err != nil {
 		logger.Logger().Errorf("validateAndInitWorkflow. err:%v", err)
-		return CreateRunResponse{}, err
+		ctx.ErrorCode = common.InvlidPipeline
+		return nil, "", err
+	}
+
+	// 这里对fs的检查依赖username和fs模块，因此无法在workflow.validate中完成
+	if err := checkFs(userName, &run.WorkflowSource); err != nil {
+		return nil, "", err
 	}
 
 	// generate run id here
 	trace_logger.Key(requestId).Infof("create run in db")
 	// create run in db and update run's ID by pk
-	runID, err := models.CreateRun(logger.Logger(), &run)
+	runID, err := models.CreateRun(logger.Logger(), run)
 	if err != nil {
 		logger.Logger().Errorf("create run failed inserting db. error:%s", err.Error())
+		return nil, "", err
+	}
+
+	return wfPtr, runID, nil
+}
+
+func ValidateAndStartRun(ctx logger.RequestContext, run models.Run, userName string, req CreateRunRequest) (CreateRunResponse, error) {
+	wfPtr, runID, err := ValidateAndCreateRun(ctx, &run, userName, req)
+	if err != nil {
 		return CreateRunResponse{}, err
 	}
+
+	// 在ValidateAndCreateRun已经校验过requestId非空
+	requestId := ctx.RequestID
 
 	// update trace logger key
 	_ = trace_logger.UpdateKey(requestId, runID)
 	trace_logger.Key(runID).Infof("create run in db success")
 
-	trace_logger.Key(runID).Infof("run yaml and req to wfs")
-	// to wfs again to revise previous wf replacement
-	wfs, err := runYamlAndReqToWfs(run.RunYaml, req)
-	if err != nil {
-		logger.Logger().Errorf("runYamlAndReqToWfs failed. err:%v", err)
-		return CreateRunResponse{}, err
-	}
-
-	run.WorkflowSource = wfs
 	defer func() {
 		if info := recover(); info != nil {
 			errmsg := fmt.Sprintf("StartWf failed, %v", info)
@@ -601,14 +746,55 @@ func ValidateAndStartRun(ctx logger.RequestContext, run models.Run, req interfac
 
 	trace_logger.Key(runID).Infof("handle image and start wf: %+v", run)
 	// handler image
-	if err := handleImageAndStartWf(run, false); err != nil {
-		logger.Logger().Errorf("create run[%s] failed handleImageAndStartWf[%s-%s]. error:%s\n", runID, wfs.DockerEnv, run.FsID, err.Error())
+	if err := StartWf(run, wfPtr); err != nil {
+		logger.Logger().Errorf("create run[%s] failed StartWf[%s-%s]. error:%s\n", runID, run.WorkflowSource.DockerEnv, run.FsID, err.Error())
 	}
-	logger.Logger().Debugf("create run successful. runID:%s\n", runID)
+	logger.Logger().Debugf("create run successful. runID:%s", runID)
 	response := CreateRunResponse{
 		RunID: runID,
 	}
 	return response, nil
+}
+
+func checkFs(userName string, wfs *schema.WorkflowSource) error {
+	fsMounts, err := wfs.GetFsMounts()
+	if err != nil {
+		logger.Logger().Errorf("process fs failed when check fs. error: %s", err.Error())
+		return err
+	}
+
+	// 检查sub_path
+	if wfs.FsOptions.MainFS.SubPath != "" {
+		fsID := common.ID(userName, wfs.FsOptions.MainFS.Name)
+		fsHandler, err := handler.NewFsHandlerWithServer(fsID, logger.Logger())
+		if err != nil {
+			return err
+		}
+
+		isExist, err := fsHandler.Exist(wfs.FsOptions.MainFS.SubPath)
+		if err != nil {
+			return err
+		}
+		if isExist {
+			// 由于MainFS用于Artifact的存储，因此必须是一个Dir
+			ok, err := fsHandler.IsDir(wfs.FsOptions.MainFS.SubPath)
+			if err != nil {
+				return err
+			}
+			if !ok {
+				return fmt.Errorf("[sub_path] with id[%s] is not dir", fsID)
+			}
+		}
+	}
+
+	for _, mount := range fsMounts {
+		// 检查fs权限
+		_, err := CheckFsAndGetID(userName, "", mount.Name)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func ListRun(ctx *logger.RequestContext, marker string, maxKeys int, userFilter, fsFilter, runFilter, nameFilter, statusFilter, scheduleIDFilter []string) (ListRunResponse, error) {
@@ -689,6 +875,7 @@ func GetRunByID(logEntry *log.Entry, userName string, runID string) (models.Run,
 		logEntry.Errorln(err.Error())
 		return models.Run{}, err
 	}
+
 	return run, nil
 }
 
@@ -715,22 +902,33 @@ func StopRun(logEntry *log.Entry, userName, runID string, request UpdateRunReque
 		logEntry.Errorln(err.Error())
 		return err
 	}
-	if err := models.UpdateRunStatus(logEntry, runID, common.StatusRunTerminating); err != nil {
-		err = fmt.Errorf("stop run[%s] failed updating db, %s", runID, err.Error())
+
+	runUpdate := models.Run{
+		Status:     common.StatusRunTerminating,
+		RunOptions: schema.RunOptions{StopForce: request.StopForce},
 	}
+	runUpdate.Encode()
+	if err := models.UpdateRun(logEntry, runID, runUpdate); err != nil {
+		err = fmt.Errorf("stop run[%s] failed updating db, %s", runID, err.Error())
+		logEntry.Errorln(err.Error())
+		return err
+	}
+
 	wf.Stop(request.StopForce)
 	logEntry.Debugf("stop run succeed. runID:%s", runID)
 	return nil
 }
 
-func RetryRun(ctx *logger.RequestContext, runID string) error {
+func RetryRun(ctx *logger.RequestContext, runID string) (string, error) {
 	ctx.Logging().Debugf("begin retry run. runID:%s\n", runID)
 	// check run exist && check user access right
 	run, err := GetRunByID(ctx.Logging(), ctx.UserName, runID)
 	if err != nil {
 		ctx.Logging().Errorf("retry run[%s] failed when getting run. error: %v\n", runID, err)
-		return err
+		return "", err
 	}
+	res, _ := json.Marshal(run.Runtime)
+	ctx.Logging().Infof("debug: begin retry, runtime is: %s", res)
 
 	// check run current status. If already succeeded or running/pending, no need to retry this run.
 	// only failed or terminated runs can retry
@@ -738,21 +936,18 @@ func RetryRun(ctx *logger.RequestContext, runID string) error {
 		err := fmt.Errorf("run[%s] has status[%s], no need to retry", runID, run.Status)
 		ctx.ErrorCode = common.ActionNotAllowed
 		ctx.Logging().Errorln(err.Error())
-		return err
+		return "", err
 	}
-	// reset run steps
-	if err := resetRunSteps(&run); err != nil {
-		ctx.ErrorCode = common.InternalError
-		ctx.Logging().Errorf("resetRunSteps failed. err:%v\n", err)
-		return err
-	}
-	// resume
-	if err := resumeRun(run); err != nil {
+
+	// restart
+	newRunID, err := restartRun(run, false)
+	if err != nil {
 		ctx.Logging().Errorf("retry run[%s] failed resumeRun. run:%+v. error:%s\n",
 			runID, run, err.Error())
+		return "", err
 	}
 	ctx.Logging().Debugf("retry run[%s] successful", runID)
-	return nil
+	return newRunID, nil
 }
 
 func DeleteRun(ctx *logger.RequestContext, id string, request *DeleteRunRequest) error {
@@ -794,7 +989,7 @@ func DeleteRun(ctx *logger.RequestContext, id string, request *DeleteRunRequest)
 
 	// 删除pipeline run outputAtf (只有Fs不为空，才需要清理artifact。因为不使用Fs时，不允许定义outputAtf)
 	if run.FsID != "" {
-		resourceHandler, err := pipeline.NewResourceHandler(id, run.FsID, ctx.Logging())
+		resourceHandler, err := pplcommon.NewResourceHandler(id, run.FsID, ctx.Logging())
 		if err != nil {
 			ctx.Logging().Errorf("delete run[%s] failed. InitTraceLoggerManager handler failed. err: %v", id, err.Error())
 			ctx.ErrorCode = common.InternalError
@@ -841,7 +1036,7 @@ func resumeActiveRuns() error {
 	go func() {
 		for _, run := range runList {
 			logger.LoggerForRun(run.ID).Debugf("ResumeActiveRuns: run[%s] with status[%s] begins to resume\n", run.ID, run.Status)
-			if err := resumeRun(run); err != nil {
+			if _, err := restartRun(run, true); err != nil {
 				logger.LoggerForRun(run.ID).Warnf("ResumeActiveRuns: run[%s] with status[%s] failed to resume. skipped.", run.ID, run.Status)
 			}
 		}
@@ -849,20 +1044,20 @@ func resumeActiveRuns() error {
 	return nil
 }
 
-func resumeRun(run models.Run) error {
+func restartRun(run models.Run, isResume bool) (string, error) {
 	if run.RunCachedIDs != "" {
 		// 由于非成功完成的Run也会被Cache，且重跑会直接对原始的Run记录进行修改，
 		// 因此被Cache的Run不能重跑
 		// TODO: 考虑将重跑逻辑又“直接修改Run记录”改为“根据该Run的设置，重新发起Run”
 		err := fmt.Errorf("can not retry run cached.")
 		logger.LoggerForRun(run.ID).Errorf(err.Error())
-		return err
+		return "", err
 	}
 
-	wfs, err := schema.ParseWorkflowSource([]byte(run.RunYaml))
+	wfs, err := schema.GetWorkflowSource([]byte(run.RunYaml))
 	if err != nil {
 		logger.LoggerForRun(run.ID).Errorf("get WorkflowSource by yaml failed. yaml: %s \n, err:%v", run.RunYaml, err)
-		return err
+		return "", err
 	}
 
 	wfs.Name = run.Name
@@ -872,80 +1067,148 @@ func resumeRun(run models.Run) error {
 	if run.Disabled != "" {
 		wfs.Disabled = run.Disabled
 	}
-	// patch run.WorkflowSource to invoke func handleImageAndStartWf
 	run.WorkflowSource = wfs
-	if err := handleImageAndStartWf(run, true); err != nil {
-		logger.LoggerForRun(run.ID).Errorf("resume run[%s] failed handleImageAndStartWf. DockerEnv[%s] fsID[%s]. error:%s\n",
-			run.ID, run.WorkflowSource.DockerEnv, run.FsID, err.Error())
+
+	_, userName := fsCommon.FsIDToFsNameUsername(run.FsID)
+	if err := checkFs(userName, &run.WorkflowSource); err != nil {
+		logger.LoggerForRun(run.ID).Errorf("check fs failed. err:%v\n", err)
+		return "", updateRunStatusAndMsg(run.ID, common.StatusRunFailed, err.Error())
 	}
+
+	defer func() {
+		if info := recover(); info != nil {
+			errmsg := fmt.Sprintf("StartWf failed, %v", info)
+			logger.LoggerForRun(run.ID).Errorf(errmsg)
+			if err := updateRunStatusAndMsg(run.ID, common.StatusRunFailed, errmsg); err != nil {
+				logger.LoggerForRun(run.ID).Errorf("set run status as failed after StartWf panic failed")
+			}
+		}
+	}()
+
+	runID, err := RestartWf(run, isResume)
+	if err != nil {
+		logger.LoggerForRun(run.ID).Errorf("resume run[%s] failed RestartWf. DockerEnv[%s] fsID[%s]. error:%s\n",
+			run.ID, run.WorkflowSource.DockerEnv, run.FsID, err.Error())
+		return "", err
+	}
+	return runID, nil
+}
+
+func StartWf(run models.Run, wfPtr *pipeline.Workflow) error {
+	logEntry := logger.LoggerForRun(run.ID)
+	logEntry.Debugf("StartWf run:%+v", run)
+	trace_logger.Key(run.ID).Debugf("StartWf run:%+v", run)
+
+	// 由于在数据库中创建Run记录之前，没有runID，因此这里需要重新填写好runID后，初始化Runtime，以及填写wfMap
+	wfPtr.RunID = run.ID
+	if err := wfPtr.NewWorkflowRuntime(); err != nil {
+		logEntry.Errorf("StartWf failed, error: %s", err.Error())
+		return err
+	}
+	wfMap[run.ID] = wfPtr
+
+	if err := models.UpdateRunStatus(logEntry, run.ID, common.StatusRunPending); err != nil {
+		return err
+	}
+
+	trace_logger.Key(run.ID).Infof("start workflow with image url")
+	wfPtr.Start()
+	logEntry.Debugf("workflow started")
+
 	return nil
 }
 
-// handleImageAndStartWf patch run.WorkflowSource before invoke this func!
-func handleImageAndStartWf(run models.Run, isResume bool) error {
+func RestartWf(run models.Run, isResume bool) (string, error) {
 	logEntry := logger.LoggerForRun(run.ID)
-	logEntry.Debugf("start handleImageAndStartWf isResume:%t, run:%+v", isResume, run)
-	trace_logger.Key(run.ID).Debugf("start handleImageAndStartWf isResume:%t, run:%+v", isResume, run)
-	if !handler.NeedHandleImage(run.WorkflowSource.DockerEnv) {
-		// init workflow and start
-		trace_logger.Key(run.ID).Infof("init workflow and start")
-		wfPtr, err := newWorkflowByRun(run)
+	logEntry.Debugf("RestartWf run:%+v", run)
+	trace_logger.Key(run.ID).Debugf("RestartWf run:%+v", run)
+
+	// 如果是restart
+	if !isResume {
+		// 获取所有job和dag
+		jobs, err := models.GetRunJobsOfRun(logEntry, run.ID)
 		if err != nil {
-			logEntry.Errorf("newWorkflowByRun failed. err:%v\n", err)
-			return updateRunStatusAndMsg(run.ID, common.StatusRunFailed, err.Error())
+			return "", err
 		}
-		if !isResume {
-			trace_logger.Key(run.ID).Infof("start workflow with image url")
-			err := models.UpdateRun(logEntry, run.ID,
-				models.Run{DockerEnv: run.WorkflowSource.DockerEnv, Status: common.StatusRunPending})
-			if err != nil {
-				return err
-			}
-			// start workflow with image url
-			wfPtr.Start()
-			logEntry.Debugf("workflow started, run:%+v", run)
-		} else {
-			// set runtime and restart
-			trace_logger.Key(run.ID).Infof("resume workflow, set runtime and restart")
-			if err := wfPtr.SetWorkflowRuntime(run.Runtime, run.PostProcess); err != nil {
-				logEntry.Errorf("SetWorkflowRuntime for run[%s] failed. error:%v\n", run.ID, err)
-				return err
-			}
-			if len(run.Runtime) > 0 {
-				// 确保在run_job表有对应的记录时，run记录中的status字段不是pending，进而防止多次创建run_job记录
-				err := models.UpdateRun(logEntry, run.ID,
-					models.Run{DockerEnv: run.WorkflowSource.DockerEnv, Status: common.StatusRunRunning})
-				if err != nil {
-					return err
-				}
-			} else {
-				// 如果数据库中没有run_job记录，那么为防止Run为init状态，导致无法创建run_job记录，这里将Run的状态置为pending
-				err := models.UpdateRun(logEntry, run.ID,
-					models.Run{DockerEnv: run.WorkflowSource.DockerEnv, Status: common.StatusRunPending})
-				if err != nil {
-					return err
-				}
-			}
-			wfPtr.Restart()
-			logEntry.Debugf("workflow restarted, run:%+v", run)
-		}
-		return nil
-	} else {
-		trace_logger.Key(run.ID).Infof("start workflow with tar file")
-		trace_logger.Key(run.ID).Infof("list image ids by fs id %s", run.FsID)
-		imageIDs, err := models.ListImageIDsByFsID(logEntry, run.FsID)
+		dags, err := models.GetRunDagsOfRun(logEntry, run.ID)
 		if err != nil {
-			logEntry.Errorf("create run failed ListImageIDsByFsID[%s]. error:%s\n", run.FsID, err.Error())
-			return updateRunStatusAndMsg(run.ID, common.StatusRunFailed, err.Error())
+			return "", err
 		}
-		trace_logger.Key(run.ID).Infof("handle images: %v", imageIDs)
-		if err := handler.PFImageHandler.HandleImage(run.WorkflowSource.DockerEnv, run.ID, run.FsID,
-			imageIDs, logEntry, handleImageCallbackFunc); err != nil {
-			logEntry.Errorf("handle image failed. error:%s\n", err.Error())
-			return updateRunStatusAndMsg(run.ID, common.StatusRunFailed, err.Error())
+
+		// 剔除canceled的job、dag，剔除failed、termiated的job
+		newJobs := []models.RunJob{}
+		for _, job := range jobs {
+			if job.Status != schema.StatusJobCancelled &&
+				job.Status != schema.StatusJobFailed && job.Status != schema.StatusJobTerminated {
+				newJobs = append(newJobs, job)
+			}
+		}
+
+		newDags := []models.RunDag{}
+		for _, dag := range dags {
+			if dag.Status != schema.StatusJobCancelled {
+				newDags = append(newDags, dag)
+			}
+		}
+
+		// 创建新Run记录，拷贝runtime中的所有dag和job
+		run.Pk = 0
+		run.ID = ""
+		run.RunOptions.StopForce = false
+		run.Encode()
+		if _, err := models.CreateRun(logEntry, &run); err != nil {
+			return "", err
+		}
+
+		for i, dag := range newDags {
+			dag.Pk = 0
+			dag.RunID = run.ID
+			if _, err := models.CreateRunDag(logEntry, &dag); err != nil {
+				return "", err
+			}
+			newDags[i] = dag
+		}
+
+		for i, job := range newJobs {
+			job.Pk = 0
+			job.RunID = run.ID
+			if _, err := models.CreateRunJob(logEntry, &job); err != nil {
+				return "", err
+			}
+			newJobs[i] = job
+		}
+
+		// 组装成runtime
+		if err := run.InitRuntime(newJobs, newDags); err != nil {
+			return "", err
 		}
 	}
-	return nil
+
+	wfPtr, err := newWorkflowByRun(run)
+	if err != nil {
+		return "", err
+	}
+
+	entryPointDagView := &schema.DagView{}
+	if len(run.Runtime[""]) == 1 {
+		tempDagView, ok := run.Runtime[""][0].(*schema.DagView)
+		if ok {
+			entryPointDagView = tempDagView
+		}
+	}
+
+	if isResume {
+		wfPtr.Resume(entryPointDagView, run.PostProcess, run.Status, run.RunOptions.StopForce)
+	} else {
+		wfMap[run.ID] = wfPtr
+		if err := models.UpdateRunStatus(logEntry, run.ID, common.StatusRunPending); err != nil {
+			return "", err
+		}
+		wfPtr.Restart(entryPointDagView, run.PostProcess)
+	}
+	logEntry.Debugf("workflow restarted, run:%+v", run)
+
+	return run.ID, nil
 }
 
 func newWorkflowByRun(run models.Run) (*pipeline.Workflow, error) {
@@ -955,7 +1218,7 @@ func newWorkflowByRun(run models.Run) (*pipeline.Workflow, error) {
 		pplcommon.WfExtraInfoKeyUserName: run.UserName,
 		pplcommon.WfExtraInfoKeyFsName:   run.FsName,
 	}
-	wfPtr, err := pipeline.NewWorkflow(run.WorkflowSource, run.ID, run.Entry, run.Parameters, extraInfo, workflowCallbacks)
+	wfPtr, err := pipeline.NewWorkflow(run.WorkflowSource, run.ID, run.Parameters, extraInfo, workflowCallbacks)
 	if err != nil {
 		logger.LoggerForRun(run.ID).Warnf("NewWorkflow by run[%s] failed. error:%v\n", run.ID, err)
 		return nil, err
@@ -965,49 +1228,9 @@ func newWorkflowByRun(run models.Run) (*pipeline.Workflow, error) {
 		logger.LoggerForRun(run.ID).Errorln(err.Error())
 		return nil, err
 	}
-	if run.ID != "" { // validate has run.ID == "". do not record
+	// 如果此时没有runID的话，那么在后续有runID之后，需要：1. 填充wfMap 2. 初始化wf.runtime
+	if run.ID != "" {
 		wfMap[run.ID] = wfPtr
 	}
 	return wfPtr, nil
-}
-
-func resetRunSteps(run *models.Run) error {
-	if err := resetRuntimeSteps(run.Runtime); err != nil {
-		err = fmt.Errorf("failed to retry run[%s], error: %v", run.ID, err)
-		logger.LoggerForRun(run.ID).Errorf(err.Error())
-		return err
-	}
-
-	if err := resetRuntimeSteps(run.PostProcess); err != nil {
-		err = fmt.Errorf("failed to retry run[%s], error: %v", run.ID, err)
-		logger.LoggerForRun(run.ID).Errorf(err.Error())
-		return err
-	}
-
-	if err := run.Encode(); err != nil {
-		logger.LoggerForRun(run.ID).Errorf("reset run steps encode failure. err: %v", err)
-		return err
-	}
-	return models.UpdateRun(logger.LoggerForRun(run.ID), run.ID, *run)
-}
-
-func resetRuntimeSteps(runtime map[string]schema.JobView) error {
-	for stepName, jobView := range runtime {
-		if jobView.Status == schema.StatusJobCancelled ||
-			jobView.Status == schema.StatusJobFailed ||
-			jobView.Status == schema.StatusJobTerminated {
-			jobView.JobID = ""
-			jobView.Status = ""
-			jobView.StartTime = ""
-			jobView.EndTime = ""
-
-			runtime[stepName] = jobView
-		}
-		if jobView.Status == schema.StatusJobRunning ||
-			jobView.Status == schema.StatusJobTerminating {
-			err := fmt.Errorf("step[%s] has invalid status[%s]", stepName, jobView.Status)
-			return err
-		}
-	}
-	return nil
 }
