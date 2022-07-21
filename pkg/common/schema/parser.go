@@ -632,26 +632,7 @@ func (p *Parser) transJsonCache2Yaml(value interface{}) error {
 			cacheMap["max_expired_time"] = cacheValue
 			delete(cacheMap, "maxExpiredTime")
 		case "fsScope":
-			scopeList, ok := cacheValue.([]interface{})
-			if !ok {
-				return fmt.Errorf("fsScope should be list type")
-			}
-			for i, scope := range scopeList {
-				scopeMap, ok := scope.(map[string]interface{})
-				if !ok {
-					return fmt.Errorf("each scope in [fsScope] should be map type")
-				}
-				for scopeKey, scopeValue := range scopeMap {
-					switch scopeKey {
-					case "fsName":
-						scopeMap["fs_name"] = scopeValue
-						delete(scopeMap, "fsName")
-					}
-				}
-				scopeList[i] = scopeMap
-			}
-
-			cacheMap["fs_scope"] = scopeList
+			cacheMap["fs_scope"] = cacheValue
 			delete(cacheMap, "fsScope")
 		}
 	}
