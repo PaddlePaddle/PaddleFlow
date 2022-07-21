@@ -357,14 +357,14 @@ func (bwf *BaseWorkflow) checkComponents() error {
 
 		// 递归检查
 		visited := map[string]int{name: 1}
-		if err := bwf.checkCyclicComp(comp, visited); err != nil {
+		if err := bwf.checkCyclicRef(comp, visited); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (bwf *BaseWorkflow) checkCyclicComp(component schema.Component, visited map[string]int) error {
+func (bwf *BaseWorkflow) checkCyclicRef(component schema.Component, visited map[string]int) error {
 	if step, ok := component.(*schema.WorkflowSourceStep); ok {
 		if step.Reference.Component != "" {
 			refComp, ok := bwf.Source.Components[step.Reference.Component]
@@ -378,7 +378,7 @@ func (bwf *BaseWorkflow) checkCyclicComp(component schema.Component, visited map
 			} else {
 				visited[step.Reference.Component] = 1
 			}
-			if err := bwf.checkCyclicComp(refComp, visited); err != nil {
+			if err := bwf.checkCyclicRef(refComp, visited); err != nil {
 				return err
 			}
 			delete(visited, step.Reference.Component)
@@ -388,7 +388,7 @@ func (bwf *BaseWorkflow) checkCyclicComp(component schema.Component, visited map
 		}
 	} else if dag, ok := component.(*schema.WorkflowSourceDag); ok {
 		for _, comp := range dag.EntryPoints {
-			if err := bwf.checkCyclicComp(comp, visited); err != nil {
+			if err := bwf.checkCyclicRef(comp, visited); err != nil {
 				return err
 			}
 		}
@@ -640,11 +640,11 @@ func replaceNodeParam(nodes map[string]schema.Component, compsAndParam []string,
 	if len(compsAndParam) > 2 {
 		node, ok := nodes[compsAndParam[0]]
 		if !ok {
-			return false, fmt.Errorf("component [%s] not exist", compsAndParam[0])
+			return false, nil
 		}
 		dag, ok := node.(*schema.WorkflowSourceDag)
 		if !ok {
-			return false, fmt.Errorf("replace param by request failed, component [%s] should be a step, not dag", compsAndParam[0])
+			return false, fmt.Errorf("replace param by request failed, component [%s] should be a dag, not step", compsAndParam[0])
 		}
 		ok, err := replaceNodeParam(dag.EntryPoints, compsAndParam[1:], value)
 		if err != nil {
@@ -659,12 +659,12 @@ func replaceNodeParam(nodes map[string]schema.Component, compsAndParam []string,
 
 		comp, ok := nodes[nodeName]
 		if !ok {
-			return false, fmt.Errorf("component [%s] not exist", nodeName)
+			return false, nil
 		}
 		if dag, ok := comp.(*schema.WorkflowSourceDag); ok {
 			orgVal, ok := dag.Parameters[paramName]
 			if !ok {
-				return false, nil
+				return false, fmt.Errorf("no parameter named [%s] in dag [%s]", paramName, nodeName)
 			}
 
 			dictParam := DictParam{}
@@ -677,7 +677,7 @@ func replaceNodeParam(nodes map[string]schema.Component, compsAndParam []string,
 		} else if step, ok := comp.(*schema.WorkflowSourceStep); ok {
 			orgVal, ok := step.Parameters[paramName]
 			if !ok {
-				return false, nil
+				return false, fmt.Errorf("no parameter named [%s] in step [%s]", paramName, nodeName)
 			}
 
 			dictParam := DictParam{}
@@ -948,9 +948,15 @@ func (bwf *BaseWorkflow) checkDisabled() ([]string, error) {
 		// 检查被disabled的节点有没有被引用
 		// 先检查同级别的节点是否有引用
 		for compName, comp := range components {
-			_, ok := disabledMap[GetSiblingAbsoluteName(disFullName, compName)]
-			// 如果该节点为自身或disabled的节点，则不需要检查
-			if compName == disName || ok {
+			_, ok1 := disabledMap[GetSiblingAbsoluteName(disFullName, compName)]
+
+			depsMap := map[string]int{}
+			for _, dep := range comp.GetDeps() {
+				depsMap[dep] = 1
+			}
+			_, ok2 := depsMap[disName]
+			// 如果该节点为自身、为disabled的节点、不在同级别节点的deps中，则不需要检查
+			if compName == disName || ok1 || !ok2 {
 				continue
 			}
 			// 检查输入Artifact引用
