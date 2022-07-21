@@ -863,27 +863,6 @@ func (wfs *WorkflowSource) GetFsMounts() ([]FsMount, error) {
 	return fsMountList, nil
 }
 
-// 给所有Step的fsMount和fsScope的fsID赋值，并返回
-func (wfs *WorkflowSource) ProcessExtraFS(userName string, fsName string) error {
-	if err := wfs.processFsByUserName(wfs.EntryPoints.EntryPoints, userName); err != nil {
-		return err
-	}
-
-	if err := wfs.processFsByUserName(wfs.Components, userName); err != nil {
-		return err
-	}
-
-	postMap := map[string]Component{}
-	for k, v := range wfs.PostProcess {
-		postMap[k] = v
-	}
-	if err := wfs.processFsByUserName(postMap, userName); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func (wfs *WorkflowSource) getFsMountsFromComps(compMap map[string]Component, mountList *[]FsMount) error {
 	for _, comp := range compMap {
 		if dag, ok := comp.(*WorkflowSourceDag); ok {
@@ -892,53 +871,6 @@ func (wfs *WorkflowSource) getFsMountsFromComps(compMap map[string]Component, mo
 			}
 		} else if step, ok := comp.(*WorkflowSourceStep); ok {
 			*mountList = append(*mountList, step.ExtraFS...)
-		} else {
-			return fmt.Errorf("component not dag or step")
-		}
-	}
-	return nil
-}
-
-func (wfs *WorkflowSource) processFsByUserName(compMap map[string]Component, userName string) error {
-	for _, comp := range compMap {
-		if dag, ok := comp.(*WorkflowSourceDag); ok {
-			if err := wfs.processFsByUserName(dag.EntryPoints, userName); err != nil {
-				return err
-			}
-		} else if step, ok := comp.(*WorkflowSourceStep); ok {
-			// fsNameChecker用来检查FsScope中的FsName是否都在ExtraFS或MainFS中
-			fsNameChecker := map[string]int{}
-			if wfs.FsOptions.MainFS.Name != "" {
-				// 请求体中的MainFS会替换wfs中的MainFS，或者与wfs中的相同，所以无需检查
-				fsNameChecker[wfs.FsOptions.MainFS.Name] = 1
-			}
-
-			for i, mount := range step.ExtraFS {
-				// ExtraFS中的name不能为空
-				if mount.Name == "" {
-					return fmt.Errorf("[name] in [extra_fs] or [main_fs] must not be empty")
-				}
-				// ExtraFS中subPath不能以 "/" 开头
-				if strings.HasPrefix(mount.SubPath, "/") {
-					return fmt.Errorf("[sub_path] in [extra_fs] should not start with '/'")
-				}
-				mount.ID = ID(userName, mount.Name)
-
-				fsNameChecker[mount.Name] = 1
-				step.ExtraFS[i] = mount
-			}
-			for i, scope := range step.Cache.FsScope {
-				if scope.Name == "" {
-					return fmt.Errorf("[fs_name] in fs_scope must not be empty")
-				}
-				scope.ID = ID(userName, scope.Name)
-
-				// 检查FsScope中的FsName是否都在FsMount中
-				if _, ok := fsNameChecker[scope.Name]; !ok {
-					return fmt.Errorf("fs_name [%s] in fs_scope must also be in [extra_fs] or [main_fs]", scope.Name)
-				}
-				step.Cache.FsScope[i] = scope
-			}
 		} else {
 			return fmt.Errorf("component not dag or step")
 		}
