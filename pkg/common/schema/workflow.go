@@ -524,8 +524,8 @@ func (wfs *WorkflowSource) IsDisabled(componentName string) (bool, error) {
 	for k, v := range wfs.PostProcess {
 		postComponents[k] = v
 	}
-	_, _, ok1 := wfs.GetComponent(wfs.EntryPoints.EntryPoints, componentName)
-	_, _, ok2 := wfs.GetComponent(postComponents, componentName)
+	_, _, ok1 := wfs.GetCompsMapAndRelName(wfs.EntryPoints.EntryPoints, componentName)
+	_, _, ok2 := wfs.GetCompsMapAndRelName(postComponents, componentName)
 	if !ok1 && !ok2 {
 		return false, fmt.Errorf("check disabled for component[%s] failed, component not existed!", componentName)
 	}
@@ -538,13 +538,13 @@ func (wfs *WorkflowSource) IsDisabled(componentName string) (bool, error) {
 	return false, nil
 }
 
-// 递归的检查absoluteName对应的Component是否存在
-func (wfs *WorkflowSource) GetComponent(components map[string]Component, absoluteName string) (map[string]Component, string, bool) {
+// 递归的检查Absolute Name对应的Component是否存在，并返回该Comp的所有同级别节点，和它的Relative Name
+func (wfs *WorkflowSource) GetCompsMapAndRelName(components map[string]Component, absoluteName string) (map[string]Component, string, bool) {
 	nameList := strings.SplitN(absoluteName, ".", 2)
 	if len(nameList) > 1 {
 		if component, ok := components[nameList[0]]; ok {
 			if dag, ok := component.(*WorkflowSourceDag); ok {
-				return wfs.GetComponent(dag.EntryPoints, nameList[1])
+				return wfs.GetCompsMapAndRelName(dag.EntryPoints, nameList[1])
 			} else if step, ok := component.(*WorkflowSourceStep); ok {
 				// 如果为step，检查是否有引用Source.Components中的节点
 				referComp := step.Reference.Component
@@ -569,7 +569,7 @@ func (wfs *WorkflowSource) componentsHasStep(referComp string, subNames string) 
 		if referedComponent, ok := wfs.Components[referComp]; ok {
 			if dag, ok := referedComponent.(*WorkflowSourceDag); ok {
 				// 检查Source.Components中的节点，如果它是一个dag，那就继续向下遍历子节点
-				return wfs.GetComponent(dag.EntryPoints, subNames)
+				return wfs.GetCompsMapAndRelName(dag.EntryPoints, subNames)
 			} else if step, ok := referedComponent.(*WorkflowSourceStep); ok {
 				// 如果是step，那就看是否继续ref了其他component
 				referComp = step.Reference.Component

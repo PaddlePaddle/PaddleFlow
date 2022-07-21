@@ -243,7 +243,7 @@ CREATE TABLE IF NOT EXISTS `image` (
 
 CREATE TABLE IF NOT EXISTS `pipeline` (
     `pk` bigint(20) NOT NULL AUTO_INCREMENT,
-    `id` varchar(60) NOT NULL UNIQUE,
+    `id` varchar(60) NOT NULL,
     `name` varchar(60) NOT NULL,
     `desc` varchar(256) NOT NULL,
     `user_name` varchar(60) NOT NULL,
