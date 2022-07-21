@@ -396,12 +396,13 @@ func (bwf *BaseWorkflow) processFsByUserName(compMap map[string]schema.Component
 					return fmt.Errorf("[fs_name] in fs_scope must not be empty")
 				}
 				scope.ID = common.ID(userName, scope.Name)
-
+				logger.Logger().Infof("debug: scope is set by id [%s]", scope.ID)
 				// 检查FsScope中的FsName是否都在FsMount中
 				if _, ok := fsNameChecker[scope.Name]; !ok {
 					return fmt.Errorf("fs_name [%s] in fs_scope must also be in [extra_fs] or [main_fs]", scope.Name)
 				}
 				step.Cache.FsScope[i] = scope
+				logger.Logger().Infof("debug: scope is set by id [%s]", step.Cache.FsScope[i].ID)
 			}
 		} else {
 			return fmt.Errorf("component not dag or step")
