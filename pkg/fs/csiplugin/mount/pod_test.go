@@ -42,7 +42,7 @@ func Test_getMountCmd(t *testing.T) {
 					SubPath:       "default-volume",
 				},
 			},
-			want: "mkdir -p /home/paddleflow/mnt/storage;mount -t glusterfs 127.0.0.1:default-volume/home/paddleflow/mnt/storage;while true; sleep 1; done;",
+			want: "mkdir -p /home/paddleflow/mnt/storage;mount -t glusterfs 127.0.0.1:default-volume/home/paddleflow/mnt/storage;while true;do sleep 1;done;",
 		},
 	}
 	for _, tt := range tests {
