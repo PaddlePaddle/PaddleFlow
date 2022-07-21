@@ -331,8 +331,9 @@ func (bwf *BaseWorkflow) checkFS() error {
 		return fmt.Errorf("[read_only] in [main_fs] must be false")
 	}
 	if strings.HasPrefix(bwf.Source.FsOptions.MainFS.SubPath, "/") {
-		return fmt.Errorf("[sub_path] in [extra_fs] should not start with '/'")
+		return fmt.Errorf("[sub_path] in [main_fs] should not start with '/'")
 	}
+
 	if bwf.Source.FsOptions.MainFS.Name != "" {
 		bwf.Source.FsOptions.MainFS.ID = common.ID(bwf.Extra[WfExtraInfoKeyUserName], bwf.Source.FsOptions.MainFS.Name)
 	}
