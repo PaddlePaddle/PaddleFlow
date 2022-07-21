@@ -524,8 +524,8 @@ func (wfs *WorkflowSource) IsDisabled(componentName string) (bool, error) {
 	for k, v := range wfs.PostProcess {
 		postComponents[k] = v
 	}
-	_, _, ok1 := wfs.GetComponent(wfs.EntryPoints.EntryPoints, componentName)
-	_, _, ok2 := wfs.GetComponent(postComponents, componentName)
+	_, _, ok1 := wfs.GetCompsMapAndRelName(wfs.EntryPoints.EntryPoints, componentName)
+	_, _, ok2 := wfs.GetCompsMapAndRelName(postComponents, componentName)
 	if !ok1 && !ok2 {
 		return false, fmt.Errorf("check disabled for component[%s] failed, component not existed!", componentName)
 	}
@@ -538,13 +538,13 @@ func (wfs *WorkflowSource) IsDisabled(componentName string) (bool, error) {
 	return false, nil
 }
 
-// 递归的检查absoluteName对应的Component是否存在
-func (wfs *WorkflowSource) GetComponent(components map[string]Component, absoluteName string) (map[string]Component, string, bool) {
+// 递归的检查Absolute Name对应的Component是否存在，并返回该Comp的所有同级别节点，和它的Relative Name
+func (wfs *WorkflowSource) GetCompsMapAndRelName(components map[string]Component, absoluteName string) (map[string]Component, string, bool) {
 	nameList := strings.SplitN(absoluteName, ".", 2)
 	if len(nameList) > 1 {
 		if component, ok := components[nameList[0]]; ok {
 			if dag, ok := component.(*WorkflowSourceDag); ok {
-				return wfs.GetComponent(dag.EntryPoints, nameList[1])
+				return wfs.GetCompsMapAndRelName(dag.EntryPoints, nameList[1])
 			} else if step, ok := component.(*WorkflowSourceStep); ok {
 				// 如果为step，检查是否有引用Source.Components中的节点
 				referComp := step.Reference.Component
@@ -569,7 +569,7 @@ func (wfs *WorkflowSource) componentsHasStep(referComp string, subNames string) 
 		if referedComponent, ok := wfs.Components[referComp]; ok {
 			if dag, ok := referedComponent.(*WorkflowSourceDag); ok {
 				// 检查Source.Components中的节点，如果它是一个dag，那就继续向下遍历子节点
-				return wfs.GetComponent(dag.EntryPoints, subNames)
+				return wfs.GetCompsMapAndRelName(dag.EntryPoints, subNames)
 			} else if step, ok := referedComponent.(*WorkflowSourceStep); ok {
 				// 如果是step，那就看是否继续ref了其他component
 				referComp = step.Reference.Component
@@ -863,31 +863,6 @@ func (wfs *WorkflowSource) GetFsMounts() ([]FsMount, error) {
 	return fsMountList, nil
 }
 
-// 给所有Step的fsMount和fsScope的fsID赋值，并返回
-func (wfs *WorkflowSource) ProcessFsMounts(userName string, fsName string) error {
-	if wfs.FsOptions.MainFS.Name != "" {
-		wfs.FsOptions.MainFS.ID = ID(userName, wfs.FsOptions.MainFS.Name)
-	}
-
-	if err := wfs.processFsByUserName(wfs.EntryPoints.EntryPoints, userName); err != nil {
-		return err
-	}
-
-	if err := wfs.processFsByUserName(wfs.Components, userName); err != nil {
-		return err
-	}
-
-	postMap := map[string]Component{}
-	for k, v := range wfs.PostProcess {
-		postMap[k] = v
-	}
-	if err := wfs.processFsByUserName(postMap, userName); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func (wfs *WorkflowSource) getFsMountsFromComps(compMap map[string]Component, mountList *[]FsMount) error {
 	for _, comp := range compMap {
 		if dag, ok := comp.(*WorkflowSourceDag); ok {
@@ -896,51 +871,6 @@ func (wfs *WorkflowSource) getFsMountsFromComps(compMap map[string]Component, mo
 			}
 		} else if step, ok := comp.(*WorkflowSourceStep); ok {
 			*mountList = append(*mountList, step.ExtraFS...)
-		} else {
-			return fmt.Errorf("component not dag or step")
-		}
-	}
-	return nil
-}
-
-func (wfs *WorkflowSource) processFsByUserName(compMap map[string]Component, userName string) error {
-	for _, comp := range compMap {
-		if dag, ok := comp.(*WorkflowSourceDag); ok {
-			if err := wfs.processFsByUserName(dag.EntryPoints, userName); err != nil {
-				return err
-			}
-		} else if step, ok := comp.(*WorkflowSourceStep); ok {
-			// fsNameChecker用来检查FsScope中的FsName是否都在ExtraFS或MainFS中
-			fsNameChecker := map[string]int{}
-			if wfs.FsOptions.MainFS.Name != "" {
-				// 请求体中的MainFS会替换wfs中的MainFS，或者与wfs中的相同，所以无需检查
-				fsNameChecker[wfs.FsOptions.MainFS.Name] = 1
-			}
-
-			for i, mount := range step.ExtraFS {
-				if mount.Name == "" {
-					return fmt.Errorf("[name] in [extra_fs] or [main_fs] must not be empty")
-				}
-				if strings.HasPrefix(mount.SubPath, "/") {
-					return fmt.Errorf("[sub_path] in [extra_fs] should not start with '/'")
-				}
-				mount.ID = ID(userName, mount.Name)
-
-				fsNameChecker[mount.Name] = 1
-				step.ExtraFS[i] = mount
-			}
-			for i, scope := range step.Cache.FsScope {
-				if scope.Name == "" {
-					return fmt.Errorf("[fs_name] in fs_scope must be set")
-				}
-				scope.ID = ID(userName, scope.Name)
-
-				// 检查FsScope中的FsName是否都在FsMount中
-				if _, ok := fsNameChecker[scope.Name]; !ok {
-					return fmt.Errorf("fs_name [%s] in fs_scope must also be in [extra_fs] or [main_fs]", scope.Name)
-				}
-				step.Cache.FsScope[i] = scope
-			}
 		} else {
 			return fmt.Errorf("component not dag or step")
 		}
