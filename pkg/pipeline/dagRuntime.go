@@ -101,14 +101,6 @@ func NewDagRuntime(name, fullName string, dag *schema.WorkflowSourceDag, seq int
 	return drt
 }
 
-func (drt *DagRuntime) generateViewName() {
-	if drt.loopSeq == 0 {
-		drt.dagViewName = fmt.Sprintf("dag-%s-%s", drt.runID, drt.getComponent().GetName())
-	} else {
-		drt.dagViewName = fmt.Sprintf("dag-%s-%s-%d", drt.runID, drt.getComponent().GetName(), drt.loopSeq)
-	}
-}
-
 // NewDagRuntimeWithStatus: 在创建Runtime 的同时，指定runtime的状态
 // 主要用于重启或者父节点调度子节点的失败时调用， 将相关信息通过evnet 的方式同步给其父节点， 并同步至数据库中
 func newDagRuntimeWithStatus(name, fullName string, dag *schema.WorkflowSourceDag, seq int, ctx context.Context, failureOpitonsCtx context.Context,
@@ -118,6 +110,23 @@ func newDagRuntimeWithStatus(name, fullName string, dag *schema.WorkflowSourceDa
 
 	drt.processStartAbnormalStatus(msg, status)
 	return drt
+}
+
+func (drt *DagRuntime) generateViewName() {
+	if drt.loopSeq == 0 {
+		drt.dagViewName = fmt.Sprintf("dag-%s-%s", drt.runID, drt.getComponent().GetName())
+	} else {
+		drt.dagViewName = fmt.Sprintf("dag-%s-%s-%d", drt.runID, drt.getComponent().GetName(), drt.loopSeq)
+	}
+}
+
+func (drt *DagRuntime) catchPanic() {
+	if r := recover(); r != nil {
+		msg := fmt.Sprintf("Inner Error: %v", r)
+		drt.logger.Errorf("Inner Error occured at dagRuntime[%s]: %v", drt.name, r)
+
+		drt.processStartAbnormalStatus(msg, StatusRuntimeFailed)
+	}
 }
 
 func (drt *DagRuntime) generateSubRuntimeName(subComponentName string, seq int) string {
@@ -281,6 +290,8 @@ func (drt *DagRuntime) Start() {
 	defer drt.processSubComponentLock.Unlock()
 	drt.processSubComponentLock.Lock()
 
+	defer drt.catchPanic()
+
 	err := drt.updateStatus(StatusRuntimeRunning)
 	if err != nil {
 		// 理论上不会出现这种情况，主要是为了承接 err，对齐进行判断
@@ -428,6 +439,8 @@ func (drt *DagRuntime) Resume(dagView *schema.DagView) {
 	defer drt.processSubComponentLock.Unlock()
 	drt.processSubComponentLock.Lock()
 
+	defer drt.catchPanic()
+
 	drt.pk = dagView.PK
 	drt.ID = dagView.DagID
 	drt.startTime = dagView.StartTime
@@ -486,7 +499,10 @@ func (drt *DagRuntime) Resume(dagView *schema.DagView) {
 		component, err := drt.resolveSubComponent(name, component)
 		if err != nil {
 			drt.logger.Errorln(err.Error())
-			drt.processSubRuntimeError(err, component, StatusRuntimeFailed)
+
+			// 此时的 component 是一个空指针，所以需要从 dag 中重新获取
+			drt.processSubRuntimeError(err, drt.getworkflowSouceDag().EntryPoints[name].DeepCopy(),
+				StatusRuntimeFailed)
 			continue
 		}
 
@@ -594,6 +610,8 @@ func (drt *DagRuntime) Restart(dagView *schema.DagView) {
 
 	defer drt.processSubComponentLock.Unlock()
 	drt.processSubComponentLock.Lock()
+
+	defer drt.catchPanic()
 
 	drt.logger.Infof("pk in dagView for dag[%s]: %d", drt.name, dagView.PK)
 	drt.logger.Infof("DagID in dagView for dag[%s]: %s", drt.name, dagView.DagID)

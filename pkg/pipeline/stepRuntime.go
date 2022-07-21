@@ -68,11 +68,6 @@ func NewStepRuntime(name, fullName string, step *schema.WorkflowSourceStep, seq 
 	return srt
 }
 
-func (srt *StepRuntime) getWorkFlowStep() *schema.WorkflowSourceStep {
-	step := srt.getComponent().(*schema.WorkflowSourceStep)
-	return step
-}
-
 // NewStepRuntimeWithStaus: 在创建Runtime 的同时，指定runtime的状态
 // 主要用于重启或者父节点调度子节点的失败时调用， 将相关信息通过evnet 的方式同步给其父节点， 并同步至数据库中
 func newStepRuntimeWithStatus(name, fullName string, step *schema.WorkflowSourceStep, seq int, ctx context.Context,
@@ -91,6 +86,20 @@ func newStepRuntimeWithStatus(name, fullName string, step *schema.WorkflowSource
 	srt.syncToApiServerAndParent(WfEventJobUpdate, &view, msg)
 
 	return srt
+}
+
+func (srt *StepRuntime) getWorkFlowStep() *schema.WorkflowSourceStep {
+	step := srt.getComponent().(*schema.WorkflowSourceStep)
+	return step
+}
+
+func (srt *StepRuntime) catchPanic() {
+	if r := recover(); r != nil {
+		msg := fmt.Sprintf("Inner Error: %v", r)
+		srt.logger.Errorf("Inner Error occured at stepRuntime[%s]: %v", srt.name, r)
+
+		srt.processStartAbnormalStatus(msg, StatusRuntimeFailed)
+	}
 }
 
 func (srt *StepRuntime) updateStatus(status RuntimeStatus) error {
@@ -132,6 +141,7 @@ func (srt *StepRuntime) Start() {
 	srt.processJobLock.Lock()
 
 	srt.parallelismManager.increase()
+	defer srt.catchPanic()
 
 	if srt.ctx.Err() != nil || srt.failureOpitonsCtx.Err() != nil {
 		srt.logger.Infof("receive stop signal, step[%s] would't start", srt.name)
@@ -208,6 +218,9 @@ func (srt *StepRuntime) Resume(view *schema.JobView) {
 	}
 
 	srt.parallelismManager.increase()
+
+	defer srt.catchPanic()
+
 	srt.job = NewPaddleFlowJobWithJobView(view, srt.getWorkFlowStep().DockerEnv,
 		srt.receiveEventChildren, srt.runConfig.mainFS, srt.getWorkFlowStep().ExtraFS)
 
