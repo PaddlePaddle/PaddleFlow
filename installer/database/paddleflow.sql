@@ -156,7 +156,6 @@ CREATE TABLE IF NOT EXISTS `run` (
     `fs_name` varchar(60) NOT NULL,
     `description` text NOT NULL,
     `parameters_json` text NOT NULL,
-    `fs_options_json` text NOT NULL,
     `run_yaml` text NOT NULL,
     `docker_env` varchar(128) NOT NULL,
     `disabled` text NOT NULL,
@@ -171,7 +170,7 @@ CREATE TABLE IF NOT EXISTS `run` (
     `updated_at` datetime(3) DEFAULT NULL,
     `deleted_at` datetime(3) DEFAULT NULL,
     PRIMARY KEY (`pk`),
-    UNIQUE KEY (`id`),
+    INDEX (`id`),
     INDEX (`fs_name`),
     INDEX (`status`)
 ) ENGINE=InnoDB DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
@@ -244,7 +243,7 @@ CREATE TABLE IF NOT EXISTS `image` (
 
 CREATE TABLE IF NOT EXISTS `pipeline` (
     `pk` bigint(20) NOT NULL AUTO_INCREMENT,
-    `id` varchar(60) NOT NULL UNIQUE,
+    `id` varchar(60) NOT NULL,
     `name` varchar(60) NOT NULL,
     `desc` varchar(256) NOT NULL,
     `user_name` varchar(60) NOT NULL,
@@ -252,7 +251,7 @@ CREATE TABLE IF NOT EXISTS `pipeline` (
     `updated_at` datetime(3) DEFAULT NULL,
     `deleted_at` datetime(3) DEFAULT NULL,
     PRIMARY KEY (`pk`),
-    UNIQUE KEY (`id`),
+    INDEX (`id`),
     INDEX idx_fs_name (`user_name`, `name`)
 ) ENGINE=InnoDB DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
 
@@ -296,7 +295,7 @@ CREATE TABLE IF NOT EXISTS `schedule` (
 
 CREATE TABLE IF NOT EXISTS `run_cache` (
     `pk` bigint(20) NOT NULL AUTO_INCREMENT,
-    `id` varchar(60) NOT NULL UNIQUE,
+    `id` varchar(60) NOT NULL,
     `job_id` varchar(60) NOT NULL,
     `first_fp` varchar(256),
     `second_fp` varchar(256),
@@ -312,7 +311,7 @@ CREATE TABLE IF NOT EXISTS `run_cache` (
     `updated_at` datetime(3) DEFAULT NULL,
     `deleted_at` datetime(3) DEFAULT NULL,
     PRIMARY KEY (`pk`),
-    UNIQUE KEY (`id`),
+    INDEX (`id`),
     INDEX (`job_id`),
     INDEX (`fs_id`),
     INDEX (`strategy`)
