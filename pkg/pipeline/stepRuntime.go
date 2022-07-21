@@ -95,10 +95,9 @@ func (srt *StepRuntime) getWorkFlowStep() *schema.WorkflowSourceStep {
 
 func (srt *StepRuntime) catchPanic() {
 	if r := recover(); r != nil {
-		msg := fmt.Sprintf("Inner Error: %v", r)
-		srt.logger.Errorf("Inner Error occured at stepRuntime[%s]: %v", srt.name, r)
-
-		srt.processStartAbnormalStatus(msg, StatusRuntimeFailed)
+		msg := fmt.Sprintf("Inner Error for stepRuntime %s: %v", srt.name, r)
+		trace_logger.KeyWithUpdate(srt.runID).Errorf(msg)
+		srt.ctx.Done()
 	}
 }
 
@@ -279,11 +278,17 @@ func (srt *StepRuntime) Stop() {
 		if srt.done {
 			return
 		}
+
+		defer srt.processJobLock.Unlock()
+		srt.processJobLock.Lock()
 		srt.stopWithMsg("receive stop signall")
 	case <-srt.failureOpitonsCtx.Done():
 		if srt.done {
 			return
 		}
+
+		defer srt.processJobLock.Unlock()
+		srt.processJobLock.Lock()
 		srt.stopWithMsg("stop by failureOptions, some other component has been failed")
 	}
 }
@@ -708,9 +713,6 @@ func (srt *StepRuntime) Execute() {
 }
 
 func (srt *StepRuntime) stopWithMsg(msg string) {
-	defer srt.processJobLock.Unlock()
-	srt.processJobLock.Lock()
-
 	if srt.job.JobID() == "" {
 		// 此时说明还没有创建job，因此直接将状态置为 failed，并通过事件进行同步即可
 		var msg string

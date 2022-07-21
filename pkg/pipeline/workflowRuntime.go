@@ -24,6 +24,7 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/trace_logger"
 )
 
 // 工作流运行时
@@ -79,10 +80,12 @@ func NewWorkflowRuntime(rc *runConfig) *WorkflowRuntime {
 
 func (wfr *WorkflowRuntime) catchPanic() {
 	if r := recover(); r != nil {
-		msg := fmt.Sprintf("Inner Error: %v", r)
-		wfr.logger.Errorf("Inner Error occured at dagruntime[%s]: %v", wfr.WorkflowSource.Name, r)
+		msg := fmt.Sprintf("Inner Error occured at dagruntime[%s]: %v", wfr.WorkflowSource.Name, r)
+		trace_logger.KeyWithUpdate(wfr.runID).Errorf(msg)
 
-		wfr.status = common.StatusRunFailed
+		wfr.entryPointsCtx.Done()
+		wfr.postProcessPointsCtx.Done()
+
 		wfr.callback(msg)
 	}
 }

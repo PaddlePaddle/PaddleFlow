@@ -28,6 +28,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	. "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/trace_logger"
 )
 
 type CtxAndCancel struct {
@@ -122,10 +123,9 @@ func newDagRuntimeWithStatus(name, fullName string, dag *schema.WorkflowSourceDa
 
 func (drt *DagRuntime) catchPanic() {
 	if r := recover(); r != nil {
-		msg := fmt.Sprintf("Inner Error: %v", r)
-		drt.logger.Errorf("Inner Error occured at dagRuntime[%s]: %v", drt.name, r)
-
-		drt.processStartAbnormalStatus(msg, StatusRuntimeFailed)
+		msg := fmt.Sprintf("Inner Error occured at dagRuntime[%s]: %v", drt.name, r)
+		trace_logger.KeyWithUpdate(drt.runID).Errorf(msg)
+		drt.ctx.Done()
 	}
 }
 
