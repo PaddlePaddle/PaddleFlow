@@ -54,6 +54,7 @@ func getMockRun1() models.Run {
 		Status:   common.StatusRunPending,
 		RunYaml:  string(loadCase(runYamlPath)),
 	}
+	run1.Encode()
 	return run1
 }
 
@@ -66,6 +67,7 @@ func getMockRun1_3() models.Run {
 		Status:   common.StatusRunRunning,
 		RunYaml:  string(loadCase(runYamlPath)),
 	}
+	run1.Encode()
 	return run1
 }
 
@@ -78,6 +80,7 @@ func getMockRun2() models.Run {
 		Status:   common.StatusRunPending,
 		RunYaml:  string(loadCase(runYamlPath)),
 	}
+	run2.Encode()
 	return run2
 }
 
@@ -99,6 +102,7 @@ func getMockFullRun() (models.Run, error) {
 		WorkflowSource: wfs,
 		Status:         common.StatusRunInitiating,
 	}
+	run.Encode()
 	return run, nil
 }
 

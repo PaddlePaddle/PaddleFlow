@@ -45,7 +45,6 @@ type CreateScheduleRequest struct {
 	ConcurrencyPolicy string `json:"concurrencyPolicy"` // optional, 默认 suspend
 	ExpireInterval    int    `json:"expireInterval"`    // optional, 默认 0, 表示不限制
 	Catchup           bool   `json:"catchup"`           // optional, 默认 false
-	FsName            string `json:"fsName"`            // optional
 	UserName          string `json:"username"`          // optional, 只有root用户使用其他用户fsname时，需要指定对应username
 }
 
@@ -60,6 +59,7 @@ type ScheduleBrief struct {
 	PipelineID        string                 `json:"pipelineID"`
 	PipelineVersionID string                 `json:"pipelineVersionID"`
 	UserName          string                 `json:"username"`
+	FsConfig          models.FsConfig        `json:"fsConfig"`
 	Crontab           string                 `json:"crontab"`
 	Options           models.ScheduleOptions `json:"options"`
 	StartTime         string                 `json:"startTime"`
@@ -94,6 +94,11 @@ func (b *ScheduleBrief) updateFromScheduleModel(schedule models.Schedule) (err e
 	b.NextRunTime = schedule.NextRunAt.Format("2006-01-02 15:04:05")
 	b.Message = schedule.Message
 	b.Status = schedule.Status
+
+	b.FsConfig, err = models.DecodeFsConfig(schedule.FsConfig)
+	if err != nil {
+		return err
+	}
 
 	b.Options, err = models.DecodeScheduleOptions(schedule.Options)
 	if err != nil {
@@ -197,6 +202,16 @@ func CreateSchedule(ctx *logger.RequestContext, request *CreateScheduleRequest) 
 		return CreateScheduleResponse{}, fmt.Errorf(errMsg)
 	}
 
+	// 校验Fs参数，并生成FsConfig对象
+	fsConfig := models.FsConfig{Username: request.UserName}
+	StrFsConfig, err := fsConfig.Encode(ctx.Logging())
+	if err != nil {
+		ctx.ErrorCode = common.InvalidArguments
+		errMsg := fmt.Sprintf("create schedule failed, dump fsConfig[%v] error: %s", fsConfig, err.Error())
+		ctx.Logging().Errorf(errMsg)
+		return CreateScheduleResponse{}, fmt.Errorf(errMsg)
+	}
+
 	// 校验 & 生成options对象
 	options, err := models.NewScheduleOptions(ctx.Logging(), request.Catchup, request.ExpireInterval, request.Concurrency, request.ConcurrencyPolicy)
 	if err != nil {
@@ -204,6 +219,39 @@ func CreateSchedule(ctx *logger.RequestContext, request *CreateScheduleRequest) 
 		errMsg := fmt.Sprintf("create schedule failed, err:[%s]", err.Error())
 		ctx.Logging().Errorf(errMsg)
 		return CreateScheduleResponse{}, fmt.Errorf(errMsg)
+	}
+
+	// 校验创建Schedule 的 User是否有Pipline对应的Yaml中所有FSName的权限
+	pplVer, err := models.GetPipelineVersion(request.PipelineID, request.PipelineVersionID)
+	if err != nil {
+		ctx.ErrorCode = common.InvalidArguments
+		errMsg := fmt.Sprintf("create schedule failed, get PipelineVersion error:[%s]", err.Error())
+		ctx.Logging().Errorf(errMsg)
+		return CreateScheduleResponse{}, fmt.Errorf(errMsg)
+	}
+
+	wfs, err := schema.GetWorkflowSource([]byte(pplVer.PipelineYaml))
+	if err != nil {
+		ctx.ErrorCode = common.InvalidArguments
+		errMsg := fmt.Sprintf("create schedule failed, get WorkflowSource error:[%s]", err.Error())
+		ctx.Logging().Errorf(errMsg)
+		return CreateScheduleResponse{}, fmt.Errorf(errMsg)
+	}
+
+	if request.UserName == "" {
+		if err := checkFs(ctx.UserName, &wfs); err != nil {
+			ctx.ErrorCode = common.InvalidArguments
+			errMsg := fmt.Sprintf("create schedule failed, check fs error:[%s]", err.Error())
+			ctx.Logging().Errorf(errMsg)
+			return CreateScheduleResponse{}, fmt.Errorf(errMsg)
+		}
+	} else {
+		if err := checkFs(request.UserName, &wfs); err != nil {
+			ctx.ErrorCode = common.InvalidArguments
+			errMsg := fmt.Sprintf("create schedule failed, check fs error:[%s]", err.Error())
+			ctx.Logging().Errorf(errMsg)
+			return CreateScheduleResponse{}, fmt.Errorf(errMsg)
+		}
 	}
 
 	StrOptions, err := options.Encode(ctx.Logging())
@@ -277,6 +325,7 @@ func CreateSchedule(ctx *logger.RequestContext, request *CreateScheduleRequest) 
 		PipelineID:        request.PipelineID,
 		PipelineVersionID: request.PipelineVersionID,
 		UserName:          ctx.UserName,
+		FsConfig:          string(StrFsConfig),
 		Crontab:           request.Crontab,
 		Options:           string(StrOptions),
 		Status:            models.ScheduleStatusRunning,

@@ -454,6 +454,10 @@ func (d *WorkflowSourceDag) DeepCopy() Component {
 	return nd
 }
 
+type RunOptions struct {
+	StopForce bool
+}
+
 type Reference struct {
 	Component string
 }
@@ -865,11 +869,11 @@ func (wfs *WorkflowSource) ProcessFsMounts(userName string, fsName string) error
 		wfs.FsOptions.MainFS.ID = ID(userName, wfs.FsOptions.MainFS.Name)
 	}
 
-	if err := wfs.processFsByUserName(wfs.EntryPoints.EntryPoints, userName, fsName); err != nil {
+	if err := wfs.processFsByUserName(wfs.EntryPoints.EntryPoints, userName); err != nil {
 		return err
 	}
 
-	if err := wfs.processFsByUserName(wfs.Components, userName, fsName); err != nil {
+	if err := wfs.processFsByUserName(wfs.Components, userName); err != nil {
 		return err
 	}
 
@@ -877,7 +881,7 @@ func (wfs *WorkflowSource) ProcessFsMounts(userName string, fsName string) error
 	for k, v := range wfs.PostProcess {
 		postMap[k] = v
 	}
-	if err := wfs.processFsByUserName(postMap, userName, fsName); err != nil {
+	if err := wfs.processFsByUserName(postMap, userName); err != nil {
 		return err
 	}
 
@@ -899,20 +903,23 @@ func (wfs *WorkflowSource) getFsMountsFromComps(compMap map[string]Component, mo
 	return nil
 }
 
-func (wfs *WorkflowSource) processFsByUserName(compMap map[string]Component, userName string, fsName string) error {
+func (wfs *WorkflowSource) processFsByUserName(compMap map[string]Component, userName string) error {
 	for _, comp := range compMap {
 		if dag, ok := comp.(*WorkflowSourceDag); ok {
-			if err := wfs.processFsByUserName(dag.EntryPoints, userName, fsName); err != nil {
+			if err := wfs.processFsByUserName(dag.EntryPoints, userName); err != nil {
 				return err
 			}
 		} else if step, ok := comp.(*WorkflowSourceStep); ok {
-			// fsNameChecker用来检查FsScope中的FsName是否都在FsMount中，或者是fs_name
-			fsNameChecker := map[string]int{fsName: 1}
-			fsNameChecker[wfs.FsOptions.MainFS.Name] = 1
+			// fsNameChecker用来检查FsScope中的FsName是否都在ExtraFS或MainFS中
+			fsNameChecker := map[string]int{}
+			if wfs.FsOptions.MainFS.Name != "" {
+				// 请求体中的MainFS会替换wfs中的MainFS，或者与wfs中的相同，所以无需检查
+				fsNameChecker[wfs.FsOptions.MainFS.Name] = 1
+			}
 
 			for i, mount := range step.ExtraFS {
 				if mount.Name == "" {
-					return fmt.Errorf("[name] in [extra_fs] or [main_fs] must be set")
+					return fmt.Errorf("[name] in [extra_fs] or [main_fs] must not be empty")
 				}
 				if strings.HasPrefix(mount.SubPath, "/") {
 					return fmt.Errorf("[sub_path] in [extra_fs] should not start with '/'")

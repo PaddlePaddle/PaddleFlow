@@ -73,6 +73,7 @@ type Schedule struct {
 	PipelineID        string         `gorm:"type:varchar(60);not null"         json:"pipelineID"`
 	PipelineVersionID string         `gorm:"type:varchar(60);not null"         json:"pipelineVersionID"`
 	UserName          string         `gorm:"type:varchar(60);not null"         json:"username"`
+	FsConfig          string         `gorm:"type:varchar(1024);not null"       json:"fsConfig"`
 	Crontab           string         `gorm:"type:varchar(60);not null"         json:"crontab"`
 	Options           string         `gorm:"type:text;size:65535;not null"     json:"options"`
 	Message           string         `gorm:"type:text;size:65535;not null"     json:"scheduleMsg"`
@@ -90,6 +91,29 @@ func (Schedule) TableName() string {
 }
 
 // ------- 存放周期调度相关的配置 -------
+
+type FsConfig struct {
+	Username string `json:"username"`
+}
+
+func DecodeFsConfig(strConfig string) (fc FsConfig, err error) {
+	if err := json.Unmarshal([]byte(strConfig), &fc); err != nil {
+		errMsg := fmt.Sprintf("decode fsConfig failed. error:%v", err)
+		return FsConfig{}, fmt.Errorf(errMsg)
+	}
+
+	return fc, nil
+}
+
+func (fc *FsConfig) Encode(logEntry *log.Entry) (string, error) {
+	strConfig, err := json.Marshal(fc)
+	if err != nil {
+		logEntry.Errorf("encode fsConfig failed. error:%v", err)
+		return "", err
+	}
+
+	return string(strConfig), nil
+}
 
 type ScheduleOptions struct {
 	Catchup           bool   `json:"catchup"`
@@ -354,10 +378,11 @@ func DeleteSchedule(logEntry *log.Entry, scheduleID string) error {
 func ScheduleUsedFsIDs() (map[string]bool, error) {
 	type result struct {
 		UserName     string
+		FsConfig     string
 		PipelineYaml string
 	}
 	results := []result{}
-	tx := storage.DB.Model(&Schedule{}).Select("schedule.user_name, pipeline_version.pipeline_yaml").
+	tx := storage.DB.Model(&Schedule{}).Select("schedule.user_name, schedule.fs_config, pipeline_version.pipeline_yaml").
 		Joins("join pipeline_version on schedule.pipeline_version_id = pipeline_version.id and schedule.pipeline_id = pipeline_version.pipeline_id").
 		Where("schedule.status = ?", ScheduleStatusRunning).Find(&results)
 
@@ -376,13 +401,24 @@ func ScheduleUsedFsIDs() (map[string]bool, error) {
 		if err != nil {
 			return nil, err
 		}
-		for _, mount := range mounts {
-			mount.ID = common.ID(res.UserName, mount.Name)
-			fsIDMap[mount.ID] = true
+		fsConfig, err := DecodeFsConfig(res.FsConfig)
+		if err != nil {
+			return nil, err
 		}
 
-		mainFSID := common.ID(res.UserName, wfs.FsOptions.MainFS.Name)
-		fsIDMap[mainFSID] = true
+		username := res.UserName
+		if fsConfig.Username != "" {
+			username = fsConfig.Username
+		}
+
+		for _, mount := range mounts {
+			mount.ID = common.ID(username, mount.Name)
+			fsIDMap[mount.ID] = true
+		}
+		if wfs.FsOptions.MainFS.Name != "" {
+			mainFSID := common.ID(username, wfs.FsOptions.MainFS.Name)
+			fsIDMap[mainFSID] = true
+		}
 	}
 
 	return fsIDMap, nil

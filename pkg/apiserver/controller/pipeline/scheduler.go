@@ -288,11 +288,11 @@ func (s *Scheduler) generateRunListForSchedule(schedule models.Schedule, current
 	return expiredList, execList, skipList, nextRunAt, stopCount, nil
 }
 
-func (s *Scheduler) createRun(schedule models.Schedule, nextRunAt time.Time, status, msg string) {
+func (s *Scheduler) createRun(schedule models.Schedule, fsConfig models.FsConfig, nextRunAt time.Time, status, msg string) {
 	logger.Logger().Infof("start to create run in ScheduledAt[%s] for schedule[%s] with status[%s]",
 		s.formatTime(&nextRunAt), schedule.ID, status)
 	createRequest := CreateRunRequest{
-		UserName:          schedule.UserName,
+		UserName:          fsConfig.Username,
 		Name:              schedule.Name,
 		Description:       schedule.Desc,
 		PipelineID:        schedule.PipelineID,
@@ -328,7 +328,7 @@ func (s *Scheduler) stopRun(runID string, schedule models.Schedule) {
 }
 
 func (s *Scheduler) processRunList(
-	schedule models.Schedule, options models.ScheduleOptions, currentTime time.Time,
+	schedule models.Schedule, options models.ScheduleOptions, fsConfig models.FsConfig, currentTime time.Time,
 	expiredList, skipList, execList []time.Time, stopCount int, activeRuns []models.Run) {
 	// 根据调度时间，先处理expiredList，创建状态为skipped的run，发起任务失败了只打日志，不影响周期调度
 	for _, expiredRunAt := range expiredList {
@@ -336,7 +336,7 @@ func (s *Scheduler) processRunList(
 		runMsg := fmt.Sprintf("skip run of schedule[%s] with schedule time[%s], beyond expire interval[%d] before currentTime[%s]",
 			schedule.ID, s.formatTime(&expiredRunAt), options.ExpireInterval, s.formatTime(&currentTime))
 		logger.Logger().Info(runMsg)
-		s.createRun(schedule, expiredRunAt, status, runMsg)
+		s.createRun(schedule, fsConfig, expiredRunAt, status, runMsg)
 	}
 
 	if options.ConcurrencyPolicy == models.ConcurrencyPolicyReplace {
@@ -347,13 +347,13 @@ func (s *Scheduler) processRunList(
 			runMsg := fmt.Sprintf("skip run of schedule[%s] with schedule time[%s], concurrency already reach[%d] in policy[%s]",
 				schedule.ID, s.formatTime(&skipRunAt), options.Concurrency, options.ConcurrencyPolicy)
 			logger.Logger().Info(runMsg)
-			s.createRun(schedule, skipRunAt, status, runMsg)
+			s.createRun(schedule, fsConfig, skipRunAt, status, runMsg)
 		}
 	}
 
 	// 再根据 execList，发起run，发起任务失败了只打日志，不影响周期调度
 	for _, execRunAt := range execList {
-		s.createRun(schedule, execRunAt, "", "")
+		s.createRun(schedule, fsConfig, execRunAt, "", "")
 	}
 
 	if options.ConcurrencyPolicy == models.ConcurrencyPolicySkip {
@@ -364,7 +364,7 @@ func (s *Scheduler) processRunList(
 			runMsg := fmt.Sprintf("skip run of schedule[%s] with schedule time[%s], concurrency already reach[%d] in policy[%s]",
 				schedule.ID, s.formatTime(&skipRunAt), options.Concurrency, options.ConcurrencyPolicy)
 			logger.Logger().Info(runMsg)
-			s.createRun(schedule, skipRunAt, status, runMsg)
+			s.createRun(schedule, fsConfig, skipRunAt, status, runMsg)
 		}
 	}
 
@@ -441,6 +441,12 @@ func (s *Scheduler) dealWithTimeout() (nextWakeupTime *time.Time, err error) {
 			continue
 		}
 
+		fsConfig, err := models.DecodeFsConfig(schedule.FsConfig)
+		if err != nil {
+			logger.Logger().Errorf("decode fsConfig[%s] of schedule[%s] with failed, err:[%s]", schedule.FsConfig, schedule.ID, err.Error())
+			continue
+		}
+
 		scheduleIDList := []string{schedule.ID}
 		activeRuns, err := models.ListRun(logger.Logger(), 0, 0, []string{}, []string{}, []string{}, []string{}, common.RunActiveStatus, scheduleIDList)
 		if err != nil {
@@ -459,7 +465,7 @@ func (s *Scheduler) dealWithTimeout() (nextWakeupTime *time.Time, err error) {
 		// 为expiredList, skipList, execList发起对应任务
 		// 根据stopCount停止activeRuns
 		logger.Logger().Infof("before processRunList, expiredList[%v], execList[%v], skipList[%v], activeCount:[%d], stopCount[%d]", expiredList, execList, skipList, activeCount, stopCount)
-		s.processRunList(schedule, options, currentTime, expiredList, skipList, execList, stopCount, activeRuns)
+		s.processRunList(schedule, options, fsConfig, currentTime, expiredList, skipList, execList, stopCount, activeRuns)
 
 		// 更新数据库记录（如果nextRunAt，或者status字段有更新的话），以及更新 nextWakeupTime
 		nextWakeupTime = s.updateScheduleAndWakeupTime(schedule, currentTime, nextRunAt, nextWakeupTime)

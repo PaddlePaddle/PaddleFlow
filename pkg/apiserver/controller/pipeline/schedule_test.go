@@ -219,14 +219,14 @@ func TestCreateSchedule(t *testing.T) {
 	createScheduleReq.PipelineID = "notExistID"
 	resp, err = CreateSchedule(ctx, &createScheduleReq)
 	assert.NotNil(t, err)
-	assert.Equal(t, fmt.Errorf("create schedule failed, pipeline[notExistID] not exist"), err)
+	assert.Equal(t, fmt.Errorf("create schedule failed, get PipelineVersion error:[record not found]"), err)
 
 	// 失败: pipelineVersionID不存在
 	createScheduleReq.PipelineID = "ppl-000001"
 	createScheduleReq.PipelineVersionID = "2"
 	resp, err = CreateSchedule(ctx, &createScheduleReq)
 	assert.NotNil(t, err)
-	assert.Equal(t, fmt.Errorf("create schedule failed, pipeline[ppl-000001] version[2] not exist"), err)
+	assert.Equal(t, fmt.Errorf("create schedule failed, get PipelineVersion error:[record not found]"), err)
 
 	// 成功: root用户
 	createScheduleReq.PipelineVersionID = "1"

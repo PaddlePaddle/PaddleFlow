@@ -67,6 +67,7 @@ CREATE TABLE IF NOT EXISTS `job` (
     `type` varchar(20) NOT NULL,
     `config` mediumtext NOT NULL,
     `runtime_info` mediumtext DEFAULT NULL,
+    `runtime_status` mediumtext DEFAULT NULL,
     `status` varchar(32) NOT NULL,
     `message` text DEFAULT NULL,
     `resource` text DEFAULT NULL,
@@ -162,7 +163,7 @@ CREATE TABLE IF NOT EXISTS `run` (
     `schedule_id` varchar(60) NOT NULL,
     `message` text NOT NULL,
     `status` varchar(32) DEFAULT NULL,
-    `stop_force` tinyint(1) DEFAULT 0,
+    `run_options_json` text NOT NULL,
     `run_cached_ids` text NOT NULL,
     `scheduled_at` datetime(3) DEFAULT NULL,
     `created_at` datetime(3) DEFAULT NULL,
@@ -171,7 +172,7 @@ CREATE TABLE IF NOT EXISTS `run` (
     `deleted_at` datetime(3) DEFAULT NULL,
     PRIMARY KEY (`pk`),
     UNIQUE KEY (`id`),
-    INDEX (`fs_id`),
+    INDEX (`fs_name`),
     INDEX (`status`)
 ) ENGINE=InnoDB DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
 
@@ -280,6 +281,7 @@ CREATE TABLE IF NOT EXISTS `schedule` (
     `pipeline_version_id` varchar(60) NOT NULL,
     `user_name` varchar(60) NOT NULL,
     `crontab` varchar(60) NOT NULL,
+    `fs_config` varchar(1024) NOT NULL,
     `options` text,
     `message` text,
     `status` varchar(32) DEFAULT NULL,

@@ -705,7 +705,7 @@ func ValidateAndCreateRun(ctx logger.RequestContext, run *models.Run, userName s
 	}
 
 	// 这里对fs的检查依赖username和fs模块，因此无法在workflow.validate中完成
-	if err := checkFs(userName, run.FsName, &run.WorkflowSource); err != nil {
+	if err := checkFs(userName, &run.WorkflowSource); err != nil {
 		return nil, "", err
 	}
 
@@ -756,40 +756,42 @@ func ValidateAndStartRun(ctx logger.RequestContext, run models.Run, userName str
 	return response, nil
 }
 
-func checkFs(userName string, fsName string, wfs *schema.WorkflowSource) error {
+func checkFs(userName string, wfs *schema.WorkflowSource) error {
 	fsMounts, err := wfs.GetFsMounts()
 	if err != nil {
 		logger.Logger().Errorf("process fs failed when check fs. error: %s", err.Error())
 		return err
 	}
 
-	for _, mount := range fsMounts {
-		// 检查fs权限
-		fsID, err := CheckFsAndGetID(userName, "", mount.Name)
+	// 检查sub_path
+	if wfs.FsOptions.MainFS.SubPath != "" {
+		fsID := common.ID(userName, wfs.FsOptions.MainFS.Name)
+		fsHandler, err := handler.NewFsHandlerWithServer(fsID, logger.Logger())
 		if err != nil {
 			return err
 		}
 
-		// 检查sub_path
-		if mount.SubPath != "" {
-			fsHandler, err := handler.NewFsHandlerWithServer(fsID, logger.Logger())
+		isExist, err := fsHandler.Exist(wfs.FsOptions.MainFS.SubPath)
+		if err != nil {
+			return err
+		}
+		if isExist {
+			// 由于MainFS用于Artifact的存储，因此必须是一个Dir
+			ok, err := fsHandler.IsDir(wfs.FsOptions.MainFS.SubPath)
 			if err != nil {
 				return err
 			}
+			if !ok {
+				return fmt.Errorf("[sub_path] with id[%s] is not dir", fsID)
+			}
+		}
+	}
 
-			isExist, err := fsHandler.Exist(mount.SubPath)
-			if err != nil {
-				return err
-			}
-			if isExist {
-				ok, err := fsHandler.IsDir(mount.SubPath)
-				if err != nil {
-					return err
-				}
-				if !ok {
-					return fmt.Errorf("[sub_path] with id[%s] is not dir", fsID)
-				}
-			}
+	for _, mount := range fsMounts {
+		// 检查fs权限
+		_, err := CheckFsAndGetID(userName, "", mount.Name)
+		if err != nil {
+			return err
 		}
 	}
 	return nil
@@ -902,9 +904,10 @@ func StopRun(logEntry *log.Entry, userName, runID string, request UpdateRunReque
 	}
 
 	runUpdate := models.Run{
-		Status:    common.StatusRunTerminating,
-		StopForce: request.StopForce,
+		Status:     common.StatusRunTerminating,
+		RunOptions: schema.RunOptions{StopForce: request.StopForce},
 	}
+	runUpdate.Encode()
 	if err := models.UpdateRun(logEntry, runID, runUpdate); err != nil {
 		err = fmt.Errorf("stop run[%s] failed updating db, %s", runID, err.Error())
 		logEntry.Errorln(err.Error())
@@ -1066,8 +1069,8 @@ func restartRun(run models.Run, isResume bool) (string, error) {
 	}
 	run.WorkflowSource = wfs
 
-	fsName, userName := fsCommon.FsIDToFsNameUsername(run.FsID)
-	if err := checkFs(userName, fsName, &run.WorkflowSource); err != nil {
+	_, userName := fsCommon.FsIDToFsNameUsername(run.FsID)
+	if err := checkFs(userName, &run.WorkflowSource); err != nil {
 		logger.LoggerForRun(run.ID).Errorf("check fs failed. err:%v\n", err)
 		return "", updateRunStatusAndMsg(run.ID, common.StatusRunFailed, err.Error())
 	}
@@ -1151,7 +1154,8 @@ func RestartWf(run models.Run, isResume bool) (string, error) {
 		// 创建新Run记录，拷贝runtime中的所有dag和job
 		run.Pk = 0
 		run.ID = ""
-		run.StopForce = false
+		run.RunOptions.StopForce = false
+		run.Encode()
 		if _, err := models.CreateRun(logEntry, &run); err != nil {
 			return "", err
 		}
@@ -1194,7 +1198,7 @@ func RestartWf(run models.Run, isResume bool) (string, error) {
 	}
 
 	if isResume {
-		wfPtr.Resume(entryPointDagView, run.PostProcess, run.Status, run.StopForce)
+		wfPtr.Resume(entryPointDagView, run.PostProcess, run.Status, run.RunOptions.StopForce)
 	} else {
 		wfMap[run.ID] = wfPtr
 		if err := models.UpdateRunStatus(logEntry, run.ID, common.StatusRunPending); err != nil {
