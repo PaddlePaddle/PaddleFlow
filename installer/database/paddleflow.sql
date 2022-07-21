@@ -170,7 +170,7 @@ CREATE TABLE IF NOT EXISTS `run` (
     `updated_at` datetime(3) DEFAULT NULL,
     `deleted_at` datetime(3) DEFAULT NULL,
     PRIMARY KEY (`pk`),
-    UNIQUE KEY (`id`),
+    INDEX (`id`),
     INDEX (`fs_name`),
     INDEX (`status`)
 ) ENGINE=InnoDB DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
@@ -251,7 +251,7 @@ CREATE TABLE IF NOT EXISTS `pipeline` (
     `updated_at` datetime(3) DEFAULT NULL,
     `deleted_at` datetime(3) DEFAULT NULL,
     PRIMARY KEY (`pk`),
-    UNIQUE KEY (`id`),
+    INDEX (`id`),
     INDEX idx_fs_name (`user_name`, `name`)
 ) ENGINE=InnoDB DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
 
