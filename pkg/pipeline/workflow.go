@@ -981,32 +981,30 @@ func (bwf *BaseWorkflow) checkDisabled() ([]string, error) {
 		}
 
 		// 再检查父节点是否有引用（输出Artifact引用）
-		if len(components[disName].GetArtifacts().Output) > 0 {
-			disNameList := strings.Split(disFullName, ".")
+		disNameList := strings.Split(disFullName, ".")
+		disParentFullName := strings.Join(disNameList[:len(disNameList)-1], ".")
+		_, ok = disabledMap[disParentFullName]
+		if len(disNameList) > 1 && !ok {
+			// 如果该节点有父节点，且该父节点没有被disabled，才需要检查
 			disParentFullName := strings.Join(disNameList[:len(disNameList)-1], ".")
-			_, ok := disabledMap[disParentFullName]
-			if len(disNameList) > 1 && !ok {
-				// 如果该节点有父节点，且该父节点没有被disabled，才需要检查
-				disParentFullName := strings.Join(disNameList[:len(disNameList)-1], ".")
-				components1, name1, ok1 := bwf.Source.GetComponent(bwf.Source.EntryPoints.EntryPoints, disParentFullName)
-				components2, name2, ok2 := bwf.Source.GetComponent(postComponents, disParentFullName)
-				var parentComponents map[string]schema.Component
-				parentName := ""
-				if ok1 {
-					parentComponents, parentName = components1, name1
-				} else if ok2 {
-					parentComponents, parentName = components2, name2
-				} else {
-					return nil, fmt.Errorf("disabled component[%s] not existed!", disParentFullName)
+			components1, name1, ok1 := bwf.Source.GetComponent(bwf.Source.EntryPoints.EntryPoints, disParentFullName)
+			components2, name2, ok2 := bwf.Source.GetComponent(postComponents, disParentFullName)
+			var parentComponents map[string]schema.Component
+			parentName := ""
+			if ok1 {
+				parentComponents, parentName = components1, name1
+			} else if ok2 {
+				parentComponents, parentName = components2, name2
+			} else {
+				return nil, fmt.Errorf("disabled component[%s] not existed!", disParentFullName)
+			}
+			for _, atfVal := range parentComponents[parentName].GetArtifacts().Output {
+				ok, err := checkRefed(disName, atfVal)
+				if err != nil {
+					return nil, err
 				}
-				for _, atfVal := range parentComponents[parentName].GetArtifacts().Output {
-					ok, err := checkRefed(disName, atfVal)
-					if err != nil {
-						return nil, err
-					}
-					if ok {
-						return nil, fmt.Errorf("disabled component[%s] is refered by [%s]", disName, parentName)
-					}
+				if ok {
+					return nil, fmt.Errorf("disabled component[%s] is refered by [%s]", disName, parentName)
 				}
 			}
 		}
