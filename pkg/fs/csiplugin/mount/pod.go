@@ -446,7 +446,7 @@ func getMountCmd(mountInfo pfs.MountInfo, cacheConf common.FsCacheConfig) string
 	if mountInfo.Type == common.GlusterfsType {
 		mountCmd := "mount -t glusterfs " + strings.Join([]string{mountInfo.ServerAddress, mountInfo.SubPath}, ":") +
 			MountPoint + ";"
-		sleep := "while true; sleep 1; done;"
+		sleep := "while true;do sleep 1;done;"
 		cmd = mkdir + mountCmd + sleep
 	} else {
 		pfsMountPath := "/home/paddleflow/pfs-fuse mount "
