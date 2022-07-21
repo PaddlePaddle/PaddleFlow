@@ -391,6 +391,7 @@ func (bwf *BaseWorkflow) processFsByUserName(compMap map[string]schema.Component
 				fsNameChecker[mount.Name] = 1
 				step.ExtraFS[i] = mount
 			}
+			logger.Logger().Infof("debug: scope in")
 			for i, scope := range step.Cache.FsScope {
 				if scope.Name == "" {
 					return fmt.Errorf("[fs_name] in fs_scope must not be empty")
