@@ -933,8 +933,8 @@ func (bwf *BaseWorkflow) checkDisabled() ([]string, error) {
 			return nil, fmt.Errorf("disabled component[%s] is set repeatedly!", disFullName)
 		}
 		tempMap[disFullName] = 1
-		components1, name1, ok1 := bwf.Source.GetComponent(bwf.Source.EntryPoints.EntryPoints, disFullName)
-		components2, name2, ok2 := bwf.Source.GetComponent(postComponents, disFullName)
+		components1, name1, ok1 := bwf.Source.GetCompsMapAndRelName(bwf.Source.EntryPoints.EntryPoints, disFullName)
+		components2, name2, ok2 := bwf.Source.GetCompsMapAndRelName(postComponents, disFullName)
 		var components map[string]schema.Component
 		disName := ""
 		if ok1 {
@@ -993,8 +993,8 @@ func (bwf *BaseWorkflow) checkDisabled() ([]string, error) {
 		if len(disNameList) > 1 && !ok {
 			// 如果该节点有父节点，且该父节点没有被disabled，才需要检查
 			disParentFullName := strings.Join(disNameList[:len(disNameList)-1], ".")
-			components1, name1, ok1 := bwf.Source.GetComponent(bwf.Source.EntryPoints.EntryPoints, disParentFullName)
-			components2, name2, ok2 := bwf.Source.GetComponent(postComponents, disParentFullName)
+			components1, name1, ok1 := bwf.Source.GetCompsMapAndRelName(bwf.Source.EntryPoints.EntryPoints, disParentFullName)
+			components2, name2, ok2 := bwf.Source.GetCompsMapAndRelName(postComponents, disParentFullName)
 			var parentComponents map[string]schema.Component
 			parentName := ""
 			if ok1 {
