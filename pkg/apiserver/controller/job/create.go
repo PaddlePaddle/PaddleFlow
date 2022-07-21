@@ -87,25 +87,10 @@ func validateJob(ctx *logger.RequestContext, request *CreateJobInfo) error {
 		return err
 	}
 
-	// check job framework
-	var jobType schema.JobType
-	switch request.Framework {
-	case schema.FrameworkSpark, schema.FrameworkPaddle:
-		jobType = schema.TypeDistributed
-	case "", schema.FrameworkStandalone:
-		jobType = schema.TypeSingle
-	case schema.FrameworkTF, schema.FrameworkMPI:
-		ctx.Logging().Errorf("framework: %s will be supported in the future", request.Framework)
-		ctx.ErrorCode = common.JobInvalidField
-		return fmt.Errorf("framework: %s will be supported in the future", request.Framework)
-	default:
-		ctx.Logging().Errorf("invalid framework: %s", request.Framework)
-		ctx.ErrorCode = common.JobInvalidField
-		return fmt.Errorf("invalid framework: %s", request.Framework)
-	}
-	if request.Type == "" {
-		// set job type
-		request.Type = jobType
+	// check job type and framework
+	if err := validateJobFramework(ctx, request.Type, request.Framework); err != nil {
+		ctx.Logging().Errorf("validate job framework failed, err: %v", err)
+		return err
 	}
 
 	if len(request.ExtensionTemplate) != 0 {
@@ -119,6 +104,35 @@ func validateJob(ctx *logger.RequestContext, request *CreateJobInfo) error {
 		}
 	}
 	return nil
+}
+
+// validateJobFramework validate job type and framework
+func validateJobFramework(ctx *logger.RequestContext, jobType schema.JobType, framework schema.Framework) error {
+	var err error
+	switch jobType {
+	case schema.TypeSingle:
+		if framework != schema.FrameworkStandalone {
+			err = fmt.Errorf("framework for single job must be standalone")
+		}
+	case schema.TypeDistributed:
+		switch framework {
+		case schema.FrameworkSpark, schema.FrameworkPaddle:
+			err = nil
+		case schema.FrameworkTF, schema.FrameworkMPI:
+			err = fmt.Errorf("framework: %s for distributed job will be supported in the future", framework)
+		default:
+			err = fmt.Errorf("invalid framework %s for distributed job", framework)
+		}
+	case schema.TypeWorkflow:
+		// TODO: add check for workflow
+	default:
+		err = fmt.Errorf("job type %s does not supported", jobType)
+	}
+	if err != nil {
+		ctx.Logging().Error(err)
+		ctx.ErrorCode = common.JobInvalidField
+	}
+	return err
 }
 
 func validateCommonJobInfo(ctx *logger.RequestContext, requestCommonJobInfo *CommonJobInfo) error {

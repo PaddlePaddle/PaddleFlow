@@ -64,6 +64,7 @@ func (ds CreateDisJobRequest) ToJobInfo() *CreateJobInfo {
 	return &CreateJobInfo{
 		CommonJobInfo:     ds.CommonJobInfo,
 		Framework:         ds.Framework,
+		Type:              schema.TypeDistributed,
 		Members:           ds.Members,
 		ExtensionTemplate: ds.ExtensionTemplate,
 	}
