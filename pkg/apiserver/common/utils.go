@@ -154,6 +154,10 @@ func InformationFromURL(url string, properties map[string]string) (fileSystemTyp
 	case CFS:
 		serverAddress = urlSplit[ServerAddressSplit]
 		subPath = "/" + SubPathFromUrl(urlSplit, CFSSplit)
+	case Glusterfs:
+		glusterfsInfo := strings.Split(urlSplit[ServerAddressSplit], ":")
+		serverAddress = glusterfsInfo[0]
+		subPath = glusterfsInfo[1]
 	default:
 		return
 	}
