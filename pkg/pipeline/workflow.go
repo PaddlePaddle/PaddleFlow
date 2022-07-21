@@ -333,7 +333,6 @@ func (bwf *BaseWorkflow) checkFS() error {
 	if strings.HasPrefix(bwf.Source.FsOptions.MainFS.SubPath, "/") {
 		return fmt.Errorf("[sub_path] in [extra_fs] should not start with '/'")
 	}
-
 	if bwf.Source.FsOptions.MainFS.Name != "" {
 		bwf.Source.FsOptions.MainFS.ID = common.ID(bwf.Extra[WfExtraInfoKeyUserName], bwf.Source.FsOptions.MainFS.Name)
 	}
