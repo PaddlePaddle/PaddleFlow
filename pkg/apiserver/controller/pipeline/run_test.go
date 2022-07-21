@@ -244,7 +244,7 @@ func TestNewWorkflowByRun(t *testing.T) {
 	}
 	_, err = newMockWorkflowByRun(run2)
 	assert.NotNil(t, err)
-	assert.Equal(t, "component [noComp] not exist", err.Error())
+	assert.Equal(t, "cannont find component to replace param with [square-loop.noComp.noParam]", err.Error())
 	run2.Parameters = map[string]interface{}{
 		"square-loop.square.num": 3,
 	}
