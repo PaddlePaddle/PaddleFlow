@@ -26,6 +26,7 @@ import (
 	"github.com/Knetic/govaluate"
 	"github.com/sirupsen/logrus"
 
+	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
@@ -325,11 +326,20 @@ func (bwf *BaseWorkflow) validate() error {
 
 // 检查fsScope的fsName是否在fsMount中，同时根据Username和FSName生成FSID
 func (bwf *BaseWorkflow) checkFS() error {
+	// 1. 校验并处理MainFS
 	if bwf.Source.FsOptions.MainFS.ReadOnly {
 		return fmt.Errorf("[read_only] in [main_fs] must be false")
 	}
+	if strings.HasPrefix(bwf.Source.FsOptions.MainFS.SubPath, "/") {
+		return fmt.Errorf("[sub_path] in [extra_fs] should not start with '/'")
+	}
 
-	bwf.Source.ProcessFsMounts(bwf.Extra[WfExtraInfoKeyUserName], bwf.Extra[WfExtraInfoKeyFsName])
+	if bwf.Source.FsOptions.MainFS.Name != "" {
+		bwf.Source.FsOptions.MainFS.ID = common.ID(bwf.Extra[WfExtraInfoKeyUserName], bwf.Source.FsOptions.MainFS.Name)
+	}
+
+	// 2. 校验并处理ExtraFS
+	bwf.Source.ProcessExtraFS(bwf.Extra[WfExtraInfoKeyUserName], bwf.Extra[WfExtraInfoKeyFsName])
 	return nil
 }
 

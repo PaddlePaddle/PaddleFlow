@@ -864,11 +864,7 @@ func (wfs *WorkflowSource) GetFsMounts() ([]FsMount, error) {
 }
 
 // 给所有Step的fsMount和fsScope的fsID赋值，并返回
-func (wfs *WorkflowSource) ProcessFsMounts(userName string, fsName string) error {
-	if wfs.FsOptions.MainFS.Name != "" {
-		wfs.FsOptions.MainFS.ID = ID(userName, wfs.FsOptions.MainFS.Name)
-	}
-
+func (wfs *WorkflowSource) ProcessExtraFS(userName string, fsName string) error {
 	if err := wfs.processFsByUserName(wfs.EntryPoints.EntryPoints, userName); err != nil {
 		return err
 	}
@@ -918,9 +914,11 @@ func (wfs *WorkflowSource) processFsByUserName(compMap map[string]Component, use
 			}
 
 			for i, mount := range step.ExtraFS {
+				// ExtraFS中的name不能为空
 				if mount.Name == "" {
 					return fmt.Errorf("[name] in [extra_fs] or [main_fs] must not be empty")
 				}
+				// ExtraFS中subPath不能以 "/" 开头
 				if strings.HasPrefix(mount.SubPath, "/") {
 					return fmt.Errorf("[sub_path] in [extra_fs] should not start with '/'")
 				}
@@ -931,7 +929,7 @@ func (wfs *WorkflowSource) processFsByUserName(compMap map[string]Component, use
 			}
 			for i, scope := range step.Cache.FsScope {
 				if scope.Name == "" {
-					return fmt.Errorf("[fs_name] in fs_scope must be set")
+					return fmt.Errorf("[fs_name] in fs_scope must not be empty")
 				}
 				scope.ID = ID(userName, scope.Name)
 
