@@ -43,7 +43,7 @@ type SparkJob struct {
 	ExecutorReplicas string
 }
 
-func (sj *SparkJob) validateJob() error {
+func (sj *SparkJob) validateJob(sparkApp *sparkapp.SparkApplication) error {
 	if err := sj.KubeJob.validateJob(); err != nil {
 		log.Errorf("validate basic params of spark job failed: %v", err)
 		return err
@@ -58,7 +58,32 @@ func (sj *SparkJob) validateJob() error {
 		}
 		sj.Image = sj.Tasks[0].Image
 		// todo check all required fields when job is not custom
+	} else if err := sj.validateCustomYaml(sparkApp); err != nil {
+		log.Errorf("validate custom yaml failed, err: %v", err)
+		return err
 	}
+	return nil
+}
+
+func (sj *SparkJob) validateCustomYaml(sparkApp *sparkapp.SparkApplication) error {
+	log.Infof("validate custom yaml for spark job: %v, sparkApp from yaml: %v", sj, sparkApp)
+	cores := int32(k8s.DefaultCpuRequest)
+	coreLimit := strconv.Itoa(k8s.DefaultCpuRequest)
+	memory := fmt.Sprintf("%dMi", k8s.DefaultMemRequest/1024)
+
+	// validateTemplateResources for driver
+	if sparkApp.Spec.Driver.CoreLimit == nil || sparkApp.Spec.Driver.Memory == nil {
+		sparkApp.Spec.Driver.Cores = &cores
+		sparkApp.Spec.Driver.CoreLimit = &coreLimit
+		sparkApp.Spec.Driver.Memory = &memory
+	}
+	// validateTemplateResources for executor
+	if sparkApp.Spec.Executor.CoreLimit == nil || sparkApp.Spec.Executor.Memory == nil {
+		sparkApp.Spec.Executor.Cores = &cores
+		sparkApp.Spec.Executor.CoreLimit = &coreLimit
+		sparkApp.Spec.Executor.Memory = &memory
+	}
+
 	return nil
 }
 
@@ -182,16 +207,16 @@ func (sj *SparkJob) patchSparkSpecExecutor(jobApp *sparkapp.SparkApplication, ta
 
 // CreateJob creates a SparkJob
 func (sj *SparkJob) CreateJob() (string, error) {
-	if err := sj.validateJob(); err != nil {
-		log.Errorf("validate job failed, err %v", err)
-		return "", err
-	}
 	jobID := sj.GetID()
 	log.Debugf("begin create job jobID:[%s]", jobID)
 
 	jobApp := &sparkapp.SparkApplication{}
 	if err := sj.createJobFromYaml(jobApp); err != nil {
 		log.Errorf("create job failed, err %v", err)
+		return "", err
+	}
+	if err := sj.validateJob(jobApp); err != nil {
+		log.Errorf("validate job failed, err %v", err)
 		return "", err
 	}
 
@@ -206,7 +231,7 @@ func (sj *SparkJob) CreateJob() (string, error) {
 	log.Debugf("begin submit job jobID:[%s]", jobID)
 	err := Create(jobApp, k8s.SparkAppGVK, sj.DynamicClientOption)
 	if err != nil {
-		log.Errorf("create job %v failed, err %v", jobID, err)
+		log.Errorf("create job %v failed, err: %v", jobID, err)
 		return "", err
 	}
 	return jobID, nil

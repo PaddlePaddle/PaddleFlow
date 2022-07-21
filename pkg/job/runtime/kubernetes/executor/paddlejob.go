@@ -36,13 +36,36 @@ type PaddleJob struct {
 	JobModeParams
 }
 
-func (pj *PaddleJob) validateJob() error {
+func (pj *PaddleJob) validateJob(pdj *paddlev1.PaddleJob) error {
 	if err := pj.KubeJob.validateJob(); err != nil {
 		return err
 	}
 	if len(pj.JobMode) == 0 && !pj.IsCustomYaml {
 		// patch default value
 		pj.JobMode = schema.EnvJobModeCollective
+	}
+	if pj.IsCustomYaml {
+		if err := pj.validateCustomYaml(pdj); err != nil {
+			log.Errorf("validate custom yaml failed, err %v", err)
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (pj *PaddleJob) validateCustomYaml(pdj *paddlev1.PaddleJob) error {
+	log.Infof("validate custom yaml, pj: %v, pdj from yaml: %v", pj, pdj)
+	resourceSpecs := []*paddlev1.ResourceSpec{pdj.Spec.PS, pdj.Spec.Worker}
+	for _, resourceSpec := range resourceSpecs {
+		if resourceSpec == nil {
+			continue
+		}
+		if err := validateTemplateResources(&resourceSpec.Template.Spec); err != nil {
+			err = fmt.Errorf("validate resource in extensionTemplate.Worker failed, err %v", err)
+			log.Errorf("%v", err)
+			return err
+		}
 	}
 
 	return nil
@@ -54,7 +77,7 @@ func (pj *PaddleJob) CreateJob() (string, error) {
 		log.Errorf("create job[%s] failed, err %v", pj.ID, err)
 		return "", err
 	}
-	if err := pj.validateJob(); err != nil {
+	if err := pj.validateJob(pdj); err != nil {
 		log.Errorf("validate [%s]type job[%s] failed, err %v", pj.JobType, pj.ID, err)
 		return "", err
 	}

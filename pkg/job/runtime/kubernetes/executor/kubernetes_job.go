@@ -907,3 +907,17 @@ func appendMountsIfAbsent(volumeMounts []corev1.VolumeMount, newElements []corev
 	}
 	return volumeMounts
 }
+
+func validateTemplateResources(spec *corev1.PodSpec) error {
+	for index, container := range spec.Containers {
+		resourcesList := k8s.NewMinResourceList()
+
+		if container.Resources.Requests.Cpu().IsZero() || container.Resources.Requests.Memory().IsZero() {
+			spec.Containers[index].Resources.Requests = resourcesList
+			spec.Containers[index].Resources.Limits = resourcesList
+			log.Warnf("podSpec %v container %d cpu is zero, Resources: %v", spec, index, spec.Containers[index].Resources.Requests)
+		}
+
+	}
+	return nil
+}

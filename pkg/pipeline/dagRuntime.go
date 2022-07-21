@@ -101,6 +101,14 @@ func NewDagRuntime(name, fullName string, dag *schema.WorkflowSourceDag, seq int
 	return drt
 }
 
+func (drt *DagRuntime) generateViewName() {
+	if drt.loopSeq == 0 {
+		drt.dagViewName = fmt.Sprintf("dag-%s-%s", drt.runID, drt.getComponent().GetName())
+	} else {
+		drt.dagViewName = fmt.Sprintf("dag-%s-%s-%d", drt.runID, drt.getComponent().GetName(), drt.loopSeq)
+	}
+}
+
 // NewDagRuntimeWithStatus: 在创建Runtime 的同时，指定runtime的状态
 // 主要用于重启或者父节点调度子节点的失败时调用， 将相关信息通过evnet 的方式同步给其父节点， 并同步至数据库中
 func newDagRuntimeWithStatus(name, fullName string, dag *schema.WorkflowSourceDag, seq int, ctx context.Context, failureOpitonsCtx context.Context,
@@ -110,14 +118,6 @@ func newDagRuntimeWithStatus(name, fullName string, dag *schema.WorkflowSourceDa
 
 	drt.processStartAbnormalStatus(msg, status)
 	return drt
-}
-
-func (drt *DagRuntime) generateViewName() {
-	if drt.loopSeq == 0 {
-		drt.dagViewName = fmt.Sprintf("dag-%s-%s", drt.runID, drt.getComponent().GetName())
-	} else {
-		drt.dagViewName = fmt.Sprintf("dag-%s-%s-%d", drt.runID, drt.getComponent().GetName(), drt.loopSeq)
-	}
 }
 
 func (drt *DagRuntime) catchPanic() {
