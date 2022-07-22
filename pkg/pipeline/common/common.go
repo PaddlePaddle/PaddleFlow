@@ -169,3 +169,15 @@ func GetArtifactMountPath(mainFS *schema.FsMount, artifactPath string) string {
 
 	return strings.Join(artMountPaths, ",")
 }
+
+func GetSiblingAbsoluteName(curAbsName string, siblingRelativeName string) string {
+	nameList := strings.Split(curAbsName, ".")
+	parentAbsName := strings.Join(nameList[:len(nameList)-1], ".")
+	var sibAbsName string
+	if parentAbsName != "" {
+		sibAbsName = parentAbsName + "." + siblingRelativeName
+	} else {
+		sibAbsName = siblingRelativeName
+	}
+	return sibAbsName
+}

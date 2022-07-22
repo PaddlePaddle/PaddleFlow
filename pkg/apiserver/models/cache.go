@@ -29,7 +29,7 @@ import (
 
 type RunCache struct {
 	Pk          int64          `json:"-"                    gorm:"primaryKey;autoIncrement;not null"`
-	ID          string         `json:"cacheID"              gorm:"type:varchar(60);not null;uniqueIndex"`
+	ID          string         `json:"cacheID"              gorm:"type:varchar(60);not null;index"`
 	FirstFp     string         `json:"firstFp"              gorm:"type:varchar(256)"`
 	SecondFp    string         `json:"secondFp"             gorm:"type:varchar(256)"`
 	RunID       string         `json:"runID"                gorm:"type:varchar(60);not null"`
