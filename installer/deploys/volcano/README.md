@@ -1,14 +1,13 @@
 # pf-volcano安装指南
 
 ## 1. 安装
-目前PaddleFlow使用开源volcano作为默认调度器
+目前PaddleFlow使用改造过的volcano作为默认调度器,具体改造内容参考todo(zhongzichao)
 ```shell
-# todo(使用pf版volcano,替换image, volcano-scheduler-pf.conf)
 # For x86_64:
-kubectl apply -f https://raw.githubusercontent.com/volcano-sh/volcano/master/installer/volcano-development.yaml
+kubectl apply -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/develop/installer/deploys/volcano/pf-volcano-deploy.yaml
 
 # For arm64:
-kubectl apply -f https://raw.githubusercontent.com/volcano-sh/volcano/master/installer/volcano-development-arm64.yaml
+todo
 ```
 
 
