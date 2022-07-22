@@ -189,16 +189,8 @@ def create(ctx, jobtype, jsonpath):
         sys.exit(1)
     with open(jsonpath, 'r', encoding='utf8') as read_content:
         job_request_dict = json.load(read_content)
-    job_request = JobRequest(job_request_dict.get('schedulingPolicy', {}).get('queue', None), job_request_dict.get('image', None),
-                             job_request_dict.get('id', None), job_request_dict.get('name', None),
-                             job_request_dict.get('labels', None), job_request_dict.get('annotations', None),
-                             job_request_dict.get('schedulingPolicy', {}).get('priority', None), job_request_dict.get('flavour', None),
-                             job_request_dict.get('fs', None), job_request_dict.get('extraFS', None),
-                             job_request_dict.get('env', None), job_request_dict.get('command', None),
-                             job_request_dict.get('args', None), job_request_dict.get('port', None),
-                             job_request_dict.get('extensionTemplate', None), job_request_dict.get('framework', None),
-                             job_request_dict.get('members', None))
-    valid, response = client.create_job(jobtype, job_request)
+
+    valid, response = client.create_job(jobtype, job_request_dict)
     if valid:
         click.echo("job create success, id[%s]" % response)
     else:
