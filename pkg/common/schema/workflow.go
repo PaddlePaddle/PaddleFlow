@@ -714,7 +714,6 @@ func (wfs *WorkflowSource) ProcessRuntimeComponents(components map[string]Compon
 					if err := ProcessStepCacheByMap(&step.Cache, globalCacheMap, componentCacheMap); err != nil {
 						return err
 					}
-					logger.Logger().Infof("debug: now cache is %v", step.Cache)
 				}
 
 				// 合并全局 fs_mount 和节点 fs_mount

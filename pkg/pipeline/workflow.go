@@ -314,7 +314,6 @@ func (bwf *BaseWorkflow) validate() error {
 		bwf.log().Errorf("check failure_option failed. err: %s", err.Error())
 		return err
 	}
-	logger.Logger().Infof("debug: before checkFS")
 	// 9. 检查mainFS、extraFS，并填充fsID
 	if err := bwf.checkFS(); err != nil {
 		bwf.log().Errorf("check fs failed. err: %s", err.Error())
@@ -346,7 +345,6 @@ func (bwf *BaseWorkflow) checkFS() error {
 }
 
 func (bwf *BaseWorkflow) processExtraFS(userName string, fsName string) error {
-	logger.Logger().Infof("debug: before processExtraFS")
 
 	if err := bwf.processFsByUserName(bwf.Source.EntryPoints.EntryPoints, userName); err != nil {
 		return err
@@ -369,12 +367,10 @@ func (bwf *BaseWorkflow) processExtraFS(userName string, fsName string) error {
 
 func (bwf *BaseWorkflow) processFsByUserName(compMap map[string]schema.Component, userName string) error {
 	for _, comp := range compMap {
-		logger.Logger().Infof("debug: processing comps[%s]", comp.GetName())
 		if dag, ok := comp.(*schema.WorkflowSourceDag); ok {
 			if err := bwf.processFsByUserName(dag.EntryPoints, userName); err != nil {
 				return err
 			}
-			logger.Logger().Infof("debug: in dag")
 		} else if step, ok := comp.(*schema.WorkflowSourceStep); ok {
 			// fsNameChecker用来检查FsScope中的FsName是否都在ExtraFS或MainFS中
 			fsNameChecker := map[string]int{}
@@ -382,36 +378,29 @@ func (bwf *BaseWorkflow) processFsByUserName(compMap map[string]schema.Component
 				// 请求体中的MainFS会替换wfs中的MainFS，或者与wfs中的相同，所以无需检查
 				fsNameChecker[bwf.Source.FsOptions.MainFS.Name] = 1
 			}
-			logger.Logger().Infof("debug: befor process Extra FS")
 			for i, mount := range step.ExtraFS {
 				// ExtraFS中的name不能为空
 				if mount.Name == "" {
 					return fmt.Errorf("[name] in [extra_fs] or [main_fs] must not be empty")
 				}
-				logger.Logger().Infof("debug: in 111")
 				// ExtraFS中subPath不能以 "/" 开头
 				if strings.HasPrefix(mount.SubPath, "/") {
-					logger.Logger().Infof("debug: in 333, mount subPath is [%s]", mount.SubPath)
 					return fmt.Errorf("[sub_path] in [extra_fs] should not start with '/'")
 				}
 				mount.ID = common.ID(userName, mount.Name)
-				logger.Logger().Infof("debug: in 222")
 				fsNameChecker[mount.Name] = 1
 				step.ExtraFS[i] = mount
 			}
-			logger.Logger().Infof("debug: scope in")
 			for i, scope := range step.Cache.FsScope {
 				if scope.Name == "" {
 					return fmt.Errorf("[fs_name] in fs_scope must not be empty")
 				}
 				scope.ID = common.ID(userName, scope.Name)
-				logger.Logger().Infof("debug: scope is set by id [%s]", scope.ID)
 				// 检查FsScope中的FsName是否都在FsMount中
 				if _, ok := fsNameChecker[scope.Name]; !ok {
 					return fmt.Errorf("fs_name [%s] in fs_scope must also be in [extra_fs] or [main_fs]", scope.Name)
 				}
 				step.Cache.FsScope[i] = scope
-				logger.Logger().Infof("debug: scope is set by id [%s]", step.Cache.FsScope[i].ID)
 			}
 		} else {
 			return fmt.Errorf("component not dag or step")
