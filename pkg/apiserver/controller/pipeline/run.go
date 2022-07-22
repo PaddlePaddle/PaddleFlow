@@ -607,6 +607,7 @@ func CreateRunByJson(ctx logger.RequestContext, bodyMap map[string]interface{}) 
 	var reqUserName string
 	var reqDescription string
 
+	logger.Logger().Infof("debug: start create run by json")
 	parser := schema.Parser{}
 	// 将字段名由Json风格改为Yaml风格
 	if err := parser.TransJsonMap2Yaml(bodyMap); err != nil {
