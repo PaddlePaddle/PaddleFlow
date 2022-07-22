@@ -97,6 +97,8 @@ func (srt *StepRuntime) catchPanic() {
 	if r := recover(); r != nil {
 		msg := fmt.Sprintf("Inner Error for stepRuntime %s: %v", srt.name, r)
 		trace_logger.KeyWithUpdate(srt.runID).Errorf(msg)
+		srt.stopWithMsg(msg)
+
 		srt.ctx.Done()
 	}
 }

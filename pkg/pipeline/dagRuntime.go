@@ -125,6 +125,8 @@ func (drt *DagRuntime) catchPanic() {
 	if r := recover(); r != nil {
 		msg := fmt.Sprintf("Inner Error occured at dagRuntime[%s]: %v", drt.name, r)
 		trace_logger.KeyWithUpdate(drt.runID).Errorf(msg)
+
+		drt.cancellAllNotReadySubComponent(msg)
 		drt.ctx.Done()
 	}
 }
