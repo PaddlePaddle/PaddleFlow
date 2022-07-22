@@ -252,46 +252,6 @@ def createfscache(ctx, fsname, o="", username=None):
             click.echo("create fs cache config failed with no error response")
         sys.exit(1)
 
-
-@fs.command(context_settings=dict(max_content_width=2000), cls=command_required_option_from_option())
-@click.argument('fsname')
-@click.option('-u', '--username', help='specify fs under other user. for root use only.')
-@click.option('-o', '--o', multiple=True, help="""
-cacheConfig options: 
-  -o cacheDir: cache dir on host node. Two sub-directories "data-cache" and "meta-cache" will be created under it.
-  -o metaDriver: meta driver type (e.g. default, mem, leveldb, nutsdb)",
-  -o blockSize: data cache block size (default: 0), if block-size equals to 0, it means that no data cache is used
-""")
-@click.pass_context
-def updatefscache(ctx, fsname, o="", username=None):
-    """
-    update a cache config for your fs\n
-    FSNAME: fs name to set cache config\n
-    """
-    client = ctx.obj['client']
-    if not fsname:
-        click.echo('update fs cache must provide fsname.', err=True)
-        sys.exit(1)
-    params = {}
-    for k in o:
-        params_kv = k.split("=", 1)
-        if len(params_kv) < 2:
-            click.echo("-o params must follow with {}=\"\"".format(k))
-            return
-        params[params_kv[0]] = params_kv[1]
-    if params["blockSize"]:
-        params["blockSize"] = int(params["blockSize"])
-    valid, response = client.update_fs_cache(fsname, params, username)
-    if valid:
-        click.echo("update fs cache success")
-    else:
-        if response is not None:
-            click.echo(response)
-        else:
-            click.echo("update fs cache config failed with no error response")
-        sys.exit(1)
-
-
 @fs.command(context_settings=dict(max_content_width=2000), cls=command_required_option_from_option())
 @click.argument('fsname')
 @click.option('-u', '--username', help='specify fs under other user. for root use only.')

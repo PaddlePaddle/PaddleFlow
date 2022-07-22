@@ -56,7 +56,6 @@ func (pr *PFSRouter) AddRouter(r chi.Router) {
 	r.Delete("/fs/{fsName}", pr.deleteFileSystem)
 	// fs cache config
 	r.Post("/fsCache", pr.createFSCacheConfig)
-	r.Put("/fsCache/{fsName}", pr.updateFSCacheConfig)
 	r.Get("/fsCache/{fsName}", pr.getFSCacheConfig)
 	r.Delete("/fsCache/{fsName}", pr.deleteFSCacheConfig)
 	r.Post("/fsCache/report", pr.fsCacheReport)

@@ -70,7 +70,6 @@ func TestFSCacheConfigRouter(t *testing.T) {
 	router, baseUrl := prepareDBAndAPI(t)
 	mockFs := mockFS()
 	cacheConf := mockFSCache()
-	updateReq := buildUpdateReq(cacheConf)
 	createRep := buildCreateReq(cacheConf)
 
 	// test create failure - no fs
@@ -107,33 +106,6 @@ func TestFSCacheConfigRouter(t *testing.T) {
 	result, err = PerformGetRequest(router, urlWrong)
 	assert.Nil(t, err)
 	assert.Equal(t, http.StatusNotFound, result.Code)
-
-	// test update success
-	updateReq.BlockSize = 333
-	updateReq.CacheDir = "/newPath"
-	updateReq.ExtraConfig = map[string]string{"meta-cache-expire": "10s"}
-	result, err = PerformPutRequest(router, urlWithFsID, updateReq)
-	assert.Nil(t, err)
-	assert.Equal(t, http.StatusOK, result.Code)
-
-	result, err = PerformGetRequest(router, urlWithFsID)
-	assert.Nil(t, err)
-	assert.Equal(t, http.StatusOK, result.Code)
-	err = ParseBody(result.Body, &cacheRsp)
-	assert.Nil(t, err)
-	assert.Equal(t, updateReq.BlockSize, cacheRsp.BlockSize)
-	assert.Equal(t, updateReq.CacheDir, cacheRsp.CacheDir)
-	assert.Equal(t, updateReq.ExtraConfig, map[string]string{"meta-cache-expire": "10s"})
-
-	// test update failure
-	result, err = PerformPutRequest(router, urlWrong, updateReq)
-	assert.Nil(t, err)
-	assert.Equal(t, http.StatusNotFound, result.Code)
-
-	updateReq.CacheDir = "newPath" // not abs path
-	result, err = PerformPutRequest(router, urlWithFsID, updateReq)
-	assert.Nil(t, err)
-	assert.Equal(t, http.StatusBadRequest, result.Code)
 
 	// delete
 	result, err = PerformDeleteRequest(router, urlWithFsID)
