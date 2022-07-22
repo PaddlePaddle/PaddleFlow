@@ -19,7 +19,6 @@ package pipeline
 import (
 	"database/sql"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -927,8 +926,6 @@ func RetryRun(ctx *logger.RequestContext, runID string) (string, error) {
 		ctx.Logging().Errorf("retry run[%s] failed when getting run. error: %v\n", runID, err)
 		return "", err
 	}
-	res, _ := json.Marshal(run.Runtime)
-	ctx.Logging().Infof("debug: begin retry, runtime is: %s", res)
 
 	// check run current status. If already succeeded or running/pending, no need to retry this run.
 	// only failed or terminated runs can retry

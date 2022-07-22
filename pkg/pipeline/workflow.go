@@ -339,7 +339,9 @@ func (bwf *BaseWorkflow) checkFS() error {
 	}
 
 	// 2. 校验并处理ExtraFS
-	bwf.processExtraFS(bwf.Extra[WfExtraInfoKeyUserName], bwf.Extra[WfExtraInfoKeyFsName])
+	if err := bwf.processExtraFS(bwf.Extra[WfExtraInfoKeyUserName], bwf.Extra[WfExtraInfoKeyFsName]); err != nil {
+		return err
+	}
 	return nil
 }
 
