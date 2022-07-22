@@ -218,6 +218,7 @@ func TestGetPodUIDFromTargetPath(t *testing.T) {
 			want: "cb0b4bb0-98de-4cd5-9d73-146a226dcf93",
 		},
 	}
+	os.Setenv(KubeletDataPathEnv, "")
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := GetPodUIDFromTargetPath(tt.args.targetPath); got != tt.want {

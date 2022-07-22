@@ -45,7 +45,7 @@ func TestKubeRuntimePVAndPVC(t *testing.T) {
 
 	fsCache := model.FSCacheConfig{
 		FsID:       fs.ID,
-		CacheDir:   "/data/paddleflow-FS/mnt",
+		CacheDir:   "/data/paddleflow-fs/mnt",
 		MetaDriver: "nutsdb",
 		BlockSize:  4096,
 		CreatedAt:  time.Now(),
