@@ -314,6 +314,7 @@ func (bwf *BaseWorkflow) validate() error {
 		bwf.log().Errorf("check failure_option failed. err: %s", err.Error())
 		return err
 	}
+
 	// 9. 检查mainFS、extraFS，并填充fsID
 	if err := bwf.checkFS(); err != nil {
 		bwf.log().Errorf("check fs failed. err: %s", err.Error())
@@ -377,6 +378,7 @@ func (bwf *BaseWorkflow) processFsByUserName(compMap map[string]schema.Component
 				// 请求体中的MainFS会替换wfs中的MainFS，或者与wfs中的相同，所以无需检查
 				fsNameChecker[bwf.Source.FsOptions.MainFS.Name] = 1
 			}
+
 			for i, mount := range step.ExtraFS {
 				// ExtraFS中的name不能为空
 				if mount.Name == "" {
@@ -387,6 +389,7 @@ func (bwf *BaseWorkflow) processFsByUserName(compMap map[string]schema.Component
 					return fmt.Errorf("[sub_path] in [extra_fs] should not start with '/'")
 				}
 				mount.ID = common.ID(userName, mount.Name)
+
 				fsNameChecker[mount.Name] = 1
 				step.ExtraFS[i] = mount
 			}
@@ -395,6 +398,7 @@ func (bwf *BaseWorkflow) processFsByUserName(compMap map[string]schema.Component
 					return fmt.Errorf("[fs_name] in fs_scope must not be empty")
 				}
 				scope.ID = common.ID(userName, scope.Name)
+
 				// 检查FsScope中的FsName是否都在FsMount中
 				if _, ok := fsNameChecker[scope.Name]; !ok {
 					return fmt.Errorf("fs_name [%s] in fs_scope must also be in [extra_fs] or [main_fs]", scope.Name)
