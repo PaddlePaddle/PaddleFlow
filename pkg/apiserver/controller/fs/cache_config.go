@@ -24,7 +24,7 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
-	utils "github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/common"
+	utils2 "github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
@@ -87,7 +87,7 @@ func (resp *FileSystemCacheResponse) fromModel(config model.FSCacheConfig) {
 	resp.NodeAffinity = config.NodeAffinityMap
 	resp.NodeTaintToleration = config.NodeTaintTolerationMap
 	resp.ExtraConfig = config.ExtraConfigMap
-	resp.FsName, resp.Username = utils.FsIDToFsNameUsername(config.FsID)
+	resp.FsName, resp.Username = utils2.FsIDToFsNameUsername(config.FsID)
 	// format time
 	resp.CreateTime = config.CreatedAt.Format("2006-01-02 15:04:05")
 	resp.UpdateTime = config.UpdatedAt.Format("2006-01-02 15:04:05")

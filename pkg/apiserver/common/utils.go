@@ -48,14 +48,6 @@ const (
 	JobNameMaxLength = 512
 	JobPortMaximums  = 65535
 
-	HDFS                          = "hdfs"
-	HDFSWithKerberos              = "hdfsWithKerberos"
-	S3                            = "s3"
-	Local                         = "local"
-	SFTP                          = "sftp"
-	Mock                          = "mock"
-	CFS                           = "cfs"
-	Glusterfs                     = "glusterfs"
 	IPDomainOrIPDomainPortPattern = "^([a-zA-Z0-9][-a-zA-Z0-9]{0,62}(\\.[a-zA-Z0-9][-a-zA-Z0-9]{0,62})+)" +
 		"(:([1-9]|[1-9]\\d{1,3}|[1-5]\\d{4}|6[0-4]\\d{3}|65[0-4]\\d{2}|655[0-2]\\d|6553[0-5]))?$"
 
@@ -136,10 +128,10 @@ func InformationFromURL(url string, properties map[string]string) (fileSystemTyp
 	urlSplit := strings.Split(url, "/")
 
 	switch fileSystemType {
-	case Local, Mock:
+	case common.LocalType, common.MockType:
 		serverAddress = ""
 		subPath = "/" + SubPathFromUrl(urlSplit, LocalSplit)
-	case HDFS:
+	case common.HDFSType:
 		serverAddress = urlSplit[ServerAddressSplit]
 		if properties == nil {
 			properties = make(map[string]string)
@@ -147,18 +139,18 @@ func InformationFromURL(url string, properties map[string]string) (fileSystemTyp
 		properties[common.NameNodeAddress] = serverAddress
 		subPath = "/" + SubPathFromUrl(urlSplit, HDFSSplit)
 		if properties[common.KeyTabData] != "" {
-			fileSystemType = HDFSWithKerberos
+			fileSystemType = common.HDFSWithKerberosType
 		}
-	case SFTP:
+	case common.SFTPType:
 		serverAddress = urlSplit[ServerAddressSplit]
 		subPath = "/" + SubPathFromUrl(urlSplit, HDFSSplit)
-	case S3:
+	case common.S3Type:
 		serverAddress = properties[common.Endpoint]
 		subPath = "/" + SubPathFromUrl(urlSplit, S3Split)
-	case CFS:
+	case common.CFSType:
 		serverAddress = urlSplit[ServerAddressSplit]
 		subPath = "/" + SubPathFromUrl(urlSplit, CFSSplit)
-	case Glusterfs:
+	case common.GlusterfsType:
 		glusterfsInfo := strings.Split(urlSplit[ServerAddressSplit], ":")
 		serverAddress = glusterfsInfo[0]
 		subPath = glusterfsInfo[1]

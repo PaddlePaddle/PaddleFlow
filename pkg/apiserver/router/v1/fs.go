@@ -36,7 +36,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	fuse "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/fs"
 	fsCommon "github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/k8s"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
@@ -63,13 +63,13 @@ func (pr *PFSRouter) AddRouter(r chi.Router) {
 }
 
 var URLPrefix = map[string]bool{
-	common.HDFS:      true,
-	common.Local:     true,
-	common.S3:        true,
-	common.SFTP:      true,
-	common.Mock:      true,
-	common.CFS:       true,
-	common.Glusterfs: true,
+	fsCommon.HDFSType:      true,
+	fsCommon.LocalType:     true,
+	fsCommon.S3Type:        true,
+	fsCommon.SFTPType:      true,
+	fsCommon.MockType:      true,
+	fsCommon.CFSType:       true,
+	fsCommon.GlusterfsType: true,
 }
 
 const FsNameMaxLen = 100
@@ -179,7 +179,7 @@ func validateCreateFileSystem(ctx *logger.RequestContext, req *api.CreateFileSys
 		return err
 	}
 
-	if fileSystemType == common.Mock {
+	if fileSystemType == fsCommon.MockType {
 		return nil
 	}
 	fsType, serverAddress, subPath := common.InformationFromURL(req.Url, req.Properties)
@@ -222,7 +222,7 @@ func checkProperties(fsType string, req *api.CreateFileSystemRequest) error {
 		}
 	}
 	switch fsType {
-	case common.HDFS:
+	case fsCommon.HDFSType:
 		if req.Properties[fsCommon.KeyTabData] != "" {
 			err := common.CheckKerberosProperties(req.Properties)
 			if err != nil {
@@ -240,12 +240,12 @@ func checkProperties(fsType string, req *api.CreateFileSystemRequest) error {
 			return common.InvalidField("properties", "not correct hdfs properties")
 		}
 		return nil
-	case common.Local:
+	case fsCommon.LocalType:
 		if req.Properties["debug"] != "true" {
 			return common.InvalidField("debug", "properties key[debug] must true")
 		}
 		return nil
-	case common.S3:
+	case fsCommon.S3Type:
 		if req.Properties[fsCommon.AccessKey] == "" || req.Properties[fsCommon.SecretKey] == "" {
 			log.Error("s3 ak or sk is empty")
 			return common.InvalidField("properties", fmt.Sprintf("key %s or %s is empty", fsCommon.AccessKey, fsCommon.SecretKey))
@@ -268,7 +268,7 @@ func checkProperties(fsType string, req *api.CreateFileSystemRequest) error {
 		}
 		req.Properties[fsCommon.SecretKey] = encodedSk
 		return nil
-	case common.SFTP:
+	case fsCommon.SFTPType:
 		if req.Properties[fsCommon.UserKey] == "" {
 			return common.InvalidField(fsCommon.UserKey, "key[user] cannot be empty")
 		}
@@ -282,7 +282,7 @@ func checkProperties(fsType string, req *api.CreateFileSystemRequest) error {
 		}
 		req.Properties[fsCommon.Password] = encodePassword
 		return nil
-	case common.Mock:
+	case fsCommon.MockType:
 		pvc := req.Properties[fsCommon.PVC]
 		if pvc == "" {
 			return common.InvalidField(fsCommon.PVC, "key[pvc] cannot be empty")
@@ -298,7 +298,7 @@ func checkProperties(fsType string, req *api.CreateFileSystemRequest) error {
 }
 
 func checkPVCExist(pvc, namespace string) bool {
-	k8sClient, err := k8s.GetK8sClient()
+	k8sClient, err := utils.GetK8sClient()
 	if err != nil {
 		log.Errorf("checkPVCExist: Get k8s client failed: %v", err)
 		return false
@@ -314,12 +314,12 @@ func checkURLFormat(fsType, url string, properties map[string]string) error {
 	urlSplit := strings.Split(url, "/")
 	// check fs url correct
 	switch fsType {
-	case common.HDFS, common.SFTP, common.CFS:
+	case fsCommon.HDFSType, fsCommon.SFTPType, fsCommon.CFSType:
 		if len(urlSplit) < 4 {
 			log.Errorf("%s url split error", fsType)
 			return common.InvalidField("url", fmt.Sprintf("%s url format is wrong", fsType))
 		}
-	case common.Local, common.Mock:
+	case fsCommon.LocalType, fsCommon.MockType:
 		if len(urlSplit) < 3 {
 			log.Errorf("%s url split error", fsType)
 			return common.InvalidField("url", fmt.Sprintf("%s address format is wrong", fsType))
@@ -328,7 +328,7 @@ func checkURLFormat(fsType, url string, properties map[string]string) error {
 			log.Errorf("%s path can not be empty or use root path", fsType)
 			return common.InvalidField("url", fmt.Sprintf("%s path can not be empty or use root path", fsType))
 		}
-	case common.S3:
+	case fsCommon.S3Type:
 		if len(urlSplit) < common.S3SplitLen {
 			log.Errorf("%s url split error", fsType)
 			return common.InvalidField("url", fmt.Sprintf("%s url format is wrong", fsType))
@@ -362,14 +362,14 @@ func checkFsDir(fsType, url string, properties map[string]string) error {
 	var inputIPs []string
 	subPath := ""
 	switch fsType {
-	case common.Local, common.Mock:
+	case fsCommon.LocalType, fsCommon.MockType:
 		subPath = strings.SplitAfterN(url, "/", 2)[1]
-	case common.HDFS, common.SFTP, common.CFS:
+	case fsCommon.HDFSType, fsCommon.SFTPType, fsCommon.CFSType:
 		urlSplit := strings.Split(url, "/")
 		urlRaw := urlSplit[2]
 		inputIPs = strings.Split(urlRaw, ",")
 		subPath = "/" + strings.SplitAfterN(url, "/", 4)[3]
-	case common.S3:
+	case fsCommon.S3Type:
 		inputIPs = strings.Split(properties[fsCommon.Endpoint], ",")
 		subPath = "/" + strings.SplitAfterN(url, "/", 4)[3]
 	}

@@ -36,7 +36,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/utils"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/vfs"
 	fsCommon "github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/common"
+	utils2 "github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 )
 
 func init() {
@@ -97,7 +97,7 @@ func getMetaAndLinks(server string, fsID string) (fsCommon.FSMeta, map[string]fs
 	if err != nil {
 		return fsMeta, nil, err
 	}
-	token, err := common.GetRootToken(&logger.RequestContext{})
+	token, err := utils2.GetRootToken(&logger.RequestContext{})
 	if err != nil {
 		log.Errorf("get root token failed: %v", err)
 		return fsMeta, nil, err

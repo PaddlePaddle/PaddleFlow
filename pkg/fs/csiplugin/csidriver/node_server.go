@@ -27,11 +27,11 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csiconfig"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/mount"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/io"
-	mountUtil "github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/mount"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 )
 
 type nodeServer struct {
@@ -55,7 +55,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context,
 	req *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {
 	log.Infof("Node publish volume request [%+v]", *req)
 	targetPath := req.GetTargetPath()
-	if exist, err := io.Exist(targetPath); err != nil {
+	if exist, err := utils.Exist(targetPath); err != nil {
 		log.Errorf("check path[%s] exist failed: %v", targetPath, err)
 		return &csi.NodePublishVolumeResponse{}, status.Error(codes.Internal, err.Error())
 	} else if !exist {
@@ -67,17 +67,29 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context,
 
 	volumeID := req.VolumeId
 	volumeContext := req.GetVolumeContext()
-	fsID, server, fsInfoBase64, fsCacheBase64 := volumeContext[schema.PfsFsID], volumeContext[schema.PfsServer],
-		volumeContext[schema.PfsFsInfo], volumeContext[schema.PfsFsCache]
-	username, password, targetPath := ns.credentialInfo.usernameRoot, ns.credentialInfo.passwordRoot, targetPath
-	mountInfo, err := mount.ProcessMountInfo(username, password, targetPath, fsID, server, fsInfoBase64, fsCacheBase64, req.GetReadonly())
+
+	csiconfig.UserNameRoot = ns.credentialInfo.usernameRoot
+	csiconfig.PassWordRoot = ns.credentialInfo.passwordRoot
+	// assume that the paddleflow server address will not be changed
+	csiconfig.PaddleFlowServer = volumeContext[schema.PFSServer]
+
+	mountInfo, err := mount.ProcessMountInfo(volumeContext[schema.PFSInfo], volumeContext[schema.PFSCache],
+		targetPath, req.GetReadonly())
 	if err != nil {
 		log.Errorf("ProcessMountInfo err: %v", err)
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 	log.Infof("Node publish mountInfo [%+v]", mountInfo)
+
+	k8sClient, err := utils.GetK8sClient()
+	if err != nil {
+		log.Errorf("get k8s client failed: %v", err)
+		return nil, err
+	}
+	mountInfo.K8sClient = k8sClient
+
 	if err = mountVolume(volumeID, mountInfo, req.GetReadonly()); err != nil {
-		log.Errorf("mount filesystem[%s] failed: %v", volumeContext[schema.PfsFsID], err)
+		log.Errorf("mount filesystem[%s] failed: %v", volumeContext[schema.PFSID], err)
 		return &csi.NodePublishVolumeResponse{}, status.Error(codes.Internal, err.Error())
 	}
 	return &csi.NodePublishVolumeResponse{}, nil
@@ -116,20 +128,21 @@ func (ns *nodeServer) NodeExpandVolume(ctx context.Context,
 }
 
 func mountVolume(volumeID string, mountInfo mount.Info, readOnly bool) error {
-	log.Infof("mountVolume: indepedentMp:%t, readOnly:%t", mountInfo.IndependentMountProcess, readOnly)
-	if !mountInfo.IndependentMountProcess && mountInfo.Type != common.Glusterfs {
+	log.Infof("mountVolume: indepedentMp:%t, readOnly:%t", mountInfo.FS.IndependentMountProcess, readOnly)
+	if !mountInfo.FS.IndependentMountProcess && mountInfo.FS.Type != common.GlusterfsType {
 		// business pods use a separate source path
-		if err := mount.PodMount(volumeID, mountInfo); err != nil {
+		if err := mount.PFSMount(volumeID, mountInfo); err != nil {
 			log.Errorf("MountThroughPod err: %v", err)
 			return err
 		}
-		if err := bindMountVolume(schema.GetBindSource(mountInfo.FsID), mountInfo.TargetPath, readOnly); err != nil {
-			log.Errorf("mountVolume[%s] of fs[%s] failed when bindMountVolume, err: %v", volumeID, mountInfo.FsID, err)
+		if err := bindMountVolume(schema.GetBindSource(mountInfo.FS.ID), mountInfo.TargetPath, readOnly); err != nil {
+			log.Errorf("mountVolume[%s] of fs[%s] failed when bindMountVolume, err: %v", volumeID, mountInfo.FS.ID, err)
 			return err
 		}
 	} else {
-		log.Debugf("independent mount cmd: %s, args: %v", mountInfo.MountCmd, mountInfo.MountArgs)
-		output, err := mountUtil.ExecCmdWithTimeout(mountInfo.MountCmd, mountInfo.MountArgs)
+		cmd := mountInfo.MountCmd()
+		log.Debugf("independent mount cmd: %s", cmd)
+		output, err := utils.ExecCmdWithTimeout(cmd, []string{})
 		if err != nil {
 			log.Errorf("exec mount failed: [%v], output[%v]", err, string(output))
 			return err
@@ -145,17 +158,17 @@ func bindMountVolume(sourcePath, mountPath string, readOnly bool) error {
 		return err
 	}
 	// check bind source
-	isMountPoint, err := mountUtil.IsMountPoint(sourcePath)
+	isMountPoint, err := utils.IsMountPoint(sourcePath)
 	if err != nil {
 		log.Errorf("bind source %s has err :%v. unmounting ...", sourcePath, err)
-		err := mountUtil.ManualUnmount(sourcePath)
+		err := utils.ManualUnmount(sourcePath)
 		if err != nil {
 			log.Errorf("unmount mountPoint[%s] failed: %v", sourcePath, err)
 			return err
 		}
 		log.Infof("bind source %s unmounted", sourcePath)
 		// check again
-		isMountPoint, err = mountUtil.IsMountPoint(sourcePath)
+		isMountPoint, err = utils.IsMountPoint(sourcePath)
 		if err != nil {
 			err := fmt.Errorf("unmount bind source %s failed: %v", sourcePath, err)
 			log.Errorf(err.Error())
@@ -168,16 +181,16 @@ func bindMountVolume(sourcePath, mountPath string, readOnly bool) error {
 		return err
 	}
 	// check bind target
-	isMountPoint, err = mountUtil.IsMountPoint(mountPath)
+	isMountPoint, err = utils.IsMountPoint(mountPath)
 	if err != nil {
 		log.Errorf("bind target %s has err :%v. unmounting ...", mountPath, err)
-		err := mountUtil.ManualUnmount(mountPath)
+		err := utils.ManualUnmount(mountPath)
 		if err != nil {
 			log.Errorf("unmount mountPoint[%s] failed: %v", mountPath, err)
 			return err
 		}
 		// check again
-		isMountPoint, err = mountUtil.IsMountPoint(mountPath)
+		isMountPoint, err = utils.IsMountPoint(mountPath)
 		if err != nil {
 			err := fmt.Errorf("unmount bind target %s failed: %v", mountPath, err)
 			log.Errorf(err.Error())
@@ -186,7 +199,7 @@ func bindMountVolume(sourcePath, mountPath string, readOnly bool) error {
 		log.Infof("bind target %s unmounted", mountPath)
 	}
 	if !isMountPoint {
-		output, err := mountUtil.ExecMountBind(sourcePath, mountPath, readOnly)
+		output, err := utils.ExecMountBind(sourcePath, mountPath, readOnly)
 		if err != nil {
 			log.Errorf("exec mount bind failed: %v, output[%s]", err, string(output))
 			return err

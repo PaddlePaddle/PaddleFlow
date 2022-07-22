@@ -23,6 +23,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/core"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 )
 
 var Client *_Client
@@ -37,7 +38,7 @@ type _Client struct {
 }
 
 func NewClient(fsID string, c *core.PaddleFlowClient, token string) (*_Client, error) {
-	userName, fsName, err := common.GetFsNameAndUserNameByFsID(fsID)
+	userName, fsName, err := utils.GetFsNameAndUserNameByFsID(fsID)
 	if err != nil {
 		return nil, err
 	}

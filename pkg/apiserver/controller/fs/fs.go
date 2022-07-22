@@ -32,7 +32,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
-	fsCommon "github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
@@ -122,7 +122,7 @@ type CreateFileSystemClaimsResponse struct {
 }
 
 func (s *FileSystemService) HasFsPermission(username, fsID string) (bool, error) {
-	fsName, owner := fsCommon.FsIDToFsNameUsername(fsID)
+	fsName, owner := utils.FsIDToFsNameUsername(fsID)
 	fs, err := s.GetFileSystem(owner, fsName)
 	if err != nil {
 		return false, err

@@ -28,7 +28,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/controller"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csiconfig"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csidriver"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/k8s"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/monitor"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/version"
 )
@@ -59,7 +59,7 @@ func init() {
 		os.Exit(0)
 	}
 
-	k8sClient, err := k8s.GetK8sClient()
+	k8sClient, err := utils.GetK8sClient()
 	if err != nil {
 		log.Errorf("get k8s client failed: %v", err)
 		os.Exit(0)

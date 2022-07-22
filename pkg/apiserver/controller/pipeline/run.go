@@ -35,7 +35,7 @@ import (
 	errors2 "github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
-	fsCommon "github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/pipeline"
 	pplcommon "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/trace_logger"
@@ -44,7 +44,7 @@ import (
 var wfMap = make(map[string]*pipeline.Workflow, 0)
 
 const (
-	JsonFsOptions   = "fs_options" //由于在获取BodyMap的FsOptions前已经转为下划线形式，因此这里为fs_options
+	JsonFsOptions   = "fs_options" // 由于在获取BodyMap的FsOptions前已经转为下划线形式，因此这里为fs_options
 	JsonUserName    = "username"
 	JsonDescription = "description"
 	JsonFlavour     = "flavour"
@@ -268,7 +268,7 @@ func ProcessJsonAttr(bodyMap map[string]interface{}) error {
 		JsonQueue:   nil,
 		JsonEnv:     nil,
 
-		//这2个字段，之前已经处理过，后续的Json解析逻辑无需处理，只需剔除即可
+		// 这2个字段，之前已经处理过，后续的Json解析逻辑无需处理，只需剔除即可
 		JsonDescription: nil,
 		JsonUserName:    nil,
 	}
@@ -1066,7 +1066,7 @@ func restartRun(run models.Run, isResume bool) (string, error) {
 	}
 	run.WorkflowSource = wfs
 
-	_, userName := fsCommon.FsIDToFsNameUsername(run.FsID)
+	_, userName := utils.FsIDToFsNameUsername(run.FsID)
 	if err := checkFs(userName, &run.WorkflowSource); err != nil {
 		logger.LoggerForRun(run.ID).Errorf("check fs failed. err:%v\n", err)
 		return "", updateRunStatusAndMsg(run.ID, common.StatusRunFailed, err.Error())

@@ -306,7 +306,7 @@ func Test_checkFsDir(t *testing.T) {
 		{
 			name: "dir ok",
 			args: args{
-				fsType: common.HDFS,
+				fsType: fsCommon.HDFSType,
 				url:    "hdfs://192.168.1.1:9000,192.168.1.2:9000/myfs",
 			},
 			wantErr: false,
@@ -314,7 +314,7 @@ func Test_checkFsDir(t *testing.T) {
 		{
 			name: "dir nested up",
 			args: args{
-				fsType: common.HDFS,
+				fsType: fsCommon.HDFSType,
 				url:    "hdfs://192.168.1.3:9000/data/mypath/path",
 			},
 			wantErr: true,
@@ -322,7 +322,7 @@ func Test_checkFsDir(t *testing.T) {
 		{
 			name: "dir nested down",
 			args: args{
-				fsType: common.HDFS,
+				fsType: fsCommon.HDFSType,
 				url:    "hdfs://192.168.1.3:9000/data",
 			},
 			wantErr: true,
@@ -330,7 +330,7 @@ func Test_checkFsDir(t *testing.T) {
 		{
 			name: "local",
 			args: args{
-				fsType: common.Local,
+				fsType: fsCommon.LocalType,
 				url:    "local://mypath/data",
 			},
 			wantErr: false,
@@ -338,7 +338,7 @@ func Test_checkFsDir(t *testing.T) {
 		{
 			name: "s3",
 			args: args{
-				fsType: common.S3,
+				fsType: fsCommon.S3Type,
 				url:    "s3://bucket/datatest",
 				properties: map[string]string{
 					fsCommon.Endpoint: "s3.xxx.com",
@@ -349,7 +349,7 @@ func Test_checkFsDir(t *testing.T) {
 		{
 			name: "mock",
 			args: args{
-				fsType: common.Mock,
+				fsType: fsCommon.MockType,
 				url:    "mock://mypath/data",
 			},
 			wantErr: false,
