@@ -34,7 +34,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	fuse "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/fs"
 	fsCommon "github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
-	utils2 "github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
+	fsUtils "github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
@@ -515,7 +515,7 @@ func (lr *LinkRouter) getLink(w http.ResponseWriter, r *http.Request) {
 }
 
 func linkResponseFromModel(link model.Link) *api.LinkResponse {
-	fsName, _ := utils2.FsIDToFsNameUsername(link.FsID)
+	fsName, _ := fsUtils.FsIDToFsNameUsername(link.FsID)
 	return &api.LinkResponse{
 		FsName:        fsName,
 		FsPath:        link.FsPath,

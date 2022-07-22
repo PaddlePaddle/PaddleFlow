@@ -214,7 +214,7 @@ func NewLocalMountFileSystem(properties map[string]interface{}) (UnderFileStorag
 	subpath := properties[common.SubPath].(string)
 
 	switch mountType {
-	case common.GlusterfsType:
+	case common.GlusterFSType:
 		sourcePath = addr + ":" + subpath
 		args = []string{"-t", "glusterfs"}
 	case common.CFSType:
@@ -253,6 +253,6 @@ func NewLocalMountFileSystem(properties map[string]interface{}) (UnderFileStorag
 }
 
 func init() {
-	RegisterUFS(common.GlusterfsType, NewLocalMountFileSystem)
+	RegisterUFS(common.GlusterFSType, NewLocalMountFileSystem)
 	RegisterUFS(common.CFSType, NewLocalFileSystem)
 }

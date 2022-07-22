@@ -112,20 +112,6 @@ func TestGetOptions(t *testing.T) {
 		CreatedAt:  time.Now(),
 		UpdatedAt:  time.Now(),
 	}
-
-	glusterFS := model.FileSystem{
-		Model: model.Model{
-			ID:        "fs-root-glusterfs",
-			CreatedAt: time.Now(),
-			UpdatedAt: time.Now(),
-		},
-		UserName:      "root",
-		Name:          "glusterfs",
-		Type:          common.GlusterfsType,
-		SubPath:       "default-volume",
-		ServerAddress: "127.0.0.1",
-	}
-
 	type args struct {
 		mountInfo Info
 		readOnly  bool
@@ -163,16 +149,6 @@ func TestGetOptions(t *testing.T) {
 				"--file-mode=0666", "--dir-mode=0777"},
 		},
 		{
-			name: "test-glusterfs",
-			args: args{
-				mountInfo: Info{
-					FS:         glusterFS,
-					TargetPath: "/target/testPath",
-				},
-			},
-			want: []string{"127.0.0.1:default-volume", "/target/testPath"},
-		},
-		{
 			name: "test-pfs-fuse-cache-readOnly",
 			args: args{
 				mountInfo: Info{
@@ -183,7 +159,7 @@ func TestGetOptions(t *testing.T) {
 				},
 				readOnly: true,
 			},
-			want: []string{"--fs-info=eyJpZCI6ImZzLXJvb3QtdGVzdGZzIiwiY3JlYXRlVGltZSI6IiIsIm5hbWUiOiJ0ZXN0ZnMiLCJ0eXBlIjoiczMiLCJzZXJ2ZXJBZGRyZXNzIjoic2VydmVyX2FkZHJlc3MiLCJzdWJQYXRoIjoiL3N1cGF0aCIsInByb3BlcnRpZXMiOnsiYWNjZXNzS2V5IjoiYWNjZXNzS2V5IiwiYnVja2V0IjoiYnVja2V0IiwiZW5kcG9pbnQiOiJzZXJ2ZXJfYWRkcmVzcyIsInJlZ2lvbiI6ImJqIiwic2VjcmV0S2V5Ijoic2VjcmV0S2V5In0sInVzZXJOYW1lIjoicm9vdCIsImluZGVwZW5kZW50TW91bnRQcm9jZXNzIjpmYWxzZX0=",
+			want: []string{"--fs-info=" + fsBase64,
 				"--fs-id=fs-root-testfs", "--mount-options=ro", "--block-size=4096", "--data-cache-path=" + FusePodCachePath + DataCacheDir,
 				"--meta-cache-driver=leveldb", "--meta-cache-path=" + FusePodCachePath + MetaCacheDir,
 				"--file-mode=0666", "--dir-mode=0777"},
@@ -245,7 +221,7 @@ func TestInfo_MountCmd(t *testing.T) {
 		},
 		UserName:      "root",
 		Name:          "glusterfs",
-		Type:          common.GlusterfsType,
+		Type:          common.GlusterFSType,
 		SubPath:       "default-volume",
 		ServerAddress: "127.0.0.1",
 	}

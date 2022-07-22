@@ -69,7 +69,7 @@ var URLPrefix = map[string]bool{
 	fsCommon.SFTPType:      true,
 	fsCommon.MockType:      true,
 	fsCommon.CFSType:       true,
-	fsCommon.GlusterfsType: true,
+	fsCommon.GlusterFSType: true,
 }
 
 const FsNameMaxLen = 100
