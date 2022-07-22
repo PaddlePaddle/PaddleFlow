@@ -70,8 +70,7 @@ func GetOptions(mountInfo Info, readOnly bool) []string {
 	var options []string
 
 	if mountInfo.FS.Type == common.GlusterfsType {
-		options = append(options, strings.Join([]string{mountInfo.FS.ServerAddress, mountInfo.FS.SubPath}, ":"),
-			mountInfo.TargetPath)
+
 	} else if mountInfo.FS.IndependentMountProcess {
 		options = append(options, fmt.Sprintf("--%s=%s", "fs-info", mountInfo.FSBase64Str))
 		options = append(options, fmt.Sprintf("--%s=%s", "fs-id", mountInfo.FS.ID))
@@ -169,7 +168,8 @@ func (mountInfo *Info) MountCmd() string {
 	var args []string
 	if mountInfo.FS.Type == common.GlusterfsType {
 		cmd = mountName
-		args = append(args, "-t", mountInfo.FS.Type)
+		args = append(args, "-t", mountInfo.FS.Type,
+			strings.Join([]string{mountInfo.FS.ServerAddress, mountInfo.FS.SubPath}, ":"), mountInfo.TargetPath)
 		if len(mountInfo.Options) != 0 {
 			args = append(args, "-o", strings.Join(mountInfo.Options, ","))
 		}

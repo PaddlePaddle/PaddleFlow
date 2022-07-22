@@ -65,7 +65,7 @@ func TestKubeRuntimePVAndPVC(t *testing.T) {
 	assert.Equal(t, fsCache.MetaDriver, mountInfo.CacheConfig.MetaDriver)
 	assert.Equal(t, fsCache.BlockSize, mountInfo.CacheConfig.BlockSize)
 
-	// no CacheConfig config
+	// no config
 	fsCache = model.FSCacheConfig{}
 	fsCacheStr, err = json.Marshal(fsCache)
 	assert.Nil(t, err)
@@ -157,7 +157,7 @@ func TestGetOptions(t *testing.T) {
 					CacheConfig: fsCache,
 				},
 			},
-			want: []string{"--fs-info=eyJpZCI6ImZzLXJvb3QtdGVzdGZzIiwiY3JlYXRlVGltZSI6IiIsIm5hbWUiOiJ0ZXN0ZnMiLCJ0eXBlIjoiczMiLCJzZXJ2ZXJBZGRyZXNzIjoic2VydmVyX2FkZHJlc3MiLCJzdWJQYXRoIjoiL3N1cGF0aCIsInByb3BlcnRpZXMiOnsiYWNjZXNzS2V5IjoiYWNjZXNzS2V5IiwiYnVja2V0IjoiYnVja2V0IiwiZW5kcG9pbnQiOiJzZXJ2ZXJfYWRkcmVzcyIsInJlZ2lvbiI6ImJqIiwic2VjcmV0S2V5Ijoic2VjcmV0S2V5In0sInVzZXJOYW1lIjoicm9vdCIsImluZGVwZW5kZW50TW91bnRQcm9jZXNzIjpmYWxzZX0=",
+			want: []string{"--fs-info=" + fsBase64,
 				"--fs-id=fs-root-testfs", "--block-size=4096", "--data-cache-path=" + FusePodCachePath + DataCacheDir,
 				"--meta-cache-driver=leveldb", "--meta-cache-path=" + FusePodCachePath + MetaCacheDir,
 				"--file-mode=0666", "--dir-mode=0777"},
@@ -199,6 +199,8 @@ func TestGetOptions(t *testing.T) {
 }
 
 func TestInfo_MountCmd(t *testing.T) {
+	targetPath := "/targetPath/test"
+
 	fs := model.FileSystem{
 		Model: model.Model{
 			ID:        "fs-root-testfs",
@@ -235,18 +237,23 @@ func TestInfo_MountCmd(t *testing.T) {
 		UpdatedAt:  time.Now(),
 	}
 
-	// glusterFS := model.FileSystem{
-	// 	Model: model.Model{
-	// 		ID:        "fs-root-glusterfs",
-	// 		CreatedAt: time.Now(),
-	// 		UpdatedAt: time.Now(),
-	// 	},
-	// 	UserName:      "root",
-	// 	Name:          "glusterfs",
-	// 	Type:          common.GlusterfsType,
-	// 	SubPath:       "default-volume",
-	// 	ServerAddress: "127.0.0.1",
-	// }
+	glusterFS := model.FileSystem{
+		Model: model.Model{
+			ID:        "fs-root-glusterfs",
+			CreatedAt: time.Now(),
+			UpdatedAt: time.Now(),
+		},
+		UserName:      "root",
+		Name:          "glusterfs",
+		Type:          common.GlusterfsType,
+		SubPath:       "default-volume",
+		ServerAddress: "127.0.0.1",
+	}
+	glusterfsInfo := Info{
+		FS:         glusterFS,
+		TargetPath: targetPath,
+	}
+	glusterfsOption := GetOptions(glusterfsInfo, false)
 
 	fsInde := model.FileSystem{
 		Model: model.Model{
@@ -274,7 +281,6 @@ func TestInfo_MountCmd(t *testing.T) {
 	fsStr2, err := json.Marshal(fsInde)
 	assert.Nil(t, err)
 	fsBase64Inde := base64.StdEncoding.EncodeToString(fsStr2)
-	targetPath := "/targetPath/test"
 
 	info := Info{
 		CacheConfig: fsCache,
@@ -330,6 +336,15 @@ func TestInfo_MountCmd(t *testing.T) {
 				" --fs-id=fs-root-testfs --block-size=4096 --data-cache-path=/data/paddleflow-FS/mnt " +
 				"--meta-cache-driver=leveldb --meta-cache-path=/data/paddleflow-FS/mnt " +
 				"--file-mode=0644 --dir-mode=0755",
+		},
+		{
+			name: "test-glusterfs",
+			fields: fields{
+				FS:         glusterFS,
+				Options:    glusterfsOption,
+				TargetPath: targetPath,
+			},
+			want: "mount-t glusterfs 127.0.0.1:default-volume /targetPath/test",
 		},
 	}
 	for _, tt := range tests {
