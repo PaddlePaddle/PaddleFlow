@@ -34,9 +34,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/common"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/k8s"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/mount"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 )
 
 var mountPointController *MountPointController
@@ -51,6 +49,7 @@ var checkerUpdateChan = make(chan bool)
 type pvParams struct {
 	fsID   string
 	server string
+	fsInfo string
 }
 
 // MountPointController will check the status of the mount point and remount unconnected mount point
@@ -79,7 +78,7 @@ func GetMountPointController(nodeID string) *MountPointController {
 }
 
 func Initialize(nodeID string, masterNodesAware bool) *MountPointController {
-	k8sClient, err := k8s.New(common.GetK8SConfigPathEnv(), common.GetK8STimeoutEnv())
+	k8sClient, err := utils.New(utils.GetK8SConfigPathEnv(), utils.GetK8STimeoutEnv())
 	if err != nil {
 		log.Errorf("init k8sClient failed: %v", err)
 		return nil
@@ -93,7 +92,7 @@ func Initialize(nodeID string, masterNodesAware bool) *MountPointController {
 		masterNodesAware: masterNodesAware,
 		podMap:           make(map[string]v1.Pod),
 		removePods:       sync.Map{},
-		rateLimiter:      make(chan struct{}, common.GetPodsHandleConcurrency()),
+		rateLimiter:      make(chan struct{}, utils.GetPodsHandleConcurrency()),
 
 		pvInformer:  pvInformer,
 		pvLister:    pvInformer.Lister(),
@@ -166,7 +165,7 @@ func (m *MountPointController) Start(stopCh <-chan struct{}) {
 		case <-checkerStopChan:
 			log.Info("MountPointController stopped")
 			return
-		case <-time.After(time.Duration(common.GetMountPointCheckIntervalTime()) * time.Second):
+		case <-time.After(time.Duration(utils.GetMountPointCheckIntervalTime()) * time.Second):
 		}
 	}
 }
@@ -179,7 +178,7 @@ func (m *MountPointController) RemovePod(podUID string) {
 // UpdatePodMap Synchronize all pod information of the node from kubelet
 func (m *MountPointController) UpdatePodMap() error {
 	log.Debug("begin to update pods map")
-	client, err := k8s.GetK8sClient()
+	client, err := utils.GetK8sClient()
 	if err != nil {
 		log.Errorf("get k8s client failed: %v", err)
 		return err
@@ -218,7 +217,7 @@ func (m *MountPointController) WaitToUpdatePodMap() {
 		case <-checkerStopChan:
 			log.Info("WaitToUpdate stopped")
 			return
-		case <-time.After(time.Duration(common.GetPodsUpdateIntervalTime()) * time.Second):
+		case <-time.After(time.Duration(utils.GetPodsUpdateIntervalTime()) * time.Second):
 			checkerUpdateChan <- true
 		}
 	}
@@ -254,10 +253,10 @@ func (m *MountPointController) CheckAndRemountVolumeMount(volumeMount volumeMoun
 	}
 
 	// pods need to restore source mount path mountpoints
-	mountPath := common.GetVolumeBindMountPathByPod(volumeMount.PodUID, volumeMount.VolumeName)
+	mountPath := utils.GetVolumeBindMountPathByPod(volumeMount.PodUID, volumeMount.VolumeName)
 	i := 0
 	for {
-		isMount, err := mount.IsMountPoint(schema.GetBindSource(fsMountParams.fsID))
+		isMount, err := utils.IsMountPoint(schema.GetBindSource(fsMountParams.fsID))
 		if isMount && err == nil {
 			break
 		}
@@ -279,7 +278,7 @@ func (m *MountPointController) CheckAndRemountVolumeMount(volumeMount volumeMoun
 // CheckIfNeedRemount The conditions for remount: the path is the mount point and the error message returned by the `mountpoint` command
 // contains "Transport endpoint is not connected"
 func (m *MountPointController) CheckIfNeedRemount(path string) bool {
-	isMountPoint, err := mount.IsMountPoint(path)
+	isMountPoint, err := utils.IsMountPoint(path)
 	log.Tracef("mountpoint path[%s] : isMountPoint[%t], err:%v", path, isMountPoint, err)
 	if err != nil && isMountPoint {
 		return true
@@ -290,18 +289,19 @@ func (m *MountPointController) CheckIfNeedRemount(path string) bool {
 func (m *MountPointController) Remount(fsID, mountPath string, readOnly bool) error {
 	log.Tracef("Remount: fsID[%s], mountPath[%s]", fsID, mountPath)
 	// umount old mount point
-	output, err := mount.ExecCmdWithTimeout(mount.UMountCmdName, []string{mountPath})
+	output, err := utils.ExecCmdWithTimeout(utils.UMountCmdName, []string{mountPath})
 	if err != nil {
 		log.Errorf("exec cmd[umount %s] failed: %v, output[%s]", mountPath, err, string(output))
-		if !strings.Contains(string(output), mount.NotMounted) {
-			if err := mount.ForceUnmount(mountPath); err != nil {
+		if !strings.Contains(string(output), utils.NotMounted) {
+			if err := utils.ForceUnmount(mountPath); err != nil {
 				return err
 			}
 		}
 	}
+
 	// bind source path to mount path
 	log.Infof("Remount: bind source[%s] to target[%s], readOnly[%t]", schema.GetBindSource(fsID), mountPath, readOnly)
-	output, err = mount.ExecMountBind(schema.GetBindSource(fsID), mountPath, readOnly)
+	output, err = utils.ExecMountBind(schema.GetBindSource(fsID), mountPath, readOnly)
 	if err != nil {
 		log.Errorf("exec mount bind cmd failed: %v, output[%s]", err, string(output))
 		return err
@@ -354,10 +354,12 @@ func (m *MountPointController) pvAddedUpdated(obj interface{}) {
 }
 
 func getPFSParameters(params map[string]string) pvParams {
-	fsID := params[schema.PfsFsID]
-	server := params[schema.PfsServer]
+	fsID := params[schema.PFSID]
+	server := params[schema.PFSServer]
+	fsInfo := params[schema.PFSInfo]
 	return pvParams{
 		fsID:   fsID,
 		server: server,
+		fsInfo: fsInfo,
 	}
 }

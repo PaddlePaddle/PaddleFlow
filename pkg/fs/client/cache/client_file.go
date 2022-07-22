@@ -28,7 +28,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/mount"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 )
 
 const (
@@ -227,7 +227,7 @@ func (c *fileDataCache) exist(key string) bool {
 }
 
 func (c *fileDataCache) updateCapacity() error {
-	output, err := mount.ExecCmdWithTimeout("df", []string{"-k", c.dir})
+	output, err := utils.ExecCmdWithTimeout("df", []string{"-k", c.dir})
 	if err != nil {
 		log.Errorf("df %s %v ", c.dir, err)
 		return err
