@@ -33,6 +33,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/utils"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
@@ -285,7 +286,13 @@ func checkJobSpec(ctx *logger.RequestContext, jobSpec *JobSpec) error {
 // validateQueue validate queue and set queueID in request.SchedulingPolicy
 func validateQueue(ctx *logger.RequestContext, schedulingPolicy *SchedulingPolicy) error {
 	if schedulingPolicy.Queue == "" {
-		schedulingPolicy.Queue = config.DefaultQueueName
+		if config.GlobalServerConfig.Job.IsSingleCluster {
+			schedulingPolicy.Queue = config.DefaultQueueName
+		} else {
+			err := fmt.Errorf("queue is empty")
+			ctx.Logging().Errorf("Failed to check Queue: %v", err)
+			return err
+		}
 	}
 	queueName := schedulingPolicy.Queue
 	queue, err := models.GetQueueByName(queueName)
@@ -378,7 +385,7 @@ func validateFileSystem(userName string, fs *schema.FileSystem) error {
 		log.Debugf("mountPath is %s, changes to .", fs.MountPath)
 		fs.MountPath = filepath.Join(schema.DefaultFSMountPath, fs.ID)
 	}
-	mountPath := filepath.Clean(fs.MountPath)
+	mountPath := utils.MountPathClean(fs.MountPath)
 	if mountPath == "/" || mountPath == "." || mountPath == ".." {
 		err := fmt.Errorf("mountPath cannot be '/' or '.' or '..' in fsName[%s] fsID[%s]", fsName, fsID)
 		log.Errorf("validateFileSystem failed, err: %v", err)
