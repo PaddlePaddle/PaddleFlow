@@ -19,9 +19,11 @@ package executor
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	log "github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	sparkapp "github.com/PaddlePaddle/PaddleFlow/pkg/apis/spark-operator/sparkoperator.k8s.io/v1beta2"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
@@ -62,29 +64,73 @@ func (sj *SparkJob) validateJob(sparkApp *sparkapp.SparkApplication) error {
 		log.Errorf("validate custom yaml failed, err: %v", err)
 		return err
 	}
+
 	return nil
 }
 
 func (sj *SparkJob) validateCustomYaml(sparkApp *sparkapp.SparkApplication) error {
 	log.Infof("validate custom yaml for spark job: %v, sparkApp from yaml: %v", sj, sparkApp)
+	if err := validateSparkResource(sparkApp); err != nil {
+		err = fmt.Errorf("validate spark resource failed, err: %v", err)
+		log.Errorln(err)
+		return err
+	}
+	return nil
+}
+
+func validateSparkResource(sparkApp *sparkapp.SparkApplication) error {
 	cores := int32(k8s.DefaultCpuRequest)
 	coreLimit := strconv.Itoa(k8s.DefaultCpuRequest)
-	memory := fmt.Sprintf("%dMi", k8s.DefaultMemRequest/1024)
-
+	memoryQuantity := resource.NewQuantity(k8s.DefaultMemRequest, resource.BinarySI)
+	memory := memoryQuantity.String()
 	// validateTemplateResources for driver
-	if sparkApp.Spec.Driver.CoreLimit == nil || sparkApp.Spec.Driver.Memory == nil {
+	if sparkApp.Spec.Driver.CoreLimit == nil {
 		sparkApp.Spec.Driver.Cores = &cores
 		sparkApp.Spec.Driver.CoreLimit = &coreLimit
+	}
+	if sparkApp.Spec.Driver.Memory == nil {
 		sparkApp.Spec.Driver.Memory = &memory
 	}
-	// validateTemplateResources for executor
-	if sparkApp.Spec.Executor.CoreLimit == nil || sparkApp.Spec.Executor.Memory == nil {
-		sparkApp.Spec.Executor.Cores = &cores
-		sparkApp.Spec.Executor.CoreLimit = &coreLimit
-		sparkApp.Spec.Executor.Memory = &memory
+	if err := validateSparkMemory(sparkApp.Spec.Driver.Memory); err != nil {
+		err = fmt.Errorf("validate spark.driver memory failed, err: %v", err)
+		log.Errorln(err)
+		return err
 	}
 
+	// validateTemplateResources for executor
+	if sparkApp.Spec.Executor.CoreLimit == nil {
+		sparkApp.Spec.Executor.Cores = &cores
+		sparkApp.Spec.Executor.CoreLimit = &coreLimit
+	}
+	if sparkApp.Spec.Executor.Memory == nil {
+		sparkApp.Spec.Executor.Memory = &memory
+	}
+	if err := validateSparkMemory(sparkApp.Spec.Executor.Memory); err != nil {
+		err = fmt.Errorf("validate spark.Executor memory failed, err: %v", err)
+		log.Errorln(err)
+		return err
+	}
 	return nil
+}
+
+// validateSparkMemory the spark memory can only accept DecimalSI, so BinarySI would be converted to DecimalSI
+func validateSparkMemory(memory *string) error {
+	memoryQuantity, err := resource.ParseQuantity(*memory)
+	if err != nil {
+		log.Errorf("parse spark memory failed, err: %v", err)
+		return err
+	}
+	switch memoryQuantity.Format {
+	case resource.BinarySI:
+		*memory = strings.TrimSuffix(memoryQuantity.String(), "i")
+		log.Debugf("convert memory to decimalSI-style: %v", *memory)
+	case resource.DecimalSI:
+		return nil
+	default:
+		err = fmt.Errorf("the format of memory %s is not supported: %v", *memory, memoryQuantity.Format)
+		log.Errorln(err)
+	}
+	return err
 }
 
 // patchSparkAppVariable patch env variable to jobApplication, the order of patches following spark crd
