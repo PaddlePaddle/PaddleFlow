@@ -51,7 +51,7 @@ const (
 
 func IsValidFsMetaDriver(metaDriver string) bool {
 	switch metaDriver {
-	case FsMetaDefault, FsMetaMemory, FsMetaLevelDB, FsMetaNutsDB:
+	case FsMetaDefault, FsMetaMemory, FsMetaLevelDB:
 		return true
 	default:
 		return false
