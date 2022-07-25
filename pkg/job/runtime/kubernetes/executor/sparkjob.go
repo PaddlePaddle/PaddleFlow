@@ -119,16 +119,9 @@ func validateSparkMemory(memory *string) error {
 		log.Errorf("parse spark memory failed, err: %v", err)
 		return err
 	}
-
-	switch memoryQuantity.Format {
-	case resource.BinarySI:
-		// convert to DecimalSI
+	if memoryQuantity.Format == resource.BinarySI {
 		*memory = strings.TrimSuffix(memoryQuantity.String(), "i")
 		log.Debugf("convert memory to decimalSI-style: %v", *memory)
-	case resource.DecimalSI:
-		err = fmt.Errorf("memory should be in binary-style (such as Ki/Mi/Gi), but got: %v", *memory)
-	default:
-		err = fmt.Errorf("memory but got: %v, which is unsupported now", *memory)
 	}
 	return err
 }
