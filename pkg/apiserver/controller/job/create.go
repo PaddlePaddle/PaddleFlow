@@ -33,7 +33,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/utils"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
@@ -385,7 +384,7 @@ func validateFileSystem(userName string, fs *schema.FileSystem) error {
 		log.Debugf("mountPath is %s, changes to .", fs.MountPath)
 		fs.MountPath = filepath.Join(schema.DefaultFSMountPath, fs.ID)
 	}
-	mountPath := utils.MountPathClean(fs.MountPath)
+	mountPath := filepath.Clean(fs.MountPath)
 	if mountPath == "/" || mountPath == "." || mountPath == ".." {
 		err := fmt.Errorf("mountPath cannot be '/' or '.' or '..' in fsName[%s] fsID[%s]", fsName, fsID)
 		log.Errorf("validateFileSystem failed, err: %v", err)
@@ -400,7 +399,6 @@ func validateFileSystem(userName string, fs *schema.FileSystem) error {
 	// fill back
 	fs.ID = fileSystem.ID
 	fs.Name = fileSystem.Name
-	fs.MountPath = mountPath
 
 	return nil
 }

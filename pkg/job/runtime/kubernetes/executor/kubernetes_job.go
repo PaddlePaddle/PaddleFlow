@@ -38,6 +38,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/utils"
 	locationAwareness "github.com/PaddlePaddle/PaddleFlow/pkg/fs/location-awareness"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 )
@@ -892,12 +893,12 @@ func appendMountsIfAbsent(volumeMounts []corev1.VolumeMount, newElements []corev
 	// deduplication
 	volumeMountsDict := make(map[string]string)
 	for _, cur := range volumeMounts {
-		mountPath := filepath.Clean(cur.MountPath)
+		mountPath := utils.MountPathClean(cur.MountPath)
 		volumeMountsDict[mountPath] = cur.Name
 	}
 
 	for _, cur := range newElements {
-		mountPath := filepath.Clean(cur.MountPath)
+		mountPath := utils.MountPathClean(cur.MountPath)
 		if _, exist := volumeMountsDict[mountPath]; exist {
 			log.Debugf("moutPath %s in volumeMount %s has been created in jobTemplate", cur.MountPath, cur.Name)
 			continue

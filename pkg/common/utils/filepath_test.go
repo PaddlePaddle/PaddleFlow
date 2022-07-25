@@ -67,6 +67,8 @@ var cleantests = []PathTest{
 	// root dir
 	{"./../def", "/def"},
 	{"../../def", "/def"},
+
+	{"/..", "/"},
 }
 
 var wincleantests = []PathTest{
