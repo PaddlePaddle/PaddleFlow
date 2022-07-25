@@ -72,6 +72,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context,
 	csiconfig.PassWordRoot = ns.credentialInfo.passwordRoot
 	// assume that the paddleflow server address will not be changed
 	csiconfig.PaddleFlowServer = volumeContext[schema.PFSServer]
+	csiconfig.ClusterID = volumeContext[schema.PFSClusterID]
 
 	mountInfo, err := mount.ProcessMountInfo(volumeContext[schema.PFSInfo], volumeContext[schema.PFSCache],
 		targetPath, req.GetReadonly())

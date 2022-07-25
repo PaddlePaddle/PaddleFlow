@@ -36,6 +36,15 @@ const (
 	ReadOnly                              = "ro"
 )
 
+type Info struct {
+	CacheConfig model.FSCacheConfig
+	FS          model.FileSystem
+	FSBase64Str string
+	TargetPath  string
+	Options     []string
+	K8sClient   utils.Client
+}
+
 func ProcessMountInfo(fsInfoBase64, fsCacheBase64, targetPath string, readOnly bool) (Info, error) {
 	// FS info
 	fs, err := utils.ProcessFSInfo(fsInfoBase64)

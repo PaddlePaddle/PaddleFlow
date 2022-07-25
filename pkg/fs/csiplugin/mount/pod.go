@@ -52,15 +52,6 @@ const (
 
 var umountLock sync.RWMutex
 
-type Info struct {
-	CacheConfig model.FSCacheConfig
-	FS          model.FileSystem
-	FSBase64Str string
-	TargetPath  string
-	Options     []string
-	K8sClient   utils.Client
-}
-
 func PodUnmount(volumeID string, mountInfo Info) error {
 	podName := GeneratePodNameByVolumeID(volumeID)
 	log.Infof("PodUnmount pod name is %s", podName)
