@@ -611,7 +611,7 @@ func (kr *KubeRuntime) CreatePV(namespace, fsID string) (string, error) {
 		log.Errorf(err.Error())
 		return "", err
 	}
-	if err := buildPV(newPV, fsID); err != nil {
+	if err := kr.buildPV(newPV, fsID); err != nil {
 		log.Errorf(err.Error())
 		return "", err
 	}
@@ -622,7 +622,7 @@ func (kr *KubeRuntime) CreatePV(namespace, fsID string) (string, error) {
 	return pv.Name, nil
 }
 
-func buildPV(pv *apiv1.PersistentVolume, fsID string) error {
+func (kr *KubeRuntime) buildPV(pv *apiv1.PersistentVolume, fsID string) error {
 	// filesystem
 	fs, err := storage.Filesystem.GetFileSystemWithFsID(fsID)
 	if err != nil {
@@ -652,6 +652,7 @@ func buildPV(pv *apiv1.PersistentVolume, fsID string) error {
 
 	// set VolumeAttributes
 	pv.Spec.CSI.VolumeHandle = pv.Name
+	pv.Spec.CSI.VolumeAttributes[schema.PFSClusterID] = kr.cluster.ID
 	pv.Spec.CSI.VolumeAttributes[schema.PFSServer] = config.GetServiceAddress()
 	pv.Spec.CSI.VolumeAttributes[schema.PFSID] = fsID
 	pv.Spec.CSI.VolumeAttributes[schema.PFSInfo] = base64.StdEncoding.EncodeToString(fsStr)

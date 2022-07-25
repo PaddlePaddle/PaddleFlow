@@ -27,10 +27,11 @@ const (
 	FSIDFormat      = "$(pfs.fs.id)"
 	NameSpaceFormat = "$(namespace)"
 
-	PFSID     = "pfs.fs.id"
-	PFSInfo   = "pfs.fs.info"
-	PFSCache  = "pfs.fs.cache"
-	PFSServer = "pfs.server"
+	PFSID        = "pfs.fs.id"
+	PFSInfo      = "pfs.fs.info"
+	PFSCache     = "pfs.fs.cache"
+	PFSServer    = "pfs.server"
+	PFSClusterID = "pfs.cluster.id"
 
 	FusePodMntDir = "/home/paddleflow/mnt"
 
