@@ -78,7 +78,7 @@ func (pr *PFSRouter) createFSCacheConfig(w http.ResponseWriter, r *http.Request)
 }
 
 func validateCacheConfigCreate(ctx *logger.RequestContext, req *api.UpdateFileSystemCacheRequest) error {
-	if !schema.IsValidFsMetaDriver(req.MetaDriver) {
+	if req.MetaDriver != "" && !schema.IsValidFsMetaDriver(req.MetaDriver) {
 		ctx.ErrorCode = common.InvalidArguments
 		err := fmt.Errorf("fs meta driver[%s] not valid", req.MetaDriver)
 		ctx.Logging().Errorf("validate fs cache config fsID[%s] err: %v", req.FsID, err)
