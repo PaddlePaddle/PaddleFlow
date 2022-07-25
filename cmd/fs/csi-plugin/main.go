@@ -51,7 +51,6 @@ var logConf = logger.LogConfig{
 // init() obtain csi-plugin pod, to assign same parameters to mount pods in csiconfig
 func init() {
 	csiconfig.Namespace = os.Getenv("CSI_NAMESPACE")
-	csiconfig.NodeName = os.Getenv("KUBE_NODE_NAME")
 	csiconfig.PodName = os.Getenv("CSI_POD_NAME")
 
 	if csiconfig.PodName == "" || csiconfig.Namespace == "" {
@@ -70,6 +69,7 @@ func init() {
 		os.Exit(0)
 	}
 	csiconfig.CSIPod = *pod
+	csiconfig.NodeName = pod.Spec.NodeName
 	for i := range pod.Spec.Containers {
 		if pod.Spec.Containers[i].Name == CsiContainerName {
 			csiconfig.MountImage = pod.Spec.Containers[i].Image
