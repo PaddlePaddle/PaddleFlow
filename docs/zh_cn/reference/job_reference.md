@@ -8,7 +8,7 @@
 
 paddleflow基本的操作命令可以帮助您更好的上手使用，本页面提供所有的job相关命令的详细参考
 
-## 2.1 命令说明
+### 2.1 命令说明
 
 `paddleflow job` 提供了`create`, `show`, `list`, `update`, `delete`, `stop`六种不同的方法。 六种不同操作的示例如下：
 ```bash
@@ -37,7 +37,7 @@ paddleflow job create jobtype:required（必须）作业类型(single, distribut
 paddleflow job stop jobid  // 停止一个作业
 paddleflow job update jobid --prority high --labels label1=value1,label2=value2
 ```
-## 2.2 相关参数说明
+### 2.2 相关参数说明
 
 获取作业列表（list方法）
 ```bash
@@ -115,7 +115,7 @@ FileSystem
 |readOnly| bool (optional)|挂载之后的存储权限
 
 
-## 2.3 示例
+### 2.3 示例
 
 作业任务创建：用户输入```paddleflow job create jobtype jsonpath```，界面上显示
 
@@ -144,7 +144,7 @@ job create success, id[job-id]
 ```
 
 
-作业任务详情显示：用户输入```paddleflow job show jobid```，界面上显示
+作业任务详情显示：用户输入```paddleflow job show job-run-000017-abs-62f5787b```，界面上显示
 ```bash
 +-----------------------------+----------------+---------+------------+-----------+---------------------+--------------+---------------------+
 | job id                      | job name       | queue   | priority   | status    | accept time         | start time   | finish time         |
@@ -188,20 +188,20 @@ job config and runtime info:
 ]
 ```
 
-作业任务删除：用户输入```paddleflow job delete jobid```，界面上显示
+作业任务删除：用户输入```paddleflow job delete job-id```，界面上显示
 
 ```bash
 job[job-id] delete success
 ```
 
 
-作业任务停止：用户输入```paddleflow job stop jobid```，界面上显示
+作业任务停止：用户输入```paddleflow job stop job-id```，界面上显示
 
 ```bash
 job[job-id] stop success
 ```
 
-作业任务更新：用户输入```paddleflow job update jobid -p high```，界面上显示
+作业任务更新：用户输入```paddleflow job update job-id -p high```，界面上显示
 
 ```bash
 job[job-id] update success
@@ -289,8 +289,6 @@ ret, response = client.show_job("jobid")
 |:---:|:---:|:---:|
 |ret| bool| 操作成功返回True，失败返回False
 |response| -| 失败返回失败message，成功返回JobInfo
-
-
 
 response中具体JobInfo结构如下：
 ```python
