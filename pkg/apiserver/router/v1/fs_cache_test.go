@@ -41,7 +41,7 @@ func mockFSCache() model.FSCacheConfig {
 	return model.FSCacheConfig{
 		FsID:           mockFsID,
 		CacheDir:       "/abs/path",
-		MetaDriver:     "nutsdb",
+		MetaDriver:     "leveldb",
 		BlockSize:      666,
 		ExtraConfigMap: map[string]string{"abc": "def"},
 	}
@@ -51,7 +51,7 @@ func buildUpdateReq(model model.FSCacheConfig) fs.UpdateFileSystemCacheRequest {
 	return fs.UpdateFileSystemCacheRequest{
 		FsID:        model.FsID,
 		CacheDir:    model.CacheDir,
-		MetaDriver:  "nutsdb",
+		MetaDriver:  "leveldb",
 		BlockSize:   model.BlockSize,
 		ExtraConfig: map[string]string{"aa": "bb"},
 	}
