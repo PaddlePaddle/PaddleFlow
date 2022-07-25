@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -332,7 +333,9 @@ func TestInfo_MountCmd(t *testing.T) {
 				TargetPath:  tt.fields.TargetPath,
 				Options:     tt.fields.Options,
 			}
-			if got := m.MountCmd(); got != tt.want {
+			cmd, args := m.MountCmd()
+			got := cmd + strings.Join(args, " ")
+			if got != tt.want {
 				t.Errorf("MountCmd() = %v, want %v", got, tt.want)
 			}
 		})

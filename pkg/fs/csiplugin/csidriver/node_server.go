@@ -72,6 +72,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context,
 	csiconfig.PassWordRoot = ns.credentialInfo.passwordRoot
 	// assume that the paddleflow server address will not be changed
 	csiconfig.PaddleFlowServer = volumeContext[schema.PFSServer]
+	csiconfig.ClusterID = volumeContext[schema.PFSClusterID]
 
 	mountInfo, err := mount.ProcessMountInfo(volumeContext[schema.PFSInfo], volumeContext[schema.PFSCache],
 		targetPath, req.GetReadonly())
@@ -140,9 +141,9 @@ func mountVolume(volumeID string, mountInfo mount.Info, readOnly bool) error {
 			return err
 		}
 	} else {
-		cmd := mountInfo.MountCmd()
-		log.Debugf("independent mount cmd: %s", cmd)
-		output, err := utils.ExecCmdWithTimeout(cmd, []string{})
+		cmdName, args := mountInfo.MountCmd()
+		log.Debugf("independent mount cmd: %s and args: %v", cmdName, args)
+		output, err := utils.ExecCmdWithTimeout(cmdName, args)
 		if err != nil {
 			log.Errorf("exec mount failed: [%v], output[%v]", err, string(output))
 			return err
