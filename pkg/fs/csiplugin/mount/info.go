@@ -163,7 +163,7 @@ func GetOptions(mountInfo Info, readOnly bool) []string {
 	return options
 }
 
-func (mountInfo *Info) MountCmd() string {
+func (mountInfo *Info) MountCmd() (string, []string) {
 	var cmd string
 	var args []string
 	if mountInfo.FS.Type == common.GlusterFSType {
@@ -182,8 +182,7 @@ func (mountInfo *Info) MountCmd() string {
 		args = append(args, fmt.Sprintf("--%s=%s", "mount-point", FusePodMountPoint))
 		args = append(args, mountInfo.Options...)
 	}
-	cmd = cmd + strings.Join(args, " ")
-	return cmd
+	return cmd, args
 }
 
 func (mountInfo *Info) CacheWorkerCmd() string {

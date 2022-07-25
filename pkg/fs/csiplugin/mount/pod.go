@@ -19,6 +19,7 @@ package mount
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -314,7 +315,8 @@ func getBaseContainer(name string) k8sCore.Container {
 func buildMountContainer(pod *k8sCore.Pod, mountInfo Info) k8sCore.Container {
 	mountContainer := getBaseContainer(ContainerNamePfsMount)
 	mkdir := "mkdir -p " + FusePodMountPoint + ";"
-	cmd := mkdir + mountInfo.MountCmd()
+	cmdName, args := mountInfo.MountCmd()
+	cmd := mkdir + cmdName + strings.Join(args, " ")
 	mountContainer.Command = []string{"sh", "-c", cmd}
 	statCmd := "stat -c %i " + FusePodMountPoint
 	mountContainer.ReadinessProbe = &k8sCore.Probe{
