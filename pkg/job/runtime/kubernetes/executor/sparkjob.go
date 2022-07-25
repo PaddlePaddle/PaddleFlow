@@ -92,7 +92,7 @@ func validateSparkResource(sparkApp *sparkapp.SparkApplication) error {
 		sparkApp.Spec.Driver.Memory = &memory
 	}
 	if err := validateSparkMemory(sparkApp.Spec.Driver.Memory); err != nil {
-		err = fmt.Errorf("validate spark memory failed, err: %v", err)
+		err = fmt.Errorf("validate spark.driver memory failed, err: %v", err)
 		log.Errorln(err)
 		return err
 	}
@@ -106,13 +106,14 @@ func validateSparkResource(sparkApp *sparkapp.SparkApplication) error {
 		sparkApp.Spec.Executor.Memory = &memory
 	}
 	if err := validateSparkMemory(sparkApp.Spec.Executor.Memory); err != nil {
-		err = fmt.Errorf("validate spark memory failed, err: %v", err)
+		err = fmt.Errorf("validate spark.Executor memory failed, err: %v", err)
 		log.Errorln(err)
 		return err
 	}
 	return nil
 }
 
+// validateSparkMemory the spark memory can only accept DecimalSI, so BinarySI would be converted to DecimalSI
 func validateSparkMemory(memory *string) error {
 	memoryQuantity, err := resource.ParseQuantity(*memory)
 	if err != nil {
@@ -126,7 +127,7 @@ func validateSparkMemory(memory *string) error {
 	case resource.DecimalSI:
 		return nil
 	default:
-		err = fmt.Errorf("the format of memory %s is not supported: %v", memoryQuantity.Format)
+		err = fmt.Errorf("the format of memory %s is not supported: %v", *memory, memoryQuantity.Format)
 		log.Errorln(err)
 	}
 	return err
