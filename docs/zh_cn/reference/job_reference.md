@@ -117,15 +117,15 @@ FileSystem
 
 ### 2.3 示例
 
-作业任务创建：用户输入```paddleflow job create jobtype jsonpath```，界面上显示
-
+#### 作业任务创建
+用户输入```paddleflow job create jobtype jsonpath```，界面上显示
 ```bash
 job create success, id[job-id]
 
 ```
 
-作业任务列表显示：用户输入```paddleflow job list```，界面上显示
-
+#### 作业任务列表
+用户输入```paddleflow job list```，界面上显示
 ```bash
 +------------------------------+-----------------------+----------+------------+---------------------+---------------------+---------------------+
 | job id                       | job name              | queue    | status     | accept time         | start time          | finish time         |
@@ -144,7 +144,8 @@ job create success, id[job-id]
 ```
 
 
-作业任务详情显示：用户输入```paddleflow job show job-run-000017-abs-62f5787b```，界面上显示
+#### 作业任务详情
+用户输入```paddleflow job show job-run-000017-abs-62f5787b```，界面上显示
 ```bash
 +-----------------------------+----------------+---------+------------+-----------+---------------------+--------------+---------------------+
 | job id                      | job name       | queue   | priority   | status    | accept time         | start time   | finish time         |
@@ -188,21 +189,21 @@ job config and runtime info:
 ]
 ```
 
-作业任务删除：用户输入```paddleflow job delete job-id```，界面上显示
-
+#### 作业任务删除
+用户输入```paddleflow job delete job-id```，界面上显示
 ```bash
 job[job-id] delete success
 ```
 
 
-作业任务停止：用户输入```paddleflow job stop job-id```，界面上显示
-
+#### 作业任务停止
+用户输入```paddleflow job stop job-id```，界面上显示
 ```bash
 job[job-id] stop success
 ```
 
-作业任务更新：用户输入```paddleflow job update job-id -p high```，界面上显示
-
+#### 作业任务更新
+用户输入```paddleflow job update job-id -p high```，界面上显示
 ```bash
 job[job-id] update success
 ```
