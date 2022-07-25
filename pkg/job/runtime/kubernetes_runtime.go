@@ -652,9 +652,9 @@ func (kr *KubeRuntime) buildPV(pv *apiv1.PersistentVolume, fsID string) error {
 
 	// set VolumeAttributes
 	pv.Spec.CSI.VolumeHandle = pv.Name
-	pv.Spec.CSI.VolumeAttributes[schema.PFSClusterID] = kr.cluster.ID
 	pv.Spec.CSI.VolumeAttributes[schema.PFSServer] = config.GetServiceAddress()
 	pv.Spec.CSI.VolumeAttributes[schema.PFSID] = fsID
+	pv.Spec.CSI.VolumeAttributes[schema.PFSClusterID] = kr.cluster.ID
 	pv.Spec.CSI.VolumeAttributes[schema.PFSInfo] = base64.StdEncoding.EncodeToString(fsStr)
 	pv.Spec.CSI.VolumeAttributes[schema.PFSCache] = base64.StdEncoding.EncodeToString(fsCacheConfigStr)
 	return nil
