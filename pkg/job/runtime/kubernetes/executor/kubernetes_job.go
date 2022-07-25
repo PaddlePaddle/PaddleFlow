@@ -521,10 +521,10 @@ func (j *KubeJob) getWorkDir(task *models.Member) string {
 	}
 
 	workdir := ""
-	mountPath := filepath.Clean(fileSystems[0].MountPath)
+	mountPath := utils.MountPathClean(fileSystems[0].MountPath)
 	log.Infof("getWorkDir by hasWorkDir: true,mountPath: %s, task: %v", mountPath, task)
-	if mountPath != "." {
-		workdir = mountPath
+	if mountPath != "/" {
+		workdir = fileSystems[0].MountPath
 	} else {
 		workdir = filepath.Join(schema.DefaultFSMountPath, fileSystems[0].ID)
 	}
@@ -834,14 +834,14 @@ func generateVolumeMounts(fileSystems []schema.FileSystem) []corev1.VolumeMount 
 	}
 	for _, fs := range fileSystems {
 		log.Debugf("generateVolumeMounts walking fileSystem %+v", fs)
-		mountPath := filepath.Clean(fs.MountPath)
-		if mountPath == "." {
+		mountPath := utils.MountPathClean(fs.MountPath)
+		if mountPath == "/" {
 			mountPath = filepath.Join(schema.DefaultFSMountPath, fs.ID)
 		}
 		volumeMount := corev1.VolumeMount{
 			Name:      fs.Name,
 			ReadOnly:  fs.ReadOnly,
-			MountPath: mountPath,
+			MountPath: fs.MountPath,
 			SubPath:   fs.SubPath,
 		}
 		vms = append(vms, volumeMount)
