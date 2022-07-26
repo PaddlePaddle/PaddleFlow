@@ -121,8 +121,6 @@ func TestPFSMountWithCache(t *testing.T) {
 		TargetPath:  testTargetPath,
 		K8sClient:   fakeClientSet,
 	}
-	options := GetOptions(info, false)
-	info.Options = options
 
 	patch1 := ApplyFunc(isPodReady, func(pod *k8sCore.Pod) bool {
 		return true

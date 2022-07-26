@@ -168,8 +168,8 @@ func TestGetOptions(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := GetOptions(tt.args.mountInfo, tt.args.readOnly); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("GetOptions() = %v, want %v", got, tt.want)
+			if got := tt.args.mountInfo.options(tt.args.readOnly); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("options() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -230,7 +230,7 @@ func TestInfo_MountCmd(t *testing.T) {
 		FS:         glusterFS,
 		TargetPath: targetPath,
 	}
-	glusterfsOption := GetOptions(glusterfsInfo, false)
+	glusterfsOption := glusterfsInfo.options(false)
 
 	fsInde := model.FileSystem{
 		Model: model.Model{
@@ -265,7 +265,7 @@ func TestInfo_MountCmd(t *testing.T) {
 		FSBase64Str: fsBase64,
 		TargetPath:  targetPath,
 	}
-	options := GetOptions(info, false)
+	options := info.options(false)
 
 	infoInde := Info{
 		CacheConfig: fsCache,
@@ -273,7 +273,7 @@ func TestInfo_MountCmd(t *testing.T) {
 		FSBase64Str: fsBase64Inde,
 		TargetPath:  targetPath,
 	}
-	optionsInde := GetOptions(infoInde, false)
+	optionsInde := infoInde.options(false)
 	type fields struct {
 		CacheConfig model.FSCacheConfig
 		FS          model.FileSystem
@@ -321,7 +321,7 @@ func TestInfo_MountCmd(t *testing.T) {
 				Options:    glusterfsOption,
 				TargetPath: targetPath,
 			},
-			want: "mount-t glusterfs 127.0.0.1:default-volume /targetPath/test",
+			want: "mount -t glusterfs 127.0.0.1:default-volume /targetPath/test",
 		},
 	}
 	for _, tt := range tests {
@@ -331,12 +331,11 @@ func TestInfo_MountCmd(t *testing.T) {
 				FS:          tt.fields.FS,
 				FSBase64Str: tt.fields.FSBase64Str,
 				TargetPath:  tt.fields.TargetPath,
-				Options:     tt.fields.Options,
 			}
-			cmd, args := m.MountCmd()
-			got := cmd + strings.Join(args, " ")
+			cmd, args := m.cmdAndArgs(tt.fields.Options)
+			got := cmd + " " + strings.Join(args, " ")
 			if got != tt.want {
-				t.Errorf("MountCmd() = %v, want %v", got, tt.want)
+				t.Errorf("cmdAndArgs() = %v, want %v", got, tt.want)
 			}
 		})
 	}

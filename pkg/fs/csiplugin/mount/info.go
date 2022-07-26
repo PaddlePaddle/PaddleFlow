@@ -31,8 +31,8 @@ import (
 
 const (
 	mountName                             = "mount"
-	pfsFuseIndependentMountProcessCMDName = "/home/paddleflow/mount.sh "
-	pfsFuseMountPodCMDName                = "/home/paddleflow/pfs-fuse mount "
+	PfsFuseIndependentMountProcessCMDName = "/home/paddleflow/mount.sh"
+	pfsFuseMountPodCMDName                = "/home/paddleflow/pfs-fuse mount"
 	ReadOnly                              = "ro"
 )
 
@@ -41,7 +41,8 @@ type Info struct {
 	FS          model.FileSystem
 	FSBase64Str string
 	TargetPath  string
-	Options     []string
+	Cmd         string
+	Args        []string
 	K8sClient   utils.Client
 }
 
@@ -71,127 +72,94 @@ func ProcessMountInfo(fsInfoBase64, fsCacheBase64, targetPath string, readOnly b
 		FSBase64Str: fsInfoBase64,
 		TargetPath:  targetPath,
 	}
-	info.Options = GetOptions(info, readOnly)
+	info.Cmd, info.Args = info.cmdAndArgs(info.options(readOnly))
 	return info, nil
 }
 
-func GetOptions(mountInfo Info, readOnly bool) []string {
-	var options []string
-
-	if mountInfo.FS.Type == common.GlusterFSType {
-
-	} else if mountInfo.FS.IndependentMountProcess {
-		options = append(options, fmt.Sprintf("--%s=%s", "fs-info", mountInfo.FSBase64Str))
-		options = append(options, fmt.Sprintf("--%s=%s", "fs-id", mountInfo.FS.ID))
-
-		if readOnly {
-			options = append(options, fmt.Sprintf("--%s=%s", "mount-options", ReadOnly))
-		}
-
-		if mountInfo.CacheConfig.BlockSize > 0 {
-			options = append(options, fmt.Sprintf("--%s=%d", "block-size", mountInfo.CacheConfig.BlockSize))
-		}
-		if mountInfo.CacheConfig.CacheDir != "" {
-			options = append(options, fmt.Sprintf("--%s=%s", "data-cache-path", mountInfo.CacheConfig.CacheDir))
-		}
-		if mountInfo.CacheConfig.MetaDriver != "" {
-			options = append(options, fmt.Sprintf("--%s=%s", "meta-cache-driver", mountInfo.CacheConfig.MetaDriver))
-		}
-		if mountInfo.CacheConfig.MetaDriver != schema.FsMetaDefault &&
-			mountInfo.CacheConfig.MetaDriver != schema.FsMetaMemory && mountInfo.CacheConfig.CacheDir != "" {
-			options = append(options, fmt.Sprintf("--%s=%s", "meta-cache-path", mountInfo.CacheConfig.CacheDir))
-		}
-		if mountInfo.CacheConfig.ExtraConfigMap != nil {
-			for configName, item := range mountInfo.CacheConfig.ExtraConfigMap {
-				options = append(options, fmt.Sprintf("--%s=%s", configName, item))
-			}
-		}
-
-		// s3 default mount permission
-		if mountInfo.FS.Type == common.S3Type {
-			if mountInfo.FS.PropertiesMap[common.FileMode] != "" {
-				options = append(options, fmt.Sprintf("--%s=%s", "file-mode", mountInfo.FS.PropertiesMap[common.FileMode]))
-			} else {
-				options = append(options, fmt.Sprintf("--%s=%s", "file-mode", "0666"))
-			}
-			if mountInfo.FS.PropertiesMap[common.DirMode] != "" {
-				options = append(options, fmt.Sprintf("--%s=%s", "dir-mode", mountInfo.FS.PropertiesMap[common.DirMode]))
-			} else {
-				options = append(options, fmt.Sprintf("--%s=%s", "dir-mode", "0777"))
-			}
-		}
-
-		if mountInfo.CacheConfig.Debug {
-			options = append(options, "--log-level=debug")
-		}
-	} else {
-		options = append(options, fmt.Sprintf("--%s=%s", "fs-info", mountInfo.FSBase64Str))
-		options = append(options, fmt.Sprintf("--%s=%s", "fs-id", mountInfo.FS.ID))
-
-		if readOnly {
-			options = append(options, fmt.Sprintf("--%s=%s", "mount-options", ReadOnly))
-		}
-
-		if mountInfo.CacheConfig.BlockSize > 0 {
-			options = append(options, fmt.Sprintf("--%s=%d", "block-size", mountInfo.CacheConfig.BlockSize))
-		}
-		if mountInfo.CacheConfig.CacheDir != "" {
-			options = append(options, fmt.Sprintf("--%s=%s", "data-cache-path", FusePodCachePath+DataCacheDir))
-		}
-		if mountInfo.CacheConfig.MetaDriver != "" {
-			options = append(options, fmt.Sprintf("--%s=%s", "meta-cache-driver", mountInfo.CacheConfig.MetaDriver))
-		}
-		if mountInfo.CacheConfig.MetaDriver != schema.FsMetaDefault &&
-			mountInfo.CacheConfig.MetaDriver != schema.FsMetaMemory && mountInfo.CacheConfig.CacheDir != "" {
-			options = append(options, fmt.Sprintf("--%s=%s", "meta-cache-path", FusePodCachePath+MetaCacheDir))
-		}
-		if mountInfo.CacheConfig.ExtraConfigMap != nil {
-			for configName, item := range mountInfo.CacheConfig.ExtraConfigMap {
-				options = append(options, fmt.Sprintf("--%s=%s", configName, item))
-			}
-		}
-
-		// s3 default mount permission
-		if mountInfo.FS.Type == common.S3Type {
-			if mountInfo.FS.PropertiesMap[common.FileMode] != "" {
-				options = append(options, fmt.Sprintf("--%s=%s", "file-mode", mountInfo.FS.PropertiesMap[common.FileMode]))
-			} else {
-				options = append(options, fmt.Sprintf("--%s=%s", "file-mode", "0666"))
-			}
-			if mountInfo.FS.PropertiesMap[common.DirMode] != "" {
-				options = append(options, fmt.Sprintf("--%s=%s", "dir-mode", mountInfo.FS.PropertiesMap[common.DirMode]))
-			} else {
-				options = append(options, fmt.Sprintf("--%s=%s", "dir-mode", "0777"))
-			}
-		}
-
-		if mountInfo.CacheConfig.Debug {
-			options = append(options, "--log-level=debug")
-		}
-	}
-	return options
-}
-
-func (mountInfo *Info) MountCmd() (string, []string) {
+func (mountInfo *Info) cmdAndArgs(options []string) (string, []string) {
 	var cmd string
 	var args []string
 	if mountInfo.FS.Type == common.GlusterFSType {
 		cmd = mountName
 		args = append(args, "-t", mountInfo.FS.Type,
 			strings.Join([]string{mountInfo.FS.ServerAddress, mountInfo.FS.SubPath}, ":"), mountInfo.TargetPath)
-		if len(mountInfo.Options) != 0 {
-			args = append(args, "-o", strings.Join(mountInfo.Options, ","))
+		if len(options) != 0 {
+			args = append(args, "-o", strings.Join(options, ","))
 		}
 	} else if mountInfo.FS.IndependentMountProcess {
-		cmd = pfsFuseIndependentMountProcessCMDName
+		cmd = PfsFuseIndependentMountProcessCMDName
 		args = append(args, fmt.Sprintf("--%s=%s", "mount-point", mountInfo.TargetPath))
-		args = append(args, mountInfo.Options...)
+		args = append(args, options...)
 	} else {
 		cmd = pfsFuseMountPodCMDName
 		args = append(args, fmt.Sprintf("--%s=%s", "mount-point", FusePodMountPoint))
-		args = append(args, mountInfo.Options...)
+		args = append(args, options...)
 	}
 	return cmd, args
+}
+
+func (mountInfo *Info) options(readOnly bool) []string {
+	if mountInfo.FS.Type == common.GlusterFSType {
+		return []string{}
+	}
+
+	var options []string
+	options = append(options, fmt.Sprintf("--%s=%s", "fs-info", mountInfo.FSBase64Str))
+	options = append(options, fmt.Sprintf("--%s=%s", "fs-id", mountInfo.FS.ID))
+
+	if readOnly {
+		options = append(options, fmt.Sprintf("--%s=%s", "mount-options", ReadOnly))
+	}
+
+	if mountInfo.CacheConfig.BlockSize > 0 {
+		options = append(options, fmt.Sprintf("--%s=%d", "block-size", mountInfo.CacheConfig.BlockSize))
+	}
+	if mountInfo.CacheConfig.CacheDir != "" {
+		var dataCacheDir string
+		if mountInfo.FS.IndependentMountProcess {
+			dataCacheDir = mountInfo.CacheConfig.CacheDir
+		} else {
+			dataCacheDir = FusePodCachePath + DataCacheDir
+		}
+		options = append(options, fmt.Sprintf("--%s=%s", "data-cache-path", dataCacheDir))
+	}
+	if mountInfo.CacheConfig.MetaDriver != "" {
+		options = append(options, fmt.Sprintf("--%s=%s", "meta-cache-driver", mountInfo.CacheConfig.MetaDriver))
+	}
+	if mountInfo.CacheConfig.ExtraConfigMap != nil {
+		for configName, item := range mountInfo.CacheConfig.ExtraConfigMap {
+			options = append(options, fmt.Sprintf("--%s=%s", configName, item))
+		}
+	}
+	if mountInfo.CacheConfig.Debug {
+		options = append(options, "--log-level=debug")
+	}
+	if mountInfo.CacheConfig.MetaDriver != schema.FsMetaDefault &&
+		mountInfo.CacheConfig.MetaDriver != schema.FsMetaMemory &&
+		mountInfo.CacheConfig.CacheDir != "" {
+		var cachePath string
+		if mountInfo.FS.IndependentMountProcess {
+			cachePath = mountInfo.CacheConfig.CacheDir
+		} else {
+			cachePath = FusePodCachePath + MetaCacheDir
+		}
+		options = append(options, fmt.Sprintf("--%s=%s", "meta-cache-path", cachePath))
+	}
+
+	// s3 default mount permission
+	if mountInfo.FS.Type == common.S3Type {
+		if mountInfo.FS.PropertiesMap[common.FileMode] != "" {
+			options = append(options, fmt.Sprintf("--%s=%s", "file-mode", mountInfo.FS.PropertiesMap[common.FileMode]))
+		} else {
+			options = append(options, fmt.Sprintf("--%s=%s", "file-mode", "0666"))
+		}
+		if mountInfo.FS.PropertiesMap[common.DirMode] != "" {
+			options = append(options, fmt.Sprintf("--%s=%s", "dir-mode", mountInfo.FS.PropertiesMap[common.DirMode]))
+		} else {
+			options = append(options, fmt.Sprintf("--%s=%s", "dir-mode", "0777"))
+		}
+	}
+	return options
 }
 
 func (mountInfo *Info) CacheWorkerCmd() string {
