@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package k8s
+package utils
 
 import (
 	"bytes"
@@ -27,9 +27,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/clientcmd"
-
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/common"
 )
 
 var client *k8sClient
@@ -64,12 +63,20 @@ type k8sClient struct {
 func GetK8sClient() (Client, error) {
 	if client == nil {
 		var err error
-		if client, err = New(common.GetK8SConfigPathEnv(), common.GetK8STimeoutEnv()); err != nil {
+		if client, err = New(GetK8SConfigPathEnv(), GetK8STimeoutEnv()); err != nil {
 			log.Errorf("init k8s client failed: %v", err)
 			return nil, err
 		}
 	}
 	return client, nil
+}
+
+func GetFakeK8sClient() Client {
+	if client == nil {
+		fakeClientSet := fake.NewSimpleClientset()
+		client = &k8sClient{Interface: fakeClientSet}
+	}
+	return client
 }
 
 func New(k8sConfigPath string, k8sClientTimeout int) (*k8sClient, error) {
@@ -194,14 +201,14 @@ func (c *k8sClient) GetPersistentVolume(name string, getOptions metav1.GetOption
 	return c.CoreV1().PersistentVolumes().Get(context.TODO(), name, getOptions)
 }
 func (c *k8sClient) CreatePersistentVolumeClaim(namespace string, pvc *corev1.PersistentVolumeClaim) (*corev1.
-PersistentVolumeClaim, error) {
+	PersistentVolumeClaim, error) {
 	return c.CoreV1().PersistentVolumeClaims(namespace).Create(context.TODO(), pvc, metav1.CreateOptions{})
 }
 func (c *k8sClient) DeletePersistentVolumeClaim(namespace string, name string, deleteOptions metav1.DeleteOptions) error {
 	return c.CoreV1().PersistentVolumeClaims(namespace).Delete(context.TODO(), name, deleteOptions)
 }
 func (c *k8sClient) GetPersistentVolumeClaim(namespace, name string, getOptions metav1.GetOptions) (*corev1.
-PersistentVolumeClaim, error) {
+	PersistentVolumeClaim, error) {
 	return c.CoreV1().PersistentVolumeClaims(namespace).Get(context.TODO(), name, getOptions)
 }
 func (c *k8sClient) GetNamespace(namespace string, getOptions metav1.GetOptions) (*corev1.Namespace, error) {

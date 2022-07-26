@@ -49,8 +49,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/meta"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/vfs"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
-	csiMount "github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/mount"
-	mountUtil "github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/mount"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/monitor"
 )
 
@@ -100,7 +99,7 @@ func setup(c *cli.Context) error {
 		return fmt.Errorf("invalid mountpoint: %s", mountPoint)
 	}
 
-	isMounted, err := mountUtil.IsMountPoint(mountPoint)
+	isMounted, err := utils.IsMountPoint(mountPoint)
 	if isMounted {
 		if err != nil {
 			if errUmount := doUmount(mountPoint, true); errUmount != nil {
@@ -245,7 +244,7 @@ func InitVFS(c *cli.Context, registry *prometheus.Registry) error {
 			}
 		}
 	} else if c.String(schema.FuseKeyFsInfo) != "" {
-		fs, err := csiMount.ProcessFsInfo(c.String(schema.FuseKeyFsInfo))
+		fs, err := utils.ProcessFSInfo(c.String(schema.FuseKeyFsInfo))
 		if err != nil {
 			retErr := fmt.Errorf("InitVFS process fs info[%s] err: %v", c.String(schema.FuseKeyFsInfo), err)
 			log.Errorf(retErr.Error())
