@@ -59,6 +59,13 @@ func (sj *SparkJob) validateJob(sparkApp *sparkapp.SparkApplication) error {
 			return fmt.Errorf("spark image is not defined")
 		}
 		sj.Image = sj.Tasks[0].Image
+		for i, task := range sj.Tasks {
+			if err := validateSparkMemory(&sj.Tasks[i].Flavour.Mem); err != nil {
+				err = fmt.Errorf("validate spark.%s.memory failed, err: %v", task.Role, err)
+				log.Errorln(err)
+				return err
+			}
+		}
 		// todo check all required fields when job is not custom
 	} else if err := sj.validateCustomYaml(sparkApp); err != nil {
 		log.Errorf("validate custom yaml failed, err: %v", err)
@@ -127,7 +134,7 @@ func validateSparkMemory(memory *string) error {
 	case resource.DecimalSI:
 		return nil
 	default:
-		err = fmt.Errorf("the format of memory %s is not supported: %v", *memory, memoryQuantity.Format)
+		err = fmt.Errorf("the %v format of memory %s is not supported", memoryQuantity.Format, *memory)
 		log.Errorln(err)
 	}
 	return err
@@ -215,7 +222,6 @@ func (sj *SparkJob) patchPodByTask(podSpec *sparkapp.SparkPodSpec, task models.M
 	podSpec.Cores = &cores
 	podSpec.CoreLimit = &flavour.CPU
 	podSpec.Memory = &flavour.Mem
-	_ = validateSparkMemory(podSpec.Memory)
 
 	if len(podSpec.Env) == 0 {
 		podSpec.Env = make([]corev1.EnvVar, 0)
