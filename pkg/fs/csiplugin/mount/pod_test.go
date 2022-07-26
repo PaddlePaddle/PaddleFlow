@@ -101,7 +101,6 @@ func TestPFSMountWithCache(t *testing.T) {
 			common.FileMode: "0644",
 		},
 	}
-
 	fsStr, err := json.Marshal(fs)
 	assert.Nil(t, err)
 	fsBase64 := base64.StdEncoding.EncodeToString(fsStr)
@@ -114,13 +113,12 @@ func TestPFSMountWithCache(t *testing.T) {
 		CreatedAt:  time.Now(),
 		UpdatedAt:  time.Now(),
 	}
-	info := Info{
-		CacheConfig: fsCache,
-		FS:          fs,
-		FSBase64Str: fsBase64,
-		TargetPath:  testTargetPath,
-		K8sClient:   fakeClientSet,
-	}
+	fsCacheStr, err := json.Marshal(fsCache)
+	assert.Nil(t, err)
+	fsCacheBase64 := base64.StdEncoding.EncodeToString(fsCacheStr)
+
+	info, err := ProcessMountInfo(fsBase64, fsCacheBase64, testTargetPath, fakeClientSet, false)
+	assert.Nil(t, err)
 
 	patch1 := ApplyFunc(isPodReady, func(pod *k8sCore.Pod) bool {
 		return true

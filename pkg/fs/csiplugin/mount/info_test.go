@@ -3,6 +3,7 @@ package mount
 import (
 	"encoding/base64"
 	"encoding/json"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 	"reflect"
 	"strings"
 	"testing"
@@ -58,7 +59,7 @@ func TestKubeRuntimePVAndPVC(t *testing.T) {
 	assert.Nil(t, err)
 	fsCacheBase64 := base64.StdEncoding.EncodeToString(fsCacheStr)
 
-	mountInfo, err := ProcessMountInfo(fsBase64, fsCacheBase64, "target", false)
+	mountInfo, err := ProcessMountInfo(fsBase64, fsCacheBase64, "target", utils.GetFakeK8sClient(), false)
 	assert.Nil(t, err)
 	assert.Equal(t, fsBase64, mountInfo.FSBase64Str)
 	assert.Equal(t, fsCache.CacheDir, mountInfo.CacheConfig.CacheDir)
@@ -71,7 +72,7 @@ func TestKubeRuntimePVAndPVC(t *testing.T) {
 	fsCacheStr, err = json.Marshal(fsCache)
 	assert.Nil(t, err)
 	fsCacheBase64 = base64.StdEncoding.EncodeToString(fsCacheStr)
-	mountInfo, err = ProcessMountInfo(fsBase64, fsCacheBase64, "target", false)
+	mountInfo, err = ProcessMountInfo(fsBase64, fsCacheBase64, "target", utils.GetFakeK8sClient(), false)
 	assert.Nil(t, err)
 	assert.Equal(t, "", mountInfo.CacheConfig.CacheDir)
 	assert.Equal(t, "", mountInfo.CacheConfig.FsID)

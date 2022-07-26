@@ -46,7 +46,7 @@ type Info struct {
 	K8sClient   utils.Client
 }
 
-func ProcessMountInfo(fsInfoBase64, fsCacheBase64, targetPath string, readOnly bool) (Info, error) {
+func ProcessMountInfo(fsInfoBase64, fsCacheBase64, targetPath string, k8sClient utils.Client, readOnly bool) (Info, error) {
 	// FS info
 	fs, err := utils.ProcessFSInfo(fsInfoBase64)
 	if err != nil {
@@ -71,6 +71,7 @@ func ProcessMountInfo(fsInfoBase64, fsCacheBase64, targetPath string, readOnly b
 		FS:          fs,
 		FSBase64Str: fsInfoBase64,
 		TargetPath:  targetPath,
+		K8sClient:   k8sClient,
 	}
 	info.Cmd, info.Args = info.cmdAndArgs(info.options(readOnly))
 	return info, nil
