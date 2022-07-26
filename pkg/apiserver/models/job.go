@@ -30,6 +30,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/monitor/job_perf"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
@@ -161,6 +162,8 @@ func CreateJob(job *Job) error {
 	if err := db.Create(job).Error; err != nil {
 		return err
 	}
+	// TODO: add job time point
+	job_perf.Manager.AddTimePoint(job.ID, job_perf.T1, time.Now())
 	return nil
 }
 
