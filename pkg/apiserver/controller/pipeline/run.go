@@ -1051,19 +1051,17 @@ func restartRun(run models.Run, isResume bool) (string, error) {
 		return "", err
 	}
 
-	wfs, err := schema.GetWorkflowSource([]byte(run.RunYaml))
+	wfs, err := runYamlAndReqToWfs(run.RunYaml, CreateRunRequest{
+		FsName:    run.FsName,
+		DockerEnv: run.DockerEnv,
+		Name:      run.Name,
+		Disabled:  run.Disabled,
+	})
 	if err != nil {
 		logger.LoggerForRun(run.ID).Errorf("get WorkflowSource by yaml failed. yaml: %s \n, err:%v", run.RunYaml, err)
 		return "", err
 	}
 
-	wfs.Name = run.Name
-	if run.DockerEnv != "" {
-		wfs.DockerEnv = run.DockerEnv
-	}
-	if run.Disabled != "" {
-		wfs.Disabled = run.Disabled
-	}
 	run.WorkflowSource = wfs
 
 	_, userName := utils.FsIDToFsNameUsername(run.FsID)
