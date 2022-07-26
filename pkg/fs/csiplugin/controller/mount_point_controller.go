@@ -18,7 +18,6 @@ package controller
 
 import (
 	"fmt"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/mount"
 	"strings"
 	"sync"
 	"time"
@@ -35,6 +34,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/mount"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 )
 
