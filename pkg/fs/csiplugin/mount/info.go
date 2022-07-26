@@ -31,8 +31,8 @@ import (
 
 const (
 	mountName                             = "mount"
-	PfsFuseIndependentMountProcessCMDName = "/home/paddleflow/mount.sh "
-	pfsFuseMountPodCMDName                = "/home/paddleflow/pfs-fuse mount "
+	PfsFuseIndependentMountProcessCMDName = "/home/paddleflow/mount.sh"
+	pfsFuseMountPodCMDName                = "/home/paddleflow/pfs-fuse mount"
 	ReadOnly                              = "ro"
 )
 
