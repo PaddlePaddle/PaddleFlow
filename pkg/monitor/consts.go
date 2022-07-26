@@ -29,3 +29,18 @@ const (
 	QueryGpuMemUtilQl   = "sum(container_accelerator_memory_used_bytes{image!=\"\", pod=~\"%s\"}) by (pod) / sum(container_accelerator_memory_total_bytes{image!=\"\", pod=~\"%s\"}) by (pod)"
 	QueryGpuMemUsageQl  = "sum(container_accelerator_memory_used_bytes{image!=\"\", pod=~\"%s\"}) by (pod)"
 )
+
+// for job creating monitor
+
+const (
+	MetricJobAPIHandlingTime = "job_api_handling_time"
+	MetricJobEnqueueTime     = "job_enqueue_time"
+	MetricJobDequeueTime     = "job_dequeue_time"
+	MetricJobPendingTime     = "job_pending_time"
+	MetricJobCreatingTime    = "job_creating_time"
+	MetricJobRunningTime     = "job_running_time"
+)
+
+const (
+	JobIDLabel = "jobID"
+)

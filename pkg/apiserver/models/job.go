@@ -157,7 +157,11 @@ func CreateJob(job *Job) error {
 		job.ID = uuid.GenerateIDWithLength(schema.JobPrefix, uuid.JobIDLength)
 	}
 	db := storage.DB
-	return db.Create(job).Error
+	// add job perf data
+	if err := db.Create(job).Error; err != nil {
+		return err
+	}
+	return nil
 }
 
 func GetJobByID(jobID string) (Job, error) {

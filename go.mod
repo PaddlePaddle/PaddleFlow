@@ -21,6 +21,7 @@ require (
 	github.com/go-chi/chi v1.5.4
 	github.com/go-openapi/spec v0.20.4 // indirect
 	github.com/go-playground/validator/v10 v10.9.0
+	github.com/goburrow/cache v0.1.4
 	github.com/golang/glog v1.0.0 // indirect
 	github.com/google/btree v1.0.0
 	github.com/google/go-cmp v0.5.6 // indirect
