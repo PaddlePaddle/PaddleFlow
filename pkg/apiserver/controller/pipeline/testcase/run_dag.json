@@ -9,7 +9,7 @@
             {
                 "name": "cyang14",
                 "mount_path": "/home/test",
-                "sub_path": "/notexist/path",
+                "sub_path": "notexist/path",
                 "read_only": true
             }
         ]
