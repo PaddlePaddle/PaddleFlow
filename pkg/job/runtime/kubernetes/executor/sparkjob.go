@@ -215,6 +215,7 @@ func (sj *SparkJob) patchPodByTask(podSpec *sparkapp.SparkPodSpec, task models.M
 	podSpec.Cores = &cores
 	podSpec.CoreLimit = &flavour.CPU
 	podSpec.Memory = &flavour.Mem
+	_ = validateSparkMemory(podSpec.Memory)
 
 	if len(podSpec.Env) == 0 {
 		podSpec.Env = make([]corev1.EnvVar, 0)
