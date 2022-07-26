@@ -18,6 +18,7 @@ package controller
 
 import (
 	"fmt"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/mount"
 	"strings"
 	"sync"
 	"time"
@@ -254,30 +255,45 @@ func (m *MountPointController) CheckAndRemountVolumeMount(volumeMount volumeMoun
 
 	// pods need to restore source mount path mountpoints
 	mountPath := utils.GetVolumeBindMountPathByPod(volumeMount.PodUID, volumeMount.VolumeName)
-	i := 0
-	for {
-		isMount, err := utils.IsMountPoint(schema.GetBindSource(fsMountParams.fsID))
-		if isMount && err == nil {
-			break
+	if shouldBindFromSourceOrNot(schema.GetBindSource(fsMountParams.fsID)) {
+		if checkIfNeedRemount(mountPath) {
+			if err := remount(fsMountParams.fsID, mountPath, volumeMount.ReadOnly); err != nil {
+				log.Errorf("remount fs[%s] to mountPath[%s] failed: %v", fsMountParams.fsID, mountPath, err)
+				return fmt.Errorf("remount fs[%s] to mountPath[%s] failed: %v", fsMountParams.fsID, mountPath, err)
+			}
 		}
-		i += 1
-		time.Sleep(1 * time.Second)
-		if i > 2 {
-			return fmt.Errorf("path[%s] not mount, please check mount pod", schema.GetBindSource(fsMountParams.fsID))
-		}
-	}
-	if m.CheckIfNeedRemount(mountPath) {
-		if err := m.Remount(fsMountParams.fsID, mountPath, volumeMount.ReadOnly); err != nil {
-			log.Errorf("remount fs[%s] to mountPath[%s] failed: %v", fsMountParams.fsID, mountPath, err)
-			return fmt.Errorf("remount fs[%s] to mountPath[%s] failed: %v", fsMountParams.fsID, mountPath, err)
+	} else {
+		cmd := mount.PfsFuseIndependentMountProcessCMDName
+		args := []string{fmt.Sprintf("--%s=%s", "mount-point", mountPath)}
+		output, err := utils.ExecCmdWithTimeout(cmd, args)
+		if err != nil {
+			log.Errorf("exec mount failed: [%v], output[%v]", err, string(output))
+			return err
 		}
 	}
 	return nil
 }
 
-// CheckIfNeedRemount The conditions for remount: the path is the mount point and the error message returned by the `mountpoint` command
+// check whether to bind from source (pod mount) or mount directly (process mount)
+func shouldBindFromSourceOrNot(bindSource string) bool {
+	i := 0
+	for {
+		isMount, err := utils.IsMountPoint(bindSource)
+		if isMount && err == nil {
+			break
+		}
+		i++
+		if i > 2 {
+			return false
+		}
+		time.Sleep(1 * time.Second)
+	}
+	return true
+}
+
+// checkIfNeedRemount The conditions for remount: the path is the mount point and the error message returned by the `mountpoint` command
 // contains "Transport endpoint is not connected"
-func (m *MountPointController) CheckIfNeedRemount(path string) bool {
+func checkIfNeedRemount(path string) bool {
 	isMountPoint, err := utils.IsMountPoint(path)
 	log.Tracef("mountpoint path[%s] : isMountPoint[%t], err:%v", path, isMountPoint, err)
 	if err != nil && isMountPoint {
@@ -286,8 +302,8 @@ func (m *MountPointController) CheckIfNeedRemount(path string) bool {
 	return false
 }
 
-func (m *MountPointController) Remount(fsID, mountPath string, readOnly bool) error {
-	log.Tracef("Remount: fsID[%s], mountPath[%s]", fsID, mountPath)
+func remount(fsID, mountPath string, readOnly bool) error {
+	log.Tracef("remount: fsID[%s], mountPath[%s]", fsID, mountPath)
 	// umount old mount point
 	output, err := utils.ExecCmdWithTimeout(utils.UMountCmdName, []string{mountPath})
 	if err != nil {
@@ -300,7 +316,7 @@ func (m *MountPointController) Remount(fsID, mountPath string, readOnly bool) er
 	}
 
 	// bind source path to mount path
-	log.Infof("Remount: bind source[%s] to target[%s], readOnly[%t]", schema.GetBindSource(fsID), mountPath, readOnly)
+	log.Infof("remount: bind source[%s] to target[%s], readOnly[%t]", schema.GetBindSource(fsID), mountPath, readOnly)
 	output, err = utils.ExecMountBind(schema.GetBindSource(fsID), mountPath, readOnly)
 	if err != nil {
 		log.Errorf("exec mount bind cmd failed: %v, output[%s]", err, string(output))

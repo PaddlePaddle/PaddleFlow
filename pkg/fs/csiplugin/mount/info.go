@@ -31,7 +31,7 @@ import (
 
 const (
 	mountName                             = "mount"
-	pfsFuseIndependentMountProcessCMDName = "/home/paddleflow/mount.sh "
+	PfsFuseIndependentMountProcessCMDName = "/home/paddleflow/mount.sh "
 	pfsFuseMountPodCMDName                = "/home/paddleflow/pfs-fuse mount "
 	ReadOnly                              = "ro"
 )
@@ -183,7 +183,7 @@ func (mountInfo *Info) MountCmd() (string, []string) {
 			args = append(args, "-o", strings.Join(mountInfo.Options, ","))
 		}
 	} else if mountInfo.FS.IndependentMountProcess {
-		cmd = pfsFuseIndependentMountProcessCMDName
+		cmd = PfsFuseIndependentMountProcessCMDName
 		args = append(args, fmt.Sprintf("--%s=%s", "mount-point", mountInfo.TargetPath))
 		args = append(args, mountInfo.Options...)
 	} else {
