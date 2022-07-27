@@ -307,7 +307,7 @@ func buildMountContainer(pod *k8sCore.Pod, mountInfo Info) k8sCore.Container {
 	mountContainer := getBaseContainer(ContainerNamePfsMount)
 	mkdir := "mkdir -p " + FusePodMountPoint + ";"
 	cmdName, args := mountInfo.MountCmd()
-	cmd := mkdir + cmdName + strings.Join(args, " ")
+	cmd := mkdir + cmdName + " " + strings.Join(args, " ")
 	mountContainer.Command = []string{"sh", "-c", cmd}
 	statCmd := "stat -c %i " + FusePodMountPoint
 	mountContainer.ReadinessProbe = &k8sCore.Probe{
