@@ -107,21 +107,20 @@ func (mountInfo *Info) podMountArgs() (args []string) {
 }
 
 func (mountInfo *Info) cachePathArgs(independentProcess bool) (args []string) {
-	if mountInfo.CacheConfig.BlockSize > 0 && mountInfo.CacheConfig.CacheDir != "" {
-		if !independentProcess {
-			args = append(args, fmt.Sprintf("--%s=%s", "data-cache-path", FusePodCachePath+DataCacheDir))
-		} else {
-			args = append(args, fmt.Sprintf("--%s=%s", "data-cache-path", mountInfo.CacheConfig.CacheDir))
-		}
+	cacheDir := ""
+	if independentProcess {
+		cacheDir = mountInfo.CacheConfig.CacheDir
+	} else {
+		cacheDir = FusePodCachePath
+	}
+
+	if mountInfo.CacheConfig.CacheDir != "" {
+		args = append(args, fmt.Sprintf("--%s=%s", "data-cache-path", cacheDir+DataCacheDir))
 	}
 	if mountInfo.CacheConfig.MetaDriver != schema.FsMetaDefault &&
 		mountInfo.CacheConfig.MetaDriver != schema.FsMetaMemory &&
 		mountInfo.CacheConfig.CacheDir != "" {
-		if !independentProcess {
-			args = append(args, fmt.Sprintf("--%s=%s", "meta-cache-path", FusePodCachePath+MetaCacheDir))
-		} else {
-			args = append(args, fmt.Sprintf("--%s=%s", "meta-cache-path", mountInfo.CacheConfig.CacheDir))
-		}
+		args = append(args, fmt.Sprintf("--%s=%s", "meta-cache-path", cacheDir+MetaCacheDir))
 	}
 	return args
 }
