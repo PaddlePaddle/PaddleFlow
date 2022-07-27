@@ -29,6 +29,7 @@ const (
 	pipelineApi = Prefix + "/pipeline"
 )
 
+// Pilepline
 type CreatePipelineRequest struct {
 	FsName   string `json:"fsname"`
 	YamlPath string `json:"yamlPath,omitempty"` // optional, use "./run.yaml" if not specified
@@ -84,6 +85,23 @@ type ListPipelineResponse struct {
 	PipelineList []PipelineBrief `json:"pipelineList"`
 }
 
+type UpdatePipelineRequest struct {
+	FsName   string `json:"fsName"`
+	YamlPath string `json:"yamlPath"` // optional, use "./run.yaml" if not specified
+	UserName string `json:"username"` // optional, only for root user
+	Desc     string `json:"desc"`     // optional
+}
+
+type UpdatePipelineResponse struct {
+	PipelineID        string `json:"pipelineID"`
+	PipelineVersionID string `json:"pipelineVersionID"`
+}
+
+type GetPipelineVersionResponse struct {
+	Pipeline        PipelineBrief        `json:"pipeline"`
+	PipelineVersion PipelineVersionBrief `json:"pipelineVersion"`
+}
+
 type pipeline struct {
 	client *core.PaddleFlowClient
 }
@@ -133,7 +151,6 @@ func (p *pipeline) List(ctx context.Context, request *ListPipelineRequest,
 		WithMethod(http.GET).
 		WithResult(result).
 		WithURL(pipelineApi).
-		WithQueryParam("fsFilter", strings.Join(request.FsFilter, ",")).
 		WithQueryParam("userFilter", strings.Join(request.UserFilter, ",")).
 		WithQueryParam("nameFilter", strings.Join(request.NameFilter, ",")).
 		WithQueryParam("marker", request.Marker).
@@ -160,24 +177,59 @@ func (p *pipeline) Delete(ctx context.Context, pipelineID, token string) (err er
 	return
 }
 
+func (p *pipeline) Update(ctx context.Context, pipelineID string, request UpdatePipelineRequest,
+	token string) (result *UpdatePipelineResponse, err error) {
+	result = &UpdatePipelineResponse{}
+	err = newRequestBuilderWithTokenHeader(p.client, token).
+		WithURL(pipelineApi + "/" + pipelineID).
+		WithMethod(http.POST).
+		WithBody(request).
+		WithResult(result).
+		Do()
+	if err != nil {
+		return nil, err
+	}
+	return
+}
+
+func (p *pipeline) GetVersion(ctx context.Context, pipelineID, pipelineVersionID, token string) (result *GetPipelineVersionResponse, err error) {
+	result = &GetPipelineVersionResponse{}
+	err = newRequestBuilderWithTokenHeader(p.client, token).
+		WithURL(pipelineApi + "/" + pipelineID + "/" + pipelineVersionID).
+		WithMethod(http.GET).
+		WithResult(result).
+		Do()
+
+	if err != nil {
+		return nil, err
+	}
+
+	return
+}
+
+func (p *pipeline) DeleteVersion(ctx context.Context, pipelineID, pipelineVersionID, token string) (err error) {
+	err = newRequestBuilderWithTokenHeader(p.client, token).
+		WithURL(pipelineApi + "/" + pipelineID + "/" + pipelineVersionID).
+		WithMethod(http.DELETE).
+		Do()
+
+	if err != nil {
+		return err
+	}
+
+	return
+}
+
 type PipelineInterface interface {
 	Create(ctx context.Context, request *CreatePipelineRequest, token string) (result *CreatePipelineResponse, err error)
 	Get(ctx context.Context, pipelineID, token string) (result *GetPipelineResponse, err error)
 	List(ctx context.Context, request *ListPipelineRequest, token string) (result *ListPipelineResponse, err error)
 	Delete(ctx context.Context, pipelineID, token string) (err error)
+	Update(ctx context.Context, pipelineID string, request, token string) (result *UpdatePipelineRequest, err error)
+	GetVersion(ctx context.Context, pipelineID, pipelineVersionID, token string) (result *GetPipelineVersionResponse, err error)
+	DeleteVersion(ctx context.Context, pipelineID, pipelineVersionID, token string) (err error)
 }
 
 type PipelineGetter interface {
 	Pipeline() PipelineInterface
-}
-
-type pipelineVersion struct {
-	client *core.PaddleFlowClient
-}
-
-type PipelineVersionInterface interface {
-}
-
-type PipelineVersionGetter interface {
-	Pipeline() PipelineVersionInterface
 }
