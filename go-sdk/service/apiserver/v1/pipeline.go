@@ -177,7 +177,7 @@ func (p *pipeline) Delete(ctx context.Context, pipelineID, token string) (err er
 	return
 }
 
-func (p *pipeline) Update(ctx context.Context, pipelineID string, request UpdatePipelineRequest,
+func (p *pipeline) Update(ctx context.Context, pipelineID string, request *UpdatePipelineRequest,
 	token string) (result *UpdatePipelineResponse, err error) {
 	result = &UpdatePipelineResponse{}
 	err = newRequestBuilderWithTokenHeader(p.client, token).
@@ -225,7 +225,7 @@ type PipelineInterface interface {
 	Get(ctx context.Context, pipelineID, token string) (result *GetPipelineResponse, err error)
 	List(ctx context.Context, request *ListPipelineRequest, token string) (result *ListPipelineResponse, err error)
 	Delete(ctx context.Context, pipelineID, token string) (err error)
-	Update(ctx context.Context, pipelineID string, request, token string) (result *UpdatePipelineRequest, err error)
+	Update(ctx context.Context, pipelineID string, request *UpdatePipelineRequest, token string) (result *UpdatePipelineResponse, err error)
 	GetVersion(ctx context.Context, pipelineID, pipelineVersionID, token string) (result *GetPipelineVersionResponse, err error)
 	DeleteVersion(ctx context.Context, pipelineID, pipelineVersionID, token string) (err error)
 }
