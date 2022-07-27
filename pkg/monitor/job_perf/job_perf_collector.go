@@ -113,7 +113,7 @@ func (j *JobPerfCollector) Collect(metrics chan<- prometheus.Metric) {
 }
 
 func (j *JobPerfCollector) updateJobPerf() {
-	timePointsCache := Manager.GetTimePointsCache()
+	timePointsCache := Manager.GetTimestampsCache()
 	for jobID, timePoints := range timePointsCache {
 		// update metrics
 		statusTime, _ := timePoints.GetStatusTime(DBUpdating)

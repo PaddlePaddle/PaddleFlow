@@ -22,17 +22,28 @@ limitations under the License.
 
 package job_perf
 
-import "github.com/PaddlePaddle/PaddleFlow/pkg/monitor"
+import (
+	"time"
+
+	"github.com/PaddlePaddle/PaddleFlow/pkg/monitor"
+)
 
 type JobTimePoint int
 
 const (
+	// T1 api query time
 	T1 JobTimePoint = iota
+	// T2 db update time
 	T2
+	// T3 enqueue time
 	T3
+	// T4 dequeue time
 	T4
+	// T5 creat time
 	T5
+	// T6 run time
 	T6
+	// T7 finish time
 	T7
 )
 
@@ -46,6 +57,14 @@ const (
 	Creating
 	Running
 )
+
+var (
+	Manager JobPerfManager
+)
+
+func init() {
+	Manager = newDefaultJobPerfManager()
+}
 
 func (j JobStatus) toMetric() string {
 	switch j {
@@ -63,4 +82,17 @@ func (j JobStatus) toMetric() string {
 		return monitor.MetricJobRunningTime
 	}
 	return ""
+}
+
+func AddTimestamp(jobID string, timePoint JobTimePoint, timestamp time.Time) {
+	Manager.AddTimestamp(jobID, timePoint, timestamp)
+}
+func GetStatusTime(jobID string, status JobStatus) (time.Duration, bool) {
+	return Manager.GetStatusTime(jobID, status)
+}
+func GetTimestamp(jobID string, timePoint JobTimePoint) (time.Time, bool) {
+	return Manager.GetTimestamp(jobID, timePoint)
+}
+func GetTimestampsCache() map[string]Timestamps {
+	return Manager.GetTimestampsCache()
 }

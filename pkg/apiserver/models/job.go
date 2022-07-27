@@ -159,11 +159,12 @@ func CreateJob(job *Job) error {
 	}
 	db := storage.DB
 	// add job perf data
-	if err := db.Create(job).Error; err != nil {
+	// TODO: add job time point
+	err := db.Create(job).Error
+	if err != nil {
 		return err
 	}
-	// TODO: add job time point
-	job_perf.Manager.AddTimePoint(job.ID, job_perf.T1, time.Now())
+	job_perf.AddTimestamp(job.ID, job_perf.T2, time.Now())
 	return nil
 }
 
@@ -279,6 +280,13 @@ func UpdateJob(jobID string, status schema.JobStatus, runtimeInfo, runtimeStatus
 	if tx.Error != nil {
 		log.Errorf("update job failed, err %v", tx.Error)
 		return "", tx.Error
+	}
+	// add job perf data
+	switch job.Status {
+	case schema.StatusJobRunning:
+		job_perf.AddTimestamp(jobID, job_perf.T6, time.Now())
+	case schema.StatusJobSucceeded, schema.StatusJobFailed:
+		job_perf.AddTimestamp(jobID, job_perf.T7, time.Now())
 	}
 	return updatedJob.Status, nil
 }

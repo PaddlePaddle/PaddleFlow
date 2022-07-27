@@ -39,25 +39,20 @@ const (
 
 var (
 	ZeroTime = time.Time{}
-	Manager  JobPerfManager
 )
 
 type JobPerfManager interface {
-	AddTimePoint(jobID string, timePoint JobTimePoint, timestamp time.Time)
+	AddTimestamp(jobID string, timePoint JobTimePoint, timestamp time.Time)
 	GetStatusTime(jobID string, status JobStatus) (time.Duration, bool)
-	GetTimePoint(jobID string, timePoint JobTimePoint) (time.Time, bool)
-	GetTimePointsCache() map[string]TimePoints
-}
-
-func init() {
-	Manager = newDefaultJobPerfManager()
+	GetTimestamp(jobID string, timePoint JobTimePoint) (time.Time, bool)
+	GetTimestampsCache() map[string]Timestamps
 }
 
 type defaultJobPerfManager struct {
 	cache gcache.Cache
 }
 
-type TimePoints []time.Time
+type Timestamps []time.Time
 
 // Implementation of default job perf manager
 func newDefaultJobPerfManager() JobPerfManager {
@@ -69,23 +64,23 @@ func newDefaultJobPerfManager() JobPerfManager {
 	}
 }
 
-func (d *defaultJobPerfManager) AddTimePoint(jobID string, timePoint JobTimePoint, timestamp time.Time) {
+func (d *defaultJobPerfManager) AddTimestamp(jobID string, timePoint JobTimePoint, timestamp time.Time) {
 	val, err := d.cache.GetIFPresent(jobID)
 	if err != nil {
-		val = make(TimePoints, MaxTimePoint)
+		val = make(Timestamps, MaxTimePoint)
 	}
-	timePoints := val.(TimePoints)
+	timePoints := val.(Timestamps)
 	timePoints[timePoint] = timestamp
 	_ = d.cache.SetWithExpire(jobID, timePoints, Timeout)
 }
 
-// GetTimePoint returns the time point of the job, if not finished, then return ZeroTime, false
-func (d *defaultJobPerfManager) GetTimePoint(jobID string, timePoint JobTimePoint) (time.Time, bool) {
+// GetTimestamp returns the time point of the job, if not finished, then return ZeroTime, false
+func (d *defaultJobPerfManager) GetTimestamp(jobID string, timePoint JobTimePoint) (time.Time, bool) {
 	val, err := d.cache.GetIFPresent(jobID)
 	if err != nil {
 		return ZeroTime, false
 	}
-	timePoints := val.(TimePoints)
+	timePoints := val.(Timestamps)
 	return timePoints[timePoint], true
 }
 
@@ -95,20 +90,20 @@ func (d *defaultJobPerfManager) GetStatusTime(jobID string, status JobStatus) (t
 	if err != nil {
 		return ZeroDuration, false
 	}
-	timePoints := val.(TimePoints)
+	timePoints := val.(Timestamps)
 	return timePoints.GetStatusTime(status)
 }
 
-func (d *defaultJobPerfManager) GetTimePointsCache() map[string]TimePoints {
+func (d *defaultJobPerfManager) GetTimestampsCache() map[string]Timestamps {
 	cacheMap := d.cache.GetALL(true)
-	timePointsCache := make(map[string]TimePoints)
+	timePointsCache := make(map[string]Timestamps)
 	for key, val := range cacheMap {
-		timePointsCache[key.(string)] = val.(TimePoints)
+		timePointsCache[key.(string)] = val.(Timestamps)
 	}
 	return timePointsCache
 }
 
-func (i TimePoints) GetStatusTime(status JobStatus) (time.Duration, bool) {
+func (i Timestamps) GetStatusTime(status JobStatus) (time.Duration, bool) {
 	timePoints := i
 
 	start, end := getTimePointsByStatus(status)
