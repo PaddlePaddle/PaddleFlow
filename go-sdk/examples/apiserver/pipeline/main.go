@@ -51,7 +51,7 @@ func create(pfClient *service.PaddleFlowClient, token string) (createResult *v1.
 		panic(err)
 	}
 
-	fmt.Println(createResult.ID, createResult.Name)
+	fmt.Println(createResult.PipelineID, createResult.Name)
 	return
 }
 
@@ -79,7 +79,7 @@ func List(pfClient *service.PaddleFlowClient, token string) (result *v1.ListPipe
 	}
 
 	for _, p := range result.PipelineList {
-		fmt.Println(p.ID, p.UserName, p.FsName, p.Name)
+		fmt.Println(p.PipelineID, p.UserName, p.FsName, p.Name)
 	}
 
 	fmt.Println(result.MarkerInfo.NextMarker)

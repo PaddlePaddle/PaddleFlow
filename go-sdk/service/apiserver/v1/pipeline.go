@@ -37,32 +37,51 @@ type CreatePipelineRequest struct {
 }
 
 type CreatePipelineResponse struct {
-	ID   string `json:"pipelineID"`
-	Name string `json:"name"`
+	PipelineID        string `json:"pipelineID"`
+	PipelineVersionID string `json:"pipelineVersionID"`
+	Name              string `json:"name"`
 }
 
 type GetPipelineResponse struct {
-	ID           string `json:"pipelineID"`
-	Name         string `json:"name"`
-	FsName       string `json:"fsname"`
-	UserName     string `json:"username"`
+	Pipeline         PipelineBrief    `json:"pipeline"`
+	PipelineVersions PipelineVersions `json:"pplVersions"`
+}
+
+type PipelineBrief struct {
+	ID         string `json:"pipelineID"`
+	Name       string `json:"name"`
+	Desc       string `json:"desc"`
+	UserName   string `json:"username"`
+	CreateTime string `json:"createTime"`
+	UpdateTime string `json:"updateTime"`
+}
+
+type PipelineVersions struct {
+	common.MarkerInfo
+	PipelineVersionList []PipelineVersionBrief `json:"pplVersionList"`
+}
+
+type PipelineVersionBrief struct {
+	ID           string `json:"pipelineVersionID"`
+	PipelineID   string `json:"pipelineID"`
+	FsName       string `json:"fsName"`
+	YamlPath     string `json:"yamlPath"`
 	PipelineYaml string `json:"pipelineYaml"`
-	PipelineMd5  string `json:"pipelineMd5"`
-	CreateTime   string `json:"createTime,omitempty"`
-	UpdateTime   string `json:"updateTime,omitempty"`
+	UserName     string `json:"username"`
+	CreateTime   string `json:"createTime"`
+	UpdateTime   string `json:"updateTime"`
 }
 
 type ListPipelineRequest struct {
 	Marker     string
 	MaxKeys    int
 	UserFilter []string
-	FsFilter   []string
 	NameFilter []string
 }
 
 type ListPipelineResponse struct {
 	common.MarkerInfo
-	PipelineList []GetPipelineResponse `json:"pipelineList"`
+	PipelineList []PipelineBrief `json:"pipelineList"`
 }
 
 type pipeline struct {
@@ -150,4 +169,15 @@ type PipelineInterface interface {
 
 type PipelineGetter interface {
 	Pipeline() PipelineInterface
+}
+
+type pipelineVersion struct {
+	client *core.PaddleFlowClient
+}
+
+type PipelineVersionInterface interface {
+}
+
+type PipelineVersionGetter interface {
+	Pipeline() PipelineVersionInterface
 }
