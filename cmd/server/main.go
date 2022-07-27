@@ -223,6 +223,11 @@ func setup() {
 		gracefullyExit(err)
 	}
 
+	if err := initJobMonitor(ServerConf.Monitor.ExporterServicePort); err != nil {
+		log.Errorf("create job monitor service failed, err %s", err)
+		gracefullyExit(err)
+	}
+
 }
 
 func newAndStartJobManager() error {
@@ -244,6 +249,18 @@ func newAndStartJobManager() error {
 func initPrometheusClient(address string) error {
 	err := monitor.NewClientAPI(address)
 	return err
+}
+
+func initJobMonitor(port int) (err error) {
+	defer func() {
+		err1 := recover()
+		if err1 != nil {
+			err = fmt.Errorf("%s", err1)
+		}
+	}()
+	monitor.Init()
+	monitor.StartJobMetricsService(port)
+	return
 }
 
 func gracefullyExit(err error) {
