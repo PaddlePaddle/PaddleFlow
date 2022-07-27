@@ -3,7 +3,6 @@ package mount
 import (
 	"encoding/base64"
 	"encoding/json"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 	"strings"
 	"testing"
 	"time"
@@ -11,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
