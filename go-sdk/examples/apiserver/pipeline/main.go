@@ -18,6 +18,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/PaddlePaddle/PaddleFlow/go-sdk/service"
@@ -27,8 +28,8 @@ import (
 
 func getToken(pfClient *service.PaddleFlowClient) string {
 	data, err := pfClient.APIV1().User().Login(context.TODO(), &v1.LoginInfo{
-		UserName: "root",       // debug: test
-		Password: "paddleflow", // debug: test
+		UserName: "",
+		Password: "",
 	})
 	if err != nil {
 		panic(err)
@@ -38,12 +39,7 @@ func getToken(pfClient *service.PaddleFlowClient) string {
 	return token
 }
 
-func create(pfClient *service.PaddleFlowClient, token string) (createResult *v1.CreatePipelineResponse) {
-	request := &v1.CreatePipelineRequest{
-		FsName:   "cyang14",
-		YamlPath: "143/run.yaml",
-	}
-
+func create(pfClient *service.PaddleFlowClient, request *v1.CreatePipelineRequest, token string) (createResult *v1.CreatePipelineResponse) {
 	createResult, err := pfClient.APIV1().Pipeline().Create(context.TODO(), request, token)
 
 	if err != nil {
@@ -61,11 +57,7 @@ func Get(pfClient *service.PaddleFlowClient, token, pipelineID string) (result *
 	return result
 }
 
-func List(pfClient *service.PaddleFlowClient, token string) (result *v1.ListPipelineResponse) {
-	request := &v1.ListPipelineRequest{
-		MaxKeys: 10,
-	}
-
+func List(pfClient *service.PaddleFlowClient, request *v1.ListPipelineRequest, token string) (result *v1.ListPipelineResponse) {
 	result, err := pfClient.APIV1().Pipeline().List(context.TODO(), request, token)
 	if err != nil {
 		panic(err)
@@ -87,7 +79,6 @@ func Delete(pfClient *service.PaddleFlowClient, pipelineID, token string) {
 }
 
 func Update(pfClient *service.PaddleFlowClient, pipelineID string, request *v1.UpdatePipelineRequest, token string) (result *v1.UpdatePipelineResponse) {
-
 	result, err := pfClient.APIV1().Pipeline().Update(context.TODO(), pipelineID, request, token)
 	if err != nil {
 		panic(err)
@@ -114,7 +105,7 @@ func DeleteVersion(pfClient *service.PaddleFlowClient, pipelineID, pipelineVersi
 
 func main() {
 	config := &core.PaddleFlowClientConfiguration{
-		Host:                       "gzbh-bos-aries-r104-178546850.gzbh.baidu.com", // debug: test
+		Host:                       "",
 		Port:                       8999,
 		ConnectionTimeoutInSeconds: 1,
 	}
@@ -125,29 +116,33 @@ func main() {
 	}
 
 	token := getToken(pfClient)
-	create(pfClient, token)
+	reqCreate := &v1.CreatePipelineRequest{
+		FsName:   "",
+		YamlPath: "",
+	}
+	create(pfClient, reqCreate, token)
 
-	// res := Get(pfClient, token, "ppl-000001")
-	// resJson, err := json.Marshal(res.Pipeline)
-	// fmt.Println(string(resJson))
+	resGet := Get(pfClient, token, "ppl-000001")
+	resJson, err := json.Marshal(resGet.Pipeline)
+	fmt.Println(string(resJson))
 
-	// List(pfClient, token)
-	// Delete(pfClient, "ppl-000002", token)
-	// List(pfClient, token)
+	reqUpdate := &v1.UpdatePipelineRequest{
+		FsName:   "",
+		YamlPath: "",
+	}
+	resUpdate := Update(pfClient, "ppl-000001", reqUpdate, token)
+	fmt.Println(resUpdate.PipelineVersionID)
 
-	// updateRequest := &v1.UpdatePipelineRequest{
-	// 	FsName:   "cyang14",
-	// 	YamlPath: "143/runDag.yaml",
-	// }
-	// res := Update(pfClient, "ppl-000001", updateRequest, token)
-	// fmt.Println(res.PipelineVersionID)
+	res := GetVersion(pfClient, "ppl-000001", "1", token)
+	fmt.Println(res.PipelineVersion.PipelineYaml)
 
-	// res := GetVersion(pfClient, "ppl-000001", "1", token)
-	// fmt.Println(res.PipelineVersion.PipelineYaml)
+	DeleteVersion(pfClient, "ppl-000001", "2", token)
+	resDeleteVer := Get(pfClient, token, "ppl-000001")
+	resJson, err = json.Marshal(resDeleteVer.PipelineVersions)
+	fmt.Println(string(resJson))
 
-	// DeleteVersion(pfClient, "ppl-000001", "2", token)
-	// res := Get(pfClient, token, "ppl-000001")
-	// resJson, err := json.Marshal(res.PipelineVersions)
-	// fmt.Println(string(resJson))
-
+	reqList := &v1.ListPipelineRequest{}
+	List(pfClient, reqList, token)
+	Delete(pfClient, "ppl-000001", token)
+	List(pfClient, reqList, token)
 }

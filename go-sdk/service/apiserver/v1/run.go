@@ -183,23 +183,6 @@ func (r *run) Create(ctx context.Context, request *CreateRunRequest,
 	return
 }
 
-func (r *run) CreateByJson(ctx context.Context, request interface{},
-	token string) (result *CreateRunResponse, err error) {
-	result = &CreateRunResponse{}
-	err = newRequestBuilderWithTokenHeader(r.client, token).
-		WithMethod(http.POST).
-		WithURL(runApi + "json").
-		WithResult(result).
-		WithBody(request).
-		Do()
-
-	if err != nil {
-		return nil, err
-	}
-
-	return
-}
-
 func (r *run) Get(ctx context.Context, runID string, token string) (result *GetRunResponse, err error) {
 	result = &GetRunResponse{}
 	err = newRequestBuilderWithTokenHeader(r.client, token).
@@ -350,7 +333,6 @@ func (r *run) Delete(ctx context.Context, runID string, token string) (err error
 
 type RunInterface interface {
 	Create(ctx context.Context, request *CreateRunRequest, token string) (result *CreateRunResponse, err error)
-	CreateByJson(ctx context.Context, request interface{}, token string) (result *CreateRunResponse, err error)
 	Get(ctx context.Context, runID string, token string) (result *GetRunResponse, err error)
 	List(ctx context.Context, request *ListRunRequest, token string) (result *ListRunResponse, err error)
 	Stop(ctx context.Context, StopForce bool, runID, token string) (err error)

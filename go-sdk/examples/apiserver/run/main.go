@@ -18,18 +18,18 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/PaddlePaddle/PaddleFlow/go-sdk/service"
 	v1 "github.com/PaddlePaddle/PaddleFlow/go-sdk/service/apiserver/v1"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/core"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
 
 func getToken(pfClient *service.PaddleFlowClient) string {
 	data, err := pfClient.APIV1().User().Login(context.TODO(), &v1.LoginInfo{
-		UserName: "root",       //debug: test
-		Password: "paddleflow", // debug: test
+		UserName: "",
+		Password: "",
 	})
 	if err != nil {
 		panic(err)
@@ -39,14 +39,7 @@ func getToken(pfClient *service.PaddleFlowClient) string {
 	return token
 }
 
-func create(pfClient *service.PaddleFlowClient, token string) (createResult *v1.CreateRunResponse) {
-	request := &v1.CreateRunRequest{
-		FsName:      "cyang14", //debug: test
-		Description: "",
-		RunYamlPath: "143/runDag.yaml", //debug: test
-		UserName:    "",
-	}
-
+func Create(pfClient *service.PaddleFlowClient, request *v1.CreateRunRequest, token string) (createResult *v1.CreateRunResponse) {
 	createResult, err := pfClient.APIV1().Run().Create(context.TODO(), request, token)
 
 	if err != nil {
@@ -54,46 +47,6 @@ func create(pfClient *service.PaddleFlowClient, token string) (createResult *v1.
 	}
 	fmt.Printf("create Run result %v\n", createResult)
 	return
-}
-
-func createByJson(pfClient *service.PaddleFlowClient, token string) (createResult *v1.CreateRunResponse) {
-	main := &v1.RunStep{
-		Command:   "",
-		DockerEnv: "centos:centos7",
-		Env: map[string]string{
-			"PF_JOB_MODE": "Pod",
-		},
-	}
-
-	main2 := &v1.RunStep{
-		DockerEnv: "centos:centos7",
-		Deps:      "main",
-		Command:   "echo 111",
-		Env: map[string]string{
-			"PF_JOB_MODE": "Pod",
-		},
-	}
-
-	request := map[string]interface{}{
-		"name":    "test",
-		"jobType": "vcjob",
-		"queue":   "wf-queue",
-		"flavour": "flavour1",
-		"entryPoints": map[string]*v1.RunStep{ //这里有问题需要修改
-			"main":  main,
-			"main2": main2,
-		},
-		"failureOptions": schema.FailureOptions{
-			Strategy: "continue",
-		},
-	}
-
-	createResult, err := pfClient.APIV1().Run().CreateByJson(context.TODO(), request, token)
-	if err != nil {
-		panic(err)
-	}
-
-	return createResult
 }
 
 func Get(pfClient *service.PaddleFlowClient, token, runID string) (result *v1.GetRunResponse) {
@@ -107,13 +60,7 @@ func Get(pfClient *service.PaddleFlowClient, token, runID string) (result *v1.Ge
 	return result
 }
 
-func List(pfClient *service.PaddleFlowClient, token string) (result *v1.ListRunResponse) {
-	request := &v1.ListRunRequest{
-		MaxKeys:    10,
-		UserFilter: []string{"root"},
-		FsFilter:   []string{"cyang14"},
-	}
-
+func List(pfClient *service.PaddleFlowClient, request *v1.ListRunRequest, token string) (result *v1.ListRunResponse) {
 	result, err := pfClient.APIV1().Run().List(context.TODO(), request, token)
 	if err != nil {
 		panic(err)
@@ -127,8 +74,8 @@ func List(pfClient *service.PaddleFlowClient, token string) (result *v1.ListRunR
 	return result
 }
 
-func Stop(pfClient *service.PaddleFlowClient, token, runID string) {
-	err := pfClient.APIV1().Run().Stop(context.TODO(), false, runID, token)
+func Stop(pfClient *service.PaddleFlowClient, token, runID string, stopForce bool) {
+	err := pfClient.APIV1().Run().Stop(context.TODO(), stopForce, runID, token)
 	if err != nil {
 		panic(err)
 	}
@@ -151,7 +98,7 @@ func Delete(pfClient *service.PaddleFlowClient, token, runID string) {
 
 func main() {
 	config := &core.PaddleFlowClientConfiguration{
-		Host:                       "gzbh-bos-aries-r104-178546850.gzbh.baidu.com", // debug: test
+		Host:                       "",
 		Port:                       8999,
 		ConnectionTimeoutInSeconds: 1,
 	}
@@ -162,20 +109,33 @@ func main() {
 	}
 
 	token := getToken(pfClient)
-	// createResult := create(pfClient, token)
-	// fmt.Println(createResult)
-	// Stop(pfClient, token, createResult.RunID)
-	// time.Sleep(time.Duration(20) * time.Second)
-	res := Retry(pfClient, token, "run-000024")
 
+	reqCreate := &v1.CreateRunRequest{
+		FsName:      "",
+		Description: "",
+		RunYamlPath: "",
+		UserName:    "",
+	}
+
+	createResult := Create(pfClient, reqCreate, token)
+	fmt.Println(createResult)
+
+	Stop(pfClient, token, createResult.RunID, false)
+
+	res := Retry(pfClient, token, "run-000001")
 	fmt.Println(res.RunID)
 
-	// createResult := createByJson(pfClient, token)
-	// getResult := Get(pfClient, token, "run-000014")
-	// resJson, _ := json.Marshal(getResult.Runtime)
-	// fmt.Println("runtime: ", string(resJson))
-	// Delete(pfClient, token, "")
-	// Get(pfClient, token, "")
+	getResult := Get(pfClient, token, "run-000002")
+	resJson, _ := json.Marshal(getResult.Runtime)
+	fmt.Println("runtime: ", string(resJson))
 
-	// List(pfClient, token)
+	Delete(pfClient, token, "run-000002")
+	Get(pfClient, token, "run-000002")
+
+	reqList := &v1.ListRunRequest{
+		MaxKeys:    10,
+		UserFilter: []string{""},
+		FsFilter:   []string{""},
+	}
+	List(pfClient, reqList, token)
 }
