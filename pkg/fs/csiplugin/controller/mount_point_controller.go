@@ -263,20 +263,23 @@ func (m *MountPointController) CheckAndRemountVolumeMount(volumeMount volumeMoun
 	}
 
 	if !mountInfo.FS.IndependentMountProcess && mountInfo.FS.Type != common.GlusterFSType {
-		return bindFromSource(mountInfo)
-	} else {
-		output, err := utils.ExecCmdWithTimeout(mountInfo.Cmd, mountInfo.Args)
-		if err != nil {
-			log.Errorf("exec mount failed: [%v], output[%v]", err, string(output))
+		if err := waitForBindSourceReady(pvParams.fsID); err != nil {
+			log.Errorf("waitForBindSourceReady[%s] err: %v", pvParams.fsID, err)
+			return err
+		}
+	}
+
+	if checkIfNeedRemount(mountPath) {
+		if err := remount(mountInfo); err != nil {
+			err := fmt.Errorf("remount info: %+v failed: %v", mountInfo, err)
+			log.Errorf(err.Error())
 			return err
 		}
 	}
 	return nil
 }
 
-// check whether to bind from source (pod mount) or mount directly (process mount)
-func bindFromSource(mountInfo mount.Info) error {
-	fsID, mountPath := mountInfo.FS.ID, mountInfo.TargetPath
+func waitForBindSourceReady(fsID string) error {
 	i := 0
 	for {
 		isMount, err := utils.IsMountPoint(schema.GetBindSource(fsID))
@@ -285,15 +288,9 @@ func bindFromSource(mountInfo mount.Info) error {
 		}
 		i += 1
 		if i > 2 {
-			return fmt.Errorf("path[%s] not mount, please check mount pod", schema.GetBindSource(fsID))
+			return fmt.Errorf("bind source[%s] not mounted, please check mount pod", schema.GetBindSource(fsID))
 		}
 		time.Sleep(1 * time.Second)
-	}
-	if checkIfNeedRemount(mountPath) {
-		if err := remount(fsID, mountPath, mountInfo.ReadOnly); err != nil {
-			log.Errorf("remount fs[%s] to mountPath[%s] failed: %v", fsID, mountPath, err)
-			return fmt.Errorf("remount fs[%s] to mountPath[%s] failed: %v", fsID, mountPath, err)
-		}
 	}
 	return nil
 }
@@ -309,8 +306,9 @@ func checkIfNeedRemount(path string) bool {
 	return false
 }
 
-func remount(fsID, mountPath string, readOnly bool) error {
-	log.Tracef("remount: fsID[%s], mountPath[%s]", fsID, mountPath)
+func remount(mountInfo mount.Info) error {
+	log.Tracef("remount: mountInfo %+v", mountInfo)
+	fsID, mountPath, readOnly, isProcess := mountInfo.FS.ID, mountInfo.TargetPath, mountInfo.ReadOnly, mountInfo.FS.IndependentMountProcess
 	// umount old mount point
 	output, err := utils.ExecCmdWithTimeout(utils.UMountCmdName, []string{mountPath})
 	if err != nil {
@@ -322,12 +320,20 @@ func remount(fsID, mountPath string, readOnly bool) error {
 		}
 	}
 
-	// bind source path to mount path
-	log.Infof("remount: bind source[%s] to target[%s], readOnly[%t]", schema.GetBindSource(fsID), mountPath, readOnly)
-	output, err = utils.ExecMountBind(schema.GetBindSource(fsID), mountPath, readOnly)
-	if err != nil {
-		log.Errorf("remount: exec mount bind cmd failed: %v, output[%s]", err, string(output))
-		return err
+	if !isProcess && mountInfo.FS.Type != common.GlusterFSType {
+		// bind source path to mount path
+		log.Infof("remount: bind source[%s] to target[%s], readOnly[%t]", schema.GetBindSource(fsID), mountPath, readOnly)
+		output, err = utils.ExecMountBind(schema.GetBindSource(fsID), mountPath, readOnly)
+		if err != nil {
+			log.Errorf("remount: pod exec mount bind cmd failed: %v, output[%s]", err, string(output))
+			return err
+		}
+	} else {
+		output, err = utils.ExecCmdWithTimeout(mountInfo.Cmd, mountInfo.Args)
+		if err != nil {
+			log.Errorf("remount: process exec mount cmd failed: [%v], output[%v]", err, string(output))
+			return err
+		}
 	}
 	return nil
 }
