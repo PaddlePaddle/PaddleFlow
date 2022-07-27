@@ -321,7 +321,7 @@ func TestInfo_MountCmd(t *testing.T) {
 				Options:    glusterfsOption,
 				TargetPath: targetPath,
 			},
-			want: "mount-t glusterfs 127.0.0.1:default-volume /targetPath/test",
+			want: "mount -t glusterfs 127.0.0.1:default-volume /targetPath/test",
 		},
 	}
 	for _, tt := range tests {
@@ -334,7 +334,7 @@ func TestInfo_MountCmd(t *testing.T) {
 				Options:     tt.fields.Options,
 			}
 			cmd, args := m.MountCmd()
-			got := cmd + strings.Join(args, " ")
+			got := cmd + " " + strings.Join(args, " ")
 			if got != tt.want {
 				t.Errorf("MountCmd() = %v, want %v", got, tt.want)
 			}
