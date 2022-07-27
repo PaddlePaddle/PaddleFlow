@@ -177,8 +177,8 @@ func TestInfo_MountCmdArgs(t *testing.T) {
 				CacheConfig: fsCache,
 				TargetPath:  "/targetPath/test",
 			},
-			want: "/home/paddleflow/pfs-fuse mount --mount-point=/home/paddleflow/mnt/storage " +
-				"--fs-info=" + fsBase64 + " --fs-id=fs-root-testfs --block-size=4096 --meta-cache-driver=leveldb --file-mode=0644 --dir-mode=0755 " +
+			want: "/home/paddleflow/pfs-fuse mount --mount-point=/home/paddleflow/mnt/storage " + "--fs-id=fs-root-testfs --fs-info=" +
+				fsBase64 + " --block-size=4096 --meta-cache-driver=leveldb --file-mode=0644 --dir-mode=0755 " +
 				"--data-cache-path=" + FusePodCachePath + DataCacheDir + " " +
 				"--meta-cache-path=" + FusePodCachePath + MetaCacheDir,
 		},
@@ -189,8 +189,8 @@ func TestInfo_MountCmdArgs(t *testing.T) {
 				CacheConfig: fsCache,
 				TargetPath:  "/targetPath/test",
 			},
-			want: "/home/paddleflow/mount.sh --mount-point=/targetPath/test --fs-info=" + fsBase64Inde +
-				" --fs-id=fs-root-testfs --block-size=4096 " +
+			want: "/home/paddleflow/mount.sh --mount-point=/targetPath/test --fs-id=fs-root-testfs --fs-info=" + fsBase64Inde +
+				" --block-size=4096 " +
 				"--meta-cache-driver=leveldb " +
 				"--file-mode=0644 --dir-mode=0755 --data-cache-path=/data/paddleflow-FS/mnt --meta-cache-path=/data/paddleflow-FS/mnt",
 		},
@@ -211,7 +211,7 @@ func TestInfo_MountCmdArgs(t *testing.T) {
 				TargetPath:  "/target/testPath",
 			},
 			want: "/home/paddleflow/pfs-fuse mount --mount-point=/home/paddleflow/mnt/storage " +
-				"--fs-info=" + fsBase64 + " --fs-id=fs-root-testfs --file-mode=0644 --dir-mode=0755",
+				"--fs-id=fs-root-testfs --fs-info=" + fsBase64 + " --file-mode=0644 --dir-mode=0755",
 		},
 		{
 			name: "test-pfs-fuse-cache-readOnly",
@@ -222,7 +222,7 @@ func TestInfo_MountCmdArgs(t *testing.T) {
 				ReadOnly:    true,
 			},
 			want: "/home/paddleflow/pfs-fuse mount --mount-point=/home/paddleflow/mnt/storage " +
-				"--fs-info=" + fsBase64 + " --fs-id=fs-root-testfs --mount-commonOptions=ro --block-size=4096 --meta-cache-driver=leveldb --file-mode=0644 --dir-mode=0755 " +
+				"--fs-id=fs-root-testfs --fs-info=" + fsBase64 + " --mount-options=ro --block-size=4096 --meta-cache-driver=leveldb --file-mode=0644 --dir-mode=0755 " +
 				"--data-cache-path=" + FusePodCachePath + DataCacheDir + " " +
 				"--meta-cache-path=" + FusePodCachePath + MetaCacheDir,
 		},

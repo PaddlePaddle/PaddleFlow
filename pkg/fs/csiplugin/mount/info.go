@@ -128,11 +128,11 @@ func (mountInfo *Info) cachePathArgs(independentProcess bool) (args []string) {
 
 func (mountInfo *Info) commonOptions() []string {
 	var options []string
-	options = append(options, fmt.Sprintf("--%s=%s", "fs-info", mountInfo.FSBase64Str))
 	options = append(options, fmt.Sprintf("--%s=%s", "fs-id", mountInfo.FS.ID))
+	options = append(options, fmt.Sprintf("--%s=%s", "fs-info", mountInfo.FSBase64Str))
 
 	if mountInfo.ReadOnly {
-		options = append(options, fmt.Sprintf("--%s=%s", "mount-commonOptions", ReadOnly))
+		options = append(options, fmt.Sprintf("--%s=%s", "mount-options", ReadOnly))
 	}
 
 	if mountInfo.CacheConfig.BlockSize > 0 {
