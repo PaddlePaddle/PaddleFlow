@@ -29,7 +29,6 @@ type APIV1Interface interface {
 	JobGetter
 	RunGetter
 	PipelineGetter
-	PipelineVersionGetter
 }
 
 // APIV1Client is used to interact with features provided by the group.
