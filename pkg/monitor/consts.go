@@ -33,12 +33,12 @@ const (
 // for job creating monitor
 
 const (
-	MetricJobAPIHandlingTime = "job_api_handling_time"
-	MetricJobEnqueueTime     = "job_enqueue_time"
-	MetricJobDequeueTime     = "job_dequeue_time"
-	MetricJobPendingTime     = "job_pending_time"
-	MetricJobCreatingTime    = "job_creating_time"
-	MetricJobRunningTime     = "job_running_time"
+	MetricJobDBUpdatingTime = "job_db_updating_time"
+	MetricJobEnqueueTime    = "job_enqueue_time"
+	MetricJobDequeueTime    = "job_dequeue_time"
+	MetricJobPendingTime    = "job_pending_time"
+	MetricJobCreatingTime   = "job_creating_time"
+	MetricJobRunningTime    = "job_running_time"
 )
 
 const (

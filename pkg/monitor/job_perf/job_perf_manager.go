@@ -25,12 +25,14 @@ package job_perf
 import (
 	"time"
 
-	"github.com/goburrow/cache"
+	//"github.com/goburrow/cache"
+	"github.com/bluele/gcache"
 )
 
 const (
 	MaxNum       = 10000
 	MaxTimePoint = int(T7 + 1)
+	MaxStatus    = int(Running + 1)
 	Timeout      = time.Hour
 	ZeroDuration = time.Duration(0)
 )
@@ -44,6 +46,7 @@ type JobPerfManager interface {
 	AddTimePoint(jobID string, timePoint JobTimePoint, timestamp time.Time)
 	GetStatusTime(jobID string, status JobStatus) (time.Duration, bool)
 	GetTimePoint(jobID string, timePoint JobTimePoint) (time.Time, bool)
+	GetTimePointsCache() map[string]TimePoints
 }
 
 func init() {
@@ -51,51 +54,62 @@ func init() {
 }
 
 type defaultJobPerfManager struct {
-	cache cache.Cache
+	cache gcache.Cache
 }
 
-type cacheItem []time.Time
+type TimePoints []time.Time
 
 // Implementation of default job perf manager
 func newDefaultJobPerfManager() JobPerfManager {
-	// use slru cache (default)
-	// high performance concurrent memery cache, see https://github.com/goburrow/cache
-	c := cache.New(
-		cache.WithMaximumSize(MaxNum),
-		cache.WithExpireAfterWrite(Timeout),
-	)
+	// TODO: use higher performance cache
+	// use arc cache (default)
+	c := gcache.New(MaxNum).ARC().Build()
 	return &defaultJobPerfManager{
 		cache: c,
 	}
 }
 
 func (d *defaultJobPerfManager) AddTimePoint(jobID string, timePoint JobTimePoint, timestamp time.Time) {
-	val, ok := d.cache.GetIfPresent(jobID)
-	if !ok {
-		val = make(cacheItem, MaxTimePoint)
+	val, err := d.cache.GetIFPresent(jobID)
+	if err != nil {
+		val = make(TimePoints, MaxTimePoint)
 	}
-	timePoints := val.(cacheItem)
+	timePoints := val.(TimePoints)
 	timePoints[timePoint] = timestamp
-	d.cache.Put(jobID, timePoints)
+	_ = d.cache.SetWithExpire(jobID, timePoints, Timeout)
 }
 
 // GetTimePoint returns the time point of the job, if not finished, then return ZeroTime, false
 func (d *defaultJobPerfManager) GetTimePoint(jobID string, timePoint JobTimePoint) (time.Time, bool) {
-	val, ok := d.cache.GetIfPresent(jobID)
-	if !ok {
+	val, err := d.cache.GetIFPresent(jobID)
+	if err != nil {
 		return ZeroTime, false
 	}
-	timePoints := val.(cacheItem)
+	timePoints := val.(TimePoints)
 	return timePoints[timePoint], true
 }
 
 // GetStatusTime returns the status time of the job, if not finished, then duration = Now - StartTime
-func (d defaultJobPerfManager) GetStatusTime(jobID string, status JobStatus) (time.Duration, bool) {
-	val, ok := d.cache.GetIfPresent(jobID)
-	if !ok {
+func (d *defaultJobPerfManager) GetStatusTime(jobID string, status JobStatus) (time.Duration, bool) {
+	val, err := d.cache.GetIFPresent(jobID)
+	if err != nil {
 		return ZeroDuration, false
 	}
-	timePoints := val.(cacheItem)
+	timePoints := val.(TimePoints)
+	return timePoints.GetStatusTime(status)
+}
+
+func (d *defaultJobPerfManager) GetTimePointsCache() map[string]TimePoints {
+	cacheMap := d.cache.GetALL(true)
+	timePointsCache := make(map[string]TimePoints)
+	for key, val := range cacheMap {
+		timePointsCache[key.(string)] = val.(TimePoints)
+	}
+	return timePointsCache
+}
+
+func (i TimePoints) GetStatusTime(status JobStatus) (time.Duration, bool) {
+	timePoints := i
 
 	start, end := getTimePointsByStatus(status)
 	startT, endT := timePoints[start], timePoints[end]

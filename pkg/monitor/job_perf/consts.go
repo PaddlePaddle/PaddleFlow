@@ -22,6 +22,8 @@ limitations under the License.
 
 package job_perf
 
+import "github.com/PaddlePaddle/PaddleFlow/pkg/monitor"
+
 type JobTimePoint int
 
 const (
@@ -38,9 +40,27 @@ type JobStatus int
 
 const (
 	DBUpdating JobStatus = iota
-	InQueue
+	EnQueue
 	DeQueue
 	Pending
 	Creating
 	Running
 )
+
+func (j JobStatus) toMetric() string {
+	switch j {
+	case DBUpdating:
+		return monitor.MetricJobDBUpdatingTime
+	case EnQueue:
+		return monitor.MetricJobEnqueueTime
+	case DeQueue:
+		return monitor.MetricJobDequeueTime
+	case Pending:
+		return monitor.MetricJobPendingTime
+	case Creating:
+		return monitor.MetricJobCreatingTime
+	case Running:
+		return monitor.MetricJobRunningTime
+	}
+	return ""
+}

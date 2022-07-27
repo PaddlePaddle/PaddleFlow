@@ -26,6 +26,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/monitor"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/monitor/job_perf"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/trace_logger"
@@ -223,6 +224,11 @@ func setup() {
 		gracefullyExit(err)
 	}
 
+	if err := initJobPerfMetricsService(ServerConf.Monitor.ExporterServicePort); err != nil {
+		log.Errorf("create job perf metrics service failed, err %v", err)
+		gracefullyExit(err)
+	}
+
 }
 
 func newAndStartJobManager() error {
@@ -244,6 +250,18 @@ func newAndStartJobManager() error {
 func initPrometheusClient(address string) error {
 	err := monitor.NewClientAPI(address)
 	return err
+}
+
+func initJobPerfMetricsService(port int) (err error) {
+	defer func() {
+		err1 := recover()
+		if err1 != nil {
+			err = fmt.Errorf("%v", err1)
+		}
+	}()
+	job_perf.InitRegistry()
+	job_perf.StartJobPerfMetricsService(port)
+	return
 }
 
 func gracefullyExit(err error) {
