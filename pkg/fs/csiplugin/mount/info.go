@@ -18,11 +18,11 @@ package mount
 
 import (
 	"fmt"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csiconfig"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
@@ -31,7 +31,7 @@ import (
 
 const (
 	mountName                             = "mount"
-	PfsFuseIndependentMountProcessCMDName = "/home/paddleflow/mount.sh"
+	pfsFuseIndependentMountProcessCMDName = "/home/paddleflow/mount.sh"
 	pfsFuseMountPodCMDName                = "/home/paddleflow/pfs-fuse mount"
 	ReadOnly                              = "ro"
 )
@@ -43,10 +43,11 @@ type Info struct {
 	TargetPath  string
 	Cmd         string
 	Args        []string
+	ReadOnly    bool
 	K8sClient   utils.Client
 }
 
-func ProcessMountInfo(fsInfoBase64, fsCacheBase64, targetPath string, k8sClient utils.Client, readOnly bool) (Info, error) {
+func ConstructMountInfo(fsInfoBase64, fsCacheBase64, targetPath string, k8sClient utils.Client, readOnly bool) (Info, error) {
 	// FS info
 	fs, err := utils.ProcessFSInfo(fsInfoBase64)
 	if err != nil {
@@ -56,14 +57,11 @@ func ProcessMountInfo(fsInfoBase64, fsCacheBase64, targetPath string, k8sClient 
 	}
 
 	// FS CacheConfig config
-	cacheConfig := model.FSCacheConfig{}
-	if !fs.IndependentMountProcess {
-		cacheConfig, err = utils.ProcessCacheConfig(fsCacheBase64)
-		if err != nil {
-			retErr := fmt.Errorf("FS process FS CacheConfig err: %v", err)
-			log.Errorf(retErr.Error())
-			return Info{}, retErr
-		}
+	cacheConfig, err := utils.ProcessCacheConfig(fsCacheBase64)
+	if err != nil {
+		retErr := fmt.Errorf("FS process FS CacheConfig err: %v", err)
+		log.Errorf(retErr.Error())
+		return Info{}, retErr
 	}
 
 	info := Info{
@@ -71,58 +69,68 @@ func ProcessMountInfo(fsInfoBase64, fsCacheBase64, targetPath string, k8sClient 
 		FS:          fs,
 		FSBase64Str: fsInfoBase64,
 		TargetPath:  targetPath,
+		ReadOnly:    readOnly,
 		K8sClient:   k8sClient,
 	}
-	info.Cmd, info.Args = info.cmdAndArgs(info.options(readOnly))
+	info.Cmd, info.Args = info.cmdAndArgs()
 	return info, nil
 }
 
-func (mountInfo *Info) cmdAndArgs(options []string) (string, []string) {
-	var cmd string
-	var args []string
+func (mountInfo *Info) cmdAndArgs() (string, []string) {
 	if mountInfo.FS.Type == common.GlusterFSType {
-		cmd = mountName
-		args = append(args, "-t", mountInfo.FS.Type,
-			strings.Join([]string{mountInfo.FS.ServerAddress, mountInfo.FS.SubPath}, ":"), mountInfo.TargetPath)
-		if len(options) != 0 {
-			args = append(args, "-o", strings.Join(options, ","))
-		}
+		return mountName, mountInfo.glusterArgs()
 	} else if mountInfo.FS.IndependentMountProcess {
-		cmd = PfsFuseIndependentMountProcessCMDName
-		args = append(args, fmt.Sprintf("--%s=%s", "mount-point", mountInfo.TargetPath))
-		args = append(args, options...)
+		return pfsFuseIndependentMountProcessCMDName, mountInfo.processMountArgs()
 	} else {
-		cmd = pfsFuseMountPodCMDName
-		args = append(args, fmt.Sprintf("--%s=%s", "mount-point", FusePodMountPoint))
-		args = append(args, options...)
+		return pfsFuseMountPodCMDName, mountInfo.podMountArgs()
 	}
-	return cmd, args
 }
 
-func (mountInfo *Info) options(readOnly bool) []string {
-	if mountInfo.FS.Type == common.GlusterFSType {
-		return []string{}
-	}
+func (mountInfo *Info) glusterArgs() (args []string) {
+	args = append(args, "-t", mountInfo.FS.Type,
+		strings.Join([]string{mountInfo.FS.ServerAddress, mountInfo.FS.SubPath}, ":"), mountInfo.TargetPath)
+	return args
+}
 
+func (mountInfo *Info) processMountArgs() (args []string) {
+	args = append(args, fmt.Sprintf("--%s=%s", "mount-point", mountInfo.TargetPath))
+	args = append(args, mountInfo.commonOptions()...)
+	if mountInfo.CacheConfig.BlockSize > 0 && mountInfo.CacheConfig.CacheDir != "" {
+		args = append(args, fmt.Sprintf("--%s=%s", "data-cache-path", mountInfo.CacheConfig.CacheDir))
+	}
+	if mountInfo.CacheConfig.MetaDriver != schema.FsMetaDefault &&
+		mountInfo.CacheConfig.MetaDriver != schema.FsMetaMemory &&
+		mountInfo.CacheConfig.CacheDir != "" {
+		args = append(args, fmt.Sprintf("--%s=%s", "meta-cache-path", mountInfo.CacheConfig.CacheDir))
+	}
+	return args
+}
+
+func (mountInfo *Info) podMountArgs() (args []string) {
+	args = append(args, fmt.Sprintf("--%s=%s", "mount-point", FusePodMountPoint))
+	args = append(args, mountInfo.commonOptions()...)
+	if mountInfo.CacheConfig.BlockSize > 0 && mountInfo.CacheConfig.CacheDir != "" {
+		args = append(args, fmt.Sprintf("--%s=%s", "data-cache-path", FusePodCachePath+DataCacheDir))
+	}
+	if mountInfo.CacheConfig.MetaDriver != schema.FsMetaDefault &&
+		mountInfo.CacheConfig.MetaDriver != schema.FsMetaMemory &&
+		mountInfo.CacheConfig.CacheDir != "" {
+		args = append(args, fmt.Sprintf("--%s=%s", "meta-cache-path", FusePodCachePath+MetaCacheDir))
+	}
+	return args
+}
+
+func (mountInfo *Info) commonOptions() []string {
 	var options []string
 	options = append(options, fmt.Sprintf("--%s=%s", "fs-info", mountInfo.FSBase64Str))
 	options = append(options, fmt.Sprintf("--%s=%s", "fs-id", mountInfo.FS.ID))
 
-	if readOnly {
-		options = append(options, fmt.Sprintf("--%s=%s", "mount-options", ReadOnly))
+	if mountInfo.ReadOnly {
+		options = append(options, fmt.Sprintf("--%s=%s", "mount-commonOptions", ReadOnly))
 	}
 
 	if mountInfo.CacheConfig.BlockSize > 0 {
 		options = append(options, fmt.Sprintf("--%s=%d", "block-size", mountInfo.CacheConfig.BlockSize))
-	}
-	if mountInfo.CacheConfig.CacheDir != "" {
-		var dataCacheDir string
-		if mountInfo.FS.IndependentMountProcess {
-			dataCacheDir = mountInfo.CacheConfig.CacheDir
-		} else {
-			dataCacheDir = FusePodCachePath + DataCacheDir
-		}
-		options = append(options, fmt.Sprintf("--%s=%s", "data-cache-path", dataCacheDir))
 	}
 	if mountInfo.CacheConfig.MetaDriver != "" {
 		options = append(options, fmt.Sprintf("--%s=%s", "meta-cache-driver", mountInfo.CacheConfig.MetaDriver))
@@ -134,17 +142,6 @@ func (mountInfo *Info) options(readOnly bool) []string {
 	}
 	if mountInfo.CacheConfig.Debug {
 		options = append(options, "--log-level=debug")
-	}
-	if mountInfo.CacheConfig.MetaDriver != schema.FsMetaDefault &&
-		mountInfo.CacheConfig.MetaDriver != schema.FsMetaMemory &&
-		mountInfo.CacheConfig.CacheDir != "" {
-		var cachePath string
-		if mountInfo.FS.IndependentMountProcess {
-			cachePath = mountInfo.CacheConfig.CacheDir
-		} else {
-			cachePath = FusePodCachePath + MetaCacheDir
-		}
-		options = append(options, fmt.Sprintf("--%s=%s", "meta-cache-path", cachePath))
 	}
 
 	// s3 default mount permission

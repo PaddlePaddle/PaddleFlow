@@ -80,14 +80,14 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context,
 		return nil, err
 	}
 
-	mountInfo, err := mount.ProcessMountInfo(volumeContext[schema.PFSInfo], volumeContext[schema.PFSCache],
+	mountInfo, err := mount.ConstructMountInfo(volumeContext[schema.PFSInfo], volumeContext[schema.PFSCache],
 		targetPath, k8sClient, req.GetReadonly())
 	if err != nil {
-		log.Errorf("ProcessMountInfo err: %v", err)
+		log.Errorf("ConstructMountInfo err: %v", err)
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 	log.Infof("Node publish mountInfo [%+v]", mountInfo)
-	
+
 	if err = mountVolume(volumeID, mountInfo, req.GetReadonly()); err != nil {
 		log.Errorf("mount filesystem[%s] failed: %v", volumeContext[schema.PFSID], err)
 		return &csi.NodePublishVolumeResponse{}, status.Error(codes.Internal, err.Error())
