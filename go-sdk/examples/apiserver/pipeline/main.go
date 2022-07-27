@@ -123,7 +123,7 @@ func main() {
 	create(pfClient, reqCreate, token)
 
 	resGet := Get(pfClient, token, "ppl-000001")
-	resJson, err := json.Marshal(resGet.Pipeline)
+	resJson, _ := json.Marshal(resGet.Pipeline)
 	fmt.Println(string(resJson))
 
 	reqUpdate := &v1.UpdatePipelineRequest{
@@ -138,7 +138,7 @@ func main() {
 
 	DeleteVersion(pfClient, "ppl-000001", "2", token)
 	resDeleteVer := Get(pfClient, token, "ppl-000001")
-	resJson, err = json.Marshal(resDeleteVer.PipelineVersions)
+	resJson, _ = json.Marshal(resDeleteVer.PipelineVersions)
 	fmt.Println(string(resJson))
 
 	reqList := &v1.ListPipelineRequest{}
