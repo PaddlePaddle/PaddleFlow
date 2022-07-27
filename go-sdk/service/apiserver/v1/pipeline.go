@@ -31,10 +31,10 @@ const (
 
 // Pilepline
 type CreatePipelineRequest struct {
-	FsName   string `json:"fsname"`
-	YamlPath string `json:"yamlPath,omitempty"` // optional, use "./run.yaml" if not specified
-	Name     string `json:"name,omitempty"`     // optional
-	UserName string `json:"username,omitempty"` // optional, only for root user
+	FsName   string `json:"fsName"`
+	YamlPath string `json:"yamlPath"` // optional, use "./run.yaml" if not specified
+	UserName string `json:"username"` // optional, only for root user
+	Desc     string `json:"desc"`     // optional
 }
 
 type CreatePipelineResponse struct {
