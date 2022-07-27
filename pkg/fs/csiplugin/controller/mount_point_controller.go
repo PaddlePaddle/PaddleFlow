@@ -284,10 +284,10 @@ func bindFromSource(mountInfo mount.Info) error {
 			break
 		}
 		i += 1
-		time.Sleep(1 * time.Second)
 		if i > 2 {
 			return fmt.Errorf("path[%s] not mount, please check mount pod", schema.GetBindSource(fsID))
 		}
+		time.Sleep(1 * time.Second)
 	}
 	if checkIfNeedRemount(mountPath) {
 		if err := remount(fsID, mountPath, mountInfo.ReadOnly); err != nil {
