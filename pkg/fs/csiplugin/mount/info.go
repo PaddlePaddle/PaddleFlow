@@ -18,11 +18,11 @@ package mount
 
 import (
 	"fmt"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
 
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/csiconfig"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
@@ -95,27 +95,33 @@ func (mountInfo *Info) glusterArgs() (args []string) {
 func (mountInfo *Info) processMountArgs() (args []string) {
 	args = append(args, fmt.Sprintf("--%s=%s", "mount-point", mountInfo.TargetPath))
 	args = append(args, mountInfo.commonOptions()...)
-	if mountInfo.CacheConfig.BlockSize > 0 && mountInfo.CacheConfig.CacheDir != "" {
-		args = append(args, fmt.Sprintf("--%s=%s", "data-cache-path", mountInfo.CacheConfig.CacheDir))
-	}
-	if mountInfo.CacheConfig.MetaDriver != schema.FsMetaDefault &&
-		mountInfo.CacheConfig.MetaDriver != schema.FsMetaMemory &&
-		mountInfo.CacheConfig.CacheDir != "" {
-		args = append(args, fmt.Sprintf("--%s=%s", "meta-cache-path", mountInfo.CacheConfig.CacheDir))
-	}
+	args = append(args, mountInfo.cachePathArgs(true)...)
 	return args
 }
 
 func (mountInfo *Info) podMountArgs() (args []string) {
 	args = append(args, fmt.Sprintf("--%s=%s", "mount-point", FusePodMountPoint))
 	args = append(args, mountInfo.commonOptions()...)
+	args = append(args, mountInfo.cachePathArgs(false)...)
+	return args
+}
+
+func (mountInfo *Info) cachePathArgs(independentProcess bool) (args []string) {
 	if mountInfo.CacheConfig.BlockSize > 0 && mountInfo.CacheConfig.CacheDir != "" {
-		args = append(args, fmt.Sprintf("--%s=%s", "data-cache-path", FusePodCachePath+DataCacheDir))
+		if !independentProcess {
+			args = append(args, fmt.Sprintf("--%s=%s", "data-cache-path", FusePodCachePath+DataCacheDir))
+		} else {
+			args = append(args, fmt.Sprintf("--%s=%s", "data-cache-path", mountInfo.CacheConfig.CacheDir))
+		}
 	}
 	if mountInfo.CacheConfig.MetaDriver != schema.FsMetaDefault &&
 		mountInfo.CacheConfig.MetaDriver != schema.FsMetaMemory &&
 		mountInfo.CacheConfig.CacheDir != "" {
-		args = append(args, fmt.Sprintf("--%s=%s", "meta-cache-path", FusePodCachePath+MetaCacheDir))
+		if !independentProcess {
+			args = append(args, fmt.Sprintf("--%s=%s", "meta-cache-path", FusePodCachePath+MetaCacheDir))
+		} else {
+			args = append(args, fmt.Sprintf("--%s=%s", "meta-cache-path", mountInfo.CacheConfig.CacheDir))
+		}
 	}
 	return args
 }

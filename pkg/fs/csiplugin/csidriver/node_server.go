@@ -88,7 +88,7 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context,
 	}
 	log.Infof("Node publish mountInfo [%+v]", mountInfo)
 
-	if err = mountVolume(volumeID, mountInfo, req.GetReadonly()); err != nil {
+	if err = mountVolume(volumeID, mountInfo); err != nil {
 		log.Errorf("mount filesystem[%s] failed: %v", volumeContext[schema.PFSID], err)
 		return &csi.NodePublishVolumeResponse{}, status.Error(codes.Internal, err.Error())
 	}
@@ -127,15 +127,15 @@ func (ns *nodeServer) NodeExpandVolume(ctx context.Context,
 	return nil, status.Error(codes.Unimplemented, "NodeExpandVolume is not implemented")
 }
 
-func mountVolume(volumeID string, mountInfo mount.Info, readOnly bool) error {
-	log.Infof("mountVolume: indepedentMp:%t, readOnly:%t", mountInfo.FS.IndependentMountProcess, readOnly)
+func mountVolume(volumeID string, mountInfo mount.Info) error {
+	log.Infof("mountVolume: indepedentMp:%t, readOnly:%t", mountInfo.FS.IndependentMountProcess, mountInfo.ReadOnly)
 	if !mountInfo.FS.IndependentMountProcess && mountInfo.FS.Type != common.GlusterFSType {
 		// business pods use a separate source path
 		if err := mount.PFSMount(volumeID, mountInfo); err != nil {
 			log.Errorf("MountThroughPod err: %v", err)
 			return err
 		}
-		if err := bindMountVolume(schema.GetBindSource(mountInfo.FS.ID), mountInfo.TargetPath, readOnly); err != nil {
+		if err := bindMountVolume(schema.GetBindSource(mountInfo.FS.ID), mountInfo.TargetPath, mountInfo.ReadOnly); err != nil {
 			log.Errorf("mountVolume[%s] of fs[%s] failed when bindMountVolume, err: %v", volumeID, mountInfo.FS.ID, err)
 			return err
 		}
