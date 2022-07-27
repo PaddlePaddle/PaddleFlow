@@ -155,9 +155,9 @@ func TestPFSMountWithCache(t *testing.T) {
 			assert.Equal(t, testTargetPath, newPod.Annotations[utils.GetPodUIDFromTargetPath(testTargetPath)])
 			assert.Equal(t, "mkdir -p /home/paddleflow/mnt/storage;"+
 				"/home/paddleflow/pfs-fuse mount --mount-point="+FusePodMountPoint+" --fs-id=fs-root-testfs --fs-info="+fsBase64+
-				" --block-size=4096 --file-mode=0644 --dir-mode=0755"+
+				" --block-size=4096 --meta-cache-driver=leveldb --file-mode=0644 --dir-mode=0755"+
 				" --data-cache-path="+FusePodCachePath+DataCacheDir+
-				" --meta-cache-driver=leveldb --meta-cache-path="+FusePodCachePath+MetaCacheDir, newPod.Spec.Containers[0].Command[2])
+				" --meta-cache-path="+FusePodCachePath+MetaCacheDir, newPod.Spec.Containers[0].Command[2])
 		})
 	}
 }
