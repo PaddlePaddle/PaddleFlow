@@ -18,6 +18,8 @@ package controller
 
 import (
 	"fmt"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/csiplugin/mount"
 	"strings"
 	"sync"
 	"time"
@@ -47,9 +49,9 @@ var checkerStopChan = make(chan bool)
 var checkerUpdateChan = make(chan bool)
 
 type pvParams struct {
-	fsID   string
-	server string
-	fsInfo string
+	fsID    string
+	fsInfo  string
+	fsCache string
 }
 
 // MountPointController will check the status of the mount point and remount unconnected mount point
@@ -203,7 +205,7 @@ func (m *MountPointController) UpdatePodMap() error {
 	pvs, err := client.ListPersistentVolume(metav1.ListOptions{})
 	for _, pv := range pvs.Items {
 		if pv.Spec.CSI != nil && pv.Spec.CSI.Driver == "paddleflowstorage" {
-			m.pvParamsMap[pv.Name] = getPFSParameters(pv.Spec.CSI.VolumeAttributes)
+			m.pvParamsMap[pv.Name] = buildPfsPvParams(pv.Spec.CSI.VolumeAttributes)
 		}
 	}
 	return nil
@@ -246,7 +248,7 @@ func (m *MountPointController) handleRunningPod(pod v1.Pod, updateMounts bool) {
 
 func (m *MountPointController) CheckAndRemountVolumeMount(volumeMount volumeMountInfo) error {
 	// TODO(dongzezhao) get mountParameters from volumeMountInfo
-	fsMountParams, ok := m.pvParamsMap[volumeMount.VolumeName]
+	pvParams, ok := m.pvParamsMap[volumeMount.VolumeName]
 	if !ok {
 		log.Errorf("get pfs parameters [%s] not exist", volumeMount.VolumeName)
 		return fmt.Errorf("get pfs parameters [%s] not exist", volumeMount.VolumeName)
@@ -254,22 +256,44 @@ func (m *MountPointController) CheckAndRemountVolumeMount(volumeMount volumeMoun
 
 	// pods need to restore source mount path mountpoints
 	mountPath := utils.GetVolumeBindMountPathByPod(volumeMount.PodUID, volumeMount.VolumeName)
+	mountInfo, err := mount.ConstructMountInfo(pvParams.fsInfo, pvParams.fsCache, mountPath, nil, volumeMount.ReadOnly)
+	if err != nil {
+		err := fmt.Errorf("ConstructMountInfo from pvParams: %+v failed: %v", pvParams, err)
+		log.Errorf(err.Error())
+		return err
+	}
+
+	if !mountInfo.FS.IndependentMountProcess && mountInfo.FS.Type != common.GlusterFSType {
+		return bindFromSource(mountInfo)
+	} else {
+		output, err := utils.ExecCmdWithTimeout(mountInfo.Cmd, mountInfo.Args)
+		if err != nil {
+			log.Errorf("exec mount failed: [%v], output[%v]", err, string(output))
+			return err
+		}
+	}
+	return nil
+}
+
+// check whether to bind from source (pod mount) or mount directly (process mount)
+func bindFromSource(mountInfo mount.Info) error {
+	fsID, mountPath := mountInfo.FS.ID, mountInfo.TargetPath
 	i := 0
 	for {
-		isMount, err := utils.IsMountPoint(schema.GetBindSource(fsMountParams.fsID))
+		isMount, err := utils.IsMountPoint(schema.GetBindSource(fsID))
 		if isMount && err == nil {
 			break
 		}
 		i += 1
 		time.Sleep(1 * time.Second)
 		if i > 2 {
-			return fmt.Errorf("path[%s] not mount, please check mount pod", schema.GetBindSource(fsMountParams.fsID))
+			return fmt.Errorf("path[%s] not mount, please check mount pod", schema.GetBindSource(fsID))
 		}
 	}
-	if m.CheckIfNeedRemount(mountPath) {
-		if err := m.Remount(fsMountParams.fsID, mountPath, volumeMount.ReadOnly); err != nil {
-			log.Errorf("remount fs[%s] to mountPath[%s] failed: %v", fsMountParams.fsID, mountPath, err)
-			return fmt.Errorf("remount fs[%s] to mountPath[%s] failed: %v", fsMountParams.fsID, mountPath, err)
+	if checkIfNeedRemount(mountPath) {
+		if err := remount(fsID, mountPath, mountInfo.ReadOnly); err != nil {
+			log.Errorf("remount fs[%s] to mountPath[%s] failed: %v", fsID, mountPath, err)
+			return fmt.Errorf("remount fs[%s] to mountPath[%s] failed: %v", fsID, mountPath, err)
 		}
 	}
 	return nil
@@ -277,7 +301,7 @@ func (m *MountPointController) CheckAndRemountVolumeMount(volumeMount volumeMoun
 
 // CheckIfNeedRemount The conditions for remount: the path is the mount point and the error message returned by the `mountpoint` command
 // contains "Transport endpoint is not connected"
-func (m *MountPointController) CheckIfNeedRemount(path string) bool {
+func checkIfNeedRemount(path string) bool {
 	isMountPoint, err := utils.IsMountPoint(path)
 	log.Tracef("mountpoint path[%s] : isMountPoint[%t], err:%v", path, isMountPoint, err)
 	if err != nil && isMountPoint {
@@ -286,12 +310,12 @@ func (m *MountPointController) CheckIfNeedRemount(path string) bool {
 	return false
 }
 
-func (m *MountPointController) Remount(fsID, mountPath string, readOnly bool) error {
-	log.Tracef("Remount: fsID[%s], mountPath[%s]", fsID, mountPath)
+func remount(fsID, mountPath string, readOnly bool) error {
+	log.Tracef("remount: fsID[%s], mountPath[%s]", fsID, mountPath)
 	// umount old mount point
 	output, err := utils.ExecCmdWithTimeout(utils.UMountCmdName, []string{mountPath})
 	if err != nil {
-		log.Errorf("exec cmd[umount %s] failed: %v, output[%s]", mountPath, err, string(output))
+		log.Errorf("remount: exec cmd[umount %s] failed: %v, output[%s]", mountPath, err, string(output))
 		if !strings.Contains(string(output), utils.NotMounted) {
 			if err := utils.ForceUnmount(mountPath); err != nil {
 				return err
@@ -300,10 +324,10 @@ func (m *MountPointController) Remount(fsID, mountPath string, readOnly bool) er
 	}
 
 	// bind source path to mount path
-	log.Infof("Remount: bind source[%s] to target[%s], readOnly[%t]", schema.GetBindSource(fsID), mountPath, readOnly)
+	log.Infof("remount: bind source[%s] to target[%s], readOnly[%t]", schema.GetBindSource(fsID), mountPath, readOnly)
 	output, err = utils.ExecMountBind(schema.GetBindSource(fsID), mountPath, readOnly)
 	if err != nil {
-		log.Errorf("exec mount bind cmd failed: %v, output[%s]", err, string(output))
+		log.Errorf("remount: exec mount bind cmd failed: %v, output[%s]", err, string(output))
 		return err
 	}
 	return nil
@@ -349,17 +373,17 @@ func (m *MountPointController) pvAddedUpdated(obj interface{}) {
 
 	// update pv
 	if pv.Spec.StorageClassName == "paddleflowstorage" {
-		m.pvParamsMap[pv.Name] = getPFSParameters(pv.Spec.CSI.VolumeAttributes)
+		m.pvParamsMap[pv.Name] = buildPfsPvParams(pv.Spec.CSI.VolumeAttributes)
 	}
 }
 
-func getPFSParameters(params map[string]string) pvParams {
+func buildPfsPvParams(params map[string]string) pvParams {
 	fsID := params[schema.PFSID]
-	server := params[schema.PFSServer]
 	fsInfo := params[schema.PFSInfo]
+	fsCache := params[schema.PFSCache]
 	return pvParams{
-		fsID:   fsID,
-		server: server,
-		fsInfo: fsInfo,
+		fsID:    fsID,
+		fsInfo:  fsInfo,
+		fsCache: fsCache,
 	}
 }
