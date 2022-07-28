@@ -8,18 +8,16 @@
 > 
 > 示例链接：[base_pipeline]
 
-```
+```yaml
 name: base_pipeline
+
+docker_env: nginx:1.7.9
 
 entry_points:
   preprocess:
     command: bash base_pipeline/shells/data.sh {{data_path}}
-    docker_env: centos:centos7
+    docker_env: centos:centos7 
     env:
-      PF_JOB_FLAVOUR: flavour1
-      PF_JOB_MODE: Pod
-      PF_JOB_QUEUE_NAME: ppl-queue
-      PF_JOB_TYPE: vcjob
       USER_ABC: 123_{{PF_USER_NAME}}
     parameters:
       data_path: ./base_pipeline/data/{{PF_RUN_ID}}
@@ -27,11 +25,6 @@ entry_points:
   train:
     command: bash base_pipeline/shells/train.sh {{epoch}} {{train_data}} {{model_path}}
     deps: preprocess
-    env:
-      PF_JOB_FLAVOUR: flavour1
-      PF_JOB_MODE: Pod
-      PF_JOB_QUEUE_NAME: ppl-queue
-      PF_JOB_TYPE: vcjob
     parameters:
       epoch: 5
       model_path: ./output/{{PF_RUN_ID}}
@@ -40,17 +33,10 @@ entry_points:
   validate:
     command: bash base_pipeline/shells/validate.sh {{model_path}}
     deps: train
-    env:
-      PF_JOB_FLAVOUR: flavour1
-      PF_JOB_MODE: Pod
-      PF_JOB_QUEUE_NAME: ppl-queue
-      PF_JOB_TYPE: vcjob
     parameters:
       model_path: '{{train.model_path}}'
 
 parallelism: 1
-
-docker_env: nginx:1.7.9
 ```
 
 # 2 各字段解析
@@ -63,13 +49,13 @@ docker_env: nginx:1.7.9
 
 pipeline名。每次运行默认使用该name作为pipeline run的名称。
 
-pipeline名必须满足: 只能由字母数字下划线组成，且以字母下划线开头
+pipeline名必须满足: 只能由字母数字下划线组成，且以字母或下划线开头
 
 - 正则表达式: ^[a-zA-Z_][a-zA-Z_0-9]*$
 
 ###### 2.1.2 docker_env
 
-镜像路径。每个节点必须通过容器运行，而该参数用于指定每个节点运行时，所使用的镜像。
+镜像路径。每个Step必须通过容器运行，而该参数用于指定每个Step运行时，所使用的镜像。
 
 - 支持定义**全局级别** / **节点级别**的docker_env参数。
 - 使用优先级：节点级别的docker_env参数 > 全局级别的docker_env参数。
@@ -80,7 +66,9 @@ pipeline名必须满足: 只能由字母数字下划线组成，且以字母下�
 
 pipeline是由各个节点组成的有向无环图（DAG）结构，因此entry_points定义，也是由多个节点定义以dag结构的形式组成。
 
-每个节点的定义包括运行相关参数，依赖关系构成。节点的具体定义方式，可以参考 [2.2 节点字段]
+每个节点的定义包括运行相关参数，依赖关系构成。PaddleFlow 提供两种类型的节点： Step 和 [DAG]， 
+
+为了简单起见，在本文中我们只关注 Step 类型的节点，Step 类型节点的具体定义方式，可以参考 [2.2 Step节点字段解析]
 
 ###### 2.1.4 并发度（parallelism）
 
@@ -91,7 +79,7 @@ pipeline是由各个节点组成的有向无环图（DAG）结构，因此entry_
 - 实际节点运行并发度，也可能会受底层资源影响。
 
 
-### 2.2 节点字段
+### 2.2 Step节点字段解析
 
 如 [2.1.3 entry_points] 所示，此entry_points定义，是由多个节点定义以dag结构的形式组成。节点定义需要满足：
 
@@ -234,6 +222,7 @@ parameters参数名必须满足: 只能由字母数字下划线组成，且以�
 [SDK发起任务]: /docs/zh_cn/reference/sdk_reference/sdk_reference.md
 [1 pipeline定义]: /docs/zh_cn/reference/pipeline/yaml_definition/1_pipeline_basic.md#1-pipeline%E5%AE%9A%E4%B9%89
 [2.1.3 entry_points]: /docs/zh_cn/reference/pipeline/yaml_definition/1_pipeline_basic.md#213-entry_points
-[2.2 节点字段]: /docs/zh_cn/reference/pipeline/yaml_definition/1_pipeline_basic.md#22-%E8%8A%82%E7%82%B9%E5%AD%97%E6%AE%B5
+[2.2 Step节点字段解析]: /docs/zh_cn/reference/pipeline/yaml_definition/1_pipeline_basic.md#22-step节点字段解析
 [2.2.2.3 parameters使用方式]: /docs/zh_cn/reference/pipeline/yaml_definition/1_pipeline_basic.md#2223-parameters%E4%BD%BF%E7%94%A8%E6%96%B9%E5%BC%8F
 [3.1.1 变量模板]: /docs/zh_cn/reference/pipeline/yaml_definition/1_pipeline_basic.md#311-%E5%8F%98%E9%87%8F%E6%A8%A1%E6%9D%BF
+[DAG]: TODO
