@@ -119,32 +119,41 @@ func (j *JobPerfCollector) updateJobPerf() {
 		// update metrics
 		statusTime, _ := timePoints.GetStatusTime(DBUpdating)
 		lastSyncedStatusTime := j.lastSyncedStatusTimes[DBUpdating]
-		j.JobDBUpdatingTime.With(prometheus.Labels{JobIDLabel: jobID}).Add(float64(statusTime.Microseconds() - lastSyncedStatusTime.Microseconds()))
+		j.JobDBUpdatingTime.With(prometheus.Labels{JobIDLabel: jobID}).Add(float64(timeDiff(statusTime, lastSyncedStatusTime).Microseconds()))
 		j.lastSyncedStatusTimes[DBUpdating] = statusTime
 
 		statusTime, _ = timePoints.GetStatusTime(EnQueue)
 		lastSyncedStatusTime = j.lastSyncedStatusTimes[EnQueue]
-		j.JobEnqueueTime.With(prometheus.Labels{JobIDLabel: jobID}).Add(float64(statusTime.Microseconds() - lastSyncedStatusTime.Microseconds()))
+		j.JobEnqueueTime.With(prometheus.Labels{JobIDLabel: jobID}).Add(float64(timeDiff(statusTime, lastSyncedStatusTime).Microseconds()))
 		j.lastSyncedStatusTimes[EnQueue] = statusTime
 
 		statusTime, _ = timePoints.GetStatusTime(DeQueue)
 		lastSyncedStatusTime = j.lastSyncedStatusTimes[DeQueue]
-		j.JobDequeueTime.With(prometheus.Labels{JobIDLabel: jobID}).Add(float64(statusTime.Microseconds() - lastSyncedStatusTime.Microseconds()))
+		j.JobDequeueTime.With(prometheus.Labels{JobIDLabel: jobID}).Add(float64(timeDiff(statusTime, lastSyncedStatusTime).Microseconds()))
 		j.lastSyncedStatusTimes[DeQueue] = statusTime
 
 		statusTime, _ = timePoints.GetStatusTime(Pending)
 		lastSyncedStatusTime = j.lastSyncedStatusTimes[Pending]
-		j.JobPendingTime.With(prometheus.Labels{JobIDLabel: jobID}).Add(float64(statusTime.Microseconds() - lastSyncedStatusTime.Microseconds()))
+		j.JobPendingTime.With(prometheus.Labels{JobIDLabel: jobID}).Add(float64(timeDiff(statusTime, lastSyncedStatusTime).Microseconds()))
 		j.lastSyncedStatusTimes[Pending] = statusTime
 
 		statusTime, _ = timePoints.GetStatusTime(Creating)
 		lastSyncedStatusTime = j.lastSyncedStatusTimes[Creating]
-		j.JobCreatingTime.With(prometheus.Labels{JobIDLabel: jobID}).Add(float64(statusTime.Microseconds() - lastSyncedStatusTime.Microseconds()))
+		j.JobCreatingTime.With(prometheus.Labels{JobIDLabel: jobID}).Add(float64(timeDiff(statusTime, lastSyncedStatusTime).Microseconds()))
 		j.lastSyncedStatusTimes[Creating] = statusTime
 
 		statusTime, _ = timePoints.GetStatusTime(Running)
 		lastSyncedStatusTime = j.lastSyncedStatusTimes[Running]
-		j.JobRunningTime.With(prometheus.Labels{JobIDLabel: jobID}).Add(float64(statusTime.Microseconds() - lastSyncedStatusTime.Microseconds()))
+		j.JobRunningTime.With(prometheus.Labels{JobIDLabel: jobID}).Add(float64(timeDiff(statusTime, lastSyncedStatusTime).Microseconds()))
 		j.lastSyncedStatusTimes[Running] = statusTime
 	}
+}
+
+func timeDiff(a, b time.Duration) time.Duration {
+	res := a - b
+	if res < 0 {
+		log.Warnf("[job perf] time %s, %s diff is negative", a, b)
+		return 0
+	}
+	return res
 }
