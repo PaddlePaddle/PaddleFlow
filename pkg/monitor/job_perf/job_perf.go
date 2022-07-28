@@ -24,8 +24,6 @@ package job_perf
 
 import (
 	"time"
-
-	"github.com/PaddlePaddle/PaddleFlow/pkg/monitor"
 )
 
 type JobTimePoint int
@@ -58,6 +56,21 @@ const (
 	Running
 )
 
+// for job creating monitor
+
+const (
+	MetricJobDBUpdatingTime = "job_db_updating_time"
+	MetricJobEnqueueTime    = "job_enqueue_time"
+	MetricJobDequeueTime    = "job_dequeue_time"
+	MetricJobPendingTime    = "job_pending_time"
+	MetricJobCreatingTime   = "job_creating_time"
+	MetricJobRunningTime    = "job_running_time"
+)
+
+const (
+	JobIDLabel = "jobID"
+)
+
 var (
 	Manager JobPerfManager
 )
@@ -69,17 +82,17 @@ func init() {
 func (j JobStatus) toMetric() string {
 	switch j {
 	case DBUpdating:
-		return monitor.MetricJobDBUpdatingTime
+		return MetricJobDBUpdatingTime
 	case EnQueue:
-		return monitor.MetricJobEnqueueTime
+		return MetricJobEnqueueTime
 	case DeQueue:
-		return monitor.MetricJobDequeueTime
+		return MetricJobDequeueTime
 	case Pending:
-		return monitor.MetricJobPendingTime
+		return MetricJobPendingTime
 	case Creating:
-		return monitor.MetricJobCreatingTime
+		return MetricJobCreatingTime
 	case Running:
-		return monitor.MetricJobRunningTime
+		return MetricJobRunningTime
 	}
 	return ""
 }

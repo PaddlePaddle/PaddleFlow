@@ -27,8 +27,6 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-
-	"github.com/PaddlePaddle/PaddleFlow/pkg/monitor"
 )
 
 type JobPerfCollector struct {
@@ -49,45 +47,45 @@ func newJobPerfCollector() *JobPerfCollector {
 	return &JobPerfCollector{
 		JobDBUpdatingTime: prometheus.NewCounterVec(
 			prometheus.CounterOpts{
-				Name: monitor.MetricJobDBUpdatingTime,
-				Help: toJobHelp(monitor.MetricJobDBUpdatingTime),
+				Name: MetricJobDBUpdatingTime,
+				Help: toJobHelp(MetricJobDBUpdatingTime),
 			},
-			[]string{monitor.JobIDLabel},
+			[]string{JobIDLabel},
 		),
 		JobEnqueueTime: prometheus.NewCounterVec(
 			prometheus.CounterOpts{
-				Name: monitor.MetricJobEnqueueTime,
-				Help: toJobHelp(monitor.MetricJobEnqueueTime),
+				Name: MetricJobEnqueueTime,
+				Help: toJobHelp(MetricJobEnqueueTime),
 			},
-			[]string{monitor.JobIDLabel},
+			[]string{JobIDLabel},
 		),
 		JobDequeueTime: prometheus.NewCounterVec(
 			prometheus.CounterOpts{
-				Name: monitor.MetricJobDequeueTime,
-				Help: toJobHelp(monitor.MetricJobDequeueTime),
+				Name: MetricJobDequeueTime,
+				Help: toJobHelp(MetricJobDequeueTime),
 			},
-			[]string{monitor.JobIDLabel},
+			[]string{JobIDLabel},
 		),
 		JobPendingTime: prometheus.NewCounterVec(
 			prometheus.CounterOpts{
-				Name: monitor.MetricJobPendingTime,
-				Help: toJobHelp(monitor.MetricJobPendingTime),
+				Name: MetricJobPendingTime,
+				Help: toJobHelp(MetricJobPendingTime),
 			},
-			[]string{monitor.JobIDLabel},
+			[]string{JobIDLabel},
 		),
 		JobCreatingTime: prometheus.NewCounterVec(
 			prometheus.CounterOpts{
-				Name: monitor.MetricJobCreatingTime,
-				Help: toJobHelp(monitor.MetricJobCreatingTime),
+				Name: MetricJobCreatingTime,
+				Help: toJobHelp(MetricJobCreatingTime),
 			},
-			[]string{monitor.JobIDLabel},
+			[]string{JobIDLabel},
 		),
 		JobRunningTime: prometheus.NewCounterVec(
 			prometheus.CounterOpts{
-				Name: monitor.MetricJobRunningTime,
-				Help: toJobHelp(monitor.MetricJobRunningTime),
+				Name: MetricJobRunningTime,
+				Help: toJobHelp(MetricJobRunningTime),
 			},
-			[]string{monitor.JobIDLabel},
+			[]string{JobIDLabel},
 		),
 		lastSyncedStatusTimes: make([]time.Duration, MaxStatus),
 	}
@@ -118,32 +116,32 @@ func (j *JobPerfCollector) updateJobPerf() {
 		// update metrics
 		statusTime, _ := timePoints.GetStatusTime(DBUpdating)
 		lastSyncedStatusTime := j.lastSyncedStatusTimes[DBUpdating]
-		j.JobDBUpdatingTime.With(prometheus.Labels{monitor.JobIDLabel: jobID}).Add(float64(statusTime.Microseconds() - lastSyncedStatusTime.Microseconds()))
+		j.JobDBUpdatingTime.With(prometheus.Labels{JobIDLabel: jobID}).Add(float64(statusTime.Microseconds() - lastSyncedStatusTime.Microseconds()))
 		j.lastSyncedStatusTimes[DBUpdating] = statusTime
 
 		statusTime, _ = timePoints.GetStatusTime(EnQueue)
 		lastSyncedStatusTime = j.lastSyncedStatusTimes[EnQueue]
-		j.JobEnqueueTime.With(prometheus.Labels{monitor.JobIDLabel: jobID}).Add(float64(statusTime.Microseconds() - lastSyncedStatusTime.Microseconds()))
+		j.JobEnqueueTime.With(prometheus.Labels{JobIDLabel: jobID}).Add(float64(statusTime.Microseconds() - lastSyncedStatusTime.Microseconds()))
 		j.lastSyncedStatusTimes[EnQueue] = statusTime
 
 		statusTime, _ = timePoints.GetStatusTime(DeQueue)
 		lastSyncedStatusTime = j.lastSyncedStatusTimes[DeQueue]
-		j.JobDequeueTime.With(prometheus.Labels{monitor.JobIDLabel: jobID}).Add(float64(statusTime.Microseconds() - lastSyncedStatusTime.Microseconds()))
+		j.JobDequeueTime.With(prometheus.Labels{JobIDLabel: jobID}).Add(float64(statusTime.Microseconds() - lastSyncedStatusTime.Microseconds()))
 		j.lastSyncedStatusTimes[DeQueue] = statusTime
 
 		statusTime, _ = timePoints.GetStatusTime(Pending)
 		lastSyncedStatusTime = j.lastSyncedStatusTimes[Pending]
-		j.JobPendingTime.With(prometheus.Labels{monitor.JobIDLabel: jobID}).Add(float64(statusTime.Microseconds() - lastSyncedStatusTime.Microseconds()))
+		j.JobPendingTime.With(prometheus.Labels{JobIDLabel: jobID}).Add(float64(statusTime.Microseconds() - lastSyncedStatusTime.Microseconds()))
 		j.lastSyncedStatusTimes[Pending] = statusTime
 
 		statusTime, _ = timePoints.GetStatusTime(Creating)
 		lastSyncedStatusTime = j.lastSyncedStatusTimes[Creating]
-		j.JobCreatingTime.With(prometheus.Labels{monitor.JobIDLabel: jobID}).Add(float64(statusTime.Microseconds() - lastSyncedStatusTime.Microseconds()))
+		j.JobCreatingTime.With(prometheus.Labels{JobIDLabel: jobID}).Add(float64(statusTime.Microseconds() - lastSyncedStatusTime.Microseconds()))
 		j.lastSyncedStatusTimes[Creating] = statusTime
 
 		statusTime, _ = timePoints.GetStatusTime(Running)
 		lastSyncedStatusTime = j.lastSyncedStatusTimes[Running]
-		j.JobRunningTime.With(prometheus.Labels{monitor.JobIDLabel: jobID}).Add(float64(statusTime.Microseconds() - lastSyncedStatusTime.Microseconds()))
+		j.JobRunningTime.With(prometheus.Labels{JobIDLabel: jobID}).Add(float64(statusTime.Microseconds() - lastSyncedStatusTime.Microseconds()))
 		j.lastSyncedStatusTimes[Running] = statusTime
 	}
 }
