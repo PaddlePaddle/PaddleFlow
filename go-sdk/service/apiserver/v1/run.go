@@ -94,18 +94,16 @@ type ListRunResponse struct {
 }
 
 type GetRunResponse struct {
-	ID          string                 `json:"runID"`
-	Name        string                 `json:"name"`
-	Source      string                 `json:"source"` // pipelineID or yamlPath
-	UserName    string                 `json:"username"`
-	FsName      string                 `json:"fsname"`
-	FsOptions   schema.FsOptions       `json:"fsOptions"`
-	Description string                 `json:"description"`
-	Parameters  map[string]interface{} `json:"parameters"`
-	RunYaml     string                 `json:"runYaml"`
-	// // only used to save runtime json info in response, please use Runtime in next line
-	// RuntimeMap     map[string]interface{} `json:"runtime"`
-	Runtime        schema.RuntimeView     `json:"runtime"` // init by RuntimeMap
+	ID             string                 `json:"runID"`
+	Name           string                 `json:"name"`
+	Source         string                 `json:"source"` // pipelineID or yamlPath
+	UserName       string                 `json:"username"`
+	FsName         string                 `json:"fsname"`
+	FsOptions      schema.FsOptions       `json:"fsOptions"`
+	Description    string                 `json:"description"`
+	Parameters     map[string]interface{} `json:"parameters"`
+	RunYaml        string                 `json:"runYaml"`
+	Runtime        schema.RuntimeView     `json:"runtime"`
 	PostProcess    schema.PostProcessView `json:"postProcess"`
 	FailureOptions schema.FailureOptions  `json:"failureOptions"`
 	DockerEnv      string                 `json:"dockerEnv"`
