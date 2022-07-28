@@ -34,7 +34,7 @@ class RunServiceApi(object):
 
     @classmethod
     def add_run(self, host, fsname=None, name=None, desc=None,
-                param=None, username=None, runyamlpath=None, runyamlrawb64=None, pipelineid=None,
+                param=None, username=None, runyamlpath=None, runyamlrawb64=None, pipelineid=None, pipelineversionid=None,
                 header=None, disabled=None, dockerenv=None):
         """ add run 
         """
@@ -56,6 +56,8 @@ class RunServiceApi(object):
                 raise PaddleFlowSDKException("InvalidRequest", "runYamlRaw must be bytes type")
         if pipelineid:
             body['pipelineID']= pipelineid
+        if pipelineversionid:
+            body['pipelineVersionID'] = pipelineversionid
         if param:
             body['parameters'] = param
         if username:
@@ -105,8 +107,10 @@ class RunServiceApi(object):
         runList = []
         if len(data['runList']):
             for run in data['runList']:
-                runInfo = RunInfo(run['runID'], run['fsname'], run['username'], run['status'], run['name'],
-                                       None, None, None, None, None, None, None, None, None, None, None, None)
+                runInfo = RunInfo(run['runID'], run['fsName'], run['username'], run['status'], run['name'],
+                                  run['description'], None, None, None, None, None, None, run['updateTime'],
+                                  run['source'], run['runMsg'], run['scheduleID'], run['scheduledTime'],
+                                  run['createTime'], run['activateTime'])
                 runList.append(runInfo)
         return True, runList, data.get('nextMarker', None)
 

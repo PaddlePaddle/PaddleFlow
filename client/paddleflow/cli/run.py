@@ -41,11 +41,12 @@ def run():
 @click.option('-yp', '--runyamlpath', help='Run yaml file path, example ./run.yaml .')
 @click.option('-yr', '--runyamlraw', help='Run yaml file raw, local absolute path .')
 @click.option('-pplid', '--pipelineid', help='Pipeline ID, example ppl-000666')
+@click.option('-pplver', '--pipelineversionid', help='Pipeline Version ID, example 1')
 @click.option('--disabled', multiple=True, help="the name of step which need to be disabled.")
 @click.option('-de', '--dockerenv', help='a global dockerEnv used by all steps which have no dockerEnv')
 @click.pass_context
 def create(ctx, fsname=None, name=None, desc=None, username=None, runyamlpath=None, runyamlraw=None,
-        param="", pipelineid=None, disabled=None, dockerenv=None):
+        param="", pipelineid=None, pipelineversionid=None, disabled=None, dockerenv=None):
     """create a new run.\n
     FSNAME: the name of the fs.
     """
@@ -61,8 +62,8 @@ def create(ctx, fsname=None, name=None, desc=None, username=None, runyamlpath=No
     if disabled is not None:
         disabled = ",".join(disabled)
 
-    valid, response = client.create_run(fsname, username, name, desc, runyamlpath, runyamlraw, pipelineid,
-                            param_dict, disabled=disabled, dockerenv=dockerenv)
+    valid, response = client.create_run(fsname, username, name, desc, runyamlpath, runyamlraw,
+                                        pipelineid, pipelineversionid, param_dict, disabled=disabled, dockerenv=dockerenv)
 
     if valid:
         click.echo("run[%s] create success with runid[%s]" % (fsname, response))
@@ -76,10 +77,10 @@ def create(ctx, fsname=None, name=None, desc=None, username=None, runyamlpath=No
 @click.option('-u', '--username', help='List the specified run by username, only useful for root.')
 @click.option('-r', '--runid', help='List the specified run by runid')
 @click.option('-n', '--name', help='List the specified run by run name')
-@click.option('-m', '--maxsize', default=100, help="Max size of the listed users.")
+@click.option('-m', '--maxsize', default=50, help="Max size of the listed users.")
 @click.option('-mk', '--marker', help="Next page.")
 @click.pass_context
-def list(ctx, fsname=None, username=None, runid=None, name=None, maxsize=100, marker=None):
+def list(ctx, fsname=None, username=None, runid=None, name=None, maxsize=50, marker=None):
     """list run.\n """
     client = ctx.obj['client']
     output_format = ctx.obj['output']
@@ -269,8 +270,10 @@ def artifact(ctx, userfilter=None, fsfilter=None, runfilter=None, typefilter=Non
 def _print_runlist(runlist, out_format):
     """print run list """
 
-    headers = ['run id', 'fsname', 'username', 'status', 'name']
-    data = [[run.runId, run.fsname, run.username, run.status, run.name] for run in runlist]
+    headers = ['run id', 'fs name', 'username', 'status', 'name', 'description', 'run message', 'source',
+               'schedule id', 'scheduled time', 'create time', 'activate time', 'update time']
+    data = [[run.runId, run.fsname, run.username, run.status, run.name, run.description, run.runMsg, run.source,
+             run.scheduleID, run.scheduledTime, run.createTime, run.activateTime, run.updateTime] for run in runlist]
     print_output(data, headers, out_format, table_format='grid')
 
 

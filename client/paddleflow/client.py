@@ -417,7 +417,7 @@ class Client(object):
         return FSServiceApi.show_link(self.paddleflow_server, fsname, fspath, self.user_id, userinfo)
 
     def create_run(self, fsname=None, username=None, runname=None, desc=None,
-                   runyamlpath=None, runyamlraw=None, pipelineid=None, param=None, disabled=None, dockerenv=None):
+                   runyamlpath=None, runyamlraw=None, pipelineid=None, pipelineversionid=None, param=None, disabled=None, dockerenv=None):
         """
         create run
         """
@@ -427,7 +427,7 @@ class Client(object):
         if runname and runname.strip() == "":
             raise PaddleFlowSDKException("InvalidRunName", "runname should not be none or empty")
         return RunServiceApi.add_run(self.paddleflow_server, fsname, runname, desc,
-                                     param, username, runyamlpath, runyamlraw, pipelineid, self.header, disabled,
+                                     param, username, runyamlpath, runyamlraw, pipelineid, pipelineversionid, self.header, disabled,
                                      dockerenv)
 
     def list_run(self, fsname=None, username=None, runid=None, runname=None, maxsize=100, marker=None):

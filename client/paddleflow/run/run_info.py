@@ -19,17 +19,16 @@ limitations under the License.
 class RunInfo(object):
     """the class of RunInfo info"""   
 
-    def __init__(self, runId, fsname, username, status, name, description, entry, parameters,
-                 runYaml, runtime, postProcess, dockerEnv, updateTime, source, runMsg, createTime,
-                 activateTime):
+    def __init__(self, runID, fsname, username, status, name, description, parameters,
+                 runYaml, runtime, postProcess, dockerEnv, updateTime, source, runMsg, scheduleID,
+                 scheduledTime, createTime, activateTime):
         """init """
-        self.runId = runId
+        self.runId = runID
         self.fsname = fsname
         self.username = username
         self.status = status
         self.name = name
         self.description = description
-        self.entry = entry
         self.parameters = parameters
         self.runYaml = runYaml
         self.runtime = runtime
@@ -38,6 +37,8 @@ class RunInfo(object):
         self.updateTime = updateTime
         self.source = source
         self.runMsg = runMsg
+        self.scheduleID = scheduleID
+        self.scheduledTime = scheduledTime
         self.createTime = createTime
         self.activateTime = activateTime
 
@@ -45,7 +46,15 @@ class RunInfo(object):
 class JobInfo(object):
     """ the class of job info"""
 
-    def __init__(self, name, deps, parameters, command, env, status, start_time, end_time, dockerEnv, jobid):
+    def __init__(self, name, deps, parameters, command, env, status, start_time, end_time, dockerEnv, jobid,
+                 compType, stepName, parentDagID, extraFS, artifacts, cache, jobMessage, cacheRunID, cacheJobID):
+        self.artifacts = artifacts
+        self.cache = cache
+        self.jobMessage = jobMessage
+        self.cacheRunID = cacheRunID
+        self.cacheJobID = cacheJobID
+        self.extraFS = extraFS
+        self.jobId = jobid
         self.name = name
         self.deps = deps
         self.parameters = parameters
@@ -55,7 +64,23 @@ class JobInfo(object):
         self.start_time = start_time
         self.end_time = end_time
         self.dockerEnv = dockerEnv
-        self.jobId = jobid
+        self.type = compType
+        self.stepName = stepName
+        self.parentDagID = parentDagID
+
+
+class DagInfo(object):
+    """ the class of dag info"""
+
+    def __init__(self, id, name, compType):
+        self.id = id
+        self.name = name
+        self.type = compType
+        self.dagName = dagName
+        self.parentDagID = parentDagID
+        self.deps = deps
+        self.parameters = parameters
+        self.
 
 
 class RunCacheInfo(object):
