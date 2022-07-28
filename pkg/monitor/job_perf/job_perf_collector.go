@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	log "github.com/sirupsen/logrus"
 )
 
 type JobPerfCollector struct {
@@ -101,6 +102,8 @@ func (j *JobPerfCollector) Describe(descs chan<- *prometheus.Desc) {
 }
 
 func (j *JobPerfCollector) Collect(metrics chan<- prometheus.Metric) {
+	cache := GetTimestampsCache()
+	log.Debugf("%+v", cache)
 	j.updateJobPerf()
 	j.JobDBUpdatingTime.Collect(metrics)
 	j.JobEnqueueTime.Collect(metrics)
