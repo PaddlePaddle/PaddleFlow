@@ -150,6 +150,12 @@ func getClusterTypeByJob(ctx *logger.RequestContext, jobID string) (string, *mod
 		ctx.Logging().Errorln(err.Error())
 		return "", nil, common.NotFoundError(common.ResourceTypeJob, jobID)
 	}
+	if ok := checkJobPermission(ctx, &job); !ok {
+		ctx.ErrorCode = common.AccessDenied
+		ctx.Logging().Errorf("get the job[%s] auth failed. error:%s", jobID, err.Error())
+		return "", nil, common.NoAccessError(ctx.UserName, common.ResourceTypeJob, jobID)
+	}
+
 	queue, err := models.GetQueueByID(job.QueueID)
 	if err != nil {
 		ctx.ErrorCode = common.QueueNameNotFound
@@ -209,4 +215,8 @@ func convertResultToResponse(response *JobStatisticsResponse, result float64, me
 	case consts.MetricDiskUsage, consts.MetricMemoryUsage, consts.MetricGpuMemoryUsage:
 		response.MetricsInfo[metricName] = fmt.Sprintf("%.2f(Bytes)", result)
 	}
+}
+
+func checkJobPermission(ctx *logger.RequestContext, job *models.Job) bool {
+	return common.IsRootUser(ctx.UserName) || ctx.UserName == job.UserName
 }

@@ -14,10 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package common
+package utils
 
 import (
+	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"math/rand"
 	"os"
@@ -28,6 +30,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/middleware"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
@@ -86,7 +89,7 @@ func GetKubeletDataPath() string {
 }
 
 func GetPodUIDFromTargetPath(targetPath string) string {
-	// target path: /data/lib/kubelet/pods/cb0b4bb0-98de-4cd5-9d73-146a226dcf93/volumes/kubernetes.io~csi/pfs-fs-root-mxy-default-pv/mount
+	// target path: /var/lib/kubelet/pods/cb0b4bb0-98de-4cd5-9d73-146a226dcf93/volumes/kubernetes.io~csi/pfs-fs-root-mxy-default-pv/mount
 	prefix := GetKubeletDataPath()
 	if !strings.HasSuffix(prefix, "/") {
 		prefix += "/"
@@ -206,4 +209,51 @@ func FsIDToFsNameUsername(fsID string) (fsName, username string) {
 	fsName = fsArr[len(fsArr)-1]
 	username = strings.Join(fsArr[1:len(fsArr)-1], "")
 	return
+}
+
+func GetFsNameAndUserNameByFsID(fsID string) (userName, fsName string, err error) {
+	fsArray := strings.Split(fsID, "-")
+	if len(fsArray) < 3 {
+		err = fmt.Errorf("fsID[%s] is not valid", fsID)
+		return
+	}
+	if len(fsArray) > 3 {
+		// such as fs-root-v-xxxx
+		fsName = strings.Join(fsArray[2:len(fsArray)], "-")
+		userName = fsArray[1]
+		return
+	}
+	userName = strings.Join(fsArray[1:len(fsArray)-1], "")
+	fsName = fsArray[len(fsArray)-1]
+	return
+}
+
+func ProcessFSInfo(fsInfoBase64 string) (model.FileSystem, error) {
+	fsInfoByte, err := base64.StdEncoding.DecodeString(fsInfoBase64)
+	if err != nil {
+		return model.FileSystem{}, err
+	}
+	fs := model.FileSystem{}
+	if err = json.Unmarshal(fsInfoByte, &fs); err != nil {
+		return model.FileSystem{}, err
+	}
+	if fs.ID == "" ||
+		fs.Type == "" ||
+		fs.ServerAddress == "" {
+		err = fmt.Errorf("processFsInfo failed as id or type of server address empty")
+		return model.FileSystem{}, err
+	}
+	return fs, nil
+}
+
+func ProcessCacheConfig(fsCacheBase64 string) (model.FSCacheConfig, error) {
+	fsCacheByte, err := base64.StdEncoding.DecodeString(fsCacheBase64)
+	if err != nil {
+		return model.FSCacheConfig{}, err
+	}
+	cacheConfig := model.FSCacheConfig{}
+	if err = json.Unmarshal(fsCacheByte, &cacheConfig); err != nil {
+		return model.FSCacheConfig{}, err
+	}
+	return cacheConfig, nil
 }

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package mount
+package utils
 
 import (
 	"context"
@@ -28,8 +28,6 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"k8s.io/utils/mount"
-
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/io"
 )
 
 const (
@@ -63,7 +61,7 @@ func CleanUpMountPoints(paths []string) error {
 	cleanUp := func(path string, cleanAll bool) error {
 		isMountPoint, err := IsMountPoint(path)
 		if err != nil && !isMountPoint {
-			if exist, exErr := io.Exist(path); exErr != nil {
+			if exist, exErr := Exist(path); exErr != nil {
 				log.Errorf("check path[%s] exist err: %v", path, exErr)
 				if strings.Contains(exErr.Error(), ErrEndpointNotConnected) {
 					return ManualUnmount(path)

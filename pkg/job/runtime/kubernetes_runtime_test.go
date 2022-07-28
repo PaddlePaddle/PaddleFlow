@@ -238,6 +238,7 @@ func TestKubeRuntimePVAndPVC(t *testing.T) {
 	client := fakedclient.NewSimpleClientset()
 	kubeRuntime := &KubeRuntime{
 		clientset: client,
+		cluster:   &schema.Cluster{Name: "test-cluster", ID: "clustermock"},
 	}
 	driver.InitMockDB()
 

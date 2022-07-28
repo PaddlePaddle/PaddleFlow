@@ -38,6 +38,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/utils"
 	locationAwareness "github.com/PaddlePaddle/PaddleFlow/pkg/fs/location-awareness"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 )
@@ -520,10 +521,10 @@ func (j *KubeJob) getWorkDir(task *models.Member) string {
 	}
 
 	workdir := ""
-	mountPath := filepath.Clean(fileSystems[0].MountPath)
+	mountPath := utils.MountPathClean(fileSystems[0].MountPath)
 	log.Infof("getWorkDir by hasWorkDir: true,mountPath: %s, task: %v", mountPath, task)
-	if mountPath != "." {
-		workdir = mountPath
+	if mountPath != "/" {
+		workdir = fileSystems[0].MountPath
 	} else {
 		workdir = filepath.Join(schema.DefaultFSMountPath, fileSystems[0].ID)
 	}
@@ -833,14 +834,14 @@ func generateVolumeMounts(fileSystems []schema.FileSystem) []corev1.VolumeMount 
 	}
 	for _, fs := range fileSystems {
 		log.Debugf("generateVolumeMounts walking fileSystem %+v", fs)
-		mountPath := filepath.Clean(fs.MountPath)
-		if mountPath == "." {
+		mountPath := utils.MountPathClean(fs.MountPath)
+		if mountPath == "/" {
 			mountPath = filepath.Join(schema.DefaultFSMountPath, fs.ID)
 		}
 		volumeMount := corev1.VolumeMount{
 			Name:      fs.Name,
 			ReadOnly:  fs.ReadOnly,
-			MountPath: mountPath,
+			MountPath: fs.MountPath,
 			SubPath:   fs.SubPath,
 		}
 		vms = append(vms, volumeMount)
@@ -892,12 +893,12 @@ func appendMountsIfAbsent(volumeMounts []corev1.VolumeMount, newElements []corev
 	// deduplication
 	volumeMountsDict := make(map[string]string)
 	for _, cur := range volumeMounts {
-		mountPath := filepath.Clean(cur.MountPath)
+		mountPath := utils.MountPathClean(cur.MountPath)
 		volumeMountsDict[mountPath] = cur.Name
 	}
 
 	for _, cur := range newElements {
-		mountPath := filepath.Clean(cur.MountPath)
+		mountPath := utils.MountPathClean(cur.MountPath)
 		if _, exist := volumeMountsDict[mountPath]; exist {
 			log.Debugf("moutPath %s in volumeMount %s has been created in jobTemplate", cur.MountPath, cur.Name)
 			continue

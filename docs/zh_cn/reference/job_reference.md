@@ -1,16 +1,33 @@
-# paddleflow job 介绍
+# 1、PaddleFlow job 介绍
 
 为方便用户使用PaddleFlow调度功能，不过多依赖其他模块，现PaddleFlow调度模块提供作业接口，方便用户快速使用PaddleFlow的功能。
 
 目前作业接口中支持用户创建单机作业，分布式作业（包括Paddle，Spark作业），工作流作业（目前只针对argo workflow）
 
-# paddleflow job 命令参考
+# 2、 PaddleFlow job 命令参考
 
 paddleflow基本的操作命令可以帮助您更好的上手使用，本页面提供所有的job相关命令的详细参考
 
-## 单作业任务管理
+### 2.1 命令说明
 
-`paddleflow job` 提供了`create`,`show`, `list`, `delete`, `stop`五种不同的方法。 五种不同操作的示例如下：
+`paddleflow job` 提供了`create`, `show`, `list`, `update`, `delete`, `stop`六种不同的方法。 六种不同操作的示例如下：
+```bash
+SYNOPSIS
+Usage: paddleflow job [OPTIONS] COMMAND [ARGS]...
+
+  manage job resources
+
+Options:
+  --help  Show this message and exit.
+
+Commands:
+  create  create job.
+  delete  delete job.
+  list    list job.
+  show    show job JOBID: the id of the specificed job.
+  stop    stop the job.
+  update  update job, including priority, labels, or annotations.
+```
 
 ```bash
 paddleflow job list -s(--status) status -t(--timestamp) timestamp  -st(--starttime) starttime -q(--queue) queue -l(--labels) k=v -m(--maxkeys) maxkeys -mk(--marker) marker -fl(--fieldlist) f1,f2 //列出所有的作业 （通过status 列出指定状态的作业;通过timestamp 列出该时间戳后有更新的作业；通过starttime 列出该启动时间后的作业；通过queue 列出该队列下的作业；通过labels 列出具有该标签的作业；通过maxkeys列出指定数量的作业；从marker列出作业；通过fieldlist 列出作业的指定列信息）
@@ -18,10 +35,11 @@ paddleflow job show jobid -fl(--fieldlist) f1,f2 // 展示一个作业的详细�
 paddleflow job delete jobid  //删除一个作业
 paddleflow job create jobtype:required（必须）作业类型(single, distributed, workflow) jsonpath:required(必须) 提交作业的配置文件 // 创建作业
 paddleflow job stop jobid  // 停止一个作业
+paddleflow job update jobid --prority high --labels label1=value1,label2=value2
 ```
-### 相关参数说明
+### 2.2 相关参数说明
 
-list方法
+获取作业列表（list方法）
 ```bash
 status参数支持筛选指定状态的作业，其中具体的状态包括（init， pending， running， failed， succeeded， terminating， terminated， cancelled， skipped）
 timestamp参数传入具体的时间戳，支持筛选指定时间戳后有更新的作业
@@ -34,15 +52,7 @@ fieldlist参数展示指定列的作业信息，具体的列名包括（"id"[作
 
 ```
 
-show方法
-
-```bash
-fieldlist参数展示指定列的作业信息，具体的列名包括（"id"[作业id];"name"[作业名称];"queue"[队列名称];"status"[作业状态];"acceptTime"[作业接收时间];"startTime"[作业启动时间];"finishTime"[作业结束时间];"user"[作业创建者];"runtime"[单机作业运行详情];"distributedRuntime"[分布式作业运行详情];"workflowRuntime"[工作流作业运行详情];"message"[作业状态说明信息];"labels"[作业标签];"annotations"[作业注释];"priority"[作业优先级];"flavour"[作业套餐];"fs"[作业存储资源];"extraFS"[作业数据存储资源];"image"[作业镜像];"env"[作业环境变量];"command"[作业启动命令];"args"[启动参数];"port"[端口];"extensionTemplate"[作业使用的k8s对象模版];"framework"[作业框架];"members"[作业成员信息]）
-
-```
-
-create方法
-
+创建作业（create方法）
 ```bash
 jobtype参数指创建作业的类型，目前支持single（单机作业），distributed（分布式作业），workflow（工作流作业）
 jsonpath参数指定作业json配置文件的路径，其中配置文件中各参数说明如下JobSpec各字段所示
@@ -105,22 +115,17 @@ FileSystem
 |readOnly| bool (optional)|挂载之后的存储权限
 
 
+### 2.3 示例
 
-
-
-### 示例
-
-作业任务创建：用户输入```paddleflow job create jobtype jsonpath```，界面上显示
-
+#### 作业任务创建
+用户输入```paddleflow job create jobtype jsonpath```，界面上显示
 ```bash
 job create success, id[job-id]
 
 ```
 
-
-
-作业任务列表显示：用户输入```paddleflow job list```，界面上显示
-
+#### 作业任务列表
+用户输入```paddleflow job list```，界面上显示
 ```bash
 +------------------------------+-----------------------+----------+------------+---------------------+---------------------+---------------------+
 | job id                       | job name              | queue    | status     | accept time         | start time          | finish time         |
@@ -139,33 +144,75 @@ job create success, id[job-id]
 ```
 
 
-作业任务详情显示：用户输入```paddleflow job show jobid```，界面上显示
+#### 作业任务详情
+用户输入```paddleflow job show job-run-000017-abs-62f5787b```，界面上显示
 ```bash
-+----------------------+------------+---------+----------+---------------------+--------------+---------------------+
-| job id               | job name   | queue   | status   | accept time         | start time   | finish time         |
-+======================+============+=========+==========+=====================+==============+=====================+
-| job-050093a1b8e54886 | zzc-test   | dzz     | failed   | 2022-05-18 11:45:30 |              | 2022-05-18 11:45:38 |
-+----------------------+------------+---------+----------+---------------------+--------------+---------------------+
++-----------------------------+----------------+---------+------------+-----------+---------------------+--------------+---------------------+
+| job id                      | job name       | queue   | priority   | status    | accept time         | start time   | finish time         |
++=============================+================+=========+============+===========+=====================+==============+=====================+
+| job-run-000017-abs-62f5787b | run-000017-abs | wf-143  | HIGH       | succeeded | 2022-07-12 22:31:43 |              | 2022-07-12 22:41:51 |
++-----------------------------+----------------+---------+------------+-----------+---------------------+--------------+---------------------+
+job config and runtime info:
+[
+    {
+        "flavour": {
+            "cpu": "1",
+            "mem": "1Gi",
+            "name": "flavour1"
+        },
+        "fs": {
+            "name": ""
+        },
+        "extraFS": [
+            {
+                "id": "fs-root-test",
+                "name": "test"
+            }
+        ],
+        "labels": null,
+        "annotations": null,
+        "image": "paddlepaddle/paddle:2.0.2-gpu-cuda10.1-cudnn7",
+        "command": "echo 1",
+        "args": null,
+        "port": 0,
+        "framework": "standalone",
+        "members": [],
+        "message": "job is succeeded",
+        "runtime": {
+            "name": "job-run-000017-abs-62f5787b",
+            "namespace": "default",
+            "id": "d1ccfd86-cf00-40bc-a5d9-15fcc39e2fa4",
+            "status": "",
+            "nodeName": "paddleflow-qa-test",
+        },
+    }
+]
 ```
 
-作业任务删除：用户输入```paddleflow job delete jobid```，界面上显示
-
+#### 作业任务删除
+用户输入```paddleflow job delete job-id```，界面上显示
 ```bash
 job[job-id] delete success
 ```
 
 
-作业任务停止：用户输入```paddleflow job stop jobid```，界面上显示
-
+#### 作业任务停止
+用户输入```paddleflow job stop job-id```，界面上显示
 ```bash
 job[job-id] stop success
 ```
 
+#### 作业任务更新
+用户输入```paddleflow job update job-id -p high```，界面上显示
+```bash
+job[job-id] update success
+```
 
-# Paddleflow job SDK 使用说明
+
+# 3、 Paddleflow job SDK 使用说明
 
 
-### 创建作业
+### 3.1 创建作业
 ```python
 ret, response = client.create_job()
 ```
@@ -230,18 +277,19 @@ class JobRequest(object):
 |response| -| 失败返回失败message，成功返回jobid
 
 
-### 获取作业详情
+### 3.2 获取作业详情
 ```python
 ret, response = client.show_job("jobid")
 ```
-
+#### 接口入参说明
+|字段名称 | 字段类型 | 字段含义
+|:---:|:---:|:---:|
+|jobid| string (required) |需要查询的作业ID |
 #### 接口返回说明
 |字段名称 | 字段类型 | 字段含义
 |:---:|:---:|:---:|
 |ret| bool| 操作成功返回True，失败返回False
 |response| -| 失败返回失败message，成功返回JobInfo
-
-
 
 response中具体JobInfo结构如下：
 ```python
@@ -310,7 +358,7 @@ JobInfo
 ```
 
 
-### 获取作业列表
+### 3.3 获取作业列表
 ```python
 ret, response = client.list_job()
 ```
@@ -334,11 +382,14 @@ ret, response = client.list_job()
 |marker| string| 存在返回下一页的起始string，否则返回null
 
 
-### 停止作业
+### 3.4 停止作业
 ```python
 ret, response = client.stop_job("jobid")
 ```
-
+#### 接口入参说明
+|字段名称 | 字段类型 | 字段含义
+|:---:|:---:|:---:|
+|jobid| string (required) |需要停止的作业ID |
 #### 接口返回说明
 |字段名称 | 字段类型 | 字段含义
 |:---:|:---:|:---:|
@@ -346,10 +397,14 @@ ret, response = client.stop_job("jobid")
 |response| -| 失败返回失败message，成功返回None
 
 
-### 删除作业
+### 3.5 删除作业
 ```python
 ret, response = client.delete_job("jobid")
 ```
+#### 接口入参说明
+|字段名称 | 字段类型 | 字段含义
+|:---:|:---:|:---:|
+|jobid| string (required) |需要删除的作业ID |
 
 #### 接口返回说明
 |字段名称 | 字段类型 | 字段含义
@@ -357,3 +412,22 @@ ret, response = client.delete_job("jobid")
 |ret| bool| 操作成功返回True，失败返回False
 |response| -| 失败返回失败message，成功返回None
 
+
+### 3.6 更新作业
+```python
+ret, response = client.update_job("jobid",  priority=None, labels=None, annotations=None)
+```
+
+#### 接口入参说明
+|字段名称 | 字段类型 | 字段含义
+|:---:|:---:|:---:|
+|jobid| string (required) |需要修改的作业ID |
+|priority| string (optional) |修改作业的优先级参数。只有在作业未被调度时，优先级修改才会成功。优先级有：High、Normal、Low，并且大小写不敏感
+|labels| string (optional) |修改作业的标签。labels中存在时，则更新；对应标签不存在时，则新增；标签值为空时，则删除对应标签
+|annotations| string (optional) |修改作业的注释。annotations中存在时，则更新；不存在时，则新增；注释值为空时，则删除对应注释
+
+#### 接口返回说明
+|字段名称 | 字段类型 | 字段含义
+|:---:|:---:|:---:|
+|ret| bool| 操作成功返回True，失败返回False
+|response| -| 失败返回失败message，成功返回None

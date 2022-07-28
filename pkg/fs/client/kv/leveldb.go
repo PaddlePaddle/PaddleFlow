@@ -23,7 +23,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 )
 
 const LevelDB = "leveldb"
@@ -76,7 +76,7 @@ func (l levelDBClient) ScanValues(prefix []byte) (map[string][]byte, error) {
 }
 
 func NewLevelDBClient(config Config) (Client, error) {
-	cachePath := filepath.Join(config.CachePath, config.FsID+"_"+common.GetRandID(5)+".db")
+	cachePath := filepath.Join(config.CachePath, config.FsID+"_"+utils.GetRandID(5)+".db")
 	os.RemoveAll(cachePath)
 	db, err := leveldb.OpenFile(cachePath, nil)
 	if err != nil {
