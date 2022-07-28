@@ -269,9 +269,9 @@ func TestKubeRuntimePVAndPVC(t *testing.T) {
 		},
 	}
 	config.GlobalServerConfig = &config.ServerConfig{
-		Fs: config.FsServerConf{
-			K8sServiceName: "paddleflow",
-			K8sServicePort: 8083,
+		ApiServer: config.ApiServerConfig{
+			Host: "paddleflow",
+			Port: 8083,
 		},
 	}
 

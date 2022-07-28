@@ -177,15 +177,13 @@ data:
         debug: false
 
       apiServer:
-        host: 0.0.0.0
+        host: "paddleflow-server"
         port: 8999
         tokenExpirationHour: -1
 
       fs:
         defaultPVPath: "./config/fs/default_pv.yaml"
         defaultPVCPath: "./config/fs/default_pvc.yaml"
-        k8sServiceName: "10.156.28.13"
-        K8sServicePort: 8999
 
       job:
         reclaim:
