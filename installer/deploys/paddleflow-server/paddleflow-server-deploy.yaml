@@ -430,8 +430,7 @@ spec:
       containers:
         - args:
             - -c
-            - cd /home/paddleflow/server && ./paddleflow  --pfs-service-name=$(KUBE_NODE_NAME)
-              --pfs-service-port=8999
+            - cd /home/paddleflow/server && ./paddleflow
           command:
             - /bin/sh
           env:
