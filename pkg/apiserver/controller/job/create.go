@@ -33,6 +33,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/utils"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
@@ -87,25 +88,10 @@ func validateJob(ctx *logger.RequestContext, request *CreateJobInfo) error {
 		return err
 	}
 
-	// check job framework
-	var jobType schema.JobType
-	switch request.Framework {
-	case schema.FrameworkSpark, schema.FrameworkPaddle:
-		jobType = schema.TypeDistributed
-	case "", schema.FrameworkStandalone:
-		jobType = schema.TypeSingle
-	case schema.FrameworkTF, schema.FrameworkMPI:
-		ctx.Logging().Errorf("framework: %s will be supported in the future", request.Framework)
-		ctx.ErrorCode = common.JobInvalidField
-		return fmt.Errorf("framework: %s will be supported in the future", request.Framework)
-	default:
-		ctx.Logging().Errorf("invalid framework: %s", request.Framework)
-		ctx.ErrorCode = common.JobInvalidField
-		return fmt.Errorf("invalid framework: %s", request.Framework)
-	}
-	if request.Type == "" {
-		// set job type
-		request.Type = jobType
+	// check job type and framework
+	if err := validateJobFramework(ctx, request.Type, request.Framework); err != nil {
+		ctx.Logging().Errorf("validate job framework failed, err: %v", err)
+		return err
 	}
 
 	if len(request.ExtensionTemplate) != 0 {
@@ -119,6 +105,35 @@ func validateJob(ctx *logger.RequestContext, request *CreateJobInfo) error {
 		}
 	}
 	return nil
+}
+
+// validateJobFramework validate job type and framework
+func validateJobFramework(ctx *logger.RequestContext, jobType schema.JobType, framework schema.Framework) error {
+	var err error
+	switch jobType {
+	case schema.TypeSingle:
+		if framework != schema.FrameworkStandalone {
+			err = fmt.Errorf("framework for single job must be standalone")
+		}
+	case schema.TypeDistributed:
+		switch framework {
+		case schema.FrameworkSpark, schema.FrameworkPaddle:
+			err = nil
+		case schema.FrameworkTF, schema.FrameworkMPI:
+			err = fmt.Errorf("framework: %s for distributed job will be supported in the future", framework)
+		default:
+			err = fmt.Errorf("invalid framework %s for distributed job", framework)
+		}
+	case schema.TypeWorkflow:
+		// TODO: add check for workflow
+	default:
+		err = fmt.Errorf("job type %s does not supported", jobType)
+	}
+	if err != nil {
+		ctx.Logging().Error(err)
+		ctx.ErrorCode = common.JobInvalidField
+	}
+	return err
 }
 
 func validateCommonJobInfo(ctx *logger.RequestContext, requestCommonJobInfo *CommonJobInfo) error {
@@ -271,7 +286,13 @@ func checkJobSpec(ctx *logger.RequestContext, jobSpec *JobSpec) error {
 // validateQueue validate queue and set queueID in request.SchedulingPolicy
 func validateQueue(ctx *logger.RequestContext, schedulingPolicy *SchedulingPolicy) error {
 	if schedulingPolicy.Queue == "" {
-		schedulingPolicy.Queue = config.DefaultQueueName
+		if config.GlobalServerConfig.Job.IsSingleCluster {
+			schedulingPolicy.Queue = config.DefaultQueueName
+		} else {
+			err := fmt.Errorf("queue is empty")
+			ctx.Logging().Errorf("Failed to check Queue: %v", err)
+			return err
+		}
 	}
 	queueName := schedulingPolicy.Queue
 	queue, err := models.GetQueueByName(queueName)
@@ -364,9 +385,9 @@ func validateFileSystem(userName string, fs *schema.FileSystem) error {
 		log.Debugf("mountPath is %s, changes to .", fs.MountPath)
 		fs.MountPath = filepath.Join(schema.DefaultFSMountPath, fs.ID)
 	}
-	mountPath := filepath.Clean(fs.MountPath)
+	mountPath := utils.MountPathClean(fs.MountPath)
 	if mountPath == "/" || mountPath == "." || mountPath == ".." {
-		err := fmt.Errorf("mountPath cannot be '/' or '.' or '..' in fsName[%s] fsID[%s]", fsName, fsID)
+		err := fmt.Errorf("mountPath cannot be '/' in fsName: %s fsID: %s, got %s", fsName, fsID, fs.MountPath)
 		log.Errorf("validateFileSystem failed, err: %v", err)
 		return err
 	}
@@ -379,7 +400,6 @@ func validateFileSystem(userName string, fs *schema.FileSystem) error {
 	// fill back
 	fs.ID = fileSystem.ID
 	fs.Name = fileSystem.Name
-	fs.MountPath = mountPath
 
 	return nil
 }

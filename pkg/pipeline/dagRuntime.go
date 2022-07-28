@@ -28,6 +28,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	. "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/trace_logger"
 )
 
 type CtxAndCancel struct {
@@ -118,6 +119,16 @@ func newDagRuntimeWithStatus(name, fullName string, dag *schema.WorkflowSourceDa
 
 	drt.processStartAbnormalStatus(msg, status)
 	return drt
+}
+
+func (drt *DagRuntime) catchPanic() {
+	if r := recover(); r != nil {
+		msg := fmt.Sprintf("Inner Error occured at dagRuntime[%s]: %v", drt.name, r)
+		trace_logger.KeyWithUpdate(drt.runID).Errorf(msg)
+
+		drt.cancellAllNotReadySubComponent(msg)
+		drt.ctx.Done()
+	}
 }
 
 func (drt *DagRuntime) generateSubRuntimeName(subComponentName string, seq int) string {
@@ -281,6 +292,8 @@ func (drt *DagRuntime) Start() {
 	defer drt.processSubComponentLock.Unlock()
 	drt.processSubComponentLock.Lock()
 
+	defer drt.catchPanic()
+
 	err := drt.updateStatus(StatusRuntimeRunning)
 	if err != nil {
 		// 理论上不会出现这种情况，主要是为了承接 err，对齐进行判断
@@ -428,6 +441,8 @@ func (drt *DagRuntime) Resume(dagView *schema.DagView) {
 	defer drt.processSubComponentLock.Unlock()
 	drt.processSubComponentLock.Lock()
 
+	defer drt.catchPanic()
+
 	drt.pk = dagView.PK
 	drt.ID = dagView.DagID
 	drt.startTime = dagView.StartTime
@@ -486,7 +501,10 @@ func (drt *DagRuntime) Resume(dagView *schema.DagView) {
 		component, err := drt.resolveSubComponent(name, component)
 		if err != nil {
 			drt.logger.Errorln(err.Error())
-			drt.processSubRuntimeError(err, component, StatusRuntimeFailed)
+
+			// 此时的 component 是一个空指针，所以需要从 dag 中重新获取
+			drt.processSubRuntimeError(err, drt.getworkflowSouceDag().EntryPoints[name].DeepCopy(),
+				StatusRuntimeFailed)
 			continue
 		}
 
@@ -594,6 +612,8 @@ func (drt *DagRuntime) Restart(dagView *schema.DagView) {
 
 	defer drt.processSubComponentLock.Unlock()
 	drt.processSubComponentLock.Lock()
+
+	defer drt.catchPanic()
 
 	drt.logger.Infof("pk in dagView for dag[%s]: %d", drt.name, dagView.PK)
 	drt.logger.Infof("DagID in dagView for dag[%s]: %s", drt.name, dagView.DagID)

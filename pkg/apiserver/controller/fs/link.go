@@ -32,7 +32,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	fuse "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/fs"
 	fsCommon "github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
-	utils "github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
