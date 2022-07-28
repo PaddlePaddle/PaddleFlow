@@ -385,8 +385,8 @@ func (m *JobManagerImpl) pSubmitQueueJob(jobQueue *api.JobQueue, runtimeSvc runt
 			startTime := time.Now()
 			// dequeue job
 			job, ok := jobQueue.GetJob()
-			job_perf.AddTimestamp(job.ID, job_perf.T4, time.Now())
 			if ok {
+				job_perf.AddTimestamp(job.ID, job_perf.T4, time.Now())
 				log.Infof("Entering submit %s job in queue %s", job.ID, name)
 				// get enqueue job
 				m.submitJob(runtimeSvc.SubmitJob, job)
