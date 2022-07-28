@@ -103,7 +103,7 @@ func (j *JobPerfCollector) Describe(descs chan<- *prometheus.Desc) {
 
 func (j *JobPerfCollector) Collect(metrics chan<- prometheus.Metric) {
 	cache := GetTimestampsCache()
-	log.Debugf("%+v", cache)
+	log.Debugf("job perf cache: %+v", cache)
 	j.updateJobPerf()
 	j.JobDBUpdatingTime.Collect(metrics)
 	j.JobEnqueueTime.Collect(metrics)
