@@ -189,10 +189,10 @@ func TestInfo_MountCmdArgs(t *testing.T) {
 				CacheConfig: fsCache,
 				TargetPath:  "/targetPath/test",
 			},
-			want: "/home/paddleflow/mount.sh --mount-point=/targetPath/test --fs-id=fs-root-testfs --fs-info=" + fsBase64Inde +
+			want: "/home/paddleflow/mount.sh --fs-id=fs-root-testfs --fs-info=" + fsBase64Inde +
 				" --block-size=4096 " +
 				"--meta-cache-driver=leveldb " +
-				"--file-mode=0644 --dir-mode=0755 --data-cache-path=/data/paddleflow-FS/mnt/data-cache --meta-cache-path=/data/paddleflow-FS/mnt/meta-cache",
+				"--file-mode=0644 --dir-mode=0755 --data-cache-path=/data/paddleflow-FS/mnt/data-cache --meta-cache-path=/data/paddleflow-FS/mnt/meta-cache --mount-point=/targetPath/test",
 		},
 		{
 			name: "test-glusterfs",

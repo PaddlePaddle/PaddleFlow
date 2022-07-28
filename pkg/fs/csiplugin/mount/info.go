@@ -31,7 +31,7 @@ import (
 
 const (
 	mountName                             = "mount"
-	pfsFuseIndependentMountProcessCMDName = "/home/paddleflow/mount.sh"
+	PfsFuseIndependentMountProcessCMDName = "/home/paddleflow/mount.sh"
 	pfsFuseMountPodCMDName                = "/home/paddleflow/pfs-fuse mount"
 	ReadOnly                              = "ro"
 )
@@ -80,7 +80,7 @@ func (mountInfo *Info) cmdAndArgs() (string, []string) {
 	if mountInfo.FS.Type == common.GlusterFSType {
 		return mountName, mountInfo.glusterArgs()
 	} else if mountInfo.FS.IndependentMountProcess {
-		return pfsFuseIndependentMountProcessCMDName, mountInfo.processMountArgs()
+		return PfsFuseIndependentMountProcessCMDName, mountInfo.processMountArgs()
 	} else {
 		return pfsFuseMountPodCMDName, mountInfo.podMountArgs()
 	}
@@ -93,9 +93,9 @@ func (mountInfo *Info) glusterArgs() (args []string) {
 }
 
 func (mountInfo *Info) processMountArgs() (args []string) {
-	args = append(args, fmt.Sprintf("--%s=%s", "mount-point", mountInfo.TargetPath))
 	args = append(args, mountInfo.commonOptions()...)
 	args = append(args, mountInfo.cachePathArgs(true)...)
+	args = append(args, fmt.Sprintf("--%s=%s", "mount-point", mountInfo.TargetPath))
 	return args
 }
 
