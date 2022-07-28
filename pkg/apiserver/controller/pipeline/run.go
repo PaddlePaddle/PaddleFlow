@@ -548,7 +548,7 @@ func CreateRun(ctx logger.RequestContext, request *CreateRunRequest, extra map[s
 		ID:             "", // to be back filled according to db pk
 		Name:           wfs.Name,
 		Source:         source,
-		UserName:       userName,
+		UserName:       ctx.UserName,
 		FsName:         fsName,
 		FsID:           fsID,
 		Description:    request.Description,
@@ -665,7 +665,7 @@ func CreateRunByJson(ctx logger.RequestContext, bodyMap map[string]interface{}) 
 		ID:             "", // to be back filled according to db pk
 		Name:           wfs.Name,
 		Source:         source,
-		UserName:       userName,
+		UserName:       ctx.UserName,
 		FsName:         reqFsName,
 		FsID:           fsID,
 		Description:    reqDescription,
@@ -1207,11 +1207,16 @@ func RestartWf(run models.Run, isResume bool) (string, error) {
 }
 
 func newWorkflowByRun(run models.Run) (*pipeline.Workflow, error) {
+	fsUserName, _, err := utils.GetFsNameAndUserNameByFsID(run.FsID)
+	if err != nil {
+		logger.LoggerForRun(run.ID).Errorf("get fsUserName failed, error: %s", err.Error())
+		return nil, err
+	}
 	extraInfo := map[string]string{
-		pplcommon.WfExtraInfoKeySource:   run.Source,
-		pplcommon.WfExtraInfoKeyFsID:     run.FsID,
-		pplcommon.WfExtraInfoKeyUserName: run.UserName,
-		pplcommon.WfExtraInfoKeyFsName:   run.FsName,
+		pplcommon.WfExtraInfoKeySource:     run.Source,
+		pplcommon.WfExtraInfoKeyFsID:       run.FsID,
+		pplcommon.WfExtraInfoKeyFSUserName: fsUserName,
+		pplcommon.WfExtraInfoKeyFsName:     run.FsName,
 	}
 	wfPtr, err := pipeline.NewWorkflow(run.WorkflowSource, run.ID, run.Parameters, extraInfo, workflowCallbacks)
 	if err != nil {
