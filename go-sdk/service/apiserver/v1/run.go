@@ -161,6 +161,7 @@ func (r *run) Create(ctx context.Context, request *CreateRunRequest,
 }
 
 func (r *run) Get(ctx context.Context, runID string, token string) (result *GetRunResponse, err error) {
+	// 由于GetResponse中的Runtime类型为接口，不能在直接传给WithResult，因此先用一个临时Map接收Response信息
 	rspMap := map[string]interface{}{}
 	result = &GetRunResponse{}
 	err = newRequestBuilderWithTokenHeader(r.client, token).
@@ -172,6 +173,7 @@ func (r *run) Get(ctx context.Context, runID string, token string) (result *GetR
 		return nil, err
 	}
 
+	// 1. 先单独处理runtime
 	if runtime, ok := rspMap["runtime"]; ok {
 		runtimeMap, ok := runtime.(map[string]interface{})
 		if !ok {
@@ -183,6 +185,7 @@ func (r *run) Get(ctx context.Context, runID string, token string) (result *GetR
 		}
 	}
 
+	// 2. 处理完runtime后，将runtime剔除，然后将Map转换成GetResponse结构体
 	delete(rspMap, "runtime")
 	tempRsp, err := json.Marshal(rspMap)
 	if err != nil {
