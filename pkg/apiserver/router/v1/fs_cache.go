@@ -78,105 +78,6 @@ func (pr *PFSRouter) createFSCacheConfig(w http.ResponseWriter, r *http.Request)
 }
 
 func validateCacheConfigCreate(ctx *logger.RequestContext, req *api.UpdateFileSystemCacheRequest) error {
-	// meta driver
-	if req.MetaDriver == "" {
-		req.MetaDriver = schema.FsMetaDefault
-	}
-	if !schema.IsValidFsMetaDriver(req.MetaDriver) {
-		ctx.ErrorCode = common.InvalidArguments
-		err := fmt.Errorf("fs meta driver[%s] not valid", req.MetaDriver)
-		ctx.Logging().Errorf("validate fs cache config fsID[%s] err: %v", req.FsID, err)
-		return err
-	}
-	// BlockSize
-	if req.BlockSize < 0 {
-		ctx.ErrorCode = common.InvalidArguments
-		err := fmt.Errorf("fs data cache blockSize[%d] should not be negative", req.BlockSize)
-		ctx.Logging().Errorf("validate fs cache config fsID[%s] err: %v", req.FsID, err)
-		return err
-	}
-	// cacheDir must be absolute path or ""
-	if req.CacheDir != "" && !filepath.IsAbs(req.CacheDir) {
-		ctx.ErrorCode = common.InvalidArguments
-		err := fmt.Errorf("fs cacheDir[%s] should be empty or an absolute path", req.CacheDir)
-		ctx.Logging().Errorf("validate fs cache config fsID[%s] err: %v", req.FsID, err)
-		return err
-	}
-	// must assign cacheDir when cache in use
-	if (req.BlockSize > 0 || req.MetaDriver == schema.FsMetaLevelDB || req.MetaDriver == schema.FsMetaNutsDB) &&
-		req.CacheDir == "" {
-		ctx.ErrorCode = common.InvalidArguments
-		err := fmt.Errorf("fs cacheDir[%s] should be an absolute path when cache in use", req.CacheDir)
-		ctx.Logging().Errorf("validate fs cache config fsID[%s] err: %v", req.FsID, err)
-		return err
-	}
-	return nil
-}
-
-// updateFSCacheConfig
-// @Summary 更新FsID的缓存配置
-// @Description  更新FsID的缓存配置
-// @Id updateFSCacheConfig
-// @tags FSCacheConfig
-// @Accept  json
-// @Produce json
-// @Param fsName path string true "存储名称"
-// @Param username query string false "用户名"
-// @Param request body fs.UpdateFileSystemCacheRequest true "request body"
-// @Success 200 {object} models.FSCacheConfig "缓存配置结构体"
-// @Failure 400 {object} common.ErrorResponse "400"
-// @Failure 500 {object} common.ErrorResponse "500"
-// @Router /fsCache/{fsName} [PUT]
-func (pr *PFSRouter) updateFSCacheConfig(w http.ResponseWriter, r *http.Request) {
-	fsName := chi.URLParam(r, util.QueryFsName)
-	username := r.URL.Query().Get(util.QueryKeyUserName)
-	ctx := common.GetRequestContext(r)
-
-	var req api.UpdateFileSystemCacheRequest
-	if err := common.BindJSON(r, &req); err != nil {
-		ctx.Logging().Errorf("UpdateFSCacheConfig[%s] bindjson failed. err:%s", fsName, err.Error())
-		common.RenderErrWithMessage(w, ctx.RequestID, common.MalformedJSON, err.Error())
-		return
-	}
-	realUserName := getRealUserName(&ctx, username)
-	req.FsID = common.ID(realUserName, fsName)
-
-	// validate can be modified
-	if err := fsExistsForModify(&ctx, req.FsID); err != nil {
-		ctx.Logging().Errorf("checkCanModifyFs[%s] err: %v", req.FsID, err)
-		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
-		return
-	}
-
-	// validate fs_cache_config existence
-	prev, err := api.GetFileSystemCacheConfig(&ctx, req.FsID)
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			ctx.ErrorCode = common.RecordNotFound
-		} else {
-			ctx.ErrorCode = common.InternalError
-		}
-		logger.LoggerForRequest(&ctx).Errorf("validate fs_cache_config[%s] failed. error:%v", req.FsID, err)
-		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
-		return
-	}
-
-	// validate request
-	if err := validateCacheConfigUpdate(&ctx, req, prev); err != nil {
-		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
-		return
-	}
-	// update DB
-	if err := api.UpdateFileSystemCacheConfig(&ctx, req); err != nil {
-		ctx.Logging().Errorf("updateFSCacheConfig[%s] err:%v", req.FsID, err)
-		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
-		return
-	}
-	common.RenderStatus(w, http.StatusOK)
-}
-
-func validateCacheConfigUpdate(ctx *logger.RequestContext, req api.UpdateFileSystemCacheRequest, prev api.FileSystemCacheResponse) error {
-	// meta driver
 	if req.MetaDriver != "" && !schema.IsValidFsMetaDriver(req.MetaDriver) {
 		ctx.ErrorCode = common.InvalidArguments
 		err := fmt.Errorf("fs meta driver[%s] not valid", req.MetaDriver)
@@ -197,27 +98,14 @@ func validateCacheConfigUpdate(ctx *logger.RequestContext, req api.UpdateFileSys
 		ctx.Logging().Errorf("validate fs cache config fsID[%s] err: %v", req.FsID, err)
 		return err
 	}
-	// must have cacheDir when cache in use
-	if needCacheDir(req, prev) && req.CacheDir == "" && prev.CacheDir == "" {
+	// must assign cacheDir when cache in use
+	if req.CacheDir == "" && req.MetaDriver == schema.FsMetaLevelDB {
 		ctx.ErrorCode = common.InvalidArguments
-		err := fmt.Errorf("fs cacheDir[%s] should be an absolute path when using meta/data cache", req.CacheDir)
+		err := fmt.Errorf("fs cacheDir[%s] should be an absolute path when cache in use", req.CacheDir)
 		ctx.Logging().Errorf("validate fs cache config fsID[%s] err: %v", req.FsID, err)
 		return err
 	}
 	return nil
-}
-
-func needCacheDir(req api.UpdateFileSystemCacheRequest, prev api.FileSystemCacheResponse) bool {
-	if req.MetaDriver == schema.FsMetaLevelDB || req.MetaDriver == schema.FsMetaNutsDB {
-		return true
-	}
-	if req.BlockSize > 0 {
-		return true
-	}
-	if prev.MetaDriver == schema.FsMetaLevelDB || prev.MetaDriver == schema.FsMetaNutsDB || prev.BlockSize > 0 {
-		return true
-	}
-	return false
 }
 
 // getFSCacheConfig

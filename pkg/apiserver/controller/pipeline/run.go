@@ -19,7 +19,6 @@ package pipeline
 import (
 	"database/sql"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -36,7 +35,7 @@ import (
 	errors2 "github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
-	fsCommon "github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/pipeline"
 	pplcommon "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/trace_logger"
@@ -45,7 +44,7 @@ import (
 var wfMap = make(map[string]*pipeline.Workflow, 0)
 
 const (
-	JsonFsOptions   = "fs_options" //由于在获取BodyMap的FsOptions前已经转为下划线形式，因此这里为fs_options
+	JsonFsOptions   = "fs_options" // 由于在获取BodyMap的FsOptions前已经转为下划线形式，因此这里为fs_options
 	JsonUserName    = "username"
 	JsonDescription = "description"
 	JsonFlavour     = "flavour"
@@ -269,7 +268,7 @@ func ProcessJsonAttr(bodyMap map[string]interface{}) error {
 		JsonQueue:   nil,
 		JsonEnv:     nil,
 
-		//这2个字段，之前已经处理过，后续的Json解析逻辑无需处理，只需剔除即可
+		// 这2个字段，之前已经处理过，后续的Json解析逻辑无需处理，只需剔除即可
 		JsonDescription: nil,
 		JsonUserName:    nil,
 	}
@@ -927,8 +926,6 @@ func RetryRun(ctx *logger.RequestContext, runID string) (string, error) {
 		ctx.Logging().Errorf("retry run[%s] failed when getting run. error: %v\n", runID, err)
 		return "", err
 	}
-	res, _ := json.Marshal(run.Runtime)
-	ctx.Logging().Infof("debug: begin retry, runtime is: %s", res)
 
 	// check run current status. If already succeeded or running/pending, no need to retry this run.
 	// only failed or terminated runs can retry
@@ -1054,22 +1051,20 @@ func restartRun(run models.Run, isResume bool) (string, error) {
 		return "", err
 	}
 
-	wfs, err := schema.GetWorkflowSource([]byte(run.RunYaml))
+	wfs, err := runYamlAndReqToWfs(run.RunYaml, CreateRunRequest{
+		FsName:    run.FsName,
+		DockerEnv: run.DockerEnv,
+		Name:      run.Name,
+		Disabled:  run.Disabled,
+	})
 	if err != nil {
 		logger.LoggerForRun(run.ID).Errorf("get WorkflowSource by yaml failed. yaml: %s \n, err:%v", run.RunYaml, err)
 		return "", err
 	}
 
-	wfs.Name = run.Name
-	if run.DockerEnv != "" {
-		wfs.DockerEnv = run.DockerEnv
-	}
-	if run.Disabled != "" {
-		wfs.Disabled = run.Disabled
-	}
 	run.WorkflowSource = wfs
 
-	_, userName := fsCommon.FsIDToFsNameUsername(run.FsID)
+	_, userName := utils.FsIDToFsNameUsername(run.FsID)
 	if err := checkFs(userName, &run.WorkflowSource); err != nil {
 		logger.LoggerForRun(run.ID).Errorf("check fs failed. err:%v\n", err)
 		return "", updateRunStatusAndMsg(run.ID, common.StatusRunFailed, err.Error())

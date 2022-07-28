@@ -58,7 +58,7 @@ func TestInformationFromUrl(t *testing.T) {
 		{
 			name:               "hdfs kerberos path",
 			args:               args{url: "hdfs://192.168.1.2:9000,192.168.1.3:9000/myfs/path", properties: map[string]string{common.KeyTabData: "xxx"}},
-			wantFileSystemType: HDFSWithKerberos,
+			wantFileSystemType: common.HDFSWithKerberosType,
 			wantServerAddress:  "192.168.1.2:9000,192.168.1.3:9000",
 			wantSubPath:        "/myfs/path",
 		},

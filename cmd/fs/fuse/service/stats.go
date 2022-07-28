@@ -28,7 +28,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 
-	mountutil "github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/mount"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 )
 
 func CmdStats() *cli.Command {
@@ -360,7 +360,7 @@ func readStats(path string) map[string]float64 {
 
 func stats(ctx *cli.Context) error {
 	mp := ctx.Args().First()
-	inode, err := mountutil.GetFileInode(mp)
+	inode, err := utils.GetFileInode(mp)
 	if err != nil {
 		log.Fatalf("lookup inode for %s: %s", mp, err)
 	}

@@ -1,0 +1,59 @@
+{
+    "fsOptions": {
+        "main_fs": {
+            "name": "cyang14",
+            "mount_path": "/home",
+            "read_only": false
+        },
+        "extra_fs": [
+            {
+                "name": "cyang14",
+                "mount_path": "/home/test",
+                "sub_path": "notexist/path",
+                "read_only": true
+            }
+        ]
+    },
+    "name": "test",
+    "dockerEnv": "iregistry.baidu-int.com/bmlc/framework/paddle:2.0.2-gpu-cuda10.1-cudnn7",
+    "jobType": "single",
+    "queue": "default-queue",
+    "flavour": "flavour1",
+    "cache": {
+        "enable": true,
+        "maxExpiredTime": "600",
+        "fsScope": [
+            {
+                "name": "cyang14",
+                "path": "./for_fsscope"
+            }
+        ]
+    },
+    "entryPoints": {
+        "main": {
+            "parameters": {
+                "main": 111
+            },
+            "command": "echo $PWD",
+            "artifacts": {
+                "output": [
+                    "outputFile"
+                ]
+            },
+            "env": {
+                "PF_JOB_MODE": "Pod"
+            },
+            "extra_fs": [
+                {
+                    "name": "cyang14",
+                    "mount_path": "/hoem/qa-test",
+                    "read_only": false
+                }
+            ]
+        }
+    },
+    "failureOptions": {
+        "strategy": "continue"
+    }
+}
+
