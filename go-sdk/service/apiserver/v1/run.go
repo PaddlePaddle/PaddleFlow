@@ -47,8 +47,6 @@ type CreateRunRequest struct {
 	PipelineID        string `json:"pipelineID,omitempty"`        // optional. one of 3 sources of run. medium priority
 	PipelineVersionID string `json:"pipelineVersionID,omitempty"` // optional. one of 3 sources of run. medium priority
 	RunYamlPath       string `json:"runYamlPath,omitempty"`       // optional. one of 3 sources of run. low priority
-	ScheduleID        string `json:"scheduleID"`
-	ScheduledAt       string `json:"scheduledAt"`
 }
 
 // used for API CreateRunJson to unmarshal steps in entryPoints and postProcess
