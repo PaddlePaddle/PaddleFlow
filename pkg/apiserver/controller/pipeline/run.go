@@ -1064,8 +1064,12 @@ func restartRun(run models.Run, isResume bool) (string, error) {
 
 	run.WorkflowSource = wfs
 
-	_, userName := utils.FsIDToFsNameUsername(run.FsID)
-	if err := checkFs(userName, &run.WorkflowSource); err != nil {
+	fsUserName, _, err := utils.GetFsNameAndUserNameByFsID(run.FsID)
+	if err != nil {
+		return "", err
+	}
+
+	if err := checkFs(fsUserName, &run.WorkflowSource); err != nil {
 		logger.LoggerForRun(run.ID).Errorf("check fs failed. err:%v\n", err)
 		return "", updateRunStatusAndMsg(run.ID, common.StatusRunFailed, err.Error())
 	}
