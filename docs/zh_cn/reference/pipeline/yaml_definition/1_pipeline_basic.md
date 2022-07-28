@@ -183,7 +183,7 @@ parameters参数名必须满足: 只能由字母数字下划线组成，且以�
 > - preprocess节点，env中的USER_ABC变量，引用了{{PF_USER_NAME}}变量
 > - preprocess节点，parameters中的data_path变量，引用了{{PF_RUN_ID}}变量
 
-2. **同节点其他参数**：用于引用同一节点内的其他参数。
+1. **同节点其他参数**：用于引用同一节点内的其他参数。
 
 > 使用示例：[1 pipeline定义]中：
 > preprocess节点的command变量，引用了同节点parameters中的data_path变量
@@ -196,8 +196,7 @@ parameters参数名必须满足: 只能由字母数字下划线组成，且以�
 > tips: 模板内可以包含空格，Paddleflow在参数替换前会忽略两边的空格。例如：
 > - {{data_path}} 与 {{ data_path }} 等价
 
-<strong>注意:</strong>
-- 如果节点A使用了节点B的参数模板，则在节点A的deps字段中必须包含B
+> 注意: 如果节点A使用了节点B的参数模板，则在节点A的deps字段中必须包含B
 
 ##### 3.1.2 定义规范和替换流程
 
