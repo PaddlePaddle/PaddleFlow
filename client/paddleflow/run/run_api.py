@@ -33,16 +33,16 @@ class RunServiceApi(object):
         """
 
     @classmethod
-    def add_run(self, host, fsname, name=None, desc=None,
+    def add_run(self, host, fsname=None, name=None, desc=None,
                 param=None, username=None, runyamlpath=None, runyamlrawb64=None, pipelineid=None,
                 header=None, disabled=None, dockerenv=None):
         """ add run 
         """
         if not header:
             raise PaddleFlowSDKException("InvalidRequest", "paddleflow should login first")
-        body = {
-            "fsname": fsname
-        }
+        body = {}
+        if fsname:
+            body["fsname"] = fsname
         if name:
             body['name'] = name
         if desc:
