@@ -70,6 +70,7 @@ pipeline是由各个节点组成的有向无环图（DAG）结构，因此entry_
 
 为了简单起见，在本文中我们只关注 Step 类型的节点，Step 类型节点的具体定义方式，可以参考 [2.2 Step节点字段解析]
 
+
 ###### 2.1.4 并发度（parallelism）
 
 单次pipeline run，最大节点运行并发度。
@@ -225,4 +226,12 @@ parameters参数名必须满足: 只能由字母数字下划线组成，且以�
 [2.2 Step节点字段解析]: /docs/zh_cn/reference/pipeline/yaml_definition/1_pipeline_basic.md#22-step节点字段解析
 [2.2.2.3 parameters使用方式]: /docs/zh_cn/reference/pipeline/yaml_definition/1_pipeline_basic.md#2223-parameters%E4%BD%BF%E7%94%A8%E6%96%B9%E5%BC%8F
 [3.1.1 变量模板]: /docs/zh_cn/reference/pipeline/yaml_definition/1_pipeline_basic.md#311-%E5%8F%98%E9%87%8F%E6%A8%A1%E6%9D%BF
+<<<<<<< HEAD
 [DAG]: TODO
+=======
+<<<<<<< HEAD
+[DAG]: TODO
+=======
+[DAG]: TODO
+>>>>>>> 3ed0291adfec52953712c21dbd5f23edfd17cff8
+>>>>>>> 459b861bc8518b46b5e7ff7ce1119787181c59aa
