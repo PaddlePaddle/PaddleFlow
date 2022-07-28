@@ -49,26 +49,6 @@ type CreateRunRequest struct {
 	RunYamlPath       string `json:"runYamlPath,omitempty"`       // optional. one of 3 sources of run. low priority
 }
 
-// used for API CreateRunJson to unmarshal steps in entryPoints and postProcess
-type RunStep struct {
-	Parameters map[string]interface{} `json:"parameters"`
-	Command    string                 `json:"command"`
-	Deps       string                 `json:"deps"`
-	Artifacts  ArtifactsJson          `json:"artifacts"`
-	Env        map[string]string      `json:"env"`
-	Queue      string                 `json:"queue"`
-	Flavour    string                 `json:"flavour"`
-	JobType    string                 `json:"jobType"`
-	Cache      schema.Cache           `json:"cache"`
-	DockerEnv  string                 `json:"dockerEnv"`
-}
-
-// used for API CreateRunJson to unmarshal artifacts
-type ArtifactsJson struct {
-	Input  map[string]string `json:"input"`
-	Output []string          `json:"output"`
-}
-
 type UpdateRunRequest struct {
 	StopForce bool `json:"stopForce"`
 }
@@ -114,17 +94,18 @@ type ListRunResponse struct {
 }
 
 type GetRunResponse struct {
-	ID             string                 `json:"runID"`
-	Name           string                 `json:"name"`
-	Source         string                 `json:"source"` // pipelineID or yamlPath
-	UserName       string                 `json:"username"`
-	FsName         string                 `json:"fsname"`
-	FsOptions      schema.FsOptions       `json:"fsOptions"`
-	Description    string                 `json:"description"`
-	Parameters     map[string]interface{} `json:"parameters"`
-	RunYaml        string                 `json:"runYaml"`
+	ID          string                 `json:"runID"`
+	Name        string                 `json:"name"`
+	Source      string                 `json:"source"` // pipelineID or yamlPath
+	UserName    string                 `json:"username"`
+	FsName      string                 `json:"fsname"`
+	FsOptions   schema.FsOptions       `json:"fsOptions"`
+	Description string                 `json:"description"`
+	Parameters  map[string]interface{} `json:"parameters"`
+	RunYaml     string                 `json:"runYaml"`
+	// only used to save runtime json info in response, please use Runtime in next line
 	RuntimeMap     map[string]interface{} `json:"runtime"`
-	Runtime        schema.RuntimeView     `json:"-"` // need to be init later
+	Runtime        schema.RuntimeView     `json:"-"` // init by RuntimeMap
 	PostProcess    schema.PostProcessView `json:"postProcess"`
 	FailureOptions schema.FailureOptions  `json:"failureOptions"`
 	DockerEnv      string                 `json:"dockerEnv"`
@@ -206,22 +187,27 @@ func initRuntime(compMap map[string]interface{}) (map[string][]schema.ComponentV
 	for name, comps := range compMap {
 		compList, ok := comps.([]interface{})
 		if !ok {
-			return nil, fmt.Errorf("value of comp is not list")
+			return nil, fmt.Errorf("init Runtime of response failed: value of comp is not list")
 		}
+
 		resList := []schema.ComponentView{}
 		for _, comp := range compList {
 			// 遍历compList中的每个comp
 			compMap, ok := comp.(map[string]interface{})
 			if !ok {
-				return nil, fmt.Errorf("comp should be map type")
+				return nil, fmt.Errorf("init Runtime of response failed: comp should be map type")
 			}
+
 			// 通过是否有entryPoints判断是否是Dag
 			if entryPoints, ok := compMap["entryPoints"]; ok {
 				// 如果是Dag
 				subCompMap, ok := entryPoints.(map[string]interface{})
 				if !ok {
-					return nil, fmt.Errorf("entryPoints in dag should be map type")
+					return nil, fmt.Errorf("init Runtime of response failed: entryPoints in dag[%s] should be map type", name)
 				}
+
+				// 先Marshal再Unmarshal回davView
+				// 由于entryPoints中的内容无法直接Unmarshal到davView中，这里先删除，后续单独初始化
 				delete(compMap, "entryPoints")
 				compByte, err := json.Marshal(compMap)
 				if err != nil {
@@ -232,7 +218,7 @@ func initRuntime(compMap map[string]interface{}) (map[string][]schema.ComponentV
 					return nil, err
 				}
 
-				// 递归调用initRuntime来初始化子节点
+				// 递归调用initRuntime来初始化entryPoints子节点
 				subComps, err := initRuntime(subCompMap)
 				if err != nil {
 					return nil, err
