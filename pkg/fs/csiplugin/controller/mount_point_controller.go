@@ -18,7 +18,6 @@ package controller
 
 import (
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 
@@ -308,28 +307,23 @@ func checkIfNeedRemount(path string) bool {
 
 func remount(mountInfo mount.Info) error {
 	log.Tracef("remount: mountInfo %+v", mountInfo)
-	targetPath := mountInfo.TargetPath
 	// umount old mount point
-	output, err := utils.ExecCmdWithTimeout(utils.UMountCmdName, []string{targetPath})
-	if err != nil {
-		log.Errorf("remount: exec cmd[umount %s] failed: %v, output[%s]", targetPath, err, string(output))
-		if !strings.Contains(string(output), utils.NotMounted) {
-			if err := utils.ForceUnmount(targetPath); err != nil {
-				return err
-			}
-		}
+	if err := utils.ManualUnmount(mountInfo.TargetPath); err != nil {
+		err := fmt.Errorf("remount: ManualUnmount %s failed: %v", mountInfo.TargetPath, err)
+		log.Errorf(err.Error())
+		return err
 	}
 
 	if !mountInfo.FS.IndependentMountProcess && mountInfo.FS.Type != common.GlusterFSType {
 		// bind source path to mount path
-		output, err = utils.ExecMountBind(schema.GetBindSource(mountInfo.FS.ID), targetPath, mountInfo.ReadOnly)
+		output, err := utils.ExecMountBind(schema.GetBindSource(mountInfo.FS.ID), mountInfo.TargetPath, mountInfo.ReadOnly)
 		if err != nil {
 			log.Errorf("remount: pod exec mount bind cmd failed: %v, output[%s]", err, string(output))
 			return err
 		}
 	} else {
 		// mount
-		output, err = utils.ExecCmdWithTimeout(mountInfo.Cmd, mountInfo.Args)
+		output, err := utils.ExecCmdWithTimeout(mountInfo.Cmd, mountInfo.Args)
 		if err != nil {
 			log.Errorf("remount: process exec mount cmd failed: [%v], output[%v]", err, string(output))
 			return err
