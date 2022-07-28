@@ -103,9 +103,9 @@ type GetRunResponse struct {
 	Description string                 `json:"description"`
 	Parameters  map[string]interface{} `json:"parameters"`
 	RunYaml     string                 `json:"runYaml"`
-	// only used to save runtime json info in response, please use Runtime in next line
-	RuntimeMap     map[string]interface{} `json:"runtime"`
-	Runtime        schema.RuntimeView     `json:"-"` // init by RuntimeMap
+	// // only used to save runtime json info in response, please use Runtime in next line
+	// RuntimeMap     map[string]interface{} `json:"runtime"`
+	Runtime        schema.RuntimeView     `json:"runtime"` // init by RuntimeMap
 	PostProcess    schema.PostProcessView `json:"postProcess"`
 	FailureOptions schema.FailureOptions  `json:"failureOptions"`
 	DockerEnv      string                 `json:"dockerEnv"`
@@ -163,21 +163,35 @@ func (r *run) Create(ctx context.Context, request *CreateRunRequest,
 }
 
 func (r *run) Get(ctx context.Context, runID string, token string) (result *GetRunResponse, err error) {
+	rspMap := map[string]interface{}{}
 	result = &GetRunResponse{}
 	err = newRequestBuilderWithTokenHeader(r.client, token).
 		WithMethod(http.GET).
 		WithURL(runApi + "/" + runID).
-		WithResult(result).
+		WithResult(&rspMap).
 		Do()
-
 	if err != nil {
 		return nil, err
 	}
 
-	result.Runtime, err = initRuntime(result.RuntimeMap)
+	if runtime, ok := rspMap["runtime"]; ok {
+		runtimeMap, ok := runtime.(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("init Runtime of response failed: value of runtime is not Map type")
+		}
+		result.Runtime, err = initRuntime(runtimeMap)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	delete(rspMap, "runtime")
+	tempRsp, err := json.Marshal(rspMap)
 	if err != nil {
 		return nil, err
 	}
+	json.Unmarshal(tempRsp, result)
+
 	return
 }
 

@@ -125,9 +125,9 @@ func main() {
 	res := Retry(pfClient, token, "run-000001")
 	fmt.Println(res.RunID)
 
-	getResult := Get(pfClient, token, "run-000002")
-	resJson, _ := json.Marshal(getResult.Runtime)
-	fmt.Println("runtime: ", string(resJson))
+	getResult := Get(pfClient, token, "run-000001")
+	resJson, _ := json.Marshal(getResult)
+	fmt.Println(string(resJson))
 
 	Delete(pfClient, token, "run-000002")
 	Get(pfClient, token, "run-000002")
