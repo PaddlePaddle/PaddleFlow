@@ -49,8 +49,8 @@ type JobStatus int
 
 const (
 	DBUpdating JobStatus = iota
-	EnQueue
-	DeQueue
+	Enqueue
+	Dequeue
 	Pending
 	Creating
 	Running
@@ -65,10 +65,12 @@ const (
 	MetricJobPendingTime    = "job_pending_time"
 	MetricJobCreatingTime   = "job_creating_time"
 	MetricJobRunningTime    = "job_running_time"
+	MetricJobTime           = "job_time"
 )
 
 const (
-	JobIDLabel = "jobID"
+	JobIDLabel     = "jobID"
+	JobStatusLabel = "status"
 )
 
 var (
@@ -83,9 +85,9 @@ func (j JobStatus) toMetric() string {
 	switch j {
 	case DBUpdating:
 		return MetricJobDBUpdatingTime
-	case EnQueue:
+	case Enqueue:
 		return MetricJobEnqueueTime
-	case DeQueue:
+	case Dequeue:
 		return MetricJobDequeueTime
 	case Pending:
 		return MetricJobPendingTime
@@ -93,6 +95,24 @@ func (j JobStatus) toMetric() string {
 		return MetricJobCreatingTime
 	case Running:
 		return MetricJobRunningTime
+	}
+	return ""
+}
+
+func (j JobStatus) String() string {
+	switch j {
+	case DBUpdating:
+		return "DBUpdating"
+	case Enqueue:
+		return "Enqueue"
+	case Dequeue:
+		return "Dequeue"
+	case Pending:
+		return "Pending"
+	case Creating:
+		return "Creating"
+	case Running:
+		return "Running"
 	}
 	return ""
 }
