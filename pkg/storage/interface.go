@@ -17,10 +17,10 @@ limitations under the License.
 package storage
 
 import (
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"gorm.io/gorm"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
 

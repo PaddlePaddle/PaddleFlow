@@ -19,7 +19,6 @@ package storage
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"time"
@@ -30,6 +29,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
 
 type JobStore struct {
