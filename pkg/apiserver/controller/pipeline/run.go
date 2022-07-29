@@ -559,6 +559,7 @@ func CreateRun(ctx logger.RequestContext, request *CreateRunRequest, extra map[s
 		Disabled:       request.Disabled,
 		ScheduleID:     request.ScheduleID,
 		ScheduledAt:    scheduledAt,
+		RunOptions:     schema.RunOptions{FSUsername: userName},
 		Status:         "", // to be filled later
 		Message:        "", // to be filld later
 	}
@@ -631,11 +632,13 @@ func CreateRunByJson(ctx logger.RequestContext, bodyMap map[string]interface{}) 
 	fsID := ""
 	ctxUserName := ctx.UserName // 这是实际发送请求的用户，由Token决定，全局不会改变
 	userName := ctxUserName     // 这是进行后续fs操作的用户，root用户可以设置为其他普通用户
+
+	if common.IsRootUser(ctxUserName) && reqUserName != "" {
+		// root user can select fs under other users
+		userName = reqUserName
+	}
+
 	if reqFsName != "" {
-		if common.IsRootUser(ctxUserName) && reqUserName != "" {
-			// root user can select fs under other users
-			userName = reqUserName
-		}
 		fsID = common.ID(userName, reqFsName)
 	}
 
@@ -674,6 +677,7 @@ func CreateRunByJson(ctx logger.RequestContext, bodyMap map[string]interface{}) 
 		DockerEnv:      wfs.DockerEnv,
 		Disabled:       wfs.Disabled,
 		Status:         common.StatusRunInitiating,
+		RunOptions:     schema.RunOptions{FSUsername: userName},
 	}
 	trace_logger.Key(requestId).Infof("validate and start run: %+v", run)
 	response, err := ValidateAndStartRun(ctx, run, userName, CreateRunRequest{})
@@ -1211,15 +1215,10 @@ func RestartWf(run models.Run, isResume bool) (string, error) {
 }
 
 func newWorkflowByRun(run models.Run) (*pipeline.Workflow, error) {
-	fsUserName, _, err := utils.GetFsNameAndUserNameByFsID(run.FsID)
-	if err != nil {
-		logger.LoggerForRun(run.ID).Errorf("get fsUserName failed, error: %s", err.Error())
-		return nil, err
-	}
 	extraInfo := map[string]string{
 		pplcommon.WfExtraInfoKeySource:     run.Source,
 		pplcommon.WfExtraInfoKeyFsID:       run.FsID,
-		pplcommon.WfExtraInfoKeyFSUserName: fsUserName,
+		pplcommon.WfExtraInfoKeyFSUserName: run.RunOptions.FSUsername,
 		pplcommon.WfExtraInfoKeyFsName:     run.FsName,
 	}
 	wfPtr, err := pipeline.NewWorkflow(run.WorkflowSource, run.ID, run.Parameters, extraInfo, workflowCallbacks)
