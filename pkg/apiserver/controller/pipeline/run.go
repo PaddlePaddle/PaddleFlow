@@ -637,6 +637,7 @@ func CreateRunByJson(ctx logger.RequestContext, bodyMap map[string]interface{}) 
 		// root user can select fs under other users
 		userName = reqUserName
 	}
+	logger.Logger().Infof("debug: username is [%s]", userName)
 
 	if reqFsName != "" {
 		fsID = common.ID(userName, reqFsName)
