@@ -1,0 +1,7 @@
+FROM paddleflow/paddleflow-server-base-arm:1.4.2
+
+ENV WORKDIR /home/paddleflow
+ADD bin/paddleflow $WORKDIR/server/
+RUN useradd paddleflow
+
+USER paddleflow
