@@ -906,10 +906,10 @@ func StopRun(logEntry *log.Entry, userName, runID string, request UpdateRunReque
 		logEntry.Errorln(err.Error())
 		return err
 	}
-
+	run.RunOptions.StopForce = request.StopForce
 	runUpdate := models.Run{
 		Status:     common.StatusRunTerminating,
-		RunOptions: schema.RunOptions{StopForce: request.StopForce},
+		RunOptions: run.RunOptions,
 	}
 	runUpdate.Encode()
 	if err := models.UpdateRun(logEntry, runID, runUpdate); err != nil {
