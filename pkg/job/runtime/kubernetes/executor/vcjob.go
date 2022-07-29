@@ -18,13 +18,14 @@ package executor
 
 import (
 	"fmt"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"strconv"
 
 	log "github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
 	vcjob "volcano.sh/apis/pkg/apis/batch/v1alpha1"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
@@ -125,7 +126,7 @@ func (vj *VCJob) CreateJob() (string, error) {
 }
 
 func (vj *VCJob) StopJobByID(jobID string) error {
-	job, err := models.GetJobByID(jobID)
+	job, err := storage.Job.GetJobByID(jobID)
 	if err != nil {
 		return err
 	}
@@ -166,7 +167,7 @@ func (vj *VCJob) fillPSJobSpec(jobSpec *vcjob.Job) error {
 	return nil
 }
 
-func (vj *VCJob) fillTaskInPSMode(vcTask *vcjob.TaskSpec, task models.Member, jobName string) error {
+func (vj *VCJob) fillTaskInPSMode(vcTask *vcjob.TaskSpec, task model.Member, jobName string) error {
 	log.Infof("fill Task[%s] in PS-Mode", vcTask.Name)
 	vcTask.Replicas = int32(task.Replicas)
 

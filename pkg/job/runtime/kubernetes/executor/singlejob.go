@@ -18,11 +18,11 @@ package executor
 
 import (
 	"fmt"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 
 	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
@@ -124,7 +124,7 @@ func (sp *SingleJob) CreateJob() (string, error) {
 
 // StopJobByID stops a job by jobID
 func (sp *SingleJob) StopJobByID(jobID string) error {
-	job, err := models.GetJobByID(jobID)
+	job, err := storage.Job.GetJobByID(jobID)
 	if err != nil {
 		return err
 	}

@@ -18,6 +18,8 @@ package executor
 
 import (
 	"fmt"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"strconv"
 	"strings"
 
@@ -26,7 +28,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	sparkapp "github.com/PaddlePaddle/PaddleFlow/pkg/apis/spark-operator/sparkoperator.k8s.io/v1beta2"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
@@ -215,7 +216,7 @@ func (sj *SparkJob) patchSparkSpec(jobApp *sparkapp.SparkApplication, jobID stri
 	return nil
 }
 
-func (sj *SparkJob) patchPodByTask(podSpec *sparkapp.SparkPodSpec, task models.Member) {
+func (sj *SparkJob) patchPodByTask(podSpec *sparkapp.SparkPodSpec, task model.Member) {
 	flavour := task.Flavour
 	coresInt, _ := strconv.Atoi(task.Flavour.CPU)
 	cores := int32(coresInt)
@@ -234,7 +235,7 @@ func (sj *SparkJob) patchPodByTask(podSpec *sparkapp.SparkPodSpec, task models.M
 	}
 }
 
-func (sj *SparkJob) patchSparkSpecDriver(jobApp *sparkapp.SparkApplication, task models.Member) {
+func (sj *SparkJob) patchSparkSpecDriver(jobApp *sparkapp.SparkApplication, task model.Member) {
 	sj.patchPodByTask(&jobApp.Spec.Driver.SparkPodSpec, task)
 	if task.Name != "" {
 		jobApp.Spec.Driver.PodName = &task.Name
@@ -245,7 +246,7 @@ func (sj *SparkJob) patchSparkSpecDriver(jobApp *sparkapp.SparkApplication, task
 	}
 }
 
-func (sj *SparkJob) patchSparkSpecExecutor(jobApp *sparkapp.SparkApplication, task models.Member) {
+func (sj *SparkJob) patchSparkSpecExecutor(jobApp *sparkapp.SparkApplication, task model.Member) {
 	sj.patchPodByTask(&jobApp.Spec.Executor.SparkPodSpec, task)
 	if len(sj.ExecutorReplicas) > 0 {
 		replicasInt, _ := strconv.Atoi(sj.ExecutorReplicas)
@@ -292,7 +293,7 @@ func (sj *SparkJob) CreateJob() (string, error) {
 
 // StopJobByID stops a job by jobID
 func (sj *SparkJob) StopJobByID(jobID string) error {
-	job, err := models.GetJobByID(jobID)
+	job, err := storage.Job.GetJobByID(jobID)
 	if err != nil {
 		return err
 	}

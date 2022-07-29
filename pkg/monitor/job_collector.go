@@ -21,12 +21,13 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/common/model"
+	prometheusModel "github.com/prometheus/common/model"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/consts"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 type JobCollector struct {
@@ -66,7 +67,7 @@ func (j *JobCollector) Collect(ch chan<- prometheus.Metric) {
 }
 
 func (j *JobCollector) CollectPodMetrics(metricName string) error {
-	jobs := models.ListJobByStatus(schema.StatusJobRunning)
+	jobs := storage.Job.ListJobByStatus(schema.StatusJobRunning)
 	for _, value := range jobs {
 		podNameList := make([]string, 0)
 		if err := getPodNameList(&podNameList, value); err != nil {
@@ -78,7 +79,7 @@ func (j *JobCollector) CollectPodMetrics(metricName string) error {
 			log.Errorf("call prometheus query api error %s", err.Error())
 			return err
 		}
-		data, ok := result.(model.Vector)
+		data, ok := result.(prometheusModel.Vector)
 		if !ok {
 			log.Errorf("convert result to vector failed")
 			return err
@@ -94,7 +95,7 @@ func (j *JobCollector) CollectPodMetrics(metricName string) error {
 	return nil
 }
 
-func callPrometheusAPI(metricName, jobID string) (model.Value, error) {
+func callPrometheusAPI(metricName, jobID string) (prometheusModel.Value, error) {
 	ctxP, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	query := getQuerySql(metricName)
@@ -117,7 +118,7 @@ func getQuerySql(metricName string) string {
 	}
 }
 
-func getPodNameList(podNameList *[]string, job models.Job) error {
+func getPodNameList(podNameList *[]string, job model.Job) error {
 	names, err := getTaskName(job.ID)
 	if err != nil {
 		log.Errorf("get job[%s] tasks failed, error:[%s]", job.ID, err.Error())
@@ -129,7 +130,7 @@ func getPodNameList(podNameList *[]string, job models.Job) error {
 
 func getTaskName(jobID string) ([]string, error) {
 	taskNameList := make([]string, 0)
-	tasks, err := models.ListByJobID(jobID)
+	tasks, err := storage.Job.ListByJobID(jobID)
 	if err != nil {
 		log.Errorf("list job[%s] tasks failed, error:[%s]", jobID, err.Error())
 		return taskNameList, err

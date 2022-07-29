@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"strings"
 
 	"github.com/jinzhu/copier"
@@ -68,7 +69,7 @@ func NewKubeRuntime(cluster schema.Cluster) RuntimeService {
 	return kr
 }
 
-func getFileSystem(jobConf schema.Conf, tasks []models.Member) []schema.FileSystem {
+func getFileSystem(jobConf schema.Conf, tasks []model.Member) []schema.FileSystem {
 	fileSystems := jobConf.GetAllFileSystem()
 	for _, task := range tasks {
 		fileSystems = append(fileSystems, task.Conf.GetAllFileSystem()...)
