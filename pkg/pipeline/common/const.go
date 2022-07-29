@@ -29,10 +29,10 @@ const (
 	PF_PARENT        = "PF_PARENT"
 	PF_LOOP_ARGUMENT = "PF_LOOP_ARGUMENT"
 
-	WfExtraInfoKeySource   = "Source" // pipelineID or yamlPath
-	WfExtraInfoKeyUserName = "UserName"
-	WfExtraInfoKeyFsName   = "FsName"
-	WfExtraInfoKeyFsID     = "FsID"
+	WfExtraInfoKeySource     = "Source" // pipelineID or yamlPath
+	WfExtraInfoKeyFSUserName = "FsUserName"
+	WfExtraInfoKeyFsName     = "FsName"
+	WfExtraInfoKeyFsID       = "FsID"
 
 	ParamTypeString = "string"
 	ParamTypeFloat  = "float"
