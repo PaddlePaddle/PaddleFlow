@@ -35,7 +35,6 @@ import (
 	errors2 "github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/pipeline"
 	pplcommon "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/trace_logger"
@@ -1069,10 +1068,7 @@ func restartRun(run models.Run, isResume bool) (string, error) {
 
 	run.WorkflowSource = wfs
 
-	fsUserName, _, err := utils.GetFsNameAndUserNameByFsID(run.FsID)
-	if err != nil {
-		return "", err
-	}
+	fsUserName := run.RunOptions.FSUsername
 
 	if err := checkFs(fsUserName, &run.WorkflowSource); err != nil {
 		logger.LoggerForRun(run.ID).Errorf("check fs failed. err:%v\n", err)
