@@ -172,14 +172,47 @@ components字段的定义的节点，只有在被调用([reference])时才会执
 
 - 如果B中某个parameter p1指定了类型，则A的同名parameter p1必须满足相应的类型要求
 
-##### 3.2.1 输入artifact约束
+##### 3.2.3 输入artifact约束
 如果节点A reference了节点B，则A的输入artifact必须是节点B的输入artifact的全集。
 
 - 节点的输入artifact必须在节点运行前便处于ready的状态
 - 节点的输入artifact必须来自于其上游节点的输出artifact，而components中的节点在定义时不能指定上游节点
 
+##### 3.2.4 reference约束
+暂时不支持递归形式的reference， 比如下面两种情况将会报错：
+
+- 节点reference自身
+-  A reference B， B reference C，C reference A
+
 
 # 4 pipeline运行流程
+当使用pipeline创建Run时，Paddleflow会根据依赖关系，依次调度entry_points中所定义的节点，如果当前节点的 reference字段不为空，则会执行如下的处理流程。
+
+> 为了方便讨论，在这里将reference不为空的节点称为A节点，而其引用的components中的节点，称为B节点。
+
+- 根据A的reference.component字段找到B节点
+- 拷贝B节点，将得到副本称之为C节点
+- 使用A节点的名字覆盖C节点的名字
+- 使用A节点的deps字段覆盖C节点的deps字段
+- 使用A节点的输入artifact字段覆盖C节点的输入artifact字段
+- 使用A节点的parameter覆盖C节点中同名Parameter的值
+  > 举个例子：
+  >
+  > 假设B有如下形式的parameters：
+  >
+  > ```{"p1":5, "p2": 6}```
+  >
+  > A有如下形式的parameters:
+  >
+  > ```{"p1":10}```
+  >
+  > 则最终节点C的paramter为：
+  >
+  > ```{"p1":10, "p2": 6} ```
+- 调度执行节点C
+
+相信看到这里，有部分细心的同学已经发现，本文所用的示例，与[7_dag]所用的示例，在运行Run时是完全等价的。感兴趣的用户可以进一步对照着这两个例子印证上述的处理流程。
+
 
 
 [ref_components]: TODO
