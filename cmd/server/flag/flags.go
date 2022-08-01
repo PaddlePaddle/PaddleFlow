@@ -175,18 +175,6 @@ func FilesystemFlags(fsConf *config.FsServerConf) []cli.Flag {
 			Usage:       "PVC config path",
 			Destination: &fsConf.DefaultPVCPath,
 		},
-		&cli.StringFlag{
-			Name:        "pfs-service-name",
-			Value:       fsConf.K8sServiceName,
-			Usage:       "fs-server k8s-service name",
-			Destination: &fsConf.K8sServiceName,
-		},
-		&cli.IntFlag{
-			Name:        "pfs-service-port",
-			Value:       fsConf.K8sServicePort,
-			Usage:       "fs-server k8s-service port",
-			Destination: &fsConf.K8sServicePort,
-		},
 		&cli.DurationFlag{
 			Name:        "mount-pod-expire",
 			Value:       7 * 24 * time.Hour,
