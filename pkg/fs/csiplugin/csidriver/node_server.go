@@ -140,6 +140,7 @@ func mountVolume(volumeID string, mountInfo mount.Info) error {
 			return err
 		}
 	} else {
+		log.Infof("mount with cmd %s and args %v", mountInfo.Cmd, mountInfo.Args)
 		output, err := utils.ExecCmdWithTimeout(mountInfo.Cmd, mountInfo.Args)
 		if err != nil {
 			log.Errorf("exec mount failed: [%v], output[%v]", err, string(output))
