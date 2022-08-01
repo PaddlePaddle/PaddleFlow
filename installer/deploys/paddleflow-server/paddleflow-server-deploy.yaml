@@ -446,13 +446,7 @@ spec:
             - containerPort: 8999
               name: port-0
               protocol: TCP
-          resources:
-            requests:
-              memory: "1Gi"
-              cpu: "500m"
-            limits:
-              memory: "2Gi"
-              cpu: "2000m"
+          resources: {}
           securityContext:
             privileged: false
             runAsGroup: 1000
