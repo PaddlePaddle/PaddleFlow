@@ -584,10 +584,10 @@ spec:
               name: port-0
               protocol: TCP
           resources:
-            request:
+            requests:
               memory: "1g"
               cpu: "500m"
-            limit:
+            limits:
               memory: "2g"
               cpu: "2000m"
           securityContext:
