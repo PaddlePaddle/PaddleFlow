@@ -8992,14 +8992,6 @@ spec:
     - Persistent
 ---
 apiVersion: scheduling.k8s.io/v1
-description: Used for system critical pods that must not be moved from their current node.
-kind: PriorityClass
-metadata:
-  name: very-high
-  selfLink: /apis/scheduling.k8s.io/v1/priorityclasses/very-high
-value: 2000
----
-apiVersion: scheduling.k8s.io/v1
 description: Used for critical pods that must not be moved from their current node.
 kind: PriorityClass
 metadata:
@@ -9024,12 +9016,3 @@ metadata:
   name: low
   selfLink: /apis/scheduling.k8s.io/v1/priorityclasses/low
 value: 50
-
----
-apiVersion: scheduling.k8s.io/v1
-description: Used for pods that are easily preempted and unimportant.
-kind: PriorityClass
-metadata:
-  name: very-low
-  selfLink: /apis/scheduling.k8s.io/v1/priorityclasses/very-low
-value: 10
