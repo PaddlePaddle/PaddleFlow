@@ -567,10 +567,10 @@ spec:
               protocol: TCP
           resources:
             requests:
-              memory: "1G"
+              memory: "1g"
               cpu: "500m"
             limits:
-              memory: "2G"
+              memory: "2g"
               cpu: "2000m"
           securityContext:
             privileged: false
