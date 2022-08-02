@@ -74,7 +74,7 @@ class RunServiceApi(object):
         return True, data['runID']
 
     @classmethod
-    def list_run(self, host, fsname=None, username=None, runid=None, runname=None, status=None
+    def list_run(self, host, fsname=None, username=None, runid=None, runname=None, status=None,
                  header=None, maxsize=100, marker=None):
         """list run
         """
