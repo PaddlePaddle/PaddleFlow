@@ -28,6 +28,8 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/trace_logger"
 )
 
@@ -152,8 +154,8 @@ func GetRunLog(ctx *logger.RequestContext, runID string, request GetRunLogReques
 	return response, nil
 }
 
-func getJobListByRunID(ctx *logger.RequestContext, runID string, jobID string) ([]models.Job, error) {
-	jobList, err := models.GetJobsByRunID(runID, jobID)
+func getJobListByRunID(ctx *logger.RequestContext, runID string, jobID string) ([]model.Job, error) {
+	jobList, err := storage.Job.GetJobsByRunID(runID, jobID)
 	if err != nil {
 		return nil, err
 	}
