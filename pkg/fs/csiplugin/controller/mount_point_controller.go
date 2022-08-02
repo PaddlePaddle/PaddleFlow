@@ -261,14 +261,7 @@ func (m *MountPointController) CheckAndRemountVolumeMount(volumeMount volumeMoun
 		return err
 	}
 
-	if !mountInfo.FS.IndependentMountProcess && mountInfo.FS.Type != common.GlusterFSType {
-		if err := waitForBindSourceReady(pvParams_.fsID); err != nil {
-			log.Errorf("waitForBindSourceReady[%s] err: %v", pvParams_.fsID, err)
-			return err
-		}
-	}
-
-	if checkIfNeedRemount(mountPath) {
+	if checkIfNeedRemount(mountInfo.SourcePath) {
 		if err := remount(volumeMount, mountInfo); err != nil {
 			err := fmt.Errorf("remount info: %+v failed: %v", mountInfo, err)
 			log.Errorf(err.Error())
@@ -309,21 +302,33 @@ func remount(volumeMount volumeMountInfo, mountInfo mount.Info) error {
 	log.Tracef("remount: mountInfo %+v", mountInfo)
 
 	if !mountInfo.FS.IndependentMountProcess && mountInfo.FS.Type != common.GlusterFSType {
-		// bind source path to mount path
-		sourcePath := schema.GetBindSource(mountInfo.FS.ID)
-		output, err := utils.ExecMountBind(sourcePath, mountInfo.TargetPath, mountInfo.ReadOnly)
-		if err != nil {
-			log.Errorf("remount: pod exec mount bind cmd failed: %v, output[%s]", err, string(output))
+		// wait for source path ready
+		if err := waitForBindSourceReady(mountInfo.FS.ID); err != nil {
+			log.Errorf("waitForBindSourceReady[%s] err: %v", mountInfo.FS.ID, err)
 			return err
 		}
 	} else {
-		// mount
+		// mount source path
+		if err := utils.ManualUnmount(mountInfo.SourcePath); err != nil {
+			err := fmt.Errorf("process remount[%s] failed when ManualUnmount source path %s. err: %v",
+				mountInfo.FS.ID, mountInfo.SourcePath, err)
+			return err
+		}
+
 		output, err := utils.ExecCmdWithTimeout(mountInfo.Cmd, mountInfo.Args)
 		if err != nil {
 			log.Errorf("remount: process exec mount cmd failed: [%v], output[%v]", err, string(output))
 			return err
 		}
 	}
+
+	// bind source path to mount path
+	output, err := utils.ExecMountBind(mountInfo.SourcePath, mountInfo.TargetPath, mountInfo.ReadOnly)
+	if err != nil {
+		log.Errorf("remount: pod exec mount bind cmd failed: %v, output[%s]", err, string(output))
+		return err
+	}
+
 	// todo subpath need recovery
 	log.Debugf("volumeMoun info %+v", volumeMount)
 	for _, subPath := range volumeMount.SubPaths {
