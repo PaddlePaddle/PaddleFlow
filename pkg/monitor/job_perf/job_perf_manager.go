@@ -23,6 +23,7 @@ limitations under the License.
 package job_perf
 
 import (
+	"sync"
 	"time"
 
 	//"github.com/goburrow/cache"
@@ -31,8 +32,6 @@ import (
 
 const (
 	MaxNum       = 10000
-	MaxTimePoint = int(T7 + 1)
-	MaxStatus    = int(Running + 1)
 	Timeout      = time.Hour
 	ZeroDuration = time.Duration(0)
 )
@@ -46,10 +45,12 @@ type JobPerfManager interface {
 	GetStatusTime(jobID string, status JobStatus) (time.Duration, bool)
 	GetTimestamp(jobID string, timePoint JobTimePoint) (time.Time, bool)
 	GetTimestampsCache() map[string]Timestamps
+	GetStatusCount(status JobStatus) int64
 }
 
 type defaultJobPerfManager struct {
-	cache gcache.Cache
+	cache       gcache.Cache
+	statusCache *sync.Map
 }
 
 type Timestamps []time.Time
@@ -59,19 +60,35 @@ func newDefaultJobPerfManager() JobPerfManager {
 	// TODO: use higher performance cache
 	// use arc cache (default)
 	c := gcache.New(MaxNum).ARC().Build()
+	c2 := sync.Map{}
 	return &defaultJobPerfManager{
-		cache: c,
+		cache:       c,
+		statusCache: &c2,
 	}
 }
 
+// AddTimestamp TODO: value may not consist in concurrent env
 func (d *defaultJobPerfManager) AddTimestamp(jobID string, timePoint JobTimePoint, timestamp time.Time) {
+
 	val, err := d.cache.GetIFPresent(jobID)
 	if err != nil {
-		val = make(Timestamps, MaxTimePoint)
+		val = make(Timestamps, MaxTimePoint+1)
 	}
 	timePoints := val.(Timestamps)
+	// make sure the time only be set once
+	if timePoints[timePoint] != ZeroTime {
+		return
+	}
 	timePoints[timePoint] = timestamp
 	_ = d.cache.SetWithExpire(jobID, timePoints, Timeout)
+	d.increaseStatusCount(timePoint.ToStatus())
+
+	// TODO: support T5
+	if timePoint == T5 {
+		d.AddTimestamp(jobID, T6, timestamp)
+	} else if timePoint == T6 {
+		panic("T6 should not be set")
+	}
 }
 
 // GetTimestamp returns the time point of the job, if not finished, then return ZeroTime, false
@@ -103,6 +120,20 @@ func (d *defaultJobPerfManager) GetTimestampsCache() map[string]Timestamps {
 	return timePointsCache
 }
 
+func (d *defaultJobPerfManager) GetStatusCount(status JobStatus) int64 {
+	val, _ := d.statusCache.LoadOrStore(status, int64(0))
+	return val.(int64)
+}
+
+func (d *defaultJobPerfManager) increaseStatusCount(status JobStatus) {
+	if status == StatusUnknown {
+		return
+	}
+	val, _ := d.statusCache.LoadOrStore(status, 0)
+	count := val.(int64)
+	d.statusCache.Store(status, count+1)
+}
+
 func (i Timestamps) GetStatusTime(status JobStatus) (time.Duration, bool) {
 	timePoints := i
 
@@ -120,6 +151,9 @@ func (i Timestamps) GetStatusTime(status JobStatus) (time.Duration, bool) {
 }
 
 func getTimePointsByStatus(status JobStatus) (start, end JobTimePoint) {
-	start, end = JobTimePoint(status), JobTimePoint(status+1)
+	if status == StatusUnknown {
+		return MinTimePoint, MinTimePoint
+	}
+	start, end = JobTimePoint(status-1), JobTimePoint(status-1)
 	return
 }

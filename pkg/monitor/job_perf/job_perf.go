@@ -23,6 +23,7 @@ limitations under the License.
 package job_perf
 
 import (
+	"strconv"
 	"time"
 )
 
@@ -37,35 +38,42 @@ const (
 	T3
 	// T4 dequeue time
 	T4
-	// T5 creat time
+	// T5 create time
 	T5
-	// T6 run time
+	// T6 schedule time
+	// TODO: T6 is not supported yet
 	T6
-	// T7 finish time
+	// T7 run time
 	T7
+	// T8 finish time
+	T8
 )
 
 type JobStatus int
 
 const (
-	DBUpdating JobStatus = iota
-	Enqueue
-	Dequeue
-	Pending
-	Creating
-	Running
+	StatusUnknown JobStatus = iota
+	StatusDBInserting
+	StatusEnqueue
+	StatusDequeue
+	StatusPending
+	StatusSubmitting
+	StatusScheduling
+	StatusRunning
+)
+
+const (
+	MinTimePoint = T1
+	MinStatus    = StatusDBInserting
+	MaxTimePoint = T8
+	MaxStatus    = StatusRunning
 )
 
 // for job creating monitor
 
 const (
-	MetricJobDBUpdatingTime = "job_db_updating_time"
-	MetricJobEnqueueTime    = "job_enqueue_time"
-	MetricJobDequeueTime    = "job_dequeue_time"
-	MetricJobPendingTime    = "job_pending_time"
-	MetricJobCreatingTime   = "job_creating_time"
-	MetricJobRunningTime    = "job_running_time"
-	MetricJobTime           = "job_time"
+	MetricJobTime  = "pf_perf_job_time"
+	MetricJobCount = "pf_perf_job_count"
 )
 
 const (
@@ -81,40 +89,36 @@ func init() {
 	Manager = newDefaultJobPerfManager()
 }
 
-func (j JobStatus) toMetric() string {
-	switch j {
-	case DBUpdating:
-		return MetricJobDBUpdatingTime
-	case Enqueue:
-		return MetricJobEnqueueTime
-	case Dequeue:
-		return MetricJobDequeueTime
-	case Pending:
-		return MetricJobPendingTime
-	case Creating:
-		return MetricJobCreatingTime
-	case Running:
-		return MetricJobRunningTime
+func (t JobTimePoint) ToStatus() JobStatus {
+	if t == MaxTimePoint {
+		return StatusUnknown
 	}
-	return ""
+	return MinStatus + JobStatus(t)
 }
 
 func (j JobStatus) String() string {
+	var str string
 	switch j {
-	case DBUpdating:
-		return "DBUpdating"
-	case Enqueue:
-		return "Enqueue"
-	case Dequeue:
-		return "Dequeue"
-	case Pending:
-		return "Pending"
-	case Creating:
-		return "Creating"
-	case Running:
-		return "Running"
+	case StatusDBInserting:
+		str = "DBUpdating"
+	case StatusEnqueue:
+		str = "Enqueue"
+	case StatusDequeue:
+		str = "Dequeue"
+	case StatusPending:
+		str = "Pending"
+	case StatusSubmitting:
+		str = "Submitting"
+	case StatusRunning:
+		str = "Running"
+	case StatusScheduling:
+		str = "Scheduling"
+	default:
+		j = StatusUnknown
+		str = "Unknown"
 	}
-	return ""
+	str = strconv.Itoa(int(j)) + ". " + str
+	return str
 }
 
 func AddTimestamp(jobID string, timePoint JobTimePoint, timestamp time.Time) {

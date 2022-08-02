@@ -284,9 +284,9 @@ func UpdateJob(jobID string, status schema.JobStatus, runtimeInfo, runtimeStatus
 	// add job perf data
 	switch job.Status {
 	case schema.StatusJobRunning:
-		job_perf.AddTimestamp(jobID, job_perf.T6, time.Now())
-	case schema.StatusJobSucceeded, schema.StatusJobFailed:
 		job_perf.AddTimestamp(jobID, job_perf.T7, time.Now())
+	case schema.StatusJobSucceeded, schema.StatusJobFailed:
+		job_perf.AddTimestamp(jobID, job_perf.T8, time.Now())
 	}
 	return updatedJob.Status, nil
 }
