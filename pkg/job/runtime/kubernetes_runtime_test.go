@@ -141,7 +141,7 @@ func TestKubeRuntimeJob(t *testing.T) {
 	}
 	driver.InitMockDB()
 	config.GlobalServerConfig = &config.ServerConfig{}
-	err := models.CreateJob(&models.Job{
+	err := storage.Job.CreateJob(&model.Job{
 		ID: testJobID,
 		Config: &schema.Conf{
 			Env: map[string]string{

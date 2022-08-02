@@ -26,9 +26,9 @@ import (
 	"github.com/prometheus/common/model"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/consts"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 type KubernetesMetric struct {
@@ -42,7 +42,7 @@ func NewKubernetesMetric(clientAPI v1.API) MetricInterface {
 }
 
 func (km *KubernetesMetric) GetJobAvgMetrics(metricName, jobID string) (float64, error) {
-	job, err := models.GetJobByID(jobID)
+	job, err := storage.Job.GetJobByID(jobID)
 	if err != nil {
 		log.Errorf("job[%s] find error %s", jobID, err.Error())
 		return 0.0, err
@@ -82,7 +82,7 @@ func (km *KubernetesMetric) GetJobAvgMetrics(metricName, jobID string) (float64,
 }
 
 func (km *KubernetesMetric) GetJobSequenceMetrics(metricName, jobID string, start, end, step int64) (model.Value, error) {
-	tasks, err := models.ListByJobID(jobID)
+	tasks, err := storage.Job.ListByJobID(jobID)
 	if err != nil {
 		log.Errorf("job[%s] get task error %s", jobID, err.Error())
 		return nil, err
