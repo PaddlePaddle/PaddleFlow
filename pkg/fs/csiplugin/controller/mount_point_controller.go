@@ -329,7 +329,7 @@ func remount(volumeMount volumeMountInfo, mountInfo mount.Info) error {
 	for _, subPath := range volumeMount.SubPaths {
 		output, err := utils.ExecMountBind(subPath.SourcePath, subPath.TargetPath, subPath.ReadOnly)
 		if err != nil {
-			log.Error("exec mount cmd failed: %v, output[%s]", err, string(output))
+			log.Errorf("exec mount cmd failed: %v, output[%s]", err, string(output))
 			return err
 		}
 	}
