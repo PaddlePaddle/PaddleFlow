@@ -335,11 +335,11 @@ func (bwf *BaseWorkflow) checkFS() error {
 	}
 
 	if bwf.Source.FsOptions.MainFS.Name != "" {
-		bwf.Source.FsOptions.MainFS.ID = common.ID(bwf.Extra[WfExtraInfoKeyUserName], bwf.Source.FsOptions.MainFS.Name)
+		bwf.Source.FsOptions.MainFS.ID = common.ID(bwf.Extra[WfExtraInfoKeyFSUserName], bwf.Source.FsOptions.MainFS.Name)
 	}
 
 	// 2. 校验并处理ExtraFS
-	if err := bwf.processExtraFS(bwf.Extra[WfExtraInfoKeyUserName], bwf.Extra[WfExtraInfoKeyFsName]); err != nil {
+	if err := bwf.processExtraFS(bwf.Extra[WfExtraInfoKeyFSUserName], bwf.Extra[WfExtraInfoKeyFsName]); err != nil {
 		return err
 	}
 	return nil
@@ -1162,7 +1162,7 @@ func (wf *Workflow) NewWorkflowRuntime() error {
 	}
 
 	logger.LoggerForRun(wf.RunID).Debugf("initializing [%d] parallelism jobs", wf.Source.Parallelism)
-	runConf := NewRunConfig(&wf.Source, &wf.Source.FsOptions.MainFS, wf.Extra[WfExtraInfoKeyUserName], wf.RunID,
+	runConf := NewRunConfig(&wf.Source, &wf.Source.FsOptions.MainFS, wf.Extra[WfExtraInfoKeyFSUserName], wf.RunID,
 		logger.LoggerForRun(wf.RunID), wf.callbacks, wf.Extra[WfExtraInfoKeySource])
 	wf.runtime = NewWorkflowRuntime(runConf)
 

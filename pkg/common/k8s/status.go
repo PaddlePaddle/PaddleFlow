@@ -52,7 +52,7 @@ func ConvertToStatus(obj interface{}, gvk k8sschema.GroupVersionKind) (interface
 		return realStatus, nil
 	}
 	// Get status from unstructured object
-	jobObj := obj.(*unstructured.Unstructured)
+	jobObj := obj.(*unstructured.Unstructured).DeepCopy()
 	status, ok, unerr := unstructured.NestedFieldCopy(jobObj.Object, "status")
 	if !ok {
 		if unerr != nil {

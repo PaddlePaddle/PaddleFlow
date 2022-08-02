@@ -182,7 +182,7 @@ func (s *FileSystemService) DeleteFileSystem(ctx *logger.RequestContext, fsID st
 	}
 
 	// delete filesystem, links, cache config in DB
-	return models.WithTransaction(storage.DB, func(tx *gorm.DB) error {
+	return storage.WithTransaction(storage.DB, func(tx *gorm.DB) error {
 		// delete filesystem
 		if err := storage.Filesystem.DeleteFileSystem(tx, fsID); err != nil {
 			ctx.Logging().Errorf("delete fs[%s] err: %v", fsID, err)

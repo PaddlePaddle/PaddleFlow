@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,26 +14,23 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package models
+package model
 
 import (
+	"time"
+
 	"gorm.io/gorm"
 )
 
-type Transaction func(db *gorm.DB) error
+type JobLabel struct {
+	Pk        int64  `gorm:"primaryKey;autoIncrement"`
+	ID        string `gorm:"type:varchar(36);uniqueIndex"`
+	Label     string `gorm:"type:varchar(255);NOT NULL"`
+	JobID     string `gorm:"type:varchar(60);NOT NULL"`
+	CreatedAt time.Time
+	DeletedAt gorm.DeletedAt `gorm:"index"`
+}
 
-func WithTransaction(tdb *gorm.DB, fn Transaction) (err error) {
-	tx := tdb.Begin()
-	defer func() {
-		if p := recover(); p != nil {
-			tx.Rollback()
-			panic(p)
-		} else if err != nil {
-			tx.Rollback()
-		} else {
-			err = tx.Commit().Error // err is nil; if Commit returns error update err
-		}
-	}()
-	err = fn(tx)
-	return err
+func (JobLabel) TableName() string {
+	return "job_label"
 }

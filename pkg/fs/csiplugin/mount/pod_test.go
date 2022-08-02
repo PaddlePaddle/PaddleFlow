@@ -101,7 +101,6 @@ func TestPFSMountWithCache(t *testing.T) {
 			common.FileMode: "0644",
 		},
 	}
-
 	fsStr, err := json.Marshal(fs)
 	assert.Nil(t, err)
 	fsBase64 := base64.StdEncoding.EncodeToString(fsStr)
@@ -114,15 +113,12 @@ func TestPFSMountWithCache(t *testing.T) {
 		CreatedAt:  time.Now(),
 		UpdatedAt:  time.Now(),
 	}
-	info := Info{
-		CacheConfig: fsCache,
-		FS:          fs,
-		FSBase64Str: fsBase64,
-		TargetPath:  testTargetPath,
-		K8sClient:   fakeClientSet,
-	}
-	options := GetOptions(info, false)
-	info.Options = options
+	fsCacheStr, err := json.Marshal(fsCache)
+	assert.Nil(t, err)
+	fsCacheBase64 := base64.StdEncoding.EncodeToString(fsCacheStr)
+
+	info, err := ConstructMountInfo(fsBase64, fsCacheBase64, testTargetPath, fakeClientSet, false)
+	assert.Nil(t, err)
 
 	patch1 := ApplyFunc(isPodReady, func(pod *k8sCore.Pod) bool {
 		return true
@@ -158,10 +154,10 @@ func TestPFSMountWithCache(t *testing.T) {
 			assert.Equal(t, csiconfig.Namespace, newPod.Namespace)
 			assert.Equal(t, testTargetPath, newPod.Annotations[utils.GetPodUIDFromTargetPath(testTargetPath)])
 			assert.Equal(t, "mkdir -p /home/paddleflow/mnt/storage;"+
-				"/home/paddleflow/pfs-fuse mount --mount-point="+FusePodMountPoint+" --fs-info="+fsBase64+
-				" --fs-id=fs-root-testfs --block-size=4096 --data-cache-path="+FusePodCachePath+DataCacheDir+
-				" --meta-cache-driver=leveldb --meta-cache-path="+FusePodCachePath+MetaCacheDir+
-				" --file-mode=0644 --dir-mode=0755", newPod.Spec.Containers[0].Command[2])
+				"/home/paddleflow/pfs-fuse mount --mount-point="+FusePodMountPoint+" --fs-id=fs-root-testfs --fs-info="+fsBase64+
+				" --block-size=4096 --meta-cache-driver=leveldb --file-mode=0644 --dir-mode=0755"+
+				" --data-cache-path="+FusePodCachePath+DataCacheDir+
+				" --meta-cache-path="+FusePodCachePath+MetaCacheDir, newPod.Spec.Containers[0].Command[2])
 		})
 	}
 }
