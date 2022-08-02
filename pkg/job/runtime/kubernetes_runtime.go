@@ -51,6 +51,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime/kubernetes/controller"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime/kubernetes/executor"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/trace_logger"
 )
@@ -68,7 +69,7 @@ func NewKubeRuntime(cluster schema.Cluster) RuntimeService {
 	return kr
 }
 
-func getFileSystem(jobConf schema.Conf, tasks []models.Member) []schema.FileSystem {
+func getFileSystem(jobConf schema.Conf, tasks []model.Member) []schema.FileSystem {
 	fileSystems := jobConf.GetAllFileSystem()
 	for _, task := range tasks {
 		fileSystems = append(fileSystems, task.Conf.GetAllFileSystem()...)
@@ -705,7 +706,7 @@ func (kr *KubeRuntime) getPersistentVolume(name string, getOptions metav1.GetOpt
 }
 
 func (kr *KubeRuntime) createPersistentVolumeClaim(namespace string, pvc *apiv1.PersistentVolumeClaim) (*apiv1.
-	PersistentVolumeClaim, error) {
+PersistentVolumeClaim, error) {
 	return kr.clientset.CoreV1().PersistentVolumeClaims(namespace).Create(context.TODO(), pvc, metav1.CreateOptions{})
 }
 
@@ -715,7 +716,7 @@ func (kr *KubeRuntime) DeletePersistentVolumeClaim(namespace string, name string
 }
 
 func (kr *KubeRuntime) getPersistentVolumeClaim(namespace, name string, getOptions metav1.GetOptions) (*apiv1.
-	PersistentVolumeClaim, error) {
+PersistentVolumeClaim, error) {
 	return kr.clientset.CoreV1().PersistentVolumeClaims(namespace).Get(context.TODO(), name, getOptions)
 }
 

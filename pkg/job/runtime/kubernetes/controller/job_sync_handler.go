@@ -59,14 +59,15 @@ func (j *JobSync) add(obj interface{}) {
 	parentJobID := j.getParentJobID(jobObj)
 	// get runtime status and info
 	runtimeStatus := jobObj.Object[RuntimeStatusKey]
-	delete(jobObj.Object, RuntimeStatusKey)
+	runtimeInfo := jobObj.DeepCopy().Object
+	delete(runtimeInfo, RuntimeStatusKey)
 	jobInfo := &JobSyncInfo{
 		ID:            jobObj.GetName(),
 		Namespace:     jobObj.GetNamespace(),
 		ParentJobID:   parentJobID,
 		GVK:           jobObj.GroupVersionKind(),
 		Status:        jobStatus,
-		RuntimeInfo:   jobObj.Object,
+		RuntimeInfo:   runtimeInfo,
 		RuntimeStatus: runtimeStatus,
 		Message:       statusInfo.Message,
 		Action:        schema.Create,

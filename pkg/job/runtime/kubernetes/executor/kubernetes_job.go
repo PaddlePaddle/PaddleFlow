@@ -32,7 +32,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 	schedulingv1beta1 "volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
@@ -41,6 +40,8 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/utils"
 	locationAwareness "github.com/PaddlePaddle/PaddleFlow/pkg/fs/location-awareness"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 const (
@@ -92,7 +93,7 @@ type KubeJob struct {
 	// YamlTemplateContent indicate template content of job
 	YamlTemplateContent []byte
 	IsCustomYaml        bool
-	Tasks               []models.Member
+	Tasks               []model.Member
 	GroupVersionKind    kubeschema.GroupVersionKind
 	DynamicClientOption *k8s.DynamicClientOption
 }
@@ -131,7 +132,7 @@ func NewKubeJob(job *api.PFJob, dynamicClientOpt *k8s.DynamicClientOption) (api.
 		// todo(zhongzichao): to be removed
 		kubeJob.GroupVersionKind = k8s.VCJobGVK
 		if len(job.Tasks) == 0 {
-			kubeJob.Tasks = []models.Member{
+			kubeJob.Tasks = []model.Member{
 				{
 					Conf: schema.Conf{
 						Flavour: job.Conf.Flavour,
@@ -348,7 +349,7 @@ func (j *KubeJob) createJobFromYaml(jobEntity interface{}) error {
 }
 
 // fill PodSpec
-func (j *KubeJob) fillPodSpec(podSpec *corev1.PodSpec, task *models.Member) {
+func (j *KubeJob) fillPodSpec(podSpec *corev1.PodSpec, task *model.Member) {
 	if task != nil {
 		j.Priority = task.Priority
 	}
@@ -388,7 +389,7 @@ func (j *KubeJob) fillContainerInVcJob(container *corev1.Container, flavour sche
 }
 
 // fillContainerInTasks fill container in job task
-func (j *KubeJob) fillContainerInTasks(container *corev1.Container, task models.Member) error {
+func (j *KubeJob) fillContainerInTasks(container *corev1.Container, task model.Member) error {
 	if j.isNeedPatch(container.Image) {
 		container.Image = task.Image
 	}
@@ -503,7 +504,7 @@ func (j *KubeJob) generateContainerCommand(command string, workdir string) []str
 	return commands
 }
 
-func (j *KubeJob) getWorkDir(task *models.Member) string {
+func (j *KubeJob) getWorkDir(task *model.Member) string {
 	// prepare fs and envs
 	fileSystems := j.FileSystems
 	envs := j.Env
@@ -588,7 +589,7 @@ func (j *KubeJob) DeleteJob() error {
 }
 
 func GetPodGroupName(jobID string) string {
-	job, err := models.GetJobByID(jobID)
+	job, err := storage.Job.GetJobByID(jobID)
 	if err != nil {
 		log.Errorf("get job %s failed, err %v", jobID, err)
 		return ""

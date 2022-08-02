@@ -141,7 +141,7 @@ func TestKubeRuntimeJob(t *testing.T) {
 	}
 	driver.InitMockDB()
 	config.GlobalServerConfig = &config.ServerConfig{}
-	err := models.CreateJob(&models.Job{
+	err := storage.Job.CreateJob(&model.Job{
 		ID: testJobID,
 		Config: &schema.Conf{
 			Env: map[string]string{
@@ -269,9 +269,9 @@ func TestKubeRuntimePVAndPVC(t *testing.T) {
 		},
 	}
 	config.GlobalServerConfig = &config.ServerConfig{
-		Fs: config.FsServerConf{
-			K8sServiceName: "paddleflow",
-			K8sServicePort: 8083,
+		ApiServer: config.ApiServerConfig{
+			Host: "paddleflow-server",
+			Port: 8999,
 		},
 	}
 

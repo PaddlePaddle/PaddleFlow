@@ -25,11 +25,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	sparkapp "github.com/PaddlePaddle/PaddleFlow/pkg/apis/spark-operator/sparkoperator.k8s.io/v1beta2"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 )
 
@@ -80,7 +80,7 @@ spec:
 			Image: "mockImage",
 			Env:   map[string]string{},
 		},
-		Tasks: []models.Member{
+		Tasks: []model.Member{
 			{
 				ID:       "task-normal-0001",
 				Replicas: 3,
@@ -117,7 +117,7 @@ spec:
 		Framework: schema.FrameworkSpark,
 		UserName:  "root",
 		QueueID:   "mockQueueID",
-		Tasks: []models.Member{
+		Tasks: []model.Member{
 			{
 				ID:       "task-normal-0001",
 				Replicas: 3,

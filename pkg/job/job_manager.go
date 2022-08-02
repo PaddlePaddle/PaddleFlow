@@ -29,6 +29,8 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/trace_logger"
 )
 
@@ -40,7 +42,7 @@ const (
 
 type ActiveClustersFunc func() []models.ClusterInfo
 type ActiveQueuesFunc func() []models.Queue
-type QueueJobsFunc func(string, []schema.JobStatus) []models.Job
+type QueueJobsFunc func(string, []schema.JobStatus) []model.Job
 
 type JobManagerImpl struct {
 	// activeClusters is a method for listing active clusters from db
@@ -51,7 +53,7 @@ type JobManagerImpl struct {
 	queueExpireTime time.Duration
 	queueCache      gcache.Cache
 
-	listQueueInitJobs func(string) []models.Job
+	listQueueInitJobs func(string) []model.Job
 	jobLoopPeriod     time.Duration
 
 	// jobQueues contains JobQueue for jobs in queue
@@ -73,7 +75,7 @@ func (m *JobManagerImpl) Start(activeClusters ActiveClustersFunc, activeQueueJob
 	log.Infof("Start job manager!")
 	m.activeClusters = activeClusters
 	m.activeQueueJobs = activeQueueJobs
-	m.listQueueInitJobs = models.ListQueueInitJob
+	m.listQueueInitJobs = storage.Job.ListQueueInitJob
 	// init queue cache
 	cacheSize := config.GlobalServerConfig.Job.QueueCacheSize
 	if cacheSize < defaultCacheSize {
@@ -251,7 +253,7 @@ func (m *JobManagerImpl) submitQueueJob(jobSubmit func(*api.PFJob) error, queueI
 func (m *JobManagerImpl) submitJob(jobSubmit func(*api.PFJob) error, jobInfo *api.PFJob) {
 	log.Infof("begin to submit job %s to cluster", jobInfo.ID)
 	startTime := time.Now()
-	job, err := models.GetJobByID(jobInfo.ID)
+	job, err := storage.Job.GetJobByID(jobInfo.ID)
 	if err != nil {
 		log.Errorf("get job %s from database failed, err: %v", job.ID, err)
 		return
@@ -273,7 +275,7 @@ func (m *JobManagerImpl) submitJob(jobSubmit func(*api.PFJob) error, jobInfo *ap
 			jobStatus = schema.StatusJobPending
 		}
 		// new job failed, update db and skip this job
-		if dbErr := models.UpdateJobStatus(jobInfo.ID, msg, jobStatus); dbErr != nil {
+		if dbErr := storage.Job.UpdateJobStatus(jobInfo.ID, msg, jobStatus); dbErr != nil {
 			errMsg := fmt.Sprintf("update job[%s] status to [%s] failed, err: %v", jobInfo.ID, schema.StatusJobFailed, dbErr)
 			log.Errorf(errMsg)
 			trace_logger.KeyWithUpdate(jobInfo.ID).Errorf(errMsg)
@@ -331,7 +333,7 @@ func (m *JobManagerImpl) GetQueue(queueID api.QueueID) (*clusterQueue, bool) {
 func (m *JobManagerImpl) pJobProcessLoop() {
 	log.Infof("start job process loop ...")
 	for {
-		jobs := models.ListJobByStatus(schema.StatusJobInit)
+		jobs := storage.Job.ListJobByStatus(schema.StatusJobInit)
 		startTime := time.Now()
 		for idx, job := range jobs {
 			// TODO: batch insert group by queue
