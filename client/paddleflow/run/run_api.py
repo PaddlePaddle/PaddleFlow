@@ -105,8 +105,10 @@ class RunServiceApi(object):
         runList = []
         if len(data['runList']):
             for run in data['runList']:
-                runInfo = RunInfo(run['runID'], run['fsname'], run['username'], run['status'], run['name'],
-                                       None, None, None, None, None, None, None, None, None, None, None, None)
+                runInfo = RunInfo(run['runID'], run['fsName'], run['username'], run['status'], run['name'],
+                                  run['description'], None, None, None, None, None, None, run['updateTime'],
+                                  run['source'], run['runMsg'], run['scheduleID'], run['scheduledTime'],
+                                  run['createTime'], run['activateTime'])
                 runList.append(runInfo)
         return True, runList, data.get('nextMarker', None)
 

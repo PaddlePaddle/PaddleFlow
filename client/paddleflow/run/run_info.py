@@ -19,17 +19,16 @@ limitations under the License.
 class RunInfo(object):
     """the class of RunInfo info"""   
 
-    def __init__(self, runId, fsname, username, status, name, description, entry, parameters,
-                 runYaml, runtime, postProcess, dockerEnv, updateTime, source, runMsg, createTime,
-                 activateTime):
+    def __init__(self, runID, fsname, username, status, name, description, parameters,
+                 runYaml, runtime, postProcess, dockerEnv, updateTime, source, runMsg, scheduleID,
+                 scheduledTime, createTime, activateTime):
         """init """
-        self.runId = runId
+        self.runId = runID
         self.fsname = fsname
         self.username = username
         self.status = status
         self.name = name
         self.description = description
-        self.entry = entry
         self.parameters = parameters
         self.runYaml = runYaml
         self.runtime = runtime
@@ -38,6 +37,8 @@ class RunInfo(object):
         self.updateTime = updateTime
         self.source = source
         self.runMsg = runMsg
+        self.scheduleID = scheduleID
+        self.scheduledTime = scheduledTime
         self.createTime = createTime
         self.activateTime = activateTime
 
