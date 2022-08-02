@@ -19,14 +19,16 @@ package statistics
 import (
 	"fmt"
 
-	"github.com/prometheus/common/model"
+	prometheusModel "github.com/prometheus/common/model"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/consts"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/monitor"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 var metricNameList = [...]string{
@@ -143,8 +145,8 @@ func getMetricByType(metricType string) (monitor.MetricInterface, error) {
 	return metric, nil
 }
 
-func getClusterTypeByJob(ctx *logger.RequestContext, jobID string) (string, *models.Job, error) {
-	job, err := models.GetJobByID(jobID)
+func getClusterTypeByJob(ctx *logger.RequestContext, jobID string) (string, *model.Job, error) {
+	job, err := storage.Job.GetJobByID(jobID)
 	if err != nil {
 		ctx.ErrorCode = common.JobNotFound
 		ctx.Logging().Errorln(err.Error())
@@ -171,8 +173,8 @@ func getClusterTypeByJob(ctx *logger.RequestContext, jobID string) (string, *mod
 	return cluster.ClusterType, &job, nil
 }
 
-func convertResultToDetailResponse(ctx *logger.RequestContext, result model.Value, response *JobDetailStatisticsResponse, metricName string) error {
-	data, ok := result.(model.Matrix)
+func convertResultToDetailResponse(ctx *logger.RequestContext, result prometheusModel.Value, response *JobDetailStatisticsResponse, metricName string) error {
+	data, ok := result.(prometheusModel.Matrix)
 	if !ok {
 		ctx.Logging().Errorf("convert result to matrix failed")
 		return fmt.Errorf("convert result to matrix failed")
@@ -217,6 +219,6 @@ func convertResultToResponse(response *JobStatisticsResponse, result float64, me
 	}
 }
 
-func checkJobPermission(ctx *logger.RequestContext, job *models.Job) bool {
+func checkJobPermission(ctx *logger.RequestContext, job *model.Job) bool {
 	return common.IsRootUser(ctx.UserName) || ctx.UserName == job.UserName
 }

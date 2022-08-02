@@ -46,7 +46,7 @@ func (Pipeline) TableName() string {
 
 func CreatePipeline(logEntry *log.Entry, ppl *Pipeline, pplVersion *PipelineVersion) (pplID string, pplVersionID string, err error) {
 	logEntry.Debugf("begin create pipeline: %+v & pipeline version: %+v", ppl, pplVersion)
-	err = WithTransaction(storage.DB, func(tx *gorm.DB) error {
+	err = storage.DB.Transaction(func(tx *gorm.DB) error {
 		result := tx.Model(&Pipeline{}).Create(ppl)
 		if result.Error != nil {
 			logEntry.Errorf("create pipeline failed. pipeline:%+v, error:%v", ppl, result.Error)
@@ -83,7 +83,7 @@ func CreatePipeline(logEntry *log.Entry, ppl *Pipeline, pplVersion *PipelineVers
 
 func UpdatePipeline(logEntry *log.Entry, ppl *Pipeline, pplVersion *PipelineVersion) (pplID string, pplVersionID string, err error) {
 	logEntry.Debugf("begin update pipeline: %+v and pipeline version: %+v", ppl, pplVersion)
-	err = WithTransaction(storage.DB, func(tx *gorm.DB) error {
+	err = storage.DB.Transaction(func(tx *gorm.DB) error {
 		// update desc by pk
 		result := tx.Model(&Pipeline{}).Where("pk = ?", ppl.Pk).Update("desc", ppl.Desc)
 		if result.Error != nil {

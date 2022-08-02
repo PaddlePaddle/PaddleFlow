@@ -62,7 +62,7 @@ func CreateRunCache(logEntry *log.Entry, cache *RunCache) (string, error) {
 	logEntry.Debugf("begin create cache:%+v", cache)
 	var err error
 	for i := 0; i < 5; i++ {
-		err = WithTransaction(storage.DB, func(tx *gorm.DB) error {
+		err = storage.DB.Transaction(func(tx *gorm.DB) error {
 			result := tx.Model(&RunCache{}).Create(cache)
 			if result.Error != nil {
 				logEntry.Errorf("create cache failed. cache:%v, error:%v", cache, result.Error)

@@ -35,6 +35,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/utils"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
@@ -71,7 +72,7 @@ func CreatePFJob(ctx *logger.RequestContext, request *CreateJobInfo) (*CreateJob
 	}
 
 	ctx.Logging().Debugf("create distributed job %#v", jobInfo)
-	if err = models.CreateJob(jobInfo); err != nil {
+	if err = storage.Job.CreateJob(jobInfo); err != nil {
 		ctx.Logging().Errorf("create job[%s] in database faield, err: %v", jobInfo.Config.GetName(), err)
 		return nil, fmt.Errorf("create job[%s] in database faield, err: %v", jobInfo.Config.GetName(), err)
 	}
@@ -467,12 +468,12 @@ func getFrameworkRoles(framework schema.Framework) map[schema.MemberRole]int {
 }
 
 // buildJob build a models job
-func buildJob(request *CreateJobInfo) (*models.Job, error) {
+func buildJob(request *CreateJobInfo) (*model.Job, error) {
 	log.Debugf("begin build job with info: %#v", request)
 	// build main job config
 	conf := buildMainConf(request)
 	// convert job members if necessary
-	var members []models.Member
+	var members []model.Member
 	var templateJson string
 	var err error
 	if len(request.ExtensionTemplate) == 0 {
@@ -485,7 +486,7 @@ func buildJob(request *CreateJobInfo) (*models.Job, error) {
 		}
 	}
 
-	jobInfo := &models.Job{
+	jobInfo := &model.Job{
 		ID:                request.ID,
 		Name:              request.Name,
 		UserName:          request.UserName,
@@ -529,8 +530,8 @@ func buildMainConf(request *CreateJobInfo) *schema.Conf {
 	return conf
 }
 
-func buildMembers(request *CreateJobInfo) []models.Member {
-	members := make([]models.Member, 0)
+func buildMembers(request *CreateJobInfo) []model.Member {
+	members := make([]model.Member, 0)
 	log.Infof("build merbers for framework %s with mode %s", request.Framework, request.Mode)
 	for _, reqMember := range request.Members {
 		member := newMember(reqMember, schema.MemberRole(reqMember.Role))
@@ -555,7 +556,7 @@ func buildCommonInfo(conf *schema.Conf, commonJobInfo *CommonJobInfo) {
 }
 
 // newMember convert request.Member to models.member
-func newMember(member MemberSpec, role schema.MemberRole) models.Member {
+func newMember(member MemberSpec, role schema.MemberRole) model.Member {
 	conf := schema.Conf{
 		Name: member.Name,
 		// 存储资源
@@ -575,7 +576,7 @@ func newMember(member MemberSpec, role schema.MemberRole) models.Member {
 		Args:        member.Args,
 	}
 
-	return models.Member{
+	return model.Member{
 		ID:       member.ID,
 		Role:     role,
 		Replicas: member.Replicas,
@@ -640,7 +641,7 @@ func CreateWorkflowJob(ctx *logger.RequestContext, request *CreateWfJobRequest) 
 	conf.SetQueueName(request.SchedulingPolicy.Queue)
 
 	// create workflow job
-	jobInfo := &models.Job{
+	jobInfo := &model.Job{
 		ID:                request.ID,
 		Name:              request.Name,
 		Type:              string(schema.TypeWorkflow),
@@ -651,7 +652,7 @@ func CreateWorkflowJob(ctx *logger.RequestContext, request *CreateWfJobRequest) 
 		ExtensionTemplate: templateJson,
 	}
 
-	if err := models.CreateJob(jobInfo); err != nil {
+	if err := storage.Job.CreateJob(jobInfo); err != nil {
 		log.Errorf("create job[%s] in database faield, err: %v", conf.GetName(), err)
 		return nil, fmt.Errorf("create job[%s] in database faield, err: %v", conf.GetName(), err)
 	}

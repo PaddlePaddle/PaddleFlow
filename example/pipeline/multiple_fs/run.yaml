@@ -1,0 +1,34 @@
+name: multiple_fs 
+
+entry_points:
+  main-fs:
+    artifacts:
+      output:
+      - main
+    command: "cd shells/main_fs && bash run.sh"
+    docker_env: centos:centos7
+
+  global-extra-fs:
+    artifacts:
+      output:
+      - global_extra
+    command: "cd /home/global && bash run.sh"
+    docker_env: centos:centos7
+
+  extra-fs:
+    artifacts:
+      output:
+      - extra
+    command: "cd /home/extra && bash run.sh"
+    docker_env: centos:centos7
+    extra_fs:
+    - {name: "ppl", sub_path: "multiple_fs/shells/extra_fs", mount_path: "/home/extra"}
+
+docker_env: nginx:1.7.9
+
+parallelism: 2
+
+fs_options:
+  main_fs: {name: "ppl", sub_path: "multiple_fs", mount_path: "/home/main"}
+  extra_fs:
+  - {name: "ppl", sub_path: "multiple_fs/shells/global_extra_fs", mount_path: "/home/global"}

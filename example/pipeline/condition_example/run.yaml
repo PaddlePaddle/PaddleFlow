@@ -1,0 +1,18 @@
+name: condition_example
+
+entry_points:
+  step1:
+    command: "echo {{num}}"
+    condition: "{{num}} > 0"
+    parameters:
+      num: 10
+
+  step2:
+    command: "echo {{num}}"
+    condition: "{{num}} < 0"
+    parameters:
+      num: 10
+
+parallelism: 2
+
+docker_env: nginx:1.7.9

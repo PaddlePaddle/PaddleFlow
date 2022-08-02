@@ -1,0 +1,45 @@
+name: loop_example
+
+docker_env: python:3.7
+
+entry_points:
+  randint:
+    command: "cd /randint && python3 randint.py {{num}} {{lower}} {{upper}}"
+    parameters:
+      lower: -10
+      upper: 10
+      num: 5
+    artifacts:
+      output:
+      - random_num
+    extra_fs:
+    - {name: ppl, mount_path: /randint, sub_path: loop_example/randint, read_only: true}
+
+  process:
+    deps: randint
+    command: "cd /process && python3 process.py {{PF_LOOP_ARGUMENT}}"
+    loop_argument: "{{nums}}"
+    artifacts:
+      input:
+        nums: "{{randint.random_num}}" 
+      output:
+      - result
+    extra_fs:
+    - {name: ppl, mount_path: /process, sub_path: loop_example/process, read_only: true}
+  
+  sum:
+    deps: process
+    command: "cd /sum && python3 sum.py"
+    artifacts:
+      input:
+        nums: "{{process.result}}"
+      output:
+        - result
+    extra_fs:
+    - {name: ppl, mount_path: /sum, sub_path: loop_example/sum, read_only: true}
+
+
+parallelism: 5
+
+fs_options:
+  main_fs: {name: ppl}
