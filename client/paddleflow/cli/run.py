@@ -94,14 +94,13 @@ def list(ctx, fsname=None, username=None, runid=None, name=None, status=None, ma
         status_filters = status.split(sep=',')
         status_list = []
         for status_filter in status_filters:
-            status_filter = status_filter.strip()
             if status_filter == 'active':
                 status_list.extend(RUN_ACTIVE_STATUS)
             elif status_filter == 'final':
                 status_list.extend(RUN_FINAL_STATUS)
             else:
                 status_list.append(status_filter)
-        status_processed = ','.join(status_filter)
+        status_processed = ','.join(status_list)
 
     valid, response, nextmarker = client.list_run(fsname, username, runid, name, status_processed, maxsize, marker)
     if valid:
