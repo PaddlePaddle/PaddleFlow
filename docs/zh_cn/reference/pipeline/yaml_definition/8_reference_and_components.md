@@ -118,7 +118,7 @@ components:
       - {name: ppl, mount_path: /split, sub_path: ref_components/split, read_only: true}
 ```
 
-# 3 DAG详解
+# 3 详解
 ### 3.1 components
 Paddleflow pipeline在全局级别新增了components字段，用于定义可以被[reference]的节点。
 
