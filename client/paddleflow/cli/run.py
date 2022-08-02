@@ -26,6 +26,9 @@ import base64
 
 from paddleflow.cli.output import print_output, OutputFormat
 
+RUN_ACTIVE_STATUS = ['running', 'pending', 'terminating', 'initiating']
+RUN_FINAL_STATUS = ['failed', 'succeeded', 'terminated', 'skipped']
+
 @click.group()
 def run():
     """manage run resources"""
@@ -84,7 +87,23 @@ def list(ctx, fsname=None, username=None, runid=None, name=None, status=None, ma
     """list run.\n """
     client = ctx.obj['client']
     output_format = ctx.obj['output']
-    valid, response, nextmarker = client.list_run(fsname, username, runid, name, status, maxsize, marker)
+
+    # 处理statusFilters
+    status_processed = ''
+    if status:
+        status_filters = status.split(sep=',')
+        status_list = []
+        for status_filter in status_filters:
+            status_filter = status_filter.strip()
+            if status_filter == 'active':
+                status_list.extend(RUN_ACTIVE_STATUS)
+            elif status_filter == 'final':
+                status_list.extend(RUN_FINAL_STATUS)
+            else:
+                status_list.append(status_filter)
+        status_processed = ','.join(status_filter)
+
+    valid, response, nextmarker = client.list_run(fsname, username, runid, name, status_processed, maxsize, marker)
     if valid:
         if len(response):
             click.echo("{} runs shown under:".format(len(response)))

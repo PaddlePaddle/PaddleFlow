@@ -198,17 +198,7 @@ func (rr *RunRouter) listRun(w http.ResponseWriter, r *http.Request) {
 		nameFilter = strings.Split(names, common.SeparatorComma)
 	}
 	if status != "" {
-		filterTemp := strings.Split(status, common.SeparatorComma)
-		for _, filter := range filterTemp {
-			switch filter {
-			case common.StatusFinal:
-				statusFilter = append(statusFilter, common.RunFinalStatus...)
-			case common.StatusActive:
-				statusFilter = append(statusFilter, common.RunActiveStatus...)
-			default:
-				statusFilter = append(statusFilter, filter)
-			}
-		}
+		statusFilter = strings.Split(status, common.SeparatorComma)
 	}
 	logger.LoggerForRequest(&ctx).Debugf(
 		"user[%s] ListRun marker:[%s] maxKeys:[%d] userFilter:%v fsFilter:%v runFilter:%v nameFilter:%v",
