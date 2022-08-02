@@ -42,10 +42,10 @@ const (
 // 为了避免上面的问题，封装成函数，不同case分别调用函数，获取全新的extra map
 func GetExtra() map[string]string {
 	var extra = map[string]string{
-		pplcommon.WfExtraInfoKeySource:   "./testcase/run.yaml",
-		pplcommon.WfExtraInfoKeyFsID:     "fs-mockUser-mockFs",
-		pplcommon.WfExtraInfoKeyFsName:   "mockFs",
-		pplcommon.WfExtraInfoKeyUserName: "mockUser",
+		pplcommon.WfExtraInfoKeySource:     "./testcase/run.yaml",
+		pplcommon.WfExtraInfoKeyFsID:       "fs-mockUser-mockFs",
+		pplcommon.WfExtraInfoKeyFsName:     "mockFs",
+		pplcommon.WfExtraInfoKeyFSUserName: "mockUser",
 	}
 
 	return extra

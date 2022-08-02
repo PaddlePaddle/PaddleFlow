@@ -1,0 +1,39 @@
+name: queue_example
+
+entry_points:
+  preprocess:
+    command: bash queue_example/shells/data.sh {{data_path}}
+    docker_env: centos:centos7 
+    env:
+      PF_JOB_FLAVOUR: flavour1
+      PF_JOB_QUEUE_NAME: ppl-queue
+      PF_JOB_TYPE: single
+      USER_ABC: 123_{{PF_USER_NAME}}
+    parameters:
+      data_path: ./queue_example/data/{{PF_RUN_ID}}
+
+  train:
+    command: bash queue_example/shells/train.sh {{epoch}} {{train_data}} {{model_path}}
+    deps: preprocess
+    env:
+      PF_JOB_FLAVOUR: flavour1
+      PF_JOB_QUEUE_NAME: ppl-queue
+      PF_JOB_TYPE: single
+    parameters:
+      epoch: 5
+      model_path: ./output/{{PF_RUN_ID}}
+      train_data: '{{preprocess.data_path}}'
+
+  validate:
+    command: bash queue_example/shells/validate.sh {{model_path}}
+    deps: train
+    env:
+      PF_JOB_FLAVOUR: flavour1
+      PF_JOB_QUEUE_NAME: ppl-queue
+      PF_JOB_TYPE: single
+    parameters:
+      model_path: '{{train.model_path}}'
+
+docker_env: nginx:1.7.9
+
+parallelism: 1
