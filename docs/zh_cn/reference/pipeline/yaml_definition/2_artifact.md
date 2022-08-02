@@ -53,11 +53,7 @@ fs_options:
   main_fs: {name: "ppl"}
 ```
 
-<<<<<<< HEAD
 > 关于fs_options的详细介绍，请点击[3_multiple_fs.md]
-=======
-> 关于fs_options的详细介绍，请点击[3_multip_fs.md]
->>>>>>> 964a53511e48600df4f6e5b6a828643ee0adafed
 
 # 2 artifact详解
 
@@ -87,11 +83,7 @@ Paddleflow Pipeline定义中，存在parameter，artifact两种参数，其差�
 
 1. 需要定义输入输出资源，并且希望资源路径由平台进行生成和管理。
 
-<<<<<<< HEAD
 2. 如果使用cache机制，并且希望节点的输出路径，不影响cache命中。
-=======
-2. 如果使用cache机制，并且希望节点运行时生成的输出资源，不影响cache命中。
->>>>>>> 964a53511e48600df4f6e5b6a828643ee0adafed
 
 > cache机制详解，以及artifact路径对cache命中机制的影响，可以参考[5_cache.md]
 
@@ -245,12 +237,8 @@ artifact包括input artifact，output artifact两种类型：
 [2.1.1 artifact vs parameter]: /docs/zh_cn/reference/pipeline/yaml_definition/2_artifact.md#211-artifact-vs-parameter
 [2.4 artifact 使用方式]: /docs/zh_cn/reference/pipeline/yaml_definition/2_artifact.md#24-artifact-%E4%BD%BF%E7%94%A8%E6%96%B9%E5%BC%8F
 [3.1 artifact存储机制]: /docs/zh_cn/reference/pipeline/yaml_definition/2_artifact.md#31-artifact%E5%AD%98%E5%82%A8%E6%9C%BA%E5%88%B6
-<<<<<<< HEAD
 [3_multiple_fs.md]: TODO
 [main_fs]: TODO
 [artifact_path]: TODO
 [loop]:TODO
 [祖先节点]:TODO
-=======
-[3_multip_fs.md]: TODO
->>>>>>> 964a53511e48600df4f6e5b6a828643ee0adafed
