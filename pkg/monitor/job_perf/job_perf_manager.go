@@ -129,7 +129,7 @@ func (d *defaultJobPerfManager) increaseStatusCount(status JobStatus) {
 	if status == StatusUnknown {
 		return
 	}
-	val, _ := d.statusCache.LoadOrStore(status, 0)
+	val, _ := d.statusCache.LoadOrStore(status, int64(0))
 	count := val.(int64)
 	d.statusCache.Store(status, count+1)
 }
