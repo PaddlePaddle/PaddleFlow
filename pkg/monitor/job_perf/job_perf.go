@@ -100,7 +100,7 @@ func (j JobStatus) String() string {
 	var str string
 	switch j {
 	case StatusDBInserting:
-		str = "DBUpdating"
+		str = "DBInserting"
 	case StatusEnqueue:
 		str = "Enqueue"
 	case StatusDequeue:

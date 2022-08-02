@@ -84,7 +84,7 @@ func (j *JobPerfCollector) updateJobPerf() {
 			j.JobTime.With(prometheus.Labels{
 				JobIDLabel:     jobID,
 				JobStatusLabel: status.String(),
-			}).Set(float64(statusTime.Microseconds()))
+			}).Set(float64(statusTime.Milliseconds()))
 		}
 	}
 }
