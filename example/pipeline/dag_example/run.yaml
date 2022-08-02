@@ -1,0 +1,88 @@
+name: dag_example
+
+docker_env: python:3.7
+
+entry_points:
+  randint:
+    command: "cd /randint && python3 randint.py {{num}} {{lower}} {{upper}}"
+    parameters:
+      lower: -10
+      upper: 10
+      num: 10
+    artifacts:
+      output:
+      - random_num
+    extra_fs:
+    - {name: ppl, mount_path: /randint, sub_path: dag_example/randint, read_only: true}
+
+  process:
+    deps: randint
+    artifacts:
+      input: 
+        data: "{{randint.random_num}}"
+      output:
+        result: "{{collector.collection}}"
+    entry_points:
+
+      split:
+        command: "cd /split && python3 split.py {{threshold}}"
+        artifacts:
+          output:
+          - negetive
+          - positive
+          input:
+            nums: "{{PF_PARENT.data}}"
+        parameters:
+          threshold: 0
+        extra_fs:
+        - {name: ppl, mount_path: /split, sub_path: dag_example/split, read_only: true}
+
+      process-negetive:
+        command: "cd /process_negetive && python3 process_negetive.py"
+        deps: split
+        artifacts:
+          input:
+            negetive: "{{split.negetive}}"
+          output:
+          - result
+        extra_fs:
+        - {name: ppl, mount_path: /process_negetive, sub_path: dag_example/process_negetive, read_only: true}
+
+      process-positive:
+        command: "cd /process_positive && python3 process_positive.py"
+        deps: split
+        artifacts:
+          input:
+            positive: "{{split.positive}}"
+          output:
+          - result
+        extra_fs:
+        - {name: ppl, mount_path: /process_positive, sub_path: dag_example/process_positive, read_only: true}
+
+      collector:
+        deps: process-negetive,process-positive
+        command: cd /collector && python3 collect.py
+        artifacts:
+          input:
+            negetive: "{{process-negetive.result}}"
+            positive: "{{process-positive.result}}"
+          output:
+          - collection
+        extra_fs:
+        - {name: ppl, mount_path: /collector, sub_path: dag_example/collector, read_only: true}
+
+  sum:
+    deps: process
+    command: "cd /sum && python3 sum.py"
+    artifacts:
+      input:
+        nums: "{{process.result}}"
+      output:
+        - result
+    extra_fs:
+    - {name: ppl, mount_path: /sum, sub_path: dag_example/sum, read_only: true}
+
+parallelism: 2
+
+fs_options:
+  main_fs: {name: ppl}
