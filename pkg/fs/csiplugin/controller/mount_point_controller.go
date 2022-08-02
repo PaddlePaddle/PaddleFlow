@@ -325,14 +325,14 @@ func remount(volumeMount volumeMountInfo, mountInfo mount.Info) error {
 		}
 	}
 	// todo subpath need recovery
-	//log.Infof("volumeMoun info %+v", volumeMount)
-	//for _, subPath := range volumeMount.SubPaths {
-	//	output, err := utils.ExecMountBind(mountInfo.TargetPath, subPath.TargetPath, subPath.ReadOnly)
-	//	if err != nil {
-	//		log.Error("exec mount cmd failed: %v, output[%s]", err, string(output))
-	//		return err
-	//	}
-	//}
+	log.Debugf("volumeMoun info %+v", volumeMount)
+	for _, subPath := range volumeMount.SubPaths {
+		output, err := utils.ExecMountBind(subPath.SourcePath, subPath.TargetPath, subPath.ReadOnly)
+		if err != nil {
+			log.Error("exec mount cmd failed: %v, output[%s]", err, string(output))
+			return err
+		}
+	}
 	return nil
 }
 

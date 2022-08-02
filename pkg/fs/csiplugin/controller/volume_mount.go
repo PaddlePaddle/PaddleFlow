@@ -89,7 +89,7 @@ func getPodVolumeMounts(pod *v1.Pod) []volumeMountInfo {
 		for i, mount := range container.VolumeMounts {
 			volumeMount, ok := volumeMountMaps[mount.Name]
 			if !ok {
-				log.Debug("Volume is missing for volumeMount[%v]", mount.Name)
+				log.Debugf("Volume is missing for volumeMount[%v]", mount.Name)
 				continue
 			}
 
