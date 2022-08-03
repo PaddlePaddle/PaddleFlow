@@ -59,11 +59,11 @@ fs_options:
 
 上述pipeline定义中，基于基础字段上，新增加了artifact字段，下面进行详细介绍
 
-### 2.1 什么是artifact
+## 2.1 什么是artifact
 
 artifact主要用于定义节点运行的输入输出资源（文件/目录）。
 
-##### 2.1.1 artifact vs parameter
+### 2.1.1 artifact vs parameter
 Paddleflow Pipeline定义中，存在parameter，artifact两种参数，其差异如下：
 
 - parameter是节点运行的参数变量。它的取值，在pipeline run运行前，是可以确定的。
@@ -75,7 +75,7 @@ Paddleflow Pipeline定义中，存在parameter，artifact两种参数，其差�
 
 > 如 [2.4 artifact 使用方式] 所示，用户可以通过变量模板，或者在运行时通过环境变量获取artifact的路径。
 
-##### 2.1.2 artifact的使用场景
+### 2.1.2 artifact的使用场景
 
 正如 [2.1.1 artifact vs parameter] 介绍，artifact主要用于定义输入输出资源。
 
@@ -87,13 +87,13 @@ Paddleflow Pipeline定义中，存在parameter，artifact两种参数，其差�
 
 > cache机制详解，以及artifact路径对cache命中机制的影响，可以参考[5_cache.md]
 
-### 2.2 artifact 定义方式
+## 2.2 artifact 定义方式
 
 artifact可用于定义节点运行的输入输出路径（可以是文件&目录）。
 
 artifact包括input artifact，output artifact两种类型：
 
-##### 2.2.1 output artifact
+### 2.2.1 output artifact
 
 定义节点的输出路径。与input artifact不同，output artifact只能定义为数组形式。
 
@@ -102,7 +102,7 @@ artifact包括input artifact，output artifact两种类型：
 
 > 如 [1 pipeline定义] 所示，preprocess节点以数组形式，定义了train_data，和validate_data两个output artifact。
 
-##### 2.2.2 input artifact
+### 2.2.2 input artifact
 
 定义节点的输入路径，只能引用上游节点的output artifact
 
@@ -110,7 +110,7 @@ artifact包括input artifact，output artifact两种类型：
 
 > 如 [1 pipeline定义] 所示，train节点定义了input artifact[train_data]，并且通过{{ preprocess.train_data }}形式引用 preprocess节点的output artifact[train_data]
 
-### 2.3 artifact 定义约束
+## 2.3 artifact 定义约束
 
 1. 引入artifact变量后，同一个节点内，parameter，input artifact，output artfiact变量名字不能相同。
    
@@ -141,7 +141,7 @@ artifact包括input artifact，output artifact两种类型：
 
 # 3 pipeline运行流程
 
-### 3.1 artifact存储机制
+## 3.1 artifact存储机制
 
 如上文所示，input artifact直接引用上游节点的输出artifact路径，所以我们只需要关注每个节点的输出artifact存储机制即可。
 
@@ -167,7 +167,7 @@ artifact包括input artifact，output artifact两种类型：
 > - 因为不清楚artifact是一个文件，还是目录，所以留给用户自己决定。
 
 
-##### 3.1.1 示例
+### 3.1.1 示例
 
 举个例子，使用[1 pipeline定义]，发起一个Pipeline任务。则Paddleflow为output artifact生成的路径可能({{PF_RUN_ID}}的值会有出入)如下：
 
@@ -200,15 +200,15 @@ artifact包括input artifact，output artifact两种类型：
 > 每个output artifact的具体路径，需要用户在代码中自己创建
 
 
-### 3.2 变量模板与替换
+## 3.2 变量模板与替换
 
-##### 3.2.1 变量模板
+### 3.2.1 变量模板
 
 引入artifact变量后，在节点定义中，parameters，command，env，artifact变量都可以使用变量模板。
 
 下面介绍详细的定义规范和替换流程
 
-##### 3.2.2 定义规范和替换流程
+### 3.2.2 定义规范和替换流程
 
 下面按照每个节点运行前的变量模板替换顺序，来介绍每个变量支持的模板：
 
