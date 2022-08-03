@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	wfv1 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
+	kubeflowv1 "github.com/kubeflow/common/pkg/apis/common/v1"
 	paddlejobv1 "github.com/paddleflow/paddle-operator/api/v1"
 	log "github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
@@ -41,6 +42,8 @@ func ConvertToStatus(obj interface{}, gvk k8sschema.GroupVersionKind) (interface
 		realStatus = &batchv1alpha1.JobStatus{}
 	case PaddleJobGVK:
 		realStatus = &paddlejobv1.PaddleJobStatus{}
+	case PyTorchJobGVK, TFJobGVK, MPIJobGVK, MXNetJobGVK, XGBoostJobGVK:
+		realStatus = &kubeflowv1.JobStatus{}
 	case ArgoWorkflowGVK:
 		realStatus = &wfv1.WorkflowStatus{}
 	case PodGVK:
@@ -227,6 +230,66 @@ func getPaddleJobStatus(phase paddlejobv1.PaddleJobPhase) (schema.JobStatus, str
 		msg = "paddle job is failed"
 	default:
 		return status, msg, fmt.Errorf("unexpected paddlejob status: %s", phase)
+	}
+	return status, msg, nil
+}
+
+// PytorchJobStatus get job status, message for PyTorchJob
+func PytorchJobStatus(obj interface{}) (StatusInfo, error) {
+	return kubeflowJobStatus(obj, PyTorchJobGVK)
+}
+
+// TFJobStatus get job status, message for TFJob
+func TFJobStatus(obj interface{}) (StatusInfo, error) {
+	return kubeflowJobStatus(obj, TFJobGVK)
+}
+
+// MPIJobStatus get job status, message for MPIJob
+func MPIJobStatus(obj interface{}) (StatusInfo, error) {
+	return kubeflowJobStatus(obj, MPIJobGVK)
+}
+
+// kubeflowJobStatus get job status and message for PyTorch, TFJob, MXJob, MPIJob, and covert origin status to PF JobStatus
+func kubeflowJobStatus(obj interface{}, gvk k8sschema.GroupVersionKind) (StatusInfo, error) {
+	status, err := ConvertToStatus(obj, gvk)
+	if err != nil {
+		log.Errorf("convert kubeflow %s job status failed, err: %v", gvk.String(), err)
+		return StatusInfo{}, err
+	}
+	jobStatus := status.(*kubeflowv1.JobStatus)
+	condLen := len(jobStatus.Conditions)
+	var jobCond kubeflowv1.JobCondition
+	if condLen >= 1 {
+		jobCond = jobStatus.Conditions[condLen-1]
+	}
+
+	state, msg, err := getKubeflowJobStatus(jobCond)
+	if err != nil {
+		log.Errorf("get kubeflow %s job status failed, err: %v", gvk.String(), err)
+		return StatusInfo{}, err
+	}
+	log.Infof("kubeflow %s job status: %s", gvk.String(), state)
+	return StatusInfo{
+		OriginStatus: string(jobCond.Type),
+		Status:       state,
+		Message:      msg,
+	}, nil
+}
+
+func getKubeflowJobStatus(jobStatus kubeflowv1.JobCondition) (schema.JobStatus, string, error) {
+	status := schema.JobStatus("")
+	msg := jobStatus.Message
+	switch jobStatus.Type {
+	case kubeflowv1.JobCreated:
+		status = schema.StatusJobPending
+	case kubeflowv1.JobRunning, kubeflowv1.JobRestarting:
+		status = schema.StatusJobRunning
+	case kubeflowv1.JobSucceeded:
+		status = schema.StatusJobSucceeded
+	case kubeflowv1.JobFailed:
+		status = schema.StatusJobFailed
+	default:
+		return status, msg, fmt.Errorf("unexpected job status: %s", jobStatus.Type)
 	}
 	return status, msg, nil
 }
