@@ -179,13 +179,6 @@ DAG的子节点的定义方式与在pipeline的entry_points中定义节点的方
 ### 3.4.1. 节点名约束
 - 同一个DAG的子节点的不能同名
 
-- 不同层级的节点可以同名
-   > pipeline有一个DAG节点B，则B也可以有一个子节点的名字为B
- 
-- 不同的DAG的子节点可以具有相同的名字
-   > pipeline有两个DAG节点A和B，则A和B均可以有一个子节点命名为C
-
-
 ### 3.4.2 deps约束
 - DAG的子节点只能依赖**同一个DAG**的子节点，也**只能被同一个DAG**的子节点所依赖。
 
@@ -195,7 +188,7 @@ DAG的子节点的定义方式与在pipeline的entry_points中定义节点的方
 > - 因为节点`randint`与`sum`均不是`process`的子节点，而节点`split`，`collector`与`process-negetive`一样，都是`process`的子节点
 
 
-### 3.4.3 输入artifact约束
+### 3.4.3 artifact约束
 如果节点A的引用了节点B的artifact，则需要满足如下约束(满足一条即可)：
 - A和B是**同一DAG的子节点**，且引用的是B的**输出artifact**
 - A为B的子节点，且引用的为B的**输入artifact**
@@ -204,7 +197,7 @@ DAG的子节点的定义方式与在pipeline的entry_points中定义节点的方
   - 如[2 pipeline定义]中的节点split的输入artifact[nums]所示, 其value为"{{PF_PARENT.data}}"，表明该输入artifact来自于其父节点的输入artifact[data]
 
 
-##### 3.4.4 parameters约束
+### 3.4.4 parameters约束
 如果节点A的parameters通过模板引用了节点B的paramter，则需要满足如下约束(满足一条即可)：
 - A和B是同一DAG的子节点
 - A为B的子节点
