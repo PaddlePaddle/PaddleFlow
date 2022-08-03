@@ -117,7 +117,7 @@ func (j JobStatus) String() string {
 		j = StatusUnknown
 		str = "Unknown"
 	}
-	str = strconv.Itoa(int(j)) + ". " + str
+	str = strconv.Itoa(int(j)) + "-" + str
 	return str
 }
 
