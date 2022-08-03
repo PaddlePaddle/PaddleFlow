@@ -94,6 +94,7 @@ func (j *JobPerfCollector) updateJobPerf() {
 				JobStatusLabel:         status.String(),
 				JobQueueIdLabel:        info.QueueID,
 				JobFinishedStatusLabel: info.FinishedStatus,
+				JobQueueNameLabel:      info.QueueName,
 			}).Set(float64(statusTime.Microseconds()))
 			log.Debugf("[job perf] job %s, status %s, time: %d", jobID, status, statusTime.Microseconds())
 		}
