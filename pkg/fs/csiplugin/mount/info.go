@@ -18,6 +18,7 @@ package mount
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
@@ -41,6 +42,7 @@ type Info struct {
 	FS          model.FileSystem
 	FSBase64Str string
 	TargetPath  string
+	SourcePath  string
 	Cmd         string
 	Args        []string
 	ReadOnly    bool
@@ -72,6 +74,12 @@ func ConstructMountInfo(fsInfoBase64, fsCacheBase64, targetPath string, k8sClien
 		ReadOnly:    readOnly,
 		K8sClient:   k8sClient,
 	}
+
+	if !fs.IndependentMountProcess && fs.Type != common.GlusterFSType {
+		info.SourcePath = schema.GetBindSource(info.FS.ID)
+	} else {
+		info.SourcePath = utils.GetSourceMountPath(filepath.Dir(info.TargetPath))
+	}
 	info.Cmd, info.Args = info.cmdAndArgs()
 	return info, nil
 }
@@ -88,14 +96,14 @@ func (mountInfo *Info) cmdAndArgs() (string, []string) {
 
 func (mountInfo *Info) glusterArgs() (args []string) {
 	args = append(args, "-t", mountInfo.FS.Type,
-		strings.Join([]string{mountInfo.FS.ServerAddress, mountInfo.FS.SubPath}, ":"), mountInfo.TargetPath)
+		strings.Join([]string{mountInfo.FS.ServerAddress, mountInfo.FS.SubPath}, ":"), mountInfo.SourcePath)
 	return args
 }
 
 func (mountInfo *Info) processMountArgs() (args []string) {
 	args = append(args, mountInfo.commonOptions()...)
 	args = append(args, mountInfo.cachePathArgs(true)...)
-	args = append(args, fmt.Sprintf("--%s=%s", "mount-point", mountInfo.TargetPath))
+	args = append(args, fmt.Sprintf("--%s=%s", "mount-point", mountInfo.SourcePath))
 	return args
 }
 

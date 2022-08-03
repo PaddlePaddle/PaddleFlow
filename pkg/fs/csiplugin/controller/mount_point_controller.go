@@ -261,13 +261,6 @@ func (m *MountPointController) CheckAndRemountVolumeMount(volumeMount volumeMoun
 		return err
 	}
 
-	if !mountInfo.FS.IndependentMountProcess && mountInfo.FS.Type != common.GlusterFSType {
-		if err := waitForBindSourceReady(pvParams_.fsID); err != nil {
-			log.Errorf("waitForBindSourceReady[%s] err: %v", pvParams_.fsID, err)
-			return err
-		}
-	}
-
 	if checkIfNeedRemount(mountPath) {
 		if err := remount(volumeMount, mountInfo); err != nil {
 			err := fmt.Errorf("remount info: %+v failed: %v", mountInfo, err)
@@ -278,20 +271,21 @@ func (m *MountPointController) CheckAndRemountVolumeMount(volumeMount volumeMoun
 	return nil
 }
 
-func waitForBindSourceReady(fsID string) error {
+func waitForBindSourceReady(bindSource string) bool {
 	i := 0
 	for {
-		isMount, err := utils.IsMountPoint(schema.GetBindSource(fsID))
+		isMount, err := utils.IsMountPoint(bindSource)
 		if isMount && err == nil {
 			break
 		}
 		i += 1
 		if i > 2 {
-			return fmt.Errorf("bind source[%s] not mounted, please check mount pod", schema.GetBindSource(fsID))
+			log.Warnf("bind source[%s] not mounted, wait until next check or manually fix mount pod", bindSource)
+			return false
 		}
 		time.Sleep(1 * time.Second)
 	}
-	return nil
+	return true
 }
 
 // CheckIfNeedRemount The conditions for remount: the path is the mount point and the error message returned by the `mountpoint` command
@@ -309,21 +303,32 @@ func remount(volumeMount volumeMountInfo, mountInfo mount.Info) error {
 	log.Tracef("remount: mountInfo %+v", mountInfo)
 
 	if !mountInfo.FS.IndependentMountProcess && mountInfo.FS.Type != common.GlusterFSType {
-		// bind source path to mount path
-		sourcePath := schema.GetBindSource(mountInfo.FS.ID)
-		output, err := utils.ExecMountBind(sourcePath, mountInfo.TargetPath, mountInfo.ReadOnly)
-		if err != nil {
-			log.Errorf("remount: pod exec mount bind cmd failed: %v, output[%s]", err, string(output))
-			return err
+		// wait for source path ready
+		if !waitForBindSourceReady(schema.GetBindSource(mountInfo.FS.ID)) {
+			return nil
 		}
 	} else {
-		// mount
+		// mount source path
+		if err := utils.ManualUnmount(mountInfo.SourcePath); err != nil {
+			err := fmt.Errorf("process remount[%s] failed when ManualUnmount source path %s. err: %v",
+				mountInfo.FS.ID, mountInfo.SourcePath, err)
+			return err
+		}
+
 		output, err := utils.ExecCmdWithTimeout(mountInfo.Cmd, mountInfo.Args)
 		if err != nil {
 			log.Errorf("remount: process exec mount cmd failed: [%v], output[%v]", err, string(output))
 			return err
 		}
 	}
+
+	// bind source path to mount path
+	output, err := utils.ExecMountBind(mountInfo.SourcePath, mountInfo.TargetPath, mountInfo.ReadOnly)
+	if err != nil {
+		log.Errorf("remount: pod exec mount bind cmd failed: %v, output[%s]", err, string(output))
+		return err
+	}
+
 	// todo subpath need recovery
 	log.Debugf("volumeMoun info %+v", volumeMount)
 	for _, subPath := range volumeMount.SubPaths {
