@@ -105,18 +105,6 @@ var DiscoveryHandlerFunc = http.HandlerFunc(func(w http.ResponseWriter, req *htt
 						{GroupVersion: "kubeflow.org/v1", Version: "v1"},
 					},
 				},
-				//{
-				//	Name: "tfjobs.kubeflow.org",
-				//	Versions: []metav1.GroupVersionForDiscovery{
-				//		{GroupVersion: "tfjobs.kubeflow.org/v1", Version: "v1"},
-				//	},
-				//},
-				//{
-				//	Name: "mpijobs.kubeflow.org",
-				//	Versions: []metav1.GroupVersionForDiscovery{
-				//		{GroupVersion: "mpijobs.kubeflow.org/v1", Version: "v1"},
-				//	},
-				//},
 				{
 					Name: "argoproj.io",
 					Versions: []metav1.GroupVersionForDiscovery{
