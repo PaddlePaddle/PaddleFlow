@@ -97,7 +97,6 @@ func (j *JobPerfCollector) updateJobPerf() {
 			}).Set(float64(statusTime.Microseconds()))
 			log.Debugf("[job perf] job %s, status %s, time: %d", jobID, status, statusTime.Microseconds())
 		}
-
 	}
 }
 
