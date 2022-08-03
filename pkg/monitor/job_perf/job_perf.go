@@ -81,6 +81,7 @@ const (
 	JobStatusLabel         = "status"
 	JobQueueIdLabel        = "queueID"
 	JobFinishedStatusLabel = "finishedStatus"
+	JobQueueNameLabel      = "queueName"
 )
 
 var (

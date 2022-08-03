@@ -54,7 +54,7 @@ func newJobPerfCollector() *JobPerfCollector {
 				Name: MetricJobTime,
 				Help: toJobHelp(MetricJobTime),
 			},
-			[]string{JobIDLabel, JobStatusLabel, JobQueueIdLabel, JobFinishedStatusLabel},
+			[]string{JobIDLabel, JobStatusLabel, JobQueueIdLabel, JobFinishedStatusLabel, JobQueueNameLabel},
 		),
 	}
 }
