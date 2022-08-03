@@ -80,6 +80,21 @@ func GetVolumeBindMountPathByPod(podUID, volumeName string) string {
 		podUID, VolumePluginName, volumeName)
 }
 
+func GetSubPathSourcePath(volumePath, subpath string) string {
+	return filepath.Join(volumePath, subpath)
+}
+
+// default value: /var/lib/kubelet/pods/{podUID}/volumes-subpaths/{volumeName}/{containerName}/{volumeMountIndex}
+func GetSubPathTargetPath(podUID string, volumeName string, containerName string, volumeMountIndex int) string {
+	return fmt.Sprintf("%s/pods/%s/volume-subpaths/%s/%s/%d", GetKubeletDataPath(),
+		podUID, volumeName, containerName, volumeMountIndex)
+}
+
+// default value: /var/lib/kubelet/pods/{podUID}/volumes/{volumePluginName}/{volumeName}/source
+func GetSourceMountPath(pathPrefix string) string {
+	return filepath.Join(pathPrefix, "source")
+}
+
 func GetKubeletDataPath() string {
 	path := os.Getenv(KubeletDataPathEnv)
 	if len(path) == 0 {

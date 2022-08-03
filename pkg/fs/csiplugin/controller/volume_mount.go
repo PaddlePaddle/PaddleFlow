@@ -23,6 +23,8 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
+
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 )
 
 const (
@@ -46,6 +48,16 @@ type volumeMountInfo struct {
 
 	// ReadOnly which setting in pod's volumes
 	ReadOnly bool
+
+	// A SubPath is a volumeMount with subPath param in the pod's spec
+	SubPaths []SubPath
+}
+
+// The SubPath is a volumeMount with subPath param in the pod's spec
+type SubPath struct {
+	ReadOnly   bool
+	SourcePath string
+	TargetPath string
 }
 
 func getPodVolumeMounts(pod *v1.Pod) []volumeMountInfo {
@@ -70,6 +82,24 @@ func getPodVolumeMounts(pod *v1.Pod) []volumeMountInfo {
 			ClaimName:  v.PersistentVolumeClaim.ClaimName,
 			VolumeName: volumeName,
 			ReadOnly:   v.PersistentVolumeClaim.ReadOnly,
+		}
+	}
+
+	for _, container := range pod.Spec.Containers {
+		for i, mount := range container.VolumeMounts {
+			volumeMount, ok := volumeMountMaps[mount.Name]
+			if !ok {
+				continue
+			}
+
+			volumeBindMountPath := utils.GetVolumeBindMountPathByPod(string(pod.UID), volumeMount.VolumeName)
+			subpath := SubPath{
+				ReadOnly:   mount.ReadOnly,
+				SourcePath: utils.GetSubPathSourcePath(volumeBindMountPath, mount.SubPath),
+				TargetPath: utils.GetSubPathTargetPath(string(pod.UID), volumeMount.VolumeName, container.Name, i),
+			}
+			volumeMount.SubPaths = append(volumeMount.SubPaths, subpath)
+			volumeMountMaps[mount.Name] = volumeMount
 		}
 	}
 

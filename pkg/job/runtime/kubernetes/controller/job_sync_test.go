@@ -36,10 +36,11 @@ import (
 	restclient "k8s.io/client-go/rest"
 	batchv1alpha1 "volcano.sh/apis/pkg/apis/batch/v1alpha1"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 )
 
@@ -151,7 +152,7 @@ func TestJobSyncVCJob(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			driver.InitMockDB()
-			err := models.CreateJob(&models.Job{ID: test.newObj.GetName()})
+			err := storage.Job.CreateJob(&model.Job{ID: test.newObj.GetName()})
 			assert.Equal(t, nil, err)
 
 			c := newFakeJobSyncController()
@@ -311,7 +312,7 @@ func TestJobSyncPod(t *testing.T) {
 	}
 
 	driver.InitMockDB()
-	err := models.CreateJob(&models.Job{
+	err := storage.Job.CreateJob(&model.Job{
 		ID:     jobName,
 		Name:   jobName,
 		Status: schema.StatusJobPending,

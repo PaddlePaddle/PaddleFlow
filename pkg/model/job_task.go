@@ -1,18 +1,14 @@
-package models
+package model
 
 import (
 	"database/sql"
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 	v1 "k8s.io/api/core/v1"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 const (
@@ -62,35 +58,4 @@ func (task *JobTask) AfterFind(*gorm.DB) error {
 		task.ExtRuntimeStatus = podStatus
 	}
 	return nil
-}
-
-func GetJobTaskByID(id string) (JobTask, error) {
-	var taskStatus JobTask
-	tx := storage.DB.Table(JobTaskTableName).Where("id = ?", id).First(&taskStatus)
-	if tx.Error != nil {
-		logger.LoggerForJob(id).Errorf("get job task status failed, err %v", tx.Error.Error())
-		return JobTask{}, tx.Error
-	}
-	return taskStatus, nil
-}
-
-func UpdateTask(task *JobTask) error {
-	if task == nil {
-		return fmt.Errorf("JobTask is nil")
-	}
-	// TODO: change update task logic
-	tx := storage.DB.Table(JobTaskTableName).Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "id"}},
-		DoUpdates: clause.AssignmentColumns([]string{"status", "message", "ext_runtime_status", "node_name", "deleted_at"}),
-	}).Create(task)
-	return tx.Error
-}
-
-func ListByJobID(jobID string) ([]JobTask, error) {
-	var jobList []JobTask
-	err := storage.DB.Table(JobTaskTableName).Where("job_id = ?", jobID).Find(&jobList).Error
-	if err != nil {
-		return nil, err
-	}
-	return jobList, nil
 }

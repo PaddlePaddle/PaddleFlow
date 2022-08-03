@@ -455,7 +455,8 @@ func (d *WorkflowSourceDag) DeepCopy() Component {
 }
 
 type RunOptions struct {
-	StopForce bool
+	FSUsername string
+	StopForce  bool
 }
 
 type Reference struct {
