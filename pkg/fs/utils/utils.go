@@ -90,6 +90,11 @@ func GetSubPathTargetPath(podUID string, volumeName string, containerName string
 		podUID, volumeName, containerName, volumeMountIndex)
 }
 
+// default value: /var/lib/kubelet/pods/{podUID}/volumes/{volumePluginName}/{volumeName}/source
+func GetSourceMountPath(pathPrefix string) string {
+	return filepath.Join(pathPrefix, "source")
+}
+
 func GetKubeletDataPath() string {
 	path := os.Getenv(KubeletDataPathEnv)
 	if len(path) == 0 {
