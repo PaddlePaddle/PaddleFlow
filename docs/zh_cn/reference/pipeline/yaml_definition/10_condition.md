@@ -72,5 +72,5 @@ condition字段的值需要是一个条件判断式，支持一些常见的操�
 - 对于节点`step2`, 其condition(10<0>)的计算结果为False, 因此`step2`的状态将会被置为Skipped
 
 
-[condition_example]: /example/pipeline/loop_example
+[condition_example]: /example/pipeline/condition_example
 [govaluate]: https://pkg.go.dev/github.com/Knetic/govaluate#section-readme
