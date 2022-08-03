@@ -271,20 +271,21 @@ func (m *MountPointController) CheckAndRemountVolumeMount(volumeMount volumeMoun
 	return nil
 }
 
-func waitForBindSourceReady(fsID string) error {
+func waitForBindSourceReady(bindSource string) bool {
 	i := 0
 	for {
-		isMount, err := utils.IsMountPoint(schema.GetBindSource(fsID))
+		isMount, err := utils.IsMountPoint(bindSource)
 		if isMount && err == nil {
 			break
 		}
 		i += 1
 		if i > 2 {
-			return fmt.Errorf("bind source[%s] not mounted, please check mount pod", schema.GetBindSource(fsID))
+			log.Warnf("bind source[%s] not mounted, wait until next check or manually fix mount pod", bindSource)
+			return false
 		}
 		time.Sleep(1 * time.Second)
 	}
-	return nil
+	return true
 }
 
 // CheckIfNeedRemount The conditions for remount: the path is the mount point and the error message returned by the `mountpoint` command
@@ -303,9 +304,8 @@ func remount(volumeMount volumeMountInfo, mountInfo mount.Info) error {
 
 	if !mountInfo.FS.IndependentMountProcess && mountInfo.FS.Type != common.GlusterFSType {
 		// wait for source path ready
-		if err := waitForBindSourceReady(mountInfo.FS.ID); err != nil {
-			log.Errorf("waitForBindSourceReady[%s] err: %v", mountInfo.FS.ID, err)
-			return err
+		if !waitForBindSourceReady(schema.GetBindSource(mountInfo.FS.ID)) {
+			return nil
 		}
 	} else {
 		// mount source path
