@@ -7,7 +7,7 @@
 
 # 2 pipeline定义
 
-下面是一个在pipeline使用了Paddleflow共享存储的示例。
+下面是一个在pipeline中使用共享存储的示例。
 
 > 该示例中pipeline定义，以及示例相关运行脚本，来自Paddleflow项目下example/pipeline/multiple_fs示例。
 > 
@@ -58,7 +58,7 @@ fs_options:
 ## 2.1 节点级别的extra_fs字段
 一般情况下，一个pipeline中会包含有多个节点，而每个节点都有自己所需要的数据，代码等。
 
-如果你已经将数据或者代码存放到了共享存储上，便可以在定义pipeline的节点时，通过extra_fs字段指定共享存储挂载信息后。
+如果你已经将数据或者代码存放到了共享存储上，便可以在定义节点时，通过extra_fs字段指定共享存储的挂载信息。
 
 Paddleflow在运行节点时，会根据extra_fs字段将共享存储挂载至容器中。
 
@@ -93,7 +93,7 @@ extra_fs支持的子字段及含义如下表：
 ### 2.2.1 main_fs
 正如在[artifact定义约束]所述：Paddleflow需要将节点输出artifact存储在共享存储上，并据此完成artifact在不同节点间的传递。
 
-而artifact具体存储在哪个共享存储上？以及存储在共享存储的哪个位置？则是由 main_fs 字段所决定。
+而artifact具体存放在哪个共享存储上？以及存放在共享存储的哪个路径下？则是由main_fs字段所决定。
 
 >关于artifact的存储路径，可以查看[artifact存储机制]
 
@@ -108,9 +108,9 @@ main_fs支持的子字段如下所示：
 >使用[2 pipeline定义]，发起一个Run, 则其生成的artifact都将会存放在共享存储`ppl`的`"multiple_fs"`路径下
 
 ### 2.2.2 extra_fs
-如果pipeline的所有节点都要挂相同的共享存储，此时，可以直接将共享存储的挂载信息填写到fs_options的子字段extra_fs中来。
+如果pipeline的所有节点都要挂相同的共享存储，此时，只需在fs_options.extra_fs字段中填写这部分的共享存储的挂载信息即可，无需在每个节点中都填写一遍。
 
-fs_options的子字段extra_fs的规范与[节点级别的extra_fs字段]相同，因此，此处不在进行赘述
+fs_options的子字段extra_fs的规范与[节点级别的extra_fs字段]相同，此处不在进行赘述
 
 # 3 pipeline运行流程
 
@@ -138,7 +138,7 @@ extra_fs:
 - 如果没有指定main_fs, 在完成了[3.1 fs_options.extra_fs的下沉]操作后，如果节点的extra_fs不为空，则会跳转到extra_fs中第一项所指定mount_path下
     > - fs_options.extra_fs的配置项会位于节点extra_fs配置项之后
 
->如果不需要Paddleflow进行目录跳转，则可以在节点中添加如下的环境变量：
+>如果不需要Paddleflow添加目录跳转命令，则可以在节点中添加如下的环境变量：
 ```yaml
 env:
   PF_MOUNT_PATH: NONE
