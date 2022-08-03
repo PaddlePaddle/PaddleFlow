@@ -30,8 +30,8 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/monitor/job_perf"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/trace_logger"
 )
 
@@ -396,7 +396,9 @@ func (m *JobManagerImpl) pSubmitQueueJob(jobQueue *api.JobQueue, runtimeSvc runt
 				jobQueue.DeleteMark(job.ID)
 				log.Infof("Leaving submit %s job in queue %s, total elapsed time: %s", job.ID, name, time.Since(startTime))
 			} else {
-				time.Sleep(m.jobLoopPeriod)
+				// TODO: add to config
+				// time.Sleep(m.jobLoopPeriod)
+				time.Sleep(200 * time.Millisecond)
 			}
 		}
 	}

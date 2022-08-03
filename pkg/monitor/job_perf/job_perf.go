@@ -77,9 +77,10 @@ const (
 )
 
 const (
-	JobIDLabel      = "jobID"
-	JobStatusLabel  = "status"
-	JobQueueIdLabel = "QueueID"
+	JobIDLabel             = "jobID"
+	JobStatusLabel         = "status"
+	JobQueueIdLabel        = "queueID"
+	JobFinishedStatusLabel = "finishedStatus"
 )
 
 var (

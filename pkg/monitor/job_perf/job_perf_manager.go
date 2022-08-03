@@ -42,8 +42,12 @@ var (
 	ZeroTime = time.Time{}
 )
 
+// JobInfo job info
 type JobInfo struct {
-	QueueID string
+	QueueID        string
+	UserName       string
+	QueueName      string
+	FinishedStatus string
 }
 
 type JobPerfManager interface {
@@ -144,12 +148,17 @@ func (d *defaultJobPerfManager) increaseStatusCount(status JobStatus) {
 	d.statusCache.Store(status, count+1)
 }
 
-func (d *defaultJobPerfManager) addJobInfo(jobID string, jobInfo JobInfo) {
-	_, ok := d.infoCache.Load(jobID)
+func (d *defaultJobPerfManager) addJobInfo(jobID string, newJobInfo JobInfo) {
+	val, ok := d.infoCache.Load(jobID)
 	if ok {
-		return
+		jobInfo := val.(JobInfo)
+		if newJobInfo.FinishedStatus == "" {
+			return
+		}
+		jobInfo.FinishedStatus = newJobInfo.FinishedStatus
+		newJobInfo = jobInfo
 	}
-	d.infoCache.Store(jobID, jobInfo)
+	d.infoCache.Store(jobID, newJobInfo)
 }
 
 func (d *defaultJobPerfManager) GetJobInfo(jobID string) (JobInfo, bool) {

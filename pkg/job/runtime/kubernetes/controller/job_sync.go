@@ -262,7 +262,9 @@ func (j *JobSync) doUpdateAction(jobSyncInfo *JobSyncInfo) error {
 		commonschema.StatusJobFailed,
 		commonschema.StatusJobCancelled,
 		commonschema.StatusJobSkipped:
-		job_perf.AddTimestamp(jobSyncInfo.ID, job_perf.T8, time.Now())
+		job_perf.AddTimestamp(jobSyncInfo.ID, job_perf.T8, time.Now(), job_perf.JobInfo{
+			FinishedStatus: string(jobSyncInfo.Status),
+		})
 	}
 
 	if _, err := storage.Job.UpdateJob(jobSyncInfo.ID, jobSyncInfo.Status, jobSyncInfo.RuntimeInfo, jobSyncInfo.RuntimeStatus, jobSyncInfo.Message); err != nil {
