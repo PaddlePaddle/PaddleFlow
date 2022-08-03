@@ -85,10 +85,10 @@ func (d *defaultJobPerfManager) AddTimestamp(jobID string, timePoint JobTimePoin
 	_ = d.cache.SetWithExpire(jobID, timePoints, Timeout)
 	d.increaseStatusCount(timePoint.ToStatus())
 
-	//// TODO: support T5
-	//if timePoint == T5 {
-	//	d.AddTimestamp(jobID, T6, timestamp)
-	//}
+	// TODO: support T5
+	if timePoint == T5 {
+		d.AddTimestamp(jobID, T6, timestamp)
+	}
 }
 
 // GetTimestamp returns the time point of the job, if not finished, then return ZeroTime, false

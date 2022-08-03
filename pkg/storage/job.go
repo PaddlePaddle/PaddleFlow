@@ -158,6 +158,7 @@ func (js *JobStore) UpdateJob(jobID string, status schema.JobStatus, runtimeInfo
 		updatedJob.Message = message
 	}
 	if status == schema.StatusJobRunning && !job.ActivatedAt.Valid {
+		job_perf.AddTimestamp(jobID, job_perf.T7, time.Now())
 		updatedJob.ActivatedAt.Time = time.Now()
 		updatedJob.ActivatedAt.Valid = true
 	}

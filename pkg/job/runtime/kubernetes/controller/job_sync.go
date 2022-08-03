@@ -258,10 +258,6 @@ func (j *JobSync) doUpdateAction(jobSyncInfo *JobSyncInfo) error {
 
 	// add time point
 	switch jobSyncInfo.Status {
-	case commonschema.StatusJobPending:
-		job_perf.AddTimestamp(jobSyncInfo.ID, job_perf.T6, time.Now())
-	case commonschema.StatusJobRunning:
-		job_perf.AddTimestamp(jobSyncInfo.ID, job_perf.T7, time.Now())
 	case commonschema.StatusJobSucceeded,
 		commonschema.StatusJobFailed,
 		commonschema.StatusJobCancelled,

@@ -28,6 +28,8 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
+
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 type JobPerfCollector struct {
@@ -85,16 +87,26 @@ func (j *JobPerfCollector) updateJobPerf() {
 	timePointsCache := Manager.GetTimestampsCache()
 	for jobID, timePoints := range timePointsCache {
 		// add new metric
+		queueId := getQueueNameByJobID(jobID)
 		for status := MinStatus; status <= MaxStatus; status++ {
 			statusTime, _ := timePoints.GetStatusTime(status)
 			j.JobTime.With(prometheus.Labels{
-				JobIDLabel:     jobID,
-				JobStatusLabel: status.String(),
+				JobIDLabel:      jobID,
+				JobStatusLabel:  status.String(),
+				JobQueueIdLabel: queueId,
 			}).Set(float64(statusTime.Milliseconds()))
 			log.Debugf("[job perf] job %s, status %s, time: %d", jobID, status, statusTime.Milliseconds())
 		}
 
 	}
+}
+
+func getQueueNameByJobID(jobID string) string {
+	job, err := storage.Job.GetJobByID(jobID)
+	if err != nil {
+		return ""
+	}
+	return job.QueueID
 }
 
 func timeDiff(a, b time.Duration) time.Duration {
