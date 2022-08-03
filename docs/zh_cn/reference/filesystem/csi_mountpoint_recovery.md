@@ -55,7 +55,7 @@ pfs-NODENAME-pfs-fs-root-mounttest-default-pv   1/1     Running   1          2m2
 ...
 ```
 
-通过 watch 的结果，可以看到 mount pod 在被删除之后，又被新建出来。接着在业务容器中检查挂载点信息：
+接着在业务容器中检查挂载点信息, 在列出的文件系统中看到了 ```PaddleFlowFS```, 说明挂载恢复成功：
 
 ```shell
 $ kubectl exec -it pod-mount-test sh
