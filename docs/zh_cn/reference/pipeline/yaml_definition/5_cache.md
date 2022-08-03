@@ -93,7 +93,7 @@ docker_env: nginx:1.7.9
 
 ### 3.1.2 fs_scope
 
-由 [3.2.1 cache fingerprint计算机制] 可知，计算节点是否重复运行，主要判断节点参数，以及节点代码文件是否改动过。
+由[4.2.1 cache fingerprint计算机制]可知，计算节点是否重复运行，主要判断节点参数，以及节点代码文件是否改动过。
 
 - fs_scope用于指定需要检查是否被改动过的文件/目录路径。
     - 用于保证节点运行代码被修改后，不再复用以前的运行结果cache。
@@ -103,7 +103,7 @@ fs_scope字段为一个list，其中的每一项所支持的字段如下表所�
 | 字段名 | 类型 | 是否必须| 含义 | 示例 | 默认值 | 备注 |
 | :---:| :---:|:---:|:---:|:---:|:---:|:---|
 | name | string | 是 | 共享存储的名字 | "xiaoming" | - | |
-| path | string | 否 | 共享存储上需要检查是否发生过改动的文件/目录路径 | "/" | 如果有多个文件/目录需要检查，路径与路径之间以','分隔 |  
+| path | string | 否 | 共享存储上需要检查是否发生过改动的文件/目录路径 | "cache_example/shells" | "/" | 如果有多个文件/目录需要检查，路径与路径之间以','分隔 |  
 
 ### 3.1.3 max_expired_time
 
@@ -114,13 +114,13 @@ fs_scope字段为一个list，其中的每一项所支持的字段如下表所�
 ## 3.2 配置优先级
 
 - enable && max_expired_time : 节点级别 > 全局级别 > 默认值。
-- fs_scope: 将会追加至所有节点级别的cache.fs_scope字段中
+- fs_scope: 全局级别的fs_scope配置将会被**追加**至所有节点级别的fs_scope配置中
 
 > 例子：如[2 pipeline定义] 所示：
 
 > * preprocess节点：
-> > - 其cache字段定义了eable，max_expired_time，fs_scope 三个参数, 
-> > - 所以在该节点运行时，eable，max_expired_time两个参数将会使用节点级别的配置，fs_scope将会在节点的基础上追加全局级别的配置，如下所示：
+>   - 其cache字段定义了eable，max_expired_time，fs_scope 三个参数, 
+>   - 所以在该节点运行时，eable，max_expired_time两个参数将会使用节点级别的配置，fs_scope将会在节点的基础上追加全局级别的配置，如下所示：
 ```yaml
     cache:
       enable: true
@@ -131,8 +131,8 @@ fs_scope字段为一个list，其中的每一项所支持的字段如下表所�
 ```
 
 > * train节点：
-> > - 没有定义任何cache参数，所以三个参数直接使用全局配置
-> > 所以在该节点运行时，使用的cache配置如下：
+>    - 没有定义任何cache参数，所以三个参数直接使用全局配置
+>    - 所以在该节点运行时，使用的cache配置如下：
 ```yaml
 cache:
   enable: true
@@ -142,8 +142,8 @@ cache:
 ```
 
 > * validate节点：
-> > - 定义了enable=false，max_expired_time=-1。但是fs_scope没有定义，
-> > 因此只需从全局配置中获取fs_scope的值即可，如下所示：
+>   - 定义了enable=false，max_expired_time=-1。但是fs_scope没有定义，
+>   - 因此只需从全局配置中获取fs_scope的值即可，如下所示：
 ```yaml
     cache:
       enable: false
@@ -153,6 +153,7 @@ cache:
 ```
 
 - 如果全局cache参数，节点内cache参数都没有定义，则直接采用默认值。
+  - fs_scope的默认值为一个空的list
 
 # 4 cache运行机制
 
@@ -166,7 +167,7 @@ cache:
 1. 在运行前，根据参数替换后的参数，计算cache fingerprint
 > 计算cache fingerprint前参数替换方法与运行节点前的替换方法不同
 >
-> 计算cache fingerprint前参数替换方法，可参考[3.2 cache 命中机制]
+> 计算cache fingerprint前参数替换方法，可参考[4.2 cache 命中机制]
 
 2. 根据第一步得到的cache fingerprint，寻找是否有fingerprint相同，同时满足其他条件的历史节点任务
 
@@ -207,7 +208,7 @@ b. 没有：则为当前要运行的job，将计算的 cache fingerprint 更新�
 
 - 运行脚本：通过fs_scope参数指定需要监控的脚本/目录路径
 
-基于上述两部分关注点，在目前策略下，Paddleflow会为每个开启cache的节点job，计算两层Fingerprint。每层fingerprint的计算，使用的参数名/参数值 包括：
+基于上述两部分关注点，在目前策略下，Paddleflow会为每个开启cache的节点job，计算两层fingerprint。每层fingerprint的计算，使用的参数名/参数值如下：
 
 第一层Fingerprint
 * docker_env (参数名 & 值)
@@ -217,7 +218,7 @@ b. 没有：则为当前要运行的job，将计算的 cache fingerprint 更新�
 * output artifact（only 参数名）
 * env (参数名 & 值)
 * main_fs
-* extra_fs (节点级别 && 全局级别)
+* extra_fs
 
 第二层Fingerprint
 * input artifact（内容，直接使用路径mtime）
@@ -231,7 +232,7 @@ b. 没有：则为当前要运行的job，将计算的 cache fingerprint 更新�
 
 ### 4.2.2 cache fingerprint 与 artifact 的关系
 
-由 [3.2.1 cache fingerprint计算机制] 可知，计算fingerprint时，input artifact，与output artifact的参数使用上，有一定差异：
+由[4.2.1 cache fingerprint计算机制]可知，计算fingerprint时，input artifact，与output artifact的参数使用上，有一定差异：
 
 1. input artifact: 参数名，参数值，以及路径内容（修改时间）都会拿来计算
 
@@ -270,19 +271,19 @@ input artifact的使用逻辑很容易理解，因为每次节点job运行时，
 
 ### 4.2.3 cache fingerprint 计算前，参数替换逻辑
 
-由 [3.1 cache运行流程] 可知，目前计算fingerprint前，也会对env，parameters，artifact，command参数进行模板替换
+由[4.1 cache运行流程]可知，目前计算fingerprint前，也会对env，parameters，artifact，command参数进行模板替换
 
 但是，计算fingerprint前的节点参数替换逻辑，和节点运行前的参数替换逻辑稍有不同:
 
 1. command参数中，output artifact的变量模板，不会被替换
 
-其原因，与 [3.2.2 cache fingerprint 与 artifact 的关系] 中描述的原因类似，我们并不希望output artifact的路径值影响fingerprint的计算，因此并不会展开output artifact的变量模板。
+其原因，与[4.2.2 cache fingerprint 与 artifact 的关系]中描述的原因类似，我们并不希望output artifact的路径值影响fingerprint的计算，因此并不会展开output artifact的变量模板。
 
 
 [2_artifact.md]: /docs/zh_cn/reference/pipeline/yaml_definition/2_artifact.md
 [cache_example]: /example/pipeline/cache_example
 [2 pipeline定义]: /docs/zh_cn/reference/pipeline/yaml_definition/5_cache.md#2-pipeline%E5%AE%9A%E4%B9%89
-[3.1 cache运行流程]: /docs/zh_cn/reference/pipeline/yaml_definition/5_cache.md#31-cache%E8%BF%90%E8%A1%8C%E6%B5%81%E7%A8%8B
-[3.2 cache 命中机制]: /docs/zh_cn/reference/pipeline/yaml_definition/5_cache.md#32-cache-%E5%91%BD%E4%B8%AD%E6%9C%BA%E5%88%B6
-[3.2.1 cache fingerprint计算机制]: /docs/zh_cn/reference/pipeline/yaml_definition/5_cache.md#321-cache-fingerprint%E8%AE%A1%E7%AE%97%E6%9C%BA%E5%88%B6
-[3.2.2 cache fingerprint 与 artifact 的关系]: /docs/zh_cn/reference/pipeline/yaml_definition/5_cache.md#322-cache-fingerprint-%E4%B8%8E-artifact-%E7%9A%84%E5%85%B3%E7%B3%BB
+[4.1 cache运行流程]: /docs/zh_cn/reference/pipeline/yaml_definition/5_cache.md#41-cache%E8%BF%90%E8%A1%8C%E6%B5%81%E7%A8%8B
+[4.2 cache 命中机制]: /docs/zh_cn/reference/pipeline/yaml_definition/5_cache.md#42-cache-%E5%91%BD%E4%B8%AD%E6%9C%BA%E5%88%B6
+[4.2.1 cache fingerprint计算机制]: /docs/zh_cn/reference/pipeline/yaml_definition/5_cache.md#421-cache-fingerprint%E8%AE%A1%E7%AE%97%E6%9C%BA%E5%88%B6
+[4.2.2 cache fingerprint 与 artifact 的关系]: /docs/zh_cn/reference/pipeline/yaml_definition/5_cache.md#422-cache-fingerprint-%E4%B8%8E-artifact-%E7%9A%84%E5%85%B3%E7%B3%BB
