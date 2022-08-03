@@ -71,7 +71,7 @@ Paddleflow Pipeline定义中，存在parameter，artifact两种参数，其差�
 
 - artifact是节点运行的输入输出资源（文件/目录）。它的取值，在pipeline run运行前是未知的。
   - artifact的路径，不能由用户在pipeline定义中指定；只能在每个节点运行前，由平台自动生成。
-  - 平台生成的路径格式，可以参考 [3.1 artifact存储机制]
+  - 平台生成的路径格式，可以参考[3.1 artifact存储机制]
 
 > 如 [2.4 artifact 使用方式] 所示，用户可以通过变量模板，或者在运行时通过环境变量获取artifact的路径。
 
@@ -100,7 +100,7 @@ artifact包括input artifact，output artifact两种类型：
 - 用户无需指定output artifact路径。每次节点运行前，会由Paddleflow自动为每个output artifact生成对应路径。
     - 生成的路径格式，可参考 [3.1 artifact存储机制]
 
-> 如 [1 pipeline定义] 所示，preprocess节点以数组形式，定义了 train_data，和 validate_data 两个output artifact。
+> 如 [1 pipeline定义] 所示，preprocess节点以数组形式，定义了train_data，和validate_data两个output artifact。
 
 ##### 2.2.2 input artifact
 
@@ -108,7 +108,7 @@ artifact包括input artifact，output artifact两种类型：
 
 - 没有上游的节点，不能定义输入artifact（因为无法引用上游节点的输出artifact）。
 
-> 如 [1 pipeline定义] 所示，train节点定义了input artifact[train_data】，并且通过 {{ preprocess.train_data }}形式引用 preprocess 节点的 output artifact[train_data】
+> 如 [1 pipeline定义] 所示，train节点定义了input artifact[train_data]，并且通过{{ preprocess.train_data }}形式引用 preprocess节点的output artifact[train_data]
 
 ### 2.3 artifact 定义约束
 
@@ -132,11 +132,11 @@ artifact包括input artifact，output artifact两种类型：
 2. 也可以在节点运行时，通过环境变量使用
 - input artifact: 环境变量名为${{PF_INPUT_ARTIFACT_ARTIFACTNAME}}
 
-> 如[1 pipeline定义] 所示，train 节点运行时，train.sh内可以通过 ${{PF_INPUT_ARTIFACT_TRAIN_DATA}} 获取输入artifact[train_data】的路径
+> 如[1 pipeline定义] 所示，train 节点运行时，train.sh内可以通过 ${{PF_INPUT_ARTIFACT_TRAIN_DATA}} 获取输入artifact[train_dat]的路径
 
 - output artifact: 环境变量名为${{PF_OUTPUT_ARTIFACT_ARTIFACTNAME}}
 
-> 如上述例子所示，preprocess 节点运行时，data_artifact.sh内可以通过 ${{PF_OUTPUT_ARTIFACT_VALIDATE_DATA}} 获取输出artifact[validate_data】的路径
+> 如上述例子所示，preprocess 节点运行时，data_artifact.sh内可以通过 ${{PF_OUTPUT_ARTIFACT_VALIDATE_DATA}} 获取输出artifact[validate_data]的路径
 
 
 # 3 pipeline运行流程
@@ -156,8 +156,8 @@ artifact包括input artifact，output artifact两种类型：
 >| MAIN_FS_SUB_PATH | [main_fs]中指定的sub_path的值 |  |
 >| PF_RUN_ID | Pipeline Run 的唯一标识符 | | 
 >| PPL_NAME | Pipeline 的名字 | | 
->| RUNTIME_NAME | 由节点名字和表征当前为该节点第几次运行的序号组成，序号从0开始计数，名字与序号通过'-'连接 | 对于设置了[loop]字段的节点，可能会运行多次| 
->| MD5_FULLNAME | 节点FULLNAME的md5值 | 节点的FULLNAME是由其所有[祖先节点]与当前的{{RUNTIME_NAME}}组合而成，以'.'连接，最古老的祖先位于最前面 |
+>| RUNTIME_NAME | 由节点名字和表征当前为该节点第几次运行的序号组成，序号从0开始计数，名字与序号通过'-'连接 | 对于设置了[loop_argument]字段的节点，可能会运行多次| 
+>| MD5_FULLNAME | 节点FULLNAME的md5值 | 节点的FULLNAME是由其所有[祖先节点]与当前节点的{{RUNTIME_NAME}}组合而成，以'.'连接，最古老的祖先位于最前面 |
 
 得到output artifact路径后，Paddleflow会自动创建该路径的父目录。
 
@@ -171,6 +171,7 @@ artifact包括input artifact，output artifact两种类型：
 
 举个例子，使用[1 pipeline定义]，发起一个Pipeline任务。则Paddleflow为output artifact生成的路径可能({{PF_RUN_ID}}的值会有出入)如下：
 
+> {{PF_RUN_ID}}的值可能会有出入
 ```
 .pipeline/
 └── run-000078                                              # {{PF_RUN_ID}}
@@ -237,8 +238,7 @@ artifact包括input artifact，output artifact两种类型：
 [2.1.1 artifact vs parameter]: /docs/zh_cn/reference/pipeline/yaml_definition/2_artifact.md#211-artifact-vs-parameter
 [2.4 artifact 使用方式]: /docs/zh_cn/reference/pipeline/yaml_definition/2_artifact.md#24-artifact-%E4%BD%BF%E7%94%A8%E6%96%B9%E5%BC%8F
 [3.1 artifact存储机制]: /docs/zh_cn/reference/pipeline/yaml_definition/2_artifact.md#31-artifact%E5%AD%98%E5%82%A8%E6%9C%BA%E5%88%B6
-[3_multiple_fs.md]: TODO
-[main_fs]: TODO
-[artifact_path]: TODO
-[loop]:TODO
-[祖先节点]:TODO
+[3_multiple_fs.md]: /docs/zh_cn/reference/pipeline/yaml_definition/3_multiple_fs.md
+[main_fs]: /docs/zh_cn/reference/pipeline/yaml_definition/3_multiple_fs.md#221-main_fs
+[loop_argument]:/docs/zh_cn/reference/pipeline/yaml_definition/9_loop.md
+[祖先节点]: /docs/zh_cn/reference/pipeline/yaml_definition/7_dag.md
