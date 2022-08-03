@@ -261,7 +261,7 @@ func (m *MountPointController) CheckAndRemountVolumeMount(volumeMount volumeMoun
 		return err
 	}
 
-	if checkIfNeedRemount(mountInfo.SourcePath) {
+	if checkIfNeedRemount(mountPath) {
 		if err := remount(volumeMount, mountInfo); err != nil {
 			err := fmt.Errorf("remount info: %+v failed: %v", mountInfo, err)
 			log.Errorf(err.Error())
