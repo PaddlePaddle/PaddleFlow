@@ -19,13 +19,6 @@ spec:
         - /bin/sh
         - -c
         - sleep 24h
-      securityContext:
-        capabilities:
-          add:
-            - SYS_ADMIN
-        privileged: true
-        runAsGroup: 0
-        runAsUser: 0
       volumeMounts:
         - mountPath: "/home/paddleflow/mnt"
           name: task-pv-storage
