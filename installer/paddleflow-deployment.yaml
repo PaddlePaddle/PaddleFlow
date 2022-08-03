@@ -585,10 +585,10 @@ spec:
               protocol: TCP
           resources:
             requests:
-              memory: "1g"
+              memory: "1G"
               cpu: "500m"
             limits:
-              memory: "2g"
+              memory: "2G"
               cpu: "2000m"
           securityContext:
             privileged: false
