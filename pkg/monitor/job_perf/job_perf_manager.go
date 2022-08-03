@@ -162,6 +162,6 @@ func getTimePointsByStatus(status JobStatus) (start, end JobTimePoint) {
 	if status == StatusUnknown {
 		return MinTimePoint, MinTimePoint
 	}
-	start, end = JobTimePoint(status-1), JobTimePoint(status-1)
+	start, end = JobTimePoint(status-1), JobTimePoint(status)
 	return
 }

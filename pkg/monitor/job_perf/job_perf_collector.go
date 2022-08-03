@@ -91,7 +91,7 @@ func (j *JobPerfCollector) updateJobPerf() {
 				JobIDLabel:     jobID,
 				JobStatusLabel: status.String(),
 			}).Set(float64(statusTime.Milliseconds()))
-			log.Debugf("[job perf] job %s, statusTime: %d", jobID, statusTime.Milliseconds())
+			log.Debugf("[job perf] job %s, status %s, time: %d", jobID, status, statusTime.Milliseconds())
 		}
 
 	}
