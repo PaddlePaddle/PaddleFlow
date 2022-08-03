@@ -111,4 +111,4 @@ post_process:
 - post_process中的节点，不能与entry_points中节点名相同
 
 [failure_options_and_post_process_example]: /example/pipeline/failure_options_and_post_process_example
-[2 pipeline定义]: /docs/zh_cn/reference/pipeline/yaml_definition/4_failure_options_and_post_process.md#2-pipeline%E5%AE%9A%E4%B9%89
+[2 pipeline定义]: /docs/zh_cn/reference/pipeline/yaml_definition/6_failure_options_and_post_process.md#2-pipeline%E5%AE%9A%E4%B9%89
