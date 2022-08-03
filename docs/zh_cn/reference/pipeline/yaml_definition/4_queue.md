@@ -4,7 +4,6 @@
 
 本文便讲解如何在pipeline中配置节点的队列与套餐信息
 
-> 关于队列和套餐的更多信息，可以查看[队列与套餐]
 
 # 1 pipeline定义
 
@@ -56,7 +55,7 @@ docker_env: nginx:1.7.9
 parallelism: 1
 ```
 
-> 注意：用户在使用该pipeline创建run前，请先创建对应的队列和套餐，具体可以查看[队列与套餐]
+> 注意：用户在使用该pipeline创建run前，请先创建对应的**队列和套餐**, 详情可以参考[命令行手册]或者[SDK手册]
 
 # 2 详解
 在Paddleflow pipeline中，指定节点运行时的队列和套餐的方式非常简单，只需在节点中添加相应的环境变量即可。
@@ -69,6 +68,7 @@ parallelism: 1
 |PF_JOB_TYPE|节点的任务类型，当前只支持 `single` 类型 |
 
 
-[queue_example]: TODO
-[base pipeline]: TODO
-[队列与套餐]:TODO
+[queue_example]: /example/pipeline/queue_example
+[base pipeline]: /docs/zh_cn/reference/pipeline/yaml_definition/1_pipeline_basic.md
+[命令行手册]: /docs/zh_cn/reference/client_command_reference.md
+[SDK手册]: /docs/zh_cn/reference/sdk_reference/sdk_reference.md
