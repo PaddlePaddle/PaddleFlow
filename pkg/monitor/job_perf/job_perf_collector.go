@@ -54,7 +54,7 @@ func newJobPerfCollector() *JobPerfCollector {
 				Name: MetricJobTime,
 				Help: toJobHelp(MetricJobTime),
 			},
-			[]string{JobIDLabel, JobStatusLabel, JobQueueIdLabel},
+			[]string{JobIDLabel, JobStatusLabel, JobQueueIdLabel, JobFinishedStatusLabel},
 		),
 	}
 }
@@ -87,13 +87,13 @@ func (j *JobPerfCollector) updateJobPerf() {
 	for jobID, timePoints := range timePointsCache {
 		// add new metric
 		info, _ := Manager.GetJobInfo(jobID)
-		queueID := info.QueueID
 		for status := MinStatus; status <= MaxStatus; status++ {
 			statusTime, _ := timePoints.GetStatusTime(status)
 			j.JobTime.With(prometheus.Labels{
-				JobIDLabel:      jobID,
-				JobStatusLabel:  status.String(),
-				JobQueueIdLabel: queueID,
+				JobIDLabel:             jobID,
+				JobStatusLabel:         status.String(),
+				JobQueueIdLabel:        info.QueueID,
+				JobFinishedStatusLabel: info.FinishedStatus,
 			}).Set(float64(statusTime.Microseconds()))
 			log.Debugf("[job perf] job %s, status %s, time: %d", jobID, status, statusTime.Microseconds())
 		}
