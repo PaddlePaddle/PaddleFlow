@@ -37,7 +37,7 @@ PaddleFlow的部署主要分为客户端和服务端，其中客户端主要用�
 点击[sdk使用说明](docs/zh_cn/reference/sdk_reference/sdk_reference.md) 获取sdk的使用说明。
 ## 其他详细参考
 工作流功能使用详解[工作流](docs/zh_cn/reference/pipeline/overview.md) <br>
-存储功能实用详解[存储](docs/zh_cn/reference/filesystem_reference.md) <br>
+存储功能实用详解[存储](docs/zh_cn/reference/filesystem/filesystem_overview.md) <br>
 作业功能实用详解[作业](docs/zh_cn/reference/job_reference.md)
 # 开源协议
 使用 apache license 2.0开源，详见 LICENSE。
