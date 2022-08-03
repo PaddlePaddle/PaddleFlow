@@ -430,7 +430,7 @@ class Client(object):
                                      param, username, runyamlpath, runyamlraw, pipelineid, pipelineversionid, self.header, disabled,
                                      dockerenv)
 
-    def list_run(self, fsname=None, username=None, runid=None, runname=None, maxsize=100, marker=None):
+    def list_run(self, fsname=None, username=None, runid=None, runname=None, status=None, maxsize=100, marker=None):
         """
         list run
         """
@@ -442,7 +442,7 @@ class Client(object):
         if runid and runid.strip() == "":
             raise PaddleFlowSDKException("InvalidRunID", "runid should not be none or empty")
         return RunServiceApi.list_run(self.paddleflow_server, fsname,
-                                      username, runid, runname, self.header, maxsize, marker)
+                                      username, runid, runname, status, self.header, maxsize, marker)
 
     def status_run(self, runid):
         """

@@ -180,7 +180,11 @@ func (rr *RunRouter) listRun(w http.ResponseWriter, r *http.Request) {
 
 	userNames, fsNames := r.URL.Query().Get(util.QueryKeyUserFilter), r.URL.Query().Get(util.QueryKeyFsFilter)
 	runIDs, names := r.URL.Query().Get(util.QueryKeyRunFilter), r.URL.Query().Get(util.QueryKeyNameFilter)
+	status := r.URL.Query().Get(util.QueryKeyStatusFilter)
+
 	userFilter, fsFilter, runFilter, nameFilter := make([]string, 0), make([]string, 0), make([]string, 0), make([]string, 0)
+	statusFilter := make([]string, 0)
+
 	if userNames != "" {
 		userFilter = strings.Split(userNames, common.SeparatorComma)
 	}
@@ -193,10 +197,13 @@ func (rr *RunRouter) listRun(w http.ResponseWriter, r *http.Request) {
 	if names != "" {
 		nameFilter = strings.Split(names, common.SeparatorComma)
 	}
+	if status != "" {
+		statusFilter = strings.Split(status, common.SeparatorComma)
+	}
 	logger.LoggerForRequest(&ctx).Debugf(
 		"user[%s] ListRun marker:[%s] maxKeys:[%d] userFilter:%v fsFilter:%v runFilter:%v nameFilter:%v",
 		ctx.UserName, marker, maxKeys, userFilter, fsFilter, runFilter, nameFilter)
-	listRunResponse, err := pipeline.ListRun(&ctx, marker, maxKeys, userFilter, fsFilter, runFilter, nameFilter, nil, nil)
+	listRunResponse, err := pipeline.ListRun(&ctx, marker, maxKeys, userFilter, fsFilter, runFilter, nameFilter, statusFilter, nil)
 	if err != nil {
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return

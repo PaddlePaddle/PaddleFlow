@@ -76,7 +76,7 @@ class RunServiceApi(object):
         return True, data['runID']
 
     @classmethod
-    def list_run(self, host, fsname=None, username=None, runid=None, runname=None,
+    def list_run(self, host, fsname=None, username=None, runid=None, runname=None, status=None,
                  header=None, maxsize=100, marker=None):
         """list run
         """
@@ -95,6 +95,8 @@ class RunServiceApi(object):
             params['runFilter'] = runid
         if runname:
             params['nameFilter']=runname
+        if status:
+            params['statusFilter']=status
         if marker:
             params['marker'] = marker
         response = api_client.call_api(method="GET", url=parse.urljoin(host, api.PADDLE_FLOW_RUN),
@@ -108,7 +110,7 @@ class RunServiceApi(object):
         if len(data['runList']):
             for run in data['runList']:
                 runInfo = RunInfo(run['runID'], run['fsName'], run['username'], run['status'], run['name'],
-                                  run['description'], None, None, None, None, None, None, run['updateTime'],
+                                  run['description'], None, None, None, None, None, run['updateTime'],
                                   run['source'], run['runMsg'], run['scheduleID'], run['scheduledTime'],
                                   run['createTime'], run['activateTime'])
                 runList.append(runInfo)
