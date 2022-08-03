@@ -90,7 +90,7 @@ func init() {
 }
 
 func (t JobTimePoint) ToStatus() JobStatus {
-	if t == MaxTimePoint {
+	if t == MaxTimePoint || t < MinTimePoint {
 		return StatusUnknown
 	}
 	return MinStatus + JobStatus(t)

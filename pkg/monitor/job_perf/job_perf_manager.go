@@ -86,8 +86,6 @@ func (d *defaultJobPerfManager) AddTimestamp(jobID string, timePoint JobTimePoin
 	// TODO: support T5
 	if timePoint == T5 {
 		d.AddTimestamp(jobID, T6, timestamp)
-	} else if timePoint == T6 {
-		panic("T6 should not be set")
 	}
 }
 

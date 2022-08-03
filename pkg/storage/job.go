@@ -19,9 +19,10 @@ package storage
 import (
 	"encoding/json"
 	"fmt"
+	"time"
+
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
-	"time"
 
 	log "github.com/sirupsen/logrus"
 
@@ -30,6 +31,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/monitor/job_perf"
 )
 
 type JobStore struct {
@@ -45,7 +47,11 @@ func (js *JobStore) CreateJob(job *model.Job) error {
 	if job.ID == "" {
 		job.ID = uuid.GenerateIDWithLength(schema.JobPrefix, uuid.JobIDLength)
 	}
-	return js.db.Create(job).Error
+	err := js.db.Create(job).Error
+	if err == nil {
+		job_perf.AddTimestamp(job.ID, job_perf.T2, time.Now())
+	}
+	return err
 }
 
 func (js *JobStore) GetJobByID(jobID string) (model.Job, error) {

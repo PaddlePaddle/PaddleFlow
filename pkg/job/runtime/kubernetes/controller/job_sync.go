@@ -35,6 +35,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime/kubernetes/executor"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/monitor/job_perf"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
@@ -254,6 +255,19 @@ func (j *JobSync) doDeleteAction(jobSyncInfo *JobSyncInfo) error {
 func (j *JobSync) doUpdateAction(jobSyncInfo *JobSyncInfo) error {
 	log.Infof("do update action. jobID:[%s] action:[%s] status:[%s] message:[%s]",
 		jobSyncInfo.ID, jobSyncInfo.Action, jobSyncInfo.Status, jobSyncInfo.Message)
+
+	// add time point
+	switch jobSyncInfo.Status {
+	case commonschema.StatusJobPending:
+		job_perf.AddTimestamp(jobSyncInfo.ID, job_perf.T7, time.Now())
+	case commonschema.StatusJobRunning:
+		job_perf.AddTimestamp(jobSyncInfo.ID, job_perf.T7, time.Now())
+	case commonschema.StatusJobSucceeded,
+		commonschema.StatusJobFailed,
+		commonschema.StatusJobCancelled,
+		commonschema.StatusJobSkipped:
+		job_perf.AddTimestamp(jobSyncInfo.ID, job_perf.T8, time.Now())
+	}
 
 	if _, err := storage.Job.UpdateJob(jobSyncInfo.ID, jobSyncInfo.Status, jobSyncInfo.RuntimeInfo, jobSyncInfo.RuntimeStatus, jobSyncInfo.Message); err != nil {
 		log.Errorf("update job failed. jobID:[%s] err:[%s]", jobSyncInfo.ID, err.Error())
