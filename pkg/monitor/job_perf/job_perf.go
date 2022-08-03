@@ -58,7 +58,7 @@ const (
 	StatusDequeue
 	StatusSubmitting
 	StatusPending
-	StatusScheduling
+	StatusCreating
 	StatusRunning
 )
 
@@ -79,7 +79,7 @@ const (
 const (
 	JobIDLabel      = "jobID"
 	JobStatusLabel  = "status"
-	JobQueueIdLabel = "queueID"
+	JobQueueIdLabel = "QueueID"
 )
 
 var (
@@ -112,8 +112,8 @@ func (j JobStatus) String() string {
 		str = "Submitting"
 	case StatusRunning:
 		str = "Running"
-	case StatusScheduling:
-		str = "Scheduling"
+	case StatusCreating:
+		str = "Creating"
 	default:
 		j = StatusUnknown
 		str = "Unknown"
@@ -122,8 +122,8 @@ func (j JobStatus) String() string {
 	return str
 }
 
-func AddTimestamp(jobID string, timePoint JobTimePoint, timestamp time.Time) {
-	Manager.AddTimestamp(jobID, timePoint, timestamp)
+func AddTimestamp(jobID string, timePoint JobTimePoint, timestamp time.Time, jobInfos ...JobInfo) {
+	Manager.AddTimestamp(jobID, timePoint, timestamp, jobInfos...)
 }
 func GetStatusTime(jobID string, status JobStatus) (time.Duration, bool) {
 	return Manager.GetStatusTime(jobID, status)

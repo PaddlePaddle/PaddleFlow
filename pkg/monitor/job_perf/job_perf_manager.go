@@ -42,16 +42,22 @@ var (
 	ZeroTime = time.Time{}
 )
 
+type JobInfo struct {
+	QueueID string
+}
+
 type JobPerfManager interface {
-	AddTimestamp(jobID string, timePoint JobTimePoint, timestamp time.Time)
+	AddTimestamp(jobID string, timePoint JobTimePoint, timestamp time.Time, queueNames ...JobInfo)
 	GetStatusTime(jobID string, status JobStatus) (time.Duration, bool)
 	GetTimestamp(jobID string, timePoint JobTimePoint) (time.Time, bool)
 	GetTimestampsCache() map[string]Timestamps
 	GetStatusCount(status JobStatus) int64
+	GetJobInfo(jobID string) (JobInfo, bool)
 }
 
 type defaultJobPerfManager struct {
 	cache       gcache.Cache
+	infoCache   *sync.Map
 	statusCache *sync.Map
 }
 
@@ -61,17 +67,19 @@ type Timestamps []time.Time
 func newDefaultJobPerfManager() JobPerfManager {
 	// TODO: use higher performance cache
 	// use arc cache (default)
-	c := gcache.New(MaxNum).ARC().Build()
 	c2 := sync.Map{}
-	return &defaultJobPerfManager{
-		cache:       c,
+	c3 := sync.Map{}
+	d := &defaultJobPerfManager{
 		statusCache: &c2,
+		infoCache:   &c3,
 	}
+	c := gcache.New(MaxNum).ARC().Build()
+	d.cache = c
+	return d
 }
 
 // AddTimestamp TODO: value may not consist in concurrent env
-func (d *defaultJobPerfManager) AddTimestamp(jobID string, timePoint JobTimePoint, timestamp time.Time) {
-
+func (d *defaultJobPerfManager) AddTimestamp(jobID string, timePoint JobTimePoint, timestamp time.Time, queueInfos ...JobInfo) {
 	val, err := d.cache.GetIFPresent(jobID)
 	if err != nil {
 		val = make(Timestamps, MaxTimePoint+1)
@@ -84,7 +92,9 @@ func (d *defaultJobPerfManager) AddTimestamp(jobID string, timePoint JobTimePoin
 	timePoints[timePoint] = timestamp
 	_ = d.cache.SetWithExpire(jobID, timePoints, Timeout)
 	d.increaseStatusCount(timePoint.ToStatus())
-
+	if len(queueInfos) > 0 {
+		d.addJobInfo(jobID, queueInfos[0])
+	}
 	// TODO: support T5
 	if timePoint == T5 {
 		d.AddTimestamp(jobID, T6, timestamp)
@@ -132,6 +142,26 @@ func (d *defaultJobPerfManager) increaseStatusCount(status JobStatus) {
 	val, _ := d.statusCache.LoadOrStore(status, int64(0))
 	count := val.(int64)
 	d.statusCache.Store(status, count+1)
+}
+
+func (d *defaultJobPerfManager) addJobInfo(jobID string, jobInfo JobInfo) {
+	_, ok := d.infoCache.Load(jobID)
+	if ok {
+		return
+	}
+	d.infoCache.Store(jobID, jobInfo)
+}
+
+func (d *defaultJobPerfManager) GetJobInfo(jobID string) (JobInfo, bool) {
+	val, ok := d.infoCache.Load(jobID)
+	if !ok {
+		return JobInfo{}, false
+	}
+	return val.(JobInfo), true
+}
+
+func (d *defaultJobPerfManager) removeJobInfo(jobID string) {
+	d.infoCache.Delete(jobID)
 }
 
 func (t Timestamps) GetStatusTime(status JobStatus) (time.Duration, bool) {
