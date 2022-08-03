@@ -29,10 +29,15 @@ You need to make preparations before using PaddleFlow:
 - Prepare kubernetes environment</br>
 - Download and install the PaddleFlow client</br>
 Please refer to the quick start guide and start using PaddleFlow now
-## 1.Command inference
+## Command reference
 see [client command inference](docs/zh_cn/reference/client_command_reference.md) get all commands and examples.
-## 2.python sdk inference
+## Python sdk reference
 see [sdk inference](docs/zh_cn/reference/sdk_reference.md) get the sdk user manual.
+## Other detailed reference
+[Pipeline](docs/zh_cn/reference/pipeline/overview.md) <br>
+[Job](docs/zh_cn/reference/job_reference.md) <br>
+[Filesystem](docs/zh_cn/reference/filesystem/filesystem_overview.md) <br>
+[fs_mountpoint_recovery](docs/zh_cn/reference/filesystem/csi_mountpoint_recovery.md) <br>
 # Open source protocol
 PaddleFlow is open-sourced under apache license v2.0, see [LICENSE](LICENSE).
 # PaddlePaddle supports
