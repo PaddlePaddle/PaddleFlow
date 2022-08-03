@@ -59,6 +59,23 @@ pfs-NODENAME-pfs-fs-root-mounttest-default-pv   1/1     Running   1          2m2
 
 ```shell
 $ kubectl exec -it pod-mount-test sh
-/home/paddleflow # ls mnt
-image.tar            run.yaml        nofs.yaml            paddleflow.db        runDag.yaml          server.log
+/home/paddleflow # df
+Filesystem           1K-blocks      Used Available Use% Mounted on
+overlay              5582257000 853301480 4728939136  15% /
+tmpfs                    65536         0     65536   0% /dev
+tmpfs                 65837728         0  65837728   0% /sys/fs/cgroup
+/dev/sda3            5582257000 853301480 4728939136  15% /dev/termination-log
+/dev/sda3            5582257000 853301480 4728939136  15% /etc/resolv.conf
+/dev/sda3            5582257000 853301480 4728939136  15% /etc/hostname
+/dev/sda3            5582257000 853301480 4728939136  15% /etc/hosts
+shm                      65536         0     65536   0% /dev/shm
+PaddleFlowFS         5582257000 853317864 4728939136  15% /home/paddleflow/mnt
+tmpfs                 65837728        12  65837716   0% /run/secrets/kubernetes.io/serviceaccount
+tmpfs                 65837728         0  65837728   0% /proc/acpi
+tmpfs                    65536         0     65536   0% /proc/kcore
+tmpfs                    65536         0     65536   0% /proc/keys
+tmpfs                    65536         0     65536   0% /proc/timer_list
+tmpfs                    65536         0     65536   0% /proc/sched_debug
+tmpfs                 65837728         0  65837728   0% /proc/scsi
+tmpfs                 65837728         0  65837728   0% /sys/firmware
 ```
