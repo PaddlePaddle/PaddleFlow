@@ -81,7 +81,6 @@ func TestKubeRuntimePVAndPVC(t *testing.T) {
 }
 
 func TestInfo_MountCmdArgs(t *testing.T) {
-	targetPath := "/targetPath/test"
 
 	fs := model.FileSystem{
 		Model: model.Model{
@@ -158,7 +157,8 @@ func TestInfo_MountCmdArgs(t *testing.T) {
 	fsStr2, err := json.Marshal(fsInde)
 	assert.Nil(t, err)
 	fsBase64Inde := base64.StdEncoding.EncodeToString(fsStr2)
-
+	targetPath := "/data/lib/kubelet/pods/1d8f8b01-59b0-4e3f-822d-cc3cff54fd4e/volumes/kubernetes.io~csi/pfs-fs-root-indep-default-pv/mount"
+	sourcePath := "/data/lib/kubelet/pods/1d8f8b01-59b0-4e3f-822d-cc3cff54fd4e/volumes/kubernetes.io~csi/pfs-fs-root-indep-default-pv/source"
 	type fields struct {
 		CacheConfig model.FSCacheConfig
 		FS          model.FileSystem
@@ -175,7 +175,7 @@ func TestInfo_MountCmdArgs(t *testing.T) {
 			fields: fields{
 				FS:          fs,
 				CacheConfig: fsCache,
-				TargetPath:  "/targetPath/test",
+				TargetPath:  targetPath,
 			},
 			want: "/home/paddleflow/pfs-fuse mount --mount-point=/home/paddleflow/mnt/storage " + "--fs-id=fs-root-testfs --fs-info=" +
 				fsBase64 + " --block-size=4096 --meta-cache-driver=leveldb --file-mode=0644 --dir-mode=0755 " +
@@ -187,12 +187,12 @@ func TestInfo_MountCmdArgs(t *testing.T) {
 			fields: fields{
 				FS:          fsInde,
 				CacheConfig: fsCache,
-				TargetPath:  "/targetPath/test",
+				TargetPath:  targetPath,
 			},
 			want: "/home/paddleflow/mount.sh --fs-id=fs-root-testfs --fs-info=" + fsBase64Inde +
 				" --block-size=4096 " +
 				"--meta-cache-driver=leveldb " +
-				"--file-mode=0644 --dir-mode=0755 --data-cache-path=/data/paddleflow-FS/mnt/data-cache --meta-cache-path=/data/paddleflow-FS/mnt/meta-cache --mount-point=/targetPath/test",
+				"--file-mode=0644 --dir-mode=0755 --data-cache-path=/data/paddleflow-FS/mnt/data-cache --meta-cache-path=/data/paddleflow-FS/mnt/meta-cache --mount-point=" + sourcePath,
 		},
 		{
 			name: "test-glusterfs",
@@ -201,14 +201,14 @@ func TestInfo_MountCmdArgs(t *testing.T) {
 				CacheConfig: fsCache,
 				TargetPath:  targetPath,
 			},
-			want: "mount -t glusterfs 127.0.0.1:default-volume /targetPath/test",
+			want: "mount -t glusterfs 127.0.0.1:default-volume " + sourcePath,
 		},
 		{
 			name: "test-pfs-fuse-no-cache",
 			fields: fields{
 				FS:          fs,
 				CacheConfig: model.FSCacheConfig{},
-				TargetPath:  "/target/testPath",
+				TargetPath:  targetPath,
 			},
 			want: "/home/paddleflow/pfs-fuse mount --mount-point=/home/paddleflow/mnt/storage " +
 				"--fs-id=fs-root-testfs --fs-info=" + fsBase64 + " --file-mode=0644 --dir-mode=0755",
@@ -218,7 +218,7 @@ func TestInfo_MountCmdArgs(t *testing.T) {
 			fields: fields{
 				FS:          fs,
 				CacheConfig: fsCache,
-				TargetPath:  "/target/testPath",
+				TargetPath:  targetPath,
 				ReadOnly:    true,
 			},
 			want: "/home/paddleflow/pfs-fuse mount --mount-point=/home/paddleflow/mnt/storage " +

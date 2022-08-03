@@ -27,7 +27,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"gopkg.in/natefinch/lumberjack.v2"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 // initFileLogger
@@ -290,7 +290,7 @@ func GetTracesByRunIDAndJobID(runID, jobID string) ([]Trace, bool) {
 // GetJobTracesByRunID for run and job relation mapping
 func GetJobTracesByRunID(runID string) ([]Trace, bool) {
 	var jobTraces []Trace
-	jobs, err := models.GetJobsByRunID(runID, "")
+	jobs, err := storage.Job.GetJobsByRunID(runID, "")
 	if err != nil {
 		logger.Errorf("failed to get jobs by runID: %s, err: %s", runID, err.Error())
 	}

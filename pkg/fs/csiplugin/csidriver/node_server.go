@@ -135,16 +135,27 @@ func mountVolume(volumeID string, mountInfo mount.Info) error {
 			log.Errorf("MountThroughPod err: %v", err)
 			return err
 		}
-		if err := bindMountVolume(schema.GetBindSource(mountInfo.FS.ID), mountInfo.TargetPath, mountInfo.ReadOnly); err != nil {
-			log.Errorf("mountVolume[%s] of fs[%s] failed when bindMountVolume, err: %v", volumeID, mountInfo.FS.ID, err)
+	} else {
+		// mount source path
+		if err := os.MkdirAll(mountInfo.SourcePath, 0750); err != nil {
+			err := fmt.Errorf("process mount [%s] failed when makedir of source path %s, err: %v",
+				mountInfo.FS.ID, mountInfo.SourcePath, err)
+			log.Error(err.Error())
 			return err
 		}
-	} else {
+		log.Infof("mount with cmd %s and args %v", mountInfo.Cmd, mountInfo.Args)
 		output, err := utils.ExecCmdWithTimeout(mountInfo.Cmd, mountInfo.Args)
 		if err != nil {
 			log.Errorf("exec mount failed: [%v], output[%v]", err, string(output))
 			return err
 		}
+	}
+	// bind to target path
+	if err := bindMountVolume(mountInfo.SourcePath, mountInfo.TargetPath, mountInfo.ReadOnly); err != nil {
+		err := fmt.Errorf("bindMountVolume[%s] of fs[%s] failed when bind from %s to %s, err: %v",
+			volumeID, mountInfo.FS.ID, mountInfo.SourcePath, mountInfo.TargetPath, err)
+		log.Error(err.Error())
+		return err
 	}
 	return nil
 }

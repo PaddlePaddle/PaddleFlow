@@ -22,9 +22,9 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
 
 type PFJobInterface interface {
@@ -58,7 +58,7 @@ type PFJob struct {
 	// storage resource for job
 	FSID string
 	// Tasks for TypeDistributed job
-	Tasks []models.Member
+	Tasks []model.Member
 	// ExtRuntimeConf define extra runtime conf
 	ExtRuntimeConf []byte
 	// ExtensionTemplate records the extension template of job
@@ -80,7 +80,7 @@ type PFJob struct {
 	EndTIme     time.Time
 }
 
-func NewJobInfo(job *models.Job) (*PFJob, error) {
+func NewJobInfo(job *model.Job) (*PFJob, error) {
 	if job == nil {
 		return nil, fmt.Errorf("job is nil")
 	}

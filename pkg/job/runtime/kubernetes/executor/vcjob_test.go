@@ -22,14 +22,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	vcjob "volcano.sh/apis/pkg/apis/batch/v1alpha1"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
 
 var (
-	psTasks = []models.Member{
+	psTasks = []model.Member{
 		{
 			ID:       "task-normal-0001",
 			Replicas: 3,
@@ -55,7 +55,7 @@ var (
 			},
 		},
 	}
-	collectiveTask = []models.Member{
+	collectiveTask = []model.Member{
 		{
 			ID:       "task-normal-0001",
 			Replicas: 3,
@@ -162,7 +162,7 @@ func TestPatchVCJobVariable(t *testing.T) {
 			PVCName:          "PVCName",
 			Priority:         pfjob.Conf.GetPriority(),
 			QueueName:        pfjob.Conf.GetQueueName(),
-			Tasks: []models.Member{{Conf: schema.Conf{Flavour: schema.Flavour{
+			Tasks: []model.Member{{Conf: schema.Conf{Flavour: schema.Flavour{
 				ResourceInfo: schema.ResourceInfo{
 					CPU: "1",
 					Mem: "1Gi",
