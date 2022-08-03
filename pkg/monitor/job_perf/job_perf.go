@@ -56,8 +56,8 @@ const (
 	StatusDBInserting
 	StatusEnqueue
 	StatusDequeue
-	StatusPending
 	StatusSubmitting
+	StatusPending
 	StatusScheduling
 	StatusRunning
 )

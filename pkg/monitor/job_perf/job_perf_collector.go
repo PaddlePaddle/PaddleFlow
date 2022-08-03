@@ -65,10 +65,16 @@ func (j *JobPerfCollector) Describe(descs chan<- *prometheus.Desc) {
 
 func (j *JobPerfCollector) Collect(metrics chan<- prometheus.Metric) {
 	cache := GetTimestampsCache()
-	log.Debugf("job perf cache: %+v", cache)
+	printCache(cache)
 	j.updateJobPerf()
 	j.JobCount.Collect(metrics)
 	j.JobTime.Collect(metrics)
+}
+
+func printCache(cache map[string]Timestamps) {
+	for k, v := range cache {
+		log.Debugf("[job perf] cache key: %s, value: %s", k, v)
+	}
 }
 
 func (j *JobPerfCollector) incrJobTime() {
@@ -85,7 +91,9 @@ func (j *JobPerfCollector) updateJobPerf() {
 				JobIDLabel:     jobID,
 				JobStatusLabel: status.String(),
 			}).Set(float64(statusTime.Milliseconds()))
+			log.Debugf("[job perf] job %s, statusTime: %d", jobID, statusTime.Milliseconds())
 		}
+
 	}
 }
 

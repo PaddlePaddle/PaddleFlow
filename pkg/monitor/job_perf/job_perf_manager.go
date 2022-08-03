@@ -23,6 +23,8 @@ limitations under the License.
 package job_perf
 
 import (
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -132,8 +134,8 @@ func (d *defaultJobPerfManager) increaseStatusCount(status JobStatus) {
 	d.statusCache.Store(status, count+1)
 }
 
-func (i Timestamps) GetStatusTime(status JobStatus) (time.Duration, bool) {
-	timePoints := i
+func (t Timestamps) GetStatusTime(status JobStatus) (time.Duration, bool) {
+	timePoints := t
 
 	start, end := getTimePointsByStatus(status)
 	startT, endT := timePoints[start], timePoints[end]
@@ -146,6 +148,14 @@ func (i Timestamps) GetStatusTime(status JobStatus) (time.Duration, bool) {
 		return time.Now().Sub(startT), true
 	}
 	return endT.Sub(startT), true
+}
+
+func (t Timestamps) String() string {
+	strs := make([]string, 0, len(t))
+	for _, x := range t {
+		strs = append(strs, strconv.Itoa(int(x.UnixMilli())))
+	}
+	return strings.Join(strs, " ")
 }
 
 func getTimePointsByStatus(status JobStatus) (start, end JobTimePoint) {
