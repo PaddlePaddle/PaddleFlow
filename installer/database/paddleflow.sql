@@ -67,6 +67,7 @@ CREATE TABLE IF NOT EXISTS `job` (
     `type` varchar(20) NOT NULL,
     `config` mediumtext NOT NULL,
     `runtime_info` mediumtext DEFAULT NULL,
+    `runtime_status` mediumtext DEFAULT NULL,
     `status` varchar(32) NOT NULL,
     `message` text DEFAULT NULL,
     `resource` text DEFAULT NULL,
@@ -161,6 +162,7 @@ CREATE TABLE IF NOT EXISTS `run` (
     `schedule_id` varchar(60) NOT NULL,
     `message` text NOT NULL,
     `status` varchar(32) DEFAULT NULL,
+    `run_options_json` text NOT NULL,
     `run_cached_ids` text NOT NULL,
     `scheduled_at` datetime(3) DEFAULT NULL,
     `created_at` datetime(3) DEFAULT NULL,
@@ -168,8 +170,8 @@ CREATE TABLE IF NOT EXISTS `run` (
     `updated_at` datetime(3) DEFAULT NULL,
     `deleted_at` datetime(3) DEFAULT NULL,
     PRIMARY KEY (`pk`),
-    UNIQUE KEY (`id`),
-    INDEX (`fs_id`),
+    INDEX (`id`),
+    INDEX (`fs_name`),
     INDEX (`status`)
 ) ENGINE=InnoDB DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
 
@@ -191,7 +193,7 @@ CREATE TABLE IF NOT EXISTS `run_job` (
     `cache_json` text,
     `cache_run_id` varchar(60),
     `cache_job_id` varchar(60),
-    `fs_mount_json` text,
+    `extra_fs_json` text,
     `created_at` datetime(3) DEFAULT NULL,
     `activated_at` datetime(3) DEFAULT NULL,
     `updated_at` datetime(3) DEFAULT NULL,
@@ -241,7 +243,7 @@ CREATE TABLE IF NOT EXISTS `image` (
 
 CREATE TABLE IF NOT EXISTS `pipeline` (
     `pk` bigint(20) NOT NULL AUTO_INCREMENT,
-    `id` varchar(60) NOT NULL UNIQUE,
+    `id` varchar(60) NOT NULL,
     `name` varchar(60) NOT NULL,
     `desc` varchar(256) NOT NULL,
     `user_name` varchar(60) NOT NULL,
@@ -249,11 +251,11 @@ CREATE TABLE IF NOT EXISTS `pipeline` (
     `updated_at` datetime(3) DEFAULT NULL,
     `deleted_at` datetime(3) DEFAULT NULL,
     PRIMARY KEY (`pk`),
-    UNIQUE KEY (`id`),
+    INDEX (`id`),
     INDEX idx_fs_name (`user_name`, `name`)
 ) ENGINE=InnoDB DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
 
-CREATE TABLE IF NOT EXISTS `pipeline_detail` (
+CREATE TABLE IF NOT EXISTS `pipeline_version` (
     `pk` bigint(20) NOT NULL AUTO_INCREMENT,
     `id` varchar(60) NOT NULL,
     `pipeline_id` varchar(60) NOT NULL,
@@ -267,7 +269,7 @@ CREATE TABLE IF NOT EXISTS `pipeline_detail` (
     `updated_at` datetime(3) DEFAULT NULL,
     `deleted_at` datetime(3) DEFAULT NULL,
     PRIMARY KEY (`pk`)
-    ) ENGINE=InnoDB DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
+) ENGINE=InnoDB DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
 
 CREATE TABLE IF NOT EXISTS `schedule` (
     `pk` bigint(20) NOT NULL AUTO_INCREMENT,
@@ -275,10 +277,10 @@ CREATE TABLE IF NOT EXISTS `schedule` (
     `name` varchar(60) NOT NULL,
     `desc` varchar(256) NOT NULL,
     `pipeline_id` varchar(60) NOT NULL,
-    `pipeline_detail_id` varchar(60) NOT NULL,
+    `pipeline_version_id` varchar(60) NOT NULL,
     `user_name` varchar(60) NOT NULL,
-    `fs_config` varchar(1024) NOT NULL,
     `crontab` varchar(60) NOT NULL,
+    `fs_config` varchar(1024) NOT NULL,
     `options` text,
     `message` text,
     `status` varchar(32) DEFAULT NULL,
@@ -293,7 +295,7 @@ CREATE TABLE IF NOT EXISTS `schedule` (
 
 CREATE TABLE IF NOT EXISTS `run_cache` (
     `pk` bigint(20) NOT NULL AUTO_INCREMENT,
-    `id` varchar(60) NOT NULL UNIQUE,
+    `id` varchar(60) NOT NULL,
     `job_id` varchar(60) NOT NULL,
     `first_fp` varchar(256),
     `second_fp` varchar(256),
@@ -309,7 +311,7 @@ CREATE TABLE IF NOT EXISTS `run_cache` (
     `updated_at` datetime(3) DEFAULT NULL,
     `deleted_at` datetime(3) DEFAULT NULL,
     PRIMARY KEY (`pk`),
-    UNIQUE KEY (`id`),
+    INDEX (`id`),
     INDEX (`job_id`),
     INDEX (`fs_id`),
     INDEX (`strategy`)

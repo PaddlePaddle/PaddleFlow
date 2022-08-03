@@ -31,8 +31,8 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/client"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/http/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 	location_awareness "github.com/PaddlePaddle/PaddleFlow/pkg/fs/location-awareness"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/version"
 )
 
@@ -110,7 +110,7 @@ func act(c *cli.Context) error {
 	nodName := c.String("nodename")
 	clusterID := c.String("clusterID")
 
-	userName, fsName, err := common.GetFsNameAndUserNameByFsID(fsID)
+	userName, fsName, err := utils.GetFsNameAndUserNameByFsID(fsID)
 	if err != nil {
 		return err
 	}

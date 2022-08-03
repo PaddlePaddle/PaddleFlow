@@ -23,13 +23,13 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/job"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 type Job interface {
 	Job() BaseJob
-	Update(cmd string, params map[string]string, envs map[string]string, artifacts *schema.Artifacts, FsMount []schema.FsMount)
+	Update(cmd string, params map[string]string, envs map[string]string, artifacts *schema.Artifacts)
 	Validate() error
 	Start() (string, error)
 	Stop() error
@@ -69,19 +69,23 @@ type BaseJob struct {
 type PaddleFlowJob struct {
 	BaseJob
 	Image        string
-	FsMount      []schema.FsMount
+	mainFS       *schema.FsMount
+	extraFS      []schema.FsMount
 	eventChannel chan<- WorkflowEvent
 }
 
-func NewPaddleFlowJob(name, image string, eventChannel chan<- WorkflowEvent) *PaddleFlowJob {
+func NewPaddleFlowJob(name, image string, eventChannel chan<- WorkflowEvent, mainFS *schema.FsMount, extraFS []schema.FsMount) *PaddleFlowJob {
 	return &PaddleFlowJob{
 		BaseJob:      *NewBaseJob(name),
 		Image:        image,
 		eventChannel: eventChannel,
+		mainFS:       mainFS,
+		extraFS:      extraFS,
 	}
 }
 
-func NewPaddleFlowJobWithJobView(view *schema.JobView, image string, eventChannel chan<- WorkflowEvent) *PaddleFlowJob {
+func NewPaddleFlowJobWithJobView(view *schema.JobView, image string, eventChannel chan<- WorkflowEvent,
+	mainFS *schema.FsMount, extraFS []schema.FsMount) *PaddleFlowJob {
 	pfj := PaddleFlowJob{
 		BaseJob: BaseJob{
 			ID:         view.JobID,
@@ -97,6 +101,8 @@ func NewPaddleFlowJobWithJobView(view *schema.JobView, image string, eventChanne
 
 		Image:        image,
 		eventChannel: eventChannel,
+		mainFS:       mainFS,
+		extraFS:      extraFS,
 	}
 
 	pfj.Status = common.StatusRunRunning
@@ -106,7 +112,7 @@ func NewPaddleFlowJobWithJobView(view *schema.JobView, image string, eventChanne
 
 // 发起作业接口
 func (pfj *PaddleFlowJob) Update(cmd string, params map[string]string, envs map[string]string,
-	artifacts *schema.Artifacts, fsMount []schema.FsMount) {
+	artifacts *schema.Artifacts) {
 	if cmd != "" {
 		pfj.Command = cmd
 	}
@@ -122,22 +128,30 @@ func (pfj *PaddleFlowJob) Update(cmd string, params map[string]string, envs map[
 	if artifacts != nil {
 		pfj.Artifacts = *artifacts
 	}
-
-	if len(fsMount) != 0 {
-		pfj.FsMount = fsMount
-	}
 }
 
 // 生成job 的conf 信息
 func (pfj *PaddleFlowJob) generateJobConf() schema.Conf {
+	fs := schema.FileSystem{}
+
+	if pfj.mainFS != nil {
+		fs = schema.FileSystem{
+			ID:        pfj.mainFS.ID,
+			Name:      pfj.mainFS.Name,
+			SubPath:   pfj.mainFS.SubPath,
+			MountPath: pfj.mainFS.MountPath,
+			ReadOnly:  pfj.mainFS.ReadOnly,
+		}
+	}
+
 	efs := []schema.FileSystem{}
-	for _, fsMount := range pfj.FsMount {
+	for _, fsMount := range pfj.extraFS {
 		fs := schema.FileSystem{
-			ID:        fsMount.FsID,
-			Name:      fsMount.FsName,
+			ID:        fsMount.ID,
+			Name:      fsMount.Name,
 			SubPath:   fsMount.SubPath,
 			MountPath: fsMount.MountPath,
-			ReadOnly:  fsMount.Readonly,
+			ReadOnly:  fsMount.ReadOnly,
 		}
 		efs = append(efs, fs)
 	}
@@ -160,6 +174,7 @@ func (pfj *PaddleFlowJob) generateJobConf() schema.Conf {
 		ExtraFileSystem: efs,
 		QueueName:       queueName,
 		Priority:        priority,
+		FileSystem:      fs,
 	}
 
 	return conf
@@ -219,7 +234,7 @@ func (pfj *PaddleFlowJob) Check() (schema.JobStatus, error) {
 		err := errors.New(errMsg)
 		return "", err
 	}
-	status, err := models.GetJobStatusByID(pfj.ID)
+	status, err := storage.Job.GetJobStatusByID(pfj.ID)
 	if err != nil {
 		return "", err
 	}
@@ -232,7 +247,7 @@ func (pfj *PaddleFlowJob) Watch() {
 	tryCount := 0
 	for {
 		// 在连续查询job子系统出错的情况下，把错误信息返回给run，但不会停止轮询
-		jobInstance, err := models.GetJobByID(pfj.ID)
+		jobInstance, err := storage.Job.GetJobByID(pfj.ID)
 		if err != nil {
 			if tryCount < TryMax {
 				tryCount += 1
@@ -307,15 +322,6 @@ func (pfj *PaddleFlowJob) Job() BaseJob {
 
 func (pfj *PaddleFlowJob) JobID() string {
 	return pfj.ID
-}
-
-func (pfj *PaddleFlowJob) SetJobID(id string) error {
-	if pfj.ID != "" {
-		return fmt.Errorf("cannot set ID for job with id[%s]", id)
-	}
-
-	pfj.ID = id
-	return nil
 }
 
 // ----------------------------------------------------------------------------

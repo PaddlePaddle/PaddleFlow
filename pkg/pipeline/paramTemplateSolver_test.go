@@ -94,7 +94,11 @@ func mockArtInJsonFormat(artPath string) {
 func TestResolveLoopArgument(t *testing.T) {
 
 	component := mockComponentForInnerSolver()
-	is := NewInnerSolver(component, "step1", &runConfig{fsID: "xx", logger: logger.LoggerForRun("innersolver")})
+	rc := runConfig{
+		mainFS: &schema.FsMount{ID: "xx"},
+		logger: logger.LoggerForRun("innersolver"),
+	}
+	is := NewInnerSolver(component, "step1", &rc)
 
 	err := is.resolveLoopArugment()
 	assert.Nil(t, err)
@@ -133,7 +137,8 @@ func TestResolveLoopArgument(t *testing.T) {
 	mockArtInJsonFormat("./a.txt")
 
 	component.UpdateLoopArguemt("{{in1}}")
-	is = NewInnerSolver(component, "step1", &runConfig{fsID: "xx", logger: logger.LoggerForRun("innersolver")})
+
+	is = NewInnerSolver(component, "step1", &rc)
 	err = is.resolveLoopArugment()
 	assert.Nil(t, err)
 
@@ -158,7 +163,11 @@ func TestResolveCondition(t *testing.T) {
 	mockArtInJsonFormat("./a.txt")
 
 	component.UpdateCondition("b{{in1}}_{{p1}} == 10")
-	is = NewInnerSolver(component, "step1", &runConfig{fsID: "xx", logger: logger.LoggerForRun("innersolver")})
+	rc := runConfig{
+		mainFS: &schema.FsMount{ID: "xx"},
+		logger: logger.LoggerForRun("innersolver"),
+	}
+	is = NewInnerSolver(component, "step1", &rc)
 	err = is.resolveCondition()
 	assert.Nil(t, err)
 
@@ -166,7 +175,7 @@ func TestResolveCondition(t *testing.T) {
 
 	// 测试异常情况
 	component.UpdateCondition("{{in5}} == 10")
-	is = NewInnerSolver(component, "step1", &runConfig{fsID: "xx", logger: logger.LoggerForRun("innersolver")})
+	is = NewInnerSolver(component, "step1", &rc)
 	err = is.resolveCondition()
 
 	assert.NotNil(t, err)
@@ -174,23 +183,32 @@ func TestResolveCondition(t *testing.T) {
 
 func TestResolveCommand(t *testing.T) {
 	component := mockComponentForInnerSolver()
-	is := NewInnerSolver(component, "step1", &runConfig{logger: logger.LoggerForRun("NewInnerSolver")})
+	rc := runConfig{
+		logger: logger.LoggerForRun("NewInnerSolver"),
+		mainFS: &schema.FsMount{ID: "1234"},
+	}
+	is := NewInnerSolver(component, "step1", &rc)
 	is.setSysParams(map[string]string{"PF_RUN_ID": "abc"})
 
 	err := is.resolveCommand(true)
 	assert.Nil(t, err)
 
-	assert.Equal(t, component.Command, "echo 1 && cat /tmp/./b.txt >> {{out1}} && echo abc ")
+	assert.Equal(t, component.Command, "echo 1 && cat /home/paddleflow/storage/mnt/1234/./b.txt >> {{out1}} && echo abc ")
 
 	err = is.resolveCommand(false)
 	assert.Nil(t, err)
 
-	assert.Equal(t, component.Command, "echo 1 && cat /tmp/./b.txt >> /tmp/out1.txt && echo abc ")
+	assert.Equal(t, component.Command,
+		"echo 1 && cat /home/paddleflow/storage/mnt/1234/./b.txt >> /home/paddleflow/storage/mnt/1234/out1.txt && echo abc ")
 }
 
 func TestResolveEnv(t *testing.T) {
 	component := mockComponentForInnerSolver()
-	is := NewInnerSolver(component, "step1", &runConfig{logger: logger.LoggerForRun("NewInnerSolver")})
+	rc := runConfig{
+		logger: logger.LoggerForRun("NewInnerSolver"),
+		mainFS: &schema.FsMount{ID: "1234"},
+	}
+	is := NewInnerSolver(component, "step1", &rc)
 	is.setSysParams(map[string]string{"PF_RUN_ID": "abc"})
 
 	err := is.resolveEnv()
@@ -208,12 +226,15 @@ func TestResolveEnv(t *testing.T) {
 
 // 测试 dependenceResolver
 func mockRunconfigForDepRsl() *runConfig {
+	mainFS := schema.FsMount{
+		ID:   "fs-xx",
+		Name: "xx",
+	}
 	return &runConfig{
-		logger:       logger.LoggerForRun("depResolve"),
-		fsID:         "fs-xx",
-		GloablFsName: "xx",
-		userName:     "aa",
-		runID:        "run-dep",
+		logger:   logger.LoggerForRun("depResolve"),
+		mainFS:   &mainFS,
+		userName: "aa",
+		runID:    "run-dep",
 	}
 }
 

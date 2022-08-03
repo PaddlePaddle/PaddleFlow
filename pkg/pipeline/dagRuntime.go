@@ -28,6 +28,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	. "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/trace_logger"
 )
 
 type CtxAndCancel struct {
@@ -53,6 +54,9 @@ type DagRuntime struct {
 
 	// dagruntime 的全局唯一标识符
 	ID string
+
+	// 用于
+	dagViewName string
 
 	// 需要使用锁的原因： 避免在调度循环结构的时候，此时收到终止信号，出现一个协程在创建 runtime， 另一个协程在终止runtime的情况。
 	processSubComponentLock sync.Mutex
@@ -81,6 +85,8 @@ func NewDagRuntime(name, fullName string, dag *schema.WorkflowSourceDag, seq int
 		failureOptionsCtxAndCancels: make(map[string]CtxAndCancel),
 	}
 
+	drt.generateViewName()
+
 	err := drt.updateStatus(StatusRuntimeInit)
 	if err != nil {
 		// 理论上不会出现这种情况，主要是为了承接 err，对齐进行判断
@@ -96,6 +102,14 @@ func NewDagRuntime(name, fullName string, dag *schema.WorkflowSourceDag, seq int
 	return drt
 }
 
+func (drt *DagRuntime) generateViewName() {
+	if drt.loopSeq == 0 {
+		drt.dagViewName = fmt.Sprintf("dag-%s-%s", drt.runID, drt.getComponent().GetName())
+	} else {
+		drt.dagViewName = fmt.Sprintf("dag-%s-%s-%d", drt.runID, drt.getComponent().GetName(), drt.loopSeq)
+	}
+}
+
 // NewDagRuntimeWithStatus: 在创建Runtime 的同时，指定runtime的状态
 // 主要用于重启或者父节点调度子节点的失败时调用， 将相关信息通过evnet 的方式同步给其父节点， 并同步至数据库中
 func newDagRuntimeWithStatus(name, fullName string, dag *schema.WorkflowSourceDag, seq int, ctx context.Context, failureOpitonsCtx context.Context,
@@ -105,6 +119,16 @@ func newDagRuntimeWithStatus(name, fullName string, dag *schema.WorkflowSourceDa
 
 	drt.processStartAbnormalStatus(msg, status)
 	return drt
+}
+
+func (drt *DagRuntime) catchPanic() {
+	if r := recover(); r != nil {
+		msg := fmt.Sprintf("Inner Error occured at dagRuntime[%s]: %v", drt.name, r)
+		trace_logger.KeyWithUpdate(drt.runID).Errorf(msg)
+
+		drt.cancellAllNotReadySubComponent(msg)
+		drt.ctx.Done()
+	}
 }
 
 func (drt *DagRuntime) generateSubRuntimeName(subComponentName string, seq int) string {
@@ -268,6 +292,8 @@ func (drt *DagRuntime) Start() {
 	defer drt.processSubComponentLock.Unlock()
 	drt.processSubComponentLock.Lock()
 
+	defer drt.catchPanic()
+
 	err := drt.updateStatus(StatusRuntimeRunning)
 	if err != nil {
 		// 理论上不会出现这种情况，主要是为了承接 err，对齐进行判断
@@ -379,12 +405,43 @@ func (drt *DagRuntime) Listen() {
 	}
 }
 
+func (drt *DagRuntime) resolveSubComponent(name string, cp schema.Component) (schema.Component, error) {
+	// 替换 reference 字段
+	newCp, err := drt.resolveReference(name, cp)
+	if err != nil {
+		err := fmt.Errorf("resolve reference for sub%s[%s] of dag[%s] failed: %s",
+			cp.GetType(), cp.GetName(), drt.name, err.Error())
+		return nil, err
+	}
+
+	// 替换 parameter 与 artifact 中的模板
+	err = drt.DependencySolver.ResolveBeforeRun(newCp)
+	if err != nil {
+		err := fmt.Errorf("resolve template before start run for sub%s[%s] of dag[%s] failed: %s",
+			cp.GetType(), cp.GetName(), drt.name, err.Error())
+		return nil, err
+	}
+
+	// 解析loop_argument
+	subName := drt.generateSubRuntimeName(name, 0)
+	isv := NewInnerSolver(newCp, subName, drt.runConfig)
+	err = isv.resolveLoopArugment()
+	if err != nil {
+		err := fmt.Errorf("cannot get the value of loop_arugment for %s[%s]", newCp.GetType(), subName)
+		return nil, err
+	}
+
+	return newCp, nil
+}
+
 func (drt *DagRuntime) Resume(dagView *schema.DagView) {
-	drt.logger.Infof("resume dag[%s]", drt.name)
+	drt.logger.Debugf("resume dag[%s] with dagView: \n%v", drt.name, dagView)
 
 	// 1、从 DagView 中获取必要的信息
 	defer drt.processSubComponentLock.Unlock()
 	drt.processSubComponentLock.Lock()
+
+	defer drt.catchPanic()
 
 	drt.pk = dagView.PK
 	drt.ID = dagView.DagID
@@ -417,6 +474,12 @@ func (drt *DagRuntime) Resume(dagView *schema.DagView) {
 	// 相关校验逻辑由 parser 模块负责，此处不做校验
 	sorted, _ := TopologicalSort(drt.getworkflowSouceDag().EntryPoints)
 
+	// 用于记录在循环结构中，还没来得及调度的 runtime， 需要在第一时间进行调度
+	exceptCpSeq := map[string]map[int]int{}
+
+	// 用于记录已经运行失败的节点，据此触发 failureOptions
+	failedCp := map[string][]int{}
+
 	for _, name := range sorted {
 		views, ok := dagView.EntryPoints[name]
 		if !ok {
@@ -424,48 +487,27 @@ func (drt *DagRuntime) Resume(dagView *schema.DagView) {
 			continue
 		}
 
-		_, ok = drt.subComponentRumtimes[name]
-		if ok {
-			// 此时说明该节点已经被 failureOptions机制处理过了，直接跳过
-			continue
-		}
-
-		if drt.ctx.Err() != nil || drt.failureOpitonsCtx.Err() != nil {
-			drt.logger.Infof("received terminating signal, stop resume")
-			return
+		// 如果已经有一个 runtime 为cancelled, 则说明收到了 终止信号，此时，对于该节点还没有来得及创建的 runtime，直接置为 cancelled 即可
+		cancelledMsg := ""
+		for _, view := range views {
+			if view.GetStatus() == StatusRuntimeCancelled {
+				cancelledMsg = view.GetMsg()
+			}
 		}
 
 		component := drt.getworkflowSouceDag().EntryPoints[name].DeepCopy()
-		// 替换 reference 字段
-		newCp, err := drt.resolveReference(name, component)
+
+		// 替换 reference, parameter, input artifact, loop_argument 字段
+		component, err := drt.resolveSubComponent(name, component)
 		if err != nil {
 			drt.logger.Errorln(err.Error())
-			drt.processSubRuntimeError(err, component, StatusRuntimeFailed)
+
+			// 此时的 component 是一个空指针，所以需要从 dag 中重新获取
+			drt.processSubRuntimeError(err, drt.getworkflowSouceDag().EntryPoints[name].DeepCopy(),
+				StatusRuntimeFailed)
 			continue
 		}
 
-		component = newCp
-
-		// 替换 parameter 与 artifact 中的模板
-		err = drt.DependencySolver.ResolveBeforeRun(component)
-		if err != nil {
-			drt.logger.Errorln("ResolveBeforeRun failed:", err.Error())
-			drt.processSubRuntimeError(err, component, StatusRuntimeFailed)
-			continue
-		}
-
-		// 解析loop_argument
-		subName := drt.generateSubRuntimeName(name, 0)
-		isv := NewInnerSolver(component, subName, drt.runConfig)
-		err = isv.resolveLoopArugment()
-		if err != nil {
-			err := fmt.Errorf("cannot get the value of loop_arugment for %s[%s]", component.GetType(), subName)
-			drt.logger.Errorln(err.Error())
-			drt.processSubRuntimeError(err, component, StatusRuntimeFailed)
-			continue
-		}
-
-		// exceptSeq 的value 无实义，仿set
 		exceptSeq := map[int]int{}
 		_, isStep := component.(*schema.WorkflowSourceStep)
 		for _, view := range views {
@@ -473,39 +515,39 @@ func (drt *DagRuntime) Resume(dagView *schema.DagView) {
 			status := view.GetStatus()
 
 			runtime := drt.CreateSubRuntimeAccordingView(view, name)
-			err := runtime.updateStatus(status)
-			if err != nil {
-				drt.logger.Errorln(err.Error())
-				drt.processSubRuntimeError(err, component, StatusRuntimeFailed)
-				continue
-			}
 
 			drt.subComponentRumtimes[name] = append(drt.subComponentRumtimes[name], runtime)
-			drt.logger.Infof("recreated runtime for %s[%s] with status[%s]",
-				component.GetType(), runtime.getName(), runtime.getStatus())
 
-			if runtime.isDone() {
+			if isRuntimeFinallyStatus(status) {
 				// 如果已经处于终态，则无需 resume, 也无需在向数据库同步
 				// 但是对于 failed 节点，需要处理failureOptions。 以避免子节点的状态同步问题
-				if runtime.isFailed() {
-					msg := fmt.Sprintf("sub%s[%s] already in status[failed]", component.GetType(), runtime.getName())
-					extra := map[string]interface{}{
-						common.WfEventKeyRunID:         drt.runID,
-						common.WfEventKeyStatus:        drt.status,
-						common.WfEventKeyComponentName: drt.getComponent().GetName(),
-						common.WfEventKeyView:          view,
+				if isStep {
+					err := runtime.(*StepRuntime).baseComponentRuntime.updateStatus(status)
+					if err != nil {
+						drt.logger.Errorln(err.Error())
+						continue
 					}
-
-					ev := NewWorkflowEvent(WfEventFailureOptionsTriggered, msg, extra)
-					drt.ProcessFailureOptions(*ev)
 				} else {
-					if isStep {
-						go runtime.(*StepRuntime).Resume(view.(*schema.JobView))
-					} else {
-						go runtime.(*DagRuntime).Resume(view.(*schema.DagView))
+					err := runtime.updateStatus(status)
+					if err != nil {
+						drt.logger.Errorln(err.Error())
+						continue
 					}
 				}
+
+				if runtime.isFailed() {
+					failedCp[name] = append(failedCp[name], view.GetSeq())
+				}
+			} else {
+				if isStep {
+					go runtime.(*StepRuntime).Resume(view.(*schema.JobView))
+				} else {
+					go runtime.(*DagRuntime).Resume(view.(*schema.DagView))
+				}
 			}
+
+			drt.logger.Infof("recreated runtime for %s[%s] with status[%s]", component.GetType(), runtime.getName(),
+				status)
 		}
 
 		ll := component.GetLoopArgumentLength()
@@ -514,15 +556,53 @@ func (drt *DagRuntime) Resume(dagView *schema.DagView) {
 		}
 
 		if len(exceptSeq) < ll {
-			drt.createAndStartSubComponentRuntime(name, component, exceptSeq)
+			if cancelledMsg != "" {
+				// 如果存在被 cancelled 的节点，则所有还没有来得及被创建的runtime 都应该被置为 cancelled 状态
+				for seq, _ := range exceptSeq {
+					drt.processSubRuntimeErrorWithSeq(cancelledMsg, component, StatusRuntimeCancelled, seq)
+				}
+			} else {
+				// 需要被正常的创建的与调度
+				exceptCpSeq[name] = exceptSeq
+			}
 		}
 	}
 
-	// 在最后才进入listen状态，为了避免在resume A 子节点的过程中，监听到了B 发过来的事件，有一次调度了子节点A
-	go drt.Listen()
+	// 需要保证已经处于 running 状态 Runtime 占到坑，然后在处理还没有来得及调度的runtime
+	for name, exceptSeq := range exceptCpSeq {
+		cp := drt.getworkflowSouceDag().EntryPoints[name]
+		drt.createAndStartSubComponentRuntime(name, cp, exceptSeq)
+	}
+
+	// 根据 failed 节点， 来依次触发 failureOptions
+	if len(failedCp) != 0 {
+		for name, _ := range failedCp {
+			msg := fmt.Sprintf("subStep or subDag[%s] already in status[failed]", name)
+			extra := map[string]interface{}{
+				common.WfEventKeyRunID:         drt.runID,
+				common.WfEventKeyStatus:        StatusRuntimeFailed,
+				common.WfEventKeyComponentName: name,
+			}
+
+			ev := NewWorkflowEvent(WfEventFailureOptionsTriggered, msg, extra)
+			drt.ProcessFailureOptions(*ev)
+		}
+	}
+
+	msg := drt.updateStatusAccordingSubComponentRuntimeStatus()
+	if drt.done {
+		view := drt.newView(msg)
+		drt.syncToApiServerAndParent(WfEventDagUpdate, &view, msg)
+		return
+	}
 
 	// 避免子节点恰好都是终态的情况，导致没有step 运行，run 卡住的情况
 	drt.scheduleSubComponent()
+
+	// 在最后才进入listen状态，为了避免在resume A 子节点的过程中，监听到了B 发过来的事件，有一次调度了子节点A
+	go drt.Listen()
+	go drt.Stop()
+
 }
 
 // 重新执行
@@ -533,12 +613,15 @@ func (drt *DagRuntime) Restart(dagView *schema.DagView) {
 	defer drt.processSubComponentLock.Unlock()
 	drt.processSubComponentLock.Lock()
 
+	defer drt.catchPanic()
+
 	drt.logger.Infof("pk in dagView for dag[%s]: %d", drt.name, dagView.PK)
 	drt.logger.Infof("DagID in dagView for dag[%s]: %s", drt.name, dagView.DagID)
 
 	drt.pk = dagView.PK
 	drt.ID = dagView.DagID
 	drt.startTime = dagView.StartTime
+	drt.dagViewName = dagView.GetName()
 
 	err := drt.setSysParams()
 	if err != nil {
@@ -589,6 +672,14 @@ func (drt *DagRuntime) creatStepRuntimeAccordingView(view *schema.JobView, name 
 	srt := NewStepRuntime(runtimeName, fullName, stepPtr,
 		view.LoopSeq, drt.ctx, ctxAndcc.ctx, drt.receiveEventChildren, drt.runConfig, drt.ID)
 
+	// 如果 view 的状态是的 succeeded 或者 running，则据此更新 runtime 的 output Artifact 字段下游节点会使用
+	// 对于 command， env， condition 字段，此处可以不更新，因为不会再次写库
+	if view.Status == StatusRuntimeSucceeded {
+		for name, value := range view.Artifacts.Output {
+			srt.getComponent().GetArtifacts().Output[name] = value
+		}
+	}
+
 	return srt
 }
 
@@ -603,6 +694,11 @@ func (drt *DagRuntime) createDagRuntimeAccordingView(view *schema.DagView, name 
 	sDrt := NewDagRuntime(runtimeName, fullName, dagPtr,
 		view.LoopSeq, drt.ctx, ctxAndcc.ctx, drt.receiveEventChildren, drt.runConfig, drt.ID)
 
+	if view.Status == StatusRuntimeSucceeded {
+		for name, value := range view.Artifacts.Output {
+			sDrt.getComponent().GetArtifacts().Output[name] = value
+		}
+	}
 	return sDrt
 }
 
@@ -702,14 +798,12 @@ func (drt *DagRuntime) scheduleSubComponentAccordingView(dagView *schema.DagView
 					err := runtime.(*StepRuntime).baseComponentRuntime.updateStatus(view.GetStatus())
 					if err != nil {
 						drt.logger.Errorln(err.Error())
-						drt.processSubRuntimeError(err, component, StatusRuntimeFailed)
 						continue
 					}
 				} else {
 					err := runtime.updateStatus(view.GetStatus())
 					if err != nil {
 						drt.logger.Errorln(err.Error())
-						drt.processSubRuntimeError(err, component, StatusRuntimeFailed)
 						continue
 					}
 				}
@@ -941,7 +1035,7 @@ func (drt *DagRuntime) ProcessFailureOptions(event WorkflowEvent) {
 		drt.ProcessFailureOptionsWithContinue(component)
 	} else {
 		// 通过事件通知其父节点处理开始处理 failureOptions
-		drt.syncToApiServerAndParent(WfEventFailureOptionsTriggered, &schema.DagView{},
+		drt.syncToParent(WfEventFailureOptionsTriggered, &schema.DagView{},
 			fmt.Sprintf("failure options triggered by event: %v", event))
 
 		drt.ProcessFailureOptionsWithFailFast()
@@ -977,12 +1071,20 @@ func (drt *DagRuntime) processStartAbnormalStatus(msg string, status RuntimeStat
 
 // processSubRuntimeError： 处理调度子节点失败的情况，通过调用processEventFromSubComponent()函数来进行同步
 func (drt *DagRuntime) processSubRuntimeError(err error, cp schema.Component, status RuntimeStatus) {
-	componentName := cp.GetName()
-	name := drt.generateSubRuntimeName(componentName, 0)
-	fullName := drt.generateSubComponentFullName(componentName)
+	ll := cp.GetLoopArgumentLength()
+	if ll == 0 {
+		ll = 1
+	}
 
-	// 将 loop_argument 置为nil，方便更新dag状态时使用
-	// cp.UpdateLoopArguemt(nil)
+	for i := 0; i < ll; i++ {
+		drt.processSubRuntimeErrorWithSeq(err.Error(), cp, status, i)
+	}
+}
+
+func (drt *DagRuntime) processSubRuntimeErrorWithSeq(msg string, cp schema.Component, status RuntimeStatus, seq int) {
+	componentName := cp.GetName()
+	fullName := drt.generateSubComponentFullName(componentName)
+	name := drt.generateSubRuntimeName(componentName, seq)
 
 	step, ok := cp.(*schema.WorkflowSourceStep)
 
@@ -990,22 +1092,16 @@ func (drt *DagRuntime) processSubRuntimeError(err error, cp schema.Component, st
 
 	var crt componentRuntime
 
-	ll := cp.GetLoopArgumentLength()
-	if ll == 0 {
-		ll = 1
+	if ok {
+		crt = newStepRuntimeWithStatus(name, fullName, step, seq, drt.ctx, ctxAndCc.ctx, drt.receiveEventChildren,
+			drt.runConfig, drt.ID, status, msg)
+	} else {
+		dag := cp.(*schema.WorkflowSourceDag)
+		crt = newDagRuntimeWithStatus(name, fullName, dag, seq, drt.ctx, ctxAndCc.ctx, drt.receiveEventChildren,
+			drt.runConfig, drt.ID, status, msg)
 	}
 
-	for i := 0; i < ll; i++ {
-		if ok {
-			crt = newStepRuntimeWithStatus(name, fullName, step, i, drt.ctx, ctxAndCc.ctx, drt.receiveEventChildren,
-				drt.runConfig, drt.ID, status, err.Error())
-		} else {
-			dag := cp.(*schema.WorkflowSourceDag)
-			crt = newDagRuntimeWithStatus(name, fullName, dag, i, drt.ctx, ctxAndCc.ctx, drt.receiveEventChildren,
-				drt.runConfig, drt.ID, status, err.Error())
-		}
-		drt.subComponentRumtimes[componentName] = append(drt.subComponentRumtimes[componentName], crt)
-	}
+	drt.subComponentRumtimes[componentName] = append(drt.subComponentRumtimes[componentName], crt)
 }
 
 // updateStatusAccordingSubComponentRuntimeStatus: 根据子节点的状态来更新
@@ -1047,9 +1143,7 @@ func (drt *DagRuntime) updateStatusAccordingSubComponentRuntimeStatus() string {
 		if loop_argument != nil {
 			// 2.2. 如果loop_argument 不能转换成 slice, 则说明在创建节点失败，是否还没有正式运行，此时直接在下方进行统计即可
 			t := reflect.TypeOf(loop_argument)
-			if t.Kind() != reflect.Slice {
-				continue
-			} else {
+			if t.Kind() == reflect.Slice {
 				v := reflect.ValueOf(loop_argument)
 				if len(cps) != v.Len() && v.Len() != 0 {
 					// v.Len 为 0 时， 会有一个占位用户的 cp
@@ -1165,17 +1259,10 @@ func (drt *DagRuntime) newView(msg string) schema.DagView {
 		paramters[name] = fmt.Sprintf("%v", value)
 	}
 
-	var name string
-	if drt.loopSeq == 0 {
-		name = fmt.Sprintf("dag-%s-%s", drt.runID, drt.getComponent().GetName())
-	} else {
-		name = fmt.Sprintf("dag-%s-%s-%d", drt.runID, drt.getComponent().GetName(), drt.loopSeq)
-	}
-
 	// DAGID 在写库时生成，因此，此处并不会传递该参数, EntryPoints 在运行子节点时会同步至数据库，因此此处不包含这两个字段
 	return schema.DagView{
 		DagID:       drt.ID,
-		Name:        name,
+		Name:        drt.dagViewName,
 		DagName:     drt.getComponent().GetName(),
 		Deps:        deps,
 		Parameters:  paramters,

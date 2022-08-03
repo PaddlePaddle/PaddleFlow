@@ -63,9 +63,11 @@ class Result:
 class StatisticsJobDetailInfo:
     """the class of StatisticsJobDetailInfo info"""
     result: List[Result]
+    truncated: bool
 
-    def __init__(self, result: List[Result]) -> None:
+    def __init__(self, result: List[Result], truncated: bool) -> None:
         self.result = result
+        self.truncated = truncated
 
     def __str__(self) -> str:
         """ str """
@@ -74,7 +76,8 @@ class StatisticsJobDetailInfo:
     @staticmethod
     def from_json(metric_info):
         statistics_job_detail_info = StatisticsJobDetailInfo(
-            result=[]
+            result=[],
+            truncated=metric_info['truncated'],
         )
         for result_json in metric_info['result']:
             result = Result(

@@ -10,10 +10,6 @@ entry_points:
       {{validate_data}}
     docker_env: centos:centos7
     env:
-      PF_JOB_FLAVOUR: flavour1
-      PF_JOB_MODE: Pod
-      PF_JOB_QUEUE_NAME: ppl-queue
-      PF_JOB_TYPE: vcjob
       USER_ABC: 123_{{PF_USER_NAME}}
     parameters:
       data_path: ./artifact_example/data/
@@ -26,11 +22,6 @@ entry_points:
       - train_model
     command: bash artifact_example/shells/train.sh {{epoch}} {{train_data}} {{train_model}}
     deps: preprocess
-    env:
-      PF_JOB_FLAVOUR: flavour1
-      PF_JOB_MODE: Pod
-      PF_JOB_QUEUE_NAME: ppl-queue
-      PF_JOB_TYPE: vcjob
     parameters:
       epoch: 15
 
@@ -41,12 +32,10 @@ entry_points:
         model: '{{train.train_model}}'
     command: bash artifact_example/shells/validate.sh {{model}}
     deps: preprocess,train
-    env:
-      PF_JOB_FLAVOUR: flavour1
-      PF_JOB_MODE: Pod
-      PF_JOB_QUEUE_NAME: ppl-queue
-      PF_JOB_TYPE: vcjob
 
 docker_env: nginx:1.7.9
 
 parallelism: 1
+
+fs_options:
+  main_fs: {name: "ppl"}

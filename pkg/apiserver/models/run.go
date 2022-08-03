@@ -40,6 +40,7 @@ type Run struct {
 	UserName       string                 `gorm:"type:varchar(60);not null"         json:"username"`
 	FsID           string                 `gorm:"type:varchar(60);not null"         json:"-"`
 	FsName         string                 `gorm:"type:varchar(60);not null"         json:"fsName"`
+	FsOptions      schema.FsOptions       `gorm:"-"                                 json:"fsOptions"`
 	Description    string                 `gorm:"type:text;size:65535;not null"     json:"description"`
 	ParametersJson string                 `gorm:"type:text;size:65535;not null"     json:"-"`
 	Parameters     map[string]interface{} `gorm:"-"                                 json:"parameters"`
@@ -53,6 +54,8 @@ type Run struct {
 	ScheduleID     string                 `gorm:"type:varchar(60);not null"         json:"scheduleID"`
 	Message        string                 `gorm:"type:text;size:65535;not null"     json:"runMsg"`
 	Status         string                 `gorm:"type:varchar(32);not null"         json:"status"` // StatusRun%%%
+	RunOptions     schema.RunOptions      `gorm:"-"                                 json:"-"`
+	RunOptionsJson string                 `gorm:"type:text;size:65535;not null"     json:"-"`
 	RunCachedIDs   string                 `gorm:"type:text;size:65535;not null"     json:"runCachedIDs"`
 	ScheduledAt    sql.NullTime           `                                         json:"-"`
 	CreateTime     string                 `gorm:"-"                                 json:"createTime"`
@@ -90,6 +93,13 @@ func (r *Run) Encode() error {
 		}
 		r.ParametersJson = string(paramRaw)
 	}
+
+	optionsJson, err := json.Marshal(r.RunOptions)
+	if err != nil {
+		logger.LoggerForRun(r.ID).Errorf("encode run options failed. error:%v", err)
+		return err
+	}
+	r.RunOptionsJson = string(optionsJson)
 	return nil
 }
 
@@ -118,6 +128,16 @@ func (r *Run) decode() error {
 		}
 		r.Parameters = param
 	}
+
+	runOptions := schema.RunOptions{}
+	if err := json.Unmarshal([]byte(r.RunOptionsJson), &runOptions); err != nil {
+		logger.LoggerForRun(r.ID).Errorf("decode run options failed. error:%v", err)
+		return err
+	}
+	r.RunOptions = runOptions
+
+	r.FsOptions.MainFS = r.WorkflowSource.FsOptions.MainFS
+
 	// format time
 	r.CreateTime = r.CreatedAt.Format("2006-01-02 15:04:05")
 	r.UpdateTime = r.UpdatedAt.Format("2006-01-02 15:04:05")
@@ -168,14 +188,14 @@ func (r *Run) validateRuntimeAndPostProcess() error {
 		}
 	}
 
-	if err := r.initRuntime(runtimeJobs, runDags); err != nil {
+	if err := r.InitRuntime(runtimeJobs, runDags); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (r *Run) initRuntime(jobs []RunJob, dags []RunDag) error {
+func (r *Run) InitRuntime(jobs []RunJob, dags []RunDag) error {
 
 	// runtimeView
 	runtimeView := map[string][]schema.ComponentView{}
@@ -291,7 +311,7 @@ func (r *Run) ProcessRuntimeView(componentViews map[string][]schema.ComponentVie
 
 func CreateRun(logEntry *log.Entry, run *Run) (string, error) {
 	logEntry.Debugf("begin create run:%+v", run)
-	err := WithTransaction(storage.DB, func(tx *gorm.DB) error {
+	err := storage.DB.Transaction(func(tx *gorm.DB) error {
 		result := tx.Model(&Run{}).Create(run)
 		if result.Error != nil {
 			logEntry.Errorf("create run failed. run:%v, error:%s",
@@ -338,7 +358,7 @@ func UpdateRun(logEntry *log.Entry, runID string, run Run) error {
 
 func DeleteRun(logEntry *log.Entry, runID string) error {
 	logEntry.Debugf("begin delete run. runID:%s", runID)
-	err := WithTransaction(storage.DB, func(tx *gorm.DB) error {
+	err := storage.DB.Transaction(func(tx *gorm.DB) error {
 		result := storage.DB.Model(&RunJob{}).Where("run_id = ?", runID).Delete(&RunJob{})
 		if result.Error != nil {
 			logEntry.Errorf("delete run_job before deleting run failed. runID:%s, error:%s",

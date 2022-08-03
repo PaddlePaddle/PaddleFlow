@@ -18,6 +18,7 @@ package job
 
 import (
 	"fmt"
+
 	log "github.com/sirupsen/logrus"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
@@ -27,6 +28,8 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 // CreateSingleJobRequest convey request for create job
@@ -64,6 +67,7 @@ func (ds CreateDisJobRequest) ToJobInfo() *CreateJobInfo {
 	return &CreateJobInfo{
 		CommonJobInfo:     ds.CommonJobInfo,
 		Framework:         ds.Framework,
+		Type:              schema.TypeDistributed,
 		Members:           ds.Members,
 		ExtensionTemplate: ds.ExtensionTemplate,
 	}
@@ -138,7 +142,7 @@ func DeleteJob(ctx *logger.RequestContext, jobID string) error {
 	if err := CheckPermission(ctx); err != nil {
 		return err
 	}
-	job, err := models.GetJobByID(jobID)
+	job, err := storage.Job.GetJobByID(jobID)
 	if err != nil {
 		ctx.ErrorCode = common.JobNotFound
 		msg := fmt.Sprintf("get job %s failed, err: %v", jobID, err)
@@ -152,7 +156,7 @@ func DeleteJob(ctx *logger.RequestContext, jobID string) error {
 		log.Errorf(msg)
 		return fmt.Errorf(msg)
 	}
-	err = models.DeleteJob(jobID)
+	err = storage.Job.DeleteJob(jobID)
 	if err != nil {
 		ctx.ErrorCode = common.InternalError
 		log.Errorf("delete job %s from cluster failed, err: %v", jobID, err)
@@ -165,7 +169,7 @@ func StopJob(ctx *logger.RequestContext, jobID string) error {
 	if err := CheckPermission(ctx); err != nil {
 		return err
 	}
-	job, err := models.GetJobByID(jobID)
+	job, err := storage.Job.GetJobByID(jobID)
 	if err != nil {
 		ctx.ErrorCode = common.JobNotFound
 		log.Errorf("get job %s from database failed, err: %v", jobID, err)
@@ -179,7 +183,7 @@ func StopJob(ctx *logger.RequestContext, jobID string) error {
 	}
 
 	if job.Status == schema.StatusJobInit {
-		err = models.UpdateJobStatus(jobID, "job is terminated.", schema.StatusJobTerminated)
+		err = storage.Job.UpdateJobStatus(jobID, "job is terminated.", schema.StatusJobTerminated)
 	} else {
 		var runtimeSvc runtime.RuntimeService
 		runtimeSvc, err = getRuntimeByQueue(ctx, job.QueueID)
@@ -188,7 +192,7 @@ func StopJob(ctx *logger.RequestContext, jobID string) error {
 			return err
 		}
 		// stop job on cluster
-		go func(job *models.Job, runtimeSvc runtime.RuntimeService) {
+		go func(job *model.Job, runtimeSvc runtime.RuntimeService) {
 			pfjob, err := api.NewJobInfo(job)
 			if err != nil {
 				return
@@ -200,7 +204,7 @@ func StopJob(ctx *logger.RequestContext, jobID string) error {
 			}
 		}(&job, runtimeSvc)
 		// update job status
-		err = models.UpdateJobStatus(jobID, "job is terminating.", schema.StatusJobTerminating)
+		err = storage.Job.UpdateJobStatus(jobID, "job is terminating.", schema.StatusJobTerminating)
 	}
 	if err != nil {
 		log.Errorf("update job[%s] status to [%s] failed, err: %v", jobID, schema.StatusJobTerminating, err)
@@ -213,7 +217,7 @@ func UpdateJob(ctx *logger.RequestContext, request *UpdateJobRequest) error {
 	if err := CheckPermission(ctx); err != nil {
 		return err
 	}
-	job, err := models.GetJobByID(request.JobID)
+	job, err := storage.Job.GetJobByID(request.JobID)
 	if err != nil {
 		ctx.ErrorCode = common.JobNotFound
 		log.Errorf("get job %s from database failed, err: %v", job.ID, err)
@@ -258,7 +262,7 @@ func UpdateJob(ctx *logger.RequestContext, request *UpdateJobRequest) error {
 		job.Config.SetAnnotations(key, value)
 	}
 
-	err = models.UpdateJobConfig(job.ID, job.Config)
+	err = storage.Job.UpdateJobConfig(job.ID, job.Config)
 	if err != nil {
 		log.Errorf("update job %s on database failed, err: %v", job.ID, err)
 		ctx.ErrorCode = common.DBUpdateFailed
@@ -266,7 +270,7 @@ func UpdateJob(ctx *logger.RequestContext, request *UpdateJobRequest) error {
 	return err
 }
 
-func updateRuntimeJob(ctx *logger.RequestContext, job *models.Job, request *UpdateJobRequest) error {
+func updateRuntimeJob(ctx *logger.RequestContext, job *model.Job, request *UpdateJobRequest) error {
 	// update labels and annotations
 	runtimeSvc, err := getRuntimeByQueue(ctx, job.QueueID)
 	if err != nil {

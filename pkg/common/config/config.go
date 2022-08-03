@@ -67,6 +67,7 @@ type StorageConfig struct {
 }
 
 type ApiServerConfig struct {
+	// Host Port used for FS to create pv/pvc with volumeAttributes point pfs-server pod
 	Host                string `yaml:"host"`
 	Port                int    `yaml:"port"`
 	TokenExpirationHour int    `yaml:"tokenExpirationHour"`
@@ -88,12 +89,9 @@ type JobConfig struct {
 }
 
 type FsServerConf struct {
-	DefaultPVPath     string `yaml:"defaultPVPath"`
-	DefaultPVCPath    string `yaml:"defaultPVCPath"`
-	LinkMetaDirPrefix string `yaml:"linkMetaDirPrefix"`
-	// K8sServiceName K8sServicePort used to create pv/pvc with volumeAttributes point pfs-server pod
-	K8sServiceName            string        `yaml:"k8sServiceName"`
-	K8sServicePort            int           `yaml:"k8sServicePort"`
+	DefaultPVPath             string        `yaml:"defaultPVPath"`
+	DefaultPVCPath            string        `yaml:"defaultPVCPath"`
+	LinkMetaDirPrefix         string        `yaml:"linkMetaDirPrefix"`
 	MountPodExpire            time.Duration `yaml:"mountPodExpire"`
 	CleanMountPodIntervalTime time.Duration `yaml:"cleanMountPodIntervalTime"`
 }

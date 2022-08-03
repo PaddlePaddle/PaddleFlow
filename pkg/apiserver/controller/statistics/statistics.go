@@ -19,27 +19,34 @@ package statistics
 import (
 	"fmt"
 
-	"github.com/prometheus/common/model"
+	prometheusModel "github.com/prometheus/common/model"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/consts"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/monitor"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
-var metricNameList = [...]string{consts.MetricCpuUsageRate, consts.MetricMemoryUsage, consts.MetricDiskUsage,
-	consts.MetricNetReceiveBytes, consts.MetricNetSendBytes, consts.MetricDiskReadRate,
-	consts.MetricDiskWriteRate, consts.MetricGpuUtil, consts.MetricGpuMemoryUtil}
+var metricNameList = [...]string{
+	consts.MetricCpuUsageRate, consts.MetricMemoryUsageRate,
+	consts.MetricMemoryUsage, consts.MetricDiskUsage,
+	consts.MetricNetReceiveBytes, consts.MetricNetSendBytes,
+	consts.MetricDiskReadRate, consts.MetricDiskWriteRate,
+	consts.MetricGpuUtil, consts.MetricGpuMemoryUtil,
+	consts.MetricGpuMemoryUsage}
 
 type JobStatisticsResponse struct {
-	MetricsInfo map[string]float64 `json:"metricsInfo"`
+	MetricsInfo map[string]string `json:"metricsInfo"`
 }
 
 type JobDetailStatisticsResponse struct {
 	Result      []TaskStatistics `json:"result"`
 	TaskNameMap map[string]int   `json:"-"`
+	Truncated   bool             `json:"truncated"`
 }
 
 type TaskStatistics struct {
@@ -54,7 +61,7 @@ type MetricInfo struct {
 
 func GetJobStatistics(ctx *logger.RequestContext, jobID string) (*JobStatisticsResponse, error) {
 	response := &JobStatisticsResponse{
-		MetricsInfo: make(map[string]float64),
+		MetricsInfo: make(map[string]string),
 	}
 	clusterType, _, err := getClusterTypeByJob(ctx, jobID)
 	if err != nil {
@@ -73,7 +80,7 @@ func GetJobStatistics(ctx *logger.RequestContext, jobID string) (*JobStatisticsR
 			ctx.Logging().Errorf("query metric[%s] failed, error: %s", value, err.Error())
 			return nil, err
 		}
-		response.MetricsInfo[value] = result
+		convertResultToResponse(response, result, value)
 	}
 
 	return response, nil
@@ -138,13 +145,19 @@ func getMetricByType(metricType string) (monitor.MetricInterface, error) {
 	return metric, nil
 }
 
-func getClusterTypeByJob(ctx *logger.RequestContext, jobID string) (string, *models.Job, error) {
-	job, err := models.GetJobByID(jobID)
+func getClusterTypeByJob(ctx *logger.RequestContext, jobID string) (string, *model.Job, error) {
+	job, err := storage.Job.GetJobByID(jobID)
 	if err != nil {
 		ctx.ErrorCode = common.JobNotFound
 		ctx.Logging().Errorln(err.Error())
 		return "", nil, common.NotFoundError(common.ResourceTypeJob, jobID)
 	}
+	if ok := checkJobPermission(ctx, &job); !ok {
+		ctx.ErrorCode = common.AccessDenied
+		ctx.Logging().Errorf("get the job[%s] auth failed. error:%s", jobID, err.Error())
+		return "", nil, common.NoAccessError(ctx.UserName, common.ResourceTypeJob, jobID)
+	}
+
 	queue, err := models.GetQueueByID(job.QueueID)
 	if err != nil {
 		ctx.ErrorCode = common.QueueNameNotFound
@@ -160,14 +173,18 @@ func getClusterTypeByJob(ctx *logger.RequestContext, jobID string) (string, *mod
 	return cluster.ClusterType, &job, nil
 }
 
-func convertResultToDetailResponse(ctx *logger.RequestContext, result model.Value, response *JobDetailStatisticsResponse, metricName string) error {
-	data, ok := result.(model.Matrix)
+func convertResultToDetailResponse(ctx *logger.RequestContext, result prometheusModel.Value, response *JobDetailStatisticsResponse, metricName string) error {
+	data, ok := result.(prometheusModel.Matrix)
 	if !ok {
 		ctx.Logging().Errorf("convert result to matrix failed")
 		return fmt.Errorf("convert result to matrix failed")
 	}
 	for _, value := range data {
 		taskValues := make([][2]float64, 0)
+		if len(value.Values) > common.StsMaxSeqData {
+			value.Values = value.Values[:common.StsMaxSeqData]
+			response.Truncated = true
+		}
 		for _, rangeValue := range value.Values {
 			taskValues = append(taskValues, [2]float64{float64(rangeValue.Timestamp.Unix()), float64(rangeValue.Value)})
 		}
@@ -191,3 +208,17 @@ func convertResultToDetailResponse(ctx *logger.RequestContext, result model.Valu
 	return nil
 }
 
+func convertResultToResponse(response *JobStatisticsResponse, result float64, metricName string) {
+	switch metricName {
+	case consts.MetricCpuUsageRate, consts.MetricMemoryUsageRate, consts.MetricGpuUtil, consts.MetricGpuMemoryUtil:
+		response.MetricsInfo[metricName] = fmt.Sprintf("%.2f%%", result*100)
+	case consts.MetricNetReceiveBytes, consts.MetricNetSendBytes, consts.MetricDiskReadRate, consts.MetricDiskWriteRate:
+		response.MetricsInfo[metricName] = fmt.Sprintf("%.2f(B/s)", result)
+	case consts.MetricDiskUsage, consts.MetricMemoryUsage, consts.MetricGpuMemoryUsage:
+		response.MetricsInfo[metricName] = fmt.Sprintf("%.2f(Bytes)", result)
+	}
+}
+
+func checkJobPermission(ctx *logger.RequestContext, job *model.Job) bool {
+	return common.IsRootUser(ctx.UserName) || ctx.UserName == job.UserName
+}

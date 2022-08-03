@@ -20,7 +20,7 @@ import json
 from urllib import parse
 from paddleflow.common.exception.paddleflow_sdk_exception import PaddleFlowSDKException
 from paddleflow.common import api
-from paddleflow.job import JobServiceApi
+from paddleflow.job import JobServiceApi,JobRequest
 from paddleflow.log import LogServiceApi
 from paddleflow.statistics import StatisticsServiceApi
 from paddleflow.user import UserServiceApi
@@ -633,12 +633,31 @@ class Client(object):
         create_job
         """
         self.pre_check()
+        queueName = job_request.get('schedulingPolicy', {}).get('queue', None)
+        if queueName is None or queueName == '':
+            raise PaddleFlowSDKException("InvalidJobRequest",
+                                         "job_request {} queue should not be none or empty".format(job_request))
         if job_type is None or (job_type != 'single' and job_type != 'distributed' and job_type != 'workflow'):
             raise PaddleFlowSDKException("InvalidJobType",
                                          "job_type should not be none and should be single, distributed or workflow")
-        if job_request.queue is None or job_request.queue == '':
-            raise PaddleFlowSDKException("InvalidJobRequest", "job_request queue should not be none or empty")
-        return JobServiceApi.create_job(self.paddleflow_server, job_type, job_request, self.header)
+
+        job_request_obj = JobRequest(
+            job_request.get('schedulingPolicy', {}).get('queue', None),
+            job_request.get('image', None),
+            job_request.get('id', None), job_request.get('name', None),
+            job_request.get('labels', None), job_request.get('annotations', None),
+            job_request.get('schedulingPolicy', {}).get('priority', None),
+            job_request.get('flavour', None),
+            job_request.get('fs', None), job_request.get('extraFS', None),
+            job_request.get('env', None), job_request.get('command', None),
+            job_request.get('args', None), job_request.get('port', None),
+            job_request.get('extensionTemplate', None),
+            job_request.get('framework', None),
+            job_request.get('members', None)
+        )
+        # if job_request.queue is None or job_request.queue == '':
+        #     raise PaddleFlowSDKException("InvalidJobRequest", "job_request queue should not be none or empty")
+        return JobServiceApi.create_job(self.paddleflow_server, job_type, job_request_obj, self.header)
 
     def show_job(self, jobid):
         """
@@ -695,7 +714,7 @@ class Client(object):
         return StatisticsServiceApi.get_statistics(self.paddleflow_server, jobid, run_id=runid, header=self.header)
 
     def get_statistics_detail(self, jobid: str, start: int = None, end: int = None, step: int = None,
-                              runid: str = None):
+                              runid: str = None) :
         """
         get_statistics_detail
         """
@@ -712,5 +731,8 @@ class Client(object):
         if step is not None and int(step) <= 0:
             raise PaddleFlowSDKException("InvalidStep", "step is not none and less than 0")
 
-        return StatisticsServiceApi.get_statistics_detail(self.paddleflow_server, jobid, start, end, step, run_id=runid,
+        ret, res = StatisticsServiceApi.get_statistics_detail(self.paddleflow_server, jobid, start, end, step, run_id=runid,
                                                           header=self.header)
+        if not ret:
+            return ret, res, False
+        return ret, res, res.truncated

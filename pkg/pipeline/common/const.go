@@ -25,15 +25,14 @@ const (
 	SysParamNamePFStepName     = "PF_STEP_NAME"
 	SysParamNamePFUserName     = "PF_USER_NAME"
 	SysParamNamePFLoopArgument = "PF_LOOP_ARGUMENT"
-	SysParamNamePFMountPath    = "PF_MOUNT_PATH"
 
 	PF_PARENT        = "PF_PARENT"
 	PF_LOOP_ARGUMENT = "PF_LOOP_ARGUMENT"
 
-	WfExtraInfoKeySource   = "Source" // pipelineID or yamlPath
-	WfExtraInfoKeyUserName = "UserName"
-	WfExtraInfoKeyFsName   = "FsName"
-	WfExtraInfoKeyFsID     = "FsID"
+	WfExtraInfoKeySource     = "Source" // pipelineID or yamlPath
+	WfExtraInfoKeyFSUserName = "FsUserName"
+	WfExtraInfoKeyFsName     = "FsName"
+	WfExtraInfoKeyFsID       = "FsID"
 
 	ParamTypeString = "string"
 	ParamTypeFloat  = "float"
@@ -86,5 +85,4 @@ var SysParamNameList []string = []string{
 	SysParamNamePFStepName,
 	SysParamNamePFUserName,
 	SysParamNamePFLoopArgument,
-	SysParamNamePFMountPath,
 }

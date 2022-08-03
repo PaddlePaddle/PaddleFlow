@@ -22,6 +22,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
@@ -54,6 +56,7 @@ func getMockRun1() models.Run {
 		Status:   common.StatusRunPending,
 		RunYaml:  string(loadCase(runYamlPath)),
 	}
+	run1.Encode()
 	return run1
 }
 
@@ -66,6 +69,7 @@ func getMockRun1_3() models.Run {
 		Status:   common.StatusRunRunning,
 		RunYaml:  string(loadCase(runYamlPath)),
 	}
+	run1.Encode()
 	return run1
 }
 
@@ -78,6 +82,7 @@ func getMockRun2() models.Run {
 		Status:   common.StatusRunPending,
 		RunYaml:  string(loadCase(runYamlPath)),
 	}
+	run2.Encode()
 	return run2
 }
 
@@ -99,6 +104,7 @@ func getMockFullRun() (models.Run, error) {
 		WorkflowSource: wfs,
 		Status:         common.StatusRunInitiating,
 	}
+	run.Encode()
 	return run, nil
 }
 
@@ -240,7 +246,7 @@ func TestNewWorkflowByRun(t *testing.T) {
 	}
 	_, err = newMockWorkflowByRun(run2)
 	assert.NotNil(t, err)
-	assert.Equal(t, "component [noComp] not exist", err.Error())
+	assert.Equal(t, "cannont find component to replace param with [square-loop.noComp.noParam]", err.Error())
 	run2.Parameters = map[string]interface{}{
 		"square-loop.square.num": 3,
 	}
@@ -254,4 +260,38 @@ func TestNewWorkflowByRun(t *testing.T) {
 	}
 	_, err = newMockWorkflowByRun(run2)
 	assert.Nil(t, err)
+}
+
+func TestCreateRunByJson(t *testing.T) {
+	jsonPath := "testcase/run_dag.json"
+	jsonByte := loadCase(jsonPath)
+	bodyUnstructured := unstructured.Unstructured{}
+	if err := bodyUnstructured.UnmarshalJSON(jsonByte); err != nil && !runtime.IsMissingKind(err) {
+		// MissingKindErr不影响Json的解析
+		fmt.Println("err!!")
+		return
+	}
+	bodyMap := bodyUnstructured.UnstructuredContent()
+	parser := schema.Parser{}
+	parser.TransJsonMap2Yaml(bodyMap)
+	wfs, err := getWorkFlowSourceByJson(bodyMap)
+	assert.Nil(t, err)
+	fmt.Println(wfs.EntryPoints.EntryPoints["main"].(*schema.WorkflowSourceStep).Cache)
+
+	run := models.Run{
+		Name:           "full_run",
+		Source:         "run.yaml",
+		UserName:       "mockUser",
+		FsID:           "fs-mockUser-mockFs",
+		FsName:         "mockFs",
+		Description:    "desc",
+		Parameters:     map[string]interface{}{},
+		RunYaml:        "",
+		WorkflowSource: wfs,
+		Status:         common.StatusRunInitiating,
+	}
+	run.Encode()
+	wfPtr, err := newMockWorkflowByRun(run)
+	assert.Nil(t, err)
+	fmt.Println(wfPtr.Source.EntryPoints.EntryPoints["main"].(*schema.WorkflowSourceStep).Cache)
 }

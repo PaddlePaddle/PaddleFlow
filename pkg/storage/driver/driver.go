@@ -202,7 +202,7 @@ func initMysqlDB(dbConf *config.StorageConfig, gormConf *gorm.Config) *gorm.DB {
 func createDatabaseTables(db *gorm.DB) error {
 	return db.AutoMigrate(
 		&models.Pipeline{},
-		&models.PipelineDetail{},
+		&models.PipelineVersion{},
 		&models.Schedule{},
 		&models.RunCache{},
 		&models.ArtifactEvent{},
@@ -213,9 +213,9 @@ func createDatabaseTables(db *gorm.DB) error {
 		&models.Queue{},
 		&models.Flavour{},
 		&model.Grant{},
-		&models.Job{},
-		&models.JobTask{},
-		&models.JobLabel{},
+		&model.Job{},
+		&model.JobTask{},
+		&model.JobLabel{},
 		&models.ClusterInfo{},
 		&models.Image{},
 		&model.FileSystem{},

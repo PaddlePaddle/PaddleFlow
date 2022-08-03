@@ -49,10 +49,10 @@ type RunJob struct {
 	Message        string            `gorm:"type:text;size:65535;not null"      json:"message"`
 	Cache          schema.Cache      `gorm:"-"                                  json:"cache"`
 	CacheJson      string            `gorm:"type:text;size:65535;not null"      json:"-"`
-	CacheRunID     string            `gorm:"type:varchar(60);not null"          json:"cache_run_id"`
-	CacheJobID     string            `gorm:"type:varchar(60);not null"          json:"cache_job_id"`
-	FsMount        []schema.FsMount  `gorm:"-"                                  json:"fsMount"`
-	FsMountJson    string            `gorm:"type:text;size:65535;not null"      json:"-"`
+	CacheRunID     string            `gorm:"type:varchar(60);not null"          json:"cacheRunID"`
+	CacheJobID     string            `gorm:"type:varchar(60);not null"          json:"cacheJobID"`
+	ExtraFS        []schema.FsMount  `gorm:"-"                                  json:"extraFs"`
+	ExtraFSJson    string            `gorm:"type:text;size:65535;not null"      json:"-"`
 	CreateTime     string            `gorm:"-"                                  json:"createTime"`
 	ActivateTime   string            `gorm:"-"                                  json:"activateTime"`
 	UpdateTime     string            `gorm:"-"                                  json:"updateTime,omitempty"`
@@ -64,7 +64,7 @@ type RunJob struct {
 
 func CreateRunJob(logEntry *log.Entry, runJob *RunJob) (int64, error) {
 	logEntry.Debugf("begin create run_job, model: %v", runJob)
-	err := WithTransaction(storage.DB, func(tx *gorm.DB) error {
+	err := storage.DB.Transaction(func(tx *gorm.DB) error {
 		result := tx.Model(&RunJob{}).Create(&runJob)
 		if result.Error != nil {
 			logEntry.Errorf("create run_job failed. run_job: %v, error: %s",
@@ -148,12 +148,12 @@ func (rj *RunJob) Encode() error {
 	}
 	rj.EnvJson = string(envJson)
 
-	fsMountJson, err := json.Marshal(rj.FsMount)
+	fsMountJson, err := json.Marshal(rj.ExtraFS)
 	if err != nil {
 		logger.Logger().Errorf("encode run job fsMount failed. error: %v", err)
 		return err
 	}
-	rj.FsMountJson = string(fsMountJson)
+	rj.ExtraFSJson = string(fsMountJson)
 
 	if rj.ActivateTime != "" {
 		activatedAt := sql.NullTime{}
@@ -202,12 +202,12 @@ func (rj *RunJob) decode() error {
 		rj.Env = env
 	}
 
-	if len(rj.FsMountJson) > 0 {
+	if len(rj.ExtraFSJson) > 0 {
 		fsMount := []schema.FsMount{}
-		if err := json.Unmarshal([]byte(rj.FsMountJson), &fsMount); err != nil {
+		if err := json.Unmarshal([]byte(rj.ExtraFSJson), &fsMount); err != nil {
 			logger.Logger().Errorf("decode run job fsMount failed. error: %v", err)
 		}
-		rj.FsMount = fsMount
+		rj.ExtraFS = fsMount
 	}
 
 	// format time
@@ -235,7 +235,7 @@ func (rj *RunJob) Trans2JobView() schema.JobView {
 	if rj.Status == schema.StatusJobCancelled || rj.Status == schema.StatusJobFailed || rj.Status == schema.StatusJobSucceeded || rj.Status == schema.StatusJobSkipped {
 		newEndTime = rj.UpdateTime
 	}
-	newFsMount := append(rj.FsMount, []schema.FsMount{}...)
+	newFsMount := append(rj.ExtraFS, []schema.FsMount{}...)
 
 	return schema.JobView{
 		PK:          rj.Pk,
@@ -257,7 +257,7 @@ func (rj *RunJob) Trans2JobView() schema.JobView {
 		JobMessage:  rj.Message,
 		CacheRunID:  rj.CacheRunID,
 		CacheJobID:  rj.CacheJobID,
-		FsMount:     newFsMount,
+		ExtraFS:     newFsMount,
 	}
 }
 
@@ -278,7 +278,7 @@ func ParseRunJob(jobView *schema.JobView) RunJob {
 		newEnv[k] = v
 	}
 
-	newFsMount := append(jobView.FsMount, []schema.FsMount{}...)
+	newFsMount := append(jobView.ExtraFS, []schema.FsMount{}...)
 
 	return RunJob{
 		ID:           jobView.JobID,
@@ -296,6 +296,6 @@ func ParseRunJob(jobView *schema.JobView) RunJob {
 		CacheRunID:   jobView.CacheRunID,
 		CacheJobID:   jobView.CacheJobID,
 		ActivateTime: jobView.StartTime,
-		FsMount:      newFsMount,
+		ExtraFS:      newFsMount,
 	}
 }

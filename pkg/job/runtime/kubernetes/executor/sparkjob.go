@@ -19,15 +19,18 @@ package executor
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	log "github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	sparkapp "github.com/PaddlePaddle/PaddleFlow/pkg/apis/spark-operator/sparkoperator.k8s.io/v1beta2"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 const defaultExecutorInstances int32 = 1
@@ -43,7 +46,7 @@ type SparkJob struct {
 	ExecutorReplicas string
 }
 
-func (sj *SparkJob) validateJob() error {
+func (sj *SparkJob) validateJob(sparkApp *sparkapp.SparkApplication) error {
 	if err := sj.KubeJob.validateJob(); err != nil {
 		log.Errorf("validate basic params of spark job failed: %v", err)
 		return err
@@ -57,9 +60,85 @@ func (sj *SparkJob) validateJob() error {
 			return fmt.Errorf("spark image is not defined")
 		}
 		sj.Image = sj.Tasks[0].Image
+		for i, task := range sj.Tasks {
+			if err := validateSparkMemory(&sj.Tasks[i].Flavour.Mem); err != nil {
+				err = fmt.Errorf("validate spark.%s.memory failed, err: %v", task.Role, err)
+				log.Errorln(err)
+				return err
+			}
+		}
 		// todo check all required fields when job is not custom
+	} else if err := sj.validateCustomYaml(sparkApp); err != nil {
+		log.Errorf("validate custom yaml failed, err: %v", err)
+		return err
+	}
+
+	return nil
+}
+
+func (sj *SparkJob) validateCustomYaml(sparkApp *sparkapp.SparkApplication) error {
+	log.Infof("validate custom yaml for spark job: %v, sparkApp from yaml: %v", sj, sparkApp)
+	if err := validateSparkResource(sparkApp); err != nil {
+		err = fmt.Errorf("validate spark resource failed, err: %v", err)
+		log.Errorln(err)
+		return err
 	}
 	return nil
+}
+
+func validateSparkResource(sparkApp *sparkapp.SparkApplication) error {
+	cores := int32(k8s.DefaultCpuRequest)
+	coreLimit := strconv.Itoa(k8s.DefaultCpuRequest)
+	memoryQuantity := resource.NewQuantity(k8s.DefaultMemRequest, resource.BinarySI)
+	memory := memoryQuantity.String()
+	// validateTemplateResources for driver
+	if sparkApp.Spec.Driver.CoreLimit == nil {
+		sparkApp.Spec.Driver.Cores = &cores
+		sparkApp.Spec.Driver.CoreLimit = &coreLimit
+	}
+	if sparkApp.Spec.Driver.Memory == nil {
+		sparkApp.Spec.Driver.Memory = &memory
+	}
+	if err := validateSparkMemory(sparkApp.Spec.Driver.Memory); err != nil {
+		err = fmt.Errorf("validate spark.driver memory failed, err: %v", err)
+		log.Errorln(err)
+		return err
+	}
+
+	// validateTemplateResources for executor
+	if sparkApp.Spec.Executor.CoreLimit == nil {
+		sparkApp.Spec.Executor.Cores = &cores
+		sparkApp.Spec.Executor.CoreLimit = &coreLimit
+	}
+	if sparkApp.Spec.Executor.Memory == nil {
+		sparkApp.Spec.Executor.Memory = &memory
+	}
+	if err := validateSparkMemory(sparkApp.Spec.Executor.Memory); err != nil {
+		err = fmt.Errorf("validate spark.Executor memory failed, err: %v", err)
+		log.Errorln(err)
+		return err
+	}
+	return nil
+}
+
+// validateSparkMemory the spark memory can only accept DecimalSI, so BinarySI would be converted to DecimalSI
+func validateSparkMemory(memory *string) error {
+	memoryQuantity, err := resource.ParseQuantity(*memory)
+	if err != nil {
+		log.Errorf("parse spark memory failed, err: %v", err)
+		return err
+	}
+	switch memoryQuantity.Format {
+	case resource.BinarySI:
+		*memory = strings.TrimSuffix(memoryQuantity.String(), "i")
+		log.Debugf("convert memory to decimalSI-style: %v", *memory)
+	case resource.DecimalSI:
+		return nil
+	default:
+		err = fmt.Errorf("the %v format of memory %s is not supported", memoryQuantity.Format, *memory)
+		log.Errorln(err)
+	}
+	return err
 }
 
 // patchSparkAppVariable patch env variable to jobApplication, the order of patches following spark crd
@@ -137,7 +216,7 @@ func (sj *SparkJob) patchSparkSpec(jobApp *sparkapp.SparkApplication, jobID stri
 	return nil
 }
 
-func (sj *SparkJob) patchPodByTask(podSpec *sparkapp.SparkPodSpec, task models.Member) {
+func (sj *SparkJob) patchPodByTask(podSpec *sparkapp.SparkPodSpec, task model.Member) {
 	flavour := task.Flavour
 	coresInt, _ := strconv.Atoi(task.Flavour.CPU)
 	cores := int32(coresInt)
@@ -156,7 +235,7 @@ func (sj *SparkJob) patchPodByTask(podSpec *sparkapp.SparkPodSpec, task models.M
 	}
 }
 
-func (sj *SparkJob) patchSparkSpecDriver(jobApp *sparkapp.SparkApplication, task models.Member) {
+func (sj *SparkJob) patchSparkSpecDriver(jobApp *sparkapp.SparkApplication, task model.Member) {
 	sj.patchPodByTask(&jobApp.Spec.Driver.SparkPodSpec, task)
 	if task.Name != "" {
 		jobApp.Spec.Driver.PodName = &task.Name
@@ -167,7 +246,7 @@ func (sj *SparkJob) patchSparkSpecDriver(jobApp *sparkapp.SparkApplication, task
 	}
 }
 
-func (sj *SparkJob) patchSparkSpecExecutor(jobApp *sparkapp.SparkApplication, task models.Member) {
+func (sj *SparkJob) patchSparkSpecExecutor(jobApp *sparkapp.SparkApplication, task model.Member) {
 	sj.patchPodByTask(&jobApp.Spec.Executor.SparkPodSpec, task)
 	if len(sj.ExecutorReplicas) > 0 {
 		replicasInt, _ := strconv.Atoi(sj.ExecutorReplicas)
@@ -182,16 +261,16 @@ func (sj *SparkJob) patchSparkSpecExecutor(jobApp *sparkapp.SparkApplication, ta
 
 // CreateJob creates a SparkJob
 func (sj *SparkJob) CreateJob() (string, error) {
-	if err := sj.validateJob(); err != nil {
-		log.Errorf("validate job failed, err %v", err)
-		return "", err
-	}
 	jobID := sj.GetID()
 	log.Debugf("begin create job jobID:[%s]", jobID)
 
 	jobApp := &sparkapp.SparkApplication{}
 	if err := sj.createJobFromYaml(jobApp); err != nil {
 		log.Errorf("create job failed, err %v", err)
+		return "", err
+	}
+	if err := sj.validateJob(jobApp); err != nil {
+		log.Errorf("validate job failed, err %v", err)
 		return "", err
 	}
 
@@ -206,7 +285,7 @@ func (sj *SparkJob) CreateJob() (string, error) {
 	log.Debugf("begin submit job jobID:[%s]", jobID)
 	err := Create(jobApp, k8s.SparkAppGVK, sj.DynamicClientOption)
 	if err != nil {
-		log.Errorf("create job %v failed, err %v", jobID, err)
+		log.Errorf("create job %v failed, err: %v", jobID, err)
 		return "", err
 	}
 	return jobID, nil
@@ -214,7 +293,7 @@ func (sj *SparkJob) CreateJob() (string, error) {
 
 // StopJobByID stops a job by jobID
 func (sj *SparkJob) StopJobByID(jobID string) error {
-	job, err := models.GetJobByID(jobID)
+	job, err := storage.Job.GetJobByID(jobID)
 	if err != nil {
 		return err
 	}

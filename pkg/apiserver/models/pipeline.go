@@ -31,7 +31,7 @@ import (
 
 type Pipeline struct {
 	Pk        int64          `json:"-"                    gorm:"primaryKey;autoIncrement;not null"`
-	ID        string         `json:"pipelineID"           gorm:"type:varchar(60);not null;uniqueIndex"`
+	ID        string         `json:"pipelineID"           gorm:"type:varchar(60);not null;index"`
 	Name      string         `json:"name"                 gorm:"type:varchar(60);not null;index:idx_fs_name"`
 	Desc      string         `json:"desc"                 gorm:"type:varchar(256);not null"`
 	UserName  string         `json:"username"             gorm:"type:varchar(60);not null;index:idx_fs_name"`
@@ -44,9 +44,9 @@ func (Pipeline) TableName() string {
 	return "pipeline"
 }
 
-func CreatePipeline(logEntry *log.Entry, ppl *Pipeline, pplDetail *PipelineDetail) (pplID string, pplDetailID string, err error) {
-	logEntry.Debugf("begin create pipeline: %+v & pipeline detail: %+v", ppl, pplDetail)
-	err = WithTransaction(storage.DB, func(tx *gorm.DB) error {
+func CreatePipeline(logEntry *log.Entry, ppl *Pipeline, pplVersion *PipelineVersion) (pplID string, pplVersionID string, err error) {
+	logEntry.Debugf("begin create pipeline: %+v & pipeline version: %+v", ppl, pplVersion)
+	err = storage.DB.Transaction(func(tx *gorm.DB) error {
 		result := tx.Model(&Pipeline{}).Create(ppl)
 		if result.Error != nil {
 			logEntry.Errorf("create pipeline failed. pipeline:%+v, error:%v", ppl, result.Error)
@@ -60,30 +60,30 @@ func CreatePipeline(logEntry *log.Entry, ppl *Pipeline, pplDetail *PipelineDetai
 			return result.Error
 		}
 
-		var pplDetailCount int64
-		tx = tx.Unscoped().Model(&PipelineDetail{}).Where("pipeline_id = ?", ppl.ID).Count(&pplDetailCount)
+		var pplVersionCount int64
+		tx = tx.Unscoped().Model(&PipelineVersion{}).Where("pipeline_id = ?", ppl.ID).Count(&pplVersionCount)
 		if tx.Error != nil {
-			logger.Logger().Errorf("count pipeline detail failed. pipelineID[%s]. error:%s",
+			logger.Logger().Errorf("count pipeline version failed. pipelineID[%s]. error:%s",
 				ppl.ID, tx.Error.Error())
 			return tx.Error
 		}
-		pplDetail.ID = strconv.FormatInt(pplDetailCount+1, 10)
-		pplDetail.PipelineID = ppl.ID
-		result = tx.Model(&PipelineDetail{}).Create(pplDetail)
+		pplVersion.ID = strconv.FormatInt(pplVersionCount+1, 10)
+		pplVersion.PipelineID = ppl.ID
+		result = tx.Model(&PipelineVersion{}).Create(pplVersion)
 		if result.Error != nil {
-			logEntry.Errorf("create pipeline detail failed. pipeline detail:%+v, error:%v", pplDetail, result.Error)
+			logEntry.Errorf("create pipeline version failed. pipeline version:%+v, error:%v", pplVersion, result.Error)
 			return result.Error
 		}
 
-		logEntry.Infof("created ppl with pk[%d], pplID[%s], pplDetailPk[%d], pplDetailID[%s]", ppl.Pk, ppl.ID, pplDetail.Pk, pplDetail.ID)
+		logEntry.Infof("created ppl with pk[%d], pplID[%s], pplVersionPk[%d], pplVersionID[%s]", ppl.Pk, ppl.ID, pplVersion.Pk, pplVersion.ID)
 		return nil
 	})
-	return ppl.ID, pplDetail.ID, err
+	return ppl.ID, pplVersion.ID, err
 }
 
-func UpdatePipeline(logEntry *log.Entry, ppl *Pipeline, pplDetail *PipelineDetail) (pplID string, pplDetailID string, err error) {
-	logEntry.Debugf("begin update pipeline: %+v and pipeline detail: %+v", ppl, pplDetail)
-	err = WithTransaction(storage.DB, func(tx *gorm.DB) error {
+func UpdatePipeline(logEntry *log.Entry, ppl *Pipeline, pplVersion *PipelineVersion) (pplID string, pplVersionID string, err error) {
+	logEntry.Debugf("begin update pipeline: %+v and pipeline version: %+v", ppl, pplVersion)
+	err = storage.DB.Transaction(func(tx *gorm.DB) error {
 		// update desc by pk
 		result := tx.Model(&Pipeline{}).Where("pk = ?", ppl.Pk).Update("desc", ppl.Desc)
 		if result.Error != nil {
@@ -91,25 +91,25 @@ func UpdatePipeline(logEntry *log.Entry, ppl *Pipeline, pplDetail *PipelineDetai
 			return result.Error
 		}
 
-		var pplDetailCount int64
-		tx = tx.Unscoped().Model(&PipelineDetail{}).Where("pipeline_id = ?", ppl.ID).Count(&pplDetailCount)
+		var pplVersionCount int64
+		tx = tx.Unscoped().Model(&PipelineVersion{}).Where("pipeline_id = ?", ppl.ID).Count(&pplVersionCount)
 		if tx.Error != nil {
-			logger.Logger().Errorf("count pipeline detail failed. pipelineID[%s]. error:%s",
+			logger.Logger().Errorf("count pipeline version failed. pipelineID[%s]. error:%s",
 				ppl.ID, tx.Error.Error())
 			return tx.Error
 		}
 
-		pplDetail.ID = strconv.FormatInt(pplDetailCount+1, 10)
-		pplDetail.PipelineID = ppl.ID
-		result = tx.Create(pplDetail)
+		pplVersion.ID = strconv.FormatInt(pplVersionCount+1, 10)
+		pplVersion.PipelineID = ppl.ID
+		result = tx.Create(pplVersion)
 		if result.Error != nil {
-			logEntry.Errorf("update pipeline failed. pipeline detail:%+v, error:%v", pplDetail, result.Error)
+			logEntry.Errorf("update pipeline failed. pipeline version:%+v, error:%v", pplVersion, result.Error)
 			return result.Error
 		}
-		logEntry.Debugf("updated ppl with pplID[%s], new pplDetailPk[%d], pplDetailID[%s]", pplDetail.PipelineID, pplDetail.Pk, pplDetail.ID)
+		logEntry.Debugf("updated ppl with pplID[%s], new pplVersionPk[%d], pplVersionID[%s]", pplVersion.PipelineID, pplVersion.Pk, pplVersion.ID)
 		return nil
 	})
-	return pplDetail.PipelineID, pplDetail.ID, err
+	return pplVersion.PipelineID, pplVersion.ID, err
 }
 
 func GetPipelineByID(id string) (Pipeline, error) {

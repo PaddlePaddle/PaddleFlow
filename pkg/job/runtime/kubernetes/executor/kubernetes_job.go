@@ -32,14 +32,16 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 	schedulingv1beta1 "volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/utils"
 	locationAwareness "github.com/PaddlePaddle/PaddleFlow/pkg/fs/location-awareness"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 const (
@@ -91,7 +93,7 @@ type KubeJob struct {
 	// YamlTemplateContent indicate template content of job
 	YamlTemplateContent []byte
 	IsCustomYaml        bool
-	Tasks               []models.Member
+	Tasks               []model.Member
 	GroupVersionKind    kubeschema.GroupVersionKind
 	DynamicClientOption *k8s.DynamicClientOption
 }
@@ -130,7 +132,7 @@ func NewKubeJob(job *api.PFJob, dynamicClientOpt *k8s.DynamicClientOption) (api.
 		// todo(zhongzichao): to be removed
 		kubeJob.GroupVersionKind = k8s.VCJobGVK
 		if len(job.Tasks) == 0 {
-			kubeJob.Tasks = []models.Member{
+			kubeJob.Tasks = []model.Member{
 				{
 					Conf: schema.Conf{
 						Flavour: job.Conf.Flavour,
@@ -347,7 +349,7 @@ func (j *KubeJob) createJobFromYaml(jobEntity interface{}) error {
 }
 
 // fill PodSpec
-func (j *KubeJob) fillPodSpec(podSpec *corev1.PodSpec, task *models.Member) {
+func (j *KubeJob) fillPodSpec(podSpec *corev1.PodSpec, task *model.Member) {
 	if task != nil {
 		j.Priority = task.Priority
 	}
@@ -387,7 +389,7 @@ func (j *KubeJob) fillContainerInVcJob(container *corev1.Container, flavour sche
 }
 
 // fillContainerInTasks fill container in job task
-func (j *KubeJob) fillContainerInTasks(container *corev1.Container, task models.Member) error {
+func (j *KubeJob) fillContainerInTasks(container *corev1.Container, task model.Member) error {
 	if j.isNeedPatch(container.Image) {
 		container.Image = task.Image
 	}
@@ -502,7 +504,7 @@ func (j *KubeJob) generateContainerCommand(command string, workdir string) []str
 	return commands
 }
 
-func (j *KubeJob) getWorkDir(task *models.Member) string {
+func (j *KubeJob) getWorkDir(task *model.Member) string {
 	// prepare fs and envs
 	fileSystems := j.FileSystems
 	envs := j.Env
@@ -520,10 +522,10 @@ func (j *KubeJob) getWorkDir(task *models.Member) string {
 	}
 
 	workdir := ""
-	mountPath := filepath.Clean(fileSystems[0].MountPath)
+	mountPath := utils.MountPathClean(fileSystems[0].MountPath)
 	log.Infof("getWorkDir by hasWorkDir: true,mountPath: %s, task: %v", mountPath, task)
-	if mountPath != "." {
-		workdir = mountPath
+	if mountPath != "/" {
+		workdir = fileSystems[0].MountPath
 	} else {
 		workdir = filepath.Join(schema.DefaultFSMountPath, fileSystems[0].ID)
 	}
@@ -587,7 +589,7 @@ func (j *KubeJob) DeleteJob() error {
 }
 
 func GetPodGroupName(jobID string) string {
-	job, err := models.GetJobByID(jobID)
+	job, err := storage.Job.GetJobByID(jobID)
 	if err != nil {
 		log.Errorf("get job %s failed, err %v", jobID, err)
 		return ""
@@ -833,14 +835,14 @@ func generateVolumeMounts(fileSystems []schema.FileSystem) []corev1.VolumeMount 
 	}
 	for _, fs := range fileSystems {
 		log.Debugf("generateVolumeMounts walking fileSystem %+v", fs)
-		mountPath := filepath.Clean(fs.MountPath)
-		if mountPath == "." {
+		mountPath := utils.MountPathClean(fs.MountPath)
+		if mountPath == "/" {
 			mountPath = filepath.Join(schema.DefaultFSMountPath, fs.ID)
 		}
 		volumeMount := corev1.VolumeMount{
 			Name:      fs.Name,
 			ReadOnly:  fs.ReadOnly,
-			MountPath: mountPath,
+			MountPath: fs.MountPath,
 			SubPath:   fs.SubPath,
 		}
 		vms = append(vms, volumeMount)
@@ -892,12 +894,12 @@ func appendMountsIfAbsent(volumeMounts []corev1.VolumeMount, newElements []corev
 	// deduplication
 	volumeMountsDict := make(map[string]string)
 	for _, cur := range volumeMounts {
-		mountPath := filepath.Clean(cur.MountPath)
+		mountPath := utils.MountPathClean(cur.MountPath)
 		volumeMountsDict[mountPath] = cur.Name
 	}
 
 	for _, cur := range newElements {
-		mountPath := filepath.Clean(cur.MountPath)
+		mountPath := utils.MountPathClean(cur.MountPath)
 		if _, exist := volumeMountsDict[mountPath]; exist {
 			log.Debugf("moutPath %s in volumeMount %s has been created in jobTemplate", cur.MountPath, cur.Name)
 			continue
@@ -906,4 +908,18 @@ func appendMountsIfAbsent(volumeMounts []corev1.VolumeMount, newElements []corev
 		volumeMounts = append(volumeMounts, cur)
 	}
 	return volumeMounts
+}
+
+func validateTemplateResources(spec *corev1.PodSpec) error {
+	for index, container := range spec.Containers {
+		resourcesList := k8s.NewMinResourceList()
+
+		if container.Resources.Requests.Cpu().IsZero() || container.Resources.Requests.Memory().IsZero() {
+			spec.Containers[index].Resources.Requests = resourcesList
+			spec.Containers[index].Resources.Limits = resourcesList
+			log.Warnf("podSpec %v container %d cpu is zero, Resources: %v", spec, index, spec.Containers[index].Resources.Requests)
+		}
+
+	}
+	return nil
 }

@@ -34,6 +34,8 @@ import (
 	commonschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime/kubernetes/executor"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 const (
@@ -42,15 +44,16 @@ const (
 )
 
 type JobSyncInfo struct {
-	ID          string
-	Namespace   string
-	ParentJobID string
-	GVK         schema.GroupVersionKind
-	Status      commonschema.JobStatus
-	Runtime     interface{}
-	Message     string
-	Action      commonschema.ActionType
-	RetryTimes  int
+	ID            string
+	Namespace     string
+	ParentJobID   string
+	GVK           schema.GroupVersionKind
+	Status        commonschema.JobStatus
+	RuntimeInfo   interface{}
+	RuntimeStatus interface{}
+	Message       string
+	Action        commonschema.ActionType
+	RetryTimes    int
 }
 
 func (js *JobSyncInfo) String() string {
@@ -202,20 +205,20 @@ func (j *JobSync) syncJobStatus(jobSyncInfo *JobSyncInfo) error {
 
 func (j *JobSync) doCreateAction(jobSyncInfo *JobSyncInfo) error {
 	log.Infof("do create action, job sync info are as follows. %s", jobSyncInfo.String())
-	_, err := models.GetJobByID(jobSyncInfo.ID)
+	_, err := storage.Job.GetJobByID(jobSyncInfo.ID)
 	if err == nil {
 		return j.doUpdateAction(jobSyncInfo)
 	}
 	// only create job for subtask
 	if jobSyncInfo.ParentJobID != "" {
 		// check weather parent job is exist or not
-		parentJob, err := models.GetJobByID(jobSyncInfo.ParentJobID)
+		parentJob, err := storage.Job.GetJobByID(jobSyncInfo.ParentJobID)
 		if err != nil {
 			log.Errorf("get parent job %s failed, err: %v", jobSyncInfo.ParentJobID, err)
 			return err
 		}
 		jobType, framework := k8s.GetJobTypeAndFramework(jobSyncInfo.GVK)
-		job := &models.Job{
+		job := &model.Job{
 			ID:   jobSyncInfo.ID,
 			Type: string(jobType),
 			Config: &commonschema.Conf{
@@ -223,14 +226,15 @@ func (j *JobSync) doCreateAction(jobSyncInfo *JobSyncInfo) error {
 					commonschema.EnvJobNamespace: jobSyncInfo.Namespace,
 				},
 			},
-			Framework:   framework,
-			QueueID:     parentJob.QueueID,
-			Status:      jobSyncInfo.Status,
-			Message:     jobSyncInfo.Message,
-			RuntimeInfo: jobSyncInfo.Runtime,
-			ParentJob:   jobSyncInfo.ParentJobID,
+			Framework:     framework,
+			QueueID:       parentJob.QueueID,
+			Status:        jobSyncInfo.Status,
+			Message:       jobSyncInfo.Message,
+			RuntimeInfo:   jobSyncInfo.RuntimeInfo,
+			RuntimeStatus: jobSyncInfo.RuntimeStatus,
+			ParentJob:     jobSyncInfo.ParentJobID,
 		}
-		if err = models.CreateJob(job); err != nil {
+		if err = storage.Job.CreateJob(job); err != nil {
 			log.Errorf("craete job %v failed, err: %v", job, err)
 			return err
 		}
@@ -240,8 +244,7 @@ func (j *JobSync) doCreateAction(jobSyncInfo *JobSyncInfo) error {
 
 func (j *JobSync) doDeleteAction(jobSyncInfo *JobSyncInfo) error {
 	log.Infof("do delete action, job sync info are as follows. %s", jobSyncInfo.String())
-	if _, err := models.UpdateJob(jobSyncInfo.ID, commonschema.StatusJobTerminated,
-		jobSyncInfo.Runtime, "job is terminated"); err != nil {
+	if _, err := storage.Job.UpdateJob(jobSyncInfo.ID, commonschema.StatusJobTerminated, jobSyncInfo.RuntimeInfo, jobSyncInfo.RuntimeStatus, "job is terminated"); err != nil {
 		log.Errorf("sync job status failed. jobID:[%s] err:[%s]", jobSyncInfo.ID, err.Error())
 		return err
 	}
@@ -252,7 +255,7 @@ func (j *JobSync) doUpdateAction(jobSyncInfo *JobSyncInfo) error {
 	log.Infof("do update action. jobID:[%s] action:[%s] status:[%s] message:[%s]",
 		jobSyncInfo.ID, jobSyncInfo.Action, jobSyncInfo.Status, jobSyncInfo.Message)
 
-	if _, err := models.UpdateJob(jobSyncInfo.ID, jobSyncInfo.Status, jobSyncInfo.Runtime, jobSyncInfo.Message); err != nil {
+	if _, err := storage.Job.UpdateJob(jobSyncInfo.ID, jobSyncInfo.Status, jobSyncInfo.RuntimeInfo, jobSyncInfo.RuntimeStatus, jobSyncInfo.Message); err != nil {
 		log.Errorf("update job failed. jobID:[%s] err:[%s]", jobSyncInfo.ID, err.Error())
 		return err
 	}
@@ -262,7 +265,7 @@ func (j *JobSync) doUpdateAction(jobSyncInfo *JobSyncInfo) error {
 func (j *JobSync) doTerminateAction(jobSyncInfo *JobSyncInfo) error {
 	log.Infof("do terminate action. jobID:[%s] action:[%s] status:[%s] message:[%s]",
 		jobSyncInfo.ID, jobSyncInfo.Action, jobSyncInfo.Status, jobSyncInfo.Message)
-	job, err := models.GetJobByID(jobSyncInfo.ID)
+	job, err := storage.Job.GetJobByID(jobSyncInfo.ID)
 	if err != nil {
 		log.Infof("do terminate action. jobID[%s] not found", jobSyncInfo.ID)
 		return nil
@@ -315,14 +318,14 @@ func (j *JobSync) processTaskWorkItem() bool {
 func (j *JobSync) syncTaskStatus(taskSyncInfo *TaskSyncInfo) error {
 	name := taskSyncInfo.Name
 	namespace := taskSyncInfo.Namespace
-	_, err := models.GetJobByID(taskSyncInfo.JobID)
+	_, err := storage.Job.GetJobByID(taskSyncInfo.JobID)
 	if err != nil {
 		log.Warnf("update task %s/%s status failed, job %s for task not found", namespace, name, taskSyncInfo.JobID)
 		return err
 	}
 
 	// TODO: get logURL from pod resources
-	taskStatus := &models.JobTask{
+	taskStatus := &model.JobTask{
 		ID:               taskSyncInfo.ID,
 		JobID:            taskSyncInfo.JobID,
 		Name:             taskSyncInfo.Name,
@@ -338,7 +341,7 @@ func (j *JobSync) syncTaskStatus(taskSyncInfo *TaskSyncInfo) error {
 		taskStatus.DeletedAt.Valid = true
 	}
 	log.Debugf("update job task %s/%s status: %v", namespace, name, taskStatus)
-	err = models.UpdateTask(taskStatus)
+	err = storage.Job.UpdateTask(taskStatus)
 	if err != nil {
 		log.Errorf("update task %s/%s status in database failed, err %v",
 			namespace, name, err)
@@ -359,7 +362,16 @@ func responsibleForJob(obj interface{}) bool {
 }
 
 func (j *JobSync) preHandleTerminatingJob() {
-	jobs := models.ListClusterJob(j.opt.ClusterInfo.ID, commonschema.StatusJobTerminating)
+	queues := models.ListQueuesByCluster(j.opt.ClusterInfo.ID)
+	if len(queues) == 0 {
+		return
+	}
+	var queueIDs []string
+	for _, q := range queues {
+		queueIDs = append(queueIDs, q.ID)
+	}
+
+	jobs := storage.Job.ListJobsByQueueIDsAndStatus(queueIDs, commonschema.StatusJobTerminating)
 	for _, job := range jobs {
 		name := job.ID
 		namespace := job.Config.GetNamespace()

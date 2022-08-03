@@ -33,7 +33,9 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/utils"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
@@ -70,7 +72,7 @@ func CreatePFJob(ctx *logger.RequestContext, request *CreateJobInfo) (*CreateJob
 	}
 
 	ctx.Logging().Debugf("create distributed job %#v", jobInfo)
-	if err = models.CreateJob(jobInfo); err != nil {
+	if err = storage.Job.CreateJob(jobInfo); err != nil {
 		ctx.Logging().Errorf("create job[%s] in database faield, err: %v", jobInfo.Config.GetName(), err)
 		return nil, fmt.Errorf("create job[%s] in database faield, err: %v", jobInfo.Config.GetName(), err)
 	}
@@ -87,25 +89,10 @@ func validateJob(ctx *logger.RequestContext, request *CreateJobInfo) error {
 		return err
 	}
 
-	// check job framework
-	var jobType schema.JobType
-	switch request.Framework {
-	case schema.FrameworkSpark, schema.FrameworkPaddle:
-		jobType = schema.TypeDistributed
-	case "", schema.FrameworkStandalone:
-		jobType = schema.TypeSingle
-	case schema.FrameworkTF, schema.FrameworkMPI:
-		ctx.Logging().Errorf("framework: %s will be supported in the future", request.Framework)
-		ctx.ErrorCode = common.JobInvalidField
-		return fmt.Errorf("framework: %s will be supported in the future", request.Framework)
-	default:
-		ctx.Logging().Errorf("invalid framework: %s", request.Framework)
-		ctx.ErrorCode = common.JobInvalidField
-		return fmt.Errorf("invalid framework: %s", request.Framework)
-	}
-	if request.Type == "" {
-		// set job type
-		request.Type = jobType
+	// check job type and framework
+	if err := validateJobFramework(ctx, request.Type, request.Framework); err != nil {
+		ctx.Logging().Errorf("validate job framework failed, err: %v", err)
+		return err
 	}
 
 	if len(request.ExtensionTemplate) != 0 {
@@ -119,6 +106,35 @@ func validateJob(ctx *logger.RequestContext, request *CreateJobInfo) error {
 		}
 	}
 	return nil
+}
+
+// validateJobFramework validate job type and framework
+func validateJobFramework(ctx *logger.RequestContext, jobType schema.JobType, framework schema.Framework) error {
+	var err error
+	switch jobType {
+	case schema.TypeSingle:
+		if framework != schema.FrameworkStandalone {
+			err = fmt.Errorf("framework for single job must be standalone")
+		}
+	case schema.TypeDistributed:
+		switch framework {
+		case schema.FrameworkSpark, schema.FrameworkPaddle:
+			err = nil
+		case schema.FrameworkTF, schema.FrameworkMPI:
+			err = fmt.Errorf("framework: %s for distributed job will be supported in the future", framework)
+		default:
+			err = fmt.Errorf("invalid framework %s for distributed job", framework)
+		}
+	case schema.TypeWorkflow:
+		// TODO: add check for workflow
+	default:
+		err = fmt.Errorf("job type %s does not supported", jobType)
+	}
+	if err != nil {
+		ctx.Logging().Error(err)
+		ctx.ErrorCode = common.JobInvalidField
+	}
+	return err
 }
 
 func validateCommonJobInfo(ctx *logger.RequestContext, requestCommonJobInfo *CommonJobInfo) error {
@@ -271,7 +287,13 @@ func checkJobSpec(ctx *logger.RequestContext, jobSpec *JobSpec) error {
 // validateQueue validate queue and set queueID in request.SchedulingPolicy
 func validateQueue(ctx *logger.RequestContext, schedulingPolicy *SchedulingPolicy) error {
 	if schedulingPolicy.Queue == "" {
-		schedulingPolicy.Queue = config.DefaultQueueName
+		if config.GlobalServerConfig.Job.IsSingleCluster {
+			schedulingPolicy.Queue = config.DefaultQueueName
+		} else {
+			err := fmt.Errorf("queue is empty")
+			ctx.Logging().Errorf("Failed to check Queue: %v", err)
+			return err
+		}
 	}
 	queueName := schedulingPolicy.Queue
 	queue, err := models.GetQueueByName(queueName)
@@ -364,9 +386,9 @@ func validateFileSystem(userName string, fs *schema.FileSystem) error {
 		log.Debugf("mountPath is %s, changes to .", fs.MountPath)
 		fs.MountPath = filepath.Join(schema.DefaultFSMountPath, fs.ID)
 	}
-	mountPath := filepath.Clean(fs.MountPath)
+	mountPath := utils.MountPathClean(fs.MountPath)
 	if mountPath == "/" || mountPath == "." || mountPath == ".." {
-		err := fmt.Errorf("mountPath cannot be '/' or '.' or '..' in fsName[%s] fsID[%s]", fsName, fsID)
+		err := fmt.Errorf("mountPath cannot be '/' in fsName: %s fsID: %s, got %s", fsName, fsID, fs.MountPath)
 		log.Errorf("validateFileSystem failed, err: %v", err)
 		return err
 	}
@@ -379,7 +401,6 @@ func validateFileSystem(userName string, fs *schema.FileSystem) error {
 	// fill back
 	fs.ID = fileSystem.ID
 	fs.Name = fileSystem.Name
-	fs.MountPath = mountPath
 
 	return nil
 }
@@ -447,12 +468,12 @@ func getFrameworkRoles(framework schema.Framework) map[schema.MemberRole]int {
 }
 
 // buildJob build a models job
-func buildJob(request *CreateJobInfo) (*models.Job, error) {
+func buildJob(request *CreateJobInfo) (*model.Job, error) {
 	log.Debugf("begin build job with info: %#v", request)
 	// build main job config
 	conf := buildMainConf(request)
 	// convert job members if necessary
-	var members []models.Member
+	var members []model.Member
 	var templateJson string
 	var err error
 	if len(request.ExtensionTemplate) == 0 {
@@ -465,7 +486,7 @@ func buildJob(request *CreateJobInfo) (*models.Job, error) {
 		}
 	}
 
-	jobInfo := &models.Job{
+	jobInfo := &model.Job{
 		ID:                request.ID,
 		Name:              request.Name,
 		UserName:          request.UserName,
@@ -509,8 +530,8 @@ func buildMainConf(request *CreateJobInfo) *schema.Conf {
 	return conf
 }
 
-func buildMembers(request *CreateJobInfo) []models.Member {
-	members := make([]models.Member, 0)
+func buildMembers(request *CreateJobInfo) []model.Member {
+	members := make([]model.Member, 0)
 	log.Infof("build merbers for framework %s with mode %s", request.Framework, request.Mode)
 	for _, reqMember := range request.Members {
 		member := newMember(reqMember, schema.MemberRole(reqMember.Role))
@@ -535,7 +556,7 @@ func buildCommonInfo(conf *schema.Conf, commonJobInfo *CommonJobInfo) {
 }
 
 // newMember convert request.Member to models.member
-func newMember(member MemberSpec, role schema.MemberRole) models.Member {
+func newMember(member MemberSpec, role schema.MemberRole) model.Member {
 	conf := schema.Conf{
 		Name: member.Name,
 		// 存储资源
@@ -555,7 +576,7 @@ func newMember(member MemberSpec, role schema.MemberRole) models.Member {
 		Args:        member.Args,
 	}
 
-	return models.Member{
+	return model.Member{
 		ID:       member.ID,
 		Role:     role,
 		Replicas: member.Replicas,
@@ -620,7 +641,7 @@ func CreateWorkflowJob(ctx *logger.RequestContext, request *CreateWfJobRequest) 
 	conf.SetQueueName(request.SchedulingPolicy.Queue)
 
 	// create workflow job
-	jobInfo := &models.Job{
+	jobInfo := &model.Job{
 		ID:                request.ID,
 		Name:              request.Name,
 		Type:              string(schema.TypeWorkflow),
@@ -631,7 +652,7 @@ func CreateWorkflowJob(ctx *logger.RequestContext, request *CreateWfJobRequest) 
 		ExtensionTemplate: templateJson,
 	}
 
-	if err := models.CreateJob(jobInfo); err != nil {
+	if err := storage.Job.CreateJob(jobInfo); err != nil {
 		log.Errorf("create job[%s] in database faield, err: %v", conf.GetName(), err)
 		return nil, fmt.Errorf("create job[%s] in database faield, err: %v", conf.GetName(), err)
 	}
@@ -717,7 +738,8 @@ func jobConfToCreateJobInfo(conf schema.PFJobConf) (*CreateJobInfo, error) {
 	var err error
 	var framework schema.Framework
 	switch jobType {
-	case schema.TypeSingle:
+	case "", schema.TypeSingle, schema.TypeVcJob:
+		jobType = schema.TypeSingle
 		framework = schema.FrameworkStandalone
 	case schema.TypeDistributed:
 		err = fmt.Errorf("distributed job is not implemented")
@@ -731,7 +753,7 @@ func jobConfToCreateJobInfo(conf schema.PFJobConf) (*CreateJobInfo, error) {
 
 	return &CreateJobInfo{
 		CommonJobInfo: commonJobInfo,
-		Type:          conf.Type(),
+		Type:          jobType,
 		Framework:     framework,
 		Members: []MemberSpec{
 			{

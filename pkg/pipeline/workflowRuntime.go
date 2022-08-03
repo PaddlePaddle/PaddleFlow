@@ -24,6 +24,7 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/trace_logger"
 )
 
 // 工作流运行时
@@ -77,6 +78,18 @@ func NewWorkflowRuntime(rc *runConfig) *WorkflowRuntime {
 	return wfr
 }
 
+func (wfr *WorkflowRuntime) catchPanic() {
+	if r := recover(); r != nil {
+		msg := fmt.Sprintf("Inner Error occured at dagruntime[%s]: %v", wfr.WorkflowSource.Name, r)
+		trace_logger.KeyWithUpdate(wfr.runID).Errorf(msg)
+
+		wfr.entryPointsCtx.Done()
+		wfr.postProcessPointsCtx.Done()
+
+		wfr.callback(msg)
+	}
+}
+
 func (wfr *WorkflowRuntime) generateEntryPointFullName() string {
 	return wfr.WorkflowSource.Name + ".entry_points"
 }
@@ -90,6 +103,9 @@ func (wfr *WorkflowRuntime) Start() {
 	defer wfr.scheduleLock.Unlock()
 
 	wfr.scheduleLock.Lock()
+
+	defer wfr.catchPanic()
+
 	// 处理正式运行前，便收到了 Stop 信号的场景
 	if wfr.status == common.StatusRunTerminating || wfr.IsCompleted() {
 		wfr.logger.Warningf("the status of run is %s, so it won't start run", wfr.status)
@@ -104,9 +120,14 @@ func (wfr *WorkflowRuntime) Start() {
 	}
 }
 
-func (wfr *WorkflowRuntime) Resume(entryPointView *schema.DagView, postProcessView schema.PostProcessView) {
+func (wfr *WorkflowRuntime) Resume(entryPointView *schema.DagView, postProcessView schema.PostProcessView,
+	runStatus string, stopForce bool) {
 	defer wfr.scheduleLock.Unlock()
 	wfr.scheduleLock.Lock()
+
+	defer wfr.catchPanic()
+
+	wfr.status = runStatus
 
 	wfr.startTime = entryPointView.StartTime
 
@@ -114,6 +135,11 @@ func (wfr *WorkflowRuntime) Resume(entryPointView *schema.DagView, postProcessVi
 	if !isRuntimeFinallyStatus(entryPointView.Status) {
 		go wfr.entryPoints.Resume(entryPointView)
 		go wfr.Listen()
+
+		if runStatus == string(StatusRuntimeTerminating) {
+			wfr.entryPointsCtx.Done()
+		}
+
 		return
 	} else {
 		err := wfr.entryPoints.updateStatus(entryPointView.Status)
@@ -145,6 +171,9 @@ func (wfr *WorkflowRuntime) Resume(entryPointView *schema.DagView, postProcessVi
 			}
 		}
 
+		if runStatus == string(StatusRuntimeTerminating) && stopForce {
+			wfr.postProcessPointsCtx.Done()
+		}
 		go wfr.Listen()
 		return
 	}
@@ -169,6 +198,8 @@ func (wfr *WorkflowRuntime) Restart(entryPointView *schema.DagView,
 	postProcessView schema.PostProcessView) {
 	defer wfr.scheduleLock.Unlock()
 	wfr.scheduleLock.Lock()
+
+	defer wfr.catchPanic()
 
 	wfr.status = common.StatusRunRunning
 	wfr.startTime = time.Now().Format("2006-01-02 15:04:05")

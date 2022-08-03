@@ -29,7 +29,7 @@ import (
 
 type RunCache struct {
 	Pk          int64          `json:"-"                    gorm:"primaryKey;autoIncrement;not null"`
-	ID          string         `json:"cacheID"              gorm:"type:varchar(60);not null;uniqueIndex"`
+	ID          string         `json:"cacheID"              gorm:"type:varchar(60);not null;index"`
 	FirstFp     string         `json:"firstFp"              gorm:"type:varchar(256)"`
 	SecondFp    string         `json:"secondFp"             gorm:"type:varchar(256)"`
 	RunID       string         `json:"runID"                gorm:"type:varchar(60);not null"`
@@ -62,7 +62,7 @@ func CreateRunCache(logEntry *log.Entry, cache *RunCache) (string, error) {
 	logEntry.Debugf("begin create cache:%+v", cache)
 	var err error
 	for i := 0; i < 5; i++ {
-		err = WithTransaction(storage.DB, func(tx *gorm.DB) error {
+		err = storage.DB.Transaction(func(tx *gorm.DB) error {
 			result := tx.Model(&RunCache{}).Create(cache)
 			if result.Error != nil {
 				logEntry.Errorf("create cache failed. cache:%v, error:%v", cache, result.Error)

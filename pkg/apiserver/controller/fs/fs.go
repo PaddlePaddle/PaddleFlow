@@ -32,7 +32,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
-	fsCommon "github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
@@ -122,7 +122,7 @@ type CreateFileSystemClaimsResponse struct {
 }
 
 func (s *FileSystemService) HasFsPermission(username, fsID string) (bool, error) {
-	fsName, owner := fsCommon.FsIDToFsNameUsername(fsID)
+	fsName, owner := utils.FsIDToFsNameUsername(fsID)
 	fs, err := s.GetFileSystem(owner, fsName)
 	if err != nil {
 		return false, err
@@ -182,7 +182,7 @@ func (s *FileSystemService) DeleteFileSystem(ctx *logger.RequestContext, fsID st
 	}
 
 	// delete filesystem, links, cache config in DB
-	return models.WithTransaction(storage.DB, func(tx *gorm.DB) error {
+	return storage.WithTransaction(storage.DB, func(tx *gorm.DB) error {
 		// delete filesystem
 		if err := storage.Filesystem.DeleteFileSystem(tx, fsID); err != nil {
 			ctx.Logging().Errorf("delete fs[%s] err: %v", fsID, err)

@@ -21,9 +21,9 @@ GIT_DATE    = `date "+%Y-%m-%d %H:%M:%S"`
 GIT_VERSION = `git --version`
 
 LD_FLAGS    = " \
-    -X 'paddleflow/pkg/version.GitVersion=${GIT_VERSION}' \
-    -X 'paddleflow/pkg/version.GitCommit=${GIT_COMMIT}' \
-    -X 'paddleflow/pkg/version.BuildDate=${GIT_DATE}' \
+    -X 'github.com/PaddlePaddle/PaddleFlow/pkg/version.GitVersion=${GIT_VERSION}' \
+    -X 'github.com/PaddlePaddle/PaddleFlow/pkg/version.GitCommit=${GIT_COMMIT}' \
+    -X 'github.com/PaddlePaddle/PaddleFlow/pkg/version.BuildDate=${GIT_DATE}' \
     '-extldflags=-static' \
     -w -s"
 
@@ -35,7 +35,7 @@ prepare: gomod
 
 gomod:
 	$(GO) env -w GO111MODULE=on
-	$(GO) env -w GOPROXY=https://goproxy.io,direct
+	#$(GO) env -w GOPROXY=https://goproxy.io,direct
 	$(GO) env -w CGO_ENABLED=0
 	$(GOMOD) download
 
@@ -71,7 +71,7 @@ package:
 	mv $(HOMEDIR)/pfs-fuse     $(OUTDIR)/bin
 	mv $(HOMEDIR)/csi-plugin   $(OUTDIR)/bin
 	mv $(HOMEDIR)/cache-worker $(OUTDIR)/bin
-	mv $(HOMEDIR)/pkg/fs/utils/mount/mount.sh $(OUTDIR)/bin
+	mv $(HOMEDIR)/pkg/fs/utils/mount.sh $(OUTDIR)/bin
 
 # make clean
 clean:

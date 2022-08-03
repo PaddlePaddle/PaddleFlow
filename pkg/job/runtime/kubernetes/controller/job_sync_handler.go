@@ -34,6 +34,8 @@ import (
 const (
 	DefaultJobPendingTTLSeconds = 300
 
+	RuntimeStatusKey = "status"
+
 	PodInitializing   = "PodInitializing"
 	ContainerCreating = "ContainerCreating"
 )
@@ -55,15 +57,20 @@ func (j *JobSync) add(obj interface{}) {
 		jobStatus = schema.StatusJobPending
 	}
 	parentJobID := j.getParentJobID(jobObj)
+	// get runtime status and info
+	runtimeStatus := jobObj.Object[RuntimeStatusKey]
+	runtimeInfo := jobObj.DeepCopy().Object
+	delete(runtimeInfo, RuntimeStatusKey)
 	jobInfo := &JobSyncInfo{
-		ID:          jobObj.GetName(),
-		Namespace:   jobObj.GetNamespace(),
-		ParentJobID: parentJobID,
-		GVK:         jobObj.GroupVersionKind(),
-		Status:      jobStatus,
-		Runtime:     obj,
-		Message:     statusInfo.Message,
-		Action:      schema.Create,
+		ID:            jobObj.GetName(),
+		Namespace:     jobObj.GetNamespace(),
+		ParentJobID:   parentJobID,
+		GVK:           jobObj.GroupVersionKind(),
+		Status:        jobStatus,
+		RuntimeInfo:   runtimeInfo,
+		RuntimeStatus: runtimeStatus,
+		Message:       statusInfo.Message,
+		Action:        schema.Create,
 	}
 	j.jobQueue.Add(jobInfo)
 	log.Infof("add %s job enqueue. jobID: %s, status: %s, message: %s", gvk.String(),
@@ -102,14 +109,14 @@ func (j *JobSync) update(old, new interface{}) {
 		jobStatus = schema.StatusJobPending
 	}
 	jobInfo := &JobSyncInfo{
-		ID:          newObj.GetName(),
-		Namespace:   newObj.GetNamespace(),
-		ParentJobID: j.getParentJobID(newObj),
-		GVK:         newObj.GroupVersionKind(),
-		Status:      jobStatus,
-		Runtime:     new,
-		Message:     newStatusInfo.Message,
-		Action:      schema.Update,
+		ID:            newObj.GetName(),
+		Namespace:     newObj.GetNamespace(),
+		ParentJobID:   j.getParentJobID(newObj),
+		GVK:           newObj.GroupVersionKind(),
+		Status:        jobStatus,
+		RuntimeStatus: newObj.Object[RuntimeStatusKey],
+		Message:       newStatusInfo.Message,
+		Action:        schema.Update,
 	}
 	j.jobQueue.Add(jobInfo)
 	log.Infof("update %s job enqueue. jobID: %s, status: %s, message: %s", gvk.String(),
@@ -131,14 +138,14 @@ func (j *JobSync) delete(obj interface{}) {
 		return
 	}
 	jobInfo := &JobSyncInfo{
-		ID:          jobObj.GetName(),
-		Namespace:   jobObj.GetNamespace(),
-		ParentJobID: j.getParentJobID(jobObj),
-		GVK:         jobObj.GroupVersionKind(),
-		Status:      statusInfo.Status,
-		Runtime:     obj,
-		Message:     statusInfo.Message,
-		Action:      schema.Delete,
+		ID:            jobObj.GetName(),
+		Namespace:     jobObj.GetNamespace(),
+		ParentJobID:   j.getParentJobID(jobObj),
+		GVK:           jobObj.GroupVersionKind(),
+		Status:        statusInfo.Status,
+		RuntimeStatus: jobObj.Object[RuntimeStatusKey],
+		Message:       statusInfo.Message,
+		Action:        schema.Delete,
 	}
 	j.jobQueue.Add(jobInfo)
 	log.Infof("delete %s job enqueue, jobID: %s", gvk.String(), jobInfo.ID)

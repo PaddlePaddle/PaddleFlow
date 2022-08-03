@@ -220,6 +220,10 @@ func (rr *RunRouter) getRunByID(w http.ResponseWriter, r *http.Request) {
 	ctx := common.GetRequestContext(r)
 	runID := chi.URLParam(r, util.ParamKeyRunID)
 	runInfo, err := pipeline.GetRunByID(ctx.Logging(), ctx.UserName, runID)
+
+	// 优化RuntimeView结构，使显示结果更友好
+	runInfo.Runtime = runInfo.RemoveOuterDagView(runInfo.Runtime)
+
 	if err != nil {
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
@@ -271,7 +275,7 @@ func (rr *RunRouter) updateRun(w http.ResponseWriter, r *http.Request) {
 			ctx.ErrorCode = common.InternalError
 		}
 	case util.QueryActionRetry:
-		err = pipeline.RetryRun(&ctx, runID)
+		runID, err = pipeline.RetryRun(&ctx, runID)
 	default:
 		ctx.ErrorCode = common.InvalidURI
 		err = fmt.Errorf("invalid action[%s] for UpdateRun", action)
@@ -282,7 +286,12 @@ func (rr *RunRouter) updateRun(w http.ResponseWriter, r *http.Request) {
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
-	common.RenderStatus(w, http.StatusOK)
+	if action == util.QueryActionRetry {
+		rsp := pipeline.UpdateRunResponse{RunID: runID}
+		common.Render(w, http.StatusOK, rsp)
+	} else {
+		common.RenderStatus(w, http.StatusOK)
+	}
 }
 
 // deleteRun

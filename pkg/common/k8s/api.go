@@ -42,6 +42,13 @@ var (
 	EQuotaGVK    = schema.GroupVersionKind{Group: "scheduling.volcano.sh", Version: "v1beta1", Kind: "ElasticResourceQuota"}
 	SparkAppGVK  = schema.GroupVersionKind{Group: "sparkoperator.k8s.io", Version: "v1beta2", Kind: "SparkApplication"}
 	PaddleJobGVK = schema.GroupVersionKind{Group: "batch.paddlepaddle.org", Version: "v1", Kind: "PaddleJob"}
+	// PyTorchJobGVK TFJobGVK defines GVK for kubeflow jobs
+	PyTorchJobGVK = schema.GroupVersionKind{Group: "kubeflow.org", Version: "v1", Kind: "PyTorchJob"}
+	TFJobGVK      = schema.GroupVersionKind{Group: "kubeflow.org", Version: "v1", Kind: "TFJob"}
+	MPIJobGVK     = schema.GroupVersionKind{Group: "kubeflow.org", Version: "v1", Kind: "MPIJob"}
+	MXNetJobGVK   = schema.GroupVersionKind{Group: "kubeflow.org", Version: "v1", Kind: "MXJob"}
+	XGBoostJobGVK = schema.GroupVersionKind{Group: "kubeflow.org", Version: "v1", Kind: "XGBoostJob"}
+
 	// ArgoWorkflowGVK defines GVK for argo Workflow
 	ArgoWorkflowGVK = schema.GroupVersionKind{Group: "argoproj.io", Version: "v1alpha1", Kind: "Workflow"}
 
@@ -52,6 +59,9 @@ var (
 		PaddleJobGVK:    PaddleJobStatus,
 		PodGVK:          SingleJobStatus,
 		ArgoWorkflowGVK: ArgoWorkflowStatus,
+		PyTorchJobGVK:   PytorchJobStatus,
+		TFJobGVK:        TFJobStatus,
+		MPIJobGVK:       MPIJobStatus,
 	}
 	// GVKToQuotaType GroupVersionKind lists for PaddleFlow QuotaType
 	GVKToQuotaType = []schema.GroupVersionKind{
@@ -68,6 +78,12 @@ func GetJobTypeAndFramework(gvk schema.GroupVersionKind) (commomschema.JobType, 
 		return commomschema.TypeDistributed, commomschema.FrameworkSpark
 	case PaddleJobGVK:
 		return commomschema.TypeDistributed, commomschema.FrameworkPaddle
+	case PyTorchJobGVK:
+		return commomschema.TypeDistributed, commomschema.FrameworkPytorch
+	case TFJobGVK:
+		return commomschema.TypeDistributed, commomschema.FrameworkTF
+	case MPIJobGVK:
+		return commomschema.TypeDistributed, commomschema.FrameworkMPI
 	default:
 		log.Errorf("GroupVersionKind %s is not support", gvk)
 		return "", ""

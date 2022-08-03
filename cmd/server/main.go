@@ -66,7 +66,7 @@ func Main(args []string) error {
 		Usage:                "pipeline/filesystem/job orchestration services for machine learning",
 		Version:              version.InfoStr(),
 		Copyright:            "Apache License 2.0",
-		HideHelpCommand:      true,
+		HideHelpCommand:      false,
 		EnableBashCompletion: true,
 		Flags:                flag.ExpandFlags(compoundFlags),
 		Action:               act,
@@ -237,7 +237,7 @@ func newAndStartJobManager() error {
 		log.Errorf("new job manager failed, error: %v", err)
 		return err
 	}
-	go runtimeMgr.Start(models.ActiveClusters, models.ListQueueJob)
+	go runtimeMgr.Start(models.ActiveClusters, storage.Job.ListQueueJob)
 	return nil
 }
 

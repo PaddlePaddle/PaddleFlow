@@ -8,16 +8,13 @@ entry_points:
       - validate_data
     cache:
       enable: true
-      fs_scope: cache_example/shells/data_artifact.sh
       max_expired_time: 300
+      fs_scope: 
+      - {name: "ppl", path: cache_example/run.yaml}
     command: bash -x cache_example/shells/data_artifact.sh {{data_path}} {{train_data}}
       {{validate_data}}
     docker_env: centos:centos7
     env:
-      PF_JOB_FLAVOUR: flavour1
-      PF_JOB_MODE: Pod
-      PF_JOB_QUEUE_NAME: ppl-queue
-      PF_JOB_TYPE: vcjob
       USER_ABC: 123_{{PF_USER_NAME}}
     parameters:
       data_path: ./cache_example/data/
@@ -30,11 +27,6 @@ entry_points:
       - train_model
     command: bash -x cache_example/shells/train.sh {{epoch}} {{train_data}} {{train_model}}
     deps: preprocess
-    env:
-      PF_JOB_FLAVOUR: flavour1
-      PF_JOB_MODE: Pod
-      PF_JOB_QUEUE_NAME: ppl-queue
-      PF_JOB_TYPE: vcjob
     parameters:
       epoch: 15
 
@@ -48,17 +40,13 @@ entry_points:
       max_expired_time: -1
     command: bash cache_example/shells/validate.sh {{model}}
     deps: preprocess,train
-    env:
-      PF_JOB_FLAVOUR: flavour1
-      PF_JOB_MODE: Pod
-      PF_JOB_QUEUE_NAME: ppl-queue
-      PF_JOB_TYPE: vcjob
 
 parallelism: 1
 
 cache:
   enable: true
-  fs_scope: cache_example/shells/train.sh,cache_example/shells/validate.sh,cache_example/shells/data_artifact.sh
   max_expired_time: 600
+  fs_scope: 
+  - {name: "ppl", path: "cache_example/shells"}
 
 docker_env: nginx:1.7.9
