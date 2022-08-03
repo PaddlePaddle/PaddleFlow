@@ -28,9 +28,6 @@ const (
 	StatusRunTerminated  = "terminated"
 	StatusRunSkipped     = "skipped"
 
-	StatusFinal  = "final"
-	StatusActive = "active"
-
 	WfEventKeyRunID         = "runID"
 	WfEventKeyPK            = "pk"
 	WfEventKeyStatus        = "status"
