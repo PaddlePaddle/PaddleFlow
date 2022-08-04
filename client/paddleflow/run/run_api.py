@@ -22,7 +22,7 @@ from urllib import parse
 from paddleflow.common.exception.paddleflow_sdk_exception import PaddleFlowSDKException
 from paddleflow.utils import api_client
 from paddleflow.common import api
-from paddleflow.run.run_info import RunInfo, JobInfo, RunCacheInfo, ArtifaceInfo
+from paddleflow.run.run_info import RunInfo, JobInfo, DagInfo, RunCacheInfo, ArtifaceInfo
 
 class RunServiceApi(object):
     """run service
@@ -130,34 +130,51 @@ class RunServiceApi(object):
         if 'message' in data:
             return False, data['message']
 
-        runtimeList = []
+        def transDict2CompInfo(compDict):
+            newCompDict = {}
+            for key in compDict.keys():
+                compList = compDict[key]
+                newCompList = []
+                for comp in compList:
+                    if 'entryPoints' in comp.keys():
+                        newComp = DagInfo(comp['id'], comp['name'], comp['type'], comp['dagName'],
+                                          comp['parentDagID'], comp['deps'], comp['parameters'],
+                                          comp['artifacts'], comp['startTime'], comp['endTime'],
+                                          comp['status'], comp['message'], transDict2CompInfo(comp['entryPoints']))
+                    else:
+                        newComp = JobInfo(comp['name'], comp['deps'], comp['parameters'],
+                                        comp['command'], comp['env'], comp['status'], comp['startTime'],
+                                        comp['endTime'], comp['dockerEnv'], comp['jobID'],
+                                        comp['type'], comp['stepName'], comp['parentDagID'],
+                                        comp['extraFS'], comp['artifacts'], comp['cache'],
+                                        comp['jobMessage'], comp['cacheRunID'], comp['cacheJobID'])
+                    newCompList.append(newComp)
+                newCompDict[key] = newCompList
+            return newCompDict
+
         runtime = data['runtime']
         if runtime:
-            for key in runtime.keys():
-                runtimeInfo = JobInfo(None, runtime[key].get('deps', ' '), runtime[key]['parameters'],
-                                runtime[key]['command'], runtime[key]['env'],
-                                runtime[key]['status'], runtime[key]['startTime'],
-                                runtime[key].get('endTime', ' '), runtime[key].get('dockerEnv'),
-                                runtime[key]['jobID'])
-                runtimeInfo.name = key
-                runtimeList.append(runtimeInfo)
+            runtimeInfo = transDict2CompInfo(runtime)
 
-        postProcessList = []
         post = data['postProcess']
+        newPostDict = {}
         if post:
             for key in post.keys():
-                postInfo = JobInfo(None, post[key].get('deps', ' '), post[key]['parameters'],
-                                post[key]['command'], post[key]['env'],
-                                post[key]['status'], post[key]['startTime'],
-                                post[key].get('endTime', ' '), post[key].get('dockerEnv'),
-                                post[key]['jobID'])
-                postInfo.name = key
-                postProcessList.append(postInfo)
+                comp = post[key]
+                newComp = JobInfo(comp['name'], comp['deps'], comp['parameters'],
+                                        comp['command'], comp['env'], comp['status'], comp['startTime'],
+                                        comp['endTime'], comp['dockerEnv'], comp['jobID'],
+                                        comp['type'], comp['stepName'], comp['parentDagID'],
+                                        comp['extraFS'], comp['artifacts'], comp['cache'],
+                                        comp['jobMessage'], comp['cacheRunID'], comp['cacheJobID'])
+                newPostDict[key] = newComp
 
-        runInfo = RunInfo(data['runID'], data['fsname'], data['username'], data['status'], data['name'],
-                               data['description'], data['entry'], data['parameters'], data['runYaml'], runtimeList, postProcessList,
-                               data['dockerEnv'], data.get('updateTime', " "), data['source'],
-                               data['runMsg'], data.get('createTime', " "), data.get('activateTime', ' '))
+        runInfo = RunInfo(data['runID'], data['fsName'], data['username'], data['status'], data['name'],
+                            data['description'], data['parameters'], data['runYaml'],
+                            runtimeInfo, newPostDict,
+                            data['dockerEnv'], data['updateTime'], data['source'], data['runMsg'],data['scheduleID'],
+                            data['fsOptions'], data['failureOptions'], data['disabled'], data['runCachedIDs'],
+                            data['createTime'], data['activateTime'])
         
         return True, runInfo
 
@@ -185,14 +202,15 @@ class RunServiceApi(object):
         return True, None
 
     @classmethod
-    def delete_run(self, host, runid, header=None):
+    def delete_run(self, host, runid, checkcache=True, header=None):
         """delete run
         """
         if not header:
             raise PaddleFlowSDKException("InvalidRequest", "paddleflow should login first")
+        body = {"checkCache": checkcache}
         response = api_client.call_api(method="DELETE",
                                         url=parse.urljoin(host, api.PADDLE_FLOW_RUN + "/%s" % runid),
-                                       headers=header)
+                                        headers=header, json=body)
         if not response:
             raise PaddleFlowSDKException("Connection Error", "delete run failed due to HTTPError")
         if response.text:
@@ -234,7 +252,7 @@ class RunServiceApi(object):
             for cache in data['runCacheList']:
                 cacheinfo = RunCacheInfo(cache['cacheID'], cache['firstFp'],
                               cache['secondFp'], cache['runID'], cache['source'], 
-                              cache['step'], cache['fsname'], cache['username'],
+                              cache['jobID'], cache['fsname'], cache['username'],
                               cache['expiredTime'], cache['strategy'],
                               cache['custom'], cache['createTime'],
                               cache.get('updateTime', ' '))
@@ -256,7 +274,7 @@ class RunServiceApi(object):
         if 'message' in data:
             return False, data['message']
         ri = RunCacheInfo(data['cacheID'], data['firstFp'], data['secondFp'], data['runID'],
-                data['source'], data['step'], data['fsname'], data['username'], data['expiredTime'],
+                data['source'], data['jobID'], data['fsname'], data['username'], data['expiredTime'],
                 data['strategy'], data['custom'], data['createTime'], data['updateTime'])
         return True, ri
 
@@ -293,8 +311,10 @@ class RunServiceApi(object):
             data = json.loads(response.text)
             if 'message' in data:
                 return False, data['message']
+            else:
+                return True, data['runID']
         else:
-            return True, runid
+            return True, None
 
     @classmethod
     def artifact(self, host, userfilter=None, fsfilter=None, runfilter=None, typefilter=None, pathfilter=None,

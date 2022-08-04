@@ -23,6 +23,7 @@ import json
 import click
 import shutil
 import base64
+from ..run.run_info import RunInfo, DagInfo, JobInfo
 
 from paddleflow.cli.output import print_output, OutputFormat
 
@@ -171,7 +172,7 @@ def retry(ctx, runid):
         sys.exit(1)
     valid, response = client.retry_run(runid)
     if valid:
-        click.echo("runid[%s] retry success" % runid)
+        click.echo("runid[%s] retry success, new runid is [%s]" % (runid, response))
     else:
         click.echo("run retry failed with message[%s]" % response)
         sys.exit(1)
@@ -179,8 +180,9 @@ def retry(ctx, runid):
 
 @run.command()
 @click.argument('runid')
+@click.option('-c', '--checkcache', is_flag=True, default=True, show_default=True, help='if check cache')
 @click.pass_context
-def delete(ctx, runid):
+def delete(ctx, runid, checkcache):
     """ delete run .\n
     RUNID: the id of the specificed run.
     """
@@ -188,7 +190,7 @@ def delete(ctx, runid):
     if not runid:
         click.echo('delete run provide runid.', err=True)
         sys.exit(1)
-    valid, response = client.delete_run(runid)
+    valid, response = client.delete_run(runid, checkcache)
     if valid:
         click.echo('runid[%s] delete success' % runid)
     else:
@@ -300,9 +302,9 @@ def _print_runlist(runlist, out_format):
 def _print_runcache(caches, out_format):
     """print cache list """
 
-    headers = ['cache id', 'run id', 'step', 'fsname', 'username', 'expired time', 
+    headers = ['cache id', 'run id', 'job id', 'fsname', 'username', 'expired time',
                 'create time', 'update time']
-    data = [[cache.cacheid, cache.runid, cache.step, cache.fsname, cache.username, 
+    data = [[cache.cacheid, cache.runid, cache.jobid, cache.fsname, cache.username,
             cache.expiredtime, cache.createtime, cache.updatetime] for cache in caches]
     print_output(data, headers, out_format, table_format='grid')
 
@@ -310,9 +312,9 @@ def _print_runcache(caches, out_format):
 def _print_runcache_info(cache, out_format):
     """print cache info """
 
-    headers = ['cache id', 'run id', 'step', 'fsname', 'username', 'expired time', 
+    headers = ['cache id', 'run id', 'job id', 'fsname', 'username', 'expired time',
                 'strategy', 'custom', 'create time', 'update time']
-    data = [[cache.cacheid, cache.runid, cache.step, cache.fsname, cache.username, cache.expiredtime, 
+    data = [[cache.cacheid, cache.runid, cache.jobid, cache.fsname, cache.username, cache.expiredtime,
             cache.strategy, cache.custom, cache.createtime, cache.updatetime]]
     print_output(data, headers, out_format, table_format='grid')
     print_output([[cache.firstfp, cache.secondfp]], ['first fp', 'second fp'], out_format, table_format='grid')
@@ -320,11 +322,18 @@ def _print_runcache_info(cache, out_format):
 
 def _print_run(run, out_format):
     """ print run info"""
-    headers = ['run id', 'status', 'name', 'desc', 'entry', 'param', 'source', 'run msg', 
+    headers = ['run id', 'status', 'name', 'desc', 'param', 'source', 'run msg',
     'create time', 'update time', 'activate time']
-    data = [[run.runId, run.status, run.name, run.description, run.entry, run.parameters, run.source, 
+    data = [[run.runId, run.status, run.name, run.description, run.parameters, run.source,
              run.runMsg, run.createTime, run.updateTime, run.activateTime]]
     print_output(data, headers, out_format, table_format='grid')
+
+    headers = ['fs name', 'username', 'docker env', 'schedule id', 'fs options(json)', "failure options(json)",
+               'disabled', 'run cached ids']
+    data = [[run.fsname, run.username, run.dockerEnv, run.scheduleID, run.fsOptions, run.failureOptions,
+             run.disabled, run.runCachedIDs]]
+    print_output(data, headers, out_format, table_format='grid')
+
     if run.runYaml:
         headers = ['run yaml detail']
         data = [[run.runYaml]]
@@ -333,17 +342,27 @@ def _print_run(run, out_format):
         click.echo("no job found")
         return
     if run.runtime and len(run.runtime):
-        print_output([], ["Runtime Details"], out_format)
-        headers = ['job id', 'name', 'status', 'deps', 'start time', 'end time', 'dockerEnv']
-        data = [[job.jobId, job.name, job.status, job.deps, job.start_time, job.end_time, job.dockerEnv] 
-                for job in run.runtime]
+        headers = ['runtime in json']
+        runtimeDict = _trans_comps_to_dict(run.runtime)
+        data = [[json.dumps(runtimeDict, indent=2)]]
         print_output(data, headers, out_format, table_format='grid')
     if run.postProcess and len(run.postProcess):
-        print_output([], ["PostProcess Details"], out_format)
-        headers = ['job id', 'name', 'status', 'deps', 'start time', 'end time', 'dockerEnv']
-        data = [[job.jobId, job.name, job.status, job.deps, job.start_time, job.end_time, job.dockerEnv] 
-                for job in run.postProcess]
+        headers = ['postProcess in json']
+        for key in run.postProcess:
+            run.postProcess[key] = run.postProcess[key].__dict__
+        data = [[json.dumps(run.postProcess, indent=2)]]
         print_output(data, headers, out_format, table_format='grid')
+
+def _trans_comps_to_dict(comps):
+    resComps = {}
+    for name, compList in comps.items():
+        newCompList = []
+        for comp in compList:
+            if hasattr(comp, 'entryPoints'):
+                comp.entryPoints = _trans_comps_to_dict(comp.entryPoints)
+            newCompList.append(comp.__dict__)
+        resComps[name] = newCompList
+    return resComps
 
 
 def _print_artiface(runs, out_format):

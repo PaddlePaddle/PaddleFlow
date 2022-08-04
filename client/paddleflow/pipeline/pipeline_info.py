@@ -17,15 +17,26 @@ limitations under the License.
 # -*- coding:utf8 -*-
 
 class PipelineInfo(object):
-    """the class of cluster info"""
-    def __init__(self, pipelineid, name, fsname, username, pipelineyaml, pipelinemd5, 
+    """the class of pipeline info"""
+    def __init__(self, pipelineid, name, username, desc,
                 createtime, updatetime):
         """init """
         self.pipelineid = pipelineid
         self.name = name
-        self.fsname = fsname
         self.username = username
-        self.pipelineyaml = pipelineyaml
-        self.pipelinemd5 = pipelinemd5
+        self.desc = desc
         self.createtime = createtime
         self.updatetime = updatetime
+
+class PipelineVersionInfo(object):
+    """the class of pipeline version info"""
+    def __init__(self, pipelineVersionID, pipelineID, fsName, yamlPath, pipelineYaml, username,
+                 createTime, updateTime):
+        self.pipelineVersionID = pipelineVersionID
+        self.pipelineID = pipelineID
+        self.fsName = fsName
+        self.yamlPath = yamlPath
+        self.pipelineYaml = pipelineYaml
+        self.username = username
+        self.createTime = createTime
+        self.updateTime = updateTime

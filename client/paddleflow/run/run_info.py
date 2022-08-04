@@ -21,7 +21,7 @@ class RunInfo(object):
 
     def __init__(self, runID, fsname, username, status, name, description, parameters,
                  runYaml, runtime, postProcess, dockerEnv, updateTime, source, runMsg, scheduleID,
-                 scheduledTime, createTime, activateTime):
+                 fsOptions, failureOptions, disabled, runCachedIDs, createTime, activateTime):
         """init """
         self.runId = runID
         self.fsname = fsname
@@ -37,8 +37,11 @@ class RunInfo(object):
         self.updateTime = updateTime
         self.source = source
         self.runMsg = runMsg
+        self.fsOptions = fsOptions
+        self.failureOptions = failureOptions
+        self.disabled = disabled
+        self.runCachedIDs = runCachedIDs
         self.scheduleID = scheduleID
-        self.scheduledTime = scheduledTime
         self.createTime = createTime
         self.activateTime = activateTime
 
@@ -72,28 +75,34 @@ class JobInfo(object):
 class DagInfo(object):
     """ the class of dag info"""
 
-    def __init__(self, id, name, compType):
-        self.id = id
+    def __init__(self, dagid, name, compType, dagName, parentDagID, deps, parameters, artifacts, startTime, endtime,
+                 status, message, entryPoints):
+        self.dagId = dagid
         self.name = name
         self.type = compType
         self.dagName = dagName
         self.parentDagID = parentDagID
         self.deps = deps
         self.parameters = parameters
-        self.
+        self.artifacts = artifacts
+        self.startTime = startTime
+        self.endTime = endtime
+        self.status = status
+        self.message = message
+        self.entryPoints = entryPoints
 
 
 class RunCacheInfo(object):
     """ the class of runcache info"""
 
-    def __init__(self, cacheid, firstfp, secondfp, runid, source, step, fsname, username, expiredtime, strategy, custom, 
+    def __init__(self, cacheid, firstfp, secondfp, runid, source, jobid, fsname, username, expiredtime, strategy, custom,
                 createtime, updatetime):
         self.cacheid = cacheid
         self.firstfp = firstfp
         self.secondfp = secondfp
         self.runid = runid
         self.source = source
-        self.step = step
+        self.jobid = jobid
         self.fsname = fsname
         self.username = username
         self.expiredtime = expiredtime

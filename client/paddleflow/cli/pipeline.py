@@ -36,10 +36,10 @@ def pipeline():
 @pipeline.command(context_settings=dict(max_content_width=2000), cls=command_required_option_from_option())
 @click.argument('fsname')
 @click.argument('yamlpath')
-@click.option('-n', '--name', help="Custom pipeline name.")
+@click.option('-d', '--desc', help="description of the pipeline.")
 @click.option('-u', '--username', help="Only the root user can specify other users.")
 @click.pass_context
-def create(ctx, fsname, yamlpath, name=None, username=None):
+def create(ctx, fsname, yamlpath, desc=None, username=None):
     """ create pipeline.\n
     FSNAME: specified name. 
     YAMLPATH: relative path of yaml file under storage volume.
@@ -48,9 +48,9 @@ def create(ctx, fsname, yamlpath, name=None, username=None):
     if not fsname or not yamlpath:
         click.echo('pipelinecreate  must provide fsname or yamlpath .', err=True)
         sys.exit(1)
-    valid, response, id = client.create_pipeline(fsname, yamlpath, name, username)
+    valid, response, id, versionID = client.create_pipeline(fsname, yamlpath, desc, username)
     if valid:
-        click.echo("pipeline[%s] create  success, id[%s]" % (response, id))
+        click.echo("pipeline[%s] create  success, id[%s], versionID[%s]" % (response, id, versionID))
     else:
         click.echo("pipeline create failed with message[%s]" % response)
         sys.exit(1)
@@ -58,16 +58,15 @@ def create(ctx, fsname, yamlpath, name=None, username=None):
 
 @pipeline.command()
 @click.option('-u', '--userfilter', help="List the pipeline by user.")
-@click.option('-f', '--fsfilter', help="List the pipeline by fs.")
 @click.option('-n', '--namefilter', help="List the pipeline by name.")
 @click.option('-m', '--maxkeys', help="Max size of the listed pipeline.")
 @click.option('-mk', '--marker', help="Next page ")
 @click.pass_context
-def list(ctx, userfilter=None, fsfilter=None, namefilter=None, maxkeys=None, marker=None):
+def list(ctx, userfilter=None, namefilter=None, maxkeys=None, marker=None):
     """list pipeline. \n"""
     client = ctx.obj['client']
     output_format = ctx.obj['output']
-    valid, response, nextmarker = client.list_pipeline(userfilter, fsfilter, namefilter, maxkeys, marker)
+    valid, response, nextmarker = client.list_pipeline(userfilter, namefilter, maxkeys, marker)
     if valid:
         if len(response):
             _print_pipeline(response, output_format)
@@ -82,8 +81,11 @@ def list(ctx, userfilter=None, fsfilter=None, namefilter=None, maxkeys=None, mar
 
 @pipeline.command()
 @click.argument('pipelineid')
+@click.argument('-f', '--fsfilter', help='list ppl version by fs')
+@click.argument('-m', '--maxkeys', help='Max size of the listed ppl version')
+@click.argument('-mk', '--marker', help='Next page')
 @click.pass_context
-def show(ctx, pipelineid):
+def show(ctx, pipelineid, fsfilter=None, maxkeys=None, marker=None):
     """ show pipeline info.\n
     PIPELINEID: the id of pipeline.
     """
@@ -92,9 +94,9 @@ def show(ctx, pipelineid):
     if not pipelineid:
         click.echo('pipeline show  must pipeline id.', err=True)
         sys.exit(1)
-    valid, response = client.show_pipeline(pipelineid)
+    valid, response, pplVerList, nextmarker = client.show_pipeline(pipelineid, fsfilter, maxkeys, marker)
     if valid:
-        _print_pipeline_info(response, output_format)
+        _print_pipeline_info(response, pplVerList, nextmarker, output_format)
     else:
         click.echo("pipeline show failed with message[%s]" % response)
         sys.exit(1)
@@ -122,28 +124,43 @@ def delete(ctx, pipelineid):
 def _print_pipeline(pipelines, out_format):
     """print pipelines """
     headers = [
-        'pipeline id', 'name', 'fsname', 'username', 
-        'pipeline md5', 'create time', 'update time'
+        'pipeline id', 'name', 'username', 'desc',
+        'create time', 'update time'
     ]
-    data = [[pipeline.pipelineid, pipeline.name, pipeline.fsname, pipeline.username, pipeline.pipelinemd5, 
+    data = [[pipeline.pipelineid, pipeline.name, pipeline.username, pipeline.desc,
         pipeline.createtime, pipeline.updatetime] for pipeline in pipelines]
     print_output(data, headers, out_format, table_format='grid')
 
 
-def _print_pipeline_info(pipeline, out_format):
+def _print_pipeline_info(pipeline, pplVerList, nextmarker, out_format):
     """print pipeline info"""
     headers = [
-        'pipeline id', 'name', 'fsname', 'username', 
-        'pipeline md5', 'create time', 'update time'
+        'pipeline id', 'name', 'username',
+        'pipeline desc', 'create time', 'update time'
     ]
     data = [[
-        pipeline.pipelineid, pipeline.name, pipeline.fsname,
-        pipeline.username, pipeline.pipelinemd5, pipeline.createtime,
+        pipeline.pipelineid, pipeline.name,
+        pipeline.username, pipeline.desc, pipeline.createtime,
         pipeline.updatetime
     ]]
     print_output(data, headers, out_format, table_format='grid')
-    print_output([[pipeline.pipelineyaml]], ['pipeline yaml'],
-                 out_format,
-                 table_format='grid')
+
+    dataPplInfo = []
+    dataPplYaml = []
+    for pplVer in pplVerList:
+        dataPplInfo.append([pplVer.pipelineVersionID, pplVer.fsName, pplVer.yamlPath, pplVer.username,
+                     pplVer.createTime, pplVer.updateTime])
+        dataPplYaml.append([pplVer.pipelineVersionID, pplVer.pipelineYaml])
+
+    headers = ['ppl ver id', 'fs name', 'yaml path', 'username',
+               'create time', 'update time']
+    print_output(dataPplInfo, headers, out_format, table_format='grid')
+
+    headers = ['ppl ver id', 'pipeline yaml']
+    print_output(dataPplYaml, headers, out_format, table_format='grid')
+
+    if nextmarker:
+        click.echo('marker: {}'.format(nextmarker))
+
 
 
