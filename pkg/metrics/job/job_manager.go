@@ -178,7 +178,7 @@ func (t Timestamps) GetStatusTime(status JobStatus) (time.Duration, bool) {
 	}
 	// if start time is zero, means this status has started but not finished yet
 	if endT.Equal(ZeroTime) {
-		return time.Now().Sub(startT), true
+		return time.Since(startT), true
 	}
 	return endT.Sub(startT), true
 }
