@@ -30,7 +30,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/metrics"
-	job_metric "github.com/PaddlePaddle/PaddleFlow/pkg/metrics/job"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/trace_logger"
@@ -362,7 +361,7 @@ func (m *JobManagerImpl) pJobProcessLoop() {
 			// enqueue job
 			jobQueue.Insert(pfJob)
 			// add job time point
-			metrics.Job.AddTimestamp(pfJob.ID, job_metric.T3, time.Now())
+			metrics.Job.AddTimestamp(pfJob.ID, metrics.T3, time.Now())
 		}
 		elapsedTime := time.Since(startTime)
 		if elapsedTime < m.jobLoopPeriod {
@@ -389,11 +388,11 @@ func (m *JobManagerImpl) pSubmitQueueJob(jobQueue *api.JobQueue, runtimeSvc runt
 			// dequeue job
 			job, ok := jobQueue.GetJob()
 			if ok {
-				metrics.Job.AddTimestamp(job.ID, job_metric.T4, time.Now())
+				metrics.Job.AddTimestamp(job.ID, metrics.T4, time.Now())
 				log.Infof("Entering submit %s job in queue %s", job.ID, name)
 				// get enqueue job
 				m.submitJob(runtimeSvc.SubmitJob, job)
-				metrics.Job.AddTimestamp(job.ID, job_metric.T5, time.Now())
+				metrics.Job.AddTimestamp(job.ID, metrics.T5, time.Now())
 				jobQueue.DeleteMark(job.ID)
 				log.Infof("Leaving submit %s job in queue %s, total elapsed time: %s", job.ID, name, time.Since(startTime))
 			} else {

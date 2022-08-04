@@ -23,8 +23,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
-
-	job_metrics "github.com/PaddlePaddle/PaddleFlow/pkg/metrics/job"
 )
 
 const (
@@ -36,16 +34,16 @@ var (
 )
 
 var (
-	Job job_metrics.JobMetricManager
+	Job TimePointManager
 )
 
 func InitMetrics() {
-	Job = job_metrics.NewDefaultJobMetricManager()
+	Job = NewJobMetricTimePointManager()
 }
 
 func initRegistry() {
 	registry = prometheus.NewRegistry()
-	jobCollector := job_metrics.NewJobMetricsCollector(Job)
+	jobCollector := NewJobMetricsCollector(Job)
 	registry.MustRegister(jobCollector)
 }
 

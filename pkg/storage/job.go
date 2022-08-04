@@ -31,7 +31,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/metrics"
-	job_metric "github.com/PaddlePaddle/PaddleFlow/pkg/metrics/job"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
 
@@ -51,10 +50,10 @@ func (js *JobStore) CreateJob(job *model.Job) error {
 	err := js.db.Create(job).Error
 	if err == nil {
 		queueName := job.Config.GetQueueName()
-		metrics.Job.AddTimestamp(job.ID, job_metric.T2, time.Now(), job_metric.JobInfo{
-			QueueID:   job.QueueID,
-			QueueName: queueName,
-			UserName:  job.UserName,
+		metrics.Job.AddTimestamp(job.ID, metrics.T2, time.Now(), metrics.Info{
+			metrics.QueueIDLabel:   job.QueueID,
+			metrics.QueueNameLabel: queueName,
+			metrics.JobIDLabel:     job.UserName,
 		})
 	}
 	return err
@@ -165,10 +164,10 @@ func (js *JobStore) UpdateJob(jobID string, status schema.JobStatus, runtimeInfo
 	}
 	if status == schema.StatusJobRunning && !job.ActivatedAt.Valid {
 		// add queue id here
-		metrics.Job.AddTimestamp(jobID, job_metric.T7, time.Now(), job_metric.JobInfo{
-			QueueID:   job.QueueID,
-			QueueName: job.Config.GetQueueName(),
-			UserName:  job.Config.GetUserName(),
+		metrics.Job.AddTimestamp(jobID, metrics.T7, time.Now(), metrics.Info{
+			metrics.QueueIDLabel:   job.QueueID,
+			metrics.QueueNameLabel: job.Config.GetQueueName(),
+			metrics.UserNameLabel:  job.Config.GetUserName(),
 		})
 		updatedJob.ActivatedAt.Time = time.Now()
 		updatedJob.ActivatedAt.Valid = true

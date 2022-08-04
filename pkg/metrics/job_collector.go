@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package job
+package metrics
 
 import (
 	"strings"
@@ -27,14 +27,14 @@ import (
 type JobMetricCollector struct {
 	jobCount *prometheus.CounterVec
 	jobTime  *prometheus.GaugeVec
-	manager  JobMetricManager
+	manager  TimePointManager
 }
 
 func toJobHelp(name string) string {
 	return strings.ReplaceAll(name, "_", " ")
 }
 
-func NewJobMetricsCollector(manager JobMetricManager) *JobMetricCollector {
+func NewJobMetricsCollector(manager TimePointManager) *JobMetricCollector {
 	return &JobMetricCollector{
 		jobCount: prometheus.NewCounterVec(
 			prometheus.CounterOpts{
@@ -81,15 +81,18 @@ func (j *JobMetricCollector) updateJobPerf() {
 	timePointsCache := j.manager.GetTimestampsCache()
 	for jobID, timePoints := range timePointsCache {
 		// add new metric
-		info, _ := j.manager.GetJobInfo(jobID)
+		info, ok := j.manager.GetInfo(jobID)
+		if !ok {
+			continue
+		}
 		for status := MinStatus; status <= MaxStatus; status++ {
 			statusTime, _ := timePoints.GetStatusTime(status)
 			j.jobTime.With(prometheus.Labels{
 				JobIDLabel:          jobID,
 				StatusLabel:         status.String(),
-				QueueIDLabel:        info.QueueID,
-				FinishedStatusLabel: info.FinishedStatus,
-				QueueNameLabel:      info.QueueName,
+				QueueIDLabel:        info[QueueIDLabel],
+				FinishedStatusLabel: info[FinishedStatusLabel],
+				QueueNameLabel:      info[QueueNameLabel],
 			}).Set(float64(statusTime.Microseconds()))
 			log.Debugf("[job perf] job %s, status %s, time: %d", jobID, status, statusTime.Microseconds())
 		}

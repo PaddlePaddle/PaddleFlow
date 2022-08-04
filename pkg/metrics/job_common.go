@@ -14,13 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package job
+package metrics
 
 import (
 	"strconv"
 )
-
-type JobTimePoint int
 
 const (
 	// T1 api query time
@@ -41,8 +39,6 @@ const (
 	// T8 finish(success/fail) time
 	T8
 )
-
-type JobStatus int
 
 const (
 	StatusUnknown JobStatus = iota
@@ -65,8 +61,8 @@ const (
 // for job creating monitor
 
 const (
-	MetricJobTime  = "pf_perf_job_time"
-	MetricJobCount = "pf_perf_job_count"
+	MetricJobTime  = "pf_metric_job_time"
+	MetricJobCount = "pf_metric_job_count"
 )
 
 const (
@@ -75,14 +71,23 @@ const (
 	QueueIDLabel        = "queueID"
 	FinishedStatusLabel = "finishedStatus"
 	QueueNameLabel      = "queueName"
+	UserNameLabel       = "userName"
 )
 
-func (t JobTimePoint) ToStatus() JobStatus {
+type JobTimePoint int
+
+func (t JobTimePoint) Status() Status {
 	if t == MaxTimePoint || t < MinTimePoint {
 		return StatusUnknown
 	}
 	return MinStatus + JobStatus(t)
 }
+
+func (t JobTimePoint) Index() int {
+	return int(t)
+}
+
+type JobStatus int
 
 func (j JobStatus) String() string {
 	var str string
@@ -107,4 +112,12 @@ func (j JobStatus) String() string {
 	}
 	str = strconv.Itoa(int(j)) + "-" + str
 	return str
+}
+
+func (j JobStatus) TimePoint() (start TimePoint, end TimePoint) {
+	if j == StatusUnknown {
+		return MinTimePoint, MinTimePoint
+	}
+	start, end = JobTimePoint(j-1), JobTimePoint(j)
+	return
 }
