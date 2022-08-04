@@ -670,7 +670,13 @@ spec:
                   - -c
                   - rm -rf /registration/pfs-csi /registration/paddleflowstorage-reg.sock
           name: pfs-csi-plugin
-          resources: {}
+          resources: 
+            requests:
+              memory: "1G"
+              cpu: "500m"
+            limits:
+              memory: "2G"
+              cpu: "2000m"
           securityContext:
             privileged: true
           terminationMessagePath: /dev/termination-log
@@ -1121,6 +1127,13 @@ spec:
           image: paddleflow/vc-webhook-manager:pf-1.4-vc-1.3
           imagePullPolicy: IfNotPresent
           name: admission
+          resources:
+            requests:
+              memory: "1G"
+              cpu: "500m"
+            limits:
+              memory: "2G"
+              cpu: "2000m"
           volumeMounts:
             - mountPath: /admission.local.config/certificates
               name: admission-certs
@@ -8457,6 +8470,13 @@ spec:
             - -v=4
             - 2>&1
           imagePullPolicy: "IfNotPresent"
+          resources:
+           requests:
+              memory: "1G"
+              cpu: "500m"
+            limits:
+              memory: "2G"
+              cpu: "2000m"
 ---
 # Source: volcano/templates/scheduler.yaml
 apiVersion: v1
@@ -8605,6 +8625,13 @@ spec:
             - -v=3
             - 2>&1
           imagePullPolicy: "IfNotPresent"
+          resources:
+            requests:
+              memory: "1G"
+              cpu: "500m"
+            limits:
+              memory: "2G"
+              cpu: "2000m"
           volumeMounts:
             - name: scheduler-config
               mountPath: /volcano.scheduler
