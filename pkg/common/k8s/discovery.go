@@ -41,6 +41,15 @@ var DiscoveryHandlerFunc = http.HandlerFunc(func(w http.ResponseWriter, req *htt
 				{Name: "paddlejobs", Namespaced: true, Kind: "PaddleJob"},
 			},
 		}
+	case "/apis/kubeflow.org/v1":
+		obj = &metav1.APIResourceList{
+			GroupVersion: "kubeflow.org/v1",
+			APIResources: []metav1.APIResource{
+				{Name: "pytorchjobs", Namespaced: true, Kind: "PyTorchJob"},
+				{Name: "tfjobs", Namespaced: true, Kind: "TFJob"},
+				{Name: "mpijobs", Namespaced: true, Kind: "MPIJob"},
+			},
+		}
 	case "/apis/argoproj.io/v1alpha1":
 		obj = &metav1.APIResourceList{
 			GroupVersion: "argoproj.io/v1alpha1",
@@ -88,6 +97,12 @@ var DiscoveryHandlerFunc = http.HandlerFunc(func(w http.ResponseWriter, req *htt
 					Name: "batch.paddlepaddle.org",
 					Versions: []metav1.GroupVersionForDiscovery{
 						{GroupVersion: "batch.paddlepaddle.org/v1", Version: "v1"},
+					},
+				},
+				{
+					Name: "kubeflow.org",
+					Versions: []metav1.GroupVersionForDiscovery{
+						{GroupVersion: "kubeflow.org/v1", Version: "v1"},
 					},
 				},
 				{
