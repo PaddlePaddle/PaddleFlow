@@ -26,6 +26,9 @@ import base64
 
 from paddleflow.cli.output import print_output, OutputFormat
 
+RUN_ACTIVE_STATUS = ['running', 'pending', 'terminating', 'initiating']
+RUN_FINAL_STATUS = ['failed', 'succeeded', 'terminated', 'skipped']
+
 @click.group()
 def run():
     """manage run resources"""
@@ -76,16 +79,33 @@ def create(ctx, fsname=None, name=None, desc=None, username=None, runyamlpath=No
 @click.option('-u', '--username', help='List the specified run by username, only useful for root.')
 @click.option('-r', '--runid', help='List the specified run by runid')
 @click.option('-n', '--name', help='List the specified run by run name')
+@click.option('-s', '--status', help='List the specified run by run status')
 @click.option('-m', '--maxsize', default=100, help="Max size of the listed users.")
 @click.option('-mk', '--marker', help="Next page.")
 @click.pass_context
-def list(ctx, fsname=None, username=None, runid=None, name=None, maxsize=100, marker=None):
+def list(ctx, fsname=None, username=None, runid=None, name=None, status=None, maxsize=100, marker=None):
     """list run.\n """
     client = ctx.obj['client']
     output_format = ctx.obj['output']
-    valid, response, nextmarker = client.list_run(fsname, username, runid, name, maxsize, marker)
+
+    # 处理statusFilters
+    status_processed = ''
+    if status:
+        status_filters = status.split(sep=',')
+        status_list = []
+        for status_filter in status_filters:
+            if status_filter == 'active':
+                status_list.extend(RUN_ACTIVE_STATUS)
+            elif status_filter == 'final':
+                status_list.extend(RUN_FINAL_STATUS)
+            else:
+                status_list.append(status_filter)
+        status_processed = ','.join(status_list)
+
+    valid, response, nextmarker = client.list_run(fsname, username, runid, name, status_processed, maxsize, marker)
     if valid:
         if len(response):
+            click.echo("{} runs shown under:".format(len(response)))
             _print_runlist(response, output_format)
             click.echo('marker: {}'.format(nextmarker))
         else:
@@ -269,8 +289,10 @@ def artifact(ctx, userfilter=None, fsfilter=None, runfilter=None, typefilter=Non
 def _print_runlist(runlist, out_format):
     """print run list """
 
-    headers = ['run id', 'fsname', 'username', 'status', 'name']
-    data = [[run.runId, run.fsname, run.username, run.status, run.name] for run in runlist]
+    headers = ['run id', 'fs name', 'username', 'status', 'name', 'description', 'run message', 'source',
+               'schedule id', 'scheduled time', 'create time', 'activate time', 'update time']
+    data = [[run.runId, run.fsname, run.username, run.status, run.name, run.description, run.runMsg, run.source,
+             run.scheduleID, run.scheduledTime, run.createTime, run.activateTime, run.updateTime] for run in runlist]
     print_output(data, headers, out_format, table_format='grid')
 
 

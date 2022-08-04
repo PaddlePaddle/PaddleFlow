@@ -244,6 +244,11 @@ func TFJobStatus(obj interface{}) (StatusInfo, error) {
 	return kubeflowJobStatus(obj, TFJobGVK)
 }
 
+// MXNetJobStatus get job status, message for MXNetJob
+func MXNetJobStatus(obj interface{}) (StatusInfo, error) {
+	return kubeflowJobStatus(obj, MXNetJobGVK)
+}
+
 // MPIJobStatus get job status, message for MPIJob
 func MPIJobStatus(obj interface{}) (StatusInfo, error) {
 	return kubeflowJobStatus(obj, MPIJobGVK)

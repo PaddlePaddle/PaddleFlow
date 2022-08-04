@@ -108,35 +108,6 @@ func validateJob(ctx *logger.RequestContext, request *CreateJobInfo) error {
 	return nil
 }
 
-// validateJobFramework validate job type and framework
-func validateJobFramework(ctx *logger.RequestContext, jobType schema.JobType, framework schema.Framework) error {
-	var err error
-	switch jobType {
-	case schema.TypeSingle:
-		if framework != schema.FrameworkStandalone {
-			err = fmt.Errorf("framework for single job must be standalone")
-		}
-	case schema.TypeDistributed:
-		switch framework {
-		case schema.FrameworkSpark, schema.FrameworkPaddle:
-			err = nil
-		case schema.FrameworkTF, schema.FrameworkMPI:
-			err = fmt.Errorf("framework: %s for distributed job will be supported in the future", framework)
-		default:
-			err = fmt.Errorf("invalid framework %s for distributed job", framework)
-		}
-	case schema.TypeWorkflow:
-		// TODO: add check for workflow
-	default:
-		err = fmt.Errorf("job type %s does not supported", jobType)
-	}
-	if err != nil {
-		ctx.Logging().Error(err)
-		ctx.ErrorCode = common.JobInvalidField
-	}
-	return err
-}
-
 func validateCommonJobInfo(ctx *logger.RequestContext, requestCommonJobInfo *CommonJobInfo) error {
 	// validate job id
 	if requestCommonJobInfo.ID != "" {
@@ -413,11 +384,41 @@ func checkEmptyField(request *JobSpec) []string {
 	return emptyFields
 }
 
+// validateJobFramework validate job type and framework
+func validateJobFramework(ctx *logger.RequestContext, jobType schema.JobType, framework schema.Framework) error {
+	var err error
+	switch jobType {
+	case schema.TypeSingle:
+		if framework != schema.FrameworkStandalone {
+			err = fmt.Errorf("framework for single job must be standalone")
+		}
+	case schema.TypeDistributed:
+		switch framework {
+		case schema.FrameworkSpark, schema.FrameworkPaddle, schema.FrameworkTF,
+			schema.FrameworkPytorch, schema.FrameworkMXNet:
+			err = nil
+		case schema.FrameworkMPI:
+			err = fmt.Errorf("framework: %s for distributed job will be supported in the future", framework)
+		default:
+			err = fmt.Errorf("invalid framework %s for distributed job", framework)
+		}
+	case schema.TypeWorkflow:
+		// TODO: add check for workflow
+	default:
+		err = fmt.Errorf("job type %s does not supported", jobType)
+	}
+	if err != nil {
+		ctx.Logging().Error(err)
+		ctx.ErrorCode = common.JobInvalidField
+	}
+	return err
+}
+
 func checkMemberRole(framework schema.Framework, roles map[schema.MemberRole]int) (string, error) {
 	var err error
 	var jobMode string
 	switch framework {
-	case schema.FrameworkPaddle, schema.FrameworkTF:
+	case schema.FrameworkPaddle, schema.FrameworkTF, schema.FrameworkPytorch, schema.FrameworkMXNet:
 		if roles[schema.RolePServer] > 0 {
 			// parameter server mode
 			jobMode = schema.EnvJobModePS
@@ -451,7 +452,7 @@ func checkMemberRole(framework schema.Framework, roles map[schema.MemberRole]int
 func getFrameworkRoles(framework schema.Framework) map[schema.MemberRole]int {
 	var roles = make(map[schema.MemberRole]int)
 	switch framework {
-	case schema.FrameworkPaddle, schema.FrameworkTF:
+	case schema.FrameworkPaddle, schema.FrameworkTF, schema.FrameworkPytorch, schema.FrameworkMXNet:
 		roles[schema.RolePServer] = 0
 		roles[schema.RolePWorker] = 0
 		roles[schema.RoleWorker] = 0

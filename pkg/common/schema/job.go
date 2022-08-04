@@ -105,6 +105,7 @@ const (
 	FrameworkTF         Framework = "tensorflow"
 	FrameworkPytorch    Framework = "pytorch"
 	FrameworkPaddle     Framework = "paddle"
+	FrameworkMXNet      Framework = "mxnet"
 	FrameworkStandalone Framework = "standalone"
 
 	// job priority
