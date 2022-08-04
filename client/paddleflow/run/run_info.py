@@ -21,11 +21,7 @@ class RunInfo(object):
 
     def __init__(self, runID, fsname, username, status, name, description, parameters,
                  runYaml, runtime, postProcess, dockerEnv, updateTime, source, runMsg, scheduleID,
-<<<<<<< HEAD
                  fsOptions, failureOptions, disabled, runCachedIDs, createTime, activateTime):
-=======
-                 scheduledTime, createTime, activateTime):
->>>>>>> 8d4715d784b1495649f1356f7d2e03a77a10d25d
         """init """
         self.runId = runID
         self.fsname = fsname
@@ -41,16 +37,11 @@ class RunInfo(object):
         self.updateTime = updateTime
         self.source = source
         self.runMsg = runMsg
-<<<<<<< HEAD
         self.fsOptions = fsOptions
         self.failureOptions = failureOptions
         self.disabled = disabled
         self.runCachedIDs = runCachedIDs
         self.scheduleID = scheduleID
-=======
-        self.scheduleID = scheduleID
-        self.scheduledTime = scheduledTime
->>>>>>> 8d4715d784b1495649f1356f7d2e03a77a10d25d
         self.createTime = createTime
         self.activateTime = activateTime
 
