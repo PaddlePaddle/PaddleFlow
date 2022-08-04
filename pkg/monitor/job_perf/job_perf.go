@@ -14,12 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-/**
- * @Author: kiritoxkiriko
- * @Date: 2022/7/26
- * @Description:
- */
-
 package job_perf
 
 import (
@@ -32,20 +26,20 @@ type JobTimePoint int
 const (
 	// T1 api query time
 	T1 JobTimePoint = iota
-	// T2 db update time
+	// T2 db insert time
 	T2
 	// T3 enqueue time
 	T3
 	// T4 dequeue time
 	T4
-	// T5 create time
+	// T5 submit time
 	T5
-	// T6 schedule time
+	// T6 scheduled time
 	// TODO: T6 is not supported yet
 	T6
 	// T7 run time
 	T7
-	// T8 finish time
+	// T8 finish(success/fail) time
 	T8
 )
 
