@@ -3,7 +3,6 @@ package mount
 import (
 	"encoding/base64"
 	"encoding/json"
-	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -11,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
@@ -58,7 +58,7 @@ func TestKubeRuntimePVAndPVC(t *testing.T) {
 	assert.Nil(t, err)
 	fsCacheBase64 := base64.StdEncoding.EncodeToString(fsCacheStr)
 
-	mountInfo, err := ProcessMountInfo(fsBase64, fsCacheBase64, "target", false)
+	mountInfo, err := ConstructMountInfo(fsBase64, fsCacheBase64, "target", utils.GetFakeK8sClient(), false)
 	assert.Nil(t, err)
 	assert.Equal(t, fsBase64, mountInfo.FSBase64Str)
 	assert.Equal(t, fsCache.CacheDir, mountInfo.CacheConfig.CacheDir)
@@ -71,7 +71,7 @@ func TestKubeRuntimePVAndPVC(t *testing.T) {
 	fsCacheStr, err = json.Marshal(fsCache)
 	assert.Nil(t, err)
 	fsCacheBase64 = base64.StdEncoding.EncodeToString(fsCacheStr)
-	mountInfo, err = ProcessMountInfo(fsBase64, fsCacheBase64, "target", false)
+	mountInfo, err = ConstructMountInfo(fsBase64, fsCacheBase64, "target", utils.GetFakeK8sClient(), false)
 	assert.Nil(t, err)
 	assert.Equal(t, "", mountInfo.CacheConfig.CacheDir)
 	assert.Equal(t, "", mountInfo.CacheConfig.FsID)
@@ -80,103 +80,7 @@ func TestKubeRuntimePVAndPVC(t *testing.T) {
 	assert.Equal(t, false, mountInfo.CacheConfig.Debug)
 }
 
-func TestGetOptions(t *testing.T) {
-	fs := model.FileSystem{
-		Model: model.Model{
-			ID:        "fs-root-testfs",
-			CreatedAt: time.Now(),
-			UpdatedAt: time.Now(),
-		},
-		UserName:      "root",
-		Name:          "testfs",
-		Type:          "s3",
-		SubPath:       "/supath",
-		ServerAddress: "server_address",
-
-		PropertiesMap: map[string]string{
-			"accessKey": "accessKey",
-			"bucket":    "bucket",
-			"endpoint":  "server_address",
-			"region":    "bj",
-			"secretKey": "secretKey"},
-	}
-
-	fsStr, err := json.Marshal(fs)
-	assert.Nil(t, err)
-	fsBase64 := base64.StdEncoding.EncodeToString(fsStr)
-
-	fsCache := model.FSCacheConfig{
-		FsID:       fs.ID,
-		CacheDir:   "/data/paddleflow-FS/mnt",
-		MetaDriver: "leveldb",
-		BlockSize:  4096,
-		CreatedAt:  time.Now(),
-		UpdatedAt:  time.Now(),
-	}
-	type args struct {
-		mountInfo Info
-		readOnly  bool
-	}
-	tests := []struct {
-		name string
-		args args
-		want []string
-	}{
-		{
-			name: "test-pfs-fuse-no-cache",
-			args: args{
-				mountInfo: Info{
-					FS:          fs,
-					FSBase64Str: fsBase64,
-					TargetPath:  "/target/testPath",
-				},
-			},
-			want: []string{"--fs-info=eyJpZCI6ImZzLXJvb3QtdGVzdGZzIiwiY3JlYXRlVGltZSI6IiIsIm5hbWUiOiJ0ZXN0ZnMiLCJ0eXBlIjoiczMiLCJzZXJ2ZXJBZGRyZXNzIjoic2VydmVyX2FkZHJlc3MiLCJzdWJQYXRoIjoiL3N1cGF0aCIsInByb3BlcnRpZXMiOnsiYWNjZXNzS2V5IjoiYWNjZXNzS2V5IiwiYnVja2V0IjoiYnVja2V0IiwiZW5kcG9pbnQiOiJzZXJ2ZXJfYWRkcmVzcyIsInJlZ2lvbiI6ImJqIiwic2VjcmV0S2V5Ijoic2VjcmV0S2V5In0sInVzZXJOYW1lIjoicm9vdCIsImluZGVwZW5kZW50TW91bnRQcm9jZXNzIjpmYWxzZX0=",
-				"--fs-id=fs-root-testfs", "--file-mode=0666", "--dir-mode=0777"},
-		},
-		{
-			name: "test-pfs-fuse-cache",
-			args: args{
-				mountInfo: Info{
-					FS:          fs,
-					FSBase64Str: fsBase64,
-					TargetPath:  "/target/testPath",
-					CacheConfig: fsCache,
-				},
-			},
-			want: []string{"--fs-info=" + fsBase64,
-				"--fs-id=fs-root-testfs", "--block-size=4096", "--data-cache-path=" + FusePodCachePath + DataCacheDir,
-				"--meta-cache-driver=leveldb", "--meta-cache-path=" + FusePodCachePath + MetaCacheDir,
-				"--file-mode=0666", "--dir-mode=0777"},
-		},
-		{
-			name: "test-pfs-fuse-cache-readOnly",
-			args: args{
-				mountInfo: Info{
-					FS:          fs,
-					FSBase64Str: fsBase64,
-					TargetPath:  "/target/testPath",
-					CacheConfig: fsCache,
-				},
-				readOnly: true,
-			},
-			want: []string{"--fs-info=" + fsBase64,
-				"--fs-id=fs-root-testfs", "--mount-options=ro", "--block-size=4096", "--data-cache-path=" + FusePodCachePath + DataCacheDir,
-				"--meta-cache-driver=leveldb", "--meta-cache-path=" + FusePodCachePath + MetaCacheDir,
-				"--file-mode=0666", "--dir-mode=0777"},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := GetOptions(tt.args.mountInfo, tt.args.readOnly); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("GetOptions() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestInfo_MountCmd(t *testing.T) {
-	targetPath := "/targetPath/test"
+func TestInfo_MountCmdArgs(t *testing.T) {
 
 	fs := model.FileSystem{
 		Model: model.Model{
@@ -226,11 +130,6 @@ func TestInfo_MountCmd(t *testing.T) {
 		SubPath:       "default-volume",
 		ServerAddress: "127.0.0.1",
 	}
-	glusterfsInfo := Info{
-		FS:         glusterFS,
-		TargetPath: targetPath,
-	}
-	glusterfsOption := GetOptions(glusterfsInfo, false)
 
 	fsInde := model.FileSystem{
 		Model: model.Model{
@@ -258,28 +157,13 @@ func TestInfo_MountCmd(t *testing.T) {
 	fsStr2, err := json.Marshal(fsInde)
 	assert.Nil(t, err)
 	fsBase64Inde := base64.StdEncoding.EncodeToString(fsStr2)
-
-	info := Info{
-		CacheConfig: fsCache,
-		FS:          fs,
-		FSBase64Str: fsBase64,
-		TargetPath:  targetPath,
-	}
-	options := GetOptions(info, false)
-
-	infoInde := Info{
-		CacheConfig: fsCache,
-		FS:          fsInde,
-		FSBase64Str: fsBase64Inde,
-		TargetPath:  targetPath,
-	}
-	optionsInde := GetOptions(infoInde, false)
+	targetPath := "/data/lib/kubelet/pods/1d8f8b01-59b0-4e3f-822d-cc3cff54fd4e/volumes/kubernetes.io~csi/pfs-fs-root-indep-default-pv/mount"
+	sourcePath := "/data/lib/kubelet/pods/1d8f8b01-59b0-4e3f-822d-cc3cff54fd4e/volumes/kubernetes.io~csi/pfs-fs-root-indep-default-pv/source"
 	type fields struct {
 		CacheConfig model.FSCacheConfig
 		FS          model.FileSystem
-		FSBase64Str string
 		TargetPath  string
-		Options     []string
+		ReadOnly    bool
 	}
 	tests := []struct {
 		name   string
@@ -291,52 +175,74 @@ func TestInfo_MountCmd(t *testing.T) {
 			fields: fields{
 				FS:          fs,
 				CacheConfig: fsCache,
-				FSBase64Str: fsBase64,
-				TargetPath:  "/targetPath/test",
-				Options:     options,
+				TargetPath:  targetPath,
 			},
-			want: "/home/paddleflow/pfs-fuse mount --mount-point=/home/paddleflow/mnt/storage " +
-				"--fs-info=" + fsBase64 + " --fs-id=fs-root-testfs --block-size=4096 " +
-				"--data-cache-path=" + FusePodCachePath + DataCacheDir + " --meta-cache-driver=leveldb " +
-				"--meta-cache-path=" + FusePodCachePath + MetaCacheDir + " --file-mode=0644 --dir-mode=0755",
+			want: "/home/paddleflow/pfs-fuse mount --mount-point=/home/paddleflow/mnt/storage " + "--fs-id=fs-root-testfs --fs-info=" +
+				fsBase64 + " --block-size=4096 --meta-cache-driver=leveldb --file-mode=0644 --dir-mode=0755 " +
+				"--data-cache-path=" + FusePodCachePath + DataCacheDir + " " +
+				"--meta-cache-path=" + FusePodCachePath + MetaCacheDir,
 		},
 		{
 			name: "test-pfs-fuse-independent",
 			fields: fields{
 				FS:          fsInde,
 				CacheConfig: fsCache,
-				FSBase64Str: fsBase64,
-				TargetPath:  "/targetPath/test",
-				Options:     optionsInde,
+				TargetPath:  targetPath,
 			},
-			want: "/home/paddleflow/mount.sh --mount-point=/targetPath/test --fs-info=" + fsBase64Inde +
-				" --fs-id=fs-root-testfs --block-size=4096 --data-cache-path=/data/paddleflow-FS/mnt " +
-				"--meta-cache-driver=leveldb --meta-cache-path=/data/paddleflow-FS/mnt " +
-				"--file-mode=0644 --dir-mode=0755",
+			want: "/home/paddleflow/mount.sh --fs-id=fs-root-testfs --fs-info=" + fsBase64Inde +
+				" --block-size=4096 " +
+				"--meta-cache-driver=leveldb " +
+				"--file-mode=0644 --dir-mode=0755 --data-cache-path=/data/paddleflow-FS/mnt/data-cache --meta-cache-path=/data/paddleflow-FS/mnt/meta-cache --mount-point=" + sourcePath,
 		},
 		{
 			name: "test-glusterfs",
 			fields: fields{
-				FS:         glusterFS,
-				Options:    glusterfsOption,
-				TargetPath: targetPath,
+				FS:          glusterFS,
+				CacheConfig: fsCache,
+				TargetPath:  targetPath,
 			},
-			want: "mount -t glusterfs 127.0.0.1:default-volume /targetPath/test",
+			want: "mount -t glusterfs 127.0.0.1:default-volume " + sourcePath,
+		},
+		{
+			name: "test-pfs-fuse-no-cache",
+			fields: fields{
+				FS:          fs,
+				CacheConfig: model.FSCacheConfig{},
+				TargetPath:  targetPath,
+			},
+			want: "/home/paddleflow/pfs-fuse mount --mount-point=/home/paddleflow/mnt/storage " +
+				"--fs-id=fs-root-testfs --fs-info=" + fsBase64 + " --file-mode=0644 --dir-mode=0755",
+		},
+		{
+			name: "test-pfs-fuse-cache-readOnly",
+			fields: fields{
+				FS:          fs,
+				CacheConfig: fsCache,
+				TargetPath:  targetPath,
+				ReadOnly:    true,
+			},
+			want: "/home/paddleflow/pfs-fuse mount --mount-point=/home/paddleflow/mnt/storage " +
+				"--fs-id=fs-root-testfs --fs-info=" + fsBase64 + " --mount-options=ro --block-size=4096 --meta-cache-driver=leveldb --file-mode=0644 --dir-mode=0755 " +
+				"--data-cache-path=" + FusePodCachePath + DataCacheDir + " " +
+				"--meta-cache-path=" + FusePodCachePath + MetaCacheDir,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := &Info{
-				CacheConfig: tt.fields.CacheConfig,
-				FS:          tt.fields.FS,
-				FSBase64Str: tt.fields.FSBase64Str,
-				TargetPath:  tt.fields.TargetPath,
-				Options:     tt.fields.Options,
-			}
-			cmd, args := m.MountCmd()
-			got := cmd + " " + strings.Join(args, " ")
+			fsStr, err := json.Marshal(tt.fields.FS)
+			assert.Nil(t, err)
+			fsBase64 := base64.StdEncoding.EncodeToString(fsStr)
+
+			fsCacheStr, err := json.Marshal(tt.fields.CacheConfig)
+			assert.Nil(t, err)
+			fsCacheBase64 := base64.StdEncoding.EncodeToString(fsCacheStr)
+
+			mountInfo, err := ConstructMountInfo(fsBase64, fsCacheBase64, tt.fields.TargetPath, utils.GetFakeK8sClient(), tt.fields.ReadOnly)
+			assert.Nil(t, err)
+
+			got := mountInfo.Cmd + " " + strings.Join(mountInfo.Args, " ")
 			if got != tt.want {
-				t.Errorf("MountCmd() = %v, want %v", got, tt.want)
+				t.Errorf("cmdAndArgs() = %v, want %v", got, tt.want)
 			}
 		})
 	}

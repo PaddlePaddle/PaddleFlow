@@ -315,15 +315,13 @@ data:
         debug: false
 
       apiServer:
-        host: 0.0.0.0
+        host: "paddleflow-server"
         port: 8999
         tokenExpirationHour: -1
 
       fs:
         defaultPVPath: "./config/fs/default_pv.yaml"
         defaultPVCPath: "./config/fs/default_pvc.yaml"
-        k8sServiceName: "10.156.28.13"
-        K8sServicePort: 8999
 
       job:
         reclaim:
@@ -569,8 +567,7 @@ spec:
       containers:
         - args:
             - -c
-            - cd /home/paddleflow/server && ./paddleflow  --pfs-service-name=$(KUBE_NODE_NAME)
-              --pfs-service-port=8999
+            - cd /home/paddleflow/server && ./paddleflow
           command:
             - /bin/sh
           env:
@@ -9005,3 +9002,29 @@ spec:
   podInfoOnMount: false
   volumeLifecycleModes:
     - Persistent
+---
+apiVersion: scheduling.k8s.io/v1
+description: Used for critical pods that must not be moved from their current node.
+kind: PriorityClass
+metadata:
+  name: high
+  selfLink: /apis/scheduling.k8s.io/v1/priorityclasses/high
+value: 1000
+
+---
+apiVersion: scheduling.k8s.io/v1
+description: Used for normal pods.
+kind: PriorityClass
+metadata:
+  name: normal
+  selfLink: /apis/scheduling.k8s.io/v1/priorityclasses/normal
+value: 100
+
+---
+apiVersion: scheduling.k8s.io/v1
+description: Used for low-priority Pods that are easily preempted.
+kind: PriorityClass
+metadata:
+  name: low
+  selfLink: /apis/scheduling.k8s.io/v1/priorityclasses/low
+value: 50

@@ -188,7 +188,7 @@ func (so *ScheduleOptions) Encode(logEntry *log.Entry) (string, error) {
 
 func CreateSchedule(logEntry *log.Entry, schedule Schedule) (scheduleID string, err error) {
 	logEntry.Debugf("begin create schedule:%+v", schedule)
-	err = WithTransaction(storage.DB, func(tx *gorm.DB) error {
+	err = storage.DB.Transaction(func(tx *gorm.DB) error {
 		result := tx.Model(&Schedule{}).Create(&schedule)
 		if result.Error != nil {
 			logEntry.Errorf("create schedule failed. schedule:%v, error:%s",

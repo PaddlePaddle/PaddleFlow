@@ -35,7 +35,6 @@ import (
 	errors2 "github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/pipeline"
 	pplcommon "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/trace_logger"
@@ -548,7 +547,7 @@ func CreateRun(ctx logger.RequestContext, request *CreateRunRequest, extra map[s
 		ID:             "", // to be back filled according to db pk
 		Name:           wfs.Name,
 		Source:         source,
-		UserName:       userName,
+		UserName:       ctx.UserName,
 		FsName:         fsName,
 		FsID:           fsID,
 		Description:    request.Description,
@@ -559,6 +558,7 @@ func CreateRun(ctx logger.RequestContext, request *CreateRunRequest, extra map[s
 		Disabled:       request.Disabled,
 		ScheduleID:     request.ScheduleID,
 		ScheduledAt:    scheduledAt,
+		RunOptions:     schema.RunOptions{FSUsername: userName},
 		Status:         "", // to be filled later
 		Message:        "", // to be filld later
 	}
@@ -624,6 +624,7 @@ func CreateRunByJson(ctx logger.RequestContext, bodyMap map[string]interface{}) 
 	if _, ok := bodyMap[JsonUserName].(string); ok {
 		reqUserName = bodyMap[JsonUserName].(string)
 	}
+
 	if _, ok := bodyMap[JsonDescription].(string); ok {
 		reqDescription = bodyMap[JsonDescription].(string)
 	}
@@ -631,11 +632,13 @@ func CreateRunByJson(ctx logger.RequestContext, bodyMap map[string]interface{}) 
 	fsID := ""
 	ctxUserName := ctx.UserName // 这是实际发送请求的用户，由Token决定，全局不会改变
 	userName := ctxUserName     // 这是进行后续fs操作的用户，root用户可以设置为其他普通用户
+
+	if common.IsRootUser(ctxUserName) && reqUserName != "" {
+		// root user can select fs under other users
+		userName = reqUserName
+	}
+
 	if reqFsName != "" {
-		if common.IsRootUser(ctxUserName) && reqUserName != "" {
-			// root user can select fs under other users
-			userName = reqUserName
-		}
 		fsID = common.ID(userName, reqFsName)
 	}
 
@@ -665,7 +668,7 @@ func CreateRunByJson(ctx logger.RequestContext, bodyMap map[string]interface{}) 
 		ID:             "", // to be back filled according to db pk
 		Name:           wfs.Name,
 		Source:         source,
-		UserName:       userName,
+		UserName:       ctx.UserName,
 		FsName:         reqFsName,
 		FsID:           fsID,
 		Description:    reqDescription,
@@ -674,6 +677,7 @@ func CreateRunByJson(ctx logger.RequestContext, bodyMap map[string]interface{}) 
 		DockerEnv:      wfs.DockerEnv,
 		Disabled:       wfs.Disabled,
 		Status:         common.StatusRunInitiating,
+		RunOptions:     schema.RunOptions{FSUsername: userName},
 	}
 	trace_logger.Key(requestId).Infof("validate and start run: %+v", run)
 	response, err := ValidateAndStartRun(ctx, run, userName, CreateRunRequest{})
@@ -901,10 +905,10 @@ func StopRun(logEntry *log.Entry, userName, runID string, request UpdateRunReque
 		logEntry.Errorln(err.Error())
 		return err
 	}
-
+	run.RunOptions.StopForce = request.StopForce
 	runUpdate := models.Run{
 		Status:     common.StatusRunTerminating,
-		RunOptions: schema.RunOptions{StopForce: request.StopForce},
+		RunOptions: run.RunOptions,
 	}
 	runUpdate.Encode()
 	if err := models.UpdateRun(logEntry, runID, runUpdate); err != nil {
@@ -1064,8 +1068,9 @@ func restartRun(run models.Run, isResume bool) (string, error) {
 
 	run.WorkflowSource = wfs
 
-	_, userName := utils.FsIDToFsNameUsername(run.FsID)
-	if err := checkFs(userName, &run.WorkflowSource); err != nil {
+	fsUserName := run.RunOptions.FSUsername
+
+	if err := checkFs(fsUserName, &run.WorkflowSource); err != nil {
 		logger.LoggerForRun(run.ID).Errorf("check fs failed. err:%v\n", err)
 		return "", updateRunStatusAndMsg(run.ID, common.StatusRunFailed, err.Error())
 	}
@@ -1208,10 +1213,10 @@ func RestartWf(run models.Run, isResume bool) (string, error) {
 
 func newWorkflowByRun(run models.Run) (*pipeline.Workflow, error) {
 	extraInfo := map[string]string{
-		pplcommon.WfExtraInfoKeySource:   run.Source,
-		pplcommon.WfExtraInfoKeyFsID:     run.FsID,
-		pplcommon.WfExtraInfoKeyUserName: run.UserName,
-		pplcommon.WfExtraInfoKeyFsName:   run.FsName,
+		pplcommon.WfExtraInfoKeySource:     run.Source,
+		pplcommon.WfExtraInfoKeyFsID:       run.FsID,
+		pplcommon.WfExtraInfoKeyFSUserName: run.RunOptions.FSUsername,
+		pplcommon.WfExtraInfoKeyFsName:     run.FsName,
 	}
 	wfPtr, err := pipeline.NewWorkflow(run.WorkflowSource, run.ID, run.Parameters, extraInfo, workflowCallbacks)
 	if err != nil {

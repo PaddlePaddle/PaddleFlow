@@ -376,7 +376,7 @@ func IsQueueInUse(queueID string) (bool, map[string]schema.JobStatus) {
 		schema.StatusJobRunning,
 	}
 	jobsInfo := make(map[string]schema.JobStatus)
-	jobs := ListQueueJob(queueID, queueInUseJobStatus)
+	jobs := storage.Job.ListQueueJob(queueID, queueInUseJobStatus)
 	if len(jobs) == 0 {
 		return false, jobsInfo
 	}
