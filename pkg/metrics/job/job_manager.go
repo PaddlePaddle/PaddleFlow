@@ -22,7 +22,6 @@ import (
 	"sync"
 	"time"
 
-	//"github.com/goburrow/cache"
 	"github.com/bluele/gcache"
 )
 
