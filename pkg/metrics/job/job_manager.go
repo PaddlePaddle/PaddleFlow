@@ -186,7 +186,7 @@ func (t Timestamps) GetStatusTime(status JobStatus) (time.Duration, bool) {
 func (t Timestamps) String() string {
 	strs := make([]string, 0, len(t))
 	for _, x := range t {
-		strs = append(strs, strconv.Itoa(int(x.UnixMicro())))
+		strs = append(strs, strconv.Itoa(int(x.UnixNano()*1e3)))
 	}
 	return strings.Join(strs, " ")
 }

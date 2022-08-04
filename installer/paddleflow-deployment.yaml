@@ -346,6 +346,11 @@ data:
 
       monitor:
         server: ""
+    
+      metrics:
+        enable: true
+        port: 8231
+
   single.yaml: |-
     apiVersion: v1
     kind: Pod
@@ -538,6 +543,24 @@ spec:
       nodePort: 8999
   selector:
     app: paddleflow-server
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: paddleflow-server
+  name: paddleflow-server-metrics
+  namespace: paddleflow
+spec:
+  ports:
+    - name: metrics
+      nodePort: 8231
+      port: 8231
+      targetPort: 8231
+      protocol: TCP
+  selector:
+    app: paddleflow-server
+  type: NodePort
 ---
 apiVersion: apps/v1
 kind: Deployment

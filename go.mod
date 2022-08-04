@@ -12,7 +12,6 @@ require (
 	github.com/bluele/gcache v0.0.2
 	github.com/colinmarc/hdfs/v2 v2.2.0
 	github.com/container-storage-interface/spec v1.5.0
-	github.com/dgraph-io/ristretto v0.1.0
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/docker/distribution v2.7.1+incompatible // indirect
 	github.com/docker/docker v17.12.1-ce+incompatible
@@ -22,7 +21,6 @@ require (
 	github.com/go-chi/chi v1.5.4
 	github.com/go-openapi/spec v0.20.4 // indirect
 	github.com/go-playground/validator/v10 v10.9.0
-	github.com/goburrow/cache v0.1.4
 	github.com/golang/glog v1.0.0 // indirect
 	github.com/google/btree v1.0.0
 	github.com/google/go-cmp v0.5.6 // indirect
