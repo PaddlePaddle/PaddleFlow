@@ -34,8 +34,8 @@ import (
 	commonschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime/kubernetes/executor"
+	job_metric "github.com/PaddlePaddle/PaddleFlow/pkg/metrics/job"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/monitor/job_perf"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
@@ -262,7 +262,7 @@ func (j *JobSync) doUpdateAction(jobSyncInfo *JobSyncInfo) error {
 		commonschema.StatusJobFailed,
 		commonschema.StatusJobCancelled,
 		commonschema.StatusJobSkipped:
-		job_perf.AddTimestamp(jobSyncInfo.ID, job_perf.T8, time.Now(), job_perf.JobInfo{
+		job_metric.AddTimestamp(jobSyncInfo.ID, job_metric.T8, time.Now(), job_metric.JobInfo{
 			FinishedStatus: string(jobSyncInfo.Status),
 		})
 	}

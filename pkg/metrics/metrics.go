@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package job_perf
+package metrics
 
 import (
 	"fmt"
@@ -23,19 +23,31 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
+
+	job_metrics "github.com/PaddlePaddle/PaddleFlow/pkg/metrics/job"
 )
 
 var (
 	registry *prometheus.Registry
 )
 
+const (
+	DefaultMetricPort = 8231
+)
+
 func InitRegistry() {
 	registry = prometheus.NewRegistry()
-	collector := newJobPerfCollector()
+	collector := job_metrics.NewJobMetricsCollector()
 	registry.MustRegister(collector)
 }
 
-func StartJobPerfMetricsService(port int) string {
+func StartMetricsService(port int) string {
+	if port == 0 {
+		port = DefaultMetricPort
+	}
+	if port < 1000 {
+		panic("metric port cannot below 1000")
+	}
 	mx := http.NewServeMux()
 	mx.Handle("/metrics", promhttp.HandlerFor(
 		registry,

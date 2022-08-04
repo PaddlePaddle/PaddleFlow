@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package job_perf
+package job
 
 import (
 	"strings"
@@ -25,7 +25,7 @@ import (
 	//"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
-type JobPerfCollector struct {
+type JobMetricCollector struct {
 	JobCount *prometheus.CounterVec
 	JobTime  *prometheus.GaugeVec
 }
@@ -34,8 +34,8 @@ func toJobHelp(name string) string {
 	return strings.ReplaceAll(name, "_", " ")
 }
 
-func newJobPerfCollector() *JobPerfCollector {
-	return &JobPerfCollector{
+func NewJobMetricsCollector() *JobMetricCollector {
+	return &JobMetricCollector{
 		JobCount: prometheus.NewCounterVec(
 			prometheus.CounterOpts{
 				Name: MetricJobCount,
@@ -48,17 +48,17 @@ func newJobPerfCollector() *JobPerfCollector {
 				Name: MetricJobTime,
 				Help: toJobHelp(MetricJobTime),
 			},
-			[]string{JobIDLabel, JobStatusLabel, JobQueueIdLabel, JobFinishedStatusLabel, JobQueueNameLabel},
+			[]string{JobIDLabel, StatusLabel, QueueIDLabel, FinishedStatusLabel, QueueNameLabel},
 		),
 	}
 }
 
-func (j *JobPerfCollector) Describe(descs chan<- *prometheus.Desc) {
+func (j *JobMetricCollector) Describe(descs chan<- *prometheus.Desc) {
 	j.JobCount.Describe(descs)
 	j.JobTime.Describe(descs)
 }
 
-func (j *JobPerfCollector) Collect(metrics chan<- prometheus.Metric) {
+func (j *JobMetricCollector) Collect(metrics chan<- prometheus.Metric) {
 	cache := GetTimestampsCache()
 	printCache(cache)
 	j.updateJobPerf()
@@ -72,11 +72,11 @@ func printCache(cache map[string]Timestamps) {
 	}
 }
 
-func (j *JobPerfCollector) incrJobTime() {
+func (j *JobMetricCollector) incrJobTime() {
 	j.JobTime.With(prometheus.Labels{})
 }
 
-func (j *JobPerfCollector) updateJobPerf() {
+func (j *JobMetricCollector) updateJobPerf() {
 	timePointsCache := Manager.GetTimestampsCache()
 	for jobID, timePoints := range timePointsCache {
 		// add new metric
@@ -84,11 +84,11 @@ func (j *JobPerfCollector) updateJobPerf() {
 		for status := MinStatus; status <= MaxStatus; status++ {
 			statusTime, _ := timePoints.GetStatusTime(status)
 			j.JobTime.With(prometheus.Labels{
-				JobIDLabel:             jobID,
-				JobStatusLabel:         status.String(),
-				JobQueueIdLabel:        info.QueueID,
-				JobFinishedStatusLabel: info.FinishedStatus,
-				JobQueueNameLabel:      info.QueueName,
+				JobIDLabel:          jobID,
+				StatusLabel:         status.String(),
+				QueueIDLabel:        info.QueueID,
+				FinishedStatusLabel: info.FinishedStatus,
+				QueueNameLabel:      info.QueueName,
 			}).Set(float64(statusTime.Microseconds()))
 			log.Debugf("[job perf] job %s, status %s, time: %d", jobID, status, statusTime.Microseconds())
 		}

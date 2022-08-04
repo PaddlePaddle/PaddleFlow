@@ -25,8 +25,8 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/metrics"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/monitor"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/monitor/job_perf"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/trace_logger"
@@ -224,9 +224,11 @@ func setup() {
 		gracefullyExit(err)
 	}
 
-	if err := initJobPerfMetricsService(ServerConf.Monitor.ExporterServicePort); err != nil {
-		log.Errorf("create job perf metrics service failed, err %v", err)
-		gracefullyExit(err)
+	if ServerConf.Metrics.Enable {
+		if err := initMetricsService(ServerConf.Metrics.Port); err != nil {
+			log.Errorf("create job perf metrics service failed, err %v", err)
+			gracefullyExit(err)
+		}
 	}
 
 }
@@ -252,15 +254,15 @@ func initPrometheusClient(address string) error {
 	return err
 }
 
-func initJobPerfMetricsService(port int) (err error) {
+func initMetricsService(port int) (err error) {
 	defer func() {
 		err1 := recover()
 		if err1 != nil {
 			err = fmt.Errorf("%v", err1)
 		}
 	}()
-	job_perf.InitRegistry()
-	job_perf.StartJobPerfMetricsService(port)
+	metrics.InitRegistry()
+	metrics.StartMetricsService(port)
 	return
 }
 

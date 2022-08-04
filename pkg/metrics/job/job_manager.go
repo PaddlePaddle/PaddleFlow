@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package job_perf
+package job
 
 import (
 	"strconv"
@@ -44,7 +44,7 @@ type JobInfo struct {
 	FinishedStatus string
 }
 
-type JobPerfManager interface {
+type JobMetricManager interface {
 	AddTimestamp(jobID string, timePoint JobTimePoint, timestamp time.Time, queueNames ...JobInfo)
 	GetStatusTime(jobID string, status JobStatus) (time.Duration, bool)
 	GetTimestamp(jobID string, timePoint JobTimePoint) (time.Time, bool)
@@ -62,7 +62,7 @@ type defaultJobPerfManager struct {
 type Timestamps []time.Time
 
 // Implementation of default job perf manager
-func newDefaultJobPerfManager() JobPerfManager {
+func newDefaultJobPerfManager() JobMetricManager {
 	// TODO: use higher performance cache
 	// use arc cache (default)
 	c2 := sync.Map{}

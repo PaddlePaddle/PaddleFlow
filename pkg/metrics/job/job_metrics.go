@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package job_perf
+package job
 
 import (
 	"strconv"
@@ -71,15 +71,15 @@ const (
 )
 
 const (
-	JobIDLabel             = "jobID"
-	JobStatusLabel         = "status"
-	JobQueueIdLabel        = "queueID"
-	JobFinishedStatusLabel = "finishedStatus"
-	JobQueueNameLabel      = "queueName"
+	JobIDLabel          = "jobID"
+	StatusLabel         = "status"
+	QueueIDLabel        = "queueID"
+	FinishedStatusLabel = "finishedStatus"
+	QueueNameLabel      = "queueName"
 )
 
 var (
-	Manager JobPerfManager
+	Manager JobMetricManager
 )
 
 func init() {
