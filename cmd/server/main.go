@@ -114,6 +114,13 @@ func start() error {
 
 	trace_logger.Start(ServerConf.TraceLog)
 
+	if ServerConf.Metrics.Enable {
+		if err := startMetricsService(ServerConf.Metrics.Port); err != nil {
+			log.Errorf("create job perf metrics service failed, err %v", err)
+			gracefullyExit(err)
+		}
+	}
+
 	go func() {
 		if err := HttpSvr.ListenAndServe(); err != nil && errors.Is(err, http.ErrServerClosed) {
 			log.Infof("listen: %s", err)
@@ -224,13 +231,7 @@ func setup() {
 		gracefullyExit(err)
 	}
 
-	if ServerConf.Metrics.Enable {
-		if err := initMetricsService(ServerConf.Metrics.Port); err != nil {
-			log.Errorf("create job perf metrics service failed, err %v", err)
-			gracefullyExit(err)
-		}
-	}
-
+	metrics.InitMetrics()
 }
 
 func newAndStartJobManager() error {
@@ -254,14 +255,13 @@ func initPrometheusClient(address string) error {
 	return err
 }
 
-func initMetricsService(port int) (err error) {
+func startMetricsService(port int) (err error) {
 	defer func() {
 		err1 := recover()
 		if err1 != nil {
 			err = fmt.Errorf("%v", err1)
 		}
 	}()
-	metrics.InitRegistry()
 	metrics.StartMetricsService(port)
 	return
 }

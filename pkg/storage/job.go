@@ -30,6 +30,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/metrics"
 	job_metric "github.com/PaddlePaddle/PaddleFlow/pkg/metrics/job"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
@@ -50,7 +51,7 @@ func (js *JobStore) CreateJob(job *model.Job) error {
 	err := js.db.Create(job).Error
 	if err == nil {
 		queueName := job.Config.GetQueueName()
-		job_metric.AddTimestamp(job.ID, job_metric.T2, time.Now(), job_metric.JobInfo{
+		metrics.Job.AddTimestamp(job.ID, job_metric.T2, time.Now(), job_metric.JobInfo{
 			QueueID:   job.QueueID,
 			QueueName: queueName,
 			UserName:  job.UserName,
@@ -164,7 +165,7 @@ func (js *JobStore) UpdateJob(jobID string, status schema.JobStatus, runtimeInfo
 	}
 	if status == schema.StatusJobRunning && !job.ActivatedAt.Valid {
 		// add queue id here
-		job_metric.AddTimestamp(jobID, job_metric.T7, time.Now(), job_metric.JobInfo{
+		metrics.Job.AddTimestamp(jobID, job_metric.T7, time.Now(), job_metric.JobInfo{
 			QueueID:   job.QueueID,
 			QueueName: job.Config.GetQueueName(),
 			UserName:  job.Config.GetUserName(),

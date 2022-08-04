@@ -27,21 +27,30 @@ import (
 	job_metrics "github.com/PaddlePaddle/PaddleFlow/pkg/metrics/job"
 )
 
-var (
-	registry *prometheus.Registry
-)
-
 const (
 	DefaultMetricPort = 8231
 )
 
-func InitRegistry() {
+var (
+	registry *prometheus.Registry
+)
+
+var (
+	Job job_metrics.JobMetricManager
+)
+
+func InitMetrics() {
+	Job = job_metrics.NewDefaultJobMetricManager()
+}
+
+func initRegistry() {
 	registry = prometheus.NewRegistry()
-	collector := job_metrics.NewJobMetricsCollector()
-	registry.MustRegister(collector)
+	jobCollector := job_metrics.NewJobMetricsCollector(Job)
+	registry.MustRegister(jobCollector)
 }
 
 func StartMetricsService(port int) string {
+	initRegistry()
 	if port == 0 {
 		port = DefaultMetricPort
 	}
@@ -59,10 +68,10 @@ func StartMetricsService(port int) string {
 	metricsAddr := fmt.Sprintf(":%d", port)
 	go func() {
 		if err := http.ListenAndServe(metricsAddr, mx); err != nil {
-			log.Errorf("job perf metrics listenAndServe error: %s", err)
+			log.Errorf("metrics listenAndServe error: %s", err)
 		}
 	}()
 
-	log.Infof("job perf metrics listening on %s", metricsAddr)
+	log.Infof("metrics listening on %s", metricsAddr)
 	return metricsAddr
 }

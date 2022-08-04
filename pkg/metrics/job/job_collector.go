@@ -18,7 +18,6 @@ package job
 
 import (
 	"strings"
-	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
@@ -26,44 +25,46 @@ import (
 )
 
 type JobMetricCollector struct {
-	JobCount *prometheus.CounterVec
-	JobTime  *prometheus.GaugeVec
+	jobCount *prometheus.CounterVec
+	jobTime  *prometheus.GaugeVec
+	manager  JobMetricManager
 }
 
 func toJobHelp(name string) string {
 	return strings.ReplaceAll(name, "_", " ")
 }
 
-func NewJobMetricsCollector() *JobMetricCollector {
+func NewJobMetricsCollector(manager JobMetricManager) *JobMetricCollector {
 	return &JobMetricCollector{
-		JobCount: prometheus.NewCounterVec(
+		jobCount: prometheus.NewCounterVec(
 			prometheus.CounterOpts{
 				Name: MetricJobCount,
 				Help: toJobHelp(MetricJobCount),
 			},
 			[]string{JobIDLabel},
 		),
-		JobTime: prometheus.NewGaugeVec(
+		jobTime: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Name: MetricJobTime,
 				Help: toJobHelp(MetricJobTime),
 			},
 			[]string{JobIDLabel, StatusLabel, QueueIDLabel, FinishedStatusLabel, QueueNameLabel},
 		),
+		manager: manager,
 	}
 }
 
 func (j *JobMetricCollector) Describe(descs chan<- *prometheus.Desc) {
-	j.JobCount.Describe(descs)
-	j.JobTime.Describe(descs)
+	j.jobCount.Describe(descs)
+	j.jobTime.Describe(descs)
 }
 
 func (j *JobMetricCollector) Collect(metrics chan<- prometheus.Metric) {
-	cache := GetTimestampsCache()
+	cache := j.manager.GetTimestampsCache()
 	printCache(cache)
 	j.updateJobPerf()
-	j.JobCount.Collect(metrics)
-	j.JobTime.Collect(metrics)
+	j.jobCount.Collect(metrics)
+	j.jobTime.Collect(metrics)
 }
 
 func printCache(cache map[string]Timestamps) {
@@ -73,17 +74,17 @@ func printCache(cache map[string]Timestamps) {
 }
 
 func (j *JobMetricCollector) incrJobTime() {
-	j.JobTime.With(prometheus.Labels{})
+	j.jobTime.With(prometheus.Labels{})
 }
 
 func (j *JobMetricCollector) updateJobPerf() {
-	timePointsCache := Manager.GetTimestampsCache()
+	timePointsCache := j.manager.GetTimestampsCache()
 	for jobID, timePoints := range timePointsCache {
 		// add new metric
-		info, _ := Manager.GetJobInfo(jobID)
+		info, _ := j.manager.GetJobInfo(jobID)
 		for status := MinStatus; status <= MaxStatus; status++ {
 			statusTime, _ := timePoints.GetStatusTime(status)
-			j.JobTime.With(prometheus.Labels{
+			j.jobTime.With(prometheus.Labels{
 				JobIDLabel:          jobID,
 				StatusLabel:         status.String(),
 				QueueIDLabel:        info.QueueID,
@@ -93,22 +94,4 @@ func (j *JobMetricCollector) updateJobPerf() {
 			log.Debugf("[job perf] job %s, status %s, time: %d", jobID, status, statusTime.Microseconds())
 		}
 	}
-}
-
-//
-//func getQueueNameByJobID(jobID string) string {
-//	job, err := storage.Job.GetJobByID(jobID)
-//	if err != nil {
-//		return ""
-//	}
-//	return job.QueueID
-//}
-
-func timeDiff(a, b time.Duration) time.Duration {
-	res := a - b
-	if res < 0 {
-		log.Warnf("[job perf] time %s, %s diff is negative", a, b)
-		return 0
-	}
-	return res
 }

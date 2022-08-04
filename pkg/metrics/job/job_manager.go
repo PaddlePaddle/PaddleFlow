@@ -60,8 +60,8 @@ type defaultJobPerfManager struct {
 
 type Timestamps []time.Time
 
-// Implementation of default job perf manager
-func newDefaultJobPerfManager() JobMetricManager {
+// NewDefaultJobMetricManager Implementation of default job metric manager
+func NewDefaultJobMetricManager() JobMetricManager {
 	// TODO: use higher performance cache
 	// use arc cache (default)
 	c2 := sync.Map{}

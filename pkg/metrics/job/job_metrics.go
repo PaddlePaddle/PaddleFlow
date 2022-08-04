@@ -18,7 +18,6 @@ package job
 
 import (
 	"strconv"
-	"time"
 )
 
 type JobTimePoint int
@@ -78,14 +77,6 @@ const (
 	QueueNameLabel      = "queueName"
 )
 
-var (
-	Manager JobMetricManager
-)
-
-func init() {
-	Manager = newDefaultJobPerfManager()
-}
-
 func (t JobTimePoint) ToStatus() JobStatus {
 	if t == MaxTimePoint || t < MinTimePoint {
 		return StatusUnknown
@@ -116,17 +107,4 @@ func (j JobStatus) String() string {
 	}
 	str = strconv.Itoa(int(j)) + "-" + str
 	return str
-}
-
-func AddTimestamp(jobID string, timePoint JobTimePoint, timestamp time.Time, jobInfos ...JobInfo) {
-	Manager.AddTimestamp(jobID, timePoint, timestamp, jobInfos...)
-}
-func GetStatusTime(jobID string, status JobStatus) (time.Duration, bool) {
-	return Manager.GetStatusTime(jobID, status)
-}
-func GetTimestamp(jobID string, timePoint JobTimePoint) (time.Time, bool) {
-	return Manager.GetTimestamp(jobID, timePoint)
-}
-func GetTimestampsCache() map[string]Timestamps {
-	return Manager.GetTimestampsCache()
 }
