@@ -118,6 +118,13 @@ spec:
             - mountPath: /admission.local.config/certificates
               name: admission-certs
               readOnly: true
+          resources:
+            requests:
+              memory: "1G"
+              cpu: "500m"
+            limits:
+              memory: "8G"
+              cpu: "8000m"
       volumes:
         - name: admission-certs
           secret:
@@ -7450,6 +7457,13 @@ spec:
             - -v=4
             - 2>&1
           imagePullPolicy: "IfNotPresent"
+          resources:
+            requests:
+              memory: "1G"
+              cpu: "500m"
+            limits:
+              memory: "8G"
+              cpu: "8000m"
 ---
 # Source: volcano/templates/scheduler.yaml
 apiVersion: v1
@@ -7598,6 +7612,13 @@ spec:
             - -v=3
             - 2>&1
           imagePullPolicy: "IfNotPresent"
+          resources:
+            requests:
+              memory: "1G"
+              cpu: "500m"
+            limits:
+              memory: "8G"
+              cpu: "8000m"
           volumeMounts:
             - name: scheduler-config
               mountPath: /volcano.scheduler

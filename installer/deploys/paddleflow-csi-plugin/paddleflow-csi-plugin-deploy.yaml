@@ -340,7 +340,13 @@ spec:
             - containerPort: 12345
               name: port-0
               protocol: TCP
-          resources: {}
+          resources:
+            requests:
+              memory: "1G"
+              cpu: "500m"
+            limits:
+              memory: "8G"
+              cpu: "8000m"
           securityContext:
             privileged: true
           terminationMessagePath: /dev/termination-log
