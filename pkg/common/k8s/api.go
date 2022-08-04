@@ -61,6 +61,7 @@ var (
 		ArgoWorkflowGVK: ArgoWorkflowStatus,
 		PyTorchJobGVK:   PytorchJobStatus,
 		TFJobGVK:        TFJobStatus,
+		MXNetJobGVK:     MXNetJobStatus,
 		MPIJobGVK:       MPIJobStatus,
 	}
 	// GVKToQuotaType GroupVersionKind lists for PaddleFlow QuotaType
@@ -82,6 +83,8 @@ func GetJobTypeAndFramework(gvk schema.GroupVersionKind) (commomschema.JobType, 
 		return commomschema.TypeDistributed, commomschema.FrameworkPytorch
 	case TFJobGVK:
 		return commomschema.TypeDistributed, commomschema.FrameworkTF
+	case MXNetJobGVK:
+		return commomschema.TypeDistributed, commomschema.FrameworkMXNet
 	case MPIJobGVK:
 		return commomschema.TypeDistributed, commomschema.FrameworkMPI
 	default:
@@ -266,7 +269,13 @@ func getDistributedJobGVK(framework commomschema.Framework) (schema.GroupVersion
 		gvk = PaddleJobGVK
 	case commomschema.FrameworkSpark:
 		gvk = SparkAppGVK
-	case commomschema.FrameworkMPI, commomschema.FrameworkTF, commomschema.FrameworkPytorch:
+	case commomschema.FrameworkPytorch:
+		gvk = PyTorchJobGVK
+	case commomschema.FrameworkTF:
+		gvk = TFJobGVK
+	case commomschema.FrameworkMXNet:
+		gvk = MXNetJobGVK
+	case commomschema.FrameworkMPI:
 		err = fmt.Errorf("framework %s is not implemented", framework)
 	default:
 		err = fmt.Errorf("framework %s is not supported", framework)
