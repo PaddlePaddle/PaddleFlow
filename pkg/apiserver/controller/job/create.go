@@ -61,7 +61,6 @@ func CreatePFJob(ctx *logger.RequestContext, request *CreateJobInfo) (*CreateJob
 		return nil, err
 	}
 	request.UserName = ctx.UserName
-	// TODO: check if user has permission to create job
 	// validate Job
 	// gen jobID if not presented in request
 	if request.ID == "" {
