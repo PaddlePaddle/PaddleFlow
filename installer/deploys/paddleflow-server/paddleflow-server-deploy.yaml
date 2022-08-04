@@ -471,10 +471,10 @@ spec:
               protocol: TCP
           resources:
             requests:
-              memory: "1Gi"
+              memory: "1G"
               cpu: "500m"
             limits:
-              memory: "2Gi"
+              memory: "2G"
               cpu: "2000m"
           securityContext:
             privileged: false
