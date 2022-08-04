@@ -839,11 +839,13 @@ func generateVolumeMounts(fileSystems []schema.FileSystem) []corev1.VolumeMount 
 		if mountPath == "/" {
 			mountPath = filepath.Join(schema.DefaultFSMountPath, fs.ID)
 		}
+		mp := corev1.MountPropagationHostToContainer
 		volumeMount := corev1.VolumeMount{
-			Name:      fs.Name,
-			ReadOnly:  fs.ReadOnly,
-			MountPath: fs.MountPath,
-			SubPath:   fs.SubPath,
+			Name:             fs.Name,
+			ReadOnly:         fs.ReadOnly,
+			MountPath:        fs.MountPath,
+			SubPath:          fs.SubPath,
+			MountPropagation: &mp,
 		}
 		vms = append(vms, volumeMount)
 	}
