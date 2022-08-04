@@ -73,10 +73,6 @@ func printCache(cache map[string]Timestamps) {
 	}
 }
 
-func (j *JobMetricCollector) incrJobTime() {
-	j.jobTime.With(prometheus.Labels{})
-}
-
 func (j *JobMetricCollector) updateJobPerf() {
 	timePointsCache := j.manager.GetTimestampsCache()
 	for jobID, timePoints := range timePointsCache {

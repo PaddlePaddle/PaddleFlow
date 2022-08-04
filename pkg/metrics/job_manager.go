@@ -60,7 +60,7 @@ func NewJobMetricTimePointManager() TimePointManager {
 func (d *jobMetricTimePointManager) AddTimestamp(jobID string, timePoint TimePoint, timestamp time.Time, queueInfos ...Info) {
 	val, err := d.cache.GetIFPresent(jobID)
 	if err != nil {
-		val = make(jobTimestamps, MaxTimePoint+1)
+		val = newJobTimestamps()
 	}
 	timePoints := val.(Timestamps)
 	// make sure the time only be set once
@@ -72,7 +72,7 @@ func (d *jobMetricTimePointManager) AddTimestamp(jobID string, timePoint TimePoi
 	_ = d.cache.SetWithExpire(jobID, timePoints, Timeout)
 	d.increaseStatusCount(timePoint.Status())
 	if len(queueInfos) > 0 {
-		d.addJobInfo(jobID, queueInfos[0])
+		d.addInfo(jobID, queueInfos[0])
 	}
 	// TODO: support T5
 	if timePoint == T5 {
@@ -114,7 +114,7 @@ func (d *jobMetricTimePointManager) GetStatusCount(status Status) int64 {
 	return val.(int64)
 }
 
-func (d *jobMetricTimePointManager) addJobInfo(jobID string, newJobInfo Info) {
+func (d *jobMetricTimePointManager) addInfo(jobID string, newJobInfo Info) {
 	val, ok := d.infoCache.Load(jobID)
 	if ok {
 		jobInfo := val.(Info)

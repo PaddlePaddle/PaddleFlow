@@ -73,3 +73,8 @@ func StartMetricsService(port int) string {
 	log.Infof("metrics listening on %s", metricsAddr)
 	return metricsAddr
 }
+
+func init() {
+	// in case panic in testing
+	InitMetrics()
+}
