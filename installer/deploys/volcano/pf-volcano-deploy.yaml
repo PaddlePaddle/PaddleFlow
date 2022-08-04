@@ -123,8 +123,8 @@ spec:
               memory: "1G"
               cpu: "500m"
             limits:
-              memory: "8G"
-              cpu: "8000m"
+              memory: "2G"
+              cpu: "2000m"
       volumes:
         - name: admission-certs
           secret:
@@ -7462,8 +7462,8 @@ spec:
               memory: "1G"
               cpu: "500m"
             limits:
-              memory: "8G"
-              cpu: "8000m"
+              memory: "2G"
+              cpu: "2000m"
 ---
 # Source: volcano/templates/scheduler.yaml
 apiVersion: v1
@@ -7617,8 +7617,8 @@ spec:
               memory: "1G"
               cpu: "500m"
             limits:
-              memory: "8G"
-              cpu: "8000m"
+              memory: "2G"
+              cpu: "2000m"
           volumeMounts:
             - name: scheduler-config
               mountPath: /volcano.scheduler

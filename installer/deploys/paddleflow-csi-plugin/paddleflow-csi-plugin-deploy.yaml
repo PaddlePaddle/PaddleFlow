@@ -180,7 +180,13 @@ spec:
                   - -c
                   - rm -rf /registration/pfs-csi /registration/paddleflowstorage-reg.sock
           name: pfs-csi-plugin
-          resources: {}
+          resources:
+            requests:
+              memory: "1G"
+              cpu: "500m"
+            limits:
+              memory: "2G"
+              cpu: "2000m"
           securityContext:
             privileged: true
           terminationMessagePath: /dev/termination-log
@@ -340,13 +346,7 @@ spec:
             - containerPort: 12345
               name: port-0
               protocol: TCP
-          resources:
-            requests:
-              memory: "1G"
-              cpu: "500m"
-            limits:
-              memory: "8G"
-              cpu: "8000m"
+          resources: {}
           securityContext:
             privileged: true
           terminationMessagePath: /dev/termination-log
