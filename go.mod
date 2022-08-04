@@ -29,6 +29,7 @@ require (
 	github.com/hanwen/go-fuse/v2 v2.1.0
 	github.com/jcmturner/gokrb5/v8 v8.4.2
 	github.com/jinzhu/copier v0.3.2
+	github.com/kubeflow/common v0.4.1
 	github.com/kubernetes-csi/csi-lib-utils v0.10.0 // indirect
 	github.com/kubernetes-csi/drivers v1.0.2
 	github.com/mailru/easyjson v0.7.7 // indirect
@@ -71,10 +72,11 @@ require (
 	gorm.io/driver/mysql v1.1.1
 	gorm.io/driver/sqlite v1.1.4
 	gorm.io/gorm v1.21.12
-	k8s.io/api v0.19.6
-	k8s.io/apimachinery v0.19.6
-	k8s.io/client-go v0.19.6
-	k8s.io/code-generator v0.19.6
+	k8s.io/api v0.19.9
+	k8s.io/apimachinery v0.19.9
+	k8s.io/client-go v0.19.9
+	k8s.io/code-generator v0.19.9
+	k8s.io/component-base v0.19.9 // indirect
 	k8s.io/utils v0.0.0-20210707171843-4b05e18ac7d9
 	sigs.k8s.io/yaml v1.3.0 // indirect
 	volcano.sh/apis v1.3.0-k8s1.18.3-alpha.3

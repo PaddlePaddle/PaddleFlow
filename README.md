@@ -31,14 +31,15 @@ PaddleFlow的部署主要分为客户端和服务端，其中客户端主要用�
 点击[PaddleFlow安装部署](docs/zh_cn/deployment/how_to_install_paddleflow.md)
 里面包含PaddleFlow客户端和服务的部署方式
 # 快速上手
-## 1.命令行参考
+## 命令行参考
 点击[命令行操作说明](docs/zh_cn/reference/client_command_reference.md) 获取所有操作命令和示例。
-## 2.python sdk参考
+## python sdk参考
 点击[sdk使用说明](docs/zh_cn/reference/sdk_reference/sdk_reference.md) 获取sdk的使用说明。
 ## 其他详细参考
 工作流功能使用详解[工作流](docs/zh_cn/reference/pipeline/overview.md) <br>
-存储功能实用详解[存储](docs/zh_cn/reference/filesystem_reference.md) <br>
-作业功能实用详解[作业](docs/zh_cn/reference/job_reference.md)
+作业功能实用详解[作业](docs/zh_cn/reference/job_reference.md) <br>
+存储功能实用详解[存储](docs/zh_cn/reference/filesystem/filesystem_overview.md) <br>
+CSI下存储挂载点恢复[挂载点恢复](docs/zh_cn/reference/filesystem/csi_mountpoint_recovery.md) <br>
 # 开源协议
 使用 apache license 2.0开源，详见 LICENSE。
 # PaddlePaddle相关能力使用

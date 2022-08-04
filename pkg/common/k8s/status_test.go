@@ -18,6 +18,7 @@ package k8s
 
 import (
 	"fmt"
+	kubeflowv1 "github.com/kubeflow/common/pkg/apis/common/v1"
 	"testing"
 
 	paddlejobv1 "github.com/paddleflow/paddle-operator/api/v1"
@@ -304,6 +305,154 @@ func TestPaddleJobStatus(t *testing.T) {
 				},
 			}
 			statusInfo, err = PaddleJobStatus(unstructuredObj)
+			assert.Equal(t, test.expectError, err)
+			assert.Equal(t, test.expectStatus, statusInfo.Status)
+			assert.Equal(t, test.expectOriginStatus, statusInfo.OriginStatus)
+		})
+	}
+}
+
+func TestKubeflowJobStatus(t *testing.T) {
+	tests := []struct {
+		name               string
+		status             *kubeflowv1.JobStatus
+		expectError        error
+		expectStatus       schema.JobStatus
+		expectOriginStatus string
+	}{
+		{
+			name: "kubeflow job state Created",
+			status: &kubeflowv1.JobStatus{
+				Conditions: []kubeflowv1.JobCondition{
+					{
+						Message: "PyTorchJob pytorch-dist-basic-sendrecv is created.",
+						Reason:  "PyTorchJobCreated",
+						Type:    kubeflowv1.JobCreated,
+					},
+				},
+			},
+			expectError:        nil,
+			expectStatus:       schema.StatusJobPending,
+			expectOriginStatus: string(kubeflowv1.JobCreated),
+		},
+		{
+			name: "kubeflow job state Running",
+			status: &kubeflowv1.JobStatus{
+				Conditions: []kubeflowv1.JobCondition{
+					{
+						Message: "PyTorchJob pytorch-dist-basic-sendrecv is created.",
+						Reason:  "PyTorchJobCreated",
+						Type:    kubeflowv1.JobCreated,
+					},
+					{
+						Message: "PyTorchJob pytorch-dist-basic-sendrecv is running.",
+						Reason:  "JobRunning",
+						Type:    kubeflowv1.JobRunning,
+					},
+				},
+			},
+			expectError:        nil,
+			expectStatus:       schema.StatusJobRunning,
+			expectOriginStatus: string(kubeflowv1.JobRunning),
+		},
+		{
+			name: "kubeflow job state Restarting",
+			status: &kubeflowv1.JobStatus{
+				Conditions: []kubeflowv1.JobCondition{
+					{
+						Message: "PyTorchJob pytorch-dist-basic-sendrecv is created.",
+						Reason:  "PyTorchJobCreated",
+						Type:    kubeflowv1.JobCreated,
+					},
+					{
+						Message: "PyTorchJob pytorch-dist-basic-sendrecv is running.",
+						Reason:  "JobRunning",
+						Type:    kubeflowv1.JobRunning,
+					},
+					{
+						Message: "PyTorchJob pytorch-dist-basic-sendrecv is running.",
+						Reason:  "JobRunning",
+						Type:    kubeflowv1.JobRestarting,
+					},
+				},
+			},
+			expectError:        nil,
+			expectStatus:       schema.StatusJobRunning,
+			expectOriginStatus: string(kubeflowv1.JobRestarting),
+		},
+		{
+			name: "kubeflow job state succeeded",
+			status: &kubeflowv1.JobStatus{
+				Conditions: []kubeflowv1.JobCondition{
+					{
+						Message: "PyTorchJob pytorch-dist-basic-sendrecv is created.",
+						Reason:  "PyTorchJobCreated",
+						Type:    kubeflowv1.JobCreated,
+					},
+					{
+						Message: "PyTorchJob pytorch-dist-basic-sendrecv is running.",
+						Reason:  "JobRunning",
+						Type:    kubeflowv1.JobRunning,
+					},
+					{
+						Message: "PyTorchJob pytorch-dist-basic-sendrecv is successfully completed.",
+						Reason:  "JobSucceeded",
+						Type:    kubeflowv1.JobSucceeded,
+					},
+				},
+			},
+			expectError:        nil,
+			expectStatus:       schema.StatusJobSucceeded,
+			expectOriginStatus: string(kubeflowv1.JobSucceeded),
+		},
+		{
+			name: "kubeflow job state Failed",
+			status: &kubeflowv1.JobStatus{
+				Conditions: []kubeflowv1.JobCondition{
+					{
+						Message: "PyTorchJob pytorch-dist-basic-sendrecv is created.",
+						Reason:  "PyTorchJobCreated",
+						Type:    kubeflowv1.JobCreated,
+					},
+					{
+						Message: "PyTorchJob pytorch-dist-basic-sendrecv is running.",
+						Reason:  "JobRunning",
+						Type:    kubeflowv1.JobRunning,
+					},
+					{
+						Message: "PyTorchJob pytorch-test-failed-2 is failed because 1 Worker replica(s) failed.",
+						Reason:  "JobFailed",
+						Type:    kubeflowv1.JobFailed,
+					},
+				},
+			},
+			expectError:        nil,
+			expectStatus:       schema.StatusJobFailed,
+			expectOriginStatus: string(kubeflowv1.JobFailed),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var statusInfo StatusInfo
+			obj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(test.status)
+			assert.Equal(t, nil, err)
+			unstructuredObj := &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"status": obj,
+				},
+			}
+			statusInfo, err = PytorchJobStatus(unstructuredObj.DeepCopy())
+			assert.Equal(t, test.expectError, err)
+			assert.Equal(t, test.expectStatus, statusInfo.Status)
+			assert.Equal(t, test.expectOriginStatus, statusInfo.OriginStatus)
+
+			statusInfo, err = TFJobStatus(unstructuredObj.DeepCopy())
+			assert.Equal(t, test.expectError, err)
+			assert.Equal(t, test.expectStatus, statusInfo.Status)
+			assert.Equal(t, test.expectOriginStatus, statusInfo.OriginStatus)
+
+			statusInfo, err = MPIJobStatus(unstructuredObj.DeepCopy())
 			assert.Equal(t, test.expectError, err)
 			assert.Equal(t, test.expectStatus, statusInfo.Status)
 			assert.Equal(t, test.expectOriginStatus, statusInfo.OriginStatus)
