@@ -158,8 +158,6 @@ func TestPatchVCJobVariable(t *testing.T) {
 			Image:            pfjob.Conf.GetImage(),
 			Command:          pfjob.Conf.GetCommand(),
 			Env:              pfjob.Conf.GetEnv(),
-			VolumeName:       pfjob.Conf.GetFS(),
-			PVCName:          "PVCName",
 			Priority:         pfjob.Conf.GetPriority(),
 			QueueName:        pfjob.Conf.GetQueueName(),
 			Tasks: []model.Member{{Conf: schema.Conf{Flavour: schema.Flavour{

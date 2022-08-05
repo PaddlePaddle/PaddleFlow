@@ -189,11 +189,11 @@ func (vj *VCJob) fillTaskInPSMode(vcTask *vcjob.TaskSpec, task model.Member, job
 		log.Errorf("fill container in task failed, err=[%v]", err)
 		return err
 	}
-	vcTask.Template.Spec.Containers[0].VolumeMounts = vj.appendMountIfAbsent(vcTask.Template.Spec.Containers[0].VolumeMounts,
-		vj.generateVolumeMount())
+	//vcTask.Template.Spec.Containers[0].VolumeMounts = vj.appendMountIfAbsent(vcTask.Template.Spec.Containers[0].VolumeMounts,
+	//	vj.generateVolumeMount())
 
 	// patch vcTask.Template.Spec.Volumes
-	vcTask.Template.Spec.Volumes = vj.appendVolumeIfAbsent(vcTask.Template.Spec.Volumes, vj.generateVolume())
+	//vcTask.Template.Spec.Volumes = vj.appendVolumeIfAbsent(vcTask.Template.Spec.Volumes, vj.generateVolume())
 
 	return nil
 }
@@ -246,7 +246,7 @@ func (vj *VCJob) fillTaskInPodMode(taskSpec *vcjob.TaskSpec, jobName string) err
 	}
 
 	// patch taskSpec.Template.Spec.Volumes
-	taskSpec.Template.Spec.Volumes = vj.appendVolumeIfAbsent(taskSpec.Template.Spec.Volumes, vj.generateVolume())
+	//taskSpec.Template.Spec.Volumes = vj.appendVolumeIfAbsent(taskSpec.Template.Spec.Volumes, vj.generateVolume())
 	log.Debugf("fillTaskInPodMode completed: job[%s]-task[%+v]", jobName, taskSpec)
 	return nil
 }
@@ -301,10 +301,27 @@ func (vj *VCJob) fillTaskInCollectiveMode(tasks []vcjob.TaskSpec, jobName string
 		log.Errorf("fillContainerInTasks for job[%s] failed, err=[%v]", jobName, err)
 		return nil, err
 	}
-	task.Template.Spec.Containers[0].VolumeMounts = vj.appendMountIfAbsent(task.Template.Spec.Containers[0].VolumeMounts,
-		vj.generateVolumeMount())
+	//task.Template.Spec.Containers[0].VolumeMounts = vj.appendMountIfAbsent(task.Template.Spec.Containers[0].VolumeMounts,
+	//	vj.generateVolumeMount())
 	// patch task.Template.Spec.Volumes
-	task.Template.Spec.Volumes = vj.appendVolumeIfAbsent(task.Template.Spec.Volumes, vj.generateVolume())
+	//task.Template.Spec.Volumes = vj.appendVolumeIfAbsent(task.Template.Spec.Volumes, vj.generateVolume())
 
 	return tasks, nil
+}
+
+// todo: to be removed
+// fillContainerInVcJob fill container in job task, only called by vcjob
+func (j *VCJob) fillContainerInVcJob(container *v1.Container, flavour schema.Flavour, command string) error {
+	container.Image = j.Image
+	workDir := j.getWorkDir(nil)
+	container.Command = j.generateContainerCommand(j.Command, workDir)
+	var err error
+	container.Resources, err = j.generateResourceRequirements(flavour)
+	if err != nil {
+		log.Errorf("generate resource requirements failed in vcjob, err: %v", err)
+		return err
+	}
+	//container.VolumeMounts = j.appendMountIfAbsent(container.VolumeMounts, j.generateVolumeMount())
+	container.Env = j.generateEnvVars()
+	return nil
 }
