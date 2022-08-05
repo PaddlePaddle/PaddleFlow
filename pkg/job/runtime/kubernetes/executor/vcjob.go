@@ -36,6 +36,7 @@ const (
 	psPort int32 = 8001
 )
 
+// VCJob deprecated
 type VCJob struct {
 	KubeJob
 	JobModeParams

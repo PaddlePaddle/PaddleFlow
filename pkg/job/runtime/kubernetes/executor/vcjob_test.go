@@ -208,6 +208,5 @@ func TestPatchVCJobVariable(t *testing.T) {
 		assert.NotEmpty(t, jobApp.Spec.Tasks)
 		assert.NotEmpty(t, jobApp.Spec.Tasks[0].Template.Spec.Containers)
 		assert.Equal(t, test.expectValue, jobApp.Spec.Tasks[0].Template.Spec.Containers[0].Name)
-		assert.NotEmpty(t, jobApp.Spec.Tasks[0].Template.Spec.Containers[0].VolumeMounts)
 	}
 }
