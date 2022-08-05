@@ -48,7 +48,7 @@ type JobView struct {
 	DockerEnv   string            `json:"dockerEnv"`
 	Artifacts   Artifacts         `json:"artifacts"`
 	Cache       Cache             `json:"cache"`
-	JobMessage  string            `json:"jobMessage"`
+	Message     string            `json:"message"`
 	CacheRunID  string            `json:"cacheRunID"`
 	CacheJobID  string            `json:"cacheJobID"`
 }
@@ -78,7 +78,7 @@ func (j JobView) GetSeq() int {
 }
 
 func (j JobView) GetMsg() string {
-	return j.JobMessage
+	return j.Message
 }
 
 func (j JobView) GetName() string {

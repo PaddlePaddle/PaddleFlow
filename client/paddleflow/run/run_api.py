@@ -111,7 +111,7 @@ class RunServiceApi(object):
             for run in data['runList']:
                 runInfo = RunInfo(run['runID'], run['fsName'], run['username'], run['status'], run['name'],
                                   run['description'], None, None, None, None, None, run['updateTime'],
-                                  run['source'], run['runMsg'], run['scheduleID'], run['scheduledTime'],
+                                  run['source'], run['message'], run['scheduleID'], run['scheduledTime'],
                                   run['createTime'], run['activateTime'])
                 runList.append(runInfo)
         return True, runList, data.get('nextMarker', None)
@@ -147,7 +147,7 @@ class RunServiceApi(object):
                                         comp['endTime'], comp['dockerEnv'], comp['jobID'],
                                         comp['type'], comp['stepName'], comp['parentDagID'],
                                         comp['extraFS'], comp['artifacts'], comp['cache'],
-                                        comp['jobMessage'], comp['cacheRunID'], comp['cacheJobID'])
+                                        comp['message'], comp['cacheRunID'], comp['cacheJobID'])
                     newCompList.append(newComp)
                 newCompDict[key] = newCompList
             return newCompDict
@@ -166,13 +166,13 @@ class RunServiceApi(object):
                                         comp['endTime'], comp['dockerEnv'], comp['jobID'],
                                         comp['type'], comp['stepName'], comp['parentDagID'],
                                         comp['extraFS'], comp['artifacts'], comp['cache'],
-                                        comp['jobMessage'], comp['cacheRunID'], comp['cacheJobID'])
+                                        comp['message'], comp['cacheRunID'], comp['cacheJobID'])
                 newPostDict[key] = newComp
 
         runInfo = RunInfo(data['runID'], data['fsName'], data['username'], data['status'], data['name'],
                             data['description'], data['parameters'], data['runYaml'],
                             runtimeInfo, newPostDict,
-                            data['dockerEnv'], data['updateTime'], data['source'], data['runMsg'],data['scheduleID'],
+                            data['dockerEnv'], data['updateTime'], data['source'], data['message'],data['scheduleID'],
                             data['fsOptions'], data['failureOptions'], data['disabled'], data['runCachedIDs'],
                             data['createTime'], data['activateTime'])
         
@@ -314,7 +314,7 @@ class RunServiceApi(object):
             else:
                 return True, data['runID']
         else:
-            return True, None
+            return False, None
 
     @classmethod
     def artifact(self, host, userfilter=None, fsfilter=None, runfilter=None, typefilter=None, pathfilter=None,
