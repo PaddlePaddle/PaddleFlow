@@ -182,18 +182,25 @@ func newFrameWorkJob(kubeJob KubeJob, job *api.PFJob) (api.PFJobInterface, error
 	case schema.FrameworkMPI:
 		kubeJob.GroupVersionKind = k8s.VCJobGVK
 		return &VCJob{
-			KubeJob:       kubeJob,
-			JobModeParams: newJobModeParams(job.Conf),
+			KubeJob: kubeJob,
 		}, nil
 	case schema.FrameworkPaddle:
 		kubeJob.GroupVersionKind = k8s.PaddleJobGVK
 		return &PaddleJob{
-			KubeJob:       kubeJob,
-			JobModeParams: newJobModeParams(job.Conf),
+			KubeJob: kubeJob,
+		}, nil
+	case schema.FrameworkPytorch:
+		kubeJob.GroupVersionKind = k8s.PyTorchJobGVK
+		return &PyTorchJob{
+			KubeJob: kubeJob,
 		}, nil
 	default:
 		return nil, fmt.Errorf("kubernetes job framework[%s] is not supported", job.Framework)
 	}
+}
+
+func (j *KubeJob) String() string {
+	return fmt.Sprintf("%s job %s/%s", j.GroupVersionKind.String(), j.Namespace, j.Name)
 }
 
 func (j *KubeJob) generateAffinity(affinity *corev1.Affinity, fsIDs []string) *corev1.Affinity {
@@ -601,7 +608,7 @@ func GetPodGroupName(jobID string) string {
 	}
 	pgName := ""
 	switch job.Framework {
-	case schema.FrameworkPaddle:
+	case schema.FrameworkPaddle, schema.FrameworkPytorch, schema.FrameworkTF, schema.FrameworkMXNet:
 		pgName = jobID
 	case schema.FrameworkSpark:
 		pgName = fmt.Sprintf("spark-%s-pg", jobID)
@@ -698,6 +705,7 @@ func (j *KubeJob) patchPaddlePara(podTemplate *corev1.Pod, jobName string) error
 }
 
 // JobModeParams records the parameters related to job mode
+// Deprecated
 type JobModeParams struct {
 	JobFlavour string // flavour of job in pod or collective mode
 
