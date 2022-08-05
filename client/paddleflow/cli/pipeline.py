@@ -81,9 +81,9 @@ def list(ctx, userfilter=None, namefilter=None, maxkeys=None, marker=None):
 
 @pipeline.command()
 @click.argument('pipelineid')
-@click.argument('-f', '--fsfilter', help='list ppl version by fs')
-@click.argument('-m', '--maxkeys', help='Max size of the listed ppl version')
-@click.argument('-mk', '--marker', help='Next page')
+@click.option('-f', '--fsfilter', help='list ppl version by fs')
+@click.option('-m', '--maxkeys', help='Max size of the listed ppl version')
+@click.option('-mk', '--marker', help='Next page')
 @click.pass_context
 def show(ctx, pipelineid, fsfilter=None, maxkeys=None, marker=None):
     """ show pipeline info.\n

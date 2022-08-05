@@ -36,7 +36,7 @@
 			"MaxExpiredTime": "600",
 			"FsScope": "./lalal"
 		},
-		"message": "",
+		"jobMessage": "",
 		"cacheRunID": ""
 	}],
 	"nomain": [{
@@ -76,7 +76,7 @@
 			"MaxExpiredTime": "600",
 			"FsScope": "./lalal"
 		},
-		"message": "",
+		"jobMessage": "",
 		"cacheRunID": ""
 	}]
 }

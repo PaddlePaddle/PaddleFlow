@@ -819,7 +819,7 @@ func (srt *StepRuntime) newJobView(msg string) schema.JobView {
 		Status:      srt.status,
 		Deps:        step.Deps,
 		DockerEnv:   step.DockerEnv,
-		Message:     msg,
+		JobMessage:  msg,
 		ParentDagID: srt.parentDagID,
 		CacheRunID:  srt.CacheRunID,
 		CacheJobID:  srt.CacheJobID,

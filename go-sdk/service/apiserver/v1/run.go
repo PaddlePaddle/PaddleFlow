@@ -80,7 +80,7 @@ type RunBrief struct {
 	FsName        string `json:"fsName"`
 	Description   string `json:"description"`
 	ScheduleID    string `json:"scheduleID"`
-	Message       string `json:"message"`
+	Message       string `json:"runMsg"`
 	Status        string `json:"status"`
 	ScheduledTime string `json:"scheduledTime"`
 	CreateTime    string `json:"createTime"`
@@ -110,7 +110,7 @@ type GetRunResponse struct {
 	Entry          string                 `json:"entry"`
 	Disabled       string                 `json:"disabled"`
 	ScheduleID     string                 `json:"scheduleID"`
-	Message        string                 `json:"message"`
+	Message        string                 `json:"runMsg"`
 	Status         string                 `json:"status"` // StatusRun%%%
 	RunCachedIDs   string                 `json:"runCachedIDs"`
 	CreateTime     string                 `json:"createTime"`

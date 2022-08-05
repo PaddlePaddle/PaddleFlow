@@ -52,7 +52,7 @@ type Run struct {
 	DockerEnv      string                 `gorm:"type:varchar(128);not null"        json:"dockerEnv"`
 	Disabled       string                 `gorm:"type:text;size:65535;not null"     json:"disabled"`
 	ScheduleID     string                 `gorm:"type:varchar(60);not null"         json:"scheduleID"`
-	Message        string                 `gorm:"type:text;size:65535;not null"     json:"message"`
+	Message        string                 `gorm:"type:text;size:65535;not null"     json:"runMsg"`
 	Status         string                 `gorm:"type:varchar(32);not null"         json:"status"` // StatusRun%%%
 	RunOptions     schema.RunOptions      `gorm:"-"                                 json:"-"`
 	RunOptionsJson string                 `gorm:"type:text;size:65535;not null"     json:"-"`

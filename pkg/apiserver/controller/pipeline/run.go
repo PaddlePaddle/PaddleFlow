@@ -118,7 +118,7 @@ type RunBrief struct {
 	FsName        string `json:"fsName"`
 	Description   string `json:"description"`
 	ScheduleID    string `json:"scheduleID"`
-	Message       string `json:"message"`
+	Message       string `json:"runMsg"`
 	Status        string `json:"status"`
 	ScheduledTime string `json:"scheduledTime"`
 	CreateTime    string `json:"createTime"`

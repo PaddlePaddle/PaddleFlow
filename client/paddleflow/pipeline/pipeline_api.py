@@ -32,13 +32,15 @@ class PipelineServiceApi(object):
         """
 
     @classmethod
-    def create_pipeline(self, host, fsname, yamlpath, desc=None, username=None, header=None):
-        """create pipeline
+    def create_pipeline(self, host, fs_name, yaml_path, desc=None, username=None, header=None):
+        """
+            create pipeline
+            this method returns a pipeline brief info and a pipeline version brief list info
         """
         if not header:
             raise PaddleFlowSDKException("InvalidRequest",
                                          "paddleflow should login first")
-        body = {"fsname": fsname, "yamlPath": yamlpath}
+        body = {"fsname": fs_name, "yamlPath": yaml_path}
         if desc:
             body['desc'] = desc
         if username:
@@ -58,20 +60,20 @@ class PipelineServiceApi(object):
         return True, data['name'], data['pipelineID'], data['pipelineVersionID']
 
     @classmethod
-    def list_pipeline(self, host, userfilter=None, namefilter=None, maxkeys=None,
-        marker=None, header=None):
+    def list_pipeline(self, host, user_filter=None, name_filter=None, max_keys=None,
+                      marker=None, header=None):
         """list pipeline
         """
         if not header:
             raise PaddleFlowSDKException("InvalidRequest",
                                          "paddleflow should login first")
         params = {}
-        if userfilter:
-            params['userFilter'] = userfilter
-        if namefilter:
-            params['nameFilter'] = namefilter
-        if maxkeys:
-            params['maxKeys'] = maxkeys
+        if user_filter:
+            params['userFilter'] = user_filter
+        if name_filter:
+            params['nameFilter'] = name_filter
+        if max_keys:
+            params['maxKeys'] = max_keys
         if marker:
             params['marker'] = self.marker
         response = api_client.call_api(method="GET",
@@ -95,24 +97,24 @@ class PipelineServiceApi(object):
         return True, pipelineList, data.get('nextMarker', None)
 
     @classmethod
-    def show_pipeline(self, host, pipelineid, fsfilter, maxkeys, marker, header=None):
+    def show_pipeline(self, host, pipeline_id, fs_filter, max_keys, marker, header=None):
         """show pipeline
         """
         if not header:
             raise PaddleFlowSDKException("InvalidRequest",
                                          "paddleflow should login first")
         params = {}
-        if fsfilter:
-            params['fsFilter'] = fsfilter
-        if maxkeys:
-            params['maxKeys'] = maxkeys
+        if fs_filter:
+            params['fsFilter'] = fs_filter
+        if max_keys:
+            params['maxKeys'] = max_keys
         if marker:
             params['marker'] = marker
 
         response = api_client.call_api(
             method="GET",
             url=parse.urljoin(host,
-                              api.PADDLE_FLOW_PIPELINE + "/%s" % pipelineid),
+                              api.PADDLE_FLOW_PIPELINE + "/%s" % pipeline_id),
             params=params,
             headers=header)
         if not response:
@@ -135,7 +137,7 @@ class PipelineServiceApi(object):
         return True, resPpl, resPplVerList, data['pplVersions'].get('nextMarker', None)
 
     @classmethod
-    def delete_pipeline(self, host, pipelineid, header=None):
+    def delete_pipeline(self, host, pipeline_id, header=None):
         """delete pipeline
         """
         if not header:
@@ -144,7 +146,7 @@ class PipelineServiceApi(object):
         response = api_client.call_api(
             method="DELETE",
             url=parse.urljoin(host,
-                              api.PADDLE_FLOW_PIPELINE + "/%s" % pipelineid),
+                              api.PADDLE_FLOW_PIPELINE + "/%s" % pipeline_id),
             headers=header)
         if not response:
             raise PaddleFlowSDKException(
@@ -154,4 +156,4 @@ class PipelineServiceApi(object):
             if 'message' in data:
                 return False, data['message']
         else:
-            return True, pipelineid
+            return True, pipeline_id
