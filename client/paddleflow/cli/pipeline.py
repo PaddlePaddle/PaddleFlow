@@ -127,8 +127,8 @@ def _print_pipeline(pipelines, out_format):
         'pipeline id', 'name', 'username', 'desc',
         'create time', 'update time'
     ]
-    data = [[pipeline.pipelineid, pipeline.name, pipeline.username, pipeline.desc,
-        pipeline.createtime, pipeline.updatetime] for pipeline in pipelines]
+    data = [[pipeline.pipeline_id, pipeline.name, pipeline.username, pipeline.desc,
+             pipeline.create_time, pipeline.update_time] for pipeline in pipelines]
     print_output(data, headers, out_format, table_format='grid')
 
 
@@ -139,18 +139,18 @@ def _print_pipeline_info(pipeline, pplVerList, nextmarker, out_format):
         'pipeline desc', 'create time', 'update time'
     ]
     data = [[
-        pipeline.pipelineid, pipeline.name,
-        pipeline.username, pipeline.desc, pipeline.createtime,
-        pipeline.updatetime
+        pipeline.pipeline_id, pipeline.name,
+        pipeline.username, pipeline.desc, pipeline.create_time,
+        pipeline.update_time
     ]]
     print_output(data, headers, out_format, table_format='grid')
 
     dataPplInfo = []
     dataPplYaml = []
     for pplVer in pplVerList:
-        dataPplInfo.append([pplVer.pipelineVersionID, pplVer.fsName, pplVer.yamlPath, pplVer.username,
-                     pplVer.createTime, pplVer.updateTime])
-        dataPplYaml.append([pplVer.pipelineVersionID, pplVer.pipelineYaml])
+        dataPplInfo.append([pplVer.pipeline_version_id, pplVer.fs_name, pplVer.yaml_path, pplVer.username,
+                            pplVer.create_time, pplVer.update_time])
+        dataPplYaml.append([pplVer.pipeline_version_id, pplVer.pipeline_yaml])
 
     headers = ['ppl ver id', 'fs name', 'yaml path', 'username',
                'create time', 'update time']

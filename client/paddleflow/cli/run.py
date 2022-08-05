@@ -294,8 +294,8 @@ def _print_runlist(runlist, out_format):
 
     headers = ['run id', 'fs name', 'username', 'status', 'name', 'description', 'run message', 'source',
                'schedule id', 'scheduled time', 'create time', 'activate time', 'update time']
-    data = [[run.runId, run.fsname, run.username, run.status, run.name, run.description, run.runMsg, run.source,
-             run.scheduleID, run.scheduledTime, run.createTime, run.activateTime, run.updateTime] for run in runlist]
+    data = [[run.run_id, run.fs_name, run.username, run.status, run.name, run.description, run.run_msg, run.source,
+             run.schedule_id, run.scheduledTime, run.create_time, run.activate_time, run.update_time] for run in runlist]
     print_output(data, headers, out_format, table_format='grid')
 
 
@@ -304,8 +304,8 @@ def _print_runcache(caches, out_format):
 
     headers = ['cache id', 'run id', 'job id', 'fsname', 'username', 'expired time',
                 'create time', 'update time']
-    data = [[cache.cacheid, cache.runid, cache.jobid, cache.fsname, cache.username,
-            cache.expiredtime, cache.createtime, cache.updatetime] for cache in caches]
+    data = [[cache.cache_id, cache.run_id, cache.job_id, cache.fs_name, cache.username,
+             cache.expired_time, cache.create_time, cache.update_time] for cache in caches]
     print_output(data, headers, out_format, table_format='grid')
 
 
@@ -314,31 +314,31 @@ def _print_runcache_info(cache, out_format):
 
     headers = ['cache id', 'run id', 'job id', 'fsname', 'username', 'expired time',
                 'strategy', 'custom', 'create time', 'update time']
-    data = [[cache.cacheid, cache.runid, cache.jobid, cache.fsname, cache.username, cache.expiredtime,
-            cache.strategy, cache.custom, cache.createtime, cache.updatetime]]
+    data = [[cache.cache_id, cache.run_id, cache.job_id, cache.fs_name, cache.username, cache.expired_time,
+             cache.strategy, cache.custom, cache.create_time, cache.update_time]]
     print_output(data, headers, out_format, table_format='grid')
-    print_output([[cache.firstfp, cache.secondfp]], ['first fp', 'second fp'], out_format, table_format='grid')
+    print_output([[cache.first_fp, cache.second_fp]], ['first fp', 'second fp'], out_format, table_format='grid')
 
 
 def _print_run(run, out_format):
     """ print run info"""
     headers = ['run id', 'status', 'name', 'desc', 'param', 'source', 'run msg',
     'create time', 'update time', 'activate time']
-    data = [[run.runId, run.status, run.name, run.description, run.parameters, run.source,
-             run.runMsg, run.createTime, run.updateTime, run.activateTime]]
+    data = [[run.run_id, run.status, run.name, run.description, run.parameters, run.source,
+             run.run_msg, run.create_time, run.update_time, run.activate_time]]
     print_output(data, headers, out_format, table_format='grid')
 
     headers = ['fs name', 'username', 'docker env', 'schedule id', 'fs options(json)', "failure options(json)",
                'disabled', 'run cached ids']
-    data = [[run.fsname, run.username, run.dockerEnv, run.scheduleID, run.fsOptions, run.failureOptions,
-             run.disabled, run.runCachedIDs]]
+    data = [[run.fs_name, run.username, run.docker_env, run.schedule_id, run.fs_options, run.failure_options,
+             run.disabled, run.run_cached_ids]]
     print_output(data, headers, out_format, table_format='grid')
 
-    if run.runYaml:
+    if run.run_yaml:
         headers = ['run yaml detail']
-        data = [[run.runYaml]]
+        data = [[run.run_yaml]]
         print_output(data, headers, out_format, table_format='grid')
-    if (not run.runtime or not len(run.runtime)) and (not run.postProcess or not len(run.postProcess)):
+    if (not run.runtime or not len(run.runtime)) and (not run.post_process or not len(run.post_process)):
         click.echo("no job found")
         return
     if run.runtime and len(run.runtime):
@@ -346,11 +346,11 @@ def _print_run(run, out_format):
         runtimeDict = _trans_comps_to_dict(run.runtime)
         data = [[json.dumps(runtimeDict, indent=2)]]
         print_output(data, headers, out_format, table_format='grid')
-    if run.postProcess and len(run.postProcess):
+    if run.post_process and len(run.post_process):
         headers = ['postProcess in json']
-        for key in run.postProcess:
-            run.postProcess[key] = run.postProcess[key].__dict__
-        data = [[json.dumps(run.postProcess, indent=2)]]
+        for key in run.post_process:
+            run.post_process[key] = run.post_process[key].__dict__
+        data = [[json.dumps(run.post_process, indent=2)]]
         print_output(data, headers, out_format, table_format='grid')
 
 def _trans_comps_to_dict(comps):
@@ -359,7 +359,7 @@ def _trans_comps_to_dict(comps):
         newCompList = []
         for comp in compList:
             if hasattr(comp, 'entryPoints'):
-                comp.entryPoints = _trans_comps_to_dict(comp.entryPoints)
+                comp.entry_points = _trans_comps_to_dict(comp.entry_points)
             newCompList.append(comp.__dict__)
         resComps[name] = newCompList
     return resComps
@@ -369,7 +369,7 @@ def _print_artiface(runs, out_format):
     """ print artifact info"""
     headers = ['run id', 'fsname', 'username', 'artifact path', 'type', 'step', 'artifact name', 'meta',  
             'create time', 'update time']
-    data = [[run.runid, run.fsname, run.username, run.artifactpath, run.type, run.step, run.artifactname, 
-            run.meta, run.createtime, run.updatetime] for run in runs]
+    data = [[run.run_id, run.fs_name, run.username, run.artifact_path, run.type, run.step, run.artifact_name,
+             run.meta, run.create_time, run.update_time] for run in runs]
     print_output(data, headers, out_format, table_format='grid')
     

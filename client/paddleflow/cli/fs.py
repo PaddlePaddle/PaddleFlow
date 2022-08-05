@@ -454,5 +454,5 @@ def _print_link(linklist, out_format):
 def _print_cache(cacheconfig, out_format):
     """print fs cache config """
     headers = ['fsname', 'owner', 'cache dir', 'meta driver', 'block size']
-    data = [[cacheconfig.fsname, cacheconfig.username, cacheconfig.cachedir, cacheconfig.metadriver, cacheconfig.blocksize]]
+    data = [[cacheconfig.fs_name, cacheconfig.username, cacheconfig.cachedir, cacheconfig.metadriver, cacheconfig.blocksize]]
     print_output(data, headers, out_format, table_format='grid')

@@ -19,45 +19,45 @@ limitations under the License.
 class RunInfo(object):
     """the class of RunInfo info"""   
 
-    def __init__(self, runID, fsname, username, status, name, description, parameters,
-                 runYaml, runtime, postProcess, dockerEnv, updateTime, source, runMsg, scheduleID,
-                 fsOptions, failureOptions, disabled, runCachedIDs, createTime, activateTime):
+    def __init__(self, run_id, fs_name, username, status, name, description, parameters,
+                 run_yaml, runtime, post_process, docker_env, update_time, source, run_msg, schedule_id,
+                 fs_options, failure_options, disabled, run_cached_ids, create_time, activate_time):
         """init """
-        self.runId = runID
-        self.fsname = fsname
+        self.run_id = run_id
+        self.fs_name = fs_name
         self.username = username
         self.status = status
         self.name = name
         self.description = description
         self.parameters = parameters
-        self.runYaml = runYaml
+        self.run_yaml = run_yaml
         self.runtime = runtime
-        self.postProcess = postProcess
-        self.dockerEnv = dockerEnv
-        self.updateTime = updateTime
+        self.post_process = post_process
+        self.docker_env = docker_env
+        self.update_time = update_time
         self.source = source
-        self.runMsg = runMsg
-        self.fsOptions = fsOptions
-        self.failureOptions = failureOptions
+        self.run_msg = run_msg
+        self.fs_options = fs_options
+        self.failure_options = failure_options
         self.disabled = disabled
-        self.runCachedIDs = runCachedIDs
-        self.scheduleID = scheduleID
-        self.createTime = createTime
-        self.activateTime = activateTime
+        self.run_cached_ids = run_cached_ids
+        self.schedule_id = schedule_id
+        self.create_time = create_time
+        self.activate_time = activate_time
 
 
 class JobInfo(object):
     """ the class of job info"""
 
-    def __init__(self, name, deps, parameters, command, env, status, start_time, end_time, dockerEnv, jobid,
-                 compType, stepName, parentDagID, extraFS, artifacts, cache, jobMessage, cacheRunID, cacheJobID):
+    def __init__(self, name, deps, parameters, command, env, status, start_time, end_time, docker_env, job_id,
+                 comp_type, step_name, parent_dag_id, extra_fs, artifacts, cache, job_message, cache_run_id, cache_job_id):
         self.artifacts = artifacts
         self.cache = cache
-        self.jobMessage = jobMessage
-        self.cacheRunID = cacheRunID
-        self.cacheJobID = cacheJobID
-        self.extraFS = extraFS
-        self.jobId = jobid
+        self.job_message = job_message
+        self.cache_run_id = cache_run_id
+        self.cache_job_id = cache_job_id
+        self.extra_fs = extra_fs
+        self.job_id = job_id
         self.name = name
         self.deps = deps
         self.parameters = parameters
@@ -66,64 +66,64 @@ class JobInfo(object):
         self.status = status
         self.start_time = start_time
         self.end_time = end_time
-        self.dockerEnv = dockerEnv
-        self.type = compType
-        self.stepName = stepName
-        self.parentDagID = parentDagID
+        self.docker_env = docker_env
+        self.type = comp_type
+        self.step_name = step_name
+        self.parent_dag_id = parent_dag_id
 
 
 class DagInfo(object):
     """ the class of dag info"""
 
-    def __init__(self, dagid, name, compType, dagName, parentDagID, deps, parameters, artifacts, startTime, endtime,
-                 status, message, entryPoints):
+    def __init__(self, dagid, name, comp_type, dag_name, parent_dag_id, deps, parameters, artifacts, start_time, end_time,
+                 status, message, entry_points):
         self.dagId = dagid
         self.name = name
-        self.type = compType
-        self.dagName = dagName
-        self.parentDagID = parentDagID
+        self.type = comp_type
+        self.dagName = dag_name
+        self.parentDagID = parent_dag_id
         self.deps = deps
         self.parameters = parameters
         self.artifacts = artifacts
-        self.startTime = startTime
-        self.endTime = endtime
+        self.start_time = start_time
+        self.end_time = end_time
         self.status = status
         self.message = message
-        self.entryPoints = entryPoints
+        self.entry_points = entry_points
 
 
 class RunCacheInfo(object):
     """ the class of runcache info"""
 
-    def __init__(self, cacheid, firstfp, secondfp, runid, source, jobid, fsname, username, expiredtime, strategy, custom,
-                createtime, updatetime):
-        self.cacheid = cacheid
-        self.firstfp = firstfp
-        self.secondfp = secondfp
-        self.runid = runid
+    def __init__(self, cache_id, first_fp, second_fp, run_id, source, job_id, fs_name, username, expired_time, strategy, custom,
+                 create_time, update_time):
+        self.cache_id = cache_id
+        self.first_fp = first_fp
+        self.second_fp = second_fp
+        self.run_id = run_id
         self.source = source
-        self.jobid = jobid
-        self.fsname = fsname
+        self.job_id = job_id
+        self.fs_name = fs_name
         self.username = username
-        self.expiredtime = expiredtime
+        self.expired_time = expired_time
         self.strategy = strategy
         self.custom = custom
-        self.createtime = createtime
-        self.updatetime = updatetime
+        self.create_time = create_time
+        self.update_time = update_time
 
 
-class ArtifaceInfo(object):
-    """ the class of artiface info"""
+class ArtifactInfo(object):
+    """ the class of artifact info"""
 
-    def __init__(self, runid, fsname, username, artifactpath, atype, step, artifactname, meta, 
-                createtime, updatetime):
-        self.runid = runid
-        self.fsname = fsname
+    def __init__(self, run_id, fs_name, username, artifact_path, a_type, step, artifact_name, meta,
+                 create_time, update_time):
+        self.run_id = run_id
+        self.fs_name = fs_name
         self.username = username
-        self.artifactpath = artifactpath
-        self.type = atype
+        self.artifact_path = artifact_path
+        self.type = a_type
         self.step = step
-        self.artifactname = artifactname
+        self.artifact_name = artifact_name
         self.meta = meta
-        self.createtime = createtime
-        self.updatetime = updatetime
+        self.create_time = create_time
+        self.update_time = update_time
