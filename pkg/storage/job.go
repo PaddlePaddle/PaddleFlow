@@ -49,11 +49,15 @@ func (js *JobStore) CreateJob(job *model.Job) error {
 	}
 	err := js.db.Create(job).Error
 	if err == nil {
-		queueName := job.Config.GetQueueName()
+		// in case panic
+		var queueName string
+		if job.Config != nil {
+			queueName = job.Config.GetQueueName()
+		}
 		metrics.Job.AddTimestamp(job.ID, metrics.T2, time.Now(), metrics.Info{
 			metrics.QueueIDLabel:   job.QueueID,
 			metrics.QueueNameLabel: queueName,
-			metrics.JobIDLabel:     job.UserName,
+			metrics.UserNameLabel:  job.UserName,
 		})
 	}
 	return err
@@ -164,10 +168,16 @@ func (js *JobStore) UpdateJob(jobID string, status schema.JobStatus, runtimeInfo
 	}
 	if status == schema.StatusJobRunning && !job.ActivatedAt.Valid {
 		// add queue id here
+		// in case panic
+		var queueName, userName string
+		if job.Config != nil {
+			queueName = job.Config.GetQueueName()
+			userName = job.Config.GetUserName()
+		}
 		metrics.Job.AddTimestamp(jobID, metrics.T7, time.Now(), metrics.Info{
 			metrics.QueueIDLabel:   job.QueueID,
-			metrics.QueueNameLabel: job.Config.GetQueueName(),
-			metrics.UserNameLabel:  job.Config.GetUserName(),
+			metrics.QueueNameLabel: queueName,
+			metrics.UserNameLabel:  userName,
 		})
 		updatedJob.ActivatedAt.Time = time.Now()
 		updatedJob.ActivatedAt.Valid = true

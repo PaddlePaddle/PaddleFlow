@@ -42,6 +42,9 @@ func InitMetrics() {
 }
 
 func initRegistry() {
+	if Job == nil {
+		panic("metrics not initialized")
+	}
 	registry = prometheus.NewRegistry()
 	jobCollector := NewJobMetricsCollector(Job)
 	registry.MustRegister(jobCollector)

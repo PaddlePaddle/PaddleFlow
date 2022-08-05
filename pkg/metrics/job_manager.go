@@ -86,7 +86,7 @@ func (d *jobMetricTimePointManager) GetTimestamp(jobID string, timePoint TimePoi
 	if err != nil {
 		return ZeroTime, false
 	}
-	timePoints := val.(Timestamps)
+	timePoints, _ := val.(Timestamps)
 	return timePoints.GetTimestamp(timePoint)
 }
 
@@ -96,7 +96,7 @@ func (d *jobMetricTimePointManager) GetStatusTime(jobID string, status Status) (
 	if err != nil {
 		return ZeroDuration, false
 	}
-	timePoints := val.(Timestamps)
+	timePoints, _ := val.(Timestamps)
 	return timePoints.GetStatusTime(status)
 }
 
@@ -104,7 +104,7 @@ func (d *jobMetricTimePointManager) GetTimestampsCache() map[string]Timestamps {
 	cacheMap := d.cache.GetALL(true)
 	timePointsCache := make(map[string]Timestamps)
 	for key, val := range cacheMap {
-		timePointsCache[key.(string)] = val.(Timestamps)
+		timePointsCache[key.(string)], _ = val.(Timestamps)
 	}
 	return timePointsCache
 }
@@ -117,7 +117,7 @@ func (d *jobMetricTimePointManager) GetStatusCount(status Status) int64 {
 func (d *jobMetricTimePointManager) addInfo(jobID string, newJobInfo Info) {
 	val, ok := d.infoCache.Load(jobID)
 	if ok {
-		jobInfo := val.(Info)
+		jobInfo, _ := val.(Info)
 		if newJobInfo[FinishedStatusLabel] == "" {
 			return
 		}
@@ -144,7 +144,7 @@ func (d *jobMetricTimePointManager) increaseStatusCount(status Status) {
 		return
 	}
 	val, _ := d.statusCache.LoadOrStore(status, int64(0))
-	count := val.(int64)
+	count, _ := val.(int64)
 	d.statusCache.Store(status, count+1)
 }
 
