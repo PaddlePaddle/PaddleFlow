@@ -100,17 +100,20 @@ func (pj *PyTorchJob) builtinPyTorchJobSpec(torchJobSpec *pytorchv1.PyTorchJobSp
 	return pj.kubeflowRunPolicy(&torchJobSpec.RunPolicy, &resourceList)
 }
 
-func (pj *PyTorchJob) validateCustomYaml(pdj *pytorchv1.PyTorchJob) error {
-	log.Infof("validate custom yaml, pj: %v, pdj from yaml: %v", pj, pdj)
-
+func (pj *PyTorchJob) validateCustomYaml(torchJobSpec *pytorchv1.PyTorchJobSpec) error {
+	log.Infof("validate custom yaml for %s, pdj from yaml: %v", pj.String(), torchJobSpec)
+	// TODO: add validate for custom yaml
 	return nil
 }
 
 // customPyTorchJobSpec set custom PyTorchJob Spec
-func (pj *PyTorchJob) customPyTorchJobSpec(pdjSpec *pytorchv1.PyTorchJobSpec) error {
-	log.Debugf("patch %s spec:%#v", pj.String(), pdjSpec)
+func (pj *PyTorchJob) customPyTorchJobSpec(torchJobSpec *pytorchv1.PyTorchJobSpec) error {
+	log.Debugf("patch %s spec:%#v", pj.String(), torchJobSpec)
+	err := pj.validateCustomYaml(torchJobSpec)
+	if err != nil {
+		return err
+	}
 	// TODO: patch pytorch job from user
-
 	// check RunPolicy
 	return nil
 }
