@@ -49,6 +49,7 @@ type ServerConfig struct {
 	Fs        FsServerConf                   `yaml:"fs"`
 	ImageConf ImageConfig                    `yaml:"imageRepository"`
 	Monitor   PrometheusConfig               `yaml:"monitor"`
+	Metrics   MetricsConfig                  `yaml:"metrics"`
 }
 
 type StorageConfig struct {
@@ -116,4 +117,9 @@ type ImageConfig struct {
 type PrometheusConfig struct {
 	Server              string `yaml:"server"`
 	ExporterServicePort int    `yaml:"exporterServicePort"`
+}
+
+type MetricsConfig struct {
+	Port   int  `yaml:"port"`
+	Enable bool `yaml:"enable"`
 }

@@ -29,6 +29,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/metrics"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/trace_logger"
@@ -248,7 +249,6 @@ func (m *JobManagerImpl) submitQueueJob(jobSubmit func(*api.PFJob) error, queueI
 	}
 }
 
-// TODO: add trace logger support
 // submitJob submit a job to cluster
 func (m *JobManagerImpl) submitJob(jobSubmit func(*api.PFJob) error, jobInfo *api.PFJob) {
 	log.Infof("begin to submit job %s to cluster", jobInfo.ID)
@@ -358,7 +358,10 @@ func (m *JobManagerImpl) pJobProcessLoop() {
 				go m.pSubmitQueueJob(jobQueue, cQueue.RuntimeSvc)
 			}
 
+			// enqueue job
 			jobQueue.Insert(pfJob)
+			// add job time point
+			metrics.Job.AddTimestamp(pfJob.ID, metrics.T3, time.Now())
 		}
 		elapsedTime := time.Since(startTime)
 		if elapsedTime < m.jobLoopPeriod {
@@ -382,15 +385,20 @@ func (m *JobManagerImpl) pSubmitQueueJob(jobQueue *api.JobQueue, runtimeSvc runt
 			return
 		default:
 			startTime := time.Now()
+			// dequeue job
 			job, ok := jobQueue.GetJob()
 			if ok {
+				metrics.Job.AddTimestamp(job.ID, metrics.T4, time.Now())
 				log.Infof("Entering submit %s job in queue %s", job.ID, name)
 				// get enqueue job
 				m.submitJob(runtimeSvc.SubmitJob, job)
+				metrics.Job.AddTimestamp(job.ID, metrics.T5, time.Now())
 				jobQueue.DeleteMark(job.ID)
 				log.Infof("Leaving submit %s job in queue %s, total elapsed time: %s", job.ID, name, time.Since(startTime))
 			} else {
-				time.Sleep(m.jobLoopPeriod)
+				// TODO: add to config
+				// time.Sleep(m.jobLoopPeriod)
+				time.Sleep(200 * time.Millisecond)
 			}
 		}
 	}
