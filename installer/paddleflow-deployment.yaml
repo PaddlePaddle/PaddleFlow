@@ -611,8 +611,8 @@ spec:
               memory: "1G"
               cpu: "500m"
             limits:
-              memory: "2G"
-              cpu: "2000m"
+              memory: "8G"
+              cpu: "8000m"
           securityContext:
             privileged: false
             runAsGroup: 1000
@@ -753,7 +753,13 @@ spec:
           image: paddleflow/pfs-csi-plugin:1.4.2
           imagePullPolicy: IfNotPresent
           name: csi-storage-driver
-          resources: {}
+          resources:
+            limits:
+              cpu: 1500m
+              memory: 3G
+            requests:
+              cpu: "500m"
+              memory: 1G
           securityContext:
             capabilities:
               add:
@@ -871,7 +877,13 @@ spec:
             - containerPort: 12345
               name: port-0
               protocol: TCP
-          resources: {}
+          resources:
+            requests:
+              memory: "1G"
+              cpu: "500m"
+            limits:
+              memory: "2G"
+              cpu: "2000m"
           securityContext:
             privileged: true
           terminationMessagePath: /dev/termination-log
@@ -1156,6 +1168,13 @@ spec:
           image: paddleflow/vc-webhook-manager:pf-1.4-vc-1.3
           imagePullPolicy: IfNotPresent
           name: admission
+          resources:
+            requests:
+              memory: "1G"
+              cpu: "500m"
+            limits:
+              memory: "2G"
+              cpu: "2000m"
           volumeMounts:
             - mountPath: /admission.local.config/certificates
               name: admission-certs
@@ -8492,6 +8511,13 @@ spec:
             - -v=4
             - 2>&1
           imagePullPolicy: "IfNotPresent"
+          resources:
+            requests:
+              memory: "1G"
+              cpu: "500m"
+            limits:
+              memory: "2G"
+              cpu: "2000m"
 ---
 # Source: volcano/templates/scheduler.yaml
 apiVersion: v1
@@ -8640,6 +8666,13 @@ spec:
             - -v=3
             - 2>&1
           imagePullPolicy: "IfNotPresent"
+          resources:
+            requests:
+              memory: "1G"
+              cpu: "500m"
+            limits:
+              memory: "2G"
+              cpu: "2000m"
           volumeMounts:
             - name: scheduler-config
               mountPath: /volcano.scheduler
