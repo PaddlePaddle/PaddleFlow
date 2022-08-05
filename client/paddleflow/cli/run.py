@@ -180,7 +180,8 @@ def retry(ctx, runid):
 
 @run.command()
 @click.argument('runid')
-@click.option('-c', '--checkcache', is_flag=True, default=True, show_default=True, help='if check cache')
+@click.option('-c', '--checkcache', is_flag=True, default=True, show_default=True,
+                help='set it to False if you want to delete a cached run')
 @click.pass_context
 def delete(ctx, runid, checkcache):
     """ delete run .\n
