@@ -257,11 +257,7 @@ func (j *JobSync) doUpdateAction(jobSyncInfo *JobSyncInfo) error {
 		jobSyncInfo.ID, jobSyncInfo.Action, jobSyncInfo.Status, jobSyncInfo.Message)
 
 	// add time point
-	switch jobSyncInfo.Status {
-	case commonschema.StatusJobSucceeded,
-		commonschema.StatusJobFailed,
-		commonschema.StatusJobCancelled,
-		commonschema.StatusJobSkipped:
+	if commonschema.IsImmutableJobStatus(jobSyncInfo.Status) {
 		metrics.Job.AddTimestamp(jobSyncInfo.ID, metrics.T8, time.Now(), metrics.Info{
 			metrics.FinishedStatusLabel: string(jobSyncInfo.Status),
 		})
