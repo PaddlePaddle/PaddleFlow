@@ -20,7 +20,7 @@ class RunInfo(object):
     """the class of RunInfo info"""   
 
     def __init__(self, run_id, fs_name, username, status, name, description, parameters,
-                 run_yaml, runtime, post_process, docker_env, update_time, source, run_msg, schedule_id,
+                 run_yaml, runtime, post_process, docker_env, update_time, source, run_msg, schedule_id, scheduled_time,
                  fs_options, failure_options, disabled, run_cached_ids, create_time, activate_time):
         """init """
         self.run_id = run_id
@@ -42,9 +42,9 @@ class RunInfo(object):
         self.disabled = disabled
         self.run_cached_ids = run_cached_ids
         self.schedule_id = schedule_id
+        self.scheduled_time = scheduled_time
         self.create_time = create_time
         self.activate_time = activate_time
-
 
 class JobInfo(object):
     """ the class of job info"""
@@ -71,17 +71,39 @@ class JobInfo(object):
         self.step_name = step_name
         self.parent_dag_id = parent_dag_id
 
+    def get_dict(self):
+        return {
+            'artifacts': self.artifacts,
+            'cache': self.cache,
+            'jobMessage': self.job_message,
+            'cacheRunID': self.cache_run_id,
+            'cacheJobID': self.cache_job_id,
+            'extraFS': self.extra_fs,
+            'jobID': self.job_id,
+            'name': self.name,
+            'deps': self.deps,
+            'parameters': self.parameters,
+            'command': self.command,
+            'env': self.env,
+            'status': self.status,
+            'startTime': self.start_time,
+            'endTime': self.end_time,
+            'dockerEnv': self.docker_env,
+            'type': self.type,
+            'stepName': self.step_name,
+            'parentDagID': self.parent_dag_id,
+        }
 
 class DagInfo(object):
     """ the class of dag info"""
 
-    def __init__(self, dagid, name, comp_type, dag_name, parent_dag_id, deps, parameters, artifacts, start_time, end_time,
+    def __init__(self, dag_id, name, comp_type, dag_name, parent_dag_id, deps, parameters, artifacts, start_time, end_time,
                  status, message, entry_points):
-        self.dagId = dagid
+        self.dag_id = dag_id
         self.name = name
         self.type = comp_type
-        self.dagName = dag_name
-        self.parentDagID = parent_dag_id
+        self.dag_name = dag_name
+        self.parent_dag_id = parent_dag_id
         self.deps = deps
         self.parameters = parameters
         self.artifacts = artifacts
@@ -91,6 +113,22 @@ class DagInfo(object):
         self.message = message
         self.entry_points = entry_points
 
+    def get_dict(self):
+        return {
+            'dagID': self.dag_id,
+            'name': self.name,
+            'type': self.type,
+            'dagName': self.dag_name,
+            'parentDagID': self.parent_dag_id,
+            'deps': self.deps,
+            'parameters': self.parameters,
+            'artifacts': self.artifacts,
+            'startTime': self.start_time,
+            'endTime': self.end_time,
+            'status': self.status,
+            'message': self.message,
+            'entryPoints': self.entry_points,
+        }
 
 class RunCacheInfo(object):
     """ the class of runcache info"""

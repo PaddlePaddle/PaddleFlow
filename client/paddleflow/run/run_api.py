@@ -112,7 +112,7 @@ class RunServiceApi(object):
                 runInfo = RunInfo(run['runID'], run['fsName'], run['username'], run['status'], run['name'],
                                   run['description'], None, None, None, None, None, run['updateTime'],
                                   run['source'], run['runMsg'], run['scheduleID'], run['scheduledTime'],
-                                  run['createTime'], run['activateTime'])
+                                  None, None, None, None, run['createTime'], run['activateTime'])
                 runList.append(runInfo)
         return True, runList, data.get('nextMarker', None)
 
@@ -172,7 +172,7 @@ class RunServiceApi(object):
         run_info = RunInfo(data['runID'], data['fsName'], data['username'], data['status'], data['name'],
                             data['description'], data['parameters'], data['runYaml'],
                             runtime_info, new_post_dict,
-                            data['dockerEnv'], data['updateTime'], data['source'], data['runMsg'],data['scheduleID'],
+                            data['dockerEnv'], data['updateTime'], data['source'], data['runMsg'],data['scheduleID'], None,
                             data['fsOptions'], data['failureOptions'], data['disabled'], data['runCachedIDs'],
                             data['createTime'], data['activateTime'])
         

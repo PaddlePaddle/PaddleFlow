@@ -295,7 +295,7 @@ def _print_runlist(runlist, out_format):
     headers = ['run id', 'fs name', 'username', 'status', 'name', 'description', 'message', 'source',
                'schedule id', 'scheduled time', 'create time', 'activate time', 'update time']
     data = [[run.run_id, run.fs_name, run.username, run.status, run.name, run.description, run.run_msg, run.source,
-             run.schedule_id, run.scheduledTime, run.create_time, run.activate_time, run.update_time] for run in runlist]
+             run.schedule_id, run.scheduled_time, run.create_time, run.activate_time, run.update_time] for run in runlist]
     print_output(data, headers, out_format, table_format='grid')
 
 
@@ -349,7 +349,7 @@ def _print_run(run, out_format):
     if run.post_process and len(run.post_process):
         headers = ['postProcess in json']
         for key in run.post_process:
-            run.post_process[key] = run.post_process[key].__dict__
+            run.post_process[key] = run.post_process[key].get_dict()
         data = [[json.dumps(run.post_process, indent=2)]]
         print_output(data, headers, out_format, table_format='grid')
 
@@ -358,9 +358,9 @@ def _trans_comps_to_dict(comps):
     for name, compList in comps.items():
         newCompList = []
         for comp in compList:
-            if hasattr(comp, 'entryPoints'):
+            if hasattr(comp, 'entry_points'):
                 comp.entry_points = _trans_comps_to_dict(comp.entry_points)
-            newCompList.append(comp.__dict__)
+            newCompList.append(comp.get_dict())
         resComps[name] = newCompList
     return resComps
 
