@@ -180,10 +180,10 @@ def retry(ctx, runid):
 
 @run.command()
 @click.argument('runid')
-@click.option('-c', '--checkcache', is_flag=True, default=True, show_default=True,
-                help='set it to False if you want to delete a cached run')
+@click.option('-f', '--force', is_flag=True, show_default=True,
+                help='set force to True if you want to delete a cached run')
 @click.pass_context
-def delete(ctx, runid, checkcache):
+def delete(ctx, runid, force):
     """ delete run .\n
     RUNID: the id of the specificed run.
     """
@@ -191,6 +191,7 @@ def delete(ctx, runid, checkcache):
     if not runid:
         click.echo('delete run provide runid.', err=True)
         sys.exit(1)
+    checkcache = not force
     valid, response = client.delete_run(runid, checkcache)
     if valid:
         click.echo('runid[%s] delete success' % runid)
@@ -293,7 +294,7 @@ def artifact(ctx, userfilter=None, fsfilter=None, runfilter=None, typefilter=Non
 def _print_runlist(runlist, out_format):
     """print run list """
 
-    headers = ['run id', 'fs name', 'username', 'status', 'name', 'description', 'message', 'source',
+    headers = ['run id', 'fs name', 'username', 'status', 'name', 'description', 'run msg', 'source',
                'schedule id', 'scheduled time', 'create time', 'activate time', 'update time']
     data = [[run.run_id, run.fs_name, run.username, run.status, run.name, run.description, run.run_msg, run.source,
              run.schedule_id, run.scheduled_time, run.create_time, run.activate_time, run.update_time] for run in runlist]
@@ -323,7 +324,7 @@ def _print_runcache_info(cache, out_format):
 
 def _print_run(run, out_format):
     """ print run info"""
-    headers = ['run id', 'status', 'name', 'desc', 'param', 'source', 'message',
+    headers = ['run id', 'status', 'name', 'desc', 'param', 'source', 'run msg',
     'create time', 'update time', 'activate time']
     data = [[run.run_id, run.status, run.name, run.description, run.parameters, run.source,
              run.run_msg, run.create_time, run.update_time, run.activate_time]]
