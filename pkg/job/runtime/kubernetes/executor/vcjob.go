@@ -86,23 +86,6 @@ func (j *JobModeParams) validateCollectiveMode() error {
 	return nil
 }
 
-// patchTaskParams return
-func (j *JobModeParams) patchTaskParams(isMaster bool) (string, string, string) {
-	psReplicaStr := ""
-	commandEnv := ""
-	flavourStr := ""
-	if isMaster {
-		psReplicaStr = j.PServerReplicas
-		flavourStr = j.PServerFlavour
-		commandEnv = j.PServerCommand
-	} else {
-		psReplicaStr = j.WorkerReplicas
-		flavourStr = j.WorkerFlavour
-		commandEnv = j.WorkerCommand
-	}
-	return psReplicaStr, commandEnv, flavourStr
-}
-
 // VCJob deprecated
 type VCJob struct {
 	KubeJob
