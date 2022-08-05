@@ -18,11 +18,12 @@ package executor
 
 import (
 	"fmt"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
+
 	pytorchv1 "github.com/kubeflow/training-operator/pkg/apis/pytorch/v1"
 	log "github.com/sirupsen/logrus"
 
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 )
 
