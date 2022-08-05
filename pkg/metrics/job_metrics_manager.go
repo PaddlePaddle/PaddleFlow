@@ -62,7 +62,7 @@ func (d *jobMetricTimePointManager) AddTimestamp(jobID string, timePoint TimePoi
 	if err != nil {
 		val = newJobTimestamps()
 	}
-	timePoints := val.(Timestamps)
+	timePoints, _ := val.(Timestamps)
 	// make sure the time only be set once
 	_, ok := timePoints.GetTimestamp(timePoint)
 	if ok {
