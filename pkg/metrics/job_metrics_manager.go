@@ -135,10 +135,6 @@ func (d *jobMetricTimePointManager) GetInfo(jobID string) (Info, bool) {
 	return val.(Info), true
 }
 
-//func (d *jobMetricTimePointManager) removeJobInfo(jobID string) {
-//	d.infoCache.Delete(jobID)
-//}
-
 func (d *jobMetricTimePointManager) increaseStatusCount(status Status) {
 	if status == StatusUnknown {
 		return
