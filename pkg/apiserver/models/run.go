@@ -60,7 +60,7 @@ type Run struct {
 	ScheduledAt    sql.NullTime           `                                         json:"-"`
 	CreateTime     string                 `gorm:"-"                                 json:"createTime"`
 	ActivateTime   string                 `gorm:"-"                                 json:"activateTime"`
-	UpdateTime     string                 `gorm:"-"                                 json:"updateTime,omitempty"`
+	UpdateTime     string                 `gorm:"-"                                 json:"updateTime"`
 	CreatedAt      time.Time              `                                         json:"-"`
 	ActivatedAt    sql.NullTime           `                                         json:"-"`
 	UpdatedAt      time.Time              `                                         json:"-"`
