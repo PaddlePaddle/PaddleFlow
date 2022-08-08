@@ -1,5 +1,5 @@
 """
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,8 +16,7 @@ limitations under the License.
 #!/usr/bin/env python3
 # -*- coding:utf8 -*-
 
-from .run_api import RunServiceApi
-from .run_info import RunInfo
-from .run_info import JobInfo
-from .run_info import RunCacheInfo
-from .run_info import ArtifactInfo
+from paddleflow.ccecli.cli import main
+
+if __name__ == '__main__':
+    main()
