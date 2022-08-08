@@ -557,8 +557,9 @@ class RunInfo(object):
 ```
 其中```job_info```字段在```list```接口下不会展现，会在详情```status```接口中进行赋值。
 ### 工作流详情
+
 ```python
-ret, response = client.status_run("runid")
+ret, response = client.show_run("runid")
 ```
 #### 接口入参说明
 |字段名称 | 字段类型 | 字段含义

@@ -117,7 +117,7 @@ class RunServiceApi(object):
         return True, runList, data.get('nextMarker', None)
 
     @classmethod
-    def status_run(self, host, run_id, header=None):
+    def show_run(self, host, run_id, header=None):
         """status run
         """
         if not header:

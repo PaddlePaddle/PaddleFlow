@@ -121,7 +121,7 @@ def list(ctx, fsname=None, username=None, runid=None, name=None, status=None, ma
 @run.command()
 @click.argument('runid')
 @click.pass_context
-def status(ctx, runid):
+def show(ctx, runid):
     """detail info of run. \n
     RUNID: the id of the specified run.
     """
@@ -130,7 +130,7 @@ def status(ctx, runid):
     if not runid:
         click.echo('run status must provide runid.', err=True)
         sys.exit(1)
-    valid, response = client.status_run(runid)
+    valid, response = client.show_run(runid)
     if valid:
         _print_run(response, output_format)
     else:
@@ -281,7 +281,7 @@ def artifact(ctx, userfilter=None, fsfilter=None, runfilter=None, typefilter=Non
                 pathfilter, maxkeys, marker)
     if valid:
         if len(response):
-            _print_artiface(response, output_format)
+            _print_artifact(response, output_format)
             click.echo('marker: {}'.format(nextmarker))
         else:
             msg = "no artifact found "
@@ -367,7 +367,7 @@ def _trans_comps_to_dict(comps):
     return res_comps
 
 
-def _print_artiface(runs, out_format):
+def _print_artifact(runs, out_format):
     """ print artifact info"""
     headers = ['run id', 'fsname', 'username', 'artifact path', 'type', 'step', 'artifact name', 'meta',  
             'create time', 'update time']

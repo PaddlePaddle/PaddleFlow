@@ -444,14 +444,14 @@ class Client(object):
         return RunServiceApi.list_run(self.paddleflow_server, fsname,
                                       username, runid, runname, status, self.header, maxsize, marker)
 
-    def status_run(self, runid):
+    def show_run(self, runid):
         """
         status run
         """
         self.pre_check()
         if runid is None or runid.strip() == "":
             raise PaddleFlowSDKException("InvalidRunID", "runid should not be none or empty")
-        return RunServiceApi.status_run(self.paddleflow_server, runid, self.header)
+        return RunServiceApi.show_run(self.paddleflow_server, runid, self.header)
 
     def stop_run(self, runid, force=False):
         """
@@ -618,14 +618,14 @@ class Client(object):
             raise PaddleFlowSDKException("InvalidCacheID", "cacheid should not be none or empty")
         return RunServiceApi.delete_runcache(self.paddleflow_server, cache_id, self.header)
 
-    def show_log(self, runid, jobid=None, pagesize=None, pageno=None, logfileposition=None):
+    def show_log(self, run_id, job_id=None, page_size=None, page_no=None, log_file_position=None):
         """
         show run log
         """
         self.pre_check()
-        if runid is None or runid == "":
+        if run_id is None or run_id == "":
             raise PaddleFlowSDKException("InvalidRunID", "runid should not be none or empty")
-        return LogServiceApi.get_log_info(self.paddleflow_server, runid, jobid, pagesize, pageno, logfileposition,
+        return LogServiceApi.get_log_info(self.paddleflow_server, run_id, job_id, page_size, page_no, log_file_position,
                                           self.header)
 
     def create_job(self, job_type, job_request):
