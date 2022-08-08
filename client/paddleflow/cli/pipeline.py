@@ -169,8 +169,8 @@ def showver(ctx, pipelineid, pipelineversionid):
 @click.argument('pipelineid')
 @click.argument('pipelineversionid')
 @click.pass_context
-def delete(ctx, pipelineid, pipelineversionid):
-    """ delete pipeline. \n
+def deletever(ctx, pipelineid, pipelineversionid):
+    """ delete pipeline version. \n
         PIPELINEID: the id of pipeline
         PIPELINEVERSIONID: the id of pipeline version
     """
