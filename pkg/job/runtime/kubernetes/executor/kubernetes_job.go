@@ -79,8 +79,6 @@ type KubeJob struct {
 	Image       string
 	Command     string
 	Env         map[string]string
-	VolumeName  string // deprecated
-	PVCName     string // deprecated
 	Priority    string
 	QueueName   string
 	Labels      map[string]string
@@ -100,11 +98,6 @@ type KubeJob struct {
 
 func NewKubeJob(job *api.PFJob, dynamicClientOpt *k8s.DynamicClientOption) (api.PFJobInterface, error) {
 	log.Debugf("create kubernetes job: %#v", job)
-	pvcName := ""
-	if job.FSID != "" {
-		pvcName = fmt.Sprintf("pfs-%s-pvc", job.FSID)
-	}
-
 	kubeJob := KubeJob{
 		ID:                  job.ID,
 		Name:                job.ID,
@@ -114,8 +107,6 @@ func NewKubeJob(job *api.PFJob, dynamicClientOpt *k8s.DynamicClientOption) (api.
 		Image:               job.Conf.GetImage(),
 		Command:             job.Conf.GetCommand(),
 		Env:                 job.Conf.GetEnv(),
-		VolumeName:          job.FSID,
-		PVCName:             pvcName,
 		Labels:              job.Conf.Labels,
 		Annotations:         job.Conf.Annotations,
 		FileSystems:         job.Conf.GetAllFileSystem(),
@@ -182,18 +173,25 @@ func newFrameWorkJob(kubeJob KubeJob, job *api.PFJob) (api.PFJobInterface, error
 	case schema.FrameworkMPI:
 		kubeJob.GroupVersionKind = k8s.VCJobGVK
 		return &VCJob{
-			KubeJob:       kubeJob,
-			JobModeParams: newJobModeParams(job.Conf),
+			KubeJob: kubeJob,
 		}, nil
 	case schema.FrameworkPaddle:
 		kubeJob.GroupVersionKind = k8s.PaddleJobGVK
 		return &PaddleJob{
-			KubeJob:       kubeJob,
-			JobModeParams: newJobModeParams(job.Conf),
+			KubeJob: kubeJob,
+		}, nil
+	case schema.FrameworkPytorch:
+		kubeJob.GroupVersionKind = k8s.PyTorchJobGVK
+		return &PyTorchJob{
+			KubeJob: kubeJob,
 		}, nil
 	default:
 		return nil, fmt.Errorf("kubernetes job framework[%s] is not supported", job.Framework)
 	}
+}
+
+func (j *KubeJob) String() string {
+	return fmt.Sprintf("%s job %s/%s", j.GroupVersionKind.String(), j.Namespace, j.Name)
 }
 
 func (j *KubeJob) generateAffinity(affinity *corev1.Affinity, fsIDs []string) *corev1.Affinity {
@@ -237,35 +235,6 @@ func (j *KubeJob) fsCacheAffinity(nodes []string) *corev1.Affinity {
 			},
 		},
 	}
-}
-
-// deprecated
-func (j *KubeJob) generateVolume() corev1.Volume {
-	if j.PVCName == "" || j.VolumeName == "" {
-		return corev1.Volume{}
-	}
-	volume := corev1.Volume{
-		Name: j.VolumeName,
-		VolumeSource: corev1.VolumeSource{
-			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-				ClaimName: j.PVCName,
-			},
-		},
-	}
-	return volume
-}
-
-// deprecated
-func (j *KubeJob) generateVolumeMount() corev1.VolumeMount {
-	if j.VolumeName == "" {
-		return corev1.VolumeMount{}
-	}
-	volumeMount := corev1.VolumeMount{
-		Name:      j.VolumeName,
-		ReadOnly:  false,
-		MountPath: schema.DefaultFSMountPath,
-	}
-	return volumeMount
 }
 
 func (j *KubeJob) generateEnvVars() []corev1.EnvVar {
@@ -371,23 +340,6 @@ func (j *KubeJob) fillPodSpec(podSpec *corev1.PodSpec, task *model.Member) {
 	}
 }
 
-// todo: to be removed
-// fillContainerInVcJob fill container in job task, only called by vcjob
-func (j *KubeJob) fillContainerInVcJob(container *corev1.Container, flavour schema.Flavour, command string) error {
-	container.Image = j.Image
-	workDir := j.getWorkDir(nil)
-	container.Command = j.generateContainerCommand(j.Command, workDir)
-	var err error
-	container.Resources, err = j.generateResourceRequirements(flavour)
-	if err != nil {
-		log.Errorf("generate resource requirements failed in vcjob, err: %v", err)
-		return err
-	}
-	container.VolumeMounts = j.appendMountIfAbsent(container.VolumeMounts, j.generateVolumeMount())
-	container.Env = j.generateEnvVars()
-	return nil
-}
-
 // fillContainerInTasks fill container in job task
 func (j *KubeJob) fillContainerInTasks(container *corev1.Container, task model.Member) error {
 	if j.isNeedPatch(container.Image) {
@@ -453,42 +405,6 @@ func (j *KubeJob) appendEnvIfAbsent(baseEnvs []corev1.EnvVar, addEnvs []corev1.E
 		}
 	}
 	return baseEnvs
-}
-
-// deprecated
-// appendMountIfAbsent append volumeMount if not exist in volumeMounts
-func (j *KubeJob) appendMountIfAbsent(vmSlice []corev1.VolumeMount, element corev1.VolumeMount) []corev1.VolumeMount {
-	if element.Name == "" {
-		return vmSlice
-	}
-	if vmSlice == nil {
-		return []corev1.VolumeMount{element}
-	}
-	for _, cur := range vmSlice {
-		if cur.Name == element.Name {
-			return vmSlice
-		}
-	}
-	vmSlice = append(vmSlice, element)
-	return vmSlice
-}
-
-// deprecated
-// appendVolumeIfAbsent append volume if not exist in volumes
-func (j *KubeJob) appendVolumeIfAbsent(vSlice []corev1.Volume, element corev1.Volume) []corev1.Volume {
-	if element.Name == "" {
-		return vSlice
-	}
-	if vSlice == nil {
-		return []corev1.Volume{element}
-	}
-	for _, cur := range vSlice {
-		if cur.Name == element.Name {
-			return vSlice
-		}
-	}
-	vSlice = append(vSlice, element)
-	return vSlice
 }
 
 // generateContainerCommand if task is not nil, prefer to using info in task, otherwise using job's
@@ -601,7 +517,7 @@ func GetPodGroupName(jobID string) string {
 	}
 	pgName := ""
 	switch job.Framework {
-	case schema.FrameworkPaddle:
+	case schema.FrameworkPaddle, schema.FrameworkPytorch, schema.FrameworkTF, schema.FrameworkMXNet:
 		pgName = jobID
 	case schema.FrameworkSpark:
 		pgName = fmt.Sprintf("spark-%s-pg", jobID)
@@ -695,72 +611,6 @@ func (j *KubeJob) patchPaddlePara(podTemplate *corev1.Pod, jobName string) error
 		},
 	}, volumeMounts...)
 	return nil
-}
-
-// JobModeParams records the parameters related to job mode
-type JobModeParams struct {
-	JobFlavour string // flavour of job in pod or collective mode
-
-	CollectiveJobReplicas string // parameters for Collective job
-
-	PServerReplicas string // server.replicas or driver.replicas of job
-	PServerFlavour  string // server.flavour or driver.flavour of job
-	PServerCommand  string // server.command or driver.command of job
-	WorkerReplicas  string // worker.replicas or executor.replicas of job
-	WorkerFlavour   string // worker.flavour or executor.flavour of job
-	WorkerCommand   string // worker.command or executor.command of job
-}
-
-// newJobModeParams create a JobModeParams for job with jobMode
-func newJobModeParams(conf schema.Conf) JobModeParams {
-	return JobModeParams{
-		PServerReplicas:       conf.GetPSReplicas(),
-		PServerFlavour:        conf.GetPSFlavour(),
-		PServerCommand:        conf.GetPSCommand(),
-		WorkerReplicas:        conf.GetWorkerReplicas(),
-		WorkerFlavour:         conf.GetWorkerFlavour(),
-		WorkerCommand:         conf.GetWorkerCommand(),
-		CollectiveJobReplicas: conf.GetJobReplicas(),
-		JobFlavour:            conf.GetFlavour(),
-	}
-}
-
-func (j *JobModeParams) validatePodMode() error {
-	if len(j.JobFlavour) == 0 {
-		return errors.EmptyFlavourError()
-	}
-	return nil
-}
-
-// validatePSMode validate PServerCommand, WorkerCommand
-func (j *JobModeParams) validatePSMode() error {
-	if len(j.WorkerFlavour) == 0 || len(j.WorkerCommand) == 0 || len(j.PServerFlavour) == 0 || len(j.PServerCommand) == 0 {
-		return errors.EmptyFlavourError()
-	}
-
-	return nil
-}
-
-func (j *JobModeParams) validateCollectiveMode() error {
-	// todo(zhongzichao) validate JobFlavour
-	return nil
-}
-
-// patchTaskParams return
-func (j *JobModeParams) patchTaskParams(isMaster bool) (string, string, string) {
-	psReplicaStr := ""
-	commandEnv := ""
-	flavourStr := ""
-	if isMaster {
-		psReplicaStr = j.PServerReplicas
-		flavourStr = j.PServerFlavour
-		commandEnv = j.PServerCommand
-	} else {
-		psReplicaStr = j.WorkerReplicas
-		flavourStr = j.WorkerFlavour
-		commandEnv = j.WorkerCommand
-	}
-	return psReplicaStr, commandEnv, flavourStr
 }
 
 // getDefaultPath get extra runtime conf default path

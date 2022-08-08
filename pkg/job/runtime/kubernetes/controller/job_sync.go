@@ -34,6 +34,7 @@ import (
 	commonschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime/kubernetes/executor"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/metrics"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
@@ -254,6 +255,13 @@ func (j *JobSync) doDeleteAction(jobSyncInfo *JobSyncInfo) error {
 func (j *JobSync) doUpdateAction(jobSyncInfo *JobSyncInfo) error {
 	log.Infof("do update action. jobID:[%s] action:[%s] status:[%s] message:[%s]",
 		jobSyncInfo.ID, jobSyncInfo.Action, jobSyncInfo.Status, jobSyncInfo.Message)
+
+	// add time point
+	if commonschema.IsImmutableJobStatus(jobSyncInfo.Status) {
+		metrics.Job.AddTimestamp(jobSyncInfo.ID, metrics.T8, time.Now(), metrics.Info{
+			metrics.FinishedStatusLabel: string(jobSyncInfo.Status),
+		})
+	}
 
 	if _, err := storage.Job.UpdateJob(jobSyncInfo.ID, jobSyncInfo.Status, jobSyncInfo.RuntimeInfo, jobSyncInfo.RuntimeStatus, jobSyncInfo.Message); err != nil {
 		log.Errorf("update job failed. jobID:[%s] err:[%s]", jobSyncInfo.ID, err.Error())
