@@ -13,6 +13,8 @@
 > 
 > 示例链接：[queue_example]
 
+> 注意：用户在使用该pipeline创建run前，请先创建对应的**队列和套餐**, 详情可以参考[命令行手册]或者[SDK手册]
+
 ```yaml
 name: queue_example
 
@@ -54,8 +56,6 @@ docker_env: nginx:1.7.9
 
 parallelism: 1
 ```
-
-> 注意：用户在使用该pipeline创建run前，请先创建对应的**队列和套餐**, 详情可以参考[命令行手册]或者[SDK手册]
 
 # 2 详解
 在Paddleflow pipeline中，指定节点运行时的队列和套餐的方式非常简单，只需在节点中添加相应的环境变量即可。

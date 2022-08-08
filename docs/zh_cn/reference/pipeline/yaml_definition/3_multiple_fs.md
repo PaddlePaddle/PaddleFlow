@@ -1,5 +1,6 @@
 在上一章节，我们介绍了如何在pipeline中使用artifact，同时也提到了paddleflow会把artifact存放在共享存储上。本文便介绍如何在pipeline中使用共享存储
 
+>关于共享存储的详细介绍，可以参考[filesystem]
 
 # 1 使用场景
 - 一个pipeline都会有多个节点，如果节点之间有文件（如 artifact）需要传递，便需要使用共享存储
@@ -150,3 +151,4 @@ env:
 [2 pipeline定义]: /docs/zh_cn/reference/pipeline/yaml_definition/3_multiple_fs.md#2-pipeline%E5%AE%9A%E4%B9%89
 [节点级别的extra_fs字段]: /docs/zh_cn/reference/pipeline/yaml_definition/3_multiple_fs.md#21-%E8%8A%82%E7%82%B9%E7%BA%A7%E5%88%AB%E7%9A%84extra_fs%E5%AD%97%E6%AE%B5
 [3.1 fs_options.extra_fs的下沉]: /docs/zh_cn/reference/pipeline/yaml_definition/3_multiple_fs.md#31-fs_optionsextra_fs%E7%9A%84%E4%B8%8B%E6%B2%89
+[filesystem]: /docs/zh_cn/reference/filesystem
