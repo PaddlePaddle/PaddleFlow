@@ -128,8 +128,8 @@ def delete(ctx, pipelineid):
 @click.option('-d', '--desc', help='description of new pipeline version')
 @click.pass_context
 def update(ctx, pipelineid, fsname, yamlpath, username, desc):
-    """ update pipeline (create pipeline version)
-        PIPELINEID: pipeline you want to create a new version
+    """ update pipeline (create pipeline version).
+        PIPELINEID: pipeline you want to create a new version.
         FSNAME: specified fs name.
         YAMLPATH: relative path of yaml file under storage volume."""
     client = ctx.obj['client']
@@ -150,7 +150,7 @@ def update(ctx, pipelineid, fsname, yamlpath, username, desc):
 def showver(ctx, pipelineid, pipelineversionid):
     """ show pipeline version info.\n
     PIPELINEID: the id of pipeline.
-    PIPELINEVERSIONID: the id of pipeline version
+    PIPELINEVERSIONID: the id of pipeline version.
     """
     client = ctx.obj['client']
     output_format = ctx.obj['output']
@@ -171,8 +171,8 @@ def showver(ctx, pipelineid, pipelineversionid):
 @click.pass_context
 def deletever(ctx, pipelineid, pipelineversionid):
     """ delete pipeline version. \n
-        PIPELINEID: the id of pipeline
-        PIPELINEVERSIONID: the id of pipeline version
+        PIPELINEID: the id of pipeline.
+        PIPELINEVERSIONID: the id of pipeline version.
     """
     client = ctx.obj['client']
     if not pipelineid or not pipelineversionid:
