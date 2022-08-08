@@ -227,7 +227,13 @@ spec:
           image: paddleflow/pfs-csi-plugin:1.4.2
           imagePullPolicy: IfNotPresent
           name: csi-storage-driver
-          resources: {}
+          resources:
+            limits:
+              cpu: 1500m
+              memory: 3G
+            requests:
+              cpu: "500m"
+              memory: 1G
           securityContext:
             capabilities:
               add:
@@ -345,7 +351,13 @@ spec:
             - containerPort: 12345
               name: port-0
               protocol: TCP
-          resources: {}
+          resources:
+            requests:
+              memory: "1G"
+              cpu: "500m"
+            limits:
+              memory: "2G"
+              cpu: "2000m"
           securityContext:
             privileged: true
           terminationMessagePath: /dev/termination-log
