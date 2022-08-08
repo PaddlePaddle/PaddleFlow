@@ -180,10 +180,10 @@ def retry(ctx, runid):
 
 @run.command()
 @click.argument('runid')
-@click.option('-f', '--force', is_flag=True, show_default=True,
+@click.option('-not-cc', '--notcheckcache', is_flag=True, show_default=True,
                 help='set force to True if you want to delete a cached run')
 @click.pass_context
-def delete(ctx, runid, force):
+def delete(ctx, runid, notcheckcache):
     """ delete run .\n
     RUNID: the id of the specificed run.
     """
@@ -191,7 +191,7 @@ def delete(ctx, runid, force):
     if not runid:
         click.echo('delete run provide runid.', err=True)
         sys.exit(1)
-    checkcache = not force
+    checkcache = not notcheckcache
     valid, response = client.delete_run(runid, checkcache)
     if valid:
         click.echo('runid[%s] delete success' % runid)
@@ -356,15 +356,15 @@ def _print_run(run, out_format):
         print_output(data, headers, out_format, table_format='grid')
 
 def _trans_comps_to_dict(comps):
-    resComps = {}
-    for name, compList in comps.items():
-        newCompList = []
-        for comp in compList:
+    res_comps = {}
+    for name, comp_list in comps.items():
+        new_comp_list = []
+        for comp in comp_list:
             if hasattr(comp, 'entry_points'):
                 comp.entry_points = _trans_comps_to_dict(comp.entry_points)
-            newCompList.append(comp.get_dict())
-        resComps[name] = newCompList
-    return resComps
+            new_comp_list.append(comp.get_dict())
+        res_comps[name] = new_comp_list
+    return res_comps
 
 
 def _print_artiface(runs, out_format):
