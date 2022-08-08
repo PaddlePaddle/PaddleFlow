@@ -106,15 +106,16 @@ class RunServiceApi(object):
         data = json.loads(response.text)
         if 'message' in data:
             return False, data['message']
-        runList = []
+        run_list = []
         if len(data['runList']):
             for run in data['runList']:
-                runInfo = RunInfo(run['runID'], run['fsName'], run['username'], run['status'], run['name'],
+                run_info = RunInfo(run['runID'], run['fsName'], run['username'], run['status'], run['name'],
                                   run['description'], None, None, None, None, None, run['updateTime'],
                                   run['source'], run['runMsg'], run['scheduleID'], run['scheduledTime'],
                                   None, None, None, None, run['createTime'], run['activateTime'])
-                runList.append(runInfo)
-        return True, runList, data.get('nextMarker', None)
+                run_list.append(run_info)
+
+        return True, {'runList': run_list, 'nextMarker': data.get('nextMarker', None)}
 
     @classmethod
     def show_run(self, host, run_id, header=None):

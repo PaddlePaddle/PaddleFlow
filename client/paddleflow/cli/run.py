@@ -104,12 +104,13 @@ def list(ctx, fsname=None, username=None, runid=None, name=None, status=None, ma
                 status_list.append(status_filter)
         status_processed = ','.join(status_list)
 
-    valid, response, nextmarker = client.list_run(fsname, username, runid, name, status_processed, maxsize, marker)
+    valid, response = client.list_run(fsname, username, runid, name, status_processed, maxsize, marker)
     if valid:
-        if len(response):
-            click.echo("{} runs shown under:".format(len(response)))
-            _print_runlist(response, output_format)
-            click.echo('marker: {}'.format(nextmarker))
+        run_list, next_marker = response['runList'], response['nextMarker']
+        if len(run_list):
+            click.echo("{} runs shown under:".format(len(run_list)))
+            _print_runlist(run_list, output_format)
+            click.echo('marker: {}'.format(next_marker))
         else:
             msg = "no run found "
             click.echo(msg)
