@@ -37,55 +37,55 @@ def run():
 
 
 @run.command()
-@click.option('-f', '--fsname', help='The name of fs')
+@click.option('-f', '--fsname', 'fs_name', help='The name of fs')
 @click.option('-n', '--name', help='The name of run.')
 @click.option('-d', '--desc', help='The description of run.')
 @click.option('-u', '--username', help='Run the specified run by username, only useful for root.')
 @click.option('-p', '--param', multiple=True, help="Run pipeline params, example: -p regularization=xxx .")
-@click.option('-yp', '--runyamlpath', help='Run yaml file path, example ./run.yaml .')
-@click.option('-yr', '--runyamlraw', help='Run yaml file raw, local absolute path .')
-@click.option('-pplid', '--pipelineid', help='Pipeline ID, example ppl-000666')
-@click.option('-pplver', '--pipelineversionid', help='Pipeline Version ID, example 1')
+@click.option('-yp', '--runyamlpath', 'run_yaml_path', help='Run yaml file path, example ./run.yaml .')
+@click.option('-yr', '--runyamlraw', 'run_yaml_raw', help='Run yaml file raw, local absolute path .')
+@click.option('-pplid', '--pipelineid', 'pipeline_id', help='Pipeline ID, example ppl-000666')
+@click.option('-pplver', '--pipelineversionid', 'pipeline_version_id', help='Pipeline Version ID, example 1')
 @click.option('--disabled', multiple=True, help="the name of step which need to be disabled.")
-@click.option('-de', '--dockerenv', help='a global dockerEnv used by all steps which have no dockerEnv')
+@click.option('-de', '--dockerenv', 'docker_env', help='a global dockerEnv used by all steps which have no dockerEnv')
 @click.pass_context
-def create(ctx, fsname=None, name=None, desc=None, username=None, runyamlpath=None, runyamlraw=None,
-        param="", pipelineid=None, pipelineversionid=None, disabled=None, dockerenv=None):
+def create(ctx, fs_name=None, name=None, desc=None, username=None, run_yaml_path=None, run_yaml_raw=None,
+           param="", pipeline_id=None, pipeline_version_id=None, disabled=None, docker_env=None):
     """create a new run.\n
     FSNAME: the name of the fs.
     """
     client = ctx.obj['client']
     param_dict = {}
     for k in param:
-        splitTxt = k.split("=", 1)
-        param_dict[splitTxt[0]] = splitTxt[1]
-    if runyamlraw:
-        with open(runyamlraw, 'rb') as f:
-            runyamlraw = f.read()
+        split_txt = k.split("=", 1)
+        param_dict[split_txt[0]] = split_txt[1]
+    if run_yaml_raw:
+        with open(run_yaml_raw, 'rb') as f:
+            run_yaml_raw = f.read()
     
     if disabled is not None:
         disabled = ",".join(disabled)
 
-    valid, response = client.create_run(fsname, username, name, desc, runyamlpath, runyamlraw,
-                                        pipelineid, pipelineversionid, param_dict, disabled=disabled, dockerenv=dockerenv)
+    valid, response = client.create_run(fs_name, username, name, desc, run_yaml_path, run_yaml_raw,
+                                        pipeline_id, pipeline_version_id, param_dict, disabled=disabled, docker_env=docker_env)
 
     if valid:
-        click.echo("run[%s] create success with runid[%s]" % (fsname, response))
+        click.echo("run[%s] create success with run id[%s]" % (fs_name, response))
     else:
         click.echo("run create failed with message[%s]" % response)
         sys.exit(1)
 
 
 @run.command()
-@click.option('-f', '--fsname', help='List the specified run by fsname.')
+@click.option('-f', '--fsname', 'fs_name', help='List the specified run by fsname.')
 @click.option('-u', '--username', help='List the specified run by username, only useful for root.')
-@click.option('-r', '--runid', help='List the specified run by runid')
+@click.option('-r', '--runid', 'run_id', help='List the specified run by runid')
 @click.option('-n', '--name', help='List the specified run by run name')
 @click.option('-s', '--status', help='List the specified run by run status')
-@click.option('-m', '--maxsize', default=100, help="Max size of the listed users.")
+@click.option('-m', '--maxsize', 'max_size', default=100, help="Max size of the listed users.")
 @click.option('-mk', '--marker', help="Next page.")
 @click.pass_context
-def list(ctx, fsname=None, username=None, runid=None, name=None, status=None, maxsize=100, marker=None):
+def list(ctx, fs_name=None, username=None, run_id=None, name=None, status=None, max_size=100, marker=None):
     """list run.\n """
     client = ctx.obj['client']
     output_format = ctx.obj['output']
@@ -104,12 +104,12 @@ def list(ctx, fsname=None, username=None, runid=None, name=None, status=None, ma
                 status_list.append(status_filter)
         status_processed = ','.join(status_list)
 
-    valid, response = client.list_run(fsname, username, runid, name, status_processed, maxsize, marker)
+    valid, response = client.list_run(fs_name, username, run_id, name, status_processed, max_size, marker)
     if valid:
         run_list, next_marker = response['runList'], response['nextMarker']
         if len(run_list):
             click.echo("{} runs shown under:".format(len(run_list)))
-            _print_runlist(run_list, output_format)
+            _print_run_list(run_list, output_format)
             click.echo('marker: {}'.format(next_marker))
         else:
             msg = "no run found "
@@ -120,102 +120,102 @@ def list(ctx, fsname=None, username=None, runid=None, name=None, status=None, ma
 
 
 @run.command()
-@click.argument('runid')
+@click.argument('run_id')
 @click.pass_context
-def show(ctx, runid):
-    """detail info of run. \n
-    RUNID: the id of the specified run.
+def show(ctx, run_id):
+    """ show detail info of run. \n
+    RUN_ID: the id of the specified run.
     """
     client = ctx.obj['client']
     output_format = ctx.obj['output']
-    if not runid:
-        click.echo('run status must provide runid.', err=True)
+    if not run_id:
+        click.echo('run show must provide run id.', err=True)
         sys.exit(1)
-    valid, response = client.show_run(runid)
+    valid, response = client.show_run(run_id)
     if valid:
         _print_run(response, output_format)
     else:
-        click.echo("run status failed with message[%s]" % response)
+        click.echo("run show failed with message[%s]" % response)
         sys.exit(1)
 
 
 @run.command()
-@click.argument('runid')
+@click.argument('run_id')
 @click.option('-f', '--force', is_flag=True,
     help="Whether to forcibly stop the task. Forcibly stop will also stop step in post_process")
 @click.pass_context
-def stop(ctx, runid, force):
+def stop(ctx, run_id, force):
     """stop the run.\n
-    RUNID: the id of the specificed run.
+    RUN_ID: the id of the specified run.
     """
     client = ctx.obj['client']
-    if not runid:
+    if not run_id:
         click.echo('run stop must provide runid.', err=True)
         sys.exit(1)
-    valid, response = client.stop_run(runid, force=force)
+    valid, response = client.stop_run(run_id, force=force)
     if valid:
-        click.echo("runid[%s] stop success" % runid)
+        click.echo("runid[%s] stop success" % run_id)
     else:
         click.echo("run stop failed with message[%s]" % response)
         sys.exit(1)
 
 
 @run.command()
-@click.argument('runid')
+@click.argument('run_id')
 @click.pass_context
-def retry(ctx, runid):
+def retry(ctx, run_id):
     """retry the run.\n
-    RUNID: the id of the specificed run.
+    RUN_ID: the id of the specificed run.
     """
     client = ctx.obj['client']
-    if not runid:
-        click.echo('run retry must provide runid.', err=True)
+    if not run_id:
+        click.echo('run retry must provide run id.', err=True)
         sys.exit(1)
-    valid, response = client.retry_run(runid)
+    valid, response = client.retry_run(run_id)
     if valid:
-        click.echo("runid[%s] retry success, new runid is [%s]" % (runid, response))
+        click.echo("run id[%s] retry success, new run id is [%s]" % (run_id, response))
     else:
         click.echo("run retry failed with message[%s]" % response)
         sys.exit(1)
 
 
 @run.command()
-@click.argument('runid')
-@click.option('-not-cc', '--notcheckcache', is_flag=True, show_default=True,
+@click.argument('run_id')
+@click.option('-not-cc', '--notcheckcache', 'not_check_cache', is_flag=True, show_default=True,
                 help='set force to True if you want to delete a cached run')
 @click.pass_context
-def delete(ctx, runid, notcheckcache):
+def delete(ctx, run_id, not_check_cache):
     """ delete run .\n
-    RUNID: the id of the specificed run.
+    RUN_ID: the id of the specified run.
     """
     client = ctx.obj['client']
-    if not runid:
-        click.echo('delete run provide runid.', err=True)
+    if not run_id:
+        click.echo('delete run provide run id.', err=True)
         sys.exit(1)
-    checkcache = not notcheckcache
-    valid, response = client.delete_run(runid, checkcache)
+    checkcache = not not_check_cache
+    valid, response = client.delete_run(run_id, checkcache)
     if valid:
-        click.echo('runid[%s] delete success' % runid)
+        click.echo('run id [%s] delete success' % run_id)
     else:
         click.echo("run delete failed with message[%s]" % response)
         sys.exit(1)
 
 
-@run.command()
-@click.option('-u', '--userfilter', help="List the artifactEventList by user.")
-@click.option('-f', '--fsfilter', help="List the artifactEventList by fs.")
-@click.option('-r', '--runfilter', help="List the artifactEventList by run.")
-@click.option('-m', '--maxkeys', help="Max size of the listed artifactEventList.")
+@run.command(name='listcache')
+@click.option('-u', '--userfilter', 'user_filter', help="List the artifactEventList by user.")
+@click.option('-f', '--fsfilter', 'fs_filter', help="List the artifactEventList by fs.")
+@click.option('-r', '--runfilter', 'run_filter', help="List the artifactEventList by run.")
+@click.option('-m', '--maxkeys', 'max_keys', help="Max size of the listed artifactEventList.")
 @click.option('-mk', '--marker', help="Next page.")
 @click.pass_context
-def listcache(ctx, userfilter=None, fsfilter=None, runfilter=None, maxkeys=None, marker=None):
+def list_cache(ctx, user_filter=None, fs_filter=None, run_filter=None, max_keys=None, marker=None):
     """list cache .\n """
     client = ctx.obj['client']
     output_format = ctx.obj['output']
-    valid, response, nextmarker = client.list_cache(userfilter, fsfilter, runfilter, maxkeys, marker)
+    valid, response, nextmarker = client.list_cache(user_filter, fs_filter, run_filter, max_keys, marker)
     if valid:
         if len(response):
-            _print_runcache(response, output_format)
+            _print_run_cache(response, output_format)
             click.echo('marker: {}'.format(nextmarker))
         else:
             msg = "no run found "
@@ -225,65 +225,65 @@ def listcache(ctx, userfilter=None, fsfilter=None, runfilter=None, maxkeys=None,
         sys.exit(1)
 
 
-@run.command()
-@click.argument('cacheid')
+@run.command(name='showcache')
+@click.argument('cache_id')
 @click.pass_context
-def showcache(ctx, cacheid):
+def show_cache(ctx, cache_id):
     """detail info of cache. \n
-    CACHEID: the id of the specified cache.
+    CACHE_ID: the id of the specified cache.
     """
     client = ctx.obj['client']
     output_format = ctx.obj['output']
-    if not cacheid:
+    if not cache_id:
         click.echo('cache show must provide cacheid.', err=True)
         sys.exit(1)
-    valid, response = client.show_cache(cacheid)
+    valid, response = client.show_cache(cache_id)
     if valid:
-        _print_runcache_info(response, output_format)
+        _print_run_cache_info(response, output_format)
     else:
         click.echo("cache list failed with message[%s]" % response)
         sys.exit(1)
 
 
-@run.command()
-@click.argument('cacheid')
+@run.command(name='delcache')
+@click.argument('cache_id')
 @click.pass_context
-def delcache(ctx, cacheid):
+def delete_cache(ctx, cache_id):
     """delete the cache.\n
-    CACHEID: the id of the specificed cache.
+    CACHE_ID: the id of the specified cache.
     """
     client = ctx.obj['client']
-    if not cacheid:
+    if not cache_id:
         click.echo('run stop must provide cacheid.', err=True)
         sys.exit(1)
-    valid, response = client.delete_cache(cacheid)
+    valid, response = client.delete_cache(cache_id)
     if valid:
-        click.echo("cacheid[%s] delete success" % cacheid)
+        click.echo("cache id [%s] delete success" % cache_id)
     else:
         click.echo("cache delete failed with message[%s]" % response)
         sys.exit(1)
 
 
-@run.command()
-@click.option('-u', '--userfilter', help="List the artifactEventList by user.")
-@click.option('-f', '--fsfilter', help="List the artifactEventList by fs.")
-@click.option('-r', '--runfilter', help="List the artifactEventList by run.")
-@click.option('-t', '--typefilter', help="List the artifactEventList by type.")
-@click.option('-p', '--pathfilter', help="List the artifactEventList by path.")
-@click.option('-m', '--maxkeys', help="Max size of the listed artifactEventList.")
+@run.command(name='listcache')
+@click.option('-u', '--userfilter', 'user_filter', help="List the artifactEventList by user.")
+@click.option('-f', '--fsfilter', 'fs_filter', help="List the artifactEventList by fs.")
+@click.option('-r', '--runfilter', 'run_filter', help="List the artifactEventList by run.")
+@click.option('-t', '--typefilter', 'type_filter', help="List the artifactEventList by type.")
+@click.option('-p', '--pathfilter', 'path_filter', help="List the artifactEventList by path.")
+@click.option('-m', '--maxkeys', 'max_keys', help="Max size of the listed artifactEventList.")
 @click.option('-mk', '--marker', help="next page.")
 @click.pass_context
-def artifact(ctx, userfilter=None, fsfilter=None, runfilter=None, typefilter=None, pathfilter=None, 
-                maxkeys=100, marker=None):
+def list_artifact(ctx, user_filter=None, fs_filter=None, run_filter=None, type_filter=None, path_filter=None,
+                  max_keys=100, marker=None):
     """list artifact. \n"""
     client = ctx.obj['client']
     output_format = ctx.obj['output']
-    valid, response, nextmarker = client.artifact(userfilter, fsfilter, runfilter, typefilter, 
-                pathfilter, maxkeys, marker)
+    valid, response, next_marker = client.artifact(user_filter, fs_filter, run_filter, type_filter,
+                                                  path_filter, max_keys, marker)
     if valid:
         if len(response):
             _print_artifact(response, output_format)
-            click.echo('marker: {}'.format(nextmarker))
+            click.echo('marker: {}'.format(next_marker))
         else:
             msg = "no artifact found "
             click.echo(msg)
@@ -292,17 +292,17 @@ def artifact(ctx, userfilter=None, fsfilter=None, runfilter=None, typefilter=Non
         sys.exit(1)
 
 
-def _print_runlist(runlist, out_format):
+def _print_run_list(run_list, out_format):
     """print run list """
 
     headers = ['run id', 'fs name', 'username', 'status', 'name', 'description', 'run msg', 'source',
                'schedule id', 'scheduled time', 'create time', 'activate time', 'update time']
     data = [[run.run_id, run.fs_name, run.username, run.status, run.name, run.description, run.run_msg, run.source,
-             run.schedule_id, run.scheduled_time, run.create_time, run.activate_time, run.update_time] for run in runlist]
+             run.schedule_id, run.scheduled_time, run.create_time, run.activate_time, run.update_time] for run in run_list]
     print_output(data, headers, out_format, table_format='grid')
 
 
-def _print_runcache(caches, out_format):
+def _print_run_cache(caches, out_format):
     """print cache list """
 
     headers = ['cache id', 'run id', 'job id', 'fsname', 'username', 'expired time',
@@ -312,7 +312,7 @@ def _print_runcache(caches, out_format):
     print_output(data, headers, out_format, table_format='grid')
 
 
-def _print_runcache_info(cache, out_format):
+def _print_run_cache_info(cache, out_format):
     """print cache info """
 
     headers = ['cache id', 'run id', 'job id', 'fsname', 'username', 'expired time',
@@ -346,8 +346,8 @@ def _print_run(run, out_format):
         return
     if run.runtime and len(run.runtime):
         headers = ['runtime in json']
-        runtimeDict = _trans_comps_to_dict(run.runtime)
-        data = [[json.dumps(runtimeDict, indent=2)]]
+        runtime_dict = _trans_comps_to_dict(run.runtime)
+        data = [[json.dumps(runtime_dict, indent=2)]]
         print_output(data, headers, out_format, table_format='grid')
     if run.post_process and len(run.post_process):
         headers = ['postProcess in json']

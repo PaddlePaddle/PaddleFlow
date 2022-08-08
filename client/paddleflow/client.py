@@ -447,7 +447,7 @@ class Client(object):
 
     def show_run(self, run_id):
         """
-        status run
+        show run
         """
         self.pre_check()
         if run_id is None or run_id.strip() == "":
@@ -548,7 +548,7 @@ class Client(object):
 
     def show_pipeline(self, pipeline_id, fs_filter, max_keys, marker):
         """
-        status pipeline
+        show pipeline
         """
         self.pre_check()
         if pipeline_id is None or pipeline_id == "":
