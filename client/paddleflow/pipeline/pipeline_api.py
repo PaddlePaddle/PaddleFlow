@@ -125,7 +125,7 @@ class PipelineServiceApi(object):
             return False, data['message'], None, None
         pipeline = data['pipeline']
         resPpl = PipelineInfo(pipeline['pipelineID'], pipeline['name'], pipeline['username'], pipeline['desc'],
-                          pipeline['createTime'], pipeline.get('updatetime', None))
+                          pipeline['createTime'], pipeline.get('updateTime', None))
 
         pplVersionList = data['pplVersions']['pplVersionList']
         resPplVerList = []
