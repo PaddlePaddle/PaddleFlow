@@ -120,6 +120,30 @@ def delete(ctx, pipelineid):
         click.echo("pipeline delete failed with message[%s]" % response)
         sys.exit(1)
 
+@pipeline.command()
+@click.argument('pipelineid')
+@click.argument('fsname')
+@click.argument('yamlpath')
+@click.option('-u', '--username', help='choose a user to use its fs if you are root')
+@click.option('-d', '--desc', help='description of new pipeline version')
+@click.pass_context
+def update(ctx, pipelineid, fsname, yamlpath, username, desc):
+    """ update pipeline (create pipeline version)
+        PIPELINEID: pipeline you want to create a new version
+        FSNAME: specified fs name.
+        YAMLPATH: relative path of yaml file under storage volume."""
+    client = ctx.obj['client']
+    if not pipelineid or not fsname or not yamlpath:
+        click.echo('pipeline update must provide pipelineid, fsname and yamlpath .', err=True)
+        sys.exit(1)
+    valid, response, version_id = client.update_pipeline(pipelineid, fsname, yamlpath, username, desc)
+    if valid:
+        click.echo("pipeline[%s] update success, new versionID[%s]" % (response, version_id))
+    else:
+        click.echo("pipeline update failed with message[%s]" % response)
+        sys.exit(1)
+
+
 
 def _print_pipeline(pipelines, out_format):
     """print pipelines """

@@ -125,7 +125,7 @@ class PipelineServiceApi(object):
             return False, data['message'], None, None
         pipeline = data['pipeline']
         resPpl = PipelineInfo(pipeline['pipelineID'], pipeline['name'], pipeline['username'], pipeline['desc'],
-                          pipeline['createTime'], pipeline.get('updatetime', None))
+                          pipeline['createTime'], pipeline.get('updateTime', None))
 
         pplVersionList = data['pplVersions']['pplVersionList']
         resPplVerList = []
@@ -157,3 +157,56 @@ class PipelineServiceApi(object):
                 return False, data['message']
         else:
             return True, pipeline_id
+
+    @classmethod
+    def update_pipeline(self, host, header, pipeline_id, fs_name, yaml_path, username=None, desc=None):
+        """update pipeline (create pipeline version)
+        """
+        if not header:
+            raise PaddleFlowSDKException("InvalidRequest",
+                                         "paddleflow should login first")
+        body = {
+            'fsName': fs_name,
+            'yamlPath': yaml_path,
+        }
+        if username:
+            body['username'] = username
+        if desc:
+            body['desc'] = desc
+
+        response = api_client.call_api(
+            method="POST",
+            url=parse.urljoin(host, api.PADDLE_FLOW_PIPELINE + "/%s" % pipeline_id),
+            headers=header,
+            json=body
+        )
+        if not response:
+            raise PaddleFlowSDKException("Connection Error", "update pipeline failed due to HTTPError")
+
+        data = json.loads(response.text)
+        if 'message' in data:
+            return False, data['message'], None
+        return True, data['pipelineID'], data['pipelineVersionID']
+
+    @classmethod
+    def show_pipeline_version(self, host, header, pipeline_id, pipeline_version_id):
+        """ show pipeline version """
+        if not header:
+            raise PaddleFlowSDKException("InvalidRequest",
+                                         "paddleflow should login first")
+
+        response = api_client.call_api(
+            method="GET",
+            url=parse.urljoin(host, api.PADDLE_FLOW_PIPELINE + "/%s/%s" % (pipeline_id, pipeline_version_id)),
+            headers=header
+        )
+        if not response:
+            raise PaddleFlowSDKException(
+                "Connection Error", "status pipeline failed due to HTTPError")
+
+        data = json.loads(response.text)
+        if 'message' in data:
+            return False, data['message'], None
+        pipeline = data['pipeline']
+        resPpl = PipelineInfo(pipeline['pipelineID'], pipeline['name'], pipeline['username'], pipeline['desc'],
+                          pipeline['createTime'], pipeline.get('updateTime', None))
