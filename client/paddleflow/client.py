@@ -577,6 +577,30 @@ class Client(object):
         return PipelineServiceApi.update_pipeline(self.paddleflow_server, self.header, pipeline_id, fs_name, yaml_path,
                                                   username, desc)
 
+    def show_pipeline_version(self, pipeline_id, pipeline_version_id):
+        """
+            show pipeline version
+        """
+        self.pre_check()
+        if pipeline_id is None or pipeline_id == "":
+            raise PaddleFlowSDKException("InvalidPipelineID", "pipeline_id should not be none or empty")
+        if pipeline_version_id is None or pipeline_version_id == "":
+            raise PaddleFlowSDKException("InvalidPipelineVersionID", "pipeline_version_id should not be none or empty")
+        return PipelineServiceApi.show_pipeline_version(self.paddleflow_server, self.header,
+                                                        pipeline_id, pipeline_version_id)
+
+    def delete_pipeline_version(self, pipeline_id, pipeline_version_id):
+        """
+            delete pipeline version
+        """
+        self.pre_check()
+        if pipeline_id is None or pipeline_id == "":
+            raise PaddleFlowSDKException("InvalidPipelineID", "pipeline_id should not be none or empty")
+        if pipeline_version_id is None or pipeline_version_id == "":
+            raise PaddleFlowSDKException("InvalidPipelineVersionID", "pipeline_version_id should not be none or empty")
+        return PipelineServiceApi.delete_pipeline_version(self.paddleflow_server, self.header,
+                                                            pipeline_id, pipeline_version_id)
+
     def retry_run(self, run_id):
         """
         retry run

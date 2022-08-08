@@ -143,6 +143,48 @@ def update(ctx, pipelineid, fsname, yamlpath, username, desc):
         click.echo("pipeline update failed with message[%s]" % response)
         sys.exit(1)
 
+@pipeline.command()
+@click.argument('pipelineid')
+@click.argument('pipelineversionid')
+@click.pass_context
+def showver(ctx, pipelineid, pipelineversionid):
+    """ show pipeline version info.\n
+    PIPELINEID: the id of pipeline.
+    PIPELINEVERSIONID: the id of pipeline version
+    """
+    client = ctx.obj['client']
+    output_format = ctx.obj['output']
+    if not pipelineid or pipelineversionid:
+        click.echo('pipeline show must set pipeline id, pipeline version id.', err=True)
+        sys.exit(1)
+    valid, response = client.show_pipeline_version(pipelineid, pipelineversionid)
+    if valid:
+        pplVerList = [response]
+        _print_pipeline_info(response, pplVerList, None, output_format)
+    else:
+        click.echo("pipeline version show failed with message[%s]" % response)
+        sys.exit(1)
+
+@pipeline.command()
+@click.argument('pipelineid')
+@click.argument('pipelineversionid')
+@click.pass_context
+def delete(ctx, pipelineid, pipelineversionid):
+    """ delete pipeline. \n
+        PIPELINEID: the id of pipeline
+        PIPELINEVERSIONID: the id of pipeline version
+    """
+    client = ctx.obj['client']
+    if not pipelineid or not pipelineversionid:
+        click.echo('delete pipeline version must provide pipelineid, pipelineversionid.', err=True)
+        sys.exit(1)
+    valid, response = client.delete_pipeline_version(pipelineid, pipelineversionid)
+    if valid:
+        click.echo('pipeline version [%s] of pipeline [%s] delete success' % (pipelineid, pipelineversionid))
+    else:
+        click.echo("pipeline delete failed with message[%s]" % response)
+        sys.exit(1)
+
 
 
 def _print_pipeline(pipelines, out_format):

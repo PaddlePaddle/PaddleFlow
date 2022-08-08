@@ -202,11 +202,42 @@ class PipelineServiceApi(object):
         )
         if not response:
             raise PaddleFlowSDKException(
-                "Connection Error", "status pipeline failed due to HTTPError")
+                "Connection Error", "show pipeline version failed due to HTTPError")
 
         data = json.loads(response.text)
         if 'message' in data:
             return False, data['message'], None
         pipeline = data['pipeline']
-        resPpl = PipelineInfo(pipeline['pipelineID'], pipeline['name'], pipeline['username'], pipeline['desc'],
+        ppl_info = PipelineInfo(pipeline['pipelineID'], pipeline['name'], pipeline['username'], pipeline['desc'],
                           pipeline['createTime'], pipeline.get('updateTime', None))
+
+        ppl_ver = data['pipelineVersion']
+        ppl_ver_info = PipelineVersionInfo(ppl_ver['pipelineVersionID'], ppl_ver['pipelineID'],
+                                           ppl_ver['fsName'], ppl_ver['yamlPath'],
+                                           ppl_ver['pipelineYaml'], ppl_ver['username'],
+                                           ppl_ver['createTime'], ppl_ver['updateTime'])
+
+        return True, ppl_info, ppl_ver_info
+
+    @classmethod
+    def delete_pipeline_version(self, host, header, pipeline_id, pipeline_version_id):
+        """delete pipeline
+        """
+        if not header:
+            raise PaddleFlowSDKException("InvalidRequest",
+                                         "paddleflow should login first")
+        response = api_client.call_api(
+            method="DELETE",
+            url=parse.urljoin(host, api.PADDLE_FLOW_PIPELINE + "/%s/%s" % (pipeline_id, pipeline_version_id)),
+            headers=header)
+
+        if not response:
+            raise PaddleFlowSDKException(
+                "Connection Error", "delete pipeline version failed due to HTTPError")
+
+        if response.text:
+            data = json.loads(response.text)
+            if 'message' in data:
+                return False, data['message']
+        else:
+            return True, None
