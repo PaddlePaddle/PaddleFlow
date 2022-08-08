@@ -557,7 +557,6 @@ class RunInfo(object):
 ```
 其中```job_info```字段在```list```接口下不会展现，会在详情```status```接口中进行赋值。
 ### 工作流详情
-
 ```python
 ret, response = client.status_run("runid")
 ```
