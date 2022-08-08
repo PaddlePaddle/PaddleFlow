@@ -54,3 +54,7 @@ imageRepository:
 
 monitor:
   server: ""
+
+metrics:
+  enable: true
+  port: 8231

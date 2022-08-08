@@ -19,9 +19,10 @@ package storage
 import (
 	"encoding/json"
 	"fmt"
+	"time"
+
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
-	"time"
 
 	log "github.com/sirupsen/logrus"
 
@@ -29,6 +30,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/metrics"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
 
@@ -45,7 +47,20 @@ func (js *JobStore) CreateJob(job *model.Job) error {
 	if job.ID == "" {
 		job.ID = uuid.GenerateIDWithLength(schema.JobPrefix, uuid.JobIDLength)
 	}
-	return js.db.Create(job).Error
+	err := js.db.Create(job).Error
+	if err == nil {
+		// in case panic
+		var queueName string
+		if job.Config != nil {
+			queueName = job.Config.GetQueueName()
+		}
+		metrics.Job.AddTimestamp(job.ID, metrics.T2, time.Now(), metrics.Info{
+			metrics.QueueIDLabel:   job.QueueID,
+			metrics.QueueNameLabel: queueName,
+			metrics.UserNameLabel:  job.UserName,
+		})
+	}
+	return err
 }
 
 func (js *JobStore) GetJobByID(jobID string) (model.Job, error) {
@@ -152,6 +167,18 @@ func (js *JobStore) UpdateJob(jobID string, status schema.JobStatus, runtimeInfo
 		updatedJob.Message = message
 	}
 	if status == schema.StatusJobRunning && !job.ActivatedAt.Valid {
+		// add queue id here
+		// in case panic
+		var queueName, userName string
+		if job.Config != nil {
+			queueName = job.Config.GetQueueName()
+			userName = job.Config.GetUserName()
+		}
+		metrics.Job.AddTimestamp(jobID, metrics.T7, time.Now(), metrics.Info{
+			metrics.QueueIDLabel:   job.QueueID,
+			metrics.QueueNameLabel: queueName,
+			metrics.UserNameLabel:  userName,
+		})
 		updatedJob.ActivatedAt.Time = time.Now()
 		updatedJob.ActivatedAt.Valid = true
 	}

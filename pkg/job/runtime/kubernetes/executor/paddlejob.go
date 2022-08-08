@@ -34,7 +34,6 @@ import (
 
 type PaddleJob struct {
 	KubeJob
-	JobModeParams
 }
 
 func (pj *PaddleJob) validateJob(pdj *paddlev1.PaddleJob) error {
