@@ -559,7 +559,7 @@ class RunInfo(object):
 ### 工作流详情
 
 ```python
-ret, response = client.show_run("runid")
+ret, response = client.status_run("runid")
 ```
 #### 接口入参说明
 |字段名称 | 字段类型 | 字段含义
