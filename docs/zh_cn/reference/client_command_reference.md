@@ -296,7 +296,7 @@ mount命令：用户输入```paddleflow fs mount {fs_name} {mountpath}```，界�
 `run` 提供了`create`, `list`, `status`, `stop`, `retry`, `delete`, `listcache`, `showcache`, `delcache`, `artifact`十种不同的方法。 十种不同操作的示例如下：
 
 ```bash
-paddleflow run create -f(--fsname) fs_name -n(--name) run_name  -d(--desc) xxx -u(--username) username -p(--param) data_file=xxx -p regularization=*** -yp(--runyamlpath) ./run.yaml -pplid(--pipelineid) ppl-000666 -yr(runyamlraw) xxx --disabled some_step_names -de(--dockerenv) docker_env
+paddleflow run create -f(--fsname) fs_name -n(--name) run_name  -d(--desc) xxx -u(--username) username -p(--param) data_file=xxx -p regularization=*** -yp(--runyamlpath) ./run.yaml -pplid(--pipelineid) ppl-000666 -pplver(--pplversionid) 1 -yr(runyamlraw) xxx --disabled some_step_names -de(--dockerenv) docker_env
 // 创建pipeline作业，-yp、-pplid、yr为3中发起任务的方式，每次只能使用其中一种
 
 paddleflow run list -f(--fsname) fsname -u(--username) username -r(--runid) runid -n(--name) name -s(--status) runinng -m(--maxsize) 10 -mk(--marker) xxx
@@ -306,9 +306,9 @@ paddleflow run show runid // 展示一个pipeline下面的详细信息，包括j
 
 paddleflow run stop runid -f(--force) // 停止一个pipeline
 
-paddleflow run retry runid -non-cc(-non) // 重跑一个pipeline
+paddleflow run retry runid // 重跑一个pipeline
 
-paddleflow run delete runid // 删除一个运行的工作流
+paddleflow run delete runid -not-cc(-notcheckcache) // 删除一个运行的工作流
 
 paddleflow run listcache -u(--userfilter) username -f(--fsfilter) fsname -r(--runfilter) run-000666 -m(--maxsize) 10 -mk(--marker) xxx // 列出搜有的工作流缓存
 
@@ -316,7 +316,7 @@ paddleflow run showcache cacheid // 显示工作流缓存详情
 
 paddleflow run delcahce cacheid // 删除指定工作流缓存
 
-paddleflow run artifact -u(--userfilter) username -f(--fsfilter) fsname -r(runfilter) run-000666 -t(--typefilter) type -p(--pathfilter) path -m(--maxsize) 10 -mk(--marker) xxx // 列出所有工作流产出
+paddleflow run listartifact -u(--userfilter) username -f(--fsfilter) fsname -r(runfilter) run-000666 -t(--typefilter) type -p(--pathfilter) path -m(--maxsize) 10 -mk(--marker) xxx // 列出所有工作流产出
 ```
 
 ### 示例
@@ -424,7 +424,7 @@ paddleflow run create -yr {{base64yaml}}
 用户可以先创建工作流模板，具体方法见下文的[工作流模板管理](#工作流模板管理)相关内容，然后通过工作流模板的ID，来发起任务，具体如下：
 
 ```bash
-paddleflow run create -pplid ppl-000666
+paddleflow run create -pplid ppl-000666 -pplver 1
 ```
 
 工作流列表：用户输入```paddleflow run list```，界面上能够显示出所有工作流列表信息,marker下一页的起始位，-mk --marker 参数使用
@@ -551,14 +551,17 @@ marker: f990bc858cbd2a8d5eae9243970a2d8c
 
 ### 工作流模板管理
 
-`pipeline` 提供了`create`,`show`, `list`, `delete`四种不同的方法。 四种不同操作的示例如下：
+`pipeline` 提供了`create`,`show`, `list`, `delete`, `update`, `showver`, `deletever` 7种不同的方法。 7种不同操作的示例如下：
 
 ```bash
 paddleflow pipeline create  fsname:required（必须） yamlpath:required(必须)  -n(--name)  pipeline_name -u(--username) username // 创建pipeline模板(指定创建的pipeline模板名称；指定模板的用户)
-paddleflow pipeline list -u(--userfilter) user -f(--fsfilter) fsname -n(--namefilter) pipeline_name -m(--maxkeys) int -mk(--marker) xxx // 列出所有的pipeline模板 （通过username 列出特定用户的pipeline模板（限root用户）;通过fsname 列出特定fs下面的pipeline模板；通过pipelinename列出特定的pipeline模板；列出指定数量的pipeline模板；从marker列出pipeline模板）
+paddleflow pipeline list -u(--userfilter) user -n(--namefilter) pipeline_name -m(--maxkeys) int -mk(--marker) xxx // 列出所有的pipeline模板 （通过username 列出特定用户的pipeline模板（限root用户）;通过fsname 列出特定fs下面的pipeline模板；通过pipelinename列出特定的pipeline模板；列出指定数量的pipeline模板；从marker列出pipeline模板）
 paddleflow pipeline show pipelineid // 展示一个pipeline模板下面的详细信息，包括yaml信息
 paddleflow pipeline delete  pipelineid // 删除一个pipeline模板 
 
+paddleflow pipeline update piplineid fsname yamlpath  -n(--name)  pipeline_name -u(--username) username // 更新Pipeline模板（创建pipeline模板版本）
+paddleflow pipeline showver pipelineid pipelineversionid // 查看一个pipeline模板版本
+paddleflow pipeline deletever pipelineid pipelineversionid // 删除一个pipeline模板版本
 ```
 
 
@@ -611,6 +614,25 @@ marker: None
 ```bash
 pipelineid[pipelineid] delete success
 
+```
+
+### 周期调度管理
+周期调度(`schedule`)提供了5种不同的方法，示例如下：
+```bash
+paddleflow schedule create name pplid pplverid crontab -d(--desc) xxx -s(starttime) xxx -e(--endtime) xxx -c(--concurrency) xxx -cp(--concurrencypolicy) xxx -ei(--expireinterval) xxx -f(--fsname) xxx -u(--username) xxx
+// 创建周期调度
+
+paddleflow schedule list -u(--userfilter) user -n(--namefilter) name -p(--pplfilter) xxx -pv(--pplverfilter) xx -s(--statusfilter) xx -m(--maxkeys) 50 -mk(--marker) xxx 
+// 查看周期调度列表
+
+paddleflow schedule show -u(--userfilter) xxx -r(--runfilter) xxx -s(--statusfilter) xxx -m(--maxkeys) 50 -mk(--marker) xxx 
+// 查看周期调度详情，同时查看该周期调度已发起的Run
+
+paddleflow schedule stop scheduleid
+// 暂停周期调度
+
+paddleflow schedule delete scheduleid
+// 删除周期调度
 ```
 
 

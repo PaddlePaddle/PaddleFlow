@@ -950,7 +950,7 @@ ret, response = client.create_schedule("name", "pipeline_id", "pipeline_ver_id",
 |ret| bool| 操作成功返回True，失败返回False
 |response| string | 失败返回失败message，成功返回scheduleID
 
-### 周期调度查看
+### 周期调度列表查看
 ```python
 ret, response = client.list_schedule()
 ```
