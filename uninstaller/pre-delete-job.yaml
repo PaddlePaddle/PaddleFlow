@@ -8,11 +8,11 @@ metadata:
 spec:
   template:
     spec:
-      serviceAccount: pre-delete
+      serviceAccount: paddleflow-server
       restartPolicy: Never
       containers:
       - name: pre-delete
-        image: iregistry.baidu-int.com/moxianyuan/pre-delete-hook:v4
+        image: pre-delete-hook:latest
         args:
           - -c
           - cd /root/pre-delete && python pre-delete.py
