@@ -66,10 +66,11 @@ def list(ctx, user_filter=None, name_filter=None, max_keys=None, marker=None):
     """list pipeline. \n"""
     client = ctx.obj['client']
     output_format = ctx.obj['output']
-    valid, response, next_marker = client.list_pipeline(user_filter, name_filter, max_keys, marker)
+    valid, response = client.list_pipeline(user_filter, name_filter, max_keys, marker)
     if valid:
-        if len(response):
-            _print_pipeline(response, output_format)
+        pipeline_list, next_marker = response['pipelineList'], response['nextMarker']
+        if len(pipeline_list):
+            _print_pipeline(pipeline_list, output_format)
             click.echo('marker: {}'.format(next_marker))
         else:
             msg = "no pipeline found "
@@ -94,9 +95,11 @@ def show(ctx, pipeline_id, fs_filter=None, max_keys=None, marker=None):
     if not pipeline_id:
         click.echo('pipeline show  must pipeline id.', err=True)
         sys.exit(1)
-    valid, response, ppl_ver_list, next_marker = client.show_pipeline(pipeline_id, fs_filter, max_keys, marker)
+    valid, response = client.show_pipeline(pipeline_id, fs_filter, max_keys, marker)
     if valid:
-        _print_pipeline_info(response, ppl_ver_list, next_marker, output_format)
+        ppl_info, ppl_ver_list = response['pipelineInfo'], response['pipelineVersionList']
+        next_marker = response['nextMarker']
+        _print_pipeline_info(ppl_info, ppl_ver_list, next_marker, output_format)
     else:
         click.echo("pipeline show failed with message[%s]" % response)
         sys.exit(1)
@@ -136,9 +139,10 @@ def update(ctx, pipeline_id, fs_name, yaml_path, username, desc):
     if not pipeline_id or not fs_name or not yaml_path:
         click.echo('pipeline update must provide pipeline_id, fs_name and yaml_path .', err=True)
         sys.exit(1)
-    valid, response, version_id = client.update_pipeline(pipeline_id, fs_name, yaml_path, username, desc)
+    valid, response = client.update_pipeline(pipeline_id, fs_name, yaml_path, username, desc)
     if valid:
-        click.echo("pipeline[%s] update success, new version id [%s]" % (response, version_id))
+        ppl_id, ppl_version_id = response['pipelineID'], response['pipelineVersionID']
+        click.echo("pipeline[%s] update success, new version id [%s]" % (ppl_id, ppl_version_id))
     else:
         click.echo("pipeline update failed with message[%s]" % response)
         sys.exit(1)

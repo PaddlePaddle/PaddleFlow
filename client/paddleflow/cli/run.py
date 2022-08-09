@@ -212,11 +212,12 @@ def list_cache(ctx, user_filter=None, fs_filter=None, run_filter=None, max_keys=
     """list cache .\n """
     client = ctx.obj['client']
     output_format = ctx.obj['output']
-    valid, response, nextmarker = client.list_cache(user_filter, fs_filter, run_filter, max_keys, marker)
+    valid, response = client.list_cache(user_filter, fs_filter, run_filter, max_keys, marker)
     if valid:
-        if len(response):
-            _print_run_cache(response, output_format)
-            click.echo('marker: {}'.format(nextmarker))
+        run_cache_list, next_marker = response['runCacheList'], response['nextMarker']
+        if len(run_cache_list):
+            _print_run_cache(run_cache_list, output_format)
+            click.echo('marker: {}'.format(next_marker))
         else:
             msg = "no run found "
             click.echo(msg)
@@ -278,11 +279,12 @@ def list_artifact(ctx, user_filter=None, fs_filter=None, run_filter=None, type_f
     """list artifact. \n"""
     client = ctx.obj['client']
     output_format = ctx.obj['output']
-    valid, response, next_marker = client.artifact(user_filter, fs_filter, run_filter, type_filter,
-                                                  path_filter, max_keys, marker)
+    valid, response = client.list_artifact(user_filter, fs_filter, run_filter, type_filter,
+                                                        path_filter, max_keys, marker)
     if valid:
-        if len(response):
-            _print_artifact(response, output_format)
+        artifact_list, next_marker = response['artifactList'], response['nextMarker']
+        if len(artifact_list):
+            _print_artifact(artifact_list, output_format)
             click.echo('marker: {}'.format(next_marker))
         else:
             msg = "no artifact found "

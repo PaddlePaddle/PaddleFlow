@@ -258,7 +258,7 @@ class RunServiceApi(object):
                               cache['custom'], cache['createTime'],
                               cache.get('updateTime', ' '))
                 cache_list.append(cache_info)
-        return True, cache_list, data.get('nextMarker', None)
+        return True, {'runCacheList': cache_list, 'nextMarker': data.get('nextMarker', None)}
 
     @classmethod
     def show_runcache(self, host, run_cache_id, header=None):
@@ -318,8 +318,8 @@ class RunServiceApi(object):
             return False, None
 
     @classmethod
-    def artifact(self, host, user_filter=None, fs_filter=None, run_filter=None, type_filter=None, path_filter=None,
-                 max_keys=None, marker=None, header=None):
+    def list_artifact(self, host, user_filter=None, fs_filter=None, run_filter=None, type_filter=None, path_filter=None,
+                      max_keys=None, marker=None, header=None):
         """artifact
         """
         if not header:
@@ -353,4 +353,4 @@ class RunServiceApi(object):
                     i['step'], i['type'], i['artifactName'], i['meta'],
                     i['createTime'], i['updateTime'])
             actiface_list.append(actifact)
-        return True, actiface_list, data.get('nextMarker', None)
+        return True, {'artifactList': actiface_list, 'nextMarker': data.get('nextMarker', None)}
