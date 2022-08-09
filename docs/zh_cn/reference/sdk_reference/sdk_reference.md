@@ -787,7 +787,7 @@ ret, response = client.create_pipeline()
 |字段名称 | 字段类型 | 字段含义
 |:---:|:---:|:---:|
 |ret| bool| 操作成功返回True，失败返回False
-|response| -| 失败返回失败message，成功返回dict：{'name': 名称, 'id': id}
+|response| -| 失败返回失败message，成功返回dict：{'name': 名称, 'pplID': 工作流模板id, 'pplVerID': 工作流模板版本id}
 
 ### 工作流模板列表显示
 ```python
