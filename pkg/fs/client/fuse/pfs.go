@@ -40,8 +40,8 @@ type FuseConfig struct {
 }
 
 var FuseConf = &FuseConfig{
-	EntryTimeout: 1,
-	AttrTimeout:  1,
+	EntryTimeout: 1*time.Second,
+	AttrTimeout:  1*time.Second,
 	DirMode:      0755,
 	FileMode:     0644,
 	Uid:          os.Getuid(),
