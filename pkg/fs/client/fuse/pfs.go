@@ -340,7 +340,6 @@ func (fs *PFS) ReadDir(cancel <-chan struct{}, input *fuse.ReadIn, out *fuse.Dir
 			break
 		}
 	}
-	log.Debugf("pfs POSIX ReadDir result %v", code)
 	return fuse.Status(code)
 }
 
