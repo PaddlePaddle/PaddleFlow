@@ -20,7 +20,7 @@ spec:
           - /bin/sh
         env:
           - name: service_name
-            value: "paddleflow-server-cluster-ip"
+            value: "paddleflow-server-inside"
           - name: namespace
             value: "paddleflow"
           - name: port
