@@ -899,29 +899,37 @@ ret, response, ppl_ver_id = client.update_pipeline("pipeline_id", "fs_name", "ya
 
 ### 工作流模板版本查看
 ```python
-ret, response = client.show_pipeline_version("pipeline_id", "fs_name", "yaml_path")
+ret, response, ppl_ver = client.show_pipeline_version("pipeline_id", "pieline_ver_id")
 ```
 #### 接口入参说明
 |字段名称 | 字段类型 | 字段含义
 |:---:|:---:|:---:|
 |pipeline_id| string (required) |工作流模板id
-|fs_name| string (required) |共享存储名称
-|yaml_path| string (required) |yaml 文件所在路径
-|desc| string (optional)| 工作流模板的描述
-|username| string (optional) | 模板所属用户名称
+|pipline_version_id| string (required) |工作流模板版本id
 
 #### 接口返回说明
 |字段名称 | 字段类型 | 字段含义
 |:---:|:---:|:---:|
 |ret| bool| 操作成功返回True，失败返回False
-|response| -| 失败返回失败message，成功返回PipelineID
-|ppl_ver_id| - |失败返回None，成功返回新的PipelineVersionID
+|response| -| 失败返回失败message，成功返回PipelineInfo
+|ppl_ver| - | 失败返回None，成功返回PipelineVersionInfo
+
+
+### 工作流模板版本删除
+```python
+ret, response = client.delete_pipeline_version("pipeline_id", "pieline_ver_id")
+```
+#### 接口入参说明
+|字段名称 | 字段类型 | 字段含义
+|:---:|:---:|:---:|
+|pipeline_id| string (required) |工作流模板id
+|pipline_version_id| string (required) |工作流模板版本id
 
 #### 接口返回说明
 |字段名称 | 字段类型 | 字段含义
 |:---:|:---:|:---:|
 |ret| bool| 操作成功返回True，失败返回False
-|response| -| 失败返回失败message，成功返回none
+|response| -| 失败返回失败message，成功返回None
 
 ### 集群创建
 ```python
