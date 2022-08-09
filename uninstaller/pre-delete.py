@@ -28,6 +28,7 @@ ret = v1.read_namespaced_service(service_name, namespace)
 
 import time
 import paddleflow
+import os
 
 
 def check_pfserver_status(service_name, namespace, port, user, password):
@@ -60,11 +61,11 @@ def check_pfserver_status(service_name, namespace, port, user, password):
             return 0
 
 if __name__ == '__main__':
-    service_name = "paddleflow-server-cluster-ip"
-    namespace = "paddleflow"
-    port = 8999
-    user = "root"
-    password = "paddleflow"
+    service_name = os.getenv("service_name")
+    namespace = os.getenv("namespace")
+    port = int(os.getenv("port"))
+    user = os.getenv("user")
+    password = os.getenv("password")
 
     check_pfserver_status(service_name, namespace, port, user, password)
 
