@@ -695,8 +695,7 @@ ret, response = client.list_cache()
 |字段名称 | 字段类型 | 字段含义
 |:---:|:---:|:---:|
 |ret| bool| 操作成功返回True，失败返回False
-|response| -| 失败返回失败message，成功返回run信息，类型为RunCacheInfo，可以参考下面RunCacheInfo类的定义获取对应的成员变量。
-|marker| string| 存在返回下一页的起始string，否则返回null
+|response| -| 失败返回失败message，成功返回 dict: {'runCacheList': RunCacheInfo列表, 'nextMarker': marker}，可以参考下面RunCacheInfo类的定义获取对应的成员变量。
 
 返回信息response中的列表元素结构如下：
 ```python
@@ -788,8 +787,7 @@ ret, response = client.create_pipeline()
 |字段名称 | 字段类型 | 字段含义
 |:---:|:---:|:---:|
 |ret| bool| 操作成功返回True，失败返回False
-|response| -| 失败返回失败message，成功返回pipeline名称
-|id| string| 失败返回none，成功返回pipeline id
+|response| -| 失败返回失败message，成功返回dict：{'name': 名称, 'id': id}
 
 ### 工作流模板列表显示
 ```python
@@ -807,8 +805,7 @@ ret, response = client.list_pipeline()
 |字段名称 | 字段类型 | 字段含义
 |:---:|:---:|:---:|
 |ret| bool| 操作成功返回True，失败返回False
-|response| -| 失败返回失败message，成功返回run信息，类型为PipelineInfo，可以参考下面PipelineInfo类的定义获取对应的成员变量。
-|marker| string| 存在返回下一页的起始string，否则返回null
+|response| -| 失败返回失败message，成功返回dict: {'pipelineList': PipelineInfo列表, 'nextMarker': marker} 可以参考下面PipelineInfo类的定义获取对应的成员变量。
 
 返回信息response中的列表元素结构如下：
 ```python
@@ -842,9 +839,7 @@ ret, response, ppl_ver_list, marker = client.show_pipeline("pipelineid")
 |字段名称 | 字段类型 | 字段含义
 |:---:|:---:|:---:|
 |ret| bool| 操作成功返回True，失败返回False
-|response| -| 失败返回失败message，成功返回工作流模板对象，参考上面的PipelineInfo结构
-|ppl_ver_list| - |失败返回None，成功返回PiplineVersionInfo的List，Info结构见下
-|marker| string |失败返回None，成功如果存在下一页返回marker，否则返回None
+|response| -| 失败返回失败message，成功返回 dict: {'pipelineList': 工作流模板列表, 'pipelineVersionList': 工作流模板版本列表, 'nextMarker': marker}
 
 ```python
 class PipelineVersionInfo(object):
@@ -894,8 +889,7 @@ ret, response, ppl_ver_id = client.update_pipeline("pipeline_id", "fs_name", "ya
 |字段名称 | 字段类型 | 字段含义
 |:---:|:---:|:---:|
 |ret| bool| 操作成功返回True，失败返回False
-|response| -| 失败返回失败message，成功返回PipelineID
-|ppl_ver_id| - |失败返回None，成功返回新的PipelineVersionID
+|response| -| 失败返回失败message，成功返回dict: {'pipelineID': pplID, 'pipelineVersionID': pplVerID}
 
 ### 工作流模板版本查看
 ```python
@@ -905,14 +899,13 @@ ret, response, ppl_ver = client.show_pipeline_version("pipeline_id", "pieline_ve
 |字段名称 | 字段类型 | 字段含义
 |:---:|:---:|:---:|
 |pipeline_id| string (required) |工作流模板id
-|pipline_version_id| string (required) |工作流模板版本id
+|pipeline_version_id| int (required) |工作流模板版本id
 
 #### 接口返回说明
 |字段名称 | 字段类型 | 字段含义
 |:---:|:---:|:---:|
 |ret| bool| 操作成功返回True，失败返回False
-|response| -| 失败返回失败message，成功返回PipelineInfo
-|ppl_ver| - | 失败返回None，成功返回PipelineVersionInfo
+|response| -| 失败返回失败message，成功返回dict: {'pipelineInfo': 工作流模板, 'pipelineVersionInfo': 工作流模板版本}
 
 
 ### 工作流模板版本删除
@@ -923,7 +916,104 @@ ret, response = client.delete_pipeline_version("pipeline_id", "pieline_ver_id")
 |字段名称 | 字段类型 | 字段含义
 |:---:|:---:|:---:|
 |pipeline_id| string (required) |工作流模板id
-|pipline_version_id| string (required) |工作流模板版本id
+|pipline_version_id| int (required) |工作流模板版本id
+
+#### 接口返回说明
+|字段名称 | 字段类型 | 字段含义
+|:---:|:---:|:---:|
+|ret| bool| 操作成功返回True，失败返回False
+|response| -| 失败返回失败message，成功返回None
+
+### 周期调度创建
+```python
+ret, response = client.create_schedule("name", "pipeline_id", "pipeline_ver_id", "* */3 * * *")
+```
+#### 接口入参说明
+|字段名称 | 字段类型 | 字段含义
+|:---:|:---:|:---:|
+|name| string (required) |周期调度名称
+|pipeline_id| string (required)| 工作流模板id
+|pipeline_version_id| int (required) |工作流模板版本id
+|crontab| string (required) | crontab表达式
+|desc| string (optional) | 描述
+|start_time| string (optional)| 开始时间，格式为'YYYY-MM-DD hh-mm-ss'，不填则立马开始
+|end_time| string (optional)| 结束时间，格式同上，不填则永远进行|
+|concurrency| int (optional) | 并发度
+|concurrency_policy| string (optional) | 并发度政策：suspend、replace、skip
+|expire_interval| int (optional)|表示需要恢复的，被miss的周期任务时间段
+|fs_name | string (optional)|存储名称
+|username| string (optional)|root用户指定的普通用户名称
+
+#### 接口返回说明
+|字段名称 | 字段类型 | 字段含义
+|:---:|:---:|:---:|
+|ret| bool| 操作成功返回True，失败返回False
+|response| string | 失败返回失败message，成功返回scheduleID
+
+### 周期调度查看
+```python
+ret, response = client.list_schedule()
+```
+#### 接口入参说明
+|字段名称 | 字段类型 | 字段含义
+|:---:|:---:|:---:|
+|user_filter| string (optional) | 返回指定的用户名对应的周期调度
+|ppl_filter| string (optional) | 返回指定的pplID对应的周期调度
+|ppl_version_filter| string (optional)| 返回指定的pplVerID对应的周期调度
+|schedule_filter| string (optional) |返回指定的ScheduleID对应的周期调度
+|name_filter| string (optional) | 返回指定的ScheduleName对应的周期调度
+|status_filter | string (optional)| 返回指定的Status对应的周期调度
+|marker| string (optional)| 起始位置
+|max_keys| string (optional) | 最大显示数量
+
+#### 接口返回说明
+|字段名称 | 字段类型 | 字段含义
+|:---:|:---:|:---:|
+|ret| bool| 操作成功返回True，失败返回False
+|response| string | 失败返回失败message，成功返回dict: {'scheduleList': 周期调度列表, 'nextMarker': marker}
+
+### 周期调度查看
+```python
+ret, response = client.show_schedule()
+```
+#### 接口入参说明
+|字段名称 | 字段类型 | 字段含义
+|:---:|:---:|:---:|
+|user_filter| string (optional) | 返回指定的用户名对应的Run
+|run_filter| string (optional) | 返回指定的runID对应的Run
+|status_filter | string (optional)| 返回指定的Status对应的Run
+|marker| string (optional)| 起始位置
+|max_keys| string (optional) | 最大显示数量
+
+#### 接口返回说明
+|字段名称 | 字段类型 | 字段含义
+|:---:|:---:|:---:|
+|ret| bool| 操作成功返回True，失败返回False
+|response| string | 失败返回失败message，成功返回dict: {'scheduleInfo': 周期调度, 'runList': run列表, 'nextMarker': marker}
+
+### 停止周期调度
+```python
+ret, response = client.stop_schedule("schedule_id")
+```
+#### 接口入参说明
+|字段名称 | 字段类型 | 字段含义
+|:---:|:---:|:---:|
+|schedule_id| string (required)|需要停止的schedule的 id
+
+#### 接口返回说明
+|字段名称 | 字段类型 | 字段含义
+|:---:|:---:|:---:|
+|ret| bool| 操作成功返回True，失败返回False
+|response| -| 失败返回失败message，成功返回None
+
+### 删除周期调度
+```python
+ret, response = client.delete_schedule("schedule_id")
+```
+#### 接口入参说明
+|字段名称 | 字段类型 | 字段含义
+|:---:|:---:|:---:|
+|schedule_id| string (required)|需要删除的schedule的 id
 
 #### 接口返回说明
 |字段名称 | 字段类型 | 字段含义
