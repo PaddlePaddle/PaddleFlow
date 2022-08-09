@@ -24,7 +24,7 @@ spec:
           - name: namespace
             value: "paddleflow"
           - name: port
-            value: 8999
+            value: "8999"
           - name: user
             value: "root"
           - name: password
