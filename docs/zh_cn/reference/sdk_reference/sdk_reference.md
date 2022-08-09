@@ -752,7 +752,7 @@ ret, response = client.delete_cache("cacheid")
 
 ### 工作流运行产出列表展示
 ```python
-ret, response = client.artifact()
+ret, response = client.list_artifact()
 ```
 #### 接口入参说明
 |字段名称 | 字段类型 | 字段含义
