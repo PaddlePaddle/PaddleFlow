@@ -941,7 +941,7 @@ ret, response = client.create_schedule("name", "pipeline_id", "pipeline_ver_id",
 |concurrency| int (optional) | 并发度
 |concurrency_policy| string (optional) | 并发度政策：suspend、replace、skip
 |expire_interval| int (optional)|表示需要恢复的，被miss的周期任务时间段
-|fs_name | string (optional)|存储名称
+|catchup | string (optional)|是否开启catchup机制
 |username| string (optional)|root用户指定的普通用户名称
 
 #### 接口返回说明
