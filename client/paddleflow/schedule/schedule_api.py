@@ -32,8 +32,8 @@ class ScheduleServiceApi(object):
 
     @classmethod
     def create_schedule(self, host, header, name, pipeline_id, pipeline_version_id, crontab,
-                 desc, start_time, end_time, concurrency, concurrency_policy, expire_interval,
-                 catchup, username):
+                 desc=None, start_time=None, end_time=None, concurrency=None, concurrency_policy=None, expire_interval=None,
+                 catchup=None, username=None):
         if not header:
             raise PaddleFlowSDKException("InvalidRequest", "paddleflow should login first")
 

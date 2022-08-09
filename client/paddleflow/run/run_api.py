@@ -203,12 +203,12 @@ class RunServiceApi(object):
         return True, None
 
     @classmethod
-    def delete_run(self, host, run_id, checkcache=True, header=None):
+    def delete_run(self, host, run_id, check_cache=True, header=None):
         """delete run
         """
         if not header:
             raise PaddleFlowSDKException("InvalidRequest", "paddleflow should login first")
-        body = {"checkCache": checkcache}
+        body = {"checkCache": check_cache}
         response = api_client.call_api(method="DELETE",
                                        url=parse.urljoin(host, api.PADDLE_FLOW_RUN + "/%s" % run_id),
                                        headers=header, json=body)

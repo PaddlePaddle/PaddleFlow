@@ -28,6 +28,7 @@ from paddleflow.queue import QueueServiceApi
 from paddleflow.fs import FSServiceApi
 from paddleflow.run import RunServiceApi
 from paddleflow.pipeline import PipelineServiceApi
+from paddleflow.schedule import ScheduleServiceApi
 from paddleflow.utils import api_client
 from paddleflow.cluster import ClusterServiceApi
 from paddleflow.flavour import FlavouriceApi
@@ -546,7 +547,7 @@ class Client(object):
         return PipelineServiceApi.list_pipeline(self.paddleflow_server, user_filter,
                                                 name_filter, max_keys, marker, self.header)
 
-    def show_pipeline(self, pipeline_id, fs_filter, max_keys, marker):
+    def show_pipeline(self, pipeline_id, fs_filter=None, max_keys=None, marker=None):
         """
         show pipeline
         """
@@ -611,7 +612,7 @@ class Client(object):
             raise PaddleFlowSDKException("InvalidRunID", "run_id should not be none or empty")
         return RunServiceApi.retry_run(self.paddleflow_server, run_id, self.header)
 
-    def delete_run(self, run_id, check_cache):
+    def delete_run(self, run_id, check_cache=None):
         """
         status run
         """
@@ -658,8 +659,8 @@ class Client(object):
         return RunServiceApi.delete_runcache(self.paddleflow_server, cache_id, self.header)
 
     def create_schedule(self, name, pipeline_id, pipeline_version_id, crontab,
-                 desc, start_time, end_time, concurrency, concurrency_policy, expire_interval,
-                 catchup, username):
+                 desc=None, start_time=None, end_time=None, concurrency=None, concurrency_policy=None, expire_interval=None,
+                 catchup=None, username=None):
         self.pre_check()
         if name is None or name == "":
             raise PaddleFlowSDKException("InvalidName", "name should not be none or empty")
@@ -669,6 +670,10 @@ class Client(object):
             raise PaddleFlowSDKException("InvalidPipelineVersionID", "pipeline_version_id should not be none or empty")
         if crontab is None or crontab == "":
             raise PaddleFlowSDKException("InvalidPipelineVersionID", "pipeline_version_id should not be none or empty")
+        return ScheduleServiceApi.create_schedule(self.paddleflow_server, self.header,
+                                                name, pipeline_id, pipeline_version_id, crontab,
+                                                desc, start_time, end_time, concurrency, concurrency_policy,
+                                                expire_interval, catchup, username)
 
     def show_log(self, run_id, job_id=None, page_size=None, page_no=None, log_file_position=None):
         """
