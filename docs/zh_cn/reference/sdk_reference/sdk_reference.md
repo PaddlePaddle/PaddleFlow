@@ -769,7 +769,7 @@ ret, response = client.list_artifact()
 |字段名称 | 字段类型 | 字段含义
 |:---:|:---:|:---:|
 |ret| bool| 操作成功返回True，失败返回False
-|response| -| 失败返回失败message，成功返回None
+|response| -| 失败返回失败message，成功返回dict: {'artifactList': artifact列表, 'nextMarker': marker}
 
 ### 工作流模板创建
 ```python
