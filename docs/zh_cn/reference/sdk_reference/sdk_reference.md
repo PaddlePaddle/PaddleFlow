@@ -827,7 +827,7 @@ class PipelineInfo(object):
 
 ### 工作流模板详情显示
 ```python
-ret, response, pplVerList, marker = client.show_pipeline("pipelineid")
+ret, response, ppl_ver_list, marker = client.show_pipeline("pipelineid")
 ```
 #### 接口入参说明
 |字段名称 | 字段类型 | 字段含义
@@ -845,6 +845,21 @@ ret, response, pplVerList, marker = client.show_pipeline("pipelineid")
 |response| -| 失败返回失败message，成功返回工作流模板对象，参考上面的PipelineInfo结构
 |ppl_ver_list| - |失败返回None，成功返回PiplineVersionInfo的List，Info结构见下
 |marker| string |失败返回None，成功如果存在下一页返回marker，否则返回None
+
+```python
+class PipelineVersionInfo(object):
+    """the class of pipeline version info"""
+    def __init__(self, pipeline_version_id, pipeline_id, fs_name, yaml_path, pipeline_yaml, username,
+                 create_time, update_time):
+        self.pipeline_version_id = pipeline_version_id
+        self.pipeline_id = pipeline_id
+        self.fs_name = fs_name
+        self.yaml_path = yaml_path
+        self.pipeline_yaml = pipeline_yaml
+        self.username = username
+        self.create_time = create_time
+        self.update_time = update_time
+```
 
 ### 工作流模板删除
 ```python
@@ -864,7 +879,7 @@ ret, response = client.delete_pipeline("pipelineid")
 
 ### 工作流模板更新（版本创建）
 ```python
-ret, response = client.update_pipeline("pipeline_id", "fs_name", "yaml_path")
+ret, response, ppl_ver_id = client.update_pipeline("pipeline_id", "fs_name", "yaml_path")
 ```
 #### 接口入参说明
 |字段名称 | 字段类型 | 字段含义
@@ -875,7 +890,32 @@ ret, response = client.update_pipeline("pipeline_id", "fs_name", "yaml_path")
 |desc| string (optional)| 工作流模板的描述
 |username| string (optional) | 模板所属用户名称
 
+#### 接口返回说明
+|字段名称 | 字段类型 | 字段含义
+|:---:|:---:|:---:|
+|ret| bool| 操作成功返回True，失败返回False
+|response| -| 失败返回失败message，成功返回PipelineID
+|ppl_ver_id| - |失败返回None，成功返回新的PipelineVersionID
 
+### 工作流模板版本查看
+```python
+ret, response = client.show_pipeline_version("pipeline_id", "fs_name", "yaml_path")
+```
+#### 接口入参说明
+|字段名称 | 字段类型 | 字段含义
+|:---:|:---:|:---:|
+|pipeline_id| string (required) |工作流模板id
+|fs_name| string (required) |共享存储名称
+|yaml_path| string (required) |yaml 文件所在路径
+|desc| string (optional)| 工作流模板的描述
+|username| string (optional) | 模板所属用户名称
+
+#### 接口返回说明
+|字段名称 | 字段类型 | 字段含义
+|:---:|:---:|:---:|
+|ret| bool| 操作成功返回True，失败返回False
+|response| -| 失败返回失败message，成功返回PipelineID
+|ppl_ver_id| - |失败返回None，成功返回新的PipelineVersionID
 
 #### 接口返回说明
 |字段名称 | 字段类型 | 字段含义
