@@ -972,6 +972,35 @@ ret, response = client.list_schedule()
 |ret| bool| 操作成功返回True，失败返回False
 |response| string | 失败返回失败message，成功返回dict: {'scheduleList': 周期调度列表, 'nextMarker': marker}
 
+scheduleList中每一个元素的信息见下ScheduleInfo类
+
+```python3
+class ScheduleInfo(object):
+    """the class of schedule info"""
+
+    def __init__(self, crontab, fs_config, username, pipeline_version_id, pipeline_id,
+                 desc, name, schedule_id, options, start_time, end_time, create_time,
+                 update_time, next_run_time, message, status):
+        self.schedule_id = schedule_id
+        self.name = name
+        self.desc = desc
+        self.pipeline_id = pipeline_id
+        self.pipeline_version_id = pipeline_version_id
+        self.username = username
+        self.fs_config = fs_config
+        self.crontab = crontab
+        self.options = options
+        self.start_time = start_time
+        self.end_time = end_time
+        self.create_time = create_time
+        self.update_time = update_time
+        self.next_run_time = next_run_time
+        self.message = message
+        self.status = status
+
+```
+
+
 ### 周期调度查看
 ```python
 ret, response = client.show_schedule()
@@ -990,6 +1019,40 @@ ret, response = client.show_schedule()
 |:---:|:---:|:---:|
 |ret| bool| 操作成功返回True，失败返回False
 |response| string | 失败返回失败message，成功返回dict: {'scheduleInfo': 周期调度, 'runList': run列表, 'nextMarker': marker}
+
+runList中的元素的信息见下RunInfo类
+
+```python
+class RunInfo(object):
+    """the class of RunInfo info"""   
+
+    def __init__(self, run_id, fs_name, username, status, name, description, parameters,
+                 run_yaml, runtime, post_process, docker_env, update_time, source, run_msg, schedule_id, scheduled_time,
+                 fs_options, failure_options, disabled, run_cached_ids, create_time, activate_time):
+        """init """
+        self.run_id = run_id
+        self.fs_name = fs_name
+        self.username = username
+        self.status = status
+        self.name = name
+        self.description = description
+        self.parameters = parameters
+        self.run_yaml = run_yaml
+        self.runtime = runtime
+        self.post_process = post_process
+        self.docker_env = docker_env
+        self.update_time = update_time
+        self.source = source
+        self.run_msg = run_msg
+        self.fs_options = fs_options
+        self.failure_options = failure_options
+        self.disabled = disabled
+        self.run_cached_ids = run_cached_ids
+        self.schedule_id = schedule_id
+        self.scheduled_time = scheduled_time
+        self.create_time = create_time
+        self.activate_time = activate_time
+```
 
 ### 停止周期调度
 ```python
