@@ -839,7 +839,7 @@ ret, response, ppl_ver_list, marker = client.show_pipeline("pipelineid")
 |字段名称 | 字段类型 | 字段含义
 |:---:|:---:|:---:|
 |ret| bool| 操作成功返回True，失败返回False
-|response| -| 失败返回失败message，成功返回 dict: {'pipelineList': 工作流模板列表, 'pipelineVersionList': 工作流模板版本列表, 'nextMarker': marker}
+|response| -| 失败返回失败message，成功返回 dict: {'pipelineInfo': 工作流模板, 'pipelineVersionList': 工作流模板版本列表, 'nextMarker': marker}
 
 ```python
 class PipelineVersionInfo(object):
