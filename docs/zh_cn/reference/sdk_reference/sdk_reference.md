@@ -899,7 +899,7 @@ ret, response, ppl_ver = client.show_pipeline_version("pipeline_id", "pieline_ve
 |字段名称 | 字段类型 | 字段含义
 |:---:|:---:|:---:|
 |pipeline_id| string (required) |工作流模板id
-|pipeline_version_id| int (required) |工作流模板版本id
+|pipeline_version_id| string (required) |工作流模板版本id
 
 #### 接口返回说明
 |字段名称 | 字段类型 | 字段含义
@@ -916,7 +916,7 @@ ret, response = client.delete_pipeline_version("pipeline_id", "pieline_ver_id")
 |字段名称 | 字段类型 | 字段含义
 |:---:|:---:|:---:|
 |pipeline_id| string (required) |工作流模板id
-|pipline_version_id| int (required) |工作流模板版本id
+|pipeline_version_id| string (required) |工作流模板版本id
 
 #### 接口返回说明
 |字段名称 | 字段类型 | 字段含义
@@ -933,7 +933,7 @@ ret, response = client.create_schedule("name", "pipeline_id", "pipeline_ver_id",
 |:---:|:---:|:---:|
 |name| string (required) |周期调度名称
 |pipeline_id| string (required)| 工作流模板id
-|pipeline_version_id| int (required) |工作流模板版本id
+|pipeline_version_id| string (required) |工作流模板版本id
 |crontab| string (required) | crontab表达式
 |desc| string (optional) | 描述
 |start_time| string (optional)| 开始时间，格式为'YYYY-MM-DD hh-mm-ss'，不填则立马开始
@@ -941,7 +941,7 @@ ret, response = client.create_schedule("name", "pipeline_id", "pipeline_ver_id",
 |concurrency| int (optional) | 并发度
 |concurrency_policy| string (optional) | 并发度政策：suspend、replace、skip
 |expire_interval| int (optional)|表示需要恢复的，被miss的周期任务时间段
-|catchup | string (optional)|是否开启catchup机制
+|catchup | bool (optional)|是否开启catchup机制
 |username| string (optional)|root用户指定的普通用户名称
 
 #### 接口返回说明
