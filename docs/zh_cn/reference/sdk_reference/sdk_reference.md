@@ -1003,11 +1003,12 @@ class ScheduleInfo(object):
 
 ### 周期调度查看
 ```python
-ret, response = client.show_schedule()
+ret, response = client.show_schedule("schedule_id")
 ```
 #### 接口入参说明
 |字段名称 | 字段类型 | 字段含义
 |:---:|:---:|:---:|
+|schedule_id| string (required) | 要查看的Schedule的ID
 |user_filter| string (optional) | 返回指定的用户名对应的Run
 |run_filter| string (optional) | 返回指定的runID对应的Run
 |status_filter | string (optional)| 返回指定的Status对应的Run

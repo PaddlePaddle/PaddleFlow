@@ -625,7 +625,7 @@ paddleflow schedule create name pplid pplverid crontab -d(--desc) xxx -s(startti
 paddleflow schedule list -u(--userfilter) user -n(--namefilter) name -p(--pplfilter) xxx -pv(--pplverfilter) xx -s(--statusfilter) xx -m(--maxkeys) 50 -mk(--marker) xxx 
 // 查看周期调度列表
 
-paddleflow schedule show -u(--userfilter) xxx -r(--runfilter) xxx -s(--statusfilter) xxx -m(--maxkeys) 50 -mk(--marker) xxx 
+paddleflow schedule show scheduleid -u(--userfilter) xxx -r(--runfilter) xxx -s(--statusfilter) xxx -m(--maxkeys) 50 -mk(--marker) xxx 
 // 查看周期调度详情，同时查看该周期调度已发起的Run
 
 paddleflow schedule stop scheduleid
