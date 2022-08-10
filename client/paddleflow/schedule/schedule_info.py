@@ -19,8 +19,8 @@ limitations under the License.
 class ScheduleInfo(object):
     """the class of schedule info"""
 
-    def __init__(self, crontab, fs_config, username, pipeline_version_id, pipeline_id,
-                 desc, name, schedule_id, options, start_time, end_time, create_time,
+    def __init__(self, crontab, name, pipeline_version_id, pipeline_id,
+                 desc, username, schedule_id, fs_config, options, start_time, end_time, create_time,
                  update_time, next_run_time, message, status):
         self.schedule_id = schedule_id
         self.name = name

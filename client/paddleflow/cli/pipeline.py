@@ -48,9 +48,10 @@ def create(ctx, fs_name, yaml_path, desc=None, username=None):
     if not fs_name or not yaml_path:
         click.echo('pipeline create  must provide fs name or yaml path .', err=True)
         sys.exit(1)
-    valid, response, id, version_id = client.create_pipeline(fs_name, yaml_path, desc, username)
+    valid, response = client.create_pipeline(fs_name, yaml_path, desc, username)
     if valid:
-        click.echo("pipeline[%s] create  success, id[%s], versionID[%s]" % (response, id, version_id))
+        name, ppl_id, ppl_ver_id = response['name'], response['pplID'], response['pplVerID']
+        click.echo("pipeline[%s] create  success, id[%s], versionID[%s]" % (name, ppl_id, ppl_ver_id))
     else:
         click.echo("pipeline create failed with message[%s]" % response)
         sys.exit(1)

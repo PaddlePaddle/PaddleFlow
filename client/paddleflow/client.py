@@ -675,6 +675,13 @@ class Client(object):
                                                 desc, start_time, end_time, concurrency, concurrency_policy,
                                                 expire_interval, catchup, username)
 
+    def list_schedule(self, user_filter=None, ppl_filter=None, ppl_version_filter=None, schedule_filter=None,
+                      name_filter=None, status_filter=None, marker=None, max_keys=None):
+        self.pre_check()
+        return ScheduleServiceApi.list_schedule(self.paddleflow_server, self.header, user_filter, ppl_filter,
+                                                ppl_version_filter, schedule_filter, name_filter, status_filter,
+                                                marker, max_keys)
+
     def show_log(self, run_id, job_id=None, page_size=None, page_no=None, log_file_position=None):
         """
         show run log

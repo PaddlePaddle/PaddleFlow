@@ -21,6 +21,7 @@ from urllib import parse
 from paddleflow.common.exception.paddleflow_sdk_exception import PaddleFlowSDKException
 from paddleflow.utils import api_client
 from paddleflow.common import api
+from .schedule_info import ScheduleInfo
 
 class ScheduleServiceApi(object):
     """schedule service
@@ -34,6 +35,7 @@ class ScheduleServiceApi(object):
     def create_schedule(self, host, header, name, pipeline_id, pipeline_version_id, crontab,
                  desc=None, start_time=None, end_time=None, concurrency=None, concurrency_policy=None, expire_interval=None,
                  catchup=None, username=None):
+        """ create schedule """
         if not header:
             raise PaddleFlowSDKException("InvalidRequest", "paddleflow should login first")
 
@@ -76,3 +78,67 @@ class ScheduleServiceApi(object):
             return False, data['message']
 
         return True, data['scheduleID']
+
+    @classmethod
+    def list_schedule(self, host, header, user_filter=None, ppl_filter=None, ppl_version_filter=None, schedule_filter=None,
+                      name_filter=None, status_filter=None, marker=None, max_keys=None):
+        """ list schedule """
+        if not header:
+            raise PaddleFlowSDKException("InvalidRequest", "paddleflow should login first")
+
+        param = {}
+        if user_filter:
+            param['userFilter'] = user_filter
+        if ppl_filter:
+            param['pplFilter'] = ppl_filter
+        if ppl_version_filter:
+            param['pplVersionFilter'] = ppl_version_filter
+        if schedule_filter:
+            param['scheduleFilter'] = schedule_filter
+        if name_filter:
+            param['nameFilter'] = name_filter
+        if status_filter:
+            param['statusFilter'] = status_filter
+        if marker:
+            param['marker'] = marker
+        if max_keys:
+            param['maxKeys'] = max_keys
+
+        response = api_client.call_api(method="GET", url=parse.urljoin(host, api.PADDLE_FLOW_SCHEDULE),
+                                       params=param, headers=header)
+
+        if not response:
+            raise PaddleFlowSDKException("Connection Error", "list schedule failed due to HTTPError")
+        data = json.loads(response.text)
+        if 'message' in data:
+            return False, data['message']
+
+        res_schedule_list = []
+        schedule_list = data['scheduleList']
+        if len(schedule_list) > 0:
+            for schedule in schedule_list:
+                schedule_info = ScheduleInfo(schedule['crontab'], schedule['name'], schedule['pipelineID'],
+                                             schedule['pipelineVersionID'], schedule['desc'], schedule['username'],
+                                             schedule['scheduleID'], schedule['fsConfig'], schedule['options'],
+                                             schedule['startTime'], schedule['endTime'], schedule['createTime'],
+                                             schedule['updateTime'], schedule['nextRunTime'],
+                                             schedule['scheduleMsg'], schedule['status'])
+                res_schedule_list.append(schedule_info)
+        return True, {'scheduleList': res_schedule_list, 'nextMarker': data.get('nextMarker', None)}
+
+    @classmethod
+    def show(self, host, header, schedule_id, run_filter=None, status_filter=None,
+             marker=None, max_keys=None):
+        """ show schedule """
+        if not header:
+            raise PaddleFlowSDKException("InvalidRequest", "paddleflow should login first")
+
+        param = {}
+        if run_filter:
+            param['runFilter'] = run_filter
+        if status_filter:
+            param['statusFilter'] = status_filter
+        if marker:
+            param['marker'] = marker
+        if max_keys:
+            param['maxKeys'] = max_keys

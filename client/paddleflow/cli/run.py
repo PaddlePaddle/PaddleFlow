@@ -24,11 +24,9 @@ import click
 import shutil
 import base64
 from ..run.run_info import RunInfo, DagInfo, JobInfo
+from ..common.const import RUN_FINAL_STATUS, RUN_ACTIVE_STATUS
 
 from paddleflow.cli.output import print_output, OutputFormat
-
-RUN_ACTIVE_STATUS = ['running', 'pending', 'terminating', 'initiating']
-RUN_FINAL_STATUS = ['failed', 'succeeded', 'terminated', 'skipped']
 
 @click.group()
 def run():
@@ -52,7 +50,6 @@ def run():
 def create(ctx, fs_name=None, name=None, desc=None, username=None, run_yaml_path=None, run_yaml_raw=None,
            param="", pipeline_id=None, pipeline_version_id=None, disabled=None, docker_env=None):
     """create a new run.\n
-    FSNAME: the name of the fs.
     """
     client = ctx.obj['client']
     param_dict = {}

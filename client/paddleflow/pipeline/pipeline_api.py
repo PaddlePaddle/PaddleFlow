@@ -97,7 +97,7 @@ class PipelineServiceApi(object):
         return True, {'pipelineList': pipelineList, 'nextMarker': data.get('nextMarker', None)}
 
     @classmethod
-    def show_pipeline(self, host, pipeline_id, fs_filter, max_keys, marker, header=None):
+    def show_pipeline(self, host, pipeline_id, fs_filter=None, max_keys=None, marker=None, header=None):
         """show pipeline
         """
         if not header:
