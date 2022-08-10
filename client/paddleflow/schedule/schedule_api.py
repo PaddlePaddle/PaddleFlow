@@ -22,6 +22,7 @@ from paddleflow.common.exception.paddleflow_sdk_exception import PaddleFlowSDKEx
 from paddleflow.utils import api_client
 from paddleflow.common import api
 from .schedule_info import ScheduleInfo
+from ..run.run_info import RunInfo
 
 class ScheduleServiceApi(object):
     """schedule service
@@ -127,7 +128,7 @@ class ScheduleServiceApi(object):
         return True, {'scheduleList': res_schedule_list, 'nextMarker': data.get('nextMarker', None)}
 
     @classmethod
-    def show(self, host, header, schedule_id, run_filter=None, status_filter=None,
+    def show_schedule(self, host, header, schedule_id, run_filter=None, status_filter=None,
              marker=None, max_keys=None):
         """ show schedule """
         if not header:
@@ -142,3 +143,72 @@ class ScheduleServiceApi(object):
             param['marker'] = marker
         if max_keys:
             param['maxKeys'] = max_keys
+
+        response = api_client.call_api(method="GET", url=parse.urljoin(host, api.PADDLE_FLOW_SCHEDULE + "/%s" % schedule_id),
+                                       params=param, headers=header)
+
+        if not response:
+            raise PaddleFlowSDKException("Connection Error", "show schedule failed due to HTTPError")
+        data = json.loads(response.text)
+        if 'message' in data:
+            return False, data['message']
+
+        runs = data['runs']
+        res_run_list = []
+        run_list = runs['runList']
+        for run in run_list:
+            run_info = RunInfo(run['runID'], run['fsName'], run['username'], run['status'], run['name'],
+                               run['description'], None, None, None, None, None, run['updateTime'],
+                               run['source'], run['runMsg'], run['scheduleID'], run['scheduledTime'],
+                               None, None, None, None, run['createTime'], run['activateTime'])
+            res_run_list.append(run_info)
+
+        schedule_info = ScheduleInfo(data['crontab'], data['name'], data['pipelineID'],
+                                        data['pipelineVersionID'], data['desc'], data['username'],
+                                        data['scheduleID'], data['fsConfig'], data['options'],
+                                        data['startTime'], data['endTime'], data['createTime'],
+                                        data['updateTime'], data['nextRunTime'],
+                                        data['scheduleMsg'], data['status'])
+
+        return True, {'scheduleInfo': schedule_info, 'runList': res_run_list, 'nextMarker': data.get('nextMarker', None)}
+
+
+    @classmethod
+    def stop_schedule(self, host, header, schedule_id):
+        """ stop schedule """
+        if not header:
+            raise PaddleFlowSDKException("InvalidRequest",
+                                         "paddleflow should login first")
+        response = api_client.call_api(
+            method="PUT",
+            url=parse.urljoin(host,
+                              api.PADDLE_FLOW_SCHEDULE + "/%s" % schedule_id),
+            headers=header)
+        if not response:
+            raise PaddleFlowSDKException("Connection Error", "stop schedule failed due to HTTPError")
+        if response.text:
+            data = json.loads(response.text)
+            if 'message' in data:
+                return False, data['message']
+        else:
+            return True, None
+
+    @classmethod
+    def delete_schedule(self, host, header, schedule_id):
+        """ delete schedule """
+        if not header:
+            raise PaddleFlowSDKException("InvalidRequest",
+                                         "paddleflow should login first")
+        response = api_client.call_api(
+            method="DELETE",
+            url=parse.urljoin(host,
+                              api.PADDLE_FLOW_SCHEDULE + "/%s" % schedule_id),
+            headers=header)
+        if not response:
+            raise PaddleFlowSDKException("Connection Error", "stop schedule failed due to HTTPError")
+        if response.text:
+            data = json.loads(response.text)
+            if 'message' in data:
+                return False, data['message']
+        else:
+            return True, None

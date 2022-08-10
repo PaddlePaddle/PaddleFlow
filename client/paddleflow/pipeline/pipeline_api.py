@@ -157,7 +157,7 @@ class PipelineServiceApi(object):
             if 'message' in data:
                 return False, data['message']
         else:
-            return True, pipeline_id
+            return True, None
 
     @classmethod
     def update_pipeline(self, host, header, pipeline_id, fs_name, yaml_path, username=None, desc=None):

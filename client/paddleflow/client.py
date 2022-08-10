@@ -661,6 +661,7 @@ class Client(object):
     def create_schedule(self, name, pipeline_id, pipeline_version_id, crontab,
                  desc=None, start_time=None, end_time=None, concurrency=None, concurrency_policy=None, expire_interval=None,
                  catchup=None, username=None):
+        """ create schedule """
         self.pre_check()
         if name is None or name == "":
             raise PaddleFlowSDKException("InvalidName", "name should not be none or empty")
@@ -677,10 +678,31 @@ class Client(object):
 
     def list_schedule(self, user_filter=None, ppl_filter=None, ppl_version_filter=None, schedule_filter=None,
                       name_filter=None, status_filter=None, marker=None, max_keys=None):
+        """ list schedule """
         self.pre_check()
         return ScheduleServiceApi.list_schedule(self.paddleflow_server, self.header, user_filter, ppl_filter,
                                                 ppl_version_filter, schedule_filter, name_filter, status_filter,
                                                 marker, max_keys)
+
+    def show_schedule(self, schedule_id, run_filter=None, status_filter=None, marker=None, max_keys=None):
+        """ show schedule """
+        self.pre_check()
+        if schedule_id is None or schedule_id == "":
+            raise PaddleFlowSDKException("InvalidScheduleID", "schedule_id should not be none or empty")
+        return ScheduleServiceApi.show_schedule(self.paddleflow_server, self.header, schedule_id, run_filter, status_filter,
+                                                marker, max_keys)
+
+    def stop_schedule(self, schedule_id):
+        self.pre_check()
+        if schedule_id is None or schedule_id == "":
+            raise PaddleFlowSDKException("InvalidScheduleID", "schedule_id should not be none or empty")
+        return ScheduleServiceApi.stop_schedule(self.paddleflow_server, self.header, schedule_id)
+
+    def delete_schedule(self, schedule_id):
+        self.pre_check()
+        if schedule_id is None or schedule_id == "":
+            raise PaddleFlowSDKException("InvalidScheduleID", "schedule_id should not be none or empty")
+        return ScheduleServiceApi.delete_schedule(self.paddleflow_server, self.header, schedule_id)
 
     def show_log(self, run_id, job_id=None, page_size=None, page_no=None, log_file_position=None):
         """

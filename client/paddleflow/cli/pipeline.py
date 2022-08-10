@@ -154,18 +154,19 @@ def update(ctx, pipeline_id, fs_name, yaml_path, username, desc):
 @click.pass_context
 def show_ver(ctx, pipeline_id, pipeline_version_id):
     """ show pipeline version info.\n
-    PIPELINE_ID: the id of pipeline.
-    PIPELINE_VERSION_ID: the id of pipeline version.
+    PIPELINE_ID: the id of pipeline.\n
+    PIPELINE_VERSION_ID: the id of pipeline version.\n
     """
     client = ctx.obj['client']
     output_format = ctx.obj['output']
-    if not pipeline_id or pipeline_version_id:
+    if not pipeline_id or not pipeline_version_id:
         click.echo('pipeline show must set pipeline id, pipeline version id.', err=True)
         sys.exit(1)
     valid, response = client.show_pipeline_version(pipeline_id, pipeline_version_id)
     if valid:
-        ppl_ver_list = [response]
-        _print_pipeline_info(response, ppl_ver_list, None, output_format)
+        pipeline_info, ppl_ver_info = response['pipelineInfo'], response['pipelineVersionInfo']
+        ppl_ver_list = [ppl_ver_info]
+        _print_pipeline_info(pipeline_info, ppl_ver_list, None, output_format)
     else:
         click.echo("pipeline version show failed with message[%s]" % response)
         sys.exit(1)

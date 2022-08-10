@@ -114,6 +114,66 @@ def list(ctx, user_filter=None, ppl_filter=None, ppl_ver_filter=None, schedule_f
         click.echo("schedule list failed with message[%s]" % response)
         sys.exit(1)
 
+@schedule.command()
+@click.argument('schedule_id')
+@click.option('-r', '--runfilter', 'run_filter', help='List schedule with run_id specified.')
+@click.option('-s', '--statusfilter', 'status_filter', help='List schedule with status specified.')
+@click.option('-m', '--maxkeys', 'max_keys', help='Max size of list of schedule.')
+@click.option('-mk', '--marker', help='Next page.')
+@click.pass_context
+def show(ctx, schedule_id, run_filter=None, status_filter=None, max_keys=None, marker=None):
+    """
+    show schedule.
+    SCHEDULE_ID: ID of schedule to show.
+    """
+    client = ctx.obj['client']
+    output_format = ctx.obj['output']
+
+    valid, response = client.show_schedule(schedule_id, run_filter, status_filter, marker, max_keys)
+
+    if valid:
+        schedule_info, run_list, next_marker = response['scheduleInfo'], response['runList'], response['nextMarker']
+        _print_schedule(schedule_info, run_list, next_marker, output_format)
+    else:
+        click.echo("schedule show failed with message[%s]" % response)
+        sys.exit(1)
+
+
+@schedule.command()
+@click.argument('schedule_id')
+@click.pass_context
+def stop(ctx, schedule_id):
+    """
+    stop schedule.
+    SCHEDULE_ID: ID of schedule to stop.
+    """
+    client = ctx.obj['client']
+
+    valid, response = client.stop_schedule(schedule_id)
+
+    if valid:
+        click.echo("schedule with id [%s] stop success" % schedule_id)
+    else:
+        click.echo("schedule stop failed with message[%s]" % response)
+        sys.exit(1)
+
+@schedule.command()
+@click.argument('schedule_id')
+@click.pass_context
+def delete(ctx, schedule_id):
+    """
+    delete schedule.
+    SCHEDULE_ID: ID of schedule to delete.
+    """
+    client = ctx.obj['client']
+
+    valid, response = client.delete_schedule(schedule_id)
+
+    if valid:
+        click.echo("schedule with id [%s] delete success" % schedule_id)
+    else:
+        click.echo("schedule stop failed with message[%s]" % response)
+        sys.exit(1)
 
 def _print_schedule_list(schedule_list, output_format):
     headers = ['schedule id', 'name', 'desc', 'pipeline id', 'pipeline version id',
@@ -127,3 +187,22 @@ def _print_schedule_list(schedule_list, output_format):
     data = [[schedule.schedule_id, schedule.start_time, schedule.end_time, schedule.create_time, schedule.update_time, schedule.next_run_time]
             for schedule in schedule_list]
     print_output(data, headers, output_format, table_format='grid')
+
+
+def _print_schedule(schedule_info, run_list, next_marker, output_format):
+    _print_schedule_list([schedule_info], output_format)
+
+    if len(run_list) > 0:
+        headers = ['run id', 'fs name', 'username', 'status', 'name', 'description', 'run msg', 'source',
+                   'schedule id', 'scheduled time', 'create time', 'activate time', 'update time']
+        data = [[run.run_id, run.fs_name, run.username, run.status, run.name, run.description, run.run_msg, run.source,
+                 run.schedule_id, run.scheduled_time, run.create_time, run.activate_time, run.update_time] for run in
+                run_list]
+        print_output(data, headers, output_format, table_format='grid')
+    else:
+        click.echo('no run created by this schedule')
+
+    if next_marker:
+        click.echo('marker: {}'.format(next_marker))
+
+
