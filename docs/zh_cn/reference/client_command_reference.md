@@ -619,7 +619,7 @@ pipelineid[pipelineid] delete success
 ### 周期调度管理
 周期调度(`schedule`)提供了5种不同的方法，示例如下：
 ```bash
-paddleflow schedule create name pplid pplverid crontab -d(--desc) xxx -s(starttime) xxx -e(--endtime) xxx -c(--concurrency) xxx -cp(--concurrencypolicy) xxx -ei(--expireinterval) xxx -f(--fsname) xxx -u(--username) xxx
+paddleflow schedule create name pplid pplverid crontab -d(--desc) xxx -s(starttime) xxx -e(--endtime) xxx -c(--concurrency) xxx -cp(--concurrencypolicy) xxx -ei(--expireinterval) xxx (--catchup) xxx -u(--username) xxx
 // 创建周期调度
 
 paddleflow schedule list -u(--userfilter) user -n(--namefilter) name -p(--pplfilter) xxx -pv(--pplverfilter) xx -s(--statusfilter) xx -m(--maxkeys) 50 -mk(--marker) xxx 
