@@ -67,13 +67,14 @@ func (tfj *TFJob) CreateJob() (string, error) {
 }
 
 // builtinTensorFlowJobSpec set build-in TFJob spec
+// TODO: add GPU supports for TFJob, now only support for CPU type job
 func (tfj *TFJob) builtinTFJobSpec(tfJobSpec *tfv1.TFJobSpec) error {
 	log.Debugf("patch %s spec:%#v", tfj.String(), tfJobSpec)
 	// TODO: set ElasticPolicy for TFJob
 	// set TFReplicaSpecs
 	minResources := resources.EmptyResource()
 	for _, task := range tfj.Tasks {
-		replicaType := tfv1.TFReplicaTypeMaster
+		replicaType := tfv1.TFReplicaTypePS
 		if task.Role == schema.RoleWorker || task.Role == schema.RolePWorker {
 			// tf worker
 			replicaType = tfv1.TFReplicaTypeWorker
