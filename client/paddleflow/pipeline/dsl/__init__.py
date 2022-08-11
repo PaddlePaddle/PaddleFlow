@@ -15,9 +15,14 @@ limitations under the License.
 
 # import from options
 from .options import CacheOptions
+from .options import FSScope
 from .options import FailureOptions
 from .options import FAIL_CONTINUE
 from .options import FAIL_FAST
+from .options import FSOptions
+from .options import ExtraFS
+from .options import MainFS
+
 
 # import from io_types
 from .io_types import Artifact

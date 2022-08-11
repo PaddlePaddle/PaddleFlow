@@ -19,6 +19,10 @@ from .pipeline_api import PipelineServiceApi
 from .pipeline_info import PipelineInfo
 
 from .dsl import CacheOptions
+from .dsl import FSScope
+from .dsl import FSOptions
+from .dsl import ExtraFS
+from .dsl import MainFS
 from .dsl import FailureOptions
 from .dsl import Artifact
 from .dsl import Parameter
