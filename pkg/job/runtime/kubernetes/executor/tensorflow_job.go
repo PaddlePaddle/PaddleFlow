@@ -31,68 +31,70 @@ type TFJob struct {
 	KubeJob
 }
 
-func (tfj *TFJob) CreateJob() (string, error) {
-	log.Debugf("tf job %s creating, job struct: %+v", tfj.Name, tfj)
-	pdj := &tfv1.TFJob{}
-	if err := tfj.createJobFromYaml(pdj); err != nil {
-		log.Errorf("create %s failed, err %v", tfj.String(), err)
+func (j *TFJob) CreateJob() (string, error) {
+	log.Debugf("tf job %s creating, job struct: %+v", j.Name, j)
+	tfJob := &tfv1.TFJob{}
+	if err := j.createJobFromYaml(tfJob); err != nil {
+		log.Errorf("create %s failed, err %v", j.String(), err)
 		return "", err
 	}
-	if err := tfj.validateJob(); err != nil {
-		log.Errorf("validate %s failed, err %v", tfj.String(), err)
+	if err := j.validateJob(); err != nil {
+		log.Errorf("validate %s failed, err %v", j.String(), err)
 		return "", err
 	}
 
 	var err error
 	// set metadata field
-	tfj.patchMetadata(&pdj.ObjectMeta, tfj.ID)
+	j.patchMetadata(&tfJob.ObjectMeta, j.ID)
 	// set spec field
-	if tfj.IsCustomYaml {
+	if j.IsCustomYaml {
 		// set custom TFJob Spec from user
-		err = tfj.customTFJobSpec(&pdj.Spec)
+		err = j.customTFJobSpec(&tfJob.Spec)
 	} else {
 		// set builtin TFJob Spec
-		err = tfj.builtinTFJobSpec(&pdj.Spec)
+		err = j.builtinTFJobSpec(&tfJob.Spec)
 	}
 	if err != nil {
-		log.Errorf("build %s spec failed, err %v", tfj.String(), err)
+		log.Errorf("build %s spec failed, err %v", j.String(), err)
 		return "", err
 	}
 	// create job on cluster
-	log.Infof("create %s on cluster", tfj.String())
-	log.Debugf("tf job %s created, job struct: %+v", tfj.Name, tfj)
-	if err = Create(pdj, tfj.GroupVersionKind, tfj.DynamicClientOption); err != nil {
-		log.Errorf("create %s on cluster failed, err: %v", tfj.String(), err)
+	log.Infof("create %s on cluster", j.String())
+	log.Debugf("tf job %s created, job struct: %+v", j.Name, j)
+	if err = Create(tfJob, j.GroupVersionKind, j.DynamicClientOption); err != nil {
+		log.Errorf("create %s on cluster failed, err: %v", j.String(), err)
 		return "", err
 	}
-	return tfj.ID, err
+	return j.ID, err
 }
 
 // builtinTensorFlowJobSpec set build-in TFJob spec
 // TODO: add GPU supports for TFJob, now only support for CPU type job
-func (tfj *TFJob) builtinTFJobSpec(tfJobSpec *tfv1.TFJobSpec) error {
-	log.Debugf("patch %s spec:%#v", tfj.String(), tfJobSpec)
+func (j *TFJob) builtinTFJobSpec(tfJobSpec *tfv1.TFJobSpec) error {
+	log.Debugf("patch %s spec:%#v", j.String(), tfJobSpec)
 	// TODO: set ElasticPolicy for TFJob
 	// set TFReplicaSpecs
 	minResources := resources.EmptyResource()
-	for _, task := range tfj.Tasks {
+	for _, task := range j.Tasks {
+		// tf parameter server for distributed training
 		replicaType := tfv1.TFReplicaTypePS
+		// if role is worker, set it to tf worker
 		if task.Role == schema.RoleWorker || task.Role == schema.RolePWorker {
-			// tf worker
+			// tf worker for distributed training
 			replicaType = tfv1.TFReplicaTypeWorker
 		}
 		replicaSpec, ok := tfJobSpec.TFReplicaSpecs[replicaType]
 		if !ok {
-			return fmt.Errorf("replica type %s for %s is not supported", replicaType, tfj.String())
+			return fmt.Errorf("replica type %s for %s is not supported", replicaType, j.String())
 		}
-		if err := tfj.kubeflowReplicaSpec(replicaSpec, &task); err != nil {
-			log.Errorf("build %s RepilcaSpec for %s failed, err: %v", replicaType, tfj.String(), err)
+		if err := j.kubeflowReplicaSpec(replicaSpec, &task); err != nil {
+			log.Errorf("build %s RepilcaSpec for %s failed, err: %v", replicaType, j.String(), err)
 			return err
 		}
 		// calculate job minResources
 		taskResources, err := resources.NewResourceFromMap(task.Flavour.ToMap())
 		if err != nil {
-			log.Errorf("parse resources for %s task failed, err: %v", tfj.String(), err)
+			log.Errorf("parse resources for %s task failed, err: %v", j.String(), err)
 			return err
 		}
 		taskResources.Multi(task.Replicas)
@@ -100,19 +102,19 @@ func (tfj *TFJob) builtinTFJobSpec(tfJobSpec *tfv1.TFJobSpec) error {
 	}
 	// set RunPolicy
 	resourceList := k8s.NewResourceList(minResources)
-	return tfj.kubeflowRunPolicy(&tfJobSpec.RunPolicy, &resourceList)
+	return j.kubeflowRunPolicy(&tfJobSpec.RunPolicy, &resourceList)
 }
 
-func (tfj *TFJob) validateCustomYaml(tfSpec *tfv1.TFJobSpec) error {
-	log.Infof("validate custom yaml for %s, pdj from yaml: %v", tfj.String(), tfSpec)
+func (j *TFJob) validateCustomYaml(tfSpec *tfv1.TFJobSpec) error {
+	log.Infof("validate custom yaml for %s, pdj from yaml: %v", j.String(), tfSpec)
 	// TODO: add validate for custom yaml
 	return nil
 }
 
 // customPyTorchJobSpec set custom PyTorchJob Spec
-func (tfj *TFJob) customTFJobSpec(tfJobSpec *tfv1.TFJobSpec) error {
-	log.Debugf("patch %s spec:%#v", tfj.String(), tfJobSpec)
-	err := tfj.validateCustomYaml(tfJobSpec)
+func (j *TFJob) customTFJobSpec(tfJobSpec *tfv1.TFJobSpec) error {
+	log.Debugf("patch %s spec:%#v", j.String(), tfJobSpec)
+	err := j.validateCustomYaml(tfJobSpec)
 	if err != nil {
 		return err
 	}
