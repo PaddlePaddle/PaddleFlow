@@ -310,7 +310,7 @@ func UpdatePipeline(ctx *logger.RequestContext, request UpdatePipelineRequest, p
 }
 
 // todo: 为了校验pipeline，需要准备的内容太多，需要简化校验逻辑
-func validateWorkflowForPipeline(pipelineYaml string) (name string, err error) {
+func validateWorkflowForPipeline(pipelineYaml string, ctxUsername string, reqUsername string) (name string, err error) {
 	// parse yaml -> WorkflowSource
 	wfs, err := schema.GetWorkflowSource([]byte(pipelineYaml))
 	if err != nil {
@@ -325,8 +325,15 @@ func validateWorkflowForPipeline(pipelineYaml string) (name string, err error) {
 	}
 
 	if wfs.FsOptions.MainFS.Name != "" {
-		extra[pplcommon.WfExtraInfoKeyFsName] = "mockFSName"
-		extra[pplcommon.WfExtraInfoKeyFsID] = "mockFSID"
+		extra[pplcommon.WfExtraInfoKeyFsName] = wfs.FsOptions.MainFS.Name
+
+		fsID, err := CheckFsAndGetID(ctxUsername, reqUsername, wfs.FsOptions.MainFS.Name)
+		if err != nil {
+			logger.Logger().Errorf("check main fs in pipeline failed, err:%v", err)
+			return "", err
+		}
+
+		extra[pplcommon.WfExtraInfoKeyFsID] = fsID
 	}
 
 	// validate
