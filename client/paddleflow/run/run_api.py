@@ -22,7 +22,7 @@ from urllib import parse
 from paddleflow.common.exception.paddleflow_sdk_exception import PaddleFlowSDKException
 from paddleflow.utils import api_client
 from paddleflow.common import api
-from paddleflow.run.run_info import RunInfo, JobInfo, RunCacheInfo, ArtifaceInfo
+from paddleflow.run.run_info import RunInfo, JobInfo, DagInfo, RunCacheInfo, ArtifactInfo
 
 class RunServiceApi(object):
     """run service
@@ -33,37 +33,39 @@ class RunServiceApi(object):
         """
 
     @classmethod
-    def add_run(self, host, fsname, name=None, desc=None,
-                param=None, username=None, runyamlpath=None, runyamlrawb64=None, pipelineid=None,
-                header=None, disabled=None, dockerenv=None):
+    def add_run(self, host, fs_name=None, name=None, desc=None,
+                param=None, username=None, run_yaml_path=None, run_yaml_raw_b64=None, pipeline_id=None, pipeline_version_id=None,
+                header=None, disabled=None, docker_env=None):
         """ add run 
         """
         if not header:
             raise PaddleFlowSDKException("InvalidRequest", "paddleflow should login first")
-        body = {
-            "fsname": fsname
-        }
+        body = {}
+        if fs_name:
+            body["fsname"] = fs_name
         if name:
             body['name'] = name
         if desc:
             body['desc'] = desc
-        if runyamlpath:
-            body['runYamlPath']=runyamlpath
-        if runyamlrawb64:
-            if isinstance(runyamlrawb64, bytes):
-                body['runYamlRaw']=base64.b64encode(runyamlrawb64).decode()
+        if run_yaml_path:
+            body['runYamlPath']=run_yaml_path
+        if run_yaml_raw_b64:
+            if isinstance(run_yaml_raw_b64, bytes):
+                body['runYamlRaw']=base64.b64encode(run_yaml_raw_b64).decode()
             else:
                 raise PaddleFlowSDKException("InvalidRequest", "runYamlRaw must be bytes type")
-        if pipelineid:
-            body['pipelineID']= pipelineid
+        if pipeline_id:
+            body['pipelineID']= pipeline_id
+        if pipeline_version_id:
+            body['pipelineVersionID'] = pipeline_version_id
         if param:
             body['parameters'] = param
         if username:
             body['username'] = username
         if disabled:
             body["disabled"] = disabled
-        if dockerenv:
-            body["dockerEnv"] = dockerenv
+        if docker_env:
+            body["dockerEnv"] = docker_env
         response = api_client.call_api(method="POST", url=parse.urljoin(host, api.PADDLE_FLOW_RUN),
                                        headers=header, json=body)
         if not response:
@@ -74,7 +76,7 @@ class RunServiceApi(object):
         return True, data['runID']
 
     @classmethod
-    def list_run(self, host, fsname=None, username=None, runid=None, runname=None, status=None,
+    def list_run(self, host, fs_name=None, username=None, run_id=None, run_name=None, status=None,
                  header=None, maxsize=100, marker=None):
         """list run
         """
@@ -87,14 +89,14 @@ class RunServiceApi(object):
         }
         if username:
             params['userFilter'] = username
-        if fsname:
-            params['fsFilter'] = fsname
-        if runid:
-            params['runFilter'] = runid
-        if runname:
-            params['nameFilter']=runname
+        if fs_name:
+            params['fsFilter'] = fs_name
+        if run_id:
+            params['runFilter'] = run_id
+        if run_name:
+            params['nameFilter'] = run_name
         if status:
-            params['statusFilter']=status
+            params['statusFilter'] = status
         if marker:
             params['marker'] = marker
         response = api_client.call_api(method="GET", url=parse.urljoin(host, api.PADDLE_FLOW_RUN),
@@ -104,23 +106,24 @@ class RunServiceApi(object):
         data = json.loads(response.text)
         if 'message' in data:
             return False, data['message']
-        runList = []
+        run_list = []
         if len(data['runList']):
             for run in data['runList']:
-                runInfo = RunInfo(run['runID'], run['fsName'], run['username'], run['status'], run['name'],
+                run_info = RunInfo(run['runID'], run['fsName'], run['username'], run['status'], run['name'],
                                   run['description'], None, None, None, None, None, run['updateTime'],
                                   run['source'], run['runMsg'], run['scheduleID'], run['scheduledTime'],
-                                  run['createTime'], run['activateTime'])
-                runList.append(runInfo)
-        return True, runList, data.get('nextMarker', None)
+                                  None, None, None, None, run['createTime'], run['activateTime'])
+                run_list.append(run_info)
+
+        return True, {'runList': run_list, 'nextMarker': data.get('nextMarker', None)}
 
     @classmethod
-    def status_run(self, host, runid, header=None):
+    def show_run(self, host, run_id, header=None):
         """status run
         """
         if not header:
             raise PaddleFlowSDKException("InvalidRequest", "paddleflow should login first")
-        response = api_client.call_api(method="GET", url=parse.urljoin(host, api.PADDLE_FLOW_RUN + "/%s" % runid),
+        response = api_client.call_api(method="GET", url=parse.urljoin(host, api.PADDLE_FLOW_RUN + "/%s" % run_id),
                                        headers=header)
         if not response:
             raise PaddleFlowSDKException("Connection Error", "status run failed due to HTTPError")
@@ -128,44 +131,61 @@ class RunServiceApi(object):
         if 'message' in data:
             return False, data['message']
 
-        runtimeList = []
+        def transDict2CompInfo(comp_dict):
+            new_comp_dict = {}
+            for key in comp_dict.keys():
+                comp_list = comp_dict[key]
+                new_comp_list = []
+                for comp in comp_list:
+                    if 'entryPoints' in comp.keys():
+                        new_comp = DagInfo(comp['id'], comp['name'], comp['type'], comp['dagName'],
+                                          comp['parentDagID'], comp['deps'], comp['parameters'],
+                                          comp['artifacts'], comp['startTime'], comp['endTime'],
+                                          comp['status'], comp['message'], transDict2CompInfo(comp['entryPoints']))
+                    else:
+                        new_comp = JobInfo(comp['name'], comp['deps'], comp['parameters'],
+                                        comp['command'], comp['env'], comp['status'], comp['startTime'],
+                                        comp['endTime'], comp['dockerEnv'], comp['jobID'],
+                                        comp['type'], comp['stepName'], comp['parentDagID'],
+                                        comp['extraFS'], comp['artifacts'], comp['cache'],
+                                        comp['jobMessage'], comp['cacheRunID'], comp['cacheJobID'])
+                    new_comp_list.append(new_comp)
+                new_comp_dict[key] = new_comp_list
+            return new_comp_dict
+
         runtime = data['runtime']
         if runtime:
-            for key in runtime.keys():
-                runtimeInfo = JobInfo(None, runtime[key].get('deps', ' '), runtime[key]['parameters'],
-                                runtime[key]['command'], runtime[key]['env'],
-                                runtime[key]['status'], runtime[key]['startTime'],
-                                runtime[key].get('endTime', ' '), runtime[key].get('dockerEnv'),
-                                runtime[key]['jobID'])
-                runtimeInfo.name = key
-                runtimeList.append(runtimeInfo)
+            runtime_info = transDict2CompInfo(runtime)
 
-        postProcessList = []
         post = data['postProcess']
+        new_post_dict = {}
         if post:
             for key in post.keys():
-                postInfo = JobInfo(None, post[key].get('deps', ' '), post[key]['parameters'],
-                                post[key]['command'], post[key]['env'],
-                                post[key]['status'], post[key]['startTime'],
-                                post[key].get('endTime', ' '), post[key].get('dockerEnv'),
-                                post[key]['jobID'])
-                postInfo.name = key
-                postProcessList.append(postInfo)
+                comp = post[key]
+                new_comp = JobInfo(comp['name'], comp['deps'], comp['parameters'],
+                                        comp['command'], comp['env'], comp['status'], comp['startTime'],
+                                        comp['endTime'], comp['dockerEnv'], comp['jobID'],
+                                        comp['type'], comp['stepName'], comp['parentDagID'],
+                                        comp['extraFS'], comp['artifacts'], comp['cache'],
+                                        comp['jobMessage'], comp['cacheRunID'], comp['cacheJobID'])
+                new_post_dict[key] = new_comp
 
-        runInfo = RunInfo(data['runID'], data['fsname'], data['username'], data['status'], data['name'],
-                               data['description'], data['entry'], data['parameters'], data['runYaml'], runtimeList, postProcessList,
-                               data['dockerEnv'], data.get('updateTime', " "), data['source'],
-                               data['runMsg'], data.get('createTime', " "), data.get('activateTime', ' '))
+        run_info = RunInfo(data['runID'], data['fsName'], data['username'], data['status'], data['name'],
+                            data['description'], data['parameters'], data['runYaml'],
+                            runtime_info, new_post_dict,
+                            data['dockerEnv'], data['updateTime'], data['source'], data['runMsg'],data['scheduleID'], None,
+                            data['fsOptions'], data['failureOptions'], data['disabled'], data['runCachedIDs'],
+                            data['createTime'], data['activateTime'])
         
-        return True, runInfo
+        return True, run_info
 
     @classmethod
-    def stop_run(self, host, runid, header=None, force=False):
+    def stop_run(self, host, run_id, header=None, force=False):
         """stop run
         """
         if not header:
             raise PaddleFlowSDKException("InvalidRequest", "paddleflow should login first")
-        url = host + api.PADDLE_FLOW_RUN + "/%s" % runid
+        url = host + api.PADDLE_FLOW_RUN + "/%s" % run_id
         params = {
             "action": "stop"
         }
@@ -183,14 +203,15 @@ class RunServiceApi(object):
         return True, None
 
     @classmethod
-    def delete_run(self, host, runid, header=None):
+    def delete_run(self, host, run_id, checkcache=True, header=None):
         """delete run
         """
         if not header:
             raise PaddleFlowSDKException("InvalidRequest", "paddleflow should login first")
+        body = {"checkCache": checkcache}
         response = api_client.call_api(method="DELETE",
-                                        url=parse.urljoin(host, api.PADDLE_FLOW_RUN + "/%s" % runid),
-                                       headers=header)
+                                       url=parse.urljoin(host, api.PADDLE_FLOW_RUN + "/%s" % run_id),
+                                       headers=header, json=body)
         if not response:
             raise PaddleFlowSDKException("Connection Error", "delete run failed due to HTTPError")
         if response.text:
@@ -201,21 +222,21 @@ class RunServiceApi(object):
             return True, None
 
     @classmethod
-    def list_runcache(self, host, userfilter=None, fsfilter=None, runfilter=None, maxkeys=None, marker=None,
-                     header=None):
+    def list_runcache(self, host, user_filter=None, fs_filter=None, run_filter=None, max_keys=None, marker=None,
+                      header=None):
         """list run cache
         """
         if not header:
             raise PaddleFlowSDKException("InvalidRequest", "paddleflow should login first")
         params = {}
-        if userfilter:
-            params['userFilter']=userfilter
-        if fsfilter:
-            params['fsFilter']=fsfilter
-        if runfilter:
-            params['runFilter']=runfilter
-        if maxkeys:
-            params['maxKeys']=maxkeys
+        if user_filter:
+            params['userFilter']=user_filter
+        if fs_filter:
+            params['fsFilter']=fs_filter
+        if run_filter:
+            params['runFilter']=run_filter
+        if max_keys:
+            params['maxKeys']=max_keys
         if marker:
             params['marker']=marker
         response = api_client.call_api(method="GET", url=parse.urljoin(host, api.PADDLE_FLOW_RUNCACHE),
@@ -227,45 +248,45 @@ class RunServiceApi(object):
         data = json.loads(response.text)
         if 'message' in data:
             return False, data['message']
-        cachelist = []
+        cache_list = []
         if len(data['runCacheList']):
             for cache in data['runCacheList']:
-                cacheinfo = RunCacheInfo(cache['cacheID'], cache['firstFp'],
+                cache_info = RunCacheInfo(cache['cacheID'], cache['firstFp'],
                               cache['secondFp'], cache['runID'], cache['source'], 
-                              cache['step'], cache['fsname'], cache['username'],
+                              cache['jobID'], cache['fsname'], cache['username'],
                               cache['expiredTime'], cache['strategy'],
                               cache['custom'], cache['createTime'],
                               cache.get('updateTime', ' '))
-                cachelist.append(cacheinfo)
-        return True, cachelist, data.get('nextMarker', None)
+                cache_list.append(cache_info)
+        return True, cache_list, data.get('nextMarker', None)
 
     @classmethod
-    def show_runcache(self, host, runcacheid, header=None):
+    def show_runcache(self, host, run_cache_id, header=None):
         """show run cache
         """
         if not header:
             raise PaddleFlowSDKException("InvalidRequest", "paddleflow should login first")
         response = api_client.call_api(method="GET", url=parse.urljoin(host,
-                                        api.PADDLE_FLOW_RUNCACHE + "/%s" % runcacheid),
-                                        headers=header)
+                                                                       api.PADDLE_FLOW_RUNCACHE + "/%s" % run_cache_id),
+                                       headers=header)
         if not response:
             raise PaddleFlowSDKException("Connection Error", "runcache show failed due to HTTPError")
         data = json.loads(response.text)
         if 'message' in data:
             return False, data['message']
         ri = RunCacheInfo(data['cacheID'], data['firstFp'], data['secondFp'], data['runID'],
-                data['source'], data['step'], data['fsname'], data['username'], data['expiredTime'],
+                data['source'], data['jobID'], data['fsname'], data['username'], data['expiredTime'],
                 data['strategy'], data['custom'], data['createTime'], data['updateTime'])
         return True, ri
 
     @classmethod
-    def delete_runcache(self, host, runcacheid, header=None):
+    def delete_runcache(self, host, run_cache_id, header=None):
         """delete run cache
         """
         if not header:
             raise PaddleFlowSDKException("InvalidRequest", "paddleflow should login first")
         response = api_client.call_api(method="DELETE",
-                                        url=parse.urljoin(host, api.PADDLE_FLOW_RUNCACHE + "/%s" % runcacheid),
+                                       url=parse.urljoin(host, api.PADDLE_FLOW_RUNCACHE + "/%s" % run_cache_id),
                                        headers=header)
         if not response:
             raise PaddleFlowSDKException("Connection Error", "delete runcache failed due to HTTPError")
@@ -274,16 +295,16 @@ class RunServiceApi(object):
             if 'message' in data:
                 return False, data['message']
         else:
-            return True, runcacheid
+            return True, run_cache_id
 
     @classmethod
-    def retry_run(self, host, runid, header=None):
+    def retry_run(self, host, run_id, header=None):
         """retry run
         """
         if not header:
             raise PaddleFlowSDKException("InvalidRequest", "paddleflow should login first")
         params={'action':'retry'}
-        response = api_client.call_api(method="PUT", url=parse.urljoin(host, api.PADDLE_FLOW_RUN + "/%s" % runid),
+        response = api_client.call_api(method="PUT", url=parse.urljoin(host, api.PADDLE_FLOW_RUN + "/%s" % run_id),
                                        params=params, headers=header)
         if not response:
             raise PaddleFlowSDKException("Connection Error", "retry run failed due to HTTPError")
@@ -291,29 +312,31 @@ class RunServiceApi(object):
             data = json.loads(response.text)
             if 'message' in data:
                 return False, data['message']
+            else:
+                return True, data['runID']
         else:
-            return True, runid
+            return False, None
 
     @classmethod
-    def artifact(self, host, userfilter=None, fsfilter=None, runfilter=None, typefilter=None, pathfilter=None,
-                maxKeys=None, marker=None, header=None):
+    def artifact(self, host, user_filter=None, fs_filter=None, run_filter=None, type_filter=None, path_filter=None,
+                 max_keys=None, marker=None, header=None):
         """artifact
         """
         if not header:
             raise PaddleFlowSDKException("InvalidRequest", "paddleflow should login first")
         params={}
-        if userfilter:
-            params['userFilter'] = userfilter
-        if fsfilter:
-            params['fsFilter'] = fsfilter
-        if runfilter:
-            params['runFilter'] = runfilter
-        if typefilter:
-            params['typeFilter'] = typefilter
-        if pathfilter:
-            params['pathFilter'] = pathfilter
-        if maxKeys:
-            params['maxKeys'] = maxKeys
+        if user_filter:
+            params['userFilter'] = user_filter
+        if fs_filter:
+            params['fsFilter'] = fs_filter
+        if run_filter:
+            params['runFilter'] = run_filter
+        if type_filter:
+            params['typeFilter'] = type_filter
+        if path_filter:
+            params['pathFilter'] = path_filter
+        if max_keys:
+            params['maxKeys'] = max_keys
         if marker:
             params['marker'] = marker
         response = api_client.call_api(method="GET",
@@ -324,10 +347,10 @@ class RunServiceApi(object):
         data = json.loads(response.text)
         if 'message' in data:
             return False, data['message']
-        actifacelist=[]
+        actiface_list=[]
         for i in data['artifactEventList']:
-            actiface = ArtifaceInfo(i['runID'], i['fsname'], i['username'], i['artifactPath'],
+            actifact = ArtifactInfo(i['runID'], i['fsname'], i['username'], i['artifactPath'],
                     i['step'], i['type'], i['artifactName'], i['meta'],
                     i['createTime'], i['updateTime'])
-            actifacelist.append(actiface)
-        return True, actifacelist, data.get('nextMarker', None)
+            actiface_list.append(actifact)
+        return True, actiface_list, data.get('nextMarker', None)
