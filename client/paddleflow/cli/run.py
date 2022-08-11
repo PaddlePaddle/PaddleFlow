@@ -23,8 +23,12 @@ import json
 import click
 import shutil
 import base64
+from ..run.run_info import RunInfo, DagInfo, JobInfo
 
 from paddleflow.cli.output import print_output, OutputFormat
+
+RUN_ACTIVE_STATUS = ['running', 'pending', 'terminating', 'initiating']
+RUN_FINAL_STATUS = ['failed', 'succeeded', 'terminated', 'skipped']
 
 @click.group()
 def run():
@@ -41,11 +45,12 @@ def run():
 @click.option('-yp', '--runyamlpath', help='Run yaml file path, example ./run.yaml .')
 @click.option('-yr', '--runyamlraw', help='Run yaml file raw, local absolute path .')
 @click.option('-pplid', '--pipelineid', help='Pipeline ID, example ppl-000666')
+@click.option('-pplver', '--pipelineversionid', help='Pipeline Version ID, example 1')
 @click.option('--disabled', multiple=True, help="the name of step which need to be disabled.")
 @click.option('-de', '--dockerenv', help='a global dockerEnv used by all steps which have no dockerEnv')
 @click.pass_context
 def create(ctx, fsname=None, name=None, desc=None, username=None, runyamlpath=None, runyamlraw=None,
-        param="", pipelineid=None, disabled=None, dockerenv=None):
+        param="", pipelineid=None, pipelineversionid=None, disabled=None, dockerenv=None):
     """create a new run.\n
     FSNAME: the name of the fs.
     """
@@ -61,8 +66,8 @@ def create(ctx, fsname=None, name=None, desc=None, username=None, runyamlpath=No
     if disabled is not None:
         disabled = ",".join(disabled)
 
-    valid, response = client.create_run(fsname, username, name, desc, runyamlpath, runyamlraw, pipelineid,
-                            param_dict, disabled=disabled, dockerenv=dockerenv)
+    valid, response = client.create_run(fsname, username, name, desc, runyamlpath, runyamlraw,
+                                        pipelineid, pipelineversionid, param_dict, disabled=disabled, dockerenv=dockerenv)
 
     if valid:
         click.echo("run[%s] create success with runid[%s]" % (fsname, response))
@@ -76,18 +81,36 @@ def create(ctx, fsname=None, name=None, desc=None, username=None, runyamlpath=No
 @click.option('-u', '--username', help='List the specified run by username, only useful for root.')
 @click.option('-r', '--runid', help='List the specified run by runid')
 @click.option('-n', '--name', help='List the specified run by run name')
+@click.option('-s', '--status', help='List the specified run by run status')
 @click.option('-m', '--maxsize', default=100, help="Max size of the listed users.")
 @click.option('-mk', '--marker', help="Next page.")
 @click.pass_context
-def list(ctx, fsname=None, username=None, runid=None, name=None, maxsize=100, marker=None):
+def list(ctx, fsname=None, username=None, runid=None, name=None, status=None, maxsize=100, marker=None):
     """list run.\n """
     client = ctx.obj['client']
     output_format = ctx.obj['output']
-    valid, response, nextmarker = client.list_run(fsname, username, runid, name, maxsize, marker)
+
+    # 处理statusFilters
+    status_processed = ''
+    if status:
+        status_filters = status.split(sep=',')
+        status_list = []
+        for status_filter in status_filters:
+            if status_filter == 'active':
+                status_list.extend(RUN_ACTIVE_STATUS)
+            elif status_filter == 'final':
+                status_list.extend(RUN_FINAL_STATUS)
+            else:
+                status_list.append(status_filter)
+        status_processed = ','.join(status_list)
+
+    valid, response = client.list_run(fsname, username, runid, name, status_processed, maxsize, marker)
     if valid:
-        if len(response):
-            _print_runlist(response, output_format)
-            click.echo('marker: {}'.format(nextmarker))
+        run_list, next_marker = response['runList'], response['nextMarker']
+        if len(run_list):
+            click.echo("{} runs shown under:".format(len(run_list)))
+            _print_runlist(run_list, output_format)
+            click.echo('marker: {}'.format(next_marker))
         else:
             msg = "no run found "
             click.echo(msg)
@@ -99,7 +122,7 @@ def list(ctx, fsname=None, username=None, runid=None, name=None, maxsize=100, ma
 @run.command()
 @click.argument('runid')
 @click.pass_context
-def status(ctx, runid):
+def show(ctx, runid):
     """detail info of run. \n
     RUNID: the id of the specified run.
     """
@@ -108,7 +131,7 @@ def status(ctx, runid):
     if not runid:
         click.echo('run status must provide runid.', err=True)
         sys.exit(1)
-    valid, response = client.status_run(runid)
+    valid, response = client.show_run(runid)
     if valid:
         _print_run(response, output_format)
     else:
@@ -150,7 +173,7 @@ def retry(ctx, runid):
         sys.exit(1)
     valid, response = client.retry_run(runid)
     if valid:
-        click.echo("runid[%s] retry success" % runid)
+        click.echo("runid[%s] retry success, new runid is [%s]" % (runid, response))
     else:
         click.echo("run retry failed with message[%s]" % response)
         sys.exit(1)
@@ -158,8 +181,10 @@ def retry(ctx, runid):
 
 @run.command()
 @click.argument('runid')
+@click.option('-not-cc', '--notcheckcache', is_flag=True, show_default=True,
+                help='set force to True if you want to delete a cached run')
 @click.pass_context
-def delete(ctx, runid):
+def delete(ctx, runid, notcheckcache):
     """ delete run .\n
     RUNID: the id of the specificed run.
     """
@@ -167,7 +192,8 @@ def delete(ctx, runid):
     if not runid:
         click.echo('delete run provide runid.', err=True)
         sys.exit(1)
-    valid, response = client.delete_run(runid)
+    checkcache = not notcheckcache
+    valid, response = client.delete_run(runid, checkcache)
     if valid:
         click.echo('runid[%s] delete success' % runid)
     else:
@@ -256,7 +282,7 @@ def artifact(ctx, userfilter=None, fsfilter=None, runfilter=None, typefilter=Non
                 pathfilter, maxkeys, marker)
     if valid:
         if len(response):
-            _print_artiface(response, output_format)
+            _print_artifact(response, output_format)
             click.echo('marker: {}'.format(nextmarker))
         else:
             msg = "no artifact found "
@@ -269,65 +295,84 @@ def artifact(ctx, userfilter=None, fsfilter=None, runfilter=None, typefilter=Non
 def _print_runlist(runlist, out_format):
     """print run list """
 
-    headers = ['run id', 'fsname', 'username', 'status', 'name']
-    data = [[run.runId, run.fsname, run.username, run.status, run.name] for run in runlist]
+    headers = ['run id', 'fs name', 'username', 'status', 'name', 'description', 'run msg', 'source',
+               'schedule id', 'scheduled time', 'create time', 'activate time', 'update time']
+    data = [[run.run_id, run.fs_name, run.username, run.status, run.name, run.description, run.run_msg, run.source,
+             run.schedule_id, run.scheduled_time, run.create_time, run.activate_time, run.update_time] for run in runlist]
     print_output(data, headers, out_format, table_format='grid')
 
 
 def _print_runcache(caches, out_format):
     """print cache list """
 
-    headers = ['cache id', 'run id', 'step', 'fsname', 'username', 'expired time', 
+    headers = ['cache id', 'run id', 'job id', 'fsname', 'username', 'expired time',
                 'create time', 'update time']
-    data = [[cache.cacheid, cache.runid, cache.step, cache.fsname, cache.username, 
-            cache.expiredtime, cache.createtime, cache.updatetime] for cache in caches]
+    data = [[cache.cache_id, cache.run_id, cache.job_id, cache.fs_name, cache.username,
+             cache.expired_time, cache.create_time, cache.update_time] for cache in caches]
     print_output(data, headers, out_format, table_format='grid')
 
 
 def _print_runcache_info(cache, out_format):
     """print cache info """
 
-    headers = ['cache id', 'run id', 'step', 'fsname', 'username', 'expired time', 
+    headers = ['cache id', 'run id', 'job id', 'fsname', 'username', 'expired time',
                 'strategy', 'custom', 'create time', 'update time']
-    data = [[cache.cacheid, cache.runid, cache.step, cache.fsname, cache.username, cache.expiredtime, 
-            cache.strategy, cache.custom, cache.createtime, cache.updatetime]]
+    data = [[cache.cache_id, cache.run_id, cache.job_id, cache.fs_name, cache.username, cache.expired_time,
+             cache.strategy, cache.custom, cache.create_time, cache.update_time]]
     print_output(data, headers, out_format, table_format='grid')
-    print_output([[cache.firstfp, cache.secondfp]], ['first fp', 'second fp'], out_format, table_format='grid')
+    print_output([[cache.first_fp, cache.second_fp]], ['first fp', 'second fp'], out_format, table_format='grid')
 
 
 def _print_run(run, out_format):
     """ print run info"""
-    headers = ['run id', 'status', 'name', 'desc', 'entry', 'param', 'source', 'run msg', 
+    headers = ['run id', 'status', 'name', 'desc', 'param', 'source', 'run msg',
     'create time', 'update time', 'activate time']
-    data = [[run.runId, run.status, run.name, run.description, run.entry, run.parameters, run.source, 
-             run.runMsg, run.createTime, run.updateTime, run.activateTime]]
+    data = [[run.run_id, run.status, run.name, run.description, run.parameters, run.source,
+             run.run_msg, run.create_time, run.update_time, run.activate_time]]
     print_output(data, headers, out_format, table_format='grid')
-    if run.runYaml:
+
+    headers = ['fs name', 'username', 'docker env', 'schedule id', 'fs options(json)', "failure options(json)",
+               'disabled', 'run cached ids']
+    data = [[run.fs_name, run.username, run.docker_env, run.schedule_id, run.fs_options, run.failure_options,
+             run.disabled, run.run_cached_ids]]
+    print_output(data, headers, out_format, table_format='grid')
+
+    if run.run_yaml:
         headers = ['run yaml detail']
-        data = [[run.runYaml]]
+        data = [[run.run_yaml]]
         print_output(data, headers, out_format, table_format='grid')
-    if (not run.runtime or not len(run.runtime)) and (not run.postProcess or not len(run.postProcess)):
+    if (not run.runtime or not len(run.runtime)) and (not run.post_process or not len(run.post_process)):
         click.echo("no job found")
         return
     if run.runtime and len(run.runtime):
-        print_output([], ["Runtime Details"], out_format)
-        headers = ['job id', 'name', 'status', 'deps', 'start time', 'end time', 'dockerEnv']
-        data = [[job.jobId, job.name, job.status, job.deps, job.start_time, job.end_time, job.dockerEnv] 
-                for job in run.runtime]
+        headers = ['runtime in json']
+        runtimeDict = _trans_comps_to_dict(run.runtime)
+        data = [[json.dumps(runtimeDict, indent=2)]]
         print_output(data, headers, out_format, table_format='grid')
-    if run.postProcess and len(run.postProcess):
-        print_output([], ["PostProcess Details"], out_format)
-        headers = ['job id', 'name', 'status', 'deps', 'start time', 'end time', 'dockerEnv']
-        data = [[job.jobId, job.name, job.status, job.deps, job.start_time, job.end_time, job.dockerEnv] 
-                for job in run.postProcess]
+    if run.post_process and len(run.post_process):
+        headers = ['postProcess in json']
+        for key in run.post_process:
+            run.post_process[key] = run.post_process[key].get_dict()
+        data = [[json.dumps(run.post_process, indent=2)]]
         print_output(data, headers, out_format, table_format='grid')
 
+def _trans_comps_to_dict(comps):
+    res_comps = {}
+    for name, comp_list in comps.items():
+        new_comp_list = []
+        for comp in comp_list:
+            if hasattr(comp, 'entry_points'):
+                comp.entry_points = _trans_comps_to_dict(comp.entry_points)
+            new_comp_list.append(comp.get_dict())
+        res_comps[name] = new_comp_list
+    return res_comps
 
-def _print_artiface(runs, out_format):
+
+def _print_artifact(runs, out_format):
     """ print artifact info"""
     headers = ['run id', 'fsname', 'username', 'artifact path', 'type', 'step', 'artifact name', 'meta',  
             'create time', 'update time']
-    data = [[run.runid, run.fsname, run.username, run.artifactpath, run.type, run.step, run.artifactname, 
-            run.meta, run.createtime, run.updatetime] for run in runs]
+    data = [[run.run_id, run.fs_name, run.username, run.artifact_path, run.type, run.step, run.artifact_name,
+             run.meta, run.create_time, run.update_time] for run in runs]
     print_output(data, headers, out_format, table_format='grid')
     

@@ -23,8 +23,8 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/job"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 type Job interface {
@@ -234,7 +234,7 @@ func (pfj *PaddleFlowJob) Check() (schema.JobStatus, error) {
 		err := errors.New(errMsg)
 		return "", err
 	}
-	status, err := models.GetJobStatusByID(pfj.ID)
+	status, err := storage.Job.GetJobStatusByID(pfj.ID)
 	if err != nil {
 		return "", err
 	}
@@ -247,7 +247,7 @@ func (pfj *PaddleFlowJob) Watch() {
 	tryCount := 0
 	for {
 		// 在连续查询job子系统出错的情况下，把错误信息返回给run，但不会停止轮询
-		jobInstance, err := models.GetJobByID(pfj.ID)
+		jobInstance, err := storage.Job.GetJobByID(pfj.ID)
 		if err != nil {
 			if tryCount < TryMax {
 				tryCount += 1

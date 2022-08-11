@@ -5,10 +5,6 @@ entry_points:
     command: bash base_pipeline/shells/data.sh {{data_path}}
     docker_env: centos:centos7 
     env:
-      PF_JOB_FLAVOUR: flavour1
-      PF_JOB_MODE: Pod
-      PF_JOB_QUEUE_NAME: ppl-queue
-      PF_JOB_TYPE: vcjob
       USER_ABC: 123_{{PF_USER_NAME}}
     parameters:
       data_path: ./base_pipeline/data/{{PF_RUN_ID}}
@@ -16,11 +12,6 @@ entry_points:
   train:
     command: bash base_pipeline/shells/train.sh {{epoch}} {{train_data}} {{model_path}}
     deps: preprocess
-    env:
-      PF_JOB_FLAVOUR: flavour1
-      PF_JOB_MODE: Pod
-      PF_JOB_QUEUE_NAME: ppl-queue
-      PF_JOB_TYPE: vcjob
     parameters:
       epoch: 5
       model_path: ./output/{{PF_RUN_ID}}
@@ -29,11 +20,6 @@ entry_points:
   validate:
     command: bash base_pipeline/shells/validate.sh {{model_path}}
     deps: train
-    env:
-      PF_JOB_FLAVOUR: flavour1
-      PF_JOB_MODE: Pod
-      PF_JOB_QUEUE_NAME: ppl-queue
-      PF_JOB_TYPE: vcjob
     parameters:
       model_path: '{{train.model_path}}'
 

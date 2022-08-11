@@ -23,17 +23,17 @@ import (
 	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 type PaddleJob struct {
 	KubeJob
-	JobModeParams
 }
 
 func (pj *PaddleJob) validateJob(pdj *paddlev1.PaddleJob) error {
@@ -155,7 +155,7 @@ func (pj *PaddleJob) patchPaddleJobSpec(pdjSpec *paddlev1.PaddleJobSpec) error {
 }
 
 func (pj *PaddleJob) StopJobByID(jobID string) error {
-	job, err := models.GetJobByID(jobID)
+	job, err := storage.Job.GetJobByID(jobID)
 	if err != nil {
 		return err
 	}
@@ -230,7 +230,7 @@ func (pj *PaddleJob) patchPdjCollectiveSpec(pdjSpec *paddlev1.PaddleJobSpec) err
 }
 
 // patchPdjTask patches info into task of paddleJob
-func (pj *PaddleJob) patchPdjTask(resourceSpec *paddlev1.ResourceSpec, task models.Member) error {
+func (pj *PaddleJob) patchPdjTask(resourceSpec *paddlev1.ResourceSpec, task model.Member) error {
 	log.Infof("patchPdjTask, resourceSpec=%#v, task=%#v", resourceSpec, task)
 	if !pj.IsCustomYaml && task.Replicas > 0 {
 		resourceSpec.Replicas = task.Replicas

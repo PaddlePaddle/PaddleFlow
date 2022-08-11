@@ -9,7 +9,7 @@
 > 示例链接：[artifact_example]
 
 
-```
+```yaml
 name: artifact_example
 
 entry_points:
@@ -22,10 +22,6 @@ entry_points:
       {{validate_data}}
     docker_env: centos:centos7
     env:
-      PF_JOB_FLAVOUR: flavour1
-      PF_JOB_MODE: Pod
-      PF_JOB_QUEUE_NAME: ppl-queue
-      PF_JOB_TYPE: vcjob
       USER_ABC: 123_{{PF_USER_NAME}}
     parameters:
       data_path: ./artifact_example/data/
@@ -38,11 +34,6 @@ entry_points:
       - train_model
     command: bash artifact_example/shells/train.sh {{epoch}} {{train_data}} {{train_model}}
     deps: preprocess
-    env:
-      PF_JOB_FLAVOUR: flavour1
-      PF_JOB_MODE: Pod
-      PF_JOB_QUEUE_NAME: ppl-queue
-      PF_JOB_TYPE: vcjob
     parameters:
       epoch: 15
 
@@ -52,17 +43,17 @@ entry_points:
         data: '{{preprocess.validate_data}}'
         model: '{{train.train_model}}'
     command: bash artifact_example/shells/validate.sh {{model}}
-    deps: train,preprocess
-    env:
-      PF_JOB_FLAVOUR: flavour1
-      PF_JOB_MODE: Pod
-      PF_JOB_QUEUE_NAME: ppl-queue
-      PF_JOB_TYPE: vcjob
+    deps: preprocess,train
 
 docker_env: nginx:1.7.9
 
 parallelism: 1
+
+fs_options:
+  main_fs: {name: "ppl"}
 ```
+
+> 关于fs_options的详细介绍，请点击[3_multip_fs.md]
 
 # 2 artifact详解
 
@@ -76,7 +67,7 @@ artifact主要用于定义节点运行的输入输出资源（文件/目录）�
 Paddleflow Pipeline定义中，存在parameter，artifact两种参数，其差异如下：
 
 - parameter是节点运行的参数变量。它的取值，在pipeline run运行前，是可以确定的。
-  - 用户可以在pipeline定义中指定，或者在发起pipeline run是指定parameters参数。
+  - 用户可以在pipeline定义中指定，或者在发起pipeline run时通过parameters参数指定。
 
 - artifact是节点运行的输入输出资源（文件/目录）。它的取值，在pipeline run运行前是未知的。
   - artifact的路径，不能由用户在pipeline定义中指定；只能在每个节点运行前，由平台自动生成。
@@ -92,7 +83,7 @@ Paddleflow Pipeline定义中，存在parameter，artifact两种参数，其差�
 
 1. 需要定义输入输出资源，并且希望资源路径由平台进行生成和管理。
 
-2. 如果使用cache机制，并且希望节点运行输出路径的变化，不影响cache命中。
+2. 如果使用cache机制，并且希望节点运行时生成的输出资源，不影响cache命中。
 
 > cache机制详解，以及artifact路径对cache命中机制的影响，可以参考[3_cache.md]
 
@@ -226,3 +217,4 @@ ${FS_USER_ROOT_PATH}/.pipeline/
 [2.1.1 artifact vs parameter]: /docs/zh_cn/reference/pipeline/yaml_definition/2_artifact.md#211-artifact-vs-parameter
 [2.4 artifact 使用方式]: /docs/zh_cn/reference/pipeline/yaml_definition/2_artifact.md#24-artifact-%E4%BD%BF%E7%94%A8%E6%96%B9%E5%BC%8F
 [3.1 artifact存储机制]: /docs/zh_cn/reference/pipeline/yaml_definition/2_artifact.md#31-artifact%E5%AD%98%E5%82%A8%E6%9C%BA%E5%88%B6
+[3_multip_fs.md]: TODO

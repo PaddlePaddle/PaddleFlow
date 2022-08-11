@@ -60,7 +60,7 @@ type Run struct {
 	ScheduledAt    sql.NullTime           `                                         json:"-"`
 	CreateTime     string                 `gorm:"-"                                 json:"createTime"`
 	ActivateTime   string                 `gorm:"-"                                 json:"activateTime"`
-	UpdateTime     string                 `gorm:"-"                                 json:"updateTime,omitempty"`
+	UpdateTime     string                 `gorm:"-"                                 json:"updateTime"`
 	CreatedAt      time.Time              `                                         json:"-"`
 	ActivatedAt    sql.NullTime           `                                         json:"-"`
 	UpdatedAt      time.Time              `                                         json:"-"`
@@ -311,7 +311,7 @@ func (r *Run) ProcessRuntimeView(componentViews map[string][]schema.ComponentVie
 
 func CreateRun(logEntry *log.Entry, run *Run) (string, error) {
 	logEntry.Debugf("begin create run:%+v", run)
-	err := WithTransaction(storage.DB, func(tx *gorm.DB) error {
+	err := storage.DB.Transaction(func(tx *gorm.DB) error {
 		result := tx.Model(&Run{}).Create(run)
 		if result.Error != nil {
 			logEntry.Errorf("create run failed. run:%v, error:%s",
@@ -358,7 +358,7 @@ func UpdateRun(logEntry *log.Entry, runID string, run Run) error {
 
 func DeleteRun(logEntry *log.Entry, runID string) error {
 	logEntry.Debugf("begin delete run. runID:%s", runID)
-	err := WithTransaction(storage.DB, func(tx *gorm.DB) error {
+	err := storage.DB.Transaction(func(tx *gorm.DB) error {
 		result := storage.DB.Model(&RunJob{}).Where("run_id = ?", runID).Delete(&RunJob{})
 		if result.Error != nil {
 			logEntry.Errorf("delete run_job before deleting run failed. runID:%s, error:%s",

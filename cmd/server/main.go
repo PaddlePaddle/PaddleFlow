@@ -25,6 +25,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/metrics"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/monitor"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
@@ -112,6 +113,13 @@ func start() error {
 	go fs.CleanMountPodController(ServerConf.Fs.MountPodExpire, ServerConf.Fs.CleanMountPodIntervalTime, stopChan)
 
 	trace_logger.Start(ServerConf.TraceLog)
+
+	if ServerConf.Metrics.Enable {
+		if err := startMetricsService(ServerConf.Metrics.Port); err != nil {
+			log.Errorf("create job perf metrics service failed, err %v", err)
+			gracefullyExit(err)
+		}
+	}
 
 	go func() {
 		if err := HttpSvr.ListenAndServe(); err != nil && errors.Is(err, http.ErrServerClosed) {
@@ -223,6 +231,7 @@ func setup() {
 		gracefullyExit(err)
 	}
 
+	metrics.InitMetrics()
 }
 
 func newAndStartJobManager() error {
@@ -237,13 +246,24 @@ func newAndStartJobManager() error {
 		log.Errorf("new job manager failed, error: %v", err)
 		return err
 	}
-	go runtimeMgr.Start(models.ActiveClusters, models.ListQueueJob)
+	go runtimeMgr.Start(models.ActiveClusters, storage.Job.ListQueueJob)
 	return nil
 }
 
 func initPrometheusClient(address string) error {
 	err := monitor.NewClientAPI(address)
 	return err
+}
+
+func startMetricsService(port int) (err error) {
+	defer func() {
+		err1 := recover()
+		if err1 != nil {
+			err = fmt.Errorf("%v", err1)
+		}
+	}()
+	metrics.StartMetricsService(port)
+	return
 }
 
 func gracefullyExit(err error) {

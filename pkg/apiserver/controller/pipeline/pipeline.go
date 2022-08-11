@@ -321,9 +321,9 @@ func validateWorkflowForPipeline(pipelineYaml string) (name string, err error) {
 	// fill extra info
 	param := map[string]interface{}{}
 	extra := map[string]string{
-		pplcommon.WfExtraInfoKeyUserName: "",
-		pplcommon.WfExtraInfoKeyFsName:   "mock-fsname",
-		pplcommon.WfExtraInfoKeyFsID:     "mock-fsid",
+		pplcommon.WfExtraInfoKeyFSUserName: "",
+		pplcommon.WfExtraInfoKeyFsName:     "mock-fsname",
+		pplcommon.WfExtraInfoKeyFsID:       "mock-fsid",
 	}
 
 	// validate

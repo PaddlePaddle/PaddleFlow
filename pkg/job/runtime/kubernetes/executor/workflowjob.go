@@ -20,8 +20,8 @@ import (
 	wfv1 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 // WorkflowJob is a executor struct that runs a workflow
@@ -64,7 +64,7 @@ func (wfj *WorkflowJob) patchWorkflowSpec(spec *wfv1.WorkflowSpec) error {
 }
 
 func (wfj *WorkflowJob) StopJobByID(jobID string) error {
-	job, err := models.GetJobByID(jobID)
+	job, err := storage.Job.GetJobByID(jobID)
 	if err != nil {
 		return err
 	}

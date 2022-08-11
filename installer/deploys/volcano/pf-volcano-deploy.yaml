@@ -118,6 +118,13 @@ spec:
             - mountPath: /admission.local.config/certificates
               name: admission-certs
               readOnly: true
+          resources:
+            requests:
+              memory: "1G"
+              cpu: "500m"
+            limits:
+              memory: "2G"
+              cpu: "2000m"
       volumes:
         - name: admission-certs
           secret:
@@ -7450,6 +7457,13 @@ spec:
             - -v=4
             - 2>&1
           imagePullPolicy: "IfNotPresent"
+          resources:
+            requests:
+              memory: "1G"
+              cpu: "500m"
+            limits:
+              memory: "2G"
+              cpu: "2000m"
 ---
 # Source: volcano/templates/scheduler.yaml
 apiVersion: v1
@@ -7598,6 +7612,13 @@ spec:
             - -v=3
             - 2>&1
           imagePullPolicy: "IfNotPresent"
+          resources:
+            requests:
+              memory: "1G"
+              cpu: "500m"
+            limits:
+              memory: "2G"
+              cpu: "2000m"
           volumeMounts:
             - name: scheduler-config
               mountPath: /volcano.scheduler
@@ -7979,3 +8000,30 @@ spec:
           jsonPath: .spec.hardwareTypes
   conversion:
     strategy: None
+---
+apiVersion: scheduling.k8s.io/v1
+description: Used for critical pods that must not be moved from their current node.
+kind: PriorityClass
+metadata:
+  name: high
+  selfLink: /apis/scheduling.k8s.io/v1/priorityclasses/high
+value: 1000
+
+---
+apiVersion: scheduling.k8s.io/v1
+description: Used for normal pods.
+kind: PriorityClass
+metadata:
+  name: normal
+  selfLink: /apis/scheduling.k8s.io/v1/priorityclasses/normal
+value: 100
+
+---
+apiVersion: scheduling.k8s.io/v1
+description: Used for low-priority Pods that are easily preempted.
+kind: PriorityClass
+metadata:
+  name: low
+  selfLink: /apis/scheduling.k8s.io/v1/priorityclasses/low
+value: 50
+
