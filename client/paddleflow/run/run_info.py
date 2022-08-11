@@ -17,7 +17,7 @@ limitations under the License.
 # -*- coding:utf8 -*-
 
 class RunInfo(object):
-    """the class of RunInfo info"""   
+    """the class of run info"""
 
     def __init__(self, run_id, fs_name, username, status, name, description, parameters,
                  run_yaml, runtime, post_process, docker_env, update_time, source, run_msg, schedule_id, scheduled_time,
