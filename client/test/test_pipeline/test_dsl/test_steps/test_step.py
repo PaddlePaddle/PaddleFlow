@@ -13,7 +13,7 @@ from paddleflow.pipeline.dsl.io_types.dicts import OutputArtifactDict
 from paddleflow.pipeline.dsl.io_types.dicts import ParameterDict
 from paddleflow.pipeline.dsl.options import CacheOptions
 from paddleflow.pipeline.dsl.utils.util import validate_string_by_regex
-from paddleflow.pipeline.dsl.utils.consts import STEP_NAME_REGEX
+from paddleflow.pipeline.dsl.utils.consts import COMPONENT_NAME_REGEX
 from paddleflow.pipeline.dsl.utils.consts import VARIBLE_NAME_REGEX
 from paddleflow.common.exception.paddleflow_sdk_exception import PaddleFlowSDKException
 

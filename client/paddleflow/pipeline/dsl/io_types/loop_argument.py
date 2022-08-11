@@ -56,7 +56,7 @@ class _LoopArgument(object):
         """ create an new instance of LoopArgument
 
         Args:
-            argument (Union[List, Paraemter, Artifact, str]) : the arument which would be traversed
+            argument (Union[List, Parameter, Artifact, str]) : the arument which would be traversed
             obj (component): the component which this instance is belong to
         """
         self._prefix = f"the loop_argument for step[{obj.name}]is illegal: "

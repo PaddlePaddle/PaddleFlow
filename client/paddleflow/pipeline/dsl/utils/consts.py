@@ -17,7 +17,7 @@ VARIBLE_NAME_REGEX = "^[a-zA-Z][a-zA-Z0-9_]*$"
 
 PIPELINE_NAME_REGEX = "^[A-Za-z_][A-Za-z0-9-_]{1,49}[A-Za-z0-9_]$"
 
-STEP_NAME_REGEX = "^[A-Za-z][A-Za-z0-9-]{1,250}[A-Za-z0-9-]$"
+COMPONENT_NAME_REGEX = "^[A-Za-z][A-Za-z0-9-]{1,250}[A-Za-z0-9-]$"
 
 ## DSL ERROR CODE
 PipelineDSLError = "PipelineDSLError"
