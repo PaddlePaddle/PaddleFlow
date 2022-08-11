@@ -16,6 +16,42 @@ limitations under the License.
 
 from .options import Options
 
+from paddleflow.common.exception import PaddleFlowSDKException
+from paddleflow.pipeline.dsl.utils.consts import PipelineDSLError
+
+
+class FSScope(object):
+    """ the paths involved in the cachekey calculation (mainly to calculate whether the content under the path has changed). 
+    """
+    def __init__(
+            self,
+            name: str,
+            path: str=None
+            ):
+        """ create an new instance of FSScope
+
+        Args:
+            name: the name of paddleflow filesystem
+            path: the paths involved in the cachekey calculation (mainly to calculate whether the content under the path has changed). Multiple paths are divided by ',' such as "/code,/data"
+        """
+        self.name = name
+        self.path = path
+
+    def compile(self):
+        """ trans to dict
+        """
+        result = {}
+
+        if not self.name:
+            raise PaddleFlowSDKException(PipelineDSLError, "FSScope's name attribute cannot empty")
+
+        result["name"] = self.name
+
+        if not self.path:
+            result["path"] = self.path
+
+        return result
+
 
 class CacheOptions(Options):
     """ The Cache Options of Pipeline or Step
