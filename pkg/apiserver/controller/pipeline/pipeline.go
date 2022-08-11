@@ -322,8 +322,13 @@ func validateWorkflowForPipeline(pipelineYaml string) (name string, err error) {
 	param := map[string]interface{}{}
 	extra := map[string]string{
 		pplcommon.WfExtraInfoKeyFSUserName: "",
-		pplcommon.WfExtraInfoKeyFsName:     "mock-fsname",
-		pplcommon.WfExtraInfoKeyFsID:       "mock-fsid",
+		pplcommon.WfExtraInfoKeyFsName:     wfs.FsOptions.MainFS.Name,
+		pplcommon.WfExtraInfoKeyFsID:       wfs.FsOptions.MainFS.ID,
+	}
+
+	if wfs.FsOptions.MainFS.Name != "" {
+		extra[pplcommon.WfExtraInfoKeyFsName] = "mockFSName"
+		extra[pplcommon.WfExtraInfoKeyFsID] = "mockFSID"
 	}
 
 	// validate
