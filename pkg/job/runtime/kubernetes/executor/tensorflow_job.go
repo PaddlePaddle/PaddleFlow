@@ -32,6 +32,7 @@ type TFJob struct {
 }
 
 func (tfj *TFJob) CreateJob() (string, error) {
+	log.Debugf("tf job %s creating, job struct: %+v", tfj.Name, tfj)
 	pdj := &tfv1.TFJob{}
 	if err := tfj.createJobFromYaml(pdj); err != nil {
 		log.Errorf("create %s failed, err %v", tfj.String(), err)
@@ -59,6 +60,7 @@ func (tfj *TFJob) CreateJob() (string, error) {
 	}
 	// create job on cluster
 	log.Infof("create %s on cluster", tfj.String())
+	log.Debugf("tf job %s created, job struct: %+v", tfj.Name, tfj)
 	if err = Create(pdj, tfj.GroupVersionKind, tfj.DynamicClientOption); err != nil {
 		log.Errorf("create %s on cluster failed, err: %v", tfj.String(), err)
 		return "", err
