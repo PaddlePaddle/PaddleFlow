@@ -100,7 +100,7 @@ def show(ctx, pipeline_id, fs_filter=None, max_keys=None, marker=None):
     if valid:
         ppl_info, ppl_ver_list = response['pipelineInfo'], response['pipelineVersionList']
         next_marker = response['nextMarker']
-        _print_pipeline_info(ppl_info, ppl_ver_list, next_marker, output_format)
+        _print_pipeline_info(ppl_info, ppl_ver_list, next_marker, output_format, False)
     else:
         click.echo("pipeline show failed with message[%s]" % response)
         sys.exit(1)
@@ -148,11 +148,11 @@ def update(ctx, pipeline_id, fs_name, yaml_path, username, desc):
         click.echo("pipeline update failed with message[%s]" % response)
         sys.exit(1)
 
-@pipeline.command(name='showver')
+@pipeline.command(name='showversion')
 @click.argument('pipeline_id')
 @click.argument('pipeline_version_id')
 @click.pass_context
-def show_ver(ctx, pipeline_id, pipeline_version_id):
+def show_version(ctx, pipeline_id, pipeline_version_id):
     """ show pipeline version info.\n
     PIPELINE_ID: the id of pipeline.\n
     PIPELINE_VERSION_ID: the id of pipeline version.\n
@@ -166,16 +166,16 @@ def show_ver(ctx, pipeline_id, pipeline_version_id):
     if valid:
         pipeline_info, ppl_ver_info = response['pipelineInfo'], response['pipelineVersionInfo']
         ppl_ver_list = [ppl_ver_info]
-        _print_pipeline_info(pipeline_info, ppl_ver_list, None, output_format)
+        _print_pipeline_info(pipeline_info, ppl_ver_list, None, output_format, False)
     else:
         click.echo("pipeline version show failed with message[%s]" % response)
         sys.exit(1)
 
-@pipeline.command(name='deletever')
+@pipeline.command(name='deleteversion')
 @click.argument('pipeline_id')
 @click.argument('pipeline_version_id')
 @click.pass_context
-def delete_ver(ctx, pipeline_id, pipeline_version_id):
+def delete_version(ctx, pipeline_id, pipeline_version_id):
     """ delete pipeline version. \n
         PIPELINE_ID: the id of pipeline.
         PIPELINE_VERSION_ID: the id of pipeline version.
@@ -204,7 +204,7 @@ def _print_pipeline(pipelines, out_format):
     print_output(data, headers, out_format, table_format='grid')
 
 
-def _print_pipeline_info(pipeline, ppl_ver_list, next_marker, out_format):
+def _print_pipeline_info(pipeline, ppl_ver_list, next_marker, out_format, is_print_yaml):
     """print pipeline info"""
     headers = [
         'pipeline id', 'name', 'username',
@@ -222,14 +222,16 @@ def _print_pipeline_info(pipeline, ppl_ver_list, next_marker, out_format):
     for pplVer in ppl_ver_list:
         data_ppl_info.append([pplVer.pipeline_version_id, pplVer.fs_name, pplVer.yaml_path, pplVer.username,
                             pplVer.create_time, pplVer.update_time])
-        data_ppl_yaml.append([pplVer.pipeline_version_id, pplVer.pipeline_yaml])
+        if is_print_yaml:
+            data_ppl_yaml.append([pplVer.pipeline_version_id, pplVer.pipeline_yaml])
 
     headers = ['ppl ver id', 'fs name', 'yaml path', 'username',
                'create time', 'update time']
     print_output(data_ppl_info, headers, out_format, table_format='grid')
 
-    headers = ['ppl ver id', 'pipeline yaml']
-    print_output(data_ppl_yaml, headers, out_format, table_format='grid')
+    if is_print_yaml:
+        headers = ['ppl ver id', 'pipeline yaml']
+        print_output(data_ppl_yaml, headers, out_format, table_format='grid')
 
     if next_marker:
         click.echo('marker: {}'.format(next_marker))

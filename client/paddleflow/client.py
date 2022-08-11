@@ -621,13 +621,13 @@ class Client(object):
             raise PaddleFlowSDKException("InvalidRunID", "run_id should not be none or empty")
         return RunServiceApi.delete_run(self.paddleflow_server, run_id, check_cache, self.header)
 
-    def artifact(self, user_filter=None, fs_filter=None, run_filter=None, type_filter=None, path_filter=None,
+    def list_artifact(self, user_filter=None, fs_filter=None, run_filter=None, type_filter=None, path_filter=None,
                  maxkeys=None, marker=None):
         """
         artifact
         """
         self.pre_check()
-        return RunServiceApi.artifact(self.paddleflow_server, user_filter, fs_filter,
+        return RunServiceApi.list_artifact(self.paddleflow_server, user_filter, fs_filter,
                                       run_filter, type_filter, path_filter, maxkeys, marker, self.header)
 
     def list_cache(self, user_filter=None, fs_filter=None, run_filter=None,

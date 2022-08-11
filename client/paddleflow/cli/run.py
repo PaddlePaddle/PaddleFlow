@@ -243,7 +243,7 @@ def show_cache(ctx, cache_id):
         sys.exit(1)
 
 
-@run.command(name='delcache')
+@run.command(name='deletecache')
 @click.argument('cache_id')
 @click.pass_context
 def delete_cache(ctx, cache_id):
@@ -262,7 +262,7 @@ def delete_cache(ctx, cache_id):
         sys.exit(1)
 
 
-@run.command(name='listcache')
+@run.command(name='listartifact')
 @click.option('-u', '--userfilter', 'user_filter', help="List the artifactEventList by user.")
 @click.option('-f', '--fsfilter', 'fs_filter', help="List the artifactEventList by fs.")
 @click.option('-r', '--runfilter', 'run_filter', help="List the artifactEventList by run.")

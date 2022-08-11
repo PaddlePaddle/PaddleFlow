@@ -176,9 +176,9 @@ def delete(ctx, schedule_id):
         sys.exit(1)
 
 def _print_schedule_list(schedule_list, output_format):
-    headers = ['schedule id', 'name', 'desc', 'pipeline id', 'pipeline version id',
+    headers = ['schedule id', 'name', 'desc', 'pipeline id', 'pipeline version id', 'crontab',
                'username', 'fs config', 'options', 'message', 'status']
-    data = [[schedule.schedule_id, schedule.name, schedule.desc, schedule.pipeline_id, schedule.pipeline_version_id,
+    data = [[schedule.schedule_id, schedule.name, schedule.desc, schedule.pipeline_id, schedule.pipeline_version_id, schedule.crontab,
              schedule.username, schedule.fs_config, schedule.options, schedule.message, schedule.status]
                 for schedule in schedule_list]
     print_output(data, headers, output_format, table_format='grid')
