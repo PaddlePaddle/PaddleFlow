@@ -105,15 +105,15 @@ func CacheFlags(fuseConf *fuse.FuseConfig) []cli.Flag {
 			Value: 20971520,
 			Usage: "block size",
 		},
-		&cli.IntFlag{
+		&cli.DurationFlag{
 			Name:        "attr-timeout",
-			Value:       1,
+			Value:       1 * time.Second,
 			Usage:       "attribute cache TTL",
 			Destination: &fuseConf.AttrTimeout,
 		},
-		&cli.IntFlag{
+		&cli.DurationFlag{
 			Name:        "entry-timeout",
-			Value:       1,
+			Value:       1 * time.Second,
 			Usage:       "entry cache TTL",
 			Destination: &fuseConf.EntryTimeout,
 		},

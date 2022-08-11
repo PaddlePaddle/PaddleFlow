@@ -1,0 +1,31 @@
+apiVersion: batch/v1  # API版本
+kind: Job # API对象类型
+metadata:
+  name: pre-delete
+  namespace: paddleflow
+  labels:
+    app: paddleflow-pre-delete
+spec:
+  template:
+    spec:
+      serviceAccount: paddleflow-server
+      restartPolicy: Never
+      containers:
+      - name: pre-delete
+        image: pre-delete-hook:latest
+        args:
+          - -c
+          - cd /root/pre-delete && python pre-delete.py
+        command:
+          - /bin/sh
+        env:
+          - name: service_name
+            value: "paddleflow-server-inside"
+          - name: namespace
+            value: "paddleflow"
+          - name: port
+            value: "8999"
+          - name: user
+            value: "root"
+          - name: password
+            value: "paddleflow"
