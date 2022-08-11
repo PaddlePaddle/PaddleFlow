@@ -156,7 +156,7 @@ func CreatePipeline(ctx *logger.RequestContext, request CreatePipelineRequest) (
 
 	// validate pipeline and get name of pipeline
 	// 此处同样会校验pipeline name格式（正则表达式为：`^[A-Za-z_][A-Za-z0-9_]{1,49}$`）
-	pplName, err := validateWorkflowForPipeline(string(pipelineYaml))
+	pplName, err := validateWorkflowForPipeline(string(pipelineYaml), ctx.UserName, request.UserName)
 	if err != nil {
 		ctx.ErrorCode = common.MalformedYaml
 		errMsg := fmt.Sprintf("validateWorkflowForPipeline failed. err:%v", err)
@@ -252,7 +252,7 @@ func UpdatePipeline(ctx *logger.RequestContext, request UpdatePipelineRequest, p
 	}
 
 	// validate pipeline and get name of pipeline
-	pplName, err := validateWorkflowForPipeline(string(pipelineYaml))
+	pplName, err := validateWorkflowForPipeline(string(pipelineYaml), ctx.UserName, request.UserName)
 	if err != nil {
 		ctx.ErrorCode = common.MalformedYaml
 		errMsg := fmt.Sprintf("validateWorkflowForPipeline failed. err:%v", err)
