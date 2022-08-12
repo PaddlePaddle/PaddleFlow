@@ -185,6 +185,11 @@ func newFrameWorkJob(kubeJob KubeJob, job *api.PFJob) (api.PFJobInterface, error
 		return &PyTorchJob{
 			KubeJob: kubeJob,
 		}, nil
+	case schema.FrameworkTF:
+		kubeJob.GroupVersionKind = k8s.TFJobGVK
+		return &TFJob{
+			KubeJob: kubeJob,
+		}, nil
 	default:
 		return nil, fmt.Errorf("kubernetes job framework[%s] is not supported", job.Framework)
 	}
@@ -626,7 +631,7 @@ func getDefaultPath(jobType schema.JobType, framework schema.Framework, jobMode 
 	case schema.TypeSingle:
 		return fmt.Sprintf("%s/%s%s", baseDir, jobType, suffix)
 	case schema.TypeDistributed:
-		// e.g. basedir/spark.yaml, basedir/paddle_ps.yaml
+		// e.g. basedir/spark.yaml, basedir/paddle_ps.yaml, basedir/tensorflow.yaml basedir/pytorch.yaml
 		return fmt.Sprintf("%s/%s%s", baseDir, framework, suffix)
 	default:
 		// todo(zhongzichao) remove vcjob type
