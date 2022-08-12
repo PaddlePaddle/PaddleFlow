@@ -29,6 +29,7 @@ type APIV1Interface interface {
 	JobGetter
 	RunGetter
 	PipelineGetter
+	ScheduleGetter
 }
 
 // APIV1Client is used to interact with features provided by the group.
@@ -66,6 +67,10 @@ func (c *APIV1Client) Run() RunInterface {
 
 func (c *APIV1Client) Pipeline() PipelineInterface {
 	return newPipeline(c)
+}
+
+func (c *APIV1Client) Schedule() ScheduleInterface {
+	return newSchedule(c)
 }
 
 // RESTClient returns a RESTClient that is used to communicate
