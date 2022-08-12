@@ -131,7 +131,7 @@ class RunServiceApi(object):
         if 'message' in data:
             return False, data['message']
 
-        def transDict2CompInfo(comp_dict):
+        def trans_dict_to_comp_info(comp_dict):
             new_comp_dict = {}
             for key in comp_dict.keys():
                 comp_list = comp_dict[key]
@@ -141,7 +141,7 @@ class RunServiceApi(object):
                         new_comp = DagInfo(comp['id'], comp['name'], comp['type'], comp['dagName'],
                                           comp['parentDagID'], comp['deps'], comp['parameters'],
                                           comp['artifacts'], comp['startTime'], comp['endTime'],
-                                          comp['status'], comp['message'], transDict2CompInfo(comp['entryPoints']))
+                                          comp['status'], comp['message'], trans_dict_to_comp_info(comp['entryPoints']))
                     else:
                         new_comp = JobInfo(comp['name'], comp['deps'], comp['parameters'],
                                         comp['command'], comp['env'], comp['status'], comp['startTime'],
@@ -155,7 +155,7 @@ class RunServiceApi(object):
 
         runtime = data['runtime']
         if runtime:
-            runtime_info = transDict2CompInfo(runtime)
+            runtime_info = trans_dict_to_comp_info(runtime)
 
         post = data['postProcess']
         new_post_dict = {}
@@ -203,12 +203,12 @@ class RunServiceApi(object):
         return True, None
 
     @classmethod
-    def delete_run(self, host, run_id, checkcache=True, header=None):
+    def delete_run(self, host, run_id, check_cache=True, header=None):
         """delete run
         """
         if not header:
             raise PaddleFlowSDKException("InvalidRequest", "paddleflow should login first")
-        body = {"checkCache": checkcache}
+        body = {"checkCache": check_cache}
         response = api_client.call_api(method="DELETE",
                                        url=parse.urljoin(host, api.PADDLE_FLOW_RUN + "/%s" % run_id),
                                        headers=header, json=body)
@@ -258,7 +258,7 @@ class RunServiceApi(object):
                               cache['custom'], cache['createTime'],
                               cache.get('updateTime', ' '))
                 cache_list.append(cache_info)
-        return True, cache_list, data.get('nextMarker', None)
+        return True, {'runCacheList': cache_list, 'nextMarker': data.get('nextMarker', None)}
 
     @classmethod
     def show_runcache(self, host, run_cache_id, header=None):
@@ -295,7 +295,7 @@ class RunServiceApi(object):
             if 'message' in data:
                 return False, data['message']
         else:
-            return True, run_cache_id
+            return True, None
 
     @classmethod
     def retry_run(self, host, run_id, header=None):
@@ -315,11 +315,11 @@ class RunServiceApi(object):
             else:
                 return True, data['runID']
         else:
-            return False, None
+            return False, 'missing text in response'
 
     @classmethod
-    def artifact(self, host, user_filter=None, fs_filter=None, run_filter=None, type_filter=None, path_filter=None,
-                 max_keys=None, marker=None, header=None):
+    def list_artifact(self, host, user_filter=None, fs_filter=None, run_filter=None, type_filter=None, path_filter=None,
+                      max_keys=None, marker=None, header=None):
         """artifact
         """
         if not header:
@@ -353,4 +353,4 @@ class RunServiceApi(object):
                     i['step'], i['type'], i['artifactName'], i['meta'],
                     i['createTime'], i['updateTime'])
             actiface_list.append(actifact)
-        return True, actiface_list, data.get('nextMarker', None)
+        return True, {'artifactList': actiface_list, 'nextMarker': data.get('nextMarker', None)}
