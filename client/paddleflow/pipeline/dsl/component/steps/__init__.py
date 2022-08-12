@@ -12,14 +12,5 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
-
-VARIBLE_NAME_REGEX = "^[a-zA-Z][a-zA-Z0-9_]*$"
-
-PIPELINE_NAME_REGEX = "^[A-Za-z_][A-Za-z0-9-_]{1,49}[A-Za-z0-9_]$"
-
-COMPONENT_NAME_REGEX = "^[A-Za-z][A-Za-z0-9-]{1,250}[A-Za-z0-9-]$"
-
-## DSL ERROR CODE
-PipelineDSLError = "PipelineDSLError"
-
-PARAM_NAME_CODE_LEN = 6
+from .step import Step
+from .container_step import ContainerStep

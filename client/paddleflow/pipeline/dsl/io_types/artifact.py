@@ -14,26 +14,26 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-# Artifact: the input/output file of step
+# Artifact: the input/output file of component
 from paddleflow.pipeline.dsl.utils.util import validate_string_by_regex
 from paddleflow.pipeline.dsl.utils.consts import VARIBLE_NAME_REGEX
 from paddleflow.pipeline.dsl.utils.consts import PipelineDSLError 
 from paddleflow.common.exception.paddleflow_sdk_exception import PaddleFlowSDKException
 
 class Artifact(object):
-    """ Artifact: the input/output file/directory of step
+    """ Artifact: the input/output file/directory of component
     """
     def __init__(self):
         """ create a new instance of Artifact
         """
-        self.__step = None
+        self.__component = None
         self.__name = None
 
-    def set_base_info(self, name: str, step):
-        """ set the step that this paramter instances was belong to and set the name of it
+    def set_base_info(self, name: str, component):
+        """ set the component that this paramter instances was belong to and set the name of it
 
         Args:
-            step (Step): the step that this paramter instances was belong to
+            component (component): the component that this paramter instances was belong to
             name (str): the name of it
 
         Raises:
@@ -41,17 +41,17 @@ class Artifact(object):
 
         .. note:: This is not used directly by the users
         """
-        self.__step = step
+        self.__component = component
         
         if not validate_string_by_regex(name, VARIBLE_NAME_REGEX):
             raise PaddleFlowSDKException(PipelineDSLError,
-                    f"the name of Artifact[{name}] for step[{step.name}]is illegal, " + \
+                    f"the name of Artifact[{name}] for component[{component.name}]is illegal, " + \
                             f"the regex used for validation is {VARIBLE_NAME_REGEX}")
             
         self.__name = name 
 
     def compile(self):
-        """ trans to template when downstream step ref it at compile stage
+        """ trans to template when downstream component ref it at compile stage
 
         Returns:
             A string indicate the template of it
@@ -59,20 +59,20 @@ class Artifact(object):
         Raises:
             PaddleFlowSDKException: if cannot trans to template
         """
-        if self.__step is None or self.__name is None:
+        if self.__component is None or self.__name is None:
             raise PaddleFlowSDKException(PipelineDSLError,
-                    "when trans Artifact to template, it's step and name cannot be None")
+                    "when trans Artifact to template, it's component and name cannot be None")
 
-        return "{{" + f"{self.__step.name}.{self.__name}" + "}}"
+        return "{{" + f"{self.__component.name}.{self.__name}" + "}}"
 
     @property
-    def step(self):
-        """ get the step of it
+    def component(self):
+        """ get the component of it
 
         Returns:
-            A step instance whicht it was belong to
+            A component instance whicht it was belong to
         """
-        return self.__step
+        return self.__component
 
     @property
     def name(self):
@@ -88,10 +88,10 @@ class Artifact(object):
         """
         art = Artifact()
         if self.name:
-            art.set_base_info(name=self.name, step=self.step)
+            art.set_base_info(name=self.name, component=self.component)
         return art
 
     def __eq__(self, other):
         """ support ==
         """
-        return self.name == other.name and self.step == other.step
+        return self.name == other.name and self.component == other.component

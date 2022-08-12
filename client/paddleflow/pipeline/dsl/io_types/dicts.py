@@ -27,24 +27,24 @@ from .parameter import Parameter
 class ParameterDict(dict):
     """ ParameterDict: an dict for manager Parameter
     """
-    def __init__(self, step):
+    def __init__(self, component):
         """ create an new ParameterDict instance
         
         Args:
-            step (Step): the step which owner this ParameterDict instance 
+            component (component): the component which owner this ParameterDict instance 
         """
-        self.__step = step
+        self.__component = component
 
     def __setitem__(self, key: str, value: Any):
         """ magic function __setitem__
         """
-        if isinstance(value, Parameter) and value.step is None:
+        if isinstance(value, Parameter) and value.component is None:
                 # it means this Parameter don't reference anything
-                value.set_base_info(step=self.__step, name=key)
+                value.set_base_info(component=self.__component, name=key)
         else:
-            # it means value is defined by other Step or inner type
+            # it means value is defined by other component or inner type
             param = Parameter()
-            param.set_base_info(step=self.__step, name=key, ref=value)
+            param.set_base_info(component=self.__component, name=key, ref=value)
             value = param
 
         super().__setitem__(key, value)
@@ -53,23 +53,23 @@ class ParameterDict(dict):
 class InputArtifactDict(dict):
     """ InputArtifactDict: an dict for manager input artifact
     """
-    def __init__(self, step):
+    def __init__(self, component):
         """ create an new InputArtifactDict instance
 
         Args:
-            step (Step): the step which owner this InputArtifactDict instance
+            component (component): the component which owner this InputArtifactDict instance
         """
-        self.__step = step
+        self.__component = component
 
     def __setitem__(self, key: str, value: Artifact):
         """ magic function __setitem__
         """
-        if not isinstance(value, Artifact) or value.step is None:
-            err_msg = f"the value of inputs for Step[{self.__step.name}] should be an output artifact of other Step"
+        if not isinstance(value, Artifact) or value.component is None:
+            err_msg = f"the value of inputs for component[{self.__component.name}] should be an output artifact of other component"
             raise PaddleFlowSDKException(PipelineDSLError, err_msg)
 
         if not validate_string_by_regex(key, VARIBLE_NAME_REGEX):
-            err_msg = f"the name of inputs artifacts[{key}] for Step[{self.__step.name}] is is illegal" + \
+            err_msg = f"the name of inputs artifacts[{key}] for component[{self.__component.name}] is is illegal" + \
                 f"the regex used for validation is {VARIBLE_NAME_REGEX}"
             raise PaddleFlowSDKException(PipelineDSLError, err_msg)
 
@@ -79,33 +79,33 @@ class InputArtifactDict(dict):
 class OutputArtifactDict(dict):
     """ OutputArtifactDict: an dict for manager output artifact
     """
-    def __init__(self, step):
+    def __init__(self, component):
         """ create an new OutputArtifactDict instance
 
         Args:
-            step (Step): the step which owner this OutputArtifactDict instance
+            component (component): the component which owner this OutputArtifactDict instance
         """
-        self.__step = step
+        self.__component = component
 
     def __setitem__(self, key: str, value: Artifact):
         """ magic function __setitem__
         """
-        if not isinstance(value, Artifact) or value.step is not None:
-            err_msg = f"the value of outputs[{key}] for step[{self.__step.name}] just can be Artifact()"
+        if not isinstance(value, Artifact) or value.component is not None:
+            err_msg = f"the value of outputs[{key}] for component[{self.__component.name}] just can be Artifact()"
             raise PaddleFlowSDKException(PipelineDSLError, err_msg)
 
-        value.set_base_info(step=self.__step, name=key)
+        value.set_base_info(component=self.__component, name=key)
         super().__setitem__(key, value)
 
 
 class EnvDict(dict):
-    """ To manager envrionment varible of step or pipeline
+    """ To manager envrionment varible of component or pipeline
     """
     def __init__(self, obj: Any):
         """ create an new EnvDict instance
 
         Args:
-            obj (Any): the step which owner this OutputArtifactDict instance
+            obj (Any): the component which owner this OutputArtifactDict instance
         """
         self.__obj = obj
     

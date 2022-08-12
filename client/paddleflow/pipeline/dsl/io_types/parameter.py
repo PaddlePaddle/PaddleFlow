@@ -25,13 +25,13 @@ from paddleflow.pipeline.dsl.utils.consts import PipelineDSLError
 from paddleflow.common.exception.paddleflow_sdk_exception import PaddleFlowSDKException
 
 
-TYPE_TO_STRING = {str: "string", float: "float", int: "int"}
+TYPE_TO_STRING = {str: "string", float: "float", int: "int", list: "list"}
 STRING_TO_TYPE = {value: key for key, value in TYPE_TO_STRING.items()}
 SUPPORT_TYPE = STRING_TO_TYPE.keys() 
 
 
 class Parameter(object):
-    """ Parameters are inputs to pipelines that are known before your pipeline is executed, Parameters let you change the behavior of a step, through configuration instead of code.
+    """ Parameters are inputs to pipelines that are known before your pipeline is executed, Parameters let you change the behavior of a component, through configuration instead of code.
     """
     def __init__(
             self,
@@ -59,7 +59,7 @@ class Parameter(object):
         # if __ref param = Parameter()is not None, means other parameters are referenced
         self.__ref = None
         
-        self.__step = None
+        self.__component = None
         self.__name = None
     
     def _trans_type_to_str(self, t):
@@ -87,26 +87,26 @@ class Parameter(object):
         
         return value
 
-    def set_base_info(self, name: str, step, ref: Any=None):
-        """ set the step that this paramter instances was belong to and set the name of it
+    def set_base_info(self, name: str, component, ref: Any=None):
+        """ set the component that this paramter instances was belong to and set the name of it
 
         Args:
-            step (Step): the step that this paramter instances was belong to
+            component (component): the component that this paramter instances was belong to
             name (str): the name of it
             ref (Any): the refrence parameter
 
         Raises:
             PaddleFlowSDKException: if the name is illegal
         """
-        self.__step = step
+        self.__component = component
         
         if not validate_string_by_regex(name, VARIBLE_NAME_REGEX):
-            raise PaddleFlowSDKException(PipelineDSLError, f"the name of parameter[{name}] for step[{step.name}]is illegal, " + \
+            raise PaddleFlowSDKException(PipelineDSLError, f"the name of parameter[{name}] for component[{component.name}]is illegal, " + \
                     f"the regex used for validation is {VARIBLE_NAME_REGEX}")
 
         if ref:
             if not isinstance(ref, Parameter) and type(ref) not in TYPE_TO_STRING:
-                raise PaddleFlowSDKException(PipelineDSLError,f"the value of parameter[{name}] for step[{step.name}] " + \
+                raise PaddleFlowSDKException(PipelineDSLError,f"the value of parameter[{name}] for component[{component.name}] " + \
                         f"should be an instance of {['Parameter'] + list(SUPPORT_TYPE)}")
             
         self.__name = name 
@@ -122,7 +122,7 @@ class Parameter(object):
             PaddleFlowSDKException: if the ref attribute and the [default, type] attribute exist at the same time
         """
         if self.__ref and any([self.default, self.type]):
-            raise PaddleFlowSDKException(PipelineDSLError, f"the  parameter[{self.name}] for step[{self.step.name}]" + \
+            raise PaddleFlowSDKException(PipelineDSLError, f"the  parameter[{self.name}] for component[{self.component.name}]" + \
                     f"should be an instance of {['Parameter'] + list(SUPPORT_TYPE)}")
         
         if isinstance(self.__ref, Parameter):
@@ -143,21 +143,21 @@ class Parameter(object):
         return  ""
 
     def to_template(self):
-        """ trans to template when downstream step ref this Parameter
+        """ trans to template when downstream component ref this Parameter
 
         Returns:
             A string indicate the template of it
         """
-        return "{{" + self.__step.name + "." + self.__name + '}}'
+        return "{{" + self.__component.name + "." + self.__name + '}}'
 
     @property
-    def step(self):
-        """ get the step step that this paramter instances was belong to
+    def component(self):
+        """ get the component component that this paramter instances was belong to
 
         Returns:
-            a Step that it was belong to
+            a component that it was belong to
         """
-        return self.__step
+        return self.__component
 
     @property
     def name(self):
@@ -217,7 +217,7 @@ class Parameter(object):
         """
         param = Parameter(type=self.type, default=self.default)
         if self.name:
-            param.set_base_info(step=self.step, name=self.name, ref=self.ref)
+            param.set_base_info(component=self.component, name=self.name, ref=self.ref)
 
         return param
 
@@ -225,4 +225,4 @@ class Parameter(object):
         """ support  == and  != 
         """
         return self.name == other.name and self.type == other.type and self.default == other.default and \
-                self.ref == other.ref and self.step == other.step
+                self.ref == other.ref and self.component == other.component

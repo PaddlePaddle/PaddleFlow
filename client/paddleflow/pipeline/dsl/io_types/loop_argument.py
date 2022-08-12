@@ -30,7 +30,7 @@ from paddleflow.common.exception.paddleflow_sdk_exception import PaddleFlowSDKEx
 class _LoopItem(object):
     """ used to refer to item in loop_argument, 
     
-    note:: should not be created by user
+    .. note:: should not be created by user
     """
     def __init__(self, obj):
         """ create an new instance of _LoopItem
@@ -44,7 +44,7 @@ class _LoopItem(object):
 class _LoopArgument(object):
     """ loop arguemnt of step
 
-        note:: should not be created by user
+        .. note:: should not be created by user
     """
     SUPPORT_TYPE = [list, Artifact, Parameter, _LoopItem, str]
 
@@ -96,7 +96,3 @@ class _LoopArgument(object):
         
         if type(argument) not in self.SUPPORT_TYPE:
             raise PaddleFlowSDKException(PipelineDSLError, err_msg)
-
-
-                
-        
