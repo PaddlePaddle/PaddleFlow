@@ -166,7 +166,7 @@ def show_version(ctx, pipeline_id, pipeline_version_id):
     if valid:
         pipeline_info, ppl_ver_info = response['pipelineInfo'], response['pipelineVersionInfo']
         ppl_ver_list = [ppl_ver_info]
-        _print_pipeline_info(pipeline_info, ppl_ver_list, None, output_format, False)
+        _print_pipeline_info(pipeline_info, ppl_ver_list, None, output_format, True)
     else:
         click.echo("pipeline version show failed with message[%s]" % response)
         sys.exit(1)
