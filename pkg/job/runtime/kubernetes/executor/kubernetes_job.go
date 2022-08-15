@@ -171,6 +171,7 @@ func newFrameWorkJob(kubeJob KubeJob, job *api.PFJob) (api.PFJobInterface, error
 		log.Debugf("newFrameWorkJob: create spark job: %#v", sparkJob)
 		return sparkJob, nil
 	case schema.FrameworkMPI:
+		// TODO: use k8s.MPIJobGVK
 		kubeJob.GroupVersionKind = k8s.VCJobGVK
 		return &VCJob{
 			KubeJob: kubeJob,
@@ -197,6 +198,14 @@ func newFrameWorkJob(kubeJob KubeJob, job *api.PFJob) (api.PFJobInterface, error
 
 func (j *KubeJob) String() string {
 	return fmt.Sprintf("%s job %s/%s", j.GroupVersionKind.String(), j.Namespace, j.Name)
+}
+
+func (j *KubeJob) Cluster() string {
+	clusterName := ""
+	if j.DynamicClientOption != nil && j.DynamicClientOption.ClusterInfo != nil {
+		clusterName = j.DynamicClientOption.ClusterInfo.Name
+	}
+	return clusterName
 }
 
 func (j *KubeJob) generateAffinity(affinity *corev1.Affinity, fsIDs []string) *corev1.Affinity {
@@ -488,6 +497,11 @@ func (j *KubeJob) CreateJob() (string, error) {
 }
 
 func (j *KubeJob) StopJobByID(id string) error {
+	log.Infof("stop %s on cluster %s", j.String(), j.Cluster())
+	if err := Delete(j.Namespace, id, j.GroupVersionKind, j.DynamicClientOption); err != nil {
+		log.Errorf("stop %s on cluster %s failed, err: %v", j.String(), j.Cluster(), err)
+		return err
+	}
 	return nil
 }
 
