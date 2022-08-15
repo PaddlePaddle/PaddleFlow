@@ -23,3 +23,5 @@ COMPONENT_NAME_REGEX = "^[A-Za-z][A-Za-z0-9-]{1,250}[A-Za-z0-9-]$"
 PipelineDSLError = "PipelineDSLError"
 
 PARAM_NAME_CODE_LEN = 6
+
+ENTRY_POINT_NAME = "pf_entry_point"

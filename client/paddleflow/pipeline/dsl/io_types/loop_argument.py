@@ -40,6 +40,11 @@ class _LoopItem(object):
         """
         self._obj = obj
 
+    def to_template(self):
+        """ trans to string
+        """
+        return "{{" + f"{self._obj.full}.{PF_LOOP_ARGUMENT}" + "}}"
+
 
 class _LoopArgument(object):
     """ loop arguemnt of step

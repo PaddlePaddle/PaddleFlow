@@ -13,5 +13,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 from .component import Component
+from .dag import DAG
 from .steps import Step
 from .steps import ContainerStep
