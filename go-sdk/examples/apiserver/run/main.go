@@ -28,8 +28,8 @@ import (
 
 func getToken(pfClient *service.PaddleFlowClient) string {
 	data, err := pfClient.APIV1().User().Login(context.TODO(), &v1.LoginInfo{
-		UserName: "root",       // Debug: test
-		Password: "paddleflow", // Debug: test
+		UserName: "",
+		Password: "",
 	})
 	if err != nil {
 		panic(err)
@@ -117,7 +117,6 @@ func DeleteCache(pfClient *service.PaddleFlowClient, token string, cacheID strin
 	if err != nil {
 		panic(err)
 	}
-	return
 }
 
 func ListArtifact(pfClient *service.PaddleFlowClient, token string, request *v1.ListArtifactRequest) *v1.ListArtifactResponse {
@@ -130,7 +129,7 @@ func ListArtifact(pfClient *service.PaddleFlowClient, token string, request *v1.
 
 func main() {
 	config := &core.PaddleFlowClientConfiguration{
-		Host:                       "gzbh-bos-aries-r104-178546850.gzbh.baidu.com", // debug: test
+		Host:                       "",
 		Port:                       8999,
 		ConnectionTimeoutInSeconds: 1,
 	}
@@ -173,8 +172,8 @@ func main() {
 
 	reqListCache := &v1.ListRunCacheRequest{
 		UserFilter: []string{},
-		FSFilter:   []string{"cyang14"}, // debug: test
-		RunFilter:  []string{"run-000031"},
+		FSFilter:   []string{""},
+		RunFilter:  []string{"run-000001"},
 		MaxKeys:    30,
 		Marker:     "",
 	}
