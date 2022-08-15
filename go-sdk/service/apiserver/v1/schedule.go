@@ -134,7 +134,7 @@ func (s *schedule) Create(ctx context.Context, request *CreateScheduleRequest, t
 	return
 }
 
-func (s *schedule) Get(ctx context.Context, request GetScheduleRequest, token string) (result *GetScheduleResponse, err error) {
+func (s *schedule) Get(ctx context.Context, request *GetScheduleRequest, token string) (result *GetScheduleResponse, err error) {
 	result = &GetScheduleResponse{}
 	err = newRequestBuilderWithTokenHeader(s.client, token).
 		WithMethod(http.GET).
@@ -178,7 +178,7 @@ func (s *schedule) List(ctx context.Context, request *ListScheduleRequest, token
 
 func (s *schedule) Stop(ctx context.Context, scheduleID string, token string) (err error) {
 	err = newRequestBuilderWithTokenHeader(s.client, token).
-		WithURL(scheduleID + "/" + scheduleID).
+		WithURL(scheduleAPI + "/" + scheduleID).
 		WithMethod(http.PUT).
 		Do()
 
@@ -204,7 +204,7 @@ func (s *schedule) Delete(ctx context.Context, scheduleID string, token string) 
 
 type ScheduleInterface interface {
 	Create(ctx context.Context, request *CreateScheduleRequest, token string) (result *CreateScheduleResponse, err error)
-	Get(ctx context.Context, request GetScheduleRequest, token string) (result *GetScheduleResponse, err error)
+	Get(ctx context.Context, request *GetScheduleRequest, token string) (result *GetScheduleResponse, err error)
 	List(ctx context.Context, request *ListScheduleRequest, token string) (result *ListScheduleResponse, err error)
 	Stop(ctx context.Context, scheduleID string, token string) (err error)
 	Delete(ctx context.Context, scheduleID string, token string) (err error)
