@@ -175,7 +175,7 @@ type ArtifactEventBrief struct {
 	UpdateTime   string `json:"updateTime`
 }
 
-type ListRunArtifactRequest struct {
+type ListArtifactRequest struct {
 	UserFilter []string
 	FSFilter   []string
 	RunFilter  []string
@@ -185,7 +185,7 @@ type ListRunArtifactRequest struct {
 	Marker     string
 }
 
-type ListRunArtifactResponse struct {
+type ListArtifactResponse struct {
 	common.MarkerInfo
 	ArtifactEventList []ArtifactEventBrief `json:"artifactEventList"`
 }
@@ -444,9 +444,9 @@ func (r *run) DeleteRunCache(ctx context.Context, runCacheID string, token strin
 	return
 }
 
-func (r *run) ListArtifact(ctx context.Context, request *ListRunArtifactRequest,
-	token string) (result *ListRunArtifactResponse, err error) {
-	result = &ListRunArtifactResponse{}
+func (r *run) ListArtifact(ctx context.Context, request *ListArtifactRequest,
+	token string) (result *ListArtifactResponse, err error) {
+	result = &ListArtifactResponse{}
 
 	err = newRequestBuilderWithTokenHeader(r.client, token).
 		WithMethod(http.GET).
@@ -480,7 +480,7 @@ type RunInterface interface {
 	GetRunCache(ctx context.Context, runCacheID string, token string) (result *GetRunCacheResponse, err error)
 	DeleteRunCache(ctx context.Context, runCacheID string, token string) (err error)
 
-	ListArtifact(ctx context.Context, request *ListRunArtifactRequest, token string) (result *ListRunArtifactResponse, err error)
+	ListArtifact(ctx context.Context, request *ListArtifactRequest, token string) (result *ListArtifactResponse, err error)
 }
 
 type RunGetter interface {

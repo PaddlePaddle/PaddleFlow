@@ -28,8 +28,8 @@ import (
 
 func getToken(pfClient *service.PaddleFlowClient) string {
 	data, err := pfClient.APIV1().User().Login(context.TODO(), &v1.LoginInfo{
-		UserName: "",
-		Password: "",
+		UserName: "root",       // Debug: test
+		Password: "paddleflow", // Debug: test
 	})
 	if err != nil {
 		panic(err)
@@ -96,9 +96,41 @@ func Delete(pfClient *service.PaddleFlowClient, token, runID string) {
 	}
 }
 
+func ListCache(pfClient *service.PaddleFlowClient, token string, request *v1.ListRunCacheRequest) *v1.ListRunCacheResponse {
+	result, err := pfClient.APIV1().Run().ListRunCache(context.TODO(), request, token)
+	if err != nil {
+		panic(err)
+	}
+	return result
+}
+
+func GetCache(pfClient *service.PaddleFlowClient, token string, cacheID string) *v1.GetRunCacheResponse {
+	result, err := pfClient.APIV1().Run().GetRunCache(context.TODO(), cacheID, token)
+	if err != nil {
+		panic(err)
+	}
+	return result
+}
+
+func DeleteCache(pfClient *service.PaddleFlowClient, token string, cacheID string) {
+	err := pfClient.APIV1().Run().DeleteRunCache(context.TODO(), cacheID, token)
+	if err != nil {
+		panic(err)
+	}
+	return
+}
+
+func ListArtifact(pfClient *service.PaddleFlowClient, token string, request *v1.ListArtifactRequest) *v1.ListArtifactResponse {
+	result, err := pfClient.APIV1().Run().ListArtifact(context.TODO(), request, token)
+	if err != nil {
+		panic(err)
+	}
+	return result
+}
+
 func main() {
 	config := &core.PaddleFlowClientConfiguration{
-		Host:                       "",
+		Host:                       "gzbh-bos-aries-r104-178546850.gzbh.baidu.com", // debug: test
 		Port:                       8999,
 		ConnectionTimeoutInSeconds: 1,
 	}
@@ -134,8 +166,34 @@ func main() {
 
 	reqList := &v1.ListRunRequest{
 		MaxKeys:    10,
-		UserFilter: []string{""},
-		FsFilter:   []string{""},
+		UserFilter: []string{},
+		FsFilter:   []string{},
 	}
 	List(pfClient, reqList, token)
+
+	reqListCache := &v1.ListRunCacheRequest{
+		UserFilter: []string{},
+		FSFilter:   []string{"cyang14"}, // debug: test
+		RunFilter:  []string{"run-000031"},
+		MaxKeys:    30,
+		Marker:     "",
+	}
+	resListCache := ListCache(pfClient, token, reqListCache)
+	jsonListCache, _ := json.Marshal(resListCache)
+	fmt.Println(string(jsonListCache))
+
+	resGetCache := GetCache(pfClient, token, "cch-000002")
+	jsonGetCache, _ := json.Marshal(resGetCache)
+	fmt.Println(string(jsonGetCache))
+
+	DeleteCache(pfClient, token, "cch-000002")
+	_ = GetCache(pfClient, token, "cch-000002")
+	jsonGetCache, _ = json.Marshal(resGetCache)
+	fmt.Println(string(jsonGetCache))
+
+	resListArtifact := ListArtifact(pfClient, token, &v1.ListArtifactRequest{
+		MaxKeys: 10,
+	})
+	jsonListAtf, _ := json.Marshal(resListArtifact)
+	fmt.Println(string(jsonListAtf))
 }
