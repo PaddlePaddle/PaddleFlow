@@ -602,10 +602,12 @@ func (srt *StepRuntime) startJob() (err error) {
 		return err
 	}
 
-	err = srt.logCache()
-	if err != nil {
-		// 如果 cache 信息存储失败，只打印日志，不做额外处理
-		srt.logger.Errorf(err.Error())
+	if srt.getWorkFlowStep().Cache.Enable {
+		err = srt.logCache()
+		if err != nil {
+			// 如果 cache 信息存储失败，只打印日志，不做额外处理
+			srt.logger.Errorf(err.Error())
+		}
 	}
 
 	return
