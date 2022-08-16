@@ -156,136 +156,6 @@ func (m *JobManagerImpl) Run(runtimeService runtime.RuntimeService, stopCh <-cha
 	go runtimeService.GCJob(stopCh)
 }
 
-// jobProcessLoop start job process on cluster deprecated
-func (m *JobManagerImpl) jobProcessLoop(jobSubmit func(*api.PFJob) error, clusterID api.ClusterID, stopCh <-chan struct{}) {
-	queueStatus := make(map[api.QueueID]chan struct{})
-	for {
-		select {
-		case <-stopCh:
-			for qid, ch := range queueStatus {
-				if ch != nil {
-					log.Infof("stop submit loop for queue %s ...", qid)
-					close(ch)
-				}
-			}
-			log.Infof("exit job process loop for cluster[%s] ...", clusterID)
-			return
-		default:
-			clusterQueues := models.ListQueuesByCluster(string(clusterID))
-			for _, queue := range clusterQueues {
-				queueID := api.QueueID(queue.ID)
-				if queue.Status != schema.StatusQueueOpen {
-					log.Debugf("skip queue %s when status is not open", queue.Name)
-					// stop submit job loop for queue
-					ch, ok := queueStatus[queueID]
-					if ok {
-						close(ch)
-					}
-					delete(queueStatus, queueID)
-					continue
-				}
-				_, find := queueStatus[queueID]
-				if !find {
-					queueStatus[queueID] = make(chan struct{})
-					log.Infof("create new submit loop for queue [%s]", queue.Name)
-					go m.submitQueueJob(jobSubmit, queueID, queueStatus[queueID])
-				}
-			}
-			time.Sleep(m.queueExpireTime)
-		}
-	}
-}
-
-// submitQueueJob submit jobs in queue deprecated
-func (m *JobManagerImpl) submitQueueJob(jobSubmit func(*api.PFJob) error, queueID api.QueueID, stopCh <-chan struct{}) {
-	cqueue, find := m.GetQueue(queueID)
-	if !find {
-		log.Errorf("queue %s does not found", queueID)
-		return
-	}
-	queue := cqueue.Queue
-	// construct job submit queue
-	jobQueue := api.NewPriorityQueue(queue.JobOrderFn)
-	queueName := queue.Name
-	for {
-		select {
-		case <-stopCh:
-			log.Infof("exit submit job loop for queue[%s]...", queueName)
-			return
-		default:
-			// check whether queue is exist or not
-			_, find = m.GetQueue(queueID)
-			if !find {
-				log.Errorf("queue %s does not found", queueName)
-				return
-			}
-			// get init job from database
-			pfJobs := m.listQueueInitJobs(string(queueID))
-			if len(pfJobs) == 0 {
-				log.Debugf("sleep %s when no job on queue %s", m.jobLoopPeriod, queueName)
-				time.Sleep(m.jobLoopPeriod)
-				continue
-			}
-			// loop for submit queue jobs
-			for idx := range pfJobs {
-				jobInfo, err := api.NewJobInfo(&pfJobs[idx])
-				if err != nil {
-					log.Errorf("create paddleflow job %s failed, err: %v", jobInfo.ID, err)
-					continue
-				}
-				jobQueue.Push(jobInfo)
-			}
-
-			jobCount := jobQueue.Len()
-			log.Infof("Entering submit %d jobs in queue %s", jobCount, queueName)
-			startTime := time.Now()
-			for !jobQueue.Empty() {
-				// get enqueue job
-				job := jobQueue.Pop().(*api.PFJob)
-				m.submitJob(jobSubmit, job)
-			}
-			log.Infof("Leaving submit %d jobs in queue %s, total elapsed time: %s", jobCount, queueName, time.Since(startTime))
-		}
-	}
-}
-
-// submitJob submit a job to cluster
-func (m *JobManagerImpl) submitJob(jobSubmit func(*api.PFJob) error, jobInfo *api.PFJob) {
-	log.Infof("begin to submit job %s to cluster", jobInfo.ID)
-	startTime := time.Now()
-	job, err := storage.Job.GetJobByID(jobInfo.ID)
-	if err != nil {
-		log.Errorf("get job %s from database failed, err: %v", job.ID, err)
-		return
-	}
-	// check job status before create job on cluster
-	if job.Status == schema.StatusJobInit {
-		var jobStatus schema.JobStatus
-		var msg string
-		err = jobSubmit(jobInfo)
-		if err != nil {
-			// new job failed, update db and skip this job
-			msg = fmt.Sprintf("submit job to cluster failed, err: %s", err)
-			log.Errorln(msg)
-			trace_logger.KeyWithUpdate(jobInfo.ID).Errorf(msg)
-			jobStatus = schema.StatusJobFailed
-		} else {
-			msg = "submit job to cluster successfully."
-			trace_logger.KeyWithUpdate(jobInfo.ID).Infof(msg)
-			jobStatus = schema.StatusJobPending
-		}
-		// new job failed, update db and skip this job
-		if dbErr := storage.Job.UpdateJobStatus(jobInfo.ID, msg, jobStatus); dbErr != nil {
-			errMsg := fmt.Sprintf("update job[%s] status to [%s] failed, err: %v", jobInfo.ID, schema.StatusJobFailed, dbErr)
-			log.Errorf(errMsg)
-			trace_logger.KeyWithUpdate(jobInfo.ID).Errorf(errMsg)
-		}
-		log.Infof("submit job %s to cluster elasped time %s", jobInfo.ID, time.Since(startTime))
-	} else {
-		log.Errorf("job %s is already submit to cluster, skip it", job.ID)
-	}
-}
-
 type clusterQueue struct {
 	Queue      *api.QueueInfo
 	RuntimeSvc runtime.RuntimeService
@@ -401,6 +271,43 @@ func (m *JobManagerImpl) pSubmitQueueJob(jobQueue *api.JobQueue, runtimeSvc runt
 				time.Sleep(200 * time.Millisecond)
 			}
 		}
+	}
+}
+
+// submitJob submit a job to cluster
+func (m *JobManagerImpl) submitJob(jobSubmit func(*api.PFJob) error, jobInfo *api.PFJob) {
+	log.Infof("begin to submit job %s to cluster", jobInfo.ID)
+	startTime := time.Now()
+	job, err := storage.Job.GetJobByID(jobInfo.ID)
+	if err != nil {
+		log.Errorf("get job %s from database failed, err: %v", job.ID, err)
+		return
+	}
+	// check job status before create job on cluster
+	if job.Status == schema.StatusJobInit {
+		var jobStatus schema.JobStatus
+		var msg string
+		err = jobSubmit(jobInfo)
+		if err != nil {
+			// new job failed, update db and skip this job
+			msg = fmt.Sprintf("submit job to cluster failed, err: %s", err)
+			log.Errorln(msg)
+			trace_logger.KeyWithUpdate(jobInfo.ID).Errorf(msg)
+			jobStatus = schema.StatusJobFailed
+		} else {
+			msg = "submit job to cluster successfully."
+			trace_logger.KeyWithUpdate(jobInfo.ID).Infof(msg)
+			jobStatus = schema.StatusJobPending
+		}
+		// new job failed, update db and skip this job
+		if dbErr := storage.Job.UpdateJobStatus(jobInfo.ID, msg, jobStatus); dbErr != nil {
+			errMsg := fmt.Sprintf("update job[%s] status to [%s] failed, err: %v", jobInfo.ID, schema.StatusJobFailed, dbErr)
+			log.Errorf(errMsg)
+			trace_logger.KeyWithUpdate(jobInfo.ID).Errorf(errMsg)
+		}
+		log.Infof("submit job %s to cluster elasped time %s", jobInfo.ID, time.Since(startTime))
+	} else {
+		log.Errorf("job %s is already submit to cluster, skip it", job.ID)
 	}
 }
 
