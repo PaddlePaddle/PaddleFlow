@@ -30,7 +30,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 const defaultExecutorInstances int32 = 1
@@ -289,20 +288,6 @@ func (sj *SparkJob) CreateJob() (string, error) {
 		return "", err
 	}
 	return jobID, nil
-}
-
-// StopJobByID stops a job by jobID
-func (sj *SparkJob) StopJobByID(jobID string) error {
-	job, err := storage.Job.GetJobByID(jobID)
-	if err != nil {
-		return err
-	}
-	namespace := job.Config.GetNamespace()
-	if err = Delete(namespace, job.ID, k8s.SparkAppGVK, sj.DynamicClientOption); err != nil {
-		log.Errorf("stop sparkjob %s in namespace %s failed, err %v", job.ID, namespace, err)
-		return err
-	}
-	return nil
 }
 
 func fillGPUSpec(driverFlavour schema.Flavour, executorFlavour schema.Flavour, jobSpec *sparkapp.SparkApplication) {
