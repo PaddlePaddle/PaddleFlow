@@ -160,6 +160,10 @@ rules:
   - apiGroups: ["argoproj.io"]
     resources: ["workflowtemplates", "workflowtemplates/finalizers", "clusterworkflowtemplates", "clusterworkflowtemplates/finalizers"]
     verbs: ["create", "delete", "get", "list", "watch", "update"]
+  - apiGroups: ["kubeflow.org"]
+    resources: ["*"]
+    verbs: ["create", "delete", "get", "list", "watch", "update"]
+
 ---
 # ClusterRoleBinding for paddleflow-server
 kind: ClusterRoleBinding
