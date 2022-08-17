@@ -1,0 +1,124 @@
+"""
+Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+http://www.apache.org/licenses/LICENSE-2.0
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+/home/ahz/baidu/bmlc/paddleflow/client/paddleflow/pipelineSee the License for the specific language governing permissions and
+limitations under the License.
+"""
+from typing import Dict
+
+from .component_inferer import ComponentInferer
+from .step_inferer import ContainerStepInferer
+
+from paddleflow.pipeline.dsl.component import DAG
+from paddleflow.pipeline.dsl.component import ContainerStep
+from paddleflow.pipeline.dsl.io_types import ArtifactPlaceholder
+from paddleflow.pipeline.dsl.io_types import ParameterPlaceholder
+from paddleflow.pipeline.dsl.utils.consts import PipelineDSLError
+from paddleflow.common.exception.paddleflow_sdk_exception import PaddleFlowSDKException
+
+
+class DAGInferer(ComponentInferer):
+    """ infer parameter and artifact for DAG from it's fileds
+    """
+    def __init__(self, dag):
+        """ create a new instance of DAGInferer
+        """
+        super().__init__(dag)
+    
+    def infer(self, env: Dict):
+        """ infer parameter and artifact
+        """
+        super().infer(env)
+
+        self._infer_from_sub_component(env)
+    
+    def _infer_from_sub_component(self, env:Dict):
+        """ infer parameter from sub_component
+        """
+        for component in self._component.entry_points:
+            if isinstance(component, DAG):
+                DAGInferer(component).infer(env)
+            elif isinstance(component, ContainerStep):
+                ContainerStepInferer(component).infer(env) 
+
+        #  entry_points is out of order at this time
+        for cp in self._component.entry_points:
+            self._infer_parameter_from_sub_component(cp)
+            self._infer_inputs_from_sub_component(cp)
+
+        # only sub dag need to infer output from it's downstream component
+        self._infer_outputs_for_sub_dag()
+
+    def _has_sub_componet(self, componnent_full_name:str):
+        """ is there some subcomponent who's full_name == component_full_name
+        """
+        if componnent_full_name.rsplit(".", 1)[0] != self._component.full_name:
+            return False
+        
+        return True
+    
+    def _has_descendants_component(self, component_full_name: str):
+        """ is there some descendants component who's full_name == component_full_name
+        """
+        return component_full_name.startswith(self._component.full_name + ".")
+
+    def _infer_parameter_from_sub_component(self, cp):
+        """ infer parameter from sub_component
+        """
+        for name, value in cp.parameters:
+            if isinstance(value.ref, ParameterPlaceholder):
+                if self._has_sub_componet(value.component_full_name):
+                    upstream_name = value.component_full_name.split(".")[-1]
+                    cp.parameters[name]=self._component.entry_points[upstream_name].parameters[value.name]
+                else:
+                    # parameter is come from self._component's upstream
+                    param_name = self._generate_art_or_param_name("dsl", "param")
+                    self._component.parameters[param_name] = value.ref
+                    cp.parameters[name] = self._component.parameters[param_name]
+
+    def _infer_inputs_from_sub_component(self, cp):
+        """ infer inputs from sub_component
+        """
+        for name, value in cp.inputs:
+            if isinstance(value.ref, ArtifactPlaceholder):
+                if self._has_sub_componet(value.component_full_name):
+                    upstream_name = value.component_full_name.split(".")[-1]
+                    cp.inputs[name] = self._component.entry_points[upstream_name].outputs[value.name]
+                else:
+                    art_name = self._generate_art_or_param_name("dsl", "art")
+                    if self._has_descendants_component(value.component_full_name):
+                        upstream_name = value.component_full_name.split(".")[len(cp.fullname.split(".")) -1 ]
+                        self._component.entry_points[upstream_name].outputs[art_name] = value.ref
+                        cp.inputs[name] = self._component.entry_points[upstream_name].outputs[value.name]
+                    else:    
+                        art_name = self._generate_art_or_param_name("dsl", "art")
+                        self._component.inputs[art_name] = value.ref
+                        cp.inputs[name] = self._component.inputs[art_name]
+                
+    def _infer_outputs_for_sub_dag(self):
+        """ infer outputs for sub dag according to it's downstream
+        """
+        for key, value in self._component.outputs:
+            if isinstance(value.ref, ArtifactPlaceholder):
+                sub_name = value.ref.component_full_name.replace(self._component.full_name, "", 1).split(".")[0]
+
+                if self._has_sub_componet(value.ref.component_full_name):
+                    value = self._component.entry_points[sub_name].outputs[key]
+                else:
+                    art_name = self._generate_art_or_param_name("dsl", "art")
+                    self._component.entry_points[sub_name].outputs[art_name] = value.ref
+                    value = self._component.entry_points[sub_name].outputs[art_name]
+
+    def _infer_env(self):
+        """ infer env for subcomponent
+        """
+        pass
+            

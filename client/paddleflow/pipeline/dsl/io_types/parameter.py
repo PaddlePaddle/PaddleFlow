@@ -19,6 +19,7 @@ limitations under the License.
 from typing import Dict
 from typing import Any
 
+from .placeholder import ParameterPlaceholder
 from paddleflow.pipeline.dsl.utils.util import validate_string_by_regex
 from paddleflow.pipeline.dsl.utils.consts import VARIBLE_NAME_REGEX
 from paddleflow.pipeline.dsl.utils.consts import PipelineDSLError 
@@ -105,7 +106,8 @@ class Parameter(object):
                     f"the regex used for validation is {VARIBLE_NAME_REGEX}")
 
         if ref:
-            if not isinstance(ref, Parameter) and type(ref) not in TYPE_TO_STRING:
+            from .loop_argument import _LoopItem
+            if type(ref) not in TYPE_TO_STRING.keys() + [Parameter, _LoopItem, ParameterPlaceholder]:
                 raise PaddleFlowSDKException(PipelineDSLError,f"the value of parameter[{name}] for component[{component.name}] " + \
                         f"should be an instance of {['Parameter'] + list(SUPPORT_TYPE)}")
             
@@ -226,3 +228,8 @@ class Parameter(object):
         """
         return self.name == other.name and self.type == other.type and self.default == other.default and \
                 self.ref == other.ref and self.component == other.component
+    
+    def __str__(self):
+        """ magic func for str
+        """
+        return "{{" + f"parameter: {self.component.full_name}.{self.name}" + "}}"

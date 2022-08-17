@@ -109,3 +109,8 @@ class DAG(Component):
         if name in names:
             raise PaddleFlowSDKException(PipelineDSLError, 
                 self._generate_error_msg(f"there are multiple steps with the same name[{name}]"))
+
+    def has_component(self, cp_name: str):
+        """ is there some sub component named cp_name ?
+        """
+        return cp_name in self.entry_points

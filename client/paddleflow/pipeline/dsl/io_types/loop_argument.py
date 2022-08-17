@@ -32,18 +32,18 @@ class _LoopItem(object):
     
     .. note:: should not be created by user
     """
-    def __init__(self, obj):
+    def __init__(self, component):
         """ create an new instance of _LoopItem
 
         Args:
             obj (Component): which component this instance is belong to
         """
-        self._obj = obj
+        self._component = component
 
-    def to_template(self):
-        """ trans to string
+    def __str__(self):
+        """ magic func for str
         """
-        return "{{" + f"{self._obj.full}.{PF_LOOP_ARGUMENT}" + "}}"
+        return "{{" + f"loop: {self._component.full_name}.{PF_LOOP_ARGUMENT[2:-2]}" + "}}"
 
 
 class _LoopArgument(object):
@@ -95,9 +95,15 @@ class _LoopArgument(object):
                 if type(arg) not in PARAM_SUPPORT_TYPE:
                     raise PaddleFlowSDKException(PipelineDSLError, self._prefix + \
                         "when the type of loop_arugment is [list, json list], " + \
-                        f"the type of item in {PARAM_SUPPORT_TYPE}")
+                        f"the type of item should be in {PARAM_SUPPORT_TYPE}")
             
             return 
         
         if type(argument) not in self.SUPPORT_TYPE:
             raise PaddleFlowSDKException(PipelineDSLError, err_msg)
+    
+    @property
+    def argument(self):
+        """ get argument
+        """
+        return self._argument

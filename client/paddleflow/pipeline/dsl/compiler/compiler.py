@@ -19,10 +19,14 @@ import json
 import yaml
 from pathlib import Path
 
+from .step_compiler import StepCompiler
+from .dag_compiler import DAGCompiler
+
+from paddleflow.pipeline.dsl.inferer import ContainerStepInferer
+from paddleflow.pipeline.dsl.inferer import DAGInferer
 from paddleflow.pipeline.dsl.utils.consts import PipelineDSLError
 from paddleflow.common.exception.paddleflow_sdk_exception import PaddleFlowSDKException
 
-from .step_compiler import StepCompiler
 
 class Compiler(object):
     """ Compiler: trans dsl.Pipeline to static description string
@@ -46,17 +50,17 @@ class Compiler(object):
         # 1、init pipeline_dict
         self._pipeline_dict = {}
 
-        # 2、compile Step
-        self._pipeline_dict["entry_points"] = {}
-        
-        for name, step in pipeline.steps.items():
-            self._pipeline_dict["entry_points"][name] = StepCompiler().compile(step)
+        # 2、compile Entypoint
+        self._pipeline_dict["entry_points"] = DAGCompiler(pipeline, pipeline.entry_points)
         
         # 3、compile post_process
         post_process = pipeline.get_post_process()
+        ContainerStepInferer(post_process)
+
         if post_process is not None:
             self._pipeline_dict["post_process"] = {}
             self._pipeline_dict["post_process"][post_process.name] = StepCompiler().compile(post_process)
+            self._validate_post_process(self._pipeline_dict["post_process"][post_process.name])
 
         # 4、trans pipeline conf
         if pipeline.docker_env:
@@ -105,3 +109,12 @@ class Compiler(object):
 
             else:
                 yaml.dump(self._pipeline_dict, fp)
+
+    def _validate_post_process(self, post_process: dict):
+        """ validate post_process is illegal or not
+        """
+        for key in ["condition", "entry_points", "loop_arugment", "deps"]:
+            if key in post_process:
+                raise PaddleFlowSDKException(PipelineDSLError, 
+                    f"post_process filed only support Step component, and it does not support"  + \
+                    "[condition, loop_argument], and cannot deps on any other component")

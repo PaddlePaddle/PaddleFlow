@@ -1,3 +1,41 @@
+"""
+Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+http://www.apache.org/licenses/LICENSE-2.0
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+/home/ahz/baidu/bmlc/paddleflow/client/paddleflow/pipelineSee the License for the specific language governing permissions and
+limitations under the License.
+"""
+
+from .component_compiler import ComponentCompiler
+
+from paddleflow.pipeline.dsl import Pipeline
+from paddleflow.pipeline.dsl.component import DAG
+from paddleflow.pipeline.dsl.component import Component
+from paddleflow.pipeline.dsl.utils.consts import PipelineDSLError
+from paddleflow.common.exception.paddleflow_sdk_exception import PaddleFlowSDKException
+
+class DAGCompiler(ComponentCompiler):
+    """ trans DAG obj to dict
+    """
+    def __init__(self, pipeline: Pipeline, dag: DAG, parent: Component):
+        """ create an instance of DAGcompile
+
+        Args:
+            pipeline: the pipeline which dag belong to
+            dag: the dag need to compile
+
+        """
+        self._pipeline = pipeline
+        self._dag = dag
+
+
 def _update_and_validate_steps(self, steps: Dict[str, Step]):
         """ update steps before compile
 

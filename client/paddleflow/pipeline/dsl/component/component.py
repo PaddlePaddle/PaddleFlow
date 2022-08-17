@@ -82,7 +82,8 @@ class Component(object):
         self.loop_argument = loop_argument
         self.condition = condition        
 
-        self._dependences = []
+        self._dependences = set()
+        self._io_names = []
 
         self._set_inputs(inputs)
         self._set_outputs(outputs)
@@ -152,6 +153,7 @@ class Component(object):
             raise PaddleFlowSDKException(PipelineDSLError, err_msg) 
 
         for name, art in inputs.items():
+            self._ensure_io_names_unique(name)
             self._inputs[name] =  art
 
     @property
@@ -186,6 +188,7 @@ class Component(object):
         # OutputArtifactDict would change the value of outputs, so we need deepcopy it to support reuse
         outputs = copy.deepcopy(outputs)
         for name, art in outputs.items():
+            self._ensure_io_names_unique(name)
             self._outputs[name] = art
 
     @property
@@ -218,6 +221,7 @@ class Component(object):
         # to avoid changing the value of params
         params = copy.deepcopy(params)
         for key, value in params.items():
+            self._ensure_io_names_unique(key)
             self._params[key] = value
     
     def after(
@@ -238,27 +242,24 @@ class Component(object):
             if not isinstance(cp, Component):
                 err_msg = self._generate_error_msg("all upstream should be an instance of Component")
                 raise PaddleFlowSDKException(PipelineDSLError, err_msg)
-        self._dependences += upstream
+            self._dependences.add(cp)
 
         return self
 
-    def validate_io_names(self):
+    def _ensure_io_names_unique(self, io_name:str):
         """ Ensure that the input / output aritact and parameter of the component have different names
         
+        Args:
+            io_name (str): the name for parameter or artifact which need to add
         Raises:
             PaddleFlowSDKException: if the input / output artifact or parameter has the same name
         """
-        inputs_names = set(self.inputs.keys())
-        outputs_names = set(self.outputs.keys())
-        params_names = set(self.parameters.keys())
-
-        if len(inputs_names | outputs_names | params_names) != \
-                len(inputs_names) + len(outputs_names) + len(params_names):
-            dup_names = (inputs_names & outputs_names) | (inputs_names & params_names) | (outputs_names & params_names)
-            
+        if io_name in self._io_names:
             err_msg = self._generate_error_msg(f"the input/output aritacts and parameters of the same " + \
                     f"Component should have different names, duplicate name is [{dup_names}]")
             raise PaddleFlowSDKException(PipelineDSLError, err_msg) 
+        
+        self._io_names.append(io_name)
 
     @property
     def full_name(self):

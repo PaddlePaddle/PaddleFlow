@@ -15,6 +15,8 @@ limitations under the License.
 """
 
 # Artifact: the input/output file of component
+from .placeholder import ArtifactPlaceholder
+
 from paddleflow.pipeline.dsl.utils.util import validate_string_by_regex
 from paddleflow.pipeline.dsl.utils.consts import VARIBLE_NAME_REGEX
 from paddleflow.pipeline.dsl.utils.consts import PipelineDSLError 
@@ -27,13 +29,15 @@ class Artifact(object):
         """ create a new instance of Artifact
         """
         self.__component = None
+        self.__ref = None
         self.__name = None
 
-    def set_base_info(self, name: str, component):
+    def set_base_info(self, name: str, component=None, ref: ArtifactPlaceholder=None):
         """ set the component that this paramter instances was belong to and set the name of it
 
         Args:
-            component (component): the component that this paramter instances was belong to
+            component (component): the component that this artifact instances was belong to
+            component (component_full_name): 
             name (str): the name of it
 
         Raises:
@@ -49,21 +53,7 @@ class Artifact(object):
                             f"the regex used for validation is {VARIBLE_NAME_REGEX}")
             
         self.__name = name 
-
-    def compile(self):
-        """ trans to template when downstream component ref it at compile stage
-
-        Returns:
-            A string indicate the template of it
-
-        Raises:
-            PaddleFlowSDKException: if cannot trans to template
-        """
-        if self.__component is None or self.__name is None:
-            raise PaddleFlowSDKException(PipelineDSLError,
-                    "when trans Artifact to template, it's component and name cannot be None")
-
-        return "{{" + f"{self.__component.name}.{self.__name}" + "}}"
+        self.ref = ref
 
     @property
     def component(self):
@@ -88,10 +78,15 @@ class Artifact(object):
         """
         art = Artifact()
         if self.name:
-            art.set_base_info(name=self.name, component=self.component)
+            art.set_base_info(name=self.name, component=self.component, ref=self.ref)
         return art
 
     def __eq__(self, other):
         """ support ==
         """
-        return self.name == other.name and self.component == other.component
+        return self.name == other.name and self.component == other.component and  self.ref == other.ref
+
+    def __str__(self):
+        """ magic func for str
+        """
+        return "{{" + f"artifact: {self.component.full_name}.{self.name}" + "}}"

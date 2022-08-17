@@ -21,8 +21,9 @@ from paddleflow.pipeline.dsl.utils.consts import PipelineDSLError
 from paddleflow.pipeline.dsl.utils.util import validate_string_by_regex
 from paddleflow.common.exception.paddleflow_sdk_exception import PaddleFlowSDKException
 
-from .artifact import Artifact 
+from .artifact import Artifact
 from .parameter import Parameter
+from .placeholder import ArtifactPlaceholder
 
 class ParameterDict(dict):
     """ ParameterDict: an dict for manager Parameter
@@ -64,16 +65,20 @@ class InputArtifactDict(dict):
     def __setitem__(self, key: str, value: Artifact):
         """ magic function __setitem__
         """
-        if not isinstance(value, Artifact) or value.component is None:
-            err_msg = f"the value of inputs for component[{self.__component.name}] should be an output artifact of other component"
-            raise PaddleFlowSDKException(PipelineDSLError, err_msg)
+        if not isinstance(value, ArtifactPlaceholder):
+            if not isinstance(value, Artifact) or value.component is None:
+                err_msg = f"the value of inputs for component[{self.__component.name}] " + \
+                    "should be an output artifact of other component"
+                raise PaddleFlowSDKException(PipelineDSLError, err_msg)
 
         if not validate_string_by_regex(key, VARIBLE_NAME_REGEX):
             err_msg = f"the name of inputs artifacts[{key}] for component[{self.__component.name}] is is illegal" + \
                 f"the regex used for validation is {VARIBLE_NAME_REGEX}"
             raise PaddleFlowSDKException(PipelineDSLError, err_msg)
-
-        super().__setitem__(key, value)
+        
+        art = Artifact()
+        art.set_base_info(component=self.__component, name=key, ref=value)
+        super().__setitem__(key, art)
 
 
 class OutputArtifactDict(dict):
@@ -90,9 +95,10 @@ class OutputArtifactDict(dict):
     def __setitem__(self, key: str, value: Artifact):
         """ magic function __setitem__
         """
-        if not isinstance(value, Artifact) or value.component is not None:
-            err_msg = f"the value of outputs[{key}] for component[{self.__component.name}] just can be Artifact()"
-            raise PaddleFlowSDKException(PipelineDSLError, err_msg)
+        if not isinstance(value, ArtifactPlaceholder):
+            if not isinstance(value, Artifact) or value.component is not None:
+                err_msg = f"the value of outputs[{key}] for component[{self.__component.name}] just can be Artifact()"
+                raise PaddleFlowSDKException(PipelineDSLError, err_msg)
 
         value.set_base_info(component=self.__component, name=key)
         super().__setitem__(key, value)
@@ -118,8 +124,8 @@ class EnvDict(dict):
                 f" but it is{type(key)}"
             raise PaddleFlowSDKException(PipelineDSLError, err_msg)
         
-        if not isinstance(value, str):
-            err_msg = f"the value of env[{key}] of obj[{self.__obj.name}] should be an instances of string"
+        if not isinstance(value, str) and not isinstance(value, Parameter):
+            err_msg = f"the value of env[{key}] of obj[{self.__obj.name}] should be an instances of string or Parameter"
             raise PaddleFlowSDKException(PipelineDSLError, err_msg)
 
         if not validate_string_by_regex(key, VARIBLE_NAME_REGEX):

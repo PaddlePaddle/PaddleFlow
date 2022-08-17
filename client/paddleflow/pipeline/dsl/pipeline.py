@@ -28,12 +28,14 @@ from .component import DAG
 from .options import CacheOptions
 from .options import FailureOptions
 from .io_types import EnvDict
+from .options import FSOptions
 from .utils.util import validate_string_by_regex
 from .utils.consts import PIPELINE_NAME_REGEX
 from .utils.consts import PipelineDSLError
 from .utils.consts import VARIBLE_NAME_REGEX
 from .utils.consts import ENTRY_POINT_NAME
 from .compiler import Compiler
+from .inferer import DAGInferer
 
 from paddleflow.common.exception.paddleflow_sdk_exception import PaddleFlowSDKException
 from paddleflow.common.util import  get_default_config_path
@@ -48,7 +50,8 @@ class Pipeline(object):
             docker_env: str=None,
             env: Dict[str, str]=None,
             cache_options: CacheOptions=None,
-            failure_options: FailureOptions=None
+            failure_options: FailureOptions=None,
+            fs_options: FSOptions=None
             ):
         """ create a new instance of Pipeline
 
@@ -84,6 +87,7 @@ class Pipeline(object):
         self.parallelism = parallelism
         self.cache_options = cache_options
         self.failure_options = failure_options
+        self.fs_options = fs_options
 
         self._client = None
 
@@ -242,27 +246,12 @@ class Pipeline(object):
             raise PaddleFlowSDKException(PipelineDSLError, 
                 self.__error_msg_prefix + "There can only be one step at most in post_process right now")
         
-        # 4、Check whether there is a ring and whether it depends on steps that do not belong to this pipeline
-        self.topological_sort()
-        
-        # 5、Compile
+        # infer parameter and artifact for entry_point
+        DAGInferer(self.entry_points).infer()
+                
+        # Compile
         pipeline_dict = Compiler().compile(self, save_path)
         return pipeline_dict
-
-    def topological_sort(self):
-        """ List Steps in topological order.
-
-        Returns:
-            A list of Steps in topological order
-
-        Raises:
-            PaddleFlowSDKException: if there is a ring
-        """
-        topo_sort = self.topological_sort()
-        
-        # append post_process  
-        topo_sort += list(self._post_process.values())
-        return topo_sort
 
     @property
     def entry_points(self):
