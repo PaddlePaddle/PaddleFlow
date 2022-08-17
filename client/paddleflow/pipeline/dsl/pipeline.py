@@ -40,6 +40,7 @@ from .inferer import DAGInferer
 from paddleflow.common.exception.paddleflow_sdk_exception import PaddleFlowSDKException
 from paddleflow.common.util import  get_default_config_path
 
+
 class Pipeline(object):
     """ Pipeline is a workflow which is composed of Step  
     """
@@ -247,7 +248,7 @@ class Pipeline(object):
                 self.__error_msg_prefix + "There can only be one step at most in post_process right now")
         
         # infer parameter and artifact for entry_point
-        DAGInferer(self.entry_points).infer()
+        DAGInferer(self.entry_points).infer(self.env)
                 
         # Compile
         pipeline_dict = Compiler().compile(self, save_path)

@@ -20,6 +20,7 @@ from paddleflow.pipeline.dsl.component import DAG
 from paddleflow.pipeline.dsl.component import Step
 from paddleflow.pipeline.dsl.io_types import Artifact
 from paddleflow.pipeline.dsl.io_types import Parameter
+from paddleflow.pipeline.dsl.io_types.loop_argument import _LoopItem
 from paddleflow.pipeline.dsl.utils.util import random_code
 from paddleflow.pipeline.dsl.utils.consts import PipelineDSLError 
 from paddleflow.pipeline.dsl.utils.consts import PARAM_NAME_CODE_LEN
@@ -73,6 +74,9 @@ class ComponentCompiler(object):
         # 5. artifact
         self._compile_artifacts()
 
+        # 6. validate
+        self._validatte()
+
     def _compile_artifacts(self):
         """ compile artifacts
         """
@@ -110,7 +114,7 @@ class ComponentCompiler(object):
             self._dict["parameters"] = {}
 
             for name, param in self._component.parameters:
-                if isinstance(param, Parameter):
+                if isinstance(param.ref, Parameter):
                     ref_component = param.ref.component
                     if param.ref.name not in ref_component.parameters:
                         raise PaddleFlowSDKException(PipelineDSLError,
@@ -122,8 +126,20 @@ class ComponentCompiler(object):
                     else:
                         self._dict["parameters"][name] = "{{" + f"{param.ref.component.name}.{param.ref.name}" + "}}"
 
+                if isinstance(param.ref, _LoopItem):
+                    if param.ref.component is self._component:
+                        raise PaddleFlowSDKException(PipelineDSLError, 
+                            self._generate_error_msg("component cannot reference its loop item as its parameter"))
+                    
+                    self._dict["parameters"][name] = "{{PF_PARENT.PF_LOOP_ARGUMENT}}"
+
 
     def _is_parent(self, component_full_name:str):
         """ is parent
         """
         return self._component.full_name.startswith(component_full_name + ".")
+
+    def _validatte(self):
+        """ validate
+        """
+        raise NotImplementedError

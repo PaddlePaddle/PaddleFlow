@@ -38,12 +38,12 @@ class _LoopItem(object):
         Args:
             obj (Component): which component this instance is belong to
         """
-        self._component = component
+        self.component = component
 
     def __str__(self):
         """ magic func for str
         """
-        return "{{" + f"loop: {self._component.full_name}.{PF_LOOP_ARGUMENT[2:-2]}" + "}}"
+        return "{{" + f"loop: {self.component.full_name}.{PF_LOOP_ARGUMENT[2:-2]}" + "}}"
 
 
 class _LoopArgument(object):

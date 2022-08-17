@@ -51,7 +51,7 @@ class Compiler(object):
         self._pipeline_dict = {}
 
         # 2、compile Entypoint
-        self._pipeline_dict["entry_points"] = DAGCompiler(pipeline, pipeline.entry_points)
+        self._pipeline_dict["entry_points"] = DAGCompiler(pipeline.entry_points).compile
         
         # 3、compile post_process
         post_process = pipeline.get_post_process()
@@ -59,7 +59,7 @@ class Compiler(object):
 
         if post_process is not None:
             self._pipeline_dict["post_process"] = {}
-            self._pipeline_dict["post_process"][post_process.name] = StepCompiler().compile(post_process)
+            self._pipeline_dict["post_process"][post_process.name] = StepCompiler(post_process).compile()
             self._validate_post_process(self._pipeline_dict["post_process"][post_process.name])
 
         # 4、trans pipeline conf
@@ -76,6 +76,9 @@ class Compiler(object):
 
         if pipeline.parallelism:
             self._pipeline_dict["parallelism"] = pipeline.parallelism
+
+        if pipeline.fs_options:
+            self._pipeline_dict["fs_options"] = pipeline.fs_options.compile()
 
         #4、write to file
         if save_path:

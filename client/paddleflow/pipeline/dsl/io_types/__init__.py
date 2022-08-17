@@ -23,4 +23,3 @@ from .dicts import EnvDict
 from .dicts import InputArtifactDict
 from .dicts import OutputArtifactDict
 from .dicts import ParameterDict
-from .loop_argument import _LoopArgument

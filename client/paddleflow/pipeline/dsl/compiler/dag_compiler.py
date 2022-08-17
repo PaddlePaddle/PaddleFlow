@@ -14,6 +14,7 @@ limitations under the License.
 """
 
 from .component_compiler import ComponentCompiler
+from .step_compiler import StepCompiler
 
 from paddleflow.pipeline.dsl import Pipeline
 from paddleflow.pipeline.dsl.component import DAG
@@ -24,7 +25,7 @@ from paddleflow.common.exception.paddleflow_sdk_exception import PaddleFlowSDKEx
 class DAGCompiler(ComponentCompiler):
     """ trans DAG obj to dict
     """
-    def __init__(self, pipeline: Pipeline, dag: DAG, parent: Component):
+    def __init__(self, dag: DAG):
         """ create an instance of DAGcompile
 
         Args:
@@ -32,39 +33,21 @@ class DAGCompiler(ComponentCompiler):
             dag: the dag need to compile
 
         """
-        self._pipeline = pipeline
-        self._dag = dag
+        super().__init__(dag)
 
-
-def _update_and_validate_steps(self, steps: Dict[str, Step]):
-        """ update steps before compile
-
-        Args:
-            steps (Dict[string, Step]): the steps need to update and validate
+    def complie(self):
+        """ trans dag to dict
         """
-        # 1. Synchronize environment variables of pipeline and step
-        for name, step in steps.items():
-            # 1. Synchronize environment variables of pipeline and step
-            env = dict(self.env)
-            env.update(step.env)
-            step.add_env(env)
+        super().compile()
+        topo = self._topo_sort()
 
-            # 2. Ensure that the input / output aritact and parameter of the step have different names
-            step.validate_io_names()
-        
-            # 3. Resolve dependencies between steps and validate all deps are Pipeline
-            for dep in step.get_dependences():
-                if dep.name not in steps or dep is not steps[dep.name]:
-                    raise PaddleFlowSDKException(PipelineDSLError, self.__error_msg_prefix + \
-                            f"the upstream step[{dep.name}] for step[{step.name}] is not in Pipeline[{self.name}].\n" + \
-                                "Attentions: step in postProcess cannot depend on any other step")
-            
-            # 4. validate docker_env
-            if not self.docker_env and not step.docker_env:
-                raise PaddleFlowSDKException(PipelineDSLError, 
-                    self.__error_msg_prefix + f"cannot set the docker_env of step[step.name]")  
+        for sub in topo:
+            if isinstance(sub, DAG):
+                self._dict[sub.name] = DAGCompiler(sub).compile
+            else:
+                self._dict[sub.name] = StepCompiler(sub).compile
 
-    def topological_sort(self):
+    def _topo_sort(self):
         """ List Steps in topological order.
 
         Returns:
@@ -75,28 +58,26 @@ def _update_and_validate_steps(self, steps: Dict[str, Step]):
         """
         topo_sort = []
         
-        while len(topo_sort) < len(self._steps):
+        while len(topo_sort) < len(self._component.entry_points):
             exists_ring = True
-            for step in self._steps.values():
-                if step in topo_sort:
+            for sub in self._component.entry_points.values():
+                if sub in topo_sort:
                     continue
 
                 need_add = True
 
-                for dep in step.get_dependences():
+                for dep in sub._dependences:
                     if dep not in topo_sort:
                         need_add = False
                         break
 
                 if need_add:
-                    topo_sort.append(step)
+                    topo_sort.append(sub)
                     exists_ring = False
             
             if exists_ring:
-                ring_steps = [step.name for step in self._steps.values()  if step not in topo_sort]
+                ring_steps = [step.name for step in self._component.entry_points.values()  if step not in topo_sort]
                 raise PaddleFlowSDKException(PipelineDSLError, 
-                    self.__error_msg_prefix + f"there is a ring between {ring_steps}")
-        
-        # append post_process  
-        topo_sort += list(self._post_process.values())
+                    self._generate_error_msg(f"there is a ring between {ring_steps}"))
+    
         return topo_sort

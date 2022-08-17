@@ -78,3 +78,9 @@ class StepCompiler(ComponentCompiler):
 
             for extra in self._component.extra_fs:
                 self._dict["extra_fs"].append(extra.compile())
+
+    def _validate(self):
+        """ validate
+        """
+        # TODO
+        pass
