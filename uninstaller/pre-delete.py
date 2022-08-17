@@ -32,6 +32,7 @@ import os
 
 
 def check_pfserver_status(service_name, namespace, port, user, password):
+    print("check_pfserver_status service_name=[%s] namespace=[%s] port=[%s] user=[%s] password=[%s]" % (service_name, namespace, port, user, password))
     host = "%s.%s.svc.cluster.local" % (service_name, namespace)
     print(host)
     
@@ -61,6 +62,7 @@ def check_pfserver_status(service_name, namespace, port, user, password):
             return 0
 
 if __name__ == '__main__':
+    print("start pre-delete check")
     service_name = os.getenv("service_name")
     namespace = os.getenv("namespace")
     port = int(os.getenv("port"))
@@ -68,4 +70,5 @@ if __name__ == '__main__':
     password = os.getenv("password")
 
     check_pfserver_status(service_name, namespace, port, user, password)
+    print("pre-delete check finished")
 
