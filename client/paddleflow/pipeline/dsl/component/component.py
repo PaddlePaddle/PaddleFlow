@@ -22,7 +22,7 @@ from typing import Union
 
 from paddleflow.pipeline.dsl.io_types import Artifact
 from paddleflow.pipeline.dsl.io_types import Parameter
-from paddleflow.pipeline.dsl.io_types import _LoopArgument
+from paddleflow.pipeline.dsl.io_types.loop_argument import _LoopArgument
 from paddleflow.pipeline.dsl.io_types.dicts import InputArtifactDict
 from paddleflow.pipeline.dsl.io_types.dicts import OutputArtifactDict
 from paddleflow.pipeline.dsl.io_types.dicts import ParameterDict
@@ -256,7 +256,7 @@ class Component(object):
         """
         if io_name in self._io_names:
             err_msg = self._generate_error_msg(f"the input/output aritacts and parameters of the same " + \
-                    f"Component should have different names, duplicate name is [{dup_names}]")
+                    f"Component should have different names, duplicate name is [{io_name}]")
             raise PaddleFlowSDKException(PipelineDSLError, err_msg) 
         
         self._io_names.append(io_name)

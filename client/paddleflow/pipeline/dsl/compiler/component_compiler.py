@@ -14,7 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-from paddleflow.pipeline.dsl import Pipeline
 from paddleflow.pipeline.dsl.component import Component
 from paddleflow.pipeline.dsl.component import DAG
 from paddleflow.pipeline.dsl.component import Step

@@ -16,7 +16,6 @@ limitations under the License.
 import re
 from typing import Dict
 
-from paddleflow.pipeline.dsl import Pipeline
 from paddleflow.pipeline.dsl.component import Component
 from paddleflow.pipeline.dsl.component import DAG
 from paddleflow.pipeline.dsl.component import Step

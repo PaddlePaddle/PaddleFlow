@@ -13,6 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
+from typing import List
 
 from .options import Options
 
@@ -47,7 +48,7 @@ class FSScope(object):
 
         result["name"] = self.name
 
-        if not self.path:
+        if self.path:
             result["path"] = self.path
 
         return result
@@ -65,14 +66,14 @@ class CacheOptions(Options):
     def __init__(
             self,
             enable: bool=False,
-            fs_scope: str=None,
+            fs_scope: List[FSScope]=None,
             max_expired_time: int=-1,
             ):
         """ create a new instance of CacheOptions
 
         Args:
             enable (bool): indicate use cache or not, default is False
-            fs_scope (str): the paths involved in the cachekey calculation (mainly to calculate whether the content under the path has changed). Multiple paths are divided by ',' such as "/code,/data"
+            fs_scope (List[FSScope]): the paths involved in the cachekey calculation (mainly to calculate whether the content under the path has changed). Multiple paths are divided by ',' such as "/code,/data"
             max_expired_time (int): the maximum expiration time of the cache, in seconds, - 1 means permanently valid, default is -1
         """
         # cache 的默认处理由 server 侧决定
@@ -84,7 +85,12 @@ class CacheOptions(Options):
         if fs_scope is None:
             self.fs_scope = fs_scope
         else:
-            self.fs_scope = str(fs_scope)
+            if not isinstance(fs_scope, list):
+                fs_scope = [fs_scope]
+
+            self.fs_scope = []
+            for fs in fs_scope:
+                self.fs_scope.append(fs)
 
         if max_expired_time is None: 
             self.max_expired_time = max_expired_time

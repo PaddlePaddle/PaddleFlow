@@ -29,7 +29,8 @@ from .io_types import Artifact
 from .io_types import Parameter
 
 # import from steps
-from .steps import ContainerStep
+from .component.steps import ContainerStep
+from .component import DAG
 
 # import from pipeline
 from .pipeline import Pipeline
