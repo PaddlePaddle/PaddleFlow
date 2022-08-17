@@ -60,7 +60,7 @@ class Compiler(object):
         if post_process is not None:
             self._pipeline_dict["post_process"] = {}
             self._pipeline_dict["post_process"][post_process.name] = StepCompiler(post_process).compile()
-            self._validate_post_process(self._pipeline_dict["post_process"][post_process.name])
+            self._validate_post_process()
 
         # 4、trans pipeline conf
         if pipeline.docker_env:
@@ -113,11 +113,16 @@ class Compiler(object):
             else:
                 yaml.dump(self._pipeline_dict, fp)
 
-    def _validate_post_process(self, post_process: dict):
+    def _validate_post_process(self):
         """ validate post_process is illegal or not
         """
-        for key in ["condition", "entry_points", "loop_arugment", "deps"]:
-            if key in post_process:
+        for name, post_process in self._pipeline_dict["post_process"]:
+            for key in ["condition", "entry_points", "loop_arugment", "deps", "cache"]:
+                if key in post_process:
+                    raise PaddleFlowSDKException(PipelineDSLError, 
+                        f"post_process filed only support Step component, and it does not support"  + \
+                        "[condition, loop_argument, cache_options], and cannot deps on any other component")
+        
+            if name in self._pipeline_dict["entry_points"]:
                 raise PaddleFlowSDKException(PipelineDSLError, 
-                    f"post_process filed only support Step component, and it does not support"  + \
-                    "[condition, loop_argument], and cannot deps on any other component")
+                    f"Step name[{name}] in post_process cannot be the same as the component names in entry_points"

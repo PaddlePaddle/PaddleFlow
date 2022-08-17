@@ -45,6 +45,7 @@ class Component(object):
     """
 
     REGISTER_HANDLER = register_component_handler
+
     def __init__(
             self, 
             name: str, 
@@ -153,7 +154,6 @@ class Component(object):
             raise PaddleFlowSDKException(PipelineDSLError, err_msg) 
 
         for name, art in inputs.items():
-            self._ensure_io_names_unique(name)
             self._inputs[name] =  art
 
     @property
@@ -188,7 +188,6 @@ class Component(object):
         # OutputArtifactDict would change the value of outputs, so we need deepcopy it to support reuse
         outputs = copy.deepcopy(outputs)
         for name, art in outputs.items():
-            self._ensure_io_names_unique(name)
             self._outputs[name] = art
 
     @property
@@ -221,7 +220,6 @@ class Component(object):
         # to avoid changing the value of params
         params = copy.deepcopy(params)
         for key, value in params.items():
-            self._ensure_io_names_unique(key)
             self._params[key] = value
     
     def after(
@@ -246,28 +244,16 @@ class Component(object):
 
         return self
 
-    def _ensure_io_names_unique(self, io_name:str):
-        """ Ensure that the input / output aritact and parameter of the component have different names
-        
-        Args:
-            io_name (str): the name for parameter or artifact which need to add
-        Raises:
-            PaddleFlowSDKException: if the input / output artifact or parameter has the same name
-        """
-        if io_name in self._io_names:
-            err_msg = self._generate_error_msg(f"the input/output aritacts and parameters of the same " + \
-                    f"Component should have different names, duplicate name is [{io_name}]")
-            raise PaddleFlowSDKException(PipelineDSLError, err_msg) 
-        
-        self._io_names.append(io_name)
-
     @property
     def full_name(self):
         """ get the full name of component
         """
+        if self._full_name == "":
+            self._full_name = self.name
+            
         return self._full_name 
 
-    @property
+    
     def _set_full_name(self, parent_name: str):
         """ set the full name
 
@@ -303,9 +289,8 @@ class Component(object):
     def condition(self, condition: str):
         """ set condition attribute
         """
-        if condition and not isinstance(condition, str):
+        if condition is not None and not isinstance(condition, str):
             raise PaddleFlowSDKException(PipelineDSLError,
                 self._generate_error_msg("the condition attribute of component should be an instance of str"))
             
         self._condition = condition
-        # TODO: 根据_condition 判断是否需要添加输入artifact或者parameter

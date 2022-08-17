@@ -19,11 +19,12 @@ from typing import List
 from typing import Union
 
 from .parameter import Parameter
-from .parameter import SUPPORT_TYPE as PARAM_SUPPORT_TYPE
+from .parameter import TYPE_TO_STRING as PARAM_SUPPORT_TYPE
 from .artifact import Artifact
 
 from paddleflow.pipeline.dsl.sys_params import PF_LOOP_ARGUMENT
-from paddleflow.pipeline.dsl.utils.consts import PipelineDSLError 
+from paddleflow.pipeline.dsl.utils.consts import DSL_TEMPLATE_REGEX
+from paddleflow.pipeline.dsl.utils.consts import PipelineDSLError
 from paddleflow.common.exception.paddleflow_sdk_exception import PaddleFlowSDKException
 
 
@@ -81,7 +82,7 @@ class _LoopArgument(object):
 
         if isinstance(argument, str):
             # 考虑是否为参数模板， 这里不对模板的对应的参数是否存在做校验，由server侧保证
-            pattern = re.compile("^\{\{(\s)*([a-zA-Z0-9-_]*\.?[a-zA-Z0-9_]+)(\s)*\}\}$")
+            pattern = re.compile(DSL_TEMPLATE_REGEX)
             if re.match(pattern, argument):
                 return
 

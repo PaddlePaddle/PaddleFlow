@@ -15,6 +15,7 @@ limitations under the License.
 """
 from .component_compiler import ComponentCompiler
 
+from paddleflow.pipeline.dsl.options import ExtraFS
 from paddleflow.pipeline.dsl.utils.consts import PipelineDSLError
 from paddleflow.common.exception.paddleflow_sdk_exception import PaddleFlowSDKException
 
@@ -25,7 +26,6 @@ class StepCompiler(ComponentCompiler):
         """ compile step
         """
         super().__init__(component)
-
 
     def compile(self):
         """ trans step to dict
@@ -54,7 +54,7 @@ class StepCompiler(ComponentCompiler):
             if getattr(self._component, attr, None):
                 self._dict[filed] = getattr(self._component, attr, None)
 
-        if self._component.env: 
+        if self._component.env:
             self._dict["env"] = dict(self._component.env)
         
     def _compile_output_artifact(self):
@@ -75,12 +75,13 @@ class StepCompiler(ComponentCompiler):
         """
         if self._component.extra_fs:
             self._dict["extra_fs"] = []
+        
+        if not isinstance(self._component.extra_fs, list):
+            self._component.extra_fs = [self._component.extra_fs]
 
             for extra in self._component.extra_fs:
-                self._dict["extra_fs"].append(extra.compile())
+                if not isinstance(extra, ExtraFS):
+                    raise PaddleFlowSDKException(PipelineDSLError, 
+                        self._generate_error_msg("Step's extra_fs attribute should be a list of ExtraFS instance"))
 
-    def _validate(self):
-        """ validate
-        """
-        # TODO
-        pass
+                self._dict["extra_fs"].append(extra.compile())  

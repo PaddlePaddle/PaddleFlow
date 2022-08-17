@@ -25,6 +25,8 @@ from paddleflow.pipeline.dsl.io_types import Artifact
 from paddleflow.pipeline.dsl.io_types import Parameter
 from paddleflow.pipeline.dsl.options import CacheOptions
 from paddleflow.pipeline.dsl.options import ExtraFS
+from paddleflow.pipeline.dsl.utils.consts import PipelineDSLError
+from paddleflow.common.exception.paddleflow_sdk_exception import PaddleFlowSDKException
 
 
 class Step(Component):
@@ -60,6 +62,15 @@ class Step(Component):
         self.cache_options = cache_options
 
         if extra_fs and not isinstance(extra_fs, list):
-            self.extra_fs = [extra_fs]
+            extra_fs = [extra_fs]
+        
+        if isinstance(extra_fs, list):
+            self.extra_fs = []
+            for extra in extra_fs:
+                if not isinstance(extra, ExtraFS):
+                    raise PaddleFlowSDKException(PipelineDSLError, 
+                        self._generate_error_msg("Step's extra_fs attribute should be a list of ExtraFS instance"))
+
+                self.extra_fs.append(extra)
         else:
-            self.extra_fs = extra_fs
+            self.extra_fs = []

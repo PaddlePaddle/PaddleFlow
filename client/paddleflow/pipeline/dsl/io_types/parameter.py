@@ -107,50 +107,12 @@ class Parameter(object):
 
         if ref:
             from .loop_argument import _LoopItem
-            if type(ref) not in TYPE_TO_STRING.keys() + [Parameter, _LoopItem, ParameterPlaceholder]:
+            if type(ref) not in list(TYPE_TO_STRING.keys()) + [Parameter, _LoopItem, ParameterPlaceholder]:
                 raise PaddleFlowSDKException(PipelineDSLError,f"the value of parameter[{name}] for component[{component.name}] " + \
-                        f"should be an instance of {['Parameter'] + list(SUPPORT_TYPE)}")
+                        f"should be an instance of {['Parameter', '_LoopItem'] + list(TYPE_TO_STRING.keys())}")
             
         self.__name = name 
         self.__ref = ref
-
-    def compile(self):
-        """ trans to dict while be invoked at compile stage
-
-        Returns:
-            a dict/string which can describe it
-
-        Raises:
-            PaddleFlowSDKException: if the ref attribute and the [default, type] attribute exist at the same time
-        """
-        if self.__ref and any([self.default, self.type]):
-            raise PaddleFlowSDKException(PipelineDSLError, f"the  parameter[{self.name}] for component[{self.component.name}]" + \
-                    f"should be an instance of {['Parameter'] + list(SUPPORT_TYPE)}")
-        
-        if isinstance(self.__ref, Parameter):
-            return self.__ref.to_template()
-        elif self.__ref:
-            return self.__ref
-
-        dicts = {}
-        if self._default:
-            dicts.update({"default": self._default})
-
-        if self._type:
-            dicts.update({"type": self._type})
-        
-        if dicts:
-            return dicts
-        
-        return  ""
-
-    def to_template(self):
-        """ trans to template when downstream component ref this Parameter
-
-        Returns:
-            A string indicate the template of it
-        """
-        return "{{" + self.__component.name + "." + self.__name + '}}'
 
     @property
     def component(self):
@@ -232,4 +194,8 @@ class Parameter(object):
     def __str__(self):
         """ magic func for str
         """
+        if not self.component:
+            raise PaddleFlowSDKException(PipelineDSLError, 
+                f"cannot trans Parameter to string, if the Parameter instance doesn't belong to any Step or DAG")
+
         return "{{" + f"parameter: {self.component.full_name}.{self.name}" + "}}"

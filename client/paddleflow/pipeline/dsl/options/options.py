@@ -24,6 +24,8 @@ class Options(object):
     def compile(self):
         """ trans to dict
         """
+        self._validate()
+        
         result =  {}
         for attr, key in self.COMPILE_ATTR_MAP.items():
             value = getattr(self, attr, None)
@@ -51,3 +53,8 @@ class Options(object):
                 result.append(item)
         
         return result
+
+    def _validate(self):
+        """ validate
+        """
+        pass

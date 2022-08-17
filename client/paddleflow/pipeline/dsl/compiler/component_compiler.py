@@ -51,6 +51,9 @@ class ComponentCompiler(object):
     def compile(self):
         """ trans component to dict
         """
+        # 0. validate
+        self.validate_io_names()
+
         # 1. deps
         if self._component._dependences:
             self._dict["deps"] = ",".join(self._component._dependences)
@@ -124,13 +127,14 @@ class ComponentCompiler(object):
                         self._dict["parameters"][name] = "{{PF_PARENT." + param.ref.name + "}}"
                     else:
                         self._dict["parameters"][name] = "{{" + f"{param.ref.component.name}.{param.ref.name}" + "}}"
-
-                if isinstance(param.ref, _LoopItem):
+                elif isinstance(param.ref, _LoopItem):
                     if param.ref.component is self._component:
                         raise PaddleFlowSDKException(PipelineDSLError, 
                             self._generate_error_msg("component cannot reference its loop item as its parameter"))
                     
                     self._dict["parameters"][name] = "{{PF_PARENT.PF_LOOP_ARGUMENT}}"
+                elif param.ref is None:
+                    self._dict["parameters"][name] = param.default if param.default else ""
 
 
     def _is_parent(self, component_full_name:str):
@@ -142,3 +146,21 @@ class ComponentCompiler(object):
         """ validate
         """
         raise NotImplementedError
+
+    def validate_io_names(self):
+        """ Ensure that the input / output aritact and parameter of the step have different names
+
+        Raises:
+            PaddleFlowSDKException: if the input / output artifact or parameter has the same name
+        """
+        inputs_names = set(self._component.inputs.keys())
+        outputs_names = set(self._component.outputs.keys())
+        params_names = set(self._component.parameters.keys())
+
+        if len(inputs_names | outputs_names | params_names) != \
+                len(inputs_names) + len(outputs_names) + len(params_names):
+            dup_names = (inputs_names & outputs_names) | (inputs_names & params_names) | (outputs_names & params_names)
+
+            err_msg = self._generate_error_msg(f"the input/output aritacts and parameters of the same Step or DAG " + \
+                    f" should have different names, duplicate name is [{dup_names}]")
+            raise PaddleFlowSDKException(PipelineDSLError, err_msg)

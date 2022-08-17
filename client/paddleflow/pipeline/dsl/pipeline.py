@@ -181,7 +181,7 @@ class Pipeline(object):
             ):
         """ organize pipeline
         """
-        self._entry_points = DAG(name="pf_entry_points")
+        self._entry_points = DAG(name="pf-entry-points")
 
         with self._entry_points:
             self.__func(*args, **kwargs)
@@ -332,10 +332,9 @@ class Pipeline(object):
         if step.cache_options:
             raise PaddleFlowSDKException(PipelineDSLError,
                 self.__error_msg_prefix + "cannot set cache_options for step which in post_process")
-
+        
         # There can only be one step at most in post_process right now
         self._post_process = {}
-        self._entry_points.has_component(step.name)
         self._post_process[step.name] = step
 
     def get_post_process(self):

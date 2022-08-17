@@ -29,10 +29,10 @@ class Artifact(object):
         """ create a new instance of Artifact
         """
         self.__component = None
-        self.__ref = None
+        self.ref = None
         self.__name = None
 
-    def set_base_info(self, name: str, component=None, ref: ArtifactPlaceholder=None):
+    def set_base_info(self, name: str, component, ref=None):
         """ set the component that this paramter instances was belong to and set the name of it
 
         Args:
@@ -89,4 +89,8 @@ class Artifact(object):
     def __str__(self):
         """ magic func for str
         """
+        if not self.component:
+            raise PaddleFlowSDKException(PipelineDSLError, 
+                f"cannot trans Artifact to string, if the Artifact instance doesn't belong to any Step or DAG")
+
         return "{{" + f"artifact: {self.component.full_name}.{self.name}" + "}}"

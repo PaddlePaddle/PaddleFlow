@@ -96,3 +96,16 @@ class CacheOptions(Options):
             self.max_expired_time = max_expired_time
         else:
             self.max_expired_time = int(max_expired_time)
+
+    def _validate(self):
+        """ validate
+        """
+        if self.fs_scope:
+            if not isinstance(self.fs_scope, List):
+                self.fs_scope = [self.fs_scope]
+            
+            for sp in self.fs_scope:
+                if not isinstance(sp, FSScope):
+                    raise PaddleFlowSDKException(PipelineDSLError, 
+                        "the [fs_scope] attirbute of CacheOptions should be a list of FSScope")
+                        

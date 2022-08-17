@@ -25,7 +25,6 @@ from pathlib import Path
 
 from .steps import Step
 from .component import Component
-from .component import register_component_handler
 
 from paddleflow.pipeline.dsl.io_types import Artifact
 from paddleflow.pipeline.dsl.io_types import Parameter
@@ -73,15 +72,18 @@ class DAG(Component):
             """
             self.add(cp)
 
-        self.__old_register = self.register_component_handler
-        self.register_component_handler = register_component_to_dag
+        from paddleflow.pipeline.dsl.component import component
+        
+        self.__old_register = component.register_component_handler
+        component.register_component_handler = register_component_to_dag
 
         return self
 
     def __exit__(self, *args):
         """ magic func __exit__, to support with context
         """
-        self.register_component_handler = self.__old_register
+        from paddleflow.pipeline.dsl.component import component
+        component.register_component_handler = self.__old_register
 
     def add(
             self, 
@@ -109,8 +111,3 @@ class DAG(Component):
         if name in names:
             raise PaddleFlowSDKException(PipelineDSLError, 
                 self._generate_error_msg(f"there are multiple steps with the same name[{name}]"))
-
-    def has_component(self, cp_name: str):
-        """ is there some sub component named cp_name ?
-        """
-        return cp_name in self.entry_points

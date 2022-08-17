@@ -62,7 +62,7 @@ class ExtraFS(object):
         if not isinstance(self.read_only, bool):
             raise PaddleFlowSDKException(PipelineDSLError, f"the attribute[read_only] of ExtraFS should be an instance of bool")
 
-        result["mount_path"] = self.read_only
+        result["read_only"] = bool(self.read_only)
 
         return result
 
@@ -84,10 +84,23 @@ class MainFS(ExtraFS):
             mount_path (str): the path on pod where paddleflow filesystem mount on
         """
         super().__init__(name, sub_path, mount_path)
+    
+    def compile(self):
+        """ trans to dict 
+        """ 
+        result = super().compile()
+        result.pop("read_only")
+        return result
+
 
 class FSOptions(Options):
     """ the paddleflow filesystem info which used by pipeline
     """
+    COMPILE_ATTR_MAP = {
+        "main_fs": "main_fs",
+        "extra_fs": "extra_fs"
+        }
+
     def __init__(
             self,
             main_fs: MainFS=None,
@@ -100,19 +113,40 @@ class FSOptions(Options):
             extra_fs (List[ExtraFS]): extra paddleflow filesystem which used by step
         """
         if main_fs:
-            if not isinstance(main_fs):
+            if not isinstance(main_fs, MainFS):
                 raise PaddleFlowSDKException(PipelineDSLError,
                     "FSOpitons' main_fs attribute should be an instance of MainFS")
             
             self.main_fs = main_fs
+        else:
+            self.main_fs = None
         
         if extra_fs:
-            if not isinstance(extra_fs, list):
+            if not isinstance(extra_fs, List):
                 extra_fs = [extra_fs]
             
             for extra in extra_fs:
                 if not isinstance(extra, ExtraFS):
                     raise PaddleFlowSDKException(PipelineDSLError, 
-                    "FSOpitons' extra_fs attribute should be a list of ExtraFS instance")
+                        "FSOpitons' extra_fs attribute should be a list of ExtraFS instance")
 
             self.extra_fs = extra_fs
+        else:
+            self.extra_fs = None
+
+    def _validate(self):
+        """ validate
+        """
+        if self.extra_fs:
+            if not isinstance(self.extra_fs, List):
+                self.extra_fs = [self.extra_fs]
+        
+            for fs in self.extra_fs:
+                if not isinstance(fs, ExtraFS):
+                    raise PaddleFlowSDKException(PipelineDSLError, 
+                        "FSOpitons' extra_fs attribute should be a list of ExtraFS instance")
+
+        if self.main_fs:
+            if not isinstance(self.main_fs, MainFS):
+                raise PaddleFlowSDKException(PipelineDSLError,
+                    "FSOpitons' main_fs attribute should be an instance of MainFS")

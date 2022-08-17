@@ -15,6 +15,7 @@ limitations under the License.
 """
 # refrence: https://stackoverflow.com/questions/3137685/using-property-decorator-on-dicts
 from typing import Any
+from typing import Union
 
 from paddleflow.pipeline.dsl.utils.consts import VARIBLE_NAME_REGEX
 from paddleflow.pipeline.dsl.utils.consts import PipelineDSLError
@@ -62,7 +63,7 @@ class InputArtifactDict(dict):
         """
         self.__component = component
 
-    def __setitem__(self, key: str, value: Artifact):
+    def __setitem__(self, key: str, value: Union[Artifact, ArtifactPlaceholder]):
         """ magic function __setitem__
         """
         if not isinstance(value, ArtifactPlaceholder):
@@ -92,7 +93,7 @@ class OutputArtifactDict(dict):
         """
         self.__component = component
 
-    def __setitem__(self, key: str, value: Artifact):
+    def __setitem__(self, key: str, value: Union[Artifact, ArtifactPlaceholder]):
         """ magic function __setitem__
         """
         if not isinstance(value, ArtifactPlaceholder):
@@ -100,7 +101,12 @@ class OutputArtifactDict(dict):
                 err_msg = f"the value of outputs[{key}] for component[{self.__component.name}] just can be Artifact()"
                 raise PaddleFlowSDKException(PipelineDSLError, err_msg)
 
-        value.set_base_info(component=self.__component, name=key)
+            value.set_base_info(component=self.__component, name=key)
+        else:
+            art = Artifact()
+            art.set_base_info(component=self.__component, name=key, ref=value)
+            value = art
+
         super().__setitem__(key, value)
 
 
@@ -133,4 +139,4 @@ class EnvDict(dict):
                     f" is {VARIBLE_NAME_REGEX}"
                 raise PaddleFlowSDKException(PipelineDSLError, err_msg)
         
-        super().__setitem__(key, value)
+        super().__setitem__(key, str(value))
