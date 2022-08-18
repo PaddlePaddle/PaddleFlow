@@ -59,7 +59,6 @@ type QueueStoreInterface interface {
 	UpdateQueue(queue *model.Queue) error
 	UpdateQueueStatus(queueName string, queueStatus string) error
 	UpdateQueueInfo(name, status string, max, min *resources.Resource) error
-	CloseQueue(queueName string) error
 	DeleteQueue(queueName string) error
 	IsQueueExist(queueName string) bool
 	GetQueueByName(queueName string) (model.Queue, error)

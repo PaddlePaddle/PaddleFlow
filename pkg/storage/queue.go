@@ -124,17 +124,6 @@ func (qs *QueueStore) UpdateQueueInfo(name, status string, max, min *resources.R
 	return nil
 }
 
-func (qs *QueueStore) CloseQueue(queueName string) error {
-	log.Debugf("begin close queue. queueName:%s", queueName)
-	tx := qs.db.Table("queue").Where("name = ?", queueName).Update("status", schema.StatusQueueClosed)
-	if tx.Error != nil {
-		log.Errorf("close queue failed. queueName:%s, error:%s",
-			queueName, tx.Error.Error())
-		return tx.Error
-	}
-	return nil
-}
-
 func (qs *QueueStore) DeleteQueue(queueName string) error {
 	log.Infof("begin delete queue. queueName:%s", queueName)
 	return qs.db.Transaction(func(tx *gorm.DB) error {
