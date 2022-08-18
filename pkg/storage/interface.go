@@ -38,6 +38,7 @@ var (
 	Queue      QueueStoreInterface
 	Job        JobStoreInterface
 	Image      ImageStoreInterface
+	Artifact   ArtifactStoreInterface
 )
 
 func InitStores(db *gorm.DB) {
@@ -51,6 +52,17 @@ func InitStores(db *gorm.DB) {
 	Job = newJobStore(db)
 	Queue = newQueueStore(db)
 	Image = newImageStore(db)
+	Artifact = newRunArtifactStore(db)
+}
+
+type ArtifactStoreInterface interface {
+	CreateArtifactEvent(logEntry *log.Entry, artifact model.ArtifactEvent) error
+	CountArtifactEvent(logEntry *log.Entry, fsID, artifactPath string) (int64, error)
+	GetArtifactEvent(logEntry *log.Entry, runID, fsID, artifactPath string) (model.ArtifactEvent, error)
+	UpdateArtifactEvent(logEntry *log.Entry, fsID, artifactPath string, artifact model.ArtifactEvent) error
+	DeleteArtifactEvent(logEntry *log.Entry, username, fsname, runID, artifactPath string) error
+	ListArtifactEvent(logEntry *log.Entry, pk int64, maxKeys int, userFilter, fsFilter, runFilter, typeFilter, pathFilter []string) ([]model.ArtifactEvent, error)
+	GetLastArtifactEvent(logEntry *log.Entry) (model.ArtifactEvent, error)
 }
 
 type QueueStoreInterface interface {
