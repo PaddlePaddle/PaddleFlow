@@ -90,6 +90,8 @@ func initMockDB() {
 		&model.FSCacheConfig{},
 		&model.FSCache{},
 		&model.Queue{},
+		&model.ClusterInfo{},
+		&model.Grant{},
 	); err != nil {
 		log.Fatalf("InitMockDB createDatabaseTables error[%s]", err.Error())
 	}
