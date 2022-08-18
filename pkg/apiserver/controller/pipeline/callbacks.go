@@ -29,7 +29,9 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/pipeline"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 var workflowCallbacks = pipeline.WorkflowCallbacks{
@@ -316,7 +318,7 @@ func handleImageCallbackFunc(imageInfo handler.ImageInfo, err error) error {
 	imageUrl := imageInfo.Url
 	if imageUrl == "" {
 		logEntry.Debugf("image handler cb - retrieving image[%s] url from db", imageInfo.PFImageID)
-		imageUrl, err = models.GetUrlByPFImageID(logEntry, imageInfo.PFImageID)
+		imageUrl, err = storage.Image.GetUrlByPFImageID(logEntry, imageInfo.PFImageID)
 		if err != nil {
 			logEntry.Errorf("GetUrlByImageID[%s] in db failed. error: %v",
 				imageInfo.PFImageID, err)
@@ -327,19 +329,19 @@ func handleImageCallbackFunc(imageInfo handler.ImageInfo, err error) error {
 	logEntry.Debugf("image handler cb startWfWithImageUrl[%s]\n", imageUrl)
 	startWfWithImageUrl(runID, imageUrl)
 	if imageInfo.UrlUpdated {
-		image := models.Image{
+		image := model.Image{
 			ID:      imageInfo.PFImageID,
 			ImageID: imageInfo.ImageID,
 			FsID:    imageInfo.FsID,
 			Source:  imageInfo.Source,
 			Url:     imageUrl,
 		}
-		_, err := models.GetImage(logEntry, imageInfo.PFImageID)
+		_, err := storage.Image.GetImage(logEntry, imageInfo.PFImageID)
 		if err != nil {
 			if errors.GetErrorCode(err) == errors.ErrorRecordNotFound {
 				// image not in db. save image info to db
 				logEntry.Debugf("image handler cb store new image[%s] with url[%s]\n", imageInfo.PFImageID, imageUrl)
-				if err := models.CreateImage(logEntry, &image); err != nil {
+				if err := storage.Image.CreateImage(logEntry, &image); err != nil {
 					logEntry.Errorf("CreateImage[%s] with url[%s] in db failed. error: %v",
 						imageInfo.PFImageID, imageUrl, err)
 				}
@@ -349,7 +351,7 @@ func handleImageCallbackFunc(imageInfo handler.ImageInfo, err error) error {
 		} else {
 			// image in db, update it
 			logEntry.Debugf("image handler cb update image[%s] url[%s]\n", imageInfo.PFImageID, imageUrl)
-			if err := models.UpdateImage(logEntry, imageInfo.PFImageID, image); err != nil {
+			if err := storage.Image.UpdateImage(logEntry, imageInfo.PFImageID, image); err != nil {
 				logEntry.Errorf("updateImage[%s] with url[%s] in db failed. error: %v",
 					imageInfo.PFImageID, imageUrl, err)
 			}
