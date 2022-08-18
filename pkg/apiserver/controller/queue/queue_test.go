@@ -53,7 +53,7 @@ var clusterInfo = model.ClusterInfo{
 	Source:        "Source",
 	ClusterType:   schema.KubernetesType,
 	Version:       "1.16",
-	Status:        storage.ClusterStatusOnLine,
+	Status:        model.ClusterStatusOnLine,
 	Credential:    "credential",
 	Setting:       "Setting",
 	NamespaceList: []string{"n1", "n2", MockNamespace},

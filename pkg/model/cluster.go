@@ -23,6 +23,13 @@ import (
 	"gorm.io/gorm"
 )
 
+const (
+	DefaultClusterSource = "OnPremise"
+	ClusterStatusOnLine  = "online"
+	ClusterStatusOffLine = "offline"
+	DefaultClusterStatus = ClusterStatusOnLine
+)
+
 type ClusterInfo struct {
 	Model            `gorm:"embedded"  json:",inline"`
 	Pk               int64    `gorm:"primaryKey;autoIncrement" json:"-"`      // 自增主键

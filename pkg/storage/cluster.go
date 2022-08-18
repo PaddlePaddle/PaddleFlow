@@ -26,13 +26,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
 
-const (
-	DefaultClusterSource = "OnPremise"
-	ClusterStatusOnLine  = "online"
-	ClusterStatusOffLine = "offline"
-	DefaultClusterStatus = ClusterStatusOnLine
-)
-
 type ClusterStore struct {
 	db *gorm.DB
 }

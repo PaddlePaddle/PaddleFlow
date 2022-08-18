@@ -91,8 +91,8 @@ type ClusterQuotaReponse struct {
 
 func validateClusterStatus(clusterStatus string) error {
 	validClusterStatusList := []string{
-		storage.ClusterStatusOnLine,
-		storage.ClusterStatusOffLine,
+		model.ClusterStatusOnLine,
+		model.ClusterStatusOffLine,
 	}
 
 	if !common.StringInSlice(clusterStatus, validClusterStatusList) {
@@ -131,7 +131,7 @@ func validateCreateClusterRequest(ctx *logger.RequestContext, request *CreateClu
 
 	request.Status = strings.TrimSpace(request.Status)
 	if request.Status == "" {
-		request.Status = storage.DefaultClusterStatus
+		request.Status = model.DefaultClusterStatus
 	} else {
 		if err := validateClusterStatus(request.Status); err != nil {
 			return err
@@ -148,7 +148,7 @@ func validateCreateClusterRequest(ctx *logger.RequestContext, request *CreateClu
 
 	request.Source = strings.TrimSpace(request.Source)
 	if request.Source == "" {
-		request.Source = storage.DefaultClusterSource
+		request.Source = model.DefaultClusterSource
 	}
 
 	request.Credential = strings.TrimSpace(request.Credential)
@@ -474,7 +474,7 @@ func ListClusterQuota(ctx *logger.RequestContext, clusterNameList []string) (map
 	}
 
 	// 获取状态为online的集群列表
-	clusterList, err := storage.Cluster.ListCluster(0, -1, clusterNameList, storage.ClusterStatusOnLine)
+	clusterList, err := storage.Cluster.ListCluster(0, -1, clusterNameList, model.ClusterStatusOnLine)
 	if err != nil {
 		ctx.Logging().Errorf("listCluster failed. error: %s", err.Error())
 		return response, err
@@ -538,7 +538,7 @@ func InitDefaultCluster() error {
 		Source:      "",
 		ClusterType: schema.KubernetesType,
 		Version:     "1.16+",
-		Status:      storage.ClusterStatusOnLine,
+		Status:      model.ClusterStatusOnLine,
 	}
 	if err := storage.Cluster.CreateCluster(clusterInfo); err != nil {
 		log.Errorf("create default cluster failed, err: %v", err)

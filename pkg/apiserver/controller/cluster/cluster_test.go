@@ -17,6 +17,7 @@ limitations under the License.
 package cluster
 
 import (
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"reflect"
 	"testing"
 
@@ -26,7 +27,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 )
 
@@ -52,7 +52,7 @@ func TestCreateCluster(t *testing.T) {
 	createClusterReq.Source = ""
 	createClusterReq.ClusterType = schema.KubernetesType
 	createClusterReq.Version = "1.16"
-	createClusterReq.Status = storage.ClusterStatusOnLine
+	createClusterReq.Status = model.ClusterStatusOnLine
 	createClusterReq.Credential = ""
 	createClusterReq.Setting = ""
 	createClusterReq.NamespaceList = []string{"n1", "n2"}

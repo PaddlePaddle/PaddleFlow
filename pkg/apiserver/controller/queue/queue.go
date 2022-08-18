@@ -19,6 +19,7 @@ package queue
 import (
 	"errors"
 	"fmt"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
@@ -174,7 +175,7 @@ func CreateQueue(ctx *logger.RequestContext, request *CreateQueueRequest) (Creat
 		ctx.Logging().Errorln("create request failed. error: cluster not found by Name.")
 		return CreateQueueResponse{}, errors.New("cluster not found by Name")
 	}
-	if clusterInfo.Status != storage.ClusterStatusOnLine {
+	if clusterInfo.Status != model.ClusterStatusOnLine {
 		ctx.ErrorCode = common.InvalidClusterStatus
 		errMsg := fmt.Sprintf("cluster[%s] not in online status, operator not permit", clusterInfo.Name)
 		ctx.Logging().Errorln(errMsg)
@@ -378,7 +379,7 @@ func UpdateQueue(ctx *logger.RequestContext, request *UpdateQueueRequest) (Updat
 		ctx.Logging().Errorln("update request failed. error: cluster not found by Name.")
 		return UpdateQueueResponse{}, errors.New("cluster not found by Name")
 	}
-	if clusterInfo.Status != storage.ClusterStatusOnLine {
+	if clusterInfo.Status != model.ClusterStatusOnLine {
 		ctx.ErrorCode = common.InvalidClusterStatus
 		errMsg := fmt.Sprintf("cluster[%s] not in online status, operator not permit", clusterInfo.Name)
 		ctx.Logging().Errorln(errMsg)
@@ -580,7 +581,7 @@ func GetQueueByName(ctx *logger.RequestContext, queueName string) (GetQueueRespo
 
 	// calculate the idle resource of queue
 	usedResource := resources.EmptyResource()
-	if clusterInfo.Status == storage.ClusterStatusOnLine {
+	if clusterInfo.Status == model.ClusterStatusOnLine {
 		runtimeSvc, err := runtime.GetOrCreateRuntime(clusterInfo)
 		if err != nil {
 			ctx.ErrorCode = common.InternalError

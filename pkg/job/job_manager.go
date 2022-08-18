@@ -109,8 +109,8 @@ func (m *JobManagerImpl) Start(activeClusters ActiveClustersFunc, activeQueueJob
 		for _, cluster := range clusters {
 			clusterID := api.ClusterID(cluster.ID)
 			// skip when cluster status is offline
-			if cluster.Status == storage.ClusterStatusOffLine {
-				log.Warnf("cluster[%s] status is %s, skip it", cluster.ID, storage.ClusterStatusOffLine)
+			if cluster.Status == model.ClusterStatusOffLine {
+				log.Warnf("cluster[%s] status is %s, skip it", cluster.ID, model.ClusterStatusOffLine)
 				m.stopClusterRuntime(clusterID)
 				continue
 			}

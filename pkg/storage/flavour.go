@@ -17,11 +17,11 @@ limitations under the License.
 package storage
 
 import (
-	"gorm.io/gorm"
 	"strings"
 	"time"
 
 	log "github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
