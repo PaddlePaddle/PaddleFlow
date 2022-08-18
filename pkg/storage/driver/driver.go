@@ -217,7 +217,7 @@ func createDatabaseTables(db *gorm.DB) error {
 		&model.JobTask{},
 		&model.JobLabel{},
 		&models.ClusterInfo{},
-		&models.Image{},
+		&model.Image{},
 		&model.FileSystem{},
 		&model.Link{},
 		&model.FSCacheConfig{},
