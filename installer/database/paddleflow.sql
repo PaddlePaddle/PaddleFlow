@@ -3,7 +3,7 @@ USE `paddleflow_db`;
 
 CREATE TABLE IF NOT EXISTS `cluster_info` (
     `pk` bigint(20) NOT NULL AUTO_INCREMENT,
-    `id` varchar(60) NOT NULL UNIQUE COMMENT 'cluster id',
+    `id` varchar(60) NOT NULL COMMENT 'cluster id',
     `name` varchar(255) NOT NULL COMMENT 'cluster name',
     `description` varchar(2048) NOT NULL DEFAULT '' COMMENT 'cluster description',
     `endpoint` varchar(255) NOT NULL DEFAULT '' COMMENT 'cluster endpoint, e.g. http://10.11.11.47:8080',
@@ -24,8 +24,8 @@ CREATE TABLE IF NOT EXISTS `cluster_info` (
 
 CREATE TABLE IF NOT EXISTS `flavour` (
     `pk` bigint(20) NOT NULL AUTO_INCREMENT,
-    `id` varchar(60) NOT NULL UNIQUE COMMENT 'id',
-    `name` varchar(60) NOT NULL UNIQUE COMMENT 'unique flavour name',
+    `id` varchar(60) NOT NULL COMMENT 'id',
+    `name` varchar(60) NOT NULL COMMENT 'unique flavour name',
     `cluster_id` varchar(60) DEFAULT '' COMMENT 'cluster id',
     `cpu` varchar(20) NOT NULL COMMENT 'cpu',
     `mem` varchar(20) NOT NULL COMMENT 'memory',
@@ -35,13 +35,14 @@ CREATE TABLE IF NOT EXISTS `flavour` (
     `updated_at` datetime(3) DEFAULT NULL,
     `deleted_at` datetime(3) DEFAULT NULL,
     PRIMARY KEY (`pk`),
-    UNIQUE KEY idx_name (`name`)
+    UNIQUE KEY idx_name (`name`),
+    UNIQUE KEY idx_id (`id`)
     ) ENGINE=InnoDB DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
 
 CREATE TABLE IF NOT EXISTS `queue` (
     `pk` bigint(20) NOT NULL AUTO_INCREMENT,
-    `id` varchar(60) NOT NULL UNIQUE,
-    `name` varchar(255) NOT NULL UNIQUE,
+    `id` varchar(60) NOT NULL,
+    `name` varchar(255) NOT NULL,
     `namespace` varchar(64) NOT NULL,
     `cluster_id` varchar(60) NOT NULL DEFAULT '',
     `quota_type` varchar(255) DEFAULT NULL,
@@ -54,13 +55,14 @@ CREATE TABLE IF NOT EXISTS `queue` (
     `updated_at` datetime(3) DEFAULT NULL,
     `deleted_at` datetime(3) DEFAULT NULL,
     PRIMARY KEY (`pk`),
+    UNIQUE KEY `queue_id` (`id`),
     UNIQUE KEY `queue_name` (`name`),
     INDEX `cluster_id` (`cluster_id`)
 ) ENGINE=InnoDB DEFAULT CHARACTER SET utf8 COLLATE utf8_bin;
 
 CREATE TABLE IF NOT EXISTS `job` (
     `pk` bigint(20) NOT NULL AUTO_INCREMENT,
-    `id` varchar(60) NOT NULL UNIQUE,
+    `id` varchar(60) NOT NULL,
     `name` varchar(512) DEFAULT '',
     `user_name` varchar(60) NOT NULL,
     `queue_id` varchar(60) NOT NULL,
@@ -86,7 +88,7 @@ CREATE TABLE IF NOT EXISTS `job` (
 
 CREATE TABLE IF NOT EXISTS `job_label` (
     `pk` bigint(20) NOT NULL AUTO_INCREMENT,
-    `id` varchar(36) NOT NULL UNIQUE,
+    `id` varchar(36) NOT NULL,
     `label` varchar(255) NOT NULL,
     `job_id` varchar(60) NOT NULL,
     `created_at` datetime(3) DEFAULT NULL,
@@ -97,7 +99,7 @@ CREATE TABLE IF NOT EXISTS `job_label` (
 
 CREATE TABLE IF NOT EXISTS `job_task` (
     `pk` bigint(20) NOT NULL AUTO_INCREMENT,
-    `id` varchar(64) NOT NULL UNIQUE,
+    `id` varchar(64) NOT NULL,
     `job_id` varchar(60) NOT NULL,
     `namespace` varchar(64) NOT NULL,
     `name` varchar(512) NOT NULL,
@@ -117,7 +119,7 @@ CREATE TABLE IF NOT EXISTS `job_task` (
 
 CREATE TABLE IF NOT EXISTS `user` (
     `pk` bigint(20) NOT NULL AUTO_INCREMENT,
-    `name` VARCHAR(60) NOT NULL UNIQUE COMMENT 'unique identify',
+    `name` VARCHAR(60) NOT NULL COMMENT 'unique identify',
     `password` VARCHAR(256) NOT NULL COMMENT 'encode password',
     `created_at` datetime DEFAULT NULL COMMENT 'create time',
     `updated_at` datetime DEFAULT NULL COMMENT 'update time',

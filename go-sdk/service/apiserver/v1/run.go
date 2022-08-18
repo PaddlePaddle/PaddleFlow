@@ -29,7 +29,9 @@ import (
 )
 
 const (
-	runApi = Prefix + "/run"
+	runApi         = Prefix + "/run"
+	runCacheApi    = Prefix + "/runCache"
+	runArtifactApi = Prefix + "/artifact"
 )
 
 type CreateRunRequest struct {
@@ -124,6 +126,68 @@ type StopRequest struct {
 
 type RetryRunResponse struct {
 	RunID string `json:"runID"`
+}
+
+type RunCacheBrief struct {
+	ID          string `json:"cacheID"`
+	FirstFp     string `json:"firstFp"`
+	SecondFp    string `json:"secondFp"`
+	RunID       string `json:"runID"`
+	Source      string `json:"source"`
+	JobID       string `json:"jobID"`
+	FsName      string `json:"fsname"`
+	UserName    string `json:"username"`
+	ExpiredTime string `json:"expiredTime"`
+	Strategy    string `json:"strategy"`
+	Custom      string `json:"custom"`
+	CreateTime  string `json:"createTime"`
+	UpdateTime  string `json:"updateTime,omitempty"`
+}
+
+type ListRunCacheRequest struct {
+	UserFilter []string
+	FSFilter   []string
+	RunFilter  []string
+	MaxKeys    int
+	Marker     string
+}
+
+type ListRunCacheResponse struct {
+	common.MarkerInfo
+	RunCacheList []RunCacheBrief `json:"runCacheList"`
+}
+
+type GetRunCacheResponse struct {
+	RunCacheBrief
+}
+
+type ArtifactEventBrief struct {
+	RunID        string `json:"runID"`
+	FsName       string `json:"fsname"`
+	UserName     string `json:"username"`
+	ArtifactPath string `json:"artifactPath"`
+	Step         string `json:"step"`
+	JobID        string `json:"jobID"`
+	Type         string `json:"type"`
+	ArtifactName string `json:"artifactName"`
+	Meta         string `json:"meta"`
+	CreateTime   string `json:"createTime"`
+	UpdateTime   string `json:"updateTime`
+}
+
+type ListArtifactRequest struct {
+	UserFilter []string
+	FSFilter   []string
+	RunFilter  []string
+	TypeFilter []string
+	PathFilter []string
+	MaxKeys    int
+	Marker     string
+}
+
+type ListArtifactResponse struct {
+	common.MarkerInfo
+	ArtifactEventList []ArtifactEventBrief `json:"artifactEventList"`
 }
 
 type run struct {
@@ -330,6 +394,80 @@ func (r *run) Delete(ctx context.Context, runID string, token string) (err error
 	return
 }
 
+func (r *run) ListRunCache(ctx context.Context, request *ListRunCacheRequest, token string) (result *ListRunCacheResponse, err error) {
+	result = &ListRunCacheResponse{}
+
+	err = newRequestBuilderWithTokenHeader(r.client, token).
+		WithMethod(http.GET).
+		WithResult(result).
+		WithURL(runCacheApi).
+		WithQueryParam("userFilter", strings.Join(request.UserFilter, ",")).
+		WithQueryParam("fsFilter", strings.Join(request.FSFilter, ",")).
+		WithQueryParam("runFilter", strings.Join(request.RunFilter, ",")).
+		WithQueryParam("marker", request.Marker).
+		WithQueryParam("maxKeys", strconv.Itoa(request.MaxKeys)).
+		Do()
+
+	if err != nil {
+		return nil, err
+	}
+
+	return
+}
+
+func (r *run) GetRunCache(ctx context.Context, runCacheID string, token string) (result *GetRunCacheResponse, err error) {
+	result = &GetRunCacheResponse{}
+
+	err = newRequestBuilderWithTokenHeader(r.client, token).
+		WithMethod(http.GET).
+		WithResult(result).
+		WithURL(runCacheApi + "/" + runCacheID).
+		Do()
+
+	if err != nil {
+		return nil, err
+	}
+
+	return
+}
+
+func (r *run) DeleteRunCache(ctx context.Context, runCacheID string, token string) (err error) {
+	err = newRequestBuilderWithTokenHeader(r.client, token).
+		WithMethod(http.DELETE).
+		WithURL(runCacheApi + "/" + runCacheID).
+		Do()
+
+	if err != nil {
+		return err
+	}
+
+	return
+}
+
+func (r *run) ListArtifact(ctx context.Context, request *ListArtifactRequest,
+	token string) (result *ListArtifactResponse, err error) {
+	result = &ListArtifactResponse{}
+
+	err = newRequestBuilderWithTokenHeader(r.client, token).
+		WithMethod(http.GET).
+		WithResult(result).
+		WithURL(runArtifactApi).
+		WithQueryParam("userFilter", strings.Join(request.UserFilter, ",")).
+		WithQueryParam("fsFilter", strings.Join(request.FSFilter, ",")).
+		WithQueryParam("runFilter", strings.Join(request.RunFilter, ",")).
+		WithQueryParam("typeFilter", strings.Join(request.TypeFilter, ",")).
+		WithQueryParam("pathFilter", strings.Join(request.PathFilter, ",")).
+		WithQueryParam("marker", request.Marker).
+		WithQueryParam("maxKeys", strconv.Itoa(request.MaxKeys)).
+		Do()
+
+	if err != nil {
+		return nil, err
+	}
+
+	return
+}
+
 type RunInterface interface {
 	Create(ctx context.Context, request *CreateRunRequest, token string) (result *CreateRunResponse, err error)
 	Get(ctx context.Context, runID string, token string) (result *GetRunResponse, err error)
@@ -337,6 +475,12 @@ type RunInterface interface {
 	Stop(ctx context.Context, StopForce bool, runID, token string) (err error)
 	Retry(ctx context.Context, runID string, token string) (result *RetryRunResponse, err error)
 	Delete(ctx context.Context, runID string, token string) (err error)
+
+	ListRunCache(ctx context.Context, request *ListRunCacheRequest, token string) (result *ListRunCacheResponse, err error)
+	GetRunCache(ctx context.Context, runCacheID string, token string) (result *GetRunCacheResponse, err error)
+	DeleteRunCache(ctx context.Context, runCacheID string, token string) (err error)
+
+	ListArtifact(ctx context.Context, request *ListArtifactRequest, token string) (result *ListArtifactResponse, err error)
 }
 
 type RunGetter interface {

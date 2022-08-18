@@ -172,7 +172,6 @@ func ExecCmdWithTimeout(name string, args []string) ([]byte, error) {
 	defer cancel()
 	newCmd := exec.CommandContext(ctx, name, args...)
 	newCmd.Env = append(os.Environ())
-	log.Debugf("newCmd is %s", newCmd.String())
 
 	sysProcAttr := &syscall.SysProcAttr{
 		Setpgid: true,

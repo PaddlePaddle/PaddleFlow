@@ -17,6 +17,7 @@ limitations under the License.
 
 from .pipeline_api import PipelineServiceApi
 from .pipeline_info import PipelineInfo
+from .pipeline_info import PipelineVersionInfo
 
 from .dsl import CacheOptions
 from .dsl import FailureOptions

@@ -28,8 +28,10 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/pipeline"
 	pplcommon "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 type CreatePipelineRequest struct {
@@ -86,7 +88,7 @@ type PipelineBrief struct {
 	UpdateTime string `json:"updateTime"`
 }
 
-func (pb *PipelineBrief) updateFromPipelineModel(pipeline models.Pipeline) {
+func (pb *PipelineBrief) updateFromPipelineModel(pipeline model.Pipeline) {
 	pb.ID = pipeline.ID
 	pb.Name = pipeline.Name
 	pb.Desc = pipeline.Desc
@@ -106,7 +108,7 @@ type PipelineVersionBrief struct {
 	UpdateTime   string `json:"updateTime"`
 }
 
-func (pdb *PipelineVersionBrief) updateFromPipelineVersionModel(pipelineVersion models.PipelineVersion) {
+func (pdb *PipelineVersionBrief) updateFromPipelineVersionModel(pipelineVersion model.PipelineVersion) {
 	pdb.ID = pipelineVersion.ID
 	pdb.PipelineID = pipelineVersion.PipelineID
 	pdb.FsName = pipelineVersion.FsName
@@ -156,7 +158,7 @@ func CreatePipeline(ctx *logger.RequestContext, request CreatePipelineRequest) (
 
 	// validate pipeline and get name of pipeline
 	// 此处同样会校验pipeline name格式（正则表达式为：`^[A-Za-z_][A-Za-z0-9_]{1,49}$`）
-	pplName, err := validateWorkflowForPipeline(string(pipelineYaml))
+	pplName, err := validateWorkflowForPipeline(string(pipelineYaml), ctx.UserName, request.UserName)
 	if err != nil {
 		ctx.ErrorCode = common.MalformedYaml
 		errMsg := fmt.Sprintf("validateWorkflowForPipeline failed. err:%v", err)
@@ -165,7 +167,7 @@ func CreatePipeline(ctx *logger.RequestContext, request CreatePipelineRequest) (
 	}
 
 	// 校验pipeline是否存在，一个用户不能创建同名pipeline
-	_, err = models.GetPipeline(pplName, ctx.UserName)
+	_, err = storage.Pipeline.GetPipeline(pplName, ctx.UserName)
 	if err == nil {
 		ctx.ErrorCode = common.DuplicatedName
 		errMsg := fmt.Sprintf("CreatePipeline failed: user[%s] already has pipeline[%s], cannot create again, use update instead!", ctx.UserName, pplName)
@@ -180,7 +182,7 @@ func CreatePipeline(ctx *logger.RequestContext, request CreatePipelineRequest) (
 	}
 
 	// create Pipeline in db
-	ppl := models.Pipeline{
+	ppl := model.Pipeline{
 		ID:       "", // to be back-filled according to db pk
 		Name:     pplName,
 		Desc:     request.Desc,
@@ -188,7 +190,7 @@ func CreatePipeline(ctx *logger.RequestContext, request CreatePipelineRequest) (
 	}
 
 	yamlMd5 := common.GetMD5Hash(pipelineYaml)
-	pplVersion := models.PipelineVersion{
+	pplVersion := model.PipelineVersion{
 		FsID:         fsID,
 		FsName:       request.FsName,
 		YamlPath:     request.YamlPath,
@@ -197,7 +199,7 @@ func CreatePipeline(ctx *logger.RequestContext, request CreatePipelineRequest) (
 		UserName:     ctx.UserName,
 	}
 
-	pplID, pplVersionID, err := models.CreatePipeline(ctx.Logging(), &ppl, &pplVersion)
+	pplID, pplVersionID, err := storage.Pipeline.CreatePipeline(ctx.Logging(), &ppl, &pplVersion)
 	if err != nil {
 		ctx.ErrorCode = common.InternalError
 		errMsg := fmt.Sprintf("create pipeline failed inserting db. error:%s", err.Error())
@@ -252,7 +254,7 @@ func UpdatePipeline(ctx *logger.RequestContext, request UpdatePipelineRequest, p
 	}
 
 	// validate pipeline and get name of pipeline
-	pplName, err := validateWorkflowForPipeline(string(pipelineYaml))
+	pplName, err := validateWorkflowForPipeline(string(pipelineYaml), ctx.UserName, request.UserName)
 	if err != nil {
 		ctx.ErrorCode = common.MalformedYaml
 		errMsg := fmt.Sprintf("validateWorkflowForPipeline failed. err:%v", err)
@@ -283,7 +285,7 @@ func UpdatePipeline(ctx *logger.RequestContext, request UpdatePipelineRequest, p
 
 	ppl.Desc = request.Desc
 	yamlMd5 := common.GetMD5Hash(pipelineYaml)
-	pplVersion := models.PipelineVersion{
+	pplVersion := model.PipelineVersion{
 		PipelineID:   pipelineID,
 		FsID:         fsID,
 		FsName:       request.FsName,
@@ -293,7 +295,7 @@ func UpdatePipeline(ctx *logger.RequestContext, request UpdatePipelineRequest, p
 		UserName:     ctx.UserName,
 	}
 
-	pplID, pplVersionID, err := models.UpdatePipeline(ctx.Logging(), &ppl, &pplVersion)
+	pplID, pplVersionID, err := storage.Pipeline.UpdatePipeline(ctx.Logging(), &ppl, &pplVersion)
 	if err != nil {
 		ctx.ErrorCode = common.InternalError
 		errMsg := fmt.Sprintf("update pipeline failed inserting db. error:%s", err.Error())
@@ -310,7 +312,7 @@ func UpdatePipeline(ctx *logger.RequestContext, request UpdatePipelineRequest, p
 }
 
 // todo: 为了校验pipeline，需要准备的内容太多，需要简化校验逻辑
-func validateWorkflowForPipeline(pipelineYaml string) (name string, err error) {
+func validateWorkflowForPipeline(pipelineYaml string, ctxUsername string, reqUsername string) (name string, err error) {
 	// parse yaml -> WorkflowSource
 	wfs, err := schema.GetWorkflowSource([]byte(pipelineYaml))
 	if err != nil {
@@ -322,8 +324,18 @@ func validateWorkflowForPipeline(pipelineYaml string) (name string, err error) {
 	param := map[string]interface{}{}
 	extra := map[string]string{
 		pplcommon.WfExtraInfoKeyFSUserName: "",
-		pplcommon.WfExtraInfoKeyFsName:     "mock-fsname",
-		pplcommon.WfExtraInfoKeyFsID:       "mock-fsid",
+	}
+
+	if wfs.FsOptions.MainFS.Name != "" {
+		extra[pplcommon.WfExtraInfoKeyFsName] = wfs.FsOptions.MainFS.Name
+
+		fsID, err := CheckFsAndGetID(ctxUsername, reqUsername, wfs.FsOptions.MainFS.Name)
+		if err != nil {
+			logger.Logger().Errorf("check main fs in pipeline failed, err:%v", err)
+			return "", err
+		}
+
+		extra[pplcommon.WfExtraInfoKeyFsID] = fsID
 	}
 
 	// validate
@@ -374,7 +386,7 @@ func ListPipeline(ctx *logger.RequestContext, marker string, maxKeys int, userFi
 		}
 	}
 
-	pipelineList, err := models.ListPipeline(pk, maxKeys, userFilter, nameFilter)
+	pipelineList, err := storage.Pipeline.ListPipeline(pk, maxKeys, userFilter, nameFilter)
 	if err != nil {
 		ctx.ErrorCode = common.InternalError
 		ctx.Logging().Errorf("ListPipeline[%d-%s-%s] failed. err: %v", maxKeys, userFilter, nameFilter, err)
@@ -389,7 +401,7 @@ func ListPipeline(ctx *logger.RequestContext, marker string, maxKeys int, userFi
 	listPipelineResponse.IsTruncated = false
 	if len(pipelineList) > 0 {
 		ppl := pipelineList[len(pipelineList)-1]
-		isLastPk, err := models.IsLastPipelinePk(ctx.Logging(), ppl.Pk, userFilter, nameFilter)
+		isLastPk, err := storage.Pipeline.IsLastPipelinePk(ctx.Logging(), ppl.Pk, userFilter, nameFilter)
 		if err != nil {
 			ctx.ErrorCode = common.InternalError
 			errMsg := fmt.Sprintf("get last pipeline Pk failed. err:[%s]", err.Error())
@@ -424,7 +436,7 @@ func GetPipeline(ctx *logger.RequestContext, pipelineID, marker string, maxKeys 
 	getPipelineResponse := GetPipelineResponse{}
 
 	// query pipeline
-	ppl, err := models.GetPipelineByID(pipelineID)
+	ppl, err := storage.Pipeline.GetPipelineByID(pipelineID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			ctx.ErrorCode = common.InvalidArguments
@@ -456,7 +468,7 @@ func GetPipeline(ctx *logger.RequestContext, pipelineID, marker string, maxKeys 
 		}
 	}
 
-	pipelineVersionList, err := models.ListPipelineVersion(pipelineID, pk, maxKeys, fsFilter)
+	pipelineVersionList, err := storage.Pipeline.ListPipelineVersion(pipelineID, pk, maxKeys, fsFilter)
 	if err != nil {
 		ctx.ErrorCode = common.InternalError
 		ctx.Logging().Errorf("get Pipeline version[%s-%d-%d-%s]. err: %v", pipelineID, pk, maxKeys, fsFilter, err)
@@ -468,7 +480,7 @@ func GetPipeline(ctx *logger.RequestContext, pipelineID, marker string, maxKeys 
 	pipelineVersions.IsTruncated = false
 	if len(pipelineVersionList) > 0 {
 		pplVersion := pipelineVersionList[len(pipelineVersionList)-1]
-		isLastPPlVersionPk, err := models.IsLastPipelineVersionPk(ctx.Logging(), pipelineID, pplVersion.Pk, fsFilter)
+		isLastPPlVersionPk, err := storage.Pipeline.IsLastPipelineVersionPk(ctx.Logging(), pipelineID, pplVersion.Pk, fsFilter)
 		if err != nil {
 			ctx.ErrorCode = common.InternalError
 			errMsg := fmt.Sprintf("get last pplversion for ppl[%s] failed. err:[%s]", pipelineID, err.Error())
@@ -553,7 +565,7 @@ func DeletePipeline(ctx *logger.RequestContext, pipelineID string) error {
 		return fmt.Errorf(errMsg)
 	}
 
-	if err := models.DeletePipeline(ctx.Logging(), pipelineID); err != nil {
+	if err := storage.Pipeline.DeletePipeline(ctx.Logging(), pipelineID); err != nil {
 		ctx.ErrorCode = common.InternalError
 		errMsg := fmt.Sprintf("models delete pipeline[%s] failed. error:%s", pipelineID, err.Error())
 		ctx.Logging().Errorf(errMsg)
@@ -578,7 +590,7 @@ func DeletePipelineVersion(ctx *logger.RequestContext, pipelineID string, pipeli
 	}
 
 	// 如果只有一个pipeline version的话，直接删除pipeline本身
-	count, err := models.CountPipelineVersion(pipelineID)
+	count, err := storage.Pipeline.CountPipelineVersion(pipelineID)
 	if err != nil {
 		ctx.ErrorCode = common.InternalError
 		errMsg := fmt.Sprintf("delete pipeline[%s] version[%s] failed. err:%v", pipelineID, pipelineVersionID, err)
@@ -605,7 +617,7 @@ func DeletePipelineVersion(ctx *logger.RequestContext, pipelineID string, pipeli
 		return fmt.Errorf(errMsg)
 	}
 
-	if err := models.DeletePipelineVersion(ctx.Logging(), pipelineID, pipelineVersionID); err != nil {
+	if err := storage.Pipeline.DeletePipelineVersion(ctx.Logging(), pipelineID, pipelineVersionID); err != nil {
 		ctx.ErrorCode = common.InternalError
 		errMsg := fmt.Sprintf("delete pipeline[%s] version[%s] failed. error:%s", pipelineID, pipelineVersionID, err.Error())
 		ctx.Logging().Errorf(errMsg)
@@ -615,41 +627,41 @@ func DeletePipelineVersion(ctx *logger.RequestContext, pipelineID string, pipeli
 	return nil
 }
 
-func CheckPipelinePermission(userName string, pipelineID string) (bool, models.Pipeline, error) {
-	ppl, err := models.GetPipelineByID(pipelineID)
+func CheckPipelinePermission(userName string, pipelineID string) (bool, model.Pipeline, error) {
+	ppl, err := storage.Pipeline.GetPipelineByID(pipelineID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			errMsg := fmt.Sprintf("pipeline[%s] not exist", pipelineID)
-			return false, models.Pipeline{}, fmt.Errorf(errMsg)
+			return false, model.Pipeline{}, fmt.Errorf(errMsg)
 		} else {
 			errMsg := fmt.Sprintf("get pipeline[%s] failed, err:[%s]", pipelineID, err.Error())
-			return false, models.Pipeline{}, fmt.Errorf(errMsg)
+			return false, model.Pipeline{}, fmt.Errorf(errMsg)
 		}
 	}
 
 	if !common.IsRootUser(userName) && userName != ppl.UserName {
-		return false, models.Pipeline{}, nil
+		return false, model.Pipeline{}, nil
 	}
 
 	return true, ppl, nil
 }
 
-func CheckPipelineVersionPermission(userName string, pipelineID string, pipelineVersionID string) (bool, models.Pipeline, models.PipelineVersion, error) {
+func CheckPipelineVersionPermission(userName string, pipelineID string, pipelineVersionID string) (bool, model.Pipeline, model.PipelineVersion, error) {
 	hasAuth, ppl, err := CheckPipelinePermission(userName, pipelineID)
 	if err != nil {
-		return false, models.Pipeline{}, models.PipelineVersion{}, err
+		return false, model.Pipeline{}, model.PipelineVersion{}, err
 	} else if !hasAuth {
-		return false, models.Pipeline{}, models.PipelineVersion{}, nil
+		return false, model.Pipeline{}, model.PipelineVersion{}, nil
 	}
 
-	pipelineVersion, err := models.GetPipelineVersion(pipelineID, pipelineVersionID)
+	pipelineVersion, err := storage.Pipeline.GetPipelineVersion(pipelineID, pipelineVersionID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			errMsg := fmt.Sprintf("pipeline[%s] version[%s] not exist", pipelineID, pipelineVersionID)
-			return false, models.Pipeline{}, models.PipelineVersion{}, fmt.Errorf(errMsg)
+			return false, model.Pipeline{}, model.PipelineVersion{}, fmt.Errorf(errMsg)
 		} else {
 			errMsg := fmt.Sprintf("get pipeline[%s] version[%s] failed, err:[%s]", pipelineID, pipelineVersionID, err.Error())
-			return false, models.Pipeline{}, models.PipelineVersion{}, fmt.Errorf(errMsg)
+			return false, model.Pipeline{}, model.PipelineVersion{}, fmt.Errorf(errMsg)
 		}
 	}
 

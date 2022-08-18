@@ -28,11 +28,12 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/handler"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	pkgPipeline "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 )
 
@@ -350,12 +351,12 @@ func TestGetPipeline(t *testing.T) {
 	driver.InitMockDB()
 	ctx := &logger.RequestContext{UserName: MockRootUser}
 
-	ppl1 := models.Pipeline{
+	ppl1 := model.Pipeline{
 		Name:     "ppl1",
 		Desc:     "ppl1",
 		UserName: "user1",
 	}
-	pplVersion1 := models.PipelineVersion{
+	pplVersion1 := model.PipelineVersion{
 		FsID:         "root-fsname",
 		FsName:       "fsname",
 		YamlPath:     "./run.yml",
@@ -364,7 +365,7 @@ func TestGetPipeline(t *testing.T) {
 		UserName:     "user1",
 	}
 
-	pplVersion2 := models.PipelineVersion{
+	pplVersion2 := model.PipelineVersion{
 		FsID:         "root-fsname2",
 		FsName:       "fsname2",
 		YamlPath:     "./run.yml",
@@ -373,7 +374,7 @@ func TestGetPipeline(t *testing.T) {
 		UserName:     "user1",
 	}
 
-	pplID1, pplVersionID1, err := models.CreatePipeline(ctx.Logging(), &ppl1, &pplVersion1)
+	pplID1, pplVersionID1, err := storage.Pipeline.CreatePipeline(ctx.Logging(), &ppl1, &pplVersion1)
 	assert.Nil(t, err)
 	assert.Equal(t, ppl1.Pk, int64(1))
 	assert.Equal(t, pplID1, ppl1.ID)
@@ -384,7 +385,7 @@ func TestGetPipeline(t *testing.T) {
 	assert.Equal(t, pplVersionID1, "1")
 	assert.Equal(t, pplVersion1.PipelineID, ppl1.ID)
 
-	pplID2, pplVersionID2, err := models.UpdatePipeline(ctx.Logging(), &ppl1, &pplVersion2)
+	pplID2, pplVersionID2, err := storage.Pipeline.UpdatePipeline(ctx.Logging(), &ppl1, &pplVersion2)
 	assert.Nil(t, err)
 	assert.Equal(t, pplID2, ppl1.ID)
 
@@ -466,14 +467,14 @@ func TestGetPipelineVersion(t *testing.T) {
 	driver.InitMockDB()
 	ctx := &logger.RequestContext{UserName: MockRootUser}
 
-	ppl1 := models.Pipeline{
+	ppl1 := model.Pipeline{
 		Pk:       1,
 		ID:       "ppl-000001",
 		Name:     "ppl1",
 		Desc:     "ppl1",
 		UserName: "user1",
 	}
-	pplVersion1 := models.PipelineVersion{
+	pplVersion1 := model.PipelineVersion{
 		Pk:           1,
 		PipelineID:   ppl1.ID,
 		FsID:         "root-fsname",
@@ -484,7 +485,7 @@ func TestGetPipelineVersion(t *testing.T) {
 		UserName:     "user1",
 	}
 
-	pplVersion2 := models.PipelineVersion{
+	pplVersion2 := model.PipelineVersion{
 		Pk:           2,
 		PipelineID:   ppl1.ID,
 		FsID:         "root-fsname2",
@@ -495,7 +496,7 @@ func TestGetPipelineVersion(t *testing.T) {
 		UserName:     "user1",
 	}
 
-	pplID1, pplVersionID1, err := models.CreatePipeline(ctx.Logging(), &ppl1, &pplVersion1)
+	pplID1, pplVersionID1, err := storage.Pipeline.CreatePipeline(ctx.Logging(), &ppl1, &pplVersion1)
 	assert.Nil(t, err)
 	assert.Equal(t, ppl1.Pk, int64(1))
 	assert.Equal(t, pplID1, ppl1.ID)
@@ -506,7 +507,7 @@ func TestGetPipelineVersion(t *testing.T) {
 	assert.Equal(t, pplVersionID1, "1")
 	assert.Equal(t, pplVersion1.PipelineID, ppl1.ID)
 
-	pplID2, pplVersionID2, err := models.UpdatePipeline(ctx.Logging(), &ppl1, &pplVersion2)
+	pplID2, pplVersionID2, err := storage.Pipeline.UpdatePipeline(ctx.Logging(), &ppl1, &pplVersion2)
 	assert.Nil(t, err)
 	assert.Equal(t, pplID2, ppl1.ID)
 
@@ -560,12 +561,12 @@ func TestDeletePipeline(t *testing.T) {
 	assert.NotNil(t, err)
 	assert.Equal(t, "delete pipeline[wrongPplID] failed. err:pipeline[wrongPplID] not exist", err.Error())
 
-	ppl1 := models.Pipeline{
+	ppl1 := model.Pipeline{
 		Name:     "ppl1",
 		Desc:     "ppl1",
 		UserName: "user1",
 	}
-	pplVersion1 := models.PipelineVersion{
+	pplVersion1 := model.PipelineVersion{
 		FsID:         "root-fsname",
 		FsName:       "fsname",
 		YamlPath:     "./run.yml",
@@ -574,12 +575,12 @@ func TestDeletePipeline(t *testing.T) {
 		UserName:     "user1",
 	}
 
-	ppl2 := models.Pipeline{
+	ppl2 := model.Pipeline{
 		Name:     "ppl2",
 		Desc:     "ppl2",
 		UserName: "user2",
 	}
-	pplVersion2 := models.PipelineVersion{
+	pplVersion2 := model.PipelineVersion{
 		FsID:         "root-fsname2",
 		FsName:       "fsname2",
 		YamlPath:     "./run.yml",
@@ -588,12 +589,12 @@ func TestDeletePipeline(t *testing.T) {
 		UserName:     "user2",
 	}
 
-	ppl3 := models.Pipeline{
+	ppl3 := model.Pipeline{
 		Name:     "ppl3",
 		Desc:     "ppl3",
 		UserName: "root",
 	}
-	pplVersion3 := models.PipelineVersion{
+	pplVersion3 := model.PipelineVersion{
 		FsID:         "root-fsname3",
 		FsName:       "fsname3",
 		YamlPath:     "./run.yml",
@@ -602,7 +603,7 @@ func TestDeletePipeline(t *testing.T) {
 		UserName:     "root",
 	}
 
-	pplID1, pplVersionID1, err := models.CreatePipeline(ctx.Logging(), &ppl1, &pplVersion1)
+	pplID1, pplVersionID1, err := storage.Pipeline.CreatePipeline(ctx.Logging(), &ppl1, &pplVersion1)
 	assert.Nil(t, err)
 	assert.Equal(t, ppl1.Pk, int64(1))
 	assert.Equal(t, pplID1, ppl1.ID)
@@ -613,7 +614,7 @@ func TestDeletePipeline(t *testing.T) {
 	assert.Equal(t, pplVersionID1, "1")
 	assert.Equal(t, pplVersion1.PipelineID, ppl1.ID)
 
-	pplID2, pplVersionID2, err := models.CreatePipeline(ctx.Logging(), &ppl2, &pplVersion2)
+	pplID2, pplVersionID2, err := storage.Pipeline.CreatePipeline(ctx.Logging(), &ppl2, &pplVersion2)
 	assert.Nil(t, err)
 	assert.Equal(t, ppl2.Pk, int64(2))
 	assert.Equal(t, pplID2, ppl2.ID)
@@ -624,7 +625,7 @@ func TestDeletePipeline(t *testing.T) {
 	assert.Equal(t, pplVersionID2, "1")
 	assert.Equal(t, pplVersion2.PipelineID, ppl2.ID)
 
-	pplID3, pplVersionID3, err := models.CreatePipeline(ctx.Logging(), &ppl3, &pplVersion3)
+	pplID3, pplVersionID3, err := storage.Pipeline.CreatePipeline(ctx.Logging(), &ppl3, &pplVersion3)
 	assert.Nil(t, err)
 	assert.Equal(t, ppl3.Pk, int64(3))
 	assert.Equal(t, pplID3, ppl3.ID)
@@ -674,12 +675,12 @@ func TestDeletePipelineVersion(t *testing.T) {
 	driver.InitMockDB()
 	ctx := &logger.RequestContext{UserName: MockRootUser}
 
-	ppl1 := models.Pipeline{
+	ppl1 := model.Pipeline{
 		Name:     "ppl1",
 		Desc:     "ppl1",
 		UserName: "user1",
 	}
-	pplVersion1 := models.PipelineVersion{
+	pplVersion1 := model.PipelineVersion{
 		FsID:         "user1-fsname",
 		FsName:       "fsname",
 		YamlPath:     "./run.yml",
@@ -688,7 +689,7 @@ func TestDeletePipelineVersion(t *testing.T) {
 		UserName:     "user1",
 	}
 
-	pplVersion2 := models.PipelineVersion{
+	pplVersion2 := model.PipelineVersion{
 		FsID:         "user1-fsname2",
 		FsName:       "fsname2",
 		YamlPath:     "./run.yml",
@@ -697,7 +698,7 @@ func TestDeletePipelineVersion(t *testing.T) {
 		UserName:     "user1",
 	}
 
-	pplVersion3 := models.PipelineVersion{
+	pplVersion3 := model.PipelineVersion{
 		FsID:         "user1-fsname3",
 		FsName:       "fsname3",
 		YamlPath:     "./run.yml",
@@ -706,13 +707,13 @@ func TestDeletePipelineVersion(t *testing.T) {
 		UserName:     "user1",
 	}
 
-	ppl2 := models.Pipeline{
+	ppl2 := model.Pipeline{
 		Name:     "ppl2",
 		Desc:     "ppl2",
 		UserName: "root",
 	}
 
-	pplVersion4 := models.PipelineVersion{
+	pplVersion4 := model.PipelineVersion{
 		FsID:         "root-fsname4",
 		FsName:       "fsname4",
 		YamlPath:     "./run.yml",
@@ -721,7 +722,7 @@ func TestDeletePipelineVersion(t *testing.T) {
 		UserName:     "root",
 	}
 
-	pplVersion5 := models.PipelineVersion{
+	pplVersion5 := model.PipelineVersion{
 		FsID:         "root-fsname5",
 		FsName:       "fsname5",
 		YamlPath:     "./run.yml",
@@ -730,7 +731,7 @@ func TestDeletePipelineVersion(t *testing.T) {
 		UserName:     "root",
 	}
 
-	pplID1, pplVersionID1, err := models.CreatePipeline(ctx.Logging(), &ppl1, &pplVersion1)
+	pplID1, pplVersionID1, err := storage.Pipeline.CreatePipeline(ctx.Logging(), &ppl1, &pplVersion1)
 	assert.Nil(t, err)
 	assert.Equal(t, ppl1.Pk, int64(1))
 	assert.Equal(t, pplID1, ppl1.ID)
@@ -741,7 +742,7 @@ func TestDeletePipelineVersion(t *testing.T) {
 	assert.Equal(t, pplVersionID1, "1")
 	assert.Equal(t, pplVersion1.PipelineID, ppl1.ID)
 
-	pplID2, pplVersionID2, err := models.UpdatePipeline(ctx.Logging(), &ppl1, &pplVersion2)
+	pplID2, pplVersionID2, err := storage.Pipeline.UpdatePipeline(ctx.Logging(), &ppl1, &pplVersion2)
 	assert.Nil(t, err)
 	assert.Equal(t, pplID2, ppl1.ID)
 
@@ -749,7 +750,7 @@ func TestDeletePipelineVersion(t *testing.T) {
 	assert.Equal(t, pplVersionID2, pplVersion2.ID)
 	assert.Equal(t, pplVersionID2, "2")
 
-	pplID3, pplVersionID3, err := models.UpdatePipeline(ctx.Logging(), &ppl1, &pplVersion3)
+	pplID3, pplVersionID3, err := storage.Pipeline.UpdatePipeline(ctx.Logging(), &ppl1, &pplVersion3)
 	assert.Nil(t, err)
 	assert.Equal(t, pplID3, ppl1.ID)
 
@@ -757,7 +758,7 @@ func TestDeletePipelineVersion(t *testing.T) {
 	assert.Equal(t, pplVersionID3, pplVersion3.ID)
 	assert.Equal(t, pplVersionID3, "3")
 
-	pplID4, pplVersionID4, err := models.CreatePipeline(ctx.Logging(), &ppl2, &pplVersion4)
+	pplID4, pplVersionID4, err := storage.Pipeline.CreatePipeline(ctx.Logging(), &ppl2, &pplVersion4)
 	assert.Nil(t, err)
 	assert.Equal(t, ppl2.Pk, int64(2))
 	assert.Equal(t, pplID4, ppl2.ID)
@@ -768,7 +769,7 @@ func TestDeletePipelineVersion(t *testing.T) {
 	assert.Equal(t, pplVersionID4, "1")
 	assert.Equal(t, pplVersion4.PipelineID, ppl2.ID)
 
-	pplID5, pplVersionID5, err := models.UpdatePipeline(ctx.Logging(), &ppl2, &pplVersion5)
+	pplID5, pplVersionID5, err := storage.Pipeline.UpdatePipeline(ctx.Logging(), &ppl2, &pplVersion5)
 	assert.Nil(t, err)
 	assert.Equal(t, pplID5, ppl2.ID)
 
@@ -825,7 +826,7 @@ func TestDeletePipelineVersion(t *testing.T) {
 	assert.Equal(t, "delete pipeline[ppl-000002] version[2] failed. only one pipeline version left, pls delete pipeline instead", err.Error())
 
 	// 删除version后重新更新pipeline，确保version_id是严格递增（包括被删除的部分）
-	pplVersion6 := models.PipelineVersion{
+	pplVersion6 := model.PipelineVersion{
 		FsID:         "user1-fsname4",
 		FsName:       "fsname4",
 		YamlPath:     "./run.yml",
@@ -834,7 +835,7 @@ func TestDeletePipelineVersion(t *testing.T) {
 		UserName:     "user1",
 	}
 
-	pplID6, pplVersionID6, err := models.UpdatePipeline(ctx.Logging(), &ppl1, &pplVersion6)
+	pplID6, pplVersionID6, err := storage.Pipeline.UpdatePipeline(ctx.Logging(), &ppl1, &pplVersion6)
 	assert.Nil(t, err)
 	assert.Equal(t, pplID6, ppl1.ID)
 
