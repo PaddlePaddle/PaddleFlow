@@ -17,6 +17,7 @@ limitations under the License.
 package storage
 
 import (
+	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
@@ -27,18 +28,41 @@ import (
 var (
 	DB *gorm.DB
 
+	Pipeline   PipelineStoreInterface
 	Filesystem FileSystemStoreInterface
 	FsCache    FsCacheStoreInterface
 	Auth       AuthStoreInterface
 	Job        JobStoreInterface
+	Image      ImageStoreInterface
 )
 
 func InitStores(db *gorm.DB) {
 	// do not use once.Do() because unit test need to init db twice
+	Pipeline = newPipelineStore(db)
 	Filesystem = newFilesystemStore(db)
 	FsCache = newDBFSCache(db)
 	Auth = newAuthStore(db)
 	Job = newJobStore(db)
+	Image = newImageStore(db)
+}
+
+type PipelineStoreInterface interface {
+	// pipeline
+	CreatePipeline(logEntry *log.Entry, ppl *model.Pipeline, pplVersion *model.PipelineVersion) (pplID string, pplVersionID string, err error)
+	UpdatePipeline(logEntry *log.Entry, ppl *model.Pipeline, pplVersion *model.PipelineVersion) (pplID string, pplVersionID string, err error)
+	GetPipelineByID(id string) (model.Pipeline, error)
+	GetPipeline(name, userName string) (model.Pipeline, error)
+	ListPipeline(pk int64, maxKeys int, userFilter, nameFilter []string) ([]model.Pipeline, error)
+	IsLastPipelinePk(logEntry *log.Entry, pk int64, userFilter, nameFilter []string) (bool, error)
+	DeletePipeline(logEntry *log.Entry, id string) error
+	// pipeline_version
+	ListPipelineVersion(pipelineID string, pk int64, maxKeys int, fsFilter []string) ([]model.PipelineVersion, error)
+	IsLastPipelineVersionPk(logEntry *log.Entry, pipelineID string, pk int64, fsFilter []string) (bool, error)
+	CountPipelineVersion(pipelineID string) (int64, error)
+	GetPipelineVersions(pipelineID string) ([]model.PipelineVersion, error)
+	GetPipelineVersion(pipelineID string, pipelineVersionID string) (model.PipelineVersion, error)
+	GetLastPipelineVersion(pipelineID string) (model.PipelineVersion, error)
+	DeletePipelineVersion(logEntry *log.Entry, pipelineID string, pipelineVersionID string) error
 }
 
 type FileSystemStoreInterface interface {
@@ -118,4 +142,12 @@ type JobStoreInterface interface {
 	GetJobTaskByID(id string) (model.JobTask, error)
 	UpdateTask(task *model.JobTask) error
 	ListByJobID(jobID string) ([]model.JobTask, error)
+}
+
+type ImageStoreInterface interface {
+	CreateImage(logEntry *log.Entry, image *model.Image) error
+	ListImageIDsByFsID(logEntry *log.Entry, fsID string) ([]string, error)
+	GetImage(logEntry *log.Entry, PFImageID string) (model.Image, error)
+	GetUrlByPFImageID(logEntry *log.Entry, PFImageID string) (string, error)
+	UpdateImage(logEntry *log.Entry, PFImageID string, image model.Image) error
 }

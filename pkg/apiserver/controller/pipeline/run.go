@@ -35,8 +35,10 @@ import (
 	errors2 "github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/pipeline"
 	pplcommon "github.com/PaddlePaddle/PaddleFlow/pkg/pipeline/common"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/trace_logger"
 )
 
@@ -190,15 +192,15 @@ func buildWorkflowSource(ctx logger.RequestContext, req CreateRunRequest, fsID s
 		}
 
 		// query pipeline version
-		var pplVersion models.PipelineVersion
+		var pplVersion model.PipelineVersion
 		if req.PipelineVersionID == "" {
-			pplVersion, err = models.GetLastPipelineVersion(req.PipelineID)
+			pplVersion, err = storage.Pipeline.GetLastPipelineVersion(req.PipelineID)
 			if err != nil {
 				logger.Logger().Errorf("get latest version[%s] of pipeline[%s]. err: %v", req.PipelineVersionID, req.PipelineID, err)
 				return schema.WorkflowSource{}, "", "", err
 			}
 		} else {
-			pplVersion, err = models.GetPipelineVersion(req.PipelineID, req.PipelineVersionID)
+			pplVersion, err = storage.Pipeline.GetPipelineVersion(req.PipelineID, req.PipelineVersionID)
 			if err != nil {
 				logger.Logger().Errorf("get version[%s] of pipeline[%s]. err: %v", req.PipelineVersionID, req.PipelineID, err)
 				return schema.WorkflowSource{}, "", "", err

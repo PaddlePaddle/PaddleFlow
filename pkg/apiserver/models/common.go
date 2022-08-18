@@ -69,8 +69,8 @@ func initMockDB() {
 	}
 	// Create tables
 	_ = db.AutoMigrate(
-		&Pipeline{},
-		&PipelineVersion{},
+		&model.Pipeline{},
+		&model.PipelineVersion{},
 		&Schedule{},
 		&RunCache{},
 		&ArtifactEvent{},
@@ -85,7 +85,7 @@ func initMockDB() {
 		&model.JobTask{},
 		&model.JobLabel{},
 		&ClusterInfo{},
-		&Image{},
+		&model.Image{},
 	)
 	storage.DB = db
 	storage.InitStores(db)
