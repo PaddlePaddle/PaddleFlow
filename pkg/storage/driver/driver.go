@@ -205,7 +205,7 @@ func createDatabaseTables(db *gorm.DB) error {
 		&model.PipelineVersion{},
 		&models.Schedule{},
 		&models.RunCache{},
-		&models.ArtifactEvent{},
+		&model.ArtifactEvent{},
 		&model.User{},
 		&models.Run{},
 		&models.RunJob{},

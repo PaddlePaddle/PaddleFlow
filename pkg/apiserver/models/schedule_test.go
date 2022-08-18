@@ -220,7 +220,7 @@ func initMockDB() {
 		&model.PipelineVersion{},
 		&Schedule{},
 		&RunCache{},
-		&ArtifactEvent{},
+		&storage.ArtifactEvent{},
 		&Run{},
 		&RunJob{},
 		&RunDag{},
