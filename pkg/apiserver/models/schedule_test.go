@@ -23,6 +23,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 )
@@ -47,13 +49,13 @@ func loadCase(casePath string) []byte {
 }
 
 func insertPipeline(t *testing.T, logEntry *log.Entry) (pplID1, pplID2, pplVersionID1, pplVersionID2 string) {
-	ppl1 := Pipeline{
+	ppl1 := model.Pipeline{
 		Name:     "ppl1",
 		Desc:     "ppl1",
 		UserName: "user1",
 	}
 	dagYamlStr := string(loadCase(runDagYamlPath))
-	pplVersion1 := PipelineVersion{
+	pplVersion1 := model.PipelineVersion{
 		FsID:         "user1-fsname",
 		FsName:       "fsname",
 		YamlPath:     "./run.yml",
@@ -63,12 +65,12 @@ func insertPipeline(t *testing.T, logEntry *log.Entry) (pplID1, pplID2, pplVersi
 	}
 
 	yamlStr := string(loadCase(runYamlPath))
-	ppl2 := Pipeline{
+	ppl2 := model.Pipeline{
 		Name:     "ppl2",
 		Desc:     "ppl2",
 		UserName: "root",
 	}
-	pplVersion2 := PipelineVersion{
+	pplVersion2 := model.PipelineVersion{
 		FsID:         "root-fsname2",
 		FsName:       "fsname2",
 		YamlPath:     "./run.yml",
@@ -78,7 +80,7 @@ func insertPipeline(t *testing.T, logEntry *log.Entry) (pplID1, pplID2, pplVersi
 	}
 
 	var err error
-	pplID1, pplVersionID1, err = CreatePipeline(logEntry, &ppl1, &pplVersion1)
+	pplID1, pplVersionID1, err = storage.Pipeline.CreatePipeline(logEntry, &ppl1, &pplVersion1)
 	assert.Nil(t, err)
 	assert.Equal(t, ppl1.Pk, int64(1))
 	assert.Equal(t, pplID1, ppl1.ID)
@@ -89,7 +91,7 @@ func insertPipeline(t *testing.T, logEntry *log.Entry) (pplID1, pplID2, pplVersi
 	assert.Equal(t, pplVersionID1, "1")
 	assert.Equal(t, pplVersion1.PipelineID, ppl1.ID)
 
-	pplID2, pplVersionID2, err = CreatePipeline(logEntry, &ppl2, &pplVersion2)
+	pplID2, pplVersionID2, err = storage.Pipeline.CreatePipeline(logEntry, &ppl2, &pplVersion2)
 	assert.Nil(t, err)
 	assert.Equal(t, ppl2.Pk, int64(2))
 	assert.Equal(t, pplID2, ppl2.ID)
