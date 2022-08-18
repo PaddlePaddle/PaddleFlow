@@ -19,7 +19,6 @@ package queue
 import (
 	"errors"
 	"fmt"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
@@ -35,6 +34,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
