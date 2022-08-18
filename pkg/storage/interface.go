@@ -33,6 +33,7 @@ var (
 	FsCache    FsCacheStoreInterface
 	Auth       AuthStoreInterface
 	Job        JobStoreInterface
+	Image      ImageStoreInterface
 )
 
 func InitStores(db *gorm.DB) {
@@ -42,6 +43,7 @@ func InitStores(db *gorm.DB) {
 	FsCache = newDBFSCache(db)
 	Auth = newAuthStore(db)
 	Job = newJobStore(db)
+	Image = newImageStore(db)
 }
 
 type PipelineStoreInterface interface {
@@ -140,4 +142,12 @@ type JobStoreInterface interface {
 	GetJobTaskByID(id string) (model.JobTask, error)
 	UpdateTask(task *model.JobTask) error
 	ListByJobID(jobID string) ([]model.JobTask, error)
+}
+
+type ImageStoreInterface interface {
+	CreateImage(logEntry *log.Entry, image *model.Image) error
+	ListImageIDsByFsID(logEntry *log.Entry, fsID string) ([]string, error)
+	GetImage(logEntry *log.Entry, PFImageID string) (model.Image, error)
+	GetUrlByPFImageID(logEntry *log.Entry, PFImageID string) (string, error)
+	UpdateImage(logEntry *log.Entry, PFImageID string, image model.Image) error
 }
