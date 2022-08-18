@@ -32,6 +32,8 @@ var (
 	Filesystem FileSystemStoreInterface
 	FsCache    FsCacheStoreInterface
 	Auth       AuthStoreInterface
+	Cluster    ClusterStoreInterface
+	Flavour    FlavourStoreInterface
 	Job        JobStoreInterface
 	Image      ImageStoreInterface
 )
@@ -42,8 +44,30 @@ func InitStores(db *gorm.DB) {
 	Filesystem = newFilesystemStore(db)
 	FsCache = newDBFSCache(db)
 	Auth = newAuthStore(db)
+	Cluster = newClusterStore(db)
+	Flavour = newFlavourStore(db)
 	Job = newJobStore(db)
 	Image = newImageStore(db)
+}
+
+type ClusterStoreInterface interface {
+	CreateCluster(clusterInfo *model.ClusterInfo) error
+	ListCluster(pk int64, maxKeys int, clusterNameList []string, clusterStatus string) ([]model.ClusterInfo, error)
+	GetLastCluster() (model.ClusterInfo, error)
+	GetClusterByName(clusterName string) (model.ClusterInfo, error)
+	GetClusterById(clusterId string) (model.ClusterInfo, error)
+	DeleteCluster(clusterName string) error
+	UpdateCluster(clusterId string, clusterInfo *model.ClusterInfo) error
+	ActiveClusters() []model.ClusterInfo
+}
+
+type FlavourStoreInterface interface {
+	CreateFlavour(flavour *model.Flavour) error
+	DeleteFlavour(flavourName string) error
+	GetFlavour(flavourName string) (model.Flavour, error)
+	ListFlavour(pk int64, maxKeys int, clusterID, queryKey string) ([]model.Flavour, error)
+	UpdateFlavour(flavour *model.Flavour) error
+	GetLastFlavour() (model.Flavour, error)
 }
 
 type PipelineStoreInterface interface {

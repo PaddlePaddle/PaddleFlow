@@ -37,7 +37,7 @@ var (
 func TestCreateQueue(t *testing.T) {
 	initMockDB()
 
-	cluster1 := ClusterInfo{
+	cluster1 := model.ClusterInfo{
 		Name:          "cluster1",
 		Description:   "Description",
 		Endpoint:      "127.0.0.1:6655",
@@ -49,7 +49,7 @@ func TestCreateQueue(t *testing.T) {
 		Setting:       "Setting",
 		NamespaceList: []string{"n1", "n2"},
 	}
-	if err := CreateCluster(&cluster1); err != nil {
+	if err := storage.Cluster.CreateCluster(&cluster1); err != nil {
 		t.Error(err)
 	}
 	assert.NotEmpty(t, cluster1.ID)
@@ -98,7 +98,7 @@ func TestCreateQueue(t *testing.T) {
 func TestUpdateQueue(t *testing.T) {
 	initMockDB()
 
-	cluster1 := ClusterInfo{
+	cluster1 := model.ClusterInfo{
 		Name:          "cluster1",
 		Description:   "Description",
 		Endpoint:      "127.0.0.1:6655",
@@ -110,7 +110,7 @@ func TestUpdateQueue(t *testing.T) {
 		Setting:       "Setting",
 		NamespaceList: []string{"n1", "n2"},
 	}
-	if err := CreateCluster(&cluster1); err != nil {
+	if err := storage.Cluster.CreateCluster(&cluster1); err != nil {
 		t.Error(err)
 	}
 	assert.NotEmpty(t, cluster1.ID)

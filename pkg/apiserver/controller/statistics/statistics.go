@@ -164,7 +164,7 @@ func getClusterTypeByJob(ctx *logger.RequestContext, jobID string) (string, *mod
 		ctx.Logging().Errorln(err.Error())
 		return "", nil, common.NotFoundError(common.ResourceTypeQueue, job.QueueID)
 	}
-	cluster, err := models.GetClusterById(queue.ClusterId)
+	cluster, err := storage.Cluster.GetClusterById(queue.ClusterId)
 	if err != nil {
 		ctx.ErrorCode = common.ClusterNotFound
 		ctx.Logging().Errorln(err.Error())

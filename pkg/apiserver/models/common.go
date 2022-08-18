@@ -79,12 +79,12 @@ func initMockDB() {
 		&RunJob{},
 		&RunDag{},
 		&Queue{},
-		&Flavour{},
+		&model.Flavour{},
 		&model.Grant{},
 		&model.Job{},
 		&model.JobTask{},
 		&model.JobLabel{},
-		&ClusterInfo{},
+		&model.ClusterInfo{},
 		&model.Image{},
 	)
 	storage.DB = db

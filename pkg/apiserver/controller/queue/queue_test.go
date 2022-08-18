@@ -34,6 +34,8 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime/kubernetes/executor"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 )
 
@@ -44,14 +46,14 @@ const (
 	MockQueueName   = "mock-q-001"
 )
 
-var clusterInfo = models.ClusterInfo{
+var clusterInfo = model.ClusterInfo{
 	Name:          MockClusterName,
 	Description:   "Description",
 	Endpoint:      "Endpoint",
 	Source:        "Source",
 	ClusterType:   schema.KubernetesType,
 	Version:       "1.16",
-	Status:        models.ClusterStatusOnLine,
+	Status:        model.ClusterStatusOnLine,
 	Credential:    "credential",
 	Setting:       "Setting",
 	NamespaceList: []string{"n1", "n2", MockNamespace},
@@ -65,7 +67,7 @@ func TestCreateQueue(t *testing.T) {
 	driver.InitMockDB()
 	ctx := &logger.RequestContext{UserName: MockRootUser}
 
-	assert.Nil(t, models.CreateCluster(&clusterInfo))
+	assert.Nil(t, storage.Cluster.CreateCluster(&clusterInfo))
 
 	rts := &runtime.KubeRuntime{}
 	var p2 = gomonkey.ApplyPrivateMethod(reflect.TypeOf(rts), "Init", func() error {

@@ -261,7 +261,7 @@ func (s *FileSystemService) CheckFsMountedAndCleanResources(fsID string) (bool, 
 
 func getClusterNamespaceMap() (map[*runtime.KubeRuntime][]string, error) {
 	cnm := make(map[*runtime.KubeRuntime][]string)
-	clusters, err := models.ListCluster(0, 0, nil, "")
+	clusters, err := storage.Cluster.ListCluster(0, 0, nil, "")
 	if err != nil {
 		err := fmt.Errorf("list clusters err: %v", err)
 		log.Errorf("getClusterNamespaceMap failed: %v", err)
