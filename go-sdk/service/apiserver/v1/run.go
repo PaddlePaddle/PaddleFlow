@@ -451,7 +451,7 @@ func (r *run) ListArtifact(ctx context.Context, request *ListArtifactRequest,
 	err = newRequestBuilderWithTokenHeader(r.client, token).
 		WithMethod(http.GET).
 		WithResult(result).
-		WithURL(runCacheApi).
+		WithURL(runArtifactApi).
 		WithQueryParam("userFilter", strings.Join(request.UserFilter, ",")).
 		WithQueryParam("fsFilter", strings.Join(request.FSFilter, ",")).
 		WithQueryParam("runFilter", strings.Join(request.RunFilter, ",")).
