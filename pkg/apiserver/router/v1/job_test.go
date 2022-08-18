@@ -61,7 +61,7 @@ type args struct {
 }
 
 func initQueue(t *testing.T, userName string) {
-	err := storage.CreateQueue(&queue1)
+	err := storage.Queue.CreateQueue(&queue1)
 	assert.Nil(t, err)
 }
 

@@ -18,10 +18,11 @@ package api
 
 import (
 	"fmt"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
+
 	"github.com/sirupsen/logrus"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
 
 // QueueID is UID type, serves as unique ID for each queue

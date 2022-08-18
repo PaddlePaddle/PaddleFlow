@@ -57,7 +57,7 @@ func TestCreateGrant(t *testing.T) {
 	assert.Nil(t, storage.Cluster.CreateCluster(&clusterInfo))
 	cluser, _ := storage.Cluster.GetClusterByName(MockClusterName)
 
-	err := storage.CreateQueue(&storage.Queue{
+	err := storage.Queue.CreateQueue(&model.Queue{
 		Name:      MockResourceID,
 		Namespace: "fake",
 		ClusterId: cluser.ID,

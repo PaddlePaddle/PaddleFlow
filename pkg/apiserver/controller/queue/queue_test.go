@@ -115,7 +115,7 @@ func TestGetQueueByName(t *testing.T) {
 	})
 	defer p2.Reset()
 
-	var p3 = gomonkey.ApplyPrivateMethod(reflect.TypeOf(rts), "GetQueueUsedQuota", func(*storage.Queue) (*resources.Resource, error) {
+	var p3 = gomonkey.ApplyPrivateMethod(reflect.TypeOf(rts), "GetQueueUsedQuota", func(*model.Queue) (*resources.Resource, error) {
 		return resources.EmptyResource(), nil
 	})
 	defer p3.Reset()
@@ -152,11 +152,11 @@ func TestCloseAndDeleteQueue(t *testing.T) {
 		return nil
 	})
 	defer p1.Reset()
-	var p2 = gomonkey.ApplyPrivateMethod(reflect.TypeOf(rts), "DeleteQueue", func(q *storage.Queue) error {
+	var p2 = gomonkey.ApplyPrivateMethod(reflect.TypeOf(rts), "DeleteQueue", func(q *model.Queue) error {
 		return nil
 	})
 	defer p2.Reset()
-	var p3 = gomonkey.ApplyPrivateMethod(reflect.TypeOf(rts), "CloseQueue", func(q *storage.Queue) error {
+	var p3 = gomonkey.ApplyPrivateMethod(reflect.TypeOf(rts), "CloseQueue", func(q *model.Queue) error {
 		return nil
 	})
 	defer p3.Reset()
@@ -168,10 +168,10 @@ func TestCloseAndDeleteQueue(t *testing.T) {
 // TestMarshalJSONForTime test for time format
 func TestMarshalJSONForTime(t *testing.T) {
 	driver.InitMockDB()
-	queue := storage.Queue{
+	queue := model.Queue{
 		Name: "mockQueueName",
 	}
-	err := storage.CreateQueue(&queue)
+	err := storage.Queue.CreateQueue(&queue)
 	if err != nil {
 		t.Errorf(err.Error())
 	}
