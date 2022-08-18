@@ -201,8 +201,8 @@ func initMysqlDB(dbConf *config.StorageConfig, gormConf *gorm.Config) *gorm.DB {
 
 func createDatabaseTables(db *gorm.DB) error {
 	return db.AutoMigrate(
-		&models.Pipeline{},
-		&models.PipelineVersion{},
+		&model.Pipeline{},
+		&model.PipelineVersion{},
 		&models.Schedule{},
 		&models.RunCache{},
 		&models.ArtifactEvent{},
