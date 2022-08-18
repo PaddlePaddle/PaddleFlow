@@ -24,7 +24,6 @@ import (
 	"github.com/bluele/gcache"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
@@ -42,7 +41,7 @@ const (
 )
 
 type ActiveClustersFunc func() []model.ClusterInfo
-type ActiveQueuesFunc func() []models.Queue
+type ActiveQueuesFunc func() []model.Queue
 type QueueJobsFunc func(string, []schema.JobStatus) []model.Job
 
 type JobManagerImpl struct {
@@ -169,7 +168,7 @@ func (m *JobManagerImpl) GetQueue(queueID api.QueueID) (*clusterQueue, bool) {
 		return value.(*clusterQueue), true
 	}
 	// get queue from db
-	q, err := models.GetQueueByID(string(queueID))
+	q, err := storage.Queue.GetQueueByID(string(queueID))
 	if err != nil {
 		log.Errorf("get queue from database failed, err: %s", err)
 		return nil, false
@@ -312,7 +311,7 @@ func (m *JobManagerImpl) submitJob(jobSubmit func(*api.PFJob) error, jobInfo *ap
 }
 
 func (m *JobManagerImpl) stopClusterQueueSubmit(clusterID api.ClusterID) {
-	clusterQueues := models.ListQueuesByCluster(string(clusterID))
+	clusterQueues := storage.Queue.ListQueuesByCluster(string(clusterID))
 	for _, q := range clusterQueues {
 		queueID := api.QueueID(q.ID)
 		m.stopQueueSubmit(queueID)

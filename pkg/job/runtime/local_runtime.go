@@ -19,9 +19,9 @@ package runtime
 import (
 	"fmt"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
 
 type LocRuntime struct {
@@ -74,22 +74,22 @@ func (l *LocRuntime) SyncQueue(stopCh <-chan struct{}) {
 	// TODO: add local queue sync
 }
 
-func (l *LocRuntime) CreateQueue(q *models.Queue) error {
+func (l *LocRuntime) CreateQueue(q *model.Queue) error {
 	// TODO: add create queue
 	return nil
 }
 
-func (l *LocRuntime) DeleteQueue(q *models.Queue) error {
+func (l *LocRuntime) DeleteQueue(q *model.Queue) error {
 	// TODO: add delete queue
 	return nil
 }
 
-func (l *LocRuntime) CloseQueue(q *models.Queue) error {
+func (l *LocRuntime) CloseQueue(q *model.Queue) error {
 	// TODO: add close queue
 	return nil
 }
 
-func (l *LocRuntime) UpdateQueue(q *models.Queue) error {
+func (l *LocRuntime) UpdateQueue(q *model.Queue) error {
 	// TODO: add update queue
 	return nil
 }

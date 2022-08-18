@@ -210,7 +210,7 @@ func createDatabaseTables(db *gorm.DB) error {
 		&models.Run{},
 		&models.RunJob{},
 		&models.RunDag{},
-		&models.Queue{},
+		&model.Queue{},
 		&model.Flavour{},
 		&model.Grant{},
 		&model.Job{},

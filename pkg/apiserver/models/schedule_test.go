@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
+Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserve.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -23,17 +23,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
+
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 const (
-	MockRootUser   = "root"
-	MockNormalUser = "user1"
-	MockFsName     = "mockFs"
-	MockFsID       = "root-mockFs"
+	MockRootUser = "root"
 
 	runDagYamlPath = "../controller/pipeline/testcase/run_dag.yaml"
 	runYamlPath    = "../controller/pipeline/testcase/run.yaml"
@@ -202,4 +203,28 @@ func TestGetUsedFsIDs(t *testing.T) {
 	fsIDMap, err = ScheduleUsedFsIDs()
 	assert.Nil(t, err)
 	assert.Equal(t, 5, len(fsIDMap))
+}
+
+func initMockDB() {
+	// github.com/mattn/go-sqlite3
+	db, err := gorm.Open(sqlite.Open("file::memory:"), &gorm.Config{
+		// print sql
+		Logger: logger.Default.LogMode(logger.Info),
+	})
+	if err != nil {
+		log.Fatalf("The fake DB doesn't create successfully. Fail fast. error: %v", err)
+	}
+	// Create tables
+	_ = db.AutoMigrate(
+		&model.Pipeline{},
+		&model.PipelineVersion{},
+		&Schedule{},
+		&RunCache{},
+		&ArtifactEvent{},
+		&Run{},
+		&RunJob{},
+		&RunDag{},
+	)
+	storage.DB = db
+	storage.InitStores(db)
 }

@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
@@ -49,13 +48,13 @@ type RuntimeService interface {
 	// SyncQueue sync queue information from cluster
 	SyncQueue(stopCh <-chan struct{})
 	// CreateQueue create a queue on cluster
-	CreateQueue(q *models.Queue) error
+	CreateQueue(q *model.Queue) error
 	// DeleteQueue delete a queue on cluster
-	DeleteQueue(q *models.Queue) error
+	DeleteQueue(q *model.Queue) error
 	// CloseQueue close a queue on cluster
-	CloseQueue(q *models.Queue) error
+	CloseQueue(q *model.Queue) error
 	// UpdateQueue update a queue on cluster
-	UpdateQueue(q *models.Queue) error
+	UpdateQueue(q *model.Queue) error
 
 	ListNodeQuota() (schema.QuotaSummary, []schema.NodeQuotaInfo, error)
 }
