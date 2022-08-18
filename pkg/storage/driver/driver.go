@@ -155,7 +155,7 @@ func initSQLiteDB(gormConf *gorm.Config) *gorm.DB {
 		return nil
 	}
 	// init flavour to db
-	flavours := []models.Flavour{
+	flavours := []model.Flavour{
 		{
 			Name: "flavour1",
 			CPU:  "1",
@@ -211,12 +211,12 @@ func createDatabaseTables(db *gorm.DB) error {
 		&models.RunJob{},
 		&models.RunDag{},
 		&models.Queue{},
-		&models.Flavour{},
+		&model.Flavour{},
 		&model.Grant{},
 		&model.Job{},
 		&model.JobTask{},
 		&model.JobLabel{},
-		&models.ClusterInfo{},
+		&model.ClusterInfo{},
 		&model.Image{},
 		&model.FileSystem{},
 		&model.Link{},

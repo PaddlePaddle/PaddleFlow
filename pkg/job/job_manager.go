@@ -41,7 +41,7 @@ const (
 	defaultJobLoop    = 1
 )
 
-type ActiveClustersFunc func() []models.ClusterInfo
+type ActiveClustersFunc func() []model.ClusterInfo
 type ActiveQueuesFunc func() []models.Queue
 type QueueJobsFunc func(string, []schema.JobStatus) []model.Job
 
@@ -109,8 +109,8 @@ func (m *JobManagerImpl) Start(activeClusters ActiveClustersFunc, activeQueueJob
 		for _, cluster := range clusters {
 			clusterID := api.ClusterID(cluster.ID)
 			// skip when cluster status is offline
-			if cluster.Status == models.ClusterStatusOffLine {
-				log.Warnf("cluster[%s] status is %s, skip it", cluster.ID, models.ClusterStatusOffLine)
+			if cluster.Status == storage.ClusterStatusOffLine {
+				log.Warnf("cluster[%s] status is %s, skip it", cluster.ID, storage.ClusterStatusOffLine)
 				m.stopClusterRuntime(clusterID)
 				continue
 			}

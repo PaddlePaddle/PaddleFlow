@@ -38,7 +38,7 @@ const (
 	MockNamespace   = "paddle"
 )
 
-var clusterInfo = models.ClusterInfo{
+var clusterInfo = storage.ClusterInfo{
 	Name:          MockClusterName,
 	Description:   "Description",
 	Endpoint:      "Endpoint",
@@ -55,8 +55,8 @@ func TestCreateGrant(t *testing.T) {
 	driver.InitMockDB()
 	ctx := &logger.RequestContext{UserName: MockRootUser}
 	// mock queue & cluster
-	assert.Nil(t, models.CreateCluster(&clusterInfo))
-	cluser, _ := models.GetClusterByName(MockClusterName)
+	assert.Nil(t, storage.CreateCluster(&clusterInfo))
+	cluser, _ := storage.GetClusterByName(MockClusterName)
 
 	err := models.CreateQueue(&models.Queue{
 		Name:      MockResourceID,

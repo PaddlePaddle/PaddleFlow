@@ -301,7 +301,7 @@ func getRuntimeByQueue(ctx *logger.RequestContext, queueID string) (runtime.Runt
 		return nil, err
 	}
 	// TODO: GetOrCreateRuntime by cluster id
-	clusterInfo, err := models.GetClusterById(queue.ClusterId)
+	clusterInfo, err := storage.Cluster.GetClusterById(queue.ClusterId)
 	if err != nil {
 		ctx.Logging().Errorf("get clusterInfo by id %s failed. error: %s",
 			queue.ClusterId, err.Error())

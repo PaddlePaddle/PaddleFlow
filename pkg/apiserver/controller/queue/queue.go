@@ -168,13 +168,13 @@ func CreateQueue(ctx *logger.RequestContext, request *CreateQueueRequest) (Creat
 			return CreateQueueResponse{}, errors.New("clusterName is not found")
 		}
 	}
-	clusterInfo, err := models.GetClusterByName(request.ClusterName)
+	clusterInfo, err := storage.Cluster.GetClusterByName(request.ClusterName)
 	if err != nil {
 		ctx.ErrorCode = common.ClusterNotFound
 		ctx.Logging().Errorln("create request failed. error: cluster not found by Name.")
 		return CreateQueueResponse{}, errors.New("cluster not found by Name")
 	}
-	if clusterInfo.Status != models.ClusterStatusOnLine {
+	if clusterInfo.Status != storage.ClusterStatusOnLine {
 		ctx.ErrorCode = common.InvalidClusterStatus
 		errMsg := fmt.Sprintf("cluster[%s] not in online status, operator not permit", clusterInfo.Name)
 		ctx.Logging().Errorln(errMsg)
@@ -372,13 +372,13 @@ func UpdateQueue(ctx *logger.RequestContext, request *UpdateQueueRequest) (Updat
 	var queueSnapshot models.Queue
 	models.DeepCopyQueue(queueInfo, &queueSnapshot)
 	// get cluster, if closed, refuse to update queue
-	clusterInfo, err := models.GetClusterById(queueInfo.ClusterId)
+	clusterInfo, err := storage.Cluster.GetClusterById(queueInfo.ClusterId)
 	if err != nil {
 		ctx.ErrorCode = common.ClusterNotFound
 		ctx.Logging().Errorln("update request failed. error: cluster not found by Name.")
 		return UpdateQueueResponse{}, errors.New("cluster not found by Name")
 	}
-	if clusterInfo.Status != models.ClusterStatusOnLine {
+	if clusterInfo.Status != storage.ClusterStatusOnLine {
 		ctx.ErrorCode = common.InvalidClusterStatus
 		errMsg := fmt.Sprintf("cluster[%s] not in online status, operator not permit", clusterInfo.Name)
 		ctx.Logging().Errorln(errMsg)
@@ -571,7 +571,7 @@ func GetQueueByName(ctx *logger.RequestContext, queueName string) (GetQueueRespo
 		return GetQueueResponse{}, fmt.Errorf("queueName[%s] is not found.\n", queueName)
 	}
 
-	clusterInfo, err := models.GetClusterById(queue.ClusterId)
+	clusterInfo, err := storage.Cluster.GetClusterById(queue.ClusterId)
 	if err != nil {
 		ctx.Logging().Errorf("get clusterInfo by ClusterId %s failed. error: %s",
 			queue.ClusterId, err.Error())
@@ -580,7 +580,7 @@ func GetQueueByName(ctx *logger.RequestContext, queueName string) (GetQueueRespo
 
 	// calculate the idle resource of queue
 	usedResource := resources.EmptyResource()
-	if clusterInfo.Status == models.ClusterStatusOnLine {
+	if clusterInfo.Status == storage.ClusterStatusOnLine {
 		runtimeSvc, err := runtime.GetOrCreateRuntime(clusterInfo)
 		if err != nil {
 			ctx.ErrorCode = common.InternalError
@@ -632,7 +632,7 @@ func DeleteQueue(ctx *logger.RequestContext, queueName string) error {
 		ctx.Logging().Errorf(ctx.ErrorMessage)
 		return fmt.Errorf(ctx.ErrorMessage)
 	}
-	clusterInfo, err := models.GetClusterById(queue.ClusterId)
+	clusterInfo, err := storage.Cluster.GetClusterById(queue.ClusterId)
 	if err != nil {
 		ctx.Logging().Errorf("get clusterInfo by ClusterId %s failed. error: %s",
 			queue.ClusterId, err.Error())
