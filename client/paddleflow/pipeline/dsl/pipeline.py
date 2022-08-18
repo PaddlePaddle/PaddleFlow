@@ -187,7 +187,7 @@ class Pipeline(object):
             self.__func(*args, **kwargs)
 
         return self
- 
+    
     def run(
             self,
             config: str=None,

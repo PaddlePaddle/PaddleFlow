@@ -23,6 +23,7 @@ from paddleflow.pipeline.dsl.io_types import Artifact
 from paddleflow.pipeline.dsl.io_types import Parameter
 from paddleflow.pipeline.dsl.io_types import ArtifactPlaceholder
 from paddleflow.pipeline.dsl.io_types import ParameterPlaceholder
+from paddleflow.pipeline.dsl.io_types.loop_argument import _LoopItem
 from paddleflow.pipeline.dsl.utils.util import random_code
 from paddleflow.pipeline.dsl.utils.consts import PipelineDSLError 
 from paddleflow.pipeline.dsl.utils.consts import PARAM_NAME_CODE_LEN
@@ -62,15 +63,8 @@ class ComponentInferer(object):
         """
         self._infer_from_loop_argument()
         self._infer_from_condition()
-        self._infer_deps()
         self._infer_env()
-
-    def _generate_infer_pattern(self, io_type: str):
-        """ generate the re.pattern
-        """
-        prefix_pattern = "|".join(self.FILED_TO_PREFIX.values())
-        pattern = f"^({prefix_pattern})_{io_type}_[A-Za-z0-9]{PARAM_NAME_CODE_LEN}$"
-        return re.compile(pattern)
+        self._infer_deps()
     
     def _infer_from_loop_argument(self):
         """ infer parameter and input artifact from loop_argument
@@ -80,37 +74,52 @@ class ComponentInferer(object):
 
         prefix = self.FILED_TO_PREFIX["loop_argument"]
         loop = self._component.loop_argument
-        if isinstance(loop.argument, Parameter) or isinstance(loop.argument, Artifact):
-            if loop.obj is None:
+        if isinstance(loop.argument, Parameter) or isinstance(loop.argument, Artifact) or \
+            isinstance(loop.argument, _LoopItem):
+            if loop.component is None:
                 err_msg = self._generate_error_msg(f"cannot find which components the {type(loop)}[{loop}] belong to")
                 raise PaddleFlowSDKException(PipelineDSLError, err_msg)
-            if loop.obj == self:
-                return 
+            if loop.argument.component == self._component:
+                return
             else:
                 if isinstance(loop.argument, Parameter):
                     self._validate_inferred_parameter(loop.argument.component.full_name)
-
                     name = self._generate_art_or_param_name(prefix, "param")
-                    self._component.parameters[name] = loop.argument
+                    param_holder = ParameterPlaceholder(name=loop.argument.name,
+                        component_full_name=loop.argument.component.full_name)
+                    
+                    self._component.parameters[name] = param_holder
                     self._component.loop_argument = self._component.parameters[name]
                     return
+                elif isinstance(loop.argument, _LoopItem):
+                    if not self._is_parent(loop.argument.component.full_name):
+                        raise PaddleFlowSDKException(PipelineDSLError, self._generate_error_msg(
+                            f"component can only reference itself or its parent component's loop item"))
+            
+                    param_name = self._generate_art_or_param_name(prefix, "param")
+                    self._component.parameters[param_name] = "{{PF_PARET.PF_LOOP_ARGUMENT}}"
+                    self._component.loop_argument = self._component.parameters[param_name]
                 else:
                     name = self._generate_art_or_param_name(prefix, "art")
-                    self._component.inputs[name] = loop
+                    art_holder = ArtifactPlaceholder(name=loop.argument.name,
+                        component_full_name=loop.argument.component.full_name)
+
+                    self._component.inputs[name] = art_holder
                     self._component.loop_argument = self._component.inputs[name]
                     return
         
         # todo: loop 最多只能有引用一个模板。
-        if isinstance(loop, str):
-            tpls = self._parse_template_from_string(loop)
+        if isinstance(loop.argument, str):
+            tpls = self._parse_template_from_string(loop.argument)
             if len(tpls) == 0:
                 return 
             elif len(tpls) == 1:
-                if tpls[0] != loop:
-                    err_msg = self._generate_error_msg(f"loop_arugment filed is not support template join with other string")
+                if tpls[0].group() != loop.argument:
+                    err_msg = self._generate_error_msg(f"loop_arugment filed is not support artifact or parameter " + \
+                        "join with other string")
                     raise PaddleFlowSDKException(PipelineDSLError, err_msg)
-                    
-                inferred_result = self._infer_by_template(loop, prefix)
+                
+                inferred_result = self._infer_by_template(tpls[0], prefix)
                 if isinstance(inferred_result, Parameter):
                     self._component.loop_argument = self._component.parameters[inferred_result.name]
                 elif isinstance(inferred_result, Artifact):
@@ -119,7 +128,8 @@ class ComponentInferer(object):
                     self._component = inferred_result
                 return 
             else: 
-                err_msg = self._generate_error_msg(f"loop_arugment filed is not support template join with other template")
+                err_msg = self._generate_error_msg(f"loop_arugment filed is not support artifact or parameter " + \
+                    "join with other artifact or parameter")
                 raise PaddleFlowSDKException(PipelineDSLError, err_msg)
 
         return 
@@ -140,11 +150,10 @@ class ComponentInferer(object):
         for tpl in tpls:
             arg = self._infer_by_template(tpl, prefix)
             if isinstance(arg, str):
-                condition.replace(tpl, arg)
+                condition = condition.replace(tpl.group(), arg)
             else:
-                condition.replace(tpl, "{{" + f"{arg.name}" + "}}")
-            
-        self._condition = condition
+                condition = condition.replace(tpl.group(), "{{" + f"{arg.name}" + "}}")
+        self._component.condition = condition
 
     def _parse_template_from_string(self, s: str):
         """ parse parameter or artifact template from string
@@ -175,7 +184,7 @@ class ComponentInferer(object):
         ref_art_name = tpl.group("var_name")
 
         if full_name == self._component.full_name:
-            return self._component.input[ref_art_name]
+            return self._component.inputs[ref_art_name]
         
         art = ArtifactPlaceholder(ref_art_name, full_name)
         art_name = self._generate_art_or_param_name(filed_type, "art")
@@ -240,17 +249,17 @@ class ComponentInferer(object):
     def _infer_deps_from_param(self):
         """ infer deps for component according it's parameter filed
         """
-        for _, param in self._component.parameters:
+        for _, param in self._component.parameters.items():
             if not isinstance(param.ref, Parameter):
                 continue
-
-            self._infer_deps_by_cp_full_name(param.ref.full_name)
+            
+            self._infer_deps_by_cp_full_name(param.ref.component.full_name)
 
     def _infer_deps_from_art(self):
         """ infer deps for component according it's inputs filed
         """
-        for _, art in self._component.inputs:
-            self._infer_deps_by_cp_full_name(art.ref.full_name)
+        for _, art in self._component.inputs.items():
+            self._infer_deps_by_cp_full_name(art.ref.component.full_name)
     
     def _infer_deps_by_cp_full_name(self, full_name: str):
         """ infer deps

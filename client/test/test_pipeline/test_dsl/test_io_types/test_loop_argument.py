@@ -52,16 +52,20 @@ class TestParameter(object):
         assert loop.argument == data
 
         data = Parameter(123)
+        data.set_base_info("abc", step)
         loop = _LoopArgument(data, step)
         assert loop.argument == data
 
         data = Artifact()
+        data.set_base_info("abc", step)
         loop = _LoopArgument(data, step)
         assert loop.argument == data
 
         with pytest.raises(PaddleFlowSDKException):
             _LoopArgument((1,2), step)
+        
+        with pytest.raises(PaddleFlowSDKException):
+            loop = _LoopArgument(loop.item, step)
 
-
-
-    
+        with pytest.raises(PaddleFlowSDKException):
+            loop = _LoopArgument("{{loop: test.abc}}", step)    

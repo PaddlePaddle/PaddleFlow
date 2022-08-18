@@ -145,6 +145,7 @@ class ComponentCompiler(object):
     def _validatte(self):
         """ validate
         """
+        # TODO: conditon && loop_argument 字段不能引用输出artifact
         raise NotImplementedError
 
     def validate_io_names(self):

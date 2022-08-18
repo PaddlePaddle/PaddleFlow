@@ -57,7 +57,7 @@ class _LoopArgument(object):
     def __init__(
             self,
             argument,
-            obj,
+            component,
             ):
         """ create an new instance of LoopArgument
 
@@ -65,13 +65,13 @@ class _LoopArgument(object):
             argument (Union[List, Parameter, Artifact, str]) : the arument which would be traversed
             obj (component): the component which this instance is belong to
         """
-        self._prefix = f"the loop_argument for step[{obj.name}]is illegal: "
-        self._obj = obj
+        self._prefix = f"the loop_argument for step[{component.name}]is illegal: "
+        self.component = component
 
         self._validate(argument)
         self._argument = argument
 
-        self.item = _LoopItem(obj)
+        self.item = _LoopItem(component)
 
     def _validate(self, argument):
         """ validate argument
@@ -83,8 +83,13 @@ class _LoopArgument(object):
         if isinstance(argument, str):
             # 考虑是否为参数模板， 这里不对模板的对应的参数是否存在做校验，由server侧保证
             pattern = re.compile(DSL_TEMPLATE_REGEX)
-            if re.match(pattern, argument):
-                return
+            match = re.match(pattern, argument)
+            if match:
+                if match.group("type") == "loop" and match.group("component_full_name") == self.component.full_name:
+                    raise PaddleFlowSDKException(PipelineDSLError, self._prefix + \
+                        "loop argument cannot referece loop item which product by itself")
+                else:
+                    return
 
             try:
                 argument = json.loads(argument)
@@ -102,7 +107,18 @@ class _LoopArgument(object):
         
         if type(argument) not in self.SUPPORT_TYPE:
             raise PaddleFlowSDKException(PipelineDSLError, err_msg)
-    
+            
+        if hasattr(argument, "component"):
+            if getattr(argument, "component") is None:
+                raise PaddleFlowSDKException(PipelineDSLError, self._prefix + \
+                    "loop argument cannot reference [Aritfact, Parameter, " + \
+                        "LoopItem] which is not belong to any Step or DAG")
+
+        if isinstance(argument, _LoopItem):
+            if argument.component == self.component:
+                raise PaddleFlowSDKException(PipelineDSLError, self._prefix + \
+                        "loop argument cannot referece loop item which product by itself")
+
     @property
     def argument(self):
         """ get argument

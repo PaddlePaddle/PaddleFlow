@@ -34,7 +34,7 @@ class DAGCompiler(ComponentCompiler):
         """
         super().__init__(dag)
 
-    def complie(self):
+    def compile(self):
         """ trans dag to dict
         """
         super().compile()
@@ -45,6 +45,8 @@ class DAGCompiler(ComponentCompiler):
                 self._dict[sub.name] = DAGCompiler(sub).compile
             else:
                 self._dict[sub.name] = StepCompiler(sub).compile
+        
+        return self._dict
 
     def _topo_sort(self):
         """ List Steps in topological order.
@@ -80,3 +82,9 @@ class DAGCompiler(ComponentCompiler):
                     self._generate_error_msg(f"there is a ring between {ring_steps}"))
     
         return topo_sort
+
+    def _validatte(self):
+        """ validate
+        """
+        #TODO: 校验deps的合法性
+        pass

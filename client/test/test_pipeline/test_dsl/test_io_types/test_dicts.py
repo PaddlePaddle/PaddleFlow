@@ -147,3 +147,8 @@ class TestEnvDict(object):
         step.env["hahah"] = p
         
         assert step.env["hahah"] == "{{parameter: step1.adf}}"
+
+        a = Artifact()
+        a.set_base_info("adf", step)
+        with pytest.raises(PaddleFlowSDKException):
+            step.env["haha"] = a

@@ -16,6 +16,9 @@ limitations under the License.
 from typing import Dict
 
 from .component_inferer import ComponentInferer
+
+from paddleflow.pipeline.dsl.io_types import Parameter
+from paddleflow.pipeline.dsl.io_types import Artifact
 from paddleflow.pipeline.dsl.utils.consts import PipelineDSLError
 from paddleflow.common.exception.paddleflow_sdk_exception import PaddleFlowSDKException
 
@@ -25,7 +28,7 @@ class ContainerStepInferer(ComponentInferer):
     FILED_TO_PREFIX = {
         "loop_argument": "loop",
         "condition": "condition",
-        "command": "cmd",
+        "command": "command",
         "env": "env"
     }
 
@@ -37,10 +40,12 @@ class ContainerStepInferer(ComponentInferer):
     def infer(self, env: Dict):
         """ infer artifact and parameter for step
         """     
-        super().infer(env)
-
-        self._infer_from_env()
         self._infer_from_command()
+        self._infer_env(env)
+        self._infer_from_env()
+        self._infer_from_loop_argument()
+        self._infer_from_condition()
+        self._infer_deps()
 
     def _infer_env(self, env: Dict):
         """ infer env for containerstep
@@ -57,9 +62,12 @@ class ContainerStepInferer(ComponentInferer):
             for tpl in tpls:
                 arg = self._infer_by_template(tpl, self.FILED_TO_PREFIX["env"])
                 if isinstance(arg, str):
-                    self._component.env[key] = self._component.env[key].replace(tpl, arg)
-                else: 
-                    self._component.env[key] = self._component.env[key].replace(tpl, "{{" + arg.name + "}}")
+                    self._component.env[key] = self._component.env[key].replace(tpl.group(), arg)
+                elif isinstance(arg, Parameter): 
+                    self._component.env[key] = self._component.env[key].replace(tpl.group(), "{{" + arg.name + "}}")
+                elif isinstance(arg, Artifact):
+                    raise PaddleFlowSDKException(PipelineDSLError, 
+                        self._generate_error_msg(f"env cannot reference artifact"))
         
     def _infer_from_command(self):
         """  infer artifact and parameter from command field
@@ -68,7 +76,7 @@ class ContainerStepInferer(ComponentInferer):
         for tpl in tpls:
             arg = self._infer_by_template(tpl, self.FILED_TO_PREFIX["command"])
             if isinstance(arg, str):
-                self._component.command = self._component.command.replace(tpl, arg)
+                self._component.command = self._component.command.replace(tpl.group(), arg)
             else:
-                self._component.command = self._component.command.replace(tpl, "{{" + arg.name + "}}")
+                self._component.command = self._component.command.replace(tpl.group(), "{{" + arg.name + "}}")
 
