@@ -121,7 +121,6 @@ func TestUpdateFlavour(t *testing.T) {
 	// get
 	flavour, err := storage.Flavour.GetFlavour(MockFlavourName)
 	assert.Nil(t, err)
-	assert.NotEmpty(t, flavour.ClusterName)
 	// update
 	newCPU := "40"
 	flavour.CPU = newCPU
@@ -137,7 +136,6 @@ func TestGetFlavour(t *testing.T) {
 	TestCreateFlavour(t)
 	flavour, err := storage.Flavour.GetFlavour(MockFlavourName)
 	assert.Nil(t, err)
-	assert.NotEmpty(t, flavour.ClusterName)
 }
 
 func TestDeleteFlavour(t *testing.T) {
