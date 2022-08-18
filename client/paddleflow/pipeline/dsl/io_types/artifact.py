@@ -84,6 +84,9 @@ class Artifact(object):
     def __eq__(self, other):
         """ support ==
         """
+        if not isinstance(other, Artifact):
+            return False
+             
         return self.name == other.name and self.component == other.component and  self.ref == other.ref
 
     def __str__(self):

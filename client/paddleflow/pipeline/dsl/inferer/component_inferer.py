@@ -64,6 +64,8 @@ class ComponentInferer(object):
         self._infer_from_loop_argument()
         self._infer_from_condition()
         self._infer_env()
+        self._infer_from_artifact()
+        self._infer_from_parameter()
         self._infer_deps()
     
     def _infer_from_loop_argument(self):
@@ -240,6 +242,22 @@ class ComponentInferer(object):
         suffix = random_code(PARAM_NAME_CODE_LEN)
         return "_".join([prefix, io_type, suffix])
 
+    def _infer_from_parameter(self):
+        """ infer from parameter: 
+        """
+        for name, param  in self._component.parameters.items():
+            if isinstance(param.ref, Parameter):
+                self._component.parameters[name] = ParameterPlaceholder(name=param.ref.name, 
+                    component_full_name=param.ref.component.full_name)
+
+    def _infer_from_artifact(self):
+        """ infer from artifact
+        """
+        for name, art in self._component.inputs.items():
+            if isinstance(art.ref, Artifact):
+                self._component.inputs[name] = ArtifactPlaceholder(name=art.ref.name, 
+                    component_full_name=art.ref.component.full_name)
+
     def _infer_deps(self):
         """ infer deps from parameter and artifact
         """
@@ -250,26 +268,38 @@ class ComponentInferer(object):
         """ infer deps for component according it's parameter filed
         """
         for _, param in self._component.parameters.items():
-            if not isinstance(param.ref, Parameter):
-                continue
-            
-            self._infer_deps_by_cp_full_name(param.ref.component.full_name)
+            if isinstance(param.ref, ParameterPlaceholder):
+                self._infer_deps_by_cp_full_name(param.ref.component_full_name)
 
     def _infer_deps_from_art(self):
         """ infer deps for component according it's inputs filed
         """
         for _, art in self._component.inputs.items():
-            self._infer_deps_by_cp_full_name(art.ref.component.full_name)
-    
+            if isinstance(art.ref, ArtifactPlaceholder):
+                self._infer_deps_by_cp_full_name(art.ref.component_full_name)
+
     def _infer_deps_by_cp_full_name(self, full_name: str):
         """ infer deps
         """
-        if self._is_parent(full_name):
+        if not self._is_sibling(full_name):
             return 
         
         parent_name = self._get_parent_full_name()
         up_name = full_name.replace(parent_name + ".", "").split(".")[0]
         self._component._dependences.add(up_name)
+
+    def _is_sibling(self, full_name: str):
+        """ is sibing component
+        """
+        if self._is_parent(full_name):
+            return False
+
+        if len(full_name.split(".")) != len(self._component.full_name.split(".")):
+            return False
+        
+        parent_name = self._get_parent_full_name()
+        return full_name.startswith(parent_name)
+        
 
     def _is_parent(self, component_full_name:str):
         """ is parent

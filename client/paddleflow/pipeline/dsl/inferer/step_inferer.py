@@ -45,6 +45,8 @@ class ContainerStepInferer(ComponentInferer):
         self._infer_from_env()
         self._infer_from_loop_argument()
         self._infer_from_condition()
+        self._infer_from_artifact()
+        self._infer_from_parameter()
         self._infer_deps()
 
     def _infer_env(self, env: Dict):

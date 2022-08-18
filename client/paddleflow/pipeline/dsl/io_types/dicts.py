@@ -25,6 +25,7 @@ from paddleflow.common.exception.paddleflow_sdk_exception import PaddleFlowSDKEx
 from .artifact import Artifact
 from .parameter import Parameter
 from .placeholder import ArtifactPlaceholder
+from .placeholder import ParameterPlaceholder
 
 class ParameterDict(dict):
     """ ParameterDict: an dict for manager Parameter
@@ -44,6 +45,10 @@ class ParameterDict(dict):
                 # it means this Parameter don't reference anything
                 value.set_base_info(component=self.__component, name=key)
         else:
+            if isinstance(value, Parameter) and value.component == self.__component:
+                raise PaddleFlowSDKException(PipelineDSLError, 
+                    "parameter cannot referene another parameter which belong to the same DAG or Step")
+
             # it means value is defined by other component or inner type
             param = Parameter()
             param.set_base_info(component=self.__component, name=key, ref=value)
@@ -67,7 +72,7 @@ class InputArtifactDict(dict):
         """ magic function __setitem__
         """
         if not isinstance(value, ArtifactPlaceholder):
-            if not isinstance(value, Artifact) or value.component is None:
+            if not isinstance(value, Artifact) or value.component is None or value.component is self.__component:
                 err_msg = f"the value of inputs for component[{self.__component.name}] " + \
                     "should be an output artifact of other component"
                 raise PaddleFlowSDKException(PipelineDSLError, err_msg)
@@ -96,11 +101,22 @@ class OutputArtifactDict(dict):
     def __setitem__(self, key: str, value: Union[Artifact, ArtifactPlaceholder]):
         """ magic function __setitem__
         """
-        if not isinstance(value, ArtifactPlaceholder):
-            if not isinstance(value, Artifact) or value.component is not None:
-                err_msg = f"the value of outputs[{key}] for component[{self.__component.name}] just can be Artifact()"
-                raise PaddleFlowSDKException(PipelineDSLError, err_msg)
+        from paddleflow.pipeline.dsl.component import DAG
+        from paddleflow.pipeline.dsl.component import Step
 
+        if isinstance(value, ArtifactPlaceholder) and not isinstance(self.__component, DAG):
+            raise PaddleFlowSDKException(PipelineDSLError, 
+                "only DAG's artifact could be an instances of ArtifactPlaceholder")
+
+        if isinstance(value, Artifact):
+            if isinstance(self.__component, Step) and value.component is not None:
+                err_msg = f"the value of outputs[{key}] for Step[{self.__component.name}] just can be Artifact()"
+                raise PaddleFlowSDKException(PipelineDSLError, err_msg)
+            elif isinstance(self.__component, DAG) and value.component is None:
+                err_msg = f"the value of outputs[{key}] for DAG[{self.__component.name}] should be reference from " + \
+                    "the outputs of its substep or subDAG's"
+
+        if isinstance(self.__component, Step):
             value.set_base_info(component=self.__component, name=key)
         else:
             art = Artifact()

@@ -188,6 +188,9 @@ class Parameter(object):
     def __eq__(self, other):
         """ support  == and  != 
         """
+        if not isinstance(other, Parameter):
+            return False
+            
         return self.name == other.name and self.type == other.type and self.default == other.default and \
                 self.ref == other.ref and self.component == other.component
     

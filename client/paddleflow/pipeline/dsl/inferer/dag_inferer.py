@@ -21,6 +21,8 @@ from paddleflow.pipeline.dsl.component import DAG
 from paddleflow.pipeline.dsl.component import ContainerStep
 from paddleflow.pipeline.dsl.io_types import ArtifactPlaceholder
 from paddleflow.pipeline.dsl.io_types import ParameterPlaceholder
+from paddleflow.pipeline.dsl.io_types import Artifact
+from paddleflow.pipeline.dsl.io_types import Parameter
 from paddleflow.pipeline.dsl.utils.consts import PipelineDSLError
 from paddleflow.common.exception.paddleflow_sdk_exception import PaddleFlowSDKException
 
@@ -43,14 +45,14 @@ class DAGInferer(ComponentInferer):
     def _infer_from_sub_component(self, env:Dict):
         """ infer parameter from sub_component
         """
-        for component in self._component.entry_points:
+        for _, component in self._component.entry_points.items():
             if isinstance(component, DAG):
                 DAGInferer(component).infer(env)
             elif isinstance(component, ContainerStep):
                 ContainerStepInferer(component).infer(env) 
 
         #  entry_points is out of order at this time
-        for cp in self._component.entry_points:
+        for _, cp in self._component.entry_points.items():
             self._infer_parameter_from_sub_component(cp)
             self._infer_inputs_from_sub_component(cp)
 
@@ -73,11 +75,11 @@ class DAGInferer(ComponentInferer):
     def _infer_parameter_from_sub_component(self, cp):
         """ infer parameter from sub_component
         """
-        for name, value in cp.parameters:
+        for name, value in cp.parameters.items():
             if isinstance(value.ref, ParameterPlaceholder):
-                if self._has_sub_componet(value.component_full_name):
-                    upstream_name = value.component_full_name.split(".")[-1]
-                    cp.parameters[name]=self._component.entry_points[upstream_name].parameters[value.name]
+                if self._has_sub_componet(value.ref.component_full_name):
+                    upstream_name = value.ref.component_full_name.split(".")[-1]
+                    cp.parameters[name]=self._component.entry_points[upstream_name].parameters[value.ref.name]
                 else:
                     # parameter is come from self._component's upstream
                     param_name = self._generate_art_or_param_name("dsl", "param")
@@ -87,17 +89,17 @@ class DAGInferer(ComponentInferer):
     def _infer_inputs_from_sub_component(self, cp):
         """ infer inputs from sub_component
         """
-        for name, value in cp.inputs:
+        for name, value in cp.inputs.items():
             if isinstance(value.ref, ArtifactPlaceholder):
-                if self._has_sub_componet(value.component_full_name):
-                    upstream_name = value.component_full_name.split(".")[-1]
-                    cp.inputs[name] = self._component.entry_points[upstream_name].outputs[value.name]
+                if self._has_sub_componet(value.ref.component_full_name):
+                    upstream_name = value.ref.component_full_name.split(".")[-1]
+                    cp.inputs[name] = self._component.entry_points[upstream_name].outputs[value.ref.name]
                 else:
                     art_name = self._generate_art_or_param_name("dsl", "art")
-                    if self._has_descendants_component(value.component_full_name):
-                        upstream_name = value.component_full_name.split(".")[len(cp.fullname.split(".")) -1 ]
+                    if self._has_descendants_component(value.ref.component_full_name):
+                        upstream_name = value.ref.component_full_name.split(".")[len(cp.full_name.split(".")) -1 ]
                         self._component.entry_points[upstream_name].outputs[art_name] = value.ref
-                        cp.inputs[name] = self._component.entry_points[upstream_name].outputs[value.name]
+                        cp.inputs[name] = self._component.entry_points[upstream_name].outputs[art_name]
                     else:    
                         art_name = self._generate_art_or_param_name("dsl", "art")
                         self._component.inputs[art_name] = value.ref
@@ -106,16 +108,20 @@ class DAGInferer(ComponentInferer):
     def _infer_outputs_for_sub_dag(self):
         """ infer outputs for sub dag according to it's downstream
         """
-        for key, value in self._component.outputs:
+        for key, value in self._component.outputs.items():
             if isinstance(value.ref, ArtifactPlaceholder):
-                sub_name = value.ref.component_full_name.replace(self._component.full_name, "", 1).split(".")[0]
-
+                sub_name = value.ref.component_full_name.replace(self._component.full_name + ".", "", 1).split(".")[0]
                 if self._has_sub_componet(value.ref.component_full_name):
-                    value = self._component.entry_points[sub_name].outputs[key]
+                    self._component.outputs[key] = self._component.entry_points[sub_name].outputs[value.ref.name]
                 else:
                     art_name = self._generate_art_or_param_name("dsl", "art")
                     self._component.entry_points[sub_name].outputs[art_name] = value.ref
-                    value = self._component.entry_points[sub_name].outputs[art_name]
+                    self._component.outputs[key] = self._component.entry_points[sub_name].outputs[art_name]
+                    self._component.outputs[key].ref.ref = None
+        for _, cp in self._component.entry_points.items():
+            if isinstance(cp, DAG):
+                DAGInferer(cp)._infer_outputs_for_sub_dag()
+
 
     def _infer_env(self):
         """ infer env for subcomponent
