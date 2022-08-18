@@ -136,6 +136,7 @@ func TestGetFlavour(t *testing.T) {
 	TestCreateFlavour(t)
 	flavour, err := storage.Flavour.GetFlavour(MockFlavourName)
 	assert.Nil(t, err)
+	assert.Equal(t, flavour.ClusterID, MockClusterID)
 }
 
 func TestDeleteFlavour(t *testing.T) {
