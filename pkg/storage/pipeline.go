@@ -173,7 +173,7 @@ func (ps *PipelineStore) DeletePipeline(logEntry *log.Entry, id string) error {
 
 func (ps *PipelineStore) ListPipelineVersion(pipelineID string, pk int64, maxKeys int, fsFilter []string) ([]model.PipelineVersion, error) {
 	logger.Logger().Debugf("begin list pipeline version. ")
-	tx := DB.Model(&model.PipelineVersion{}).Where("pk > ?", pk).Where("pipeline_id = ?", pipelineID)
+	tx := ps.db.Model(&model.PipelineVersion{}).Where("pk > ?", pk).Where("pipeline_id = ?", pipelineID)
 	if len(fsFilter) > 0 {
 		tx = tx.Where("fs_name IN (?)", fsFilter)
 	}
@@ -194,7 +194,7 @@ func (ps *PipelineStore) ListPipelineVersion(pipelineID string, pk int64, maxKey
 func (ps *PipelineStore) IsLastPipelineVersionPk(logEntry *log.Entry, pipelineID string, pk int64, fsFilter []string) (bool, error) {
 	logEntry.Debugf("get last ppl version for ppl[%s], Filters: fs{%v}", pipelineID, fsFilter)
 	pplVersion := model.PipelineVersion{}
-	tx := DB.Model(&model.PipelineVersion{}).Where("pipeline_id = ?", pipelineID)
+	tx := ps.db.Model(&model.PipelineVersion{}).Where("pipeline_id = ?", pipelineID)
 	if len(fsFilter) > 0 {
 		tx = tx.Where("fs_name IN (?)", fsFilter)
 	}
@@ -210,7 +210,7 @@ func (ps *PipelineStore) IsLastPipelineVersionPk(logEntry *log.Entry, pipelineID
 
 func (ps *PipelineStore) CountPipelineVersion(pipelineID string) (int64, error) {
 	logger.Logger().Debugf("begin to count pipeline version for pipeline[%s].", pipelineID)
-	tx := DB.Model(&model.PipelineVersion{}).Where("pipeline_id = ?", pipelineID)
+	tx := ps.db.Model(&model.PipelineVersion{}).Where("pipeline_id = ?", pipelineID)
 
 	var count int64
 	tx = tx.Count(&count)
@@ -224,7 +224,7 @@ func (ps *PipelineStore) CountPipelineVersion(pipelineID string) (int64, error) 
 
 func (ps *PipelineStore) GetPipelineVersions(pipelineID string) ([]model.PipelineVersion, error) {
 	pplVersionList := []model.PipelineVersion{}
-	tx := DB.Model(&model.PipelineVersion{})
+	tx := ps.db.Model(&model.PipelineVersion{})
 
 	if pipelineID != "" {
 		tx.Where("pipeline_id = ?", pipelineID)
@@ -236,20 +236,18 @@ func (ps *PipelineStore) GetPipelineVersions(pipelineID string) ([]model.Pipelin
 
 func (ps *PipelineStore) GetPipelineVersion(pipelineID string, pipelineVersionID string) (model.PipelineVersion, error) {
 	pplVersion := model.PipelineVersion{}
-	tx := DB.Model(&model.PipelineVersion{}).Where("pipeline_id = ?", pipelineID).Where("id = ?", pipelineVersionID).Last(&pplVersion)
+	tx := ps.db.Model(&model.PipelineVersion{}).Where("pipeline_id = ?", pipelineID).Where("id = ?", pipelineVersionID).Last(&pplVersion)
 	return pplVersion, tx.Error
 }
 
 func (ps *PipelineStore) GetLastPipelineVersion(pipelineID string) (model.PipelineVersion, error) {
 	pplVersion := model.PipelineVersion{}
-	tx := DB.Model(&model.PipelineVersion{}).Where("pipeline_id = ?", pipelineID).Last(&pplVersion)
+	tx := ps.db.Model(&model.PipelineVersion{}).Where("pipeline_id = ?", pipelineID).Last(&pplVersion)
 	return pplVersion, tx.Error
 }
 
 func (ps *PipelineStore) DeletePipelineVersion(logEntry *log.Entry, pipelineID string, pipelineVersionID string) error {
 	logEntry.Debugf("delete pipeline[%s] versionID[%s]", pipelineID, pipelineVersionID)
-
-	tx := DB
-	result := tx.Model(&model.PipelineVersion{}).Where("pipeline_id = ?", pipelineID).Where("id = ?", pipelineVersionID).Delete(&model.PipelineVersion{})
+	result := ps.db.Model(&model.PipelineVersion{}).Where("pipeline_id = ?", pipelineID).Where("id = ?", pipelineVersionID).Delete(&model.PipelineVersion{})
 	return result.Error
 }
