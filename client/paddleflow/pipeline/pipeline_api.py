@@ -75,7 +75,7 @@ class PipelineServiceApi(object):
         if max_keys:
             params['maxKeys'] = max_keys
         if marker:
-            params['marker'] = marker
+            params['marker'] = self.marker
         response = api_client.call_api(method="GET",
                                        url=parse.urljoin(
                                            host, api.PADDLE_FLOW_PIPELINE),
