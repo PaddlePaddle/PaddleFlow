@@ -37,7 +37,7 @@ const (
 	queueJoinCluster  = "join `cluster_info` on `cluster_info`.id = queue.cluster_id"
 	queueSelectColumn = `queue.pk as pk, queue.id as id, queue.name as name, queue.namespace as namespace, queue.cluster_id as cluster_id,
 cluster_info.name as cluster_name, queue.quota_type as quota_type, queue.max_resources as max_resources, queue.min_resources as min_resources, queue.location as location,
-queue.status as status, queue.created_at as created_at, queue.updated_at as updated_at, queue.deleted_at as deleted_at`
+queue.scheduling_policy as scheduling_policy, queue.status as status, queue.created_at as created_at, queue.updated_at as updated_at, queue.deleted_at as deleted_at`
 )
 
 type Queue struct {
@@ -112,17 +112,6 @@ func (queue *Queue) AfterFind(*gorm.DB) error {
 			log.Errorf("json Unmarshal SchedulingPolicy[%s] failed: %v", queue.RawSchedulingPolicy, err)
 			return err
 		}
-	}
-	if queue.ClusterName == "" {
-		// only single query is necessary, function of list query by join table cluster_info
-		log.Debugf("queue[%s] ClusterName is nil, query db to get cluster", queue.Name)
-		var cluster ClusterInfo
-		db := storage.DB.Table("cluster_info").Where("id = ?", queue.ClusterId).Where("deleted_at = '' ")
-		if err := db.First(&cluster).Error; err != nil {
-			log.Errorf("queue[%s] query cluster by clusterId[%s] failed: %v", queue.Name, queue.ClusterId, err)
-			return err
-		}
-		queue.ClusterName = cluster.Name
 	}
 	return nil
 }
@@ -298,7 +287,7 @@ func GetQueueByName(queueName string) (Queue, error) {
 	log.Debugf("begin get queue. queueName:%s", queueName)
 
 	var queue Queue
-	tx := storage.DB.Table("queue").Where("name = ?", queueName)
+	tx := storage.DB.Table("queue").Select(queueSelectColumn).Joins(queueJoinCluster).Where("queue.name = ?", queueName)
 	tx = tx.First(&queue)
 	if tx.Error != nil {
 		log.Errorf("get queue failed. queueName:%s, error:%s",
@@ -312,7 +301,7 @@ func GetQueueByID(queueID string) (Queue, error) {
 	log.Debugf("begin get queue. queueID:%s", queueID)
 
 	var queue Queue
-	tx := storage.DB.Table("queue").Where("id = ?", queueID)
+	tx := storage.DB.Table("queue").Select(queueSelectColumn).Joins(queueJoinCluster).Where("queue.id = ?", queueID)
 	tx = tx.First(&queue)
 	if tx.Error != nil {
 		log.Errorf("get queue failed. queueID:%s, error:%s",
