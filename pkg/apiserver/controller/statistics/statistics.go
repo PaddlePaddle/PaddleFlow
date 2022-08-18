@@ -22,7 +22,6 @@ import (
 	prometheusModel "github.com/prometheus/common/model"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/consts"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
@@ -158,7 +157,7 @@ func getClusterTypeByJob(ctx *logger.RequestContext, jobID string) (string, *mod
 		return "", nil, common.NoAccessError(ctx.UserName, common.ResourceTypeJob, jobID)
 	}
 
-	queue, err := models.GetQueueByID(job.QueueID)
+	queue, err := storage.Queue.GetQueueByID(job.QueueID)
 	if err != nil {
 		ctx.ErrorCode = common.QueueNameNotFound
 		ctx.Logging().Errorln(err.Error())

@@ -17,6 +17,7 @@ limitations under the License.
 package storage
 
 import (
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 
@@ -34,6 +35,7 @@ var (
 	Auth       AuthStoreInterface
 	Cluster    ClusterStoreInterface
 	Flavour    FlavourStoreInterface
+	Queue      QueueStoreInterface
 	Job        JobStoreInterface
 	Image      ImageStoreInterface
 )
@@ -47,7 +49,26 @@ func InitStores(db *gorm.DB) {
 	Cluster = newClusterStore(db)
 	Flavour = newFlavourStore(db)
 	Job = newJobStore(db)
+	Queue = newQueueStore(db)
 	Image = newImageStore(db)
+}
+
+type QueueStoreInterface interface {
+	CreateQueue(queue *model.Queue) error
+	CreateOrUpdateQueue(queue *model.Queue) error
+	UpdateQueue(queue *model.Queue) error
+	UpdateQueueStatus(queueName string, queueStatus string) error
+	UpdateQueueInfo(name, status string, max, min *resources.Resource) error
+	CloseQueue(queueName string) error
+	DeleteQueue(queueName string) error
+	IsQueueExist(queueName string) bool
+	GetQueueByName(queueName string) (model.Queue, error)
+	GetQueueByID(queueID string) (model.Queue, error)
+	ListQueue(pk int64, maxKeys int, queueName string, userName string) ([]model.Queue, error)
+	GetLastQueue() (model.Queue, error)
+	ListQueuesByCluster(clusterID string) []model.Queue
+	IsQueueInUse(queueID string) (bool, map[string]schema.JobStatus)
+	DeepCopyQueue(queueSrc model.Queue, queueDesc *model.Queue)
 }
 
 type ClusterStoreInterface interface {

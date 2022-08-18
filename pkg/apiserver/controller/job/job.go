@@ -22,7 +22,6 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
@@ -295,7 +294,7 @@ func updateRuntimeJob(ctx *logger.RequestContext, job *model.Job, request *Updat
 }
 
 func getRuntimeByQueue(ctx *logger.RequestContext, queueID string) (runtime.RuntimeService, error) {
-	queue, err := models.GetQueueByID(queueID)
+	queue, err := storage.Queue.GetQueueByID(queueID)
 	if err != nil {
 		log.Errorf("get queue for job failed, err: %v", err)
 		return nil, err

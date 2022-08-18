@@ -27,7 +27,6 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/queue"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
@@ -228,7 +227,7 @@ func validateNamespace(new, old []string, clusterID string) error {
 		newSet[ns] = true
 	}
 	// get queues
-	queues := models.ListQueuesByCluster(clusterID)
+	queues := storage.Queue.ListQueuesByCluster(clusterID)
 	relatedSet := make(map[string]bool)
 	for _, queue := range queues {
 		relatedSet[queue.Namespace] = true
@@ -399,10 +398,10 @@ func DeleteCluster(ctx *logger.RequestContext, clusterName string) error {
 		ctx.Logging().Errorln("delete cluster failed. error: cluster not found.")
 		return err
 	}
-	queues := models.ListQueuesByCluster(clusterInfo.ID)
+	queues := storage.Queue.ListQueuesByCluster(clusterInfo.ID)
 	var inUsedQueue []string
 	for _, q := range queues {
-		isInUse, _ := models.IsQueueInUse(q.ID)
+		isInUse, _ := storage.Queue.IsQueueInUse(q.ID)
 		if isInUse {
 			inUsedQueue = append(inUsedQueue, q.Name)
 		}

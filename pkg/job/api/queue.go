@@ -18,10 +18,9 @@ package api
 
 import (
 	"fmt"
-
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/sirupsen/logrus"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 )
 
@@ -60,7 +59,7 @@ type QueueInfo struct {
 	Used *resources.Resource
 }
 
-func NewQueueInfo(q models.Queue) *QueueInfo {
+func NewQueueInfo(q model.Queue) *QueueInfo {
 	return &QueueInfo{
 		UID:             QueueID(q.ID),
 		Name:            q.Name,

@@ -26,7 +26,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	kschema "k8s.io/apimachinery/pkg/runtime/schema"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
@@ -116,7 +115,7 @@ func TestGetQueueByName(t *testing.T) {
 	})
 	defer p2.Reset()
 
-	var p3 = gomonkey.ApplyPrivateMethod(reflect.TypeOf(rts), "GetQueueUsedQuota", func(*models.Queue) (*resources.Resource, error) {
+	var p3 = gomonkey.ApplyPrivateMethod(reflect.TypeOf(rts), "GetQueueUsedQuota", func(*storage.Queue) (*resources.Resource, error) {
 		return resources.EmptyResource(), nil
 	})
 	defer p3.Reset()
@@ -153,11 +152,11 @@ func TestCloseAndDeleteQueue(t *testing.T) {
 		return nil
 	})
 	defer p1.Reset()
-	var p2 = gomonkey.ApplyPrivateMethod(reflect.TypeOf(rts), "DeleteQueue", func(q *models.Queue) error {
+	var p2 = gomonkey.ApplyPrivateMethod(reflect.TypeOf(rts), "DeleteQueue", func(q *storage.Queue) error {
 		return nil
 	})
 	defer p2.Reset()
-	var p3 = gomonkey.ApplyPrivateMethod(reflect.TypeOf(rts), "CloseQueue", func(q *models.Queue) error {
+	var p3 = gomonkey.ApplyPrivateMethod(reflect.TypeOf(rts), "CloseQueue", func(q *storage.Queue) error {
 		return nil
 	})
 	defer p3.Reset()
@@ -169,10 +168,10 @@ func TestCloseAndDeleteQueue(t *testing.T) {
 // TestMarshalJSONForTime test for time format
 func TestMarshalJSONForTime(t *testing.T) {
 	driver.InitMockDB()
-	queue := models.Queue{
+	queue := storage.Queue{
 		Name: "mockQueueName",
 	}
-	err := models.CreateQueue(&queue)
+	err := storage.CreateQueue(&queue)
 	if err != nil {
 		t.Errorf(err.Error())
 	}
