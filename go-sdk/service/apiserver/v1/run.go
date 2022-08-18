@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -451,7 +451,7 @@ func (r *run) ListArtifact(ctx context.Context, request *ListArtifactRequest,
 	err = newRequestBuilderWithTokenHeader(r.client, token).
 		WithMethod(http.GET).
 		WithResult(result).
-		WithURL(runCacheApi).
+		WithURL(runArtifactApi).
 		WithQueryParam("userFilter", strings.Join(request.UserFilter, ",")).
 		WithQueryParam("fsFilter", strings.Join(request.FSFilter, ",")).
 		WithQueryParam("runFilter", strings.Join(request.RunFilter, ",")).
