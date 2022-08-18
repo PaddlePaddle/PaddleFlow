@@ -125,4 +125,4 @@ class Compiler(object):
         
             if name in self._pipeline_dict["entry_points"]:
                 raise PaddleFlowSDKException(PipelineDSLError, 
-                    f"Step name[{name}] in post_process cannot be the same as the component names in entry_points"
+                    f"Step name[{name}] in post_process cannot be the same as the component names in entry_points")
