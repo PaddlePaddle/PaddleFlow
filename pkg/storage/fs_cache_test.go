@@ -89,6 +89,7 @@ func initMockDB() {
 		&model.Link{},
 		&model.FSCacheConfig{},
 		&model.FSCache{},
+		&model.Queue{},
 	); err != nil {
 		log.Fatalf("InitMockDB createDatabaseTables error[%s]", err.Error())
 	}
