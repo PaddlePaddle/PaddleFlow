@@ -67,6 +67,10 @@ func (j *KubeJob) setPodTemplateSpec(podSpec *corev1.PodTemplateSpec, task *mode
 	// TODO: set pod metadata
 	// set SchedulerName
 	podSpec.Spec.SchedulerName = config.GlobalServerConfig.Job.SchedulerName
+	// TODO: remove hard coded schedulerName when upstream package is fixed
+	// HARD CODE schedulerName to default scheduler, fix KubeFlow training operator bug at volcano scheduler TEMPERATELY
+	// see issue https://github.com/kubeflow/training-operator/issues/1630
+	podSpec.Spec.SchedulerName = "default-scheduler"
 	// set Priority
 	podSpec.Spec.PriorityClassName = KubePriorityClass(task.Priority)
 	// set RestartPolicy with framework

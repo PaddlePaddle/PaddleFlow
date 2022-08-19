@@ -22,8 +22,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 )
 
@@ -35,8 +36,8 @@ const (
 	MockFlavourName = "flavour1"
 )
 
-var clusterInfo = models.ClusterInfo{
-	Model:         models.Model{ID: MockClusterID},
+var clusterInfo = model.ClusterInfo{
+	Model:         model.Model{ID: MockClusterID},
 	Name:          MockClusterName,
 	Description:   "Description",
 	Endpoint:      "Endpoint",
@@ -50,7 +51,7 @@ var clusterInfo = models.ClusterInfo{
 }
 
 func initCluster(t *testing.T) {
-	err := models.CreateCluster(&clusterInfo)
+	err := storage.Cluster.CreateCluster(&clusterInfo)
 	assert.Nil(t, err)
 }
 
@@ -62,7 +63,7 @@ func TestListFlavour(t *testing.T) {
 	num := 20
 	clusterNum := 5
 	for i := 0; i < num; i++ {
-		flavour := models.Flavour{
+		flavour := model.Flavour{
 			Name: fmt.Sprintf("flavour%d", i),
 			CPU:  "20",
 			Mem:  "20G",
@@ -74,7 +75,7 @@ func TestListFlavour(t *testing.T) {
 			flavour.ClusterID = MockClusterID
 		}
 
-		err := models.CreateFlavour(&flavour)
+		err := storage.Flavour.CreateFlavour(&flavour)
 		assert.Nil(t, err)
 	}
 
@@ -118,29 +119,28 @@ func TestCreateFlavour(t *testing.T) {
 func TestUpdateFlavour(t *testing.T) {
 	TestCreateFlavour(t)
 	// get
-	flavour, err := models.GetFlavour(MockFlavourName)
+	flavour, err := storage.Flavour.GetFlavour(MockFlavourName)
 	assert.Nil(t, err)
-	assert.NotEmpty(t, flavour.ClusterName)
 	// update
 	newCPU := "40"
 	flavour.CPU = newCPU
-	err = models.UpdateFlavour(&flavour)
+	err = storage.Flavour.UpdateFlavour(&flavour)
 	assert.Nil(t, err)
 	// query again
-	newFlavour, err := models.GetFlavour(MockFlavourName)
+	newFlavour, err := storage.Flavour.GetFlavour(MockFlavourName)
 	assert.Nil(t, err)
 	assert.Equal(t, newFlavour.CPU, newCPU)
 }
 
 func TestGetFlavour(t *testing.T) {
 	TestCreateFlavour(t)
-	flavour, err := models.GetFlavour(MockFlavourName)
+	flavour, err := storage.Flavour.GetFlavour(MockFlavourName)
 	assert.Nil(t, err)
-	assert.NotEmpty(t, flavour.ClusterName)
+	assert.Equal(t, flavour.ClusterID, MockClusterID)
 }
 
 func TestDeleteFlavour(t *testing.T) {
 	TestCreateFlavour(t)
-	err := models.DeleteFlavour(MockFlavourName)
+	err := storage.Flavour.DeleteFlavour(MockFlavourName)
 	assert.Nil(t, err)
 }

@@ -27,13 +27,14 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/queue"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 type ClusterCommonInfo struct {
@@ -54,11 +55,11 @@ type CreateClusterRequest struct {
 }
 
 type CreateClusterResponse struct {
-	models.ClusterInfo
+	model.ClusterInfo
 }
 
 type GetClusterResponse struct {
-	models.ClusterInfo
+	model.ClusterInfo
 }
 
 type ListClusterRequest struct {
@@ -70,7 +71,7 @@ type ListClusterRequest struct {
 
 type ListClusterResponse struct {
 	common.MarkerInfo
-	ClusterList []models.ClusterInfo `json:"clusterList"`
+	ClusterList []model.ClusterInfo `json:"clusterList"`
 }
 
 type UpdateClusterRequest struct {
@@ -78,7 +79,7 @@ type UpdateClusterRequest struct {
 }
 
 type UpdateClusterReponse struct {
-	models.ClusterInfo
+	model.ClusterInfo
 }
 
 type ClusterQuotaReponse struct {
@@ -89,8 +90,8 @@ type ClusterQuotaReponse struct {
 
 func validateClusterStatus(clusterStatus string) error {
 	validClusterStatusList := []string{
-		models.ClusterStatusOnLine,
-		models.ClusterStatusOffLine,
+		model.ClusterStatusOnLine,
+		model.ClusterStatusOffLine,
 	}
 
 	if !common.StringInSlice(clusterStatus, validClusterStatusList) {
@@ -129,7 +130,7 @@ func validateCreateClusterRequest(ctx *logger.RequestContext, request *CreateClu
 
 	request.Status = strings.TrimSpace(request.Status)
 	if request.Status == "" {
-		request.Status = models.DefaultClusterStatus
+		request.Status = model.DefaultClusterStatus
 	} else {
 		if err := validateClusterStatus(request.Status); err != nil {
 			return err
@@ -146,7 +147,7 @@ func validateCreateClusterRequest(ctx *logger.RequestContext, request *CreateClu
 
 	request.Source = strings.TrimSpace(request.Source)
 	if request.Source == "" {
-		request.Source = models.DefaultClusterSource
+		request.Source = model.DefaultClusterSource
 	}
 
 	request.Credential = strings.TrimSpace(request.Credential)
@@ -156,7 +157,7 @@ func validateCreateClusterRequest(ctx *logger.RequestContext, request *CreateClu
 	return nil
 }
 
-func validateUpdateClusterRequest(ctx *logger.RequestContext, request *UpdateClusterRequest, clusterInfo *models.ClusterInfo) error {
+func validateUpdateClusterRequest(ctx *logger.RequestContext, request *UpdateClusterRequest, clusterInfo *model.ClusterInfo) error {
 	request.Endpoint = strings.TrimSpace(request.Endpoint)
 	if request.Endpoint != "" {
 		clusterInfo.Endpoint = request.Endpoint
@@ -226,7 +227,7 @@ func validateNamespace(new, old []string, clusterID string) error {
 		newSet[ns] = true
 	}
 	// get queues
-	queues := models.ListQueuesByCluster(clusterID)
+	queues := storage.Queue.ListQueuesByCluster(clusterID)
 	relatedSet := make(map[string]bool)
 	for _, queue := range queues {
 		relatedSet[queue.Namespace] = true
@@ -266,8 +267,8 @@ func CreateCluster(ctx *logger.RequestContext, request *CreateClusterRequest) (*
 	}
 
 	clusterId := uuid.GenerateID(common.PrefixCluster)
-	clusterInfo := models.ClusterInfo{
-		Model: models.Model{
+	clusterInfo := model.ClusterInfo{
+		Model: model.Model{
 			ID:        clusterId,
 			CreatedAt: time.Now(),
 			UpdatedAt: time.Now(),
@@ -290,13 +291,13 @@ func CreateCluster(ctx *logger.RequestContext, request *CreateClusterRequest) (*
 		return nil, err
 	}
 
-	err := models.CreateCluster(&clusterInfo)
+	err := storage.Cluster.CreateCluster(&clusterInfo)
 	response := CreateClusterResponse{clusterInfo}
 	return &response, err
 }
 
 // validateConnectivity validate connectivity of cluster
-func validateConnectivity(clusterInfo models.ClusterInfo) error {
+func validateConnectivity(clusterInfo model.ClusterInfo) error {
 	if _, err := runtime.CreateRuntime(clusterInfo); err != nil {
 		log.Errorf("create cluster failed. clusterName not allowed. clusterName:%v", clusterInfo.Name)
 		return err
@@ -305,7 +306,7 @@ func validateConnectivity(clusterInfo models.ClusterInfo) error {
 }
 
 func IsLastClusterPk(ctx *logger.RequestContext, pk int64) bool {
-	lastCluster, err := models.GetLastCluster()
+	lastCluster, err := storage.Cluster.GetLastCluster()
 	if err != nil {
 		ctx.Logging().Errorf("get last cluster failed. error:[%s]", err.Error())
 	}
@@ -339,9 +340,9 @@ func ListCluster(ctx *logger.RequestContext, marker string, maxKeys int,
 		}
 	}
 
-	clusterList, err := models.ListCluster(pk, maxKeys, clusterNameList, clusterStatus)
+	clusterList, err := storage.Cluster.ListCluster(pk, maxKeys, clusterNameList, clusterStatus)
 	if err != nil {
-		ctx.Logging().Errorf("models list cluster failed. err:[%s]", err.Error())
+		ctx.Logging().Errorf("list cluster failed. err:[%s]", err.Error())
 		ctx.ErrorCode = common.InternalError
 		return &response, err
 	}
@@ -375,7 +376,7 @@ func GetCluster(ctx *logger.RequestContext, clusterName string) (*GetClusterResp
 		return nil, errors.New("get cluster failed")
 	}
 
-	clusterInfo, err := models.GetClusterByName(clusterName)
+	clusterInfo, err := storage.Cluster.GetClusterByName(clusterName)
 	if err != nil {
 		ctx.ErrorMessage = err.Error()
 		ctx.Logging().Errorf("get cluster failed. clusterName:[%s]", clusterName)
@@ -391,16 +392,16 @@ func DeleteCluster(ctx *logger.RequestContext, clusterName string) error {
 		return errors.New("delete cluster failed")
 	}
 	// 检查clusterName是否存在
-	clusterInfo, err := models.GetClusterByName(clusterName)
+	clusterInfo, err := storage.Cluster.GetClusterByName(clusterName)
 	if err != nil {
 		ctx.ErrorCode = common.ClusterNotFound
 		ctx.Logging().Errorln("delete cluster failed. error: cluster not found.")
 		return err
 	}
-	queues := models.ListQueuesByCluster(clusterInfo.ID)
+	queues := storage.Queue.ListQueuesByCluster(clusterInfo.ID)
 	var inUsedQueue []string
 	for _, q := range queues {
-		isInUse, _ := models.IsQueueInUse(q.ID)
+		isInUse, _ := storage.Queue.IsQueueInUse(q.ID)
 		if isInUse {
 			inUsedQueue = append(inUsedQueue, q.Name)
 		}
@@ -420,7 +421,7 @@ func DeleteCluster(ctx *logger.RequestContext, clusterName string) error {
 			return err
 		}
 	}
-	if err := models.DeleteCluster(clusterName); err != nil {
+	if err := storage.Cluster.DeleteCluster(clusterName); err != nil {
 		ctx.ErrorCode = common.InternalError
 		ctx.ErrorMessage = err.Error()
 		ctx.Logging().Errorf("delete cluster failed. clusterName:[%s]", clusterName)
@@ -438,7 +439,7 @@ func UpdateCluster(ctx *logger.RequestContext,
 		return nil, errors.New("update cluster failed")
 	}
 
-	clusterInfo, err := models.GetClusterByName(clusterName)
+	clusterInfo, err := storage.Cluster.GetClusterByName(clusterName)
 	if err != nil {
 		ctx.ErrorCode = common.ClusterNameNotFound
 		ctx.Logging().Errorf("get cluster failed. clusterName:[%s]", clusterName)
@@ -451,7 +452,7 @@ func UpdateCluster(ctx *logger.RequestContext,
 		return nil, err
 	}
 
-	if err := models.UpdateCluster(clusterInfo.ID, &clusterInfo); err != nil {
+	if err := storage.Cluster.UpdateCluster(clusterInfo.ID, &clusterInfo); err != nil {
 		ctx.ErrorMessage = err.Error()
 		ctx.Logging().Errorf("delete cluster failed. clusterName:[%s]", clusterName)
 		return nil, err
@@ -472,7 +473,7 @@ func ListClusterQuota(ctx *logger.RequestContext, clusterNameList []string) (map
 	}
 
 	// 获取状态为online的集群列表
-	clusterList, err := models.ListCluster(0, -1, clusterNameList, models.ClusterStatusOnLine)
+	clusterList, err := storage.Cluster.ListCluster(0, -1, clusterNameList, model.ClusterStatusOnLine)
 	if err != nil {
 		ctx.Logging().Errorf("listCluster failed. error: %s", err.Error())
 		return response, err
@@ -521,7 +522,7 @@ func ListClusterQuota(ctx *logger.RequestContext, clusterNameList []string) (map
 // InitDefaultCluster init default cluster for single cluster environment
 func InitDefaultCluster() error {
 	log.Info("starting init data for single cluster: initDefaultCluster")
-	if clusterInfo, err := models.GetClusterByName(config.DefaultClusterName); err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+	if clusterInfo, err := storage.Cluster.GetClusterByName(config.DefaultClusterName); err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		log.Errorf("GetClusterByName %s failed, err: %v", config.DefaultClusterName, err)
 		return err
 	} else if err == nil {
@@ -529,16 +530,16 @@ func InitDefaultCluster() error {
 		return nil
 	}
 	// create default cluster
-	clusterInfo := &models.ClusterInfo{
+	clusterInfo := &model.ClusterInfo{
 		Name:        config.DefaultClusterName,
 		Description: "default cluster",
 		Endpoint:    "127.0.0.1",
 		Source:      "",
 		ClusterType: schema.KubernetesType,
 		Version:     "1.16+",
-		Status:      models.ClusterStatusOnLine,
+		Status:      model.ClusterStatusOnLine,
 	}
-	if err := models.CreateCluster(clusterInfo); err != nil {
+	if err := storage.Cluster.CreateCluster(clusterInfo); err != nil {
 		log.Errorf("create default cluster failed, err: %v", err)
 		return err
 	}

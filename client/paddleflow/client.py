@@ -28,6 +28,7 @@ from paddleflow.queue import QueueServiceApi
 from paddleflow.fs import FSServiceApi
 from paddleflow.run import RunServiceApi
 from paddleflow.pipeline import PipelineServiceApi
+from paddleflow.schedule import ScheduleServiceApi
 from paddleflow.utils import api_client
 from paddleflow.cluster import ClusterServiceApi
 from paddleflow.flavour import FlavouriceApi
@@ -447,7 +448,7 @@ class Client(object):
 
     def show_run(self, run_id):
         """
-        status run
+        show run
         """
         self.pre_check()
         if run_id is None or run_id.strip() == "":
@@ -526,15 +527,13 @@ class Client(object):
         self.pre_check()
         return ClusterServiceApi.list_cluster_resource(self.paddleflow_server, clustername, self.header)
 
-    def create_pipeline(self, fs_name, yaml_path, desc=None, username=None):
+    def create_pipeline(self, fs_name, yaml_path=None, desc=None, username=None):
         """
         create pipeline
         """
         self.pre_check()
         if fs_name is None or fs_name.strip() == "":
             raise PaddleFlowSDKException("InvalidFsName", "fsname should not be none or empty")
-        if yaml_path is None or yaml_path.strip() == "":
-            raise PaddleFlowSDKException("InvalidYamlPath", "yamlpath should not be none or empty")
         return PipelineServiceApi.create_pipeline(self.paddleflow_server, fs_name, yaml_path, desc,
                                                   username, self.header)
 
@@ -546,9 +545,9 @@ class Client(object):
         return PipelineServiceApi.list_pipeline(self.paddleflow_server, user_filter,
                                                 name_filter, max_keys, marker, self.header)
 
-    def show_pipeline(self, pipeline_id, fs_filter, max_keys, marker):
+    def show_pipeline(self, pipeline_id, fs_filter=None, max_keys=None, marker=None):
         """
-        status pipeline
+        show pipeline
         """
         self.pre_check()
         if pipeline_id is None or pipeline_id == "":
@@ -564,31 +563,69 @@ class Client(object):
             raise PaddleFlowSDKException("InvalidPipelineID", "pipelineid should not be none or empty")
         return PipelineServiceApi.delete_pipeline(self.paddleflow_server, pipeline_id, self.header)
 
+    def update_pipeline(self, pipeline_id, fs_name, yaml_path, username=None, desc=None):
+        """
+            update pipeline
+        """
+        self.pre_check()
+        if pipeline_id is None or pipeline_id == "":
+            raise PaddleFlowSDKException("InvalidPipelineID", "pipeline_id should not be none or empty")
+        if fs_name is None or fs_name == "":
+            raise PaddleFlowSDKException("InvalidFSName", "fs_name should not be none or empty")
+        if yaml_path is None or yaml_path == "":
+            raise PaddleFlowSDKException("InvalidYamlPath", "yaml_path should not be none or empty")
+        return PipelineServiceApi.update_pipeline(self.paddleflow_server, self.header, pipeline_id, fs_name, yaml_path,
+                                                  username, desc)
+
+    def show_pipeline_version(self, pipeline_id, pipeline_version_id):
+        """
+            show pipeline version
+        """
+        self.pre_check()
+        if pipeline_id is None or pipeline_id == "":
+            raise PaddleFlowSDKException("InvalidPipelineID", "pipeline_id should not be none or empty")
+        if pipeline_version_id is None or pipeline_version_id == "":
+            raise PaddleFlowSDKException("InvalidPipelineVersionID", "pipeline_version_id should not be none or empty")
+        return PipelineServiceApi.show_pipeline_version(self.paddleflow_server, self.header,
+                                                        pipeline_id, pipeline_version_id)
+
+    def delete_pipeline_version(self, pipeline_id, pipeline_version_id):
+        """
+            delete pipeline version
+        """
+        self.pre_check()
+        if pipeline_id is None or pipeline_id == "":
+            raise PaddleFlowSDKException("InvalidPipelineID", "pipeline_id should not be none or empty")
+        if pipeline_version_id is None or pipeline_version_id == "":
+            raise PaddleFlowSDKException("InvalidPipelineVersionID", "pipeline_version_id should not be none or empty")
+        return PipelineServiceApi.delete_pipeline_version(self.paddleflow_server, self.header,
+                                                            pipeline_id, pipeline_version_id)
+
     def retry_run(self, run_id):
         """
         retry run
         """
         self.pre_check()
         if run_id is None or run_id == "":
-            raise PaddleFlowSDKException("InvalidRunID", "runid should not be none or empty")
+            raise PaddleFlowSDKException("InvalidRunID", "run_id should not be none or empty")
         return RunServiceApi.retry_run(self.paddleflow_server, run_id, self.header)
 
-    def delete_run(self, run_id, check_cache):
+    def delete_run(self, run_id, check_cache=None):
         """
         status run
         """
         self.pre_check()
         if run_id is None or run_id == "":
-            raise PaddleFlowSDKException("InvalidRunID", "runid should not be none or empty")
+            raise PaddleFlowSDKException("InvalidRunID", "run_id should not be none or empty")
         return RunServiceApi.delete_run(self.paddleflow_server, run_id, check_cache, self.header)
 
-    def artifact(self, user_filter=None, fs_filter=None, run_filter=None, type_filter=None, path_filter=None,
+    def list_artifact(self, user_filter=None, fs_filter=None, run_filter=None, type_filter=None, path_filter=None,
                  maxkeys=None, marker=None):
         """
         artifact
         """
         self.pre_check()
-        return RunServiceApi.artifact(self.paddleflow_server, user_filter, fs_filter,
+        return RunServiceApi.list_artifact(self.paddleflow_server, user_filter, fs_filter,
                                       run_filter, type_filter, path_filter, maxkeys, marker, self.header)
 
     def list_cache(self, user_filter=None, fs_filter=None, run_filter=None,
@@ -607,7 +644,7 @@ class Client(object):
         """
         self.pre_check()
         if cache_id is None or cache_id == "":
-            raise PaddleFlowSDKException("InvalidCacheID", "cacheid should not be none or empty")
+            raise PaddleFlowSDKException("InvalidCacheID", "cache_id should not be none or empty")
         return RunServiceApi.show_runcache(self.paddleflow_server, cache_id, self.header)
 
     def delete_cache(self, cache_id):
@@ -616,8 +653,54 @@ class Client(object):
         """
         self.pre_check()
         if cache_id is None or cache_id == "":
-            raise PaddleFlowSDKException("InvalidCacheID", "cacheid should not be none or empty")
+            raise PaddleFlowSDKException("InvalidCacheID", "cache_id should not be none or empty")
         return RunServiceApi.delete_runcache(self.paddleflow_server, cache_id, self.header)
+
+    def create_schedule(self, name, pipeline_id, pipeline_version_id, crontab,
+                 desc=None, start_time=None, end_time=None, concurrency=None, concurrency_policy=None, expire_interval=None,
+                 catchup=None, username=None):
+        """ create schedule """
+        self.pre_check()
+        if name is None or name == "":
+            raise PaddleFlowSDKException("InvalidName", "name should not be none or empty")
+        if pipeline_id is None or pipeline_id == "":
+            raise PaddleFlowSDKException("InvalidPipelineID", "pipeline_id should not be none or empty")
+        if pipeline_version_id is None or pipeline_version_id == "":
+            raise PaddleFlowSDKException("InvalidPipelineVersionID", "pipeline_version_id should not be none or empty")
+        if crontab is None or crontab == "":
+            raise PaddleFlowSDKException("InvalidPipelineVersionID", "pipeline_version_id should not be none or empty")
+        return ScheduleServiceApi.create_schedule(self.paddleflow_server, self.header,
+                                                name, pipeline_id, pipeline_version_id, crontab,
+                                                desc, start_time, end_time, concurrency, concurrency_policy,
+                                                expire_interval, catchup, username)
+
+    def list_schedule(self, user_filter=None, ppl_filter=None, ppl_version_filter=None, schedule_filter=None,
+                      name_filter=None, status_filter=None, marker=None, max_keys=None):
+        """ list schedule """
+        self.pre_check()
+        return ScheduleServiceApi.list_schedule(self.paddleflow_server, self.header, user_filter, ppl_filter,
+                                                ppl_version_filter, schedule_filter, name_filter, status_filter,
+                                                marker, max_keys)
+
+    def show_schedule(self, schedule_id, run_filter=None, status_filter=None, marker=None, max_keys=None):
+        """ show schedule """
+        self.pre_check()
+        if schedule_id is None or schedule_id == "":
+            raise PaddleFlowSDKException("InvalidScheduleID", "schedule_id should not be none or empty")
+        return ScheduleServiceApi.show_schedule(self.paddleflow_server, self.header, schedule_id, run_filter, status_filter,
+                                                marker, max_keys)
+
+    def stop_schedule(self, schedule_id):
+        self.pre_check()
+        if schedule_id is None or schedule_id == "":
+            raise PaddleFlowSDKException("InvalidScheduleID", "schedule_id should not be none or empty")
+        return ScheduleServiceApi.stop_schedule(self.paddleflow_server, self.header, schedule_id)
+
+    def delete_schedule(self, schedule_id):
+        self.pre_check()
+        if schedule_id is None or schedule_id == "":
+            raise PaddleFlowSDKException("InvalidScheduleID", "schedule_id should not be none or empty")
+        return ScheduleServiceApi.delete_schedule(self.paddleflow_server, self.header, schedule_id)
 
     def show_log(self, run_id, job_id=None, page_size=None, page_no=None, log_file_position=None):
         """
@@ -625,7 +708,7 @@ class Client(object):
         """
         self.pre_check()
         if run_id is None or run_id == "":
-            raise PaddleFlowSDKException("InvalidRunID", "runid should not be none or empty")
+            raise PaddleFlowSDKException("InvalidRunID", "run_id should not be none or empty")
         return LogServiceApi.get_log_info(self.paddleflow_server, run_id, job_id, page_size, page_no, log_file_position,
                                           self.header)
 

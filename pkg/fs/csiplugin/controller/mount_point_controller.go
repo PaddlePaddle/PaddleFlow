@@ -309,16 +309,37 @@ func remount(volumeMount volumeMountInfo, mountInfo mount.Info) error {
 		}
 	} else {
 		// mount source path
-		if err := utils.ManualUnmount(mountInfo.SourcePath); err != nil {
-			err := fmt.Errorf("process remount[%s] failed when ManualUnmount source path %s. err: %v",
-				mountInfo.FS.ID, mountInfo.SourcePath, err)
-			return err
-		}
+		isMountPoint, err := utils.IsMountPoint(mountInfo.SourcePath)
+		log.Tracef("mountpoint path[%s] : isMountPoint[%t], err:%v", mountInfo.SourcePath, isMountPoint, err)
 
-		output, err := utils.ExecCmdWithTimeout(mountInfo.Cmd, mountInfo.Args)
-		if err != nil {
-			log.Errorf("remount: process exec mount cmd failed: [%v], output[%v]", err, string(output))
-			return err
+		switch isMountPoint {
+		case true:
+			if err != nil {
+				// unmount source path
+				if err := utils.ManualUnmount(mountInfo.SourcePath); err != nil {
+					err := fmt.Errorf("process remount[%s] failed when ManualUnmount source path %s. err: %v",
+						mountInfo.FS.ID, mountInfo.SourcePath, err)
+					return err
+				}
+				// mount source path
+				output, err := utils.ExecCmdWithTimeout(mountInfo.Cmd, mountInfo.Args)
+				if err != nil {
+					log.Errorf("remount: process exec mount cmd failed: [%v], output[%v]", err, string(output))
+					return err
+				}
+			}
+		case false:
+			if err != nil {
+				err := fmt.Errorf("fs[%s] source path[%s] not mp and err: %v", mountInfo.FS.ID, mountInfo.SourcePath, err)
+				return err
+			} else {
+				// mount source path
+				output, err := utils.ExecCmdWithTimeout(mountInfo.Cmd, mountInfo.Args)
+				if err != nil {
+					log.Errorf("remount: process exec mount cmd failed: [%v], output[%v]", err, string(output))
+					return err
+				}
+			}
 		}
 	}
 
@@ -330,7 +351,7 @@ func remount(volumeMount volumeMountInfo, mountInfo mount.Info) error {
 	}
 
 	// todo subpath need recovery
-	log.Debugf("volumeMoun info %+v", volumeMount)
+	log.Debugf("volumeMount info %+v", volumeMount)
 	for _, subPath := range volumeMount.SubPaths {
 		output, err := utils.ExecMountBind(subPath.SourcePath, subPath.TargetPath, subPath.ReadOnly)
 		if err != nil {

@@ -30,11 +30,12 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	commonschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 const (
@@ -146,7 +147,7 @@ func (qs *QueueSync) syncQueueInfo(qsInfo *QueueSyncInfo) error {
 	var err error
 	switch qsInfo.Action {
 	case commonschema.Create:
-		queue := &models.Queue{
+		queue := &model.Queue{
 			Name:         qsInfo.Name,
 			Namespace:    qsInfo.Namespace,
 			ClusterId:    qs.opt.ClusterInfo.ID,
@@ -158,9 +159,9 @@ func (qs *QueueSync) syncQueueInfo(qsInfo *QueueSyncInfo) error {
 		if qsInfo.MinResource != nil {
 			queue.MinResources = qsInfo.MinResource
 		}
-		err = models.CreateOrUpdateQueue(queue)
+		err = storage.Queue.CreateOrUpdateQueue(queue)
 	case commonschema.Update, commonschema.Delete:
-		err = models.UpdateQueueInfo(qsInfo.Name, qsInfo.Status, qsInfo.MaxResource, qsInfo.MinResource)
+		err = storage.Queue.UpdateQueueInfo(qsInfo.Name, qsInfo.Status, qsInfo.MaxResource, qsInfo.MinResource)
 	default:
 		err = fmt.Errorf("the sync action of queue %s is not supported", qsInfo.Action)
 	}

@@ -22,10 +22,11 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/job"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 const (
@@ -34,8 +35,8 @@ const (
 )
 
 var (
-	queue1 = models.Queue{
-		Model: models.Model{
+	queue1 = model.Queue{
+		Model: model.Model{
 			ID: MockQueueID,
 		},
 		Name:      MockQueueName,
@@ -60,7 +61,7 @@ type args struct {
 }
 
 func initQueue(t *testing.T, userName string) {
-	err := models.CreateQueue(&queue1)
+	err := storage.Queue.CreateQueue(&queue1)
 	assert.Nil(t, err)
 }
 
