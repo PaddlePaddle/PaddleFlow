@@ -104,10 +104,6 @@ class OutputArtifactDict(dict):
         from paddleflow.pipeline.dsl.component import DAG
         from paddleflow.pipeline.dsl.component import Step
 
-        if isinstance(value, ArtifactPlaceholder) and not isinstance(self.__component, DAG):
-            raise PaddleFlowSDKException(PipelineDSLError, 
-                "only DAG's artifact could be an instances of ArtifactPlaceholder")
-
         if isinstance(value, Artifact):
             if isinstance(self.__component, Step) and value.component is not None:
                 err_msg = f"the value of outputs[{key}] for Step[{self.__component.name}] just can be Artifact()"
@@ -115,7 +111,16 @@ class OutputArtifactDict(dict):
             elif isinstance(self.__component, DAG) and value.component is None:
                 err_msg = f"the value of outputs[{key}] for DAG[{self.__component.name}] should be reference from " + \
                     "the outputs of its substep or subDAG's"
-
+        elif isinstance(value, ArtifactPlaceholder):
+            if not isinstance(self.__component, DAG):
+                raise PaddleFlowSDKException(PipelineDSLError, 
+                    "only DAG's artifact could be an instances of ArtifactPlaceholder")
+        else:
+            err_msg = f"the value of outputs for Step just can be Artifact(). and"
+            err_msg += f"the value of outputs for DAG should be reference from " + \
+                    "the outputs of its substep or subDAG's"
+            raise PaddleFlowSDKException(PipelineDSLError, err_msg)
+        
         if isinstance(self.__component, Step):
             value.set_base_info(component=self.__component, name=key)
         else:

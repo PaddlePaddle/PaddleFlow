@@ -54,7 +54,7 @@ class DAGCompiler(ComponentCompiler):
         """
         if not self._component.outputs:
             return 
-        
+
         self._dict.setdefault("artifacts", {}).setdefault("output", {})
         for name, art in self._component.outputs.items():
             self._dict["artifacts"]["output"][name] = "{{" + f"{art.ref.component.name}.{art.ref.name}" + "}}"

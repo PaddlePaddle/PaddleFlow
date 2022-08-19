@@ -62,8 +62,9 @@ class DAGInferer(ComponentInferer):
             self._infer_parameter_from_sub_component(cp)
             self._infer_inputs_from_sub_component(cp)
 
-        # only sub dag need to infer output from it's downstream component
-        self._infer_outputs_for_sub_dag()
+        # only sub dag need to infer output from it's downstream component and just execute this function on the outermost
+        if len(self._component.full_name.split(".")) == 1:
+            self._infer_outputs_for_sub_dag()
 
     def _has_sub_componet(self, componnent_full_name:str):
         """ is there some subcomponent who's full_name == component_full_name
@@ -123,7 +124,8 @@ class DAGInferer(ComponentInferer):
                     art_name = self._generate_art_or_param_name("dsl", "art")
                     self._component.entry_points[sub_name].outputs[art_name] = value.ref
                     self._component.outputs[key] = self._component.entry_points[sub_name].outputs[art_name]
-                    self._component.outputs[key].ref.ref = None
+                    # self._component.outputs[key].ref.ref = None
+
         for _, cp in self._component.entry_points.items():
             if isinstance(cp, DAG):
                 DAGInferer(cp)._infer_outputs_for_sub_dag()

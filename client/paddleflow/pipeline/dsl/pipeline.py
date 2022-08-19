@@ -142,14 +142,14 @@ class Pipeline(object):
         name = config['user']['name']
         password = config['user']['password']
 
-        if 'paddleflow_server' not in config['server']:
+        if 'paddleflow_server_host' not in config['server']:
             raise PaddleFlowSDKException(PipelineDSLError, self.__error_msg_prefix + \
                         f"no paddleflow_server in {config_file}")
             
-        paddleflow_server = config['server']['paddleflow_server']
+        paddleflow_server = config['server']['paddleflow_server_host']
 
-        if 'paddleflow_port' in config['server']:
-            paddleflow_port = config['server']['paddleflow_port']
+        if 'paddleflow_server_host' in config['server']:
+            paddleflow_port = config['server']['paddleflow_server_port']
         else:
             paddleflow_port = DEFAULT_PADDLEFLOW_PORT
 
@@ -196,7 +196,6 @@ class Pipeline(object):
             fs_name: str=None,
             run_name: str=None,
             desc: str=None,
-            entry: str=None,
             disabled: List[str]=None,
             ):
         """ create a pipelint run
@@ -207,7 +206,6 @@ class Pipeline(object):
             fs_name (str): the fsname of paddleflow
             run_name (str): the name of this run 
             desc (str): description of run 
-            entry (str): the entry of run, should be one of step's name in pipeline
             disabled (List[str]): a list of step's name which need to disable in this run
 
         Raises:
@@ -218,10 +216,9 @@ class Pipeline(object):
         # 1. compile
         pipeline = yaml.dump(self.compile())
         pipeline = pipeline.encode("utf-8")
-        
 
         self._init_client(config)
-        return self._client.create_run(fs_name, username, run_name, desc, entry, run_yaml_raw=pipeline, disabled=disabled)
+        return self._client.create_run(fs_name, username, run_name, desc, run_yaml_raw=pipeline, disabled=disabled)
 
     def compile(
             self,
@@ -252,8 +249,8 @@ class Pipeline(object):
         DAGInferer(self.entry_points).infer(self.env)
 
         if self._post_process:
-            ContainerStepInferer(post_process)
-                
+            ContainerStepInferer(self._post_process)
+        
         # Compile
         pipeline_dict = Compiler().compile(self, save_path)
         return pipeline_dict

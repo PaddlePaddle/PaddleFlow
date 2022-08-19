@@ -21,7 +21,7 @@ import pytest
 
 from paddleflow.pipeline import Artifact
 from paddleflow.pipeline import Parameter
-from paddleflow.pipeline import ContainerStep
+from paddleflow.pipeline import ContainerStep, DAG
 from paddleflow.pipeline.dsl.io_types.dicts import  ParameterDict, InputArtifactDict, OutputArtifactDict, EnvDict
 from paddleflow.pipeline.dsl.io_types.placeholder import ParameterPlaceholder, ArtifactPlaceholder
 from paddleflow.common.exception.paddleflow_sdk_exception import PaddleFlowSDKException
@@ -100,6 +100,7 @@ class TestOutputArtifactDict(object):
     def test_output_artifact_dict(self):
         """ test OutputArtifactDict
         """
+        from paddleflow.pipeline.dsl.component import Step
         step = Step(name="paddleflow")
         upstream_step = Step(name="paddle")
 
@@ -109,10 +110,15 @@ class TestOutputArtifactDict(object):
 
         outputs = OutputArtifactDict(step)
         outputs["department"] = art1
-        outputs["holder"] = ArtifactPlaceholder(name="def", component_full_name="abc")
+        with pytest.raises(PaddleFlowSDKException):
+            outputs["holder"] = ArtifactPlaceholder(name="def", component_full_name="abc")
+
+        dag = DAG("abc")
+        outputs2 = OutputArtifactDict(dag)
+        outputs2["holder"] = ArtifactPlaceholder(name="def", component_full_name="abc")
 
         assert outputs["department"] == art1
-        assert outputs["holder"].ref.name == "def"
+        assert outputs2["holder"].ref.name == "def"
 
         with pytest.raises(PaddleFlowSDKException):
             outputs["department2"] = art2

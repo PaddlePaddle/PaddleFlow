@@ -21,6 +21,7 @@ import pytest
 from pathlib import Path
 
 from paddleflow.pipeline.dsl.component import Component
+from paddleflow.pipeline.dsl import ContainerStep
 from paddleflow.pipeline.dsl.io_types import Artifact
 from paddleflow.pipeline.dsl.io_types import Parameter
 from paddleflow.pipeline.dsl.io_types.dicts import InputArtifactDict
@@ -150,8 +151,8 @@ class TestComponent(object):
         step2.after(step1)
         step3.after(step1, step2)
 
-        assert step1._dependences == set() and len(step2._dependences) == 1 and step1 in step2._dependences and \
-                len(step3._dependences) == 2 and step1 in step3._dependences and step2 in step3._dependences
+        assert step1._dependences == set() and len(step2._dependences) == 1 and "step1" in step2._dependences and \
+                len(step3._dependences) == 2 and "step1" in step3._dependences and "step2" in step3._dependences
        
     @pytest.mark.init
     def test_init(self):
@@ -170,11 +171,13 @@ class TestComponent(object):
                     "model": Artifact()
                     }
 
-        step1 = Component(name="step1", outputs=outputs)
-        step2 = Component(name="step2", inputs={"model": step1.outputs["model"]}, outputs=outputs, parameters=parameters1,
+        step1 = ContainerStep(name="step1", outputs=outputs)
+        step2 = ContainerStep(name="step2", inputs={"model": step1.outputs["model"]}, outputs=outputs, parameters=parameters1,
                 )
 
-        assert step2.inputs["model"].ref == step1.outputs["model"]
+        assert step2.inputs["model"].ref.name == "model" and \
+            step2.inputs["model"].ref.component.full_name == "step1"
+
         assert step1.outputs["model"].ref is None
         
         assert len(step2.outputs) == 2 and "model" in step2.outputs 
