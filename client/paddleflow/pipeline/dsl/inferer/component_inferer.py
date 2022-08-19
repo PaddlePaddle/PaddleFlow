@@ -61,12 +61,7 @@ class ComponentInferer(object):
     def infer(self, env: Dict):
         """ infer artifact, parameter and deps
         """
-        self._infer_from_loop_argument()
-        self._infer_from_condition()
-        self._infer_env()
-        self._infer_from_artifact()
-        self._infer_from_parameter()
-        self._infer_deps()
+        raise NotImplementedError
     
     def _infer_from_loop_argument(self):
         """ infer parameter and input artifact from loop_argument
@@ -281,10 +276,10 @@ class ComponentInferer(object):
     def _infer_deps_by_cp_full_name(self, full_name: str):
         """ infer deps
         """
-        if not self._is_sibling(full_name):
-            return 
-        
         parent_name = self._get_parent_full_name()
+        if not full_name.startswith(parent_name + "."):
+            return 
+            
         up_name = full_name.replace(parent_name + ".", "").split(".")[0]
         self._component._dependences.add(up_name)
 

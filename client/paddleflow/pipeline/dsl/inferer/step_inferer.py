@@ -52,7 +52,7 @@ class ContainerStepInferer(ComponentInferer):
     def _infer_env(self, env: Dict):
         """ infer env for containerstep
         """
-        for key, value in env:
+        for key, value in env.items():
             if key not in self._component.env:
                 self._component.env[key] = value
 

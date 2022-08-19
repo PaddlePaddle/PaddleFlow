@@ -38,9 +38,15 @@ class DAGInferer(ComponentInferer):
     def infer(self, env: Dict):
         """ infer parameter and artifact
         """
-        super().infer(env)
+        self._infer_from_loop_argument()
+        self._infer_from_condition()
+        self._infer_env()
+        self._infer_from_artifact()
+        self._infer_from_parameter()
 
         self._infer_from_sub_component(env)
+
+        self._infer_deps()
     
     def _infer_from_sub_component(self, env:Dict):
         """ infer parameter from sub_component
