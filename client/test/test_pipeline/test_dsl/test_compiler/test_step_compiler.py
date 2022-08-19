@@ -189,7 +189,8 @@ class TestStepCompiler(object):
                     "command": "echo 1234",
                     "env": env, 
                     "artifacts": {"output": ["model"]},
-                    "parameters": {"data": "/data", "epoch": {"type": "int", "default": 1}}
+                    "parameters": {"data": "/data", "epoch": {"type": "int", "default": 1}},
+                    "type": "step"
                     }
 
         step2 = ContainerStep(name="step2", docker_env="python:3.7", parameters={"data": step.parameters["data"]},
@@ -203,7 +204,8 @@ class TestStepCompiler(object):
                 "command": "echo 456",
                 "artifacts": {"input": {"model": "{{step1.model}}"}},
                 "parameters": {"data": "{{step1.data}}"},
-                "deps": "step1"
+                "deps": "step1",
+                "type": "step"
                 }
 
     @pytest.mark.io_names

@@ -60,6 +60,7 @@ class DAG(Component):
         super().__init__(name=name, condition=condition, loop_argument=loop_argument)
 
         self.entry_points = {}
+        self._type = "dag"
 
     def __enter__(self):
         """ organize pipeline

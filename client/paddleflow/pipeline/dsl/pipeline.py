@@ -36,6 +36,7 @@ from .utils.consts import VARIBLE_NAME_REGEX
 from .utils.consts import ENTRY_POINT_NAME
 from .compiler import Compiler
 from .inferer import DAGInferer
+from .inferer import ContainerStepInferer
 
 from paddleflow.common.exception.paddleflow_sdk_exception import PaddleFlowSDKException
 from paddleflow.common.util import  get_default_config_path
@@ -249,6 +250,9 @@ class Pipeline(object):
         
         # infer parameter and artifact for entry_point
         DAGInferer(self.entry_points).infer(self.env)
+
+        if self._post_process:
+            ContainerStepInferer(post_process)
                 
         # Compile
         pipeline_dict = Compiler().compile(self, save_path)

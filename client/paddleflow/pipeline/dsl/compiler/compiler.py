@@ -55,12 +55,10 @@ class Compiler(object):
         
         # 3、compile post_process
         post_process = pipeline.get_post_process()
-        ContainerStepInferer(post_process)
 
         if post_process is not None:
             self._pipeline_dict["post_process"] = {}
             self._pipeline_dict["post_process"][post_process.name] = StepCompiler(post_process).compile()
-            self._validate_post_process()
 
         # 4、trans pipeline conf
         if pipeline.docker_env:
@@ -80,6 +78,7 @@ class Compiler(object):
         if pipeline.fs_options:
             self._pipeline_dict["fs_options"] = pipeline.fs_options.compile()
 
+        self._valiedate()
         #4、write to file
         if save_path:
             self._write(save_path)
@@ -116,7 +115,10 @@ class Compiler(object):
     def _validate_post_process(self):
         """ validate post_process is illegal or not
         """
-        for name, post_process in self._pipeline_dict["post_process"]:
+        if "post_process" not in self._pipeline_dict:
+            return 
+
+        for name, post_process in self._pipeline_dict["post_process"].items():
             for key in ["condition", "entry_points", "loop_arugment", "deps", "cache"]:
                 if key in post_process:
                     raise PaddleFlowSDKException(PipelineDSLError, 
@@ -126,3 +128,28 @@ class Compiler(object):
             if name in self._pipeline_dict["entry_points"]:
                 raise PaddleFlowSDKException(PipelineDSLError, 
                     f"Step name[{name}] in post_process cannot be the same as the component names in entry_points")
+
+    def _valiedate(self):
+        """ validate
+        """
+        self._validate_post_process()
+        self._validate_docker_env()
+
+    def _validate_docker_env(self):
+        """ validate docker env
+        """
+        if "docker_env" in self._pipeline_dict:
+            return
+        
+        return self._validate_docker_env_by_dag(self._pipeline_dict["entry_points"])
+    
+    def _validate_docker_env_by_dag(self, dag_dict):
+        """ validate docker env by dag
+        """
+        for key, cp_dict in dag_dict.items():
+            if cp_dict["type"] == "dag":
+                self._validate_docker_env_by_dag(cp_dict["entry_points"])
+            else:
+                if "docker_env" not in cp_dict:
+                    raise PaddleFlowSDKException(PipelineDSLError,
+                        f"all step should specify docker_env when pipeline does not specify")

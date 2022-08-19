@@ -58,8 +58,10 @@ class Step(Component):
             PaddleFlowSDKException: if some args is illegal
         """
         super().__init__(name, inputs, outputs, parameters, condition, loop_argument)
+        self._type = "step"
 
         self.cache_options = cache_options
+
 
         if extra_fs and not isinstance(extra_fs, list):
             extra_fs = [extra_fs]

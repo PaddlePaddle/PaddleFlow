@@ -45,7 +45,6 @@ class Component(object):
     """
 
     REGISTER_HANDLER = register_component_handler
-
     def __init__(
             self, 
             name: str, 
@@ -76,6 +75,7 @@ class Component(object):
 
         self.name = name
         self._full_name = ""
+        self._type = "component"
 
         register_component_handler(self)
 
@@ -123,6 +123,12 @@ class Component(object):
         """
         return self._error_msg_prefix + msg
     
+    @property
+    def type(self):
+        """ get the component type
+        """
+        return self._type
+
     @property
     def inputs(self):
         """ get inputs arifacts

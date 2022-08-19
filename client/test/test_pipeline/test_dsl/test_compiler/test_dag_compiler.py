@@ -102,7 +102,7 @@ class TestStepCompiler(object):
         cp = DAGCompiler(dag)
 
         dag_dict = cp.compile()
-        assert len(dag_dict) == 1 and len(dag_dict["entry_points"]) == 3
+        assert len(dag_dict) == 2 and len(dag_dict["entry_points"]) == 3
         assert "step1" in dag_dict["entry_points"] and "dag1" in dag_dict["entry_points"] and \
             "step4" in dag_dict["entry_points"]
         

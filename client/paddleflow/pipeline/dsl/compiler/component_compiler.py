@@ -70,13 +70,16 @@ class ComponentCompiler(object):
             else:
                 self._dict["loop_argument"] = arg
 
-        # 4. parameter
+        # 4. type
+        self._dict["type"] = self._component.type
+        
+        # 5. parameter
         self._compile_parameters()
 
-        # 5. artifact
+        # 6. artifact
         self._compile_artifacts()
 
-        # 6. validate
+        # 7. validate
         self._validatte()
 
     def _compile_artifacts(self):
