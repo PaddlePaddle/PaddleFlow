@@ -309,10 +309,14 @@ func remount(volumeMount volumeMountInfo, mountInfo mount.Info) error {
 		}
 	} else {
 		// mount source path
-		if err := utils.ManualUnmount(mountInfo.SourcePath); err != nil {
-			err := fmt.Errorf("process remount[%s] failed when ManualUnmount source path %s. err: %v",
-				mountInfo.FS.ID, mountInfo.SourcePath, err)
-			return err
+		isMountPoint, err := utils.IsMountPoint(mountInfo.SourcePath)
+		log.Tracef("mountpoint path[%s] : isMountPoint[%t], err:%v", mountInfo.SourcePath, isMountPoint, err)
+		if isMountPoint {
+			if err := utils.ManualUnmount(mountInfo.SourcePath); err != nil {
+				err := fmt.Errorf("process remount[%s] failed when ManualUnmount source path %s. err: %v",
+					mountInfo.FS.ID, mountInfo.SourcePath, err)
+				return err
+			}
 		}
 
 		output, err := utils.ExecCmdWithTimeout(mountInfo.Cmd, mountInfo.Args)
