@@ -779,7 +779,7 @@ ret, response = client.create_pipeline()
 |字段名称 | 字段类型 | 字段含义
 |:---:|:---:|:---:|
 |fs_name| string (required)|共享存储名称
-|yaml_path| string (required)|yaml 文件所在路径
+|yaml_path| string (optional)|yaml 文件所在路径
 |desc| string (optional)|工作流模板的描述
 |username| string (optional)|模板所属用户名称
 
@@ -978,7 +978,7 @@ scheduleList中每一个元素的信息见下ScheduleInfo类
 class ScheduleInfo(object):
     """the class of schedule info"""
 
-    def __init__(self, crontab, fs_config, username, pipeline_version_id, pipeline_id,
+    def __init__(self, crontab, fs_config, username, pipeline_id, pipeline_version_id,
                  desc, name, schedule_id, options, start_time, end_time, create_time,
                  update_time, next_run_time, message, status):
         self.schedule_id = schedule_id
