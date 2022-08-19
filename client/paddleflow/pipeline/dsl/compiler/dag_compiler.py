@@ -39,14 +39,25 @@ class DAGCompiler(ComponentCompiler):
         """
         super().compile()
         topo = self._topo_sort()
+        self._dict["entry_points"] = {}
 
         for sub in topo:
             if isinstance(sub, DAG):
-                self._dict[sub.name] = DAGCompiler(sub).compile
+                self._dict["entry_points"][sub.name] = DAGCompiler(sub).compile()
             else:
-                self._dict[sub.name] = StepCompiler(sub).compile
+                self._dict["entry_points"][sub.name] = StepCompiler(sub).compile()
         
         return self._dict
+
+    def _compile_output_artifact(self):
+        """ _compile_output_artifact
+        """
+        if not self._component.outputs:
+            return 
+        
+        self._dict.setdefault("artifacts", {}).setdefault("output", {})
+        for name, art in self._component.outputs.items():
+            self._dict["artifacts"]["output"][name] = "{{" + f"{art.ref.component.name}.{art.ref.name}" + "}}"
 
     def _topo_sort(self):
         """ List Steps in topological order.
@@ -68,7 +79,12 @@ class DAGCompiler(ComponentCompiler):
                 need_add = True
 
                 for dep in sub._dependences:
-                    if dep not in topo_sort:
+                    if dep not in self._component.entry_points:
+                        raise PaddleFlowSDKException(PipelineDSLError, 
+                            self._generate_error_msg(f"there is no substep or subdag named [{dep}] in " + \
+                                f"DAG[{self._component.name}]"))
+
+                    if self._component.entry_points[dep] not in topo_sort:
                         need_add = False
                         break
 
@@ -82,9 +98,3 @@ class DAGCompiler(ComponentCompiler):
                     self._generate_error_msg(f"there is a ring between {ring_steps}"))
     
         return topo_sort
-
-    def _validatte(self):
-        """ validate
-        """
-        #TODO: 校验deps的合法性
-        pass

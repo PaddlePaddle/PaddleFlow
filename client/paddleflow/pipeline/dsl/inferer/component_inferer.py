@@ -66,6 +66,7 @@ class ComponentInferer(object):
     def _infer_from_loop_argument(self):
         """ infer parameter and input artifact from loop_argument
         """
+        # TODO: conditon && loop_argument 字段不能引用输出artifact
         if self._component.loop_argument is None:
             return 
 
@@ -77,7 +78,11 @@ class ComponentInferer(object):
                 err_msg = self._generate_error_msg(f"cannot find which components the {type(loop)}[{loop}] belong to")
                 raise PaddleFlowSDKException(PipelineDSLError, err_msg)
             if loop.argument.component == self._component:
-                return
+                if not isinstance(loop.argument, _LoopItem) and loop.argument.name in self._component.outputs:
+                    err_msg = self._generate_error_msg(f"loop_arugment cannot reference the output artifact which " + \
+                        "beling to the same Step or DAG")
+                    raise PaddleFlowSDKException(PipelineDSLError, err_msg)
+                return 
             else:
                 if isinstance(loop.argument, Parameter):
                     self._validate_inferred_parameter(loop.argument.component.full_name)
@@ -134,6 +139,7 @@ class ComponentInferer(object):
     def _infer_from_condition(self):
         """ set condition attribute
         """
+        # TODO: conditon && loop_argument 字段不能引用输出artifact
         if self._component.condition is None:
             return 
         
@@ -181,6 +187,11 @@ class ComponentInferer(object):
         ref_art_name = tpl.group("var_name")
 
         if full_name == self._component.full_name:
+            if ref_art_name not in self._component.inputs:
+                err_msg = self._generate_error_msg(f"there is no parameter named [{ref_art_name}] in" + \
+                    f" {self._component.class_name}[{self._component.name}]")
+                raise PaddleFlowSDKException(PipelineDSLError, err_msg)
+
             return self._component.inputs[ref_art_name]
         
         art = ArtifactPlaceholder(ref_art_name, full_name)
@@ -198,6 +209,11 @@ class ComponentInferer(object):
         ref_param_name = tpl.group("var_name")
 
         if full_name == self._component.full_name:
+            if ref_param_name not in self._component.parameters:
+                err_msg = self._generate_error_msg(f"there is no parameter named [{ref_param_name}] in" + \
+                    f" {self._component.class_name}[{self._component.name}]")
+                raise PaddleFlowSDKException(PipelineDSLError, err_msg)
+
             return self._component.parameters[ref_param_name]
         
         param = ParameterPlaceholder(ref_param_name, full_name)

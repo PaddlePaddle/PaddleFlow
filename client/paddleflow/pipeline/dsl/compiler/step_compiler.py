@@ -28,7 +28,7 @@ class StepCompiler(ComponentCompiler):
         super().__init__(component)
 
     def compile(self):
-        """ trans step to dict
+        """ trans step to dicts'
         """
         super().compile()
 
@@ -62,7 +62,7 @@ class StepCompiler(ComponentCompiler):
         """
         if self._component.outputs:
             self._dict.setdefault("artifacts", {})
-            self._dict["artifacts"]["output"] = self._component.outputs.kes()
+            self._dict["artifacts"]["output"] = list(self._component.outputs.keys())
     
     def _compile_cache_options(self):
         """ compile cache_options
@@ -79,9 +79,9 @@ class StepCompiler(ComponentCompiler):
         if not isinstance(self._component.extra_fs, list):
             self._component.extra_fs = [self._component.extra_fs]
 
-            for extra in self._component.extra_fs:
-                if not isinstance(extra, ExtraFS):
-                    raise PaddleFlowSDKException(PipelineDSLError, 
-                        self._generate_error_msg("Step's extra_fs attribute should be a list of ExtraFS instance"))
+        for extra in self._component.extra_fs:
+            if not isinstance(extra, ExtraFS):
+                raise PaddleFlowSDKException(PipelineDSLError, 
+                    self._generate_error_msg("Step's extra_fs attribute should be a list of ExtraFS instance"))
 
-                self._dict["extra_fs"].append(extra.compile())  
+            self._dict["extra_fs"].append(extra.compile())

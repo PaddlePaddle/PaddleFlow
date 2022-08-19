@@ -294,3 +294,8 @@ class Component(object):
                 self._generate_error_msg("the condition attribute of component should be an instance of str"))
             
         self._condition = condition
+    
+    def class_name(self):
+        """ get __class__.__name__
+        """
+        return self.__class__.__name__

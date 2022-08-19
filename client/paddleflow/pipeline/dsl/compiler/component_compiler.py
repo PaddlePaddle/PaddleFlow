@@ -92,12 +92,19 @@ class ComponentCompiler(object):
             self._dict["artifacts"] = {"input": {}}
             inputs = self._dict["artifacts"]["input"]
 
-            for name, art in self._component.inputs:
+            for name, art in self._component.inputs.items():
                 ref_component = art.ref.component
-                if art.ref.name not in ref_component.outputs:
-                    raise PaddleFlowSDKException(PipelineDSLError,
-                        self._generate_error_msg("there is no output artifact named[{art.ref.name}] in " + \
-                            f"{ref_component.__class__.__name__}[{ref_component.full_name}]"))
+
+                if not self._is_parent(ref_component.full_name):
+                    if art.ref.name not in ref_component.outputs:
+                        raise PaddleFlowSDKException(PipelineDSLError,
+                            self._generate_error_msg(f"there is no output artifact named[{art.ref.name}] in " + \
+                                f"{ref_component.class_name()}[{ref_component.full_name}]"))
+                else:
+                    if art.ref.name not in ref_component.inputs:
+                        raise PaddleFlowSDKException(PipelineDSLError,
+                            self._generate_error_msg(f"there is no input artifact named[{art.ref.name}] in " + \
+                                f"{ref_component.class_name()}[{ref_component.full_name}]"))
 
                 if self._is_parent(art.ref.component.full_name):
                     inputs[name] = "{{PF_PARENT." + art.ref.name + "}}"
@@ -115,13 +122,13 @@ class ComponentCompiler(object):
         if self._component.parameters:
             self._dict["parameters"] = {}
 
-            for name, param in self._component.parameters:
+            for name, param in self._component.parameters.items():
                 if isinstance(param.ref, Parameter):
                     ref_component = param.ref.component
                     if param.ref.name not in ref_component.parameters:
                         raise PaddleFlowSDKException(PipelineDSLError,
-                            self._generate_error_msg("there is no parameter named[{art.ref.name}] in " + \
-                                f"{ref_component.__class__.__name__}[{ref_component.full_name}]"))
+                            self._generate_error_msg(f"there is no parameter named[{param.ref.name}] in " + \
+                                f"{ref_component.class_name()}[{ref_component.full_name}]"))
 
                     if self._is_parent(param.ref.component.full_name):
                         self._dict["parameters"][name] = "{{PF_PARENT." + param.ref.name + "}}"
@@ -133,8 +140,13 @@ class ComponentCompiler(object):
                             self._generate_error_msg("component cannot reference its loop item as its parameter"))
                     
                     self._dict["parameters"][name] = "{{PF_PARENT.PF_LOOP_ARGUMENT}}"
-                elif param.ref is None:
-                    self._dict["parameters"][name] = param.default if param.default else ""
+                elif param.ref is not None:
+                    self._dict["parameters"][name] = param.ref
+                else:
+                    if param.default is not None:
+                        self._dict["parameters"].setdefault(name, {})["default"] = param.default
+                    if param.type is not None:
+                        self._dict["parameters"].setdefault(name, {})["type"] = param.type
 
 
     def _is_parent(self, component_full_name:str):
@@ -145,8 +157,7 @@ class ComponentCompiler(object):
     def _validatte(self):
         """ validate
         """
-        # TODO: conditon && loop_argument 字段不能引用输出artifact
-        raise NotImplementedError
+        self.validate_io_names()
 
     def validate_io_names(self):
         """ Ensure that the input / output aritact and parameter of the step have different names
