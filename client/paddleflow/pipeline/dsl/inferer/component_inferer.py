@@ -258,6 +258,7 @@ class ComponentInferer(object):
         """
         for name, param  in self._component.parameters.items():
             if isinstance(param.ref, Parameter):
+                self._validate_inferred_parameter(param.ref.component.full_name)
                 self._component.parameters[name] = ParameterPlaceholder(name=param.ref.name, 
                     component_full_name=param.ref.component.full_name)
 
