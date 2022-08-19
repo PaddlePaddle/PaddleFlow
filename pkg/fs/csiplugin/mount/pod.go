@@ -68,20 +68,14 @@ func PodUnmount(volumeID string, mountInfo Info) error {
 		log.Errorf("PodUnmount: Get pod %s err: %v", podName, err)
 		return err
 	}
-	// if mount pod not exists.
+	// if mount pod not exists. might be process mount
 	if pod == nil {
-		log.Infof("PodUnmount: Mount pod %s not exists.", podName)
+		//log.Infof("PodUnmount: Mount pod %s not exists.", podName)
 		return nil
 	}
 
 	workPodUID := utils.GetPodUIDFromTargetPath(mountInfo.TargetPath)
 	if workPodUID != "" {
-		// clean up mount points
-		pathsToCleanup := []string{mountInfo.TargetPath}
-		if err := utils.CleanUpMountPoints(pathsToCleanup); err != nil {
-			log.Errorf("PodUnmount: cleanup mount points[%v] err: %s", pathsToCleanup, err.Error())
-			return err
-		}
 		return removeRef(k8sClient, pod, workPodUID)
 	}
 	return nil
