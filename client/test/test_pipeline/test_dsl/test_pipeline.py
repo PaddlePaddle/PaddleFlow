@@ -20,7 +20,7 @@ from paddleflow.pipeline.dsl.component import ContainerStep
 from paddleflow.pipeline.dsl.options import CacheOptions
 from paddleflow.pipeline.dsl.utils.util import validate_string_by_regex
 from paddleflow.pipeline.dsl.utils.consts import PIPELINE_NAME_REGEX
-from paddleflow.pipeline.dsl.utils.consts import PipelineDSLError
+from paddleflow.pipeline.dsl.utils.consts import PipelineDSLError, ENTRY_POINT_NAME
 from paddleflow.common.exception.paddleflow_sdk_exception import PaddleFlowSDKException
 
 
@@ -76,7 +76,7 @@ class TestPipeline(object):
         pipeline = Pipeline(name="hello")(hello)(name="paddleflow", age=1)
 
         assert len(pipeline._entry_points.entry_points) == 3 and "introduce" in pipeline._entry_points.entry_points
-        assert "introduce" in pipeline._entry_points.entry_points["hello"]._dependences
+        assert ENTRY_POINT_NAME + ".introduce" in pipeline._entry_points.entry_points["hello"]._dependences
 
         assert pipeline._entry_points.entry_points["hello"].parameters["name"].ref == "paddleflow" and \
                 pipeline._entry_points.entry_points["hello"].parameters["age"].ref == 1 and \

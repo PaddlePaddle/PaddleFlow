@@ -196,6 +196,7 @@ class Component(object):
             raise PaddleFlowSDKException(PipelineDSLError, err_msg)
         
         # OutputArtifactDict would change the value of outputs, so we need deepcopy it to support reuse
+        outputs = copy.deepcopy(outputs)
         for name, art in outputs.items():
             self._outputs[name] = art
 
@@ -226,6 +227,7 @@ class Component(object):
             err_msg = self._generate_error_msg("the params of step should be an instance of Dict")
             raise PaddleFlowSDKException(PipelineDSLError, err_msg)
         
+        params = copy.deepcopy(params)
         for key, value in params.items():
             self._params[key] = value
     

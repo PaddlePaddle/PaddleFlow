@@ -99,7 +99,7 @@ class ComponentInferer(object):
                             f"component can only reference itself or its parent component's loop item"))
             
                     param_name = self._generate_art_or_param_name(prefix, "param")
-                    self._component.parameters[param_name] = "{PF_PARENT{.PF_LOOP_ARGUMENT}}"
+                    self._component.parameters[param_name] = "{{PF_PARENT.PF_LOOP_ARGUMENT}}"
                     self._component.loop_argument = self._component.parameters[param_name]
                 else:
                     name = self._generate_art_or_param_name(prefix, "art")

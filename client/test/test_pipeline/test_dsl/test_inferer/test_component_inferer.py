@@ -31,7 +31,7 @@ from paddleflow.pipeline.dsl.io_types.dicts import ParameterDict
 from paddleflow.pipeline.dsl.options import CacheOptions
 from paddleflow.pipeline.dsl.utils.util import validate_string_by_regex
 from paddleflow.pipeline.dsl.utils.consts import COMPONENT_NAME_REGEX
-from paddleflow.pipeline.dsl.utils.consts import VARIBLE_NAME_REGEX
+from paddleflow.pipeline.dsl.utils.consts import VARIBLE_NAME_REGEX, ENTRY_POINT_NAME
 from paddleflow.common.exception.paddleflow_sdk_exception import PaddleFlowSDKException
 
 def base_demo():
@@ -392,7 +392,7 @@ class TestComponentInferer(object):
     def test_infer_deps(self):
         """ test deps
         """
-        with DAG(name="pf-entry-points") as dag:
+        with DAG(name=ENTRY_POINT_NAME) as dag:
             step1 = ContainerStep(
                     name="step1",
                     parameters={
@@ -447,7 +447,7 @@ class TestComponentInferer(object):
 
         inferer2 = ComponentInferer(step2)
         inferer2._infer_deps()
-        assert step2._dependences == {"step1"}
+        assert step2._dependences == {ENTRY_POINT_NAME + ".step1"}
 
         inferer3 = ComponentInferer(step3)
         inferer3._infer_from_parameter()

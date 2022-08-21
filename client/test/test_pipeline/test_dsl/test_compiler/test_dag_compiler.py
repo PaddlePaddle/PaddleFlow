@@ -40,13 +40,16 @@ class TestStepCompiler(object):
             st1 = ContainerStep("step1")
             st2 = ContainerStep("step2")
             st3 = ContainerStep("step3")
+            st1._set_full_name("")
+            st2._set_full_name("")
+            st3._set_full_name("")
 
         cp = DAGCompiler(dag1)
         sorted = cp._topo_sort()
         assert len(sorted) == 3
         
         st3.after(st1)
-        st2.after(st3)
+        st2.after(st3)            
         
         sorted = cp._topo_sort()
         assert sorted == [st1, st3, st2]
