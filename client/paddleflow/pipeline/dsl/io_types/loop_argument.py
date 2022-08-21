@@ -96,8 +96,6 @@ class _LoopArgument(object):
             except Exception as e:
                 raise PaddleFlowSDKException(PipelineDSLError, err_msg + f" error: {e}")
             
-            import pdb
-            pdb.set_trace()
             if not isinstance(argument, list):
                 raise PaddleFlowSDKException(PipelineDSLError, self._prefix + \
                     "when the type of loop_arugment is string, then it should an json list " + \
