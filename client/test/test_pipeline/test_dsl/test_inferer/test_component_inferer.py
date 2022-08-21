@@ -154,7 +154,7 @@ class TestComponentInferer(object):
             new_param = k
             assert new_param.startswith("loop_param") and len(new_param) == len("loop_param_") + 6
             assert step2.loop_argument.argument == v and v.name == new_param and \
-                v.ref == "{{PF_PARET.PF_LOOP_ARGUMENT}}"
+                v.ref == "{{PF_PARENT.PF_LOOP_ARGUMENT}}"
         
         step2.parameters.pop(new_param)
 
@@ -256,7 +256,7 @@ class TestComponentInferer(object):
             new_param = k
             assert new_param.startswith("loop_param") and len(new_param) == len("loop_param_") + 6
             assert step2.loop_argument.argument == v and v.name == new_param and \
-                v.ref == "{{PF_PARET.PF_LOOP_ARGUMENT}}"
+                v.ref == "{{PF_PARENT.PF_LOOP_ARGUMENT}}"
         
         step2.parameters.pop(new_param)
 
@@ -365,7 +365,7 @@ class TestComponentInferer(object):
             new_param = k
             assert new_param.startswith("condition_param") and len(new_param) == len("condition_param_") + 6
             assert step2.condition == "{{" + f"{new_param}" + "}} > 10" and v.name == new_param and \
-                v.ref == "{{PF_PARET.PF_LOOP_ARGUMENT}}"
+                v.ref == "{{PF_PARENT.PF_LOOP_ARGUMENT}}"
         
         step2.parameters.pop(new_param)
 

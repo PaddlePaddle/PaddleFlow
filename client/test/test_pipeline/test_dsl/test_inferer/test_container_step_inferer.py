@@ -120,7 +120,7 @@ class TestStepInferer(object):
             new_param = k
             assert new_param.startswith("command_param") and len(new_param) == len("command_param_") + 6
             assert step2.command == "{{"  + new_param + "}}" and v.name == new_param and \
-                v.ref == "{{PF_PARET.PF_LOOP_ARGUMENT}}"
+                v.ref == "{{PF_PARENT.PF_LOOP_ARGUMENT}}"
         
         step2.parameters.pop(new_param)
 
@@ -213,7 +213,7 @@ class TestStepInferer(object):
             new_param = k
             assert new_param.startswith("env_param") and len(new_param) == len("env_param_") + 6
             assert step2.env[env1] == "{{" + f"{new_param}" + "}} > 10" and v.name == new_param and \
-                v.ref == "{{PF_PARET.PF_LOOP_ARGUMENT}}"
+                v.ref == "{{PF_PARENT.PF_LOOP_ARGUMENT}}"
         
         step2.parameters.pop(new_param)
 

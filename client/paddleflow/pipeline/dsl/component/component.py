@@ -247,7 +247,7 @@ class Component(object):
             if not isinstance(cp, Component):
                 err_msg = self._generate_error_msg("all upstream should be an instance of Component")
                 raise PaddleFlowSDKException(PipelineDSLError, err_msg)
-            self._dependences.add(cp.name)
+            self._dependences.add(cp.full_name)
 
         return self
 

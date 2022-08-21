@@ -45,7 +45,6 @@ class DAGInferer(ComponentInferer):
         self._infer_from_parameter()
 
         self._infer_from_sub_component(env)
-
         self._infer_deps()
     
     def _infer_from_sub_component(self, env:Dict):
@@ -61,6 +60,7 @@ class DAGInferer(ComponentInferer):
         for _, cp in self._component.entry_points.items():
             self._infer_parameter_from_sub_component(cp)
             self._infer_inputs_from_sub_component(cp)
+            self._infer_deps_from_sub_component(cp)
 
         # only sub dag need to infer output from it's downstream component and just execute this function on the outermost
         if len(self._component.full_name.split(".")) == 1:
@@ -130,6 +130,38 @@ class DAGInferer(ComponentInferer):
             if isinstance(cp, DAG):
                 DAGInferer(cp)._infer_outputs_for_sub_dag()
 
+    def _infer_deps_from_sub_component(self, cp):
+        """ infer deps from sub_component
+        """
+        if not cp._dependences:
+            return 
+
+        need_remove = []
+        need_add = []
+        for dep in cp._dependences:
+            if "." not in dep:
+                if dep not in self._component.entry_points:
+                    raise PaddleFlowSDKException(PipelineDSLError, 
+                        self._generate_error_msg(f"there is no substep or subdag named [{dep}] in " + \
+                            f"DAG[{self._component.name}]"))
+                else:            
+                    continue
+
+            need_remove.append(dep)
+            if self._has_sub_componet(dep):
+                dep = dep.rsplit(".")[-1]
+                need_add.append(dep)
+            elif self._has_descendants_component(dep):
+                dep = dep.replace(self._component.full_name + ".", "", 1).split(".")[0]
+                need_add.append(dep)
+            else:
+                self._component._dependences.add(dep)
+        
+        for dep in need_remove:
+            cp._dependences.remove(dep)
+        
+        for dep in need_add:
+            cp._dependences.add(dep)
 
     def _infer_env(self):
         """ infer env for subcomponent

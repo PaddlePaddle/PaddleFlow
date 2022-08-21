@@ -82,7 +82,7 @@ class DAGCompiler(ComponentCompiler):
                     if dep not in self._component.entry_points:
                         raise PaddleFlowSDKException(PipelineDSLError, 
                             self._generate_error_msg(f"there is no substep or subdag named [{dep}] in " + \
-                                f"DAG[{self._component.name}]"))
+                                f"DAG[{self._component.full_name}]"))
 
                     if self._component.entry_points[dep] not in topo_sort:
                         need_add = False

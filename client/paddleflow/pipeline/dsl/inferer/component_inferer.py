@@ -99,7 +99,7 @@ class ComponentInferer(object):
                             f"component can only reference itself or its parent component's loop item"))
             
                     param_name = self._generate_art_or_param_name(prefix, "param")
-                    self._component.parameters[param_name] = "{{PF_PARET.PF_LOOP_ARGUMENT}}"
+                    self._component.parameters[param_name] = "{PF_PARENT{.PF_LOOP_ARGUMENT}}"
                     self._component.loop_argument = self._component.parameters[param_name]
                 else:
                     name = self._generate_art_or_param_name(prefix, "art")
@@ -234,7 +234,7 @@ class ComponentInferer(object):
                     f"component can only reference itself or its parent component's loop item"))
             
             param_name = self._generate_art_or_param_name(filed_type, "param")
-            self._component.parameters[param_name] = "{{PF_PARET.PF_LOOP_ARGUMENT}}"
+            self._component.parameters[param_name] = "{{PF_PARENT.PF_LOOP_ARGUMENT}}"
             return self._component.parameters[param_name]
         
     def _validate_inferred_parameter(self, ref_cp_full_name):
@@ -244,7 +244,7 @@ class ComponentInferer(object):
         if not self._component.full_name.startswith(ref_parent_name + ".") and \
             not self._component.full_name.startswith(ref_cp_full_name + "."):
             raise PaddleFlowSDKException(PipelineDSLError, 
-                self._generate_error_msg(f"only support  reference Parameter from sibling component, " + \
+                self._generate_error_msg(f"only support reference Parameter from sibling component, " + \
                     "ancestor component, and ancestor sibling component"))
 
     def _generate_art_or_param_name(self, prefix: str, io_type):
@@ -274,7 +274,7 @@ class ComponentInferer(object):
                 # support multiple infer
                 if self._is_parent(art.ref.component.full_name):
                     continue
-                
+
                 self._component.inputs[name] = ArtifactPlaceholder(name=art.ref.name, 
                     component_full_name=art.ref.component.full_name)
 

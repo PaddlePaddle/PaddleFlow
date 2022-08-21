@@ -221,7 +221,7 @@ class Pipeline(object):
 
         self._init_client(config)
         if disabled:
-            disabled = [disable.strip(ENTRY_POINT_NAME + ".") for disable in disabled]
+            disabled = ",".join([disable.strip(ENTRY_POINT_NAME + ".") for disable in disabled])
         
         return self._client.create_run(fs_name, username, run_name, desc, run_yaml_raw=pipeline, disabled=disabled)
 
