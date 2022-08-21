@@ -33,6 +33,7 @@ from paddleflow.pipeline.dsl.utils.consts import COMPONENT_NAME_REGEX
 from paddleflow.pipeline.dsl.utils.consts import PARAM_NAME_CODE_LEN
 from paddleflow.pipeline.dsl.utils.consts import PipelineDSLError 
 from paddleflow.pipeline.dsl.utils.consts import VARIBLE_NAME_REGEX
+from paddleflow.pipeline.dsl.utils.consts import ENTRY_POINT_NAME
 from paddleflow.common.exception.paddleflow_sdk_exception import PaddleFlowSDKException
 
 def register_component_handler(component):
@@ -70,7 +71,7 @@ class Component(object):
             PaddleFlowSDKException: if some args is illegal
         """
         if not validate_string_by_regex(name, COMPONENT_NAME_REGEX):
-            raise PaddleFlowSDKException(PipelineDSLError, f"the name of {self.__class__.__name__}[{name}] is is illegal" + \
+            raise PaddleFlowSDKException(PipelineDSLError, f"the name of {self.class_name()}[{name}] is is illegal" + \
                     f"the regex used for validation is {COMPONENT_NAME_REGEX}")
 
         self.name = name
@@ -79,7 +80,10 @@ class Component(object):
 
         register_component_handler(self)
 
-        self._error_msg_prefix = f"error occurred in Component[{self.name}]: "
+        if self.name != ENTRY_POINT_NAME:
+            self._error_msg_prefix = f"error occurred in {self.class_name()}[{self.name}]: "
+        else:
+            self._error_msg_prefix = f"error occurred in Pipeline: "
         self.loop_argument = loop_argument
         self.condition = condition        
 
@@ -109,7 +113,7 @@ class Component(object):
             PaddleFlowPaddleFlowSDKExceptionSDKException: if name is illegal
         """
         if not validate_string_by_regex(name, COMPONENT_NAME_REGEX):
-            raise PaddleFlowSDKException(PipelineDSLError, f"the name of Step[{name}] is is illegal " + \
+            raise PaddleFlowSDKException(PipelineDSLError, f"the name of Dag[{name}] is is illegal " + \
                     f"the regex used for validation is {COMPONENT_NAME_REGEX}")
             
         self._name = name
@@ -192,7 +196,6 @@ class Component(object):
             raise PaddleFlowSDKException(PipelineDSLError, err_msg)
         
         # OutputArtifactDict would change the value of outputs, so we need deepcopy it to support reuse
-        outputs = copy.deepcopy(outputs)
         for name, art in outputs.items():
             self._outputs[name] = art
 
@@ -223,8 +226,6 @@ class Component(object):
             err_msg = self._generate_error_msg("the params of step should be an instance of Dict")
             raise PaddleFlowSDKException(PipelineDSLError, err_msg)
         
-        # to avoid changing the value of params
-        params = copy.deepcopy(params)
         for key, value in params.items():
             self._params[key] = value
     
@@ -265,6 +266,7 @@ class Component(object):
 
         .. note:: This is not used directly by the users!!!
         """
+        # if not parent_name or parent_name == ENTRY_POINT_NAME:
         if not parent_name:
             self._full_name = self.name
         else:            

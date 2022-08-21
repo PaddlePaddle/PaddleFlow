@@ -51,7 +51,7 @@ class Compiler(object):
         self._pipeline_dict = {}
 
         # 2、compile Entypoint
-        self._pipeline_dict["entry_points"] = DAGCompiler(pipeline.entry_points).compile()["entry_points"]
+        self._pipeline_dict["entry_points"] = DAGCompiler(pipeline._entry_points).compile()["entry_points"]
         
         # 3、compile post_process
         post_process = pipeline.get_post_process()

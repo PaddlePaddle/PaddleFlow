@@ -111,4 +111,4 @@ class DAG(Component):
         names = self.entry_points.keys()
         if name in names:
             raise PaddleFlowSDKException(PipelineDSLError, 
-                self._generate_error_msg(f"there are multiple steps with the same name[{name}]"))
+                self._generate_error_msg(f"there are multiple Steps or Dags with the same name[{name}]"))

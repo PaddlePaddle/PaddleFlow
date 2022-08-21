@@ -30,4 +30,4 @@ PipelineDSLError = "PipelineDSLError"
 
 PARAM_NAME_CODE_LEN = 6
 
-ENTRY_POINT_NAME = "pf_entry_point"
+ENTRY_POINT_NAME = "PF-ENTRY-POINT"

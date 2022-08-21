@@ -73,29 +73,26 @@ class TestPipeline(object):
     def test_call(self):
         """ test __call__ and _organize_pipeline
         """
-        pipeline = Pipeline(name="hello")
-        pipeline(hello)(name="paddleflow", age=1)
+        pipeline = Pipeline(name="hello")(hello)(name="paddleflow", age=1)
 
-        assert len(pipeline.entry_points.entry_points) == 3 and "introduce" in pipeline.entry_points.entry_points
-        assert "introduce" in pipeline.entry_points.entry_points["hello"]._dependences
+        assert len(pipeline._entry_points.entry_points) == 3 and "introduce" in pipeline._entry_points.entry_points
+        assert "introduce" in pipeline._entry_points.entry_points["hello"]._dependences
 
-        assert pipeline.entry_points.entry_points["hello"].parameters["name"].ref == "paddleflow" and \
-                pipeline.entry_points.entry_points["hello"].parameters["age"].ref == 1 and \
-                pipeline.entry_points.entry_points["byebye"].parameters["name"].ref == pipeline.entry_points.entry_points["hello"].parameters["name"]
+        assert pipeline._entry_points.entry_points["hello"].parameters["name"].ref == "paddleflow" and \
+                pipeline._entry_points.entry_points["hello"].parameters["age"].ref == 1 and \
+                pipeline._entry_points.entry_points["byebye"].parameters["name"].ref == pipeline._entry_points.entry_points["hello"].parameters["name"]
 
-        pipeline = Pipeline(name="dag_example")
-        pipeline(dag_example)()
-        assert len(pipeline.entry_points.entry_points) == 4 
-        assert "show" in pipeline.entry_points.entry_points and "dag-show" not in pipeline.entry_points.entry_points and \
-            "dag-show" in pipeline.entry_points.entry_points["dag2"].entry_points
+        pipeline = Pipeline(name="dag_example")(dag_example)()
+        assert len(pipeline._entry_points.entry_points) == 4 
+        assert "show" in pipeline._entry_points.entry_points and "dag-show" not in pipeline._entry_points.entry_points and \
+            "dag-show" in pipeline._entry_points.entry_points["dag2"].entry_points
         
     @pytest.mark.compile
     def test_compile(self):
         """ test compile
         """
         cache = CacheOptions(enable=True, max_expired_time=-1)
-        pipeline = Pipeline(name="dag_examle", docker_env="python:3.9", cache_options=cache)
-        pipeline(dag_example)()
+        pipeline = Pipeline(name="dag_examle", docker_env="python:3.9", cache_options=cache)(dag_example)()
 
         ppl_dict = pipeline.compile(save_path="./hello_with_io.yaml")
         with open("./hello_with_io.yaml") as fp:
@@ -108,8 +105,7 @@ class TestPipeline(object):
         """ test run 
         """
         pf_config = str(Path(__file__).parent / "pf.config")
-        pipeline = Pipeline(name="hello", docker_env="python:3.9")
-        pipeline(hello_with_io)(name="pipeline", age=17)
+        pipeline = Pipeline(name="hello", docker_env="python:3.9")(hello_with_io)(name="pipeline", age=17)
 
         mocker.patch("paddleflow.Client.login", return_value=(True, ""))
         mocker.patch("paddleflow.Client.create_run", return_value=None)
@@ -137,8 +133,7 @@ class TestPipeline(object):
         """ test set_post_process and get_post_process
         """
         # 1. set_post_process
-        pipeline = Pipeline(name="hello", docker_env="python:3.9")
-        pipeline(hello_with_io)(name="pipeline", age=17)
+        pipeline = Pipeline(name="hello", docker_env="python:3.9")(hello_with_io)(name="pipeline", age=17)
 
         step1 = ContainerStep(name="post-process")
         pipeline.set_post_process(step1)

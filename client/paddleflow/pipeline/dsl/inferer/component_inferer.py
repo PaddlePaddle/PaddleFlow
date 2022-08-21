@@ -258,6 +258,10 @@ class ComponentInferer(object):
         """
         for name, param  in self._component.parameters.items():
             if isinstance(param.ref, Parameter):
+                # support multiple infer
+                if self._is_parent(param.ref.component.full_name):
+                    continue
+                    
                 self._validate_inferred_parameter(param.ref.component.full_name)
                 self._component.parameters[name] = ParameterPlaceholder(name=param.ref.name, 
                     component_full_name=param.ref.component.full_name)
@@ -267,6 +271,10 @@ class ComponentInferer(object):
         """
         for name, art in self._component.inputs.items():
             if isinstance(art.ref, Artifact):
+                # support multiple infer
+                if self._is_parent(art.ref.component.full_name):
+                    continue
+                
                 self._component.inputs[name] = ArtifactPlaceholder(name=art.ref.name, 
                     component_full_name=art.ref.component.full_name)
 

@@ -182,21 +182,9 @@ class Pipeline(object):
             ):
         """ organize pipeline
         """
-        new_ppl = Pipeline(
-            name=self.name,
-            parallelism=self.parallelism,
-            docker_env=self.docker_env,
-            cache_options=self.cache_options,
-            failure_options=self.failure_options,
-            fs_options=self.fs_options,
-            env=self._env,
-            )
-        
-        new_ppl.__func = self.__func
-        if self._post_process:
-            new_ppl.set_post_process(self._post_process)
+        new_ppl = copy.deepcopy(self)
 
-        new_ppl._entry_points = DAG(name="pf-entry-points")
+        new_ppl._entry_points = DAG(name=ENTRY_POINT_NAME)
 
         with new_ppl._entry_points:
             new_ppl.__func(*args, **kwargs)
@@ -232,6 +220,9 @@ class Pipeline(object):
         pipeline = pipeline.encode("utf-8")
 
         self._init_client(config)
+        if disabled:
+            disabled = [disable.strip(ENTRY_POINT_NAME + ".") for disable in disabled]
+        
         return self._client.create_run(fs_name, username, run_name, desc, run_yaml_raw=pipeline, disabled=disabled)
 
     def compile(
@@ -260,7 +251,7 @@ class Pipeline(object):
                 self.__error_msg_prefix + "There can only be one step at most in post_process right now")
         
         # infer parameter and artifact for entry_point
-        DAGInferer(self.entry_points).infer(self.env)
+        DAGInferer(self._entry_points).infer(self.env)
 
         if self._post_process:
             ContainerStepInferer(self._post_process)
@@ -276,7 +267,7 @@ class Pipeline(object):
         Returns:
             a dict which key is the name of step and value is Step instances
         """
-        return self._entry_points
+        return self._entry_points.entry_points
 
     @property
     def name(self):
@@ -342,11 +333,7 @@ class Pipeline(object):
         # TODO：增加校验逻辑
         if not isinstance(step, Step):
             raise PaddleFlowSDKException(PipelineDSLError, 
-                self.__error_msg_prefix + "the step of post_process should be an instance of Step")
-        
-        if step.cache_options:
-            raise PaddleFlowSDKException(PipelineDSLError,
-                self.__error_msg_prefix + "cannot set cache_options for step which in post_process")
+                self.__error_msg_prefix + "post_process of pipeline should be an instance of Step")
         
         # There can only be one step at most in post_process right now
         self._post_process = {}
@@ -363,3 +350,25 @@ class Pipeline(object):
             return value
 
         return None
+
+    def __deepcopy__(self, memo):
+        """ support copy.deepcopy
+        """
+        new_ppl = Pipeline(
+            name=self.name,
+            parallelism=self.parallelism,
+            docker_env=self.docker_env,
+            cache_options=self.cache_options,
+            failure_options=self.failure_options,
+            fs_options=self.fs_options,
+            env=self._env,
+            )
+        
+        new_ppl.__func = self.__func
+        if self._post_process:
+            new_ppl.set_post_process(self._post_process)
+
+        new_ppl._entry_points = self._entry_points
+        new_ppl._client = new_ppl._client
+
+        return new_ppl
