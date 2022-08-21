@@ -182,12 +182,26 @@ class Pipeline(object):
             ):
         """ organize pipeline
         """
-        self._entry_points = DAG(name="pf-entry-points")
+        new_ppl = Pipeline(
+            name=self.name,
+            parallelism=self.parallelism,
+            docker_env=self.docker_env,
+            cache_options=self.cache_options,
+            failure_options=self.failure_options,
+            fs_options=self.fs_options,
+            env=self._env,
+            )
+        
+        new_ppl.__func = self.__func
+        if self._post_process:
+            new_ppl.set_post_process(self._post_process)
 
-        with self._entry_points:
-            self.__func(*args, **kwargs)
+        new_ppl._entry_points = DAG(name="pf-entry-points")
 
-        return self
+        with new_ppl._entry_points:
+            new_ppl.__func(*args, **kwargs)
+
+        return new_ppl
     
     def run(
             self,
