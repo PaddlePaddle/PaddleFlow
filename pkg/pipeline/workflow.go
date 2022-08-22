@@ -198,7 +198,6 @@ func (bwf *BaseWorkflow) checkLoopArgument(component schema.Component) error {
 		pattern := RegExpIncludingCurTpl
 		reg := regexp.MustCompile(pattern)
 		matches := reg.FindAllStringSubmatch(loop, -1)
-		logger.Logger().Infof("debug: loop argument is %v", loop)
 		if len(matches) > 1 {
 			// loopArgument不能用多余一个的模板
 			return fmt.Errorf("loopArgument[%v] is invalid, using templates in loopArgument invalid", loop)
@@ -832,7 +831,7 @@ func (bwf *BaseWorkflow) checkComps() error {
 	}
 
 	if err := bwf.checkCompAttrs(); err != nil {
-		bwf.log().Errorf("check deps failed. err: %s", err.Error())
+		bwf.log().Errorf("check components' attribute failed. err: %s", err.Error())
 		return err
 	}
 
