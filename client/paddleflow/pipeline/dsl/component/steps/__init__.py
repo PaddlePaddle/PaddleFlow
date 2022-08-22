@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserve.
 
@@ -13,13 +12,5 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
-
-
-from .artifact import Artifact
-from .parameter import Parameter
-from .placeholder import ArtifactPlaceholder
-from .placeholder import ParameterPlaceholder
-from .dicts import EnvDict
-from .dicts import InputArtifactDict
-from .dicts import OutputArtifactDict
-from .dicts import ParameterDict
+from .step import Step
+from .container_step import ContainerStep

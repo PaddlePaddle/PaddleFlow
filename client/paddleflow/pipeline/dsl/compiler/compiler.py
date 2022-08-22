@@ -19,10 +19,14 @@ import json
 import yaml
 from pathlib import Path
 
+from .step_compiler import StepCompiler
+from .dag_compiler import DAGCompiler
+
+from paddleflow.pipeline.dsl.inferer import ContainerStepInferer
+from paddleflow.pipeline.dsl.inferer import DAGInferer
 from paddleflow.pipeline.dsl.utils.consts import PipelineDSLError
 from paddleflow.common.exception.paddleflow_sdk_exception import PaddleFlowSDKException
 
-from .step_compiler import StepCompiler
 
 class Compiler(object):
     """ Compiler: trans dsl.Pipeline to static description string
@@ -46,17 +50,15 @@ class Compiler(object):
         # 1、init pipeline_dict
         self._pipeline_dict = {}
 
-        # 2、compile Step
-        self._pipeline_dict["entry_points"] = {}
-        
-        for name, step in pipeline.steps.items():
-            self._pipeline_dict["entry_points"][name] = StepCompiler().compile(step)
+        # 2、compile Entypoint
+        self._pipeline_dict["entry_points"] = DAGCompiler(pipeline._entry_points).compile()["entry_points"]
         
         # 3、compile post_process
         post_process = pipeline.get_post_process()
+
         if post_process is not None:
             self._pipeline_dict["post_process"] = {}
-            self._pipeline_dict["post_process"][post_process.name] = StepCompiler().compile(post_process)
+            self._pipeline_dict["post_process"][post_process.name] = StepCompiler(post_process).compile()
 
         # 4、trans pipeline conf
         if pipeline.docker_env:
@@ -73,6 +75,10 @@ class Compiler(object):
         if pipeline.parallelism:
             self._pipeline_dict["parallelism"] = pipeline.parallelism
 
+        if pipeline.fs_options:
+            self._pipeline_dict["fs_options"] = pipeline.fs_options.compile()
+
+        self._valiedate()
         #4、write to file
         if save_path:
             self._write(save_path)
@@ -105,3 +111,45 @@ class Compiler(object):
 
             else:
                 yaml.dump(self._pipeline_dict, fp)
+
+    def _validate_post_process(self):
+        """ validate post_process is illegal or not
+        """
+        if "post_process" not in self._pipeline_dict:
+            return 
+
+        for name, post_process in self._pipeline_dict["post_process"].items():
+            for key in ["condition", "entry_points", "loop_arugment", "deps", "cache"]:
+                if key in post_process:
+                    raise PaddleFlowSDKException(PipelineDSLError, 
+                        f"post_process filed only support Step component, and it does not support"  + \
+                        "[condition, loop_argument, cache_options], and cannot deps on any other component")
+        
+            if name in self._pipeline_dict["entry_points"]:
+                raise PaddleFlowSDKException(PipelineDSLError, 
+                    f"Step name[{name}] in post_process cannot be the same as the component names in entry_points")
+
+    def _valiedate(self):
+        """ validate
+        """
+        self._validate_post_process()
+        self._validate_docker_env()
+
+    def _validate_docker_env(self):
+        """ validate docker env
+        """
+        if "docker_env" in self._pipeline_dict:
+            return
+        
+        return self._validate_docker_env_by_dag(self._pipeline_dict["entry_points"])
+    
+    def _validate_docker_env_by_dag(self, dag_dict):
+        """ validate docker env by dag
+        """
+        for key, cp_dict in dag_dict.items():
+            if cp_dict["type"] == "dag":
+                self._validate_docker_env_by_dag(cp_dict["entry_points"])
+            else:
+                if "docker_env" not in cp_dict:
+                    raise PaddleFlowSDKException(PipelineDSLError,
+                        f"all step should specify docker_env when pipeline does not specify")
