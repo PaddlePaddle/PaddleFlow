@@ -620,7 +620,7 @@ paddleflow pipeline list -u(--userfilter) user -n(--namefilter) pipeline_name -m
 paddleflow pipeline show pipelineid // 展示一个pipeline模板下面的详细信息，包括yaml信息
 paddleflow pipeline delete  pipelineid // 删除一个pipeline模板 
 
-paddleflow pipeline update piplineid fsname yamlpath  -n(--name)  pipeline_name -u(--username) username // 更新Pipeline模板（创建pipeline模板版本）
+paddleflow pipeline update piplineid fsname yamlpath  -n(--name) pipeline_name -u(--username) username // 更新Pipeline模板（创建pipeline模板版本）
 paddleflow pipeline showversion pipelineid pipelineversionid // 查看一个pipeline模板版本
 paddleflow pipeline deleteversion pipelineid pipelineversionid // 删除一个pipeline模板版本
 ```
