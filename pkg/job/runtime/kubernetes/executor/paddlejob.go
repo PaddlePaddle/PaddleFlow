@@ -29,7 +29,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 type PaddleJob struct {
@@ -149,20 +148,6 @@ func (pj *PaddleJob) patchPaddleJobSpec(pdjSpec *paddlev1.PaddleJobSpec) error {
 	}
 	if err != nil {
 		log.Errorf("patch paddleJobVariable failed, err=[%v]", err)
-		return err
-	}
-	return nil
-}
-
-func (pj *PaddleJob) StopJobByID(jobID string) error {
-	job, err := storage.Job.GetJobByID(jobID)
-	if err != nil {
-		return err
-	}
-	namespace := job.Config.GetNamespace()
-
-	if err = Delete(namespace, job.ID, k8s.PaddleJobGVK, pj.DynamicClientOption); err != nil {
-		log.Errorf("stop paddleJob %s in namespace %s failed, err %v", job.ID, namespace, err)
 		return err
 	}
 	return nil

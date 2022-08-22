@@ -36,7 +36,6 @@ import (
 	fakedclient "k8s.io/client-go/kubernetes/fake"
 	restclient "k8s.io/client-go/rest"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
@@ -169,8 +168,8 @@ func TestKubeRuntimeVCQueue(t *testing.T) {
 		dynamicClientOpt: dynamicClient,
 	}
 
-	q := &models.Queue{
-		Model: models.Model{
+	q := &model.Queue{
+		Model: model.Model{
 			ID: "test_queue_id",
 		},
 		Name:      "test_queue_name",
@@ -203,8 +202,8 @@ func TestKubeRuntimeElasticQuota(t *testing.T) {
 		dynamicClientOpt: dynamicClient,
 	}
 
-	q := &models.Queue{
-		Model: models.Model{
+	q := &model.Queue{
+		Model: model.Model{
 			ID: "test_queue_id",
 		},
 		Name:      "test_queue_name",

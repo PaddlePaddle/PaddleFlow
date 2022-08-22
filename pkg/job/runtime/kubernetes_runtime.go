@@ -43,7 +43,6 @@ import (
 	schedulingv1beta1 "volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
@@ -323,7 +322,7 @@ func (kr *KubeRuntime) SyncQueue(stopCh <-chan struct{}) {
 
 }
 
-func (kr *KubeRuntime) CreateQueue(q *models.Queue) error {
+func (kr *KubeRuntime) CreateQueue(q *model.Queue) error {
 	switch q.QuotaType {
 	case schema.TypeVolcanoCapabilityQuota:
 		return kr.createVCQueue(q)
@@ -334,7 +333,7 @@ func (kr *KubeRuntime) CreateQueue(q *models.Queue) error {
 	}
 }
 
-func (kr *KubeRuntime) createVCQueue(q *models.Queue) error {
+func (kr *KubeRuntime) createVCQueue(q *model.Queue) error {
 	capability := k8s.NewResourceList(q.MaxResources)
 	log.Debugf("CreateQueue resourceList[%v]", capability)
 
@@ -357,7 +356,7 @@ func (kr *KubeRuntime) createVCQueue(q *models.Queue) error {
 	return nil
 }
 
-func (kr *KubeRuntime) createElasticResourceQuota(q *models.Queue) error {
+func (kr *KubeRuntime) createElasticResourceQuota(q *model.Queue) error {
 	maxResources := k8s.NewResourceList(q.MaxResources)
 	minResources := k8s.NewResourceList(q.MinResources)
 	log.Debugf("Elastic resource quota max resources:%v,  min resources %v", maxResources, minResources)
@@ -382,7 +381,7 @@ func (kr *KubeRuntime) createElasticResourceQuota(q *models.Queue) error {
 	return nil
 }
 
-func (kr *KubeRuntime) DeleteQueue(q *models.Queue) error {
+func (kr *KubeRuntime) DeleteQueue(q *model.Queue) error {
 	var gvk = k8s.VCQueueGVK
 	switch q.QuotaType {
 	case schema.TypeVolcanoCapabilityQuota:
@@ -401,7 +400,7 @@ func (kr *KubeRuntime) DeleteQueue(q *models.Queue) error {
 	return nil
 }
 
-func (kr *KubeRuntime) CloseQueue(q *models.Queue) error {
+func (kr *KubeRuntime) CloseQueue(q *model.Queue) error {
 	switch q.QuotaType {
 	case schema.TypeVolcanoCapabilityQuota:
 		return kr.executeVCQueueAction(q, busv1alpha1.CloseQueueAction)
@@ -412,7 +411,7 @@ func (kr *KubeRuntime) CloseQueue(q *models.Queue) error {
 	}
 }
 
-func (kr *KubeRuntime) executeVCQueueAction(q *models.Queue, action busv1alpha1.Action) error {
+func (kr *KubeRuntime) executeVCQueueAction(q *model.Queue, action busv1alpha1.Action) error {
 	obj, err := executor.Get("", q.Name, k8s.VCQueueGVK, kr.dynamicClientOpt)
 	if err != nil {
 		log.Errorf("execute queue action get queue failed. queueName:[%s]", q.Name)
@@ -438,7 +437,7 @@ func (kr *KubeRuntime) executeVCQueueAction(q *models.Queue, action busv1alpha1.
 	return nil
 }
 
-func (kr *KubeRuntime) UpdateQueue(q *models.Queue) error {
+func (kr *KubeRuntime) UpdateQueue(q *model.Queue) error {
 	switch q.QuotaType {
 	case schema.TypeVolcanoCapabilityQuota:
 		return kr.updateVCQueue(q)
@@ -449,7 +448,7 @@ func (kr *KubeRuntime) UpdateQueue(q *models.Queue) error {
 	}
 }
 
-func (kr *KubeRuntime) updateVCQueue(q *models.Queue) error {
+func (kr *KubeRuntime) updateVCQueue(q *model.Queue) error {
 	capability := k8s.NewResourceList(q.MaxResources)
 	log.Debugf("UpdateQueue resourceList[%v]", capability)
 	object, err := executor.Get("", q.Name, k8s.VCQueueGVK, kr.dynamicClientOpt)
@@ -470,7 +469,7 @@ func (kr *KubeRuntime) updateVCQueue(q *models.Queue) error {
 	return nil
 }
 
-func (kr *KubeRuntime) updateElasticResourceQuota(q *models.Queue) error {
+func (kr *KubeRuntime) updateElasticResourceQuota(q *model.Queue) error {
 	maxResources := k8s.NewResourceList(q.MaxResources)
 	minResources := k8s.NewResourceList(q.MinResources)
 	log.Debugf("Elastic resource quota max resources:%v,  min resources %v", maxResources, minResources)
@@ -503,7 +502,7 @@ func (kr *KubeRuntime) updateElasticResourceQuota(q *models.Queue) error {
 	return nil
 }
 
-func (kr *KubeRuntime) GetQueueUsedQuota(q *models.Queue) (*resources.Resource, error) {
+func (kr *KubeRuntime) GetQueueUsedQuota(q *model.Queue) (*resources.Resource, error) {
 	log.Infof("get used quota for queue %s, namespace %s", q.Name, q.Namespace)
 
 	fieldSelector := fmt.Sprintf(
@@ -706,7 +705,7 @@ func (kr *KubeRuntime) getPersistentVolume(name string, getOptions metav1.GetOpt
 }
 
 func (kr *KubeRuntime) createPersistentVolumeClaim(namespace string, pvc *apiv1.PersistentVolumeClaim) (*apiv1.
-PersistentVolumeClaim, error) {
+	PersistentVolumeClaim, error) {
 	return kr.clientset.CoreV1().PersistentVolumeClaims(namespace).Create(context.TODO(), pvc, metav1.CreateOptions{})
 }
 
@@ -716,7 +715,7 @@ func (kr *KubeRuntime) DeletePersistentVolumeClaim(namespace string, name string
 }
 
 func (kr *KubeRuntime) getPersistentVolumeClaim(namespace, name string, getOptions metav1.GetOptions) (*apiv1.
-PersistentVolumeClaim, error) {
+	PersistentVolumeClaim, error) {
 	return kr.clientset.CoreV1().PersistentVolumeClaims(namespace).Get(context.TODO(), name, getOptions)
 }
 

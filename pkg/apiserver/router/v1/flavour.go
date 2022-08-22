@@ -29,11 +29,11 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/flavour"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 // FlavourRouter is flavour api router
@@ -246,7 +246,7 @@ func validateCreateFlavour(ctx *logger.RequestContext, request *flavour.CreateFl
 		return errors.New("field not be empty")
 	}
 	if request.ClusterName != "" {
-		clusterInfo, err := models.GetClusterByName(request.ClusterName)
+		clusterInfo, err := storage.Cluster.GetClusterByName(request.ClusterName)
 		if err != nil {
 			ctx.ErrorCode = common.ClusterNameNotFound
 			return err

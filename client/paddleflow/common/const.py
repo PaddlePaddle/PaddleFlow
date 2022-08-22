@@ -13,5 +13,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-from paddleflow.pipeline.dsl.steps.step import Step
-from paddleflow.pipeline.dsl.steps.container_step import ContainerStep
+#!/usr/bin/env python3
+# -*- coding:utf8 -*-
+
+
+RUN_ACTIVE_STATUS = ['running', 'pending', 'terminating', 'initiating']
+RUN_FINAL_STATUS = ['failed', 'succeeded', 'terminated', 'skipped']

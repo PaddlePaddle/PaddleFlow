@@ -10,3 +10,4 @@ class Step(object):
         """ init
         """
         self.name = name
+        self.full_name = name
