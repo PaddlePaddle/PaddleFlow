@@ -324,7 +324,7 @@ func (s *ComponentParamChecker) solveParamValue(compName string, paramName strin
 
 	// 参数值检查
 	switch param := param.(type) {
-	case float32, float64, int, int64:
+	case float32, float64, int, int64, []interface{}:
 		return param, nil
 	case string:
 		if err := s.resolveRefParam(compName, param, fieldType); err != nil {
