@@ -618,7 +618,7 @@ marker: f990bc858cbd2a8d5eae9243970a2d8c
 paddleflow pipeline create  fsname:required（必须） -yp (--yamlpath) path  -n(--name)  pipeline_name -u(--username) username // 创建pipeline模板(指定创建的pipeline模板名称；指定模板的用户)
 paddleflow pipeline list -u(--userfilter) user -n(--namefilter) pipeline_name -m(--maxkeys) int -mk(--marker) xxx // 列出所有的pipeline模板 （通过username 列出特定用户的pipeline模板（限root用户）;通过fsname 列出特定fs下面的pipeline模板；通过pipelinename列出特定的pipeline模板；列出指定数量的pipeline模板；从marker列出pipeline模板）
 paddleflow pipeline show pipelineid // 展示一个pipeline模板下面的详细信息，包括yaml信息
-paddleflow pipeline delete  pipelineid // 删除一个pipeline模板 
+paddleflow pipeline delete pipelineid // 删除一个pipeline模板 
 
 paddleflow pipeline update piplineid fsname yamlpath  -n(--name) pipeline_name -u(--username) username // 更新Pipeline模板（创建pipeline模板版本）
 paddleflow pipeline showversion pipelineid pipelineversionid // 查看一个pipeline模板版本
