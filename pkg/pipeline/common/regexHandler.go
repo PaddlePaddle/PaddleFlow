@@ -27,10 +27,10 @@ type VariableChecker struct {
 
 func (variableChecker *VariableChecker) CheckVarName(varName string) error {
 	// 校验字符串是一个合格变量名，只能由字母数字下划线组成，且以字母下划线开头
-	pattern := `^[A-Za-z_][A-Za-z0-9_]{1,49}$`
+	pattern := `^[A-Za-z_][A-Za-z0-9_]{0,49}$`
 	reg := regexp.MustCompile(pattern)
 	if !reg.MatchString(varName) {
-		err := fmt.Errorf("format of variable name[%s] invalid, should be in ^[A-Za-z_][A-Za-z0-9_]{1,49}$", varName)
+		err := fmt.Errorf("format of variable name[%s] invalid, should be in ^[A-Za-z_][A-Za-z0-9_]{0,49}$", varName)
 		return err
 	}
 	return nil
@@ -38,7 +38,7 @@ func (variableChecker *VariableChecker) CheckVarName(varName string) error {
 
 func (VariableChecker *VariableChecker) CheckCompName(compName string) error {
 	// 和CheckVarName的区别在于，component的名称不可以包含下划线(_)，而可以包含中划线(-)
-	pattern := `^[a-zA-Z][a-zA-Z0-9-]*$`
+	pattern := `^[a-zA-Z][a-zA-Z0-9-]{0,29}$`
 	reg := regexp.MustCompile(pattern)
 	if !reg.MatchString(compName) || strings.HasPrefix(compName, "PF_") {
 		err := fmt.Errorf("format of component name[%s] invalid, should be in ^[a-zA-Z][a-zA-Z0-9-]*$ and not start with \"PF_\"", compName)

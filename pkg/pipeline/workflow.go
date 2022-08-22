@@ -229,11 +229,7 @@ func (bwf *BaseWorkflow) checkLoopArgument(component schema.Component) error {
 			}
 			for _, arg := range listArg {
 				switch arg.(type) {
-				case string:
-				case int:
-				case int64:
-				case float32:
-				case float64:
+				case int, int64, float32, float64, string:
 				default:
 					return fmt.Errorf("each one in list loopArgument should be int or float or string")
 				}
