@@ -364,25 +364,3 @@ class Pipeline(object):
             return value
 
         return None
-
-    def __deepcopy__(self, memo):
-        """ support copy.deepcopy
-        """
-        new_ppl = Pipeline(
-            name=self.name,
-            parallelism=self.parallelism,
-            docker_env=self.docker_env,
-            cache_options=self.cache_options,
-            failure_options=self.failure_options,
-            fs_options=self.fs_options,
-            env=self._env,
-            )
-        
-        new_ppl.__func = self.__func
-        if self._post_process:
-            new_ppl.set_post_process(self._post_process)
-
-        new_ppl._entry_points = self._entry_points
-        new_ppl._client = new_ppl._client
-
-        return new_ppl
