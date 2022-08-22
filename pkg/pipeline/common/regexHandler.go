@@ -58,7 +58,7 @@ func (variableChecker *VariableChecker) CheckRefUpstreamStep(varValue string) er
 	return nil
 }
 
-// 检查是否使用了模板，如{{xxx}}
+// 检查是否使用了模板，如 {{xxx}} 或 {{xxx.xxx}}
 func (variableChecker *VariableChecker) CheckRefArgument(varValue string) error {
 	pattern := RegExpIncludingTpl
 	reg := regexp.MustCompile(pattern)
