@@ -122,7 +122,7 @@ func (as *AuthStore) CreateGrant(ctx *logger.RequestContext, grant *model.Grant)
 
 func (as *AuthStore) DeleteGrant(ctx *logger.RequestContext, userName, resourceType, resourceID string) error {
 	ctx.Logging().Debugf("model begin delete grant. userName:%s, resourceID:%s ", userName, resourceID)
-	tx := DB.Unscoped().Table("grant").Where("user_name = ? and resource_type = ? and resource_id = ?", userName, resourceType, resourceID).Delete(&model.Grant{})
+	tx := as.db.Unscoped().Table("grant").Where("user_name = ? and resource_type = ? and resource_id = ?", userName, resourceType, resourceID).Delete(&model.Grant{})
 	if tx.Error != nil {
 		ctx.Logging().Errorf("delete grant failed. userName:%v, resourceID:%s. error:%s",
 			userName, resourceID, tx.Error.Error())
@@ -163,7 +163,7 @@ func (as *AuthStore) HasAccessToResource(ctx *logger.RequestContext, resourceTyp
 
 func (as *AuthStore) DeleteGrantByUserName(ctx *logger.RequestContext, userName string) error {
 	ctx.Logging().Debugf("model begin delete grant by userName. userName:%s. ", userName)
-	err := DB.Unscoped().Table("grant").Where("user_name = ?", userName).Delete(&model.Grant{}).Error
+	err := as.db.Unscoped().Table("grant").Where("user_name = ?", userName).Delete(&model.Grant{}).Error
 	if err != nil {
 		ctx.Logging().Debugf("model delete grant by userName failed. userName:%s, error: %s. ", userName, err.Error())
 		return err
