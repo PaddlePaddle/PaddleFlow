@@ -324,7 +324,23 @@ func (s *ComponentParamChecker) solveParamValue(compName string, paramName strin
 
 	// 参数值检查
 	switch param := param.(type) {
-	case float32, float64, int, int64, []interface{}:
+	case float32, float64, int, int64:
+		return param, nil
+	case []interface{}:
+		for _, listItem := range param {
+			switch listItem := listItem.(type) {
+			case float32, float64, int, int64:
+				// do nothing
+			case string:
+				checker := VariableChecker{}
+				// list中的元素不能为模板，如果使用了模板，则报错
+				if err := checker.CheckRefArgument(listItem); err == nil {
+					return nil, fmt.Errorf("list param item [%v] is invalid, each item must not be templete", listItem)
+				}
+			default:
+				return nil, fmt.Errorf("list param item can only be int, float, list type")
+			}
+		}
 		return param, nil
 	case string:
 		if err := s.resolveRefParam(compName, param, fieldType); err != nil {

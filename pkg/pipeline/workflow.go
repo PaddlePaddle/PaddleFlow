@@ -189,7 +189,7 @@ func (bwf *BaseWorkflow) checkLoopArgument(component schema.Component) error {
 			if ok5 {
 				checker := VariableChecker{}
 				// list中的元素不能为模板，如果使用了模板，则报错
-				if err := checker.CheckRefCurArgument(loopStr); err == nil {
+				if err := checker.CheckRefArgument(loopStr); err == nil {
 					return fmt.Errorf("[%v]in loopArgument is invalid, each one in list loopArgument must not be templete", loopStr)
 				}
 			}
