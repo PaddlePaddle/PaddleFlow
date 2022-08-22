@@ -198,7 +198,7 @@ func (bwf *BaseWorkflow) checkLoopArgument(component schema.Component) error {
 		pattern := RegExpIncludingCurTpl
 		reg := regexp.MustCompile(pattern)
 		matches := reg.FindAllStringSubmatch(loop, -1)
-
+		logger.Logger().Infof("debug: loop argument is %v", loop)
 		if len(matches) > 1 {
 			// loopArgument不能用多余一个的模板
 			return fmt.Errorf("loopArgument[%v] is invalid, using templates in loopArgument invalid", loop)
