@@ -17,6 +17,8 @@ limitations under the License.
 
 from .artifact import Artifact
 from .parameter import Parameter
+from .placeholder import ArtifactPlaceholder
+from .placeholder import ParameterPlaceholder
 from .dicts import EnvDict
 from .dicts import InputArtifactDict
 from .dicts import OutputArtifactDict

@@ -28,7 +28,6 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/flavour"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
@@ -276,7 +275,7 @@ func validateQueue(ctx *logger.RequestContext, schedulingPolicy *SchedulingPolic
 		}
 	}
 	queueName := schedulingPolicy.Queue
-	queue, err := models.GetQueueByName(queueName)
+	queue, err := storage.Queue.GetQueueByName(queueName)
 	if err != nil {
 		if errors.GetErrorCode(err) == errors.ErrorKeyIsDuplicated {
 			ctx.ErrorCode = common.QueueNameDuplicated
