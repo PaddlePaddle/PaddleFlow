@@ -144,11 +144,11 @@ class Pipeline(object):
 
         if 'paddleflow_server_host' not in config['server']:
             raise PaddleFlowSDKException(PipelineDSLError, self.__error_msg_prefix + \
-                        f"no paddleflow_server in {config_file}")
+                        f"no paddleflow_server_host in {config_file}")
             
         paddleflow_server = config['server']['paddleflow_server_host']
 
-        if 'paddleflow_server_host' in config['server']:
+        if 'paddleflow_server_port' in config['server']:
             paddleflow_port = config['server']['paddleflow_server_port']
         else:
             paddleflow_port = DEFAULT_PADDLEFLOW_PORT
@@ -182,7 +182,21 @@ class Pipeline(object):
             ):
         """ organize pipeline
         """
-        new_ppl = copy.deepcopy(self)
+        new_ppl = Pipeline(
+            name=self.name,
+            parallelism=self.parallelism,
+            docker_env=self.docker_env,
+            cache_options=self.cache_options,
+            failure_options=self.failure_options,
+            fs_options=self.fs_options,
+            env=self._env,
+            )
+        
+        new_ppl.__func = self.__func
+        if self._post_process:
+            new_ppl.set_post_process(self._post_process)
+
+        new_ppl._client = new_ppl._client
 
         new_ppl._entry_points = DAG(name=ENTRY_POINT_NAME)
 
@@ -350,25 +364,3 @@ class Pipeline(object):
             return value
 
         return None
-
-    def __deepcopy__(self, memo):
-        """ support copy.deepcopy
-        """
-        new_ppl = Pipeline(
-            name=self.name,
-            parallelism=self.parallelism,
-            docker_env=self.docker_env,
-            cache_options=self.cache_options,
-            failure_options=self.failure_options,
-            fs_options=self.fs_options,
-            env=self._env,
-            )
-        
-        new_ppl.__func = self.__func
-        if self._post_process:
-            new_ppl.set_post_process(self._post_process)
-
-        new_ppl._entry_points = self._entry_points
-        new_ppl._client = new_ppl._client
-
-        return new_ppl
