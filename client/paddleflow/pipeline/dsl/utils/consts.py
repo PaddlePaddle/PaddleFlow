@@ -17,7 +17,17 @@ VARIBLE_NAME_REGEX = "^[a-zA-Z][a-zA-Z0-9_]*$"
 
 PIPELINE_NAME_REGEX = "^[A-Za-z_][A-Za-z0-9-_]{1,49}[A-Za-z0-9_]$"
 
-STEP_NAME_REGEX = "^[A-Za-z][A-Za-z0-9-]{1,250}[A-Za-z0-9-]$"
+COMPONENT_NAME_REGEX = "^[A-Za-z][A-Za-z0-9-]{1,250}[A-Za-z0-9-]$"
+
+COMPONENT_FULL_NAME_REGEX = f"({COMPONENT_NAME_REGEX[1:-1]}\.)*({COMPONENT_NAME_REGEX[1:]})"
+
+DSL_TEMPLATE_REGEX = "\{\{\s*(?P<type>parameter|artifact|loop):\s*(?P<component_full_name>" + \
+    COMPONENT_FULL_NAME_REGEX.replace("$", "") + ")\." + \
+    f"(?P<var_name>{VARIBLE_NAME_REGEX[1:-1]})" + "\s*\}\}"
 
 ## DSL ERROR CODE
 PipelineDSLError = "PipelineDSLError"
+
+PARAM_NAME_CODE_LEN = 6
+
+ENTRY_POINT_NAME = "PF-ENTRY-POINT"

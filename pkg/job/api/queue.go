@@ -21,8 +21,8 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
 
 // QueueID is UID type, serves as unique ID for each queue
@@ -60,7 +60,7 @@ type QueueInfo struct {
 	Used *resources.Resource
 }
 
-func NewQueueInfo(q models.Queue) *QueueInfo {
+func NewQueueInfo(q model.Queue) *QueueInfo {
 	return &QueueInfo{
 		UID:             QueueID(q.ID),
 		Name:            q.Name,

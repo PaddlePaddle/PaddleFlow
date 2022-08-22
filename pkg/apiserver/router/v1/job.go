@@ -30,12 +30,12 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/job"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
 
 // JobRouter is job api router
@@ -330,7 +330,7 @@ func (jr *JobRouter) ListJob(writer http.ResponseWriter, request *http.Request) 
 	}
 	startTime := request.URL.Query().Get(util.QueryKeyStartTime)
 	if startTime != "" {
-		_, err = time.ParseInLocation(models.TimeFormat, startTime, time.Local)
+		_, err = time.ParseInLocation(model.TimeFormat, startTime, time.Local)
 		if err != nil {
 			ctx.ErrorMessage = fmt.Sprintf("invalid startTime params[%s]", startTime)
 			common.RenderErrWithMessage(writer, ctx.RequestID, common.InvalidURI, ctx.ErrorMessage)

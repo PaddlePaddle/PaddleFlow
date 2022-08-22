@@ -23,11 +23,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/util"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	commomschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 type ObjectRequest struct {
@@ -42,7 +42,7 @@ type ObjectRequest struct {
 
 func CreateOrDeleteClusterObject(ctx *logger.RequestContext, request ObjectRequest, action string) error {
 	//  TODO: add permission check
-	clusterInfo, err := models.GetClusterByName(request.ClusterName)
+	clusterInfo, err := storage.Cluster.GetClusterByName(request.ClusterName)
 	if err != nil {
 		ctx.ErrorCode = common.ClusterNameNotFound
 		ctx.Logging().Errorf("get cluster failed. clusterName:[%s]", request.ClusterName)
@@ -86,7 +86,7 @@ func CreateOrDeleteClusterObject(ctx *logger.RequestContext, request ObjectReque
 
 func UpdateClusterObject(ctx *logger.RequestContext, clusterName string, clusterObject map[string]interface{}) error {
 	//  TODO: add permission check
-	clusterInfo, err := models.GetClusterByName(clusterName)
+	clusterInfo, err := storage.Cluster.GetClusterByName(clusterName)
 	if err != nil {
 		ctx.ErrorCode = common.ClusterNameNotFound
 		ctx.Logging().Errorf("get cluster failed. clusterName:[%s]", clusterName)
@@ -118,7 +118,7 @@ func UpdateClusterObject(ctx *logger.RequestContext, clusterName string, cluster
 
 func GetClusterObject(ctx *logger.RequestContext, request *ObjectRequest) (interface{}, error) {
 	//  TODO: add permission check
-	clusterInfo, err := models.GetClusterByName(request.ClusterName)
+	clusterInfo, err := storage.Cluster.GetClusterByName(request.ClusterName)
 	if err != nil {
 		ctx.ErrorCode = common.ClusterNameNotFound
 		ctx.Logging().Errorf("get cluster %s failed. err: %v", request.ClusterName, err)

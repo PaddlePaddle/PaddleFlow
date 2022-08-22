@@ -7,6 +7,7 @@ import pytest
 
 from .mock_step import Step
 from paddleflow.pipeline import Parameter
+from paddleflow.pipeline.dsl.io_types.placeholder import ParameterPlaceholder
 from paddleflow.common.exception.paddleflow_sdk_exception import PaddleFlowSDKException
 
 class TestParameter(object):
@@ -50,55 +51,17 @@ class TestParameter(object):
         param = Parameter()
         step = Step(name="xiaodu")
 
-        param.set_base_info(step=step, name="num", ref="123")
-        assert param.step == step and param.default is None and param.type is None and param.ref == "123"
+        param.set_base_info(component=step, name="num", ref="123")
+        assert param.component == step and param.default is None and param.type is None and param.ref == "123"
 
-        param.set_base_info(step=step, name="num")
+        param.set_base_info(component=step, name="num")
 
         with pytest.raises(PaddleFlowSDKException):
-            param.set_base_info(step=step, name="123num")
+            param.set_base_info(component=step, name="123num")
 
-    @pytest.mark.tpl
-    def test_to_template(self):
-        """ test template
-        """
-        param = Parameter()
-        step = Step(name="xiaodu")
-        param.set_base_info(step=step, name="num", ref="123")
-
-        assert param.to_template() == "{{xiaodu.num}}"
-
-    @pytest.mark.compile
-    def test_compile(self):
-        """ test compile
-        """
-        param = Parameter()
-        step = Step(name="xiaodu")
-        
-        param.set_base_info(step=step, name="num", ref="123")
-        assert param.compile() == "123"
-
-        param = Parameter(default="1234")
-        param.set_base_info(step=step, name="num")
-        assert param.compile() == {"default": "1234"}
-
-        param.set_base_info(step=step, name="num", ref="1234")
-        with pytest.raises(PaddleFlowSDKException):
-            param.compile()
-
-        param1 = Parameter(default="1234", type=int)
-        param1.set_base_info(step=step, name="num")
-        assert param1.compile() == {"type": "int", "default": 1234}
-
-
-        param = Parameter()
-        step2 = Step(name="dudu")
-        param.set_base_info(step=step2, name="num", ref=param1)
-        assert param.compile() == "{{xiaodu.num}}" 
-
-        param = Parameter()
-        param.set_base_info(step=step, name="num")
-        assert param.compile() == ""
+        pl = ParameterPlaceholder(name="abc", component_full_name="bac")
+        param.set_base_info(component=step, name="num", ref=pl)
+        assert param.ref.component_full_name == "bac"
     
     @pytest.mark.set_default
     def test_set_default(self):
@@ -121,10 +84,10 @@ class TestParameter(object):
         assert param1 != param2
 
         step2 = Step(name="dudu")
-        param1.set_base_info(step=step2, name="num")
+        param1.set_base_info(component=step2, name="num")
 
         param2.default = "123"
-        param2.set_base_info(step=step2, name="num")
+        param2.set_base_info(component=step2, name="num")
         assert  param2 == param1
 
     @pytest.mark.deepcopy
@@ -136,6 +99,19 @@ class TestParameter(object):
         assert  param1 == param2 and param2 is not param1
 
         step2 = Step(name="dudu")
-        param1.set_base_info(step=step2, name="num")
+        param1.set_base_info(component=step2, name="num")
         param2 = copy.deepcopy(param1)
         assert  param2 == param1 and param2 is not param1
+
+    @pytest.mark.str
+    def test_str(self):
+        """ test __str__
+        """
+        param1 = Parameter()
+        with pytest.raises(PaddleFlowSDKException):
+            str(param1)
+
+        step2 = Step(name="dudu")
+        step2.full_name = "pf-entry-point.dudu"
+        param1.set_base_info(component=step2, name="num")
+        assert str(param1) == "{{parameter: pf-entry-point.dudu.num}}"

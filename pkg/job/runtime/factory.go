@@ -20,9 +20,9 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
 
 type RuntimeService interface {
@@ -48,20 +48,20 @@ type RuntimeService interface {
 	// SyncQueue sync queue information from cluster
 	SyncQueue(stopCh <-chan struct{})
 	// CreateQueue create a queue on cluster
-	CreateQueue(q *models.Queue) error
+	CreateQueue(q *model.Queue) error
 	// DeleteQueue delete a queue on cluster
-	DeleteQueue(q *models.Queue) error
+	DeleteQueue(q *model.Queue) error
 	// CloseQueue close a queue on cluster
-	CloseQueue(q *models.Queue) error
+	CloseQueue(q *model.Queue) error
 	// UpdateQueue update a queue on cluster
-	UpdateQueue(q *models.Queue) error
+	UpdateQueue(q *model.Queue) error
 
 	ListNodeQuota() (schema.QuotaSummary, []schema.NodeQuotaInfo, error)
 }
 
 var PFRuntimeMap sync.Map
 
-func newClusterConfig(cluster models.ClusterInfo) schema.Cluster {
+func newClusterConfig(cluster model.ClusterInfo) schema.Cluster {
 	return schema.Cluster{
 		Name: cluster.Name,
 		ID:   cluster.ID,
@@ -75,12 +75,12 @@ func newClusterConfig(cluster models.ClusterInfo) schema.Cluster {
 	}
 }
 
-func UpdateRuntime(clusterInfo models.ClusterInfo) error {
+func UpdateRuntime(clusterInfo model.ClusterInfo) error {
 	_, err := CreateRuntime(clusterInfo)
 	return err
 }
 
-func GetOrCreateRuntime(clusterInfo models.ClusterInfo) (RuntimeService, error) {
+func GetOrCreateRuntime(clusterInfo model.ClusterInfo) (RuntimeService, error) {
 	if runtimeS, ok := PFRuntimeMap.Load(clusterInfo.ID); ok {
 		return runtimeS.(RuntimeService), nil
 	}
@@ -89,7 +89,7 @@ func GetOrCreateRuntime(clusterInfo models.ClusterInfo) (RuntimeService, error) 
 }
 
 // CreateRuntime create RuntimeService and stored in Cache
-func CreateRuntime(clusterInfo models.ClusterInfo) (RuntimeService, error) {
+func CreateRuntime(clusterInfo model.ClusterInfo) (RuntimeService, error) {
 	var runtimeSvc RuntimeService
 	var err error
 	cluster := newClusterConfig(clusterInfo)
