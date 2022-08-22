@@ -23,7 +23,16 @@ import (
 	"gorm.io/gorm"
 )
 
-const TimeFormat = "2006-01-02 15:04:05"
+const (
+	CreatedAt  = "created_at"
+	UpdatedAt  = "updated_at"
+	Type       = "type"
+	ID         = "id"
+	FsID       = "fs_id"
+	UserName   = "user_name"
+	FsName     = "name"
+	TimeFormat = "2006-01-02 15:04:05"
+)
 
 type Model struct {
 	ID         string    `json:"id"`

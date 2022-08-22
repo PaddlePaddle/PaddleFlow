@@ -29,7 +29,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	commonschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
@@ -370,7 +369,7 @@ func responsibleForJob(obj interface{}) bool {
 }
 
 func (j *JobSync) preHandleTerminatingJob() {
-	queues := models.ListQueuesByCluster(j.opt.ClusterInfo.ID)
+	queues := storage.Queue.ListQueuesByCluster(j.opt.ClusterInfo.ID)
 	if len(queues) == 0 {
 		return
 	}

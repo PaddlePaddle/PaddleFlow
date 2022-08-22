@@ -16,29 +16,32 @@ PaddleFlow-cli 是基于PaddleFlow python-sdk 上层封装的命令行工具。�
 
 ```bash
 $ paddleflow --help
-
 Usage: paddleflow [OPTIONS] COMMAND [ARGS]...
 
   paddleflow is the command line interface to paddleflow service.
 
-  provide `user`, `queue`, `fs`, `run`, `pipeline`, `cluster` operation
-  commands
+  provide `user`, `queue`, `fs`, `run`, `pipeline`, `cluster`, `flavour`
+  operation commands
 
 Options:
-  --pf_config TEXT       the path of default config.
-  --output [table|json]  The formatting style for command output.  [default:
-                         table]
+  --pf_config TEXT            the path of default config.
+  --output [table|json|text]  The formatting style for command output.
+                              [default: table]
 
-  --help                 Show this message and exit.
+  --help                      Show this message and exit.
 
 Commands:
-  cluster   manage cluster resources
-  fs        manage fs resources
-  log       manage log resources
-  pipeline  manage pipeline resources
-  queue     manage queue resources
-  run       manage run resources
-  user      manage user resources
+  cluster     manage cluster resources
+  flavour     manage flavour resources
+  fs          manage fs resources
+  job         manage job resources
+  log         manage log resources
+  pipeline    manage pipeline resources
+  queue       manage queue resources
+  run         manage run resources
+  schedule    manage schedule resources
+  statistics  show resources statistics
+  user        manage user resources
 ```
 
 ## 命令行规范
@@ -118,17 +121,26 @@ user[test] update success
 
 ## 队列管理
 
-`queue` 提供了`create`,`delete`, `list`, `show`,`stop`,`grantl`,`ungrant`,`grantlist`八种不同的方法。 八种不同操作的示例如下：
+`queue` 提供了`create`, `delete`, `list`, `show`, `update`, `grant`,`ungrant`,`grantlist`八种不同的方法。 八种不同操作的示例如下：
 
 ```bash
-paddleflow queue list // 队列展示 
-paddleflow queue show queue-name // 队列详情展示
-paddleflow queue stop queue-name // 队列停止
-paddleflow queue delete queue-name // 队列删除
-paddleflow queue create name namespace cpu men clustername// 队列创建(自定义队列名称；命名空间；最大cpu；最大内存；集群名称)
-paddleflow queue grant username queue-name // 队列授权 仅root账号可以使用
-paddleflow queue ungrant username queue-name // 队列取消授权 仅root账号可以使用
-paddleflow queue grantlist // 队列授权展示 仅root账号可以使用
+$ paddleflow queue --help
+Usage: paddleflow queue [OPTIONS] COMMAND [ARGS]...
+
+  manage queue resources
+
+Options:
+  --help  Show this message and exit.
+
+Commands:
+  create     create queue.
+  delete     delete queue.
+  grant      add grant.
+  grantlist  list grant
+  list       list queue.
+  show       show queue info.
+  ungrant    delete grant.
+  update     update queue.
 ```
 
 ### 示例
@@ -136,40 +148,63 @@ paddleflow queue grantlist // 队列授权展示 仅root账号可以使用
 队列列表： 用户输入 ```paddleflow queue list ``` 可以在界面上看到当前用户有权限看到的队列集合
 
 ```
-+--------+----------+-------------------------------+-------------------------------+
-| name   | status   | create time                   | update time                   |
-+========+==========+===============================+===============================+
-| aa     | closed   | 2021-09-01T23:12:14.824+08:00 | 2021-09-01T23:12:14.824+08:00 |
-+--------+----------+-------------------------------+-------------------------------+
-| aa1    | open     | 2021-09-02T21:14:14.509+08:00 | 2021-09-02T21:14:14.509+08:00 |
-+--------+----------+-------------------------------+-------------------------------+
-marker: none
++---------------+-------------+----------+-----------------+---------------------+---------------------+
+| name          | namespace   | status   | cluster name    | create time         | update time         |
++===============+=============+==========+=================+=====================+=====================+
+| default-queue | default     | open     | default-cluster | 2022-08-03 20:18:31 | 2022-08-18 15:45:57 |
++---------------+-------------+----------+-----------------+---------------------+---------------------+
+| default       | default     | open     | default-cluster | 2022-08-03 20:18:31 | 2022-08-03 20:18:31 |
++---------------+-------------+----------+-----------------+---------------------+---------------------+
+| pf-queue      | default     | open     | default-cluster | 2022-08-03 20:18:31 | 2022-08-03 20:18:31 |
++---------------+-------------+----------+-----------------+---------------------+---------------------+
+| root          | default     | open     | default-cluster | 2022-08-03 20:18:31 | 2022-08-03 20:18:31 |
++---------------+-------------+----------+-----------------+---------------------+---------------------+
+marker: None
 ```
 
-队列详情： 用户输入 ```paddleflow queue show aa ``` 可以在界面上看到队列`aa`的详细信息
+队列详情： 用户输入 ```paddleflow queue show default-queue``` 可以在界面上看到队列`aa`的详细信息
 
 ```
-+--------+----------+-------------+-------+-------+--------------------+-------------------------------+-------------------------------+
-| name   | status   | namespace   | mem   |   cpu | scalar resources   | create time                   | update time                   |
-+========+==========+=============+=======+=======+====================+===============================+===============================+
-| aa     | closed   | default     | 1Mi   |     1 | none               | 2021-09-01T23:12:14.824+08:00 | 2021-09-01T23:12:14.824+08:00 |
-+--------+----------+-------------+-------+-------+--------------------+-------------------------------+-------------------------------+
++---------------+-------------+----------+------------------------+-----------------+---------------------+---------------------+
+| name          | namespace   | status   | quota type             | cluster name    | create time         | update time         |
++===============+=============+==========+========================+=================+=====================+=====================+
+| default-queue | default     | open     | volcanoCapabilityQuota | default-cluster | 2022-08-03 20:18:31 | 2022-08-18 15:45:57 |
++---------------+-------------+----------+------------------------+-----------------+---------------------+---------------------+
+queue info:
+[
+    {
+        "max resources": {
+            "cpu": "20",
+            "mem": "20Gi"
+        },
+        "min resources": {
+            "cpu": "0",
+            "mem": "0"
+        },
+        "used resources": {
+            "cpu": "0",
+            "mem": "0"
+        },
+        "idle resources": {
+            "cpu": "20",
+            "mem": "20Gi"
+        }
+    }
+]
 ```
 
-队列创建：用户输入 ```paddleflow queue create name namespace cpu men cluster```，创建成功后可以在界面上看到
+队列创建：用户输入 ```paddleflow queue create queuename default 10 20Gi --clustername default-cluster```，创建成功后可以在界面上看到
 
 ```queue[queuename] create  success```
 
-队列停止：用户输入 ```paddleflow queue stop queuename```，停止成功后可以在界面上看到
+队列更新：用户输入 ```paddleflow queue update queuename --maxcpu 20```，更新成功后可以在界面上看到
 
-```queue[queuename] stop  success```
+```queue[queuename] update  success```
 
 
 队列删除：用户输入 ```paddleflow queue delete queuename```，删除成功后可以在界面上看到（只能在队列stop之后或状态为closed情况下使用）
 
 ```queue[queuename] delete  success```
-
-
 
 队列授权： root账号输入 ```paddleflow queue grant username queuename```。授权成功后可以在界面上看到
 
@@ -195,23 +230,38 @@ marker: none
 
 ## flavour管理
 
-`flavour` 提供了 `list`一种不同的方法。 操作的示例如下：
+`flavour` 提供了 `create`, `delete`, `list`, `show`, `update` 五种不同的方法。 操作的示例如下：
 
 ```bash
-paddleflow flavour list //列表显示flavour
+$ paddleflow flavour --help
+Usage: paddleflow flavour [OPTIONS] COMMAND [ARGS]...
+
+  manage flavour resources
+
+Options:
+  --help  Show this message and exit.
+
+Commands:
+  create  create flavour.
+  delete  delete flavour.
+  list    list flavour.
+  show    show flavour info.
+  update  update info from flavourname.
 ```
 
-flavour列表显示：用户输入```paddleflow grant flavour```，界面上显示
+### 示例
+flavour列表显示：用户输入```paddleflow flavour list```，界面上显示
 
 ```bash
-+=======+=======+==========+=================================================================+
-|     1 | 1Gi   | flavour1 |                                                                 |
-+-------+-------+----------+-----------------------------------------------------------------+
-|     4 | 8Gi   | flavour2 | {'nvidia.com/gpu': '1'}                                         |
-+-------+-------+----------+-----------------------------------------------------------------+
-|     4 | 8Gi   | flavour3 | {'nvidia.com/gpu': '2'}                                         |
-+-------+-------+----------+-----------------------------------------------------------------+
-
++----------+-------+-------+-------------------------+
+| name     |   cpu | mem   | scalarResources         |
++==========+=======+=======+=========================+
+| flavour1 |     1 | 1Gi   | null                    |
++----------+-------+-------+-------------------------+
+| flavour2 |     4 | 8Gi   | {"nvidia.com/gpu": "1"} |
++----------+-------+-------+-------------------------+
+| flavour3 |     4 | 8Gi   | {"nvidia.com/gpu": "2"} |
++----------+-------+-------+-------------------------+
 ```
 
 
@@ -742,17 +792,36 @@ schedule with id [schedule-000001] delete success
 
 ### 集群管理(仅限root用户使用)
 
-`cluster` 提供了`create`,`show`, `list`, `delete`, `update`, `resource`六种不同的方法。 六种不同操作的示例如下：
+`cluster` 提供了`create`, `show`, `list`, `delete`, `update`, `resource`六种不同的方法。 六种不同操作的示例如下：
 
 ```bash
+$ paddleflow cluster --help
+Usage: paddleflow cluster [OPTIONS] COMMAND [ARGS]...
+
+  manage cluster resources
+
+Options:
+  --help  Show this message and exit.
+
+Commands:
+  create    create cluster.
+  delete    delete cluster.
+  list      list cluster.
+  resource  Get the remaining resource information of the cluster.
+  show      show cluster info.
+  update    update info from clustername.
+
+$
 paddleflow cluster list -cn(--clustername) cluster_name -cs(--clusterstatus) cluster_status  -m(--maxkeys) int -mk(--marker) xxx//列出所有的集群 （通过cluster_name 列出指定名称的集群;通过cluster_status 列出指定状态的集群；列出指定数量的集群；从marker列出集群）
 paddleflow cluster show clustername // 展示一个集群的详细信息，包括credential凭证信息
 paddleflow cluster delete  clustername  //删除一个集群
 paddleflow cluster create  clustername:required（必须）集群名称 endpoint:required(必须) 节点 clustertype:required(必须) 集群类型 -c(--credential)  凭证文件绝对路径 -id(--clusterid) clusterid -d(--description) 描述 --source Source --setting setting --status status -ns(--namespacelist) namespacelist// 创建集群（自定义集群名称；集群的节点；集群的类型；集群认证的凭证信息，本地文件路径；自定义集群id;集群描述；集群源[AWS, CCE, etc];集群配置信息；集群状态；namespace列表，比如['NS1','NS2']，传入中括号的内容）
-paddleflow cluster update  clustername:required（必须）集群名称 -e(--endpoint) 节点 -t(--clustertype) 集群类型 -c(--credential)  凭证文件绝对路径 -id(--clusterid) clusterid -d(--description) 描述 --source Source --setting setting --status status -ns(--namespacelist) namespacelist// 更新集群（需要更新的集群名称；集群的节点；集群的类型；集群认证的凭证信息，本地文件路径；自定义集群id;集群描述；集群源[AWS, CCE, etc];集群配置信息；集群状态；namespace列表，比如['NS1','NS2']，传入中括号的内容）
+paddleflow cluster update  clustername:required（必须）集群名称 -e(--endpoint) 节点 -t(--clustertype) 集群类型 -c(--credential)  凭证文件绝对路径 -id(--clusterid) clusterid -d(--description) 描述 --source Source --setting setting --status status -ns(--namespacelist) namespacelist// 更新集群（需要更新的集群名称；集群的节点；集群的类型；集群认证的凭证信息，本地文件路径；自定义集群id;集群描述；集群源[AWS, CCE, etc];集群配置信息；集群状态；namespace列表，比如['NS1','NS2']，传入
+中括号的内容）
 paddleflow cluster resource  -cn(--clustername)  cluster_name    // 列表显示所有集群剩余资源（显示指定集群的剩余资源）
 ```
 
+### 示例
 
 集群创建：用户输入```paddleflow cluster create clustername, endpoint, clustertype```，界面上显示
 

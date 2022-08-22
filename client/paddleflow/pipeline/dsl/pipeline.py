@@ -21,19 +21,26 @@ from typing import List
 from typing import Dict
 from pathlib import Path
 
-from .steps import step
-from .steps import Step
+from .component import component
+from .component.steps import step
+from .component.steps import Step
+from .component import DAG
 from .options import CacheOptions
 from .options import FailureOptions
 from .io_types import EnvDict
+from .options import FSOptions
 from .utils.util import validate_string_by_regex
 from .utils.consts import PIPELINE_NAME_REGEX
 from .utils.consts import PipelineDSLError
 from .utils.consts import VARIBLE_NAME_REGEX
+from .utils.consts import ENTRY_POINT_NAME
 from .compiler import Compiler
+from .inferer import DAGInferer
+from .inferer import ContainerStepInferer
 
 from paddleflow.common.exception.paddleflow_sdk_exception import PaddleFlowSDKException
 from paddleflow.common.util import  get_default_config_path
+
 
 class Pipeline(object):
     """ Pipeline is a workflow which is composed of Step  
@@ -45,7 +52,8 @@ class Pipeline(object):
             docker_env: str=None,
             env: Dict[str, str]=None,
             cache_options: CacheOptions=None,
-            failure_options: FailureOptions=None
+            failure_options: FailureOptions=None,
+            fs_options: FSOptions=None
             ):
         """ create a new instance of Pipeline
 
@@ -81,104 +89,33 @@ class Pipeline(object):
         self.parallelism = parallelism
         self.cache_options = cache_options
         self.failure_options = failure_options
+        self.fs_options = fs_options
+
+        self._client = None
 
         self._env = EnvDict(self)
-    
         self.add_env(env)
 
         # the name of step to step 
-        self._steps = {}
+        self._entry_points = None
         self._post_process = {}
 
-    def __call__(
-            self,
-            func: Callable):
-        """ __call__
-
-        Args:
-            func (Callable): the function which complete organize pipeline
-        
-        Returns:
-            a function wrapper the pipeline function
-        """
-        self.__func = func
-        return  self._organize_pipeline
-
-    def _organize_pipeline(
-            self, 
-            *args,
-            **kwargs
-            ):
-        """ organize pipeline
-        """
-        def register_step_to_pipeline(step: Step):
-            """ register step to pipeline, will be invoked when instantiating step
-            
-            Args:
-                step (Step): the step which need to register this Pipeline instance
-            """
-            self.add(step)
-
-        old_register = step.register_step_handler
-        step.register_step_handler = register_step_to_pipeline
-
-        self.__func(*args, **kwargs)
-
-        step.register_step_handler = old_register
-
-        return self
-
-    def add(
-            self, 
-            step
-            ):
-        """ add step
-
-        Args:
-            step (Step):  the step which need to register to this Pipeline 
-        """
-        # 1. to avoid mutiple steps have the same name
-        self._valide_step_is_unique(step.name)
-        self._steps[step.name] = step
-
-    def _valide_step_is_unique(
-            self,
-            name: str
-            ):
-        """ to ensure every step in pipeline has unique name 
-
-        Args:
-            name (str): the name of steps:
-        """
-        names = list(self._steps.keys()) + list(self._post_process.keys())
-        if name in names:
-            raise PaddleFlowSDKException(PipelineDSLError, self.__error_msg_prefix + \
-                f"there are multiple steps with the same name[{name}]")
     
-    def run(
+    def _init_client(
             self,
             config: str=None,
-            username: str=None,
-            fsname: str=None,
-            runname: str=None,
-            desc: str=None,
-            entry: str=None,
-            disabled: List[str]=None,
             ):
-        """ create a pipelint run
+        """ create a client which response to communicate with server
 
         Args:
-            username (str): create the specified run by username, only useful for root.
             config (str): the path of config file
-            fsname (str): the fsname of paddleflow
-            runname (str): the name of this run 
-            desc (str): description of run 
-            entry (str): the entry of run, should be one of step's name in pipeline
-            disabled (List[str]): a list of step's name which need to disable in this run
 
         Raises:
             PaddleFlowSDKException: if cannot create run  
         """
+        if self._client is not None:
+            return
+        
         from paddleflow.client import Client
         from paddleflow.cli.cli import DEFAULT_PADDLEFLOW_PORT
         
@@ -205,14 +142,14 @@ class Pipeline(object):
         name = config['user']['name']
         password = config['user']['password']
 
-        if 'paddleflow_server' not in config['server']:
+        if 'paddleflow_server_host' not in config['server']:
             raise PaddleFlowSDKException(PipelineDSLError, self.__error_msg_prefix + \
                         f"no paddleflow_server in {config_file}")
             
-        paddleflow_server = config['server']['paddleflow_server']
+        paddleflow_server = config['server']['paddleflow_server_host']
 
-        if 'paddleflow_port' in config['server']:
-            paddleflow_port = config['server']['paddleflow_port']
+        if 'paddleflow_server_host' in config['server']:
+            paddleflow_port = config['server']['paddleflow_server_port']
         else:
             paddleflow_port = DEFAULT_PADDLEFLOW_PORT
 
@@ -220,61 +157,73 @@ class Pipeline(object):
         ok, msg = client.login(name, password)
         if not ok:
             raise PaddleFlowSDKException(PipelineDSLError, self.__error_msg_prefix + f"login failed: {msg}")
-
-        # 1. validate
-        ## 1.1 validate disabled
-        if disabled is not None:
-            for name in disabled:
-                if name not in self._steps and name not in self._post_process:
-                    raise PaddleFlowSDKException(PipelineDSLError, self.__error_msg_prefix + \
-                        f"cannot find the step who's name is [{name}]")
- 
-            disabled = ",".join(disabled)
-
-        ## 1.2 validate cache_options.fs_scope and fs_id
-        if hasattr(self, "cache_options") and self.cache_options and \
-            self.cache_options.fs_scope is not None and fsname is None:
-                raise PaddleFlowSDKException(PipelineDSLError,
-                    self.__error_msg_prefix + f"cannot set fs_scope for CacheOptions when fsname is None")
-
-        # 2. compile
-        pipeline = yaml.dump(self.compile())
-        pipeline = pipeline.encode("utf-8")
         
-        # 3. run
-        if entry and entry not in self._steps:
-            raise PaddleFlowSDKException(PipelineDSLError,
-                self.__error_msg_prefix + f"the entry[{entry}] of run is not in pipeline")
-
-        return client.create_run(fsname, username, runname, desc, entry, runyamlraw=pipeline, disabled=disabled)
-        
-    def _update_and_validate_steps(self, steps: Dict[str, Step]):
-        """ update steps before compile
+        self._client = client
+      
+       
+    def __call__(
+            self,
+            func: Callable):
+        """ __call__
 
         Args:
-            steps (Dict[string, Step]): the steps need to update and validate
-        """
-        # 1. Synchronize environment variables of pipeline and step
-        for name, step in steps.items():
-            # 1. Synchronize environment variables of pipeline and step
-            env = dict(self.env)
-            env.update(step.env)
-            step.add_env(env)
-
-            # 2. Ensure that the input / output aritact and parameter of the step have different names
-            step.validate_io_names()
+            func (Callable): the function which complete organize pipeline
         
-            # 3. Resolve dependencies between steps and validate all deps are Pipeline
-            for dep in step.get_dependences():
-                if dep.name not in steps or dep is not steps[dep.name]:
-                    raise PaddleFlowSDKException(PipelineDSLError, self.__error_msg_prefix + \
-                            f"the upstream step[{dep.name}] for step[{step.name}] is not in Pipeline[{self.name}].\n" + \
-                                "Attentions: step in postProcess cannot depend on any other step")
-            
-            # 4. validate docker_env
-            if not self.docker_env and not step.docker_env:
-                raise PaddleFlowSDKException(PipelineDSLError, 
-                    self.__error_msg_prefix + f"cannot set the docker_env of step[step.name]")  
+        Returns:
+            a function wrapper the pipeline function
+        """
+        self.__func = func
+        return  self._organize_pipeline
+
+    def _organize_pipeline(
+            self, 
+            *args,
+            **kwargs
+            ):
+        """ organize pipeline
+        """
+        new_ppl = copy.deepcopy(self)
+
+        new_ppl._entry_points = DAG(name=ENTRY_POINT_NAME)
+
+        with new_ppl._entry_points:
+            new_ppl.__func(*args, **kwargs)
+
+        return new_ppl
+    
+    def run(
+            self,
+            config: str=None,
+            username: str=None,
+            fs_name: str=None,
+            run_name: str=None,
+            desc: str=None,
+            disabled: List[str]=None,
+            ):
+        """ create a pipelint run
+
+        Args:
+            username (str): create the specified run by username, only useful for root.
+            config (str): the path of config file
+            fs_name (str): the fsname of paddleflow
+            run_name (str): the name of this run 
+            desc (str): description of run 
+            disabled (List[str]): a list of step's name which need to disable in this run
+
+        Raises:
+            PaddleFlowSDKException: if cannot create run  
+        """
+        # TODO: add validate logical
+
+        # 1. compile
+        pipeline = yaml.dump(self.compile())
+        pipeline = pipeline.encode("utf-8")
+
+        self._init_client(config)
+        if disabled:
+            disabled = ",".join([disable.strip(ENTRY_POINT_NAME + ".") for disable in disabled])
+        
+        return self._client.create_run(fs_name, username, run_name, desc, run_yaml_raw=pipeline, disabled=disabled)
 
     def compile(
             self,
@@ -291,87 +240,34 @@ class Pipeline(object):
         Raises:
            PaddleFlowSDKException: if compile failed 
         """
-        if not self._steps:
+        if not self._entry_points:
             raise PaddleFlowSDKException(PipelineDSLError,
-                    self.__error_msg_prefix + f"there is no Step in Pipeline[{self.name}]")
-
-        # 1. Synchronize environment variables of pipeline and step
-        self._update_and_validate_steps(self._steps)
+                    self.__error_msg_prefix + f"there is no Step or DAG in Pipeline[{self.name}]")
+    
+        # TODO: validate
 
         if len(self._post_process) > 1:
             raise PaddleFlowSDKException(PipelineDSLError, 
                 self.__error_msg_prefix + "There can only be one step at most in post_process right now")
-        self._update_and_validate_steps(self._post_process)
         
-        # 4、Check whether there is a ring and whether it depends on steps that do not belong to this pipeline
-        self.topological_sort()
+        # infer parameter and artifact for entry_point
+        DAGInferer(self._entry_points).infer(self.env)
+
+        if self._post_process:
+            ContainerStepInferer(self._post_process)
         
-        # 5、Compile
+        # Compile
         pipeline_dict = Compiler().compile(self, save_path)
         return pipeline_dict
 
-    def topological_sort(self):
-        """ List Steps in topological order.
-
-        Returns:
-            A list of Steps in topological order
-
-        Raises:
-            PaddleFlowSDKException: if there is a ring
-        """
-        topo_sort = []
-        
-        while len(topo_sort) < len(self._steps):
-            exists_ring = True
-            for step in self._steps.values():
-                if step in topo_sort:
-                    continue
-
-                need_add = True
-
-                for dep in step.get_dependences():
-                    if dep not in topo_sort:
-                        need_add = False
-                        break
-
-                if need_add:
-                    topo_sort.append(step)
-                    exists_ring = False
-            
-            if exists_ring:
-                ring_steps = [step.name for step in self._steps.values()  if step not in topo_sort]
-                raise PaddleFlowSDKException(PipelineDSLError, 
-                    self.__error_msg_prefix + f"there is a ring between {ring_steps}")
-        
-        # append post_process  
-        topo_sort += list(self._post_process.values())
-        return topo_sort
-
-    def get_params(self):
-        """ get all step's Parameter
-
-        Return:
-            a dict which contain all step's Paramter, for example::
-
-                {
-                    "step1": {"param_a": 1},
-                    "step2": {"param_a": 2},
-                }
-        """
-        params = {}
-        for step in self._steps.values():
-            params[step.name] = step.parameters
-
-        return params
-
     @property
-    def steps(self):
+    def entry_points(self):
         """ get all steps except post_process that this Pipelines instance include
 
         Returns:
             a dict which key is the name of step and value is Step instances
         """
-        return self._steps
+        return self._entry_points.entry_points
 
     @property
     def name(self):
@@ -437,15 +333,10 @@ class Pipeline(object):
         # TODO：增加校验逻辑
         if not isinstance(step, Step):
             raise PaddleFlowSDKException(PipelineDSLError, 
-                self.__error_msg_prefix + "the step of post_process should be an instance of Step")
+                self.__error_msg_prefix + "post_process of pipeline should be an instance of Step")
         
-        if step.cache_options:
-            raise PaddleFlowSDKException(PipelineDSLError,
-                self.__error_msg_prefix + "cannot set cache_options for step which in post_process")
-
         # There can only be one step at most in post_process right now
         self._post_process = {}
-        self._valide_step_is_unique(step.name)
         self._post_process[step.name] = step
 
     def get_post_process(self):
@@ -459,3 +350,25 @@ class Pipeline(object):
             return value
 
         return None
+
+    def __deepcopy__(self, memo):
+        """ support copy.deepcopy
+        """
+        new_ppl = Pipeline(
+            name=self.name,
+            parallelism=self.parallelism,
+            docker_env=self.docker_env,
+            cache_options=self.cache_options,
+            failure_options=self.failure_options,
+            fs_options=self.fs_options,
+            env=self._env,
+            )
+        
+        new_ppl.__func = self.__func
+        if self._post_process:
+            new_ppl.set_post_process(self._post_process)
+
+        new_ppl._entry_points = self._entry_points
+        new_ppl._client = new_ppl._client
+
+        return new_ppl
