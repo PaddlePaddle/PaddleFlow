@@ -327,7 +327,7 @@ func (s *ComponentParamChecker) solveParamValue(compName string, paramName strin
 	case float32, float64, int, int64:
 		return param, nil
 	case []interface{}:
-		if err := s.checkListParam(param); err != nil {
+		if err := CheckListParam(param); err != nil {
 			return nil, err
 		}
 		return param, nil
@@ -364,7 +364,7 @@ func (s *ComponentParamChecker) checkListParam(param []interface{}) error {
 				return err
 			}
 		default:
-			return fmt.Errorf("list param item can only be int, float, list type")
+			return fmt.Errorf("list param item can only be int, float, string, list type")
 		}
 	}
 	return nil

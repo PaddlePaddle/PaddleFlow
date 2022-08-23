@@ -38,7 +38,8 @@ func (variableChecker *VariableChecker) CheckVarName(varName string) error {
 
 func (VariableChecker *VariableChecker) CheckCompName(compName string) error {
 	// 和CheckVarName的区别在于，component的名称不可以包含下划线(_)，而可以包含中划线(-)
-	pattern := `^[a-zA-Z][a-zA-Z0-9-]{0,29}$` // 由于数据库中jobName字段的长度上限为60，因此需要限制stepName的长度
+	// 由于数据库中jobName字段的长度上限为60，因此需要限制stepName的长度
+	pattern := `^[a-zA-Z][a-zA-Z0-9-]{0,29}$`
 	reg := regexp.MustCompile(pattern)
 	if !reg.MatchString(compName) || strings.HasPrefix(compName, "PF_") {
 		err := fmt.Errorf("format of component name[%s] invalid, should be in ^[a-zA-Z][a-zA-Z0-9-]*$ and not start with \"PF_\"", compName)

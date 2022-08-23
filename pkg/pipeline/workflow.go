@@ -178,20 +178,21 @@ func (bwf *BaseWorkflow) checkLoopArgument(component schema.Component) error {
 	switch loop := loop.(type) {
 	case []interface{}:
 		for _, v := range loop {
-			_, ok1 := v.(int)
-			_, ok2 := v.(int64)
-			_, ok3 := v.(float32)
-			_, ok4 := v.(float64)
-			loopStr, ok5 := v.(string)
-			if !ok1 && !ok2 && !ok3 && !ok4 && !ok5 {
-				return fmt.Errorf("[%v]in loopArgument is invalid, each one with list type can only have int or float or string", v)
-			}
-			if ok5 {
+			switch v := v.(type) {
+			case int, int64, float32, float64:
+				// do nothing
+			case string:
 				checker := VariableChecker{}
 				// list中的元素不能为模板，如果使用了模板，则报错
-				if err := checker.CheckRefArgument(loopStr); err == nil {
-					return fmt.Errorf("[%v]in loopArgument is invalid, each one in list loopArgument must not be templete", loopStr)
+				if err := checker.CheckRefArgument(v); err == nil {
+					return fmt.Errorf("[%v]in loopArgument is invalid, each one in list loopArgument must not be templete", v)
 				}
+			case []interface{}:
+				if err := CheckListParam(v); err != nil {
+					return err
+				}
+			default:
+				return fmt.Errorf("[%v]in loopArgument is invalid, each one with list type can only have int, float, string, list", v)
 			}
 		}
 	case string:
