@@ -34,7 +34,7 @@ type FSCacheConfig struct {
 	Debug                   bool                   `json:"debug"`
 	CleanCache              bool                   `json:"cleanCache"`
 	Resource                ResourceLimit          `json:"resource"             gorm:"-"`
-	ResourceJson            string                 `json:"-"`
+	ResourceJson            string                 `json:"-"                    gorm:"column:resource;type:text"`
 	NodeAffinityJson        string                 `json:"-"                    gorm:"column:node_affinity;type:text;default:'{}'"`
 	NodeAffinityMap         map[string]interface{} `json:"nodeAffinity"         gorm:"-"`
 	NodeTaintTolerationJson string                 `json:"-"                    gorm:"column:node_tainttoleration;type:text;default:'{}'"`
