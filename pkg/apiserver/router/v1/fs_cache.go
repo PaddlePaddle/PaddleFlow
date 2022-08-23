@@ -108,25 +108,25 @@ func validateCacheConfigCreate(ctx *logger.RequestContext, req *api.CreateFileSy
 	rcs := req.Resource
 	if rcs.CpuLimit != "" {
 		if _, err := resource.ParseQuantity(rcs.CpuLimit); err != nil {
-			return validationReturnError(ctx, fmt.Errorf("fs[%s] cache config: invalid resource CpuLimit [%s]",
+			return validationReturnError(ctx, fmt.Errorf("fs[%s] cache config: invalid resource cpuLimit [%s]",
 				req.FsID, rcs.CpuLimit))
 		}
 	}
 	if rcs.MemoryLimit != "" {
 		if _, err := resource.ParseQuantity(rcs.MemoryLimit); err != nil {
-			return validationReturnError(ctx, fmt.Errorf("fs[%s] cache config: invalid resource MemoryLimit [%s]",
+			return validationReturnError(ctx, fmt.Errorf("fs[%s] cache config: invalid resource memoryLimit [%s]",
 				req.FsID, rcs.MemoryLimit))
 		}
 	}
 	if rcs.CpuRequest != "" {
 		if _, err := resource.ParseQuantity(rcs.CpuRequest); err != nil {
-			return validationReturnError(ctx, fmt.Errorf("fs[%s] cache config: invalid resource CpuRequest [%s]",
+			return validationReturnError(ctx, fmt.Errorf("fs[%s] cache config: invalid resource cpuRequest [%s]",
 				req.FsID, rcs.CpuRequest))
 		}
 	}
 	if rcs.MemoryRequest != "" {
 		if _, err := resource.ParseQuantity(rcs.MemoryRequest); err != nil {
-			return validationReturnError(ctx, fmt.Errorf("fs[%s] cache config: invalid resource MemoryRequest [%s]",
+			return validationReturnError(ctx, fmt.Errorf("fs[%s] cache config: invalid resource memoryRequest [%s]",
 				req.FsID, rcs.MemoryRequest))
 		}
 	}
