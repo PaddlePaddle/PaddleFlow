@@ -25,22 +25,22 @@ import (
 )
 
 type FSCacheConfig struct {
-	PK                      int64                  `json:"-"                   gorm:"primaryKey;autoIncrement"`
-	FsID                    string                 `json:"fsID"                gorm:"type:varchar(36);unique_index"`
+	PK                      int64                  `json:"-"                    gorm:"primaryKey;autoIncrement"`
+	FsID                    string                 `json:"fsID"                 gorm:"type:varchar(36);unique_index"`
 	CacheDir                string                 `json:"cacheDir"`
 	Quota                   int                    `json:"quota"`
 	MetaDriver              string                 `json:"metaDriver"`
 	BlockSize               int                    `json:"blockSize"`
 	Debug                   bool                   `json:"debug"`
 	CleanCache              bool                   `json:"cleanCache"`
-	Resource                ResourceLimit          `json:"resource"`
+	Resource                ResourceLimit          `json:"resource"             gorm:"-"`
 	ResourceJson            string                 `json:"-"`
-	NodeAffinityJson        string                 `json:"-"                   gorm:"column:node_affinity;type:text;default:'{}'"`
-	NodeAffinityMap         map[string]interface{} `json:"nodeAffinity"        gorm:"-"`
-	NodeTaintTolerationJson string                 `json:"-"                   gorm:"column:node_tainttoleration;type:text;default:'{}'"`
-	NodeTaintTolerationMap  map[string]interface{} `json:"nodeTaintToleration" gorm:"-"`
-	ExtraConfigJson         string                 `json:"-"                   gorm:"column:extra_config;type:text;default:'{}'"`
-	ExtraConfigMap          map[string]string      `json:"extraConfig"         gorm:"-"`
+	NodeAffinityJson        string                 `json:"-"                    gorm:"column:node_affinity;type:text;default:'{}'"`
+	NodeAffinityMap         map[string]interface{} `json:"nodeAffinity"         gorm:"-"`
+	NodeTaintTolerationJson string                 `json:"-"                    gorm:"column:node_tainttoleration;type:text;default:'{}'"`
+	NodeTaintTolerationMap  map[string]interface{} `json:"nodeTaintToleration"  gorm:"-"`
+	ExtraConfigJson         string                 `json:"-"                    gorm:"column:extra_config;type:text;default:'{}'"`
+	ExtraConfigMap          map[string]string      `json:"extraConfig"          gorm:"-"`
 	CreateTime              string                 `json:"createTime"           gorm:"-"`
 	UpdateTime              string                 `json:"updateTime,omitempty" gorm:"-"`
 	CreatedAt               time.Time              `json:"-"`
