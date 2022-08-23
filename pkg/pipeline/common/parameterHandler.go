@@ -328,7 +328,7 @@ func (s *ComponentParamChecker) solveParamValue(compName string, paramName strin
 		return param, nil
 	case []interface{}:
 		if err := CheckListParam(param); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("component [%s] check list param failed: %s", compName, err.Error())
 		}
 		return param, nil
 	case string:
@@ -346,28 +346,6 @@ func (s *ComponentParamChecker) solveParamValue(compName string, paramName strin
 	default:
 		return nil, UnsupportedParamTypeError(param, paramName)
 	}
-}
-
-func (s *ComponentParamChecker) checkListParam(param []interface{}) error {
-	for _, listItem := range param {
-		switch listItem := listItem.(type) {
-		case float32, float64, int, int64:
-			// do nothing
-		case string:
-			checker := VariableChecker{}
-			// list中的元素不能为模板，如果使用了模板，则报错
-			if err := checker.CheckRefArgument(listItem); err == nil {
-				return fmt.Errorf("list param item [%v] is invalid, each item must not be templete", listItem)
-			}
-		case []interface{}:
-			if err := s.checkListParam(listItem); err != nil {
-				return err
-			}
-		default:
-			return fmt.Errorf("list param item can only be int, float, string, list type")
-		}
-	}
-	return nil
 }
 
 // resolveRefParam 解析引用参数

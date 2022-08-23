@@ -185,14 +185,16 @@ func (bwf *BaseWorkflow) checkLoopArgument(component schema.Component) error {
 				checker := VariableChecker{}
 				// list中的元素不能为模板，如果使用了模板，则报错
 				if err := checker.CheckRefArgument(v); err == nil {
-					return fmt.Errorf("[%v]in loopArgument is invalid, each one in list loopArgument must not be templete", v)
+					return fmt.Errorf("[%v]in loopArgument of component [%s] is invalid, each one in list loopArgument must not be templete",
+						v, component.GetName())
 				}
 			case []interface{}:
 				if err := CheckListParam(v); err != nil {
-					return err
+					return fmt.Errorf("component [%s] check loopArgument failed: %s", component.GetName(), err.Error())
 				}
 			default:
-				return fmt.Errorf("[%v]in loopArgument is invalid, each one with list type can only have int, float, string, list", v)
+				return fmt.Errorf("[%v]in loopArgument  of component [%s] is invalid, each one with list type can only have int, float, string, list",
+					v, component.GetName())
 			}
 		}
 	case string:
@@ -234,7 +236,7 @@ func (bwf *BaseWorkflow) checkLoopArgument(component schema.Component) error {
 					// do nothing
 				case []interface{}:
 					if err := CheckListParam(arg); err != nil {
-						return err
+						return fmt.Errorf("loopArgument of component[%s] check failed: %s", component.GetName(), err.Error())
 					}
 				default:
 					return fmt.Errorf("each one in list loopArgument should be int or float or string")
