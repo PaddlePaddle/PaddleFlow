@@ -32,6 +32,9 @@ type FSCacheConfig struct {
 	MetaDriver              string                 `json:"metaDriver"`
 	BlockSize               int                    `json:"blockSize"`
 	Debug                   bool                   `json:"debug"`
+	CleanCache              bool                   `json:"cleanCache"`
+	Resource                ResourceLimit          `json:"resource"`
+	ResourceJson            string                 `json:"-"`
 	NodeAffinityJson        string                 `json:"-"                   gorm:"column:node_affinity;type:text;default:'{}'"`
 	NodeAffinityMap         map[string]interface{} `json:"nodeAffinity"        gorm:"-"`
 	NodeTaintTolerationJson string                 `json:"-"                   gorm:"column:node_tainttoleration;type:text;default:'{}'"`
@@ -45,11 +48,24 @@ type FSCacheConfig struct {
 	DeletedAt               gorm.DeletedAt         `json:"-"`
 }
 
+type ResourceLimit struct {
+	CpuLimit      string `json:"cpuLimit"`
+	MemoryLimit   string `json:"memoryLimit"`
+	CpuRequest    string `json:"cpuRequest"`
+	MemoryRequest string `json:"memoryRequest"`
+}
+
 func (s *FSCacheConfig) TableName() string {
 	return "fs_cache_config"
 }
 
 func (s *FSCacheConfig) AfterFind(*gorm.DB) error {
+	if s.ResourceJson != "" {
+		if err := json.Unmarshal([]byte(s.ResourceJson), &s.Resource); err != nil {
+			log.Errorf("json Unmarshal ResourceJson[%s] failed: %v", s.ResourceJson, err)
+			return err
+		}
+	}
 	if s.NodeAffinityJson != "" {
 		s.NodeAffinityMap = make(map[string]interface{})
 		if err := json.Unmarshal([]byte(s.NodeAffinityJson), &s.NodeAffinityMap); err != nil {
@@ -77,6 +93,13 @@ func (s *FSCacheConfig) AfterFind(*gorm.DB) error {
 }
 
 func (s *FSCacheConfig) BeforeSave(*gorm.DB) error {
+	resourceMapStr, err := json.Marshal(&s.Resource)
+	if err != nil {
+		log.Errorf("json Marshal Resource[%v] failed: %v", s.Resource, err)
+		return err
+	}
+	s.ResourceJson = string(resourceMapStr)
+
 	nodeAffinityMap, err := json.Marshal(&s.NodeAffinityMap)
 	if err != nil {
 		log.Errorf("json Marshal nodeAffinityMap[%v] failed: %v", s.NodeAffinityMap, err)

@@ -36,6 +36,8 @@ type UpdateFileSystemCacheRequest struct {
 	MetaDriver          string                 `json:"metaDriver"`
 	BlockSize           int                    `json:"blockSize"`
 	Debug               bool                   `json:"debug"`
+	CleanCache          bool                   `json:"cleanCache"`
+	Resource            model.ResourceLimit    `json:"resource"`
 	NodeAffinity        map[string]interface{} `json:"nodeAffinity"`
 	NodeTaintToleration map[string]interface{} `json:"nodeTaintToleration"`
 	ExtraConfig         map[string]string      `json:"extraConfig"`
@@ -49,6 +51,8 @@ func (req *UpdateFileSystemCacheRequest) toModel() model.FSCacheConfig {
 		MetaDriver:             req.MetaDriver,
 		BlockSize:              req.BlockSize,
 		Debug:                  req.Debug,
+		CleanCache:             req.CleanCache,
+		Resource:               req.Resource,
 		NodeAffinityMap:        req.NodeAffinity,
 		ExtraConfigMap:         req.ExtraConfig,
 		NodeTaintTolerationMap: req.NodeTaintToleration,
@@ -70,6 +74,8 @@ type FileSystemCacheResponse struct {
 	Quota               int                    `json:"quota"`
 	MetaDriver          string                 `json:"metaDriver"`
 	BlockSize           int                    `json:"blockSize"`
+	CleanCache          bool                   `json:"cleanCache"`
+	Resource            model.ResourceLimit    `json:"resource"`
 	NodeAffinity        map[string]interface{} `json:"nodeAffinity"`
 	NodeTaintToleration map[string]interface{} `json:"nodeTaintToleration"`
 	ExtraConfig         map[string]string      `json:"extraConfig"`
@@ -84,6 +90,8 @@ func (resp *FileSystemCacheResponse) fromModel(config model.FSCacheConfig) {
 	resp.Quota = config.Quota
 	resp.MetaDriver = config.MetaDriver
 	resp.BlockSize = config.BlockSize
+	resp.CleanCache = config.CleanCache
+	resp.Resource = config.Resource
 	resp.NodeAffinity = config.NodeAffinityMap
 	resp.NodeTaintToleration = config.NodeTaintTolerationMap
 	resp.ExtraConfig = config.ExtraConfigMap
