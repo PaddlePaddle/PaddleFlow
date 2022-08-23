@@ -48,12 +48,16 @@ def check_pfserver_status(service_name, namespace, port, user, password):
         ppl_num = clean_pipelines(client)
         job_num = clean_jobs(client)
         sum = ppl_num + job_num
+        queue_num = 0
         if sum == 0:
             # clean queue only if no running ppl or job
-            sum = clean_default_queue(client)
-        clean_storage(client)
+            queue_num = clean_default_queue(client)
+            sum += queue_num
+        storage_num = clean_storage(client)
+        sum += storage_num
         if sum != 0:
-            print("\nscheduling clean paddleflow resource, current resource is %d" % sum)
+            print("\nscheduling clean paddleflow resource, total resource is %d, [%s] ppl, [%s]job, [%s]queue, "
+                  "[%s]storage" % (sum, ppl_num, job_num, queue_num, storage_num))
             time.sleep(5)
 
 
@@ -78,38 +82,24 @@ def clean_pipelines(client):
 
 
 def clean_storage(client):
-    print("clean_storage")
-    print("clean_storage end\n\n")
-    pass
+    print("clean_storage todo")
+    return 0
 
 
 def clean_default_queue(client):
-    print("clean_queue")
-    ret, response, next_marker = client.list_queue()
-    if not ret:
-        print("clean queue failed, %s" % response)
-        err_msg = "list %s queue failed, with response[%s]" % (response)
-        raise Exception(err_msg)
-    queue_list = response
-    if len(queue_list) != 0:
-        for q in queue_list:
-            print(q.name, q.namespace)
-            if q.name == "default-queue":
-                delete_queue(client, q.name)
-                print("clean default-queue success")
-    else:
-        print("no active job, quit clean_queue check")
-    print("clean_queue finished\n\n")
-    return len(queue_list)
+    print("clean_queue default-queue")
+    default_queue_name = "default-queue"
+    try:
+        ret, default_queue = client.del_queue(default_queue_name)
+        if ret:
+            print("default-queue cleaned succeed")
+    except Exception as e:
+        if str(e).__contains__("not exist"):
+            print("default-queue has been cleaned")
+        else:
+            print(e)
 
-
-def delete_queue(client, queue_name):
-    print("try to delete queue %s" % queue_name)
-    is_success, err_msg = client.del_queue(queue_name)
-    if not is_success:
-        print("failed to delete queue %s, err_msg= %s" % (queue_name, err_msg))
-    else:
-        print("delete queue %s successed." % queue_name)
+    return 0
 
 
 def clean_jobs(client):
