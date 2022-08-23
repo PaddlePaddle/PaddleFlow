@@ -229,8 +229,13 @@ func (bwf *BaseWorkflow) checkLoopArgument(component schema.Component) error {
 				return fmt.Errorf("loopArgument [%s] unmarshal to list failed, error: %s", loop, err.Error())
 			}
 			for _, arg := range listArg {
-				switch arg.(type) {
+				switch arg := arg.(type) {
 				case int, int64, float32, float64, string:
+					// do nothing
+				case []interface{}:
+					if err := CheckListParam(arg); err != nil {
+						return err
+					}
 				default:
 					return fmt.Errorf("each one in list loopArgument should be int or float or string")
 				}
