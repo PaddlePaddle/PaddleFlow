@@ -19,7 +19,6 @@ package v1
 import (
 	"errors"
 	"fmt"
-	"k8s.io/apimachinery/pkg/api/resource"
 	"net/http"
 	"path/filepath"
 
@@ -27,6 +26,7 @@ import (
 	"github.com/go-playground/validator/v10"
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	api "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/fs"
