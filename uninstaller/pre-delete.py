@@ -45,14 +45,15 @@ def check_pfserver_status(service_name, namespace, port, user, password):
         raise Exception(err_msg)
     sum = 1
     while sum != 0:
-        print("\nscheduling clean paddleflow resource, current resource is %d" % sum)
-        sum = clean_pipelines(client)
-        jobs_nums = clean_jobs(client)
-        if jobs_nums == 0:
-            sum += clean_queue(client)
-        sum += jobs_nums
+        ppl_num = clean_pipelines(client)
+        job_num = clean_jobs(client)
+        sum = ppl_num + job_num
+        if sum == 0:
+            # clean queue only if no running ppl or job
+            sum = clean_default_queue(client)
         clean_storage(client)
         if sum != 0:
+            print("\nscheduling clean paddleflow resource, current resource is %d" % sum)
             time.sleep(5)
 
 
@@ -82,7 +83,7 @@ def clean_storage(client):
     pass
 
 
-def clean_queue(client):
+def clean_default_queue(client):
     print("clean_queue")
     ret, response, next_marker = client.list_queue()
     if not ret:
@@ -93,9 +94,9 @@ def clean_queue(client):
     if len(queue_list) != 0:
         for q in queue_list:
             print(q.name, q.namespace)
-            delete_queue(client, q.name)
-
-        print("there are [%s] active queue" % len(queue_list))
+            if q.name == "default-queue":
+                delete_queue(client, q.name)
+                print("clean default-queue success")
     else:
         print("no active job, quit clean_queue check")
     print("clean_queue finished\n\n")
