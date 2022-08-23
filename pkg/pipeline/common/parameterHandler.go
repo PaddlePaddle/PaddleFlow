@@ -326,6 +326,11 @@ func (s *ComponentParamChecker) solveParamValue(compName string, paramName strin
 	switch param := param.(type) {
 	case float32, float64, int, int64:
 		return param, nil
+	case []interface{}:
+		if err := CheckListParam(param); err != nil {
+			return nil, fmt.Errorf("component [%s] check list param failed: %s", compName, err.Error())
+		}
+		return param, nil
 	case string:
 		if err := s.resolveRefParam(compName, param, fieldType); err != nil {
 			return nil, err
