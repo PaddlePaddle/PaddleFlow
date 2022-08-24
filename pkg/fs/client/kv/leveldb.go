@@ -75,6 +75,34 @@ func (l levelDBClient) ScanValues(prefix []byte) (map[string][]byte, error) {
 	return result, nil
 }
 
+func (l levelDBClient) Exist(prefix []byte) bool {
+	iter := l.db.NewIterator(util.BytesPrefix(prefix), nil)
+	return iter.Last()
+}
+func (l levelDBClient) Append(key []byte, value []byte) []byte {
+	data, exist := l.Get(key)
+	if !exist {
+		l.Set(key, value)
+		return value
+	}
+	data = append(data, value...)
+	l.Set(key, data)
+	return data
+}
+func (l levelDBClient) IncrBy(key []byte, value int64) int64 {
+	date, exist := l.Get(key)
+	if !exist {
+		l.Set(key, marshalCounter(value))
+		return value
+	}
+	newValue := unmarshalCounter(date) + value
+	l.Set(key, marshalCounter(newValue))
+	return newValue
+
+}
+
+var _ Client = &levelDBClient{}
+
 func NewLevelDBClient(config Config) (Client, error) {
 	cachePath := filepath.Join(config.CachePath, config.FsID+"_"+utils.GetRandID(5)+".db")
 	os.RemoveAll(cachePath)
@@ -84,5 +112,3 @@ func NewLevelDBClient(config Config) (Client, error) {
 	}
 	return &levelDBClient{db: db}, nil
 }
-
-var _ Client = &levelDBClient{}
