@@ -381,6 +381,8 @@ CREATE TABLE IF NOT EXISTS `fs_cache_config` (
     `block_size` int(5) NOT NULL COMMENT 'cache block size',
     `meta_driver` varchar(32) NOT NULL COMMENT 'meta_driver，e.g. default/mem/leveldb/nutsdb',
     `debug` tinyint(1) NOT NULL COMMENT 'turn on debug log',
+    `clean_cache` tinyint(1) NOT NULL default 0 COMMENT 'whether clean cache after mount pod vanishes',
+    `resource` text COMMENT 'resource limit and request for mount pod',
     `extra_config` text  COMMENT 'extra cache config',
     `node_affinity` text  COMMENT 'node affinity，e.g. node affinity in k8s',
     `node_tainttoleration` text COMMENT 'node taints',
