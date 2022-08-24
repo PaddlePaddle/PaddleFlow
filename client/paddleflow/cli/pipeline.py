@@ -35,18 +35,17 @@ def pipeline():
 
 @pipeline.command(context_settings=dict(max_content_width=2000), cls=command_required_option_from_option())
 @click.argument('fs_name')
-@click.argument('yaml_path')
+@click.option('-yp', '--yamlpath', 'yaml_path', help="relative path of yaml file under storage volume.")
 @click.option('-d', '--desc', help="description of the pipeline.")
 @click.option('-u', '--username', help="Only the root user can specify other users.")
 @click.pass_context
-def create(ctx, fs_name, yaml_path, desc=None, username=None):
+def create(ctx, fs_name, yaml_path=None, desc=None, username=None):
     """ create pipeline.\n
     FS_NAME: specified name.
-    YAML_PATH: relative path of yaml file under storage volume.
     """
     client = ctx.obj['client']
-    if not fs_name or not yaml_path:
-        click.echo('pipeline create  must provide fs name or yaml path .', err=True)
+    if not fs_name:
+        click.echo('pipeline create  must provide fs name.', err=True)
         sys.exit(1)
     valid, response = client.create_pipeline(fs_name, yaml_path, desc, username)
     if valid:
@@ -166,7 +165,7 @@ def show_version(ctx, pipeline_id, pipeline_version_id):
     if valid:
         pipeline_info, ppl_ver_info = response['pipelineInfo'], response['pipelineVersionInfo']
         ppl_ver_list = [ppl_ver_info]
-        _print_pipeline_info(pipeline_info, ppl_ver_list, None, output_format, False)
+        _print_pipeline_info(pipeline_info, ppl_ver_list, None, output_format, True)
     else:
         click.echo("pipeline version show failed with message[%s]" % response)
         sys.exit(1)

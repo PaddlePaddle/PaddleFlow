@@ -155,7 +155,7 @@ func initSQLiteDB(gormConf *gorm.Config) *gorm.DB {
 		return nil
 	}
 	// init flavour to db
-	flavours := []models.Flavour{
+	flavours := []model.Flavour{
 		{
 			Name: "flavour1",
 			CPU:  "1",
@@ -201,23 +201,23 @@ func initMysqlDB(dbConf *config.StorageConfig, gormConf *gorm.Config) *gorm.DB {
 
 func createDatabaseTables(db *gorm.DB) error {
 	return db.AutoMigrate(
-		&models.Pipeline{},
-		&models.PipelineVersion{},
+		&model.Pipeline{},
+		&model.PipelineVersion{},
 		&models.Schedule{},
 		&models.RunCache{},
-		&models.ArtifactEvent{},
+		&model.ArtifactEvent{},
 		&model.User{},
 		&models.Run{},
 		&models.RunJob{},
 		&models.RunDag{},
-		&models.Queue{},
-		&models.Flavour{},
+		&model.Queue{},
+		&model.Flavour{},
 		&model.Grant{},
 		&model.Job{},
 		&model.JobTask{},
 		&model.JobLabel{},
-		&models.ClusterInfo{},
-		&models.Image{},
+		&model.ClusterInfo{},
+		&model.Image{},
 		&model.FileSystem{},
 		&model.Link{},
 		&model.FSCacheConfig{},

@@ -25,6 +25,8 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 type ListRunCacheResponse struct {
@@ -34,7 +36,7 @@ type ListRunCacheResponse struct {
 
 type ListArtifactEventResponse struct {
 	common.MarkerInfo
-	ArtifactEventList []models.ArtifactEvent `json:"artifactEventList"`
+	ArtifactEventList []model.ArtifactEvent `json:"artifactEventList"`
 }
 
 func logCacheReqToModel(req schema.LogRunCacheRequest) models.RunCache {
@@ -52,8 +54,8 @@ func logCacheReqToModel(req schema.LogRunCacheRequest) models.RunCache {
 	}
 }
 
-func logArtifactReqToModel(req schema.LogRunArtifactRequest) models.ArtifactEvent {
-	return models.ArtifactEvent{
+func logArtifactReqToModel(req schema.LogRunArtifactRequest) model.ArtifactEvent {
+	return model.ArtifactEvent{
 		Md5:          req.Md5,
 		RunID:        req.RunID,
 		FsID:         req.FsID,
@@ -96,7 +98,7 @@ func LogArtifactEvent(req schema.LogRunArtifactRequest) error {
 	logEntry := logger.LoggerForRun(req.RunID)
 	logEntry.Debugf("log artifactEvent[%+v] starts", req)
 	artifactEvent := logArtifactReqToModel(req)
-	if err := models.CreateArtifactEvent(logEntry, artifactEvent); err != nil {
+	if err := storage.Artifact.CreateArtifactEvent(logEntry, artifactEvent); err != nil {
 		logEntry.Errorf("log new artifactEvent[%+v] failed error:%v", req, err)
 		return err
 	}
@@ -216,7 +218,7 @@ func DeleteRunCache(ctx *logger.RequestContext, id string) error {
 //---------------------artifact_event---------------------//
 func DeleteArtifactEvent(ctx *logger.RequestContext, username, fsname, runID, artifactPath string) error {
 	ctx.Logging().Debugf("begin delete artifact_event. username:%s, fsname:%s, runID:%s, artifactPath:%s", username, fsname, runID, artifactPath)
-	err := models.DeleteArtifactEvent(ctx.Logging(), username, fsname, runID, artifactPath)
+	err := storage.Artifact.DeleteArtifactEvent(ctx.Logging(), username, fsname, runID, artifactPath)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			ctx.ErrorCode = common.ArtifactEventNotFound
@@ -248,7 +250,7 @@ func ListArtifactEvent(ctx *logger.RequestContext, marker string, maxKeys int, u
 		userFilter = []string{ctx.UserName}
 	}
 	// model list
-	runCacheList, err := models.ListArtifactEvent(ctx.Logging(), pk, maxKeys, userFilter, fsFilter, runFilter, typeFilter, pathFilter)
+	runCacheList, err := storage.Artifact.ListArtifactEvent(ctx.Logging(), pk, maxKeys, userFilter, fsFilter, runFilter, typeFilter, pathFilter)
 	if err != nil {
 		ctx.Logging().Errorf("models list runCache failed. err:[%s]", err.Error())
 		ctx.ErrorCode = common.InternalError
@@ -276,7 +278,7 @@ func ListArtifactEvent(ctx *logger.RequestContext, marker string, maxKeys int, u
 }
 
 func isLastArtifactEventPk(ctx *logger.RequestContext, pk int64) bool {
-	lastRun, err := models.GetLastArtifactEvent(ctx.Logging())
+	lastRun, err := storage.Artifact.GetLastArtifactEvent(ctx.Logging())
 	if err != nil {
 		ctx.Logging().Errorf("get last ArtifactEvent failed. error:[%s]", err.Error())
 	}

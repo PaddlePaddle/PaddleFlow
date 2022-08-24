@@ -14,6 +14,11 @@ limitations under the License.
 """
 
 from .cache_options import CacheOptions
+from .cache_options import FSScope
 from .failure_options import FailureOptions
 from .failure_options import FAIL_FAST
 from .failure_options import FAIL_CONTINUE
+from .fs_options import FSOptions
+from .fs_options import ExtraFS
+from .fs_options import MainFS
+

@@ -3,9 +3,8 @@
 """
 
 from paddleflow.pipeline import Pipeline
-from paddleflow.pipeline.dsl.steps import step
-from paddleflow.pipeline.dsl.steps import Step
-from paddleflow.pipeline.dsl.steps import ContainerStep
+from paddleflow.pipeline import ContainerStep
+from paddleflow.pipeline import DAG
 from paddleflow.pipeline import Artifact
 from paddleflow.pipeline import Parameter
 from paddleflow.pipeline.dsl.options import CacheOptions
@@ -18,9 +17,9 @@ from paddleflow.common.exception.paddleflow_sdk_exception import PaddleFlowSDKEx
 def hello(name, age):
     """ pipeline demo
     """
-    intro = Step(name="introduce")
-    hello = Step(name="hello", parameters={"name": name, "age": age})
-    bye = Step(name="byebye", parameters={"name": hello.parameters["name"]})
+    intro = ContainerStep(name="introduce")
+    hello = ContainerStep(name="hello", parameters={"name": name, "age": age})
+    bye = ContainerStep(name="byebye", parameters={"name": hello.parameters["name"]})
 
     hello.after(intro)
 
@@ -66,13 +65,38 @@ hello_with_io_dict = {
                 }
 
 
-def ring():
-    """ pipeline with ring
+
+def step1(num):
+    return ContainerStep(
+            name="step1",
+            command="echo {{num}} >> result",
+            parameters={"num": num},
+            outputs={"result": Artifact()},
+            )
+
+
+def show(name, num, num2, art):
+    return ContainerStep(
+            name=name,
+            command="echo {{num}} && echo {{num2}} >>result  && cat {{data}}",
+            parameters={"num": num, "num2": num2},
+            inputs={"data": art},
+            outputs={"result": Artifact()},
+            env={"a": "2", "b": "1"}
+            )
+
+
+def dag_example(num=0, num2=1):
+    """ dag_example
     """
-    step1 = Step(name="step1")
-    step2 = Step(name="step2")
-    step3 = Step(name="step3")
-    
-    step1.after(step3)
-    step2.after(step1)
-    step3.after(step2)
+    st1 = step1(num)
+
+    with DAG(name="dag2") as dag2:
+        st2 = show("dag-show", st1.parameters["num"], num2, st1.outputs["result"])
+        st3 = show("show", num, num2, st2.outputs["result"])
+
+        with DAG(name="dag3") as dag3:
+            st4 = show("show", st2.parameters["num"], num2, st2.outputs["result"])
+
+    st5 = show("show", num, num2, st4.outputs["result"])
+    st6 = ContainerStep(name="step6", command=f"cat {st5.parameters['num']}")

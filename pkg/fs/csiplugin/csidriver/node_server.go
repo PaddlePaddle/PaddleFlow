@@ -19,6 +19,7 @@ package csidriver
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"github.com/kubernetes-csi/drivers/pkg/csi-common"
@@ -97,13 +98,23 @@ func (ns *nodeServer) NodePublishVolume(ctx context.Context,
 
 func (ns *nodeServer) NodeUnpublishVolume(ctx context.Context,
 	req *csi.NodeUnpublishVolumeRequest) (*csi.NodeUnpublishVolumeResponse, error) {
-
+	targetPath := req.GetTargetPath()
 	mountInfo := mount.Info{
-		TargetPath: req.GetTargetPath(),
+		TargetPath: targetPath,
 	}
 	if err := mount.PodUnmount(req.VolumeId, mountInfo); err != nil {
 		log.Errorf("[UMount]: volumeID[%s] and targetPath[%s] with err: %s", req.VolumeId, mountInfo.TargetPath, err.Error())
 		return nil, err
+	}
+
+	pathsToCleanup := []string{targetPath}
+	// clean source path for process mount
+	// pod mount no source path to clean, and is ignored in the func
+	sourcePath := utils.GetSourceMountPath(filepath.Dir(targetPath))
+	pathsToCleanup = append(pathsToCleanup, sourcePath)
+	if err := utils.CleanUpMountPoints(pathsToCleanup); err != nil {
+		log.Errorf("NodeUnpublishVolume: cleanup mount points err: %v", err)
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 
 	return &csi.NodeUnpublishVolumeResponse{}, nil

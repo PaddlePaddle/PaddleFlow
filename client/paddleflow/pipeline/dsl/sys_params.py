@@ -17,10 +17,8 @@ limitations under the License.
 
 PF_RUN_ID = "{{PF_RUN_ID}}"
 
-PF_FS_ID = "{{PF_FS_ID}}"
-
 PF_STEP_NAME = "{{PF_STEP_NAME}}"
 
-PF_FS_NAME = "{{PF_FS_NAME}"
-
 PF_USER_NAME = "{{PF_USER_NAME}}"
+
+PF_LOOP_ARGUMENT = "{{PF_LOOP_ARGUMENT}}"

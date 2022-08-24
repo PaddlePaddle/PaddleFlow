@@ -5,6 +5,7 @@ import copy
 import pytest
 
 from paddleflow.pipeline import Artifact
+from paddleflow.pipeline.dsl.io_types.placeholder import ArtifactPlaceholder
 from paddleflow.common.exception.paddleflow_sdk_exception import PaddleFlowSDKException
 
 from .mock_step import Step
@@ -12,35 +13,26 @@ from .mock_step import Step
 class TestArtifact(object):
     """ test Artifact
     """
-    @pytest.mark.tpl
-    def test_compile(self):
-        """ test compile
-        """
-        art = Artifact()
-        with pytest.raises(PaddleFlowSDKException):
-            art.compile()
-        
-        step = Step(name="test")
-        art.set_base_info(step=step, name="ahz")
-        assert art.compile() == "{{test.ahz}}"
-
-
     @pytest.mark.baseinfo
     def test_set_base_info(self):
         """ test Artifat.set_base_info
         """
         art = Artifact()
         step = Step(name="test")
-        art.set_base_info(step=step, name="ahz")
+        art.set_base_info(component=step, name="ahz")
+
+        al = ArtifactPlaceholder(name="def", component_full_name="abcd")
+        art.set_base_info(component=step, name="ahz", ref=al)
+        assert art.ref.name == "def"
 
         with pytest.raises(PaddleFlowSDKException):
-            art.set_base_info(step=step, name="Ahz 32")
+            art.set_base_info(component=step, name="Ahz 32")
 
         with pytest.raises(PaddleFlowSDKException):
-            art.set_base_info(step=step, name="Ahz-32")
+            art.set_base_info(component=step, name="Ahz-32")
         
         with pytest.raises(PaddleFlowSDKException):
-            art.set_base_info(step=step, name="32Ahz32")
+            art.set_base_info(component=step, name="32Ahz32")
 
     @pytest.mark.eq
     def test_eq(self):
@@ -51,11 +43,11 @@ class TestArtifact(object):
         assert art1 == art2
 
         step = Step(name="test")
-        art1.set_base_info(step=step, name="ahz")
-        art2.set_base_info(step=step, name="ahz")
+        art1.set_base_info(component=step, name="ahz")
+        art2.set_base_info(component=step, name="ahz")
         assert art1 == art2
 
-        art2.set_base_info(step=step, name="ahz123")
+        art2.set_base_info(component=step, name="ahz123")
         assert art1 != art2
 
     @pytest.mark.deepcopy
@@ -68,6 +60,25 @@ class TestArtifact(object):
         assert  art1 == art2 and art1 is not art2
     
         step = Step(name="test")
-        art1.set_base_info(step=step, name="ahz")
+        art1.set_base_info(component=step, name="ahz")
         art2 = copy.deepcopy(art1)
         assert  art1 == art2 and art1 is not art2
+
+        art1.set_base_info(component=step, name="ahz", ref=123)
+        art2 = copy.deepcopy(art1)
+        assert  art1 == art2 and art1 is not art2 and art2.ref == 123
+
+    @pytest.mark.str
+    def test_str(self):
+        """ test str
+        """
+        step = Step(name="test")
+        step.full_name = "pf-entry-points.test"
+        
+        art1 = Artifact()
+        art1.set_base_info(component=step, name="xm")
+        assert str(art1) == "{{artifact: pf-entry-points.test.xm}}"
+
+        with pytest.raises(PaddleFlowSDKException):
+            art1 = Artifact()
+            str(art1)
