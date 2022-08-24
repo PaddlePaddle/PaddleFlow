@@ -46,7 +46,7 @@ class ComponentInferer(object):
             component: the component will be compile
         """
         self._component = component
-
+        
         self._error_msg_prefix = f"infer artifact or paramter for {component.class_name()}[{component.name}] failed: "
 
     def _generate_error_msg(self, msg: str):
