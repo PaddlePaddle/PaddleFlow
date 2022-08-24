@@ -20,7 +20,6 @@ import (
 	jobCtrl "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/job"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/pipeline"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/queue"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	router "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/v1"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
@@ -246,7 +245,7 @@ func newAndStartJobManager() error {
 		log.Errorf("new job manager failed, error: %v", err)
 		return err
 	}
-	go runtimeMgr.Start(models.ActiveClusters, storage.Job.ListQueueJob)
+	go runtimeMgr.Start(storage.Cluster.ActiveClusters, storage.Job.ListQueueJob)
 	return nil
 }
 

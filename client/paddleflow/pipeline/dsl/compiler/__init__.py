@@ -16,4 +16,3 @@ limitations under the License.
 
 
 from .compiler import Compiler
-from .step_compiler import StepCompiler

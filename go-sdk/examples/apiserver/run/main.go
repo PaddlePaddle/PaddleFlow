@@ -172,8 +172,8 @@ func main() {
 
 	reqListCache := &v1.ListRunCacheRequest{
 		UserFilter: []string{},
-		FSFilter:   []string{""},
-		RunFilter:  []string{"run-000001"},
+		FSFilter:   []string{},
+		RunFilter:  []string{},
 		MaxKeys:    30,
 		Marker:     "",
 	}
@@ -186,9 +186,9 @@ func main() {
 	fmt.Println(string(jsonGetCache))
 
 	DeleteCache(pfClient, token, "cch-000002")
-	_ = GetCache(pfClient, token, "cch-000002")
-	jsonGetCache, _ = json.Marshal(resGetCache)
-	fmt.Println(string(jsonGetCache))
+	resListCache = ListCache(pfClient, token, reqListCache)
+	jsonListCache, _ = json.Marshal(resListCache)
+	fmt.Println(string(jsonListCache))
 
 	resListArtifact := ListArtifact(pfClient, token, &v1.ListArtifactRequest{
 		MaxKeys: 10,

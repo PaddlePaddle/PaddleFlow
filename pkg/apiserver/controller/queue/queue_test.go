@@ -26,7 +26,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	kschema "k8s.io/apimachinery/pkg/runtime/schema"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
@@ -34,6 +33,8 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime/kubernetes/executor"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 )
 
@@ -44,14 +45,14 @@ const (
 	MockQueueName   = "mock-q-001"
 )
 
-var clusterInfo = models.ClusterInfo{
+var clusterInfo = model.ClusterInfo{
 	Name:          MockClusterName,
 	Description:   "Description",
 	Endpoint:      "Endpoint",
 	Source:        "Source",
 	ClusterType:   schema.KubernetesType,
 	Version:       "1.16",
-	Status:        models.ClusterStatusOnLine,
+	Status:        model.ClusterStatusOnLine,
 	Credential:    "credential",
 	Setting:       "Setting",
 	NamespaceList: []string{"n1", "n2", MockNamespace},
@@ -65,7 +66,7 @@ func TestCreateQueue(t *testing.T) {
 	driver.InitMockDB()
 	ctx := &logger.RequestContext{UserName: MockRootUser}
 
-	assert.Nil(t, models.CreateCluster(&clusterInfo))
+	assert.Nil(t, storage.Cluster.CreateCluster(&clusterInfo))
 
 	rts := &runtime.KubeRuntime{}
 	var p2 = gomonkey.ApplyPrivateMethod(reflect.TypeOf(rts), "Init", func() error {
@@ -114,7 +115,7 @@ func TestGetQueueByName(t *testing.T) {
 	})
 	defer p2.Reset()
 
-	var p3 = gomonkey.ApplyPrivateMethod(reflect.TypeOf(rts), "GetQueueUsedQuota", func(*models.Queue) (*resources.Resource, error) {
+	var p3 = gomonkey.ApplyPrivateMethod(reflect.TypeOf(rts), "GetQueueUsedQuota", func(*model.Queue) (*resources.Resource, error) {
 		return resources.EmptyResource(), nil
 	})
 	defer p3.Reset()
@@ -151,11 +152,11 @@ func TestCloseAndDeleteQueue(t *testing.T) {
 		return nil
 	})
 	defer p1.Reset()
-	var p2 = gomonkey.ApplyPrivateMethod(reflect.TypeOf(rts), "DeleteQueue", func(q *models.Queue) error {
+	var p2 = gomonkey.ApplyPrivateMethod(reflect.TypeOf(rts), "DeleteQueue", func(q *model.Queue) error {
 		return nil
 	})
 	defer p2.Reset()
-	var p3 = gomonkey.ApplyPrivateMethod(reflect.TypeOf(rts), "CloseQueue", func(q *models.Queue) error {
+	var p3 = gomonkey.ApplyPrivateMethod(reflect.TypeOf(rts), "CloseQueue", func(q *model.Queue) error {
 		return nil
 	})
 	defer p3.Reset()
@@ -167,10 +168,10 @@ func TestCloseAndDeleteQueue(t *testing.T) {
 // TestMarshalJSONForTime test for time format
 func TestMarshalJSONForTime(t *testing.T) {
 	driver.InitMockDB()
-	queue := models.Queue{
+	queue := model.Queue{
 		Name: "mockQueueName",
 	}
-	err := models.CreateQueue(&queue)
+	err := storage.Queue.CreateQueue(&queue)
 	if err != nil {
 		t.Errorf(err.Error())
 	}
