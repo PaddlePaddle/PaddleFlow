@@ -42,12 +42,12 @@ func TestCheckVarName(t *testing.T) {
 	varName = "1validName1_"
 	err = vc.CheckVarName(varName)
 	assert.NotNil(t, err)
-	assert.Equal(t, "format of variable name[1validName1_] invalid, should be in ^[A-Za-z_][A-Za-z0-9_]{1,49}$", err.Error())
+	assert.Equal(t, "format of variable name[1validName1_] invalid, should be in ^[A-Za-z_][A-Za-z0-9_]{0,49}$", err.Error())
 
 	varName = "validName.1_"
 	err = vc.CheckVarName(varName)
 	assert.NotNil(t, err)
-	assert.Equal(t, "format of variable name[validName.1_] invalid, should be in ^[A-Za-z_][A-Za-z0-9_]{1,49}$", err.Error())
+	assert.Equal(t, "format of variable name[validName.1_] invalid, should be in ^[A-Za-z_][A-Za-z0-9_]{0,49}$", err.Error())
 }
 
 func TestCheckRefUpstreamStep(t *testing.T) {
