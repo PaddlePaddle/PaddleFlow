@@ -12,6 +12,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
-
-from paddleflow.pipeline.dsl.steps.step import Step
-from paddleflow.pipeline.dsl.steps.container_step import ContainerStep
+from .component import Component
+from .dag import DAG
+from .steps import Step
+from .steps import ContainerStep
