@@ -41,19 +41,19 @@ func InitMetrics() {
 	Job = NewJobMetricTimePointManager()
 }
 
-func initRegistry() {
+func initRegistry(queueFunc ListQueueFunc) {
 	if Job == nil {
 		panic("metrics not initialized")
 	}
 	registry = prometheus.NewRegistry()
 	jobCollector := NewJobMetricsCollector(Job)
-	queueCollector := NewQueueMetricsCollector()
+	queueCollector := NewQueueMetricsCollector(queueFunc)
 	registry.MustRegister(jobCollector)
 	registry.MustRegister(queueCollector)
 }
 
-func StartMetricsService(port int) string {
-	initRegistry()
+func StartMetricsService(port int, queueFunc ListQueueFunc) string {
+	initRegistry(queueFunc)
 	if port == 0 {
 		port = DefaultMetricPort
 	}
