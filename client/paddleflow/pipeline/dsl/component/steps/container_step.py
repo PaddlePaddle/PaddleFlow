@@ -18,13 +18,15 @@ from typing import Dict
 from typing import List
 from typing import Any 
 from pathlib import Path
+from typing import Union
 
 from paddleflow.pipeline.dsl.io_types import Artifact
 from paddleflow.pipeline.dsl.io_types import Parameter
 from paddleflow.pipeline.dsl.io_types import EnvDict
 from paddleflow.pipeline.dsl.options import CacheOptions
+from paddleflow.pipeline.dsl.options import ExtraFS
 from paddleflow.pipeline.dsl.utils.util import validate_string_by_regex
-from paddleflow.pipeline.dsl.utils.consts import STEP_NAME_REGEX
+from paddleflow.pipeline.dsl.utils.consts import COMPONENT_NAME_REGEX
 from paddleflow.pipeline.dsl.utils.consts import PipelineDSLError 
 from paddleflow.pipeline.dsl.utils.consts import VARIBLE_NAME_REGEX
 from paddleflow.common.exception.paddleflow_sdk_exception import PaddleFlowSDKException
@@ -45,6 +47,9 @@ class ContainerStep(Step):
             parameters: Dict[str, Any]=None,
             env: Dict[str, str]=None,
             cache_options: CacheOptions=None,
+            condition: str=None,
+            loop_argument: Union[List, Parameter, Artifact, str]=None,
+            extra_fs: List[ExtraFS] = None
             ):
         """ create a new instance of ContainerStep
 
@@ -66,8 +71,12 @@ class ContainerStep(Step):
                 inputs=inputs,
                 outputs=outputs,
                 parameters=parameters,
-                cache_options=cache_options
+                cache_options=cache_options,
+                condition=condition,
+                loop_argument=loop_argument,
+                extra_fs=extra_fs
                 )
+                
         self.docker_env = docker_env
         self.command = command
 

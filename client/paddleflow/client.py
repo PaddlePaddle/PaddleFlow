@@ -527,15 +527,13 @@ class Client(object):
         self.pre_check()
         return ClusterServiceApi.list_cluster_resource(self.paddleflow_server, clustername, self.header)
 
-    def create_pipeline(self, fs_name, yaml_path, desc=None, username=None):
+    def create_pipeline(self, fs_name, yaml_path=None, desc=None, username=None):
         """
         create pipeline
         """
         self.pre_check()
         if fs_name is None or fs_name.strip() == "":
             raise PaddleFlowSDKException("InvalidFsName", "fsname should not be none or empty")
-        if yaml_path is None or yaml_path.strip() == "":
-            raise PaddleFlowSDKException("InvalidYamlPath", "yamlpath should not be none or empty")
         return PipelineServiceApi.create_pipeline(self.paddleflow_server, fs_name, yaml_path, desc,
                                                   username, self.header)
 

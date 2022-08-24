@@ -24,7 +24,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
@@ -123,8 +122,8 @@ func ListJob(ctx *logger.RequestContext, request ListJobRequest) (*ListJobRespon
 	}
 	queueID := ""
 	if request.Queue != "" {
-		var queue models.Queue
-		queue, err = models.GetQueueByName(request.Queue)
+		var queue model.Queue
+		queue, err = storage.Queue.GetQueueByName(request.Queue)
 		if err != nil {
 			ctx.Logging().Errorf("get queue by queueName[%s] failed, error:[%s]", request.Queue, err.Error())
 			ctx.ErrorCode = common.QueueNameNotFound

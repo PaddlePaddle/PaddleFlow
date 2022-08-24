@@ -24,7 +24,6 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 // SingleJob is a executor struct that runs a single pod
@@ -120,20 +119,6 @@ func (sp *SingleJob) CreateJob() (string, error) {
 		return "", err
 	}
 	return jobID, nil
-}
-
-// StopJobByID stops a job by jobID
-func (sp *SingleJob) StopJobByID(jobID string) error {
-	job, err := storage.Job.GetJobByID(jobID)
-	if err != nil {
-		return err
-	}
-	namespace := job.Config.GetNamespace()
-	if err = Delete(namespace, job.ID, k8s.PodGVK, sp.DynamicClientOption); err != nil {
-		log.Errorf("stop vcjob %s in namespace %s failed, err %v", job.ID, namespace, err)
-		return err
-	}
-	return nil
 }
 
 // fillContainersInPod fill containers in pod

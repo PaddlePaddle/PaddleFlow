@@ -188,7 +188,7 @@ func TestValidateWorkflowParam(t *testing.T) {
 	bwf.Source.EntryPoints.EntryPoints["main"].GetParameters()["invalid-name"] = "xxx"
 	err = mockValidate(&bwf)
 	assert.NotNil(t, err)
-	errMsg := "check parameters[invalid-name] in component[main] failed: format of variable name[invalid-name] invalid, should be in ^[A-Za-z_][A-Za-z0-9_]{1,49}$"
+	errMsg := "check parameters[invalid-name] in component[main] failed: format of variable name[invalid-name] invalid, should be in ^[A-Za-z_][A-Za-z0-9_]{0,49}$"
 	assert.Equal(t, err.Error(), errMsg)
 
 	// validate param name
@@ -196,7 +196,7 @@ func TestValidateWorkflowParam(t *testing.T) {
 	bwf.Source.EntryPoints.EntryPoints["main"].(*schema.WorkflowSourceStep).Env["invalid-name"] = "xxx"
 	err = mockValidate(&bwf)
 	assert.NotNil(t, err)
-	errMsg = "check env[invalid-name] in component[main] failed: format of variable name[invalid-name] invalid, should be in ^[A-Za-z_][A-Za-z0-9_]{1,49}$"
+	errMsg = "check env[invalid-name] in component[main] failed: format of variable name[invalid-name] invalid, should be in ^[A-Za-z_][A-Za-z0-9_]{0,49}$"
 	assert.Equal(t, err.Error(), errMsg)
 }
 
