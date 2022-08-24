@@ -53,15 +53,15 @@ func (q *QueueMetricCollector) update() {
 		queueName := queue.Name
 
 		minMem := int64(queue.MinResources.Memory())
-		minCPU := int64(queue.MaxResources.CPU())
-		maxMem := int64(queue.MinResources.Memory())
+		minCPU := int64(queue.MinResources.CPU())
+		maxMem := int64(queue.MaxResources.Memory())
 		maxCPU := int64(queue.MaxResources.CPU())
 
 		q.queueInfo.With(prometheus.Labels{
 			QueueNameLabel: queueName,
 			ResourceLabel:  QueueResourceCPU,
 			TypeLabel:      QueueTypeMinQuota,
-		}).Set(float64(minCPU))
+		}).Set(float64(minCPU) / 1000)
 
 		q.queueInfo.With(prometheus.Labels{
 			QueueNameLabel: queueName,
@@ -73,7 +73,7 @@ func (q *QueueMetricCollector) update() {
 			QueueNameLabel: queueName,
 			ResourceLabel:  QueueResourceCPU,
 			TypeLabel:      QueueTypeMaxQuota,
-		}).Set(float64(maxCPU))
+		}).Set(float64(maxCPU) / 1000)
 
 		q.queueInfo.With(prometheus.Labels{
 			QueueNameLabel: queueName,
