@@ -17,10 +17,7 @@ limitations under the License.
 package metrics
 
 import (
-	"strconv"
-
 	"github.com/prometheus/client_golang/prometheus"
-	log "github.com/sirupsen/logrus"
 )
 
 type QueueMetricCollector struct {
@@ -55,27 +52,10 @@ func (q *QueueMetricCollector) update() {
 	for _, queue := range queues {
 		queueName := queue.Name
 
-		minMemStr := queue.MinResources.Memory().String()
-		minCPUStr := queue.MaxResources.CPU().String()
-		maxMemStr := queue.MinResources.Memory().String()
-		maxCPUStr := queue.MaxResources.CPU().String()
-
-		minMem, err := strconv.Atoi(minMemStr)
-		if err != nil {
-			log.Warnf("queue metric collector parse quota failed: %s", err)
-		}
-		minCPU, err := strconv.Atoi(minCPUStr)
-		if err != nil {
-			log.Warnf("queue metric collector parse quota failed: %s", err)
-		}
-		maxMem, err := strconv.Atoi(maxMemStr)
-		if err != nil {
-			log.Warnf("queue metric collector parse quota failed: %s", err)
-		}
-		maxCPU, err := strconv.Atoi(maxCPUStr)
-		if err != nil {
-			log.Warnf("queue metric collector parse quota failed: %s", err)
-		}
+		minMem := int64(queue.MinResources.Memory())
+		minCPU := int64(queue.MaxResources.CPU())
+		maxMem := int64(queue.MinResources.Memory())
+		maxCPU := int64(queue.MaxResources.CPU())
 
 		q.queueInfo.With(prometheus.Labels{
 			QueueNameLabel: queueName,
