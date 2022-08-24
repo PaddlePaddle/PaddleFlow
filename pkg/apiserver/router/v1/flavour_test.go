@@ -23,8 +23,9 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/flavour"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 const (
@@ -36,20 +37,20 @@ const (
 var (
 	apiURL          = "/api/paddleflow/v1/flavour"
 	mockFlavourName = "mockFlavourName"
-	clusterInfo     = models.ClusterInfo{
-		Model:         models.Model{ID: MockClusterID},
+	clusterInfo     = model.ClusterInfo{
+		Model:         model.Model{ID: MockClusterID},
 		Name:          MockClusterName,
 		Description:   "Description",
 		Endpoint:      "Endpoint",
 		Source:        "Source",
 		ClusterType:   schema.KubernetesType,
 		Version:       "1.16",
-		Status:        models.ClusterStatusOnLine,
+		Status:        model.ClusterStatusOnLine,
 		Credential:    "credential",
 		Setting:       "Setting",
 		NamespaceList: []string{"n1", "n2", MockNamespace},
 	}
-	mockFlavour = models.Flavour{
+	mockFlavour = model.Flavour{
 		Name: mockFlavourName,
 		CPU:  "1",
 		Mem:  "1",
@@ -57,12 +58,12 @@ var (
 )
 
 func initCluster(t *testing.T) {
-	err := models.CreateCluster(&clusterInfo)
+	err := storage.Cluster.CreateCluster(&clusterInfo)
 	assert.Nil(t, err)
 }
 
 func initFlavour(t *testing.T) string {
-	err := models.CreateFlavour(&mockFlavour)
+	err := storage.Flavour.CreateFlavour(&mockFlavour)
 	assert.Nil(t, err)
 	return mockFlavour.Name
 }
@@ -161,7 +162,7 @@ func TestGetFlavour(t *testing.T) {
 	res, err = PerformGetRequest(router, baseURL+"/flavour/"+mockFlavourName)
 	assert.NoError(t, err)
 	assert.Equal(t, 200, res.Code)
-	var response models.Flavour
+	var response model.Flavour
 	err = ParseBody(res.Body, &response)
 	assert.Nil(t, err)
 	t.Logf("get response %+v", response)

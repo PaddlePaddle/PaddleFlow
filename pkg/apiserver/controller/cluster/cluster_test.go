@@ -23,10 +23,10 @@ import (
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 )
 
@@ -52,7 +52,7 @@ func TestCreateCluster(t *testing.T) {
 	createClusterReq.Source = ""
 	createClusterReq.ClusterType = schema.KubernetesType
 	createClusterReq.Version = "1.16"
-	createClusterReq.Status = models.ClusterStatusOnLine
+	createClusterReq.Status = model.ClusterStatusOnLine
 	createClusterReq.Credential = ""
 	createClusterReq.Setting = ""
 	createClusterReq.NamespaceList = []string{"n1", "n2"}

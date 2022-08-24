@@ -21,6 +21,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
@@ -28,20 +29,96 @@ import (
 var (
 	DB *gorm.DB
 
+	Pipeline   PipelineStoreInterface
 	Filesystem FileSystemStoreInterface
 	FsCache    FsCacheStoreInterface
 	Auth       AuthStoreInterface
+	Cluster    ClusterStoreInterface
+	Flavour    FlavourStoreInterface
+	Queue      QueueStoreInterface
 	Job        JobStoreInterface
 	Image      ImageStoreInterface
+	Artifact   ArtifactStoreInterface
 )
 
 func InitStores(db *gorm.DB) {
 	// do not use once.Do() because unit test need to init db twice
+	Pipeline = newPipelineStore(db)
 	Filesystem = newFilesystemStore(db)
 	FsCache = newDBFSCache(db)
 	Auth = newAuthStore(db)
+	Cluster = newClusterStore(db)
+	Flavour = newFlavourStore(db)
 	Job = newJobStore(db)
+	Queue = newQueueStore(db)
 	Image = newImageStore(db)
+	Artifact = newRunArtifactStore(db)
+}
+
+type ArtifactStoreInterface interface {
+	CreateArtifactEvent(logEntry *log.Entry, artifact model.ArtifactEvent) error
+	CountArtifactEvent(logEntry *log.Entry, fsID, artifactPath string) (int64, error)
+	GetArtifactEvent(logEntry *log.Entry, runID, fsID, artifactPath string) (model.ArtifactEvent, error)
+	UpdateArtifactEvent(logEntry *log.Entry, fsID, artifactPath string, artifact model.ArtifactEvent) error
+	DeleteArtifactEvent(logEntry *log.Entry, username, fsname, runID, artifactPath string) error
+	ListArtifactEvent(logEntry *log.Entry, pk int64, maxKeys int, userFilter, fsFilter, runFilter, typeFilter, pathFilter []string) ([]model.ArtifactEvent, error)
+	GetLastArtifactEvent(logEntry *log.Entry) (model.ArtifactEvent, error)
+}
+
+type QueueStoreInterface interface {
+	CreateQueue(queue *model.Queue) error
+	CreateOrUpdateQueue(queue *model.Queue) error
+	UpdateQueue(queue *model.Queue) error
+	UpdateQueueStatus(queueName string, queueStatus string) error
+	UpdateQueueInfo(name, status string, max, min *resources.Resource) error
+	DeleteQueue(queueName string) error
+	IsQueueExist(queueName string) bool
+	GetQueueByName(queueName string) (model.Queue, error)
+	GetQueueByID(queueID string) (model.Queue, error)
+	ListQueue(pk int64, maxKeys int, queueName string, userName string) ([]model.Queue, error)
+	GetLastQueue() (model.Queue, error)
+	ListQueuesByCluster(clusterID string) []model.Queue
+	IsQueueInUse(queueID string) (bool, map[string]schema.JobStatus)
+	DeepCopyQueue(queueSrc model.Queue, queueDesc *model.Queue)
+}
+
+type ClusterStoreInterface interface {
+	CreateCluster(clusterInfo *model.ClusterInfo) error
+	ListCluster(pk int64, maxKeys int, clusterNameList []string, clusterStatus string) ([]model.ClusterInfo, error)
+	GetLastCluster() (model.ClusterInfo, error)
+	GetClusterByName(clusterName string) (model.ClusterInfo, error)
+	GetClusterById(clusterId string) (model.ClusterInfo, error)
+	DeleteCluster(clusterName string) error
+	UpdateCluster(clusterId string, clusterInfo *model.ClusterInfo) error
+	ActiveClusters() []model.ClusterInfo
+}
+
+type FlavourStoreInterface interface {
+	CreateFlavour(flavour *model.Flavour) error
+	DeleteFlavour(flavourName string) error
+	GetFlavour(flavourName string) (model.Flavour, error)
+	ListFlavour(pk int64, maxKeys int, clusterID, queryKey string) ([]model.Flavour, error)
+	UpdateFlavour(flavour *model.Flavour) error
+	GetLastFlavour() (model.Flavour, error)
+}
+
+type PipelineStoreInterface interface {
+	// pipeline
+	CreatePipeline(logEntry *log.Entry, ppl *model.Pipeline, pplVersion *model.PipelineVersion) (pplID string, pplVersionID string, err error)
+	UpdatePipeline(logEntry *log.Entry, ppl *model.Pipeline, pplVersion *model.PipelineVersion) (pplID string, pplVersionID string, err error)
+	GetPipelineByID(id string) (model.Pipeline, error)
+	GetPipeline(name, userName string) (model.Pipeline, error)
+	ListPipeline(pk int64, maxKeys int, userFilter, nameFilter []string) ([]model.Pipeline, error)
+	IsLastPipelinePk(logEntry *log.Entry, pk int64, userFilter, nameFilter []string) (bool, error)
+	DeletePipeline(logEntry *log.Entry, id string) error
+	// pipeline_version
+	ListPipelineVersion(pipelineID string, pk int64, maxKeys int, fsFilter []string) ([]model.PipelineVersion, error)
+	IsLastPipelineVersionPk(logEntry *log.Entry, pipelineID string, pk int64, fsFilter []string) (bool, error)
+	CountPipelineVersion(pipelineID string) (int64, error)
+	GetPipelineVersions(pipelineID string) ([]model.PipelineVersion, error)
+	GetPipelineVersion(pipelineID string, pipelineVersionID string) (model.PipelineVersion, error)
+	GetLastPipelineVersion(pipelineID string) (model.PipelineVersion, error)
+	DeletePipelineVersion(logEntry *log.Entry, pipelineID string, pipelineVersionID string) error
 }
 
 type FileSystemStoreInterface interface {

@@ -21,7 +21,6 @@ import (
 	"fmt"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	gormErrors "github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
@@ -50,7 +49,7 @@ func (req *CreateGrantRequest) toModel() model.Grant {
 }
 
 func checkQueue(ctx *logger.RequestContext, queueName string) error {
-	_, err := models.GetQueueByName(queueName)
+	_, err := storage.Queue.GetQueueByName(queueName)
 	if err != nil {
 		ctx.ErrorCode = common.QueueNameNotFound
 		return fmt.Errorf("queueName:%s not found", queueName)
