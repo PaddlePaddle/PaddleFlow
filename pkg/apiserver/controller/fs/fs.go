@@ -359,6 +359,24 @@ func cleanFSCache(podMap map[*runtime.KubeRuntime][]k8sCore.Pod) error {
 				log.Errorf("removeFSCacheWithCacheID error: %v", err)
 				return err
 			}
+			// clean cache dir
+			if pod.Annotations[schema.AnnotationKeyClean] == "true" {
+				fsID := pod.Labels[schema.LabelKeyFsID]
+				conf, err := storage.Filesystem.GetFSCacheConfig(fsID)
+				if err != nil {
+					err := fmt.Errorf("fs[%s] clean cache_dir failed getting cache_config. err: %v", fsID, err)
+					log.Errorf(err.Error())
+					return err
+				}
+				if conf.CacheDir != "" {
+					pathsToCleanup := []string{conf.CacheDir}
+					if err := utils.CleanUpMountPoints(pathsToCleanup); err != nil {
+						err := fmt.Errorf("fs[%s] clean cache_dir failed CleanUpMountPoints. err: %v", fsID, err)
+						log.Errorf(err.Error())
+						return err
+					}
+				}
+			}
 		}
 	}
 	return nil
