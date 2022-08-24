@@ -20,6 +20,7 @@ import (
 	"strconv"
 
 	"github.com/prometheus/client_golang/prometheus"
+	log "github.com/sirupsen/logrus"
 )
 
 type QueueMetricCollector struct {
@@ -59,10 +60,22 @@ func (q *QueueMetricCollector) update() {
 		maxMemStr := queue.MinResources.Memory().String()
 		maxCPUStr := queue.MaxResources.CPU().String()
 
-		minMem, _ := strconv.Atoi(minMemStr)
-		minCPU, _ := strconv.Atoi(minCPUStr)
-		maxMem, _ := strconv.Atoi(maxMemStr)
-		maxCPU, _ := strconv.Atoi(maxCPUStr)
+		minMem, err := strconv.Atoi(minMemStr)
+		if err != nil {
+			log.Warnf("queue metric collector parse quota failed: %s", err)
+		}
+		minCPU, err := strconv.Atoi(minCPUStr)
+		if err != nil {
+			log.Warnf("queue metric collector parse quota failed: %s", err)
+		}
+		maxMem, err := strconv.Atoi(maxMemStr)
+		if err != nil {
+			log.Warnf("queue metric collector parse quota failed: %s", err)
+		}
+		maxCPU, err := strconv.Atoi(maxCPUStr)
+		if err != nil {
+			log.Warnf("queue metric collector parse quota failed: %s", err)
+		}
 
 		q.queueInfo.With(prometheus.Labels{
 			QueueNameLabel: queueName,
