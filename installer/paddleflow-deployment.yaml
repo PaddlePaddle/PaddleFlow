@@ -131,7 +131,7 @@ rules:
     resources: ["events"]
     verbs: ["get", "list", "watch", "create", "update", "patch"]
   - apiGroups: [ "" ]
-    resources: [ "pods" ]
+    resources: [ "pods", "pods/log" ]
     verbs: [ "create", "get", "list", "watch", "update", "bind", "delete" ]
   - apiGroups: [ "" ]
     resources: [ "persistentvolumeclaims", "persistentvolumes"  ]
