@@ -20,17 +20,14 @@ import (
 	"strconv"
 
 	"github.com/prometheus/client_golang/prometheus"
-	log "github.com/sirupsen/logrus"
-
-	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 type QueueMetricCollector struct {
 	queueInfo *prometheus.GaugeVec
+	listQueue ListQueueFunc
 }
 
-func NewQueueMetricsCollector() *QueueMetricCollector {
+func NewQueueMetricsCollector(queueFunc ListQueueFunc) *QueueMetricCollector {
 	return &QueueMetricCollector{
 		queueInfo: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
@@ -39,6 +36,7 @@ func NewQueueMetricsCollector() *QueueMetricCollector {
 			},
 			[]string{QueueNameLabel, ResourceLabel, TypeLabel},
 		),
+		listQueue: queueFunc,
 	}
 }
 
@@ -52,7 +50,7 @@ func (q *QueueMetricCollector) Collect(metrics chan<- prometheus.Metric) {
 }
 
 func (q *QueueMetricCollector) update() {
-	queues := getQueue()
+	queues := q.listQueue()
 	for _, queue := range queues {
 		queueName := queue.Name
 
@@ -90,12 +88,4 @@ func (q *QueueMetricCollector) update() {
 			TypeLabel:      QueueTypeMaxQuota,
 		}).Set(float64(maxMem))
 	}
-}
-
-func getQueue() []model.Queue {
-	queues, err := storage.Queue().ListQueue(0, 0, "", "root")
-	if err != nil {
-		log.Errorf("%s", err)
-	}
-	return queues
 }

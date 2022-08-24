@@ -18,6 +18,8 @@ package metrics
 
 import (
 	"time"
+
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
 
 type TimePoint interface {
@@ -46,3 +48,5 @@ type Timestamps interface {
 	GetTimestamp(timePoint TimePoint) (time.Time, bool)
 	AddTimestamp(timePoint TimePoint, timestamp time.Time)
 }
+
+type ListQueueFunc func() []model.Queue
