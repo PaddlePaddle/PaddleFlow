@@ -427,6 +427,7 @@ func (j *KubeJob) generateContainerCommand(command string, workdir string) []str
 	command = strings.TrimPrefix(command, "sh -c")
 
 	if workdir != "" {
+		workdir = utils.MountPathClean(workdir)
 		command = fmt.Sprintf("%s %s;%s", "cd", workdir, command)
 	}
 
