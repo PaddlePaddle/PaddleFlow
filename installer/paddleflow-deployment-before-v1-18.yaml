@@ -300,7 +300,6 @@ data:
         maxFileSizeInMB: 100
         isCompress: true
     
-      # trace log config
       traceLog:
         dir: ./
         filePrefix: trace-log
@@ -309,7 +308,6 @@ data:
         maxFileNum: 7
         maxFileSizeInMB: 100
         isCompress: true
-        # unit is s/m/h/d
         timeout: 2h
         maxCacheSize: 10000
         syncInterval: 30s
