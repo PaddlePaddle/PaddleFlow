@@ -51,34 +51,37 @@ func (q *QueueMetricCollector) update() {
 	queues := q.listQueue()
 	for _, queue := range queues {
 		queueName := queue.Name
+		// add all resource in map
+		for resource, quan := range queue.MinResources.Resources {
+			val := float64(quan)
+			switch resource {
+			case QueueResourceCPU:
+				//  convert cpu from mill-core to core
+				val /= 1000
+			default:
+				// pass
+			}
+			q.queueInfo.With(prometheus.Labels{
+				QueueNameLabel: queueName,
+				ResourceLabel:  resource,
+				TypeLabel:      QueueTypeMinQuota,
+			}).Set(val)
+		}
 
-		minMem := int64(queue.MinResources.Memory())
-		minCPU := int64(queue.MinResources.CPU())
-		maxMem := int64(queue.MaxResources.Memory())
-		maxCPU := int64(queue.MaxResources.CPU())
-
-		q.queueInfo.With(prometheus.Labels{
-			QueueNameLabel: queueName,
-			ResourceLabel:  QueueResourceCPU,
-			TypeLabel:      QueueTypeMinQuota,
-		}).Set(float64(minCPU) / 1000)
-
-		q.queueInfo.With(prometheus.Labels{
-			QueueNameLabel: queueName,
-			ResourceLabel:  QueueResourceMemory,
-			TypeLabel:      QueueTypeMinQuota,
-		}).Set(float64(minMem))
-
-		q.queueInfo.With(prometheus.Labels{
-			QueueNameLabel: queueName,
-			ResourceLabel:  QueueResourceCPU,
-			TypeLabel:      QueueTypeMaxQuota,
-		}).Set(float64(maxCPU) / 1000)
-
-		q.queueInfo.With(prometheus.Labels{
-			QueueNameLabel: queueName,
-			ResourceLabel:  QueueResourceMemory,
-			TypeLabel:      QueueTypeMaxQuota,
-		}).Set(float64(maxMem))
+		for resource, quan := range queue.MaxResources.Resources {
+			val := float64(quan)
+			switch resource {
+			case QueueResourceCPU:
+				//  convert cpu from mill-core to core
+				val /= 1000
+			default:
+				// pass
+			}
+			q.queueInfo.With(prometheus.Labels{
+				QueueNameLabel: queueName,
+				ResourceLabel:  resource,
+				TypeLabel:      QueueTypeMaxQuota,
+			}).Set(val)
+		}
 	}
 }

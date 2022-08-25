@@ -19,6 +19,8 @@ package metrics
 const (
 	QueueResourceCPU    = "cpu"
 	QueueResourceMemory = "memory"
+	QueueResourceGPU    = "nvidia.com/gpu"
+	QueueResourceFUSE   = "github.com/fuse"
 )
 
 const (
