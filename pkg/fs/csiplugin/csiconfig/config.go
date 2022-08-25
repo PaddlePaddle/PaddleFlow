@@ -75,7 +75,10 @@ func GeneratePodTemplate() *corev1.Pod {
 }
 
 func ParsePodResources(cpuLimit, memoryLimit, cpuRequest, memoryRequest string) (corev1.ResourceRequirements, error) {
-	var podResource corev1.ResourceRequirements
+	podResource := corev1.ResourceRequirements{
+		Limits:   map[corev1.ResourceName]resource.Quantity{},
+		Requests: map[corev1.ResourceName]resource.Quantity{},
+	}
 	// deep copy resource
 	for k, v := range CSIResource.Limits {
 		podResource.Limits[k] = v
