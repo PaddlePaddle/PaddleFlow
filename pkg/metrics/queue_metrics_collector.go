@@ -71,6 +71,7 @@ func (q *QueueMetricCollector) update() {
 		for resource, quan := range queue.MaxResources.Resources {
 			val := float64(quan)
 			switch resource {
+			// TODO: add more
 			case QueueResourceCPU:
 				//  convert cpu from mill-core to core
 				val /= 1000
