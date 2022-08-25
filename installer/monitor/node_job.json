@@ -1483,8 +1483,8 @@
       {
         "current": {
           "selected": false,
-          "text": "yq01-ai2b-p4-dev02.yq01.baidu.com",
-          "value": "yq01-ai2b-p4-dev02.yq01.baidu.com"
+          "text": "instance-1",
+          "value": "instance-1"
         },
         "datasource": {
           "type": "prometheus",
