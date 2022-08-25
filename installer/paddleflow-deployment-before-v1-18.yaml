@@ -131,7 +131,7 @@ rules:
     resources: ["events"]
     verbs: ["get", "list", "watch", "create", "update", "patch"]
   - apiGroups: [ "" ]
-    resources: [ "pods" ]
+    resources: [ "pods", "pods/log" ]
     verbs: [ "create", "get", "list", "watch", "update", "bind", "delete" ]
   - apiGroups: [ "" ]
     resources: [ "persistentvolumeclaims", "persistentvolumes"  ]
@@ -299,6 +299,19 @@ data:
         maxFileNum: 7
         maxFileSizeInMB: 100
         isCompress: true
+    
+      traceLog:
+        dir: ./
+        filePrefix: trace-log
+        level: INFO
+        maxKeepDays: 7
+        maxFileNum: 7
+        maxFileSizeInMB: 100
+        isCompress: true
+        timeout: 2h
+        maxCacheSize: 10000
+        syncInterval: 30s
+        deleteInterval: 10s
 
       apiServer:
         host: "paddleflow-server"
