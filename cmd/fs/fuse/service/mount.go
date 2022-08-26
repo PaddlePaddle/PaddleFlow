@@ -19,11 +19,6 @@ package service
 import (
 	"encoding/json"
 	"fmt"
-	libfuse "github.com/hanwen/go-fuse/v2/fuse"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	log "github.com/sirupsen/logrus"
-	"github.com/urfave/cli/v2"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -33,8 +28,14 @@ import (
 	"path"
 	"strconv"
 	"strings"
-	"sync"
 	"syscall"
+	"time"
+
+	libfuse "github.com/hanwen/go-fuse/v2/fuse"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	log "github.com/sirupsen/logrus"
+	"github.com/urfave/cli/v2"
 
 	"github.com/PaddlePaddle/PaddleFlow/cmd/fs/fuse/flag"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/client"
@@ -135,7 +136,7 @@ func setup(c *cli.Context) error {
 		log.Errorf("init vfs failed: %v", err)
 		return err
 	}
-	signalHandle(c, mountPoint)
+	signalHandle(mountPoint)
 	go monitor.UpdateBaseMetrics()
 	// whether start metrics server
 	if c.Bool("metrics-service-on") {
@@ -372,30 +373,18 @@ func InitVFS(c *cli.Context, registry *prometheus.Registry) error {
 	return nil
 }
 
-func signalHandle(c *cli.Context, mp string) {
+func signalHandle(mp string) {
 	signalChan := make(chan os.Signal, 10)
 	signal.Notify(signalChan, syscall.SIGTERM, syscall.SIGINT, syscall.SIGHUP, syscall.SIGKILL)
 	go func() {
 		for {
 			waitForSignal := <-signalChan
 			log.Infof("fuse exit with signal %v", waitForSignal)
-			wg := sync.WaitGroup{}
-			wg.Add(1)
-			go func() { _ = doUmount(mp, true); wg.Done() }()
-			if c.Bool("clean-cache") {
-				wg.Add(1)
-				go func() { _ = cleanCache(c); wg.Done() }()
-			}
+			go func() { _ = doUmount(mp, true) }()
+			go func() {
+				time.Sleep(time.Second * 3)
+				os.Exit(1)
+			}()
 		}
 	}()
-}
-
-func cleanCache(c *cli.Context) error {
-	pathsToCleanup := []string{c.String("data-cache-path"), c.String("meta-cache-path")}
-	if err := utils.CleanUpMountPoints(pathsToCleanup); err != nil {
-		log.Errorf("cleanCache: data cache: %s, meta cache: %s,  err: %v",
-			c.String("data-cache-path"), c.String("meta-cache-path"), err)
-		return err
-	}
-	return nil
 }

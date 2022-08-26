@@ -23,7 +23,17 @@ import (
 	"runtime"
 
 	"github.com/urfave/cli/v2"
+
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 )
+
+var cleanCacheInfo CleanCache
+
+type CleanCache struct {
+	Clean   bool
+	MetaDir string
+	DataDir string
+}
 
 func CmdUmount() *cli.Command {
 	return &cli.Command{
@@ -74,6 +84,21 @@ func doUmount(mp string, force bool) error {
 	out, err := cmd.CombinedOutput()
 	if err != nil && len(out) != 0 {
 		err = errors.New(string(out))
+	}
+	// clean cache if set
+	if cleanCacheInfo.Clean {
+		paths := make([]string, 0)
+		if cleanCacheInfo.MetaDir != "" {
+			paths = append(paths, cleanCacheInfo.MetaDir)
+		}
+		if cleanCacheInfo.DataDir != "" {
+			paths = append(paths, cleanCacheInfo.DataDir)
+		}
+		if len(paths) > 0 {
+			if err := utils.CleanUpMountPoints(paths); err != nil {
+				return fmt.Errorf("cleanCache: paths: %v,  err: %v", paths, err)
+			}
+		}
 	}
 	return err
 }
