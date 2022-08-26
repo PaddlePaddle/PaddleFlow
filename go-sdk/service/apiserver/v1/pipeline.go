@@ -232,7 +232,7 @@ func (p *pipeline) DeleteVersion(ctx context.Context, pipelineID, pipelineVersio
 
 type PipelineInterface interface {
 	Create(ctx context.Context, request *CreatePipelineRequest, token string) (result *CreatePipelineResponse, err error)
-	Get(ctx context.Context, pipelineID, token string) (result *GetPipelineResponse, err error)
+	Get(ctx context.Context, request *GetPipelineRequest, token string) (result *GetPipelineResponse, err error)
 	List(ctx context.Context, request *ListPipelineRequest, token string) (result *ListPipelineResponse, err error)
 	Delete(ctx context.Context, pipelineID, token string) (err error)
 	Update(ctx context.Context, pipelineID string, request *UpdatePipelineRequest, token string) (result *UpdatePipelineResponse, err error)
