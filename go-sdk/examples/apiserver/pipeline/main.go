@@ -116,38 +116,38 @@ func main() {
 	}
 
 	token := getToken(pfClient)
-	// reqCreate := &v1.CreatePipelineRequest{
-	// 	FsName:   "",
-	// 	YamlPath: "",
-	// }
-	// create(pfClient, reqCreate, token)
+	reqCreate := &v1.CreatePipelineRequest{
+		FsName:   "",
+		YamlPath: "",
+	}
+	create(pfClient, reqCreate, token)
 
 	reqGet := &v1.GetPipelineRequest{
 		PipelineID: "ppl-000004",
-		MaxKeys:    10,
+		MaxKeys:    1,
 	}
 
 	resGet := Get(pfClient, token, reqGet)
 	resJson, _ := json.Marshal(resGet)
 	fmt.Println(string(resJson))
 
-	// reqUpdate := &v1.UpdatePipelineRequest{
-	// 	FsName:   "",
-	// 	YamlPath: "",
-	// }
-	// resUpdate := Update(pfClient, "ppl-000001", reqUpdate, token)
-	// fmt.Println(resUpdate.PipelineVersionID)
+	reqUpdate := &v1.UpdatePipelineRequest{
+		FsName:   "",
+		YamlPath: "",
+	}
+	resUpdate := Update(pfClient, "ppl-000001", reqUpdate, token)
+	fmt.Println(resUpdate.PipelineVersionID)
 
-	// res := GetVersion(pfClient, "ppl-000001", "1", token)
-	// fmt.Println(res.PipelineVersion.PipelineYaml)
+	res := GetVersion(pfClient, "ppl-000001", "1", token)
+	fmt.Println(res.PipelineVersion.PipelineYaml)
 
-	// DeleteVersion(pfClient, "ppl-000001", "2", token)
-	// resDeleteVer := Get(pfClient, token, reqGet)
-	// resJson, _ = json.Marshal(resDeleteVer.PipelineVersions)
-	// fmt.Println(string(resJson))
+	DeleteVersion(pfClient, "ppl-000001", "2", token)
+	resDeleteVer := Get(pfClient, token, reqGet)
+	resJson, _ = json.Marshal(resDeleteVer.PipelineVersions)
+	fmt.Println(string(resJson))
 
-	// reqList := &v1.ListPipelineRequest{}
-	// List(pfClient, reqList, token)
-	// Delete(pfClient, "ppl-000001", token)
-	// List(pfClient, reqList, token)
+	reqList := &v1.ListPipelineRequest{}
+	List(pfClient, reqList, token)
+	Delete(pfClient, "ppl-000001", token)
+	List(pfClient, reqList, token)
 }
