@@ -25,6 +25,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/metrics"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/monitor"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
@@ -261,7 +262,15 @@ func startMetricsService(port int) (err error) {
 			err = fmt.Errorf("%v", err1)
 		}
 	}()
-	metrics.StartMetricsService(port)
+	listQueue := func() []model.Queue {
+		queues, err := storage.Queue.ListQueue(0, 0, "", "root")
+		if err != nil {
+			log.Errorf("%s", err)
+		}
+		return queues
+	}
+
+	metrics.StartMetricsService(port, listQueue)
 	return
 }
 

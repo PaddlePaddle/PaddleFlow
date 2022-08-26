@@ -60,20 +60,6 @@ const (
 
 // for job creating monitor
 
-const (
-	MetricJobTime  = "pf_metric_job_time"
-	MetricJobCount = "pf_metric_job_count"
-)
-
-const (
-	JobIDLabel          = "jobID"
-	StatusLabel         = "status"
-	QueueIDLabel        = "queueID"
-	FinishedStatusLabel = "finishedStatus"
-	QueueNameLabel      = "queueName"
-	UserNameLabel       = "userName"
-)
-
 type JobTimePoint int
 
 func (t JobTimePoint) Status() Status {
