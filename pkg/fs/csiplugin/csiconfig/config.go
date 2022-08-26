@@ -33,8 +33,7 @@ var (
 	MountImage       = ""
 	HostMntDir       = ""
 
-	CSIPod      = corev1.Pod{}
-	CSIResource corev1.ResourceRequirements
+	CSIPod = corev1.Pod{}
 )
 
 const (
@@ -75,35 +74,36 @@ func GeneratePodTemplate() *corev1.Pod {
 }
 
 func ParsePodResources(cpuLimit, memoryLimit, cpuRequest, memoryRequest string) (corev1.ResourceRequirements, error) {
-	var podResource corev1.ResourceRequirements
-	// deep copy resource
-	for k, v := range CSIResource.Limits {
-		podResource.Limits[k] = v
-	}
-	for k, v := range CSIResource.Requests {
-		podResource.Requests[k] = v
-	}
-
+	podLimit := map[corev1.ResourceName]resource.Quantity{}
+	podRequest := map[corev1.ResourceName]resource.Quantity{}
+	// set default value
+	podLimit[corev1.ResourceCPU] = resource.MustParse(defaultMountPodCpuLimit)
+	podLimit[corev1.ResourceMemory] = resource.MustParse(defaultMountPodMemLimit)
+	podRequest[corev1.ResourceCPU] = resource.MustParse(defaultMountPodCpuRequest)
+	podRequest[corev1.ResourceMemory] = resource.MustParse(defaultMountPodMemRequest)
 	var err error
 	if cpuLimit != "" {
-		if podResource.Limits[corev1.ResourceCPU], err = resource.ParseQuantity(cpuLimit); err != nil {
+		if podLimit[corev1.ResourceCPU], err = resource.ParseQuantity(cpuLimit); err != nil {
 			return corev1.ResourceRequirements{}, err
 		}
 	}
 	if memoryLimit != "" {
-		if podResource.Limits[corev1.ResourceMemory], err = resource.ParseQuantity(memoryLimit); err != nil {
+		if podLimit[corev1.ResourceMemory], err = resource.ParseQuantity(memoryLimit); err != nil {
 			return corev1.ResourceRequirements{}, err
 		}
 	}
 	if cpuRequest != "" {
-		if podResource.Requests[corev1.ResourceCPU], err = resource.ParseQuantity(cpuRequest); err != nil {
+		if podRequest[corev1.ResourceCPU], err = resource.ParseQuantity(cpuRequest); err != nil {
 			return corev1.ResourceRequirements{}, err
 		}
 	}
 	if memoryRequest != "" {
-		if podResource.Requests[corev1.ResourceMemory], err = resource.ParseQuantity(memoryRequest); err != nil {
+		if podRequest[corev1.ResourceMemory], err = resource.ParseQuantity(memoryRequest); err != nil {
 			return corev1.ResourceRequirements{}, err
 		}
 	}
-	return podResource, nil
+	return corev1.ResourceRequirements{
+		Limits:   podLimit,
+		Requests: podRequest,
+	}, nil
 }
