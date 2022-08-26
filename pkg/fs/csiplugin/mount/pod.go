@@ -207,11 +207,6 @@ func buildMountPod(volumeID string, mountInfo Info) (*k8sCore.Pod, error) {
 	if err != nil {
 		return nil, err
 	}
-	if mountInfo.CacheConfig.CleanCache {
-		anno[schema.AnnotationKeyClean] = "true"
-	} else {
-		anno[schema.AnnotationKeyClean] = "false"
-	}
 	pod.ObjectMeta.Annotations = anno
 	// label for pod list
 	pod.Labels[schema.LabelKeyFsID] = mountInfo.FS.ID
