@@ -22,7 +22,7 @@
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
   "id": 33,
-  "iteration": 1661336779888,
+  "iteration": 1661507320906,
   "links": [],
   "liveNow": false,
   "panels": [
@@ -95,7 +95,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "exemplar": true,
-          "expr": "sum(sum(pf_metric_queue_info{queueName=~\"$queue\", resource=\"cpu\", type=\"maxQuota\"}) by (queueName))",
+          "expr": "sum(sum(pf_metric_queue_info{queueName=~\"$queue\", resource=\"cpu\", type=\"maxResource\"}) by (queueName))",
           "hide": false,
           "interval": "",
           "legendFormat": "",
@@ -249,7 +249,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "exemplar": false,
-          "expr": "sum((sum(kube_pod_container_resource_requests{pod=~\"job.*\", resource=\"cpu\"}) by (pod)) * on(pod) (max(kube_pod_labels{label_owner=\"paddleflow\", label_volcano_sh_queue_name=~\"$queue\"}) by (label_volcano_sh_queue_name, pod) == 1)\n/ \nignoring(pod) group_left sum(sum(pf_metric_queue_info{queueName=~\"$queue\", resource=\"cpu\", type=\"maxQuota\"}) by (queueName)))",
+          "expr": "sum((sum(kube_pod_container_resource_requests{pod=~\"job.*\", resource=\"cpu\"}) by (pod)) * on(pod) (max(kube_pod_labels{label_owner=\"paddleflow\", label_volcano_sh_queue_name=~\"$queue\"}) by (label_volcano_sh_queue_name, pod) == 1)\n/ \nignoring(pod) group_left sum(sum(pf_metric_queue_info{queueName=~\"$queue\", resource=\"cpu\", type=\"maxResource\"}) by (queueName)))",
           "format": "time_series",
           "instant": true,
           "interval": "",
@@ -314,7 +314,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "exemplar": true,
-          "expr": "sum(sum(pf_metric_queue_info{queueName=~\"$queue\", resource=\"memory\", type=\"maxQuota\"}) by (queueName))",
+          "expr": "sum(sum(pf_metric_queue_info{queueName=~\"$queue\", resource=\"mem\", type=\"maxResource\"}) by (queueName))",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
@@ -454,7 +454,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "exemplar": false,
-          "expr": "sum((sum(kube_pod_container_resource_requests{pod=~\"job.*\", resource=\"memory\"}) by (pod)) * on(pod) (max(kube_pod_labels{label_owner=\"paddleflow\", label_volcano_sh_queue_name=~\"$queue\"}) by (label_volcano_sh_queue_name, pod) == 1) / ignoring(pod) group_left sum(sum(pf_metric_queue_info{queueName=~\"$queue\", resource=\"memory\", type=\"maxQuota\"}) by (queueName)))",
+          "expr": "sum((sum(kube_pod_container_resource_requests{pod=~\"job.*\", resource=\"memory\"}) by (pod)) * on(pod) (max(kube_pod_labels{label_owner=\"paddleflow\", label_volcano_sh_queue_name=~\"$queue\"}) by (label_volcano_sh_queue_name, pod) == 1) / ignoring(pod) group_left sum(sum(pf_metric_queue_info{queueName=~\"$queue\", resource=\"mem\", type=\"maxResource\"}) by (queueName)))",
           "format": "time_series",
           "instant": true,
           "interval": "",
@@ -724,9 +724,9 @@
             "uid": "PBFA97CFB590B2093"
           },
           "exemplar": true,
-          "expr": "(sum(kube_pod_container_resource_requests{pod=~\"job.*\", resource=\"cpu\"}) by (pod)) * on(pod) (max(kube_pod_labels{label_owner=\"paddleflow\", label_volcano_sh_queue_name=~\"$queue\"}) by (label_volcano_sh_queue_name, pod) == 1) / ignoring(pod) group_left sum(sum(pf_metric_queue_info{queueName=~\"$queue\", resource=\"cpu\", type=\"maxQuota\"}) by (queueName))",
+          "expr": "(sum(kube_pod_container_resource_requests{pod=~\"job.*\", resource=\"cpu\"}) by (pod)) * on(pod) (max(kube_pod_labels{label_owner=\"paddleflow\", label_volcano_sh_queue_name=~\"$queue\"}) by (label_volcano_sh_queue_name, pod) == 1) / ignoring(pod) group_left sum(sum(pf_metric_queue_info{queueName=~\"$queue\", resource=\"cpu\", type=\"maxResource\"}) by (queueName))",
           "format": "time_series",
-          "hide": true,
+          "hide": false,
           "interval": "",
           "intervalFactor": 2,
           "legendFormat": "{{pod}}",
@@ -740,7 +740,7 @@
           },
           "exemplar": true,
           "expr": "label_volcano_sh_queue_name",
-          "hide": false,
+          "hide": true,
           "interval": "",
           "legendFormat": "",
           "refId": "B"
@@ -1317,7 +1317,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "exemplar": true,
-          "expr": "(sum(kube_pod_container_resource_requests{pod=~\"job.*\", resource=\"memory\"}) by (pod)) * on(pod) (max(kube_pod_labels{label_owner=\"paddleflow\", label_volcano_sh_queue_name=~\"$queue\"}) by (label_volcano_sh_queue_name, pod) == 1) / ignoring(pod) group_left sum(sum(pf_metric_queue_info{queueName=~\"$queue\", resource=\"memory\", type=\"maxQuota\"}) by (queueName))",
+          "expr": "(sum(kube_pod_container_resource_requests{pod=~\"job.*\", resource=\"memory\"}) by (pod)) * on(pod) (max(kube_pod_labels{label_owner=\"paddleflow\", label_volcano_sh_queue_name=~\"$queue\"}) by (label_volcano_sh_queue_name, pod) == 1) / ignoring(pod) group_left sum(sum(pf_metric_queue_info{queueName=~\"$queue\", resource=\"mem\", type=\"maxResource\"}) by (queueName))",
           "format": "time_series",
           "hide": false,
           "interval": "",
@@ -1752,7 +1752,7 @@
       "type": "table"
     }
   ],
-  "refresh": false,
+  "refresh": "",
   "schemaVersion": 34,
   "style": "dark",
   "tags": [
@@ -1781,8 +1781,8 @@
       {
         "current": {
           "selected": false,
-          "text": "default-queue",
-          "value": "default-queue"
+          "text": "queue-1",
+          "value": "queue-1"
         },
         "definition": "kube_pod_labels{label_owner=\"paddleflow\",label_volcano_sh_queue_name!=\"\"}",
         "hide": 0,
@@ -1838,6 +1838,6 @@
   "timezone": "",
   "title": "Queue（Jobs）",
   "uid": "Fs4FD_i4z",
-  "version": 69,
+  "version": 80,
   "weekStart": ""
 }
