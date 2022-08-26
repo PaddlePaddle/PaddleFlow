@@ -164,6 +164,11 @@ func GetArtifactMountPath(mainFS *schema.FsMount, artifactPath string) string {
 		} else {
 			artMountPath = fmt.Sprintf("%s/%s", mountPath, path)
 		}
+
+		if !strings.HasPrefix(artMountPath, "/") {
+			artMountPath = "/" + artMountPath
+		}
+
 		artMountPaths = append(artMountPaths, artMountPath)
 	}
 
@@ -180,4 +185,26 @@ func GetSiblingAbsoluteName(curAbsName string, siblingRelativeName string) strin
 		sibAbsName = siblingRelativeName
 	}
 	return sibAbsName
+}
+
+func CheckListParam(param []interface{}) error {
+	for _, listItem := range param {
+		switch listItem := listItem.(type) {
+		case float32, float64, int, int64:
+			// do nothing
+		case string:
+			checker := VariableChecker{}
+			// list中的元素不能为模板，如果使用了模板，则报错
+			if err := checker.CheckRefArgument(listItem); err == nil {
+				return fmt.Errorf("list param item [%v] is invalid, each item must not be templete", listItem)
+			}
+		case []interface{}:
+			if err := CheckListParam(listItem); err != nil {
+				return err
+			}
+		default:
+			return fmt.Errorf("list param item can only be int, float, string, list type")
+		}
+	}
+	return nil
 }

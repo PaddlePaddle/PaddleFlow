@@ -45,6 +45,7 @@ const (
 	LabelKeyFsID       = "fsID"
 	LabelCacheID       = "cacheID"
 	AnnotationKeyMTime = "modifiedTime"
+	AnnotationKeyClean = "clean-cache"
 
 	MountPodNamespace = "paddleflow"
 )

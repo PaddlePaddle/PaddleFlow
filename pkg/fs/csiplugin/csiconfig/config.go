@@ -18,6 +18,7 @@ package csiconfig
 
 import (
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -32,12 +33,19 @@ var (
 	MountImage       = ""
 	HostMntDir       = ""
 
-	CSIPod = corev1.Pod{}
+	CSIPod      = corev1.Pod{}
+	CSIResource corev1.ResourceRequirements
 )
 
 const (
 	PodTypeKey = "app.kubernetes.io/name"
 	PodMount   = "pfs-mount"
+
+	// default value
+	defaultMountPodCpuLimit   = "2000m"
+	defaultMountPodMemLimit   = "5Gi"
+	defaultMountPodCpuRequest = "1000m"
+	defaultMountPodMemRequest = "1Gi"
 )
 
 func GeneratePodTemplate() *corev1.Pod {
@@ -64,4 +72,41 @@ func GeneratePodTemplate() *corev1.Pod {
 			Tolerations:        CSIPod.Spec.Tolerations,
 		},
 	}
+}
+
+func ParsePodResources(cpuLimit, memoryLimit, cpuRequest, memoryRequest string) (corev1.ResourceRequirements, error) {
+	podResource := corev1.ResourceRequirements{
+		Limits:   map[corev1.ResourceName]resource.Quantity{},
+		Requests: map[corev1.ResourceName]resource.Quantity{},
+	}
+	// deep copy resource
+	for k, v := range CSIResource.Limits {
+		podResource.Limits[k] = v
+	}
+	for k, v := range CSIResource.Requests {
+		podResource.Requests[k] = v
+	}
+
+	var err error
+	if cpuLimit != "" {
+		if podResource.Limits[corev1.ResourceCPU], err = resource.ParseQuantity(cpuLimit); err != nil {
+			return corev1.ResourceRequirements{}, err
+		}
+	}
+	if memoryLimit != "" {
+		if podResource.Limits[corev1.ResourceMemory], err = resource.ParseQuantity(memoryLimit); err != nil {
+			return corev1.ResourceRequirements{}, err
+		}
+	}
+	if cpuRequest != "" {
+		if podResource.Requests[corev1.ResourceCPU], err = resource.ParseQuantity(cpuRequest); err != nil {
+			return corev1.ResourceRequirements{}, err
+		}
+	}
+	if memoryRequest != "" {
+		if podResource.Requests[corev1.ResourceMemory], err = resource.ParseQuantity(memoryRequest); err != nil {
+			return corev1.ResourceRequirements{}, err
+		}
+	}
+	return podResource, nil
 }
