@@ -156,13 +156,20 @@ func (r *Resource) Memory() Quantity {
 	return 0
 }
 
+func (r *Resource) Storage() Quantity {
+	if r != nil && r.Resources != nil {
+		return r.Resources[ResStorage]
+	}
+	return 0
+}
+
 // ScalarResources return scalar resources by prefix, if prefix is empty, return all
 func (r *Resource) ScalarResources(prefix string) map[string]Quantity {
 	quans := map[string]Quantity{}
 	if r != nil && r.Resources != nil {
 		for res, quan := range r.Resources {
 			switch res {
-			case ResMemory, ResCPU:
+			case ResMemory, ResCPU, ResStorage:
 			// pass
 			default:
 				if strings.HasPrefix(res, prefix) {

@@ -58,7 +58,11 @@ func (q *QueueMetricCollector) update() {
 		maxCPU := float64(queue.MaxResources.CPU()) / 1000
 		minMem := float64(queue.MinResources.Memory())
 		maxMem := float64(queue.MaxResources.Memory())
+		minStor := float64(queue.MinResources.Storage())
+		maxStor := float64(queue.MaxResources.Storage())
+		queue.MaxResources.CPU().MemString()
 
+		// export CPU
 		q.queueInfo.With(prometheus.Labels{
 			QueueNameLabel: queueName,
 			ResourceLabel:  resources.ResCPU,
@@ -71,6 +75,7 @@ func (q *QueueMetricCollector) update() {
 			TypeLabel:      QueueTypeMaxResource,
 		}).Set(maxCPU)
 
+		// export Memory
 		q.queueInfo.With(prometheus.Labels{
 			QueueNameLabel: queueName,
 			ResourceLabel:  resources.ResMemory,
@@ -83,7 +88,20 @@ func (q *QueueMetricCollector) update() {
 			TypeLabel:      QueueTypeMaxResource,
 		}).Set(maxMem)
 
-		// add scalar resource
+		// export storage
+		q.queueInfo.With(prometheus.Labels{
+			QueueNameLabel: queueName,
+			ResourceLabel:  resources.ResStorage,
+			TypeLabel:      QueueTypeMinResource,
+		}).Set(minStor)
+
+		q.queueInfo.With(prometheus.Labels{
+			QueueNameLabel: queueName,
+			ResourceLabel:  resources.ResStorage,
+			TypeLabel:      QueueTypeMaxResource,
+		}).Set(maxStor)
+
+		// add all scalar resource
 		for res, val := range queue.MaxResources.ScalarResources("") {
 			quan := float64(val)
 			q.queueInfo.With(prometheus.Labels{
