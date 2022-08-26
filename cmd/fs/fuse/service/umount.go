@@ -19,6 +19,8 @@ package service
 import (
 	"errors"
 	"fmt"
+	log "github.com/sirupsen/logrus"
+	"os"
 	"os/exec"
 	"runtime"
 
@@ -45,8 +47,24 @@ $ pfs-fuse umount /mnt/mount_point`,
 	}
 }
 
-func doUmount(mp string, force bool) error {
+func doUmount(c *cli.Context, mp string, force bool) error {
 	var cmd *exec.Cmd
+	if c.Bool("clean-cache") {
+		var paths []string
+		if c.String("data-cache-path") != "" {
+			paths = append(paths, c.String("data-cache-path"))
+		}
+		if c.String("meta-cache-path") != "" {
+			paths = append(paths, c.String("meta-cache-path"))
+		}
+		for _, path := range paths {
+			if err := os.RemoveAll(path); err != nil {
+				log.Errorf("doUmount: remove path[%s] failed: %v", path, err)
+				return err
+			}
+		}
+	}
+
 	switch runtime.GOOS {
 	case "darwin":
 		if force {
@@ -81,5 +99,5 @@ func doUmount(mp string, force bool) error {
 func umount(ctx *cli.Context) error {
 	mp := ctx.Args().Get(0)
 	force := ctx.Bool("force")
-	return doUmount(mp, force)
+	return doUmount(ctx, mp, force)
 }

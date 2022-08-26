@@ -102,7 +102,7 @@ func setup(c *cli.Context) error {
 	isMounted, err := utils.IsMountPoint(mountPoint)
 	if isMounted {
 		if err != nil {
-			if errUmount := doUmount(mountPoint, true); errUmount != nil {
+			if errUmount := doUmount(c, mountPoint, true); errUmount != nil {
 				log.Errorf("unmount mountpoint %s failed: %v", mountPoint, errUmount)
 				return fmt.Errorf("unmount mountpoint %s failed: %v", mountPoint, errUmount)
 			}
@@ -136,7 +136,7 @@ func setup(c *cli.Context) error {
 		log.Errorf("init vfs failed: %v", err)
 		return err
 	}
-	signalHandle(mountPoint)
+	signalHandle(c, mountPoint)
 	go monitor.UpdateBaseMetrics()
 	// whether start metrics server
 	if c.Bool("metrics-service-on") {
@@ -373,14 +373,20 @@ func InitVFS(c *cli.Context, registry *prometheus.Registry) error {
 	return nil
 }
 
-func signalHandle(mp string) {
+func signalHandle(c *cli.Context, mp string) {
 	signalChan := make(chan os.Signal, 10)
 	signal.Notify(signalChan, syscall.SIGTERM, syscall.SIGINT, syscall.SIGHUP, syscall.SIGKILL)
 	go func() {
 		for {
 			waitForSignal := <-signalChan
 			log.Infof("fuse exit with signal %v", waitForSignal)
-			go func() { _ = doUmount(mp, true) }()
+			go func() {
+				if doUmount(c, mp, false) != nil {
+					if err := doUmount(c, mp, true); err != nil {
+						log.Errorf("doUmount failed: %v", err)
+					}
+				}
+			}()
 			go func() {
 				time.Sleep(time.Second * 3)
 				os.Exit(1)
