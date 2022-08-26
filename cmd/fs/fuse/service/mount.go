@@ -134,7 +134,7 @@ func setup(c *cli.Context) error {
 		cleanCacheInfo.MetaDir = c.String("meta-cache-path")
 		cleanCacheInfo.DataDir = c.String("data-cache-path")
 	}
-	signalHandle(c.String("mount-point"))
+	signalHandle(mountPoint)
 
 	// Wrap the default registry, all prometheus.MustRegister() calls should be afterwards
 	// InitVFS() has many registers, should be after wrapRegister()
