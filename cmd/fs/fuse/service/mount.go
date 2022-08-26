@@ -19,6 +19,11 @@ package service
 import (
 	"encoding/json"
 	"fmt"
+	libfuse "github.com/hanwen/go-fuse/v2/fuse"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	log "github.com/sirupsen/logrus"
+	"github.com/urfave/cli/v2"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -28,14 +33,8 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
-	"time"
-
-	libfuse "github.com/hanwen/go-fuse/v2/fuse"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	log "github.com/sirupsen/logrus"
-	"github.com/urfave/cli/v2"
 
 	"github.com/PaddlePaddle/PaddleFlow/cmd/fs/fuse/flag"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/client"
@@ -386,11 +385,17 @@ func signalHandle(mp string) {
 		for {
 			waitForSignal := <-signalChan
 			log.Infof("fuse exit with signal %v", waitForSignal)
-			go func() { _ = doUmount(mp, true) }()
+			wg := sync.WaitGroup{}
+			wg.Add(1)
 			go func() {
-				time.Sleep(time.Second * 3)
-				os.Exit(1)
+				if err := doUmount(mp, false); err != nil {
+					if err := doUmount(mp, true); err != nil {
+						log.Errorf("fuse umount failed %v", err)
+					}
+				}
+				wg.Done()
 			}()
+			wg.Wait()
 		}
 	}()
 }

@@ -19,12 +19,12 @@ package service
 import (
 	"errors"
 	"fmt"
+	log "github.com/sirupsen/logrus"
+	"os"
 	"os/exec"
 	"runtime"
 
 	"github.com/urfave/cli/v2"
-
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/utils"
 )
 
 var cleanCacheInfo CleanCache
@@ -56,6 +56,7 @@ $ pfs-fuse umount /mnt/mount_point`,
 }
 
 func doUmount(mp string, force bool) error {
+	log.Infof("start doUmountr: force:%t clean: %+v", force, cleanCacheInfo)
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
 	case "darwin":
@@ -81,26 +82,30 @@ func doUmount(mp string, force bool) error {
 	default:
 		return fmt.Errorf("OS %s is not supported", runtime.GOOS)
 	}
-	out, err := cmd.CombinedOutput()
-	if err != nil && len(out) != 0 {
-		err = errors.New(string(out))
-	}
 	// clean cache if set
 	if cleanCacheInfo.Clean {
-		paths := make([]string, 0)
+		log.Infof("start clean cache dir: %+v", cleanCacheInfo)
 		if cleanCacheInfo.MetaDir != "" {
-			paths = append(paths, cleanCacheInfo.MetaDir)
+			if err := os.RemoveAll(cleanCacheInfo.MetaDir); err != nil {
+				err := fmt.Errorf("remove meta cache path[%s] failed: %v", cleanCacheInfo.MetaDir, err)
+				log.Warnf(err.Error())
+			}
 		}
 		if cleanCacheInfo.DataDir != "" {
-			paths = append(paths, cleanCacheInfo.DataDir)
-		}
-		if len(paths) > 0 {
-			if err := utils.CleanUpMountPoints(paths); err != nil {
-				return fmt.Errorf("cleanCache: paths: %v,  err: %v", paths, err)
+			if err := os.RemoveAll(cleanCacheInfo.DataDir); err != nil {
+				err := fmt.Errorf("remove data cache path[%s] failed: %v", cleanCacheInfo.DataDir, err)
+				log.Warnf(err.Error())
 			}
 		}
 	}
-	return err
+	log.Infof("start umount. command: %+v", cmd)
+	out, err := cmd.CombinedOutput()
+	if err != nil && len(out) != 0 {
+		err := errors.New(string(out))
+		log.Errorf("cmd.CombinedOutput() err: %v", err)
+		return err
+	}
+	return nil
 }
 
 func umount(ctx *cli.Context) error {
