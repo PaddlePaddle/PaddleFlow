@@ -129,6 +129,13 @@ func setup(c *cli.Context) error {
 	opts.DisableXAttrs = c.Bool("disable-xattrs")
 	opts.AllowOther = c.Bool("allow-other")
 
+	if c.Bool("clean-cache") {
+		cleanCacheInfo.Clean = true
+		cleanCacheInfo.MetaDir = c.String("meta-cache-path")
+		cleanCacheInfo.DataDir = c.String("data-cache-path")
+	}
+	signalHandle(c.String("mount-point"))
+
 	// Wrap the default registry, all prometheus.MustRegister() calls should be afterwards
 	// InitVFS() has many registers, should be after wrapRegister()
 	registry := wrapRegister(mountPoint)
@@ -136,7 +143,6 @@ func setup(c *cli.Context) error {
 		log.Errorf("init vfs failed: %v", err)
 		return err
 	}
-	signalHandle(mountPoint)
 	go monitor.UpdateBaseMetrics()
 	// whether start metrics server
 	if c.Bool("metrics-service-on") {
