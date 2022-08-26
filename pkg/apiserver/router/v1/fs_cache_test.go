@@ -47,15 +47,21 @@ func mockFSCache() model.FSCacheConfig {
 	}
 }
 
-func buildCreateReq(model model.FSCacheConfig) fs.CreateFileSystemCacheRequest {
-	req := fs.CreateFileSystemCacheRequest{
-		Username:    MockRootUser,
-		FsName:      mockFsName,
+func buildUpdateReq(model model.FSCacheConfig) fs.UpdateFileSystemCacheRequest {
+	return fs.UpdateFileSystemCacheRequest{
 		FsID:        model.FsID,
 		CacheDir:    model.CacheDir,
 		MetaDriver:  "leveldb",
 		BlockSize:   model.BlockSize,
 		ExtraConfig: map[string]string{"aa": "bb"},
+	}
+}
+
+func buildCreateReq(model model.FSCacheConfig) fs.CreateFileSystemCacheRequest {
+	req := fs.CreateFileSystemCacheRequest{
+		Username:                     MockRootUser,
+		FsName:                       mockFsName,
+		UpdateFileSystemCacheRequest: buildUpdateReq(model),
 	}
 	return req
 }
