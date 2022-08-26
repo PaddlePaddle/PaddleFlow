@@ -17,11 +17,6 @@ limitations under the License.
 package metrics
 
 const (
-	QueueResourceCPU    = "cpu"
-	QueueResourceMemory = "memory"
-)
-
-const (
 	QueueTypeMaxResource    = "maxResource"
 	QueueTypeMinResource    = "minResource"
 	QueueTypeScalarResource = "scalarResource"

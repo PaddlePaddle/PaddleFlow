@@ -18,6 +18,8 @@ package metrics
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
+
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 )
 
 type QueueMetricCollector struct {
@@ -59,29 +61,36 @@ func (q *QueueMetricCollector) update() {
 
 		q.queueInfo.With(prometheus.Labels{
 			QueueNameLabel: queueName,
-			ResourceLabel:  QueueResourceCPU,
+			ResourceLabel:  resources.ResCPU,
 			TypeLabel:      QueueTypeMinResource,
 		}).Set(minCPU)
 
 		q.queueInfo.With(prometheus.Labels{
 			QueueNameLabel: queueName,
-			ResourceLabel:  QueueResourceCPU,
+			ResourceLabel:  resources.ResCPU,
 			TypeLabel:      QueueTypeMaxResource,
 		}).Set(maxCPU)
 
 		q.queueInfo.With(prometheus.Labels{
 			QueueNameLabel: queueName,
-			ResourceLabel:  QueueResourceMemory,
+			ResourceLabel:  resources.ResMemory,
 			TypeLabel:      QueueTypeMinResource,
 		}).Set(minMem)
 
 		q.queueInfo.With(prometheus.Labels{
 			QueueNameLabel: queueName,
-			ResourceLabel:  QueueResourceMemory,
+			ResourceLabel:  resources.ResMemory,
 			TypeLabel:      QueueTypeMaxResource,
 		}).Set(maxMem)
 
-		// TODO: add scalar resource
-
+		// add scalar resource
+		for res, val := range queue.MaxResources.ScalarResources("") {
+			quan := float64(val)
+			q.queueInfo.With(prometheus.Labels{
+				QueueNameLabel: queueName,
+				ResourceLabel:  res,
+				TypeLabel:      QueueTypeScalarResource,
+			}).Set(quan)
+		}
 	}
 }
