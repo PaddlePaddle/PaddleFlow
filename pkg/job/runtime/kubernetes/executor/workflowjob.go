@@ -19,9 +19,6 @@ package executor
 import (
 	wfv1 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
 	log "github.com/sirupsen/logrus"
-
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
 // WorkflowJob is a executor struct that runs a workflow
@@ -60,19 +57,5 @@ func (wfj *WorkflowJob) CreateJob() (string, error) {
 
 func (wfj *WorkflowJob) patchWorkflowSpec(spec *wfv1.WorkflowSpec) error {
 	// TODO: patch workflow spec
-	return nil
-}
-
-func (wfj *WorkflowJob) StopJobByID(jobID string) error {
-	job, err := storage.Job.GetJobByID(jobID)
-	if err != nil {
-		return err
-	}
-	namespace := job.Config.GetNamespace()
-
-	if err = Delete(namespace, job.ID, k8s.ArgoWorkflowGVK, wfj.DynamicClientOption); err != nil {
-		log.Errorf("stop paddleJob %s in namespace %s failed, err %v", job.ID, namespace, err)
-		return err
-	}
 	return nil
 }

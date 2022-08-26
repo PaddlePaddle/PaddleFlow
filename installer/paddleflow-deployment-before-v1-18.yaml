@@ -160,6 +160,10 @@ rules:
   - apiGroups: ["argoproj.io"]
     resources: ["workflowtemplates", "workflowtemplates/finalizers", "clusterworkflowtemplates", "clusterworkflowtemplates/finalizers"]
     verbs: ["create", "delete", "get", "list", "watch", "update"]
+  - apiGroups: ["kubeflow.org"]
+    resources: ["*"]
+    verbs: ["create", "delete", "get", "list", "watch", "update"]
+
 ---
 # ClusterRoleBinding for paddleflow-server
 kind: ClusterRoleBinding
@@ -328,6 +332,11 @@ data:
 
       monitor:
         server: ""
+    
+      metrics:
+        enable: true
+        port: 8231
+
   single.yaml: |-
     apiVersion: v1
     kind: Pod
@@ -521,6 +530,24 @@ spec:
   selector:
     app: paddleflow-server
 ---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: paddleflow-server
+  name: paddleflow-server-metrics
+  namespace: paddleflow
+spec:
+  ports:
+    - name: metrics
+      nodePort: 8231
+      port: 8231
+      targetPort: 8231
+      protocol: TCP
+  selector:
+    app: paddleflow-server
+  type: NodePort
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -570,8 +597,8 @@ spec:
               memory: "1G"
               cpu: "500m"
             limits:
-              memory: "2G"
-              cpu: "2000m"
+              memory: "8G"
+              cpu: "8000m"
           securityContext:
             privileged: false
             runAsGroup: 1000
@@ -717,7 +744,13 @@ spec:
           image: paddleflow/pfs-csi-plugin:1.4.2
           imagePullPolicy: IfNotPresent
           name: csi-storage-driver
-          resources: {}
+          resources:
+            limits:
+              cpu: 1500m
+              memory: 3G
+            requests:
+              cpu: "500m"
+              memory: 1G
           securityContext:
             capabilities:
               add:
@@ -835,7 +868,13 @@ spec:
             - containerPort: 12345
               name: port-0
               protocol: TCP
-          resources: {}
+          resources:
+            requests:
+              memory: "1G"
+              cpu: "500m"
+            limits:
+              memory: "2G"
+              cpu: "2000m"
           securityContext:
             privileged: true
           terminationMessagePath: /dev/termination-log
@@ -1121,6 +1160,13 @@ spec:
           image: paddleflow/vc-webhook-manager:pf-1.4-vc-1.3
           imagePullPolicy: IfNotPresent
           name: admission
+          resources:
+            requests:
+              memory: "1G"
+              cpu: "500m"
+            limits:
+              memory: "2G"
+              cpu: "2000m"
           volumeMounts:
             - mountPath: /admission.local.config/certificates
               name: admission-certs
@@ -8457,6 +8503,13 @@ spec:
             - -v=4
             - 2>&1
           imagePullPolicy: "IfNotPresent"
+          resources:
+           requests:
+              memory: "1G"
+              cpu: "500m"
+            limits:
+              memory: "2G"
+              cpu: "2000m"
 ---
 # Source: volcano/templates/scheduler.yaml
 apiVersion: v1
@@ -8605,6 +8658,13 @@ spec:
             - -v=3
             - 2>&1
           imagePullPolicy: "IfNotPresent"
+          resources:
+            requests:
+              memory: "1G"
+              cpu: "500m"
+            limits:
+              memory: "2G"
+              cpu: "2000m"
           volumeMounts:
             - name: scheduler-config
               mountPath: /volcano.scheduler

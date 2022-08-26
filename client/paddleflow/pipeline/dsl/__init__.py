@@ -15,16 +15,22 @@ limitations under the License.
 
 # import from options
 from .options import CacheOptions
+from .options import FSScope
 from .options import FailureOptions
 from .options import FAIL_CONTINUE
 from .options import FAIL_FAST
+from .options import FSOptions
+from .options import ExtraFS
+from .options import MainFS
+
 
 # import from io_types
 from .io_types import Artifact
 from .io_types import Parameter
 
 # import from steps
-from .steps import ContainerStep
+from .component.steps import ContainerStep
+from .component import DAG
 
 # import from pipeline
 from .pipeline import Pipeline

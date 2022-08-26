@@ -18,6 +18,7 @@ limitations under the License.
 
 from .run_api import RunServiceApi
 from .run_info import RunInfo
+from .run_info import DagInfo
 from .run_info import JobInfo
 from .run_info import RunCacheInfo
-from .run_info import ArtifaceInfo
+from .run_info import ArtifactInfo

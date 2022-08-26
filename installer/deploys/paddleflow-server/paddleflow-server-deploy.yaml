@@ -50,6 +50,10 @@ rules:
   - apiGroups: ["argoproj.io"]
     resources: ["workflowtemplates", "workflowtemplates/finalizers", "clusterworkflowtemplates", "clusterworkflowtemplates/finalizers"]
     verbs: ["create", "delete", "get", "list", "watch", "update"]
+  - apiGroups: ["kubeflow.org"]
+    resources: ["*"]
+    verbs: ["create", "delete", "get", "list", "watch", "update"]
+
 ---
 # ClusterRoleBinding for paddleflow-server
 kind: ClusterRoleBinding
@@ -209,6 +213,11 @@ data:
 
       monitor:
         server: ""
+    
+      metrics:
+        enable: true
+        port: 8231
+
   single.yaml: |-
     apiVersion: v1
     kind: Pod
@@ -402,6 +411,24 @@ spec:
   selector:
     app: paddleflow-server
 ---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: paddleflow-server
+  name: paddleflow-server-metrics
+  namespace: paddleflow
+spec:
+  ports:
+    - name: metrics
+      nodePort: 8231
+      port: 8231
+      targetPort: 8231
+      protocol: TCP
+  selector:
+    app: paddleflow-server
+  type: NodePort
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -451,8 +478,8 @@ spec:
               memory: "1G"
               cpu: "500m"
             limits:
-              memory: "2G"
-              cpu: "2000m"
+              memory: "8G"
+              cpu: "8000m"
           securityContext:
             privileged: false
             runAsGroup: 1000

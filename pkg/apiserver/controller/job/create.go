@@ -21,13 +21,13 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/ghodss/yaml"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/flavour"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/models"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
@@ -35,6 +35,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/utils"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/metrics"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
@@ -51,6 +52,7 @@ type CreateJobInfo struct {
 
 // CreatePFJob handler for creating job
 func CreatePFJob(ctx *logger.RequestContext, request *CreateJobInfo) (*CreateJobResponse, error) {
+
 	log.Debugf("Create PF job with request: %#v", request)
 	if err := CheckPermission(ctx); err != nil {
 		ctx.ErrorCode = common.ActionNotAllowed
@@ -59,6 +61,12 @@ func CreatePFJob(ctx *logger.RequestContext, request *CreateJobInfo) (*CreateJob
 	}
 	request.UserName = ctx.UserName
 	// validate Job
+	// gen jobID if not presented in request
+	if request.ID == "" {
+		request.ID = uuid.GenerateIDWithLength(schema.JobPrefix, uuid.JobIDLength)
+	}
+	// add time point for job create request
+	metrics.Job.AddTimestamp(request.ID, metrics.T1, time.Now())
 	if err := validateJob(ctx, request); err != nil {
 		ctx.Logging().Errorf("validate job request failed. request:%v error:%s", request, err.Error())
 		return nil, err
@@ -267,7 +275,7 @@ func validateQueue(ctx *logger.RequestContext, schedulingPolicy *SchedulingPolic
 		}
 	}
 	queueName := schedulingPolicy.Queue
-	queue, err := models.GetQueueByName(queueName)
+	queue, err := storage.Queue.GetQueueByName(queueName)
 	if err != nil {
 		if errors.GetErrorCode(err) == errors.ErrorKeyIsDuplicated {
 			ctx.ErrorCode = common.QueueNameDuplicated

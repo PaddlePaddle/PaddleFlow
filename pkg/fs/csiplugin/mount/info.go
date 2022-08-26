@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	log "github.com/sirupsen/logrus"
+	corev1 "k8s.io/api/core/v1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
@@ -47,6 +48,7 @@ type Info struct {
 	Args        []string
 	ReadOnly    bool
 	K8sClient   utils.Client
+	PodResource corev1.ResourceRequirements
 }
 
 func ConstructMountInfo(fsInfoBase64, fsCacheBase64, targetPath string, k8sClient utils.Client, readOnly bool) (Info, error) {
@@ -77,6 +79,13 @@ func ConstructMountInfo(fsInfoBase64, fsCacheBase64, targetPath string, k8sClien
 
 	if !fs.IndependentMountProcess && fs.Type != common.GlusterFSType {
 		info.SourcePath = schema.GetBindSource(info.FS.ID)
+		rsc := cacheConfig.Resource
+		info.PodResource, err = csiconfig.ParsePodResources(rsc.CpuLimit, rsc.MemoryLimit, rsc.CpuRequest, rsc.MemoryRequest)
+		if err != nil {
+			err := fmt.Errorf("ParsePodResources: %+v err: %v", rsc, err)
+			log.Errorf(err.Error())
+			return Info{}, err
+		}
 	} else {
 		info.SourcePath = utils.GetSourceMountPath(filepath.Dir(info.TargetPath))
 	}
