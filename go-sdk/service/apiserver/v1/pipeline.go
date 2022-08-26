@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -41,6 +41,13 @@ type CreatePipelineResponse struct {
 	PipelineID        string `json:"pipelineID"`
 	PipelineVersionID string `json:"pipelineVersionID"`
 	Name              string `json:"name"`
+}
+
+type GetPipelineRequest struct {
+	PipelineID string
+	FsFilter   []string
+	Marker     string
+	MaxKeys    int
 }
 
 type GetPipelineResponse struct {
@@ -129,12 +136,15 @@ func (p *pipeline) Create(ctx context.Context, request *CreatePipelineRequest, t
 	return
 }
 
-func (p *pipeline) Get(ctx context.Context, pipelineID, token string) (result *GetPipelineResponse, err error) {
+func (p *pipeline) Get(ctx context.Context, request *GetPipelineRequest, token string) (result *GetPipelineResponse, err error) {
 	result = &GetPipelineResponse{}
 	err = newRequestBuilderWithTokenHeader(p.client, token).
-		WithURL(pipelineApi + "/" + pipelineID).
+		WithURL(pipelineApi+"/"+request.PipelineID).
 		WithMethod(http.GET).
 		WithResult(result).
+		WithQueryParam("fsFilter", strings.Join(request.FsFilter, ",")).
+		WithQueryParam("marker", request.Marker).
+		WithQueryParam("maxKeys", strconv.Itoa(request.MaxKeys)).
 		Do()
 
 	if err != nil {
