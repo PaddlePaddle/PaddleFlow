@@ -19,7 +19,6 @@ package service
 import (
 	"errors"
 	"fmt"
-	"os"
 	"os/exec"
 	"runtime"
 
@@ -82,16 +81,7 @@ func doUmount(mp string, force bool) error {
 		return fmt.Errorf("OS %s is not supported", runtime.GOOS)
 	}
 
-	// clean cache if set
-	if cleanCacheInfo.Clean {
-		log.Infof("start clean cache dir: %+v", cleanCacheInfo)
-		for _, path := range cleanCacheInfo.CachePaths {
-			if err := os.RemoveAll(path); err != nil {
-				log.Errorf("doUmount: remove path[%s] failed: %v", path, err)
-				return err
-			}
-		}
-	}
+	cleanCache()
 	log.Infof("start umount. command: %+v", cmd)
 	out, err := cmd.CombinedOutput()
 	if err != nil && len(out) != 0 {
