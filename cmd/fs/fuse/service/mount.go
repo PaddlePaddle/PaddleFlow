@@ -236,9 +236,9 @@ func cleanCache() (errRet error) {
 	// clean cache if set
 	if cleanCacheInfo.Clean {
 		log.Infof("start clean cache dir: %+v", cleanCacheInfo)
-		for _, path := range cleanCacheInfo.CachePaths {
-			if err := os.RemoveAll(path); err != nil {
-				log.Errorf("doUmount: remove path[%s] failed: %v", path, err)
+		for _, dir := range cleanCacheInfo.CachePaths {
+			if err := os.RemoveAll(dir); err != nil {
+				log.Errorf("doUmount: remove path[%s] failed: %v", dir, err)
 				errRet = err
 			}
 		}
