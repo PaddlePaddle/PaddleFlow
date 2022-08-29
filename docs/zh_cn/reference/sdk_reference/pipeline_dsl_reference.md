@@ -458,10 +458,10 @@ art.component
 无参数
 
 #### 返回值说明
-一个Component(DAG, Step类的基类)实例
+一个DAG或者ContainerStep实例
 
 
-### 4.3、获取输出artifact的名字
+### 4.3、获取artifact的名字
 ```python3
 art.name
 ```
@@ -470,7 +470,7 @@ art.name
 无参数
 
 #### 返回值说明
-一个string, 表名该Artifact的名字
+一个string, 表明该Artifact的名字
 
 
 ## 5、Parameter
@@ -482,7 +482,7 @@ pa = Parameter(10)
 #### 参数说明
 |字段名称 | 字段类型 | 字段含义 | 是否必须 | 备注 |
 |:---:|:---:|:---:|:---:|:---:|
-| default | Union[string, int, float, list, [_LoopItem](#TODO)] | parameter的默认值 | 否 | |
+| default | Union[string, int, float, list, [_LoopItem](#7_LoopItem)] | parameter的默认值 | 否 | |
 | type | Enum["int", "float", "string". "list"] | parameter的类型 | 否 | |
 
 > 如果设置了**type**字段，则要求default的值与type指代的类型相同
@@ -499,7 +499,7 @@ step = pa.component
 无参数
 
 #### 返回值说明
-一个Component(DAG, Step类的基类)实例
+一个DAG或者ContainerStep实例
 
 
 ### 5.3、获取Parameter的名字
@@ -544,9 +544,9 @@ pa_type = pa.type
 无参数
 
 #### 返回值说明
-如果Parameter有设置type字段，则返回一个字符串，用于指代该parameter的类型，否则为None
+如果Parameter有设置type字段，则返回一个字符串，用于指代该Parameter的类型，否则为None
 
-## 6、_LoopArgument:
+## 6、_LoopArgument
 ### 6.1 初始化
 用户不应该显示的初始化_LoopArgument实例，而是应该在定义节点时，通过给其loop_argument属性赋值来间接的实例化_LoopArgument对象。
 
@@ -571,13 +571,13 @@ step.loop_argument.item
 无参数
 
 #### 返回值说明
-一个_LoopItem实例，用于指代在节点运行时，当次运行所对应的循环参数的值
+一个[_LoopItem](#7_loopitem)实例，用于指代在节点运行时，当次运行所对应的循环参数的值
 
 > 更多信息可以参考[这里][loop]
 
 ## 7、_LoopItem
 ### 7.1、初始化
-用户不应该显示初始化_LoopItem实例, 实例化[_LoopArgument](#TODO)时，会自动实例化一个_LoopItem实例, 如下所示:
+用户不应该显示初始化_LoopItem实例, 实例化[_LoopArgument](#6_LoopArgument)时，会自动实例化一个_LoopItem实例, 如下所示:
 ```python3
 step = ContainerStep(
         name="step",
