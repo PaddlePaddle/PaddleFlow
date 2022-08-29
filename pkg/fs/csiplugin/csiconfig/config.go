@@ -33,8 +33,7 @@ var (
 	MountImage       = ""
 	HostMntDir       = ""
 
-	CSIPod      = corev1.Pod{}
-	CSIResource corev1.ResourceRequirements
+	CSIPod = corev1.Pod{}
 )
 
 const (
@@ -42,10 +41,8 @@ const (
 	PodMount   = "pfs-mount"
 
 	// default value
-	defaultMountPodCpuLimit   = "2000m"
-	defaultMountPodMemLimit   = "5Gi"
-	defaultMountPodCpuRequest = "1000m"
-	defaultMountPodMemRequest = "1Gi"
+	defaultMountPodCpuLimit = "2"
+	defaultMountPodMemLimit = "1Gi"
 )
 
 func GeneratePodTemplate() *corev1.Pod {
@@ -76,15 +73,10 @@ func GeneratePodTemplate() *corev1.Pod {
 
 func ParsePodResources(cpuLimit, memoryLimit string) (corev1.ResourceRequirements, error) {
 	podResource := corev1.ResourceRequirements{
-		Limits:   map[corev1.ResourceName]resource.Quantity{},
-		Requests: map[corev1.ResourceName]resource.Quantity{},
-	}
-	// deep copy resource
-	for k, v := range CSIResource.Limits {
-		podResource.Limits[k] = v
-	}
-	for k, v := range CSIResource.Requests {
-		podResource.Requests[k] = v
+		Limits: map[corev1.ResourceName]resource.Quantity{
+			corev1.ResourceCPU:    resource.MustParse(defaultMountPodCpuLimit),
+			corev1.ResourceMemory: resource.MustParse(defaultMountPodMemLimit),
+		},
 	}
 
 	var err error
