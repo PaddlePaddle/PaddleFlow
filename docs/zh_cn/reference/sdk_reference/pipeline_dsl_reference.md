@@ -302,7 +302,7 @@ step.after(step1, step2)
 | *upstream |List[Union[ContainerStep, DAG]] |  可变参数，每一项均需要是一个ContainerStep或者DAG实例 | 是 | 当前节点的上游节点，在运行时，会等所有上游节点运行成功才会运行当前节点| |
 
 #### 返回值说明
-Step实例本身
+ContainerStep实例本身
 
 
 ### 2.10、获取loop_argument
@@ -345,7 +345,7 @@ step.full_name
 > - Pipeline中所有节点都会有一个名为 **PF-ENTRY-POINT**的祖先节点
 
 ## 3、DAG
-### 3.1 初始化
+### 3.1、初始化
 ```python3
 dag = DAG(name="dag")
 ```
@@ -355,7 +355,7 @@ dag = DAG(name="dag")
 |:---:|:---:|:---:|:---:|:---:|
 |name| string | dag 的名字 | 是 | 需要满足如下正则表达式： "^[a-zA-Z][a-zA-Z0-9-]{0,29}$" |
 |contidion|string|用于在Pipeline任务运行时决定是否运行当前步骤的条件判断式|否|关于condition的详细信息，请参考[这里][condition] |
-|loop_argument|Union[List, Parameter, Artifact, string, _LoopItem] | 循环参数，如果有值，在运行时，会对该字段进行遍历，对于其中的每一项，都会调度执行一次当前节点 | 否|  更多信息，请参考[loop_argument][loop_argument] | 
+|loop_argument|Union[List, Parameter, Artifact, string, [_LoopItem](#7_LoopItem) | 循环参数，如果有值，在运行时，会对该字段进行遍历，对于其中的每一项，都会调度执行一次当前节点 | 否|  更多信息，请参考[loop_argument][loop] | 
 
 
 #### 返回值
