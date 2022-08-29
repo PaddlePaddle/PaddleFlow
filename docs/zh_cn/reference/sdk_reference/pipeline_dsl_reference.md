@@ -686,8 +686,8 @@ fs_options = FSOptions(main_fs=main_fs, extra_fs=[extra_fs])
 #### 参数说明
 |字段名称 | 字段类型 | 字段含义 | 是否必须 | 备注 |
 |:---:|:---:|:---:|:---:|:---:|
-| main_fs | MainFS | 用于存储节点输出artifact的共享存储信息 | 否 | | 
-| extra_fs | list[ExtraFS] | 节点运行时需要挂载的共享存储信息 | 否 | |
+| main_fs | [MainFS](#12mainfs) | 用于存储节点输出artifact的共享存储信息 | 否 | | 
+| extra_fs | list[[ExtraFS](#11extrafs)] | 节点运行时需要挂载的共享存储信息 | 否 | |
 
 ## 14、系统变量
 DSL也提供一些可以节点运行时获取的系统变量，见下表：
