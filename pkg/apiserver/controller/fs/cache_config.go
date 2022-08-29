@@ -29,7 +29,19 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
-func (req *CreateFileSystemCacheRequest) toModel() model.FSCacheConfig {
+type UpdateFileSystemCacheRequest struct {
+	FsID                string                 `json:"-"`
+	CacheDir            string                 `json:"cacheDir"`
+	Quota               int                    `json:"quota"`
+	MetaDriver          string                 `json:"metaDriver"`
+	BlockSize           int                    `json:"blockSize"`
+	Debug               bool                   `json:"debug"`
+	NodeAffinity        map[string]interface{} `json:"nodeAffinity"`
+	NodeTaintToleration map[string]interface{} `json:"nodeTaintToleration"`
+	ExtraConfig         map[string]string      `json:"extraConfig"`
+}
+
+func (req *UpdateFileSystemCacheRequest) toModel() model.FSCacheConfig {
 	return model.FSCacheConfig{
 		FsID:                   req.FsID,
 		CacheDir:               req.CacheDir,
@@ -37,8 +49,6 @@ func (req *CreateFileSystemCacheRequest) toModel() model.FSCacheConfig {
 		MetaDriver:             req.MetaDriver,
 		BlockSize:              req.BlockSize,
 		Debug:                  req.Debug,
-		CleanCache:             req.CleanCache,
-		Resource:               req.Resource,
 		NodeAffinityMap:        req.NodeAffinity,
 		ExtraConfigMap:         req.ExtraConfig,
 		NodeTaintTolerationMap: req.NodeTaintToleration,
@@ -46,19 +56,13 @@ func (req *CreateFileSystemCacheRequest) toModel() model.FSCacheConfig {
 }
 
 type CreateFileSystemCacheRequest struct {
-	Username            string                 `json:"username"`
-	FsName              string                 `json:"fsName"`
-	FsID                string                 `json:"-"`
-	CacheDir            string                 `json:"cacheDir"`
-	Quota               int                    `json:"quota"`
-	MetaDriver          string                 `json:"metaDriver"`
-	BlockSize           int                    `json:"blockSize"`
-	Debug               bool                   `json:"debug"`
-	CleanCache          bool                   `json:"cleanCache"`
-	Resource            model.ResourceLimit    `json:"resource"`
-	NodeAffinity        map[string]interface{} `json:"nodeAffinity"`
-	NodeTaintToleration map[string]interface{} `json:"nodeTaintToleration"`
-	ExtraConfig         map[string]string      `json:"extraConfig"`
+	Username string `json:"username"`
+	FsName   string `json:"fsName"`
+	UpdateFileSystemCacheRequest
+}
+
+func (req *CreateFileSystemCacheRequest) toModel() model.FSCacheConfig {
+	return req.UpdateFileSystemCacheRequest.toModel()
 }
 
 type FileSystemCacheResponse struct {
@@ -66,8 +70,6 @@ type FileSystemCacheResponse struct {
 	Quota               int                    `json:"quota"`
 	MetaDriver          string                 `json:"metaDriver"`
 	BlockSize           int                    `json:"blockSize"`
-	CleanCache          bool                   `json:"cleanCache"`
-	Resource            model.ResourceLimit    `json:"resource"`
 	NodeAffinity        map[string]interface{} `json:"nodeAffinity"`
 	NodeTaintToleration map[string]interface{} `json:"nodeTaintToleration"`
 	ExtraConfig         map[string]string      `json:"extraConfig"`
@@ -82,8 +84,6 @@ func (resp *FileSystemCacheResponse) fromModel(config model.FSCacheConfig) {
 	resp.Quota = config.Quota
 	resp.MetaDriver = config.MetaDriver
 	resp.BlockSize = config.BlockSize
-	resp.CleanCache = config.CleanCache
-	resp.Resource = config.Resource
 	resp.NodeAffinity = config.NodeAffinityMap
 	resp.NodeTaintToleration = config.NodeTaintTolerationMap
 	resp.ExtraConfig = config.ExtraConfigMap
@@ -116,6 +116,18 @@ func CreateFileSystemCacheConfig(ctx *logger.RequestContext, req CreateFileSyste
 	cacheConfig := req.toModel()
 	if err := storage.Filesystem.CreateFSCacheConfig(&cacheConfig); err != nil {
 		ctx.Logging().Errorf("CreateFSCacheConfig fs[%s] err:%v", cacheConfig.FsID, err)
+		return err
+	}
+	return nil
+}
+
+func UpdateFileSystemCacheConfig(ctx *logger.RequestContext, req UpdateFileSystemCacheRequest) error {
+	if err := checkFsMountedAndCleanResource(ctx, req.FsID); err != nil {
+		return err
+	}
+	cacheConfig := req.toModel()
+	if err := storage.Filesystem.UpdateFSCacheConfig(&cacheConfig); err != nil {
+		ctx.Logging().Errorf("UpdateFSCacheConfig fs[%s] err:%v", cacheConfig.FsID, err)
 		return err
 	}
 	return nil

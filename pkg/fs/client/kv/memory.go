@@ -28,6 +28,7 @@ const Mem = "mem"
 type kvItem struct {
 	key   string
 	value []byte
+	ver   int
 }
 
 func (it kvItem) Less(than btree.Item) bool {
@@ -59,7 +60,13 @@ func (l *memClient) Set(key, value []byte) error {
 		l.db.Delete(l.item)
 		return nil
 	}
-	l.db.ReplaceOrInsert(&kvItem{key: string(key), value: value})
+	data := l.db.Get(l.item)
+	if data != nil {
+		data.(*kvItem).ver++ // need a lock ?
+		data.(*kvItem).value = value
+	} else {
+		l.db.ReplaceOrInsert(&kvItem{key: string(key), value: value, ver: 1})
+	}
 	return nil
 }
 
@@ -90,29 +97,43 @@ func (l *memClient) ScanValues(prefix []byte) (map[string][]byte, error) {
 	return ret, nil
 }
 
+func (l *memClient) Exist(prefix []byte) bool {
+	pre := string(prefix)
+	exist := false
+	l.db.AscendGreaterOrEqual(&kvItem{key: pre}, func(i btree.Item) bool {
+		exist = true
+		return false
+	})
+	return exist
+}
+func (l *memClient) Append(key []byte, value []byte) []byte {
+	l.item.key = string(key)
+	data := l.db.Get(l.item)
+	if data != nil {
+		item := data.(*kvItem)
+		newValue := append(item.value, value...)
+		l.Set(key, newValue)
+		return newValue
+
+	}
+	l.Set(key, value)
+	return value
+}
+func (l *memClient) IncrBy(key []byte, value int64) int64 {
+	l.item.key = string(key)
+	data := l.db.Get(l.item)
+	item := data.(*kvItem)
+	cnt := unmarshalCounter(item.value)
+	if value != 0 {
+		cnt += value
+		l.Set(key, marshalCounter(cnt))
+	}
+	return cnt
+}
+
+var _ Client = &memClient{}
+
 func NewMemClient(config Config) (Client, error) {
 	client := &memClient{db: btree.New(2), item: &kvItem{}}
 	return client, nil
 }
-
-func (l *memClient) nextKey(key []byte) []byte {
-	if len(key) == 0 {
-		return nil
-	}
-	next := make([]byte, len(key))
-	copy(next, key)
-	p := len(next) - 1
-	for {
-		next[p]++
-		if next[p] != 0 {
-			break
-		}
-		p--
-		if p < 0 {
-			panic("can't scan keys for 0xFF")
-		}
-	}
-	return next
-}
-
-var _ Client = &memClient{}

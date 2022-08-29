@@ -245,6 +245,10 @@ class Component(object):
         Raises:
             PaddleFlowSDKException: if any upsream step is not an instance of Step
         """
+        if not upstream:
+            raise PaddleFlowSDKException(PipelineDSLError, 
+                self._generate_error_msg("in after(), at leaset one upstream Step or DAG needs to be set"))
+
         for cp in upstream:
             if not isinstance(cp, Component):
                 err_msg = self._generate_error_msg("all upstream should be an instance of Component")

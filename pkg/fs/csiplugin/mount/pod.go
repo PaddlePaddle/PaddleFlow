@@ -199,18 +199,13 @@ func buildMountPod(volumeID string, mountInfo Info) (*k8sCore.Pod, error) {
 	pod.Spec.Containers = append(pod.Spec.Containers, mountContainer)
 
 	if mountInfo.CacheConfig.CacheDir != "" {
-		cacheContainer := buildCacheWorkerContainer(mountInfo)
+		cacheContainer := buildCacheWorkerContainer(mountInfo.CacheWorkerCmd())
 		pod.Spec.Containers = append(pod.Spec.Containers, cacheContainer)
 	}
 
 	anno, err := buildAnnotation(pod, mountInfo.TargetPath)
 	if err != nil {
 		return nil, err
-	}
-	if mountInfo.CacheConfig.CleanCache {
-		anno[schema.AnnotationKeyClean] = "true"
-	} else {
-		anno[schema.AnnotationKeyClean] = "false"
 	}
 	pod.ObjectMeta.Annotations = anno
 	// label for pod list
@@ -290,7 +285,7 @@ func getErrContainerLog(K8sClient utils.Client, podName string) (log string, err
 	return
 }
 
-func getBaseContainer(name string, podResource k8sCore.ResourceRequirements) k8sCore.Container {
+func getBaseContainer(name string) k8sCore.Container {
 	isPrivileged := true
 	return k8sCore.Container{
 		Name:  name,
@@ -298,13 +293,12 @@ func getBaseContainer(name string, podResource k8sCore.ResourceRequirements) k8s
 		SecurityContext: &k8sCore.SecurityContext{
 			Privileged: &isPrivileged,
 		},
-		Env:       []k8sCore.EnvVar{},
-		Resources: podResource,
+		Env: []k8sCore.EnvVar{},
 	}
 }
 
 func buildMountContainer(pod *k8sCore.Pod, mountInfo Info) k8sCore.Container {
-	mountContainer := getBaseContainer(ContainerNamePfsMount, mountInfo.PodResource)
+	mountContainer := getBaseContainer(ContainerNamePfsMount)
 	mkdir := "mkdir -p " + FusePodMountPoint + ";"
 
 	cmd := mkdir + mountInfo.Cmd + " " + strings.Join(mountInfo.Args, " ")
@@ -405,9 +399,9 @@ func getCacheVolumes(cache model.FSCacheConfig) ([]k8sCore.Volume, []k8sCore.Vol
 	return volumes, volumeMounts
 }
 
-func buildCacheWorkerContainer(mountInfo Info) k8sCore.Container {
-	cacheContainer := getBaseContainer(ContainerNameCacheWorker, mountInfo.PodResource)
-	cacheContainer.Command = []string{"sh", "-c", mountInfo.CacheWorkerCmd()}
+func buildCacheWorkerContainer(cmd string) k8sCore.Container {
+	cacheContainer := getBaseContainer(ContainerNameCacheWorker)
+	cacheContainer.Command = []string{"sh", "-c", cmd}
 	mp := k8sCore.MountPropagationBidirectional
 	volumeMounts := []k8sCore.VolumeMount{
 		{

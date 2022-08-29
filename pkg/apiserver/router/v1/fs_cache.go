@@ -26,7 +26,6 @@ import (
 	"github.com/go-playground/validator/v10"
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
-	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	api "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/controller/fs"
@@ -65,7 +64,7 @@ func (pr *PFSRouter) createFSCacheConfig(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	// validate request
-	if err := validateCacheConfigCreate(&ctx, &createRequest); err != nil {
+	if err := validateCacheConfigCreate(&ctx, &createRequest.UpdateFileSystemCacheRequest); err != nil {
 		common.RenderErrWithMessage(w, ctx.RequestID, ctx.ErrorCode, err.Error())
 		return
 	}
@@ -78,57 +77,33 @@ func (pr *PFSRouter) createFSCacheConfig(w http.ResponseWriter, r *http.Request)
 	common.RenderStatus(w, http.StatusCreated)
 }
 
-func validationReturnError(ctx *logger.RequestContext, err error) error {
-	ctx.ErrorCode = common.InvalidArguments
-	ctx.Logging().Errorf(err.Error())
-	return err
-}
-
-func validateCacheConfigCreate(ctx *logger.RequestContext, req *api.CreateFileSystemCacheRequest) error {
+func validateCacheConfigCreate(ctx *logger.RequestContext, req *api.UpdateFileSystemCacheRequest) error {
 	if req.MetaDriver != "" && !schema.IsValidFsMetaDriver(req.MetaDriver) {
-		return validationReturnError(ctx, fmt.Errorf("fs[%s] cache config: meta driver[%s] not valid",
-			req.FsID, req.MetaDriver))
+		ctx.ErrorCode = common.InvalidArguments
+		err := fmt.Errorf("fs meta driver[%s] not valid", req.MetaDriver)
+		ctx.Logging().Errorf("validate fs cache config fsID[%s] err: %v", req.FsID, err)
+		return err
 	}
 	// BlockSize
 	if req.BlockSize < 0 {
-		return validationReturnError(ctx, fmt.Errorf("fs[%s] cache config: data cache blockSize[%d] should not be negative",
-			req.FsID, req.BlockSize))
+		ctx.ErrorCode = common.InvalidArguments
+		err := fmt.Errorf("fs data cache blockSize[%d] should not be negative", req.BlockSize)
+		ctx.Logging().Errorf("validate fs cache config fsID[%s] err: %v", req.FsID, err)
+		return err
 	}
 	// cacheDir must be absolute path or ""
 	if req.CacheDir != "" && !filepath.IsAbs(req.CacheDir) {
-		return validationReturnError(ctx, fmt.Errorf("fs[%s] cache config: cacheDir[%s] should be empty or an absolute path",
-			req.FsID, req.CacheDir))
+		ctx.ErrorCode = common.InvalidArguments
+		err := fmt.Errorf("fs cacheDir[%s] should be empty or an absolute path", req.CacheDir)
+		ctx.Logging().Errorf("validate fs cache config fsID[%s] err: %v", req.FsID, err)
+		return err
 	}
 	// must assign cacheDir when cache in use
 	if req.CacheDir == "" && req.MetaDriver == schema.FsMetaLevelDB {
-		return validationReturnError(ctx, fmt.Errorf("fs[%s] cache config: cacheDir[%s] should be an absolute path when cache in use",
-			req.FsID, req.CacheDir))
-	}
-	// check resource
-	rcs := req.Resource
-	if rcs.CpuLimit != "" {
-		if _, err := resource.ParseQuantity(rcs.CpuLimit); err != nil {
-			return validationReturnError(ctx, fmt.Errorf("fs[%s] cache config: invalid resource cpuLimit [%s]",
-				req.FsID, rcs.CpuLimit))
-		}
-	}
-	if rcs.MemoryLimit != "" {
-		if _, err := resource.ParseQuantity(rcs.MemoryLimit); err != nil {
-			return validationReturnError(ctx, fmt.Errorf("fs[%s] cache config: invalid resource memoryLimit [%s]",
-				req.FsID, rcs.MemoryLimit))
-		}
-	}
-	if rcs.CpuRequest != "" {
-		if _, err := resource.ParseQuantity(rcs.CpuRequest); err != nil {
-			return validationReturnError(ctx, fmt.Errorf("fs[%s] cache config: invalid resource cpuRequest [%s]",
-				req.FsID, rcs.CpuRequest))
-		}
-	}
-	if rcs.MemoryRequest != "" {
-		if _, err := resource.ParseQuantity(rcs.MemoryRequest); err != nil {
-			return validationReturnError(ctx, fmt.Errorf("fs[%s] cache config: invalid resource memoryRequest [%s]",
-				req.FsID, rcs.MemoryRequest))
-		}
+		ctx.ErrorCode = common.InvalidArguments
+		err := fmt.Errorf("fs cacheDir[%s] should be an absolute path when cache in use", req.CacheDir)
+		ctx.Logging().Errorf("validate fs cache config fsID[%s] err: %v", req.FsID, err)
+		return err
 	}
 	return nil
 }
