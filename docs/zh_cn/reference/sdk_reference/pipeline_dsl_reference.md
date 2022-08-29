@@ -600,7 +600,7 @@ fs_scope = FSScope(name="ppl", path="/143")
 | path | string | [共享存储][共享存储]上需要参与[cache fingerprint][cache fingerprint]计算的路径 | 否 |<br>多个路径以","隔开</br><br>默认值为"/"</br>|
 
 #### 返回值说明
-一个_LoopItem实例，用于指代在节点运行时，当次运行所对应的循环参数的值
+一个FSScope实例
 
 
 ## 9、CacheOptions
@@ -619,7 +619,7 @@ cache = CacheOptions(
 |:---:|:---:|:---:|:---:|:---:|
 | enable | bool | 是否启用[cache][cache]功能 | 否 | |
 | max_expired_time | int | cache缓存的有效期 | 否 | 为-1表示无限期 |
-| fs_scope| list[[FSScope](#TODO)] | 参与计算fingerprint的共享存储的信息 | 否 | 详情请参考[这里][cache] |
+| fs_scope| list[[FSScope](#8FSScope)] | 参与计算fingerprint的共享存储的信息 | 否 | 详情请参考[这里][cache] |
 
 
 #### 返回值说明
