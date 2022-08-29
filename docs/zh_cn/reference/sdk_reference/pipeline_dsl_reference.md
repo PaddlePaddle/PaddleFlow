@@ -434,7 +434,7 @@ dag.full_name
 一个string，表示当前节点的全路径名
 
 > 注意：
-> - Pipeline中所有节点都会有一个名为 **PF-ENTRY-POINT**的祖先节点
+> - Pipeline中所有节点都会有一个名为**PF-ENTRY-POINT**的祖先节点
 
 
 ## 4、Artifact
