@@ -651,9 +651,9 @@ extra_fs = ExtraFS("ppl", sub_path="condition_example")
 #### 参数说明
 |字段名称 | 字段类型 | 字段含义 | 是否必须 | 备注 |
 |:---:|:---:|:---:|:---:|:---:|
-| name | string | 共享存储的名字 | 是 |  | 
+| name | string | [共享存储][共享存储]的名字 | 是 |  | 
 | mount_path| string | 容器内的挂载路径 | 否 | |
-| sub_path | string | 共享存储中需要被挂载的子路径 | 否 |  <br>如果没有配置，将会把整个共享存储挂载至容器中</br><br>不能以"/"开头</br> |
+| sub_path | string | [共享存储][共享存储]中需要被挂载的子路径 | 否 |  <br>如果没有配置，将会把整个[共享存储][共享存储]挂载至容器中</br><br>不能以"/"开头</br> |
 | read_only | bool | 容器对mount_path的访问权限 | 否 |  |
 
 #### 返回值说明
@@ -668,9 +668,9 @@ main_fs = MainFS("ppl", sub_path="output", mount_path="./test_dsl")
 #### 参数说明
 |字段名称 | 字段类型 | 字段含义 | 是否必须 | 备注 |
 |:---:|:---:|:---:|:---:|:---:|
-| name | string | 共享存储的名字 | 是 |  | 
+| name | string | [共享存储][共享存储]的名字 | 是 |  | 
 | mount_path| string | 容器内的挂载路径 | 否 | |
-| sub_path | string | 共享存储中需要被挂载的子路径 | 否 |  <br>如果没有配置，将会把整个共享存储挂载至容器中</br><br>不能以"/"开头</br><br><mark>如果该路径存在，则必须为目录</mark></br> |
+| sub_path | string | [共享存储][共享存储]中需要被挂载的子路径 | 否 |  <br>如果没有配置，将会把整个[共享存储][共享存储]挂载至容器中</br><br>不能以"/"开头</br><br><mark>如果该路径存在，则必须为目录</mark></br> |
 
 #### 返回值说明
 一个MainFS实例
