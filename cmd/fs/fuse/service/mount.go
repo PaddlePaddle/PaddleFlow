@@ -232,18 +232,18 @@ func mount(c *cli.Context) error {
 	return cleanCache()
 }
 
-func cleanCache() error {
+func cleanCache() (errRet error) {
 	// clean cache if set
 	if cleanCacheInfo.Clean {
 		log.Infof("start clean cache dir: %+v", cleanCacheInfo)
 		for _, path := range cleanCacheInfo.CachePaths {
 			if err := os.RemoveAll(path); err != nil {
 				log.Errorf("doUmount: remove path[%s] failed: %v", path, err)
-				return err
+				errRet = err
 			}
 		}
 	}
-	return nil
+	return errRet
 }
 
 func InitVFS(c *cli.Context, registry *prometheus.Registry) error {
