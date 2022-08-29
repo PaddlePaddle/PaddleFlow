@@ -189,7 +189,7 @@ step = ContainerStep(
 |command|string | 需要执行的命令 | 否 | |
 |docker_env| string  | docker 镜像地址 | 否 | |
 |inputs|dict[string, [Aritfact](#4Artifact)] | 输入artifact信息 | 否 | key将会作为artifact的名字，value需要是其余的节点输出artifact|
-|outputs|dict[string, [Artifact](43Artifact)] | 输出artifact信息 | 否 | key将会作为artifact的名字, value必须是Artifact()|
+|outputs|dict[string, [Artifact](#4Artifact)] | 输出artifact信息 | 否 | key将会作为artifact的名字, value必须是Artifact()|
 |parameters|dict[string, Union[string, int, float, [Parameter](#5Parameter)]] | parameter信息 |  否 | key将作为parameter的名字，value即为parameter的默认值|
 |env| dict[str, str] | 节点运行任务时的环境变量 |  否 | |
 |cache_options| [CacheOptions](#9CacheOptions) |  Cache 配置 | 否 |关于Cache机制的相关介绍，请点击[这里][Cache] |
