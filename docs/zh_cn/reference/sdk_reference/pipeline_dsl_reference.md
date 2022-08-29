@@ -575,7 +575,7 @@ step.loop_argument.item
 
 > 更多信息可以参考[这里][loop]
 
-## 7、 _LoopItem
+## 7、_LoopItem
 ### 7.1、初始化
 用户不应该显示初始化_LoopItem实例, 实例化[_LoopArgument](#TODO)时，会自动实例化一个_LoopItem实例, 如下所示:
 ```python3
