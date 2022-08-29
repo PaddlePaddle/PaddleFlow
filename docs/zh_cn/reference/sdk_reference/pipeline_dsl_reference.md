@@ -265,7 +265,7 @@ step.inputs
 无参数
 
 #### 返回值说明
-一个dict: 其中key为artifact的名字，value为该输入artifact的来源，为其余节点的输出artifact
+一个dict: 其中key为artifact的名字，value为value为[Artifact](#4Artifact)实例
 
 ### 2.7、获取输出artifact信息
 ```python3
@@ -276,7 +276,7 @@ step.outputs
 无参数
 
 #### 返回值说明
-一个dict: 其中key为artifact的名字，value为[Artifact](#3Artifact)实例
+一个dict: 其中key为artifact的名字，value为[Artifact](#4Artifact)实例
 
 
 ### 2.8、获取parameter信息
@@ -288,7 +288,7 @@ params = ppl.parameters
 无参数
 
 #### 返回值说明
-key 为parameter的名字，value为对应的Parameter实例
+key 为parameter的名字，value为对应的[Parameter](#5parameter)实例
 
 
 ### 2.9、添加流程依赖
@@ -562,7 +562,7 @@ step = ContainerStep(
 
 此时，step.loop_argument 即为一个_LoopArgument的实例
 
-### 6.2 获取当次遍历循环参数的值
+### 6.2、 获取当次遍历循环参数的值
 ```python3
 step.loop_argument.item
 ```
