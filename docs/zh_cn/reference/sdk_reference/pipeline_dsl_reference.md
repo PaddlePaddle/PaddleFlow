@@ -375,7 +375,7 @@ dag.name
 
 ### 3.2、设置dag名字
 ```python3
-dag.name = "dag1"
+dag.name = "dag"
 ```
 
 #### 参数说明
@@ -393,7 +393,7 @@ dag.after(step1, dag2)
 #### 参数说明
 |字段名称 | 字段类型 | 字段含义 | 是否必须 | 备注 |
 |:---:|:---:|:---:|:---:|:---:|
-| *upstream | List[Union[Step, DAG]]|可变参数，每一项均需要是一个Step或者DAG实例 | 是 | 当前节点的上游节点，在运行时，会等所有上游节点运行成功才会运行当前节点| |
+| *upstream | List[Union[ContainerStep, DAG]]|可变参数，每一项均需要是一个ContainerStep或者DAG实例 | 是 | 当前节点的上游节点，在运行时，会等所有上游节点运行成功才会运行当前节点|
 
 #### 返回值说明
 DAG实例本身
@@ -407,11 +407,11 @@ dag.loop_argument
 无参数
 
 #### 返回值
-用于表征当前节点的循环参数参数的 _LoopArgument 的实例
+用于表征当前节点的循环参数参数的[_LoopArgument](#6_loop_argument)的实例
 
 ### 3.5、获取condition
 ```python3
-step.condition
+dag.condition
 ```
 
 #### 参数说明
