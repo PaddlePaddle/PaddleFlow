@@ -194,12 +194,12 @@ step = ContainerStep(
 |env| dict[str, str] | 节点运行任务时的环境变量 |  否 | |
 |cache_options| [CacheOptions](#9CacheOptions) |  Cache 配置 | 否 |关于Cache机制的相关介绍，请点击[这里][Cache] |
 |contidion|string|用于在Pipeline任务运行时决定是否运行当前步骤的条件判断式|否|关于condition的详细信息，请参考[这里][condition] |
-|loop_argument|Union[List, Parameter, Artifact, string, [_LoopItem](#7_loopitem)] | 循环参数，如果有值，在运行时，会对该字段进行遍历，对于其中的每一项，都会调度执行一次当前节点 | 否 | 更多信息，请参考[loop_argument][loop_argument]
+|loop_argument|Union[List, Parameter, Artifact, string, [_LoopItem](#7_LoopItem)] | 循环参数，如果有值，在运行时，会对该字段进行遍历，对于其中的每一项，都会调度执行一次当前节点 | 否 | 更多信息，请参考[loop_argument][loop]
 |extra_fs| List[[ExtraFS](#11ExtraFS)] | 节点运行时需要挂载的共享存储的相关信息 | 更多信息，请参考[这里][extra_fs]
 
 > 注意1：inputs, outputs, parameters 中的key不可以同名
 
-> 注意2: 在Pipeline和[ContainerStep](#1Pipeline)中都可以进行设置 *env* 参数，在运行时，将采用合并机制: 
+> 注意2: 在[Pipeline](#1Pipeline)和ContainerStep中都可以进行设置 *env* 参数，在运行时，将采用合并机制: 
 > - 在运行时，Step的环境变量即包含了**ContainerStep.env**属性中指定环境变量，也包含了**Pipeline.env**中包含的环境变量，如果有同名的环境变量，则使用**ContainerStep.env**定义的参数值
 
 #### 返回值说明
@@ -708,5 +708,5 @@ DSL也提供一些可以节点运行时获取的系统变量，见下表：
 [multiple_fs]: /docs/zh_cn/reference/pipeline/yaml_definition/3_multiple_fs.md
 [condition]: /docs/zh_cn/reference/pipeline/yaml_definition/10_condition.md
 [loop]: /docs/zh_cn/reference/pipeline/yaml_definition/9_loop.md
-[extra_fs]: TODO
+[extra_fs]: /docs/zh_cn/reference/pipeline/yaml_definition/3_multiple_fs.md#21-%E8%8A%82%E7%82%B9%E7%BA%A7%E5%88%AB%E7%9A%84extra_fs%E5%AD%97%E6%AE%B5
 [共享存储]: /docs/zh_cn/reference/filesystem
