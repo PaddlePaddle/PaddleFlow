@@ -91,7 +91,7 @@ def update(ctx, name, cpu=None, memory=None, scalar=None, clustername=None):
     # call update_flavour
     valid, response = client.update_flavour(name, cpu, memory, scalar_resources, clustername)
     if valid:
-        click.echo("update %s success" % (response))
+        click.echo("update [%s] success" % (response))
     else:
         click.echo("cluster update failed with message[%s]" % response)
         sys.exit(1)

@@ -102,7 +102,7 @@ class JobServiceApi(object):
                 body['flavour']['name'] = job_request.flavour['name']
             if 'cpu' in job_request.flavour:
                 body['flavour']['cpu'] = job_request.flavour['cpu']
-            if 'memory' in job_request.flavour:
+            if 'mem' in job_request.flavour:
                 body['flavour']['mem'] = job_request.flavour['mem']
             if 'scalarResources' in job_request.flavour:
                 body['flavour']['scalarResources'] = job_request.flavour['scalarResources']
