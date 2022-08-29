@@ -299,7 +299,7 @@ step.after(step1, step2)
 #### 参数说明
 |字段名称 | 字段类型 | 字段含义 | 是否必须 | 备注 |
 |:---:|:---:|:---:|:---:|:---:|
-| *upstream |List[Union[Step, DAG]] |  可变参数，每一项均需要是一个Step或者DAG实例 | 是 | 当前节点的上游节点，在运行时，会等所有上游节点运行成功才会运行当前节点| |
+| *upstream |List[Union[ContainerStep, DAG]] |  可变参数，每一项均需要是一个ContainerStep或者DAG实例 | 是 | 当前节点的上游节点，在运行时，会等所有上游节点运行成功才会运行当前节点| |
 
 #### 返回值说明
 Step实例本身
@@ -314,7 +314,7 @@ step.loop_argument
 无参数
 
 #### 返回值
-用于表征当前节点的循环参数参数的 _LoopArgument 的实例
+用于表征当前节点的循环参数参数的[_LoopArgument](#6_LoopArgument)的实例
 
 ### 2.11、获取condition
 ```python3
@@ -546,7 +546,7 @@ pa_type = pa.type
 #### 返回值说明
 如果Parameter有设置type字段，则返回一个字符串，用于指代该parameter的类型，否则为None
 
-## 6 _LoopArgument:
+## 6、_LoopArgument:
 ### 6.1 初始化
 用户不应该显示的初始化_LoopArgument实例，而是应该在定义节点时，通过给其loop_argument属性赋值来间接的实例化_LoopArgument对象。
 
