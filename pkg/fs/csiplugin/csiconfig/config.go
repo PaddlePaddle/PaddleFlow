@@ -74,7 +74,7 @@ func GeneratePodTemplate() *corev1.Pod {
 	}
 }
 
-func ParsePodResources(cpuLimit, memoryLimit, cpuRequest, memoryRequest string) (corev1.ResourceRequirements, error) {
+func ParsePodResources(cpuLimit, memoryLimit string) (corev1.ResourceRequirements, error) {
 	podResource := corev1.ResourceRequirements{
 		Limits:   map[corev1.ResourceName]resource.Quantity{},
 		Requests: map[corev1.ResourceName]resource.Quantity{},
@@ -95,16 +95,6 @@ func ParsePodResources(cpuLimit, memoryLimit, cpuRequest, memoryRequest string) 
 	}
 	if memoryLimit != "" {
 		if podResource.Limits[corev1.ResourceMemory], err = resource.ParseQuantity(memoryLimit); err != nil {
-			return corev1.ResourceRequirements{}, err
-		}
-	}
-	if cpuRequest != "" {
-		if podResource.Requests[corev1.ResourceCPU], err = resource.ParseQuantity(cpuRequest); err != nil {
-			return corev1.ResourceRequirements{}, err
-		}
-	}
-	if memoryRequest != "" {
-		if podResource.Requests[corev1.ResourceMemory], err = resource.ParseQuantity(memoryRequest); err != nil {
 			return corev1.ResourceRequirements{}, err
 		}
 	}
