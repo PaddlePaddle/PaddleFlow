@@ -41,8 +41,10 @@ const (
 	PodMount   = "pfs-mount"
 
 	// default value
-	defaultMountPodCpuLimit = "2"
-	defaultMountPodMemLimit = "1Gi"
+	defaultMountPodCpuLimit   = "2"
+	defaultMountPodMemLimit   = "1Gi"
+	defaultMountPodCpuRequest = "0"
+	defaultMountPodMemRequest = "0"
 )
 
 func GeneratePodTemplate() *corev1.Pod {
@@ -76,6 +78,11 @@ func ParsePodResources(cpuLimit, memoryLimit string) (corev1.ResourceRequirement
 		Limits: map[corev1.ResourceName]resource.Quantity{
 			corev1.ResourceCPU:    resource.MustParse(defaultMountPodCpuLimit),
 			corev1.ResourceMemory: resource.MustParse(defaultMountPodMemLimit),
+		},
+		// Requests must be 0 so that scheduler can correctly calculate resource usage
+		Requests: map[corev1.ResourceName]resource.Quantity{
+			corev1.ResourceCPU:    resource.MustParse(defaultMountPodCpuRequest),
+			corev1.ResourceMemory: resource.MustParse(defaultMountPodMemRequest),
 		},
 	}
 
