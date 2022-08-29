@@ -25,14 +25,14 @@ if __name__ == "__main__":
 |:---:|:---:|:---:|:---:|:---:|
 |name| string | pipeline的名字 | 是 | 需要满足如下正则表达式： "^[A-Za-z_][A-Za-z0-9_]{0,49}$" |
 |parallelism| int | pipeline 任务的并发数，即最大可以同时运行的节点任务数量 | 否 | | 
-|docker_env| string | 各节点默认的docker 镜像地址 | 否 | |
+|docker_env| string | 各节点默认的docker镜像地址 | 否 | |
 |env| dict[str, str] | 各节点运行任务时的环境变量 | 否 | |
-|cache_options| [CacheOptions](#5CacheOptions) | Pipeline 级别的Cache配置 | 否 | 关于Cache机制的相关介绍，请点击[这里][Cache] |
-|failure_options| [FailureOptions](#6FailureOptions) |failure_options配置 | 否 |关于failure_options的相关介绍，请点击[这里][failure_options]  |
-|fs_options| [FSOptions](#TODO) | 关于fs_options的详细介绍，请点击[这里][fs_options]
+|cache_options| [CacheOptions](#9CacheOptions) | Pipeline 级别的Cache配置 | 否 | 关于Cache机制的相关介绍，请点击[这里][Cache] |
+|failure_options| [FailureOptions](#10FailureOptions) |failure_options配置 | 否 |关于failure_options的相关介绍，请点击[这里][failure_options]  |
+|fs_options| [FSOptions](#13FSOptions) | 关于fs_options的详细介绍，请点击[这里][multiple_fs]
 
-> 注意: 在Pipeline和[Step](#2ContainerStep)中都可以进行设置 *env* 参数，在运行时，将采用合并机制: 
-> - 在运行时，Step的环境变量即包含了**Step.env**属性中指定环境变量，也包含了**Pipeline.env**中包含的环境变量，如果有同名的环境变量，则使用**Step.env**定义的参数值
+> 注意: 在Pipeline和[ContainerStep](#2ContainerStep)中都可以进行设置 *env* 参数，在运行时，将采用合并机制: 
+> - 在运行时，ContainerStep的环境变量即包含了**ContainerStep.env**属性中指定环境变量，也包含了**Pipeline.env**中包含的环境变量，如果有同名的环境变量，则使用**ContainerStep.env**定义的参数值
 
 
 #### 返回值说明
@@ -705,7 +705,8 @@ DSL也提供一些可以节点运行时获取的系统变量，见下表：
 [config_content]: /docs/zh_cn/reference/client_command_reference.md#配置文件说明
 [cache]: /docs/zh_cn/reference/pipeline/yaml_definition/5_cache.md
 [failure_options]: /docs/zh_cn/reference/pipeline/yaml_definition/6_failure_options_and_post_process.md
-[fs_options]: TODO
+[multiple_fs]: /docs/zh_cn/reference/pipeline/yaml_definition/3_multiple_fs.md
 [condition]: /docs/zh_cn/reference/pipeline/yaml_definition/10_condition.md
 [loop]: /docs/zh_cn/reference/pipeline/yaml_definition/9_loop.md
 [extra_fs]: TODO
+[共享存储]: /docs/zh_cn/reference/filesystem
