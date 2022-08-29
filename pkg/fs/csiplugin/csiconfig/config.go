@@ -18,6 +18,7 @@ package csiconfig
 
 import (
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -38,6 +39,10 @@ var (
 const (
 	PodTypeKey = "app.kubernetes.io/name"
 	PodMount   = "pfs-mount"
+
+	// default value
+	defaultMountPodCpuLimit = "2"
+	defaultMountPodMemLimit = "1Gi"
 )
 
 func GeneratePodTemplate() *corev1.Pod {
@@ -64,4 +69,26 @@ func GeneratePodTemplate() *corev1.Pod {
 			Tolerations:        CSIPod.Spec.Tolerations,
 		},
 	}
+}
+
+func ParsePodResources(cpuLimit, memoryLimit string) (corev1.ResourceRequirements, error) {
+	podResource := corev1.ResourceRequirements{
+		Limits: map[corev1.ResourceName]resource.Quantity{
+			corev1.ResourceCPU:    resource.MustParse(defaultMountPodCpuLimit),
+			corev1.ResourceMemory: resource.MustParse(defaultMountPodMemLimit),
+		},
+	}
+
+	var err error
+	if cpuLimit != "" {
+		if podResource.Limits[corev1.ResourceCPU], err = resource.ParseQuantity(cpuLimit); err != nil {
+			return corev1.ResourceRequirements{}, err
+		}
+	}
+	if memoryLimit != "" {
+		if podResource.Limits[corev1.ResourceMemory], err = resource.ParseQuantity(memoryLimit); err != nil {
+			return corev1.ResourceRequirements{}, err
+		}
+	}
+	return podResource, nil
 }

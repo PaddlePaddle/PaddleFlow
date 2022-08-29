@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	log "github.com/sirupsen/logrus"
+	corev1 "k8s.io/api/core/v1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
@@ -47,6 +48,7 @@ type Info struct {
 	Args        []string
 	ReadOnly    bool
 	K8sClient   utils.Client
+	PodResource corev1.ResourceRequirements
 }
 
 func ConstructMountInfo(fsInfoBase64, fsCacheBase64, targetPath string, k8sClient utils.Client, readOnly bool) (Info, error) {
@@ -77,6 +79,12 @@ func ConstructMountInfo(fsInfoBase64, fsCacheBase64, targetPath string, k8sClien
 
 	if !fs.IndependentMountProcess && fs.Type != common.GlusterFSType {
 		info.SourcePath = schema.GetBindSource(info.FS.ID)
+		info.PodResource, err = csiconfig.ParsePodResources(cacheConfig.Resource.CpuLimit, cacheConfig.Resource.MemoryLimit)
+		if err != nil {
+			err := fmt.Errorf("ParsePodResources: %+v err: %v", cacheConfig.Resource, err)
+			log.Errorf(err.Error())
+			return Info{}, err
+		}
 	} else {
 		info.SourcePath = utils.GetSourceMountPath(filepath.Dir(info.TargetPath))
 	}
@@ -121,14 +129,20 @@ func (mountInfo *Info) cachePathArgs(independentProcess bool) (args []string) {
 	} else {
 		cacheDir = FusePodCachePath
 	}
-
+	hasCache := false
 	if mountInfo.CacheConfig.CacheDir != "" {
+		hasCache = true
 		args = append(args, fmt.Sprintf("--%s=%s", "data-cache-path", cacheDir+DataCacheDir))
 	}
 	if mountInfo.CacheConfig.MetaDriver != schema.FsMetaDefault &&
 		mountInfo.CacheConfig.MetaDriver != schema.FsMetaMemory &&
 		mountInfo.CacheConfig.CacheDir != "" {
+		hasCache = true
 		args = append(args, fmt.Sprintf("--%s=%s", "meta-cache-path", cacheDir+MetaCacheDir))
+	}
+
+	if hasCache && mountInfo.CacheConfig.CleanCache {
+		args = append(args, "--clean-cache=true")
 	}
 	return args
 }
