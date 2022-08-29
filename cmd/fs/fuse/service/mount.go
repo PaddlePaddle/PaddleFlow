@@ -102,7 +102,7 @@ func setup(c *cli.Context) error {
 	isMounted, err := utils.IsMountPoint(mountPoint)
 	if isMounted {
 		if err != nil {
-			if errUmount := doUmount(c, mountPoint, true); errUmount != nil {
+			if errUmount := doUmount(mountPoint, true); errUmount != nil {
 				log.Errorf("unmount mountpoint %s failed: %v", mountPoint, errUmount)
 				return fmt.Errorf("unmount mountpoint %s failed: %v", mountPoint, errUmount)
 			}
@@ -136,7 +136,6 @@ func setup(c *cli.Context) error {
 		log.Errorf("init vfs failed: %v", err)
 		return err
 	}
-	signalHandle(c, mountPoint)
 	go monitor.UpdateBaseMetrics()
 	// whether start metrics server
 	if c.Bool("metrics-service-on") {
@@ -148,6 +147,19 @@ func setup(c *cli.Context) error {
 			http.ListenAndServe(fmt.Sprintf(":%d", c.Int("pprof-port")), nil)
 		}()
 	}
+
+	if c.Bool("clean-cache") {
+		if c.String("meta-cache-path") != "" {
+			cleanCacheInfo.CachePaths = append(cleanCacheInfo.CachePaths, c.String("meta-cache-path"))
+		}
+		if c.String("data-cache-path") != "" {
+			cleanCacheInfo.CachePaths = append(cleanCacheInfo.CachePaths, c.String("data-cache-path"))
+		}
+		if len(cleanCacheInfo.CachePaths) > 0 {
+			cleanCacheInfo.Clean = true
+		}
+	}
+	signalHandle(mountPoint)
 	return nil
 }
 
@@ -373,7 +385,7 @@ func InitVFS(c *cli.Context, registry *prometheus.Registry) error {
 	return nil
 }
 
-func signalHandle(c *cli.Context, mp string) {
+func signalHandle(mp string) {
 	signalChan := make(chan os.Signal, 10)
 	signal.Notify(signalChan, syscall.SIGTERM, syscall.SIGINT, syscall.SIGHUP, syscall.SIGKILL)
 	go func() {
@@ -381,8 +393,8 @@ func signalHandle(c *cli.Context, mp string) {
 			waitForSignal := <-signalChan
 			log.Infof("fuse exit with signal %v", waitForSignal)
 			go func() {
-				if doUmount(c, mp, false) != nil {
-					if err := doUmount(c, mp, true); err != nil {
+				if doUmount(mp, false) != nil {
+					if err := doUmount(mp, true); err != nil {
 						log.Errorf("doUmount failed: %v", err)
 					}
 				}
