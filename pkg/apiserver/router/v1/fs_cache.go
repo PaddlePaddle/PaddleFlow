@@ -118,18 +118,6 @@ func validateCacheConfigCreate(ctx *logger.RequestContext, req *api.CreateFileSy
 				req.FsID, rcs.MemoryLimit))
 		}
 	}
-	if rcs.CpuRequest != "" {
-		if _, err := resource.ParseQuantity(rcs.CpuRequest); err != nil {
-			return validationReturnError(ctx, fmt.Errorf("fs[%s] cache config: invalid resource cpuRequest [%s]",
-				req.FsID, rcs.CpuRequest))
-		}
-	}
-	if rcs.MemoryRequest != "" {
-		if _, err := resource.ParseQuantity(rcs.MemoryRequest); err != nil {
-			return validationReturnError(ctx, fmt.Errorf("fs[%s] cache config: invalid resource memoryRequest [%s]",
-				req.FsID, rcs.MemoryRequest))
-		}
-	}
 	return nil
 }
 

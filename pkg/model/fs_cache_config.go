@@ -49,10 +49,8 @@ type FSCacheConfig struct {
 }
 
 type ResourceLimit struct {
-	CpuLimit      string `json:"cpuLimit"`
-	MemoryLimit   string `json:"memoryLimit"`
-	CpuRequest    string `json:"cpuRequest"`
-	MemoryRequest string `json:"memoryRequest"`
+	CpuLimit    string `json:"cpuLimit"`
+	MemoryLimit string `json:"memoryLimit"`
 }
 
 func (s *FSCacheConfig) TableName() string {

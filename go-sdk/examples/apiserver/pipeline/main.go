@@ -49,8 +49,8 @@ func create(pfClient *service.PaddleFlowClient, request *v1.CreatePipelineReques
 	return
 }
 
-func Get(pfClient *service.PaddleFlowClient, token, pipelineID string) (result *v1.GetPipelineResponse) {
-	result, err := pfClient.APIV1().Pipeline().Get(context.TODO(), pipelineID, token)
+func Get(pfClient *service.PaddleFlowClient, token string, request *v1.GetPipelineRequest) (result *v1.GetPipelineResponse) {
+	result, err := pfClient.APIV1().Pipeline().Get(context.TODO(), request, token)
 	if err != nil {
 		panic(err)
 	}
@@ -122,8 +122,13 @@ func main() {
 	}
 	create(pfClient, reqCreate, token)
 
-	resGet := Get(pfClient, token, "ppl-000001")
-	resJson, _ := json.Marshal(resGet.Pipeline)
+	reqGet := &v1.GetPipelineRequest{
+		PipelineID: "ppl-000004",
+		MaxKeys:    1,
+	}
+
+	resGet := Get(pfClient, token, reqGet)
+	resJson, _ := json.Marshal(resGet)
 	fmt.Println(string(resJson))
 
 	reqUpdate := &v1.UpdatePipelineRequest{
@@ -137,7 +142,7 @@ func main() {
 	fmt.Println(res.PipelineVersion.PipelineYaml)
 
 	DeleteVersion(pfClient, "ppl-000001", "2", token)
-	resDeleteVer := Get(pfClient, token, "ppl-000001")
+	resDeleteVer := Get(pfClient, token, reqGet)
 	resJson, _ = json.Marshal(resDeleteVer.PipelineVersions)
 	fmt.Println(string(resJson))
 

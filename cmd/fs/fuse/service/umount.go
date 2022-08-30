@@ -22,8 +22,16 @@ import (
 	"os/exec"
 	"runtime"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 )
+
+var cleanCacheInfo CleanCacheInfo
+
+type CleanCacheInfo struct {
+	Clean      bool
+	CachePaths []string
+}
 
 func CmdUmount() *cli.Command {
 	return &cli.Command{
@@ -47,6 +55,7 @@ $ pfs-fuse umount /mnt/mount_point`,
 
 func doUmount(mp string, force bool) error {
 	var cmd *exec.Cmd
+
 	switch runtime.GOOS {
 	case "darwin":
 		if force {
@@ -71,6 +80,9 @@ func doUmount(mp string, force bool) error {
 	default:
 		return fmt.Errorf("OS %s is not supported", runtime.GOOS)
 	}
+
+	cleanCache()
+	log.Infof("start umount. command: %+v", cmd)
 	out, err := cmd.CombinedOutput()
 	if err != nil && len(out) != 0 {
 		err = errors.New(string(out))
