@@ -49,6 +49,5 @@ def condition_example(num=10):
 
 if __name__ == "__main__":
     ppl = condition_example()
-    from pathlib import Path
-    
+    ppl.compile("dag.yaml")
     print(ppl.run())
