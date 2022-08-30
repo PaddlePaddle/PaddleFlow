@@ -26,9 +26,9 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 )
 
-func TestListMountNodesByFsID(t *testing.T) {
+func TestFsNodeAffinity(t *testing.T) {
 	driver.InitMockDB()
-
+	// mock cache recods
 	fsID1, fsID2, cacheDir1, cacheDir2, nodeName1, nodeName2, clusterID :=
 		"fs-root-1", "fs-root-2", "/mnt/fs-root-1/storage", "/mnt/fs-root-2/storage", "node1", "node2", ""
 	cache := &model.FSCache{
@@ -58,8 +58,27 @@ func TestListMountNodesByFsID(t *testing.T) {
 	err = storage.FsCache.Add(cache)
 	assert.Nil(t, err)
 
-	//fsIDs := []string{fsID1, fsID2, "fs-non-exist"}
-	//nodeList, err := ListFsCacheLocation(fsIDs)
-	//assert.Nil(t, err)
-	//assert.Equal(t, 2, len(nodeList))
+	fsIDs := []string{fsID1, fsID2, "fs-non-exist"}
+	affinity, err := FsNodeAffinity(fsIDs)
+	assert.Nil(t, err)
+	pref := affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution
+	assert.Equal(t, 1, len(pref))
+	exp := pref[0].Preference.MatchExpressions
+	assert.Equal(t, 1, len(exp))
+	assert.Equal(t, 2, len(exp[0].Values))
+
+	cacheConf := &model.FSCacheConfig{
+		FsID:            fsID1,
+		NodeAffinityMap: map[string][]string{"aff": []string{"meow", "woof"}},
+	}
+	err = storage.Filesystem.CreateFSCacheConfig(cacheConf)
+	assert.Nil(t, err)
+
+	affinity, err = FsNodeAffinity(fsIDs)
+	assert.Nil(t, err)
+	pref = affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution
+	assert.Equal(t, 1, len(pref))
+	exp = pref[0].Preference.MatchExpressions
+	assert.Equal(t, 2, len(exp))
+	assert.Equal(t, 2, len(exp[1].Values))
 }
