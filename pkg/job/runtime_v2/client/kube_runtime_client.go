@@ -47,8 +47,9 @@ type KubeRuntimeClient struct {
 	DynamicClient   dynamic.Interface
 	DynamicFactory  dynamicinformer.DynamicSharedInformerFactory
 	DiscoveryClient discovery.DiscoveryInterface
-	Config          *rest.Config
-	ClusterInfo     *pfschema.Cluster
+	// TODO: adjust field Config
+	Config      *rest.Config
+	ClusterInfo *pfschema.Cluster
 	// GVKToGVR contains GroupVersionKind map to GroupVersionResource
 	GVKToGVR sync.Map
 
@@ -86,13 +87,11 @@ func CreateKubeRuntimeClient(config *rest.Config, cluster *pfschema.Cluster) (fr
 }
 
 func (krc *KubeRuntimeClient) RegisterListeners(jobQueue, taskQueue workqueue.RateLimitingInterface) error {
-	// TODO: add event register logic
 	for gvk := range k8s.GVKJobStatusMap {
 		gvrMap, err := krc.GetGVR(gvk)
 		if err != nil {
 			log.Warnf("cann't find GroupVersionKind %s, err: %v", gvk.String(), err)
 		} else {
-			// TODO: optimize GetJobBuilder parameters，get frameworkType from gvk which is most important
 			jobBuilder, find := framework.GetJobBuilder(pfschema.KubernetesType, gvk.String())
 			if !find {
 				log.Warnf("cann't find GroupVersionKind %s, err: %v", gvk.String(), err)
@@ -143,11 +142,19 @@ func (krc *KubeRuntimeClient) StartLister(stopCh <-chan struct{}) {
 }
 
 func (krc *KubeRuntimeClient) Cluster() string {
-	return fmt.Sprintf("name %s with cluster type %s", krc.ClusterInfo.Name, krc.ClusterInfo.Type)
+	msg := ""
+	if krc.ClusterInfo != nil {
+		msg = fmt.Sprintf("name %s with cluster type %s", krc.ClusterInfo.Name, krc.ClusterInfo.Type)
+	}
+	return msg
 }
 
 func (krc *KubeRuntimeClient) ClusterID() string {
-	return krc.ClusterInfo.ID
+	clusterID := ""
+	if krc.ClusterInfo != nil {
+		clusterID = krc.ClusterInfo.ID
+	}
+	return clusterID
 }
 
 func (krc *KubeRuntimeClient) GetGVR(gvk schema.GroupVersionKind) (meta.RESTMapping, error) {
