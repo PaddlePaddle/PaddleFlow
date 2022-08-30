@@ -26,7 +26,7 @@ def preprocess():
     step = ContainerStep(
         name="preprocess",
         docker_env="centos:centos7",
-        parameters={"data_path": f"./base_pipeline/data"},
+        parameters={"data_path": f"./artifact_example/data/"},
         outputs={"train_data": Artifact(), "validate_data": Artifact()},
         env={"USER_ABC": "123_{{PF_USER_NAME}}"},
         command="bash -x artifact_example/shells/data_artifact.sh {{data_path}} {{train_data}} {{validate_data}}",
@@ -69,5 +69,4 @@ if __name__ == "__main__":
     
     main_fs = MainFS(name="ppl")
     ppl.fs_options = FSOptions(main_fs)
-    
     print(ppl.run())
