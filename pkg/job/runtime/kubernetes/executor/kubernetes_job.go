@@ -209,46 +209,24 @@ func (j *KubeJob) Cluster() string {
 }
 
 func (j *KubeJob) generateAffinity(affinity *corev1.Affinity, fsIDs []string) *corev1.Affinity {
-	nodes, err := locationAwareness.ListFsCacheLocation(fsIDs)
-	if err != nil || len(nodes) == 0 {
-		log.Warningf("get location awareness for PaddleFlow filesystem %s failed or cache location is empty, err: %v", fsIDs, err)
+	nodeAffinity, err := locationAwareness.FsNodeAffinity(fsIDs)
+	if err != nil || nodeAffinity == nil {
+		log.Warningf("location awareness for fs %v failed getting node affinity: %v", fsIDs, err)
 		return affinity
 	}
-	log.Infof("nodes for PaddleFlow filesystem %s location awareness: %v", fsIDs, nodes)
-	fsCacheAffinity := j.fsCacheAffinity(nodes)
+	log.Infof("nodes for PaddleFlow filesystem %v location awareness: %v", fsIDs, *nodeAffinity)
 	if affinity == nil {
-		return fsCacheAffinity
+		return nodeAffinity
 	}
 	// merge filesystem location awareness affinity to pod affinity
 	if affinity.NodeAffinity == nil {
-		affinity.NodeAffinity = fsCacheAffinity.NodeAffinity
+		affinity.NodeAffinity = nodeAffinity.NodeAffinity
 	} else {
 		affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(
-			fsCacheAffinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution,
+			nodeAffinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution,
 			affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution...)
 	}
 	return affinity
-}
-
-func (j *KubeJob) fsCacheAffinity(nodes []string) *corev1.Affinity {
-	return &corev1.Affinity{
-		NodeAffinity: &corev1.NodeAffinity{
-			PreferredDuringSchedulingIgnoredDuringExecution: []corev1.PreferredSchedulingTerm{
-				{
-					Weight: fsLocationAwarenessWeight,
-					Preference: corev1.NodeSelectorTerm{
-						MatchExpressions: []corev1.NodeSelectorRequirement{
-							{
-								Key:      fsLocationAwarenessKey,
-								Operator: corev1.NodeSelectorOpIn,
-								Values:   nodes,
-							},
-						},
-					},
-				},
-			},
-		},
-	}
 }
 
 func (j *KubeJob) generateEnvVars() []corev1.EnvVar {

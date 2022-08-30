@@ -36,7 +36,7 @@ type FSCacheConfig struct {
 	Resource                ResourceLimit          `json:"resource"             gorm:"-"`
 	ResourceJson            string                 `json:"-"                    gorm:"column:resource;type:text"`
 	NodeAffinityJson        string                 `json:"-"                    gorm:"column:node_affinity;type:text;default:'{}'"`
-	NodeAffinityMap         map[string]interface{} `json:"nodeAffinity"         gorm:"-"`
+	NodeAffinityMap         map[string][]string    `json:"nodeAffinity"         gorm:"-"`
 	NodeTaintTolerationJson string                 `json:"-"                    gorm:"column:node_tainttoleration;type:text;default:'{}'"`
 	NodeTaintTolerationMap  map[string]interface{} `json:"nodeTaintToleration"  gorm:"-"`
 	ExtraConfigJson         string                 `json:"-"                    gorm:"column:extra_config;type:text;default:'{}'"`
@@ -65,7 +65,7 @@ func (s *FSCacheConfig) AfterFind(*gorm.DB) error {
 		}
 	}
 	if s.NodeAffinityJson != "" {
-		s.NodeAffinityMap = make(map[string]interface{})
+		s.NodeAffinityMap = make(map[string][]string)
 		if err := json.Unmarshal([]byte(s.NodeAffinityJson), &s.NodeAffinityMap); err != nil {
 			log.Errorf("json Unmarshal nodeAffinityJson[%s] failed: %v", s.NodeAffinityJson, err)
 			return err

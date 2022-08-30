@@ -56,7 +56,7 @@ type CreateFileSystemCacheRequest struct {
 	Debug               bool                   `json:"debug"`
 	CleanCache          bool                   `json:"cleanCache"`
 	Resource            model.ResourceLimit    `json:"resource"`
-	NodeAffinity        map[string]interface{} `json:"nodeAffinity"`
+	NodeAffinity        map[string][]string    `json:"nodeAffinity"`
 	NodeTaintToleration map[string]interface{} `json:"nodeTaintToleration"`
 	ExtraConfig         map[string]string      `json:"extraConfig"`
 }
@@ -68,7 +68,7 @@ type FileSystemCacheResponse struct {
 	BlockSize           int                    `json:"blockSize"`
 	CleanCache          bool                   `json:"cleanCache"`
 	Resource            model.ResourceLimit    `json:"resource"`
-	NodeAffinity        map[string]interface{} `json:"nodeAffinity"`
+	NodeAffinity        map[string][]string    `json:"nodeAffinity"`
 	NodeTaintToleration map[string]interface{} `json:"nodeTaintToleration"`
 	ExtraConfig         map[string]string      `json:"extraConfig"`
 	FsName              string                 `json:"fsName"`

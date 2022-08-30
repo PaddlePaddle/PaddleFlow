@@ -17,9 +17,74 @@ limitations under the License.
 package location_awareness
 
 import (
+	"fmt"
+
+	log "github.com/sirupsen/logrus"
+	corev1 "k8s.io/api/core/v1"
+
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
-func ListFsCacheLocation(fsIDs []string) ([]string, error) {
-	return storage.FsCache.ListNodes(fsIDs)
+const (
+	fsLocationAwarenessKey    = "kubernetes.io/hostname"
+	fsLocationAwarenessWeight = 100
+)
+
+func FsNodeAffinity(fsIDs []string) (*corev1.Affinity, error) {
+	exp := make([]corev1.NodeSelectorRequirement, 0)
+	// existing cache location
+	nodes, err := storage.FsCache.ListNodes(fsIDs)
+	if err != nil {
+		err := fmt.Errorf("FsNodeAffinity %v ListNodes err:%v", fsIDs, err)
+		log.Errorf(err.Error())
+		return nil, err
+	}
+	if len(nodes) > 0 {
+		a := corev1.NodeSelectorRequirement{
+			Key:      fsLocationAwarenessKey,
+			Operator: corev1.NodeSelectorOpIn,
+			Values:   nodes,
+		}
+		exp = append(exp, a)
+	}
+
+	// node label
+	cacheConfs, err := storage.Filesystem.ListFSCacheConfig(fsIDs)
+	if err != nil {
+		err := fmt.Errorf("FsNodeAffinity %v ListFSCacheConfig err:%v", fsIDs, err)
+		log.Errorf(err.Error())
+		return nil, err
+	}
+
+	for _, conf := range cacheConfs {
+		for affKey, affValue := range conf.NodeAffinityMap {
+			if len(affValue) > 0 {
+				a := corev1.NodeSelectorRequirement{
+					Key:      affKey,
+					Operator: corev1.NodeSelectorOpIn,
+					Values:   affValue,
+				}
+				exp = append(exp, a)
+			}
+		}
+	}
+
+	if len(exp) == 0 {
+		err := fmt.Errorf("fsIDs: %v have no node affinity", fsIDs)
+		log.Warnf(err.Error())
+		return nil, err
+	}
+
+	return &corev1.Affinity{
+		NodeAffinity: &corev1.NodeAffinity{
+			PreferredDuringSchedulingIgnoredDuringExecution: []corev1.PreferredSchedulingTerm{
+				{
+					Weight: fsLocationAwarenessWeight,
+					Preference: corev1.NodeSelectorTerm{
+						MatchExpressions: exp,
+					},
+				},
+			},
+		},
+	}, nil
 }

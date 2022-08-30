@@ -182,3 +182,9 @@ func (fss *FilesystemStore) GetFSCacheConfig(fsID string) (model.FSCacheConfig, 
 	}
 	return fsCacheConfig, nil
 }
+
+func (fss *FilesystemStore) ListFSCacheConfig(fsIDs []string) ([]model.FSCacheConfig, error) {
+	var fsCacheConfigs []model.FSCacheConfig
+	tx := fss.db.Model(&model.FSCacheConfig{}).Where("fs_id in ?", fsIDs).Find(&fsCacheConfigs)
+	return fsCacheConfigs, tx.Error
+}
