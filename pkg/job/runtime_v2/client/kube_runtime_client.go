@@ -19,7 +19,6 @@ package client
 import (
 	"context"
 	"fmt"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/framework"
 	"sync"
 
 	log "github.com/sirupsen/logrus"
@@ -39,7 +38,8 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
-	commonschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	pfschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/framework"
 )
 
 // KubeRuntimeClient for kubernetes client
@@ -48,18 +48,18 @@ type KubeRuntimeClient struct {
 	DynamicFactory  dynamicinformer.DynamicSharedInformerFactory
 	DiscoveryClient discovery.DiscoveryInterface
 	Config          *rest.Config
-	ClusterInfo     *commonschema.Cluster
+	ClusterInfo     *pfschema.Cluster
 	// GVKToGVR contains GroupVersionKind map to GroupVersionResource
 	GVKToGVR sync.Map
 
 	// informerMap contains GroupVersionKind and informer for different kubernetes job
 	informerMap map[schema.GroupVersionKind]cache.SharedIndexInformer
-
+	// podInformer contains the informer of task
 	podInformer cache.SharedIndexInformer
 	podLister   cache.GenericLister
 }
 
-func CreateKubeRuntimeClient(config *rest.Config, cluster *commonschema.Cluster) (framework.ClientInterface, error) {
+func CreateKubeRuntimeClient(config *rest.Config, cluster *pfschema.Cluster) (framework.ClientInterface, error) {
 	dynamicClient, err := dynamic.NewForConfig(config)
 	if err != nil {
 		log.Errorf("init dynamic client failed. error:%s", err)
@@ -93,7 +93,7 @@ func (krc *KubeRuntimeClient) RegisterListeners(jobQueue, taskQueue workqueue.Ra
 			log.Warnf("cann't find GroupVersionKind %s, err: %v", gvk.String(), err)
 		} else {
 			// TODO: optimize GetJobBuilder parameters，get frameworkType from gvk which is most important
-			jobBuilder, find := framework.GetJobBuilder(commonschema.KubernetesType, gvk.String())
+			jobBuilder, find := framework.GetJobBuilder(pfschema.KubernetesType, gvk.String())
 			if !find {
 				log.Warnf("cann't find GroupVersionKind %s, err: %v", gvk.String(), err)
 				continue
@@ -111,7 +111,7 @@ func (krc *KubeRuntimeClient) RegisterListeners(jobQueue, taskQueue workqueue.Ra
 	}
 	krc.podInformer = krc.DynamicFactory.ForResource(podGVRMap.Resource).Informer()
 	// Register task handle
-	jobBuilder, find := framework.GetJobBuilder(commonschema.KubernetesType, k8s.PodGVK.String())
+	jobBuilder, find := framework.GetJobBuilder(pfschema.KubernetesType, k8s.PodGVK.String())
 	if !find {
 		log.Warnf("cann't find GroupVersionKind %s, err: %v", k8s.PodGVK.String(), err)
 	}

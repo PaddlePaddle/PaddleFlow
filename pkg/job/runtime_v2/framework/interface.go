@@ -23,7 +23,7 @@ import (
 	k8sschema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/util/workqueue"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	pfschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
@@ -43,7 +43,7 @@ type JobInterface interface {
 
 	Delete(ctx context.Context, job *api.PFJob) error
 
-	GetLog(ctx context.Context, jobLogRequest schema.JobLogRequest) (schema.JobLogInfo, error)
+	GetLog(ctx context.Context, jobLogRequest pfschema.JobLogRequest) (pfschema.JobLogInfo, error)
 
 	// RegisterJobListener register jobListener to notify PaddleFlow Server when job is updated
 	RegisterJobListener(ctx context.Context, jobQueue workqueue.RateLimitingInterface, any interface{}) error
@@ -67,7 +67,7 @@ type QueueInterface interface {
 	// Cluster notify PaddleFlow Server when queue is updated
 	QueueEvent(ctx context.Context, ch <-chan struct{}) error
 	// TODO: add node resource api
-	ListNodeQuota(ctx context.Context) (schema.QuotaSummary, []schema.NodeQuotaInfo, error)
+	ListNodeQuota(ctx context.Context) (pfschema.QuotaSummary, []pfschema.NodeQuotaInfo, error)
 }
 
 type ClientInterface interface {
