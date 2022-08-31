@@ -64,6 +64,4 @@ if __name__ == "__main__":
     )
     ppl = multiple_fs()
     ppl.fs_options = FSOptions(main, [extra])
-    
-    ppl.compile("multiple_fs.yaml")
-    # print(ppl.run())
+    print(ppl.run())
