@@ -142,7 +142,6 @@ def dag_example(lower=-10, upper=10, num=10):
     sum(collector_step.outputs["collection"])
     
     
-
 if __name__ == "__main__":
     ppl = dag_example()
     main_fs = MainFS(name="ppl")
