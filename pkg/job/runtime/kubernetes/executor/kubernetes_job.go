@@ -237,6 +237,9 @@ func (j *KubeJob) generateAffinity(affinity *corev1.Affinity, fsIDs []string) (*
 	}
 	log.Infof("KubeJob with fs %v generate node affinity: %v", fsIDs, *nodeAffinity)
 	// merge filesystem location awareness affinity to pod affinity
+	if affinity == nil {
+		return nodeAffinity, nil
+	}
 	if affinity.NodeAffinity == nil {
 		affinity.NodeAffinity = nodeAffinity.NodeAffinity
 	} else {
