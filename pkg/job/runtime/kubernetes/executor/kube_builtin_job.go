@@ -78,12 +78,9 @@ func (j *KubeJob) setPodTemplateSpec(podSpec *corev1.PodTemplateSpec, task *mode
 		podSpec.Spec.RestartPolicy = corev1.RestartPolicyNever
 	}
 	// set Affinity
-	if len(j.FileSystems) != 0 {
-		var fsIDs []string
-		for _, fs := range j.FileSystems {
-			fsIDs = append(fsIDs, fs.ID)
-		}
-		podSpec.Spec.Affinity = j.generateAffinity(podSpec.Spec.Affinity, fsIDs)
+	if err := j.setAffinity(&podSpec.Spec); err != nil {
+		log.Errorf("setAffinity for %s failed, err: %v", j.String(), err)
+		return err
 	}
 	// set Volumes
 	podSpec.Spec.Volumes = appendVolumesIfAbsent(podSpec.Spec.Volumes, generateVolumes(j.FileSystems))

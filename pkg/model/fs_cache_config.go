@@ -22,6 +22,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
+	corev1 "k8s.io/api/core/v1"
 )
 
 type FSCacheConfig struct {
@@ -36,7 +37,7 @@ type FSCacheConfig struct {
 	Resource                ResourceLimit          `json:"resource"             gorm:"-"`
 	ResourceJson            string                 `json:"-"                    gorm:"column:resource;type:text"`
 	NodeAffinityJson        string                 `json:"-"                    gorm:"column:node_affinity;type:text;default:'{}'"`
-	NodeAffinityMap         map[string][]string    `json:"nodeAffinity"         gorm:"-"`
+	NodeAffinity            corev1.NodeAffinity    `json:"nodeAffinity"         gorm:"-"`
 	NodeTaintTolerationJson string                 `json:"-"                    gorm:"column:node_tainttoleration;type:text;default:'{}'"`
 	NodeTaintTolerationMap  map[string]interface{} `json:"nodeTaintToleration"  gorm:"-"`
 	ExtraConfigJson         string                 `json:"-"                    gorm:"column:extra_config;type:text;default:'{}'"`
@@ -65,8 +66,8 @@ func (s *FSCacheConfig) AfterFind(*gorm.DB) error {
 		}
 	}
 	if s.NodeAffinityJson != "" {
-		s.NodeAffinityMap = make(map[string][]string)
-		if err := json.Unmarshal([]byte(s.NodeAffinityJson), &s.NodeAffinityMap); err != nil {
+		s.NodeAffinity = corev1.NodeAffinity{}
+		if err := json.Unmarshal([]byte(s.NodeAffinityJson), &s.NodeAffinity); err != nil {
 			log.Errorf("json Unmarshal nodeAffinityJson[%s] failed: %v", s.NodeAffinityJson, err)
 			return err
 		}
@@ -98,9 +99,9 @@ func (s *FSCacheConfig) BeforeSave(*gorm.DB) error {
 	}
 	s.ResourceJson = string(resourceMapStr)
 
-	nodeAffinityMap, err := json.Marshal(&s.NodeAffinityMap)
+	nodeAffinityMap, err := json.Marshal(&s.NodeAffinity)
 	if err != nil {
-		log.Errorf("json Marshal nodeAffinityMap[%v] failed: %v", s.NodeAffinityMap, err)
+		log.Errorf("json Marshal nodeAffinityMap[%v] failed: %v", s.NodeAffinity, err)
 		return err
 	}
 	s.NodeAffinityJson = string(nodeAffinityMap)

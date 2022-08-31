@@ -143,7 +143,7 @@ func (fss *FilesystemStore) CreateFSCacheConfig(fsCacheConfig *model.FSCacheConf
 }
 
 func (fss *FilesystemStore) UpdateFSCacheConfig(fsCacheConfig *model.FSCacheConfig) error {
-	nodeAffinityMap, err := json.Marshal(&fsCacheConfig.NodeAffinityMap)
+	nodeAffinityMap, err := json.Marshal(&fsCacheConfig.NodeAffinity)
 	if err != nil {
 		return err
 	}

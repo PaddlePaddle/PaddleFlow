@@ -30,9 +30,10 @@ const (
 	fsLocationAwarenessWeight = 100
 )
 
+// FsNodeAffinity if no node affinity, return nil, nil
 func FsNodeAffinity(fsIDs []string) (*corev1.Affinity, error) {
-	exp := make([]corev1.NodeSelectorRequirement, 0)
-	// existing cache location
+	// cached node preferred
+	preferred := make([]corev1.PreferredSchedulingTerm, 0)
 	nodes, err := storage.FsCache.ListNodes(fsIDs)
 	if err != nil {
 		err := fmt.Errorf("FsNodeAffinity %v ListNodes err:%v", fsIDs, err)
@@ -40,50 +41,49 @@ func FsNodeAffinity(fsIDs []string) (*corev1.Affinity, error) {
 		return nil, err
 	}
 	if len(nodes) > 0 {
-		a := corev1.NodeSelectorRequirement{
+		matchExpression := corev1.NodeSelectorRequirement{
 			Key:      fsLocationAwarenessKey,
 			Operator: corev1.NodeSelectorOpIn,
 			Values:   nodes,
 		}
-		exp = append(exp, a)
+		preferredSchedulingTerm := corev1.PreferredSchedulingTerm{
+			Weight: fsLocationAwarenessWeight,
+			Preference: corev1.NodeSelectorTerm{
+				MatchExpressions: []corev1.NodeSelectorRequirement{matchExpression},
+			},
+		}
+		preferred = append(preferred, preferredSchedulingTerm)
 	}
 
-	// node label
+	// user set affinity
 	cacheConfs, err := storage.Filesystem.ListFSCacheConfig(fsIDs)
 	if err != nil {
 		err := fmt.Errorf("FsNodeAffinity %v ListFSCacheConfig err:%v", fsIDs, err)
 		log.Errorf(err.Error())
 		return nil, err
 	}
-
+	required := make([]corev1.NodeSelectorTerm, 0)
 	for _, conf := range cacheConfs {
-		for affKey, affValue := range conf.NodeAffinityMap {
-			if len(affValue) > 0 {
-				a := corev1.NodeSelectorRequirement{
-					Key:      affKey,
-					Operator: corev1.NodeSelectorOpIn,
-					Values:   affValue,
-				}
-				exp = append(exp, a)
-			}
+		preferredTerms := conf.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution
+		if len(preferredTerms) > 0 {
+			preferred = append(preferred, preferredTerms...)
+		}
+		requiredTerms := conf.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms
+		if len(requiredTerms) > 0 {
+			required = append(required, requiredTerms...)
 		}
 	}
 
-	if len(exp) == 0 {
-		err := fmt.Errorf("fsIDs: %v have no node affinity", fsIDs)
-		log.Warnf(err.Error())
-		return nil, err
+	if len(required) == 0 && len(preferred) == 0 {
+		log.Warnf("FsNodeAffinity %v has no node affinity", fsIDs)
+		return nil, nil
 	}
 
 	return &corev1.Affinity{
 		NodeAffinity: &corev1.NodeAffinity{
-			PreferredDuringSchedulingIgnoredDuringExecution: []corev1.PreferredSchedulingTerm{
-				{
-					Weight: fsLocationAwarenessWeight,
-					Preference: corev1.NodeSelectorTerm{
-						MatchExpressions: exp,
-					},
-				},
+			PreferredDuringSchedulingIgnoredDuringExecution: preferred,
+			RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+				NodeSelectorTerms: required,
 			},
 		},
 	}, nil

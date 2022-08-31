@@ -208,16 +208,34 @@ func (j *KubeJob) Cluster() string {
 	return clusterName
 }
 
-func (j *KubeJob) generateAffinity(affinity *corev1.Affinity, fsIDs []string) *corev1.Affinity {
+func (j *KubeJob) setAffinity(podSpec *corev1.PodSpec) error {
+	if len(j.FileSystems) != 0 {
+		var fsIDs []string
+		for _, fs := range j.FileSystems {
+			fsIDs = append(fsIDs, fs.ID)
+		}
+		var err error
+		podSpec.Affinity, err = j.generateAffinity(podSpec.Affinity, fsIDs)
+		if err != nil {
+			log.Errorf("set affinity for %s failed with fsIDs %v, err: %v", j.String(), fsIDs, err)
+			return err
+		}
+	}
+	return nil
+}
+
+func (j *KubeJob) generateAffinity(affinity *corev1.Affinity, fsIDs []string) (*corev1.Affinity, error) {
 	nodeAffinity, err := locationAwareness.FsNodeAffinity(fsIDs)
-	if err != nil || nodeAffinity == nil {
-		log.Warningf("location awareness for fs %v failed getting node affinity: %v", fsIDs, err)
-		return affinity
+	if err != nil {
+		err := fmt.Errorf("KubeJob generateAffinity err: %v", err)
+		log.Errorf(err.Error())
+		return nil, err
 	}
-	log.Infof("nodes for PaddleFlow filesystem %v location awareness: %v", fsIDs, *nodeAffinity)
-	if affinity == nil {
-		return nodeAffinity
+	if nodeAffinity == nil {
+		log.Warningf("fs %v location awareness has no node affinity", fsIDs)
+		return affinity, nil
 	}
+	log.Infof("KubeJob with fs %v generate node affinity: %v", fsIDs, *nodeAffinity)
 	// merge filesystem location awareness affinity to pod affinity
 	if affinity.NodeAffinity == nil {
 		affinity.NodeAffinity = nodeAffinity.NodeAffinity
@@ -225,8 +243,11 @@ func (j *KubeJob) generateAffinity(affinity *corev1.Affinity, fsIDs []string) *c
 		affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(
 			nodeAffinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution,
 			affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution...)
+		affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms = append(
+			nodeAffinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms,
+			affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms...)
 	}
-	return affinity
+	return affinity, nil
 }
 
 func (j *KubeJob) generateEnvVars() []corev1.EnvVar {
@@ -310,7 +331,7 @@ func (j *KubeJob) createJobFromYaml(jobEntity interface{}) error {
 }
 
 // fill PodSpec
-func (j *KubeJob) fillPodSpec(podSpec *corev1.PodSpec, task *model.Member) {
+func (j *KubeJob) fillPodSpec(podSpec *corev1.PodSpec, task *model.Member) error {
 	if task != nil {
 		j.Priority = task.Priority
 	}
@@ -323,13 +344,11 @@ func (j *KubeJob) fillPodSpec(podSpec *corev1.PodSpec, task *model.Member) {
 		podSpec.RestartPolicy = corev1.RestartPolicyNever
 	}
 	// fill affinity
-	if len(j.FileSystems) != 0 {
-		var fsIDs []string
-		for _, fs := range j.FileSystems {
-			fsIDs = append(fsIDs, fs.ID)
-		}
-		podSpec.Affinity = j.generateAffinity(podSpec.Affinity, fsIDs)
+	if err := j.setAffinity(podSpec); err != nil {
+		log.Errorf("setAffinity for %s failed, err: %v", j.String(), err)
+		return err
 	}
+	return nil
 }
 
 // fillContainerInTasks fill container in job task
