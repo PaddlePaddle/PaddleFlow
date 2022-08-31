@@ -100,7 +100,7 @@ func (krc *KubeRuntimeClient) RegisterListeners(jobQueue, taskQueue workqueue.Ra
 
 			krc.informerMap[gvk] = krc.DynamicFactory.ForResource(gvrMap.Resource).Informer()
 
-			jobBuilder(krc).RegisterJobListener(context.TODO(), jobQueue, krc.informerMap[gvk])
+			jobBuilder(krc).AddEventListener(context.TODO(), pfschema.ListenerTypeJob, jobQueue, krc.informerMap[gvk])
 		}
 	}
 
@@ -114,7 +114,7 @@ func (krc *KubeRuntimeClient) RegisterListeners(jobQueue, taskQueue workqueue.Ra
 	if !find {
 		log.Warnf("cann't find GroupVersionKind %s, err: %v", k8s.PodGVK.String(), err)
 	}
-	jobBuilder(krc).RegisterTaskListener(context.TODO(), taskQueue, krc.podInformer)
+	jobBuilder(krc).AddEventListener(context.TODO(), pfschema.ListenerTypeTask, taskQueue, krc.podInformer)
 
 	krc.podLister = krc.DynamicFactory.ForResource(podGVRMap.Resource).Lister()
 

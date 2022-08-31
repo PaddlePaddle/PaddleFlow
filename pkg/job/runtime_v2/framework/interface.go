@@ -42,10 +42,8 @@ type JobInterface interface {
 
 	GetLog(ctx context.Context, jobLogRequest pfschema.JobLogRequest) (pfschema.JobLogInfo, error)
 
-	// RegisterJobListener register jobListener to notify PaddleFlow Server when job is updated
-	RegisterJobListener(ctx context.Context, jobQueue workqueue.RateLimitingInterface, any interface{}) error
-	// RegisterTaskListener register taskListener to notify PaddleFlow Server when task is updated
-	RegisterTaskListener(ctx context.Context, taskQueue workqueue.RateLimitingInterface, any interface{}) error
+	// AddEventListener add jobListener, taskLister to notify PaddleFlow Server when job is updated
+	AddEventListener(ctx context.Context, listenerType string, eventQueue workqueue.RateLimitingInterface, informer interface{}) error
 }
 
 // QueueGetter return RuntimeQueueInterface
@@ -61,8 +59,9 @@ type QueueInterface interface {
 	Delete(ctx context.Context, q *api.QueueInfo) error
 
 	Update(ctx context.Context, q *api.QueueInfo) error
-	// Cluster notify PaddleFlow Server when queue is updated
-	QueueEvent(ctx context.Context, ch <-chan struct{}) error
+
+	// AddEventListener add queueListener to notify PaddleFlow Server when queue is updated
+	AddEventListener(ctx context.Context, listenerType string, eventQueue workqueue.RateLimitingInterface, informer interface{}) error
 }
 
 type RuntimeClientInterface interface {
