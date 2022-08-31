@@ -208,47 +208,49 @@ func (j *KubeJob) Cluster() string {
 	return clusterName
 }
 
-func (j *KubeJob) generateAffinity(affinity *corev1.Affinity, fsIDs []string) *corev1.Affinity {
-	nodes, err := locationAwareness.ListFsCacheLocation(fsIDs)
-	if err != nil || len(nodes) == 0 {
-		log.Warningf("get location awareness for PaddleFlow filesystem %s failed or cache location is empty, err: %v", fsIDs, err)
-		return affinity
+func (j *KubeJob) setAffinity(podSpec *corev1.PodSpec) error {
+	if len(j.FileSystems) != 0 {
+		var fsIDs []string
+		for _, fs := range j.FileSystems {
+			fsIDs = append(fsIDs, fs.ID)
+		}
+		var err error
+		podSpec.Affinity, err = j.generateAffinity(podSpec.Affinity, fsIDs)
+		if err != nil {
+			log.Errorf("set affinity for %s failed with fsIDs %v, err: %v", j.String(), fsIDs, err)
+			return err
+		}
 	}
-	log.Infof("nodes for PaddleFlow filesystem %s location awareness: %v", fsIDs, nodes)
-	fsCacheAffinity := j.fsCacheAffinity(nodes)
-	if affinity == nil {
-		return fsCacheAffinity
-	}
-	// merge filesystem location awareness affinity to pod affinity
-	if affinity.NodeAffinity == nil {
-		affinity.NodeAffinity = fsCacheAffinity.NodeAffinity
-	} else {
-		affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(
-			fsCacheAffinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution,
-			affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution...)
-	}
-	return affinity
+	return nil
 }
 
-func (j *KubeJob) fsCacheAffinity(nodes []string) *corev1.Affinity {
-	return &corev1.Affinity{
-		NodeAffinity: &corev1.NodeAffinity{
-			PreferredDuringSchedulingIgnoredDuringExecution: []corev1.PreferredSchedulingTerm{
-				{
-					Weight: fsLocationAwarenessWeight,
-					Preference: corev1.NodeSelectorTerm{
-						MatchExpressions: []corev1.NodeSelectorRequirement{
-							{
-								Key:      fsLocationAwarenessKey,
-								Operator: corev1.NodeSelectorOpIn,
-								Values:   nodes,
-							},
-						},
-					},
-				},
-			},
-		},
+func (j *KubeJob) generateAffinity(affinity *corev1.Affinity, fsIDs []string) (*corev1.Affinity, error) {
+	nodeAffinity, err := locationAwareness.FsNodeAffinity(fsIDs)
+	if err != nil {
+		err := fmt.Errorf("KubeJob generateAffinity err: %v", err)
+		log.Errorf(err.Error())
+		return nil, err
 	}
+	if nodeAffinity == nil {
+		log.Warningf("fs %v location awareness has no node affinity", fsIDs)
+		return affinity, nil
+	}
+	log.Infof("KubeJob with fs %v generate node affinity: %v", fsIDs, *nodeAffinity)
+	// merge filesystem location awareness affinity to pod affinity
+	if affinity == nil {
+		return nodeAffinity, nil
+	}
+	if affinity.NodeAffinity == nil {
+		affinity.NodeAffinity = nodeAffinity.NodeAffinity
+	} else {
+		affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution = append(
+			nodeAffinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution,
+			affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution...)
+		affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms = append(
+			nodeAffinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms,
+			affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms...)
+	}
+	return affinity, nil
 }
 
 func (j *KubeJob) generateEnvVars() []corev1.EnvVar {
@@ -332,7 +334,7 @@ func (j *KubeJob) createJobFromYaml(jobEntity interface{}) error {
 }
 
 // fill PodSpec
-func (j *KubeJob) fillPodSpec(podSpec *corev1.PodSpec, task *model.Member) {
+func (j *KubeJob) fillPodSpec(podSpec *corev1.PodSpec, task *model.Member) error {
 	if task != nil {
 		j.Priority = task.Priority
 	}
@@ -345,13 +347,11 @@ func (j *KubeJob) fillPodSpec(podSpec *corev1.PodSpec, task *model.Member) {
 		podSpec.RestartPolicy = corev1.RestartPolicyNever
 	}
 	// fill affinity
-	if len(j.FileSystems) != 0 {
-		var fsIDs []string
-		for _, fs := range j.FileSystems {
-			fsIDs = append(fsIDs, fs.ID)
-		}
-		podSpec.Affinity = j.generateAffinity(podSpec.Affinity, fsIDs)
+	if err := j.setAffinity(podSpec); err != nil {
+		log.Errorf("setAffinity for %s failed, err: %v", j.String(), err)
+		return err
 	}
+	return nil
 }
 
 // fillContainerInTasks fill container in job task
