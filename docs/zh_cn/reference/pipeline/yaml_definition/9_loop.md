@@ -1,11 +1,11 @@
 在AI流程中，有时需要对一组数据进行遍历，Paddleflow提供了循环结构来支持这种场景。
 
 # 1 pipeline定义
-下面为一个的示例Pipeline定义
+下面为一个定义了循环结构的示例Pipeline：
 
 > 该示例中pipeline定义，以及示例相关运行脚本，来自pddleflow项目下example/pipeline/loop_example示例。
 > 
-> 示例链接：[loop_example]
+> 示例链接：[loop_example][loop_example]
 
 ```yaml
 name: loop_example

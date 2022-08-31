@@ -81,7 +81,6 @@ def sum(nums):
     step.extra_fs=[extra_fs]
     return step
 
-
 @Pipeline(name="loop_example", docker_env="python:3.7", parallelism=2)
 def loop_example(lower=-10, upper=10, num=10):
     """ pipeline example for artifact
@@ -91,7 +90,6 @@ def loop_example(lower=-10, upper=10, num=10):
     sum(process_step.outputs["result"])
     
     
-
 if __name__ == "__main__":
     ppl = loop_example()
     main_fs = MainFS(name="ppl")
