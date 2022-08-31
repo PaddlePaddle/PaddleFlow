@@ -262,6 +262,9 @@ step2 = ContainerStep(name="step2", parameters={"p2": step1.parameters["p1"]}
 ```
 在上面的示例中，由于节点`step2`引用了其兄弟节点`dag1`的子节点`step1`的parameter，因此，当你尝试使用其发起任务时，DSL将会抛出异常
 
+>为什么不支持这种引用方式？
+> - 因为当前Parameter只能由父节点传递给子节点，不支持由子节点传递给父节点
+
 #### 子节点引用了DAG外的节点的Parameter
 以如下的示例说明：
 ```
