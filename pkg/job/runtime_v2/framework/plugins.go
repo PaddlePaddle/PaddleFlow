@@ -25,7 +25,7 @@ import (
 
 // JobBuilder defines job interface
 // kubeJobBuilders store JobBuilder
-type JobBuilder = func(ClientInterface) JobInterface
+type JobBuilder = func(RuntimeClientInterface) JobInterface
 
 var kubeJobMutex sync.RWMutex
 var kubeJobBuilders = map[string]JobBuilder{}

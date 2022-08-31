@@ -16,7 +16,9 @@ limitations under the License.
 
 package schema
 
-import "github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
+import (
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
+)
 
 const (
 	LocalType      = "Local"
@@ -50,4 +52,16 @@ type NodeQuotaInfo struct {
 type QuotaSummary struct {
 	TotalQuota resources.Resource `json:"total"`
 	IdleQuota  resources.Resource `json:"idle"`
+}
+
+type FrameworkVersion struct {
+	Framework  string
+	APIVersion string
+}
+
+func NewFrameworkVersion(framework, apiVersion string) FrameworkVersion {
+	return FrameworkVersion{
+		APIVersion: apiVersion,
+		Framework:  framework,
+	}
 }

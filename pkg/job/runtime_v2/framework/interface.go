@@ -19,13 +19,10 @@ package framework
 import (
 	"context"
 
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	k8sschema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/util/workqueue"
 
 	pfschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
 
 // JobGetter return FrameworkJobInterface
@@ -59,34 +56,35 @@ type QueueGetter interface {
 // QueueInterface defines Queue operator methods
 type QueueInterface interface {
 	// PaddleFlow Server operate on Cluster
-	Create(ctx context.Context, q *model.Queue) error
+	Create(ctx context.Context, q *api.QueueInfo) error
 
-	Delete(ctx context.Context, q *model.Queue) error
+	Delete(ctx context.Context, q *api.QueueInfo) error
 
-	Update(ctx context.Context, q *model.Queue) error
+	Update(ctx context.Context, q *api.QueueInfo) error
 	// Cluster notify PaddleFlow Server when queue is updated
 	QueueEvent(ctx context.Context, ch <-chan struct{}) error
-	// TODO: add node resource api
-	ListNodeQuota(ctx context.Context) (pfschema.QuotaSummary, []pfschema.NodeQuotaInfo, error)
 }
 
-type ClientInterface interface {
+type RuntimeClientInterface interface {
 	Cluster() string
 
 	ClusterID() string
 
-	Get(namespace string, name string, gvk k8sschema.GroupVersionKind) (*unstructured.Unstructured, error)
+	Get(namespace string, name string, fv pfschema.FrameworkVersion) (interface{}, error)
 
-	Create(resource interface{}, gvk k8sschema.GroupVersionKind) error
+	Create(resource interface{}, fv pfschema.FrameworkVersion) error
 
-	Delete(namespace string, name string, gvk k8sschema.GroupVersionKind) error
+	Delete(namespace string, name string, fv pfschema.FrameworkVersion) error
 
-	Patch(namespace, name string, gvk k8sschema.GroupVersionKind, data []byte) error
+	Patch(namespace, name string, fv pfschema.FrameworkVersion, data []byte) error
 
-	Update(resource interface{}, gvk k8sschema.GroupVersionKind) error
+	Update(resource interface{}, fv pfschema.FrameworkVersion) error
 
 	// RegisterListeners register job/task listeners
 	RegisterListeners(jobQueue, taskQueue workqueue.RateLimitingInterface) error
 
 	StartLister(stopCh <-chan struct{})
+
+	// ListNodeQuota resource api for cluster nodes
+	ListNodeQuota(ctx context.Context) (pfschema.QuotaSummary, []pfschema.NodeQuotaInfo, error)
 }

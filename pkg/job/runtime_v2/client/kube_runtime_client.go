@@ -60,7 +60,7 @@ type KubeRuntimeClient struct {
 	podLister   cache.GenericLister
 }
 
-func CreateKubeRuntimeClient(config *rest.Config, cluster *pfschema.Cluster) (framework.ClientInterface, error) {
+func CreateKubeRuntimeClient(config *rest.Config, cluster *pfschema.Cluster) (framework.RuntimeClientInterface, error) {
 	dynamicClient, err := dynamic.NewForConfig(config)
 	if err != nil {
 		log.Errorf("init dynamic client failed. error:%s", err)
@@ -157,6 +157,11 @@ func (krc *KubeRuntimeClient) ClusterID() string {
 	return clusterID
 }
 
+func (krc *KubeRuntimeClient) ListNodeQuota(ctx context.Context) (pfschema.QuotaSummary, []pfschema.NodeQuotaInfo, error) {
+	// TODO: add ListNodeQuota logic
+	return pfschema.QuotaSummary{}, []pfschema.NodeQuotaInfo{}, nil
+}
+
 func (krc *KubeRuntimeClient) GetGVR(gvk schema.GroupVersionKind) (meta.RESTMapping, error) {
 	gvr, ok := krc.GVKToGVR.Load(gvk.String())
 	if ok {
@@ -180,7 +185,12 @@ func (krc *KubeRuntimeClient) findGVR(gvk *schema.GroupVersionKind) (meta.RESTMa
 	return *mapping, nil
 }
 
-func (krc *KubeRuntimeClient) Get(namespace string, name string, gvk schema.GroupVersionKind) (*unstructured.Unstructured, error) {
+func frameworkVersionToGVK(fv pfschema.FrameworkVersion) schema.GroupVersionKind {
+	return schema.FromAPIVersionAndKind(fv.APIVersion, fv.Framework)
+}
+
+func (krc *KubeRuntimeClient) Get(namespace string, name string, fv pfschema.FrameworkVersion) (interface{}, error) {
+	gvk := frameworkVersionToGVK(fv)
 	log.Debugf("executor begin to get kubernetes resource[%s]. ns:[%s] name:[%s]", gvk.String(), namespace, name)
 	if krc == nil {
 		return nil, fmt.Errorf("dynamic client is nil")
@@ -201,7 +211,8 @@ func (krc *KubeRuntimeClient) Get(namespace string, name string, gvk schema.Grou
 	return obj, err
 }
 
-func (krc *KubeRuntimeClient) Create(resource interface{}, gvk schema.GroupVersionKind) error {
+func (krc *KubeRuntimeClient) Create(resource interface{}, fv pfschema.FrameworkVersion) error {
+	gvk := frameworkVersionToGVK(fv)
 	log.Debugf("executor begin to create kuberentes resource[%s]", gvk.String())
 	if krc == nil {
 		return fmt.Errorf("dynamic client is nil")
@@ -233,7 +244,8 @@ func (krc *KubeRuntimeClient) Create(resource interface{}, gvk schema.GroupVersi
 	return err
 }
 
-func (krc *KubeRuntimeClient) Delete(namespace string, name string, gvk schema.GroupVersionKind) error {
+func (krc *KubeRuntimeClient) Delete(namespace string, name string, fv pfschema.FrameworkVersion) error {
+	gvk := frameworkVersionToGVK(fv)
 	log.Debugf("executor begin to delete kubernetes resource[%s]. ns:[%s] name:[%s]", gvk.String(), namespace, name)
 	if krc == nil {
 		return fmt.Errorf("dynamic client is nil")
@@ -257,12 +269,12 @@ func (krc *KubeRuntimeClient) Delete(namespace string, name string, gvk schema.G
 	return err
 }
 
-func (krc *KubeRuntimeClient) Patch(namespace, name string, gvk schema.GroupVersionKind, data []byte) error {
+func (krc *KubeRuntimeClient) Patch(namespace, name string, fv pfschema.FrameworkVersion, data []byte) error {
+	gvk := frameworkVersionToGVK(fv)
 	log.Debugf("executor begin to patch kubernetes resource[%s]. ns:[%s] name:[%s]", gvk.String(), namespace, name)
 	if krc == nil {
 		return fmt.Errorf("dynamic client is nil")
 	}
-
 	patchType := types.StrategicMergePatchType
 	patchOptions := v1.PatchOptions{}
 	gvrMap, err := krc.GetGVR(gvk)
@@ -280,7 +292,8 @@ func (krc *KubeRuntimeClient) Patch(namespace, name string, gvk schema.GroupVers
 	return err
 }
 
-func (krc *KubeRuntimeClient) Update(resource interface{}, gvk schema.GroupVersionKind) error {
+func (krc *KubeRuntimeClient) Update(resource interface{}, fv pfschema.FrameworkVersion) error {
+	gvk := frameworkVersionToGVK(fv)
 	log.Debugf("executor begin to update kubernetes resource[%s]", gvk.String())
 	if krc == nil {
 		return fmt.Errorf("dynamic client is nil")
