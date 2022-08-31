@@ -38,7 +38,6 @@ func NewBadgerClient(config Config) (KvClient, error) {
 	var db *badger.DB
 	var err error
 	if config.Driver == MemType {
-
 		db, err = badger.Open(badger.DefaultOptions("").WithInMemory(true))
 	} else if config.Driver == DiskType {
 		cachePath := filepath.Join(config.CachePath, config.FsID+".db")
