@@ -85,21 +85,22 @@ func TestExecutor(t *testing.T) {
 	})
 	t.Logf("patch resource %s", string(patchJSON))
 	assert.Equal(t, nil, err)
+	frameworkVersion := pfschema.NewFrameworkVersion(gvk.Kind, gvk.GroupVersion().String())
 	// create kubernetes resource with dynamic client
-	err = runtimeClient.Create(obj, gvk)
+	err = runtimeClient.Create(obj, frameworkVersion)
 	assert.Equal(t, nil, err)
 	// patch kubernetes resource with dynamic client
-	err = runtimeClient.Patch(namespace, name, gvk, patchJSON)
+	err = runtimeClient.Patch(namespace, name, frameworkVersion, patchJSON)
 	assert.Equal(t, nil, err)
 	// get kubernetes resource with dynamic client
-	obj, err = runtimeClient.Get(namespace, name, gvk)
+	_, err = runtimeClient.Get(namespace, name, frameworkVersion)
 	assert.Equal(t, nil, err)
 	t.Logf("get patched resource %v", obj)
 	// delete kubernetes resource with dynamic client
-	err = runtimeClient.Delete(namespace, name, gvk)
+	err = runtimeClient.Delete(namespace, name, frameworkVersion)
 	assert.Equal(t, nil, err)
 	// kubernetes resource is not found
-	err = runtimeClient.Delete(namespace, name, gvk)
+	err = runtimeClient.Delete(namespace, name, frameworkVersion)
 	assert.NotEqual(t, nil, err)
 
 	// create non namespaced kubernetes resource
@@ -115,12 +116,13 @@ func TestExecutor(t *testing.T) {
 		},
 	}
 	// create kubernetes resource with dynamic client
-	err = runtimeClient.Create(obj, gvk)
+	frameworkVersion = pfschema.NewFrameworkVersion(gvk.Kind, gvk.GroupVersion().String())
+	err = runtimeClient.Create(obj, frameworkVersion)
 	assert.Equal(t, nil, err)
 	// get kubernetes resource with dynamic client
-	_, err = runtimeClient.Get(namespace, name, gvk)
+	_, err = runtimeClient.Get(namespace, name, frameworkVersion)
 	assert.Equal(t, nil, err)
 	// delete kubernetes resource with dynamic client
-	err = runtimeClient.Delete(namespace, name, gvk)
+	err = runtimeClient.Delete(namespace, name, frameworkVersion)
 	assert.Equal(t, nil, err)
 }

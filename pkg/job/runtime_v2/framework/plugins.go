@@ -30,12 +30,12 @@ type JobBuilder = func(RuntimeClientInterface) JobInterface
 var kubeJobMutex sync.RWMutex
 var kubeJobBuilders = map[string]JobBuilder{}
 
-func RegisterJobBuilder(runtimeType, groupVersionKindStr string, job JobBuilder) {
+func RegisterJobBuilder(runtimeType, frameworkVersion string, job JobBuilder) {
 	switch runtimeType {
 	case schema.KubernetesType:
 		kubeJobMutex.Lock()
 		defer kubeJobMutex.Unlock()
-		kubeJobBuilders[groupVersionKindStr] = job
+		kubeJobBuilders[frameworkVersion] = job
 	default:
 		fmt.Printf("runtime type %s is not supported\n", runtimeType)
 	}
@@ -52,14 +52,14 @@ func CleanupJobBuilders(runtimeType string) {
 	}
 }
 
-func GetJobBuilder(runtimeType, groupVersionKindStr string) (JobBuilder, bool) {
+func GetJobBuilder(runtimeType, frameworkVersion string) (JobBuilder, bool) {
 	var jobBuilder JobBuilder
 	var found bool
 	switch runtimeType {
 	case schema.KubernetesType:
 		kubeJobMutex.RLock()
 		defer kubeJobMutex.RUnlock()
-		jobBuilder, found = kubeJobBuilders[groupVersionKindStr]
+		jobBuilder, found = kubeJobBuilders[frameworkVersion]
 	default:
 		fmt.Printf("runtime type %s is not supported\n", runtimeType)
 	}
