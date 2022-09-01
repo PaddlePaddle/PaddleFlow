@@ -141,6 +141,7 @@ type FileSystemStoreInterface interface {
 	UpdateFSCacheConfig(fsCacheConfig *model.FSCacheConfig) error
 	DeleteFSCacheConfig(tx *gorm.DB, fsID string) error
 	GetFSCacheConfig(fsID string) (model.FSCacheConfig, error)
+	ListFSCacheConfig(fsIDs []string) ([]model.FSCacheConfig, error)
 }
 
 // FsCacheStoreInterface currently has two implementations: DB and memory
