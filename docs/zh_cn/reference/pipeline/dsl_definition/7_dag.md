@@ -224,7 +224,7 @@ with DAG(name="dag1") as dag1:
 
 在上面的示例中，通过代码指定`dag1`的子节点`step2`在流程上依赖于`dag1`的兄弟节点`step1`。
 
-此时，DSL会将相关流程依赖关系更改为：
+在编译时，DSL会将相关流程依赖关系更改为：
 - 节点`dag1`在流程上依赖于`step1`
 
 ##### 子节点被DAG外的节点所依赖
@@ -239,7 +239,7 @@ step2.after(step1)
 
 在上面的示例中，通过代码指定节点`step2`在流程上依赖了`dag1`的子节点`step1`。
 
-此时，DSL会将依赖关系更改为：
+在编译时，DSL会将依赖关系更改为：
 - 节点`step2`在流程上依赖其兄弟节点`dag1`
 
 
@@ -275,7 +275,7 @@ with DAG(name="dag1") as dag1:
 ```
 在上面的示例中，代码中指定节点`step2`的parameter[p2]引用其父节点的兄弟节点`step1`的parameter[p1]。
 
-在编译时，DSL会将该Paramter的引用关系更改为：
+在编译时，DSL会将该Parameter的引用关系更改为：
 - 节点`dag1`增加一个引用了`step1`的parameter[p1]的Parameter，其名字为：dsl_param_${rand_code}
   - 其中${rand_code}为6位随机码
 - 节点`step2`的parameter[p2]改为引用节点`dag1`新增的Parameter[dsl_param_${rand_code}]
@@ -311,6 +311,7 @@ with DAG(name="dag1") as dag1:
 
 
 
-[DAG]: TODO
+[DAG]: /docs/zh_cn/reference/sdk_reference/pipeline_dsl_reference.md#3dag
 [dag_yaml]: /docs/zh_cn/reference/pipeline/yaml_definition/7_dag.md
-[pipeline中指定节点依赖关系]: TODO
+[pipeline中指定节点依赖关系]: /docs/zh_cn/reference/pipeline/dsl_definition/1_pipeline_basic.md#43%E6%8C%87%E5%AE%9Astep%E5%AE%9E%E4%BE%8B%E9%97%B4%E7%9A%84%E4%BE%9D%E8%B5%96%E5%85%B3%E7%B3%BB
+[dag_example]: /example/pipeline/dag_example
