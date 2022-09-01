@@ -1,6 +1,6 @@
 在本章节中，我们将介绍如何在DSL中使用[共享存储][共享存储], 关于在Pipeline中使用共享存储的详细介绍，请参考[这里][multiple_fs_yaml]。
 
-# 1、Pipeline示例
+# 1、pipeline示例
 下面是一个在DSL中使用共享存储的案例：
 
 >该示例中pipeline定义，以及示例相关运行脚本，来自paddleflow项目下example/pipeline/multiple_fs示例
@@ -64,7 +64,7 @@ if __name__ == "__main__":
 ```
 
 # 2、节点级别的extra_fs
-与yaml规范一样, 在DSL中，也支持用户在定义节点时，通过extra_fs字段指定共享存储的挂载信息。
+在DSL中，用户在定义节点时，可以通过extra_fs字段指定共享存储的挂载信息。
 
 这里需要注意的是，节点的extra_fs需要是一个list，其中的每一个元素都应该是一个[ExtraFS]实例。
 
@@ -82,7 +82,7 @@ def step_extra_fs():
 ```
 
 # 3、Pipeline级别的fs_options
-除了可以在定义节点时指定extra_fs外，也可以设置Pipeline级别共享信息。
+除了可以在定义节点时指定extra_fs外，也可以在pipeline级别设置共享存储信息。
 
 Pipeline级别的共享存储信息，通过访问Pipeline实例的fs_options属性来完成设置。fs_options属性需要是一个[FSOptions][FSOptions]实例，其详细介绍请参考[这里][fs_options_yaml]，此处不再赘述。
 
