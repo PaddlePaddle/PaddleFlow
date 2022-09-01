@@ -159,8 +159,7 @@ func (sp *SingleJob) fillContainer(container *v1.Container, podName string) erro
 	// fill image
 	container.Image = sp.Image
 	// fill command
-	workDir := sp.getWorkDir(nil)
-	container.Command = sp.generateContainerCommand(sp.Command, workDir)
+	sp.fillCMDInContainer(container, nil)
 
 	// container.Args would be passed
 	// fill resource
