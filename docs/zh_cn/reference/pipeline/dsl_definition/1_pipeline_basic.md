@@ -81,7 +81,7 @@ from paddleflow.pipeline import PF_RUN_ID
 # 3、定义Step
 在Paddleflow Pipeline中，Step是运行Pipeline时最基本的调度单位，每一个Step都会执行一个指定的任务。
 
-在定义Pipeline之前，首先需要完成Step的定义，在DSL中，我们实例化ContainerStep即可完成Step的定义。
+在定义Pipeline之前，首先需要完成Step的定义，在DSL中，我们实例化ContainerStep对象即可完成Step的定义。
 
 如上面[示例中](#1pipeline示例)的`preprocess()`,`train()`,`validate()`函数所示, 在这三个函数中，都实例化了一个ContainerStep对象。为了方便，我们将`preprocess()`的函数代码抄录如下：
 
@@ -121,7 +121,7 @@ ContainerStep 初始化函数的主要参数说明如下：
 接下来，我们将依次介绍这三个步骤。
 
 ## 4.1、实例化Pipeline对像
-在将Step实例添加至Pipeline实例前，我们需要先实例化相关的Pipeline对象。这里需要特别注意的是，Pipeline是一个类装饰器，需要讲起作为一个函数的装饰器去进行实例化，如上面的[示例](#1pipeline示例)所示：
+在将Step实例添加至Pipeline实例前，我们需要先实例化相关的Pipeline对象。这里需要特别注意的是，Pipeline是一个类装饰器，需要将起作为一个函数的装饰器去进行实例化，如上面的[示例](#1pipeline示例)所示：
 ```python3
 @Pipeline(name="base_pipeline", docker_env="nginx:1.7.9", parallelism=1)
 def base_pipeline(epoch=5):
@@ -176,7 +176,7 @@ stepA.after(stepB)
 StepA.parameters["P1"] = StepB.parameters["P2"]
 ```
 
-在运行StepA时，ParameterP1的值将会被替换为StepB的ParameterP2的值，具体的替换逻辑可以参考[这里][变量模板与替换]
+在运行StepA时，Parameter["P1"]的值将会被替换为StepB的Parameter["P2"]的值，具体的替换逻辑可以参考[这里][变量模板与替换]
 > 如果两个步骤间存在与Parameter依赖，则会隐含这两个步骤存在流程依赖，如上例中，则会隐含有stepA在流程上依赖于stepB
     
 > 一些细心的用户应该早已发现，在上面的[pipeline示例](#1pipeline示例)中，存在有如下的参数依赖：
@@ -195,25 +195,16 @@ if __name__ == "__main__":
     print(ppl.run(fs_name="ppl"))   
 ```
 
-## 6、更多信息
-[在DSL中使用Artifact][DSL-Artifact]
-    
-[在DSL中使用Cache][DSL-Cache]
-    
-[在DSL中使用PostProcess和FailureOpitons][PostProcess-And-FailureOpitons]
-
-[DSL接口文档][DSL接口文档]
-
 
 [yaml定义规范]: /docs/zh_cn/reference/pipeline/yaml_definition
 [base_pipeline]: /example/pipeline/base_pipeline
-[SDK安装与配置]: /docs/zh_cn/deployment/how_to_install_paddlecli.md 
+[SDK安装与配置]: /docs/zh_cn/deployment/how_to_install_paddleflow.md#1%E5%AE%A2%E6%88%B7%E7%AB%AF
 [节点字段]: /docs/zh_cn/reference/pipeline/yaml_definition/1_pipeline_basic.md#22-节点字段
-[变量模板与替换]: /docs/zh_cn/reference/pipeline/yaml_definition/1_pipeline_basic.md#32-变量模板与替换
+[变量模板与替换]: /docs/zh_cn/reference/pipeline/yaml_definition/1_pipeline_basic.md#31-变量模板与替换
 [DSL-Artifact]: /docs/zh_cn/reference/pipeline/dsl_definition/2_artifact.md
 [DSL-Cache]: /docs/zh_cn/reference/pipeline/dsl_definition/3_cache.md
 [PostProcess-And-FailureOpitons]: /docs/zh_cn/reference/pipeline/dsl_definition/4_failure_options_and_post_process.md
 [DSL接口文档]: /docs/zh_cn/reference/sdk_reference/pipeline_dsl_reference.md
-[Parameter]: /docs/zh_cn/reference/sdk_reference/pipeline_dsl_reference.md#Parameter
+[Parameter]: /docs/zh_cn/reference/sdk_reference/pipeline_dsl_reference.md#5Parameter
 [ContainerStep]: /docs/zh_cn/reference/sdk_reference/pipeline_dsl_reference.md#2ContainerStep
 [Pipeline]: /docs/zh_cn/reference/sdk_reference/pipeline_dsl_reference.md#1Pipeline
