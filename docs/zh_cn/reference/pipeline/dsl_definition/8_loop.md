@@ -144,17 +144,17 @@ with DAG(name="dag1", loop_argument=[[1,2,3], [1,2,3]]) as dag1:
 ```
 
 # 3、获取当次遍历的循环参数值
-对于定义了循环结构的节点，在运行，其会对循环参数进行遍历，对于其中的每一项，对于调度执行一次节点。
+对于定义了循环结构的节点，在运行，其会对循环参数进行遍历，对于其中的每一项，都会调度执行一次当前节点。
 
-那么在该节点运行时，如何获取循环参数在当次运行的值呢？
+那么在该节点执行时，如何获取循环参数在当次运行的值呢？
 - 在DSL中，节点的command以及其对应的env中，均可以直接引用其本身loop_arguments属性的item属性
-  - 如在上面的而示例中，节点`process`的command所示：
+  - 如在上面的示例中，节点`process`的command所示：
 ```python3
 step.command = f"cd /process && python3 process.py {step.loop_argument.item}"
 ```
 
 - 在节点运行时，其将会被替换为循环参数在当次遍历的值
-  - 还是以上面示例中的节点`process`为例，假设你loop_argument的值为[1, 2, 3]
+  - 还是以上面示例中的节点`process`为例，假设loop_argument的值为[1, 2, 3]
   - 则节点`process`将会执行三次，其command分别为：
     - cd /process && python3 process.py 1
     - cd /process && python3 process.py 2
