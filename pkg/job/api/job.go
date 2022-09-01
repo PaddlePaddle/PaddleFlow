@@ -18,11 +18,9 @@ package api
 
 import (
 	"fmt"
-
 	"time"
 
 	log "github.com/sirupsen/logrus"
-	k8sschema "k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
@@ -159,21 +157,23 @@ func (pfj *PFJob) FrameworkVersion() string {
 }
 
 type JobSyncInfo struct {
-	ID            string
-	Namespace     string
-	ParentJobID   string
-	GVK           k8sschema.GroupVersionKind
-	Status        schema.JobStatus
-	RuntimeInfo   interface{}
-	RuntimeStatus interface{}
-	Message       string
-	Action        schema.ActionType
-	RetryTimes    int
+	ID          string
+	Namespace   string
+	ParentJobID string
+	// TODO: merge FrameworkVersion and Framework
+	FrameworkVersion schema.FrameworkVersion
+	Framework        schema.Framework
+	Status           schema.JobStatus
+	RuntimeInfo      interface{}
+	RuntimeStatus    interface{}
+	Message          string
+	Action           schema.ActionType
+	RetryTimes       int
 }
 
 func (js *JobSyncInfo) String() string {
-	return fmt.Sprintf("job id: %s, parentJobID: %s, gvk: %s, status: %s, message: %s",
-		js.ID, js.ParentJobID, js.GVK, js.Status, js.Message)
+	return fmt.Sprintf("job id: %s, parentJobID: %s, framework: %s, status: %s, message: %s",
+		js.ID, js.ParentJobID, js.Framework, js.Status, js.Message)
 }
 
 type TaskSyncInfo struct {
