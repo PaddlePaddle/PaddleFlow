@@ -359,7 +359,7 @@ func (j *KubeJob) fillContainerInTasks(container *corev1.Container, task model.M
 	if j.isNeedPatch(container.Image) {
 		container.Image = task.Image
 	}
-	if j.isNeedPatch(task.Command) {
+	if j.isNeedPatch(task.Command) && task.Command != "" {
 		workDir := j.getWorkDir(&task)
 		container.Command = j.generateContainerCommand(task.Command, workDir)
 	}
