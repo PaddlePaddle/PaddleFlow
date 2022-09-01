@@ -93,6 +93,6 @@ type RayJobList struct {
 	Items           []RayJob `json:"items"`
 }
 
-func init() {
-	SchemeBuilder.Register(&RayJob{}, &RayJobList{})
-}
+//func init() {
+//	SchemeBuilder.Register(&RayJob{}, &RayJobList{})
+//}
