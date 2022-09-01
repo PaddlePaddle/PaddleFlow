@@ -55,7 +55,8 @@ step.condition = f"{step.parameters['num']} > 0"
 
 需要注意的是，节点condition属性需要是一个字符串形式的条件表达式。
 
-如果在节点的condition属性中，引用某些节点的parameter，或者artifact，则在调度该节点时，会将其替换成对应的parameter和artifact的真实值，具体的替换逻辑请参考[这里][condition_yaml]
+如果在节点的condition属性中，引用某些节点的parameter，或者artifact，则在调度该节点时，会将其替换成对应的parameter和artifact的真实值，具体的替换逻辑请参考[这里][condition_replace]
 
 [condition_example]: /example/pipeline/condition_example
 [condition_yaml]: /docs/zh_cn/reference/pipeline/yaml_definition/10_condition.md
+[condition_replace]: /docs/zh_cn/reference/pipeline/yaml_definition/10_condition.md#3-pipeline运行流程
