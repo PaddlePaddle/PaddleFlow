@@ -169,7 +169,7 @@ class ComponentInferer(object):
 
         return [tpl for tpl in matches]
     
-    def _infer_by_template(self, tpl: re.Match, filed_type: str):
+    def _infer_by_template(self, tpl, filed_type: str):
         """ add parameter or input artifact according template
         """
         # template: {{parameter: $fullname.$parameter_name}} or {{artifact: $fullname.$artifact_name}}
@@ -180,7 +180,7 @@ class ComponentInferer(object):
         elif tpl.group("type") == "loop":
             return self._infer_by_loop_template(tpl, filed_type)
     
-    def _infer_art_by_template(self, tpl: re.Match, filed_type: str):
+    def _infer_art_by_template(self, tpl, filed_type: str):
         """ infer artifact by template
         """
         full_name = tpl.group("component_full_name")
@@ -200,7 +200,7 @@ class ComponentInferer(object):
 
         return self._component.inputs[art_name]
         
-    def _infer_param_by_template(self, tpl: re.Match, filed_type: str):
+    def _infer_param_by_template(self, tpl, filed_type: str):
         """ infer parameter by template
         """
         full_name = tpl.group("component_full_name")
@@ -222,7 +222,7 @@ class ComponentInferer(object):
 
         return self._component.parameters[param_name]
 
-    def _infer_by_loop_template(self, tpl: re.Match, filed_type: str):
+    def _infer_by_loop_template(self, tpl, filed_type: str):
         """ infer parameter or artifact by loop template
         """
         full_name = tpl.group("component_full_name")

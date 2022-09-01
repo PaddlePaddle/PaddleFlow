@@ -124,7 +124,7 @@ func TestKubeRuntimeJob(t *testing.T) {
 		Namespace:         "default",
 		JobType:           schema.TypeVcJob,
 		JobMode:           schema.EnvJobModePod,
-		ExtensionTemplate: vcjobManifest,
+		ExtensionTemplate: []byte(vcjobManifest),
 		Conf: schema.Conf{
 			Env: map[string]string{
 				schema.EnvJobQueueName: "default",
