@@ -177,7 +177,6 @@ type JobStoreInterface interface {
 	// job
 	CreateJob(job *model.Job) error
 	GetJobByID(jobID string) (model.Job, error)
-	GetUnscopedJobByID(jobID string) (model.Job, error)
 	GetJobStatusByID(jobID string) (schema.JobStatus, error)
 	DeleteJob(jobID string) error
 	UpdateJobStatus(jobId, errMessage string, newStatus schema.JobStatus) error
