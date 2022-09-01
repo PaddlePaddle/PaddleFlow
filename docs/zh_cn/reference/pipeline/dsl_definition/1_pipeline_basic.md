@@ -1,4 +1,4 @@
-# DSL 使用基础
+本章主要介绍如何使用DSL来定义最基础的Pipeline
 
 # 1、pipeline示例
 开发者除了可以通过编写[yaml定义规范][yaml定义规范]来定义pipeline外，Paddleflow Pipeline也提供Python DSL供开发者们通过写Python代码的方式来完成pipeline的定义。

@@ -1,5 +1,4 @@
-# 使用 Artifact
-在[DSL使用基础中][DSL使用基础]，我们介绍了DSL的基础使用。但是，在某些情况下，Step所执行的任务会生成一些数据，我们需要将这些数据进行科学的管理，方便后期使用、追踪、复现等操作。因此我们引入了Artifact的概念，关于Artifact的详细解释，请点击[这里][Artifact-ref]。本文主要讲解如何在使用DSL定义pipeline时使用Artifact特性，不在对其定义进行赘述。
+在某些情况下，Step所执行的任务会生成一些数据，我们需要将这些数据进行科学的管理，方便后期使用、追踪、复现等操作。因此我们引入了Artifact的概念，关于Artifact的详细解释，请点击[这里][Artifact-ref]。本文主要讲解如何在使用DSL定义pipeline时使用Artifact特性，不在对其定义进行赘述。
 
 # 1、Pipeline示例
 下面是基于[DSL使用基础中][DSL使用基础]的示例增加了Artifact特性制作而成:
@@ -116,14 +115,6 @@ train_step = train(epoch, preprocess_step.outputs["train_data"])
 
 
 >如果StepA使用了StepB的输出artifact作为自身的输入artifact，则会隐含StepA在流程上依赖于StepB
-
-# 4、更多信息
-[在DSL中使用Cache][DSL-Cache]
-    
-[在DSL中使用PostProcess和FailureOpitons][DSL-PostProcess-And-FailureOpitons]
-
-[DSL接口文档][DSL接口文档]
-
 
 
 [DSL使用基础]: /docs/zh_cn/reference/pipeline/dsl_definition/1_pipeline_basic.md
