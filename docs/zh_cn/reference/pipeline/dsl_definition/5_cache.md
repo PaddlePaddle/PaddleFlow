@@ -1,5 +1,4 @@
-# 使用Cache机制
-在[DSL使用基础中][DSL使用基础]，我们介绍了DSL的基础使用。但是，在某些情况下，对于已经运行过的Step，我们希望其可以直接使用上次运行的结果，以节省运行时间，加快迭代效率，此时我们便需要使用Cache机制。
+在某些情况下，对于已经运行过的Step，我们希望其可以直接使用上次运行的结果，以节省运行时间，加快迭代效率，此时我们便需要使用Cache机制。
 
 关于Cache机制的详细解释，请点击[这里][Cache-ref]。本文主要讲解如何在使用DSL定义pipeline时如何使用Cache机制，不在对其定义进行赘述。
 
@@ -96,7 +95,7 @@ def cache_example(epoch=15):
 # 3、Step级别的Cache
 在调用ContainerStep的初始化函数时，可以给其cache_options参数进行赋值，来设置Step级别的Cache配置。
 
-cache_options的参数值需要是一个 [CacheOptions][CacheOptions]的实例。在上例中，我们通过如下的代码, 给preprocess_step设置了自身的cache配置：
+cache_options的参数值需要是一个[CacheOptions][CacheOptions]的实例。在上例中，我们通过如下的代码, 给preprocess_step设置了自身的cache配置：
 ```python3
 def preprocess():
     """ data preprocess step
@@ -115,16 +114,10 @@ def preprocess():
     return step
 ``` 
 
-# 4、更多信息
-    
-[在DSL中使用PostProcess和FailureOpitons][DSL-PostProcess-And-FailureOpitons]
-
-[DSL接口文档][DSL接口文档]
-
 [Cache-ref]: /docs/zh_cn/reference/pipeline/yaml_definition/3_cache.md
 [DSL使用基础]: /docs/zh_cn/reference/pipeline/dsl_definition/1_pipeline_basic.md
 [artifact_pipeline]: /docs/zh_cn/reference/pipeline/dsl_definition/2_artifact.md
 [cache_example]: /example/pipeline/cache_example
-[CacheOptions]: /docs/zh_cn/reference/sdk_reference/pipeline_dsl_reference.md#5CacheOptions
+[CacheOptions]: /docs/zh_cn/reference/sdk_reference/pipeline_dsl_reference.md#9CacheOptions
 [DSL-PostProcess-And-FailureOpitons]: /docs/zh_cn/reference/pipeline/dsl_definition/4_failure_options_and_post_process.md
 [DSL接口文档]: /docs/zh_cn/reference/sdk_reference/pipeline_dsl_reference.md
