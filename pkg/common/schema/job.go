@@ -108,6 +108,9 @@ const (
 	FrameworkMXNet      Framework = "mxnet"
 	FrameworkStandalone Framework = "standalone"
 
+	ListenerTypeJob  = "job"
+	ListenerTypeTask = "task"
+
 	// job priority
 	EnvJobVeryLowPriority  = "VERY_LOW"
 	EnvJobLowPriority      = "LOW"
