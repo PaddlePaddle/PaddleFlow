@@ -3,7 +3,7 @@
 # 1、 pipeline示例
 下面为一个定义了DAG节点的示例Pipeline定义
 
-> 该示例中pipeline定义，以及示例相关运行脚本，来自pddleflow项目下example/pipeline/dag_example 示例。
+> 该示例中pipeline定义，以及示例相关运行脚本，来自paddleflow项目下example/pipeline/dag_example 示例。
 > 
 > 示例链接：[dag_example]
 ```python3
