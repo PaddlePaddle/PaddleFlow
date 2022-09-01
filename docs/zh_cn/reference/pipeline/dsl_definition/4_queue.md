@@ -84,4 +84,4 @@ if __name__ == "__main__":
 [命令行手册]: /docs/zh_cn/reference/client_command_reference.md
 [SDK手册]: /docs/zh_cn/reference/sdk_reference/sdk_reference.md
 [Pipeline级别环境变量设置]: /docs/zh_cn/reference/sdk_reference/pipeline_dsl_reference.md#1pipeline
-[Step级别环境变量设置]: /docs/zh_cn/reference/sdk_reference/pipeline_dsl_reference.md#1pipeline
+[Step级别环境变量设置]: /docs/zh_cn/reference/sdk_reference/pipeline_dsl_reference.md#2containerstep
