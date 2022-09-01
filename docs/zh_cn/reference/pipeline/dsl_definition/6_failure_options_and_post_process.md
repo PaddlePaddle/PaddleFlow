@@ -1,6 +1,3 @@
-# 使用post_process与failure_options
-在[DSL使用基础中][DSL使用基础]，我们介绍了DSL的基础使用。
-
 在某些情况下，在Pipeline任务结束时，我们需要执行某些操作，如向相关人员发送邮件，向某个服务发请求以做进一步的处理等，此时便需要使用post_process机制。
 
 在Pipeline任务运行时，有一个节点运行失败了，其余的节点需要怎么处理？是快速失败还是继续运行？此时便需要使用failure_options机制。
@@ -69,16 +66,11 @@ def set_post_process(self, step: Step):
 ppl.set_post_process(step("step6"))
 ```
 
-# 4、更多信息
-[DSL接口文档][DSL接口文档]
-
-[在DSL中使用Cache][DSL-Cache]
-
 [DSL使用基础]: /docs/zh_cn/reference/pipeline/dsl_definition/1_pipeline_basic.md
-[FailureOptions]: /docs/zh_cn/reference/sdk_reference/pipeline_dsl_reference.md#6FailureOptions
+[FailureOptions]: /docs/zh_cn/reference/sdk_reference/pipeline_dsl_reference.md#10FailureOptions
 [DSL接口文档]: /docs/zh_cn/reference/sdk_reference/pipeline_dsl_reference.md
 [在DSL中使用Cache]: /docs/zh_cn/reference/pipeline/dsl_definition/3_cache.md
 [artifact_pipeline]: /docs/zh_cn/reference/pipeline/dsl_definition/2_artifact.md
-[Post-Fail-ref]: /docs/zh_cn/reference/pipeline/yaml_definition/4_failure_options_and_post_process.md
+[Post-Fail-ref]: /docs/zh_cn/reference/pipeline/yaml_definition/6_failure_options_and_post_process.md
 [failure_options_and_post_process_example]: /example/pipeline/failure_options_and_post_process_example
 [DSL-Cache]: /docs/zh_cn/reference/pipeline/dsl_definition/3_cache.md
