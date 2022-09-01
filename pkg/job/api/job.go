@@ -22,6 +22,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
@@ -50,19 +51,20 @@ type PFJob struct {
 	// ClusterID and QueueID of job
 	ClusterID    ClusterID
 	QueueID      QueueID
+	QueueName    string
 	Resource     *resources.Resource
 	Priority     int32
 	MinAvailable int32
 	// PriorityClassName defines job info on cluster
 	PriorityClassName string
-	// storage resource for job
-	FSID string
+
 	// Tasks for TypeDistributed job
 	Tasks []model.Member
 	// ExtRuntimeConf define extra runtime conf
 	ExtRuntimeConf []byte
 	// ExtensionTemplate records the extension template of job
-	ExtensionTemplate string
+	ExtensionTemplate []byte
+	IsCustomYaml      bool
 	// Conf for job
 	Conf schema.Conf
 
@@ -94,14 +96,14 @@ func NewJobInfo(job *model.Job) (*PFJob, error) {
 		Framework:         job.Framework,
 		ClusterID:         ClusterID(job.Config.GetClusterID()),
 		QueueID:           QueueID(job.QueueID),
-		FSID:              job.Config.GetFS(),
+		QueueName:         job.Config.GetQueueName(),
 		UserName:          job.UserName,
 		Conf:              *job.Config,
 		Labels:            make(map[string]string),
 		Annotations:       make(map[string]string),
 		Resource:          job.Resource,
 		Tasks:             job.Members,
-		ExtensionTemplate: job.ExtensionTemplate,
+		ExtensionTemplate: []byte(job.ExtensionTemplate),
 	}
 	log.Debugf("gererated pfjob is: %#v", pfjob)
 	return pfjob, nil
@@ -124,3 +126,74 @@ func (pfj *PFJob) UpdateAnnotations(annotations map[string]string) {
 func (pfj *PFJob) UpdateJobPriority(priorityClassName string) {
 	pfj.PriorityClassName = priorityClassName
 }
+
+func (pfj *PFJob) GetID() string {
+	return pfj.ID
+}
+
+func (pfj *PFJob) FrameworkVersion() string {
+	// TODO: support multi cluster
+	if pfj.JobType == schema.TypeWorkflow {
+		return k8s.ArgoWorkflowGVK.String()
+	}
+	frameworkVersion := ""
+	switch pfj.Framework {
+	case schema.FrameworkStandalone:
+		frameworkVersion = k8s.PodGVK.String()
+	case schema.FrameworkTF:
+		frameworkVersion = k8s.TFJobGVK.String()
+	case schema.FrameworkPytorch:
+		frameworkVersion = k8s.PyTorchJobGVK.String()
+	case schema.FrameworkSpark:
+		frameworkVersion = k8s.SparkAppGVK.String()
+	case schema.FrameworkPaddle:
+		frameworkVersion = k8s.PaddleJobGVK.String()
+	case schema.FrameworkMXNet:
+		frameworkVersion = k8s.MXNetJobGVK.String()
+	case schema.FrameworkMPI:
+		frameworkVersion = k8s.MPIJobGVK.String()
+	}
+	return frameworkVersion
+}
+
+type JobSyncInfo struct {
+	ID          string
+	Namespace   string
+	ParentJobID string
+	// TODO: merge FrameworkVersion and Framework
+	FrameworkVersion schema.FrameworkVersion
+	Framework        schema.Framework
+	Status           schema.JobStatus
+	RuntimeInfo      interface{}
+	RuntimeStatus    interface{}
+	Message          string
+	Action           schema.ActionType
+	RetryTimes       int
+}
+
+func (js *JobSyncInfo) String() string {
+	return fmt.Sprintf("job id: %s, parentJobID: %s, framework: %s, status: %s, message: %s",
+		js.ID, js.ParentJobID, js.Framework, js.Status, js.Message)
+}
+
+type TaskSyncInfo struct {
+	ID         string
+	Name       string
+	Namespace  string
+	JobID      string
+	NodeName   string
+	MemberRole schema.MemberRole
+	Status     schema.TaskStatus
+	Message    string
+	PodStatus  interface{}
+	Action     schema.ActionType
+	RetryTimes int
+}
+
+type StatusInfo struct {
+	OriginStatus string
+	Status       schema.JobStatus
+	Message      string
+}
+
+type GetStatusFunc func(interface{}) (StatusInfo, error)

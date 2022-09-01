@@ -22,22 +22,26 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
+	corev1 "k8s.io/api/core/v1"
 )
 
 type FSCacheConfig struct {
-	PK                      int64                  `json:"-"                   gorm:"primaryKey;autoIncrement"`
-	FsID                    string                 `json:"fsID"                gorm:"type:varchar(36);unique_index"`
+	PK                      int64                  `json:"-"                    gorm:"primaryKey;autoIncrement"`
+	FsID                    string                 `json:"fsID"                 gorm:"type:varchar(36);unique_index"`
 	CacheDir                string                 `json:"cacheDir"`
 	Quota                   int                    `json:"quota"`
 	MetaDriver              string                 `json:"metaDriver"`
 	BlockSize               int                    `json:"blockSize"`
 	Debug                   bool                   `json:"debug"`
-	NodeAffinityJson        string                 `json:"-"                   gorm:"column:node_affinity;type:text;default:'{}'"`
-	NodeAffinityMap         map[string]interface{} `json:"nodeAffinity"        gorm:"-"`
-	NodeTaintTolerationJson string                 `json:"-"                   gorm:"column:node_tainttoleration;type:text;default:'{}'"`
-	NodeTaintTolerationMap  map[string]interface{} `json:"nodeTaintToleration" gorm:"-"`
-	ExtraConfigJson         string                 `json:"-"                   gorm:"column:extra_config;type:text;default:'{}'"`
-	ExtraConfigMap          map[string]string      `json:"extraConfig"         gorm:"-"`
+	CleanCache              bool                   `json:"cleanCache"`
+	Resource                ResourceLimit          `json:"resource"             gorm:"-"`
+	ResourceJson            string                 `json:"-"                    gorm:"column:resource;type:text"`
+	NodeAffinityJson        string                 `json:"-"                    gorm:"column:node_affinity;type:text;default:'{}'"`
+	NodeAffinity            corev1.NodeAffinity    `json:"nodeAffinity"         gorm:"-"`
+	NodeTaintTolerationJson string                 `json:"-"                    gorm:"column:node_tainttoleration;type:text;default:'{}'"`
+	NodeTaintTolerationMap  map[string]interface{} `json:"nodeTaintToleration"  gorm:"-"`
+	ExtraConfigJson         string                 `json:"-"                    gorm:"column:extra_config;type:text;default:'{}'"`
+	ExtraConfigMap          map[string]string      `json:"extraConfig"          gorm:"-"`
 	CreateTime              string                 `json:"createTime"           gorm:"-"`
 	UpdateTime              string                 `json:"updateTime,omitempty" gorm:"-"`
 	CreatedAt               time.Time              `json:"-"`
@@ -45,14 +49,25 @@ type FSCacheConfig struct {
 	DeletedAt               gorm.DeletedAt         `json:"-"`
 }
 
+type ResourceLimit struct {
+	CpuLimit    string `json:"cpuLimit"`
+	MemoryLimit string `json:"memoryLimit"`
+}
+
 func (s *FSCacheConfig) TableName() string {
 	return "fs_cache_config"
 }
 
 func (s *FSCacheConfig) AfterFind(*gorm.DB) error {
+	if s.ResourceJson != "" {
+		if err := json.Unmarshal([]byte(s.ResourceJson), &s.Resource); err != nil {
+			log.Errorf("json Unmarshal ResourceJson[%s] failed: %v", s.ResourceJson, err)
+			return err
+		}
+	}
 	if s.NodeAffinityJson != "" {
-		s.NodeAffinityMap = make(map[string]interface{})
-		if err := json.Unmarshal([]byte(s.NodeAffinityJson), &s.NodeAffinityMap); err != nil {
+		s.NodeAffinity = corev1.NodeAffinity{}
+		if err := json.Unmarshal([]byte(s.NodeAffinityJson), &s.NodeAffinity); err != nil {
 			log.Errorf("json Unmarshal nodeAffinityJson[%s] failed: %v", s.NodeAffinityJson, err)
 			return err
 		}
@@ -77,9 +92,16 @@ func (s *FSCacheConfig) AfterFind(*gorm.DB) error {
 }
 
 func (s *FSCacheConfig) BeforeSave(*gorm.DB) error {
-	nodeAffinityMap, err := json.Marshal(&s.NodeAffinityMap)
+	resourceMapStr, err := json.Marshal(&s.Resource)
 	if err != nil {
-		log.Errorf("json Marshal nodeAffinityMap[%v] failed: %v", s.NodeAffinityMap, err)
+		log.Errorf("json Marshal Resource[%v] failed: %v", s.Resource, err)
+		return err
+	}
+	s.ResourceJson = string(resourceMapStr)
+
+	nodeAffinityMap, err := json.Marshal(&s.NodeAffinity)
+	if err != nil {
+		log.Errorf("json Marshal nodeAffinityMap[%v] failed: %v", s.NodeAffinity, err)
 		return err
 	}
 	s.NodeAffinityJson = string(nodeAffinityMap)
