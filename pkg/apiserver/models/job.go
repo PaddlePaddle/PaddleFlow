@@ -248,7 +248,7 @@ func jobStatusTransition(jobID string, preStatus, newStatus schema.JobStatus, ms
 }
 
 func UpdateJob(jobID string, status schema.JobStatus, runtimeInfo, runtimeStatus interface{}, message string) (schema.JobStatus, error) {
-	job, err := GetUnscopedJobByID(jobID)
+	job, err := GetJobByID(jobID)
 	if err != nil {
 		return "", errors.JobIDNotFoundError(jobID)
 	}
