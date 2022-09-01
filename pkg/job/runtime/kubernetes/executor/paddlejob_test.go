@@ -111,7 +111,7 @@ spec:
 				},
 			},
 		},
-		ExtensionTemplate: extensionPaddleYaml,
+		ExtensionTemplate: []byte(extensionPaddleYaml),
 	}
 	mockPaddlePSJob = api.PFJob{
 		ID:        "job-normal-0001",
@@ -148,7 +148,7 @@ spec:
 				},
 			},
 		},
-		ExtensionTemplate: extensionPaddleYaml,
+		ExtensionTemplate: []byte(extensionPaddleYaml),
 	}
 )
 

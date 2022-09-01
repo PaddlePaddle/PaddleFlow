@@ -98,7 +98,7 @@ func TestWorkflowJob(t *testing.T) {
 				Namespace:         "default",
 				JobType:           schema.TypeWorkflow,
 				Conf:              schema.Conf{},
-				ExtensionTemplate: extArgoWorkflowYaml,
+				ExtensionTemplate: []byte(extArgoWorkflowYaml),
 			},
 			wantErr: false,
 		},
