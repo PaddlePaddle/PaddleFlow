@@ -75,11 +75,13 @@ if __name__ == "__main__":
 # 2、详解
 与yaml规范中指定节点队列保持一致，在DSL中，也是通过环境变量来配置节点运行时的队列信息。
 
-与yaml规范不一样的是，DSL中，Pipeline和Step均支持环境变量的配置。具体的配置方式请点击下发连接：
+与yaml规范不一样的是，DSL中，Pipeline和Step均支持环境变量的配置。具体的配置方式请点击下方连接：
 - [Pipeline级别环境变量设置]
 - [Step级别环境变量设置]
 
 [queue_yaml]: /docs/zh_cn/reference/pipeline/yaml_definition/4_queue.md
 [queue_example]: /example/pipeline/queue_example
-[Pipeline级别环境变量设置]: TODO
-[Step级别环境变量设置]: TODO
+[命令行手册]: /docs/zh_cn/reference/client_command_reference.md
+[SDK手册]: /docs/zh_cn/reference/sdk_reference/sdk_reference.md
+[Pipeline级别环境变量设置]: /docs/zh_cn/reference/sdk_reference/pipeline_dsl_reference.md#1pipeline
+[Step级别环境变量设置]: /docs/zh_cn/reference/sdk_reference/pipeline_dsl_reference.md#1pipeline
