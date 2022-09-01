@@ -73,16 +73,6 @@ func (js *JobStore) GetJobByID(jobID string) (model.Job, error) {
 	return job, nil
 }
 
-func (js *JobStore) GetUnscopedJobByID(jobID string) (model.Job, error) {
-	var job model.Job
-	tx := js.db.Table("job").Where("id = ?", jobID).First(&job)
-	if tx.Error != nil {
-		logger.LoggerForJob(jobID).Errorf("get job failed, err %v", tx.Error.Error())
-		return model.Job{}, tx.Error
-	}
-	return job, nil
-}
-
 func (js *JobStore) GetJobStatusByID(jobID string) (schema.JobStatus, error) {
 	job, err := js.GetJobByID(jobID)
 	if err != nil {
@@ -151,7 +141,7 @@ func jobStatusTransition(jobID string, preStatus, newStatus schema.JobStatus, ms
 }
 
 func (js *JobStore) UpdateJob(jobID string, status schema.JobStatus, runtimeInfo, runtimeStatus interface{}, message string) (schema.JobStatus, error) {
-	job, err := js.GetUnscopedJobByID(jobID)
+	job, err := js.GetJobByID(jobID)
 	if err != nil {
 		return "", errors.JobIDNotFoundError(jobID)
 	}
