@@ -202,9 +202,14 @@ func BuildPod(pod *corev1.Pod, task model.Member) error {
 	fileSystems := task.Conf.GetAllFileSystem()
 	pod.Spec.Volumes = appendVolumesIfAbsent(pod.Spec.Volumes, generateVolumes(fileSystems))
 	// fill restartPolicy
-	if len(pod.Spec.RestartPolicy) == 0 {
+	restartPolicy := task.GetRestartPolicy()
+	if restartPolicy == string(corev1.RestartPolicyAlways) ||
+		restartPolicy == string(corev1.RestartPolicyOnFailure) {
+		pod.Spec.RestartPolicy = corev1.RestartPolicy(restartPolicy)
+	} else {
 		pod.Spec.RestartPolicy = corev1.RestartPolicyNever
 	}
+
 	// fill affinity
 	if len(fileSystems) != 0 {
 		var fsIDs []string
