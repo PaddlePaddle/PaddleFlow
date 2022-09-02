@@ -46,10 +46,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
-func FrameworkVersion(gvk kubeschema.GroupVersionKind) schema.FrameworkVersion {
-	return schema.NewFrameworkVersion(gvk.Kind, gvk.GroupVersion().String())
-}
-
 // ResponsibleForJob filter job belong to PaddleFlow
 func ResponsibleForJob(obj interface{}) bool {
 	job := obj.(*unstructured.Unstructured)
@@ -62,9 +58,9 @@ func ResponsibleForJob(obj interface{}) bool {
 	return false
 }
 
-// TODO: refactor these code
 // getDefaultPath get extra runtime conf default path
 func getDefaultPath(jobType schema.JobType, framework schema.Framework, jobMode string) string {
+	// TODO: refactor these code
 	log.Debugf("get default path, jobType=%s, jobMode=%s", jobType, jobMode)
 	baseDir := config.GlobalServerConfig.Job.DefaultJobYamlDir
 	suffix := ".yaml"
@@ -111,6 +107,7 @@ func CreateKubeJobFromYaml(jobEntity interface{}, groupVersionKind kubeschema.Gr
 	log.Debugf("createJobFromYaml jobEntity[%+v] %v", jobEntity, reflect.TypeOf(jobEntity))
 	// get extensionTemplate
 	if len(job.ExtensionTemplate) == 0 {
+		// get builtin template
 		var err error
 		job.IsCustomYaml = false
 		job.ExtensionTemplate, err = getDefaultTemplate(job.Framework, job.JobType, job.JobMode)
@@ -148,19 +145,9 @@ func CreateKubeJobFromYaml(jobEntity interface{}, groupVersionKind kubeschema.Gr
 	return nil
 }
 
-// appendMapsIfAbsent append Maps if absent, only support string type
-func appendMapsIfAbsent(Maps map[string]string, addMaps map[string]string) map[string]string {
-	if Maps == nil {
-		Maps = make(map[string]string)
-	}
-	for key, value := range addMaps {
-		if _, ok := Maps[key]; !ok {
-			Maps[key] = value
-		}
-	}
-	return Maps
-}
+// In the bellow, build kubernetes job metadata, spec and so on.
 
+// BuildKubeMetadata build metadata for kubernetes job
 func BuildKubeMetadata(metadata *metav1.ObjectMeta, job *api.PFJob) {
 	if job == nil {
 		return
@@ -178,81 +165,17 @@ func BuildKubeMetadata(metadata *metav1.ObjectMeta, job *api.PFJob) {
 	}
 }
 
-func KubeJobUpdatedData(jobInfo *api.PFJob) ([]byte, error) {
-	if jobInfo == nil {
-		return nil, fmt.Errorf("job is nil")
+// appendMapsIfAbsent append Maps if absent, only support string type
+func appendMapsIfAbsent(Maps map[string]string, addMaps map[string]string) map[string]string {
+	if Maps == nil {
+		Maps = make(map[string]string)
 	}
-	var updateData []byte
-	var err error
-	// update labels and annotations
-	if (jobInfo.Labels != nil && len(jobInfo.Labels) != 0) ||
-		(jobInfo.Annotations != nil && len(jobInfo.Annotations) != 0) {
-		patchJSON := struct {
-			metav1.ObjectMeta `json:"metadata,omitempty"`
-		}{
-			ObjectMeta: metav1.ObjectMeta{
-				Labels:      jobInfo.Labels,
-				Annotations: jobInfo.Annotations,
-			},
-		}
-		updateData, err = json.Marshal(patchJSON)
-		if err != nil {
-			log.Errorf("update kubernetes job[%s] failed, err: %v", jobInfo.ID, err)
-			return nil, err
+	for key, value := range addMaps {
+		if _, ok := Maps[key]; !ok {
+			Maps[key] = value
 		}
 	}
-	return updateData, err
-}
-
-// appendVolumesIfAbsent append newElements if not exist in volumes
-// if job with tasks, it should be like
-// `Volumes = appendVolumesIfAbsent(Volumes, generateVolumes(taskFs))`
-// otherwise,
-// `Volumes = appendVolumesIfAbsent(Volumes, generateVolumes(kubeJob.FileSystems))`
-func appendVolumesIfAbsent(volumes []corev1.Volume, newElements []corev1.Volume) []corev1.Volume {
-	log.Infof("appendVolumesIfAbsent volumes=%+v, newElements=%+v", volumes, newElements)
-	if len(newElements) == 0 {
-		return volumes
-	}
-	if len(volumes) == 0 {
-		volumes = []corev1.Volume{}
-	}
-	volumesDict := make(map[string]bool)
-	for _, v := range volumes {
-		volumesDict[v.Name] = true
-	}
-	for _, cur := range newElements {
-		if volumesDict[cur.Name] {
-			log.Debugf("volume %s has been created in jobTemplate", cur.Name)
-			continue
-		}
-		volumesDict[cur.Name] = true
-		volumes = append(volumes, cur)
-	}
-	return volumes
-}
-
-func generateVolumes(fileSystem []schema.FileSystem) []corev1.Volume {
-	log.Debugf("generateVolumes FileSystems[%+v]", fileSystem)
-	var vs []corev1.Volume
-	if len(fileSystem) == 0 {
-		log.Debugf("found len(fileSystem) is 0 when calling generateVolumes(fs), fs: %+v", fileSystem)
-		return vs
-	}
-
-	for _, fs := range fileSystem {
-		volume := corev1.Volume{
-			Name: fs.Name,
-			VolumeSource: corev1.VolumeSource{
-				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-					ClaimName: schema.ConcatenatePVCName(fs.ID),
-				},
-			},
-		}
-		vs = append(vs, volume)
-	}
-
-	return vs
+	return Maps
 }
 
 func BuildSchedulingPolicy(pod *corev1.Pod, priorityName string) error {
@@ -338,6 +261,57 @@ func generateAffinity(affinity *corev1.Affinity, fsIDs []string) (*corev1.Affini
 			affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms...)
 	}
 	return affinity, nil
+}
+
+// appendVolumesIfAbsent append newElements if not exist in volumes
+// if job with tasks, it should be like
+// `Volumes = appendVolumesIfAbsent(Volumes, generateVolumes(taskFs))`
+// otherwise,
+// `Volumes = appendVolumesIfAbsent(Volumes, generateVolumes(kubeJob.FileSystems))`
+func appendVolumesIfAbsent(volumes []corev1.Volume, newElements []corev1.Volume) []corev1.Volume {
+	log.Infof("appendVolumesIfAbsent volumes=%+v, newElements=%+v", volumes, newElements)
+	if len(newElements) == 0 {
+		return volumes
+	}
+	if len(volumes) == 0 {
+		volumes = []corev1.Volume{}
+	}
+	volumesDict := make(map[string]bool)
+	for _, v := range volumes {
+		volumesDict[v.Name] = true
+	}
+	for _, cur := range newElements {
+		if volumesDict[cur.Name] {
+			log.Debugf("volume %s has been created in jobTemplate", cur.Name)
+			continue
+		}
+		volumesDict[cur.Name] = true
+		volumes = append(volumes, cur)
+	}
+	return volumes
+}
+
+func generateVolumes(fileSystem []schema.FileSystem) []corev1.Volume {
+	log.Debugf("generateVolumes FileSystems[%+v]", fileSystem)
+	var vs []corev1.Volume
+	if len(fileSystem) == 0 {
+		log.Debugf("found len(fileSystem) is 0 when calling generateVolumes(fs), fs: %+v", fileSystem)
+		return vs
+	}
+
+	for _, fs := range fileSystem {
+		volume := corev1.Volume{
+			Name: fs.Name,
+			VolumeSource: corev1.VolumeSource{
+				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+					ClaimName: schema.ConcatenatePVCName(fs.ID),
+				},
+			},
+		}
+		vs = append(vs, volume)
+	}
+
+	return vs
 }
 
 func fillContainersInPod(podSpec *corev1.PodSpec, task model.Member) error {
@@ -527,86 +501,6 @@ func generateVolumeMounts(fileSystems []schema.FileSystem) []corev1.VolumeMount 
 	return vms
 }
 
-// Operations for kubernetes job, including single, paddle, sparkapp, tensorflow, pytorch, mpi jobs and so on.
-// getPodGroupName get the name of pod group
-func getPodGroupName(jobID string) string {
-	job, err := storage.Job.GetJobByID(jobID)
-	if err != nil {
-		log.Errorf("get job %s failed, err %v", jobID, err)
-		return ""
-	}
-
-	// TODO: remove job type TypeVcJob
-	if job.Type == string(schema.TypeVcJob) {
-		return jobID
-	}
-	pgName := ""
-	switch job.Framework {
-	case schema.FrameworkPaddle, schema.FrameworkPytorch, schema.FrameworkTF, schema.FrameworkMXNet:
-		pgName = jobID
-	case schema.FrameworkSpark:
-		pgName = fmt.Sprintf("spark-%s-pg", jobID)
-	case schema.FrameworkStandalone, "":
-		runtimeInfo := job.RuntimeInfo.(map[string]interface{})
-		jobObj := &unstructured.Unstructured{}
-		if err = runtime.DefaultUnstructuredConverter.FromUnstructured(runtimeInfo, jobObj); err != nil {
-			log.Errorf("convert obj to unstructed.Unstructed failed, err %v", err)
-			return ""
-		}
-		anno := jobObj.GetAnnotations()
-		if anno != nil {
-			pgName = anno[schedulingv1beta1.KubeGroupNameAnnotationKey]
-		}
-	default:
-		log.Warningf("the framework[%s] of job is not supported", job.Framework)
-		pgName = jobID
-	}
-	return pgName
-}
-
-func UpdateKubeJobPriority(jobInfo *api.PFJob, runtimeClient framework.RuntimeClientInterface) error {
-	// get pod group name for job
-	pgName := getPodGroupName(jobInfo.ID)
-	if len(pgName) == 0 {
-		err := fmt.Errorf("update priority for job %s failed, pod group not found", jobInfo.ID)
-		log.Errorln(err)
-		return err
-	}
-	frameworkVersion := schema.NewFrameworkVersion(k8s.PodGroupGVK.Kind, k8s.PodGroupGVK.GroupVersion().String())
-	obj, err := runtimeClient.Get(jobInfo.Namespace, pgName, frameworkVersion)
-	if err != nil {
-		log.Errorf("get pod group for job %s failed, err: %v", jobInfo.ID, err)
-		return err
-	}
-	unObj := obj.(*unstructured.Unstructured)
-	oldPG := &schedulingv1beta1.PodGroup{}
-	if err = runtime.DefaultUnstructuredConverter.FromUnstructured(unObj.Object, oldPG); err != nil {
-		log.Errorf("convert unstructured object [%v] to pod group failed. err: %v", obj, err)
-		return err
-	}
-	if oldPG.Status.Phase != schedulingv1beta1.PodGroupInqueue &&
-		oldPG.Status.Phase != schedulingv1beta1.PodGroupPending {
-		errmsg := fmt.Errorf("the job %s is already scheduled", jobInfo.ID)
-		log.Errorln(errmsg)
-		return errmsg
-	}
-
-	priorityClassName := kubePriorityClass(jobInfo.PriorityClassName)
-	if oldPG.Spec.PriorityClassName != priorityClassName {
-		oldPG.Spec.PriorityClassName = priorityClassName
-	} else {
-		err = fmt.Errorf("the priority of job %s is already %s", jobInfo.ID, oldPG.Spec.PriorityClassName)
-		log.Errorln(err)
-		return err
-	}
-
-	err = runtimeClient.Update(oldPG, frameworkVersion)
-	if err != nil {
-		log.Errorf("update priority for job %s failed. err: %v", jobInfo.ID, err)
-	}
-	return err
-}
-
 func kubePriorityClass(priority string) string {
 	switch priority {
 	case schema.EnvJobVeryLowPriority:
@@ -693,4 +587,111 @@ func patchPaddlePara(podTemplate *corev1.Pod, jobName string, task model.Member)
 		},
 	}, volumeMounts...)
 	return nil
+}
+
+// Operations for kubernetes job, including single, paddle, sparkapp, tensorflow, pytorch, mpi jobs and so on.
+
+// getPodGroupName get the name of pod group
+func getPodGroupName(jobID string) string {
+	job, err := storage.Job.GetJobByID(jobID)
+	if err != nil {
+		log.Errorf("get job %s failed, err %v", jobID, err)
+		return ""
+	}
+
+	// TODO: remove job type TypeVcJob
+	if job.Type == string(schema.TypeVcJob) {
+		return jobID
+	}
+	pgName := ""
+	switch job.Framework {
+	case schema.FrameworkPaddle, schema.FrameworkPytorch, schema.FrameworkTF, schema.FrameworkMXNet:
+		pgName = jobID
+	case schema.FrameworkSpark:
+		pgName = fmt.Sprintf("spark-%s-pg", jobID)
+	case schema.FrameworkStandalone, "":
+		runtimeInfo := job.RuntimeInfo.(map[string]interface{})
+		jobObj := &unstructured.Unstructured{}
+		if err = runtime.DefaultUnstructuredConverter.FromUnstructured(runtimeInfo, jobObj); err != nil {
+			log.Errorf("convert obj to unstructed.Unstructed failed, err %v", err)
+			return ""
+		}
+		anno := jobObj.GetAnnotations()
+		if anno != nil {
+			pgName = anno[schedulingv1beta1.KubeGroupNameAnnotationKey]
+		}
+	default:
+		log.Warningf("the framework[%s] of job is not supported", job.Framework)
+		pgName = jobID
+	}
+	return pgName
+}
+
+func UpdateKubeJobPriority(jobInfo *api.PFJob, runtimeClient framework.RuntimeClientInterface) error {
+	// get pod group name for job
+	pgName := getPodGroupName(jobInfo.ID)
+	if len(pgName) == 0 {
+		err := fmt.Errorf("update priority for job %s failed, pod group not found", jobInfo.ID)
+		log.Errorln(err)
+		return err
+	}
+	frameworkVersion := schema.NewFrameworkVersion(k8s.PodGroupGVK.Kind, k8s.PodGroupGVK.GroupVersion().String())
+	obj, err := runtimeClient.Get(jobInfo.Namespace, pgName, frameworkVersion)
+	if err != nil {
+		log.Errorf("get pod group for job %s failed, err: %v", jobInfo.ID, err)
+		return err
+	}
+	unObj := obj.(*unstructured.Unstructured)
+	oldPG := &schedulingv1beta1.PodGroup{}
+	if err = runtime.DefaultUnstructuredConverter.FromUnstructured(unObj.Object, oldPG); err != nil {
+		log.Errorf("convert unstructured object [%v] to pod group failed. err: %v", obj, err)
+		return err
+	}
+	if oldPG.Status.Phase != schedulingv1beta1.PodGroupInqueue &&
+		oldPG.Status.Phase != schedulingv1beta1.PodGroupPending {
+		errmsg := fmt.Errorf("the job %s is already scheduled", jobInfo.ID)
+		log.Errorln(errmsg)
+		return errmsg
+	}
+
+	priorityClassName := kubePriorityClass(jobInfo.PriorityClassName)
+	if oldPG.Spec.PriorityClassName != priorityClassName {
+		oldPG.Spec.PriorityClassName = priorityClassName
+	} else {
+		err = fmt.Errorf("the priority of job %s is already %s", jobInfo.ID, oldPG.Spec.PriorityClassName)
+		log.Errorln(err)
+		return err
+	}
+
+	err = runtimeClient.Update(oldPG, frameworkVersion)
+	if err != nil {
+		log.Errorf("update priority for job %s failed. err: %v", jobInfo.ID, err)
+	}
+	return err
+}
+
+func KubeJobUpdatedData(jobInfo *api.PFJob) ([]byte, error) {
+	if jobInfo == nil {
+		return nil, fmt.Errorf("job is nil")
+	}
+	var updateData []byte
+	var err error
+	// update labels and annotations
+	if (jobInfo.Labels != nil && len(jobInfo.Labels) != 0) ||
+		(jobInfo.Annotations != nil && len(jobInfo.Annotations) != 0) {
+		patchJSON := struct {
+			metav1.ObjectMeta `json:"metadata,omitempty"`
+		}{
+			ObjectMeta: metav1.ObjectMeta{
+				Labels:      jobInfo.Labels,
+				Annotations: jobInfo.Annotations,
+			},
+		}
+		updateData, err = json.Marshal(patchJSON)
+		if err != nil {
+			log.Errorf("update kubernetes job[%s] failed, err: %v", jobInfo.ID, err)
+			return nil, err
+		}
+	}
+	return updateData, err
 }

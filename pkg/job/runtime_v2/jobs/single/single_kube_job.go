@@ -19,9 +19,9 @@ package single
 import (
 	"context"
 	"fmt"
+
 	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
@@ -58,11 +58,14 @@ func (sp *SingleJob) String(job *api.PFJob) string {
 	return fmt.Sprintf("%s job %s/%s on cluster %s", sp.GVK.String(), job.Namespace, job.ID, sp.runtimeClient.Cluster())
 }
 
+func (sp *SingleJob) frameworkVersion() pfschema.FrameworkVersion {
+	return pfschema.NewFrameworkVersion(sp.GVK.Kind, sp.GVK.GroupVersion().String())
+}
+
 func (sp *SingleJob) Submit(ctx context.Context, job *api.PFJob) error {
 	if job == nil {
 		return fmt.Errorf("job is nil")
 	}
-	// TODO: optimize log format
 	log.Debugf("begin to create %s", sp.String(job))
 
 	singlePod := &v1.Pod{}
@@ -86,13 +89,12 @@ func (sp *SingleJob) Submit(ctx context.Context, job *api.PFJob) error {
 		log.Errorf("build %s spec failed, err %v", sp.String(job), err)
 		return err
 	}
-	log.Debugf("begin create %s, singlePod: %s", sp.String(job), singlePod)
-	err = sp.runtimeClient.Create(singlePod, kuberuntime.FrameworkVersion(sp.GVK))
+	log.Debugf("begin to create %s, singlePod: %s", sp.String(job), singlePod)
+	err = sp.runtimeClient.Create(singlePod, sp.frameworkVersion())
 	if err != nil {
 		log.Errorf("create %s failed, err %v", sp.String(job), err)
 		return err
 	}
-
 	return nil
 }
 
@@ -113,7 +115,6 @@ func (sp *SingleJob) builtinSingleJob(jobPod *v1.Pod, job *api.PFJob) error {
 	if len(job.Tasks) != 1 {
 		return fmt.Errorf("create builtin %s failed, job member is nil", sp.String(job))
 	}
-	// TODO: remove task name check to util
 	if job.Tasks[0].Name == "" {
 		job.Tasks[0].Name = job.ID
 	}
@@ -124,9 +125,9 @@ func (sp *SingleJob) Stop(ctx context.Context, job *api.PFJob) error {
 	if job == nil {
 		return fmt.Errorf("job is nil")
 	}
-	log.Infof("stop %s on cluster %s", sp.String(job), sp.runtimeClient.Cluster())
-	if err := sp.runtimeClient.Delete(job.Namespace, job.ID, kuberuntime.FrameworkVersion(sp.GVK)); err != nil {
-		log.Errorf("stop %s on cluster %s failed, err: %v", sp.String(job), sp.runtimeClient.Cluster(), err)
+	log.Infof("begin to stop %s", sp.String(job))
+	if err := sp.runtimeClient.Delete(job.Namespace, job.ID, sp.frameworkVersion()); err != nil {
+		log.Errorf("stop %s failed, err: %v", sp.String(job), err)
 		return err
 	}
 	return nil
@@ -140,18 +141,19 @@ func (sp *SingleJob) Update(ctx context.Context, job *api.PFJob) error {
 	if len(job.PriorityClassName) != 0 {
 		err := kuberuntime.UpdateKubeJobPriority(job, sp.runtimeClient)
 		if err != nil {
-			log.Errorf("update %s on cluster %s failed, err: %v", sp.String(job), sp.runtimeClient.Cluster(), err)
+			log.Errorf("update %s failed, err: %v", sp.String(job), err)
 			return err
 		}
 	}
+	// update job labels or annotations
 	data, err := kuberuntime.KubeJobUpdatedData(job)
 	if err != nil {
-		log.Errorf("update %s on cluster %s failed, err: %v", sp.String(job), sp.runtimeClient.Cluster(), err)
+		log.Errorf("update %s failed, err: %v", sp.String(job), err)
 		return err
 	}
-	log.Infof("update %s on cluster %s, data: %s", sp.String(job), sp.runtimeClient.Cluster(), string(data))
-	if err = sp.runtimeClient.Patch(job.Namespace, job.ID, kuberuntime.FrameworkVersion(sp.GVK), data); err != nil {
-		log.Errorf("update %s on cluster %s failed, err: %v", sp.String(job), sp.runtimeClient.Cluster(), err)
+	log.Infof("begin to update %s, data: %s", sp.String(job), string(data))
+	if err = sp.runtimeClient.Patch(job.Namespace, job.ID, sp.frameworkVersion(), data); err != nil {
+		log.Errorf("update %s failed, err: %v", sp.String(job), err)
 		return err
 	}
 	return nil
@@ -161,9 +163,9 @@ func (sp *SingleJob) Delete(ctx context.Context, job *api.PFJob) error {
 	if job == nil {
 		return fmt.Errorf("job is nil")
 	}
-	log.Infof("delete %s from cluster %s", sp.String(job), sp.runtimeClient.Cluster())
-	if err := sp.runtimeClient.Delete(job.Namespace, job.ID, kuberuntime.FrameworkVersion(sp.GVK)); err != nil {
-		log.Errorf("delete %s from cluster %s failed, err %v", sp.String(job), sp.runtimeClient.Cluster(), err)
+	log.Infof("begin to delete %s ", sp.String(job))
+	if err := sp.runtimeClient.Delete(job.Namespace, job.ID, sp.frameworkVersion()); err != nil {
+		log.Errorf("delete %s failed, err %v", sp.String(job), err)
 		return err
 	}
 	return nil
@@ -174,25 +176,25 @@ func (sp *SingleJob) GetLog(ctx context.Context, jobLogRequest pfschema.JobLogRe
 	return pfschema.JobLogInfo{}, nil
 }
 
-func (sp *SingleJob) AddEventListener(ctx context.Context, listenerType string, jobQueue workqueue.RateLimitingInterface, any interface{}) error {
+func (sp *SingleJob) AddEventListener(ctx context.Context, listenerType string, jobQueue workqueue.RateLimitingInterface, listener interface{}) error {
 	var err error
 	switch listenerType {
 	case pfschema.ListenerTypeJob:
-		err = sp.addJobEventListener(ctx, jobQueue, any)
+		err = sp.addJobEventListener(ctx, jobQueue, listener)
 	case pfschema.ListenerTypeTask:
-		err = sp.addTaskEventListener(ctx, jobQueue, any)
+		err = sp.addTaskEventListener(ctx, jobQueue, listener)
 	default:
 		err = fmt.Errorf("listenerType %s is not supported", listenerType)
 	}
 	return err
 }
 
-func (sp *SingleJob) addJobEventListener(ctx context.Context, jobQueue workqueue.RateLimitingInterface, any interface{}) error {
-	if jobQueue == nil || any == nil {
-		return fmt.Errorf("register job listener failed, err: informer is nil")
+func (sp *SingleJob) addJobEventListener(ctx context.Context, jobQueue workqueue.RateLimitingInterface, listener interface{}) error {
+	if jobQueue == nil || listener == nil {
+		return fmt.Errorf("add job event listener failed, err: listener is nil")
 	}
 	sp.jobQueue = jobQueue
-	informer := any.(cache.SharedIndexInformer)
+	informer := listener.(cache.SharedIndexInformer)
 	informer.AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: kuberuntime.ResponsibleForJob,
 		Handler: cache.ResourceEventHandlerFuncs{
@@ -230,31 +232,21 @@ func (sp *SingleJob) deleteJob(obj interface{}) {
 
 // JobStatus get single job status, message from interface{}, and covert to JobStatus
 func (sp *SingleJob) JobStatus(obj interface{}) (api.StatusInfo, error) {
-	jobStatus := &v1.PodStatus{}
-	// Get status from unstructured object
-	jobObj := obj.(*unstructured.Unstructured).DeepCopy()
-	status, ok, unerr := unstructured.NestedFieldCopy(jobObj.Object, "status")
-	if !ok {
-		if unerr != nil {
-			log.Errorf("NestedFieldCopy unstructured to status error: %v", unerr)
-			return api.StatusInfo{}, unerr
-		}
-		log.Info("NestedFieldCopy unstructured to status error: Status is not found in job")
-		return api.StatusInfo{}, nil
-	}
-	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(status.(map[string]interface{}), jobStatus); err != nil {
-		log.Errorf("convert unstructured object [%+v] to %s status failed. error: %s", obj, sp.GVK.String(), err.Error())
+	// convert to Pod struct
+	job := &v1.Pod{}
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.(map[string]interface{}), job); err != nil {
+		log.Errorf("convert unstructured object [%+v] to %s pod failed. error: %s", obj, sp.GVK.String(), err.Error())
 		return api.StatusInfo{}, err
 	}
 	// convert single job status
-	state, msg, err := sp.getJobStatus(jobStatus)
+	state, msg, err := sp.getJobStatus(&job.Status)
 	if err != nil {
 		log.Errorf("get SingleJob status failed, err: %v", err)
 		return api.StatusInfo{}, err
 	}
 	log.Infof("Single job status: %s", state)
 	return api.StatusInfo{
-		OriginStatus: string(jobStatus.Phase),
+		OriginStatus: string(job.Status.Phase),
 		Status:       state,
 		Message:      msg,
 	}, nil
@@ -308,12 +300,12 @@ func getJobMessage(jobStatus *v1.PodStatus) string {
 	return errMessage
 }
 
-func (sp *SingleJob) addTaskEventListener(ctx context.Context, taskQueue workqueue.RateLimitingInterface, any interface{}) error {
-	if taskQueue == nil || any == nil {
-		return fmt.Errorf("register job listener failed, err: informer is nil")
+func (sp *SingleJob) addTaskEventListener(ctx context.Context, taskQueue workqueue.RateLimitingInterface, listener interface{}) error {
+	if taskQueue == nil || listener == nil {
+		return fmt.Errorf("add task event listener failed, err: listener is nil")
 	}
 	sp.taskQueue = taskQueue
-	podInformer := any.(cache.SharedIndexInformer)
+	podInformer := listener.(cache.SharedIndexInformer)
 	podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    sp.addTask,
 		UpdateFunc: sp.updateTask,
