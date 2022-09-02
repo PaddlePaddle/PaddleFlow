@@ -22,11 +22,14 @@ package metrics
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	log "github.com/sirupsen/logrus"
 
 	prometheus_model "github.com/prometheus/common/model"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -39,6 +42,7 @@ const (
 )
 
 // GetQueryLabelsFromPrometheus return query labels from prometheus
+// Deprecated
 func GetQueryLabelsFromPrometheus(query string) map[string]string {
 	ctx, cancel := context.WithTimeout(context.Background(), QueryTimeout)
 	defer cancel()
@@ -70,4 +74,27 @@ func GetQueryLabelsFromPrometheus(query string) map[string]string {
 	}
 	return labels
 
+}
+
+// GetAnnotationsFromRuntimeInfo get annotations from info map
+func GetAnnotationsFromRuntimeInfo(info interface{}) map[string]string {
+	var k8sMeta metav1.ObjectMeta
+	infoMap, ok := info.(map[string]interface{})
+	if !ok {
+		return nil
+	}
+	metaData, ok := infoMap["metadata"].(map[string]interface{})
+	if !ok {
+		return nil
+	}
+
+	metaDataByte, err := json.Marshal(metaData)
+	if err != nil {
+		return nil
+	}
+	err = json.Unmarshal(metaDataByte, &k8sMeta)
+	if err != nil {
+		return nil
+	}
+	return k8sMeta.Annotations
 }

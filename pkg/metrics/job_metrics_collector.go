@@ -17,12 +17,13 @@ limitations under the License.
 package metrics
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
+
+	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
 
 type JobMetricCollector struct {
@@ -111,7 +112,7 @@ func (j *JobMetricCollector) updateJobPerf() {
 func (j *JobMetricCollector) updateGpuInfo() {
 	jobs := j.listJob()
 	for _, job := range jobs {
-		gpuIdxs := getGPUIdxFromPrometheus(job.ID)
+		gpuIdxs := getGPUIdxFromJob(job)
 		for _, idx := range gpuIdxs {
 			j.jobGpuInfo.With(prometheus.Labels{
 				JobIDLabel:  job.ID,
@@ -121,12 +122,11 @@ func (j *JobMetricCollector) updateGpuInfo() {
 	}
 }
 
-// TODO: add cache to change query from sync to async
-func getGPUIdxFromPrometheus(jobID string) []int {
+func getGPUIdxFromJob(job model.Job) []int {
 	var idxs []int
-	annotations := GetQueryLabelsFromPrometheus(fmt.Sprintf(PromQLQueryPodAnnotations, jobID))
+	annotations := GetAnnotationsFromRuntimeInfo(job.RuntimeInfo)
 	for annotation, value := range annotations {
-		if annotation == BaiduGpuIndexLabel {
+		if strings.ToLower(annotation) == BaiduGpuIndexLabel {
 			idxStrs := strings.Split(value, ",")
 			idxs = make([]int, 0, len(idxStrs))
 			for _, idxStr := range idxStrs {

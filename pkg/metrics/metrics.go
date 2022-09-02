@@ -39,9 +39,11 @@ var (
 	PromAPIClient prom_v1.API
 )
 
-func InitMetrics(apiClient prom_v1.API) {
+func InitMetrics() {
 	Job = NewJobMetricTimePointManager()
-	PromAPIClient = apiClient
+	// Deprecated
+	// this for prometheus way to locate label only, now we change the way to db update
+	//PromAPIClient = apiClient
 }
 
 func initRegistry(queueFunc ListQueueFunc, jobFunc ListJobFunc) {
@@ -84,5 +86,5 @@ func StartMetricsService(port int, queueFunc ListQueueFunc, jobFunc ListJobFunc)
 
 func init() {
 	// in case panic in testing
-	InitMetrics(nil)
+	InitMetrics()
 }

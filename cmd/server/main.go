@@ -233,7 +233,7 @@ func setup() {
 		gracefullyExit(err)
 	}
 
-	metrics.InitMetrics(metrics.PromAPIClient)
+	metrics.InitMetrics()
 }
 
 func newAndStartJobManager() error {
