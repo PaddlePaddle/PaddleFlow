@@ -486,7 +486,7 @@ func generateVolumeMounts(fileSystems []schema.FileSystem) []corev1.VolumeMount 
 		log.Debugf("generateVolumeMounts walking fileSystem %+v", fs)
 		mountPath := utils.MountPathClean(fs.MountPath)
 		if mountPath == "/" {
-			mountPath = filepath.Join(schema.DefaultFSMountPath, fs.ID)
+			fs.MountPath = filepath.Join(schema.DefaultFSMountPath, fs.ID)
 		}
 		mp := corev1.MountPropagationHostToContainer
 		volumeMount := corev1.VolumeMount{
