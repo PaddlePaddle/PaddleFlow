@@ -51,6 +51,7 @@ func GetQueryLabelsFromPrometheus(query string) map[string]string {
 		log.Errorf("failed to get pod annotation by promethues query: %s", err)
 		return nil
 	}
+	log.Infof("query labels from prometheus values: %s", val.String())
 	vec, ok := val.(prometheus_model.Vector)
 	if !ok {
 		log.Errorf("failed to get query: cast failed")

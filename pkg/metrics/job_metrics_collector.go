@@ -50,7 +50,10 @@ func NewJobMetricsCollector(manager TimePointManager, listJob ListJobFunc) *JobM
 			[]string{JobIDLabel, StatusLabel, QueueIDLabel, FinishedStatusLabel, QueueNameLabel},
 		),
 		jobGpuInfo: prometheus.NewGaugeVec(
-			prometheus.GaugeOpts{},
+			prometheus.GaugeOpts{
+				Name: MetricJobGPUInfo,
+				Help: toHelp(MetricJobGPUInfo),
+			},
 			[]string{JobIDLabel, GpuIdxLabel},
 		),
 		manager: manager,
@@ -62,6 +65,7 @@ func NewJobMetricsCollector(manager TimePointManager, listJob ListJobFunc) *JobM
 func (j *JobMetricCollector) Describe(descs chan<- *prometheus.Desc) {
 	j.jobCount.Describe(descs)
 	j.jobTime.Describe(descs)
+	j.jobGpuInfo.Describe(descs)
 }
 
 func (j *JobMetricCollector) Collect(metrics chan<- prometheus.Metric) {
@@ -71,6 +75,7 @@ func (j *JobMetricCollector) Collect(metrics chan<- prometheus.Metric) {
 	j.updateGpuInfo()
 	j.jobCount.Collect(metrics)
 	j.jobTime.Collect(metrics)
+	j.jobGpuInfo.Collect(metrics)
 }
 
 func printCache(cache map[string]Timestamps) {
