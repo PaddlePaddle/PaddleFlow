@@ -444,8 +444,7 @@ func getMountCmd(mountInfo pfs.MountInfo, cacheConf common.FsCacheConfig) string
 	mkdir := "mkdir -p " + MountPoint + ";"
 	var cmd string
 	if mountInfo.Type == common.GlusterfsType {
-		mountCmd := "mount -t glusterfs " + strings.Join([]string{mountInfo.ServerAddress, mountInfo.SubPath}, ":") +
-			MountPoint + ";"
+		mountCmd := "mount -t glusterfs " + strings.Join([]string{mountInfo.ServerAddress, mountInfo.SubPath}, ":") + " " + MountPoint + ";"
 		sleep := "while true;do sleep 1;done;"
 		cmd = mkdir + mountCmd + sleep
 	} else {
