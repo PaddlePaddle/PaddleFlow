@@ -23,6 +23,7 @@ import (
 	router "github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/router/v1"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/metrics"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
@@ -270,7 +271,13 @@ func startMetricsService(port int) (err error) {
 		return queues
 	}
 
-	metrics.StartMetricsService(port, listQueue)
+	listJobByStatus := func() []model.Job {
+		jobs := storage.Job.ListJobByStatus(schema.StatusJobRunning)
+		return jobs
+	}
+
+	//  TODO: add job func
+	metrics.StartMetricsService(port, listQueue, listJobByStatus)
 	return
 }
 

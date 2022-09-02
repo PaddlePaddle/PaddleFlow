@@ -16,12 +16,15 @@ limitations under the License.
 
 package metrics
 
-import "strings"
+import (
+	"strings"
+)
 
 const (
-	MetricJobTime   = "pf_metric_job_time"
-	MetricJobCount  = "pf_metric_job_count"
-	MetricQueueInfo = "pf_metric_queue_info"
+	MetricJobTime    = "pf_metric_job_time"
+	MetricJobCount   = "pf_metric_job_count"
+	MetricQueueInfo  = "pf_metric_queue_info"
+	MetricJobGPUInfo = "pf_metric_job_gpu_info"
 )
 
 func toHelp(name string) string {
@@ -30,6 +33,7 @@ func toHelp(name string) string {
 
 const (
 	JobIDLabel          = "jobID"
+	GpuIdxLabel         = "id"
 	StatusLabel         = "status"
 	QueueIDLabel        = "queueID"
 	FinishedStatusLabel = "finishedStatus"
@@ -37,4 +41,5 @@ const (
 	UserNameLabel       = "userName"
 	ResourceLabel       = "resource"
 	TypeLabel           = "type"
+	BaiduGpuIndexLabel  = "annotation_baidu_com_gpu_idx"
 )

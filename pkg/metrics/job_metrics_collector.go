@@ -17,18 +17,24 @@ limitations under the License.
 package metrics
 
 import (
+	"fmt"
+	"strconv"
+	"strings"
+
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 )
 
 type JobMetricCollector struct {
-	jobCount *prometheus.CounterVec
-	jobTime  *prometheus.GaugeVec
-	manager  TimePointManager
+	jobCount   *prometheus.CounterVec
+	jobTime    *prometheus.GaugeVec
+	jobGpuInfo *prometheus.GaugeVec
+	manager    TimePointManager
+	listJob    ListJobFunc
 }
 
-func NewJobMetricsCollector(manager TimePointManager) *JobMetricCollector {
-	return &JobMetricCollector{
+func NewJobMetricsCollector(manager TimePointManager, listJob ListJobFunc) *JobMetricCollector {
+	c := &JobMetricCollector{
 		jobCount: prometheus.NewCounterVec(
 			prometheus.CounterOpts{
 				Name: MetricJobCount,
@@ -43,8 +49,14 @@ func NewJobMetricsCollector(manager TimePointManager) *JobMetricCollector {
 			},
 			[]string{JobIDLabel, StatusLabel, QueueIDLabel, FinishedStatusLabel, QueueNameLabel},
 		),
+		jobGpuInfo: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{},
+			[]string{JobIDLabel, GpuIdxLabel},
+		),
 		manager: manager,
+		listJob: listJob,
 	}
+	return c
 }
 
 func (j *JobMetricCollector) Describe(descs chan<- *prometheus.Desc) {
@@ -56,6 +68,7 @@ func (j *JobMetricCollector) Collect(metrics chan<- prometheus.Metric) {
 	cache := j.manager.GetTimestampsCache()
 	printCache(cache)
 	j.updateJobPerf()
+	j.updateGpuInfo()
 	j.jobCount.Collect(metrics)
 	j.jobTime.Collect(metrics)
 }
@@ -86,4 +99,40 @@ func (j *JobMetricCollector) updateJobPerf() {
 			log.Debugf("[job perf] job %s, status %s, time: %d", jobID, status, statusTime.Microseconds())
 		}
 	}
+}
+
+// query labels
+// TODO: add cache to change query from sync to async
+func (j *JobMetricCollector) updateGpuInfo() {
+	jobs := j.listJob()
+	for _, job := range jobs {
+		gpuIdxs := getGPUIdxFromPrometheus(job.ID)
+		for _, idx := range gpuIdxs {
+			j.jobGpuInfo.With(prometheus.Labels{
+				JobIDLabel:  job.ID,
+				GpuIdxLabel: strconv.Itoa(idx),
+			}).Set(1.0)
+		}
+	}
+}
+
+// TODO: add cache to change query from sync to async
+func getGPUIdxFromPrometheus(jobID string) []int {
+	var idxs []int
+	annotations := GetQueryLabelsFromPrometheus(fmt.Sprintf(PromQLQueryPodAnnotations, jobID))
+	for annotation, value := range annotations {
+		if annotation == BaiduGpuIndexLabel {
+			idxStrs := strings.Split(value, ",")
+			idxs = make([]int, 0, len(idxStrs))
+			for _, idxStr := range idxStrs {
+				idx, err := strconv.Atoi(idxStr)
+				if err != nil {
+					continue
+				}
+				idxs = append(idxs, idx)
+			}
+			return idxs
+		}
+	}
+	return idxs
 }
