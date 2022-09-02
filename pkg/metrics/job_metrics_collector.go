@@ -125,6 +125,7 @@ func (j *JobMetricCollector) updateGpuInfo() {
 func getGPUIdxFromJob(job model.Job) []int {
 	var idxs []int
 	annotations := GetAnnotationsFromRuntimeInfo(job.RuntimeInfo)
+	log.Debugf("job %s annotations: %s", job.ID, annotations)
 	for annotation, value := range annotations {
 		if strings.ToLower(annotation) == BaiduGpuIndexLabel {
 			idxStrs := strings.Split(value, ",")
