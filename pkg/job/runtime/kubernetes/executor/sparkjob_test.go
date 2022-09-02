@@ -146,7 +146,7 @@ spec:
 				},
 			},
 		},
-		ExtensionTemplate: extensionSparkYaml,
+		ExtensionTemplate: []byte(extensionSparkYaml),
 	}
 )
 
