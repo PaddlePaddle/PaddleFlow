@@ -82,7 +82,7 @@ func getDefaultPath(jobType schema.JobType, framework schema.Framework, jobMode 
 
 // getDefaultTemplate get default template from file
 func getDefaultTemplate(framework schema.Framework, jobType schema.JobType, jobMode string) ([]byte, error) {
-	// TODO: optimize default template read
+	// TODO: optimize default template, merge all yaml files into one
 	// get template from default path
 	filePath := getDefaultPath(jobType, framework, jobMode)
 	// check file exist
@@ -226,8 +226,8 @@ func BuildPod(pod *corev1.Pod, task model.Member) error {
 		}
 	}
 
-	// file container
-	if err = fillContainersInPod(&pod.Spec, task); err != nil {
+	// build containers
+	if err = buildPodContainers(&pod.Spec, task); err != nil {
 		log.Errorf("failed to fill containers, err=%v", err)
 		return err
 	}
@@ -263,58 +263,7 @@ func generateAffinity(affinity *corev1.Affinity, fsIDs []string) (*corev1.Affini
 	return affinity, nil
 }
 
-// appendVolumesIfAbsent append newElements if not exist in volumes
-// if job with tasks, it should be like
-// `Volumes = appendVolumesIfAbsent(Volumes, generateVolumes(taskFs))`
-// otherwise,
-// `Volumes = appendVolumesIfAbsent(Volumes, generateVolumes(kubeJob.FileSystems))`
-func appendVolumesIfAbsent(volumes []corev1.Volume, newElements []corev1.Volume) []corev1.Volume {
-	log.Infof("appendVolumesIfAbsent volumes=%+v, newElements=%+v", volumes, newElements)
-	if len(newElements) == 0 {
-		return volumes
-	}
-	if len(volumes) == 0 {
-		volumes = []corev1.Volume{}
-	}
-	volumesDict := make(map[string]bool)
-	for _, v := range volumes {
-		volumesDict[v.Name] = true
-	}
-	for _, cur := range newElements {
-		if volumesDict[cur.Name] {
-			log.Debugf("volume %s has been created in jobTemplate", cur.Name)
-			continue
-		}
-		volumesDict[cur.Name] = true
-		volumes = append(volumes, cur)
-	}
-	return volumes
-}
-
-func generateVolumes(fileSystem []schema.FileSystem) []corev1.Volume {
-	log.Debugf("generateVolumes FileSystems[%+v]", fileSystem)
-	var vs []corev1.Volume
-	if len(fileSystem) == 0 {
-		log.Debugf("found len(fileSystem) is 0 when calling generateVolumes(fs), fs: %+v", fileSystem)
-		return vs
-	}
-
-	for _, fs := range fileSystem {
-		volume := corev1.Volume{
-			Name: fs.Name,
-			VolumeSource: corev1.VolumeSource{
-				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-					ClaimName: schema.ConcatenatePVCName(fs.ID),
-				},
-			},
-		}
-		vs = append(vs, volume)
-	}
-
-	return vs
-}
-
-func fillContainersInPod(podSpec *corev1.PodSpec, task model.Member) error {
+func buildPodContainers(podSpec *corev1.PodSpec, task model.Member) error {
 	log.Debugf("fillContainersInPod for job[%s]", task.Name)
 	if podSpec.Containers == nil || len(podSpec.Containers) == 0 {
 		podSpec.Containers = []corev1.Container{{}}
@@ -441,6 +390,57 @@ func generateEnvVars(EnvVars map[string]string) []corev1.EnvVar {
 		envs = append(envs, env)
 	}
 	return envs
+}
+
+// appendVolumesIfAbsent append newElements if not exist in volumes
+// if job with tasks, it should be like
+// `Volumes = appendVolumesIfAbsent(Volumes, generateVolumes(taskFs))`
+// otherwise,
+// `Volumes = appendVolumesIfAbsent(Volumes, generateVolumes(kubeJob.FileSystems))`
+func appendVolumesIfAbsent(volumes []corev1.Volume, newElements []corev1.Volume) []corev1.Volume {
+	log.Infof("appendVolumesIfAbsent volumes=%+v, newElements=%+v", volumes, newElements)
+	if len(newElements) == 0 {
+		return volumes
+	}
+	if len(volumes) == 0 {
+		volumes = []corev1.Volume{}
+	}
+	volumesDict := make(map[string]bool)
+	for _, v := range volumes {
+		volumesDict[v.Name] = true
+	}
+	for _, cur := range newElements {
+		if volumesDict[cur.Name] {
+			log.Debugf("volume %s has been created in jobTemplate", cur.Name)
+			continue
+		}
+		volumesDict[cur.Name] = true
+		volumes = append(volumes, cur)
+	}
+	return volumes
+}
+
+func generateVolumes(fileSystem []schema.FileSystem) []corev1.Volume {
+	log.Debugf("generateVolumes FileSystems[%+v]", fileSystem)
+	var vs []corev1.Volume
+	if len(fileSystem) == 0 {
+		log.Debugf("found len(fileSystem) is 0 when calling generateVolumes(fs), fs: %+v", fileSystem)
+		return vs
+	}
+
+	for _, fs := range fileSystem {
+		volume := corev1.Volume{
+			Name: fs.Name,
+			VolumeSource: corev1.VolumeSource{
+				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+					ClaimName: schema.ConcatenatePVCName(fs.ID),
+				},
+			},
+		}
+		vs = append(vs, volume)
+	}
+
+	return vs
 }
 
 // appendMountsIfAbsent append volumeMount if not exist in volumeMounts
