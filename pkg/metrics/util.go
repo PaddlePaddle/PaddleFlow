@@ -27,8 +27,6 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	prometheus_model "github.com/prometheus/common/model"
-
-	"github.com/PaddlePaddle/PaddleFlow/pkg/monitor"
 )
 
 const (
@@ -42,8 +40,9 @@ const (
 
 // GetQueryLabelsFromPrometheus return query labels from prometheus
 func GetQueryLabelsFromPrometheus(query string) map[string]string {
-	ctx, _ := context.WithTimeout(context.Background(), QueryTimeout)
-	val, _, err := monitor.PrometheusClientAPI.Query(
+	ctx, cancel := context.WithTimeout(context.Background(), QueryTimeout)
+	defer cancel()
+	val, _, err := PromAPIClient.Query(
 		ctx,
 		query,
 		time.Now(),

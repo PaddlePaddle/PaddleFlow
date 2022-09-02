@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"net/http"
 
+	prom_v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
@@ -34,11 +35,13 @@ var (
 )
 
 var (
-	Job TimePointManager
+	Job           TimePointManager
+	PromAPIClient prom_v1.API
 )
 
-func InitMetrics() {
+func InitMetrics(apiClient prom_v1.API) {
 	Job = NewJobMetricTimePointManager()
+	PromAPIClient = apiClient
 }
 
 func initRegistry(queueFunc ListQueueFunc, jobFunc ListJobFunc) {
@@ -81,5 +84,5 @@ func StartMetricsService(port int, queueFunc ListQueueFunc, jobFunc ListJobFunc)
 
 func init() {
 	// in case panic in testing
-	InitMetrics()
+	InitMetrics(nil)
 }
