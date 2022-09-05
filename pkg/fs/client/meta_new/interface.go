@@ -95,6 +95,7 @@ type Meta interface {
 
 	// Name of database
 	Name() string
+	InitRootInode() error
 	InoToPath(inode Ino) string
 
 	SetOwner(uid, gid uint32)
