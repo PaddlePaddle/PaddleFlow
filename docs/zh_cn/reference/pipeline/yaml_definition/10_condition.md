@@ -5,7 +5,7 @@
 # 1 pipeline定义
 下面为一个使用了condition特性的示例Pipeline定义
 
-> 该示例中pipeline定义，以及示例相关运行脚本，来自pddleflow项目下example/pipeline/condition_example示例。
+> 该示例中pipeline定义，以及示例相关运行脚本，来自paddleflow项目下example/pipeline/condition_example示例。
 > 
 > 示例链接：[condition_example]
 
