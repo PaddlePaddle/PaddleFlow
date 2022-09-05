@@ -240,16 +240,16 @@ class Client(object):
                                          scalar_resources=scalar_resources,
                                          cluster_name=cluster_name, header=self.header)
 
-    def del_flavour(self, flavourname):
+    def del_flavour(self, name):
         """ delete flavour"""
         self.pre_check()
-        if flavourname is None or flavourname.strip() == "":
+        if name is None or name.strip() == "":
             raise PaddleFlowSDKException("InvalidFlavourName", "flavourname should not be none or empty")
-        return FlavouriceApi.del_flavour(self.paddleflow_server, flavourname, self.header)
+        return FlavouriceApi.del_flavour(self.paddleflow_server, name, self.header)
 
     def update_flavour(self, name, cpu=None, memory=None, scalar_resources=None, cluster_name=None):
         """
-        update cluster
+        update flavour
         """
         self.pre_check()
         if name is None or name.strip() == "":

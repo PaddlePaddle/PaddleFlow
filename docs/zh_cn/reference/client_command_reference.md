@@ -263,6 +263,29 @@ flavour列表显示：用户输入```paddleflow flavour list```，界面上显�
 | flavour3 |     4 | 8Gi   | {"nvidia.com/gpu": "2"} |
 +----------+-------+-------+-------------------------+
 ```
+套餐详情： 用户输入 ```paddleflow flavour show flavour1``` 可以在界面上看到套餐`flavour1`的详细信息
+
+```
++-------------+-------+-------+-------------------------+
+| name        |   cpu | mem   | scalarResources         |
++=============+=======+=======+=========================+
+| flavour1 |     4 | 8G    | {"nvidia.com/gpu": "8"} |
++-------------+-------+-------+-------------------------+
+```
+
+套餐创建：用户输入 ```paddleflow flavour create flavour_gpu -c 4 -m 8G -s nvidia.com/gpu=8```，创建成功后可以在界面上看到
+
+```flavour[flavour_gpu] create success```
+
+套餐更新：用户输入 ```paddleflow flavour update flavour_gpu -m 8```，更新成功后可以在界面上看到
+
+```update [flavour_gpu] success```
+
+
+套餐删除：用户输入 ```paddleflow flavour delete flavour_gpu```，删除成功后可以在界面上看到
+
+```flavour[flavour_gpu] delete success```
+
 
 
 ## 存储管理

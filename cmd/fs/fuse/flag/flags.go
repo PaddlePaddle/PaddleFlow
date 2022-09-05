@@ -122,6 +122,11 @@ func CacheFlags(fuseConf *fuse.FuseConfig) []cli.Flag {
 			Value: 200 * 1024 * 1024,
 			Usage: "size of read-ahead data",
 		},
+		&cli.BoolFlag{
+			Name:  "clean-cache",
+			Value: false,
+			Usage: "clean cache dir after mount process ends",
+		},
 	}
 }
 

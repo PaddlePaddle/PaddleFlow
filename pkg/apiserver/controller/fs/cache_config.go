@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"gorm.io/gorm"
+	corev1 "k8s.io/api/core/v1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
@@ -39,7 +40,7 @@ func (req *CreateFileSystemCacheRequest) toModel() model.FSCacheConfig {
 		Debug:                  req.Debug,
 		CleanCache:             req.CleanCache,
 		Resource:               req.Resource,
-		NodeAffinityMap:        req.NodeAffinity,
+		NodeAffinity:           req.NodeAffinity,
 		ExtraConfigMap:         req.ExtraConfig,
 		NodeTaintTolerationMap: req.NodeTaintToleration,
 	}
@@ -56,7 +57,7 @@ type CreateFileSystemCacheRequest struct {
 	Debug               bool                   `json:"debug"`
 	CleanCache          bool                   `json:"cleanCache"`
 	Resource            model.ResourceLimit    `json:"resource"`
-	NodeAffinity        map[string]interface{} `json:"nodeAffinity"`
+	NodeAffinity        corev1.NodeAffinity    `json:"nodeAffinity"`
 	NodeTaintToleration map[string]interface{} `json:"nodeTaintToleration"`
 	ExtraConfig         map[string]string      `json:"extraConfig"`
 }
@@ -68,7 +69,7 @@ type FileSystemCacheResponse struct {
 	BlockSize           int                    `json:"blockSize"`
 	CleanCache          bool                   `json:"cleanCache"`
 	Resource            model.ResourceLimit    `json:"resource"`
-	NodeAffinity        map[string]interface{} `json:"nodeAffinity"`
+	NodeAffinity        corev1.NodeAffinity    `json:"nodeAffinity"`
 	NodeTaintToleration map[string]interface{} `json:"nodeTaintToleration"`
 	ExtraConfig         map[string]string      `json:"extraConfig"`
 	FsName              string                 `json:"fsName"`
@@ -84,7 +85,7 @@ func (resp *FileSystemCacheResponse) fromModel(config model.FSCacheConfig) {
 	resp.BlockSize = config.BlockSize
 	resp.CleanCache = config.CleanCache
 	resp.Resource = config.Resource
-	resp.NodeAffinity = config.NodeAffinityMap
+	resp.NodeAffinity = config.NodeAffinity
 	resp.NodeTaintToleration = config.NodeTaintTolerationMap
 	resp.ExtraConfig = config.ExtraConfigMap
 	resp.FsName, resp.Username = utils.FsIDToFsNameUsername(config.FsID)

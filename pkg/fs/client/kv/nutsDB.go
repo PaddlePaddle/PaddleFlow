@@ -110,6 +110,18 @@ func (l nutsDBClient) ScanValues(prefix []byte) (map[string][]byte, error) {
 	return result, nil
 }
 
+func (l nutsDBClient) Append(key []byte, value []byte) []byte {
+	return nil
+}
+
+func (l nutsDBClient) IncrBy(key []byte, value int64) int64 {
+	return 0
+}
+
+func (l nutsDBClient) Exist(prefix []byte) bool {
+	return false
+}
+
 func NewNutsClient(config Config) (Client, error) {
 	opt := nutsdb.DefaultOptions
 	os.RemoveAll(config.CachePath)

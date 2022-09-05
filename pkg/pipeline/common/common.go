@@ -164,6 +164,11 @@ func GetArtifactMountPath(mainFS *schema.FsMount, artifactPath string) string {
 		} else {
 			artMountPath = fmt.Sprintf("%s/%s", mountPath, path)
 		}
+
+		if !strings.HasPrefix(artMountPath, "/") {
+			artMountPath = "/" + artMountPath
+		}
+
 		artMountPaths = append(artMountPaths, artMountPath)
 	}
 

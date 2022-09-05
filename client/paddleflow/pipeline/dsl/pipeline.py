@@ -268,8 +268,9 @@ class Pipeline(object):
         DAGInferer(self._entry_points).infer(self.env)
 
         if self._post_process:
-            ContainerStepInferer(self._post_process)
-        
+            for _, cp in self._post_process.items():
+                ContainerStepInferer(cp)
+                
         # Compile
         pipeline_dict = Compiler().compile(self, save_path)
         return pipeline_dict

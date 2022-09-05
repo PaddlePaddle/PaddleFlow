@@ -17,8 +17,6 @@ limitations under the License.
 package metrics
 
 import (
-	"strings"
-
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 )
@@ -29,23 +27,19 @@ type JobMetricCollector struct {
 	manager  TimePointManager
 }
 
-func toJobHelp(name string) string {
-	return strings.ReplaceAll(name, "_", " ")
-}
-
 func NewJobMetricsCollector(manager TimePointManager) *JobMetricCollector {
 	return &JobMetricCollector{
 		jobCount: prometheus.NewCounterVec(
 			prometheus.CounterOpts{
 				Name: MetricJobCount,
-				Help: toJobHelp(MetricJobCount),
+				Help: toHelp(MetricJobCount),
 			},
 			[]string{JobIDLabel},
 		),
 		jobTime: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Name: MetricJobTime,
-				Help: toJobHelp(MetricJobTime),
+				Help: toHelp(MetricJobTime),
 			},
 			[]string{JobIDLabel, StatusLabel, QueueIDLabel, FinishedStatusLabel, QueueNameLabel},
 		),

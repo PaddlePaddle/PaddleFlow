@@ -43,6 +43,13 @@ type CreatePipelineResponse struct {
 	Name              string `json:"name"`
 }
 
+type GetPipelineRequest struct {
+	PipelineID string
+	FsFilter   []string
+	Marker     string
+	MaxKeys    int
+}
+
 type GetPipelineResponse struct {
 	Pipeline         PipelineBrief    `json:"pipeline"`
 	PipelineVersions PipelineVersions `json:"pplVersions"`
@@ -129,12 +136,15 @@ func (p *pipeline) Create(ctx context.Context, request *CreatePipelineRequest, t
 	return
 }
 
-func (p *pipeline) Get(ctx context.Context, pipelineID, token string) (result *GetPipelineResponse, err error) {
+func (p *pipeline) Get(ctx context.Context, request *GetPipelineRequest, token string) (result *GetPipelineResponse, err error) {
 	result = &GetPipelineResponse{}
 	err = newRequestBuilderWithTokenHeader(p.client, token).
-		WithURL(pipelineApi + "/" + pipelineID).
+		WithURL(pipelineApi + "/" + request.PipelineID).
 		WithMethod(http.GET).
 		WithResult(result).
+		WithQueryParam("fsFilter", strings.Join(request.FsFilter, ",")).
+		WithQueryParam("marker", request.Marker).
+		WithQueryParam("maxKeys", strconv.Itoa(request.MaxKeys)).
 		Do()
 
 	if err != nil {
@@ -222,7 +232,7 @@ func (p *pipeline) DeleteVersion(ctx context.Context, pipelineID, pipelineVersio
 
 type PipelineInterface interface {
 	Create(ctx context.Context, request *CreatePipelineRequest, token string) (result *CreatePipelineResponse, err error)
-	Get(ctx context.Context, pipelineID, token string) (result *GetPipelineResponse, err error)
+	Get(ctx context.Context, request *GetPipelineRequest, token string) (result *GetPipelineResponse, err error)
 	List(ctx context.Context, request *ListPipelineRequest, token string) (result *ListPipelineResponse, err error)
 	Delete(ctx context.Context, pipelineID, token string) (err error)
 	Update(ctx context.Context, pipelineID string, request *UpdatePipelineRequest, token string) (result *UpdatePipelineResponse, err error)

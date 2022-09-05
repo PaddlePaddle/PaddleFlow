@@ -56,7 +56,7 @@ class ClusterServiceApi(object):
             body['setting']=setting
         if status:
             body['status']=status
-        if status:
+        if version:
             body['version']=version
         if namespacelist:
             if isinstance(namespacelist, list):
