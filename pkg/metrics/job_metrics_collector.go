@@ -27,7 +27,6 @@ import (
 )
 
 type JobMetricCollector struct {
-	jobCount   *prometheus.CounterVec
 	jobTime    *prometheus.GaugeVec
 	jobGpuInfo *prometheus.GaugeVec
 	manager    TimePointManager
@@ -36,13 +35,6 @@ type JobMetricCollector struct {
 
 func NewJobMetricsCollector(manager TimePointManager, listJob ListJobFunc) *JobMetricCollector {
 	c := &JobMetricCollector{
-		jobCount: prometheus.NewCounterVec(
-			prometheus.CounterOpts{
-				Name: MetricJobCount,
-				Help: toHelp(MetricJobCount),
-			},
-			[]string{JobIDLabel},
-		),
 		jobTime: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Name: MetricJobTime,
@@ -64,7 +56,6 @@ func NewJobMetricsCollector(manager TimePointManager, listJob ListJobFunc) *JobM
 }
 
 func (j *JobMetricCollector) Describe(descs chan<- *prometheus.Desc) {
-	j.jobCount.Describe(descs)
 	j.jobTime.Describe(descs)
 	j.jobGpuInfo.Describe(descs)
 }
@@ -74,7 +65,6 @@ func (j *JobMetricCollector) Collect(metrics chan<- prometheus.Metric) {
 	printCache(cache)
 	j.updateJobPerf()
 	j.updateGpuInfo()
-	j.jobCount.Collect(metrics)
 	j.jobTime.Collect(metrics)
 	j.jobGpuInfo.Collect(metrics)
 }

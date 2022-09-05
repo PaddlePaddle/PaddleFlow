@@ -22,7 +22,6 @@ import (
 
 const (
 	MetricJobTime    = "pf_metric_job_time"
-	MetricJobCount   = "pf_metric_job_count"
 	MetricQueueInfo  = "pf_metric_queue_info"
 	MetricJobGPUInfo = "pf_metric_job_gpu_info"
 )
