@@ -113,7 +113,7 @@ func (j *JobMetricCollector) updateGpuInfo() {
 	jobs := j.listJob()
 	for _, job := range jobs {
 		gpuIdxs := getGPUIdxFromJob(job)
-		log.Debugf("[gpu info] job %s gpu idxs: %s", job.ID, gpuIdxs)
+		log.Debugf("[gpu info] job %s gpu idxs: %+v", job.ID, gpuIdxs)
 		for _, idx := range gpuIdxs {
 			j.jobGpuInfo.With(prometheus.Labels{
 				JobIDLabel:  job.ID,
@@ -126,7 +126,7 @@ func (j *JobMetricCollector) updateGpuInfo() {
 func getGPUIdxFromJob(job model.Job) []int {
 	var idxs []int
 	annotations := GetAnnotationsFromRuntimeInfo(job.RuntimeInfo)
-	log.Debugf("[gpu info]job %s annotations: %s", job.ID, annotations)
+	log.Debugf("[gpu info]job %s annotations: %+v", job.ID, annotations)
 	for annotation, value := range annotations {
 		if strings.ToLower(annotation) == BaiduGpuIndexLabel {
 			idxStrs := strings.Split(value, ",")
