@@ -42,7 +42,6 @@ import (
 	locationAwareness "github.com/PaddlePaddle/PaddleFlow/pkg/fs/location-awareness"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/framework"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
@@ -189,7 +188,7 @@ func BuildSchedulingPolicy(pod *corev1.Pod, priorityName string) error {
 	return nil
 }
 
-func BuildPod(pod *corev1.Pod, task model.Member) error {
+func BuildPod(pod *corev1.Pod, task schema.Member) error {
 	if pod == nil {
 		return fmt.Errorf("build pod failed, podSpec is nil")
 	}
@@ -268,7 +267,7 @@ func generateAffinity(affinity *corev1.Affinity, fsIDs []string) (*corev1.Affini
 	return affinity, nil
 }
 
-func buildPodContainers(podSpec *corev1.PodSpec, task model.Member) error {
+func buildPodContainers(podSpec *corev1.PodSpec, task schema.Member) error {
 	log.Debugf("fillContainersInPod for job[%s]", task.Name)
 	if podSpec.Containers == nil || len(podSpec.Containers) == 0 {
 		podSpec.Containers = []corev1.Container{{}}
@@ -284,7 +283,7 @@ func buildPodContainers(podSpec *corev1.PodSpec, task model.Member) error {
 	return nil
 }
 
-func fillContainer(container *corev1.Container, podName string, task model.Member) error {
+func fillContainer(container *corev1.Container, podName string, task schema.Member) error {
 	log.Debugf("fillContainer for job[%s]", podName)
 	// fill name
 	container.Name = podName
@@ -312,7 +311,7 @@ func fillContainer(container *corev1.Container, podName string, task model.Membe
 	return nil
 }
 
-func getWorkDir(task *model.Member, fileSystems []schema.FileSystem, envs map[string]string) string {
+func getWorkDir(task *schema.Member, fileSystems []schema.FileSystem, envs map[string]string) string {
 	// prepare fs and envs
 	if task != nil {
 		fileSystems = task.Conf.GetAllFileSystem()
@@ -425,6 +424,8 @@ func appendVolumesIfAbsent(volumes []corev1.Volume, newElements []corev1.Volume)
 	return volumes
 }
 
+// TODO: add TransferFS interface on runtime
+// generateVolumes generate kubernetes volumes with schema.FileSystem
 func generateVolumes(fileSystem []schema.FileSystem) []corev1.Volume {
 	log.Debugf("generateVolumes FileSystems[%+v]", fileSystem)
 	var vs []corev1.Volume
@@ -480,6 +481,8 @@ func appendMountsIfAbsent(volumeMounts []corev1.VolumeMount, newElements []corev
 	return volumeMounts
 }
 
+// TODO: add TransferFS interface on runtime
+// generateVolumeMounts generate kubernetes volumeMounts with schema.FileSystem
 func generateVolumeMounts(fileSystems []schema.FileSystem) []corev1.VolumeMount {
 	log.Infof("generateVolumeMounts fileSystems:%+v", fileSystems)
 	var vms []corev1.VolumeMount
@@ -528,7 +531,7 @@ func kubePriorityClass(priority string) string {
 //   PF_PADDLE_PARA_JOB: defines the job is a paddle para job
 //   PF_PADDLE_PARA_PRIORITY: defines the priority of paddle para job, 0 is high, and 1 is low.
 //   PF_PADDLE_PARA_CONFIG_FILE: defines the config of paddle para job
-func patchPaddlePara(podTemplate *corev1.Pod, jobName string, task model.Member) error {
+func patchPaddlePara(podTemplate *corev1.Pod, jobName string, task schema.Member) error {
 	// get parameters from user's job config
 	var paddleParaPriority string
 	// TODO: use task.Conf.Getxxx method

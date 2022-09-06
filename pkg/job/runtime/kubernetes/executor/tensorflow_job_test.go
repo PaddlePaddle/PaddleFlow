@@ -28,7 +28,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 )
 
@@ -63,7 +62,7 @@ func TestTFJob_CreateJob(t *testing.T) {
 						"PF_JOB_MODE": "Collective",
 					},
 				},
-				Tasks: []model.Member{
+				Tasks: []schema.Member{
 					{
 						Replicas: 1,
 						Role:     schema.RoleMaster,

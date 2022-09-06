@@ -476,3 +476,10 @@ func (s Conf) Value() (driver.Value, error) {
 	}
 	return value, nil
 }*/
+
+type Member struct {
+	ID       string     `json:"id"`
+	Replicas int        `json:"replicas"`
+	Role     MemberRole `json:"role"`
+	Conf     `json:",inline"`
+}

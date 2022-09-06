@@ -68,7 +68,7 @@ func NewKubeRuntime(cluster schema.Cluster) RuntimeService {
 	return kr
 }
 
-func getFileSystem(jobConf schema.Conf, tasks []model.Member) []schema.FileSystem {
+func getFileSystem(jobConf schema.Conf, tasks []schema.Member) []schema.FileSystem {
 	fileSystems := jobConf.GetAllFileSystem()
 	for _, task := range tasks {
 		fileSystems = append(fileSystems, task.Conf.GetAllFileSystem()...)

@@ -33,7 +33,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/client"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
 )
 
@@ -101,7 +100,7 @@ status: {}
 			},
 			Flavour: schema.Flavour{Name: "mockFlavourName", ResourceInfo: schema.ResourceInfo{CPU: "1", Mem: "1"}},
 		},
-		Tasks: []model.Member{
+		Tasks: []schema.Member{
 			{
 				Replicas: 1,
 				Conf: schema.Conf{
