@@ -23,6 +23,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
@@ -685,7 +686,7 @@ func InitDefaultQueue() error {
 		},
 	}
 	_, err := CreateQueue(ctx, defaultQueue)
-	if err != nil {
+	if err != nil && !k8serrors.IsAlreadyExists(err) {
 		log.Errorf("create default queue[%+v] failed, err: %v", defaultQueue, err)
 		return err
 	}
