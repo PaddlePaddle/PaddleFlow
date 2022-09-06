@@ -329,13 +329,11 @@ func CreateQueue(ctx *logger.RequestContext, request *CreateQueueRequest) (Creat
 	err = runtimeSvc.CreateQueue(&queueInfo)
 	if err != nil && k8serrors.IsAlreadyExists(err) {
 		_, err = UpdateQueue(ctx, &UpdateQueueRequest{
-			Name:             request.Name,
-			Namespace:        request.Namespace,
-			MaxResources:     request.MaxResources,
-			MinResources:     request.MinResources,
-			QuotaType:        request.QuotaType,
-			Location:         request.Location,
-			SchedulingPolicy: request.SchedulingPolicy,
+			Name:         request.Name,
+			Namespace:    request.Namespace,
+			MaxResources: request.MaxResources,
+			MinResources: request.MinResources,
+			QuotaType:    request.QuotaType,
 		})
 	}
 	if err != nil {
