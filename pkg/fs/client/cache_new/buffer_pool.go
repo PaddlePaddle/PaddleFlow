@@ -42,7 +42,7 @@ func init() {
 			_ = cacheGoPool.Submit(func() {
 				page_.r.setCache(page_.index, page_.buffer, len(page_.buffer))
 				if *page_.closed {
-					page_.bufferPool.pool.Put(&page_.buffer)
+					page_.bufferPool.pool.Put(page_.buffer)
 				}
 				*page_.writeCacheReady = true
 				page_ = nil
@@ -106,7 +106,7 @@ func (pool *BufferPool) Init(size int) *BufferPool {
 
 	pool.pool = &sync.Pool{New: func() interface{} {
 		out := make([]byte, 0, size)
-		return &out
+		return out
 	}}
 
 	return pool
@@ -138,11 +138,7 @@ func (pool *BufferPool) RequestMBuf(size uint64, block bool, blockSize int) []by
 	}
 
 	pool.totalBuffers++
-	bufPtr := pool.pool.Get().(*[]byte)
-	if bufPtr == nil {
-		return nil
-	}
-	return *bufPtr
+	return pool.pool.Get().([]byte)
 }
 
 func (pool *BufferPool) MaybeGC() {
@@ -202,7 +198,7 @@ func (p *Page) Free() {
 	defer p.bufferPool.mu.Unlock()
 	if p.buffer != nil {
 		if *p.writeCacheReady {
-			p.bufferPool.pool.Put(&p.buffer)
+			p.bufferPool.pool.Put(p.buffer)
 		}
 		p.buffer = nil
 		p.bufferPool.cond.Signal()
