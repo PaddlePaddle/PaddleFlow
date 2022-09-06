@@ -225,7 +225,7 @@ func setup() {
 		log.Errorf("InitDefaultPVC err %v", err)
 		gracefullyExit(err)
 	}
-	if err := config.InitDefaultJobTemplate(ServerConf.Job.DefaultJobYamlPath); err != nil {
+	if err := config.InitJobTemplate(ServerConf.Job.DefaultJobYamlPath); err != nil {
 		log.Errorf("InitDefaultJobTemplate err %v", err)
 		gracefullyExit(err)
 	}

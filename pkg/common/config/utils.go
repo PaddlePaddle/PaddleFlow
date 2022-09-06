@@ -69,7 +69,7 @@ func InitConfigFromYaml(conf interface{}, configPath string) error {
 	return nil
 }
 
-func InitDefaultJobTemplate(path string) error {
+func InitJobTemplate(path string) error {
 	if path == "" {
 		path = defaultJobTemplatePath
 	}
