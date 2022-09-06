@@ -25,11 +25,10 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
 
 var (
-	psTasks = []model.Member{
+	psTasks = []schema.Member{
 		{
 			ID:       "task-normal-0001",
 			Replicas: 3,
@@ -55,7 +54,7 @@ var (
 			},
 		},
 	}
-	collectiveTask = []model.Member{
+	collectiveTask = []schema.Member{
 		{
 			ID:       "task-normal-0001",
 			Replicas: 3,
@@ -160,7 +159,7 @@ func TestPatchVCJobVariable(t *testing.T) {
 			Env:              pfjob.Conf.GetEnv(),
 			Priority:         pfjob.Conf.GetPriority(),
 			QueueName:        pfjob.Conf.GetQueueName(),
-			Tasks: []model.Member{{Conf: schema.Conf{Flavour: schema.Flavour{
+			Tasks: []schema.Member{{Conf: schema.Conf{Flavour: schema.Flavour{
 				ResourceInfo: schema.ResourceInfo{
 					CPU: "1",
 					Mem: "1Gi",

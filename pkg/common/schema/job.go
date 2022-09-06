@@ -42,6 +42,8 @@ const (
 	EnvJobWorkDir = "PF_WORK_DIR"
 	EnvMountPath  = "PF_MOUNT_PATH"
 
+	EnvJobRestartPolicy = "PF_JOB_RESTART_POLICY"
+
 	// EnvJobModePS env
 	EnvJobModePS          = "PS"
 	EnvJobPSPort          = "PF_JOB_PS_PORT"
@@ -261,6 +263,11 @@ func (c *Conf) GetArgs() []string {
 	return c.Args
 }
 
+func (c *Conf) GetRestartPolicy() string {
+	c.preCheckEnv()
+	return c.Env[EnvJobRestartPolicy]
+}
+
 func (c *Conf) GetWorkerCommand() string {
 	c.preCheckEnv()
 	return c.Env[EnvJobWorkerCommand]
@@ -469,3 +476,10 @@ func (s Conf) Value() (driver.Value, error) {
 	}
 	return value, nil
 }*/
+
+type Member struct {
+	ID       string     `json:"id"`
+	Replicas int        `json:"replicas"`
+	Role     MemberRole `json:"role"`
+	Conf     `json:",inline"`
+}
