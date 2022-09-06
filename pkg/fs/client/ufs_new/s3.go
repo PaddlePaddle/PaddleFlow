@@ -1028,23 +1028,12 @@ func (fh *s3FileHandle) Read(buf []byte, off int64) (int, error) {
 		log.Errorf("s3 read: s3.GetObject[%s] err: %v", fh.name, err)
 		return 0, err
 	}
-	data, err := io.ReadAll(response.Body)
-	if err != nil {
-		log.Errorf("s3 read: fh.name[%s]io.ReadAll err: %v", fh.name, err)
+	n, err := response.Body.Read(buf)
+	if err != nil && err != io.EOF {
+		log.Errorf("s3 read: [%s] Read err: %v", fh.name, err)
 		return 0, err
 	}
-
-	size := len(data)
-	if size > len(buf) {
-		size = len(buf)
-	} else {
-		buf = buf[0:size]
-	}
-	if !bytes.Equal(data[0:size], buf) {
-		buf = append(buf[:0], data[0:size]...)
-	}
-
-	return size, nil
+	return n, nil
 }
 
 // s3 do not support random write

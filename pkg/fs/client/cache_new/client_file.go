@@ -180,6 +180,10 @@ func (c *fileDataCache) clean() {
 	}
 	// 2. 清理目录下存在，但是c.keys中不存在的的文件,
 	if errCheck := filepath.Walk(filepath.Join(c.dir, CacheDir), func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			log.Errorf("prevent panic by handling failure accessing a path %q: %v", path, err)
+			return err
+		}
 		if info == nil {
 			return nil
 		}
@@ -195,8 +199,7 @@ func (c *fileDataCache) clean() {
 		if strings.HasSuffix(path, "tmp") {
 			return nil
 		}
-		err = os.Remove(path)
-		return err
+		return os.Remove(path)
 	}); errCheck != nil {
 		log.Errorf("data cache clean: filepath.Walk failed: %v", errCheck)
 	}
