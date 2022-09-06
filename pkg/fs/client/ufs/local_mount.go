@@ -112,7 +112,7 @@ func (fs *localMount) SetXAttr(name string, attr string, data []byte, flags int)
 	return syscall.ENOSYS
 }
 
-func (fs *localMount) Open(name string, flags uint32) (fd base.FileHandle, err error) {
+func (fs *localMount) Open(name string, flags uint32) (fd FileHandle, err error) {
 	flags = flags &^ syscall.O_APPEND
 	f, err := os.OpenFile(fs.GetPath(name), int(flags), 0)
 	if err != nil {
@@ -121,7 +121,7 @@ func (fs *localMount) Open(name string, flags uint32) (fd base.FileHandle, err e
 	return nodefs.NewLoopbackFile(f), nil
 }
 
-func (fs *localMount) Create(name string, flags uint32, mode uint32) (fd base.FileHandle, err error) {
+func (fs *localMount) Create(name string, flags uint32, mode uint32) (fd FileHandle, err error) {
 	flags = flags &^ syscall.O_APPEND
 	f, err := os.OpenFile(fs.GetPath(name), int(flags)|os.O_CREATE, os.FileMode(mode))
 	return nodefs.NewLoopbackFile(f), err

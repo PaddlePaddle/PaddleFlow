@@ -17,7 +17,6 @@ limitations under the License.
 package ufs
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"os/user"
@@ -30,7 +29,6 @@ import (
 
 	"github.com/colinmarc/hdfs/v2"
 	"github.com/hanwen/go-fuse/v2/fuse"
-	"github.com/hanwen/go-fuse/v2/fuse/nodefs"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/base"
@@ -348,7 +346,7 @@ func (fs *hdfsFileSystem) Put(name string, reader io.Reader) error {
 
 // File handling.  If opening for writing, the file's mtime
 // should be updated too.
-func (fs *hdfsFileSystem) Open(name string, flags uint32) (fd base.FileHandle, err error) {
+func (fs *hdfsFileSystem) Open(name string, flags uint32) (fd FileHandle, err error) {
 	log.Tracef("hdfs open: name[%s], flags[%d]", name, flags)
 	flag := fs.getOpenFlags(name, flags)
 
@@ -394,7 +392,7 @@ func (fs *hdfsFileSystem) Open(name string, flags uint32) (fd base.FileHandle, e
 	return nil, syscall.ENOSYS
 }
 
-func (fs *hdfsFileSystem) Create(name string, flags, mode uint32) (fd base.FileHandle, err error) {
+func (fs *hdfsFileSystem) Create(name string, flags, mode uint32) (fd FileHandle, err error) {
 	fs.Lock()
 	defer fs.Unlock()
 	log.Tracef("hdfs create: name[%s], flags[%d], mode[%d]", name, flags, mode)
@@ -471,17 +469,7 @@ type hdfsFileHandle struct {
 	reader *hdfs.FileReader
 }
 
-var _ base.FileHandle = &hdfsFileHandle{}
-
-func (fh *hdfsFileHandle) String() string {
-	return fmt.Sprintf("hdfsFileHandle(%s)", fh.name)
-}
-
-func (fh *hdfsFileHandle) SetInode(*nodefs.Inode) {
-}
-func (fh *hdfsFileHandle) InnerFile() nodefs.File {
-	return nil
-}
+var _ FileHandle = &hdfsFileHandle{}
 
 func (fh *hdfsFileHandle) Read(buf []byte, off int64) (res fuse.ReadResult, code fuse.Status) {
 	log.Tracef("hdfs read: fh.name[%s], offset[%d]", fh.name, off)
@@ -548,23 +536,6 @@ func (fh *hdfsFileHandle) Fsync(flags int) (code fuse.Status) {
 	return fuse.ToStatus(fh.writer.Flush())
 }
 
-// not support
-func (fh *hdfsFileHandle) GetLk(owner uint64, lk *fuse.FileLock, flags uint32, out *fuse.FileLock) (code fuse.Status) {
-	return fuse.ENOSYS
-}
-
-func (fh *hdfsFileHandle) SetLk(owner uint64, lk *fuse.FileLock, flags uint32) (code fuse.Status) {
-	return fuse.ENOSYS
-}
-
-func (fh *hdfsFileHandle) SetLkw(owner uint64, lk *fuse.FileLock, flags uint32) (code fuse.Status) {
-	return fuse.ENOSYS
-}
-
-func (fh *hdfsFileHandle) setLock(owner uint64, lk *fuse.FileLock, flags uint32, blocking bool) (code fuse.Status) {
-	return fuse.ENOSYS
-}
-
 func (fh *hdfsFileHandle) Truncate(size uint64) fuse.Status {
 	log.Tracef("hdfs truncate: fh.name[%s], size[%d]", fh.name, size)
 	var err error
@@ -588,28 +559,6 @@ func (fh *hdfsFileHandle) Truncate(size uint64) fuse.Status {
 		}
 	}
 	return fuse.OK
-}
-
-func (fh *hdfsFileHandle) Chmod(mode uint32) fuse.Status {
-	return fuse.ToStatus(fh.fs.Chmod(fh.name, mode))
-}
-
-func (fh *hdfsFileHandle) Chown(uid uint32, gid uint32) fuse.Status {
-	return fuse.ToStatus(fh.fs.Chown(fh.name, uid, gid))
-}
-
-func (fh *hdfsFileHandle) GetAttr(a *fuse.Attr) fuse.Status {
-	finfo, err := fh.fs.GetAttr(fh.name)
-	if err != nil {
-		return fuse.ToStatus(err)
-	}
-
-	stat_t := finfo.Sys.(syscall.Stat_t)
-	a.FromStat(&stat_t)
-	return fuse.OK
-}
-func (fh *hdfsFileHandle) Utimens(atime *time.Time, mtime *time.Time) fuse.Status {
-	return fuse.ToStatus(fh.fs.Utimens(fh.name, atime, mtime))
 }
 
 func (fh *hdfsFileHandle) Allocate(off uint64, size uint64, mode uint32) (code fuse.Status) {
