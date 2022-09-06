@@ -132,7 +132,9 @@ func (fs *localFileSystem) ReadDir(name string) (stream []DirEntry, err error) {
 	// What other ways beyond O_RDONLY are there to open
 	// directories?
 	ofile, err := os.Open(fs.GetPath(name))
-	defer ofile.Close()
+	defer func() {
+		_ = ofile.Close()
+	}()
 	if err != nil {
 		return nil, err
 	}
