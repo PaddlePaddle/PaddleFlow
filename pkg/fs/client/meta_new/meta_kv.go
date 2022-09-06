@@ -563,7 +563,7 @@ func (m *kvMeta) GetAttr(ctx *Context, inode Ino, attr *Attr) syscall.Errno {
 		if err != nil {
 			log.Debugf("[vfs] GetAttr failed: %v with path[%s] and absolutePath[%s]", err, path, absolutePath)
 			if utils.IfNotExist(err) {
-				tx.Dels(m.inodeKey(inode), m.entryKey(inodeItem_.parentIno, string(inodeItem_.name)))
+				_ = tx.Dels(m.inodeKey(inode), m.entryKey(inodeItem_.parentIno, string(inodeItem_.name)))
 			}
 			return err
 		}
@@ -574,7 +574,7 @@ func (m *kvMeta) GetAttr(ctx *Context, inode Ino, attr *Attr) syscall.Errno {
 		attr.FromFileInfo(info)
 		inodeItem_.attr = *attr
 		inodeItem_.expire = now.Add(m.attrTimeOut).Unix()
-		tx.Set(m.inodeKey(inode), m.marshalInode(inodeItem_))
+		_ = tx.Set(m.inodeKey(inode), m.marshalInode(inodeItem_))
 		return nil
 	})
 
