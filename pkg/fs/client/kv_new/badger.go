@@ -110,10 +110,6 @@ func (kv *KVTxn) IncrBy(key []byte, value int64) int64 {
 	panic("implement me")
 }
 
-func (kv *KVTxn) NextNumber() int64 {
-	panic("implement me")
-}
-
 type kvClient struct {
 	db *badger.DB
 }

@@ -263,10 +263,10 @@ func (v *VFS) Mknod(ctx *meta.Context, parent Ino, name string, mode uint32, rde
 	return
 }
 
-func (v *VFS) Mkdir(ctx *meta.Context, parent Ino, name string, mode uint32) (entry *meta.Entry, err syscall.Errno) {
+func (v *VFS) Mkdir(ctx *meta.Context, parent Ino, name string, mode uint32, cumask uint16) (entry *meta.Entry, err syscall.Errno) {
 	var ino Ino
 	attr := &Attr{}
-	err = v.Meta.Mkdir(ctx, parent, name, mode, &ino, attr)
+	err = v.Meta.Mkdir(ctx, parent, name, mode, cumask, &ino, attr)
 	entry = &meta.Entry{Ino: ino, Attr: attr}
 	return
 }
@@ -638,6 +638,7 @@ func (v *VFS) Release(ctx *meta.Context, ino Ino, fh uint64) {
 		log.Debugf("release inode %v", ino)
 		return
 	}
+	_ = v.Meta.Close(ctx, ino)
 }
 
 func (v *VFS) StatFs(ctx *meta.Context) (*base.StatfsOut, syscall.Errno) {
