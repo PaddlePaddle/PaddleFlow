@@ -997,7 +997,7 @@ type s3FileHandle struct {
 
 var _ FileHandle = &s3FileHandle{}
 
-func (fh *s3FileHandle) Read(buf []byte, off int64) (res fuse.ReadResult, code fuse.Status) {
+func (fh *s3FileHandle) Read(buf []byte, off int64) (int, error) {
 	log.Tracef("s3 read: fh.name[%s] len[%d] off[%d]", fh.name, len(buf), off)
 	request := &s3.GetObjectInput{
 		Bucket: &fh.bucket,
@@ -1005,10 +1005,10 @@ func (fh *s3FileHandle) Read(buf []byte, off int64) (res fuse.ReadResult, code f
 	}
 	l := int64(len(buf))
 	if off >= fh.size {
-		return fuse.ReadResultData(buf[0:0]), fuse.OK
+		return 0, nil
 	}
 	if fh.size == 0 {
-		return fuse.ReadResultData(buf[0:0]), fuse.OK
+		return 0, nil
 	}
 	// Range: https://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.35
 	if l > 0 {
@@ -1026,26 +1026,27 @@ func (fh *s3FileHandle) Read(buf []byte, off int64) (res fuse.ReadResult, code f
 	response, err := fh.fs.s3.GetObject(request)
 	if err != nil {
 		log.Errorf("s3 read: s3.GetObject[%s] err: %v", fh.name, err)
-		return nil, fuse.ToStatus(err)
+		return 0, err
 	}
-	data, err := io.ReadAll(response.Body)
-	if err != nil {
-		log.Errorf("s3 read: fh.name[%s]io.ReadAll err: %v", fh.name, err)
-		return nil, fuse.ToStatus(err)
+	n, err := response.Body.Read(buf)
+	if err != nil && err != io.EOF {
+		log.Errorf("s3 read: [%s] Read err: %v", fh.name, err)
+		return 0, err
 	}
-	return fuse.ReadResultData(data), fuse.OK
+	return n, nil
 }
 
 // s3 do not support random write
-func (fh *s3FileHandle) Write(data []byte, offset int64) (uint32, fuse.Status) {
+func (fh *s3FileHandle) Write(data []byte, offset int64) (uint32, error) {
 	log.Tracef("s3 write: fh.name[%s] offset[%d] length[%d]", fh.name, offset, len(data))
 	if len(data) <= 0 {
 		log.Infof("s3 write: fh.name[%s] no need to write. data len is 0", fh.name)
-		return uint32(0), fuse.OK
+		return uint32(0), nil
 	}
 	if fh.writeTmpfile == nil {
-		log.Errorf("s3 write: fh.name[%s] failed writeTmpfile = nil", fh.name)
-		return uint32(0), fuse.EIO
+		err := fmt.Errorf("s3 write: file[%s] bad file descriptor: writeTmpfile = nil", fh.name)
+		log.Errorf(err.Error())
+		return uint32(0), err
 	}
 
 	if fh.canWrite != nil {
@@ -1060,10 +1061,10 @@ func (fh *s3FileHandle) Write(data []byte, offset int64) (uint32, fuse.Status) {
 	n, err := fh.writeTmpfile.WriteAt(data, offset)
 	if err != nil {
 		log.Errorf("s3 write: fh.name[%s] WriteAt err: %v", fh.name, err)
-		return uint32(0), fuse.ToStatus(err)
+		return uint32(0), err
 	}
 	fh.writeDirty = true
-	return uint32(n), fuse.OK
+	return uint32(n), nil
 }
 
 func (fh *s3FileHandle) serialMPUTillEnd() error {
@@ -1174,8 +1175,8 @@ func (fh *s3FileHandle) Release() {
 	}
 }
 
-func (fh *s3FileHandle) Flush() fuse.Status {
-	return fuse.ToStatus(fh.uploadWriteTmpFile())
+func (fh *s3FileHandle) Flush() error {
+	return fh.uploadWriteTmpFile()
 }
 
 func (fh *s3FileHandle) uploadWriteTmpFile() error {
@@ -1274,16 +1275,17 @@ func (fh *s3FileHandle) putFile(fileSize int64) error {
 	return err
 }
 
-func (fh *s3FileHandle) Fsync(flags int) (code fuse.Status) {
-	return fuse.OK
+func (fh *s3FileHandle) Fsync(flags int) error {
+	return nil
 }
 
-func (fh *s3FileHandle) Truncate(size uint64) fuse.Status {
+func (fh *s3FileHandle) Truncate(size uint64) error {
 	log.Tracef("s3 truncate: fh.name[%s], size[%d]", fh.name, size)
 
 	if fh.writeTmpfile == nil {
-		log.Errorf("s3 truncate: fh.name[%s] failed writeTmpfile = nil", fh.name)
-		return fuse.EIO
+		err := fmt.Errorf("s3 truncate: file[%s] bad file descriptor writeTmpfile = nil", fh.name)
+		log.Errorf(err.Error())
+		return err
 	}
 
 	// wait until read from remote to tmpFile finish
@@ -1296,17 +1298,17 @@ func (fh *s3FileHandle) Truncate(size uint64) fuse.Status {
 	err := fh.writeTmpfile.Truncate(int64(size))
 	if err != nil {
 		log.Debugf("s3 truncate: fh.name[%s], writeTmpfile.Truncate err: %v", fh.name, err)
-		return fuse.ToStatus(err)
+		return err
 	}
 	fh.writeDirty = true
-	return fuse.ToStatus(fh.uploadWriteTmpFile())
+	return fh.uploadWriteTmpFile()
 }
 
-func (fh *s3FileHandle) Allocate(off, size uint64, mode uint32) (code fuse.Status) {
+func (fh *s3FileHandle) Allocate(off, size uint64, mode uint32) error {
 	log.Tracef("s3 allocate: name[%s], size[%d]", fh.name, size)
 	// s3 is remote object storage. no need to allocate space in advance.
 	// no need to do anything here. upload files when real file exists
-	return fuse.OK
+	return nil
 }
 
 func (fh *s3FileHandle) partAndChunkSize(fileSize int64) (partSize int64, chunkSize int64, partsPerChunk int64) {

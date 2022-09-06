@@ -71,6 +71,10 @@ func ToSyscallErrno(err error) syscall.Errno {
 		return syscall.EEXIST
 	}
 
+	if strings.Contains(err.Error(), "bad file descriptor") {
+		return syscall.EBADF
+	}
+
 	if strings.Contains(err.Error(), "Operation unsupported") {
 		return syscall.ENOSYS
 	}

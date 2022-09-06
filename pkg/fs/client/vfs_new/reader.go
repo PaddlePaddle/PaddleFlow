@@ -23,9 +23,9 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/cache"
+	cache "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/cache_new"
 	meta "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/meta_new"
-	ufslib "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/ufs"
+	ufslib "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/ufs_new"
 )
 
 const READAHEAD_CHUNK = uint32(20 * 1024 * 1024)
@@ -124,8 +124,7 @@ func (fh *fileReader) Read(buf []byte, off uint64) (int, syscall.Errno) {
 			return 0, syscall.EBADF
 		}
 		// todo:: 不走缓存部分需要保持原来open-read模式，保证这部分性能
-		ufsHandle := ufslib.NewFileHandle(fh.fd)
-		bytesRead, err = ufsHandle.ReadAt(buf, int64(off))
+		bytesRead, err = fh.fd.Read(buf, int64(off))
 		if err != nil {
 			log.Errorf("ufs read err: %v", err)
 			return 0, syscall.EBADF
