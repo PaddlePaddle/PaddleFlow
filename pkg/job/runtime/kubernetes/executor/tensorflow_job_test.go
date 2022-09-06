@@ -22,7 +22,7 @@ import (
 
 	tfv1 "github.com/kubeflow/training-operator/pkg/apis/tensorflow/v1"
 	"github.com/stretchr/testify/assert"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
