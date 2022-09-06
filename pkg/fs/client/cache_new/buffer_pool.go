@@ -116,7 +116,7 @@ func (pool *BufferPool) recomputeBufferLimit() {
 	pool.computedMaxBuffers = maxBuffers(pool.bufSize)
 }
 
-func (pool *BufferPool) RequestMBuf(size uint64, block bool, blockSize int) (buf []byte) {
+func (pool *BufferPool) RequestMBuf(size uint64, block bool, blockSize int) []byte {
 	pool.bufSize = size
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
@@ -133,13 +133,16 @@ func (pool *BufferPool) RequestMBuf(size uint64, block bool, blockSize int) (buf
 			pool.recomputeBufferLimit()
 			pool.cond.Wait()
 		} else {
-			return
+			return nil
 		}
 	}
 
 	pool.totalBuffers++
-	buf = pool.pool.Get().([]byte)
-	return
+	bufPtr := pool.pool.Get().(*[]byte)
+	if bufPtr == nil {
+		return nil
+	}
+	return *bufPtr
 }
 
 func (pool *BufferPool) MaybeGC() {
