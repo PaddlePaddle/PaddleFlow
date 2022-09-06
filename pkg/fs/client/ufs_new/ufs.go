@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package ufs
+package ufs_new
 
 import (
 	"bytes"
@@ -54,7 +54,7 @@ func (u *FileHandler) ReadAt(buf []byte, off int64) (int, error) {
 	} else {
 		buf = buf[0:size]
 	}
-	if bytes.Compare(buffer[0:size], buf) != 0 {
+	if !bytes.Equal(buffer[0:size], buf) {
 		buf = append(buf[:0], buffer[0:size]...)
 	}
 	return len(buf), nil

@@ -27,14 +27,14 @@ type KvTxn interface {
 	Get(key []byte) []byte
 	Set(key, value []byte) error
 	Dels(keys ...[]byte) error
-	ScanValues(prefix []byte) ([][]byte, error)
+	ScanValues(prefix []byte) (map[string][]byte, error)
 	Exist(Prefix []byte) bool
 	Append(key []byte, value []byte) []byte
 	IncrBy(key []byte, value int64) int64
-	NextNumber() int64
 }
 
 type KvClient interface {
 	Name() string
 	Txn(f func(KvTxn) error) error
+	NextNumber(key []byte) (uint64, error)
 }

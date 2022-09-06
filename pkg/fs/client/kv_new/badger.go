@@ -30,7 +30,7 @@ type KVTxn struct {
 }
 
 const (
-	MemType  = "memory"
+	MemType  = "mem"
 	DiskType = "disk"
 )
 
@@ -71,15 +71,31 @@ func (kv *KVTxn) Get(key []byte) []byte {
 }
 
 func (kv *KVTxn) Set(key, value []byte) error {
-	panic("implement me")
+	err := kv.t.Set(key, value)
+	return err
 }
 
 func (kv *KVTxn) Dels(keys ...[]byte) error {
 	panic("implement me")
 }
 
-func (kv *KVTxn) ScanValues(prefix []byte) ([][]byte, error) {
-	panic("implement me")
+func (kv *KVTxn) ScanValues(prefix []byte) (map[string][]byte, error) {
+	it := kv.t.NewIterator(badger.DefaultIteratorOptions)
+	defer it.Close()
+	result := make(map[string][]byte)
+	for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
+		item := it.Item()
+		k := item.Key()
+
+		err := item.Value(func(v []byte) error {
+			result[string(k)] = v
+			return nil
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
 }
 
 func (kv *KVTxn) Exist(Prefix []byte) bool {
@@ -91,10 +107,6 @@ func (kv *KVTxn) Append(key []byte, value []byte) []byte {
 }
 
 func (kv *KVTxn) IncrBy(key []byte, value int64) int64 {
-	panic("implement me")
-}
-
-func (kv *KVTxn) NextNumber() int64 {
 	panic("implement me")
 }
 
@@ -117,6 +129,15 @@ func (c *kvClient) Txn(f func(txn KvTxn) error) error {
 
 	err = tx.Commit()
 	return err
+}
+
+func (c *kvClient) NextNumber(key []byte) (uint64, error) {
+	seq, err := c.db.GetSequence(key, 1)
+	if err != nil {
+		return 0, err
+	}
+	num, err := seq.Next()
+	return num + 2, err
 }
 
 var _ KvTxn = &KVTxn{}

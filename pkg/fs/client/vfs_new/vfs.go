@@ -33,7 +33,10 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 )
 
-const rootID = 1
+const (
+	rootID  = 1
+	maxName = 255
+)
 
 var StatsSize = 1000
 
@@ -140,6 +143,10 @@ func InitVFS(fsMeta common.FSMeta, links map[string]common.FSMeta, global bool,
 	if global {
 		vfsop = vfs
 	}
+	err = vfs.Meta.InitRootInode()
+	if err != nil {
+		return nil, err
+	}
 	initInternalNodes()
 	log.Debugf("Init VFS: %+v", vfs)
 	return vfs, nil
@@ -170,6 +177,11 @@ func (v *VFS) Lookup(ctx *meta.Context, parent Ino, name string) (entry *meta.En
 			log.Debugf("vfs lookup special node[%x] attr: %+v", entry.Ino, *entry.Attr)
 			return
 		}
+	}
+	nleng := len(name)
+	if nleng > maxName {
+		err = syscall.ENAMETOOLONG
+		return
 	}
 	var inode Ino
 	var attr *Attr
@@ -251,10 +263,10 @@ func (v *VFS) Mknod(ctx *meta.Context, parent Ino, name string, mode uint32, rde
 	return
 }
 
-func (v *VFS) Mkdir(ctx *meta.Context, parent Ino, name string, mode uint32) (entry *meta.Entry, err syscall.Errno) {
+func (v *VFS) Mkdir(ctx *meta.Context, parent Ino, name string, mode uint32, cumask uint16) (entry *meta.Entry, err syscall.Errno) {
 	var ino Ino
 	attr := &Attr{}
-	err = v.Meta.Mkdir(ctx, parent, name, mode, &ino, attr)
+	err = v.Meta.Mkdir(ctx, parent, name, mode, cumask, &ino, attr)
 	entry = &meta.Entry{Ino: ino, Attr: attr}
 	return
 }
@@ -626,6 +638,7 @@ func (v *VFS) Release(ctx *meta.Context, ino Ino, fh uint64) {
 		log.Debugf("release inode %v", ino)
 		return
 	}
+	_ = v.Meta.Close(ctx, ino)
 }
 
 func (v *VFS) StatFs(ctx *meta.Context) (*base.StatfsOut, syscall.Errno) {
