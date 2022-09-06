@@ -23,17 +23,17 @@ import (
 )
 
 func registerMetrics() {
-	prometheus.Register(cacheHits)
-	prometheus.Register(cacheHitBytes)
-	prometheus.Register(cacheMiss)
-	prometheus.Register(cacheMissBytes)
-	prometheus.Register(cacheMissRate)
-	prometheus.Register(cacheWrites)
-	prometheus.Register(cacheWriteBytes)
-	prometheus.Register(cacheDrops)
-	prometheus.Register(cacheEvicts)
-	prometheus.Register(cacheReadHist)
-	prometheus.Register(cacheWriteHist)
+	_ = prometheus.Register(cacheHits)
+	_ = prometheus.Register(cacheHitBytes)
+	_ = prometheus.Register(cacheMiss)
+	_ = prometheus.Register(cacheMissBytes)
+	_ = prometheus.Register(cacheMissRate)
+	_ = prometheus.Register(cacheWrites)
+	_ = prometheus.Register(cacheWriteBytes)
+	_ = prometheus.Register(cacheDrops)
+	_ = prometheus.Register(cacheEvicts)
+	_ = prometheus.Register(cacheReadHist)
+	_ = prometheus.Register(cacheWriteHist)
 }
 
 var (
