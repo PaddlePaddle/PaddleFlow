@@ -179,7 +179,7 @@ func (c *fileDataCache) clean() {
 		return
 	}
 	// 2. 清理目录下存在，但是c.keys中不存在的的文件,
-	filepath.Walk(filepath.Join(c.dir, CacheDir), func(path string, info os.FileInfo, err error) error {
+	if err := filepath.Walk(filepath.Join(c.dir, CacheDir), func(path string, info os.FileInfo, err error) error {
 		if info == nil {
 			return nil
 		}
@@ -197,8 +197,12 @@ func (c *fileDataCache) clean() {
 		}
 		err = os.Remove(path)
 		return err
-	})
-	c.updateCapacity()
+	}); err != nil {
+		log.Errorf("data cache clean: filepath.Walk failed: %v", err)
+	}
+	if err := c.updateCapacity(); err != nil {
+		log.Errorf("data cache clean: updateCapacity failed: %v", err)
+	}
 }
 
 func (c *fileDataCache) cachePath(key string) string {
