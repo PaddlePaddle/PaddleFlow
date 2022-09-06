@@ -327,6 +327,17 @@ func CreateQueue(ctx *logger.RequestContext, request *CreateQueueRequest) (Creat
 	}
 
 	err = runtimeSvc.CreateQueue(&queueInfo)
+	if err != nil && k8serrors.IsAlreadyExists(err) {
+		_, err = UpdateQueue(ctx, &UpdateQueueRequest{
+			Name:             request.Name,
+			Namespace:        request.Namespace,
+			MaxResources:     request.MaxResources,
+			MinResources:     request.MinResources,
+			QuotaType:        request.QuotaType,
+			Location:         request.Location,
+			SchedulingPolicy: request.SchedulingPolicy,
+		})
+	}
 	if err != nil {
 		ctx.Logging().Errorf("GlobalVCQueue create request failed. error:%s", err.Error())
 		ctx.ErrorCode = common.QueueResourceNotMatch
@@ -686,7 +697,7 @@ func InitDefaultQueue() error {
 		},
 	}
 	_, err := CreateQueue(ctx, defaultQueue)
-	if err != nil && !k8serrors.IsAlreadyExists(err) {
+	if err != nil {
 		log.Errorf("create default queue[%+v] failed, err: %v", defaultQueue, err)
 		return err
 	}
