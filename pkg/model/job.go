@@ -47,20 +47,13 @@ type Job struct {
 	Resource          *resources.Resource `json:"resource" gorm:"-"`
 	Framework         schema.Framework    `json:"framework" gorm:"type:varchar(30)"`
 	MembersJson       string              `json:"-" gorm:"column:members;type:text"`
-	Members           []Member            `json:"members" gorm:"-"`
+	Members           []schema.Member     `json:"members" gorm:"-"`
 	ExtensionTemplate string              `json:"-" gorm:"type:text"`
 	ParentJob         string              `json:"-" gorm:"type:varchar(60)"`
 	CreatedAt         time.Time           `json:"createTime"`
 	ActivatedAt       sql.NullTime        `json:"activateTime"`
 	UpdatedAt         time.Time           `json:"updateTime,omitempty"`
 	DeletedAt         string              `json:"-" gorm:"index:idx_id"`
-}
-
-type Member struct {
-	ID          string            `json:"id"`
-	Replicas    int               `json:"replicas"`
-	Role        schema.MemberRole `json:"role"`
-	schema.Conf `json:",inline"`
 }
 
 func (Job) TableName() string {
@@ -126,7 +119,7 @@ func (job *Job) AfterFind(tx *gorm.DB) error {
 		job.RuntimeStatus = runtimeStatus
 	}
 	if len(job.MembersJson) > 0 {
-		var members []Member
+		var members []schema.Member
 		err := json.Unmarshal([]byte(job.MembersJson), &members)
 		if err != nil {
 			log.Errorf("job[%s] json unmarshal member failed, error: %s", job.ID, err.Error())

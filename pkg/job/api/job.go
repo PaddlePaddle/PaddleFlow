@@ -59,7 +59,7 @@ type PFJob struct {
 	PriorityClassName string
 
 	// Tasks for TypeDistributed job
-	Tasks []model.Member
+	Tasks []schema.Member
 	// ExtRuntimeConf define extra runtime conf
 	ExtRuntimeConf []byte
 	// ExtensionTemplate records the extension template of job
