@@ -198,7 +198,7 @@ func (p *Page) Free() {
 	p.bufferPool.mu.Lock()
 	defer p.bufferPool.mu.Unlock()
 	if p.buffer != nil {
-		if *p.writeCacheReady == true {
+		if *p.writeCacheReady {
 			p.bufferPool.pool.Put(p.buffer)
 		}
 		p.buffer = nil
@@ -311,8 +311,6 @@ func (b *Buffer) ReadAt(p []byte, offset uint64) (n int, err error) {
 	} else {
 		return 0, errors.New("page is empty, maybe oom")
 	}
-
-	return
 }
 
 func (b *Buffer) ReInit(r ReaderProvider) *Buffer {
