@@ -26,9 +26,9 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/base"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/cache"
+	cache "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/cache_new"
 	meta "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/meta_new"
-	ufslib "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/ufs"
+	ufslib "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/ufs_new"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/utils"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 )

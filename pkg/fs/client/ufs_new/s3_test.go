@@ -22,7 +22,6 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/hanwen/go-fuse/v2/fuse"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 
@@ -114,11 +113,9 @@ func TestS3(t *testing.T) {
 	fh, err = fs.Open(fileName, uint32(os.O_RDONLY))
 	assert.NoError(t, err)
 	buf := make([]byte, 4)
-	r, e := fh.Read(buf, 0)
-	assert.Equal(t, fuse.OK, e)
-	data, code := r.Bytes(buf)
-	assert.Equal(t, fuse.OK, code)
-	assert.Equal(t, 4, len(data))
+	n, e := fh.Read(buf, 0)
+	assert.Nil(t, e)
+	assert.Equal(t, 4, n)
 	fh.Release()
 
 	// test no prefix
@@ -153,15 +150,15 @@ func TestS3Truncate(t *testing.T) {
 	assert.Nil(t, err)
 
 	// truncate 0 -> 4444
-	status := fh.Truncate(4444)
-	assert.Equal(t, fuse.OK, status)
+	err = fh.Truncate(4444)
+	assert.Nil(t, err)
 	finfo, err = fs.GetAttr(file)
 	assert.Nil(t, err)
 	assert.Equal(t, int64(4444), finfo.Size)
 
 	// truncate 4444 -> 22
-	status = fh.Truncate(22)
-	assert.Equal(t, fuse.OK, status)
+	err = fh.Truncate(22)
+	assert.Nil(t, err)
 	finfo, err = fs.GetAttr(file)
 	assert.Nil(t, err)
 	assert.Equal(t, int64(22), finfo.Size)

@@ -21,7 +21,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/hanwen/go-fuse/v2/fuse"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 
@@ -49,11 +48,9 @@ func testFsOp(t *testing.T, fs UnderFileStorage) {
 	fh, err = fs.Open("hello", uint32(os.O_RDONLY))
 	assert.NoError(t, err)
 	buf := make([]byte, 20)
-	r, e := fh.Read(buf, 0)
-	assert.Equal(t, fuse.OK, e)
-	data, code := r.Bytes(buf)
-	assert.Equal(t, fuse.OK, code)
-	assert.Equal(t, len(content), len(data))
+	n, e := fh.Read(buf, 0)
+	assert.Nil(t, e)
+	assert.Equal(t, len(content), n)
 	fh.Release()
 	entries, err := fs.ReadDir("/")
 	assert.NoError(t, err)

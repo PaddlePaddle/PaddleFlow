@@ -21,7 +21,6 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
@@ -67,19 +66,17 @@ func TestFile(t *testing.T) {
 	fh, err = fs.Open("hello", uint32(os.O_RDONLY))
 	assert.NoError(t, err)
 	buf := make([]byte, 20)
-	r, e := fh.Read(buf, 0)
-	assert.Equal(t, fuse.OK, e)
-	data, code := r.Bytes(buf)
-	assert.Equal(t, fuse.OK, code)
-	assert.Equal(t, len(content), len(data))
+	n, e := fh.Read(buf, 0)
+	assert.Nil(t, e)
+	assert.Equal(t, len(content), n)
 	fh.Release()
 
 	fh2, err := fs.Open("hello", uint32(os.O_WRONLY))
 	assert.NoError(t, err)
 	content = []byte("headfsallo world")
-	n, code := fh2.Write(content, 11)
-	assert.Equal(t, fuse.OK, code)
-	assert.Equal(t, len(content), int(n))
+	nWritten, eWritten := fh2.Write(content, 11)
+	assert.Nil(t, eWritten)
+	assert.Equal(t, len(content), int(nWritten))
 	fh2.Flush()
 	fh2.Release()
 

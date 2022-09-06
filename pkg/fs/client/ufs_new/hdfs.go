@@ -17,6 +17,7 @@ limitations under the License.
 package ufs_new
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"os/user"
@@ -471,10 +472,12 @@ type hdfsFileHandle struct {
 
 var _ FileHandle = &hdfsFileHandle{}
 
-func (fh *hdfsFileHandle) Read(buf []byte, off int64) (res fuse.ReadResult, code fuse.Status) {
+func (fh *hdfsFileHandle) Read(buf []byte, off int64) (int, error) {
 	log.Tracef("hdfs read: fh.name[%s], offset[%d]", fh.name, off)
 	if fh.reader == nil {
-		return nil, fuse.EBADF
+		err := fmt.Errorf("hdfs read: file[%s] bad file descriptor reader==nil", fh.name)
+		log.Errorf(err.Error())
+		return 0, err
 	}
 	n, err := fh.reader.ReadAt(buf, off)
 	if err != nil && err != io.EOF {
@@ -487,24 +490,25 @@ func (fh *hdfsFileHandle) Read(buf []byte, off int64) (res fuse.ReadResult, code
 				fh.reader = nil
 			}
 		}
-		return nil, fuse.ToStatus(err)
+		return 0, err
 	}
-	return fuse.ReadResultData(buf[0:n]), fuse.OK
+	return n, nil
 }
 
-func (fh *hdfsFileHandle) Write(data []byte, off int64) (uint32, fuse.Status) {
+func (fh *hdfsFileHandle) Write(data []byte, off int64) (uint32, error) {
 	log.Tracef("hdfs write: fh.name[%s], dataLength[%d], offset[%d], fh[%+v]", fh.name, len(data), off, fh)
 	if fh.writer == nil {
-		log.Errorf("hdfs write: fh.name[%s], writer nil", fh.name)
-		return 0, fuse.EBADF
+		err := fmt.Errorf("hdfs write: file[%s] bad file descriptor writer==nil", fh.name)
+		log.Errorf(err.Error())
+		return 0, err
 	}
 
 	n, err := fh.writer.Write(data)
 	if err != nil {
 		log.Tracef("hdfs write: fh.name[%s] fh.writer.Write err:%v", fh.name, err)
-		return 0, fuse.ToStatus(err)
+		return 0, err
 	}
-	return uint32(n), fuse.OK
+	return uint32(n), nil
 }
 
 func (fh *hdfsFileHandle) Release() {
@@ -520,23 +524,23 @@ func (fh *hdfsFileHandle) Release() {
 	}
 }
 
-func (fh *hdfsFileHandle) Flush() fuse.Status {
+func (fh *hdfsFileHandle) Flush() error {
 	log.Tracef("hdfs flush: fh.name[%s]", fh.name)
 	if fh.writer == nil {
-		return fuse.OK
+		return nil
 	}
 
-	return fuse.ToStatus(fh.writer.Flush())
+	return fh.writer.Flush()
 }
 
-func (fh *hdfsFileHandle) Fsync(flags int) (code fuse.Status) {
+func (fh *hdfsFileHandle) Fsync(flags int) error {
 	if fh.writer == nil {
-		return fuse.OK
+		return nil
 	}
-	return fuse.ToStatus(fh.writer.Flush())
+	return fh.writer.Flush()
 }
 
-func (fh *hdfsFileHandle) Truncate(size uint64) fuse.Status {
+func (fh *hdfsFileHandle) Truncate(size uint64) error {
 	log.Tracef("hdfs truncate: fh.name[%s], size[%d]", fh.name, size)
 	var err error
 	if fh.writer != nil && size == 0 {
@@ -544,25 +548,25 @@ func (fh *hdfsFileHandle) Truncate(size uint64) fuse.Status {
 		err = fh.fs.Truncate(fh.name, size)
 		if err != nil {
 			log.Debugf("hdfs truncate err:%v", err)
-			return fuse.ToStatus(err)
+			return err
 		}
 		fh.writer, err = fh.fs.client.Append(fh.fs.GetPath(fh.name))
 		if err != nil {
 			log.Debugf("hdfs append err:%v", err)
-			return fuse.ToStatus(err)
+			return err
 		}
 	} else {
 		err = fh.fs.Truncate(fh.name, size)
 		if err != nil {
 			log.Debugf("hdfs truncate err:%v", err)
-			return fuse.ToStatus(err)
+			return err
 		}
 	}
-	return fuse.OK
+	return nil
 }
 
-func (fh *hdfsFileHandle) Allocate(off uint64, size uint64, mode uint32) (code fuse.Status) {
-	return fuse.ENOSYS
+func (fh *hdfsFileHandle) Allocate(off uint64, size uint64, mode uint32) error {
+	return fmt.Errorf("hdfs allocate: not suported")
 }
 
 func NewHdfsFileSystem(properties map[string]interface{}) (UnderFileStorage, error) {

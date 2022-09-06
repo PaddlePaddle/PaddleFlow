@@ -23,7 +23,7 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/base"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/kv_new"
-	ufslib "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/ufs"
+	ufslib "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/ufs_new"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/utils"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 )

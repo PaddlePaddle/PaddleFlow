@@ -24,7 +24,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/hanwen/go-fuse/v2/fuse/nodefs"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/base"
@@ -118,13 +117,13 @@ func (fs *localMount) Open(name string, flags uint32) (fd FileHandle, err error)
 	if err != nil {
 		return nil, err
 	}
-	return nodefs.NewLoopbackFile(f), nil
+	return newLocalFileHandle(f), nil
 }
 
 func (fs *localMount) Create(name string, flags uint32, mode uint32) (fd FileHandle, err error) {
 	flags = flags &^ syscall.O_APPEND
 	f, err := os.OpenFile(fs.GetPath(name), int(flags)|os.O_CREATE, os.FileMode(mode))
-	return nodefs.NewLoopbackFile(f), err
+	return newLocalFileHandle(f), err
 }
 
 // Directory handling
