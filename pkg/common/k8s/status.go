@@ -413,7 +413,7 @@ func getArgoWorkflowStatus(phase wfv1.NodePhase) (schema.JobStatus, error) {
 func RayJobStatus(obj interface{}) (StatusInfo, error) {
 	status, err := ConvertToStatus(obj, RayJobGVK)
 	if err != nil {
-		log.Errorf("convert kubeflow %s job status failed, err: %v", RayJobGVK.String(), err)
+		log.Errorf("convert ray job %s status failed, err: %v", RayJobGVK.String(), err)
 		return StatusInfo{}, err
 	}
 	jobStatus := status.(*rayV1alpha1.RayJobStatus)
