@@ -25,7 +25,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/workqueue"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	pfschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/framework"
@@ -280,8 +279,7 @@ func (j *JobSync) syncTaskStatus(taskSyncInfo *api.TaskSyncInfo) error {
 	log.Debugf("update job task %s/%s status: %v", namespace, name, taskStatus)
 	err = storage.Job.UpdateTask(taskStatus)
 	if err != nil {
-		log.Errorf("update task %s/%s status in database failed, err %v",
-			namespace, name, err)
+		log.Errorf("update task %s/%s status in database failed, err %v", namespace, name, err)
 		return err
 	}
 	return nil
@@ -301,21 +299,16 @@ func (j *JobSync) preHandleTerminatingJob() {
 	for _, job := range jobs {
 		name := job.ID
 		namespace := job.Config.GetNamespace()
-		// TODO: get job FrameworkVersion
-		gvk, err := k8s.GetJobGVK(pfschema.JobType(job.Type), job.Framework)
-		if err != nil {
-			log.Warningf("get GroupVersionKind for job %s failed, err: %s", gvk.String(), err)
-			continue
-		}
-		log.Debugf("pre handle terminating job, get %s job %s/%s from cluster", gvk.String(), namespace, name)
-		frameworkVersion := pfschema.NewFrameworkVersion(gvk.Kind, gvk.GroupVersion().String())
-		_, err = j.runtimeClient.Get(namespace, name, frameworkVersion)
+		fwVersion := job.Config.GetFrameworkVersion()
+
+		log.Debugf("pre handle terminating job, get %s job %s/%s from cluster", fwVersion, namespace, name)
+		_, err := j.runtimeClient.Get(namespace, name, fwVersion)
 		if err != nil && k8serrors.IsNotFound(err) {
 			j.jobQueue.Add(&api.JobSyncInfo{
 				ID:     job.ID,
 				Action: pfschema.Delete,
 			})
-			log.Infof("pre handle terminating %s job enqueue, job name %s/%s", gvk.String(), namespace, name)
+			log.Infof("pre handle terminating %s job enqueue, job name %s/%s", fwVersion, namespace, name)
 		}
 	}
 }
