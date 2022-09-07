@@ -145,7 +145,7 @@ func (krc *KubeRuntimeClient) StartLister(stopCh <-chan struct{}) {
 func (krc *KubeRuntimeClient) Cluster() string {
 	msg := ""
 	if krc.ClusterInfo != nil {
-		msg = fmt.Sprintf("name %s with cluster type %s", krc.ClusterInfo.Name, krc.ClusterInfo.Type)
+		msg = fmt.Sprintf("cluster %s with type %s", krc.ClusterInfo.Name, krc.ClusterInfo.Type)
 	}
 	return msg
 }

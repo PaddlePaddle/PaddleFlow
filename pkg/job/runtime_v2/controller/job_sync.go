@@ -18,7 +18,6 @@ package controller
 
 import (
 	"fmt"
-	"sync"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -41,12 +40,9 @@ const (
 )
 
 type JobSync struct {
-	sync.Mutex
-
 	runtimeClient framework.RuntimeClientInterface
-
-	jobQueue  workqueue.RateLimitingInterface
-	taskQueue workqueue.RateLimitingInterface
+	jobQueue      workqueue.RateLimitingInterface
+	taskQueue     workqueue.RateLimitingInterface
 }
 
 func NewJobSync() *JobSync {
@@ -54,29 +50,29 @@ func NewJobSync() *JobSync {
 }
 
 func (j *JobSync) Name() string {
-	return JobSyncControllerName
+	return fmt.Sprintf("%s controller for %s", JobSyncControllerName, j.runtimeClient.Cluster())
 }
 
 func (j *JobSync) Initialize(runtimeClient framework.RuntimeClientInterface) error {
 	if runtimeClient == nil {
-		return fmt.Errorf("init %s controller failed", j.Name())
+		return fmt.Errorf("init %s failed", j.Name())
 	}
 	j.runtimeClient = runtimeClient
-	log.Infof("Initialize %s controller for cluster [%s]!", j.Name(), j.runtimeClient.Cluster())
+	log.Infof("initialize %s!", j.Name())
 	j.jobQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	j.taskQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 
 	// Register job listeners
 	err := j.runtimeClient.RegisterListeners(j.jobQueue, j.taskQueue)
 	if err != nil {
-		log.Errorf("register event listener failed, err: %v", err)
+		log.Errorf("register event listener for %s failed, err: %v", j.Name(), err)
 		return err
 	}
 	return nil
 }
 
 func (j *JobSync) Run(stopCh <-chan struct{}) {
-	log.Infof("Start %s controller for cluster [%s] successfully!", j.Name(), j.runtimeClient.Cluster())
+	log.Infof("Start %s successfully!", j.Name())
 	j.runtimeClient.StartLister(stopCh)
 
 	j.preHandleTerminatingJob()
@@ -85,17 +81,17 @@ func (j *JobSync) Run(stopCh <-chan struct{}) {
 }
 
 func (j *JobSync) runJobWorker() {
-	for j.processWorkItem() {
+	for j.processJobWorkItem() {
 	}
 }
 
-func (j *JobSync) processWorkItem() bool {
+func (j *JobSync) processJobWorkItem() bool {
 	obj, shutdown := j.jobQueue.Get()
 	if shutdown {
 		return false
 	}
 	jobSyncInfo := obj.(*api.JobSyncInfo)
-	log.Debugf("process job sync. jobID:[%s]", jobSyncInfo.ID)
+	log.Debugf("process job sync. jobID: %s", jobSyncInfo.ID)
 	defer j.jobQueue.Done(jobSyncInfo)
 
 	if err := j.syncJobStatus(jobSyncInfo); err != nil {
@@ -113,7 +109,7 @@ func (j *JobSync) processWorkItem() bool {
 }
 
 func (j *JobSync) syncJobStatus(jobSyncInfo *api.JobSyncInfo) error {
-	log.Infof("begin syncJobStatus jobID:[%s] action:[%s]", jobSyncInfo.ID, jobSyncInfo.Action)
+	log.Infof("begin syncJobStatus jobID: %s, action: %s", jobSyncInfo.ID, jobSyncInfo.Action)
 	switch jobSyncInfo.Action {
 	case pfschema.Create:
 		return j.doCreateAction(jobSyncInfo)
@@ -128,13 +124,12 @@ func (j *JobSync) syncJobStatus(jobSyncInfo *api.JobSyncInfo) error {
 }
 
 func getJobTypeFromFramework(framework pfschema.Framework) string {
-	// TODO: optimize this code
 	var jobType pfschema.JobType
 	switch framework {
 	case pfschema.FrameworkStandalone:
 		jobType = pfschema.TypeSingle
-	case pfschema.FrameworkMPI, pfschema.FrameworkPaddle, pfschema.FrameworkTF,
-		pfschema.ListenerTypeTask, pfschema.FrameworkMXNet, pfschema.FrameworkPytorch:
+	case pfschema.FrameworkPaddle, pfschema.FrameworkPytorch, pfschema.FrameworkTF,
+		pfschema.FrameworkMXNet, pfschema.FrameworkMPI, pfschema.FrameworkSpark, pfschema.FrameworkRay:
 		jobType = pfschema.TypeDistributed
 	default:
 		jobType = pfschema.TypeWorkflow
@@ -143,7 +138,7 @@ func getJobTypeFromFramework(framework pfschema.Framework) string {
 }
 
 func (j *JobSync) doCreateAction(jobSyncInfo *api.JobSyncInfo) error {
-	log.Infof("do create action, job sync info are as follows. %s", jobSyncInfo.String())
+	log.Infof("do create action, job sync info are as follows: %s", jobSyncInfo.String())
 	_, err := storage.Job.GetJobByID(jobSyncInfo.ID)
 	if err == nil {
 		return j.doUpdateAction(jobSyncInfo)
@@ -175,7 +170,7 @@ func (j *JobSync) doCreateAction(jobSyncInfo *api.JobSyncInfo) error {
 			ParentJob:     jobSyncInfo.ParentJobID,
 		}
 		if err = storage.Job.CreateJob(job); err != nil {
-			log.Errorf("craete job %v failed, err: %v", job, err)
+			log.Errorf("In %s, craete job %v failed, err: %v", j.Name(), job, err)
 			return err
 		}
 	}
@@ -186,14 +181,14 @@ func (j *JobSync) doDeleteAction(jobSyncInfo *api.JobSyncInfo) error {
 	log.Infof("do delete action, job sync info are as follows. %s", jobSyncInfo.String())
 	if _, err := storage.Job.UpdateJob(jobSyncInfo.ID, pfschema.StatusJobTerminated, jobSyncInfo.RuntimeInfo,
 		jobSyncInfo.RuntimeStatus, "job is terminated"); err != nil {
-		log.Errorf("sync job status failed. jobID:[%s] err:[%s]", jobSyncInfo.ID, err.Error())
+		log.Errorf("sync job status failed. jobID: %s, err: %s", jobSyncInfo.ID, err.Error())
 		return err
 	}
 	return nil
 }
 
 func (j *JobSync) doUpdateAction(jobSyncInfo *api.JobSyncInfo) error {
-	log.Infof("do update action. jobID:[%s] action:[%s] status:[%s] message:[%s]",
+	log.Infof("do update action. jobID: %s, action: %s, status: %s, message: %s",
 		jobSyncInfo.ID, jobSyncInfo.Action, jobSyncInfo.Status, jobSyncInfo.Message)
 
 	// add time point
@@ -205,18 +200,18 @@ func (j *JobSync) doUpdateAction(jobSyncInfo *api.JobSyncInfo) error {
 
 	if _, err := storage.Job.UpdateJob(jobSyncInfo.ID, jobSyncInfo.Status, jobSyncInfo.RuntimeInfo,
 		jobSyncInfo.RuntimeStatus, jobSyncInfo.Message); err != nil {
-		log.Errorf("update job failed. jobID:[%s] err:[%s]", jobSyncInfo.ID, err.Error())
+		log.Errorf("update job failed. jobID: %s, err: %s", jobSyncInfo.ID, err.Error())
 		return err
 	}
 	return nil
 }
 
 func (j *JobSync) doTerminateAction(jobSyncInfo *api.JobSyncInfo) error {
-	log.Infof("do terminate action. jobID:[%s] action:[%s] status:[%s] message:[%s]",
+	log.Infof("do terminate action. jobID: %s, action: %s, status: %s, message: %s",
 		jobSyncInfo.ID, jobSyncInfo.Action, jobSyncInfo.Status, jobSyncInfo.Message)
 	job, err := storage.Job.GetJobByID(jobSyncInfo.ID)
 	if err != nil {
-		log.Infof("do terminate action. jobID[%s] not found", jobSyncInfo.ID)
+		log.Infof("do terminate action. jobID: %s not found", jobSyncInfo.ID)
 		return nil
 	}
 	if job.Status != pfschema.StatusJobPending {
@@ -226,18 +221,6 @@ func (j *JobSync) doTerminateAction(jobSyncInfo *api.JobSyncInfo) error {
 	if err != nil {
 		log.Errorf("do terminate action failed. jobID[%s] error:[%s]", jobSyncInfo.ID, err.Error())
 	}
-
-	//kubeJob, err := executor.NewKubeJob(&api.PFJob{
-	//	JobType: pfschema.JobType(job.Type),
-	//}, j.opt)
-	//if err != nil {
-	//	log.Errorf("do terminate action failed. jobID[%s] error:[%s]", jobSyncInfo.ID, err.Error())
-	//	return err
-	//}
-	//err = kubeJob.StopJobByID(jobSyncInfo.ID)
-	//if err != nil {
-	//	log.Errorf("do terminate action failed. jobID[%s] error:[%s]", jobSyncInfo.ID, err.Error())
-	//}
 	return err
 }
 
