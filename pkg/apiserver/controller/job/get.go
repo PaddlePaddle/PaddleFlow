@@ -40,7 +40,7 @@ var (
 
 type DistributedJobSpec struct {
 	Framework schema.Framework `json:"framework,omitempty"`
-	Members   []model.Member   `json:"members,omitempty"`
+	Members   []schema.Member  `json:"members,omitempty"`
 }
 
 type ListJobRequest struct {
@@ -270,7 +270,7 @@ func convertJobToResponse(job model.Job, runtimeFlag bool) (GetJobResponse, erro
 				Runtimes:  runtimes,
 			}
 		}
-		members := make([]model.Member, 0)
+		members := make([]schema.Member, 0)
 		if job.Members != nil {
 			if err := json.Unmarshal([]byte(job.MembersJson), &members); err != nil {
 				log.Errorf("parse job[%s] member failed, error:[%s]", job.ID, err.Error())

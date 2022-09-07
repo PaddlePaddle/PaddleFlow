@@ -23,7 +23,7 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/base"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/kv_new"
-	ufslib "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/ufs"
+	ufslib "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/ufs_new"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/utils"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 )
@@ -95,6 +95,7 @@ type Meta interface {
 
 	// Name of database
 	Name() string
+	InitRootInode() error
 	InoToPath(inode Ino) string
 
 	SetOwner(uid, gid uint32)
@@ -124,7 +125,7 @@ type Meta interface {
 	// Mknod creates a node in a directory with given name, type and permissions.
 	Mknod(ctx *Context, parent Ino, name string, mode uint32, rdev uint32, inode *Ino, attr *Attr) syscall.Errno
 	// Mkdir creates a sub-directory with given name and mode.
-	Mkdir(ctx *Context, parent Ino, name string, mode uint32, inode *Ino, attr *Attr) syscall.Errno
+	Mkdir(ctx *Context, parent Ino, name string, mode uint32, cumask uint16, inode *Ino, attr *Attr) syscall.Errno
 	// Unlink removes a file entry from a directory.
 	// The file will be deleted if it's not linked by any entries and not open by any sessions.
 	Unlink(ctx *Context, parent Ino, name string) syscall.Errno

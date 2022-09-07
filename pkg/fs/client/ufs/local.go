@@ -110,7 +110,7 @@ func (fs *localFileSystem) Put(name string, reader io.Reader) error {
 
 // File handling.  If opening for writing, the file's mtime
 // should be updated too.
-func (fs *localFileSystem) Open(name string, flags uint32) (fd base.FileHandle, err error) {
+func (fs *localFileSystem) Open(name string, flags uint32) (fd FileHandle, err error) {
 	// filter out append. The kernel layer will translate the
 	// offsets for us appropriately.
 	flags = flags &^ syscall.O_APPEND
@@ -121,7 +121,7 @@ func (fs *localFileSystem) Open(name string, flags uint32) (fd base.FileHandle, 
 	return nodefs.NewLoopbackFile(f), nil
 }
 
-func (fs *localFileSystem) Create(name string, flags uint32, mode uint32) (fd base.FileHandle, err error) {
+func (fs *localFileSystem) Create(name string, flags uint32, mode uint32) (fd FileHandle, err error) {
 	flags = flags &^ syscall.O_APPEND
 	f, err := os.OpenFile(fs.GetPath(name), int(flags)|os.O_CREATE, os.FileMode(mode))
 	return nodefs.NewLoopbackFile(f), err

@@ -21,7 +21,7 @@ import (
 	"syscall"
 
 	meta "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/meta_new"
-	ufslib "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/ufs"
+	ufslib "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/ufs_new"
 )
 
 type handle struct {

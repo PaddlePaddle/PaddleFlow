@@ -29,6 +29,9 @@ var (
 	GlobalServerConfig *ServerConfig                // the global ServerConfig
 	DefaultPV          *apiv1.PersistentVolume      // the global default pv instance
 	DefaultPVC         *apiv1.PersistentVolumeClaim // the global default pvc instance
+	DefaultJobTemplate map[string][]byte            // the global default job template
+
+	defaultJobTemplatePath = "./config/server/default/job/job_template.yaml"
 
 	DefaultRunYamlPath    = "./run.yaml"
 	serverDefaultConfPath = "./config/server/default/paddleserver.yaml"
@@ -86,7 +89,9 @@ type JobConfig struct {
 	SyncClusterQueue bool `yaml:"syncClusterQueue"`
 	// DefaultJobYamlDir is directory that stores default template yaml files for job
 	DefaultJobYamlDir string `yaml:"defaultJobYamlDir"`
-	IsSingleCluster   bool   `yaml:"isSingleCluster"`
+	// DefaultJobYamlPath defines file path that stores all default templates in one yaml
+	DefaultJobYamlPath string `yaml:"defaultJobYamlPath"`
+	IsSingleCluster    bool   `yaml:"isSingleCluster"`
 }
 
 type FsServerConf struct {

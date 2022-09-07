@@ -28,7 +28,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/errors"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
 
 const (
@@ -204,7 +203,7 @@ func (vj *VCJob) fillPSJobSpec(jobSpec *vcjob.Job) error {
 	return nil
 }
 
-func (vj *VCJob) fillTaskInPSMode(vcTask *vcjob.TaskSpec, task model.Member, jobName string) error {
+func (vj *VCJob) fillTaskInPSMode(vcTask *vcjob.TaskSpec, task schema.Member, jobName string) error {
 	log.Infof("fill Task[%s] in PS-Mode", vcTask.Name)
 	vcTask.Replicas = int32(task.Replicas)
 

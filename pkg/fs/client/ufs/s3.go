@@ -38,7 +38,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/google/uuid"
 	"github.com/hanwen/go-fuse/v2/fuse"
-	"github.com/hanwen/go-fuse/v2/fuse/nodefs"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 
@@ -754,7 +753,7 @@ func (fs *s3FileSystem) getOpenFlags(name string, flags uint32) int {
 
 // File handling.  If opening for writing, the file's mtime
 // should be updated too.
-func (fs *s3FileSystem) Open(name string, flags uint32) (fd base.FileHandle, err error) {
+func (fs *s3FileSystem) Open(name string, flags uint32) (fd FileHandle, err error) {
 	log.Tracef("s3 open: name[%s] flags[%d]", name, flags)
 	flag := fs.getOpenFlags(name, flags)
 
@@ -805,7 +804,7 @@ func (fs *s3FileSystem) createEmptyFile(name string) error {
 	return err
 }
 
-func (fs *s3FileSystem) Create(name string, flags, mode uint32) (fd base.FileHandle, err error) {
+func (fs *s3FileSystem) Create(name string, flags, mode uint32) (fd FileHandle, err error) {
 	log.Tracef("s3 create: name[%s] flags[%d], mode[%d]", name, flags, mode)
 	fs.Lock()
 	defer fs.Unlock()
@@ -996,17 +995,7 @@ type s3FileHandle struct {
 	writeDirty     bool
 }
 
-var _ base.FileHandle = &s3FileHandle{}
-
-func (fh *s3FileHandle) String() string {
-	return fmt.Sprintf("s3FileHandle(%s)", fh.name)
-}
-
-func (fh *s3FileHandle) SetInode(*nodefs.Inode) {
-}
-func (fh *s3FileHandle) InnerFile() nodefs.File {
-	return nil
-}
+var _ FileHandle = &s3FileHandle{}
 
 func (fh *s3FileHandle) Read(buf []byte, off int64) (res fuse.ReadResult, code fuse.Status) {
 	log.Tracef("s3 read: fh.name[%s] len[%d] off[%d]", fh.name, len(buf), off)
@@ -1289,23 +1278,6 @@ func (fh *s3FileHandle) Fsync(flags int) (code fuse.Status) {
 	return fuse.OK
 }
 
-// not support
-func (fh *s3FileHandle) GetLk(owner uint64, lk *fuse.FileLock, flags uint32, out *fuse.FileLock) (code fuse.Status) {
-	return fuse.ENOSYS
-}
-
-func (fh *s3FileHandle) SetLk(owner uint64, lk *fuse.FileLock, flags uint32) (code fuse.Status) {
-	return fuse.ENOSYS
-}
-
-func (fh *s3FileHandle) SetLkw(owner uint64, lk *fuse.FileLock, flags uint32) (code fuse.Status) {
-	return fuse.ENOSYS
-}
-
-func (fh *s3FileHandle) setLock(owner uint64, lk *fuse.FileLock, flags uint32, blocking bool) (code fuse.Status) {
-	return fuse.ENOSYS
-}
-
 func (fh *s3FileHandle) Truncate(size uint64) fuse.Status {
 	log.Tracef("s3 truncate: fh.name[%s], size[%d]", fh.name, size)
 
@@ -1335,31 +1307,6 @@ func (fh *s3FileHandle) Allocate(off, size uint64, mode uint32) (code fuse.Statu
 	// s3 is remote object storage. no need to allocate space in advance.
 	// no need to do anything here. upload files when real file exists
 	return fuse.OK
-}
-
-func (fh *s3FileHandle) Chmod(mode uint32) fuse.Status {
-	return fuse.ToStatus(fh.fs.Chmod(fh.name, mode))
-}
-
-func (fh *s3FileHandle) Chown(uid uint32, gid uint32) fuse.Status {
-	return fuse.ToStatus(fh.fs.Chown(fh.name, uid, gid))
-}
-
-func (fh *s3FileHandle) GetAttr(a *fuse.Attr) fuse.Status {
-	log.Tracef("s3 getAttr: fh.name[%s] GetAttr", fh.name)
-	finfo, err := fh.fs.GetAttr(fh.name)
-	if err != nil {
-		log.Debugf("s3 getAttr: fh.name[%s] GetAttr err : %v", fh.name, err)
-		return fuse.ToStatus(err)
-	}
-
-	stat_t := finfo.Sys.(syscall.Stat_t)
-	a.FromStat(&stat_t)
-	return fuse.OK
-}
-
-func (fh *s3FileHandle) Utimens(atime *time.Time, mtime *time.Time) fuse.Status {
-	return fuse.ToStatus(fh.fs.Utimens(fh.name, atime, mtime))
 }
 
 func (fh *s3FileHandle) partAndChunkSize(fileSize int64) (partSize int64, chunkSize int64, partsPerChunk int64) {

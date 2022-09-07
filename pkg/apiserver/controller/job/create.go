@@ -486,7 +486,7 @@ func buildJob(request *CreateJobInfo) (*model.Job, error) {
 	// build main job config
 	conf := buildMainConf(request)
 	// convert job members if necessary
-	var members []model.Member
+	var members []schema.Member
 	var templateJson string
 	var err error
 	if len(request.ExtensionTemplate) == 0 {
@@ -543,8 +543,8 @@ func buildMainConf(request *CreateJobInfo) *schema.Conf {
 	return conf
 }
 
-func buildMembers(request *CreateJobInfo) []model.Member {
-	members := make([]model.Member, 0)
+func buildMembers(request *CreateJobInfo) []schema.Member {
+	members := make([]schema.Member, 0)
 	log.Infof("build merbers for framework %s with mode %s", request.Framework, request.Mode)
 	for _, reqMember := range request.Members {
 		member := newMember(reqMember, schema.MemberRole(reqMember.Role))
@@ -569,7 +569,7 @@ func buildCommonInfo(conf *schema.Conf, commonJobInfo *CommonJobInfo) {
 }
 
 // newMember convert request.Member to models.member
-func newMember(member MemberSpec, role schema.MemberRole) model.Member {
+func newMember(member MemberSpec, role schema.MemberRole) schema.Member {
 	conf := schema.Conf{
 		Name: member.Name,
 		// 存储资源
@@ -589,7 +589,7 @@ func newMember(member MemberSpec, role schema.MemberRole) model.Member {
 		Args:        member.Args,
 	}
 
-	return model.Member{
+	return schema.Member{
 		ID:       member.ID,
 		Role:     role,
 		Replicas: member.Replicas,
