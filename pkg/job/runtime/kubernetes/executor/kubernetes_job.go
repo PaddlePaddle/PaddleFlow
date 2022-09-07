@@ -358,10 +358,9 @@ func (j *KubeJob) fillContainerInTasks(container *corev1.Container, task schema.
 	if j.isNeedPatch(container.Image) {
 		container.Image = task.Image
 	}
-	if j.isNeedPatch(task.Command) {
-		workDir := j.getWorkDir(&task)
-		container.Command = j.generateContainerCommand(task.Command, workDir)
-	}
+
+	j.fillCMDInContainer(container, &task)
+
 	if !j.IsCustomYaml && len(task.Args) > 0 {
 		container.Args = task.Args
 	}
@@ -418,6 +417,20 @@ func (j *KubeJob) appendEnvIfAbsent(baseEnvs []corev1.EnvVar, addEnvs []corev1.E
 		}
 	}
 	return baseEnvs
+}
+
+// fillCMDInContainer fill command in container by task.Command or job.Command
+func (j *KubeJob) fillCMDInContainer(container *corev1.Container, task *schema.Member) {
+	workDir := ""
+	command := j.Command
+	if task != nil {
+		workDir = j.getWorkDir(task)
+		command = task.Command
+	}
+
+	if j.isNeedPatch(command) && command != "" {
+		container.Command = j.generateContainerCommand(command, workDir)
+	}
 }
 
 // generateContainerCommand if task is not nil, prefer to using info in task, otherwise using job's

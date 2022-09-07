@@ -349,8 +349,8 @@ func (vj *VCJob) fillTaskInCollectiveMode(tasks []vcjob.TaskSpec, jobName string
 // fillContainerInVcJob fill container in job task, only called by vcjob
 func (j *VCJob) fillContainerInVcJob(container *v1.Container, flavour schema.Flavour, command string) error {
 	container.Image = j.Image
-	workDir := j.getWorkDir(nil)
-	container.Command = j.generateContainerCommand(j.Command, workDir)
+	// fill command
+	j.fillCMDInContainer(container, nil)
 	var err error
 	container.Resources, err = j.generateResourceRequirements(flavour)
 	if err != nil {
