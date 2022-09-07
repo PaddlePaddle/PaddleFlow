@@ -538,6 +538,7 @@ func (j *KubeJob) patchTaskMetadata(metadata *metav1.ObjectMeta, member schema.M
 func (j *KubeJob) fillPodTemplateSpec(pod *corev1.PodTemplateSpec, member schema.Member) error {
 	// ObjectMeta
 	j.patchMetadata(&pod.ObjectMeta, member.ID)
+	pod.Labels[schema.QueueLabelKey] = member.QueueName
 	// fill volumes
 	if err := j.fillPodSpec(&pod.Spec, &member); err != nil {
 		err = fmt.Errorf("fill pod.Spec failed, err:%v", err)
