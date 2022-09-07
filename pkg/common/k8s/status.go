@@ -433,13 +433,6 @@ func getRayJobStatus(rayJobStatus *rayV1alpha1.RayJobStatus) (schema.JobStatus, 
 	status := schema.JobStatus("")
 	msg := ""
 	jobStatus := rayJobStatus.JobDeploymentStatus
-	//	JobDeploymentStatusInitializing                  JobDeploymentStatus = "Initializing"
-	//	JobDeploymentStatusFailedToGetOrCreateRayCluster JobDeploymentStatus = "FailedToGetOrCreateRayCluster"
-	//	JobDeploymentStatusWaitForDashboard              JobDeploymentStatus = "WaitForDashboard"
-	//	JobDeploymentStatusFailedJobDeploy               JobDeploymentStatus = "FailedJobDeploy"
-	//	JobDeploymentStatusRunning                       JobDeploymentStatus = "Running"
-	//	JobDeploymentStatusFailedToGetJobStatus          JobDeploymentStatus = "FailedToGetJobStatus"
-	//	JobDeploymentStatusComplete                      JobDeploymentStatus = "Complete"
 	switch jobStatus {
 	// todo if change StatusJobPending to "Initializing"
 	case rayV1alpha1.JobDeploymentStatusInitializing, rayV1alpha1.JobDeploymentStatusWaitForDashboard:
