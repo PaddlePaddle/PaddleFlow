@@ -53,8 +53,8 @@ type KubeRuntimeClient struct {
 	// GVKToGVR contains GroupVersionKind map to GroupVersionResource
 	GVKToGVR sync.Map
 
-	// informerMap contains GroupVersionKind and informer for different kubernetes job
-	informerMap map[schema.GroupVersionKind]cache.SharedIndexInformer
+	// InformerMap contains GroupVersionKind and informer for different kubernetes job
+	InformerMap map[schema.GroupVersionKind]cache.SharedIndexInformer
 	// podInformer contains the informer of task
 	podInformer cache.SharedIndexInformer
 	podLister   cache.GenericLister
@@ -82,11 +82,12 @@ func CreateKubeRuntimeClient(config *rest.Config, cluster *pfschema.Cluster) (fr
 		DiscoveryClient: discoveryClient,
 		Config:          config,
 		ClusterInfo:     cluster,
-		informerMap:     make(map[schema.GroupVersionKind]cache.SharedIndexInformer),
+		InformerMap:     make(map[schema.GroupVersionKind]cache.SharedIndexInformer),
 	}, nil
 }
 
 func (krc *KubeRuntimeClient) RegisterListeners(jobQueue, taskQueue workqueue.RateLimitingInterface) error {
+	// TODO
 	for gvk := range k8s.GVKJobStatusMap {
 		gvrMap, err := krc.GetGVR(gvk)
 		if err != nil {
@@ -94,41 +95,34 @@ func (krc *KubeRuntimeClient) RegisterListeners(jobQueue, taskQueue workqueue.Ra
 		} else {
 			jobBuilder, find := framework.GetJobBuilder(pfschema.KubernetesType, gvk.String())
 			if !find {
-				log.Warnf("cann't find GroupVersionKind %s, err: %v", gvk.String(), err)
+				log.Warnf("cann't find registered %s job event listener", gvk.String())
 				continue
 			}
+			// Register job event listener
+			krc.InformerMap[gvk] = krc.DynamicFactory.ForResource(gvrMap.Resource).Informer()
+			jobClient := jobBuilder(krc)
+			jobClient.AddEventListener(context.TODO(), pfschema.ListenerTypeJob, jobQueue, krc.InformerMap[gvk])
 
-			krc.informerMap[gvk] = krc.DynamicFactory.ForResource(gvrMap.Resource).Informer()
-
-			jobBuilder(krc).AddEventListener(context.TODO(), pfschema.ListenerTypeJob, jobQueue, krc.informerMap[gvk])
+			// Register task event listener
+			if gvk == k8s.PodGVK {
+				krc.podInformer = krc.DynamicFactory.ForResource(gvrMap.Resource).Informer()
+				krc.podLister = krc.DynamicFactory.ForResource(gvrMap.Resource).Lister()
+				jobClient.AddEventListener(context.TODO(), pfschema.ListenerTypeTask, taskQueue, krc.podInformer)
+			}
 		}
 	}
-
-	podGVRMap, err := krc.GetGVR(k8s.PodGVK)
-	if err != nil {
-		return err
-	}
-	krc.podInformer = krc.DynamicFactory.ForResource(podGVRMap.Resource).Informer()
-	// Register task handle
-	jobBuilder, find := framework.GetJobBuilder(pfschema.KubernetesType, k8s.PodGVK.String())
-	if !find {
-		log.Warnf("cann't find GroupVersionKind %s, err: %v", k8s.PodGVK.String(), err)
-	}
-	jobBuilder(krc).AddEventListener(context.TODO(), pfschema.ListenerTypeTask, taskQueue, krc.podInformer)
-
-	krc.podLister = krc.DynamicFactory.ForResource(podGVRMap.Resource).Lister()
 
 	return nil
 }
 
 func (krc *KubeRuntimeClient) StartLister(stopCh <-chan struct{}) {
-	if len(krc.informerMap) == 0 {
+	if len(krc.InformerMap) == 0 {
 		log.Infof("Cluster hasn't any GroupVersionKind, skip %s controller!", krc.Cluster())
 		return
 	}
 	go krc.DynamicFactory.Start(stopCh)
 
-	for _, informer := range krc.informerMap {
+	for _, informer := range krc.InformerMap {
 		if !cache.WaitForCacheSync(stopCh, informer.HasSynced) {
 			log.Errorf("timed out waiting for caches to %s", krc.Cluster())
 			return

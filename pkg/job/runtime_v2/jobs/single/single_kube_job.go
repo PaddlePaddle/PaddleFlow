@@ -19,6 +19,7 @@ package single
 import (
 	"context"
 	"fmt"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
@@ -232,9 +233,10 @@ func (sp *SingleJob) deleteJob(obj interface{}) {
 
 // JobStatus get single job status, message from interface{}, and covert to JobStatus
 func (sp *SingleJob) JobStatus(obj interface{}) (api.StatusInfo, error) {
+	unObj := obj.(*unstructured.Unstructured)
 	// convert to Pod struct
 	job := &v1.Pod{}
-	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.(map[string]interface{}), job); err != nil {
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(unObj.Object, job); err != nil {
 		log.Errorf("convert unstructured object [%+v] to %s pod failed. error: %s", obj, sp.GVK.String(), err.Error())
 		return api.StatusInfo{}, err
 	}
