@@ -40,6 +40,7 @@ job:
   schedulerName: volcano
   clusterSyncPeriod: 30
   defaultJobYamlDir: "./config/server/default/job"
+  defaultJobYamlPath: "./config/server/default/job/job_template.yaml"
   isSingleCluster: true
 
 pipeline: pipeline

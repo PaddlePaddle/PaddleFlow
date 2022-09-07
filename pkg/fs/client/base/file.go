@@ -21,10 +21,7 @@ import (
 	"path"
 
 	"github.com/hanwen/go-fuse/v2/fuse"
-	"github.com/hanwen/go-fuse/v2/fuse/nodefs"
 )
-
-type FileHandle nodefs.File
 
 type DirEntry fuse.DirEntry
 

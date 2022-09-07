@@ -25,7 +25,6 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
 
 // kubeflowRunPolicy build RunPolicy for kubeflow job, such as PyTorchJob, TFJob and so on.
@@ -45,7 +44,7 @@ func (j *KubeJob) kubeflowRunPolicy(runPolicy *kubeflowv1.RunPolicy, minResource
 }
 
 // kubeflowReplicaSpec build ReplicaSpec for kubeflow job, such as PyTorchJob, TFJob and so on.
-func (j *KubeJob) kubeflowReplicaSpec(replicaSpec *kubeflowv1.ReplicaSpec, task *model.Member) error {
+func (j *KubeJob) kubeflowReplicaSpec(replicaSpec *kubeflowv1.ReplicaSpec, task *schema.Member) error {
 	if replicaSpec == nil || task == nil {
 		return fmt.Errorf("build %s failed, err: replicaSpec or task is nil", j.String())
 	}
@@ -60,7 +59,7 @@ func (j *KubeJob) kubeflowReplicaSpec(replicaSpec *kubeflowv1.ReplicaSpec, task 
 }
 
 // setPodTemplateSpec build PodTemplateSpec for built-in distributed job, such as PaddleJob, PyTorchJob, TFJob and so on
-func (j *KubeJob) setPodTemplateSpec(podSpec *corev1.PodTemplateSpec, task *model.Member) error {
+func (j *KubeJob) setPodTemplateSpec(podSpec *corev1.PodTemplateSpec, task *schema.Member) error {
 	if podSpec == nil || task == nil {
 		return fmt.Errorf("podTemplateSpec or task is nil")
 	}
@@ -78,12 +77,9 @@ func (j *KubeJob) setPodTemplateSpec(podSpec *corev1.PodTemplateSpec, task *mode
 		podSpec.Spec.RestartPolicy = corev1.RestartPolicyNever
 	}
 	// set Affinity
-	if len(j.FileSystems) != 0 {
-		var fsIDs []string
-		for _, fs := range j.FileSystems {
-			fsIDs = append(fsIDs, fs.ID)
-		}
-		podSpec.Spec.Affinity = j.generateAffinity(podSpec.Spec.Affinity, fsIDs)
+	if err := j.setAffinity(&podSpec.Spec); err != nil {
+		log.Errorf("setAffinity for %s failed, err: %v", j.String(), err)
+		return err
 	}
 	// set Volumes
 	podSpec.Spec.Volumes = appendVolumesIfAbsent(podSpec.Spec.Volumes, generateVolumes(j.FileSystems))
@@ -99,7 +95,7 @@ func (j *KubeJob) setPodTemplateSpec(podSpec *corev1.PodTemplateSpec, task *mode
 }
 
 // setPodContainer build container in pod
-func (j *KubeJob) setPodContainer(container *corev1.Container, task *model.Member) error {
+func (j *KubeJob) setPodContainer(container *corev1.Container, task *schema.Member) error {
 	if container == nil || task == nil {
 		return fmt.Errorf("contaienr or task is nil")
 	}
