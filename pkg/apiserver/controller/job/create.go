@@ -403,7 +403,7 @@ func validateJobFramework(ctx *logger.RequestContext, jobType schema.JobType, fr
 	case schema.TypeDistributed:
 		switch framework {
 		case schema.FrameworkSpark, schema.FrameworkPaddle, schema.FrameworkTF,
-			schema.FrameworkPytorch, schema.FrameworkMXNet:
+			schema.FrameworkPytorch, schema.FrameworkMXNet, schema.FrameworkRay:
 			err = nil
 		case schema.FrameworkMPI:
 			err = fmt.Errorf("framework: %s for distributed job will be supported in the future", framework)
@@ -449,6 +449,10 @@ func checkMemberRole(framework schema.Framework, roles map[schema.MemberRole]int
 		if roles[schema.RoleMaster] < 1 {
 			err = fmt.Errorf("mpi job must be set role master")
 		}
+	case schema.FrameworkRay:
+		if roles[schema.RoleMaster] < 1 || roles[schema.RoleWorker] < 1 {
+			err = fmt.Errorf("ray job must be set a master role and a worker role")
+		}
 	case schema.FrameworkStandalone:
 		if roles[schema.RoleWorker] != 1 {
 			err = fmt.Errorf("replicas for single job must be 1")
@@ -467,7 +471,7 @@ func getFrameworkRoles(framework schema.Framework) map[schema.MemberRole]int {
 	case schema.FrameworkSpark:
 		roles[schema.RoleDriver] = 0
 		roles[schema.RoleExecutor] = 0
-	case schema.FrameworkMPI:
+	case schema.FrameworkMPI, schema.FrameworkRay:
 		roles[schema.RoleMaster] = 0
 		roles[schema.RoleWorker] = 0
 	case schema.FrameworkStandalone:
