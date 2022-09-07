@@ -464,5 +464,5 @@ func getRayJobStatus(rayJobStatus *rayV1alpha1.RayJobStatus) (schema.JobStatus, 
 
 func getRayJobMessage(rayJobStatus *rayV1alpha1.RayJobStatus) string {
 	return fmt.Sprintf("RayJob status in [jobDeploymentStatus/rayClusterStatus/jobStatus] is %s/%s/%s, message: %s",
-		rayJobStatus.JobDeploymentStatus, rayJobStatus.RayClusterStatus, rayJobStatus.JobStatus, rayJobStatus.Message)
+		rayJobStatus.JobDeploymentStatus, rayJobStatus.RayClusterStatus.State, rayJobStatus.JobStatus, rayJobStatus.Message)
 }
