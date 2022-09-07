@@ -17,7 +17,6 @@ limitations under the License.
 package controller
 
 import (
-	"k8s.io/client-go/tools/cache"
 	"net/http/httptest"
 	"testing"
 	"time"
@@ -34,6 +33,7 @@ import (
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	fakedynamicclient "k8s.io/client-go/dynamic/fake"
 	restclient "k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"

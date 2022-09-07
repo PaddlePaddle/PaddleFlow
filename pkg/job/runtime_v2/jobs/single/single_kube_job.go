@@ -56,7 +56,7 @@ func New(kubeClient framework.RuntimeClientInterface) framework.JobInterface {
 }
 
 func (sp *SingleJob) String(job *api.PFJob) string {
-	return fmt.Sprintf("%s job %s/%s on cluster %s", sp.GVK.String(), job.Namespace, job.ID, sp.runtimeClient.Cluster())
+	return fmt.Sprintf("%s job %s/%s on %s", sp.GVK.String(), job.Namespace, job.ID, sp.runtimeClient.Cluster())
 }
 
 func (sp *SingleJob) frameworkVersion() pfschema.FrameworkVersion {
