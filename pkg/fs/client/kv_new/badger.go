@@ -76,7 +76,15 @@ func (kv *KVTxn) Set(key, value []byte) error {
 }
 
 func (kv *KVTxn) Dels(keys ...[]byte) error {
-	panic("implement me")
+
+	for _, key := range keys {
+		err := kv.t.Delete(key)
+		if err != nil {
+			log.Printf("badger del key %s with err %v", string(key), err)
+			return err
+		}
+	}
+	return nil
 }
 
 func (kv *KVTxn) ScanValues(prefix []byte) (map[string][]byte, error) {

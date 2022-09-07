@@ -684,7 +684,45 @@ func (m *kvMeta) Mkdir(ctx *Context, parent Ino, name string, mode uint32, cumas
 }
 
 func (m *kvMeta) Unlink(ctx *Context, parent Ino, name string) syscall.Errno {
-	panic("implement me")
+	entry, err := m.get(m.entryKey(parent, name))
+	if err != nil {
+		return syscall.EIO
+	}
+	if entry != nil {
+		err := m.txn(func(tx kv_new.KvTxn) error {
+			entryItem_ := &entryItem{}
+			m.parseEntry(entry, entryItem_)
+			pinodebyte, err := m.get(m.inodeKey(parent))
+			if pinodebyte == nil || err != nil {
+				log.Debugf("[vfs-unlink] failed. file %v's pnode %v is not exist. \n", name, parent)
+				return syscall.EIO
+			}
+			pinodeItem := &inodeItem{}
+			m.parseInode(pinodebyte, pinodeItem)
+			now := time.Now()
+			pinodeItem.attr.Mtime = now.Unix()
+			pinodeItem.attr.Mtimensec = uint32(now.Nanosecond())
+			pinodeItem.attr.Ctime = now.Unix()
+			pinodeItem.attr.Ctimensec = uint32(now.Nanosecond())
+			if err = tx.Set(m.inodeKey(parent), m.marshalInode(pinodeItem)); err != nil {
+				return err
+			}
+			if err = tx.Dels(m.entryKey(parent, name), m.inodeKey(entryItem_.ino)); err != nil {
+				return err
+			}
+			return nil
+		})
+		if err != nil {
+			return utils.ToSyscallErrno(err)
+		}
+	}
+	absolutePath := filepath.Join(m.fullPath(parent), name)
+	ufs, _, _, path := m.GetUFS(absolutePath)
+	if err := ufs.Unlink(path); err != nil {
+		return utils.ToSyscallErrno(err)
+	}
+	return syscall.F_OK
+
 }
 
 func (m *kvMeta) Rmdir(ctx *Context, parent Ino, name string) syscall.Errno {
