@@ -40,7 +40,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/utils"
 	locationAwareness "github.com/PaddlePaddle/PaddleFlow/pkg/fs/location-awareness"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
@@ -91,7 +90,7 @@ type KubeJob struct {
 	// YamlTemplateContent indicate template content of job
 	YamlTemplateContent []byte
 	IsCustomYaml        bool
-	Tasks               []model.Member
+	Tasks               []schema.Member
 	GroupVersionKind    kubeschema.GroupVersionKind
 	DynamicClientOption *k8s.DynamicClientOption
 }
@@ -115,7 +114,7 @@ func NewKubeJob(job *api.PFJob, dynamicClientOpt *k8s.DynamicClientOption) (api.
 		Priority:            job.Conf.GetPriority(),
 		QueueName:           job.Conf.GetQueueName(),
 		DynamicClientOption: dynamicClientOpt,
-		YamlTemplateContent: []byte(job.ExtensionTemplate),
+		YamlTemplateContent: job.ExtensionTemplate,
 	}
 
 	switch job.JobType {
@@ -123,7 +122,7 @@ func NewKubeJob(job *api.PFJob, dynamicClientOpt *k8s.DynamicClientOption) (api.
 		// todo(zhongzichao): to be removed
 		kubeJob.GroupVersionKind = k8s.VCJobGVK
 		if len(job.Tasks) == 0 {
-			kubeJob.Tasks = []model.Member{
+			kubeJob.Tasks = []schema.Member{
 				{
 					Conf: schema.Conf{
 						Flavour: job.Conf.Flavour,
@@ -334,7 +333,7 @@ func (j *KubeJob) createJobFromYaml(jobEntity interface{}) error {
 }
 
 // fill PodSpec
-func (j *KubeJob) fillPodSpec(podSpec *corev1.PodSpec, task *model.Member) error {
+func (j *KubeJob) fillPodSpec(podSpec *corev1.PodSpec, task *schema.Member) error {
 	if task != nil {
 		j.Priority = task.Priority
 	}
@@ -355,7 +354,7 @@ func (j *KubeJob) fillPodSpec(podSpec *corev1.PodSpec, task *model.Member) error
 }
 
 // fillContainerInTasks fill container in job task
-func (j *KubeJob) fillContainerInTasks(container *corev1.Container, task model.Member) error {
+func (j *KubeJob) fillContainerInTasks(container *corev1.Container, task schema.Member) error {
 	if j.isNeedPatch(container.Image) {
 		container.Image = task.Image
 	}
@@ -435,7 +434,7 @@ func (j *KubeJob) generateContainerCommand(command string, workdir string) []str
 	return commands
 }
 
-func (j *KubeJob) getWorkDir(task *model.Member) string {
+func (j *KubeJob) getWorkDir(task *schema.Member) string {
 	// prepare fs and envs
 	fileSystems := j.FileSystems
 	envs := j.Env

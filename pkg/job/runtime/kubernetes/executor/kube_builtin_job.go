@@ -25,7 +25,6 @@ import (
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
 
 // kubeflowRunPolicy build RunPolicy for kubeflow job, such as PyTorchJob, TFJob and so on.
@@ -45,7 +44,7 @@ func (j *KubeJob) kubeflowRunPolicy(runPolicy *kubeflowv1.RunPolicy, minResource
 }
 
 // kubeflowReplicaSpec build ReplicaSpec for kubeflow job, such as PyTorchJob, TFJob and so on.
-func (j *KubeJob) kubeflowReplicaSpec(replicaSpec *kubeflowv1.ReplicaSpec, task *model.Member) error {
+func (j *KubeJob) kubeflowReplicaSpec(replicaSpec *kubeflowv1.ReplicaSpec, task *schema.Member) error {
 	if replicaSpec == nil || task == nil {
 		return fmt.Errorf("build %s failed, err: replicaSpec or task is nil", j.String())
 	}
@@ -60,7 +59,7 @@ func (j *KubeJob) kubeflowReplicaSpec(replicaSpec *kubeflowv1.ReplicaSpec, task 
 }
 
 // setPodTemplateSpec build PodTemplateSpec for built-in distributed job, such as PaddleJob, PyTorchJob, TFJob and so on
-func (j *KubeJob) setPodTemplateSpec(podSpec *corev1.PodTemplateSpec, task *model.Member) error {
+func (j *KubeJob) setPodTemplateSpec(podSpec *corev1.PodTemplateSpec, task *schema.Member) error {
 	if podSpec == nil || task == nil {
 		return fmt.Errorf("podTemplateSpec or task is nil")
 	}
@@ -96,7 +95,7 @@ func (j *KubeJob) setPodTemplateSpec(podSpec *corev1.PodTemplateSpec, task *mode
 }
 
 // setPodContainer build container in pod
-func (j *KubeJob) setPodContainer(container *corev1.Container, task *model.Member) error {
+func (j *KubeJob) setPodContainer(container *corev1.Container, task *schema.Member) error {
 	if container == nil || task == nil {
 		return fmt.Errorf("contaienr or task is nil")
 	}
