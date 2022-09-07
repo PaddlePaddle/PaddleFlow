@@ -101,13 +101,21 @@ func (krc *KubeRuntimeClient) RegisterListeners(jobQueue, taskQueue workqueue.Ra
 			// Register job event listener
 			krc.InformerMap[gvk] = krc.DynamicFactory.ForResource(gvrMap.Resource).Informer()
 			jobClient := jobBuilder(krc)
-			jobClient.AddEventListener(context.TODO(), pfschema.ListenerTypeJob, jobQueue, krc.InformerMap[gvk])
+			err = jobClient.AddEventListener(context.TODO(), pfschema.ListenerTypeJob, jobQueue, krc.InformerMap[gvk])
+			if err != nil {
+				log.Warnf("add event lister for job %s failed, err: %v", gvk.String(), err)
+				continue
+			}
 
 			// Register task event listener
 			if gvk == k8s.PodGVK {
 				krc.podInformer = krc.DynamicFactory.ForResource(gvrMap.Resource).Informer()
 				krc.podLister = krc.DynamicFactory.ForResource(gvrMap.Resource).Lister()
-				jobClient.AddEventListener(context.TODO(), pfschema.ListenerTypeTask, taskQueue, krc.podInformer)
+				err = jobClient.AddEventListener(context.TODO(), pfschema.ListenerTypeTask, taskQueue, krc.podInformer)
+				if err != nil {
+					log.Errorf("add event lister for task failed, err: %v", err)
+					return err
+				}
 			}
 		}
 	}
@@ -132,7 +140,6 @@ func (krc *KubeRuntimeClient) StartLister(stopCh <-chan struct{}) {
 		log.Errorf("timed out waiting for pod caches to %s", krc.Cluster())
 		return
 	}
-	return
 }
 
 func (krc *KubeRuntimeClient) Cluster() string {

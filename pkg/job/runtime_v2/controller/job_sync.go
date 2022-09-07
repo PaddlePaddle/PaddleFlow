@@ -27,7 +27,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
-	commonschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	pfschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/framework"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/metrics"
@@ -115,29 +115,29 @@ func (j *JobSync) processWorkItem() bool {
 func (j *JobSync) syncJobStatus(jobSyncInfo *api.JobSyncInfo) error {
 	log.Infof("begin syncJobStatus jobID:[%s] action:[%s]", jobSyncInfo.ID, jobSyncInfo.Action)
 	switch jobSyncInfo.Action {
-	case commonschema.Create:
+	case pfschema.Create:
 		return j.doCreateAction(jobSyncInfo)
-	case commonschema.Delete:
+	case pfschema.Delete:
 		return j.doDeleteAction(jobSyncInfo)
-	case commonschema.Update:
+	case pfschema.Update:
 		return j.doUpdateAction(jobSyncInfo)
-	case commonschema.Terminate:
+	case pfschema.Terminate:
 		return j.doTerminateAction(jobSyncInfo)
 	}
 	return nil
 }
 
-func getJobTypeFromFramework(framework commonschema.Framework) string {
+func getJobTypeFromFramework(framework pfschema.Framework) string {
 	// TODO: optimize this code
-	var jobType commonschema.JobType
+	var jobType pfschema.JobType
 	switch framework {
-	case commonschema.FrameworkStandalone:
-		jobType = commonschema.TypeSingle
-	case commonschema.FrameworkMPI, commonschema.FrameworkPaddle, commonschema.FrameworkTF,
-		commonschema.ListenerTypeTask, commonschema.FrameworkMXNet, commonschema.FrameworkPytorch:
-		jobType = commonschema.TypeDistributed
+	case pfschema.FrameworkStandalone:
+		jobType = pfschema.TypeSingle
+	case pfschema.FrameworkMPI, pfschema.FrameworkPaddle, pfschema.FrameworkTF,
+		pfschema.ListenerTypeTask, pfschema.FrameworkMXNet, pfschema.FrameworkPytorch:
+		jobType = pfschema.TypeDistributed
 	default:
-		jobType = commonschema.TypeWorkflow
+		jobType = pfschema.TypeWorkflow
 	}
 	return string(jobType)
 }
@@ -161,9 +161,9 @@ func (j *JobSync) doCreateAction(jobSyncInfo *api.JobSyncInfo) error {
 		job := &model.Job{
 			ID:   jobSyncInfo.ID,
 			Type: jobType,
-			Config: &commonschema.Conf{
+			Config: &pfschema.Conf{
 				Env: map[string]string{
-					commonschema.EnvJobNamespace: jobSyncInfo.Namespace,
+					pfschema.EnvJobNamespace: jobSyncInfo.Namespace,
 				},
 			},
 			Framework:     jobSyncInfo.Framework,
@@ -184,7 +184,7 @@ func (j *JobSync) doCreateAction(jobSyncInfo *api.JobSyncInfo) error {
 
 func (j *JobSync) doDeleteAction(jobSyncInfo *api.JobSyncInfo) error {
 	log.Infof("do delete action, job sync info are as follows. %s", jobSyncInfo.String())
-	if _, err := storage.Job.UpdateJob(jobSyncInfo.ID, commonschema.StatusJobTerminated, jobSyncInfo.RuntimeInfo,
+	if _, err := storage.Job.UpdateJob(jobSyncInfo.ID, pfschema.StatusJobTerminated, jobSyncInfo.RuntimeInfo,
 		jobSyncInfo.RuntimeStatus, "job is terminated"); err != nil {
 		log.Errorf("sync job status failed. jobID:[%s] err:[%s]", jobSyncInfo.ID, err.Error())
 		return err
@@ -197,7 +197,7 @@ func (j *JobSync) doUpdateAction(jobSyncInfo *api.JobSyncInfo) error {
 		jobSyncInfo.ID, jobSyncInfo.Action, jobSyncInfo.Status, jobSyncInfo.Message)
 
 	// add time point
-	if commonschema.IsImmutableJobStatus(jobSyncInfo.Status) {
+	if pfschema.IsImmutableJobStatus(jobSyncInfo.Status) {
 		metrics.Job.AddTimestamp(jobSyncInfo.ID, metrics.T8, time.Now(), metrics.Info{
 			metrics.FinishedStatusLabel: string(jobSyncInfo.Status),
 		})
@@ -219,7 +219,7 @@ func (j *JobSync) doTerminateAction(jobSyncInfo *api.JobSyncInfo) error {
 		log.Infof("do terminate action. jobID[%s] not found", jobSyncInfo.ID)
 		return nil
 	}
-	if job.Status != commonschema.StatusJobPending {
+	if job.Status != pfschema.StatusJobPending {
 		return nil
 	}
 	err = j.runtimeClient.Delete(jobSyncInfo.ID, jobSyncInfo.Namespace, jobSyncInfo.FrameworkVersion)
@@ -228,7 +228,7 @@ func (j *JobSync) doTerminateAction(jobSyncInfo *api.JobSyncInfo) error {
 	}
 
 	//kubeJob, err := executor.NewKubeJob(&api.PFJob{
-	//	JobType: commonschema.JobType(job.Type),
+	//	JobType: pfschema.JobType(job.Type),
 	//}, j.opt)
 	//if err != nil {
 	//	log.Errorf("do terminate action failed. jobID[%s] error:[%s]", jobSyncInfo.ID, err.Error())
@@ -290,7 +290,7 @@ func (j *JobSync) syncTaskStatus(taskSyncInfo *api.TaskSyncInfo) error {
 		Message:          taskSyncInfo.Message,
 		ExtRuntimeStatus: taskSyncInfo.PodStatus,
 	}
-	if taskSyncInfo.Action == commonschema.Delete {
+	if taskSyncInfo.Action == pfschema.Delete {
 		taskStatus.DeletedAt.Time = time.Now()
 		taskStatus.DeletedAt.Valid = true
 	}
@@ -314,23 +314,23 @@ func (j *JobSync) preHandleTerminatingJob() {
 		queueIDs = append(queueIDs, q.ID)
 	}
 
-	jobs := storage.Job.ListJobsByQueueIDsAndStatus(queueIDs, commonschema.StatusJobTerminating)
+	jobs := storage.Job.ListJobsByQueueIDsAndStatus(queueIDs, pfschema.StatusJobTerminating)
 	for _, job := range jobs {
 		name := job.ID
 		namespace := job.Config.GetNamespace()
 		// TODO: get job FrameworkVersion
-		gvk, err := k8s.GetJobGVK(commonschema.JobType(job.Type), job.Framework)
+		gvk, err := k8s.GetJobGVK(pfschema.JobType(job.Type), job.Framework)
 		if err != nil {
 			log.Warningf("get GroupVersionKind for job %s failed, err: %s", gvk.String(), err)
 			continue
 		}
 		log.Debugf("pre handle terminating job, get %s job %s/%s from cluster", gvk.String(), namespace, name)
-		frameworkVersion := commonschema.NewFrameworkVersion(gvk.Kind, gvk.GroupVersion().String())
+		frameworkVersion := pfschema.NewFrameworkVersion(gvk.Kind, gvk.GroupVersion().String())
 		_, err = j.runtimeClient.Get(namespace, name, frameworkVersion)
 		if err != nil && k8serrors.IsNotFound(err) {
 			j.jobQueue.Add(&api.JobSyncInfo{
 				ID:     job.ID,
-				Action: commonschema.Delete,
+				Action: pfschema.Delete,
 			})
 			log.Infof("pre handle terminating %s job enqueue, job name %s/%s", gvk.String(), namespace, name)
 		}
