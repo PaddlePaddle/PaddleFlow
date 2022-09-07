@@ -49,6 +49,8 @@ func ConvertToStatus(obj interface{}, gvk k8sschema.GroupVersionKind) (interface
 		realStatus = &wfv1.WorkflowStatus{}
 	case PodGVK:
 		realStatus = &v1.PodStatus{}
+	case RayJobGVK:
+		realStatus = &rayV1alpha1.RayJobStatus{}
 	default:
 		return nil, fmt.Errorf("the group version kind %s is not supported", gvk.String())
 	}
