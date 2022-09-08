@@ -29,9 +29,9 @@ import (
 )
 
 const (
-	envGroupName   = "groupName"
-	envMinReplicas = "minReplicas"
-	envMaxReplicas = "maxReplicas"
+	ENVGROUPNAME   = "groupName"
+	ENVMINREPLICAS = "minReplicas"
+	ENVMAXREPLICAS = "maxReplicas"
 )
 
 type RayJob struct {
@@ -78,7 +78,7 @@ func (j *RayJob) CreateJob() (string, error) {
 	}
 	// create job on cluster
 	log.Infof("create %s on cluster", j.String())
-	log.Debugf("ray job %s created, job struct: %+v", j.Name, j)
+	log.Debugf("ray job %s is created, job struct: %+v", j.Name, j)
 	if err = Create(rayJob, j.GroupVersionKind, j.DynamicClientOption); err != nil {
 		log.Errorf("create %s on cluster failed, err: %v", j.String(), err)
 		return "", err
@@ -153,6 +153,9 @@ func (j *RayJob) buildHeadPod(rayJobSpec *rayV1alpha1.RayJobSpec, member schema.
 }
 
 func (j *RayJob) buildWorkerPod(rayJobSpec *rayV1alpha1.RayJobSpec, member schema.Member, workerIndex int, rayWorkersLength int) error {
+	if member.Env == nil {
+		member.Env = make(map[string]string)
+	}
 	var worker rayV1alpha1.WorkerGroupSpec
 	// use exist workerSpec in template
 	if workerIndex < rayWorkersLength {
@@ -168,14 +171,14 @@ func (j *RayJob) buildWorkerPod(rayJobSpec *rayV1alpha1.RayJobSpec, member schem
 	}
 	//	todo ScaleStrategy defines which pods to remove
 	// GroupName
-	if groupName, exist := member.Env[envGroupName]; exist {
+	if groupName, exist := member.Env[ENVGROUPNAME]; exist {
 		worker.GroupName = groupName
 	}
 	// Replicas
 	replicas := int32(member.Replicas)
 	worker.Replicas = &replicas
 	// minReplicas
-	if val, exist, err := getInt32FromEnv(member.Env, envMinReplicas); err != nil {
+	if val, exist, err := getInt32FromEnv(member.Env, ENVMINREPLICAS); err != nil {
 		err := fmt.Errorf("get minReplicas failed, err: %s", err)
 		log.Error(err)
 		return err
@@ -183,7 +186,7 @@ func (j *RayJob) buildWorkerPod(rayJobSpec *rayV1alpha1.RayJobSpec, member schem
 		worker.MinReplicas = &val
 	}
 	// maxReplicas
-	if val, exist, err := getInt32FromEnv(member.Env, envMaxReplicas); err != nil {
+	if val, exist, err := getInt32FromEnv(member.Env, ENVMAXREPLICAS); err != nil {
 		err := fmt.Errorf("get maxReplicas failed, err: %s", err)
 		log.Error(err)
 		return err
