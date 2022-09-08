@@ -202,7 +202,7 @@ func (d *dataReader) Open(inode Ino, length uint64, ufs ufslib.UnderFileStorage,
 		buffersCache: make(cache.ReadBufferMap),
 	}
 	if d.store == nil {
-		fd, err := ufs.Open(path, syscall.O_RDONLY)
+		fd, err := ufs.Open(path, syscall.O_RDONLY, length)
 		if err != nil {
 			return nil, err
 		}
