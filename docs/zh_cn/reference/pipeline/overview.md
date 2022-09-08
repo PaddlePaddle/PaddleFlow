@@ -4,9 +4,10 @@
 
 工作流，即Pipeline部分，主要功能如下：
 
-1. 制定工作流定义规范。通过yaml规范，支持以有向无环图（DAG）的形式定义多个节点间的运行参数，以及运行关系。
+1. 制定工作流定义规范。通过yaml规范或者DSL规范支持以有向无环图（DAG）的形式定义多个节点间的运行参数，以及运行关系。
 
 - pipeline yaml定义规范：可以参考 [yaml定义规范]
+- pipeline DSL定义规范：可以参考 [DSL定义规范]
 
 2. 支持工作流，工作流任务管理。通过命令行（CLI），python SDK等形式，支持工作流的增删查改，以及工作流任务的管理，实现工作流定义的复用。
 
@@ -37,3 +38,4 @@
 [yaml定义规范]: /docs/zh_cn/reference/pipeline/yaml_definition
 [命令行使用规范]: /docs/zh_cn/reference/client_command_reference.md
 [SDK使用规范]: /docs/zh_cn/reference/sdk_reference/sdk_reference.md
+[DSL定义规范]: /docs/zh_cn/reference/pipeline/dsl_definition

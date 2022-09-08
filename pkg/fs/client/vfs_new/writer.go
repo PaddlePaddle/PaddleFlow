@@ -87,7 +87,7 @@ func (f *fileWriter) Write(data []byte, offset uint64) syscall.Errno {
 			return syscall.EBADF
 		}
 	}
-	_, err = f.fd.Write(data, int64(offset))
+	_, err = f.fd.Write(data, offset)
 	if err != nil {
 		log.Errorf("ufs write err: %v", err)
 		return syscall.EBADF
@@ -141,7 +141,7 @@ type dataWriter struct {
 
 func (w *dataWriter) Open(inode Ino, length uint64, ufs ufslib.UnderFileStorage, path string) (FileWriter, error) {
 	name := w.m.InoToPath(inode)
-	fd, err := ufs.Open(path, syscall.O_WRONLY)
+	fd, err := ufs.Open(path, syscall.O_WRONLY, length)
 	if err != nil {
 		return nil, err
 	}
