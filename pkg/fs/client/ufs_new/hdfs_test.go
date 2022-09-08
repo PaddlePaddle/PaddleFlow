@@ -45,7 +45,7 @@ func testFsOp(t *testing.T, fs UnderFileStorage) {
 	fh.Write(content, 0)
 	fh.Flush()
 	fh.Release()
-	fh, err = fs.Open("hello", uint32(os.O_RDONLY))
+	fh, err = fs.Open("hello", uint32(os.O_RDONLY), 11)
 	assert.NoError(t, err)
 	buf := make([]byte, 20)
 	n, e := fh.Read(buf, 0)
