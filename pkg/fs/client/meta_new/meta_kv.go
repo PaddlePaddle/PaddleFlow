@@ -1284,7 +1284,7 @@ func (m *kvMeta) linksMetaUpdate(linkMetaDirPrefix string) error {
 	}
 
 	flags := uint32(syscall.O_RDONLY)
-	fileHandle, err := m.defaultUfs.Open(filePath, flags)
+	fileHandle, err := m.defaultUfs.Open(filePath, flags, attr.Size)
 	if err != nil {
 		log.Errorf("open file[%s] failed: %v", filePath, err)
 		return err
