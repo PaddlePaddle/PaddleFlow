@@ -17,7 +17,6 @@ limitations under the License.
 package meta_new
 
 import (
-	"io"
 	"syscall"
 	"time"
 
@@ -46,6 +45,10 @@ const (
 	TypeFile      = 1 // type for regular file
 	TypeDirectory = 2 // type for directory
 	TypeSymlink   = 3 // type for symlink
+	TypeFIFO      = 4 // type for FIFO node
+	TypeBlockDev  = 5 // type for block device
+	TypeCharDev   = 6 // type for character device
+	TypeSocket    = 7 // type for socket
 )
 
 type Ino uint64
@@ -123,7 +126,7 @@ type Meta interface {
 	// Symlink creates a symlink in a directory with given name.
 	Symlink(ctx *Context, parent Ino, name string, path string, inode *Ino, attr *Attr) syscall.Errno
 	// Mknod creates a node in a directory with given name, type and permissions.
-	Mknod(ctx *Context, parent Ino, name string, mode uint32, rdev uint32, inode *Ino, attr *Attr) syscall.Errno
+	Mknod(ctx *Context, parent Ino, name string, _type uint8, mode, cumask uint32, rdev uint32, inode *Ino, attr *Attr) syscall.Errno
 	// Mkdir creates a sub-directory with given name and mode.
 	Mkdir(ctx *Context, parent Ino, name string, mode uint32, cumask uint16, inode *Ino, attr *Attr) syscall.Errno
 	// Unlink removes a file entry from a directory.
@@ -166,9 +169,6 @@ type Meta interface {
 	Getlk(ctx *Context, inode Ino, owner uint64, ltype *uint32, start, end *uint64, pid *uint32) syscall.Errno
 	// Setlk sets a file range lock on given file.
 	Setlk(ctx *Context, inode Ino, owner uint64, block bool, ltype uint32, start, end uint64, pid uint32) syscall.Errno
-
-	DumpMeta(w io.Writer) error
-	LoadMeta(r io.Reader) error
 
 	LinksMetaUpdateHandler(stopChan chan struct{}, interval int, linkMetaDirPrefix string) error
 }
