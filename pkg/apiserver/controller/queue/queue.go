@@ -23,6 +23,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"volcano.sh/apis/pkg/apis/scheduling/v1beta1"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/apiserver/common"
@@ -326,6 +327,15 @@ func CreateQueue(ctx *logger.RequestContext, request *CreateQueueRequest) (Creat
 	}
 
 	err = runtimeSvc.CreateQueue(&queueInfo)
+	if err != nil && k8serrors.IsAlreadyExists(err) {
+		_, err = UpdateQueue(ctx, &UpdateQueueRequest{
+			Name:         request.Name,
+			Namespace:    request.Namespace,
+			MaxResources: request.MaxResources,
+			MinResources: request.MinResources,
+			QuotaType:    request.QuotaType,
+		})
+	}
 	if err != nil {
 		ctx.Logging().Errorf("GlobalVCQueue create request failed. error:%s", err.Error())
 		ctx.ErrorCode = common.QueueResourceNotMatch
