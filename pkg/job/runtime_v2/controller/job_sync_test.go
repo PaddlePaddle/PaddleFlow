@@ -92,6 +92,93 @@ func newFakeJobSyncController() *JobSync {
 	return ctrl
 }
 
+func TestJobSyncAndGC(t *testing.T) {
+	tests := []struct {
+		name             string
+		namespace        string
+		frameworkVersion schema.FrameworkVersion
+		oldObj           *unstructured.Unstructured
+		newObj           *unstructured.Unstructured
+		oldStatus        interface{}
+		newStatus        interface{}
+	}{
+		{
+			name:             "job status from pending turn to running",
+			namespace:        "default",
+			frameworkVersion: schema.NewFrameworkVersion(k8s.PodGVK.Kind, k8s.PodGVK.GroupVersion().String()),
+			oldObj:           NewUnstructured(k8s.PodGVK, "default", "test-job1"),
+			oldStatus: &v1.PodStatus{
+				Phase: v1.PodPending,
+			},
+			newObj: NewUnstructured(k8s.PodGVK, "default", "test-job1"),
+			newStatus: &v1.PodStatus{
+				Phase: v1.PodRunning,
+			},
+		},
+		{
+			name:             "job status from running turn to failed",
+			namespace:        "default",
+			frameworkVersion: schema.NewFrameworkVersion(k8s.PodGVK.Kind, k8s.PodGVK.GroupVersion().String()),
+			oldObj:           NewUnstructured(k8s.PodGVK, "default", "test-job2"),
+			oldStatus: &v1.PodStatus{
+				Phase: v1.PodRunning,
+			},
+			newObj: NewUnstructured(k8s.PodGVK, "default", "test-job2"),
+			newStatus: &v1.PodStatus{
+				Phase: v1.PodFailed,
+			},
+		},
+		{
+			name:             "job status from running turn to succeeded",
+			namespace:        "default",
+			frameworkVersion: schema.NewFrameworkVersion(k8s.PodGVK.Kind, k8s.PodGVK.GroupVersion().String()),
+			oldObj:           NewUnstructured(k8s.PodGVK, "default", "test-job3"),
+			oldStatus: &v1.PodStatus{
+				Phase: v1.PodRunning,
+			},
+			newObj: NewUnstructured(k8s.PodGVK, "default", "test-job3"),
+			newStatus: &v1.PodStatus{
+				Phase: v1.PodSucceeded,
+			},
+		},
+	}
+
+	config.GlobalServerConfig = &config.ServerConfig{
+		Job: config.JobConfig{
+			Reclaim: config.ReclaimConfig{
+				CleanJob: true,
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			driver.InitMockDB()
+			err := storage.Job.CreateJob(&model.Job{ID: test.newObj.GetName()})
+			assert.Equal(t, nil, err)
+
+			c := newFakeJobSyncController()
+			stopCh := make(chan struct{})
+			defer close(stopCh)
+			c.Run(stopCh)
+
+			test.oldObj.Object["status"], err = runtime.DefaultUnstructuredConverter.ToUnstructured(test.oldStatus)
+			assert.Equal(t, nil, err)
+
+			test.newObj.Object["status"], err = runtime.DefaultUnstructuredConverter.ToUnstructured(test.newStatus)
+			assert.Equal(t, nil, err)
+
+			err = c.runtimeClient.Create(test.oldObj, test.frameworkVersion)
+			assert.Equal(t, nil, err)
+			// create old pod
+			err = c.runtimeClient.Update(test.newObj, test.frameworkVersion)
+			assert.Equal(t, nil, err)
+
+			time.Sleep(5 * time.Second)
+		})
+	}
+}
+
 func TestTaskSync(t *testing.T) {
 	jobName := "job-test"
 	containerStatusMap := map[string]v1.ContainerStatus{
@@ -282,5 +369,4 @@ func TestTaskSync(t *testing.T) {
 			time.Sleep(3 * time.Second)
 		})
 	}
-
 }
