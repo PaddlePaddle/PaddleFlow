@@ -22,6 +22,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
@@ -55,7 +56,7 @@ func New(kubeClient framework.RuntimeClientInterface) framework.JobInterface {
 }
 
 func (sp *SingleJob) String(job *api.PFJob) string {
-	return fmt.Sprintf("%s job %s/%s on cluster %s", sp.GVK.String(), job.Namespace, job.ID, sp.runtimeClient.Cluster())
+	return fmt.Sprintf("%s job %s/%s on %s", sp.GVK.String(), job.Namespace, job.ID, sp.runtimeClient.Cluster())
 }
 
 func (sp *SingleJob) frameworkVersion() pfschema.FrameworkVersion {
@@ -232,9 +233,10 @@ func (sp *SingleJob) deleteJob(obj interface{}) {
 
 // JobStatus get single job status, message from interface{}, and covert to JobStatus
 func (sp *SingleJob) JobStatus(obj interface{}) (api.StatusInfo, error) {
+	unObj := obj.(*unstructured.Unstructured)
 	// convert to Pod struct
 	job := &v1.Pod{}
-	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.(map[string]interface{}), job); err != nil {
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(unObj.Object, job); err != nil {
 		log.Errorf("convert unstructured object [%+v] to %s pod failed. error: %s", obj, sp.GVK.String(), err.Error())
 		return api.StatusInfo{}, err
 	}

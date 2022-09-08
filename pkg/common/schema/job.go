@@ -222,6 +222,8 @@ type Conf struct {
 	QueueID   string  `json:"queueID"`
 	QueueName string  `json:"queueName,omitempty"`
 	// 运行时需要的参数
+	FrameworkVersion FrameworkVersion `json:"frameworkVersion"`
+
 	Labels      map[string]string `json:"labels"`
 	Annotations map[string]string `json:"annotations"`
 	Env         map[string]string `json:"env,omitempty"`
@@ -238,6 +240,20 @@ type FileSystem struct {
 	MountPath string `json:"mountPath,omitempty"`
 	SubPath   string `json:"subPath,omitempty"`
 	ReadOnly  bool   `json:"readOnly,omitempty"`
+}
+
+type FrameworkVersion struct {
+	Framework  string            `json:"framework"`
+	APIVersion string            `json:"apiVersion"`
+	Extra      map[string]string `json:"extra,omitempty"`
+}
+
+func NewFrameworkVersion(framework, apiVersion string) FrameworkVersion {
+	return FrameworkVersion{
+		APIVersion: apiVersion,
+		Framework:  framework,
+		Extra:      make(map[string]string),
+	}
 }
 
 func (c *Conf) GetName() string {
@@ -267,6 +283,15 @@ func (c *Conf) GetArgs() []string {
 func (c *Conf) GetRestartPolicy() string {
 	c.preCheckEnv()
 	return c.Env[EnvJobRestartPolicy]
+}
+
+func (c *Conf) GetFrameworkVersion() FrameworkVersion {
+	return c.FrameworkVersion
+}
+
+// TODO: set FrameworkVersion when submit job to PaddleFlow Server
+func (c *Conf) SetFrameworkVersion(fv FrameworkVersion) {
+	c.FrameworkVersion = fv
 }
 
 func (c *Conf) GetWorkerCommand() string {

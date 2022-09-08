@@ -139,6 +139,7 @@ func newFakeKubeRuntimeClient(server *httptest.Server) *client.KubeRuntimeClient
 		ClusterInfo: &schema.Cluster{
 			Name: "default-cluster",
 			ID:   "cluster-123",
+			Type: "Kubernetes",
 		},
 		Config: &restclient.Config{Host: server.URL},
 	}
@@ -166,7 +167,7 @@ func TestSingleJob_Create(t *testing.T) {
 				JobType: schema.TypeSingle,
 			},
 			wantErr: true,
-			wantMsg: "create builtin /v1, Kind=Pod job / on cluster name default-cluster with cluster type  failed, job member is nil",
+			wantMsg: "create builtin /v1, Kind=Pod job / on cluster default-cluster with type Kubernetes failed, job member is nil",
 		},
 		{
 			caseName: "pod_test2",
