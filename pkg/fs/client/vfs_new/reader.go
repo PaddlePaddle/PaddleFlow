@@ -124,7 +124,7 @@ func (fh *fileReader) Read(buf []byte, off uint64) (int, syscall.Errno) {
 			return 0, syscall.EBADF
 		}
 		// todo:: 不走缓存部分需要保持原来open-read模式，保证这部分性能
-		bytesRead, err = fh.fd.Read(buf, int64(off))
+		bytesRead, err = fh.fd.Read(buf, off)
 		if err != nil {
 			log.Errorf("ufs read err: %v", err)
 			return 0, syscall.EBADF
@@ -202,7 +202,7 @@ func (d *dataReader) Open(inode Ino, length uint64, ufs ufslib.UnderFileStorage,
 		buffersCache: make(cache.ReadBufferMap),
 	}
 	if d.store == nil {
-		fd, err := ufs.Open(path, syscall.O_RDONLY)
+		fd, err := ufs.Open(path, syscall.O_RDONLY, length)
 		if err != nil {
 			return nil, err
 		}

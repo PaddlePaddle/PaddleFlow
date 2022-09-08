@@ -69,8 +69,8 @@ type UnderFileStorage interface {
 
 	// File handling.  If opening for writing, the file's mtime
 	// should be updated too.
-	Open(name string, flags uint32) (fd FileHandle, err error)
-	Create(name string, flags uint32, mode uint32) (fd FileHandle, err error)
+	Open(name string, flags uint32, size uint64) (FileHandle, error)
+	Create(name string, flags uint32, mode uint32) (FileHandle, error)
 
 	// Directory handling
 	ReadDir(name string) (stream []DirEntry, err error)
@@ -87,8 +87,8 @@ type UnderFileStorage interface {
 }
 
 type FileHandle interface {
-	Read(dest []byte, off int64) (int, error)
-	Write(data []byte, off int64) (written uint32, code error)
+	Read(dest []byte, off uint64) (int, error)
+	Write(data []byte, off uint64) (written uint32, code error)
 
 	// Flush is called for close() call on a file descriptor. In
 	// case of duplicated descriptor, it may be called more than

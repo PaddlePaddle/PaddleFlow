@@ -753,7 +753,7 @@ func (fs *s3FileSystem) getOpenFlags(name string, flags uint32) int {
 
 // File handling.  If opening for writing, the file's mtime
 // should be updated too.
-func (fs *s3FileSystem) Open(name string, flags uint32) (fd FileHandle, err error) {
+func (fs *s3FileSystem) Open(name string, flags uint32, size uint64) (FileHandle, error) {
 	log.Tracef("s3 open: name[%s] flags[%d]", name, flags)
 	flag := fs.getOpenFlags(name, flags)
 
@@ -761,17 +761,11 @@ func (fs *s3FileSystem) Open(name string, flags uint32) (fd FileHandle, err erro
 		return nil, syscall.ENOSYS
 	}
 
-	// read only
-	finfo, err := fs.GetAttr(name)
-	if err != nil {
-		return nil, err
-	}
-
 	fh := &s3FileHandle{
 		bucket: fs.bucket,
 		name:   name,
 		path:   fs.getFullPath(name),
-		size:   finfo.Size,
+		size:   size,
 		fs:     fs,
 		flags:  flags,
 	}
@@ -985,7 +979,7 @@ type s3FileHandle struct {
 	bucket         string
 	name           string
 	path           string
-	size           int64
+	size           uint64
 	flags          uint32
 	writeTmpfile   *os.File
 	canWrite       chan struct{}
@@ -997,13 +991,13 @@ type s3FileHandle struct {
 
 var _ FileHandle = &s3FileHandle{}
 
-func (fh *s3FileHandle) Read(buf []byte, off int64) (int, error) {
+func (fh *s3FileHandle) Read(buf []byte, off uint64) (int, error) {
 	log.Tracef("s3 read: fh.name[%s] len[%d] off[%d]", fh.name, len(buf), off)
 	request := &s3.GetObjectInput{
 		Bucket: &fh.bucket,
 		Key:    aws.String(fh.path),
 	}
-	l := int64(len(buf))
+	l := uint64(len(buf))
 	if off >= fh.size {
 		return 0, nil
 	}
@@ -1037,7 +1031,7 @@ func (fh *s3FileHandle) Read(buf []byte, off int64) (int, error) {
 }
 
 // s3 do not support random write
-func (fh *s3FileHandle) Write(data []byte, offset int64) (uint32, error) {
+func (fh *s3FileHandle) Write(data []byte, offset uint64) (uint32, error) {
 	log.Tracef("s3 write: fh.name[%s] offset[%d] length[%d]", fh.name, offset, len(data))
 	if len(data) <= 0 {
 		log.Infof("s3 write: fh.name[%s] no need to write. data len is 0", fh.name)
@@ -1058,7 +1052,7 @@ func (fh *s3FileHandle) Write(data []byte, offset int64) (uint32, error) {
 	fh.mu.Lock()
 	defer fh.mu.Unlock()
 
-	n, err := fh.writeTmpfile.WriteAt(data, offset)
+	n, err := fh.writeTmpfile.WriteAt(data, int64(offset))
 	if err != nil {
 		log.Errorf("s3 write: fh.name[%s] WriteAt err: %v", fh.name, err)
 		return uint32(0), err

@@ -109,7 +109,7 @@ func (fs *localFileSystem) Put(name string, reader io.Reader) error {
 
 // File handling.  If opening for writing, the file's mtime
 // should be updated too.
-func (fs *localFileSystem) Open(name string, flags uint32) (fd FileHandle, err error) {
+func (fs *localFileSystem) Open(name string, flags uint32, size uint64) (FileHandle, error) {
 	// filter out append. The kernel layer will translate the
 	// offsets for us appropriately.
 	flags = flags &^ syscall.O_APPEND
@@ -201,21 +201,21 @@ type localFileHandle struct {
 	lock sync.Mutex
 }
 
-func (f *localFileHandle) Read(buf []byte, off int64) (int, error) {
+func (f *localFileHandle) Read(buf []byte, off uint64) (int, error) {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 	// This is not racy by virtue of the kernel properly
 	// synchronizing the open/write/close.
-	n, err := f.File.ReadAt(buf, off)
+	n, err := f.File.ReadAt(buf, int64(off))
 	if err != nil && err != io.EOF {
 		return 0, err
 	}
 	return n, nil
 }
 
-func (f *localFileHandle) Write(data []byte, off int64) (uint32, error) {
+func (f *localFileHandle) Write(data []byte, off uint64) (uint32, error) {
 	f.lock.Lock()
-	n, err := f.File.WriteAt(data, off)
+	n, err := f.File.WriteAt(data, int64(off))
 	f.lock.Unlock()
 	return uint32(n), err
 }

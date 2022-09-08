@@ -110,7 +110,7 @@ func TestS3(t *testing.T) {
 	fh.Flush()
 	fh.Release()
 
-	fh, err = fs.Open(fileName, uint32(os.O_RDONLY))
+	fh, err = fs.Open(fileName, uint32(os.O_RDONLY), 11)
 	assert.NoError(t, err)
 	buf := make([]byte, 4)
 	n, e := fh.Read(buf, 0)
@@ -119,7 +119,7 @@ func TestS3(t *testing.T) {
 	fh.Release()
 
 	// test no prefix
-	_, err = fs.Open("helloWorld/hello", uint32(os.O_WRONLY))
+	_, err = fs.Open("helloWorld/hello", uint32(os.O_WRONLY), 11)
 	assert.Nil(t, err)
 
 	entries, err := fs.ReadDir("")
@@ -146,7 +146,7 @@ func TestS3Truncate(t *testing.T) {
 	assert.Equal(t, int64(0), finfo.Size)
 
 	// fh
-	fh, err := fs.Open(file, uint32(os.O_WRONLY))
+	fh, err := fs.Open(file, uint32(os.O_WRONLY), uint64(finfo.Size))
 	assert.Nil(t, err)
 
 	// truncate 0 -> 4444
