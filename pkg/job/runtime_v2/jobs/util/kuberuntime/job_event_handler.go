@@ -79,13 +79,13 @@ func JobAddFunc(obj interface{}, getStatusFunc api.GetStatusFunc) (*api.JobSyncI
 	runtimeStatus := jobObj.Object[RuntimeStatusKey]
 	runtimeInfo := jobObj.DeepCopy().Object
 	delete(runtimeInfo, RuntimeStatusKey)
+	// get framework version
+	frameworkVersion := schema.NewFrameworkVersion(gvk.Kind, gvk.GroupVersion().String())
 	jobInfo := &api.JobSyncInfo{
-		ID:          jobObj.GetName(),
-		Namespace:   jobObj.GetNamespace(),
-		ParentJobID: parentJobID,
-		// TODO: set Framework and FrameworkVersion
-		Framework:        "",
-		FrameworkVersion: schema.FrameworkVersion{},
+		ID:               jobObj.GetName(),
+		Namespace:        jobObj.GetNamespace(),
+		ParentJobID:      parentJobID,
+		FrameworkVersion: frameworkVersion,
 		Status:           jobStatus,
 		RuntimeInfo:      runtimeInfo,
 		RuntimeStatus:    runtimeStatus,
@@ -128,13 +128,13 @@ func JobUpdateFunc(old, new interface{}, getStatusFunc api.GetStatusFunc) (*api.
 	if jobStatus == "" {
 		jobStatus = schema.StatusJobPending
 	}
+	// get framework version
+	frameworkVersion := schema.NewFrameworkVersion(gvk.Kind, gvk.GroupVersion().String())
 	jobInfo := &api.JobSyncInfo{
-		ID:          newObj.GetName(),
-		Namespace:   newObj.GetNamespace(),
-		ParentJobID: GetParentJobID(newObj),
-		// TODO
-		FrameworkVersion: schema.FrameworkVersion{},
-		Framework:        "",
+		ID:               newObj.GetName(),
+		Namespace:        newObj.GetNamespace(),
+		ParentJobID:      GetParentJobID(newObj),
+		FrameworkVersion: frameworkVersion,
 		Status:           jobStatus,
 		RuntimeStatus:    newObj.Object[RuntimeStatusKey],
 		Message:          newStatusInfo.Message,
@@ -158,14 +158,13 @@ func JobDeleteFunc(obj interface{}, getStatusFunc api.GetStatusFunc) (*api.JobSy
 		log.Errorf("get job status failed, and jobID: %s, error: %s", jobID, err)
 		return nil, err
 	}
+	// get framework version
+	frameworkVersion := schema.NewFrameworkVersion(gvk.Kind, gvk.GroupVersion().String())
 	jobInfo := &api.JobSyncInfo{
-		ID:          jobObj.GetName(),
-		Namespace:   jobObj.GetNamespace(),
-		ParentJobID: GetParentJobID(jobObj),
-
-		// TODO:
-		FrameworkVersion: schema.FrameworkVersion{},
-		Framework:        "",
+		ID:               jobObj.GetName(),
+		Namespace:        jobObj.GetNamespace(),
+		ParentJobID:      GetParentJobID(jobObj),
+		FrameworkVersion: frameworkVersion,
 		Status:           statusInfo.Status,
 		RuntimeStatus:    jobObj.Object[RuntimeStatusKey],
 		Message:          statusInfo.Message,

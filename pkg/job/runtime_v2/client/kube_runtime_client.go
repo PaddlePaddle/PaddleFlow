@@ -86,6 +86,12 @@ func CreateKubeRuntimeClient(config *rest.Config, cluster *pfschema.Cluster) (fr
 	}, nil
 }
 
+func (krc *KubeRuntimeClient) GetJobTypeFramework(fv pfschema.FrameworkVersion) (pfschema.JobType, pfschema.Framework) {
+	gvk := frameworkVersionToGVK(fv)
+	jobType, framework := k8s.GetJobTypeAndFramework(gvk)
+	return jobType, framework
+}
+
 func (krc *KubeRuntimeClient) RegisterListeners(jobQueue, taskQueue workqueue.RateLimitingInterface) error {
 	// TODO
 	for gvk := range k8s.GVKJobStatusMap {

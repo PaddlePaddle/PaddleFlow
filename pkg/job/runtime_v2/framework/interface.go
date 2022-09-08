@@ -86,4 +86,6 @@ type RuntimeClientInterface interface {
 
 	// ListNodeQuota resource api for cluster nodes
 	ListNodeQuota(ctx context.Context) (pfschema.QuotaSummary, []pfschema.NodeQuotaInfo, error)
+
+	GetJobTypeFramework(fv pfschema.FrameworkVersion) (pfschema.JobType, pfschema.Framework)
 }

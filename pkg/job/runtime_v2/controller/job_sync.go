@@ -122,22 +122,8 @@ func (j *JobSync) syncJobStatus(jobSyncInfo *api.JobSyncInfo) error {
 	return nil
 }
 
-func getJobTypeFromFramework(framework pfschema.Framework) string {
-	var jobType pfschema.JobType
-	switch framework {
-	case pfschema.FrameworkStandalone:
-		jobType = pfschema.TypeSingle
-	case pfschema.FrameworkPaddle, pfschema.FrameworkPytorch, pfschema.FrameworkTF,
-		pfschema.FrameworkMXNet, pfschema.FrameworkMPI, pfschema.FrameworkSpark, pfschema.FrameworkRay:
-		jobType = pfschema.TypeDistributed
-	default:
-		jobType = pfschema.TypeWorkflow
-	}
-	return string(jobType)
-}
-
 func (j *JobSync) doCreateAction(jobSyncInfo *api.JobSyncInfo) error {
-	log.Infof("do create action, job sync info are as follows: %s", jobSyncInfo.String())
+	log.Infof("do create action, job sync info: %s", jobSyncInfo.String())
 	_, err := storage.Job.GetJobByID(jobSyncInfo.ID)
 	if err == nil {
 		return j.doUpdateAction(jobSyncInfo)
@@ -150,17 +136,17 @@ func (j *JobSync) doCreateAction(jobSyncInfo *api.JobSyncInfo) error {
 			log.Errorf("get parent job %s failed, err: %v", jobSyncInfo.ParentJobID, err)
 			return err
 		}
-		// TODO: get job type from framework
-		jobType := getJobTypeFromFramework(jobSyncInfo.Framework)
+		// get job type and framework from FrameworkVersion
+		jobType, framework := j.runtimeClient.GetJobTypeFramework(jobSyncInfo.FrameworkVersion)
 		job := &model.Job{
 			ID:   jobSyncInfo.ID,
-			Type: jobType,
+			Type: string(jobType),
 			Config: &pfschema.Conf{
 				Env: map[string]string{
 					pfschema.EnvJobNamespace: jobSyncInfo.Namespace,
 				},
 			},
-			Framework:     jobSyncInfo.Framework,
+			Framework:     framework,
 			QueueID:       parentJob.QueueID,
 			Status:        jobSyncInfo.Status,
 			Message:       jobSyncInfo.Message,
@@ -168,6 +154,7 @@ func (j *JobSync) doCreateAction(jobSyncInfo *api.JobSyncInfo) error {
 			RuntimeStatus: jobSyncInfo.RuntimeStatus,
 			ParentJob:     jobSyncInfo.ParentJobID,
 		}
+		job.Config.SetFrameworkVersion(jobSyncInfo.FrameworkVersion)
 		if err = storage.Job.CreateJob(job); err != nil {
 			log.Errorf("In %s, craete job %v failed, err: %v", j.Name(), job, err)
 			return err

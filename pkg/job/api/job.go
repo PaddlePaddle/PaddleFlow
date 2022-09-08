@@ -157,12 +157,10 @@ func (pfj *PFJob) FrameworkVersion() string {
 }
 
 type JobSyncInfo struct {
-	ID          string
-	Namespace   string
-	ParentJobID string
-	// TODO: merge FrameworkVersion and Framework
+	ID               string
+	Namespace        string
+	ParentJobID      string
 	FrameworkVersion schema.FrameworkVersion
-	Framework        schema.Framework
 	Status           schema.JobStatus
 	RuntimeInfo      interface{}
 	RuntimeStatus    interface{}
@@ -173,7 +171,7 @@ type JobSyncInfo struct {
 
 func (js *JobSyncInfo) String() string {
 	return fmt.Sprintf("job id: %s, parentJobID: %s, framework: %s, status: %s, message: %s",
-		js.ID, js.ParentJobID, js.Framework, js.Status, js.Message)
+		js.ID, js.ParentJobID, js.FrameworkVersion, js.Status, js.Message)
 }
 
 type TaskSyncInfo struct {
