@@ -84,6 +84,7 @@ func JobAddFunc(obj interface{}, getStatusFunc api.GetStatusFunc) (*api.JobSyncI
 	jobInfo := &api.JobSyncInfo{
 		ID:               jobObj.GetName(),
 		Namespace:        jobObj.GetNamespace(),
+		Annotations:      jobObj.GetAnnotations(),
 		ParentJobID:      parentJobID,
 		FrameworkVersion: frameworkVersion,
 		Status:           jobStatus,
@@ -133,6 +134,7 @@ func JobUpdateFunc(old, new interface{}, getStatusFunc api.GetStatusFunc) (*api.
 	jobInfo := &api.JobSyncInfo{
 		ID:               newObj.GetName(),
 		Namespace:        newObj.GetNamespace(),
+		Annotations:      newObj.GetAnnotations(),
 		ParentJobID:      GetParentJobID(newObj),
 		FrameworkVersion: frameworkVersion,
 		Status:           jobStatus,
@@ -163,6 +165,7 @@ func JobDeleteFunc(obj interface{}, getStatusFunc api.GetStatusFunc) (*api.JobSy
 	jobInfo := &api.JobSyncInfo{
 		ID:               jobObj.GetName(),
 		Namespace:        jobObj.GetNamespace(),
+		Annotations:      jobObj.GetAnnotations(),
 		ParentJobID:      GetParentJobID(jobObj),
 		FrameworkVersion: frameworkVersion,
 		Status:           statusInfo.Status,

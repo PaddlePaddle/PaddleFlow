@@ -164,6 +164,7 @@ type JobSyncInfo struct {
 	Status           schema.JobStatus
 	RuntimeInfo      interface{}
 	RuntimeStatus    interface{}
+	Annotations      map[string]string
 	Message          string
 	Action           schema.ActionType
 	RetryTimes       int
@@ -186,6 +187,14 @@ type TaskSyncInfo struct {
 	PodStatus  interface{}
 	Action     schema.ActionType
 	RetryTimes int
+}
+
+// FinishedJobInfo contains gc job info
+type FinishedJobInfo struct {
+	Namespace        string
+	Name             string
+	Duration         time.Duration
+	FrameworkVersion schema.FrameworkVersion
 }
 
 type StatusInfo struct {

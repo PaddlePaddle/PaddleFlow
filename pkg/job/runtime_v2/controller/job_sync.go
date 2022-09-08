@@ -18,6 +18,7 @@ package controller
 
 import (
 	"fmt"
+	"strconv"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -25,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/workqueue"
 
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	pfschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/framework"
@@ -36,12 +38,17 @@ import (
 const (
 	JobSyncControllerName = "JobSync"
 	DefaultSyncRetryTimes = 3
+	DefaultJobTTLSeconds  = 600
 )
 
 type JobSync struct {
 	runtimeClient framework.RuntimeClientInterface
-	jobQueue      workqueue.RateLimitingInterface
-	taskQueue     workqueue.RateLimitingInterface
+	// jobQueue contains job add/update/delete event
+	jobQueue workqueue.RateLimitingInterface
+	// taskQueue contains task add/update/delete event
+	taskQueue workqueue.RateLimitingInterface
+	//  waitedCleanQueue contains jobs to be deleted
+	waitedCleanQueue workqueue.DelayingInterface
 }
 
 func NewJobSync() *JobSync {
@@ -60,6 +67,7 @@ func (j *JobSync) Initialize(runtimeClient framework.RuntimeClientInterface) err
 	log.Infof("initialize %s!", j.Name())
 	j.jobQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	j.taskQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+	j.waitedCleanQueue = workqueue.NewDelayingQueue()
 
 	// Register job listeners
 	err := j.runtimeClient.RegisterListeners(j.jobQueue, j.taskQueue)
@@ -77,6 +85,7 @@ func (j *JobSync) Run(stopCh <-chan struct{}) {
 	j.preHandleTerminatingJob()
 	go wait.Until(j.runJobWorker, 0, stopCh)
 	go wait.Until(j.runTaskWorker, 0, stopCh)
+	go wait.Until(j.runJobGCWorker, 0, stopCh)
 }
 
 func (j *JobSync) runJobWorker() {
@@ -111,10 +120,12 @@ func (j *JobSync) syncJobStatus(jobSyncInfo *api.JobSyncInfo) error {
 	log.Infof("begin syncJobStatus jobID: %s, action: %s", jobSyncInfo.ID, jobSyncInfo.Action)
 	switch jobSyncInfo.Action {
 	case pfschema.Create:
+		j.gcFinishedJob(jobSyncInfo)
 		return j.doCreateAction(jobSyncInfo)
 	case pfschema.Delete:
 		return j.doDeleteAction(jobSyncInfo)
 	case pfschema.Update:
+		j.gcFinishedJob(jobSyncInfo)
 		return j.doUpdateAction(jobSyncInfo)
 	case pfschema.Terminate:
 		return j.doTerminateAction(jobSyncInfo)
@@ -298,4 +309,92 @@ func (j *JobSync) preHandleTerminatingJob() {
 			log.Infof("pre handle terminating %s job enqueue, job name %s/%s", fwVersion, namespace, name)
 		}
 	}
+}
+
+// runJobGCWorker run job gc loop
+func (j *JobSync) runJobGCWorker() {
+	for j.processJobGCWorkItem() {
+	}
+}
+
+// processJobGCWorkItem process job gc
+func (j *JobSync) processJobGCWorkItem() bool {
+	obj, shutdown := j.waitedCleanQueue.Get()
+	if shutdown {
+		log.Infof("shutdown waited clean queue for %s controller.", j.Name())
+		return false
+	}
+	defer j.waitedCleanQueue.Done(obj)
+	gcjob, ok := obj.(*api.FinishedJobInfo)
+	if !ok {
+		log.Errorf("job %v is not a valid finish job request struct.", obj)
+		return true
+	}
+	log.Infof("clean job info: %+v", gcjob)
+
+	err := j.runtimeClient.Delete(gcjob.Namespace, gcjob.Name, gcjob.FrameworkVersion)
+	if err != nil {
+		log.Errorf("clean %s job [%s/%s] failed, error：%v",
+			gcjob.FrameworkVersion, gcjob.Namespace, gcjob.Name, err)
+		return true
+	}
+	log.Infof("auto clean %s job [%s/%s] succeed.", gcjob.FrameworkVersion, gcjob.Namespace, gcjob.Name)
+	return true
+}
+
+func (j *JobSync) gcFinishedJob(jobInfo *api.JobSyncInfo) {
+	if jobInfo == nil {
+		return
+	}
+	// 当任务结束时：Succeeded 或 Failed 入队
+	if isCleanJob(jobInfo.Status) {
+		log.Infof("gc finished job[%s/%s] with status %s", jobInfo.Namespace, jobInfo.ID, jobInfo.Status)
+		finishedJob := api.FinishedJobInfo{
+			Name:             jobInfo.ID,
+			Namespace:        jobInfo.Namespace,
+			Duration:         getJobTTLSeconds(jobInfo.Annotations, jobInfo.Status),
+			FrameworkVersion: jobInfo.FrameworkVersion,
+		}
+		duration := finishedJob.Duration
+		log.Infof("finishedJobDelayEnqueue job[%s] in ns[%s] duration[%v]",
+			finishedJob.Name, finishedJob.Namespace, duration)
+		j.waitedCleanQueue.AddAfter(&finishedJob, duration)
+	}
+}
+
+func getJobTTLSeconds(annotation map[string]string, status pfschema.JobStatus) time.Duration {
+	// get job TTL seconds from annotation first
+	if annotation != nil && len(annotation[pfschema.JobTTLSeconds]) != 0 {
+		ttlStr := annotation[pfschema.JobTTLSeconds]
+		ttl, err := strconv.Atoi(ttlStr)
+		if err == nil {
+			return time.Duration(ttl) * time.Second
+		}
+		log.Warnf("convert ttl second string %s to int failed, err: %v", ttlStr, err)
+	}
+	// get job TTL seconds from config
+	ttlSeconds := DefaultJobTTLSeconds
+	switch status {
+	case pfschema.StatusJobSucceeded:
+		if config.GlobalServerConfig.Job.Reclaim.SucceededJobTTLSeconds > 0 {
+			ttlSeconds = config.GlobalServerConfig.Job.Reclaim.SucceededJobTTLSeconds
+		}
+	case pfschema.StatusJobTerminated, pfschema.StatusJobFailed:
+		if config.GlobalServerConfig.Job.Reclaim.FailedJobTTLSeconds > 0 {
+			ttlSeconds = config.GlobalServerConfig.Job.Reclaim.FailedJobTTLSeconds
+		}
+	default:
+		log.Warnf("job status %s is not supported", status)
+	}
+	return time.Duration(ttlSeconds) * time.Second
+}
+
+func isCleanJob(jobStatus pfschema.JobStatus) bool {
+	if !config.GlobalServerConfig.Job.Reclaim.CleanJob {
+		return false
+	}
+	if config.GlobalServerConfig.Job.Reclaim.SkipCleanFailedJob {
+		return pfschema.StatusJobSucceeded == jobStatus
+	}
+	return pfschema.StatusJobSucceeded == jobStatus || pfschema.StatusJobTerminated == jobStatus || pfschema.StatusJobFailed == jobStatus
 }
