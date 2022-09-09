@@ -53,6 +53,8 @@ const (
 	MemDriver    = "mem"
 	DiskDriver   = "disk"
 	nextInodeKey = "nextInodeKey"
+
+	DefaultRootPath = "/"
 )
 
 var _ Meta = &kvMeta{}
@@ -442,7 +444,9 @@ func (m *kvMeta) SetOwner(uid, gid uint32) {
 }
 
 func (m *kvMeta) StatFS(ctx *Context) (*base.StatfsOut, syscall.Errno) {
-	panic("implement me")
+	log.Debugf("defaultMeta, StatFs: name[%s]", DefaultRootPath)
+	ufs := m.defaultUfs
+	return ufs.StatFs(DefaultRootPath), syscall.F_OK
 }
 
 func (m *kvMeta) Access(ctx *Context, inode Ino, mask uint32, attr *Attr) syscall.Errno {
@@ -582,6 +586,7 @@ func (m *kvMeta) GetAttr(ctx *Context, inode Ino, attr *Attr) syscall.Errno {
 }
 
 func (m *kvMeta) SetAttr(ctx *Context, inode Ino, set uint32, attr *Attr) syscall.Errno {
+
 	panic("implement me")
 }
 
@@ -729,8 +734,84 @@ func (m *kvMeta) Rmdir(ctx *Context, parent Ino, name string) syscall.Errno {
 	panic("implement me")
 }
 
-func (m *kvMeta) Rename(ctx *Context, parentSrc Ino, nameSrc string, parentDst Ino, nameDst string, flags uint32, inode *Ino, attr *Attr) syscall.Errno {
-	panic("implement me")
+// Rename move an entry from a source directory to another with given name.
+// The targeted entry will be overwrited if it's a file or empty directory.
+func (m *kvMeta) Rename(ctx *Context, parentSrc Ino, nameSrc string, parentDst Ino,
+	nameDst string, flags uint32, inode *Ino, attr *Attr) syscall.Errno {
+	err := m.txn(func(tx kv_new.KvTxn) error {
+
+		buf := tx.Get(m.entryKey(parentSrc, nameSrc))
+		if buf == nil {
+			return syscall.ENOENT
+		}
+		srcEntryItem_ := &entryItem{}
+		m.parseEntry(buf, srcEntryItem_)
+
+		now := time.Now()
+		pSrcAttr := &inodeItem{}
+		pDstAttr := &inodeItem{}
+		srcAttr := &inodeItem{}
+		has := m.getAttrFromCache(parentSrc, pSrcAttr) && m.getAttrFromCache(parentDst, pDstAttr) && m.getAttrFromCache(srcEntryItem_.ino, srcAttr)
+		if !has {
+			return syscall.ENOENT
+		}
+		if parentSrc == parentDst && nameSrc == nameDst {
+			if inode != nil {
+				*inode = srcEntryItem_.ino
+			}
+			if attr != nil {
+				*attr = srcAttr.attr
+			}
+			return nil
+		}
+		pSrcAttr.attr.Mtime = now.Unix()
+		pSrcAttr.attr.Mtimensec = uint32(now.Nanosecond())
+		pSrcAttr.attr.Ctime = now.Unix()
+		pSrcAttr.attr.Ctimensec = uint32(now.Nanosecond())
+
+		if parentSrc != parentDst {
+
+			pDstAttr.attr.Mtime = now.Unix()
+			pDstAttr.attr.Mtimensec = uint32(now.Nanosecond())
+			pDstAttr.attr.Ctime = now.Unix()
+			pDstAttr.attr.Ctimensec = uint32(now.Nanosecond())
+
+			srcAttr.parentIno = parentDst
+		}
+		//更新srcPath
+		oldInode := srcEntryItem_.ino
+		srcAttr.attr.Ctime = now.Unix()
+		srcAttr.attr.Ctimensec = uint32(now.Nanosecond())
+		newInode, _ := m.client.NextNumber([]byte(nextInodeKey))
+		srcEntryItem_.ino = Ino(newInode)
+		if inode != nil {
+			*inode = srcEntryItem_.ino
+		}
+		if attr != nil {
+			*attr = srcAttr.attr
+		}
+		tx.Set(m.entryKey(parentDst, nameDst), m.marshalEntry(srcEntryItem_))
+		tx.Set(m.inodeKey(Ino(newInode)), m.marshalInode(srcAttr))
+		tx.Dels(m.entryKey(parentSrc, nameSrc), m.inodeKey(oldInode))
+
+		//ufs rename
+		pathDst := filepath.Join(m.fullPath(parentDst), nameDst)
+		pathSrc := filepath.Join(m.fullPath(parentSrc), nameSrc)
+		ufsSrc, _, _, pathOld := m.GetUFS(pathSrc)
+		ufsDst, _, _, pathNew := m.GetUFS(pathDst)
+		if ufsDst != ufsSrc {
+			log.Errorf("Rename between two ufs is not supported")
+			return syscall.ENOSYS
+		}
+		err := ufsSrc.Rename(pathOld, pathNew)
+		return utils.ToSyscallErrno(err)
+	})
+
+	if err != nil {
+		return utils.ToSyscallErrno(err)
+	}
+
+	return syscall.F_OK
 }
 
 func (m *kvMeta) Link(ctx *Context, inodeSrc, parent Ino, name string, attr *Attr) syscall.Errno {
