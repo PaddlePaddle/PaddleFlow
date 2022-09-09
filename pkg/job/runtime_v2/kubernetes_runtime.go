@@ -30,6 +30,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	k8sschema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -119,6 +120,7 @@ func (kr *KubeRuntime) Init() error {
 func (kr *KubeRuntime) Job(fwVersion pfschema.FrameworkVersion) framework.JobInterface {
 	jobBuilder, found := framework.GetJobBuilder(kr.cluster.Type, fwVersion)
 	if !found {
+		// TODO: add not implemented error
 		log.Errorf("get %s job on %s failed, err: this job is not implemented", fwVersion, kr.String())
 		return nil
 	}
@@ -126,6 +128,7 @@ func (kr *KubeRuntime) Job(fwVersion pfschema.FrameworkVersion) framework.JobInt
 }
 
 func (kr *KubeRuntime) Queue(quotaType string) framework.QueueInterface {
+	// TODO: add not implemented error
 	log.Errorf("queue is not supported")
 	return nil
 }
@@ -326,8 +329,45 @@ func (kr *KubeRuntime) CreatePVC(namespace, fsId, pv string) error {
 }
 
 func (kr *KubeRuntime) GetJobLog(jobLogRequest pfschema.JobLogRequest) (pfschema.JobLogInfo, error) {
-	// TODO: GetJobLog
-	return pfschema.JobLogInfo{}, nil
+	jobLogInfo := pfschema.JobLogInfo{
+		JobID: jobLogRequest.JobID,
+	}
+	labelSelector := metav1.LabelSelector{}
+	switch pfschema.JobType(jobLogRequest.JobType) {
+	case pfschema.TypeSingle, pfschema.TypeDistributed, pfschema.TypeWorkflow:
+		labelSelector.MatchLabels = map[string]string{
+			pfschema.JobIDLabel: jobLogRequest.JobID,
+		}
+	default:
+		log.Errorf("unknown job type %s, skip get log for job[%s]", jobLogRequest.JobType, jobLogRequest.JobID)
+		return pfschema.JobLogInfo{}, errors.New("unknown job type")
+	}
+	labelMap, err := metav1.LabelSelectorAsMap(&labelSelector)
+	if err != nil {
+		log.Errorf("job[%s] parse selector to map failed", jobLogRequest.JobID)
+		return pfschema.JobLogInfo{}, err
+	}
+	listOptions := metav1.ListOptions{
+		LabelSelector: labels.SelectorFromSet(labelMap).String(),
+	}
+	podList, err := kr.ListPods(jobLogRequest.Namespace, listOptions)
+	if err != nil {
+		log.Errorf("job[%s] get pod list failed", jobLogRequest.JobID)
+		return pfschema.JobLogInfo{}, err
+	}
+	taskLogInfoList := make([]pfschema.TaskLogInfo, 0)
+	kubeClient := kr.kubeClient.(*client.KubeRuntimeClient)
+	for _, pod := range podList.Items {
+		itemLogInfoList, err := kubeClient.GetTaskLog(jobLogRequest.Namespace, pod.Name, jobLogRequest.LogFilePosition,
+			jobLogRequest.LogPageSize, jobLogRequest.LogPageNo)
+		if err != nil {
+			log.Errorf("job[%s] construct task[%s] log failed", jobLogRequest.JobID, pod.Name)
+			return pfschema.JobLogInfo{}, err
+		}
+		taskLogInfoList = append(taskLogInfoList, itemLogInfoList...)
+	}
+	jobLogInfo.TaskList = taskLogInfoList
+	return jobLogInfo, nil
 }
 
 func (kr *KubeRuntime) clientset() kubernetes.Interface {
