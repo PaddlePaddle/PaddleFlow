@@ -75,7 +75,7 @@ CREATE TABLE IF NOT EXISTS `job` (
     `resource` text DEFAULT NULL,
     `framework` varchar(30) DEFAULT NULL,
     `members` mediumtext DEFAULT NULL,
-    `extension_template` text DEFAULT NULL,
+    `extension_template` mediumtext DEFAULT NULL,
     `parent_job` varchar(60) DEFAULT NULL,
     `created_at` datetime(3) NULL DEFAULT CURRENT_TIMESTAMP(3),
     `activated_at` datetime(3) DEFAULT NULL,
