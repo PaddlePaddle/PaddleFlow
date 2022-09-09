@@ -28,7 +28,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/uuid"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
 
 type PaddleJob struct {
@@ -215,7 +214,7 @@ func (pj *PaddleJob) patchPdjCollectiveSpec(pdjSpec *paddlev1.PaddleJobSpec) err
 }
 
 // patchPdjTask patches info into task of paddleJob
-func (pj *PaddleJob) patchPdjTask(resourceSpec *paddlev1.ResourceSpec, task model.Member) error {
+func (pj *PaddleJob) patchPdjTask(resourceSpec *paddlev1.ResourceSpec, task schema.Member) error {
 	log.Infof("patchPdjTask, resourceSpec=%#v, task=%#v", resourceSpec, task)
 	if !pj.IsCustomYaml && task.Replicas > 0 {
 		resourceSpec.Replicas = task.Replicas

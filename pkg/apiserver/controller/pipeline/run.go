@@ -21,10 +21,11 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	log "github.com/sirupsen/logrus"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 	"gorm.io/gorm"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
@@ -229,7 +230,9 @@ func buildWorkflowSource(ctx logger.RequestContext, req CreateRunRequest, fsID s
 	}
 
 	// 检查 yaml 格式
-	if err := yaml.UnmarshalStrict([]byte(runYaml), map[interface{}]interface{}{}); err != nil {
+	yamlDecoder := yaml.NewDecoder(strings.NewReader(runYaml))
+	yamlDecoder.KnownFields(true)
+	if err := yamlDecoder.Decode(map[interface{}]interface{}{}); err != nil {
 		logger.Logger().Errorf("runYaml format invalid. err:%v", err)
 		return schema.WorkflowSource{}, "", "", err
 	}

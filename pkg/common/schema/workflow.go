@@ -23,7 +23,7 @@ import (
 	"strings"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/logger"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"

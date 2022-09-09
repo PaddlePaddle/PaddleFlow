@@ -22,10 +22,10 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/base"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/cache"
+	cache "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/cache_new"
 	meta "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/meta_new"
-	ufslib "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/ufs"
+	ufslib "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/ufs_new"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/utils"
 )
 
 type FileWriter interface {
@@ -65,17 +65,16 @@ type fileWriter struct {
 	ufs    ufslib.UnderFileStorage
 
 	// TODO: 先用base.FileHandle跑通流程，后续修改ufs接口
-	fd base.FileHandle
+	fd ufslib.FileHandle
 }
 
 func (f *fileWriter) Fallocate(size int64, off int64, mode uint32) syscall.Errno {
 	f.Lock()
 	defer f.Unlock()
-	return syscall.Errno(f.fd.Allocate(uint64(off), uint64(size), mode))
+	return utils.ToSyscallErrno(f.fd.Allocate(uint64(off), uint64(size), mode))
 }
 
 func (f *fileWriter) Write(data []byte, offset uint64) syscall.Errno {
-	ufsHandle := ufslib.NewFileHandle(f.fd)
 	f.Lock()
 	defer f.Unlock()
 	var err error
@@ -88,7 +87,7 @@ func (f *fileWriter) Write(data []byte, offset uint64) syscall.Errno {
 			return syscall.EBADF
 		}
 	}
-	_, err = ufsHandle.WriteAt(data, int64(offset))
+	_, err = f.fd.Write(data, offset)
 	if err != nil {
 		log.Errorf("ufs write err: %v", err)
 		return syscall.EBADF
@@ -108,16 +107,14 @@ func (f *fileWriter) Flush() syscall.Errno {
 		}
 	}
 	// todo:: 需要加一个超时和重试
-	err := f.fd.Flush()
-	return syscall.Errno(err)
+	return utils.ToSyscallErrno(f.fd.Flush())
 }
 
 func (f *fileWriter) Fsync(fd int) syscall.Errno {
 	f.Lock()
 	defer f.Unlock()
 	// todo:: 需要加一个超时和重试
-	err := f.fd.Fsync(fd)
-	return syscall.Errno(err)
+	return utils.ToSyscallErrno(f.fd.Fsync(fd))
 }
 
 func (f *fileWriter) Close() {
@@ -130,7 +127,7 @@ func (f *fileWriter) release() {
 }
 
 func (f *fileWriter) Truncate(size uint64) syscall.Errno {
-	return syscall.Errno(f.fd.Truncate(size))
+	return utils.ToSyscallErrno(f.fd.Truncate(size))
 }
 
 type dataWriter struct {
@@ -144,7 +141,7 @@ type dataWriter struct {
 
 func (w *dataWriter) Open(inode Ino, length uint64, ufs ufslib.UnderFileStorage, path string) (FileWriter, error) {
 	name := w.m.InoToPath(inode)
-	fd, err := ufs.Open(path, syscall.O_WRONLY)
+	fd, err := ufs.Open(path, syscall.O_WRONLY, length)
 	if err != nil {
 		return nil, err
 	}

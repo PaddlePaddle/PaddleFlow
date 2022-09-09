@@ -48,6 +48,7 @@ var (
 	MPIJobGVK     = schema.GroupVersionKind{Group: "kubeflow.org", Version: "v1", Kind: "MPIJob"}
 	MXNetJobGVK   = schema.GroupVersionKind{Group: "kubeflow.org", Version: "v1", Kind: "MXJob"}
 	XGBoostJobGVK = schema.GroupVersionKind{Group: "kubeflow.org", Version: "v1", Kind: "XGBoostJob"}
+	RayJobGVK     = schema.GroupVersionKind{Group: "ray.io", Version: "v1alpha1", Kind: "RayJob"}
 
 	// ArgoWorkflowGVK defines GVK for argo Workflow
 	ArgoWorkflowGVK = schema.GroupVersionKind{Group: "argoproj.io", Version: "v1alpha1", Kind: "Workflow"}
@@ -63,6 +64,7 @@ var (
 		TFJobGVK:        TFJobStatus,
 		MXNetJobGVK:     MXNetJobStatus,
 		MPIJobGVK:       MPIJobStatus,
+		RayJobGVK:       RayJobStatus,
 	}
 	// GVKToQuotaType GroupVersionKind lists for PaddleFlow QuotaType
 	GVKToQuotaType = []schema.GroupVersionKind{
@@ -87,6 +89,8 @@ func GetJobTypeAndFramework(gvk schema.GroupVersionKind) (commomschema.JobType, 
 		return commomschema.TypeDistributed, commomschema.FrameworkMXNet
 	case MPIJobGVK:
 		return commomschema.TypeDistributed, commomschema.FrameworkMPI
+	case RayJobGVK:
+		return commomschema.TypeDistributed, commomschema.FrameworkRay
 	default:
 		log.Errorf("GroupVersionKind %s is not support", gvk)
 		return "", ""
@@ -275,6 +279,8 @@ func getDistributedJobGVK(framework commomschema.Framework) (schema.GroupVersion
 		gvk = TFJobGVK
 	case commomschema.FrameworkMXNet:
 		gvk = MXNetJobGVK
+	case commomschema.FrameworkRay:
+		gvk = RayJobGVK
 	case commomschema.FrameworkMPI:
 		err = fmt.Errorf("framework %s is not implemented", framework)
 	default:

@@ -29,7 +29,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/model"
 )
 
 const defaultExecutorInstances int32 = 1
@@ -215,7 +214,7 @@ func (sj *SparkJob) patchSparkSpec(jobApp *sparkapp.SparkApplication, jobID stri
 	return nil
 }
 
-func (sj *SparkJob) patchPodByTask(podSpec *sparkapp.SparkPodSpec, task model.Member) {
+func (sj *SparkJob) patchPodByTask(podSpec *sparkapp.SparkPodSpec, task schema.Member) {
 	flavour := task.Flavour
 	coresInt, _ := strconv.Atoi(task.Flavour.CPU)
 	cores := int32(coresInt)
@@ -234,7 +233,7 @@ func (sj *SparkJob) patchPodByTask(podSpec *sparkapp.SparkPodSpec, task model.Me
 	}
 }
 
-func (sj *SparkJob) patchSparkSpecDriver(jobApp *sparkapp.SparkApplication, task model.Member) {
+func (sj *SparkJob) patchSparkSpecDriver(jobApp *sparkapp.SparkApplication, task schema.Member) {
 	sj.patchPodByTask(&jobApp.Spec.Driver.SparkPodSpec, task)
 	if task.Name != "" {
 		jobApp.Spec.Driver.PodName = &task.Name
@@ -245,7 +244,7 @@ func (sj *SparkJob) patchSparkSpecDriver(jobApp *sparkapp.SparkApplication, task
 	}
 }
 
-func (sj *SparkJob) patchSparkSpecExecutor(jobApp *sparkapp.SparkApplication, task model.Member) {
+func (sj *SparkJob) patchSparkSpecExecutor(jobApp *sparkapp.SparkApplication, task schema.Member) {
 	sj.patchPodByTask(&jobApp.Spec.Executor.SparkPodSpec, task)
 	if len(sj.ExecutorReplicas) > 0 {
 		replicasInt, _ := strconv.Atoi(sj.ExecutorReplicas)

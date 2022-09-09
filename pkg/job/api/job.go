@@ -59,7 +59,7 @@ type PFJob struct {
 	PriorityClassName string
 
 	// Tasks for TypeDistributed job
-	Tasks []model.Member
+	Tasks []schema.Member
 	// ExtRuntimeConf define extra runtime conf
 	ExtRuntimeConf []byte
 	// ExtensionTemplate records the extension template of job
@@ -157,15 +157,14 @@ func (pfj *PFJob) FrameworkVersion() string {
 }
 
 type JobSyncInfo struct {
-	ID          string
-	Namespace   string
-	ParentJobID string
-	// TODO: merge FrameworkVersion and Framework
+	ID               string
+	Namespace        string
+	ParentJobID      string
 	FrameworkVersion schema.FrameworkVersion
-	Framework        schema.Framework
 	Status           schema.JobStatus
 	RuntimeInfo      interface{}
 	RuntimeStatus    interface{}
+	Annotations      map[string]string
 	Message          string
 	Action           schema.ActionType
 	RetryTimes       int
@@ -173,7 +172,7 @@ type JobSyncInfo struct {
 
 func (js *JobSyncInfo) String() string {
 	return fmt.Sprintf("job id: %s, parentJobID: %s, framework: %s, status: %s, message: %s",
-		js.ID, js.ParentJobID, js.Framework, js.Status, js.Message)
+		js.ID, js.ParentJobID, js.FrameworkVersion, js.Status, js.Message)
 }
 
 type TaskSyncInfo struct {
@@ -188,6 +187,14 @@ type TaskSyncInfo struct {
 	PodStatus  interface{}
 	Action     schema.ActionType
 	RetryTimes int
+}
+
+// FinishedJobInfo contains gc job info
+type FinishedJobInfo struct {
+	Namespace        string
+	Name             string
+	Duration         time.Duration
+	FrameworkVersion schema.FrameworkVersion
 }
 
 type StatusInfo struct {

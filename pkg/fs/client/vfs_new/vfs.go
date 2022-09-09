@@ -26,9 +26,9 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/base"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/cache"
+	cache "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/cache_new"
 	meta "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/meta_new"
-	ufslib "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/ufs"
+	ufslib "github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/ufs_new"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/utils"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/common"
 )
@@ -254,19 +254,44 @@ func (v *VFS) SetAttr(ctx *meta.Context, ino Ino, set, mode, uid, gid uint32, at
 	return
 }
 
+func get_filetype(mode uint16) uint8 {
+	switch mode & (syscall.S_IFMT & 0xffff) {
+	case syscall.S_IFIFO:
+		return meta.TypeFIFO
+	case syscall.S_IFSOCK:
+		return meta.TypeSocket
+	case syscall.S_IFLNK:
+		return meta.TypeSymlink
+	case syscall.S_IFREG:
+		return meta.TypeFile
+	case syscall.S_IFBLK:
+		return meta.TypeBlockDev
+	case syscall.S_IFDIR:
+		return meta.TypeDirectory
+	case syscall.S_IFCHR:
+		return meta.TypeCharDev
+	}
+	return meta.TypeFile
+}
+
 // Modifying structure.
 func (v *VFS) Mknod(ctx *meta.Context, parent Ino, name string, mode uint32, rdev uint32) (entry *meta.Entry, err syscall.Errno) {
 	var ino Ino
 	attr := &Attr{}
-	err = v.Meta.Mknod(ctx, parent, name, mode, rdev, &ino, attr)
+	_type := get_filetype(uint16(mode))
+	if _type == 0 {
+		err = syscall.EPERM
+		return
+	}
+	err = v.Meta.Mknod(ctx, parent, name, _type, mode&07777, 0, rdev, &ino, attr)
 	entry = &meta.Entry{Ino: ino, Attr: attr}
 	return
 }
 
-func (v *VFS) Mkdir(ctx *meta.Context, parent Ino, name string, mode uint32) (entry *meta.Entry, err syscall.Errno) {
+func (v *VFS) Mkdir(ctx *meta.Context, parent Ino, name string, mode uint32, cumask uint16) (entry *meta.Entry, err syscall.Errno) {
 	var ino Ino
 	attr := &Attr{}
-	err = v.Meta.Mkdir(ctx, parent, name, mode, &ino, attr)
+	err = v.Meta.Mkdir(ctx, parent, name, mode, cumask, &ino, attr)
 	entry = &meta.Entry{Ino: ino, Attr: attr}
 	return
 }
@@ -638,6 +663,7 @@ func (v *VFS) Release(ctx *meta.Context, ino Ino, fh uint64) {
 		log.Debugf("release inode %v", ino)
 		return
 	}
+	_ = v.Meta.Close(ctx, ino)
 }
 
 func (v *VFS) StatFs(ctx *meta.Context) (*base.StatfsOut, syscall.Errno) {
