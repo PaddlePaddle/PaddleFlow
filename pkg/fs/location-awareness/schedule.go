@@ -68,9 +68,9 @@ func FsNodeAffinity(fsIDs []string) (*corev1.Affinity, error) {
 		if len(preferredTerms) > 0 {
 			preferred = append(preferred, preferredTerms...)
 		}
-		requiredTerms := conf.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms
-		if len(requiredTerms) > 0 {
-			required = append(required, requiredTerms...)
+		requiredTerms := conf.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution
+		if requiredTerms != nil && len(requiredTerms.NodeSelectorTerms) > 0 {
+			required = append(required, requiredTerms.NodeSelectorTerms...)
 		}
 	}
 
