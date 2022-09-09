@@ -269,7 +269,7 @@ class Pipeline(object):
 
         if self._post_process:
             for _, cp in self._post_process.items():
-                ContainerStepInferer(cp)
+                ContainerStepInferer(cp).infer(self.env)
                 
         # Compile
         pipeline_dict = Compiler().compile(self, save_path)

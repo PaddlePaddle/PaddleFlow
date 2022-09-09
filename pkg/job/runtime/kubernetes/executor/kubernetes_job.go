@@ -442,13 +442,14 @@ func (j *KubeJob) appendEnvIfAbsent(baseEnvs []corev1.EnvVar, addEnvs []corev1.E
 
 // fillCMDInContainer fill command in container by task.Command or job.Command
 func (j *KubeJob) fillCMDInContainer(container *corev1.Container, task *schema.Member) {
-	workDir := ""
+	// get workdir
+	workDir := j.getWorkDir(task)
+	// get command
 	command := j.Command
 	if task != nil {
-		workDir = j.getWorkDir(task)
 		command = task.Command
 	}
-
+	// only command is set, should we add workdir to command
 	if j.isNeedPatch(command) && command != "" {
 		container.Command = j.generateContainerCommand(command, workDir)
 	}

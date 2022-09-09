@@ -107,7 +107,10 @@ func (kv *KVTxn) ScanValues(prefix []byte) (map[string][]byte, error) {
 }
 
 func (kv *KVTxn) Exist(Prefix []byte) bool {
-	panic("implement me")
+	it := kv.t.NewIterator(badger.DefaultIteratorOptions)
+	defer it.Close()
+	it.Seek(Prefix)
+	return it.ValidForPrefix(Prefix)
 }
 
 func (kv *KVTxn) Append(key []byte, value []byte) []byte {
