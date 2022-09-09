@@ -97,6 +97,14 @@ func CreateKubeRuntimeClient(config *rest.Config, cluster *pfschema.Cluster) (fr
 	}, nil
 }
 
+func frameworkVersionToGVK(fv pfschema.FrameworkVersion) schema.GroupVersionKind {
+	return schema.FromAPIVersionAndKind(fv.APIVersion, fv.Framework)
+}
+
+func KubeFrameworkVersion(gvk schema.GroupVersionKind) pfschema.FrameworkVersion {
+	return pfschema.NewFrameworkVersion(gvk.Kind, gvk.GroupVersion().String())
+}
+
 func (krc *KubeRuntimeClient) GetJobTypeFramework(fv pfschema.FrameworkVersion) (pfschema.JobType, pfschema.Framework) {
 	gvk := frameworkVersionToGVK(fv)
 	jobType, framework := k8s.GetJobTypeAndFramework(gvk)
@@ -110,7 +118,8 @@ func (krc *KubeRuntimeClient) RegisterListeners(jobQueue, taskQueue workqueue.Ra
 		if err != nil {
 			log.Warnf("cann't find GroupVersionKind %s, err: %v", gvk.String(), err)
 		} else {
-			jobBuilder, find := framework.GetJobBuilder(pfschema.KubernetesType, gvk.String())
+			fwVersion := KubeFrameworkVersion(gvk)
+			jobBuilder, find := framework.GetJobBuilder(pfschema.KubernetesType, fwVersion)
 			if !find {
 				log.Warnf("cann't find registered %s job event listener", gvk.String())
 				continue
@@ -201,14 +210,6 @@ func (krc *KubeRuntimeClient) findGVR(gvk *schema.GroupVersionKind) (meta.RESTMa
 	log.Debugf("The GVR of GVK[%s] is [%s]", gvk.String(), mapping.Resource.String())
 	krc.GVKToGVR.Store(gvk.String(), *mapping)
 	return *mapping, nil
-}
-
-func frameworkVersionToGVK(fv pfschema.FrameworkVersion) schema.GroupVersionKind {
-	return schema.FromAPIVersionAndKind(fv.APIVersion, fv.Framework)
-}
-
-func KubeFrameworkVersion(gvk schema.GroupVersionKind) pfschema.FrameworkVersion {
-	return pfschema.NewFrameworkVersion(gvk.Kind, gvk.GroupVersion().String())
 }
 
 func (krc *KubeRuntimeClient) Get(namespace string, name string, fv pfschema.FrameworkVersion) (interface{}, error) {

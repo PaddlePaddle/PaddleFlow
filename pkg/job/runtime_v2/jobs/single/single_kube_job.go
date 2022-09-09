@@ -37,7 +37,7 @@ import (
 )
 
 var (
-	FrameworkVersion = k8s.PodGVK.String()
+	FrameworkVersion = k8s.PodGVK
 )
 
 // SingleJob is an executor struct that runs a single pod

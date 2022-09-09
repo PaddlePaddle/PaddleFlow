@@ -19,17 +19,17 @@ package runtime_v2
 import (
 	"context"
 	"fmt"
-	apiv1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	k8sschema "k8s.io/apimachinery/pkg/runtime/schema"
 	"net/http/httptest"
 	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	k8sschema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	fakedynamicclient "k8s.io/client-go/dynamic/fake"
@@ -118,7 +118,7 @@ func TestKubeRuntimeJob(t *testing.T) {
 
 	kubeClient := newFakeKubeRuntimeClient(server)
 	kubeRuntime := &KubeRuntime{
-		cluster:    &schema.Cluster{Name: "test-cluster", Type: "Kubernetes"},
+		cluster:    schema.Cluster{Name: "test-cluster", Type: "Kubernetes"},
 		kubeClient: kubeClient,
 	}
 
@@ -167,18 +167,18 @@ func TestKubeRuntimePVAndPVC(t *testing.T) {
 	defer server.Close()
 	kubeClient := newFakeKubeRuntimeClient(server)
 	kubeRuntime := &KubeRuntime{
-		cluster:    &schema.Cluster{Name: "test-cluster", Type: "Kubernetes"},
+		cluster:    schema.Cluster{Name: "test-cluster", Type: "Kubernetes"},
 		kubeClient: kubeClient,
 	}
 	driver.InitMockDB()
 
-	config.DefaultPV = &apiv1.PersistentVolume{
+	config.DefaultPV = &corev1.PersistentVolume{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "pfs-$(pfs.fs.id)-$(namespace)-pv",
 		},
-		Spec: apiv1.PersistentVolumeSpec{
-			PersistentVolumeSource: apiv1.PersistentVolumeSource{
-				CSI: &apiv1.CSIPersistentVolumeSource{
+		Spec: corev1.PersistentVolumeSpec{
+			PersistentVolumeSource: corev1.PersistentVolumeSource{
+				CSI: &corev1.CSIPersistentVolumeSource{
 					FSType: "ext4",
 					VolumeAttributes: map[string]string{
 						"pfs.fs.id":  "$(pfs.fs.id)",
@@ -189,12 +189,12 @@ func TestKubeRuntimePVAndPVC(t *testing.T) {
 			},
 		},
 	}
-	config.DefaultPVC = &apiv1.PersistentVolumeClaim{
+	config.DefaultPVC = &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "pfs-$(pfs.fs.id)-pvc",
 			Namespace: "$(namespace)",
 		},
-		Spec: apiv1.PersistentVolumeClaimSpec{
+		Spec: corev1.PersistentVolumeClaimSpec{
 			VolumeName: "pfs-$(pfs.fs.id)-$(namespace)-pv",
 		},
 	}
@@ -244,7 +244,7 @@ func TestKubeRuntimeObjectOperation(t *testing.T) {
 	defer server.Close()
 	kubeClient := newFakeKubeRuntimeClient(server)
 	kubeRuntime := &KubeRuntime{
-		cluster:    &schema.Cluster{Name: "test-cluster", Type: "Kubernetes"},
+		cluster:    schema.Cluster{Name: "test-cluster", Type: "Kubernetes"},
 		kubeClient: kubeClient,
 	}
 
@@ -252,7 +252,7 @@ func TestKubeRuntimeObjectOperation(t *testing.T) {
 
 	namespace := "default"
 	name := "cm1"
-	cm := &apiv1.ConfigMap{
+	cm := &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ConfigMap",
 			APIVersion: "v1",
@@ -289,7 +289,7 @@ func TestKubeRuntimeNodeResource(t *testing.T) {
 	defer server.Close()
 	kubeClient := newFakeKubeRuntimeClient(server)
 	kubeRuntime := &KubeRuntime{
-		cluster:    &schema.Cluster{Name: "test-cluster", Type: "Kubernetes"},
+		cluster:    schema.Cluster{Name: "test-cluster", Type: "Kubernetes"},
 		kubeClient: kubeClient,
 	}
 
@@ -298,33 +298,33 @@ func TestKubeRuntimeNodeResource(t *testing.T) {
 	}
 	namespace := "default"
 	nodeName := "node1"
-	node := &apiv1.Node{
+	node := &corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: nodeName,
 		},
-		Status: apiv1.NodeStatus{
-			Capacity: apiv1.ResourceList{
+		Status: corev1.NodeStatus{
+			Capacity: corev1.ResourceList{
 				"cpu":    resource.MustParse("22"),
 				"memory": resource.MustParse("22Gi"),
 			},
-			Allocatable: apiv1.ResourceList{
+			Allocatable: corev1.ResourceList{
 				"cpu":    resource.MustParse("20"),
 				"memory": resource.MustParse("20Gi"),
 			},
 		},
 	}
-	pod := &apiv1.Pod{
+	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "pod1",
 			Namespace: namespace,
 		},
-		Spec: apiv1.PodSpec{
+		Spec: corev1.PodSpec{
 			NodeName: nodeName,
-			Containers: []apiv1.Container{
+			Containers: []corev1.Container{
 				{
 					Name: "c1",
-					Resources: apiv1.ResourceRequirements{
-						Requests: apiv1.ResourceList{
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
 							"cpu":    resource.MustParse("2"),
 							"memory": resource.MustParse("2Gi"),
 						},
@@ -332,8 +332,8 @@ func TestKubeRuntimeNodeResource(t *testing.T) {
 				},
 			},
 		},
-		Status: apiv1.PodStatus{
-			Phase: apiv1.PodRunning,
+		Status: corev1.PodStatus{
+			Phase: corev1.PodRunning,
 		},
 	}
 	// create node

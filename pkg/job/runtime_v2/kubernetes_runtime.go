@@ -39,7 +39,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
+	pfschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/client"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/controller"
@@ -48,19 +48,27 @@ import (
 )
 
 type KubeRuntime struct {
-	cluster    *schema.Cluster
+	cluster    pfschema.Cluster
 	kubeClient framework.RuntimeClientInterface
 }
 
-func NewKubeRuntime(cluster schema.Cluster) RuntimeService {
-	kr := &KubeRuntime{
-		cluster: &cluster,
+func NewKubeRuntime(cluster pfschema.Cluster) RuntimeService {
+	cluster.Type = pfschema.KubernetesType
+	return &KubeRuntime{
+		cluster: cluster,
 	}
-	return kr
 }
 
 func (kr *KubeRuntime) Name() string {
 	return fmt.Sprintf("kubernetes runtime for cluster: %s", kr.cluster.Name)
+}
+
+func (kr *KubeRuntime) String() string {
+	msg := "kubernetes runtime"
+	if kr.kubeClient != nil {
+		msg = kr.kubeClient.Cluster()
+	}
+	return msg
 }
 
 func (kr *KubeRuntime) BuildConfig() (*rest.Config, error) {
@@ -98,7 +106,7 @@ func (kr *KubeRuntime) Init() error {
 		log.Errorf("build config failed. error:%s", err)
 		return err
 	}
-	kubeClient, err := client.CreateKubeRuntimeClient(config, kr.cluster)
+	kubeClient, err := client.CreateKubeRuntimeClient(config, &kr.cluster)
 	if err != nil {
 		log.Errorf("create kubernetes client failed, err: %v", err)
 		return err
@@ -107,9 +115,10 @@ func (kr *KubeRuntime) Init() error {
 	return nil
 }
 
-func (kr *KubeRuntime) Job(frameworkVersion string) framework.JobInterface {
-	jobBuilder, found := framework.GetJobBuilder(schema.KubernetesType, frameworkVersion)
+func (kr *KubeRuntime) Job(fwVersion pfschema.FrameworkVersion) framework.JobInterface {
+	jobBuilder, found := framework.GetJobBuilder(kr.cluster.Type, fwVersion)
 	if !found {
+		log.Errorf("get %s job on %s failed, err: this job is not implemented", fwVersion, kr.String())
 		return nil
 	}
 	return jobBuilder(kr.kubeClient)
@@ -121,19 +130,19 @@ func (kr *KubeRuntime) Queue(quotaType string) framework.QueueInterface {
 }
 
 func (kr *KubeRuntime) SyncController(stopCh <-chan struct{}) {
-	log.Infof("start job sync loop for cluster[%s]", kr.cluster.ID)
+	log.Infof("start job/queue controller on %s", kr.String())
 
 	syncController := controller.NewJobSync()
 	err := syncController.Initialize(kr.kubeClient)
 	if err != nil {
-		log.Errorf("init sync controller failed, err: %v", err)
+		log.Errorf("init controller on %s failed, err: %v", kr.String(), err)
 		return
 	}
 	go syncController.Run(stopCh)
 }
 
 func (kr *KubeRuntime) GetQueueUsedQuota(q *api.QueueInfo) (*resources.Resource, error) {
-	log.Infof("get used quota for queue %s, namespace %s", q.Name, q.Namespace)
+	log.Infof("on %s, get used quota for queue %s, namespace %s", kr.String(), q.Name, q.Namespace)
 
 	fieldSelector := fmt.Sprintf(
 		"status.phase!=Succeeded,status.phase!=Failed,status.phase!=Unknown,spec.schedulerName=%s",
@@ -144,8 +153,9 @@ func (kr *KubeRuntime) GetQueueUsedQuota(q *api.QueueInfo) (*resources.Resource,
 	}
 	podList, err := kr.ListPods(q.Namespace, listOpts)
 	if err != nil || podList == nil {
-		log.Errorf("get queue used quota failed, err: %v", err)
-		return nil, fmt.Errorf("get queue used quota failed, err: %v", err)
+		err = fmt.Errorf("on %s, get queue used quota failed, err: %v", kr.String(), err)
+		log.Errorln(err)
+		return nil, err
 	}
 	usedResource := resources.EmptyResource()
 	for idx := range podList.Items {
@@ -224,7 +234,7 @@ func (kr *KubeRuntime) DeleteObject(namespace, name string, gvk k8sschema.GroupV
 
 func (kr *KubeRuntime) CreatePV(namespace, fsID string) (string, error) {
 	pv := config.DefaultPV
-	pv.Name = schema.ConcatenatePVName(namespace, fsID)
+	pv.Name = pfschema.ConcatenatePVName(namespace, fsID)
 	// check pv existence
 	if _, err := kr.getPersistentVolume(pv.Name, metav1.GetOptions{}); err == nil {
 		return pv.Name, nil
@@ -282,17 +292,17 @@ func (kr *KubeRuntime) buildPV(pv *corev1.PersistentVolume, fsID string) error {
 
 	// set VolumeAttributes
 	pv.Spec.CSI.VolumeHandle = pv.Name
-	pv.Spec.CSI.VolumeAttributes[schema.PFSServer] = config.GetServiceAddress()
-	pv.Spec.CSI.VolumeAttributes[schema.PFSID] = fsID
-	pv.Spec.CSI.VolumeAttributes[schema.PFSClusterID] = kr.cluster.ID
-	pv.Spec.CSI.VolumeAttributes[schema.PFSInfo] = base64.StdEncoding.EncodeToString(fsStr)
-	pv.Spec.CSI.VolumeAttributes[schema.PFSCache] = base64.StdEncoding.EncodeToString(fsCacheConfigStr)
+	pv.Spec.CSI.VolumeAttributes[pfschema.PFSServer] = config.GetServiceAddress()
+	pv.Spec.CSI.VolumeAttributes[pfschema.PFSID] = fsID
+	pv.Spec.CSI.VolumeAttributes[pfschema.PFSClusterID] = kr.cluster.ID
+	pv.Spec.CSI.VolumeAttributes[pfschema.PFSInfo] = base64.StdEncoding.EncodeToString(fsStr)
+	pv.Spec.CSI.VolumeAttributes[pfschema.PFSCache] = base64.StdEncoding.EncodeToString(fsCacheConfigStr)
 	return nil
 }
 
 func (kr *KubeRuntime) CreatePVC(namespace, fsId, pv string) error {
 	pvc := config.DefaultPVC
-	pvcName := schema.ConcatenatePVCName(fsId)
+	pvcName := pfschema.ConcatenatePVCName(fsId)
 	// check pvc existence
 	if _, err := kr.getPersistentVolumeClaim(namespace, pvcName, metav1.GetOptions{}); err == nil {
 		return nil
@@ -314,9 +324,9 @@ func (kr *KubeRuntime) CreatePVC(namespace, fsId, pv string) error {
 	return nil
 }
 
-func (kr *KubeRuntime) GetJobLog(jobLogRequest schema.JobLogRequest) (schema.JobLogInfo, error) {
+func (kr *KubeRuntime) GetJobLog(jobLogRequest pfschema.JobLogRequest) (pfschema.JobLogInfo, error) {
 	// TODO: GetJobLog
-	return schema.JobLogInfo{}, nil
+	return pfschema.JobLogInfo{}, nil
 }
 
 func (kr *KubeRuntime) clientset() kubernetes.Interface {
@@ -367,9 +377,10 @@ func (kr *KubeRuntime) DeletePod(namespace, name string) error {
 	return kr.clientset().CoreV1().Pods(namespace).Delete(context.TODO(), name, metav1.DeleteOptions{})
 }
 
-func (kr *KubeRuntime) getNodeQuotaListImpl(subQuotaFn func(r *resources.Resource, pod *corev1.Pod) error) (schema.QuotaSummary, []schema.NodeQuotaInfo, error) {
-	result := []schema.NodeQuotaInfo{}
-	summary := schema.QuotaSummary{
+func (kr *KubeRuntime) getNodeQuotaListImpl(subQuotaFn func(r *resources.Resource, pod *corev1.Pod) error) (
+	pfschema.QuotaSummary, []pfschema.NodeQuotaInfo, error) {
+	result := []pfschema.NodeQuotaInfo{}
+	summary := pfschema.QuotaSummary{
 		TotalQuota: *k8s.NewResource(corev1.ResourceList{}),
 		IdleQuota:  *k8s.NewResource(corev1.ResourceList{}),
 	}
@@ -378,7 +389,7 @@ func (kr *KubeRuntime) getNodeQuotaListImpl(subQuotaFn func(r *resources.Resourc
 
 	for _, node := range nodes.Items {
 		nodeSchedulable := !node.Spec.Unschedulable
-		// 过滤掉不能调度的节点
+		// skip unschedulable node
 		if !nodeSchedulable {
 			continue
 		}
@@ -400,7 +411,7 @@ func (kr *KubeRuntime) getNodeQuotaListImpl(subQuotaFn func(r *resources.Resourc
 			}
 		}
 
-		nodeQuota := schema.NodeQuotaInfo{
+		nodeQuota := pfschema.NodeQuotaInfo{
 			NodeName:    nodeName,
 			Schedulable: nodeSchedulable,
 			Total:       *totalQuota,
@@ -414,7 +425,7 @@ func (kr *KubeRuntime) getNodeQuotaListImpl(subQuotaFn func(r *resources.Resourc
 	return summary, result, nil
 }
 
-// 返回quota信息
-func (kr *KubeRuntime) ListNodeQuota() (schema.QuotaSummary, []schema.NodeQuotaInfo, error) {
+// ListNodeQuota return node resources, including cpu, memory, and extend resources
+func (kr *KubeRuntime) ListNodeQuota() (pfschema.QuotaSummary, []pfschema.NodeQuotaInfo, error) {
 	return kr.getNodeQuotaListImpl(k8s.SubQuota)
 }
