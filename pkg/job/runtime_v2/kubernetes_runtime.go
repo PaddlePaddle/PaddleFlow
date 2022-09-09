@@ -44,6 +44,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/client"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/controller"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/framework"
+	_ "github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/jobs"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage"
 )
 
