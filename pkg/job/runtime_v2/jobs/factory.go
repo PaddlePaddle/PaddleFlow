@@ -18,13 +18,12 @@ package jobs
 
 import (
 	pfschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/client"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/framework"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/jobs/single"
 )
 
 func init() {
 	// Plugins for Jobs
-	framework.RegisterJobBuilder(pfschema.KubernetesType, client.KubeFrameworkVersion(single.FrameworkVersion), single.New)
+	framework.RegisterJobBuilder(pfschema.KubernetesType, single.KubeSingleFwVersion, single.New)
 	// TODO: add more plugins
 }

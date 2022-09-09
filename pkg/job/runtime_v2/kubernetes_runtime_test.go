@@ -153,7 +153,7 @@ func TestKubeRuntimeJob(t *testing.T) {
 	assert.Equal(t, nil, err)
 	stopCh := make(chan struct{})
 	defer close(stopCh)
-	fwVersion := k8s.PodGVK.String()
+	fwVersion := client.KubeFrameworkVersion(k8s.PodGVK)
 	// create kubernetes job
 	err = kubeRuntime.Job(fwVersion).Submit(context.TODO(), pfJob)
 	assert.Equal(t, nil, err)
