@@ -231,7 +231,10 @@ func (pj *PaddleJob) patchPdjTask(resourceSpec *paddlev1.ResourceSpec, task mode
 	}
 	pj.patchMetadata(&resourceSpec.Template.ObjectMeta, taskName)
 	// set pod template
-	pj.fillPodSpec(&resourceSpec.Template.Spec, &task)
+	if err := pj.fillPodSpec(&resourceSpec.Template.Spec, &task); err != nil {
+		log.Errorf("paddle job fillPodSpec failed, err: %v", err)
+		return err
+	}
 
 	// patch Task.Template.Spec.Containers[0]
 	if len(resourceSpec.Template.Spec.Containers) != 1 {

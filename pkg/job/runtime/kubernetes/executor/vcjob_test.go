@@ -115,7 +115,7 @@ func TestPatchVCJobVariable(t *testing.T) {
 			caseName:    "psMode",
 			vcJobMode:   schema.EnvJobModePS,
 			actualValue: &vcjob.Job{},
-			expectValue: "ps",
+			expectValue: "normal",
 		},
 		{
 			caseName:    "podMode",
@@ -127,7 +127,7 @@ func TestPatchVCJobVariable(t *testing.T) {
 			caseName:    "collectiveMode",
 			vcJobMode:   schema.EnvJobModeCollective,
 			actualValue: &vcjob.Job{},
-			expectValue: "defaultContainer",
+			expectValue: "normal",
 		},
 		{
 			caseName:  "fromUserPath",
