@@ -471,7 +471,7 @@ func splitLog(logContent string, startIndex, endIndex int, overFlag bool) string
 		return ""
 	}
 	logContent = strings.TrimRight(logContent, "\n")
-	logLines := make([]string, 0)
+	var logLines []string
 	if startIndex == -1 && endIndex == -1 {
 		logLines = strings.Split(logContent, "\n")[:]
 	} else if startIndex == -1 {
