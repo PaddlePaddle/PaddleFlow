@@ -29,9 +29,9 @@ import (
 )
 
 const (
-	envGroupName   = "GROUPNAME"
-	envMinReplicas = "MINREPLICAS"
-	envMaxReplicas = "MAXREPLICAS"
+	envGroupName   = "GROUP_NAME"
+	envMinReplicas = "MIN_REPLICAS"
+	envMaxReplicas = "MAX_REPLICAS"
 )
 
 type RayJob struct {
