@@ -31,6 +31,7 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	pfschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/client"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/framework"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/jobs/util/kuberuntime"
 )
@@ -60,7 +61,7 @@ func (sp *SingleJob) String(job *api.PFJob) string {
 }
 
 func (sp *SingleJob) frameworkVersion() pfschema.FrameworkVersion {
-	return pfschema.NewFrameworkVersion(sp.GVK.Kind, sp.GVK.GroupVersion().String())
+	return client.KubeFrameworkVersion(sp.GVK)
 }
 
 func (sp *SingleJob) Submit(ctx context.Context, job *api.PFJob) error {

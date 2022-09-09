@@ -32,6 +32,7 @@ import (
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/cache"
@@ -44,8 +45,11 @@ import (
 
 // KubeRuntimeClient for kubernetes client
 type KubeRuntimeClient struct {
-	DynamicClient   dynamic.Interface
-	DynamicFactory  dynamicinformer.DynamicSharedInformerFactory
+	Client kubernetes.Interface
+	// DynamicClient dynamic client
+	DynamicClient  dynamic.Interface
+	DynamicFactory dynamicinformer.DynamicSharedInformerFactory
+	// DiscoveryClient client for discovery
 	DiscoveryClient discovery.DiscoveryInterface
 	// TODO: adjust field Config
 	Config      *rest.Config
@@ -61,6 +65,12 @@ type KubeRuntimeClient struct {
 }
 
 func CreateKubeRuntimeClient(config *rest.Config, cluster *pfschema.Cluster) (framework.RuntimeClientInterface, error) {
+	// new kubernetes typed client
+	k8sClient, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		log.Errorf("create kubernetes client failed, err: %v", err)
+		return nil, err
+	}
 	dynamicClient, err := dynamic.NewForConfig(config)
 	if err != nil {
 		log.Errorf("init dynamic client failed. error:%s", err)
@@ -77,6 +87,7 @@ func CreateKubeRuntimeClient(config *rest.Config, cluster *pfschema.Cluster) (fr
 		return nil, fmt.Errorf("cluster info is nil")
 	}
 	return &KubeRuntimeClient{
+		Client:          k8sClient,
 		DynamicClient:   dynamicClient,
 		DynamicFactory:  factory,
 		DiscoveryClient: discoveryClient,
@@ -194,6 +205,10 @@ func (krc *KubeRuntimeClient) findGVR(gvk *schema.GroupVersionKind) (meta.RESTMa
 
 func frameworkVersionToGVK(fv pfschema.FrameworkVersion) schema.GroupVersionKind {
 	return schema.FromAPIVersionAndKind(fv.APIVersion, fv.Framework)
+}
+
+func KubeFrameworkVersion(gvk schema.GroupVersionKind) pfschema.FrameworkVersion {
+	return pfschema.NewFrameworkVersion(gvk.Kind, gvk.GroupVersion().String())
 }
 
 func (krc *KubeRuntimeClient) Get(namespace string, name string, fv pfschema.FrameworkVersion) (interface{}, error) {
