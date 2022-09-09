@@ -29,9 +29,9 @@ import (
 )
 
 const (
-	ENVGROUPNAME   = "groupName"
-	ENVMINREPLICAS = "minReplicas"
-	ENVMAXREPLICAS = "maxReplicas"
+	envGroupName   = "GROUPNAME"
+	envMinReplicas = "MINREPLICAS"
+	envMaxReplicas = "MAXREPLICAS"
 )
 
 type RayJob struct {
@@ -171,14 +171,14 @@ func (j *RayJob) buildWorkerPod(rayJobSpec *rayV1alpha1.RayJobSpec, member schem
 	}
 	//	todo ScaleStrategy defines which pods to remove
 	// GroupName
-	if groupName, exist := member.Env[ENVGROUPNAME]; exist {
+	if groupName, exist := member.Env[envGroupName]; exist {
 		worker.GroupName = groupName
 	}
 	// Replicas
 	replicas := int32(member.Replicas)
 	worker.Replicas = &replicas
 	// minReplicas
-	if val, exist, err := getInt32FromEnv(member.Env, ENVMINREPLICAS); err != nil {
+	if val, exist, err := getInt32FromEnv(member.Env, envMinReplicas); err != nil {
 		err := fmt.Errorf("get minReplicas failed, err: %s", err)
 		log.Error(err)
 		return err
@@ -186,7 +186,7 @@ func (j *RayJob) buildWorkerPod(rayJobSpec *rayV1alpha1.RayJobSpec, member schem
 		worker.MinReplicas = &val
 	}
 	// maxReplicas
-	if val, exist, err := getInt32FromEnv(member.Env, ENVMAXREPLICAS); err != nil {
+	if val, exist, err := getInt32FromEnv(member.Env, envMaxReplicas); err != nil {
 		err := fmt.Errorf("get maxReplicas failed, err: %s", err)
 		log.Error(err)
 		return err
