@@ -17,6 +17,7 @@ limitations under the License.
 package kv_new
 
 import (
+	"encoding/binary"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -40,6 +41,9 @@ func NewBadgerClient(config Config) (KvClient, error) {
 	if config.Driver == MemType {
 		db, err = badger.Open(badger.DefaultOptions("").WithInMemory(true))
 	} else if config.Driver == DiskType {
+		if config.CachePath == "" {
+			return nil, fmt.Errorf("meta cache config path is not allowed empty")
+		}
 		cachePath := filepath.Join(config.CachePath, config.FsID+".db")
 		os.RemoveAll(cachePath)
 		db, err = badger.Open(badger.DefaultOptions(cachePath))
@@ -118,7 +122,16 @@ func (kv *KVTxn) Append(key []byte, value []byte) []byte {
 }
 
 func (kv *KVTxn) IncrBy(key []byte, value int64) int64 {
-	panic("implement me")
+	var number int64
+	buf := kv.Get(key)
+	if len(buf) > 0 {
+		number = parseCounter(buf)
+	}
+	if value != 0 {
+		number += value
+		_ = kv.Set(key, packCounter(number))
+	}
+	return number
 }
 
 type kvClient struct {
@@ -142,13 +155,21 @@ func (c *kvClient) Txn(f func(txn KvTxn) error) error {
 	return err
 }
 
-func (c *kvClient) NextNumber(key []byte) (uint64, error) {
-	seq, err := c.db.GetSequence(key, 1)
-	if err != nil {
-		return 0, err
+func parseCounter(buf []byte) int64 {
+	if len(buf) == 0 {
+		return 0
 	}
-	num, err := seq.Next()
-	return num + 2, err
+	if len(buf) != 8 {
+		panic("invalid counter value")
+	}
+	return int64(binary.LittleEndian.Uint64(buf))
+}
+
+
+func packCounter(value int64) []byte {
+	b := make([]byte, 8)
+	binary.LittleEndian.PutUint64(b, uint64(value))
+	return b
 }
 
 var _ KvTxn = &KVTxn{}
