@@ -43,16 +43,18 @@ var (
 
 // KubeSingleJob is an executor struct that runs a single pod
 type KubeSingleJob struct {
-	GVK           schema.GroupVersionKind
-	runtimeClient framework.RuntimeClientInterface
-	jobQueue      workqueue.RateLimitingInterface
-	taskQueue     workqueue.RateLimitingInterface
+	GVK              schema.GroupVersionKind
+	frameworkVersion pfschema.FrameworkVersion
+	runtimeClient    framework.RuntimeClientInterface
+	jobQueue         workqueue.RateLimitingInterface
+	taskQueue        workqueue.RateLimitingInterface
 }
 
 func New(kubeClient framework.RuntimeClientInterface) framework.JobInterface {
 	singleJob := &KubeSingleJob{
-		runtimeClient: kubeClient,
-		GVK:           JobGVK,
+		runtimeClient:    kubeClient,
+		GVK:              JobGVK,
+		frameworkVersion: KubeSingleFwVersion,
 	}
 	return singleJob
 }
@@ -90,7 +92,7 @@ func (sp *KubeSingleJob) Submit(ctx context.Context, job *api.PFJob) error {
 		return err
 	}
 	log.Debugf("begin to create %s, singlePod: %s", sp.String(jobName), singlePod)
-	err = sp.runtimeClient.Create(singlePod, KubeSingleFwVersion)
+	err = sp.runtimeClient.Create(singlePod, sp.frameworkVersion)
 	if err != nil {
 		log.Errorf("create %s failed, err %v", sp.String(jobName), err)
 		return err
@@ -128,7 +130,7 @@ func (sp *KubeSingleJob) Stop(ctx context.Context, job *api.PFJob) error {
 	}
 	jobName := job.NamespacedName()
 	log.Infof("begin to stop %s", sp.String(jobName))
-	if err := sp.runtimeClient.Delete(job.Namespace, job.ID, KubeSingleFwVersion); err != nil {
+	if err := sp.runtimeClient.Delete(job.Namespace, job.ID, sp.frameworkVersion); err != nil {
 		log.Errorf("stop %s failed, err: %v", sp.String(jobName), err)
 		return err
 	}
@@ -155,7 +157,7 @@ func (sp *KubeSingleJob) Update(ctx context.Context, job *api.PFJob) error {
 		return err
 	}
 	log.Infof("begin to update %s, data: %s", sp.String(jobName), string(data))
-	if err = sp.runtimeClient.Patch(job.Namespace, job.ID, KubeSingleFwVersion, data); err != nil {
+	if err = sp.runtimeClient.Patch(job.Namespace, job.ID, sp.frameworkVersion, data); err != nil {
 		log.Errorf("update %s failed, err: %v", sp.String(jobName), err)
 		return err
 	}
@@ -168,7 +170,7 @@ func (sp *KubeSingleJob) Delete(ctx context.Context, job *api.PFJob) error {
 	}
 	jobName := job.NamespacedName()
 	log.Infof("begin to delete %s ", sp.String(jobName))
-	if err := sp.runtimeClient.Delete(job.Namespace, job.ID, KubeSingleFwVersion); err != nil {
+	if err := sp.runtimeClient.Delete(job.Namespace, job.ID, sp.frameworkVersion); err != nil {
 		log.Errorf("delete %s failed, err %v", sp.String(jobName), err)
 		return err
 	}
