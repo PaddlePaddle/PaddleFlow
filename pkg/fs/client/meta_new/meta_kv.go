@@ -40,9 +40,6 @@ import (
 )
 
 const (
-	AttrKey  = "A"
-	EntryKey = "E"
-	InodeKey = "I"
 	// inodeSize struct size
 	inodeSize = 109
 	// entrySize struct size
@@ -51,11 +48,11 @@ const (
 
 	rootInodeID = Ino(1)
 
-	MemDriver    = "mem"
-	DiskDriver   = "disk"
-	nextInodeKey = "nextInode"
-    DefaultLinkUpdateInterval = 15
-	DefaultRootPath = "/"
+	MemDriver = "mem"
+	// DiskDriver   = "disk"
+	nextInodeKey              = "nextInode"
+	DefaultLinkUpdateInterval = 15
+	DefaultRootPath           = "/"
 )
 
 var _ Meta = &kvMeta{}
@@ -226,10 +223,6 @@ func (m *kvMeta) entryKey(parent Ino, name string) []byte {
 	return m.fmtKey("E", parent, "N", name)
 }
 
-func (m *kvMeta) counter(key string) []byte {
-	return m.fmtKey("C", key)
-}
-
 func (m *kvMeta) get(key []byte) ([]byte, error) {
 	var value []byte
 	err := m.client.Txn(func(tx kv_new.KvTxn) error {
@@ -273,7 +266,7 @@ func (m *kvMeta) nextInode() (Ino, error) {
 	}
 	n := m.freeInodes.next
 	m.freeInodes.next++
-	return Ino(n+2), nil
+	return Ino(n + 2), nil
 }
 
 func (m *kvMeta) parseInode(buf []byte, inode *inodeItem) {
@@ -1020,7 +1013,7 @@ func (m *kvMeta) Rename(ctx *Context, parentSrc Ino, nameSrc string, parentDst I
 
 		}
 		srcAttr.parentIno = parentDst
-		//更新srcPath
+		// 更新srcPath
 		srcAttr.attr.Ctime = now.Unix()
 		srcAttr.attr.Ctimensec = uint32(now.Nanosecond())
 		if inode != nil {
@@ -1034,7 +1027,7 @@ func (m *kvMeta) Rename(ctx *Context, parentSrc Ino, nameSrc string, parentDst I
 		_ = tx.Set(m.inodeKey(*inode), m.marshalInode(srcAttr))
 		_ = tx.Dels(m.entryKey(parentSrc, nameSrc))
 
-		//ufs rename
+		// ufs rename
 		pathDst = filepath.Join(m.fullPath(parentDst), nameDst)
 		pathSrc = filepath.Join(m.fullPath(parentSrc), nameSrc)
 		ufsSrc, _, _, pathOld := m.GetUFS(pathSrc)
