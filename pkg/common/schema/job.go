@@ -455,9 +455,17 @@ func (c *Conf) SetLabels(k, v string) {
 	c.Labels[k] = v
 }
 
+func (c *Conf) GetLabels() map[string]string {
+	return c.Labels
+}
+
 func (c *Conf) SetAnnotations(k, v string) {
 	c.preCheck()
 	c.Annotations[k] = v
+}
+
+func (c *Conf) GetAnnotations() map[string]string {
+	return c.Annotations
 }
 
 func (c *Conf) preCheck() {

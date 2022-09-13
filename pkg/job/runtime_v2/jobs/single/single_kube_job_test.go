@@ -21,19 +21,13 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/dynamic/dynamicinformer"
-	fakedynamicclient "k8s.io/client-go/dynamic/fake"
-	restclient "k8s.io/client-go/rest"
-
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/config"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/client"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/storage/driver"
+	"github.com/stretchr/testify/assert"
 )
 
 var (
@@ -127,31 +121,13 @@ status: {}
 	}
 )
 
-func newFakeKubeRuntimeClient(server *httptest.Server) *client.KubeRuntimeClient {
-	scheme := runtime.NewScheme()
-	dynamicClient := fakedynamicclient.NewSimpleDynamicClient(scheme)
-	fakeDiscovery := discovery.NewDiscoveryClientForConfigOrDie(&restclient.Config{Host: server.URL})
-
-	return &client.KubeRuntimeClient{
-		DynamicClient:   dynamicClient,
-		DynamicFactory:  dynamicinformer.NewDynamicSharedInformerFactory(dynamicClient, 0),
-		DiscoveryClient: fakeDiscovery,
-		ClusterInfo: &schema.Cluster{
-			Name: "default-cluster",
-			ID:   "cluster-123",
-			Type: "Kubernetes",
-		},
-		Config: &restclient.Config{Host: server.URL},
-	}
-}
-
 func TestSingleJob_Create(t *testing.T) {
 	config.GlobalServerConfig = &config.ServerConfig{}
 	config.GlobalServerConfig.Job.SchedulerName = "testSchedulerName"
 	config.GlobalServerConfig.Job.DefaultJobYamlDir = "../../../../../config/server/default/job"
 	var server = httptest.NewServer(k8s.DiscoveryHandlerFunc)
 	defer server.Close()
-	kubeRuntimeClient := newFakeKubeRuntimeClient(server)
+	kubeRuntimeClient := client.NewFakeKubeRuntimeClient(server)
 	// mock db
 	driver.InitMockDB()
 	// create kubernetes resource with dynamic client
