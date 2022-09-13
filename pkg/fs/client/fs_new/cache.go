@@ -69,7 +69,7 @@ func (mc *metaCache) GetEntryItem(path string) (interface{}, bool) {
 
 func (mc *metaCache) SetEntryItem(path string, entryIno interface{}) {
 	log.Debugf("set entryCache: key[%s], value[%+v]", path, entryIno)
-	mc.entryCache.Set(path, entryIno)
+	_ = mc.entryCache.Set(path, entryIno)
 }
 
 func (mc *metaCache) RemoveEntryItem(path string) {
@@ -90,7 +90,7 @@ func (mc *metaCache) GetAttrItem(inode vfs.Ino) (interface{}, bool) {
 
 func (mc *metaCache) SetAttrItem(inode vfs.Ino, attr interface{}) {
 	log.Debugf("Set attrCache: key[%d], value[%+v]", inode, attr)
-	mc.attrCache.Set(inode, attr)
+	_ = mc.attrCache.Set(inode, attr)
 }
 
 func (mc *metaCache) RemoveAttrItem(inode vfs.Ino) {

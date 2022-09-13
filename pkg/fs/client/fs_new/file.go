@@ -33,12 +33,6 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/fs/client/vfs_new"
 )
 
-const (
-	mMaskR = 4
-	mMaskW = 2
-	mMaskX = 1
-)
-
 type FileInfo struct {
 	path      string
 	size      int64

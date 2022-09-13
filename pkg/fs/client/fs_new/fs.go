@@ -77,7 +77,9 @@ func NewFileSystem(fsMeta common.FSMeta, links map[string]common.FSMeta, skipSub
 		close(fs.stop)
 	})
 	if !skipSub {
-		go vfs.Meta.LinksMetaUpdateHandler(fs.stop, meta.DefaultLinkUpdateInterval, linkMetaDirPrefix)
+		go func() {
+			_ = vfs.Meta.LinksMetaUpdateHandler(fs.stop, meta.DefaultLinkUpdateInterval, linkMetaDirPrefix)
+		}()
 	}
 
 	if hasCache {
