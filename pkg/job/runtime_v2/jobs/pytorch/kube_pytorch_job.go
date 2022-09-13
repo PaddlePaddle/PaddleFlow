@@ -46,7 +46,7 @@ var (
 // KubePyTorchJob is an executor struct that runs a pytorch job
 type KubePyTorchJob struct {
 	GVK              schema.GroupVersionKind
-	FrameworkVersion pfschema.FrameworkVersion
+	frameworkVersion pfschema.FrameworkVersion
 	runtimeClient    framework.RuntimeClientInterface
 	jobQueue         workqueue.RateLimitingInterface
 }
@@ -55,7 +55,7 @@ func New(kubeClient framework.RuntimeClientInterface) framework.JobInterface {
 	return &KubePyTorchJob{
 		runtimeClient:    kubeClient,
 		GVK:              JobGVK,
-		FrameworkVersion: KubePyTorchFwVersion,
+		frameworkVersion: KubePyTorchFwVersion,
 	}
 }
 
@@ -90,7 +90,7 @@ func (pj *KubePyTorchJob) Submit(ctx context.Context, job *api.PFJob) error {
 		return err
 	}
 	log.Debugf("begin to create %s, job info: %v", pj.String(jobName), pdj)
-	err = pj.runtimeClient.Create(pdj, pj.FrameworkVersion)
+	err = pj.runtimeClient.Create(pdj, pj.frameworkVersion)
 	if err != nil {
 		log.Errorf("create %s failed, err %v", pj.String(jobName), err)
 		return err
@@ -154,7 +154,7 @@ func (pj *KubePyTorchJob) Stop(ctx context.Context, job *api.PFJob) error {
 	}
 	jobName := job.NamespacedName()
 	log.Infof("begin to stop %s", pj.String(jobName))
-	if err := pj.runtimeClient.Delete(job.Namespace, job.ID, pj.FrameworkVersion); err != nil {
+	if err := pj.runtimeClient.Delete(job.Namespace, job.ID, pj.frameworkVersion); err != nil {
 		log.Errorf("stop %s failed, err: %v", pj.String(jobName), err)
 		return err
 	}
@@ -166,22 +166,8 @@ func (pj *KubePyTorchJob) Update(ctx context.Context, job *api.PFJob) error {
 		return fmt.Errorf("job is nil")
 	}
 	jobName := job.NamespacedName()
-	// update job priority
-	if len(job.PriorityClassName) != 0 {
-		err := kuberuntime.UpdateKubeJobPriority(job, pj.runtimeClient)
-		if err != nil {
-			log.Errorf("update %s failed, err: %v", pj.String(jobName), err)
-			return err
-		}
-	}
-	// update job labels or annotations
-	data, err := kuberuntime.KubeJobUpdatedData(job)
-	if err != nil {
-		log.Errorf("update %s failed, err: %v", pj.String(jobName), err)
-		return err
-	}
-	log.Infof("begin to update %s, data: %s", pj.String(jobName), string(data))
-	if err = pj.runtimeClient.Patch(job.Namespace, job.ID, pj.FrameworkVersion, data); err != nil {
+	log.Infof("begin to update %s", pj.String(jobName))
+	if err := kuberuntime.UpdateKubeJob(job, pj.runtimeClient, pj.frameworkVersion); err != nil {
 		log.Errorf("update %s failed, err: %v", pj.String(jobName), err)
 		return err
 	}
@@ -194,7 +180,7 @@ func (pj *KubePyTorchJob) Delete(ctx context.Context, job *api.PFJob) error {
 	}
 	jobName := job.NamespacedName()
 	log.Infof("begin to delete %s ", pj.String(jobName))
-	if err := pj.runtimeClient.Delete(job.Namespace, job.ID, pj.FrameworkVersion); err != nil {
+	if err := pj.runtimeClient.Delete(job.Namespace, job.ID, pj.frameworkVersion); err != nil {
 		log.Errorf("delete %s failed, err %v", pj.String(jobName), err)
 		return err
 	}
