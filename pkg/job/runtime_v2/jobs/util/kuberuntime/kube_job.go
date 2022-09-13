@@ -726,7 +726,7 @@ func KubeflowReplicaSpec(replicaSpec *kubeflowv1.ReplicaSpec, task *schema.Membe
 // KubeflowRunPolicy build RunPolicy for kubeflow job, such as PyTorchJob, TFJob and so on.
 func KubeflowRunPolicy(runPolicy *kubeflowv1.RunPolicy, minResources *corev1.ResourceList, queueName, priority string) error {
 	if runPolicy == nil {
-		return fmt.Errorf("build run policy for %s faield, err: runPolicy is nil", j.String())
+		return fmt.Errorf("build run policy for kubeflow job faield, err: runPolicy is nil")
 	}
 	// TODO set cleanPolicy
 	// set SchedulingPolicy

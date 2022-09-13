@@ -19,7 +19,6 @@ package pytorch
 import (
 	"context"
 	"fmt"
-	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 
 	kubeflowv1 "github.com/kubeflow/common/pkg/apis/common/v1"
 	pytorchv1 "github.com/kubeflow/training-operator/pkg/apis/pytorch/v1"
@@ -31,6 +30,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/common/resources"
 	pfschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/client"
