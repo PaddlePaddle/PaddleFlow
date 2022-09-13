@@ -27,7 +27,7 @@ import (
 
 // JobGetter return FrameworkJobInterface
 type JobGetter interface {
-	Job(framework string) JobInterface
+	Job(fwVersion pfschema.FrameworkVersion) JobInterface
 }
 
 type JobInterface interface {

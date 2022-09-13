@@ -24,6 +24,6 @@ import (
 
 func init() {
 	// Plugins for Jobs
-	framework.RegisterJobBuilder(pfschema.KubernetesType, single.FrameworkVersion, single.New)
+	framework.RegisterJobBuilder(pfschema.KubernetesType, single.KubeSingleFwVersion, single.New)
 	// TODO: add more plugins
 }
