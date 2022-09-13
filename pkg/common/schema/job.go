@@ -16,6 +16,8 @@ limitations under the License.
 
 package schema
 
+import "fmt"
+
 type JobType string
 type ActionType string
 type JobStatus string
@@ -246,6 +248,10 @@ type FrameworkVersion struct {
 	Framework  string            `json:"framework"`
 	APIVersion string            `json:"apiVersion"`
 	Extra      map[string]string `json:"extra,omitempty"`
+}
+
+func (f *FrameworkVersion) String() string {
+	return fmt.Sprintf("%s-%s", f.Framework, f.APIVersion)
 }
 
 func NewFrameworkVersion(framework, apiVersion string) FrameworkVersion {

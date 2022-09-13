@@ -31,12 +31,14 @@ import (
 	"github.com/PaddlePaddle/PaddleFlow/pkg/common/k8s"
 	pfschema "github.com/PaddlePaddle/PaddleFlow/pkg/common/schema"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/api"
+	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/client"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/framework"
 	"github.com/PaddlePaddle/PaddleFlow/pkg/job/runtime_v2/jobs/util/kuberuntime"
 )
 
 var (
-	FrameworkVersion = k8s.PodGVK.String()
+	JobGVK              = k8s.PodGVK
+	KubeSingleFwVersion = client.KubeFrameworkVersion(JobGVK)
 )
 
 // SingleJob is an executor struct that runs a single pod
@@ -50,17 +52,13 @@ type SingleJob struct {
 func New(kubeClient framework.RuntimeClientInterface) framework.JobInterface {
 	singleJob := &SingleJob{
 		runtimeClient: kubeClient,
-		GVK:           k8s.PodGVK,
+		GVK:           JobGVK,
 	}
 	return singleJob
 }
 
 func (sp *SingleJob) String(job *api.PFJob) string {
 	return fmt.Sprintf("%s job %s/%s on %s", sp.GVK.String(), job.Namespace, job.ID, sp.runtimeClient.Cluster())
-}
-
-func (sp *SingleJob) frameworkVersion() pfschema.FrameworkVersion {
-	return pfschema.NewFrameworkVersion(sp.GVK.Kind, sp.GVK.GroupVersion().String())
 }
 
 func (sp *SingleJob) Submit(ctx context.Context, job *api.PFJob) error {
@@ -91,7 +89,7 @@ func (sp *SingleJob) Submit(ctx context.Context, job *api.PFJob) error {
 		return err
 	}
 	log.Debugf("begin to create %s, singlePod: %s", sp.String(job), singlePod)
-	err = sp.runtimeClient.Create(singlePod, sp.frameworkVersion())
+	err = sp.runtimeClient.Create(singlePod, KubeSingleFwVersion)
 	if err != nil {
 		log.Errorf("create %s failed, err %v", sp.String(job), err)
 		return err
@@ -127,7 +125,7 @@ func (sp *SingleJob) Stop(ctx context.Context, job *api.PFJob) error {
 		return fmt.Errorf("job is nil")
 	}
 	log.Infof("begin to stop %s", sp.String(job))
-	if err := sp.runtimeClient.Delete(job.Namespace, job.ID, sp.frameworkVersion()); err != nil {
+	if err := sp.runtimeClient.Delete(job.Namespace, job.ID, KubeSingleFwVersion); err != nil {
 		log.Errorf("stop %s failed, err: %v", sp.String(job), err)
 		return err
 	}
@@ -153,7 +151,7 @@ func (sp *SingleJob) Update(ctx context.Context, job *api.PFJob) error {
 		return err
 	}
 	log.Infof("begin to update %s, data: %s", sp.String(job), string(data))
-	if err = sp.runtimeClient.Patch(job.Namespace, job.ID, sp.frameworkVersion(), data); err != nil {
+	if err = sp.runtimeClient.Patch(job.Namespace, job.ID, KubeSingleFwVersion, data); err != nil {
 		log.Errorf("update %s failed, err: %v", sp.String(job), err)
 		return err
 	}
@@ -165,7 +163,7 @@ func (sp *SingleJob) Delete(ctx context.Context, job *api.PFJob) error {
 		return fmt.Errorf("job is nil")
 	}
 	log.Infof("begin to delete %s ", sp.String(job))
-	if err := sp.runtimeClient.Delete(job.Namespace, job.ID, sp.frameworkVersion()); err != nil {
+	if err := sp.runtimeClient.Delete(job.Namespace, job.ID, KubeSingleFwVersion); err != nil {
 		log.Errorf("delete %s failed, err %v", sp.String(job), err)
 		return err
 	}
