@@ -9,9 +9,9 @@ touch /mnt/paddleflow.db && chmod 666 /mnt/paddleflow.db
 
 ```shell
 # Kubernetes version >= v1.18
-kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.2/installer/paddleflow-deployment.yaml
+kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.3/installer/paddleflow-deployment.yaml
 # Kubernetes version < v1.18
-kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.2/installer/paddleflow-deployment-before-v1-18.yaml
+kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.3/installer/paddleflow-deployment-before-v1-18.yaml
 # For x86: todo
 # For arm64: todo
 ```
@@ -25,7 +25,7 @@ kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/rele
 touch /mnt/paddleflow.db && chmod 666 /mnt/paddleflow.db
 # 创建基于sqllite的paddleflow-server
 # For x86:
-kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.2/installer/deploys/paddleflow-server/paddleflow-server-deploy.yaml
+kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.3/installer/deploys/paddleflow-server/paddleflow-server-deploy.yaml
 # For arm64: todo
 ```
 
@@ -42,7 +42,7 @@ wget https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/develop/installer
 bash < <(curl -s https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/develop/installer/database/execute.sh)
 # 创建基于mysql的paddleflow-server
 # For x86:
-curl -sSL https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.2/installer/deploys/paddleflow-server/paddleflow-server-deploy.yaml | \
+curl -sSL https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.3/installer/deploys/paddleflow-server/paddleflow-server-deploy.yaml | \
 sed -e "s/sqlite/${DB_DRIVER}/g"  -e "s/host: 127.0.0.1/host: ${DB_HOST}/g"  -e "s/3306/${DB_PORT}/g" -e "s/user: paddleflow/user: ${DB_USER}/g"  -e "s/password: paddleflow/password: ${DB_PW}/g"  -e "s/database: paddleflow/database: ${DB_DATABASE}/g" \
 | kubectl apply -f -
 # For arm64: todo
@@ -54,9 +54,9 @@ sed -e "s/sqlite/${DB_DRIVER}/g"  -e "s/host: 127.0.0.1/host: ${DB_HOST}/g"  -e 
 
 ```shell
 # Kubernetes version >= v1.18
-kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.2/installer/deploys/paddleflow-csi-plugin/paddleflow-csi-plugin-deploy.yaml
+kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.3/installer/deploys/paddleflow-csi-plugin/paddleflow-csi-plugin-deploy.yaml
 # Kubernetes version < v1.18
-kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.2/installer/deploys/paddleflow-csi-plugin/paddleflow-csi-plugin-deploy-before-v1-18.yaml
+kubectl create -f https://raw.githubusercontent.com/PaddlePaddle/PaddleFlow/release-0.14.3/installer/deploys/paddleflow-csi-plugin/paddleflow-csi-plugin-deploy-before-v1-18.yaml
 # For x86_64: todo
 # For arm64: todo
 ```
