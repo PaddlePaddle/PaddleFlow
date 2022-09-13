@@ -109,6 +109,10 @@ func NewJobInfo(job *model.Job) (*PFJob, error) {
 	return pfjob, nil
 }
 
+func (pfj *PFJob) NamespacedName() string {
+	return fmt.Sprintf("%s/%s", pfj.Namespace, pfj.ID)
+}
+
 func (pfj *PFJob) UpdateLabels(labels map[string]string) {
 	if labels == nil {
 		return
