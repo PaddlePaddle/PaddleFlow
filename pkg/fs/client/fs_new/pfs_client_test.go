@@ -1064,7 +1064,7 @@ func TestReadWithNotEnoughMem(t *testing.T) {
 		MaxReadAhead: 4,
 		Expire:       600 * time.Second,
 		Config: kv.Config{
-			Driver:    kv.MemType,
+			Driver: kv.MemType,
 		},
 	}
 	SetDataCache(d)
@@ -1216,7 +1216,7 @@ func TestParentTimeWithCache(t *testing.T) {
 	assert.Equal(t, 1, len(listDirs))
 	assert.Equal(t, "mock2", listDirs[0].Name())
 
-	file1 :=  "/dir/mock1/file1"
+	file1 := "/dir/mock1/file1"
 	file, err := client.Create(file1)
 	assert.Equal(t, nil, err)
 	assert.NotNil(t, file)
@@ -1342,7 +1342,7 @@ func TestConcurrentCreateAndDelete(t *testing.T) {
 	err := client.MkdirAll(newDir1, 0777)
 	assert.Equal(t, nil, err)
 	var wg sync.WaitGroup
-	for i:=0;i<10;i++{
+	for i := 0; i < 10; i++ {
 		wg.Add(1)
 		newFile := filepath.Join(newDir1, strconv.Itoa(i))
 		go func() {
@@ -1358,17 +1358,10 @@ func TestConcurrentCreateAndDelete(t *testing.T) {
 			_ = file.Close()
 		}()
 	}
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		err = client.RemoveAll(newDir1)
-		assert.Equal(t, nil, err)
-		fmt.Println("remover err", err)
-	}()
 	wg.Wait()
+	err = client.RemoveAll(newDir1)
+	assert.Equal(t, nil, err)
 }
-
-
 
 func clean() {
 	_ = os.RemoveAll("./mock")
