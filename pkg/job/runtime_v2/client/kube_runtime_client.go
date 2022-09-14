@@ -118,6 +118,12 @@ func KubeFrameworkVersion(gvk schema.GroupVersionKind) pfschema.FrameworkVersion
 	return pfschema.NewFrameworkVersion(gvk.Kind, gvk.GroupVersion().String())
 }
 
+func (krc *KubeRuntimeClient) JobFrameworkVersion(jobType pfschema.JobType, fw pfschema.Framework) pfschema.FrameworkVersion {
+	frameworkVersion := k8s.GetJobFrameworkVersion(jobType, fw)
+	log.Infof("FrameworkVesion for job type %s framework %s, is %s", jobType, fw, frameworkVersion)
+	return frameworkVersion
+}
+
 func (krc *KubeRuntimeClient) GetJobTypeFramework(fv pfschema.FrameworkVersion) (pfschema.JobType, pfschema.Framework) {
 	gvk := frameworkVersionToGVK(fv)
 	jobType, framework := k8s.GetJobTypeAndFramework(gvk)

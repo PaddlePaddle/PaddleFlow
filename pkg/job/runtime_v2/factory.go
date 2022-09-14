@@ -29,7 +29,8 @@ type RuntimeService interface {
 	Name() string
 	// Init create client for runtime
 	Init() error
-
+	// Client return runtime service client
+	Client() framework.RuntimeClientInterface
 	// SyncController start sync controller
 	SyncController(stopCh <-chan struct{})
 

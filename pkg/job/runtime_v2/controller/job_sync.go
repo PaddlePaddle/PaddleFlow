@@ -165,7 +165,6 @@ func (j *JobSync) doCreateAction(jobSyncInfo *api.JobSyncInfo) error {
 			RuntimeStatus: jobSyncInfo.RuntimeStatus,
 			ParentJob:     jobSyncInfo.ParentJobID,
 		}
-		job.Config.SetFrameworkVersion(jobSyncInfo.FrameworkVersion)
 		if err = storage.Job.CreateJob(job); err != nil {
 			log.Errorf("In %s, craete job %v failed, err: %v", j.Name(), job, err)
 			return err
@@ -297,7 +296,7 @@ func (j *JobSync) preHandleTerminatingJob() {
 	for _, job := range jobs {
 		name := job.ID
 		namespace := job.Config.GetNamespace()
-		fwVersion := job.Config.GetFrameworkVersion()
+		fwVersion := j.runtimeClient.JobFrameworkVersion(pfschema.JobType(job.Type), job.Framework)
 
 		log.Debugf("pre handle terminating job, get %s job %s/%s from cluster", fwVersion, namespace, name)
 		_, err := j.runtimeClient.Get(namespace, name, fwVersion)
