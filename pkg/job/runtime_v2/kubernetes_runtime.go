@@ -145,6 +145,10 @@ func (kr *KubeRuntime) SyncController(stopCh <-chan struct{}) {
 	go syncController.Run(stopCh)
 }
 
+func (kr *KubeRuntime) Client() framework.RuntimeClientInterface {
+	return kr.kubeClient
+}
+
 func (kr *KubeRuntime) GetQueueUsedQuota(q *api.QueueInfo) (*resources.Resource, error) {
 	log.Infof("on %s, get used quota for queue %s, namespace %s", kr.String(), q.Name, q.Namespace)
 

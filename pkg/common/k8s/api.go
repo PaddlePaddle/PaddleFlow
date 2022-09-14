@@ -73,6 +73,30 @@ var (
 	}
 )
 
+func GetJobFrameworkVersion(jobType commomschema.JobType, framework commomschema.Framework) commomschema.FrameworkVersion {
+	if jobType == commomschema.TypeWorkflow {
+		return commomschema.NewFrameworkVersion(ArgoWorkflowGVK.Kind, ArgoWorkflowGVK.GroupVersion().String())
+	}
+	var gvk schema.GroupVersionKind
+	switch framework {
+	case commomschema.FrameworkStandalone:
+		gvk = PodGVK
+	case commomschema.FrameworkTF:
+		gvk = TFJobGVK
+	case commomschema.FrameworkPytorch:
+		gvk = PyTorchJobGVK
+	case commomschema.FrameworkSpark:
+		gvk = SparkAppGVK
+	case commomschema.FrameworkPaddle:
+		gvk = PaddleJobGVK
+	case commomschema.FrameworkMXNet:
+		gvk = MXNetJobGVK
+	case commomschema.FrameworkMPI:
+		gvk = MPIJobGVK
+	}
+	return commomschema.NewFrameworkVersion(gvk.Kind, gvk.GroupVersion().String())
+}
+
 func GetJobTypeAndFramework(gvk schema.GroupVersionKind) (commomschema.JobType, commomschema.Framework) {
 	switch gvk {
 	case PodGVK:
